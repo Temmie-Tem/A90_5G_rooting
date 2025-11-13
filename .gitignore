@@ -1,0 +1,125 @@
+# =================================
+# 대용량 파일 (절대 업로드 금지!)
+# =================================
+
+# Android NDK / Toolchains (5.1GB)
+toolchains/
+android-ndk-*.zip
+
+# Samsung 커널 소스 (9.5GB 빌드 결과 포함)
+kernel_build/
+SM-A908N_KOR_12_Opensource.zip
+!kernel_build/.gitkeep
+!kernel_build/README.md
+
+# =================================
+# 백업 파일 (개인 데이터)
+# =================================
+
+# 모든 백업 디렉토리
+backups/
+backups_*/
+efs_backup/
+
+# 백업 이미지 파일
+backup_*.img
+backup_*.tar
+backup_*.tar.gz
+*.img.bak
+
+# =================================
+# 빌드 아티팩트
+# =================================
+
+# Boot 이미지들
+boot_image/*.img
+boot_image/*.tar
+boot_image/kernel
+boot_image/ramdisk
+!boot_image/README.md
+
+# 커널 빌드 결과
+*.img
+*.dtb
+*.dtbo
+*.ko
+*.o
+*.a
+*.so
+Image
+Image.gz
+Image.gz-dtb
+Image-dtb
+vmlinux
+System.map
+Module.symvers
+modules.order
+modules.builtin
+
+# Initramfs 빌드
+initramfs_build/busybox/
+!initramfs_build/busybox/.gitkeep
+initramfs_build/*.cpio
+initramfs_build/*.cpio.gz
+!initramfs_build/initramfs/
+!initramfs_build/README.md
+
+# =================================
+# 펌웨어 파일 (재배포 금지)
+# =================================
+
+wifi_firmware/
+extracted_firmware/
+vendor_firmware/
+qwlan*.bin
+bdwlan*.bin
+wlanmdsp.mbn
+Data.msc
+
+# =================================
+# 로그 파일
+# =================================
+
+logs/
+*.log
+memlog.txt
+dmesg_*.txt
+console-ramoops*
+boot_*.log
+
+# =================================
+# 임시 파일
+# =================================
+
+*.swp
+*.swo
+*~
+.DS_Store
+*.tmp
+*.temp
+
+# =================================
+# 개인 설정 / 민감 정보
+# =================================
+
+wpa_supplicant.conf
+ssh_keys/
+*.pem
+*.key
+*.p12
+
+# =================================
+# IDE/편집기 설정
+# =================================
+
+.vscode/
+.idea/
+*.code-workspace
+.vs/
+
+# =================================
+# pmbootstrap (PostmarketOS)
+# =================================
+
+.local/
+~/.local/var/pmbootstrap/
