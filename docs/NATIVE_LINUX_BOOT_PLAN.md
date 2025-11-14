@@ -106,10 +106,103 @@ Samsung Galaxy A90 5G에서 안드로이드를 제거하고 네이티브 Linux �
 
 ## 단계별 실행 계획
 
-## Phase 0: Kexec 테스트 환경 (Week 1, Day 1-3)
+## Phase 0: 네이티브 부팅 실현 가능성 연구 (완료)
 
-### 목표
-플래싱 없이 안전하게 커널 테스트
+### 결론: **네이티브 부팅 불가능**
+
+**최종 판단 날짜**: 2025-11-14
+
+### 실행된 조사 및 테스트
+
+#### 1. 커널 부팅 시도 (5회)
+- ✅ Mainline kernel 6.1 + External ramdisk
+- ✅ Stock kernel 4.14 + External ramdisk
+- ✅ Samsung kernel 4.14 + External ramdisk + rdinit=/bin/sh
+- ✅ Samsung kernel 4.14 + Integrated ramdisk + rdinit=/bin/sh
+- ✅ Samsung kernel 4.14 + Integrated ramdisk (no rdinit)
+
+**결과**: 모든 시도에서 ABL이 강제로 Android ramdisk를 주입하여 `/system/bin/init` 실행
+
+#### 2. Android Init 하이재킹 시도
+- ✅ `/system/etc/init/early-hijack.rc` 생성
+- ✅ `/system/bin/custom_init.sh` 스크립트 배포
+- ✅ 권한 및 SELinux 컨텍스트 설정
+
+**결과**: AVB/dm-verity가 재부팅 시 /system 파티션 수정 자동 복원
+
+#### 3. 웹 리서치 및 대안 조사
+- ✅ Magisk overlay.d 시스템 (systemless 수정)
+- ✅ PostmarketOS/Halium 방식
+- ✅ Samsung CVE 취약점 조사
+- ✅ Snapdragon 855 mainline 지원 현황
+
+### 발견된 기술적 장벽
+
+#### 1. **ABL (Android Bootloader) 하드코딩**
+```
+증거: docs/PROGRESS_LOG.md:1758,2247
+- 커널 파라미터로 initramfs 지정 무시
+- CONFIG_INITRAMFS_SOURCE 통합 방식 무시
+- rdinit= 파라미터 무시
+- ABL이 알 수 없는 소스에서 Android ramdisk 강제 주입
+```
+
+**우회 불가능 이유**: ABL은 서명된 바이너리이며 수정 시 다운로드 모드 차단
+
+#### 2. **Knox/AVB 무결성 검증**
+```
+증거: /system 파티션 수정 시 자동 복원
+- dm-verity가 부팅 시 해시 검증
+- 불일치 시 백업에서 자동 복원
+- vbmeta 파티션 쓰기 보호로 비활성화 불가
+```
+
+#### 3. **PBL (Primary Boot Loader) 제약**
+```
+증거: 전문가 의견
+- Snapdragon 855 PBL은 ROM 코드로 고정
+- eMMC/UFS 내부만 검색
+- SD 카드 부팅 경로 없음
+```
+
+#### 4. **Mainline 커널 지원 부족**
+```
+증거: sm8150-mainline 프로젝트
+- 디스플레이 드라이버 부재
+- WiFi 펌웨어 로딩 불안정
+- Samsung 특화 하드웨어 미지원
+```
+
+### 시도 가능한 대안들의 한계
+
+#### Option A: Magisk overlay.d
+- ✅ 장점: AVB 우회, systemless 수정
+- ❌ 단점: **Android 커널 + init 유지 필요**
+- 예상 RAM: ~600-800MB (목표 150-300MB 미달성)
+
+#### Option B: Halium/Ubuntu Touch
+- ✅ 장점: Linux 사용자 공간
+- ❌ 단점: **Android HAL + 프레임워크 유지**
+- 예상 RAM: ~1.5GB+ (목표 대비 5배 초과)
+
+#### Option C: Termux + proot
+- ✅ 장점: 가장 안전, 검증됨
+- ❌ 단점: **완전한 Android 위에서 실행**
+- 예상 RAM: ~600-800MB + Android overhead
+
+### 근본적 결론
+
+**"완전한 네이티브 Linux 부팅"은 Samsung Galaxy A90 5G (SM-A908N)에서 불가능**
+
+이유:
+1. ABL이 커스텀 ramdisk 실행 경로 차단 (구조적 한계)
+2. Android 커널/init 없이는 부팅 체인 완성 불가
+3. 완전 우회 시도는 Knox 제약으로 실패
+4. Verified Boot 비활성화 불가능
+
+### Phase 0 완료 상태: ✅ 연구 완료
+
+**다음 단계**: Phase 1 대안 계획 수립 (Android 기반 슬림화)
 
 ### 중요성
 - **브릭 위험 제로**: 재부팅만 하면 안드로이드 복귀
