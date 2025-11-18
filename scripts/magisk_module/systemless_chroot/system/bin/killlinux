@@ -1,0 +1,172 @@
+#!/system/bin/sh
+# killlinux - Safely stop and unmount Linux chroot environment
+#
+# 사용법: killlinux [--force]
+#   killlinux        -> 안전하게 종료 (SSH 서버 중지 + 언마운트)
+#   killlinux --force -> 강제 종료 (모든 프로세스 강제 종료)
+
+# ====================================================================
+# 설정
+# ====================================================================
+
+CHROOT_PATH="/data/linux_root"
+CHROOT_MNT="$CHROOT_PATH/mnt"
+BUSYBOX="/data/adb/magisk/busybox"
+
+FORCE_MODE=0
+
+# ====================================================================
+# 인자 파싱
+# ====================================================================
+
+if [ "$1" = "--force" ] || [ "$1" = "-f" ]; then
+    FORCE_MODE=1
+fi
+
+# ====================================================================
+# Root 권한 확인
+# ====================================================================
+
+if [ "$(id -u)" != "0" ]; then
+    echo "Error: This script must be run as root"
+    echo "Try: su -c killlinux"
+    exit 1
+fi
+
+# ====================================================================
+# Chroot 마운트 확인
+# ====================================================================
+
+if ! $BUSYBOX mountpoint -q "$CHROOT_MNT" 2>/dev/null; then
+    echo "Chroot is not mounted (already stopped)"
+    exit 0
+fi
+
+# ====================================================================
+# Step 1: SSH 서버 중지
+# ====================================================================
+
+echo "[1/5] Stopping SSH server..."
+
+$BUSYBOX chroot "$CHROOT_MNT" /bin/bash -c "
+    if [ -f /var/run/sshd.pid ]; then
+        kill \$(cat /var/run/sshd.pid) 2>/dev/null || true
+        rm -f /var/run/sshd.pid
+    fi
+
+    pkill sshd 2>/dev/null || true
+" 2>/dev/null
+
+echo "  SSH server stopped"
+
+# ====================================================================
+# Step 2: Chroot 내부 프로세스 종료
+# ====================================================================
+
+echo "[2/5] Stopping chroot processes..."
+
+if [ "$FORCE_MODE" = "1" ]; then
+    echo "  Force mode: killing all processes"
+
+    # chroot 내부의 모든 프로세스 강제 종료
+    for pid in $(lsof 2>/dev/null | grep "$CHROOT_MNT" | awk '{print $2}' | sort -u); do
+        kill -9 "$pid" 2>/dev/null || true
+    done
+else
+    echo "  Graceful shutdown (SIGTERM)"
+
+    # chroot 내부의 프로세스에 SIGTERM 전송
+    for pid in $(lsof 2>/dev/null | grep "$CHROOT_MNT" | awk '{print $2}' | sort -u); do
+        kill -15 "$pid" 2>/dev/null || true
+    done
+
+    # 5초 대기
+    sleep 5
+fi
+
+echo "  Processes stopped"
+
+# ====================================================================
+# Step 3: 마운트 포인트 언마운트 (역순)
+# ====================================================================
+
+echo "[3/5] Unmounting chroot filesystems..."
+
+# 언마운트 함수
+umount_safe() {
+    local mnt="$1"
+    local force="$2"
+
+    if $BUSYBOX mountpoint -q "$mnt" 2>/dev/null; then
+        echo "  Unmounting: $mnt"
+
+        if [ "$force" = "1" ]; then
+            # 강제 언마운트
+            $BUSYBOX umount -f -l "$mnt" 2>/dev/null || true
+        else
+            # 정상 언마운트
+            $BUSYBOX umount "$mnt" 2>/dev/null || \
+                $BUSYBOX umount -l "$mnt" 2>/dev/null || true
+        fi
+    fi
+}
+
+# 역순으로 언마운트
+umount_safe "$CHROOT_MNT/dev/pts" "$FORCE_MODE"
+umount_safe "$CHROOT_MNT/dev" "$FORCE_MODE"
+umount_safe "$CHROOT_MNT/proc" "$FORCE_MODE"
+umount_safe "$CHROOT_MNT/sys" "$FORCE_MODE"
+umount_safe "$CHROOT_MNT/vendor/firmware_mnt" "$FORCE_MODE"
+umount_safe "$CHROOT_MNT/sdcard" "$FORCE_MODE"
+
+echo "  Chroot filesystems unmounted"
+
+# ====================================================================
+# Step 4: Rootfs 이미지 언마운트
+# ====================================================================
+
+echo "[4/5] Unmounting rootfs image..."
+
+umount_safe "$CHROOT_MNT" "$FORCE_MODE"
+
+# 언마운트 확인
+if $BUSYBOX mountpoint -q "$CHROOT_MNT" 2>/dev/null; then
+    echo "  Warning: Failed to unmount $CHROOT_MNT"
+    echo "  Retry with: killlinux --force"
+else
+    echo "  Rootfs image unmounted"
+fi
+
+# ====================================================================
+# Step 5: 정리
+# ====================================================================
+
+echo "[5/5] Cleaning up..."
+
+# .chroot_ready 파일 삭제
+rm -f "$CHROOT_PATH/.chroot_ready" 2>/dev/null
+
+echo "  Cleanup completed"
+
+# ====================================================================
+# 완료
+# ====================================================================
+
+echo ""
+echo "========================================="
+echo "  Linux chroot environment stopped"
+echo "========================================="
+
+if [ "$FORCE_MODE" = "1" ]; then
+    echo "Mode: Force"
+else
+    echo "Mode: Graceful"
+fi
+
+echo ""
+echo "To restart:"
+echo "  - Reboot device, or"
+echo "  - Manually run: /data/adb/modules/systemless_chroot/post-fs-data.sh"
+echo ""
+
+exit 0

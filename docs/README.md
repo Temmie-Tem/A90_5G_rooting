@@ -1,115 +1,40 @@
-# Samsung Galaxy A90 5G - Native Linux Boot Project
+# Samsung Galaxy A90 5G - 문서 인덱스
 
-## 프로젝트 개요
+최신 Phase 1(완료) / Phase 2(Headless Android + 커널 최적화) 결과물을 빠르게 찾기 위한 문서 인덱스입니다.  
+프로젝트 전반 개요와 현재 상태는 `overview/PROJECT_STATUS.md`에서 최신으로 유지합니다.
 
-Samsung Galaxy A90 5G (SM-A908N) 디바이스에서 안드로이드를 제거하고 네이티브 Linux를 부팅하여 RAM 사용량을 5GB에서 150-300MB로 줄이는 프로젝트입니다.
+## 현재 진행 상태
+- ✅ **Phase 0**: 네이티브 부팅 불가 근거 확보, 대안 전략 수립
+- ✅ **Phase 1**: Magisk Systemless Chroot + Debian 12 ARM64 환경 완성
+- ✅ **Phase 2**: Android Headless 모드 + 커스텀 커널 최적화 (RAM 절감 235MB + α)
+- 🚧 **Phase 3 이후**: AOSP 최소 빌드/Termux 대안, 하드웨어 교체 옵션 등 확장 단계는 준비 완료 상태
 
-**목표**: WiFi 기능을 유지한 SSH 서버로 활용
+## 문서 카테고리
 
-## 디바이스 정보
+### 1. Overview
+- `overview/PROJECT_STATUS.md` – Phase별 결과, 마일스톤, 다음 단계 옵션
+- `overview/PROGRESS_LOG.md` – 모든 실험 로그, 명령어, 시간 기록
 
-- **모델**: SM-A908N (Samsung Galaxy A90 5G)
-- **SoC**: Qualcomm Snapdragon 855 (SM8150)
-- **RAM**: 5.5GB
-- **상태**: 부트로더 언락, TWRP 설치, Magisk 루트
+### 2. Plans
+- `plans/NATIVE_LINUX_BOOT_PLAN.md` – Phase 0~5 네이티브 부팅 로드맵
+- `plans/HEADLESS_ANDROID_PLAN.md` – Android GUI 제거 전략
+- `plans/CUSTOM_KERNEL_PLAN.md` – 최적화 커널 로드맵
+- `plans/ALTERNATIVE_PLAN.md` – Termux/다른 디바이스 등 대안 시나리오
 
-## 프로젝트 문서
+### 3. Guides
+- `guides/MAGISK_SYSTEMLESS_GUIDE.md` – Phase 1 전체 구현 가이드 (1,900+ 줄)
+- `guides/HEADLESS_ANDROID_IMPLEMENTATION.md` – Headless 모드 적용 절차
+- `guides/AOSP_MINIMAL_BUILD_GUIDE.md` – AOSP 최소 빌드 파이프라인 문서
 
-- **[NATIVE_LINUX_BOOT_PLAN.md](NATIVE_LINUX_BOOT_PLAN.md)** - 전체 구현 계획 (Phase 0-5)
-- **[PROGRESS_LOG.md](PROGRESS_LOG.md)** - 상세 진행 일지 및 명령어 기록
+### 4. Reports
+- `reports/HEADLESS_BOOT_V2_SUMMARY.md` – Headless v2 결과 요약
+- `reports/CUSTOM_KERNEL_OPTIMIZATION_REPORT.md` – 커널 최적화 상세 보고서
+- `reports/PERFORMANCE_RESULTS.md` – 측정 지표 집계
+- `reports/CLEANUP_SUMMARY.md` / `reports/FINAL_CLEANUP_REPORT.md` – 문서 정리 기록
 
-## 현재 진행 상황
+## 활용 가이드
+1. **상태 확인**: 새로운 작업을 시작하기 전에 `overview/PROJECT_STATUS.md`를 먼저 업데이트/확인합니다.
+2. **세부 계획 → 실행**: `plans/` 문서로 로드맵을 잡고, `guides/`의 절차서를 따라 실행합니다.
+3. **결과 기록**: 실험/측정 결과는 `reports/`에 요약하고, 상세 로그는 `overview/PROGRESS_LOG.md`에 누적합니다.
 
-**Phase 0: Kexec 테스트 환경 구축** - 🔄 60% 완료
-
-- ✅ 개발 환경 구축 (pmbootstrap 3.6.0, 크로스 컴파일 도구)
-- ✅ 중요 파티션 백업 (198MB)
-- ✅ WiFi 펌웨어 추출 (4.3MB)
-- 🔄 Linux 6.1 LTS 커널 빌드 중
-- ⏳ initramfs 생성 대기
-- ⏳ kexec 테스트 부팅 대기
-
-## 디렉토리 구조
-
-```
-A90_5G_rooting/
-├── README.md                    # 본 문서
-├── NATIVE_LINUX_BOOT_PLAN.md    # 전체 계획 (40KB)
-├── PROGRESS_LOG.md              # 진행 일지
-│
-├── backups/                     # 파티션 백업 (198MB)
-│   ├── backup_boot.img          (64MB)
-│   ├── backup_recovery.img      (79MB)
-│   ├── backup_dtbo.img          (10MB)
-│   └── ... (기타)
-│
-├── wifi_firmware/               # WiFi 펌웨어 (4.3MB)
-│   ├── wlan/qca_cld/
-│   └── wlanmdsp.mbn
-│
-└── kernel_build/                # 커널 빌드 (3.7GB)
-    ├── linux/                   # Linux 6.1 소스
-    └── build.log
-```
-
-## 주요 기술 스택
-
-- **OS**: PostmarketOS (Alpine Linux 기반)
-- **커널**: Linux 6.1 LTS (Mainline)
-- **WiFi**: Qualcomm WCN3998 (ath10k_snoc 드라이버 예상)
-- **부팅**: Kexec 테스트 → Fastboot 플래싱
-
-## 빠른 시작
-
-### 백업 복원 (비상 시)
-
-```bash
-# Fastboot 모드로 부팅
-adb reboot bootloader
-
-# 부트 파티션 복원
-fastboot flash boot backups/backup_boot.img
-fastboot reboot
-```
-
-### 커널 빌드 상태 확인
-
-```bash
-cd kernel_build/linux
-tail -f ../build.log
-```
-
-## 안전 수칙
-
-⚠️ **중요**: 모든 작업은 백업 완료 후 진행
-⚠️ **복구**: TWRP 리커버리 항상 사용 가능
-⚠️ **비상**: `backups/` 폴더의 파티션 이미지로 복원 가능
-
-## 타임라인
-
-| Phase | 내용 | 예상 기간 | 상태 |
-|-------|------|-----------|------|
-| Phase 0 | Kexec 테스트 환경 | 1-2일 | 🔄 60% |
-| Phase 1 | PostmarketOS 베이스 포팅 | 3-5일 | ⏳ |
-| Phase 2 | WiFi 드라이버 통합 | 5-7일 | ⏳ |
-| Phase 3 | SSH 서비스 설정 | 1-2일 | ⏳ |
-| Phase 4 | 안정성 테스트 | 2-3일 | ⏳ |
-| Phase 5 | 최적화 | 1-2일 | ⏳ |
-
-**총 예상 기간**: 2-3주
-
-## 참고 자료
-
-- [PostmarketOS Wiki](https://wiki.postmarketos.org/)
-- [Snapdragon 855 (SM8150)](https://wiki.postmarketos.org/wiki/Qualcomm_Snapdragon_855_(SM8150))
-- [OnePlus 7 Pro 포팅 사례](https://wiki.postmarketos.org/wiki/OnePlus_7_Pro_(oneplus-guacamole))
-
-## 라이선스
-
-개인 프로젝트 - 교육 목적
-
----
-
-**마지막 업데이트**: 2025년 11월 13일
-**연락처**: temmie
-**디바이스 ID**: RFCM90CFWXA
+문서 추가 시 위 카테고리 중 하나에 위치시키고, 새 파일을 `docs/README.md`에도 링크하여 탐색성을 유지하세요.

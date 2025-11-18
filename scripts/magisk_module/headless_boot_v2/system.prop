@@ -1,0 +1,17 @@
+# Headless Android Configuration
+# Prevent SystemUI and GUI services from starting
+
+# Enable headless mode (removes SurfaceFlinger, WindowManager calls)
+ro.config.headless=1
+
+# Disable bootanimation
+debug.sf.nobootanimation=1
+
+# Reduce logcat verbosity (save memory)
+persist.log.tag.override=S
+
+# Optimize Dalvik for server use
+dalvik.vm.heapsize=256m
+dalvik.vm.heapgrowthlimit=128m
+dalvik.vm.heapmaxfree=8m
+dalvik.vm.heapminfree=2m

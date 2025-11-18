@@ -1,0 +1,207 @@
+#!/sbin/sh
+
+##########################################################################################
+#
+# Magisk Module Installer Script
+#
+##########################################################################################
+
+##########################################################################################
+# Config Flags
+##########################################################################################
+
+# Set to true if you do *NOT* want Magisk to mount
+# any files for you. Most modules would NOT want
+# to set this flag to true
+SKIPMOUNT=false
+
+# Set to true if you need to load system.prop
+PROPFILE=false
+
+# Set to true if you need post-fs-data script
+POSTFSDATA=true
+
+# Set to true if you need late_start service script
+LATESTARTSERVICE=true
+
+##########################################################################################
+# Replace list
+##########################################################################################
+
+# List all directories you want to directly replace in the system
+# Check the documentations for more info why you would need this
+
+# Construct your list in the following format
+# This is an example
+REPLACE_EXAMPLE="
+/system/app/Youtube
+/system/priv-app/SystemUI
+/system/priv-app/Settings
+/system/framework
+"
+
+# Construct your own list here
+REPLACE="
+"
+
+##########################################################################################
+#
+# Function Callbacks
+##########################################################################################
+
+# Set what you want to display when installing your module
+
+print_modname() {
+  ui_print "========================================="
+  ui_print " Systemless Linux Chroot for Magisk"
+  ui_print "========================================="
+  ui_print " "
+  ui_print " Samsung Galaxy A90 5G Project"
+  ui_print " Debian 12 (Bookworm) ARM64"
+  ui_print " "
+  ui_print "========================================="
+}
+
+# Copy/extract your module files into $MODPATH in on_install.
+
+on_install() {
+  ui_print "- Installing module files..."
+
+  # Extract module files
+  unzip -o "$ZIPFILE" -d $MODPATH >&2
+
+  # Set permissions
+  ui_print "- Setting permissions..."
+
+  # post-fs-data.sh
+  set_perm $MODPATH/post-fs-data.sh 0 0 0755
+
+  # service.d scripts
+  set_perm_recursive $MODPATH/service.d 0 0 0755 0755
+
+  # system binaries
+  set_perm $MODPATH/system/bin/bootlinux 0 0 0755
+  set_perm $MODPATH/system/bin/killlinux 0 0 0755
+
+  ui_print "- Checking prerequisites..."
+
+  # Check if rootfs image exists
+  if [ ! -f "/data/linux_root/debian_bookworm_arm64.img" ]; then
+    ui_print " "
+    ui_print "========================================="
+    ui_print " WARNING: Rootfs image not found!"
+    ui_print "========================================="
+    ui_print " "
+    ui_print " Expected location:"
+    ui_print "   /data/linux_root/debian_bookworm_arm64.img"
+    ui_print " "
+    ui_print " Please transfer the rootfs image:"
+    ui_print "   adb push debian_bookworm_arm64.img /sdcard/"
+    ui_print "   adb shell"
+    ui_print "   su"
+    ui_print "   mv /sdcard/debian_bookworm_arm64.img /data/linux_root/"
+    ui_print " "
+    ui_print "========================================="
+  else
+    ui_print "  ✓ Rootfs image found"
+  fi
+
+  # Create log directory
+  mkdir -p /data/adb/magisk_logs
+
+  ui_print "- Installation completed!"
+}
+
+# Only some special files require specific permissions
+# This function will be called after on_install is done
+# The default permissions should be good enough for most cases
+
+set_permissions() {
+  # The following is the default rule, DO NOT remove
+  set_perm_recursive $MODPATH 0 0 0755 0644
+
+  # Here are some examples:
+  # set_perm_recursive  $MODPATH/system/lib       0     0       0755      0644
+  # set_perm  $MODPATH/system/bin/app_process32   0     2000    0755      u:object_r:zygote_exec:s0
+  # set_perm  $MODPATH/system/bin/dex2oat         0     2000    0755      u:object_r:dex2oat_exec:s0
+  # set_perm  $MODPATH/system/lib/libart.so       0     0       0644
+
+  # Permissions for scripts
+  set_perm $MODPATH/post-fs-data.sh 0 0 0755
+  set_perm_recursive $MODPATH/service.d 0 0 0755 0755
+
+  # Permissions for binaries
+  set_perm $MODPATH/system/bin/bootlinux 0 0 0755
+  set_perm $MODPATH/system/bin/killlinux 0 0 0755
+}
+
+# You can add more functions to assist your custom script code
+
+##########################################################################################
+# Generic Functions
+##########################################################################################
+
+OUTFD=$2
+ZIPFILE=$3
+
+mount /data 2>/dev/null
+
+# Load utility functions
+[ -f /data/adb/magisk/util_functions.sh ] && . /data/adb/magisk/util_functions.sh
+[ $MAGISK_VER_CODE -gt 18100 ] && require_new_magisk || require_new_api
+
+# Preperation for flashable zips
+setup_flashable
+
+# Mount partitions
+mount_partitions
+
+# Detect version and architecture
+api_level_arch_detect
+
+# Setup busybox and binaries
+$BOOTMODE && boot_actions || recovery_actions
+
+##########################################################################################
+# Installations
+##########################################################################################
+
+# Print custom banner
+print_modname
+
+# Extract module files
+on_install
+
+# Set permissions
+set_permissions
+
+##########################################################################################
+# Finalizations
+##########################################################################################
+
+cd /
+$BOOTMODE || recovery_cleanup
+rm -rf $TMPDIR
+
+ui_print " "
+ui_print "========================================="
+ui_print " Installation Complete!"
+ui_print "========================================="
+ui_print " "
+ui_print " Next steps:"
+ui_print "   1. Reboot your device"
+ui_print "   2. Wait for boot to complete"
+ui_print "   3. Connect via SSH or use 'bootlinux'"
+ui_print " "
+ui_print " Commands:"
+ui_print "   bootlinux  - Enter chroot environment"
+ui_print "   killlinux  - Stop chroot environment"
+ui_print " "
+ui_print " Logs:"
+ui_print "   /data/adb/magisk_logs/chroot_init.log"
+ui_print "   /data/adb/magisk_logs/chroot_service.log"
+ui_print " "
+ui_print "========================================="
+ui_print " "
+
+exit 0

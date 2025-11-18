@@ -41,12 +41,12 @@ A90_5G_rooting/
 
 ## 📝 새로 생성된 문서
 
-1. **docs/PROJECT_STATUS.md**
+1. **docs/overview/PROJECT_STATUS.md**
    - 프로젝트 현황 요약
    - Phase 0 결과 정리
    - 다음 계획 옵션
 
-2. **docs/ALTERNATIVE_PLAN.md**
+2. **docs/plans/ALTERNATIVE_PLAN.md**
    - 3가지 대안 상세 설명
    - 비교표 및 구현 가이드
 
@@ -54,7 +54,7 @@ A90_5G_rooting/
    - 아카이브 내용 설명
    - 연구 결과 요약
 
-4. **docs/CLEANUP_SUMMARY.md** (이 문서)
+4. **docs/reports/CLEANUP_SUMMARY.md** (이 문서)
    - 정리 작업 내역
 
 ## ✅ 보존된 중요 파일
@@ -66,9 +66,9 @@ A90_5G_rooting/
 - `backups/backup_recovery.img` - TWRP
 
 ### 문서
-- `docs/PROGRESS_LOG.md` - 현재 로그 (Phase 0 포함)
-- `docs/NATIVE_LINUX_BOOT_PLAN.md` - 네이티브 부팅 계획 (Phase 0 결과)
-- `docs/ALTERNATIVE_PLAN.md` - 대안 계획
+- `docs/overview/PROGRESS_LOG.md` - 현재 로그 (Phase 0 포함)
+- `docs/plans/NATIVE_LINUX_BOOT_PLAN.md` - 네이티브 부팅 계획 (Phase 0 결과)
+- `docs/plans/ALTERNATIVE_PLAN.md` - 대안 계획
 
 ### 로그
 - `logs/boot_*.log` - 5회 부팅 테스트 로그

@@ -1,0 +1,6 @@
+id=systemless_chroot
+name=Systemless Linux Chroot
+version=1.0.2
+versionCode=102
+author=A90_5G_Rooting_Project
+description=Magisk systemless chroot environment for Debian/Ubuntu ARM64. Provides full Linux development environment with SSH access on Samsung Galaxy A90 5G.

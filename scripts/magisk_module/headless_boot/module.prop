@@ -1,0 +1,6 @@
+id=headless_boot
+name=Headless Android Boot
+version=v1.0
+versionCode=1
+author=A90_5G_Rooting_Project
+description=Automatically disable GUI and bloatware on every boot for headless operation

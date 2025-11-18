@@ -1,0 +1,83 @@
+#!/system/bin/sh
+# bootlinux - Enter Linux chroot environment
+#
+# 사용법: bootlinux [username]
+#   bootlinux       -> root 계정으로 로그인
+#   bootlinux user  -> 지정된 사용자로 로그인
+
+# ====================================================================
+# 설정
+# ====================================================================
+
+CHROOT_MNT="/data/linux_root/mnt"
+BUSYBOX="/data/adb/magisk/busybox"
+
+# ====================================================================
+# Root 권한 확인
+# ====================================================================
+
+if [ "$(id -u)" != "0" ]; then
+    echo "Error: This script must be run as root"
+    echo "Try: su -c bootlinux"
+    exit 1
+fi
+
+# ====================================================================
+# Chroot 마운트 확인
+# ====================================================================
+
+if ! $BUSYBOX mountpoint -q "$CHROOT_MNT" 2>/dev/null; then
+    echo "Error: Chroot is not mounted"
+    echo ""
+    echo "Possible causes:"
+    echo "  1. Device not rebooted after module installation"
+    echo "  2. post-fs-data.sh failed to mount chroot"
+    echo ""
+    echo "Check logs:"
+    echo "  cat /data/adb/magisk_logs/chroot_init.log"
+    exit 1
+fi
+
+# ====================================================================
+# 사용자 설정
+# ====================================================================
+
+USERNAME="${1:-root}"
+
+# 사용자 존재 확인
+if ! $BUSYBOX chroot "$CHROOT_MNT" /usr/bin/id "$USERNAME" >/dev/null 2>&1; then
+    echo "Error: User '$USERNAME' does not exist in chroot"
+    echo ""
+    echo "Available users:"
+    $BUSYBOX chroot "$CHROOT_MNT" /bin/cat /etc/passwd | $BUSYBOX awk -F: '{print $1}' | head -10
+    exit 1
+fi
+
+# ====================================================================
+# 환경 변수 설정
+# ====================================================================
+
+# 사용자 홈 디렉토리
+if [ "$USERNAME" = "root" ]; then
+    USER_HOME="/root"
+else
+    USER_HOME="/home/$USERNAME"
+fi
+
+# ====================================================================
+# Chroot 진입
+# ====================================================================
+
+echo "========================================="
+echo "  Entering Linux Chroot Environment"
+echo "========================================="
+echo "User: $USERNAME"
+echo "Home: $USER_HOME"
+echo "Distribution: Debian GNU/Linux 12 (bookworm)"
+echo ""
+echo "To exit: type 'exit' or press Ctrl+D"
+echo "========================================="
+echo ""
+
+# Chroot 환경 진입
+exec $BUSYBOX chroot "$CHROOT_MNT" /bin/su -l "$USERNAME"

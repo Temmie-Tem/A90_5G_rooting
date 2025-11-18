@@ -65,12 +65,15 @@ A90_5G_rooting/
 │   ├── backup_efs.tar.gz       # 매우 중요 (IMEI)
 │   └── ...
 ├── docs/                       # 168KB (현재 진행 문서)
-│   ├── PROGRESS_LOG.md         # 92KB (전체 로그)
-│   ├── NATIVE_LINUX_BOOT_PLAN.md # 43KB (Phase 0 결과 포함)
-│   ├── ALTERNATIVE_PLAN.md     # 9.1KB (대안 계획)
-│   ├── PROJECT_STATUS.md       # 5.4KB (현재 상태)
-│   ├── CLEANUP_SUMMARY.md      # 3.3KB (정리 기록)
-│   └── README.md               # 3.4KB
+│   ├── README.md               # 문서 인덱스
+│   ├── overview/
+│   │   ├── PROGRESS_LOG.md     # 92KB (전체 로그)
+│   │   └── PROJECT_STATUS.md   # 5.4KB (현재 상태)
+│   ├── plans/
+│   │   ├── NATIVE_LINUX_BOOT_PLAN.md # 43KB (Phase 0 결과 포함)
+│   │   └── ALTERNATIVE_PLAN.md  # 9.1KB (대안 계획)
+│   └── reports/
+│       └── CLEANUP_SUMMARY.md   # 3.3KB (정리 기록)
 ├── logs/                       # 1.2MB (부팅 로그)
 │   ├── boot_no_rdinit.log
 │   ├── boot_hijack_test1.log
@@ -91,26 +94,26 @@ A90_5G_rooting/
 ## 📝 docs/ 디렉토리 (정리 완료)
 
 ### 보존된 문서 (6개)
-1. **PROGRESS_LOG.md** (92KB)
+1. **overview/PROGRESS_LOG.md** (92KB)
    - Phase 0 포함 전체 연구 로그
    - 새 테스트 시 계속 사용
 
-2. **NATIVE_LINUX_BOOT_PLAN.md** (43KB)
+2. **plans/NATIVE_LINUX_BOOT_PLAN.md** (43KB)
    - Phase 0 결과 포함
    - 네이티브 부팅 불가능 결론
 
-3. **ALTERNATIVE_PLAN.md** (9.1KB)
+3. **plans/ALTERNATIVE_PLAN.md** (9.1KB)
    - 3가지 대안 계획
    - Termux, 하드웨어 변경, Magisk headless
 
-4. **PROJECT_STATUS.md** (5.4KB)
+4. **overview/PROJECT_STATUS.md** (5.4KB)
    - 현재 프로젝트 상태
    - Phase 0 요약
 
-5. **CLEANUP_SUMMARY.md** (3.3KB)
+5. **reports/CLEANUP_SUMMARY.md** (3.3KB)
    - 이전 정리 기록
 
-6. **README.md** (3.4KB)
+6. **README.md** (3.4KB, 문서 인덱스)
    - docs 디렉토리 설명
 
 ### 아카이빙된 문서 (4개)
@@ -250,8 +253,8 @@ fastboot reboot
 
 ## 📚 참조 문서
 
-1. [PROJECT_STATUS.md](PROJECT_STATUS.md) - 프로젝트 현황
-2. [ALTERNATIVE_PLAN.md](ALTERNATIVE_PLAN.md) - 대안 계획 상세
-3. [PROGRESS_LOG.md](PROGRESS_LOG.md) - 전체 연구 로그
-4. [NATIVE_LINUX_BOOT_PLAN.md](NATIVE_LINUX_BOOT_PLAN.md) - Phase 0 결과
+1. [overview/PROJECT_STATUS.md](../overview/PROJECT_STATUS.md) - 프로젝트 현황
+2. [plans/ALTERNATIVE_PLAN.md](../plans/ALTERNATIVE_PLAN.md) - 대안 계획 상세
+3. [overview/PROGRESS_LOG.md](../overview/PROGRESS_LOG.md) - 전체 연구 로그
+4. [plans/NATIVE_LINUX_BOOT_PLAN.md](../plans/NATIVE_LINUX_BOOT_PLAN.md) - Phase 0 결과
 5. [archive/phase0_native_boot_research/README.md](../archive/phase0_native_boot_research/README.md) - 아카이브 설명

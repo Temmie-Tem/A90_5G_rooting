@@ -1,0 +1,6 @@
+id=headless_boot_v2
+name=Headless Android Boot v2
+version=2.0.0
+versionCode=20000
+author=A90_5G_Rooting_Project
+description=Disable GUI and bloatware for headless Android server. Includes SystemUI restart prevention and optimized memory management.

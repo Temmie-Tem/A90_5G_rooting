@@ -56,6 +56,12 @@ Module.symvers
 modules.order
 modules.builtin
 
+# Magisk 모듈 릴리스 압축본
+scripts/magisk_module/releases/
+
+# 로컬 패키지 다운로드
+*.deb
+
 # Initramfs 빌드
 initramfs_build/busybox/
 !initramfs_build/busybox/.gitkeep
@@ -63,6 +69,12 @@ initramfs_build/*.cpio
 initramfs_build/*.cpio.gz
 !initramfs_build/initramfs/
 !initramfs_build/README.md
+
+# 로컬 빌드/소스 캐시
+aosp_source
+aosp_source/
+build_artifacts/
+external_tools/
 
 # =================================
 # 펌웨어 파일 (재배포 금지)
@@ -123,12 +135,6 @@ ssh_keys/
 
 .local/
 ~/.local/var/pmbootstrap/
-
-# =================================
-# Phase 0 아카이브 (대용량 바이너리)
-# =================================
-
-archive/
 
 # =================================
 # Phase 0 아카이브 (대용량 바이너리)
