@@ -80,6 +80,10 @@ external_tools/
 # 펌웨어 파일 (재배포 금지)
 # =================================
 
+firmware/**
+!firmware/
+!firmware/README.md
+
 wifi_firmware/
 extracted_firmware/
 vendor_firmware/
@@ -128,6 +132,7 @@ ssh_keys/
 .idea/
 *.code-workspace
 .vs/
+.codex
 
 # =================================
 # pmbootstrap (PostmarketOS)
@@ -141,3 +146,7 @@ ssh_keys/
 # =================================
 
 archive/
+!docs/archive/
+!docs/archive/**
+!scripts/archive/
+!scripts/archive/**
