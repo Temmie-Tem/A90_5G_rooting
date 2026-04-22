@@ -31,6 +31,14 @@ trim_cr() {
     tr -d '\r'
 }
 
+# Wrap argument in single quotes for the remote shell.
+# Magisk su -c on this device only honors a single-token argument,
+# so we must pre-quote the whole command before adb hands it off.
+sq_escape() {
+    local s="${1//\'/\'\\\'\'}"
+    printf "'%s'" "$s"
+}
+
 serial=""
 label="baseline"
 output_dir=""
@@ -80,7 +88,7 @@ fi
 mkdir -p "$output_dir"
 
 find_by_name_cmd='for path in /dev/block/by-name /dev/block/bootdevice/by-name /dev/block/platform/*/by-name; do if [ -d "$path" ]; then echo "$path"; exit 0; fi; done; exit 1'
-by_name="$("${adb_cmd[@]}" shell su -c "$find_by_name_cmd" 2>/dev/null | trim_cr || true)"
+by_name="$("${adb_cmd[@]}" shell "su -c $(sq_escape "$find_by_name_cmd")" 2>/dev/null | trim_cr || true)"
 
 if [[ -z "$by_name" ]]; then
     printf 'Unable to locate by-name partition directory via su.\n' >&2
@@ -93,20 +101,20 @@ printf 'by_name=%s\n' "$by_name" >> "$output_dir/manifest.txt"
 
 "${adb_cmd[@]}" devices | trim_cr > "$output_dir/adb_devices.txt"
 "${adb_cmd[@]}" shell getprop | trim_cr > "$output_dir/device_getprop.txt"
-("${adb_cmd[@]}" shell su -c id || true) | trim_cr > "$output_dir/root_id.txt"
+("${adb_cmd[@]}" shell "su -c $(sq_escape id)" || true) | trim_cr > "$output_dir/root_id.txt"
 ("${adb_cmd[@]}" shell cmd wifi status || true) | trim_cr > "$output_dir/wifi_status.txt"
-"${adb_cmd[@]}" shell su -c "ls -l '$by_name'" | trim_cr > "$output_dir/by_name_listing.txt"
+"${adb_cmd[@]}" shell "su -c $(sq_escape "ls -l $by_name")" | trim_cr > "$output_dir/by_name_listing.txt"
 
 parts=(boot recovery vbmeta)
 for part in "${parts[@]}"; do
-    if ! "${adb_cmd[@]}" shell su -c "test -e '$by_name/$part'" >/dev/null 2>&1; then
+    if ! "${adb_cmd[@]}" shell "su -c $(sq_escape "test -e $by_name/$part")" >/dev/null 2>&1; then
         printf '%s=missing\n' "$part" >> "$output_dir/manifest.txt"
         continue
     fi
 
     out_file="$output_dir/${part}.img"
     printf 'Pulling %s -> %s\n' "$part" "$out_file"
-    "${adb_cmd[@]}" exec-out su -c "dd if=$by_name/$part bs=4M status=none" > "$out_file"
+    "${adb_cmd[@]}" exec-out "su -c $(sq_escape "dd if=$by_name/$part bs=4M status=none")" > "$out_file"
 
     if [[ ! -s "$out_file" ]]; then
         printf 'Captured image is empty: %s\n' "$out_file" >&2

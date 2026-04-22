@@ -15,6 +15,11 @@
 - patched AP 부팅 가능
 - `adb shell su -c id`로 root 획득 가능
 - `getenforce`는 `Enforcing`
+- 다운로드 모드 사진 기준 `CURRENT BINARY : Custom (0x303)`
+- 다운로드 모드 사진 기준 `FRP LOCK : OFF`, `OEM LOCK : OFF (U)`
+- 다운로드 모드 사진 기준 `QUALCOMM SECUREBOOT : ENABLE`, `SECURE DOWNLOAD : ENABLE`
+- 다운로드 모드 사진 기준 `WARRANTY VOID : 0x1 (0xE03)`
+- Samsung Knox 공식 문서 기준 `KG STATE` 줄은 다운로드 모드에 항상 표시된다고 볼 근거를 찾지 못함
 - 최소 부팅 allowlist 재적용 후에도 부팅 유지
 - allowlist 밖에 남는 패키지는 현재 `3개`
   - `com.samsung.android.game.gos`
@@ -93,6 +98,24 @@
 - 다운로드 모드 화면의 `KG`, `OEM LOCK`, custom binary 문구
 - `adb`, `su`, `boot_completed`, `Wi-Fi` 상태
 - 필요 시 `ro.build.fingerprint`, `ro.boot.verifiedbootstate`
+
+현재 확보된 다운로드 모드 값:
+
+- `CURRENT BINARY : Custom (0x303)`
+- `FRP LOCK : OFF`
+- `OEM LOCK : OFF (U)`
+- `WARRANTY VOID : 0x1 (0xE03)`
+- `QUALCOMM SECUREBOOT : ENABLE`
+- `SECURE DOWNLOAD : ENABLE`
+- `KG`는 이번 사진으로는 미확인
+
+공식 문서 재확인 결과:
+
+- Samsung Knox Guard 문서는 장치가 Knox Guard에 등록, 활성화, 완료, 삭제되며
+  관리 상태가 변한다고 설명함
+- 그러나 다운로드 모드에 `KG STATE` 줄이 항상 보여야 한다는 표시 규칙은 설명하지 않음
+- 현재는 `KG 미표시`를 독립 관찰값으로 취급하고,
+  특정 KG 상태로 자동 해석하지 않음
 
 ## 다음 작업
 

@@ -22,16 +22,32 @@
 
 | Item | Value | Status |
 | --- | --- | --- |
-| boot backup path | | pending |
-| recovery backup path | | pending |
-| vbmeta backup path | | pending |
-| KG | | pending |
-| OEM LOCK | | pending |
-| custom binary message | | pending |
-| adb devices | rooted baseline confirmed | known |
-| `sys.boot_completed` | rooted baseline confirmed | known |
-| `su -c id` | rooted baseline confirmed | known |
-| Wi-Fi status | rooted baseline confirmed | known |
+| capture label | `baseline_a_20260423_030309` | captured |
+| capture serial | `RFCM90CFWXA` | captured |
+| by-name path | `/dev/block/by-name` | captured |
+| boot backup path | `backups/baseline_a_20260423_030309/boot.img` (sha256 `c15ce425…3057b`) | captured |
+| recovery backup path | `backups/baseline_a_20260423_030309/recovery.img` (sha256 `8f91ce25…2bb68`) | captured |
+| vbmeta backup path | `backups/baseline_a_20260423_030309/vbmeta.img` (sha256 `f051caab…919f6`) | captured |
+| `ro.product.model` | `SM-A908N` | captured |
+| `ro.build.fingerprint` | `samsung/r3qks/r3q:12/SP1A.210812.016/A908NKSU5EWA3:user/release-keys` | captured |
+| `ro.boot.verifiedbootstate` | `orange` | captured |
+| `ro.boot.flash.locked` | `0` | captured |
+| `ro.boot.warranty_bit` | `1` (Knox tripped) | captured |
+| `ro.boot.vbmeta.device_state` | empty string | captured |
+| `sys.boot_completed` | `1` | captured |
+| `su -c id` | `uid=0(root) … context=u:r:magisk:s0` | captured |
+| Wi-Fi status | connected to `Whaletale 5G`, RSSI -49 | captured |
+| `RPMB` | `Fuse Set`, `PROVISIONED` | captured from photo |
+| `CURRENT BINARY` | `Custom (0x303)` | captured from photo |
+| `FRP LOCK` | `OFF` | captured from photo |
+| `OEM LOCK` | `OFF (U)` | captured from photo |
+| `WARRANTY VOID` | `0x1 (0xE03)` | captured from photo |
+| `QUALCOMM SECUREBOOT` | `ENABLE` | captured from photo |
+| `RP SWREV` | `B5(1,1,1,5,1,1) K5 S5` | captured from photo |
+| `SECURE DOWNLOAD` | `ENABLE` | captured from photo |
+| `DID` | `2030A54C447F3A11` | captured from photo |
+| KG | not visible in supplied photo crop | still needed |
+| custom binary message | no extra warning text visible in supplied photo crop | partial |
 
 권장 캡처 명령:
 
@@ -40,14 +56,51 @@
 ./scripts/revalidation/capture_baseline.sh --label baseline_a
 ```
 
+다운로드 모드 사진 메모:
+
+- 이번 사진은 상단 일부만 포함하고 있어 `KG STATE` 줄은 확인되지 않음
+- 대신 `CURRENT BINARY`, `OEM LOCK`, `FRP LOCK`, `WARRANTY VOID`,
+  `QUALCOMM SECUREBOOT`, `SECURE DOWNLOAD`는 판독 가능
+
+## Web Recheck: KG line absent
+
+`2026-04-23`에 Samsung Knox 공식 문서만 기준으로 다시 확인한 결과:
+
+- Knox Guard는 Samsung의 cloud-managed device state이며, 장치는 콘솔에 추가되고
+  부팅 후 네트워크에 연결되어 실제로 enroll 되어야 `Active` 상태가 됩니다.
+- 관리가 끝나 `Completed`가 되거나 삭제되면, Knox Guard client는
+  비활성화되거나 영구 제거되고 더 이상 추적되지 않습니다.
+- Samsung 공식 문서에서는 `Download Mode` 화면에 `KG STATE` 줄이
+  항상 표시된다고 명시하지 않습니다.
+
+현재 작업 가설:
+
+- `KG` 줄이 다운로드 모드에 아예 안 보이는 경우는 공식 문서와 모순되지 않습니다.
+- 다만 Samsung 공식 문서는 다운로드 모드 UI 표시 규칙 자체를 설명하지 않으므로,
+  `왜` 안 보이는지까지는 공식 문서만으로 단정할 수 없습니다.
+- 따라서 이번 기준점에서는 `KG = not shown in Download Mode`를
+  하나의 관찰값으로 기록하고, 이를 `Prenormal/Normal/Locked` 중 특정 값으로
+  자동 환산하지 않습니다.
+
+공식 근거:
+
+- Samsung Knox Guard overview:
+  https://docs.samsungknox.com/admin/knox-guard/
+- Samsung Knox Guard status / lifecycle:
+  https://docs.samsungknox.com/dev/knox-guard/how-knox-guard-works/
+- Samsung Knox Guard completed state:
+  https://docs.samsungknox.com/admin/knox-guard/kbas/what-happens-to-device-once-it-is-fully-paid/
+- Samsung Knox Guard hardened security notes:
+  https://docs.samsungknox.com/admin/knox-guard/how-to-guides/manage-devices/view-device-details/
+
 ## Stage 1: 기본 4조합 결과표
 
 | ID | AP | Recovery | Factory reset | Flash result | Download mode / KG note | First boot | Recovery fallback | ADB | `su` | Notes |
 | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- |
-| 1 | stock | stock | | pending | | | | | | |
-| 2 | patched | stock | | pending | | | | | | |
-| 3 | stock | TWRP | | pending | | | | | | |
-| 4 | patched | TWRP | | pending | | | | | | |
+| 1 | stock | stock | | deferred — stock AP 롤백 시 자연 관찰 예정 | | | | | | |
+| 2 | patched | stock | no | PASS (current baseline A) | CURRENT BINARY: Custom (0x303), OEM LOCK: OFF (U), KG: not shown | PASS | no | PASS | PASS | `verifiedbootstate=orange`, `flash.locked=0`, `warranty_bit=1`, Magisk 30.7 su context |
+| 3 | stock | TWRP | | deferred — stock AP 롤백 시 자연 관찰 예정 | | | | | | |
+| 4 | patched | TWRP | no | PASS (dd + sha256 verified) | CURRENT BINARY: Custom (0x303), OEM LOCK: OFF (U), KG: not shown (same as row 2) | PASS | no | PASS | PASS | `verifiedbootstate=orange` 유지, Magisk 30.7 root 유지, Wi-Fi 유지 |
 
 ## Stage 2: 보안 경계 분해
 
@@ -80,6 +133,6 @@
 
 | Stage | Exit condition | Current state |
 | --- | --- | --- |
-| 1 | 4개 기본 조합 결과표 완성 | pending |
+| 1 | 4개 기본 조합 결과표 완성 | row 2/4 완료. row 1/3은 stock AP 롤백 시 자연 기록 예정 |
 | 2 | 실제 차단 경계 결론 1개 이상 확보 | pending |
 | 3 | Linux 진입 실증 또는 불가능 경계 재정의 | pending |
