@@ -81,3 +81,27 @@
 - `com.google.android.partnersetup`는 제거 시도 후 재부팅 시 복귀
 - `GOS`, `SDHMS`는 `pm uninstall --user 0` / `su -c` 모두 실질 제거 실패
 - `ThemeCenter`는 `DELETE_FAILED_INTERNAL_ERROR`
+
+### Stage 3 후속 점검
+- TWRP에서 `/cache/v2c_step = 9_udc_set` 확인
+  - `v2c`는 최소한 configfs/functionfs 설정과 UDC 활성화까지 도달
+- `/cache/adbd_exec_failed = 013` 파일은 남아 있었으나, TWRP에서
+  `LD_LIBRARY_PATH=/cache/adb/lib /cache/adb/adbd --help` 재현 시
+  `Permission denied`가 아니라 `Segmentation fault (rc=139)` 확인
+- 커널 설정 재확인:
+  - `CONFIG_USB_CONFIGFS_ACM=y`
+  - `CONFIG_USB_F_ACM=y`
+  - `CONFIG_USB_CONFIGFS_RNDIS=y`
+- 따라서 다음 후보를 `Android adbd`에서 `USB ACM serial mini-shell`로 전환
+  - 새 산출물:
+    - `stage3/linux_init/init_v3.c`
+    - `stage3/ramdisk_v3.cpio`
+    - `stage3/boot_linux_v3.img`
+- `boot_linux_v3.img`를 boot 파티션에 기록 후 `twrp reboot system` 실행
+  - host `lsusb`: `04e8:6861 Samsung Electronics Co., Ltd SAMSUNG_Android`
+  - host `adb devices -l`: 빈 목록
+  - host `/dev/ttyACM0` 생성 확인
+- 결론:
+  - `native init -> USB ACM gadget` 경로는 실증
+  - 마지막 남은 확인은 host serial open 후 mini-shell 배너/명령 응답 검증
+  - 현재 Codex 세션 계정은 `dialout` 그룹이 아니어서 `/dev/ttyACM0` 직접 열 수 없음

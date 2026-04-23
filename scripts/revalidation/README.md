@@ -15,6 +15,12 @@
   - 현재 `boot`, `recovery`, `vbmeta` 백업
   - `getprop`, root 상태, Wi-Fi 상태 저장
   - 다운로드 모드 수동 기록용 노트 템플릿 생성
+- `serial_tcp_bridge.py`
+  - host의 `/dev/ttyACM0` 또는 `/dev/serial/by-id/...`를
+    `127.0.0.1:<port>`로 노출하는 최소 브릿지
+  - USB ACM shell을 TCP 클라이언트 한 개로 전달
+  - serial 재연결 시 자동 재오픈
+  - 빠른 개발용 게이트 용도
 
 권장 순서:
 
@@ -22,6 +28,24 @@
 ./scripts/revalidation/verify_device_state.sh
 ./scripts/revalidation/capture_baseline.sh --label baseline_a
 ```
+
+브릿지 실행 예:
+
+```bash
+sudo python3 ./scripts/revalidation/serial_tcp_bridge.py --port 54321
+```
+
+접속 예:
+
+```bash
+nc 127.0.0.1 54321
+```
+
+참고:
+
+- 현재 호스트 계정이 `dialout` 그룹이 아니면 `sudo`로 실행해야 할 수 있습니다.
+- 이 브릿지는 빠른 개발용 최소 구현이라 클라이언트 1개만 허용합니다.
+- 장기적으로는 `USB networking + SSH` 또는 안정적인 `ADB` 채널이 더 적합합니다.
 
 생성 산출물은 기본적으로 `backups/` 아래에 저장합니다.
 `.img`와 백업 디렉토리는 이미 `.gitignore`에 포함되어 있습니다.
