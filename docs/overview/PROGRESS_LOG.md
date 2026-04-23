@@ -105,3 +105,26 @@
   - `native init -> USB ACM gadget` 경로는 실증
   - 마지막 남은 확인은 host serial open 후 mini-shell 배너/명령 응답 검증
   - 현재 Codex 세션 계정은 `dialout` 그룹이 아니어서 `/dev/ttyACM0` 직접 열 수 없음
+
+### Native shell probe 정리
+- `serial -> TCP` 브릿지로 `v8` shell에 직접 접속해 `/proc`, `/dev`, `/sys/class` probe 수행
+- 확인된 것:
+  - `SM8150` 기반 kernel/userspace shell 정상
+  - `/cache`와 `/mnt/system` 마운트 정상
+  - `backlight`, `input`, `drm`, `power_supply`, `udc` 클래스가 이미 커널에 노출됨
+  - 현재 brightness `255 / 365`
+  - `event0`~`event8` 존재
+  - `/sys/class/drm`에 `card0`, `card0-DSI-1`, `renderD128`, `sde-crtc-*` 존재
+- `adbd` 추적 결과:
+  - `startadbd`는 실행되지만 `adbd`는 zombie
+  - `/dev/usb-ffs/adb`에는 `ep0`만 있고 `ep1/ep2` 미생성
+  - host `lsusb -v`도 ACM 2-interface만 표시
+- 외부 문서 대조 결과:
+  - FunctionFS는 descriptors/strings가 `ep0`에 써져야 `ep#` 파일 생성
+  - AOSP init도 `start adbd -> sys.usb.ffs.ready -> ffs.adb symlink -> UDC bind` 순서를 사용
+- 현재 권장 방향:
+  - Android dynamic binary / ADB 추적은 잠시 보류
+  - 다음 probe는 `input + backlight + drm`
+  - 장기 통신층 후보는 `USB networking + SSH`
+- 상세 보고서:
+  - `docs/reports/NATIVE_INIT_SHELL_PROBE_2026-04-23.md`
