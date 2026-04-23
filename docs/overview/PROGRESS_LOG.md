@@ -128,3 +128,20 @@
   - 장기 통신층 후보는 `USB networking + SSH`
 - 상세 보고서:
   - `docs/reports/NATIVE_INIT_SHELL_PROBE_2026-04-23.md`
+
+### Input / backlight / DRM probe 추가
+- `input0`~`input8` 이름 확인:
+  - `qpnp_pon`, `meta_event`, `grip_sensor`, `gpio_keys`, `hall`,
+    `certify_hall`, `sec_touchscreen`, `sec_touchproximity`, `sec_touchpad`
+- 의미:
+  - 입력 장치 enumeration은 충분히 진행돼 있고,
+    `gpio_keys`와 touchscreen 계열이 모두 보이므로 버튼/터치 추적 가능성 높음
+- backlight:
+  - `panel0-backlight`
+  - 현재 `255 / 365`
+- DRM:
+  - `card0-DSI-1`에 `enabled`, `status`, `modes`, `dpms`, `edid` 노출
+  - `card0` 아래에 `sde-crtc-*`, `card0-DSI-1`, `card0-DP-1` 존재
+- 현재 blocker:
+  - custom shell에 임의 파일 쓰기 명령이 없어
+    backlight write test와 sysfs 조작 실험을 바로 수행하기 어려움

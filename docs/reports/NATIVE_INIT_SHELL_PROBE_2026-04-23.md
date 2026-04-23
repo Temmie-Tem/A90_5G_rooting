@@ -121,6 +121,20 @@
 ### 입력
 
 - `/sys/class/input`에 `event0` ~ `event8` 존재
+- 현재 확인된 input 이름:
+  - `input0`: `qpnp_pon`
+  - `input1`: `meta_event`
+  - `input2`: `grip_sensor`
+  - `input3`: `gpio_keys`
+  - `input4`: `hall`
+  - `input5`: `certify_hall`
+  - `input6`: `sec_touchscreen`
+  - `input7`: `sec_touchproximity`
+  - `input8`: `sec_touchpad`
+- event capability 관찰:
+  - 일부 event 노드는 `key`, `sw`, `msc` 위주
+  - 일부는 `abs` 포함 (`touchscreen`/sensor 후보)
+  - `gpio_keys`가 존재하므로 전원/볼륨키 계열 입력 추적 가능성이 높음
 
 의미:
 - 입력 장치 enumeration은 이미 끝난 상태
@@ -132,10 +146,14 @@
 - `/sys/class/backlight/panel0-backlight`
 - 현재 brightness: `255`
 - max_brightness: `365`
+- `panel0-backlight` sysfs 디렉토리 자체는 정상 노출
 
 의미:
 - 최소한 패널 백라이트 제어용 sysfs는 살아 있음
 - 화면 출력이 없어도 backlight 변화 실험은 가능
+- 다만 현재 custom shell에는
+  **임의 파일에 값을 쓰는 primitive가 없어**
+  `brightness` write test는 아직 수행하지 못함
 
 ### DRM / graphics
 
@@ -148,11 +166,27 @@
   - `sde-crtc-0`
   - `sde-crtc-1`
   - `sde-crtc-2`
+- `card0-DSI-1` 내부:
+  - `enabled`
+  - `status`
+  - `modes`
+  - `dpms`
+  - `edid`
+  - `uevent`
+- `card0` 내부:
+  - `sde-crtc-0`
+  - `sde-crtc-1`
+  - `sde-crtc-2`
+  - `card0-DSI-1`
+  - `card0-Virtual-1`
+  - `card0-DP-1`
 
 의미:
 - DRM/KMS 계층은 커널에서 이미 올라와 있음
 - 현재 `/dev`에 `dri/*` 노드가 자동으로 보이지 않았지만,
   sysfs 기준으로는 화면 경로 탐색이 가능한 상태
+- 특히 DSI connector 속성이 이미 보이므로,
+  최소한 connector 상태/모드 관찰은 현재 shell에서도 가능
 
 ### 전원
 
@@ -271,6 +305,11 @@ Linux kernel 문서 기준:
 
 의도:
 - “멈춘 것처럼 보이는 화면”에 최소 진행 표시를 넣을 수 있는지 판단
+
+현재 blocker:
+
+- shell에 `writefile` 또는 `sysfsset` 같은
+  **파일 쓰기용 최소 명령이 필요**
 
 ### 3. USB networking 가능성
 
