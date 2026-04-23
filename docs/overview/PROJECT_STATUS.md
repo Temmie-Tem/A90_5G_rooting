@@ -120,22 +120,25 @@
 ## 현재 폰 상태
 
 - patched AP (Magisk 30.7) + **TWRP recovery**
-- Stage 0 / 1(row 2,4) / 2 완료. Stage 3 시작 직전.
+- Stage 0 / 1(row 2,4) / 2 / 3(Priority 1) 완료.
 
-## 다음 세션 작업 (Stage 3 Priority 1)
+## Stage 3 달성 사항 (2026-04-23)
 
-**목표**: boot.img ramdisk의 init을 Linux init으로 교체 → native Linux 진입 시도
+**native Linux init 진입 성공**
 
-**사전 준비 필요**:
-- ARM64 static busybox 바이너리 확보
+- `aarch64-linux-gnu-gcc -static` 으로 빌드한 663KB init 바이너리를 ramdisk에 탑재
+- Android kernel이 우리 init을 pid 1로 실행
+- proc / sys / devtmpfs / ext4(/dev/block/sda31) 마운트 성공
+- `/cache/linux_init_ran = "ok"` 기록 확인
+- 핵심 우회: devtmpfs async 초기화 문제를 `mknod(makedev(259,15))` 로 해결
 
-**실행 순서**:
-1. `unpack_bootimg.py`로 boot.img 분리 (kernel + ramdisk)
-2. 새 ramdisk CPIO 작성 — `init`을 static Linux init으로 교체
-3. `mkbootimg.py`로 재패킹 (kernel/cmdline/헤더값 원본 유지)
-4. `adb shell su -c dd`로 boot 파티션에 기록
-5. 재부팅 → ADB/dmesg로 init 진입 여부 관찰
+## 다음 세션 작업
 
-**복구**: 실패 시 `backups/baseline_a_20260423_030309/boot.img`를 dd로 복구
+**목표**: Linux init에서 ADB 연결 유지 → 인터랙티브 Linux 셸
 
-**참고**: ramdisk = 비압축 CPIO 427KB, 헤더 v1, kernel 49.8MB
+**접근법**:
+1. init에서 USB ADB gadget 활성화 (`/sys/class/android_usb` 또는 configfs)
+2. Android의 `/system/bin/adbd`를 static으로 대체하거나 dropbear/telnetd 사용
+3. 또는 TWRP ADB를 활용한 관찰 채널 확보
+
+**복구**: 항상 `backups/baseline_a_20260423_030309/boot.img` dd 복구 가능

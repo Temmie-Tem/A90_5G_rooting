@@ -124,25 +124,28 @@
 
 | Priority | Candidate path | Why it stays in scope | Result |
 | --- | --- | --- | --- |
-| 1 | `patched AP 유지 + Linux ramdisk/init 경로` | boot/recovery 모두 허용 확인 → ramdisk init 교체가 가장 직접적인 경로 | 다음 세션 시도 예정 |
-| 2 | `recovery 경로 활용 (TWRP → Linux)` | TWRP 이미 설치됨. TWRP에서 custom boot image 로드 가능 | 1번 실패 시 fallback |
-| 3 | `vbmeta/부트 이미지 조합 변형` | AVB 이미 비활성 상태이므로 추가 변형 불필요할 수 있음 | 필요 시 |
+| 1 | `patched AP 유지 + Linux ramdisk/init 경로` | boot/recovery 모두 허용 확인 → ramdisk init 교체가 가장 직접적인 경로 | **성공 (2026-04-23)** |
+| 2 | `recovery 경로 활용 (TWRP → Linux)` | TWRP 이미 설치됨 | 불필요 (1번 성공) |
+| 3 | `vbmeta/부트 이미지 조합 변형` | AVB 이미 비활성 상태 | 불필요 |
 | 4 | `TWRP` 기반 보조 경로 | TWRP 설치 완료 | 준비됨 |
 
-### Stage 3 Priority 1 접근법 (다음 세션)
+### Stage 3 Priority 1 결과 (2026-04-23)
 
-patched boot.img ramdisk 분석 결과:
-- ramdisk 포맷: CPIO (비압축, 427KB)
-- 현재 내용: `init` (Magisk init 바이너리) + `overlay.d/sbin/{magisk,init-ld,stub}.xz`
-- kernel: 49.8MB, header v1, cmdline 확인됨
+**성공** — Android kernel이 우리 static ARM64 init을 pid 1로 실행함.
 
-접근 순서:
-1. `unpack_bootimg.py`로 boot.img 분리 (kernel + ramdisk)
-2. ramdisk를 새 CPIO로 교체 — `init` 자리에 static Linux init (busybox static 또는 minimal initramfs)
-3. `mkbootimg.py`로 재패킹
-4. dd로 boot 파티션에 기록 → 재부팅 후 관찰
+실험 구성:
+- ramdisk: 비압축 CPIO, `init` 바이너리만 포함 (663KB stripped)
+- compiler: `aarch64-linux-gnu-gcc -static -Os`
+- sda31 mknod: devtmpfs async 초기화 우회 위해 `makedev(259, 15)` 직접 사용
+- 재부팅 없이 무한 대기 → TWRP 강제 진입으로 결과 확인
 
-필요한 것: ARM64 static busybox 바이너리 또는 minimal initramfs
+관찰값:
+- Samsung 경고 화면 30초 이상 지속 → init sleep 실행 확인
+- TWRP에서 `/cache/linux_init_ran = "ok"` 확인
+- proc / sys / devtmpfs / ext4(sda31) 마운트 모두 성공
+- Android 프로세스(zygote, system_server 등) 없음 — 완전 대체됨
+
+다음 목표: **ADB 연결 유지** → 진짜 Linux 셸 진입
 
 ## 종료 기준 추적
 
@@ -150,4 +153,4 @@ patched boot.img ramdisk 분석 결과:
 | --- | --- | --- |
 | 1 | 4개 기본 조합 결과표 완성 | row 2/4 완료. row 1/3은 stock AP 롤백 시 자연 기록 예정 |
 | 2 | 실제 차단 경계 결론 1개 이상 확보 | 완료 — boot/recovery 모두 허용, 현 상태에서 차단 경계 없음 확인 |
-| 3 | Linux 진입 실증 또는 불가능 경계 재정의 | pending |
+| 3 | Linux 진입 실증 또는 불가능 경계 재정의 | **완료** — pid 1 진입 및 파일시스템 동작 실증. 다음: ADB 유지 |
