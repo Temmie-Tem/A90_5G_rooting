@@ -136,6 +136,14 @@
 - 의미:
   - 입력 장치 enumeration은 충분히 진행돼 있고,
     `gpio_keys`와 touchscreen 계열이 모두 보이므로 버튼/터치 추적 가능성 높음
+- 버튼 매핑 실측:
+  - `event0 (qpnp_pon)` → `KEY_POWER` + `KEY_VOLUMEDOWN`
+    - raw key bitmap: `14000000000000 0`
+  - `event3 (gpio_keys)` → `KEY_VOLUMEUP`
+    - raw key bitmap: `8000000000000 0`
+- `v13`에서 `inputcaps` bitmap word ordering 수정 후 자동 해석도 일치 확인:
+  - `inputcaps event0` → `KEY_VOLUMEDOWN=yes`, `KEY_POWER=yes`
+  - `inputcaps event3` → `KEY_VOLUMEUP=yes`
 - backlight:
   - `panel0-backlight`
   - 현재 `255 / 365`
@@ -143,5 +151,8 @@
   - `card0-DSI-1`에 `enabled`, `status`, `modes`, `dpms`, `edid` 노출
   - `card0` 아래에 `sde-crtc-*`, `card0-DSI-1`, `card0-DP-1` 존재
 - 현재 blocker:
-  - custom shell에 임의 파일 쓰기 명령이 없어
-    backlight write test와 sysfs 조작 실험을 바로 수행하기 어려움
+  - `v9`에서 `writefile` 명령 추가 후 backlight sysfs write 성공
+    - `255 -> 32 -> 255` round-trip 확인
+  - 즉, 최소 sysfs 조작 primitive는 확보
+  - 다음 blocker는 실제 화면 반응 확인과
+    `input/drm` 추가 식별

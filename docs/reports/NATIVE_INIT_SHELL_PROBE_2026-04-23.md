@@ -135,6 +135,41 @@
   - 일부 event 노드는 `key`, `sw`, `msc` 위주
   - 일부는 `abs` 포함 (`touchscreen`/sensor 후보)
   - `gpio_keys`가 존재하므로 전원/볼륨키 계열 입력 추적 가능성이 높음
+- 실측 버튼 매핑:
+  - `event0` (`qpnp_pon`) → `code 0x0074`
+    - press/release 쌍 확인
+    - Linux input 기준 `KEY_POWER`
+  - `event3` (`gpio_keys`) → `code 0x0073`
+    - press/release 쌍 확인
+    - Linux input 기준 `KEY_VOLUMEUP`
+- raw capability bitmap 기준 최종 해석:
+  - `event0` key bitmap = `14000000000000 0`
+    - 64-bit word 기준 bit 50 + bit 52 set
+    - 각각 `114 (KEY_VOLUMEDOWN)` + `116 (KEY_POWER)`
+  - `event3` key bitmap = `8000000000000 0`
+    - 64-bit word 기준 bit 51 set
+    - `115 (KEY_VOLUMEUP)`
+
+따라서 버튼 매핑은:
+
+- `event0 (qpnp_pon)`:
+  - `KEY_POWER`
+  - `KEY_VOLUMEDOWN`
+- `event3 (gpio_keys)`:
+  - `KEY_VOLUMEUP`
+
+후속 검증:
+
+- `v13`에서 `inputcaps` bitmap word ordering을 수정한 뒤
+  아래 출력으로 자동 해석도 실측과 일치함을 재확인:
+  - `inputcaps event0`
+    - `KEY_VOLUMEDOWN(114)=yes`
+    - `KEY_VOLUMEUP(115)=no`
+    - `KEY_POWER(116)=yes`
+  - `inputcaps event3`
+    - `KEY_VOLUMEDOWN(114)=no`
+    - `KEY_VOLUMEUP(115)=yes`
+    - `KEY_POWER(116)=no`
 
 의미:
 - 입력 장치 enumeration은 이미 끝난 상태
@@ -147,13 +182,16 @@
 - 현재 brightness: `255`
 - max_brightness: `365`
 - `panel0-backlight` sysfs 디렉토리 자체는 정상 노출
+- `v9`에서 `writefile` 추가 후 실측:
+  - `writefile /sys/class/backlight/panel0-backlight/brightness 32`
+  - 이후 `cat .../brightness` → `32`
+  - 다시 `writefile ... 255` 후 `cat .../brightness` → `255`
 
 의미:
 - 최소한 패널 백라이트 제어용 sysfs는 살아 있음
 - 화면 출력이 없어도 backlight 변화 실험은 가능
-- 다만 현재 custom shell에는
-  **임의 파일에 값을 쓰는 primitive가 없어**
-  `brightness` write test는 아직 수행하지 못함
+- 따라서 현재 custom shell은
+  **기본 sysfs write 실험을 수행할 수 있는 수준**까지 도달함
 
 ### DRM / graphics
 
@@ -308,8 +346,9 @@ Linux kernel 문서 기준:
 
 현재 blocker:
 
-- shell에 `writefile` 또는 `sysfsset` 같은
-  **파일 쓰기용 최소 명령이 필요**
+- `writefile`은 확보했으므로,
+  다음 blocker는 실제 화면 변화 관찰과
+  더 정교한 입력/DRM 상태 추적임
 
 ### 3. USB networking 가능성
 
