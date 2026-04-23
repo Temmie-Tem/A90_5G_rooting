@@ -106,33 +106,48 @@
 
 | Question | Observation | Conclusion |
 | --- | --- | --- |
-| boot image 수용 여부 | | pending |
-| recovery 교체 허용 여부 | | pending |
-| `official binaries only` 발생 조건 | | pending |
-| KG 표기 변화와 결과 상관관계 | | pending |
-| factory reset 영향 | | pending |
+| boot image 수용 여부 | patched AP(Magisk) 정상 부팅, `verifiedbootstate=orange` | **허용** — OEM LOCK OFF(U) + flash.locked=0 + vbmeta AVB 비활성 조합에서 custom boot 전면 수용 |
+| recovery 교체 허용 여부 | TWRP dd 플래시 후 정상 시스템 부팅, recovery fallback 없음, "SECURE CHECK FAIL" 없음 | **허용** — 동일 조건에서 custom recovery도 전면 수용 |
+| `official binaries only` 발생 조건 | row 2/4 모두 미발생 | OEM LOCK OFF(U) + flash.locked=0 + Magisk vbmeta 패치 상태에서는 발생 조건 충족 안 됨 |
+| KG 표기 변화와 결과 상관관계 | 다운로드 모드에서 KG 줄 미표시 (baseline, row 2/4 동일) | KG가 부트체인 차단 요인으로 작용한 증거 없음 |
+| factory reset 영향 | row 2/4 모두 factory reset 없이 진행 | 미측정 — stock AP 롤백 시 관찰 예정 |
 
 강제 결론 후보:
 
-- `AP 변경은 허용, recovery 변경은 차단`
-- `custom binary는 일부 경로에서만 허용`
-- `KG/서명/복구 경계가 실제 차단 지점`
+- ~~`AP 변경은 허용, recovery 변경은 차단`~~ → 불일치 (recovery도 허용됨)
+- ~~`custom binary는 일부 경로에서만 허용`~~ → 불일치 (AP/recovery 모두 허용)
+- ~~`KG/서명/복구 경계가 실제 차단 지점`~~ → 미발생
 
-현재 선택 결론: `pending`
+**현재 선택 결론**: `OEM LOCK OFF(U) + flash.locked=0 + Magisk vbmeta 패치 = boot/recovery 커스텀 바이너리 전면 허용. 현 상태에서 보안 차단 경계는 확인되지 않음.`
 
 ## Stage 3: native Linux 진입 후보
 
 | Priority | Candidate path | Why it stays in scope | Result |
 | --- | --- | --- | --- |
-| 1 | `patched AP 유지 + Linux ramdisk/init 경로` | Stage 1~2 결과 반영 예정 | pending |
-| 2 | `recovery 경로 활용` | Stage 1~2 결과 반영 예정 | pending |
-| 3 | `vbmeta/부트 이미지 조합 변형` | Stage 1~2 결과 반영 예정 | pending |
-| 4 | `TWRP` 기반 보조 경로 | 필요 시 사용 | pending |
+| 1 | `patched AP 유지 + Linux ramdisk/init 경로` | boot/recovery 모두 허용 확인 → ramdisk init 교체가 가장 직접적인 경로 | 다음 세션 시도 예정 |
+| 2 | `recovery 경로 활용 (TWRP → Linux)` | TWRP 이미 설치됨. TWRP에서 custom boot image 로드 가능 | 1번 실패 시 fallback |
+| 3 | `vbmeta/부트 이미지 조합 변형` | AVB 이미 비활성 상태이므로 추가 변형 불필요할 수 있음 | 필요 시 |
+| 4 | `TWRP` 기반 보조 경로 | TWRP 설치 완료 | 준비됨 |
+
+### Stage 3 Priority 1 접근법 (다음 세션)
+
+patched boot.img ramdisk 분석 결과:
+- ramdisk 포맷: CPIO (비압축, 427KB)
+- 현재 내용: `init` (Magisk init 바이너리) + `overlay.d/sbin/{magisk,init-ld,stub}.xz`
+- kernel: 49.8MB, header v1, cmdline 확인됨
+
+접근 순서:
+1. `unpack_bootimg.py`로 boot.img 분리 (kernel + ramdisk)
+2. ramdisk를 새 CPIO로 교체 — `init` 자리에 static Linux init (busybox static 또는 minimal initramfs)
+3. `mkbootimg.py`로 재패킹
+4. dd로 boot 파티션에 기록 → 재부팅 후 관찰
+
+필요한 것: ARM64 static busybox 바이너리 또는 minimal initramfs
 
 ## 종료 기준 추적
 
 | Stage | Exit condition | Current state |
 | --- | --- | --- |
 | 1 | 4개 기본 조합 결과표 완성 | row 2/4 완료. row 1/3은 stock AP 롤백 시 자연 기록 예정 |
-| 2 | 실제 차단 경계 결론 1개 이상 확보 | pending |
+| 2 | 실제 차단 경계 결론 1개 이상 확보 | 완료 — boot/recovery 모두 허용, 현 상태에서 차단 경계 없음 확인 |
 | 3 | Linux 진입 실증 또는 불가능 경계 재정의 | pending |

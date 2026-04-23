@@ -117,10 +117,25 @@
 - 현재는 `KG 미표시`를 독립 관찰값으로 취급하고,
   특정 KG 상태로 자동 해석하지 않음
 
-## 다음 작업
+## 현재 폰 상태
 
-1. 기준점 A의 이미지와 다운로드 모드 값을 캡처
-2. 4개 기본 조합 결과표를 `docs/reports/BOOTCHAIN_REVALIDATION_MATRIX_2026-04-23.md`에 채우기
-3. 1단계 결과로 보안 경계 결론을 강제
-4. 그 결론을 바탕으로 native Linux 진입 후보 1개 이상 재시도
-5. 기존 패키지 최소화는 참고값으로만 유지
+- patched AP (Magisk 30.7) + **TWRP recovery**
+- Stage 0 / 1(row 2,4) / 2 완료. Stage 3 시작 직전.
+
+## 다음 세션 작업 (Stage 3 Priority 1)
+
+**목표**: boot.img ramdisk의 init을 Linux init으로 교체 → native Linux 진입 시도
+
+**사전 준비 필요**:
+- ARM64 static busybox 바이너리 확보
+
+**실행 순서**:
+1. `unpack_bootimg.py`로 boot.img 분리 (kernel + ramdisk)
+2. 새 ramdisk CPIO 작성 — `init`을 static Linux init으로 교체
+3. `mkbootimg.py`로 재패킹 (kernel/cmdline/헤더값 원본 유지)
+4. `adb shell su -c dd`로 boot 파티션에 기록
+5. 재부팅 → ADB/dmesg로 init 진입 여부 관찰
+
+**복구**: 실패 시 `backups/baseline_a_20260423_030309/boot.img`를 dd로 복구
+
+**참고**: ramdisk = 비압축 CPIO 427KB, 헤더 v1, kernel 49.8MB
