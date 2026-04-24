@@ -197,3 +197,28 @@
   안전한 long-running static test binary가 없어 실기 cancel은 다음 작업으로 남김
 - 상세 보고서:
   - `docs/reports/NATIVE_INIT_V42_CANCEL_2026-04-25.md`
+
+### Native init v43 boot timeline
+- `v43`에서 boot readiness timeline 추가:
+  - `init-start`
+  - `base-mounts`
+  - `early-nodes`
+  - `resource-drm`
+  - `resource-input0`
+  - `resource-input3`
+  - `resource-battery`
+  - `resource-thermal`
+  - `cache-mount`
+  - `usb-gadget`
+  - `ttyGS0`
+  - `display-probe`
+  - `console`
+  - `autohud`
+  - `shell`
+- `/cache` mount 전 timeline은 cache log 선택 후 replay하도록 구현
+- 실기 확인:
+  - `timeline` → 15개 step 표시
+  - `logcat` → `timeline: replay=cache ...` 기록 확인
+  - `status` → `A90 Linux init v43`, autohud running 확인
+- 상세 보고서:
+  - `docs/reports/NATIVE_INIT_V43_TIMELINE_2026-04-25.md`

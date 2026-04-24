@@ -1,25 +1,26 @@
 # Native Init Task Queue (2026-04-25)
 
-이 문서는 `A90 Linux init v42` 이후 바로 실행할 작업 큐다.
+이 문서는 `A90 Linux init v43` 이후 바로 실행할 작업 큐다.
 큰 방향은 “보이는 부팅 → 복구 가능한 로그 → 단독 조작 → 작은 userland” 순서다.
 
 ## 현재 고정 기준점
 
-- latest native init: `A90 Linux init v42`
-- latest source: `stage3/linux_init/init_v42.c`
-- latest boot image: `stage3/boot_linux_v42.img`
+- latest native init: `A90 Linux init v43`
+- latest source: `stage3/linux_init/init_v43.c`
+- latest boot image: `stage3/boot_linux_v43.img`
 - control channel: USB ACM serial bridge
 - log: `/cache/native-init.log`
 - verified:
   - shell result/errno/duration
   - boot/command file log
   - blocking command q/Ctrl-C cancel
+  - boot readiness timeline
   - KMS HUD
   - VOL+/VOL-/POWER input
 
 ## 실행 큐
 
-### V43. Boot Readiness Timeline
+### V43. Boot Readiness Timeline — 완료
 
 목표:
 
@@ -35,9 +36,9 @@
 
 검증:
 
-- `timeline`
-- `logcat`
-- `status`
+- `timeline` — PASS
+- `logcat` replay — PASS
+- `status` — PASS
 - recovery 왕복 후 `/cache/native-init.log` 보존 확인은 별도 항목으로 유지
 
 ### V44. HUD Boot Progress/Error
@@ -123,6 +124,6 @@
 
 ## 지금 바로 진행할 항목
 
-1. V43 Boot Readiness Timeline
-2. V44 HUD Boot Progress/Error
-3. V45 Log Preservation + Run Cancel Test
+1. V44 HUD Boot Progress/Error
+2. V45 Log Preservation + Run Cancel Test
+3. V46 Safe Storage / Device Map Report

@@ -120,11 +120,13 @@
 ## 현재 폰 상태
 
 - patched AP (Magisk 30.7) + **TWRP recovery**
-- 최신 실기 확인: `stage3/boot_linux_v42.img` (`A90 Linux init v42`)
+- 최신 실기 확인: `stage3/boot_linux_v43.img` (`A90 Linux init v43`)
 - 부팅 흐름: TEST 패턴 약 2초 → 상태 HUD 자동 전환 → USB ACM serial shell
 - 로그 상태: `/cache/native-init.log`에 boot/command/result 기록
 - blocking 상태: `waitkey`, `readinput`, `watchhud`, `blindmenu` q/Ctrl-C 취소 확인
-- 상세 최신 상태: `docs/reports/NATIVE_INIT_V42_CANCEL_2026-04-25.md`
+- boot timeline: `timeline` 명령과 `/cache/native-init.log` replay 확인
+- 상세 최신 상태: `docs/reports/NATIVE_INIT_V43_TIMELINE_2026-04-25.md`
+- v42 blocking cancel 기록: `docs/reports/NATIVE_INIT_V42_CANCEL_2026-04-25.md`
 - v41 파일 로그 기록: `docs/reports/NATIVE_INIT_V41_LOGGING_2026-04-25.md`
 - v40 shell return code 기록: `docs/reports/NATIVE_INIT_V40_BUILD_2026-04-25.md`
 - v39 기준 전체 상태 기록: `docs/reports/NATIVE_INIT_V39_STATUS_2026-04-25.md`

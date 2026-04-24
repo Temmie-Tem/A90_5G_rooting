@@ -1,6 +1,6 @@
 # Native Init Next Work List (2026-04-25)
 
-이 문서는 `A90 Linux init v42` 기준 이후 작업을 정리한 실행 목록이다.
+이 문서는 `A90 Linux init v43` 기준 이후 작업을 정리한 실행 목록이다.
 
 현재 단계는 넓은 의미의 리버싱도 포함하지만, 중심은 더 이상 Android 전체를
 분해하는 것이 아니다. Stock Android kernel과 Samsung vendor driver 위에서
@@ -92,7 +92,7 @@ Samsung bootloader
 ### M2. 관찰 가능한 boot/runtime
 
 - `/cache/native-init.log` — v41 완료
-- boot readiness timeline
+- boot readiness timeline — v43 완료
 - HUD boot progress/error 표시
 - safe storage map 문서화
 
@@ -118,19 +118,21 @@ Samsung bootloader
 
 ## 현재 기준점
 
-- 최신 확인 버전: `A90 Linux init v42`
-- 최신 소스: `stage3/linux_init/init_v42.c`
-- 최신 boot image: `stage3/boot_linux_v42.img`
+- 최신 확인 버전: `A90 Linux init v43`
+- 최신 소스: `stage3/linux_init/init_v43.c`
+- 최신 boot image: `stage3/boot_linux_v43.img`
 - 주 제어 채널: USB CDC ACM serial (`/dev/ttyGS0` ↔ `/dev/ttyACM0`)
 - host bridge: `scripts/revalidation/serial_tcp_bridge.py --port 54321`
 - 화면 상태: TEST 패턴 약 2초 표시 후 상태 HUD 자동 전환
 - 버튼 상태: VOL+/VOL-/POWER 입력 확인
 - 로그 상태: `/cache/native-init.log` boot/command log 확인
 - blocking 상태: `waitkey`/`readinput`/`watchhud`/`blindmenu` q/Ctrl-C 취소 확인
+- timeline 상태: `timeline` 명령과 `/cache/native-init.log` replay 확인
 - ADB 상태: 보류
 
 상세 상태 문서:
 
+- `docs/reports/NATIVE_INIT_V43_TIMELINE_2026-04-25.md`
 - `docs/reports/NATIVE_INIT_V42_CANCEL_2026-04-25.md`
 - `docs/reports/NATIVE_INIT_V41_LOGGING_2026-04-25.md`
 - `docs/reports/NATIVE_INIT_V40_BUILD_2026-04-25.md`
@@ -266,6 +268,13 @@ Samsung bootloader
 목표:
 
 - native init 기준으로 커널 리소스가 언제 준비되는지 단계표를 만든다.
+
+현재 상태:
+
+- `init_v43`에서 자동 기록 및 실기 검증 완료
+- 상세 기록: `docs/reports/NATIVE_INIT_V43_TIMELINE_2026-04-25.md`
+- `timeline` shell 명령 추가
+- `/cache` mount 전 초기 timeline은 `/cache` 선택 후 log에 replay
 
 확인 항목:
 
@@ -649,14 +658,13 @@ Samsung bootloader
 
 상세 실행 큐는 `docs/plans/NATIVE_INIT_TASK_QUEUE_2026-04-25.md`를 따른다.
 
-1. boot readiness timeline 자동 기록
-2. HUD boot progress/error 표시
-3. recovery 왕복 후 `/cache/native-init.log` 보존 확인
-4. `run` cancel 검증용 static helper 준비
-5. on-screen menu 초안
-6. safe storage map report 작성
-7. USB gadget map report 작성
-8. BusyBox/static userland 후보 검토
+1. HUD boot progress/error 표시
+2. recovery 왕복 후 `/cache/native-init.log` 보존 확인
+3. `run` cancel 검증용 static helper 준비
+4. on-screen menu 초안
+5. safe storage map report 작성
+6. USB gadget map report 작성
+7. BusyBox/static userland 후보 검토
 
 ---
 
