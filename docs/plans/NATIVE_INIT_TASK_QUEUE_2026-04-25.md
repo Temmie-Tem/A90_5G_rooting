@@ -1,13 +1,13 @@
 # Native Init Task Queue (2026-04-25)
 
-이 문서는 `A90 Linux init v43` 이후 바로 실행할 작업 큐다.
+이 문서는 `A90 Linux init v44` 이후 바로 실행할 작업 큐다.
 큰 방향은 “보이는 부팅 → 복구 가능한 로그 → 단독 조작 → 작은 userland” 순서다.
 
 ## 현재 고정 기준점
 
-- latest native init: `A90 Linux init v43`
-- latest source: `stage3/linux_init/init_v43.c`
-- latest boot image: `stage3/boot_linux_v43.img`
+- latest native init: `A90 Linux init v44`
+- latest source: `stage3/linux_init/init_v44.c`
+- latest boot image: `stage3/boot_linux_v44.img`
 - control channel: USB ACM serial bridge
 - log: `/cache/native-init.log`
 - verified:
@@ -15,6 +15,7 @@
   - boot/command file log
   - blocking command q/Ctrl-C cancel
   - boot readiness timeline
+  - HUD boot summary
   - KMS HUD
   - VOL+/VOL-/POWER input
 
@@ -41,7 +42,7 @@
 - `status` — PASS
 - recovery 왕복 후 `/cache/native-init.log` 보존 확인은 별도 항목으로 유지
 
-### V44. HUD Boot Progress/Error
+### V44. HUD Boot Progress/Error — 완료
 
 목표:
 
@@ -55,8 +56,9 @@
 
 검증:
 
-- 정상 부팅 HUD에 `BOOT OK` 또는 현재 step 표시
-- 고의 실패 가능한 display/sysfs 명령 후 HUD 복구 확인
+- 정상 부팅 HUD에 `BOOT OK` 또는 현재 step 표시 — PASS
+- `bootstatus`, `status`, `statushud`, `autohud 2` — PASS
+- 고의 실패 가능한 display/sysfs 명령 후 HUD 복구 확인 — 보류
 
 ### V45. Log Preservation + Run Cancel Test
 
@@ -124,6 +126,6 @@
 
 ## 지금 바로 진행할 항목
 
-1. V44 HUD Boot Progress/Error
-2. V45 Log Preservation + Run Cancel Test
-3. V46 Safe Storage / Device Map Report
+1. V45 Log Preservation + Run Cancel Test
+2. V46 Safe Storage / Device Map Report
+3. V47 On-screen Menu Draft

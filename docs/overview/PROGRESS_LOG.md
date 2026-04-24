@@ -222,3 +222,17 @@
   - `status` → `A90 Linux init v43`, autohud running 확인
 - 상세 보고서:
   - `docs/reports/NATIVE_INIT_V43_TIMELINE_2026-04-25.md`
+
+### Native init v44 HUD boot summary
+- `v44`에서 timeline 기반 boot summary를 HUD/status에 연결:
+  - 정상 부팅: `BOOT OK <last-step> <sec>S`
+  - 실패 기록 존재 시: `BOOT ERR <step> E<errno>`
+- `bootstatus` 명령 추가
+- HUD 첫 줄과 footer에 boot summary 표시
+- 실기 확인:
+  - `bootstatus` → `BOOT OK shell 3S`
+  - `status` → boot summary 출력
+  - `statushud` → framebuffer draw 성공
+  - `autohud 2` → 자동 HUD 복구 성공
+- 상세 보고서:
+  - `docs/reports/NATIVE_INIT_V44_HUD_BOOT_2026-04-25.md`

@@ -67,16 +67,16 @@ native init 이미지 플래시/검증 예:
 
 ```bash
 python3 ./scripts/revalidation/native_init_flash.py \
-  stage3/boot_linux_v43.img \
-  --expect-version "A90 Linux init v43"
+  stage3/boot_linux_v44.img \
+  --expect-version "A90 Linux init v44"
 ```
 
 현재 native init에서 recovery로 전환한 뒤 플래시까지 이어가는 예:
 
 ```bash
 python3 ./scripts/revalidation/native_init_flash.py \
-  stage3/boot_linux_v43.img \
-  --expect-version "A90 Linux init v43" \
+  stage3/boot_linux_v44.img \
+  --expect-version "A90 Linux init v44" \
   --from-native
 ```
 
@@ -85,7 +85,7 @@ python3 ./scripts/revalidation/native_init_flash.py \
 ```bash
 python3 ./scripts/revalidation/native_init_flash.py \
   --verify-only \
-  --expect-version "A90 Linux init v43"
+  --expect-version "A90 Linux init v44"
 ```
 
 참고:
