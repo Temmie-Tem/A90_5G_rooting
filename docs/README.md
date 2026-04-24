@@ -8,7 +8,7 @@
 
 상단 `docs/`는 이제 다음 흐름에 필요한 문서를 유지합니다.
 
-1. native init v39 기준 상태 고정
+1. native init v40 기준 상태 고정
 2. shell/HUD/log/menu 운영 안정화
 3. 필요한 하드웨어/커널 경로만 역추적
 4. BusyBox/network/SSH 같은 서버형 확장 가능성 검토
@@ -19,9 +19,9 @@
 - 빌드: `A908NKSU5EWA3`
 - kernel: Samsung stock Android kernel `Linux 4.14.190`
 - recovery: TWRP 사용 가능
-- latest native init: `A90 Linux init v39`
-- latest source: `stage3/linux_init/init_v39.c`
-- latest boot image: `stage3/boot_linux_v39.img`
+- latest native init: `A90 Linux init v40`
+- latest source: `stage3/linux_init/init_v40.c`
+- latest boot image: `stage3/boot_linux_v40.img`
 - control channel: USB CDC ACM serial bridge
 - display: TEST pattern 후 상태 HUD 자동 전환
 - input: VOL+/VOL-/POWER 버튼 확인
@@ -34,15 +34,15 @@
 - `overview/PROGRESS_LOG.md` – 진행 로그
 
 ### 2. Plans
-- `plans/NATIVE_INIT_NEXT_WORK_2026-04-25.md` – v39 이후 역추적/셸/HUD/로그/네트워크 작업 목록
+- `plans/NATIVE_INIT_NEXT_WORK_2026-04-25.md` – v40 이후 역추적/셸/HUD/로그/네트워크 작업 목록
 - `plans/NATIVE_LINUX_RECHALLENGE_PLAN.md` – native init 진입점 확보 이전 로드맵
 - `plans/REVALIDATION_PLAN.md` – 부트체인 재검증 실행 체크리스트와 실험 절차
 - `plans/MINIMAL_BOOT_ALLOWLIST_2026-04-22.txt` – 현재 최소 부팅 allowlist
 - `plans/MINIMAL_BOOT_DELETE_CANDIDATES_2026-04-22.txt` – allowlist 기준 삭제 후보 스냅샷
 
 ### 3. Reports
-- `reports/NATIVE_INIT_V39_STATUS_2026-04-25.md` – v39 기준 최신 native init 상태 보고서
-- `reports/NATIVE_INIT_V40_BUILD_2026-04-25.md` – v40 shell return code 정밀화 빌드 후보
+- `reports/NATIVE_INIT_V40_BUILD_2026-04-25.md` – v40 shell return code 정밀화 실기 검증 보고서
+- `reports/NATIVE_INIT_V39_STATUS_2026-04-25.md` – v39 기준 native init 상태 보고서
 - `reports/BOOTCHAIN_REVALIDATION_MATRIX_2026-04-23.md` – 기본 4조합, KG, fallback, Linux 후보 기록 시트
 - `reports/MINIMAL_BOOT_STATUS_2026-04-22.md` – 최소 부팅 상태와 남은 예외 패키지
 - `reports/ADB_DEBLOAT_RESEARCH_2026-04-22.md` – 패키지별 제거 판단 근거

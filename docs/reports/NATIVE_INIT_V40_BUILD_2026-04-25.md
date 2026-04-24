@@ -1,9 +1,9 @@
-# Native Init v40 Build Candidate (2026-04-25)
+# Native Init v40 Build and Device Verification (2026-04-25)
 
-이 문서는 `A90 Linux init v40` 빌드 후보의 변경점과 실기 검증 항목을 기록한다.
+이 문서는 `A90 Linux init v40`의 변경점, 빌드 산출물, 실기 검증 결과를 기록한다.
 
 `v40`은 새 하드웨어 기능을 늘리는 버전이 아니라,
-`v39` 이후 첫 번째 운영 안정성 작업인 **shell return code 정밀화**를 위한 후보이다.
+`v39` 이후 첫 번째 운영 안정성 작업인 **shell return code 정밀화**를 적용한 버전이다.
 
 ---
 
@@ -145,9 +145,130 @@ aarch64-linux-gnu-strip stage3/linux_init/init_v40
 
 ---
 
+## 실기 검증 결과
+
+검증 상태:
+
+- TWRP recovery ADB로 `stage3/boot_linux_v40.img`를 boot 파티션에 기록
+- `twrp reboot system`으로 native init 부팅
+- USB ACM serial bridge (`127.0.0.1:54321`)로 검증
+- 결과: **PASS**
+
+Flash 기록:
+
+```text
+stage3/boot_linux_v40.img: 1 file pushed
+3356bbec44a68413327a15d95856eea691f08b66814e6ca9925e90ef83be1995  /tmp/boot_linux_v40.img
+50630656 bytes copied
+```
+
+부팅 확인:
+
+```text
+version
+A90 Linux init v40
+kernel: Linux 4.14.190-25818860-abA908NKSU5EWA3 aarch64
+display: 1080x2400 connector=28 crtc=133 fb=207
+[done] version (0ms)
+```
+
+성공 명령 확인:
+
+```text
+status
+[done] status (18ms)
+
+ls /
+[done] ls (1ms)
+
+stat /proc
+[done] stat (0ms)
+
+mounts
+[done] mounts (0ms)
+```
+
+실패 명령 확인:
+
+```text
+cat /definitely-missing
+[err] cat rc=-2 errno=2 (No such file or directory) (0ms)
+
+stat /definitely-missing
+[err] stat rc=-2 errno=2 (No such file or directory) (0ms)
+
+mountsystem nope
+[err] mountsystem rc=-22 errno=22 (Invalid argument) (0ms)
+
+kmssolid nope
+[err] kmssolid rc=-22 errno=22 (Invalid argument) (0ms)
+
+writefile /definitely-missing/path value
+[err] writefile rc=-2 errno=2 (No such file or directory) (0ms)
+
+run /definitely-missing
+[exit 127]
+[err] run rc=127 (1ms)
+
+last
+last: command=run code=127 errno=0 duration=1ms flags=0x2
+[done] last (0ms)
+```
+
+Display/HUD 확인:
+
+```text
+statushud
+[done] statushud (29ms)
+
+clear
+[done] clear (8ms)
+
+autohud 2
+[done] autohud (0ms)
+```
+
+Input/mount/sysfs 확인:
+
+```text
+inputinfo
+[done] inputinfo (1ms)
+
+inputcaps event0
+KEY_VOLUMEDOWN(114)=yes
+KEY_POWER(116)=yes
+[done] inputcaps (0ms)
+
+inputcaps event3
+KEY_VOLUMEUP(115)=yes
+[done] inputcaps (0ms)
+
+kmsprobe
+[done] kmsprobe (0ms)
+
+mountsystem ro
+[done] mountsystem (8ms)
+
+writefile /sys/class/backlight/panel0-backlight/brightness 200
+[done] writefile (2ms)
+```
+
+관찰:
+
+- `writefile`은 현재 `O_WRONLY`로 기존 path를 여는 동작이다.
+  - sysfs/backlight 같은 기존 파일 쓰기는 성공했다.
+  - `/cache/v40_probe`처럼 새 regular file 생성은 실패한다.
+  - 새 파일 생성용 명령은 추후 `touch`/`writefile-create`/로그 구현에서 별도로 다룬다.
+- `waitkey`는 이번 자동 검증에서 제외했다.
+  - 버튼 입력이 필요한 수동 검증 항목으로 유지한다.
+- `kmssolid nope`는 display command라 autohud를 중단하지만,
+  이후 `autohud 2`로 정상 복구됨을 확인했다.
+
+---
+
 ## 실기 검증 체크리스트
 
-TWRP에서 `stage3/boot_linux_v40.img`를 boot 파티션에 기록한 뒤 system boot한다.
+TWRP에서 `stage3/boot_linux_v40.img`를 boot 파티션에 기록한 뒤 system boot했다.
 
 부팅 확인:
 
@@ -232,12 +353,12 @@ waitkey 1
 
 ## 다음 단계
 
-실기에서 v40가 안정적으로 동작하면 다음 순서로 진행한다.
+v40 실기 검증이 통과했으므로 다음 순서로 진행한다.
 
 1. `/cache/native-init.log` 추가
 2. boot readiness timeline 기록
 3. blocking command 취소 정책 통일
 4. HUD boot progress/error 표시
 
-실기에서 regression이 있으면 `v39`를 기준으로 되돌리고,
+추후 regression이 있으면 `v39`를 기준으로 되돌리고,
 해당 명령군만 작은 패치로 분리한다.

@@ -1,6 +1,6 @@
 # Native Init Next Work List (2026-04-25)
 
-이 문서는 `A90 Linux init v39` 이후 작업을 정리한 실행 목록이다.
+이 문서는 `A90 Linux init v40` 이후 작업을 정리한 실행 목록이다.
 
 현재 단계는 넓은 의미의 리버싱도 포함하지만, 중심은 더 이상 Android 전체를
 분해하는 것이 아니다. Stock Android kernel과 Samsung vendor driver 위에서
@@ -118,9 +118,9 @@ Samsung bootloader
 
 ## 현재 기준점
 
-- 최신 확인 버전: `A90 Linux init v39`
-- 최신 소스: `stage3/linux_init/init_v39.c`
-- 최신 boot image: `stage3/boot_linux_v39.img`
+- 최신 확인 버전: `A90 Linux init v40`
+- 최신 소스: `stage3/linux_init/init_v40.c`
+- 최신 boot image: `stage3/boot_linux_v40.img`
 - 주 제어 채널: USB CDC ACM serial (`/dev/ttyGS0` ↔ `/dev/ttyACM0`)
 - host bridge: `scripts/revalidation/serial_tcp_bridge.py --port 54321`
 - 화면 상태: TEST 패턴 약 2초 표시 후 상태 HUD 자동 전환
@@ -129,6 +129,7 @@ Samsung bootloader
 
 상세 상태 문서:
 
+- `docs/reports/NATIVE_INIT_V40_BUILD_2026-04-25.md`
 - `docs/reports/NATIVE_INIT_V39_STATUS_2026-04-25.md`
 
 ---
@@ -144,9 +145,9 @@ Samsung bootloader
 
 현재 상태:
 
-- `init_v40` 빌드 후보에서 1차 구현 완료
+- `init_v40`에서 1차 구현 및 실기 검증 완료
 - 상세 기록: `docs/reports/NATIVE_INIT_V40_BUILD_2026-04-25.md`
-- 실기 flash/serial 검증 대기
+- 다음 작업은 `/cache/native-init.log` 추가
 
 대상:
 

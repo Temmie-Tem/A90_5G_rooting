@@ -14,9 +14,9 @@ Android userspace 대신 직접 만든 static `/init`를 실행하고,
 - build: `A908NKSU5EWA3`
 - kernel: Samsung stock Android kernel `Linux 4.14.190`
 - recovery: TWRP 사용 가능
-- latest native init: `A90 Linux init v39`
-- latest source: `stage3/linux_init/init_v39.c`
-- latest boot image: `stage3/boot_linux_v39.img`
+- latest native init: `A90 Linux init v40`
+- latest source: `stage3/linux_init/init_v40.c`
+- latest boot image: `stage3/boot_linux_v40.img`
 - control channel: USB CDC ACM serial (`/dev/ttyGS0` ↔ `/dev/ttyACM0`)
 - host bridge: `scripts/revalidation/serial_tcp_bridge.py --port 54321`
 - display: KMS TEST pattern 후 상태 HUD 자동 전환
@@ -72,7 +72,7 @@ Samsung bootloader
 ## Repository Layout
 
 - `docs/`
-  현재 문서 인덱스, 프로젝트 상태, v39 상태 보고서, 다음 작업 목록
+  현재 문서 인덱스, 프로젝트 상태, v39/v40 상태 보고서, 다음 작업 목록
 - `stage3/`
   native init 소스, 빌드 산출물, boot image 실험 파일
 - `scripts/`
