@@ -30,6 +30,7 @@
 - boot timeline: `timeline` 명령 확인
 - HUD boot summary: `BOOT OK shell` 표시 확인
 - run cancel: `/bin/a90sleep` helper 확인
+- storage: `/cache` safe write, `userdata` conditional, critical partitions do-not-touch
 - ADB: 보류
 
 ## 현재 작업 문서
@@ -47,6 +48,7 @@
 - `plans/MINIMAL_BOOT_DELETE_CANDIDATES_2026-04-22.txt` – allowlist 기준 삭제 후보 스냅샷
 
 ### 3. Reports
+- `reports/NATIVE_INIT_STORAGE_MAP_2026-04-25.md` – v46 저장소/파티션 안전 등급 보고서
 - `reports/NATIVE_INIT_V45_RUN_LOG_2026-04-25.md` – v45 `run` cancel과 log preservation 실기 검증 보고서
 - `reports/NATIVE_INIT_V44_HUD_BOOT_2026-04-25.md` – v44 HUD boot summary 실기 검증 보고서
 - `reports/NATIVE_INIT_V43_TIMELINE_2026-04-25.md` – v43 boot readiness timeline 실기 검증 보고서
@@ -71,8 +73,9 @@
 4. boot readiness timeline 자동 기록 — v43 완료
 5. HUD boot progress/error 표시 — v44 완료
 6. recovery log preservation + `run` cancel helper — v45 완료
-7. on-screen menu 초안
-8. safe storage/device/sysfs map 문서화
+7. safe storage/partition map 문서화 — v46 완료
+8. on-screen menu 초안
+9. USB gadget/device/sysfs map 문서화
 
 패키지 최소화와 Android userspace 복구는 보조 실험으로만 다루고,
 메인 목표는 **Android kernel 위에 반복 운용 가능한 native init 기반 최소 Linux 콘솔을 만드는 것**입니다.

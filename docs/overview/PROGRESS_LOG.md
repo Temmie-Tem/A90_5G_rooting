@@ -248,3 +248,22 @@
   - v44 boot log와 v45 boot log가 같은 파일에 append됨
 - 상세 보고서:
   - `docs/reports/NATIVE_INIT_V45_RUN_LOG_2026-04-25.md`
+
+### Native init v46 storage / partition map
+- `v45` 실기 관찰값과 baseline by-name listing을 묶어 저장소 안전 등급을 정리
+- 확인된 현재 persistent write 영역:
+  - `/cache` → `cache -> /dev/block/sda31`, ext4 rw, native init log 저장소로 검증 완료
+- 대용량 후보:
+  - `userdata -> /dev/block/sda33`, 약 110 GiB
+  - Android FBE/user data와 엮여 있어 백업/포맷 의사결정 전까지 보류
+  - `mmcblk0p1`, 약 59.6 GiB, by-name mapping 없음, 정체 확인 전까지 보류
+- do-not-touch 영역:
+  - `efs`, `sec_efs`, modem/modemst/fsg 계열
+  - `persist`, `param`, `misc`
+  - `keydata`, `keyrefuge`, `keymaster`, `keystore`, `storsec`, `secdata`
+  - `xbl`, `abl`, `tz`, `hyp`, `cmnlib`, `vbmeta` 등 boot/security 계열
+- 설계 규칙:
+  - 파티션은 by-name과 `/sys/class/block/<name>/dev` 기준으로 식별
+  - major/minor는 v41 cache mount 실패 사례 때문에 hardcode 금지
+- 상세 보고서:
+  - `docs/reports/NATIVE_INIT_STORAGE_MAP_2026-04-25.md`

@@ -26,6 +26,7 @@ Android userspace 대신 직접 만든 static `/init`를 실행하고,
 - boot timeline: `timeline` 명령과 log replay 확인
 - HUD boot summary: `BOOT OK shell` 표시 확인
 - run cancel: `/bin/a90sleep` helper로 q 취소 확인
+- storage: `/cache` safe write, `userdata` conditional, critical partitions do-not-touch
 - ADB: 보류. 현재 기준 제어 채널은 serial bridge
 
 ## Current Objective
@@ -71,9 +72,10 @@ Samsung bootloader
 4. boot readiness timeline 자동 기록 — v43 완료
 5. HUD에 boot progress/error 상태 표시 — v44 완료
 6. recovery log preservation + `run` cancel helper — v45 완료
-7. 버튼 기반 on-screen menu 초안 구현
-8. safe storage/device/sysfs map 문서화
-9. BusyBox와 USB network/SSH 가능성 검토
+7. safe storage/partition map 문서화 — v46 완료
+8. 버튼 기반 on-screen menu 초안 구현
+9. USB gadget/device/sysfs map 문서화
+10. BusyBox와 USB network/SSH 가능성 검토
 
 ## Repository Layout
 
@@ -97,6 +99,7 @@ Samsung bootloader
 - `docs/reports/NATIVE_INIT_V43_TIMELINE_2026-04-25.md`
 - `docs/reports/NATIVE_INIT_V44_HUD_BOOT_2026-04-25.md`
 - `docs/reports/NATIVE_INIT_V45_RUN_LOG_2026-04-25.md`
+- `docs/reports/NATIVE_INIT_STORAGE_MAP_2026-04-25.md`
 - `docs/reports/NATIVE_INIT_V41_LOGGING_2026-04-25.md`
 - `docs/reports/NATIVE_INIT_V39_STATUS_2026-04-25.md`
 - `docs/plans/NATIVE_INIT_NEXT_WORK_2026-04-25.md`
@@ -118,6 +121,7 @@ Samsung bootloader
 - USB ACM serial bridge를 기준 제어 채널로 사용한다.
 - `/efs`, modem, RPMB, keymaster, keystore, bootloader 계열에는 쓰기 작업을 하지 않는다.
 - `/data` 암호화 영역은 명확한 목적과 복구 계획 없이는 건드리지 않는다.
+- 파티션은 by-name과 `/sys/class/block/<name>/dev` 기준으로 식별하고 major/minor를 hardcode하지 않는다.
 - 로그와 실험 산출물은 우선 `/cache` 또는 repo 문서에 남긴다.
 - ADB 안정화는 후순위로 두고, serial/HUD/log/menu 안정화를 먼저 진행한다.
 

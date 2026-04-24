@@ -18,6 +18,7 @@
   - HUD boot summary
   - `run` cancel helper
   - recovery log preservation
+  - safe storage/partition map
   - KMS HUD
   - VOL+/VOL-/POWER input
 
@@ -82,7 +83,7 @@
 - `logcat` — PASS
 - TWRP 왕복 후 log 보존 — PASS
 
-### V46. Safe Storage / Device Map Report
+### V46. Safe Storage / Partition Map Report — 완료
 
 목표:
 
@@ -99,6 +100,13 @@
 산출:
 
 - `docs/reports/NATIVE_INIT_STORAGE_MAP_2026-04-25.md`
+
+결론:
+
+- `/cache`는 native init log와 작은 도구를 둘 수 있는 1차 persistent safe write 영역
+- `userdata`는 약 110 GiB 대용량 후보지만 Android FBE/user data와 엮여 있어 별도 백업/포맷 계획 전까지 보류
+- `efs`, `sec_efs`, modem, persist, key/security, vbmeta, bootloader 계열은 do-not-touch
+- block major/minor는 부팅마다 달라질 수 있으므로 by-name 또는 `/sys/class/block/<name>/dev` 기준으로 식별
 
 ### V47. On-screen Menu Draft
 
@@ -128,6 +136,7 @@
 
 ## 지금 바로 진행할 항목
 
-1. V46 Safe Storage / Device Map Report
-2. V47 On-screen Menu Draft
+1. V47 On-screen Menu Draft
+2. USB gadget map report
 3. BusyBox/static userland 후보 검토
+4. `userdata`/`mmcblk0p1` 장기 저장소 후보 의사결정

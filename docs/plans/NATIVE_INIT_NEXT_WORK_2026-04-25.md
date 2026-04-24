@@ -45,6 +45,7 @@ Samsung bootloader
 - serial shell이 성공/실패를 신뢰 가능하게 보고한다.
 - 외부 static binary를 실행하고 exit status를 확인할 수 있다.
 - `/cache` 같은 안전한 저장소에 로그와 도구를 둘 수 있다.
+- 파티션별 안전 등급을 구분해 Android/identity/security 영역을 실수로 덮어쓰지 않는다.
 - 버튼만으로 최소한의 상태 확인과 recovery/poweroff 조작이 가능하다.
 - 추후 USB network와 SSH/dropbear를 붙일 수 있는 runtime 구조를 가진다.
 
@@ -94,7 +95,7 @@ Samsung bootloader
 - `/cache/native-init.log` — v41 완료
 - boot readiness timeline — v43 완료
 - HUD boot progress/error 표시 — v44 완료
-- safe storage map 문서화
+- safe storage/partition map 문서화 — v46 완료
 
 ### M3. 단독 운용 가능한 device UI
 
@@ -130,11 +131,13 @@ Samsung bootloader
 - timeline 상태: `timeline` 명령과 `/cache/native-init.log` replay 확인
 - HUD 상태: `BOOT OK shell` summary 표시 확인
 - run/log 상태: `/bin/a90sleep` q 취소와 recovery 왕복 log preservation 확인
+- storage 상태: `/cache` safe write, `userdata` conditional, critical partitions do-not-touch 기준 문서화
 - ADB 상태: 보류
 
 상세 상태 문서:
 
 - `docs/reports/NATIVE_INIT_V45_RUN_LOG_2026-04-25.md`
+- `docs/reports/NATIVE_INIT_STORAGE_MAP_2026-04-25.md`
 - `docs/reports/NATIVE_INIT_V44_HUD_BOOT_2026-04-25.md`
 - `docs/reports/NATIVE_INIT_V43_TIMELINE_2026-04-25.md`
 - `docs/reports/NATIVE_INIT_V42_CANCEL_2026-04-25.md`
@@ -394,6 +397,13 @@ Samsung bootloader
 목표:
 
 - native init에서 안전하게 읽고 쓸 수 있는 저장소를 구분한다.
+
+현재 상태:
+
+- `docs/reports/NATIVE_INIT_STORAGE_MAP_2026-04-25.md`로 v46 기준 1차 문서화 완료
+- `/cache`는 persistent safe write로 사용
+- `userdata`는 대용량 후보지만 Android FBE/user data와 엮여 있어 별도 의사결정 전까지 보류
+- `efs`, `sec_efs`, modem, persist, key/security, vbmeta, bootloader 계열은 do-not-touch
 
 후보:
 
@@ -663,9 +673,9 @@ Samsung bootloader
 상세 실행 큐는 `docs/plans/NATIVE_INIT_TASK_QUEUE_2026-04-25.md`를 따른다.
 
 1. on-screen menu 초안
-2. safe storage map report 작성
-3. USB gadget map report 작성
-4. BusyBox/static userland 후보 검토
+2. USB gadget map report 작성
+3. BusyBox/static userland 후보 검토
+4. `userdata`/`mmcblk0p1` 장기 저장소 후보 의사결정
 
 ---
 

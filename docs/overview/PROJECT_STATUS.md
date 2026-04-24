@@ -128,7 +128,9 @@
 - HUD 상태: `BOOT OK shell` summary 표시와 `statushud` draw 확인
 - run 상태: `/bin/a90sleep` helper로 `run` q 취소 확인
 - log 보존: native init → recovery → native init 왕복 후 v44/v45 log append 확인
-- 상세 최신 상태: `docs/reports/NATIVE_INIT_V45_RUN_LOG_2026-04-25.md`
+- storage 상태: `/cache` safe write, `userdata` conditional, critical partitions do-not-touch 기준 문서화
+- 상세 최신 상태: `docs/reports/NATIVE_INIT_STORAGE_MAP_2026-04-25.md`
+- v45 run/log preservation 기록: `docs/reports/NATIVE_INIT_V45_RUN_LOG_2026-04-25.md`
 - v44 HUD boot summary 기록: `docs/reports/NATIVE_INIT_V44_HUD_BOOT_2026-04-25.md`
 - v43 boot timeline 기록: `docs/reports/NATIVE_INIT_V43_TIMELINE_2026-04-25.md`
 - v42 blocking cancel 기록: `docs/reports/NATIVE_INIT_V42_CANCEL_2026-04-25.md`
