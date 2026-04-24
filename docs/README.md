@@ -32,6 +32,7 @@
 - run cancel: `/bin/a90sleep` helper 확인
 - storage: `/cache` safe write, `userdata` conditional, critical partitions do-not-touch
 - screen menu: `menu`/`screenmenu` 화면 진입과 q 취소 확인
+- USB map: ACM-only gadget `04e8:6861` / host `cdc_acm` 기준 문서화
 - ADB: 보류
 
 ## 현재 작업 문서
@@ -49,6 +50,7 @@
 - `plans/MINIMAL_BOOT_DELETE_CANDIDATES_2026-04-22.txt` – allowlist 기준 삭제 후보 스냅샷
 
 ### 3. Reports
+- `reports/NATIVE_INIT_USB_GADGET_MAP_2026-04-25.md` – USB gadget/host descriptor/ADB·network 후보 지도
 - `reports/NATIVE_INIT_V47_SCREEN_MENU_2026-04-25.md` – v47 화면 메뉴 초안 실기 검증 보고서
 - `reports/NATIVE_INIT_STORAGE_MAP_2026-04-25.md` – v46 저장소/파티션 안전 등급 보고서
 - `reports/NATIVE_INIT_V45_RUN_LOG_2026-04-25.md` – v45 `run` cancel과 log preservation 실기 검증 보고서
@@ -77,7 +79,7 @@
 6. recovery log preservation + `run` cancel helper — v45 완료
 7. safe storage/partition map 문서화 — v46 완료
 8. on-screen menu 초안 — v47 완료
-9. USB gadget/device/sysfs map 문서화
+9. USB gadget/device/sysfs map 문서화 — 완료
 
 패키지 최소화와 Android userspace 복구는 보조 실험으로만 다루고,
 메인 목표는 **Android kernel 위에 반복 운용 가능한 native init 기반 최소 Linux 콘솔을 만드는 것**입니다.

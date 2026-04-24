@@ -133,6 +133,7 @@ Samsung bootloader
 - run/log 상태: `/bin/a90sleep` q 취소와 recovery 왕복 log preservation 확인
 - storage 상태: `/cache` safe write, `userdata` conditional, critical partitions do-not-touch 기준 문서화
 - screen menu 상태: `menu`/`screenmenu` 화면 진입과 q 취소 확인
+- USB 상태: ACM-only gadget `04e8:6861` / host `cdc_acm` 기준 문서화
 - ADB 상태: 보류
 
 상세 상태 문서:
@@ -140,6 +141,7 @@ Samsung bootloader
 - `docs/reports/NATIVE_INIT_V45_RUN_LOG_2026-04-25.md`
 - `docs/reports/NATIVE_INIT_STORAGE_MAP_2026-04-25.md`
 - `docs/reports/NATIVE_INIT_V47_SCREEN_MENU_2026-04-25.md`
+- `docs/reports/NATIVE_INIT_USB_GADGET_MAP_2026-04-25.md`
 - `docs/reports/NATIVE_INIT_V44_HUD_BOOT_2026-04-25.md`
 - `docs/reports/NATIVE_INIT_V43_TIMELINE_2026-04-25.md`
 - `docs/reports/NATIVE_INIT_V42_CANCEL_2026-04-25.md`
@@ -436,6 +438,14 @@ Samsung bootloader
 
 - 현재 안정적인 ACM serial을 기준으로, 추후 네트워크/ADB 가능성을 판단할 자료를 만든다.
 
+현재 상태:
+
+- `docs/reports/NATIVE_INIT_USB_GADGET_MAP_2026-04-25.md`로 1차 문서화 완료
+- 현재 active gadget은 ACM-only
+- host descriptor는 CDC ACM control/data 2-interface만 노출
+- ADB는 FunctionFS `ep0 only`/`adbd` zombie 문제가 blocker
+- USB networking은 ACM rescue channel 유지 후 두 번째 function으로 probe 예정
+
 확인 항목:
 
 - configfs gadget path
@@ -681,8 +691,8 @@ Samsung bootloader
 
 상세 실행 큐는 `docs/plans/NATIVE_INIT_TASK_QUEUE_2026-04-25.md`를 따른다.
 
-1. USB gadget map report 작성
-2. BusyBox/static userland 후보 검토
+1. BusyBox/static userland 후보 검토
+2. USB networking function probe
 3. `userdata`/`mmcblk0p1` 장기 저장소 후보 의사결정
 4. screen menu 버튼 수동 검증
 

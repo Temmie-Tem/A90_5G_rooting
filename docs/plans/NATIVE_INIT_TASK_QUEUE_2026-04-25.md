@@ -20,6 +20,7 @@
   - recovery log preservation
   - safe storage/partition map
   - screen menu draft
+  - USB gadget map
   - KMS HUD
   - VOL+/VOL-/POWER input
 
@@ -133,6 +134,25 @@
 
 - `docs/reports/NATIVE_INIT_V47_SCREEN_MENU_2026-04-25.md`
 
+### V48. USB Gadget Map Report — 완료
+
+목표:
+
+- 현재 USB ACM serial 제어 채널을 기준점으로 고정한다.
+- ADB와 USB networking 후보를 분리해 다음 실험 순서를 정한다.
+
+확인:
+
+- device-side configfs 구성은 `g1` + `acm.usb0` + `a600000.dwc3`
+- host-side descriptor는 `04e8:6861`, CDC ACM control/data 2-interface
+- host driver는 `cdc_acm`, 노드는 `/dev/ttyACM0`
+- ADB는 `ffs.adb`/FunctionFS 경로가 있으나 `adbd` zombie와 `ep0 only`가 blocker
+- USB networking은 ACM rescue channel 유지 후 두 번째 function으로 추가하는 방향
+
+산출:
+
+- `docs/reports/NATIVE_INIT_USB_GADGET_MAP_2026-04-25.md`
+
 ## 보류 큐
 
 - ADB 안정화 재검토
@@ -143,7 +163,7 @@
 
 ## 지금 바로 진행할 항목
 
-1. USB gadget map report
-2. BusyBox/static userland 후보 검토
+1. BusyBox/static userland 후보 검토
+2. USB networking function probe
 3. `userdata`/`mmcblk0p1` 장기 저장소 후보 의사결정
 4. screen menu 버튼 수동 검증

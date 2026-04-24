@@ -130,7 +130,9 @@
 - log 보존: native init → recovery → native init 왕복 후 v44/v45/v47 log append 확인
 - storage 상태: `/cache` safe write, `userdata` conditional, critical partitions do-not-touch 기준 문서화
 - screen menu 상태: `menu`/`screenmenu` 화면 진입과 q 취소 확인
+- USB 상태: ACM-only gadget `04e8:6861` / host `cdc_acm` 기준 문서화
 - 상세 최신 상태: `docs/reports/NATIVE_INIT_V47_SCREEN_MENU_2026-04-25.md`
+- USB gadget map 기록: `docs/reports/NATIVE_INIT_USB_GADGET_MAP_2026-04-25.md`
 - v46 storage map 기록: `docs/reports/NATIVE_INIT_STORAGE_MAP_2026-04-25.md`
 - v45 run/log preservation 기록: `docs/reports/NATIVE_INIT_V45_RUN_LOG_2026-04-25.md`
 - v44 HUD boot summary 기록: `docs/reports/NATIVE_INIT_V44_HUD_BOOT_2026-04-25.md`

@@ -297,3 +297,25 @@
   - `RECOVERY`, `REBOOT`, `POWEROFF` 위험 동작은 필요 시 별도 확인
 - 상세 보고서:
   - `docs/reports/NATIVE_INIT_V47_SCREEN_MENU_2026-04-25.md`
+
+### Native init USB gadget map
+- `init_v47` 기준 USB gadget 구성을 문서화:
+  - configfs gadget: `g1`
+  - function: `acm.usb0`
+  - config symlink: `configs/b.1/f1 -> functions/acm.usb0`
+  - UDC: `a600000.dwc3`
+  - VID/PID: `04e8:6861`
+- host 관찰:
+  - `/dev/ttyACM0`
+  - driver `cdc_acm`
+  - negotiated speed SuperSpeed 5Gbps
+  - CDC ACM control/data 2-interface만 노출
+- ADB 판단:
+  - `startadbd`는 `ffs.adb`와 FunctionFS mount 경로를 갖고 있음
+  - 과거 실측 기준 `ep0 only`, `ep1/ep2 missing`, `adbd zombie`가 blocker
+  - Android property/SELinux/bionic/apex runtime 없이 adbd 단독 안정화는 후순위
+- USB networking 판단:
+  - 다음 확장 후보는 `rndis.usb0`, `ncm.usb0`, `ecm.usb0`
+  - ACM serial은 rescue/control channel로 유지한 채 두 번째 function으로 probe해야 함
+- 상세 보고서:
+  - `docs/reports/NATIVE_INIT_USB_GADGET_MAP_2026-04-25.md`
