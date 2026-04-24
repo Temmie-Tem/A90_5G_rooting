@@ -29,6 +29,7 @@
 
 ### 2. Plans
 - `plans/NATIVE_LINUX_RECHALLENGE_PLAN.md` – 이번 목표를 짧게 고정한 개요형 로드맵
+- `plans/NATIVE_INIT_NEXT_WORK_2026-04-25.md` – v39 이후 역추적/셸/HUD/로그/네트워크 작업 목록
 - `plans/REVALIDATION_PLAN.md` – 단계 1~3 실행 체크리스트와 실험 절차
 - `plans/MINIMAL_BOOT_ALLOWLIST_2026-04-22.txt` – 현재 최소 부팅 allowlist
 - `plans/MINIMAL_BOOT_DELETE_CANDIDATES_2026-04-22.txt` – allowlist 기준 삭제 후보 스냅샷

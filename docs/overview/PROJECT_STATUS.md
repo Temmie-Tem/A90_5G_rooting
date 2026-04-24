@@ -123,6 +123,7 @@
 - 최신 실기 확인: `stage3/boot_linux_v39.img` (`A90 Linux init v39`)
 - 부팅 흐름: TEST 패턴 약 2초 → 상태 HUD 자동 전환 → USB ACM serial shell
 - 상세 최신 상태: `docs/reports/NATIVE_INIT_V39_STATUS_2026-04-25.md`
+- 다음 작업 목록: `docs/plans/NATIVE_INIT_NEXT_WORK_2026-04-25.md`
 - 복구: `backups/baseline_a_20260423_030309/boot.img` dd 복구 가능
 
 ## Stage 3 달성 사항 (2026-04-23)
