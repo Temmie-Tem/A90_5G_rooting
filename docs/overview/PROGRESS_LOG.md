@@ -177,3 +177,23 @@
   - `mountsystem ro` 성공
 - 상세 보고서:
   - `docs/reports/NATIVE_INIT_V41_LOGGING_2026-04-25.md`
+
+### Native init v42 blocking cancel
+- `v42`에서 blocking command 취소 정책 추가:
+  - `q`/`Q`는 soft cancel
+  - `Ctrl-C`는 hard cancel
+  - shell result는 `-ECANCELED` (`errno=125`)로 기록
+- 실기 검증 완료:
+  - `waitkey 10` + `q`
+  - `readinput event0 100` + `q`
+  - `watchhud 1 10` + `q`
+  - `blindmenu` + `q`
+  - `waitkey 10` + `Ctrl-C`
+- 확인된 후속 상태:
+  - 취소 후 `last`, `status` 정상
+  - `autohud 2`로 HUD 복구 성공
+  - `/cache/native-init.log`에 `cancel: ... soft q`, `cancel: ... hard Ctrl-C` 기록
+- `run`/`runandroid`에는 cancelable child wait를 넣었지만,
+  안전한 long-running static test binary가 없어 실기 cancel은 다음 작업으로 남김
+- 상세 보고서:
+  - `docs/reports/NATIVE_INIT_V42_CANCEL_2026-04-25.md`

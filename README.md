@@ -14,14 +14,15 @@ Android userspace 대신 직접 만든 static `/init`를 실행하고,
 - build: `A908NKSU5EWA3`
 - kernel: Samsung stock Android kernel `Linux 4.14.190`
 - recovery: TWRP 사용 가능
-- latest native init: `A90 Linux init v41`
-- latest source: `stage3/linux_init/init_v41.c`
-- latest boot image: `stage3/boot_linux_v41.img`
+- latest native init: `A90 Linux init v42`
+- latest source: `stage3/linux_init/init_v42.c`
+- latest boot image: `stage3/boot_linux_v42.img`
 - control channel: USB CDC ACM serial (`/dev/ttyGS0` ↔ `/dev/ttyACM0`)
 - host bridge: `scripts/revalidation/serial_tcp_bridge.py --port 54321`
 - display: KMS TEST pattern 후 상태 HUD 자동 전환
 - input: VOL+/VOL-/POWER 버튼 입력 확인
 - logging: `/cache/native-init.log` boot/command log 확인
+- blocking cancel: `waitkey`/`readinput`/`watchhud`/`blindmenu` q/Ctrl-C 취소 확인
 - ADB: 보류. 현재 기준 제어 채널은 serial bridge
 
 ## Current Objective
@@ -63,7 +64,7 @@ Samsung bootloader
 
 1. shell result/return code를 신뢰 가능하게 정리 — v40 완료
 2. `/cache/native-init.log` 기반 boot/command 로그 추가 — v41 완료
-3. blocking command 취소 정책 통일
+3. blocking command 취소 정책 통일 — v42 완료
 4. boot readiness timeline 자동 기록
 5. HUD에 boot progress/error 상태 표시
 6. 버튼 기반 on-screen menu 초안 구현
@@ -73,7 +74,7 @@ Samsung bootloader
 ## Repository Layout
 
 - `docs/`
-  현재 문서 인덱스, 프로젝트 상태, v39/v40/v41 상태 보고서, 다음 작업 목록
+  현재 문서 인덱스, 프로젝트 상태, v39/v40/v41/v42 상태 보고서, 다음 작업 목록
 - `stage3/`
   native init 소스, 빌드 산출물, boot image 실험 파일
 - `scripts/`
@@ -88,6 +89,7 @@ Samsung bootloader
 ## Active Documents
 
 - `docs/overview/PROJECT_STATUS.md`
+- `docs/reports/NATIVE_INIT_V42_CANCEL_2026-04-25.md`
 - `docs/reports/NATIVE_INIT_V41_LOGGING_2026-04-25.md`
 - `docs/reports/NATIVE_INIT_V39_STATUS_2026-04-25.md`
 - `docs/plans/NATIVE_INIT_NEXT_WORK_2026-04-25.md`

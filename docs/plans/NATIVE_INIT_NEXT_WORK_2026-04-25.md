@@ -1,6 +1,6 @@
 # Native Init Next Work List (2026-04-25)
 
-이 문서는 `A90 Linux init v41` 기준 이후 작업을 정리한 실행 목록이다.
+이 문서는 `A90 Linux init v42` 기준 이후 작업을 정리한 실행 목록이다.
 
 현재 단계는 넓은 의미의 리버싱도 포함하지만, 중심은 더 이상 Android 전체를
 분해하는 것이 아니다. Stock Android kernel과 Samsung vendor driver 위에서
@@ -86,7 +86,7 @@ Samsung bootloader
 
 - shell return code 정밀화 — v40 완료
 - command duration/result/errno 기록 — v40/v41 완료
-- blocking command 취소 정책 통일
+- blocking command 취소 정책 통일 — v42 완료
 - serial 반향/prompt 오염 방어
 
 ### M2. 관찰 가능한 boot/runtime
@@ -118,18 +118,20 @@ Samsung bootloader
 
 ## 현재 기준점
 
-- 최신 확인 버전: `A90 Linux init v41`
-- 최신 소스: `stage3/linux_init/init_v41.c`
-- 최신 boot image: `stage3/boot_linux_v41.img`
+- 최신 확인 버전: `A90 Linux init v42`
+- 최신 소스: `stage3/linux_init/init_v42.c`
+- 최신 boot image: `stage3/boot_linux_v42.img`
 - 주 제어 채널: USB CDC ACM serial (`/dev/ttyGS0` ↔ `/dev/ttyACM0`)
 - host bridge: `scripts/revalidation/serial_tcp_bridge.py --port 54321`
 - 화면 상태: TEST 패턴 약 2초 표시 후 상태 HUD 자동 전환
 - 버튼 상태: VOL+/VOL-/POWER 입력 확인
 - 로그 상태: `/cache/native-init.log` boot/command log 확인
+- blocking 상태: `waitkey`/`readinput`/`watchhud`/`blindmenu` q/Ctrl-C 취소 확인
 - ADB 상태: 보류
 
 상세 상태 문서:
 
+- `docs/reports/NATIVE_INIT_V42_CANCEL_2026-04-25.md`
 - `docs/reports/NATIVE_INIT_V41_LOGGING_2026-04-25.md`
 - `docs/reports/NATIVE_INIT_V40_BUILD_2026-04-25.md`
 - `docs/reports/NATIVE_INIT_V39_STATUS_2026-04-25.md`
@@ -237,11 +239,23 @@ Samsung bootloader
 - `Ctrl-C`: 강제 취소
 - timeout 옵션: 선택적 지원
 
+현재 상태:
+
+- `init_v42`에서 공통 cancel helper 구현 및 실기 검증 완료
+- 상세 기록: `docs/reports/NATIVE_INIT_V42_CANCEL_2026-04-25.md`
+- `q`/`Ctrl-C`는 `-ECANCELED` (`errno=125`)로 `last`와 log에 남김
+- 실기 검증 완료:
+  - `waitkey`
+  - `readinput`
+  - `watchhud`
+  - `blindmenu`
+- `run`/`runandroid` cancelable child wait는 구현됐지만, 안전한 long-running static test binary가 없어 실기 cancel은 보류
+
 검증:
 
-- 각 blocking 명령에서 `q`로 prompt 복귀
-- `Ctrl-C` 입력 후 prompt 복귀
-- 취소 후 `status`, `last`, `help`가 정상 동작
+- 각 blocking 명령에서 `q`로 prompt 복귀 — 부분 완료
+- `Ctrl-C` 입력 후 prompt 복귀 — `waitkey` 완료
+- 취소 후 `status`, `last`, `help`가 정상 동작 — 완료
 
 ---
 
@@ -633,10 +647,10 @@ Samsung bootloader
 
 ## 당장 다음 실행 순서
 
-1. blocking command 취소 정책 통일
-2. boot readiness timeline 자동 기록
-3. HUD boot progress/error 표시
-4. recovery 왕복 후 `/cache/native-init.log` 보존 확인
+1. boot readiness timeline 자동 기록
+2. HUD boot progress/error 표시
+3. recovery 왕복 후 `/cache/native-init.log` 보존 확인
+4. `run` cancel 검증용 static helper 준비
 5. on-screen menu 초안
 6. safe storage map report 작성
 7. USB gadget map report 작성
