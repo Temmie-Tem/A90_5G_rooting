@@ -120,25 +120,75 @@
 ## 현재 폰 상태
 
 - patched AP (Magisk 30.7) + **TWRP recovery**
-- Stage 0 / 1(row 2,4) / 2 / 3(Priority 1) 완료.
+- boot: `stage3/boot_linux_v22.img` (init_v22, USB ACM serial shell + KMS display)
+- 복구: `backups/baseline_a_20260423_030309/boot.img` dd 복구 가능
 
 ## Stage 3 달성 사항 (2026-04-23)
 
-**native Linux init 진입 성공**
+### 3-1. native Linux init 진입 (초기)
 
-- `aarch64-linux-gnu-gcc -static` 으로 빌드한 663KB init 바이너리를 ramdisk에 탑재
+- `aarch64-linux-gnu-gcc -static` 으로 빌드한 static init 바이너리를 ramdisk에 탑재
 - Android kernel이 우리 init을 pid 1로 실행
 - proc / sys / devtmpfs / ext4(/dev/block/sda31) 마운트 성공
-- `/cache/linux_init_ran = "ok"` 기록 확인
 - 핵심 우회: devtmpfs async 초기화 문제를 `mknod(makedev(259,15))` 로 해결
 
-## 다음 세션 작업
+### 3-2. USB ACM serial console + 인터랙티브 셸 (v8~v22)
 
-**목표**: Linux init에서 ADB 연결 유지 → 인터랙티브 Linux 셸
+**현재 버전**: `init_v22` (`stage3/boot_linux_v22.img`)
 
-**접근법**:
-1. init에서 USB ADB gadget 활성화 (`/sys/class/android_usb` 또는 configfs)
-2. Android의 `/system/bin/adbd`를 static으로 대체하거나 dropbear/telnetd 사용
-3. 또는 TWRP ADB를 활용한 관찰 채널 확보
+ADB 방식이 막혀 USB CDC ACM serial (ttyGS0)로 전환, 인터랙티브 셸 확보:
 
-**복구**: 항상 `backups/baseline_a_20260423_030309/boot.img` dd 복구 가능
+- USB gadget: configfs `acm.usb0` function, UDC `a600000.dwc3`
+- host 측: `/dev/ttyACM0` → `serial_tcp_bridge.py` → `127.0.0.1:54321` TCP
+- 셸 명령: help / uname / pwd / cd / ls / cat / stat / mounts / mountsystem / prepareandroid / inputinfo / inputcaps / readinput / waitkey / blindmenu / drminfo / fbinfo / kmsprobe / kmssolid / kmsframe / mkdir / mknodc / mknodb / mountfs / umount / echo / writefile / run / runandroid / startadbd / stopadbd / sync / reboot / recovery / poweroff
+
+**v15 → v22 주요 추가:**
+- DRM/KMS 직접 제어: `drm.h` / `drm_mode.h` ioctl 기반 (`CREATE_DUMB`, `ADDFB`, `MAP_DUMB`, `SETCRTC`)
+- 부팅 시 DRM/fb 노드 자동 생성 (`prepare_early_display_environment`)
+- `boot_auto_frame()`: ttyGS0 연결 후 자동으로 화면에 어두운 배경+테두리 표시
+- `kmssolid [color]`: 단색으로 화면 채우기 (black/white/red/green/blue/gray/0xRRGGBB)
+- `kmsframe`: 어두운 배경 + 테두리 프레임 렌더링
+- `kmsprobe`: DRM capabilities 및 connector/encoder/crtc 탐색
+- `drminfo`, `fbinfo`: sysfs 기반 DRM/framebuffer 정보 조회
+
+**확보된 관찰/제어 범위** (probe 결과 기준):
+
+| 항목 | 상태 |
+|---|---|
+| USB ACM serial 제어채널 | 작동 |
+| 인터랙티브 셸 | 작동 |
+| /proc, /sys, /dev 마운트 | 작동 |
+| /cache (ext4) 마운트 | 작동 |
+| /mnt/system (sda28, ext4 ro) | 작동 (`mountsystem`) |
+| system-as-root 구조 탐색 | 작동 (`prepareandroid`) |
+| 물리 버튼 입력 (power/vol+/vol-) | 작동 (`waitkey`, `blindmenu`) |
+| backlight sysfs 제어 | 작동 (`writefile /sys/class/backlight/...`) |
+| DRM/KMS ioctl (dumb buffer + SETCRTC) | **작동** — 실화면 출력 확인 (`kmssolid`, `kmsframe`) |
+| 부팅 시 자동 화면 표시 | **작동** — ttyGS0 연결 후 자동 렌더링 확인 |
+| 커널 정보 | Linux 4.14.190, SM8150, 8코어, RAM 5.2GB free |
+| ADB (adbd) | **미작동** (zombie, ep1/ep2 미생성) |
+
+**버튼 매핑** (확인됨):
+
+| event | device | keys |
+|---|---|---|
+| event0 | qpnp_pon | KEY_POWER, KEY_VOLUMEDOWN |
+| event3 | gpio_keys | KEY_VOLUMEUP |
+
+### 3-3. ADB 상태
+
+- adbd: zombie 상태로 종료
+- FunctionFS: ep0만 생성, ep1/ep2 미생성
+- 원인: descriptors 등록 전 adbd 종료 (Android runtime/SELinux/property 없이 adbd 단독 실행 불안정)
+- 현재 방향: ACM serial을 주 채널로 유지, ADB는 `startadbd` 셸 명령으로 재시도 가능 상태로 대기
+
+## 다음 후보 작업
+
+우선순위 순:
+
+1. **USB networking (RNDIS/NCM) + SSH** — ADB 없이 더 범용적인 네트워크 채널 확보
+2. **adbd 안정화** — descriptors 직접 작성 또는 Android bionic 환경 보강
+3. **DRM/framebuffer probe** — `/dev/dri` 노드 생성 및 화면 출력 시도
+4. **prepareandroid idempotency 정리** — bind mount 중복 방지
+
+**복구**: `backups/baseline_a_20260423_030309/boot.img` dd 복구 가능
