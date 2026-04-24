@@ -267,3 +267,33 @@
   - major/minor는 v41 cache mount 실패 사례 때문에 hardcode 금지
 - 상세 보고서:
   - `docs/reports/NATIVE_INIT_STORAGE_MAP_2026-04-25.md`
+
+### Native init v47 screen menu
+- `v47`에서 KMS 기반 화면 메뉴 초안 추가:
+  - `menu`
+  - `screenmenu`
+  - 기존 `blindmenu`는 serial-only fallback으로 유지
+- 메뉴 항목:
+  - `RESUME`
+  - `STATUS`
+  - `LOG`
+  - `RECOVERY`
+  - `REBOOT`
+  - `POWEROFF`
+- 조작 정책:
+  - VOLUP: 이전 항목
+  - VOLDOWN: 다음 항목
+  - POWER: 선택
+  - serial `q`/Ctrl-C: cancel
+- 실기 검증 완료:
+  - `stage3/boot_linux_v47.img` 플래시
+  - `version` → `A90 Linux init v47`
+  - `menu` 진입 → `screenmenu` framebuffer present
+  - serial `q` cancel → `errno=125`
+  - cancel 후 `status`에서 `autohud: running` 확인
+- 남은 수동 검증:
+  - 실제 버튼으로 메뉴 이동/선택
+  - `STATUS`/`LOG` 화면 진입 후 복귀
+  - `RECOVERY`, `REBOOT`, `POWEROFF` 위험 동작은 필요 시 별도 확인
+- 상세 보고서:
+  - `docs/reports/NATIVE_INIT_V47_SCREEN_MENU_2026-04-25.md`

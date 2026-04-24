@@ -1,13 +1,13 @@
 # Native Init Task Queue (2026-04-25)
 
-이 문서는 `A90 Linux init v45` 이후 바로 실행할 작업 큐다.
+이 문서는 `A90 Linux init v47` 이후 바로 실행할 작업 큐다.
 큰 방향은 “보이는 부팅 → 복구 가능한 로그 → 단독 조작 → 작은 userland” 순서다.
 
 ## 현재 고정 기준점
 
-- latest native init: `A90 Linux init v45`
-- latest source: `stage3/linux_init/init_v45.c`
-- latest boot image: `stage3/boot_linux_v45.img`
+- latest native init: `A90 Linux init v47`
+- latest source: `stage3/linux_init/init_v47.c`
+- latest boot image: `stage3/boot_linux_v47.img`
 - control channel: USB ACM serial bridge
 - log: `/cache/native-init.log`
 - verified:
@@ -19,6 +19,7 @@
   - `run` cancel helper
   - recovery log preservation
   - safe storage/partition map
+  - screen menu draft
   - KMS HUD
   - VOL+/VOL-/POWER input
 
@@ -108,7 +109,7 @@
 - `efs`, `sec_efs`, modem, persist, key/security, vbmeta, bootloader 계열은 do-not-touch
 - block major/minor는 부팅마다 달라질 수 있으므로 by-name 또는 `/sys/class/block/<name>/dev` 기준으로 식별
 
-### V47. On-screen Menu Draft
+### V47. On-screen Menu Draft — 완료
 
 목표:
 
@@ -116,15 +117,21 @@
 
 구현:
 
-- HUD 기반 menu 표시
+- KMS 기반 screen menu 표시
 - VOL+/VOL-/POWER 선택
 - status/log/recovery/reboot/poweroff 우선
+- `blindmenu`는 serial-only fallback으로 유지
 
 검증:
 
-- 버튼 이동/선택
-- safe default resume
-- recovery 진입
+- `menu` 화면 진입 — PASS
+- q cancel 후 autohud 복구 — PASS
+- 실제 버튼 이동/선택 — 수동 확인 대기
+- recovery/reboot/poweroff 위험 동작 — 수동 확인 대기
+
+산출:
+
+- `docs/reports/NATIVE_INIT_V47_SCREEN_MENU_2026-04-25.md`
 
 ## 보류 큐
 
@@ -136,7 +143,7 @@
 
 ## 지금 바로 진행할 항목
 
-1. V47 On-screen Menu Draft
-2. USB gadget map report
-3. BusyBox/static userland 후보 검토
-4. `userdata`/`mmcblk0p1` 장기 저장소 후보 의사결정
+1. USB gadget map report
+2. BusyBox/static userland 후보 검토
+3. `userdata`/`mmcblk0p1` 장기 저장소 후보 의사결정
+4. screen menu 버튼 수동 검증

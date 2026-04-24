@@ -1,6 +1,6 @@
 # Native Init Next Work List (2026-04-25)
 
-이 문서는 `A90 Linux init v45` 기준 이후 작업을 정리한 실행 목록이다.
+이 문서는 `A90 Linux init v47` 기준 이후 작업을 정리한 실행 목록이다.
 
 현재 단계는 넓은 의미의 리버싱도 포함하지만, 중심은 더 이상 Android 전체를
 분해하는 것이 아니다. Stock Android kernel과 Samsung vendor driver 위에서
@@ -119,9 +119,9 @@ Samsung bootloader
 
 ## 현재 기준점
 
-- 최신 확인 버전: `A90 Linux init v45`
-- 최신 소스: `stage3/linux_init/init_v45.c`
-- 최신 boot image: `stage3/boot_linux_v45.img`
+- 최신 확인 버전: `A90 Linux init v47`
+- 최신 소스: `stage3/linux_init/init_v47.c`
+- 최신 boot image: `stage3/boot_linux_v47.img`
 - 주 제어 채널: USB CDC ACM serial (`/dev/ttyGS0` ↔ `/dev/ttyACM0`)
 - host bridge: `scripts/revalidation/serial_tcp_bridge.py --port 54321`
 - 화면 상태: TEST 패턴 약 2초 표시 후 상태 HUD 자동 전환
@@ -132,12 +132,14 @@ Samsung bootloader
 - HUD 상태: `BOOT OK shell` summary 표시 확인
 - run/log 상태: `/bin/a90sleep` q 취소와 recovery 왕복 log preservation 확인
 - storage 상태: `/cache` safe write, `userdata` conditional, critical partitions do-not-touch 기준 문서화
+- screen menu 상태: `menu`/`screenmenu` 화면 진입과 q 취소 확인
 - ADB 상태: 보류
 
 상세 상태 문서:
 
 - `docs/reports/NATIVE_INIT_V45_RUN_LOG_2026-04-25.md`
 - `docs/reports/NATIVE_INIT_STORAGE_MAP_2026-04-25.md`
+- `docs/reports/NATIVE_INIT_V47_SCREEN_MENU_2026-04-25.md`
 - `docs/reports/NATIVE_INIT_V44_HUD_BOOT_2026-04-25.md`
 - `docs/reports/NATIVE_INIT_V43_TIMELINE_2026-04-25.md`
 - `docs/reports/NATIVE_INIT_V42_CANCEL_2026-04-25.md`
@@ -586,6 +588,13 @@ Samsung bootloader
 
 - serial 없이도 최소 조작을 가능하게 한다.
 
+현재 상태:
+
+- `init_v47`에서 `menu`/`screenmenu` 화면 메뉴 초안 구현
+- `RESUME`, `STATUS`, `LOG`, `RECOVERY`, `REBOOT`, `POWEROFF` 항목 제공
+- q cancel 후 autohud 복구 확인
+- 실제 버튼 이동/선택과 위험 동작은 수동 검증 대기
+
 후보 메뉴:
 
 - status
@@ -672,10 +681,10 @@ Samsung bootloader
 
 상세 실행 큐는 `docs/plans/NATIVE_INIT_TASK_QUEUE_2026-04-25.md`를 따른다.
 
-1. on-screen menu 초안
-2. USB gadget map report 작성
-3. BusyBox/static userland 후보 검토
-4. `userdata`/`mmcblk0p1` 장기 저장소 후보 의사결정
+1. USB gadget map report 작성
+2. BusyBox/static userland 후보 검토
+3. `userdata`/`mmcblk0p1` 장기 저장소 후보 의사결정
+4. screen menu 버튼 수동 검증
 
 ---
 

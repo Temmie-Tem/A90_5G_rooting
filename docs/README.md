@@ -8,7 +8,7 @@
 
 상단 `docs/`는 이제 다음 흐름에 필요한 문서를 유지합니다.
 
-1. native init v45 기준 상태 고정
+1. native init v47 기준 상태 고정
 2. shell/HUD/log/menu 운영 안정화
 3. 필요한 하드웨어/커널 경로만 역추적
 4. BusyBox/network/SSH 같은 서버형 확장 가능성 검토
@@ -19,9 +19,9 @@
 - 빌드: `A908NKSU5EWA3`
 - kernel: Samsung stock Android kernel `Linux 4.14.190`
 - recovery: TWRP 사용 가능
-- latest native init: `A90 Linux init v45`
-- latest source: `stage3/linux_init/init_v45.c`
-- latest boot image: `stage3/boot_linux_v45.img`
+- latest native init: `A90 Linux init v47`
+- latest source: `stage3/linux_init/init_v47.c`
+- latest boot image: `stage3/boot_linux_v47.img`
 - control channel: USB CDC ACM serial bridge
 - display: TEST pattern 후 상태 HUD 자동 전환
 - input: VOL+/VOL-/POWER 버튼 확인
@@ -31,6 +31,7 @@
 - HUD boot summary: `BOOT OK shell` 표시 확인
 - run cancel: `/bin/a90sleep` helper 확인
 - storage: `/cache` safe write, `userdata` conditional, critical partitions do-not-touch
+- screen menu: `menu`/`screenmenu` 화면 진입과 q 취소 확인
 - ADB: 보류
 
 ## 현재 작업 문서
@@ -41,13 +42,14 @@
 
 ### 2. Plans
 - `plans/NATIVE_INIT_NEXT_WORK_2026-04-25.md` – v42 이후 역추적/셸/HUD/로그/네트워크 작업 목록
-- `plans/NATIVE_INIT_TASK_QUEUE_2026-04-25.md` – v45 이후 바로 실행할 작업 큐
+- `plans/NATIVE_INIT_TASK_QUEUE_2026-04-25.md` – v47 이후 바로 실행할 작업 큐
 - `plans/NATIVE_LINUX_RECHALLENGE_PLAN.md` – native init 진입점 확보 이전 로드맵
 - `plans/REVALIDATION_PLAN.md` – 부트체인 재검증 실행 체크리스트와 실험 절차
 - `plans/MINIMAL_BOOT_ALLOWLIST_2026-04-22.txt` – 현재 최소 부팅 allowlist
 - `plans/MINIMAL_BOOT_DELETE_CANDIDATES_2026-04-22.txt` – allowlist 기준 삭제 후보 스냅샷
 
 ### 3. Reports
+- `reports/NATIVE_INIT_V47_SCREEN_MENU_2026-04-25.md` – v47 화면 메뉴 초안 실기 검증 보고서
 - `reports/NATIVE_INIT_STORAGE_MAP_2026-04-25.md` – v46 저장소/파티션 안전 등급 보고서
 - `reports/NATIVE_INIT_V45_RUN_LOG_2026-04-25.md` – v45 `run` cancel과 log preservation 실기 검증 보고서
 - `reports/NATIVE_INIT_V44_HUD_BOOT_2026-04-25.md` – v44 HUD boot summary 실기 검증 보고서
@@ -74,7 +76,7 @@
 5. HUD boot progress/error 표시 — v44 완료
 6. recovery log preservation + `run` cancel helper — v45 완료
 7. safe storage/partition map 문서화 — v46 완료
-8. on-screen menu 초안
+8. on-screen menu 초안 — v47 완료
 9. USB gadget/device/sysfs map 문서화
 
 패키지 최소화와 Android userspace 복구는 보조 실험으로만 다루고,
