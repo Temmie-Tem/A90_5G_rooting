@@ -120,7 +120,9 @@
 ## 현재 폰 상태
 
 - patched AP (Magisk 30.7) + **TWRP recovery**
-- 최신 실기 확인: `stage3/boot_linux_v48.img` (`A90 Linux init v48`)
+- 최신 stable 실기 확인: `stage3/boot_linux_v48.img` (`A90 Linux init v48`)
+- 격리 상태: `stage3/boot_linux_v49.img`는 boot partition prefix readback은 일치했지만
+  system boot 후 Android `/system/bin/init second_stage`로 진입했으므로 stable이 아님
 - 부팅 흐름: TEST 패턴 약 2초 → 상태 HUD 자동 전환 → USB ACM serial shell
 - 로그 상태: `/cache/native-init.log`에 boot/command/result 기록
 - blocking 상태: `waitkey`, `readinput`, `watchhud`, `blindmenu` q/Ctrl-C 취소 확인
@@ -158,43 +160,59 @@
 - proc / sys / devtmpfs / ext4(/dev/block/sda31) 마운트 성공
 - 핵심 우회: devtmpfs async 초기화 문제를 `mknod(makedev(259,15))` 로 해결
 
-### 3-2. USB ACM serial console + 인터랙티브 셸 (v8~v22)
+### 3-2. USB ACM serial console + 인터랙티브 셸 (v8~v48)
 
-**현재 버전**: `init_v22` (`stage3/boot_linux_v22.img`)
+**현재 버전**: `init_v48` (`stage3/boot_linux_v48.img`)
 
-ADB 방식이 막혀 USB CDC ACM serial (ttyGS0)로 전환, 인터랙티브 셸 확보:
+ADB 방식이 막혀 USB CDC ACM serial (ttyGS0)로 전환. v48까지 반복 안정화:
 
 - USB gadget: configfs `acm.usb0` function, UDC `a600000.dwc3`
 - host 측: `/dev/ttyACM0` → `serial_tcp_bridge.py` → `127.0.0.1:54321` TCP
-- 셸 명령: help / uname / pwd / cd / ls / cat / stat / mounts / mountsystem / prepareandroid / inputinfo / inputcaps / readinput / waitkey / blindmenu / drminfo / fbinfo / kmsprobe / kmssolid / kmsframe / mkdir / mknodc / mknodb / mountfs / umount / echo / writefile / run / runandroid / startadbd / stopadbd / sync / reboot / recovery / poweroff
+- 부팅 흐름: TEST 패턴(~2초) → 상태 HUD 자동 전환 → ACM serial shell
 
-**v15 → v22 주요 추가:**
-- DRM/KMS 직접 제어: `drm.h` / `drm_mode.h` ioctl 기반 (`CREATE_DUMB`, `ADDFB`, `MAP_DUMB`, `SETCRTC`)
-- 부팅 시 DRM/fb 노드 자동 생성 (`prepare_early_display_environment`)
-- `boot_auto_frame()`: ttyGS0 연결 후 자동으로 화면에 어두운 배경+테두리 표시
-- `kmssolid [color]`: 단색으로 화면 채우기 (black/white/red/green/blue/gray/0xRRGGBB)
-- `kmsframe`: 어두운 배경 + 테두리 프레임 렌더링
-- `kmsprobe`: DRM capabilities 및 connector/encoder/crtc 탐색
-- `drminfo`, `fbinfo`: sysfs 기반 DRM/framebuffer 정보 조회
+**버전별 주요 마일스톤:**
 
-**확보된 관찰/제어 범위** (probe 결과 기준):
+| 버전 | 추가 내용 |
+|---|---|
+| v8~v15 | USB ACM serial + 인터랙티브 셸 기본 구조 |
+| v22 | DRM/KMS ioctl 직접 제어 (`kmssolid`, `kmsframe`, `kmsprobe`), 부팅 시 자동 화면 표시 |
+| v36~v39 | command table 리팩터, sensor HUD (배터리/온도/메모리/전력), autohud, `status` 명령 |
+| v40 | shell return code 정밀화, `[done]`/`[err]` 구분 |
+| v41 | `/cache/native-init.log` 파일 로그, `logpath`/`logcat` 명령 |
+| v42 | blocking command 취소 통일 (`q`/`Ctrl-C` → `-ECANCELED`) |
+| v43 | boot readiness timeline, `timeline` 명령 |
+| v44 | boot summary HUD (`BOOT OK shell Xs` / `BOOT ERR`), `bootstatus` 명령 |
+| v45 | `run` q-cancel 검증, static `a90_sleep` helper |
+| v46 | safe storage map 문서화 |
+| v47 | on-screen menu (`menu`/`screenmenu`): VOL+/VOL-/POWER 버튼 기반 RESUME/STATUS/LOG/RECOVERY/REBOOT/POWEROFF |
+| v48 | ACM rebind 안정화 (`reattach`/`usbacmreset`), `a90_usbnet` helper, NCM composite probe 확인 |
+| v49 | 상태 HUD TUI 개선 시도. local marker/readback은 맞았지만 system boot가 Android userspace로 진입해 격리 |
+
+**확보된 관찰/제어 범위 (v48 stable 기준):**
 
 | 항목 | 상태 |
 |---|---|
-| USB ACM serial 제어채널 | 작동 |
-| 인터랙티브 셸 | 작동 |
+| USB ACM serial 제어채널 | 작동, rebind 후 복구 가능 (`usbacmreset`) |
+| 인터랙티브 셸 | 작동, command table 기반 dispatch |
 | /proc, /sys, /dev 마운트 | 작동 |
-| /cache (ext4) 마운트 | 작동 |
+| /cache (ext4) 마운트 + 로그 | 작동 (`/cache/native-init.log`) |
 | /mnt/system (sda28, ext4 ro) | 작동 (`mountsystem`) |
 | system-as-root 구조 탐색 | 작동 (`prepareandroid`) |
 | 물리 버튼 입력 (power/vol+/vol-) | 작동 (`waitkey`, `blindmenu`) |
-| backlight sysfs 제어 | 작동 (`writefile /sys/class/backlight/...`) |
-| DRM/KMS ioctl (dumb buffer + SETCRTC) | **작동** — 실화면 출력 확인 (`kmssolid`, `kmsframe`) |
-| 부팅 시 자동 화면 표시 | **작동** — ttyGS0 연결 후 자동 렌더링 확인 |
-| 커널 정보 | Linux 4.14.190, SM8150, 8코어, RAM 5.2GB free |
-| ADB (adbd) | **미작동** (zombie, ep1/ep2 미생성) |
+| backlight sysfs 제어 | 작동 |
+| DRM/KMS ioctl (dumb buffer + SETCRTC) | 작동 — 실화면 출력 확인 |
+| 센서 HUD (배터리/온도/메모리/전력) | 작동 (`status`, `autohud`) |
+| 부팅 시 TEST 패턴 → HUD 자동 전환 | 작동 |
+| boot summary 화면 표시 (`BOOT OK`) | 작동 |
+| on-screen 버튼 메뉴 | 작동 (`menu`/`screenmenu`) |
+| blocking 명령 취소 (q/Ctrl-C) | 작동 |
+| boot timeline 기록 | 작동 (`timeline`) |
+| static toybox 실행 | 작동 (`/cache/bin/toybox`, ifconfig/route/netcat 확인) |
+| USB NCM composite probe | 작동 — host `cdc_ncm` + device `ncm0` 생성 확인 |
+| USB NCM IP/통신 | **미완** — IP 설정 및 ping/netcat 미검증 |
+| ADB (adbd) | **보류** — ep1/ep2 미생성, zombie |
 
-**버튼 매핑** (확인됨):
+**버튼 매핑:**
 
 | event | device | keys |
 |---|---|---|
@@ -203,19 +221,17 @@ ADB 방식이 막혀 USB CDC ACM serial (ttyGS0)로 전환, 인터랙티브 셸 
 
 ### 3-3. ADB 상태
 
-- adbd: zombie 상태로 종료
-- FunctionFS: ep0만 생성, ep1/ep2 미생성
-- 원인: descriptors 등록 전 adbd 종료 (Android runtime/SELinux/property 없이 adbd 단독 실행 불안정)
-- 현재 방향: ACM serial을 주 채널로 유지, ADB는 `startadbd` 셸 명령으로 재시도 가능 상태로 대기
+- adbd: zombie 상태로 종료, ep1/ep2 미생성
+- 원인: Android property/SELinux/bionic 환경 없이 단독 실행 불안정
+- 현재 방향: ACM serial + USB NCM을 우선 안정화. ADB는 serial/NCM보다 가치가 커질 때 재검토
 
 ## 다음 후보 작업
 
-우선순위 순:
+우선순위 순 (v48 이후):
 
-1. **USB NCM IP/link setup** — device `ncm0`와 host `enx...`에 IPv4를 설정해 ping 확인
-2. **Toybox netcat 실사용** — NCM 링크 위에서 `netcat` 기반 TCP 통신 확인
-3. **장기 저장소 의사결정** — `userdata`/`mmcblk0p1` 사용 여부를 별도 문서로 판단
-4. **screen menu 버튼 수동 검증** — VOL+/VOL-/POWER로 `STATUS`/`LOG`/복구 동작 확인
-5. **adbd 안정화 재검토** — serial/RNDIS보다 가치가 커졌을 때만 재개
+1. **USB NCM IP/link setup** — device `ncm0` + host `enx...` IPv4 설정 → ping 확인
+2. **toybox netcat TCP 통신** — NCM 링크 위에서 `netcat` 기반 host ↔ device 통신 확인
+3. **장기 저장소 의사결정** — `userdata`/`mmcblk0p1` 사용 여부 판단
+4. **screen menu 버튼 수동 검증** — VOL+/VOL-/POWER로 실제 항목 선택 확인
 
 **복구**: `backups/baseline_a_20260423_030309/boot.img` dd 복구 가능

@@ -30,7 +30,8 @@
 - `native_init_flash.py`
   - TWRP recovery ADB에서 native init boot image를 boot 파티션에 기록
   - `adb devices` 출력을 whitespace split으로 파싱해 `recovery` 상태를 안정적으로 감지
-  - TWRP에서 system으로 돌아갈 때 `adb shell twrp reboot system`을 우선 사용
+  - local image marker 확인, push 후 SHA256 확인, boot partition prefix readback 확인
+  - TWRP에서 system으로 돌아갈 때 `adb shell 'twrp reboot'` 무인자 사용
   - 부팅 후 serial bridge에 붙어 `version`으로 기대 버전을 확인
 - `build_static_toybox.sh`
   - 공식 `toybox-0.8.13` tarball을 해시 검증 후 다운로드

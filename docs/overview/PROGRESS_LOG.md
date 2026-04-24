@@ -410,3 +410,24 @@
   - `ping`/toybox `netcat`으로 실제 패킷 통신 검증
 - 상세 보고서:
   - `docs/reports/NATIVE_INIT_V48_USB_REATTACH_NCM_2026-04-25.md`
+
+## v49: 상태 HUD TUI 개선 (2026-04-25)
+
+- `kms_draw_status_overlay` 전면 개선:
+  - **bug fix**: PWR 라인(line5) card 배경 누락 → 추가
+  - **bug fix**: `W?` 접미사 제거 (폰트에 `?` 없음, debug artifact)
+  - **layout**: 5개 card를 화면 전체 높이에 동적 spread (card_gap dynamic 계산)
+  - **color**: BOOT OK = green(`0x88ee88`), BOOT ERR = red(`0xff6666`)
+  - **color**: BAT % 기반 색상 — >50% green, 20-50% amber, ≤20% red
+  - **label**: 라벨(`A90 INIT`/`BAT`/`CPU`/`MEM`/`PWR`) dim gray(`0x909090`), 값 white
+  - **battery**: `Charging`→`CHG`, `Discharging`→`DSC`, `Full`→`FUL` 태그 표시
+  - **footer**: `REF Xs SEQ N` 디버그 info → `A90v49 UP <uptime>` 로 교체
+- 빌드 산출:
+  - `stage3/linux_init/init_v49` SHA256 `5c6433a621c8d69d38af19b157afe3d5aa455c3a597aabee1add733c305c0664`
+  - `stage3/ramdisk_v49.cpio` SHA256 `4bda81c5b2834ed3901bec76edb67e50abf50052da29d729ccdc97ec0eee19bc`
+  - `stage3/boot_linux_v49.img` SHA256 `38ea2e20a33af450388fe40e4d2d9aa0abb11b592efb34102ca52723a361968e`
+- 실기 결과:
+  - `stage3/boot_linux_v49.img`는 local marker와 boot partition prefix SHA256 readback은 일치
+  - `adb shell 'twrp reboot'`로 system boot 시 Android `/system/bin/init second_stage`로 진입
+  - v49는 native init stable로 인정하지 않고 격리
+  - `stage3/boot_linux_v48.img`로 복구 후 `A90 Linux init v48` bridge 응답 확인

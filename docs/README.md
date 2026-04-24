@@ -44,6 +44,11 @@
 - `overview/PROJECT_STATUS.md` – 현재 기준점, 성공/실패 조건, 다음 작업 링크
 - `overview/PROGRESS_LOG.md` – 진행 로그
 
+### 1-1. Operations
+- `operations/CLAUDE_NATIVE_INIT_RUNBOOK.md` – 에이전트용 bridge/TWRP/custom init 작업 런북
+- `operations/NATIVE_INIT_FLASH_AND_BRIDGE_GUIDE.md` – 사람이 직접 따라 하는 v48 flash/bridge 운영 절차서
+- `operations/CLAUDE_HANDOFF_PROMPT.md` – Claude에게 그대로 붙여 넣는 안전 작업 프롬프트
+
 ### 2. Plans
 - `plans/NATIVE_INIT_NEXT_WORK_2026-04-25.md` – v42 이후 역추적/셸/HUD/로그/네트워크 작업 목록
 - `plans/NATIVE_INIT_TASK_QUEUE_2026-04-25.md` – v47 이후 바로 실행할 작업 큐
@@ -85,9 +90,10 @@
 7. safe storage/partition map 문서화 — v46 완료
 8. on-screen menu 초안 — v47 완료
 9. USB gadget/device/sysfs map 문서화 — 완료
-10. Toybox/static userland build + device validation — V49 완료
+10. Toybox/static userland build + device validation — 완료
 11. USB ACM reattach + NCM probe — v48 완료
-12. USB NCM IP/link 설정과 netcat 검증
+12. v49 HUD image 격리 — boot prefix readback은 맞지만 Android userspace로 진입
+13. USB NCM IP/link 설정과 netcat 검증
 
 패키지 최소화와 Android userspace 복구는 보조 실험으로만 다루고,
 메인 목표는 **Android kernel 위에 반복 운용 가능한 native init 기반 최소 Linux 콘솔을 만드는 것**입니다.

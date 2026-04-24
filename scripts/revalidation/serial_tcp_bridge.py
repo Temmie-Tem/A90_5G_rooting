@@ -52,13 +52,28 @@ class Bridge:
             self.capture_fp = capture_path.open("ab", buffering=0)
 
     def _open_server(self) -> socket.socket:
-        server = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-        server.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
-        server.bind((self.args.host, self.args.port))
-        server.listen(1)
-        server.setblocking(False)
-        self.log(f"tcp listener ready on {self.args.host}:{self.args.port}")
-        return server
+        attempts = max(1, self.args.bind_retries + 1)
+
+        for attempt in range(1, attempts + 1):
+            server = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+            server.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
+            try:
+                server.bind((self.args.host, self.args.port))
+                server.listen(1)
+                server.setblocking(False)
+                self.log(f"tcp listener ready on {self.args.host}:{self.args.port}")
+                return server
+            except OSError as exc:
+                server.close()
+                if exc.errno != errno.EADDRINUSE or attempt == attempts:
+                    raise
+                self.log(
+                    f"tcp port {self.args.host}:{self.args.port} is busy; "
+                    f"retrying bind ({attempt}/{attempts - 1})"
+                )
+                time.sleep(self.args.bind_retry_interval)
+
+        raise RuntimeError("unreachable bind retry state")
 
     def log(self, message: str) -> None:
         print(f"[bridge] {message}", file=sys.stderr, flush=True)
@@ -213,7 +228,8 @@ class Bridge:
         self.client_addr = None
 
     def forward_serial(self) -> None:
-        assert self.serial_fd is not None
+        if self.serial_fd is None:
+            return
 
         try:
             data = os.read(self.serial_fd, 8192)
@@ -240,7 +256,8 @@ class Bridge:
                 self.close_client()
 
     def forward_client(self) -> None:
-        assert self.client is not None
+        if self.client is None:
+            return
 
         try:
             data = self.client.recv(8192)
@@ -279,9 +296,11 @@ class Bridge:
             if key.data == "server":
                 self.accept_client()
             elif key.data == "serial":
-                self.forward_serial()
+                if self.serial_fd is not None and key.fileobj == self.serial_fd:
+                    self.forward_serial()
             elif key.data == "client":
-                self.forward_client()
+                if self.client is not None and key.fileobj is self.client:
+                    self.forward_client()
 
     def run(self) -> int:
         self.log("press Ctrl-C to stop")
@@ -342,6 +361,18 @@ def parse_args() -> argparse.Namespace:
         type=float,
         default=1.0,
         help="seconds between serial reconnect attempts",
+    )
+    parser.add_argument(
+        "--bind-retries",
+        type=int,
+        default=5,
+        help="number of retries when the TCP listen port is still busy",
+    )
+    parser.add_argument(
+        "--bind-retry-interval",
+        type=float,
+        default=0.5,
+        help="seconds between TCP listen port bind retries",
     )
     parser.add_argument(
         "--capture",
