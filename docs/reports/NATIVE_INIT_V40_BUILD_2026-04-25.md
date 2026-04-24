@@ -259,6 +259,12 @@ writefile /sys/class/backlight/panel0-backlight/brightness 200
   - sysfs/backlight 같은 기존 파일 쓰기는 성공했다.
   - `/cache/v40_probe`처럼 새 regular file 생성은 실패한다.
   - 새 파일 생성용 명령은 추후 `touch`/`writefile-create`/로그 구현에서 별도로 다룬다.
+- TWRP/system 전환 중 host-side 자동화에서 두 가지 주의점이 확인됐다.
+  - `adb devices`의 state 판정은 `grep -E '\t...'` 대신 whitespace split/`awk` 방식으로 해야 한다.
+  - TWRP에서 system boot 요청은 `adb shell reboot system`보다 `adb shell twrp reboot system`이 안정적이다.
+  - serial device가 없는 동안 bridge client가 먼저 붙으면 명령이 유실될 수 있으므로,
+    `serial_tcp_bridge.py`는 serial 미연결 시 client를 거절하도록 보강했다.
+  - 재사용 헬퍼: `scripts/revalidation/native_init_flash.py`
 - `waitkey`는 이번 자동 검증에서 제외했다.
   - 버튼 입력이 필요한 수동 검증 항목으로 유지한다.
 - `kmssolid nope`는 display command라 autohud를 중단하지만,

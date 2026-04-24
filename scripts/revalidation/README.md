@@ -26,6 +26,11 @@
   - raw shell 출력은 그대로 보여주되, `waitkey`/`blindmenu`/`key ...` 같은
     라인을 `[watch]` 메모로 한 번 더 띄워서 버튼 입력을 더 눈에 띄게 보여줌
   - `Ctrl-]` 로 로컬 콘솔만 종료 가능
+- `native_init_flash.py`
+  - TWRP recovery ADB에서 native init boot image를 boot 파티션에 기록
+  - `adb devices` 출력을 whitespace split으로 파싱해 `recovery` 상태를 안정적으로 감지
+  - TWRP에서 system으로 돌아갈 때 `adb shell twrp reboot system`을 우선 사용
+  - 부팅 후 serial bridge에 붙어 `version`으로 기대 버전을 확인
 
 권장 순서:
 
@@ -58,11 +63,38 @@ python3 ./scripts/revalidation/serial_console.py --port 54321
 python3 ./scripts/revalidation/serial_console.py --port 54321 --watch-only
 ```
 
+native init 이미지 플래시/검증 예:
+
+```bash
+python3 ./scripts/revalidation/native_init_flash.py \
+  stage3/boot_linux_v40.img \
+  --expect-version "A90 Linux init v40"
+```
+
+현재 native init에서 recovery로 전환한 뒤 플래시까지 이어가는 예:
+
+```bash
+python3 ./scripts/revalidation/native_init_flash.py \
+  stage3/boot_linux_v40.img \
+  --expect-version "A90 Linux init v40" \
+  --from-native
+```
+
+이미 부팅된 native init 버전만 확인하는 예:
+
+```bash
+python3 ./scripts/revalidation/native_init_flash.py \
+  --verify-only \
+  --expect-version "A90 Linux init v40"
+```
+
 참고:
 
 - 현재 호스트 계정이 `dialout` 그룹이 아니면 `sudo`로 실행해야 할 수 있습니다.
 - 이 브릿지는 빠른 개발용 최소 구현이라 클라이언트 1개만 허용합니다.
 - 따라서 `serial_console.py`와 `nc`는 동시에 붙지 않습니다.
+- serial device가 없는 상태에서는 기본적으로 TCP client를 거절합니다.
+  - 이전처럼 serial 없이도 client를 유지하고 싶으면 `--allow-client-without-serial`을 사용합니다.
 - 장기적으로는 `USB networking + SSH` 또는 안정적인 `ADB` 채널이 더 적합합니다.
 
 생성 산출물은 기본적으로 `backups/` 아래에 저장합니다.

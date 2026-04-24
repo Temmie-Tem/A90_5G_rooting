@@ -127,6 +127,15 @@ class Bridge:
         conn, addr = self.server.accept()
         conn.setblocking(False)
 
+        if self.serial_fd is None and not self.args.allow_client_without_serial:
+            self.log(f"rejecting client from {addr[0]}:{addr[1]}: serial not connected")
+            try:
+                conn.sendall(b"[bridge] serial device is not connected; retry later\r\n")
+            except OSError:
+                pass
+            conn.close()
+            return
+
         if self.client is not None:
             self.log(f"rejecting extra client from {addr[0]}:{addr[1]}")
             conn.close()
@@ -289,6 +298,15 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument(
         "--capture",
         help="optional path to append raw bridge traffic",
+    )
+    parser.add_argument(
+        "--allow-client-without-serial",
+        action="store_true",
+        help=(
+            "accept a TCP client even when the serial device is absent; "
+            "without this, clients are rejected so probe scripts can retry "
+            "instead of sending commands into a missing serial device"
+        ),
     )
     return parser.parse_args()
 
