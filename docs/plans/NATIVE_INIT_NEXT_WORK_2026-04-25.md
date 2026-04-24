@@ -142,6 +142,12 @@ Samsung bootloader
 - `[done]`이 단순히 command dispatch 완료가 아니라 실제 성공에 가깝게 보이도록 한다.
 - 실패한 내부 syscall, mount, file open, ioctl, exec 결과를 command result에 반영한다.
 
+현재 상태:
+
+- `init_v40` 빌드 후보에서 1차 구현 완료
+- 상세 기록: `docs/reports/NATIVE_INIT_V40_BUILD_2026-04-25.md`
+- 실기 flash/serial 검증 대기
+
 대상:
 
 - display 명령

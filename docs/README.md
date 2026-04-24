@@ -42,6 +42,7 @@
 
 ### 3. Reports
 - `reports/NATIVE_INIT_V39_STATUS_2026-04-25.md` – v39 기준 최신 native init 상태 보고서
+- `reports/NATIVE_INIT_V40_BUILD_2026-04-25.md` – v40 shell return code 정밀화 빌드 후보
 - `reports/BOOTCHAIN_REVALIDATION_MATRIX_2026-04-23.md` – 기본 4조합, KG, fallback, Linux 후보 기록 시트
 - `reports/MINIMAL_BOOT_STATUS_2026-04-22.md` – 최소 부팅 상태와 남은 예외 패키지
 - `reports/ADB_DEBLOAT_RESEARCH_2026-04-22.md` – 패키지별 제거 판단 근거
