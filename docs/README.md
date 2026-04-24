@@ -8,7 +8,7 @@
 
 상단 `docs/`는 이제 다음 흐름에 필요한 문서를 유지합니다.
 
-1. native init v44 기준 상태 고정
+1. native init v45 기준 상태 고정
 2. shell/HUD/log/menu 운영 안정화
 3. 필요한 하드웨어/커널 경로만 역추적
 4. BusyBox/network/SSH 같은 서버형 확장 가능성 검토
@@ -19,9 +19,9 @@
 - 빌드: `A908NKSU5EWA3`
 - kernel: Samsung stock Android kernel `Linux 4.14.190`
 - recovery: TWRP 사용 가능
-- latest native init: `A90 Linux init v44`
-- latest source: `stage3/linux_init/init_v44.c`
-- latest boot image: `stage3/boot_linux_v44.img`
+- latest native init: `A90 Linux init v45`
+- latest source: `stage3/linux_init/init_v45.c`
+- latest boot image: `stage3/boot_linux_v45.img`
 - control channel: USB CDC ACM serial bridge
 - display: TEST pattern 후 상태 HUD 자동 전환
 - input: VOL+/VOL-/POWER 버튼 확인
@@ -29,6 +29,7 @@
 - blocking cancel: q/Ctrl-C 취소 확인
 - boot timeline: `timeline` 명령 확인
 - HUD boot summary: `BOOT OK shell` 표시 확인
+- run cancel: `/bin/a90sleep` helper 확인
 - ADB: 보류
 
 ## 현재 작업 문서
@@ -39,13 +40,14 @@
 
 ### 2. Plans
 - `plans/NATIVE_INIT_NEXT_WORK_2026-04-25.md` – v42 이후 역추적/셸/HUD/로그/네트워크 작업 목록
-- `plans/NATIVE_INIT_TASK_QUEUE_2026-04-25.md` – v44 이후 바로 실행할 작업 큐
+- `plans/NATIVE_INIT_TASK_QUEUE_2026-04-25.md` – v45 이후 바로 실행할 작업 큐
 - `plans/NATIVE_LINUX_RECHALLENGE_PLAN.md` – native init 진입점 확보 이전 로드맵
 - `plans/REVALIDATION_PLAN.md` – 부트체인 재검증 실행 체크리스트와 실험 절차
 - `plans/MINIMAL_BOOT_ALLOWLIST_2026-04-22.txt` – 현재 최소 부팅 allowlist
 - `plans/MINIMAL_BOOT_DELETE_CANDIDATES_2026-04-22.txt` – allowlist 기준 삭제 후보 스냅샷
 
 ### 3. Reports
+- `reports/NATIVE_INIT_V45_RUN_LOG_2026-04-25.md` – v45 `run` cancel과 log preservation 실기 검증 보고서
 - `reports/NATIVE_INIT_V44_HUD_BOOT_2026-04-25.md` – v44 HUD boot summary 실기 검증 보고서
 - `reports/NATIVE_INIT_V43_TIMELINE_2026-04-25.md` – v43 boot readiness timeline 실기 검증 보고서
 - `reports/NATIVE_INIT_V42_CANCEL_2026-04-25.md` – v42 blocking command 취소 정책 실기 검증 보고서
@@ -68,8 +70,9 @@
 3. blocking command 취소 정책 통일 — v42 완료
 4. boot readiness timeline 자동 기록 — v43 완료
 5. HUD boot progress/error 표시 — v44 완료
-6. on-screen menu 초안
-7. safe storage/device/sysfs map 문서화
+6. recovery log preservation + `run` cancel helper — v45 완료
+7. on-screen menu 초안
+8. safe storage/device/sysfs map 문서화
 
 패키지 최소화와 Android userspace 복구는 보조 실험으로만 다루고,
 메인 목표는 **Android kernel 위에 반복 운용 가능한 native init 기반 최소 Linux 콘솔을 만드는 것**입니다.

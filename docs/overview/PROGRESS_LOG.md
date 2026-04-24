@@ -236,3 +236,15 @@
   - `autohud 2` → 자동 HUD 복구 성공
 - 상세 보고서:
   - `docs/reports/NATIVE_INIT_V44_HUD_BOOT_2026-04-25.md`
+
+### Native init v45 run cancel + log preservation
+- `v45`에서 ramdisk helper `/bin/a90sleep` 추가
+- `run /bin/a90sleep 30` 실행 후 `q` cancel 실기 확인:
+  - child `SIGTERM`
+  - prompt 복귀
+  - `last`에 `errno=125`
+  - `/cache/native-init.log`에 `cancel: run soft q`
+- native init → TWRP recovery → native init 왕복 후 `/cache/native-init.log` 보존 확인:
+  - v44 boot log와 v45 boot log가 같은 파일에 append됨
+- 상세 보고서:
+  - `docs/reports/NATIVE_INIT_V45_RUN_LOG_2026-04-25.md`

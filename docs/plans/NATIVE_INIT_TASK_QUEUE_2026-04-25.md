@@ -1,13 +1,13 @@
 # Native Init Task Queue (2026-04-25)
 
-이 문서는 `A90 Linux init v44` 이후 바로 실행할 작업 큐다.
+이 문서는 `A90 Linux init v45` 이후 바로 실행할 작업 큐다.
 큰 방향은 “보이는 부팅 → 복구 가능한 로그 → 단독 조작 → 작은 userland” 순서다.
 
 ## 현재 고정 기준점
 
-- latest native init: `A90 Linux init v44`
-- latest source: `stage3/linux_init/init_v44.c`
-- latest boot image: `stage3/boot_linux_v44.img`
+- latest native init: `A90 Linux init v45`
+- latest source: `stage3/linux_init/init_v45.c`
+- latest boot image: `stage3/boot_linux_v45.img`
 - control channel: USB ACM serial bridge
 - log: `/cache/native-init.log`
 - verified:
@@ -16,6 +16,8 @@
   - blocking command q/Ctrl-C cancel
   - boot readiness timeline
   - HUD boot summary
+  - `run` cancel helper
+  - recovery log preservation
   - KMS HUD
   - VOL+/VOL-/POWER input
 
@@ -60,7 +62,7 @@
 - `bootstatus`, `status`, `statushud`, `autohud 2` — PASS
 - 고의 실패 가능한 display/sysfs 명령 후 HUD 복구 확인 — 보류
 
-### V45. Log Preservation + Run Cancel Test
+### V45. Log Preservation + Run Cancel Test — 완료
 
 목표:
 
@@ -75,10 +77,10 @@
 
 검증:
 
-- `run /cache/bin/<helper>` + q
-- `last`
-- `logcat`
-- TWRP 왕복 후 log 보존
+- `run /bin/a90sleep 30` + q — PASS
+- `last` — PASS
+- `logcat` — PASS
+- TWRP 왕복 후 log 보존 — PASS
 
 ### V46. Safe Storage / Device Map Report
 
@@ -126,6 +128,6 @@
 
 ## 지금 바로 진행할 항목
 
-1. V45 Log Preservation + Run Cancel Test
-2. V46 Safe Storage / Device Map Report
-3. V47 On-screen Menu Draft
+1. V46 Safe Storage / Device Map Report
+2. V47 On-screen Menu Draft
+3. BusyBox/static userland 후보 검토

@@ -73,6 +73,7 @@ initramfs_build/*.cpio.gz
 # Stage 3 native init 실험 산출물
 stage3/linux_init/init_v*
 !stage3/linux_init/init_v*.c
+stage3/linux_init/a90_sleep
 stage3/ramdisk_v*/
 stage3/ramdisk_v*.cpio
 
