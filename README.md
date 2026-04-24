@@ -1,98 +1,116 @@
-# Samsung Galaxy A90 5G Native Linux Rechallenge Workspace
+# Samsung Galaxy A90 5G Native Init Workspace
 
-이 저장소는 `Samsung Galaxy A90 5G (SM-A908N)`에서
-이미 확보된 rooted baseline을 기준점으로 삼아
-`native Linux 부팅 재도전`을 진행하기 위한 작업 공간입니다.
+이 저장소는 `Samsung Galaxy A90 5G (SM-A908N)`의 stock Android Linux kernel 위에서
+Android userspace 대신 직접 만든 static `/init`를 실행하고,
+그 위에 작은 Linux userspace/runtime을 쌓아 가는 실험 작업 공간입니다.
 
-현재 공식 순서는 다음과 같습니다.
+초기 목표였던 `native Linux rechallenge`의 핵심 진입점 확보 단계는 통과했고,
+현재 프로젝트의 중심은 **Android kernel 기반 native init 환경을 안정화하고
+서버형 임베디드 Linux 콘솔로 확장하는 것**입니다.
 
-1. rooted baseline 유지
-2. 부트체인과 보안 경계 재검증
-3. 그 결과를 바탕으로 native Linux 진입 경로 재개방
-
-예전의 `headless Android`, `AOSP minimal build`, 초기 `native Linux boot` 문서는
-삭제하지 않고 `archive/legacy`로 옮겨 참고용으로만 보관합니다.
-
-## Current Baseline
+## Current State
 
 - device: `SM-A908N`
 - build: `A908NKSU5EWA3`
-- Android 12 stock 기반
-- patched AP 부팅 성공
-- `Magisk 30.7` / `su` 동작 확인
-- ADB 가능
-- WPA2 Wi-Fi 등록 및 연결 가능
-- 현재 `user 0` 패키지 수: `92`
+- kernel: Samsung stock Android kernel `Linux 4.14.190`
+- recovery: TWRP 사용 가능
+- latest native init: `A90 Linux init v39`
+- latest source: `stage3/linux_init/init_v39.c`
+- latest boot image: `stage3/boot_linux_v39.img`
+- control channel: USB CDC ACM serial (`/dev/ttyGS0` ↔ `/dev/ttyACM0`)
+- host bridge: `scripts/revalidation/serial_tcp_bridge.py --port 54321`
+- display: KMS TEST pattern 후 상태 HUD 자동 전환
+- input: VOL+/VOL-/POWER 버튼 입력 확인
+- ADB: 보류. 현재 기준 제어 채널은 serial bridge
 
 ## Current Objective
 
-현재 메인 목표는 `native Linux rechallenge`입니다.
+현재 메인 목표는 `stock Android kernel 위의 자체 native userspace`를 만드는 것입니다.
 
-이 목표는 바로 커스텀 이미지를 늘리는 방식으로 접근하지 않고,
-먼저 다음 4개 조합을 순서대로 밟습니다.
+구조는 다음과 같습니다.
 
-1. `stock AP + stock recovery`
-2. `patched AP + stock recovery`
-3. `stock AP + TWRP`
-4. `patched AP + TWRP`
+```text
+Samsung bootloader
+  -> stock Android Linux kernel
+    -> custom static /init (PID 1)
+      -> serial shell
+      -> display HUD
+      -> input/button handling
+      -> sensor/sysfs reader
+      -> logging/runtime layer
+      -> optional BusyBox/network/SSH layer
+```
 
-위 네 조합을 같은 형식으로 다시 기록해
-어느 이미지 경계에서 차단되는지 고정합니다.
+즉 이 프로젝트는 더 이상 단순히 “Linux 진입이 가능한가?”를 확인하는 단계가 아니라,
+확보한 진입점을 기반으로 **반복 운용 가능한 최소 Linux 콘솔/서버 환경**을 만드는 단계입니다.
 
-그 다음 아래 보안 경계를 분해합니다.
+## What This Is
 
-- boot image 수용 여부
-- recovery 교체 허용 여부
-- `official binaries only` 발생 조건
-- KG 표기 변화와 결과 상관관계
-- factory reset 유무 영향
+- Android kernel과 Samsung vendor driver를 그대로 활용하는 native userspace 실험
+- boot ramdisk의 `/init`를 교체해 PID 1부터 직접 구성하는 작업
+- USB serial, KMS display, input, battery/thermal sysfs를 사용하는 임베디드 콘솔
+- 장기적으로 BusyBox, USB network, dropbear SSH 같은 서버형 구성으로 확장할 수 있는 기반
 
-패키지 최소화와 debloat는 메인 목표가 아니라 참고용 보조 실험으로만 유지합니다.
+## What This Is Not
+
+- 일반 Debian/Ubuntu/Red Hat 배포판 포팅 완료 상태가 아님
+- Android framework, 앱, SurfaceFlinger, Zygote를 복구하는 프로젝트가 아님
+- 커널 교체나 커널 드라이버 개발이 현재 목표가 아님
+- 카메라, 모뎀, GPU 가속 등 vendor userspace 의존 기능을 즉시 지원하는 환경이 아님
+
+## Near-Term Roadmap
+
+1. shell result/return code를 신뢰 가능하게 정리
+2. `/cache/native-init.log` 기반 boot/command 로그 추가
+3. blocking command 취소 정책 통일
+4. boot readiness timeline 자동 기록
+5. HUD에 boot progress/error 상태 표시
+6. 버튼 기반 on-screen menu 초안 구현
+7. safe storage/device/sysfs map 문서화
+8. BusyBox와 USB network/SSH 가능성 검토
 
 ## Repository Layout
 
-- [docs/](/home/temmie/dev/A90_5G_rooting/docs/README.md:1)
-  현재 문서 인덱스와 rechallenge 로드맵, 진행 로그, 실험 기록 템플릿
-- [firmware/](/home/temmie/dev/A90_5G_rooting/firmware/README.md:1)
+- `docs/`
+  현재 문서 인덱스, 프로젝트 상태, v39 상태 보고서, 다음 작업 목록
+- `stage3/`
+  native init 소스, 빌드 산출물, boot image 실험 파일
+- `scripts/`
+  serial bridge, console, revalidation helper
+- `firmware/`
   stock firmware, patched AP, TWRP 이미지
-- [mkbootimg/](/home/temmie/dev/A90_5G_rooting/mkbootimg)
-  boot / recovery / vendor_boot 분석과 repack에 쓰는 upstream 도구
-- [scripts/](/home/temmie/dev/A90_5G_rooting/scripts/README.md:1)
-  기준점 점검과 실험 전후 캡처용 최소 헬퍼 구조
+- `mkbootimg/`
+  boot/recovery/vendor_boot 분석과 repack에 쓰는 도구
+- `backups/`
+  known-good boot/recovery/vbmeta 등 복구 기준점
 
 ## Active Documents
 
-- [docs/overview/PROJECT_STATUS.md](/home/temmie/dev/A90_5G_rooting/docs/overview/PROJECT_STATUS.md:1)
-- [docs/overview/PROGRESS_LOG.md](/home/temmie/dev/A90_5G_rooting/docs/overview/PROGRESS_LOG.md:1)
-- [docs/plans/NATIVE_LINUX_RECHALLENGE_PLAN.md](/home/temmie/dev/A90_5G_rooting/docs/plans/NATIVE_LINUX_RECHALLENGE_PLAN.md:1)
-- [docs/plans/REVALIDATION_PLAN.md](/home/temmie/dev/A90_5G_rooting/docs/plans/REVALIDATION_PLAN.md:1)
-- [docs/reports/BOOTCHAIN_REVALIDATION_MATRIX_2026-04-23.md](/home/temmie/dev/A90_5G_rooting/docs/reports/BOOTCHAIN_REVALIDATION_MATRIX_2026-04-23.md:1)
-- [docs/reports/MINIMAL_BOOT_STATUS_2026-04-22.md](/home/temmie/dev/A90_5G_rooting/docs/reports/MINIMAL_BOOT_STATUS_2026-04-22.md:1)
+- `docs/overview/PROJECT_STATUS.md`
+- `docs/reports/NATIVE_INIT_V39_STATUS_2026-04-25.md`
+- `docs/plans/NATIVE_INIT_NEXT_WORK_2026-04-25.md`
+- `docs/overview/PROGRESS_LOG.md`
+- `docs/plans/NATIVE_LINUX_RECHALLENGE_PLAN.md`
+- `docs/plans/REVALIDATION_PLAN.md`
+- `docs/reports/BOOTCHAIN_REVALIDATION_MATRIX_2026-04-23.md`
 
-## Archive
+이 중 `NATIVE_LINUX_RECHALLENGE_PLAN.md`와 `REVALIDATION_PLAN.md`는
+진입점 확보 이전의 부트체인 재검증 기록으로 남기고,
+현재 진행 기준은 `NATIVE_INIT_NEXT_WORK_2026-04-25.md`를 따른다.
 
-- [docs/archive/README.md](/home/temmie/dev/A90_5G_rooting/docs/archive/README.md:1)
-- [scripts/archive/README.md](/home/temmie/dev/A90_5G_rooting/scripts/archive/README.md:1)
+## Working Rules
 
-archive에는 다음 과거 트랙이 들어 있습니다.
+- known-good boot image와 TWRP recovery 복구 경로를 항상 유지한다.
+- 한 번에 하나의 boot/init 변수만 바꾼다.
+- 새 boot image는 version, source path, SHA256, 실기 관찰 결과를 기록한다.
+- USB ACM serial bridge를 기준 제어 채널로 사용한다.
+- `/efs`, modem, RPMB, keymaster, keystore, bootloader 계열에는 쓰기 작업을 하지 않는다.
+- `/data` 암호화 영역은 명확한 목적과 복구 계획 없이는 건드리지 않는다.
+- 로그와 실험 산출물은 우선 `/cache` 또는 repo 문서에 남긴다.
+- ADB 안정화는 후순위로 두고, serial/HUD/log/menu 안정화를 먼저 진행한다.
 
-- native Linux boot planning
-- headless Android automation
-- Magisk module templates
-- custom kernel / AOSP minimal build
-- Debian rootfs helper scripts
-
-## Working Rule
-
-- 현재 실험은 항상 기준점 A에서 시작합니다.
-- 각 실험 전에는 현재 `boot`, `recovery`, `vbmeta`를 백업합니다.
-- 다운로드 모드의 `KG`, `OEM LOCK`, custom binary 문구를 같이 기록합니다.
-- 한 번에 하나의 변수만 바꿉니다.
-- 부팅, ADB, `su`, Wi-Fi 중 하나라도 깨지면 `stock firmware + patched AP`로 복구합니다.
-- 부트체인 실험 중 추가 debloat는 하지 않습니다.
-- 새 실험 스크립트는 `scripts/revalidation/` 아래에만 추가합니다.
-
-## Note
+## Safety Note
 
 이 저장소에는 실제 플래시 대상 바이너리와 Samsung 전용 이미지가 포함될 수 있습니다.
-실험 전에는 항상 현재 boot / recovery / vbmeta 상태를 따로 백업해 두는 것을 전제로 합니다.
+실험 전에는 항상 현재 boot/recovery/vbmeta 상태와 복구 가능한 known-good 이미지를
+확인한 뒤 진행합니다.

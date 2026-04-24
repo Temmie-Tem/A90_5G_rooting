@@ -1,40 +1,47 @@
 # Samsung Galaxy A90 5G - 현재 문서 인덱스
 
-이 문서 트리는 `2026-04-23` 기준으로 리셋한 뒤,
-이번 업데이트에서 `native Linux rechallenge` 중심으로 다시 정렬했습니다.
+이 문서 트리는 `2026-04-25` 기준으로 다시 정렬했습니다.
 
-상단 `docs/`는 이제 다음 흐름에 필요한 문서만 유지합니다.
+초기 `native Linux rechallenge`의 핵심 진입점 확보 단계는 통과했고,
+현재 문서의 중심은 **stock Android kernel 위에서 custom static `/init`를 실행해
+작은 native userspace/runtime을 만드는 작업**입니다.
 
-1. rooted baseline 고정
-2. 부트체인 관찰 재구성
-3. 보안 경계 분해
-4. native Linux 진입 후보 재도전
+상단 `docs/`는 이제 다음 흐름에 필요한 문서를 유지합니다.
+
+1. native init v39 기준 상태 고정
+2. shell/HUD/log/menu 운영 안정화
+3. 필요한 하드웨어/커널 경로만 역추적
+4. BusyBox/network/SSH 같은 서버형 확장 가능성 검토
 
 ## 현재 기준점
 
 - 디바이스: `SM-A908N`
 - 빌드: `A908NKSU5EWA3`
-- Android 12 stock 기반
-- patched AP 부팅 성공
-- `Magisk 30.7` / `su` 동작 확인
-- ADB 가능
-- WPA2 Wi-Fi 등록 및 연결 가능
-- 현재 `user 0` 패키지 수: `92`
+- kernel: Samsung stock Android kernel `Linux 4.14.190`
+- recovery: TWRP 사용 가능
+- latest native init: `A90 Linux init v39`
+- latest source: `stage3/linux_init/init_v39.c`
+- latest boot image: `stage3/boot_linux_v39.img`
+- control channel: USB CDC ACM serial bridge
+- display: TEST pattern 후 상태 HUD 자동 전환
+- input: VOL+/VOL-/POWER 버튼 확인
+- ADB: 보류
 
 ## 현재 작업 문서
 
 ### 1. Overview
-- `overview/PROJECT_STATUS.md` – 현재 기준점, 성공/실패 조건, 다음 작업
-- `overview/PROGRESS_LOG.md` – 이번 rechallenge 트랙의 새 로그
+- `overview/PROJECT_STATUS.md` – 현재 기준점, 성공/실패 조건, 다음 작업 링크
+- `overview/PROGRESS_LOG.md` – 진행 로그
 
 ### 2. Plans
-- `plans/NATIVE_LINUX_RECHALLENGE_PLAN.md` – 이번 목표를 짧게 고정한 개요형 로드맵
 - `plans/NATIVE_INIT_NEXT_WORK_2026-04-25.md` – v39 이후 역추적/셸/HUD/로그/네트워크 작업 목록
-- `plans/REVALIDATION_PLAN.md` – 단계 1~3 실행 체크리스트와 실험 절차
+- `plans/NATIVE_LINUX_RECHALLENGE_PLAN.md` – native init 진입점 확보 이전 로드맵
+- `plans/REVALIDATION_PLAN.md` – 부트체인 재검증 실행 체크리스트와 실험 절차
 - `plans/MINIMAL_BOOT_ALLOWLIST_2026-04-22.txt` – 현재 최소 부팅 allowlist
 - `plans/MINIMAL_BOOT_DELETE_CANDIDATES_2026-04-22.txt` – allowlist 기준 삭제 후보 스냅샷
 
 ### 3. Reports
+- `reports/NATIVE_INIT_V39_STATUS_2026-04-25.md` – v39 기준 최신 native init 상태 보고서
 - `reports/BOOTCHAIN_REVALIDATION_MATRIX_2026-04-23.md` – 기본 4조합, KG, fallback, Linux 후보 기록 시트
 - `reports/MINIMAL_BOOT_STATUS_2026-04-22.md` – 최소 부팅 상태와 남은 예외 패키지
 - `reports/ADB_DEBLOAT_RESEARCH_2026-04-22.md` – 패키지별 제거 판단 근거
@@ -46,10 +53,13 @@
 
 ## 현재 우선순위
 
-1. 기준점 A의 `boot`, `recovery`, `vbmeta`, 다운로드 모드 상태를 먼저 고정
-2. `stock/patched AP` 와 `stock/TWRP recovery` 4조합을 같은 형식으로 재검증
-3. `official binaries only`, `KG`, recovery fallback 조건을 다시 기록
-4. 그 결과를 바탕으로 native Linux 진입 후보를 우선순위화
+1. shell return code 정밀화
+2. `/cache/native-init.log` 추가
+3. blocking command 취소 정책 통일
+4. boot readiness timeline 자동 기록
+5. HUD boot progress/error 표시
+6. on-screen menu 초안
+7. safe storage/device/sysfs map 문서화
 
-패키지 최소화는 보조 실험으로만 다루고,
-메인 목표는 **rooted baseline 위에서 native Linux 경로를 다시 여는 것**입니다.
+패키지 최소화와 Android userspace 복구는 보조 실험으로만 다루고,
+메인 목표는 **Android kernel 위에 반복 운용 가능한 native init 기반 최소 Linux 콘솔을 만드는 것**입니다.

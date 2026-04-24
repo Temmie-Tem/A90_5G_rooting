@@ -17,6 +17,105 @@
 
 ---
 
+## 프로젝트 목표 재정의
+
+현재 프로젝트의 목표는 `native Linux 진입 가능성 확인`이 아니라,
+이미 확보한 진입점을 기반으로 **Android kernel 위에 작은 native Linux userspace를
+직접 구성하는 것**이다.
+
+목표 구조:
+
+```text
+Samsung bootloader
+  -> stock Android Linux kernel
+    -> custom static /init (PID 1)
+      -> native runtime services
+      -> serial shell
+      -> KMS HUD/menu
+      -> input/button control
+      -> sysfs/proc/device map
+      -> log/storage layer
+      -> optional BusyBox/network/SSH
+```
+
+이 프로젝트에서 `서버처럼 사용한다`는 말은 처음부터 Debian 전체를 올린다는 뜻이 아니다.
+우선 목표는 아래 조건을 만족하는 초소형 임베디드 Linux 콘솔이다.
+
+- 부팅 진행과 실패 원인이 화면 또는 로그에 남는다.
+- serial shell이 성공/실패를 신뢰 가능하게 보고한다.
+- 외부 static binary를 실행하고 exit status를 확인할 수 있다.
+- `/cache` 같은 안전한 저장소에 로그와 도구를 둘 수 있다.
+- 버튼만으로 최소한의 상태 확인과 recovery/poweroff 조작이 가능하다.
+- 추후 USB network와 SSH/dropbear를 붙일 수 있는 runtime 구조를 가진다.
+
+---
+
+## 구현 범위와 비목표
+
+현재 범위:
+
+- custom `/init` 안정화
+- shell/HUD/menu/log/runtime 구현
+- 필요한 `/proc`, `/sys`, `/dev`, ioctl 경로 탐색
+- safe storage와 boot recovery path 유지
+- BusyBox 같은 static userland 검토
+- USB serial 기반 운용
+
+명시적 비목표:
+
+- full POSIX shell 직접 구현
+- Debian/Ubuntu 전체 배포판 즉시 포팅
+- Android framework, Zygote, SurfaceFlinger 복구
+- 커널 교체 또는 커널 드라이버 개발
+- 카메라/모뎀/GPU 가속 같은 vendor userspace 의존 기능 지원
+- `/efs`, RPMB, keymaster, modem 영역 쓰기
+
+---
+
+## 단계별 마일스톤
+
+### M0. Native init 진입 확보 — 완료
+
+- stock Android kernel 부팅
+- custom static `/init` PID 1 실행
+- USB ACM serial shell 확보
+- KMS 화면 출력 확보
+- 버튼 입력과 기본 sensor/sysfs 읽기 확보
+
+### M1. 신뢰 가능한 native console
+
+- shell return code 정밀화
+- command duration/result/errno 기록
+- blocking command 취소 정책 통일
+- serial 반향/prompt 오염 방어
+
+### M2. 관찰 가능한 boot/runtime
+
+- `/cache/native-init.log`
+- boot readiness timeline
+- HUD boot progress/error 표시
+- safe storage map 문서화
+
+### M3. 단독 운용 가능한 device UI
+
+- 버튼 기반 on-screen menu
+- status/log/reboot/recovery/poweroff 조작
+- serial 없이도 최소 복구 조작 가능
+
+### M4. 작은 Linux userland
+
+- static BusyBox 또는 선택 유틸 실행
+- `/cache/bin` 또는 ramdisk 기반 tool path
+- process 실행, timeout, signal, zombie 회수 안정화
+
+### M5. 서버형 접근
+
+- USB RNDIS/NCM 또는 다른 네트워크 경로 검토
+- static dropbear SSH 또는 custom TCP shell
+- boot-time service start 정책
+
+---
+
 ## 현재 기준점
 
 - 최신 확인 버전: `A90 Linux init v39`
