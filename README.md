@@ -93,6 +93,7 @@ Samsung bootloader
 - `docs/reports/NATIVE_INIT_V41_LOGGING_2026-04-25.md`
 - `docs/reports/NATIVE_INIT_V39_STATUS_2026-04-25.md`
 - `docs/plans/NATIVE_INIT_NEXT_WORK_2026-04-25.md`
+- `docs/plans/NATIVE_INIT_TASK_QUEUE_2026-04-25.md`
 - `docs/overview/PROGRESS_LOG.md`
 - `docs/plans/NATIVE_LINUX_RECHALLENGE_PLAN.md`
 - `docs/plans/REVALIDATION_PLAN.md`

@@ -647,6 +647,8 @@ Samsung bootloader
 
 ## 당장 다음 실행 순서
 
+상세 실행 큐는 `docs/plans/NATIVE_INIT_TASK_QUEUE_2026-04-25.md`를 따른다.
+
 1. boot readiness timeline 자동 기록
 2. HUD boot progress/error 표시
 3. recovery 왕복 후 `/cache/native-init.log` 보존 확인
