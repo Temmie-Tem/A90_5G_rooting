@@ -37,11 +37,14 @@ class Bridge:
         self.server = self._open_server()
         self.selector.register(self.server, selectors.EVENT_READ, "server")
         self.serial_fd = None
+        self.serial_device = None
+        self.serial_stat = None
         self.client = None
         self.client_addr = None
         self.capture_fp = None
         self.stop_requested = False
         self.next_serial_retry = 0.0
+        self.next_serial_identity_check = 0.0
 
         if self.args.capture:
             capture_path = Path(self.args.capture)
@@ -94,6 +97,7 @@ class Bridge:
         try:
             fd = os.open(device, os.O_RDWR | os.O_NOCTTY | os.O_NONBLOCK)
             self.configure_serial(fd)
+            serial_stat = os.fstat(fd)
         except OSError as exc:
             if exc.errno in {errno.ENOENT, errno.ENODEV, errno.EACCES, errno.EBUSY}:
                 self.log(f"serial not ready at {device}: {exc.strerror}")
@@ -101,6 +105,13 @@ class Bridge:
             raise
 
         self.serial_fd = fd
+        self.serial_device = device
+        self.serial_stat = (
+            serial_stat.st_dev,
+            serial_stat.st_ino,
+            serial_stat.st_rdev,
+        )
+        self.next_serial_identity_check = time.monotonic() + 0.5
         self.selector.register(fd, selectors.EVENT_READ, "serial")
         self.log(f"serial connected: {device}")
 
@@ -119,9 +130,44 @@ class Bridge:
             pass
 
         self.serial_fd = None
+        self.serial_device = None
+        self.serial_stat = None
         self.next_serial_retry = time.monotonic() + self.args.retry_interval
         self.log("serial disconnected")
         self.close_client()
+
+    def check_serial_identity(self) -> None:
+        if self.serial_fd is None:
+            return
+
+        now = time.monotonic()
+        if now < self.next_serial_identity_check:
+            return
+
+        self.next_serial_identity_check = now + 0.5
+        device = self.resolve_device()
+        if device is None:
+            self.log("serial device path disappeared")
+            self.close_serial()
+            return
+
+        try:
+            current_stat = os.stat(device)
+        except OSError as exc:
+            if exc.errno in {errno.ENOENT, errno.ENODEV, errno.EACCES}:
+                self.log(f"serial device path is no longer valid: {exc.strerror}")
+                self.close_serial()
+                return
+            raise
+
+        current_identity = (
+            current_stat.st_dev,
+            current_stat.st_ino,
+            current_stat.st_rdev,
+        )
+        if current_identity != self.serial_stat:
+            self.log(f"serial device was re-enumerated: {device}")
+            self.close_serial()
 
     def accept_client(self) -> None:
         conn, addr = self.server.accept()
@@ -221,6 +267,8 @@ class Bridge:
             self.close_serial()
 
     def tick(self) -> None:
+        self.check_serial_identity()
+
         if self.serial_fd is None and time.monotonic() >= self.next_serial_retry:
             self.open_serial()
             if self.serial_fd is None:

@@ -14,9 +14,9 @@ Android userspace 대신 직접 만든 static `/init`를 실행하고,
 - build: `A908NKSU5EWA3`
 - kernel: Samsung stock Android kernel `Linux 4.14.190`
 - recovery: TWRP 사용 가능
-- latest native init: `A90 Linux init v47`
-- latest source: `stage3/linux_init/init_v47.c`
-- latest boot image: `stage3/boot_linux_v47.img`
+- latest native init: `A90 Linux init v48`
+- latest source: `stage3/linux_init/init_v48.c`
+- latest boot image: `stage3/boot_linux_v48.img`
 - control channel: USB CDC ACM serial (`/dev/ttyGS0` ↔ `/dev/ttyACM0`)
 - host bridge: `scripts/revalidation/serial_tcp_bridge.py --port 54321`
 - display: KMS TEST pattern 후 상태 HUD 자동 전환
@@ -29,6 +29,9 @@ Android userspace 대신 직접 만든 static `/init`를 실행하고,
 - storage: `/cache` safe write, `userdata` conditional, critical partitions do-not-touch
 - screen menu: `menu`/`screenmenu` 화면 진입과 q 취소 확인
 - USB map: ACM-only gadget `04e8:6861` / host `cdc_acm` 기준 문서화
+- userland: `toybox 0.8.13` static ARM64 build와 `/cache/bin/toybox` 실기 실행 확인
+- USB reattach: v48에서 ACM rebind 후 serial console 재연결 확인
+- USB NCM: host `cdc_ncm` + device `ncm0` 임시 probe 확인
 - ADB: 보류. 현재 기준 제어 채널은 serial bridge
 
 ## Current Objective
@@ -77,7 +80,9 @@ Samsung bootloader
 7. safe storage/partition map 문서화 — v46 완료
 8. 버튼 기반 on-screen menu 초안 구현 — v47 완료
 9. USB gadget/device/sysfs map 문서화 — 완료
-10. BusyBox와 USB network/SSH 가능성 검토
+10. Toybox/static userland build + device validation — V49 완료
+11. USB ACM reattach + NCM probe — v48 완료
+12. USB NCM IP/link 설정과 netcat 검증
 
 ## Repository Layout
 
@@ -103,7 +108,9 @@ Samsung bootloader
 - `docs/reports/NATIVE_INIT_V45_RUN_LOG_2026-04-25.md`
 - `docs/reports/NATIVE_INIT_STORAGE_MAP_2026-04-25.md`
 - `docs/reports/NATIVE_INIT_V47_SCREEN_MENU_2026-04-25.md`
+- `docs/reports/NATIVE_INIT_V48_USB_REATTACH_NCM_2026-04-25.md`
 - `docs/reports/NATIVE_INIT_USB_GADGET_MAP_2026-04-25.md`
+- `docs/reports/NATIVE_INIT_USERLAND_CANDIDATES_2026-04-25.md`
 - `docs/reports/NATIVE_INIT_V41_LOGGING_2026-04-25.md`
 - `docs/reports/NATIVE_INIT_V39_STATUS_2026-04-25.md`
 - `docs/plans/NATIVE_INIT_NEXT_WORK_2026-04-25.md`

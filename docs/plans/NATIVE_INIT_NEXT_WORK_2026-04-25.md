@@ -1,6 +1,6 @@
 # Native Init Next Work List (2026-04-25)
 
-이 문서는 `A90 Linux init v47` 기준 이후 작업을 정리한 실행 목록이다.
+이 문서는 `A90 Linux init v48` 기준 이후 작업을 정리한 실행 목록이다.
 
 현재 단계는 넓은 의미의 리버싱도 포함하지만, 중심은 더 이상 Android 전체를
 분해하는 것이 아니다. Stock Android kernel과 Samsung vendor driver 위에서
@@ -119,9 +119,9 @@ Samsung bootloader
 
 ## 현재 기준점
 
-- 최신 확인 버전: `A90 Linux init v47`
-- 최신 소스: `stage3/linux_init/init_v47.c`
-- 최신 boot image: `stage3/boot_linux_v47.img`
+- 최신 확인 버전: `A90 Linux init v48`
+- 최신 소스: `stage3/linux_init/init_v48.c`
+- 최신 boot image: `stage3/boot_linux_v48.img`
 - 주 제어 채널: USB CDC ACM serial (`/dev/ttyGS0` ↔ `/dev/ttyACM0`)
 - host bridge: `scripts/revalidation/serial_tcp_bridge.py --port 54321`
 - 화면 상태: TEST 패턴 약 2초 표시 후 상태 HUD 자동 전환
@@ -134,6 +134,8 @@ Samsung bootloader
 - storage 상태: `/cache` safe write, `userdata` conditional, critical partitions do-not-touch 기준 문서화
 - screen menu 상태: `menu`/`screenmenu` 화면 진입과 q 취소 확인
 - USB 상태: ACM-only gadget `04e8:6861` / host `cdc_acm` 기준 문서화
+- USB reattach 상태: v48 `usbacmreset`와 외부 helper `off` 후 serial 복구 확인
+- USB NCM 상태: host `cdc_ncm` + device `ncm0` 임시 probe 확인
 - ADB 상태: 보류
 
 상세 상태 문서:
@@ -141,7 +143,9 @@ Samsung bootloader
 - `docs/reports/NATIVE_INIT_V45_RUN_LOG_2026-04-25.md`
 - `docs/reports/NATIVE_INIT_STORAGE_MAP_2026-04-25.md`
 - `docs/reports/NATIVE_INIT_V47_SCREEN_MENU_2026-04-25.md`
+- `docs/reports/NATIVE_INIT_V48_USB_REATTACH_NCM_2026-04-25.md`
 - `docs/reports/NATIVE_INIT_USB_GADGET_MAP_2026-04-25.md`
+- `docs/reports/NATIVE_INIT_USERLAND_CANDIDATES_2026-04-25.md`
 - `docs/reports/NATIVE_INIT_V44_HUD_BOOT_2026-04-25.md`
 - `docs/reports/NATIVE_INIT_V43_TIMELINE_2026-04-25.md`
 - `docs/reports/NATIVE_INIT_V42_CANCEL_2026-04-25.md`
@@ -648,6 +652,16 @@ Samsung bootloader
 
 - core shell 안정화 전에는 도구 추가가 문제를 가릴 수 있다.
 
+현재 상태:
+
+- V49로 승격해 진행 중이다.
+- 후보 리포트: `docs/reports/NATIVE_INIT_USERLAND_CANDIDATES_2026-04-25.md`
+- 1차 방향은 boot ramdisk 포함이 아니라 `/cache/bin`에 static ARM64 multi-call binary를 올리고 `run /cache/bin/<tool> <applet>` 형태로 명시 실행하는 것이다.
+- host build prerequisite 설치 후 `scripts/revalidation/build_static_toybox.sh`로 `toybox 0.8.13` static ARM64 빌드가 성공했다.
+- 산출물은 `external_tools/userland/bin/toybox-aarch64-static-0.8.13`이며 SHA256은 `92a0917579c76fec965578ac242afbf7dedc4428297fb90f4c9caf7f538a718c`다.
+- TWRP ADB로 `/cache/bin/toybox` 배치 후 native init에서 주요 applet 실기 실행을 확인했다.
+- `ifconfig -a`, `route -n`, `netcat --help`가 동작하므로 USB networking probe의 userland 기반은 확보됐다.
+
 ### 2. 네트워크
 
 목표:
@@ -691,10 +705,11 @@ Samsung bootloader
 
 상세 실행 큐는 `docs/plans/NATIVE_INIT_TASK_QUEUE_2026-04-25.md`를 따른다.
 
-1. BusyBox/static userland 후보 검토
-2. USB networking function probe
-3. `userdata`/`mmcblk0p1` 장기 저장소 후보 의사결정
-4. screen menu 버튼 수동 검증
+1. USB NCM persistent mode와 rollback 명령 정리
+2. device `ncm0` / host `enx...` IPv4 설정 검증
+3. toybox `netcat`으로 host ↔ device TCP 통신 확인
+4. toybox 부족 applet 확인 후 BusyBox 추가 비교 여부 판단
+5. `userdata`/`mmcblk0p1` 장기 저장소 후보 의사결정
 
 ---
 

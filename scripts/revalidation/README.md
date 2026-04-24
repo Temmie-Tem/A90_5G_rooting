@@ -20,6 +20,7 @@
     `127.0.0.1:<port>`로 노출하는 최소 브릿지
   - USB ACM shell을 TCP 클라이언트 한 개로 전달
   - serial 재연결 시 자동 재오픈
+  - v48 이후 USB 재열거로 device node identity가 바뀌면 stale fd를 닫고 재연결
   - 빠른 개발용 게이트 용도
 - `serial_console.py`
   - 위 브릿지에 붙는 interactive console client
@@ -31,6 +32,15 @@
   - `adb devices` 출력을 whitespace split으로 파싱해 `recovery` 상태를 안정적으로 감지
   - TWRP에서 system으로 돌아갈 때 `adb shell twrp reboot system`을 우선 사용
   - 부팅 후 serial bridge에 붙어 `version`으로 기대 버전을 확인
+- `build_static_toybox.sh`
+  - 공식 `toybox-0.8.13` tarball을 해시 검증 후 다운로드
+  - `aarch64-linux-gnu-gcc`로 static ARM64 toybox를 빌드
+  - 산출물은 gitignore된 `external_tools/userland/bin/toybox-aarch64-static-0.8.13`
+  - native init 실기 검증 시 `/cache/bin/toybox`로 올려 `run /cache/bin/toybox ...` 형태로 사용
+- `build_usbnet_helper.sh`
+  - `stage3/linux_init/a90_usbnet.c`를 static ARM64 helper로 빌드
+  - 산출물은 gitignore된 `external_tools/userland/bin/a90_usbnet-aarch64-static`
+  - TWRP ADB로 `/cache/bin/a90_usbnet`에 배치해 USB ACM/NCM/RNDIS probe에 사용
 
 권장 순서:
 
@@ -67,16 +77,16 @@ native init 이미지 플래시/검증 예:
 
 ```bash
 python3 ./scripts/revalidation/native_init_flash.py \
-  stage3/boot_linux_v47.img \
-  --expect-version "A90 Linux init v47"
+  stage3/boot_linux_v48.img \
+  --expect-version "A90 Linux init v48"
 ```
 
 현재 native init에서 recovery로 전환한 뒤 플래시까지 이어가는 예:
 
 ```bash
 python3 ./scripts/revalidation/native_init_flash.py \
-  stage3/boot_linux_v47.img \
-  --expect-version "A90 Linux init v47" \
+  stage3/boot_linux_v48.img \
+  --expect-version "A90 Linux init v48" \
   --from-native
 ```
 
@@ -85,7 +95,19 @@ python3 ./scripts/revalidation/native_init_flash.py \
 ```bash
 python3 ./scripts/revalidation/native_init_flash.py \
   --verify-only \
-  --expect-version "A90 Linux init v47"
+  --expect-version "A90 Linux init v48"
+```
+
+static toybox 빌드 예:
+
+```bash
+./scripts/revalidation/build_static_toybox.sh
+```
+
+USB net helper 빌드 예:
+
+```bash
+./scripts/revalidation/build_usbnet_helper.sh
 ```
 
 참고:

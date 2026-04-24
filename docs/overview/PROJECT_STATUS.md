@@ -120,7 +120,7 @@
 ## 현재 폰 상태
 
 - patched AP (Magisk 30.7) + **TWRP recovery**
-- 최신 실기 확인: `stage3/boot_linux_v47.img` (`A90 Linux init v47`)
+- 최신 실기 확인: `stage3/boot_linux_v48.img` (`A90 Linux init v48`)
 - 부팅 흐름: TEST 패턴 약 2초 → 상태 HUD 자동 전환 → USB ACM serial shell
 - 로그 상태: `/cache/native-init.log`에 boot/command/result 기록
 - blocking 상태: `waitkey`, `readinput`, `watchhud`, `blindmenu` q/Ctrl-C 취소 확인
@@ -131,8 +131,13 @@
 - storage 상태: `/cache` safe write, `userdata` conditional, critical partitions do-not-touch 기준 문서화
 - screen menu 상태: `menu`/`screenmenu` 화면 진입과 q 취소 확인
 - USB 상태: ACM-only gadget `04e8:6861` / host `cdc_acm` 기준 문서화
-- 상세 최신 상태: `docs/reports/NATIVE_INIT_V47_SCREEN_MENU_2026-04-25.md`
+- userland 상태: `toybox 0.8.13` static ARM64 host 빌드와 `/cache/bin/toybox` 실기 실행 확인
+- USB reattach 상태: `usbacmreset`와 외부 helper `off` 후 serial bridge 복구 확인
+- USB NCM 상태: host `cdc_ncm` composite interface와 device `ncm0` 임시 생성 확인
+- 상세 최신 상태: `docs/reports/NATIVE_INIT_V48_USB_REATTACH_NCM_2026-04-25.md`
+- v47 screen menu 기록: `docs/reports/NATIVE_INIT_V47_SCREEN_MENU_2026-04-25.md`
 - USB gadget map 기록: `docs/reports/NATIVE_INIT_USB_GADGET_MAP_2026-04-25.md`
+- static userland 후보 기록: `docs/reports/NATIVE_INIT_USERLAND_CANDIDATES_2026-04-25.md`
 - v46 storage map 기록: `docs/reports/NATIVE_INIT_STORAGE_MAP_2026-04-25.md`
 - v45 run/log preservation 기록: `docs/reports/NATIVE_INIT_V45_RUN_LOG_2026-04-25.md`
 - v44 HUD boot summary 기록: `docs/reports/NATIVE_INIT_V44_HUD_BOOT_2026-04-25.md`
@@ -207,9 +212,10 @@ ADB 방식이 막혀 USB CDC ACM serial (ttyGS0)로 전환, 인터랙티브 셸 
 
 우선순위 순:
 
-1. **USB networking (RNDIS/NCM) + SSH** — ADB 없이 더 범용적인 네트워크 채널 확보
-2. **adbd 안정화** — descriptors 직접 작성 또는 Android bionic 환경 보강
-3. **DRM/framebuffer probe** — `/dev/dri` 노드 생성 및 화면 출력 시도
-4. **prepareandroid idempotency 정리** — bind mount 중복 방지
+1. **USB NCM IP/link setup** — device `ncm0`와 host `enx...`에 IPv4를 설정해 ping 확인
+2. **Toybox netcat 실사용** — NCM 링크 위에서 `netcat` 기반 TCP 통신 확인
+3. **장기 저장소 의사결정** — `userdata`/`mmcblk0p1` 사용 여부를 별도 문서로 판단
+4. **screen menu 버튼 수동 검증** — VOL+/VOL-/POWER로 `STATUS`/`LOG`/복구 동작 확인
+5. **adbd 안정화 재검토** — serial/RNDIS보다 가치가 커졌을 때만 재개
 
 **복구**: `backups/baseline_a_20260423_030309/boot.img` dd 복구 가능

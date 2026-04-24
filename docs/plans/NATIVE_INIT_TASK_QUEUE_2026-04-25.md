@@ -1,13 +1,13 @@
 # Native Init Task Queue (2026-04-25)
 
-이 문서는 `A90 Linux init v47` 이후 바로 실행할 작업 큐다.
-큰 방향은 “보이는 부팅 → 복구 가능한 로그 → 단독 조작 → 작은 userland” 순서다.
+이 문서는 `A90 Linux init v48` 이후 바로 실행할 작업 큐다.
+큰 방향은 “보이는 부팅 → 복구 가능한 로그 → 단독 조작 → 작은 userland → USB networking” 순서다.
 
 ## 현재 고정 기준점
 
-- latest native init: `A90 Linux init v47`
-- latest source: `stage3/linux_init/init_v47.c`
-- latest boot image: `stage3/boot_linux_v47.img`
+- latest native init: `A90 Linux init v48`
+- latest source: `stage3/linux_init/init_v48.c`
+- latest boot image: `stage3/boot_linux_v48.img`
 - control channel: USB ACM serial bridge
 - log: `/cache/native-init.log`
 - verified:
@@ -21,6 +21,7 @@
   - safe storage/partition map
   - screen menu draft
   - USB gadget map
+  - USB reattach / NCM probe
   - KMS HUD
   - VOL+/VOL-/POWER input
 
@@ -153,17 +154,94 @@
 
 - `docs/reports/NATIVE_INIT_USB_GADGET_MAP_2026-04-25.md`
 
+### V49. Toybox / Static Userland Candidate Review — 완료
+
+목표:
+
+- 모든 유틸을 native init 안에 재구현하지 않고, static ARM64 multi-call binary를 붙일 수 있는지 판단한다.
+- USB networking probe 전에 `ip`/`ifconfig`/`route`/`nc`/`ps`/`dmesg`/`grep`/`tail` 계열 도구 확보 가능성을 확인한다.
+
+확인:
+
+- `run <path> [args...]`는 이미 static helper 실행, exit status, q/Ctrl-C cancel을 지원한다.
+- 현재 `run` PATH는 `/cache:/cache/bin:/bin:/system/bin`이라 `/cache/bin` 기반 실험과 맞다.
+- host build prerequisite 설치 후 `toybox 0.8.13` static ARM64 빌드가 성공했다.
+- artifact는 `external_tools/userland/bin/toybox-aarch64-static-0.8.13`에 생성된다.
+- artifact SHA256은 `92a0917579c76fec965578ac242afbf7dedc4428297fb90f4c9caf7f538a718c`다.
+- `INTERP` segment와 dynamic section이 없어 static ELF 기준은 통과했다.
+- 과거 `busybox-static:arm64` apt 확보 실패 기록이 있다.
+- BusyBox는 GPLv2 배포 의무를 고려해야 하고, toybox는 Android 계열과 라이선스 측면에서 비교 후보가 된다.
+
+산출:
+
+- `docs/reports/NATIVE_INIT_USERLAND_CANDIDATES_2026-04-25.md`
+
+실기 결과:
+
+- `/cache/bin/toybox` 배치 완료
+- SHA256 일치: `92a0917579c76fec965578ac242afbf7dedc4428297fb90f4c9caf7f538a718c`
+- PASS:
+  - `--help`
+  - `uname -a`
+  - `ls /proc`
+  - `ps -A`
+  - `ps -ef`
+  - `dmesg --help`
+  - `dmesg -s 1024`
+  - `hexdump -C /proc/version`
+  - `ifconfig -a`
+  - `route -n`
+  - `ip` usage
+  - `netcat --help`
+- 주의:
+  - `ps` 단독은 `rc=1`; `ps -A`/`ps -ef` 사용
+  - `netcat -h`는 `rc=1`; `netcat --help` 사용
+  - `ip addr`/`ip link`는 interface를 출력하지만 `No such device`와 `rc=1`; USB network 추가 후 재확인
+
+### V50. USB Reattach / NCM Probe — 완료
+
+목표:
+
+- USB gadget rebind 후 serial console이 stale fd에 묶이는 문제를 해결한다.
+- ACM rescue channel을 유지한 상태에서 NCM function이 실제 host/device interface를 만드는지 확인한다.
+
+구현:
+
+- `init_v48`에서 `read_line()`을 `poll()` 기반으로 바꾸고 console reattach를 추가했다.
+- `reattach`, `usbacmreset` 명령을 추가했다.
+- `startadbd`/`stopadbd` rebind 뒤 console reattach를 호출한다.
+- `serial_tcp_bridge.py`는 USB 재열거 시 serial device identity 변화를 감지해 fd를 다시 연다.
+- `a90_usbnet` helper는 `status|ncm|rndis|probe-ncm|probe-rndis|off`를 제공한다.
+
+실기 결과:
+
+- `stage3/boot_linux_v48.img` 플래시 완료
+- `version` → `A90 Linux init v48` 확인
+- `usbacmreset` 후 serial console reattached 확인
+- `run /cache/bin/a90_usbnet off` 후 약 3초 내 bridge `version` 복구 확인
+- `probe-ncm` 중 host:
+  - phone device에 `cdc_acm` + `cdc_ncm` composite interface 표시
+  - `enx26eaa7b343d7` / `enx425f6b65a0cb` 형태 NCM interface 생성 확인
+- `probe-ncm` 중 device:
+  - toybox `ifconfig -a`에서 `ncm0` 확인
+- rollback 후 ACM-only와 `version` 복구 확인
+
+산출:
+
+- `docs/reports/NATIVE_INIT_V48_USB_REATTACH_NCM_2026-04-25.md`
+
 ## 보류 큐
 
 - ADB 안정화 재검토
-- USB RNDIS/NCM network
+- USB RNDIS/NCM persistent network
 - dropbear SSH
-- BusyBox/static userland 묶음
+- Buildroot/rootfs 묶음
 - Android framework 복구 시도
 
 ## 지금 바로 진행할 항목
 
-1. BusyBox/static userland 후보 검토
-2. USB networking function probe
-3. `userdata`/`mmcblk0p1` 장기 저장소 후보 의사결정
-4. screen menu 버튼 수동 검증
+1. NCM persistent mode와 rollback 명령 정리
+2. device `ncm0` / host `enx...` IPv4 설정 검증
+3. toybox `netcat`으로 host ↔ device TCP 통신 확인
+4. toybox 부족 applet 확인 후 BusyBox 추가 비교 여부 판단
+5. `userdata`/`mmcblk0p1` 장기 저장소 후보 의사결정

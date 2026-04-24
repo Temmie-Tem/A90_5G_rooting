@@ -319,3 +319,94 @@
   - ACM serial은 rescue/control channel로 유지한 채 두 번째 function으로 probe해야 함
 - 상세 보고서:
   - `docs/reports/NATIVE_INIT_USB_GADGET_MAP_2026-04-25.md`
+
+### Native init V49 static userland 후보
+- `v47` 기준 다음 큐를 작은 Linux userland 쪽으로 승격:
+  - BusyBox/static ARM64
+  - toybox/static ARM64
+  - 장기 후보로 Buildroot/rootfs
+- 현재 실행 기반:
+  - `run <path> [args...]`는 static helper 실행, exit status, q/Ctrl-C cancel 지원
+  - `PATH=/cache:/cache/bin:/bin:/system/bin`
+  - `/cache`는 safe persistent write 영역
+- 로컬 빌드 환경 확인:
+  - `aarch64-linux-gnu-gcc`, `strip`, `readelf` 있음
+  - 초기에는 host `make`, host `gcc`, `musl-gcc` 없음
+  - 간단한 AArch64 static hello binary 빌드는 성공
+- 빌드 prerequisite 설치 후 재확인:
+  - `build-essential`, `make`, `gcc` 설치 확인
+  - `binutils-aarch64-linux-gnu`, `libc6-dev-arm64-cross` 설치 확인
+- `scripts/revalidation/build_static_toybox.sh` 추가:
+  - 공식 `toybox-0.8.13.tar.gz` 다운로드
+  - source SHA256 고정
+  - `CC=aarch64-linux-gnu-gcc`, `LDFLAGS=--static` 빌드
+  - `LOGIN`, `MKPASSWD`, `PASSWD`, `SU`, `SULOGIN`, `GETTY` 비활성화
+  - `IP`, `ROUTE`, `HEXDUMP` 추가 활성화
+- host 빌드 산출물:
+  - `external_tools/userland/bin/toybox-aarch64-static-0.8.13`
+  - SHA256 `92a0917579c76fec965578ac242afbf7dedc4428297fb90f4c9caf7f538a718c`
+  - static ELF 확인: `INTERP` segment 없음, dynamic section 없음
+- 실기 배치:
+  - TWRP ADB로 `/cache/bin/toybox` push
+  - mode `0755`, size `1567176`
+  - remote SHA256 일치 확인
+- native init 실행 확인:
+  - `run /cache/bin/toybox --help` — PASS
+  - `run /cache/bin/toybox uname -a` — PASS
+  - `run /cache/bin/toybox ls /proc` — PASS
+  - `run /cache/bin/toybox ps -A` / `ps -ef` — PASS
+  - `run /cache/bin/toybox dmesg -s 1024` — PASS
+  - `run /cache/bin/toybox hexdump -C /proc/version` — PASS
+  - `run /cache/bin/toybox ifconfig -a` — PASS
+  - `run /cache/bin/toybox route -n` — PASS
+  - `run /cache/bin/toybox netcat --help` — PASS
+- 주의:
+  - `ps` 단독은 `rc=1`; `ps -A`/`ps -ef` 사용
+  - `netcat -h`는 `rc=1`; `netcat --help` 사용
+  - `ip addr`/`ip link`는 일부 interface 출력 후 `rc=1`; USB network 추가 후 재검증
+- 판단:
+  - boot ramdisk 포함 전 `/cache/bin/toybox` explicit 실행으로 먼저 검증
+  - BusyBox는 GPLv2 배포 의무 고려
+  - toybox는 Android 계열과 라이선스 측면에서 비교 후보
+  - USB networking probe 전에 `ip`/`ifconfig`/`route`/`nc` 계열 applet 확보 여부 확인
+- 상세 보고서:
+  - `docs/reports/NATIVE_INIT_USERLAND_CANDIDATES_2026-04-25.md`
+
+### Native init V48 USB reattach + NCM probe
+- `init_v47`에서 외부 USB gadget rebind 후 host `/dev/ttyACM0`는 돌아오지만
+  device-side native init이 기존 `/dev/ttyGS0` fd에 묶여 serial 응답이 끊기는 문제 확인
+- `init_v48` 구현:
+  - `read_line()`을 `poll()` 기반으로 변경
+  - `POLLHUP`/`POLLERR`/`POLLNVAL`, read error/eof, idle timeout 때 console reattach 시도
+  - `reattach`, `usbacmreset` 명령 추가
+  - `startadbd`/`stopadbd` rebind 뒤 console reattach 호출
+- `serial_tcp_bridge.py` 개선:
+  - serial device identity `(st_dev, st_ino, st_rdev)` 추적
+  - USB 재열거로 `/dev/ttyACM0`가 새 노드가 되면 fd를 닫고 재연결
+- `a90_usbnet` helper 추가:
+  - `status|ncm|rndis|probe-ncm|probe-rndis|off`
+  - `probe-*`는 child process로 분리하고 15초 뒤 ACM-only rollback
+  - `/cache/usbnet.log` 기록
+- 빌드 산출:
+  - `stage3/linux_init/init_v48`
+  - `stage3/ramdisk_v48.cpio`
+  - `stage3/boot_linux_v48.img`
+  - boot image SHA256 `1c87fa59712395027c5c2e489b15c4f6ddefabc3c50f78d3c235c4508a63e042`
+- 실기 플래시:
+  - `stage3/boot_linux_v48.img` push
+  - remote SHA256 일치
+  - `version` → `A90 Linux init v48`
+- ACM rebind 검증:
+  - `usbacmreset` → `# serial console reattached: usbacmreset`
+  - `run /cache/bin/a90_usbnet off` 후 약 3초 내 `version` 복구
+- NCM probe:
+  - host에서 phone `04e8:6861`에 `cdc_acm` + `cdc_ncm` composite interface 확인
+  - host `enx26eaa7b343d7` / `enx425f6b65a0cb` 형태 NCM interface 생성 확인
+  - device toybox `ifconfig -a`에서 `ncm0` 확인
+  - rollback 후 ACM-only와 `version` 복구 확인
+- 다음 작업:
+  - persistent NCM mode 정리
+  - device `ncm0`와 host `enx...`에 IPv4 설정
+  - `ping`/toybox `netcat`으로 실제 패킷 통신 검증
+- 상세 보고서:
+  - `docs/reports/NATIVE_INIT_V48_USB_REATTACH_NCM_2026-04-25.md`

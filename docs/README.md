@@ -8,7 +8,7 @@
 
 상단 `docs/`는 이제 다음 흐름에 필요한 문서를 유지합니다.
 
-1. native init v47 기준 상태 고정
+1. native init v48 기준 상태 고정
 2. shell/HUD/log/menu 운영 안정화
 3. 필요한 하드웨어/커널 경로만 역추적
 4. BusyBox/network/SSH 같은 서버형 확장 가능성 검토
@@ -19,9 +19,9 @@
 - 빌드: `A908NKSU5EWA3`
 - kernel: Samsung stock Android kernel `Linux 4.14.190`
 - recovery: TWRP 사용 가능
-- latest native init: `A90 Linux init v47`
-- latest source: `stage3/linux_init/init_v47.c`
-- latest boot image: `stage3/boot_linux_v47.img`
+- latest native init: `A90 Linux init v48`
+- latest source: `stage3/linux_init/init_v48.c`
+- latest boot image: `stage3/boot_linux_v48.img`
 - control channel: USB CDC ACM serial bridge
 - display: TEST pattern 후 상태 HUD 자동 전환
 - input: VOL+/VOL-/POWER 버튼 확인
@@ -33,6 +33,9 @@
 - storage: `/cache` safe write, `userdata` conditional, critical partitions do-not-touch
 - screen menu: `menu`/`screenmenu` 화면 진입과 q 취소 확인
 - USB map: ACM-only gadget `04e8:6861` / host `cdc_acm` 기준 문서화
+- userland: `toybox 0.8.13` static ARM64 build와 `/cache/bin/toybox` 실기 실행 확인
+- USB reattach: v48에서 ACM rebind 후 serial console 재연결 확인
+- USB NCM: host `cdc_ncm` + device `ncm0` 임시 probe 확인
 - ADB: 보류
 
 ## 현재 작업 문서
@@ -50,7 +53,9 @@
 - `plans/MINIMAL_BOOT_DELETE_CANDIDATES_2026-04-22.txt` – allowlist 기준 삭제 후보 스냅샷
 
 ### 3. Reports
+- `reports/NATIVE_INIT_V48_USB_REATTACH_NCM_2026-04-25.md` – v48 USB reattach와 NCM probe 실기 검증 보고서
 - `reports/NATIVE_INIT_USB_GADGET_MAP_2026-04-25.md` – USB gadget/host descriptor/ADB·network 후보 지도
+- `reports/NATIVE_INIT_USERLAND_CANDIDATES_2026-04-25.md` – static userland/BusyBox/toybox 후보 보고서
 - `reports/NATIVE_INIT_V47_SCREEN_MENU_2026-04-25.md` – v47 화면 메뉴 초안 실기 검증 보고서
 - `reports/NATIVE_INIT_STORAGE_MAP_2026-04-25.md` – v46 저장소/파티션 안전 등급 보고서
 - `reports/NATIVE_INIT_V45_RUN_LOG_2026-04-25.md` – v45 `run` cancel과 log preservation 실기 검증 보고서
@@ -80,6 +85,9 @@
 7. safe storage/partition map 문서화 — v46 완료
 8. on-screen menu 초안 — v47 완료
 9. USB gadget/device/sysfs map 문서화 — 완료
+10. Toybox/static userland build + device validation — V49 완료
+11. USB ACM reattach + NCM probe — v48 완료
+12. USB NCM IP/link 설정과 netcat 검증
 
 패키지 최소화와 Android userspace 복구는 보조 실험으로만 다루고,
 메인 목표는 **Android kernel 위에 반복 운용 가능한 native init 기반 최소 Linux 콘솔을 만드는 것**입니다.
