@@ -156,3 +156,24 @@
   - 즉, 최소 sysfs 조작 primitive는 확보
   - 다음 blocker는 실제 화면 반응 확인과
     `input/drm` 추가 식별
+
+### Native init v40/v41 운영 안정화
+- `v40`에서 shell command result를 정밀화:
+  - 성공 명령은 `[done]`
+  - syscall/usage/open/mount 실패는 `[err] rc=<code> errno=<errno>`
+  - `last` 명령으로 마지막 command/result/duration 확인
+- `v41`에서 `/cache/native-init.log` 파일 로그 추가:
+  - boot step, display probe, serial attach, autohud start 기록
+  - command start/end, result code, errno, duration 기록
+  - `logpath`, `logcat` 명령 추가
+- `v41` 검증 중 block major/minor 변동 문제 확인:
+  - 기존 hardcoded `sda31 = 259:15`는 부팅 순서에 따라 틀릴 수 있음
+  - 실제 검증 부팅에서 `sda31 = 259:34`로 나타나 `/cache` mount가 fallback 됨
+  - `sda28`, `sda31` 노드를 `/sys/class/block/<name>/dev` 기반으로 동적 생성하도록 수정
+- 최종 v41 실기 확인:
+  - `logpath` → `/cache/native-init.log`
+  - `/dev/block/sda31 /cache ext4 rw`
+  - `cat /definitely-missing` 실패가 log에 `rc=-2 errno=2`로 기록
+  - `mountsystem ro` 성공
+- 상세 보고서:
+  - `docs/reports/NATIVE_INIT_V41_LOGGING_2026-04-25.md`

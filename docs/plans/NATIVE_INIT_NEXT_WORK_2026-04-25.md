@@ -1,6 +1,6 @@
 # Native Init Next Work List (2026-04-25)
 
-이 문서는 `A90 Linux init v40` 이후 작업을 정리한 실행 목록이다.
+이 문서는 `A90 Linux init v41` 기준 이후 작업을 정리한 실행 목록이다.
 
 현재 단계는 넓은 의미의 리버싱도 포함하지만, 중심은 더 이상 Android 전체를
 분해하는 것이 아니다. Stock Android kernel과 Samsung vendor driver 위에서
@@ -84,14 +84,14 @@ Samsung bootloader
 
 ### M1. 신뢰 가능한 native console
 
-- shell return code 정밀화
-- command duration/result/errno 기록
+- shell return code 정밀화 — v40 완료
+- command duration/result/errno 기록 — v40/v41 완료
 - blocking command 취소 정책 통일
 - serial 반향/prompt 오염 방어
 
 ### M2. 관찰 가능한 boot/runtime
 
-- `/cache/native-init.log`
+- `/cache/native-init.log` — v41 완료
 - boot readiness timeline
 - HUD boot progress/error 표시
 - safe storage map 문서화
@@ -118,17 +118,19 @@ Samsung bootloader
 
 ## 현재 기준점
 
-- 최신 확인 버전: `A90 Linux init v40`
-- 최신 소스: `stage3/linux_init/init_v40.c`
-- 최신 boot image: `stage3/boot_linux_v40.img`
+- 최신 확인 버전: `A90 Linux init v41`
+- 최신 소스: `stage3/linux_init/init_v41.c`
+- 최신 boot image: `stage3/boot_linux_v41.img`
 - 주 제어 채널: USB CDC ACM serial (`/dev/ttyGS0` ↔ `/dev/ttyACM0`)
 - host bridge: `scripts/revalidation/serial_tcp_bridge.py --port 54321`
 - 화면 상태: TEST 패턴 약 2초 표시 후 상태 HUD 자동 전환
 - 버튼 상태: VOL+/VOL-/POWER 입력 확인
+- 로그 상태: `/cache/native-init.log` boot/command log 확인
 - ADB 상태: 보류
 
 상세 상태 문서:
 
+- `docs/reports/NATIVE_INIT_V41_LOGGING_2026-04-25.md`
 - `docs/reports/NATIVE_INIT_V40_BUILD_2026-04-25.md`
 - `docs/reports/NATIVE_INIT_V39_STATUS_2026-04-25.md`
 
@@ -147,7 +149,7 @@ Samsung bootloader
 
 - `init_v40`에서 1차 구현 및 실기 검증 완료
 - 상세 기록: `docs/reports/NATIVE_INIT_V40_BUILD_2026-04-25.md`
-- 다음 작업은 `/cache/native-init.log` 추가
+- `/cache/native-init.log`는 `init_v41`에서 구현 및 실기 검증 완료
 
 대상:
 
@@ -200,6 +202,14 @@ Samsung bootloader
 - `/cache` mount 실패 시 `/tmp`로 fallback
 - 로그 파일이 너무 커지지 않도록 단순 rotation 또는 truncate 정책 필요
 - `/data`, `/efs`, modem 관련 영역은 로그 대상으로 쓰지 않음
+
+현재 상태:
+
+- `init_v41`에서 구현 및 실기 검증 완료
+- 상세 기록: `docs/reports/NATIVE_INIT_V41_LOGGING_2026-04-25.md`
+- `logpath`, `logcat` 명령 추가
+- `/sys/class/block/<name>/dev` 기반 동적 block node 생성으로 `sda28`, `sda31` major/minor 변동 대응
+- recovery 왕복 후 로그 보존 재확인은 별도 항목으로 남김
 
 검증:
 
@@ -623,14 +633,14 @@ Samsung bootloader
 
 ## 당장 다음 실행 순서
 
-1. `shell return code` 정밀화
-2. `/cache/native-init.log` 추가
-3. blocking command 취소 정책 통일
-4. boot readiness timeline 자동 기록
-5. HUD boot progress/error 표시
-6. on-screen menu 초안
-7. safe storage map report 작성
-8. USB gadget map report 작성
+1. blocking command 취소 정책 통일
+2. boot readiness timeline 자동 기록
+3. HUD boot progress/error 표시
+4. recovery 왕복 후 `/cache/native-init.log` 보존 확인
+5. on-screen menu 초안
+6. safe storage map report 작성
+7. USB gadget map report 작성
+8. BusyBox/static userland 후보 검토
 
 ---
 
