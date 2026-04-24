@@ -120,10 +120,11 @@
 ## 현재 폰 상태
 
 - patched AP (Magisk 30.7) + **TWRP recovery**
-- 최신 stable 실기 확인: `stage3/boot_linux_v48.img` (`A90 Linux init v48`)
+- 최신 verified native init: `stage3/boot_linux_v53.img` (`A90 Linux init v53`)
+- known-good fallback: `stage3/boot_linux_v48.img` (`A90 Linux init v48`)
 - 격리 상태: `stage3/boot_linux_v49.img`는 boot partition prefix readback은 일치했지만
   system boot 후 Android `/system/bin/init second_stage`로 진입했으므로 stable이 아님
-- 부팅 흐름: TEST 패턴 약 2초 → 상태 HUD 자동 전환 → USB ACM serial shell
+- 부팅 흐름: TEST 패턴 약 2초 → 상태 HUD/menu 자동 전환 → USB ACM serial shell
 - 로그 상태: `/cache/native-init.log`에 boot/command/result 기록
 - blocking 상태: `waitkey`, `readinput`, `watchhud`, `blindmenu` q/Ctrl-C 취소 확인
 - boot timeline: `timeline` 명령과 `/cache/native-init.log` replay 확인
@@ -131,12 +132,13 @@
 - run 상태: `/bin/a90sleep` helper로 `run` q 취소 확인
 - log 보존: native init → recovery → native init 왕복 후 v44/v45/v47 log append 확인
 - storage 상태: `/cache` safe write, `userdata` conditional, critical partitions do-not-touch 기준 문서화
-- screen menu 상태: `menu`/`screenmenu` 화면 진입과 q 취소 확인
+- screen menu 상태: 자동 메뉴, 버튼 조작, serial `hide`/busy gate 확인
 - USB 상태: ACM-only gadget `04e8:6861` / host `cdc_acm` 기준 문서화
 - userland 상태: `toybox 0.8.13` static ARM64 host 빌드와 `/cache/bin/toybox` 실기 실행 확인
 - USB reattach 상태: `usbacmreset`와 외부 helper `off` 후 serial bridge 복구 확인
 - USB NCM 상태: host `cdc_ncm` composite interface와 device `ncm0` 임시 생성 확인
-- 상세 최신 상태: `docs/reports/NATIVE_INIT_V48_USB_REATTACH_NCM_2026-04-25.md`
+- 상세 최신 상태: `docs/reports/NATIVE_INIT_V53_MENU_BUSY_2026-04-25.md`
+- v48 USB reattach/NCM 기록: `docs/reports/NATIVE_INIT_V48_USB_REATTACH_NCM_2026-04-25.md`
 - v47 screen menu 기록: `docs/reports/NATIVE_INIT_V47_SCREEN_MENU_2026-04-25.md`
 - USB gadget map 기록: `docs/reports/NATIVE_INIT_USB_GADGET_MAP_2026-04-25.md`
 - static userland 후보 기록: `docs/reports/NATIVE_INIT_USERLAND_CANDIDATES_2026-04-25.md`
@@ -160,11 +162,11 @@
 - proc / sys / devtmpfs / ext4(/dev/block/sda31) 마운트 성공
 - 핵심 우회: devtmpfs async 초기화 문제를 `mknod(makedev(259,15))` 로 해결
 
-### 3-2. USB ACM serial console + 인터랙티브 셸 (v8~v48)
+### 3-2. USB ACM serial console + 인터랙티브 셸 (v8~v53)
 
-**현재 버전**: `init_v48` (`stage3/boot_linux_v48.img`)
+**현재 버전**: `init_v53` (`stage3/boot_linux_v53.img`)
 
-ADB 방식이 막혀 USB CDC ACM serial (ttyGS0)로 전환. v48까지 반복 안정화:
+ADB 방식이 막혀 USB CDC ACM serial (ttyGS0)로 전환. v53까지 반복 안정화:
 
 - USB gadget: configfs `acm.usb0` function, UDC `a600000.dwc3`
 - host 측: `/dev/ttyACM0` → `serial_tcp_bridge.py` → `127.0.0.1:54321` TCP
@@ -187,8 +189,10 @@ ADB 방식이 막혀 USB CDC ACM serial (ttyGS0)로 전환. v48까지 반복 안
 | v47 | on-screen menu (`menu`/`screenmenu`): VOL+/VOL-/POWER 버튼 기반 RESUME/STATUS/LOG/RECOVERY/REBOOT/POWEROFF |
 | v48 | ACM rebind 안정화 (`reattach`/`usbacmreset`), `a90_usbnet` helper, NCM composite probe 확인 |
 | v49 | 상태 HUD TUI 개선 시도. local marker/readback은 맞았지만 system boot가 Android userspace로 진입해 격리 |
+| v52 | 상태 HUD/menu TUI 개선. BAT/CPU/GPU/MEM/PWR, 버튼 메뉴, footer 표시 실기 확인 |
+| v53 | menu-active serial busy gate, `hide` request, flash script auto-hide 재시도 |
 
-**확보된 관찰/제어 범위 (v48 stable 기준):**
+**확보된 관찰/제어 범위 (v53 verified 기준):**
 
 | 항목 | 상태 |
 |---|---|
@@ -205,6 +209,7 @@ ADB 방식이 막혀 USB CDC ACM serial (ttyGS0)로 전환. v48까지 반복 안
 | 부팅 시 TEST 패턴 → HUD 자동 전환 | 작동 |
 | boot summary 화면 표시 (`BOOT OK`) | 작동 |
 | on-screen 버튼 메뉴 | 작동 (`menu`/`screenmenu`) |
+| menu-active serial gate | 작동 — 위험 명령 `[busy]`, `version`/`status` 허용, `hide` 후 재개 |
 | blocking 명령 취소 (q/Ctrl-C) | 작동 |
 | boot timeline 기록 | 작동 (`timeline`) |
 | static toybox 실행 | 작동 (`/cache/bin/toybox`, ifconfig/route/netcat 확인) |
@@ -227,11 +232,11 @@ ADB 방식이 막혀 USB CDC ACM serial (ttyGS0)로 전환. v48까지 반복 안
 
 ## 다음 후보 작업
 
-우선순위 순 (v48 이후):
+우선순위 순 (v53 이후):
 
 1. **USB NCM IP/link setup** — device `ncm0` + host `enx...` IPv4 설정 → ping 확인
 2. **toybox netcat TCP 통신** — NCM 링크 위에서 `netcat` 기반 host ↔ device 통신 확인
 3. **장기 저장소 의사결정** — `userdata`/`mmcblk0p1` 사용 여부 판단
-4. **screen menu 버튼 수동 검증** — VOL+/VOL-/POWER로 실제 항목 선택 확인
+4. **screen menu 버튼 세부 UX** — 메뉴 표시/숨김, 상태/log 화면, 선택 confirm 정책 정리
 
 **복구**: `backups/baseline_a_20260423_030309/boot.img` dd 복구 가능

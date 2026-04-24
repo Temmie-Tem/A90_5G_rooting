@@ -431,3 +431,33 @@
   - `adb shell 'twrp reboot'`로 system boot 시 Android `/system/bin/init second_stage`로 진입
   - v49는 native init stable로 인정하지 않고 격리
   - `stage3/boot_linux_v48.img`로 복구 후 `A90 Linux init v48` bridge 응답 확인
+
+## v53: 화면 메뉴 busy gate + flash auto-hide (2026-04-25)
+
+- 배경:
+  - v52 화면 메뉴는 실기에서 `A90 INIT BOOT OK CONSOLE`, BAT/CPU/GPU/MEM/PWR, 메뉴 항목 표시 확인
+  - 메뉴가 떠 있는 동안 serial 명령이 동시에 실행되면 버튼 UI와 host automation이 충돌할 수 있음
+- `init_v53` 구현:
+  - `/tmp/a90-auto-menu-active`로 자동 메뉴 active state 공유
+  - `/tmp/a90-auto-menu-request`로 serial `hide` 요청 전달
+  - 메뉴 active 중 위험/장시간 명령은 `[busy] auto menu active; send hide/q or select HIDE MENU`로 즉시 차단
+  - `version`, `status`, `bootstatus`, `timeline`, `last`, `logpath`, `logcat`, `uname`, `pwd`, `mounts`, `reattach`, `stophud`는 허용
+  - `start_auto_hud()`가 fork 전에 active state를 먼저 기록해 boot 직후 command race 완화
+- `native_init_flash.py` 개선:
+  - `--from-native`에서 `recovery`가 `[busy]`로 막히면 자동으로 `hide` 전송
+  - 3초 뒤 `recovery` 재시도, 최대 3회
+- 빌드 산출:
+  - `stage3/linux_init/init_v53` SHA256 `4c742213dc1d2541db2d45e61af2a64d829d2f008975622465e5b78ce5c4bdbd`
+  - `stage3/ramdisk_v53.cpio` SHA256 `139f0dceea7c5c64d501463d678dd3f80c29385566e22babeb28a4465ddf6001`
+  - `stage3/boot_linux_v53.img` SHA256 `44cb9ebb3cc65ab0b3316afe69592c8b7fa7a05a96c872dfd2a4f9f884d98046`
+- 실기 플래시:
+  - local image SHA256, remote SHA256, boot partition prefix SHA256 모두 `44cb9ebb3cc65ab0b3316afe69592c8b7fa7a05a96c872dfd2a4f9f884d98046`
+  - `version` → `A90 Linux init v53`
+- 실기 검증:
+  - `echo busytest` → `[busy] auto menu active; send hide/q or select HIDE MENU`
+  - `version` → menu active 중에도 정상 응답
+  - `hide` → `[busy] auto menu active; hide requested`
+  - 3초 후 `echo afterhide` → `[done] echo`
+  - `cat /tmp/a90-auto-menu-active` → `0`
+- 상세 보고서:
+  - `docs/reports/NATIVE_INIT_V53_MENU_BUSY_2026-04-25.md`

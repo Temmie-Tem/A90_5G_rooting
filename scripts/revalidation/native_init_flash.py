@@ -232,14 +232,31 @@ def bridge_command(host: str,
 
 def reboot_native_to_recovery(args: argparse.Namespace) -> None:
     log("requesting recovery from native init bridge")
-    output = bridge_command(
-        args.bridge_host,
-        args.bridge_port,
-        "recovery",
-        args.bridge_timeout,
-        markers=(b"recovery:", b"[err]"),
-    )
-    print(output, end="")
+    for attempt in range(1, 4):
+        output = bridge_command(
+            args.bridge_host,
+            args.bridge_port,
+            "recovery",
+            args.bridge_timeout,
+            markers=(b"recovery:", b"[err]", b"[busy]"),
+        )
+        print(output, end="")
+
+        if "[busy]" not in output:
+            return
+
+        log(f"native init menu is active; requesting hide before recovery attempt={attempt}")
+        hide_output = bridge_command(
+            args.bridge_host,
+            args.bridge_port,
+            "hide",
+            args.bridge_timeout,
+            markers=(b"[busy]", b"[done]", b"[err]"),
+        )
+        print(hide_output, end="")
+        time.sleep(3.0)
+
+    raise RuntimeError("native init recovery command stayed busy after hide retries")
 
 
 def flash_boot_image(args: argparse.Namespace,

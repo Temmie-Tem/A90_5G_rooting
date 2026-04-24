@@ -13,10 +13,14 @@ Date: `2026-04-25`
 
 - device: `Samsung Galaxy A90 5G SM-A908N`
 - recovery: TWRP 사용 가능
-- stable native init: `A90 Linux init v48`
-- stable source: `stage3/linux_init/init_v48.c`
-- stable boot image: `stage3/boot_linux_v48.img`
-- expected boot image SHA256: `1c87fa59712395027c5c2e489b15c4f6ddefabc3c50f78d3c235c4508a63e042`
+- known-good fallback native init: `A90 Linux init v48`
+- known-good fallback source: `stage3/linux_init/init_v48.c`
+- known-good fallback boot image: `stage3/boot_linux_v48.img`
+- known-good fallback boot image SHA256: `1c87fa59712395027c5c2e489b15c4f6ddefabc3c50f78d3c235c4508a63e042`
+- latest verified native init: `A90 Linux init v53`
+- latest verified source: `stage3/linux_init/init_v53.c`
+- latest verified boot image: `stage3/boot_linux_v53.img`
+- latest verified boot image SHA256: `44cb9ebb3cc65ab0b3316afe69592c8b7fa7a05a96c872dfd2a4f9f884d98046`
 - control channel: USB CDC ACM serial bridge
 - bridge endpoint: `127.0.0.1:54321`
 - bridge script: `scripts/revalidation/serial_tcp_bridge.py`
@@ -96,7 +100,7 @@ printf 'version\n' | nc -w 3 127.0.0.1 54321
 정상 응답 예:
 
 ```text
-A90 Linux init v48
+A90 Linux init v53
 kernel: Linux 4.14.190-25818860-abA908NKSU5EWA3 aarch64
 [done] version
 ```
@@ -108,6 +112,38 @@ printf 'help\n' | nc -w 3 127.0.0.1 54321
 printf 'status\n' | nc -w 5 127.0.0.1 54321
 printf 'timeline\n' | nc -w 5 127.0.0.1 54321
 printf 'cat /cache/native-init.log\n' | nc -w 5 127.0.0.1 54321
+```
+
+### v53 메뉴 표시 중 serial 정책
+
+v53부터 화면 메뉴가 떠 있는 동안 serial shell은 위험하거나 오래 걸릴 수 있는 명령을 바로 실행하지 않는다.
+hang이 아니라 `[busy]`를 반환하므로 automation은 이 값을 보고 재시도할 수 있다.
+
+```bash
+printf 'echo test\n' | nc -w 5 127.0.0.1 54321
+```
+
+정상 차단 예:
+
+```text
+[busy] auto menu active; send hide/q or select HIDE MENU
+```
+
+메뉴 표시 중에도 허용되는 관찰 명령:
+
+```bash
+printf 'version\n' | nc -w 5 127.0.0.1 54321
+printf 'status\n' | nc -w 5 127.0.0.1 54321
+printf 'timeline\n' | nc -w 5 127.0.0.1 54321
+printf 'logcat\n' | nc -w 5 127.0.0.1 54321
+```
+
+serial에서 메뉴를 숨기고 일반 명령을 다시 실행하려면:
+
+```bash
+printf 'hide\n' | nc -w 5 127.0.0.1 54321
+sleep 3
+printf 'echo ok\n' | nc -w 5 127.0.0.1 54321
 ```
 
 ## 3. Bridge가 안 될 때 확인 순서
@@ -241,6 +277,8 @@ python3 ./scripts/revalidation/native_init_flash.py \
 
 이 경로는 먼저 bridge로 `recovery` 명령을 보내 TWRP로 재부팅한 뒤,
 TWRP ADB가 잡히면 같은 방식으로 boot image를 flash한다.
+v53 화면 메뉴가 떠 있어 `recovery`가 `[busy]`로 막히면 스크립트가 자동으로 `hide`를 보내고
+3초 뒤 `recovery`를 재시도한다.
 
 ## 6. 수동 fallback
 
@@ -320,4 +358,15 @@ python3 ./scripts/revalidation/native_init_flash.py \
 ```bash
 sudo python3 ./scripts/revalidation/serial_tcp_bridge.py --port 54321
 printf 'version\n' | nc -w 3 127.0.0.1 54321
+```
+
+최신 verified v53를 native init 상태에서 다시 올릴 때:
+
+```bash
+python3 ./scripts/revalidation/native_init_flash.py \
+  stage3/boot_linux_v53.img \
+  --from-native \
+  --expect-version "A90 Linux init v53" \
+  --bridge-timeout 240 \
+  --recovery-timeout 180
 ```

@@ -1,6 +1,6 @@
 # Native Init Next Work List (2026-04-25)
 
-이 문서는 `A90 Linux init v48` 기준 이후 작업을 정리한 실행 목록이다.
+이 문서는 `A90 Linux init v53` 기준 이후 작업을 정리한 실행 목록이다.
 
 현재 단계는 넓은 의미의 리버싱도 포함하지만, 중심은 더 이상 Android 전체를
 분해하는 것이 아니다. Stock Android kernel과 Samsung vendor driver 위에서
@@ -99,19 +99,21 @@ Samsung bootloader
 
 ### M3. 단독 운용 가능한 device UI
 
-- 버튼 기반 on-screen menu
-- status/log/reboot/recovery/poweroff 조작
-- serial 없이도 최소 복구 조작 가능
+- 버튼 기반 on-screen menu — v47/v52 완료
+- status/log/reboot/recovery/poweroff 조작 — v52 완료
+- menu-active serial busy gate와 `hide` 요청 — v53 완료
+- serial 없이도 최소 복구 조작 가능 — 계속 검증
 
 ### M4. 작은 Linux userland
 
-- static BusyBox 또는 선택 유틸 실행
-- `/cache/bin` 또는 ramdisk 기반 tool path
-- process 실행, timeout, signal, zombie 회수 안정화
+- static toybox 실행 — 완료
+- `/cache/bin` 또는 ramdisk 기반 tool path — 완료
+- process 실행, timeout, signal, zombie 회수 안정화 — 진행 중
 
 ### M5. 서버형 접근
 
-- USB RNDIS/NCM 또는 다른 네트워크 경로 검토
+- USB NCM probe — 완료
+- USB NCM persistent link/IP 검증 — 다음
 - static dropbear SSH 또는 custom TCP shell
 - boot-time service start 정책
 
@@ -119,12 +121,13 @@ Samsung bootloader
 
 ## 현재 기준점
 
-- 최신 확인 버전: `A90 Linux init v48`
-- 최신 소스: `stage3/linux_init/init_v48.c`
-- 최신 boot image: `stage3/boot_linux_v48.img`
+- 최신 확인 버전: `A90 Linux init v53`
+- 최신 소스: `stage3/linux_init/init_v53.c`
+- 최신 boot image: `stage3/boot_linux_v53.img`
+- known-good fallback: `stage3/boot_linux_v48.img`
 - 주 제어 채널: USB CDC ACM serial (`/dev/ttyGS0` ↔ `/dev/ttyACM0`)
 - host bridge: `scripts/revalidation/serial_tcp_bridge.py --port 54321`
-- 화면 상태: TEST 패턴 약 2초 표시 후 상태 HUD 자동 전환
+- 화면 상태: TEST 패턴 약 2초 표시 후 상태 HUD/menu 자동 전환
 - 버튼 상태: VOL+/VOL-/POWER 입력 확인
 - 로그 상태: `/cache/native-init.log` boot/command log 확인
 - blocking 상태: `waitkey`/`readinput`/`watchhud`/`blindmenu` q/Ctrl-C 취소 확인
@@ -132,10 +135,11 @@ Samsung bootloader
 - HUD 상태: `BOOT OK shell` summary 표시 확인
 - run/log 상태: `/bin/a90sleep` q 취소와 recovery 왕복 log preservation 확인
 - storage 상태: `/cache` safe write, `userdata` conditional, critical partitions do-not-touch 기준 문서화
-- screen menu 상태: `menu`/`screenmenu` 화면 진입과 q 취소 확인
+- screen menu 상태: 자동 메뉴, 버튼 조작, serial `hide`/busy gate 확인
 - USB 상태: ACM-only gadget `04e8:6861` / host `cdc_acm` 기준 문서화
 - USB reattach 상태: v48 `usbacmreset`와 외부 helper `off` 후 serial 복구 확인
 - USB NCM 상태: host `cdc_ncm` + device `ncm0` 임시 probe 확인
+- menu gate 상태: 메뉴 표시 중 위험 명령 `[busy]` 차단, 관찰 명령 허용
 - ADB 상태: 보류
 
 상세 상태 문서:
@@ -144,6 +148,7 @@ Samsung bootloader
 - `docs/reports/NATIVE_INIT_STORAGE_MAP_2026-04-25.md`
 - `docs/reports/NATIVE_INIT_V47_SCREEN_MENU_2026-04-25.md`
 - `docs/reports/NATIVE_INIT_V48_USB_REATTACH_NCM_2026-04-25.md`
+- `docs/reports/NATIVE_INIT_V53_MENU_BUSY_2026-04-25.md`
 - `docs/reports/NATIVE_INIT_USB_GADGET_MAP_2026-04-25.md`
 - `docs/reports/NATIVE_INIT_USERLAND_CANDIDATES_2026-04-25.md`
 - `docs/reports/NATIVE_INIT_V44_HUD_BOOT_2026-04-25.md`

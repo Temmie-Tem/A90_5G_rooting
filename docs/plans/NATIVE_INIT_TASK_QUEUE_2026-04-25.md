@@ -1,13 +1,14 @@
 # Native Init Task Queue (2026-04-25)
 
-이 문서는 `A90 Linux init v48` 이후 바로 실행할 작업 큐다.
+이 문서는 `A90 Linux init v53` 이후 바로 실행할 작업 큐다.
 큰 방향은 “보이는 부팅 → 복구 가능한 로그 → 단독 조작 → 작은 userland → USB networking” 순서다.
 
 ## 현재 고정 기준점
 
-- latest native init: `A90 Linux init v48`
-- latest source: `stage3/linux_init/init_v48.c`
-- latest boot image: `stage3/boot_linux_v48.img`
+- latest verified native init: `A90 Linux init v53`
+- latest source: `stage3/linux_init/init_v53.c`
+- latest boot image: `stage3/boot_linux_v53.img`
+- known-good fallback: `stage3/boot_linux_v48.img`
 - control channel: USB ACM serial bridge
 - log: `/cache/native-init.log`
 - verified:
@@ -20,6 +21,8 @@
   - recovery log preservation
   - safe storage/partition map
   - screen menu draft
+  - screen menu polished TUI
+  - menu-active serial busy gate
   - USB gadget map
   - USB reattach / NCM probe
   - KMS HUD
@@ -230,10 +233,51 @@
 
 - `docs/reports/NATIVE_INIT_V48_USB_REATTACH_NCM_2026-04-25.md`
 
+### V51~V52. HUD/Menu TUI Polish — 완료
+
+목표:
+
+- 부팅 후 TEST 화면에서 상태 화면과 버튼 메뉴로 자연스럽게 넘어간다.
+- 화면 상단에 배터리, 전력, CPU/GPU 온도, 메모리, load를 읽기 쉽게 표시한다.
+- VOL+/VOL-/POWER 조작 힌트와 메뉴 항목을 실기에서 보기 좋은 위치로 배치한다.
+
+실기 결과:
+
+- `A90 INIT BOOT OK CONSOLE`
+- `BAT 100% FUL PWR ...`
+- `CPU ... GPU ...`
+- `MEM ... LOAD ...`
+- `HIDE MENU`, `STATUS`, `LOG`, `RECOVERY`, `REBOOT`, `POWEROFF`
+- footer `A90V52 UP ...`
+
+### V53. Menu Busy Gate + Flash Auto-hide — 완료
+
+목표:
+
+- 화면 메뉴가 떠 있을 때 serial shell과 버튼 UI가 동시에 위험 명령을 실행하지 않게 한다.
+- automation은 hang 대신 `[busy]`를 보고 `hide` 후 재시도할 수 있게 한다.
+
+구현:
+
+- `init_v53`에서 menu active state와 hide request를 `/tmp` 파일로 공유
+- 메뉴 active 중 위험/장시간 명령은 `[busy]`로 즉시 차단
+- `version`, `status`, `timeline`, `logcat` 등 관찰 명령은 허용
+- `native_init_flash.py --from-native`는 `[busy]`를 보면 `hide` 후 `recovery` 재시도
+
+실기 결과:
+
+- `stage3/boot_linux_v53.img` SHA256 `44cb9ebb3cc65ab0b3316afe69592c8b7fa7a05a96c872dfd2a4f9f884d98046`
+- local image SHA256, remote SHA256, boot partition prefix SHA256 일치
+- `echo busytest` → `[busy] auto menu active; send hide/q or select HIDE MENU`
+- `hide` 후 `echo afterhide` → `[done] echo`
+
+산출:
+
+- `docs/reports/NATIVE_INIT_V53_MENU_BUSY_2026-04-25.md`
+
 ## 보류 큐
 
 - ADB 안정화 재검토
-- USB RNDIS/NCM persistent network
 - dropbear SSH
 - Buildroot/rootfs 묶음
 - Android framework 복구 시도
