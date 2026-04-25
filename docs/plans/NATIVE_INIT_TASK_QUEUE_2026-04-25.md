@@ -1,13 +1,13 @@
 # Native Init Task Queue (2026-04-25)
 
-이 문서는 `A90 Linux init v60` 이후 바로 실행할 작업 큐다.
+이 문서는 `A90 Linux init v61` 이후 바로 실행할 작업 큐다.
 큰 방향은 “보이는 부팅 → 복구 가능한 로그 → 단독 조작 → 작은 userland → USB networking” 순서다.
 
 ## 현재 고정 기준점
 
-- latest verified native init: `A90 Linux init v60`
-- latest source: `stage3/linux_init/init_v60.c`
-- latest boot image: `stage3/boot_linux_v60.img`
+- latest verified native init: `A90 Linux init v61`
+- latest source: `stage3/linux_init/init_v61.c`
+- latest boot image: `stage3/boot_linux_v61.img`
 - known-good fallback: `stage3/boot_linux_v48.img`
 - control channel: USB ACM serial bridge
 - log: `/cache/native-init.log`
@@ -539,6 +539,41 @@
 산출:
 
 - `docs/reports/NATIVE_INIT_V60_RECONNECT_2026-04-26.md`
+
+### V61. CPU/GPU Usage Percent HUD — 완료
+
+목표:
+
+- 기존 CPU/GPU 온도 표시 옆에 사용률 `%`만 먼저 추가한다.
+- GPU clock/frequency 표시는 공간 확인 뒤 후순위로 둔다.
+
+구현:
+
+- `stage3/linux_init/init_v61.c`
+  - `INIT_VERSION`을 `v61`로 갱신
+  - `/proc/stat` aggregate delta 기반 CPU usage 계산
+  - KGSL `/sys/class/kgsl/kgsl-3d0/gpu_busy_percentage` 기반 GPU busy `%` 표시
+  - `status`와 HUD row 2를 `CPU <temp> <usage> GPU <temp> <usage>` 형태로 변경
+
+검증:
+
+- static ARM64 build — PASS
+- `stage3/boot_linux_v61.img` marker 확인 — PASS
+- native → TWRP → boot partition flash → v61 boot — PASS
+- bridge `version` → `A90 Linux init v61` — PASS
+- `status` → `thermal: cpu=35.1C 0% gpu=33.5C 0%` — PASS
+- `statushud` redraw 후 `thermal: cpu=35.3C 12% gpu=33.6C 0%` — PASS
+- final `autohud: running`, `netservice: disabled tcpctl=stopped` — PASS
+
+산출:
+
+- `stage3/linux_init/init_v61`
+  - SHA256 `7fce8bac65af8cd997d7f150c0939b6e4fa757ea0ecfeb89e0213c3fa955f427`
+- `stage3/ramdisk_v61.cpio`
+  - SHA256 `2ce70282a001db47d42b900ccc0bfaf3aed7dee1528107048912bfbaab53d729`
+- `stage3/boot_linux_v61.img`
+  - SHA256 `40a33381be60ea8eaf91e7f09256d3d0de100c8959c3687a3b4aa95696c7cdb2`
+- `docs/reports/NATIVE_INIT_V61_CPU_GPU_USAGE_2026-04-26.md`
 
 ## 보류 큐
 

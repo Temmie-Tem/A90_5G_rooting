@@ -12,9 +12,9 @@ Date: `2026-04-26`
 
 - device: `Samsung Galaxy A90 5G SM-A908N`
 - recovery: TWRP 사용 가능
-- latest verified native init: `A90 Linux init v60`
-- latest source: `stage3/linux_init/init_v60.c`
-- latest boot image: `stage3/boot_linux_v60.img`
+- latest verified native init: `A90 Linux init v61`
+- latest source: `stage3/linux_init/init_v61.c`
+- latest boot image: `stage3/boot_linux_v61.img`
 - known-good fallback native init: `A90 Linux init v48`
 - known-good fallback boot image: `stage3/boot_linux_v48.img`
 - primary control channel: USB CDC ACM serial
@@ -49,6 +49,12 @@ Date: `2026-04-26`
 - 기본값은 OFF이며 `/cache/native-init-netservice` flag가 있을 때만 boot-time auto-start한다.
 - `netservice enable`은 flag 생성 후 NCM/tcpctl을 시작하고, `netservice disable`은 flag 제거와 rollback을 수행한다.
 - `a90_tcpctl listen` idle timeout은 helper 상한에 맞춰 `3600s`를 사용한다.
+
+중요한 v61 개선:
+
+- HUD/status에 CPU usage `%`와 GPU busy `%`를 표시한다.
+- CPU usage는 `/proc/stat` delta 기반이라 첫 샘플은 `?`일 수 있다.
+- GPU usage는 KGSL `gpu_busy_percentage` sysfs 값을 사용한다.
 
 v49 주의:
 
@@ -101,7 +107,7 @@ printf 'version\n' | nc -w 3 127.0.0.1 54321
 정상 예:
 
 ```text
-A90 Linux init v60
+A90 Linux init v61
 kernel: Linux 4.14.190-25818860-abA908NKSU5EWA3 aarch64
 display: 1080x2400 connector=28 crtc=133 fb=207
 [done] version (0ms)
@@ -199,7 +205,7 @@ adb -s RFCM90CFWXA shell 'twrp reboot'
 ```bash
 python3 ./scripts/revalidation/native_init_flash.py \
   --verify-only \
-  --expect-version "A90 Linux init v60" \
+  --expect-version "A90 Linux init v61" \
   --bridge-timeout 180
 ```
 
@@ -211,35 +217,35 @@ python3 ./scripts/revalidation/native_init_flash.py \
 
 ## 5. Custom init 수정 흐름
 
-새 버전 예시가 v61이라면:
+새 버전 예시가 v62라면:
 
 ```bash
-cp stage3/linux_init/init_v60.c stage3/linux_init/init_v61.c
+cp stage3/linux_init/init_v61.c stage3/linux_init/init_v62.c
 ```
 
 반드시 바꿀 것:
 
-- `#define INIT_VERSION "v61"`
-- `A90v60` kmsg marker를 `A90v61`로 변경
+- `#define INIT_VERSION "v62"`
+- `A90v61` kmsg marker를 `A90v62`로 변경
 - v49 번호는 재사용하지 않는다.
-- `mark_step("..._v60\n")` 계열을 새 버전으로 변경
+- `mark_step("..._v61\n")` 계열을 새 버전으로 변경
 - README/docs의 latest 기준점은 실기 검증 뒤에만 갱신
 
 검색:
 
 ```bash
-rg -n 'v60|A90v60|init_v60|boot_linux_v60|ramdisk_v60' stage3/linux_init/init_v61.c
+rg -n 'v61|A90v61|init_v61|boot_linux_v61|ramdisk_v61' stage3/linux_init/init_v62.c
 ```
 
 빌드:
 
 ```bash
 aarch64-linux-gnu-gcc -static -Os -Wall -Wextra \
-  -o stage3/linux_init/init_v61 stage3/linux_init/init_v61.c
-aarch64-linux-gnu-strip stage3/linux_init/init_v61
-file stage3/linux_init/init_v61
-sha256sum stage3/linux_init/init_v61
-strings stage3/linux_init/init_v61 | rg 'A90 Linux init v61|A90v61'
+  -o stage3/linux_init/init_v62 stage3/linux_init/init_v62.c
+aarch64-linux-gnu-strip stage3/linux_init/init_v62
+file stage3/linux_init/init_v62
+sha256sum stage3/linux_init/init_v62
+strings stage3/linux_init/init_v62 | rg 'A90 Linux init v62|A90v62'
 ```
 
 컴파일 경고를 무시하지 말 것.
@@ -249,26 +255,26 @@ strings stage3/linux_init/init_v61 | rg 'A90 Linux init v61|A90v61'
 검증된 이전 boot image에서 kernel/header 인자를 재사용하고 ramdisk만 바꾼다.
 
 ```bash
-rm -rf /tmp/a90_boot_v60_unpack
-mkdir -p /tmp/a90_boot_v60_unpack
+rm -rf /tmp/a90_boot_v61_unpack
+mkdir -p /tmp/a90_boot_v61_unpack
 python3 mkbootimg/unpack_bootimg.py \
-  --boot_img stage3/boot_linux_v60.img \
-  --out /tmp/a90_boot_v60_unpack \
+  --boot_img stage3/boot_linux_v61.img \
+  --out /tmp/a90_boot_v61_unpack \
   --format=mkbootimg \
-  > /tmp/a90_boot_v60_mkbootimg_args.txt
+  > /tmp/a90_boot_v61_mkbootimg_args.txt
 ```
 
 ramdisk 생성:
 
 ```bash
-rm -rf stage3/ramdisk_v61
-mkdir -p stage3/ramdisk_v61/bin
-cp stage3/linux_init/init_v61 stage3/ramdisk_v61/init
-cp stage3/linux_init/a90_sleep stage3/ramdisk_v61/bin/a90sleep
-chmod 755 stage3/ramdisk_v61/init stage3/ramdisk_v61/bin/a90sleep
+rm -rf stage3/ramdisk_v62
+mkdir -p stage3/ramdisk_v62/bin
+cp stage3/linux_init/init_v62 stage3/ramdisk_v62/init
+cp stage3/linux_init/a90_sleep stage3/ramdisk_v62/bin/a90sleep
+chmod 755 stage3/ramdisk_v62/init stage3/ramdisk_v62/bin/a90sleep
 (
-  cd stage3/ramdisk_v61
-  find . | LC_ALL=C sort | cpio -o -H newc > ../ramdisk_v61.cpio
+  cd stage3/ramdisk_v62
+  find . | LC_ALL=C sort | cpio -o -H newc > ../ramdisk_v62.cpio
 )
 ```
 
@@ -280,15 +286,15 @@ from pathlib import Path
 import shlex
 import subprocess
 
-args = shlex.split(Path('/tmp/a90_boot_v60_mkbootimg_args.txt').read_text())
+args = shlex.split(Path('/tmp/a90_boot_v61_mkbootimg_args.txt').read_text())
 for i, item in enumerate(args):
     if item == '--ramdisk':
-        args[i + 1] = 'stage3/ramdisk_v61.cpio'
+        args[i + 1] = 'stage3/ramdisk_v62.cpio'
         break
 else:
     raise SystemExit('missing --ramdisk')
 
-cmd = ['python3', 'mkbootimg/mkbootimg.py', *args, '--output', 'stage3/boot_linux_v61.img']
+cmd = ['python3', 'mkbootimg/mkbootimg.py', *args, '--output', 'stage3/boot_linux_v62.img']
 print(shlex.join(cmd))
 subprocess.run(cmd, check=True)
 PY
@@ -297,9 +303,9 @@ PY
 검증:
 
 ```bash
-ls -lh stage3/ramdisk_v61.cpio stage3/boot_linux_v61.img
-sha256sum stage3/linux_init/init_v61 stage3/ramdisk_v61.cpio stage3/boot_linux_v61.img
-strings stage3/boot_linux_v61.img | rg 'A90 Linux init v61|A90v61'
+ls -lh stage3/ramdisk_v62.cpio stage3/boot_linux_v62.img
+sha256sum stage3/linux_init/init_v62 stage3/ramdisk_v62.cpio stage3/boot_linux_v62.img
+strings stage3/boot_linux_v62.img | rg 'A90 Linux init v62|A90v62'
 ```
 
 ## 7. Boot image 플래시
@@ -314,8 +320,8 @@ adb devices
 
 ```bash
 python3 ./scripts/revalidation/native_init_flash.py \
-  stage3/boot_linux_v61.img \
-  --expect-version "A90 Linux init v61" \
+  stage3/boot_linux_v62.img \
+  --expect-version "A90 Linux init v62" \
   --bridge-timeout 240 \
   --recovery-timeout 180
 ```
@@ -547,7 +553,7 @@ git status --short
 git diff --check
 python3 -m py_compile scripts/revalidation/serial_tcp_bridge.py scripts/revalidation/native_init_flash.py scripts/revalidation/ncm_host_setup.py scripts/revalidation/netservice_reconnect_soak.py
 bash -n scripts/revalidation/build_static_toybox.sh scripts/revalidation/build_usbnet_helper.sh
-aarch64-linux-gnu-gcc -static -Os -Wall -Wextra -o /tmp/a90_init_check stage3/linux_init/init_v60.c
+aarch64-linux-gnu-gcc -static -Os -Wall -Wextra -o /tmp/a90_init_check stage3/linux_init/init_v61.c
 ```
 
 `stage3/boot_linux_v*.img`, `stage3/ramdisk_v*.cpio`, compiled binaries는 `.gitignore` 대상이다.

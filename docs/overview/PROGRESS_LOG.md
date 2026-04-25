@@ -703,3 +703,32 @@
   - v61 후보로 짧은 `A` fragment와 반복 `ATAT...` filter hardening 필요
 - 상세 보고서:
   - `docs/reports/NATIVE_INIT_V60_RECONNECT_2026-04-26.md`
+
+## v61: HUD CPU/GPU usage percent 표시 검증 (2026-04-26)
+
+- 목적:
+  - 기존 CPU/GPU 온도 표시 옆에 사용률 `%`만 먼저 추가
+  - 화면 공간을 과하게 쓰지 않고 `CPU <temp> <usage> GPU <temp> <usage>` 형태로 검증
+- 추가:
+  - `stage3/linux_init/init_v61.c`
+    - `INIT_VERSION "v61"`
+    - `/proc/stat` aggregate delta 기반 CPU 사용률 계산
+    - `/sys/class/kgsl/kgsl-3d0/gpu_busy_percentage` 기반 GPU busy `%` 읽기
+    - `status`와 HUD row 2에 CPU/GPU usage 표시
+- 산출:
+  - `stage3/linux_init/init_v61`
+    - SHA256 `7fce8bac65af8cd997d7f150c0939b6e4fa757ea0ecfeb89e0213c3fa955f427`
+  - `stage3/ramdisk_v61.cpio`
+    - SHA256 `2ce70282a001db47d42b900ccc0bfaf3aed7dee1528107048912bfbaab53d729`
+  - `stage3/boot_linux_v61.img`
+    - SHA256 `40a33381be60ea8eaf91e7f09256d3d0de100c8959c3687a3b4aa95696c7cdb2`
+- 실기 검증:
+  - `native_init_flash.py stage3/boot_linux_v61.img --from-native --expect-version "A90 Linux init v61"` PASS
+  - boot partition prefix SHA256 readback PASS
+  - bridge `version` → `A90 Linux init v61`
+  - `status` 초기 CPU usage는 delta 기준 이전 샘플이 없어 `?`로 표시
+  - 다음 `status`에서 `thermal: cpu=35.1C 0% gpu=33.5C 0%` 확인
+  - `statushud` redraw 후 `thermal: cpu=35.3C 12% gpu=33.6C 0%` 확인
+  - `autohud 2` 재시작 후 `autohud: running`, `netservice: disabled tcpctl=stopped` 확인
+- 상세 보고서:
+  - `docs/reports/NATIVE_INIT_V61_CPU_GPU_USAGE_2026-04-26.md`
