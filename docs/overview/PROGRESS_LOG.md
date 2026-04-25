@@ -461,3 +461,36 @@
   - `cat /tmp/a90-auto-menu-active` → `0`
 - 상세 보고서:
   - `docs/reports/NATIVE_INIT_V53_MENU_BUSY_2026-04-25.md`
+
+## v54: USB NCM persistent link + IPv6 netcat 검증 (2026-04-25)
+
+- code change 없이 `A90 Linux init v53` runtime에서 진행
+- `run /cache/bin/a90_usbnet ncm`으로 ACM + NCM persistent composite 구성
+- host 관찰:
+  - `04e8:6861` Samsung device
+  - interface 0/1: `cdc_acm`
+  - interface 2/3: `cdc_ncm`
+  - host network: `enx6e0617d3b2a3`
+- device 관찰:
+  - `functions: ncm.usb0,acm.usb0`
+  - `f1 -> acm.usb0`, `f2 -> ncm.usb0`
+  - `ncm.ifname: ncm0`
+  - `ncm.dev_addr: fa:3d:4b:0f:b5:83`
+  - `ncm.host_addr: 6e:06:17:d3:b2:a3`
+- device IPv4:
+  - `ifconfig ncm0 192.168.7.2 netmask 255.255.255.0 up` 성공
+- host IPv4:
+  - non-sudo `ip addr add 192.168.7.1/24 dev enx6e0617d3b2a3`는 `Operation not permitted`
+  - user sudo 설정 후 host `enx6e0617d3b2a3`에 `192.168.7.1/24` 설정 성공
+  - `ping -c 3 192.168.7.2`: 3/3 PASS, 0% packet loss, avg 약 1.95ms
+- IPv6 link-local:
+  - host → device `ping -6 fe80::f83d:4bff:fe0f:b583%enx6e0617d3b2a3` 응답 확인
+- TCP:
+  - device `/cache/bin/toybox netcat -l -p 2323`
+  - host `nc -6 fe80::f83d:4bff:fe0f:b583%enx6e0617d3b2a3 2323`
+  - payload `hello-from-host-over-ncm-ipv6` 수신 확인
+- 특이사항:
+  - USB 재열거 후 host modem probe로 보이는 `AT` 문자열이 serial shell에 한 번 유입됨
+  - shell noise filter 또는 ignore 정책 후보로 기록
+- 상세 보고서:
+  - `docs/reports/NATIVE_INIT_V54_NCM_LINK_2026-04-25.md`

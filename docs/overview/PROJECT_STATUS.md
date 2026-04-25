@@ -136,8 +136,9 @@
 - USB 상태: ACM-only gadget `04e8:6861` / host `cdc_acm` 기준 문서화
 - userland 상태: `toybox 0.8.13` static ARM64 host 빌드와 `/cache/bin/toybox` 실기 실행 확인
 - USB reattach 상태: `usbacmreset`와 외부 helper `off` 후 serial bridge 복구 확인
-- USB NCM 상태: host `cdc_ncm` composite interface와 device `ncm0` 임시 생성 확인
+- USB NCM 상태: host `cdc_ncm` composite, device `ncm0`, IPv4 ping, IPv6 link-local ping, host→device netcat 확인
 - 상세 최신 상태: `docs/reports/NATIVE_INIT_V53_MENU_BUSY_2026-04-25.md`
+- v54 NCM link 기록: `docs/reports/NATIVE_INIT_V54_NCM_LINK_2026-04-25.md`
 - v48 USB reattach/NCM 기록: `docs/reports/NATIVE_INIT_V48_USB_REATTACH_NCM_2026-04-25.md`
 - v47 screen menu 기록: `docs/reports/NATIVE_INIT_V47_SCREEN_MENU_2026-04-25.md`
 - USB gadget map 기록: `docs/reports/NATIVE_INIT_USB_GADGET_MAP_2026-04-25.md`
@@ -214,7 +215,7 @@ ADB 방식이 막혀 USB CDC ACM serial (ttyGS0)로 전환. v53까지 반복 안
 | boot timeline 기록 | 작동 (`timeline`) |
 | static toybox 실행 | 작동 (`/cache/bin/toybox`, ifconfig/route/netcat 확인) |
 | USB NCM composite probe | 작동 — host `cdc_ncm` + device `ncm0` 생성 확인 |
-| USB NCM IP/통신 | **미완** — IP 설정 및 ping/netcat 미검증 |
+| USB NCM IP/통신 | 작동 — IPv4 ping 3/3, IPv6 link-local ping, host→device netcat 확인 |
 | ADB (adbd) | **보류** — ep1/ep2 미생성, zombie |
 
 **버튼 매핑:**
@@ -234,8 +235,8 @@ ADB 방식이 막혀 USB CDC ACM serial (ttyGS0)로 전환. v53까지 반복 안
 
 우선순위 순 (v53 이후):
 
-1. **USB NCM IP/link setup** — device `ncm0` + host `enx...` IPv4 설정 → ping 확인
-2. **toybox netcat TCP 통신** — NCM 링크 위에서 `netcat` 기반 host ↔ device 통신 확인
+1. **NCM 운영 helper** — host interface 자동 탐지/IP 설정/rollback helper 작성
+2. **toybox netcat 양방향화** — device→host TCP, 장시간 연결, reconnect 동작 확인
 3. **장기 저장소 의사결정** — `userdata`/`mmcblk0p1` 사용 여부 판단
 4. **screen menu 버튼 세부 UX** — 메뉴 표시/숨김, 상태/log 화면, 선택 confirm 정책 정리
 

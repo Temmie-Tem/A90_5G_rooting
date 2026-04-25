@@ -113,7 +113,8 @@ Samsung bootloader
 ### M5. 서버형 접근
 
 - USB NCM probe — 완료
-- USB NCM persistent link/IP 검증 — 다음
+- USB NCM persistent link + IPv4/IPv6 ping + host→device netcat 검증 — 완료
+- USB NCM 운영 helper — 다음
 - static dropbear SSH 또는 custom TCP shell
 - boot-time service start 정책
 
@@ -138,7 +139,7 @@ Samsung bootloader
 - screen menu 상태: 자동 메뉴, 버튼 조작, serial `hide`/busy gate 확인
 - USB 상태: ACM-only gadget `04e8:6861` / host `cdc_acm` 기준 문서화
 - USB reattach 상태: v48 `usbacmreset`와 외부 helper `off` 후 serial 복구 확인
-- USB NCM 상태: host `cdc_ncm` + device `ncm0` 임시 probe 확인
+- USB NCM 상태: host `cdc_ncm` + device `ncm0`, IPv4 ping, IPv6 link-local ping, host→device netcat 확인
 - menu gate 상태: 메뉴 표시 중 위험 명령 `[busy]` 차단, 관찰 명령 허용
 - ADB 상태: 보류
 
@@ -149,6 +150,7 @@ Samsung bootloader
 - `docs/reports/NATIVE_INIT_V47_SCREEN_MENU_2026-04-25.md`
 - `docs/reports/NATIVE_INIT_V48_USB_REATTACH_NCM_2026-04-25.md`
 - `docs/reports/NATIVE_INIT_V53_MENU_BUSY_2026-04-25.md`
+- `docs/reports/NATIVE_INIT_V54_NCM_LINK_2026-04-25.md`
 - `docs/reports/NATIVE_INIT_USB_GADGET_MAP_2026-04-25.md`
 - `docs/reports/NATIVE_INIT_USERLAND_CANDIDATES_2026-04-25.md`
 - `docs/reports/NATIVE_INIT_V44_HUD_BOOT_2026-04-25.md`
@@ -710,10 +712,10 @@ Samsung bootloader
 
 상세 실행 큐는 `docs/plans/NATIVE_INIT_TASK_QUEUE_2026-04-25.md`를 따른다.
 
-1. USB NCM persistent mode와 rollback 명령 정리
-2. device `ncm0` / host `enx...` IPv4 설정 검증
-3. toybox `netcat`으로 host ↔ device TCP 통신 확인
-4. toybox 부족 applet 확인 후 BusyBox 추가 비교 여부 판단
+1. host NCM interface 자동 탐지/IP 설정/rollback helper 작성
+2. toybox `netcat` 양방향 통신과 장시간 연결 안정성 확인
+3. unsolicited `AT` serial noise 필터링 또는 무시 정책 구현
+4. NCM 기반 persistent TCP control service 후보 설계
 5. `userdata`/`mmcblk0p1` 장기 저장소 후보 의사결정
 
 ---

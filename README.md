@@ -32,7 +32,7 @@ Android userspace 대신 직접 만든 static `/init`를 실행하고,
 - USB map: ACM-only gadget `04e8:6861` / host `cdc_acm` 기준 문서화
 - userland: `toybox 0.8.13` static ARM64 build와 `/cache/bin/toybox` 실기 실행 확인
 - USB reattach: v48에서 ACM rebind 후 serial console 재연결 확인
-- USB NCM: host `cdc_ncm` + device `ncm0` 임시 probe 확인
+- USB NCM: persistent composite, device `ncm0`, IPv4 ping, IPv6 link-local ping, host→device netcat 확인
 - menu gate: 메뉴 표시 중 위험 명령 `[busy]` 차단, 관찰 명령 허용
 - ADB: 보류. 현재 기준 제어 채널은 serial bridge
 
@@ -86,7 +86,7 @@ Samsung bootloader
 11. USB ACM reattach + NCM probe — v48 완료
 12. 상태 HUD/menu TUI 개선 — v52 실기 표시 확인
 13. menu-active serial busy gate + flash auto-hide — v53 완료
-14. USB NCM IP/link 설정과 netcat 검증
+14. USB NCM persistent link + IPv4/IPv6 ping + host→device netcat 검증 — 완료
 
 ## Repository Layout
 
@@ -105,29 +105,21 @@ Samsung bootloader
 
 ## Active Documents
 
+전체 문서 목록과 읽는 순서는 `docs/README.md`를 기준으로 한다.
+
+바로 볼 문서:
+
+- `docs/README.md`
 - `docs/overview/PROJECT_STATUS.md`
-- `docs/reports/NATIVE_INIT_V42_CANCEL_2026-04-25.md`
-- `docs/reports/NATIVE_INIT_V43_TIMELINE_2026-04-25.md`
-- `docs/reports/NATIVE_INIT_V44_HUD_BOOT_2026-04-25.md`
-- `docs/reports/NATIVE_INIT_V45_RUN_LOG_2026-04-25.md`
-- `docs/reports/NATIVE_INIT_STORAGE_MAP_2026-04-25.md`
-- `docs/reports/NATIVE_INIT_V47_SCREEN_MENU_2026-04-25.md`
-- `docs/reports/NATIVE_INIT_V48_USB_REATTACH_NCM_2026-04-25.md`
-- `docs/reports/NATIVE_INIT_V53_MENU_BUSY_2026-04-25.md`
-- `docs/reports/NATIVE_INIT_USB_GADGET_MAP_2026-04-25.md`
-- `docs/reports/NATIVE_INIT_USERLAND_CANDIDATES_2026-04-25.md`
-- `docs/reports/NATIVE_INIT_V41_LOGGING_2026-04-25.md`
-- `docs/reports/NATIVE_INIT_V39_STATUS_2026-04-25.md`
+- `docs/overview/PROGRESS_LOG.md`
+- `docs/operations/NATIVE_INIT_FLASH_AND_BRIDGE_GUIDE.md`
+- `docs/operations/CLAUDE_NATIVE_INIT_RUNBOOK.md`
 - `docs/plans/NATIVE_INIT_NEXT_WORK_2026-04-25.md`
 - `docs/plans/NATIVE_INIT_TASK_QUEUE_2026-04-25.md`
-- `docs/overview/PROGRESS_LOG.md`
-- `docs/plans/NATIVE_LINUX_RECHALLENGE_PLAN.md`
-- `docs/plans/REVALIDATION_PLAN.md`
-- `docs/reports/BOOTCHAIN_REVALIDATION_MATRIX_2026-04-23.md`
+- `docs/reports/NATIVE_INIT_V54_NCM_LINK_2026-04-25.md`
 
-이 중 `NATIVE_LINUX_RECHALLENGE_PLAN.md`와 `REVALIDATION_PLAN.md`는
-진입점 확보 이전의 부트체인 재검증 기록으로 남기고,
-현재 진행 기준은 `NATIVE_INIT_NEXT_WORK_2026-04-25.md`를 따른다.
+`docs/plans/NATIVE_LINUX_RECHALLENGE_PLAN.md`와 `docs/plans/REVALIDATION_PLAN.md`는
+진입점 확보 이전의 부트체인 재검증 기록으로 보존한다.
 
 ## Working Rules
 

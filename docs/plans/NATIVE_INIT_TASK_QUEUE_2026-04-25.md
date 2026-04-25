@@ -25,6 +25,7 @@
   - menu-active serial busy gate
   - USB gadget map
   - USB reattach / NCM probe
+  - USB NCM persistent link + IPv6 netcat
   - KMS HUD
   - VOL+/VOL-/POWER input
 
@@ -275,6 +276,32 @@
 
 - `docs/reports/NATIVE_INIT_V53_MENU_BUSY_2026-04-25.md`
 
+### V54. NCM Persistent Link Validation — 완료
+
+목표:
+
+- ACM serial을 유지한 채 USB NCM persistent mode를 켠다.
+- host `cdc_ncm` interface와 device `ncm0`가 동시에 살아 있는지 확인한다.
+- NCM 위에서 실제 L3/TCP 통신이 가능한지 확인한다.
+
+실기 결과:
+
+- host: `04e8:6861` composite에 `cdc_acm` + `cdc_ncm` 동시 표시
+- host interface: `enx6e0617d3b2a3`
+- device helper: `f1 -> acm.usb0`, `f2 -> ncm.usb0`, `ncm.ifname: ncm0`
+- device `ncm0`: `192.168.7.2/24`, `fe80::f83d:4bff:fe0f:b583/64`
+- host `enx6e0617d3b2a3`: `192.168.7.1/24`
+- IPv4 ping `192.168.7.2`: 3/3 PASS, 0% packet loss
+- IPv6 link-local ping은 응답 확인
+- host → device TCP:
+  - host `nc -6 ... 2323`
+  - device `/cache/bin/toybox netcat -l -p 2323`
+  - payload `hello-from-host-over-ncm-ipv6` 수신 확인
+
+산출:
+
+- `docs/reports/NATIVE_INIT_V54_NCM_LINK_2026-04-25.md`
+
 ## 보류 큐
 
 - ADB 안정화 재검토
@@ -284,8 +311,8 @@
 
 ## 지금 바로 진행할 항목
 
-1. NCM persistent mode와 rollback 명령 정리
-2. device `ncm0` / host `enx...` IPv4 설정 검증
-3. toybox `netcat`으로 host ↔ device TCP 통신 확인
-4. toybox 부족 applet 확인 후 BusyBox 추가 비교 여부 판단
+1. host NCM interface 자동 탐지/IP 설정 helper 작성
+2. toybox `netcat` 양방향/장시간 통신 확인
+3. unsolicited `AT` serial noise 필터링 또는 무시 정책 구현
+4. NCM 기반 persistent TCP control service 후보 설계
 5. `userdata`/`mmcblk0p1` 장기 저장소 후보 의사결정

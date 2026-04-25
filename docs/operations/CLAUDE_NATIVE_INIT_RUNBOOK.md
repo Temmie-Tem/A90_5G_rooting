@@ -414,35 +414,42 @@ printf 'run /cache/bin/toybox ifconfig -a\n' | nc -w 10 127.0.0.1 54321
 - persistent `ncm`은 다음 단계에서 IP/link 검증을 할 때만 사용한다.
 - host IP 설정은 root 권한이 필요하다.
 
-## 10. 다음 NCM IP 검증 절차
+## 10. NCM IP 검증 절차
 
-아직 다음 단계다. 진행 시 권장 순서:
+v54에서 persistent NCM, IPv4 ping, IPv6 link-local ping, host → device netcat이 확인됐다.
+host IPv4 설정은 root 권한이 필요하므로 재현 시 아래 절차를 따른다.
 
-1. `probe-ncm`으로 enumeration 재확인
-2. persistent NCM 켜기
+1. persistent NCM 켜기
 
 ```bash
 printf 'run /cache/bin/a90_usbnet ncm\n' | nc -w 12 127.0.0.1 54321
 ```
 
-3. device IP 설정
+2. device IP 설정
 
 ```bash
 printf 'run /cache/bin/toybox ifconfig ncm0 192.168.7.2 netmask 255.255.255.0 up\n' | nc -w 8 127.0.0.1 54321
 ```
 
-4. host interface 이름 확인
+3. host interface 이름 확인
 
 ```bash
 ip -br link
 ```
 
-5. 사용자에게 host sudo 명령 요청
+4. host sudo 명령 실행
 
 ```bash
 sudo ip addr add 192.168.7.1/24 dev <enx...>
 sudo ip link set <enx...> up
 ping -c 3 192.168.7.2
+```
+
+5. IPv6 link-local netcat 확인 예시
+
+```bash
+printf 'run /cache/bin/toybox netcat -l -p 2323\n' | nc -w 25 127.0.0.1 54321
+printf 'hello\n' | nc -6 -w 5 'fe80::<device-link-local>%<enx...>' 2323
 ```
 
 6. rollback

@@ -8,7 +8,7 @@
 
 상단 `docs/`는 이제 다음 흐름에 필요한 문서를 유지합니다.
 
-1. native init v48 기준 상태 고정
+1. native init v53 기준 상태 고정
 2. shell/HUD/log/menu 운영 안정화
 3. 필요한 하드웨어/커널 경로만 역추적
 4. BusyBox/network/SSH 같은 서버형 확장 가능성 검토
@@ -19,11 +19,12 @@
 - 빌드: `A908NKSU5EWA3`
 - kernel: Samsung stock Android kernel `Linux 4.14.190`
 - recovery: TWRP 사용 가능
-- latest native init: `A90 Linux init v48`
-- latest source: `stage3/linux_init/init_v48.c`
-- latest boot image: `stage3/boot_linux_v48.img`
+- latest verified native init: `A90 Linux init v53`
+- latest source: `stage3/linux_init/init_v53.c`
+- latest boot image: `stage3/boot_linux_v53.img`
+- known-good fallback: `stage3/boot_linux_v48.img`
 - control channel: USB CDC ACM serial bridge
-- display: TEST pattern 후 상태 HUD 자동 전환
+- display: TEST pattern 후 상태 HUD/menu 자동 전환
 - input: VOL+/VOL-/POWER 버튼 확인
 - logging: `/cache/native-init.log` 확인
 - blocking cancel: q/Ctrl-C 취소 확인
@@ -31,51 +32,82 @@
 - HUD boot summary: `BOOT OK shell` 표시 확인
 - run cancel: `/bin/a90sleep` helper 확인
 - storage: `/cache` safe write, `userdata` conditional, critical partitions do-not-touch
-- screen menu: `menu`/`screenmenu` 화면 진입과 q 취소 확인
+- screen menu: 자동 메뉴, 버튼 조작, serial `hide`/busy gate 확인
 - USB map: ACM-only gadget `04e8:6861` / host `cdc_acm` 기준 문서화
 - userland: `toybox 0.8.13` static ARM64 build와 `/cache/bin/toybox` 실기 실행 확인
 - USB reattach: v48에서 ACM rebind 후 serial console 재연결 확인
-- USB NCM: host `cdc_ncm` + device `ncm0` 임시 probe 확인
+- USB NCM: persistent composite, device `ncm0`, IPv4 ping, IPv6 link-local ping, host→device netcat 확인
 - ADB: 보류
 
-## 현재 작업 문서
+## 문서 읽는 순서
+
+### 빠른 시작
+
+1. `overview/PROJECT_STATUS.md` – 현재 상태와 다음 후보를 본다.
+2. `operations/NATIVE_INIT_FLASH_AND_BRIDGE_GUIDE.md` – flash/bridge 조작 절차를 따른다.
+3. `operations/CLAUDE_NATIVE_INIT_RUNBOOK.md` – 에이전트가 실수하지 않도록 운영 규칙을 확인한다.
+4. `plans/NATIVE_INIT_TASK_QUEUE_2026-04-25.md` – 바로 이어서 할 작업 큐를 본다.
+
+### 새 에이전트 인계
+
+1. `operations/CLAUDE_HANDOFF_PROMPT.md`
+2. `operations/CLAUDE_NATIVE_INIT_RUNBOOK.md`
+3. `overview/PROJECT_STATUS.md`
+4. `docs/README.md`
+
+## 문서 카테고리
 
 ### 1. Overview
-- `overview/PROJECT_STATUS.md` – 현재 기준점, 성공/실패 조건, 다음 작업 링크
-- `overview/PROGRESS_LOG.md` – 진행 로그
 
-### 1-1. Operations
+- `overview/PROJECT_STATUS.md` – 현재 기준점, 성공/실패 조건, 다음 작업 링크
+- `overview/PROGRESS_LOG.md` – 날짜순 진행 로그
+
+### 2. Operations
+
 - `operations/CLAUDE_NATIVE_INIT_RUNBOOK.md` – 에이전트용 bridge/TWRP/custom init 작업 런북
-- `operations/NATIVE_INIT_FLASH_AND_BRIDGE_GUIDE.md` – 사람이 직접 따라 하는 v48 flash/bridge 운영 절차서
+- `operations/NATIVE_INIT_FLASH_AND_BRIDGE_GUIDE.md` – 사람이 직접 따라 하는 flash/bridge 운영 절차서
 - `operations/CLAUDE_HANDOFF_PROMPT.md` – Claude에게 그대로 붙여 넣는 안전 작업 프롬프트
 
-### 2. Plans
+### 3. Plans
+
 - `plans/NATIVE_INIT_NEXT_WORK_2026-04-25.md` – v42 이후 역추적/셸/HUD/로그/네트워크 작업 목록
 - `plans/NATIVE_INIT_TASK_QUEUE_2026-04-25.md` – v47 이후 바로 실행할 작업 큐
-- `plans/NATIVE_LINUX_RECHALLENGE_PLAN.md` – native init 진입점 확보 이전 로드맵
-- `plans/REVALIDATION_PLAN.md` – 부트체인 재검증 실행 체크리스트와 실험 절차
 - `plans/MINIMAL_BOOT_ALLOWLIST_2026-04-22.txt` – 현재 최소 부팅 allowlist
 - `plans/MINIMAL_BOOT_DELETE_CANDIDATES_2026-04-22.txt` – allowlist 기준 삭제 후보 스냅샷
+- `plans/NATIVE_LINUX_RECHALLENGE_PLAN.md` – native init 진입점 확보 이전 로드맵, 보존 기록
+- `plans/REVALIDATION_PLAN.md` – 부트체인 재검증 실행 체크리스트, 보존 기록
 
-### 3. Reports
-- `reports/NATIVE_INIT_V48_USB_REATTACH_NCM_2026-04-25.md` – v48 USB reattach와 NCM probe 실기 검증 보고서
-- `reports/NATIVE_INIT_USB_GADGET_MAP_2026-04-25.md` – USB gadget/host descriptor/ADB·network 후보 지도
+### 4. Current Native Init Reports
+
+- `reports/NATIVE_INIT_V54_NCM_LINK_2026-04-25.md` – USB NCM persistent link, IPv4/IPv6 ping, host→device netcat 검증
+- `reports/NATIVE_INIT_V53_MENU_BUSY_2026-04-25.md` – menu-active serial busy gate와 flash auto-hide 검증
+- `reports/NATIVE_INIT_V48_USB_REATTACH_NCM_2026-04-25.md` – USB reattach와 NCM probe 실기 검증
 - `reports/NATIVE_INIT_USERLAND_CANDIDATES_2026-04-25.md` – static userland/BusyBox/toybox 후보 보고서
-- `reports/NATIVE_INIT_V47_SCREEN_MENU_2026-04-25.md` – v47 화면 메뉴 초안 실기 검증 보고서
-- `reports/NATIVE_INIT_STORAGE_MAP_2026-04-25.md` – v46 저장소/파티션 안전 등급 보고서
-- `reports/NATIVE_INIT_V45_RUN_LOG_2026-04-25.md` – v45 `run` cancel과 log preservation 실기 검증 보고서
-- `reports/NATIVE_INIT_V44_HUD_BOOT_2026-04-25.md` – v44 HUD boot summary 실기 검증 보고서
-- `reports/NATIVE_INIT_V43_TIMELINE_2026-04-25.md` – v43 boot readiness timeline 실기 검증 보고서
-- `reports/NATIVE_INIT_V42_CANCEL_2026-04-25.md` – v42 blocking command 취소 정책 실기 검증 보고서
-- `reports/NATIVE_INIT_V41_LOGGING_2026-04-25.md` – v41 `/cache/native-init.log` 실기 검증 보고서
-- `reports/NATIVE_INIT_V40_BUILD_2026-04-25.md` – v40 shell return code 정밀화 실기 검증 보고서
-- `reports/NATIVE_INIT_V39_STATUS_2026-04-25.md` – v39 기준 native init 상태 보고서
+- `reports/NATIVE_INIT_USB_GADGET_MAP_2026-04-25.md` – USB gadget/host descriptor/ADB·network 후보 지도
+- `reports/NATIVE_INIT_STORAGE_MAP_2026-04-25.md` – 저장소/파티션 안전 등급 보고서
+- `reports/NATIVE_INIT_V47_SCREEN_MENU_2026-04-25.md` – 화면 메뉴 초안 실기 검증
+- `reports/NATIVE_INIT_V45_RUN_LOG_2026-04-25.md` – `run` cancel과 log preservation 검증
+- `reports/NATIVE_INIT_V44_HUD_BOOT_2026-04-25.md` – HUD boot summary 검증
+- `reports/NATIVE_INIT_V43_TIMELINE_2026-04-25.md` – boot readiness timeline 검증
+- `reports/NATIVE_INIT_V42_CANCEL_2026-04-25.md` – blocking command 취소 정책 검증
+- `reports/NATIVE_INIT_V41_LOGGING_2026-04-25.md` – `/cache/native-init.log` 검증
+- `reports/NATIVE_INIT_V40_BUILD_2026-04-25.md` – shell return code 정밀화 검증
+- `reports/NATIVE_INIT_V39_STATUS_2026-04-25.md` – native init 기준 상태 보고서
+
+### 5. Historical / Android Baseline Reports
+
 - `reports/BOOTCHAIN_REVALIDATION_MATRIX_2026-04-23.md` – 기본 4조합, KG, fallback, Linux 후보 기록 시트
+- `reports/STAGE3_EXPERIMENT_LOG_2026-04-23.md` – Stage 3 native init 진입 실험 로그
+- `reports/NATIVE_INIT_SHELL_PROBE_2026-04-23.md` – 초기 USB ACM shell probe 기록
+- `reports/ADB_FROM_LINUX_INIT_LOG_2026-04-23.md` – Linux init에서 ADB 시도 기록
 - `reports/MINIMAL_BOOT_STATUS_2026-04-22.md` – 최소 부팅 상태와 남은 예외 패키지
 - `reports/ADB_DEBLOAT_RESEARCH_2026-04-22.md` – 패키지별 제거 판단 근거
 - `reports/ADB_DEBLOAT_2026-04-22.md` – debloat 적용 기록
+- `reports/MINIMAL_BOOT_DELETE_RUN_2026-04-22.log` – 최소 부팅 삭제 실행 로그
+- `reports/MINIMAL_BOOT_DELETE_RUN_AFTER_ROOT_2026-04-22.log` – root 이후 재실행 로그
 
-### 4. Archive
+### 6. Archive
+
 - `archive/README.md` – 아카이브 인덱스
 - `archive/legacy/` – 기존 2025 방향 문서 일괄 보관
 
@@ -93,7 +125,9 @@
 10. Toybox/static userland build + device validation — 완료
 11. USB ACM reattach + NCM probe — v48 완료
 12. v49 HUD image 격리 — boot prefix readback은 맞지만 Android userspace로 진입
-13. USB NCM IP/link 설정과 netcat 검증
+13. 상태 HUD/menu TUI 개선 — v52 실기 표시 확인
+14. menu-active serial busy gate + flash auto-hide — v53 완료
+15. USB NCM persistent link + IPv4/IPv6 ping + host→device netcat 검증 — 완료
 
 패키지 최소화와 Android userspace 복구는 보조 실험으로만 다루고,
 메인 목표는 **Android kernel 위에 반복 운용 가능한 native init 기반 최소 Linux 콘솔을 만드는 것**입니다.
