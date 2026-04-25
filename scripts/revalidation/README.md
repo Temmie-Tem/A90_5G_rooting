@@ -54,6 +54,10 @@
   - `stage3/linux_init/a90_tcpctl.c`를 static ARM64 TCP command helper로 빌드
   - 산출물은 gitignore된 `external_tools/userland/bin/a90_tcpctl-aarch64-static`
   - `/cache/bin/a90_tcpctl listen <port> <idle_timeout_sec> [max_clients]`로 NCM 위의 작은 명령/응답 채널을 검증
+- `tcpctl_host.py`
+  - host에서 `/cache/bin/a90_tcpctl`을 install/start/call/run/stop/smoke 형태로 다루는 wrapper
+  - serial bridge는 launch/rescue 채널로 유지하고, 명령은 NCM `192.168.7.2:2325`로 전달
+  - `smoke`는 start → ping/version/status/run/shutdown → serial/NCM 상태 확인을 한 번에 수행
 
 권장 순서:
 
@@ -141,6 +145,16 @@ TCP control helper 빌드 예:
 
 ```bash
 ./scripts/revalidation/build_tcpctl_helper.sh
+```
+
+TCP control host wrapper 예:
+
+```bash
+python3 ./scripts/revalidation/tcpctl_host.py smoke
+python3 ./scripts/revalidation/tcpctl_host.py start
+python3 ./scripts/revalidation/tcpctl_host.py status
+python3 ./scripts/revalidation/tcpctl_host.py run /cache/bin/toybox uname -a
+python3 ./scripts/revalidation/tcpctl_host.py stop
 ```
 
 참고:

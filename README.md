@@ -35,6 +35,7 @@ Android userspace 대신 직접 만든 static `/init`를 실행하고,
 - USB NCM: persistent composite, device `ncm0`, IPv4 ping, IPv6 link-local ping, host→device netcat 확인
 - NCM ops: host interface 자동 탐지, ping, static TCP nettest 양방향 payload 검증 완료
 - TCP control: NCM 위에서 `a90_tcpctl` ping/status/run/shutdown 검증 완료
+- TCP wrapper: `tcpctl_host.py smoke`로 launch/client/stop 자동 검증 완료
 - menu gate: 메뉴 표시 중 위험 명령 `[busy]` 차단, 관찰 명령 허용
 - ADB: 보류. 현재 기준 제어 채널은 serial bridge
 
@@ -91,6 +92,7 @@ Samsung bootloader
 14. USB NCM persistent link + IPv4/IPv6 ping + host→device netcat 검증 — 완료
 15. NCM host setup helper + TCP nettest helper — 완료
 16. NCM TCP control helper — 완료
+17. TCP control host wrapper — 완료
 
 ## Repository Layout
 
@@ -123,6 +125,7 @@ Samsung bootloader
 - `docs/reports/NATIVE_INIT_V54_NCM_LINK_2026-04-25.md`
 - `docs/reports/NATIVE_INIT_V55_NCM_OPS_2026-04-25.md`
 - `docs/reports/NATIVE_INIT_V56_TCPCTL_2026-04-26.md`
+- `docs/reports/NATIVE_INIT_V57_TCPCTL_HOST_WRAPPER_2026-04-26.md`
 
 `docs/plans/NATIVE_LINUX_RECHALLENGE_PLAN.md`와 `docs/plans/REVALIDATION_PLAN.md`는
 진입점 확보 이전의 부트체인 재검증 기록으로 보존한다.

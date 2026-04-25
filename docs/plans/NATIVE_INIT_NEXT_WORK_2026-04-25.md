@@ -116,6 +116,7 @@ Samsung bootloader
 - USB NCM persistent link + IPv4/IPv6 ping + host→device netcat 검증 — 완료
 - USB NCM 운영 helper + TCP nettest helper — 완료
 - NCM TCP control helper — 완료
+- TCP control host wrapper — 완료
 - static dropbear SSH 또는 custom TCP shell
 - boot-time service start 정책
 
@@ -143,6 +144,7 @@ Samsung bootloader
 - USB NCM 상태: host `cdc_ncm` + device `ncm0`, IPv4 ping, IPv6 link-local ping, host→device netcat 확인
 - NCM 운영 helper 상태: host interface 자동 탐지, ping, static TCP nettest 양방향 payload 검증 완료
 - TCP control 상태: NCM 위에서 `a90_tcpctl` ping/status/run/shutdown 검증 완료
+- TCP wrapper 상태: `tcpctl_host.py smoke` launch/client/stop 자동 검증 완료
 - menu gate 상태: 메뉴 표시 중 위험 명령 `[busy]` 차단, 관찰 명령 허용
 - ADB 상태: 보류
 
@@ -156,6 +158,7 @@ Samsung bootloader
 - `docs/reports/NATIVE_INIT_V54_NCM_LINK_2026-04-25.md`
 - `docs/reports/NATIVE_INIT_V55_NCM_OPS_2026-04-25.md`
 - `docs/reports/NATIVE_INIT_V56_TCPCTL_2026-04-26.md`
+- `docs/reports/NATIVE_INIT_V57_TCPCTL_HOST_WRAPPER_2026-04-26.md`
 - `docs/reports/NATIVE_INIT_USB_GADGET_MAP_2026-04-25.md`
 - `docs/reports/NATIVE_INIT_USERLAND_CANDIDATES_2026-04-25.md`
 - `docs/reports/NATIVE_INIT_V44_HUD_BOOT_2026-04-25.md`
@@ -717,11 +720,11 @@ Samsung bootloader
 
 상세 실행 큐는 `docs/plans/NATIVE_INIT_TASK_QUEUE_2026-04-25.md`를 따른다.
 
-1. `a90_tcpctl` launch/client/stop host wrapper 작성
-2. 5~10분 NCM + tcpctl 유지와 reconnect 안정성 확인
-3. unsolicited `AT` serial noise 필터링 또는 무시 정책 구현
-4. boot-time NCM/tcpctl service 정책 결정
-5. Wi-Fi 드라이버/펌웨어 read-only 인벤토리 트랙 분리
+1. 5~10분 NCM + tcpctl 유지와 reconnect 안정성 확인
+2. unsolicited `AT` serial noise 필터링 또는 무시 정책 구현
+3. boot-time NCM/tcpctl service 정책 결정
+4. Wi-Fi 드라이버/펌웨어 read-only 인벤토리 트랙 분리
+5. `userdata`/`mmcblk0p1` 장기 저장소 후보 의사결정
 
 ---
 

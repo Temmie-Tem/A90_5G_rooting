@@ -553,3 +553,34 @@
   - 이후 serial bridge `version`과 NCM ping 3/3 PASS
 - 상세 보고서:
   - `docs/reports/NATIVE_INIT_V56_TCPCTL_2026-04-26.md`
+
+## v57: TCP control host wrapper 검증 (2026-04-26)
+
+- 목적:
+  - `a90_tcpctl`을 직접 `nc` 조합으로 다루지 않고 host wrapper로 반복 운용
+  - launch/client/stop/smoke를 하나의 도구로 묶어 다음 실험 속도 향상
+- 추가:
+  - `scripts/revalidation/tcpctl_host.py`
+    - `install`
+    - `start`
+    - `call`
+    - `ping`, `version`, `status`
+    - `run`
+    - `stop`
+    - `smoke`
+- 검증:
+  - Python syntax/help PASS
+  - `python3 scripts/revalidation/tcpctl_host.py smoke` PASS
+  - smoke 내용:
+    - bridge로 `/cache/bin/a90_tcpctl listen 2325 60 8` 실행
+    - TCP `ping`, `version`, `status` PASS
+    - TCP `run /cache/bin/toybox uname -a` PASS
+    - TCP `run /cache/bin/toybox ifconfig ncm0` PASS
+    - TCP `shutdown` PASS
+    - serial `run`이 `[done]`으로 종료
+    - 이후 serial `version`과 NCM ping 3/3 PASS
+- 수정:
+  - 첫 smoke에서 wrapper가 serial `[done] run`을 종료 조건으로 보지 않아 실패 처리
+  - `BridgeRunThread`가 `[done] run`, `[err] run`, `[busy]`를 보면 종료하도록 수정
+- 상세 보고서:
+  - `docs/reports/NATIVE_INIT_V57_TCPCTL_HOST_WRAPPER_2026-04-26.md`

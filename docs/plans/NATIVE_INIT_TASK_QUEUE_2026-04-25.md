@@ -370,6 +370,36 @@
 
 - `docs/reports/NATIVE_INIT_V56_TCPCTL_2026-04-26.md`
 
+### V57. TCP Control Host Wrapper — 완료
+
+목표:
+
+- `a90_tcpctl` launch/client/stop을 host script 하나로 반복 가능하게 만든다.
+- smoke test로 NCM TCP control 채널을 빠르게 재검증한다.
+
+구현:
+
+- `scripts/revalidation/tcpctl_host.py`
+  - `install`
+  - `start`
+  - `call`
+  - `ping`, `version`, `status`
+  - `run`
+  - `stop`
+  - `smoke`
+
+검증:
+
+- Python syntax/help — PASS
+- `tcpctl_host.py smoke` — PASS
+- TCP `ping`, `version`, `status`, `run`, `shutdown` — PASS
+- serial `run` 종료와 bridge `version` — PASS
+- NCM ping 3/3 — PASS
+
+산출:
+
+- `docs/reports/NATIVE_INIT_V57_TCPCTL_HOST_WRAPPER_2026-04-26.md`
+
 ## 보류 큐
 
 - ADB 안정화 재검토
@@ -379,8 +409,8 @@
 
 ## 지금 바로 진행할 항목
 
-1. `a90_tcpctl` launch/client/stop host wrapper 작성
-2. 5~10분 NCM + tcpctl 유지와 reconnect 안정성 확인
-3. unsolicited `AT` serial noise 필터링 또는 무시 정책 구현
-4. boot-time NCM/tcpctl service 정책 결정
-5. Wi-Fi 드라이버/펌웨어 read-only 인벤토리 트랙 분리
+1. 5~10분 NCM + tcpctl 유지와 reconnect 안정성 확인
+2. unsolicited `AT` serial noise 필터링 또는 무시 정책 구현
+3. boot-time NCM/tcpctl service 정책 결정
+4. Wi-Fi 드라이버/펌웨어 read-only 인벤토리 트랙 분리
+5. `userdata`/`mmcblk0p1` 장기 저장소 후보 의사결정
