@@ -120,11 +120,11 @@
 ## 현재 폰 상태
 
 - patched AP (Magisk 30.7) + **TWRP recovery 사용 가능**
-- 최신 verified native init: `stage3/boot_linux_v62.img` (`A90 Linux init v62`)
+- 최신 verified native init: `stage3/boot_linux_v65.img` (`A90 Linux init v65`)
 - known-good fallback: `stage3/boot_linux_v48.img` (`A90 Linux init v48`)
 - 격리 상태: `stage3/boot_linux_v49.img`는 boot partition prefix readback은 일치했지만
   system boot 후 Android `/system/bin/init second_stage`로 진입했으므로 stable이 아님
-- 부팅 흐름: TEST 패턴 약 2초 → 상태 HUD/menu 자동 전환 → USB ACM serial shell
+- 부팅 흐름: custom boot splash 약 2초 → 상태 HUD/menu 자동 전환 → USB ACM serial shell
 - 로그 상태: `/cache/native-init.log`에 boot/command/result 기록
 - blocking 상태: `waitkey`, `readinput`, `watchhud`, `blindmenu` q/Ctrl-C 취소 확인
 - boot timeline: `timeline` 명령과 `/cache/native-init.log` replay 확인
@@ -132,7 +132,7 @@
 - run 상태: `/bin/a90sleep` helper로 `run` q 취소 확인
 - log 보존: native init → recovery → native init 왕복 후 v44/v45/v47 log append 확인
 - storage 상태: `/cache` safe write, `userdata` conditional, critical partitions do-not-touch 기준 문서화
-- screen menu 상태: 자동 메뉴, 버튼 조작, serial `hide`/busy gate 확인
+- screen menu 상태: 자동 메뉴, 계층형 앱 폴더, CPU stress screen app, serial `hide`/busy gate 확인
 - USB 상태: ACM-only gadget `04e8:6861` / host `cdc_acm` 기준 문서화
 - userland 상태: `toybox 0.8.13` static ARM64 host 빌드와 `/cache/bin/toybox` 실기 실행 확인
 - USB reattach 상태: `usbacmreset`와 외부 helper `off` 후 serial bridge 복구 확인
@@ -147,7 +147,12 @@
 - reconnect 상태: v60 `netservice stop/start` software UDC 재열거 후 NCM/TCP 복구 확인
 - HUD metrics 상태: CPU/GPU 온도와 사용률 `%`를 status/HUD에 표시, `cpustress`로 CPU usage 상승 확인
 - dev node 상태: `/dev/null`과 `/dev/zero`를 boot-time char device로 보정 확인
-- 상세 최신 상태: `docs/reports/NATIVE_INIT_V62_CPUSTRESS_2026-04-26.md`
+- boot splash 상태: TEST 패턴 대신 `A90 NATIVE INIT` custom splash와 `display-splash` timeline 기록 확인
+- splash layout 상태: v65에서 긴 문구/footer 잘림 방지를 위해 안전 여백과 자동 축소 적용
+- 상세 최신 상태: `docs/reports/NATIVE_INIT_V65_SPLASH_SAFE_LAYOUT_2026-04-26.md`
+- v65 splash safe layout 기록: `docs/reports/NATIVE_INIT_V65_SPLASH_SAFE_LAYOUT_2026-04-26.md`
+- v64 boot splash 기록: `docs/reports/NATIVE_INIT_V64_BOOT_SPLASH_2026-04-26.md`
+- v63 app menu 기록: `docs/reports/NATIVE_INIT_V63_APP_MENU_2026-04-26.md`
 - v62 CPU stress/dev node 기록: `docs/reports/NATIVE_INIT_V62_CPUSTRESS_2026-04-26.md`
 - v61 CPU/GPU usage 기록: `docs/reports/NATIVE_INIT_V61_CPU_GPU_USAGE_2026-04-26.md`
 - v60 reconnect 기록: `docs/reports/NATIVE_INIT_V60_RECONNECT_2026-04-26.md`
@@ -182,15 +187,15 @@
 - proc / sys / devtmpfs / ext4(/dev/block/sda31) 마운트 성공
 - 핵심 우회: devtmpfs async 초기화 문제를 `mknod(makedev(259,15))` 로 해결
 
-### 3-2. USB ACM serial console + 인터랙티브 셸 (v8~v62)
+### 3-2. USB ACM serial console + 인터랙티브 셸 (v8~v65)
 
-**현재 버전**: `init_v62` (`stage3/boot_linux_v62.img`)
+**현재 버전**: `init_v65` (`stage3/boot_linux_v65.img`)
 
-ADB 방식이 막혀 USB CDC ACM serial (ttyGS0)로 전환. v62까지 반복 안정화:
+ADB 방식이 막혀 USB CDC ACM serial (ttyGS0)로 전환. v65까지 반복 안정화:
 
 - USB gadget: configfs `acm.usb0` function, UDC `a600000.dwc3`
 - host 측: `/dev/ttyACM0` → `serial_tcp_bridge.py` → `127.0.0.1:54321` TCP
-- 부팅 흐름: TEST 패턴(~2초) → 상태 HUD 자동 전환 → ACM serial shell
+- 부팅 흐름: custom boot splash(~2초) → 상태 HUD 자동 전환 → ACM serial shell
 
 **버전별 주요 마일스톤:**
 
@@ -216,8 +221,11 @@ ADB 방식이 막혀 USB CDC ACM serial (ttyGS0)로 전환. v62까지 반복 안
 | v60 | `netservice stop/start` software UDC 재열거 뒤 NCM/TCP 복구 확인 |
 | v61 | HUD/status에 CPU usage `%`, GPU busy `%` 표시 |
 | v62 | `cpustress`로 CPU usage gauge 검증, `/dev/null`/`/dev/zero` char node guard |
+| v63 | APPS/MONITORING/TOOLS/LOGS/NETWORK/POWER 계층 메뉴와 CPU stress 시간 선택 app |
+| v64 | TEST 부팅 화면을 `A90 NATIVE INIT` custom boot splash로 교체 |
+| v65 | boot splash 긴 문구/footer 잘림 방지 safe layout |
 
-**확보된 관찰/제어 범위 (v62 verified 기준):**
+**확보된 관찰/제어 범위 (v65 verified 기준):**
 
 | 항목 | 상태 |
 |---|---|
@@ -231,7 +239,7 @@ ADB 방식이 막혀 USB CDC ACM serial (ttyGS0)로 전환. v62까지 반복 안
 | backlight sysfs 제어 | 작동 |
 | DRM/KMS ioctl (dumb buffer + SETCRTC) | 작동 — 실화면 출력 확인 |
 | 센서 HUD (배터리/온도/메모리/전력/CPU·GPU 사용률) | 작동 (`status`, `autohud`) |
-| 부팅 시 TEST 패턴 → HUD 자동 전환 | 작동 |
+| 부팅 시 custom splash → HUD 자동 전환 | 작동 |
 | boot summary 화면 표시 (`BOOT OK`) | 작동 |
 | on-screen 버튼 메뉴 | 작동 (`menu`/`screenmenu`) |
 | menu-active serial gate | 작동 — 위험 명령 `[busy]`, `version`/`status` 허용, `hide` 후 재개 |
@@ -249,6 +257,8 @@ ADB 방식이 막혀 USB CDC ACM serial (ttyGS0)로 전환. v62까지 반복 안
 | CPU/GPU usage HUD | 작동 — CPU `/proc/stat` delta, GPU KGSL `gpu_busy_percentage` 표시 확인 |
 | CPU stress helper | 작동 — `cpustress 10 8` 후 CPU usage 29% 상승 확인 |
 | Essential `/dev` nodes | 작동 — `/dev/null` rdev `1:3`, `/dev/zero` rdev `1:5` boot-time 보정 |
+| Hierarchical app menu | 작동 — APPS/TOOLS/CPU STRESS 시간 선택과 LOG/NETWORK app 화면 |
+| Boot splash | 작동 — `A90 NATIVE INIT` splash, `display-splash` timeline 기록, v65 safe layout 적용 |
 | ADB (adbd) | **보류** — ep1/ep2 미생성, zombie |
 
 **버튼 매핑:**
@@ -266,7 +276,7 @@ ADB 방식이 막혀 USB CDC ACM serial (ttyGS0)로 전환. v62까지 반복 안
 
 ## 다음 후보 작업
 
-우선순위 순 (v62 이후):
+우선순위 순 (v65 이후):
 
 1. **physical USB reconnect soak** — 실제 케이블 unplug/replug 이후 ACM/NCM 복구 확인
 2. **serial noise hardening** — USB 재열거 중 `A`/`ATAT...` fragment 무시

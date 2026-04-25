@@ -8,7 +8,7 @@
 
 상단 `docs/`는 이제 다음 흐름에 필요한 문서를 유지합니다.
 
-1. native init v62 기준 상태 고정
+1. native init v65 기준 상태 고정
 2. shell/HUD/log/menu 운영 안정화
 3. 필요한 하드웨어/커널 경로만 역추적
 4. BusyBox/network/SSH 같은 서버형 확장 가능성 검토
@@ -19,12 +19,12 @@
 - 빌드: `A908NKSU5EWA3`
 - kernel: Samsung stock Android kernel `Linux 4.14.190`
 - recovery: TWRP 사용 가능
-- latest verified native init: `A90 Linux init v62`
-- latest source: `stage3/linux_init/init_v62.c`
-- latest boot image: `stage3/boot_linux_v62.img`
+- latest verified native init: `A90 Linux init v65`
+- latest source: `stage3/linux_init/init_v65.c`
+- latest boot image: `stage3/boot_linux_v65.img`
 - known-good fallback: `stage3/boot_linux_v48.img`
 - control channel: USB CDC ACM serial bridge
-- display: TEST pattern 후 상태 HUD/menu 자동 전환
+- display: custom boot splash 후 상태 HUD/menu 자동 전환
 - input: VOL+/VOL-/POWER 버튼 확인
 - logging: `/cache/native-init.log` 확인
 - blocking cancel: q/Ctrl-C 취소 확인
@@ -32,7 +32,7 @@
 - HUD boot summary: `BOOT OK shell` 표시 확인
 - run cancel: `/bin/a90sleep` helper 확인
 - storage: `/cache` safe write, `userdata` conditional, critical partitions do-not-touch
-- screen menu: 자동 메뉴, 버튼 조작, serial `hide`/busy gate 확인
+- screen menu: 자동 메뉴, 앱 폴더, CPU stress app, serial `hide`/busy gate 확인
 - USB map: ACM-only gadget `04e8:6861` / host `cdc_acm` 기준 문서화
 - userland: `toybox 0.8.13` static ARM64 build와 `/cache/bin/toybox` 실기 실행 확인
 - USB reattach: v48에서 ACM rebind 후 serial console 재연결 확인
@@ -45,6 +45,9 @@
 - reconnect: v60 `netservice stop/start` software UDC 재열거 후 NCM/TCP 복구 확인
 - HUD metrics: CPU/GPU 온도와 사용률 `%` 표시, CPU stress 검증 확인
 - dev nodes: `/dev/null`/`/dev/zero` boot-time char device guard 확인
+- app menu: APPS/MONITORING/TOOLS/LOGS/NETWORK/POWER 계층 메뉴와 CPU stress 시간 선택 확인
+- boot splash: TEST 패턴 대신 `A90 NATIVE INIT` custom splash 표시 후 HUD 전환 확인
+- splash layout: v65에서 긴 문구/footer 잘림 방지를 위해 안전 여백과 자동 축소 적용
 - ADB: 보류
 
 ## 문서 읽는 순서
@@ -97,6 +100,9 @@
 - `reports/NATIVE_INIT_V60_RECONNECT_2026-04-26.md` – netservice stop/start UDC 재열거 복구 검증
 - `reports/NATIVE_INIT_V61_CPU_GPU_USAGE_2026-04-26.md` – HUD/status CPU/GPU 사용률 `%` 표시 검증
 - `reports/NATIVE_INIT_V62_CPUSTRESS_2026-04-26.md` – CPU stress 사용률 게이지와 `/dev/null`/`/dev/zero` guard 검증
+- `reports/NATIVE_INIT_V63_APP_MENU_2026-04-26.md` – 계층형 앱 메뉴와 CPU stress screen app 검증
+- `reports/NATIVE_INIT_V64_BOOT_SPLASH_2026-04-26.md` – TEST 화면을 custom boot splash로 교체한 검증
+- `reports/NATIVE_INIT_V65_SPLASH_SAFE_LAYOUT_2026-04-26.md` – boot splash 잘림 방지 safe layout 검증
 - `reports/NATIVE_INIT_V53_MENU_BUSY_2026-04-25.md` – menu-active serial busy gate와 flash auto-hide 검증
 - `reports/NATIVE_INIT_V48_USB_REATTACH_NCM_2026-04-25.md` – USB reattach와 NCM probe 실기 검증
 - `reports/NATIVE_INIT_USERLAND_CANDIDATES_2026-04-25.md` – static userland/BusyBox/toybox 후보 보고서
@@ -154,6 +160,9 @@
 22. netservice stop/start UDC reconnect recovery — v60 완료
 23. HUD CPU/GPU usage percent 표시 — v61 완료
 24. CPU stress usage gauge + `/dev/null`/`/dev/zero` guard — v62 완료
+25. 계층형 앱 메뉴 + CPU stress screen app — v63 완료
+26. TEST 부팅 화면을 custom boot splash로 교체 — v64 완료
+27. boot splash 잘림 방지 safe layout — v65 완료
 
 패키지 최소화와 Android userspace 복구는 보조 실험으로만 다루고,
 메인 목표는 **Android kernel 위에 반복 운용 가능한 native init 기반 최소 Linux 콘솔을 만드는 것**입니다.

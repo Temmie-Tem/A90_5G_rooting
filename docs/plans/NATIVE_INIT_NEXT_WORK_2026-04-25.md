@@ -1,6 +1,6 @@
 # Native Init Next Work List (2026-04-25)
 
-이 문서는 `A90 Linux init v62` 기준 이후 작업을 정리한 실행 목록이다.
+이 문서는 `A90 Linux init v65` 기준 이후 작업을 정리한 실행 목록이다.
 
 현재 단계는 넓은 의미의 리버싱도 포함하지만, 중심은 더 이상 Android 전체를
 분해하는 것이 아니다. Stock Android kernel과 Samsung vendor driver 위에서
@@ -123,19 +123,22 @@ Samsung bootloader
 - netservice stop/start software UDC reconnect recovery — v60 완료
 - HUD CPU/GPU usage percent 표시 — v61 완료
 - CPU stress usage gauge + `/dev/null`/`/dev/zero` guard — v62 완료
+- 계층형 앱 메뉴 + CPU stress screen app — v63 완료
+- TEST 부팅 화면을 custom boot splash로 교체 — v64 완료
+- boot splash 잘림 방지 safe layout — v65 완료
 - static dropbear SSH 또는 custom TCP shell
 
 ---
 
 ## 현재 기준점
 
-- 최신 확인 버전: `A90 Linux init v62`
-- 최신 소스: `stage3/linux_init/init_v62.c`
-- 최신 boot image: `stage3/boot_linux_v62.img`
+- 최신 확인 버전: `A90 Linux init v65`
+- 최신 소스: `stage3/linux_init/init_v65.c`
+- 최신 boot image: `stage3/boot_linux_v65.img`
 - known-good fallback: `stage3/boot_linux_v48.img`
 - 주 제어 채널: USB CDC ACM serial (`/dev/ttyGS0` ↔ `/dev/ttyACM0`)
 - host bridge: `scripts/revalidation/serial_tcp_bridge.py --port 54321`
-- 화면 상태: TEST 패턴 약 2초 표시 후 상태 HUD/menu 자동 전환
+- 화면 상태: custom boot splash 약 2초 표시 후 상태 HUD/menu 자동 전환
 - 버튼 상태: VOL+/VOL-/POWER 입력 확인
 - 로그 상태: `/cache/native-init.log` boot/command log 확인
 - blocking 상태: `waitkey`/`readinput`/`watchhud`/`blindmenu` q/Ctrl-C 취소 확인
@@ -157,6 +160,9 @@ Samsung bootloader
 - reconnect 상태: v60 `netservice stop/start` software UDC 재열거 후 NCM/TCP 복구 확인
 - HUD metrics 상태: CPU/GPU 온도와 사용률 `%` 표시, `cpustress`로 CPU usage 상승 확인
 - dev node 상태: `/dev/null`/`/dev/zero` boot-time char device guard 확인
+- app menu 상태: APPS/MONITORING/TOOLS/LOGS/NETWORK/POWER 계층 메뉴와 CPU stress 시간 선택 확인
+- boot splash 상태: `A90 NATIVE INIT` custom splash와 `display-splash` timeline 기록 확인
+- splash layout 상태: v65에서 긴 문구/footer 잘림 방지 safe layout 적용
 - menu gate 상태: 메뉴 표시 중 위험 명령 `[busy]` 차단, 관찰 명령 허용
 - ADB 상태: 보류
 
@@ -370,7 +376,8 @@ Samsung bootloader
 
 검증:
 
-- TEST pattern
+- custom boot splash
+- debug TEST pattern
 - HUD
 - 단색 출력
 - 작은 글자 출력
@@ -619,8 +626,8 @@ Samsung bootloader
 
 현재:
 
-- TEST pattern 약 2초
-- HUD 자동 전환
+- v65 safe-layout custom boot splash 약 2초
+- HUD/menu 자동 전환
 
 추가 후보:
 

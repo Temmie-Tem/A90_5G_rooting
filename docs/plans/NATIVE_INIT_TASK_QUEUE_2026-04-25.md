@@ -1,13 +1,13 @@
 # Native Init Task Queue (2026-04-25)
 
-이 문서는 `A90 Linux init v62` 이후 바로 실행할 작업 큐다.
+이 문서는 `A90 Linux init v65` 이후 바로 실행할 작업 큐다.
 큰 방향은 “보이는 부팅 → 복구 가능한 로그 → 단독 조작 → 작은 userland → USB networking” 순서다.
 
 ## 현재 고정 기준점
 
-- latest verified native init: `A90 Linux init v62`
-- latest source: `stage3/linux_init/init_v62.c`
-- latest boot image: `stage3/boot_linux_v62.img`
+- latest verified native init: `A90 Linux init v65`
+- latest source: `stage3/linux_init/init_v65.c`
+- latest boot image: `stage3/boot_linux_v65.img`
 - known-good fallback: `stage3/boot_linux_v48.img`
 - control channel: USB ACM serial bridge
 - log: `/cache/native-init.log`
@@ -28,6 +28,8 @@
   - USB NCM persistent link + IPv6 netcat
   - KMS HUD
   - VOL+/VOL-/POWER input
+  - hierarchical app menu
+  - custom boot splash
 
 ## 실행 큐
 
@@ -611,6 +613,113 @@
 - `stage3/boot_linux_v62.img`
   - SHA256 `8c422903226980855e23b75379a60b4ec3ec0a680c457b28adfa5417fdf870b1`
 - `docs/reports/NATIVE_INIT_V62_CPUSTRESS_2026-04-26.md`
+
+### V63. App Menu / CPU Stress Screen App — 완료
+
+목표:
+
+- 기존 단일 화면 메뉴를 앱 폴더 형태로 확장한다.
+- LOG/NETWORK/CPU STRESS가 한 프레임만 보이고 사라지는 문제를 고친다.
+- CPU stress는 버튼으로 5/10/30/60초를 선택하고, 실행 중 CPU 관련 정보를 전용 화면에 표시한다.
+
+구현:
+
+- `stage3/linux_init/init_v63.c`
+  - `MAIN MENU` 아래 `APPS >`, `NETWORK >`, `POWER >` 계층 추가
+  - `APPS / TOOLS / CPU STRESS` 시간 선택 메뉴 추가
+  - `SCREEN_APP_LOG`, `SCREEN_APP_NETWORK`, `SCREEN_APP_CPU_STRESS` active app state 추가
+  - CPU stress screen app에서 CPU 온도/사용률/load, online/present core, core frequency, memory, power, worker 수 표시
+  - 자동 HUD 메뉴의 help/menu 간격과 안내 문구 밝기 조정
+
+검증:
+
+- static ARM64 build — PASS
+- `stage3/boot_linux_v63.img` marker 확인 — PASS
+- native → TWRP → boot partition flash → v63 boot — PASS
+- bridge `version` → `A90 Linux init v63` — PASS
+- 자동 메뉴에서 `APPS >`, `TOOLS >`, `CPU STRESS >` 계층 표시 확인 — PASS
+- `HIDE MENU`와 serial `hide` 경로 확인 — PASS
+
+산출:
+
+- `stage3/linux_init/init_v63`
+  - SHA256 `062eb9a780c0fe71890e80d0c961b5b3016d3d35e0da19fa99e5289bbde04a00`
+- `stage3/ramdisk_v63.cpio`
+  - SHA256 `7b9d3f71f648e7f9765fc6c1827c66c0dcc422f714b1ec67a334f9cbca5f53ce`
+- `stage3/boot_linux_v63.img`
+  - SHA256 `99025fba4c17348057920eab06b7bd98a97b5cc5f6acff21190981288a0ad09d`
+- `docs/reports/NATIVE_INIT_V63_APP_MENU_2026-04-26.md`
+
+### V64. Custom Boot Splash — 완료
+
+목표:
+
+- 부팅 직후 큰 `TEST` 디버그 화면 대신 프로젝트 전용 boot splash를 표시한다.
+- 이후 기존처럼 상태 HUD/menu로 자동 전환한다.
+
+구현:
+
+- `stage3/linux_init/init_v64.c`
+  - `INIT_VERSION`을 `v64`로 갱신
+  - `BOOT_SPLASH_SECONDS` 2초 유지
+  - `kms_draw_boot_splash()` 추가
+  - boot frame 로그를 `display-splash` timeline으로 기록
+  - serial boot 안내를 `splash 2s -> autohud 2s`로 변경
+
+검증:
+
+- static ARM64 build — PASS
+- `stage3/boot_linux_v64.img` marker 확인 — PASS
+- native → TWRP → boot partition flash → v64 boot — PASS
+- bridge `version` → `A90 Linux init v64` — PASS
+- `timeline` → `display-splash rc=0 ... boot splash applied` — PASS
+- `status` → `boot: BOOT OK shell 3S`, `autohud: running` — PASS
+
+산출:
+
+- `stage3/linux_init/init_v64`
+  - SHA256 `f80152f02db376080bdcae3600ce6daf03e64bc08e0e092a8ae3b9116ea7bde2`
+- `stage3/ramdisk_v64.cpio`
+  - SHA256 `8560785b5e2832d40913b3b0e91a90e633041809a788200ebb6aa875c12ed018`
+- `stage3/boot_linux_v64.img`
+  - SHA256 `aa628f70f09a62f704b9d2078aae888ad57d95349fcaf8d3af47d95a3ad864ca`
+- `docs/reports/NATIVE_INIT_V64_BOOT_SPLASH_2026-04-26.md`
+
+### V65. Splash Safe Layout — 완료
+
+목표:
+
+- v64 custom splash가 보이지만 일부 텍스트가 잘리는 문제를 해결한다.
+- 긴 상태 문구와 footer가 1080px 폭과 라운드 코너/안전 여백을 넘지 않게 한다.
+
+구현:
+
+- `stage3/linux_init/init_v65.c`
+  - `INIT_VERSION`을 `v65`로 갱신
+  - splash 기본 scale 축소
+  - 좌우 margin을 넓히고 row width를 계산
+  - `kms_draw_text_fit()`으로 각 줄을 `shrink_text_scale()`에 통과
+  - 상태 문구를 짧게 정리
+  - footer 위치를 조금 더 위로 올리고 card 폭 안에서 축소
+
+검증:
+
+- static ARM64 build — PASS
+- `stage3/boot_linux_v65.img` marker 확인 — PASS
+- native → TWRP → boot partition flash → v65 boot — PASS
+- bridge `version` → `A90 Linux init v65` — PASS
+- `status` → `boot: BOOT OK shell 3S`, `autohud: running` — PASS
+- `timeline` → `display-splash rc=0 ... boot splash applied` — PASS
+
+산출:
+
+- `stage3/linux_init/init_v65`
+  - SHA256 `2cb2b9e5e8d989cddb92f3c1ef93b8f4674ba4359408445b19af5745ddc2f373`
+- `stage3/ramdisk_v65.cpio`
+  - SHA256 `b8184bb241c52b0d99e9efbceed16ded50598a24068a359c8d8e3abf78f1c16f`
+- `stage3/boot_linux_v65.img`
+  - SHA256 `143acc7925b8ac0006d972ca463c1993f5306b63c5187e9c3007a34fa71ed7d4`
+- `docs/reports/NATIVE_INIT_V65_SPLASH_SAFE_LAYOUT_2026-04-26.md`
 
 ## 보류 큐
 

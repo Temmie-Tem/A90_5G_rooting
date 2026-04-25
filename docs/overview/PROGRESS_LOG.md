@@ -765,3 +765,78 @@
   - GPU usage가 0%인 것은 CPU-only stress와 KMS dumb-buffer HUD가 KGSL/3D GPU workload를 만들지 않기 때문에 정상이다.
 - 상세 보고서:
   - `docs/reports/NATIVE_INIT_V62_CPUSTRESS_2026-04-26.md`
+
+## v63: 계층형 앱 메뉴와 CPU stress screen app (2026-04-26)
+
+- 목적:
+  - 자동 HUD 메뉴를 단일 리스트에서 APPS/TOOLS/LOGS/NETWORK/POWER 계층으로 확장
+  - LOG/NETWORK/CPU STRESS 화면이 한 프레임만 보이고 사라지는 문제를 active app 상태로 해결
+  - CPU stress를 버튼으로 5/10/30/60초 선택하고 실행 중 CPU 관련 정보를 화면에 표시
+- 추가:
+  - `stage3/linux_init/init_v63.c`
+    - `MAIN MENU`, `APPS`, `APPS / TOOLS`, `TOOLS / CPU STRESS` 계층 메뉴
+    - `SCREEN_APP_LOG`, `SCREEN_APP_NETWORK`, `SCREEN_APP_CPU_STRESS` persistent app state
+    - CPU stress app dashboard: CPU 온도/사용률/load, core online/present, per-core frequency, memory, power, worker/test duration
+    - menu help 위치와 글자 밝기 조정
+- 산출:
+  - `stage3/linux_init/init_v63`
+    - SHA256 `062eb9a780c0fe71890e80d0c961b5b3016d3d35e0da19fa99e5289bbde04a00`
+  - `stage3/ramdisk_v63.cpio`
+    - SHA256 `7b9d3f71f648e7f9765fc6c1827c66c0dcc422f714b1ec67a334f9cbca5f53ce`
+  - `stage3/boot_linux_v63.img`
+    - SHA256 `99025fba4c17348057920eab06b7bd98a97b5cc5f6acff21190981288a0ad09d`
+- 상세 보고서:
+  - `docs/reports/NATIVE_INIT_V63_APP_MENU_2026-04-26.md`
+
+## v64: custom boot splash 전환 (2026-04-26)
+
+- 목적:
+  - 부팅 직후 보이던 큰 `TEST` 디버그 화면을 프로젝트 전용 splash로 교체
+  - 기존처럼 약 2초 후 상태 HUD/menu와 serial shell로 전환
+- 추가:
+  - `stage3/linux_init/init_v64.c`
+    - `BOOT_SPLASH_SECONDS`
+    - `kms_draw_boot_splash()`
+    - `display-splash` timeline 기록
+    - serial 안내 `splash 2s -> autohud 2s`
+- 산출:
+  - `stage3/linux_init/init_v64`
+    - SHA256 `f80152f02db376080bdcae3600ce6daf03e64bc08e0e092a8ae3b9116ea7bde2`
+  - `stage3/ramdisk_v64.cpio`
+    - SHA256 `8560785b5e2832d40913b3b0e91a90e633041809a788200ebb6aa875c12ed018`
+  - `stage3/boot_linux_v64.img`
+    - SHA256 `aa628f70f09a62f704b9d2078aae888ad57d95349fcaf8d3af47d95a3ad864ca`
+- 실기 검증:
+  - `native_init_flash.py stage3/boot_linux_v64.img --from-native --expect-version "A90 Linux init v64"` PASS
+  - bridge `version` → `A90 Linux init v64`
+  - `timeline` → `display-splash rc=0 errno=0 detail=boot splash applied`
+  - `status` → `boot: BOOT OK shell 3S`, `autohud: running`
+- 상세 보고서:
+  - `docs/reports/NATIVE_INIT_V64_BOOT_SPLASH_2026-04-26.md`
+
+## v65: boot splash safe layout (2026-04-26)
+
+- 목적:
+  - v64 custom splash가 보이지만 일부 텍스트가 잘리는 문제 수정
+  - 긴 상태 문구와 footer가 화면 폭/라운드 코너 안전 여백을 넘지 않도록 보정
+- 추가:
+  - `stage3/linux_init/init_v65.c`
+    - `INIT_VERSION "v65"`
+    - `kms_draw_text_fit()`으로 splash 각 줄을 `shrink_text_scale()`에 통과
+    - splash 기본 scale 축소, 좌우 margin 확대, footer 위치 상향
+    - 상태 문구를 짧게 정리
+- 산출:
+  - `stage3/linux_init/init_v65`
+    - SHA256 `2cb2b9e5e8d989cddb92f3c1ef93b8f4674ba4359408445b19af5745ddc2f373`
+  - `stage3/ramdisk_v65.cpio`
+    - SHA256 `b8184bb241c52b0d99e9efbceed16ded50598a24068a359c8d8e3abf78f1c16f`
+  - `stage3/boot_linux_v65.img`
+    - SHA256 `143acc7925b8ac0006d972ca463c1993f5306b63c5187e9c3007a34fa71ed7d4`
+- 실기 검증:
+  - `native_init_flash.py stage3/boot_linux_v65.img --from-native --expect-version "A90 Linux init v65"` PASS
+  - boot partition prefix SHA256 readback PASS
+  - bridge `version` → `A90 Linux init v65`
+  - `status` → `boot: BOOT OK shell 3S`, `autohud: running`
+  - `timeline` → `display-splash rc=0 errno=0 detail=boot splash applied`
+- 상세 보고서:
+  - `docs/reports/NATIVE_INIT_V65_SPLASH_SAFE_LAYOUT_2026-04-26.md`
