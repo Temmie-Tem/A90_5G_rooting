@@ -1,13 +1,13 @@
 # Native Init Task Queue (2026-04-25)
 
-이 문서는 `A90 Linux init v61` 이후 바로 실행할 작업 큐다.
+이 문서는 `A90 Linux init v62` 이후 바로 실행할 작업 큐다.
 큰 방향은 “보이는 부팅 → 복구 가능한 로그 → 단독 조작 → 작은 userland → USB networking” 순서다.
 
 ## 현재 고정 기준점
 
-- latest verified native init: `A90 Linux init v61`
-- latest source: `stage3/linux_init/init_v61.c`
-- latest boot image: `stage3/boot_linux_v61.img`
+- latest verified native init: `A90 Linux init v62`
+- latest source: `stage3/linux_init/init_v62.c`
+- latest boot image: `stage3/boot_linux_v62.img`
 - known-good fallback: `stage3/boot_linux_v48.img`
 - control channel: USB ACM serial bridge
 - log: `/cache/native-init.log`
@@ -574,6 +574,43 @@
 - `stage3/boot_linux_v61.img`
   - SHA256 `40a33381be60ea8eaf91e7f09256d3d0de100c8959c3687a3b4aa95696c7cdb2`
 - `docs/reports/NATIVE_INIT_V61_CPU_GPU_USAGE_2026-04-26.md`
+
+### V62. CPU Stress Gauge Validation — 완료
+
+목표:
+
+- v61 CPU usage `%`가 실제 CPU 부하에서 변하는지 검증한다.
+- `/dev/null`/`/dev/zero`가 없거나 regular file로 오염돼도 boot-time에 char device로 복구한다.
+
+구현:
+
+- `stage3/linux_init/init_v62.c`
+  - `INIT_VERSION`을 `v62`로 갱신
+  - `/dev/null` rdev `1:3`, `/dev/zero` rdev `1:5` 보정
+  - `cpustress [sec] [workers]` 명령 추가
+  - worker fork, timeout, q/Ctrl-C 취소 처리
+
+검증:
+
+- static ARM64 build — PASS
+- `stage3/boot_linux_v62.img` marker 확인 — PASS
+- native → TWRP → boot partition flash → v62 boot — PASS
+- bridge `version` → `A90 Linux init v62` — PASS
+- `/dev/null` → `mode=0600`, `rdev=1:3` — PASS
+- `/dev/zero` → `mode=0600`, `rdev=1:5` — PASS
+- `cpustress 10 8` 전 `thermal: cpu=34.9C 0% gpu=33.3C 0%` — PASS
+- `cpustress 10 8` 후 `thermal: cpu=36.3C 29% gpu=34.6C 0%` — PASS
+- cooldown 후 `thermal: cpu=35.4C 0% gpu=33.7C 0%` — PASS
+
+산출:
+
+- `stage3/linux_init/init_v62`
+  - SHA256 `016f67ec1bd713533ed8d2d12e5e5f7cd5709406ce6351fa0d22f30d0bcdfa33`
+- `stage3/ramdisk_v62.cpio`
+  - SHA256 `13ced5f0e0d97887fe84036b777cd5efdc97b0c81089261b9397f5da12169629`
+- `stage3/boot_linux_v62.img`
+  - SHA256 `8c422903226980855e23b75379a60b4ec3ec0a680c457b28adfa5417fdf870b1`
+- `docs/reports/NATIVE_INIT_V62_CPUSTRESS_2026-04-26.md`
 
 ## 보류 큐
 

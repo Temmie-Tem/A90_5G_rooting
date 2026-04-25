@@ -120,7 +120,7 @@
 ## 현재 폰 상태
 
 - patched AP (Magisk 30.7) + **TWRP recovery 사용 가능**
-- 최신 verified native init: `stage3/boot_linux_v61.img` (`A90 Linux init v61`)
+- 최신 verified native init: `stage3/boot_linux_v62.img` (`A90 Linux init v62`)
 - known-good fallback: `stage3/boot_linux_v48.img` (`A90 Linux init v48`)
 - 격리 상태: `stage3/boot_linux_v49.img`는 boot partition prefix readback은 일치했지만
   system boot 후 Android `/system/bin/init second_stage`로 진입했으므로 stable이 아님
@@ -145,8 +145,10 @@
 - boot netservice 상태: opt-in flag 기반 NCM/tcpctl 부팅 자동 시작, host ping/TCP control, rollback 검증 완료
 - 현재 netservice 기본 상태: disabled. `/cache/native-init-netservice` flag가 있을 때만 boot-time NCM/tcpctl 시작
 - reconnect 상태: v60 `netservice stop/start` software UDC 재열거 후 NCM/TCP 복구 확인
-- HUD metrics 상태: CPU/GPU 온도와 사용률 `%`를 status/HUD에 표시 확인
-- 상세 최신 상태: `docs/reports/NATIVE_INIT_V61_CPU_GPU_USAGE_2026-04-26.md`
+- HUD metrics 상태: CPU/GPU 온도와 사용률 `%`를 status/HUD에 표시, `cpustress`로 CPU usage 상승 확인
+- dev node 상태: `/dev/null`과 `/dev/zero`를 boot-time char device로 보정 확인
+- 상세 최신 상태: `docs/reports/NATIVE_INIT_V62_CPUSTRESS_2026-04-26.md`
+- v62 CPU stress/dev node 기록: `docs/reports/NATIVE_INIT_V62_CPUSTRESS_2026-04-26.md`
 - v61 CPU/GPU usage 기록: `docs/reports/NATIVE_INIT_V61_CPU_GPU_USAGE_2026-04-26.md`
 - v60 reconnect 기록: `docs/reports/NATIVE_INIT_V60_RECONNECT_2026-04-26.md`
 - v60 netservice 기록: `docs/reports/NATIVE_INIT_V60_NETSERVICE_2026-04-26.md`
@@ -180,11 +182,11 @@
 - proc / sys / devtmpfs / ext4(/dev/block/sda31) 마운트 성공
 - 핵심 우회: devtmpfs async 초기화 문제를 `mknod(makedev(259,15))` 로 해결
 
-### 3-2. USB ACM serial console + 인터랙티브 셸 (v8~v61)
+### 3-2. USB ACM serial console + 인터랙티브 셸 (v8~v62)
 
-**현재 버전**: `init_v61` (`stage3/boot_linux_v61.img`)
+**현재 버전**: `init_v62` (`stage3/boot_linux_v62.img`)
 
-ADB 방식이 막혀 USB CDC ACM serial (ttyGS0)로 전환. v61까지 반복 안정화:
+ADB 방식이 막혀 USB CDC ACM serial (ttyGS0)로 전환. v62까지 반복 안정화:
 
 - USB gadget: configfs `acm.usb0` function, UDC `a600000.dwc3`
 - host 측: `/dev/ttyACM0` → `serial_tcp_bridge.py` → `127.0.0.1:54321` TCP
@@ -213,8 +215,9 @@ ADB 방식이 막혀 USB CDC ACM serial (ttyGS0)로 전환. v61까지 반복 안
 | v60 | opt-in boot-time NCM/tcpctl `netservice`, host ping/TCP control 검증, disable rollback 확인 |
 | v60 | `netservice stop/start` software UDC 재열거 뒤 NCM/TCP 복구 확인 |
 | v61 | HUD/status에 CPU usage `%`, GPU busy `%` 표시 |
+| v62 | `cpustress`로 CPU usage gauge 검증, `/dev/null`/`/dev/zero` char node guard |
 
-**확보된 관찰/제어 범위 (v61 verified 기준):**
+**확보된 관찰/제어 범위 (v62 verified 기준):**
 
 | 항목 | 상태 |
 |---|---|
@@ -244,6 +247,8 @@ ADB 방식이 막혀 USB CDC ACM serial (ttyGS0)로 전환. v61까지 반복 안
 | Boot netservice | 작동 — opt-in flag로 NCM/tcpctl boot auto-start, `netservice disable` rollback 확인 |
 | Software UDC reconnect | 작동 — `netservice stop/start` 후 새 host `enx...`, ping, TCP control 복구 확인 |
 | CPU/GPU usage HUD | 작동 — CPU `/proc/stat` delta, GPU KGSL `gpu_busy_percentage` 표시 확인 |
+| CPU stress helper | 작동 — `cpustress 10 8` 후 CPU usage 29% 상승 확인 |
+| Essential `/dev` nodes | 작동 — `/dev/null` rdev `1:3`, `/dev/zero` rdev `1:5` boot-time 보정 |
 | ADB (adbd) | **보류** — ep1/ep2 미생성, zombie |
 
 **버튼 매핑:**
@@ -261,7 +266,7 @@ ADB 방식이 막혀 USB CDC ACM serial (ttyGS0)로 전환. v61까지 반복 안
 
 ## 다음 후보 작업
 
-우선순위 순 (v61 이후):
+우선순위 순 (v62 이후):
 
 1. **physical USB reconnect soak** — 실제 케이블 unplug/replug 이후 ACM/NCM 복구 확인
 2. **serial noise hardening** — USB 재열거 중 `A`/`ATAT...` fragment 무시

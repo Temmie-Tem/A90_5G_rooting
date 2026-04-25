@@ -1,6 +1,6 @@
 # Native Init Next Work List (2026-04-25)
 
-이 문서는 `A90 Linux init v61` 기준 이후 작업을 정리한 실행 목록이다.
+이 문서는 `A90 Linux init v62` 기준 이후 작업을 정리한 실행 목록이다.
 
 현재 단계는 넓은 의미의 리버싱도 포함하지만, 중심은 더 이상 Android 전체를
 분해하는 것이 아니다. Stock Android kernel과 Samsung vendor driver 위에서
@@ -122,15 +122,16 @@ Samsung bootloader
 - boot-time NCM/tcpctl netservice 정책 — v60 완료
 - netservice stop/start software UDC reconnect recovery — v60 완료
 - HUD CPU/GPU usage percent 표시 — v61 완료
+- CPU stress usage gauge + `/dev/null`/`/dev/zero` guard — v62 완료
 - static dropbear SSH 또는 custom TCP shell
 
 ---
 
 ## 현재 기준점
 
-- 최신 확인 버전: `A90 Linux init v61`
-- 최신 소스: `stage3/linux_init/init_v61.c`
-- 최신 boot image: `stage3/boot_linux_v61.img`
+- 최신 확인 버전: `A90 Linux init v62`
+- 최신 소스: `stage3/linux_init/init_v62.c`
+- 최신 boot image: `stage3/boot_linux_v62.img`
 - known-good fallback: `stage3/boot_linux_v48.img`
 - 주 제어 채널: USB CDC ACM serial (`/dev/ttyGS0` ↔ `/dev/ttyACM0`)
 - host bridge: `scripts/revalidation/serial_tcp_bridge.py --port 54321`
@@ -154,7 +155,8 @@ Samsung bootloader
 - boot netservice 상태: opt-in flag 기반 NCM/tcpctl 부팅 자동 시작과 rollback 검증 완료
 - netservice 기본값: disabled. `/cache/native-init-netservice` flag가 있을 때만 자동 시작
 - reconnect 상태: v60 `netservice stop/start` software UDC 재열거 후 NCM/TCP 복구 확인
-- HUD metrics 상태: CPU/GPU 온도와 사용률 `%` 표시 확인
+- HUD metrics 상태: CPU/GPU 온도와 사용률 `%` 표시, `cpustress`로 CPU usage 상승 확인
+- dev node 상태: `/dev/null`/`/dev/zero` boot-time char device guard 확인
 - menu gate 상태: 메뉴 표시 중 위험 명령 `[busy]` 차단, 관찰 명령 허용
 - ADB 상태: 보류
 
@@ -174,6 +176,7 @@ Samsung bootloader
 - `docs/reports/NATIVE_INIT_V60_NETSERVICE_2026-04-26.md`
 - `docs/reports/NATIVE_INIT_V60_RECONNECT_2026-04-26.md`
 - `docs/reports/NATIVE_INIT_V61_CPU_GPU_USAGE_2026-04-26.md`
+- `docs/reports/NATIVE_INIT_V62_CPUSTRESS_2026-04-26.md`
 - `docs/reports/NATIVE_INIT_USB_GADGET_MAP_2026-04-25.md`
 - `docs/reports/NATIVE_INIT_USERLAND_CANDIDATES_2026-04-25.md`
 - `docs/reports/NATIVE_INIT_V44_HUD_BOOT_2026-04-25.md`

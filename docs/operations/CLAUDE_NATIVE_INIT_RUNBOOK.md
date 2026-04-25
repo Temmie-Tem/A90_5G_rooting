@@ -12,9 +12,9 @@ Date: `2026-04-26`
 
 - device: `Samsung Galaxy A90 5G SM-A908N`
 - recovery: TWRP 사용 가능
-- latest verified native init: `A90 Linux init v61`
-- latest source: `stage3/linux_init/init_v61.c`
-- latest boot image: `stage3/boot_linux_v61.img`
+- latest verified native init: `A90 Linux init v62`
+- latest source: `stage3/linux_init/init_v62.c`
+- latest boot image: `stage3/boot_linux_v62.img`
 - known-good fallback native init: `A90 Linux init v48`
 - known-good fallback boot image: `stage3/boot_linux_v48.img`
 - primary control channel: USB CDC ACM serial
@@ -55,6 +55,12 @@ Date: `2026-04-26`
 - HUD/status에 CPU usage `%`와 GPU busy `%`를 표시한다.
 - CPU usage는 `/proc/stat` delta 기반이라 첫 샘플은 `?`일 수 있다.
 - GPU usage는 KGSL `gpu_busy_percentage` sysfs 값을 사용한다.
+
+중요한 v62 개선:
+
+- `cpustress [sec] [workers]`로 CPU usage gauge를 안전하게 검증할 수 있다.
+- `/dev/null`과 `/dev/zero`를 boot-time에 정확한 char device로 보정한다.
+- GPU usage 0%는 CPU-only stress에서는 정상이다. KGSL/3D workload가 아니면 GPU busy가 오르지 않는다.
 
 v49 주의:
 
@@ -107,7 +113,7 @@ printf 'version\n' | nc -w 3 127.0.0.1 54321
 정상 예:
 
 ```text
-A90 Linux init v61
+A90 Linux init v62
 kernel: Linux 4.14.190-25818860-abA908NKSU5EWA3 aarch64
 display: 1080x2400 connector=28 crtc=133 fb=207
 [done] version (0ms)
@@ -205,7 +211,7 @@ adb -s RFCM90CFWXA shell 'twrp reboot'
 ```bash
 python3 ./scripts/revalidation/native_init_flash.py \
   --verify-only \
-  --expect-version "A90 Linux init v61" \
+  --expect-version "A90 Linux init v62" \
   --bridge-timeout 180
 ```
 
@@ -217,35 +223,35 @@ python3 ./scripts/revalidation/native_init_flash.py \
 
 ## 5. Custom init 수정 흐름
 
-새 버전 예시가 v62라면:
+새 버전 예시가 v63이라면:
 
 ```bash
-cp stage3/linux_init/init_v61.c stage3/linux_init/init_v62.c
+cp stage3/linux_init/init_v62.c stage3/linux_init/init_v63.c
 ```
 
 반드시 바꿀 것:
 
-- `#define INIT_VERSION "v62"`
-- `A90v61` kmsg marker를 `A90v62`로 변경
+- `#define INIT_VERSION "v63"`
+- `A90v62` kmsg marker를 `A90v63`으로 변경
 - v49 번호는 재사용하지 않는다.
-- `mark_step("..._v61\n")` 계열을 새 버전으로 변경
+- `mark_step("..._v62\n")` 계열을 새 버전으로 변경
 - README/docs의 latest 기준점은 실기 검증 뒤에만 갱신
 
 검색:
 
 ```bash
-rg -n 'v61|A90v61|init_v61|boot_linux_v61|ramdisk_v61' stage3/linux_init/init_v62.c
+rg -n 'v62|A90v62|init_v62|boot_linux_v62|ramdisk_v62' stage3/linux_init/init_v63.c
 ```
 
 빌드:
 
 ```bash
 aarch64-linux-gnu-gcc -static -Os -Wall -Wextra \
-  -o stage3/linux_init/init_v62 stage3/linux_init/init_v62.c
-aarch64-linux-gnu-strip stage3/linux_init/init_v62
-file stage3/linux_init/init_v62
-sha256sum stage3/linux_init/init_v62
-strings stage3/linux_init/init_v62 | rg 'A90 Linux init v62|A90v62'
+  -o stage3/linux_init/init_v63 stage3/linux_init/init_v63.c
+aarch64-linux-gnu-strip stage3/linux_init/init_v63
+file stage3/linux_init/init_v63
+sha256sum stage3/linux_init/init_v63
+strings stage3/linux_init/init_v63 | rg 'A90 Linux init v63|A90v63'
 ```
 
 컴파일 경고를 무시하지 말 것.
@@ -255,26 +261,26 @@ strings stage3/linux_init/init_v62 | rg 'A90 Linux init v62|A90v62'
 검증된 이전 boot image에서 kernel/header 인자를 재사용하고 ramdisk만 바꾼다.
 
 ```bash
-rm -rf /tmp/a90_boot_v61_unpack
-mkdir -p /tmp/a90_boot_v61_unpack
+rm -rf /tmp/a90_boot_v62_unpack
+mkdir -p /tmp/a90_boot_v62_unpack
 python3 mkbootimg/unpack_bootimg.py \
-  --boot_img stage3/boot_linux_v61.img \
-  --out /tmp/a90_boot_v61_unpack \
+  --boot_img stage3/boot_linux_v62.img \
+  --out /tmp/a90_boot_v62_unpack \
   --format=mkbootimg \
-  > /tmp/a90_boot_v61_mkbootimg_args.txt
+  > /tmp/a90_boot_v62_mkbootimg_args.txt
 ```
 
 ramdisk 생성:
 
 ```bash
-rm -rf stage3/ramdisk_v62
-mkdir -p stage3/ramdisk_v62/bin
-cp stage3/linux_init/init_v62 stage3/ramdisk_v62/init
-cp stage3/linux_init/a90_sleep stage3/ramdisk_v62/bin/a90sleep
-chmod 755 stage3/ramdisk_v62/init stage3/ramdisk_v62/bin/a90sleep
+rm -rf stage3/ramdisk_v63
+mkdir -p stage3/ramdisk_v63/bin
+cp stage3/linux_init/init_v63 stage3/ramdisk_v63/init
+cp stage3/linux_init/a90_sleep stage3/ramdisk_v63/bin/a90sleep
+chmod 755 stage3/ramdisk_v63/init stage3/ramdisk_v63/bin/a90sleep
 (
-  cd stage3/ramdisk_v62
-  find . | LC_ALL=C sort | cpio -o -H newc > ../ramdisk_v62.cpio
+  cd stage3/ramdisk_v63
+  find . | LC_ALL=C sort | cpio -o -H newc > ../ramdisk_v63.cpio
 )
 ```
 
@@ -286,15 +292,15 @@ from pathlib import Path
 import shlex
 import subprocess
 
-args = shlex.split(Path('/tmp/a90_boot_v61_mkbootimg_args.txt').read_text())
+args = shlex.split(Path('/tmp/a90_boot_v62_mkbootimg_args.txt').read_text())
 for i, item in enumerate(args):
     if item == '--ramdisk':
-        args[i + 1] = 'stage3/ramdisk_v62.cpio'
+        args[i + 1] = 'stage3/ramdisk_v63.cpio'
         break
 else:
     raise SystemExit('missing --ramdisk')
 
-cmd = ['python3', 'mkbootimg/mkbootimg.py', *args, '--output', 'stage3/boot_linux_v62.img']
+cmd = ['python3', 'mkbootimg/mkbootimg.py', *args, '--output', 'stage3/boot_linux_v63.img']
 print(shlex.join(cmd))
 subprocess.run(cmd, check=True)
 PY
@@ -303,9 +309,9 @@ PY
 검증:
 
 ```bash
-ls -lh stage3/ramdisk_v62.cpio stage3/boot_linux_v62.img
-sha256sum stage3/linux_init/init_v62 stage3/ramdisk_v62.cpio stage3/boot_linux_v62.img
-strings stage3/boot_linux_v62.img | rg 'A90 Linux init v62|A90v62'
+ls -lh stage3/ramdisk_v63.cpio stage3/boot_linux_v63.img
+sha256sum stage3/linux_init/init_v63 stage3/ramdisk_v63.cpio stage3/boot_linux_v63.img
+strings stage3/boot_linux_v63.img | rg 'A90 Linux init v63|A90v63'
 ```
 
 ## 7. Boot image 플래시
@@ -320,8 +326,8 @@ adb devices
 
 ```bash
 python3 ./scripts/revalidation/native_init_flash.py \
-  stage3/boot_linux_v62.img \
-  --expect-version "A90 Linux init v62" \
+  stage3/boot_linux_v63.img \
+  --expect-version "A90 Linux init v63" \
   --bridge-timeout 240 \
   --recovery-timeout 180
 ```
@@ -518,7 +524,23 @@ sudo ip link set <current-ncm-enx> up
 ping -c 3 -W 2 192.168.7.2
 ```
 
-## 13. 로그 확인
+## 13. v62 CPU usage/cpustress 검증 절차
+
+CPU usage `%`가 실제로 움직이는지 확인할 때:
+
+```bash
+printf 'status\n' | nc -w 5 127.0.0.1 54321
+printf 'cpustress 10 8\n' | nc -w 20 127.0.0.1 54321
+printf 'status\n' | nc -w 5 127.0.0.1 54321
+```
+
+주의:
+
+- `cpustress`는 blocking 명령이다. 중단하려면 q 또는 Ctrl-C를 보낸다.
+- CPU-only 부하이므로 GPU busy `%`가 0%로 남는 것은 정상이다.
+- `/dev/null`/`/dev/zero`는 v62부터 boot-time에 char device로 보정된다.
+
+## 14. 로그 확인
 
 native init log:
 
@@ -546,20 +568,20 @@ adb -s RFCM90CFWXA shell 'tail -160 /cache/usbnet.log 2>/dev/null || true'
 adb -s RFCM90CFWXA shell 'tail -160 /cache/native-init-netservice.log 2>/dev/null || true'
 ```
 
-## 14. 커밋 전 확인
+## 15. 커밋 전 확인
 
 ```bash
 git status --short
 git diff --check
 python3 -m py_compile scripts/revalidation/serial_tcp_bridge.py scripts/revalidation/native_init_flash.py scripts/revalidation/ncm_host_setup.py scripts/revalidation/netservice_reconnect_soak.py
 bash -n scripts/revalidation/build_static_toybox.sh scripts/revalidation/build_usbnet_helper.sh
-aarch64-linux-gnu-gcc -static -Os -Wall -Wextra -o /tmp/a90_init_check stage3/linux_init/init_v61.c
+aarch64-linux-gnu-gcc -static -Os -Wall -Wextra -o /tmp/a90_init_check stage3/linux_init/init_v62.c
 ```
 
 `stage3/boot_linux_v*.img`, `stage3/ramdisk_v*.cpio`, compiled binaries는 `.gitignore` 대상이다.
 커밋에는 보통 source, script, docs만 넣는다.
 
-## 15. 자주 틀리는 지점
+## 16. 자주 틀리는 지점
 
 ### `screen`이 바로 종료됨
 

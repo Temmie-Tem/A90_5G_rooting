@@ -3,7 +3,7 @@
 Date: `2026-04-26`
 
 아래 블록을 Claude나 다른 에이전트에게 그대로 붙여 넣는다.
-목표는 **먼저 상태를 확인하고, known-good v48 복구 경로와 latest v61 작업 경로를 혼동하지 않게 하는 것**이다.
+목표는 **먼저 상태를 확인하고, known-good v48 복구 경로와 latest v62 작업 경로를 혼동하지 않게 하는 것**이다.
 
 ```text
 너는 /home/temmie/dev/A90_5G_rooting 저장소에서 작업한다.
@@ -16,11 +16,11 @@ Date: `2026-04-26`
 
 현재 기준:
 
-- latest verified native init: A90 Linux init v61
-- latest source: stage3/linux_init/init_v61.c
-- latest boot image: stage3/boot_linux_v61.img
+- latest verified native init: A90 Linux init v62
+- latest source: stage3/linux_init/init_v62.c
+- latest boot image: stage3/boot_linux_v62.img
 - latest boot image SHA256:
-  40a33381be60ea8eaf91e7f09256d3d0de100c8959c3687a3b4aa95696c7cdb2
+  8c422903226980855e23b75379a60b4ec3ec0a680c457b28adfa5417fdf870b1
 - known-good fallback native init: A90 Linux init v48
 - known-good fallback source: stage3/linux_init/init_v48.c
 - known-good fallback boot image: stage3/boot_linux_v48.img
@@ -43,6 +43,8 @@ Date: `2026-04-26`
   실험 후에는 `netservice disable`로 flag와 NCM/tcpctl을 내려라.
 - NCM 재열거마다 host `enx...` 이름이 바뀔 수 있다. 이전 interface 이름을 재사용하지 말고
   `a90_usbnet status`의 `ncm.host_addr` 또는 `ip -br link`로 현재 interface를 다시 확인하라.
+- v62에서는 `cpustress [sec] [workers]`로 CPU usage gauge를 검증할 수 있고,
+  `/dev/null`/`/dev/zero`는 boot-time에 char device로 보정된다.
 
 v49 주의:
 
@@ -62,18 +64,18 @@ printf 'version\n' | nc -w 5 127.0.0.1 54321 || true
 
 판단:
 
-- bridge에서 A90 Linux init v61이 나오면 latest verified native init 상태다.
+- bridge에서 A90 Linux init v62가 나오면 latest verified native init 상태다.
 - bridge에서 A90 Linux init v48이 나오면 known-good fallback native init 상태다.
 - adb devices -l에서 recovery면 TWRP 상태다.
 - adb devices -l에서 device이고 /proc/1/exe가 /system/bin/init이면 Android 상태다.
 - 04e8:6861 + /dev/ttyACM0인데 bridge가 안 되면 사용자가 sudo bridge를 재시작해야 한다.
 
-latest v61 flash가 정말 필요할 때만 이 스크립트를 사용:
+latest v62 flash가 정말 필요할 때만 이 스크립트를 사용:
 
 python3 ./scripts/revalidation/native_init_flash.py \
-  stage3/boot_linux_v61.img \
+  stage3/boot_linux_v62.img \
   --from-native \
-  --expect-version "A90 Linux init v61" \
+  --expect-version "A90 Linux init v62" \
   --bridge-timeout 240 \
   --recovery-timeout 180
 

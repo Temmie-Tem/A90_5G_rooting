@@ -732,3 +732,36 @@
   - `autohud 2` 재시작 후 `autohud: running`, `netservice: disabled tcpctl=stopped` 확인
 - 상세 보고서:
   - `docs/reports/NATIVE_INIT_V61_CPU_GPU_USAGE_2026-04-26.md`
+
+## v62: CPU stress usage gauge와 `/dev` guard 검증 (2026-04-26)
+
+- 목적:
+  - v61에서 추가한 CPU usage `%`가 실제 부하에서 변하는지 실기 검증
+  - `/dev/null`과 `/dev/zero`가 없거나 regular file로 오염되는 경우를 boot-time에 복구
+- 추가:
+  - `stage3/linux_init/init_v62.c`
+    - `INIT_VERSION "v62"`
+    - `/dev/null` rdev `1:3`, `/dev/zero` rdev `1:5` char node 보정
+    - `cpustress [sec] [workers]` shell 명령 추가
+    - `cpustress`는 fork worker 기반이며 q/Ctrl-C 취소 정책을 따른다.
+- 산출:
+  - `stage3/linux_init/init_v62`
+    - SHA256 `016f67ec1bd713533ed8d2d12e5e5f7cd5709406ce6351fa0d22f30d0bcdfa33`
+  - `stage3/ramdisk_v62.cpio`
+    - SHA256 `13ced5f0e0d97887fe84036b777cd5efdc97b0c81089261b9397f5da12169629`
+  - `stage3/boot_linux_v62.img`
+    - SHA256 `8c422903226980855e23b75379a60b4ec3ec0a680c457b28adfa5417fdf870b1`
+- 실기 검증:
+  - `native_init_flash.py stage3/boot_linux_v62.img --from-native --expect-version "A90 Linux init v62"` PASS
+  - boot partition prefix SHA256 readback PASS
+  - bridge `version` → `A90 Linux init v62`
+  - `/dev/null` → `mode=0600`, `rdev=1:3`
+  - `/dev/zero` → `mode=0600`, `rdev=1:5`
+  - `cpustress 10 8` 전 `thermal: cpu=34.9C 0% gpu=33.3C 0%`
+  - `cpustress 10 8` 후 `thermal: cpu=36.3C 29% gpu=34.6C 0%`
+  - cooldown 후 `thermal: cpu=35.4C 0% gpu=33.7C 0%`
+  - 메모리 사용량은 `/dev/null` 복구 후 약 `250~252/5375MB` 범위로 안정
+- 발견:
+  - GPU usage가 0%인 것은 CPU-only stress와 KMS dumb-buffer HUD가 KGSL/3D GPU workload를 만들지 않기 때문에 정상이다.
+- 상세 보고서:
+  - `docs/reports/NATIVE_INIT_V62_CPUSTRESS_2026-04-26.md`

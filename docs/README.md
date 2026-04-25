@@ -8,7 +8,7 @@
 
 상단 `docs/`는 이제 다음 흐름에 필요한 문서를 유지합니다.
 
-1. native init v61 기준 상태 고정
+1. native init v62 기준 상태 고정
 2. shell/HUD/log/menu 운영 안정화
 3. 필요한 하드웨어/커널 경로만 역추적
 4. BusyBox/network/SSH 같은 서버형 확장 가능성 검토
@@ -19,9 +19,9 @@
 - 빌드: `A908NKSU5EWA3`
 - kernel: Samsung stock Android kernel `Linux 4.14.190`
 - recovery: TWRP 사용 가능
-- latest verified native init: `A90 Linux init v61`
-- latest source: `stage3/linux_init/init_v61.c`
-- latest boot image: `stage3/boot_linux_v61.img`
+- latest verified native init: `A90 Linux init v62`
+- latest source: `stage3/linux_init/init_v62.c`
+- latest boot image: `stage3/boot_linux_v62.img`
 - known-good fallback: `stage3/boot_linux_v48.img`
 - control channel: USB CDC ACM serial bridge
 - display: TEST pattern 후 상태 HUD/menu 자동 전환
@@ -43,7 +43,8 @@
 - serial noise: unsolicited `AT` modem probe line 무시 확인
 - boot netservice: opt-in flag 기반 NCM/tcpctl 부팅 자동 시작과 rollback 검증 완료
 - reconnect: v60 `netservice stop/start` software UDC 재열거 후 NCM/TCP 복구 확인
-- HUD metrics: CPU/GPU 온도와 사용률 `%` 표시 확인
+- HUD metrics: CPU/GPU 온도와 사용률 `%` 표시, CPU stress 검증 확인
+- dev nodes: `/dev/null`/`/dev/zero` boot-time char device guard 확인
 - ADB: 보류
 
 ## 문서 읽는 순서
@@ -95,6 +96,7 @@
 - `reports/NATIVE_INIT_V60_NETSERVICE_2026-04-26.md` – opt-in boot-time NCM/tcpctl netservice 검증
 - `reports/NATIVE_INIT_V60_RECONNECT_2026-04-26.md` – netservice stop/start UDC 재열거 복구 검증
 - `reports/NATIVE_INIT_V61_CPU_GPU_USAGE_2026-04-26.md` – HUD/status CPU/GPU 사용률 `%` 표시 검증
+- `reports/NATIVE_INIT_V62_CPUSTRESS_2026-04-26.md` – CPU stress 사용률 게이지와 `/dev/null`/`/dev/zero` guard 검증
 - `reports/NATIVE_INIT_V53_MENU_BUSY_2026-04-25.md` – menu-active serial busy gate와 flash auto-hide 검증
 - `reports/NATIVE_INIT_V48_USB_REATTACH_NCM_2026-04-25.md` – USB reattach와 NCM probe 실기 검증
 - `reports/NATIVE_INIT_USERLAND_CANDIDATES_2026-04-25.md` – static userland/BusyBox/toybox 후보 보고서
@@ -151,6 +153,7 @@
 21. opt-in boot-time NCM/tcpctl netservice — v60 완료
 22. netservice stop/start UDC reconnect recovery — v60 완료
 23. HUD CPU/GPU usage percent 표시 — v61 완료
+24. CPU stress usage gauge + `/dev/null`/`/dev/zero` guard — v62 완료
 
 패키지 최소화와 Android userspace 복구는 보조 실험으로만 다루고,
 메인 목표는 **Android kernel 위에 반복 운용 가능한 native init 기반 최소 Linux 콘솔을 만드는 것**입니다.
