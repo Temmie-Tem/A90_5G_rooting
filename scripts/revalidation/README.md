@@ -50,6 +50,10 @@
   - `stage3/linux_init/a90_nettest.c`를 static ARM64 TCP 검증 helper로 빌드
   - 산출물은 gitignore된 `external_tools/userland/bin/a90_nettest-aarch64-static`
   - `/cache/bin/a90_nettest listen|send`로 USB NCM 양방향 TCP payload를 검증
+- `build_tcpctl_helper.sh`
+  - `stage3/linux_init/a90_tcpctl.c`를 static ARM64 TCP command helper로 빌드
+  - 산출물은 gitignore된 `external_tools/userland/bin/a90_tcpctl-aarch64-static`
+  - `/cache/bin/a90_tcpctl listen <port> <idle_timeout_sec> [max_clients]`로 NCM 위의 작은 명령/응답 채널을 검증
 
 권장 순서:
 
@@ -131,6 +135,12 @@ TCP nettest helper 빌드 예:
 
 ```bash
 ./scripts/revalidation/build_nettest_helper.sh
+```
+
+TCP control helper 빌드 예:
+
+```bash
+./scripts/revalidation/build_tcpctl_helper.sh
 ```
 
 참고:

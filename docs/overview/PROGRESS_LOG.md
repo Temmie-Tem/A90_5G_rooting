@@ -525,3 +525,31 @@
   - ACM serial bridge는 NCM traffic 이후 `version` 응답 유지
 - 상세 보고서:
   - `docs/reports/NATIVE_INIT_V55_NCM_OPS_2026-04-25.md`
+
+## v56: NCM TCP control helper 검증 (2026-04-26)
+
+- 목적:
+  - USB NCM 링크 위에서 serial bridge보다 빠른 작은 명령/응답 채널 확보
+  - serial bridge는 rescue/fallback으로 유지
+- 추가:
+  - `stage3/linux_init/a90_tcpctl.c`
+    - `listen <port> <idle_timeout_sec> [max_clients]`
+    - TCP command: `help`, `ping`, `version`, `status`, `run`, `quit`, `shutdown`
+    - `run`은 absolute path만 허용, stdin `/dev/null`, stdout/stderr TCP 반환, 10초 timeout
+  - `scripts/revalidation/build_tcpctl_helper.sh`
+    - static ARM64 `a90_tcpctl` 빌드
+- 산출:
+  - `external_tools/userland/bin/a90_tcpctl-aarch64-static`
+  - SHA256 `997a5d717c235c2d3cd8757223e68003ce6b68cffee73f06681d1bee16519faf`
+- 실기 검증:
+  - `/cache/bin/a90_tcpctl` 배치 후 SHA256 일치
+  - `run /cache/bin/a90_tcpctl listen 2325 60 8`
+  - host `printf 'ping\n' | nc 192.168.7.2 2325` → `pong`, `OK`
+  - `version` → `a90_tcpctl v1`, `OK`
+  - `status` → kernel/uptime/load/mem, `OK`
+  - `run /cache/bin/toybox uname -a` → `[exit 0]`, `OK`
+  - `run /cache/bin/toybox ifconfig ncm0` → `192.168.7.2` 포함, `[exit 0]`, `OK`
+  - `shutdown` → server 종료, serial `run`이 `[done]`
+  - 이후 serial bridge `version`과 NCM ping 3/3 PASS
+- 상세 보고서:
+  - `docs/reports/NATIVE_INIT_V56_TCPCTL_2026-04-26.md`

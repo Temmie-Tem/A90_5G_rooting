@@ -339,6 +339,37 @@
 
 - `docs/reports/NATIVE_INIT_V55_NCM_OPS_2026-04-25.md`
 
+### V56. NCM TCP Control Helper — 완료
+
+목표:
+
+- USB NCM 위에서 serial bridge보다 빠른 작은 TCP 명령/응답 채널을 확보한다.
+- serial bridge는 rescue/fallback으로 유지한다.
+
+구현:
+
+- `stage3/linux_init/a90_tcpctl.c`
+  - `listen <port> <idle_timeout_sec> [max_clients]`
+  - command: `help`, `ping`, `version`, `status`, `run`, `quit`, `shutdown`
+  - `run`은 absolute path, stdin `/dev/null`, stdout/stderr TCP 반환, 10초 timeout
+- `scripts/revalidation/build_tcpctl_helper.sh`
+  - static ARM64 `a90_tcpctl` 빌드
+
+검증:
+
+- host-native protocol smoke test — PASS
+- static ARM64 build — PASS
+- `/cache/bin/a90_tcpctl` 배치와 SHA256 일치 — PASS
+- TCP `ping`, `version`, `status` — PASS
+- TCP `run /cache/bin/toybox uname -a` — PASS
+- TCP `run /cache/bin/toybox ifconfig ncm0` — PASS
+- TCP `shutdown` 후 serial `run` 종료 — PASS
+- 이후 serial bridge `version`과 NCM ping 3/3 — PASS
+
+산출:
+
+- `docs/reports/NATIVE_INIT_V56_TCPCTL_2026-04-26.md`
+
 ## 보류 큐
 
 - ADB 안정화 재검토
@@ -348,8 +379,8 @@
 
 ## 지금 바로 진행할 항목
 
-1. 5~10분 NCM 유지와 bridge 재연결 안정성 확인
-2. `ncm_host_setup.py off` rollback 검증 여부 결정
+1. `a90_tcpctl` launch/client/stop host wrapper 작성
+2. 5~10분 NCM + tcpctl 유지와 reconnect 안정성 확인
 3. unsolicited `AT` serial noise 필터링 또는 무시 정책 구현
-4. NCM 기반 persistent TCP control service 후보 설계
+4. boot-time NCM/tcpctl service 정책 결정
 5. Wi-Fi 드라이버/펌웨어 read-only 인벤토리 트랙 분리
