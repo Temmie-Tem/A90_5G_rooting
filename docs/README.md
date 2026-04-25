@@ -8,7 +8,7 @@
 
 상단 `docs/`는 이제 다음 흐름에 필요한 문서를 유지합니다.
 
-1. native init v53 기준 상태 고정
+1. native init v59 기준 상태 고정
 2. shell/HUD/log/menu 운영 안정화
 3. 필요한 하드웨어/커널 경로만 역추적
 4. BusyBox/network/SSH 같은 서버형 확장 가능성 검토
@@ -19,9 +19,9 @@
 - 빌드: `A908NKSU5EWA3`
 - kernel: Samsung stock Android kernel `Linux 4.14.190`
 - recovery: TWRP 사용 가능
-- latest verified native init: `A90 Linux init v53`
-- latest source: `stage3/linux_init/init_v53.c`
-- latest boot image: `stage3/boot_linux_v53.img`
+- latest verified native init: `A90 Linux init v59`
+- latest source: `stage3/linux_init/init_v59.c`
+- latest boot image: `stage3/boot_linux_v59.img`
 - known-good fallback: `stage3/boot_linux_v48.img`
 - control channel: USB CDC ACM serial bridge
 - display: TEST pattern 후 상태 HUD/menu 자동 전환
@@ -40,6 +40,7 @@
 - NCM ops: host interface 자동 탐지, ping, static TCP nettest 양방향 payload 검증 완료
 - TCP control: NCM 위에서 `a90_tcpctl` ping/status/run/shutdown 검증 완료
 - TCP wrapper/soak: `tcpctl_host.py smoke`와 5분/30사이클 `soak` 검증 완료
+- serial noise: unsolicited `AT` modem probe line 무시 확인
 - ADB: 보류
 
 ## 문서 읽는 순서
@@ -87,6 +88,7 @@
 - `reports/NATIVE_INIT_V56_TCPCTL_2026-04-26.md` – NCM 위의 작은 TCP command service helper 검증
 - `reports/NATIVE_INIT_V57_TCPCTL_HOST_WRAPPER_2026-04-26.md` – TCP control host wrapper 검증
 - `reports/NATIVE_INIT_V58_TCPCTL_SOAK_2026-04-26.md` – NCM + TCP control 5분 soak 검증
+- `reports/NATIVE_INIT_V59_AT_NOISE_2026-04-26.md` – unsolicited `AT` serial noise filter 검증
 - `reports/NATIVE_INIT_V53_MENU_BUSY_2026-04-25.md` – menu-active serial busy gate와 flash auto-hide 검증
 - `reports/NATIVE_INIT_V48_USB_REATTACH_NCM_2026-04-25.md` – USB reattach와 NCM probe 실기 검증
 - `reports/NATIVE_INIT_USERLAND_CANDIDATES_2026-04-25.md` – static userland/BusyBox/toybox 후보 보고서
@@ -139,6 +141,7 @@
 17. NCM TCP control helper — 완료
 18. TCP control host wrapper — 완료
 19. NCM + TCP control 5분 soak — 완료
+20. unsolicited `AT` serial noise filter — v59 완료
 
 패키지 최소화와 Android userspace 복구는 보조 실험으로만 다루고,
 메인 목표는 **Android kernel 위에 반복 운용 가능한 native init 기반 최소 Linux 콘솔을 만드는 것**입니다.

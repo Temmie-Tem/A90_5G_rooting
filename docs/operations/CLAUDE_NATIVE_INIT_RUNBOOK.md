@@ -1,6 +1,6 @@
 # Claude / Agent Native Init Operations Runbook
 
-Date: `2026-04-25`
+Date: `2026-04-26`
 
 이 문서는 Claude나 다른 에이전트가 이 저장소에서 같은 실수를 반복하지 않도록 남기는
 운영 설명서다. 핵심은 **브릿지로 현재 상태를 먼저 확인하고, TWRP/boot image/serial rescue
@@ -12,9 +12,9 @@ Date: `2026-04-25`
 
 - device: `Samsung Galaxy A90 5G SM-A908N`
 - recovery: TWRP 사용 가능
-- latest verified native init: `A90 Linux init v53`
-- latest source: `stage3/linux_init/init_v53.c`
-- latest boot image: `stage3/boot_linux_v53.img`
+- latest verified native init: `A90 Linux init v59`
+- latest source: `stage3/linux_init/init_v59.c`
+- latest boot image: `stage3/boot_linux_v59.img`
 - known-good fallback native init: `A90 Linux init v48`
 - known-good fallback boot image: `stage3/boot_linux_v48.img`
 - primary control channel: USB CDC ACM serial
@@ -37,6 +37,11 @@ Date: `2026-04-25`
 - `version`, `status`, `timeline`, `logcat` 등 관찰 명령은 menu active 중에도 허용한다.
 - `hide`, `hidemenu`, `resume`, `q`, `Q`는 화면 메뉴 숨김 요청으로 동작한다.
 - `native_init_flash.py --from-native`는 `[busy]`를 보면 자동으로 `hide` 후 `recovery`를 재시도한다.
+
+중요한 v59 개선:
+
+- host modem probe의 `AT`, `ATE0`, `AT+...`, `ATQ0 ...` line을 native init shell이 무시한다.
+- 무시한 line은 `/cache/native-init.log`에 `serial: ignored AT probe ...`로 기록한다.
 
 v49 주의:
 
@@ -89,7 +94,7 @@ printf 'version\n' | nc -w 3 127.0.0.1 54321
 정상 예:
 
 ```text
-A90 Linux init v53
+A90 Linux init v59
 kernel: Linux 4.14.190-25818860-abA908NKSU5EWA3 aarch64
 display: 1080x2400 connector=28 crtc=133 fb=207
 [done] version (0ms)
@@ -113,7 +118,7 @@ for i in $(seq 1 5); do
 done
 ```
 
-v53에서 화면 메뉴가 떠 있으면 위험 명령은 실행되지 않고 `[busy]`가 나온다.
+v53+에서 화면 메뉴가 떠 있으면 위험 명령은 실행되지 않고 `[busy]`가 나온다.
 이 경우 serial에서 `hide`를 보낸 뒤 1~3초 후 다시 실행한다.
 
 ```bash
@@ -187,7 +192,7 @@ adb -s RFCM90CFWXA shell 'twrp reboot'
 ```bash
 python3 ./scripts/revalidation/native_init_flash.py \
   --verify-only \
-  --expect-version "A90 Linux init v53" \
+  --expect-version "A90 Linux init v59" \
   --bridge-timeout 180
 ```
 
@@ -199,35 +204,35 @@ python3 ./scripts/revalidation/native_init_flash.py \
 
 ## 5. Custom init 수정 흐름
 
-새 버전 예시가 v54라면:
+새 버전 예시가 v60이라면:
 
 ```bash
-cp stage3/linux_init/init_v53.c stage3/linux_init/init_v54.c
+cp stage3/linux_init/init_v59.c stage3/linux_init/init_v60.c
 ```
 
 반드시 바꿀 것:
 
-- `#define INIT_VERSION "v54"`
-- `A90v53` kmsg marker를 `A90v54`로 변경
+- `#define INIT_VERSION "v60"`
+- `A90v59` kmsg marker를 `A90v60`로 변경
 - v49 번호는 재사용하지 않는다.
-- `mark_step("..._v53\n")` 계열을 새 버전으로 변경
+- `mark_step("..._v59\n")` 계열을 새 버전으로 변경
 - README/docs의 latest 기준점은 실기 검증 뒤에만 갱신
 
 검색:
 
 ```bash
-rg -n 'v53|A90v53|init_v53|boot_linux_v53|ramdisk_v53' stage3/linux_init/init_v54.c
+rg -n 'v59|A90v59|init_v59|boot_linux_v59|ramdisk_v59' stage3/linux_init/init_v60.c
 ```
 
 빌드:
 
 ```bash
 aarch64-linux-gnu-gcc -static -Os -Wall -Wextra \
-  -o stage3/linux_init/init_v54 stage3/linux_init/init_v54.c
-aarch64-linux-gnu-strip stage3/linux_init/init_v54
-file stage3/linux_init/init_v54
-sha256sum stage3/linux_init/init_v54
-strings stage3/linux_init/init_v54 | rg 'A90 Linux init v54|A90v54'
+  -o stage3/linux_init/init_v60 stage3/linux_init/init_v60.c
+aarch64-linux-gnu-strip stage3/linux_init/init_v60
+file stage3/linux_init/init_v60
+sha256sum stage3/linux_init/init_v60
+strings stage3/linux_init/init_v60 | rg 'A90 Linux init v60|A90v60'
 ```
 
 컴파일 경고를 무시하지 말 것.
@@ -237,26 +242,26 @@ strings stage3/linux_init/init_v54 | rg 'A90 Linux init v54|A90v54'
 검증된 이전 boot image에서 kernel/header 인자를 재사용하고 ramdisk만 바꾼다.
 
 ```bash
-rm -rf /tmp/a90_boot_v53_unpack
-mkdir -p /tmp/a90_boot_v53_unpack
+rm -rf /tmp/a90_boot_v59_unpack
+mkdir -p /tmp/a90_boot_v59_unpack
 python3 mkbootimg/unpack_bootimg.py \
-  --boot_img stage3/boot_linux_v53.img \
-  --out /tmp/a90_boot_v53_unpack \
+  --boot_img stage3/boot_linux_v59.img \
+  --out /tmp/a90_boot_v59_unpack \
   --format=mkbootimg \
-  > /tmp/a90_boot_v53_mkbootimg_args.txt
+  > /tmp/a90_boot_v59_mkbootimg_args.txt
 ```
 
 ramdisk 생성:
 
 ```bash
-rm -rf stage3/ramdisk_v54
-mkdir -p stage3/ramdisk_v54/bin
-cp stage3/linux_init/init_v54 stage3/ramdisk_v54/init
-cp stage3/linux_init/a90_sleep stage3/ramdisk_v54/bin/a90sleep
-chmod 755 stage3/ramdisk_v54/init stage3/ramdisk_v54/bin/a90sleep
+rm -rf stage3/ramdisk_v60
+mkdir -p stage3/ramdisk_v60/bin
+cp stage3/linux_init/init_v60 stage3/ramdisk_v60/init
+cp stage3/linux_init/a90_sleep stage3/ramdisk_v60/bin/a90sleep
+chmod 755 stage3/ramdisk_v60/init stage3/ramdisk_v60/bin/a90sleep
 (
-  cd stage3/ramdisk_v54
-  find . | LC_ALL=C sort | cpio -o -H newc > ../ramdisk_v54.cpio
+  cd stage3/ramdisk_v60
+  find . | LC_ALL=C sort | cpio -o -H newc > ../ramdisk_v60.cpio
 )
 ```
 
@@ -268,15 +273,15 @@ from pathlib import Path
 import shlex
 import subprocess
 
-args = shlex.split(Path('/tmp/a90_boot_v53_mkbootimg_args.txt').read_text())
+args = shlex.split(Path('/tmp/a90_boot_v59_mkbootimg_args.txt').read_text())
 for i, item in enumerate(args):
     if item == '--ramdisk':
-        args[i + 1] = 'stage3/ramdisk_v54.cpio'
+        args[i + 1] = 'stage3/ramdisk_v60.cpio'
         break
 else:
     raise SystemExit('missing --ramdisk')
 
-cmd = ['python3', 'mkbootimg/mkbootimg.py', *args, '--output', 'stage3/boot_linux_v54.img']
+cmd = ['python3', 'mkbootimg/mkbootimg.py', *args, '--output', 'stage3/boot_linux_v60.img']
 print(shlex.join(cmd))
 subprocess.run(cmd, check=True)
 PY
@@ -285,9 +290,9 @@ PY
 검증:
 
 ```bash
-ls -lh stage3/ramdisk_v54.cpio stage3/boot_linux_v54.img
-sha256sum stage3/linux_init/init_v54 stage3/ramdisk_v54.cpio stage3/boot_linux_v54.img
-strings stage3/boot_linux_v54.img | rg 'A90 Linux init v54|A90v54'
+ls -lh stage3/ramdisk_v60.cpio stage3/boot_linux_v60.img
+sha256sum stage3/linux_init/init_v60 stage3/ramdisk_v60.cpio stage3/boot_linux_v60.img
+strings stage3/boot_linux_v60.img | rg 'A90 Linux init v60|A90v60'
 ```
 
 ## 7. Boot image 플래시
@@ -302,8 +307,8 @@ adb devices
 
 ```bash
 python3 ./scripts/revalidation/native_init_flash.py \
-  stage3/boot_linux_v54.img \
-  --expect-version "A90 Linux init v54" \
+  stage3/boot_linux_v60.img \
+  --expect-version "A90 Linux init v60" \
   --bridge-timeout 240 \
   --recovery-timeout 180
 ```
@@ -319,7 +324,7 @@ python3 ./scripts/revalidation/native_init_flash.py \
 7. `adb shell 'twrp reboot'`
 8. bridge `version` 확인
 
-`--from-native`로 시작했는데 v53 메뉴가 떠 있으면 `recovery`가 `[busy]`를 반환할 수 있다.
+`--from-native`로 시작했는데 v53+ 메뉴가 떠 있으면 `recovery`가 `[busy]`를 반환할 수 있다.
 현재 스크립트는 이 경우 `hide`를 보내고 3초 뒤 `recovery`를 최대 3회 재시도한다.
 
 수동으로 `dd`를 직접 치기 전에 이 스크립트를 우선한다.
@@ -511,7 +516,7 @@ v48 이상이면 bridge 재시작 후 `version`을 여러 번 시도한다.
 
 ### `recovery`나 `echo`가 `[busy] auto menu active`로 막힘
 
-v53의 정상 보호 동작이다. 메뉴가 보이는 동안은 안전 관찰 명령만 허용한다.
+v53+의 정상 보호 동작이다. 메뉴가 보이는 동안은 안전 관찰 명령만 허용한다.
 
 ```bash
 printf 'hide\n' | nc -w 5 127.0.0.1 54321

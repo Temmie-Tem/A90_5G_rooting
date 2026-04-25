@@ -1,13 +1,13 @@
 # Native Init Task Queue (2026-04-25)
 
-이 문서는 `A90 Linux init v53` 이후 바로 실행할 작업 큐다.
+이 문서는 `A90 Linux init v59` 이후 바로 실행할 작업 큐다.
 큰 방향은 “보이는 부팅 → 복구 가능한 로그 → 단독 조작 → 작은 userland → USB networking” 순서다.
 
 ## 현재 고정 기준점
 
-- latest verified native init: `A90 Linux init v53`
-- latest source: `stage3/linux_init/init_v53.c`
-- latest boot image: `stage3/boot_linux_v53.img`
+- latest verified native init: `A90 Linux init v59`
+- latest source: `stage3/linux_init/init_v59.c`
+- latest boot image: `stage3/boot_linux_v59.img`
 - known-good fallback: `stage3/boot_linux_v48.img`
 - control channel: USB ACM serial bridge
 - log: `/cache/native-init.log`
@@ -437,6 +437,35 @@
 
 - `docs/reports/NATIVE_INIT_V58_TCPCTL_SOAK_2026-04-26.md`
 
+### V59. AT Serial Noise Filter — 완료
+
+목표:
+
+- host NetworkManager/modem probe가 ACM serial에 던지는 unsolicited `AT` 계열 문자열을 shell 오류로 처리하지 않는다.
+- filter는 host bridge가 아니라 native init shell 입력 경로에 넣어 device 단독 안정성을 높인다.
+
+구현:
+
+- `stage3/linux_init/init_v59.c`
+  - `INIT_VERSION`을 `v59`로 갱신
+  - `is_unsolicited_at_noise()` 추가
+  - `AT`, `ATE0`, `AT+...`, `ATQ0 ...` 형태의 printable modem command line을 command dispatch 전에 무시
+  - 무시한 line은 `/cache/native-init.log`에 `serial: ignored AT probe ...`로 기록
+
+검증:
+
+- static ARM64 build — PASS
+- `stage3/boot_linux_v59.img` marker 확인 — PASS
+- native → TWRP → boot partition flash → v59 boot — PASS
+- bridge `version` → `A90 Linux init v59` — PASS
+- serial 입력 `AT`, `ATE0`, `AT+GCAP`, `ATQ0 V1 E1 S0=0 &C1 &D2 +FCLASS=0`, `version` — PASS
+- 출력에 `unknown command: AT` 없음 — PASS
+- `/cache/native-init.log`에 ignored AT probe 4건 기록 — PASS
+
+산출:
+
+- `docs/reports/NATIVE_INIT_V59_AT_NOISE_2026-04-26.md`
+
 ## 보류 큐
 
 - ADB 안정화 재검토
@@ -446,8 +475,8 @@
 
 ## 지금 바로 진행할 항목
 
-1. unsolicited `AT` serial noise 필터링 또는 무시 정책 구현
-2. boot-time NCM/tcpctl service 정책 결정
-3. USB 물리 재연결/UDC reset 이후 NCM/tcpctl 복구 확인
-4. Wi-Fi 드라이버/펌웨어 read-only 인벤토리 트랙 분리
-5. `userdata`/`mmcblk0p1` 장기 저장소 후보 의사결정
+1. boot-time NCM/tcpctl service 정책 결정
+2. USB 물리 재연결/UDC reset 이후 NCM/tcpctl 복구 확인
+3. Wi-Fi 드라이버/펌웨어 read-only 인벤토리 트랙 분리
+4. `userdata`/`mmcblk0p1` 장기 저장소 후보 의사결정
+5. TCP control 인증/제한 정책 검토

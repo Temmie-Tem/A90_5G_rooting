@@ -120,7 +120,7 @@
 ## 현재 폰 상태
 
 - patched AP (Magisk 30.7) + **TWRP recovery**
-- 최신 verified native init: `stage3/boot_linux_v53.img` (`A90 Linux init v53`)
+- 최신 verified native init: `stage3/boot_linux_v59.img` (`A90 Linux init v59`)
 - known-good fallback: `stage3/boot_linux_v48.img` (`A90 Linux init v48`)
 - 격리 상태: `stage3/boot_linux_v49.img`는 boot partition prefix readback은 일치했지만
   system boot 후 Android `/system/bin/init second_stage`로 진입했으므로 stable이 아님
@@ -141,7 +141,9 @@
 - TCP control 상태: NCM 위에서 `a90_tcpctl` ping/status/run/shutdown 검증 완료
 - TCP wrapper 상태: `tcpctl_host.py smoke` launch/client/stop 자동 검증 완료
 - TCP soak 상태: `tcpctl_host.py soak` 5분/30사이클 안정성 검증 완료
-- 상세 최신 상태: `docs/reports/NATIVE_INIT_V58_TCPCTL_SOAK_2026-04-26.md`
+- serial noise 상태: unsolicited `AT`, `ATE0`, `AT+...` modem probe line 무시 확인
+- 상세 최신 상태: `docs/reports/NATIVE_INIT_V59_AT_NOISE_2026-04-26.md`
+- v59 AT noise 기록: `docs/reports/NATIVE_INIT_V59_AT_NOISE_2026-04-26.md`
 - v58 TCP soak 기록: `docs/reports/NATIVE_INIT_V58_TCPCTL_SOAK_2026-04-26.md`
 - v57 TCP host wrapper 기록: `docs/reports/NATIVE_INIT_V57_TCPCTL_HOST_WRAPPER_2026-04-26.md`
 - v56 TCP control 기록: `docs/reports/NATIVE_INIT_V56_TCPCTL_2026-04-26.md`
@@ -171,11 +173,11 @@
 - proc / sys / devtmpfs / ext4(/dev/block/sda31) 마운트 성공
 - 핵심 우회: devtmpfs async 초기화 문제를 `mknod(makedev(259,15))` 로 해결
 
-### 3-2. USB ACM serial console + 인터랙티브 셸 (v8~v53)
+### 3-2. USB ACM serial console + 인터랙티브 셸 (v8~v59)
 
-**현재 버전**: `init_v53` (`stage3/boot_linux_v53.img`)
+**현재 버전**: `init_v59` (`stage3/boot_linux_v59.img`)
 
-ADB 방식이 막혀 USB CDC ACM serial (ttyGS0)로 전환. v53까지 반복 안정화:
+ADB 방식이 막혀 USB CDC ACM serial (ttyGS0)로 전환. v59까지 반복 안정화:
 
 - USB gadget: configfs `acm.usb0` function, UDC `a600000.dwc3`
 - host 측: `/dev/ttyACM0` → `serial_tcp_bridge.py` → `127.0.0.1:54321` TCP
@@ -200,8 +202,9 @@ ADB 방식이 막혀 USB CDC ACM serial (ttyGS0)로 전환. v53까지 반복 안
 | v49 | 상태 HUD TUI 개선 시도. local marker/readback은 맞았지만 system boot가 Android userspace로 진입해 격리 |
 | v52 | 상태 HUD/menu TUI 개선. BAT/CPU/GPU/MEM/PWR, 버튼 메뉴, footer 표시 실기 확인 |
 | v53 | menu-active serial busy gate, `hide` request, flash script auto-hide 재시도 |
+| v59 | unsolicited `AT`/`ATE0`/`AT+...` serial modem probe line 무시 |
 
-**확보된 관찰/제어 범위 (v53 verified 기준):**
+**확보된 관찰/제어 범위 (v59 verified 기준):**
 
 | 항목 | 상태 |
 |---|---|
@@ -227,6 +230,7 @@ ADB 방식이 막혀 USB CDC ACM serial (ttyGS0)로 전환. v53까지 반복 안
 | NCM TCP control | 작동 — `a90_tcpctl` ping/status/run/shutdown 확인 |
 | TCP control wrapper | 작동 — `tcpctl_host.py smoke` 확인 |
 | TCP control soak | 작동 — 5분/30사이클, TCP ping 30/30, host ping 30/30, 실패 0 |
+| Serial AT noise filter | 작동 — `AT`, `ATE0`, `AT+GCAP`, `ATQ0 ...` unknown 없이 무시 |
 | ADB (adbd) | **보류** — ep1/ep2 미생성, zombie |
 
 **버튼 매핑:**
@@ -244,11 +248,11 @@ ADB 방식이 막혀 USB CDC ACM serial (ttyGS0)로 전환. v53까지 반복 안
 
 ## 다음 후보 작업
 
-우선순위 순 (v53 이후):
+우선순위 순 (v59 이후):
 
-1. **AT serial noise 방어** — host modem probe 문자열 무시 또는 필터링
-2. **boot-time service 정책** — NCM/tcpctl을 부팅 후 자동으로 켤지 결정
-3. **USB reconnect soak** — 물리 재연결/UDC reset 이후 NCM/tcpctl 복구 확인
-4. **Wi-Fi 인벤토리** — 드라이버/펌웨어/vendor daemon read-only 조사
+1. **boot-time service 정책** — NCM/tcpctl을 부팅 후 자동으로 켤지 결정
+2. **USB reconnect soak** — 물리 재연결/UDC reset 이후 NCM/tcpctl 복구 확인
+3. **Wi-Fi 인벤토리** — 드라이버/펌웨어/vendor daemon read-only 조사
+4. **저장소 후보 결정** — `/userdata`/`mmcblk0p1` 장기 저장소 사용 여부 판단
 
 **복구**: `backups/baseline_a_20260423_030309/boot.img` dd 복구 가능

@@ -612,3 +612,36 @@
   - 물리 USB 재연결/UDC reset reconnect soak는 별도 항목으로 남김
 - 상세 보고서:
   - `docs/reports/NATIVE_INIT_V58_TCPCTL_SOAK_2026-04-26.md`
+
+## v59: AT serial noise filter 검증 (2026-04-26)
+
+- 목적:
+  - host NetworkManager/modem probe가 ACM serial에 던지는 `AT` 계열 line을 shell 오류로 만들지 않음
+  - bridge 쪽 임시 필터가 아니라 native init shell 입력 경로에서 device 자체 안정성 확보
+- 추가:
+  - `stage3/linux_init/init_v59.c`
+    - `INIT_VERSION "v59"`
+    - `is_unsolicited_at_noise()`
+    - command dispatch 전에 `AT`, `ATE0`, `AT+...`, `ATQ0 ...` line 무시
+    - 무시한 line은 `/cache/native-init.log`에 `serial: ignored AT probe ...` 기록
+- 산출:
+  - `stage3/linux_init/init_v59`
+    - SHA256 `7c87459e49e77abf969256b0726cc6329470dc56ea0b7d73acfff4f4ab16d735`
+  - `stage3/ramdisk_v59.cpio`
+    - SHA256 `aa9ab262e77fd5f7d9795e2139f8c07794848314d81e38ef93a113d26c20b217`
+  - `stage3/boot_linux_v59.img`
+    - SHA256 `9c4eb1b4b8024a481e71a5bb584c48fe11f1d454983a6e541e49213818120e07`
+- 실기 검증:
+  - `native_init_flash.py stage3/boot_linux_v59.img --expect-version "A90 Linux init v59" --from-native` PASS
+  - boot partition prefix SHA256 readback PASS
+  - bridge `version` → `A90 Linux init v59`
+  - serial 입력:
+    - `AT`
+    - `ATE0`
+    - `AT+GCAP`
+    - `ATQ0 V1 E1 S0=0 &C1 &D2 +FCLASS=0`
+    - `version`
+  - 출력에 `unknown command: AT` 없음
+  - `/cache/native-init.log`에 ignored AT probe 4건 기록 확인
+- 상세 보고서:
+  - `docs/reports/NATIVE_INIT_V59_AT_NOISE_2026-04-26.md`
