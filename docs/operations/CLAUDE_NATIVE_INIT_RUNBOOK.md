@@ -489,8 +489,30 @@ printf 'netservice disable\n' | nc -w 20 127.0.0.1 54321
 - `netservice`는 위험 명령으로 분류되므로 메뉴 표시 중 `[busy]`가 나오면 `hide` 후 재시도한다.
 - host IP 설정은 root 권한이 필요하고, helper가 안내한 `enx...`에 `192.168.7.1/24`를 설정한다.
 - boot-time auto-start는 `/cache/native-init-netservice` flag가 있을 때만 동작한다.
+- NCM 재열거마다 host `enx...` 이름이 바뀔 수 있으므로 이전 interface 이름을 재사용하지 않는다.
 
-## 12. 로그 확인
+## 12. v60 netservice reconnect 검증 절차
+
+software UDC 재열거 이후 ACM/NCM/tcpctl 복구를 확인할 때:
+
+```bash
+python3 scripts/revalidation/netservice_reconnect_soak.py status
+python3 scripts/revalidation/netservice_reconnect_soak.py once --manual-host-config
+```
+
+`--manual-host-config`는 sudo가 불가능한 에이전트 환경에서 현재 새로 생긴 `enx...`에 맞는
+host 명령을 출력하고 사용자의 수동 설정을 기다린다.
+
+수동으로 할 때는 stale interface를 쓰지 않는다.
+
+```bash
+ip -br link | grep enx
+sudo ip addr replace 192.168.7.1/24 dev <current-ncm-enx>
+sudo ip link set <current-ncm-enx> up
+ping -c 3 -W 2 192.168.7.2
+```
+
+## 13. 로그 확인
 
 native init log:
 
@@ -518,12 +540,12 @@ adb -s RFCM90CFWXA shell 'tail -160 /cache/usbnet.log 2>/dev/null || true'
 adb -s RFCM90CFWXA shell 'tail -160 /cache/native-init-netservice.log 2>/dev/null || true'
 ```
 
-## 13. 커밋 전 확인
+## 14. 커밋 전 확인
 
 ```bash
 git status --short
 git diff --check
-python3 -m py_compile scripts/revalidation/serial_tcp_bridge.py scripts/revalidation/native_init_flash.py scripts/revalidation/ncm_host_setup.py
+python3 -m py_compile scripts/revalidation/serial_tcp_bridge.py scripts/revalidation/native_init_flash.py scripts/revalidation/ncm_host_setup.py scripts/revalidation/netservice_reconnect_soak.py
 bash -n scripts/revalidation/build_static_toybox.sh scripts/revalidation/build_usbnet_helper.sh
 aarch64-linux-gnu-gcc -static -Os -Wall -Wextra -o /tmp/a90_init_check stage3/linux_init/init_v60.c
 ```
@@ -531,7 +553,7 @@ aarch64-linux-gnu-gcc -static -Os -Wall -Wextra -o /tmp/a90_init_check stage3/li
 `stage3/boot_linux_v*.img`, `stage3/ramdisk_v*.cpio`, compiled binaries는 `.gitignore` 대상이다.
 커밋에는 보통 source, script, docs만 넣는다.
 
-## 14. 자주 틀리는 지점
+## 15. 자주 틀리는 지점
 
 ### `screen`이 바로 종료됨
 
@@ -563,6 +585,17 @@ flash automation은 `native_init_flash.py --from-native`를 쓰면 자동으로 
 ### `run /cache/bin/a90_usbnet probe-ncm` 뒤 첫 `version`이 비어 있음
 
 USB rollback 직후 첫 입력이 유실될 수 있다. 1~3초 후 다시 `version`.
+
+### `Cannot find device "enx..."`가 나옴
+
+NCM 재열거 후 host interface 이름이 바뀐 것이다. 이전 `enx...`를 재사용하지 말고 현재 값을 다시 본다.
+
+```bash
+ip -br link | grep enx
+```
+
+보통 기존 LAN dongle/host NIC와 새 NCM interface가 같이 보일 수 있으므로,
+`a90_usbnet status`의 `ncm.host_addr`와 MAC이 같은 interface를 선택한다.
 
 ### TWRP에서 `twrp reboot`가 애매하게 동작함
 

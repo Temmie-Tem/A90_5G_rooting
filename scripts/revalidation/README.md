@@ -60,6 +60,10 @@
   - serial bridge는 launch/rescue 채널로 유지하고, 명령은 NCM `192.168.7.2:2325`로 전달
   - `smoke`는 start → ping/version/status/run/shutdown → serial/NCM 상태 확인을 한 번에 수행
   - `soak`은 기본 300초 동안 TCP ping/status/run과 host NCM ping을 반복해 안정성을 확인
+- `netservice_reconnect_soak.py`
+  - v60 `netservice stop/start`로 USB UDC 재열거 뒤 ACM/NCM/tcpctl 복구를 검증
+  - NCM 재열거마다 host `enx...` 이름이 바뀔 수 있으므로 `host_addr` MAC으로 현재 interface를 다시 찾음
+  - `--manual-host-config`는 sudo가 불가능한 환경에서 현재 `sudo ip ... dev <enx...>` 명령을 출력하고 사용자의 수동 설정을 기다림
 
 권장 순서:
 
@@ -158,6 +162,14 @@ python3 ./scripts/revalidation/tcpctl_host.py status
 python3 ./scripts/revalidation/tcpctl_host.py run /cache/bin/toybox uname -a
 python3 ./scripts/revalidation/tcpctl_host.py stop
 python3 ./scripts/revalidation/tcpctl_host.py soak
+```
+
+netservice reconnect 검증 예:
+
+```bash
+python3 ./scripts/revalidation/netservice_reconnect_soak.py status
+python3 ./scripts/revalidation/netservice_reconnect_soak.py once --manual-host-config
+python3 ./scripts/revalidation/netservice_reconnect_soak.py soak --cycles 3 --manual-host-config
 ```
 
 참고:

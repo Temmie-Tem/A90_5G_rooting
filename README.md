@@ -39,6 +39,7 @@ Android userspace 대신 직접 만든 static `/init`를 실행하고,
 - TCP soak: `tcpctl_host.py soak` 5분/30사이클 안정성 검증 완료
 - serial noise: unsolicited `AT` modem probe line 무시 확인
 - boot netservice: `/cache/native-init-netservice` opt-in flag 기반 NCM/tcpctl 부팅 자동 시작 검증 완료
+- reconnect: v60 `netservice stop/start` software UDC 재열거 후 NCM/TCP 복구 확인
 - menu gate: 메뉴 표시 중 위험 명령 `[busy]` 차단, 관찰 명령 허용
 - ADB: 보류. 현재 기준 제어 채널은 serial bridge
 
@@ -99,6 +100,7 @@ Samsung bootloader
 18. NCM + TCP control 5분 soak — 완료
 19. unsolicited `AT` serial noise filter — v59 완료
 20. opt-in boot-time NCM/tcpctl netservice — v60 완료
+21. netservice stop/start UDC reconnect recovery — v60 완료
 
 ## Repository Layout
 
@@ -135,6 +137,7 @@ Samsung bootloader
 - `docs/reports/NATIVE_INIT_V58_TCPCTL_SOAK_2026-04-26.md`
 - `docs/reports/NATIVE_INIT_V59_AT_NOISE_2026-04-26.md`
 - `docs/reports/NATIVE_INIT_V60_NETSERVICE_2026-04-26.md`
+- `docs/reports/NATIVE_INIT_V60_RECONNECT_2026-04-26.md`
 
 `docs/plans/NATIVE_LINUX_RECHALLENGE_PLAN.md`와 `docs/plans/REVALIDATION_PLAN.md`는
 진입점 확보 이전의 부트체인 재검증 기록으로 보존한다.

@@ -507,6 +507,39 @@
   - SHA256 `c57fbf4645790826fbd5e804ff605c25b95cffb4c5eb0ff9076202581e6e828a`
 - `docs/reports/NATIVE_INIT_V60_NETSERVICE_2026-04-26.md`
 
+### V60.1. Netservice UDC Reconnect Validation — 완료
+
+목표:
+
+- v60 `netservice stop/start`로 software UDC 재열거 후 ACM serial, NCM, TCP control이 복구되는지 확인한다.
+- NCM 재열거마다 host `enx...` 이름이 바뀌는 문제를 운영 도구와 문서에 반영한다.
+
+구현:
+
+- `scripts/revalidation/netservice_reconnect_soak.py`
+  - `status`, `once`, `soak` command 추가
+  - `a90_usbnet status`의 `ncm.host_addr` MAC으로 현재 host interface 자동 탐지
+  - `--manual-host-config`로 sudo 불가 환경에서 현재 `sudo ip ... dev <enx...>` 명령 출력 후 대기
+
+검증:
+
+- stale `enx0a2eb7a94b2f`에 host IP 설정 시 `Cannot find device` — 관찰됨
+- 새 interface `enxba06f3efab0f`에 `192.168.7.1/24` 설정 — PASS
+- `192.168.7.2` ping 3/3, 0% loss — PASS
+- `tcpctl_host.py ping` — PASS
+- `tcpctl_host.py status` — PASS
+- `tcpctl_host.py run /cache/bin/toybox uptime` — PASS
+- final `netservice stop`, `ncm0=absent`, `tcpctl=stopped`, bridge `version` v60 — PASS
+
+발견:
+
+- USB 재열거 중 host modem probe fragment `A` 또는 `ATAT...`가 serial output을 오염시킬 수 있음
+- v59/v60 filter는 full `AT` line은 처리하지만 single `A` fragment는 아직 보강 필요
+
+산출:
+
+- `docs/reports/NATIVE_INIT_V60_RECONNECT_2026-04-26.md`
+
 ## 보류 큐
 
 - ADB 안정화 재검토
@@ -516,8 +549,8 @@
 
 ## 지금 바로 진행할 항목
 
-1. USB 물리 재연결/UDC reset 이후 NCM/tcpctl 복구 확인
-2. Wi-Fi 드라이버/펌웨어 read-only 인벤토리 트랙 분리
-3. `userdata`/`mmcblk0p1` 장기 저장소 후보 의사결정
-4. TCP control 인증/제한 정책 검토
-5. 장기 서버 모드 후보(dropbear/custom TCP shell) 재검토
+1. 실제 케이블 unplug/replug 이후 ACM/NCM/tcpctl 복구 확인
+2. USB 재열거 중 `A`/`ATAT...` serial noise hardening
+3. Wi-Fi 드라이버/펌웨어 read-only 인벤토리 트랙 분리
+4. `userdata`/`mmcblk0p1` 장기 저장소 후보 의사결정
+5. TCP control 인증/제한 정책 검토

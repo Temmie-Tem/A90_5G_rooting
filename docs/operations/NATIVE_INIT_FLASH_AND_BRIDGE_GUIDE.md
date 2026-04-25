@@ -128,6 +128,15 @@ printf 'netservice disable\n' | nc -w 20 127.0.0.1 54321
 
 실험 후 안전한 기본 상태로 돌릴 때는 `netservice disable`을 사용한다.
 
+NCM을 껐다 켜면 host `enx...` 이름이 바뀔 수 있다.
+이전 interface 이름을 재사용하지 말고 현재 값을 다시 확인한다.
+
+```bash
+ip -br link | grep enx
+python3 scripts/revalidation/netservice_reconnect_soak.py status
+python3 scripts/revalidation/netservice_reconnect_soak.py once --manual-host-config
+```
+
 ### v53+ 메뉴 표시 중 serial 정책
 
 v53부터 화면 메뉴가 떠 있는 동안 serial shell은 위험하거나 오래 걸릴 수 있는 명령을 바로 실행하지 않는다.

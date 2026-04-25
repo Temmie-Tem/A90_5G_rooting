@@ -120,6 +120,7 @@ Samsung bootloader
 - TCP control host wrapper — 완료
 - NCM + TCP control 5분 soak — 완료
 - boot-time NCM/tcpctl netservice 정책 — v60 완료
+- netservice stop/start software UDC reconnect recovery — v60 완료
 - static dropbear SSH 또는 custom TCP shell
 
 ---
@@ -151,6 +152,7 @@ Samsung bootloader
 - serial noise 상태: unsolicited `AT` modem probe line 무시 확인
 - boot netservice 상태: opt-in flag 기반 NCM/tcpctl 부팅 자동 시작과 rollback 검증 완료
 - netservice 기본값: disabled. `/cache/native-init-netservice` flag가 있을 때만 자동 시작
+- reconnect 상태: v60 `netservice stop/start` software UDC 재열거 후 NCM/TCP 복구 확인
 - menu gate 상태: 메뉴 표시 중 위험 명령 `[busy]` 차단, 관찰 명령 허용
 - ADB 상태: 보류
 
@@ -168,6 +170,7 @@ Samsung bootloader
 - `docs/reports/NATIVE_INIT_V58_TCPCTL_SOAK_2026-04-26.md`
 - `docs/reports/NATIVE_INIT_V59_AT_NOISE_2026-04-26.md`
 - `docs/reports/NATIVE_INIT_V60_NETSERVICE_2026-04-26.md`
+- `docs/reports/NATIVE_INIT_V60_RECONNECT_2026-04-26.md`
 - `docs/reports/NATIVE_INIT_USB_GADGET_MAP_2026-04-25.md`
 - `docs/reports/NATIVE_INIT_USERLAND_CANDIDATES_2026-04-25.md`
 - `docs/reports/NATIVE_INIT_V44_HUD_BOOT_2026-04-25.md`
@@ -729,11 +732,11 @@ Samsung bootloader
 
 상세 실행 큐는 `docs/plans/NATIVE_INIT_TASK_QUEUE_2026-04-25.md`를 따른다.
 
-1. USB 물리 재연결/UDC reset 이후 NCM/tcpctl 복구 확인
-2. Wi-Fi 드라이버/펌웨어 read-only 인벤토리 트랙 분리
-3. `userdata`/`mmcblk0p1` 장기 저장소 후보 의사결정
-4. TCP control 인증/제한 정책 검토
-5. 장기 서버 모드 후보(dropbear/custom TCP shell) 재검토
+1. 실제 케이블 unplug/replug 이후 ACM/NCM/tcpctl 복구 확인
+2. USB 재열거 중 `A`/`ATAT...` serial noise hardening
+3. Wi-Fi 드라이버/펌웨어 read-only 인벤토리 트랙 분리
+4. `userdata`/`mmcblk0p1` 장기 저장소 후보 의사결정
+5. TCP control 인증/제한 정책 검토
 
 ---
 

@@ -41,6 +41,8 @@ Date: `2026-04-26`
 - v59에서는 host modem probe의 `AT`/`ATE0`/`AT+...` line을 native init shell이 무시한다.
 - v60 `netservice`는 기본 OFF다. NCM/tcpctl boot auto-start가 필요할 때만 `netservice enable`을 쓰고,
   실험 후에는 `netservice disable`로 flag와 NCM/tcpctl을 내려라.
+- NCM 재열거마다 host `enx...` 이름이 바뀔 수 있다. 이전 interface 이름을 재사용하지 말고
+  `a90_usbnet status`의 `ncm.host_addr` 또는 `ip -br link`로 현재 interface를 다시 확인하라.
 
 v49 주의:
 

@@ -681,3 +681,25 @@
   - 최종값은 `3600s`로 고정해 boot-time tcpctl 시작 성공
 - 상세 보고서:
   - `docs/reports/NATIVE_INIT_V60_NETSERVICE_2026-04-26.md`
+
+## v60: netservice stop/start UDC reconnect 검증 (2026-04-26)
+
+- 목적:
+  - v60 `netservice stop/start`로 software UDC 재열거 후 ACM/NCM/tcpctl이 복구되는지 확인
+  - host NCM interface 이름이 재열거마다 바뀌는지 확인하고 운영 절차에 반영
+- 추가:
+  - `scripts/revalidation/netservice_reconnect_soak.py`
+    - `status`, `once`, `soak` subcommand
+    - device `ncm.host_addr` MAC으로 현재 host `enx...` interface 자동 탐지
+    - sudo 불가 환경용 `--manual-host-config` 옵션 추가
+- 실기 검증:
+  - stale `enx0a2eb7a94b2f`는 재열거 후 사라져 `Cannot find device` 발생
+  - 새 interface `enxba06f3efab0f` 감지
+  - host `192.168.7.1/24` 설정 후 `192.168.7.2` ping 3/3 PASS
+  - TCP `ping`, `status`, `run /cache/bin/toybox uptime` PASS
+  - final `netservice stop` 후 `ncm0=absent`, `tcpctl=stopped`, bridge `version` v60 확인
+- 발견:
+  - USB 재열거 중 host modem probe fragment `A`, `ATAT...`가 serial output을 오염시킬 수 있음
+  - v61 후보로 짧은 `A` fragment와 반복 `ATAT...` filter hardening 필요
+- 상세 보고서:
+  - `docs/reports/NATIVE_INIT_V60_RECONNECT_2026-04-26.md`
