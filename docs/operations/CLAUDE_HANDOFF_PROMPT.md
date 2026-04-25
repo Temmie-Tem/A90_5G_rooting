@@ -3,7 +3,7 @@
 Date: `2026-04-26`
 
 아래 블록을 Claude나 다른 에이전트에게 그대로 붙여 넣는다.
-목표는 **먼저 상태를 확인하고, known-good v48 복구 경로와 latest v65 작업 경로를 혼동하지 않게 하는 것**이다.
+목표는 **먼저 상태를 확인하고, known-good v48 복구 경로와 latest v67 작업 경로를 혼동하지 않게 하는 것**이다.
 
 ```text
 너는 /home/temmie/dev/A90_5G_rooting 저장소에서 작업한다.
@@ -16,11 +16,11 @@ Date: `2026-04-26`
 
 현재 기준:
 
-- latest verified native init: A90 Linux init v65
-- latest source: stage3/linux_init/init_v65.c
-- latest boot image: stage3/boot_linux_v65.img
+- latest verified native init: A90 Linux init 0.7.4 (v67)
+- latest source: stage3/linux_init/init_v67.c
+- latest boot image: stage3/boot_linux_v67.img
 - latest boot image SHA256:
-  143acc7925b8ac0006d972ca463c1993f5306b63c5187e9c3007a34fa71ed7d4
+  8b087d08ecc5dd459ffd36c22c520f5de9fb2c3ddecee0c212bd4fece57f8623
 - known-good fallback native init: A90 Linux init v48
 - known-good fallback source: stage3/linux_init/init_v48.c
 - known-good fallback boot image: stage3/boot_linux_v48.img
@@ -49,6 +49,8 @@ Date: `2026-04-26`
   CPU STRESS app에서 5/10/30/60초 테스트를 선택할 수 있다.
 - v64에서는 부팅 직후 큰 TEST 화면 대신 `A90 NATIVE INIT` custom splash가 표시된다.
 - v65에서는 splash 긴 문구/footer가 잘리지 않도록 안전 여백과 자동 축소가 적용됐다.
+- v66에서는 공식 버전 `0.7.3 (v66)`, `made by temmie0214`, APPS/ABOUT changelog/credits가 추가됐다.
+- v67에서는 ABOUT/changelog 글씨가 작게 통일됐고, CHANGELOG가 version list/detail 구조가 됐다.
 
 v49 주의:
 
@@ -68,18 +70,18 @@ printf 'version\n' | nc -w 5 127.0.0.1 54321 || true
 
 판단:
 
-- bridge에서 A90 Linux init v65가 나오면 latest verified native init 상태다.
+- bridge에서 A90 Linux init 0.7.4 (v67)가 나오면 latest verified native init 상태다.
 - bridge에서 A90 Linux init v48이 나오면 known-good fallback native init 상태다.
 - adb devices -l에서 recovery면 TWRP 상태다.
 - adb devices -l에서 device이고 /proc/1/exe가 /system/bin/init이면 Android 상태다.
 - 04e8:6861 + /dev/ttyACM0인데 bridge가 안 되면 사용자가 sudo bridge를 재시작해야 한다.
 
-latest v65 flash가 정말 필요할 때만 이 스크립트를 사용:
+latest v67 flash가 정말 필요할 때만 이 스크립트를 사용:
 
 python3 ./scripts/revalidation/native_init_flash.py \
-  stage3/boot_linux_v65.img \
+  stage3/boot_linux_v67.img \
   --from-native \
-  --expect-version "A90 Linux init v65" \
+  --expect-version "A90 Linux init 0.7.4 (v67)" \
   --bridge-timeout 240 \
   --recovery-timeout 180
 

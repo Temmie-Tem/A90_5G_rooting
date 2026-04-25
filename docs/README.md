@@ -8,7 +8,7 @@
 
 상단 `docs/`는 이제 다음 흐름에 필요한 문서를 유지합니다.
 
-1. native init v65 기준 상태 고정
+1. native init 0.7.4 / v67 기준 상태 고정
 2. shell/HUD/log/menu 운영 안정화
 3. 필요한 하드웨어/커널 경로만 역추적
 4. BusyBox/network/SSH 같은 서버형 확장 가능성 검토
@@ -19,9 +19,12 @@
 - 빌드: `A908NKSU5EWA3`
 - kernel: Samsung stock Android kernel `Linux 4.14.190`
 - recovery: TWRP 사용 가능
-- latest verified native init: `A90 Linux init v65`
-- latest source: `stage3/linux_init/init_v65.c`
-- latest boot image: `stage3/boot_linux_v65.img`
+- latest verified native init: `A90 Linux init 0.7.4 (v67)`
+- official version: `0.7.4`
+- build tag: `v67`
+- creator: `made by temmie0214`
+- latest source: `stage3/linux_init/init_v67.c`
+- latest boot image: `stage3/boot_linux_v67.img`
 - known-good fallback: `stage3/boot_linux_v48.img`
 - control channel: USB CDC ACM serial bridge
 - display: custom boot splash 후 상태 HUD/menu 자동 전환
@@ -48,6 +51,7 @@
 - app menu: APPS/MONITORING/TOOLS/LOGS/NETWORK/POWER 계층 메뉴와 CPU stress 시간 선택 확인
 - boot splash: TEST 패턴 대신 `A90 NATIVE INIT` custom splash 표시 후 HUD 전환 확인
 - splash layout: v65에서 긴 문구/footer 잘림 방지를 위해 안전 여백과 자동 축소 적용
+- about app: `APPS / ABOUT`에서 version, changelog 목록/상세, credits 표시
 - ADB: 보류
 
 ## 문서 읽는 순서
@@ -72,6 +76,8 @@
 
 - `overview/PROJECT_STATUS.md` – 현재 기준점, 성공/실패 조건, 다음 작업 링크
 - `overview/PROGRESS_LOG.md` – 날짜순 진행 로그
+- `overview/VERSIONING.md` – semantic version과 `vNN` build tag 규칙
+- `../CHANGELOG.md` – 공식 버전별 업데이트 로그
 
 ### 2. Operations
 
@@ -103,6 +109,8 @@
 - `reports/NATIVE_INIT_V63_APP_MENU_2026-04-26.md` – 계층형 앱 메뉴와 CPU stress screen app 검증
 - `reports/NATIVE_INIT_V64_BOOT_SPLASH_2026-04-26.md` – TEST 화면을 custom boot splash로 교체한 검증
 - `reports/NATIVE_INIT_V65_SPLASH_SAFE_LAYOUT_2026-04-26.md` – boot splash 잘림 방지 safe layout 검증
+- `reports/NATIVE_INIT_V66_ABOUT_VERSIONING_2026-04-26.md` – ABOUT app, versioning, changelog, credits 검증
+- `reports/NATIVE_INIT_V67_CHANGELOG_DETAILS_2026-04-26.md` – compact ABOUT typography와 version별 changelog detail 검증
 - `reports/NATIVE_INIT_V53_MENU_BUSY_2026-04-25.md` – menu-active serial busy gate와 flash auto-hide 검증
 - `reports/NATIVE_INIT_V48_USB_REATTACH_NCM_2026-04-25.md` – USB reattach와 NCM probe 실기 검증
 - `reports/NATIVE_INIT_USERLAND_CANDIDATES_2026-04-25.md` – static userland/BusyBox/toybox 후보 보고서
@@ -163,6 +171,8 @@
 25. 계층형 앱 메뉴 + CPU stress screen app — v63 완료
 26. TEST 부팅 화면을 custom boot splash로 교체 — v64 완료
 27. boot splash 잘림 방지 safe layout — v65 완료
+28. semantic version + ABOUT/changelog/credits app — v66 완료
+29. compact ABOUT typography + version별 changelog detail — v67 완료
 
 패키지 최소화와 Android userspace 복구는 보조 실험으로만 다루고,
 메인 목표는 **Android kernel 위에 반복 운용 가능한 native init 기반 최소 Linux 콘솔을 만드는 것**입니다.

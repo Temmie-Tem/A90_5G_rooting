@@ -1,13 +1,16 @@
 # Native Init Task Queue (2026-04-25)
 
-이 문서는 `A90 Linux init v65` 이후 바로 실행할 작업 큐다.
+이 문서는 `A90 Linux init 0.7.4 (v67)` 이후 바로 실행할 작업 큐다.
 큰 방향은 “보이는 부팅 → 복구 가능한 로그 → 단독 조작 → 작은 userland → USB networking” 순서다.
 
 ## 현재 고정 기준점
 
-- latest verified native init: `A90 Linux init v65`
-- latest source: `stage3/linux_init/init_v65.c`
-- latest boot image: `stage3/boot_linux_v65.img`
+- latest verified native init: `A90 Linux init 0.7.4 (v67)`
+- official version: `0.7.4`
+- build tag: `v67`
+- creator: `made by temmie0214`
+- latest source: `stage3/linux_init/init_v67.c`
+- latest boot image: `stage3/boot_linux_v67.img`
 - known-good fallback: `stage3/boot_linux_v48.img`
 - control channel: USB ACM serial bridge
 - log: `/cache/native-init.log`
@@ -30,6 +33,8 @@
   - VOL+/VOL-/POWER input
   - hierarchical app menu
   - custom boot splash
+  - ABOUT/versioning/changelog metadata
+  - compact ABOUT/changelog detail screens
 
 ## 실행 큐
 
@@ -720,6 +725,83 @@
 - `stage3/boot_linux_v65.img`
   - SHA256 `143acc7925b8ac0006d972ca463c1993f5306b63c5187e9c3007a34fa71ed7d4`
 - `docs/reports/NATIVE_INIT_V65_SPLASH_SAFE_LAYOUT_2026-04-26.md`
+
+### V66. About App / Versioning — 완료
+
+목표:
+
+- 공식 semantic version과 기존 `vNN` build tag를 함께 사용한다.
+- 만든이 `made by temmie0214`를 splash, `version`, `status`, ABOUT app에 표시한다.
+- 앱 메뉴에서 version, changelog, credits를 확인할 수 있게 한다.
+
+구현:
+
+- `stage3/linux_init/init_v66.c`
+  - `INIT_VERSION "0.7.3"`
+  - `INIT_BUILD "v66"`
+  - `INIT_CREATOR "made by temmie0214"`
+  - `INIT_BANNER "A90 Linux init 0.7.3 (v66)"`
+  - `APPS / ABOUT` 메뉴 추가
+  - `VERSION`, `CHANGELOG`, `CREDITS` 화면 추가
+- `docs/overview/VERSIONING.md`
+  - `MAJOR.MINOR.PATCH`와 `vNN` build tag 규칙 정리
+- `CHANGELOG.md`
+  - 공식 버전별 업데이트 로그 추가
+
+검증:
+
+- static ARM64 build — PASS
+- `stage3/boot_linux_v66.img` marker 확인 — PASS
+- native → TWRP → boot partition flash → v66 boot — PASS
+- bridge `version` → `A90 Linux init 0.7.3 (v66)` 및 `made by temmie0214` — PASS
+- `status` → `creator: made by temmie0214`, `boot: BOOT OK shell 3S` — PASS
+- `timeline` → `init-start ... A90 Linux init 0.7.3 (v66)` — PASS
+
+산출:
+
+- `stage3/linux_init/init_v66`
+  - SHA256 `31a8c6e8da1f2ab07fe26a96d6fa78ba02a9cb43e6bc4ea3080220f4efb41715`
+- `stage3/ramdisk_v66.cpio`
+  - SHA256 `446b070e9df82b6368122ca190c27c3298a147eb778f70c9d08cc7e9bcf7e972`
+- `stage3/boot_linux_v66.img`
+  - SHA256 `320a325531b6e2ffc35c8165179396638c1c8af5ee4a59517f1074dc92b3eb08`
+- `docs/reports/NATIVE_INIT_V66_ABOUT_VERSIONING_2026-04-26.md`
+
+### V67. Changelog Detail Screens — 완료
+
+목표:
+
+- 휴대폰 세로 화면을 활용해 changelog 내용을 더 길게 표시한다.
+- ABOUT 계열 화면의 version 글씨 크기를 작게 통일한다.
+- `CHANGELOG`를 버전 목록으로 만들고, 선택한 버전의 상세 변경점을 보여준다.
+
+구현:
+
+- `stage3/linux_init/init_v67.c`
+  - `INIT_VERSION "0.7.4"`
+  - `INIT_BUILD "v67"`
+  - `APPS / ABOUT / CHANGELOG >` submenu 추가
+  - `0.7.4 v67`~`0.6.0 v62` 상세 화면 추가
+  - ABOUT 계열 text scale compact화
+
+검증:
+
+- static ARM64 build — PASS
+- `stage3/boot_linux_v67.img` marker 확인 — PASS
+- native → TWRP → boot partition flash → v67 boot — PASS
+- bridge `version` → `A90 Linux init 0.7.4 (v67)` 및 `made by temmie0214` — PASS
+- `status` → `creator: made by temmie0214`, `boot: BOOT OK shell 3S`, `autohud: running` — PASS
+- `timeline` → `init-start ... A90 Linux init 0.7.4 (v67)` — PASS
+
+산출:
+
+- `stage3/linux_init/init_v67`
+  - SHA256 `642da01258a4a43016e5362d74fb2c142a30c42001217c88fa2ae2fe8aa05e04`
+- `stage3/ramdisk_v67.cpio`
+  - SHA256 `55d2b9c0323e2642c9d7095a62d668b85774476fe5079a43113ef7a5b3e7b6b2`
+- `stage3/boot_linux_v67.img`
+  - SHA256 `8b087d08ecc5dd459ffd36c22c520f5de9fb2c3ddecee0c212bd4fece57f8623`
+- `docs/reports/NATIVE_INIT_V67_CHANGELOG_DETAILS_2026-04-26.md`
 
 ## 보류 큐
 

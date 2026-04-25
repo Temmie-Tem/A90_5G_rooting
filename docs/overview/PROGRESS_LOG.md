@@ -840,3 +840,65 @@
   - `timeline` → `display-splash rc=0 errno=0 detail=boot splash applied`
 - 상세 보고서:
   - `docs/reports/NATIVE_INIT_V65_SPLASH_SAFE_LAYOUT_2026-04-26.md`
+
+## v66: ABOUT app과 versioning 도입 (2026-04-26)
+
+- 목적:
+  - 기존 build 번호 `vNN`만 쓰던 상태에서 공식 semantic version을 병행
+  - 만든이 `made by temmie0214`를 화면/명령 출력에 표시
+  - 앱 메뉴에서 version, changelog, credits 확인
+- 추가:
+  - `stage3/linux_init/init_v66.c`
+    - `INIT_VERSION "0.7.3"`
+    - `INIT_BUILD "v66"`
+    - `INIT_CREATOR "made by temmie0214"`
+    - splash, `version`, `status`, timeline banner 갱신
+    - `APPS / ABOUT` 메뉴와 `VERSION`/`CHANGELOG`/`CREDITS` 화면
+  - `docs/overview/VERSIONING.md`
+    - `MAJOR.MINOR.PATCH`와 `vNN` build tag 규칙
+  - `CHANGELOG.md`
+    - 공식 버전별 업데이트 로그
+- 산출:
+  - `stage3/linux_init/init_v66`
+    - SHA256 `31a8c6e8da1f2ab07fe26a96d6fa78ba02a9cb43e6bc4ea3080220f4efb41715`
+  - `stage3/ramdisk_v66.cpio`
+    - SHA256 `446b070e9df82b6368122ca190c27c3298a147eb778f70c9d08cc7e9bcf7e972`
+  - `stage3/boot_linux_v66.img`
+    - SHA256 `320a325531b6e2ffc35c8165179396638c1c8af5ee4a59517f1074dc92b3eb08`
+- 실기 검증:
+  - `native_init_flash.py stage3/boot_linux_v66.img --from-native --expect-version "A90 Linux init 0.7.3 (v66)"` PASS
+  - boot partition prefix SHA256 readback PASS
+  - bridge `version` → `A90 Linux init 0.7.3 (v66)` / `made by temmie0214`
+  - `status` → `creator: made by temmie0214`, `boot: BOOT OK shell 3S`
+  - `timeline` → `init-start ... A90 Linux init 0.7.3 (v66)`
+- 상세 보고서:
+  - `docs/reports/NATIVE_INIT_V66_ABOUT_VERSIONING_2026-04-26.md`
+
+## v67: changelog 상세 화면과 compact ABOUT typography (2026-04-26)
+
+- 목적:
+  - 휴대폰 세로 화면을 활용해 changelog를 더 길게 표시
+  - ABOUT/VERSION/CHANGELOG/CREDITS 계열 글씨 크기를 작게 통일
+  - `CHANGELOG`를 단일 요약 화면이 아니라 버전 목록 → 상세 화면 구조로 변경
+- 추가:
+  - `stage3/linux_init/init_v67.c`
+    - `INIT_VERSION "0.7.4"`
+    - `INIT_BUILD "v67"`
+    - `APPS / ABOUT / CHANGELOG >` submenu 추가
+    - `0.7.4 v67`~`0.6.0 v62` version별 detail 화면 추가
+    - ABOUT 계열 text scale을 1080px 기준 `6` → `4`로 축소
+- 산출:
+  - `stage3/linux_init/init_v67`
+    - SHA256 `642da01258a4a43016e5362d74fb2c142a30c42001217c88fa2ae2fe8aa05e04`
+  - `stage3/ramdisk_v67.cpio`
+    - SHA256 `55d2b9c0323e2642c9d7095a62d668b85774476fe5079a43113ef7a5b3e7b6b2`
+  - `stage3/boot_linux_v67.img`
+    - SHA256 `8b087d08ecc5dd459ffd36c22c520f5de9fb2c3ddecee0c212bd4fece57f8623`
+- 실기 검증:
+  - `native_init_flash.py stage3/boot_linux_v67.img --from-native --expect-version "A90 Linux init 0.7.4 (v67)"` PASS
+  - boot partition prefix SHA256 readback PASS
+  - bridge `version` → `A90 Linux init 0.7.4 (v67)` / `made by temmie0214`
+  - `status` → `creator: made by temmie0214`, `boot: BOOT OK shell 3S`, `autohud: running`
+  - `timeline` → `init-start ... A90 Linux init 0.7.4 (v67)`, `display-splash`, `shell`
+- 상세 보고서:
+  - `docs/reports/NATIVE_INIT_V67_CHANGELOG_DETAILS_2026-04-26.md`

@@ -120,7 +120,10 @@
 ## 현재 폰 상태
 
 - patched AP (Magisk 30.7) + **TWRP recovery 사용 가능**
-- 최신 verified native init: `stage3/boot_linux_v65.img` (`A90 Linux init v65`)
+- 최신 verified native init: `stage3/boot_linux_v67.img` (`A90 Linux init 0.7.4 (v67)`)
+- 공식 버전: `0.7.4`
+- build tag: `v67`
+- creator: `made by temmie0214`
 - known-good fallback: `stage3/boot_linux_v48.img` (`A90 Linux init v48`)
 - 격리 상태: `stage3/boot_linux_v49.img`는 boot partition prefix readback은 일치했지만
   system boot 후 Android `/system/bin/init second_stage`로 진입했으므로 stable이 아님
@@ -149,7 +152,10 @@
 - dev node 상태: `/dev/null`과 `/dev/zero`를 boot-time char device로 보정 확인
 - boot splash 상태: TEST 패턴 대신 `A90 NATIVE INIT` custom splash와 `display-splash` timeline 기록 확인
 - splash layout 상태: v65에서 긴 문구/footer 잘림 방지를 위해 안전 여백과 자동 축소 적용
-- 상세 최신 상태: `docs/reports/NATIVE_INIT_V65_SPLASH_SAFE_LAYOUT_2026-04-26.md`
+- about app 상태: `APPS / ABOUT`에서 version, changelog 목록/상세, credits 표시
+- 상세 최신 상태: `docs/reports/NATIVE_INIT_V67_CHANGELOG_DETAILS_2026-04-26.md`
+- v67 changelog detail 기록: `docs/reports/NATIVE_INIT_V67_CHANGELOG_DETAILS_2026-04-26.md`
+- v66 about/versioning 기록: `docs/reports/NATIVE_INIT_V66_ABOUT_VERSIONING_2026-04-26.md`
 - v65 splash safe layout 기록: `docs/reports/NATIVE_INIT_V65_SPLASH_SAFE_LAYOUT_2026-04-26.md`
 - v64 boot splash 기록: `docs/reports/NATIVE_INIT_V64_BOOT_SPLASH_2026-04-26.md`
 - v63 app menu 기록: `docs/reports/NATIVE_INIT_V63_APP_MENU_2026-04-26.md`
@@ -187,11 +193,11 @@
 - proc / sys / devtmpfs / ext4(/dev/block/sda31) 마운트 성공
 - 핵심 우회: devtmpfs async 초기화 문제를 `mknod(makedev(259,15))` 로 해결
 
-### 3-2. USB ACM serial console + 인터랙티브 셸 (v8~v65)
+### 3-2. USB ACM serial console + 인터랙티브 셸 (v8~v67)
 
-**현재 버전**: `init_v65` (`stage3/boot_linux_v65.img`)
+**현재 버전**: `init_v67` (`stage3/boot_linux_v67.img`) / `0.7.4 (v67)`
 
-ADB 방식이 막혀 USB CDC ACM serial (ttyGS0)로 전환. v65까지 반복 안정화:
+ADB 방식이 막혀 USB CDC ACM serial (ttyGS0)로 전환. v67까지 반복 안정화:
 
 - USB gadget: configfs `acm.usb0` function, UDC `a600000.dwc3`
 - host 측: `/dev/ttyACM0` → `serial_tcp_bridge.py` → `127.0.0.1:54321` TCP
@@ -224,8 +230,10 @@ ADB 방식이 막혀 USB CDC ACM serial (ttyGS0)로 전환. v65까지 반복 안
 | v63 | APPS/MONITORING/TOOLS/LOGS/NETWORK/POWER 계층 메뉴와 CPU stress 시간 선택 app |
 | v64 | TEST 부팅 화면을 `A90 NATIVE INIT` custom boot splash로 교체 |
 | v65 | boot splash 긴 문구/footer 잘림 방지 safe layout |
+| v66 | semantic version `0.7.3`, `made by temmie0214`, ABOUT/changelog/credits app |
+| v67 | ABOUT/changelog 작은 글씨 통일, version별 changelog detail 화면 |
 
-**확보된 관찰/제어 범위 (v65 verified 기준):**
+**확보된 관찰/제어 범위 (v67 verified 기준):**
 
 | 항목 | 상태 |
 |---|---|
@@ -259,6 +267,7 @@ ADB 방식이 막혀 USB CDC ACM serial (ttyGS0)로 전환. v65까지 반복 안
 | Essential `/dev` nodes | 작동 — `/dev/null` rdev `1:3`, `/dev/zero` rdev `1:5` boot-time 보정 |
 | Hierarchical app menu | 작동 — APPS/TOOLS/CPU STRESS 시간 선택과 LOG/NETWORK app 화면 |
 | Boot splash | 작동 — `A90 NATIVE INIT` splash, `display-splash` timeline 기록, v65 safe layout 적용 |
+| About app | 작동 — APPS/ABOUT에 VERSION/CHANGELOG 목록/상세/CREDITS, bridge metadata 검증 완료 |
 | ADB (adbd) | **보류** — ep1/ep2 미생성, zombie |
 
 **버튼 매핑:**
@@ -276,7 +285,7 @@ ADB 방식이 막혀 USB CDC ACM serial (ttyGS0)로 전환. v65까지 반복 안
 
 ## 다음 후보 작업
 
-우선순위 순 (v65 이후):
+우선순위 순 (v67 이후):
 
 1. **physical USB reconnect soak** — 실제 케이블 unplug/replug 이후 ACM/NCM 복구 확인
 2. **serial noise hardening** — USB 재열거 중 `A`/`ATAT...` fragment 무시

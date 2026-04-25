@@ -12,9 +12,9 @@ Date: `2026-04-26`
 
 - device: `Samsung Galaxy A90 5G SM-A908N`
 - recovery: TWRP 사용 가능
-- latest verified native init: `A90 Linux init v65`
-- latest source: `stage3/linux_init/init_v65.c`
-- latest boot image: `stage3/boot_linux_v65.img`
+- latest verified native init: `A90 Linux init 0.7.4 (v67)`
+- latest source: `stage3/linux_init/init_v67.c`
+- latest boot image: `stage3/boot_linux_v67.img`
 - known-good fallback native init: `A90 Linux init v48`
 - known-good fallback boot image: `stage3/boot_linux_v48.img`
 - primary control channel: USB CDC ACM serial
@@ -79,6 +79,18 @@ Date: `2026-04-26`
 - v64 splash에서 일부 문구가 잘리는 문제를 줄이기 위해 안전 여백과 줄별 자동 축소를 적용했다.
 - 긴 상태 문구를 짧게 바꾸고 footer를 화면 아래쪽에서 조금 올렸다.
 
+중요한 v66 개선:
+
+- 공식 semantic version `0.7.3`과 build tag `v66`을 함께 표시한다.
+- `made by temmie0214`를 splash, `version`, `status`, ABOUT app에 표시한다.
+- `APPS / ABOUT` 메뉴에 `VERSION`, `CHANGELOG`, `CREDITS` 화면을 추가했다.
+
+중요한 v67 개선:
+
+- ABOUT 계열 화면 글씨 크기를 작게 통일해 세로 공간을 더 활용한다.
+- `APPS / ABOUT / CHANGELOG >`가 version list로 열리고, 각 항목은 상세 변경 화면을 표시한다.
+- 현재 official version은 `0.7.4`, build tag는 `v67`이다.
+
 v49 주의:
 
 - `stage3/boot_linux_v49.img`는 local marker와 boot partition prefix readback은 맞았지만
@@ -130,7 +142,8 @@ printf 'version\n' | nc -w 3 127.0.0.1 54321
 정상 예:
 
 ```text
-A90 Linux init v65
+A90 Linux init 0.7.4 (v67)
+made by temmie0214
 kernel: Linux 4.14.190-25818860-abA908NKSU5EWA3 aarch64
 display: 1080x2400 connector=28 crtc=133 fb=207
 [done] version (0ms)
@@ -228,7 +241,7 @@ adb -s RFCM90CFWXA shell 'twrp reboot'
 ```bash
 python3 ./scripts/revalidation/native_init_flash.py \
   --verify-only \
-  --expect-version "A90 Linux init v65" \
+  --expect-version "A90 Linux init 0.7.4 (v67)" \
   --bridge-timeout 180
 ```
 
@@ -240,35 +253,36 @@ python3 ./scripts/revalidation/native_init_flash.py \
 
 ## 5. Custom init 수정 흐름
 
-새 버전 예시가 v66이라면:
+새 버전 예시가 v68이라면:
 
 ```bash
-cp stage3/linux_init/init_v65.c stage3/linux_init/init_v66.c
+cp stage3/linux_init/init_v67.c stage3/linux_init/init_v68.c
 ```
 
 반드시 바꿀 것:
 
-- `#define INIT_VERSION "v66"`
-- `A90v65` kmsg marker를 `A90v66`으로 변경
+- `#define INIT_BUILD "v68"`
+- 예시가 patch 업데이트라면 `#define INIT_VERSION "0.7.5"`로 변경
+- `A90v67` kmsg marker를 `A90v68`로 변경
 - v49 번호는 재사용하지 않는다.
-- `mark_step("..._v65\n")` 계열을 새 버전으로 변경
+- `mark_step("..._v67\n")` 계열을 새 버전으로 변경
 - README/docs의 latest 기준점은 실기 검증 뒤에만 갱신
 
 검색:
 
 ```bash
-rg -n 'v65|A90v65|init_v65|boot_linux_v65|ramdisk_v65' stage3/linux_init/init_v66.c
+rg -n 'v67|A90v67|init_v67|boot_linux_v67|ramdisk_v67' stage3/linux_init/init_v68.c
 ```
 
 빌드:
 
 ```bash
 aarch64-linux-gnu-gcc -static -Os -Wall -Wextra \
-  -o stage3/linux_init/init_v66 stage3/linux_init/init_v66.c
-aarch64-linux-gnu-strip stage3/linux_init/init_v66
-file stage3/linux_init/init_v66
-sha256sum stage3/linux_init/init_v66
-strings stage3/linux_init/init_v66 | rg 'A90 Linux init v66|A90v66'
+  -o stage3/linux_init/init_v68 stage3/linux_init/init_v68.c
+aarch64-linux-gnu-strip stage3/linux_init/init_v68
+file stage3/linux_init/init_v68
+sha256sum stage3/linux_init/init_v68
+strings stage3/linux_init/init_v68 | rg 'A90 Linux init .*\\(v68\\)|A90v68'
 ```
 
 컴파일 경고를 무시하지 말 것.
@@ -278,26 +292,26 @@ strings stage3/linux_init/init_v66 | rg 'A90 Linux init v66|A90v66'
 검증된 이전 boot image에서 kernel/header 인자를 재사용하고 ramdisk만 바꾼다.
 
 ```bash
-rm -rf /tmp/a90_boot_v65_unpack
-mkdir -p /tmp/a90_boot_v65_unpack
+rm -rf /tmp/a90_boot_v67_unpack
+mkdir -p /tmp/a90_boot_v67_unpack
 python3 mkbootimg/unpack_bootimg.py \
-  --boot_img stage3/boot_linux_v65.img \
-  --out /tmp/a90_boot_v65_unpack \
+  --boot_img stage3/boot_linux_v67.img \
+  --out /tmp/a90_boot_v67_unpack \
   --format=mkbootimg \
-  > /tmp/a90_boot_v65_mkbootimg_args.txt
+  > /tmp/a90_boot_v67_mkbootimg_args.txt
 ```
 
 ramdisk 생성:
 
 ```bash
-rm -rf stage3/ramdisk_v66
-mkdir -p stage3/ramdisk_v66/bin
-cp stage3/linux_init/init_v66 stage3/ramdisk_v66/init
-cp stage3/linux_init/a90_sleep stage3/ramdisk_v66/bin/a90sleep
-chmod 755 stage3/ramdisk_v66/init stage3/ramdisk_v66/bin/a90sleep
+rm -rf stage3/ramdisk_v68
+mkdir -p stage3/ramdisk_v68/bin
+cp stage3/linux_init/init_v68 stage3/ramdisk_v68/init
+cp stage3/linux_init/a90_sleep stage3/ramdisk_v68/bin/a90sleep
+chmod 755 stage3/ramdisk_v68/init stage3/ramdisk_v68/bin/a90sleep
 (
-  cd stage3/ramdisk_v66
-  find . | LC_ALL=C sort | cpio -o -H newc > ../ramdisk_v66.cpio
+  cd stage3/ramdisk_v68
+  find . | LC_ALL=C sort | cpio -o -H newc > ../ramdisk_v68.cpio
 )
 ```
 
@@ -309,15 +323,15 @@ from pathlib import Path
 import shlex
 import subprocess
 
-args = shlex.split(Path('/tmp/a90_boot_v65_mkbootimg_args.txt').read_text())
+args = shlex.split(Path('/tmp/a90_boot_v67_mkbootimg_args.txt').read_text())
 for i, item in enumerate(args):
     if item == '--ramdisk':
-        args[i + 1] = 'stage3/ramdisk_v66.cpio'
+        args[i + 1] = 'stage3/ramdisk_v68.cpio'
         break
 else:
     raise SystemExit('missing --ramdisk')
 
-cmd = ['python3', 'mkbootimg/mkbootimg.py', *args, '--output', 'stage3/boot_linux_v66.img']
+cmd = ['python3', 'mkbootimg/mkbootimg.py', *args, '--output', 'stage3/boot_linux_v68.img']
 print(shlex.join(cmd))
 subprocess.run(cmd, check=True)
 PY
@@ -326,9 +340,9 @@ PY
 검증:
 
 ```bash
-ls -lh stage3/ramdisk_v66.cpio stage3/boot_linux_v66.img
-sha256sum stage3/linux_init/init_v66 stage3/ramdisk_v66.cpio stage3/boot_linux_v66.img
-strings stage3/boot_linux_v66.img | rg 'A90 Linux init v66|A90v66'
+ls -lh stage3/ramdisk_v68.cpio stage3/boot_linux_v68.img
+sha256sum stage3/linux_init/init_v68 stage3/ramdisk_v68.cpio stage3/boot_linux_v68.img
+strings stage3/boot_linux_v68.img | rg 'A90 Linux init .*\\(v68\\)|A90v68'
 ```
 
 ## 7. Boot image 플래시
@@ -343,8 +357,8 @@ adb devices
 
 ```bash
 python3 ./scripts/revalidation/native_init_flash.py \
-  stage3/boot_linux_v66.img \
-  --expect-version "A90 Linux init v66" \
+  stage3/boot_linux_v68.img \
+  --expect-version "A90 Linux init 0.7.5 (v68)" \
   --bridge-timeout 240 \
   --recovery-timeout 180
 ```

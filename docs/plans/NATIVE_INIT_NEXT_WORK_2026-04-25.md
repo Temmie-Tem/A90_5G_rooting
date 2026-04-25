@@ -1,6 +1,6 @@
 # Native Init Next Work List (2026-04-25)
 
-이 문서는 `A90 Linux init v65` 기준 이후 작업을 정리한 실행 목록이다.
+이 문서는 `A90 Linux init 0.7.4 (v67)` 기준 이후 작업을 정리한 실행 목록이다.
 
 현재 단계는 넓은 의미의 리버싱도 포함하지만, 중심은 더 이상 Android 전체를
 분해하는 것이 아니다. Stock Android kernel과 Samsung vendor driver 위에서
@@ -126,15 +126,20 @@ Samsung bootloader
 - 계층형 앱 메뉴 + CPU stress screen app — v63 완료
 - TEST 부팅 화면을 custom boot splash로 교체 — v64 완료
 - boot splash 잘림 방지 safe layout — v65 완료
+- semantic version + ABOUT/changelog/credits app — v66 완료
+- compact ABOUT typography + version별 changelog detail — v67 완료
 - static dropbear SSH 또는 custom TCP shell
 
 ---
 
 ## 현재 기준점
 
-- 최신 확인 버전: `A90 Linux init v65`
-- 최신 소스: `stage3/linux_init/init_v65.c`
-- 최신 boot image: `stage3/boot_linux_v65.img`
+- 최신 확인 버전: `A90 Linux init 0.7.4 (v67)`
+- 공식 버전: `0.7.4`
+- build tag: `v67`
+- creator: `made by temmie0214`
+- 최신 소스: `stage3/linux_init/init_v67.c`
+- 최신 boot image: `stage3/boot_linux_v67.img`
 - known-good fallback: `stage3/boot_linux_v48.img`
 - 주 제어 채널: USB CDC ACM serial (`/dev/ttyGS0` ↔ `/dev/ttyACM0`)
 - host bridge: `scripts/revalidation/serial_tcp_bridge.py --port 54321`
@@ -163,6 +168,7 @@ Samsung bootloader
 - app menu 상태: APPS/MONITORING/TOOLS/LOGS/NETWORK/POWER 계층 메뉴와 CPU stress 시간 선택 확인
 - boot splash 상태: `A90 NATIVE INIT` custom splash와 `display-splash` timeline 기록 확인
 - splash layout 상태: v65에서 긴 문구/footer 잘림 방지 safe layout 적용
+- about app 상태: `APPS / ABOUT`에 version, changelog 목록/상세, credits 추가
 - menu gate 상태: 메뉴 표시 중 위험 명령 `[busy]` 차단, 관찰 명령 허용
 - ADB 상태: 보류
 
@@ -626,7 +632,7 @@ Samsung bootloader
 
 현재:
 
-- v65 safe-layout custom boot splash 약 2초
+- v67 custom boot splash 약 2초
 - HUD/menu 자동 전환
 
 추가 후보:

@@ -14,9 +14,12 @@ Android userspace 대신 직접 만든 static `/init`를 실행하고,
 - build: `A908NKSU5EWA3`
 - kernel: Samsung stock Android kernel `Linux 4.14.190`
 - recovery: TWRP 사용 가능
-- latest verified native init: `A90 Linux init v65`
-- latest source: `stage3/linux_init/init_v65.c`
-- latest boot image: `stage3/boot_linux_v65.img`
+- latest verified native init: `A90 Linux init 0.7.4 (v67)`
+- official version: `0.7.4`
+- build tag: `v67`
+- creator: `made by temmie0214`
+- latest source: `stage3/linux_init/init_v67.c`
+- latest boot image: `stage3/boot_linux_v67.img`
 - known-good fallback: `stage3/boot_linux_v48.img`
 - control channel: USB CDC ACM serial (`/dev/ttyGS0` ↔ `/dev/ttyACM0`)
 - host bridge: `scripts/revalidation/serial_tcp_bridge.py --port 54321`
@@ -45,6 +48,7 @@ Android userspace 대신 직접 만든 static `/init`를 실행하고,
 - app menu: APPS/MONITORING/TOOLS/LOGS/NETWORK/POWER 계층 메뉴와 CPU stress 시간 선택 확인
 - boot splash: TEST 패턴 대신 `A90 NATIVE INIT` custom splash 표시 후 HUD 전환 확인
 - splash layout: v65에서 긴 문구/footer 잘림 방지를 위해 안전 여백과 자동 축소 적용
+- about app: `APPS / ABOUT`에서 version, changelog 목록/상세, credits 표시
 - menu gate: 메뉴 표시 중 위험 명령 `[busy]` 차단, 관찰 명령 허용
 - ADB: 보류. 현재 기준 제어 채널은 serial bridge
 
@@ -111,6 +115,8 @@ Samsung bootloader
 24. 계층형 앱 메뉴 + CPU stress screen app — v63 완료
 25. TEST 부팅 화면을 custom boot splash로 교체 — v64 완료
 26. boot splash 잘림 방지 safe layout — v65 완료
+27. semantic version + ABOUT/changelog/credits app — v66 완료
+28. compact ABOUT typography + per-version changelog detail — v67 완료
 
 ## Repository Layout
 
@@ -136,6 +142,8 @@ Samsung bootloader
 - `docs/README.md`
 - `docs/overview/PROJECT_STATUS.md`
 - `docs/overview/PROGRESS_LOG.md`
+- `docs/overview/VERSIONING.md`
+- `CHANGELOG.md`
 - `docs/operations/NATIVE_INIT_FLASH_AND_BRIDGE_GUIDE.md`
 - `docs/operations/CLAUDE_NATIVE_INIT_RUNBOOK.md`
 - `docs/plans/NATIVE_INIT_NEXT_WORK_2026-04-25.md`
@@ -153,6 +161,8 @@ Samsung bootloader
 - `docs/reports/NATIVE_INIT_V63_APP_MENU_2026-04-26.md`
 - `docs/reports/NATIVE_INIT_V64_BOOT_SPLASH_2026-04-26.md`
 - `docs/reports/NATIVE_INIT_V65_SPLASH_SAFE_LAYOUT_2026-04-26.md`
+- `docs/reports/NATIVE_INIT_V66_ABOUT_VERSIONING_2026-04-26.md`
+- `docs/reports/NATIVE_INIT_V67_CHANGELOG_DETAILS_2026-04-26.md`
 
 `docs/plans/NATIVE_LINUX_RECHALLENGE_PLAN.md`와 `docs/plans/REVALIDATION_PLAN.md`는
 진입점 확보 이전의 부트체인 재검증 기록으로 보존한다.
