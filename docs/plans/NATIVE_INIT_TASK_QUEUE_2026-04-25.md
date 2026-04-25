@@ -400,6 +400,43 @@
 
 - `docs/reports/NATIVE_INIT_V57_TCPCTL_HOST_WRAPPER_2026-04-26.md`
 
+### V58. TCP Control Soak — 완료
+
+목표:
+
+- USB NCM + `a90_tcpctl` 조합이 짧은 smoke를 넘어 일정 시간 반복 운용 가능한지 확인한다.
+- serial bridge는 launch/rescue 채널로 유지하고, 실제 명령 왕복은 TCP control로 반복한다.
+
+구현:
+
+- `scripts/revalidation/tcpctl_host.py`
+  - `soak`
+  - 기본 300초, 10초 간격
+  - TCP `ping` 매 사이클
+  - TCP `status`와 `run /cache/bin/toybox uptime` 매 6사이클
+  - host NCM ping 매 사이클
+  - 종료 시 TCP `shutdown`, serial `[done] run`, bridge `version`, final NCM ping 검증
+
+검증:
+
+- Python syntax/help — PASS
+- short soak 20초/4사이클 — PASS
+- main soak 300초/30사이클 — PASS
+- TCP ping 30/30 — PASS
+- TCP status 5/5 — PASS
+- TCP run uptime 5/5 — PASS
+- host ping 30/30 — PASS
+- `tcpctl: served=42 stop=1`, serial `[done] run (300509ms)` — PASS
+- final NCM ping 3/3, 0% loss — PASS
+
+남은 범위:
+
+- 물리 USB unplug/replug 또는 UDC reset 이후 reconnect soak는 별도 항목으로 남긴다.
+
+산출:
+
+- `docs/reports/NATIVE_INIT_V58_TCPCTL_SOAK_2026-04-26.md`
+
 ## 보류 큐
 
 - ADB 안정화 재검토
@@ -409,8 +446,8 @@
 
 ## 지금 바로 진행할 항목
 
-1. 5~10분 NCM + tcpctl 유지와 reconnect 안정성 확인
-2. unsolicited `AT` serial noise 필터링 또는 무시 정책 구현
-3. boot-time NCM/tcpctl service 정책 결정
+1. unsolicited `AT` serial noise 필터링 또는 무시 정책 구현
+2. boot-time NCM/tcpctl service 정책 결정
+3. USB 물리 재연결/UDC reset 이후 NCM/tcpctl 복구 확인
 4. Wi-Fi 드라이버/펌웨어 read-only 인벤토리 트랙 분리
 5. `userdata`/`mmcblk0p1` 장기 저장소 후보 의사결정

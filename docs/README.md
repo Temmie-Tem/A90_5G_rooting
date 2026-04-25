@@ -1,6 +1,6 @@
 # Samsung Galaxy A90 5G - 현재 문서 인덱스
 
-이 문서 트리는 `2026-04-25` 기준으로 다시 정렬했습니다.
+이 문서 트리는 `2026-04-26` 기준으로 다시 정렬했습니다.
 
 초기 `native Linux rechallenge`의 핵심 진입점 확보 단계는 통과했고,
 현재 문서의 중심은 **stock Android kernel 위에서 custom static `/init`를 실행해
@@ -37,6 +37,9 @@
 - userland: `toybox 0.8.13` static ARM64 build와 `/cache/bin/toybox` 실기 실행 확인
 - USB reattach: v48에서 ACM rebind 후 serial console 재연결 확인
 - USB NCM: persistent composite, device `ncm0`, IPv4 ping, IPv6 link-local ping, host→device netcat 확인
+- NCM ops: host interface 자동 탐지, ping, static TCP nettest 양방향 payload 검증 완료
+- TCP control: NCM 위에서 `a90_tcpctl` ping/status/run/shutdown 검증 완료
+- TCP wrapper/soak: `tcpctl_host.py smoke`와 5분/30사이클 `soak` 검증 완료
 - ADB: 보류
 
 ## 문서 읽는 순서
@@ -83,6 +86,7 @@
 - `reports/NATIVE_INIT_V55_NCM_OPS_2026-04-25.md` – NCM host setup helper와 양방향 TCP nettest helper 검증
 - `reports/NATIVE_INIT_V56_TCPCTL_2026-04-26.md` – NCM 위의 작은 TCP command service helper 검증
 - `reports/NATIVE_INIT_V57_TCPCTL_HOST_WRAPPER_2026-04-26.md` – TCP control host wrapper 검증
+- `reports/NATIVE_INIT_V58_TCPCTL_SOAK_2026-04-26.md` – NCM + TCP control 5분 soak 검증
 - `reports/NATIVE_INIT_V53_MENU_BUSY_2026-04-25.md` – menu-active serial busy gate와 flash auto-hide 검증
 - `reports/NATIVE_INIT_V48_USB_REATTACH_NCM_2026-04-25.md` – USB reattach와 NCM probe 실기 검증
 - `reports/NATIVE_INIT_USERLAND_CANDIDATES_2026-04-25.md` – static userland/BusyBox/toybox 후보 보고서
@@ -134,6 +138,7 @@
 16. NCM host setup helper + TCP nettest helper — 완료
 17. NCM TCP control helper — 완료
 18. TCP control host wrapper — 완료
+19. NCM + TCP control 5분 soak — 완료
 
 패키지 최소화와 Android userspace 복구는 보조 실험으로만 다루고,
 메인 목표는 **Android kernel 위에 반복 운용 가능한 native init 기반 최소 Linux 콘솔을 만드는 것**입니다.

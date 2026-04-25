@@ -21,6 +21,9 @@ DEFAULT_TRANSFER_PORT = 18083
 DEFAULT_DEVICE_BINARY = "/cache/bin/a90_tcpctl"
 DEFAULT_TOYBOX = "/cache/bin/toybox"
 DEFAULT_LOCAL_BINARY = ROOT_DIR / "external_tools/userland/bin/a90_tcpctl-aarch64-static"
+DEFAULT_IDLE_TIMEOUT = 60
+DEFAULT_MAX_CLIENTS = 8
+DEFAULT_SOAK_MAX_CLIENTS = 0
 
 
 def log(message: str) -> None:
@@ -162,6 +165,22 @@ def tcpctl_expect_ok(args: argparse.Namespace, command: str) -> str:
     output = tcpctl_request(args, command)
     if "\nOK" not in output and not output.rstrip().endswith("OK"):
         raise RuntimeError(f"tcpctl command did not end with OK: {command}\n{output}")
+    return output
+
+
+def host_ping(args: argparse.Namespace, count: int) -> str:
+    result = subprocess.run(
+        ["ping", "-c", str(count), "-W", "2", args.device_ip],
+        check=False,
+        text=True,
+        capture_output=True,
+        timeout=max(5.0, count * 3.0),
+    )
+    output = result.stdout
+    if result.stderr:
+        output += result.stderr
+    if result.returncode != 0:
+        raise RuntimeError(f"ping failed rc={result.returncode}\n{output}")
     return output
 
 
@@ -354,17 +373,152 @@ def command_smoke(args: argparse.Namespace) -> int:
     print(bridge_output, end="" if bridge_output.endswith("\n") else "\n")
 
     print("--- ncm-ping ---")
-    result = subprocess.run(
-        ["ping", "-c", "3", "-W", "2", args.device_ip],
-        check=False,
-        text=True,
-        capture_output=True,
-    )
-    print(result.stdout, end="")
-    if result.stderr:
-        print(result.stderr, end="", file=sys.stderr)
-    if result.returncode != 0:
-        raise RuntimeError(f"ping failed rc={result.returncode}")
+    print(host_ping(args, 3), end="")
+
+    return 0
+
+
+def command_soak(args: argparse.Namespace) -> int:
+    if args.install_first:
+        command_install(args)
+
+    args.max_clients = args.soak_max_clients
+    if args.idle_timeout <= args.interval:
+        args.idle_timeout = int(args.interval + 30)
+        log(f"raised idle timeout for soak: {args.idle_timeout}s")
+
+    best_effort_hide_menu(args)
+    runner = BridgeRunThread(args, tcpctl_listen_command(args), echo=args.verbose)
+    runner.start()
+
+    print("--- ready ---")
+    try:
+        ready_output = wait_for_tcpctl(args, args.ready_timeout)
+    except Exception:
+        try:
+            tcpctl_request(args, "shutdown", timeout=2.0)
+        except Exception:
+            pass
+        runner.join(args.bridge_timeout)
+        raise
+    print(ready_output, end="" if ready_output.endswith("\n") else "\n")
+
+    start = time.monotonic()
+    next_tick = start
+    cycle = 0
+    tcp_pass = 0
+    status_pass = 0
+    run_pass = 0
+    ping_pass = 0
+    failures: list[str] = []
+
+    try:
+        while time.monotonic() - start < args.duration:
+            cycle += 1
+            elapsed = time.monotonic() - start
+            print(f"--- cycle {cycle} elapsed={elapsed:.1f}s ---", flush=True)
+
+            try:
+                tcpctl_expect_ok(args, "ping")
+                tcp_pass += 1
+                print("tcp ping: PASS", flush=True)
+            except Exception as exc:
+                failures.append(f"cycle {cycle} tcp ping: {exc}")
+                print(f"tcp ping: FAIL {exc}", flush=True)
+
+            if args.status_every > 0 and cycle % args.status_every == 0:
+                try:
+                    status_output = tcpctl_expect_ok(args, "status")
+                    status_pass += 1
+                    summary = " ".join(
+                        line for line in status_output.splitlines()
+                        if line.startswith(("uptime:", "load:", "mem:"))
+                    )
+                    print(f"status: PASS {summary}", flush=True)
+                except Exception as exc:
+                    failures.append(f"cycle {cycle} status: {exc}")
+                    print(f"status: FAIL {exc}", flush=True)
+
+            if args.run_every > 0 and cycle % args.run_every == 0:
+                try:
+                    tcpctl_expect_ok(args, f"run {args.toybox} uptime")
+                    run_pass += 1
+                    print("run uptime: PASS", flush=True)
+                except Exception as exc:
+                    failures.append(f"cycle {cycle} run uptime: {exc}")
+                    print(f"run uptime: FAIL {exc}", flush=True)
+
+            if args.ping_every > 0 and cycle % args.ping_every == 0:
+                try:
+                    host_ping(args, args.ping_count)
+                    ping_pass += 1
+                    print(f"host ping x{args.ping_count}: PASS", flush=True)
+                except Exception as exc:
+                    failures.append(f"cycle {cycle} host ping: {exc}")
+                    print(f"host ping: FAIL {exc}", flush=True)
+
+            if failures and args.stop_on_failure:
+                break
+
+            next_tick += args.interval
+            sleep_sec = next_tick - time.monotonic()
+            if sleep_sec > 0:
+                time.sleep(sleep_sec)
+    finally:
+        print("--- shutdown ---")
+        try:
+            shutdown_output = tcpctl_expect_ok(args, "shutdown")
+            print(shutdown_output, end="" if shutdown_output.endswith("\n") else "\n")
+        except Exception as exc:
+            failures.append(f"shutdown: {exc}")
+            print(f"shutdown: FAIL {exc}")
+
+        runner.join(args.bridge_timeout)
+        if runner.is_alive():
+            failures.append("serial run did not finish after shutdown")
+        elif runner.error is not None:
+            failures.append(f"bridge run failed: {runner.error}")
+        elif "[done] run" not in runner.text():
+            failures.append("serial run did not report [done] run")
+
+    print("--- serial-run ---")
+    print(runner.text(), end="" if runner.text().endswith("\n") else "\n")
+
+    print("--- bridge-version ---")
+    try:
+        bridge_output = bridge_command(
+            args.bridge_host,
+            args.bridge_port,
+            "version",
+            args.bridge_timeout,
+            markers=(b"[done] version", b"[err] version"),
+        )
+        print(bridge_output, end="" if bridge_output.endswith("\n") else "\n")
+    except Exception as exc:
+        failures.append(f"bridge version: {exc}")
+        print(f"bridge version: FAIL {exc}")
+
+    print("--- final-ncm-ping ---")
+    try:
+        print(host_ping(args, 3), end="")
+    except Exception as exc:
+        failures.append(f"final ncm ping: {exc}")
+        print(f"final ncm ping: FAIL {exc}")
+
+    elapsed = time.monotonic() - start
+    print("--- summary ---")
+    print(f"duration: {elapsed:.1f}s")
+    print(f"cycles: {cycle}")
+    print(f"tcp ping pass: {tcp_pass}")
+    print(f"status pass: {status_pass}")
+    print(f"run pass: {run_pass}")
+    print(f"host ping pass: {ping_pass}")
+    print(f"failures: {len(failures)}")
+
+    if failures:
+        for failure in failures:
+            print(f"- {failure}")
+        raise RuntimeError("soak validation failed")
 
     return 0
 
@@ -376,8 +530,8 @@ def add_common_args(parser: argparse.ArgumentParser) -> None:
     parser.add_argument("--tcp-port", type=int, default=DEFAULT_TCP_PORT)
     parser.add_argument("--device-binary", default=DEFAULT_DEVICE_BINARY)
     parser.add_argument("--toybox", default=DEFAULT_TOYBOX)
-    parser.add_argument("--idle-timeout", type=int, default=60)
-    parser.add_argument("--max-clients", type=int, default=8)
+    parser.add_argument("--idle-timeout", type=int, default=DEFAULT_IDLE_TIMEOUT)
+    parser.add_argument("--max-clients", type=int, default=DEFAULT_MAX_CLIENTS)
     parser.add_argument("--connect-timeout", type=float, default=5.0)
     parser.add_argument("--tcp-timeout", type=float, default=10.0)
     parser.add_argument("--bridge-timeout", type=float, default=30.0)
@@ -424,6 +578,24 @@ def parse_args() -> argparse.Namespace:
     smoke.add_argument("--ready-timeout", type=float, default=15.0)
     smoke.add_argument("--verbose", action="store_true")
     smoke.set_defaults(func=command_smoke)
+
+    soak = subparsers.add_parser("soak", help="start tcpctl and run a timed NCM/TCP stability loop")
+    soak.add_argument("--install-first", action="store_true")
+    soak.add_argument("--local-binary", default=str(DEFAULT_LOCAL_BINARY))
+    soak.add_argument("--transfer-port", type=int, default=DEFAULT_TRANSFER_PORT)
+    soak.add_argument("--transfer-delay", type=float, default=2.0)
+    soak.add_argument("--transfer-timeout", type=float, default=90.0)
+    soak.add_argument("--ready-timeout", type=float, default=15.0)
+    soak.add_argument("--duration", type=float, default=300.0)
+    soak.add_argument("--interval", type=float, default=10.0)
+    soak.add_argument("--status-every", type=int, default=6)
+    soak.add_argument("--run-every", type=int, default=6)
+    soak.add_argument("--ping-every", type=int, default=1)
+    soak.add_argument("--ping-count", type=int, default=1)
+    soak.add_argument("--soak-max-clients", type=int, default=DEFAULT_SOAK_MAX_CLIENTS)
+    soak.add_argument("--stop-on-failure", action="store_true")
+    soak.add_argument("--verbose", action="store_true")
+    soak.set_defaults(func=command_soak)
 
     return parser.parse_args()
 

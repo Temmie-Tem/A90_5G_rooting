@@ -584,3 +584,31 @@
   - `BridgeRunThread`가 `[done] run`, `[err] run`, `[busy]`를 보면 종료하도록 수정
 - 상세 보고서:
   - `docs/reports/NATIVE_INIT_V57_TCPCTL_HOST_WRAPPER_2026-04-26.md`
+
+## v58: TCP control soak 검증 (2026-04-26)
+
+- 목적:
+  - USB NCM + `a90_tcpctl` 경로가 짧은 smoke를 넘어 반복 운용 가능한지 확인
+  - serial bridge는 launch/rescue 채널로 유지하고, 실질 명령은 TCP control로 반복
+- 추가:
+  - `scripts/revalidation/tcpctl_host.py`
+    - `soak`
+    - 기본 300초/10초 간격
+    - TCP `ping`, 주기적 `status`, 주기적 `run /cache/bin/toybox uptime`, host NCM ping
+- 실기 검증:
+  - `python3 -m py_compile scripts/revalidation/tcpctl_host.py` PASS
+  - `python3 scripts/revalidation/tcpctl_host.py soak --help` PASS
+  - short soak 20초/4사이클 PASS
+  - main soak 300초/30사이클 PASS
+  - TCP ping 30/30 PASS
+  - TCP status 5/5 PASS
+  - TCP run uptime 5/5 PASS
+  - host ping 30/30 PASS
+  - `tcpctl: served=42 stop=1`
+  - serial `[done] run (300509ms)`
+  - final NCM ping 3/3, 0% packet loss
+- 판단:
+  - 현재 NCM + TCP control은 짧은 개발 세션용 기본 서버형 제어망으로 충분히 안정적
+  - 물리 USB 재연결/UDC reset reconnect soak는 별도 항목으로 남김
+- 상세 보고서:
+  - `docs/reports/NATIVE_INIT_V58_TCPCTL_SOAK_2026-04-26.md`

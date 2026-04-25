@@ -55,9 +55,10 @@
   - 산출물은 gitignore된 `external_tools/userland/bin/a90_tcpctl-aarch64-static`
   - `/cache/bin/a90_tcpctl listen <port> <idle_timeout_sec> [max_clients]`로 NCM 위의 작은 명령/응답 채널을 검증
 - `tcpctl_host.py`
-  - host에서 `/cache/bin/a90_tcpctl`을 install/start/call/run/stop/smoke 형태로 다루는 wrapper
+  - host에서 `/cache/bin/a90_tcpctl`을 install/start/call/run/stop/smoke/soak 형태로 다루는 wrapper
   - serial bridge는 launch/rescue 채널로 유지하고, 명령은 NCM `192.168.7.2:2325`로 전달
   - `smoke`는 start → ping/version/status/run/shutdown → serial/NCM 상태 확인을 한 번에 수행
+  - `soak`은 기본 300초 동안 TCP ping/status/run과 host NCM ping을 반복해 안정성을 확인
 
 권장 순서:
 
@@ -155,6 +156,7 @@ python3 ./scripts/revalidation/tcpctl_host.py start
 python3 ./scripts/revalidation/tcpctl_host.py status
 python3 ./scripts/revalidation/tcpctl_host.py run /cache/bin/toybox uname -a
 python3 ./scripts/revalidation/tcpctl_host.py stop
+python3 ./scripts/revalidation/tcpctl_host.py soak
 ```
 
 참고:
