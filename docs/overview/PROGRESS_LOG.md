@@ -494,3 +494,34 @@
   - shell noise filter 또는 ignore 정책 후보로 기록
 - 상세 보고서:
   - `docs/reports/NATIVE_INIT_V54_NCM_LINK_2026-04-25.md`
+
+## v55: NCM 운영 helper + TCP nettest helper 검증 (2026-04-25)
+
+- 목적:
+  - USB NCM을 수동 실험이 아니라 반복 운용 가능한 기본 네트워크 경로로 고정
+  - host interface 이름을 `ncm.host_addr` 기반으로 자동 탐지
+  - toybox `netcat` stdin 경쟁을 피하고 양방향 TCP payload 검증을 전용 static helper로 분리
+- 추가:
+  - `scripts/revalidation/ncm_host_setup.py`
+    - `setup|status|ping|off`
+    - `run /cache/bin/a90_usbnet ncm/status/off`
+    - device `ncm0` IP 설정
+    - host `192.168.7.1/24` 설정과 ping 검증
+    - v53 menu busy state일 때 `hide` 후 재시도
+  - `stage3/linux_init/a90_nettest.c`
+    - `listen <port> <timeout_sec> <expect>`
+    - `send <host_ipv4> <port> <payload>`
+  - `scripts/revalidation/build_nettest_helper.sh`
+    - static ARM64 `a90_nettest` 빌드
+- 검증:
+  - Python syntax check PASS
+  - static ARM64 build PASS
+  - `ncm_host_setup.py status` host interface 자동 탐지 PASS
+  - `ncm_host_setup.py ping`: 3/3 PASS, 0% packet loss
+  - `/cache/bin/a90_nettest` 배치 후 SHA256 일치
+  - host→device TCP payload PASS
+  - device→host TCP payload PASS
+  - 30초 ping stability: 30/30 PASS, 0% packet loss
+  - ACM serial bridge는 NCM traffic 이후 `version` 응답 유지
+- 상세 보고서:
+  - `docs/reports/NATIVE_INIT_V55_NCM_OPS_2026-04-25.md`

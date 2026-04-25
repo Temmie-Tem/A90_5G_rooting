@@ -33,6 +33,7 @@ Android userspace 대신 직접 만든 static `/init`를 실행하고,
 - userland: `toybox 0.8.13` static ARM64 build와 `/cache/bin/toybox` 실기 실행 확인
 - USB reattach: v48에서 ACM rebind 후 serial console 재연결 확인
 - USB NCM: persistent composite, device `ncm0`, IPv4 ping, IPv6 link-local ping, host→device netcat 확인
+- NCM ops: host interface 자동 탐지, ping, static TCP nettest 양방향 payload 검증 완료
 - menu gate: 메뉴 표시 중 위험 명령 `[busy]` 차단, 관찰 명령 허용
 - ADB: 보류. 현재 기준 제어 채널은 serial bridge
 
@@ -87,6 +88,7 @@ Samsung bootloader
 12. 상태 HUD/menu TUI 개선 — v52 실기 표시 확인
 13. menu-active serial busy gate + flash auto-hide — v53 완료
 14. USB NCM persistent link + IPv4/IPv6 ping + host→device netcat 검증 — 완료
+15. NCM host setup helper + TCP nettest helper — 완료
 
 ## Repository Layout
 
@@ -117,6 +119,7 @@ Samsung bootloader
 - `docs/plans/NATIVE_INIT_NEXT_WORK_2026-04-25.md`
 - `docs/plans/NATIVE_INIT_TASK_QUEUE_2026-04-25.md`
 - `docs/reports/NATIVE_INIT_V54_NCM_LINK_2026-04-25.md`
+- `docs/reports/NATIVE_INIT_V55_NCM_OPS_2026-04-25.md`
 
 `docs/plans/NATIVE_LINUX_RECHALLENGE_PLAN.md`와 `docs/plans/REVALIDATION_PLAN.md`는
 진입점 확보 이전의 부트체인 재검증 기록으로 보존한다.

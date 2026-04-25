@@ -137,7 +137,9 @@
 - userland 상태: `toybox 0.8.13` static ARM64 host 빌드와 `/cache/bin/toybox` 실기 실행 확인
 - USB reattach 상태: `usbacmreset`와 외부 helper `off` 후 serial bridge 복구 확인
 - USB NCM 상태: host `cdc_ncm` composite, device `ncm0`, IPv4 ping, IPv6 link-local ping, host→device netcat 확인
+- NCM 운영 helper 상태: host interface 자동 탐지, ping, static TCP nettest 양방향 payload 검증 완료
 - 상세 최신 상태: `docs/reports/NATIVE_INIT_V53_MENU_BUSY_2026-04-25.md`
+- v55 NCM ops 기록: `docs/reports/NATIVE_INIT_V55_NCM_OPS_2026-04-25.md`
 - v54 NCM link 기록: `docs/reports/NATIVE_INIT_V54_NCM_LINK_2026-04-25.md`
 - v48 USB reattach/NCM 기록: `docs/reports/NATIVE_INIT_V48_USB_REATTACH_NCM_2026-04-25.md`
 - v47 screen menu 기록: `docs/reports/NATIVE_INIT_V47_SCREEN_MENU_2026-04-25.md`

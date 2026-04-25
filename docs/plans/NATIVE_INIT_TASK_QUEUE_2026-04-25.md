@@ -302,6 +302,43 @@
 
 - `docs/reports/NATIVE_INIT_V54_NCM_LINK_2026-04-25.md`
 
+### V55. NCM Operations Helper — 완료
+
+목표:
+
+- NCM을 매번 수동 설정하지 않고 host helper로 재현 가능하게 켠다.
+- device `ncm0`와 host `enx...`를 `192.168.7.2/24` ↔ `192.168.7.1/24`로 고정한다.
+- toybox `netcat`의 serial stdin 충돌을 피하기 위해 전용 TCP helper로 양방향 payload를 검증한다.
+
+구현:
+
+- `scripts/revalidation/ncm_host_setup.py`
+  - `setup|status|ping|off`
+  - bridge `127.0.0.1:54321` 기준으로 `a90_usbnet ncm/status/off` 실행
+  - `ncm.host_addr`를 파싱해 `/sys/class/net/*/address`에서 host interface 자동 탐지
+  - host `sudo ip addr replace`, `ip link set up`, `ping` 검증 수행
+- `stage3/linux_init/a90_nettest.c`
+  - `listen <port> <timeout_sec> <expect>`
+  - `send <host_ipv4> <port> <payload>`
+- `scripts/revalidation/build_nettest_helper.sh`
+  - static ARM64 `a90_nettest` 빌드
+
+검증:
+
+- local Python syntax check — PASS
+- static ARM64 `a90_nettest` build — PASS
+- `ncm_host_setup.py status` host interface 자동 탐지 — PASS
+- `ncm_host_setup.py ping` 3/3, 0% loss — PASS
+- static `a90_nettest` `/cache/bin` 배치와 SHA256 일치 — PASS
+- host→device TCP payload — PASS
+- device→host TCP payload — PASS
+- 30초 ping stability 30/30, 0% loss — PASS
+- rollback `off`는 작업 링크 유지를 위해 이번 pass에서는 실행하지 않음
+
+산출:
+
+- `docs/reports/NATIVE_INIT_V55_NCM_OPS_2026-04-25.md`
+
 ## 보류 큐
 
 - ADB 안정화 재검토
@@ -311,8 +348,8 @@
 
 ## 지금 바로 진행할 항목
 
-1. host NCM interface 자동 탐지/IP 설정 helper 작성
-2. toybox `netcat` 양방향/장시간 통신 확인
+1. 5~10분 NCM 유지와 bridge 재연결 안정성 확인
+2. `ncm_host_setup.py off` rollback 검증 여부 결정
 3. unsolicited `AT` serial noise 필터링 또는 무시 정책 구현
 4. NCM 기반 persistent TCP control service 후보 설계
-5. `userdata`/`mmcblk0p1` 장기 저장소 후보 의사결정
+5. Wi-Fi 드라이버/펌웨어 read-only 인벤토리 트랙 분리

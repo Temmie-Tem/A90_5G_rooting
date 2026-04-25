@@ -80,6 +80,7 @@
 ### 4. Current Native Init Reports
 
 - `reports/NATIVE_INIT_V54_NCM_LINK_2026-04-25.md` – USB NCM persistent link, IPv4/IPv6 ping, host→device netcat 검증
+- `reports/NATIVE_INIT_V55_NCM_OPS_2026-04-25.md` – NCM host setup helper와 양방향 TCP nettest helper 검증
 - `reports/NATIVE_INIT_V53_MENU_BUSY_2026-04-25.md` – menu-active serial busy gate와 flash auto-hide 검증
 - `reports/NATIVE_INIT_V48_USB_REATTACH_NCM_2026-04-25.md` – USB reattach와 NCM probe 실기 검증
 - `reports/NATIVE_INIT_USERLAND_CANDIDATES_2026-04-25.md` – static userland/BusyBox/toybox 후보 보고서
@@ -128,6 +129,7 @@
 13. 상태 HUD/menu TUI 개선 — v52 실기 표시 확인
 14. menu-active serial busy gate + flash auto-hide — v53 완료
 15. USB NCM persistent link + IPv4/IPv6 ping + host→device netcat 검증 — 완료
+16. NCM host setup helper + TCP nettest helper — 완료
 
 패키지 최소화와 Android userspace 복구는 보조 실험으로만 다루고,
 메인 목표는 **Android kernel 위에 반복 운용 가능한 native init 기반 최소 Linux 콘솔을 만드는 것**입니다.

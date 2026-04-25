@@ -42,6 +42,14 @@
   - `stage3/linux_init/a90_usbnet.c`를 static ARM64 helper로 빌드
   - 산출물은 gitignore된 `external_tools/userland/bin/a90_usbnet-aarch64-static`
   - TWRP ADB로 `/cache/bin/a90_usbnet`에 배치해 USB ACM/NCM/RNDIS probe에 사용
+- `ncm_host_setup.py`
+  - native init bridge를 통해 `/cache/bin/a90_usbnet ncm`을 실행하고 device `ncm0` IP를 설정
+  - `ncm.host_addr`를 기준으로 host `enx...` 인터페이스를 자동 탐지
+  - host `192.168.7.1/24`, device `192.168.7.2/24` ping 검증과 `off` rollback 제공
+- `build_nettest_helper.sh`
+  - `stage3/linux_init/a90_nettest.c`를 static ARM64 TCP 검증 helper로 빌드
+  - 산출물은 gitignore된 `external_tools/userland/bin/a90_nettest-aarch64-static`
+  - `/cache/bin/a90_nettest listen|send`로 USB NCM 양방향 TCP payload를 검증
 
 권장 순서:
 
@@ -109,6 +117,20 @@ USB net helper 빌드 예:
 
 ```bash
 ./scripts/revalidation/build_usbnet_helper.sh
+```
+
+NCM host 설정 예:
+
+```bash
+python3 ./scripts/revalidation/ncm_host_setup.py setup
+python3 ./scripts/revalidation/ncm_host_setup.py status
+python3 ./scripts/revalidation/ncm_host_setup.py off
+```
+
+TCP nettest helper 빌드 예:
+
+```bash
+./scripts/revalidation/build_nettest_helper.sh
 ```
 
 참고:
