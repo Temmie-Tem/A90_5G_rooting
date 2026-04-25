@@ -191,14 +191,19 @@ def run_ping(args: argparse.Namespace) -> None:
 
 
 def command_setup(args: argparse.Namespace) -> int:
-    log("enabling persistent NCM on device")
-    try:
-        output = device_command(args, f"run {args.device_helper} ncm")
-        print(output, end="" if output.endswith("\n") else "\n")
-    except RuntimeError as exc:
-        log(f"NCM enable output was not conclusive; checking status next: {exc}")
-
+    log("checking device NCM state")
     status = get_usbnet_status(args)
+    if status.ifname and status.host_addr:
+        log(f"device NCM already active: {status.ifname}")
+    else:
+        log("enabling persistent NCM on device")
+        try:
+            output = device_command(args, f"run {args.device_helper} ncm")
+            print(output, end="" if output.endswith("\n") else "\n")
+        except RuntimeError as exc:
+            log(f"NCM enable output was not conclusive; checking status next: {exc}")
+        status = get_usbnet_status(args)
+
     if not status.ifname:
         raise RuntimeError("device NCM ifname was not reported")
     if not status.host_addr:

@@ -44,6 +44,7 @@
   - TWRP ADB로 `/cache/bin/a90_usbnet`에 배치해 USB ACM/NCM/RNDIS probe에 사용
 - `ncm_host_setup.py`
   - native init bridge를 통해 `/cache/bin/a90_usbnet ncm`을 실행하고 device `ncm0` IP를 설정
+  - v60 boot netservice처럼 NCM이 이미 켜져 있으면 재실행하지 않고 기존 `ncm0`/host MAC을 사용
   - `ncm.host_addr`를 기준으로 host `enx...` 인터페이스를 자동 탐지
   - host `192.168.7.1/24`, device `192.168.7.2/24` ping 검증과 `off` rollback 제공
 - `build_nettest_helper.sh`

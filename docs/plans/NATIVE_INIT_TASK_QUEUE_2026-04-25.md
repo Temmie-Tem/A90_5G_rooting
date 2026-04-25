@@ -1,13 +1,13 @@
 # Native Init Task Queue (2026-04-25)
 
-이 문서는 `A90 Linux init v59` 이후 바로 실행할 작업 큐다.
+이 문서는 `A90 Linux init v60` 이후 바로 실행할 작업 큐다.
 큰 방향은 “보이는 부팅 → 복구 가능한 로그 → 단독 조작 → 작은 userland → USB networking” 순서다.
 
 ## 현재 고정 기준점
 
-- latest verified native init: `A90 Linux init v59`
-- latest source: `stage3/linux_init/init_v59.c`
-- latest boot image: `stage3/boot_linux_v59.img`
+- latest verified native init: `A90 Linux init v60`
+- latest source: `stage3/linux_init/init_v60.c`
+- latest boot image: `stage3/boot_linux_v60.img`
 - known-good fallback: `stage3/boot_linux_v48.img`
 - control channel: USB ACM serial bridge
 - log: `/cache/native-init.log`
@@ -466,6 +466,47 @@
 
 - `docs/reports/NATIVE_INIT_V59_AT_NOISE_2026-04-26.md`
 
+### V60. Opt-in Boot Netservice — 완료
+
+목표:
+
+- NCM/tcpctl을 부팅마다 수동 시작하지 않고 필요할 때만 자동 시작하는 service 정책으로 정리한다.
+- default OFF를 유지해 serial bridge와 recovery 복구 경로를 보존한다.
+- `/cache/native-init-netservice` flag가 있을 때만 boot-time NCM/tcpctl을 켠다.
+
+구현:
+
+- `stage3/linux_init/init_v60.c`
+  - `INIT_VERSION`을 `v60`으로 갱신
+  - `netservice [status|start|stop|enable|disable]` 추가
+  - `enable`은 flag 생성 후 NCM/tcpctl 시작
+  - `disable`은 flag 제거, tracked tcpctl 종료, `a90_usbnet off`, console reattach 수행
+  - boot path에서 flag가 있으면 `/cache/bin/a90_usbnet ncm`, `ifconfig ncm0 192.168.7.2/24`, `a90_tcpctl listen 2325 3600 0` 실행
+  - `/cache/native-init-netservice.log`에 helper 출력과 실패 원인 기록
+- `scripts/revalidation/ncm_host_setup.py`
+  - 이미 NCM이 active면 `a90_usbnet ncm` 재실행 없이 host/device IP와 ping만 검증
+
+검증:
+
+- static ARM64 build — PASS
+- `stage3/boot_linux_v60.img` marker 확인 — PASS
+- native → TWRP → boot partition flash → v60 boot — PASS
+- default OFF boot: `enabled=no`, `ncm0=absent`, `tcpctl=stopped` — PASS
+- enabled flag boot auto-start: `enabled=yes`, `ncm0=present`, `tcpctl=running pid=544` — PASS
+- host `enx0a2eb7a94b2f`에 `192.168.7.1/24` 설정 후 `192.168.7.2` ping 3/3 — PASS
+- `tcpctl_host.py ping`, `status`, `run /cache/bin/toybox uptime` — PASS
+- `netservice disable` rollback 후 `enabled=no`, `ncm0=absent`, `tcpctl=stopped` — PASS
+
+산출:
+
+- `stage3/linux_init/init_v60`
+  - SHA256 `4a274b02f793be79872c4ff164dcead332b33e4f7cf281c35f1d59625774dd09`
+- `stage3/ramdisk_v60.cpio`
+  - SHA256 `f8b153804c561e26c784c713668a6e8e3dfb0cb10b83a9a72c659f1d8c46285c`
+- `stage3/boot_linux_v60.img`
+  - SHA256 `c57fbf4645790826fbd5e804ff605c25b95cffb4c5eb0ff9076202581e6e828a`
+- `docs/reports/NATIVE_INIT_V60_NETSERVICE_2026-04-26.md`
+
 ## 보류 큐
 
 - ADB 안정화 재검토
@@ -475,8 +516,8 @@
 
 ## 지금 바로 진행할 항목
 
-1. boot-time NCM/tcpctl service 정책 결정
-2. USB 물리 재연결/UDC reset 이후 NCM/tcpctl 복구 확인
-3. Wi-Fi 드라이버/펌웨어 read-only 인벤토리 트랙 분리
-4. `userdata`/`mmcblk0p1` 장기 저장소 후보 의사결정
-5. TCP control 인증/제한 정책 검토
+1. USB 물리 재연결/UDC reset 이후 NCM/tcpctl 복구 확인
+2. Wi-Fi 드라이버/펌웨어 read-only 인벤토리 트랙 분리
+3. `userdata`/`mmcblk0p1` 장기 저장소 후보 의사결정
+4. TCP control 인증/제한 정책 검토
+5. 장기 서버 모드 후보(dropbear/custom TCP shell) 재검토

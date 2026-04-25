@@ -3,7 +3,7 @@
 Date: `2026-04-26`
 
 아래 블록을 Claude나 다른 에이전트에게 그대로 붙여 넣는다.
-목표는 **먼저 상태를 확인하고, known-good v48 복구 경로와 latest v59 작업 경로를 혼동하지 않게 하는 것**이다.
+목표는 **먼저 상태를 확인하고, known-good v48 복구 경로와 latest v60 작업 경로를 혼동하지 않게 하는 것**이다.
 
 ```text
 너는 /home/temmie/dev/A90_5G_rooting 저장소에서 작업한다.
@@ -16,11 +16,11 @@ Date: `2026-04-26`
 
 현재 기준:
 
-- latest verified native init: A90 Linux init v59
-- latest source: stage3/linux_init/init_v59.c
-- latest boot image: stage3/boot_linux_v59.img
+- latest verified native init: A90 Linux init v60
+- latest source: stage3/linux_init/init_v60.c
+- latest boot image: stage3/boot_linux_v60.img
 - latest boot image SHA256:
-  9c4eb1b4b8024a481e71a5bb584c48fe11f1d454983a6e541e49213818120e07
+  c57fbf4645790826fbd5e804ff605c25b95cffb4c5eb0ff9076202581e6e828a
 - known-good fallback native init: A90 Linux init v48
 - known-good fallback source: stage3/linux_init/init_v48.c
 - known-good fallback boot image: stage3/boot_linux_v48.img
@@ -39,6 +39,8 @@ Date: `2026-04-26`
 - bridge 응답이 없다는 이유만으로 곧바로 다시 flash하지 마라.
 - v53+ 화면 메뉴가 떠 있을 때 `[busy]`가 나오면 정상 보호 동작이다. 먼저 `hide`를 보내라.
 - v59에서는 host modem probe의 `AT`/`ATE0`/`AT+...` line을 native init shell이 무시한다.
+- v60 `netservice`는 기본 OFF다. NCM/tcpctl boot auto-start가 필요할 때만 `netservice enable`을 쓰고,
+  실험 후에는 `netservice disable`로 flag와 NCM/tcpctl을 내려라.
 
 v49 주의:
 
@@ -58,18 +60,18 @@ printf 'version\n' | nc -w 5 127.0.0.1 54321 || true
 
 판단:
 
-- bridge에서 A90 Linux init v59가 나오면 latest verified native init 상태다.
+- bridge에서 A90 Linux init v60이 나오면 latest verified native init 상태다.
 - bridge에서 A90 Linux init v48이 나오면 known-good fallback native init 상태다.
 - adb devices -l에서 recovery면 TWRP 상태다.
 - adb devices -l에서 device이고 /proc/1/exe가 /system/bin/init이면 Android 상태다.
 - 04e8:6861 + /dev/ttyACM0인데 bridge가 안 되면 사용자가 sudo bridge를 재시작해야 한다.
 
-latest v59 flash가 정말 필요할 때만 이 스크립트를 사용:
+latest v60 flash가 정말 필요할 때만 이 스크립트를 사용:
 
 python3 ./scripts/revalidation/native_init_flash.py \
-  stage3/boot_linux_v59.img \
+  stage3/boot_linux_v60.img \
   --from-native \
-  --expect-version "A90 Linux init v59" \
+  --expect-version "A90 Linux init v60" \
   --bridge-timeout 240 \
   --recovery-timeout 180
 

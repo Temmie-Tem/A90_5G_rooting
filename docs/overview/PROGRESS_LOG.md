@@ -645,3 +645,39 @@
   - `/cache/native-init.log`에 ignored AT probe 4건 기록 확인
 - 상세 보고서:
   - `docs/reports/NATIVE_INIT_V59_AT_NOISE_2026-04-26.md`
+
+## v60: opt-in boot-time NCM/tcpctl netservice 검증 (2026-04-26)
+
+- 목적:
+  - USB NCM과 `a90_tcpctl`을 수동 실험이 아니라 부팅 시 켤 수 있는 opt-in service로 정리
+  - default는 OFF로 유지해 ACM serial rescue 경로와 안전성을 보존
+  - `/cache/native-init-netservice` flag가 있을 때만 boot-time NCM/tcpctl을 자동 시작
+- 추가:
+  - `stage3/linux_init/init_v60.c`
+    - `INIT_VERSION "v60"`
+    - `netservice [status|start|stop|enable|disable]` 명령 추가
+    - `enable`은 flag 생성 후 NCM/tcpctl 시작, `disable`은 flag 제거와 rollback 수행
+    - boot path에서 flag 확인 후 `/cache/bin/a90_usbnet ncm`, `ifconfig ncm0 192.168.7.2/24`, `a90_tcpctl listen 2325 3600 0` 순서로 시작
+    - `/cache/native-init-netservice.log`에 helper/stdout/stderr 기록
+  - `scripts/revalidation/ncm_host_setup.py`
+    - 이미 NCM이 켜진 상태면 `a90_usbnet ncm` 재실행 없이 host/device IP와 ping만 검증
+- 산출:
+  - `stage3/linux_init/init_v60`
+    - SHA256 `4a274b02f793be79872c4ff164dcead332b33e4f7cf281c35f1d59625774dd09`
+  - `stage3/ramdisk_v60.cpio`
+    - SHA256 `f8b153804c561e26c784c713668a6e8e3dfb0cb10b83a9a72c659f1d8c46285c`
+  - `stage3/boot_linux_v60.img`
+    - SHA256 `c57fbf4645790826fbd5e804ff605c25b95cffb4c5eb0ff9076202581e6e828a`
+- 실기 검증:
+  - default OFF boot: `enabled=no`, `ncm0=absent`, `tcpctl=stopped`
+  - `netservice enable` 후 reboot auto-start: `enabled=yes`, `ncm0=present`, `tcpctl=running pid=544`
+  - host NCM interface `enx0a2eb7a94b2f`, `192.168.7.1/24`
+  - `ping -c 3 -W 2 192.168.7.2` 3/3 PASS, 0% loss
+  - `tcpctl_host.py ping`, `status`, `run /cache/bin/toybox uptime` PASS
+  - `netservice disable` rollback 후 `enabled=no`, `ncm0=absent`, `tcpctl=stopped`
+  - bridge `version`은 rollback 후에도 `A90 Linux init v60`
+- 수정 기록:
+  - 초기 `a90_tcpctl listen 2325 86400 0`은 helper의 timeout 상한 때문에 `listen: invalid port or timeout`으로 실패
+  - 최종값은 `3600s`로 고정해 boot-time tcpctl 시작 성공
+- 상세 보고서:
+  - `docs/reports/NATIVE_INIT_V60_NETSERVICE_2026-04-26.md`

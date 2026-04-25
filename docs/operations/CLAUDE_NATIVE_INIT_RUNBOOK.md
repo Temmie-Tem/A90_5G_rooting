@@ -12,9 +12,9 @@ Date: `2026-04-26`
 
 - device: `Samsung Galaxy A90 5G SM-A908N`
 - recovery: TWRP 사용 가능
-- latest verified native init: `A90 Linux init v59`
-- latest source: `stage3/linux_init/init_v59.c`
-- latest boot image: `stage3/boot_linux_v59.img`
+- latest verified native init: `A90 Linux init v60`
+- latest source: `stage3/linux_init/init_v60.c`
+- latest boot image: `stage3/boot_linux_v60.img`
 - known-good fallback native init: `A90 Linux init v48`
 - known-good fallback boot image: `stage3/boot_linux_v48.img`
 - primary control channel: USB CDC ACM serial
@@ -42,6 +42,13 @@ Date: `2026-04-26`
 
 - host modem probe의 `AT`, `ATE0`, `AT+...`, `ATQ0 ...` line을 native init shell이 무시한다.
 - 무시한 line은 `/cache/native-init.log`에 `serial: ignored AT probe ...`로 기록한다.
+
+중요한 v60 개선:
+
+- `netservice [status|start|stop|enable|disable]`로 NCM/tcpctl service를 제어한다.
+- 기본값은 OFF이며 `/cache/native-init-netservice` flag가 있을 때만 boot-time auto-start한다.
+- `netservice enable`은 flag 생성 후 NCM/tcpctl을 시작하고, `netservice disable`은 flag 제거와 rollback을 수행한다.
+- `a90_tcpctl listen` idle timeout은 helper 상한에 맞춰 `3600s`를 사용한다.
 
 v49 주의:
 
@@ -94,7 +101,7 @@ printf 'version\n' | nc -w 3 127.0.0.1 54321
 정상 예:
 
 ```text
-A90 Linux init v59
+A90 Linux init v60
 kernel: Linux 4.14.190-25818860-abA908NKSU5EWA3 aarch64
 display: 1080x2400 connector=28 crtc=133 fb=207
 [done] version (0ms)
@@ -192,7 +199,7 @@ adb -s RFCM90CFWXA shell 'twrp reboot'
 ```bash
 python3 ./scripts/revalidation/native_init_flash.py \
   --verify-only \
-  --expect-version "A90 Linux init v59" \
+  --expect-version "A90 Linux init v60" \
   --bridge-timeout 180
 ```
 
@@ -204,35 +211,35 @@ python3 ./scripts/revalidation/native_init_flash.py \
 
 ## 5. Custom init 수정 흐름
 
-새 버전 예시가 v60이라면:
+새 버전 예시가 v61이라면:
 
 ```bash
-cp stage3/linux_init/init_v59.c stage3/linux_init/init_v60.c
+cp stage3/linux_init/init_v60.c stage3/linux_init/init_v61.c
 ```
 
 반드시 바꿀 것:
 
-- `#define INIT_VERSION "v60"`
-- `A90v59` kmsg marker를 `A90v60`로 변경
+- `#define INIT_VERSION "v61"`
+- `A90v60` kmsg marker를 `A90v61`로 변경
 - v49 번호는 재사용하지 않는다.
-- `mark_step("..._v59\n")` 계열을 새 버전으로 변경
+- `mark_step("..._v60\n")` 계열을 새 버전으로 변경
 - README/docs의 latest 기준점은 실기 검증 뒤에만 갱신
 
 검색:
 
 ```bash
-rg -n 'v59|A90v59|init_v59|boot_linux_v59|ramdisk_v59' stage3/linux_init/init_v60.c
+rg -n 'v60|A90v60|init_v60|boot_linux_v60|ramdisk_v60' stage3/linux_init/init_v61.c
 ```
 
 빌드:
 
 ```bash
 aarch64-linux-gnu-gcc -static -Os -Wall -Wextra \
-  -o stage3/linux_init/init_v60 stage3/linux_init/init_v60.c
-aarch64-linux-gnu-strip stage3/linux_init/init_v60
-file stage3/linux_init/init_v60
-sha256sum stage3/linux_init/init_v60
-strings stage3/linux_init/init_v60 | rg 'A90 Linux init v60|A90v60'
+  -o stage3/linux_init/init_v61 stage3/linux_init/init_v61.c
+aarch64-linux-gnu-strip stage3/linux_init/init_v61
+file stage3/linux_init/init_v61
+sha256sum stage3/linux_init/init_v61
+strings stage3/linux_init/init_v61 | rg 'A90 Linux init v61|A90v61'
 ```
 
 컴파일 경고를 무시하지 말 것.
@@ -242,26 +249,26 @@ strings stage3/linux_init/init_v60 | rg 'A90 Linux init v60|A90v60'
 검증된 이전 boot image에서 kernel/header 인자를 재사용하고 ramdisk만 바꾼다.
 
 ```bash
-rm -rf /tmp/a90_boot_v59_unpack
-mkdir -p /tmp/a90_boot_v59_unpack
+rm -rf /tmp/a90_boot_v60_unpack
+mkdir -p /tmp/a90_boot_v60_unpack
 python3 mkbootimg/unpack_bootimg.py \
-  --boot_img stage3/boot_linux_v59.img \
-  --out /tmp/a90_boot_v59_unpack \
+  --boot_img stage3/boot_linux_v60.img \
+  --out /tmp/a90_boot_v60_unpack \
   --format=mkbootimg \
-  > /tmp/a90_boot_v59_mkbootimg_args.txt
+  > /tmp/a90_boot_v60_mkbootimg_args.txt
 ```
 
 ramdisk 생성:
 
 ```bash
-rm -rf stage3/ramdisk_v60
-mkdir -p stage3/ramdisk_v60/bin
-cp stage3/linux_init/init_v60 stage3/ramdisk_v60/init
-cp stage3/linux_init/a90_sleep stage3/ramdisk_v60/bin/a90sleep
-chmod 755 stage3/ramdisk_v60/init stage3/ramdisk_v60/bin/a90sleep
+rm -rf stage3/ramdisk_v61
+mkdir -p stage3/ramdisk_v61/bin
+cp stage3/linux_init/init_v61 stage3/ramdisk_v61/init
+cp stage3/linux_init/a90_sleep stage3/ramdisk_v61/bin/a90sleep
+chmod 755 stage3/ramdisk_v61/init stage3/ramdisk_v61/bin/a90sleep
 (
-  cd stage3/ramdisk_v60
-  find . | LC_ALL=C sort | cpio -o -H newc > ../ramdisk_v60.cpio
+  cd stage3/ramdisk_v61
+  find . | LC_ALL=C sort | cpio -o -H newc > ../ramdisk_v61.cpio
 )
 ```
 
@@ -273,15 +280,15 @@ from pathlib import Path
 import shlex
 import subprocess
 
-args = shlex.split(Path('/tmp/a90_boot_v59_mkbootimg_args.txt').read_text())
+args = shlex.split(Path('/tmp/a90_boot_v60_mkbootimg_args.txt').read_text())
 for i, item in enumerate(args):
     if item == '--ramdisk':
-        args[i + 1] = 'stage3/ramdisk_v60.cpio'
+        args[i + 1] = 'stage3/ramdisk_v61.cpio'
         break
 else:
     raise SystemExit('missing --ramdisk')
 
-cmd = ['python3', 'mkbootimg/mkbootimg.py', *args, '--output', 'stage3/boot_linux_v60.img']
+cmd = ['python3', 'mkbootimg/mkbootimg.py', *args, '--output', 'stage3/boot_linux_v61.img']
 print(shlex.join(cmd))
 subprocess.run(cmd, check=True)
 PY
@@ -290,9 +297,9 @@ PY
 검증:
 
 ```bash
-ls -lh stage3/ramdisk_v60.cpio stage3/boot_linux_v60.img
-sha256sum stage3/linux_init/init_v60 stage3/ramdisk_v60.cpio stage3/boot_linux_v60.img
-strings stage3/boot_linux_v60.img | rg 'A90 Linux init v60|A90v60'
+ls -lh stage3/ramdisk_v61.cpio stage3/boot_linux_v61.img
+sha256sum stage3/linux_init/init_v61 stage3/ramdisk_v61.cpio stage3/boot_linux_v61.img
+strings stage3/boot_linux_v61.img | rg 'A90 Linux init v61|A90v61'
 ```
 
 ## 7. Boot image 플래시
@@ -307,8 +314,8 @@ adb devices
 
 ```bash
 python3 ./scripts/revalidation/native_init_flash.py \
-  stage3/boot_linux_v60.img \
-  --expect-version "A90 Linux init v60" \
+  stage3/boot_linux_v61.img \
+  --expect-version "A90 Linux init v61" \
   --bridge-timeout 240 \
   --recovery-timeout 180
 ```
@@ -463,7 +470,27 @@ printf 'hello\n' | nc -6 -w 5 'fe80::<device-link-local>%<enx...>' 2323
 printf 'run /cache/bin/a90_usbnet off\n' | nc -w 12 127.0.0.1 54321
 ```
 
-## 11. 로그 확인
+## 11. v60 netservice 검증 절차
+
+v60부터 NCM/tcpctl은 native init 안의 opt-in service로도 시작할 수 있다.
+기본값은 OFF이므로 실험 후에는 `disable`로 되돌린다.
+
+```bash
+printf 'netservice status\n' | nc -w 5 127.0.0.1 54321
+printf 'netservice enable\n' | nc -w 20 127.0.0.1 54321
+python3 scripts/revalidation/ncm_host_setup.py setup
+python3 scripts/revalidation/tcpctl_host.py ping
+python3 scripts/revalidation/tcpctl_host.py status
+printf 'netservice disable\n' | nc -w 20 127.0.0.1 54321
+```
+
+주의:
+
+- `netservice`는 위험 명령으로 분류되므로 메뉴 표시 중 `[busy]`가 나오면 `hide` 후 재시도한다.
+- host IP 설정은 root 권한이 필요하고, helper가 안내한 `enx...`에 `192.168.7.1/24`를 설정한다.
+- boot-time auto-start는 `/cache/native-init-netservice` flag가 있을 때만 동작한다.
+
+## 12. 로그 확인
 
 native init log:
 
@@ -477,27 +504,34 @@ USB helper log:
 printf 'cat /cache/usbnet.log\n' | nc -w 8 127.0.0.1 54321
 ```
 
+netservice log:
+
+```bash
+printf 'cat /cache/native-init-netservice.log\n' | nc -w 8 127.0.0.1 54321
+```
+
 TWRP에서 직접:
 
 ```bash
 adb -s RFCM90CFWXA shell 'tail -160 /cache/native-init.log 2>/dev/null || true'
 adb -s RFCM90CFWXA shell 'tail -160 /cache/usbnet.log 2>/dev/null || true'
+adb -s RFCM90CFWXA shell 'tail -160 /cache/native-init-netservice.log 2>/dev/null || true'
 ```
 
-## 12. 커밋 전 확인
+## 13. 커밋 전 확인
 
 ```bash
 git status --short
 git diff --check
-python3 -m py_compile scripts/revalidation/serial_tcp_bridge.py scripts/revalidation/native_init_flash.py
+python3 -m py_compile scripts/revalidation/serial_tcp_bridge.py scripts/revalidation/native_init_flash.py scripts/revalidation/ncm_host_setup.py
 bash -n scripts/revalidation/build_static_toybox.sh scripts/revalidation/build_usbnet_helper.sh
-aarch64-linux-gnu-gcc -static -Os -Wall -Wextra -o /tmp/a90_init_check stage3/linux_init/init_v54.c
+aarch64-linux-gnu-gcc -static -Os -Wall -Wextra -o /tmp/a90_init_check stage3/linux_init/init_v60.c
 ```
 
 `stage3/boot_linux_v*.img`, `stage3/ramdisk_v*.cpio`, compiled binaries는 `.gitignore` 대상이다.
 커밋에는 보통 source, script, docs만 넣는다.
 
-## 13. 자주 틀리는 지점
+## 14. 자주 틀리는 지점
 
 ### `screen`이 바로 종료됨
 
