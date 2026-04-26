@@ -1089,9 +1089,47 @@
 - Buildroot/rootfs 묶음
 - Android framework 복구 시도
 
+### Physical USB Reconnect. ACM/NCM/tcpctl — 완료
+
+구현:
+
+- `scripts/revalidation/physical_usb_reconnect_check.py`
+  - v74 bridge 기준 version 확인
+  - netservice가 꺼져 있으면 start 후 NCM ping/tcpctl 검증
+  - `READY` 출력 후 실제 USB 케이블 unplug/replug를 기다림
+  - replug 후 bridge version, NCM host interface, ping, tcpctl status/run을 재검증
+  - script가 netservice를 직접 시작했다면 기본적으로 ACM-only 상태로 복구
+- `scripts/revalidation/README.md`
+  - 물리 케이블 reconnect 검증 사용법 추가
+
+사용:
+
+```bash
+python3 ./scripts/revalidation/physical_usb_reconnect_check.py --manual-host-config
+```
+
+주의:
+
+- 현재 sudo noninteractive가 막혀 있으므로 host `enx...` IP 설정은 사용자가 출력된 명령을 직접 실행해야 할 수 있다.
+
+검증:
+
+- `physical_usb_reconnect_check.py --manual-host-config ...` — PASS
+- baseline 전 netservice disabled → runner가 netservice start — PASS
+- baseline NCM ping 3/3, tcpctl ping/status/run — PASS
+- 실제 케이블 unplug 감지: `/dev/ttyACM0` disappeared — PASS
+- replug 후 bridge `A90 Linux init 0.8.5 (v74)` recovery — PASS
+- replug 후 NCM host interface `enx0644eea6f44d` 복구 — PASS
+- replug 후 NCM ping 3/3, tcpctl ping/status/run — PASS
+- final ACM-only restore: `ncm0=absent`, `tcpctl=stopped` — PASS
+
+산출:
+
+- `docs/reports/NATIVE_INIT_V74_PHYSICAL_USB_RECONNECT_2026-04-27.md`
+
 ## 지금 바로 진행할 항목
 
-1. 실제 케이블 unplug/replug 이후 ACM/NCM/tcpctl 복구 확인
-2. display test를 다중 페이지형 app으로 확장할지 판단
-3. USB 재열거 중 `A`/`ATAT...` serial noise hardening
-4. Wi-Fi 드라이버/펌웨어 read-only 인벤토리 트랙 분리
+1. display test를 다중 페이지형 app으로 확장할지 판단
+2. USB 재열거 중 `A`/`ATAT...` serial noise hardening
+3. Wi-Fi 드라이버/펌웨어 read-only 인벤토리 트랙 분리
+4. 저장소 후보 결정: `/userdata`/`mmcblk0p1` 장기 저장소 사용 여부 판단

@@ -148,6 +148,7 @@
 - boot netservice 상태: opt-in flag 기반 NCM/tcpctl 부팅 자동 시작, host ping/TCP control, rollback 검증 완료
 - 현재 netservice 기본 상태: disabled. `/cache/native-init-netservice` flag가 있을 때만 boot-time NCM/tcpctl 시작
 - reconnect 상태: v60 `netservice stop/start` software UDC 재열거 후 NCM/TCP 복구 확인
+- physical reconnect 상태: v74 실제 USB 케이블 unplug/replug 후 ACM bridge, NCM ping, tcpctl ping/status/run 복구 확인
 - HUD metrics 상태: CPU/GPU 온도와 사용률 `%`를 status/HUD에 표시, `cpustress`로 CPU usage 상승 확인
 - dev node 상태: `/dev/null`과 `/dev/zero`를 boot-time char device로 보정 확인
 - boot splash 상태: TEST 패턴 대신 `A90 NATIVE INIT` custom splash와 `display-splash` timeline 기록 확인
@@ -170,6 +171,7 @@
 - v62 CPU stress/dev node 기록: `docs/reports/NATIVE_INIT_V62_CPUSTRESS_2026-04-26.md`
 - v61 CPU/GPU usage 기록: `docs/reports/NATIVE_INIT_V61_CPU_GPU_USAGE_2026-04-26.md`
 - v60 reconnect 기록: `docs/reports/NATIVE_INIT_V60_RECONNECT_2026-04-26.md`
+- v74 physical USB reconnect 기록: `docs/reports/NATIVE_INIT_V74_PHYSICAL_USB_RECONNECT_2026-04-27.md`
 - v60 netservice 기록: `docs/reports/NATIVE_INIT_V60_NETSERVICE_2026-04-26.md`
 - v59 AT noise 기록: `docs/reports/NATIVE_INIT_V59_AT_NOISE_2026-04-26.md`
 - v58 TCP soak 기록: `docs/reports/NATIVE_INIT_V58_TCPCTL_SOAK_2026-04-26.md`
@@ -278,6 +280,7 @@ ADB 방식이 막혀 USB CDC ACM serial (ttyGS0)로 전환. v74까지 반복 안
 | Serial AT noise filter | 작동 — `AT`, `ATE0`, `AT+GCAP`, `ATQ0 ...` unknown 없이 무시 |
 | Boot netservice | 작동 — opt-in flag로 NCM/tcpctl boot auto-start, `netservice disable` rollback 확인 |
 | Software UDC reconnect | 작동 — `netservice stop/start` 후 새 host `enx...`, ping, TCP control 복구 확인 |
+| Physical USB reconnect | 작동 — 실제 cable unplug/replug 후 ACM bridge, NCM ping, tcpctl 복구 확인 |
 | CPU/GPU usage HUD | 작동 — CPU `/proc/stat` delta, GPU KGSL `gpu_busy_percentage` 표시 확인 |
 | CPU stress helper | 작동 — `cpustress 10 8` 후 CPU usage 29% 상승 확인 |
 | Essential `/dev` nodes | 작동 — `/dev/null` rdev `1:3`, `/dev/zero` rdev `1:5` boot-time 보정 |
@@ -304,8 +307,8 @@ ADB 방식이 막혀 USB CDC ACM serial (ttyGS0)로 전환. v74까지 반복 안
 
 우선순위 순 (v74 verified 이후):
 
-1. **physical USB reconnect soak** — 실제 케이블 unplug/replug 이후 ACM/NCM/tcpctl 복구 확인
-2. **display test multi-page** — 화면 테스트 app을 다중 페이지로 확장할지 판단
+1. **display test multi-page** — 화면 테스트 app을 다중 페이지로 확장할지 판단
+2. **USB serial noise hardening** — 재열거 중 짧은 `A`/`ATAT...` fragment 추가 필터링
 3. **Wi-Fi 인벤토리** — 드라이버/펌웨어/vendor daemon read-only 조사
 4. **저장소 후보 결정** — `/userdata`/`mmcblk0p1` 장기 저장소 사용 여부 판단
 

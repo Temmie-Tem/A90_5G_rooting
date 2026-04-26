@@ -76,6 +76,9 @@
   - v60 `netservice stop/start`로 USB UDC 재열거 뒤 ACM/NCM/tcpctl 복구를 검증
   - bridge version/netservice status/usbnet status/ifconfig 같은 짧은 확인은 `cmdv1` rc/status 우선
   - `netservice start|stop`처럼 USB 재열거로 끊길 수 있는 명령은 raw bridge 유지
+- `physical_usb_reconnect_check.py`
+  - 실제 USB 케이블 unplug/replug 이후 ACM bridge, NCM ping, tcpctl 응답 복구를 한 번에 확인
+  - 필요하면 netservice를 먼저 시작하고, sudo가 막히면 `--manual-host-config`로 host IP 수동 설정을 기다림
   - NCM 재열거마다 host `enx...` 이름이 바뀔 수 있으므로 `host_addr` MAC으로 현재 interface를 다시 찾음
   - `--manual-host-config`는 sudo가 불가능한 환경에서 현재 `sudo ip ... dev <enx...>` 명령을 출력하고 사용자의 수동 설정을 기다림
 
@@ -194,6 +197,16 @@ python3 ./scripts/revalidation/netservice_reconnect_soak.py status
 python3 ./scripts/revalidation/netservice_reconnect_soak.py once --manual-host-config
 python3 ./scripts/revalidation/netservice_reconnect_soak.py soak --cycles 3 --manual-host-config
 ```
+
+물리 케이블 unplug/replug 검증 예:
+
+```bash
+python3 ./scripts/revalidation/physical_usb_reconnect_check.py --manual-host-config
+```
+
+`READY`가 보이면 A90 USB 케이블을 뽑았다가 다시 꽂는다. host IP 설정이 필요하면
+스크립트가 출력하는 `sudo ip addr replace ...`와 `sudo ip link set ...` 명령을
+다른 터미널에서 실행한다.
 
 참고:
 

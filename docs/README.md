@@ -43,6 +43,7 @@
 - NCM ops: host interface 자동 탐지, ping, static TCP nettest 양방향 payload 검증 완료
 - TCP control: NCM 위에서 `a90_tcpctl` ping/status/run/shutdown 검증 완료
 - TCP wrapper/soak: `tcpctl_host.py smoke`와 5분/30사이클 `soak` 검증 완료
+- physical USB reconnect: 실제 케이블 unplug/replug 후 ACM bridge, NCM ping, tcpctl 복구 확인
 - serial noise: unsolicited `AT` modem probe line 무시 확인
 - boot netservice: opt-in flag 기반 NCM/tcpctl 부팅 자동 시작과 rollback 검증 완료
 - reconnect: v60 `netservice stop/start` software UDC 재열거 후 NCM/TCP 복구 확인
@@ -118,6 +119,7 @@
 - `reports/NATIVE_INIT_V70_INPUT_MONITOR_2026-04-26.md` – `TOOLS / INPUT MONITOR`와 `inputmonitor [events]` raw/gesture trace 검증
 - `reports/NATIVE_INIT_V72_DISPLAY_TEST_2026-04-27.md` – display test screen과 framebuffer color fix 검증
 - `reports/NATIVE_INIT_V73_CMDV1_PROTOCOL_2026-04-27.md` – `cmdv1`/`A90P1` shell protocol과 `a90ctl.py` wrapper 검증
+- `reports/NATIVE_INIT_V74_PHYSICAL_USB_RECONNECT_2026-04-27.md` – 실제 USB 케이블 unplug/replug 후 ACM/NCM/tcpctl 복구 검증
 - `reports/NATIVE_INIT_V53_MENU_BUSY_2026-04-25.md` – menu-active serial busy gate와 flash auto-hide 검증
 - `reports/NATIVE_INIT_V48_USB_REATTACH_NCM_2026-04-25.md` – USB reattach와 NCM probe 실기 검증
 - `reports/NATIVE_INIT_USERLAND_CANDIDATES_2026-04-25.md` – static userland/BusyBox/toybox 후보 보고서

@@ -1159,3 +1159,30 @@
   - malformed direct `cmdv1x` → `rc=-22`, `status=error` — PASS
 - 상세 보고서:
   - `docs/reports/NATIVE_INIT_V74_CMDV1X_ARG_ENCODING_2026-04-27.md`
+
+## v74: physical USB reconnect validation (2026-04-27)
+
+- 목표:
+  - software UDC 재열거가 아니라 실제 USB 케이블 unplug/replug 이후 ACM/NCM/tcpctl이 복구되는지 확인한다.
+- 구현:
+  - `scripts/revalidation/physical_usb_reconnect_check.py`
+    - bridge version 확인
+    - netservice start 필요 시 자동 수행
+    - `READY` 이후 `/dev/ttyACM*` disappearance 감지
+    - replug 후 bridge, NCM host interface, ping, tcpctl ping/status/run 검증
+    - script가 netservice를 시작한 경우 final ACM-only restore 수행
+  - `scripts/revalidation/README.md`
+    - 물리 케이블 reconnect 검증 절차 추가
+- 검증:
+  - `physical_usb_reconnect_check.py --manual-host-config ...` — PASS
+  - baseline NCM ping 3/3, tcpctl ping/status/run — PASS
+  - 실제 unplug에서 `/dev/ttyACM0` disappearance 감지 — PASS
+  - replug 후 bridge `A90 Linux init 0.8.5 (v74)` 복구 — PASS
+  - replug 후 host interface `enx0644eea6f44d` 복구 — PASS
+  - replug 후 NCM ping 3/3, tcpctl ping/status/run — PASS
+  - final `netservice stop`: `ncm0=absent`, `tcpctl=stopped` — PASS
+- 관찰:
+  - host sudo noninteractive가 막혀 host IP 설정은 사용자가 수동 실행했다.
+  - replug 직후 한 번의 짧은 `cmdv1` check가 raw bridge fallback으로 진행됐지만 다음 framed check는 정상 복구됐다.
+- 상세 보고서:
+  - `docs/reports/NATIVE_INIT_V74_PHYSICAL_USB_RECONNECT_2026-04-27.md`
