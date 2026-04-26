@@ -1,5 +1,14 @@
 # Changelog
 
+## `0.8.4` (`v73`) - 2026-04-27
+
+- Added `cmdv1 <command> [args...]` one-shot shell protocol wrapper.
+- Added `A90P1 BEGIN` and `A90P1 END` records with `seq`, `cmd`, `argc`, `flags`, `rc`, `errno`, `duration_ms`, and `status`.
+- Framed `unknown` and `busy` outcomes for safer automation.
+- Added `scripts/revalidation/a90ctl.py` host wrapper with text/JSON output and busy-hide retry.
+- Added on-device `0.8.4 v73` changelog detail.
+- Verified v73 boot via native flash script and bridge `cmdv1`/`a90ctl` checks.
+
 ## `0.8.3` (`v72`) - 2026-04-27
 
 - Added `TOOLS / DISPLAY TEST` plus `displaytest` for color/font/wrap/safe-area/cutout checks.

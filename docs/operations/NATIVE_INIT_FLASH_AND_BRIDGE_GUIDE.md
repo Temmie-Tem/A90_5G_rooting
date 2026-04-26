@@ -17,10 +17,10 @@ Date: `2026-04-26`
 - known-good fallback source: `stage3/linux_init/init_v48.c`
 - known-good fallback boot image: `stage3/boot_linux_v48.img`
 - known-good fallback boot image SHA256: `1c87fa59712395027c5c2e489b15c4f6ddefabc3c50f78d3c235c4508a63e042`
-- latest verified native init: `A90 Linux init 0.8.3 (v72)`
-- latest verified source: `stage3/linux_init/init_v72.c`
-- latest verified boot image: `stage3/boot_linux_v72.img`
-- latest verified boot image SHA256: `2f7e7927f1f22d540a37d7bafd7176730bae24bee418dfb667bfd6805cf0eebf`
+- latest verified native init: `A90 Linux init 0.8.4 (v73)`
+- latest verified source: `stage3/linux_init/init_v73.c`
+- latest verified boot image: `stage3/boot_linux_v73.img`
+- latest verified boot image SHA256: `241e44ef70eb3dc187c8dd44c62c26943c42bd952c7d122374295463d67f159a`
 - control channel: USB CDC ACM serial bridge
 - bridge endpoint: `127.0.0.1:54321`
 - bridge script: `scripts/revalidation/serial_tcp_bridge.py`
@@ -100,7 +100,7 @@ printf 'version\n' | nc -w 3 127.0.0.1 54321
 정상 응답 예:
 
 ```text
-A90 Linux init 0.8.3 (v72)
+A90 Linux init 0.8.4 (v73)
 made by temmie0214
 kernel: Linux 4.14.190-25818860-abA908NKSU5EWA3 aarch64
 [done] version
@@ -114,6 +114,15 @@ printf 'status\n' | nc -w 5 127.0.0.1 54321
 printf 'timeline\n' | nc -w 5 127.0.0.1 54321
 printf 'cat /cache/native-init.log\n' | nc -w 5 127.0.0.1 54321
 printf 'netservice status\n' | nc -w 5 127.0.0.1 54321
+```
+
+v73부터는 자동화용 one-shot 명령은 `a90ctl.py`를 우선 쓴다.
+raw `nc` 출력 대신 `A90P1` END marker의 `rc`/`status`를 파싱한다.
+
+```bash
+python3 ./scripts/revalidation/a90ctl.py status
+python3 ./scripts/revalidation/a90ctl.py --json status
+python3 ./scripts/revalidation/a90ctl.py --hide-on-busy status
 ```
 
 ### v60 netservice
@@ -384,13 +393,13 @@ sudo python3 ./scripts/revalidation/serial_tcp_bridge.py --port 54321
 printf 'version\n' | nc -w 3 127.0.0.1 54321
 ```
 
-최신 verified v72를 native init 상태에서 다시 올릴 때:
+최신 verified v73를 native init 상태에서 다시 올릴 때:
 
 ```bash
 python3 ./scripts/revalidation/native_init_flash.py \
-  stage3/boot_linux_v72.img \
+  stage3/boot_linux_v73.img \
   --from-native \
-  --expect-version "A90 Linux init 0.8.3 (v72)" \
+  --expect-version "A90 Linux init 0.8.4 (v73)" \
   --bridge-timeout 240 \
   --recovery-timeout 180
 ```

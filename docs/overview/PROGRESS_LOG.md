@@ -1039,3 +1039,38 @@
   - bridge `autohud 2` 후 `status` → `autohud: running` PASS
 - 상세 보고서:
   - `docs/reports/NATIVE_INIT_V72_DISPLAY_TEST_2026-04-27.md`
+
+## v73: cmdv1 shell protocol and host wrapper (2026-04-27)
+
+- 목표:
+  - serial bridge 자동화가 raw text parsing에 덜 의존하도록 one-shot command framing을 추가한다.
+  - host wrapper가 command rc/status를 직접 판정하게 만든다.
+- 구현:
+  - `stage3/linux_init/init_v73.c`
+    - `INIT_VERSION "0.8.4"`
+    - `INIT_BUILD "v73"`
+    - `cmdv1 <command> [args...]` shell wrapper 추가
+    - `A90P1 BEGIN` / `A90P1 END` protocol record 추가
+    - END record에 `seq`, `cmd`, `rc`, `errno`, `duration_ms`, `status` 포함
+    - unknown command와 menu busy 결과도 frame 처리
+    - on-device changelog에 `0.8.4 v73` 상세 추가
+  - `scripts/revalidation/a90ctl.py`
+    - bridge로 `cmdv1` 실행
+    - text/JSON 출력, `--allow-error`, `--hide-on-busy` 지원
+- 산출물:
+  - `stage3/linux_init/init_v73`
+    - SHA256 `7ce8063b6e343dd49ec8e1f2a0856936794bee761242ae6bd333ae1a96b51083`
+  - `stage3/ramdisk_v73.cpio`
+    - SHA256 `dfb14b9a9ab5c48cd95175a0301c4ba8f737638639f2d77dc87af5613524c5df`
+  - `stage3/boot_linux_v73.img`
+    - SHA256 `241e44ef70eb3dc187c8dd44c62c26943c42bd952c7d122374295463d67f159a`
+- 검증:
+  - static ARM64 build PASS
+  - `native_init_flash.py stage3/boot_linux_v73.img --from-native --expect-version "A90 Linux init 0.8.4 (v73)"` PASS
+  - bridge `version` → `A90 Linux init 0.8.4 (v73)` / `made by temmie0214`
+  - bridge `cmdv1 status` → `rc=0`, `status=ok` PASS
+  - bridge `cmdv1 nope` → `rc=-2`, `status=unknown` PASS
+  - bridge `cmdv1 waitkey 1` during visible menu → `rc=-16`, `status=busy` PASS
+  - `a90ctl.py status`, `--json --allow-error nope`, `--hide-on-busy status` PASS
+- 상세 보고서:
+  - `docs/reports/NATIVE_INIT_V73_CMDV1_PROTOCOL_2026-04-27.md`

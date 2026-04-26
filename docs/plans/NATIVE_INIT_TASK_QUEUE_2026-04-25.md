@@ -1,16 +1,16 @@
 # Native Init Task Queue (2026-04-25)
 
-이 문서는 `A90 Linux init 0.8.3 (v72)` 이후 바로 실행할 작업 큐다.
+이 문서는 `A90 Linux init 0.8.4 (v73)` 이후 바로 실행할 작업 큐다.
 큰 방향은 “보이는 부팅 → 복구 가능한 로그 → 단독 조작 → 작은 userland → USB networking” 순서다.
 
 ## 현재 고정 기준점
 
-- latest verified native init: `A90 Linux init 0.8.3 (v72)`
-- official version: `0.8.3`
-- build tag: `v72`
+- latest verified native init: `A90 Linux init 0.8.4 (v73)`
+- official version: `0.8.4`
+- build tag: `v73`
 - creator: `made by temmie0214`
-- latest source: `stage3/linux_init/init_v72.c`
-- latest boot image: `stage3/boot_linux_v72.img`
+- latest source: `stage3/linux_init/init_v73.c`
+- latest boot image: `stage3/boot_linux_v73.img`
 - known-good fallback: `stage3/boot_linux_v48.img`
 - control channel: USB ACM serial bridge
 - log: `/cache/native-init.log`
@@ -40,6 +40,7 @@
   - input monitor app / raw gesture trace
   - HUD/menu live log tail panel
   - display test screen for color/font/wrap/grid/cutout checks
+  - cmdv1/A90P1 shell protocol + a90ctl host wrapper
 
 ## 실행 큐
 
@@ -955,6 +956,44 @@
   - SHA256 `2f7e7927f1f22d540a37d7bafd7176730bae24bee418dfb667bfd6805cf0eebf`
 - `docs/reports/NATIVE_INIT_V72_DISPLAY_TEST_2026-04-27.md`
 
+### V73. Shell Protocol V1 + a90ctl Wrapper — 완료
+
+구현:
+
+- `stage3/linux_init/init_v73.c`
+  - `INIT_VERSION "0.8.4"`
+  - `INIT_BUILD "v73"`
+  - `cmdv1 <command> [args...]` shell wrapper 추가
+  - `A90P1 BEGIN` / `A90P1 END` framed result 추가
+  - END record에 `seq`, `cmd`, `rc`, `errno`, `duration_ms`, `status` 포함
+  - unknown command와 menu busy 결과도 rc/status로 frame 처리
+  - on-device changelog `0.8.4 v73` 추가
+- `scripts/revalidation/a90ctl.py`
+  - bridge로 `cmdv1` 실행
+  - text/JSON 결과 출력
+  - `--allow-error`, `--hide-on-busy`, `--quiet`, `--verbose` 지원
+
+검증:
+
+- static ARM64 build — PASS
+- `stage3/boot_linux_v73.img` marker 확인 — PASS
+- native → TWRP → boot partition flash → v73 boot — PASS
+- bridge `version` → `A90 Linux init 0.8.4 (v73)` 및 `made by temmie0214` — PASS
+- bridge `cmdv1 status` → `A90P1 END ... rc=0 ... status=ok` — PASS
+- bridge `cmdv1 nope` → `A90P1 END ... rc=-2 ... status=unknown` — PASS
+- bridge `cmdv1 waitkey 1` while menu visible → `A90P1 END ... rc=-16 ... status=busy` — PASS
+- `a90ctl.py status`, `--json --allow-error nope`, `--hide-on-busy status` — PASS
+
+산출:
+
+- `stage3/linux_init/init_v73`
+  - SHA256 `7ce8063b6e343dd49ec8e1f2a0856936794bee761242ae6bd333ae1a96b51083`
+- `stage3/ramdisk_v73.cpio`
+  - SHA256 `dfb14b9a9ab5c48cd95175a0301c4ba8f737638639f2d77dc87af5613524c5df`
+- `stage3/boot_linux_v73.img`
+  - SHA256 `241e44ef70eb3dc187c8dd44c62c26943c42bd952c7d122374295463d67f159a`
+- `docs/reports/NATIVE_INIT_V73_CMDV1_PROTOCOL_2026-04-27.md`
+
 ## 보류 큐
 
 - ADB 안정화 재검토
@@ -964,9 +1003,9 @@
 
 ## 지금 바로 진행할 항목
 
-1. 사용자가 v72 `TOOLS / DISPLAY TEST` 색상/폰트/cutout 슬롯/격자 가독성을 육안 확인
-2. display test를 다중 페이지형 app으로 확장할지 판단
-3. auto HUD 메뉴 루프도 v70 gesture decoder로 통일할지 판단
+1. 반복 검증 스크립트에서 raw `nc` 대신 `a90ctl.py`/parsed rc 사용 여부 결정
+2. `cmdv1` argument quoting/escaping 규칙 설계
+3. display test를 다중 페이지형 app으로 확장할지 판단
 4. 실제 케이블 unplug/replug 이후 ACM/NCM/tcpctl 복구 확인
 5. USB 재열거 중 `A`/`ATAT...` serial noise hardening
 6. Wi-Fi 드라이버/펌웨어 read-only 인벤토리 트랙 분리

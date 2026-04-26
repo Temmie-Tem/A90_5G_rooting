@@ -27,6 +27,10 @@
   - raw shell 출력은 그대로 보여주되, `waitkey`/`blindmenu`/`key ...` 같은
     라인을 `[watch]` 메모로 한 번 더 띄워서 버튼 입력을 더 눈에 띄게 보여줌
   - `Ctrl-]` 로 로컬 콘솔만 종료 가능
+- `a90ctl.py`
+  - v73 `cmdv1`/`A90P1` framed shell protocol을 쓰는 one-shot host wrapper
+  - bridge 출력에서 END marker를 파싱해 `rc`/`status`를 판정
+  - `--json`, `--allow-error`, `--hide-on-busy`를 지원
 - `native_init_flash.py`
   - TWRP recovery ADB에서 native init boot image를 boot 파티션에 기록
   - `adb devices` 출력을 whitespace split으로 파싱해 `recovery` 상태를 안정적으로 감지
@@ -96,20 +100,28 @@ python3 ./scripts/revalidation/serial_console.py --port 54321
 python3 ./scripts/revalidation/serial_console.py --port 54321 --watch-only
 ```
 
+framed one-shot command 예:
+
+```bash
+python3 ./scripts/revalidation/a90ctl.py status
+python3 ./scripts/revalidation/a90ctl.py --json --allow-error nope
+python3 ./scripts/revalidation/a90ctl.py --hide-on-busy status
+```
+
 native init 이미지 플래시/검증 예:
 
 ```bash
 python3 ./scripts/revalidation/native_init_flash.py \
-  stage3/boot_linux_v48.img \
-  --expect-version "A90 Linux init v48"
+  stage3/boot_linux_v73.img \
+  --expect-version "A90 Linux init 0.8.4 (v73)"
 ```
 
 현재 native init에서 recovery로 전환한 뒤 플래시까지 이어가는 예:
 
 ```bash
 python3 ./scripts/revalidation/native_init_flash.py \
-  stage3/boot_linux_v48.img \
-  --expect-version "A90 Linux init v48" \
+  stage3/boot_linux_v73.img \
+  --expect-version "A90 Linux init 0.8.4 (v73)" \
   --from-native
 ```
 
@@ -118,7 +130,7 @@ python3 ./scripts/revalidation/native_init_flash.py \
 ```bash
 python3 ./scripts/revalidation/native_init_flash.py \
   --verify-only \
-  --expect-version "A90 Linux init v48"
+  --expect-version "A90 Linux init 0.8.4 (v73)"
 ```
 
 static toybox 빌드 예:
