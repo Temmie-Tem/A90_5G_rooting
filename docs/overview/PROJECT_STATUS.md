@@ -120,9 +120,9 @@
 ## 현재 폰 상태
 
 - patched AP (Magisk 30.7) + **TWRP recovery 사용 가능**
-- 최신 verified native init: `stage3/boot_linux_v67.img` (`A90 Linux init 0.7.4 (v67)`)
-- 공식 버전: `0.7.4`
-- build tag: `v67`
+- 최신 verified native init: `stage3/boot_linux_v70.img` (`A90 Linux init 0.8.1 (v70)`)
+- 공식 버전: `0.8.1`
+- build tag: `v70`
 - creator: `made by temmie0214`
 - known-good fallback: `stage3/boot_linux_v48.img` (`A90 Linux init v48`)
 - 격리 상태: `stage3/boot_linux_v49.img`는 boot partition prefix readback은 일치했지만
@@ -135,7 +135,7 @@
 - run 상태: `/bin/a90sleep` helper로 `run` q 취소 확인
 - log 보존: native init → recovery → native init 왕복 후 v44/v45/v47 log append 확인
 - storage 상태: `/cache` safe write, `userdata` conditional, critical partitions do-not-touch 기준 문서화
-- screen menu 상태: 자동 메뉴, 계층형 앱 폴더, CPU stress screen app, serial `hide`/busy gate 확인
+- screen menu 상태: 자동 메뉴, 계층형 앱 폴더, CPU stress screen app, input gesture layout, input monitor, serial `hide`/busy gate 확인
 - USB 상태: ACM-only gadget `04e8:6861` / host `cdc_acm` 기준 문서화
 - userland 상태: `toybox 0.8.13` static ARM64 host 빌드와 `/cache/bin/toybox` 실기 실행 확인
 - USB reattach 상태: `usbacmreset`와 외부 helper `off` 후 serial bridge 복구 확인
@@ -153,7 +153,10 @@
 - boot splash 상태: TEST 패턴 대신 `A90 NATIVE INIT` custom splash와 `display-splash` timeline 기록 확인
 - splash layout 상태: v65에서 긴 문구/footer 잘림 방지를 위해 안전 여백과 자동 축소 적용
 - about app 상태: `APPS / ABOUT`에서 version, changelog 목록/상세, credits 표시
-- 상세 최신 상태: `docs/reports/NATIVE_INIT_V67_CHANGELOG_DETAILS_2026-04-26.md`
+- 상세 최신 상태: `docs/reports/NATIVE_INIT_V70_INPUT_MONITOR_2026-04-26.md`
+- v70 input monitor 기록: `docs/reports/NATIVE_INIT_V70_INPUT_MONITOR_2026-04-26.md`
+- v69 input layout 기록: `docs/reports/NATIVE_INIT_V69_INPUT_LAYOUT_2026-04-26.md`
+- v68 log tail/history 기록: source `stage3/linux_init/init_v68.c`와 v69 changelog에 반영
 - v67 changelog detail 기록: `docs/reports/NATIVE_INIT_V67_CHANGELOG_DETAILS_2026-04-26.md`
 - v66 about/versioning 기록: `docs/reports/NATIVE_INIT_V66_ABOUT_VERSIONING_2026-04-26.md`
 - v65 splash safe layout 기록: `docs/reports/NATIVE_INIT_V65_SPLASH_SAFE_LAYOUT_2026-04-26.md`
@@ -193,11 +196,11 @@
 - proc / sys / devtmpfs / ext4(/dev/block/sda31) 마운트 성공
 - 핵심 우회: devtmpfs async 초기화 문제를 `mknod(makedev(259,15))` 로 해결
 
-### 3-2. USB ACM serial console + 인터랙티브 셸 (v8~v67)
+### 3-2. USB ACM serial console + 인터랙티브 셸 (v8~v70)
 
-**현재 버전**: `init_v67` (`stage3/boot_linux_v67.img`) / `0.7.4 (v67)`
+**현재 버전**: `init_v70` (`stage3/boot_linux_v70.img`) / `0.8.1 (v70)`
 
-ADB 방식이 막혀 USB CDC ACM serial (ttyGS0)로 전환. v67까지 반복 안정화:
+ADB 방식이 막혀 USB CDC ACM serial (ttyGS0)로 전환. v70까지 반복 안정화:
 
 - USB gadget: configfs `acm.usb0` function, UDC `a600000.dwc3`
 - host 측: `/dev/ttyACM0` → `serial_tcp_bridge.py` → `127.0.0.1:54321` TCP
@@ -232,8 +235,11 @@ ADB 방식이 막혀 USB CDC ACM serial (ttyGS0)로 전환. v67까지 반복 안
 | v65 | boot splash 긴 문구/footer 잘림 방지 safe layout |
 | v66 | semantic version `0.7.3`, `made by temmie0214`, ABOUT/changelog/credits app |
 | v67 | ABOUT/changelog 작은 글씨 통일, version별 changelog detail 화면 |
+| v68 | HUD menu hidden 상태에서 log tail 표시, changelog history 확장 |
+| v69 | VOL+/VOL-/POWER 단일/더블/롱/조합 input gesture layout |
+| v70 | TOOLS / INPUT MONITOR와 `inputmonitor [events]` raw/gesture trace |
 
-**확보된 관찰/제어 범위 (v67 verified 기준):**
+**확보된 관찰/제어 범위 (v70 verified 기준):**
 
 | 항목 | 상태 |
 |---|---|
@@ -250,6 +256,8 @@ ADB 방식이 막혀 USB CDC ACM serial (ttyGS0)로 전환. v67까지 반복 안
 | 부팅 시 custom splash → HUD 자동 전환 | 작동 |
 | boot summary 화면 표시 (`BOOT OK`) | 작동 |
 | on-screen 버튼 메뉴 | 작동 (`menu`/`screenmenu`) |
+| Input gesture layout | 작동 — `inputlayout` 출력, `screenmenu`/`blindmenu` gesture action 적용 |
+| Input monitor | 작동 — `TOOLS / INPUT MONITOR`, `inputmonitor [events]` raw/gesture trace 추가 |
 | menu-active serial gate | 작동 — 위험 명령 `[busy]`, `version`/`status` 허용, `hide` 후 재개 |
 | blocking 명령 취소 (q/Ctrl-C) | 작동 |
 | boot timeline 기록 | 작동 (`timeline`) |
@@ -285,12 +293,12 @@ ADB 방식이 막혀 USB CDC ACM serial (ttyGS0)로 전환. v67까지 반복 안
 
 ## 다음 후보 작업
 
-우선순위 순 (v67 이후):
+우선순위 순 (v70 이후):
 
-1. **physical USB reconnect soak** — 실제 케이블 unplug/replug 이후 ACM/NCM 복구 확인
-2. **serial noise hardening** — USB 재열거 중 `A`/`ATAT...` fragment 무시
-3. **Wi-Fi 인벤토리** — 드라이버/펌웨어/vendor daemon read-only 조사
-4. **저장소 후보 결정** — `/userdata`/`mmcblk0p1` 장기 저장소 사용 여부 판단
-5. **TCP control 인증/제한 정책** — local-only trust에서 장기 운용 정책으로 분리
+1. **input monitor trace 수집** — 실제 버튼 raw gap/hold와 gesture/action 비교
+2. **auto HUD input decoder 통일** — 자동 메뉴 루프도 v70 decoder helper를 쓸지 판단
+3. **physical USB reconnect soak** — 실제 케이블 unplug/replug 이후 ACM/NCM 복구 확인
+4. **Wi-Fi 인벤토리** — 드라이버/펌웨어/vendor daemon read-only 조사
+5. **저장소 후보 결정** — `/userdata`/`mmcblk0p1` 장기 저장소 사용 여부 판단
 
 **복구**: `backups/baseline_a_20260423_030309/boot.img` dd 복구 가능

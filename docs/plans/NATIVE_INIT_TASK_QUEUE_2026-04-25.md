@@ -1,16 +1,16 @@
 # Native Init Task Queue (2026-04-25)
 
-이 문서는 `A90 Linux init 0.7.4 (v67)` 이후 바로 실행할 작업 큐다.
+이 문서는 `A90 Linux init 0.8.1 (v70)` 이후 바로 실행할 작업 큐다.
 큰 방향은 “보이는 부팅 → 복구 가능한 로그 → 단독 조작 → 작은 userland → USB networking” 순서다.
 
 ## 현재 고정 기준점
 
-- latest verified native init: `A90 Linux init 0.7.4 (v67)`
-- official version: `0.7.4`
-- build tag: `v67`
+- latest verified native init: `A90 Linux init 0.8.1 (v70)`
+- official version: `0.8.1`
+- build tag: `v70`
 - creator: `made by temmie0214`
-- latest source: `stage3/linux_init/init_v67.c`
-- latest boot image: `stage3/boot_linux_v67.img`
+- latest source: `stage3/linux_init/init_v70.c`
+- latest boot image: `stage3/boot_linux_v70.img`
 - known-good fallback: `stage3/boot_linux_v48.img`
 - control channel: USB ACM serial bridge
 - log: `/cache/native-init.log`
@@ -35,6 +35,9 @@
   - custom boot splash
   - ABOUT/versioning/changelog metadata
   - compact ABOUT/changelog detail screens
+  - HUD log tail
+  - physical-button input gesture layout
+  - input monitor app / raw gesture trace
 
 ## 실행 큐
 
@@ -803,6 +806,100 @@
   - SHA256 `8b087d08ecc5dd459ffd36c22c520f5de9fb2c3ddecee0c212bd4fece57f8623`
 - `docs/reports/NATIVE_INIT_V67_CHANGELOG_DETAILS_2026-04-26.md`
 
+### V68. HUD Log Tail / Changelog History — 완료
+
+목표:
+
+- 메뉴를 숨긴 상태에서도 `/cache/native-init.log` tail을 화면에서 확인한다.
+- changelog detail 화면을 더 과거 버전까지 확장한다.
+
+검증:
+
+- bridge `version` → `A90 Linux init 0.7.5 (v68)` — PASS
+
+산출:
+
+- `stage3/linux_init/init_v68`
+  - SHA256 `24dcfe9b2351c6cb16a1af6737b12c950e5f1972c82f6ede6855b6ec210d64c5`
+- `stage3/ramdisk_v68.cpio`
+  - SHA256 `c33b9853be5e6faeea1254d47aa8fb165ca44919ce12679ea9d38d487a3cb358`
+- `stage3/boot_linux_v68.img`
+  - SHA256 `bc0982cb67f966affbc3de2d1d00c4b6a2797e1f79c1267863a29091fd1ddb41`
+
+### V69. Input Gesture Layout — 완료
+
+목표:
+
+- VOL+/VOL-/POWER 3버튼만으로 단일/더블/롱/조합 입력을 분리한다.
+- 기존 단일 클릭 메뉴 조작은 유지한다.
+- 위험한 `POWER long`은 직접 reboot/poweroff에 묶지 않는다.
+
+구현:
+
+- `stage3/linux_init/init_v69.c`
+  - `INIT_VERSION "0.8.0"`
+  - `INIT_BUILD "v69"`
+  - `inputlayout` command 추가
+  - `waitgesture [count]` command 추가
+  - `screenmenu`/`blindmenu` gesture action 적용
+
+검증:
+
+- static ARM64 build — PASS
+- `stage3/boot_linux_v69.img` marker 확인 — PASS
+- native → TWRP → boot partition flash → v69 boot — PASS
+- bridge `version` → `A90 Linux init 0.8.0 (v69)` 및 `made by temmie0214` — PASS
+- `inputlayout` → 단일/더블/롱/조합 mapping 출력 — PASS
+- `status` → `creator: made by temmie0214`, `boot: BOOT OK shell 3S` — PASS
+- `timeline` → `init-start ... A90 Linux init 0.8.0 (v69)` — PASS
+
+산출:
+
+- `stage3/linux_init/init_v69`
+  - SHA256 `bf9a5cc337d8ae0ca705c027053a0e81e3d4436926e331e089952b8916a280e9`
+- `stage3/ramdisk_v69.cpio`
+  - SHA256 `28fbb2f9ae618086bc704a73529d3cb3c4ebac050052f6dbd396d51503508ada`
+- `stage3/boot_linux_v69.img`
+  - SHA256 `1a333b5ee8e1c73722b9165f569f17a3257119690fccba3ce160b952792252d8`
+- `docs/reports/NATIVE_INIT_V69_INPUT_LAYOUT_2026-04-26.md`
+
+### V70. Input Monitor App — 완료
+
+목표:
+
+- 물리 버튼 이벤트를 raw input과 gesture decoder 결과로 동시에 관찰한다.
+- 버튼을 누른 순간, 뗀 순간, hold duration, event gap, decoded action을 화면/serial/log에 남긴다.
+
+구현:
+
+- `stage3/linux_init/init_v70.c`
+  - `INIT_VERSION "0.8.1"`
+  - `INIT_BUILD "v70"`
+  - `TOOLS / INPUT MONITOR` app 추가
+  - `inputmonitor [events]` command 추가
+  - raw event 2줄 카드 표시와 DOWN/UP/REPEAT 색상 구분
+  - 최신 gesture 판정 상단 대형 패널 표시
+  - `waitgesture`와 같은 decoder helper 공유
+
+검증:
+
+- static ARM64 build — PASS
+- `stage3/boot_linux_v70.img` marker 확인 — PASS
+- native → TWRP → boot partition flash → v70 boot — PASS
+- bridge `version` → `A90 Linux init 0.8.1 (v70)` 및 `made by temmie0214` — PASS
+- `status` → `creator: made by temmie0214`, `boot: BOOT OK shell 3S` — PASS
+- `inputlayout` → v69 gesture mapping 유지 — PASS
+
+산출:
+
+- `stage3/linux_init/init_v70`
+  - SHA256 `d7082127bbfeafd0508cf7a3b90079dc0f3f1b8b8238140cceb5dfe9063d7d12`
+- `stage3/ramdisk_v70.cpio`
+  - SHA256 `98ae190435469f2817d6d04fce076e643f2cb5f9e1fbafd69d9c865e1d1907b3`
+- `stage3/boot_linux_v70.img`
+  - SHA256 `5e3657ba14705bdee9cc772cb8916601bfe1a92f31122475c1115896e2a42cb1`
+- `docs/reports/NATIVE_INIT_V70_INPUT_MONITOR_2026-04-26.md`
+
 ## 보류 큐
 
 - ADB 안정화 재검토
@@ -812,8 +909,8 @@
 
 ## 지금 바로 진행할 항목
 
-1. 실제 케이블 unplug/replug 이후 ACM/NCM/tcpctl 복구 확인
-2. USB 재열거 중 `A`/`ATAT...` serial noise hardening
-3. Wi-Fi 드라이버/펌웨어 read-only 인벤토리 트랙 분리
-4. `userdata`/`mmcblk0p1` 장기 저장소 후보 의사결정
-5. TCP control 인증/제한 정책 검토
+1. `inputmonitor 0`로 실제 버튼 raw/gesture trace 수집
+2. auto HUD 메뉴 루프도 v70 gesture decoder로 통일할지 판단
+3. 실제 케이블 unplug/replug 이후 ACM/NCM/tcpctl 복구 확인
+4. USB 재열거 중 `A`/`ATAT...` serial noise hardening
+5. Wi-Fi 드라이버/펌웨어 read-only 인벤토리 트랙 분리

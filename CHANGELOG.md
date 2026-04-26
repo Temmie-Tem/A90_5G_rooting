@@ -1,5 +1,31 @@
 # Changelog
 
+## `0.8.1` (`v70`) - 2026-04-26
+
+- Added `TOOLS / INPUT MONITOR` for button-event debugging.
+- Added `inputmonitor [events]` to print raw `DOWN`/`UP`/`REPEAT` events.
+- Logged per-event gap time, hold duration, decoded gesture, and menu action.
+- Split monitor rows into readable title/detail lines and color-coded event types.
+- Added a large decoded-input panel for click/double/long/combo classification.
+- Changed three-button input monitor exit to trigger immediately on all-buttons-down.
+- Restored the HUD unconditionally after `inputmonitor` exits.
+- Reused the same gesture decoder path as `waitgesture`.
+- Verified v70 boot via native flash script and bridge `version`/`status`/`inputlayout`.
+
+## `0.8.0` (`v69`) - 2026-04-26
+
+- Added an input gesture layout for the three physical buttons.
+- Added `inputlayout` to print the active button map.
+- Added `waitgesture [count]` to debug single, double, long, and combo input.
+- Updated `screenmenu` and `blindmenu` to use gesture actions.
+- Reserved `POWER` long press for safety instead of binding it to a destructive action.
+
+## `0.7.5` (`v68`) - 2026-04-26
+
+- Added HUD log tail display when the menu is hidden.
+- Expanded on-device changelog history through early native init milestones.
+- Added detail screens for older changelog entries.
+
 ## `0.7.4` (`v67`) - 2026-04-26
 
 - Reduced ABOUT/version/changelog text scale for the tall A90 display.

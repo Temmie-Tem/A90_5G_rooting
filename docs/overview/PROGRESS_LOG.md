@@ -902,3 +902,84 @@
   - `timeline` → `init-start ... A90 Linux init 0.7.4 (v67)`, `display-splash`, `shell`
 - 상세 보고서:
   - `docs/reports/NATIVE_INIT_V67_CHANGELOG_DETAILS_2026-04-26.md`
+
+## v68: HUD log tail과 changelog history 확장 (2026-04-26)
+
+- 확인:
+  - `badb353 Add v68 log tail HUD and full changelog history`
+  - `stage3/linux_init/init_v68.c`
+    - `INIT_VERSION "0.7.5"`
+    - `INIT_BUILD "v68"`
+    - HUD menu hidden 상태에서 `/cache/native-init.log` tail 표시
+    - changelog list/detail을 v1 계열까지 확장
+- 산출:
+  - `stage3/linux_init/init_v68`
+    - SHA256 `24dcfe9b2351c6cb16a1af6737b12c950e5f1972c82f6ede6855b6ec210d64c5`
+  - `stage3/ramdisk_v68.cpio`
+    - SHA256 `c33b9853be5e6faeea1254d47aa8fb165ca44919ce12679ea9d38d487a3cb358`
+  - `stage3/boot_linux_v68.img`
+    - SHA256 `bc0982cb67f966affbc3de2d1d00c4b6a2797e1f79c1267863a29091fd1ddb41`
+- 실기 확인:
+  - bridge `version` → `A90 Linux init 0.7.5 (v68)`
+
+## v69: physical-button input gesture layout (2026-04-26)
+
+- 목적:
+  - 터치 없이 VOL+/VOL-/POWER만으로 더 풍부한 입력을 제공
+  - 단일 클릭은 기존 메뉴 조작과 호환
+  - 더블클릭, 롱프레스, 조합 입력을 안전한 메뉴 action으로 매핑
+- 추가:
+  - `stage3/linux_init/init_v69.c`
+    - `INIT_VERSION "0.8.0"`
+    - `INIT_BUILD "v69"`
+    - `inputlayout` command 추가
+    - `waitgesture [count]` debug command 추가
+    - `screenmenu`/`blindmenu`가 gesture action 사용
+    - `POWER long`은 destructive action에 묶지 않고 reserved 처리
+- 산출:
+  - `stage3/linux_init/init_v69`
+    - SHA256 `bf9a5cc337d8ae0ca705c027053a0e81e3d4436926e331e089952b8916a280e9`
+  - `stage3/ramdisk_v69.cpio`
+    - SHA256 `28fbb2f9ae618086bc704a73529d3cb3c4ebac050052f6dbd396d51503508ada`
+  - `stage3/boot_linux_v69.img`
+    - SHA256 `1a333b5ee8e1c73722b9165f569f17a3257119690fccba3ce160b952792252d8`
+- 실기 검증:
+  - `native_init_flash.py stage3/boot_linux_v69.img --from-native --expect-version "A90 Linux init 0.8.0 (v69)"` PASS
+  - boot partition prefix SHA256 readback PASS
+  - bridge `version` → `A90 Linux init 0.8.0 (v69)` / `made by temmie0214`
+  - `inputlayout` → 단일/더블/롱/조합 mapping 출력 PASS
+  - `status` → `creator: made by temmie0214`, `boot: BOOT OK shell 3S`
+  - `timeline` → `init-start ... A90 Linux init 0.8.0 (v69)`, `display-splash`, `shell`
+- 상세 보고서:
+  - `docs/reports/NATIVE_INIT_V69_INPUT_LAYOUT_2026-04-26.md`
+
+## v70: input monitor app and raw/gesture trace (2026-04-26)
+
+- 목적:
+  - 물리 버튼 개선을 감이 아니라 raw event와 decoder 결과를 같이 보며 진행
+  - 누른 순간, 뗀 순간, hold duration, event gap, gesture/action 판정을 한 화면/로그로 확인
+- 추가:
+  - `stage3/linux_init/init_v70.c`
+    - `INIT_VERSION "0.8.1"`
+    - `INIT_BUILD "v70"`
+    - `TOOLS / INPUT MONITOR` screen app 추가
+    - `inputmonitor [events]` shell command 추가
+    - raw `DOWN`/`UP`/`REPEAT`, gap, hold, decoded gesture/action 출력
+    - raw event를 2줄 카드로 표시하고 DOWN/UP/REPEAT 색상 구분
+    - 최신 gesture 판정을 큰 상단 패널로 표시: single/double/long/combo, buttons, action, duration/gap
+    - `waitgesture`와 같은 decoder helper를 공유하도록 정리
+- 산출:
+  - `stage3/linux_init/init_v70`
+    - SHA256 `d7082127bbfeafd0508cf7a3b90079dc0f3f1b8b8238140cceb5dfe9063d7d12`
+  - `stage3/ramdisk_v70.cpio`
+    - SHA256 `98ae190435469f2817d6d04fce076e643f2cb5f9e1fbafd69d9c865e1d1907b3`
+  - `stage3/boot_linux_v70.img`
+    - SHA256 `5e3657ba14705bdee9cc772cb8916601bfe1a92f31122475c1115896e2a42cb1`
+- 실기 검증:
+  - `native_init_flash.py stage3/boot_linux_v70.img --from-native --expect-version "A90 Linux init 0.8.1 (v70)"` PASS
+  - boot partition prefix SHA256 readback PASS
+  - bridge `version` → `A90 Linux init 0.8.1 (v70)` / `made by temmie0214`
+  - `status` → `boot: BOOT OK shell 3S`, `autohud: running`
+  - `inputlayout` → v69 gesture mapping 유지 확인
+- 상세 보고서:
+  - `docs/reports/NATIVE_INIT_V70_INPUT_MONITOR_2026-04-26.md`

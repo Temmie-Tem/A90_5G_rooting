@@ -4,19 +4,19 @@ Date: `2026-04-26`
 
 ## Current Version
 
-- official version: `0.7.4`
-- build tag: `v67`
-- display name: `A90 Linux init 0.7.4 (v67)`
+- official version: `0.8.1`
+- build tag: `v70`
+- display name: `A90 Linux init 0.8.1 (v70)`
 - creator: `made by temmie0214`
-- latest source: `stage3/linux_init/init_v67.c`
-- latest boot image: `stage3/boot_linux_v67.img`
+- latest source: `stage3/linux_init/init_v70.c`
+- latest boot image: `stage3/boot_linux_v70.img`
 
 ## Version Format
 
 공식 버전은 `MAJOR.MINOR.PATCH`를 사용하고, 실험/플래시 추적용 build tag는 `vNN`을 유지한다.
 
 ```text
-A90 Linux init 0.7.4 (v67)
+A90 Linux init 0.8.1 (v70)
 ```
 
 ## Rules
@@ -34,6 +34,9 @@ A90 Linux init 0.7.4 (v67)
 
 | official | build | summary |
 |---|---|---|
+| `0.8.1` | `v70` | input monitor app and raw/gesture trace |
+| `0.8.0` | `v69` | physical-button input gesture layout and debug command |
+| `0.7.5` | `v68` | HUD log tail and expanded changelog history |
 | `0.7.4` | `v67` | compact ABOUT typography and per-version changelog detail screens |
 | `0.7.3` | `v66` | ABOUT app, versioning, changelog, creator display |
 | `0.7.2` | `v65` | boot splash safe layout |

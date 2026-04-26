@@ -1,6 +1,6 @@
 # Native Init Next Work List (2026-04-25)
 
-이 문서는 `A90 Linux init 0.7.4 (v67)` 기준 이후 작업을 정리한 실행 목록이다.
+이 문서는 `A90 Linux init 0.8.1 (v70)` 기준 이후 작업을 정리한 실행 목록이다.
 
 현재 단계는 넓은 의미의 리버싱도 포함하지만, 중심은 더 이상 Android 전체를
 분해하는 것이 아니다. Stock Android kernel과 Samsung vendor driver 위에서
@@ -128,18 +128,21 @@ Samsung bootloader
 - boot splash 잘림 방지 safe layout — v65 완료
 - semantic version + ABOUT/changelog/credits app — v66 완료
 - compact ABOUT typography + version별 changelog detail — v67 완료
+- HUD log tail + expanded changelog history — v68 완료
+- physical-button input gesture layout — v69 완료
+- input monitor app + raw/gesture trace — v70 완료
 - static dropbear SSH 또는 custom TCP shell
 
 ---
 
 ## 현재 기준점
 
-- 최신 확인 버전: `A90 Linux init 0.7.4 (v67)`
-- 공식 버전: `0.7.4`
-- build tag: `v67`
+- 최신 확인 버전: `A90 Linux init 0.8.1 (v70)`
+- 공식 버전: `0.8.1`
+- build tag: `v70`
 - creator: `made by temmie0214`
-- 최신 소스: `stage3/linux_init/init_v67.c`
-- 최신 boot image: `stage3/boot_linux_v67.img`
+- 최신 소스: `stage3/linux_init/init_v70.c`
+- 최신 boot image: `stage3/boot_linux_v70.img`
 - known-good fallback: `stage3/boot_linux_v48.img`
 - 주 제어 채널: USB CDC ACM serial (`/dev/ttyGS0` ↔ `/dev/ttyACM0`)
 - host bridge: `scripts/revalidation/serial_tcp_bridge.py --port 54321`
@@ -151,7 +154,7 @@ Samsung bootloader
 - HUD 상태: `BOOT OK shell` summary 표시 확인
 - run/log 상태: `/bin/a90sleep` q 취소와 recovery 왕복 log preservation 확인
 - storage 상태: `/cache` safe write, `userdata` conditional, critical partitions do-not-touch 기준 문서화
-- screen menu 상태: 자동 메뉴, 버튼 조작, serial `hide`/busy gate 확인
+- screen menu 상태: 자동 메뉴, 버튼 조작, input gesture layout, input monitor, serial `hide`/busy gate 확인
 - USB 상태: ACM-only gadget `04e8:6861` / host `cdc_acm` 기준 문서화
 - USB reattach 상태: v48 `usbacmreset`와 외부 helper `off` 후 serial 복구 확인
 - USB NCM 상태: host `cdc_ncm` + device `ncm0`, IPv4 ping, IPv6 link-local ping, host→device netcat 확인
@@ -632,7 +635,7 @@ Samsung bootloader
 
 현재:
 
-- v67 custom boot splash 약 2초
+- v70 custom boot splash 약 2초
 - HUD/menu 자동 전환
 
 추가 후보:

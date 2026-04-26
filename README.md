@@ -14,17 +14,17 @@ Android userspace 대신 직접 만든 static `/init`를 실행하고,
 - build: `A908NKSU5EWA3`
 - kernel: Samsung stock Android kernel `Linux 4.14.190`
 - recovery: TWRP 사용 가능
-- latest verified native init: `A90 Linux init 0.7.4 (v67)`
-- official version: `0.7.4`
-- build tag: `v67`
+- latest verified native init: `A90 Linux init 0.8.1 (v70)`
+- official version: `0.8.1`
+- build tag: `v70`
 - creator: `made by temmie0214`
-- latest source: `stage3/linux_init/init_v67.c`
-- latest boot image: `stage3/boot_linux_v67.img`
+- latest source: `stage3/linux_init/init_v70.c`
+- latest boot image: `stage3/boot_linux_v70.img`
 - known-good fallback: `stage3/boot_linux_v48.img`
 - control channel: USB CDC ACM serial (`/dev/ttyGS0` ↔ `/dev/ttyACM0`)
 - host bridge: `scripts/revalidation/serial_tcp_bridge.py --port 54321`
 - display: custom boot splash 후 상태 HUD/menu 자동 전환
-- input: VOL+/VOL-/POWER 버튼 입력 확인
+- input: VOL+/VOL-/POWER 단일/더블/롱/조합 입력 layout과 input monitor 확인
 - logging: `/cache/native-init.log` boot/command log 확인
 - blocking cancel: `waitkey`/`readinput`/`watchhud`/`blindmenu` q/Ctrl-C 취소 확인
 - boot timeline: `timeline` 명령과 log replay 확인
@@ -45,10 +45,12 @@ Android userspace 대신 직접 만든 static `/init`를 실행하고,
 - reconnect: v60 `netservice stop/start` software UDC 재열거 후 NCM/TCP 복구 확인
 - HUD metrics: CPU/GPU 온도와 사용률 `%` 표시, CPU stress 검증 확인
 - dev nodes: `/dev/null`/`/dev/zero` boot-time char device guard 확인
-- app menu: APPS/MONITORING/TOOLS/LOGS/NETWORK/POWER 계층 메뉴와 CPU stress 시간 선택 확인
+- app menu: APPS/MONITORING/TOOLS/LOGS/NETWORK/POWER 계층 메뉴, CPU stress, input monitor 확인
 - boot splash: TEST 패턴 대신 `A90 NATIVE INIT` custom splash 표시 후 HUD 전환 확인
 - splash layout: v65에서 긴 문구/footer 잘림 방지를 위해 안전 여백과 자동 축소 적용
 - about app: `APPS / ABOUT`에서 version, changelog 목록/상세, credits 표시
+- input layout: `inputlayout`, `waitgesture`, `screenmenu`/`blindmenu` gesture action 확인
+- input monitor: `TOOLS / INPUT MONITOR`와 `inputmonitor [events]` raw/gesture trace 확인
 - menu gate: 메뉴 표시 중 위험 명령 `[busy]` 차단, 관찰 명령 허용
 - ADB: 보류. 현재 기준 제어 채널은 serial bridge
 
@@ -117,6 +119,9 @@ Samsung bootloader
 26. boot splash 잘림 방지 safe layout — v65 완료
 27. semantic version + ABOUT/changelog/credits app — v66 완료
 28. compact ABOUT typography + per-version changelog detail — v67 완료
+29. HUD log tail + expanded changelog history — v68 완료
+30. physical-button input gesture layout — v69 완료
+31. input monitor app + raw/gesture trace — v70 완료
 
 ## Repository Layout
 
@@ -163,6 +168,8 @@ Samsung bootloader
 - `docs/reports/NATIVE_INIT_V65_SPLASH_SAFE_LAYOUT_2026-04-26.md`
 - `docs/reports/NATIVE_INIT_V66_ABOUT_VERSIONING_2026-04-26.md`
 - `docs/reports/NATIVE_INIT_V67_CHANGELOG_DETAILS_2026-04-26.md`
+- `docs/reports/NATIVE_INIT_V69_INPUT_LAYOUT_2026-04-26.md`
+- `docs/reports/NATIVE_INIT_V70_INPUT_MONITOR_2026-04-26.md`
 
 `docs/plans/NATIVE_LINUX_RECHALLENGE_PLAN.md`와 `docs/plans/REVALIDATION_PLAN.md`는
 진입점 확보 이전의 부트체인 재검증 기록으로 보존한다.
