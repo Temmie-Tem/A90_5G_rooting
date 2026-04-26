@@ -1,5 +1,22 @@
 # Changelog
 
+## `0.8.6` (`v75`) - 2026-04-27
+
+- Increased idle serial console reattach interval from 10 seconds to 60 seconds.
+- Suppressed successful `idle-timeout` reattach request/ok logs so live LOG TAIL stays readable.
+- Kept idle reattach failure logs and manual/non-idle reattach logs visible.
+- Added on-device `0.8.6 v75` changelog detail.
+- Verified v75 boot via native flash script, `cmdv1 version/status`, 70+ second idle log check, and manual `reattach` log check.
+
+## `0.8.5` (`v74`) - 2026-04-27
+
+- Added `cmdv1x <len:hex-utf8-arg>...` to preserve whitespace and special-character arguments inside framed shell calls.
+- Kept the legacy `cmdv1 <command> [args...]` path for simple argv.
+- Updated `a90ctl.py` to auto-select legacy `cmdv1` or encoded `cmdv1x`.
+- Shared argv parsing/encoding across NCM, netservice reconnect, and TCP control host tools.
+- Added on-device `0.8.5 v74` changelog detail.
+- Verified v74 boot and `a90ctl.py echo "hello world"` with `rc=0`, `status=ok`.
+
 ## `0.8.4` (`v73`) - 2026-04-27
 
 - Added `cmdv1 <command> [args...]` one-shot shell protocol wrapper.

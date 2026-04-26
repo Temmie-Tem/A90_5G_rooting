@@ -14,12 +14,12 @@ Android userspace 대신 직접 만든 static `/init`를 실행하고,
 - build: `A908NKSU5EWA3`
 - kernel: Samsung stock Android kernel `Linux 4.14.190`
 - recovery: TWRP 사용 가능
-- latest verified native init: `A90 Linux init 0.8.5 (v74)`
-- official version: `0.8.5`
-- build tag: `v74`
+- latest verified native init: `A90 Linux init 0.8.6 (v75)`
+- official version: `0.8.6`
+- build tag: `v75`
 - creator: `made by temmie0214`
-- latest source: `stage3/linux_init/init_v74.c`
-- latest boot image: `stage3/boot_linux_v74.img`
+- latest source: `stage3/linux_init/init_v75.c`
+- latest boot image: `stage3/boot_linux_v75.img`
 - known-good fallback: `stage3/boot_linux_v48.img`
 - control channel: USB CDC ACM serial (`/dev/ttyGS0` ↔ `/dev/ttyACM0`)
 - host bridge: `scripts/revalidation/serial_tcp_bridge.py --port 54321`
@@ -53,6 +53,7 @@ Android userspace 대신 직접 만든 static `/init`를 실행하고,
 - input layout: `inputlayout`, `waitgesture`, `screenmenu`/`blindmenu` gesture action 확인
 - input monitor: `TOOLS / INPUT MONITOR`와 `inputmonitor [events]` raw/gesture trace 확인
 - log tail panel: HUD hidden 상태와 menu visible 상태에서 최근 native log 표시 확인
+- serial reattach log: v75에서 idle-timeout 성공 로그를 억제해 LOG TAIL noise 감소
 - menu gate: 메뉴 표시 중 위험 명령 `[busy]` 차단, 관찰 명령 허용
 - shell protocol: `cmdv1`/`A90P1` framed one-shot result와 `a90ctl.py` host wrapper 검증
 - shell protocol: v74 `cmdv1x` length-prefixed argv encoding verified for whitespace args
@@ -130,6 +131,7 @@ Samsung bootloader
 33. display test screen + framebuffer color fix — v72 완료
 34. shell protocol v1 + host wrapper — v73 완료
 35. cmdv1x argument encoding — v74 완료
+36. idle serial reattach log quieting — v75 완료
 
 ## Repository Layout
 
@@ -180,6 +182,8 @@ Samsung bootloader
 - `docs/reports/NATIVE_INIT_V70_INPUT_MONITOR_2026-04-26.md`
 - `docs/reports/NATIVE_INIT_V72_DISPLAY_TEST_2026-04-27.md`
 - `docs/reports/NATIVE_INIT_V73_CMDV1_PROTOCOL_2026-04-27.md`
+- `docs/reports/NATIVE_INIT_V74_CMDV1X_ARG_ENCODING_2026-04-27.md`
+- `docs/reports/NATIVE_INIT_V75_QUIET_IDLE_REATTACH_2026-04-27.md`
 
 `docs/plans/NATIVE_LINUX_RECHALLENGE_PLAN.md`와 `docs/plans/REVALIDATION_PLAN.md`는
 진입점 확보 이전의 부트체인 재검증 기록으로 보존한다.

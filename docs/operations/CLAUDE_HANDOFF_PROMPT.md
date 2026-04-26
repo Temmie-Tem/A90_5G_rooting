@@ -1,9 +1,9 @@
 # Claude Handoff Prompt
 
-Date: `2026-04-26`
+Date: `2026-04-27`
 
 아래 블록을 Claude나 다른 에이전트에게 그대로 붙여 넣는다.
-목표는 **먼저 상태를 확인하고, known-good v48 복구 경로와 latest v74 작업 경로를 혼동하지 않게 하는 것**이다.
+목표는 **먼저 상태를 확인하고, known-good v48 복구 경로와 latest v75 작업 경로를 혼동하지 않게 하는 것**이다.
 
 ```text
 너는 /home/temmie/dev/A90_5G_rooting 저장소에서 작업한다.
@@ -16,11 +16,11 @@ Date: `2026-04-26`
 
 현재 기준:
 
-- latest verified native init: A90 Linux init 0.8.5 (v74)
-- latest source: stage3/linux_init/init_v74.c
-- latest boot image: stage3/boot_linux_v74.img
+- latest verified native init: A90 Linux init 0.8.6 (v75)
+- latest source: stage3/linux_init/init_v75.c
+- latest boot image: stage3/boot_linux_v75.img
 - latest boot image SHA256:
-  e12839be90ad59e13c8289e2eab8d9441f8bfd2b907bd0f7f819ff65f581f1b4
+  50f76a3a9e84ad13f19116e9b6e5b3a1ece6a91b177b81ae8cab1509109452a5
 - known-good fallback native init: A90 Linux init v48
 - known-good fallback source: stage3/linux_init/init_v48.c
 - known-good fallback boot image: stage3/boot_linux_v48.img
@@ -58,6 +58,7 @@ Date: `2026-04-26`
 - v72에서는 cutout-aware `TOOLS / DISPLAY TEST`, `displaytest`, `XBGR8888` color packing fix가 추가됐다.
 - v73에서는 `cmdv1`/`A90P1` framed one-shot shell protocol과 `a90ctl.py` host wrapper가 추가됐다.
 - v74에서는 `cmdv1x` length-prefixed argv encoding으로 whitespace 인자를 framed protocol에서 검증했다.
+- v75에서는 idle-timeout serial reattach 성공 로그를 숨겨 live LOG TAIL noise를 줄였다.
 
 v49 주의:
 
@@ -78,18 +79,18 @@ python3 scripts/revalidation/a90ctl.py --json status || true
 
 판단:
 
-- bridge에서 A90 Linux init 0.8.5 (v74)가 나오면 latest verified native init 상태다.
+- bridge에서 A90 Linux init 0.8.6 (v75)가 나오면 latest verified native init 상태다.
 - bridge에서 A90 Linux init v48이 나오면 known-good fallback native init 상태다.
 - adb devices -l에서 recovery면 TWRP 상태다.
 - adb devices -l에서 device이고 /proc/1/exe가 /system/bin/init이면 Android 상태다.
 - 04e8:6861 + /dev/ttyACM0인데 bridge가 안 되면 사용자가 sudo bridge를 재시작해야 한다.
 
-latest v74 flash가 정말 필요할 때만 이 스크립트를 사용:
+latest v75 flash가 정말 필요할 때만 이 스크립트를 사용:
 
 python3 ./scripts/revalidation/native_init_flash.py \
-  stage3/boot_linux_v74.img \
+  stage3/boot_linux_v75.img \
   --from-native \
-  --expect-version "A90 Linux init 0.8.5 (v74)" \
+  --expect-version "A90 Linux init 0.8.6 (v75)" \
   --bridge-timeout 240 \
   --recovery-timeout 180
 

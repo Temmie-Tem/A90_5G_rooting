@@ -1186,3 +1186,34 @@
   - replug 직후 한 번의 짧은 `cmdv1` check가 raw bridge fallback으로 진행됐지만 다음 framed check는 정상 복구됐다.
 - 상세 보고서:
   - `docs/reports/NATIVE_INIT_V74_PHYSICAL_USB_RECONNECT_2026-04-27.md`
+
+## v75: quiet idle serial reattach logs (2026-04-27)
+
+- 목표:
+  - serial console idle recovery 자체는 유지하면서, LOG TAIL을 가득 채우던 idle-timeout 성공 reattach 로그를 줄인다.
+  - 실제 오류나 수동 `reattach` 로그는 유지해 복구/디버깅 신호를 잃지 않는다.
+- 구현:
+  - `stage3/linux_init/init_v75.c`
+    - `INIT_VERSION "0.8.6"`
+    - `INIT_BUILD "v75"`
+    - `CONSOLE_IDLE_REATTACH_MS`를 `10000`에서 `60000`으로 완화
+    - `reason=idle-timeout` 성공 경로의 request/ok native log와 klog를 억제
+    - wait/open 실패 로그와 command/usbacmreset 등 non-idle reattach 로그는 유지
+    - on-device changelog에 `0.8.6 v75 QUIET IDLE REATTACH` 추가
+- 산출물:
+  - `stage3/linux_init/init_v75`
+    - SHA256 `840d1cd349b203dd912e3c99dd6b799acfc4fe2f0295c52bdf3f0e9cfe4df1fe`
+  - `stage3/ramdisk_v75.cpio`
+    - SHA256 `af5abb98fdd3f49a767a75db8bda51bcbfea1a9ed75b9e1f6c4dd781c28eb072`
+  - `stage3/boot_linux_v75.img`
+    - SHA256 `50f76a3a9e84ad13f19116e9b6e5b3a1ece6a91b177b81ae8cab1509109452a5`
+- 검증:
+  - static ARM64 build — PASS
+  - v75 ramdisk/boot image 생성 — PASS
+  - boot image marker strings `A90 Linux init 0.8.6 (v75)`, `A90v75`, `0.8.6 v75` — PASS
+  - native → TWRP → boot partition flash → v75 boot — PASS
+  - `native_init_flash.py stage3/boot_linux_v75.img --from-native --expect-version "A90 Linux init 0.8.6 (v75)" --verify-protocol auto` — PASS
+  - 70초 이상 idle 후 `/cache/native-init.log`에 신규 `idle-timeout` 성공 로그 없음 — PASS
+  - 수동 `a90ctl.py --json reattach`는 `reason=command` request/ok 로그 유지 — PASS
+- 상세 보고서:
+  - `docs/reports/NATIVE_INIT_V75_QUIET_IDLE_REATTACH_2026-04-27.md`

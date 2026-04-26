@@ -1,6 +1,6 @@
 # Native Init Flash / Bridge Operator Guide
 
-Date: `2026-04-26`
+Date: `2026-04-27`
 
 이 문서는 사람이 직접 따라 하기 위한 짧은 운영 절차서다.
 목표는 **TWRP에서 native init boot image를 안전하게 flash하고,
@@ -17,10 +17,10 @@ Date: `2026-04-26`
 - known-good fallback source: `stage3/linux_init/init_v48.c`
 - known-good fallback boot image: `stage3/boot_linux_v48.img`
 - known-good fallback boot image SHA256: `1c87fa59712395027c5c2e489b15c4f6ddefabc3c50f78d3c235c4508a63e042`
-- latest verified native init: `A90 Linux init 0.8.5 (v74)`
-- latest verified source: `stage3/linux_init/init_v74.c`
-- latest verified boot image: `stage3/boot_linux_v74.img`
-- latest verified boot image SHA256: `241e44ef70eb3dc187c8dd44c62c26943c42bd952c7d122374295463d67f159a`
+- latest verified native init: `A90 Linux init 0.8.6 (v75)`
+- latest verified source: `stage3/linux_init/init_v75.c`
+- latest verified boot image: `stage3/boot_linux_v75.img`
+- latest verified boot image SHA256: `50f76a3a9e84ad13f19116e9b6e5b3a1ece6a91b177b81ae8cab1509109452a5`
 - control channel: USB CDC ACM serial bridge
 - bridge endpoint: `127.0.0.1:54321`
 - bridge script: `scripts/revalidation/serial_tcp_bridge.py`
@@ -100,7 +100,7 @@ printf 'version\n' | nc -w 3 127.0.0.1 54321
 정상 응답 예:
 
 ```text
-A90 Linux init 0.8.5 (v74)
+A90 Linux init 0.8.6 (v75)
 made by temmie0214
 kernel: Linux 4.14.190-25818860-abA908NKSU5EWA3 aarch64
 [done] version
@@ -118,7 +118,7 @@ printf 'netservice status\n' | nc -w 5 127.0.0.1 54321
 
 v73부터는 자동화용 one-shot 명령은 `a90ctl.py`를 우선 쓴다.
 raw `nc` 출력 대신 `A90P1` END marker의 `rc`/`status`를 파싱한다.
-v74부터는 공백/특수문자 인자가 필요한 경우 `a90ctl.py`가 자동으로
+v74 이후부터는 공백/특수문자 인자가 필요한 경우 `a90ctl.py`가 자동으로
 `cmdv1x <len:hex-utf8-arg>...` wire format을 사용한다.
 
 ```bash
@@ -400,13 +400,13 @@ sudo python3 ./scripts/revalidation/serial_tcp_bridge.py --port 54321
 printf 'version\n' | nc -w 3 127.0.0.1 54321
 ```
 
-최신 verified v74를 native init 상태에서 다시 올릴 때:
+최신 verified v75를 native init 상태에서 다시 올릴 때:
 
 ```bash
 python3 ./scripts/revalidation/native_init_flash.py \
-  stage3/boot_linux_v74.img \
+  stage3/boot_linux_v75.img \
   --from-native \
-  --expect-version "A90 Linux init 0.8.5 (v74)" \
+  --expect-version "A90 Linux init 0.8.6 (v75)" \
   --verify-protocol auto \
   --bridge-timeout 240 \
   --recovery-timeout 180

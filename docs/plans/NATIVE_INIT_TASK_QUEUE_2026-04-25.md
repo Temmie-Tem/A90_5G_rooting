@@ -1,16 +1,16 @@
 # Native Init Task Queue (2026-04-25)
 
-이 문서는 `A90 Linux init 0.8.5 (v74)` 이후 바로 실행할 작업 큐다.
+이 문서는 `A90 Linux init 0.8.6 (v75)` 이후 바로 실행할 작업 큐다.
 큰 방향은 “보이는 부팅 → 복구 가능한 로그 → 단독 조작 → 작은 userland → USB networking” 순서다.
 
 ## 현재 고정 기준점
 
-- latest verified native init: `A90 Linux init 0.8.5 (v74)`
-- official version: `0.8.5`
-- build tag: `v74`
+- latest verified native init: `A90 Linux init 0.8.6 (v75)`
+- official version: `0.8.6`
+- build tag: `v75`
 - creator: `made by temmie0214`
-- latest source: `stage3/linux_init/init_v74.c`
-- latest boot image: `stage3/boot_linux_v74.img`
+- latest source: `stage3/linux_init/init_v75.c`
+- latest boot image: `stage3/boot_linux_v75.img`
 - known-good fallback: `stage3/boot_linux_v48.img`
 - control channel: USB ACM serial bridge
 - log: `/cache/native-init.log`
@@ -1126,6 +1126,38 @@ python3 ./scripts/revalidation/physical_usb_reconnect_check.py --manual-host-con
 산출:
 
 - `docs/reports/NATIVE_INIT_V74_PHYSICAL_USB_RECONNECT_2026-04-27.md`
+
+### V75. Quiet Idle Serial Reattach Logs — 완료
+
+구현:
+
+- `stage3/linux_init/init_v75.c`
+  - `INIT_VERSION "0.8.6"`
+  - `INIT_BUILD "v75"`
+  - idle serial reattach interval을 `60s`로 완화
+  - `reason=idle-timeout` 성공 request/ok 로그 억제
+  - idle failure와 수동/non-idle reattach 로그는 유지
+  - on-device changelog `0.8.6 v75 QUIET IDLE REATTACH` 추가
+
+검증:
+
+- static ARM64 build — PASS
+- `stage3/ramdisk_v75.cpio`, `stage3/boot_linux_v75.img` 생성 — PASS
+- boot image marker strings `A90 Linux init 0.8.6 (v75)`, `A90v75`, `0.8.6 v75` — PASS
+- native → TWRP → boot partition flash → v75 boot — PASS
+- `cmdv1 version/status` verify: `rc=0`, `status=ok` — PASS
+- 70초 이상 idle 후 신규 `idle-timeout` 성공 로그 없음 — PASS
+- 수동 `reattach`는 `reason=command` request/ok 로그 유지 — PASS
+
+산출:
+
+- `stage3/linux_init/init_v75`
+  - SHA256 `840d1cd349b203dd912e3c99dd6b799acfc4fe2f0295c52bdf3f0e9cfe4df1fe`
+- `stage3/ramdisk_v75.cpio`
+  - SHA256 `af5abb98fdd3f49a767a75db8bda51bcbfea1a9ed75b9e1f6c4dd781c28eb072`
+- `stage3/boot_linux_v75.img`
+  - SHA256 `50f76a3a9e84ad13f19116e9b6e5b3a1ece6a91b177b81ae8cab1509109452a5`
+- `docs/reports/NATIVE_INIT_V75_QUIET_IDLE_REATTACH_2026-04-27.md`
 
 ## 지금 바로 진행할 항목
 

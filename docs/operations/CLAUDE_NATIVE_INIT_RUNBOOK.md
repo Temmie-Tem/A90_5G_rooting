@@ -1,6 +1,6 @@
 # Claude / Agent Native Init Operations Runbook
 
-Date: `2026-04-26`
+Date: `2026-04-27`
 
 이 문서는 Claude나 다른 에이전트가 이 저장소에서 같은 실수를 반복하지 않도록 남기는
 운영 설명서다. 핵심은 **브릿지로 현재 상태를 먼저 확인하고, TWRP/boot image/serial rescue
@@ -12,9 +12,9 @@ Date: `2026-04-26`
 
 - device: `Samsung Galaxy A90 5G SM-A908N`
 - recovery: TWRP 사용 가능
-- latest verified native init: `A90 Linux init 0.8.5 (v74)`
-- latest source: `stage3/linux_init/init_v74.c`
-- latest boot image: `stage3/boot_linux_v74.img`
+- latest verified native init: `A90 Linux init 0.8.6 (v75)`
+- latest source: `stage3/linux_init/init_v75.c`
+- latest boot image: `stage3/boot_linux_v75.img`
 - known-good fallback native init: `A90 Linux init v48`
 - known-good fallback boot image: `stage3/boot_linux_v48.img`
 - primary control channel: USB CDC ACM serial
@@ -95,9 +95,9 @@ Date: `2026-04-26`
 - HUD menu hidden 상태에서 `/cache/native-init.log` tail을 표시한다.
 - changelog list/detail을 v1 계열까지 확장했다.
 
-중요한 v69~v74 개선:
+중요한 v69~v75 개선:
 
-- 현재 official version은 `0.8.5`, build tag는 `v74`이다.
+- 현재 official version은 `0.8.6`, build tag는 `v75`이다.
 - v74에서는 `cmdv1x` argument encoding이 실기 검증되어 whitespace 인자를 framed protocol로 보낼 수 있다.
 - `inputlayout`으로 VOL+/VOL-/POWER 단일/더블/롱/조합 입력 map을 확인한다.
 - `waitgesture [count]`로 gesture recognizer를 실기 검증한다.
@@ -108,6 +108,7 @@ Date: `2026-04-26`
 - v72에서는 `DRM_FORMAT_XBGR8888` framebuffer color packing을 보정한다.
 - v73에서는 `cmdv1`/`A90P1` framed one-shot protocol과 `a90ctl.py` host wrapper를 사용한다.
 - v74에서는 `a90ctl.py echo "hello world"` 같은 whitespace 인자를 `cmdv1x <len:hex-utf8-arg>...`로 자동 전송한다.
+- v75에서는 idle-timeout serial reattach 성공 로그를 숨겨 live LOG TAIL noise를 줄인다.
 - 자동 검증은 가능하면 raw `nc`보다 `python3 scripts/revalidation/a90ctl.py status`처럼 rc/status를 파싱한다.
 - auto menu busy gate는 POWER 메뉴에서 가장 엄격하고, 일반 메뉴에서는 위험/입력충돌 명령만 막는다.
 - `screenmenu`/`blindmenu`가 gesture action을 사용한다.
@@ -164,7 +165,7 @@ printf 'version\n' | nc -w 3 127.0.0.1 54321
 정상 예:
 
 ```text
-A90 Linux init 0.8.5 (v74)
+A90 Linux init 0.8.6 (v75)
 made by temmie0214
 kernel: Linux 4.14.190-25818860-abA908NKSU5EWA3 aarch64
 display: 1080x2400 connector=28 crtc=133 fb=207
@@ -263,7 +264,7 @@ adb -s RFCM90CFWXA shell 'twrp reboot'
 ```bash
 python3 ./scripts/revalidation/native_init_flash.py \
   --verify-only \
-  --expect-version "A90 Linux init 0.8.5 (v74)" \
+  --expect-version "A90 Linux init 0.8.6 (v75)" \
   --verify-protocol auto \
   --bridge-timeout 180
 ```
@@ -278,36 +279,36 @@ python3 ./scripts/revalidation/native_init_flash.py \
 
 ## 5. Custom init 수정 흐름
 
-새 버전 예시가 v75라면:
+새 버전 예시가 v76이라면:
 
 ```bash
-cp stage3/linux_init/init_v74.c stage3/linux_init/init_v75.c
+cp stage3/linux_init/init_v75.c stage3/linux_init/init_v76.c
 ```
 
 반드시 바꿀 것:
 
-- `#define INIT_BUILD "v75"`
-- 예시가 patch 업데이트라면 `#define INIT_VERSION "0.8.6"`로 변경
-- `A90v74` kmsg marker를 `A90v75`로 변경
+- `#define INIT_BUILD "v76"`
+- 예시가 patch 업데이트라면 `#define INIT_VERSION "0.8.7"`로 변경
+- `A90v75` kmsg marker를 `A90v76`로 변경
 - v49 번호는 재사용하지 않는다.
-- `mark_step("..._v74\n")` 계열을 새 버전으로 변경
+- `mark_step("..._v75\n")` 계열을 새 버전으로 변경
 - README/docs의 latest 기준점은 실기 검증 뒤에만 갱신
 
 검색:
 
 ```bash
-rg -n 'v74|A90v74|init_v74|boot_linux_v74|ramdisk_v74' stage3/linux_init/init_v75.c
+rg -n 'v75|A90v75|init_v75|boot_linux_v75|ramdisk_v75' stage3/linux_init/init_v76.c
 ```
 
 빌드:
 
 ```bash
 aarch64-linux-gnu-gcc -static -Os -Wall -Wextra \
-  -o stage3/linux_init/init_v75 stage3/linux_init/init_v75.c
-aarch64-linux-gnu-strip stage3/linux_init/init_v75
-file stage3/linux_init/init_v75
-sha256sum stage3/linux_init/init_v75
-strings stage3/linux_init/init_v75 | rg 'A90 Linux init .*\\(v75\\)|A90v75'
+  -o stage3/linux_init/init_v76 stage3/linux_init/init_v76.c
+aarch64-linux-gnu-strip stage3/linux_init/init_v76
+file stage3/linux_init/init_v76
+sha256sum stage3/linux_init/init_v76
+strings stage3/linux_init/init_v76 | rg 'A90 Linux init .*\\(v76\\)|A90v76'
 ```
 
 컴파일 경고를 무시하지 말 것.
@@ -317,26 +318,26 @@ strings stage3/linux_init/init_v75 | rg 'A90 Linux init .*\\(v75\\)|A90v75'
 검증된 이전 boot image에서 kernel/header 인자를 재사용하고 ramdisk만 바꾼다.
 
 ```bash
-rm -rf /tmp/a90_boot_v75_unpack
-mkdir -p /tmp/a90_boot_v75_unpack
+rm -rf /tmp/a90_boot_v76_unpack
+mkdir -p /tmp/a90_boot_v76_unpack
 python3 mkbootimg/unpack_bootimg.py \
-  --boot_img stage3/boot_linux_v74.img \
-  --out /tmp/a90_boot_v75_unpack \
+  --boot_img stage3/boot_linux_v75.img \
+  --out /tmp/a90_boot_v76_unpack \
   --format=mkbootimg \
-  > /tmp/a90_boot_v75_mkbootimg_args.txt
+  > /tmp/a90_boot_v76_mkbootimg_args.txt
 ```
 
 ramdisk 생성:
 
 ```bash
-rm -rf stage3/ramdisk_v75
-mkdir -p stage3/ramdisk_v75/bin
-cp stage3/linux_init/init_v75 stage3/ramdisk_v75/init
-cp stage3/linux_init/a90_sleep stage3/ramdisk_v75/bin/a90sleep
-chmod 755 stage3/ramdisk_v75/init stage3/ramdisk_v75/bin/a90sleep
+rm -rf stage3/ramdisk_v76
+mkdir -p stage3/ramdisk_v76/bin
+cp stage3/linux_init/init_v76 stage3/ramdisk_v76/init
+cp stage3/linux_init/a90_sleep stage3/ramdisk_v76/bin/a90sleep
+chmod 755 stage3/ramdisk_v76/init stage3/ramdisk_v76/bin/a90sleep
 (
-  cd stage3/ramdisk_v75
-  find . | LC_ALL=C sort | cpio -o -H newc > ../ramdisk_v75.cpio
+  cd stage3/ramdisk_v76
+  find . | LC_ALL=C sort | cpio -o -H newc > ../ramdisk_v76.cpio
 )
 ```
 
@@ -348,15 +349,15 @@ from pathlib import Path
 import shlex
 import subprocess
 
-args = shlex.split(Path('/tmp/a90_boot_v75_mkbootimg_args.txt').read_text())
+args = shlex.split(Path('/tmp/a90_boot_v76_mkbootimg_args.txt').read_text())
 for i, item in enumerate(args):
     if item == '--ramdisk':
-        args[i + 1] = 'stage3/ramdisk_v75.cpio'
+        args[i + 1] = 'stage3/ramdisk_v76.cpio'
         break
 else:
     raise SystemExit('missing --ramdisk')
 
-cmd = ['python3', 'mkbootimg/mkbootimg.py', *args, '--output', 'stage3/boot_linux_v75.img']
+cmd = ['python3', 'mkbootimg/mkbootimg.py', *args, '--output', 'stage3/boot_linux_v76.img']
 print(shlex.join(cmd))
 subprocess.run(cmd, check=True)
 PY
@@ -365,9 +366,9 @@ PY
 검증:
 
 ```bash
-ls -lh stage3/ramdisk_v75.cpio stage3/boot_linux_v75.img
-sha256sum stage3/linux_init/init_v75 stage3/ramdisk_v75.cpio stage3/boot_linux_v75.img
-strings stage3/boot_linux_v75.img | rg 'A90 Linux init .*\\(v75\\)|A90v75'
+ls -lh stage3/ramdisk_v76.cpio stage3/boot_linux_v76.img
+sha256sum stage3/linux_init/init_v76 stage3/ramdisk_v76.cpio stage3/boot_linux_v76.img
+strings stage3/boot_linux_v76.img | rg 'A90 Linux init .*\\(v76\\)|A90v76'
 ```
 
 ## 7. Boot image 플래시

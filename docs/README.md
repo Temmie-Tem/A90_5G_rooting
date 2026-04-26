@@ -1,6 +1,6 @@
 # Samsung Galaxy A90 5G - 현재 문서 인덱스
 
-이 문서 트리는 `2026-04-26` 기준으로 다시 정렬했습니다.
+이 문서 트리는 `2026-04-27` 기준으로 다시 정렬했습니다.
 
 초기 `native Linux rechallenge`의 핵심 진입점 확보 단계는 통과했고,
 현재 문서의 중심은 **stock Android kernel 위에서 custom static `/init`를 실행해
@@ -8,7 +8,7 @@
 
 상단 `docs/`는 이제 다음 흐름에 필요한 문서를 유지합니다.
 
-1. native init 0.8.5 / v74 기준 상태 고정
+1. native init 0.8.6 / v75 기준 상태 고정
 2. shell/HUD/log/menu 운영 안정화
 3. 필요한 하드웨어/커널 경로만 역추적
 4. BusyBox/network/SSH 같은 서버형 확장 가능성 검토
@@ -19,12 +19,12 @@
 - 빌드: `A908NKSU5EWA3`
 - kernel: Samsung stock Android kernel `Linux 4.14.190`
 - recovery: TWRP 사용 가능
-- latest verified native init: `A90 Linux init 0.8.5 (v74)`
-- official version: `0.8.5`
-- build tag: `v74`
+- latest verified native init: `A90 Linux init 0.8.6 (v75)`
+- official version: `0.8.6`
+- build tag: `v75`
 - creator: `made by temmie0214`
-- latest source: `stage3/linux_init/init_v74.c`
-- latest boot image: `stage3/boot_linux_v74.img`
+- latest source: `stage3/linux_init/init_v75.c`
+- latest boot image: `stage3/boot_linux_v75.img`
 - known-good fallback: `stage3/boot_linux_v48.img`
 - control channel: USB CDC ACM serial bridge
 - display: custom boot splash 후 상태 HUD/menu 자동 전환
@@ -54,6 +54,7 @@
 - splash layout: v65에서 긴 문구/footer 잘림 방지를 위해 안전 여백과 자동 축소 적용
 - about app: `APPS / ABOUT`에서 version, changelog 목록/상세, credits 표시
 - log tail panel: HUD hidden 상태와 menu visible 상태에서 최근 native log 표시 확인
+- serial reattach log: v75에서 idle-timeout 성공 로그를 억제해 LOG TAIL noise 감소
 - shell protocol: `cmdv1`/`A90P1` framed one-shot result와 `a90ctl.py` host wrapper 검증
 - shell protocol: v74 `cmdv1x` length-prefixed argv encoding verified for whitespace args
 - ADB: 보류
@@ -119,6 +120,8 @@
 - `reports/NATIVE_INIT_V70_INPUT_MONITOR_2026-04-26.md` – `TOOLS / INPUT MONITOR`와 `inputmonitor [events]` raw/gesture trace 검증
 - `reports/NATIVE_INIT_V72_DISPLAY_TEST_2026-04-27.md` – display test screen과 framebuffer color fix 검증
 - `reports/NATIVE_INIT_V73_CMDV1_PROTOCOL_2026-04-27.md` – `cmdv1`/`A90P1` shell protocol과 `a90ctl.py` wrapper 검증
+- `reports/NATIVE_INIT_V74_CMDV1X_ARG_ENCODING_2026-04-27.md` – `cmdv1x` length-prefixed argv encoding 검증
+- `reports/NATIVE_INIT_V75_QUIET_IDLE_REATTACH_2026-04-27.md` – idle-timeout serial reattach 성공 로그 억제 검증
 - `reports/NATIVE_INIT_V74_PHYSICAL_USB_RECONNECT_2026-04-27.md` – 실제 USB 케이블 unplug/replug 후 ACM/NCM/tcpctl 복구 검증
 - `reports/NATIVE_INIT_V53_MENU_BUSY_2026-04-25.md` – menu-active serial busy gate와 flash auto-hide 검증
 - `reports/NATIVE_INIT_V48_USB_REATTACH_NCM_2026-04-25.md` – USB reattach와 NCM probe 실기 검증
@@ -189,6 +192,7 @@
 34. display test screen + framebuffer color fix — v72 완료
 35. shell protocol v1 + host wrapper — v73 완료
 36. cmdv1x argument encoding — v74 완료
+37. idle serial reattach log quieting — v75 완료
 
 패키지 최소화와 Android userspace 복구는 보조 실험으로만 다루고,
 메인 목표는 **Android kernel 위에 반복 운용 가능한 native init 기반 최소 Linux 콘솔을 만드는 것**입니다.
