@@ -262,6 +262,7 @@ adb -s RFCM90CFWXA shell 'twrp reboot'
 python3 ./scripts/revalidation/native_init_flash.py \
   --verify-only \
   --expect-version "A90 Linux init 0.8.4 (v73)" \
+  --verify-protocol auto \
   --bridge-timeout 180
 ```
 
@@ -270,6 +271,8 @@ python3 ./scripts/revalidation/native_init_flash.py \
 - `twrp reboot system`은 이 기기의 TWRP CLI에서 신뢰하지 않는다.
 - `adb reboot` 또는 `adb shell reboot`는 recovery로 되돌아올 수 있다.
 - `adb shell 'twrp reboot'` 후 USB 재열거와 bridge `version`을 관찰한다.
+- v73 이상은 `--verify-protocol auto`가 `cmdv1 version/status`의 `rc=0`, `status=ok`를 확인한다.
+- v48 같은 pre-v73 image는 `A90P1 END`가 없을 때 raw `version` 검증으로 fallback한다.
 
 ## 5. Custom init 수정 흐름
 

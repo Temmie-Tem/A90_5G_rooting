@@ -994,6 +994,26 @@
   - SHA256 `241e44ef70eb3dc187c8dd44c62c26943c42bd952c7d122374295463d67f159a`
 - `docs/reports/NATIVE_INIT_V73_CMDV1_PROTOCOL_2026-04-27.md`
 
+### Host Tooling. native_init_flash cmdv1 Verify — 완료
+
+구현:
+
+- `scripts/revalidation/a90ctl.py`
+  - `run_cmdv1_command(host, port, timeout, command)` import용 helper 추가
+  - 기존 CLI 동작 유지
+- `scripts/revalidation/native_init_flash.py`
+  - `--verify-protocol {auto,cmdv1,raw}` 추가
+  - 기본 `auto`는 `cmdv1 version/status`의 `rc=0`, `status=ok` 확인
+  - `A90P1 END`가 없을 때만 pre-v73 호환용 raw `version` 검증으로 fallback
+  - `recovery`/`hide`/TWRP reboot 경로는 연결 종료 가능성이 있어 raw bridge 유지
+
+검증:
+
+- `python3 -m py_compile scripts/revalidation/a90ctl.py scripts/revalidation/native_init_flash.py` — PASS
+- `native_init_flash.py --verify-only --expect-version "A90 Linux init 0.8.4 (v73)"` — PASS
+- `native_init_flash.py --verify-only --verify-protocol raw --expect-version "A90 Linux init 0.8.4 (v73)"` — PASS
+- `native_init_flash.py --verify-only --verify-protocol cmdv1 --expect-version "A90 Linux init 0.8.4 (v73)"` — PASS
+
 ## 보류 큐
 
 - ADB 안정화 재검토
@@ -1003,8 +1023,8 @@
 
 ## 지금 바로 진행할 항목
 
-1. 반복 검증 스크립트에서 raw `nc` 대신 `a90ctl.py`/parsed rc 사용 여부 결정
-2. `cmdv1` argument quoting/escaping 규칙 설계
+1. `cmdv1` argument quoting/escaping 규칙 설계
+2. NCM/reconnect/tcpctl host scripts에도 parsed rc 적용 범위 결정
 3. display test를 다중 페이지형 app으로 확장할지 판단
 4. 실제 케이블 unplug/replug 이후 ACM/NCM/tcpctl 복구 확인
 5. USB 재열거 중 `A`/`ATAT...` serial noise hardening

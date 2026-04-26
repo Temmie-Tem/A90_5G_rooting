@@ -1074,3 +1074,22 @@
   - `a90ctl.py status`, `--json --allow-error nope`, `--hide-on-busy status` PASS
 - 상세 보고서:
   - `docs/reports/NATIVE_INIT_V73_CMDV1_PROTOCOL_2026-04-27.md`
+
+## host tooling: native_init_flash cmdv1 verify (2026-04-27)
+
+- 목표:
+  - boot image flash 후 native init 검증이 raw 문자열 확인에만 의존하지 않도록 한다.
+  - v73 `cmdv1`/`A90P1`의 `rc`와 `status`를 host-side flash script에서 직접 확인한다.
+- 구현:
+  - `scripts/revalidation/a90ctl.py`
+    - import 가능한 `run_cmdv1_command(host, port, timeout, command)` helper 추가
+  - `scripts/revalidation/native_init_flash.py`
+    - `--verify-protocol {auto,cmdv1,raw}` 추가
+    - 기본 `auto`에서 `cmdv1 version/status` 검증 후 expected version string 확인
+    - `A90P1 END`가 없을 때만 pre-v73 호환 raw `version` 검증으로 fallback
+    - `recovery`/`hide`는 연결 종료 가능성이 있어 raw bridge 유지
+- 검증:
+  - `python3 -m py_compile scripts/revalidation/a90ctl.py scripts/revalidation/native_init_flash.py` PASS
+  - `native_init_flash.py --verify-only --expect-version "A90 Linux init 0.8.4 (v73)"` PASS
+  - `native_init_flash.py --verify-only --verify-protocol raw --expect-version "A90 Linux init 0.8.4 (v73)"` PASS
+  - `native_init_flash.py --verify-only --verify-protocol cmdv1 --expect-version "A90 Linux init 0.8.4 (v73)"` PASS

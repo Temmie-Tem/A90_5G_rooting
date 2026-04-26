@@ -36,7 +36,8 @@
   - `adb devices` 출력을 whitespace split으로 파싱해 `recovery` 상태를 안정적으로 감지
   - local image marker 확인, push 후 SHA256 확인, boot partition prefix readback 확인
   - TWRP에서 system으로 돌아갈 때 `adb shell 'twrp reboot'` 무인자 사용
-  - 부팅 후 serial bridge에 붙어 `version`으로 기대 버전을 확인
+  - 부팅 후 기본 `--verify-protocol auto`로 v73 `cmdv1 version/status`를 확인
+  - pre-v73 image는 `A90P1 END`가 없을 때 raw `version` 검증으로 fallback
 - `build_static_toybox.sh`
   - 공식 `toybox-0.8.13` tarball을 해시 검증 후 다운로드
   - `aarch64-linux-gnu-gcc`로 static ARM64 toybox를 빌드
@@ -130,7 +131,8 @@ python3 ./scripts/revalidation/native_init_flash.py \
 ```bash
 python3 ./scripts/revalidation/native_init_flash.py \
   --verify-only \
-  --expect-version "A90 Linux init 0.8.4 (v73)"
+  --expect-version "A90 Linux init 0.8.4 (v73)" \
+  --verify-protocol auto
 ```
 
 static toybox 빌드 예:

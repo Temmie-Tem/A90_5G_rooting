@@ -98,13 +98,20 @@ def parse_protocol_output(text: str) -> ProtocolResult:
 
 
 def run_cmdv1(args: argparse.Namespace, command: list[str]) -> ProtocolResult:
+    return run_cmdv1_command(args.host, args.port, args.timeout, command)
+
+
+def run_cmdv1_command(host: str,
+                      port: int,
+                      timeout_sec: float,
+                      command: list[str]) -> ProtocolResult:
     require_shell_safe_args(command)
     line = "cmdv1 " + " ".join(command)
     text = bridge_exchange(
-        args.host,
-        args.port,
+        host,
+        port,
         line,
-        args.timeout,
+        timeout_sec,
         markers=(b"A90P1 END ",),
     )
     return parse_protocol_output(text)

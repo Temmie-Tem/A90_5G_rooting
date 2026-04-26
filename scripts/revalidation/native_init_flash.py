@@ -8,6 +8,8 @@ import sys
 import time
 from pathlib import Path
 
+from a90ctl import ProtocolResult, run_cmdv1_command
+
 
 DEFAULT_HOST = "127.0.0.1"
 DEFAULT_PORT = 54321
@@ -308,6 +310,21 @@ def reboot_twrp_to_system(args: argparse.Namespace, serial: str) -> None:
 
 
 def verify_native_init(args: argparse.Namespace) -> str:
+    if args.verify_protocol == "raw":
+        return verify_native_init_raw(args)
+
+    try:
+        return verify_native_init_cmdv1(args)
+    except RuntimeError as exc:
+        if args.verify_protocol == "cmdv1":
+            raise
+        if "A90P1 END marker not found" not in str(exc):
+            raise
+        log(f"cmdv1 verify unavailable; falling back to raw version check: {exc}")
+        return verify_native_init_raw(args)
+
+
+def verify_native_init_raw(args: argparse.Namespace) -> str:
     output = bridge_command(
         args.bridge_host,
         args.bridge_port,
@@ -319,6 +336,39 @@ def verify_native_init(args: argparse.Namespace) -> str:
     if args.expect_version and args.expect_version not in output:
         raise RuntimeError(f"expected version marker not found: {args.expect_version}")
     return output
+
+
+def verify_cmdv1_result(result: ProtocolResult, command: str) -> None:
+    if result.rc != 0 or result.status != "ok":
+        raise RuntimeError(
+            f"cmdv1 {command} failed rc={result.rc} status={result.status}\n"
+            f"{result.text}"
+        )
+
+
+def verify_native_init_cmdv1(args: argparse.Namespace) -> str:
+    version_result = run_cmdv1_command(
+        args.bridge_host,
+        args.bridge_port,
+        args.bridge_timeout,
+        ["version"],
+    )
+    print(version_result.text, end="" if version_result.text.endswith("\n") else "\n")
+    verify_cmdv1_result(version_result, "version")
+    if args.expect_version and args.expect_version not in version_result.text:
+        raise RuntimeError(f"expected version marker not found: {args.expect_version}")
+
+    status_result = run_cmdv1_command(
+        args.bridge_host,
+        args.bridge_port,
+        args.bridge_timeout,
+        ["status"],
+    )
+    print(status_result.text, end="" if status_result.text.endswith("\n") else "\n")
+    verify_cmdv1_result(status_result, "status")
+
+    log("cmdv1 verify passed: version/status rc=0 status=ok")
+    return version_result.text + status_result.text
 
 
 def parse_args() -> argparse.Namespace:
@@ -334,6 +384,12 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--recovery-timeout", type=float, default=180.0)
     parser.add_argument("--bridge-timeout", type=float, default=180.0)
     parser.add_argument("--expect-version", help="string expected in the native init version output")
+    parser.add_argument(
+        "--verify-protocol",
+        choices=("auto", "cmdv1", "raw"),
+        default="auto",
+        help="post-boot verification method; auto tries cmdv1 first and falls back to raw version",
+    )
     parser.add_argument(
         "--from-native",
         action="store_true",

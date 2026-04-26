@@ -269,7 +269,10 @@ python3 ./scripts/revalidation/native_init_flash.py \
 7. `dd if=/tmp/native_init_boot.img of=/dev/block/by-name/boot bs=4M conv=fsync && sync`
 8. boot partition 앞쪽을 image 크기만큼 다시 읽어 SHA256 일치 확인
 9. `adb shell 'twrp reboot'`
-10. native init 부팅 후 bridge `version`으로 기대 버전 확인
+10. native init 부팅 후 bridge `cmdv1 version/status`로 기대 버전과 shell 상태 확인
+
+v73 이상에서는 기본 `--verify-protocol auto`가 `cmdv1`/`A90P1`의 `rc=0`, `status=ok`를 확인한다.
+v48 같은 pre-v73 image는 `A90P1 END`가 없으므로 자동으로 raw `version` 검증으로 fallback한다.
 
 ### 3단계: bridge가 아직 안 열렸을 때
 
@@ -286,6 +289,7 @@ sudo python3 ./scripts/revalidation/serial_tcp_bridge.py --port 54321
 python3 ./scripts/revalidation/native_init_flash.py \
   --verify-only \
   --expect-version "A90 Linux init v48" \
+  --verify-protocol auto \
   --bridge-timeout 60
 ```
 
@@ -400,6 +404,7 @@ python3 ./scripts/revalidation/native_init_flash.py \
   stage3/boot_linux_v73.img \
   --from-native \
   --expect-version "A90 Linux init 0.8.4 (v73)" \
+  --verify-protocol auto \
   --bridge-timeout 240 \
   --recovery-timeout 180
 ```
