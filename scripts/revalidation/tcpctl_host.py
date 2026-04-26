@@ -11,7 +11,7 @@ import threading
 import time
 from pathlib import Path
 
-from a90ctl import ProtocolResult, run_cmdv1_command
+from a90ctl import ProtocolResult, run_cmdv1_command, shell_command_to_argv
 
 
 ROOT_DIR = Path(__file__).resolve().parents[2]
@@ -82,18 +82,6 @@ def bridge_command(host: str,
     raise RuntimeError(f"bridge command timeout for {command!r}: {last_error}")
 
 
-def command_to_cmdv1_args(command: str) -> list[str] | None:
-    try:
-        argv = shlex.split(command)
-    except ValueError:
-        return None
-    if not argv:
-        return None
-    if any(any(ch.isspace() for ch in arg) for arg in argv):
-        return None
-    return argv
-
-
 def cmdv1_unavailable(exc: Exception) -> bool:
     text = str(exc)
     return CMDV1_END_MISSING_TEXT in text or "cmdv1 cannot safely encode command" in text
@@ -102,9 +90,9 @@ def cmdv1_unavailable(exc: Exception) -> bool:
 def run_device_cmdv1(args: argparse.Namespace,
                      command: str,
                      timeout_sec: float) -> ProtocolResult:
-    argv = command_to_cmdv1_args(command)
+    argv = shell_command_to_argv(command)
     if argv is None:
-        raise RuntimeError(f"cmdv1 cannot safely encode command: {command!r}")
+        raise RuntimeError(f"cmdv1 cannot parse shell command: {command!r}")
     return run_cmdv1_command(args.bridge_host, args.bridge_port, timeout_sec, argv)
 
 

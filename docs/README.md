@@ -8,7 +8,7 @@
 
 상단 `docs/`는 이제 다음 흐름에 필요한 문서를 유지합니다.
 
-1. native init 0.8.4 / v73 기준 상태 고정
+1. native init 0.8.5 / v74 기준 상태 고정
 2. shell/HUD/log/menu 운영 안정화
 3. 필요한 하드웨어/커널 경로만 역추적
 4. BusyBox/network/SSH 같은 서버형 확장 가능성 검토
@@ -19,12 +19,12 @@
 - 빌드: `A908NKSU5EWA3`
 - kernel: Samsung stock Android kernel `Linux 4.14.190`
 - recovery: TWRP 사용 가능
-- latest verified native init: `A90 Linux init 0.8.4 (v73)`
-- official version: `0.8.4`
-- build tag: `v73`
+- latest verified native init: `A90 Linux init 0.8.5 (v74)`
+- official version: `0.8.5`
+- build tag: `v74`
 - creator: `made by temmie0214`
-- latest source: `stage3/linux_init/init_v73.c`
-- latest boot image: `stage3/boot_linux_v73.img`
+- latest source: `stage3/linux_init/init_v74.c`
+- latest boot image: `stage3/boot_linux_v74.img`
 - known-good fallback: `stage3/boot_linux_v48.img`
 - control channel: USB CDC ACM serial bridge
 - display: custom boot splash 후 상태 HUD/menu 자동 전환
@@ -54,6 +54,7 @@
 - about app: `APPS / ABOUT`에서 version, changelog 목록/상세, credits 표시
 - log tail panel: HUD hidden 상태와 menu visible 상태에서 최근 native log 표시 확인
 - shell protocol: `cmdv1`/`A90P1` framed one-shot result와 `a90ctl.py` host wrapper 검증
+- shell protocol: v74 `cmdv1x` length-prefixed argv encoding verified for whitespace args
 - ADB: 보류
 
 ## 문서 읽는 순서
@@ -185,6 +186,7 @@
 33. HUD/menu live log tail panel — v71 완료
 34. display test screen + framebuffer color fix — v72 완료
 35. shell protocol v1 + host wrapper — v73 완료
+36. cmdv1x argument encoding — v74 완료
 
 패키지 최소화와 Android userspace 복구는 보조 실험으로만 다루고,
 메인 목표는 **Android kernel 위에 반복 운용 가능한 native init 기반 최소 Linux 콘솔을 만드는 것**입니다.

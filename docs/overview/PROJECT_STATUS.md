@@ -120,9 +120,9 @@
 ## 현재 폰 상태
 
 - patched AP (Magisk 30.7) + **TWRP recovery 사용 가능**
-- 최신 verified native init: `stage3/boot_linux_v73.img` (`A90 Linux init 0.8.4 (v73)`)
-- 공식 버전: `0.8.4`
-- build tag: `v73`
+- 최신 verified native init: `stage3/boot_linux_v74.img` (`A90 Linux init 0.8.5 (v74)`)
+- 공식 버전: `0.8.5`
+- build tag: `v74`
 - creator: `made by temmie0214`
 - known-good fallback: `stage3/boot_linux_v48.img` (`A90 Linux init v48`)
 - 격리 상태: `stage3/boot_linux_v49.img`는 boot partition prefix readback은 일치했지만
@@ -154,8 +154,9 @@
 - splash layout 상태: v65에서 긴 문구/footer 잘림 방지를 위해 안전 여백과 자동 축소 적용
 - about app 상태: `APPS / ABOUT`에서 version, changelog 목록/상세, credits 표시
 - log tail panel 상태: HUD hidden과 menu visible spare area에서 `/cache/native-init.log` tail 표시 확인
-- shell protocol 상태: `cmdv1`/`A90P1` framed result와 `scripts/revalidation/a90ctl.py` host wrapper 검증 완료
-- 상세 최신 상태: `docs/reports/NATIVE_INIT_V73_CMDV1_PROTOCOL_2026-04-27.md`
+- shell protocol 상태: `cmdv1`/`A90P1` framed result와 v74 `cmdv1x` whitespace argv encoding 검증 완료
+- 상세 최신 상태: `docs/reports/NATIVE_INIT_V74_CMDV1X_ARG_ENCODING_2026-04-27.md`
+- v74 cmdv1x 기록: `docs/reports/NATIVE_INIT_V74_CMDV1X_ARG_ENCODING_2026-04-27.md`
 - v73 cmdv1 protocol 기록: `docs/reports/NATIVE_INIT_V73_CMDV1_PROTOCOL_2026-04-27.md`
 - v72 display test 기록: `docs/reports/NATIVE_INIT_V72_DISPLAY_TEST_2026-04-27.md`
 - v70 input monitor 기록: `docs/reports/NATIVE_INIT_V70_INPUT_MONITOR_2026-04-26.md`
@@ -200,11 +201,11 @@
 - proc / sys / devtmpfs / ext4(/dev/block/sda31) 마운트 성공
 - 핵심 우회: devtmpfs async 초기화 문제를 `mknod(makedev(259,15))` 로 해결
 
-### 3-2. USB ACM serial console + 인터랙티브 셸 (v8~v73)
+### 3-2. USB ACM serial console + 인터랙티브 셸 (v8~v74)
 
-**현재 버전**: `init_v73` (`stage3/boot_linux_v73.img`) / `0.8.4 (v73)`
+**현재 버전**: `init_v74` (`stage3/boot_linux_v74.img`) / `0.8.5 (v74)`
 
-ADB 방식이 막혀 USB CDC ACM serial (ttyGS0)로 전환. v73까지 반복 안정화:
+ADB 방식이 막혀 USB CDC ACM serial (ttyGS0)로 전환. v74까지 반복 안정화:
 
 - USB gadget: configfs `acm.usb0` function, UDC `a600000.dwc3`
 - host 측: `/dev/ttyACM0` → `serial_tcp_bridge.py` → `127.0.0.1:54321` TCP
@@ -246,7 +247,7 @@ ADB 방식이 막혀 USB CDC ACM serial (ttyGS0)로 전환. v73까지 반복 안
 | v72 | Display test screen and framebuffer color fix |
 | v73 | `cmdv1`/`A90P1` framed shell protocol and `a90ctl.py` host wrapper |
 
-**확보된 관찰/제어 범위 (v73 verified 기준):**
+**확보된 관찰/제어 범위 (v74 verified 기준):**
 
 | 항목 | 상태 |
 |---|---|
@@ -283,7 +284,7 @@ ADB 방식이 막혀 USB CDC ACM serial (ttyGS0)로 전환. v73까지 반복 안
 | Hierarchical app menu | 작동 — APPS/TOOLS/CPU STRESS 시간 선택과 LOG/NETWORK app 화면 |
 | Boot splash | 작동 — `A90 NATIVE INIT` splash, `display-splash` timeline 기록, v65 safe layout 적용 |
 | About app | 작동 — APPS/ABOUT에 VERSION/CHANGELOG 목록/상세/CREDITS, bridge metadata 검증 완료 |
-| Shell protocol v1 | 작동 — `cmdv1`/`A90P1` BEGIN/END, rc/status 파싱, `a90ctl.py` text/JSON wrapper 검증 |
+| Shell protocol v1 | 작동 — `cmdv1`/`A90P1` BEGIN/END, rc/status 파싱, `a90ctl.py` text/JSON wrapper와 v74 `cmdv1x` whitespace argv 검증 |
 | ADB (adbd) | **보류** — ep1/ep2 미생성, zombie |
 
 **버튼 매핑:**
@@ -301,12 +302,11 @@ ADB 방식이 막혀 USB CDC ACM serial (ttyGS0)로 전환. v73까지 반복 안
 
 ## 다음 후보 작업
 
-우선순위 순 (v73 이후):
+우선순위 순 (v74 verified 이후):
 
-1. **shell argument quoting** — whitespace 인자와 안전한 escaping 규칙 추가
-2. **physical USB reconnect soak** — 실제 케이블 unplug/replug 이후 ACM/NCM/tcpctl 복구 확인
-3. **display test multi-page** — 화면 테스트 app을 다중 페이지로 확장할지 판단
-4. **Wi-Fi 인벤토리** — 드라이버/펌웨어/vendor daemon read-only 조사
-5. **저장소 후보 결정** — `/userdata`/`mmcblk0p1` 장기 저장소 사용 여부 판단
+1. **physical USB reconnect soak** — 실제 케이블 unplug/replug 이후 ACM/NCM/tcpctl 복구 확인
+2. **display test multi-page** — 화면 테스트 app을 다중 페이지로 확장할지 판단
+3. **Wi-Fi 인벤토리** — 드라이버/펌웨어/vendor daemon read-only 조사
+4. **저장소 후보 결정** — `/userdata`/`mmcblk0p1` 장기 저장소 사용 여부 판단
 
 **복구**: `backups/baseline_a_20260423_030309/boot.img` dd 복구 가능

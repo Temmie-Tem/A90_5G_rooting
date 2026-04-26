@@ -4,19 +4,19 @@ Date: `2026-04-26`
 
 ## Current Version
 
-- official version: `0.8.4`
-- build tag: `v73`
-- display name: `A90 Linux init 0.8.4 (v73)`
+- official version: `0.8.5`
+- build tag: `v74`
+- display name: `A90 Linux init 0.8.5 (v74)`
 - creator: `made by temmie0214`
-- latest source: `stage3/linux_init/init_v73.c`
-- latest boot image: `stage3/boot_linux_v73.img`
+- latest source: `stage3/linux_init/init_v74.c`
+- latest boot image: `stage3/boot_linux_v74.img`
 
 ## Version Format
 
 공식 버전은 `MAJOR.MINOR.PATCH`를 사용하고, 실험/플래시 추적용 build tag는 `vNN`을 유지한다.
 
 ```text
-A90 Linux init 0.8.4 (v73)
+A90 Linux init 0.8.5 (v74)
 ```
 
 ## Rules
@@ -34,6 +34,7 @@ A90 Linux init 0.8.4 (v73)
 
 | official | build | summary |
 |---|---|---|
+| `0.8.5` | `v74` | cmdv1x length-prefixed argument encoding |
 | `0.8.4` | `v73` | cmdv1/A90P1 shell protocol and a90ctl host wrapper |
 | `0.8.3` | `v72` | display test screen and XBGR8888 color fix |
 | `0.8.2` | `v71` | live log tail panel for HUD/menu spare area |

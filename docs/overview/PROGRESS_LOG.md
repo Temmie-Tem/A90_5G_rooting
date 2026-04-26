@@ -1117,3 +1117,45 @@
   - `python3 -m py_compile scripts/revalidation/a90ctl.py scripts/revalidation/ncm_host_setup.py scripts/revalidation/netservice_reconnect_soak.py scripts/revalidation/tcpctl_host.py` PASS
   - `ncm_host_setup.py --help`, `netservice_reconnect_soak.py --help`, `tcpctl_host.py --help` PASS
   - mock helper로 `cmdv1` success와 `A90P1 END` 미검출 auto raw fallback PASS
+
+## v74: cmdv1x argument encoding (2026-04-27)
+
+- 목표:
+  - v73 `cmdv1` framing은 유지하면서 whitespace/special-character 인자를 raw bridge fallback 없이 안전하게 전달한다.
+  - host script들이 command parsing은 공유하고, wire format 선택은 `a90ctl.py`에 위임하게 한다.
+- 구현:
+  - `stage3/linux_init/init_v74.c`
+    - `INIT_VERSION "0.8.5"`
+    - `INIT_BUILD "v74"`
+    - `cmdv1x <len:hex-utf8-arg>...` 추가
+    - 기존 `cmdv1 <command> [args...]` compatibility 유지
+    - malformed `cmdv1x`는 `A90P1 END ... status=error`로 frame 처리
+    - on-device changelog에 `0.8.5 v74` 상세 추가
+  - `scripts/revalidation/a90ctl.py`
+    - `encode_cmdv1_line()` 추가
+    - 단순 인자는 legacy `cmdv1`, whitespace/empty/`#` 시작 인자는 `cmdv1x` 자동 선택
+    - `shell_command_to_argv()` 공유 helper 추가
+  - `scripts/revalidation/ncm_host_setup.py`
+  - `scripts/revalidation/netservice_reconnect_soak.py`
+  - `scripts/revalidation/tcpctl_host.py`
+    - 자체 whitespace 거부 helper를 제거하고 `a90ctl.py` parser/encoder를 사용
+- 산출물:
+  - `stage3/linux_init/init_v74`
+    - SHA256 `7868795581cf7974b6c2f24af7dfea75399a429d163f6dc7700007b069bdd872`
+  - `stage3/ramdisk_v74.cpio`
+    - SHA256 `90060ba7c2cd57ad3bb1c271ccafc9bc109fa57767d80747e03db02b8b08f92a`
+  - `stage3/boot_linux_v74.img`
+    - SHA256 `e12839be90ad59e13c8289e2eab8d9441f8bfd2b907bd0f7f819ff65f581f1b4`
+- 검증:
+  - static ARM64 build — PASS
+  - v74 ramdisk/boot image 생성 — PASS
+  - boot image marker strings `A90 Linux init 0.8.5 (v74)`, `A90v74`, `cmdv1x` — PASS
+  - host encoder smoke: `status`는 `cmdv1`, `echo "hello world"`는 `cmdv1x` — PASS
+  - Python py_compile + mock legacy/encoded selection + diff check — PASS
+  - native → TWRP → boot partition flash → v74 boot — PASS
+  - `native_init_flash.py stage3/boot_linux_v74.img --from-native --expect-version "A90 Linux init 0.8.5 (v74)"` — PASS
+  - `a90ctl.py --json status` → `rc=0`, `status=ok` — PASS
+  - `a90ctl.py --json echo "hello world"` → `cmdv1x ...`, `rc=0`, `status=ok` — PASS
+  - malformed direct `cmdv1x` → `rc=-22`, `status=error` — PASS
+- 상세 보고서:
+  - `docs/reports/NATIVE_INIT_V74_CMDV1X_ARG_ENCODING_2026-04-27.md`

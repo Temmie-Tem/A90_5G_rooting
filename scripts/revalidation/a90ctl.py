@@ -3,6 +3,7 @@
 import argparse
 import json
 import re
+import shlex
 import socket
 import sys
 import time
@@ -15,6 +16,7 @@ CMDV1_RETRY_INTERVAL_SEC = 0.5
 BRIDGE_SERIAL_MISSING_TEXT = "serial device is not connected"
 END_RE = re.compile(r"^A90P1 END (?P<fields>.+)$", re.MULTILINE)
 BEGIN_RE = re.compile(r"^A90P1 BEGIN (?P<fields>.+)$", re.MULTILINE)
+COMMAND_NAME_RE = re.compile(r"^[A-Za-z0-9_.+-]+$")
 
 
 @dataclass
@@ -46,12 +48,37 @@ def parse_fields(text: str) -> dict[str, str]:
     return fields
 
 
-def require_shell_safe_args(command: list[str]) -> None:
-    for arg in command:
-        if not arg:
-            raise SystemExit("empty arguments are not supported by native split_args")
-        if any(ch.isspace() for ch in arg):
-            raise SystemExit(f"argument contains whitespace and cannot be sent safely: {arg!r}")
+def shell_command_to_argv(command: str) -> list[str] | None:
+    try:
+        argv = shlex.split(command)
+    except ValueError:
+        return None
+    return argv or None
+
+
+def can_use_legacy_cmdv1_arg(arg: str) -> bool:
+    if not arg or arg.startswith("#"):
+        return False
+    return not any(ch.isspace() or ch in "\r\n" for ch in arg)
+
+
+def encode_cmdv1x_arg(arg: str) -> str:
+    if "\x00" in arg:
+        raise RuntimeError("cmdv1x cannot encode NUL bytes")
+    data = arg.encode("utf-8")
+    return f"{len(data)}:{data.hex()}"
+
+
+def encode_cmdv1_line(command: list[str]) -> str:
+    if not command:
+        raise RuntimeError("cmdv1 command is required")
+    if not command[0] or not COMMAND_NAME_RE.match(command[0]):
+        raise RuntimeError(f"cmdv1 command name cannot be encoded safely: {command[0]!r}")
+    if any("\x00" in arg for arg in command):
+        raise RuntimeError("cmdv1 cannot encode NUL bytes")
+    if all(can_use_legacy_cmdv1_arg(arg) for arg in command):
+        return "cmdv1 " + " ".join(command)
+    return "cmdv1x " + " ".join(encode_cmdv1x_arg(arg) for arg in command)
 
 
 def read_until(sock: socket.socket, markers: tuple[bytes, ...], timeout_sec: float) -> bytes:
@@ -122,8 +149,7 @@ def run_cmdv1_command(host: str,
     last_error: OSError | None = None
     last_text = ""
 
-    require_shell_safe_args(command)
-    line = "cmdv1 " + " ".join(command)
+    line = encode_cmdv1_line(command)
     while time.monotonic() < deadline:
         remaining = deadline - time.monotonic()
         if remaining <= 0:

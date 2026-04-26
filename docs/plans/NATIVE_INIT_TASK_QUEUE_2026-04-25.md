@@ -1,16 +1,16 @@
 # Native Init Task Queue (2026-04-25)
 
-이 문서는 `A90 Linux init 0.8.4 (v73)` 이후 바로 실행할 작업 큐다.
+이 문서는 `A90 Linux init 0.8.5 (v74)` 이후 바로 실행할 작업 큐다.
 큰 방향은 “보이는 부팅 → 복구 가능한 로그 → 단독 조작 → 작은 userland → USB networking” 순서다.
 
 ## 현재 고정 기준점
 
-- latest verified native init: `A90 Linux init 0.8.4 (v73)`
-- official version: `0.8.4`
-- build tag: `v73`
+- latest verified native init: `A90 Linux init 0.8.5 (v74)`
+- official version: `0.8.5`
+- build tag: `v74`
 - creator: `made by temmie0214`
-- latest source: `stage3/linux_init/init_v73.c`
-- latest boot image: `stage3/boot_linux_v73.img`
+- latest source: `stage3/linux_init/init_v74.c`
+- latest boot image: `stage3/boot_linux_v74.img`
 - known-good fallback: `stage3/boot_linux_v48.img`
 - control channel: USB ACM serial bridge
 - log: `/cache/native-init.log`
@@ -1039,6 +1039,49 @@
 - 세 host script `--help` import/argparse smoke — PASS
 - mock helper로 `cmdv1` success와 `A90P1 END` 미검출 auto raw fallback — PASS
 
+### V74. cmdv1x Argument Encoding — 완료
+
+구현:
+
+- `stage3/linux_init/init_v74.c`
+  - `INIT_VERSION "0.8.5"`
+  - `INIT_BUILD "v74"`
+  - `cmdv1x <len:hex-utf8-arg>...` 추가
+  - 기존 `cmdv1 <command> [args...]` compatibility 유지
+  - malformed `cmdv1x` decode 실패도 `A90P1 END ... status=error`로 frame 처리
+  - on-device changelog `0.8.5 v74 CMDV1 ARG ENCODING` 추가
+- `scripts/revalidation/a90ctl.py`
+  - `encode_cmdv1_line()` 추가
+  - simple argv는 legacy `cmdv1`, whitespace/empty/`#` 시작 인자는 `cmdv1x` 자동 선택
+  - `shell_command_to_argv()` 공유 helper 추가
+- `scripts/revalidation/ncm_host_setup.py`
+- `scripts/revalidation/netservice_reconnect_soak.py`
+- `scripts/revalidation/tcpctl_host.py`
+  - command string parsing은 `a90ctl.py` helper로 통일
+
+검증:
+
+- static ARM64 build — PASS
+- `stage3/ramdisk_v74.cpio`, `stage3/boot_linux_v74.img` 생성 — PASS
+- boot image marker strings `A90 Linux init 0.8.5 (v74)`, `A90v74`, `cmdv1x` — PASS
+- host encoder smoke: `status` → `cmdv1`, `echo "hello world"` → `cmdv1x` — PASS
+- Python py_compile + mock legacy/encoded selection + diff check — PASS
+- native → TWRP → boot partition flash → v74 boot — PASS
+- `native_init_flash.py stage3/boot_linux_v74.img --from-native --expect-version "A90 Linux init 0.8.5 (v74)"` — PASS
+- `a90ctl.py --json status` → `rc=0`, `status=ok` — PASS
+- `a90ctl.py --json echo "hello world"` → `cmdv1x ...`, `rc=0`, `status=ok` — PASS
+- malformed direct `cmdv1x` → `rc=-22`, `status=error` — PASS
+
+산출:
+
+- `stage3/linux_init/init_v74`
+  - SHA256 `7868795581cf7974b6c2f24af7dfea75399a429d163f6dc7700007b069bdd872`
+- `stage3/ramdisk_v74.cpio`
+  - SHA256 `90060ba7c2cd57ad3bb1c271ccafc9bc109fa57767d80747e03db02b8b08f92a`
+- `stage3/boot_linux_v74.img`
+  - SHA256 `e12839be90ad59e13c8289e2eab8d9441f8bfd2b907bd0f7f819ff65f581f1b4`
+- `docs/reports/NATIVE_INIT_V74_CMDV1X_ARG_ENCODING_2026-04-27.md`
+
 ## 보류 큐
 
 - ADB 안정화 재검토
@@ -1048,8 +1091,7 @@
 
 ## 지금 바로 진행할 항목
 
-1. `cmdv1` argument quoting/escaping 규칙 설계
+1. 실제 케이블 unplug/replug 이후 ACM/NCM/tcpctl 복구 확인
 2. display test를 다중 페이지형 app으로 확장할지 판단
-3. 실제 케이블 unplug/replug 이후 ACM/NCM/tcpctl 복구 확인
-4. USB 재열거 중 `A`/`ATAT...` serial noise hardening
-5. Wi-Fi 드라이버/펌웨어 read-only 인벤토리 트랙 분리
+3. USB 재열거 중 `A`/`ATAT...` serial noise hardening
+4. Wi-Fi 드라이버/펌웨어 read-only 인벤토리 트랙 분리

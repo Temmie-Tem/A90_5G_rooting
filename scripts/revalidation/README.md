@@ -32,6 +32,8 @@
   - bridge 출력에서 END marker를 파싱해 `rc`/`status`를 판정
   - `--json`, `--allow-error`, `--hide-on-busy`를 지원
   - bridge가 먼저 열리고 ACM serial이 늦게 붙는 재부팅 구간은 timeout 안에서 재시도
+  - v74부터 whitespace/empty/`#` 시작 인자는 `cmdv1x <len:hex-utf8-arg>...`로 자동 인코딩
+  - 단순 whitespace-free 인자는 기존 `cmdv1 <command> [args...]` wire format 유지
 - `native_init_flash.py`
   - TWRP recovery ADB에서 native init boot image를 boot 파티션에 기록
   - `adb devices` 출력을 whitespace split으로 파싱해 `recovery` 상태를 안정적으로 감지
