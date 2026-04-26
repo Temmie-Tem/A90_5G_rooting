@@ -131,18 +131,19 @@ Samsung bootloader
 - HUD log tail + expanded changelog history — v68 완료
 - physical-button input gesture layout — v69 완료
 - input monitor app + raw/gesture trace — v70 완료
+- HUD/menu live log tail panel + display test screen — v71 완료
 - static dropbear SSH 또는 custom TCP shell
 
 ---
 
 ## 현재 기준점
 
-- 최신 확인 버전: `A90 Linux init 0.8.1 (v70)`
-- 공식 버전: `0.8.1`
-- build tag: `v70`
+- 최신 확인 버전: `A90 Linux init 0.8.3 (v72)`
+- 공식 버전: `0.8.3`
+- build tag: `v72`
 - creator: `made by temmie0214`
-- 최신 소스: `stage3/linux_init/init_v70.c`
-- 최신 boot image: `stage3/boot_linux_v70.img`
+- 최신 소스: `stage3/linux_init/init_v72.c`
+- 최신 boot image: `stage3/boot_linux_v72.img`
 - known-good fallback: `stage3/boot_linux_v48.img`
 - 주 제어 채널: USB CDC ACM serial (`/dev/ttyGS0` ↔ `/dev/ttyACM0`)
 - host bridge: `scripts/revalidation/serial_tcp_bridge.py --port 54321`

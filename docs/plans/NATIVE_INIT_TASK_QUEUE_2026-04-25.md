@@ -1,16 +1,16 @@
 # Native Init Task Queue (2026-04-25)
 
-이 문서는 `A90 Linux init 0.8.1 (v70)` 이후 바로 실행할 작업 큐다.
+이 문서는 `A90 Linux init 0.8.3 (v72)` 이후 바로 실행할 작업 큐다.
 큰 방향은 “보이는 부팅 → 복구 가능한 로그 → 단독 조작 → 작은 userland → USB networking” 순서다.
 
 ## 현재 고정 기준점
 
-- latest verified native init: `A90 Linux init 0.8.1 (v70)`
-- official version: `0.8.1`
-- build tag: `v70`
+- latest verified native init: `A90 Linux init 0.8.3 (v72)`
+- official version: `0.8.3`
+- build tag: `v72`
 - creator: `made by temmie0214`
-- latest source: `stage3/linux_init/init_v70.c`
-- latest boot image: `stage3/boot_linux_v70.img`
+- latest source: `stage3/linux_init/init_v72.c`
+- latest boot image: `stage3/boot_linux_v72.img`
 - known-good fallback: `stage3/boot_linux_v48.img`
 - control channel: USB ACM serial bridge
 - log: `/cache/native-init.log`
@@ -38,6 +38,8 @@
   - HUD log tail
   - physical-button input gesture layout
   - input monitor app / raw gesture trace
+  - HUD/menu live log tail panel
+  - display test screen for color/font/wrap/grid/cutout checks
 
 ## 실행 큐
 
@@ -900,6 +902,59 @@
   - SHA256 `5e3657ba14705bdee9cc772cb8916601bfe1a92f31122475c1115896e2a42cb1`
 - `docs/reports/NATIVE_INIT_V70_INPUT_MONITOR_2026-04-26.md`
 
+### V71. HUD/Menu Live Log Tail Panel — 완료
+
+구현:
+
+- `stage3/linux_init/init_v71.c`
+  - `INIT_VERSION "0.8.2"`
+  - `INIT_BUILD "v71"`
+  - 공통 `kms_draw_log_tail_panel()` renderer 추가
+  - hidden HUD와 auto HUD menu visible 상태에 `LIVE LOG TAIL` 표시
+  - manual `screenmenu`도 공간이 있을 때 live log tail 표시
+  - live log tail 제목/본문 간격, 줄 수, wrap 처리 개선
+  - POWER 메뉴가 아닌 auto menu 상태에서는 일반 serial 명령 허용
+
+검증:
+
+- static ARM64 build — PASS
+- bridge `version` → `A90 Linux init 0.8.2 (v71)` 및 `made by temmie0214` — PASS
+- bridge `status` → `autohud: running` — PASS
+- `screenmenu` framebuffer present 후 `q` cancel 및 HUD restore — PASS
+- menu-active `ls /` 허용, `waitkey 1`/`recovery` 보호 차단 — PASS
+
+### V72. Display Test Screen + Color Packing — 완료
+
+구현:
+
+- `stage3/linux_init/init_v72.c`
+  - `INIT_VERSION "0.8.3"`
+  - `INIT_BUILD "v72"`
+  - `TOOLS / DISPLAY TEST`와 `displaytest` 명령 추가
+  - 색상 팔레트, 폰트 scale ladder, wrap sample, safe-area/cutout grid 표시
+  - display test 상단을 `TOP LEFT SLOT` / `PUNCH HOLE` / `TOP RIGHT SLOT`으로 분리 표시
+  - `DRM_FORMAT_XBGR8888` framebuffer color packing 보정
+  - on-device changelog `0.8.3 v72` 추가
+
+검증:
+
+- static ARM64 build — PASS
+- `stage3/boot_linux_v72.img` marker 확인 — PASS
+- native → TWRP → boot partition flash → v72 boot — PASS
+- bridge `version` → `A90 Linux init 0.8.3 (v72)` 및 `made by temmie0214` — PASS
+- bridge `displaytest` → framebuffer present `1080x2400` — PASS
+- bridge `autohud 2` 후 `status` → `autohud: running` — PASS
+
+산출:
+
+- `stage3/linux_init/init_v72`
+  - SHA256 `3215710e0e5cc4038dea74b0f22575cbeda9e90625cb53b45f702db2b4f08619`
+- `stage3/ramdisk_v72.cpio`
+  - SHA256 `7e8cad648cec15d7dffe1cb9e8a2b2afa1aa297a01b9450234c26b1cd6ffcc41`
+- `stage3/boot_linux_v72.img`
+  - SHA256 `2f7e7927f1f22d540a37d7bafd7176730bae24bee418dfb667bfd6805cf0eebf`
+- `docs/reports/NATIVE_INIT_V72_DISPLAY_TEST_2026-04-27.md`
+
 ## 보류 큐
 
 - ADB 안정화 재검토
@@ -909,8 +964,9 @@
 
 ## 지금 바로 진행할 항목
 
-1. `inputmonitor 0`로 실제 버튼 raw/gesture trace 수집
-2. auto HUD 메뉴 루프도 v70 gesture decoder로 통일할지 판단
-3. 실제 케이블 unplug/replug 이후 ACM/NCM/tcpctl 복구 확인
-4. USB 재열거 중 `A`/`ATAT...` serial noise hardening
-5. Wi-Fi 드라이버/펌웨어 read-only 인벤토리 트랙 분리
+1. 사용자가 v72 `TOOLS / DISPLAY TEST` 색상/폰트/cutout 슬롯/격자 가독성을 육안 확인
+2. display test를 다중 페이지형 app으로 확장할지 판단
+3. auto HUD 메뉴 루프도 v70 gesture decoder로 통일할지 판단
+4. 실제 케이블 unplug/replug 이후 ACM/NCM/tcpctl 복구 확인
+5. USB 재열거 중 `A`/`ATAT...` serial noise hardening
+6. Wi-Fi 드라이버/펌웨어 read-only 인벤토리 트랙 분리

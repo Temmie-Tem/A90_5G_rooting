@@ -4,19 +4,19 @@ Date: `2026-04-26`
 
 ## Current Version
 
-- official version: `0.8.1`
-- build tag: `v70`
-- display name: `A90 Linux init 0.8.1 (v70)`
+- official version: `0.8.3`
+- build tag: `v72`
+- display name: `A90 Linux init 0.8.3 (v72)`
 - creator: `made by temmie0214`
-- latest source: `stage3/linux_init/init_v70.c`
-- latest boot image: `stage3/boot_linux_v70.img`
+- latest source: `stage3/linux_init/init_v72.c`
+- latest boot image: `stage3/boot_linux_v72.img`
 
 ## Version Format
 
 공식 버전은 `MAJOR.MINOR.PATCH`를 사용하고, 실험/플래시 추적용 build tag는 `vNN`을 유지한다.
 
 ```text
-A90 Linux init 0.8.1 (v70)
+A90 Linux init 0.8.3 (v72)
 ```
 
 ## Rules
@@ -34,6 +34,8 @@ A90 Linux init 0.8.1 (v70)
 
 | official | build | summary |
 |---|---|---|
+| `0.8.3` | `v72` | display test screen and XBGR8888 color fix |
+| `0.8.2` | `v71` | live log tail panel for HUD/menu spare area |
 | `0.8.1` | `v70` | input monitor app and raw/gesture trace |
 | `0.8.0` | `v69` | physical-button input gesture layout and debug command |
 | `0.7.5` | `v68` | HUD log tail and expanded changelog history |

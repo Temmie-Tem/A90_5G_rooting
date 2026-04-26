@@ -120,9 +120,9 @@
 ## 현재 폰 상태
 
 - patched AP (Magisk 30.7) + **TWRP recovery 사용 가능**
-- 최신 verified native init: `stage3/boot_linux_v70.img` (`A90 Linux init 0.8.1 (v70)`)
-- 공식 버전: `0.8.1`
-- build tag: `v70`
+- 최신 verified native init: `stage3/boot_linux_v72.img` (`A90 Linux init 0.8.3 (v72)`)
+- 공식 버전: `0.8.3`
+- build tag: `v72`
 - creator: `made by temmie0214`
 - known-good fallback: `stage3/boot_linux_v48.img` (`A90 Linux init v48`)
 - 격리 상태: `stage3/boot_linux_v49.img`는 boot partition prefix readback은 일치했지만
@@ -153,7 +153,9 @@
 - boot splash 상태: TEST 패턴 대신 `A90 NATIVE INIT` custom splash와 `display-splash` timeline 기록 확인
 - splash layout 상태: v65에서 긴 문구/footer 잘림 방지를 위해 안전 여백과 자동 축소 적용
 - about app 상태: `APPS / ABOUT`에서 version, changelog 목록/상세, credits 표시
-- 상세 최신 상태: `docs/reports/NATIVE_INIT_V70_INPUT_MONITOR_2026-04-26.md`
+- log tail panel 상태: HUD hidden과 menu visible spare area에서 `/cache/native-init.log` tail 표시 확인
+- 상세 최신 상태: `docs/reports/NATIVE_INIT_V72_DISPLAY_TEST_2026-04-27.md`
+- v72 display test 기록: `docs/reports/NATIVE_INIT_V72_DISPLAY_TEST_2026-04-27.md`
 - v70 input monitor 기록: `docs/reports/NATIVE_INIT_V70_INPUT_MONITOR_2026-04-26.md`
 - v69 input layout 기록: `docs/reports/NATIVE_INIT_V69_INPUT_LAYOUT_2026-04-26.md`
 - v68 log tail/history 기록: source `stage3/linux_init/init_v68.c`와 v69 changelog에 반영
@@ -196,11 +198,11 @@
 - proc / sys / devtmpfs / ext4(/dev/block/sda31) 마운트 성공
 - 핵심 우회: devtmpfs async 초기화 문제를 `mknod(makedev(259,15))` 로 해결
 
-### 3-2. USB ACM serial console + 인터랙티브 셸 (v8~v70)
+### 3-2. USB ACM serial console + 인터랙티브 셸 (v8~v72)
 
-**현재 버전**: `init_v70` (`stage3/boot_linux_v70.img`) / `0.8.1 (v70)`
+**현재 버전**: `init_v72` (`stage3/boot_linux_v72.img`) / `0.8.3 (v72)`
 
-ADB 방식이 막혀 USB CDC ACM serial (ttyGS0)로 전환. v70까지 반복 안정화:
+ADB 방식이 막혀 USB CDC ACM serial (ttyGS0)로 전환. v72까지 반복 안정화:
 
 - USB gadget: configfs `acm.usb0` function, UDC `a600000.dwc3`
 - host 측: `/dev/ttyACM0` → `serial_tcp_bridge.py` → `127.0.0.1:54321` TCP
@@ -238,8 +240,10 @@ ADB 방식이 막혀 USB CDC ACM serial (ttyGS0)로 전환. v70까지 반복 안
 | v68 | HUD menu hidden 상태에서 log tail 표시, changelog history 확장 |
 | v69 | VOL+/VOL-/POWER 단일/더블/롱/조합 input gesture layout |
 | v70 | TOOLS / INPUT MONITOR와 `inputmonitor [events]` raw/gesture trace |
+| v71 | HUD/menu spare area live log tail panel |
+| v72 | Display test screen and framebuffer color fix |
 
-**확보된 관찰/제어 범위 (v70 verified 기준):**
+**확보된 관찰/제어 범위 (v72 verified 기준):**
 
 | 항목 | 상태 |
 |---|---|

@@ -1,5 +1,28 @@
 # Changelog
 
+## `0.8.3` (`v72`) - 2026-04-27
+
+- Added `TOOLS / DISPLAY TEST` plus `displaytest` for color/font/wrap/safe-area/cutout checks.
+- Split the display-test top guide into `TOP LEFT SLOT`, `PUNCH HOLE`, and `TOP RIGHT SLOT`.
+- Widened the main display-test safe-area grid.
+- Fixed framebuffer color packing for `DRM_FORMAT_XBGR8888` so RGB labels match displayed colors.
+- Added on-device `0.8.3 v72` changelog detail.
+- Verified v72 boot via native flash script and bridge `version`/`status`/`displaytest`.
+
+## `0.8.2` (`v71`) - 2026-04-27
+
+- Added a shared framebuffer log-tail panel renderer.
+- Kept the hidden HUD `LOG TAIL` view while reusing the same renderer.
+- Added live log-tail display to the visible auto HUD menu spare area.
+- Added live log-tail display to manual `screenmenu` when vertical space is available.
+- Added title-to-log spacing for the live log tail panel.
+- Increased log-tail row limits for HUD/menu views.
+- Reduced log-tail body text size and wrapped long lines across rows.
+- Relaxed the auto-menu busy gate so normal serial commands can run outside the POWER menu.
+- Added basic log coloring for failure, cancel/noise, input/menu, and boot/timeline lines.
+- Reduced manual screen menu scale for long changelog pages to avoid clipping.
+- Verified v71 boot via native flash script and bridge `version`/`status`/`screenmenu`.
+
 ## `0.8.1` (`v70`) - 2026-04-26
 
 - Added `TOOLS / INPUT MONITOR` for button-event debugging.

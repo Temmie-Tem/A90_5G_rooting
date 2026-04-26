@@ -983,3 +983,59 @@
   - `inputlayout` → v69 gesture mapping 유지 확인
 - 상세 보고서:
   - `docs/reports/NATIVE_INIT_V70_INPUT_MONITOR_2026-04-26.md`
+
+## v71: HUD/menu live log tail panel (2026-04-27)
+
+- 목표:
+  - hidden HUD뿐 아니라 menu visible 상태에서도 `/cache/native-init.log` tail을 함께 표시한다.
+  - 별도 LOG app으로 들어가지 않아도 최근 boot/command/input 흐름을 화면에서 바로 볼 수 있게 한다.
+- 구현:
+  - `stage3/linux_init/init_v71.c`
+    - `INIT_VERSION "0.8.2"`
+    - `INIT_BUILD "v71"`
+    - 공통 `kms_draw_log_tail_panel()` renderer 추가
+    - 기존 hidden HUD log tail을 공통 renderer로 교체
+    - auto HUD menu visible spare area에 `LIVE LOG TAIL` 표시
+    - manual `screenmenu`도 공간이 있을 때 live log tail 표시
+    - failure/cancel/input/boot 계열 log line 색상 힌트 추가
+    - 제목과 실제 log line 사이에 작은 간격 추가
+    - HUD/menu log tail row 상한 확대
+    - log tail 본문 폰트를 줄이고 긴 줄은 다음 줄로 wrap 처리
+    - POWER 메뉴가 아닌 auto menu 상태에서는 일반 serial 명령 허용
+- 검증:
+  - local static ARM64 build PASS
+  - bridge `version` → `A90 Linux init 0.8.2 (v71)` / `made by temmie0214`
+  - bridge `status` → `autohud: running`
+  - `screenmenu` framebuffer present 후 `q` cancel 및 HUD restore PASS
+  - menu-active `ls /` 허용, `waitkey 1`/`recovery` 보호 차단 PASS
+
+## v72: display test screen and color fix (2026-04-27)
+
+- 목표:
+  - 폰 화면에서 색상, 폰트 크기, wrap, safe-area, punch-hole/cutout 영역을 직접 확인한다.
+  - `DRM_FORMAT_XBGR8888` framebuffer 색상 채널 보정을 루트에서 처리한다.
+- 구현:
+  - `stage3/linux_init/init_v72.c`
+    - `INIT_VERSION "0.8.3"`
+    - `INIT_BUILD "v72"`
+    - `TOOLS / DISPLAY TEST` screen app 추가
+    - `displaytest` shell command 추가
+    - color palette, font scale ladder, wrap sample, safe-area grid 표시
+    - 상단 `TOP LEFT SLOT` / `PUNCH HOLE` / `TOP RIGHT SLOT` 분리 표시
+    - `kms_pack_rgb_for_xbgr8888()`로 framebuffer color packing 보정
+    - on-device changelog에 `0.8.3 v72` 상세 추가
+- 산출물:
+  - `stage3/linux_init/init_v72`
+    - SHA256 `3215710e0e5cc4038dea74b0f22575cbeda9e90625cb53b45f702db2b4f08619`
+  - `stage3/ramdisk_v72.cpio`
+    - SHA256 `7e8cad648cec15d7dffe1cb9e8a2b2afa1aa297a01b9450234c26b1cd6ffcc41`
+  - `stage3/boot_linux_v72.img`
+    - SHA256 `2f7e7927f1f22d540a37d7bafd7176730bae24bee418dfb667bfd6805cf0eebf`
+- 검증:
+  - static ARM64 build PASS
+  - `native_init_flash.py stage3/boot_linux_v72.img --from-native --expect-version "A90 Linux init 0.8.3 (v72)"` PASS
+  - bridge `version` → `A90 Linux init 0.8.3 (v72)` / `made by temmie0214`
+  - bridge `displaytest` → framebuffer present `1080x2400` PASS
+  - bridge `autohud 2` 후 `status` → `autohud: running` PASS
+- 상세 보고서:
+  - `docs/reports/NATIVE_INIT_V72_DISPLAY_TEST_2026-04-27.md`

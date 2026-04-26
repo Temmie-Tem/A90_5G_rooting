@@ -14,12 +14,12 @@ Android userspace 대신 직접 만든 static `/init`를 실행하고,
 - build: `A908NKSU5EWA3`
 - kernel: Samsung stock Android kernel `Linux 4.14.190`
 - recovery: TWRP 사용 가능
-- latest verified native init: `A90 Linux init 0.8.1 (v70)`
-- official version: `0.8.1`
-- build tag: `v70`
+- latest verified native init: `A90 Linux init 0.8.3 (v72)`
+- official version: `0.8.3`
+- build tag: `v72`
 - creator: `made by temmie0214`
-- latest source: `stage3/linux_init/init_v70.c`
-- latest boot image: `stage3/boot_linux_v70.img`
+- latest source: `stage3/linux_init/init_v72.c`
+- latest boot image: `stage3/boot_linux_v72.img`
 - known-good fallback: `stage3/boot_linux_v48.img`
 - control channel: USB CDC ACM serial (`/dev/ttyGS0` ↔ `/dev/ttyACM0`)
 - host bridge: `scripts/revalidation/serial_tcp_bridge.py --port 54321`
@@ -51,6 +51,7 @@ Android userspace 대신 직접 만든 static `/init`를 실행하고,
 - about app: `APPS / ABOUT`에서 version, changelog 목록/상세, credits 표시
 - input layout: `inputlayout`, `waitgesture`, `screenmenu`/`blindmenu` gesture action 확인
 - input monitor: `TOOLS / INPUT MONITOR`와 `inputmonitor [events]` raw/gesture trace 확인
+- log tail panel: HUD hidden 상태와 menu visible 상태에서 최근 native log 표시 확인
 - menu gate: 메뉴 표시 중 위험 명령 `[busy]` 차단, 관찰 명령 허용
 - ADB: 보류. 현재 기준 제어 채널은 serial bridge
 
@@ -122,6 +123,8 @@ Samsung bootloader
 29. HUD log tail + expanded changelog history — v68 완료
 30. physical-button input gesture layout — v69 완료
 31. input monitor app + raw/gesture trace — v70 완료
+32. HUD/menu live log tail panel — v71 완료
+33. display test screen + framebuffer color fix — v72 완료
 
 ## Repository Layout
 
@@ -170,6 +173,7 @@ Samsung bootloader
 - `docs/reports/NATIVE_INIT_V67_CHANGELOG_DETAILS_2026-04-26.md`
 - `docs/reports/NATIVE_INIT_V69_INPUT_LAYOUT_2026-04-26.md`
 - `docs/reports/NATIVE_INIT_V70_INPUT_MONITOR_2026-04-26.md`
+- `docs/reports/NATIVE_INIT_V72_DISPLAY_TEST_2026-04-27.md`
 
 `docs/plans/NATIVE_LINUX_RECHALLENGE_PLAN.md`와 `docs/plans/REVALIDATION_PLAN.md`는
 진입점 확보 이전의 부트체인 재검증 기록으로 보존한다.
