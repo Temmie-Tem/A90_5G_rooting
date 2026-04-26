@@ -8,7 +8,7 @@
 
 상단 `docs/`는 이제 다음 흐름에 필요한 문서를 유지합니다.
 
-1. native init 0.8.6 / v75 기준 상태 고정
+1. native init 0.8.7 / v76 기준 상태 고정
 2. shell/HUD/log/menu 운영 안정화
 3. 필요한 하드웨어/커널 경로만 역추적
 4. BusyBox/network/SSH 같은 서버형 확장 가능성 검토
@@ -19,12 +19,12 @@
 - 빌드: `A908NKSU5EWA3`
 - kernel: Samsung stock Android kernel `Linux 4.14.190`
 - recovery: TWRP 사용 가능
-- latest verified native init: `A90 Linux init 0.8.6 (v75)`
-- official version: `0.8.6`
-- build tag: `v75`
+- latest verified native init: `A90 Linux init 0.8.7 (v76)`
+- official version: `0.8.7`
+- build tag: `v76`
 - creator: `made by temmie0214`
-- latest source: `stage3/linux_init/init_v75.c`
-- latest boot image: `stage3/boot_linux_v75.img`
+- latest source: `stage3/linux_init/init_v76.c`
+- latest boot image: `stage3/boot_linux_v76.img`
 - known-good fallback: `stage3/boot_linux_v48.img`
 - control channel: USB CDC ACM serial bridge
 - display: custom boot splash 후 상태 HUD/menu 자동 전환
@@ -55,6 +55,7 @@
 - about app: `APPS / ABOUT`에서 version, changelog 목록/상세, credits 표시
 - log tail panel: HUD hidden 상태와 menu visible 상태에서 최근 native log 표시 확인
 - serial reattach log: v75에서 idle-timeout 성공 로그를 억제해 LOG TAIL noise 감소
+- serial noise: v76에서 짧은 `A`/`T`/`ATAT` fragment를 unknown command 없이 무시
 - shell protocol: `cmdv1`/`A90P1` framed one-shot result와 `a90ctl.py` host wrapper 검증
 - shell protocol: v74 `cmdv1x` length-prefixed argv encoding verified for whitespace args
 - ADB: 보류
@@ -122,6 +123,7 @@
 - `reports/NATIVE_INIT_V73_CMDV1_PROTOCOL_2026-04-27.md` – `cmdv1`/`A90P1` shell protocol과 `a90ctl.py` wrapper 검증
 - `reports/NATIVE_INIT_V74_CMDV1X_ARG_ENCODING_2026-04-27.md` – `cmdv1x` length-prefixed argv encoding 검증
 - `reports/NATIVE_INIT_V75_QUIET_IDLE_REATTACH_2026-04-27.md` – idle-timeout serial reattach 성공 로그 억제 검증
+- `reports/NATIVE_INIT_V76_AT_FRAGMENT_FILTER_2026-04-27.md` – 짧은 AT serial fragment filter 검증
 - `reports/NATIVE_INIT_V74_PHYSICAL_USB_RECONNECT_2026-04-27.md` – 실제 USB 케이블 unplug/replug 후 ACM/NCM/tcpctl 복구 검증
 - `reports/NATIVE_INIT_V53_MENU_BUSY_2026-04-25.md` – menu-active serial busy gate와 flash auto-hide 검증
 - `reports/NATIVE_INIT_V48_USB_REATTACH_NCM_2026-04-25.md` – USB reattach와 NCM probe 실기 검증
@@ -193,6 +195,7 @@
 35. shell protocol v1 + host wrapper — v73 완료
 36. cmdv1x argument encoding — v74 완료
 37. idle serial reattach log quieting — v75 완료
+38. AT fragment serial noise hardening — v76 완료
 
 패키지 최소화와 Android userspace 복구는 보조 실험으로만 다루고,
 메인 목표는 **Android kernel 위에 반복 운용 가능한 native init 기반 최소 Linux 콘솔을 만드는 것**입니다.

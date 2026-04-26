@@ -4,19 +4,19 @@ Date: `2026-04-27`
 
 ## Current Version
 
-- official version: `0.8.6`
-- build tag: `v75`
-- display name: `A90 Linux init 0.8.6 (v75)`
+- official version: `0.8.7`
+- build tag: `v76`
+- display name: `A90 Linux init 0.8.7 (v76)`
 - creator: `made by temmie0214`
-- latest source: `stage3/linux_init/init_v75.c`
-- latest boot image: `stage3/boot_linux_v75.img`
+- latest source: `stage3/linux_init/init_v76.c`
+- latest boot image: `stage3/boot_linux_v76.img`
 
 ## Version Format
 
 공식 버전은 `MAJOR.MINOR.PATCH`를 사용하고, 실험/플래시 추적용 build tag는 `vNN`을 유지한다.
 
 ```text
-A90 Linux init 0.8.6 (v75)
+A90 Linux init 0.8.7 (v76)
 ```
 
 ## Rules
@@ -34,6 +34,7 @@ A90 Linux init 0.8.6 (v75)
 
 | official | build | summary |
 |---|---|---|
+| `0.8.7` | `v76` | short AT serial fragment filter |
 | `0.8.6` | `v75` | quiet idle serial reattach success logs |
 | `0.8.5` | `v74` | cmdv1x length-prefixed argument encoding |
 | `0.8.4` | `v73` | cmdv1/A90P1 shell protocol and a90ctl host wrapper |

@@ -1,16 +1,16 @@
 # Native Init Task Queue (2026-04-25)
 
-이 문서는 `A90 Linux init 0.8.6 (v75)` 이후 바로 실행할 작업 큐다.
+이 문서는 `A90 Linux init 0.8.7 (v76)` 이후 바로 실행할 작업 큐다.
 큰 방향은 “보이는 부팅 → 복구 가능한 로그 → 단독 조작 → 작은 userland → USB networking” 순서다.
 
 ## 현재 고정 기준점
 
-- latest verified native init: `A90 Linux init 0.8.6 (v75)`
-- official version: `0.8.6`
-- build tag: `v75`
+- latest verified native init: `A90 Linux init 0.8.7 (v76)`
+- official version: `0.8.7`
+- build tag: `v76`
 - creator: `made by temmie0214`
-- latest source: `stage3/linux_init/init_v75.c`
-- latest boot image: `stage3/boot_linux_v75.img`
+- latest source: `stage3/linux_init/init_v76.c`
+- latest boot image: `stage3/boot_linux_v76.img`
 - known-good fallback: `stage3/boot_linux_v48.img`
 - control channel: USB ACM serial bridge
 - log: `/cache/native-init.log`
@@ -1159,9 +1159,41 @@ python3 ./scripts/revalidation/physical_usb_reconnect_check.py --manual-host-con
   - SHA256 `50f76a3a9e84ad13f19116e9b6e5b3a1ece6a91b177b81ae8cab1509109452a5`
 - `docs/reports/NATIVE_INIT_V75_QUIET_IDLE_REATTACH_2026-04-27.md`
 
+### V76. AT Fragment Serial Noise Filter — 완료
+
+구현:
+
+- `stage3/linux_init/init_v76.c`
+  - `INIT_VERSION "0.8.7"`
+  - `INIT_BUILD "v76"`
+  - `is_unsolicited_at_fragment_noise()` 추가
+  - 짧은 `A`/`T` only fragment를 shell command dispatch 전에 무시
+  - 기존 full `AT...` probe filter와 `cmdv1`/`cmdv1x` 경로 유지
+  - on-device changelog `0.8.7 v76 AT FRAGMENT FILTER` 추가
+
+검증:
+
+- static ARM64 build — PASS
+- `stage3/ramdisk_v76.cpio`, `stage3/boot_linux_v76.img` 생성 — PASS
+- boot image marker strings `A90 Linux init 0.8.7 (v76)`, `A90v76`, `0.8.7 v76` — PASS
+- native → TWRP → boot partition flash → v76 boot — PASS
+- `cmdv1 version/status` verify: `rc=0`, `status=ok` — PASS
+- raw bridge input `A`, `T`, `AT`, `ATA`, `ATAT`, `AT+GCAP`, `version` — unknown command 없음, `version` 정상 — PASS
+- log에 `ignored AT fragment`와 `ignored AT probe` 기록 확인 — PASS
+- `cmdv1x` whitespace echo smoke — PASS
+
+산출:
+
+- `stage3/linux_init/init_v76`
+  - SHA256 `053986f290d7e87a080515253ad7e1dfbabc73baa462a1e978fe58acb4b1f467`
+- `stage3/ramdisk_v76.cpio`
+  - SHA256 `06e1d300cd20deea918a86a3eb7413756ddc09ee0ed198f031bb3ceda1d3a0c5`
+- `stage3/boot_linux_v76.img`
+  - SHA256 `016b2d0c38f3acd1e0868fd5fa86805e52ef88c2e22fdb240dc071b1b39f4b68`
+- `docs/reports/NATIVE_INIT_V76_AT_FRAGMENT_FILTER_2026-04-27.md`
+
 ## 지금 바로 진행할 항목
 
 1. display test를 다중 페이지형 app으로 확장할지 판단
-2. USB 재열거 중 `A`/`ATAT...` serial noise hardening
-3. Wi-Fi 드라이버/펌웨어 read-only 인벤토리 트랙 분리
-4. 저장소 후보 결정: `/userdata`/`mmcblk0p1` 장기 저장소 사용 여부 판단
+2. Wi-Fi 드라이버/펌웨어 read-only 인벤토리 트랙 분리
+3. 저장소 후보 결정: `/userdata`/`mmcblk0p1` 장기 저장소 사용 여부 판단

@@ -136,18 +136,19 @@ Samsung bootloader
 - cmdv1/A90P1 shell protocol + host wrapper — v73 완료
 - cmdv1x length-prefixed argv encoding — v74 완료
 - idle-timeout serial reattach log quieting — v75 완료
+- AT fragment serial noise hardening — v76 완료
 - static dropbear SSH 또는 custom TCP shell
 
 ---
 
 ## 현재 기준점
 
-- 최신 확인 버전: `A90 Linux init 0.8.6 (v75)`
-- 공식 버전: `0.8.6`
-- build tag: `v75`
+- 최신 확인 버전: `A90 Linux init 0.8.7 (v76)`
+- 공식 버전: `0.8.7`
+- build tag: `v76`
 - creator: `made by temmie0214`
-- 최신 소스: `stage3/linux_init/init_v75.c`
-- 최신 boot image: `stage3/boot_linux_v75.img`
+- 최신 소스: `stage3/linux_init/init_v76.c`
+- 최신 boot image: `stage3/boot_linux_v76.img`
 - known-good fallback: `stage3/boot_linux_v48.img`
 - 주 제어 채널: USB CDC ACM serial (`/dev/ttyGS0` ↔ `/dev/ttyACM0`)
 - host bridge: `scripts/revalidation/serial_tcp_bridge.py --port 54321`

@@ -1217,3 +1217,35 @@
   - 수동 `a90ctl.py --json reattach`는 `reason=command` request/ok 로그 유지 — PASS
 - 상세 보고서:
   - `docs/reports/NATIVE_INIT_V75_QUIET_IDLE_REATTACH_2026-04-27.md`
+
+## v76: AT fragment serial noise filter (2026-04-27)
+
+- 목표:
+  - USB 재열거/host probe 중 shell로 들어오는 짧은 `A`, `T`, `AT`, `ATA`, `ATAT` fragment가 unknown command로 기록되지 않게 한다.
+  - v59의 full `AT...` probe filter와 v74/v75 shell protocol 동작은 그대로 유지한다.
+- 구현:
+  - `stage3/linux_init/init_v76.c`
+    - `INIT_VERSION "0.8.7"`
+    - `INIT_BUILD "v76"`
+    - `is_unsolicited_at_fragment_noise()` 추가
+    - 최대 8글자의 `A`/`T` only fragment를 `serial: ignored AT fragment ...`로 분류
+    - 기존 `AT+...`/`ATE0`/`ATQ0 ...` probe filter는 유지
+    - on-device changelog에 `0.8.7 v76 AT FRAGMENT FILTER` 추가
+- 산출물:
+  - `stage3/linux_init/init_v76`
+    - SHA256 `053986f290d7e87a080515253ad7e1dfbabc73baa462a1e978fe58acb4b1f467`
+  - `stage3/ramdisk_v76.cpio`
+    - SHA256 `06e1d300cd20deea918a86a3eb7413756ddc09ee0ed198f031bb3ceda1d3a0c5`
+  - `stage3/boot_linux_v76.img`
+    - SHA256 `016b2d0c38f3acd1e0868fd5fa86805e52ef88c2e22fdb240dc071b1b39f4b68`
+- 검증:
+  - static ARM64 build — PASS
+  - v76 ramdisk/boot image 생성 — PASS
+  - boot image marker strings `A90 Linux init 0.8.7 (v76)`, `A90v76`, `0.8.7 v76` — PASS
+  - native → TWRP → boot partition flash → v76 boot — PASS
+  - `cmdv1 version/status` verify: `rc=0`, `status=ok` — PASS
+  - raw bridge input `A`, `T`, `AT`, `ATA`, `ATAT`, `AT+GCAP`, `version` — `unknown command` 없음, `version` 정상 — PASS
+  - `/cache/native-init.log`에 AT fragment/probe ignore 기록 확인 — PASS
+  - `a90ctl.py --json echo "hello v76 noise filter"` → `cmdv1x`, `rc=0`, `status=ok` — PASS
+- 상세 보고서:
+  - `docs/reports/NATIVE_INIT_V76_AT_FRAGMENT_FILTER_2026-04-27.md`

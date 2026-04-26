@@ -17,10 +17,10 @@ Date: `2026-04-27`
 - known-good fallback source: `stage3/linux_init/init_v48.c`
 - known-good fallback boot image: `stage3/boot_linux_v48.img`
 - known-good fallback boot image SHA256: `1c87fa59712395027c5c2e489b15c4f6ddefabc3c50f78d3c235c4508a63e042`
-- latest verified native init: `A90 Linux init 0.8.6 (v75)`
-- latest verified source: `stage3/linux_init/init_v75.c`
-- latest verified boot image: `stage3/boot_linux_v75.img`
-- latest verified boot image SHA256: `50f76a3a9e84ad13f19116e9b6e5b3a1ece6a91b177b81ae8cab1509109452a5`
+- latest verified native init: `A90 Linux init 0.8.7 (v76)`
+- latest verified source: `stage3/linux_init/init_v76.c`
+- latest verified boot image: `stage3/boot_linux_v76.img`
+- latest verified boot image SHA256: `016b2d0c38f3acd1e0868fd5fa86805e52ef88c2e22fdb240dc071b1b39f4b68`
 - control channel: USB CDC ACM serial bridge
 - bridge endpoint: `127.0.0.1:54321`
 - bridge script: `scripts/revalidation/serial_tcp_bridge.py`
@@ -100,7 +100,7 @@ printf 'version\n' | nc -w 3 127.0.0.1 54321
 정상 응답 예:
 
 ```text
-A90 Linux init 0.8.6 (v75)
+A90 Linux init 0.8.7 (v76)
 made by temmie0214
 kernel: Linux 4.14.190-25818860-abA908NKSU5EWA3 aarch64
 [done] version
@@ -400,13 +400,13 @@ sudo python3 ./scripts/revalidation/serial_tcp_bridge.py --port 54321
 printf 'version\n' | nc -w 3 127.0.0.1 54321
 ```
 
-최신 verified v75를 native init 상태에서 다시 올릴 때:
+최신 verified v76을 native init 상태에서 다시 올릴 때:
 
 ```bash
 python3 ./scripts/revalidation/native_init_flash.py \
-  stage3/boot_linux_v75.img \
+  stage3/boot_linux_v76.img \
   --from-native \
-  --expect-version "A90 Linux init 0.8.6 (v75)" \
+  --expect-version "A90 Linux init 0.8.7 (v76)" \
   --verify-protocol auto \
   --bridge-timeout 240 \
   --recovery-timeout 180

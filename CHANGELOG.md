@@ -1,5 +1,13 @@
 # Changelog
 
+## `0.8.7` (`v76`) - 2026-04-27
+
+- Added a short AT serial fragment filter for `A`, `T`, `AT`, `ATA`, and `ATAT`-style probe fragments.
+- Kept the existing full `AT...` probe filter for lines such as `AT+GCAP`.
+- Prevented these fragments from becoming `unknown command` shell errors.
+- Added on-device `0.8.7 v76` changelog detail.
+- Verified v76 boot, raw fragment injection, normal `version`, and `cmdv1x` whitespace argument path.
+
 ## `0.8.6` (`v75`) - 2026-04-27
 
 - Increased idle serial console reattach interval from 10 seconds to 60 seconds.
