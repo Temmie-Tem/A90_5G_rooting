@@ -31,6 +31,7 @@
   - v73 `cmdv1`/`A90P1` framed shell protocol을 쓰는 one-shot host wrapper
   - bridge 출력에서 END marker를 파싱해 `rc`/`status`를 판정
   - `--json`, `--allow-error`, `--hide-on-busy`를 지원
+  - bridge가 먼저 열리고 ACM serial이 늦게 붙는 재부팅 구간은 timeout 안에서 재시도
 - `native_init_flash.py`
   - TWRP recovery ADB에서 native init boot image를 boot 파티션에 기록
   - `adb devices` 출력을 whitespace split으로 파싱해 `recovery` 상태를 안정적으로 감지
@@ -49,6 +50,8 @@
   - TWRP ADB로 `/cache/bin/a90_usbnet`에 배치해 USB ACM/NCM/RNDIS probe에 사용
 - `ncm_host_setup.py`
   - native init bridge를 통해 `/cache/bin/a90_usbnet ncm`을 실행하고 device `ncm0` IP를 설정
+  - 기본 `--device-protocol auto`로 짧은 device command는 `cmdv1` rc/status를 우선 사용
+  - `off`처럼 USB 재열거로 끊길 수 있는 명령은 raw bridge 경로 유지
   - v60 boot netservice처럼 NCM이 이미 켜져 있으면 재실행하지 않고 기존 `ncm0`/host MAC을 사용
   - `ncm.host_addr`를 기준으로 host `enx...` 인터페이스를 자동 탐지
   - host `192.168.7.1/24`, device `192.168.7.2/24` ping 검증과 `off` rollback 제공
@@ -63,10 +66,14 @@
 - `tcpctl_host.py`
   - host에서 `/cache/bin/a90_tcpctl`을 install/start/call/run/stop/smoke/soak 형태로 다루는 wrapper
   - serial bridge는 launch/rescue 채널로 유지하고, 명령은 NCM `192.168.7.2:2325`로 전달
+  - install 후 chmod/sha256, smoke/soak의 bridge version 확인은 `cmdv1` rc/status 우선
+  - tcpctl listener처럼 long-running serial command는 raw bridge streaming 유지
   - `smoke`는 start → ping/version/status/run/shutdown → serial/NCM 상태 확인을 한 번에 수행
   - `soak`은 기본 300초 동안 TCP ping/status/run과 host NCM ping을 반복해 안정성을 확인
 - `netservice_reconnect_soak.py`
   - v60 `netservice stop/start`로 USB UDC 재열거 뒤 ACM/NCM/tcpctl 복구를 검증
+  - bridge version/netservice status/usbnet status/ifconfig 같은 짧은 확인은 `cmdv1` rc/status 우선
+  - `netservice start|stop`처럼 USB 재열거로 끊길 수 있는 명령은 raw bridge 유지
   - NCM 재열거마다 host `enx...` 이름이 바뀔 수 있으므로 `host_addr` MAC으로 현재 interface를 다시 찾음
   - `--manual-host-config`는 sudo가 불가능한 환경에서 현재 `sudo ip ... dev <enx...>` 명령을 출력하고 사용자의 수동 설정을 기다림
 

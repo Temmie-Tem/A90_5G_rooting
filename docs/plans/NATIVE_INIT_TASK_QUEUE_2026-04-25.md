@@ -1014,6 +1014,31 @@
 - `native_init_flash.py --verify-only --verify-protocol raw --expect-version "A90 Linux init 0.8.4 (v73)"` — PASS
 - `native_init_flash.py --verify-only --verify-protocol cmdv1 --expect-version "A90 Linux init 0.8.4 (v73)"` — PASS
 
+### Host Tooling. NCM/tcpctl cmdv1 Adoption — 완료
+
+구현:
+
+- `scripts/revalidation/a90ctl.py`
+  - reboot 직후 bridge listener가 먼저 열리고 ACM serial이 늦게 붙는 구간을 timeout 내 재시도
+- `scripts/revalidation/ncm_host_setup.py`
+  - `--device-protocol {auto,cmdv1,raw}` 추가
+  - setup/status 쪽 짧은 device command는 `cmdv1` rc/status 우선
+  - `off` rollback은 USB 재열거 가능성이 있어 raw bridge 유지
+- `scripts/revalidation/netservice_reconnect_soak.py`
+  - `--device-protocol {auto,cmdv1,raw}` 추가
+  - bridge version/netservice status/usbnet status/ifconfig는 `cmdv1` rc/status 우선
+  - `netservice start|stop`은 USB 재열거 가능성이 있어 raw bridge 유지
+- `scripts/revalidation/tcpctl_host.py`
+  - `--device-protocol {auto,cmdv1,raw}` 추가
+  - install 후 chmod/sha256, smoke/soak bridge version은 `cmdv1` rc/status 우선
+  - tcpctl listener/transfer streaming은 raw bridge 유지
+
+검증:
+
+- `python3 -m py_compile scripts/revalidation/a90ctl.py scripts/revalidation/ncm_host_setup.py scripts/revalidation/netservice_reconnect_soak.py scripts/revalidation/tcpctl_host.py` — PASS
+- 세 host script `--help` import/argparse smoke — PASS
+- mock helper로 `cmdv1` success와 `A90P1 END` 미검출 auto raw fallback — PASS
+
 ## 보류 큐
 
 - ADB 안정화 재검토
@@ -1024,8 +1049,7 @@
 ## 지금 바로 진행할 항목
 
 1. `cmdv1` argument quoting/escaping 규칙 설계
-2. NCM/reconnect/tcpctl host scripts에도 parsed rc 적용 범위 결정
-3. display test를 다중 페이지형 app으로 확장할지 판단
-4. 실제 케이블 unplug/replug 이후 ACM/NCM/tcpctl 복구 확인
-5. USB 재열거 중 `A`/`ATAT...` serial noise hardening
-6. Wi-Fi 드라이버/펌웨어 read-only 인벤토리 트랙 분리
+2. display test를 다중 페이지형 app으로 확장할지 판단
+3. 실제 케이블 unplug/replug 이후 ACM/NCM/tcpctl 복구 확인
+4. USB 재열거 중 `A`/`ATAT...` serial noise hardening
+5. Wi-Fi 드라이버/펌웨어 read-only 인벤토리 트랙 분리

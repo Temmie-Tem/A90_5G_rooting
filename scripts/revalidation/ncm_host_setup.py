@@ -11,6 +11,8 @@ import sys
 import time
 from dataclasses import dataclass
 
+from a90ctl import ProtocolResult, run_cmdv1_command
+
 
 DEFAULT_BRIDGE_HOST = "127.0.0.1"
 DEFAULT_BRIDGE_PORT = 54321
@@ -23,6 +25,7 @@ DEFAULT_PREFIX = 24
 HOST_ADDR_RE = re.compile(r"^ncm\.host_addr:\s*([0-9a-fA-F:]{17})\s*$", re.MULTILINE)
 DEV_ADDR_RE = re.compile(r"^ncm\.dev_addr:\s*([0-9a-fA-F:]{17})\s*$", re.MULTILINE)
 IFNAME_RE = re.compile(r"^ncm\.ifname:\s*(\S+)\s*$", re.MULTILINE)
+CMDV1_END_MISSING_TEXT = "A90P1 END marker not found"
 
 
 @dataclass
@@ -75,14 +78,74 @@ def bridge_command(host: str,
     raise RuntimeError(f"bridge command timeout for {command!r}: {last_error}")
 
 
+def command_to_cmdv1_args(command: str) -> list[str] | None:
+    try:
+        argv = shlex.split(command)
+    except ValueError:
+        return None
+    if not argv:
+        return None
+    if any(any(ch.isspace() for ch in arg) for arg in argv):
+        return None
+    return argv
+
+
+def cmdv1_unavailable(exc: Exception) -> bool:
+    text = str(exc)
+    return CMDV1_END_MISSING_TEXT in text or "cmdv1 cannot safely encode command" in text
+
+
+def run_device_cmdv1(args: argparse.Namespace,
+                     command: str,
+                     timeout_sec: float) -> ProtocolResult:
+    argv = command_to_cmdv1_args(command)
+    if argv is None:
+        raise RuntimeError(f"cmdv1 cannot safely encode command: {command!r}")
+    return run_cmdv1_command(args.bridge_host, args.bridge_port, timeout_sec, argv)
+
+
 def device_command(args: argparse.Namespace,
                    command: str,
                    *,
                    timeout: float | None = None,
-                   allow_error: bool = False) -> str:
+                   allow_error: bool = False,
+                   use_cmdv1: bool = True) -> str:
     timeout_sec = args.bridge_timeout if timeout is None else timeout
+    cmdv1_enabled = use_cmdv1 and args.device_protocol != "raw"
+    cmdv1_failed_open = False
 
     for attempt in range(1, args.busy_retries + 1):
+        if cmdv1_enabled and not cmdv1_failed_open:
+            try:
+                result = run_device_cmdv1(args, command, timeout_sec)
+            except RuntimeError as exc:
+                if args.device_protocol == "cmdv1" or not cmdv1_unavailable(exc):
+                    raise
+                log(f"cmdv1 unavailable for {command!r}; falling back to raw bridge")
+                cmdv1_failed_open = True
+            else:
+                output = result.text
+                if result.status != "busy":
+                    if (result.rc != 0 or result.status != "ok") and not allow_error:
+                        raise RuntimeError(
+                            f"device command failed: {command} "
+                            f"rc={result.rc} status={result.status}\n{output}"
+                        )
+                    return output
+
+                print(output, end="" if output.endswith("\n") else "\n")
+                log(f"auto menu active; requesting hide before retry {attempt}/{args.busy_retries}")
+                hide_output = bridge_command(
+                    args.bridge_host,
+                    args.bridge_port,
+                    "hide",
+                    timeout_sec,
+                    markers=(b"[busy]", b"[done]", b"[err]"),
+                )
+                print(hide_output, end="" if hide_output.endswith("\n") else "\n")
+                time.sleep(args.busy_retry_sleep)
+                continue
+
         output = bridge_command(args.bridge_host, args.bridge_port, command, timeout_sec)
         if "[busy]" not in output:
             if "[err]" in output and not allow_error:
@@ -255,7 +318,12 @@ def command_ping(args: argparse.Namespace) -> int:
 def command_off(args: argparse.Namespace) -> int:
     log("turning USB network off; ACM serial should come back")
     try:
-        output = device_command(args, f"run {args.device_helper} off", timeout=args.bridge_timeout)
+        output = device_command(
+            args,
+            f"run {args.device_helper} off",
+            timeout=args.bridge_timeout,
+            use_cmdv1=False,
+        )
         print(output, end="" if output.endswith("\n") else "\n")
     except RuntimeError as exc:
         log(f"off command output was interrupted by USB re-enumeration: {exc}")
@@ -285,6 +353,12 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--bridge-host", default=DEFAULT_BRIDGE_HOST)
     parser.add_argument("--bridge-port", type=int, default=DEFAULT_BRIDGE_PORT)
     parser.add_argument("--bridge-timeout", type=float, default=45.0)
+    parser.add_argument(
+        "--device-protocol",
+        choices=("auto", "cmdv1", "raw"),
+        default="auto",
+        help="device shell command protocol; auto tries cmdv1 then raw fallback",
+    )
     parser.add_argument("--busy-retries", type=int, default=3)
     parser.add_argument("--busy-retry-sleep", type=float, default=3.0)
     parser.add_argument("--device-helper", default=DEFAULT_DEVICE_HELPER)

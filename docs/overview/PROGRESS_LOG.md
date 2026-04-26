@@ -1093,3 +1093,27 @@
   - `native_init_flash.py --verify-only --expect-version "A90 Linux init 0.8.4 (v73)"` PASS
   - `native_init_flash.py --verify-only --verify-protocol raw --expect-version "A90 Linux init 0.8.4 (v73)"` PASS
   - `native_init_flash.py --verify-only --verify-protocol cmdv1 --expect-version "A90 Linux init 0.8.4 (v73)"` PASS
+
+## host tooling: NCM/tcpctl cmdv1 adoption (2026-04-27)
+
+- 목표:
+  - NCM/tcpctl 검증 스크립트도 raw bridge 문자열 판정 대신 v73 `cmdv1`의 parsed `rc/status`를 우선 사용한다.
+  - USB 재열거와 long-running stream처럼 연결 종료가 정상 동작인 경로는 raw bridge로 남긴다.
+- 구현:
+  - `scripts/revalidation/a90ctl.py`
+    - bridge listener가 먼저 열리고 ACM serial이 늦게 붙는 reboot/reconnect window를 timeout 내 재시도
+  - `scripts/revalidation/ncm_host_setup.py`
+    - `--device-protocol {auto,cmdv1,raw}` 추가
+    - setup/status/ifconfig/version은 `cmdv1` 우선, `off` rollback은 raw 유지
+  - `scripts/revalidation/netservice_reconnect_soak.py`
+    - `--device-protocol {auto,cmdv1,raw}` 추가
+    - bridge version/netservice status/usbnet status/ifconfig는 `cmdv1` 우선
+    - `netservice start|stop`은 USB 재열거 가능성이 있어 raw 유지
+  - `scripts/revalidation/tcpctl_host.py`
+    - `--device-protocol {auto,cmdv1,raw}` 추가
+    - install 후 chmod/sha256, smoke/soak bridge version은 `cmdv1` 우선
+    - tcpctl listener/transfer streaming은 raw 유지
+- 검증:
+  - `python3 -m py_compile scripts/revalidation/a90ctl.py scripts/revalidation/ncm_host_setup.py scripts/revalidation/netservice_reconnect_soak.py scripts/revalidation/tcpctl_host.py` PASS
+  - `ncm_host_setup.py --help`, `netservice_reconnect_soak.py --help`, `tcpctl_host.py --help` PASS
+  - mock helper로 `cmdv1` success와 `A90P1 END` 미검출 auto raw fallback PASS

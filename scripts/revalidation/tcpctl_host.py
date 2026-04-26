@@ -11,6 +11,8 @@ import threading
 import time
 from pathlib import Path
 
+from a90ctl import ProtocolResult, run_cmdv1_command
+
 
 ROOT_DIR = Path(__file__).resolve().parents[2]
 DEFAULT_BRIDGE_HOST = "127.0.0.1"
@@ -24,6 +26,7 @@ DEFAULT_LOCAL_BINARY = ROOT_DIR / "external_tools/userland/bin/a90_tcpctl-aarch6
 DEFAULT_IDLE_TIMEOUT = 60
 DEFAULT_MAX_CLIENTS = 8
 DEFAULT_SOAK_MAX_CLIENTS = 0
+CMDV1_END_MISSING_TEXT = "A90P1 END marker not found"
 
 
 def log(message: str) -> None:
@@ -77,6 +80,85 @@ def bridge_command(host: str,
         time.sleep(0.5)
 
     raise RuntimeError(f"bridge command timeout for {command!r}: {last_error}")
+
+
+def command_to_cmdv1_args(command: str) -> list[str] | None:
+    try:
+        argv = shlex.split(command)
+    except ValueError:
+        return None
+    if not argv:
+        return None
+    if any(any(ch.isspace() for ch in arg) for arg in argv):
+        return None
+    return argv
+
+
+def cmdv1_unavailable(exc: Exception) -> bool:
+    text = str(exc)
+    return CMDV1_END_MISSING_TEXT in text or "cmdv1 cannot safely encode command" in text
+
+
+def run_device_cmdv1(args: argparse.Namespace,
+                     command: str,
+                     timeout_sec: float) -> ProtocolResult:
+    argv = command_to_cmdv1_args(command)
+    if argv is None:
+        raise RuntimeError(f"cmdv1 cannot safely encode command: {command!r}")
+    return run_cmdv1_command(args.bridge_host, args.bridge_port, timeout_sec, argv)
+
+
+def device_command(args: argparse.Namespace,
+                   command: str,
+                   *,
+                   timeout: float | None = None,
+                   allow_error: bool = False,
+                   use_cmdv1: bool = True) -> str:
+    timeout_sec = args.bridge_timeout if timeout is None else timeout
+    cmdv1_enabled = use_cmdv1 and args.device_protocol != "raw"
+    cmdv1_failed_open = False
+
+    for attempt in range(1, args.busy_retries + 1):
+        if cmdv1_enabled and not cmdv1_failed_open:
+            try:
+                result = run_device_cmdv1(args, command, timeout_sec)
+            except RuntimeError as exc:
+                if args.device_protocol == "cmdv1" or not cmdv1_unavailable(exc):
+                    raise
+                log(f"cmdv1 unavailable for {command!r}; falling back to raw bridge")
+                cmdv1_failed_open = True
+            else:
+                if result.status != "busy":
+                    if (result.rc != 0 or result.status != "ok") and not allow_error:
+                        raise RuntimeError(
+                            f"device command failed: {command} "
+                            f"rc={result.rc} status={result.status}\n{result.text}"
+                        )
+                    return result.text
+
+                print(result.text, end="" if result.text.endswith("\n") else "\n")
+                log(f"auto menu active; requesting hide before retry {attempt}/{args.busy_retries}")
+                best_effort_hide_menu(args)
+                time.sleep(args.busy_retry_sleep)
+                continue
+
+        output = bridge_command(
+            args.bridge_host,
+            args.bridge_port,
+            command,
+            timeout_sec,
+        )
+        if "[busy]" not in output:
+            if "[err]" in output and not allow_error:
+                raise RuntimeError(f"device command failed: {command}\n{output}")
+            return output
+
+        print(output, end="" if output.endswith("\n") else "\n")
+        log(f"auto menu active; requesting hide before retry {attempt}/{args.busy_retries}")
+        best_effort_hide_menu(args)
+        time.sleep(args.busy_retry_sleep)
+
+    raise RuntimeError(f"device command stayed busy after retries: {command}")
 
 
 def best_effort_hide_menu(args: argparse.Namespace) -> None:
@@ -305,18 +387,16 @@ def command_install(args: argparse.Namespace) -> int:
         raise RuntimeError(f"device transfer did not report done:\n{runner.text()}")
 
     print(runner.text(), end="" if runner.text().endswith("\n") else "\n")
-    chmod_output = bridge_command(
-        args.bridge_host,
-        args.bridge_port,
+    chmod_output = device_command(
+        args,
         f"run {args.toybox} chmod 755 {args.device_binary}",
-        args.bridge_timeout,
+        timeout=args.bridge_timeout,
     )
     print(chmod_output, end="" if chmod_output.endswith("\n") else "\n")
-    sha_output = bridge_command(
-        args.bridge_host,
-        args.bridge_port,
+    sha_output = device_command(
+        args,
         f"run {args.toybox} sha256sum {args.device_binary}",
-        args.bridge_timeout,
+        timeout=args.bridge_timeout,
     )
     print(sha_output, end="" if sha_output.endswith("\n") else "\n")
     if local_hash not in sha_output:
@@ -363,12 +443,10 @@ def command_smoke(args: argparse.Namespace) -> int:
         raise RuntimeError("tcpctl serial run did not finish cleanly")
 
     print("--- bridge-version ---")
-    bridge_output = bridge_command(
-        args.bridge_host,
-        args.bridge_port,
+    bridge_output = device_command(
+        args,
         "version",
-        args.bridge_timeout,
-        markers=(b"[done] version", b"[err] version"),
+        timeout=args.bridge_timeout,
     )
     print(bridge_output, end="" if bridge_output.endswith("\n") else "\n")
 
@@ -486,12 +564,10 @@ def command_soak(args: argparse.Namespace) -> int:
 
     print("--- bridge-version ---")
     try:
-        bridge_output = bridge_command(
-            args.bridge_host,
-            args.bridge_port,
+        bridge_output = device_command(
+            args,
             "version",
-            args.bridge_timeout,
-            markers=(b"[done] version", b"[err] version"),
+            timeout=args.bridge_timeout,
         )
         print(bridge_output, end="" if bridge_output.endswith("\n") else "\n")
     except Exception as exc:
@@ -535,6 +611,14 @@ def add_common_args(parser: argparse.ArgumentParser) -> None:
     parser.add_argument("--connect-timeout", type=float, default=5.0)
     parser.add_argument("--tcp-timeout", type=float, default=10.0)
     parser.add_argument("--bridge-timeout", type=float, default=30.0)
+    parser.add_argument(
+        "--device-protocol",
+        choices=("auto", "cmdv1", "raw"),
+        default="auto",
+        help="device shell command protocol for one-shot bridge checks",
+    )
+    parser.add_argument("--busy-retries", type=int, default=3)
+    parser.add_argument("--busy-retry-sleep", type=float, default=3.0)
     parser.add_argument("--menu-hide-sleep", type=float, default=3.0)
 
 

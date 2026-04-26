@@ -303,9 +303,9 @@ ADB 방식이 막혀 USB CDC ACM serial (ttyGS0)로 전환. v73까지 반복 안
 
 우선순위 순 (v73 이후):
 
-1. **a90ctl adoption** — 반복 검증 스크립트에서 raw `nc` 대신 `cmdv1`/parsed rc 사용
-2. **shell argument quoting** — whitespace 인자와 안전한 escaping 규칙 추가
-3. **physical USB reconnect soak** — 실제 케이블 unplug/replug 이후 ACM/NCM 복구 확인
+1. **shell argument quoting** — whitespace 인자와 안전한 escaping 규칙 추가
+2. **physical USB reconnect soak** — 실제 케이블 unplug/replug 이후 ACM/NCM/tcpctl 복구 확인
+3. **display test multi-page** — 화면 테스트 app을 다중 페이지로 확장할지 판단
 4. **Wi-Fi 인벤토리** — 드라이버/펌웨어/vendor daemon read-only 조사
 5. **저장소 후보 결정** — `/userdata`/`mmcblk0p1` 장기 저장소 사용 여부 판단
 
