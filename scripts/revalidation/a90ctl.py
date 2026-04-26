@@ -11,6 +11,8 @@ from dataclasses import dataclass
 
 DEFAULT_HOST = "127.0.0.1"
 DEFAULT_PORT = 54321
+CMDV1_RETRY_INTERVAL_SEC = 0.5
+BRIDGE_SERIAL_MISSING_TEXT = "serial device is not connected"
 END_RE = re.compile(r"^A90P1 END (?P<fields>.+)$", re.MULTILINE)
 BEGIN_RE = re.compile(r"^A90P1 BEGIN (?P<fields>.+)$", re.MULTILINE)
 
@@ -78,11 +80,22 @@ def bridge_exchange(host: str,
                     line: str,
                     timeout_sec: float,
                     markers: tuple[bytes, ...]) -> str:
-    with socket.create_connection((host, port), timeout=3.0) as sock:
+    connect_timeout = min(3.0, max(0.1, timeout_sec))
+    with socket.create_connection((host, port), timeout=connect_timeout) as sock:
         sock.settimeout(0.25)
         sock.sendall(("\n" + line + "\n").encode("utf-8"))
         data = read_until(sock, markers, timeout_sec)
     return data.decode("utf-8", errors="replace")
+
+
+def should_retry_cmdv1_exchange(text: str) -> bool:
+    return text.strip() == "" or BRIDGE_SERIAL_MISSING_TEXT in text
+
+
+def sleep_before_retry(deadline: float) -> None:
+    remaining = deadline - time.monotonic()
+    if remaining > 0:
+        time.sleep(min(CMDV1_RETRY_INTERVAL_SEC, remaining))
 
 
 def parse_protocol_output(text: str) -> ProtocolResult:
@@ -105,16 +118,44 @@ def run_cmdv1_command(host: str,
                       port: int,
                       timeout_sec: float,
                       command: list[str]) -> ProtocolResult:
+    deadline = time.monotonic() + timeout_sec
+    last_error: OSError | None = None
+    last_text = ""
+
     require_shell_safe_args(command)
     line = "cmdv1 " + " ".join(command)
-    text = bridge_exchange(
-        host,
-        port,
-        line,
-        timeout_sec,
-        markers=(b"A90P1 END ",),
-    )
-    return parse_protocol_output(text)
+    while time.monotonic() < deadline:
+        remaining = deadline - time.monotonic()
+        if remaining <= 0:
+            break
+
+        try:
+            text = bridge_exchange(
+                host,
+                port,
+                line,
+                remaining,
+                markers=(b"A90P1 END ",),
+            )
+        except OSError as exc:
+            last_error = exc
+            sleep_before_retry(deadline)
+            continue
+
+        if END_RE.search(text) is not None:
+            return parse_protocol_output(text)
+        if not should_retry_cmdv1_exchange(text):
+            return parse_protocol_output(text)
+
+        last_text = text
+        sleep_before_retry(deadline)
+
+    detail = f"A90P1 END marker not found before timeout ({timeout_sec:.1f}s)"
+    if last_error is not None:
+        detail += f"\nlast socket error: {last_error}"
+    if last_text:
+        detail += f"\nlast bridge output:\n{last_text}"
+    raise RuntimeError(detail)
 
 
 def send_hide(args: argparse.Namespace) -> None:
