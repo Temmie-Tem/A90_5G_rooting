@@ -82,6 +82,7 @@ aosp_source
 aosp_source/
 build_artifacts/
 external_tools/
+out/
 
 # =================================
 # 펌웨어 파일 (재배포 금지)
