@@ -1,11 +1,11 @@
-# Native Init v77 Display Test + SD Workspace Report (2026-04-27~2026-04-29)
+# Native Init v77 Display Test Pages Report (2026-04-27)
 
 ## Summary
 
 - Version: `A90 Linux init 0.8.8 (v77)`
 - Source: `stage3/linux_init/init_v77.c`
 - Boot image: `stage3/boot_linux_v77.img`
-- Goal: split the crowded display test into focused pages, add camera-hole calibration, and make ext4 SD the safe experiment workspace.
+- Goal: split the crowded display test into focused pages and add camera-hole calibration.
 
 ## Change
 
@@ -23,16 +23,6 @@
   - VOL+/VOL- adjusts the selected field
   - POWER cycles `X`, `Y`, `SIZE`
   - POWER long/double or VOL+DN exits back to the menu
-- Formatted SD partition `/dev/block/mmcblk0p1` as `ext4` label `A90_NATIVE`.
-- Added `mountsd [status|ro|rw|off|init]`.
-- Added standard workspace `/mnt/sdext/a90`:
-  - `bin`
-  - `logs`
-  - `tmp`
-  - `rootfs`
-  - `images`
-  - `backups`
-- Added `mountsd` status lines to `status`.
 - Added shell page selection:
   - `displaytest colors`
   - `displaytest font`
@@ -72,16 +62,10 @@
   - `cutoutcal` → `x=540 y=80 size=49`, `rc=0`, `status=ok`
   - `cutoutcal 540 80 49` → `rc=0`, `status=ok`
   - `displaytest safe` now renders the same calibration reference and returns `rc=0`, `status=ok`
-- SD workspace validation:
-  - `mkfs.ext4 -F -L A90_NATIVE /dev/block/mmcblk0p1` — PASS
-  - `blkid /dev/block/mmcblk0p1` → `LABEL="A90_NATIVE"`, `TYPE="ext4"`
-  - `mountsd init` created `/mnt/sdext/a90/{bin,logs,tmp,rootfs,images,backups}`
-  - write/sync/read probe at `/mnt/sdext/a90/tmp/mountsd_probe.txt` — PASS
-  - `mountsd ro`, `mountsd off`, `mountsd status`, final `status` integration — PASS
 - Restored `autohud 2`; final `status` showed `autohud: running`.
 
 ## Current Baseline
 
-`0.8.8 (v77)` is now the latest verified native init baseline.
+`0.8.8 (v77)` is the display/cutout baseline. The SD workspace work was promoted to `0.8.9 (v78)` so the version number matches the feature boundary.
 
 The v48 fallback image remains the known-good rescue path, and v49 remains an isolated failed experiment.

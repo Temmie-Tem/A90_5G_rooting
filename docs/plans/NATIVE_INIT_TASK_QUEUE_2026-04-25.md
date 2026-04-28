@@ -1,16 +1,16 @@
 # Native Init Task Queue (2026-04-25)
 
-이 문서는 `A90 Linux init 0.8.8 (v77)` 이후 바로 실행할 작업 큐다.
+이 문서는 `A90 Linux init 0.8.9 (v78)` 이후 바로 실행할 작업 큐다.
 큰 방향은 “보이는 부팅 → 복구 가능한 로그 → 단독 조작 → 작은 userland → USB networking” 순서다.
 
 ## 현재 고정 기준점
 
-- latest verified native init: `A90 Linux init 0.8.8 (v77)`
-- official version: `0.8.8`
-- build tag: `v77`
+- latest verified native init: `A90 Linux init 0.8.9 (v78)`
+- official version: `0.8.9`
+- build tag: `v78`
 - creator: `made by temmie0214`
-- latest source: `stage3/linux_init/init_v77.c`
-- latest boot image: `stage3/boot_linux_v77.img`
+- latest source: `stage3/linux_init/init_v78.c`
+- latest boot image: `stage3/boot_linux_v78.img`
 - known-good fallback: `stage3/boot_linux_v48.img`
 - control channel: USB ACM serial bridge
 - log: `/cache/native-init.log`
@@ -1192,7 +1192,7 @@ python3 ./scripts/revalidation/physical_usb_reconnect_check.py --manual-host-con
   - SHA256 `016b2d0c38f3acd1e0868fd5fa86805e52ef88c2e22fdb240dc071b1b39f4b68`
 - `docs/reports/NATIVE_INIT_V76_AT_FRAGMENT_FILTER_2026-04-27.md`
 
-### V77. Display Test, Cutout Calibration, SD Workspace — 완료
+### V77. Display Test, Cutout Calibration — 완료
 
 구현:
 
@@ -1209,11 +1209,6 @@ python3 ./scripts/revalidation/physical_usb_reconnect_check.py --manual-host-con
   - app 조작: VOL+/VOL- adjust, POWER field 변경, POWER long/double 또는 VOL+DN back
   - auto menu app에서 VOL+/VOL- page 이동, POWER back
   - `displaytest [0-3|colors|font|safe|layout]` 지원
-  - SD 카드 `/dev/block/mmcblk0p1`을 `ext4` label `A90_NATIVE`로 포맷
-  - `mountsd [status|ro|rw|off|init]` 명령 추가
-  - SD workspace 표준 경로: `/mnt/sdext/a90`
-  - workspace 하위 디렉터리: `bin`, `logs`, `tmp`, `rootfs`, `images`, `backups`
-  - `status` 출력에 `mountsd` 상태 통합
   - on-device changelog `0.8.8 v77 DISPLAY TEST PAGES` 추가
 
 검증:
@@ -1221,10 +1216,35 @@ python3 ./scripts/revalidation/physical_usb_reconnect_check.py --manual-host-con
 - static ARM64 build — PASS
 - `stage3/ramdisk_v77.cpio`, `stage3/boot_linux_v77.img` 생성 — PASS
 - boot image marker strings `A90 Linux init 0.8.8 (v77)`, `A90v77`, `0.8.8 v77` — PASS
-- native → TWRP → boot partition flash → v77 boot — PASS
+- native → TWRP → boot partition flash → v77 display/cutout baseline boot — PASS
 - `cmdv1 version/status` verify: `rc=0`, `status=ok` — PASS
 - `displaytest colors/font/safe/layout` 각각 `rc=0`, `status=ok` — PASS
 - `cutoutcal`, `cutoutcal 540 80 49`, `displaytest safe` 재검증 — PASS
+
+비고:
+
+- SD workspace 기능은 버전 의미를 맞추기 위해 `0.8.9 (v78)`로 승격했다.
+
+### V78. Ext4 SD Workspace + Mountsd — 완료
+
+구현:
+
+- `stage3/linux_init/init_v78.c`
+  - `INIT_VERSION "0.8.9"`
+  - `INIT_BUILD "v78"`
+  - v77 display/cutout baseline 유지
+  - SD 카드 `/dev/block/mmcblk0p1`을 `ext4` label `A90_NATIVE`로 포맷
+  - `mountsd [status|ro|rw|off|init]` 명령 추가
+  - SD workspace 표준 경로: `/mnt/sdext/a90`
+  - workspace 하위 디렉터리: `bin`, `logs`, `tmp`, `rootfs`, `images`, `backups`
+  - `status` 출력에 `mountsd` 상태 통합
+  - on-device changelog `0.8.9 v78 SD WORKSPACE` 추가
+
+검증:
+
+- static ARM64 build — PASS
+- `stage3/ramdisk_v78.cpio`, `stage3/boot_linux_v78.img` 생성 — PASS
+- boot image marker strings `A90 Linux init 0.8.9 (v78)`, `A90v78`, `0.8.9 v78` — PASS
 - SD ext4 포맷: `LABEL="A90_NATIVE"`, `TYPE="ext4"` — PASS
 - `mountsd init`, workspace dir 생성, write/sync/read — PASS
 - `mountsd ro/off/status`와 최종 `status` 통합 출력 — PASS
@@ -1232,13 +1252,13 @@ python3 ./scripts/revalidation/physical_usb_reconnect_check.py --manual-host-con
 
 산출:
 
-- `stage3/linux_init/init_v77`
-  - SHA256 `534c77b5272fc484d263245abe711af769cadcc973c077d544032795ca9da935`
-- `stage3/ramdisk_v77.cpio`
-  - SHA256 `b0f4bd91d56f17772ff38b4013a849a6ba02099b517196a1009066499e35de4a`
-- `stage3/boot_linux_v77.img`
-  - SHA256 `176602ad6962dd298df3fc9090aefb335104e3eca496d8f75d6ec1d466dacaea`
-- `docs/reports/NATIVE_INIT_V77_DISPLAY_TEST_PAGES_2026-04-27.md`
+- `stage3/linux_init/init_v78`
+  - SHA256 `fc2b8f57482deddfe31885e8089e2047d7af08c3ac36414a1e644a2d43ed7274`
+- `stage3/ramdisk_v78.cpio`
+  - SHA256 `d1e37f098b9a15e2b00e016b882ec40b3fd68ce81f3c68d0a7c303e7a7958fd8`
+- `stage3/boot_linux_v78.img`
+  - SHA256 `2f57f29e623838601b664001b92bb4ac43e47e03eb0d9cb45bd86322ec52d099`
+- `docs/reports/NATIVE_INIT_V78_SD_WORKSPACE_2026-04-29.md`
 
 ## 지금 바로 진행할 항목
 

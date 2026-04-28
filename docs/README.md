@@ -1,6 +1,6 @@
 # Samsung Galaxy A90 5G - 현재 문서 인덱스
 
-이 문서 트리는 `2026-04-27` 기준으로 다시 정렬했습니다.
+이 문서 트리는 `2026-04-29` 기준으로 다시 정렬했습니다.
 
 초기 `native Linux rechallenge`의 핵심 진입점 확보 단계는 통과했고,
 현재 문서의 중심은 **stock Android kernel 위에서 custom static `/init`를 실행해
@@ -8,7 +8,7 @@
 
 상단 `docs/`는 이제 다음 흐름에 필요한 문서를 유지합니다.
 
-1. native init 0.8.8 / v77 기준 상태 고정
+1. native init 0.8.9 / v78 기준 상태 고정
 2. shell/HUD/log/menu 운영 안정화
 3. 필요한 하드웨어/커널 경로만 역추적
 4. BusyBox/network/SSH 같은 서버형 확장 가능성 검토
@@ -19,12 +19,12 @@
 - 빌드: `A908NKSU5EWA3`
 - kernel: Samsung stock Android kernel `Linux 4.14.190`
 - recovery: TWRP 사용 가능
-- latest verified native init: `A90 Linux init 0.8.8 (v77)`
-- official version: `0.8.8`
-- build tag: `v77`
+- latest verified native init: `A90 Linux init 0.8.9 (v78)`
+- official version: `0.8.9`
+- build tag: `v78`
 - creator: `made by temmie0214`
-- latest source: `stage3/linux_init/init_v77.c`
-- latest boot image: `stage3/boot_linux_v77.img`
+- latest source: `stage3/linux_init/init_v78.c`
+- latest boot image: `stage3/boot_linux_v78.img`
 - known-good fallback: `stage3/boot_linux_v48.img`
 - control channel: USB CDC ACM serial bridge
 - display: custom boot splash 후 상태 HUD/menu 자동 전환
@@ -126,7 +126,8 @@
 - `reports/NATIVE_INIT_V74_CMDV1X_ARG_ENCODING_2026-04-27.md` – `cmdv1x` length-prefixed argv encoding 검증
 - `reports/NATIVE_INIT_V75_QUIET_IDLE_REATTACH_2026-04-27.md` – idle-timeout serial reattach 성공 로그 억제 검증
 - `reports/NATIVE_INIT_V76_AT_FRAGMENT_FILTER_2026-04-27.md` – 짧은 AT serial fragment filter 검증
-- `reports/NATIVE_INIT_V77_DISPLAY_TEST_PAGES_2026-04-27.md` – display test, cutout calibration, SD workspace 검증
+- `reports/NATIVE_INIT_V77_DISPLAY_TEST_PAGES_2026-04-27.md` – display test와 cutout calibration 검증
+- `reports/NATIVE_INIT_V78_SD_WORKSPACE_2026-04-29.md` – ext4 SD workspace와 `mountsd` 검증
 - `reports/NATIVE_INIT_V74_PHYSICAL_USB_RECONNECT_2026-04-27.md` – 실제 USB 케이블 unplug/replug 후 ACM/NCM/tcpctl 복구 검증
 - `reports/NATIVE_INIT_V53_MENU_BUSY_2026-04-25.md` – menu-active serial busy gate와 flash auto-hide 검증
 - `reports/NATIVE_INIT_V48_USB_REATTACH_NCM_2026-04-25.md` – USB reattach와 NCM probe 실기 검증
@@ -199,7 +200,8 @@
 36. cmdv1x argument encoding — v74 완료
 37. idle serial reattach log quieting — v75 완료
 38. AT fragment serial noise hardening — v76 완료
-39. display test multi-page app + cutout calibration + SD workspace — v77 완료
+39. display test multi-page app + cutout calibration — v77 완료
+40. ext4 SD workspace + `mountsd` storage manager — v78 완료
 
 패키지 최소화와 Android userspace 복구는 보조 실험으로만 다루고,
 메인 목표는 **Android kernel 위에 반복 운용 가능한 native init 기반 최소 Linux 콘솔을 만드는 것**입니다.

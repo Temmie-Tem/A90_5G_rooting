@@ -1,9 +1,9 @@
 # Claude Handoff Prompt
 
-Date: `2026-04-27`
+Date: `2026-04-29`
 
 아래 블록을 Claude나 다른 에이전트에게 그대로 붙여 넣는다.
-목표는 **먼저 상태를 확인하고, known-good v48 복구 경로와 latest v77 작업 경로를 혼동하지 않게 하는 것**이다.
+목표는 **먼저 상태를 확인하고, known-good v48 복구 경로와 latest v78 작업 경로를 혼동하지 않게 하는 것**이다.
 
 ```text
 너는 /home/temmie/dev/A90_5G_rooting 저장소에서 작업한다.
@@ -16,11 +16,11 @@ Date: `2026-04-27`
 
 현재 기준:
 
-- latest verified native init: A90 Linux init 0.8.8 (v77)
-- latest source: stage3/linux_init/init_v77.c
-- latest boot image: stage3/boot_linux_v77.img
+- latest verified native init: A90 Linux init 0.8.9 (v78)
+- latest source: stage3/linux_init/init_v78.c
+- latest boot image: stage3/boot_linux_v78.img
 - latest boot image SHA256:
-  176602ad6962dd298df3fc9090aefb335104e3eca496d8f75d6ec1d466dacaea
+  2f57f29e623838601b664001b92bb4ac43e47e03eb0d9cb45bd86322ec52d099
 - known-good fallback native init: A90 Linux init v48
 - known-good fallback source: stage3/linux_init/init_v48.c
 - known-good fallback boot image: stage3/boot_linux_v48.img
@@ -61,7 +61,7 @@ Date: `2026-04-27`
 - v75에서는 idle-timeout serial reattach 성공 로그를 숨겨 live LOG TAIL noise를 줄였다.
 - v76에서는 짧은 `A`/`T`/`ATAT` serial fragment를 unknown command 없이 무시한다.
 - v77에서는 `TOOLS / DISPLAY TEST`가 4페이지로 분리되고 `displaytest colors/font/safe/layout`, `cutoutcal [x y size]`, `TOOLS > CUTOUT CAL`을 지원한다.
-- v77에서는 SD가 `ext4` label `A90_NATIVE`로 준비되어 있고 `mountsd [status|ro|rw|off|init]`로 `/mnt/sdext/a90` workspace를 제어한다.
+- v78에서는 SD가 `ext4` label `A90_NATIVE`로 준비되어 있고 `mountsd [status|ro|rw|off|init]`로 `/mnt/sdext/a90` workspace를 제어한다.
 
 v49 주의:
 
@@ -82,18 +82,18 @@ python3 scripts/revalidation/a90ctl.py --json status || true
 
 판단:
 
-- bridge에서 A90 Linux init 0.8.8 (v77)이 나오면 latest verified native init 상태다.
+- bridge에서 A90 Linux init 0.8.9 (v78)이 나오면 latest verified native init 상태다.
 - bridge에서 A90 Linux init v48이 나오면 known-good fallback native init 상태다.
 - adb devices -l에서 recovery면 TWRP 상태다.
 - adb devices -l에서 device이고 /proc/1/exe가 /system/bin/init이면 Android 상태다.
 - 04e8:6861 + /dev/ttyACM0인데 bridge가 안 되면 사용자가 sudo bridge를 재시작해야 한다.
 
-latest v77 flash가 정말 필요할 때만 이 스크립트를 사용:
+latest v78 flash가 정말 필요할 때만 이 스크립트를 사용:
 
 python3 ./scripts/revalidation/native_init_flash.py \
-  stage3/boot_linux_v77.img \
+  stage3/boot_linux_v78.img \
   --from-native \
-  --expect-version "A90 Linux init 0.8.8 (v77)" \
+  --expect-version "A90 Linux init 0.8.9 (v78)" \
   --bridge-timeout 240 \
   --recovery-timeout 180
 

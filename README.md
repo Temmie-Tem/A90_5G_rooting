@@ -14,12 +14,12 @@ Android userspace 대신 직접 만든 static `/init`를 실행하고,
 - build: `A908NKSU5EWA3`
 - kernel: Samsung stock Android kernel `Linux 4.14.190`
 - recovery: TWRP 사용 가능
-- latest verified native init: `A90 Linux init 0.8.8 (v77)`
-- official version: `0.8.8`
-- build tag: `v77`
+- latest verified native init: `A90 Linux init 0.8.9 (v78)`
+- official version: `0.8.9`
+- build tag: `v78`
 - creator: `made by temmie0214`
-- latest source: `stage3/linux_init/init_v77.c`
-- latest boot image: `stage3/boot_linux_v77.img`
+- latest source: `stage3/linux_init/init_v78.c`
+- latest boot image: `stage3/boot_linux_v78.img`
 - known-good fallback: `stage3/boot_linux_v48.img`
 - control channel: USB CDC ACM serial (`/dev/ttyGS0` ↔ `/dev/ttyACM0`)
 - host bridge: `scripts/revalidation/serial_tcp_bridge.py --port 54321`
@@ -136,7 +136,8 @@ Samsung bootloader
 35. cmdv1x argument encoding — v74 완료
 36. idle serial reattach log quieting — v75 완료
 37. AT fragment serial noise hardening — v76 완료
-38. display test multi-page app + cutout calibration + SD workspace — v77 완료
+38. display test multi-page app + cutout calibration — v77 완료
+39. ext4 SD workspace + `mountsd` storage manager — v78 완료
 
 ## Repository Layout
 

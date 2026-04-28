@@ -1,22 +1,22 @@
 # Native Init Versioning
 
-Date: `2026-04-27`
+Date: `2026-04-29`
 
 ## Current Version
 
-- official version: `0.8.8`
-- build tag: `v77`
-- display name: `A90 Linux init 0.8.8 (v77)`
+- official version: `0.8.9`
+- build tag: `v78`
+- display name: `A90 Linux init 0.8.9 (v78)`
 - creator: `made by temmie0214`
-- latest source: `stage3/linux_init/init_v77.c`
-- latest boot image: `stage3/boot_linux_v77.img`
+- latest source: `stage3/linux_init/init_v78.c`
+- latest boot image: `stage3/boot_linux_v78.img`
 
 ## Version Format
 
 공식 버전은 `MAJOR.MINOR.PATCH`를 사용하고, 실험/플래시 추적용 build tag는 `vNN`을 유지한다.
 
 ```text
-A90 Linux init 0.8.8 (v77)
+A90 Linux init 0.8.9 (v78)
 ```
 
 ## Rules
@@ -34,7 +34,8 @@ A90 Linux init 0.8.8 (v77)
 
 | official | build | summary |
 |---|---|---|
-| `0.8.8` | `v77` | display test multi-page app + cutout calibration + SD workspace |
+| `0.8.9` | `v78` | ext4 SD workspace and mountsd storage manager |
+| `0.8.8` | `v77` | display test multi-page app + cutout calibration |
 | `0.8.7` | `v76` | short AT serial fragment filter |
 | `0.8.6` | `v75` | quiet idle serial reattach success logs |
 | `0.8.5` | `v74` | cmdv1x length-prefixed argument encoding |

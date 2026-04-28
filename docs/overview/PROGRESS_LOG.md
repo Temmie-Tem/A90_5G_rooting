@@ -1250,12 +1250,11 @@
 - 상세 보고서:
   - `docs/reports/NATIVE_INIT_V76_AT_FRAGMENT_FILTER_2026-04-27.md`
 
-## v77: display test, cutout calibration, SD workspace (2026-04-27~2026-04-29)
+## v77: display test and cutout calibration (2026-04-27)
 
 - 목표:
   - 단일 화면에 몰려 있던 display test를 color/font/safe-area/layout preview 페이지로 분리한다.
   - serial bridge에서도 각 페이지를 직접 그려 검증할 수 있게 한다.
-  - 내부 UFS 대신 ext4 SD를 실험용 주 작업공간으로 사용한다.
 - 구현:
   - `stage3/linux_init/init_v77.c`
     - `INIT_VERSION "0.8.8"`
@@ -1270,11 +1269,6 @@
     - app 조작: VOL+/VOL- adjust, POWER field 변경, POWER long/double 또는 VOL+DN back
     - auto menu display test app에서 VOL+/VOL- page 이동, POWER back
     - `displaytest [0-3|colors|font|safe|layout]` 지원
-    - SD 카드 `/dev/block/mmcblk0p1`을 `ext4` label `A90_NATIVE`로 포맷
-    - `mountsd [status|ro|rw|off|init]` 명령 추가
-    - SD workspace 표준 경로: `/mnt/sdext/a90`
-    - workspace 하위 디렉터리: `bin`, `logs`, `tmp`, `rootfs`, `images`, `backups`
-    - `status` 출력에 `mountsd` 상태 통합
     - on-device changelog에 `0.8.8 v77 DISPLAY TEST PAGES` 추가
 - 산출물:
   - `stage3/linux_init/init_v77`
@@ -1291,9 +1285,39 @@
   - `cmdv1 version/status` verify: `rc=0`, `status=ok` — PASS
   - `displaytest colors/font/safe/layout` 각각 `rc=0`, `status=ok` — PASS
   - `cutoutcal`, `cutoutcal 540 80 49`, `displaytest safe` 재검증 — PASS
-  - SD ext4 포맷: `LABEL="A90_NATIVE"`, `TYPE="ext4"` — PASS
-  - `mountsd init`, workspace dir 생성, write/sync/read — PASS
-  - `mountsd ro/off/status`와 최종 `status` 통합 출력 — PASS
   - `autohud 2` restore 후 `status`: `autohud: running` — PASS
 - 상세 보고서:
   - `docs/reports/NATIVE_INIT_V77_DISPLAY_TEST_PAGES_2026-04-27.md`
+
+## v78: ext4 SD workspace and mountsd (2026-04-29)
+
+- 목표:
+  - 내부 UFS 대신 ext4 SD를 실험용 주 작업공간으로 사용한다.
+  - SD 관련 기능을 v77 display/cutout baseline에서 분리해 `0.8.9 (v78)` 기능 버전으로 승격한다.
+- 구현:
+  - `stage3/linux_init/init_v78.c`
+    - `INIT_VERSION "0.8.9"`
+    - `INIT_BUILD "v78"`
+    - v77 display/cutout 기능 유지
+    - SD 카드 `/dev/block/mmcblk0p1`을 `ext4` label `A90_NATIVE`로 포맷
+    - `mountsd [status|ro|rw|off|init]` 명령 추가
+    - SD workspace 표준 경로: `/mnt/sdext/a90`
+    - workspace 하위 디렉터리: `bin`, `logs`, `tmp`, `rootfs`, `images`, `backups`
+    - `status` 출력에 `mountsd` 상태 통합
+    - on-device changelog에 `0.8.9 v78 SD WORKSPACE` 추가
+- 산출물:
+  - `stage3/linux_init/init_v78`
+    - SHA256 `fc2b8f57482deddfe31885e8089e2047d7af08c3ac36414a1e644a2d43ed7274`
+  - `stage3/ramdisk_v78.cpio`
+    - SHA256 `d1e37f098b9a15e2b00e016b882ec40b3fd68ce81f3c68d0a7c303e7a7958fd8`
+  - `stage3/boot_linux_v78.img`
+    - SHA256 `2f57f29e623838601b664001b92bb4ac43e47e03eb0d9cb45bd86322ec52d099`
+- 검증:
+  - static ARM64 build — PASS
+  - v78 ramdisk/boot image 생성 — PASS
+  - boot image marker strings `A90 Linux init 0.8.9 (v78)`, `A90v78`, `0.8.9 v78` — PASS
+  - SD ext4 포맷: `LABEL="A90_NATIVE"`, `TYPE="ext4"` — PASS
+  - `mountsd init`, workspace dir 생성, write/sync/read — PASS
+  - `mountsd ro/off/status`와 최종 `status` 통합 출력 — PASS
+- 상세 보고서:
+  - `docs/reports/NATIVE_INIT_V78_SD_WORKSPACE_2026-04-29.md`
