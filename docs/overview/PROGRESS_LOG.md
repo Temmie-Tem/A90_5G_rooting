@@ -1249,3 +1249,51 @@
   - `a90ctl.py --json echo "hello v76 noise filter"` → `cmdv1x`, `rc=0`, `status=ok` — PASS
 - 상세 보고서:
   - `docs/reports/NATIVE_INIT_V76_AT_FRAGMENT_FILTER_2026-04-27.md`
+
+## v77: display test, cutout calibration, SD workspace (2026-04-27~2026-04-29)
+
+- 목표:
+  - 단일 화면에 몰려 있던 display test를 color/font/safe-area/layout preview 페이지로 분리한다.
+  - serial bridge에서도 각 페이지를 직접 그려 검증할 수 있게 한다.
+  - 내부 UFS 대신 ext4 SD를 실험용 주 작업공간으로 사용한다.
+- 구현:
+  - `stage3/linux_init/init_v77.c`
+    - `INIT_VERSION "0.8.8"`
+    - `INIT_BUILD "v77"`
+    - `draw_screen_display_test_page(page)` 추가
+    - page 1: color palette + XBGR8888 pixel format check
+    - page 2: font scale + wrap sample
+    - page 3: safe/cutout calibration reference
+    - page 4: HUD/menu layout preview
+    - `cutoutcal [x y size]` 명령 추가
+    - `TOOLS > CUTOUT CAL` interactive app 추가
+    - app 조작: VOL+/VOL- adjust, POWER field 변경, POWER long/double 또는 VOL+DN back
+    - auto menu display test app에서 VOL+/VOL- page 이동, POWER back
+    - `displaytest [0-3|colors|font|safe|layout]` 지원
+    - SD 카드 `/dev/block/mmcblk0p1`을 `ext4` label `A90_NATIVE`로 포맷
+    - `mountsd [status|ro|rw|off|init]` 명령 추가
+    - SD workspace 표준 경로: `/mnt/sdext/a90`
+    - workspace 하위 디렉터리: `bin`, `logs`, `tmp`, `rootfs`, `images`, `backups`
+    - `status` 출력에 `mountsd` 상태 통합
+    - on-device changelog에 `0.8.8 v77 DISPLAY TEST PAGES` 추가
+- 산출물:
+  - `stage3/linux_init/init_v77`
+    - SHA256 `534c77b5272fc484d263245abe711af769cadcc973c077d544032795ca9da935`
+  - `stage3/ramdisk_v77.cpio`
+    - SHA256 `b0f4bd91d56f17772ff38b4013a849a6ba02099b517196a1009066499e35de4a`
+  - `stage3/boot_linux_v77.img`
+    - SHA256 `176602ad6962dd298df3fc9090aefb335104e3eca496d8f75d6ec1d466dacaea`
+- 검증:
+  - static ARM64 build — PASS
+  - v77 ramdisk/boot image 생성 — PASS
+  - boot image marker strings `A90 Linux init 0.8.8 (v77)`, `A90v77`, `0.8.8 v77` — PASS
+  - native → TWRP → boot partition flash → v77 boot — PASS
+  - `cmdv1 version/status` verify: `rc=0`, `status=ok` — PASS
+  - `displaytest colors/font/safe/layout` 각각 `rc=0`, `status=ok` — PASS
+  - `cutoutcal`, `cutoutcal 540 80 49`, `displaytest safe` 재검증 — PASS
+  - SD ext4 포맷: `LABEL="A90_NATIVE"`, `TYPE="ext4"` — PASS
+  - `mountsd init`, workspace dir 생성, write/sync/read — PASS
+  - `mountsd ro/off/status`와 최종 `status` 통합 출력 — PASS
+  - `autohud 2` restore 후 `status`: `autohud: running` — PASS
+- 상세 보고서:
+  - `docs/reports/NATIVE_INIT_V77_DISPLAY_TEST_PAGES_2026-04-27.md`

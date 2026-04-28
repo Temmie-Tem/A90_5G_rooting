@@ -14,12 +14,12 @@ Android userspace 대신 직접 만든 static `/init`를 실행하고,
 - build: `A908NKSU5EWA3`
 - kernel: Samsung stock Android kernel `Linux 4.14.190`
 - recovery: TWRP 사용 가능
-- latest verified native init: `A90 Linux init 0.8.7 (v76)`
-- official version: `0.8.7`
-- build tag: `v76`
+- latest verified native init: `A90 Linux init 0.8.8 (v77)`
+- official version: `0.8.8`
+- build tag: `v77`
 - creator: `made by temmie0214`
-- latest source: `stage3/linux_init/init_v76.c`
-- latest boot image: `stage3/boot_linux_v76.img`
+- latest source: `stage3/linux_init/init_v77.c`
+- latest boot image: `stage3/boot_linux_v77.img`
 - known-good fallback: `stage3/boot_linux_v48.img`
 - control channel: USB CDC ACM serial (`/dev/ttyGS0` ↔ `/dev/ttyACM0`)
 - host bridge: `scripts/revalidation/serial_tcp_bridge.py --port 54321`
@@ -30,7 +30,7 @@ Android userspace 대신 직접 만든 static `/init`를 실행하고,
 - boot timeline: `timeline` 명령과 log replay 확인
 - HUD boot summary: `BOOT OK shell` 표시 확인
 - run cancel: `/bin/a90sleep` helper로 q 취소 확인
-- storage: `/cache` safe write, `userdata` conditional, critical partitions do-not-touch
+- storage: `/cache` safe write, ext4 SD workspace `/mnt/sdext/a90`, critical partitions do-not-touch
 - screen menu: 자동 메뉴, 앱 폴더, CPU stress app, serial `hide`/busy gate 확인
 - USB map: ACM-only gadget `04e8:6861` / host `cdc_acm` 기준 문서화
 - userland: `toybox 0.8.13` static ARM64 build와 `/cache/bin/toybox` 실기 실행 확인
@@ -49,6 +49,8 @@ Android userspace 대신 직접 만든 static `/init`를 실행하고,
 - app menu: APPS/MONITORING/TOOLS/LOGS/NETWORK/POWER 계층 메뉴, CPU stress, input monitor 확인
 - boot splash: TEST 패턴 대신 `A90 NATIVE INIT` custom splash 표시 후 HUD 전환 확인
 - splash layout: v65에서 긴 문구/footer 잘림 방지를 위해 안전 여백과 자동 축소 적용
+- display test: v77에서 color/font/safe-area/layout preview 4페이지로 분리, `cutoutcal` 펀치홀 보정 추가
+- SD workspace: `mountsd [status|ro|rw|off|init]`로 ext4 SD `/mnt/sdext/a90` 운영 검증
 - about app: `APPS / ABOUT`에서 version, changelog 목록/상세, credits 표시
 - input layout: `inputlayout`, `waitgesture`, `screenmenu`/`blindmenu` gesture action 확인
 - input monitor: `TOOLS / INPUT MONITOR`와 `inputmonitor [events]` raw/gesture trace 확인
@@ -134,6 +136,7 @@ Samsung bootloader
 35. cmdv1x argument encoding — v74 완료
 36. idle serial reattach log quieting — v75 완료
 37. AT fragment serial noise hardening — v76 완료
+38. display test multi-page app + cutout calibration + SD workspace — v77 완료
 
 ## Repository Layout
 
@@ -187,6 +190,7 @@ Samsung bootloader
 - `docs/reports/NATIVE_INIT_V74_CMDV1X_ARG_ENCODING_2026-04-27.md`
 - `docs/reports/NATIVE_INIT_V75_QUIET_IDLE_REATTACH_2026-04-27.md`
 - `docs/reports/NATIVE_INIT_V76_AT_FRAGMENT_FILTER_2026-04-27.md`
+- `docs/reports/NATIVE_INIT_V77_DISPLAY_TEST_PAGES_2026-04-27.md`
 
 `docs/plans/NATIVE_LINUX_RECHALLENGE_PLAN.md`와 `docs/plans/REVALIDATION_PLAN.md`는
 진입점 확보 이전의 부트체인 재검증 기록으로 보존한다.

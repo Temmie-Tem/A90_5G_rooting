@@ -1,16 +1,16 @@
 # Native Init Task Queue (2026-04-25)
 
-이 문서는 `A90 Linux init 0.8.7 (v76)` 이후 바로 실행할 작업 큐다.
+이 문서는 `A90 Linux init 0.8.8 (v77)` 이후 바로 실행할 작업 큐다.
 큰 방향은 “보이는 부팅 → 복구 가능한 로그 → 단독 조작 → 작은 userland → USB networking” 순서다.
 
 ## 현재 고정 기준점
 
-- latest verified native init: `A90 Linux init 0.8.7 (v76)`
-- official version: `0.8.7`
-- build tag: `v76`
+- latest verified native init: `A90 Linux init 0.8.8 (v77)`
+- official version: `0.8.8`
+- build tag: `v77`
 - creator: `made by temmie0214`
-- latest source: `stage3/linux_init/init_v76.c`
-- latest boot image: `stage3/boot_linux_v76.img`
+- latest source: `stage3/linux_init/init_v77.c`
+- latest boot image: `stage3/boot_linux_v77.img`
 - known-good fallback: `stage3/boot_linux_v48.img`
 - control channel: USB ACM serial bridge
 - log: `/cache/native-init.log`
@@ -1192,8 +1192,55 @@ python3 ./scripts/revalidation/physical_usb_reconnect_check.py --manual-host-con
   - SHA256 `016b2d0c38f3acd1e0868fd5fa86805e52ef88c2e22fdb240dc071b1b39f4b68`
 - `docs/reports/NATIVE_INIT_V76_AT_FRAGMENT_FILTER_2026-04-27.md`
 
+### V77. Display Test, Cutout Calibration, SD Workspace — 완료
+
+구현:
+
+- `stage3/linux_init/init_v77.c`
+  - `INIT_VERSION "0.8.8"`
+  - `INIT_BUILD "v77"`
+  - display test를 4페이지로 분리
+  - page 1: color/pixel
+  - page 2: font/wrap
+  - page 3: safe/cutout calibration reference
+  - page 4: HUD/menu preview
+  - `cutoutcal [x y size]` 명령 추가
+  - `TOOLS > CUTOUT CAL` interactive app 추가
+  - app 조작: VOL+/VOL- adjust, POWER field 변경, POWER long/double 또는 VOL+DN back
+  - auto menu app에서 VOL+/VOL- page 이동, POWER back
+  - `displaytest [0-3|colors|font|safe|layout]` 지원
+  - SD 카드 `/dev/block/mmcblk0p1`을 `ext4` label `A90_NATIVE`로 포맷
+  - `mountsd [status|ro|rw|off|init]` 명령 추가
+  - SD workspace 표준 경로: `/mnt/sdext/a90`
+  - workspace 하위 디렉터리: `bin`, `logs`, `tmp`, `rootfs`, `images`, `backups`
+  - `status` 출력에 `mountsd` 상태 통합
+  - on-device changelog `0.8.8 v77 DISPLAY TEST PAGES` 추가
+
+검증:
+
+- static ARM64 build — PASS
+- `stage3/ramdisk_v77.cpio`, `stage3/boot_linux_v77.img` 생성 — PASS
+- boot image marker strings `A90 Linux init 0.8.8 (v77)`, `A90v77`, `0.8.8 v77` — PASS
+- native → TWRP → boot partition flash → v77 boot — PASS
+- `cmdv1 version/status` verify: `rc=0`, `status=ok` — PASS
+- `displaytest colors/font/safe/layout` 각각 `rc=0`, `status=ok` — PASS
+- `cutoutcal`, `cutoutcal 540 80 49`, `displaytest safe` 재검증 — PASS
+- SD ext4 포맷: `LABEL="A90_NATIVE"`, `TYPE="ext4"` — PASS
+- `mountsd init`, workspace dir 생성, write/sync/read — PASS
+- `mountsd ro/off/status`와 최종 `status` 통합 출력 — PASS
+- `autohud 2` restore와 최종 status — PASS
+
+산출:
+
+- `stage3/linux_init/init_v77`
+  - SHA256 `534c77b5272fc484d263245abe711af769cadcc973c077d544032795ca9da935`
+- `stage3/ramdisk_v77.cpio`
+  - SHA256 `b0f4bd91d56f17772ff38b4013a849a6ba02099b517196a1009066499e35de4a`
+- `stage3/boot_linux_v77.img`
+  - SHA256 `176602ad6962dd298df3fc9090aefb335104e3eca496d8f75d6ec1d466dacaea`
+- `docs/reports/NATIVE_INIT_V77_DISPLAY_TEST_PAGES_2026-04-27.md`
+
 ## 지금 바로 진행할 항목
 
-1. display test를 다중 페이지형 app으로 확장할지 판단
+1. SD workspace 운영: `/mnt/sdext/a90/bin` helper 배치와 `/mnt/sdext/a90/logs` log sink 검토
 2. Wi-Fi 드라이버/펌웨어 read-only 인벤토리 트랙 분리
-3. 저장소 후보 결정: `/userdata`/`mmcblk0p1` 장기 저장소 사용 여부 판단

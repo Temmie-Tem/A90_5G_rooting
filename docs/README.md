@@ -8,7 +8,7 @@
 
 상단 `docs/`는 이제 다음 흐름에 필요한 문서를 유지합니다.
 
-1. native init 0.8.7 / v76 기준 상태 고정
+1. native init 0.8.8 / v77 기준 상태 고정
 2. shell/HUD/log/menu 운영 안정화
 3. 필요한 하드웨어/커널 경로만 역추적
 4. BusyBox/network/SSH 같은 서버형 확장 가능성 검토
@@ -19,12 +19,12 @@
 - 빌드: `A908NKSU5EWA3`
 - kernel: Samsung stock Android kernel `Linux 4.14.190`
 - recovery: TWRP 사용 가능
-- latest verified native init: `A90 Linux init 0.8.7 (v76)`
-- official version: `0.8.7`
-- build tag: `v76`
+- latest verified native init: `A90 Linux init 0.8.8 (v77)`
+- official version: `0.8.8`
+- build tag: `v77`
 - creator: `made by temmie0214`
-- latest source: `stage3/linux_init/init_v76.c`
-- latest boot image: `stage3/boot_linux_v76.img`
+- latest source: `stage3/linux_init/init_v77.c`
+- latest boot image: `stage3/boot_linux_v77.img`
 - known-good fallback: `stage3/boot_linux_v48.img`
 - control channel: USB CDC ACM serial bridge
 - display: custom boot splash 후 상태 HUD/menu 자동 전환
@@ -34,7 +34,7 @@
 - boot timeline: `timeline` 명령 확인
 - HUD boot summary: `BOOT OK shell` 표시 확인
 - run cancel: `/bin/a90sleep` helper 확인
-- storage: `/cache` safe write, `userdata` conditional, critical partitions do-not-touch
+- storage: `/cache` safe write, ext4 SD workspace `/mnt/sdext/a90`, critical partitions do-not-touch
 - screen menu: 자동 메뉴, 앱 폴더, CPU stress app, serial `hide`/busy gate 확인
 - USB map: ACM-only gadget `04e8:6861` / host `cdc_acm` 기준 문서화
 - userland: `toybox 0.8.13` static ARM64 build와 `/cache/bin/toybox` 실기 실행 확인
@@ -52,6 +52,8 @@
 - app menu: APPS/MONITORING/TOOLS/LOGS/NETWORK/POWER 계층 메뉴, CPU stress, input monitor 확인
 - boot splash: TEST 패턴 대신 `A90 NATIVE INIT` custom splash 표시 후 HUD 전환 확인
 - splash layout: v65에서 긴 문구/footer 잘림 방지를 위해 안전 여백과 자동 축소 적용
+- display test: v77에서 color/font/safe-area/layout preview 4페이지로 분리, `cutoutcal` 펀치홀 보정 추가
+- SD workspace: `mountsd [status|ro|rw|off|init]`로 ext4 SD `/mnt/sdext/a90` 운영 검증
 - about app: `APPS / ABOUT`에서 version, changelog 목록/상세, credits 표시
 - log tail panel: HUD hidden 상태와 menu visible 상태에서 최근 native log 표시 확인
 - serial reattach log: v75에서 idle-timeout 성공 로그를 억제해 LOG TAIL noise 감소
@@ -124,6 +126,7 @@
 - `reports/NATIVE_INIT_V74_CMDV1X_ARG_ENCODING_2026-04-27.md` – `cmdv1x` length-prefixed argv encoding 검증
 - `reports/NATIVE_INIT_V75_QUIET_IDLE_REATTACH_2026-04-27.md` – idle-timeout serial reattach 성공 로그 억제 검증
 - `reports/NATIVE_INIT_V76_AT_FRAGMENT_FILTER_2026-04-27.md` – 짧은 AT serial fragment filter 검증
+- `reports/NATIVE_INIT_V77_DISPLAY_TEST_PAGES_2026-04-27.md` – display test, cutout calibration, SD workspace 검증
 - `reports/NATIVE_INIT_V74_PHYSICAL_USB_RECONNECT_2026-04-27.md` – 실제 USB 케이블 unplug/replug 후 ACM/NCM/tcpctl 복구 검증
 - `reports/NATIVE_INIT_V53_MENU_BUSY_2026-04-25.md` – menu-active serial busy gate와 flash auto-hide 검증
 - `reports/NATIVE_INIT_V48_USB_REATTACH_NCM_2026-04-25.md` – USB reattach와 NCM probe 실기 검증
@@ -196,6 +199,7 @@
 36. cmdv1x argument encoding — v74 완료
 37. idle serial reattach log quieting — v75 완료
 38. AT fragment serial noise hardening — v76 완료
+39. display test multi-page app + cutout calibration + SD workspace — v77 완료
 
 패키지 최소화와 Android userspace 복구는 보조 실험으로만 다루고,
 메인 목표는 **Android kernel 위에 반복 운용 가능한 native init 기반 최소 Linux 콘솔을 만드는 것**입니다.

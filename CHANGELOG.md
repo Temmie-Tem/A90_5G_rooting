@@ -1,5 +1,17 @@
 # Changelog
 
+## `0.8.8` (`v77`) - 2026-04-27
+
+- Split `TOOLS / DISPLAY TEST` into four pages: color/pixel, font/wrap, safe-area/cutout, and HUD/menu preview.
+- Added `displaytest [0-3|colors|font|safe|layout]` for direct bridge validation.
+- Added VOL+/VOL- page navigation for the display test app, with POWER returning to the menu.
+- Added `cutoutcal [x y size]` plus `TOOLS > CUTOUT CAL` for camera-hole alignment.
+- Reworked the safe/cutout page into a calibration reference around the real punch-hole area.
+- Added `mountsd [status|ro|rw|off|init]` for the ext4 SD workspace at `/mnt/sdext/a90`.
+- Verified SD card ext4 formatting, workspace init, rw write/sync, ro remount, and status reporting.
+- Added on-device `0.8.8 v77` changelog detail.
+- Verified v77 boot, `cutoutcal`, `mountsd`, and all four displaytest pages with `rc=0`, `status=ok`.
+
 ## `0.8.7` (`v76`) - 2026-04-27
 
 - Added a short AT serial fragment filter for `A`, `T`, `AT`, `ATA`, and `ATAT`-style probe fragments.
