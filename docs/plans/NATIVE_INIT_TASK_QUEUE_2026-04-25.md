@@ -1,19 +1,19 @@
 # Native Init Task Queue (2026-04-25)
 
-이 문서는 `A90 Linux init 0.8.9 (v78)` 이후 바로 실행할 작업 큐다.
+이 문서는 `A90 Linux init 0.8.10 (v79)` 이후 바로 실행할 작업 큐다.
 큰 방향은 “보이는 부팅 → 복구 가능한 로그 → 단독 조작 → 작은 userland → USB networking” 순서다.
 
 ## 현재 고정 기준점
 
-- latest verified native init: `A90 Linux init 0.8.9 (v78)`
-- official version: `0.8.9`
-- build tag: `v78`
+- latest verified build: `A90 Linux init 0.8.10 (v79)`
+- official version: `0.8.10`
+- build tag: `v79`
 - creator: `made by temmie0214`
-- latest source: `stage3/linux_init/init_v78.c`
-- latest boot image: `stage3/boot_linux_v78.img`
+- latest source: `stage3/linux_init/init_v79.c`
+- latest boot image: `stage3/boot_linux_v79.img`
 - known-good fallback: `stage3/boot_linux_v48.img`
 - control channel: USB ACM serial bridge
-- log: `/cache/native-init.log`
+- log: SD 정상 시 `/mnt/sdext/a90/logs/native-init.log`, fallback 시 `/cache/native-init.log`
 - verified:
   - shell result/errno/duration
   - boot/command file log
@@ -1260,7 +1260,41 @@ python3 ./scripts/revalidation/physical_usb_reconnect_check.py --manual-host-con
   - SHA256 `2f57f29e623838601b664001b92bb4ac43e47e03eb0d9cb45bd86322ec52d099`
 - `docs/reports/NATIVE_INIT_V78_SD_WORKSPACE_2026-04-29.md`
 
+### V79. Boot-Time SD Health Check + Cache Fallback — 완료
+
+구현:
+
+- `stage3/linux_init/init_v79.c`
+  - `INIT_VERSION "0.8.10"`
+  - `INIT_BUILD "v79"`
+  - boot splash에 cache/SD/storage/serial/runtime 진행 로그 표시
+  - expected SD UUID `c6c81408-f453-11e7-b42a-23a2c89f58bc` 확인
+  - `/mnt/sdext/a90/.a90-native-id` identity marker 확인/초기화
+  - boot-time write/sync/read probe로 SD rw 검증
+  - 검증 성공 시 `/mnt/sdext/a90`를 main runtime storage로 설정
+  - 실패 시 `/cache` fallback과 HUD warning 표시
+  - `storage` 명령과 `status` storage section 추가
+  - `mountsd status`에 current/expected UUID match 표시 추가
+  - on-device changelog `0.8.10 v79 BOOT SD PROBE` 추가
+
+검증:
+
+- static ARM64 build — PASS
+- `stage3/ramdisk_v79.cpio`, `stage3/boot_linux_v79.img` 생성 — PASS
+- boot image marker strings `A90 Linux init 0.8.10 (v79)`, `A90v79`, `0.8.10 v79`, expected UUID, SD probe splash lines — PASS
+
+산출:
+
+- `stage3/linux_init/init_v79`
+  - SHA256 `c631667a18a55c91e829a24211b5425bdcad2c24c3d4ef7aef98a0745d9e4d03`
+- `stage3/ramdisk_v79.cpio`
+  - SHA256 `68cb4b6764c5d8a106a24f4b270e5e96bf5a266fa11926213a78640a02a50cf1`
+- `stage3/boot_linux_v79.img`
+  - SHA256 `1e7363085c3edb541b88b360c6e801eef6fcc67feb421b752bdc236c805b8318`
+- `docs/reports/NATIVE_INIT_V79_BOOT_STORAGE_2026-04-29.md`
+
 ## 지금 바로 진행할 항목
 
 1. SD workspace 운영: `/mnt/sdext/a90/bin` helper 배치와 `/mnt/sdext/a90/logs` log sink 검토
-2. Wi-Fi 드라이버/펌웨어 read-only 인벤토리 트랙 분리
+2. SD fallback 실험: SD 제거/변경 시 `/cache` fallback warning 확인
+3. Wi-Fi 드라이버/펌웨어 read-only 인벤토리 트랙 분리

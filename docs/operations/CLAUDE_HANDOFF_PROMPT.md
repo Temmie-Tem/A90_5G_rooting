@@ -3,7 +3,7 @@
 Date: `2026-04-29`
 
 아래 블록을 Claude나 다른 에이전트에게 그대로 붙여 넣는다.
-목표는 **먼저 상태를 확인하고, known-good v48 복구 경로와 latest v78 작업 경로를 혼동하지 않게 하는 것**이다.
+목표는 **먼저 상태를 확인하고, known-good v48 복구 경로와 latest v79 작업 경로를 혼동하지 않게 하는 것**이다.
 
 ```text
 너는 /home/temmie/dev/A90_5G_rooting 저장소에서 작업한다.
@@ -16,11 +16,11 @@ Date: `2026-04-29`
 
 현재 기준:
 
-- latest verified native init: A90 Linux init 0.8.9 (v78)
-- latest source: stage3/linux_init/init_v78.c
-- latest boot image: stage3/boot_linux_v78.img
+- latest verified build: A90 Linux init 0.8.10 (v79)
+- latest source: stage3/linux_init/init_v79.c
+- latest boot image: stage3/boot_linux_v79.img
 - latest boot image SHA256:
-  2f57f29e623838601b664001b92bb4ac43e47e03eb0d9cb45bd86322ec52d099
+  1e7363085c3edb541b88b360c6e801eef6fcc67feb421b752bdc236c805b8318
 - known-good fallback native init: A90 Linux init v48
 - known-good fallback source: stage3/linux_init/init_v48.c
 - known-good fallback boot image: stage3/boot_linux_v48.img
@@ -62,13 +62,14 @@ Date: `2026-04-29`
 - v76에서는 짧은 `A`/`T`/`ATAT` serial fragment를 unknown command 없이 무시한다.
 - v77에서는 `TOOLS / DISPLAY TEST`가 4페이지로 분리되고 `displaytest colors/font/safe/layout`, `cutoutcal [x y size]`, `TOOLS > CUTOUT CAL`을 지원한다.
 - v78에서는 SD가 `ext4` label `A90_NATIVE`로 준비되어 있고 `mountsd [status|ro|rw|off|init]`로 `/mnt/sdext/a90` workspace를 제어한다.
+- v79에서는 boot-time SD health check가 expected UUID/RW probe를 통과한 SD만 main storage로 쓰고, 실패하면 `/cache` fallback warning을 HUD에 표시한다.
 
 v49 주의:
 
 - v49 image는 local marker와 boot partition prefix readback은 맞았지만,
   system boot 후 Android /system/bin/init second_stage로 진입했다.
 - 따라서 v49는 현재 "격리된 실패 실험"이다.
-- 새 실험 버전은 v50 이상으로 잡고, 현재 latest verified에서 최소 diff로 시작한다.
+- 새 실험 버전은 v50 이상으로 잡고, 현재 latest verified build에서 최소 diff로 시작한다.
 
 작업 시작 시 반드시 먼저 실행:
 
@@ -82,18 +83,18 @@ python3 scripts/revalidation/a90ctl.py --json status || true
 
 판단:
 
-- bridge에서 A90 Linux init 0.8.9 (v78)이 나오면 latest verified native init 상태다.
+- bridge에서 A90 Linux init 0.8.10 (v79)이 나오면 latest verified native init boot 상태다. `storage`/`mountsd status`로 SD 상태를 재확인한다.
 - bridge에서 A90 Linux init v48이 나오면 known-good fallback native init 상태다.
 - adb devices -l에서 recovery면 TWRP 상태다.
 - adb devices -l에서 device이고 /proc/1/exe가 /system/bin/init이면 Android 상태다.
 - 04e8:6861 + /dev/ttyACM0인데 bridge가 안 되면 사용자가 sudo bridge를 재시작해야 한다.
 
-latest v78 flash가 정말 필요할 때만 이 스크립트를 사용:
+latest v79 flash가 정말 필요할 때만 이 스크립트를 사용:
 
 python3 ./scripts/revalidation/native_init_flash.py \
-  stage3/boot_linux_v78.img \
+  stage3/boot_linux_v79.img \
   --from-native \
-  --expect-version "A90 Linux init 0.8.9 (v78)" \
+  --expect-version "A90 Linux init 0.8.10 (v79)" \
   --bridge-timeout 240 \
   --recovery-timeout 180
 

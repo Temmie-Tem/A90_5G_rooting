@@ -1,5 +1,15 @@
 # Changelog
 
+## `0.8.10` (`v79`) - 2026-04-29
+
+- Added boot-time SD health check before the main HUD starts.
+- Verifies `/dev/block/mmcblk0p1`, expected ext4 UUID `c6c81408-f453-11e7-b42a-23a2c89f58bc`, `/mnt/sdext/a90` identity marker, and read/write probe.
+- Promotes `/mnt/sdext/a90` to the main runtime storage when SD validation passes.
+- Falls back to `/cache` when SD is missing, changed, unmountable, or not writable.
+- Shows SD probe progress on the boot splash and persistent SD warning text on the HUD when fallback is active.
+- Added `storage` command and `status` storage lines for bridge-side verification.
+- Added on-device `0.8.10 v79` changelog detail.
+
 ## `0.8.9` (`v78`) - 2026-04-29
 
 - Promoted the SD-card work into its own feature version after the v77 display/cutout baseline.

@@ -120,17 +120,17 @@
 ## 현재 폰 상태
 
 - patched AP (Magisk 30.7) + **TWRP recovery 사용 가능**
-- 최신 verified native init: `stage3/boot_linux_v78.img` (`A90 Linux init 0.8.9 (v78)`)
-- 공식 버전: `0.8.9`
-- build tag: `v78`
+- 최신 verified build: `stage3/boot_linux_v79.img` (`A90 Linux init 0.8.10 (v79)`)
+- 공식 버전: `0.8.10`
+- build tag: `v79`
 - creator: `made by temmie0214`
 - known-good fallback: `stage3/boot_linux_v48.img` (`A90 Linux init v48`)
 - 격리 상태: `stage3/boot_linux_v49.img`는 boot partition prefix readback은 일치했지만
   system boot 후 Android `/system/bin/init second_stage`로 진입했으므로 stable이 아님
 - 부팅 흐름: custom boot splash 약 2초 → 상태 HUD/menu 자동 전환 → USB ACM serial shell
-- 로그 상태: `/cache/native-init.log`에 boot/command/result 기록
+- 로그 상태: SD 정상 시 `/mnt/sdext/a90/logs/native-init.log`, fallback 시 `/cache/native-init.log`에 boot/command/result 기록
 - blocking 상태: `waitkey`, `readinput`, `watchhud`, `blindmenu` q/Ctrl-C 취소 확인
-- boot timeline: `timeline` 명령과 `/cache/native-init.log` replay 확인
+- boot timeline: `timeline` 명령과 current native log replay 확인
 - HUD 상태: `BOOT OK shell` summary 표시와 `statushud` draw 확인
 - run 상태: `/bin/a90sleep` helper로 `run` q 취소 확인
 - log 보존: native init → recovery → native init 왕복 후 v44/v45/v47 log append 확인
@@ -155,12 +155,14 @@
 - splash layout 상태: v65에서 긴 문구/footer 잘림 방지를 위해 안전 여백과 자동 축소 적용
 - display test 상태: v77에서 color/pixel, font/wrap, safe/cutout calibration, HUD/menu preview 4페이지와 `cutoutcal` 검증 완료
 - SD workspace 상태: SD를 `ext4` label `A90_NATIVE`로 포맷, `mountsd`로 `/mnt/sdext/a90` ro/rw/off/init 검증 완료
+- boot storage 상태: v79에서 expected SD UUID/RW probe를 통과하면 `/mnt/sdext/a90`를 main storage로 잡고, 실패하면 `/cache` fallback warning 표시
 - about app 상태: `APPS / ABOUT`에서 version, changelog 목록/상세, credits 표시
-- log tail panel 상태: HUD hidden과 menu visible spare area에서 `/cache/native-init.log` tail 표시 확인
+- log tail panel 상태: HUD hidden과 menu visible spare area에서 current native log tail 표시 확인
 - serial reattach log 상태: v75에서 idle-timeout 성공 reattach 로그 억제, 수동/오류 reattach 로그 유지 확인
 - serial noise 상태: v76에서 짧은 `A`/`T`/`AT`/`ATA`/`ATAT` fragment와 `AT+GCAP` probe line 무시 확인
 - shell protocol 상태: `cmdv1`/`A90P1` framed result와 v74 `cmdv1x` whitespace argv encoding 검증 완료
-- 상세 최신 상태: `docs/reports/NATIVE_INIT_V78_SD_WORKSPACE_2026-04-29.md`
+- 상세 최신 상태: `docs/reports/NATIVE_INIT_V79_BOOT_STORAGE_2026-04-29.md`
+- v79 boot storage 기록: `docs/reports/NATIVE_INIT_V79_BOOT_STORAGE_2026-04-29.md`
 - v78 SD workspace 기록: `docs/reports/NATIVE_INIT_V78_SD_WORKSPACE_2026-04-29.md`
 - v77 display test pages 기록: `docs/reports/NATIVE_INIT_V77_DISPLAY_TEST_PAGES_2026-04-27.md`
 - v76 AT fragment filter 기록: `docs/reports/NATIVE_INIT_V76_AT_FRAGMENT_FILTER_2026-04-27.md`
@@ -211,11 +213,11 @@
 - proc / sys / devtmpfs / ext4(/dev/block/sda31) 마운트 성공
 - 핵심 우회: devtmpfs async 초기화 문제를 `mknod(makedev(259,15))` 로 해결
 
-### 3-2. USB ACM serial console + 인터랙티브 셸 (v8~v78)
+### 3-2. USB ACM serial console + 인터랙티브 셸 (v8~v79)
 
-**현재 버전**: `init_v78` (`stage3/boot_linux_v78.img`) / `0.8.9 (v78)`
+**현재 버전**: `init_v79` (`stage3/boot_linux_v79.img`) / `0.8.10 (v79)`
 
-ADB 방식이 막혀 USB CDC ACM serial (ttyGS0)로 전환. v78까지 반복 안정화:
+ADB 방식이 막혀 USB CDC ACM serial (ttyGS0)로 전환. v79까지 반복 안정화:
 
 - USB gadget: configfs `acm.usb0` function, UDC `a600000.dwc3`
 - host 측: `/dev/ttyACM0` → `serial_tcp_bridge.py` → `127.0.0.1:54321` TCP
@@ -261,15 +263,16 @@ ADB 방식이 막혀 USB CDC ACM serial (ttyGS0)로 전환. v78까지 반복 안
 | v76 | 짧은 `A`/`T`/`ATAT` serial fragment filter로 unknown command noise 감소 |
 | v77 | display test 4페이지 분리와 cutout calibration 추가 |
 | v78 | ext4 SD workspace `/mnt/sdext/a90`와 `mountsd` storage manager 추가 |
+| v79 | boot-time SD health check와 `/cache` fallback warning 추가 |
 
-**확보된 관찰/제어 범위 (v78 verified 기준):**
+**확보된 관찰/제어 범위 (v79 verified build 기준):**
 
 | 항목 | 상태 |
 |---|---|
 | USB ACM serial 제어채널 | 작동, rebind 후 복구 가능 (`usbacmreset`) |
 | 인터랙티브 셸 | 작동, command table 기반 dispatch |
 | /proc, /sys, /dev 마운트 | 작동 |
-| /cache (ext4) 마운트 + 로그 | 작동 (`/cache/native-init.log`) |
+| /cache (ext4) 마운트 + 로그 | 작동. v79부터 SD 정상 시 `/mnt/sdext/a90/logs/native-init.log`, fallback 시 `/cache/native-init.log` |
 | /mnt/system (sda28, ext4 ro) | 작동 (`mountsystem`) |
 | system-as-root 구조 탐색 | 작동 (`prepareandroid`) |
 | 물리 버튼 입력 (power/vol+/vol-) | 작동 (`waitkey`, `blindmenu`) |
@@ -321,7 +324,7 @@ ADB 방식이 막혀 USB CDC ACM serial (ttyGS0)로 전환. v78까지 반복 안
 
 ## 다음 후보 작업
 
-우선순위 순 (v78 verified 이후):
+우선순위 순 (v79 verified build 이후):
 
 1. **Wi-Fi 인벤토리** — 드라이버/펌웨어/vendor daemon read-only 조사
 2. **저장소 후보 결정** — `/userdata`/`mmcblk0p1` 장기 저장소 사용 여부 판단

@@ -1321,3 +1321,39 @@
   - `mountsd ro/off/status`와 최종 `status` 통합 출력 — PASS
 - 상세 보고서:
   - `docs/reports/NATIVE_INIT_V78_SD_WORKSPACE_2026-04-29.md`
+
+## v79: boot-time SD health check and cache fallback (2026-04-29)
+
+- 목표:
+  - SD 카드가 있을 때만 무조건 쓰는 것이 아니라, 이전에 쓰던 SD인지와 rw 가능 여부를 부팅 중 확인한다.
+  - 검증 성공 시 `/mnt/sdext/a90`를 main runtime storage로 잡고, 실패 시 `/cache`로 안전하게 fallback한다.
+  - 부팅 splash에는 probe 진행 로그를 표시하고, fallback 상태는 HUD warning으로 계속 보이게 한다.
+- 구현:
+  - `stage3/linux_init/init_v79.c`
+    - `INIT_VERSION "0.8.10"`
+    - `INIT_BUILD "v79"`
+    - boot splash line을 cache/SD/storage/serial/runtime 진행 로그로 전환
+    - expected SD UUID `c6c81408-f453-11e7-b42a-23a2c89f58bc` 확인
+    - `/mnt/sdext/a90/.a90-native-id` marker 확인/초기화
+    - `/mnt/sdext/a90/tmp/.boot-rw-test` write/sync/read probe 추가
+    - SD 정상 시 log path를 `/mnt/sdext/a90/logs/native-init.log`로 전환
+    - SD 실패 시 `/cache` fallback과 HUD warning 표시
+    - `storage` 명령과 `status` storage section 추가
+    - `mountsd status`에 current/expected UUID match 표시 추가
+    - on-device changelog에 `0.8.10 v79 BOOT SD PROBE` 추가
+- 산출물:
+  - `stage3/linux_init/init_v79`
+    - SHA256 `c631667a18a55c91e829a24211b5425bdcad2c24c3d4ef7aef98a0745d9e4d03`
+  - `stage3/ramdisk_v79.cpio`
+    - SHA256 `68cb4b6764c5d8a106a24f4b270e5e96bf5a266fa11926213a78640a02a50cf1`
+  - `stage3/boot_linux_v79.img`
+    - SHA256 `1e7363085c3edb541b88b360c6e801eef6fcc67feb421b752bdc236c805b8318`
+- 검증:
+  - static ARM64 build — PASS
+  - v79 ramdisk/boot image 생성 — PASS
+  - boot image marker strings `A90 Linux init 0.8.10 (v79)`, `A90v79`, expected UUID, SD probe splash lines — PASS
+  - TWRP flash and post-boot `cmdv1 version/status` — PASS
+  - `storage`: `backend=sd root=/mnt/sdext/a90 fallback=no expected=yes rw=yes` — PASS
+  - `mountsd status`: expected UUID `match=yes`, mounted rw, 59968MB size / 56863MB available — PASS
+- 상세 보고서:
+  - `docs/reports/NATIVE_INIT_V79_BOOT_STORAGE_2026-04-29.md`

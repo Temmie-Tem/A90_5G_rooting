@@ -139,29 +139,30 @@ Samsung bootloader
 - AT fragment serial noise hardening — v76 완료
 - display test multi-page app + cutout calibration — v77 완료
 - ext4 SD workspace + `mountsd` storage manager — v78 완료
+- boot-time SD health check + `/cache` fallback — v79 완료
 - static dropbear SSH 또는 custom TCP shell
 
 ---
 
 ## 현재 기준점
 
-- 최신 확인 버전: `A90 Linux init 0.8.9 (v78)`
-- 공식 버전: `0.8.9`
-- build tag: `v78`
+- 최신 확인 버전: `A90 Linux init 0.8.10 (v79)`
+- 공식 버전: `0.8.10`
+- build tag: `v79`
 - creator: `made by temmie0214`
-- 최신 소스: `stage3/linux_init/init_v78.c`
-- 최신 boot image: `stage3/boot_linux_v78.img`
+- 최신 소스: `stage3/linux_init/init_v79.c`
+- 최신 boot image: `stage3/boot_linux_v79.img`
 - known-good fallback: `stage3/boot_linux_v48.img`
 - 주 제어 채널: USB CDC ACM serial (`/dev/ttyGS0` ↔ `/dev/ttyACM0`)
 - host bridge: `scripts/revalidation/serial_tcp_bridge.py --port 54321`
 - 화면 상태: custom boot splash 약 2초 표시 후 상태 HUD/menu 자동 전환
 - 버튼 상태: VOL+/VOL-/POWER 입력 확인
-- 로그 상태: `/cache/native-init.log` boot/command log 확인
+- 로그 상태: SD 정상 시 `/mnt/sdext/a90/logs/native-init.log`, fallback 시 `/cache/native-init.log` boot/command log 확인
 - blocking 상태: `waitkey`/`readinput`/`watchhud`/`blindmenu` q/Ctrl-C 취소 확인
-- timeline 상태: `timeline` 명령과 `/cache/native-init.log` replay 확인
+- timeline 상태: `timeline` 명령과 current native log replay 확인
 - HUD 상태: `BOOT OK shell` summary 표시 확인
 - run/log 상태: `/bin/a90sleep` q 취소와 recovery 왕복 log preservation 확인
-- storage 상태: `/cache` safe write, `userdata` conditional, critical partitions do-not-touch 기준 문서화
+- storage 상태: `/cache` safe write, ext4 SD workspace `/mnt/sdext/a90`, boot-time SD health check, critical partitions do-not-touch 기준 문서화
 - screen menu 상태: 자동 메뉴, 버튼 조작, input gesture layout, input monitor, serial `hide`/busy gate 확인
 - USB 상태: ACM-only gadget `04e8:6861` / host `cdc_acm` 기준 문서화
 - USB reattach 상태: v48 `usbacmreset`와 외부 helper `off` 후 serial 복구 확인
