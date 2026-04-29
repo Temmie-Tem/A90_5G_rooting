@@ -1,17 +1,17 @@
 # Native Init Task Queue (2026-04-25)
 
-이 문서는 `A90 Linux init 0.8.11 (v80)` verified 이후 바로 실행할 작업 큐다.
+이 문서는 `A90 Linux init 0.8.12 (v81)` verified 이후 바로 실행할 작업 큐다.
 큰 방향은 “보이는 부팅 → 복구 가능한 로그 → 단독 조작 → 작은 userland → USB networking” 순서다.
 
 ## 현재 고정 기준점
 
-- latest verified build: `A90 Linux init 0.8.11 (v80)`
-- official version: `0.8.11`
-- build tag: `v80`
+- latest verified build: `A90 Linux init 0.8.12 (v81)`
+- official version: `0.8.12`
+- build tag: `v81`
 - creator: `made by temmie0214`
-- latest verified source: `stage3/linux_init/init_v80.c` + `stage3/linux_init/v80/*.inc.c`
-- latest verified boot image: `stage3/boot_linux_v80.img`
-- previous verified monolith: `stage3/linux_init/init_v79.c`
+- latest verified source: `stage3/linux_init/init_v81.c` + `stage3/linux_init/v81/*.inc.c` + `stage3/linux_init/a90_config.h` + `stage3/linux_init/a90_util.c/h`
+- latest verified boot image: `stage3/boot_linux_v81.img`
+- previous verified source-layout baseline: `stage3/linux_init/init_v80.c` + `stage3/linux_init/v80/*.inc.c`
 - known-good fallback: `stage3/boot_linux_v48.img`
 - control channel: USB ACM serial bridge
 - log: SD 정상 시 `/mnt/sdext/a90/logs/native-init.log`, fallback 시 `/cache/native-init.log`
@@ -1332,7 +1332,7 @@ python3 ./scripts/revalidation/physical_usb_reconnect_check.py --manual-host-con
 
 ## 지금 바로 진행할 항목
 
-1. v81 true module extraction: `a90_config.h`, `a90_util.c/h`, `a90_log.c/h`, `a90_timeline.c/h`부터 실제 `.c/.h` API로 승격
+1. v82 log/timeline module extraction: `a90_log.c/h`, `a90_timeline.c/h`를 실제 `.c/.h` API로 승격
 2. SD workspace 운영: `/mnt/sdext/a90/bin` helper 배치와 `/mnt/sdext/a90/logs` log sink 검토
 3. SD fallback 실험: SD 제거/변경 시 `/cache` fallback warning 확인
 4. Wi-Fi 드라이버/펌웨어 read-only 인벤토리 트랙 분리

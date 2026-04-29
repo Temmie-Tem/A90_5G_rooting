@@ -1,5 +1,14 @@
 # Changelog
 
+## `0.8.12` (`v81`) - 2026-04-29
+
+- Added `a90_config.h` for shared version/path/constant definitions.
+- Added `a90_util.c/h` as the first real compiled base module.
+- Moved common file/string/time/errno helpers out of PID1 include modules.
+- Preserved v80 behavior while starting true `.c/.h` API extraction.
+- Added on-device `0.8.12 v81` changelog detail.
+- Verified v81 flash, SD storage path, shell commands, HUD/display, timeline, and autohud restart.
+
 ## `0.8.11` (`v80`) - 2026-04-29
 
 - Split the native init PID1 source into include-based functional modules.

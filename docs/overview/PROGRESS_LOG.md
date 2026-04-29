@@ -1386,3 +1386,36 @@
   - bridge regression: `storage`, `mountsd status`, `help`, `inputlayout`, `displaytest safe`, `statushud`, `logpath`, `timeline`, `autohud` — PASS
 - 상세 보고서:
   - `docs/reports/NATIVE_INIT_V80_SOURCE_MODULES_2026-04-29.md`
+
+## v81: config/util true base modules (2026-04-29)
+
+- 목표:
+  - v80 include-module layout 위에서 가장 안전한 기반 계층부터 실제 `.c/.h` API로 분리한다.
+  - PID1 runtime behavior는 유지하고, shell/storage/display/netservice 같은 고위험 계층은 아직 include tree에 둔다.
+- 구현:
+  - `stage3/linux_init/a90_config.h`
+    - version/path/constant 정의를 공유 header로 분리
+  - `stage3/linux_init/a90_util.c`, `stage3/linux_init/a90_util.h`
+    - `monotonic_millis`, `ensure_dir`, `negative_errno_or`, `write_all_checked`, `write_all`
+    - `read_text_file`, `trim_newline`, `flatten_inline_text`, `read_trimmed_text_file`
+  - `stage3/linux_init/init_v81.c`
+    - v81 include tree와 `a90_util.c`를 함께 link하는 multi-source static init 후보
+    - `INIT_VERSION "0.8.12"`
+    - `INIT_BUILD "v81"`
+  - on-device changelog에 `0.8.12 v81 CONFIG UTIL API` 추가
+- 산출물:
+  - `stage3/linux_init/init_v81`
+    - SHA256 `65d2b356cbde24bfcecaa3474ee851aa49fd114e3a8665f7e93529473d855f5d`
+  - `stage3/ramdisk_v81.cpio`
+    - SHA256 `cf4f69ce4e56cab5d924ce95278047db8689bd28d61601b20fe4d7165055971d`
+  - `stage3/boot_linux_v81.img`
+    - SHA256 `875411a96af4dd26f9a3941440a10b1a627c5fbabd9ca16c4fbbaf2c93e372a9`
+- 검증:
+  - static ARM64 multi-source build with `-Wall -Wextra` — PASS
+  - v81 ramdisk/boot image 생성 — PASS
+  - boot image marker strings `A90 Linux init 0.8.12 (v81)`, `A90v81`, `0.8.12 v81 CONFIG UTIL API` — PASS
+  - native init → recovery → TWRP flash → v81 boot — PASS
+  - `cmdv1 version/status` — PASS
+  - bridge regression: `storage`, `mountsd status`, `help`, `inputlayout`, `displaytest safe`, `statushud`, `logpath`, `timeline`, `autohud` — PASS
+- 상세 보고서:
+  - `docs/reports/NATIVE_INIT_V81_CONFIG_UTIL_2026-04-29.md`

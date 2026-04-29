@@ -16,12 +16,12 @@ Date: `2026-04-29`
 
 현재 기준:
 
-- latest verified build: A90 Linux init 0.8.11 (v80)
-- latest verified source: stage3/linux_init/init_v80.c + stage3/linux_init/v80/*.inc.c
-- latest verified boot image: stage3/boot_linux_v80.img
+- latest verified build: A90 Linux init 0.8.12 (v81)
+- latest verified source: stage3/linux_init/init_v81.c + stage3/linux_init/v81/*.inc.c + stage3/linux_init/a90_config.h + stage3/linux_init/a90_util.c/h
+- latest verified boot image: stage3/boot_linux_v81.img
 - latest verified boot image SHA256:
-  15a23e7485cc08e3eb46aa515ddc341ba2b14b115415b1216b805947f9612181
-- previous verified monolith: stage3/linux_init/init_v79.c
+  875411a96af4dd26f9a3941440a10b1a627c5fbabd9ca16c4fbbaf2c93e372a9
+- previous verified source-layout baseline: stage3/linux_init/init_v80.c + stage3/linux_init/v80/*.inc.c
 - known-good fallback native init: A90 Linux init v48
 - known-good fallback source: stage3/linux_init/init_v48.c
 - known-good fallback boot image: stage3/boot_linux_v48.img
@@ -84,18 +84,18 @@ python3 scripts/revalidation/a90ctl.py --json status || true
 
 판단:
 
-- bridge에서 A90 Linux init 0.8.11 (v80)이 나오면 latest verified native init boot 상태다. `storage`/`mountsd status`로 SD 상태를 재확인한다.
+- bridge에서 A90 Linux init 0.8.12 (v81)이 나오면 latest verified native init boot 상태다. `storage`/`mountsd status`로 SD 상태를 재확인한다.
 - bridge에서 A90 Linux init v48이 나오면 known-good fallback native init 상태다.
 - adb devices -l에서 recovery면 TWRP 상태다.
 - adb devices -l에서 device이고 /proc/1/exe가 /system/bin/init이면 Android 상태다.
 - 04e8:6861 + /dev/ttyACM0인데 bridge가 안 되면 사용자가 sudo bridge를 재시작해야 한다.
 
-latest v80 flash가 정말 필요할 때만 이 스크립트를 사용:
+latest v81 flash가 정말 필요할 때만 이 스크립트를 사용:
 
 python3 ./scripts/revalidation/native_init_flash.py \
-  stage3/boot_linux_v80.img \
+  stage3/boot_linux_v81.img \
   --from-native \
-  --expect-version "A90 Linux init 0.8.11 (v80)" \
+  --expect-version "A90 Linux init 0.8.12 (v81)" \
   --bridge-timeout 240 \
   --recovery-timeout 180
 

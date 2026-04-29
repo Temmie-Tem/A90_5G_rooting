@@ -8,7 +8,7 @@
 
 상단 `docs/`는 이제 다음 흐름에 필요한 문서를 유지합니다.
 
-1. native init 0.8.11 / v80 verified 기준 상태 고정
+1. native init 0.8.12 / v81 verified 기준 상태 고정
 2. shell/HUD/log/menu 운영 안정화
 3. 필요한 하드웨어/커널 경로만 역추적
 4. BusyBox/network/SSH 같은 서버형 확장 가능성 검토
@@ -19,13 +19,13 @@
 - 빌드: `A908NKSU5EWA3`
 - kernel: Samsung stock Android kernel `Linux 4.14.190`
 - recovery: TWRP 사용 가능
-- latest verified build: `A90 Linux init 0.8.11 (v80)`
-- official version: `0.8.11`
-- build tag: `v80`
+- latest verified build: `A90 Linux init 0.8.12 (v81)`
+- official version: `0.8.12`
+- build tag: `v81`
 - creator: `made by temmie0214`
-- latest verified source: `stage3/linux_init/init_v80.c` + `stage3/linux_init/v80/*.inc.c`
-- latest verified boot image: `stage3/boot_linux_v80.img`
-- previous verified monolith: `stage3/linux_init/init_v79.c`
+- latest verified source: `stage3/linux_init/init_v81.c` + `stage3/linux_init/v81/*.inc.c` + `stage3/linux_init/a90_config.h` + `stage3/linux_init/a90_util.c/h`
+- latest verified boot image: `stage3/boot_linux_v81.img`
+- previous verified source-layout baseline: `stage3/linux_init/init_v80.c` + `stage3/linux_init/v80/*.inc.c`
 - known-good fallback: `stage3/boot_linux_v48.img`
 - control channel: USB CDC ACM serial bridge
 - display: custom boot splash 후 상태 HUD/menu 자동 전환
@@ -130,7 +130,8 @@
 - `reports/NATIVE_INIT_V77_DISPLAY_TEST_PAGES_2026-04-27.md` – display test와 cutout calibration 검증
 - `reports/NATIVE_INIT_V78_SD_WORKSPACE_2026-04-29.md` – ext4 SD workspace와 `mountsd` 검증
 - `reports/NATIVE_INIT_V79_BOOT_STORAGE_2026-04-29.md` – boot-time SD health check와 `/cache` fallback 검증
-- `reports/NATIVE_INIT_V80_SOURCE_MODULES_2026-04-29.md` – PID1 source module split local build 기록
+- `reports/NATIVE_INIT_V80_SOURCE_MODULES_2026-04-29.md` – PID1 source module split 검증 기록
+- `reports/NATIVE_INIT_V81_CONFIG_UTIL_2026-04-29.md` – config/util true `.c/.h` base module extraction 검증 기록
 - `reports/NATIVE_INIT_V74_PHYSICAL_USB_RECONNECT_2026-04-27.md` – 실제 USB 케이블 unplug/replug 후 ACM/NCM/tcpctl 복구 검증
 - `reports/NATIVE_INIT_V53_MENU_BUSY_2026-04-25.md` – menu-active serial busy gate와 flash auto-hide 검증
 - `reports/NATIVE_INIT_V48_USB_REATTACH_NCM_2026-04-25.md` – USB reattach와 NCM probe 실기 검증
@@ -207,6 +208,7 @@
 40. ext4 SD workspace + `mountsd` storage manager — v78 완료
 41. boot-time SD health check + `/cache` fallback — v79 완료
 42. PID1 source layout split into include modules — v80 완료
+43. Config/util true `.c/.h` base module extraction — v81 완료
 
 패키지 최소화와 Android userspace 복구는 보조 실험으로만 다루고,
 메인 목표는 **Android kernel 위에 반복 운용 가능한 native init 기반 최소 Linux 콘솔을 만드는 것**입니다.

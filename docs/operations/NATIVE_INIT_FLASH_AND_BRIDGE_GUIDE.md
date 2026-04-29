@@ -17,11 +17,11 @@ Date: `2026-04-29`
 - known-good fallback source: `stage3/linux_init/init_v48.c`
 - known-good fallback boot image: `stage3/boot_linux_v48.img`
 - known-good fallback boot image SHA256: `1c87fa59712395027c5c2e489b15c4f6ddefabc3c50f78d3c235c4508a63e042`
-- latest verified build: `A90 Linux init 0.8.11 (v80)`
-- latest verified source: `stage3/linux_init/init_v80.c` + `stage3/linux_init/v80/*.inc.c`
-- latest verified boot image: `stage3/boot_linux_v80.img`
-- latest verified boot image SHA256: `15a23e7485cc08e3eb46aa515ddc341ba2b14b115415b1216b805947f9612181`
-- previous verified monolith: `stage3/linux_init/init_v79.c`
+- latest verified build: `A90 Linux init 0.8.12 (v81)`
+- latest verified source: `stage3/linux_init/init_v81.c` + `stage3/linux_init/v81/*.inc.c` + `stage3/linux_init/a90_config.h` + `stage3/linux_init/a90_util.c/h`
+- latest verified boot image: `stage3/boot_linux_v81.img`
+- latest verified boot image SHA256: `875411a96af4dd26f9a3941440a10b1a627c5fbabd9ca16c4fbbaf2c93e372a9`
+- previous verified source-layout baseline: `stage3/linux_init/init_v80.c` + `stage3/linux_init/v80/*.inc.c`
 - control channel: USB CDC ACM serial bridge
 - bridge endpoint: `127.0.0.1:54321`
 - bridge script: `scripts/revalidation/serial_tcp_bridge.py`
@@ -101,7 +101,7 @@ printf 'version\n' | nc -w 3 127.0.0.1 54321
 정상 응답 예:
 
 ```text
-A90 Linux init 0.8.11 (v80)
+A90 Linux init 0.8.12 (v81)
 made by temmie0214
 kernel: Linux 4.14.190-25818860-abA908NKSU5EWA3 aarch64
 [done] version
@@ -401,13 +401,13 @@ sudo python3 ./scripts/revalidation/serial_tcp_bridge.py --port 54321
 printf 'version\n' | nc -w 3 127.0.0.1 54321
 ```
 
-최신 verified v80을 native init 상태에서 다시 올릴 때:
+최신 verified v81을 native init 상태에서 다시 올릴 때:
 
 ```bash
 python3 ./scripts/revalidation/native_init_flash.py \
-  stage3/boot_linux_v80.img \
+  stage3/boot_linux_v81.img \
   --from-native \
-  --expect-version "A90 Linux init 0.8.11 (v80)" \
+  --expect-version "A90 Linux init 0.8.12 (v81)" \
   --verify-protocol auto \
   --bridge-timeout 240 \
   --recovery-timeout 180

@@ -14,13 +14,13 @@ Android userspace 대신 직접 만든 static `/init`를 실행하고,
 - build: `A908NKSU5EWA3`
 - kernel: Samsung stock Android kernel `Linux 4.14.190`
 - recovery: TWRP 사용 가능
-- latest verified build: `A90 Linux init 0.8.11 (v80)`
-- official version: `0.8.11`
-- build tag: `v80`
+- latest verified build: `A90 Linux init 0.8.12 (v81)`
+- official version: `0.8.12`
+- build tag: `v81`
 - creator: `made by temmie0214`
-- latest verified source: `stage3/linux_init/init_v80.c` + `stage3/linux_init/v80/*.inc.c`
-- latest verified boot image: `stage3/boot_linux_v80.img`
-- previous verified monolith: `stage3/linux_init/init_v79.c`
+- latest verified source: `stage3/linux_init/init_v81.c` + `stage3/linux_init/v81/*.inc.c` + `stage3/linux_init/a90_config.h` + `stage3/linux_init/a90_util.c/h`
+- latest verified boot image: `stage3/boot_linux_v81.img`
+- previous verified source-layout baseline: `stage3/linux_init/init_v80.c` + `stage3/linux_init/v80/*.inc.c`
 - known-good fallback: `stage3/boot_linux_v48.img`
 - control channel: USB CDC ACM serial (`/dev/ttyGS0` ↔ `/dev/ttyACM0`)
 - host bridge: `scripts/revalidation/serial_tcp_bridge.py --port 54321`
@@ -54,6 +54,7 @@ Android userspace 대신 직접 만든 static `/init`를 실행하고,
 - SD workspace: `mountsd [status|ro|rw|off|init]`로 ext4 SD `/mnt/sdext/a90` 운영 검증
 - boot storage: v79에서 SD boot health check 후 정상 SD는 main runtime storage, 실패 시 `/cache` fallback
 - source layout: v80에서 PID1 source를 기능별 include module로 분리
+- base modules: v81에서 `a90_config.h`와 `a90_util.c/h`를 실제 `.c/.h` API로 분리
 - about app: `APPS / ABOUT`에서 version, changelog 목록/상세, credits 표시
 - input layout: `inputlayout`, `waitgesture`, `screenmenu`/`blindmenu` gesture action 확인
 - input monitor: `TOOLS / INPUT MONITOR`와 `inputmonitor [events]` raw/gesture trace 확인
@@ -143,6 +144,7 @@ Samsung bootloader
 39. ext4 SD workspace + `mountsd` storage manager — v78 완료
 40. boot-time SD health check + `/cache` fallback — v79 완료
 41. PID1 source layout split into include modules — v80 완료
+42. Config/util true `.c/.h` base module extraction — v81 완료
 
 ## Repository Layout
 
