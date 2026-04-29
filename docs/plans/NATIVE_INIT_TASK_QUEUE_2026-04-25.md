@@ -1,16 +1,16 @@
 # Native Init Task Queue (2026-04-25)
 
-이 문서는 `A90 Linux init 0.8.14 (v83)` verified 이후 바로 실행할 작업 큐다.
+이 문서는 `A90 Linux init 0.8.15 (v84)` verified 이후 바로 실행할 작업 큐다.
 큰 방향은 “보이는 부팅 → 복구 가능한 로그 → 단독 조작 → 작은 userland → USB networking” 순서다.
 
 ## 현재 고정 기준점
 
-- latest verified build: `A90 Linux init 0.8.14 (v83)`
-- official version: `0.8.14`
-- build tag: `v83`
+- latest verified build: `A90 Linux init 0.8.15 (v84)`
+- official version: `0.8.15`
+- build tag: `v84`
 - creator: `made by temmie0214`
-- latest verified source: `stage3/linux_init/init_v83.c` + `stage3/linux_init/v83/*.inc.c` + `stage3/linux_init/a90_config.h` + `stage3/linux_init/a90_util.c/h` + `stage3/linux_init/a90_log.c/h` + `stage3/linux_init/a90_timeline.c/h` + `stage3/linux_init/a90_console.c/h`
-- latest verified boot image: `stage3/boot_linux_v83.img`
+- latest verified source: `stage3/linux_init/init_v84.c` + `stage3/linux_init/v84/*.inc.c` + `stage3/linux_init/a90_config.h` + `stage3/linux_init/a90_util.c/h` + `stage3/linux_init/a90_log.c/h` + `stage3/linux_init/a90_timeline.c/h` + `stage3/linux_init/a90_console.c/h` + `stage3/linux_init/a90_cmdproto.c/h`
+- latest verified boot image: `stage3/boot_linux_v84.img`
 - previous verified source-layout baseline: `stage3/linux_init/init_v80.c` + `stage3/linux_init/v80/*.inc.c`
 - known-good fallback: `stage3/boot_linux_v48.img`
 - control channel: USB ACM serial bridge
@@ -1395,19 +1395,40 @@ python3 ./scripts/revalidation/physical_usb_reconnect_check.py --manual-host-con
   - `docs/reports/NATIVE_INIT_V83_CONSOLE_API_2026-04-29.md`
   - `docs/reports/NATIVE_INIT_V83_CONSOLE_SHELL_CMDPROTO_DEPENDENCY_MAP_2026-04-29.md`
 
+### V84. Cmdproto True API Module — 완료
+
+- `stage3/linux_init/a90_cmdproto.c/h`
+- `stage3/linux_init/init_v84.c`
+- `stage3/linux_init/v84/*.inc.c`
+- 의도:
+  - `cmdv1/cmdv1x` frame/status/decode 책임을 실제 `.c/.h` API로 승격
+  - shell command table, busy gate, last result, dispatch는 v84 include tree에 보존
+- 검증:
+  - static ARM64 multi-source build with `-Wall -Wextra` — PASS
+  - `stage3/ramdisk_v84.cpio`, `stage3/boot_linux_v84.img` 생성 — PASS
+  - boot image marker strings `A90 Linux init 0.8.15 (v84)`, `A90v84`, `0.8.15 v84 CMDPROTO API` — PASS
+  - TWRP flash and post-boot `cmdv1 version/status` — PASS
+  - protocol regression: `cmdv1` ok/unknown/busy, malformed `cmdv1x`, whitespace argv — PASS
+  - bridge regression: `logpath`, `timeline`, `bootstatus`, `storage`, `mountsd status`, `displaytest safe`, `autohud 2` — PASS
+  - cancel regression: `run`, `cpustress`, `watchhud` q cancel — PASS
+- 산출:
+  - `stage3/linux_init/init_v84`
+    - SHA256 `e52d034cbd3a741841e7be9ed45b8c9a54d5c2db491075fde022097374879886`
+  - `stage3/ramdisk_v84.cpio`
+    - SHA256 `8223b1c31d4ccca2521647feb9d50d864dd2332a260cc79f2272d5e74547763f`
+  - `stage3/boot_linux_v84.img`
+    - SHA256 `0a0be54d12489d7aa08437cb7e1aa3537448ddfed49393538a144e71f084bdcd`
+  - `docs/reports/NATIVE_INIT_V84_CMDPROTO_API_2026-04-30.md`
+
 ## 지금 바로 진행할 항목
 
-1. v84 shell + cmdproto boundary
-   - command table, last result, busy gate, command dispatch의 소유권을 shell 계층으로 정리
-   - `cmdv1/cmdv1x` begin/end frame과 length-prefixed decode를 cmdproto 계층으로 분리
-   - 착수 지도: `docs/reports/NATIVE_INIT_V83_CONSOLE_SHELL_CMDPROTO_DEPENDENCY_MAP_2026-04-29.md`
-2. v85 run/service/netservice management
+1. v85 run/service/netservice management
    - `run`/timeout/cancel/zombie reap을 공통 실행 계층으로 정리
    - `netservice`, TCP control, 장기 실행 helper를 start/stop/status 가능한 service 단위로 관리
-3. v86 KMS/draw/HUD/input/menu UI layering
+2. v86 KMS/draw/HUD/input/menu UI layering
    - KMS dumb buffer, drawing primitive, HUD, input gesture, menu/app 화면을 계층별로 분리
    - `menu -> input/hud/shell` 방향은 허용하고 `input/hud -> menu` 순환 의존은 금지
-4. 이후 helper/userland 확장
+3. 이후 helper/userland 확장
    - `helpers/a90_cpustress` 외부 프로세스 분리로 helper 실행 패턴 검증
    - SD workspace의 `/mnt/sdext/a90/bin` helper 배치와 `/mnt/sdext/a90/logs` log sink 검토
    - BusyBox/dropbear 또는 custom TCP shell은 service/run 구조 안정화 뒤 검토

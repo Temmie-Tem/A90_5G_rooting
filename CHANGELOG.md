@@ -1,5 +1,13 @@
 # Changelog
 
+## `0.8.15` (`v84`) - 2026-04-30
+
+- Added `a90_cmdproto.c/h` as the owner of `cmdv1/cmdv1x` protocol helpers.
+- Moved `A90P1` begin/end frame formatting and protocol status mapping behind cmdproto APIs.
+- Moved `cmdv1x` length-prefixed hex argv decode behind cmdproto APIs.
+- Kept shell command table, busy gate, last result, and dispatch ownership unchanged for a narrow protocol split.
+- Verified v84 flash, `cmdv1` ok/unknown/busy/error statuses, `cmdv1x` whitespace/malformed paths, storage/display regressions, and run/cpustress/watchhud q cancel.
+
 ## `0.8.14` (`v83`) - 2026-04-29
 
 - Added `a90_console.c/h` as the owner of USB ACM console fd state.

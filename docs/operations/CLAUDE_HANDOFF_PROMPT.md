@@ -16,10 +16,10 @@ Date: `2026-04-29`
 
 현재 기준:
 
-- latest verified build: A90 Linux init 0.8.14 (v83)
-- latest verified source: stage3/linux_init/init_v83.c + stage3/linux_init/v83/*.inc.c + stage3/linux_init/a90_config.h + stage3/linux_init/a90_util.c/h + stage3/linux_init/a90_log.c/h + stage3/linux_init/a90_timeline.c/h + stage3/linux_init/a90_console.c/h
-- latest verified boot image: stage3/boot_linux_v83.img
-- latest verified boot image SHA256: 1a9bdc7582485c95eee107753627e66aa4d2f53ed03bdb3039da18fab027c124
+- latest verified build: A90 Linux init 0.8.15 (v84)
+- latest verified source: stage3/linux_init/init_v84.c + stage3/linux_init/v84/*.inc.c + stage3/linux_init/a90_config.h + stage3/linux_init/a90_util.c/h + stage3/linux_init/a90_log.c/h + stage3/linux_init/a90_timeline.c/h + stage3/linux_init/a90_console.c/h + stage3/linux_init/a90_cmdproto.c/h
+- latest verified boot image: stage3/boot_linux_v84.img
+- latest verified boot image SHA256: 0a0be54d12489d7aa08437cb7e1aa3537448ddfed49393538a144e71f084bdcd
 - previous verified source-layout baseline: stage3/linux_init/init_v80.c + stage3/linux_init/v80/*.inc.c
 - known-good fallback native init: A90 Linux init v48
 - known-good fallback source: stage3/linux_init/init_v48.c
@@ -83,18 +83,18 @@ python3 scripts/revalidation/a90ctl.py --json status || true
 
 판단:
 
-- bridge에서 A90 Linux init 0.8.14 (v83)이 나오면 latest verified native init boot 상태다. `storage`/`mountsd status`로 SD 상태를 재확인한다.
+- bridge에서 A90 Linux init 0.8.15 (v84)이 나오면 latest verified native init boot 상태다. `storage`/`mountsd status`로 SD 상태를 재확인한다.
 - bridge에서 A90 Linux init v48이 나오면 known-good fallback native init 상태다.
 - adb devices -l에서 recovery면 TWRP 상태다.
 - adb devices -l에서 device이고 /proc/1/exe가 /system/bin/init이면 Android 상태다.
 - 04e8:6861 + /dev/ttyACM0인데 bridge가 안 되면 사용자가 sudo bridge를 재시작해야 한다.
 
-latest v83 flash가 정말 필요할 때만 이 스크립트를 사용:
+latest v84 flash가 정말 필요할 때만 이 스크립트를 사용:
 
 python3 ./scripts/revalidation/native_init_flash.py \
-  stage3/boot_linux_v83.img \
+  stage3/boot_linux_v84.img \
   --from-native \
-  --expect-version "A90 Linux init 0.8.14 (v83)" \
+  --expect-version "A90 Linux init 0.8.15 (v84)" \
   --verify-protocol auto \
   --bridge-timeout 240 \
   --recovery-timeout 180

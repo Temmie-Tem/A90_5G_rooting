@@ -52,9 +52,10 @@ init_main
   -> optional helpers / BusyBox / dropbear
 ```
 
-`v83 console API`까지 완료했다. 다음 단기 순서는 `v84 shell/cmdproto`,
-`v85 run/service/netservice`, `v86 KMS/draw/HUD/input/menu`로 잡는다.
-shell/cmdproto 착수 지도는 `docs/reports/NATIVE_INIT_V83_CONSOLE_SHELL_CMDPROTO_DEPENDENCY_MAP_2026-04-29.md`에 둔다.
+`v84 cmdproto API`까지 완료했다. 다음 단기 순서는 `v85 run/service/netservice`,
+`v86 KMS/draw/HUD/input/menu`로 잡는다.
+shell/cmdproto 착수 지도와 실행 계획은 각각 `docs/reports/NATIVE_INIT_V83_CONSOLE_SHELL_CMDPROTO_DEPENDENCY_MAP_2026-04-29.md`,
+`docs/plans/NATIVE_INIT_V84_SHELL_CMDPROTO_PLAN_2026-04-29.md`에 보존한다.
 
 ---
 
@@ -185,18 +186,19 @@ Samsung bootloader
 - config/util true `.c/.h` base module extraction — v81 완료
 - log/timeline true `.c/.h` API module extraction — v82 완료
 - console true `.c/.h` API module extraction — v83 완료
+- cmdproto true `.c/.h` API module extraction — v84 완료
 - static dropbear SSH 또는 custom TCP shell
 
 ---
 
 ## 현재 기준점
 
-- 최신 확인 버전: `A90 Linux init 0.8.14 (v83)`
-- 공식 버전: `0.8.14`
-- build tag: `v83`
+- 최신 확인 버전: `A90 Linux init 0.8.15 (v84)`
+- 공식 버전: `0.8.15`
+- build tag: `v84`
 - creator: `made by temmie0214`
-- 최신 verified 소스: `stage3/linux_init/init_v83.c` + `stage3/linux_init/v83/*.inc.c` + `stage3/linux_init/a90_config.h` + `stage3/linux_init/a90_util.c/h` + `stage3/linux_init/a90_log.c/h` + `stage3/linux_init/a90_timeline.c/h` + `stage3/linux_init/a90_console.c/h`
-- 최신 verified boot image: `stage3/boot_linux_v83.img`
+- 최신 verified 소스: `stage3/linux_init/init_v84.c` + `stage3/linux_init/v84/*.inc.c` + `stage3/linux_init/a90_config.h` + `stage3/linux_init/a90_util.c/h` + `stage3/linux_init/a90_log.c/h` + `stage3/linux_init/a90_timeline.c/h` + `stage3/linux_init/a90_console.c/h` + `stage3/linux_init/a90_cmdproto.c/h`
+- 최신 verified boot image: `stage3/boot_linux_v84.img`
 - previous verified source-layout baseline: `stage3/linux_init/init_v80.c` + `stage3/linux_init/v80/*.inc.c`
 - known-good fallback: `stage3/boot_linux_v48.img`
 - 주 제어 채널: USB CDC ACM serial (`/dev/ttyGS0` ↔ `/dev/ttyACM0`)
@@ -819,10 +821,10 @@ Samsung bootloader
 
 상세 실행 큐는 `docs/plans/NATIVE_INIT_TASK_QUEUE_2026-04-25.md`를 따른다.
 
-1. v84 shell/cmdproto boundary 설계와 최소 분리
-2. shell command table, last result, busy gate 소유권 정리
-3. `cmdv1`/`cmdv1x` frame begin/end와 decode API 분리
-4. v85 run/service/netservice management 설계
+1. v85 run/service/netservice management 설계
+2. `run`/timeout/cancel/zombie reap 공통 실행 계층 분리
+3. `netservice`, TCP control, 장기 실행 helper를 service 단위로 관리
+4. v86 KMS/draw/HUD/input/menu UI 계층 분리 설계
 5. SD workspace helper 배치와 Wi-Fi read-only 인벤토리 트랙 분리
 
 ---

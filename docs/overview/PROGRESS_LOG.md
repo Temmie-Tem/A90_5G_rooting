@@ -1495,3 +1495,51 @@
   - console regression: `cat`, `logcat`, `run /bin/a90sleep 1`, `cpustress 3 2`, `watchhud 1 2`, q cancel, `reattach`, `usbacmreset` — PASS
 - 문서:
   - `docs/reports/NATIVE_INIT_V83_CONSOLE_API_2026-04-29.md`
+
+## v84 planning: shell/cmdproto boundary (2026-04-29)
+
+- 목표:
+  - v83 이후 첫 분리 범위를 `cmdproto`로 제한한다.
+  - `cmdv1/cmdv1x` framed protocol과 length-prefixed argv decode를 `a90_cmdproto.c/h`로 빼고, command table/dispatch는 v84 include tree에 남긴다.
+  - host tooling이 의존하는 `A90P1 BEGIN/END` 출력 호환성을 유지한다.
+- 결정:
+  - 전체 shell `.c/.h` 분리는 v84에서 하지 않는다.
+  - `shell_protocol_seq`, `last_result`, busy gate, `execute_shell_command()`, `shell_loop()`는 shell 소유로 유지한다.
+  - malformed `cmdv1x`, whitespace argv, unknown/busy status를 v84 acceptance test에 넣는다.
+- 문서:
+  - `docs/plans/NATIVE_INIT_V84_SHELL_CMDPROTO_PLAN_2026-04-29.md`
+
+## v84: cmdproto true API module (2026-04-30)
+
+- 목표:
+  - `cmdv1/cmdv1x` protocol helper를 shell dispatch에서 분리한다.
+  - command table, busy gate, last result, shell loop는 유지해 behavior drift를 줄인다.
+- 구현:
+  - `stage3/linux_init/a90_cmdproto.c`, `stage3/linux_init/a90_cmdproto.h`
+    - `A90P1 BEGIN/END` frame formatting
+    - `ok/error/unknown/busy` status mapping
+    - `cmdv1x` length-prefixed hex argv decode
+  - `stage3/linux_init/init_v84.c`
+    - v84 include tree와 `a90_util.c`, `a90_log.c`, `a90_timeline.c`, `a90_console.c`, `a90_cmdproto.c`를 함께 link
+    - `INIT_VERSION "0.8.15"`
+    - `INIT_BUILD "v84"`
+  - on-device changelog에 `0.8.15 v84 CMDPROTO API` 추가
+- 산출:
+  - `stage3/linux_init/init_v84`
+    - SHA256 `e52d034cbd3a741841e7be9ed45b8c9a54d5c2db491075fde022097374879886`
+  - `stage3/ramdisk_v84.cpio`
+    - SHA256 `8223b1c31d4ccca2521647feb9d50d864dd2332a260cc79f2272d5e74547763f`
+  - `stage3/boot_linux_v84.img`
+    - SHA256 `0a0be54d12489d7aa08437cb7e1aa3537448ddfed49393538a144e71f084bdcd`
+- 검증:
+  - static ARM64 multi-source build with `-Wall -Wextra` — PASS
+  - v84 ramdisk/boot image 생성 — PASS
+  - boot image marker strings `A90 Linux init 0.8.15 (v84)`, `A90v84`, `0.8.15 v84 CMDPROTO API` — PASS
+  - native init → recovery → TWRP flash → v84 boot — PASS
+  - boot partition prefix SHA256 matched local image — PASS
+  - post-boot `cmdv1 version/status` — PASS
+  - protocol regression: ok/unknown/busy/error status, malformed `cmdv1x`, whitespace argv — PASS
+  - bridge regression: `logpath`, `timeline`, `bootstatus`, `storage`, `mountsd status`, `displaytest safe`, `autohud 2` — PASS
+  - cancel regression: `run`, `cpustress`, `watchhud` q cancel — PASS
+- 문서:
+  - `docs/reports/NATIVE_INIT_V84_CMDPROTO_API_2026-04-30.md`

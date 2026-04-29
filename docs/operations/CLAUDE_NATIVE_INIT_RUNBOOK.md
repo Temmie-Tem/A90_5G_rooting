@@ -12,10 +12,10 @@ Date: `2026-04-29`
 
 - device: `Samsung Galaxy A90 5G SM-A908N`
 - recovery: TWRP 사용 가능
-- latest verified build: `A90 Linux init 0.8.14 (v83)`
-- latest verified source: `stage3/linux_init/init_v83.c` + `stage3/linux_init/v83/*.inc.c` + `stage3/linux_init/a90_config.h` + `stage3/linux_init/a90_util.c/h` + `stage3/linux_init/a90_log.c/h` + `stage3/linux_init/a90_timeline.c/h` + `stage3/linux_init/a90_console.c/h`
-- latest verified boot image: `stage3/boot_linux_v83.img`
-- latest verified boot image SHA256: `1a9bdc7582485c95eee107753627e66aa4d2f53ed03bdb3039da18fab027c124`
+- latest verified build: `A90 Linux init 0.8.15 (v84)`
+- latest verified source: `stage3/linux_init/init_v84.c` + `stage3/linux_init/v84/*.inc.c` + `stage3/linux_init/a90_config.h` + `stage3/linux_init/a90_util.c/h` + `stage3/linux_init/a90_log.c/h` + `stage3/linux_init/a90_timeline.c/h` + `stage3/linux_init/a90_console.c/h` + `stage3/linux_init/a90_cmdproto.c/h`
+- latest verified boot image: `stage3/boot_linux_v84.img`
+- latest verified boot image SHA256: `0a0be54d12489d7aa08437cb7e1aa3537448ddfed49393538a144e71f084bdcd`
 - previous verified source-layout baseline: `stage3/linux_init/init_v80.c` + `stage3/linux_init/v80/*.inc.c`
 - known-good fallback native init: `A90 Linux init v48`
 - known-good fallback boot image: `stage3/boot_linux_v48.img`
@@ -171,7 +171,7 @@ printf 'version\n' | nc -w 3 127.0.0.1 54321
 정상 예:
 
 ```text
-A90 Linux init 0.8.14 (v83)
+A90 Linux init 0.8.15 (v84)
 made by temmie0214
 kernel: Linux 4.14.190-25818860-abA908NKSU5EWA3 aarch64
 display: 1080x2400 connector=28 crtc=133 fb=207
@@ -270,7 +270,7 @@ adb -s RFCM90CFWXA shell 'twrp reboot'
 ```bash
 python3 ./scripts/revalidation/native_init_flash.py \
   --verify-only \
-  --expect-version "A90 Linux init 0.8.14 (v83)" \
+  --expect-version "A90 Linux init 0.8.15 (v84)" \
   --verify-protocol auto \
   --bridge-timeout 180
 ```
@@ -285,42 +285,43 @@ python3 ./scripts/revalidation/native_init_flash.py \
 
 ## 5. Custom init 수정 흐름
 
-새 버전 예시가 v84라면:
+새 버전 예시가 v85라면:
 
 ```bash
-cp -r stage3/linux_init/v83 stage3/linux_init/v84
-cp stage3/linux_init/init_v83.c stage3/linux_init/init_v84.c
+cp -r stage3/linux_init/v84 stage3/linux_init/v85
+cp stage3/linux_init/init_v84.c stage3/linux_init/init_v85.c
 ```
 
 반드시 바꿀 것:
 
-- `#define INIT_BUILD "v84"`
-- 예시가 patch 업데이트라면 `#define INIT_VERSION "0.8.15"`로 변경
-- `A90v83` kmsg marker를 `A90v84`로 변경
+- `#define INIT_BUILD "v85"`
+- 예시가 patch 업데이트라면 `#define INIT_VERSION "0.8.16"`로 변경
+- `A90v84` kmsg marker를 `A90v85`로 변경
 - v49 번호는 재사용하지 않는다.
-- `mark_step("..._v83\n")` 계열을 새 버전으로 변경
+- `mark_step("..._v84\n")` 계열을 새 버전으로 변경
 - README/docs의 latest 기준점은 실기 검증 뒤에만 갱신
 
 검색:
 
 ```bash
-rg -n 'v83|A90v83|init_v83|boot_linux_v83|ramdisk_v83' stage3/linux_init/init_v84.c stage3/linux_init/v84
+rg -n 'v84|A90v84|init_v84|boot_linux_v84|ramdisk_v84' stage3/linux_init/init_v85.c stage3/linux_init/v85
 ```
 
 빌드:
 
 ```bash
 aarch64-linux-gnu-gcc -static -Os -Wall -Wextra \
-  -o stage3/linux_init/init_v84 \
-  stage3/linux_init/init_v84.c \
+  -o stage3/linux_init/init_v85 \
+  stage3/linux_init/init_v85.c \
   stage3/linux_init/a90_util.c \
   stage3/linux_init/a90_log.c \
   stage3/linux_init/a90_timeline.c \
-  stage3/linux_init/a90_console.c
-aarch64-linux-gnu-strip stage3/linux_init/init_v84
-file stage3/linux_init/init_v84
-sha256sum stage3/linux_init/init_v84
-strings stage3/linux_init/init_v84 | rg 'A90 Linux init .*\(v84\)|A90v84'
+  stage3/linux_init/a90_console.c \
+  stage3/linux_init/a90_cmdproto.c
+aarch64-linux-gnu-strip stage3/linux_init/init_v85
+file stage3/linux_init/init_v85
+sha256sum stage3/linux_init/init_v85
+strings stage3/linux_init/init_v85 | rg 'A90 Linux init .*\(v85\)|A90v85'
 ```
 
 컴파일 경고를 무시하지 말 것.
@@ -330,26 +331,26 @@ strings stage3/linux_init/init_v84 | rg 'A90 Linux init .*\(v84\)|A90v84'
 검증된 이전 boot image에서 kernel/header 인자를 재사용하고 ramdisk만 바꾼다.
 
 ```bash
-rm -rf /tmp/a90_boot_v84_unpack
-mkdir -p /tmp/a90_boot_v84_unpack
+rm -rf /tmp/a90_boot_v85_unpack
+mkdir -p /tmp/a90_boot_v85_unpack
 python3 mkbootimg/unpack_bootimg.py \
-  --boot_img stage3/boot_linux_v83.img \
-  --out /tmp/a90_boot_v84_unpack \
+  --boot_img stage3/boot_linux_v84.img \
+  --out /tmp/a90_boot_v85_unpack \
   --format=mkbootimg \
-  > /tmp/a90_boot_v84_mkbootimg_args.txt
+  > /tmp/a90_boot_v85_mkbootimg_args.txt
 ```
 
 ramdisk 생성:
 
 ```bash
-rm -rf stage3/ramdisk_v84
-mkdir -p stage3/ramdisk_v84/bin
-cp stage3/linux_init/init_v84 stage3/ramdisk_v84/init
-cp stage3/linux_init/a90_sleep stage3/ramdisk_v84/bin/a90sleep
-chmod 755 stage3/ramdisk_v84/init stage3/ramdisk_v84/bin/a90sleep
+rm -rf stage3/ramdisk_v85
+mkdir -p stage3/ramdisk_v85/bin
+cp stage3/linux_init/init_v85 stage3/ramdisk_v85/init
+cp stage3/linux_init/a90_sleep stage3/ramdisk_v85/bin/a90sleep
+chmod 755 stage3/ramdisk_v85/init stage3/ramdisk_v85/bin/a90sleep
 (
-  cd stage3/ramdisk_v84
-  find . | LC_ALL=C sort | cpio -o -H newc > ../ramdisk_v84.cpio
+  cd stage3/ramdisk_v85
+  find . | LC_ALL=C sort | cpio -o -H newc > ../ramdisk_v85.cpio
 )
 ```
 
@@ -361,15 +362,15 @@ from pathlib import Path
 import shlex
 import subprocess
 
-args = shlex.split(Path('/tmp/a90_boot_v84_mkbootimg_args.txt').read_text())
+args = shlex.split(Path('/tmp/a90_boot_v85_mkbootimg_args.txt').read_text())
 for i, item in enumerate(args):
     if item == '--ramdisk':
-        args[i + 1] = 'stage3/ramdisk_v84.cpio'
+        args[i + 1] = 'stage3/ramdisk_v85.cpio'
         break
 else:
     raise SystemExit('missing --ramdisk')
 
-cmd = ['python3', 'mkbootimg/mkbootimg.py', *args, '--output', 'stage3/boot_linux_v84.img']
+cmd = ['python3', 'mkbootimg/mkbootimg.py', *args, '--output', 'stage3/boot_linux_v85.img']
 print(shlex.join(cmd))
 subprocess.run(cmd, check=True)
 PYBOOT
@@ -378,9 +379,9 @@ PYBOOT
 검증:
 
 ```bash
-ls -lh stage3/ramdisk_v84.cpio stage3/boot_linux_v84.img
-sha256sum stage3/linux_init/init_v84 stage3/ramdisk_v84.cpio stage3/boot_linux_v84.img
-strings stage3/boot_linux_v84.img | rg 'A90 Linux init .*\(v84\)|A90v84'
+ls -lh stage3/ramdisk_v85.cpio stage3/boot_linux_v85.img
+sha256sum stage3/linux_init/init_v85 stage3/ramdisk_v85.cpio stage3/boot_linux_v85.img
+strings stage3/boot_linux_v85.img | rg 'A90 Linux init .*\(v85\)|A90v85'
 ```
 
 ## 7. Boot image 플래시
