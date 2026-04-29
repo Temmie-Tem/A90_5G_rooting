@@ -4,12 +4,12 @@ Date: `2026-04-30`
 
 ## Current Version
 
-- latest verified official version: `0.8.16`
-- latest verified build tag: `v85`
-- latest verified display name: `A90 Linux init 0.8.16 (v85)`
+- latest verified official version: `0.8.17`
+- latest verified build tag: `v86`
+- latest verified display name: `A90 Linux init 0.8.17 (v86)`
 - creator: `made by temmie0214`
-- latest verified source: `stage3/linux_init/init_v85.c` + `stage3/linux_init/v85/*.inc.c` + `stage3/linux_init/a90_config.h` + `stage3/linux_init/a90_util.c/h` + `stage3/linux_init/a90_log.c/h` + `stage3/linux_init/a90_timeline.c/h` + `stage3/linux_init/a90_console.c/h` + `stage3/linux_init/a90_cmdproto.c/h` + `stage3/linux_init/a90_run.c/h` + `stage3/linux_init/a90_service.c/h`
-- latest verified boot image: `stage3/boot_linux_v85.img`
+- latest verified source: `stage3/linux_init/init_v86.c` + `stage3/linux_init/v86/*.inc.c` + `stage3/linux_init/a90_config.h` + `stage3/linux_init/a90_util.c/h` + `stage3/linux_init/a90_log.c/h` + `stage3/linux_init/a90_timeline.c/h` + `stage3/linux_init/a90_console.c/h` + `stage3/linux_init/a90_cmdproto.c/h` + `stage3/linux_init/a90_run.c/h` + `stage3/linux_init/a90_service.c/h` + `stage3/linux_init/a90_kms.c/h` + `stage3/linux_init/a90_draw.c/h`
+- latest verified boot image: `stage3/boot_linux_v86.img`
 - previous verified source-layout baseline: `stage3/linux_init/init_v80.c` + `stage3/linux_init/v80/*.inc.c`
 
 ## Version Format
@@ -17,7 +17,7 @@ Date: `2026-04-30`
 공식 버전은 `MAJOR.MINOR.PATCH`를 사용하고, 실험/플래시 추적용 build tag는 `vNN`을 유지한다.
 
 ```text
-A90 Linux init 0.8.16 (v85)
+A90 Linux init 0.8.17 (v86)
 ```
 
 ## Rules
@@ -35,6 +35,7 @@ A90 Linux init 0.8.16 (v85)
 
 | official | build | summary |
 |---|---|---|
+| `0.8.17` | `v86` | KMS/draw true `.c/.h` API module extraction |
 | `0.8.16` | `v85` | run/service process lifecycle true `.c/.h` API module extraction |
 | `0.8.15` | `v84` | cmdproto `cmdv1/cmdv1x` frame/decode true `.c/.h` API module extraction |
 | `0.8.14` | `v83` | console fd/attach/readline/cancel true `.c/.h` API module extraction |

@@ -1582,3 +1582,40 @@
 - 문서:
   - `docs/plans/NATIVE_INIT_V85_RUN_SERVICE_PLAN_2026-04-30.md`
   - `docs/reports/NATIVE_INIT_V85_RUN_SERVICE_API_2026-04-30.md`
+
+## v86: KMS/draw API module (2026-04-30)
+
+- 목표:
+  - DRM/KMS dumb-buffer 상태와 framebuffer drawing primitive를 include tree 밖 실제 `.c/.h` API로 분리한다.
+  - HUD/menu/input/displaytest 정책은 유지해서 UI behavior drift를 줄인다.
+- 구현:
+  - `stage3/linux_init/a90_kms.c`, `stage3/linux_init/a90_kms.h`
+    - frame begin/present, `a90_kms_framebuffer()`, `a90_kms_info()`, `a90_kms_probe()` 제공
+    - KMS fd, connector/crtc/fb id, dumb buffer map state를 module 내부 static 상태로 숨김
+  - `stage3/linux_init/a90_draw.c`, `stage3/linux_init/a90_draw.h`
+    - clear/rect/text/text-fit/outline/boot-frame/test-probe drawing primitive 제공
+  - `stage3/linux_init/init_v86.c`
+    - v86 include tree와 `a90_util.c`, `a90_log.c`, `a90_timeline.c`, `a90_console.c`, `a90_cmdproto.c`, `a90_run.c`, `a90_service.c`, `a90_kms.c`, `a90_draw.c`를 함께 link
+    - `INIT_VERSION "0.8.17"`
+    - `INIT_BUILD "v86"`
+  - on-device changelog에 `0.8.17 v86 KMS DRAW API` 추가
+- 산출:
+  - `stage3/linux_init/init_v86`
+    - SHA256 `e3d5e777a3825fa2c5212ab8b7de2fda74b8ced05881b82d75a666fa58ef1e81`
+  - `stage3/ramdisk_v86.cpio`
+    - SHA256 `6d69aa340162c6a3279d2fa73a10452b50bb5956814da9bdc73524e85e06ebdd`
+  - `stage3/boot_linux_v86.img`
+    - SHA256 `ca9991061edd1a7a1f33e61ebdbd61df4be5ce7bd9e3d3c5d23351b0c03afbc3`
+- 검증:
+  - static ARM64 multi-source build with `-Wall -Wextra` — PASS
+  - v86 ramdisk/boot image 생성 — PASS
+  - boot image marker strings `A90 Linux init 0.8.17 (v86)`, `A90v86`, `0.8.17 v86 KMS DRAW API` — PASS
+  - v86 include tree direct `kms_state` / `struct kms_display_state` 접근 제거 — PASS
+  - native init → recovery → TWRP flash → v86 boot — PASS
+  - boot partition prefix SHA256 matched local image — PASS
+  - post-boot `cmdv1 version/status` — PASS
+  - display regression: `kmsprobe`, `kmssolid blue`, `kmsframe`, `statushud`, `displaytest colors/font/safe/layout`, `cutoutcal`, `autohud 2` — PASS
+  - blocking regression: raw `screenmenu` + q cancel, raw `inputmonitor 0` + q cancel — PASS
+- 문서:
+  - `docs/plans/NATIVE_INIT_V86_KMS_DRAW_PLAN_2026-04-30.md`
+  - `docs/reports/NATIVE_INIT_V86_KMS_DRAW_API_2026-04-30.md`

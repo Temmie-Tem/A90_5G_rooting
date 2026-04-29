@@ -52,8 +52,8 @@ init_main
   -> optional helpers / BusyBox / dropbear
 ```
 
-`v85 run/service API`까지 완료했다. 다음 단기 순서는
-`v86 KMS/draw/HUD/input/menu` 계층 분리로 잡는다.
+`v86 KMS/draw API`까지 완료했다. 다음 단기 순서는
+`v87 HUD/input/menu` 계층 분리로 잡는다.
 shell/cmdproto 착수 지도와 실행 계획은 각각 `docs/reports/NATIVE_INIT_V83_CONSOLE_SHELL_CMDPROTO_DEPENDENCY_MAP_2026-04-29.md`,
 `docs/plans/NATIVE_INIT_V84_SHELL_CMDPROTO_PLAN_2026-04-29.md`에 보존한다.
 
@@ -188,18 +188,19 @@ Samsung bootloader
 - console true `.c/.h` API module extraction — v83 완료
 - cmdproto true `.c/.h` API module extraction — v84 완료
 - run/service true `.c/.h` API module extraction — v85 완료
+- KMS/draw true `.c/.h` API module extraction — v86 완료
 - static dropbear SSH 또는 custom TCP shell
 
 ---
 
 ## 현재 기준점
 
-- 최신 확인 버전: `A90 Linux init 0.8.16 (v85)`
-- 공식 버전: `0.8.16`
-- build tag: `v85`
+- 최신 확인 버전: `A90 Linux init 0.8.17 (v86)`
+- 공식 버전: `0.8.17`
+- build tag: `v86`
 - creator: `made by temmie0214`
-- 최신 verified 소스: `stage3/linux_init/init_v85.c` + `stage3/linux_init/v85/*.inc.c` + `stage3/linux_init/a90_config.h` + `stage3/linux_init/a90_util.c/h` + `stage3/linux_init/a90_log.c/h` + `stage3/linux_init/a90_timeline.c/h` + `stage3/linux_init/a90_console.c/h` + `stage3/linux_init/a90_cmdproto.c/h` + `stage3/linux_init/a90_run.c/h` + `stage3/linux_init/a90_service.c/h`
-- 최신 verified boot image: `stage3/boot_linux_v85.img`
+- 최신 verified 소스: `stage3/linux_init/init_v86.c` + `stage3/linux_init/v86/*.inc.c` + `stage3/linux_init/a90_config.h` + `stage3/linux_init/a90_util.c/h` + `stage3/linux_init/a90_log.c/h` + `stage3/linux_init/a90_timeline.c/h` + `stage3/linux_init/a90_console.c/h` + `stage3/linux_init/a90_cmdproto.c/h` + `stage3/linux_init/a90_run.c/h` + `stage3/linux_init/a90_service.c/h` + `stage3/linux_init/a90_kms.c/h` + `stage3/linux_init/a90_draw.c/h`
+- 최신 verified boot image: `stage3/boot_linux_v86.img`
 - previous verified source-layout baseline: `stage3/linux_init/init_v80.c` + `stage3/linux_init/v80/*.inc.c`
 - known-good fallback: `stage3/boot_linux_v48.img`
 - 주 제어 채널: USB CDC ACM serial (`/dev/ttyGS0` ↔ `/dev/ttyACM0`)
@@ -822,9 +823,9 @@ Samsung bootloader
 
 상세 실행 큐는 `docs/plans/NATIVE_INIT_TASK_QUEUE_2026-04-25.md`를 따른다.
 
-1. v86 KMS/draw/HUD/input/menu UI 계층 분리 설계
-2. KMS dumb buffer와 draw primitive 경계 정리
-3. HUD/status/log tail과 menu/app 화면 의존성 분리
+1. v87 HUD/input/menu UI 계층 분리 설계
+2. HUD/status/log tail 또는 input gesture 중 한 축을 먼저 `.c/.h` API로 분리
+3. menu/app 화면은 의존성이 가장 크므로 마지막 분리 후보로 유지
 4. input gesture와 menu controller 순환 의존 방지
 5. SD workspace helper 배치와 Wi-Fi read-only 인벤토리 트랙 분리
 

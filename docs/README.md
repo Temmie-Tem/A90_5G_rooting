@@ -19,12 +19,12 @@
 - 빌드: `A908NKSU5EWA3`
 - kernel: Samsung stock Android kernel `Linux 4.14.190`
 - recovery: TWRP 사용 가능
-- latest verified build: `A90 Linux init 0.8.16 (v85)`
-- official version: `0.8.16`
-- build tag: `v85`
+- latest verified build: `A90 Linux init 0.8.17 (v86)`
+- official version: `0.8.17`
+- build tag: `v86`
 - creator: `made by temmie0214`
-- latest verified source: `stage3/linux_init/init_v85.c` + `stage3/linux_init/v85/*.inc.c` + `stage3/linux_init/a90_config.h` + `stage3/linux_init/a90_util.c/h` + `stage3/linux_init/a90_log.c/h` + `stage3/linux_init/a90_timeline.c/h` + `stage3/linux_init/a90_console.c/h` + `stage3/linux_init/a90_cmdproto.c/h` + `stage3/linux_init/a90_run.c/h` + `stage3/linux_init/a90_service.c/h`
-- latest verified boot image: `stage3/boot_linux_v85.img`
+- latest verified source: `stage3/linux_init/init_v86.c` + `stage3/linux_init/v86/*.inc.c` + `stage3/linux_init/a90_config.h` + `stage3/linux_init/a90_util.c/h` + `stage3/linux_init/a90_log.c/h` + `stage3/linux_init/a90_timeline.c/h` + `stage3/linux_init/a90_console.c/h` + `stage3/linux_init/a90_cmdproto.c/h` + `stage3/linux_init/a90_run.c/h` + `stage3/linux_init/a90_service.c/h` + `stage3/linux_init/a90_kms.c/h` + `stage3/linux_init/a90_draw.c/h`
+- latest verified boot image: `stage3/boot_linux_v86.img`
 - previous verified source-layout baseline: `stage3/linux_init/init_v80.c` + `stage3/linux_init/v80/*.inc.c`
 - known-good fallback: `stage3/boot_linux_v48.img`
 - control channel: USB CDC ACM serial bridge
@@ -64,6 +64,7 @@
 - console module: v83에서 `a90_console.c/h`로 fd/attach/readline/cancel API 분리
 - cmdproto module: v84에서 `a90_cmdproto.c/h`로 `cmdv1/cmdv1x` frame/decode API 분리
 - run/service modules: v85에서 `a90_run.c/h`와 `a90_service.c/h`로 process/service lifecycle API 분리
+- KMS/draw modules: v86에서 `a90_kms.c/h`와 `a90_draw.c/h`로 화면 저수준 API 분리
 - ADB: 보류
 
 ## 문서 읽는 순서
@@ -103,6 +104,7 @@
 - `plans/NATIVE_INIT_TASK_QUEUE_2026-04-25.md` – v47 이후 바로 실행할 작업 큐
 - `plans/NATIVE_INIT_V84_SHELL_CMDPROTO_PLAN_2026-04-29.md` – v84 `a90_cmdproto.c/h` 분리 실행 계획
 - `plans/NATIVE_INIT_V85_RUN_SERVICE_PLAN_2026-04-30.md` – v85 `a90_run.c/h`, `a90_service.c/h` 분리 실행 계획
+- `plans/NATIVE_INIT_V86_KMS_DRAW_PLAN_2026-04-30.md` – v86 `a90_kms.c/h`, `a90_draw.c/h` 분리 실행 계획
 - `plans/MINIMAL_BOOT_ALLOWLIST_2026-04-22.txt` – 현재 최소 부팅 allowlist
 - `plans/MINIMAL_BOOT_DELETE_CANDIDATES_2026-04-22.txt` – allowlist 기준 삭제 후보 스냅샷
 - `plans/NATIVE_LINUX_RECHALLENGE_PLAN.md` – native init 진입점 확보 이전 로드맵, 보존 기록
@@ -223,6 +225,7 @@
 45. Console true `.c/.h` API module extraction — v83 완료
 46. Cmdproto true `.c/.h` API module extraction — v84 완료
 47. Run/service lifecycle `.c/.h` API module extraction — v85 완료
+48. KMS/draw true `.c/.h` API module extraction — v86 완료
 
 패키지 최소화와 Android userspace 복구는 보조 실험으로만 다루고,
 메인 목표는 **Android kernel 위에 반복 운용 가능한 native init 기반 최소 Linux 콘솔을 만드는 것**입니다.

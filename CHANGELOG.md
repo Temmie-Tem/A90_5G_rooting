@@ -1,5 +1,13 @@
 # Changelog
 
+## `0.8.17` (`v86`) - 2026-04-30
+
+- Added `a90_kms.c/h` for DRM/KMS dumb-buffer state, frame begin/present, framebuffer info, and probe output.
+- Added `a90_draw.c/h` for framebuffer clear/rect/text/text-fit/outline/test-pattern primitives.
+- Removed direct `kms_state` and `struct kms_display_state` ownership from the v86 include tree.
+- Preserved HUD/menu/input/displaytest behavior while moving low-level KMS/draw code behind APIs.
+- Verified v86 flash, `cmdv1 version/status`, `kmsprobe`, `kmssolid`, `kmsframe`, `statushud`, `displaytest`, `cutoutcal`, `autohud`, and q cancel for `screenmenu`/`inputmonitor`.
+
 ## `0.8.16` (`v85`) - 2026-04-30
 
 - Added `a90_run.c/h` for shared fork/exec/wait/timeout/cancel/reap/stop process handling.

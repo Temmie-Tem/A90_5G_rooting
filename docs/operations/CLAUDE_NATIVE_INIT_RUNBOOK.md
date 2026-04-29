@@ -12,10 +12,10 @@ Date: `2026-04-29`
 
 - device: `Samsung Galaxy A90 5G SM-A908N`
 - recovery: TWRP 사용 가능
-- latest verified build: `A90 Linux init 0.8.16 (v85)`
-- latest verified source: `stage3/linux_init/init_v85.c` + `stage3/linux_init/v85/*.inc.c` + `stage3/linux_init/a90_config.h` + `stage3/linux_init/a90_util.c/h` + `stage3/linux_init/a90_log.c/h` + `stage3/linux_init/a90_timeline.c/h` + `stage3/linux_init/a90_console.c/h` + `stage3/linux_init/a90_cmdproto.c/h` + `stage3/linux_init/a90_run.c/h` + `stage3/linux_init/a90_service.c/h`
-- latest verified boot image: `stage3/boot_linux_v85.img`
-- latest verified boot image SHA256: `9e3da0ffd0616292b563c06acee9977de402db84f1de6994db0feb6cf6cf367e`
+- latest verified build: `A90 Linux init 0.8.17 (v86)`
+- latest verified source: `stage3/linux_init/init_v86.c` + `stage3/linux_init/v86/*.inc.c` + `stage3/linux_init/a90_config.h` + `stage3/linux_init/a90_util.c/h` + `stage3/linux_init/a90_log.c/h` + `stage3/linux_init/a90_timeline.c/h` + `stage3/linux_init/a90_console.c/h` + `stage3/linux_init/a90_cmdproto.c/h` + `stage3/linux_init/a90_run.c/h` + `stage3/linux_init/a90_service.c/h` + `stage3/linux_init/a90_kms.c/h` + `stage3/linux_init/a90_draw.c/h`
+- latest verified boot image: `stage3/boot_linux_v86.img`
+- latest verified boot image SHA256: `ca9991061edd1a7a1f33e61ebdbd61df4be5ce7bd9e3d3c5d23351b0c03afbc3`
 - previous verified source-layout baseline: `stage3/linux_init/init_v80.c` + `stage3/linux_init/v80/*.inc.c`
 - known-good fallback native init: `A90 Linux init v48`
 - known-good fallback boot image: `stage3/boot_linux_v48.img`
@@ -171,7 +171,7 @@ printf 'version\n' | nc -w 3 127.0.0.1 54321
 정상 예:
 
 ```text
-A90 Linux init 0.8.16 (v85)
+A90 Linux init 0.8.17 (v86)
 made by temmie0214
 kernel: Linux 4.14.190-25818860-abA908NKSU5EWA3 aarch64
 display: 1080x2400 connector=28 crtc=133 fb=207
@@ -270,7 +270,7 @@ adb -s RFCM90CFWXA shell 'twrp reboot'
 ```bash
 python3 ./scripts/revalidation/native_init_flash.py \
   --verify-only \
-  --expect-version "A90 Linux init 0.8.16 (v85)" \
+  --expect-version "A90 Linux init 0.8.17 (v86)" \
   --verify-protocol auto \
   --bridge-timeout 180
 ```
@@ -285,45 +285,47 @@ python3 ./scripts/revalidation/native_init_flash.py \
 
 ## 5. Custom init 수정 흐름
 
-새 버전 예시가 v86이라면:
+새 버전 예시가 v87이라면:
 
 ```bash
-cp -r stage3/linux_init/v85 stage3/linux_init/v86
-cp stage3/linux_init/init_v85.c stage3/linux_init/init_v86.c
+cp -r stage3/linux_init/v86 stage3/linux_init/v87
+cp stage3/linux_init/init_v86.c stage3/linux_init/init_v87.c
 ```
 
 반드시 바꿀 것:
 
-- `#define INIT_BUILD "v86"`
-- 예시가 patch 업데이트라면 `#define INIT_VERSION "0.8.17"`로 변경
-- `A90v85` kmsg marker를 `A90v86`로 변경
+- `#define INIT_BUILD "v87"`
+- 예시가 patch 업데이트라면 `#define INIT_VERSION "0.8.18"`로 변경
+- `A90v86` kmsg marker를 `A90v87`로 변경
 - v49 번호는 재사용하지 않는다.
-- `mark_step("..._v85\n")` 계열을 새 버전으로 변경
+- `mark_step("..._v86\n")` 계열을 새 버전으로 변경
 - README/docs의 latest 기준점은 실기 검증 뒤에만 갱신
 
 검색:
 
 ```bash
-rg -n 'v85|A90v85|init_v85|boot_linux_v85|ramdisk_v85' stage3/linux_init/init_v86.c stage3/linux_init/v86
+rg -n 'v86|A90v86|init_v86|boot_linux_v86|ramdisk_v86' stage3/linux_init/init_v87.c stage3/linux_init/v87
 ```
 
 빌드:
 
 ```bash
 aarch64-linux-gnu-gcc -static -Os -Wall -Wextra \
-  -o stage3/linux_init/init_v86 \
-  stage3/linux_init/init_v86.c \
+  -o stage3/linux_init/init_v87 \
+  stage3/linux_init/init_v87.c \
   stage3/linux_init/a90_util.c \
   stage3/linux_init/a90_log.c \
   stage3/linux_init/a90_timeline.c \
   stage3/linux_init/a90_console.c \
   stage3/linux_init/a90_cmdproto.c \
   stage3/linux_init/a90_run.c \
-  stage3/linux_init/a90_service.c
-aarch64-linux-gnu-strip stage3/linux_init/init_v86
-file stage3/linux_init/init_v86
-sha256sum stage3/linux_init/init_v86
-strings stage3/linux_init/init_v86 | rg 'A90 Linux init .*\(v86\)|A90v86'
+  stage3/linux_init/a90_service.c \
+  stage3/linux_init/a90_kms.c \
+  stage3/linux_init/a90_draw.c
+aarch64-linux-gnu-strip stage3/linux_init/init_v87
+file stage3/linux_init/init_v87
+sha256sum stage3/linux_init/init_v87
+strings stage3/linux_init/init_v87 | rg 'A90 Linux init .*\(v87\)|A90v87'
 ```
 
 컴파일 경고를 무시하지 말 것.
@@ -333,26 +335,26 @@ strings stage3/linux_init/init_v86 | rg 'A90 Linux init .*\(v86\)|A90v86'
 검증된 이전 boot image에서 kernel/header 인자를 재사용하고 ramdisk만 바꾼다.
 
 ```bash
-rm -rf /tmp/a90_boot_v86_unpack
-mkdir -p /tmp/a90_boot_v86_unpack
+rm -rf /tmp/a90_boot_v87_unpack
+mkdir -p /tmp/a90_boot_v87_unpack
 python3 mkbootimg/unpack_bootimg.py \
-  --boot_img stage3/boot_linux_v85.img \
-  --out /tmp/a90_boot_v86_unpack \
+  --boot_img stage3/boot_linux_v86.img \
+  --out /tmp/a90_boot_v87_unpack \
   --format=mkbootimg \
-  > /tmp/a90_boot_v86_mkbootimg_args.txt
+  > /tmp/a90_boot_v87_mkbootimg_args.txt
 ```
 
 ramdisk 생성:
 
 ```bash
-rm -rf stage3/ramdisk_v86
-mkdir -p stage3/ramdisk_v86/bin
-cp stage3/linux_init/init_v86 stage3/ramdisk_v86/init
-cp stage3/linux_init/a90_sleep stage3/ramdisk_v86/bin/a90sleep
-chmod 755 stage3/ramdisk_v86/init stage3/ramdisk_v86/bin/a90sleep
+rm -rf stage3/ramdisk_v87
+mkdir -p stage3/ramdisk_v87/bin
+cp stage3/linux_init/init_v87 stage3/ramdisk_v87/init
+cp stage3/linux_init/a90_sleep stage3/ramdisk_v87/bin/a90sleep
+chmod 755 stage3/ramdisk_v87/init stage3/ramdisk_v87/bin/a90sleep
 (
-  cd stage3/ramdisk_v86
-  find . | LC_ALL=C sort | cpio -o -H newc > ../ramdisk_v86.cpio
+  cd stage3/ramdisk_v87
+  find . | LC_ALL=C sort | cpio -o -H newc > ../ramdisk_v87.cpio
 )
 ```
 
@@ -364,15 +366,15 @@ from pathlib import Path
 import shlex
 import subprocess
 
-args = shlex.split(Path('/tmp/a90_boot_v86_mkbootimg_args.txt').read_text())
+args = shlex.split(Path('/tmp/a90_boot_v87_mkbootimg_args.txt').read_text())
 for i, item in enumerate(args):
     if item == '--ramdisk':
-        args[i + 1] = 'stage3/ramdisk_v86.cpio'
+        args[i + 1] = 'stage3/ramdisk_v87.cpio'
         break
 else:
     raise SystemExit('missing --ramdisk')
 
-cmd = ['python3', 'mkbootimg/mkbootimg.py', *args, '--output', 'stage3/boot_linux_v86.img']
+cmd = ['python3', 'mkbootimg/mkbootimg.py', *args, '--output', 'stage3/boot_linux_v87.img']
 print(shlex.join(cmd))
 subprocess.run(cmd, check=True)
 PYBOOT
@@ -381,9 +383,9 @@ PYBOOT
 검증:
 
 ```bash
-ls -lh stage3/ramdisk_v86.cpio stage3/boot_linux_v86.img
-sha256sum stage3/linux_init/init_v86 stage3/ramdisk_v86.cpio stage3/boot_linux_v86.img
-strings stage3/boot_linux_v86.img | rg 'A90 Linux init .*\(v86\)|A90v86'
+ls -lh stage3/ramdisk_v87.cpio stage3/boot_linux_v87.img
+sha256sum stage3/linux_init/init_v87 stage3/ramdisk_v87.cpio stage3/boot_linux_v87.img
+strings stage3/boot_linux_v87.img | rg 'A90 Linux init .*\(v87\)|A90v87'
 ```
 
 ## 7. Boot image 플래시
@@ -398,8 +400,8 @@ adb devices
 
 ```bash
 python3 ./scripts/revalidation/native_init_flash.py \
-  stage3/boot_linux_v85.img \
-  --expect-version "A90 Linux init 0.8.16 (v85)" \
+  stage3/boot_linux_v87.img \
+  --expect-version "A90 Linux init 0.8.18 (v87)" \
   --bridge-timeout 240 \
   --recovery-timeout 180
 ```

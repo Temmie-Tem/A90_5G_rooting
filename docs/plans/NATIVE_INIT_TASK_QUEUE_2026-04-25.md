@@ -1,16 +1,16 @@
 # Native Init Task Queue (2026-04-25)
 
-이 문서는 `A90 Linux init 0.8.16 (v85)` verified 이후 바로 실행할 작업 큐다.
+이 문서는 `A90 Linux init 0.8.17 (v86)` verified 이후 바로 실행할 작업 큐다.
 큰 방향은 “보이는 부팅 → 복구 가능한 로그 → 단독 조작 → 작은 userland → USB networking” 순서다.
 
 ## 현재 고정 기준점
 
-- latest verified build: `A90 Linux init 0.8.16 (v85)`
-- official version: `0.8.16`
-- build tag: `v85`
+- latest verified build: `A90 Linux init 0.8.17 (v86)`
+- official version: `0.8.17`
+- build tag: `v86`
 - creator: `made by temmie0214`
-- latest verified source: `stage3/linux_init/init_v85.c` + `stage3/linux_init/v85/*.inc.c` + `stage3/linux_init/a90_config.h` + `stage3/linux_init/a90_util.c/h` + `stage3/linux_init/a90_log.c/h` + `stage3/linux_init/a90_timeline.c/h` + `stage3/linux_init/a90_console.c/h` + `stage3/linux_init/a90_cmdproto.c/h` + `stage3/linux_init/a90_run.c/h` + `stage3/linux_init/a90_service.c/h`
-- latest verified boot image: `stage3/boot_linux_v85.img`
+- latest verified source: `stage3/linux_init/init_v86.c` + `stage3/linux_init/v86/*.inc.c` + `stage3/linux_init/a90_config.h` + `stage3/linux_init/a90_util.c/h` + `stage3/linux_init/a90_log.c/h` + `stage3/linux_init/a90_timeline.c/h` + `stage3/linux_init/a90_console.c/h` + `stage3/linux_init/a90_cmdproto.c/h` + `stage3/linux_init/a90_run.c/h` + `stage3/linux_init/a90_service.c/h` + `stage3/linux_init/a90_kms.c/h` + `stage3/linux_init/a90_draw.c/h`
+- latest verified boot image: `stage3/boot_linux_v86.img`
 - previous verified source-layout baseline: `stage3/linux_init/init_v80.c` + `stage3/linux_init/v80/*.inc.c`
 - known-good fallback: `stage3/boot_linux_v48.img`
 - control channel: USB ACM serial bridge
@@ -46,6 +46,7 @@
   - console fd/attach/readline/cancel compiled API module
   - cmdproto frame/decode compiled API module
   - run/service lifecycle compiled API modules
+  - KMS/draw framebuffer compiled API modules
 
 ## 실행 큐
 
@@ -1452,10 +1453,37 @@ python3 ./scripts/revalidation/physical_usb_reconnect_check.py --manual-host-con
   - `docs/plans/NATIVE_INIT_V85_RUN_SERVICE_PLAN_2026-04-30.md`
   - `docs/reports/NATIVE_INIT_V85_RUN_SERVICE_API_2026-04-30.md`
 
+### V86. KMS/Draw API Module — 완료
+
+- `stage3/linux_init/a90_kms.c/h`
+- `stage3/linux_init/a90_draw.c/h`
+- `stage3/linux_init/init_v86.c`
+- `stage3/linux_init/v86/*.inc.c`
+- 의도:
+  - DRM/KMS dumb-buffer 상태와 framebuffer drawing primitive를 실제 `.c/.h` API로 승격
+  - HUD/menu/input/displaytest 정책은 v86 include tree에 보존해 behavior drift 최소화
+  - v86 include tree의 direct `kms_state` / `struct kms_display_state` 접근 제거
+- 검증:
+  - static ARM64 multi-source build with `-Wall -Wextra` — PASS
+  - `stage3/ramdisk_v86.cpio`, `stage3/boot_linux_v86.img` 생성 — PASS
+  - boot image marker strings `A90 Linux init 0.8.17 (v86)`, `A90v86`, `0.8.17 v86 KMS DRAW API` — PASS
+  - native bridge → TWRP flash → post-boot `cmdv1 version/status` — PASS
+  - display regression: `kmsprobe`, `kmssolid`, `kmsframe`, `statushud`, `displaytest`, `cutoutcal`, `autohud` — PASS
+  - blocking regression: raw `screenmenu` + q cancel, raw `inputmonitor 0` + q cancel — PASS
+- 산출:
+  - `stage3/linux_init/init_v86`
+    - SHA256 `e3d5e777a3825fa2c5212ab8b7de2fda74b8ced05881b82d75a666fa58ef1e81`
+  - `stage3/ramdisk_v86.cpio`
+    - SHA256 `6d69aa340162c6a3279d2fa73a10452b50bb5956814da9bdc73524e85e06ebdd`
+  - `stage3/boot_linux_v86.img`
+    - SHA256 `ca9991061edd1a7a1f33e61ebdbd61df4be5ce7bd9e3d3c5d23351b0c03afbc3`
+  - `docs/plans/NATIVE_INIT_V86_KMS_DRAW_PLAN_2026-04-30.md`
+  - `docs/reports/NATIVE_INIT_V86_KMS_DRAW_API_2026-04-30.md`
+
 ## 지금 바로 진행할 항목
 
-1. v86 KMS/draw/HUD/input/menu UI layering
-   - KMS dumb buffer, drawing primitive, HUD, input gesture, menu/app 화면을 계층별로 분리
+1. v87 HUD/input/menu UI layering
+   - HUD 또는 input 중 하나를 먼저 실제 `.c/.h` API로 분리하고 menu는 마지막 후보로 유지
    - `menu -> input/hud/shell` 방향은 허용하고 `input/hud -> menu` 순환 의존은 금지
 2. 이후 helper/userland 확장
    - `helpers/a90_cpustress` 외부 프로세스 분리로 helper 실행 패턴 검증
