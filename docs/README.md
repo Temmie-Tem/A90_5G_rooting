@@ -65,6 +65,7 @@
 - cmdproto module: v84에서 `a90_cmdproto.c/h`로 `cmdv1/cmdv1x` frame/decode API 분리
 - run/service modules: v85에서 `a90_run.c/h`와 `a90_service.c/h`로 process/service lifecycle API 분리
 - KMS/draw modules: v86에서 `a90_kms.c/h`와 `a90_draw.c/h`로 화면 저수준 API 분리
+- input module: v87에서 `a90_input.c/h` local build 완료, device validation pending
 - ADB: 보류
 
 ## 문서 읽는 순서
@@ -105,6 +106,7 @@
 - `plans/NATIVE_INIT_V84_SHELL_CMDPROTO_PLAN_2026-04-29.md` – v84 `a90_cmdproto.c/h` 분리 실행 계획
 - `plans/NATIVE_INIT_V85_RUN_SERVICE_PLAN_2026-04-30.md` – v85 `a90_run.c/h`, `a90_service.c/h` 분리 실행 계획
 - `plans/NATIVE_INIT_V86_KMS_DRAW_PLAN_2026-04-30.md` – v86 `a90_kms.c/h`, `a90_draw.c/h` 분리 실행 계획
+- `plans/NATIVE_INIT_V87_INPUT_API_PLAN_2026-04-30.md` – v87 `a90_input.c/h` 분리 실행 계획
 - `plans/MINIMAL_BOOT_ALLOWLIST_2026-04-22.txt` – 현재 최소 부팅 allowlist
 - `plans/MINIMAL_BOOT_DELETE_CANDIDATES_2026-04-22.txt` – allowlist 기준 삭제 후보 스냅샷
 - `plans/NATIVE_LINUX_RECHALLENGE_PLAN.md` – native init 진입점 확보 이전 로드맵, 보존 기록
@@ -143,6 +145,8 @@
 - `reports/NATIVE_INIT_V83_CONSOLE_API_2026-04-29.md` – console fd/attach/readline/cancel API module extraction 검증 기록
 - `reports/NATIVE_INIT_V84_CMDPROTO_API_2026-04-30.md` – cmdproto `cmdv1/cmdv1x` frame/decode API module extraction 검증 기록
 - `reports/NATIVE_INIT_V85_RUN_SERVICE_API_2026-04-30.md` – run/service process lifecycle API module extraction 검증 기록
+- `reports/NATIVE_INIT_V86_KMS_DRAW_API_2026-04-30.md` – KMS/draw API module extraction 검증 기록
+- `reports/NATIVE_INIT_V87_INPUT_API_2026-04-30.md` – input API module extraction local build / device pending 기록
 - `reports/NATIVE_INIT_V83_CONSOLE_SHELL_CMDPROTO_DEPENDENCY_MAP_2026-04-29.md` – shell/cmdproto 분리 전 의존성 지도
 - `reports/NATIVE_INIT_V74_PHYSICAL_USB_RECONNECT_2026-04-27.md` – 실제 USB 케이블 unplug/replug 후 ACM/NCM/tcpctl 복구 검증
 - `reports/NATIVE_INIT_V53_MENU_BUSY_2026-04-25.md` – menu-active serial busy gate와 flash auto-hide 검증

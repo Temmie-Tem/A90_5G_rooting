@@ -1480,12 +1480,43 @@ python3 ./scripts/revalidation/physical_usb_reconnect_check.py --manual-host-con
   - `docs/plans/NATIVE_INIT_V86_KMS_DRAW_PLAN_2026-04-30.md`
   - `docs/reports/NATIVE_INIT_V86_KMS_DRAW_API_2026-04-30.md`
 
+### V87. Input API Module — local PASS / device pending
+
+- `stage3/linux_init/a90_input.c/h`
+- `stage3/linux_init/init_v87.c`
+- `stage3/linux_init/v87/*.inc.c`
+- 의도:
+  - 물리 버튼 open/close, key wait, gesture wait, decoder, menu action mapping을 실제 `.c/.h` API로 승격
+  - menu/HUD/displaytest 정책은 v87 include tree에 보존해 behavior drift 최소화
+  - `BOOT OK shell 3S` 형태의 절삭 시간을 `BOOT OK shell 4.0s` 형태의 0.1초 표기로 개선
+- 검증:
+  - static ARM64 multi-source build with `-Wall -Wextra` — PASS
+  - `stage3/ramdisk_v87.cpio`, `stage3/boot_linux_v87.img` 생성 — PASS
+  - boot image marker strings `A90 Linux init 0.8.18 (v87)`, `A90v87`, `0.8.18 v87 INPUT API` — PASS
+  - old direct `key_wait_context` / `open_key_wait_context` / `wait_for_input_gesture` 구현 제거 — PASS
+  - bridge availability probe `a90ctl.py --timeout 3 version` — PENDING (`A90P1 END` timeout/reset)
+  - native bridge → TWRP flash → post-boot `cmdv1 version/status` — PENDING
+- 산출:
+  - `stage3/linux_init/init_v87`
+    - SHA256 `122db3f8a089667fecab864e9e63d5ab65961da774ad20196820d74d5e124bc0`
+  - `stage3/ramdisk_v87.cpio`
+    - SHA256 `5d6cc0825da26c3bb89b8b45741c06814df1933ce32902662577ecedb49dfdb6`
+  - `stage3/boot_linux_v87.img`
+    - SHA256 `ad93b1bf69586a468e6fafdcf2045d1c6192b01dae96f02bc6b7c0edddb6a970`
+  - `docs/plans/NATIVE_INIT_V87_INPUT_API_PLAN_2026-04-30.md`
+  - `docs/reports/NATIVE_INIT_V87_INPUT_API_2026-04-30.md`
+
 ## 지금 바로 진행할 항목
 
-1. v87 HUD/input/menu UI layering
-   - HUD 또는 input 중 하나를 먼저 실제 `.c/.h` API로 분리하고 menu는 마지막 후보로 유지
+1. v87 실기 flash/regression
+   - bridge/device 상태 복구 후 `stage3/boot_linux_v87.img` flash
+   - `version`, `status`, `bootstatus`, `inputlayout`, `waitkey`, `waitgesture`, `inputmonitor`, `screenmenu`, `blindmenu`, `displaytest safe`, `cutoutcal`, `autohud 2` 확인
+   - PASS 후 README/latest verified 문서를 v87로 승격
+2. v88 HUD/menu UI layering
+   - input API가 실기 검증된 뒤 HUD 또는 menu 상위 계층을 더 작게 분리
+   - menu는 의존성이 가장 크므로 가능하면 마지막 후보로 유지
    - `menu -> input/hud/shell` 방향은 허용하고 `input/hud -> menu` 순환 의존은 금지
-2. 이후 helper/userland 확장
+3. 이후 helper/userland 확장
    - `helpers/a90_cpustress` 외부 프로세스 분리로 helper 실행 패턴 검증
    - SD workspace의 `/mnt/sdext/a90/bin` helper 배치와 `/mnt/sdext/a90/logs` log sink 검토
    - BusyBox/dropbear 또는 custom TCP shell은 service/run 구조 안정화 뒤 검토

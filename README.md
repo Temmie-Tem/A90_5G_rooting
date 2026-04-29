@@ -60,7 +60,7 @@ Android userspace 대신 직접 만든 static `/init`를 실행하고,
 - cmdproto module: v84에서 `a90_cmdproto.c/h`로 `cmdv1/cmdv1x` frame/decode API 분리
 - run/service modules: v85에서 `a90_run.c/h`와 `a90_service.c/h`로 process/service lifecycle API 분리
 - KMS/draw modules: v86에서 `a90_kms.c/h`와 `a90_draw.c/h`로 화면 저수준 API 분리
-- module roadmap: v87 HUD/input/menu 계층 분리 예정
+- module roadmap: v87 input API local build 완료/device pending, 이후 v88 HUD/menu 계층 분리 예정
 - about app: `APPS / ABOUT`에서 version, changelog 목록/상세, credits 표시
 - input layout: `inputlayout`, `waitgesture`, `screenmenu`/`blindmenu` gesture action 확인
 - input monitor: `TOOLS / INPUT MONITOR`와 `inputmonitor [events]` raw/gesture trace 확인

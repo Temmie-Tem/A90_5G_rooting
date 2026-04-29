@@ -353,8 +353,9 @@ ADB 방식이 막혀 USB CDC ACM serial (ttyGS0)로 전환. v79까지 반복 안
 
 우선순위 순 (v86 verified build 이후):
 
-1. **v87 HUD/input/menu UI layering** — HUD 또는 input부터 한 단계씩 분리
-2. **SD workspace 운영** — `/mnt/sdext/a90/bin` helper 배치와 log sink 운영 정책 결정
-3. **Wi-Fi 인벤토리** — 드라이버/펌웨어/vendor daemon read-only 조사
+1. **v87 Input API 실기 검증** — local build 완료, device flash/regression pending
+2. **v88 HUD/menu UI layering** — input 검증 뒤 HUD 또는 menu를 한 단계씩 분리
+3. **SD workspace 운영** — `/mnt/sdext/a90/bin` helper 배치와 log sink 운영 정책 결정
+4. **Wi-Fi 인벤토리** — 드라이버/펌웨어/vendor daemon read-only 조사
 
 **복구**: `backups/baseline_a_20260423_030309/boot.img` dd 복구 가능

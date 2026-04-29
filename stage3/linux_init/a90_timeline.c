@@ -107,9 +107,12 @@ void a90_timeline_boot_summary(char *out, size_t out_size) {
     }
 
     if (last != NULL) {
-        snprintf(out, out_size, "BOOT OK %.10s %ldS",
+        long tenths = (last->ms + 50) / 100;
+
+        snprintf(out, out_size, "BOOT OK %.10s %ld.%lds",
                  last->step,
-                 last->ms / 1000);
+                 tenths / 10,
+                 tenths % 10);
         return;
     }
 

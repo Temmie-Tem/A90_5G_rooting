@@ -1619,3 +1619,36 @@
 - 문서:
   - `docs/plans/NATIVE_INIT_V86_KMS_DRAW_PLAN_2026-04-30.md`
   - `docs/reports/NATIVE_INIT_V86_KMS_DRAW_API_2026-04-30.md`
+
+## v87: input API module local build (2026-04-30)
+
+- 목표:
+  - 물리 버튼 open/close, key wait, gesture wait, gesture decoder를 `a90_input.c/h`로 분리한다.
+  - menu/HUD/displaytest 동작은 유지하고, 이후 menu 분리를 위한 하위 input API를 고정한다.
+  - `BOOT OK shell 3S` 형태의 부팅 시간 표기를 `BOOT OK shell 4.0s` 형태로 개선한다.
+- 구현:
+  - `stage3/linux_init/a90_input.c`, `stage3/linux_init/a90_input.h`
+    - input context open/close, key wait, gesture wait, decoder helpers, gesture/action names 제공
+  - `stage3/linux_init/init_v87.c`
+    - v87 include tree와 기존 shared modules, 새 `a90_input.c`를 함께 link
+    - `INIT_VERSION "0.8.18"`
+    - `INIT_BUILD "v87"`
+  - on-device changelog에 `0.8.18 v87 INPUT API` 추가
+- 산출:
+  - `stage3/linux_init/init_v87`
+    - SHA256 `122db3f8a089667fecab864e9e63d5ab65961da774ad20196820d74d5e124bc0`
+  - `stage3/ramdisk_v87.cpio`
+    - SHA256 `5d6cc0825da26c3bb89b8b45741c06814df1933ce32902662577ecedb49dfdb6`
+  - `stage3/boot_linux_v87.img`
+    - SHA256 `ad93b1bf69586a468e6fafdcf2045d1c6192b01dae96f02bc6b7c0edddb6a970`
+- 검증:
+  - static ARM64 multi-source build with `-Wall -Wextra` — PASS
+  - v87 ramdisk/boot image 생성 — PASS
+  - boot image marker strings `A90 Linux init 0.8.18 (v87)`, `A90v87`, `0.8.18 v87 INPUT API` — PASS
+  - old direct `key_wait_context` / `open_key_wait_context` / `wait_for_input_gesture` 구현 제거 — PASS
+  - host script `py_compile` — PASS
+  - bridge probe `a90ctl.py --timeout 3 version` — PENDING (`A90P1 END` timeout/reset)
+  - 실기 flash/regression — PENDING
+- 문서:
+  - `docs/plans/NATIVE_INIT_V87_INPUT_API_PLAN_2026-04-30.md`
+  - `docs/reports/NATIVE_INIT_V87_INPUT_API_2026-04-30.md`

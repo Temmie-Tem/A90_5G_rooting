@@ -52,8 +52,8 @@ init_main
   -> optional helpers / BusyBox / dropbear
 ```
 
-`v86 KMS/draw API`까지 완료했다. 다음 단기 순서는
-`v87 HUD/input/menu` 계층 분리로 잡는다.
+`v86 KMS/draw API`까지 실기 verified 완료했고, `v87 Input API`는 local build와
+boot image 생성까지 완료했다. 다음 단기 순서는 v87 실기 flash/regression으로 잡는다.
 shell/cmdproto 착수 지도와 실행 계획은 각각 `docs/reports/NATIVE_INIT_V83_CONSOLE_SHELL_CMDPROTO_DEPENDENCY_MAP_2026-04-29.md`,
 `docs/plans/NATIVE_INIT_V84_SHELL_CMDPROTO_PLAN_2026-04-29.md`에 보존한다.
 
@@ -823,10 +823,11 @@ Samsung bootloader
 
 상세 실행 큐는 `docs/plans/NATIVE_INIT_TASK_QUEUE_2026-04-25.md`를 따른다.
 
-1. v87 HUD/input/menu UI 계층 분리 설계
-2. HUD/status/log tail 또는 input gesture 중 한 축을 먼저 `.c/.h` API로 분리
-3. menu/app 화면은 의존성이 가장 크므로 마지막 분리 후보로 유지
-4. input gesture와 menu controller 순환 의존 방지
+1. v87 Input API 실기 flash/regression
+2. PASS 후 latest verified 문서와 README를 `0.8.18 (v87)`로 승격
+3. v88 HUD/menu UI 계층 분리 설계
+4. menu/app 화면은 의존성이 가장 크므로 마지막 분리 후보로 유지
+5. input gesture와 menu controller 순환 의존 방지
 5. SD workspace helper 배치와 Wi-Fi read-only 인벤토리 트랙 분리
 
 ---

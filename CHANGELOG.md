@@ -1,5 +1,13 @@
 # Changelog
 
+## `0.8.18` (`v87`) - 2026-04-30
+
+- Added `a90_input.c/h` for physical button context open/close, key wait, gesture wait, gesture decoder helpers, and menu-action mapping.
+- Removed inline `key_wait_context`, key wait, and gesture decoder implementation from the v87 include tree.
+- Preserved menu/HUD/displaytest behavior while moving input decoding behind APIs.
+- Changed boot summary time from truncated integer seconds to rounded 0.1s display.
+- Local build, boot image generation, marker checks, and static checks passed; device flash validation is pending bridge/device recovery.
+
 ## `0.8.17` (`v86`) - 2026-04-30
 
 - Added `a90_kms.c/h` for DRM/KMS dumb-buffer state, frame begin/present, framebuffer info, and probe output.
