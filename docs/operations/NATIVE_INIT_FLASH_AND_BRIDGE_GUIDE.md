@@ -17,10 +17,10 @@ Date: `2026-04-29`
 - known-good fallback source: `stage3/linux_init/init_v48.c`
 - known-good fallback boot image: `stage3/boot_linux_v48.img`
 - known-good fallback boot image SHA256: `1c87fa59712395027c5c2e489b15c4f6ddefabc3c50f78d3c235c4508a63e042`
-- latest verified build: `A90 Linux init 0.8.15 (v84)`
-- latest verified source: `stage3/linux_init/init_v84.c` + `stage3/linux_init/v84/*.inc.c` + `stage3/linux_init/a90_config.h` + `stage3/linux_init/a90_util.c/h` + `stage3/linux_init/a90_log.c/h` + `stage3/linux_init/a90_timeline.c/h` + `stage3/linux_init/a90_console.c/h` + `stage3/linux_init/a90_cmdproto.c/h`
-- latest verified boot image: `stage3/boot_linux_v84.img`
-- latest verified boot image SHA256: `0a0be54d12489d7aa08437cb7e1aa3537448ddfed49393538a144e71f084bdcd`
+- latest verified build: `A90 Linux init 0.8.16 (v85)`
+- latest verified source: `stage3/linux_init/init_v85.c` + `stage3/linux_init/v85/*.inc.c` + `stage3/linux_init/a90_config.h` + `stage3/linux_init/a90_util.c/h` + `stage3/linux_init/a90_log.c/h` + `stage3/linux_init/a90_timeline.c/h` + `stage3/linux_init/a90_console.c/h` + `stage3/linux_init/a90_cmdproto.c/h` + `stage3/linux_init/a90_run.c/h` + `stage3/linux_init/a90_service.c/h`
+- latest verified boot image: `stage3/boot_linux_v85.img`
+- latest verified boot image SHA256: `9e3da0ffd0616292b563c06acee9977de402db84f1de6994db0feb6cf6cf367e`
 - previous verified source-layout baseline: `stage3/linux_init/init_v80.c` + `stage3/linux_init/v80/*.inc.c`
 - control channel: USB CDC ACM serial bridge
 - bridge endpoint: `127.0.0.1:54321`
@@ -101,7 +101,7 @@ printf 'version\n' | nc -w 3 127.0.0.1 54321
 정상 응답 예:
 
 ```text
-A90 Linux init 0.8.15 (v84)
+A90 Linux init 0.8.16 (v85)
 made by temmie0214
 kernel: Linux 4.14.190-25818860-abA908NKSU5EWA3 aarch64
 [done] version
@@ -401,13 +401,13 @@ sudo python3 ./scripts/revalidation/serial_tcp_bridge.py --port 54321
 printf 'version\n' | nc -w 3 127.0.0.1 54321
 ```
 
-최신 verified v84를 native init 상태에서 다시 올릴 때:
+최신 verified v85를 native init 상태에서 다시 올릴 때:
 
 ```bash
 python3 ./scripts/revalidation/native_init_flash.py \
-  stage3/boot_linux_v84.img \
+  stage3/boot_linux_v85.img \
   --from-native \
-  --expect-version "A90 Linux init 0.8.15 (v84)" \
+  --expect-version "A90 Linux init 0.8.16 (v85)" \
   --verify-protocol auto \
   --bridge-timeout 240 \
   --recovery-timeout 180

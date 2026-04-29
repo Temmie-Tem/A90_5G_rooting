@@ -1,16 +1,16 @@
 # Native Init Task Queue (2026-04-25)
 
-이 문서는 `A90 Linux init 0.8.15 (v84)` verified 이후 바로 실행할 작업 큐다.
+이 문서는 `A90 Linux init 0.8.16 (v85)` verified 이후 바로 실행할 작업 큐다.
 큰 방향은 “보이는 부팅 → 복구 가능한 로그 → 단독 조작 → 작은 userland → USB networking” 순서다.
 
 ## 현재 고정 기준점
 
-- latest verified build: `A90 Linux init 0.8.15 (v84)`
-- official version: `0.8.15`
-- build tag: `v84`
+- latest verified build: `A90 Linux init 0.8.16 (v85)`
+- official version: `0.8.16`
+- build tag: `v85`
 - creator: `made by temmie0214`
-- latest verified source: `stage3/linux_init/init_v84.c` + `stage3/linux_init/v84/*.inc.c` + `stage3/linux_init/a90_config.h` + `stage3/linux_init/a90_util.c/h` + `stage3/linux_init/a90_log.c/h` + `stage3/linux_init/a90_timeline.c/h` + `stage3/linux_init/a90_console.c/h` + `stage3/linux_init/a90_cmdproto.c/h`
-- latest verified boot image: `stage3/boot_linux_v84.img`
+- latest verified source: `stage3/linux_init/init_v85.c` + `stage3/linux_init/v85/*.inc.c` + `stage3/linux_init/a90_config.h` + `stage3/linux_init/a90_util.c/h` + `stage3/linux_init/a90_log.c/h` + `stage3/linux_init/a90_timeline.c/h` + `stage3/linux_init/a90_console.c/h` + `stage3/linux_init/a90_cmdproto.c/h` + `stage3/linux_init/a90_run.c/h` + `stage3/linux_init/a90_service.c/h`
+- latest verified boot image: `stage3/boot_linux_v85.img`
 - previous verified source-layout baseline: `stage3/linux_init/init_v80.c` + `stage3/linux_init/v80/*.inc.c`
 - known-good fallback: `stage3/boot_linux_v48.img`
 - control channel: USB ACM serial bridge
@@ -44,6 +44,8 @@
   - cmdv1/A90P1 shell protocol + a90ctl host wrapper
   - config/util/log/timeline compiled API modules
   - console fd/attach/readline/cancel compiled API module
+  - cmdproto frame/decode compiled API module
+  - run/service lifecycle compiled API modules
 
 ## 실행 큐
 
@@ -1420,15 +1422,42 @@ python3 ./scripts/revalidation/physical_usb_reconnect_check.py --manual-host-con
     - SHA256 `0a0be54d12489d7aa08437cb7e1aa3537448ddfed49393538a144e71f084bdcd`
   - `docs/reports/NATIVE_INIT_V84_CMDPROTO_API_2026-04-30.md`
 
+### V85. Run/Service Lifecycle API Module — 완료
+
+- `stage3/linux_init/a90_run.c/h`
+- `stage3/linux_init/a90_service.c/h`
+- `stage3/linux_init/init_v85.c`
+- `stage3/linux_init/v85/*.inc.c`
+- 의도:
+  - `run`/timeout/cancel/reap/stop 책임을 실제 `.c/.h` API로 승격
+  - `autohud`, `tcpctl`, `adbd` PID를 service registry 내부 static 상태로 관리
+  - netservice 정책과 shell dispatch는 v85 include tree에 보존
+- 검증:
+  - static ARM64 multi-source build with `-Wall -Wextra` — PASS
+  - `stage3/ramdisk_v85.cpio`, `stage3/boot_linux_v85.img` 생성 — PASS
+  - boot image marker strings `A90 Linux init 0.8.16 (v85)`, `A90v85`, `0.8.16 v85 RUN SERVICE API` — PASS
+  - TWRP flash and post-boot `cmdv1 version/status` — PASS
+  - bridge regression: `logpath`, `timeline`, `bootstatus`, `storage`, `mountsd status` — PASS
+  - runtime regression: `run`, `runandroid`, `cpustress`, `watchhud`, `autohud`, `stophud` — PASS
+  - cancel regression: `run`, `cpustress`, `watchhud` q cancel — PASS
+  - service regression: `startadbd`, stale PID status, `stopadbd`, `netservice status/start/stop` — PASS
+  - NCM host ping은 host `sudo` IP 설정이 필요해 Codex 세션에서는 보류
+- 산출:
+  - `stage3/linux_init/init_v85`
+    - SHA256 `ca227754279f8f23484dce6db4b0b8df9c6cb0412deec916be32dd9a028c31f2`
+  - `stage3/ramdisk_v85.cpio`
+    - SHA256 `5d35a08d472906b6ae9ad6e0dc0a364a6b1a08e42bc0de51674073901a19fc68`
+  - `stage3/boot_linux_v85.img`
+    - SHA256 `9e3da0ffd0616292b563c06acee9977de402db84f1de6994db0feb6cf6cf367e`
+  - `docs/plans/NATIVE_INIT_V85_RUN_SERVICE_PLAN_2026-04-30.md`
+  - `docs/reports/NATIVE_INIT_V85_RUN_SERVICE_API_2026-04-30.md`
+
 ## 지금 바로 진행할 항목
 
-1. v85 run/service/netservice management
-   - `run`/timeout/cancel/zombie reap을 공통 실행 계층으로 정리
-   - `netservice`, TCP control, 장기 실행 helper를 start/stop/status 가능한 service 단위로 관리
-2. v86 KMS/draw/HUD/input/menu UI layering
+1. v86 KMS/draw/HUD/input/menu UI layering
    - KMS dumb buffer, drawing primitive, HUD, input gesture, menu/app 화면을 계층별로 분리
    - `menu -> input/hud/shell` 방향은 허용하고 `input/hud -> menu` 순환 의존은 금지
-3. 이후 helper/userland 확장
+2. 이후 helper/userland 확장
    - `helpers/a90_cpustress` 외부 프로세스 분리로 helper 실행 패턴 검증
    - SD workspace의 `/mnt/sdext/a90/bin` helper 배치와 `/mnt/sdext/a90/logs` log sink 검토
    - BusyBox/dropbear 또는 custom TCP shell은 service/run 구조 안정화 뒤 검토

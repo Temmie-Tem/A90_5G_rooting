@@ -120,11 +120,11 @@
 ## 현재 폰 상태
 
 - patched AP (Magisk 30.7) + **TWRP recovery 사용 가능**
-- 최신 verified build: `stage3/boot_linux_v84.img` (`A90 Linux init 0.8.15 (v84)`)
-- 최신 verified source: `stage3/linux_init/init_v84.c` + `stage3/linux_init/v84/*.inc.c` + `stage3/linux_init/a90_config.h` + `stage3/linux_init/a90_util.c/h` + `stage3/linux_init/a90_log.c/h` + `stage3/linux_init/a90_timeline.c/h` + `stage3/linux_init/a90_console.c/h` + `stage3/linux_init/a90_cmdproto.c/h`
+- 최신 verified build: `stage3/boot_linux_v85.img` (`A90 Linux init 0.8.16 (v85)`)
+- 최신 verified source: `stage3/linux_init/init_v85.c` + `stage3/linux_init/v85/*.inc.c` + `stage3/linux_init/a90_config.h` + `stage3/linux_init/a90_util.c/h` + `stage3/linux_init/a90_log.c/h` + `stage3/linux_init/a90_timeline.c/h` + `stage3/linux_init/a90_console.c/h` + `stage3/linux_init/a90_cmdproto.c/h` + `stage3/linux_init/a90_run.c/h` + `stage3/linux_init/a90_service.c/h`
 - previous verified source-layout baseline: `stage3/linux_init/init_v80.c` + `stage3/linux_init/v80/*.inc.c`
-- 공식 버전: `0.8.15`
-- build tag: `v84`
+- 공식 버전: `0.8.16`
+- build tag: `v85`
 - creator: `made by temmie0214`
 - known-good fallback: `stage3/boot_linux_v48.img` (`A90 Linux init v48`)
 - 격리 상태: `stage3/boot_linux_v49.img`는 boot partition prefix readback은 일치했지만
@@ -163,12 +163,14 @@
 - log/timeline module 상태: v82에서 `a90_log.c/h`와 `a90_timeline.c/h`를 실제 compiled module/API로 분리하고 실기 회귀 검증 완료
 - console module 상태: v83에서 `a90_console.c/h`로 fd/attach/readline/cancel을 실제 compiled module/API로 분리하고 실기 회귀 검증 완료
 - cmdproto module 상태: v84에서 `a90_cmdproto.c/h`로 `cmdv1/cmdv1x` frame/status/decode를 실제 compiled module/API로 분리하고 실기 회귀 검증 완료
+- run/service module 상태: v85에서 `a90_run.c/h`와 `a90_service.c/h`로 process lifecycle과 PID registry를 실제 compiled module/API로 분리하고 실기 회귀 검증 완료
 - about app 상태: `APPS / ABOUT`에서 version, changelog 목록/상세, credits 표시
 - log tail panel 상태: HUD hidden과 menu visible spare area에서 current native log tail 표시 확인
 - serial reattach log 상태: v75에서 idle-timeout 성공 reattach 로그 억제, 수동/오류 reattach 로그 유지 확인
 - serial noise 상태: v76에서 짧은 `A`/`T`/`AT`/`ATA`/`ATAT` fragment와 `AT+GCAP` probe line 무시 확인
 - shell protocol 상태: `cmdv1`/`A90P1` framed result와 v74 `cmdv1x` whitespace argv encoding 검증 완료, v84에서 cmdproto API로 분리 완료
-- 상세 최신 verified 상태: `docs/reports/NATIVE_INIT_V84_CMDPROTO_API_2026-04-30.md`
+- 상세 최신 verified 상태: `docs/reports/NATIVE_INIT_V85_RUN_SERVICE_API_2026-04-30.md`
+- v85 run/service API 기록: `docs/reports/NATIVE_INIT_V85_RUN_SERVICE_API_2026-04-30.md`
 - v84 cmdproto API 기록: `docs/reports/NATIVE_INIT_V84_CMDPROTO_API_2026-04-30.md`
 - v83 console API 기록: `docs/reports/NATIVE_INIT_V83_CONSOLE_API_2026-04-29.md`
 - v83 dependency map 기록: `docs/reports/NATIVE_INIT_V83_CONSOLE_SHELL_CMDPROTO_DEPENDENCY_MAP_2026-04-29.md`
@@ -226,9 +228,9 @@
 - proc / sys / devtmpfs / ext4(/dev/block/sda31) 마운트 성공
 - 핵심 우회: devtmpfs async 초기화 문제를 `mknod(makedev(259,15))` 로 해결
 
-### 3-2. USB ACM serial console + 인터랙티브 셸 (v8~v84)
+### 3-2. USB ACM serial console + 인터랙티브 셸 (v8~v85)
 
-**현재 버전**: `init_v84` (`stage3/boot_linux_v84.img`) / `0.8.15 (v84)`
+**현재 버전**: `init_v85` (`stage3/boot_linux_v85.img`) / `0.8.16 (v85)`
 
 ADB 방식이 막혀 USB CDC ACM serial (ttyGS0)로 전환. v79까지 반복 안정화:
 
@@ -282,14 +284,16 @@ ADB 방식이 막혀 USB CDC ACM serial (ttyGS0)로 전환. v79까지 반복 안
 | v82 | `a90_log.c/h`, `a90_timeline.c/h` 실제 log/timeline API 분리 |
 | v83 | `a90_console.c/h` 실제 console fd/attach/readline/cancel API 분리 |
 | v84 | `a90_cmdproto.c/h` 실제 `cmdv1/cmdv1x` frame/decode API 분리 |
+| v85 | `a90_run.c/h`, `a90_service.c/h` 실제 process/service lifecycle API 분리 |
 
-**확보된 관찰/제어 범위 (v84 verified build 기준):**
+**확보된 관찰/제어 범위 (v85 verified build 기준):**
 
 | 항목 | 상태 |
 |---|---|
 | USB ACM serial 제어채널 | 작동, rebind 후 복구 가능 (`usbacmreset`) |
 | Console API module | 작동 — fd는 `a90_console.c` 내부 static, attach/reattach/readline/cancel API 회귀 검증 |
 | Cmdproto API module | 작동 — `A90P1` frame/status와 `cmdv1x` whitespace argv decode 회귀 검증 |
+| Run/service API module | 작동 — `run`/`runandroid`/`tcpctl`/`adbd` lifecycle와 q cancel 회귀 검증 |
 | 인터랙티브 셸 | 작동, command table 기반 dispatch |
 | /proc, /sys, /dev 마운트 | 작동 |
 | /cache (ext4) 마운트 + 로그 | 작동. v79부터 SD 정상 시 `/mnt/sdext/a90/logs/native-init.log`, fallback 시 `/cache/native-init.log` |
@@ -344,11 +348,10 @@ ADB 방식이 막혀 USB CDC ACM serial (ttyGS0)로 전환. v79까지 반복 안
 
 ## 다음 후보 작업
 
-우선순위 순 (v84 verified build 이후):
+우선순위 순 (v85 verified build 이후):
 
-1. **v85 run/service/netservice management** — timeout/cancel/zombie reap과 장기 실행 helper를 service 단위로 정리
-2. **v86 KMS/draw/HUD/input/menu UI layering** — 화면/입력/UI 계층 분리
-3. **SD workspace 운영** — `/mnt/sdext/a90/bin` helper 배치와 log sink 운영 정책 결정
-4. **Wi-Fi 인벤토리** — 드라이버/펌웨어/vendor daemon read-only 조사
+1. **v86 KMS/draw/HUD/input/menu UI layering** — 화면/입력/UI 계층 분리
+2. **SD workspace 운영** — `/mnt/sdext/a90/bin` helper 배치와 log sink 운영 정책 결정
+3. **Wi-Fi 인벤토리** — 드라이버/펌웨어/vendor daemon read-only 조사
 
 **복구**: `backups/baseline_a_20260423_030309/boot.img` dd 복구 가능

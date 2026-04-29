@@ -14,12 +14,12 @@ Android userspace 대신 직접 만든 static `/init`를 실행하고,
 - build: `A908NKSU5EWA3`
 - kernel: Samsung stock Android kernel `Linux 4.14.190`
 - recovery: TWRP 사용 가능
-- latest verified build: `A90 Linux init 0.8.15 (v84)`
-- official version: `0.8.15`
-- build tag: `v84`
+- latest verified build: `A90 Linux init 0.8.16 (v85)`
+- official version: `0.8.16`
+- build tag: `v85`
 - creator: `made by temmie0214`
-- latest verified source: `stage3/linux_init/init_v84.c` + `stage3/linux_init/v84/*.inc.c` + `stage3/linux_init/a90_config.h` + `stage3/linux_init/a90_util.c/h` + `stage3/linux_init/a90_log.c/h` + `stage3/linux_init/a90_timeline.c/h` + `stage3/linux_init/a90_console.c/h` + `stage3/linux_init/a90_cmdproto.c/h`
-- latest verified boot image: `stage3/boot_linux_v84.img`
+- latest verified source: `stage3/linux_init/init_v85.c` + `stage3/linux_init/v85/*.inc.c` + `stage3/linux_init/a90_config.h` + `stage3/linux_init/a90_util.c/h` + `stage3/linux_init/a90_log.c/h` + `stage3/linux_init/a90_timeline.c/h` + `stage3/linux_init/a90_console.c/h` + `stage3/linux_init/a90_cmdproto.c/h` + `stage3/linux_init/a90_run.c/h` + `stage3/linux_init/a90_service.c/h`
+- latest verified boot image: `stage3/boot_linux_v85.img`
 - previous verified source-layout baseline: `stage3/linux_init/init_v80.c` + `stage3/linux_init/v80/*.inc.c`
 - known-good fallback: `stage3/boot_linux_v48.img`
 - control channel: USB CDC ACM serial (`/dev/ttyGS0` ↔ `/dev/ttyACM0`)
@@ -58,7 +58,8 @@ Android userspace 대신 직접 만든 static `/init`를 실행하고,
 - log/timeline modules: v82에서 `a90_log.c/h`와 `a90_timeline.c/h`를 실제 `.c/.h` API로 분리
 - console module: v83에서 `a90_console.c/h`로 fd/attach/readline/cancel API 분리
 - cmdproto module: v84에서 `a90_cmdproto.c/h`로 `cmdv1/cmdv1x` frame/decode API 분리
-- module roadmap: v85 run/service/netservice, v86 UI 계층 분리 예정
+- run/service modules: v85에서 `a90_run.c/h`와 `a90_service.c/h`로 process/service lifecycle API 분리
+- module roadmap: v86 UI 계층 분리 예정
 - about app: `APPS / ABOUT`에서 version, changelog 목록/상세, credits 표시
 - input layout: `inputlayout`, `waitgesture`, `screenmenu`/`blindmenu` gesture action 확인
 - input monitor: `TOOLS / INPUT MONITOR`와 `inputmonitor [events]` raw/gesture trace 확인
@@ -160,6 +161,7 @@ Samsung bootloader
 43. Log/timeline true `.c/.h` API module extraction — v82 완료
 44. Console true `.c/.h` API module extraction — v83 완료
 45. Cmdproto true `.c/.h` API module extraction — v84 완료
+46. Run/service lifecycle `.c/.h` API module extraction — v85 완료
 
 ## Repository Layout
 

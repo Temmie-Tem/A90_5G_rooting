@@ -1,5 +1,13 @@
 # Changelog
 
+## `0.8.16` (`v85`) - 2026-04-30
+
+- Added `a90_run.c/h` for shared fork/exec/wait/timeout/cancel/reap/stop process handling.
+- Added `a90_service.c/h` for static PID registry of `autohud`, `tcpctl`, and `adbd`.
+- Moved `run`, `runandroid`, netservice helper execution, `tcpctl`, and `adbd` lifecycle paths onto the shared APIs.
+- Preserved netservice policy, shell dispatch, storage, KMS/HUD/menu, and cpustress worker behavior.
+- Verified v85 flash, `cmdv1 version/status`, run/runandroid, cpustress/watchhud/autohud/stophud, adbd start/stop, netservice start/stop, and q cancel regressions.
+
 ## `0.8.15` (`v84`) - 2026-04-30
 
 - Added `a90_cmdproto.c/h` as the owner of `cmdv1/cmdv1x` protocol helpers.

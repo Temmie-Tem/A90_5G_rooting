@@ -1543,3 +1543,42 @@
   - cancel regression: `run`, `cpustress`, `watchhud` q cancel — PASS
 - 문서:
   - `docs/reports/NATIVE_INIT_V84_CMDPROTO_API_2026-04-30.md`
+
+## v85: run/service lifecycle API module (2026-04-30)
+
+- 목표:
+  - `run`/`runandroid`/netservice helper의 fork/exec/wait/cancel/reap 중복을 줄인다.
+  - `autohud`, `tcpctl`, `adbd` PID를 service registry로 숨겨 stale PID 추적을 개선한다.
+- 구현:
+  - `stage3/linux_init/a90_run.c`, `stage3/linux_init/a90_run.h`
+    - shared spawn/wait/reap/stop helper
+    - console stdio, append-log stdio, timeout, q/Ctrl-C cancel 지원
+  - `stage3/linux_init/a90_service.c`, `stage3/linux_init/a90_service.h`
+    - `A90_SERVICE_HUD`, `A90_SERVICE_TCPCTL`, `A90_SERVICE_ADBD` PID registry
+  - `stage3/linux_init/init_v85.c`
+    - v85 include tree와 `a90_util.c`, `a90_log.c`, `a90_timeline.c`, `a90_console.c`, `a90_cmdproto.c`, `a90_run.c`, `a90_service.c`를 함께 link
+    - `INIT_VERSION "0.8.16"`
+    - `INIT_BUILD "v85"`
+  - on-device changelog에 `0.8.16 v85 RUN SERVICE API` 추가
+- 산출:
+  - `stage3/linux_init/init_v85`
+    - SHA256 `ca227754279f8f23484dce6db4b0b8df9c6cb0412deec916be32dd9a028c31f2`
+  - `stage3/ramdisk_v85.cpio`
+    - SHA256 `5d35a08d472906b6ae9ad6e0dc0a364a6b1a08e42bc0de51674073901a19fc68`
+  - `stage3/boot_linux_v85.img`
+    - SHA256 `9e3da0ffd0616292b563c06acee9977de402db84f1de6994db0feb6cf6cf367e`
+- 검증:
+  - static ARM64 multi-source build with `-Wall -Wextra` — PASS
+  - v85 ramdisk/boot image 생성 — PASS
+  - boot image marker strings `A90 Linux init 0.8.16 (v85)`, `A90v85`, `0.8.16 v85 RUN SERVICE API` — PASS
+  - native init → recovery → TWRP flash → v85 boot — PASS
+  - boot partition prefix SHA256 matched local image — PASS
+  - post-boot `cmdv1 version/status` — PASS
+  - bridge regression: `logpath`, `timeline`, `bootstatus`, `storage`, `mountsd status` — PASS
+  - runtime regression: `run`, `runandroid`, `cpustress`, `watchhud`, `autohud`, `stophud` — PASS
+  - cancel regression: `run`, `cpustress`, `watchhud` q cancel — PASS
+  - service regression: `startadbd`, stale PID status, `stopadbd`, `netservice status/start/stop` — PASS
+  - host NCM ping은 interactive `sudo` IP 설정 필요로 Codex 세션에서는 보류
+- 문서:
+  - `docs/plans/NATIVE_INIT_V85_RUN_SERVICE_PLAN_2026-04-30.md`
+  - `docs/reports/NATIVE_INIT_V85_RUN_SERVICE_API_2026-04-30.md`
