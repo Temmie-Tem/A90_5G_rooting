@@ -1,16 +1,16 @@
 # Native Init Task Queue (2026-04-25)
 
-이 문서는 `A90 Linux init 0.8.13 (v82)` verified 이후 바로 실행할 작업 큐다.
+이 문서는 `A90 Linux init 0.8.14 (v83)` verified 이후 바로 실행할 작업 큐다.
 큰 방향은 “보이는 부팅 → 복구 가능한 로그 → 단독 조작 → 작은 userland → USB networking” 순서다.
 
 ## 현재 고정 기준점
 
-- latest verified build: `A90 Linux init 0.8.13 (v82)`
-- official version: `0.8.13`
-- build tag: `v82`
+- latest verified build: `A90 Linux init 0.8.14 (v83)`
+- official version: `0.8.14`
+- build tag: `v83`
 - creator: `made by temmie0214`
-- latest verified source: `stage3/linux_init/init_v82.c` + `stage3/linux_init/v82/*.inc.c` + `stage3/linux_init/a90_config.h` + `stage3/linux_init/a90_util.c/h` + `stage3/linux_init/a90_log.c/h` + `stage3/linux_init/a90_timeline.c/h`
-- latest verified boot image: `stage3/boot_linux_v82.img`
+- latest verified source: `stage3/linux_init/init_v83.c` + `stage3/linux_init/v83/*.inc.c` + `stage3/linux_init/a90_config.h` + `stage3/linux_init/a90_util.c/h` + `stage3/linux_init/a90_log.c/h` + `stage3/linux_init/a90_timeline.c/h` + `stage3/linux_init/a90_console.c/h`
+- latest verified boot image: `stage3/boot_linux_v83.img`
 - previous verified source-layout baseline: `stage3/linux_init/init_v80.c` + `stage3/linux_init/v80/*.inc.c`
 - known-good fallback: `stage3/boot_linux_v48.img`
 - control channel: USB ACM serial bridge
@@ -42,6 +42,8 @@
   - HUD/menu live log tail panel
   - display test screen for color/font/wrap/grid/cutout checks
   - cmdv1/A90P1 shell protocol + a90ctl host wrapper
+  - config/util/log/timeline compiled API modules
+  - console fd/attach/readline/cancel compiled API module
 
 ## 실행 큐
 
@@ -1368,15 +1370,41 @@ python3 ./scripts/revalidation/physical_usb_reconnect_check.py --manual-host-con
     - SHA256 `b023e1cf38c5fa1f0328030975189e99bcbb47a9715dadde1af0070badb6ab73`
   - `docs/reports/NATIVE_INIT_V82_LOG_TIMELINE_2026-04-29.md`
 
+### V83. Console True API Module — 완료
+
+- `stage3/linux_init/a90_console.c/h`
+- `stage3/linux_init/init_v83.c`
+- `stage3/linux_init/v83/*.inc.c`
+- 의도:
+  - `console_fd`, attach/reattach, readline, cancel polling, console write/printf를 실제 `.c/.h` API로 승격
+  - shell dispatch와 `cmdv1/cmdv1x` framed protocol은 v83에서 이동하지 않고 다음 분리 후보로 보존
+- 검증:
+  - static ARM64 multi-source build with `-Wall -Wextra` — PASS
+  - `stage3/ramdisk_v83.cpio`, `stage3/boot_linux_v83.img` 생성 — PASS
+  - boot image marker strings `A90 Linux init 0.8.14 (v83)`, `A90v83`, `0.8.14 v83 CONSOLE API` — PASS
+  - TWRP flash and post-boot `cmdv1 version/status` — PASS
+  - bridge regression: `version`, `status`, `logpath`, `timeline`, `bootstatus`, `storage`, `mountsd status`, `displaytest safe`, `autohud 2` — PASS
+  - console regression: `cat`, `logcat`, `run /bin/a90sleep 1`, `cpustress 3 2`, `watchhud 1 2`, q cancel, `reattach`, `usbacmreset` — PASS
+- 산출:
+  - `stage3/linux_init/init_v83`
+    - SHA256 `0ae4f025d1c9bff5cb2bd89f42a15d2065c62eac18aa568cc13b9e8b0812e8e5`
+  - `stage3/ramdisk_v83.cpio`
+    - SHA256 `28d5cb735da2b3180df7f8aa100a3a1b47c5ec6f9870363a9f20b82d317cd878`
+  - `stage3/boot_linux_v83.img`
+    - SHA256 `1a9bdc7582485c95eee107753627e66aa4d2f53ed03bdb3039da18fab027c124`
+  - `docs/reports/NATIVE_INIT_V83_CONSOLE_API_2026-04-29.md`
+  - `docs/reports/NATIVE_INIT_V83_CONSOLE_SHELL_CMDPROTO_DEPENDENCY_MAP_2026-04-29.md`
+
 ## 지금 바로 진행할 항목
 
-1. v83 console + shell + cmdproto boundary
-   - `console_fd`, `cprintf`, reattach, cancel, shell dispatch, `cmdv1/cmdv1x`의 책임 경계를 정리
-   - console은 입출력 통로, shell은 명령 해석, cmdproto는 framed result만 담당하도록 분리
-2. v84 run/service/netservice management
+1. v84 shell + cmdproto boundary
+   - command table, last result, busy gate, command dispatch의 소유권을 shell 계층으로 정리
+   - `cmdv1/cmdv1x` begin/end frame과 length-prefixed decode를 cmdproto 계층으로 분리
+   - 착수 지도: `docs/reports/NATIVE_INIT_V83_CONSOLE_SHELL_CMDPROTO_DEPENDENCY_MAP_2026-04-29.md`
+2. v85 run/service/netservice management
    - `run`/timeout/cancel/zombie reap을 공통 실행 계층으로 정리
    - `netservice`, TCP control, 장기 실행 helper를 start/stop/status 가능한 service 단위로 관리
-3. v85 KMS/draw/HUD/input/menu UI layering
+3. v86 KMS/draw/HUD/input/menu UI layering
    - KMS dumb buffer, drawing primitive, HUD, input gesture, menu/app 화면을 계층별로 분리
    - `menu -> input/hud/shell` 방향은 허용하고 `input/hud -> menu` 순환 의존은 금지
 4. 이후 helper/userland 확장

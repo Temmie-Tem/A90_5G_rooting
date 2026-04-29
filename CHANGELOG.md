@@ -1,5 +1,22 @@
 # Changelog
 
+## `0.8.14` (`v83`) - 2026-04-29
+
+- Added `a90_console.c/h` as the owner of USB ACM console fd state.
+- Moved attach, reattach, readline, write/printf, stdio dup, and cancel polling behind console APIs.
+- Kept shell dispatch and `cmdv1`/`cmdv1x` behavior unchanged for a safer first console split.
+- Added on-device `0.8.14 v83 CONSOLE API` changelog detail.
+- Verified v83 flash, `cmdv1 version/status`, storage/log/timeline/display regressions, run/cpustress/watchhud, q cancel, `reattach`, and `usbacmreset`.
+
+## `0.8.13` (`v82`) - 2026-04-29
+
+- Added `a90_log.c/h` for native log path/state and file output.
+- Added `a90_timeline.c/h` for boot timeline storage, replay, probe, summary, and read-only entry access.
+- Removed direct include-tree access to native log/timeline arrays and paths.
+- Preserved console, shell, storage, display, and netservice behavior while moving log/timeline into real API modules.
+- Added on-device `0.8.13 v82 LOG TIMELINE API` changelog detail.
+- Verified v82 flash, SD log path, timeline/bootstatus/logpath, storage, displaytest safe, and autohud restart.
+
 ## `0.8.12` (`v81`) - 2026-04-29
 
 - Added `a90_config.h` for shared version/path/constant definitions.

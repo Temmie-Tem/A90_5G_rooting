@@ -14,12 +14,12 @@ Android userspace 대신 직접 만든 static `/init`를 실행하고,
 - build: `A908NKSU5EWA3`
 - kernel: Samsung stock Android kernel `Linux 4.14.190`
 - recovery: TWRP 사용 가능
-- latest verified build: `A90 Linux init 0.8.13 (v82)`
-- official version: `0.8.13`
-- build tag: `v82`
+- latest verified build: `A90 Linux init 0.8.14 (v83)`
+- official version: `0.8.14`
+- build tag: `v83`
 - creator: `made by temmie0214`
-- latest verified source: `stage3/linux_init/init_v82.c` + `stage3/linux_init/v82/*.inc.c` + `stage3/linux_init/a90_config.h` + `stage3/linux_init/a90_util.c/h` + `stage3/linux_init/a90_log.c/h` + `stage3/linux_init/a90_timeline.c/h`
-- latest verified boot image: `stage3/boot_linux_v82.img`
+- latest verified source: `stage3/linux_init/init_v83.c` + `stage3/linux_init/v83/*.inc.c` + `stage3/linux_init/a90_config.h` + `stage3/linux_init/a90_util.c/h` + `stage3/linux_init/a90_log.c/h` + `stage3/linux_init/a90_timeline.c/h` + `stage3/linux_init/a90_console.c/h`
+- latest verified boot image: `stage3/boot_linux_v83.img`
 - previous verified source-layout baseline: `stage3/linux_init/init_v80.c` + `stage3/linux_init/v80/*.inc.c`
 - known-good fallback: `stage3/boot_linux_v48.img`
 - control channel: USB CDC ACM serial (`/dev/ttyGS0` ↔ `/dev/ttyACM0`)
@@ -56,7 +56,8 @@ Android userspace 대신 직접 만든 static `/init`를 실행하고,
 - source layout: v80에서 PID1 source를 기능별 include module로 분리
 - base modules: v81에서 `a90_config.h`와 `a90_util.c/h`를 실제 `.c/.h` API로 분리
 - log/timeline modules: v82에서 `a90_log.c/h`와 `a90_timeline.c/h`를 실제 `.c/.h` API로 분리
-- module roadmap: v83 console/shell/cmdproto, v84 run/service/netservice, v85 UI 계층 분리 예정
+- console module: v83에서 `a90_console.c/h`로 fd/attach/readline/cancel API 분리
+- module roadmap: v84 shell/cmdproto, v85 run/service/netservice, v86 UI 계층 분리 예정
 - about app: `APPS / ABOUT`에서 version, changelog 목록/상세, credits 표시
 - input layout: `inputlayout`, `waitgesture`, `screenmenu`/`blindmenu` gesture action 확인
 - input monitor: `TOOLS / INPUT MONITOR`와 `inputmonitor [events]` raw/gesture trace 확인
@@ -156,6 +157,7 @@ Samsung bootloader
 41. PID1 source layout split into include modules — v80 완료
 42. Config/util true `.c/.h` base module extraction — v81 완료
 43. Log/timeline true `.c/.h` API module extraction — v82 완료
+44. Console true `.c/.h` API module extraction — v83 완료
 
 ## Repository Layout
 
@@ -210,6 +212,12 @@ Samsung bootloader
 - `docs/reports/NATIVE_INIT_V75_QUIET_IDLE_REATTACH_2026-04-27.md`
 - `docs/reports/NATIVE_INIT_V76_AT_FRAGMENT_FILTER_2026-04-27.md`
 - `docs/reports/NATIVE_INIT_V77_DISPLAY_TEST_PAGES_2026-04-27.md`
+- `docs/reports/NATIVE_INIT_V78_SD_WORKSPACE_2026-04-29.md`
+- `docs/reports/NATIVE_INIT_V79_BOOT_STORAGE_2026-04-29.md`
+- `docs/reports/NATIVE_INIT_V80_SOURCE_MODULES_2026-04-29.md`
+- `docs/reports/NATIVE_INIT_V81_CONFIG_UTIL_2026-04-29.md`
+- `docs/reports/NATIVE_INIT_V82_LOG_TIMELINE_2026-04-29.md`
+- `docs/reports/NATIVE_INIT_V83_CONSOLE_API_2026-04-29.md`
 
 `docs/plans/NATIVE_LINUX_RECHALLENGE_PLAN.md`와 `docs/plans/REVALIDATION_PLAN.md`는
 진입점 확보 이전의 부트체인 재검증 기록으로 보존한다.

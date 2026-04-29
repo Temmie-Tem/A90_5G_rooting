@@ -12,9 +12,10 @@ Date: `2026-04-29`
 
 - device: `Samsung Galaxy A90 5G SM-A908N`
 - recovery: TWRP 사용 가능
-- latest verified build: `A90 Linux init 0.8.13 (v82)`
-- latest verified source: `stage3/linux_init/init_v82.c` + `stage3/linux_init/v82/*.inc.c` + `stage3/linux_init/a90_config.h` + `stage3/linux_init/a90_util.c/h` + `stage3/linux_init/a90_log.c/h` + `stage3/linux_init/a90_timeline.c/h`
-- latest verified boot image: `stage3/boot_linux_v82.img`
+- latest verified build: `A90 Linux init 0.8.14 (v83)`
+- latest verified source: `stage3/linux_init/init_v83.c` + `stage3/linux_init/v83/*.inc.c` + `stage3/linux_init/a90_config.h` + `stage3/linux_init/a90_util.c/h` + `stage3/linux_init/a90_log.c/h` + `stage3/linux_init/a90_timeline.c/h` + `stage3/linux_init/a90_console.c/h`
+- latest verified boot image: `stage3/boot_linux_v83.img`
+- latest verified boot image SHA256: `1a9bdc7582485c95eee107753627e66aa4d2f53ed03bdb3039da18fab027c124`
 - previous verified source-layout baseline: `stage3/linux_init/init_v80.c` + `stage3/linux_init/v80/*.inc.c`
 - known-good fallback native init: `A90 Linux init v48`
 - known-good fallback boot image: `stage3/boot_linux_v48.img`
@@ -170,7 +171,7 @@ printf 'version\n' | nc -w 3 127.0.0.1 54321
 정상 예:
 
 ```text
-A90 Linux init 0.8.13 (v82)
+A90 Linux init 0.8.14 (v83)
 made by temmie0214
 kernel: Linux 4.14.190-25818860-abA908NKSU5EWA3 aarch64
 display: 1080x2400 connector=28 crtc=133 fb=207
@@ -269,7 +270,7 @@ adb -s RFCM90CFWXA shell 'twrp reboot'
 ```bash
 python3 ./scripts/revalidation/native_init_flash.py \
   --verify-only \
-  --expect-version "A90 Linux init 0.8.13 (v82)" \
+  --expect-version "A90 Linux init 0.8.14 (v83)" \
   --verify-protocol auto \
   --bridge-timeout 180
 ```
@@ -284,41 +285,42 @@ python3 ./scripts/revalidation/native_init_flash.py \
 
 ## 5. Custom init 수정 흐름
 
-새 버전 예시가 v83이라면:
+새 버전 예시가 v84라면:
 
 ```bash
-cp -r stage3/linux_init/v82 stage3/linux_init/v83
-cp stage3/linux_init/init_v82.c stage3/linux_init/init_v83.c
+cp -r stage3/linux_init/v83 stage3/linux_init/v84
+cp stage3/linux_init/init_v83.c stage3/linux_init/init_v84.c
 ```
 
 반드시 바꿀 것:
 
-- `#define INIT_BUILD "v83"`
-- 예시가 patch 업데이트라면 `#define INIT_VERSION "0.8.14"`로 변경
-- `A90v82` kmsg marker를 `A90v83`으로 변경
+- `#define INIT_BUILD "v84"`
+- 예시가 patch 업데이트라면 `#define INIT_VERSION "0.8.15"`로 변경
+- `A90v83` kmsg marker를 `A90v84`로 변경
 - v49 번호는 재사용하지 않는다.
-- `mark_step("..._v82\n")` 계열을 새 버전으로 변경
+- `mark_step("..._v83\n")` 계열을 새 버전으로 변경
 - README/docs의 latest 기준점은 실기 검증 뒤에만 갱신
 
 검색:
 
 ```bash
-rg -n 'v82|A90v82|init_v82|boot_linux_v82|ramdisk_v82' stage3/linux_init/init_v83.c stage3/linux_init/v83
+rg -n 'v83|A90v83|init_v83|boot_linux_v83|ramdisk_v83' stage3/linux_init/init_v84.c stage3/linux_init/v84
 ```
 
 빌드:
 
 ```bash
 aarch64-linux-gnu-gcc -static -Os -Wall -Wextra \
-  -o stage3/linux_init/init_v83 \
-  stage3/linux_init/init_v83.c \
+  -o stage3/linux_init/init_v84 \
+  stage3/linux_init/init_v84.c \
   stage3/linux_init/a90_util.c \
   stage3/linux_init/a90_log.c \
-  stage3/linux_init/a90_timeline.c
-aarch64-linux-gnu-strip stage3/linux_init/init_v83
-file stage3/linux_init/init_v83
-sha256sum stage3/linux_init/init_v83
-strings stage3/linux_init/init_v83 | rg 'A90 Linux init .*\\(v83\\)|A90v83'
+  stage3/linux_init/a90_timeline.c \
+  stage3/linux_init/a90_console.c
+aarch64-linux-gnu-strip stage3/linux_init/init_v84
+file stage3/linux_init/init_v84
+sha256sum stage3/linux_init/init_v84
+strings stage3/linux_init/init_v84 | rg 'A90 Linux init .*\(v84\)|A90v84'
 ```
 
 컴파일 경고를 무시하지 말 것.
@@ -328,57 +330,57 @@ strings stage3/linux_init/init_v83 | rg 'A90 Linux init .*\\(v83\\)|A90v83'
 검증된 이전 boot image에서 kernel/header 인자를 재사용하고 ramdisk만 바꾼다.
 
 ```bash
-rm -rf /tmp/a90_boot_v83_unpack
-mkdir -p /tmp/a90_boot_v83_unpack
+rm -rf /tmp/a90_boot_v84_unpack
+mkdir -p /tmp/a90_boot_v84_unpack
 python3 mkbootimg/unpack_bootimg.py \
-  --boot_img stage3/boot_linux_v82.img \
-  --out /tmp/a90_boot_v83_unpack \
+  --boot_img stage3/boot_linux_v83.img \
+  --out /tmp/a90_boot_v84_unpack \
   --format=mkbootimg \
-  > /tmp/a90_boot_v83_mkbootimg_args.txt
+  > /tmp/a90_boot_v84_mkbootimg_args.txt
 ```
 
 ramdisk 생성:
 
 ```bash
-rm -rf stage3/ramdisk_v83
-mkdir -p stage3/ramdisk_v83/bin
-cp stage3/linux_init/init_v83 stage3/ramdisk_v83/init
-cp stage3/linux_init/a90_sleep stage3/ramdisk_v83/bin/a90sleep
-chmod 755 stage3/ramdisk_v83/init stage3/ramdisk_v83/bin/a90sleep
+rm -rf stage3/ramdisk_v84
+mkdir -p stage3/ramdisk_v84/bin
+cp stage3/linux_init/init_v84 stage3/ramdisk_v84/init
+cp stage3/linux_init/a90_sleep stage3/ramdisk_v84/bin/a90sleep
+chmod 755 stage3/ramdisk_v84/init stage3/ramdisk_v84/bin/a90sleep
 (
-  cd stage3/ramdisk_v83
-  find . | LC_ALL=C sort | cpio -o -H newc > ../ramdisk_v83.cpio
+  cd stage3/ramdisk_v84
+  find . | LC_ALL=C sort | cpio -o -H newc > ../ramdisk_v84.cpio
 )
 ```
 
 boot image 생성:
 
 ```bash
-python3 - <<'PY'
+python3 - <<'PYBOOT'
 from pathlib import Path
 import shlex
 import subprocess
 
-args = shlex.split(Path('/tmp/a90_boot_v83_mkbootimg_args.txt').read_text())
+args = shlex.split(Path('/tmp/a90_boot_v84_mkbootimg_args.txt').read_text())
 for i, item in enumerate(args):
     if item == '--ramdisk':
-        args[i + 1] = 'stage3/ramdisk_v83.cpio'
+        args[i + 1] = 'stage3/ramdisk_v84.cpio'
         break
 else:
     raise SystemExit('missing --ramdisk')
 
-cmd = ['python3', 'mkbootimg/mkbootimg.py', *args, '--output', 'stage3/boot_linux_v83.img']
+cmd = ['python3', 'mkbootimg/mkbootimg.py', *args, '--output', 'stage3/boot_linux_v84.img']
 print(shlex.join(cmd))
 subprocess.run(cmd, check=True)
-PY
+PYBOOT
 ```
 
 검증:
 
 ```bash
-ls -lh stage3/ramdisk_v83.cpio stage3/boot_linux_v83.img
-sha256sum stage3/linux_init/init_v83 stage3/ramdisk_v83.cpio stage3/boot_linux_v83.img
-strings stage3/boot_linux_v83.img | rg 'A90 Linux init .*\(v83\)|A90v83'
+ls -lh stage3/ramdisk_v84.cpio stage3/boot_linux_v84.img
+sha256sum stage3/linux_init/init_v84 stage3/ramdisk_v84.cpio stage3/boot_linux_v84.img
+strings stage3/boot_linux_v84.img | rg 'A90 Linux init .*\(v84\)|A90v84'
 ```
 
 ## 7. Boot image 플래시
@@ -393,8 +395,8 @@ adb devices
 
 ```bash
 python3 ./scripts/revalidation/native_init_flash.py \
-  stage3/boot_linux_v83.img \
-  --expect-version "A90 Linux init 0.8.14 (v83)" \
+  stage3/boot_linux_v84.img \
+  --expect-version "A90 Linux init 0.8.15 (v84)" \
   --bridge-timeout 240 \
   --recovery-timeout 180
 ```
@@ -403,17 +405,9 @@ python3 ./scripts/revalidation/native_init_flash.py \
 
 1. local image 존재/정렬/SHA256/expected marker 확인
 2. TWRP ADB 대기
-3. `/tmp/native_init_boot.img`로 push
-4. remote SHA256 확인
-5. `dd if=... of=/dev/block/by-name/boot bs=4M conv=fsync && sync`
-6. boot partition prefix SHA256 readback 확인
-7. `adb shell 'twrp reboot'`
-8. bridge `version` 확인
-
-`--from-native`로 시작했는데 v53+ 메뉴가 떠 있으면 `recovery`가 `[busy]`를 반환할 수 있다.
-현재 스크립트는 이 경우 `hide`를 보내고 3초 뒤 `recovery`를 최대 3회 재시도한다.
-
-수동으로 `dd`를 직접 치기 전에 이 스크립트를 우선한다.
+3. `/dev/block/by-name/boot` 쓰기
+4. prefix readback hash 확인
+5. reboot 후 bridge에서 expected version 확인
 
 ## 8. Toybox 사용법
 

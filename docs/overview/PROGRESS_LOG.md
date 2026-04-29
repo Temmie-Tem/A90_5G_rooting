@@ -1461,3 +1461,37 @@
   - bridge regression: `version`, `status`, `logpath`, `timeline`, `bootstatus`, `storage`, `mountsd status`, `displaytest safe`, `autohud 2` — PASS
 - 문서:
   - `docs/reports/NATIVE_INIT_V82_LOG_TIMELINE_2026-04-29.md`
+
+## v83: console true API module (2026-04-29)
+
+- 목표:
+  - v82에서 남아 있던 USB ACM console fd, attach/reattach, readline, cancel polling을 실제 `.c/.h` API로 분리한다.
+  - shell dispatch와 `cmdv1/cmdv1x` framed protocol은 동작 변경 없이 다음 분리 후보로 유지한다.
+- 구현:
+  - `stage3/linux_init/a90_console.c`, `stage3/linux_init/a90_console.h`
+    - `console_fd`와 `last_console_reattach_ms`를 내부 `static` 상태로 숨김
+    - `a90_console_printf`, `a90_console_write`, `a90_console_readline`, `a90_console_poll_cancel`, `a90_console_cancelled`, `a90_console_dup_stdio`
+    - `a90_console_wait_tty`, `a90_console_attach`, `a90_console_reattach`
+  - `stage3/linux_init/init_v83.c`
+    - v83 include tree와 `a90_util.c`, `a90_log.c`, `a90_timeline.c`, `a90_console.c`를 함께 link하는 multi-source static init
+    - `INIT_VERSION "0.8.14"`
+    - `INIT_BUILD "v83"`
+  - on-device changelog에 `0.8.14 v83 CONSOLE API` 추가
+- 산출:
+  - `stage3/linux_init/init_v83`
+    - SHA256 `0ae4f025d1c9bff5cb2bd89f42a15d2065c62eac18aa568cc13b9e8b0812e8e5`
+  - `stage3/ramdisk_v83.cpio`
+    - SHA256 `28d5cb735da2b3180df7f8aa100a3a1b47c5ec6f9870363a9f20b82d317cd878`
+  - `stage3/boot_linux_v83.img`
+    - SHA256 `1a9bdc7582485c95eee107753627e66aa4d2f53ed03bdb3039da18fab027c124`
+- 검증:
+  - static ARM64 multi-source build with `-Wall -Wextra` — PASS
+  - v83 ramdisk/boot image 생성 — PASS
+  - boot image marker strings `A90 Linux init 0.8.14 (v83)`, `A90v83`, `0.8.14 v83 CONSOLE API` — PASS
+  - native init → recovery → TWRP flash → v83 boot — PASS
+  - boot partition prefix SHA256 matched local image — PASS
+  - post-boot `cmdv1 version/status` — PASS
+  - bridge regression: `version`, `status`, `logpath`, `timeline`, `bootstatus`, `storage`, `mountsd status`, `displaytest safe`, `autohud 2` — PASS
+  - console regression: `cat`, `logcat`, `run /bin/a90sleep 1`, `cpustress 3 2`, `watchhud 1 2`, q cancel, `reattach`, `usbacmreset` — PASS
+- 문서:
+  - `docs/reports/NATIVE_INIT_V83_CONSOLE_API_2026-04-29.md`

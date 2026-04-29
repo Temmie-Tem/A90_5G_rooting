@@ -52,8 +52,9 @@ init_main
   -> optional helpers / BusyBox / dropbear
 ```
 
-`v82 log/timeline`은 완료했다. 다음 단기 순서는 `v83 console/shell/cmdproto`,
-`v84 run/service/netservice`, `v85 KMS/draw/HUD/input/menu`로 잡는다.
+`v83 console API`까지 완료했다. 다음 단기 순서는 `v84 shell/cmdproto`,
+`v85 run/service/netservice`, `v86 KMS/draw/HUD/input/menu`로 잡는다.
+shell/cmdproto 착수 지도는 `docs/reports/NATIVE_INIT_V83_CONSOLE_SHELL_CMDPROTO_DEPENDENCY_MAP_2026-04-29.md`에 둔다.
 
 ---
 
@@ -183,18 +184,19 @@ Samsung bootloader
 - PID1 source layout split into include modules — v80 완료
 - config/util true `.c/.h` base module extraction — v81 완료
 - log/timeline true `.c/.h` API module extraction — v82 완료
+- console true `.c/.h` API module extraction — v83 완료
 - static dropbear SSH 또는 custom TCP shell
 
 ---
 
 ## 현재 기준점
 
-- 최신 확인 버전: `A90 Linux init 0.8.13 (v82)`
-- 공식 버전: `0.8.13`
-- build tag: `v82`
+- 최신 확인 버전: `A90 Linux init 0.8.14 (v83)`
+- 공식 버전: `0.8.14`
+- build tag: `v83`
 - creator: `made by temmie0214`
-- 최신 verified 소스: `stage3/linux_init/init_v82.c` + `stage3/linux_init/v82/*.inc.c` + `stage3/linux_init/a90_config.h` + `stage3/linux_init/a90_util.c/h` + `stage3/linux_init/a90_log.c/h` + `stage3/linux_init/a90_timeline.c/h`
-- 최신 verified boot image: `stage3/boot_linux_v82.img`
+- 최신 verified 소스: `stage3/linux_init/init_v83.c` + `stage3/linux_init/v83/*.inc.c` + `stage3/linux_init/a90_config.h` + `stage3/linux_init/a90_util.c/h` + `stage3/linux_init/a90_log.c/h` + `stage3/linux_init/a90_timeline.c/h` + `stage3/linux_init/a90_console.c/h`
+- 최신 verified boot image: `stage3/boot_linux_v83.img`
 - previous verified source-layout baseline: `stage3/linux_init/init_v80.c` + `stage3/linux_init/v80/*.inc.c`
 - known-good fallback: `stage3/boot_linux_v48.img`
 - 주 제어 채널: USB CDC ACM serial (`/dev/ttyGS0` ↔ `/dev/ttyACM0`)
@@ -817,11 +819,11 @@ Samsung bootloader
 
 상세 실행 큐는 `docs/plans/NATIVE_INIT_TASK_QUEUE_2026-04-25.md`를 따른다.
 
-1. 실제 케이블 unplug/replug 이후 ACM/NCM/tcpctl 복구 확인
-2. USB 재열거 중 `A`/`ATAT...` serial noise hardening
-3. Wi-Fi 드라이버/펌웨어 read-only 인벤토리 트랙 분리
-4. `userdata`/`mmcblk0p1` 장기 저장소 후보 의사결정
-5. TCP control 인증/제한 정책 검토
+1. v84 shell/cmdproto boundary 설계와 최소 분리
+2. shell command table, last result, busy gate 소유권 정리
+3. `cmdv1`/`cmdv1x` frame begin/end와 decode API 분리
+4. v85 run/service/netservice management 설계
+5. SD workspace helper 배치와 Wi-Fi read-only 인벤토리 트랙 분리
 
 ---
 

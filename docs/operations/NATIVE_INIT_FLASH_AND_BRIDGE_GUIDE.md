@@ -17,10 +17,10 @@ Date: `2026-04-29`
 - known-good fallback source: `stage3/linux_init/init_v48.c`
 - known-good fallback boot image: `stage3/boot_linux_v48.img`
 - known-good fallback boot image SHA256: `1c87fa59712395027c5c2e489b15c4f6ddefabc3c50f78d3c235c4508a63e042`
-- latest verified build: `A90 Linux init 0.8.13 (v82)`
-- latest verified source: `stage3/linux_init/init_v82.c` + `stage3/linux_init/v82/*.inc.c` + `stage3/linux_init/a90_config.h` + `stage3/linux_init/a90_util.c/h` + `stage3/linux_init/a90_log.c/h` + `stage3/linux_init/a90_timeline.c/h`
-- latest verified boot image: `stage3/boot_linux_v82.img`
-- latest verified boot image SHA256: `b023e1cf38c5fa1f0328030975189e99bcbb47a9715dadde1af0070badb6ab73`
+- latest verified build: `A90 Linux init 0.8.14 (v83)`
+- latest verified source: `stage3/linux_init/init_v83.c` + `stage3/linux_init/v83/*.inc.c` + `stage3/linux_init/a90_config.h` + `stage3/linux_init/a90_util.c/h` + `stage3/linux_init/a90_log.c/h` + `stage3/linux_init/a90_timeline.c/h` + `stage3/linux_init/a90_console.c/h`
+- latest verified boot image: `stage3/boot_linux_v83.img`
+- latest verified boot image SHA256: `1a9bdc7582485c95eee107753627e66aa4d2f53ed03bdb3039da18fab027c124`
 - previous verified source-layout baseline: `stage3/linux_init/init_v80.c` + `stage3/linux_init/v80/*.inc.c`
 - control channel: USB CDC ACM serial bridge
 - bridge endpoint: `127.0.0.1:54321`
@@ -101,7 +101,7 @@ printf 'version\n' | nc -w 3 127.0.0.1 54321
 정상 응답 예:
 
 ```text
-A90 Linux init 0.8.13 (v82)
+A90 Linux init 0.8.14 (v83)
 made by temmie0214
 kernel: Linux 4.14.190-25818860-abA908NKSU5EWA3 aarch64
 [done] version
@@ -401,13 +401,13 @@ sudo python3 ./scripts/revalidation/serial_tcp_bridge.py --port 54321
 printf 'version\n' | nc -w 3 127.0.0.1 54321
 ```
 
-최신 verified v82를 native init 상태에서 다시 올릴 때:
+최신 verified v83을 native init 상태에서 다시 올릴 때:
 
 ```bash
 python3 ./scripts/revalidation/native_init_flash.py \
-  stage3/boot_linux_v82.img \
+  stage3/boot_linux_v83.img \
   --from-native \
-  --expect-version "A90 Linux init 0.8.13 (v82)" \
+  --expect-version "A90 Linux init 0.8.14 (v83)" \
   --verify-protocol auto \
   --bridge-timeout 240 \
   --recovery-timeout 180
