@@ -14,12 +14,12 @@ Android userspace 대신 직접 만든 static `/init`를 실행하고,
 - build: `A908NKSU5EWA3`
 - kernel: Samsung stock Android kernel `Linux 4.14.190`
 - recovery: TWRP 사용 가능
-- latest verified build: `A90 Linux init 0.8.12 (v81)`
-- official version: `0.8.12`
-- build tag: `v81`
+- latest verified build: `A90 Linux init 0.8.13 (v82)`
+- official version: `0.8.13`
+- build tag: `v82`
 - creator: `made by temmie0214`
-- latest verified source: `stage3/linux_init/init_v81.c` + `stage3/linux_init/v81/*.inc.c` + `stage3/linux_init/a90_config.h` + `stage3/linux_init/a90_util.c/h`
-- latest verified boot image: `stage3/boot_linux_v81.img`
+- latest verified source: `stage3/linux_init/init_v82.c` + `stage3/linux_init/v82/*.inc.c` + `stage3/linux_init/a90_config.h` + `stage3/linux_init/a90_util.c/h` + `stage3/linux_init/a90_log.c/h` + `stage3/linux_init/a90_timeline.c/h`
+- latest verified boot image: `stage3/boot_linux_v82.img`
 - previous verified source-layout baseline: `stage3/linux_init/init_v80.c` + `stage3/linux_init/v80/*.inc.c`
 - known-good fallback: `stage3/boot_linux_v48.img`
 - control channel: USB CDC ACM serial (`/dev/ttyGS0` ↔ `/dev/ttyACM0`)
@@ -55,6 +55,8 @@ Android userspace 대신 직접 만든 static `/init`를 실행하고,
 - boot storage: v79에서 SD boot health check 후 정상 SD는 main runtime storage, 실패 시 `/cache` fallback
 - source layout: v80에서 PID1 source를 기능별 include module로 분리
 - base modules: v81에서 `a90_config.h`와 `a90_util.c/h`를 실제 `.c/.h` API로 분리
+- log/timeline modules: v82에서 `a90_log.c/h`와 `a90_timeline.c/h`를 실제 `.c/.h` API로 분리
+- module roadmap: v83 console/shell/cmdproto, v84 run/service/netservice, v85 UI 계층 분리 예정
 - about app: `APPS / ABOUT`에서 version, changelog 목록/상세, credits 표시
 - input layout: `inputlayout`, `waitgesture`, `screenmenu`/`blindmenu` gesture action 확인
 - input monitor: `TOOLS / INPUT MONITOR`와 `inputmonitor [events]` raw/gesture trace 확인
@@ -86,6 +88,14 @@ Samsung bootloader
 
 즉 이 프로젝트는 더 이상 단순히 “Linux 진입이 가능한가?”를 확인하는 단계가 아니라,
 확보한 진입점을 기반으로 **반복 운용 가능한 최소 Linux 콘솔/서버 환경**을 만드는 단계입니다.
+
+장기 모듈 경계는 아래처럼 잡습니다.
+
+- `init_main`: PID 1 부팅 흐름만 담당
+- `util/log/timeline/dev/storage`: boot/runtime 기반 계층
+- `console/shell/cmdproto/run`: serial 제어와 명령 실행 계층
+- `kms/draw/hud/input/menu`: 화면, 버튼 입력, device UI 계층
+- `usb_gadget/netservice`: USB ACM/NCM, TCP control, 서버형 접근 계층
 
 ## What This Is
 
@@ -145,6 +155,7 @@ Samsung bootloader
 40. boot-time SD health check + `/cache` fallback — v79 완료
 41. PID1 source layout split into include modules — v80 완료
 42. Config/util true `.c/.h` base module extraction — v81 완료
+43. Log/timeline true `.c/.h` API module extraction — v82 완료
 
 ## Repository Layout
 

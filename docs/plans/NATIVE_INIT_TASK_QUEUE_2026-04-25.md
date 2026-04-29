@@ -1,16 +1,16 @@
 # Native Init Task Queue (2026-04-25)
 
-이 문서는 `A90 Linux init 0.8.12 (v81)` verified 이후 바로 실행할 작업 큐다.
+이 문서는 `A90 Linux init 0.8.13 (v82)` verified 이후 바로 실행할 작업 큐다.
 큰 방향은 “보이는 부팅 → 복구 가능한 로그 → 단독 조작 → 작은 userland → USB networking” 순서다.
 
 ## 현재 고정 기준점
 
-- latest verified build: `A90 Linux init 0.8.12 (v81)`
-- official version: `0.8.12`
-- build tag: `v81`
+- latest verified build: `A90 Linux init 0.8.13 (v82)`
+- official version: `0.8.13`
+- build tag: `v82`
 - creator: `made by temmie0214`
-- latest verified source: `stage3/linux_init/init_v81.c` + `stage3/linux_init/v81/*.inc.c` + `stage3/linux_init/a90_config.h` + `stage3/linux_init/a90_util.c/h`
-- latest verified boot image: `stage3/boot_linux_v81.img`
+- latest verified source: `stage3/linux_init/init_v82.c` + `stage3/linux_init/v82/*.inc.c` + `stage3/linux_init/a90_config.h` + `stage3/linux_init/a90_util.c/h` + `stage3/linux_init/a90_log.c/h` + `stage3/linux_init/a90_timeline.c/h`
+- latest verified boot image: `stage3/boot_linux_v82.img`
 - previous verified source-layout baseline: `stage3/linux_init/init_v80.c` + `stage3/linux_init/v80/*.inc.c`
 - known-good fallback: `stage3/boot_linux_v48.img`
 - control channel: USB ACM serial bridge
@@ -1330,9 +1330,57 @@ python3 ./scripts/revalidation/physical_usb_reconnect_check.py --manual-host-con
     - SHA256 `15a23e7485cc08e3eb46aa515ddc341ba2b14b115415b1216b805947f9612181`
   - `docs/reports/NATIVE_INIT_V80_SOURCE_MODULES_2026-04-29.md`
 
+### V81. Config/Util True Base Modules — 완료
+
+- `stage3/linux_init/a90_config.h`
+- `stage3/linux_init/a90_util.c/h`
+- 의도:
+  - version/path/constant와 공통 파일/시간/errno helper를 실제 `.c/.h` API로 승격
+  - PID1 include tree behavior drift를 최소화하고 다음 모듈 추출 기반 확보
+- 검증:
+  - static ARM64 multi-source build with `-Wall -Wextra` — PASS
+  - TWRP flash and post-boot `cmdv1 version/status` — PASS
+  - bridge regression: `storage`, `mountsd status`, `help`, `inputlayout`, `displaytest safe`, `statushud`, `logpath`, `timeline`, `autohud` — PASS
+- 산출:
+  - `docs/reports/NATIVE_INIT_V81_CONFIG_UTIL_2026-04-29.md`
+
+### V82. Log/Timeline True API Modules — 완료
+
+- `stage3/linux_init/a90_log.c/h`
+- `stage3/linux_init/a90_timeline.c/h`
+- `stage3/linux_init/init_v82.c`
+- `stage3/linux_init/v82/*.inc.c`
+- 의도:
+  - native log path/state와 boot timeline array를 include tree 밖 실제 `.c/.h` API로 승격
+  - console/shell/cmdproto, storage, KMS/HUD/menu, netservice는 v82에서 이동하지 않고 안정성 유지
+- 검증:
+  - static ARM64 multi-source build with `-Wall -Wextra` — PASS
+  - `stage3/ramdisk_v82.cpio`, `stage3/boot_linux_v82.img` 생성 — PASS
+  - boot image marker strings `A90 Linux init 0.8.13 (v82)`, `A90v82`, `0.8.13 v82 LOG TIMELINE API` — PASS
+  - TWRP flash and post-boot `cmdv1 version/status` — PASS
+  - bridge regression: `version`, `status`, `logpath`, `timeline`, `bootstatus`, `storage`, `mountsd status`, `displaytest safe`, `autohud 2` — PASS
+- 산출:
+  - `stage3/linux_init/init_v82`
+    - SHA256 `56073411436ded0d75ce53ca2bdb70ca486201588d68dae4dff69029f34a5646`
+  - `stage3/ramdisk_v82.cpio`
+    - SHA256 `2d22fed414f101d0bd033754f127101730a6ad928ac7e6454e93587892cd3a4f`
+  - `stage3/boot_linux_v82.img`
+    - SHA256 `b023e1cf38c5fa1f0328030975189e99bcbb47a9715dadde1af0070badb6ab73`
+  - `docs/reports/NATIVE_INIT_V82_LOG_TIMELINE_2026-04-29.md`
+
 ## 지금 바로 진행할 항목
 
-1. v82 log/timeline module extraction: `a90_log.c/h`, `a90_timeline.c/h`를 실제 `.c/.h` API로 승격
-2. SD workspace 운영: `/mnt/sdext/a90/bin` helper 배치와 `/mnt/sdext/a90/logs` log sink 검토
-3. SD fallback 실험: SD 제거/변경 시 `/cache` fallback warning 확인
-4. Wi-Fi 드라이버/펌웨어 read-only 인벤토리 트랙 분리
+1. v83 console + shell + cmdproto boundary
+   - `console_fd`, `cprintf`, reattach, cancel, shell dispatch, `cmdv1/cmdv1x`의 책임 경계를 정리
+   - console은 입출력 통로, shell은 명령 해석, cmdproto는 framed result만 담당하도록 분리
+2. v84 run/service/netservice management
+   - `run`/timeout/cancel/zombie reap을 공통 실행 계층으로 정리
+   - `netservice`, TCP control, 장기 실행 helper를 start/stop/status 가능한 service 단위로 관리
+3. v85 KMS/draw/HUD/input/menu UI layering
+   - KMS dumb buffer, drawing primitive, HUD, input gesture, menu/app 화면을 계층별로 분리
+   - `menu -> input/hud/shell` 방향은 허용하고 `input/hud -> menu` 순환 의존은 금지
+4. 이후 helper/userland 확장
+   - `helpers/a90_cpustress` 외부 프로세스 분리로 helper 실행 패턴 검증
+   - SD workspace의 `/mnt/sdext/a90/bin` helper 배치와 `/mnt/sdext/a90/logs` log sink 검토
+   - BusyBox/dropbear 또는 custom TCP shell은 service/run 구조 안정화 뒤 검토
+   - Wi-Fi 드라이버/펌웨어는 NCM 기반 제어망 유지 후 read-only 인벤토리 트랙으로 분리

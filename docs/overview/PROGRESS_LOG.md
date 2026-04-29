@@ -1419,3 +1419,45 @@
   - bridge regression: `storage`, `mountsd status`, `help`, `inputlayout`, `displaytest safe`, `statushud`, `logpath`, `timeline`, `autohud` — PASS
 - 상세 보고서:
   - `docs/reports/NATIVE_INIT_V81_CONFIG_UTIL_2026-04-29.md`
+
+## v82: log/timeline true API modules (2026-04-29)
+
+- 목표:
+  - v81 include-module tree에서 native log와 boot timeline state를 실제 `.c/.h` API로 분리
+  - console/shell/cmdproto, storage, KMS/HUD/menu, netservice behavior는 유지
+- 변경:
+  - `stage3/linux_init/a90_log.c/h`
+    - `a90_log_set_path()`
+    - `a90_log_select_or_fallback()`
+    - `a90_logf()`
+    - `a90_log_path()`
+    - `a90_log_ready()`
+  - `stage3/linux_init/a90_timeline.c/h`
+    - `a90_timeline_record()`
+    - `a90_timeline_replay_to_log()`
+    - `a90_timeline_probe_boot_resources()`
+    - `a90_timeline_boot_summary()`
+    - `a90_timeline_count()`
+    - `a90_timeline_entry_at()`
+  - `stage3/linux_init/init_v82.c`
+    - v82 include tree와 `a90_util.c`, `a90_log.c`, `a90_timeline.c`를 함께 link하는 multi-source static init
+    - `INIT_VERSION "0.8.13"`
+    - `INIT_BUILD "v82"`
+  - on-device changelog에 `0.8.13 v82 LOG TIMELINE API` 추가
+- 산출:
+  - `stage3/linux_init/init_v82`
+    - SHA256 `56073411436ded0d75ce53ca2bdb70ca486201588d68dae4dff69029f34a5646`
+  - `stage3/ramdisk_v82.cpio`
+    - SHA256 `2d22fed414f101d0bd033754f127101730a6ad928ac7e6454e93587892cd3a4f`
+  - `stage3/boot_linux_v82.img`
+    - SHA256 `b023e1cf38c5fa1f0328030975189e99bcbb47a9715dadde1af0070badb6ab73`
+- 검증:
+  - static ARM64 multi-source build with `-Wall -Wextra` — PASS
+  - v82 ramdisk/boot image 생성 — PASS
+  - boot image marker strings `A90 Linux init 0.8.13 (v82)`, `A90v82`, `0.8.13 v82 LOG TIMELINE API` — PASS
+  - native init → recovery → TWRP flash → v82 boot — PASS
+  - boot partition prefix SHA256 matched local image — PASS
+  - post-boot `cmdv1 version/status` — PASS
+  - bridge regression: `version`, `status`, `logpath`, `timeline`, `bootstatus`, `storage`, `mountsd status`, `displaytest safe`, `autohud 2` — PASS
+- 문서:
+  - `docs/reports/NATIVE_INIT_V82_LOG_TIMELINE_2026-04-29.md`

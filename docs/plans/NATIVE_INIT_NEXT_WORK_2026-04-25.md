@@ -17,6 +17,46 @@
 
 ---
 
+## 모듈화 설계 기준
+
+v80/v81 이후 모듈화는 단순히 파일을 작게 나누는 작업이 아니라, PID 1이
+실패했을 때 원인을 좁히고 복구 가능한 부팅 경로를 유지하기 위한 구조화 작업이다.
+분리 기준은 아래 네 가지로 고정한다.
+
+- **부팅 순서**: `init_main`은 PID 1 부팅 흐름만 보여 주고, 세부 구현은 모듈에 둔다.
+- **책임 영역**: log, timeline, storage, console, shell, display, input, network를 섞지 않는다.
+- **장애 영향 범위**: boot-critical 계층부터 작게 분리하고, UI/network/service는 안정화 후 분리한다.
+- **의존성 방향**: 하위 계층인 util/log/timeline이 HUD, shell, menu 같은 상위 계층을 호출하지 않게 한다.
+
+참고 구조:
+
+- Linux initramfs: rootfs의 `/init`이 PID 1로 실행되며 이후 부팅을 책임진다.
+  - https://docs.kernel.org/6.2/filesystems/ramfs-rootfs-initramfs.html
+- Android init: early mount/dev/proc 준비와 first/second stage 흐름을 나눈다.
+  - https://android.googlesource.com/platform/system/core.git/+/1350207265745ad3e5ee26017a0f8cc14dc268b8/init/README.md
+- Buildroot/BusyBox init: 임베디드 환경에서는 작은 init과 service/run 구조가 실용적이다.
+  - https://buildroot.org/downloads/manual/manual.html
+- USB gadget configfs: ACM/NCM은 gadget function/config 조합이므로 USB gadget 제어와 network 정책을 분리한다.
+  - https://www.kernel.org/doc/html/latest/usb/gadget_configfs.html
+- DRM/KMS dumb buffer: early graphics에는 저수준 KMS와 drawing/HUD/menu 계층 분리가 적합하다.
+  - https://www.kernel.org/doc/html/v4.8/gpu/drm-kms.html
+
+목표 모듈 경계:
+
+```text
+init_main
+  -> util / log / timeline / dev / storage
+  -> console / shell / cmdproto / run
+  -> kms / draw / hud / input / menu
+  -> usb_gadget / netservice
+  -> optional helpers / BusyBox / dropbear
+```
+
+`v82 log/timeline`은 완료했다. 다음 단기 순서는 `v83 console/shell/cmdproto`,
+`v84 run/service/netservice`, `v85 KMS/draw/HUD/input/menu`로 잡는다.
+
+---
+
 ## 프로젝트 목표 재정의
 
 현재 프로젝트의 목표는 `native Linux 진입 가능성 확인`이 아니라,
@@ -142,18 +182,19 @@ Samsung bootloader
 - boot-time SD health check + `/cache` fallback — v79 완료
 - PID1 source layout split into include modules — v80 완료
 - config/util true `.c/.h` base module extraction — v81 완료
+- log/timeline true `.c/.h` API module extraction — v82 완료
 - static dropbear SSH 또는 custom TCP shell
 
 ---
 
 ## 현재 기준점
 
-- 최신 확인 버전: `A90 Linux init 0.8.12 (v81)`
-- 공식 버전: `0.8.12`
-- build tag: `v81`
+- 최신 확인 버전: `A90 Linux init 0.8.13 (v82)`
+- 공식 버전: `0.8.13`
+- build tag: `v82`
 - creator: `made by temmie0214`
-- 최신 verified 소스: `stage3/linux_init/init_v81.c` + `stage3/linux_init/v81/*.inc.c` + `stage3/linux_init/a90_config.h` + `stage3/linux_init/a90_util.c/h`
-- 최신 verified boot image: `stage3/boot_linux_v81.img`
+- 최신 verified 소스: `stage3/linux_init/init_v82.c` + `stage3/linux_init/v82/*.inc.c` + `stage3/linux_init/a90_config.h` + `stage3/linux_init/a90_util.c/h` + `stage3/linux_init/a90_log.c/h` + `stage3/linux_init/a90_timeline.c/h`
+- 최신 verified boot image: `stage3/boot_linux_v82.img`
 - previous verified source-layout baseline: `stage3/linux_init/init_v80.c` + `stage3/linux_init/v80/*.inc.c`
 - known-good fallback: `stage3/boot_linux_v48.img`
 - 주 제어 채널: USB CDC ACM serial (`/dev/ttyGS0` ↔ `/dev/ttyACM0`)
@@ -189,6 +230,16 @@ Samsung bootloader
 
 상세 상태 문서:
 
+- `docs/reports/NATIVE_INIT_V82_LOG_TIMELINE_2026-04-29.md`
+- `docs/reports/NATIVE_INIT_V81_CONFIG_UTIL_2026-04-29.md`
+- `docs/reports/NATIVE_INIT_V80_SOURCE_MODULES_2026-04-29.md`
+- `docs/reports/NATIVE_INIT_V79_BOOT_STORAGE_2026-04-29.md`
+- `docs/reports/NATIVE_INIT_V78_SD_WORKSPACE_2026-04-29.md`
+- `docs/reports/NATIVE_INIT_V77_DISPLAY_TEST_PAGES_2026-04-27.md`
+- `docs/reports/NATIVE_INIT_V76_AT_FRAGMENT_FILTER_2026-04-27.md`
+- `docs/reports/NATIVE_INIT_V75_QUIET_IDLE_REATTACH_2026-04-27.md`
+- `docs/reports/NATIVE_INIT_V74_CMDV1X_ARG_ENCODING_2026-04-27.md`
+- `docs/reports/NATIVE_INIT_V73_CMDV1_PROTOCOL_2026-04-27.md`
 - `docs/reports/NATIVE_INIT_V45_RUN_LOG_2026-04-25.md`
 - `docs/reports/NATIVE_INIT_STORAGE_MAP_2026-04-25.md`
 - `docs/reports/NATIVE_INIT_V47_SCREEN_MENU_2026-04-25.md`

@@ -12,9 +12,9 @@ Date: `2026-04-29`
 
 - device: `Samsung Galaxy A90 5G SM-A908N`
 - recovery: TWRP 사용 가능
-- latest verified build: `A90 Linux init 0.8.12 (v81)`
-- latest verified source: `stage3/linux_init/init_v81.c` + `stage3/linux_init/v81/*.inc.c` + `stage3/linux_init/a90_config.h` + `stage3/linux_init/a90_util.c/h`
-- latest verified boot image: `stage3/boot_linux_v81.img`
+- latest verified build: `A90 Linux init 0.8.13 (v82)`
+- latest verified source: `stage3/linux_init/init_v82.c` + `stage3/linux_init/v82/*.inc.c` + `stage3/linux_init/a90_config.h` + `stage3/linux_init/a90_util.c/h` + `stage3/linux_init/a90_log.c/h` + `stage3/linux_init/a90_timeline.c/h`
+- latest verified boot image: `stage3/boot_linux_v82.img`
 - previous verified source-layout baseline: `stage3/linux_init/init_v80.c` + `stage3/linux_init/v80/*.inc.c`
 - known-good fallback native init: `A90 Linux init v48`
 - known-good fallback boot image: `stage3/boot_linux_v48.img`
@@ -170,7 +170,7 @@ printf 'version\n' | nc -w 3 127.0.0.1 54321
 정상 예:
 
 ```text
-A90 Linux init 0.8.12 (v81)
+A90 Linux init 0.8.13 (v82)
 made by temmie0214
 kernel: Linux 4.14.190-25818860-abA908NKSU5EWA3 aarch64
 display: 1080x2400 connector=28 crtc=133 fb=207
@@ -269,7 +269,7 @@ adb -s RFCM90CFWXA shell 'twrp reboot'
 ```bash
 python3 ./scripts/revalidation/native_init_flash.py \
   --verify-only \
-  --expect-version "A90 Linux init 0.8.12 (v81)" \
+  --expect-version "A90 Linux init 0.8.13 (v82)" \
   --verify-protocol auto \
   --bridge-timeout 180
 ```
@@ -284,37 +284,41 @@ python3 ./scripts/revalidation/native_init_flash.py \
 
 ## 5. Custom init 수정 흐름
 
-새 버전 예시가 v82라면:
+새 버전 예시가 v83이라면:
 
 ```bash
-cp -r stage3/linux_init/v81 stage3/linux_init/v82
-cp stage3/linux_init/init_v81.c stage3/linux_init/init_v82.c
+cp -r stage3/linux_init/v82 stage3/linux_init/v83
+cp stage3/linux_init/init_v82.c stage3/linux_init/init_v83.c
 ```
 
 반드시 바꿀 것:
 
-- `#define INIT_BUILD "v82"`
-- 예시가 patch 업데이트라면 `#define INIT_VERSION "0.8.13"`로 변경
-- `A90v81` kmsg marker를 `A90v82`로 변경
+- `#define INIT_BUILD "v83"`
+- 예시가 patch 업데이트라면 `#define INIT_VERSION "0.8.14"`로 변경
+- `A90v82` kmsg marker를 `A90v83`으로 변경
 - v49 번호는 재사용하지 않는다.
-- `mark_step("..._v81\n")` 계열을 새 버전으로 변경
+- `mark_step("..._v82\n")` 계열을 새 버전으로 변경
 - README/docs의 latest 기준점은 실기 검증 뒤에만 갱신
 
 검색:
 
 ```bash
-rg -n 'v80|A90v80|init_v80|boot_linux_v80|ramdisk_v80' stage3/linux_init/init_v81.c stage3/linux_init/v81
+rg -n 'v82|A90v82|init_v82|boot_linux_v82|ramdisk_v82' stage3/linux_init/init_v83.c stage3/linux_init/v83
 ```
 
 빌드:
 
 ```bash
 aarch64-linux-gnu-gcc -static -Os -Wall -Wextra \
-  -o stage3/linux_init/init_v81 stage3/linux_init/init_v81.c
-aarch64-linux-gnu-strip stage3/linux_init/init_v81
-file stage3/linux_init/init_v81
-sha256sum stage3/linux_init/init_v81
-strings stage3/linux_init/init_v81 | rg 'A90 Linux init .*\\(v81\\)|A90v81'
+  -o stage3/linux_init/init_v83 \
+  stage3/linux_init/init_v83.c \
+  stage3/linux_init/a90_util.c \
+  stage3/linux_init/a90_log.c \
+  stage3/linux_init/a90_timeline.c
+aarch64-linux-gnu-strip stage3/linux_init/init_v83
+file stage3/linux_init/init_v83
+sha256sum stage3/linux_init/init_v83
+strings stage3/linux_init/init_v83 | rg 'A90 Linux init .*\\(v83\\)|A90v83'
 ```
 
 컴파일 경고를 무시하지 말 것.
@@ -324,26 +328,26 @@ strings stage3/linux_init/init_v81 | rg 'A90 Linux init .*\\(v81\\)|A90v81'
 검증된 이전 boot image에서 kernel/header 인자를 재사용하고 ramdisk만 바꾼다.
 
 ```bash
-rm -rf /tmp/a90_boot_v81_unpack
-mkdir -p /tmp/a90_boot_v81_unpack
+rm -rf /tmp/a90_boot_v83_unpack
+mkdir -p /tmp/a90_boot_v83_unpack
 python3 mkbootimg/unpack_bootimg.py \
-  --boot_img stage3/boot_linux_v81.img \
-  --out /tmp/a90_boot_v81_unpack \
+  --boot_img stage3/boot_linux_v82.img \
+  --out /tmp/a90_boot_v83_unpack \
   --format=mkbootimg \
-  > /tmp/a90_boot_v81_mkbootimg_args.txt
+  > /tmp/a90_boot_v83_mkbootimg_args.txt
 ```
 
 ramdisk 생성:
 
 ```bash
-rm -rf stage3/ramdisk_v81
-mkdir -p stage3/ramdisk_v81/bin
-cp stage3/linux_init/init_v81 stage3/ramdisk_v81/init
-cp stage3/linux_init/a90_sleep stage3/ramdisk_v81/bin/a90sleep
-chmod 755 stage3/ramdisk_v81/init stage3/ramdisk_v81/bin/a90sleep
+rm -rf stage3/ramdisk_v83
+mkdir -p stage3/ramdisk_v83/bin
+cp stage3/linux_init/init_v83 stage3/ramdisk_v83/init
+cp stage3/linux_init/a90_sleep stage3/ramdisk_v83/bin/a90sleep
+chmod 755 stage3/ramdisk_v83/init stage3/ramdisk_v83/bin/a90sleep
 (
-  cd stage3/ramdisk_v81
-  find . | LC_ALL=C sort | cpio -o -H newc > ../ramdisk_v81.cpio
+  cd stage3/ramdisk_v83
+  find . | LC_ALL=C sort | cpio -o -H newc > ../ramdisk_v83.cpio
 )
 ```
 
@@ -355,15 +359,15 @@ from pathlib import Path
 import shlex
 import subprocess
 
-args = shlex.split(Path('/tmp/a90_boot_v81_mkbootimg_args.txt').read_text())
+args = shlex.split(Path('/tmp/a90_boot_v83_mkbootimg_args.txt').read_text())
 for i, item in enumerate(args):
     if item == '--ramdisk':
-        args[i + 1] = 'stage3/ramdisk_v81.cpio'
+        args[i + 1] = 'stage3/ramdisk_v83.cpio'
         break
 else:
     raise SystemExit('missing --ramdisk')
 
-cmd = ['python3', 'mkbootimg/mkbootimg.py', *args, '--output', 'stage3/boot_linux_v81.img']
+cmd = ['python3', 'mkbootimg/mkbootimg.py', *args, '--output', 'stage3/boot_linux_v83.img']
 print(shlex.join(cmd))
 subprocess.run(cmd, check=True)
 PY
@@ -372,9 +376,9 @@ PY
 검증:
 
 ```bash
-ls -lh stage3/ramdisk_v81.cpio stage3/boot_linux_v81.img
-sha256sum stage3/linux_init/init_v81 stage3/ramdisk_v81.cpio stage3/boot_linux_v81.img
-strings stage3/boot_linux_v81.img | rg 'A90 Linux init .*\(v81\)|A90v81'
+ls -lh stage3/ramdisk_v83.cpio stage3/boot_linux_v83.img
+sha256sum stage3/linux_init/init_v83 stage3/ramdisk_v83.cpio stage3/boot_linux_v83.img
+strings stage3/boot_linux_v83.img | rg 'A90 Linux init .*\(v83\)|A90v83'
 ```
 
 ## 7. Boot image 플래시
@@ -389,8 +393,8 @@ adb devices
 
 ```bash
 python3 ./scripts/revalidation/native_init_flash.py \
-  stage3/boot_linux_v81.img \
-  --expect-version "A90 Linux init 0.8.12 (v81)" \
+  stage3/boot_linux_v83.img \
+  --expect-version "A90 Linux init 0.8.14 (v83)" \
   --bridge-timeout 240 \
   --recovery-timeout 180
 ```

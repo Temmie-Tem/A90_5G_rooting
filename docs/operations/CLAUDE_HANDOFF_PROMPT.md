@@ -3,7 +3,7 @@
 Date: `2026-04-29`
 
 아래 블록을 Claude나 다른 에이전트에게 그대로 붙여 넣는다.
-목표는 **먼저 상태를 확인하고, known-good v48 복구 경로와 latest v79 작업 경로를 혼동하지 않게 하는 것**이다.
+목표는 **먼저 상태를 확인하고, known-good v48 복구 경로와 latest verified 작업 경로를 혼동하지 않게 하는 것**이다.
 
 ```text
 너는 /home/temmie/dev/A90_5G_rooting 저장소에서 작업한다.
@@ -16,11 +16,10 @@ Date: `2026-04-29`
 
 현재 기준:
 
-- latest verified build: A90 Linux init 0.8.12 (v81)
-- latest verified source: stage3/linux_init/init_v81.c + stage3/linux_init/v81/*.inc.c + stage3/linux_init/a90_config.h + stage3/linux_init/a90_util.c/h
-- latest verified boot image: stage3/boot_linux_v81.img
-- latest verified boot image SHA256:
-  875411a96af4dd26f9a3941440a10b1a627c5fbabd9ca16c4fbbaf2c93e372a9
+- latest verified build: A90 Linux init 0.8.13 (v82)
+- latest verified source: stage3/linux_init/init_v82.c + stage3/linux_init/v82/*.inc.c + stage3/linux_init/a90_config.h + stage3/linux_init/a90_util.c/h + stage3/linux_init/a90_log.c/h + stage3/linux_init/a90_timeline.c/h
+- latest verified boot image: stage3/boot_linux_v82.img
+- latest verified boot image SHA256: b023e1cf38c5fa1f0328030975189e99bcbb47a9715dadde1af0070badb6ab73
 - previous verified source-layout baseline: stage3/linux_init/init_v80.c + stage3/linux_init/v80/*.inc.c
 - known-good fallback native init: A90 Linux init v48
 - known-good fallback source: stage3/linux_init/init_v48.c
@@ -84,18 +83,18 @@ python3 scripts/revalidation/a90ctl.py --json status || true
 
 판단:
 
-- bridge에서 A90 Linux init 0.8.12 (v81)이 나오면 latest verified native init boot 상태다. `storage`/`mountsd status`로 SD 상태를 재확인한다.
+- bridge에서 A90 Linux init 0.8.13 (v82)이 나오면 latest verified native init boot 상태다. `storage`/`mountsd status`로 SD 상태를 재확인한다.
 - bridge에서 A90 Linux init v48이 나오면 known-good fallback native init 상태다.
 - adb devices -l에서 recovery면 TWRP 상태다.
 - adb devices -l에서 device이고 /proc/1/exe가 /system/bin/init이면 Android 상태다.
 - 04e8:6861 + /dev/ttyACM0인데 bridge가 안 되면 사용자가 sudo bridge를 재시작해야 한다.
 
-latest v81 flash가 정말 필요할 때만 이 스크립트를 사용:
+latest v82 flash가 정말 필요할 때만 이 스크립트를 사용:
 
 python3 ./scripts/revalidation/native_init_flash.py \
-  stage3/boot_linux_v81.img \
+  stage3/boot_linux_v82.img \
   --from-native \
-  --expect-version "A90 Linux init 0.8.12 (v81)" \
+  --expect-version "A90 Linux init 0.8.13 (v82)" \
   --bridge-timeout 240 \
   --recovery-timeout 180
 

@@ -4,12 +4,12 @@ Date: `2026-04-29`
 
 ## Current Version
 
-- latest verified official version: `0.8.12`
-- latest verified build tag: `v81`
-- latest verified display name: `A90 Linux init 0.8.12 (v81)`
+- latest verified official version: `0.8.13`
+- latest verified build tag: `v82`
+- latest verified display name: `A90 Linux init 0.8.13 (v82)`
 - creator: `made by temmie0214`
-- latest verified source: `stage3/linux_init/init_v81.c` + `stage3/linux_init/v81/*.inc.c` + `stage3/linux_init/a90_config.h` + `stage3/linux_init/a90_util.c/h`
-- latest verified boot image: `stage3/boot_linux_v81.img`
+- latest verified source: `stage3/linux_init/init_v82.c` + `stage3/linux_init/v82/*.inc.c` + `stage3/linux_init/a90_config.h` + `stage3/linux_init/a90_util.c/h` + `stage3/linux_init/a90_log.c/h` + `stage3/linux_init/a90_timeline.c/h`
+- latest verified boot image: `stage3/boot_linux_v82.img`
 - previous verified source-layout baseline: `stage3/linux_init/init_v80.c` + `stage3/linux_init/v80/*.inc.c`
 
 ## Version Format
@@ -17,7 +17,7 @@ Date: `2026-04-29`
 공식 버전은 `MAJOR.MINOR.PATCH`를 사용하고, 실험/플래시 추적용 build tag는 `vNN`을 유지한다.
 
 ```text
-A90 Linux init 0.8.12 (v81)
+A90 Linux init 0.8.13 (v82)
 ```
 
 ## Rules
@@ -35,6 +35,7 @@ A90 Linux init 0.8.12 (v81)
 
 | official | build | summary |
 |---|---|---|
+| `0.8.13` | `v82` | log/timeline true `.c/.h` API module extraction |
 | `0.8.12` | `v81` | config/util true `.c/.h` base module extraction |
 | `0.8.11` | `v80` | source layout split into include modules |
 | `0.8.10` | `v79` | boot-time SD health check and cache fallback |
