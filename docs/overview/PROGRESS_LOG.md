@@ -1357,3 +1357,32 @@
   - `mountsd status`: expected UUID `match=yes`, mounted rw, 59968MB size / 56863MB available — PASS
 - 상세 보고서:
   - `docs/reports/NATIVE_INIT_V79_BOOT_STORAGE_2026-04-29.md`
+
+## v80: PID1 source layout split (2026-04-29)
+
+- 목표:
+  - 1만 줄을 넘긴 native init PID1 source를 기능 단위로 나누되, runtime behavior는 v79와 동일하게 유지한다.
+  - 아직 별도 프로세스/helper로 빼지 않고, include 기반 단일 translation unit으로 static global/state visibility를 보존한다.
+- 구현:
+  - `stage3/linux_init/init_v80.c`
+    - 작은 entrypoint로 전환하고 `stage3/linux_init/v80/*.inc.c`를 dependency order로 include
+    - `INIT_VERSION "0.8.11"`
+    - `INIT_BUILD "v80"`
+  - `stage3/linux_init/v80/`
+    - prelude, core/log/console, device/display, status HUD, menu/apps, boot services, shell commands, storage/android/net, shell dispatch, main sequence로 분리
+    - on-device changelog에 `0.8.11 v80 SOURCE MODULES` 추가
+- 산출물:
+  - `stage3/linux_init/init_v80`
+    - SHA256 `f8ad48229cc96cc9a580dbf54b6a5aad847499fa1b9ca5abc517523bbf34292a`
+  - `stage3/ramdisk_v80.cpio`
+    - SHA256 `8d8c4485ae2d65dfcfff3c867b75dba712fa45b28738dca665af1051b24c6fed`
+  - `stage3/boot_linux_v80.img`
+    - SHA256 `15a23e7485cc08e3eb46aa515ddc341ba2b14b115415b1216b805947f9612181`
+- 검증:
+  - static ARM64 build with `-Wall -Wextra` — PASS
+  - v80 ramdisk/boot image 생성 — PASS
+  - boot image marker strings `A90 Linux init 0.8.11 (v80)`, `A90v80`, `0.8.11 v80 SOURCE MODULES` — PASS
+  - TWRP flash and post-boot `cmdv1 version/status` — PASS
+  - bridge regression: `storage`, `mountsd status`, `help`, `inputlayout`, `displaytest safe`, `statushud`, `logpath`, `timeline`, `autohud` — PASS
+- 상세 보고서:
+  - `docs/reports/NATIVE_INIT_V80_SOURCE_MODULES_2026-04-29.md`

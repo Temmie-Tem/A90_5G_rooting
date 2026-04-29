@@ -4,19 +4,20 @@ Date: `2026-04-29`
 
 ## Current Version
 
-- official version: `0.8.10`
-- build tag: `v79`
-- display name: `A90 Linux init 0.8.10 (v79)`
+- latest verified official version: `0.8.11`
+- latest verified build tag: `v80`
+- latest verified display name: `A90 Linux init 0.8.11 (v80)`
 - creator: `made by temmie0214`
-- latest source: `stage3/linux_init/init_v79.c`
-- latest boot image: `stage3/boot_linux_v79.img`
+- latest verified source: `stage3/linux_init/init_v80.c` + `stage3/linux_init/v80/*.inc.c`
+- latest verified boot image: `stage3/boot_linux_v80.img`
+- previous verified monolith: `stage3/linux_init/init_v79.c`
 
 ## Version Format
 
 공식 버전은 `MAJOR.MINOR.PATCH`를 사용하고, 실험/플래시 추적용 build tag는 `vNN`을 유지한다.
 
 ```text
-A90 Linux init 0.8.10 (v79)
+A90 Linux init 0.8.11 (v80)
 ```
 
 ## Rules
@@ -34,6 +35,7 @@ A90 Linux init 0.8.10 (v79)
 
 | official | build | summary |
 |---|---|---|
+| `0.8.11` | `v80` | source layout split into include modules |
 | `0.8.10` | `v79` | boot-time SD health check and cache fallback |
 | `0.8.9` | `v78` | ext4 SD workspace and mountsd storage manager |
 | `0.8.8` | `v77` | display test multi-page app + cutout calibration |

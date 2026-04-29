@@ -1,5 +1,13 @@
 # Changelog
 
+## `0.8.11` (`v80`) - 2026-04-29
+
+- Split the native init PID1 source into include-based functional modules.
+- Kept one static `/init` binary and one translation unit to avoid behavior drift.
+- Preserved v79 boot storage/runtime behavior while making future helper extraction safer.
+- Added on-device `0.8.11 v80` changelog detail.
+- Local build and boot image generation passed; device flash validation is pending.
+
 ## `0.8.10` (`v79`) - 2026-04-29
 
 - Added boot-time SD health check before the main HUD starts.

@@ -1,16 +1,17 @@
 # Native Init Task Queue (2026-04-25)
 
-이 문서는 `A90 Linux init 0.8.10 (v79)` 이후 바로 실행할 작업 큐다.
+이 문서는 `A90 Linux init 0.8.11 (v80)` verified 이후 바로 실행할 작업 큐다.
 큰 방향은 “보이는 부팅 → 복구 가능한 로그 → 단독 조작 → 작은 userland → USB networking” 순서다.
 
 ## 현재 고정 기준점
 
-- latest verified build: `A90 Linux init 0.8.10 (v79)`
-- official version: `0.8.10`
-- build tag: `v79`
+- latest verified build: `A90 Linux init 0.8.11 (v80)`
+- official version: `0.8.11`
+- build tag: `v80`
 - creator: `made by temmie0214`
-- latest source: `stage3/linux_init/init_v79.c`
-- latest boot image: `stage3/boot_linux_v79.img`
+- latest verified source: `stage3/linux_init/init_v80.c` + `stage3/linux_init/v80/*.inc.c`
+- latest verified boot image: `stage3/boot_linux_v80.img`
+- previous verified monolith: `stage3/linux_init/init_v79.c`
 - known-good fallback: `stage3/boot_linux_v48.img`
 - control channel: USB ACM serial bridge
 - log: SD 정상 시 `/mnt/sdext/a90/logs/native-init.log`, fallback 시 `/cache/native-init.log`
@@ -1293,8 +1294,45 @@ python3 ./scripts/revalidation/physical_usb_reconnect_check.py --manual-host-con
   - SHA256 `1e7363085c3edb541b88b360c6e801eef6fcc67feb421b752bdc236c805b8318`
 - `docs/reports/NATIVE_INIT_V79_BOOT_STORAGE_2026-04-29.md`
 
+### V80. PID1 Source Layout Split — 완료
+
+- `stage3/linux_init/init_v80.c`
+  - `INIT_VERSION "0.8.11"`
+  - `INIT_BUILD "v80"`
+  - include 기반 entrypoint로 전환
+- `stage3/linux_init/v80/*.inc.c`
+  - `00_prelude`
+  - `10_core_log_console`
+  - `20_device_display`
+  - `30_status_hud`
+  - `40_menu_apps`
+  - `50_boot_services`
+  - `60_shell_basic_commands`
+  - `70_storage_android_net`
+  - `80_shell_dispatch`
+  - `90_main`
+- 의도:
+  - PID1을 아직 여러 프로세스로 쪼개지 않고, 단일 static `/init` binary는 유지
+  - static global/state를 유지해서 v79 behavior drift를 최소화
+  - 다음 단계에서 helper/process 분리 후보를 더 안전하게 고르기 위한 구조 확보
+- 검증:
+  - static ARM64 build with `-Wall -Wextra` — PASS
+  - `stage3/ramdisk_v80.cpio`, `stage3/boot_linux_v80.img` 생성 — PASS
+  - boot image marker strings `A90 Linux init 0.8.11 (v80)`, `A90v80`, `0.8.11 v80 SOURCE MODULES` — PASS
+  - TWRP flash and post-boot `cmdv1 version/status` — PASS
+  - bridge regression: `storage`, `mountsd status`, `help`, `inputlayout`, `displaytest safe`, `statushud`, `logpath`, `timeline`, `autohud` — PASS
+- 산출:
+  - `stage3/linux_init/init_v80`
+    - SHA256 `f8ad48229cc96cc9a580dbf54b6a5aad847499fa1b9ca5abc517523bbf34292a`
+  - `stage3/ramdisk_v80.cpio`
+    - SHA256 `8d8c4485ae2d65dfcfff3c867b75dba712fa45b28738dca665af1051b24c6fed`
+  - `stage3/boot_linux_v80.img`
+    - SHA256 `15a23e7485cc08e3eb46aa515ddc341ba2b14b115415b1216b805947f9612181`
+  - `docs/reports/NATIVE_INIT_V80_SOURCE_MODULES_2026-04-29.md`
+
 ## 지금 바로 진행할 항목
 
-1. SD workspace 운영: `/mnt/sdext/a90/bin` helper 배치와 `/mnt/sdext/a90/logs` log sink 검토
-2. SD fallback 실험: SD 제거/변경 시 `/cache` fallback warning 확인
-3. Wi-Fi 드라이버/펌웨어 read-only 인벤토리 트랙 분리
+1. v81 true module extraction: `a90_config.h`, `a90_util.c/h`, `a90_log.c/h`, `a90_timeline.c/h`부터 실제 `.c/.h` API로 승격
+2. SD workspace 운영: `/mnt/sdext/a90/bin` helper 배치와 `/mnt/sdext/a90/logs` log sink 검토
+3. SD fallback 실험: SD 제거/변경 시 `/cache` fallback warning 확인
+4. Wi-Fi 드라이버/펌웨어 read-only 인벤토리 트랙 분리

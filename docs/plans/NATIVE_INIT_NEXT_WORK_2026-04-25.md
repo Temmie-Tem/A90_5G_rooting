@@ -140,18 +140,20 @@ Samsung bootloader
 - display test multi-page app + cutout calibration — v77 완료
 - ext4 SD workspace + `mountsd` storage manager — v78 완료
 - boot-time SD health check + `/cache` fallback — v79 완료
+- PID1 source layout split into include modules — v80 완료
 - static dropbear SSH 또는 custom TCP shell
 
 ---
 
 ## 현재 기준점
 
-- 최신 확인 버전: `A90 Linux init 0.8.10 (v79)`
-- 공식 버전: `0.8.10`
-- build tag: `v79`
+- 최신 확인 버전: `A90 Linux init 0.8.11 (v80)`
+- 공식 버전: `0.8.11`
+- build tag: `v80`
 - creator: `made by temmie0214`
-- 최신 소스: `stage3/linux_init/init_v79.c`
-- 최신 boot image: `stage3/boot_linux_v79.img`
+- 최신 verified 소스: `stage3/linux_init/init_v80.c` + `stage3/linux_init/v80/*.inc.c`
+- 최신 verified boot image: `stage3/boot_linux_v80.img`
+- previous verified monolith: `stage3/linux_init/init_v79.c`
 - known-good fallback: `stage3/boot_linux_v48.img`
 - 주 제어 채널: USB CDC ACM serial (`/dev/ttyGS0` ↔ `/dev/ttyACM0`)
 - host bridge: `scripts/revalidation/serial_tcp_bridge.py --port 54321`
