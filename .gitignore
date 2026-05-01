@@ -74,6 +74,7 @@ initramfs_build/*.cpio.gz
 stage3/linux_init/init_v*
 !stage3/linux_init/init_v*.c
 stage3/linux_init/a90_sleep
+stage3/linux_init/helpers/a90_cpustress
 stage3/ramdisk_v*/
 stage3/ramdisk_v*.cpio
 

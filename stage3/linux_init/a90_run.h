@@ -20,6 +20,7 @@ struct a90_run_config {
     const char *log_path;
     bool setsid;
     bool ignore_hup_pipe;
+    bool kill_process_group;
     bool cancelable;
     int timeout_ms;
     int stop_timeout_ms;
@@ -44,6 +45,11 @@ int a90_run_stop_pid(pid_t pid,
                      const char *tag,
                      int term_timeout_ms,
                      int *status_out);
+int a90_run_stop_pid_ex(pid_t pid,
+                        const char *tag,
+                        int term_timeout_ms,
+                        bool kill_process_group,
+                        int *status_out);
 int a90_run_result_to_rc(const struct a90_run_result *result);
 
 #endif

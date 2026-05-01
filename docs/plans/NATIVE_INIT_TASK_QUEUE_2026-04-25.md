@@ -1,19 +1,19 @@
 # Native Init Task Queue (2026-04-25)
 
-이 문서는 `A90 Linux init 0.8.21 (v90)` verified 이후 바로 실행할 작업 큐다.
+이 문서는 `A90 Linux init 0.8.22 (v91)` verified 이후 바로 실행할 작업 큐다.
 큰 방향은 “보이는 부팅 → 복구 가능한 로그 → 단독 조작 → 작은 userland → USB networking” 순서다.
 
 ## 현재 고정 기준점
 
-- latest verified build: `A90 Linux init 0.8.21 (v90)`
-- official version: `0.8.21`
-- build tag: `v90`
+- latest verified build: `A90 Linux init 0.8.22 (v91)`
+- official version: `0.8.22`
+- build tag: `v91`
 - creator: `made by temmie0214`
-- latest verified source: `stage3/linux_init/init_v90.c` + `stage3/linux_init/v90/*.inc.c` + `stage3/linux_init/a90_config.h` + `stage3/linux_init/a90_util.c/h` + `stage3/linux_init/a90_log.c/h` + `stage3/linux_init/a90_timeline.c/h` + `stage3/linux_init/a90_console.c/h` + `stage3/linux_init/a90_cmdproto.c/h` + `stage3/linux_init/a90_run.c/h` + `stage3/linux_init/a90_service.c/h` + `stage3/linux_init/a90_kms.c/h` + `stage3/linux_init/a90_draw.c/h` + `stage3/linux_init/a90_input.c/h` + `stage3/linux_init/a90_hud.c/h` + `stage3/linux_init/a90_menu.c/h` + `stage3/linux_init/a90_metrics.c/h`
-- latest verified boot image: `stage3/boot_linux_v90.img`
+- latest verified source: `stage3/linux_init/init_v91.c` + `stage3/linux_init/v91/*.inc.c` + `stage3/linux_init/helpers/a90_cpustress.c` + `stage3/linux_init/a90_config.h` + `stage3/linux_init/a90_util.c/h` + `stage3/linux_init/a90_log.c/h` + `stage3/linux_init/a90_timeline.c/h` + `stage3/linux_init/a90_console.c/h` + `stage3/linux_init/a90_cmdproto.c/h` + `stage3/linux_init/a90_run.c/h` + `stage3/linux_init/a90_service.c/h` + `stage3/linux_init/a90_kms.c/h` + `stage3/linux_init/a90_draw.c/h` + `stage3/linux_init/a90_input.c/h` + `stage3/linux_init/a90_hud.c/h` + `stage3/linux_init/a90_menu.c/h` + `stage3/linux_init/a90_metrics.c/h`
+- latest verified boot image: `stage3/boot_linux_v91.img`
 - previous verified source-layout baseline: `stage3/linux_init/init_v80.c` + `stage3/linux_init/v80/*.inc.c`
 - known-good fallback: `stage3/boot_linux_v48.img`
-- local artifact retention: `v90` latest, `v89` rollback, `v48` known-good만 보존하고 나머지 ignored stage3 산출물은 정리 가능
+- local artifact retention: `v91` latest, `v90` rollback, `v48` known-good만 보존하고 나머지 ignored stage3 산출물은 정리 가능
 - control channel: USB ACM serial bridge
 - log: SD 정상 시 `/mnt/sdext/a90/logs/native-init.log`, fallback 시 `/cache/native-init.log`
 - verified:
@@ -49,6 +49,7 @@
   - run/service lifecycle compiled API modules
   - KMS/draw framebuffer compiled API modules
   - input/HUD/menu/metrics compiled API modules
+  - CPU stress external helper process separation
 
 ## 실행 큐
 
@@ -1591,17 +1592,41 @@ python3 ./scripts/revalidation/physical_usb_reconnect_check.py --manual-host-con
     - SHA256 `0a968f4732a948e1994b4788d29e46e81d74c2dc4170417c4e4d198d6440beee`
   - `docs/reports/NATIVE_INIT_V90_METRICS_API_2026-05-02.md`
 
+### V91. CPU Stress External Helper — PASS
+
+- `stage3/linux_init/helpers/a90_cpustress.c`
+- `stage3/linux_init/init_v91.c`
+- `stage3/linux_init/v91/*.inc.c`
+- 의도:
+  - CPU stress worker fork를 PID1 내부에서 제거하고 `/bin/a90_cpustress` helper로 분리
+  - shell `cpustress`와 menu CPU stress app이 `a90_run` 기반 helper 실행/stop/reap을 사용
+  - cancel/timeout 시 process-group stop으로 helper worker tree를 함께 종료
+- 검증:
+  - static ARM64 helper/init build with `-Wall -Wextra` — PASS
+  - `stage3/ramdisk_v91.cpio`, `stage3/boot_linux_v91.img` 생성 — PASS
+  - boot image marker strings `A90 Linux init 0.8.22 (v91)`, `A90v91`, `0.8.22 v91 CPUSTRESS HELPER` — PASS
+  - v91 tree old PID1 `cpustress_worker`/PID array 직접 관리 제거 확인 — PASS
+  - TWRP flash → post-boot `cmdv1 version/status` — PASS
+  - `run /bin/a90_cpustress 1 1`, `cpustress 3 2`, q cancel — PASS
+  - `statushud`, `autohud 2`, `watchhud 1 2`, `screenmenu`, `hide`, menu-visible `status`, dangerous-command busy gate — PASS
+- 산출:
+  - `stage3/linux_init/init_v91`
+    - SHA256 `886f267b26ce4198668f933dafafbe93b81a8aa6c9bbec05cc77958b76aaf65d`
+  - `stage3/linux_init/helpers/a90_cpustress`
+    - SHA256 `2130ddf1821c4331d491706636e0197b0f587a086f182e8745e5b41333a069bd`
+  - `stage3/ramdisk_v91.cpio`
+    - SHA256 `ebd8c61fbc45c36aaecc77d98c29c54e4beacabd8369cb56b54d90a10668cac1`
+  - `stage3/boot_linux_v91.img`
+    - SHA256 `a0f027375da3bdd92fc2a4f3d6ed1e6a7ff3963dfcc5961d699dcb829477607f`
+  - `docs/reports/NATIVE_INIT_V91_CPUSTRESS_HELPER_2026-05-02.md`
+
 ## 지금 바로 진행할 항목
 
-0. v91 착수 전 workspace cleanup
-   - `scripts/revalidation/cleanup_stage3_artifacts.py`로 오래된 ignored stage3 boot/ramdisk/init 산출물 정리
-   - 보존 세트: `v90`, `v89`, `v48`
-1. v91 후보 선정
-   - `helpers/a90_cpustress` 외부 프로세스 분리로 helper 실행 패턴 검증
-   - 또는 shell/controller cleanup으로 menu request와 busy gate 경계 정리
+1. v92 후보 선정
+   - shell/controller cleanup으로 command table, menu request, busy gate 경계 정리
    - 또는 storage/netservice 정책 계층 정리
-2. v90 수동 버튼 회귀 보강
-   - 실제 VOL+/VOL-/POWER로 background `screenmenu` move/select/back/hide 확인
+2. v91 수동 버튼 회귀 보강
+   - 실제 VOL+/VOL-/POWER로 background `screenmenu` move/select/back/hide와 CPU stress app start/back 확인
    - POWER page에서 dangerous-command busy gate 유지 확인
    - 필요 시 `blindmenu` rescue foreground menu 확인
 3. 이후 helper/userland 확장

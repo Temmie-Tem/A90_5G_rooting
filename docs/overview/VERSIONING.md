@@ -4,18 +4,18 @@ Date: `2026-05-02`
 
 ## Current Version
 
-- latest verified official version: `0.8.21`
-- latest verified build tag: `v90`
-- latest verified display name: `A90 Linux init 0.8.21 (v90)`
+- latest verified official version: `0.8.22`
+- latest verified build tag: `v91`
+- latest verified display name: `A90 Linux init 0.8.22 (v91)`
 - creator: `made by temmie0214`
-- latest verified source: `stage3/linux_init/init_v90.c` + `stage3/linux_init/v90/*.inc.c` + `stage3/linux_init/a90_config.h` + `stage3/linux_init/a90_util.c/h` + `stage3/linux_init/a90_log.c/h` + `stage3/linux_init/a90_timeline.c/h` + `stage3/linux_init/a90_console.c/h` + `stage3/linux_init/a90_cmdproto.c/h` + `stage3/linux_init/a90_run.c/h` + `stage3/linux_init/a90_service.c/h` + `stage3/linux_init/a90_kms.c/h` + `stage3/linux_init/a90_draw.c/h` + `stage3/linux_init/a90_input.c/h` + `stage3/linux_init/a90_hud.c/h` + `stage3/linux_init/a90_menu.c/h` + `stage3/linux_init/a90_metrics.c/h`
-- latest verified boot image: `stage3/boot_linux_v90.img`
+- latest verified source: `stage3/linux_init/init_v91.c` + `stage3/linux_init/v91/*.inc.c` + `stage3/linux_init/helpers/a90_cpustress.c` + `stage3/linux_init/a90_config.h` + `stage3/linux_init/a90_util.c/h` + `stage3/linux_init/a90_log.c/h` + `stage3/linux_init/a90_timeline.c/h` + `stage3/linux_init/a90_console.c/h` + `stage3/linux_init/a90_cmdproto.c/h` + `stage3/linux_init/a90_run.c/h` + `stage3/linux_init/a90_service.c/h` + `stage3/linux_init/a90_kms.c/h` + `stage3/linux_init/a90_draw.c/h` + `stage3/linux_init/a90_input.c/h` + `stage3/linux_init/a90_hud.c/h` + `stage3/linux_init/a90_menu.c/h` + `stage3/linux_init/a90_metrics.c/h`
+- latest verified boot image: `stage3/boot_linux_v91.img`
 - latest local/pending build: none
 - previous verified source-layout baseline: `stage3/linux_init/init_v80.c` + `stage3/linux_init/v80/*.inc.c`
 
 ## Local Artifact Retention
 
-- 보존: latest verified `v90`, 직전 rollback `v89`, known-good fallback `v48`
+- 보존: latest verified `v91`, 직전 rollback `v90`, known-good fallback `v48`
 - 정리 대상: ignored `stage3/boot_linux_v*.img`, `stage3/ramdisk_v*`, compiled `stage3/linux_init/init_v*` 중 보존 태그가 아닌 파일
 - 정리 도구: `python3 scripts/revalidation/cleanup_stage3_artifacts.py --execute`
 - 보고서의 artifact hash와 tracked source는 유지하므로, 오래된 local binary output은 필요 시 재생성한다.
@@ -25,7 +25,7 @@ Date: `2026-05-02`
 공식 버전은 `MAJOR.MINOR.PATCH`를 사용하고, 실험/플래시 추적용 build tag는 `vNN`을 유지한다.
 
 ```text
-A90 Linux init 0.8.21 (v90)
+A90 Linux init 0.8.22 (v91)
 ```
 
 ## Rules
@@ -43,6 +43,7 @@ A90 Linux init 0.8.21 (v90)
 
 | official | build | summary |
 |---|---|---|
+| `0.8.22` | `v91` | CPU stress external helper process separation |
 | `0.8.21` | `v90` | metrics true `.c/.h` API module extraction |
 | `0.8.20` | `v89` | menu control true `.c/.h` API module extraction + nonblocking `screenmenu` |
 | `0.8.19` | `v88` | HUD true `.c/.h` API module extraction |

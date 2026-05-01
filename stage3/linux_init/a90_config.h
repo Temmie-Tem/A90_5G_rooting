@@ -1,8 +1,8 @@
 #ifndef A90_CONFIG_H
 #define A90_CONFIG_H
 
-#define INIT_VERSION "0.8.21"
-#define INIT_BUILD "v90"
+#define INIT_VERSION "0.8.22"
+#define INIT_BUILD "v91"
 #define INIT_CREATOR "made by temmie0214"
 #define INIT_BANNER "A90 Linux init " INIT_VERSION " (" INIT_BUILD ")"
 #define BOOT_SPLASH_SECONDS 2
@@ -29,6 +29,7 @@
 #define NETSERVICE_TCP_PORT "2325"
 #define NETSERVICE_TCP_IDLE_SECONDS "3600"
 #define NETSERVICE_TCP_MAX_CLIENTS "0"
+#define CPUSTRESS_HELPER "/bin/a90_cpustress"
 #define CMDV1X_MAX_ARGS 32
 #define SD_BLOCK_NAME "mmcblk0p1"
 #define SD_MOUNT_POINT "/mnt/sdext"

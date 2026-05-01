@@ -109,6 +109,8 @@ int a90_run_spawn(const struct a90_run_config *config, pid_t *pid_out) {
         }
         if (config->setsid) {
             setsid();
+        } else if (config->kill_process_group) {
+            setpgid(0, 0);
         }
         apply_stdio(config);
         execve(config->argv[0], config->argv, envp);
@@ -152,12 +154,14 @@ int a90_run_reap_pid(pid_t pid, int *status_out) {
     return -errno;
 }
 
-int a90_run_stop_pid(pid_t pid,
-                     const char *tag,
-                     int term_timeout_ms,
-                     int *status_out) {
+int a90_run_stop_pid_ex(pid_t pid,
+                        const char *tag,
+                        int term_timeout_ms,
+                        bool kill_process_group,
+                        int *status_out) {
     long deadline;
     int status = 0;
+    pid_t target;
 
     if (pid <= 0) {
         return 0;
@@ -166,8 +170,12 @@ int a90_run_stop_pid(pid_t pid,
         term_timeout_ms = 2000;
     }
 
-    a90_logf("run", "%s stopping pid=%ld", tag != NULL ? tag : "run", (long)pid);
-    if (kill(pid, SIGTERM) < 0 && errno != ESRCH) {
+    target = kill_process_group ? -pid : pid;
+    a90_logf("run", "%s stopping pid=%ld%s",
+                tag != NULL ? tag : "run",
+                (long)pid,
+                kill_process_group ? " group=yes" : "");
+    if (kill(target, SIGTERM) < 0 && errno != ESRCH) {
         int saved_errno = errno;
         a90_logf("run", "%s SIGTERM failed pid=%ld errno=%d error=%s",
                     tag != NULL ? tag : "run", (long)pid,
@@ -193,7 +201,7 @@ int a90_run_stop_pid(pid_t pid,
 
     a90_logf("run", "%s SIGTERM timeout; SIGKILL pid=%ld",
                 tag != NULL ? tag : "run", (long)pid);
-    if (kill(pid, SIGKILL) < 0 && errno != ESRCH) {
+    if (kill(target, SIGKILL) < 0 && errno != ESRCH) {
         int saved_errno = errno;
         return -saved_errno;
     }
@@ -204,6 +212,13 @@ int a90_run_stop_pid(pid_t pid,
         *status_out = status;
     }
     return 0;
+}
+
+int a90_run_stop_pid(pid_t pid,
+                     const char *tag,
+                     int term_timeout_ms,
+                     int *status_out) {
+    return a90_run_stop_pid_ex(pid, tag, term_timeout_ms, false, status_out);
 }
 
 int a90_run_result_to_rc(const struct a90_run_result *result) {
@@ -283,8 +298,11 @@ int a90_run_wait(pid_t pid,
                 result->rc = -ETIMEDOUT;
                 result->duration_ms = monotonic_millis() - started_ms;
             }
-            (void)a90_run_stop_pid(pid, tag, stop_timeout_ms,
-                                   result != NULL ? &result->status : NULL);
+            (void)a90_run_stop_pid_ex(pid,
+                                      tag,
+                                      stop_timeout_ms,
+                                      config != NULL && config->kill_process_group,
+                                      result != NULL ? &result->status : NULL);
             return -ETIMEDOUT;
         }
 
@@ -298,8 +316,11 @@ int a90_run_wait(pid_t pid,
                     result->duration_ms = monotonic_millis() - started_ms;
                 }
                 a90_console_printf("%s: terminating pid=%ld\r\n", tag, (long)pid);
-                (void)a90_run_stop_pid(pid, tag, stop_timeout_ms,
-                                       result != NULL ? &result->status : NULL);
+                (void)a90_run_stop_pid_ex(pid,
+                                          tag,
+                                          stop_timeout_ms,
+                                          config != NULL && config->kill_process_group,
+                                          result != NULL ? &result->status : NULL);
                 if (result != NULL) {
                     result->rc = a90_console_cancelled(tag, cancel);
                     return result->rc;
