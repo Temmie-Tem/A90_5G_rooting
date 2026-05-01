@@ -52,9 +52,8 @@ init_main
   -> optional helpers / BusyBox / dropbear
 ```
 
-`v87 Input API`까지 실기 verified 완료했다. 다음 단기 순서는
-`docs/plans/NATIVE_INIT_V88_HUD_API_PLAN_2026-05-02.md` 기준으로 v88 HUD API
-우선 분리를 구현하는 것이다.
+`v88 HUD API`까지 실기 verified 완료했다. 다음 단기 순서는
+menu/controller 경계를 어디까지 분리할지 v89 계획으로 좁히는 것이다.
 shell/cmdproto 착수 지도와 실행 계획은 각각 `docs/reports/NATIVE_INIT_V83_CONSOLE_SHELL_CMDPROTO_DEPENDENCY_MAP_2026-04-29.md`,
 `docs/plans/NATIVE_INIT_V84_SHELL_CMDPROTO_PLAN_2026-04-29.md`에 보존한다.
 
@@ -197,12 +196,12 @@ Samsung bootloader
 
 ## 현재 기준점
 
-- 최신 확인 버전: `A90 Linux init 0.8.18 (v87)`
-- 공식 버전: `0.8.18`
-- build tag: `v87`
+- 최신 확인 버전: `A90 Linux init 0.8.19 (v88)`
+- 공식 버전: `0.8.19`
+- build tag: `v88`
 - creator: `made by temmie0214`
-- 최신 verified 소스: `stage3/linux_init/init_v87.c` + `stage3/linux_init/v87/*.inc.c` + `stage3/linux_init/a90_config.h` + `stage3/linux_init/a90_util.c/h` + `stage3/linux_init/a90_log.c/h` + `stage3/linux_init/a90_timeline.c/h` + `stage3/linux_init/a90_console.c/h` + `stage3/linux_init/a90_cmdproto.c/h` + `stage3/linux_init/a90_run.c/h` + `stage3/linux_init/a90_service.c/h` + `stage3/linux_init/a90_kms.c/h` + `stage3/linux_init/a90_draw.c/h` + `stage3/linux_init/a90_input.c/h`
-- 최신 verified boot image: `stage3/boot_linux_v87.img`
+- 최신 verified 소스: `stage3/linux_init/init_v88.c` + `stage3/linux_init/v88/*.inc.c` + `stage3/linux_init/a90_config.h` + `stage3/linux_init/a90_util.c/h` + `stage3/linux_init/a90_log.c/h` + `stage3/linux_init/a90_timeline.c/h` + `stage3/linux_init/a90_console.c/h` + `stage3/linux_init/a90_cmdproto.c/h` + `stage3/linux_init/a90_run.c/h` + `stage3/linux_init/a90_service.c/h` + `stage3/linux_init/a90_kms.c/h` + `stage3/linux_init/a90_draw.c/h` + `stage3/linux_init/a90_input.c/h` + `stage3/linux_init/a90_hud.c/h`
+- 최신 verified boot image: `stage3/boot_linux_v88.img`
 - previous verified source-layout baseline: `stage3/linux_init/init_v80.c` + `stage3/linux_init/v80/*.inc.c`
 - known-good fallback: `stage3/boot_linux_v48.img`
 - 주 제어 채널: USB CDC ACM serial (`/dev/ttyGS0` ↔ `/dev/ttyACM0`)
@@ -825,12 +824,11 @@ Samsung bootloader
 
 상세 실행 큐는 `docs/plans/NATIVE_INIT_TASK_QUEUE_2026-04-25.md`를 따른다.
 
-1. v88 HUD API 구현
-2. menu/app 화면은 의존성이 가장 크므로 v88에서는 HUD 경계만 먼저 분리
-3. input gesture와 menu controller 순환 의존 방지
-4. v87 input API 기준으로 `waitkey`/`waitgesture` 수동 버튼 회귀를 보강 기록
-5. helper/userland 확장 후보를 v88 이후로 유지
-6. SD workspace helper 배치와 Wi-Fi read-only 인벤토리 트랙 분리
+1. v89 menu/controller 분리 범위 계획
+2. screenmenu/blindmenu/app routing과 HUD/input 의존 방향 재확인
+3. v88 HUD API 기준으로 `statushud`/`autohud`/`screenmenu` 물리 버튼 회귀 보강 기록
+4. helper/userland 확장 후보를 v89 이후로 유지
+5. SD workspace helper 배치와 Wi-Fi read-only 인벤토리 트랙 분리
 
 ---
 

@@ -120,11 +120,11 @@
 ## 현재 폰 상태
 
 - patched AP (Magisk 30.7) + **TWRP recovery 사용 가능**
-- 최신 verified build: `stage3/boot_linux_v87.img` (`A90 Linux init 0.8.18 (v87)`)
-- 최신 verified source: `stage3/linux_init/init_v87.c` + `stage3/linux_init/v87/*.inc.c` + `stage3/linux_init/a90_config.h` + `stage3/linux_init/a90_util.c/h` + `stage3/linux_init/a90_log.c/h` + `stage3/linux_init/a90_timeline.c/h` + `stage3/linux_init/a90_console.c/h` + `stage3/linux_init/a90_cmdproto.c/h` + `stage3/linux_init/a90_run.c/h` + `stage3/linux_init/a90_service.c/h` + `stage3/linux_init/a90_kms.c/h` + `stage3/linux_init/a90_draw.c/h` + `stage3/linux_init/a90_input.c/h`
+- 최신 verified build: `stage3/boot_linux_v88.img` (`A90 Linux init 0.8.19 (v88)`)
+- 최신 verified source: `stage3/linux_init/init_v88.c` + `stage3/linux_init/v88/*.inc.c` + `stage3/linux_init/a90_config.h` + `stage3/linux_init/a90_util.c/h` + `stage3/linux_init/a90_log.c/h` + `stage3/linux_init/a90_timeline.c/h` + `stage3/linux_init/a90_console.c/h` + `stage3/linux_init/a90_cmdproto.c/h` + `stage3/linux_init/a90_run.c/h` + `stage3/linux_init/a90_service.c/h` + `stage3/linux_init/a90_kms.c/h` + `stage3/linux_init/a90_draw.c/h` + `stage3/linux_init/a90_input.c/h` + `stage3/linux_init/a90_hud.c/h`
 - previous verified source-layout baseline: `stage3/linux_init/init_v80.c` + `stage3/linux_init/v80/*.inc.c`
-- 공식 버전: `0.8.18`
-- build tag: `v87`
+- 공식 버전: `0.8.19`
+- build tag: `v88`
 - creator: `made by temmie0214`
 - known-good fallback: `stage3/boot_linux_v48.img` (`A90 Linux init v48`)
 - 격리 상태: `stage3/boot_linux_v49.img`는 boot partition prefix readback은 일치했지만
@@ -232,9 +232,9 @@
 - proc / sys / devtmpfs / ext4(/dev/block/sda31) 마운트 성공
 - 핵심 우회: devtmpfs async 초기화 문제를 `mknod(makedev(259,15))` 로 해결
 
-### 3-2. USB ACM serial console + 인터랙티브 셸 (v8~v87)
+### 3-2. USB ACM serial console + 인터랙티브 셸 (v8~v88)
 
-**현재 버전**: `init_v87` (`stage3/boot_linux_v87.img`) / `0.8.18 (v87)`
+**현재 버전**: `init_v88` (`stage3/boot_linux_v88.img`) / `0.8.19 (v88)`
 
 ADB 방식이 막혀 USB CDC ACM serial (ttyGS0)로 전환. v79까지 반복 안정화:
 

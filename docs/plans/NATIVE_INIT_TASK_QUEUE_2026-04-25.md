@@ -1,16 +1,16 @@
 # Native Init Task Queue (2026-04-25)
 
-이 문서는 `A90 Linux init 0.8.18 (v87)` verified 이후 바로 실행할 작업 큐다.
+이 문서는 `A90 Linux init 0.8.19 (v88)` verified 이후 바로 실행할 작업 큐다.
 큰 방향은 “보이는 부팅 → 복구 가능한 로그 → 단독 조작 → 작은 userland → USB networking” 순서다.
 
 ## 현재 고정 기준점
 
-- latest verified build: `A90 Linux init 0.8.18 (v87)`
-- official version: `0.8.18`
-- build tag: `v87`
+- latest verified build: `A90 Linux init 0.8.19 (v88)`
+- official version: `0.8.19`
+- build tag: `v88`
 - creator: `made by temmie0214`
-- latest verified source: `stage3/linux_init/init_v87.c` + `stage3/linux_init/v87/*.inc.c` + `stage3/linux_init/a90_config.h` + `stage3/linux_init/a90_util.c/h` + `stage3/linux_init/a90_log.c/h` + `stage3/linux_init/a90_timeline.c/h` + `stage3/linux_init/a90_console.c/h` + `stage3/linux_init/a90_cmdproto.c/h` + `stage3/linux_init/a90_run.c/h` + `stage3/linux_init/a90_service.c/h` + `stage3/linux_init/a90_kms.c/h` + `stage3/linux_init/a90_draw.c/h` + `stage3/linux_init/a90_input.c/h`
-- latest verified boot image: `stage3/boot_linux_v87.img`
+- latest verified source: `stage3/linux_init/init_v88.c` + `stage3/linux_init/v88/*.inc.c` + `stage3/linux_init/a90_config.h` + `stage3/linux_init/a90_util.c/h` + `stage3/linux_init/a90_log.c/h` + `stage3/linux_init/a90_timeline.c/h` + `stage3/linux_init/a90_console.c/h` + `stage3/linux_init/a90_cmdproto.c/h` + `stage3/linux_init/a90_run.c/h` + `stage3/linux_init/a90_service.c/h` + `stage3/linux_init/a90_kms.c/h` + `stage3/linux_init/a90_draw.c/h` + `stage3/linux_init/a90_input.c/h` + `stage3/linux_init/a90_hud.c/h`
+- latest verified boot image: `stage3/boot_linux_v88.img`
 - previous verified source-layout baseline: `stage3/linux_init/init_v80.c` + `stage3/linux_init/v80/*.inc.c`
 - known-good fallback: `stage3/boot_linux_v48.img`
 - control channel: USB ACM serial bridge
@@ -1509,31 +1509,39 @@ python3 ./scripts/revalidation/physical_usb_reconnect_check.py --manual-host-con
   - `docs/plans/NATIVE_INIT_V87_INPUT_API_PLAN_2026-04-30.md`
   - `docs/reports/NATIVE_INIT_V87_INPUT_API_2026-04-30.md`
 
-### V88. HUD API Module — planned
+### V88. HUD API Module — PASS
 
-- 계획:
-  - `docs/plans/NATIVE_INIT_V88_HUD_API_PLAN_2026-05-02.md`
-- 목표:
-  - `A90 Linux init 0.8.19 (v88)`
-  - `0.8.19 v88 HUD API`
+- `stage3/linux_init/a90_hud.c/h`
+- `stage3/linux_init/init_v88.c`
+- `stage3/linux_init/v88/*.inc.c`
 - 의도:
   - boot splash, status HUD, boot summary, warning/status display, log tail panel을 `a90_hud.c/h`로 분리
   - `screenmenu`, `blindmenu`, app routing, displaytest, cutoutcal, inputmonitor 화면은 v88 include tree에 유지
   - `hud -> kms/draw/metrics/storage/timeline/log` 방향은 허용하고 `hud -> menu`, `input -> menu`, `draw -> hud` 순환은 금지
-- 산출 예정:
-  - `stage3/linux_init/a90_hud.c/h`
-  - `stage3/linux_init/init_v88.c`
-  - `stage3/linux_init/v88/*.inc.c`
+- 검증:
+  - static ARM64 multi-source build with `-Wall -Wextra` — PASS
+  - `stage3/ramdisk_v88.cpio`, `stage3/boot_linux_v88.img` 생성 — PASS
+  - boot image marker strings `A90 Linux init 0.8.19 (v88)`, `A90v88`, `0.8.19 v88 HUD API` — PASS
+  - old direct `kms_draw_status_overlay` / `kms_draw_log_tail_panel` / `kms_draw_boot_splash` 구현 제거 — PASS
+  - TWRP flash → post-boot `cmdv1 version/status` — PASS
+  - `statushud`, `autohud 2`, `watchhud 1 2`, `displaytest safe`, `storage`, `mountsd status` — PASS
+  - `screenmenu` 표시와 raw `q` cancel recovery — PASS
+- 산출:
+  - `stage3/linux_init/init_v88`
+    - SHA256 `2897aacfe521eaeffd09cbaef05b0d42f102090f38e886a76d7e16e34e0e48cc`
+  - `stage3/ramdisk_v88.cpio`
+    - SHA256 `0d5875e70078a25a72c7682fcd5a056be9956ae20ee0e2186aca24f686357091`
   - `stage3/boot_linux_v88.img`
+    - SHA256 `a8b7a79be3866533042d9fbf883587943c12d195eb3486289b15683317852a6a`
+  - `docs/plans/NATIVE_INIT_V88_HUD_API_PLAN_2026-05-02.md`
   - `docs/reports/NATIVE_INIT_V88_HUD_API_2026-05-02.md`
 
 ## 지금 바로 진행할 항목
 
-1. v88 HUD API 구현
-   - `docs/plans/NATIVE_INIT_V88_HUD_API_PLAN_2026-05-02.md` 기준으로 boot splash/status HUD/log tail을 먼저 분리
-   - menu는 의존성이 가장 크므로 v89+ 후보로 유지
-   - `menu -> input/hud/shell` 방향은 허용하고 `input/hud -> menu` 순환 의존은 금지
-2. v87 수동 입력 회귀 보강
+1. v89 menu/controller 분리 범위 계획
+   - `screenmenu`, `blindmenu`, app routing, app screen state를 어디까지 `a90_menu.c/h`로 옮길지 먼저 설계
+   - `menu -> input/hud/shell` 방향은 허용하고 `input/hud -> menu` 순환 의존은 계속 금지
+2. v88 HUD API 수동 버튼 회귀 보강
    - 필요 시 `waitkey`, `waitgesture`, `inputmonitor 0`, `screenmenu`, `blindmenu`에서 실제 VOL+/VOL-/POWER 입력을 한 번 더 기록
 3. 이후 helper/userland 확장
    - `helpers/a90_cpustress` 외부 프로세스 분리로 helper 실행 패턴 검증

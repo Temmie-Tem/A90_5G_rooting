@@ -1,15 +1,15 @@
 # Native Init Versioning
 
-Date: `2026-04-30`
+Date: `2026-05-02`
 
 ## Current Version
 
-- latest verified official version: `0.8.18`
-- latest verified build tag: `v87`
-- latest verified display name: `A90 Linux init 0.8.18 (v87)`
+- latest verified official version: `0.8.19`
+- latest verified build tag: `v88`
+- latest verified display name: `A90 Linux init 0.8.19 (v88)`
 - creator: `made by temmie0214`
-- latest verified source: `stage3/linux_init/init_v87.c` + `stage3/linux_init/v87/*.inc.c` + `stage3/linux_init/a90_config.h` + `stage3/linux_init/a90_util.c/h` + `stage3/linux_init/a90_log.c/h` + `stage3/linux_init/a90_timeline.c/h` + `stage3/linux_init/a90_console.c/h` + `stage3/linux_init/a90_cmdproto.c/h` + `stage3/linux_init/a90_run.c/h` + `stage3/linux_init/a90_service.c/h` + `stage3/linux_init/a90_kms.c/h` + `stage3/linux_init/a90_draw.c/h` + `stage3/linux_init/a90_input.c/h`
-- latest verified boot image: `stage3/boot_linux_v87.img`
+- latest verified source: `stage3/linux_init/init_v88.c` + `stage3/linux_init/v88/*.inc.c` + `stage3/linux_init/a90_config.h` + `stage3/linux_init/a90_util.c/h` + `stage3/linux_init/a90_log.c/h` + `stage3/linux_init/a90_timeline.c/h` + `stage3/linux_init/a90_console.c/h` + `stage3/linux_init/a90_cmdproto.c/h` + `stage3/linux_init/a90_run.c/h` + `stage3/linux_init/a90_service.c/h` + `stage3/linux_init/a90_kms.c/h` + `stage3/linux_init/a90_draw.c/h` + `stage3/linux_init/a90_input.c/h` + `stage3/linux_init/a90_hud.c/h`
+- latest verified boot image: `stage3/boot_linux_v88.img`
 - latest local/pending build: none
 - previous verified source-layout baseline: `stage3/linux_init/init_v80.c` + `stage3/linux_init/v80/*.inc.c`
 
@@ -18,7 +18,7 @@ Date: `2026-04-30`
 공식 버전은 `MAJOR.MINOR.PATCH`를 사용하고, 실험/플래시 추적용 build tag는 `vNN`을 유지한다.
 
 ```text
-A90 Linux init 0.8.18 (v87)
+A90 Linux init 0.8.19 (v88)
 ```
 
 ## Rules
@@ -36,6 +36,7 @@ A90 Linux init 0.8.18 (v87)
 
 | official | build | summary |
 |---|---|---|
+| `0.8.19` | `v88` | HUD true `.c/.h` API module extraction |
 | `0.8.18` | `v87` | input true `.c/.h` API module extraction |
 | `0.8.17` | `v86` | KMS/draw true `.c/.h` API module extraction |
 | `0.8.16` | `v85` | run/service process lifecycle true `.c/.h` API module extraction |
