@@ -1622,9 +1622,12 @@ python3 ./scripts/revalidation/physical_usb_reconnect_check.py --manual-host-con
 
 ## 지금 바로 진행할 항목
 
-1. v92 후보 선정
-   - shell/controller cleanup으로 command table, menu request, busy gate 경계 정리
-   - 또는 storage/netservice 정책 계층 정리
+1. v92 shell/controller cleanup 실기 검증
+   - 계획서: `docs/plans/NATIVE_INIT_V92_SHELL_CONTROLLER_PLAN_2026-05-02.md`
+   - 로컬 산출물: `stage3/boot_linux_v92.img`
+   - 로컬 보고서: `docs/reports/NATIVE_INIT_V92_SHELL_CONTROLLER_API_2026-05-02.md`
+   - command table, last result, menu request, busy gate 경계 안전 분리의 실기 회귀를 확인한다.
+   - storage/netservice 정책 계층 정리는 v93+ 후보로 미룬다.
 2. 이후 helper/userland 확장
    - SD workspace의 `/mnt/sdext/a90/bin` helper 배치와 `/mnt/sdext/a90/logs` log sink 검토
    - BusyBox/dropbear 또는 custom TCP shell은 service/run 구조 안정화 뒤 검토

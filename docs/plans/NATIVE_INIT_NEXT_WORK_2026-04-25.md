@@ -52,8 +52,9 @@ init_main
   -> optional helpers / BusyBox / dropbear
 ```
 
-`v91 CPUSTRESS HELPER`까지 실기 verified 완료했다. 다음 단기 순서는
-shell/controller 정리 또는 storage/netservice 계층 정리 중 하나를 v92로 좁히는 것이다.
+`v91 CPUSTRESS HELPER`까지 실기 verified 완료했다. v92 방향은
+shell/controller cleanup으로 확정했고, command dispatch와 menu busy policy를
+작게 API화하는 계획은 `docs/plans/NATIVE_INIT_V92_SHELL_CONTROLLER_PLAN_2026-05-02.md`에 둔다.
 shell/cmdproto 착수 지도와 실행 계획은 각각 `docs/reports/NATIVE_INIT_V83_CONSOLE_SHELL_CMDPROTO_DEPENDENCY_MAP_2026-04-29.md`,
 `docs/plans/NATIVE_INIT_V84_SHELL_CMDPROTO_PLAN_2026-04-29.md`에 보존한다.
 
@@ -828,10 +829,11 @@ Samsung bootloader
 
 상세 실행 큐는 `docs/plans/NATIVE_INIT_TASK_QUEUE_2026-04-25.md`를 따른다.
 
-1. v92 후보 선정: shell/controller cleanup 또는 storage/netservice 계층 정리 중 하나로 좁히기
-2. v91 CPU stress menu 물리 버튼 회귀 결과는 PASS로 기록 완료
-3. helper/userland 확장 후보를 v92 이후로 유지
-4. SD workspace helper 배치와 Wi-Fi read-only 인벤토리 트랙 분리
+1. v92 boot image 실기 flash/bridge 검증
+2. v92 shell/controller busy gate 회귀 확인
+3. v91 CPU stress menu 물리 버튼 회귀 결과는 PASS로 기록 완료
+4. helper/userland 확장 후보를 v92 이후로 유지
+5. SD workspace helper 배치와 Wi-Fi read-only 인벤토리 트랙 분리
 
 ---
 
