@@ -1509,11 +1509,29 @@ python3 ./scripts/revalidation/physical_usb_reconnect_check.py --manual-host-con
   - `docs/plans/NATIVE_INIT_V87_INPUT_API_PLAN_2026-04-30.md`
   - `docs/reports/NATIVE_INIT_V87_INPUT_API_2026-04-30.md`
 
+### V88. HUD API Module — planned
+
+- 계획:
+  - `docs/plans/NATIVE_INIT_V88_HUD_API_PLAN_2026-05-02.md`
+- 목표:
+  - `A90 Linux init 0.8.19 (v88)`
+  - `0.8.19 v88 HUD API`
+- 의도:
+  - boot splash, status HUD, boot summary, warning/status display, log tail panel을 `a90_hud.c/h`로 분리
+  - `screenmenu`, `blindmenu`, app routing, displaytest, cutoutcal, inputmonitor 화면은 v88 include tree에 유지
+  - `hud -> kms/draw/metrics/storage/timeline/log` 방향은 허용하고 `hud -> menu`, `input -> menu`, `draw -> hud` 순환은 금지
+- 산출 예정:
+  - `stage3/linux_init/a90_hud.c/h`
+  - `stage3/linux_init/init_v88.c`
+  - `stage3/linux_init/v88/*.inc.c`
+  - `stage3/boot_linux_v88.img`
+  - `docs/reports/NATIVE_INIT_V88_HUD_API_2026-05-02.md`
+
 ## 지금 바로 진행할 항목
 
-1. v88 HUD/menu UI layering
-   - input API가 실기 검증된 뒤 HUD 또는 menu 상위 계층을 더 작게 분리
-   - menu는 의존성이 가장 크므로 가능하면 마지막 후보로 유지
+1. v88 HUD API 구현
+   - `docs/plans/NATIVE_INIT_V88_HUD_API_PLAN_2026-05-02.md` 기준으로 boot splash/status HUD/log tail을 먼저 분리
+   - menu는 의존성이 가장 크므로 v89+ 후보로 유지
    - `menu -> input/hud/shell` 방향은 허용하고 `input/hud -> menu` 순환 의존은 금지
 2. v87 수동 입력 회귀 보강
    - 필요 시 `waitkey`, `waitgesture`, `inputmonitor 0`, `screenmenu`, `blindmenu`에서 실제 VOL+/VOL-/POWER 입력을 한 번 더 기록
