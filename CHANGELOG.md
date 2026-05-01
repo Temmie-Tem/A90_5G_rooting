@@ -1,5 +1,21 @@
 # Changelog
 
+## `0.8.20` (`v89`) - 2026-05-02
+
+- Added `a90_menu.c/h` for menu page/action/app enums, item/page tables, menu state movement, action-to-app mapping, and CPU stress duration mapping.
+- Changed `screenmenu`/`menu` into nonblocking background HUD menu show requests that return framed cmdv1 results immediately.
+- Added formal `hide`, `hidemenu`, and `resume` commands for HUD menu hide requests.
+- Extended auto-menu IPC from hide-only to show/hide while keeping `blindmenu` as the blocking rescue foreground path.
+- Verified v89 flash, `cmdv1 version/status`, nonblocking `screenmenu`, menu-visible observability commands, `hide`, display/HUD regressions, and SD storage status.
+
+## `0.8.19` (`v88`) - 2026-05-02
+
+- Added `a90_hud.c/h` for boot splash line storage/rendering, status HUD rendering, status snapshot reads, and log tail panel rendering.
+- Replaced direct include-tree HUD drawing helpers with `a90_hud_*` calls while keeping the visual layout stable.
+- Kept `screenmenu`, `blindmenu`, app routing, displaytest, cutoutcal, and inputmonitor logic in the v88 include tree.
+- Added a small storage-status bridge so HUD rendering does not directly depend on the include-tree `boot_storage` static state.
+- Verified v88 flash, `cmdv1 version/status`, `statushud`, `autohud 2`, `watchhud 1 2`, `displaytest safe`, `storage`, `mountsd status`, and screenmenu cancel.
+
 ## `0.8.18` (`v87`) - 2026-04-30
 
 - Added `a90_input.c/h` for physical button context open/close, key wait, gesture wait, gesture decoder helpers, and menu-action mapping.

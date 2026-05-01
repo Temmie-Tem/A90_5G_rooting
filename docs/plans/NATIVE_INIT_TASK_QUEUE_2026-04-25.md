@@ -1,16 +1,16 @@
 # Native Init Task Queue (2026-04-25)
 
-이 문서는 `A90 Linux init 0.8.19 (v88)` verified 이후 바로 실행할 작업 큐다.
+이 문서는 `A90 Linux init 0.8.20 (v89)` verified 이후 바로 실행할 작업 큐다.
 큰 방향은 “보이는 부팅 → 복구 가능한 로그 → 단독 조작 → 작은 userland → USB networking” 순서다.
 
 ## 현재 고정 기준점
 
-- latest verified build: `A90 Linux init 0.8.19 (v88)`
-- official version: `0.8.19`
-- build tag: `v88`
+- latest verified build: `A90 Linux init 0.8.20 (v89)`
+- official version: `0.8.20`
+- build tag: `v89`
 - creator: `made by temmie0214`
-- latest verified source: `stage3/linux_init/init_v88.c` + `stage3/linux_init/v88/*.inc.c` + `stage3/linux_init/a90_config.h` + `stage3/linux_init/a90_util.c/h` + `stage3/linux_init/a90_log.c/h` + `stage3/linux_init/a90_timeline.c/h` + `stage3/linux_init/a90_console.c/h` + `stage3/linux_init/a90_cmdproto.c/h` + `stage3/linux_init/a90_run.c/h` + `stage3/linux_init/a90_service.c/h` + `stage3/linux_init/a90_kms.c/h` + `stage3/linux_init/a90_draw.c/h` + `stage3/linux_init/a90_input.c/h` + `stage3/linux_init/a90_hud.c/h`
-- latest verified boot image: `stage3/boot_linux_v88.img`
+- latest verified source: `stage3/linux_init/init_v89.c` + `stage3/linux_init/v89/*.inc.c` + `stage3/linux_init/a90_config.h` + `stage3/linux_init/a90_util.c/h` + `stage3/linux_init/a90_log.c/h` + `stage3/linux_init/a90_timeline.c/h` + `stage3/linux_init/a90_console.c/h` + `stage3/linux_init/a90_cmdproto.c/h` + `stage3/linux_init/a90_run.c/h` + `stage3/linux_init/a90_service.c/h` + `stage3/linux_init/a90_kms.c/h` + `stage3/linux_init/a90_draw.c/h` + `stage3/linux_init/a90_input.c/h` + `stage3/linux_init/a90_hud.c/h` + `stage3/linux_init/a90_menu.c/h`
+- latest verified boot image: `stage3/boot_linux_v89.img`
 - previous verified source-layout baseline: `stage3/linux_init/init_v80.c` + `stage3/linux_init/v80/*.inc.c`
 - known-good fallback: `stage3/boot_linux_v48.img`
 - control channel: USB ACM serial bridge
@@ -1536,15 +1536,44 @@ python3 ./scripts/revalidation/physical_usb_reconnect_check.py --manual-host-con
   - `docs/plans/NATIVE_INIT_V88_HUD_API_PLAN_2026-05-02.md`
   - `docs/reports/NATIVE_INIT_V88_HUD_API_2026-05-02.md`
 
+### V89. Menu Control API + Nonblocking Screenmenu — PASS
+
+- `stage3/linux_init/a90_menu.c/h`
+- `stage3/linux_init/init_v89.c`
+- `stage3/linux_init/v89/*.inc.c`
+- 의도:
+  - menu page/action/app enum, item/page table, menu state 이동을 `a90_menu.c/h`로 분리
+  - `screenmenu`/`menu`를 shell 점유 foreground 명령에서 background HUD show request로 변경
+  - `hide`/`hidemenu`/`resume`을 정식 command로 등록
+  - `blindmenu`는 rescue foreground menu로 유지
+- 검증:
+  - static ARM64 multi-source build with `-Wall -Wextra` — PASS
+  - `stage3/ramdisk_v89.cpio`, `stage3/boot_linux_v89.img` 생성 — PASS
+  - boot image marker strings `A90 Linux init 0.8.20 (v89)`, `A90v89`, `0.8.20 v89 MENU CONTROL API` — PASS
+  - TWRP flash → post-boot `cmdv1 version/status` — PASS
+  - `screenmenu` 즉시 반환 `rc=0/status=ok/duration_ms=0` — PASS
+  - menu visible 중 `status`, `logpath`, `timeline`, `storage` 응답 — PASS
+  - `hide`, `bootstatus`, `statushud`, `autohud 2`, `displaytest safe`, `cutoutcal`, `watchhud 1 2` — PASS
+- 산출:
+  - `stage3/linux_init/init_v89`
+    - SHA256 `516d3b0c93104c00a0a5d9a8633cfe7041a75b7cfcf35871d65cb9ccbefe689f`
+  - `stage3/ramdisk_v89.cpio`
+    - SHA256 `2a702cfdbe82633407583137dc5871b1a0911565cea1f3fcc1cfe0141cd2628e`
+  - `stage3/boot_linux_v89.img`
+    - SHA256 `57a6b5b5a9091c5fe0339e5359ec34e68af00f040c64dfc902636aaedbc618ba`
+  - `docs/reports/NATIVE_INIT_V89_MENU_CONTROL_API_2026-05-02.md`
+
 ## 지금 바로 진행할 항목
 
-1. v89 menu/controller 분리 범위 계획
-   - `screenmenu`, `blindmenu`, app routing, app screen state를 어디까지 `a90_menu.c/h`로 옮길지 먼저 설계
-   - `menu -> input/hud/shell` 방향은 허용하고 `input/hud -> menu` 순환 의존은 계속 금지
-2. v88 HUD API 수동 버튼 회귀 보강
-   - 필요 시 `waitkey`, `waitgesture`, `inputmonitor 0`, `screenmenu`, `blindmenu`에서 실제 VOL+/VOL-/POWER 입력을 한 번 더 기록
+1. v90 후보 선정
+   - `a90_metrics.c/h`로 CPU/GPU/BAT/MEM sysfs snapshot 분리
+   - 또는 `helpers/a90_cpustress` 외부 프로세스 분리로 helper 실행 패턴 검증
+   - 또는 shell/controller cleanup으로 menu request와 busy gate 경계 정리
+2. v89 수동 버튼 회귀 보강
+   - 실제 VOL+/VOL-/POWER로 background `screenmenu` move/select/back/hide 확인
+   - POWER page에서 dangerous-command busy gate 유지 확인
+   - 필요 시 `blindmenu` rescue foreground menu 확인
 3. 이후 helper/userland 확장
-   - `helpers/a90_cpustress` 외부 프로세스 분리로 helper 실행 패턴 검증
    - SD workspace의 `/mnt/sdext/a90/bin` helper 배치와 `/mnt/sdext/a90/logs` log sink 검토
    - BusyBox/dropbear 또는 custom TCP shell은 service/run 구조 안정화 뒤 검토
    - Wi-Fi 드라이버/펌웨어는 NCM 기반 제어망 유지 후 read-only 인벤토리 트랙으로 분리
