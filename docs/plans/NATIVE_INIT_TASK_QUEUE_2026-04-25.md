@@ -1,16 +1,16 @@
 # Native Init Task Queue (2026-04-25)
 
-이 문서는 `A90 Linux init 0.8.17 (v86)` verified 이후 바로 실행할 작업 큐다.
+이 문서는 `A90 Linux init 0.8.18 (v87)` verified 이후 바로 실행할 작업 큐다.
 큰 방향은 “보이는 부팅 → 복구 가능한 로그 → 단독 조작 → 작은 userland → USB networking” 순서다.
 
 ## 현재 고정 기준점
 
-- latest verified build: `A90 Linux init 0.8.17 (v86)`
-- official version: `0.8.17`
-- build tag: `v86`
+- latest verified build: `A90 Linux init 0.8.18 (v87)`
+- official version: `0.8.18`
+- build tag: `v87`
 - creator: `made by temmie0214`
-- latest verified source: `stage3/linux_init/init_v86.c` + `stage3/linux_init/v86/*.inc.c` + `stage3/linux_init/a90_config.h` + `stage3/linux_init/a90_util.c/h` + `stage3/linux_init/a90_log.c/h` + `stage3/linux_init/a90_timeline.c/h` + `stage3/linux_init/a90_console.c/h` + `stage3/linux_init/a90_cmdproto.c/h` + `stage3/linux_init/a90_run.c/h` + `stage3/linux_init/a90_service.c/h` + `stage3/linux_init/a90_kms.c/h` + `stage3/linux_init/a90_draw.c/h`
-- latest verified boot image: `stage3/boot_linux_v86.img`
+- latest verified source: `stage3/linux_init/init_v87.c` + `stage3/linux_init/v87/*.inc.c` + `stage3/linux_init/a90_config.h` + `stage3/linux_init/a90_util.c/h` + `stage3/linux_init/a90_log.c/h` + `stage3/linux_init/a90_timeline.c/h` + `stage3/linux_init/a90_console.c/h` + `stage3/linux_init/a90_cmdproto.c/h` + `stage3/linux_init/a90_run.c/h` + `stage3/linux_init/a90_service.c/h` + `stage3/linux_init/a90_kms.c/h` + `stage3/linux_init/a90_draw.c/h` + `stage3/linux_init/a90_input.c/h`
+- latest verified boot image: `stage3/boot_linux_v87.img`
 - previous verified source-layout baseline: `stage3/linux_init/init_v80.c` + `stage3/linux_init/v80/*.inc.c`
 - known-good fallback: `stage3/boot_linux_v48.img`
 - control channel: USB ACM serial bridge
@@ -1480,7 +1480,7 @@ python3 ./scripts/revalidation/physical_usb_reconnect_check.py --manual-host-con
   - `docs/plans/NATIVE_INIT_V86_KMS_DRAW_PLAN_2026-04-30.md`
   - `docs/reports/NATIVE_INIT_V86_KMS_DRAW_API_2026-04-30.md`
 
-### V87. Input API Module — local PASS / device pending
+### V87. Input API Module — PASS
 
 - `stage3/linux_init/a90_input.c/h`
 - `stage3/linux_init/init_v87.c`
@@ -1494,8 +1494,11 @@ python3 ./scripts/revalidation/physical_usb_reconnect_check.py --manual-host-con
   - `stage3/ramdisk_v87.cpio`, `stage3/boot_linux_v87.img` 생성 — PASS
   - boot image marker strings `A90 Linux init 0.8.18 (v87)`, `A90v87`, `0.8.18 v87 INPUT API` — PASS
   - old direct `key_wait_context` / `open_key_wait_context` / `wait_for_input_gesture` 구현 제거 — PASS
-  - bridge availability probe `a90ctl.py --timeout 3 version` — PENDING (`A90P1 END` timeout/reset)
-  - native bridge → TWRP flash → post-boot `cmdv1 version/status` — PENDING
+  - TWRP flash → post-boot `cmdv1 version/status` — PASS
+  - `bootstatus`의 `BOOT OK shell 4.0s` 0.1초 표기 — PASS
+  - `logpath`, `timeline`, `storage`, `mountsd status`, `inputlayout`, `inputcaps event0/event3` — PASS
+  - `kmsprobe`, `kmsframe`, `statushud`, `displaytest safe`, `cutoutcal`, `autohud 2` — PASS
+  - `run /bin/a90sleep 1`, `cpustress 3 2`, `watchhud 1 2` — PASS
 - 산출:
   - `stage3/linux_init/init_v87`
     - SHA256 `122db3f8a089667fecab864e9e63d5ab65961da774ad20196820d74d5e124bc0`
@@ -1508,14 +1511,12 @@ python3 ./scripts/revalidation/physical_usb_reconnect_check.py --manual-host-con
 
 ## 지금 바로 진행할 항목
 
-1. v87 실기 flash/regression
-   - bridge/device 상태 복구 후 `stage3/boot_linux_v87.img` flash
-   - `version`, `status`, `bootstatus`, `inputlayout`, `waitkey`, `waitgesture`, `inputmonitor`, `screenmenu`, `blindmenu`, `displaytest safe`, `cutoutcal`, `autohud 2` 확인
-   - PASS 후 README/latest verified 문서를 v87로 승격
-2. v88 HUD/menu UI layering
+1. v88 HUD/menu UI layering
    - input API가 실기 검증된 뒤 HUD 또는 menu 상위 계층을 더 작게 분리
    - menu는 의존성이 가장 크므로 가능하면 마지막 후보로 유지
    - `menu -> input/hud/shell` 방향은 허용하고 `input/hud -> menu` 순환 의존은 금지
+2. v87 수동 입력 회귀 보강
+   - 필요 시 `waitkey`, `waitgesture`, `inputmonitor 0`, `screenmenu`, `blindmenu`에서 실제 VOL+/VOL-/POWER 입력을 한 번 더 기록
 3. 이후 helper/userland 확장
    - `helpers/a90_cpustress` 외부 프로세스 분리로 helper 실행 패턴 검증
    - SD workspace의 `/mnt/sdext/a90/bin` helper 배치와 `/mnt/sdext/a90/logs` log sink 검토

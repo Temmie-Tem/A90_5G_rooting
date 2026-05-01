@@ -120,11 +120,11 @@
 ## 현재 폰 상태
 
 - patched AP (Magisk 30.7) + **TWRP recovery 사용 가능**
-- 최신 verified build: `stage3/boot_linux_v86.img` (`A90 Linux init 0.8.17 (v86)`)
-- 최신 verified source: `stage3/linux_init/init_v86.c` + `stage3/linux_init/v86/*.inc.c` + `stage3/linux_init/a90_config.h` + `stage3/linux_init/a90_util.c/h` + `stage3/linux_init/a90_log.c/h` + `stage3/linux_init/a90_timeline.c/h` + `stage3/linux_init/a90_console.c/h` + `stage3/linux_init/a90_cmdproto.c/h` + `stage3/linux_init/a90_run.c/h` + `stage3/linux_init/a90_service.c/h` + `stage3/linux_init/a90_kms.c/h` + `stage3/linux_init/a90_draw.c/h`
+- 최신 verified build: `stage3/boot_linux_v87.img` (`A90 Linux init 0.8.18 (v87)`)
+- 최신 verified source: `stage3/linux_init/init_v87.c` + `stage3/linux_init/v87/*.inc.c` + `stage3/linux_init/a90_config.h` + `stage3/linux_init/a90_util.c/h` + `stage3/linux_init/a90_log.c/h` + `stage3/linux_init/a90_timeline.c/h` + `stage3/linux_init/a90_console.c/h` + `stage3/linux_init/a90_cmdproto.c/h` + `stage3/linux_init/a90_run.c/h` + `stage3/linux_init/a90_service.c/h` + `stage3/linux_init/a90_kms.c/h` + `stage3/linux_init/a90_draw.c/h` + `stage3/linux_init/a90_input.c/h`
 - previous verified source-layout baseline: `stage3/linux_init/init_v80.c` + `stage3/linux_init/v80/*.inc.c`
-- 공식 버전: `0.8.17`
-- build tag: `v86`
+- 공식 버전: `0.8.18`
+- build tag: `v87`
 - creator: `made by temmie0214`
 - known-good fallback: `stage3/boot_linux_v48.img` (`A90 Linux init v48`)
 - 격리 상태: `stage3/boot_linux_v49.img`는 boot partition prefix readback은 일치했지만
@@ -165,12 +165,14 @@
 - cmdproto module 상태: v84에서 `a90_cmdproto.c/h`로 `cmdv1/cmdv1x` frame/status/decode를 실제 compiled module/API로 분리하고 실기 회귀 검증 완료
 - run/service module 상태: v85에서 `a90_run.c/h`와 `a90_service.c/h`로 process lifecycle과 PID registry를 실제 compiled module/API로 분리하고 실기 회귀 검증 완료
 - KMS/draw module 상태: v86에서 `a90_kms.c/h`와 `a90_draw.c/h`로 DRM/KMS 상태와 framebuffer primitive를 실제 compiled module/API로 분리하고 실기 회귀 검증 완료
+- input module 상태: v87에서 `a90_input.c/h`로 물리 버튼 open/close, key wait, gesture wait, decoder, menu action mapping을 실제 compiled module/API로 분리하고 실기 회귀 검증 완료
 - about app 상태: `APPS / ABOUT`에서 version, changelog 목록/상세, credits 표시
 - log tail panel 상태: HUD hidden과 menu visible spare area에서 current native log tail 표시 확인
 - serial reattach log 상태: v75에서 idle-timeout 성공 reattach 로그 억제, 수동/오류 reattach 로그 유지 확인
 - serial noise 상태: v76에서 짧은 `A`/`T`/`AT`/`ATA`/`ATAT` fragment와 `AT+GCAP` probe line 무시 확인
 - shell protocol 상태: `cmdv1`/`A90P1` framed result와 v74 `cmdv1x` whitespace argv encoding 검증 완료, v84에서 cmdproto API로 분리 완료
-- 상세 최신 verified 상태: `docs/reports/NATIVE_INIT_V86_KMS_DRAW_API_2026-04-30.md`
+- 상세 최신 verified 상태: `docs/reports/NATIVE_INIT_V87_INPUT_API_2026-04-30.md`
+- v87 input API 기록: `docs/reports/NATIVE_INIT_V87_INPUT_API_2026-04-30.md`
 - v86 KMS/draw API 기록: `docs/reports/NATIVE_INIT_V86_KMS_DRAW_API_2026-04-30.md`
 - v85 run/service API 기록: `docs/reports/NATIVE_INIT_V85_RUN_SERVICE_API_2026-04-30.md`
 - v84 cmdproto API 기록: `docs/reports/NATIVE_INIT_V84_CMDPROTO_API_2026-04-30.md`
@@ -230,9 +232,9 @@
 - proc / sys / devtmpfs / ext4(/dev/block/sda31) 마운트 성공
 - 핵심 우회: devtmpfs async 초기화 문제를 `mknod(makedev(259,15))` 로 해결
 
-### 3-2. USB ACM serial console + 인터랙티브 셸 (v8~v86)
+### 3-2. USB ACM serial console + 인터랙티브 셸 (v8~v87)
 
-**현재 버전**: `init_v86` (`stage3/boot_linux_v86.img`) / `0.8.17 (v86)`
+**현재 버전**: `init_v87` (`stage3/boot_linux_v87.img`) / `0.8.18 (v87)`
 
 ADB 방식이 막혀 USB CDC ACM serial (ttyGS0)로 전환. v79까지 반복 안정화:
 
@@ -288,8 +290,9 @@ ADB 방식이 막혀 USB CDC ACM serial (ttyGS0)로 전환. v79까지 반복 안
 | v84 | `a90_cmdproto.c/h` 실제 `cmdv1/cmdv1x` frame/decode API 분리 |
 | v85 | `a90_run.c/h`, `a90_service.c/h` 실제 process/service lifecycle API 분리 |
 | v86 | `a90_kms.c/h`, `a90_draw.c/h` 실제 KMS/draw API 분리 |
+| v87 | `a90_input.c/h` 실제 input/gesture API 분리 |
 
-**확보된 관찰/제어 범위 (v86 verified build 기준):**
+**확보된 관찰/제어 범위 (v87 verified build 기준):**
 
 | 항목 | 상태 |
 |---|---|
@@ -297,6 +300,8 @@ ADB 방식이 막혀 USB CDC ACM serial (ttyGS0)로 전환. v79까지 반복 안
 | Console API module | 작동 — fd는 `a90_console.c` 내부 static, attach/reattach/readline/cancel API 회귀 검증 |
 | Cmdproto API module | 작동 — `A90P1` frame/status와 `cmdv1x` whitespace argv decode 회귀 검증 |
 | Run/service API module | 작동 — `run`/`runandroid`/`tcpctl`/`adbd` lifecycle와 q cancel 회귀 검증 |
+| KMS/draw API module | 작동 — DRM/KMS 상태와 framebuffer primitive를 실제 `.c/.h` API로 분리 |
+| Input API module | 작동 — input context, key wait, gesture wait, decoder, menu action mapping을 실제 `.c/.h` API로 분리 |
 | 인터랙티브 셸 | 작동, command table 기반 dispatch |
 | /proc, /sys, /dev 마운트 | 작동 |
 | /cache (ext4) 마운트 + 로그 | 작동. v79부터 SD 정상 시 `/mnt/sdext/a90/logs/native-init.log`, fallback 시 `/cache/native-init.log` |
@@ -351,10 +356,10 @@ ADB 방식이 막혀 USB CDC ACM serial (ttyGS0)로 전환. v79까지 반복 안
 
 ## 다음 후보 작업
 
-우선순위 순 (v86 verified build 이후):
+우선순위 순 (v87 verified build 이후):
 
-1. **v87 Input API 실기 검증** — local build 완료, device flash/regression pending
-2. **v88 HUD/menu UI layering** — input 검증 뒤 HUD 또는 menu를 한 단계씩 분리
+1. **v88 HUD/menu UI layering** — input API 검증 뒤 HUD 또는 menu를 한 단계씩 분리
+2. **v87 수동 입력 회귀 보강** — 필요 시 `waitkey`/`waitgesture`/`inputmonitor 0` 실제 버튼 로그 추가
 3. **SD workspace 운영** — `/mnt/sdext/a90/bin` helper 배치와 log sink 운영 정책 결정
 4. **Wi-Fi 인벤토리** — 드라이버/펌웨어/vendor daemon read-only 조사
 

@@ -1620,7 +1620,7 @@
   - `docs/plans/NATIVE_INIT_V86_KMS_DRAW_PLAN_2026-04-30.md`
   - `docs/reports/NATIVE_INIT_V86_KMS_DRAW_API_2026-04-30.md`
 
-## v87: input API module local build (2026-04-30)
+## v87: input API module (2026-04-30)
 
 - 목표:
   - 물리 버튼 open/close, key wait, gesture wait, gesture decoder를 `a90_input.c/h`로 분리한다.
@@ -1647,8 +1647,12 @@
   - boot image marker strings `A90 Linux init 0.8.18 (v87)`, `A90v87`, `0.8.18 v87 INPUT API` — PASS
   - old direct `key_wait_context` / `open_key_wait_context` / `wait_for_input_gesture` 구현 제거 — PASS
   - host script `py_compile` — PASS
-  - bridge probe `a90ctl.py --timeout 3 version` — PENDING (`A90P1 END` timeout/reset)
-  - 실기 flash/regression — PENDING
+  - TWRP flash → boot partition prefix readback → v87 boot — PASS
+  - post-boot `cmdv1 version/status` — PASS
+  - `bootstatus` 0.1초 summary 표기(`BOOT OK shell 4.0s`) — PASS
+  - `logpath`, `timeline`, `storage`, `mountsd status`, `inputlayout`, `inputcaps event0/event3` — PASS
+  - `kmsprobe`, `kmsframe`, `statushud`, `displaytest safe`, `cutoutcal`, `autohud 2` — PASS
+  - `run /bin/a90sleep 1`, `cpustress 3 2`, `watchhud 1 2` — PASS
 - 문서:
   - `docs/plans/NATIVE_INIT_V87_INPUT_API_PLAN_2026-04-30.md`
   - `docs/reports/NATIVE_INIT_V87_INPUT_API_2026-04-30.md`

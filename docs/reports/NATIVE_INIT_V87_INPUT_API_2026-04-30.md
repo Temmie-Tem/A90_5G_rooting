@@ -6,7 +6,7 @@
 - Source: `stage3/linux_init/init_v87.c` + `stage3/linux_init/v87/*.inc.c`
 - New module: `stage3/linux_init/a90_input.c/h`
 - Boot image: `stage3/boot_linux_v87.img`
-- Result: LOCAL PASS / DEVICE PENDING — local build, static checks, boot image generation, and marker checks passed; bridge returned timeout/reset before device flash validation.
+- Result: PASS — local build, static checks, boot image generation, TWRP flash, post-boot cmdv1 verify, and noninteractive regression checks passed.
 
 ## Changes
 
@@ -30,17 +30,19 @@
 - Static checks: no old direct `key_wait_context` / `open_key_wait_context` / `wait_for_input_gesture` implementation in v87 include tree — PASS
 - Host script checks: `py_compile` for `a90ctl.py`, `native_init_flash.py`, `tcpctl_host.py`, `netservice_reconnect_soak.py` — PASS
 - Boot image markers: `A90 Linux init 0.8.18 (v87)`, `A90v87`, `0.8.18 v87 INPUT API` — PASS
-- Bridge availability probe: `a90ctl.py --timeout 3 version` — FAIL/PENDING (`A90P1 END` timeout and connection reset)
-- Device flash: PENDING until bridge/device state is restored.
+- Device flash: `python3 scripts/revalidation/native_init_flash.py stage3/boot_linux_v87.img --expect-version "A90 Linux init 0.8.18 (v87)" --verify-protocol auto` — PASS
+- Boot partition prefix readback: SHA256 matched `stage3/boot_linux_v87.img` — PASS
+- Post-boot cmdv1 verify: `version` and `status` rc=0/status=ok — PASS
+- Boot summary: `BOOT OK shell 4.0s` 0.1s formatting visible in `status`/`bootstatus` — PASS
+- Shell/storage/input API: `version`, `status`, `bootstatus`, `logpath`, `timeline`, `storage`, `mountsd status`, `inputlayout`, `inputcaps event0`, `inputcaps event3` — PASS
+- Display/run regression: `kmsprobe`, `kmsframe`, `statushud`, `displaytest safe`, `cutoutcal`, `autohud 2`, `run /bin/a90sleep 1`, `cpustress 3 2`, `watchhud 1 2` — PASS
 
-## Pending Device Regression
+## Manual Follow-up
 
-- Flash: `python3 scripts/revalidation/native_init_flash.py stage3/boot_linux_v87.img --from-native --expect-version "A90 Linux init 0.8.18 (v87)" --verify-protocol auto`
-- Shell: `version`, `status`, `bootstatus`, `statushud`, `autohud 2`
-- Input: `inputlayout`, `waitkey`, `waitgesture`, `inputmonitor 0`, `screenmenu`, `blindmenu`
-- Display: `displaytest safe`, `cutoutcal`, `kmsframe`, menu busy gate, q/Ctrl-C cancel
+- Optional physical-button pass: `waitkey`, `waitgesture`, `inputmonitor 0`, `screenmenu`, and `blindmenu` with actual VOL+/VOL-/POWER presses.
+- Optional cancel pass: q/Ctrl-C cancel while `screenmenu`/`inputmonitor 0` are active.
 
 ## Notes
 
-- Latest verified remains `A90 Linux init 0.8.17 (v86)` until v87 device validation passes.
-- v87 intentionally keeps menu/HUD/displaytest policy in the include tree. The next split should happen only after input regressions pass on-device.
+- Latest verified is now `A90 Linux init 0.8.18 (v87)`.
+- v87 intentionally keeps menu/HUD/displaytest policy in the include tree. The next split should target HUD/menu layering without introducing `input -> menu` or `hud -> menu` dependencies.
