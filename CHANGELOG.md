@@ -1,5 +1,13 @@
 # Changelog
 
+## `0.8.21` (`v90`) - 2026-05-02
+
+- Added `a90_metrics.c/h` for battery, CPU, GPU, memory, power, uptime, and CPU frequency snapshot helpers.
+- Removed metric/sysfs read ownership from `a90_hud.c/h` so HUD remains a renderer over metrics snapshots.
+- Updated `status`, status HUD, and CPU stress screen callsites to use the shared metrics API.
+- Preserved v89 menu control behavior, nonblocking `screenmenu`, storage, displaytest, and cutout calibration behavior.
+- Verified v90 flash, `cmdv1 version/status`, `statushud`, `autohud`, `watchhud`, `screenmenu`, `hide`, SD storage, `cpustress`, `displaytest safe`, and `cutoutcal`.
+
 ## `0.8.20` (`v89`) - 2026-05-02
 
 - Added `a90_menu.c/h` for menu page/action/app enums, item/page tables, menu state movement, action-to-app mapping, and CPU stress duration mapping.

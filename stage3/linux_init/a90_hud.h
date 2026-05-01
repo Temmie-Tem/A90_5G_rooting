@@ -6,6 +6,7 @@
 #include <stdint.h>
 
 #include "a90_kms.h"
+#include "a90_metrics.h"
 
 struct a90_hud_storage_status {
     const char *backend;
@@ -13,24 +14,6 @@ struct a90_hud_storage_status {
     const char *warning;
 };
 
-struct a90_hud_status_snapshot {
-    char battery_status[64];
-    char battery_pct[32];
-    char battery_temp[32];
-    char battery_voltage[32];
-    char cpu_temp[32];
-    char cpu_usage[16];
-    char gpu_temp[32];
-    char gpu_usage[16];
-    char memory[64];
-    char loadavg[32];
-    char uptime[32];
-    char power_now[32];
-    char power_avg[32];
-};
-
-int a90_hud_read_sysfs_long(const char *path, long *value_out);
-void a90_hud_read_status_snapshot(struct a90_hud_status_snapshot *snapshot);
 void a90_hud_boot_splash_set_line(size_t index, const char *fmt, ...);
 void a90_hud_draw_boot_splash(struct a90_fb *fb);
 void a90_hud_draw_status_overlay(struct a90_fb *fb,

@@ -47,13 +47,13 @@ v80/v81 이후 모듈화는 단순히 파일을 작게 나누는 작업이 아�
 init_main
   -> util / log / timeline / dev / storage
   -> console / shell / cmdproto / run
-  -> kms / draw / hud / input / menu
+  -> metrics / kms / draw / hud / input / menu
   -> usb_gadget / netservice
   -> optional helpers / BusyBox / dropbear
 ```
 
-`v89 MENU CONTROL API`까지 실기 verified 완료했다. 다음 단기 순서는
-metrics/helper/service-controller 중 어느 계층을 v90으로 작게 분리할지 고르는 것이다.
+`v90 METRICS API`까지 실기 verified 완료했다. 다음 단기 순서는
+helper 외부 프로세스화, service/controller 정리, storage/netservice 계층 정리 중 하나를 v91로 좁히는 것이다.
 shell/cmdproto 착수 지도와 실행 계획은 각각 `docs/reports/NATIVE_INIT_V83_CONSOLE_SHELL_CMDPROTO_DEPENDENCY_MAP_2026-04-29.md`,
 `docs/plans/NATIVE_INIT_V84_SHELL_CMDPROTO_PLAN_2026-04-29.md`에 보존한다.
 
@@ -190,18 +190,21 @@ Samsung bootloader
 - run/service true `.c/.h` API module extraction — v85 완료
 - KMS/draw true `.c/.h` API module extraction — v86 완료
 - input true `.c/.h` API module extraction — v87 완료
+- HUD true `.c/.h` API module extraction — v88 완료
+- menu control true `.c/.h` API module extraction + nonblocking `screenmenu` — v89 완료
+- metrics true `.c/.h` API module extraction — v90 완료
 - static dropbear SSH 또는 custom TCP shell
 
 ---
 
 ## 현재 기준점
 
-- 최신 확인 버전: `A90 Linux init 0.8.20 (v89)`
-- 공식 버전: `0.8.20`
-- build tag: `v89`
+- 최신 확인 버전: `A90 Linux init 0.8.21 (v90)`
+- 공식 버전: `0.8.21`
+- build tag: `v90`
 - creator: `made by temmie0214`
-- 최신 verified 소스: `stage3/linux_init/init_v89.c` + `stage3/linux_init/v89/*.inc.c` + `stage3/linux_init/a90_config.h` + `stage3/linux_init/a90_util.c/h` + `stage3/linux_init/a90_log.c/h` + `stage3/linux_init/a90_timeline.c/h` + `stage3/linux_init/a90_console.c/h` + `stage3/linux_init/a90_cmdproto.c/h` + `stage3/linux_init/a90_run.c/h` + `stage3/linux_init/a90_service.c/h` + `stage3/linux_init/a90_kms.c/h` + `stage3/linux_init/a90_draw.c/h` + `stage3/linux_init/a90_input.c/h` + `stage3/linux_init/a90_hud.c/h` + `stage3/linux_init/a90_menu.c/h`
-- 최신 verified boot image: `stage3/boot_linux_v89.img`
+- 최신 verified 소스: `stage3/linux_init/init_v90.c` + `stage3/linux_init/v90/*.inc.c` + `stage3/linux_init/a90_config.h` + `stage3/linux_init/a90_util.c/h` + `stage3/linux_init/a90_log.c/h` + `stage3/linux_init/a90_timeline.c/h` + `stage3/linux_init/a90_console.c/h` + `stage3/linux_init/a90_cmdproto.c/h` + `stage3/linux_init/a90_run.c/h` + `stage3/linux_init/a90_service.c/h` + `stage3/linux_init/a90_kms.c/h` + `stage3/linux_init/a90_draw.c/h` + `stage3/linux_init/a90_input.c/h` + `stage3/linux_init/a90_hud.c/h` + `stage3/linux_init/a90_menu.c/h` + `stage3/linux_init/a90_metrics.c/h`
+- 최신 verified boot image: `stage3/boot_linux_v90.img`
 - previous verified source-layout baseline: `stage3/linux_init/init_v80.c` + `stage3/linux_init/v80/*.inc.c`
 - known-good fallback: `stage3/boot_linux_v48.img`
 - 주 제어 채널: USB CDC ACM serial (`/dev/ttyGS0` ↔ `/dev/ttyACM0`)
@@ -824,10 +827,10 @@ Samsung bootloader
 
 상세 실행 큐는 `docs/plans/NATIVE_INIT_TASK_QUEUE_2026-04-25.md`를 따른다.
 
-1. v90 후보 선정: `a90_metrics.c/h`, `helpers/a90_cpustress`, shell/controller cleanup 중 하나로 좁히기
-2. v89 background `screenmenu` 물리 버튼 회귀 보강 기록
+1. v91 후보 선정: `helpers/a90_cpustress`, shell/controller cleanup, storage/netservice 계층 정리 중 하나로 좁히기
+2. v90 background `screenmenu` 물리 버튼 회귀 보강 기록
 3. POWER page busy gate와 `hide`/`hidemenu` escape path 수동 확인
-4. helper/userland 확장 후보를 v90 이후로 유지
+4. helper/userland 확장 후보를 v91 이후로 유지
 5. SD workspace helper 배치와 Wi-Fi read-only 인벤토리 트랙 분리
 
 ---

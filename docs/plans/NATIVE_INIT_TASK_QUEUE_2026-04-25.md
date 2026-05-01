@@ -1,16 +1,16 @@
 # Native Init Task Queue (2026-04-25)
 
-이 문서는 `A90 Linux init 0.8.20 (v89)` verified 이후 바로 실행할 작업 큐다.
+이 문서는 `A90 Linux init 0.8.21 (v90)` verified 이후 바로 실행할 작업 큐다.
 큰 방향은 “보이는 부팅 → 복구 가능한 로그 → 단독 조작 → 작은 userland → USB networking” 순서다.
 
 ## 현재 고정 기준점
 
-- latest verified build: `A90 Linux init 0.8.20 (v89)`
-- official version: `0.8.20`
-- build tag: `v89`
+- latest verified build: `A90 Linux init 0.8.21 (v90)`
+- official version: `0.8.21`
+- build tag: `v90`
 - creator: `made by temmie0214`
-- latest verified source: `stage3/linux_init/init_v89.c` + `stage3/linux_init/v89/*.inc.c` + `stage3/linux_init/a90_config.h` + `stage3/linux_init/a90_util.c/h` + `stage3/linux_init/a90_log.c/h` + `stage3/linux_init/a90_timeline.c/h` + `stage3/linux_init/a90_console.c/h` + `stage3/linux_init/a90_cmdproto.c/h` + `stage3/linux_init/a90_run.c/h` + `stage3/linux_init/a90_service.c/h` + `stage3/linux_init/a90_kms.c/h` + `stage3/linux_init/a90_draw.c/h` + `stage3/linux_init/a90_input.c/h` + `stage3/linux_init/a90_hud.c/h` + `stage3/linux_init/a90_menu.c/h`
-- latest verified boot image: `stage3/boot_linux_v89.img`
+- latest verified source: `stage3/linux_init/init_v90.c` + `stage3/linux_init/v90/*.inc.c` + `stage3/linux_init/a90_config.h` + `stage3/linux_init/a90_util.c/h` + `stage3/linux_init/a90_log.c/h` + `stage3/linux_init/a90_timeline.c/h` + `stage3/linux_init/a90_console.c/h` + `stage3/linux_init/a90_cmdproto.c/h` + `stage3/linux_init/a90_run.c/h` + `stage3/linux_init/a90_service.c/h` + `stage3/linux_init/a90_kms.c/h` + `stage3/linux_init/a90_draw.c/h` + `stage3/linux_init/a90_input.c/h` + `stage3/linux_init/a90_hud.c/h` + `stage3/linux_init/a90_menu.c/h` + `stage3/linux_init/a90_metrics.c/h`
+- latest verified boot image: `stage3/boot_linux_v90.img`
 - previous verified source-layout baseline: `stage3/linux_init/init_v80.c` + `stage3/linux_init/v80/*.inc.c`
 - known-good fallback: `stage3/boot_linux_v48.img`
 - control channel: USB ACM serial bridge
@@ -47,6 +47,7 @@
   - cmdproto frame/decode compiled API module
   - run/service lifecycle compiled API modules
   - KMS/draw framebuffer compiled API modules
+  - input/HUD/menu/metrics compiled API modules
 
 ## 실행 큐
 
@@ -1563,13 +1564,39 @@ python3 ./scripts/revalidation/physical_usb_reconnect_check.py --manual-host-con
     - SHA256 `57a6b5b5a9091c5fe0339e5359ec34e68af00f040c64dfc902636aaedbc618ba`
   - `docs/reports/NATIVE_INIT_V89_MENU_CONTROL_API_2026-05-02.md`
 
+### V90. Metrics API — PASS
+
+- `stage3/linux_init/a90_metrics.c/h`
+- `stage3/linux_init/init_v90.c`
+- `stage3/linux_init/v90/*.inc.c`
+- 의도:
+  - 배터리/CPU/GPU/MEM/전력/uptime sysfs snapshot 책임을 `a90_metrics.c/h`로 분리
+  - HUD는 metrics snapshot을 표시하는 renderer로 유지
+  - `status`, status HUD, CPU stress 화면의 metric callsite를 `a90_metrics_*` API로 통일
+- 검증:
+  - static ARM64 multi-source build with `-Wall -Wextra` — PASS
+  - `stage3/ramdisk_v90.cpio`, `stage3/boot_linux_v90.img` 생성 — PASS
+  - boot image marker strings `A90 Linux init 0.8.21 (v90)`, `A90v90`, `0.8.21 v90 METRICS API` — PASS
+  - old HUD metrics API 제거 확인 — PASS
+  - TWRP flash → post-boot `cmdv1 version/status` — PASS
+  - `statushud`, `autohud 2`, `watchhud 1 2`, `screenmenu`, `hide`, `storage`, `mountsd status` — PASS
+  - `cpustress 3 2`, `displaytest safe`, `cutoutcal` — PASS
+- 산출:
+  - `stage3/linux_init/init_v90`
+    - SHA256 `106c1b7d28bf6d9d82042bc4f3588bc3045ec3e06534cdbc58213cf859e6f4c1`
+  - `stage3/ramdisk_v90.cpio`
+    - SHA256 `66a2988105ab97db31154ab8e10ed5f11331adfee64bedcd9e95f20d7847295b`
+  - `stage3/boot_linux_v90.img`
+    - SHA256 `0a968f4732a948e1994b4788d29e46e81d74c2dc4170417c4e4d198d6440beee`
+  - `docs/reports/NATIVE_INIT_V90_METRICS_API_2026-05-02.md`
+
 ## 지금 바로 진행할 항목
 
-1. v90 후보 선정
-   - `a90_metrics.c/h`로 CPU/GPU/BAT/MEM sysfs snapshot 분리
-   - 또는 `helpers/a90_cpustress` 외부 프로세스 분리로 helper 실행 패턴 검증
+1. v91 후보 선정
+   - `helpers/a90_cpustress` 외부 프로세스 분리로 helper 실행 패턴 검증
    - 또는 shell/controller cleanup으로 menu request와 busy gate 경계 정리
-2. v89 수동 버튼 회귀 보강
+   - 또는 storage/netservice 정책 계층 정리
+2. v90 수동 버튼 회귀 보강
    - 실제 VOL+/VOL-/POWER로 background `screenmenu` move/select/back/hide 확인
    - POWER page에서 dangerous-command busy gate 유지 확인
    - 필요 시 `blindmenu` rescue foreground menu 확인

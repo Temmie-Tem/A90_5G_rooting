@@ -14,12 +14,12 @@ Android userspace 대신 직접 만든 static `/init`를 실행하고,
 - build: `A908NKSU5EWA3`
 - kernel: Samsung stock Android kernel `Linux 4.14.190`
 - recovery: TWRP 사용 가능
-- latest verified build: `A90 Linux init 0.8.20 (v89)`
-- official version: `0.8.20`
-- build tag: `v89`
+- latest verified build: `A90 Linux init 0.8.21 (v90)`
+- official version: `0.8.21`
+- build tag: `v90`
 - creator: `made by temmie0214`
-- latest verified source: `stage3/linux_init/init_v89.c` + `stage3/linux_init/v89/*.inc.c` + `stage3/linux_init/a90_config.h` + `stage3/linux_init/a90_util.c/h` + `stage3/linux_init/a90_log.c/h` + `stage3/linux_init/a90_timeline.c/h` + `stage3/linux_init/a90_console.c/h` + `stage3/linux_init/a90_cmdproto.c/h` + `stage3/linux_init/a90_run.c/h` + `stage3/linux_init/a90_service.c/h` + `stage3/linux_init/a90_kms.c/h` + `stage3/linux_init/a90_draw.c/h` + `stage3/linux_init/a90_input.c/h` + `stage3/linux_init/a90_hud.c/h` + `stage3/linux_init/a90_menu.c/h`
-- latest verified boot image: `stage3/boot_linux_v89.img`
+- latest verified source: `stage3/linux_init/init_v90.c` + `stage3/linux_init/v90/*.inc.c` + `stage3/linux_init/a90_config.h` + `stage3/linux_init/a90_util.c/h` + `stage3/linux_init/a90_log.c/h` + `stage3/linux_init/a90_timeline.c/h` + `stage3/linux_init/a90_console.c/h` + `stage3/linux_init/a90_cmdproto.c/h` + `stage3/linux_init/a90_run.c/h` + `stage3/linux_init/a90_service.c/h` + `stage3/linux_init/a90_kms.c/h` + `stage3/linux_init/a90_draw.c/h` + `stage3/linux_init/a90_input.c/h` + `stage3/linux_init/a90_hud.c/h` + `stage3/linux_init/a90_menu.c/h` + `stage3/linux_init/a90_metrics.c/h`
+- latest verified boot image: `stage3/boot_linux_v90.img`
 - previous verified source-layout baseline: `stage3/linux_init/init_v80.c` + `stage3/linux_init/v80/*.inc.c`
 - known-good fallback: `stage3/boot_linux_v48.img`
 - control channel: USB CDC ACM serial (`/dev/ttyGS0` ↔ `/dev/ttyACM0`)
@@ -63,7 +63,8 @@ Android userspace 대신 직접 만든 static `/init`를 실행하고,
 - input module: v87에서 `a90_input.c/h`로 물리 버튼/gesture API 분리와 실기 회귀 검증 완료
 - HUD module: v88에서 `a90_hud.c/h`로 boot splash/status HUD/log tail 렌더러 분리와 실기 회귀 검증 완료
 - menu module: v89에서 `a90_menu.c/h`로 menu model/state를 분리하고 `screenmenu`를 nonblocking background request로 전환
-- module roadmap: 이후 v90 metrics/helper/service-controller 계층 분리 후보
+- metrics module: v90에서 `a90_metrics.c/h`로 배터리/CPU/GPU/MEM/전력 sysfs snapshot API 분리
+- module roadmap: 이후 v91 helper/service-controller 계층 분리 후보
 - about app: `APPS / ABOUT`에서 version, changelog 목록/상세, credits 표시
 - input layout: `inputlayout`, `waitgesture`, `screenmenu`/`blindmenu` gesture action 확인
 - input monitor: `TOOLS / INPUT MONITOR`와 `inputmonitor [events]` raw/gesture trace 확인
@@ -101,7 +102,7 @@ Samsung bootloader
 - `init_main`: PID 1 부팅 흐름만 담당
 - `util/log/timeline/dev/storage`: boot/runtime 기반 계층
 - `console/shell/cmdproto/run`: serial 제어와 명령 실행 계층
-- `kms/draw/hud/input/menu`: 화면, 버튼 입력, device UI 계층
+- `metrics/kms/draw/hud/input/menu`: 센서 snapshot, 화면, 버튼 입력, device UI 계층
 - `usb_gadget/netservice`: USB ACM/NCM, TCP control, 서버형 접근 계층
 
 ## What This Is
@@ -170,6 +171,7 @@ Samsung bootloader
 48. Input true `.c/.h` API module extraction — v87 완료
 49. HUD true `.c/.h` API module extraction — v88 완료
 50. Menu control true `.c/.h` API module extraction + nonblocking `screenmenu` — v89 완료
+51. Metrics true `.c/.h` API module extraction — v90 완료
 
 ## Repository Layout
 

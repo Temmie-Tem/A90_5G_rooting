@@ -24,6 +24,7 @@ static const struct screen_menu_item screen_menu_about_items[] = {
 };
 
 static const struct screen_menu_item screen_menu_changelog_items[] = {
+    { "0.8.21 v90", "METRICS API",        SCREEN_MENU_CHANGELOG_0821, SCREEN_MENU_PAGE_CHANGELOG },
     { "0.8.20 v89", "MENU CONTROL API",   SCREEN_MENU_CHANGELOG_0820, SCREEN_MENU_PAGE_CHANGELOG },
     { "0.8.19 v88", "HUD API",            SCREEN_MENU_CHANGELOG_0819, SCREEN_MENU_PAGE_CHANGELOG },
     { "0.8.18 v87", "INPUT API",          SCREEN_MENU_CHANGELOG_0818, SCREEN_MENU_PAGE_CHANGELOG },
@@ -173,6 +174,8 @@ enum screen_app_id a90_menu_app_from_action(enum screen_menu_action action) {
         return SCREEN_APP_ABOUT_CHANGELOG;
     case SCREEN_MENU_ABOUT_CREDITS:
         return SCREEN_APP_ABOUT_CREDITS;
+    case SCREEN_MENU_CHANGELOG_0821:
+        return SCREEN_APP_CHANGELOG_0821;
     case SCREEN_MENU_CHANGELOG_0820:
         return SCREEN_APP_CHANGELOG_0820;
     case SCREEN_MENU_CHANGELOG_0819:
