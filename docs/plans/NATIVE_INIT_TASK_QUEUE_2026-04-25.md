@@ -1,19 +1,19 @@
 # Native Init Task Queue (2026-04-25)
 
-이 문서는 `A90 Linux init 0.8.22 (v91)` verified 이후 바로 실행할 작업 큐다.
+이 문서는 `A90 Linux init 0.8.23 (v92)` verified 이후 바로 실행할 작업 큐다.
 큰 방향은 “보이는 부팅 → 복구 가능한 로그 → 단독 조작 → 작은 userland → USB networking” 순서다.
 
 ## 현재 고정 기준점
 
-- latest verified build: `A90 Linux init 0.8.22 (v91)`
-- official version: `0.8.22`
-- build tag: `v91`
+- latest verified build: `A90 Linux init 0.8.23 (v92)`
+- official version: `0.8.23`
+- build tag: `v92`
 - creator: `made by temmie0214`
-- latest verified source: `stage3/linux_init/init_v91.c` + `stage3/linux_init/v91/*.inc.c` + `stage3/linux_init/helpers/a90_cpustress.c` + `stage3/linux_init/a90_config.h` + `stage3/linux_init/a90_util.c/h` + `stage3/linux_init/a90_log.c/h` + `stage3/linux_init/a90_timeline.c/h` + `stage3/linux_init/a90_console.c/h` + `stage3/linux_init/a90_cmdproto.c/h` + `stage3/linux_init/a90_run.c/h` + `stage3/linux_init/a90_service.c/h` + `stage3/linux_init/a90_kms.c/h` + `stage3/linux_init/a90_draw.c/h` + `stage3/linux_init/a90_input.c/h` + `stage3/linux_init/a90_hud.c/h` + `stage3/linux_init/a90_menu.c/h` + `stage3/linux_init/a90_metrics.c/h`
-- latest verified boot image: `stage3/boot_linux_v91.img`
+- latest verified source: `stage3/linux_init/init_v92.c` + `stage3/linux_init/v92/*.inc.c` + `stage3/linux_init/helpers/a90_cpustress.c` + `stage3/linux_init/a90_config.h` + `stage3/linux_init/a90_util.c/h` + `stage3/linux_init/a90_log.c/h` + `stage3/linux_init/a90_timeline.c/h` + `stage3/linux_init/a90_console.c/h` + `stage3/linux_init/a90_cmdproto.c/h` + `stage3/linux_init/a90_run.c/h` + `stage3/linux_init/a90_service.c/h` + `stage3/linux_init/a90_kms.c/h` + `stage3/linux_init/a90_draw.c/h` + `stage3/linux_init/a90_input.c/h` + `stage3/linux_init/a90_hud.c/h` + `stage3/linux_init/a90_menu.c/h` + `stage3/linux_init/a90_metrics.c/h` + `stage3/linux_init/a90_shell.c/h` + `stage3/linux_init/a90_controller.c/h`
+- latest verified boot image: `stage3/boot_linux_v92.img`
 - previous verified source-layout baseline: `stage3/linux_init/init_v80.c` + `stage3/linux_init/v80/*.inc.c`
 - known-good fallback: `stage3/boot_linux_v48.img`
-- local artifact retention: `v91` latest, `v90` rollback, `v48` known-good만 보존하고 나머지 ignored stage3 산출물은 정리 가능
+- local artifact retention: `v92` latest, `v91` rollback, `v48` known-good만 보존하고 나머지 ignored stage3 산출물은 정리 가능
 - control channel: USB ACM serial bridge
 - log: SD 정상 시 `/mnt/sdext/a90/logs/native-init.log`, fallback 시 `/cache/native-init.log`
 - verified:
@@ -50,6 +50,7 @@
   - KMS/draw framebuffer compiled API modules
   - input/HUD/menu/metrics compiled API modules
   - CPU stress external helper process separation
+  - shell/controller metadata and busy policy compiled API modules
 
 ## 실행 큐
 
@@ -1620,14 +1621,39 @@ python3 ./scripts/revalidation/physical_usb_reconnect_check.py --manual-host-con
     - SHA256 `a0f027375da3bdd92fc2a4f3d6ed1e6a7ff3963dfcc5961d699dcb829477607f`
   - `docs/reports/NATIVE_INIT_V91_CPUSTRESS_HELPER_2026-05-02.md`
 
+### V92. Shell/Controller Cleanup — PASS
+
+- `stage3/linux_init/a90_shell.c/h`
+- `stage3/linux_init/a90_controller.c/h`
+- `stage3/linux_init/init_v92.c`
+- `stage3/linux_init/v92/*.inc.c`
+- 의도:
+  - shell command flags/types, last result, protocol sequence, command lookup/result formatting을 `a90_shell` API로 분리
+  - auto-menu/power-page busy gate와 hide word policy를 `a90_controller` API로 분리
+  - command handler body와 command table entry는 v92 include tree에 유지해 visibility risk를 낮춤
+- 검증:
+  - static ARM64 init build with `-Wall -Wextra` — PASS
+  - `stage3/ramdisk_v92.cpio`, `stage3/boot_linux_v92.img` 생성 — PASS
+  - boot image marker strings `A90 Linux init 0.8.23 (v92)`, `A90v92`, `0.8.23 v92 SHELL CONTROLLER API` — PASS
+  - old direct shell helper removal 확인 — PASS
+  - TWRP flash → post-boot `cmdv1 version/status` — PASS
+  - unknown command `status=unknown`, menu busy/power-page busy `status=busy` — PASS
+  - `screenmenu`, menu-visible `status/logpath/timeline/storage`, `hide` — PASS
+  - `cpustress 3 2`, `autohud 2`, `watchhud 1 2` — PASS
+- 산출:
+  - `stage3/linux_init/init_v92`
+    - SHA256 `d2bffdd2111406a2c409a0a03f5605163e016f86cf775199856daf70cd8017f5`
+  - `stage3/ramdisk_v92.cpio`
+    - SHA256 `1cd524c1ece925b3d5d70b7ee19a7247f1a40c00aab24535f165911fde335880`
+  - `stage3/boot_linux_v92.img`
+    - SHA256 `817a6a9e2b6c7f1c64e28d972122cd4c3ab022a9430a74a0fbfbef9301079b23`
+  - `docs/reports/NATIVE_INIT_V92_SHELL_CONTROLLER_API_2026-05-02.md`
+
 ## 지금 바로 진행할 항목
 
-1. v92 shell/controller cleanup 실기 검증
-   - 계획서: `docs/plans/NATIVE_INIT_V92_SHELL_CONTROLLER_PLAN_2026-05-02.md`
-   - 로컬 산출물: `stage3/boot_linux_v92.img`
-   - 로컬 보고서: `docs/reports/NATIVE_INIT_V92_SHELL_CONTROLLER_API_2026-05-02.md`
-   - command table, last result, menu request, busy gate 경계 안전 분리의 실기 회귀를 확인한다.
-   - storage/netservice 정책 계층 정리는 v93+ 후보로 미룬다.
+1. v93 후보 선정
+   - storage/netservice 정책 계층 정리
+   - 또는 SD helper/userland 운영 정리
 2. 이후 helper/userland 확장
    - SD workspace의 `/mnt/sdext/a90/bin` helper 배치와 `/mnt/sdext/a90/logs` log sink 검토
    - BusyBox/dropbear 또는 custom TCP shell은 service/run 구조 안정화 뒤 검토

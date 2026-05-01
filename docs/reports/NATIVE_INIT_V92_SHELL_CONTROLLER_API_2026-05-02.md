@@ -7,7 +7,7 @@
 - New modules: `stage3/linux_init/a90_shell.c/h`, `stage3/linux_init/a90_controller.c/h`
 - Boot image: `stage3/boot_linux_v92.img`
 - Goal: make shell result/metadata and menu-aware command gating explicit without changing command UX.
-- Status: local build and static validation complete; device flash validation is pending.
+- Status: local build, flash, and shell/controller regression validation complete.
 
 ## Changes
 
@@ -35,13 +35,15 @@
 - Ramdisk contains `/init`, `/bin/a90sleep`, `/bin/a90_cpustress` — PASS
 - v92 tree old direct shell helpers removed: `find_command`, `command_allowed_during_auto_menu`, `is_auto_menu_hide_word`, `shell_protocol_seq`, `save_last_result`, `print_shell_result` — PASS
 - v92 dispatch uses `a90_shell_*` and `a90_controller_*` APIs — PASS
-
-## Pending Device Validation
-
-- Flash: `python3 scripts/revalidation/native_init_flash.py stage3/boot_linux_v92.img --from-native --expect-version "A90 Linux init 0.8.23 (v92)" --verify-protocol auto`
-- Regression: `version`, `status`, `last`, `cmdv1 version/status`, unknown command framing, busy command framing, `screenmenu`, `hide`, menu-visible observation commands, power-page dangerous busy gate, `cpustress 3 2`, `autohud 2`, and `watchhud 1 2`.
+- Device flash: `native_init_flash.py stage3/boot_linux_v92.img --from-native --expect-version "A90 Linux init 0.8.23 (v92)" --verify-protocol auto` — PASS
+- Boot partition prefix readback: SHA256 matched `stage3/boot_linux_v92.img` — PASS
+- Post-boot `cmdv1 version/status` — PASS
+- Shell regression: `version`, `status`, `last`, `bootstatus`, `logpath`, `timeline`, `storage`, `mountsd status` — PASS
+- Framed error regression: unknown command returned `status=unknown`; menu busy and power-page busy returned `status=busy` — PASS
+- Menu/controller regression: nonblocking `screenmenu`, menu-visible `status/logpath/timeline/storage`, `hide`, power-page busy gate — PASS
+- Helper/display regression: `cpustress 3 2`, `autohud 2`, `watchhud 1 2` — PASS
 
 ## Notes
 
-- Latest verified remains `A90 Linux init 0.8.22 (v91)` until v92 device flash validation passes.
-- `stage3/boot_linux_v92.img` is a local ignored artifact prepared for the next flash step.
+- Latest verified is now `A90 Linux init 0.8.23 (v92)`.
+- Local artifact retention is now `v92` latest, `v91` rollback, and `v48` known-good fallback.

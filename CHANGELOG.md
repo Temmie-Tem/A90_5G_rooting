@@ -1,5 +1,12 @@
 # Changelog
 
+## `0.8.23` (`v92`) - 2026-05-02
+
+- Added `a90_shell.c/h` for command flags/types, last-result storage, protocol sequence allocation, command lookup, errno normalization, and result printing.
+- Added `a90_controller.c/h` for serial hide-word detection and auto-menu / power-page busy policy.
+- Updated v92 dispatch to use shell/controller APIs while preserving command handlers, command table entries, and command UX.
+- Verified v92 flash, `cmdv1 version/status`, unknown and busy framed results, nonblocking `screenmenu`, menu-visible observation commands, power-page busy gate, `cpustress`, `autohud`, and `watchhud`.
+
 ## `0.8.22` (`v91`) - 2026-05-02
 
 - Added `/bin/a90_cpustress` as a static ARM64 helper included in the boot ramdisk.
