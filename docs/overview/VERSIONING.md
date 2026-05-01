@@ -13,6 +13,13 @@ Date: `2026-05-02`
 - latest local/pending build: none
 - previous verified source-layout baseline: `stage3/linux_init/init_v80.c` + `stage3/linux_init/v80/*.inc.c`
 
+## Local Artifact Retention
+
+- 보존: latest verified `v90`, 직전 rollback `v89`, known-good fallback `v48`
+- 정리 대상: ignored `stage3/boot_linux_v*.img`, `stage3/ramdisk_v*`, compiled `stage3/linux_init/init_v*` 중 보존 태그가 아닌 파일
+- 정리 도구: `python3 scripts/revalidation/cleanup_stage3_artifacts.py --execute`
+- 보고서의 artifact hash와 tracked source는 유지하므로, 오래된 local binary output은 필요 시 재생성한다.
+
 ## Version Format
 
 공식 버전은 `MAJOR.MINOR.PATCH`를 사용하고, 실험/플래시 추적용 build tag는 `vNN`을 유지한다.

@@ -22,6 +22,7 @@ Android userspace 대신 직접 만든 static `/init`를 실행하고,
 - latest verified boot image: `stage3/boot_linux_v90.img`
 - previous verified source-layout baseline: `stage3/linux_init/init_v80.c` + `stage3/linux_init/v80/*.inc.c`
 - known-good fallback: `stage3/boot_linux_v48.img`
+- local artifact retention: keep `v90` latest, `v89` rollback, and `v48` known-good; older ignored `stage3/boot_linux_v*.img`, `stage3/ramdisk_v*`, and compiled `init_v*` outputs are cleanup candidates
 - control channel: USB CDC ACM serial (`/dev/ttyGS0` ↔ `/dev/ttyACM0`)
 - host bridge: `scripts/revalidation/serial_tcp_bridge.py --port 54321`
 - display: custom boot splash 후 상태 HUD/menu 자동 전환
@@ -241,6 +242,7 @@ Samsung bootloader
 - known-good boot image와 TWRP recovery 복구 경로를 항상 유지한다.
 - 한 번에 하나의 boot/init 변수만 바꾼다.
 - 새 boot image는 version, source path, SHA256, 실기 관찰 결과를 기록한다.
+- 로컬 stage3 산출물은 최신 verified, 직전 rollback, known-good fallback만 보존하고 나머지는 `scripts/revalidation/cleanup_stage3_artifacts.py`로 정리한다.
 - USB ACM serial bridge를 기준 제어 채널로 사용한다.
 - `/efs`, modem, RPMB, keymaster, keystore, bootloader 계열에는 쓰기 작업을 하지 않는다.
 - `/data` 암호화 영역은 명확한 목적과 복구 계획 없이는 건드리지 않는다.

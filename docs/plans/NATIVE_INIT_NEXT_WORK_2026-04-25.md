@@ -827,6 +827,7 @@ Samsung bootloader
 
 상세 실행 큐는 `docs/plans/NATIVE_INIT_TASK_QUEUE_2026-04-25.md`를 따른다.
 
+0. v91 착수 전 workspace cleanup: local artifact retention은 `v90` latest, `v89` rollback, `v48` known-good로 고정
 1. v91 후보 선정: `helpers/a90_cpustress`, shell/controller cleanup, storage/netservice 계층 정리 중 하나로 좁히기
 2. v90 background `screenmenu` 물리 버튼 회귀 보강 기록
 3. POWER page busy gate와 `hide`/`hidemenu` escape path 수동 확인

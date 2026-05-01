@@ -13,6 +13,7 @@
 - latest verified boot image: `stage3/boot_linux_v90.img`
 - previous verified source-layout baseline: `stage3/linux_init/init_v80.c` + `stage3/linux_init/v80/*.inc.c`
 - known-good fallback: `stage3/boot_linux_v48.img`
+- local artifact retention: `v90` latest, `v89` rollback, `v48` known-good만 보존하고 나머지 ignored stage3 산출물은 정리 가능
 - control channel: USB ACM serial bridge
 - log: SD 정상 시 `/mnt/sdext/a90/logs/native-init.log`, fallback 시 `/cache/native-init.log`
 - verified:
@@ -1592,6 +1593,9 @@ python3 ./scripts/revalidation/physical_usb_reconnect_check.py --manual-host-con
 
 ## 지금 바로 진행할 항목
 
+0. v91 착수 전 workspace cleanup
+   - `scripts/revalidation/cleanup_stage3_artifacts.py`로 오래된 ignored stage3 boot/ramdisk/init 산출물 정리
+   - 보존 세트: `v90`, `v89`, `v48`
 1. v91 후보 선정
    - `helpers/a90_cpustress` 외부 프로세스 분리로 helper 실행 패턴 검증
    - 또는 shell/controller cleanup으로 menu request와 busy gate 경계 정리
