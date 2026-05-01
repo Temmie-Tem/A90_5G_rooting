@@ -1625,11 +1625,7 @@ python3 ./scripts/revalidation/physical_usb_reconnect_check.py --manual-host-con
 1. v92 후보 선정
    - shell/controller cleanup으로 command table, menu request, busy gate 경계 정리
    - 또는 storage/netservice 정책 계층 정리
-2. v91 수동 버튼 회귀 보강
-   - 실제 VOL+/VOL-/POWER로 background `screenmenu` move/select/back/hide와 CPU stress app start/back 확인
-   - POWER page에서 dangerous-command busy gate 유지 확인
-   - 필요 시 `blindmenu` rescue foreground menu 확인
-3. 이후 helper/userland 확장
+2. 이후 helper/userland 확장
    - SD workspace의 `/mnt/sdext/a90/bin` helper 배치와 `/mnt/sdext/a90/logs` log sink 검토
    - BusyBox/dropbear 또는 custom TCP shell은 service/run 구조 안정화 뒤 검토
    - Wi-Fi 드라이버/펌웨어는 NCM 기반 제어망 유지 후 read-only 인벤토리 트랙으로 분리

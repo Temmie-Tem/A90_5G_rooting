@@ -364,8 +364,7 @@ ADB 방식이 막혀 USB CDC ACM serial (ttyGS0)로 전환. v79까지 반복 안
 우선순위 순 (v91 verified build 이후):
 
 1. **v92 후보 선정** — shell/controller cleanup 또는 storage/netservice 계층 정리 중 하나로 좁히기
-2. **v91 수동 메뉴 회귀 보강** — 실제 버튼으로 CPU stress app start/back/hide 흐름 확인
-3. **SD workspace 운영** — `/mnt/sdext/a90/bin` helper 배치와 log sink 운영 정책 결정
-4. **Wi-Fi 인벤토리** — 드라이버/펌웨어/vendor daemon read-only 조사
+2. **SD workspace 운영** — `/mnt/sdext/a90/bin` helper 배치와 log sink 운영 정책 결정
+3. **Wi-Fi 인벤토리** — 드라이버/펌웨어/vendor daemon read-only 조사
 
 **복구**: `backups/baseline_a_20260423_030309/boot.img` dd 복구 가능

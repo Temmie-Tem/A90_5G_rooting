@@ -39,10 +39,11 @@
 - Post-boot `cmdv1 version/status` — PASS
 - Helper regression: `run /bin/a90_cpustress 1 1`, `cpustress 3 2`, q cancel with no `a90_cpustress` process left — PASS
 - Display/menu regression: `statushud`, `autohud 2`, `watchhud 1 2`, `screenmenu`, `hide`, menu-visible `status`, dangerous-command busy gate — PASS
+- Manual physical-button regression: VOL+/VOL-/POWER background menu movement, CPU stress app start/back, and hide flow — PASS
 
 ## Notes
 
 - Latest verified is now `A90 Linux init 0.8.22 (v91)`.
 - Local artifact retention is now `v91` latest, `v90` rollback, and `v48` known-good fallback.
-- The menu CPU stress app code now uses the helper path, but physical-button start/back verification remains a useful optional manual pass.
+- The menu CPU stress app code now uses the helper path and physical-button flow has been confirmed on-device.
 - Good next candidates are shell/controller cleanup or storage/netservice policy layering.

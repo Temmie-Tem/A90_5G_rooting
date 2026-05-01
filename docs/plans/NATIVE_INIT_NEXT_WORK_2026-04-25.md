@@ -829,10 +829,9 @@ Samsung bootloader
 상세 실행 큐는 `docs/plans/NATIVE_INIT_TASK_QUEUE_2026-04-25.md`를 따른다.
 
 1. v92 후보 선정: shell/controller cleanup 또는 storage/netservice 계층 정리 중 하나로 좁히기
-2. v91 CPU stress menu 물리 버튼 회귀 보강 기록
-3. POWER page busy gate와 `hide`/`hidemenu` escape path 수동 확인
-4. helper/userland 확장 후보를 v92 이후로 유지
-5. SD workspace helper 배치와 Wi-Fi read-only 인벤토리 트랙 분리
+2. v91 CPU stress menu 물리 버튼 회귀 결과는 PASS로 기록 완료
+3. helper/userland 확장 후보를 v92 이후로 유지
+4. SD workspace helper 배치와 Wi-Fi read-only 인벤토리 트랙 분리
 
 ---
 

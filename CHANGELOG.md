@@ -6,7 +6,7 @@
 - Moved CPU stress worker forking out of PID1 for both the shell command and menu CPU stress app.
 - Extended `a90_run` with process-group stop support so cancel/timeout can terminate helper worker trees.
 - Preserved `cpustress [sec] [workers]` UX, menu CPU stress timing choices, nonblocking `screenmenu`, and storage/display behavior.
-- Verified v91 flash, `cmdv1 version/status`, direct helper run, `cpustress 3 2`, q cancel, `statushud`, `autohud`, `watchhud`, `screenmenu`, `hide`, and menu-visible busy gate.
+- Verified v91 flash, `cmdv1 version/status`, direct helper run, `cpustress 3 2`, q cancel, `statushud`, `autohud`, `watchhud`, `screenmenu`, `hide`, menu-visible busy gate, and physical-button CPU stress menu flow.
 
 ## `0.8.21` (`v90`) - 2026-05-02
 
