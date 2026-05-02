@@ -5,6 +5,7 @@
 #include "a90_log.h"
 #include "a90_metrics.h"
 #include "a90_netservice.h"
+#include "a90_runtime.h"
 #include "a90_service.h"
 #include "a90_storage.h"
 #include "a90_timeline.h"
@@ -201,6 +202,50 @@ static void selftest_storage(void) {
     }
 }
 
+static void selftest_runtime(void) {
+    long started_ms = monotonic_millis();
+    struct a90_runtime_status status;
+    char detail[160];
+    bool dirs_ok;
+
+    if (a90_runtime_get_status(&status) < 0) {
+        int saved_errno = errno;
+
+        snprintf(detail, sizeof(detail), "status failed %s", strerror(saved_errno));
+        selftest_record_elapsed("runtime",
+                                A90_SELFTEST_FAIL,
+                                -saved_errno,
+                                saved_errno,
+                                started_ms,
+                                detail);
+        return;
+    }
+
+    dirs_ok = access(status.root, F_OK) == 0 &&
+              access(status.bin, F_OK) == 0 &&
+              access(status.etc, F_OK) == 0 &&
+              access(status.logs, F_OK) == 0 &&
+              access(status.tmp, F_OK) == 0 &&
+              access(status.state, F_OK) == 0 &&
+              access(status.pkg, F_OK) == 0 &&
+              access(status.run, F_OK) == 0;
+    snprintf(detail,
+             sizeof(detail),
+             "backend=%s root=%.72s writable=%s fallback=%s",
+             status.backend,
+             status.root,
+             status.writable ? "yes" : "no",
+             status.fallback ? "yes" : "no");
+    selftest_record_elapsed("runtime",
+                            status.initialized && status.writable && dirs_ok ?
+                                    (status.fallback ? A90_SELFTEST_WARN : A90_SELFTEST_PASS) :
+                                    A90_SELFTEST_FAIL,
+                            status.initialized && status.writable && dirs_ok ? 0 : -ENODEV,
+                            status.initialized && status.writable && dirs_ok ? 0 : ENODEV,
+                            started_ms,
+                            detail);
+}
+
 static void selftest_metrics(void) {
     long started_ms = monotonic_millis();
     struct a90_metrics_snapshot snapshot;
@@ -345,6 +390,7 @@ static int selftest_run(const struct a90_selftest_boot_hooks *hooks, void *ctx, 
     selftest_log();
     selftest_timeline();
     selftest_storage();
+    selftest_runtime();
     selftest_metrics();
     selftest_kms();
     selftest_input();
