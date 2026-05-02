@@ -1,5 +1,13 @@
 # Changelog
 
+## `0.8.25` (`v94`) - 2026-05-03
+
+- Added `a90_selftest.c/h` for fast non-destructive boot selftest result tracking.
+- Runs boot selftest after ACM gadget setup and before tty attach while keeping failures warn-only.
+- Added `selftest [status|run|verbose]` and selftest summaries in `status` and `bootstatus`.
+- Checks log, timeline, storage, metrics, KMS, input nodes, service registry, and ACM configfs state without USB rebind or mount mode changes.
+- Verified v94 flash, `cmdv1 version/status`, `bootstatus`, `selftest`, `selftest verbose`, `selftest run`, `timeline`, `logcat`, `storage`, `mountsd status`, `statushud`, `autohud`, `screenmenu`, `hide`, and `netservice status`.
+
 ## `0.8.24` (`v93`) - 2026-05-02
 
 - Added `a90_storage.c/h` for boot storage state, SD workspace probing, `/cache` fallback policy, and `storage`/`mountsd` command handlers.

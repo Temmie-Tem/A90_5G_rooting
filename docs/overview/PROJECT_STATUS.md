@@ -120,11 +120,11 @@
 ## 현재 폰 상태
 
 - patched AP (Magisk 30.7) + **TWRP recovery 사용 가능**
-- 최신 verified build: `stage3/boot_linux_v93.img` (`A90 Linux init 0.8.24 (v93)`)
-- 최신 verified source: `stage3/linux_init/init_v93.c` + `stage3/linux_init/v93/*.inc.c` + `stage3/linux_init/helpers/a90_cpustress.c` + `stage3/linux_init/a90_config.h` + `stage3/linux_init/a90_util.c/h` + `stage3/linux_init/a90_log.c/h` + `stage3/linux_init/a90_timeline.c/h` + `stage3/linux_init/a90_console.c/h` + `stage3/linux_init/a90_cmdproto.c/h` + `stage3/linux_init/a90_run.c/h` + `stage3/linux_init/a90_service.c/h` + `stage3/linux_init/a90_kms.c/h` + `stage3/linux_init/a90_draw.c/h` + `stage3/linux_init/a90_input.c/h` + `stage3/linux_init/a90_hud.c/h` + `stage3/linux_init/a90_menu.c/h` + `stage3/linux_init/a90_metrics.c/h` + `stage3/linux_init/a90_shell.c/h` + `stage3/linux_init/a90_controller.c/h` + `stage3/linux_init/a90_storage.c/h`
+- 최신 verified build: `stage3/boot_linux_v94.img` (`A90 Linux init 0.8.25 (v94)`)
+- 최신 verified source: `stage3/linux_init/init_v94.c` + `stage3/linux_init/v94/*.inc.c` + `stage3/linux_init/helpers/a90_cpustress.c` + `stage3/linux_init/a90_config.h` + `stage3/linux_init/a90_util.c/h` + `stage3/linux_init/a90_log.c/h` + `stage3/linux_init/a90_timeline.c/h` + `stage3/linux_init/a90_console.c/h` + `stage3/linux_init/a90_cmdproto.c/h` + `stage3/linux_init/a90_run.c/h` + `stage3/linux_init/a90_service.c/h` + `stage3/linux_init/a90_kms.c/h` + `stage3/linux_init/a90_draw.c/h` + `stage3/linux_init/a90_input.c/h` + `stage3/linux_init/a90_hud.c/h` + `stage3/linux_init/a90_menu.c/h` + `stage3/linux_init/a90_metrics.c/h` + `stage3/linux_init/a90_shell.c/h` + `stage3/linux_init/a90_controller.c/h` + `stage3/linux_init/a90_storage.c/h` + `stage3/linux_init/a90_selftest.c/h`
 - previous verified source-layout baseline: `stage3/linux_init/init_v80.c` + `stage3/linux_init/v80/*.inc.c`
-- 공식 버전: `0.8.24`
-- build tag: `v93`
+- 공식 버전: `0.8.25`
+- build tag: `v94`
 - creator: `made by temmie0214`
 - known-good fallback: `stage3/boot_linux_v48.img` (`A90 Linux init v48`)
 - 격리 상태: `stage3/boot_linux_v49.img`는 boot partition prefix readback은 일치했지만
@@ -133,6 +133,7 @@
 - 로그 상태: SD 정상 시 `/mnt/sdext/a90/logs/native-init.log`, fallback 시 `/cache/native-init.log`에 boot/command/result 기록
 - blocking 상태: `waitkey`, `readinput`, `watchhud`, `blindmenu` q/Ctrl-C 취소 확인
 - boot timeline: `timeline` 명령과 current native log replay 확인
+- boot selftest 상태: v94 boot selftest `pass=8 warn=0 fail=0`, `selftest verbose/run` 확인
 - HUD 상태: `BOOT OK shell` summary 표시와 `statushud` draw 확인
 - run 상태: `/bin/a90sleep` helper로 `run` q 취소 확인
 - log 보존: native init → recovery → native init 왕복 후 v44/v45/v47 log append 확인
@@ -173,7 +174,9 @@
 - shell protocol 상태: `cmdv1`/`A90P1` framed result와 v74 `cmdv1x` whitespace argv encoding 검증 완료, v84에서 cmdproto API로 분리 완료
 - shell/controller 상태: v92에서 last result, command lookup/result formatting, menu/power busy policy를 실제 compiled module/API로 분리 완료
 - storage module 상태: v93에서 boot storage state, SD probe, `/cache` fallback, `storage`/`mountsd` command를 실제 compiled module/API로 분리 완료
-- 상세 최신 verified 상태: `docs/reports/NATIVE_INIT_V93_STORAGE_API_2026-05-02.md`
+- selftest module 상태: v94에서 boot-time non-destructive module smoke test와 `selftest` command를 실제 compiled module/API로 추가 완료
+- 상세 최신 verified 상태: `docs/reports/NATIVE_INIT_V94_BOOT_SELFTEST_API_2026-05-03.md`
+- v94 boot selftest API 기록: `docs/reports/NATIVE_INIT_V94_BOOT_SELFTEST_API_2026-05-03.md`
 - v93 storage API 기록: `docs/reports/NATIVE_INIT_V93_STORAGE_API_2026-05-02.md`
 - v92 shell/controller API 기록: `docs/reports/NATIVE_INIT_V92_SHELL_CONTROLLER_API_2026-05-02.md`
 - v87 input API 기록: `docs/reports/NATIVE_INIT_V87_INPUT_API_2026-04-30.md`
@@ -236,9 +239,9 @@
 - proc / sys / devtmpfs / ext4(/dev/block/sda31) 마운트 성공
 - 핵심 우회: devtmpfs async 초기화 문제를 `mknod(makedev(259,15))` 로 해결
 
-### 3-2. USB ACM serial console + 인터랙티브 셸 (v8~v93)
+### 3-2. USB ACM serial console + 인터랙티브 셸 (v8~v94)
 
-**현재 버전**: `init_v93` (`stage3/boot_linux_v93.img`) / `0.8.24 (v93)`
+**현재 버전**: `init_v94` (`stage3/boot_linux_v94.img`) / `0.8.25 (v94)`
 
 ADB 방식이 막혀 USB CDC ACM serial (ttyGS0)로 전환. v79까지 반복 안정화:
 
@@ -301,8 +304,9 @@ ADB 방식이 막혀 USB CDC ACM serial (ttyGS0)로 전환. v79까지 반복 안
 | v91 | `/bin/a90_cpustress` helper로 CPU stress worker를 PID1 밖으로 분리 |
 | v92 | `a90_shell.c/h`, `a90_controller.c/h` 실제 shell metadata / menu busy policy API 분리 |
 | v93 | `a90_storage.c/h` 실제 boot storage state / SD probe / cache fallback API 분리 |
+| v94 | `a90_selftest.c/h` boot-time non-destructive module smoke test API 추가 |
 
-**확보된 관찰/제어 범위 (v93 verified build 기준):**
+**확보된 관찰/제어 범위 (v94 verified build 기준):**
 
 | 항목 | 상태 |
 |---|---|
@@ -368,9 +372,9 @@ ADB 방식이 막혀 USB CDC ACM serial (ttyGS0)로 전환. v79까지 반복 안
 
 ## 다음 후보 작업
 
-우선순위 순 (v93 verified build 이후):
+우선순위 순 (v94 verified build 이후):
 
-1. **v94 Netservice/USB gadget API** — NCM/tcpctl policy와 USB configfs helper 경계 분리
+1. **v95 Netservice/USB gadget API** — NCM/tcpctl policy와 USB configfs helper 경계 분리
 2. **SD workspace 운영** — `/mnt/sdext/a90/bin` helper 배치와 log sink 운영 정책 결정
 3. **Wi-Fi 인벤토리** — 드라이버/펌웨어/vendor daemon read-only 조사
 

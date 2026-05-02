@@ -1,8 +1,8 @@
 #ifndef A90_CONFIG_H
 #define A90_CONFIG_H
 
-#define INIT_VERSION "0.8.24"
-#define INIT_BUILD "v93"
+#define INIT_VERSION "0.8.25"
+#define INIT_BUILD "v94"
 #define INIT_CREATOR "made by temmie0214"
 #define INIT_BANNER "A90 Linux init " INIT_VERSION " (" INIT_BUILD ")"
 #define BOOT_SPLASH_SECONDS 2
@@ -43,5 +43,6 @@
 #define TMP_STORAGE_ROOT "/tmp"
 #define BOOT_SPLASH_LINE_COUNT 6
 #define BOOT_SPLASH_LINE_MAX 96
+#define BOOT_SELFTEST_MAX_ENTRIES 12
 
 #endif
