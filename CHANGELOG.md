@@ -1,5 +1,13 @@
 # Changelog
 
+## `0.8.28` (`v97`) - 2026-05-03
+
+- Added `a90_runtime.c/h` for SD runtime root selection, cache fallback, runtime directory contracts, and RW probes.
+- Added `runtime` shell command and runtime summaries in `status`, `bootstatus`, HUD storage status, and boot selftest.
+- Promoted healthy SD workspace `/mnt/sdext/a90` as the runtime root with `bin`, `etc`, `logs`, `tmp`, `state`, `pkg`, and `run` directories.
+- Added ABOUT/changelog/menu entry for `0.8.28 v97 SD RUNTIME ROOT`.
+- Verified v97 flash, `cmdv1 version/status`, `runtime`, selftest `pass=9 warn=0 fail=0`, storage, HUD/menu, and `netservice status` regression.
+
 ## `0.8.27` (`v96`) - 2026-05-03
 
 - Added `init_v96.c` and `v96/*.inc.c` as a structure-audit checkpoint after the v95 USB/netservice split.
