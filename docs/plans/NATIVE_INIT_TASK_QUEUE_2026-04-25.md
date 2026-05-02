@@ -1649,12 +1649,28 @@ python3 ./scripts/revalidation/physical_usb_reconnect_check.py --manual-host-con
     - SHA256 `817a6a9e2b6c7f1c64e28d972122cd4c3ab022a9430a74a0fbfbef9301079b23`
   - `docs/reports/NATIVE_INIT_V92_SHELL_CONTROLLER_API_2026-05-02.md`
 
+### V93. Storage API First Split — PLANNED
+
+- 계획: `docs/plans/NATIVE_INIT_V93_STORAGE_API_PLAN_2026-05-02.md`
+- 목표 버전: `A90 Linux init 0.8.24 (v93)` / `0.8.24 v93 STORAGE API`
+- 의도:
+  - boot storage state, SD workspace probe, `/cache` fallback, `storage`/`mountsd` command logic을 `a90_storage.c/h`로 분리
+  - HUD/menu/shell dispatch/netservice가 storage 내부 상태를 직접 보지 않게 status snapshot API로 연결
+  - netservice/USB gadget 정책은 v94 후보로 분리해 v93 리스크를 boot-critical storage에 한정
+- 검증 예정:
+  - local static ARM64 build + marker strings
+  - `storage`, `mountsd status/ro/rw/init/off`, `logpath`, `timeline`, `bootstatus` 회귀
+  - `statushud`, `autohud 2`, `screenmenu`, `hide` 회귀
+  - `netservice status/start/stop/enable/disable` 동작 유지 확인
+
 ## 지금 바로 진행할 항목
 
-1. v93 후보 선정
-   - storage/netservice 정책 계층 정리
-   - 또는 SD helper/userland 운영 정리
-2. 이후 helper/userland 확장
+1. v93 Storage API 구현
+   - `docs/plans/NATIVE_INIT_V93_STORAGE_API_PLAN_2026-05-02.md` 기준
+   - boot storage state, SD probe, `/cache` fallback, `storage`/`mountsd` command API 분리
+2. v94 후보: netservice/USB gadget 정책 계층 정리
+   - NCM/tcpctl start/stop/enable/disable policy를 `a90_netservice.c/h`로 이동
+3. 이후 helper/userland 확장
    - SD workspace의 `/mnt/sdext/a90/bin` helper 배치와 `/mnt/sdext/a90/logs` log sink 검토
    - BusyBox/dropbear 또는 custom TCP shell은 service/run 구조 안정화 뒤 검토
    - Wi-Fi 드라이버/펌웨어는 NCM 기반 제어망 유지 후 read-only 인벤토리 트랙으로 분리

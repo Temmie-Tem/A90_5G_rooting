@@ -52,8 +52,10 @@ init_main
   -> optional helpers / BusyBox / dropbear
 ```
 
-`v92 SHELL CONTROLLER API`까지 실기 verified 완료했다. 다음 단기 후보는
-storage/netservice 정책 계층 정리 또는 SD helper/userland 운영 정리다.
+`v92 SHELL CONTROLLER API`까지 실기 verified 완료했다. 다음 단기 작업은
+`v93 STORAGE API`로, boot storage state, SD workspace probe, `/cache` fallback,
+`storage`/`mountsd` command logic을 먼저 분리한다. netservice/USB gadget 정책은
+v94 후보로 넘긴다. v93 계획은 `docs/plans/NATIVE_INIT_V93_STORAGE_API_PLAN_2026-05-02.md`에 둔다.
 v92 계획과 결과는 `docs/plans/NATIVE_INIT_V92_SHELL_CONTROLLER_PLAN_2026-05-02.md`,
 `docs/reports/NATIVE_INIT_V92_SHELL_CONTROLLER_API_2026-05-02.md`에 둔다.
 shell/cmdproto 착수 지도와 실행 계획은 각각 `docs/reports/NATIVE_INIT_V83_CONSOLE_SHELL_CMDPROTO_DEPENDENCY_MAP_2026-04-29.md`,
@@ -831,8 +833,8 @@ Samsung bootloader
 
 상세 실행 큐는 `docs/plans/NATIVE_INIT_TASK_QUEUE_2026-04-25.md`를 따른다.
 
-1. v93 후보 선정: storage/netservice 정책 계층 정리 또는 SD helper/userland 운영 정리
-2. helper/userland 확장 후보를 v93 이후로 유지
+1. v93 Storage API 구현: boot storage state, SD probe, `/cache` fallback, `storage`/`mountsd` API 분리
+2. v94 후보로 netservice/USB gadget 정책 계층 정리 유지
 3. SD workspace helper 배치와 Wi-Fi read-only 인벤토리 트랙 분리
 
 ---
