@@ -1766,6 +1766,6 @@ python3 ./scripts/revalidation/physical_usb_reconnect_check.py --manual-host-con
 1. v96-v105 장기 로드맵 기준으로 v97 착수
 
    - 기준 문서: `docs/plans/NATIVE_INIT_LONG_TERM_ROADMAP_2026-05-03.md`
-   - 다음 상세 계획: v97 `SD RUNTIME ROOT`
+   - 다음 상세 계획: `docs/plans/NATIVE_INIT_V97_SD_RUNTIME_ROOT_PLAN_2026-05-03.md`
    - 목적: `/mnt/sdext/a90`를 실험 workspace에서 native runtime root로 격상
    - 보류: helper deployment는 v98, BusyBox는 v99, remote shell은 v100, Wi-Fi는 v103+ 트랙으로 분리
