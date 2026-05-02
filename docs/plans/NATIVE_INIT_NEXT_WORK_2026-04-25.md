@@ -55,6 +55,8 @@ init_main
 `v95 NETSERVICE/USB GADGET API`까지 실기 verified 완료했다. NCM/tcpctl start/stop policy와 USB configfs helper 경계를 `a90_netservice.c/h`, `a90_usb_gadget.c/h`로 분리했다. v95 결과는
 `docs/reports/NATIVE_INIT_V95_NETSERVICE_USB_API_2026-05-03.md`에 둔다. v94 결과는
 `docs/reports/NATIVE_INIT_V94_BOOT_SELFTEST_API_2026-05-03.md`에 둔다.
+v96-v105 장기 로드맵은
+`docs/plans/NATIVE_INIT_LONG_TERM_ROADMAP_2026-05-03.md`를 기준으로 한다.
 v93 계획과 결과는
 `docs/plans/NATIVE_INIT_V93_STORAGE_API_PLAN_2026-05-02.md`,
 `docs/reports/NATIVE_INIT_V93_STORAGE_API_2026-05-02.md`에 둔다.
@@ -204,6 +206,16 @@ Samsung bootloader
 - storage true `.c/.h` API module extraction — v93 완료
 - boot selftest non-destructive module smoke test API — v94 완료
 - netservice/USB gadget true `.c/.h` API module extraction — v95 완료
+- structure audit/refactor debt cleanup — v96 후보
+- SD runtime root promotion — v97 후보
+- helper deployment/package manifest — v98 후보
+- BusyBox static userland evaluation — v99 후보
+- TCP shell/dropbear remote access prototype — v100 후보
+- minimal service manager — v101 후보
+- diagnostics/log bundle — v102 후보
+- Wi-Fi read-only inventory — v103 후보
+- Wi-Fi enablement feasibility — v104 후보
+- long-run soak/recovery release candidate — v105 후보
 - static dropbear SSH 또는 custom TCP shell
 
 ---

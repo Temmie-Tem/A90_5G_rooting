@@ -1736,8 +1736,9 @@ python3 ./scripts/revalidation/physical_usb_reconnect_check.py --manual-host-con
 
 ## 지금 바로 진행할 항목
 
-1. 이후 helper/userland 확장
+1. v96-v105 장기 로드맵 기준으로 v96 착수
 
-   - SD workspace의 `/mnt/sdext/a90/bin` helper 배치와 `/mnt/sdext/a90/logs` log sink 검토
-   - BusyBox/dropbear 또는 custom TCP shell은 service/run 구조 안정화 뒤 검토
-   - Wi-Fi 드라이버/펌웨어는 NCM 기반 제어망 유지 후 read-only 인벤토리 트랙으로 분리
+   - 기준 문서: `docs/plans/NATIVE_INIT_LONG_TERM_ROADMAP_2026-05-03.md`
+   - 다음 상세 계획: v96 `STRUCTURE AUDIT`
+   - 목적: v95 모듈 분리 이후 중복/겹침/직접 path 접근/남은 fork-wait 중복을 먼저 정리
+   - 보류: SD runtime root는 v97, helper deployment는 v98, BusyBox는 v99, remote shell은 v100, Wi-Fi는 v103+ 트랙으로 분리
