@@ -1793,6 +1793,6 @@ python3 ./scripts/revalidation/physical_usb_reconnect_check.py --manual-host-con
 1. v96-v105 장기 로드맵 기준으로 v98 착수
 
    - 기준 문서: `docs/plans/NATIVE_INIT_LONG_TERM_ROADMAP_2026-05-03.md`
-   - 다음 상세 계획: v98 helper deployment/package manifest 계획 작성
+   - 다음 상세 계획: `docs/plans/NATIVE_INIT_V98_HELPER_DEPLOY_PLAN_2026-05-03.md`
    - 목적: `/mnt/sdext/a90/bin`에 배치할 helper set과 manifest/hash 검증 흐름 정의
    - 보류: BusyBox는 v99, remote shell은 v100, Wi-Fi는 v103+ 트랙으로 분리

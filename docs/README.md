@@ -87,7 +87,7 @@
 2. `operations/NATIVE_INIT_FLASH_AND_BRIDGE_GUIDE.md` – flash/bridge 조작 절차를 따른다.
 3. `operations/CLAUDE_NATIVE_INIT_RUNBOOK.md` – 에이전트가 실수하지 않도록 운영 규칙을 확인한다.
 4. `plans/NATIVE_INIT_TASK_QUEUE_2026-04-25.md` – 바로 이어서 할 작업 큐를 본다.
-5. `plans/NATIVE_INIT_LONG_TERM_ROADMAP_2026-05-03.md` – v98 이후 장기 순서를 본다.
+5. `plans/NATIVE_INIT_V98_HELPER_DEPLOY_PLAN_2026-05-03.md` – 다음 v98 helper deployment 구현 범위를 본다.
 
 ### 새 에이전트 인계
 

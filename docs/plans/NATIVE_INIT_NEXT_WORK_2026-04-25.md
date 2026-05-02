@@ -63,7 +63,8 @@ v96 상세 계획과 결과는
 `docs/plans/NATIVE_INIT_V96_STRUCTURE_AUDIT_PLAN_2026-05-03.md`,
 `docs/reports/NATIVE_INIT_V96_STRUCTURE_AUDIT_2026-05-03.md`에 둔다.
 v97 상세 계획은
-`docs/plans/NATIVE_INIT_V97_SD_RUNTIME_ROOT_PLAN_2026-05-03.md`에 둔다. 다음 후보는 v98 helper deployment/package manifest다.
+`docs/plans/NATIVE_INIT_V97_SD_RUNTIME_ROOT_PLAN_2026-05-03.md`에 둔다. v98 상세 계획은
+`docs/plans/NATIVE_INIT_V98_HELPER_DEPLOY_PLAN_2026-05-03.md`에 둔다.
 v93 계획과 결과는
 `docs/plans/NATIVE_INIT_V93_STORAGE_API_PLAN_2026-05-02.md`,
 `docs/reports/NATIVE_INIT_V93_STORAGE_API_2026-05-02.md`에 둔다.
