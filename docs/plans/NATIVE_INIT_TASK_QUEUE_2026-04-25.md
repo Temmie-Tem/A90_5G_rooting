@@ -1822,6 +1822,7 @@ python3 ./scripts/revalidation/physical_usb_reconnect_check.py --manual-host-con
 1. v96-v105 장기 로드맵 기준으로 v99 착수
 
    - 기준 문서: `docs/plans/NATIVE_INIT_LONG_TERM_ROADMAP_2026-05-03.md`
-   - 다음 상세 계획: v99 BusyBox static userland evaluation 계획 작성
+   - 상세 계획: `docs/plans/NATIVE_INIT_V99_BUSYBOX_USERLAND_PLAN_2026-05-03.md`
+   - 다음 실행 항목: v99 BusyBox static userland evaluation 구현
    - 목적: v98 helper/runtime contract 위에서 BusyBox static userland 후보를 안전하게 평가
    - 보류: remote shell은 v100, service manager는 v101, Wi-Fi는 v103+ 트랙으로 분리

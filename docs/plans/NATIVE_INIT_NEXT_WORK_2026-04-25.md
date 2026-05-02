@@ -60,6 +60,8 @@ init_main
 `docs/reports/NATIVE_INIT_V94_BOOT_SELFTEST_API_2026-05-03.md`에 둔다.
 v96-v105 장기 로드맵은
 `docs/plans/NATIVE_INIT_LONG_TERM_ROADMAP_2026-05-03.md`를 기준으로 한다.
+v99 상세 계획은
+`docs/plans/NATIVE_INIT_V99_BUSYBOX_USERLAND_PLAN_2026-05-03.md`에 둔다.
 v96 상세 계획과 결과는
 `docs/plans/NATIVE_INIT_V96_STRUCTURE_AUDIT_PLAN_2026-05-03.md`,
 `docs/reports/NATIVE_INIT_V96_STRUCTURE_AUDIT_2026-05-03.md`에 둔다.
@@ -861,7 +863,8 @@ Samsung bootloader
 상세 실행 큐는 `docs/plans/NATIVE_INIT_TASK_QUEUE_2026-04-25.md`를 따른다.
 
 1. SD workspace helper 배치와 BusyBox/dropbear staging 후보 유지
-2. Wi-Fi read-only 인벤토리 트랙 분리
+2. v99 BusyBox static userland evaluation 구현
+3. Wi-Fi read-only 인벤토리 트랙 분리
 
 ---
 
