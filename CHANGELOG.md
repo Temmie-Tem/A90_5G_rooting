@@ -1,5 +1,13 @@
 # Changelog
 
+## `0.8.26` (`v95`) - 2026-05-03
+
+- Added `a90_usb_gadget.c/h` for configfs ACM/UDC setup, reset, bind/unbind, and read-only status snapshots.
+- Added `a90_netservice.c/h` for opt-in flag handling, NCM start/stop, `a90_tcpctl` lifecycle, and netservice status snapshots.
+- Updated boot path, `status`, network menu, selftest, `usbacmreset`, and `netservice` command wrappers to use the new APIs while preserving v94 UX.
+- Kept USB re-enumerating commands raw-control friendly; `netservice start/stop` may drop framed END but status recovery is verified.
+- Verified v95 flash, `cmdv1 version/status`, selftest `pass=8 warn=0 fail=0`, `usbacmreset`, NCM ping, `tcpctl_host.py ping/status/run`, opt-in boot auto-start, and ACM-only rollback.
+
 ## `0.8.25` (`v94`) - 2026-05-03
 
 - Added `a90_selftest.c/h` for fast non-destructive boot selftest result tracking.

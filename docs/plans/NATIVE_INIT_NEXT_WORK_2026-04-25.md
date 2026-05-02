@@ -52,9 +52,8 @@ init_main
   -> optional helpers / BusyBox / dropbear
 ```
 
-`v94 BOOT SELFTEST API`까지 실기 verified 완료했다. 다음 단기 작업 후보는
-`v95 NETSERVICE/USB GADGET API`로, NCM/tcpctl start/stop/enable/disable policy와
-USB configfs helper 경계를 분리하는 것이다. v94 결과는
+`v95 NETSERVICE/USB GADGET API`까지 실기 verified 완료했다. NCM/tcpctl start/stop policy와 USB configfs helper 경계를 `a90_netservice.c/h`, `a90_usb_gadget.c/h`로 분리했다. v95 결과는
+`docs/reports/NATIVE_INIT_V95_NETSERVICE_USB_API_2026-05-03.md`에 둔다. v94 결과는
 `docs/reports/NATIVE_INIT_V94_BOOT_SELFTEST_API_2026-05-03.md`에 둔다.
 v93 계획과 결과는
 `docs/plans/NATIVE_INIT_V93_STORAGE_API_PLAN_2026-05-02.md`,
@@ -204,18 +203,19 @@ Samsung bootloader
 - shell/controller metadata and busy policy API extraction — v92 완료
 - storage true `.c/.h` API module extraction — v93 완료
 - boot selftest non-destructive module smoke test API — v94 완료
+- netservice/USB gadget true `.c/.h` API module extraction — v95 완료
 - static dropbear SSH 또는 custom TCP shell
 
 ---
 
 ## 현재 기준점
 
-- 최신 확인 버전: `A90 Linux init 0.8.25 (v94)`
-- 공식 버전: `0.8.25`
-- build tag: `v94`
+- 최신 확인 버전: `A90 Linux init 0.8.26 (v95)`
+- 공식 버전: `0.8.26`
+- build tag: `v95`
 - creator: `made by temmie0214`
-- 최신 verified 소스: `stage3/linux_init/init_v94.c` + `stage3/linux_init/v94/*.inc.c` + `stage3/linux_init/helpers/a90_cpustress.c` + `stage3/linux_init/a90_config.h` + `stage3/linux_init/a90_util.c/h` + `stage3/linux_init/a90_log.c/h` + `stage3/linux_init/a90_timeline.c/h` + `stage3/linux_init/a90_console.c/h` + `stage3/linux_init/a90_cmdproto.c/h` + `stage3/linux_init/a90_run.c/h` + `stage3/linux_init/a90_service.c/h` + `stage3/linux_init/a90_kms.c/h` + `stage3/linux_init/a90_draw.c/h` + `stage3/linux_init/a90_input.c/h` + `stage3/linux_init/a90_hud.c/h` + `stage3/linux_init/a90_menu.c/h` + `stage3/linux_init/a90_metrics.c/h` + `stage3/linux_init/a90_shell.c/h` + `stage3/linux_init/a90_controller.c/h` + `stage3/linux_init/a90_storage.c/h` + `stage3/linux_init/a90_selftest.c/h`
-- 최신 verified boot image: `stage3/boot_linux_v94.img`
+- 최신 verified 소스: `stage3/linux_init/init_v95.c` + `stage3/linux_init/v95/*.inc.c` + `stage3/linux_init/helpers/a90_cpustress.c` + `stage3/linux_init/a90_config.h` + `stage3/linux_init/a90_util.c/h` + `stage3/linux_init/a90_log.c/h` + `stage3/linux_init/a90_timeline.c/h` + `stage3/linux_init/a90_console.c/h` + `stage3/linux_init/a90_cmdproto.c/h` + `stage3/linux_init/a90_run.c/h` + `stage3/linux_init/a90_service.c/h` + `stage3/linux_init/a90_kms.c/h` + `stage3/linux_init/a90_draw.c/h` + `stage3/linux_init/a90_input.c/h` + `stage3/linux_init/a90_hud.c/h` + `stage3/linux_init/a90_menu.c/h` + `stage3/linux_init/a90_metrics.c/h` + `stage3/linux_init/a90_shell.c/h` + `stage3/linux_init/a90_controller.c/h` + `stage3/linux_init/a90_storage.c/h` + `stage3/linux_init/a90_selftest.c/h` + `stage3/linux_init/a90_usb_gadget.c/h` + `stage3/linux_init/a90_netservice.c/h`
+- 최신 verified boot image: `stage3/boot_linux_v95.img`
 - previous verified source-layout baseline: `stage3/linux_init/init_v80.c` + `stage3/linux_init/v80/*.inc.c`
 - known-good fallback: `stage3/boot_linux_v48.img`
 - 주 제어 채널: USB CDC ACM serial (`/dev/ttyGS0` ↔ `/dev/ttyACM0`)
@@ -838,9 +838,8 @@ Samsung bootloader
 
 상세 실행 큐는 `docs/plans/NATIVE_INIT_TASK_QUEUE_2026-04-25.md`를 따른다.
 
-1. v95 Netservice/USB gadget 정책 계층 정리 계획 수립
-2. SD workspace helper 배치와 BusyBox/dropbear staging 후보 유지
-3. Wi-Fi read-only 인벤토리 트랙 분리
+1. SD workspace helper 배치와 BusyBox/dropbear staging 후보 유지
+2. Wi-Fi read-only 인벤토리 트랙 분리
 
 ---
 

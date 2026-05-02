@@ -17,7 +17,7 @@ from pathlib import Path
 ROOT = Path(__file__).resolve().parents[2]
 STAGE3 = ROOT / "stage3"
 LINUX_INIT = STAGE3 / "linux_init"
-DEFAULT_KEEP = ("v48", "v93", "v94")
+DEFAULT_KEEP = ("v48", "v94", "v95")
 
 
 def parse_args() -> argparse.Namespace:
@@ -29,7 +29,7 @@ def parse_args() -> argparse.Namespace:
         action="append",
         default=list(DEFAULT_KEEP),
         metavar="vNN",
-        help="build tag to keep; may be repeated (default: v48, v93, v94)",
+        help="build tag to keep; may be repeated (default: v48, v94, v95)",
     )
     parser.add_argument(
         "--execute",

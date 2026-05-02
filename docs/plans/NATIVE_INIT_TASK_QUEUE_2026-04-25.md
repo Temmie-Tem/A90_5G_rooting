@@ -1,19 +1,19 @@
 # Native Init Task Queue (2026-04-25)
 
-이 문서는 `A90 Linux init 0.8.25 (v94)` verified 이후 바로 실행할 작업 큐다.
+이 문서는 `A90 Linux init 0.8.26 (v95)` verified 이후 바로 실행할 작업 큐다.
 큰 방향은 “보이는 부팅 → 복구 가능한 로그 → 단독 조작 → 작은 userland → USB networking” 순서다.
 
 ## 현재 고정 기준점
 
-- latest verified build: `A90 Linux init 0.8.25 (v94)`
-- official version: `0.8.25`
-- build tag: `v94`
+- latest verified build: `A90 Linux init 0.8.26 (v95)`
+- official version: `0.8.26`
+- build tag: `v95`
 - creator: `made by temmie0214`
-- latest verified source: `stage3/linux_init/init_v94.c` + `stage3/linux_init/v94/*.inc.c` + `stage3/linux_init/helpers/a90_cpustress.c` + `stage3/linux_init/a90_config.h` + `stage3/linux_init/a90_util.c/h` + `stage3/linux_init/a90_log.c/h` + `stage3/linux_init/a90_timeline.c/h` + `stage3/linux_init/a90_console.c/h` + `stage3/linux_init/a90_cmdproto.c/h` + `stage3/linux_init/a90_run.c/h` + `stage3/linux_init/a90_service.c/h` + `stage3/linux_init/a90_kms.c/h` + `stage3/linux_init/a90_draw.c/h` + `stage3/linux_init/a90_input.c/h` + `stage3/linux_init/a90_hud.c/h` + `stage3/linux_init/a90_menu.c/h` + `stage3/linux_init/a90_metrics.c/h` + `stage3/linux_init/a90_shell.c/h` + `stage3/linux_init/a90_controller.c/h` + `stage3/linux_init/a90_storage.c/h` + `stage3/linux_init/a90_selftest.c/h`
-- latest verified boot image: `stage3/boot_linux_v94.img`
+- latest verified source: `stage3/linux_init/init_v95.c` + `stage3/linux_init/v95/*.inc.c` + `stage3/linux_init/helpers/a90_cpustress.c` + `stage3/linux_init/a90_config.h` + `stage3/linux_init/a90_util.c/h` + `stage3/linux_init/a90_log.c/h` + `stage3/linux_init/a90_timeline.c/h` + `stage3/linux_init/a90_console.c/h` + `stage3/linux_init/a90_cmdproto.c/h` + `stage3/linux_init/a90_run.c/h` + `stage3/linux_init/a90_service.c/h` + `stage3/linux_init/a90_kms.c/h` + `stage3/linux_init/a90_draw.c/h` + `stage3/linux_init/a90_input.c/h` + `stage3/linux_init/a90_hud.c/h` + `stage3/linux_init/a90_menu.c/h` + `stage3/linux_init/a90_metrics.c/h` + `stage3/linux_init/a90_shell.c/h` + `stage3/linux_init/a90_controller.c/h` + `stage3/linux_init/a90_storage.c/h` + `stage3/linux_init/a90_selftest.c/h` + `stage3/linux_init/a90_usb_gadget.c/h` + `stage3/linux_init/a90_netservice.c/h`
+- latest verified boot image: `stage3/boot_linux_v95.img`
 - previous verified source-layout baseline: `stage3/linux_init/init_v80.c` + `stage3/linux_init/v80/*.inc.c`
 - known-good fallback: `stage3/boot_linux_v48.img`
-- local artifact retention: `v94` latest, `v93` rollback, `v48` known-good만 보존하고 나머지 ignored stage3 산출물은 정리 가능
+- local artifact retention: `v95` latest, `v94` rollback, `v48` known-good만 보존하고 나머지 ignored stage3 산출물은 정리 가능
 - control channel: USB ACM serial bridge
 - log: SD 정상 시 `/mnt/sdext/a90/logs/native-init.log`, fallback 시 `/cache/native-init.log`
 - verified:
@@ -1703,12 +1703,40 @@ python3 ./scripts/revalidation/physical_usb_reconnect_check.py --manual-host-con
     - SHA256 `ecf0665bc47c9315edaeb46b38ffe0c64c4ff6b6498378292934d8c580753d98`
   - `docs/reports/NATIVE_INIT_V94_BOOT_SELFTEST_API_2026-05-03.md`
 
+### V95. Netservice / USB Gadget API — PASS
+
+- `stage3/linux_init/a90_usb_gadget.c/h`
+- `stage3/linux_init/a90_netservice.c/h`
+- `stage3/linux_init/init_v95.c`
+- `stage3/linux_init/v95/*.inc.c`
+- 의도:
+  - USB configfs/UDC/ACM primitive를 USB gadget API로 분리
+  - NCM/tcpctl start/stop/enable/disable policy를 netservice API로 분리
+  - shell/status/menu/selftest는 status snapshot API를 통해 상태 조회
+  - USB 재열거 명령은 raw-control friendly 동작 유지
+- 검증:
+  - static ARM64 init build with `-Wall -Wextra` — PASS
+  - `stage3/ramdisk_v95.cpio`, `stage3/boot_linux_v95.img` 생성 — PASS
+  - boot image marker strings `A90 Linux init 0.8.26 (v95)`, `A90v95`, `0.8.26 v95 NETSERVICE USB API` — PASS
+  - TWRP flash → post-boot `cmdv1 version/status` — PASS
+  - boot selftest `pass=8 warn=0 fail=0 duration=39ms` — PASS
+  - `bootstatus`, `selftest verbose`, `storage`, `mountsd status`, `statushud`, `autohud 2`, `screenmenu`, `hide` — PASS
+  - `usbacmreset` after hide, bridge reconnect, `version` — PASS
+  - `netservice start`, host NCM ping 3/3, `tcpctl_host.py ping/status/run` — PASS
+  - `netservice enable` → reboot → `enabled=yes`, `ncm0=present`, `tcpctl=running` — PASS
+  - `netservice disable`, `ncm0=absent`, `tcpctl=stopped`, bridge `version` — PASS
+- 산출:
+  - `stage3/linux_init/init_v95`
+    - SHA256 `13390d59c7a1d4dd460d2e88b6424ddc1759bb79d80aadbd2fd48382faa34390`
+  - `stage3/ramdisk_v95.cpio`
+    - SHA256 `3d6080c15201766f725cc3adf4c434278f528ea4ab5776e6d759f56ea95c81e5`
+  - `stage3/boot_linux_v95.img`
+    - SHA256 `cab9b2466e3162ec429e2634728e793990fe8cafc217e3be6b2c9a2f684b5824`
+  - `docs/reports/NATIVE_INIT_V95_NETSERVICE_USB_API_2026-05-03.md`
+
 ## 지금 바로 진행할 항목
 
-1. v95 Netservice/USB gadget 정책 계층 정리
-   - NCM/tcpctl start/stop/enable/disable policy를 `a90_netservice.c/h`로 이동
-   - 필요 시 USB configfs helper를 `a90_usb_gadget.c/h`로 분리
-2. 이후 helper/userland 확장
+1. 이후 helper/userland 확장
 
    - SD workspace의 `/mnt/sdext/a90/bin` helper 배치와 `/mnt/sdext/a90/logs` log sink 검토
    - BusyBox/dropbear 또는 custom TCP shell은 service/run 구조 안정화 뒤 검토

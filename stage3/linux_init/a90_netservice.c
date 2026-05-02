@@ -1,0 +1,306 @@
+#include "a90_netservice.h"
+
+#include "a90_config.h"
+#include "a90_console.h"
+#include "a90_log.h"
+#include "a90_run.h"
+#include "a90_service.h"
+#include "a90_timeline.h"
+#include "a90_util.h"
+
+#include <errno.h>
+#include <fcntl.h>
+#include <limits.h>
+#include <stdbool.h>
+#include <stdio.h>
+#include <string.h>
+#include <sys/wait.h>
+#include <unistd.h>
+
+static int netservice_run_wait(char *const argv[], const char *tag, int timeout_ms) {
+    static char *const envp[] = {
+        "PATH=/cache/bin:/cache:/bin:/system/bin",
+        "HOME=/",
+        "TERM=vt100",
+        NULL
+    };
+    struct a90_run_config config = {
+        .tag = tag,
+        .argv = argv,
+        .envp = envp,
+        .stdio_mode = A90_RUN_STDIO_LOG_APPEND,
+        .log_path = NETSERVICE_LOG_PATH,
+        .setsid = true,
+        .ignore_hup_pipe = true,
+        .timeout_ms = timeout_ms,
+        .stop_timeout_ms = 2000,
+    };
+    struct a90_run_result result;
+    pid_t pid;
+    int child_rc;
+    int wait_rc;
+
+    wait_rc = a90_run_spawn(&config, &pid);
+    if (wait_rc < 0) {
+        return wait_rc;
+    }
+
+    wait_rc = a90_run_wait(pid, &config, &result);
+    if (wait_rc < 0) {
+        return wait_rc;
+    }
+
+    child_rc = a90_run_result_to_rc(&result);
+    if (child_rc == 0) {
+        a90_logf("netservice", "%s ok", tag);
+        return 0;
+    }
+    if (WIFEXITED(result.status)) {
+        a90_logf("netservice", "%s exit=%d", tag, WEXITSTATUS(result.status));
+        return -EIO;
+    }
+    if (WIFSIGNALED(result.status)) {
+        a90_logf("netservice", "%s signal=%d", tag, WTERMSIG(result.status));
+        return -EINTR;
+    }
+
+    a90_logf("netservice", "%s unknown status=0x%x", tag, result.status);
+    return -ECHILD;
+}
+
+static int netservice_wait_for_ifname(const char *ifname, int timeout_ms) {
+    char path[PATH_MAX];
+    long deadline = monotonic_millis() + timeout_ms;
+
+    snprintf(path, sizeof(path), "/sys/class/net/%s", ifname);
+    while (monotonic_millis() < deadline) {
+        if (access(path, F_OK) == 0) {
+            return 0;
+        }
+        usleep(100000);
+    }
+
+    a90_logf("netservice", "interface %s did not appear", ifname);
+    return -ETIMEDOUT;
+}
+
+void a90_netservice_reap(void) {
+    if (a90_service_reap(A90_SERVICE_TCPCTL, NULL) > 0) {
+        a90_logf("netservice", "tcpctl exited");
+    }
+}
+
+bool a90_netservice_enabled(void) {
+    char state[64];
+
+    if (read_trimmed_text_file(NETSERVICE_FLAG_PATH, state, sizeof(state)) < 0) {
+        return false;
+    }
+
+    return strcmp(state, "1") == 0 ||
+           strcmp(state, "on") == 0 ||
+           strcmp(state, "enable") == 0 ||
+           strcmp(state, "enabled") == 0 ||
+           strcmp(state, "ncm") == 0 ||
+           strcmp(state, "tcpctl") == 0;
+}
+
+int a90_netservice_set_enabled(bool enabled) {
+    int fd;
+
+    if (!enabled) {
+        if (unlink(NETSERVICE_FLAG_PATH) < 0 && errno != ENOENT) {
+            int saved_errno = errno;
+            a90_console_printf("netservice: unlink %s: %s\r\n",
+                    NETSERVICE_FLAG_PATH, strerror(saved_errno));
+            return -saved_errno;
+        }
+        a90_logf("netservice", "disabled flag removed");
+        return 0;
+    }
+
+    fd = open(NETSERVICE_FLAG_PATH,
+              O_WRONLY | O_CREAT | O_TRUNC | O_CLOEXEC,
+              0644);
+    if (fd < 0) {
+        int saved_errno = errno;
+        a90_console_printf("netservice: open %s: %s\r\n",
+                NETSERVICE_FLAG_PATH, strerror(saved_errno));
+        return -saved_errno;
+    }
+    if (write_all_checked(fd, "enabled\n", 8) < 0) {
+        int saved_errno = errno;
+        close(fd);
+        a90_console_printf("netservice: write %s: %s\r\n",
+                NETSERVICE_FLAG_PATH, strerror(saved_errno));
+        return -saved_errno;
+    }
+    if (close(fd) < 0) {
+        int saved_errno = errno;
+        a90_console_printf("netservice: close %s: %s\r\n",
+                NETSERVICE_FLAG_PATH, strerror(saved_errno));
+        return -saved_errno;
+    }
+
+    a90_logf("netservice", "enabled flag written");
+    return 0;
+}
+
+static int netservice_spawn_tcpctl(void) {
+    static char *const argv[] = {
+        NETSERVICE_TCPCTL_HELPER,
+        "listen",
+        NETSERVICE_TCP_PORT,
+        NETSERVICE_TCP_IDLE_SECONDS,
+        NETSERVICE_TCP_MAX_CLIENTS,
+        NULL
+    };
+    static char *const envp[] = {
+        "PATH=/cache/bin:/cache:/bin:/system/bin",
+        "HOME=/",
+        "TERM=vt100",
+        NULL
+    };
+    struct a90_run_config config = {
+        .tag = "tcpctl",
+        .argv = argv,
+        .envp = envp,
+        .stdio_mode = A90_RUN_STDIO_LOG_APPEND,
+        .log_path = NETSERVICE_LOG_PATH,
+        .setsid = true,
+        .ignore_hup_pipe = true,
+        .stop_timeout_ms = 2000,
+    };
+    pid_t pid;
+    int status = 0;
+    int rc;
+
+    a90_netservice_reap();
+    if (a90_service_pid(A90_SERVICE_TCPCTL) > 0) {
+        a90_logf("netservice", "tcpctl already running pid=%ld",
+                    (long)a90_service_pid(A90_SERVICE_TCPCTL));
+        return 0;
+    }
+
+    rc = a90_run_spawn(&config, &pid);
+    if (rc < 0) {
+        return rc;
+    }
+    a90_service_set_pid(A90_SERVICE_TCPCTL, pid);
+
+    usleep(200000);
+    if (a90_service_reap(A90_SERVICE_TCPCTL, &status) > 0) {
+        a90_logf("netservice", "tcpctl exited immediately pid=%ld", (long)pid);
+        return -EIO;
+    }
+
+    a90_logf("netservice", "tcpctl started pid=%ld port=%s",
+                (long)pid, NETSERVICE_TCP_PORT);
+    return 0;
+}
+
+int a90_netservice_start(void) {
+    char *const usbnet_argv[] = {
+        NETSERVICE_USB_HELPER,
+        "ncm",
+        NULL
+    };
+    char *const ifconfig_argv[] = {
+        NETSERVICE_TOYBOX,
+        "ifconfig",
+        NETSERVICE_IFNAME,
+        NETSERVICE_DEVICE_IP,
+        "netmask",
+        NETSERVICE_NETMASK,
+        "up",
+        NULL
+    };
+    int rc;
+
+    a90_logf("netservice", "start requested");
+    if (access(NETSERVICE_USB_HELPER, X_OK) < 0 ||
+        access(NETSERVICE_TCPCTL_HELPER, X_OK) < 0 ||
+        access(NETSERVICE_TOYBOX, X_OK) < 0) {
+        int saved_errno = errno;
+        a90_logf("netservice", "required helper missing errno=%d error=%s",
+                    saved_errno, strerror(saved_errno));
+        return -ENOENT;
+    }
+
+    rc = netservice_run_wait(usbnet_argv, "a90_usbnet ncm", 15000);
+    a90_console_reattach("netservice-ncm", false);
+    if (rc < 0) {
+        return rc;
+    }
+
+    rc = netservice_wait_for_ifname(NETSERVICE_IFNAME, 5000);
+    if (rc < 0) {
+        return rc;
+    }
+
+    rc = netservice_run_wait(ifconfig_argv, "ifconfig ncm0", 5000);
+    if (rc < 0) {
+        return rc;
+    }
+
+    rc = netservice_spawn_tcpctl();
+    if (rc < 0) {
+        return rc;
+    }
+
+    a90_timeline_record(0, 0, "netservice", "ncm=%s tcp=%s",
+                    NETSERVICE_IFNAME, NETSERVICE_TCP_PORT);
+    a90_logf("netservice", "ready if=%s ip=%s port=%s",
+                NETSERVICE_IFNAME, NETSERVICE_DEVICE_IP, NETSERVICE_TCP_PORT);
+    return 0;
+}
+
+int a90_netservice_stop(void) {
+    char *const usbnet_argv[] = {
+        NETSERVICE_USB_HELPER,
+        "off",
+        NULL
+    };
+    int rc = 0;
+
+    a90_logf("netservice", "stop requested");
+    a90_netservice_reap();
+    if (a90_service_pid(A90_SERVICE_TCPCTL) > 0) {
+        pid_t pid = a90_service_pid(A90_SERVICE_TCPCTL);
+
+        (void)a90_service_stop(A90_SERVICE_TCPCTL, 2000);
+        a90_logf("netservice", "tcpctl stopped pid=%ld", (long)pid);
+    }
+
+    if (access(NETSERVICE_USB_HELPER, X_OK) == 0) {
+        rc = netservice_run_wait(usbnet_argv, "a90_usbnet off", 15000);
+        a90_console_reattach("netservice-off", false);
+    }
+
+    return rc;
+}
+
+int a90_netservice_status(struct a90_netservice_status *out) {
+    if (out == NULL) {
+        return -EINVAL;
+    }
+
+    a90_netservice_reap();
+    memset(out, 0, sizeof(*out));
+    out->enabled = a90_netservice_enabled();
+    out->usbnet_helper = access(NETSERVICE_USB_HELPER, X_OK) == 0;
+    out->tcpctl_helper = access(NETSERVICE_TCPCTL_HELPER, X_OK) == 0;
+    out->toybox_helper = access(NETSERVICE_TOYBOX, X_OK) == 0;
+    out->ncm_present = access("/sys/class/net/" NETSERVICE_IFNAME, F_OK) == 0;
+    out->tcpctl_pid = a90_service_pid(A90_SERVICE_TCPCTL);
+    out->tcpctl_running = out->tcpctl_pid > 0;
+    out->flag_path = NETSERVICE_FLAG_PATH;
+    out->log_path = NETSERVICE_LOG_PATH;
+    out->ifname = NETSERVICE_IFNAME;
+    out->device_ip = NETSERVICE_DEVICE_IP;
+    out->netmask = NETSERVICE_NETMASK;
+    out->tcp_port = NETSERVICE_TCP_PORT;
+    out->tcp_idle_seconds = NETSERVICE_TCP_IDLE_SECONDS;
+    out->tcp_max_clients = NETSERVICE_TCP_MAX_CLIENTS;
+    return 0;
+}

@@ -24,6 +24,7 @@ static const struct screen_menu_item screen_menu_about_items[] = {
 };
 
 static const struct screen_menu_item screen_menu_changelog_items[] = {
+    { "0.8.26 v95", "NETSERVICE USB",   SCREEN_MENU_CHANGELOG_0826, SCREEN_MENU_PAGE_CHANGELOG },
     { "0.8.25 v94", "BOOT SELFTEST",    SCREEN_MENU_CHANGELOG_0825, SCREEN_MENU_PAGE_CHANGELOG },
     { "0.8.24 v93", "STORAGE API",       SCREEN_MENU_CHANGELOG_0824, SCREEN_MENU_PAGE_CHANGELOG },
     { "0.8.23 v92", "SHELL CONTROLLER",  SCREEN_MENU_CHANGELOG_0823, SCREEN_MENU_PAGE_CHANGELOG },
@@ -178,6 +179,8 @@ enum screen_app_id a90_menu_app_from_action(enum screen_menu_action action) {
         return SCREEN_APP_ABOUT_CHANGELOG;
     case SCREEN_MENU_ABOUT_CREDITS:
         return SCREEN_APP_ABOUT_CREDITS;
+    case SCREEN_MENU_CHANGELOG_0826:
+        return SCREEN_APP_CHANGELOG_0826;
     case SCREEN_MENU_CHANGELOG_0825:
         return SCREEN_APP_CHANGELOG_0825;
     case SCREEN_MENU_CHANGELOG_0824:
@@ -367,6 +370,7 @@ bool a90_menu_app_is_about(enum screen_app_id app_id) {
     case SCREEN_APP_ABOUT_VERSION:
     case SCREEN_APP_ABOUT_CHANGELOG:
     case SCREEN_APP_ABOUT_CREDITS:
+    case SCREEN_APP_CHANGELOG_0826:
     case SCREEN_APP_CHANGELOG_0825:
     case SCREEN_APP_CHANGELOG_0824:
     case SCREEN_APP_CHANGELOG_0823:

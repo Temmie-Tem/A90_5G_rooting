@@ -4,9 +4,11 @@
 #include "a90_kms.h"
 #include "a90_log.h"
 #include "a90_metrics.h"
+#include "a90_netservice.h"
 #include "a90_service.h"
 #include "a90_storage.h"
 #include "a90_timeline.h"
+#include "a90_usb_gadget.h"
 #include "a90_util.h"
 
 #include <errno.h>
@@ -101,12 +103,6 @@ static void selftest_record_elapsed(const char *name,
                     saved_errno,
                     monotonic_millis() - started_ms,
                     detail);
-}
-
-static bool path_is_symlink(const char *path) {
-    struct stat st;
-
-    return lstat(path, &st) == 0 && S_ISLNK(st.st_mode);
 }
 
 static void selftest_log(void) {
@@ -289,14 +285,17 @@ static void selftest_input(void) {
 
 static void selftest_service(void) {
     long started_ms = monotonic_millis();
+    struct a90_netservice_status net_status;
     char detail[128];
 
+    a90_netservice_status(&net_status);
     snprintf(detail,
              sizeof(detail),
-             "hud=%ld tcpctl=%ld adbd=%ld",
+             "hud=%ld tcpctl=%ld adbd=%ld ncm=%s",
              (long)a90_service_pid(A90_SERVICE_HUD),
-             (long)a90_service_pid(A90_SERVICE_TCPCTL),
-             (long)a90_service_pid(A90_SERVICE_ADBD));
+             net_status.tcpctl_running ? (long)net_status.tcpctl_pid : -1L,
+             (long)a90_service_pid(A90_SERVICE_ADBD),
+             net_status.ncm_present ? "yes" : "no");
     selftest_record_elapsed("service",
                             A90_SELFTEST_PASS,
                             0,
@@ -307,24 +306,25 @@ static void selftest_service(void) {
 
 static void selftest_usb(void) {
     long started_ms = monotonic_millis();
-    char udc[64];
-    bool acm_function = access("/config/usb_gadget/g1/functions/acm.usb0", F_OK) == 0;
-    bool acm_link = path_is_symlink("/config/usb_gadget/g1/configs/b.1/f1");
-    bool udc_ok = read_trimmed_text_file("/config/usb_gadget/g1/UDC", udc, sizeof(udc)) == 0 &&
-                  udc[0] != '\0';
+    struct a90_usb_gadget_status status;
+    bool status_ok = a90_usb_gadget_status(&status) == 0;
     char detail[128];
 
     snprintf(detail,
              sizeof(detail),
-             "acm=%s f1=%s udc=%s",
-             acm_function ? "yes" : "no",
-             acm_link ? "yes" : "no",
-             udc_ok ? udc : "none");
+             "acm=%s f1=%s adb=%s udc=%s",
+             status_ok && status.acm_function ? "yes" : "no",
+             status_ok && status.acm_link ? "yes" : "no",
+             status_ok && status.adb_link ? "yes" : "no",
+             status_ok && status.udc_bound ? status.udc : "none");
     selftest_record_elapsed("usb",
-                            acm_function && acm_link && udc_ok ?
+                            status_ok && status.acm_function &&
+                                    status.acm_link && status.udc_bound ?
                                     A90_SELFTEST_PASS : A90_SELFTEST_FAIL,
-                            acm_function && acm_link && udc_ok ? 0 : -ENODEV,
-                            acm_function && acm_link && udc_ok ? 0 : ENODEV,
+                            status_ok && status.acm_function &&
+                                    status.acm_link && status.udc_bound ? 0 : -ENODEV,
+                            status_ok && status.acm_function &&
+                                    status.acm_link && status.udc_bound ? 0 : ENODEV,
                             started_ms,
                             detail);
 }
