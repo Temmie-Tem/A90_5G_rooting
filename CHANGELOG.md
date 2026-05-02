@@ -1,5 +1,13 @@
 # Changelog
 
+## `0.8.27` (`v96`) - 2026-05-03
+
+- Added `init_v96.c` and `v96/*.inc.c` as a structure-audit checkpoint after the v95 USB/netservice split.
+- Added ABOUT/changelog/menu entry for `0.8.27 v96 STRUCTURE AUDIT`.
+- Fixed stale console reattach klog markers that still reported `A90v83`; console reattach kmsg now uses the active `INIT_BUILD`.
+- Documented audit findings and deferred targets in `docs/reports/NATIVE_INIT_V96_STRUCTURE_AUDIT_2026-05-03.md`.
+- Verified v96 flash, `cmdv1 version/status`, selftest `pass=8 warn=0 fail=0`, storage, HUD/menu, and `netservice status` regression.
+
 ## `0.8.26` (`v95`) - 2026-05-03
 
 - Added `a90_usb_gadget.c/h` for configfs ACM/UDC setup, reset, bind/unbind, and read-only status snapshots.

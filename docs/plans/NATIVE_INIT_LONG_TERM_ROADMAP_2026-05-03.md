@@ -4,7 +4,8 @@ Date: `2026-05-03`
 
 ## Summary
 
-- Baseline: `A90 Linux init 0.8.26 (v95)` is latest verified.
+- Latest verified: `A90 Linux init 0.8.27 (v96)`.
+- Roadmap baseline before this cycle: `A90 Linux init 0.8.26 (v95)`.
 - Goal: turn the verified native init foundation into a small, server-like embedded Linux runtime without losing recovery safety.
 - Scope: this roadmap defines version-level objectives from v96 through v105.
 - Rule: each version should keep one primary responsibility, one rollback path, and one concrete device validation checklist.
@@ -238,9 +239,9 @@ Commit only after verified.
 
 ## Current Next Action
 
-The immediate next action is v96 planning/implementation:
+v96 structure audit is verified. The immediate next action is v97 planning:
 
-1. write the detailed v96 structure audit plan,
-2. run static grep-based boundary checks against v95,
-3. apply only safe cleanup changes,
-4. verify v95 behavior remains unchanged under v96 versioning.
+1. define `/mnt/sdext/a90` runtime root directory contracts,
+2. decide fallback behavior when SD is missing or unsafe,
+3. define how shell/HUD/selftest expose runtime root health,
+4. keep BusyBox/dropbear/helper deployment deferred until v98+.

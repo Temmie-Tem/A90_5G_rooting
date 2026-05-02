@@ -1,19 +1,19 @@
 # Native Init Task Queue (2026-04-25)
 
-이 문서는 `A90 Linux init 0.8.26 (v95)` verified 이후 바로 실행할 작업 큐다.
+이 문서는 `A90 Linux init 0.8.27 (v96)` verified 이후 바로 실행할 작업 큐다.
 큰 방향은 “보이는 부팅 → 복구 가능한 로그 → 단독 조작 → 작은 userland → USB networking” 순서다.
 
 ## 현재 고정 기준점
 
-- latest verified build: `A90 Linux init 0.8.26 (v95)`
-- official version: `0.8.26`
-- build tag: `v95`
+- latest verified build: `A90 Linux init 0.8.27 (v96)`
+- official version: `0.8.27`
+- build tag: `v96`
 - creator: `made by temmie0214`
-- latest verified source: `stage3/linux_init/init_v95.c` + `stage3/linux_init/v95/*.inc.c` + `stage3/linux_init/helpers/a90_cpustress.c` + `stage3/linux_init/a90_config.h` + `stage3/linux_init/a90_util.c/h` + `stage3/linux_init/a90_log.c/h` + `stage3/linux_init/a90_timeline.c/h` + `stage3/linux_init/a90_console.c/h` + `stage3/linux_init/a90_cmdproto.c/h` + `stage3/linux_init/a90_run.c/h` + `stage3/linux_init/a90_service.c/h` + `stage3/linux_init/a90_kms.c/h` + `stage3/linux_init/a90_draw.c/h` + `stage3/linux_init/a90_input.c/h` + `stage3/linux_init/a90_hud.c/h` + `stage3/linux_init/a90_menu.c/h` + `stage3/linux_init/a90_metrics.c/h` + `stage3/linux_init/a90_shell.c/h` + `stage3/linux_init/a90_controller.c/h` + `stage3/linux_init/a90_storage.c/h` + `stage3/linux_init/a90_selftest.c/h` + `stage3/linux_init/a90_usb_gadget.c/h` + `stage3/linux_init/a90_netservice.c/h`
-- latest verified boot image: `stage3/boot_linux_v95.img`
+- latest verified source: `stage3/linux_init/init_v96.c` + `stage3/linux_init/v96/*.inc.c` + `stage3/linux_init/helpers/a90_cpustress.c` + `stage3/linux_init/a90_config.h` + `stage3/linux_init/a90_util.c/h` + `stage3/linux_init/a90_log.c/h` + `stage3/linux_init/a90_timeline.c/h` + `stage3/linux_init/a90_console.c/h` + `stage3/linux_init/a90_cmdproto.c/h` + `stage3/linux_init/a90_run.c/h` + `stage3/linux_init/a90_service.c/h` + `stage3/linux_init/a90_kms.c/h` + `stage3/linux_init/a90_draw.c/h` + `stage3/linux_init/a90_input.c/h` + `stage3/linux_init/a90_hud.c/h` + `stage3/linux_init/a90_menu.c/h` + `stage3/linux_init/a90_metrics.c/h` + `stage3/linux_init/a90_shell.c/h` + `stage3/linux_init/a90_controller.c/h` + `stage3/linux_init/a90_storage.c/h` + `stage3/linux_init/a90_selftest.c/h` + `stage3/linux_init/a90_usb_gadget.c/h` + `stage3/linux_init/a90_netservice.c/h`
+- latest verified boot image: `stage3/boot_linux_v96.img`
 - previous verified source-layout baseline: `stage3/linux_init/init_v80.c` + `stage3/linux_init/v80/*.inc.c`
 - known-good fallback: `stage3/boot_linux_v48.img`
-- local artifact retention: `v95` latest, `v94` rollback, `v48` known-good만 보존하고 나머지 ignored stage3 산출물은 정리 가능
+- local artifact retention: `v96` latest, `v95` rollback, `v48` known-good만 보존하고 나머지 ignored stage3 산출물은 정리 가능
 - control channel: USB ACM serial bridge
 - log: SD 정상 시 `/mnt/sdext/a90/logs/native-init.log`, fallback 시 `/cache/native-init.log`
 - verified:
@@ -1734,11 +1734,38 @@ python3 ./scripts/revalidation/physical_usb_reconnect_check.py --manual-host-con
     - SHA256 `cab9b2466e3162ec429e2634728e793990fe8cafc217e3be6b2c9a2f684b5824`
   - `docs/reports/NATIVE_INIT_V95_NETSERVICE_USB_API_2026-05-03.md`
 
+### V96. Structure Audit / Refactor Debt Cleanup — PASS
+
+- `stage3/linux_init/init_v96.c`
+- `stage3/linux_init/v96/*.inc.c`
+- `stage3/linux_init/a90_console.c`
+- `stage3/linux_init/a90_menu.c/h`
+- 의도:
+  - v95 모듈 분리 이후 중복/겹침/직접 path 접근/남은 lifecycle 중복을 감사
+  - stale `A90v83` console reattach klog marker를 `INIT_BUILD` 기반 출력으로 정리
+  - v96 ABOUT/changelog/menu entry 추가
+  - SD runtime, BusyBox, remote shell, Wi-Fi 기능 추가는 v97+로 보류
+- 검증:
+  - static ARM64 init build with `-Wall -Wextra` — PASS
+  - `stage3/ramdisk_v96.cpio`, `stage3/boot_linux_v96.img` 생성 — PASS
+  - boot image marker strings `A90 Linux init 0.8.27 (v96)`, `A90v96`, `0.8.27 v96 STRUCTURE AUDIT` — PASS
+  - TWRP flash → post-boot `cmdv1 version/status` — PASS
+  - boot selftest `pass=8 warn=0 fail=0 duration=39ms` — PASS
+  - `bootstatus`, `selftest verbose`, `storage`, `mountsd status`, `statushud`, `autohud 2`, `screenmenu`, `hide`, `netservice status` — PASS
+- 산출:
+  - `stage3/linux_init/init_v96`
+    - SHA256 `2cee558e62f840dd9337ec1852d49116f4ffff99092a35bddece90f9659e65be`
+  - `stage3/ramdisk_v96.cpio`
+    - SHA256 `f41140ae0c8ad45170adc2927a438c70b002985e1b8e0f493b5711998cc2fe61`
+  - `stage3/boot_linux_v96.img`
+    - SHA256 `e890a3f4ac3ae59f3bff7a7307551c0545189e664e272b120198eb3b3762dacf`
+  - `docs/reports/NATIVE_INIT_V96_STRUCTURE_AUDIT_2026-05-03.md`
+
 ## 지금 바로 진행할 항목
 
-1. v96-v105 장기 로드맵 기준으로 v96 착수
+1. v96-v105 장기 로드맵 기준으로 v97 착수
 
    - 기준 문서: `docs/plans/NATIVE_INIT_LONG_TERM_ROADMAP_2026-05-03.md`
-   - 다음 상세 계획: `docs/plans/NATIVE_INIT_V96_STRUCTURE_AUDIT_PLAN_2026-05-03.md`
-   - 목적: v95 모듈 분리 이후 중복/겹침/직접 path 접근/남은 fork-wait 중복을 먼저 정리
-   - 보류: SD runtime root는 v97, helper deployment는 v98, BusyBox는 v99, remote shell은 v100, Wi-Fi는 v103+ 트랙으로 분리
+   - 다음 상세 계획: v97 `SD RUNTIME ROOT`
+   - 목적: `/mnt/sdext/a90`를 실험 workspace에서 native runtime root로 격상
+   - 보류: helper deployment는 v98, BusyBox는 v99, remote shell은 v100, Wi-Fi는 v103+ 트랙으로 분리

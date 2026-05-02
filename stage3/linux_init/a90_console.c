@@ -304,8 +304,8 @@ int a90_console_reattach(const char *reason, bool announce) {
     if (!quiet_success) {
         a90_logf("console", "reattach requested reason=%s old_fd=%d",
                  reason, old_fd);
-        console_klogf("<6>A90v83: console reattach requested reason=%s old_fd=%d\n",
-                      reason, old_fd);
+        console_klogf("<6>A90%s: console reattach requested reason=%s old_fd=%d\n",
+                      INIT_BUILD, reason, old_fd);
     }
 
     if (old_fd >= 0) {
@@ -317,7 +317,7 @@ int a90_console_reattach(const char *reason, bool announce) {
         int saved_errno = errno;
         a90_logf("console", "reattach wait failed reason=%s errno=%d error=%s",
                  reason, saved_errno, strerror(saved_errno));
-        console_klogf("<6>A90v83: console reattach wait failed (%d)\n", saved_errno);
+        console_klogf("<6>A90%s: console reattach wait failed (%d)\n", INIT_BUILD, saved_errno);
         errno = saved_errno;
         return -1;
     }
@@ -326,7 +326,7 @@ int a90_console_reattach(const char *reason, bool announce) {
         int saved_errno = errno;
         a90_logf("console", "reattach open failed reason=%s errno=%d error=%s",
                  reason, saved_errno, strerror(saved_errno));
-        console_klogf("<6>A90v83: console reattach open failed (%d)\n", saved_errno);
+        console_klogf("<6>A90%s: console reattach open failed (%d)\n", INIT_BUILD, saved_errno);
         errno = saved_errno;
         return -1;
     }
@@ -334,7 +334,7 @@ int a90_console_reattach(const char *reason, bool announce) {
     a90_console_drain_input(50, 200);
     if (!quiet_success) {
         a90_logf("console", "reattach ok reason=%s fd=%d", reason, console_fd);
-        console_klogf("<6>A90v83: console reattached reason=%s fd=%d\n", reason, console_fd);
+        console_klogf("<6>A90%s: console reattached reason=%s fd=%d\n", INIT_BUILD, reason, console_fd);
     }
     if (announce) {
         a90_console_printf("\r\n# serial console reattached: %s\r\n", reason);
