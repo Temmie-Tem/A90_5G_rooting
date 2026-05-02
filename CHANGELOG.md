@@ -1,5 +1,13 @@
 # Changelog
 
+## `0.8.24` (`v93`) - 2026-05-02
+
+- Added `a90_storage.c/h` for boot storage state, SD workspace probing, `/cache` fallback policy, and `storage`/`mountsd` command handlers.
+- Replaced direct include-tree `boot_storage` access with storage status snapshots for HUD/status/menu call sites.
+- Preserved Android layout, netservice, USB gadget, and recovery/reboot command behavior for v94+ separation.
+- Fixed `mountsd ro/off/init` logpath recovery so remounting SD restores `/mnt/sdext/a90/logs/native-init.log`.
+- Verified v93 flash, `cmdv1 version/status`, `storage`, `mountsd status/ro/rw/init/off`, `logpath`, `timeline`, `statushud`, `autohud`, `screenmenu`, `hide`, and `netservice status`.
+
 ## `0.8.23` (`v92`) - 2026-05-02
 
 - Added `a90_shell.c/h` for command flags/types, last-result storage, protocol sequence allocation, command lookup, errno normalization, and result printing.

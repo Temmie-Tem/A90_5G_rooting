@@ -636,6 +636,9 @@ int a90_storage_cmd_mountsd(char **argv, int argc) {
     }
     storage_state.sd_present = true;
     storage_state.sd_mounted = true;
+    if ((flags & MS_RDONLY) == 0) {
+        (void)a90_log_set_path(SD_NATIVE_LOG_PATH);
+    }
     a90_console_printf("mountsd: %s ready (%s)\r\n",
             SD_MOUNT_POINT,
             flags & MS_RDONLY ? "ro" : "rw");
@@ -644,6 +647,7 @@ int a90_storage_cmd_mountsd(char **argv, int argc) {
         if (rc < 0) {
             return rc;
         }
+        (void)a90_log_set_path(SD_NATIVE_LOG_PATH);
         a90_console_printf("mountsd: workspace ready %s\r\n", SD_WORKSPACE_DIR);
     }
     return 0;

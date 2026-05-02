@@ -1,19 +1,19 @@
 # Native Init Task Queue (2026-04-25)
 
-이 문서는 `A90 Linux init 0.8.23 (v92)` verified 이후 바로 실행할 작업 큐다.
+이 문서는 `A90 Linux init 0.8.24 (v93)` verified 이후 바로 실행할 작업 큐다.
 큰 방향은 “보이는 부팅 → 복구 가능한 로그 → 단독 조작 → 작은 userland → USB networking” 순서다.
 
 ## 현재 고정 기준점
 
-- latest verified build: `A90 Linux init 0.8.23 (v92)`
-- official version: `0.8.23`
-- build tag: `v92`
+- latest verified build: `A90 Linux init 0.8.24 (v93)`
+- official version: `0.8.24`
+- build tag: `v93`
 - creator: `made by temmie0214`
-- latest verified source: `stage3/linux_init/init_v92.c` + `stage3/linux_init/v92/*.inc.c` + `stage3/linux_init/helpers/a90_cpustress.c` + `stage3/linux_init/a90_config.h` + `stage3/linux_init/a90_util.c/h` + `stage3/linux_init/a90_log.c/h` + `stage3/linux_init/a90_timeline.c/h` + `stage3/linux_init/a90_console.c/h` + `stage3/linux_init/a90_cmdproto.c/h` + `stage3/linux_init/a90_run.c/h` + `stage3/linux_init/a90_service.c/h` + `stage3/linux_init/a90_kms.c/h` + `stage3/linux_init/a90_draw.c/h` + `stage3/linux_init/a90_input.c/h` + `stage3/linux_init/a90_hud.c/h` + `stage3/linux_init/a90_menu.c/h` + `stage3/linux_init/a90_metrics.c/h` + `stage3/linux_init/a90_shell.c/h` + `stage3/linux_init/a90_controller.c/h`
-- latest verified boot image: `stage3/boot_linux_v92.img`
+- latest verified source: `stage3/linux_init/init_v93.c` + `stage3/linux_init/v93/*.inc.c` + `stage3/linux_init/helpers/a90_cpustress.c` + `stage3/linux_init/a90_config.h` + `stage3/linux_init/a90_util.c/h` + `stage3/linux_init/a90_log.c/h` + `stage3/linux_init/a90_timeline.c/h` + `stage3/linux_init/a90_console.c/h` + `stage3/linux_init/a90_cmdproto.c/h` + `stage3/linux_init/a90_run.c/h` + `stage3/linux_init/a90_service.c/h` + `stage3/linux_init/a90_kms.c/h` + `stage3/linux_init/a90_draw.c/h` + `stage3/linux_init/a90_input.c/h` + `stage3/linux_init/a90_hud.c/h` + `stage3/linux_init/a90_menu.c/h` + `stage3/linux_init/a90_metrics.c/h` + `stage3/linux_init/a90_shell.c/h` + `stage3/linux_init/a90_controller.c/h` + `stage3/linux_init/a90_storage.c/h`
+- latest verified boot image: `stage3/boot_linux_v93.img`
 - previous verified source-layout baseline: `stage3/linux_init/init_v80.c` + `stage3/linux_init/v80/*.inc.c`
 - known-good fallback: `stage3/boot_linux_v48.img`
-- local artifact retention: `v92` latest, `v91` rollback, `v48` known-good만 보존하고 나머지 ignored stage3 산출물은 정리 가능
+- local artifact retention: `v93` latest, `v92` rollback, `v48` known-good만 보존하고 나머지 ignored stage3 산출물은 정리 가능
 - control channel: USB ACM serial bridge
 - log: SD 정상 시 `/mnt/sdext/a90/logs/native-init.log`, fallback 시 `/cache/native-init.log`
 - verified:
@@ -1647,30 +1647,42 @@ python3 ./scripts/revalidation/physical_usb_reconnect_check.py --manual-host-con
     - SHA256 `1cd524c1ece925b3d5d70b7ee19a7247f1a40c00aab24535f165911fde335880`
   - `stage3/boot_linux_v92.img`
     - SHA256 `817a6a9e2b6c7f1c64e28d972122cd4c3ab022a9430a74a0fbfbef9301079b23`
-  - `docs/reports/NATIVE_INIT_V92_SHELL_CONTROLLER_API_2026-05-02.md`
+  - `docs/reports/NATIVE_INIT_V93_STORAGE_API_2026-05-02.md`
 
-### V93. Storage API First Split — PLANNED
+### V93. Storage API First Split — PASS
 
-- 계획: `docs/plans/NATIVE_INIT_V93_STORAGE_API_PLAN_2026-05-02.md`
-- 목표 버전: `A90 Linux init 0.8.24 (v93)` / `0.8.24 v93 STORAGE API`
+- `stage3/linux_init/a90_storage.c/h`
+- `stage3/linux_init/init_v93.c`
+- `stage3/linux_init/v93/*.inc.c`
 - 의도:
   - boot storage state, SD workspace probe, `/cache` fallback, `storage`/`mountsd` command logic을 `a90_storage.c/h`로 분리
   - HUD/menu/shell dispatch/netservice가 storage 내부 상태를 직접 보지 않게 status snapshot API로 연결
   - netservice/USB gadget 정책은 v94 후보로 분리해 v93 리스크를 boot-critical storage에 한정
-- 검증 예정:
-  - local static ARM64 build + marker strings
-  - `storage`, `mountsd status/ro/rw/init/off`, `logpath`, `timeline`, `bootstatus` 회귀
-  - `statushud`, `autohud 2`, `screenmenu`, `hide` 회귀
-  - `netservice status/start/stop/enable/disable` 동작 유지 확인
+- 검증:
+  - static ARM64 init build with `-Wall -Wextra` — PASS
+  - `stage3/ramdisk_v93.cpio`, `stage3/boot_linux_v93.img` 생성 — PASS
+  - boot image marker strings `A90 Linux init 0.8.24 (v93)`, `A90v93`, `0.8.24 v93 STORAGE API` — PASS
+  - v93 tree old storage globals 제거 확인 — PASS
+  - TWRP flash → post-boot `cmdv1 version/status` — PASS
+  - `storage`, `mountsd status`, `mountsd ro/rw/init/off`, `logpath`, `timeline`, `bootstatus` — PASS
+  - `mountsd off` + `mountsd init` 후 SD log path 복귀 — PASS
+  - `statushud`, `autohud 2`, `screenmenu`, `hide`, `netservice status` — PASS
+- 산출:
+  - `stage3/linux_init/init_v93`
+    - SHA256 `1f013323161b90f1b308631e91a2bbd15fac20d1a86ee3c6990d3c1b1c92855c`
+  - `stage3/ramdisk_v93.cpio`
+    - SHA256 `6a176f9cdf16b98c6945e87f19d754ab8a7e0de5732b2f1b67c52200a3c068e6`
+  - `stage3/boot_linux_v93.img`
+    - SHA256 `d62e861dfec7826a85e37d5f80d9c3ac562e65aaf35f37400d1bdafd5ffc889d`
+  - `docs/reports/NATIVE_INIT_V93_STORAGE_API_2026-05-02.md`
 
 ## 지금 바로 진행할 항목
 
-1. v93 Storage API 구현
-   - `docs/plans/NATIVE_INIT_V93_STORAGE_API_PLAN_2026-05-02.md` 기준
-   - boot storage state, SD probe, `/cache` fallback, `storage`/`mountsd` command API 분리
-2. v94 후보: netservice/USB gadget 정책 계층 정리
+1. v94 Netservice/USB gadget 정책 계층 정리
    - NCM/tcpctl start/stop/enable/disable policy를 `a90_netservice.c/h`로 이동
-3. 이후 helper/userland 확장
+   - 필요 시 USB configfs helper를 `a90_usb_gadget.c/h`로 분리
+2. 이후 helper/userland 확장
+
    - SD workspace의 `/mnt/sdext/a90/bin` helper 배치와 `/mnt/sdext/a90/logs` log sink 검토
    - BusyBox/dropbear 또는 custom TCP shell은 service/run 구조 안정화 뒤 검토
    - Wi-Fi 드라이버/펌웨어는 NCM 기반 제어망 유지 후 read-only 인벤토리 트랙으로 분리
