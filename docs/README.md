@@ -8,7 +8,7 @@
 
 상단 `docs/`는 이제 다음 흐름에 필요한 문서를 유지합니다.
 
-1. native init 0.8.28 / v97 verified 기준 상태 고정
+1. native init 0.8.29 / v98 verified 기준 상태 고정
 2. shell/HUD/log/menu 운영 안정화
 3. 필요한 하드웨어/커널 경로만 역추적
 4. BusyBox/network/SSH 같은 서버형 확장 가능성 검토
@@ -19,12 +19,12 @@
 - 빌드: `A908NKSU5EWA3`
 - kernel: Samsung stock Android kernel `Linux 4.14.190`
 - recovery: TWRP 사용 가능
-- latest verified build: `A90 Linux init 0.8.28 (v97)`
-- official version: `0.8.28`
-- build tag: `v97`
+- latest verified build: `A90 Linux init 0.8.29 (v98)`
+- official version: `0.8.29`
+- build tag: `v98`
 - creator: `made by temmie0214`
-- latest verified source: `stage3/linux_init/init_v97.c` + `stage3/linux_init/v97/*.inc.c` + `stage3/linux_init/helpers/a90_cpustress.c` + `stage3/linux_init/a90_config.h` + `stage3/linux_init/a90_util.c/h` + `stage3/linux_init/a90_log.c/h` + `stage3/linux_init/a90_timeline.c/h` + `stage3/linux_init/a90_console.c/h` + `stage3/linux_init/a90_cmdproto.c/h` + `stage3/linux_init/a90_run.c/h` + `stage3/linux_init/a90_service.c/h` + `stage3/linux_init/a90_kms.c/h` + `stage3/linux_init/a90_draw.c/h` + `stage3/linux_init/a90_input.c/h` + `stage3/linux_init/a90_hud.c/h` + `stage3/linux_init/a90_menu.c/h` + `stage3/linux_init/a90_metrics.c/h` + `stage3/linux_init/a90_shell.c/h` + `stage3/linux_init/a90_controller.c/h` + `stage3/linux_init/a90_storage.c/h` + `stage3/linux_init/a90_selftest.c/h` + `stage3/linux_init/a90_usb_gadget.c/h` + `stage3/linux_init/a90_netservice.c/h` + `stage3/linux_init/a90_runtime.c/h`
-- latest verified boot image: `stage3/boot_linux_v97.img`
+- latest verified source: `stage3/linux_init/init_v98.c` + `stage3/linux_init/v98/*.inc.c` + `stage3/linux_init/helpers/a90_cpustress.c` + `stage3/linux_init/a90_config.h` + `stage3/linux_init/a90_util.c/h` + `stage3/linux_init/a90_log.c/h` + `stage3/linux_init/a90_timeline.c/h` + `stage3/linux_init/a90_console.c/h` + `stage3/linux_init/a90_cmdproto.c/h` + `stage3/linux_init/a90_run.c/h` + `stage3/linux_init/a90_service.c/h` + `stage3/linux_init/a90_kms.c/h` + `stage3/linux_init/a90_draw.c/h` + `stage3/linux_init/a90_input.c/h` + `stage3/linux_init/a90_hud.c/h` + `stage3/linux_init/a90_menu.c/h` + `stage3/linux_init/a90_metrics.c/h` + `stage3/linux_init/a90_shell.c/h` + `stage3/linux_init/a90_controller.c/h` + `stage3/linux_init/a90_storage.c/h` + `stage3/linux_init/a90_selftest.c/h` + `stage3/linux_init/a90_usb_gadget.c/h` + `stage3/linux_init/a90_netservice.c/h` + `stage3/linux_init/a90_runtime.c/h` + `stage3/linux_init/a90_helper.c/h`
+- latest verified boot image: `stage3/boot_linux_v98.img`
 - previous verified source-layout baseline: `stage3/linux_init/init_v80.c` + `stage3/linux_init/v80/*.inc.c`
 - known-good fallback: `stage3/boot_linux_v48.img`
 - control channel: USB CDC ACM serial bridge
@@ -33,7 +33,7 @@
 - logging: SD 정상 시 `/mnt/sdext/a90/logs/native-init.log`, fallback 시 `/cache/native-init.log`
 - blocking cancel: q/Ctrl-C 취소 확인
 - boot timeline: `timeline` 명령 확인
-- boot selftest: `selftest`/`bootstatus`에서 non-destructive module smoke test `pass=9 warn=0 fail=0` 확인
+- boot selftest: `selftest`/`bootstatus`에서 non-destructive module smoke test `pass=10 warn=0 fail=0` 확인
 - HUD boot summary: `BOOT OK shell` 표시 확인
 - run cancel: `/bin/a90sleep` helper 확인
 - storage: `/cache` safe write, ext4 SD workspace `/mnt/sdext/a90`, critical partitions do-not-touch
@@ -77,6 +77,7 @@
 - netservice/USB modules: v95에서 `a90_usb_gadget.c/h`와 `a90_netservice.c/h`로 USB configfs/UDC 및 NCM/tcpctl policy API 분리
 - structure audit: v96에서 v95 모듈 경계 감사와 stale console klog marker 정리
 - runtime module: v97에서 `a90_runtime.c/h`로 SD runtime root, cache fallback, runtime directory contract, `runtime` command 분리
+- helper module: v98에서 `a90_helper.c/h`로 helper inventory, manifest path, preferred helper fallback, `helpers` command 분리
 - ADB: 보류
 
 ## 문서 읽는 순서
@@ -87,7 +88,7 @@
 2. `operations/NATIVE_INIT_FLASH_AND_BRIDGE_GUIDE.md` – flash/bridge 조작 절차를 따른다.
 3. `operations/CLAUDE_NATIVE_INIT_RUNBOOK.md` – 에이전트가 실수하지 않도록 운영 규칙을 확인한다.
 4. `plans/NATIVE_INIT_TASK_QUEUE_2026-04-25.md` – 바로 이어서 할 작업 큐를 본다.
-5. `plans/NATIVE_INIT_V98_HELPER_DEPLOY_PLAN_2026-05-03.md` – 다음 v98 helper deployment 구현 범위를 본다.
+5. `plans/NATIVE_INIT_LONG_TERM_ROADMAP_2026-05-03.md` – v99 이후 장기 순서를 본다.
 
 ### 새 에이전트 인계
 
@@ -170,6 +171,7 @@
 - `reports/NATIVE_INIT_V95_NETSERVICE_USB_API_2026-05-03.md` – netservice/USB gadget API 실기 검증 기록
 - `reports/NATIVE_INIT_V96_STRUCTURE_AUDIT_2026-05-03.md` – structure audit / refactor debt cleanup 실기 검증 기록
 - `reports/NATIVE_INIT_V97_SD_RUNTIME_ROOT_2026-05-03.md` – SD runtime root 실기 검증 기록
+- `reports/NATIVE_INIT_V98_HELPER_DEPLOY_2026-05-03.md` – helper deployment/package manifest 실기 검증 기록
 - `reports/NATIVE_INIT_V83_CONSOLE_SHELL_CMDPROTO_DEPENDENCY_MAP_2026-04-29.md` – shell/cmdproto 분리 전 의존성 지도
 - `reports/NATIVE_INIT_V74_PHYSICAL_USB_RECONNECT_2026-04-27.md` – 실제 USB 케이블 unplug/replug 후 ACM/NCM/tcpctl 복구 검증
 - `reports/NATIVE_INIT_V53_MENU_BUSY_2026-04-25.md` – menu-active serial busy gate와 flash auto-hide 검증
@@ -264,6 +266,7 @@
 57. Netservice/USB gadget API extraction — v95 완료
 58. Structure audit / refactor debt cleanup — v96 완료
 59. SD runtime root promotion — v97 완료
+60. Helper deployment / package manifest — v98 완료
 
 패키지 최소화와 Android userspace 복구는 보조 실험으로만 다루고,
 메인 목표는 **Android kernel 위에 반복 운용 가능한 native init 기반 최소 Linux 콘솔을 만드는 것**입니다.

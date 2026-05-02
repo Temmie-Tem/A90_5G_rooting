@@ -52,7 +52,8 @@ init_main
   -> optional helpers / BusyBox / dropbear
 ```
 
-`v97 SD RUNTIME ROOT`까지 실기 verified 완료했다. v96 구조 감사 이후 `/mnt/sdext/a90`를 native runtime root로 격상하고 cache fallback을 유지했다. v97 결과는
+`v98 HELPER DEPLOY`까지 실기 verified 완료했다. v97 runtime root 위에 helper inventory/manifest path/preferred fallback 정책을 추가했다. v98 결과는
+`docs/reports/NATIVE_INIT_V98_HELPER_DEPLOY_2026-05-03.md`에 둔다. v97 결과는
 `docs/reports/NATIVE_INIT_V97_SD_RUNTIME_ROOT_2026-05-03.md`에 둔다. v96 결과는
 `docs/reports/NATIVE_INIT_V96_STRUCTURE_AUDIT_2026-05-03.md`에 둔다. v95 결과는
 `docs/reports/NATIVE_INIT_V95_NETSERVICE_USB_API_2026-05-03.md`에 둔다. v94 결과는
@@ -63,8 +64,9 @@ v96 상세 계획과 결과는
 `docs/plans/NATIVE_INIT_V96_STRUCTURE_AUDIT_PLAN_2026-05-03.md`,
 `docs/reports/NATIVE_INIT_V96_STRUCTURE_AUDIT_2026-05-03.md`에 둔다.
 v97 상세 계획은
-`docs/plans/NATIVE_INIT_V97_SD_RUNTIME_ROOT_PLAN_2026-05-03.md`에 둔다. v98 상세 계획은
-`docs/plans/NATIVE_INIT_V98_HELPER_DEPLOY_PLAN_2026-05-03.md`에 둔다.
+`docs/plans/NATIVE_INIT_V97_SD_RUNTIME_ROOT_PLAN_2026-05-03.md`에 둔다. v98 상세 계획과 결과는
+`docs/plans/NATIVE_INIT_V98_HELPER_DEPLOY_PLAN_2026-05-03.md`,
+`docs/reports/NATIVE_INIT_V98_HELPER_DEPLOY_2026-05-03.md`에 둔다.
 v93 계획과 결과는
 `docs/plans/NATIVE_INIT_V93_STORAGE_API_PLAN_2026-05-02.md`,
 `docs/reports/NATIVE_INIT_V93_STORAGE_API_2026-05-02.md`에 둔다.
@@ -216,7 +218,7 @@ Samsung bootloader
 - netservice/USB gadget true `.c/.h` API module extraction — v95 완료
 - structure audit/refactor debt cleanup — v96 완료
 - SD runtime root promotion — v97 완료
-- helper deployment/package manifest — v98 후보
+- helper deployment/package manifest — v98 완료
 - BusyBox static userland evaluation — v99 후보
 - TCP shell/dropbear remote access prototype — v100 후보
 - minimal service manager — v101 후보
@@ -230,12 +232,12 @@ Samsung bootloader
 
 ## 현재 기준점
 
-- 최신 확인 버전: `A90 Linux init 0.8.28 (v97)`
-- 공식 버전: `0.8.28`
-- build tag: `v97`
+- 최신 확인 버전: `A90 Linux init 0.8.29 (v98)`
+- 공식 버전: `0.8.29`
+- build tag: `v98`
 - creator: `made by temmie0214`
-- 최신 verified 소스: `stage3/linux_init/init_v97.c` + `stage3/linux_init/v97/*.inc.c` + `stage3/linux_init/helpers/a90_cpustress.c` + `stage3/linux_init/a90_config.h` + `stage3/linux_init/a90_util.c/h` + `stage3/linux_init/a90_log.c/h` + `stage3/linux_init/a90_timeline.c/h` + `stage3/linux_init/a90_console.c/h` + `stage3/linux_init/a90_cmdproto.c/h` + `stage3/linux_init/a90_run.c/h` + `stage3/linux_init/a90_service.c/h` + `stage3/linux_init/a90_kms.c/h` + `stage3/linux_init/a90_draw.c/h` + `stage3/linux_init/a90_input.c/h` + `stage3/linux_init/a90_hud.c/h` + `stage3/linux_init/a90_menu.c/h` + `stage3/linux_init/a90_metrics.c/h` + `stage3/linux_init/a90_shell.c/h` + `stage3/linux_init/a90_controller.c/h` + `stage3/linux_init/a90_storage.c/h` + `stage3/linux_init/a90_selftest.c/h` + `stage3/linux_init/a90_usb_gadget.c/h` + `stage3/linux_init/a90_netservice.c/h` + `stage3/linux_init/a90_runtime.c/h`
-- 최신 verified boot image: `stage3/boot_linux_v97.img`
+- 최신 verified 소스: `stage3/linux_init/init_v98.c` + `stage3/linux_init/v98/*.inc.c` + `stage3/linux_init/helpers/a90_cpustress.c` + `stage3/linux_init/a90_config.h` + `stage3/linux_init/a90_util.c/h` + `stage3/linux_init/a90_log.c/h` + `stage3/linux_init/a90_timeline.c/h` + `stage3/linux_init/a90_console.c/h` + `stage3/linux_init/a90_cmdproto.c/h` + `stage3/linux_init/a90_run.c/h` + `stage3/linux_init/a90_service.c/h` + `stage3/linux_init/a90_kms.c/h` + `stage3/linux_init/a90_draw.c/h` + `stage3/linux_init/a90_input.c/h` + `stage3/linux_init/a90_hud.c/h` + `stage3/linux_init/a90_menu.c/h` + `stage3/linux_init/a90_metrics.c/h` + `stage3/linux_init/a90_shell.c/h` + `stage3/linux_init/a90_controller.c/h` + `stage3/linux_init/a90_storage.c/h` + `stage3/linux_init/a90_selftest.c/h` + `stage3/linux_init/a90_usb_gadget.c/h` + `stage3/linux_init/a90_netservice.c/h` + `stage3/linux_init/a90_runtime.c/h` + `stage3/linux_init/a90_helper.c/h`
+- 최신 verified boot image: `stage3/boot_linux_v98.img`
 - previous verified source-layout baseline: `stage3/linux_init/init_v80.c` + `stage3/linux_init/v80/*.inc.c`
 - known-good fallback: `stage3/boot_linux_v48.img`
 - 주 제어 채널: USB CDC ACM serial (`/dev/ttyGS0` ↔ `/dev/ttyACM0`)

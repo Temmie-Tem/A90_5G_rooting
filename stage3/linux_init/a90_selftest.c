@@ -1,6 +1,7 @@
 #include "a90_selftest.h"
 
 #include "a90_config.h"
+#include "a90_helper.h"
 #include "a90_kms.h"
 #include "a90_log.h"
 #include "a90_metrics.h"
@@ -246,6 +247,39 @@ static void selftest_runtime(void) {
                             detail);
 }
 
+static void selftest_helpers(void) {
+    long started_ms = monotonic_millis();
+    char summary[128];
+    int rc;
+
+    rc = a90_helper_scan();
+    a90_helper_summary(summary, sizeof(summary));
+    if (a90_helper_has_failures()) {
+        selftest_record_elapsed("helpers",
+                                A90_SELFTEST_FAIL,
+                                rc,
+                                EIO,
+                                started_ms,
+                                summary);
+        return;
+    }
+    if (a90_helper_has_warnings()) {
+        selftest_record_elapsed("helpers",
+                                A90_SELFTEST_WARN,
+                                0,
+                                0,
+                                started_ms,
+                                summary);
+        return;
+    }
+    selftest_record_elapsed("helpers",
+                            A90_SELFTEST_PASS,
+                            0,
+                            0,
+                            started_ms,
+                            summary);
+}
+
 static void selftest_metrics(void) {
     long started_ms = monotonic_millis();
     struct a90_metrics_snapshot snapshot;
@@ -391,6 +425,7 @@ static int selftest_run(const struct a90_selftest_boot_hooks *hooks, void *ctx, 
     selftest_timeline();
     selftest_storage();
     selftest_runtime();
+    selftest_helpers();
     selftest_metrics();
     selftest_kms();
     selftest_input();

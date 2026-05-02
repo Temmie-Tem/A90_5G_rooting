@@ -4,7 +4,7 @@ Date: `2026-05-03`
 
 ## Summary
 
-- Latest verified: `A90 Linux init 0.8.28 (v97)`.
+- Latest verified: `A90 Linux init 0.8.29 (v98)`.
 - Roadmap baseline before this cycle: `A90 Linux init 0.8.26 (v95)`.
 - Goal: turn the verified native init foundation into a small, server-like embedded Linux runtime without losing recovery safety.
 - Scope: this roadmap defines version-level objectives from v96 through v105.
@@ -214,7 +214,7 @@ The v81-v95 cycle focused on splitting PID 1 into testable modules. The next cyc
   - no orphan/zombie accumulation in normal operation;
   - serial and NCM recovery paths survive repeated reconnects;
   - diagnostics explain any warning state;
-  - v105 can become the next known-good baseline after v48/v97.
+  - v105 can become the next known-good baseline after v48/v98.
 
 ## Delegation Guidance
 
@@ -239,9 +239,9 @@ Commit only after verified.
 
 ## Current Next Action
 
-v97 SD runtime root is verified. The immediate next action is v98 planning:
+v98 helper deployment is verified. The immediate next action is v99 planning:
 
-1. define the helper inventory for `/mnt/sdext/a90/bin`,
-2. define manifest/hash verification and rollback behavior,
-3. decide which existing boot ramdisk helpers should be mirrored to SD first,
-4. keep BusyBox/dropbear/remote shell deferred until v99+.
+1. inventory available static BusyBox candidates and their applets,
+2. decide whether BusyBox runs from SD runtime root or ramdisk fallback,
+3. define `busybox`/`userland` shell visibility and selftest checks,
+4. keep dropbear/remote shell deferred until v100+.

@@ -1,8 +1,8 @@
 #ifndef A90_CONFIG_H
 #define A90_CONFIG_H
 
-#define INIT_VERSION "0.8.28"
-#define INIT_BUILD "v97"
+#define INIT_VERSION "0.8.29"
+#define INIT_BUILD "v98"
 #define INIT_CREATOR "made by temmie0214"
 #define INIT_BANNER "A90 Linux init " INIT_VERSION " (" INIT_BUILD ")"
 #define BOOT_SPLASH_SECONDS 2
@@ -49,10 +49,14 @@
 #define A90_RUNTIME_PKG_DIR "pkg"
 #define A90_RUNTIME_RUN_DIR "run"
 #define A90_RUNTIME_RW_TEST_NAME ".runtime-rw-test"
+#define A90_HELPER_MANIFEST_NAME "helpers.manifest"
+#define A90_HELPER_STATE_NAME "helper-state"
+#define A90_HELPER_DEPLOY_LOG_NAME "helper-deploy.log"
+#define A90_SLEEP_HELPER "/bin/a90sleep"
 #define CACHE_STORAGE_ROOT "/cache"
 #define TMP_STORAGE_ROOT "/tmp"
 #define BOOT_SPLASH_LINE_COUNT 6
 #define BOOT_SPLASH_LINE_MAX 96
-#define BOOT_SELFTEST_MAX_ENTRIES 12
+#define BOOT_SELFTEST_MAX_ENTRIES 16
 
 #endif

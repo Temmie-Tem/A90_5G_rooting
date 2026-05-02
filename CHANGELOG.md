@@ -1,5 +1,14 @@
 # Changelog
 
+## `0.8.29` (`v98`) - 2026-05-03
+
+- Added `a90_helper.c/h` for helper inventory, manifest path discovery, preferred helper path selection, and `helpers` command handling.
+- Added helper summaries in `status`, `bootstatus`, and boot selftest.
+- Changed `cpustress` to resolve a preferred helper path through the helper API while keeping ramdisk `/bin/a90_cpustress` fallback.
+- Added `scripts/revalidation/helper_deploy.py` for host-side helper status, manifest, verify, push, and rollback guidance.
+- Added ABOUT/changelog/menu entry for `0.8.29 v98 HELPER DEPLOY`.
+- Verified v98 flash, `cmdv1 version/status`, `helpers`, selftest `pass=10 warn=0 fail=0`, `cpustress 3 2`, HUD/menu, and `helper_deploy.py` regression.
+
 ## `0.8.28` (`v97`) - 2026-05-03
 
 - Added `a90_runtime.c/h` for SD runtime root selection, cache fallback, runtime directory contracts, and RW probes.
