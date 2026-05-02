@@ -57,6 +57,8 @@ init_main
 `docs/reports/NATIVE_INIT_V94_BOOT_SELFTEST_API_2026-05-03.md`에 둔다.
 v96-v105 장기 로드맵은
 `docs/plans/NATIVE_INIT_LONG_TERM_ROADMAP_2026-05-03.md`를 기준으로 한다.
+v96 상세 계획은
+`docs/plans/NATIVE_INIT_V96_STRUCTURE_AUDIT_PLAN_2026-05-03.md`에 둔다.
 v93 계획과 결과는
 `docs/plans/NATIVE_INIT_V93_STORAGE_API_PLAN_2026-05-02.md`,
 `docs/reports/NATIVE_INIT_V93_STORAGE_API_2026-05-02.md`에 둔다.

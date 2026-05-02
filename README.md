@@ -213,6 +213,7 @@ Samsung bootloader
 - `docs/operations/NATIVE_INIT_FLASH_AND_BRIDGE_GUIDE.md`
 - `docs/operations/CLAUDE_NATIVE_INIT_RUNBOOK.md`
 - `docs/plans/NATIVE_INIT_LONG_TERM_ROADMAP_2026-05-03.md`
+- `docs/plans/NATIVE_INIT_V96_STRUCTURE_AUDIT_PLAN_2026-05-03.md`
 - `docs/plans/NATIVE_INIT_NEXT_WORK_2026-04-25.md`
 - `docs/plans/NATIVE_INIT_TASK_QUEUE_2026-04-25.md`
 - `docs/reports/NATIVE_INIT_V54_NCM_LINK_2026-04-25.md`
