@@ -130,6 +130,7 @@
 - `plans/NATIVE_INIT_V99_BUSYBOX_USERLAND_PLAN_2026-05-03.md` – v99 BusyBox static userland evaluation 실행 계획
 - `plans/NATIVE_INIT_V100_REMOTE_SHELL_PLAN_2026-05-03.md` – v100 custom TCP remote shell 실행 계획
 - `plans/NATIVE_INIT_V101_SERVICE_MANAGER_PLAN_2026-05-03.md` – v101 minimal service manager 구현 계획
+- `plans/NATIVE_INIT_V102_DIAGNOSTICS_PLAN_2026-05-03.md` – v102 diagnostics/log bundle 실행 계획
 - `plans/MINIMAL_BOOT_ALLOWLIST_2026-04-22.txt` – 현재 최소 부팅 allowlist
 - `plans/MINIMAL_BOOT_DELETE_CANDIDATES_2026-04-22.txt` – allowlist 기준 삭제 후보 스냅샷
 - `plans/NATIVE_LINUX_RECHALLENGE_PLAN.md` – native init 진입점 확보 이전 로드맵, 보존 기록

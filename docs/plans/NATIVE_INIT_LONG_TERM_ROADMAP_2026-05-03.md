@@ -239,9 +239,9 @@ Commit only after verified.
 
 ## Current Next Action
 
-v101 minimal service manager is verified. The immediate next action is v102 diagnostics planning:
+v101 minimal service manager is verified. The immediate next action is v102 diagnostics implementation from `docs/plans/NATIVE_INIT_V102_DIAGNOSTICS_PLAN_2026-05-03.md`:
 
-1. define a `diag` command that collects version, bootstatus, selftest, storage, runtime, helpers, userland, service, rshell, and recent logs,
-2. keep diagnostics read-only and repeatedly safe,
-3. add a host collector that works over serial first and can optionally use NCM,
+1. add a read-only `diag [summary|full|bundle|paths]` command,
+2. collect version, bootstatus, selftest, storage, runtime, helpers, userland, service, rshell, and recent logs,
+3. add a serial-first host collector that can optionally use NCM,
 4. keep Wi-Fi inventory deferred until diagnostics output is stable.

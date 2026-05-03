@@ -1913,10 +1913,11 @@ python3 ./scripts/revalidation/physical_usb_reconnect_check.py --manual-host-con
 
 ## 지금 바로 진행할 항목
 
-1. v102 diagnostics/log bundle 계획
+1. v102 diagnostics/log bundle 구현
 
+   - 계획 문서: `docs/plans/NATIVE_INIT_V102_DIAGNOSTICS_PLAN_2026-05-03.md`
    - 기준 문서: `docs/plans/NATIVE_INIT_LONG_TERM_ROADMAP_2026-05-03.md`
    - 이전 결과: `docs/reports/NATIVE_INIT_V101_SERVICE_MANAGER_2026-05-03.md`
-   - 다음 실행 항목: `diag` command와 host-side collector 범위 설계
+   - 다음 실행 항목: `diag [summary|full|bundle|paths]` command와 `diag_collect.py` serial-first collector 구현
    - 목적: version/bootstatus/selftest/storage/runtime/helpers/userland/service/rshell/log tail을 한 번에 수집해 v102+ 회귀 분석 비용을 줄임
    - 보류: Wi-Fi read-only inventory는 v103+ 트랙으로 분리
