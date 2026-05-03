@@ -1946,7 +1946,8 @@ python3 ./scripts/revalidation/physical_usb_reconnect_check.py --manual-host-con
 
    - 기준 문서: `docs/plans/NATIVE_INIT_LONG_TERM_ROADMAP_2026-05-03.md`
    - 이전 결과: `docs/reports/NATIVE_INIT_V104_WIFI_FEASIBILITY_2026-05-04.md`
-   - 다음 실행 항목: v105 soak/recovery plan 작성 후 구현/검증
+   - 실행 계획: `docs/plans/NATIVE_INIT_V105_SOAK_RC_PLAN_2026-05-04.md`
+   - 다음 실행 항목: v105 version bump + `native_soak_validate.py` 구현/검증
    - 목적: v96-v104 stack을 장시간 운용 가능한 안정 기준 후보로 검증
    - 보류: risky Wi-Fi bring-up, partition writes, production Wi-Fi networking
 
