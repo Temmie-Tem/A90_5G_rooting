@@ -1945,8 +1945,9 @@ python3 ./scripts/revalidation/physical_usb_reconnect_check.py --manual-host-con
 1. v104 Wi-Fi enablement feasibility 계획
 
    - 기준 문서: `docs/plans/NATIVE_INIT_LONG_TERM_ROADMAP_2026-05-03.md`
+   - 실행 계획: `docs/plans/NATIVE_INIT_V104_WIFI_FEASIBILITY_PLAN_2026-05-04.md`
    - 이전 결과: `docs/reports/NATIVE_INIT_V103_WIFI_INVENTORY_2026-05-04.md`
-   - 다음 실행 항목: v103 evidence를 기준으로 Android/TWRP read-only baseline 비교와 최소 reversible 실험 범위 작성
+   - 다음 실행 항목: `wififeas [summary|full|gate|paths]` gate command 구현
    - 목적: Wi-Fi bring-up 가능 여부를 추측이 아니라 확인된 visibility로 판단
    - 보류: production Wi-Fi networking, firmware/vendor mutation, risky partition writes
 

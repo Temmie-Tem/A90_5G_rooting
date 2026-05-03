@@ -67,6 +67,8 @@ v96-v105 장기 로드맵은
 `docs/plans/NATIVE_INIT_LONG_TERM_ROADMAP_2026-05-03.md`를 기준으로 한다.
 v103 상세 계획은
 `docs/plans/NATIVE_INIT_V103_WIFI_INVENTORY_PLAN_2026-05-04.md`에 둔다.
+v104 상세 계획은
+`docs/plans/NATIVE_INIT_V104_WIFI_FEASIBILITY_PLAN_2026-05-04.md`에 둔다.
 v102 상세 계획은
 `docs/plans/NATIVE_INIT_V102_DIAGNOSTICS_PLAN_2026-05-03.md`에 둔다. v101 상세 계획은
 `docs/plans/NATIVE_INIT_V101_SERVICE_MANAGER_PLAN_2026-05-03.md`에 둔다. v100 상세 계획은
@@ -872,10 +874,10 @@ Samsung bootloader
 
 상세 실행 큐는 `docs/plans/NATIVE_INIT_TASK_QUEUE_2026-04-25.md`를 따른다.
 
-1. v104 Wi-Fi enablement feasibility 계획 작성
-2. v103 `wifiinv` 결과를 기준으로 Android/TWRP read-only baseline 비교 범위 확정
-3. `wlan0`/rfkill/module/firmware visibility blocker를 먼저 정리
-4. 실제 Wi-Fi bring-up은 최소 reversible 실험으로만 진행 여부 판단
+1. v104 Wi-Fi enablement feasibility gate 구현
+2. `wififeas [summary|full|gate|paths]` command 범위 확정
+3. `wlan0`/rfkill/module/firmware visibility blocker를 read-only evidence로 판정
+4. 실제 Wi-Fi bring-up은 gate가 `go`일 때만 별도 승인 실험으로 분리
 
 ---
 

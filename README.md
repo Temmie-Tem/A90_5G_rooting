@@ -201,6 +201,7 @@ Samsung bootloader
 62. Minimal service manager command/view — v101 완료
 63. Diagnostics/log bundle command and host collector — v102 완료
 64. Wi-Fi read-only inventory — v103 완료
+65. Wi-Fi enablement feasibility gate — v104 계획 완료
 
 ## Repository Layout
 

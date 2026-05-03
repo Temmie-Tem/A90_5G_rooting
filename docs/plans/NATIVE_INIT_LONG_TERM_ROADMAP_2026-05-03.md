@@ -239,9 +239,10 @@ Commit only after verified.
 
 ## Current Next Action
 
-v103 Wi-Fi read-only inventory is verified. The immediate next action is v104 Wi-Fi feasibility planning:
+v103 Wi-Fi read-only inventory is verified. v104 Wi-Fi feasibility is planned in
+`docs/plans/NATIVE_INIT_V104_WIFI_FEASIBILITY_PLAN_2026-05-04.md`. The immediate next action is implementation:
 
-1. use `docs/reports/NATIVE_INIT_V103_WIFI_INVENTORY_2026-05-04.md` as the evidence baseline,
-2. compare native/TWRP/Android Wi-Fi visibility where safe,
-3. define the smallest reversible bring-up experiment only if prerequisites are visible,
-4. keep USB ACM/NCM as the control path and avoid risky partition or firmware mutation.
+1. add `wififeas [summary|full|gate|paths]`,
+2. compute a deterministic `go`/`no-go`/`baseline-required` decision from read-only evidence,
+3. keep USB ACM/NCM as the control path,
+4. block actual Wi-Fi bring-up unless the gate prerequisites are visible.
