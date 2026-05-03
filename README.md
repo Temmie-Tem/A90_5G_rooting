@@ -199,6 +199,7 @@ Samsung bootloader
 61. Custom token TCP remote shell over USB NCM — v100 완료
 62. Minimal service manager command/view — v101 완료
 63. Diagnostics/log bundle command and host collector — v102 완료
+64. Wi-Fi read-only inventory — v103 계획 완료
 
 ## Repository Layout
 

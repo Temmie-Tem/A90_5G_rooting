@@ -239,9 +239,10 @@ Commit only after verified.
 
 ## Current Next Action
 
-v102 diagnostics/log bundle is verified. The immediate next action is v103 Wi-Fi read-only inventory planning:
+v102 diagnostics/log bundle is verified. v103 Wi-Fi read-only inventory is planned in
+`docs/plans/NATIVE_INIT_V103_WIFI_INVENTORY_PLAN_2026-05-04.md`. The immediate next action is implementation:
 
-1. inventory WLAN/rfkill/firmware/module/vendor paths without enabling Wi-Fi,
-2. compare Android/TWRP/native init visibility where safe,
+1. add read-only `wifiinv [summary|full|paths]`,
+2. inventory WLAN/rfkill/firmware/module/vendor paths without enabling Wi-Fi,
 3. keep USB ACM/NCM as the control path,
 4. defer Wi-Fi bring-up and WPA supplicant work until v104+ if the read-only inventory supports it.

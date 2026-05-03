@@ -64,6 +64,8 @@ init_main
 `docs/reports/NATIVE_INIT_V94_BOOT_SELFTEST_API_2026-05-03.md`에 둔다.
 v96-v105 장기 로드맵은
 `docs/plans/NATIVE_INIT_LONG_TERM_ROADMAP_2026-05-03.md`를 기준으로 한다.
+v103 상세 계획은
+`docs/plans/NATIVE_INIT_V103_WIFI_INVENTORY_PLAN_2026-05-04.md`에 둔다.
 v102 상세 계획은
 `docs/plans/NATIVE_INIT_V102_DIAGNOSTICS_PLAN_2026-05-03.md`에 둔다. v101 상세 계획은
 `docs/plans/NATIVE_INIT_V101_SERVICE_MANAGER_PLAN_2026-05-03.md`에 둔다. v100 상세 계획은
@@ -232,7 +234,7 @@ Samsung bootloader
 - TCP shell/dropbear remote access prototype — v100 완료
 - Minimal service manager command/view — v101 완료
 - Diagnostics/log bundle command and host collector — v102 완료
-- Wi-Fi read-only inventory — v103 후보
+- Wi-Fi read-only inventory — v103 계획 완료 / 구현 대기
 - Wi-Fi enablement feasibility — v104 후보
 - long-run soak/recovery release candidate — v105 후보
 - static dropbear SSH 또는 custom TCP shell
@@ -869,10 +871,10 @@ Samsung bootloader
 
 상세 실행 큐는 `docs/plans/NATIVE_INIT_TASK_QUEUE_2026-04-25.md`를 따른다.
 
-1. v102 diagnostics/log bundle 계획 작성
-2. `diag` command와 host collector 범위 확정
-3. version/bootstatus/selftest/storage/runtime/helpers/userland/service/rshell/log tail을 한 묶음으로 수집
-4. v103 Wi-Fi read-only inventory는 후속 트랙으로 유지
+1. v103 Wi-Fi read-only inventory 구현
+2. `wifiinv [summary|full|paths]` command 범위 확정
+3. WLAN/rfkill/firmware/module/vendor path를 쓰기 없이 수집
+4. v104 Wi-Fi enablement feasibility는 v103 evidence 이후 판단
 
 ---
 

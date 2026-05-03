@@ -1942,10 +1942,31 @@ python3 ./scripts/revalidation/physical_usb_reconnect_check.py --manual-host-con
 
 ## 지금 바로 진행할 항목
 
-1. v103 Wi-Fi read-only inventory 계획
+1. v103 Wi-Fi read-only inventory 구현
 
    - 기준 문서: `docs/plans/NATIVE_INIT_LONG_TERM_ROADMAP_2026-05-03.md`
+   - 실행 계획: `docs/plans/NATIVE_INIT_V103_WIFI_INVENTORY_PLAN_2026-05-04.md`
    - 이전 결과: `docs/reports/NATIVE_INIT_V102_DIAGNOSTICS_2026-05-03.md`
-   - 다음 실행 항목: native/TWRP/Android에서 보이는 WLAN, rfkill, firmware, module, vendor path를 read-only로 수집하는 계획 작성
+   - 다음 실행 항목: `wifiinv [summary|full|paths]` command와 필요 시 host collector 구현
    - 목적: Wi-Fi bring-up 전에 필요한 커널/펌웨어/userspace 의존성을 쓰기 없이 확정
    - 보류: Wi-Fi enablement와 WPA supplicant 실행은 v104+ 트랙으로 분리
+
+### V103. Wi-Fi Read-Only Inventory — PLANNED
+
+- 계획: `docs/plans/NATIVE_INIT_V103_WIFI_INVENTORY_PLAN_2026-05-04.md`
+- 목표:
+  - `A90 Linux init 0.9.3 (v103)` / `0.9.3 v103 WIFI INVENTORY`
+  - native init에서 보이는 WLAN, rfkill, firmware, module, vendor path를 read-only로 수집
+  - Wi-Fi bring-up 전에 Android/TWRP/native init visibility 차이를 확인할 evidence format 준비
+- 금지:
+  - Wi-Fi enablement
+  - rfkill write
+  - `ip link set wlan0 up`
+  - `svc wifi enable`
+  - module load/unload
+  - firmware/vendor mutation
+- 다음 구현 후보:
+  - `stage3/linux_init/init_v103.c`
+  - `stage3/linux_init/v103/*.inc.c`
+  - `stage3/linux_init/a90_wifiinv.c/h`
+  - `scripts/revalidation/wifi_inventory_collect.py`
