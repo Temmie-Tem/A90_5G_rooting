@@ -62,7 +62,8 @@ init_main
 `docs/reports/NATIVE_INIT_V94_BOOT_SELFTEST_API_2026-05-03.md`에 둔다.
 v96-v105 장기 로드맵은
 `docs/plans/NATIVE_INIT_LONG_TERM_ROADMAP_2026-05-03.md`를 기준으로 한다.
-v100 상세 계획은
+v101 상세 계획은
+`docs/plans/NATIVE_INIT_V101_SERVICE_MANAGER_PLAN_2026-05-03.md`에 둔다. v100 상세 계획은
 `docs/plans/NATIVE_INIT_V100_REMOTE_SHELL_PLAN_2026-05-03.md`에 둔다. v99 상세 계획은
 `docs/plans/NATIVE_INIT_V99_BUSYBOX_USERLAND_PLAN_2026-05-03.md`에 둔다.
 v96 상세 계획과 결과는
@@ -865,9 +866,9 @@ Samsung bootloader
 
 상세 실행 큐는 `docs/plans/NATIVE_INIT_TASK_QUEUE_2026-04-25.md`를 따른다.
 
-1. v101 minimal service manager 계획 작성
-2. runtime root 위 service enable/start/stop/status contract 정리
-3. 기존 `autohud`/`tcpctl`/`rshell` lifecycle를 공통 service view로 묶을 범위 확정
+1. v101 minimal service manager 구현
+2. `a90_service` metadata/status API와 `service list/status/start/stop/enable/disable` command 추가
+3. 기존 `autohud`/`tcpctl`/`rshell` lifecycle를 공통 service view로 묶되 start/stop 구현은 각 owner에 유지
 4. v102 diagnostics bundle과 v103 Wi-Fi read-only inventory는 후속 트랙으로 유지
 
 ---

@@ -1,6 +1,6 @@
 # Native Init Task Queue (2026-04-25)
 
-이 문서는 `A90 Linux init 0.9.0 (v100)` verified 이후 바로 실행할 작업 큐다.
+이 문서는 `A90 Linux init 0.9.0 (v100)` verified 이후 바로 실행할 작업 큐다. v101 계획서는 `docs/plans/NATIVE_INIT_V101_SERVICE_MANAGER_PLAN_2026-05-03.md`에 둔다.
 큰 방향은 “보이는 부팅 → 복구 가능한 로그 → 단독 조작 → 작은 userland → USB networking” 순서다.
 
 ## 현재 고정 기준점
@@ -1884,10 +1884,11 @@ python3 ./scripts/revalidation/physical_usb_reconnect_check.py --manual-host-con
 
 ## 지금 바로 진행할 항목
 
-1. v101 minimal service manager 계획
+1. v101 minimal service manager 구현
 
    - 기준 문서: `docs/plans/NATIVE_INIT_LONG_TERM_ROADMAP_2026-05-03.md`
+   - 구현 계획: `docs/plans/NATIVE_INIT_V101_SERVICE_MANAGER_PLAN_2026-05-03.md`
    - 이전 결과: `docs/reports/NATIVE_INIT_V100_REMOTE_SHELL_2026-05-03.md`
-   - 다음 실행 항목: v101 service manager policy 설계
-   - 목적: autohud/tcpctl/adbd/rshell/netservice lifecycle와 re-enumeration-aware raw-control 정책을 한 곳에서 정리
+   - 다음 실행 항목: `service list/status/start/stop/enable/disable` command와 `a90_service` metadata/status API 구현
+   - 목적: autohud/tcpctl/adbd/rshell lifecycle와 re-enumeration-aware raw-control 정책을 한 operator view로 정리
    - 보류: Dropbear 승격은 key/PTY/auth 정책 정리 후, Wi-Fi는 v103+ 트랙으로 분리
