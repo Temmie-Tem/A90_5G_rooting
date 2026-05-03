@@ -120,11 +120,11 @@
 ## 현재 폰 상태
 
 - patched AP (Magisk 30.7) + **TWRP recovery 사용 가능**
-- 최신 verified build: `stage3/boot_linux_v98.img` (`A90 Linux init 0.8.29 (v98)`)
-- 최신 verified source: `stage3/linux_init/init_v98.c` + `stage3/linux_init/v98/*.inc.c` + `stage3/linux_init/helpers/a90_cpustress.c` + `stage3/linux_init/a90_config.h` + `stage3/linux_init/a90_util.c/h` + `stage3/linux_init/a90_log.c/h` + `stage3/linux_init/a90_timeline.c/h` + `stage3/linux_init/a90_console.c/h` + `stage3/linux_init/a90_cmdproto.c/h` + `stage3/linux_init/a90_run.c/h` + `stage3/linux_init/a90_service.c/h` + `stage3/linux_init/a90_kms.c/h` + `stage3/linux_init/a90_draw.c/h` + `stage3/linux_init/a90_input.c/h` + `stage3/linux_init/a90_hud.c/h` + `stage3/linux_init/a90_menu.c/h` + `stage3/linux_init/a90_metrics.c/h` + `stage3/linux_init/a90_shell.c/h` + `stage3/linux_init/a90_controller.c/h` + `stage3/linux_init/a90_storage.c/h` + `stage3/linux_init/a90_selftest.c/h` + `stage3/linux_init/a90_usb_gadget.c/h` + `stage3/linux_init/a90_netservice.c/h` + `stage3/linux_init/a90_runtime.c/h` + `stage3/linux_init/a90_helper.c/h`
+- 최신 verified build: `stage3/boot_linux_v99.img` (`A90 Linux init 0.8.30 (v99)`)
+- 최신 verified source: `stage3/linux_init/init_v99.c` + `stage3/linux_init/v99/*.inc.c` + `stage3/linux_init/helpers/a90_cpustress.c` + `stage3/linux_init/a90_config.h` + `stage3/linux_init/a90_util.c/h` + `stage3/linux_init/a90_log.c/h` + `stage3/linux_init/a90_timeline.c/h` + `stage3/linux_init/a90_console.c/h` + `stage3/linux_init/a90_cmdproto.c/h` + `stage3/linux_init/a90_run.c/h` + `stage3/linux_init/a90_service.c/h` + `stage3/linux_init/a90_kms.c/h` + `stage3/linux_init/a90_draw.c/h` + `stage3/linux_init/a90_input.c/h` + `stage3/linux_init/a90_hud.c/h` + `stage3/linux_init/a90_menu.c/h` + `stage3/linux_init/a90_metrics.c/h` + `stage3/linux_init/a90_shell.c/h` + `stage3/linux_init/a90_controller.c/h` + `stage3/linux_init/a90_storage.c/h` + `stage3/linux_init/a90_selftest.c/h` + `stage3/linux_init/a90_usb_gadget.c/h` + `stage3/linux_init/a90_netservice.c/h` + `stage3/linux_init/a90_runtime.c/h` + `stage3/linux_init/a90_helper.c/h` + `stage3/linux_init/a90_userland.c/h`
 - previous verified source-layout baseline: `stage3/linux_init/init_v80.c` + `stage3/linux_init/v80/*.inc.c`
-- 공식 버전: `0.8.29`
-- build tag: `v98`
+- 공식 버전: `0.8.30`
+- build tag: `v99`
 - creator: `made by temmie0214`
 - known-good fallback: `stage3/boot_linux_v48.img` (`A90 Linux init v48`)
 - 격리 상태: `stage3/boot_linux_v49.img`는 boot partition prefix readback은 일치했지만
@@ -133,14 +133,14 @@
 - 로그 상태: SD 정상 시 `/mnt/sdext/a90/logs/native-init.log`, fallback 시 `/cache/native-init.log`에 boot/command/result 기록
 - blocking 상태: `waitkey`, `readinput`, `watchhud`, `blindmenu` q/Ctrl-C 취소 확인
 - boot timeline: `timeline` 명령과 current native log replay 확인
-- boot selftest 상태: v98 boot selftest `pass=10 warn=0 fail=0`, `selftest verbose` 확인
+- boot selftest 상태: v99 boot selftest `pass=11 warn=0 fail=0`, `selftest verbose` 확인
 - HUD 상태: `BOOT OK shell` summary 표시와 `statushud` draw 확인
 - run 상태: `/bin/a90sleep` helper로 `run` q 취소 확인
 - log 보존: native init → recovery → native init 왕복 후 v44/v45/v47 log append 확인
 - storage 상태: `/cache` safe write, ext4 SD workspace `/mnt/sdext/a90`, critical partitions do-not-touch 기준 문서화
 - screen menu 상태: 자동 메뉴, 계층형 앱 폴더, CPU stress screen app, input gesture layout, input monitor, serial `hide`/busy gate 확인
 - USB 상태: ACM-only gadget `04e8:6861` / host `cdc_acm` 기준 문서화
-- userland 상태: `toybox 0.8.13` static ARM64 host 빌드와 `/cache/bin/toybox` 실기 실행 확인
+- userland 상태: static BusyBox 1.36.1 SD runtime 실행과 toybox 0.8.13 fallback 실행 확인
 - USB reattach 상태: `usbacmreset`와 외부 helper `off` 후 serial bridge 복구 확인
 - USB NCM 상태: host `cdc_ncm` composite, device `ncm0`, IPv4 ping, IPv6 link-local ping, host→device netcat 확인
 - NCM 운영 helper 상태: host interface 자동 탐지, ping, static TCP nettest 양방향 payload 검증 완료
@@ -175,7 +175,8 @@
 - shell/controller 상태: v92에서 last result, command lookup/result formatting, menu/power busy policy를 실제 compiled module/API로 분리 완료
 - storage module 상태: v93에서 boot storage state, SD probe, `/cache` fallback, `storage`/`mountsd` command를 실제 compiled module/API로 분리 완료
 - selftest module 상태: v94에서 boot-time non-destructive module smoke test와 `selftest` command를 실제 compiled module/API로 추가 완료
-- 상세 최신 verified 상태: `docs/reports/NATIVE_INIT_V98_HELPER_DEPLOY_2026-05-03.md`
+- 상세 최신 verified 상태: `docs/reports/NATIVE_INIT_V99_BUSYBOX_USERLAND_2026-05-03.md`
+- v99 BusyBox userland 기록: `docs/reports/NATIVE_INIT_V99_BUSYBOX_USERLAND_2026-05-03.md`
 - v98 helper deploy 기록: `docs/reports/NATIVE_INIT_V98_HELPER_DEPLOY_2026-05-03.md`
 - v97 SD runtime root 기록: `docs/reports/NATIVE_INIT_V97_SD_RUNTIME_ROOT_2026-05-03.md`
 - v96 structure audit 기록: `docs/reports/NATIVE_INIT_V96_STRUCTURE_AUDIT_2026-05-03.md`
@@ -243,9 +244,9 @@
 - proc / sys / devtmpfs / ext4(/dev/block/sda31) 마운트 성공
 - 핵심 우회: devtmpfs async 초기화 문제를 `mknod(makedev(259,15))` 로 해결
 
-### 3-2. USB ACM serial console + 인터랙티브 셸 (v8~v98)
+### 3-2. USB ACM serial console + 인터랙티브 셸 (v8~v99)
 
-**현재 버전**: `init_v98` (`stage3/boot_linux_v98.img`) / `0.8.29 (v98)`
+**현재 버전**: `init_v99` (`stage3/boot_linux_v99.img`) / `0.8.30 (v99)`
 
 ADB 방식이 막혀 USB CDC ACM serial (ttyGS0)로 전환. v79까지 반복 안정화:
 
@@ -313,8 +314,9 @@ ADB 방식이 막혀 USB CDC ACM serial (ttyGS0)로 전환. v79까지 반복 안
 | v96 | structure audit / refactor debt cleanup, stale console klog marker 정리 |
 | v97 | `a90_runtime.c/h` SD runtime root / cache fallback / runtime directory contract |
 | v98 | `a90_helper.c/h` helper inventory / manifest path / preferred fallback policy |
+| v99 | `a90_userland.c/h` BusyBox/toybox inventory / optional userland command API |
 
-**확보된 관찰/제어 범위 (v98 verified build 기준):**
+**확보된 관찰/제어 범위 (v99 verified build 기준):**
 
 | 항목 | 상태 |
 |---|---|
@@ -382,10 +384,10 @@ ADB 방식이 막혀 USB CDC ACM serial (ttyGS0)로 전환. v79까지 반복 안
 
 ## 다음 후보 작업
 
-우선순위 순 (v98 verified build 이후):
+우선순위 순 (v99 verified build 이후):
 
-1. **v99 BusyBox static userland evaluation** — runtime root 위의 기본 userland 검증
-2. **v100 TCP shell/dropbear prototype** — 검증된 NCM 위 remote access 후보
+1. **v100 TCP shell/dropbear prototype** — 검증된 NCM 위 remote access 후보
+2. **v101 minimal service manager** — runtime root 위 서비스 lifecycle 정리
 3. **Wi-Fi 인벤토리** — v103+에서 드라이버/펌웨어/vendor daemon read-only 조사
 
 **복구**: `backups/baseline_a_20260423_030309/boot.img` dd 복구 가능

@@ -46,6 +46,13 @@
   - `aarch64-linux-gnu-gcc`로 static ARM64 toybox를 빌드
   - 산출물은 gitignore된 `external_tools/userland/bin/toybox-aarch64-static-0.8.13`
   - native init 실기 검증 시 `/cache/bin/toybox`로 올려 `run /cache/bin/toybox ...` 형태로 사용
+- `build_static_busybox.sh`
+  - `busybox-1.36.1` tarball을 해시 검증 후 다운로드
+  - `aarch64-linux-gnu-gcc`로 static ARM64 BusyBox를 빌드
+  - 산출물은 gitignore된 `external_tools/userland/bin/busybox-aarch64-static-1.36.1`
+  - v99 검증 시 SD runtime root의 `/mnt/sdext/a90/bin/busybox` 후보로 사용
+- `busybox_userland.py`
+  - v99 BusyBox/toybox 후보의 local-info, manifest, device status, smoke 비교를 수행
 - `build_usbnet_helper.sh`
   - `stage3/linux_init/a90_usbnet.c`를 static ARM64 helper로 빌드
   - 산출물은 gitignore된 `external_tools/userland/bin/a90_usbnet-aarch64-static`

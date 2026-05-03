@@ -1,5 +1,13 @@
 # Changelog
 
+## `0.8.30` (`v99`) - 2026-05-03
+
+- Added `a90_userland.c/h` for BusyBox/toybox inventory, selected runtime path reporting, and optional userland readiness checks.
+- Added `userland`, `busybox`, and `toybox` shell commands while keeping the native PID 1 shell independent from BusyBox.
+- Added static BusyBox 1.36.1 build/deploy tooling with `build_static_busybox.sh` and `busybox_userland.py`.
+- Added BusyBox to helper inventory as optional `userland` helper and boot selftest userland coverage.
+- Verified v99 flash, `cmdv1 version/status`, selftest `pass=11 warn=0 fail=0`, BusyBox smoke, toybox fallback, HUD/menu, storage, and netservice status regression.
+
 ## `0.8.29` (`v98`) - 2026-05-03
 
 - Added `a90_helper.c/h` for helper inventory, manifest path discovery, preferred helper path selection, and `helpers` command handling.

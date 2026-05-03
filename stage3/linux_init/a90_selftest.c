@@ -11,6 +11,7 @@
 #include "a90_storage.h"
 #include "a90_timeline.h"
 #include "a90_usb_gadget.h"
+#include "a90_userland.h"
 #include "a90_util.h"
 
 #include <errno.h>
@@ -280,6 +281,30 @@ static void selftest_helpers(void) {
                             summary);
 }
 
+static void selftest_userland(void) {
+    long started_ms = monotonic_millis();
+    char summary[128];
+    int rc;
+
+    rc = a90_userland_scan();
+    a90_userland_summary(summary, sizeof(summary));
+    if (a90_userland_has_any()) {
+        selftest_record_elapsed("userland",
+                                A90_SELFTEST_PASS,
+                                0,
+                                0,
+                                started_ms,
+                                summary);
+    } else {
+        selftest_record_elapsed("userland",
+                                A90_SELFTEST_WARN,
+                                rc,
+                                ENOENT,
+                                started_ms,
+                                summary);
+    }
+}
+
 static void selftest_metrics(void) {
     long started_ms = monotonic_millis();
     struct a90_metrics_snapshot snapshot;
@@ -426,6 +451,7 @@ static int selftest_run(const struct a90_selftest_boot_hooks *hooks, void *ctx, 
     selftest_storage();
     selftest_runtime();
     selftest_helpers();
+    selftest_userland();
     selftest_metrics();
     selftest_kms();
     selftest_input();
