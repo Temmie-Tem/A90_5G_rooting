@@ -52,7 +52,8 @@ init_main
   -> optional helpers / BusyBox / dropbear
 ```
 
-`v102 DIAGNOSTICS`까지 실기 verified 완료했다. v101 service manager 위에 read-only `diag` command와 serial-first `diag_collect.py`를 추가했고, device/host log bundle 생성을 확인했다. v102 결과는
+`v103 WIFI INVENTORY`까지 실기 verified 완료했다. v102 diagnostics 위에 read-only `wifiinv` command와 serial-first `wifi_inventory_collect.py`를 추가했고, 기본 native 상태와 `mountsystem ro` 확장 상태에서 WLAN/rfkill/firmware 후보 경로를 확인했다. v103 결과는
+`docs/reports/NATIVE_INIT_V103_WIFI_INVENTORY_2026-05-04.md`에 둔다. v102 결과는
 `docs/reports/NATIVE_INIT_V102_DIAGNOSTICS_2026-05-03.md`에 둔다. v101 결과는
 `docs/reports/NATIVE_INIT_V101_SERVICE_MANAGER_2026-05-03.md`에 둔다. v100 결과는
 `docs/reports/NATIVE_INIT_V100_REMOTE_SHELL_2026-05-03.md`에 둔다. v99 결과는
@@ -234,7 +235,7 @@ Samsung bootloader
 - TCP shell/dropbear remote access prototype — v100 완료
 - Minimal service manager command/view — v101 완료
 - Diagnostics/log bundle command and host collector — v102 완료
-- Wi-Fi read-only inventory — v103 계획 완료 / 구현 대기
+- Wi-Fi read-only inventory — v103 완료
 - Wi-Fi enablement feasibility — v104 후보
 - long-run soak/recovery release candidate — v105 후보
 - static dropbear SSH 또는 custom TCP shell
@@ -243,12 +244,12 @@ Samsung bootloader
 
 ## 현재 기준점
 
-- 최신 확인 버전: `A90 Linux init 0.9.2 (v102)`
-- 공식 버전: `0.9.2`
-- build tag: `v102`
+- 최신 확인 버전: `A90 Linux init 0.9.3 (v103)`
+- 공식 버전: `0.9.3`
+- build tag: `v103`
 - creator: `made by temmie0214`
-- 최신 verified 소스: `stage3/linux_init/init_v102.c` + `stage3/linux_init/v102/*.inc.c` + `stage3/linux_init/helpers/a90_cpustress.c` + `stage3/linux_init/helpers/a90_rshell.c` + `stage3/linux_init/a90_config.h` + `stage3/linux_init/a90_util.c/h` + `stage3/linux_init/a90_log.c/h` + `stage3/linux_init/a90_timeline.c/h` + `stage3/linux_init/a90_console.c/h` + `stage3/linux_init/a90_cmdproto.c/h` + `stage3/linux_init/a90_run.c/h` + `stage3/linux_init/a90_service.c/h` + `stage3/linux_init/a90_kms.c/h` + `stage3/linux_init/a90_draw.c/h` + `stage3/linux_init/a90_input.c/h` + `stage3/linux_init/a90_hud.c/h` + `stage3/linux_init/a90_menu.c/h` + `stage3/linux_init/a90_metrics.c/h` + `stage3/linux_init/a90_shell.c/h` + `stage3/linux_init/a90_controller.c/h` + `stage3/linux_init/a90_storage.c/h` + `stage3/linux_init/a90_selftest.c/h` + `stage3/linux_init/a90_usb_gadget.c/h` + `stage3/linux_init/a90_netservice.c/h` + `stage3/linux_init/a90_runtime.c/h` + `stage3/linux_init/a90_helper.c/h` + `stage3/linux_init/a90_userland.c/h` + `stage3/linux_init/a90_diag.c/h`
-- 최신 verified boot image: `stage3/boot_linux_v102.img`
+- 최신 verified 소스: `stage3/linux_init/init_v103.c` + `stage3/linux_init/v103/*.inc.c` + `stage3/linux_init/helpers/a90_cpustress.c` + `stage3/linux_init/helpers/a90_rshell.c` + `stage3/linux_init/a90_config.h` + `stage3/linux_init/a90_util.c/h` + `stage3/linux_init/a90_log.c/h` + `stage3/linux_init/a90_timeline.c/h` + `stage3/linux_init/a90_console.c/h` + `stage3/linux_init/a90_cmdproto.c/h` + `stage3/linux_init/a90_run.c/h` + `stage3/linux_init/a90_service.c/h` + `stage3/linux_init/a90_kms.c/h` + `stage3/linux_init/a90_draw.c/h` + `stage3/linux_init/a90_input.c/h` + `stage3/linux_init/a90_hud.c/h` + `stage3/linux_init/a90_menu.c/h` + `stage3/linux_init/a90_metrics.c/h` + `stage3/linux_init/a90_shell.c/h` + `stage3/linux_init/a90_controller.c/h` + `stage3/linux_init/a90_storage.c/h` + `stage3/linux_init/a90_selftest.c/h` + `stage3/linux_init/a90_usb_gadget.c/h` + `stage3/linux_init/a90_netservice.c/h` + `stage3/linux_init/a90_runtime.c/h` + `stage3/linux_init/a90_helper.c/h` + `stage3/linux_init/a90_userland.c/h` + `stage3/linux_init/a90_diag.c/h` + `stage3/linux_init/a90_wifiinv.c/h`
+- 최신 verified boot image: `stage3/boot_linux_v103.img`
 - previous verified source-layout baseline: `stage3/linux_init/init_v80.c` + `stage3/linux_init/v80/*.inc.c`
 - known-good fallback: `stage3/boot_linux_v48.img`
 - 주 제어 채널: USB CDC ACM serial (`/dev/ttyGS0` ↔ `/dev/ttyACM0`)
@@ -871,10 +872,10 @@ Samsung bootloader
 
 상세 실행 큐는 `docs/plans/NATIVE_INIT_TASK_QUEUE_2026-04-25.md`를 따른다.
 
-1. v103 Wi-Fi read-only inventory 구현
-2. `wifiinv [summary|full|paths]` command 범위 확정
-3. WLAN/rfkill/firmware/module/vendor path를 쓰기 없이 수집
-4. v104 Wi-Fi enablement feasibility는 v103 evidence 이후 판단
+1. v104 Wi-Fi enablement feasibility 계획 작성
+2. v103 `wifiinv` 결과를 기준으로 Android/TWRP read-only baseline 비교 범위 확정
+3. `wlan0`/rfkill/module/firmware visibility blocker를 먼저 정리
+4. 실제 Wi-Fi bring-up은 최소 reversible 실험으로만 진행 여부 판단
 
 ---
 

@@ -1,19 +1,19 @@
 # Native Init Task Queue (2026-04-25)
 
-이 문서는 `A90 Linux init 0.9.2 (v102)` verified 이후 바로 실행할 작업 큐다.
+이 문서는 `A90 Linux init 0.9.3 (v103)` verified 이후 바로 실행할 작업 큐다.
 큰 방향은 “보이는 부팅 → 복구 가능한 로그 → 단독 조작 → 작은 userland → USB networking” 순서다.
 
 ## 현재 고정 기준점
 
-- latest verified build: `A90 Linux init 0.9.2 (v102)`
-- official version: `0.9.2`
-- build tag: `v102`
+- latest verified build: `A90 Linux init 0.9.3 (v103)`
+- official version: `0.9.3`
+- build tag: `v103`
 - creator: `made by temmie0214`
-- latest verified source: `stage3/linux_init/init_v102.c` + `stage3/linux_init/v102/*.inc.c` + `stage3/linux_init/helpers/a90_cpustress.c` + `stage3/linux_init/helpers/a90_rshell.c` + `stage3/linux_init/a90_config.h` + `stage3/linux_init/a90_util.c/h` + `stage3/linux_init/a90_log.c/h` + `stage3/linux_init/a90_timeline.c/h` + `stage3/linux_init/a90_console.c/h` + `stage3/linux_init/a90_cmdproto.c/h` + `stage3/linux_init/a90_run.c/h` + `stage3/linux_init/a90_service.c/h` + `stage3/linux_init/a90_kms.c/h` + `stage3/linux_init/a90_draw.c/h` + `stage3/linux_init/a90_input.c/h` + `stage3/linux_init/a90_hud.c/h` + `stage3/linux_init/a90_menu.c/h` + `stage3/linux_init/a90_metrics.c/h` + `stage3/linux_init/a90_shell.c/h` + `stage3/linux_init/a90_controller.c/h` + `stage3/linux_init/a90_storage.c/h` + `stage3/linux_init/a90_selftest.c/h` + `stage3/linux_init/a90_usb_gadget.c/h` + `stage3/linux_init/a90_netservice.c/h` + `stage3/linux_init/a90_runtime.c/h` + `stage3/linux_init/a90_helper.c/h` + `stage3/linux_init/a90_userland.c/h` + `stage3/linux_init/a90_diag.c/h`
-- latest verified boot image: `stage3/boot_linux_v102.img`
+- latest verified source: `stage3/linux_init/init_v103.c` + `stage3/linux_init/v103/*.inc.c` + `stage3/linux_init/helpers/a90_cpustress.c` + `stage3/linux_init/helpers/a90_rshell.c` + `stage3/linux_init/a90_config.h` + `stage3/linux_init/a90_util.c/h` + `stage3/linux_init/a90_log.c/h` + `stage3/linux_init/a90_timeline.c/h` + `stage3/linux_init/a90_console.c/h` + `stage3/linux_init/a90_cmdproto.c/h` + `stage3/linux_init/a90_run.c/h` + `stage3/linux_init/a90_service.c/h` + `stage3/linux_init/a90_kms.c/h` + `stage3/linux_init/a90_draw.c/h` + `stage3/linux_init/a90_input.c/h` + `stage3/linux_init/a90_hud.c/h` + `stage3/linux_init/a90_menu.c/h` + `stage3/linux_init/a90_metrics.c/h` + `stage3/linux_init/a90_shell.c/h` + `stage3/linux_init/a90_controller.c/h` + `stage3/linux_init/a90_storage.c/h` + `stage3/linux_init/a90_selftest.c/h` + `stage3/linux_init/a90_usb_gadget.c/h` + `stage3/linux_init/a90_netservice.c/h` + `stage3/linux_init/a90_runtime.c/h` + `stage3/linux_init/a90_helper.c/h` + `stage3/linux_init/a90_userland.c/h` + `stage3/linux_init/a90_diag.c/h` + `stage3/linux_init/a90_wifiinv.c/h`
+- latest verified boot image: `stage3/boot_linux_v103.img`
 - previous verified source-layout baseline: `stage3/linux_init/init_v80.c` + `stage3/linux_init/v80/*.inc.c`
 - known-good fallback: `stage3/boot_linux_v48.img`
-- local artifact retention: `v102` latest, `v101` rollback, `v48` known-good만 보존하고 나머지 ignored stage3 산출물은 정리 가능
+- local artifact retention: `v103` latest, `v102` rollback, `v48` known-good만 보존하고 나머지 ignored stage3 산출물은 정리 가능
 - control channel: USB ACM serial bridge
 - log: SD 정상 시 `/mnt/sdext/a90/logs/native-init.log`, fallback 시 `/cache/native-init.log`
 - verified:
@@ -1942,31 +1942,41 @@ python3 ./scripts/revalidation/physical_usb_reconnect_check.py --manual-host-con
 
 ## 지금 바로 진행할 항목
 
-1. v103 Wi-Fi read-only inventory 구현
+1. v104 Wi-Fi enablement feasibility 계획
 
    - 기준 문서: `docs/plans/NATIVE_INIT_LONG_TERM_ROADMAP_2026-05-03.md`
-   - 실행 계획: `docs/plans/NATIVE_INIT_V103_WIFI_INVENTORY_PLAN_2026-05-04.md`
-   - 이전 결과: `docs/reports/NATIVE_INIT_V102_DIAGNOSTICS_2026-05-03.md`
-   - 다음 실행 항목: `wifiinv [summary|full|paths]` command와 필요 시 host collector 구현
-   - 목적: Wi-Fi bring-up 전에 필요한 커널/펌웨어/userspace 의존성을 쓰기 없이 확정
-   - 보류: Wi-Fi enablement와 WPA supplicant 실행은 v104+ 트랙으로 분리
+   - 이전 결과: `docs/reports/NATIVE_INIT_V103_WIFI_INVENTORY_2026-05-04.md`
+   - 다음 실행 항목: v103 evidence를 기준으로 Android/TWRP read-only baseline 비교와 최소 reversible 실험 범위 작성
+   - 목적: Wi-Fi bring-up 가능 여부를 추측이 아니라 확인된 visibility로 판단
+   - 보류: production Wi-Fi networking, firmware/vendor mutation, risky partition writes
 
-### V103. Wi-Fi Read-Only Inventory — PLANNED
+### V103. Wi-Fi Read-Only Inventory — PASS
 
 - 계획: `docs/plans/NATIVE_INIT_V103_WIFI_INVENTORY_PLAN_2026-05-04.md`
-- 목표:
-  - `A90 Linux init 0.9.3 (v103)` / `0.9.3 v103 WIFI INVENTORY`
+- 산출: `docs/reports/NATIVE_INIT_V103_WIFI_INVENTORY_2026-05-04.md`
+- `stage3/linux_init/init_v103.c`
+- `stage3/linux_init/v103/*.inc.c`
+- `stage3/linux_init/a90_wifiinv.c/h`
+- `scripts/revalidation/wifi_inventory_collect.py`
+- 의도:
   - native init에서 보이는 WLAN, rfkill, firmware, module, vendor path를 read-only로 수집
   - Wi-Fi bring-up 전에 Android/TWRP/native init visibility 차이를 확인할 evidence format 준비
-- 금지:
-  - Wi-Fi enablement
-  - rfkill write
-  - `ip link set wlan0 up`
-  - `svc wifi enable`
-  - module load/unload
-  - firmware/vendor mutation
-- 다음 구현 후보:
-  - `stage3/linux_init/init_v103.c`
-  - `stage3/linux_init/v103/*.inc.c`
-  - `stage3/linux_init/a90_wifiinv.c/h`
-  - `scripts/revalidation/wifi_inventory_collect.py`
+  - Wi-Fi enablement, rfkill write, module load/unload, firmware/vendor mutation 금지
+- 검증:
+  - static ARM64 init build with `-Wall -Wextra` — PASS
+  - `stage3/ramdisk_v103.cpio`, `stage3/boot_linux_v103.img` 생성 — PASS
+  - boot image marker strings `A90 Linux init 0.9.3 (v103)`, `A90v103`, `0.9.3 v103 WIFI INVENTORY`, `wifiinv [summary|full|paths]` — PASS
+  - native flash → post-boot `cmdv1 version/status` — PASS
+  - `wifiinv`, `wifiinv paths`, `wifiinv full` — PASS
+  - default native inventory: no `wlan*`, no Wi-Fi rfkill, no WLAN/CNSS/QCA module match — PASS
+  - `mountsystem ro` extended inventory: `/mnt/system/system/etc/init/wifi.rc`, `wificond.rc`, carrier Wi-Fi config candidates detected — PASS
+  - `wifi_inventory_collect.py --native-only --boot-image stage3/boot_linux_v103.img` — PASS
+  - `diag`, `storage`, `runtime`, `service list`, `netservice status`, `statushud`, `autohud 2`, `screenmenu`, `hide`, `cpustress 3 2` — PASS
+- 산출:
+  - `stage3/linux_init/init_v103`
+    - SHA256 `9d1bac55549abb0e7aac2112896f66c362cc38dd1093212d4beb4bcb65c33a85`
+  - `stage3/ramdisk_v103.cpio`
+    - SHA256 `0758b63988b2edfb27cf2bc05da484dac099391bfc488f8a6c13aa976b7c61c4`
+  - `stage3/boot_linux_v103.img`
+    - SHA256 `dca3ee7ac77f366176d833b40450b0b1e3e55ebaf46ddc11c4d3a5f19454622b`
+  - `docs/reports/NATIVE_INIT_V103_WIFI_INVENTORY_2026-05-04.md`

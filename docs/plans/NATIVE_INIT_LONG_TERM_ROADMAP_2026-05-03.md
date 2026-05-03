@@ -4,7 +4,7 @@ Date: `2026-05-03`
 
 ## Summary
 
-- Latest verified: `A90 Linux init 0.9.2 (v102)`.
+- Latest verified: `A90 Linux init 0.9.3 (v103)`.
 - Roadmap baseline before this cycle: `A90 Linux init 0.8.26 (v95)`.
 - Goal: turn the verified native init foundation into a small, server-like embedded Linux runtime without losing recovery safety.
 - Scope: this roadmap defines version-level objectives from v96 through v105.
@@ -239,10 +239,9 @@ Commit only after verified.
 
 ## Current Next Action
 
-v102 diagnostics/log bundle is verified. v103 Wi-Fi read-only inventory is planned in
-`docs/plans/NATIVE_INIT_V103_WIFI_INVENTORY_PLAN_2026-05-04.md`. The immediate next action is implementation:
+v103 Wi-Fi read-only inventory is verified. The immediate next action is v104 Wi-Fi feasibility planning:
 
-1. add read-only `wifiinv [summary|full|paths]`,
-2. inventory WLAN/rfkill/firmware/module/vendor paths without enabling Wi-Fi,
-3. keep USB ACM/NCM as the control path,
-4. defer Wi-Fi bring-up and WPA supplicant work until v104+ if the read-only inventory supports it.
+1. use `docs/reports/NATIVE_INIT_V103_WIFI_INVENTORY_2026-05-04.md` as the evidence baseline,
+2. compare native/TWRP/Android Wi-Fi visibility where safe,
+3. define the smallest reversible bring-up experiment only if prerequisites are visible,
+4. keep USB ACM/NCM as the control path and avoid risky partition or firmware mutation.
