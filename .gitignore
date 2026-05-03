@@ -123,6 +123,7 @@ boot_*.log
 .DS_Store
 *.tmp
 *.temp
+tmp/
 __pycache__/
 
 # =================================

@@ -8,7 +8,7 @@
 
 상단 `docs/`는 이제 다음 흐름에 필요한 문서를 유지합니다.
 
-1. native init 0.9.1 / v101 verified 기준 상태 고정
+1. native init 0.9.2 / v102 verified 기준 상태 고정
 2. shell/HUD/log/menu 운영 안정화
 3. 필요한 하드웨어/커널 경로만 역추적
 4. BusyBox/network/SSH 같은 서버형 확장 가능성 검토
@@ -19,12 +19,12 @@
 - 빌드: `A908NKSU5EWA3`
 - kernel: Samsung stock Android kernel `Linux 4.14.190`
 - recovery: TWRP 사용 가능
-- latest verified build: `A90 Linux init 0.9.1 (v101)`
-- official version: `0.9.1`
-- build tag: `v101`
+- latest verified build: `A90 Linux init 0.9.2 (v102)`
+- official version: `0.9.2`
+- build tag: `v102`
 - creator: `made by temmie0214`
-- latest verified source: `stage3/linux_init/init_v101.c` + `stage3/linux_init/v101/*.inc.c` + `stage3/linux_init/helpers/a90_cpustress.c` + `stage3/linux_init/helpers/a90_rshell.c` + `stage3/linux_init/a90_config.h` + `stage3/linux_init/a90_util.c/h` + `stage3/linux_init/a90_log.c/h` + `stage3/linux_init/a90_timeline.c/h` + `stage3/linux_init/a90_console.c/h` + `stage3/linux_init/a90_cmdproto.c/h` + `stage3/linux_init/a90_run.c/h` + `stage3/linux_init/a90_service.c/h` + `stage3/linux_init/a90_kms.c/h` + `stage3/linux_init/a90_draw.c/h` + `stage3/linux_init/a90_input.c/h` + `stage3/linux_init/a90_hud.c/h` + `stage3/linux_init/a90_menu.c/h` + `stage3/linux_init/a90_metrics.c/h` + `stage3/linux_init/a90_shell.c/h` + `stage3/linux_init/a90_controller.c/h` + `stage3/linux_init/a90_storage.c/h` + `stage3/linux_init/a90_selftest.c/h` + `stage3/linux_init/a90_usb_gadget.c/h` + `stage3/linux_init/a90_netservice.c/h` + `stage3/linux_init/a90_runtime.c/h` + `stage3/linux_init/a90_helper.c/h` + `stage3/linux_init/a90_userland.c/h`
-- latest verified boot image: `stage3/boot_linux_v101.img`
+- latest verified source: `stage3/linux_init/init_v102.c` + `stage3/linux_init/v102/*.inc.c` + `stage3/linux_init/helpers/a90_cpustress.c` + `stage3/linux_init/helpers/a90_rshell.c` + `stage3/linux_init/a90_config.h` + `stage3/linux_init/a90_util.c/h` + `stage3/linux_init/a90_log.c/h` + `stage3/linux_init/a90_timeline.c/h` + `stage3/linux_init/a90_console.c/h` + `stage3/linux_init/a90_cmdproto.c/h` + `stage3/linux_init/a90_run.c/h` + `stage3/linux_init/a90_service.c/h` + `stage3/linux_init/a90_kms.c/h` + `stage3/linux_init/a90_draw.c/h` + `stage3/linux_init/a90_input.c/h` + `stage3/linux_init/a90_hud.c/h` + `stage3/linux_init/a90_menu.c/h` + `stage3/linux_init/a90_metrics.c/h` + `stage3/linux_init/a90_shell.c/h` + `stage3/linux_init/a90_controller.c/h` + `stage3/linux_init/a90_storage.c/h` + `stage3/linux_init/a90_selftest.c/h` + `stage3/linux_init/a90_usb_gadget.c/h` + `stage3/linux_init/a90_netservice.c/h` + `stage3/linux_init/a90_runtime.c/h` + `stage3/linux_init/a90_helper.c/h` + `stage3/linux_init/a90_userland.c/h` + `stage3/linux_init/a90_diag.c/h`
+- latest verified boot image: `stage3/boot_linux_v102.img`
 - previous verified source-layout baseline: `stage3/linux_init/init_v80.c` + `stage3/linux_init/v80/*.inc.c`
 - known-good fallback: `stage3/boot_linux_v48.img`
 - control channel: USB CDC ACM serial bridge
@@ -83,6 +83,7 @@
 - userland module: v99에서 `a90_userland.c/h`로 BusyBox/toybox inventory, `userland`, `busybox`, `toybox` command 분리
 - remote shell module: v100에서 `/bin/a90_rshell` custom TCP helper, token auth, `rshell_host.py` smoke 검증 완료
 - service manager: v101에서 `a90_service.c/h` metadata/status API와 `service` command 검증 완료
+- diagnostics: v102에서 `a90_diag.c/h`와 `diag_collect.py`로 read-only diagnostics/log bundle 검증 완료
 - ADB: 보류
 
 ## 문서 읽는 순서
@@ -182,6 +183,10 @@
 - `reports/NATIVE_INIT_V96_STRUCTURE_AUDIT_2026-05-03.md` – structure audit / refactor debt cleanup 실기 검증 기록
 - `reports/NATIVE_INIT_V97_SD_RUNTIME_ROOT_2026-05-03.md` – SD runtime root 실기 검증 기록
 - `reports/NATIVE_INIT_V98_HELPER_DEPLOY_2026-05-03.md` – helper deployment/package manifest 실기 검증 기록
+- `reports/NATIVE_INIT_V99_BUSYBOX_USERLAND_2026-05-03.md` – BusyBox static userland 실기 검증 기록
+- `reports/NATIVE_INIT_V100_REMOTE_SHELL_2026-05-03.md` – custom TCP remote shell over USB NCM 실기 검증 기록
+- `reports/NATIVE_INIT_V101_SERVICE_MANAGER_2026-05-03.md` – service manager command/view 실기 검증 기록
+- `reports/NATIVE_INIT_V102_DIAGNOSTICS_2026-05-03.md` – diagnostics/log bundle 실기 검증 기록
 - `reports/NATIVE_INIT_V83_CONSOLE_SHELL_CMDPROTO_DEPENDENCY_MAP_2026-04-29.md` – shell/cmdproto 분리 전 의존성 지도
 - `reports/NATIVE_INIT_V74_PHYSICAL_USB_RECONNECT_2026-04-27.md` – 실제 USB 케이블 unplug/replug 후 ACM/NCM/tcpctl 복구 검증
 - `reports/NATIVE_INIT_V53_MENU_BUSY_2026-04-25.md` – menu-active serial busy gate와 flash auto-hide 검증
@@ -280,6 +285,7 @@
 61. BusyBox static userland evaluation — v99 완료
 62. Custom token TCP remote shell over USB NCM — v100 완료
 63. Minimal service manager command/view — v101 완료
+64. Diagnostics/log bundle command and host collector — v102 완료
 
 패키지 최소화와 Android userspace 복구는 보조 실험으로만 다루고,
 메인 목표는 **Android kernel 위에 반복 운용 가능한 native init 기반 최소 Linux 콘솔을 만드는 것**입니다.

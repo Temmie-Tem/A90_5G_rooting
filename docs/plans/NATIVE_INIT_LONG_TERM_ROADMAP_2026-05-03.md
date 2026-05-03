@@ -4,7 +4,7 @@ Date: `2026-05-03`
 
 ## Summary
 
-- Latest verified: `A90 Linux init 0.9.1 (v101)`.
+- Latest verified: `A90 Linux init 0.9.2 (v102)`.
 - Roadmap baseline before this cycle: `A90 Linux init 0.8.26 (v95)`.
 - Goal: turn the verified native init foundation into a small, server-like embedded Linux runtime without losing recovery safety.
 - Scope: this roadmap defines version-level objectives from v96 through v105.
@@ -239,9 +239,9 @@ Commit only after verified.
 
 ## Current Next Action
 
-v101 minimal service manager is verified. The immediate next action is v102 diagnostics implementation from `docs/plans/NATIVE_INIT_V102_DIAGNOSTICS_PLAN_2026-05-03.md`:
+v102 diagnostics/log bundle is verified. The immediate next action is v103 Wi-Fi read-only inventory planning:
 
-1. add a read-only `diag [summary|full|bundle|paths]` command,
-2. collect version, bootstatus, selftest, storage, runtime, helpers, userland, service, rshell, and recent logs,
-3. add a serial-first host collector that can optionally use NCM,
-4. keep Wi-Fi inventory deferred until diagnostics output is stable.
+1. inventory WLAN/rfkill/firmware/module/vendor paths without enabling Wi-Fi,
+2. compare Android/TWRP/native init visibility where safe,
+3. keep USB ACM/NCM as the control path,
+4. defer Wi-Fi bring-up and WPA supplicant work until v104+ if the read-only inventory supports it.
