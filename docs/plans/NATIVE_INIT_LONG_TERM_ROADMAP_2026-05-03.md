@@ -4,7 +4,7 @@ Date: `2026-05-03`
 
 ## Summary
 
-- Latest verified: `A90 Linux init 0.9.3 (v103)`.
+- Latest verified: `A90 Linux init 0.9.4 (v104)`.
 - Roadmap baseline before this cycle: `A90 Linux init 0.8.26 (v95)`.
 - Goal: turn the verified native init foundation into a small, server-like embedded Linux runtime without losing recovery safety.
 - Scope: this roadmap defines version-level objectives from v96 through v105.
@@ -182,19 +182,20 @@ The v81-v95 cycle focused on splitting PID 1 into testable modules. The next cyc
 ### v104. Wi-Fi Enablement Feasibility
 
 - Target: `A90 Linux init 0.9.4 (v104)` / `0.9.4 v104 WIFI FEASIBILITY`
-- Goal: run the smallest reversible Wi-Fi bring-up experiment if v103 shows a viable path.
+- Goal: convert v103 read-only inventory into a deterministic Wi-Fi feasibility gate.
 - Primary work:
-  - test rfkill/interface/firmware load path only if read-only inventory supports it;
+  - add `wififeas [summary|full|gate|paths]`;
+  - decide `baseline-required`/`no-go`/`go-read-only-only` from read-only evidence;
   - keep NCM and serial active as rescue paths;
-  - avoid persistent Android partition changes;
-  - define hard stop conditions for missing firmware, kernel driver errors, or vendor daemon dependency.
+  - avoid persistent Android partition changes.
 - Non-goals:
   - no production Wi-Fi networking promise;
   - no WPA supplicant integration unless the device-side prerequisites are proven;
   - no disabling NCM.
 - Acceptance:
-  - either a minimal interface state is proven, or the blocker is documented precisely;
-  - failed Wi-Fi experiments do not affect boot, storage, serial, or NCM recovery.
+  - default native state returns `baseline-required`;
+  - mounted-system read-only state returns `no-go` until WLAN/rfkill/module evidence exists;
+  - Wi-Fi enablement remains blocked and boot/storage/serial recovery are unaffected.
 
 ### v105. Long-Run Soak / Recovery Release Candidate
 
@@ -239,10 +240,9 @@ Commit only after verified.
 
 ## Current Next Action
 
-v103 Wi-Fi read-only inventory is verified. v104 Wi-Fi feasibility is planned in
-`docs/plans/NATIVE_INIT_V104_WIFI_FEASIBILITY_PLAN_2026-05-04.md`. The immediate next action is implementation:
+v104 Wi-Fi feasibility is verified. Current native default decision is `baseline-required`; mounted-system read-only decision is `no-go` because Android-side candidates exist but WLAN/rfkill/module gates are absent. The immediate next action is v105 long-run soak/recovery RC:
 
-1. add `wififeas [summary|full|gate|paths]`,
-2. compute a deterministic `go`/`no-go`/`baseline-required` decision from read-only evidence,
-3. keep USB ACM/NCM as the control path,
-4. block actual Wi-Fi bring-up unless the gate prerequisites are visible.
+1. validate v96-v104 as a stable baseline,
+2. keep Wi-Fi bring-up disabled during soak,
+3. exercise serial/USB/NCM/recovery/SD fallback paths,
+4. promote v105 only if repeated operation and recovery checks pass.

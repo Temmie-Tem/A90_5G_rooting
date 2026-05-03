@@ -4,18 +4,18 @@ Date: `2026-05-04`
 
 ## Current Version
 
-- latest verified official version: `0.9.3`
-- latest verified build tag: `v103`
-- latest verified display name: `A90 Linux init 0.9.3 (v103)`
+- latest verified official version: `0.9.4`
+- latest verified build tag: `v104`
+- latest verified display name: `A90 Linux init 0.9.4 (v104)`
 - creator: `made by temmie0214`
-- latest verified source: `stage3/linux_init/init_v103.c` + `stage3/linux_init/v103/*.inc.c` + `stage3/linux_init/helpers/a90_cpustress.c` + `stage3/linux_init/helpers/a90_rshell.c` + `stage3/linux_init/a90_config.h` + `stage3/linux_init/a90_util.c/h` + `stage3/linux_init/a90_log.c/h` + `stage3/linux_init/a90_timeline.c/h` + `stage3/linux_init/a90_console.c/h` + `stage3/linux_init/a90_cmdproto.c/h` + `stage3/linux_init/a90_run.c/h` + `stage3/linux_init/a90_service.c/h` + `stage3/linux_init/a90_kms.c/h` + `stage3/linux_init/a90_draw.c/h` + `stage3/linux_init/a90_input.c/h` + `stage3/linux_init/a90_hud.c/h` + `stage3/linux_init/a90_menu.c/h` + `stage3/linux_init/a90_metrics.c/h` + `stage3/linux_init/a90_shell.c/h` + `stage3/linux_init/a90_controller.c/h` + `stage3/linux_init/a90_storage.c/h` + `stage3/linux_init/a90_selftest.c/h` + `stage3/linux_init/a90_usb_gadget.c/h` + `stage3/linux_init/a90_netservice.c/h` + `stage3/linux_init/a90_runtime.c/h` + `stage3/linux_init/a90_helper.c/h` + `stage3/linux_init/a90_userland.c/h` + `stage3/linux_init/a90_diag.c/h` + `stage3/linux_init/a90_wifiinv.c/h`
-- latest verified boot image: `stage3/boot_linux_v103.img`
+- latest verified source: `stage3/linux_init/init_v104.c` + `stage3/linux_init/v104/*.inc.c` + `stage3/linux_init/helpers/a90_cpustress.c` + `stage3/linux_init/helpers/a90_rshell.c` + `stage3/linux_init/a90_config.h` + `stage3/linux_init/a90_util.c/h` + `stage3/linux_init/a90_log.c/h` + `stage3/linux_init/a90_timeline.c/h` + `stage3/linux_init/a90_console.c/h` + `stage3/linux_init/a90_cmdproto.c/h` + `stage3/linux_init/a90_run.c/h` + `stage3/linux_init/a90_service.c/h` + `stage3/linux_init/a90_kms.c/h` + `stage3/linux_init/a90_draw.c/h` + `stage3/linux_init/a90_input.c/h` + `stage3/linux_init/a90_hud.c/h` + `stage3/linux_init/a90_menu.c/h` + `stage3/linux_init/a90_metrics.c/h` + `stage3/linux_init/a90_shell.c/h` + `stage3/linux_init/a90_controller.c/h` + `stage3/linux_init/a90_storage.c/h` + `stage3/linux_init/a90_selftest.c/h` + `stage3/linux_init/a90_usb_gadget.c/h` + `stage3/linux_init/a90_netservice.c/h` + `stage3/linux_init/a90_runtime.c/h` + `stage3/linux_init/a90_helper.c/h` + `stage3/linux_init/a90_userland.c/h` + `stage3/linux_init/a90_diag.c/h` + `stage3/linux_init/a90_wifiinv.c/h` + `stage3/linux_init/a90_wififeas.c/h`
+- latest verified boot image: `stage3/boot_linux_v104.img`
 - latest local/pending build: none
 - previous verified source-layout baseline: `stage3/linux_init/init_v80.c` + `stage3/linux_init/v80/*.inc.c`
 
 ## Local Artifact Retention
 
-- 보존: latest verified `v103`, 직전 rollback `v102`, known-good fallback `v48`
+- 보존: latest verified `v104`, 직전 rollback `v103`, known-good fallback `v48`
 - 정리 대상: ignored `stage3/boot_linux_v*.img`, `stage3/ramdisk_v*`, compiled `stage3/linux_init/init_v*` 중 보존 태그가 아닌 파일
 - 정리 도구: `python3 scripts/revalidation/cleanup_stage3_artifacts.py --execute`
 - 보고서의 artifact hash와 tracked source는 유지하므로, 오래된 local binary output은 필요 시 재생성한다.
@@ -25,7 +25,7 @@ Date: `2026-05-04`
 공식 버전은 `MAJOR.MINOR.PATCH`를 사용하고, 실험/플래시 추적용 build tag는 `vNN`을 유지한다.
 
 ```text
-A90 Linux init 0.9.3 (v103)
+A90 Linux init 0.9.4 (v104)
 ```
 
 ## Rules
@@ -43,6 +43,7 @@ A90 Linux init 0.9.3 (v103)
 
 | official | build | summary |
 |---|---|---|
+| `0.9.4` | `v104` | Wi-Fi feasibility gate from read-only inventory evidence |
 | `0.9.3` | `v103` | Wi-Fi read-only inventory command and host collector |
 | `0.9.2` | `v102` | diagnostics/log bundle command and host collector |
 | `0.9.1` | `v101` | minimal service manager command/view |
