@@ -52,7 +52,8 @@ init_main
   -> optional helpers / BusyBox / dropbear
 ```
 
-`v100 REMOTE SHELL`까지 실기 verified 완료했다. v99 BusyBox/toybox userland 위에 token-authenticated `/bin/a90_rshell` remote shell path를 추가했고, USB NCM `192.168.7.2:2326` smoke와 rollback을 확인했다. v100 결과는
+`v101 SERVICE MANAGER`까지 실기 verified 완료했다. v100 remote shell 위에 `service list/status/start/stop/enable/disable` 공통 operator view를 추가했고, autohud/tcpctl/rshell lifecycle와 rollback을 확인했다. v101 결과는
+`docs/reports/NATIVE_INIT_V101_SERVICE_MANAGER_2026-05-03.md`에 둔다. v100 결과는
 `docs/reports/NATIVE_INIT_V100_REMOTE_SHELL_2026-05-03.md`에 둔다. v99 결과는
 `docs/reports/NATIVE_INIT_V99_BUSYBOX_USERLAND_2026-05-03.md`에 둔다. v98 결과는
 `docs/reports/NATIVE_INIT_V98_HELPER_DEPLOY_2026-05-03.md`에 둔다. v97 결과는
@@ -227,7 +228,7 @@ Samsung bootloader
 - helper deployment/package manifest — v98 완료
 - BusyBox static userland evaluation — v99 완료
 - TCP shell/dropbear remote access prototype — v100 완료
-- minimal service manager — v101 후보
+- minimal service manager — v101 완료
 - diagnostics/log bundle — v102 후보
 - Wi-Fi read-only inventory — v103 후보
 - Wi-Fi enablement feasibility — v104 후보
@@ -238,12 +239,12 @@ Samsung bootloader
 
 ## 현재 기준점
 
-- 최신 확인 버전: `A90 Linux init 0.9.0 (v100)`
-- 공식 버전: `0.9.0`
-- build tag: `v100`
+- 최신 확인 버전: `A90 Linux init 0.9.1 (v101)`
+- 공식 버전: `0.9.1`
+- build tag: `v101`
 - creator: `made by temmie0214`
-- 최신 verified 소스: `stage3/linux_init/init_v100.c` + `stage3/linux_init/v100/*.inc.c` + `stage3/linux_init/helpers/a90_cpustress.c` + `stage3/linux_init/helpers/a90_rshell.c` + `stage3/linux_init/a90_config.h` + `stage3/linux_init/a90_util.c/h` + `stage3/linux_init/a90_log.c/h` + `stage3/linux_init/a90_timeline.c/h` + `stage3/linux_init/a90_console.c/h` + `stage3/linux_init/a90_cmdproto.c/h` + `stage3/linux_init/a90_run.c/h` + `stage3/linux_init/a90_service.c/h` + `stage3/linux_init/a90_kms.c/h` + `stage3/linux_init/a90_draw.c/h` + `stage3/linux_init/a90_input.c/h` + `stage3/linux_init/a90_hud.c/h` + `stage3/linux_init/a90_menu.c/h` + `stage3/linux_init/a90_metrics.c/h` + `stage3/linux_init/a90_shell.c/h` + `stage3/linux_init/a90_controller.c/h` + `stage3/linux_init/a90_storage.c/h` + `stage3/linux_init/a90_selftest.c/h` + `stage3/linux_init/a90_usb_gadget.c/h` + `stage3/linux_init/a90_netservice.c/h` + `stage3/linux_init/a90_runtime.c/h` + `stage3/linux_init/a90_helper.c/h` + `stage3/linux_init/a90_userland.c/h`
-- 최신 verified boot image: `stage3/boot_linux_v100.img`
+- 최신 verified 소스: `stage3/linux_init/init_v101.c` + `stage3/linux_init/v101/*.inc.c` + `stage3/linux_init/helpers/a90_cpustress.c` + `stage3/linux_init/helpers/a90_rshell.c` + `stage3/linux_init/a90_config.h` + `stage3/linux_init/a90_util.c/h` + `stage3/linux_init/a90_log.c/h` + `stage3/linux_init/a90_timeline.c/h` + `stage3/linux_init/a90_console.c/h` + `stage3/linux_init/a90_cmdproto.c/h` + `stage3/linux_init/a90_run.c/h` + `stage3/linux_init/a90_service.c/h` + `stage3/linux_init/a90_kms.c/h` + `stage3/linux_init/a90_draw.c/h` + `stage3/linux_init/a90_input.c/h` + `stage3/linux_init/a90_hud.c/h` + `stage3/linux_init/a90_menu.c/h` + `stage3/linux_init/a90_metrics.c/h` + `stage3/linux_init/a90_shell.c/h` + `stage3/linux_init/a90_controller.c/h` + `stage3/linux_init/a90_storage.c/h` + `stage3/linux_init/a90_selftest.c/h` + `stage3/linux_init/a90_usb_gadget.c/h` + `stage3/linux_init/a90_netservice.c/h` + `stage3/linux_init/a90_runtime.c/h` + `stage3/linux_init/a90_helper.c/h` + `stage3/linux_init/a90_userland.c/h`
+- 최신 verified boot image: `stage3/boot_linux_v101.img`
 - previous verified source-layout baseline: `stage3/linux_init/init_v80.c` + `stage3/linux_init/v80/*.inc.c`
 - known-good fallback: `stage3/boot_linux_v48.img`
 - 주 제어 채널: USB CDC ACM serial (`/dev/ttyGS0` ↔ `/dev/ttyACM0`)
@@ -866,10 +867,10 @@ Samsung bootloader
 
 상세 실행 큐는 `docs/plans/NATIVE_INIT_TASK_QUEUE_2026-04-25.md`를 따른다.
 
-1. v101 minimal service manager 구현
-2. `a90_service` metadata/status API와 `service list/status/start/stop/enable/disable` command 추가
-3. 기존 `autohud`/`tcpctl`/`rshell` lifecycle를 공통 service view로 묶되 start/stop 구현은 각 owner에 유지
-4. v102 diagnostics bundle과 v103 Wi-Fi read-only inventory는 후속 트랙으로 유지
+1. v102 diagnostics/log bundle 계획 작성
+2. `diag` command와 host collector 범위 확정
+3. version/bootstatus/selftest/storage/runtime/helpers/userland/service/rshell/log tail을 한 묶음으로 수집
+4. v103 Wi-Fi read-only inventory는 후속 트랙으로 유지
 
 ---
 

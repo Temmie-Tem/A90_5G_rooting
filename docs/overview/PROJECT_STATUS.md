@@ -120,11 +120,11 @@
 ## 현재 폰 상태
 
 - patched AP (Magisk 30.7) + **TWRP recovery 사용 가능**
-- 최신 verified build: `stage3/boot_linux_v100.img` (`A90 Linux init 0.9.0 (v100)`)
-- 최신 verified source: `stage3/linux_init/init_v100.c` + `stage3/linux_init/v100/*.inc.c` + `stage3/linux_init/helpers/a90_cpustress.c` + `stage3/linux_init/helpers/a90_rshell.c` + `stage3/linux_init/a90_config.h` + `stage3/linux_init/a90_util.c/h` + `stage3/linux_init/a90_log.c/h` + `stage3/linux_init/a90_timeline.c/h` + `stage3/linux_init/a90_console.c/h` + `stage3/linux_init/a90_cmdproto.c/h` + `stage3/linux_init/a90_run.c/h` + `stage3/linux_init/a90_service.c/h` + `stage3/linux_init/a90_kms.c/h` + `stage3/linux_init/a90_draw.c/h` + `stage3/linux_init/a90_input.c/h` + `stage3/linux_init/a90_hud.c/h` + `stage3/linux_init/a90_menu.c/h` + `stage3/linux_init/a90_metrics.c/h` + `stage3/linux_init/a90_shell.c/h` + `stage3/linux_init/a90_controller.c/h` + `stage3/linux_init/a90_storage.c/h` + `stage3/linux_init/a90_selftest.c/h` + `stage3/linux_init/a90_usb_gadget.c/h` + `stage3/linux_init/a90_netservice.c/h` + `stage3/linux_init/a90_runtime.c/h` + `stage3/linux_init/a90_helper.c/h` + `stage3/linux_init/a90_userland.c/h`
+- 최신 verified build: `stage3/boot_linux_v101.img` (`A90 Linux init 0.9.1 (v101)`)
+- 최신 verified source: `stage3/linux_init/init_v101.c` + `stage3/linux_init/v101/*.inc.c` + `stage3/linux_init/helpers/a90_cpustress.c` + `stage3/linux_init/helpers/a90_rshell.c` + `stage3/linux_init/a90_config.h` + `stage3/linux_init/a90_util.c/h` + `stage3/linux_init/a90_log.c/h` + `stage3/linux_init/a90_timeline.c/h` + `stage3/linux_init/a90_console.c/h` + `stage3/linux_init/a90_cmdproto.c/h` + `stage3/linux_init/a90_run.c/h` + `stage3/linux_init/a90_service.c/h` + `stage3/linux_init/a90_kms.c/h` + `stage3/linux_init/a90_draw.c/h` + `stage3/linux_init/a90_input.c/h` + `stage3/linux_init/a90_hud.c/h` + `stage3/linux_init/a90_menu.c/h` + `stage3/linux_init/a90_metrics.c/h` + `stage3/linux_init/a90_shell.c/h` + `stage3/linux_init/a90_controller.c/h` + `stage3/linux_init/a90_storage.c/h` + `stage3/linux_init/a90_selftest.c/h` + `stage3/linux_init/a90_usb_gadget.c/h` + `stage3/linux_init/a90_netservice.c/h` + `stage3/linux_init/a90_runtime.c/h` + `stage3/linux_init/a90_helper.c/h` + `stage3/linux_init/a90_userland.c/h`
 - previous verified source-layout baseline: `stage3/linux_init/init_v80.c` + `stage3/linux_init/v80/*.inc.c`
-- 공식 버전: `0.9.0`
-- build tag: `v100`
+- 공식 버전: `0.9.1`
+- build tag: `v101`
 - creator: `made by temmie0214`
 - known-good fallback: `stage3/boot_linux_v48.img` (`A90 Linux init v48`)
 - 격리 상태: `stage3/boot_linux_v49.img`는 boot partition prefix readback은 일치했지만
@@ -133,7 +133,7 @@
 - 로그 상태: SD 정상 시 `/mnt/sdext/a90/logs/native-init.log`, fallback 시 `/cache/native-init.log`에 boot/command/result 기록
 - blocking 상태: `waitkey`, `readinput`, `watchhud`, `blindmenu` q/Ctrl-C 취소 확인
 - boot timeline: `timeline` 명령과 current native log replay 확인
-- boot selftest 상태: v100 boot selftest `pass=11 warn=0 fail=0`, `selftest verbose` 확인
+- boot selftest 상태: v101 boot selftest `pass=11 warn=0 fail=0`, `selftest verbose` 확인
 - HUD 상태: `BOOT OK shell` summary 표시와 `statushud` draw 확인
 - run 상태: `/bin/a90sleep` helper로 `run` q 취소 확인
 - log 보존: native init → recovery → native init 왕복 후 v44/v45/v47 log append 확인
@@ -175,7 +175,8 @@
 - shell/controller 상태: v92에서 last result, command lookup/result formatting, menu/power busy policy를 실제 compiled module/API로 분리 완료
 - storage module 상태: v93에서 boot storage state, SD probe, `/cache` fallback, `storage`/`mountsd` command를 실제 compiled module/API로 분리 완료
 - selftest module 상태: v94에서 boot-time non-destructive module smoke test와 `selftest` command를 실제 compiled module/API로 추가 완료
-- 상세 최신 verified 상태: `docs/reports/NATIVE_INIT_V100_REMOTE_SHELL_2026-05-03.md`
+- 상세 최신 verified 상태: `docs/reports/NATIVE_INIT_V101_SERVICE_MANAGER_2026-05-03.md`
+- v101 service manager 기록: `docs/reports/NATIVE_INIT_V101_SERVICE_MANAGER_2026-05-03.md`
 - v100 remote shell 기록: `docs/reports/NATIVE_INIT_V100_REMOTE_SHELL_2026-05-03.md`
 - v99 BusyBox userland 기록: `docs/reports/NATIVE_INIT_V99_BUSYBOX_USERLAND_2026-05-03.md`
 - v98 helper deploy 기록: `docs/reports/NATIVE_INIT_V98_HELPER_DEPLOY_2026-05-03.md`
@@ -245,9 +246,9 @@
 - proc / sys / devtmpfs / ext4(/dev/block/sda31) 마운트 성공
 - 핵심 우회: devtmpfs async 초기화 문제를 `mknod(makedev(259,15))` 로 해결
 
-### 3-2. USB ACM serial console + 인터랙티브 셸 (v8~v100)
+### 3-2. USB ACM serial console + 인터랙티브 셸 (v8~v101)
 
-**현재 버전**: `init_v100` (`stage3/boot_linux_v100.img`) / `0.9.0 (v100)`
+**현재 버전**: `init_v101` (`stage3/boot_linux_v101.img`) / `0.9.1 (v101)`
 
 ADB 방식이 막혀 USB CDC ACM serial (ttyGS0)로 전환. v79까지 반복 안정화:
 
@@ -317,8 +318,9 @@ ADB 방식이 막혀 USB CDC ACM serial (ttyGS0)로 전환. v79까지 반복 안
 | v98 | `a90_helper.c/h` helper inventory / manifest path / preferred fallback policy |
 | v99 | `a90_userland.c/h` BusyBox/toybox inventory / optional userland command API |
 | v100 | `/bin/a90_rshell` custom token TCP remote shell over USB NCM |
+| v101 | `a90_service.c/h` metadata/status API와 `service` command view |
 
-**확보된 관찰/제어 범위 (v100 verified build 기준):**
+**확보된 관찰/제어 범위 (v101 verified build 기준):**
 
 | 항목 | 상태 |
 |---|---|
@@ -357,6 +359,7 @@ ADB 방식이 막혀 USB CDC ACM serial (ttyGS0)로 전환. v79까지 반복 안
 | TCP control wrapper | 작동 — `tcpctl_host.py smoke` 확인 |
 | TCP control soak | 작동 — 5분/30사이클, TCP ping 30/30, host ping 30/30, 실패 0 |
 | Remote shell over NCM | 작동 — `/bin/a90_rshell` token auth, `192.168.7.2:2326`, `rshell_host.py smoke`, stop/rollback 확인 |
+| Service manager view | 작동 — `service list/status/start/stop/enable/disable`, autohud/tcpctl/rshell lifecycle, unsupported enable error 확인 |
 | Serial AT noise filter | 작동 — `AT`, `ATE0`, `AT+GCAP`, `ATQ0 ...` unknown 없이 무시 |
 | Boot netservice | 작동 — opt-in flag로 NCM/tcpctl boot auto-start, `netservice disable` rollback 확인 |
 | Software UDC reconnect | 작동 — `netservice stop/start` 후 새 host `enx...`, ping, TCP control 복구 확인 |
@@ -388,10 +391,10 @@ ADB 방식이 막혀 USB CDC ACM serial (ttyGS0)로 전환. v79까지 반복 안
 
 ## 다음 후보 작업
 
-우선순위 순 (v100 verified build 이후):
+우선순위 순 (v101 verified build 이후):
 
-1. **v101 minimal service manager** — runtime root 위 서비스 lifecycle 정리
-2. **v102 diagnostics/log bundle** — selftest/runtime/helper/userland/rshell 상태 묶음 수집
-3. **Wi-Fi 인벤토리** — v103+에서 드라이버/펌웨어/vendor daemon read-only 조사
+1. **v102 diagnostics/log bundle** — selftest/runtime/helper/userland/rshell/service 상태 묶음 수집
+2. **Wi-Fi 인벤토리** — v103+에서 드라이버/펌웨어/vendor daemon read-only 조사
+3. **Wi-Fi enablement feasibility** — v104에서 가능성 판단
 
 **복구**: `backups/baseline_a_20260423_030309/boot.img` dd 복구 가능

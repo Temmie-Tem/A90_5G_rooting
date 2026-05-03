@@ -4,7 +4,7 @@ Date: `2026-05-03`
 
 ## Summary
 
-- Latest verified: `A90 Linux init 0.9.0 (v100)`.
+- Latest verified: `A90 Linux init 0.9.1 (v101)`.
 - Roadmap baseline before this cycle: `A90 Linux init 0.8.26 (v95)`.
 - Goal: turn the verified native init foundation into a small, server-like embedded Linux runtime without losing recovery safety.
 - Scope: this roadmap defines version-level objectives from v96 through v105.
@@ -239,9 +239,9 @@ Commit only after verified.
 
 ## Current Next Action
 
-v100 custom TCP remote shell is verified. The immediate next action is v101 planning:
+v101 minimal service manager is verified. The immediate next action is v102 diagnostics planning:
 
-1. define a minimal service registry view over `autohud`, `tcpctl`, `rshell`, and future helpers,
-2. keep USB ACM serial as the rescue/control channel,
-3. preserve opt-in remote access and explicit rollback semantics,
-4. avoid Wi-Fi/service expansion until lifecycle/status/cancel behavior is stable.
+1. define a `diag` command that collects version, bootstatus, selftest, storage, runtime, helpers, userland, service, rshell, and recent logs,
+2. keep diagnostics read-only and repeatedly safe,
+3. add a host collector that works over serial first and can optionally use NCM,
+4. keep Wi-Fi inventory deferred until diagnostics output is stable.
