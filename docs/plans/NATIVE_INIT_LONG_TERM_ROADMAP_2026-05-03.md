@@ -4,7 +4,7 @@ Date: `2026-05-03`
 
 ## Summary
 
-- Latest verified: `A90 Linux init 0.9.4 (v104)`.
+- Latest verified: `A90 Linux init 0.9.5 (v105)`.
 - Roadmap baseline before this cycle: `A90 Linux init 0.8.26 (v95)`.
 - Goal: turn the verified native init foundation into a small, server-like embedded Linux runtime without losing recovery safety.
 - Scope: this roadmap defines version-level objectives from v96 through v105.
@@ -240,9 +240,4 @@ Commit only after verified.
 
 ## Current Next Action
 
-v104 Wi-Fi feasibility is verified. Current native default decision is `baseline-required`; mounted-system read-only decision is `no-go` because Android-side candidates exist but WLAN/rfkill/module gates are absent. The immediate next action is v105 long-run soak/recovery RC:
-
-1. validate v96-v104 as a stable baseline,
-2. keep Wi-Fi bring-up disabled during soak,
-3. exercise serial/USB/NCM/recovery/SD fallback paths,
-4. promote v105 only if repeated operation and recovery checks pass.
+v105 long-run soak/recovery RC is verified. The v96-v105 roadmap endpoint is now `A90 Linux init 0.9.5 (v105)`, with quick-soak validation captured in `docs/reports/NATIVE_INIT_V105_SOAK_RC_2026-05-04.md`. Next work should be planned as a new cycle or as optional manual extended soak/reconnect checks.

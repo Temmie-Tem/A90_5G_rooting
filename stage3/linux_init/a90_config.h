@@ -1,8 +1,8 @@
 #ifndef A90_CONFIG_H
 #define A90_CONFIG_H
 
-#define INIT_VERSION "0.9.4"
-#define INIT_BUILD "v104"
+#define INIT_VERSION "0.9.5"
+#define INIT_BUILD "v105"
 #define INIT_CREATOR "made by temmie0214"
 #define INIT_BANNER "A90 Linux init " INIT_VERSION " (" INIT_BUILD ")"
 #define BOOT_SPLASH_SECONDS 2

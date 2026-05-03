@@ -1,19 +1,19 @@
 # Native Init Task Queue (2026-04-25)
 
-이 문서는 `A90 Linux init 0.9.4 (v104)` verified 이후 바로 실행할 작업 큐다.
+이 문서는 `A90 Linux init 0.9.5 (v105)` verified 이후 바로 실행할 작업 큐다.
 큰 방향은 “보이는 부팅 → 복구 가능한 로그 → 단독 조작 → 작은 userland → USB networking” 순서다.
 
 ## 현재 고정 기준점
 
-- latest verified build: `A90 Linux init 0.9.4 (v104)`
-- official version: `0.9.4`
-- build tag: `v104`
+- latest verified build: `A90 Linux init 0.9.5 (v105)`
+- official version: `0.9.5`
+- build tag: `v105`
 - creator: `made by temmie0214`
-- latest verified source: `stage3/linux_init/init_v104.c` + `stage3/linux_init/v104/*.inc.c` + `stage3/linux_init/helpers/a90_cpustress.c` + `stage3/linux_init/helpers/a90_rshell.c` + `stage3/linux_init/a90_config.h` + `stage3/linux_init/a90_util.c/h` + `stage3/linux_init/a90_log.c/h` + `stage3/linux_init/a90_timeline.c/h` + `stage3/linux_init/a90_console.c/h` + `stage3/linux_init/a90_cmdproto.c/h` + `stage3/linux_init/a90_run.c/h` + `stage3/linux_init/a90_service.c/h` + `stage3/linux_init/a90_kms.c/h` + `stage3/linux_init/a90_draw.c/h` + `stage3/linux_init/a90_input.c/h` + `stage3/linux_init/a90_hud.c/h` + `stage3/linux_init/a90_menu.c/h` + `stage3/linux_init/a90_metrics.c/h` + `stage3/linux_init/a90_shell.c/h` + `stage3/linux_init/a90_controller.c/h` + `stage3/linux_init/a90_storage.c/h` + `stage3/linux_init/a90_selftest.c/h` + `stage3/linux_init/a90_usb_gadget.c/h` + `stage3/linux_init/a90_netservice.c/h` + `stage3/linux_init/a90_runtime.c/h` + `stage3/linux_init/a90_helper.c/h` + `stage3/linux_init/a90_userland.c/h` + `stage3/linux_init/a90_diag.c/h` + `stage3/linux_init/a90_wifiinv.c/h` + `stage3/linux_init/a90_wififeas.c/h`
-- latest verified boot image: `stage3/boot_linux_v104.img`
+- latest verified source: `stage3/linux_init/init_v105.c` + `stage3/linux_init/v105/*.inc.c` + `stage3/linux_init/helpers/a90_cpustress.c` + `stage3/linux_init/helpers/a90_rshell.c` + `stage3/linux_init/a90_config.h` + `stage3/linux_init/a90_util.c/h` + `stage3/linux_init/a90_log.c/h` + `stage3/linux_init/a90_timeline.c/h` + `stage3/linux_init/a90_console.c/h` + `stage3/linux_init/a90_cmdproto.c/h` + `stage3/linux_init/a90_run.c/h` + `stage3/linux_init/a90_service.c/h` + `stage3/linux_init/a90_kms.c/h` + `stage3/linux_init/a90_draw.c/h` + `stage3/linux_init/a90_input.c/h` + `stage3/linux_init/a90_hud.c/h` + `stage3/linux_init/a90_menu.c/h` + `stage3/linux_init/a90_metrics.c/h` + `stage3/linux_init/a90_shell.c/h` + `stage3/linux_init/a90_controller.c/h` + `stage3/linux_init/a90_storage.c/h` + `stage3/linux_init/a90_selftest.c/h` + `stage3/linux_init/a90_usb_gadget.c/h` + `stage3/linux_init/a90_netservice.c/h` + `stage3/linux_init/a90_runtime.c/h` + `stage3/linux_init/a90_helper.c/h` + `stage3/linux_init/a90_userland.c/h` + `stage3/linux_init/a90_diag.c/h` + `stage3/linux_init/a90_wifiinv.c/h` + `stage3/linux_init/a90_wififeas.c/h`
+- latest verified boot image: `stage3/boot_linux_v105.img`
 - previous verified source-layout baseline: `stage3/linux_init/init_v80.c` + `stage3/linux_init/v80/*.inc.c`
 - known-good fallback: `stage3/boot_linux_v48.img`
-- local artifact retention: `v104` latest, `v103` rollback, `v48` known-good만 보존하고 나머지 ignored stage3 산출물은 정리 가능
+- local artifact retention: `v105` latest, `v104` rollback, `v48` known-good만 보존하고 나머지 ignored stage3 산출물은 정리 가능
 - control channel: USB ACM serial bridge
 - log: SD 정상 시 `/mnt/sdext/a90/logs/native-init.log`, fallback 시 `/cache/native-init.log`
 - verified:
@@ -1942,14 +1942,41 @@ python3 ./scripts/revalidation/physical_usb_reconnect_check.py --manual-host-con
 
 ## 지금 바로 진행할 항목
 
-1. v105 long-run soak/recovery RC 계획
+1. v105 완료 감사와 optional extended soak/reconnect 분리
 
    - 기준 문서: `docs/plans/NATIVE_INIT_LONG_TERM_ROADMAP_2026-05-03.md`
-   - 이전 결과: `docs/reports/NATIVE_INIT_V104_WIFI_FEASIBILITY_2026-05-04.md`
-   - 실행 계획: `docs/plans/NATIVE_INIT_V105_SOAK_RC_PLAN_2026-05-04.md`
-   - 다음 실행 항목: v105 version bump + `native_soak_validate.py` 구현/검증
-   - 목적: v96-v104 stack을 장시간 운용 가능한 안정 기준 후보로 검증
+   - 최신 결과: `docs/reports/NATIVE_INIT_V105_SOAK_RC_2026-05-04.md`
+   - 다음 실행 항목: v96-v105 completion audit 후, 장시간 soak/USB reconnect/NCM opt-in 검증은 별도 수동 작업으로 분리
+   - 목적: v105를 v96-v105 roadmap endpoint로 고정하고 다음 개발 사이클을 별도 계획
    - 보류: risky Wi-Fi bring-up, partition writes, production Wi-Fi networking
+
+### V105. Long-Run Soak / Recovery RC — PASS
+
+- 계획: `docs/plans/NATIVE_INIT_V105_SOAK_RC_PLAN_2026-05-04.md`
+- 산출: `docs/reports/NATIVE_INIT_V105_SOAK_RC_2026-05-04.md`
+- `stage3/linux_init/init_v105.c`
+- `stage3/linux_init/v105/*.inc.c`
+- `scripts/revalidation/native_soak_validate.py`
+- 의도:
+  - v96-v104 stack을 recovery-friendly 안정 기준 후보로 검증
+  - bounded host quick soak로 serial/service/runtime/diagnostics/UI command 반복 검증
+  - Wi-Fi bring-up, rfkill write, module load/unload, firmware/vendor mutation 금지
+- 검증:
+  - static ARM64 init build with `-Wall -Wextra` — PASS
+  - `stage3/ramdisk_v105.cpio`, `stage3/boot_linux_v105.img` 생성 — PASS
+  - boot image marker strings `A90 Linux init 0.9.5 (v105)`, `A90v105`, `0.9.5 v105 SOAK RC` — PASS
+  - native flash → post-boot `cmdv1 version/status` — PASS
+  - required command regression set — PASS
+  - `native_soak_validate.py --cycles 10 --sleep 2` 14-command cycle — PASS
+  - final `status` and `service list` after soak — PASS
+- 산출:
+  - `stage3/linux_init/init_v105`
+    - SHA256 `624242bafb44598feaddf636a60b64a996d44f5e05dc622f64b79518706a8209`
+  - `stage3/ramdisk_v105.cpio`
+    - SHA256 `6733a511a5cc8a5a79c09333510c0d1913219ed13e15b3a2cbd1e7550be27726`
+  - `stage3/boot_linux_v105.img`
+    - SHA256 `2dcda57156385c2d092a0865ea31bd7853399287df5633d39b08ae4b01d53338`
+  - `docs/reports/NATIVE_INIT_V105_SOAK_RC_2026-05-04.md`
 
 ### V104. Wi-Fi Feasibility Gate — PASS
 

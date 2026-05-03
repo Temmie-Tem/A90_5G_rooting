@@ -120,11 +120,11 @@
 ## 현재 폰 상태
 
 - patched AP (Magisk 30.7) + **TWRP recovery 사용 가능**
-- 최신 verified build: `stage3/boot_linux_v104.img` (`A90 Linux init 0.9.4 (v104)`)
-- 최신 verified source: `stage3/linux_init/init_v104.c` + `stage3/linux_init/v104/*.inc.c` + `stage3/linux_init/helpers/a90_cpustress.c` + `stage3/linux_init/helpers/a90_rshell.c` + `stage3/linux_init/a90_config.h` + `stage3/linux_init/a90_util.c/h` + `stage3/linux_init/a90_log.c/h` + `stage3/linux_init/a90_timeline.c/h` + `stage3/linux_init/a90_console.c/h` + `stage3/linux_init/a90_cmdproto.c/h` + `stage3/linux_init/a90_run.c/h` + `stage3/linux_init/a90_service.c/h` + `stage3/linux_init/a90_kms.c/h` + `stage3/linux_init/a90_draw.c/h` + `stage3/linux_init/a90_input.c/h` + `stage3/linux_init/a90_hud.c/h` + `stage3/linux_init/a90_menu.c/h` + `stage3/linux_init/a90_metrics.c/h` + `stage3/linux_init/a90_shell.c/h` + `stage3/linux_init/a90_controller.c/h` + `stage3/linux_init/a90_storage.c/h` + `stage3/linux_init/a90_selftest.c/h` + `stage3/linux_init/a90_usb_gadget.c/h` + `stage3/linux_init/a90_netservice.c/h` + `stage3/linux_init/a90_runtime.c/h` + `stage3/linux_init/a90_helper.c/h` + `stage3/linux_init/a90_userland.c/h` + `stage3/linux_init/a90_diag.c/h` + `stage3/linux_init/a90_wifiinv.c/h` + `stage3/linux_init/a90_wififeas.c/h`
+- 최신 verified build: `stage3/boot_linux_v105.img` (`A90 Linux init 0.9.5 (v105)`)
+- 최신 verified source: `stage3/linux_init/init_v105.c` + `stage3/linux_init/v105/*.inc.c` + `stage3/linux_init/helpers/a90_cpustress.c` + `stage3/linux_init/helpers/a90_rshell.c` + `stage3/linux_init/a90_config.h` + `stage3/linux_init/a90_util.c/h` + `stage3/linux_init/a90_log.c/h` + `stage3/linux_init/a90_timeline.c/h` + `stage3/linux_init/a90_console.c/h` + `stage3/linux_init/a90_cmdproto.c/h` + `stage3/linux_init/a90_run.c/h` + `stage3/linux_init/a90_service.c/h` + `stage3/linux_init/a90_kms.c/h` + `stage3/linux_init/a90_draw.c/h` + `stage3/linux_init/a90_input.c/h` + `stage3/linux_init/a90_hud.c/h` + `stage3/linux_init/a90_menu.c/h` + `stage3/linux_init/a90_metrics.c/h` + `stage3/linux_init/a90_shell.c/h` + `stage3/linux_init/a90_controller.c/h` + `stage3/linux_init/a90_storage.c/h` + `stage3/linux_init/a90_selftest.c/h` + `stage3/linux_init/a90_usb_gadget.c/h` + `stage3/linux_init/a90_netservice.c/h` + `stage3/linux_init/a90_runtime.c/h` + `stage3/linux_init/a90_helper.c/h` + `stage3/linux_init/a90_userland.c/h` + `stage3/linux_init/a90_diag.c/h` + `stage3/linux_init/a90_wifiinv.c/h` + `stage3/linux_init/a90_wififeas.c/h`
 - previous verified source-layout baseline: `stage3/linux_init/init_v80.c` + `stage3/linux_init/v80/*.inc.c`
-- 공식 버전: `0.9.4`
-- build tag: `v104`
+- 공식 버전: `0.9.5`
+- build tag: `v105`
 - creator: `made by temmie0214`
 - known-good fallback: `stage3/boot_linux_v48.img` (`A90 Linux init v48`)
 - 격리 상태: `stage3/boot_linux_v49.img`는 boot partition prefix readback은 일치했지만
@@ -133,7 +133,7 @@
 - 로그 상태: SD 정상 시 `/mnt/sdext/a90/logs/native-init.log`, fallback 시 `/cache/native-init.log`에 boot/command/result 기록
 - blocking 상태: `waitkey`, `readinput`, `watchhud`, `blindmenu` q/Ctrl-C 취소 확인
 - boot timeline: `timeline` 명령과 current native log replay 확인
-- boot selftest 상태: v104 boot selftest `pass=11 warn=0 fail=0`, `selftest verbose` 확인
+- boot selftest 상태: v105 boot selftest `pass=11 warn=0 fail=0`, `selftest verbose` 확인
 - HUD 상태: `BOOT OK shell` summary 표시와 `statushud` draw 확인
 - run 상태: `/bin/a90sleep` helper로 `run` q 취소 확인
 - log 보존: native init → recovery → native init 왕복 후 v44/v45/v47 log append 확인
@@ -175,7 +175,8 @@
 - shell/controller 상태: v92에서 last result, command lookup/result formatting, menu/power busy policy를 실제 compiled module/API로 분리 완료
 - storage module 상태: v93에서 boot storage state, SD probe, `/cache` fallback, `storage`/`mountsd` command를 실제 compiled module/API로 분리 완료
 - selftest module 상태: v94에서 boot-time non-destructive module smoke test와 `selftest` command를 실제 compiled module/API로 추가 완료
-- 상세 최신 verified 상태: `docs/reports/NATIVE_INIT_V104_WIFI_FEASIBILITY_2026-05-04.md`
+- 상세 최신 verified 상태: `docs/reports/NATIVE_INIT_V105_SOAK_RC_2026-05-04.md`
+- v105 soak RC 기록: `docs/reports/NATIVE_INIT_V105_SOAK_RC_2026-05-04.md`
 - v104 Wi-Fi feasibility 기록: `docs/reports/NATIVE_INIT_V104_WIFI_FEASIBILITY_2026-05-04.md`
 - v103 Wi-Fi inventory 기록: `docs/reports/NATIVE_INIT_V103_WIFI_INVENTORY_2026-05-04.md`
 - v102 diagnostics 기록: `docs/reports/NATIVE_INIT_V102_DIAGNOSTICS_2026-05-03.md`
@@ -249,9 +250,9 @@
 - proc / sys / devtmpfs / ext4(/dev/block/sda31) 마운트 성공
 - 핵심 우회: devtmpfs async 초기화 문제를 `mknod(makedev(259,15))` 로 해결
 
-### 3-2. USB ACM serial console + 인터랙티브 셸 (v8~v104)
+### 3-2. USB ACM serial console + 인터랙티브 셸 (v8~v105)
 
-**현재 버전**: `init_v104` (`stage3/boot_linux_v104.img`) / `0.9.4 (v104)`
+**현재 버전**: `init_v105` (`stage3/boot_linux_v105.img`) / `0.9.5 (v105)`
 
 ADB 방식이 막혀 USB CDC ACM serial (ttyGS0)로 전환. v79까지 반복 안정화:
 
@@ -323,10 +324,11 @@ ADB 방식이 막혀 USB CDC ACM serial (ttyGS0)로 전환. v79까지 반복 안
 | v100 | `/bin/a90_rshell` custom token TCP remote shell over USB NCM |
 | v101 | `a90_service.c/h` metadata/status API와 `service` command view |
 | v102 | `a90_diag.c/h` diagnostics/log bundle API와 `diag_collect.py` host collector |
+| v105 | `native_soak_validate.py` host quick-soak validator and recovery-friendly RC baseline |
 | v104 | `a90_wififeas.c/h` Wi-Fi feasibility gate and read-only no-go/baseline-required decision |
 | v103 | `a90_wifiinv.c/h` Wi-Fi read-only inventory API와 `wifi_inventory_collect.py` host collector |
 
-**확보된 관찰/제어 범위 (v104 verified build 기준):**
+**확보된 관찰/제어 범위 (v105 verified build 기준):**
 
 | 항목 | 상태 |
 |---|---|
@@ -399,10 +401,10 @@ ADB 방식이 막혀 USB CDC ACM serial (ttyGS0)로 전환. v79까지 반복 안
 
 ## 다음 후보 작업
 
-우선순위 순 (v104 verified build 이후):
+우선순위 순 (v105 verified build 이후):
 
-1. **long-run soak/recovery RC** — v105에서 Wi-Fi 실험 없이 안정성 기준점 후보 검증
+1. **optional extended soak/reconnect** — 장시간 idle, USB cable reconnect, NCM/tcpctl/rshell opt-in soak 수동 검증
 2. **Android/TWRP Wi-Fi baseline 비교** — v103/v104 read-only evidence를 Android/TWRP 상태와 비교
-3. **Wi-Fi bring-up 보류** — v104 gate가 현재 no-go를 반환하므로 kernel-facing WLAN/rfkill/module evidence 확보 전까지 금지
+3. **다음 개발 사이클 계획** — v106 이후 목표는 v105 안정 기준을 훼손하지 않는 범위에서 별도 선정
 
 **복구**: `backups/baseline_a_20260423_030309/boot.img` dd 복구 가능

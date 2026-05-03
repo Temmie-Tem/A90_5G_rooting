@@ -24,6 +24,7 @@ static const struct screen_menu_item screen_menu_about_items[] = {
 };
 
 static const struct screen_menu_item screen_menu_changelog_items[] = {
+    { "0.9.5 v105", "SOAK RC", SCREEN_MENU_CHANGELOG_0830, SCREEN_MENU_PAGE_CHANGELOG },
     { "0.9.4 v104", "WIFI FEASIBILITY", SCREEN_MENU_CHANGELOG_0830, SCREEN_MENU_PAGE_CHANGELOG },
     { "0.8.29 v98", "HELPER DEPLOY",    SCREEN_MENU_CHANGELOG_0829, SCREEN_MENU_PAGE_CHANGELOG },
     { "0.8.28 v97", "SD RUNTIME ROOT",  SCREEN_MENU_CHANGELOG_0828, SCREEN_MENU_PAGE_CHANGELOG },
