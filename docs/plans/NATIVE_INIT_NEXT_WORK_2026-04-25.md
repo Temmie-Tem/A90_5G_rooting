@@ -863,9 +863,10 @@ Samsung bootloader
 
 상세 실행 큐는 `docs/plans/NATIVE_INIT_TASK_QUEUE_2026-04-25.md`를 따른다.
 
-1. v100 TCP shell/dropbear remote access prototype 계획
-2. serial rescue + NCM remote access rollback 조건 정리
-3. Wi-Fi read-only 인벤토리 트랙은 v103+로 유지
+1. v100 custom TCP shell helper 구현
+2. serial rescue + NCM remote access rollback 조건 검증
+3. Dropbear는 key/PTY/auth 정책 정리 후 별도 후보로 유지
+4. Wi-Fi read-only 인벤토리 트랙은 v103+로 유지
 
 ---
 

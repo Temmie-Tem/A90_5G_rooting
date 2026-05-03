@@ -1854,7 +1854,8 @@ python3 ./scripts/revalidation/physical_usb_reconnect_check.py --manual-host-con
 1. v100 TCP shell/dropbear remote access prototype 계획
 
    - 기준 문서: `docs/plans/NATIVE_INIT_LONG_TERM_ROADMAP_2026-05-03.md`
+   - 상세 계획: `docs/plans/NATIVE_INIT_V100_REMOTE_SHELL_PLAN_2026-05-03.md`
    - 이전 결과: `docs/reports/NATIVE_INIT_V99_BUSYBOX_USERLAND_2026-05-03.md`
-   - 다음 실행 항목: v100 remote shell 방식 선택과 안전 계획 작성
+   - 다음 실행 항목: v100 custom TCP shell helper 구현
    - 목적: verified USB NCM 위에 opt-in remote shell 후보를 만들되 ACM serial rescue를 유지
-   - 보류: service manager는 v101, Wi-Fi는 v103+ 트랙으로 분리
+   - 보류: Dropbear 승격은 key/PTY/auth 정책 정리 후, service manager는 v101, Wi-Fi는 v103+ 트랙으로 분리
