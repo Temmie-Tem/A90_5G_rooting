@@ -118,6 +118,7 @@ static void helper_add_defaults(void) {
     (void)helper_add("a90_cpustress", "ramdisk-mirror", CPUSTRESS_HELPER);
     (void)helper_add("a90_usbnet", "net-helper", NETSERVICE_USB_HELPER);
     (void)helper_add("a90_tcpctl", "tcp-control", NETSERVICE_TCPCTL_HELPER);
+    (void)helper_add("a90_rshell", "remote-shell", A90_RSHELL_RAMDISK_HELPER);
     (void)helper_add("busybox", "userland", A90_BUSYBOX_HELPER);
     (void)helper_add("toybox", "userland", NETSERVICE_TOYBOX);
     (void)helper_add("a90sleep", "test-helper", A90_SLEEP_HELPER);

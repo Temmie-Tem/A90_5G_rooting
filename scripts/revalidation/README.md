@@ -53,6 +53,10 @@
   - v99 검증 시 SD runtime root의 `/mnt/sdext/a90/bin/busybox` 후보로 사용
 - `busybox_userland.py`
   - v99 BusyBox/toybox 후보의 local-info, manifest, device status, smoke 비교를 수행
+- `rshell_host.py`
+  - v100 custom remote shell helper의 start/status/stop/token/exec/smoke 검증 wrapper
+  - serial bridge로 `rshell` lifecycle을 제어하고, 명령 실행은 USB NCM `192.168.7.2:2326`의 `A90RSH1` protocol로 확인
+  - `start`/`stop`처럼 NCM 재열거로 framed END가 끊길 수 있는 동작은 raw-control-like로 처리한 뒤 status를 재확인
 - `build_usbnet_helper.sh`
   - `stage3/linux_init/a90_usbnet.c`를 static ARM64 helper로 빌드
   - 산출물은 gitignore된 `external_tools/userland/bin/a90_usbnet-aarch64-static`

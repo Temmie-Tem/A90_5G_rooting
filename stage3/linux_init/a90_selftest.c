@@ -395,10 +395,11 @@ static void selftest_service(void) {
     a90_netservice_status(&net_status);
     snprintf(detail,
              sizeof(detail),
-             "hud=%ld tcpctl=%ld adbd=%ld ncm=%s",
+             "hud=%ld tcpctl=%ld adbd=%ld rshell=%ld ncm=%s",
              (long)a90_service_pid(A90_SERVICE_HUD),
              net_status.tcpctl_running ? (long)net_status.tcpctl_pid : -1L,
              (long)a90_service_pid(A90_SERVICE_ADBD),
+             (long)a90_service_pid(A90_SERVICE_RSHELL),
              net_status.ncm_present ? "yes" : "no");
     selftest_record_elapsed("service",
                             A90_SELFTEST_PASS,

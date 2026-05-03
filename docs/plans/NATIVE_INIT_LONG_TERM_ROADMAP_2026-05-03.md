@@ -4,7 +4,7 @@ Date: `2026-05-03`
 
 ## Summary
 
-- Latest verified: `A90 Linux init 0.8.30 (v99)`.
+- Latest verified: `A90 Linux init 0.9.0 (v100)`.
 - Roadmap baseline before this cycle: `A90 Linux init 0.8.26 (v95)`.
 - Goal: turn the verified native init foundation into a small, server-like embedded Linux runtime without losing recovery safety.
 - Scope: this roadmap defines version-level objectives from v96 through v105.
@@ -239,9 +239,9 @@ Commit only after verified.
 
 ## Current Next Action
 
-v99 BusyBox static userland evaluation is verified. The immediate next action is v100 planning:
+v100 custom TCP remote shell is verified. The immediate next action is v101 planning:
 
-1. choose custom TCP shell vs dropbear SSH prototype based on risk,
+1. define a minimal service registry view over `autohud`, `tcpctl`, `rshell`, and future helpers,
 2. keep USB ACM serial as the rescue/control channel,
-3. bind remote access only to verified USB NCM by default,
-4. define explicit enable/disable flags, rollback, and authentication policy before implementation.
+3. preserve opt-in remote access and explicit rollback semantics,
+4. avoid Wi-Fi/service expansion until lifecycle/status/cancel behavior is stable.

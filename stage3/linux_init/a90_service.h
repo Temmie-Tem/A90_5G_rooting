@@ -7,6 +7,7 @@ enum a90_service_id {
     A90_SERVICE_HUD = 0,
     A90_SERVICE_TCPCTL,
     A90_SERVICE_ADBD,
+    A90_SERVICE_RSHELL,
     A90_SERVICE_COUNT
 };
 

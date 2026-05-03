@@ -11,6 +11,7 @@ static pid_t service_pids[A90_SERVICE_COUNT] = {
     -1,
     -1,
     -1,
+    -1,
 };
 
 static const char *service_name(enum a90_service_id service) {
@@ -21,6 +22,8 @@ static const char *service_name(enum a90_service_id service) {
         return "tcpctl";
     case A90_SERVICE_ADBD:
         return "adbd";
+    case A90_SERVICE_RSHELL:
+        return "rshell";
     default:
         return "unknown";
     }

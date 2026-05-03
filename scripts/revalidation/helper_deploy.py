@@ -26,6 +26,7 @@ DEFAULT_HELPERS = (
     ("a90sleep", REPO_ROOT / "stage3" / "linux_init" / "a90_sleep", "test-helper"),
     ("a90_usbnet", REPO_ROOT / "stage3" / "linux_init" / "helpers" / "a90_usbnet", "net-helper"),
     ("a90_tcpctl", REPO_ROOT / "stage3" / "linux_init" / "helpers" / "a90_tcpctl", "tcp-control"),
+    ("a90_rshell", REPO_ROOT / "stage3" / "linux_init" / "helpers" / "a90_rshell", "remote-shell"),
     ("busybox", REPO_ROOT / "external_tools" / "userland" / "bin" / "busybox-aarch64-static", "userland"),
     ("toybox", REPO_ROOT / "stage3" / "linux_init" / "toybox", "userland"),
 )

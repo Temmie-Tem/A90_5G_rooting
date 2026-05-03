@@ -1,8 +1,8 @@
 #ifndef A90_CONFIG_H
 #define A90_CONFIG_H
 
-#define INIT_VERSION "0.8.30"
-#define INIT_BUILD "v99"
+#define INIT_VERSION "0.9.0"
+#define INIT_BUILD "v100"
 #define INIT_CREATOR "made by temmie0214"
 #define INIT_BANNER "A90 Linux init " INIT_VERSION " (" INIT_BUILD ")"
 #define BOOT_SPLASH_SECONDS 2
@@ -31,6 +31,14 @@
 #define NETSERVICE_TCP_PORT "2325"
 #define NETSERVICE_TCP_IDLE_SECONDS "3600"
 #define NETSERVICE_TCP_MAX_CLIENTS "0"
+#define A90_RSHELL_HELPER "/cache/bin/a90_rshell"
+#define A90_RSHELL_RAMDISK_HELPER "/bin/a90_rshell"
+#define A90_RSHELL_LOG_PATH "/cache/native-init-rshell.log"
+#define A90_RSHELL_BIND_ADDR NETSERVICE_DEVICE_IP
+#define A90_RSHELL_PORT "2326"
+#define A90_RSHELL_IDLE_SECONDS "900"
+#define A90_RSHELL_FLAG_NAME "remote-shell.enabled"
+#define A90_RSHELL_TOKEN_NAME "remote-shell.token"
 #define CPUSTRESS_HELPER "/bin/a90_cpustress"
 #define CMDV1X_MAX_ARGS 32
 #define SD_BLOCK_NAME "mmcblk0p1"
