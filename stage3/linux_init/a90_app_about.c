@@ -116,6 +116,7 @@ int a90_app_about_draw_version(void) {
 
 int a90_app_about_draw_changelog(void) {
     const char *lines[] = {
+        "0.9.21 v121 PID1 GUARD",
         "0.9.20 v120 COMMAND GROUP API",
         "0.9.19 v119 MENU ROUTE API",
         "0.9.18 v118 SHELL META API",
@@ -181,6 +182,19 @@ int a90_app_about_draw_changelog(void) {
     };
 
     return app_about_draw_lines("ABOUT / CHANGELOG", lines, SCREEN_MENU_COUNT(lines));
+}
+
+static int draw_screen_changelog_v0846(void) {
+    const char *lines[] = {
+        "0.9.21 v121 PID1 GUARD",
+        "Adds a90_pid1_guard.c/h",
+        "Adds pid1guard shell command",
+        "Adds status/bootstatus summary",
+        "Runs guard during boot splash",
+        "Sets v122 Wi-Fi refresh next",
+    };
+
+    return app_about_draw_lines("CHANGELOG / 0.9.21", lines, SCREEN_MENU_COUNT(lines));
 }
 
 static int draw_screen_changelog_v0845(void) {
@@ -1020,6 +1034,8 @@ static int draw_screen_changelog_v010(void) {
 
 int a90_app_about_draw_changelog_detail(enum screen_app_id app_id) {
     switch (app_id) {
+    case SCREEN_APP_CHANGELOG_0846:
+        return draw_screen_changelog_v0846();
     case SCREEN_APP_CHANGELOG_0845:
         return draw_screen_changelog_v0845();
     case SCREEN_APP_CHANGELOG_0844:
