@@ -1942,10 +1942,10 @@ python3 ./scripts/revalidation/physical_usb_reconnect_check.py --manual-host-con
 
 ## 지금 바로 진행할 항목
 
-1. cycle completion audit
+1. v117 planning
 
-   - 기준 문서: `docs/plans/NATIVE_INIT_V109_V116_ROADMAP_2026-05-04.md`
-   - 최신 결과: `docs/reports/NATIVE_INIT_V116_DIAG_BUNDLE_2026-05-04.md`
+   - 기준 문서: `docs/reports/NATIVE_INIT_V109_V116_COMPLETION_AUDIT_2026-05-04.md`
+   - 최신 결과: `docs/reports/NATIVE_INIT_V109_V116_COMPLETION_AUDIT_2026-05-04.md`
    - v109 결과: `docs/reports/NATIVE_INIT_V109_STRUCTURE_AUDIT_2026-05-04.md`
    - v110 결과: `docs/reports/NATIVE_INIT_V110_APP_CONTROLLER_CLEANUP_2026-05-04.md`
    - v111 결과: `docs/reports/NATIVE_INIT_V111_EXTENDED_SOAK_RC_2026-05-04.md`
@@ -1954,8 +1954,9 @@ python3 ./scripts/revalidation/physical_usb_reconnect_check.py --manual-host-con
    - v114 결과: `docs/reports/NATIVE_INIT_V114_HELPER_DEPLOY_2026-05-04.md`
    - v115 결과: `docs/reports/NATIVE_INIT_V115_RSHELL_HARDENING_2026-05-04.md`
    - v116 결과: `docs/reports/NATIVE_INIT_V116_DIAG_BUNDLE_2026-05-04.md`
-   - 다음 실행 항목: v109-v116 completion audit
-   - 목적: report/docs/evidence consistency 확인 후 다음 개발 사이클 확정
+   - completion audit 결과: `docs/reports/NATIVE_INIT_V109_V116_COMPLETION_AUDIT_2026-05-04.md`
+   - 다음 실행 항목: v117 planning
+   - 목적: v116 verified baseline에서 다음 개발 사이클 주제/guardrail/검증 기준 확정
    - 보류: risky Wi-Fi bring-up, partition writes, automatic remote downloads
 
 ### V106-V108. UI/App Architecture Split — DONE
@@ -2132,11 +2133,18 @@ python3 ./scripts/revalidation/physical_usb_reconnect_check.py --manual-host-con
 - validation: real-device flash PASS, `diag full` PASS, `diag bundle` PASS, host `diag_collect.py` PASS, `rshell audit` PASS, 3-cycle quick soak PASS
 - next execution item: v109-v116 completion audit
 
+### V109-V116. Completion Audit — DONE
+
+- result: `docs/reports/NATIVE_INIT_V109_V116_COMPLETION_AUDIT_2026-05-04.md`
+- scope: v109 through v116 reports, commits, docs, artifacts, and validation evidence
+- validation: latest docs point to v116, v109-v116 reports/commits present, real-device flash evidence recorded for every claimed boot image version
+- next execution item: v117 planning
+
 ### V109-V116. Post-v108 Stability and Runtime Cycle — DONE
 
 - roadmap: `docs/plans/NATIVE_INIT_V109_V116_ROADMAP_2026-05-04.md`
 - baseline: `A90 Linux init 0.9.8 (v108)`
 - first execution item: v109 post-v108 structure audit — DONE
-- next execution item: v109-v116 completion audit
-- completed through: v116 diagnostics bundle 2
+- next execution item: v117 planning
+- completed through: v109-v116 completion audit
 - guardrails: no risky Wi-Fi bring-up, no partition writes, USB ACM serial remains rescue channel

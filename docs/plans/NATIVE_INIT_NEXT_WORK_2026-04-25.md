@@ -262,6 +262,7 @@ Samsung bootloader
 - helper deployment 2 — v114 완료
 - remote shell hardening — v115 완료
 - diagnostics bundle 2 — v116 완료
+- v109-v116 completion audit — 완료
 - static dropbear SSH 또는 custom TCP shell
 
 ---
@@ -938,5 +939,5 @@ Samsung bootloader
 - roadmap: `docs/plans/NATIVE_INIT_V109_V116_ROADMAP_2026-05-04.md`
 - starting point: `A90 Linux init 0.9.9 (v109)`
 - first item: v109 post-v108 structure audit — DONE
-- next item: v109-v116 completion audit
+- next item: v117 planning
 - cycle goal: structure cleanup, extended soak, USB/service/runtime hardening, diagnostics bundle improvement

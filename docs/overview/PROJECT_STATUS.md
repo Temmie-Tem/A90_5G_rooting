@@ -177,6 +177,7 @@
 - helper deployment 상태: v114에서 `helpers manifest`/`plan`, deploy log path, manifest line format 확인 완료
 - remote shell hardening 상태: v115에서 `rshell audit`, token mode `0600`, invalid-token rejection, NCM smoke/rollback 확인 완료
 - diagnostics bundle 2 상태: v116에서 runtime/helper/service/net/rshell evidence, `diag full`, `diag bundle`, host `diag_collect.py` device evidence, 3-cycle quick soak 확인 완료
+- completion audit 상태: v109-v116 reports/commits/docs/flash evidence 정합성 확인 완료
 - log tail panel 상태: HUD hidden과 menu visible spare area에서 current native log tail 표시 확인
 - serial reattach log 상태: v75에서 idle-timeout 성공 reattach 로그 억제, 수동/오류 reattach 로그 유지 확인
 - serial noise 상태: v76에서 짧은 `A`/`T`/`AT`/`ATA`/`ATAT` fragment와 `AT+GCAP` probe line 무시 확인
@@ -185,6 +186,7 @@
 - storage module 상태: v93에서 boot storage state, SD probe, `/cache` fallback, `storage`/`mountsd` command를 실제 compiled module/API로 분리 완료
 - selftest module 상태: v94에서 boot-time non-destructive module smoke test와 `selftest` command를 실제 compiled module/API로 추가 완료
 - 상세 최신 verified 상태: `docs/reports/NATIVE_INIT_V116_DIAG_BUNDLE_2026-05-04.md`
+- v109-v116 completion audit 기록: `docs/reports/NATIVE_INIT_V109_V116_COMPLETION_AUDIT_2026-05-04.md`
 - v116 diagnostics bundle 2 기록: `docs/reports/NATIVE_INIT_V116_DIAG_BUNDLE_2026-05-04.md`
 - v115 remote shell hardening 기록: `docs/reports/NATIVE_INIT_V115_RSHELL_HARDENING_2026-05-04.md`
 - v114 helper deployment 기록: `docs/reports/NATIVE_INIT_V114_HELPER_DEPLOY_2026-05-04.md`
@@ -423,7 +425,7 @@ ADB 방식이 막혀 USB CDC ACM serial (ttyGS0)로 전환. v79까지 반복 안
 
 우선순위 순 (v116 verified build 이후):
 
-1. **cycle completion audit** — v109-v116 report/docs/evidence consistency 점검
-2. **v117 planning** — 다음 개발 사이클 주제와 guardrail 확정
+1. **v117 planning** — 다음 개발 사이클 주제와 guardrail 확정
+2. **next cycle roadmap** — v117 이후 버전별 목표/검증 기준 작성
 
 **복구**: `backups/baseline_a_20260423_030309/boot.img` dd 복구 가능
