@@ -24,6 +24,7 @@ static const struct screen_menu_item screen_menu_about_items[] = {
 };
 
 static const struct screen_menu_item screen_menu_changelog_items[] = {
+    { "0.9.18 v118", "SHELL META API", SCREEN_MENU_CHANGELOG_0843, SCREEN_MENU_PAGE_CHANGELOG },
     { "0.9.17 v117", "PID1 SLIM PLAN", SCREEN_MENU_CHANGELOG_0842, SCREEN_MENU_PAGE_CHANGELOG },
     { "0.9.16 v116", "DIAG BUNDLE 2", SCREEN_MENU_CHANGELOG_0841, SCREEN_MENU_PAGE_CHANGELOG },
     { "0.9.15 v115", "RSHELL HARDEN", SCREEN_MENU_CHANGELOG_0840, SCREEN_MENU_PAGE_CHANGELOG },
@@ -196,6 +197,8 @@ enum screen_app_id a90_menu_app_from_action(enum screen_menu_action action) {
         return SCREEN_APP_ABOUT_CHANGELOG;
     case SCREEN_MENU_ABOUT_CREDITS:
         return SCREEN_APP_ABOUT_CREDITS;
+    case SCREEN_MENU_CHANGELOG_0843:
+        return SCREEN_APP_CHANGELOG_0843;
     case SCREEN_MENU_CHANGELOG_0842:
         return SCREEN_APP_CHANGELOG_0842;
     case SCREEN_MENU_CHANGELOG_0841:

@@ -116,6 +116,7 @@ int a90_app_about_draw_version(void) {
 
 int a90_app_about_draw_changelog(void) {
     const char *lines[] = {
+        "0.9.18 v118 SHELL META API",
         "0.9.17 v117 PID1 SLIM ROADMAP",
         "0.9.16 v116 DIAG BUNDLE 2",
         "0.9.15 v115 RSHELL HARDENING",
@@ -178,6 +179,19 @@ int a90_app_about_draw_changelog(void) {
     };
 
     return app_about_draw_lines("ABOUT / CHANGELOG", lines, SCREEN_MENU_COUNT(lines));
+}
+
+static int draw_screen_changelog_v0843(void) {
+    const char *lines[] = {
+        "0.9.18 v118 SHELL META API",
+        "Adds a90_shell command stats",
+        "Adds cmdmeta summary command",
+        "Keeps handlers/table in include tree",
+        "Preserves cmdv1 result behavior",
+        "Sets v119 menu route cleanup next",
+    };
+
+    return app_about_draw_lines("CHANGELOG / 0.9.18", lines, SCREEN_MENU_COUNT(lines));
 }
 
 static int draw_screen_changelog_v0842(void) {
@@ -978,6 +992,8 @@ static int draw_screen_changelog_v010(void) {
 
 int a90_app_about_draw_changelog_detail(enum screen_app_id app_id) {
     switch (app_id) {
+    case SCREEN_APP_CHANGELOG_0843:
+        return draw_screen_changelog_v0843();
     case SCREEN_APP_CHANGELOG_0842:
         return draw_screen_changelog_v0842();
     case SCREEN_APP_CHANGELOG_0841:
