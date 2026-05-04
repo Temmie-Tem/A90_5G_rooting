@@ -1946,7 +1946,8 @@ python3 ./scripts/revalidation/physical_usb_reconnect_check.py --manual-host-con
 
    - 기준 문서: `docs/plans/NATIVE_INIT_LONG_TERM_ROADMAP_2026-05-03.md`
    - 최신 결과: `docs/reports/NATIVE_INIT_V105_SOAK_RC_2026-05-04.md`
-   - 다음 실행 항목: v96-v105 completion audit 후, 장시간 soak/USB reconnect/NCM opt-in 검증은 별도 수동 작업으로 분리
+   - 논의 메모: `docs/plans/NATIVE_INIT_POST_V105_DISCUSSION_NOTES_2026-05-04.md`
+   - 다음 실행 항목: v106 후보 중 UI app split, serial ops hardening, kernel capability inventory 중 하나를 선택
    - 목적: v105를 v96-v105 roadmap endpoint로 고정하고 다음 개발 사이클을 별도 계획
    - 보류: risky Wi-Fi bring-up, partition writes, production Wi-Fi networking
 

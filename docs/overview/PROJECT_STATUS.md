@@ -403,8 +403,8 @@ ADB 방식이 막혀 USB CDC ACM serial (ttyGS0)로 전환. v79까지 반복 안
 
 우선순위 순 (v105 verified build 이후):
 
-1. **optional extended soak/reconnect** — 장시간 idle, USB cable reconnect, NCM/tcpctl/rshell opt-in soak 수동 검증
-2. **Android/TWRP Wi-Fi baseline 비교** — v103/v104 read-only evidence를 Android/TWRP 상태와 비교
-3. **다음 개발 사이클 계획** — v106 이후 목표는 v105 안정 기준을 훼손하지 않는 범위에서 별도 선정
+1. **v106 후보 선택** — `docs/plans/NATIVE_INIT_POST_V105_DISCUSSION_NOTES_2026-05-04.md` 기준 UI app split / serial ops / kernel capability 중 선택
+2. **optional extended soak/reconnect** — 장시간 idle, USB cable reconnect, NCM/tcpctl/rshell opt-in soak 수동 검증
+3. **Android/TWRP Wi-Fi baseline 비교** — v103/v104 read-only evidence를 Android/TWRP 상태와 비교
 
 **복구**: `backups/baseline_a_20260423_030309/boot.img` dd 복구 가능
