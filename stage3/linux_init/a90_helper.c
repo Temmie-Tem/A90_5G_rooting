@@ -19,6 +19,7 @@ static int helper_fail_count;
 static bool helper_scanned;
 static bool helper_manifest_present;
 static char helper_manifest_path[PATH_MAX];
+static char helper_deploy_log_path[PATH_MAX];
 static char helper_summary_text[192];
 
 static void helper_join(char *out, size_t out_size, const char *root, const char *name) {
@@ -128,6 +129,7 @@ static void helper_set_manifest_path(void) {
     struct a90_runtime_status runtime;
 
     helper_manifest_path[0] = '\0';
+    helper_deploy_log_path[0] = '\0';
     if (a90_runtime_get_status(&runtime) == 0 && runtime.pkg[0] != '\0') {
         char legacy_path[PATH_MAX];
 
@@ -145,6 +147,12 @@ static void helper_set_manifest_path(void) {
             access(legacy_path, R_OK) == 0) {
             snprintf(helper_manifest_path, sizeof(helper_manifest_path), "%s", legacy_path);
         }
+        if (runtime.helper_deploy_log[0] != '\0') {
+            snprintf(helper_deploy_log_path,
+                     sizeof(helper_deploy_log_path),
+                     "%s",
+                     runtime.helper_deploy_log);
+        }
     } else {
         snprintf(helper_manifest_path,
                  sizeof(helper_manifest_path),
@@ -153,6 +161,14 @@ static void helper_set_manifest_path(void) {
                  A90_RUNTIME_PKG_DIR,
                  "manifests",
                  A90_HELPER_MANIFEST_NAME);
+    }
+    if (helper_deploy_log_path[0] == '\0') {
+        snprintf(helper_deploy_log_path,
+                 sizeof(helper_deploy_log_path),
+                 "%s/%s/%s",
+                 A90_RUNTIME_CACHE_ROOT,
+                 A90_RUNTIME_LOGS_DIR,
+                 A90_HELPER_DEPLOY_LOG_NAME);
     }
 }
 
@@ -384,6 +400,11 @@ const char *a90_helper_manifest_path(void) {
     return helper_manifest_path;
 }
 
+const char *a90_helper_deploy_log_path(void) {
+    helper_scan_if_needed();
+    return helper_deploy_log_path;
+}
+
 const char *a90_helper_preferred_path(const char *name, const char *fallback) {
     static char selected[PATH_MAX];
     struct a90_helper_entry entry;
@@ -430,6 +451,7 @@ int a90_helper_print_inventory(bool verbose) {
             helper_fail_count,
             helper_manifest_present ? "yes" : "no");
     a90_console_printf("helpers: manifest_path=%s\r\n", helper_manifest_path);
+    a90_console_printf("helpers: deploy_log=%s\r\n", helper_deploy_log_path);
     if (!verbose) {
         return helper_fail_count > 0 ? -EIO : 0;
     }
@@ -460,6 +482,38 @@ int a90_helper_print_inventory(bool verbose) {
     return helper_fail_count > 0 ? -EIO : 0;
 }
 
+int a90_helper_print_manifest_template(void) {
+    int index;
+
+    (void)a90_helper_scan();
+    a90_console_printf("helpers: manifest_path=%s present=%s\r\n",
+            helper_manifest_path,
+            helper_manifest_present ? "yes" : "no");
+    a90_console_printf("helpers: deploy_log=%s\r\n", helper_deploy_log_path);
+    a90_console_printf("helpers: line_format=name path role required sha256 mode size\r\n");
+    for (index = 0; index < helper_count; ++index) {
+        const struct a90_helper_entry *entry = &helper_entries[index];
+        unsigned int mode = entry->present ? entry->actual_mode : entry->expected_mode;
+        long long size = entry->present ? entry->actual_size : entry->expected_size;
+
+        a90_console_printf("manifest: %s %s %s %s %s %04o %lld\r\n",
+                entry->name,
+                entry->path,
+                entry->role,
+                entry->required ? "yes" : "no",
+                entry->expected_sha256[0] != '\0' ? entry->expected_sha256 : "-",
+                mode,
+                size);
+        if (entry->preferred[0] != '\0' && strcmp(entry->preferred, entry->path) != 0) {
+            a90_console_printf("deploy: %s copy_from=%s copy_to=%s\r\n",
+                    entry->name,
+                    entry->preferred,
+                    entry->path);
+        }
+    }
+    return helper_fail_count > 0 ? -EIO : 0;
+}
+
 int a90_helper_cmd_helpers(char **argv, int argc) {
     bool verbose = false;
     bool verify = false;
@@ -471,6 +525,10 @@ int a90_helper_cmd_helpers(char **argv, int argc) {
     }
     if (strcmp(argv[1], "verbose") == 0) {
         return a90_helper_print_inventory(true);
+    }
+    if (strcmp(argv[1], "manifest") == 0 ||
+        strcmp(argv[1], "plan") == 0) {
+        return a90_helper_print_manifest_template();
     }
     if (strcmp(argv[1], "path") == 0) {
         if (argc != 3) {
@@ -508,6 +566,6 @@ int a90_helper_cmd_helpers(char **argv, int argc) {
     if (verify && argc == 2) {
         return a90_helper_print_inventory(verbose);
     }
-    a90_console_printf("usage: helpers [status|verbose|path <name>|verify [name]]\r\n");
+    a90_console_printf("usage: helpers [status|verbose|manifest|plan|path <name>|verify [name]]\r\n");
     return -EINVAL;
 }

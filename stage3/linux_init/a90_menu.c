@@ -24,6 +24,7 @@ static const struct screen_menu_item screen_menu_about_items[] = {
 };
 
 static const struct screen_menu_item screen_menu_changelog_items[] = {
+    { "0.9.14 v114", "HELPER DEPLOY 2", SCREEN_MENU_CHANGELOG_0839, SCREEN_MENU_PAGE_CHANGELOG },
     { "0.9.13 v113", "RUNTIME LAYOUT", SCREEN_MENU_CHANGELOG_0838, SCREEN_MENU_PAGE_CHANGELOG },
     { "0.9.12 v112", "USB SVC SOAK", SCREEN_MENU_CHANGELOG_0837, SCREEN_MENU_PAGE_CHANGELOG },
     { "0.9.11 v111", "EXT SOAK RC", SCREEN_MENU_CHANGELOG_0836, SCREEN_MENU_PAGE_CHANGELOG },
@@ -192,6 +193,8 @@ enum screen_app_id a90_menu_app_from_action(enum screen_menu_action action) {
         return SCREEN_APP_ABOUT_CHANGELOG;
     case SCREEN_MENU_ABOUT_CREDITS:
         return SCREEN_APP_ABOUT_CREDITS;
+    case SCREEN_MENU_CHANGELOG_0839:
+        return SCREEN_APP_CHANGELOG_0839;
     case SCREEN_MENU_CHANGELOG_0838:
         return SCREEN_APP_CHANGELOG_0838;
     case SCREEN_MENU_CHANGELOG_0837:
@@ -407,6 +410,7 @@ bool a90_menu_app_is_about(enum screen_app_id app_id) {
     case SCREEN_APP_ABOUT_VERSION:
     case SCREEN_APP_ABOUT_CHANGELOG:
     case SCREEN_APP_ABOUT_CREDITS:
+    case SCREEN_APP_CHANGELOG_0839:
     case SCREEN_APP_CHANGELOG_0838:
     case SCREEN_APP_CHANGELOG_0837:
     case SCREEN_APP_CHANGELOG_0836:

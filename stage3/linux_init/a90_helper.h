@@ -34,11 +34,13 @@ int a90_helper_count(void);
 int a90_helper_entry_at(int index, struct a90_helper_entry *out);
 int a90_helper_find(const char *name, struct a90_helper_entry *out);
 const char *a90_helper_manifest_path(void);
+const char *a90_helper_deploy_log_path(void);
 const char *a90_helper_preferred_path(const char *name, const char *fallback);
 void a90_helper_summary(char *out, size_t out_size);
 bool a90_helper_has_failures(void);
 bool a90_helper_has_warnings(void);
 int a90_helper_print_inventory(bool verbose);
+int a90_helper_print_manifest_template(void);
 int a90_helper_cmd_helpers(char **argv, int argc);
 
 #endif

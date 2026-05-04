@@ -116,6 +116,7 @@ int a90_app_about_draw_version(void) {
 
 int a90_app_about_draw_changelog(void) {
     const char *lines[] = {
+        "0.9.14 v114 HELPER DEPLOY 2",
         "0.9.13 v113 RUNTIME PACKAGE LAYOUT",
         "0.9.12 v112 USB SERVICE SOAK",
         "0.9.11 v111 EXTENDED SOAK RC",
@@ -174,6 +175,19 @@ int a90_app_about_draw_changelog(void) {
     };
 
     return app_about_draw_lines("ABOUT / CHANGELOG", lines, SCREEN_MENU_COUNT(lines));
+}
+
+static int draw_screen_changelog_v0839(void) {
+    const char *lines[] = {
+        "0.9.14 v114 HELPER DEPLOY 2",
+        "Adds helpers manifest view",
+        "Shows deploy log path",
+        "Prints manifest line format",
+        "Prints copy plan hints",
+        "Keeps downloads manual only",
+    };
+
+    return app_about_draw_lines("CHANGELOG / 0.9.14", lines, SCREEN_MENU_COUNT(lines));
 }
 
 static int draw_screen_changelog_v0838(void) {
@@ -922,6 +936,8 @@ static int draw_screen_changelog_v010(void) {
 
 int a90_app_about_draw_changelog_detail(enum screen_app_id app_id) {
     switch (app_id) {
+    case SCREEN_APP_CHANGELOG_0839:
+        return draw_screen_changelog_v0839();
     case SCREEN_APP_CHANGELOG_0838:
         return draw_screen_changelog_v0838();
     case SCREEN_APP_CHANGELOG_0837:
