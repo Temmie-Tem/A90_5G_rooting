@@ -16,6 +16,19 @@ A90CTL = REPO_ROOT / "scripts" / "revalidation" / "a90ctl.py"
 TCPCTL_HOST = REPO_ROOT / "scripts" / "revalidation" / "tcpctl_host.py"
 RSHELL_HOST = REPO_ROOT / "scripts" / "revalidation" / "rshell_host.py"
 
+DEVICE_EVIDENCE_COMMANDS = (
+    ("status", ["status"], 20),
+    ("bootstatus", ["bootstatus"], 20),
+    ("selftest verbose", ["selftest", "verbose"], 20),
+    ("runtime", ["runtime"], 20),
+    ("helpers verbose", ["helpers", "verbose"], 30),
+    ("helpers verify", ["helpers", "verify"], 30),
+    ("service list", ["service", "list"], 20),
+    ("netservice status", ["netservice", "status"], 20),
+    ("rshell audit", ["rshell", "audit"], 20),
+    ("diag paths", ["diag", "paths"], 20),
+)
+
 
 def run_command(command: list[str],
                 timeout: int,
@@ -111,6 +124,31 @@ def collect_optional_network(args: argparse.Namespace) -> str:
         lines.append("$ rshell_host.py smoke")
         lines.append(text.rstrip())
         lines.append(f"rc={rc}")
+    if args.rshell_harden:
+        rc, text = run_command(
+            [sys.executable, str(RSHELL_HOST), "--timeout", str(args.rshell_timeout), "harden"],
+            timeout=args.rshell_timeout + 60,
+        )
+        lines.append("$ rshell_host.py harden")
+        lines.append(text.rstrip())
+        lines.append(f"rc={rc}")
+    return "\n".join(lines)
+
+
+def collect_device_evidence(args: argparse.Namespace) -> str:
+    lines: list[str] = []
+    rc, text = run_a90ctl(args, ["hide"], timeout=10)
+    lines.append("$ a90ctl.py hide")
+    lines.append(text.rstrip())
+    lines.append(f"rc={rc}")
+    lines.append("")
+
+    for title, device_args, timeout in DEVICE_EVIDENCE_COMMANDS:
+        rc, text = run_a90ctl(args, device_args, timeout=timeout)
+        lines.append(f"$ a90ctl.py {title}")
+        lines.append(text.rstrip())
+        lines.append(f"rc={rc}")
+        lines.append("")
     return "\n".join(lines)
 
 
@@ -131,7 +169,9 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--tcpctl", action="store_true", help="optionally collect tcpctl ping/status")
     parser.add_argument("--tcp-timeout", type=int, default=10)
     parser.add_argument("--rshell-smoke", action="store_true", help="optionally run rshell smoke")
+    parser.add_argument("--rshell-harden", action="store_true", help="optionally run rshell invalid-token/smoke/stop hardening check")
     parser.add_argument("--rshell-timeout", type=int, default=30)
+    parser.add_argument("--skip-device-evidence", action="store_true", help="skip v116 explicit device evidence commands")
     return parser.parse_args()
 
 
@@ -147,6 +187,9 @@ def main() -> int:
 
     rc, text = run_a90ctl(args, ["diag", "full"])
     append_section(lines, "device diag full", text + f"\nrc={rc}")
+
+    if not args.skip_device_evidence:
+        append_section(lines, "device evidence", collect_device_evidence(args))
 
     if args.device_bundle:
         rc, text = run_a90ctl(args, ["diag", "bundle"], timeout=max(args.timeout, 30))

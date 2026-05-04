@@ -116,6 +116,7 @@ int a90_app_about_draw_version(void) {
 
 int a90_app_about_draw_changelog(void) {
     const char *lines[] = {
+        "0.9.16 v116 DIAG BUNDLE 2",
         "0.9.15 v115 RSHELL HARDENING",
         "0.9.14 v114 HELPER DEPLOY 2",
         "0.9.13 v113 RUNTIME PACKAGE LAYOUT",
@@ -176,6 +177,19 @@ int a90_app_about_draw_changelog(void) {
     };
 
     return app_about_draw_lines("ABOUT / CHANGELOG", lines, SCREEN_MENU_COUNT(lines));
+}
+
+static int draw_screen_changelog_v0841(void) {
+    const char *lines[] = {
+        "0.9.16 v116 DIAG BUNDLE 2",
+        "Extends runtime evidence",
+        "Adds helper hash/deploy data",
+        "Adds rshell token-mode evidence",
+        "Extends host diag collector",
+        "Closes v109-v116 evidence cycle",
+    };
+
+    return app_about_draw_lines("CHANGELOG / 0.9.16", lines, SCREEN_MENU_COUNT(lines));
 }
 
 static int draw_screen_changelog_v0840(void) {
@@ -950,6 +964,8 @@ static int draw_screen_changelog_v010(void) {
 
 int a90_app_about_draw_changelog_detail(enum screen_app_id app_id) {
     switch (app_id) {
+    case SCREEN_APP_CHANGELOG_0841:
+        return draw_screen_changelog_v0841();
     case SCREEN_APP_CHANGELOG_0840:
         return draw_screen_changelog_v0840();
     case SCREEN_APP_CHANGELOG_0839:

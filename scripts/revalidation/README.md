@@ -53,6 +53,11 @@
   - v99 검증 시 SD runtime root의 `/mnt/sdext/a90/bin/busybox` 후보로 사용
 - `busybox_userland.py`
   - v99 BusyBox/toybox 후보의 local-info, manifest, device status, smoke 비교를 수행
+- `diag_collect.py`
+  - v102 diagnostics/log bundle host collector
+  - v116 기준 기본 실행 시 `status`, `bootstatus`, `selftest verbose`, `runtime`, `helpers verbose`, `helpers verify`, `service list`, `netservice status`, `rshell audit`, `diag paths` device evidence를 함께 수집
+  - `--device-bundle`로 device-side `/mnt/sdext/a90/logs/a90-diag-*.txt` bundle 생성을 확인
+  - `--rshell-harden`으로 v115+ remote shell token rejection/smoke를 선택 검증
 - `rshell_host.py`
   - v100 custom remote shell helper의 start/status/stop/token/exec/smoke 검증 wrapper
   - v115 기준 `invalid-token`과 `harden`으로 token 거부, smoke 실행, stop/rollback까지 한 번에 확인

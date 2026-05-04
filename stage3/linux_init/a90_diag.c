@@ -60,6 +60,43 @@ static const char *diag_yesno(bool value) {
     return value ? "yes" : "no";
 }
 
+static void diag_runtime_state_path(char *out, size_t out_size, const char *name) {
+    const char *state_dir = a90_runtime_state_dir();
+
+    if (out == NULL || out_size == 0) {
+        return;
+    }
+    if (state_dir == NULL || state_dir[0] == '\0') {
+        state_dir = A90_RUNTIME_CACHE_ROOT "/" A90_RUNTIME_STATE_DIR;
+    }
+    snprintf(out, out_size, "%s/%s", state_dir, name);
+    out[out_size - 1] = '\0';
+}
+
+static int diag_file_mode(const char *path, char *out, size_t out_size, bool *owner_only) {
+    struct stat st;
+
+    if (out != NULL && out_size > 0) {
+        snprintf(out, out_size, "missing");
+    }
+    if (owner_only != NULL) {
+        *owner_only = false;
+    }
+    if (path == NULL || path[0] == '\0') {
+        return -EINVAL;
+    }
+    if (stat(path, &st) < 0) {
+        return -errno;
+    }
+    if (out != NULL && out_size > 0) {
+        snprintf(out, out_size, "0%03o", (unsigned)(st.st_mode & 0777));
+    }
+    if (owner_only != NULL) {
+        *owner_only = (st.st_mode & 0077) == 0;
+    }
+    return 0;
+}
+
 const char *a90_diag_default_dir(void) {
     const char *runtime_logs = a90_runtime_log_dir();
 
@@ -236,6 +273,14 @@ static void diag_emit_runtime(struct a90_diag_sink *sink) {
     diag_emit(sink, "state=%s\r\n", runtime.state);
     diag_emit(sink, "pkg=%s\r\n", runtime.pkg);
     diag_emit(sink, "run=%s\r\n", runtime.run);
+    diag_emit(sink, "pkg_bin=%s\r\n", runtime.pkg_bin);
+    diag_emit(sink, "pkg_helpers=%s\r\n", runtime.pkg_helpers);
+    diag_emit(sink, "pkg_services=%s\r\n", runtime.pkg_services);
+    diag_emit(sink, "pkg_manifests=%s\r\n", runtime.pkg_manifests);
+    diag_emit(sink, "state_services=%s\r\n", runtime.state_services);
+    diag_emit(sink, "helper_manifest=%s\r\n", runtime.helper_manifest);
+    diag_emit(sink, "helper_state=%s\r\n", runtime.helper_state);
+    diag_emit(sink, "helper_deploy_log=%s\r\n", runtime.helper_deploy_log);
     if (runtime.warning[0] != '\0') {
         diag_emit(sink, "warning=%s\r\n", runtime.warning);
     }
@@ -250,7 +295,12 @@ static void diag_emit_helpers(struct a90_diag_sink *sink, bool verbose) {
     a90_helper_summary(summary, sizeof(summary));
     count = a90_helper_count();
     diag_emit(sink, "[helpers]\r\n");
-    diag_emit(sink, "summary=%s entries=%d manifest=%s\r\n", summary, count, a90_helper_manifest_path());
+    diag_emit(sink,
+              "summary=%s entries=%d manifest=%s deploy_log=%s\r\n",
+              summary,
+              count,
+              a90_helper_manifest_path(),
+              a90_helper_deploy_log_path());
 
     if (!verbose) {
         return;
@@ -263,14 +313,20 @@ static void diag_emit_helpers(struct a90_diag_sink *sink, bool verbose) {
             continue;
         }
         diag_emit(sink,
-                  "%02d name=%s present=%s exec=%s preferred=%s fallback=%s size=%lld hash_checked=%s hash_match=%s warning=%s\r\n",
+                  "%02d name=%s role=%s present=%s exec=%s required=%s manifest=%s preferred=%s fallback=%s size=%lld mode=0%03o expected_sha=%s actual_sha=%s hash_checked=%s hash_match=%s warning=%s\r\n",
                   index,
                   entry.name,
+                  entry.role,
                   diag_yesno(entry.present),
                   diag_yesno(entry.executable),
+                  diag_yesno(entry.required),
+                  diag_yesno(entry.manifest_entry),
                   entry.preferred,
                   entry.fallback,
                   entry.actual_size,
+                  entry.actual_mode,
+                  entry.expected_sha256[0] != '\0' ? entry.expected_sha256 : "-",
+                  entry.actual_sha256[0] != '\0' ? entry.actual_sha256 : "-",
                   diag_yesno(entry.hash_checked),
                   diag_yesno(entry.hash_match),
                   entry.warning);
@@ -367,20 +423,53 @@ static void diag_emit_network(struct a90_diag_sink *sink) {
 
 static void diag_emit_rshell(struct a90_diag_sink *sink) {
     struct a90_service_info info;
+    struct a90_netservice_status net_status;
+    char flag_path[PATH_MAX];
+    char token_path[PATH_MAX];
+    char token_mode[16];
+    const char *helper_path;
+    const char *busybox_path;
+    bool token_owner_only = false;
+    bool token_present;
 
     memset(&info, 0, sizeof(info));
+    memset(&net_status, 0, sizeof(net_status));
     (void)a90_service_reap(A90_SERVICE_RSHELL, NULL);
     (void)a90_service_info(A90_SERVICE_RSHELL, &info);
+    (void)a90_netservice_status(&net_status);
+    diag_runtime_state_path(flag_path, sizeof(flag_path), A90_RSHELL_FLAG_NAME);
+    diag_runtime_state_path(token_path, sizeof(token_path), A90_RSHELL_TOKEN_NAME);
+    token_present = diag_file_mode(token_path,
+                                   token_mode,
+                                   sizeof(token_mode),
+                                   &token_owner_only) == 0;
+    helper_path = a90_helper_preferred_path("a90_rshell", A90_RSHELL_RAMDISK_HELPER);
+    busybox_path = a90_userland_path("busybox");
+    if (busybox_path == NULL || busybox_path[0] == '\0') {
+        busybox_path = a90_helper_preferred_path("busybox", A90_BUSYBOX_HELPER);
+    }
+
     diag_emit(sink, "[rshell]\r\n");
     diag_emit(sink,
-              "running=%s pid=%ld enabled=%s bind=%s port=%s idle=%ss helper=%s token=hidden\r\n",
+              "running=%s pid=%ld enabled=%s bind=%s port=%s idle=%ss helper=%s helper_present=%s busybox=%s busybox_present=%s token=%s token_mode=%s token_owner_only=%s flag_path=%s token_path=%s ncm=%s tcpctl=%s log=%s token_value=hidden\r\n",
               diag_yesno(info.running),
               (long)info.pid,
               diag_yesno(info.enabled),
               A90_RSHELL_BIND_ADDR,
               A90_RSHELL_PORT,
               A90_RSHELL_IDLE_SECONDS,
-              A90_RSHELL_HELPER);
+              helper_path != NULL && helper_path[0] != '\0' ? helper_path : "-",
+              diag_yesno(helper_path != NULL && helper_path[0] != '\0' && access(helper_path, X_OK) == 0),
+              busybox_path != NULL && busybox_path[0] != '\0' ? busybox_path : "-",
+              diag_yesno(busybox_path != NULL && busybox_path[0] != '\0' && access(busybox_path, X_OK) == 0),
+              token_present ? "present" : "missing",
+              token_mode,
+              diag_yesno(token_owner_only),
+              flag_path,
+              token_path,
+              diag_yesno(net_status.ncm_present),
+              diag_yesno(net_status.tcpctl_running),
+              A90_RSHELL_LOG_PATH);
 }
 
 static void diag_emit_proc_files(struct a90_diag_sink *sink, bool include_logs, size_t log_tail_bytes) {
@@ -392,6 +481,16 @@ static void diag_emit_proc_files(struct a90_diag_sink *sink, bool include_logs, 
     diag_emit(sink, "path=%s ready=%s\r\n", a90_log_path(), diag_yesno(a90_log_ready()));
     if (include_logs && a90_log_ready()) {
         diag_emit_file_tail(sink, a90_log_path(), log_tail_bytes);
+    }
+    diag_emit(sink, "[helper-deploy-log]\r\n");
+    diag_emit(sink, "path=%s\r\n", a90_helper_deploy_log_path());
+    if (include_logs) {
+        diag_emit_file_tail(sink, a90_helper_deploy_log_path(), 4096);
+    }
+    diag_emit(sink, "[rshell-log]\r\n");
+    diag_emit(sink, "path=%s\r\n", A90_RSHELL_LOG_PATH);
+    if (include_logs) {
+        diag_emit_file_tail(sink, A90_RSHELL_LOG_PATH, 4096);
     }
 }
 
