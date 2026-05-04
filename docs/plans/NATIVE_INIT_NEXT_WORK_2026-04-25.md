@@ -947,7 +947,8 @@ Samsung bootloader
 
 - roadmap: `docs/plans/NATIVE_INIT_V117_V122_ROADMAP_2026-05-05.md`
 - starting point: `A90 Linux init 0.9.16 (v116)`
-- current item: v117-v122 completion audit
+- status: completed through `docs/reports/NATIVE_INIT_V117_V122_COMPLETION_AUDIT_2026-05-05.md`
+- current item: post-v122 planning
 - planned sequence: v117 roadmap baseline, v118 shell metadata cleanup, v119 menu routing cleanup, v120 command group split, v121 PID1 guard, v122 Wi-Fi inventory refresh
 - cycle goal: reduce PID 1 control debt before deciding whether Wi-Fi can move beyond read-only inventory
 - guardrails: no risky Wi-Fi bring-up, no partition writes, USB ACM serial remains rescue channel

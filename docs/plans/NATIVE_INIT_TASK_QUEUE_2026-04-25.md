@@ -2196,12 +2196,13 @@ python3 ./scripts/revalidation/physical_usb_reconnect_check.py --manual-host-con
 - artifacts: `stage3/linux_init/init_v122`, `stage3/ramdisk_v122.cpio`, `stage3/boot_linux_v122.img`
 - validation: real-device flash PASS, `wifiinv refresh` PASS, `wififeas refresh` PASS, host native collector PASS, 3-cycle quick soak PASS
 - conclusion: active Wi-Fi work remains blocked; kernel-facing WLAN/rfkill/module gates are still absent
+- next execution item: post-v122 planning
 
-### V117-V122. PID1 Slimdown and Wi-Fi Refresh Cycle — IN PROGRESS
+### V117-V122. PID1 Slimdown and Wi-Fi Refresh Cycle — DONE
 
 - roadmap: `docs/plans/NATIVE_INIT_V117_V122_ROADMAP_2026-05-05.md`
 - baseline: `A90 Linux init 0.9.16 (v116)`
-- current execution item: v117-v122 completion audit
+- completion audit: `docs/reports/NATIVE_INIT_V117_V122_COMPLETION_AUDIT_2026-05-05.md`
 - planned sequence: v117 roadmap baseline, v118 shell metadata cleanup, v119 menu routing cleanup, v120 command group split, v121 PID1 guard, v122 Wi-Fi inventory refresh
 - guardrails: no risky Wi-Fi bring-up, no partition writes, no automatic remote downloads, USB ACM serial remains rescue channel
 
