@@ -116,6 +116,7 @@ int a90_app_about_draw_version(void) {
 
 int a90_app_about_draw_changelog(void) {
     const char *lines[] = {
+        "0.9.10 v110 APP CONTROLLER CLEANUP",
         "0.9.9 v109 STRUCTURE AUDIT 2",
         "0.9.8 v108 APP INPUTMON API",
         "0.9.7 v107 APP DISPLAYTEST API",
@@ -170,6 +171,19 @@ int a90_app_about_draw_changelog(void) {
     };
 
     return app_about_draw_lines("ABOUT / CHANGELOG", lines, SCREEN_MENU_COUNT(lines));
+}
+
+static int draw_screen_changelog_v0835(void) {
+    const char *lines[] = {
+        "0.9.10 v110 APP CONTROLLER CLEANUP",
+        "Moves menu IPC to controller API",
+        "Hides auto menu state files",
+        "Keeps screenmenu nonblocking",
+        "Keeps blindmenu rescue foreground",
+        "Preserves app/menu UX",
+    };
+
+    return app_about_draw_lines("CHANGELOG / 0.9.10", lines, SCREEN_MENU_COUNT(lines));
 }
 
 static int draw_screen_changelog_v0834(void) {
@@ -866,6 +880,8 @@ static int draw_screen_changelog_v010(void) {
 
 int a90_app_about_draw_changelog_detail(enum screen_app_id app_id) {
     switch (app_id) {
+    case SCREEN_APP_CHANGELOG_0835:
+        return draw_screen_changelog_v0835();
     case SCREEN_APP_CHANGELOG_0834:
         return draw_screen_changelog_v0834();
     case SCREEN_APP_CHANGELOG_0833:

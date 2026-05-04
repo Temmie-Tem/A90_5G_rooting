@@ -1,8 +1,22 @@
 #include "a90_controller.h"
 
+#include <fcntl.h>
 #include <string.h>
+#include <unistd.h>
 
+#include "a90_config.h"
 #include "a90_shell.h"
+#include "a90_util.h"
+
+static void controller_write_file(const char *path, const char *value) {
+    int fd = open(path, O_WRONLY | O_CREAT | O_TRUNC, 0644);
+
+    if (fd < 0) {
+        return;
+    }
+    write_all(fd, value, strlen(value));
+    close(fd);
+}
 
 bool a90_controller_is_hide_word(const char *name) {
     return name != NULL &&
@@ -85,4 +99,83 @@ const char *a90_controller_busy_message(enum a90_controller_busy_reason reason) 
     default:
         return "";
     }
+}
+
+void a90_controller_clear_menu_ipc(void) {
+    unlink(AUTO_MENU_STATE_PATH);
+    unlink(AUTO_MENU_REQUEST_PATH);
+}
+
+void a90_controller_clear_menu_request(void) {
+    unlink(AUTO_MENU_REQUEST_PATH);
+}
+
+void a90_controller_set_menu_active(bool active) {
+    controller_write_file(AUTO_MENU_STATE_PATH, active ? "1\n" : "0\n");
+}
+
+void a90_controller_set_menu_state(bool active, bool power_page) {
+    if (!active) {
+        controller_write_file(AUTO_MENU_STATE_PATH, "0\n");
+    } else if (power_page) {
+        controller_write_file(AUTO_MENU_STATE_PATH, "power\n");
+    } else {
+        controller_write_file(AUTO_MENU_STATE_PATH, "1\n");
+    }
+}
+
+bool a90_controller_menu_is_active(void) {
+    char state[16];
+
+    if (read_text_file(AUTO_MENU_STATE_PATH, state, sizeof(state)) < 0) {
+        return false;
+    }
+    trim_newline(state);
+    return strcmp(state, "1") == 0 ||
+           strcmp(state, "active") == 0 ||
+           strcmp(state, "menu") == 0 ||
+           strcmp(state, "power") == 0;
+}
+
+bool a90_controller_menu_power_is_active(void) {
+    char state[16];
+
+    if (read_text_file(AUTO_MENU_STATE_PATH, state, sizeof(state)) < 0) {
+        return false;
+    }
+    trim_newline(state);
+    return strcmp(state, "power") == 0;
+}
+
+void a90_controller_request_menu_show(void) {
+    controller_write_file(AUTO_MENU_REQUEST_PATH, "show\n");
+}
+
+void a90_controller_request_menu_hide(void) {
+    controller_write_file(AUTO_MENU_REQUEST_PATH, "hide\n");
+}
+
+enum a90_controller_menu_request a90_controller_consume_menu_request(void) {
+    char request[32];
+
+    if (read_text_file(AUTO_MENU_REQUEST_PATH, request, sizeof(request)) < 0) {
+        return A90_CONTROLLER_MENU_REQUEST_NONE;
+    }
+    unlink(AUTO_MENU_REQUEST_PATH);
+    trim_newline(request);
+    if (strcmp(request, "hide") == 0 ||
+        strcmp(request, "hidemenu") == 0 ||
+        strcmp(request, "resume") == 0 ||
+        strcmp(request, "q") == 0 ||
+        strcmp(request, "Q") == 0 ||
+        strcmp(request, "0") == 0) {
+        return A90_CONTROLLER_MENU_REQUEST_HIDE;
+    }
+    if (strcmp(request, "show") == 0 ||
+        strcmp(request, "menu") == 0 ||
+        strcmp(request, "screenmenu") == 0 ||
+        strcmp(request, "1") == 0) {
+        return A90_CONTROLLER_MENU_REQUEST_SHOW;
+    }
+    return A90_CONTROLLER_MENU_REQUEST_NONE;
 }
