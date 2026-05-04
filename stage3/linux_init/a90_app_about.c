@@ -116,6 +116,7 @@ int a90_app_about_draw_version(void) {
 
 int a90_app_about_draw_changelog(void) {
     const char *lines[] = {
+        "0.9.22 v122 WIFI REFRESH",
         "0.9.21 v121 PID1 GUARD",
         "0.9.20 v120 COMMAND GROUP API",
         "0.9.19 v119 MENU ROUTE API",
@@ -182,6 +183,19 @@ int a90_app_about_draw_changelog(void) {
     };
 
     return app_about_draw_lines("ABOUT / CHANGELOG", lines, SCREEN_MENU_COUNT(lines));
+}
+
+static int draw_screen_changelog_v0847(void) {
+    const char *lines[] = {
+        "0.9.22 v122 WIFI REFRESH",
+        "Adds wifiinv refresh summary",
+        "Adds wififeas refresh summary",
+        "Compares v103/v104 baselines",
+        "Keeps Wi-Fi bring-up blocked",
+        "Completes v117-v122 cycle",
+    };
+
+    return app_about_draw_lines("CHANGELOG / 0.9.22", lines, SCREEN_MENU_COUNT(lines));
 }
 
 static int draw_screen_changelog_v0846(void) {
@@ -1034,6 +1048,8 @@ static int draw_screen_changelog_v010(void) {
 
 int a90_app_about_draw_changelog_detail(enum screen_app_id app_id) {
     switch (app_id) {
+    case SCREEN_APP_CHANGELOG_0847:
+        return draw_screen_changelog_v0847();
     case SCREEN_APP_CHANGELOG_0846:
         return draw_screen_changelog_v0846();
     case SCREEN_APP_CHANGELOG_0845:

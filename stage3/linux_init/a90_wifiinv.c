@@ -19,6 +19,15 @@
 #define WIFIINV_MAX_PATH_SCAN_DEPTH 4
 #define WIFIINV_MAX_FILE_MATCHES 180
 #define WIFIINV_MAX_LINE 512
+#define WIFIINV_BASELINE_NET_TOTAL 8
+#define WIFIINV_BASELINE_WLAN_IFACES 0
+#define WIFIINV_BASELINE_RFKILL_TOTAL 1
+#define WIFIINV_BASELINE_RFKILL_WIFI 0
+#define WIFIINV_BASELINE_MODULE_MATCHES 0
+#define WIFIINV_BASELINE_DEFAULT_EXISTING_PATHS 6
+#define WIFIINV_BASELINE_DEFAULT_FILE_MATCHES 0
+#define WIFIINV_BASELINE_MOUNTED_EXISTING_PATHS 7
+#define WIFIINV_BASELINE_MOUNTED_FILE_MATCHES 8
 
 struct wifiinv_sink {
     bool console;
@@ -116,6 +125,31 @@ static void wifi_emit(struct wifiinv_sink *sink, const char *fmt, ...) {
 
 static const char *wifi_yesno(bool value) {
     return value ? "yes" : "no";
+}
+
+static const char *wifi_refresh_relation(const struct a90_wifiinv_snapshot *snapshot) {
+    if (snapshot == NULL) {
+        return "unknown";
+    }
+    if (snapshot->wlan_ifaces > 0 ||
+        snapshot->rfkill_wifi > 0 ||
+        snapshot->module_matches > 0) {
+        return "kernel-gates-changed";
+    }
+    if (snapshot->net_total == WIFIINV_BASELINE_NET_TOTAL &&
+        snapshot->wlan_ifaces == WIFIINV_BASELINE_WLAN_IFACES &&
+        snapshot->rfkill_total == WIFIINV_BASELINE_RFKILL_TOTAL &&
+        snapshot->rfkill_wifi == WIFIINV_BASELINE_RFKILL_WIFI &&
+        snapshot->module_matches == WIFIINV_BASELINE_MODULE_MATCHES &&
+        snapshot->existing_paths == WIFIINV_BASELINE_DEFAULT_EXISTING_PATHS &&
+        snapshot->file_matches == WIFIINV_BASELINE_DEFAULT_FILE_MATCHES) {
+        return "unchanged-native-default";
+    }
+    if (snapshot->existing_paths >= WIFIINV_BASELINE_MOUNTED_EXISTING_PATHS &&
+        snapshot->file_matches >= WIFIINV_BASELINE_MOUNTED_FILE_MATCHES) {
+        return "android-candidates-visible";
+    }
+    return "changed-review-required";
 }
 
 static bool wifi_contains_pattern(const char *text) {
@@ -518,6 +552,72 @@ int a90_wifiinv_print_full(void) {
               snapshot.file_matches);
     a90_logf("wifiinv",
              "full wlan=%d rfkill_wifi=%d modules=%d paths=%d/%d files=%d",
+             snapshot.wlan_ifaces,
+             snapshot.rfkill_wifi,
+             snapshot.module_matches,
+             snapshot.existing_paths,
+             snapshot.candidate_paths,
+             snapshot.file_matches);
+    return 0;
+}
+
+int a90_wifiinv_print_refresh(void) {
+    struct wifiinv_sink sink = {
+        .console = true,
+        .file_match_limit = 0,
+        .file_matches_printed = 0,
+    };
+    struct a90_wifiinv_snapshot snapshot;
+    const char *relation;
+    int rc;
+
+    rc = wifi_collect_into(&sink, &snapshot, false);
+    if (rc < 0) {
+        return rc;
+    }
+    relation = wifi_refresh_relation(&snapshot);
+
+    wifi_emit(&sink, "[wifiinv refresh]\r\n");
+    wifi_emit(&sink, "banner=%s\r\n", INIT_BANNER);
+    wifi_emit(&sink, "policy=read-only no-rfkill-write no-link-up no-module-change no-firmware-mutation\r\n");
+    wifi_emit(&sink,
+              "current net=%d wlan=%d rfkill=%d wifi_rfkill=%d modules=%d paths=%d/%d files=%d\r\n",
+              snapshot.net_total,
+              snapshot.wlan_ifaces,
+              snapshot.rfkill_total,
+              snapshot.rfkill_wifi,
+              snapshot.module_matches,
+              snapshot.existing_paths,
+              snapshot.candidate_paths,
+              snapshot.file_matches);
+    wifi_emit(&sink,
+              "baseline_default v103/v104 net=%d wlan=%d rfkill=%d wifi_rfkill=%d modules=%d paths=%d/%d files=%d\r\n",
+              WIFIINV_BASELINE_NET_TOTAL,
+              WIFIINV_BASELINE_WLAN_IFACES,
+              WIFIINV_BASELINE_RFKILL_TOTAL,
+              WIFIINV_BASELINE_RFKILL_WIFI,
+              WIFIINV_BASELINE_MODULE_MATCHES,
+              WIFIINV_BASELINE_DEFAULT_EXISTING_PATHS,
+              (int)(sizeof(wifi_candidate_paths) / sizeof(wifi_candidate_paths[0])),
+              WIFIINV_BASELINE_DEFAULT_FILE_MATCHES);
+    wifi_emit(&sink,
+              "baseline_mounted v103/v104 paths=%d/%d files=%d decision=no-go\r\n",
+              WIFIINV_BASELINE_MOUNTED_EXISTING_PATHS,
+              (int)(sizeof(wifi_candidate_paths) / sizeof(wifi_candidate_paths[0])),
+              WIFIINV_BASELINE_MOUNTED_FILE_MATCHES);
+    wifi_emit(&sink, "relation=%s\r\n", relation);
+    if (strcmp(relation, "kernel-gates-changed") == 0) {
+        wifi_emit(&sink, "next=plan a separate approved nl80211/iw read-only probe; still no bring-up in v122\r\n");
+    } else if (strcmp(relation, "android-candidates-visible") == 0) {
+        wifi_emit(&sink, "next=keep bring-up blocked; identify vendor driver/firmware contract from Android/TWRP baseline\r\n");
+    } else if (strcmp(relation, "unchanged-native-default") == 0) {
+        wifi_emit(&sink, "next=bring-up remains blocked; native default still lacks wlan/rfkill/module gates\r\n");
+    } else {
+        wifi_emit(&sink, "next=review changed evidence before any Wi-Fi bring-up plan\r\n");
+    }
+    a90_logf("wifiinv",
+             "refresh relation=%s wlan=%d rfkill_wifi=%d modules=%d paths=%d/%d files=%d",
+             relation,
              snapshot.wlan_ifaces,
              snapshot.rfkill_wifi,
              snapshot.module_matches,

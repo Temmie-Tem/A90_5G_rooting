@@ -190,6 +190,37 @@ int a90_wififeas_print_gate(void) {
     return 0;
 }
 
+int a90_wififeas_print_refresh(void) {
+    struct a90_wififeas_result result;
+    int rc;
+
+    rc = a90_wififeas_evaluate(&result);
+    if (rc < 0) {
+        return rc;
+    }
+
+    a90_console_printf("wififeas: refresh=%s\r\n", INIT_BANNER);
+    a90_console_printf("wififeas: decision=%s\r\n", a90_wififeas_decision_name(result.decision));
+    a90_console_printf("wififeas: reason=%s\r\n", result.reason);
+    a90_console_printf("wififeas: next=%s\r\n", result.next_step);
+    a90_console_printf("wififeas: active_wifi=%s\r\n",
+            result.decision == A90_WIFI_FEAS_GO_READ_ONLY_ONLY ?
+            "still-separate-approval-required" :
+            "blocked");
+    a90_console_printf("wififeas: v122_policy=read-only-refresh-only no-bring-up no-rfkill-write no-module-change\r\n");
+    a90_console_printf("wififeas: compare=v103/v104 native default and mounted-system baselines\r\n");
+    a90_console_printf("wififeas: gates wlan=%s rfkill=%s module=%s candidates=%s\r\n",
+            feas_yesno(result.has_wlan_iface),
+            feas_yesno(result.has_wifi_rfkill),
+            feas_yesno(result.has_driver_module),
+            feas_yesno(result.has_candidate_files));
+    a90_logf("wififeas", "refresh decision=%s active=%s",
+             a90_wififeas_decision_name(result.decision),
+             result.decision == A90_WIFI_FEAS_GO_READ_ONLY_ONLY ?
+             "approval-required" : "blocked");
+    return 0;
+}
+
 int a90_wififeas_print_paths(void) {
     struct wififeas_sink sink = { .console = true };
 
@@ -199,7 +230,7 @@ int a90_wififeas_print_paths(void) {
     feas_emit(&sink, "  wififeas full\r\n");
     feas_emit(&sink, "  mountsystem ro ; wifiinv full ; wififeas full\r\n");
     feas_emit(&sink, "host native collector:\r\n");
-    feas_emit(&sink, "  python3 scripts/revalidation/wifi_inventory_collect.py --native-only --boot-image stage3/boot_linux_v104.img --out tmp/wifiinv/v104-native.txt\r\n");
+    feas_emit(&sink, "  python3 scripts/revalidation/wifi_inventory_collect.py --native-only --boot-image stage3/boot_linux_v122.img --out tmp/wifiinv/v122-native.txt\r\n");
     feas_emit(&sink, "optional read-only adb baselines:\r\n");
     feas_emit(&sink, "  python3 scripts/revalidation/wifi_inventory_collect.py --android-adb --out tmp/wifiinv/v104-android.txt\r\n");
     feas_emit(&sink, "  python3 scripts/revalidation/wifi_inventory_collect.py --twrp-adb --out tmp/wifiinv/v104-twrp.txt\r\n");

@@ -18,6 +18,7 @@ struct a90_wifiinv_snapshot {
 int a90_wifiinv_collect(struct a90_wifiinv_snapshot *out);
 int a90_wifiinv_print_summary(void);
 int a90_wifiinv_print_full(void);
+int a90_wifiinv_print_refresh(void);
 int a90_wifiinv_print_paths(void);
 
 #endif

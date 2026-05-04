@@ -27,6 +27,7 @@ const char *a90_wififeas_decision_name(enum a90_wififeas_decision decision);
 int a90_wififeas_print_summary(void);
 int a90_wififeas_print_full(void);
 int a90_wififeas_print_gate(void);
+int a90_wififeas_print_refresh(void);
 int a90_wififeas_print_paths(void);
 
 #endif

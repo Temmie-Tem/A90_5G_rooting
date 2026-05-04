@@ -167,6 +167,12 @@ def main() -> int:
     rc, text = run_a90ctl(args, ["wifiinv", "full"], timeout=max(args.timeout, 45))
     append_section(lines, "native wifiinv full", text + f"\nrc={rc}")
 
+    rc, text = run_a90ctl(args, ["wifiinv", "refresh"], timeout=args.timeout)
+    append_section(lines, "native wifiinv refresh", text + f"\nrc={rc}")
+
+    rc, text = run_a90ctl(args, ["wififeas", "refresh"], timeout=args.timeout)
+    append_section(lines, "native wififeas refresh", text + f"\nrc={rc}")
+
     rc, text = run_a90ctl(args, ["diag"], timeout=args.timeout)
     append_section(lines, "native diag summary", text + f"\nrc={rc}")
 
