@@ -120,11 +120,11 @@
 ## 현재 폰 상태
 
 - patched AP (Magisk 30.7) + **TWRP recovery 사용 가능**
-- 최신 verified build: `stage3/boot_linux_v119.img` (`A90 Linux init 0.9.19 (v119)`)
-- 최신 verified source: `stage3/linux_init/init_v119.c` + `stage3/linux_init/v119/*.inc.c` + `stage3/linux_init/helpers/a90_cpustress.c` + `stage3/linux_init/helpers/a90_rshell.c` + `stage3/linux_init/a90_config.h` + `stage3/linux_init/a90_util.c/h` + `stage3/linux_init/a90_log.c/h` + `stage3/linux_init/a90_timeline.c/h` + `stage3/linux_init/a90_console.c/h` + `stage3/linux_init/a90_cmdproto.c/h` + `stage3/linux_init/a90_run.c/h` + `stage3/linux_init/a90_service.c/h` + `stage3/linux_init/a90_kms.c/h` + `stage3/linux_init/a90_draw.c/h` + `stage3/linux_init/a90_input.c/h` + `stage3/linux_init/a90_hud.c/h` + `stage3/linux_init/a90_menu.c/h` + `stage3/linux_init/a90_metrics.c/h` + `stage3/linux_init/a90_shell.c/h` + `stage3/linux_init/a90_controller.c/h` + `stage3/linux_init/a90_storage.c/h` + `stage3/linux_init/a90_selftest.c/h` + `stage3/linux_init/a90_usb_gadget.c/h` + `stage3/linux_init/a90_netservice.c/h` + `stage3/linux_init/a90_runtime.c/h` + `stage3/linux_init/a90_helper.c/h` + `stage3/linux_init/a90_userland.c/h` + `stage3/linux_init/a90_diag.c/h` + `stage3/linux_init/a90_wifiinv.c/h` + `stage3/linux_init/a90_wififeas.c/h` + `stage3/linux_init/a90_app_about.c/h` + `stage3/linux_init/a90_app_displaytest.c/h` + `stage3/linux_init/a90_app_inputmon.c/h`
+- 최신 verified build: `stage3/boot_linux_v120.img` (`A90 Linux init 0.9.20 (v120)`)
+- 최신 verified source: `stage3/linux_init/init_v120.c` + `stage3/linux_init/v120/*.inc.c` + `stage3/linux_init/helpers/a90_cpustress.c` + `stage3/linux_init/helpers/a90_rshell.c` + `stage3/linux_init/a90_config.h` + `stage3/linux_init/a90_util.c/h` + `stage3/linux_init/a90_log.c/h` + `stage3/linux_init/a90_timeline.c/h` + `stage3/linux_init/a90_console.c/h` + `stage3/linux_init/a90_cmdproto.c/h` + `stage3/linux_init/a90_run.c/h` + `stage3/linux_init/a90_service.c/h` + `stage3/linux_init/a90_kms.c/h` + `stage3/linux_init/a90_draw.c/h` + `stage3/linux_init/a90_input.c/h` + `stage3/linux_init/a90_hud.c/h` + `stage3/linux_init/a90_menu.c/h` + `stage3/linux_init/a90_metrics.c/h` + `stage3/linux_init/a90_shell.c/h` + `stage3/linux_init/a90_controller.c/h` + `stage3/linux_init/a90_storage.c/h` + `stage3/linux_init/a90_selftest.c/h` + `stage3/linux_init/a90_usb_gadget.c/h` + `stage3/linux_init/a90_netservice.c/h` + `stage3/linux_init/a90_runtime.c/h` + `stage3/linux_init/a90_helper.c/h` + `stage3/linux_init/a90_userland.c/h` + `stage3/linux_init/a90_diag.c/h` + `stage3/linux_init/a90_wifiinv.c/h` + `stage3/linux_init/a90_wififeas.c/h` + `stage3/linux_init/a90_app_about.c/h` + `stage3/linux_init/a90_app_displaytest.c/h` + `stage3/linux_init/a90_app_inputmon.c/h`
 - previous verified source-layout baseline: `stage3/linux_init/init_v80.c` + `stage3/linux_init/v80/*.inc.c`
-- 공식 버전: `0.9.19`
-- build tag: `v119`
+- 공식 버전: `0.9.20`
+- build tag: `v120`
 - creator: `made by temmie0214`
 - known-good fallback: `stage3/boot_linux_v48.img` (`A90 Linux init v48`)
 - 격리 상태: `stage3/boot_linux_v49.img`는 boot partition prefix readback은 일치했지만
@@ -133,7 +133,7 @@
 - 로그 상태: SD 정상 시 `/mnt/sdext/a90/logs/native-init.log`, fallback 시 `/cache/native-init.log`에 boot/command/result 기록
 - blocking 상태: `waitkey`, `readinput`, `watchhud`, `blindmenu` q/Ctrl-C 취소 확인
 - boot timeline: `timeline` 명령과 current native log replay 확인
-- boot selftest 상태: v119 boot selftest `pass=11 warn=0 fail=0`, `selftest verbose` 확인
+- boot selftest 상태: v120 boot selftest `pass=11 warn=0 fail=0`, `selftest verbose` 확인
 - HUD 상태: `BOOT OK shell` summary 표시와 `statushud` draw 확인
 - run 상태: `/bin/a90sleep` helper로 `run` q 취소 확인
 - log 보존: native init → recovery → native init 왕복 후 v44/v45/v47 log append 확인
@@ -179,6 +179,7 @@
 - PID1 slim roadmap baseline 상태: v117에서 v117-v122 로드맵, selftest/diag/status HUD/menu, 3-cycle quick soak 확인 완료
 - shell metadata API 상태: v118에서 `cmdmeta [verbose]`, unknown command/last result, menu-visible status, 3-cycle quick soak 확인 완료
 - menu route API 상태: v119에서 `a90_menu` route helper와 About/Changelog case block 제거, 화면/menu quick soak 확인 완료
+- command group API 상태: v120에서 `cmdgroups [verbose]`, grouped `cmdmeta`, storage/network/service representative commands, 3-cycle quick soak 확인 완료
 - completion audit 상태: v109-v116 reports/commits/docs/flash evidence 정합성 확인 완료
 - log tail panel 상태: HUD hidden과 menu visible spare area에서 current native log tail 표시 확인
 - serial reattach log 상태: v75에서 idle-timeout 성공 reattach 로그 억제, 수동/오류 reattach 로그 유지 확인
@@ -187,8 +188,9 @@
 - shell/controller 상태: v92에서 last result, command lookup/result formatting, menu/power busy policy를 실제 compiled module/API로 분리 완료
 - storage module 상태: v93에서 boot storage state, SD probe, `/cache` fallback, `storage`/`mountsd` command를 실제 compiled module/API로 분리 완료
 - selftest module 상태: v94에서 boot-time non-destructive module smoke test와 `selftest` command를 실제 compiled module/API로 추가 완료
-- 상세 최신 verified 상태: `docs/reports/NATIVE_INIT_V119_MENU_ROUTE_API_2026-05-05.md`
+- 상세 최신 verified 상태: `docs/reports/NATIVE_INIT_V120_COMMAND_GROUP_API_2026-05-05.md`
 - v109-v116 completion audit 기록: `docs/reports/NATIVE_INIT_V109_V116_COMPLETION_AUDIT_2026-05-04.md`
+- v120 command group API 기록: `docs/reports/NATIVE_INIT_V120_COMMAND_GROUP_API_2026-05-05.md`
 - v119 menu route API 기록: `docs/reports/NATIVE_INIT_V119_MENU_ROUTE_API_2026-05-05.md`
 - v118 shell metadata API 기록: `docs/reports/NATIVE_INIT_V118_SHELL_META_API_2026-05-05.md`
 - v117 PID1 slim roadmap 기록: `docs/reports/NATIVE_INIT_V117_PID1_SLIM_ROADMAP_2026-05-05.md`
@@ -278,7 +280,7 @@
 
 ### 3-2. USB ACM serial console + 인터랙티브 셸 (v8~v116)
 
-**현재 버전**: `init_v119` (`stage3/boot_linux_v119.img`) / `0.9.19 (v119)`
+**현재 버전**: `init_v120` (`stage3/boot_linux_v120.img`) / `0.9.20 (v120)`
 
 ADB 방식이 막혀 USB CDC ACM serial (ttyGS0)로 전환. v79까지 반복 안정화:
 

@@ -1,19 +1,19 @@
 # Native Init Task Queue (2026-04-25)
 
-이 문서는 `A90 Linux init 0.9.19 (v119)` verified 이후 바로 실행할 작업 큐다.
+이 문서는 `A90 Linux init 0.9.20 (v120)` verified 이후 바로 실행할 작업 큐다.
 큰 방향은 “보이는 부팅 → 복구 가능한 로그 → 단독 조작 → 작은 userland → USB networking” 순서다.
 
 ## 현재 고정 기준점
 
-- latest verified build: `A90 Linux init 0.9.19 (v119)`
-- official version: `0.9.19`
-- build tag: `v119`
+- latest verified build: `A90 Linux init 0.9.20 (v120)`
+- official version: `0.9.20`
+- build tag: `v120`
 - creator: `made by temmie0214`
-- latest verified source: `stage3/linux_init/init_v119.c` + `stage3/linux_init/v119/*.inc.c` + `stage3/linux_init/helpers/a90_cpustress.c` + `stage3/linux_init/helpers/a90_rshell.c` + `stage3/linux_init/a90_config.h` + `stage3/linux_init/a90_util.c/h` + `stage3/linux_init/a90_log.c/h` + `stage3/linux_init/a90_timeline.c/h` + `stage3/linux_init/a90_console.c/h` + `stage3/linux_init/a90_cmdproto.c/h` + `stage3/linux_init/a90_run.c/h` + `stage3/linux_init/a90_service.c/h` + `stage3/linux_init/a90_kms.c/h` + `stage3/linux_init/a90_draw.c/h` + `stage3/linux_init/a90_input.c/h` + `stage3/linux_init/a90_hud.c/h` + `stage3/linux_init/a90_menu.c/h` + `stage3/linux_init/a90_metrics.c/h` + `stage3/linux_init/a90_shell.c/h` + `stage3/linux_init/a90_controller.c/h` + `stage3/linux_init/a90_storage.c/h` + `stage3/linux_init/a90_selftest.c/h` + `stage3/linux_init/a90_usb_gadget.c/h` + `stage3/linux_init/a90_netservice.c/h` + `stage3/linux_init/a90_runtime.c/h` + `stage3/linux_init/a90_helper.c/h` + `stage3/linux_init/a90_userland.c/h` + `stage3/linux_init/a90_diag.c/h` + `stage3/linux_init/a90_wifiinv.c/h` + `stage3/linux_init/a90_wififeas.c/h` + `stage3/linux_init/a90_app_about.c/h` + `stage3/linux_init/a90_app_displaytest.c/h` + `stage3/linux_init/a90_app_inputmon.c/h`
-- latest verified boot image: `stage3/boot_linux_v119.img`
+- latest verified source: `stage3/linux_init/init_v120.c` + `stage3/linux_init/v120/*.inc.c` + `stage3/linux_init/helpers/a90_cpustress.c` + `stage3/linux_init/helpers/a90_rshell.c` + `stage3/linux_init/a90_config.h` + `stage3/linux_init/a90_util.c/h` + `stage3/linux_init/a90_log.c/h` + `stage3/linux_init/a90_timeline.c/h` + `stage3/linux_init/a90_console.c/h` + `stage3/linux_init/a90_cmdproto.c/h` + `stage3/linux_init/a90_run.c/h` + `stage3/linux_init/a90_service.c/h` + `stage3/linux_init/a90_kms.c/h` + `stage3/linux_init/a90_draw.c/h` + `stage3/linux_init/a90_input.c/h` + `stage3/linux_init/a90_hud.c/h` + `stage3/linux_init/a90_menu.c/h` + `stage3/linux_init/a90_metrics.c/h` + `stage3/linux_init/a90_shell.c/h` + `stage3/linux_init/a90_controller.c/h` + `stage3/linux_init/a90_storage.c/h` + `stage3/linux_init/a90_selftest.c/h` + `stage3/linux_init/a90_usb_gadget.c/h` + `stage3/linux_init/a90_netservice.c/h` + `stage3/linux_init/a90_runtime.c/h` + `stage3/linux_init/a90_helper.c/h` + `stage3/linux_init/a90_userland.c/h` + `stage3/linux_init/a90_diag.c/h` + `stage3/linux_init/a90_wifiinv.c/h` + `stage3/linux_init/a90_wififeas.c/h` + `stage3/linux_init/a90_app_about.c/h` + `stage3/linux_init/a90_app_displaytest.c/h` + `stage3/linux_init/a90_app_inputmon.c/h`
+- latest verified boot image: `stage3/boot_linux_v120.img`
 - previous verified source-layout baseline: `stage3/linux_init/init_v80.c` + `stage3/linux_init/v80/*.inc.c`
 - known-good fallback: `stage3/boot_linux_v48.img`
-- local artifact retention: `v119` latest, `v118` rollback, `v48` known-good만 보존하고 나머지 ignored stage3 산출물은 정리 가능
+- local artifact retention: `v120` latest, `v119` rollback, `v48` known-good만 보존하고 나머지 ignored stage3 산출물은 정리 가능
 - control channel: USB ACM serial bridge
 - log: SD 정상 시 `/mnt/sdext/a90/logs/native-init.log`, fallback 시 `/cache/native-init.log`
 - verified:
@@ -2138,7 +2138,7 @@ python3 ./scripts/revalidation/physical_usb_reconnect_check.py --manual-host-con
 - result: `docs/reports/NATIVE_INIT_V109_V116_COMPLETION_AUDIT_2026-05-04.md`
 - scope: v109 through v116 reports, commits, docs, artifacts, and validation evidence
 - validation: latest docs point to v116, v109-v116 reports/commits present, real-device flash evidence recorded for every claimed boot image version
-- next execution item: v120 command group split
+- next execution item: v121 PID1 guard
 
 
 ### V117. PID1 Slim Roadmap Baseline — DONE
@@ -2168,11 +2168,20 @@ python3 ./scripts/revalidation/physical_usb_reconnect_check.py --manual-host-con
 - validation: real-device flash PASS, menu/show/hide/display regression PASS, route helper static check PASS, 3-cycle quick soak PASS
 - next execution item: v120 command group split
 
+
+### V120. Command Group API — DONE
+
+- result: `docs/reports/NATIVE_INIT_V120_COMMAND_GROUP_API_2026-05-05.md`
+- build: `A90 Linux init 0.9.20 (v120)`
+- artifacts: `stage3/linux_init/init_v120`, `stage3/ramdisk_v120.cpio`, `stage3/boot_linux_v120.img`
+- validation: real-device flash PASS, `cmdgroups`/grouped `cmdmeta` PASS, representative command groups PASS, 3-cycle quick soak PASS
+- next execution item: v121 PID1 guard
+
 ### V117-V122. PID1 Slimdown and Wi-Fi Refresh Cycle — IN PROGRESS
 
 - roadmap: `docs/plans/NATIVE_INIT_V117_V122_ROADMAP_2026-05-05.md`
 - baseline: `A90 Linux init 0.9.16 (v116)`
-- current execution item: v120 command group split
+- current execution item: v121 PID1 guard
 - planned sequence: v117 roadmap baseline, v118 shell metadata cleanup, v119 menu routing cleanup, v120 command group split, v121 PID1 guard, v122 Wi-Fi inventory refresh
 - guardrails: no risky Wi-Fi bring-up, no partition writes, no automatic remote downloads, USB ACM serial remains rescue channel
 

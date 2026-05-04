@@ -116,6 +116,7 @@ int a90_app_about_draw_version(void) {
 
 int a90_app_about_draw_changelog(void) {
     const char *lines[] = {
+        "0.9.20 v120 COMMAND GROUP API",
         "0.9.19 v119 MENU ROUTE API",
         "0.9.18 v118 SHELL META API",
         "0.9.17 v117 PID1 SLIM ROADMAP",
@@ -180,6 +181,19 @@ int a90_app_about_draw_changelog(void) {
     };
 
     return app_about_draw_lines("ABOUT / CHANGELOG", lines, SCREEN_MENU_COUNT(lines));
+}
+
+static int draw_screen_changelog_v0845(void) {
+    const char *lines[] = {
+        "0.9.20 v120 COMMAND GROUP API",
+        "Adds command group enum",
+        "Adds command table group metadata",
+        "Adds cmdgroups inventory command",
+        "Keeps command handlers in place",
+        "Sets v121 PID1 guard next",
+    };
+
+    return app_about_draw_lines("CHANGELOG / 0.9.20", lines, SCREEN_MENU_COUNT(lines));
 }
 
 static int draw_screen_changelog_v0844(void) {
@@ -1006,6 +1020,8 @@ static int draw_screen_changelog_v010(void) {
 
 int a90_app_about_draw_changelog_detail(enum screen_app_id app_id) {
     switch (app_id) {
+    case SCREEN_APP_CHANGELOG_0845:
+        return draw_screen_changelog_v0845();
     case SCREEN_APP_CHANGELOG_0844:
         return draw_screen_changelog_v0844();
     case SCREEN_APP_CHANGELOG_0843:

@@ -158,10 +158,94 @@ void a90_shell_print_command_inventory(const struct shell_command *commands, siz
         char flags[80];
 
         a90_shell_format_flags(commands[index].flags, flags, sizeof(flags));
-        a90_console_printf("cmdmeta: %02zu name=%s flags=%s usage=%s\r\n",
+        a90_console_printf("cmdmeta: %02zu name=%s group=%s flags=%s usage=%s\r\n",
                 index,
                 commands[index].name,
+                a90_shell_command_group_name(commands[index].group),
                 flags,
+                commands[index].usage);
+    }
+}
+
+const char *a90_shell_command_group_name(enum a90_shell_command_group group) {
+    switch (group) {
+    case A90_CMD_GROUP_CORE:
+        return "core";
+    case A90_CMD_GROUP_FILESYSTEM:
+        return "filesystem";
+    case A90_CMD_GROUP_STORAGE:
+        return "storage";
+    case A90_CMD_GROUP_DISPLAY:
+        return "display";
+    case A90_CMD_GROUP_INPUT:
+        return "input";
+    case A90_CMD_GROUP_MENU:
+        return "menu";
+    case A90_CMD_GROUP_PROCESS:
+        return "process";
+    case A90_CMD_GROUP_SERVICE:
+        return "service";
+    case A90_CMD_GROUP_NETWORK:
+        return "network";
+    case A90_CMD_GROUP_ANDROID:
+        return "android";
+    case A90_CMD_GROUP_POWER:
+        return "power";
+    default:
+        return "unknown";
+    }
+}
+
+void a90_shell_collect_group_stats(const struct shell_command *commands,
+                                   size_t count,
+                                   struct a90_shell_group_stats *stats) {
+    size_t index;
+
+    if (stats == NULL) {
+        return;
+    }
+    memset(stats, 0, sizeof(*stats));
+    if (commands == NULL) {
+        return;
+    }
+
+    stats->total = count;
+    for (index = 0; index < count; ++index) {
+        enum a90_shell_command_group group = commands[index].group;
+
+        if (group < 0 || group >= A90_CMD_GROUP_COUNT) {
+            group = A90_CMD_GROUP_CORE;
+        }
+        stats->count[group]++;
+    }
+}
+
+void a90_shell_print_group_stats(const struct shell_command *commands, size_t count) {
+    struct a90_shell_group_stats stats;
+    int group;
+
+    a90_shell_collect_group_stats(commands, count, &stats);
+    a90_console_printf("cmdgroups: total=%zu", stats.total);
+    for (group = 0; group < A90_CMD_GROUP_COUNT; ++group) {
+        a90_console_printf(" %s=%zu",
+                a90_shell_command_group_name((enum a90_shell_command_group)group),
+                stats.count[group]);
+    }
+    a90_console_printf("\r\n");
+}
+
+void a90_shell_print_group_inventory(const struct shell_command *commands, size_t count) {
+    size_t index;
+
+    a90_shell_print_group_stats(commands, count);
+    if (commands == NULL) {
+        return;
+    }
+    for (index = 0; index < count; ++index) {
+        a90_console_printf("cmdgroups: %02zu group=%s name=%s usage=%s\r\n",
+                index,
+                a90_shell_command_group_name(commands[index].group),
+                commands[index].name,
                 commands[index].usage);
     }
 }
