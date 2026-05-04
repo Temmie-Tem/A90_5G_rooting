@@ -111,3 +111,16 @@ Baseline: `A90 Linux init 0.9.5 (v105)`
 다음 구현 버전으로는 `v106 UI App Split 1`을 추천한다.
 이유는 가장 큰 코드 부채가 `40_menu_apps.inc.c`이고, ABOUT/changelog는 낮은 리스크로 분리 가능한 독립 UI이기 때문이다.
 다만 운영 실수 감소가 더 급하면 `Serial Ops Hardening`, 커널 기능 탐색을 우선하고 싶으면 `Kernel Capability Inventory`를 선택한다.
+
+## 상세 계획 분해
+
+UI App Split 후보는 다음 3개 버전 계획으로 분해했다.
+
+- v106: `docs/plans/NATIVE_INIT_V106_UI_APP_ABOUT_PLAN_2026-05-04.md`
+  - ABOUT/version/changelog 화면을 `a90_app_about.c/h`로 분리
+- v107: `docs/plans/NATIVE_INIT_V107_UI_APP_DISPLAYTEST_PLAN_2026-05-04.md`
+  - `displaytest`와 `cutoutcal` 화면을 `a90_app_displaytest.c/h`로 분리
+- v108: `docs/plans/NATIVE_INIT_V108_UI_APP_INPUTMON_PLAN_2026-05-04.md`
+  - input layout/monitor/wait UI를 `a90_app_inputmon.c/h`로 분리
+
+이 순서는 `40_menu_apps.inc.c`에서 가장 독립적인 화면부터 떼어내는 방식이다. serial ops hardening과 kernel capability inventory는 v106-v108 UI split 이후 다시 후보로 평가한다.

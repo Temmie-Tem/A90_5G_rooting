@@ -881,7 +881,10 @@ Samsung bootloader
 1. v105 완료 감사와 변경분 커밋
 2. optional extended soak/reconnect 범위는 별도 수동 작업으로 분리
 3. Wi-Fi bring-up은 v104 gate 결과에 따라 계속 보류
-4. v106 이후 목표는 v105 안정 기준을 훼손하지 않는 범위에서 별도 선정
+4. v106-v108은 UI/App Architecture split으로 진행
+   - v106: `docs/plans/NATIVE_INIT_V106_UI_APP_ABOUT_PLAN_2026-05-04.md`
+   - v107: `docs/plans/NATIVE_INIT_V107_UI_APP_DISPLAYTEST_PLAN_2026-05-04.md`
+   - v108: `docs/plans/NATIVE_INIT_V108_UI_APP_INPUTMON_PLAN_2026-05-04.md`
 
 ---
 

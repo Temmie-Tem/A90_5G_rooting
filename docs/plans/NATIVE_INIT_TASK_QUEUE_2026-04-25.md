@@ -1942,14 +1942,36 @@ python3 ./scripts/revalidation/physical_usb_reconnect_check.py --manual-host-con
 
 ## 지금 바로 진행할 항목
 
-1. v105 완료 감사와 optional extended soak/reconnect 분리
+1. v106-v108 UI/App Architecture split 상세 계획
 
    - 기준 문서: `docs/plans/NATIVE_INIT_LONG_TERM_ROADMAP_2026-05-03.md`
    - 최신 결과: `docs/reports/NATIVE_INIT_V105_SOAK_RC_2026-05-04.md`
    - 논의 메모: `docs/plans/NATIVE_INIT_POST_V105_DISCUSSION_NOTES_2026-05-04.md`
-   - 다음 실행 항목: v106 후보 중 UI app split, serial ops hardening, kernel capability inventory 중 하나를 선택
-   - 목적: v105를 v96-v105 roadmap endpoint로 고정하고 다음 개발 사이클을 별도 계획
+   - v106 계획: `docs/plans/NATIVE_INIT_V106_UI_APP_ABOUT_PLAN_2026-05-04.md`
+   - v107 계획: `docs/plans/NATIVE_INIT_V107_UI_APP_DISPLAYTEST_PLAN_2026-05-04.md`
+   - v108 계획: `docs/plans/NATIVE_INIT_V108_UI_APP_INPUTMON_PLAN_2026-05-04.md`
+   - 다음 실행 항목: v106 `a90_app_about.c/h` 구현부터 시작
+   - 목적: `40_menu_apps.inc.c`의 UI app 책임을 ABOUT/changelog → displaytest/cutout → input monitor 순서로 낮은 리스크부터 분리
    - 보류: risky Wi-Fi bring-up, partition writes, production Wi-Fi networking
+
+### V106-V108. UI/App Architecture Split — PLANNED
+
+- v106 계획: `docs/plans/NATIVE_INIT_V106_UI_APP_ABOUT_PLAN_2026-05-04.md`
+  - 목표: ABOUT/version/changelog 화면 렌더링을 `a90_app_about.c/h`로 분리
+  - 기준: `A90 Linux init 0.9.6 (v106)` / `0.9.6 v106 APP ABOUT API`
+  - 성격: 구조 개선, 메뉴 UX 변경 없음
+- v107 계획: `docs/plans/NATIVE_INIT_V107_UI_APP_DISPLAYTEST_PLAN_2026-05-04.md`
+  - 목표: `displaytest`와 `cutoutcal` 렌더링을 `a90_app_displaytest.c/h`로 분리
+  - 기준: `A90 Linux init 0.9.7 (v107)` / `0.9.7 v107 APP DISPLAYTEST API`
+  - 성격: display/cutout 화면 동작 보존
+- v108 계획: `docs/plans/NATIVE_INIT_V108_UI_APP_INPUTMON_PLAN_2026-05-04.md`
+  - 목표: input layout/monitor/wait UI를 `a90_app_inputmon.c/h`로 분리
+  - 기준: `A90 Linux init 0.9.8 (v108)` / `0.9.8 v108 APP INPUTMON API`
+  - 성격: 저수준 `a90_input.c/h` 유지, app UI만 분리
+- 공통 검증:
+  - static ARM64 build, marker strings, `git diff --check`, host Python `py_compile`
+  - real-device flash 후 `version`, `status`, `bootstatus`, `selftest verbose`, `screenmenu`, `hide`
+  - 각 app별 화면/입력 회귀와 3-cycle quick soak
 
 ### V105. Long-Run Soak / Recovery RC — PASS
 

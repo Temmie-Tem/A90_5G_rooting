@@ -403,8 +403,9 @@ ADB 방식이 막혀 USB CDC ACM serial (ttyGS0)로 전환. v79까지 반복 안
 
 우선순위 순 (v105 verified build 이후):
 
-1. **v106 후보 선택** — `docs/plans/NATIVE_INIT_POST_V105_DISCUSSION_NOTES_2026-05-04.md` 기준 UI app split / serial ops / kernel capability 중 선택
-2. **optional extended soak/reconnect** — 장시간 idle, USB cable reconnect, NCM/tcpctl/rshell opt-in soak 수동 검증
-3. **Android/TWRP Wi-Fi baseline 비교** — v103/v104 read-only evidence를 Android/TWRP 상태와 비교
+1. **v106 UI App Split 1** — `docs/plans/NATIVE_INIT_V106_UI_APP_ABOUT_PLAN_2026-05-04.md` 기준 ABOUT/changelog 렌더링을 `a90_app_about.c/h`로 분리
+2. **v107-v108 UI App Split 후속** — `displaytest/cutoutcal`과 input monitor UI를 각각 `a90_app_displaytest.c/h`, `a90_app_inputmon.c/h`로 분리
+3. **optional extended soak/reconnect** — 장시간 idle, USB cable reconnect, NCM/tcpctl/rshell opt-in soak 수동 검증
+4. **Android/TWRP Wi-Fi baseline 비교** — v103/v104 read-only evidence를 Android/TWRP 상태와 비교
 
 **복구**: `backups/baseline_a_20260423_030309/boot.img` dd 복구 가능
