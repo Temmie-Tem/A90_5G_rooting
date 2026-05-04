@@ -116,6 +116,7 @@ int a90_app_about_draw_version(void) {
 
 int a90_app_about_draw_changelog(void) {
     const char *lines[] = {
+        "0.9.12 v112 USB SERVICE SOAK",
         "0.9.11 v111 EXTENDED SOAK RC",
         "0.9.10 v110 APP CONTROLLER CLEANUP",
         "0.9.9 v109 STRUCTURE AUDIT 2",
@@ -172,6 +173,19 @@ int a90_app_about_draw_changelog(void) {
     };
 
     return app_about_draw_lines("ABOUT / CHANGELOG", lines, SCREEN_MENU_COUNT(lines));
+}
+
+static int draw_screen_changelog_v0837(void) {
+    const char *lines[] = {
+        "0.9.12 v112 USB SERVICE SOAK",
+        "Keeps netservice opt-in",
+        "Validates NCM ping path",
+        "Exercises tcpctl host smoke",
+        "Checks rollback to ACM-only",
+        "Prepares runtime package layout",
+    };
+
+    return app_about_draw_lines("CHANGELOG / 0.9.12", lines, SCREEN_MENU_COUNT(lines));
 }
 
 static int draw_screen_changelog_v0836(void) {
@@ -894,6 +908,8 @@ static int draw_screen_changelog_v010(void) {
 
 int a90_app_about_draw_changelog_detail(enum screen_app_id app_id) {
     switch (app_id) {
+    case SCREEN_APP_CHANGELOG_0837:
+        return draw_screen_changelog_v0837();
     case SCREEN_APP_CHANGELOG_0836:
         return draw_screen_changelog_v0836();
     case SCREEN_APP_CHANGELOG_0835:

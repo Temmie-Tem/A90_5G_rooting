@@ -14,15 +14,15 @@ Android userspace 대신 직접 만든 static `/init`를 실행하고,
 - build: `A908NKSU5EWA3`
 - kernel: Samsung stock Android kernel `Linux 4.14.190`
 - recovery: TWRP 사용 가능
-- latest verified build: `A90 Linux init 0.9.11 (v111)`
-- official version: `0.9.11`
-- build tag: `v111`
+- latest verified build: `A90 Linux init 0.9.12 (v112)`
+- official version: `0.9.12`
+- build tag: `v112`
 - creator: `made by temmie0214`
-- latest verified source: `stage3/linux_init/init_v111.c` + `stage3/linux_init/v111/*.inc.c` + `stage3/linux_init/helpers/a90_cpustress.c` + `stage3/linux_init/helpers/a90_rshell.c` + `stage3/linux_init/a90_config.h` + `stage3/linux_init/a90_util.c/h` + `stage3/linux_init/a90_log.c/h` + `stage3/linux_init/a90_timeline.c/h` + `stage3/linux_init/a90_console.c/h` + `stage3/linux_init/a90_cmdproto.c/h` + `stage3/linux_init/a90_run.c/h` + `stage3/linux_init/a90_service.c/h` + `stage3/linux_init/a90_kms.c/h` + `stage3/linux_init/a90_draw.c/h` + `stage3/linux_init/a90_input.c/h` + `stage3/linux_init/a90_hud.c/h` + `stage3/linux_init/a90_menu.c/h` + `stage3/linux_init/a90_metrics.c/h` + `stage3/linux_init/a90_shell.c/h` + `stage3/linux_init/a90_controller.c/h` + `stage3/linux_init/a90_storage.c/h` + `stage3/linux_init/a90_selftest.c/h` + `stage3/linux_init/a90_usb_gadget.c/h` + `stage3/linux_init/a90_netservice.c/h` + `stage3/linux_init/a90_runtime.c/h` + `stage3/linux_init/a90_helper.c/h` + `stage3/linux_init/a90_userland.c/h` + `stage3/linux_init/a90_diag.c/h` + `stage3/linux_init/a90_wifiinv.c/h` + `stage3/linux_init/a90_wififeas.c/h` + `stage3/linux_init/a90_app_about.c/h` + `stage3/linux_init/a90_app_displaytest.c/h` + `stage3/linux_init/a90_app_inputmon.c/h`
-- latest verified boot image: `stage3/boot_linux_v111.img`
+- latest verified source: `stage3/linux_init/init_v112.c` + `stage3/linux_init/v112/*.inc.c` + `stage3/linux_init/helpers/a90_cpustress.c` + `stage3/linux_init/helpers/a90_rshell.c` + `stage3/linux_init/a90_config.h` + `stage3/linux_init/a90_util.c/h` + `stage3/linux_init/a90_log.c/h` + `stage3/linux_init/a90_timeline.c/h` + `stage3/linux_init/a90_console.c/h` + `stage3/linux_init/a90_cmdproto.c/h` + `stage3/linux_init/a90_run.c/h` + `stage3/linux_init/a90_service.c/h` + `stage3/linux_init/a90_kms.c/h` + `stage3/linux_init/a90_draw.c/h` + `stage3/linux_init/a90_input.c/h` + `stage3/linux_init/a90_hud.c/h` + `stage3/linux_init/a90_menu.c/h` + `stage3/linux_init/a90_metrics.c/h` + `stage3/linux_init/a90_shell.c/h` + `stage3/linux_init/a90_controller.c/h` + `stage3/linux_init/a90_storage.c/h` + `stage3/linux_init/a90_selftest.c/h` + `stage3/linux_init/a90_usb_gadget.c/h` + `stage3/linux_init/a90_netservice.c/h` + `stage3/linux_init/a90_runtime.c/h` + `stage3/linux_init/a90_helper.c/h` + `stage3/linux_init/a90_userland.c/h` + `stage3/linux_init/a90_diag.c/h` + `stage3/linux_init/a90_wifiinv.c/h` + `stage3/linux_init/a90_wififeas.c/h` + `stage3/linux_init/a90_app_about.c/h` + `stage3/linux_init/a90_app_displaytest.c/h` + `stage3/linux_init/a90_app_inputmon.c/h`
+- latest verified boot image: `stage3/boot_linux_v112.img`
 - previous verified source-layout baseline: `stage3/linux_init/init_v80.c` + `stage3/linux_init/v80/*.inc.c`
 - known-good fallback: `stage3/boot_linux_v48.img`
-- local artifact retention: keep `v111` latest, `v110` rollback, and `v48` known-good; older ignored `stage3/boot_linux_v*.img`, `stage3/ramdisk_v*`, and compiled `init_v*` outputs are cleanup candidates
+- local artifact retention: keep `v112` latest, `v111` rollback, and `v48` known-good; older ignored `stage3/boot_linux_v*.img`, `stage3/ramdisk_v*`, and compiled `init_v*` outputs are cleanup candidates
 - control channel: USB CDC ACM serial (`/dev/ttyGS0` ↔ `/dev/ttyACM0`)
 - host bridge: `scripts/revalidation/serial_tcp_bridge.py --port 54321`
 - display: custom boot splash 후 상태 HUD/menu 자동 전환
@@ -87,6 +87,7 @@ Android userspace 대신 직접 만든 static `/init`를 실행하고,
 - structure audit 2: v109에서 post-v108 구조 감사와 next cleanup boundary 기록 완료
 - app controller cleanup: v110에서 auto-menu IPC/state를 `a90_controller.c/h` API로 이동
 - extended soak RC: v111에서 10-cycle host soak와 final service/selftest 확인 완료
+- USB/NCM service soak: v112에서 opt-in NCM/tcpctl start, host ping/TCP control, ACM rollback 확인 완료
 - about app: `APPS / ABOUT`에서 version, changelog 목록/상세, credits 표시
 - input layout: `inputlayout`, `waitgesture`, `screenmenu`/`blindmenu` gesture action 확인
 - input monitor: `TOOLS / INPUT MONITOR`와 `inputmonitor [events]` raw/gesture trace 확인
@@ -215,6 +216,7 @@ Samsung bootloader
 70. Post-v108 structure audit and v110 cleanup boundary — v109 완료
 71. App controller auto-menu IPC cleanup — v110 완료
 72. Extended soak release-candidate baseline — v111 완료
+73. USB/NCM service soak and rollback baseline — v112 완료
 
 ## Repository Layout
 

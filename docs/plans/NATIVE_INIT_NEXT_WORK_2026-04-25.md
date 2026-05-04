@@ -52,7 +52,8 @@ init_main
   -> optional helpers / BusyBox / dropbear
 ```
 
-`v111 EXTENDED SOAK RC`까지 실기 verified 완료했다. v106-v108은 UI/App Architecture split로 진행했고 ABOUT/changelog, displaytest/cutout, input monitor/layout UI를 각각 `a90_app_about.c/h`, `a90_app_displaytest.c/h`, `a90_app_inputmon.c/h`로 분리했다. v111 결과는
+`v112 USB SERVICE SOAK`까지 실기 verified 완료했다. v106-v108은 UI/App Architecture split로 진행했고 ABOUT/changelog, displaytest/cutout, input monitor/layout UI를 각각 `a90_app_about.c/h`, `a90_app_displaytest.c/h`, `a90_app_inputmon.c/h`로 분리했다. v112 결과는
+`docs/reports/NATIVE_INIT_V112_USB_SERVICE_SOAK_2026-05-04.md`에 둔다. v111 결과는
 `docs/reports/NATIVE_INIT_V111_EXTENDED_SOAK_RC_2026-05-04.md`에 둔다. v110 결과는
 `docs/reports/NATIVE_INIT_V110_APP_CONTROLLER_CLEANUP_2026-05-04.md`에 둔다. v109 결과는
 `docs/reports/NATIVE_INIT_V109_STRUCTURE_AUDIT_2026-05-04.md`에 둔다. v108 결과는
@@ -254,18 +255,19 @@ Samsung bootloader
 - post-v108 structure audit — v109 완료
 - app controller cleanup — v110 완료
 - extended soak RC — v111 완료
+- USB/NCM service soak — v112 완료
 - static dropbear SSH 또는 custom TCP shell
 
 ---
 
 ## 현재 기준점
 
-- 최신 확인 버전: `A90 Linux init 0.9.11 (v111)`
-- 공식 버전: `0.9.11`
-- build tag: `v111`
+- 최신 확인 버전: `A90 Linux init 0.9.12 (v112)`
+- 공식 버전: `0.9.12`
+- build tag: `v112`
 - creator: `made by temmie0214`
-- 최신 verified 소스: `stage3/linux_init/init_v111.c` + `stage3/linux_init/v111/*.inc.c` + `stage3/linux_init/helpers/a90_cpustress.c` + `stage3/linux_init/helpers/a90_rshell.c` + `stage3/linux_init/a90_config.h` + `stage3/linux_init/a90_util.c/h` + `stage3/linux_init/a90_log.c/h` + `stage3/linux_init/a90_timeline.c/h` + `stage3/linux_init/a90_console.c/h` + `stage3/linux_init/a90_cmdproto.c/h` + `stage3/linux_init/a90_run.c/h` + `stage3/linux_init/a90_service.c/h` + `stage3/linux_init/a90_kms.c/h` + `stage3/linux_init/a90_draw.c/h` + `stage3/linux_init/a90_input.c/h` + `stage3/linux_init/a90_hud.c/h` + `stage3/linux_init/a90_menu.c/h` + `stage3/linux_init/a90_metrics.c/h` + `stage3/linux_init/a90_shell.c/h` + `stage3/linux_init/a90_controller.c/h` + `stage3/linux_init/a90_storage.c/h` + `stage3/linux_init/a90_selftest.c/h` + `stage3/linux_init/a90_usb_gadget.c/h` + `stage3/linux_init/a90_netservice.c/h` + `stage3/linux_init/a90_runtime.c/h` + `stage3/linux_init/a90_helper.c/h` + `stage3/linux_init/a90_userland.c/h` + `stage3/linux_init/a90_diag.c/h` + `stage3/linux_init/a90_wifiinv.c/h` + `stage3/linux_init/a90_wififeas.c/h` + `stage3/linux_init/a90_app_about.c/h` + `stage3/linux_init/a90_app_displaytest.c/h` + `stage3/linux_init/a90_app_inputmon.c/h`
-- 최신 verified boot image: `stage3/boot_linux_v111.img`
+- 최신 verified 소스: `stage3/linux_init/init_v112.c` + `stage3/linux_init/v112/*.inc.c` + `stage3/linux_init/helpers/a90_cpustress.c` + `stage3/linux_init/helpers/a90_rshell.c` + `stage3/linux_init/a90_config.h` + `stage3/linux_init/a90_util.c/h` + `stage3/linux_init/a90_log.c/h` + `stage3/linux_init/a90_timeline.c/h` + `stage3/linux_init/a90_console.c/h` + `stage3/linux_init/a90_cmdproto.c/h` + `stage3/linux_init/a90_run.c/h` + `stage3/linux_init/a90_service.c/h` + `stage3/linux_init/a90_kms.c/h` + `stage3/linux_init/a90_draw.c/h` + `stage3/linux_init/a90_input.c/h` + `stage3/linux_init/a90_hud.c/h` + `stage3/linux_init/a90_menu.c/h` + `stage3/linux_init/a90_metrics.c/h` + `stage3/linux_init/a90_shell.c/h` + `stage3/linux_init/a90_controller.c/h` + `stage3/linux_init/a90_storage.c/h` + `stage3/linux_init/a90_selftest.c/h` + `stage3/linux_init/a90_usb_gadget.c/h` + `stage3/linux_init/a90_netservice.c/h` + `stage3/linux_init/a90_runtime.c/h` + `stage3/linux_init/a90_helper.c/h` + `stage3/linux_init/a90_userland.c/h` + `stage3/linux_init/a90_diag.c/h` + `stage3/linux_init/a90_wifiinv.c/h` + `stage3/linux_init/a90_wififeas.c/h` + `stage3/linux_init/a90_app_about.c/h` + `stage3/linux_init/a90_app_displaytest.c/h` + `stage3/linux_init/a90_app_inputmon.c/h`
+- 최신 verified boot image: `stage3/boot_linux_v112.img`
 - previous verified source-layout baseline: `stage3/linux_init/init_v80.c` + `stage3/linux_init/v80/*.inc.c`
 - known-good fallback: `stage3/boot_linux_v48.img`
 - 주 제어 채널: USB CDC ACM serial (`/dev/ttyGS0` ↔ `/dev/ttyACM0`)
@@ -930,5 +932,5 @@ Samsung bootloader
 - roadmap: `docs/plans/NATIVE_INIT_V109_V116_ROADMAP_2026-05-04.md`
 - starting point: `A90 Linux init 0.9.9 (v109)`
 - first item: v109 post-v108 structure audit — DONE
-- next item: v112 USB/NCM service soak
+- next item: v113 runtime package layout
 - cycle goal: structure cleanup, extended soak, USB/service/runtime hardening, diagnostics bundle improvement

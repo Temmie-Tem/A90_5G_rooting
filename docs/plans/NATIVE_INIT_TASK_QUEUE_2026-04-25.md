@@ -1,19 +1,19 @@
 # Native Init Task Queue (2026-04-25)
 
-이 문서는 `A90 Linux init 0.9.11 (v111)` verified 이후 바로 실행할 작업 큐다.
+이 문서는 `A90 Linux init 0.9.12 (v112)` verified 이후 바로 실행할 작업 큐다.
 큰 방향은 “보이는 부팅 → 복구 가능한 로그 → 단독 조작 → 작은 userland → USB networking” 순서다.
 
 ## 현재 고정 기준점
 
-- latest verified build: `A90 Linux init 0.9.11 (v111)`
-- official version: `0.9.11`
-- build tag: `v111`
+- latest verified build: `A90 Linux init 0.9.12 (v112)`
+- official version: `0.9.12`
+- build tag: `v112`
 - creator: `made by temmie0214`
-- latest verified source: `stage3/linux_init/init_v111.c` + `stage3/linux_init/v111/*.inc.c` + `stage3/linux_init/helpers/a90_cpustress.c` + `stage3/linux_init/helpers/a90_rshell.c` + `stage3/linux_init/a90_config.h` + `stage3/linux_init/a90_util.c/h` + `stage3/linux_init/a90_log.c/h` + `stage3/linux_init/a90_timeline.c/h` + `stage3/linux_init/a90_console.c/h` + `stage3/linux_init/a90_cmdproto.c/h` + `stage3/linux_init/a90_run.c/h` + `stage3/linux_init/a90_service.c/h` + `stage3/linux_init/a90_kms.c/h` + `stage3/linux_init/a90_draw.c/h` + `stage3/linux_init/a90_input.c/h` + `stage3/linux_init/a90_hud.c/h` + `stage3/linux_init/a90_menu.c/h` + `stage3/linux_init/a90_metrics.c/h` + `stage3/linux_init/a90_shell.c/h` + `stage3/linux_init/a90_controller.c/h` + `stage3/linux_init/a90_storage.c/h` + `stage3/linux_init/a90_selftest.c/h` + `stage3/linux_init/a90_usb_gadget.c/h` + `stage3/linux_init/a90_netservice.c/h` + `stage3/linux_init/a90_runtime.c/h` + `stage3/linux_init/a90_helper.c/h` + `stage3/linux_init/a90_userland.c/h` + `stage3/linux_init/a90_diag.c/h` + `stage3/linux_init/a90_wifiinv.c/h` + `stage3/linux_init/a90_wififeas.c/h` + `stage3/linux_init/a90_app_about.c/h` + `stage3/linux_init/a90_app_displaytest.c/h` + `stage3/linux_init/a90_app_inputmon.c/h`
-- latest verified boot image: `stage3/boot_linux_v111.img`
+- latest verified source: `stage3/linux_init/init_v112.c` + `stage3/linux_init/v112/*.inc.c` + `stage3/linux_init/helpers/a90_cpustress.c` + `stage3/linux_init/helpers/a90_rshell.c` + `stage3/linux_init/a90_config.h` + `stage3/linux_init/a90_util.c/h` + `stage3/linux_init/a90_log.c/h` + `stage3/linux_init/a90_timeline.c/h` + `stage3/linux_init/a90_console.c/h` + `stage3/linux_init/a90_cmdproto.c/h` + `stage3/linux_init/a90_run.c/h` + `stage3/linux_init/a90_service.c/h` + `stage3/linux_init/a90_kms.c/h` + `stage3/linux_init/a90_draw.c/h` + `stage3/linux_init/a90_input.c/h` + `stage3/linux_init/a90_hud.c/h` + `stage3/linux_init/a90_menu.c/h` + `stage3/linux_init/a90_metrics.c/h` + `stage3/linux_init/a90_shell.c/h` + `stage3/linux_init/a90_controller.c/h` + `stage3/linux_init/a90_storage.c/h` + `stage3/linux_init/a90_selftest.c/h` + `stage3/linux_init/a90_usb_gadget.c/h` + `stage3/linux_init/a90_netservice.c/h` + `stage3/linux_init/a90_runtime.c/h` + `stage3/linux_init/a90_helper.c/h` + `stage3/linux_init/a90_userland.c/h` + `stage3/linux_init/a90_diag.c/h` + `stage3/linux_init/a90_wifiinv.c/h` + `stage3/linux_init/a90_wififeas.c/h` + `stage3/linux_init/a90_app_about.c/h` + `stage3/linux_init/a90_app_displaytest.c/h` + `stage3/linux_init/a90_app_inputmon.c/h`
+- latest verified boot image: `stage3/boot_linux_v112.img`
 - previous verified source-layout baseline: `stage3/linux_init/init_v80.c` + `stage3/linux_init/v80/*.inc.c`
 - known-good fallback: `stage3/boot_linux_v48.img`
-- local artifact retention: `v111` latest, `v110` rollback, `v48` known-good만 보존하고 나머지 ignored stage3 산출물은 정리 가능
+- local artifact retention: `v112` latest, `v111` rollback, `v48` known-good만 보존하고 나머지 ignored stage3 산출물은 정리 가능
 - control channel: USB ACM serial bridge
 - log: SD 정상 시 `/mnt/sdext/a90/logs/native-init.log`, fallback 시 `/cache/native-init.log`
 - verified:
@@ -1942,20 +1942,17 @@ python3 ./scripts/revalidation/physical_usb_reconnect_check.py --manual-host-con
 
 ## 지금 바로 진행할 항목
 
-1. v106-v108 UI/App Architecture split 결과 정리
+1. v113 runtime package layout
 
-   - 기준 문서: `docs/plans/NATIVE_INIT_LONG_TERM_ROADMAP_2026-05-03.md`
-   - 최신 결과: `docs/reports/NATIVE_INIT_V108_UI_APP_INPUTMON_2026-05-04.md`
-   - 논의 메모: `docs/plans/NATIVE_INIT_POST_V105_DISCUSSION_NOTES_2026-05-04.md`
-   - v106 계획: `docs/plans/NATIVE_INIT_V106_UI_APP_ABOUT_PLAN_2026-05-04.md`
-   - v107 계획: `docs/plans/NATIVE_INIT_V107_UI_APP_DISPLAYTEST_PLAN_2026-05-04.md`
-   - v108 계획: `docs/plans/NATIVE_INIT_V108_UI_APP_INPUTMON_PLAN_2026-05-04.md`
-   - v106 결과: `docs/reports/NATIVE_INIT_V106_UI_APP_ABOUT_2026-05-04.md`
-   - v107 결과: `docs/reports/NATIVE_INIT_V107_UI_APP_DISPLAYTEST_2026-05-04.md`
-   - v108 결과: `docs/reports/NATIVE_INIT_V108_UI_APP_INPUTMON_2026-05-04.md`
-   - 다음 실행 항목: post-v108 후보 선정과 v109 계획
-   - 목적: `40_menu_apps.inc.c`의 UI app 책임을 ABOUT/changelog → displaytest/cutout → input monitor 순서로 낮은 리스크부터 분리
-   - 보류: risky Wi-Fi bring-up, partition writes, production Wi-Fi networking
+   - 기준 문서: `docs/plans/NATIVE_INIT_V109_V116_ROADMAP_2026-05-04.md`
+   - 최신 결과: `docs/reports/NATIVE_INIT_V112_USB_SERVICE_SOAK_2026-05-04.md`
+   - v109 결과: `docs/reports/NATIVE_INIT_V109_STRUCTURE_AUDIT_2026-05-04.md`
+   - v110 결과: `docs/reports/NATIVE_INIT_V110_APP_CONTROLLER_CLEANUP_2026-05-04.md`
+   - v111 결과: `docs/reports/NATIVE_INIT_V111_EXTENDED_SOAK_RC_2026-05-04.md`
+   - v112 결과: `docs/reports/NATIVE_INIT_V112_USB_SERVICE_SOAK_2026-05-04.md`
+   - 다음 실행 항목: v113 runtime package layout
+   - 목적: SD runtime root, package/helper/runtime directory contract를 destructive migration 없이 명확히 정리
+   - 보류: risky Wi-Fi bring-up, partition writes, automatic remote downloads
 
 ### V106-V108. UI/App Architecture Split — DONE
 
@@ -2073,7 +2070,7 @@ python3 ./scripts/revalidation/physical_usb_reconnect_check.py --manual-host-con
 - build: `A90 Linux init 0.9.9 (v109)`
 - artifacts: `stage3/linux_init/init_v109`, `stage3/ramdisk_v109.cpio`, `stage3/boot_linux_v109.img`
 - validation: real-device flash PASS, cmdv1 version/status PASS, 3-cycle quick soak PASS
-- next execution item: v112 USB/NCM service soak
+- next execution item: v113 runtime package layout
 
 ### V110. App Controller Cleanup — DONE
 
@@ -2081,7 +2078,7 @@ python3 ./scripts/revalidation/physical_usb_reconnect_check.py --manual-host-con
 - build: `A90 Linux init 0.9.10 (v110)`
 - artifacts: `stage3/linux_init/init_v110`, `stage3/ramdisk_v110.cpio`, `stage3/boot_linux_v110.img`
 - validation: real-device flash PASS, controller busy gate PASS, 3-cycle quick soak PASS
-- next execution item: v112 USB/NCM service soak
+- next execution item: v113 runtime package layout
 
 ### V111. Extended Soak RC — DONE
 
@@ -2089,12 +2086,20 @@ python3 ./scripts/revalidation/physical_usb_reconnect_check.py --manual-host-con
 - build: `A90 Linux init 0.9.11 (v111)`
 - artifacts: `stage3/linux_init/init_v111`, `stage3/ramdisk_v111.cpio`, `stage3/boot_linux_v111.img`
 - validation: real-device flash PASS, 10-cycle extended soak PASS, final service/selftest PASS
-- next execution item: v112 USB/NCM service soak
+- next execution item: v113 runtime package layout
+
+### V112. USB/NCM Service Soak — DONE
+
+- result: `docs/reports/NATIVE_INIT_V112_USB_SERVICE_SOAK_2026-05-04.md`
+- build: `A90 Linux init 0.9.12 (v112)`
+- artifacts: `stage3/linux_init/init_v112`, `stage3/ramdisk_v112.cpio`, `stage3/boot_linux_v112.img`
+- validation: real-device flash PASS, NCM ping PASS, `tcpctl_host.py ping/status/run` PASS, ACM rollback PASS, 3-cycle quick soak PASS
+- next execution item: v113 runtime package layout
 
 ### V109-V116. Post-v108 Stability and Runtime Cycle — IN PROGRESS
 
 - roadmap: `docs/plans/NATIVE_INIT_V109_V116_ROADMAP_2026-05-04.md`
 - baseline: `A90 Linux init 0.9.8 (v108)`
 - first execution item: v109 post-v108 structure audit — DONE
-- next execution item: v112 USB/NCM service soak
+- next execution item: v113 runtime package layout
 - guardrails: no risky Wi-Fi bring-up, no partition writes, USB ACM serial remains rescue channel
