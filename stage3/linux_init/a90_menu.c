@@ -24,6 +24,7 @@ static const struct screen_menu_item screen_menu_about_items[] = {
 };
 
 static const struct screen_menu_item screen_menu_changelog_items[] = {
+    { "0.9.19 v119", "MENU ROUTE API", SCREEN_MENU_CHANGELOG_0844, SCREEN_MENU_PAGE_CHANGELOG },
     { "0.9.18 v118", "SHELL META API", SCREEN_MENU_CHANGELOG_0843, SCREEN_MENU_PAGE_CHANGELOG },
     { "0.9.17 v117", "PID1 SLIM PLAN", SCREEN_MENU_CHANGELOG_0842, SCREEN_MENU_PAGE_CHANGELOG },
     { "0.9.16 v116", "DIAG BUNDLE 2", SCREEN_MENU_CHANGELOG_0841, SCREEN_MENU_PAGE_CHANGELOG },
@@ -197,6 +198,8 @@ enum screen_app_id a90_menu_app_from_action(enum screen_menu_action action) {
         return SCREEN_APP_ABOUT_CHANGELOG;
     case SCREEN_MENU_ABOUT_CREDITS:
         return SCREEN_APP_ABOUT_CREDITS;
+    case SCREEN_MENU_CHANGELOG_0844:
+        return SCREEN_APP_CHANGELOG_0844;
     case SCREEN_MENU_CHANGELOG_0843:
         return SCREEN_APP_CHANGELOG_0843;
     case SCREEN_MENU_CHANGELOG_0842:
@@ -318,6 +321,15 @@ enum screen_app_id a90_menu_app_from_action(enum screen_menu_action action) {
     }
 }
 
+bool a90_menu_action_opens_app(enum screen_menu_action action, enum screen_app_id *out) {
+    enum screen_app_id app_id = a90_menu_app_from_action(action);
+
+    if (out != NULL) {
+        *out = app_id;
+    }
+    return app_id != SCREEN_APP_NONE;
+}
+
 
 void a90_menu_state_init(struct a90_menu_state *state) {
     if (state == NULL) {
@@ -417,67 +429,18 @@ bool a90_menu_state_back(struct a90_menu_state *state) {
     return true;
 }
 
+bool a90_menu_app_is_changelog(enum screen_app_id app_id) {
+    return app_id >= SCREEN_APP_CHANGELOG_0844 &&
+           app_id <= SCREEN_APP_CHANGELOG_010;
+}
+
 bool a90_menu_app_is_about(enum screen_app_id app_id) {
     switch (app_id) {
     case SCREEN_APP_ABOUT_VERSION:
     case SCREEN_APP_ABOUT_CHANGELOG:
     case SCREEN_APP_ABOUT_CREDITS:
-    case SCREEN_APP_CHANGELOG_0839:
-    case SCREEN_APP_CHANGELOG_0838:
-    case SCREEN_APP_CHANGELOG_0837:
-    case SCREEN_APP_CHANGELOG_0836:
-    case SCREEN_APP_CHANGELOG_0835:
-    case SCREEN_APP_CHANGELOG_0834:
-    case SCREEN_APP_CHANGELOG_0833:
-    case SCREEN_APP_CHANGELOG_0832:
-    case SCREEN_APP_CHANGELOG_0831:
-    case SCREEN_APP_CHANGELOG_0830:
-    case SCREEN_APP_CHANGELOG_0829:
-    case SCREEN_APP_CHANGELOG_0828:
-    case SCREEN_APP_CHANGELOG_0827:
-    case SCREEN_APP_CHANGELOG_0826:
-    case SCREEN_APP_CHANGELOG_0825:
-    case SCREEN_APP_CHANGELOG_0824:
-    case SCREEN_APP_CHANGELOG_0823:
-    case SCREEN_APP_CHANGELOG_0822:
-    case SCREEN_APP_CHANGELOG_0821:
-    case SCREEN_APP_CHANGELOG_0820:
-    case SCREEN_APP_CHANGELOG_0819:
-    case SCREEN_APP_CHANGELOG_0818:
-    case SCREEN_APP_CHANGELOG_0817:
-    case SCREEN_APP_CHANGELOG_0816:
-    case SCREEN_APP_CHANGELOG_0815:
-    case SCREEN_APP_CHANGELOG_0814:
-    case SCREEN_APP_CHANGELOG_0813:
-    case SCREEN_APP_CHANGELOG_0812:
-    case SCREEN_APP_CHANGELOG_0811:
-    case SCREEN_APP_CHANGELOG_0810:
-    case SCREEN_APP_CHANGELOG_089:
-    case SCREEN_APP_CHANGELOG_088:
-    case SCREEN_APP_CHANGELOG_087:
-    case SCREEN_APP_CHANGELOG_086:
-    case SCREEN_APP_CHANGELOG_085:
-    case SCREEN_APP_CHANGELOG_084:
-    case SCREEN_APP_CHANGELOG_083:
-    case SCREEN_APP_CHANGELOG_082:
-    case SCREEN_APP_CHANGELOG_081:
-    case SCREEN_APP_CHANGELOG_080:
-    case SCREEN_APP_CHANGELOG_075:
-    case SCREEN_APP_CHANGELOG_074:
-    case SCREEN_APP_CHANGELOG_073:
-    case SCREEN_APP_CHANGELOG_072:
-    case SCREEN_APP_CHANGELOG_071:
-    case SCREEN_APP_CHANGELOG_070:
-    case SCREEN_APP_CHANGELOG_060:
-    case SCREEN_APP_CHANGELOG_051:
-    case SCREEN_APP_CHANGELOG_050:
-    case SCREEN_APP_CHANGELOG_041:
-    case SCREEN_APP_CHANGELOG_040:
-    case SCREEN_APP_CHANGELOG_030:
-    case SCREEN_APP_CHANGELOG_020:
-    case SCREEN_APP_CHANGELOG_010:
         return true;
     default:
-        return false;
+        return a90_menu_app_is_changelog(app_id);
     }
 }
