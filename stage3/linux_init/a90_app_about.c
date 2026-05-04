@@ -116,6 +116,7 @@ int a90_app_about_draw_version(void) {
 
 int a90_app_about_draw_changelog(void) {
     const char *lines[] = {
+        "0.9.7 v107 APP DISPLAYTEST API",
         "0.9.6 v106 APP ABOUT API",
         "0.9.5 v105 SOAK RC",
         "0.9.1 v101 SERVICE MANAGER",
@@ -167,6 +168,19 @@ int a90_app_about_draw_changelog(void) {
     };
 
     return app_about_draw_lines("ABOUT / CHANGELOG", lines, SCREEN_MENU_COUNT(lines));
+}
+
+static int draw_screen_changelog_v0832(void) {
+    const char *lines[] = {
+        "0.9.7 v107 APP DISPLAYTEST API",
+        "Splits displaytest renderer",
+        "Adds a90_app_displaytest.c/h",
+        "Moves cutoutcal drawing path",
+        "Keeps display UX unchanged",
+        "Preserves v106 ABOUT module",
+    };
+
+    return app_about_draw_lines("CHANGELOG / 0.9.7", lines, SCREEN_MENU_COUNT(lines));
 }
 
 static int draw_screen_changelog_v0831(void) {
@@ -824,6 +838,8 @@ static int draw_screen_changelog_v010(void) {
 
 int a90_app_about_draw_changelog_detail(enum screen_app_id app_id) {
     switch (app_id) {
+    case SCREEN_APP_CHANGELOG_0832:
+        return draw_screen_changelog_v0832();
     case SCREEN_APP_CHANGELOG_0831:
         return draw_screen_changelog_v0831();
     case SCREEN_APP_CHANGELOG_0830:
