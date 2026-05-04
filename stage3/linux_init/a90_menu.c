@@ -24,6 +24,7 @@ static const struct screen_menu_item screen_menu_about_items[] = {
 };
 
 static const struct screen_menu_item screen_menu_changelog_items[] = {
+    { "0.9.8 v108", "APP INPUTMON", SCREEN_MENU_CHANGELOG_0833, SCREEN_MENU_PAGE_CHANGELOG },
     { "0.9.7 v107", "APP DISPLAYTEST", SCREEN_MENU_CHANGELOG_0832, SCREEN_MENU_PAGE_CHANGELOG },
     { "0.9.6 v106", "APP ABOUT API", SCREEN_MENU_CHANGELOG_0831, SCREEN_MENU_PAGE_CHANGELOG },
     { "0.9.5 v105", "SOAK RC", SCREEN_MENU_CHANGELOG_0830, SCREEN_MENU_PAGE_CHANGELOG },
@@ -186,6 +187,8 @@ enum screen_app_id a90_menu_app_from_action(enum screen_menu_action action) {
         return SCREEN_APP_ABOUT_CHANGELOG;
     case SCREEN_MENU_ABOUT_CREDITS:
         return SCREEN_APP_ABOUT_CREDITS;
+    case SCREEN_MENU_CHANGELOG_0833:
+        return SCREEN_APP_CHANGELOG_0833;
     case SCREEN_MENU_CHANGELOG_0832:
         return SCREEN_APP_CHANGELOG_0832;
     case SCREEN_MENU_CHANGELOG_0831:
@@ -389,6 +392,7 @@ bool a90_menu_app_is_about(enum screen_app_id app_id) {
     case SCREEN_APP_ABOUT_VERSION:
     case SCREEN_APP_ABOUT_CHANGELOG:
     case SCREEN_APP_ABOUT_CREDITS:
+    case SCREEN_APP_CHANGELOG_0833:
     case SCREEN_APP_CHANGELOG_0832:
     case SCREEN_APP_CHANGELOG_0831:
     case SCREEN_APP_CHANGELOG_0830:

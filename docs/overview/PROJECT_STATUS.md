@@ -120,11 +120,11 @@
 ## 현재 폰 상태
 
 - patched AP (Magisk 30.7) + **TWRP recovery 사용 가능**
-- 최신 verified build: `stage3/boot_linux_v105.img` (`A90 Linux init 0.9.5 (v105)`)
-- 최신 verified source: `stage3/linux_init/init_v105.c` + `stage3/linux_init/v105/*.inc.c` + `stage3/linux_init/helpers/a90_cpustress.c` + `stage3/linux_init/helpers/a90_rshell.c` + `stage3/linux_init/a90_config.h` + `stage3/linux_init/a90_util.c/h` + `stage3/linux_init/a90_log.c/h` + `stage3/linux_init/a90_timeline.c/h` + `stage3/linux_init/a90_console.c/h` + `stage3/linux_init/a90_cmdproto.c/h` + `stage3/linux_init/a90_run.c/h` + `stage3/linux_init/a90_service.c/h` + `stage3/linux_init/a90_kms.c/h` + `stage3/linux_init/a90_draw.c/h` + `stage3/linux_init/a90_input.c/h` + `stage3/linux_init/a90_hud.c/h` + `stage3/linux_init/a90_menu.c/h` + `stage3/linux_init/a90_metrics.c/h` + `stage3/linux_init/a90_shell.c/h` + `stage3/linux_init/a90_controller.c/h` + `stage3/linux_init/a90_storage.c/h` + `stage3/linux_init/a90_selftest.c/h` + `stage3/linux_init/a90_usb_gadget.c/h` + `stage3/linux_init/a90_netservice.c/h` + `stage3/linux_init/a90_runtime.c/h` + `stage3/linux_init/a90_helper.c/h` + `stage3/linux_init/a90_userland.c/h` + `stage3/linux_init/a90_diag.c/h` + `stage3/linux_init/a90_wifiinv.c/h` + `stage3/linux_init/a90_wififeas.c/h`
+- 최신 verified build: `stage3/boot_linux_v108.img` (`A90 Linux init 0.9.8 (v108)`)
+- 최신 verified source: `stage3/linux_init/init_v108.c` + `stage3/linux_init/v108/*.inc.c` + `stage3/linux_init/helpers/a90_cpustress.c` + `stage3/linux_init/helpers/a90_rshell.c` + `stage3/linux_init/a90_config.h` + `stage3/linux_init/a90_util.c/h` + `stage3/linux_init/a90_log.c/h` + `stage3/linux_init/a90_timeline.c/h` + `stage3/linux_init/a90_console.c/h` + `stage3/linux_init/a90_cmdproto.c/h` + `stage3/linux_init/a90_run.c/h` + `stage3/linux_init/a90_service.c/h` + `stage3/linux_init/a90_kms.c/h` + `stage3/linux_init/a90_draw.c/h` + `stage3/linux_init/a90_input.c/h` + `stage3/linux_init/a90_hud.c/h` + `stage3/linux_init/a90_menu.c/h` + `stage3/linux_init/a90_metrics.c/h` + `stage3/linux_init/a90_shell.c/h` + `stage3/linux_init/a90_controller.c/h` + `stage3/linux_init/a90_storage.c/h` + `stage3/linux_init/a90_selftest.c/h` + `stage3/linux_init/a90_usb_gadget.c/h` + `stage3/linux_init/a90_netservice.c/h` + `stage3/linux_init/a90_runtime.c/h` + `stage3/linux_init/a90_helper.c/h` + `stage3/linux_init/a90_userland.c/h` + `stage3/linux_init/a90_diag.c/h` + `stage3/linux_init/a90_wifiinv.c/h` + `stage3/linux_init/a90_wififeas.c/h` + `stage3/linux_init/a90_app_about.c/h` + `stage3/linux_init/a90_app_displaytest.c/h` + `stage3/linux_init/a90_app_inputmon.c/h`
 - previous verified source-layout baseline: `stage3/linux_init/init_v80.c` + `stage3/linux_init/v80/*.inc.c`
-- 공식 버전: `0.9.5`
-- build tag: `v105`
+- 공식 버전: `0.9.8`
+- build tag: `v108`
 - creator: `made by temmie0214`
 - known-good fallback: `stage3/boot_linux_v48.img` (`A90 Linux init v48`)
 - 격리 상태: `stage3/boot_linux_v49.img`는 boot partition prefix readback은 일치했지만
@@ -133,7 +133,7 @@
 - 로그 상태: SD 정상 시 `/mnt/sdext/a90/logs/native-init.log`, fallback 시 `/cache/native-init.log`에 boot/command/result 기록
 - blocking 상태: `waitkey`, `readinput`, `watchhud`, `blindmenu` q/Ctrl-C 취소 확인
 - boot timeline: `timeline` 명령과 current native log replay 확인
-- boot selftest 상태: v105 boot selftest `pass=11 warn=0 fail=0`, `selftest verbose` 확인
+- boot selftest 상태: v108 boot selftest `pass=11 warn=0 fail=0`, `selftest verbose` 확인
 - HUD 상태: `BOOT OK shell` summary 표시와 `statushud` draw 확인
 - run 상태: `/bin/a90sleep` helper로 `run` q 취소 확인
 - log 보존: native init → recovery → native init 왕복 후 v44/v45/v47 log append 확인
@@ -168,6 +168,7 @@
 - KMS/draw module 상태: v86에서 `a90_kms.c/h`와 `a90_draw.c/h`로 DRM/KMS 상태와 framebuffer primitive를 실제 compiled module/API로 분리하고 실기 회귀 검증 완료
 - input module 상태: v87에서 `a90_input.c/h`로 물리 버튼 open/close, key wait, gesture wait, decoder, menu action mapping을 실제 compiled module/API로 분리하고 실기 회귀 검증 완료
 - about app 상태: `APPS / ABOUT`에서 version, changelog 목록/상세, credits 표시
+- UI app split 상태: v106 `a90_app_about.c/h`, v107 `a90_app_displaytest.c/h`, v108 `a90_app_inputmon.c/h` 분리와 실기 flash/quick soak 검증 완료
 - log tail panel 상태: HUD hidden과 menu visible spare area에서 current native log tail 표시 확인
 - serial reattach log 상태: v75에서 idle-timeout 성공 reattach 로그 억제, 수동/오류 reattach 로그 유지 확인
 - serial noise 상태: v76에서 짧은 `A`/`T`/`AT`/`ATA`/`ATAT` fragment와 `AT+GCAP` probe line 무시 확인
@@ -175,7 +176,10 @@
 - shell/controller 상태: v92에서 last result, command lookup/result formatting, menu/power busy policy를 실제 compiled module/API로 분리 완료
 - storage module 상태: v93에서 boot storage state, SD probe, `/cache` fallback, `storage`/`mountsd` command를 실제 compiled module/API로 분리 완료
 - selftest module 상태: v94에서 boot-time non-destructive module smoke test와 `selftest` command를 실제 compiled module/API로 추가 완료
-- 상세 최신 verified 상태: `docs/reports/NATIVE_INIT_V105_SOAK_RC_2026-05-04.md`
+- 상세 최신 verified 상태: `docs/reports/NATIVE_INIT_V108_UI_APP_INPUTMON_2026-05-04.md`
+- v108 input monitor app split 기록: `docs/reports/NATIVE_INIT_V108_UI_APP_INPUTMON_2026-05-04.md`
+- v107 displaytest app split 기록: `docs/reports/NATIVE_INIT_V107_UI_APP_DISPLAYTEST_2026-05-04.md`
+- v106 about app split 기록: `docs/reports/NATIVE_INIT_V106_UI_APP_ABOUT_2026-05-04.md`
 - v105 soak RC 기록: `docs/reports/NATIVE_INIT_V105_SOAK_RC_2026-05-04.md`
 - v104 Wi-Fi feasibility 기록: `docs/reports/NATIVE_INIT_V104_WIFI_FEASIBILITY_2026-05-04.md`
 - v103 Wi-Fi inventory 기록: `docs/reports/NATIVE_INIT_V103_WIFI_INVENTORY_2026-05-04.md`
@@ -250,9 +254,9 @@
 - proc / sys / devtmpfs / ext4(/dev/block/sda31) 마운트 성공
 - 핵심 우회: devtmpfs async 초기화 문제를 `mknod(makedev(259,15))` 로 해결
 
-### 3-2. USB ACM serial console + 인터랙티브 셸 (v8~v105)
+### 3-2. USB ACM serial console + 인터랙티브 셸 (v8~v108)
 
-**현재 버전**: `init_v105` (`stage3/boot_linux_v105.img`) / `0.9.5 (v105)`
+**현재 버전**: `init_v108` (`stage3/boot_linux_v108.img`) / `0.9.8 (v108)`
 
 ADB 방식이 막혀 USB CDC ACM serial (ttyGS0)로 전환. v79까지 반복 안정화:
 
@@ -401,11 +405,10 @@ ADB 방식이 막혀 USB CDC ACM serial (ttyGS0)로 전환. v79까지 반복 안
 
 ## 다음 후보 작업
 
-우선순위 순 (v105 verified build 이후):
+우선순위 순 (v108 verified build 이후):
 
-1. **v106 UI App Split 1** — `docs/plans/NATIVE_INIT_V106_UI_APP_ABOUT_PLAN_2026-05-04.md` 기준 ABOUT/changelog 렌더링을 `a90_app_about.c/h`로 분리
-2. **v107-v108 UI App Split 후속** — `displaytest/cutoutcal`과 input monitor UI를 각각 `a90_app_displaytest.c/h`, `a90_app_inputmon.c/h`로 분리
-3. **optional extended soak/reconnect** — 장시간 idle, USB cable reconnect, NCM/tcpctl/rshell opt-in soak 수동 검증
-4. **Android/TWRP Wi-Fi baseline 비교** — v103/v104 read-only evidence를 Android/TWRP 상태와 비교
+1. **post-v108 UI/controller cleanup 후보 선정** — 남은 UI app ownership, controller 분리, 중복 renderer를 감사
+2. **optional extended soak/reconnect** — 장시간 idle, USB cable reconnect, NCM/tcpctl/rshell opt-in soak 수동 검증
+3. **Android/TWRP Wi-Fi baseline 비교** — v103/v104 read-only evidence를 Android/TWRP 상태와 비교
 
 **복구**: `backups/baseline_a_20260423_030309/boot.img` dd 복구 가능

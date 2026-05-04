@@ -116,6 +116,7 @@ int a90_app_about_draw_version(void) {
 
 int a90_app_about_draw_changelog(void) {
     const char *lines[] = {
+        "0.9.8 v108 APP INPUTMON API",
         "0.9.7 v107 APP DISPLAYTEST API",
         "0.9.6 v106 APP ABOUT API",
         "0.9.5 v105 SOAK RC",
@@ -168,6 +169,19 @@ int a90_app_about_draw_changelog(void) {
     };
 
     return app_about_draw_lines("ABOUT / CHANGELOG", lines, SCREEN_MENU_COUNT(lines));
+}
+
+static int draw_screen_changelog_v0833(void) {
+    const char *lines[] = {
+        "0.9.8 v108 APP INPUTMON API",
+        "Splits input monitor renderer",
+        "Adds a90_app_inputmon.c/h",
+        "Moves raw key visual state",
+        "Adds input layout screen",
+        "Keeps input API unchanged",
+    };
+
+    return app_about_draw_lines("CHANGELOG / 0.9.8", lines, SCREEN_MENU_COUNT(lines));
 }
 
 static int draw_screen_changelog_v0832(void) {
@@ -838,6 +852,8 @@ static int draw_screen_changelog_v010(void) {
 
 int a90_app_about_draw_changelog_detail(enum screen_app_id app_id) {
     switch (app_id) {
+    case SCREEN_APP_CHANGELOG_0833:
+        return draw_screen_changelog_v0833();
     case SCREEN_APP_CHANGELOG_0832:
         return draw_screen_changelog_v0832();
     case SCREEN_APP_CHANGELOG_0831:
