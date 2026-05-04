@@ -116,6 +116,7 @@ int a90_app_about_draw_version(void) {
 
 int a90_app_about_draw_changelog(void) {
     const char *lines[] = {
+        "0.9.11 v111 EXTENDED SOAK RC",
         "0.9.10 v110 APP CONTROLLER CLEANUP",
         "0.9.9 v109 STRUCTURE AUDIT 2",
         "0.9.8 v108 APP INPUTMON API",
@@ -171,6 +172,19 @@ int a90_app_about_draw_changelog(void) {
     };
 
     return app_about_draw_lines("ABOUT / CHANGELOG", lines, SCREEN_MENU_COUNT(lines));
+}
+
+static int draw_screen_changelog_v0836(void) {
+    const char *lines[] = {
+        "0.9.11 v111 EXTENDED SOAK RC",
+        "Keeps v110 runtime behavior",
+        "Runs longer host soak profile",
+        "Validates menu/service idle path",
+        "Records RC stability baseline",
+        "Prepares USB service soak",
+    };
+
+    return app_about_draw_lines("CHANGELOG / 0.9.11", lines, SCREEN_MENU_COUNT(lines));
 }
 
 static int draw_screen_changelog_v0835(void) {
@@ -880,6 +894,8 @@ static int draw_screen_changelog_v010(void) {
 
 int a90_app_about_draw_changelog_detail(enum screen_app_id app_id) {
     switch (app_id) {
+    case SCREEN_APP_CHANGELOG_0836:
+        return draw_screen_changelog_v0836();
     case SCREEN_APP_CHANGELOG_0835:
         return draw_screen_changelog_v0835();
     case SCREEN_APP_CHANGELOG_0834:
