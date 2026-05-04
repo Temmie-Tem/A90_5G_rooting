@@ -116,6 +116,7 @@ int a90_app_about_draw_version(void) {
 
 int a90_app_about_draw_changelog(void) {
     const char *lines[] = {
+        "0.9.13 v113 RUNTIME PACKAGE LAYOUT",
         "0.9.12 v112 USB SERVICE SOAK",
         "0.9.11 v111 EXTENDED SOAK RC",
         "0.9.10 v110 APP CONTROLLER CLEANUP",
@@ -173,6 +174,19 @@ int a90_app_about_draw_changelog(void) {
     };
 
     return app_about_draw_lines("ABOUT / CHANGELOG", lines, SCREEN_MENU_COUNT(lines));
+}
+
+static int draw_screen_changelog_v0838(void) {
+    const char *lines[] = {
+        "0.9.13 v113 RUNTIME PACKAGE LAYOUT",
+        "Adds package-friendly dirs",
+        "Reports pkg/bin helpers services",
+        "Reports pkg/manifests path",
+        "Keeps legacy helper manifest fallback",
+        "Avoids destructive SD migration",
+    };
+
+    return app_about_draw_lines("CHANGELOG / 0.9.13", lines, SCREEN_MENU_COUNT(lines));
 }
 
 static int draw_screen_changelog_v0837(void) {
@@ -908,6 +922,8 @@ static int draw_screen_changelog_v010(void) {
 
 int a90_app_about_draw_changelog_detail(enum screen_app_id app_id) {
     switch (app_id) {
+    case SCREEN_APP_CHANGELOG_0838:
+        return draw_screen_changelog_v0838();
     case SCREEN_APP_CHANGELOG_0837:
         return draw_screen_changelog_v0837();
     case SCREEN_APP_CHANGELOG_0836:

@@ -129,16 +129,29 @@ static void helper_set_manifest_path(void) {
 
     helper_manifest_path[0] = '\0';
     if (a90_runtime_get_status(&runtime) == 0 && runtime.pkg[0] != '\0') {
-        helper_join(helper_manifest_path,
-                    sizeof(helper_manifest_path),
+        char legacy_path[PATH_MAX];
+
+        if (runtime.pkg_manifests[0] != '\0') {
+            helper_join(helper_manifest_path,
+                        sizeof(helper_manifest_path),
+                        runtime.pkg_manifests,
+                        A90_HELPER_MANIFEST_NAME);
+        }
+        helper_join(legacy_path,
+                    sizeof(legacy_path),
                     runtime.pkg,
                     A90_HELPER_MANIFEST_NAME);
+        if (access(helper_manifest_path, R_OK) < 0 &&
+            access(legacy_path, R_OK) == 0) {
+            snprintf(helper_manifest_path, sizeof(helper_manifest_path), "%s", legacy_path);
+        }
     } else {
         snprintf(helper_manifest_path,
                  sizeof(helper_manifest_path),
-                 "%s/%s/%s",
+                 "%s/%s/%s/%s",
                  A90_RUNTIME_CACHE_ROOT,
                  A90_RUNTIME_PKG_DIR,
+                 "manifests",
                  A90_HELPER_MANIFEST_NAME);
     }
 }

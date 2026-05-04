@@ -1,8 +1,8 @@
 #ifndef A90_CONFIG_H
 #define A90_CONFIG_H
 
-#define INIT_VERSION "0.9.12"
-#define INIT_BUILD "v112"
+#define INIT_VERSION "0.9.13"
+#define INIT_BUILD "v113"
 #define INIT_CREATOR "made by temmie0214"
 #define INIT_BANNER "A90 Linux init " INIT_VERSION " (" INIT_BUILD ")"
 #define BOOT_SPLASH_SECONDS 2
@@ -58,6 +58,11 @@
 #define A90_RUNTIME_STATE_DIR "state"
 #define A90_RUNTIME_PKG_DIR "pkg"
 #define A90_RUNTIME_RUN_DIR "run"
+#define A90_RUNTIME_PKG_BIN_DIR "pkg/bin"
+#define A90_RUNTIME_PKG_HELPERS_DIR "pkg/helpers"
+#define A90_RUNTIME_PKG_SERVICES_DIR "pkg/services"
+#define A90_RUNTIME_PKG_MANIFESTS_DIR "pkg/manifests"
+#define A90_RUNTIME_STATE_SERVICES_DIR "state/services"
 #define A90_RUNTIME_RW_TEST_NAME ".runtime-rw-test"
 #define A90_HELPER_MANIFEST_NAME "helpers.manifest"
 #define A90_HELPER_STATE_NAME "helper-state"

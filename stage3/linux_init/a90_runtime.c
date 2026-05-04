@@ -43,6 +43,14 @@ static void runtime_fill_paths(const char *root) {
     runtime_join_path(runtime_state.state, sizeof(runtime_state.state), root, A90_RUNTIME_STATE_DIR);
     runtime_join_path(runtime_state.pkg, sizeof(runtime_state.pkg), root, A90_RUNTIME_PKG_DIR);
     runtime_join_path(runtime_state.run, sizeof(runtime_state.run), root, A90_RUNTIME_RUN_DIR);
+    runtime_join_path(runtime_state.pkg_bin, sizeof(runtime_state.pkg_bin), root, A90_RUNTIME_PKG_BIN_DIR);
+    runtime_join_path(runtime_state.pkg_helpers, sizeof(runtime_state.pkg_helpers), root, A90_RUNTIME_PKG_HELPERS_DIR);
+    runtime_join_path(runtime_state.pkg_services, sizeof(runtime_state.pkg_services), root, A90_RUNTIME_PKG_SERVICES_DIR);
+    runtime_join_path(runtime_state.pkg_manifests, sizeof(runtime_state.pkg_manifests), root, A90_RUNTIME_PKG_MANIFESTS_DIR);
+    runtime_join_path(runtime_state.state_services, sizeof(runtime_state.state_services), root, A90_RUNTIME_STATE_SERVICES_DIR);
+    runtime_join_path(runtime_state.helper_manifest, sizeof(runtime_state.helper_manifest), runtime_state.pkg_manifests, A90_HELPER_MANIFEST_NAME);
+    runtime_join_path(runtime_state.helper_state, sizeof(runtime_state.helper_state), runtime_state.state, A90_HELPER_STATE_NAME);
+    runtime_join_path(runtime_state.helper_deploy_log, sizeof(runtime_state.helper_deploy_log), runtime_state.logs, A90_HELPER_DEPLOY_LOG_NAME);
 }
 
 static int runtime_ensure_dirs(void) {
@@ -55,6 +63,11 @@ static int runtime_ensure_dirs(void) {
         runtime_state.state,
         runtime_state.pkg,
         runtime_state.run,
+        runtime_state.pkg_bin,
+        runtime_state.pkg_helpers,
+        runtime_state.pkg_services,
+        runtime_state.pkg_manifests,
+        runtime_state.state_services,
     };
     size_t index;
 
@@ -294,6 +307,14 @@ int a90_runtime_cmd_runtime(void) {
     a90_console_printf("runtime: state=%s\r\n", runtime_state.state);
     a90_console_printf("runtime: pkg=%s\r\n", runtime_state.pkg);
     a90_console_printf("runtime: run=%s\r\n", runtime_state.run);
+    a90_console_printf("runtime: pkg_bin=%s\r\n", runtime_state.pkg_bin);
+    a90_console_printf("runtime: pkg_helpers=%s\r\n", runtime_state.pkg_helpers);
+    a90_console_printf("runtime: pkg_services=%s\r\n", runtime_state.pkg_services);
+    a90_console_printf("runtime: pkg_manifests=%s\r\n", runtime_state.pkg_manifests);
+    a90_console_printf("runtime: state_services=%s\r\n", runtime_state.state_services);
+    a90_console_printf("runtime: helper_manifest=%s\r\n", runtime_state.helper_manifest);
+    a90_console_printf("runtime: helper_state=%s\r\n", runtime_state.helper_state);
+    a90_console_printf("runtime: helper_deploy_log=%s\r\n", runtime_state.helper_deploy_log);
     if (runtime_state.warning[0] != '\0') {
         a90_console_printf("runtime: warning=%s\r\n", runtime_state.warning);
     }

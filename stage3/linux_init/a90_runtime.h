@@ -19,6 +19,14 @@ struct a90_runtime_status {
     char state[PATH_MAX];
     char pkg[PATH_MAX];
     char run[PATH_MAX];
+    char pkg_bin[PATH_MAX];
+    char pkg_helpers[PATH_MAX];
+    char pkg_services[PATH_MAX];
+    char pkg_manifests[PATH_MAX];
+    char state_services[PATH_MAX];
+    char helper_manifest[PATH_MAX];
+    char helper_state[PATH_MAX];
+    char helper_deploy_log[PATH_MAX];
     char warning[160];
     char detail[192];
 };
