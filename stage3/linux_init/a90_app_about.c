@@ -116,6 +116,7 @@ int a90_app_about_draw_version(void) {
 
 int a90_app_about_draw_changelog(void) {
     const char *lines[] = {
+        "0.9.9 v109 STRUCTURE AUDIT 2",
         "0.9.8 v108 APP INPUTMON API",
         "0.9.7 v107 APP DISPLAYTEST API",
         "0.9.6 v106 APP ABOUT API",
@@ -169,6 +170,19 @@ int a90_app_about_draw_changelog(void) {
     };
 
     return app_about_draw_lines("ABOUT / CHANGELOG", lines, SCREEN_MENU_COUNT(lines));
+}
+
+static int draw_screen_changelog_v0834(void) {
+    const char *lines[] = {
+        "0.9.9 v109 STRUCTURE AUDIT 2",
+        "Audits post-v108 module debt",
+        "Keeps user behavior unchanged",
+        "Records next cleanup boundaries",
+        "Refreshes latest build markers",
+        "Prepares v110 controller cleanup",
+    };
+
+    return app_about_draw_lines("CHANGELOG / 0.9.9", lines, SCREEN_MENU_COUNT(lines));
 }
 
 static int draw_screen_changelog_v0833(void) {
@@ -852,6 +866,8 @@ static int draw_screen_changelog_v010(void) {
 
 int a90_app_about_draw_changelog_detail(enum screen_app_id app_id) {
     switch (app_id) {
+    case SCREEN_APP_CHANGELOG_0834:
+        return draw_screen_changelog_v0834();
     case SCREEN_APP_CHANGELOG_0833:
         return draw_screen_changelog_v0833();
     case SCREEN_APP_CHANGELOG_0832:
