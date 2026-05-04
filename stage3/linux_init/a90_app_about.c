@@ -116,6 +116,7 @@ int a90_app_about_draw_version(void) {
 
 int a90_app_about_draw_changelog(void) {
     const char *lines[] = {
+        "0.9.17 v117 PID1 SLIM ROADMAP",
         "0.9.16 v116 DIAG BUNDLE 2",
         "0.9.15 v115 RSHELL HARDENING",
         "0.9.14 v114 HELPER DEPLOY 2",
@@ -177,6 +178,19 @@ int a90_app_about_draw_changelog(void) {
     };
 
     return app_about_draw_lines("ABOUT / CHANGELOG", lines, SCREEN_MENU_COUNT(lines));
+}
+
+static int draw_screen_changelog_v0842(void) {
+    const char *lines[] = {
+        "0.9.17 v117 PID1 SLIM ROADMAP",
+        "Adds v117-v122 cycle roadmap",
+        "Keeps v116 runtime behavior",
+        "Prioritizes PID1 control debt",
+        "Keeps Wi-Fi as read-only refresh",
+        "Sets v118 shell cleanup next",
+    };
+
+    return app_about_draw_lines("CHANGELOG / 0.9.17", lines, SCREEN_MENU_COUNT(lines));
 }
 
 static int draw_screen_changelog_v0841(void) {
@@ -964,6 +978,8 @@ static int draw_screen_changelog_v010(void) {
 
 int a90_app_about_draw_changelog_detail(enum screen_app_id app_id) {
     switch (app_id) {
+    case SCREEN_APP_CHANGELOG_0842:
+        return draw_screen_changelog_v0842();
     case SCREEN_APP_CHANGELOG_0841:
         return draw_screen_changelog_v0841();
     case SCREEN_APP_CHANGELOG_0840:
