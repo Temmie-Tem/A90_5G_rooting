@@ -2066,3 +2066,10 @@ python3 ./scripts/revalidation/physical_usb_reconnect_check.py --manual-host-con
   - `stage3/boot_linux_v103.img`
     - SHA256 `dca3ee7ac77f366176d833b40450b0b1e3e55ebaf46ddc11c4d3a5f19454622b`
   - `docs/reports/NATIVE_INIT_V103_WIFI_INVENTORY_2026-05-04.md`
+
+### V109-V116. Post-v108 Stability and Runtime Cycle — PLANNED
+
+- roadmap: `docs/plans/NATIVE_INIT_V109_V116_ROADMAP_2026-05-04.md`
+- baseline: `A90 Linux init 0.9.8 (v108)`
+- first execution item: v109 post-v108 structure audit
+- guardrails: no risky Wi-Fi bring-up, no partition writes, USB ACM serial remains rescue channel

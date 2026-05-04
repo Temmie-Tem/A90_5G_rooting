@@ -918,3 +918,10 @@ Samsung bootloader
 - native init 환경이 “부팅되는 실험”이 아니라 “반복 운용 가능한 최소 Linux 콘솔”이 된다.
 - 디스플레이, 입력, 센서, 저장소, USB의 안전 사용 범위가 문서화된다.
 - 추가 userland 도구나 네트워크를 올릴 기반이 생긴다.
+
+## V109-V116 다음 사이클
+
+- roadmap: `docs/plans/NATIVE_INIT_V109_V116_ROADMAP_2026-05-04.md`
+- starting point: `A90 Linux init 0.9.8 (v108)`
+- first item: v109 post-v108 structure audit
+- cycle goal: structure cleanup, extended soak, USB/service/runtime hardening, diagnostics bundle improvement
