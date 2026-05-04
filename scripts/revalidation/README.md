@@ -55,6 +55,7 @@
   - v99 BusyBox/toybox 후보의 local-info, manifest, device status, smoke 비교를 수행
 - `rshell_host.py`
   - v100 custom remote shell helper의 start/status/stop/token/exec/smoke 검증 wrapper
+  - v115 기준 `invalid-token`과 `harden`으로 token 거부, smoke 실행, stop/rollback까지 한 번에 확인
   - serial bridge로 `rshell` lifecycle을 제어하고, 명령 실행은 USB NCM `192.168.7.2:2326`의 `A90RSH1` protocol로 확인
   - `start`/`stop`처럼 NCM 재열거로 framed END가 끊길 수 있는 동작은 raw-control-like로 처리한 뒤 status를 재확인
 - `build_usbnet_helper.sh`

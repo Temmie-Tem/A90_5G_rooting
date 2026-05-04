@@ -116,6 +116,7 @@ int a90_app_about_draw_version(void) {
 
 int a90_app_about_draw_changelog(void) {
     const char *lines[] = {
+        "0.9.15 v115 RSHELL HARDENING",
         "0.9.14 v114 HELPER DEPLOY 2",
         "0.9.13 v113 RUNTIME PACKAGE LAYOUT",
         "0.9.12 v112 USB SERVICE SOAK",
@@ -175,6 +176,19 @@ int a90_app_about_draw_changelog(void) {
     };
 
     return app_about_draw_lines("ABOUT / CHANGELOG", lines, SCREEN_MENU_COUNT(lines));
+}
+
+static int draw_screen_changelog_v0840(void) {
+    const char *lines[] = {
+        "0.9.15 v115 RSHELL HARDENING",
+        "Adds rshell audit command",
+        "Reports token file mode",
+        "Adds invalid-token host check",
+        "Adds harden smoke wrapper",
+        "Keeps service USB-only opt-in",
+    };
+
+    return app_about_draw_lines("CHANGELOG / 0.9.15", lines, SCREEN_MENU_COUNT(lines));
 }
 
 static int draw_screen_changelog_v0839(void) {
@@ -936,6 +950,8 @@ static int draw_screen_changelog_v010(void) {
 
 int a90_app_about_draw_changelog_detail(enum screen_app_id app_id) {
     switch (app_id) {
+    case SCREEN_APP_CHANGELOG_0840:
+        return draw_screen_changelog_v0840();
     case SCREEN_APP_CHANGELOG_0839:
         return draw_screen_changelog_v0839();
     case SCREEN_APP_CHANGELOG_0838:

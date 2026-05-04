@@ -89,6 +89,16 @@ def rshell_exchange(host: str, port: int, token: str, command: str, timeout: flo
         return int(match.group("rc")), text
 
 
+def rshell_auth_attempt(host: str, port: int, token: str, timeout: float) -> str:
+    with socket.create_connection((host, port), timeout=min(timeout, 5.0)) as sock:
+        sock.settimeout(0.25)
+        banner = read_until(sock, b"\n", 3.0)
+        if "A90RSH1 READY" not in banner:
+            raise RuntimeError(f"unexpected banner: {banner!r}")
+        sock.sendall(f"AUTH {token}\n".encode())
+        return read_until(sock, b"\n", timeout)
+
+
 
 
 
@@ -147,6 +157,19 @@ def cmd_exec(args: argparse.Namespace) -> int:
     return rc
 
 
+def cmd_invalid_token(args: argparse.Namespace) -> int:
+    hide_menu(args)
+    token = args.token or device_token(args.bridge_timeout)
+    bad_token = "0" * len(token)
+    if bad_token == token:
+        bad_token = "1" * len(token)
+    text = rshell_auth_attempt(args.host, args.port, bad_token, args.timeout)
+    print(text, end="" if text.endswith("\n") else "\n")
+    if "ERR auth" not in text:
+        raise SystemExit(f"invalid token was not rejected: {text!r}")
+    return 0
+
+
 def cmd_smoke(args: argparse.Namespace) -> int:
     hide_menu(args)
     start_text = run_a90ctl(["rshell", "start"], timeout=args.bridge_timeout, allow_error=True)
@@ -162,6 +185,41 @@ def cmd_smoke(args: argparse.Namespace) -> int:
         if rc != 0:
             return rc
     return 0
+
+
+def cmd_harden(args: argparse.Namespace) -> int:
+    hide_menu(args)
+    start_text = run_a90ctl(["rshell", "start"], timeout=args.bridge_timeout, allow_error=True)
+    if start_text.strip():
+        print(start_text.rstrip())
+    status_text = wait_for_rshell_state(args, running=True)
+    print(status_text.rstrip())
+    token = args.token or extract_token(start_text) or device_token(args.bridge_timeout)
+    result_rc = 0
+
+    try:
+        bad_token = "0" * len(token)
+        if bad_token == token:
+            bad_token = "1" * len(token)
+        print("# INVALID TOKEN")
+        invalid_text = rshell_auth_attempt(args.host, args.port, bad_token, args.timeout)
+        print(invalid_text, end="" if invalid_text.endswith("\n") else "\n")
+        if "ERR auth" not in invalid_text:
+            raise SystemExit(f"invalid token was not rejected: {invalid_text!r}")
+
+        for command in ("echo A90_RSHELL_OK", "busybox uname -a", "busybox ls /proc | busybox head -5"):
+            print(f"# EXEC {command}")
+            rc, text = rshell_exchange(args.host, args.port, token, command, args.timeout)
+            print(text, end="" if text.endswith("\n") else "\n")
+            if rc != 0:
+                result_rc = rc
+                break
+    finally:
+        stop_text = run_a90ctl(["rshell", "stop"], timeout=args.bridge_timeout, allow_error=True)
+        if stop_text.strip():
+            print(stop_text.rstrip())
+        print(wait_for_rshell_state(args, running=False).rstrip())
+    return result_rc
 
 
 def build_parser() -> argparse.ArgumentParser:
@@ -189,8 +247,14 @@ def build_parser() -> argparse.ArgumentParser:
     exec_parser.add_argument("command")
     exec_parser.set_defaults(func=cmd_exec)
 
+    invalid_token = subparsers.add_parser("invalid-token")
+    invalid_token.set_defaults(func=cmd_invalid_token)
+
     smoke = subparsers.add_parser("smoke")
     smoke.set_defaults(func=cmd_smoke)
+
+    harden = subparsers.add_parser("harden")
+    harden.set_defaults(func=cmd_harden)
     return parser
 
 
