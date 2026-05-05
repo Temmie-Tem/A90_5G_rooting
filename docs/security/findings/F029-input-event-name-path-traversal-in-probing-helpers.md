@@ -7,16 +7,20 @@
 | finding_id | `370b1e0b2e8881919ffb09e26d91688c` |
 | finding_url | https://chatgpt.com/codex/cloud/security/findings/370b1e0b2e8881919ffb09e26d91688c |
 | severity | `informational` |
-| status | `new` |
+| status | `mitigated-v126` |
 | detected_at | `2026-04-27T22:51:47.172791Z` |
 | committed_at | `2026-04-24 00:31:08 +0900` |
 | commit_hash | `5259fd7d5b06b1fd3c0d4a7b3d82f5f4656eb5a7` |
 | relevant_paths | `stage3/linux_init/init_v10.c` |
-| has_patch | `false` |
+| has_patch | `true` |
 
 ## CSV Description
 
 The commit introduces input helper logic (`inputinfo`, `readinput`, later reused by `inputcaps`) that treats any argument starting with `event` as valid. It does not enforce a strict `event[0-9]+` format and allows `/` and `..` segments. That unchecked value is interpolated into `/sys/class/input/%s/...` and `/dev/input/%s` paths. As a result, an attacker with access to this shell can traverse paths under `/sys` and cause `mknod()` at unintended locations under `/dev` (given suitable directory setup), bypassing the intended event-node-only scope.
+
+## Local Remediation
+
+- Batch 6 enforces strict `event[0-9]+` validation in latest v126 input commands and retained v10 input helpers.
 
 ## Codex Cloud Detail
 

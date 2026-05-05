@@ -476,6 +476,21 @@ static int command_cancelled(const char *tag, enum cancel_kind cancel) {
     return -ECANCELED;
 }
 
+static void dup_child_stdio(void) {
+    int null_fd = open("/dev/null", O_RDONLY | O_CLOEXEC);
+
+    if (null_fd >= 0) {
+        dup2(null_fd, STDIN_FILENO);
+        if (null_fd > STDERR_FILENO) {
+            close(null_fd);
+        }
+    } else {
+        dup2(console_fd, STDIN_FILENO);
+    }
+    dup2(console_fd, STDOUT_FILENO);
+    dup2(console_fd, STDERR_FILENO);
+}
+
 static int parse_dev_numbers(const char *dev_info,
                              unsigned int *major_num,
                              unsigned int *minor_num) {
@@ -3586,9 +3601,7 @@ static int cmd_run(char **argv, int argc) {
     }
 
     if (pid == 0) {
-        dup2(console_fd, STDIN_FILENO);
-        dup2(console_fd, STDOUT_FILENO);
-        dup2(console_fd, STDERR_FILENO);
+        dup_child_stdio();
         execve(argv[1], &argv[1], envp);
         cprintf("run: execve(%s): %s\r\n", argv[1], strerror(errno));
         _exit(127);
@@ -3636,9 +3649,7 @@ static int cmd_runandroid(char **argv, int argc) {
     }
 
     if (pid == 0) {
-        dup2(console_fd, STDIN_FILENO);
-        dup2(console_fd, STDOUT_FILENO);
-        dup2(console_fd, STDERR_FILENO);
+        dup_child_stdio();
         execve(argv[1], &argv[1], envp);
         cprintf("runandroid: execve(%s): %s\r\n", argv[1], strerror(errno));
         _exit(127);

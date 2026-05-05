@@ -140,17 +140,27 @@ static void trim_newline(char *buf) {
 }
 
 static int normalize_event_name(const char *arg, char *out, size_t out_size) {
+    size_t index;
+
     if (strncmp(arg, "event", 5) == 0) {
         if (snprintf(out, out_size, "%s", arg) >= (int)out_size) {
             errno = ENAMETOOLONG;
             return -1;
         }
-        return 0;
-    }
-
-    if (snprintf(out, out_size, "event%s", arg) >= (int)out_size) {
+    } else if (snprintf(out, out_size, "event%s", arg) >= (int)out_size) {
         errno = ENAMETOOLONG;
         return -1;
+    }
+
+    if (strncmp(out, "event", 5) != 0 || out[5] < '0' || out[5] > '9') {
+        errno = EINVAL;
+        return -1;
+    }
+    for (index = 6; out[index] != '\0'; ++index) {
+        if (out[index] < '0' || out[index] > '9') {
+            errno = EINVAL;
+            return -1;
+        }
     }
     return 0;
 }

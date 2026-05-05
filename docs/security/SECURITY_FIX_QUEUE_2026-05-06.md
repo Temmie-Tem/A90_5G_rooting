@@ -202,6 +202,10 @@ Validation:
 
 ## Batch 6: Historical Reproducibility and Reliability
 
+Status: complete in `A90 Linux init 0.9.26 (v126)`.
+
+Report: `docs/reports/NATIVE_INIT_V126_SECURITY_BATCH6_RELIABILITY_2026-05-06.md`
+
 Findings:
 
 - F026: metrics refactor breaks older builds
@@ -217,20 +221,22 @@ Implementation direction:
 - Apply strict `event[0-9]+` validation to input helper paths.
 - Fix low-risk UI regression where retained historical versions are still used.
 
-Suggested version theme:
+Implemented version:
 
-- `v131`: historical build/rollback support policy and compatibility cleanup.
+- `v126`: retained-source compatibility wrappers, v84 changelog routing fix,
+  v42 child stdin isolation, and strict input event name validation.
 
 Validation:
 
-- supported rollback versions build.
-- input event arguments cannot escape event-node scope.
+- retained v88/v89 source object builds compile with current shared headers.
+- latest v126 input event arguments must match `event[0-9]+`; traversal payloads are rejected.
+- retained v10 input helpers enforce the same event name rule.
 
 ## Recommended Immediate Next Step
 
-Batch 0 through Batch 5 are complete. Continue with Batch 6 historical
-reproducibility and retained rollback support cleanup before Wi-Fi or broader
-network work.
+Batch 0 through Batch 6 are complete. Before Wi-Fi or broader network work,
+run a final completion audit against finding statuses, reports, latest docs,
+and the live v126 device state.
 
 Reason:
 

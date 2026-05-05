@@ -18,6 +18,7 @@ Post-remediation note:
 - Batch 3 was mitigated in host tooling for F008, F015, F016, F017, F018, F019, F020, F022, and F031. No native image bump was needed for Batch 3 itself.
 - Batch 4 was mitigated in `A90 Linux init 0.9.25 (v125)` for F009, F024, and F025 through owner-only diagnostics/logs, private emergency fallback logs, and opt-in HUD log tail.
 - Batch 5 was mitigated in host/rootfs tooling for F006 and F007. No native image bump was needed.
+- Batch 6 was mitigated in `A90 Linux init 0.9.26 (v126)` for F026, F027, F028, and F029 through retained-source compatibility and strict input event validation.
 - The matrix below remains the original v122 exposure map used to choose fix order; use `SECURITY_FIX_QUEUE_2026-05-06.md` and finding index statuses for current remediation state.
 
 ## Status Vocabulary
@@ -143,7 +144,7 @@ Immediate implementation order remains correct:
    - These are not all device-runtime bugs, but they affect flashing, validation, and sudo host setup safety.
 4. Batch 4 complete: logs and diagnostics.
 5. Batch 5 complete: legacy high-impact tooling.
-6. Batch 6 next: historical reproducibility and retained rollback support cleanup.
+6. Batch 6 complete: historical reproducibility and retained rollback support cleanup.
 
 ## Runtime Verification Still Needed
 

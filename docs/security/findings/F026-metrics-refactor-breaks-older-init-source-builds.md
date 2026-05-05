@@ -7,16 +7,20 @@
 | finding_id | `fa50097a3e1c81918944778437e4ef5c` |
 | finding_url | https://chatgpt.com/codex/cloud/security/findings/fa50097a3e1c81918944778437e4ef5c |
 | severity | `informational` |
-| status | `new` |
+| status | `mitigated-v126` |
 | detected_at | `2026-05-02T19:56:11.593304Z` |
 | committed_at | `2026-05-02 01:57:46 +0900` |
 | commit_hash | `556c33d1545d4683b813da1eb3875c1bf32cab42` |
 | relevant_paths | `stage3/linux_init/a90_hud.h | stage3/linux_init/a90_metrics.h | stage3/linux_init/v89/60_shell_basic_commands.inc.c | stage3/linux_init/v89/40_menu_apps.inc.c` |
-| has_patch | `false` |
+| has_patch | `true` |
 
 ## CSV Description
 
 This commit moves status metric types and helpers from a90_hud.* to a90_metrics.* and updates v90 callsites. However, older versioned sources still present in the repository, such as v89, include the shared a90_hud.h and still refer to struct a90_hud_status_snapshot, a90_hud_read_status_snapshot(), and a90_hud_read_sysfs_long(). Because the shared HUD header no longer defines or declares those compatibility symbols, rebuilding init_v89.c now fails with unknown storage size and implicit declaration errors. This is not an exploitable security vulnerability in the v90 runtime, but it is a reproducibility/rollback availability regression for retained historical sources. A safe fix would be to keep backward-compatible typedefs/wrappers in a90_hud.h/c, vendor version-specific headers with older source trees, or update the preserved v88/v89 source snapshots to use a90_metrics.*.
+
+## Local Remediation
+
+- Batch 6 adds compatibility wrappers in `a90_hud.h`, allowing retained v88/v89 source snapshots to compile with current metrics headers.
 
 ## Codex Cloud Detail
 

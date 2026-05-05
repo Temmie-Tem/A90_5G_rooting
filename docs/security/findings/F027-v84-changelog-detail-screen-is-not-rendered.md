@@ -7,16 +7,20 @@
 | finding_id | `dfb9953b79848191ba79be7453344bb3` |
 | finding_url | https://chatgpt.com/codex/cloud/security/findings/dfb9953b79848191ba79be7453344bb3 |
 | severity | `informational` |
-| status | `new` |
+| status | `mitigated-v126` |
 | detected_at | `2026-04-29T17:03:24.447320Z` |
 | committed_at | `2026-04-30 01:17:25 +0900` |
 | commit_hash | `fbf8b66c21394da1cb07eb7f7bbb6faa05f86b34` |
 | relevant_paths | `stage3/linux_init/v84/40_menu_apps.inc.c` |
-| has_patch | `false` |
+| has_patch | `true` |
 
 ## CSV Description
 
 Selecting the newly added 0.8.15 v84 changelog item maps to SCREEN_APP_CHANGELOG_0815, but draw_screen_about_app() only dispatches changelog detail screens starting at SCREEN_APP_CHANGELOG_0814. The auto HUD draw loop has the same omission in its active_app predicate. As a result, the latest changelog entry can be selected but its detail screen is blank/not drawn, while older changelog entries continue to work. This is a functional regression introduced by the commit, not a security vulnerability.
+
+## Local Remediation
+
+- Batch 6 adds `SCREEN_APP_CHANGELOG_0815` to retained v84 About/changelog draw and auto-HUD routing.
 
 ## Codex Cloud Detail
 

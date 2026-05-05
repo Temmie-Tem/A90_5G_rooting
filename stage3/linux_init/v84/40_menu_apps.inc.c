@@ -429,6 +429,7 @@ static int draw_screen_about_app(enum screen_app_id app_id) {
         return draw_screen_about_changelog();
     case SCREEN_APP_ABOUT_CREDITS:
         return draw_screen_about_credits();
+    case SCREEN_APP_CHANGELOG_0815:
     case SCREEN_APP_CHANGELOG_0814:
     case SCREEN_APP_CHANGELOG_0813:
     case SCREEN_APP_CHANGELOG_0812:
@@ -617,6 +618,7 @@ static void auto_hud_loop(unsigned int refresh_sec) {
         } else if (active_app == SCREEN_APP_ABOUT_VERSION ||
                    active_app == SCREEN_APP_ABOUT_CHANGELOG ||
                    active_app == SCREEN_APP_ABOUT_CREDITS ||
+                   active_app == SCREEN_APP_CHANGELOG_0815 ||
                    active_app == SCREEN_APP_CHANGELOG_0814 ||
                    active_app == SCREEN_APP_CHANGELOG_0813 ||
                    active_app == SCREEN_APP_CHANGELOG_0812 ||

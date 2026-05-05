@@ -7,16 +7,20 @@
 | finding_id | `07b347be8ba08191b87e2e36b4720ff3` |
 | finding_url | https://chatgpt.com/codex/cloud/security/findings/07b347be8ba08191b87e2e36b4720ff3 |
 | severity | `informational` |
-| status | `new` |
+| status | `mitigated-v126` |
 | detected_at | `2026-04-28T09:20:22.584349Z` |
 | committed_at | `2026-04-25 02:19:21 +0900` |
 | commit_hash | `3556c02cff151a5815317d01412e59a87e87a36c` |
 | relevant_paths | `stage3/linux_init/init_v42.c` |
-| has_patch | `false` |
+| has_patch | `true` |
 
 ## CSV Description
 
 In v42, `run`/`runandroid` switched from blocking `waitpid()` to `wait_child_cancelable()`, which polls `STDIN` for cancel keys. But child processes also inherit the same console FD as their stdin/stdout/stderr. This creates competing readers on the same input stream: the parent consumes bytes via `read_console_cancel_event()`. Non-cancel bytes are dropped, and a regular 'q' intended for the child is interpreted as cancel, causing the parent to send SIGTERM/SIGKILL to the child. This is an introduced reliability/availability bug in privileged workflows (interactive child commands become unstable and can be killed unintentionally).
+
+## Local Remediation
+
+- Batch 6 changes retained v42 `run`/`runandroid` child stdio so child stdin is `/dev/null` instead of the parent-polled console stream.
 
 ## Codex Cloud Detail
 

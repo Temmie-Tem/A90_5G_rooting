@@ -33,11 +33,32 @@ static int a90_input_ensure_char_node(const char *path,
     return 0;
 }
 
+static bool a90_input_is_strict_event_name(const char *event_name) {
+    size_t index;
+
+    if (strncmp(event_name, "event", 5) != 0 ||
+        event_name[5] < '0' ||
+        event_name[5] > '9') {
+        return false;
+    }
+    for (index = 6; event_name[index] != '\0'; ++index) {
+        if (event_name[index] < '0' || event_name[index] > '9') {
+            return false;
+        }
+    }
+    return true;
+}
+
 static int a90_input_event_path(const char *event_name, char *out, size_t out_size) {
     char dev_info_path[PATH_MAX];
     char dev_info[64];
     unsigned int major_num;
     unsigned int minor_num;
+
+    if (!a90_input_is_strict_event_name(event_name)) {
+        errno = EINVAL;
+        return -1;
+    }
 
     if (snprintf(dev_info_path, sizeof(dev_info_path),
                  "/sys/class/input/%s/dev", event_name) >= (int)sizeof(dev_info_path)) {

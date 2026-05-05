@@ -8,6 +8,18 @@
 #include "a90_kms.h"
 #include "a90_metrics.h"
 
+/*
+ * Compatibility for retained v88/v89 source snapshots. New code should use
+ * a90_metrics_* directly.
+ */
+#define a90_hud_status_snapshot a90_metrics_snapshot
+static inline int a90_hud_read_sysfs_long(const char *path, long *value_out) {
+    return a90_metrics_read_sysfs_long(path, value_out);
+}
+static inline void a90_hud_read_status_snapshot(struct a90_hud_status_snapshot *snapshot) {
+    a90_metrics_read_snapshot(snapshot);
+}
+
 struct a90_hud_storage_status {
     const char *backend;
     const char *root;
