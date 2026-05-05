@@ -32,5 +32,7 @@ void a90_hud_draw_log_tail_panel(struct a90_fb *fb,
                                  const char *title,
                                  uint32_t scale);
 void a90_hud_draw_hud_log_tail(struct a90_fb *fb);
+bool a90_hud_log_tail_enabled(void);
+int a90_hud_set_log_tail_enabled(bool enabled);
 
 #endif

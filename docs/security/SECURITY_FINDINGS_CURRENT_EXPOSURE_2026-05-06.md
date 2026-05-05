@@ -15,7 +15,8 @@ Post-remediation note:
 
 - Batch 1 was mitigated in `A90 Linux init 0.9.23 (v123)` for F001, F003, F005, F010, F014, with F021/F030 documented as accepted lab-boundary controls and F023 partially closed.
 - Batch 2 was mitigated in `A90 Linux init 0.9.24 (v124)` for F002, F004, F011, F012, and the current-code class behind F013.
-- Batch 3 was mitigated in host tooling for F008, F015, F016, F017, F018, F019, F020, F022, and F031. No native image bump was needed; latest verified device image remains v124.
+- Batch 3 was mitigated in host tooling for F008, F015, F016, F017, F018, F019, F020, F022, and F031. No native image bump was needed for Batch 3 itself.
+- Batch 4 was mitigated in `A90 Linux init 0.9.25 (v125)` for F009, F024, and F025 through owner-only diagnostics/logs, private emergency fallback logs, and opt-in HUD log tail.
 - The matrix below remains the original v122 exposure map used to choose fix order; use `SECURITY_FIX_QUEUE_2026-05-06.md` and finding index statuses for current remediation state.
 
 ## Status Vocabulary
@@ -139,8 +140,9 @@ Immediate implementation order remains correct:
    - Without this, runtime helper or SD/cache content can reintroduce root execution after Batch 1.
 3. Batch 3 third: host tooling trust.
    - These are not all device-runtime bugs, but they affect flashing, validation, and sudo host setup safety.
-4. Batch 4 next: logs and diagnostics.
-5. Batch 5 and 6 can run independently, but should not block Batch 1.
+4. Batch 4 complete: logs and diagnostics.
+5. Batch 5 next: legacy high-impact tooling.
+6. Batch 6 can run independently after Batch 5 planning, but should still be audited against retained rollback support.
 
 ## Runtime Verification Still Needed
 

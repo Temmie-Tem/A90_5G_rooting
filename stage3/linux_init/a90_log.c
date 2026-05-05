@@ -23,6 +23,15 @@
 static bool log_ready = false;
 static char log_path[PATH_MAX] = NATIVE_LOG_FALLBACK;
 
+static void a90_log_prepare_private_fallback_dir(const char *path) {
+    if (path == NULL || strncmp(path, NATIVE_LOG_FALLBACK_DIR, strlen(NATIVE_LOG_FALLBACK_DIR)) != 0) {
+        return;
+    }
+    if (ensure_dir(NATIVE_LOG_FALLBACK_DIR, 0700) == 0) {
+        (void)chmod(NATIVE_LOG_FALLBACK_DIR, 0700);
+    }
+}
+
 static void a90_log_rotate_if_needed(const char *path) {
     struct stat st;
     char rotated_path[PATH_MAX];
@@ -42,6 +51,7 @@ static void a90_log_rotate_if_needed(const char *path) {
 int a90_log_set_path(const char *path) {
     int fd;
 
+    a90_log_prepare_private_fallback_dir(path);
     a90_log_rotate_if_needed(path);
     fd = open(path, O_WRONLY | O_CREAT | O_APPEND | O_CLOEXEC | O_NOFOLLOW, 0600);
     if (fd < 0) {

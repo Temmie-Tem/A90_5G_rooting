@@ -99,8 +99,8 @@ Validation:
 
 ## Batch 3: Host Tooling Trust Boundary
 
-Status: complete in host tooling Batch 3. Latest verified device image remains
-`A90 Linux init 0.9.24 (v124)`.
+Status: complete in host tooling Batch 3. No native image bump was needed for
+Batch 3 itself.
 
 Report: `docs/reports/NATIVE_INIT_SECURITY_BATCH3_HOST_TOOLING_2026-05-06.md`
 
@@ -142,6 +142,10 @@ Validation:
 
 ## Batch 4: Logs, Diagnostics, and On-Screen Disclosure
 
+Status: complete in `A90 Linux init 0.9.25 (v125)`.
+
+Report: `docs/reports/NATIVE_INIT_V125_SECURITY_BATCH4_2026-05-06.md`
+
 Findings:
 
 - F009: diagnostics bundles weak permissions
@@ -155,14 +159,16 @@ Implementation direction:
 - Add HUD privacy mode or log-tail opt-in gate.
 - Avoid `/tmp` fallback for sensitive logs, or create private fallback directory first.
 
-Suggested version theme:
+Implemented version:
 
-- `v130`: log/diagnostic permissions and HUD privacy mode.
+- `v125`: private runtime log/state directories, owner-only diagnostic outputs,
+  private emergency fallback log path, and opt-in HUD log tail.
 
 Validation:
 
 - device and host diagnostic outputs are not world-readable under normal umask.
-- HUD log tail can be disabled and does not show sensitive values by default.
+- HUD log tail is disabled by default and requires explicit `hudlog on`.
+- default `diag full` and stored bundles omit/redact native log tails.
 
 ## Batch 5: Legacy High Impact Tools
 
@@ -215,9 +221,8 @@ Validation:
 
 ## Recommended Immediate Next Step
 
-Batch 0 through Batch 3 are complete. Continue with Batch 4 log,
-diagnostics, and on-screen disclosure hardening before Wi-Fi or broader
-network work.
+Batch 0 through Batch 4 are complete. Continue with Batch 5 legacy high-impact
+tooling cleanup before Wi-Fi or broader network work.
 
 Reason:
 

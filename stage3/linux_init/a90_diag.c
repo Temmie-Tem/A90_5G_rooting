@@ -111,7 +111,7 @@ const char *a90_diag_default_dir(void) {
     if (runtime_logs != NULL && runtime_logs[0] != '\0') {
         return runtime_logs;
     }
-    return CACHE_STORAGE_ROOT;
+    return NATIVE_LOG_FALLBACK_DIR;
 }
 
 static void diag_emit_file_tail(struct a90_diag_sink *sink, const char *path, size_t max_bytes) {
@@ -486,6 +486,12 @@ static void diag_emit_proc_files(struct a90_diag_sink *sink, bool include_logs, 
     diag_emit(sink, "[partitions]\r\n");
     diag_emit_file_tail(sink, "/proc/partitions", 16384);
     diag_emit(sink, "[logs]\r\n");
+    if (!include_logs) {
+        diag_emit(sink, "path=<redacted> ready=%s tail=redacted\r\n", diag_yesno(a90_log_ready()));
+        diag_emit(sink, "[helper-deploy-log]\r\npath=<redacted> tail=redacted\r\n");
+        diag_emit(sink, "[rshell-log]\r\npath=<redacted> tail=redacted\r\n");
+        return;
+    }
     diag_emit(sink, "path=%s ready=%s\r\n", a90_log_path(), diag_yesno(a90_log_ready()));
     if (include_logs && a90_log_ready()) {
         diag_emit_file_tail(sink, a90_log_path(), log_tail_bytes);
@@ -533,7 +539,7 @@ int a90_diag_print_summary(void) {
 int a90_diag_print_full(void) {
     struct a90_diag_sink sink = { .fd = -1, .console = true };
 
-    return diag_emit_report(&sink, true, true, A90_DIAG_TAIL_BYTES);
+    return diag_emit_report(&sink, true, false, 0);
 }
 
 int a90_diag_write_bundle(char *out_path, size_t out_size) {
@@ -547,10 +553,14 @@ int a90_diag_write_bundle(char *out_path, size_t out_size) {
         return -EINVAL;
     }
 
+    (void)ensure_dir(dir, 0700);
+    (void)chmod(dir, 0700);
     snprintf(path, sizeof(path), "%s/a90-diag-%ld.txt", dir, monotonic_millis());
     fd = open(path, O_WRONLY | O_CREAT | O_TRUNC | O_CLOEXEC | O_NOFOLLOW, 0600);
     if (fd < 0 && strcmp(dir, CACHE_STORAGE_ROOT) != 0) {
-        snprintf(path, sizeof(path), "%s/a90-diag-%ld.txt", CACHE_STORAGE_ROOT, monotonic_millis());
+        (void)ensure_dir(NATIVE_LOG_FALLBACK_DIR, 0700);
+        (void)chmod(NATIVE_LOG_FALLBACK_DIR, 0700);
+        snprintf(path, sizeof(path), "%s/a90-diag-%ld.txt", NATIVE_LOG_FALLBACK_DIR, monotonic_millis());
         fd = open(path, O_WRONLY | O_CREAT | O_TRUNC | O_CLOEXEC | O_NOFOLLOW, 0600);
     }
     if (fd < 0) {
@@ -561,7 +571,7 @@ int a90_diag_write_bundle(char *out_path, size_t out_size) {
 
     sink.fd = fd;
     sink.console = false;
-    (void)diag_emit_report(&sink, true, true, A90_DIAG_BUNDLE_TAIL_BYTES);
+    (void)diag_emit_report(&sink, true, false, 0);
     close(fd);
 
     snprintf(out_path, out_size, "%s", path);

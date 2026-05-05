@@ -57,26 +57,39 @@ static void runtime_fill_paths(const char *root) {
     runtime_join_path(runtime_state.helper_deploy_log, sizeof(runtime_state.helper_deploy_log), runtime_state.logs, A90_HELPER_DEPLOY_LOG_NAME);
 }
 
+static int runtime_ensure_one_dir(const char *path, mode_t mode) {
+    if (ensure_dir(path, mode) < 0) {
+        return -1;
+    }
+    if (chmod(path, mode) < 0) {
+        return -1;
+    }
+    return 0;
+}
+
 static int runtime_ensure_dirs(void) {
-    const char *dirs[] = {
-        runtime_state.root,
-        runtime_state.bin,
-        runtime_state.etc,
-        runtime_state.logs,
-        runtime_state.tmp,
-        runtime_state.state,
-        runtime_state.pkg,
-        runtime_state.run,
-        runtime_state.pkg_bin,
-        runtime_state.pkg_helpers,
-        runtime_state.pkg_services,
-        runtime_state.pkg_manifests,
-        runtime_state.state_services,
+    struct runtime_dir_spec {
+        const char *path;
+        mode_t mode;
+    } dirs[] = {
+        { runtime_state.root, 0755 },
+        { runtime_state.bin, 0755 },
+        { runtime_state.etc, 0755 },
+        { runtime_state.logs, 0700 },
+        { runtime_state.tmp, 0700 },
+        { runtime_state.state, 0700 },
+        { runtime_state.pkg, 0755 },
+        { runtime_state.run, 0700 },
+        { runtime_state.pkg_bin, 0755 },
+        { runtime_state.pkg_helpers, 0755 },
+        { runtime_state.pkg_services, 0755 },
+        { runtime_state.pkg_manifests, 0755 },
+        { runtime_state.state_services, 0700 },
     };
     size_t index;
 
     for (index = 0; index < sizeof(dirs) / sizeof(dirs[0]); ++index) {
-        if (ensure_dir(dirs[index], 0755) < 0) {
+        if (runtime_ensure_one_dir(dirs[index].path, dirs[index].mode) < 0) {
             return -1;
         }
     }

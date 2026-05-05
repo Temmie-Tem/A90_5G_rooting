@@ -64,6 +64,7 @@
   - v116 기준 기본 실행 시 `status`, `bootstatus`, `selftest verbose`, `runtime`, `helpers verbose`, `helpers verify`, `service list`, `netservice status`, `rshell audit`, `diag paths` device evidence를 함께 수집
   - `--device-bundle`로 device-side `/mnt/sdext/a90/logs/a90-diag-*.txt` bundle 생성을 확인
   - `--rshell-harden`으로 v115+ remote shell token rejection/smoke를 선택 검증
+  - v125부터 host 출력 directory는 `0700`, report file은 `0600`으로 생성하고 default diagnostic log-tail은 redacted 상태로 수집
 - `rshell_host.py`
   - v100 custom remote shell helper의 start/status/stop/token/exec/smoke 검증 wrapper
   - v115 기준 `invalid-token`과 `harden`으로 token 거부, smoke 실행, stop/rollback까지 한 번에 확인

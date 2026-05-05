@@ -7,16 +7,20 @@
 | finding_id | `71fb260b576881919fe7a2c0cc011ff7` |
 | finding_url | https://chatgpt.com/codex/cloud/security/findings/71fb260b576881919fe7a2c0cc011ff7 |
 | severity | `medium` |
-| status | `new` |
+| status | `mitigated-v125` |
 | detected_at | `2026-05-04T10:31:54.402241Z` |
 | committed_at | `2026-05-04 00:09:02 +0900` |
 | commit_hash | `53a0bf0612e05c526898ee4c4ad953a30da639da` |
 | relevant_paths | `stage3/linux_init/a90_diag.c | stage3/linux_init/a90_runtime.c | scripts/revalidation/diag_collect.py` |
-| has_patch | `false` |
+| has_patch | `true` |
 
 ## CSV Description
 
 The commit adds a diagnostics bundle path that includes verbose system state plus native log tails, then stores that bundle with mode 0644 in the runtime log directory or /cache. The runtime log directory is created 0755, so the bundle is not protected by directory permissions. The new host collector also runs `diag full` and writes the resulting device diagnostics to a host file with `Path.write_text()` and no explicit 0600 mode or chmod, so on common umask 022 systems the output is world-readable. In a shared lab host or if the SD/cache contents are later exposed to Android/MTP/another operator, lower-privileged users can read diagnostic content such as mount/partition information, service/network state, helper paths, and native-init log tails. These diagnostics should be treated as sensitive and written with 0600 permissions in a 0700 directory, with optional redaction of log tails.
+
+## Local Remediation
+
+- v125 writes device diagnostic bundles and host diagnostic captures with owner-only modes, uses private diagnostic/log directories, and redacts log-tail contents from default full/bundle diagnostics.
 
 ## Codex Cloud Detail
 

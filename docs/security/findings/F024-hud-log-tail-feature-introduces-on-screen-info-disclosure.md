@@ -7,16 +7,20 @@
 | finding_id | `d6c8f25861c08191af70ed83953c32ff` |
 | finding_url | https://chatgpt.com/codex/cloud/security/findings/d6c8f25861c08191af70ed83953c32ff |
 | severity | `low` |
-| status | `new` |
+| status | `mitigated-v125` |
 | detected_at | `2026-04-28T05:01:45.433205Z` |
 | committed_at | `2026-04-26 05:27:40 +0900` |
 | commit_hash | `badb353ee32e244d24bc07da139905ae2228cf71` |
 | relevant_paths | `stage3/linux_init/init_v68.c` |
-| has_patch | `false` |
+| has_patch | `true` |
 
 ## CSV Description
 
 In init_v68, the auto-HUD path now calls a new renderer that opens native-init.log and draws the last 14 lines directly onto the display whenever the menu is not active. This creates a new confidentiality exposure channel: log content that was previously file-based is now passively broadcast on-screen. In this project, logs include command lifecycle and runtime state records; in shared labs or physically exposed setups this can leak sensitive operator activity and system state via shoulder-surfing/camera capture.
+
+## Local Remediation
+
+- v125 makes passive background HUD log-tail rendering opt-in through `hudlog on`; default `hudlog status` is off.
 
 ## Codex Cloud Detail
 

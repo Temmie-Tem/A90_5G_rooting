@@ -1,23 +1,26 @@
 #ifndef A90_CONFIG_H
 #define A90_CONFIG_H
 
-#define INIT_VERSION "0.9.24"
-#define INIT_BUILD "v124"
+#define INIT_VERSION "0.9.25"
+#define INIT_BUILD "v125"
 #define INIT_CREATOR "made by temmie0214"
 #define INIT_BANNER "A90 Linux init " INIT_VERSION " (" INIT_BUILD ")"
 #define BOOT_SPLASH_SECONDS 2
 #define BOOT_HUD_REFRESH_SECONDS 2
 #define NATIVE_LOG_PRIMARY "/cache/native-init.log"
-#define NATIVE_LOG_FALLBACK "/tmp/native-init.log"
+#define NATIVE_LOG_FALLBACK_DIR "/tmp/a90-native"
+#define NATIVE_LOG_FALLBACK NATIVE_LOG_FALLBACK_DIR "/native-init.log"
 #define NATIVE_LOG_MAX_BYTES (256 * 1024)
 #define KMS_LOG_TAIL_MAX_LINES 24
 #define KMS_LOG_TAIL_LINE_MAX 96
+#define KMS_LOG_TAIL_DEFAULT_ENABLED 0
 #define BOOT_TIMELINE_MAX 32
 #define CONSOLE_POLL_TIMEOUT_MS 1000
 #define CONSOLE_IDLE_REATTACH_MS 60000
 #define DISPLAY_TEST_PAGE_COUNT 4
 #define AUTO_MENU_STATE_PATH "/tmp/a90-auto-menu-active"
 #define AUTO_MENU_REQUEST_PATH "/tmp/a90-auto-menu-request"
+#define HUD_LOG_TAIL_ENABLE_PATH "/tmp/a90-hud-log-tail-enabled"
 #define NETSERVICE_FLAG_PATH "/cache/native-init-netservice"
 #define NETSERVICE_LOG_PATH "/cache/native-init-netservice.log"
 #define NETSERVICE_USB_HELPER "/cache/bin/a90_usbnet"

@@ -6,6 +6,7 @@ from __future__ import annotations
 import argparse
 import datetime as dt
 import hashlib
+import os
 import subprocess
 import sys
 from pathlib import Path
@@ -157,6 +158,22 @@ def default_output_path() -> Path:
     return REPO_ROOT / "tmp" / "diag" / f"a90-diag-{stamp}.txt"
 
 
+def write_private_text(path: Path, text: str) -> None:
+    path.parent.mkdir(parents=True, mode=0o700, exist_ok=True)
+    path.parent.chmod(0o700)
+    fd = os.open(path, os.O_WRONLY | os.O_CREAT | os.O_TRUNC, 0o600)
+    try:
+        with os.fdopen(fd, "w", encoding="utf-8") as file:
+            file.write(text)
+    except Exception:
+        try:
+            os.close(fd)
+        except OSError:
+            pass
+        raise
+    path.chmod(0o600)
+
+
 def parse_args() -> argparse.Namespace:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--host", default="127.0.0.1", help="serial bridge host")
@@ -202,8 +219,7 @@ def main() -> int:
     output = args.out
     if not output.is_absolute():
         output = REPO_ROOT / output
-    output.parent.mkdir(parents=True, exist_ok=True)
-    output.write_text("\n".join(lines).rstrip() + "\n")
+    write_private_text(output, "\n".join(lines).rstrip() + "\n")
     print(output)
     return 0
 

@@ -35,6 +35,7 @@ SAFE_RETRY_COMMANDS = {
     "wififeas",
     "wifiinv",
     "logpath",
+    "hudlog",
     "timeline",
     "last",
     "pwd",

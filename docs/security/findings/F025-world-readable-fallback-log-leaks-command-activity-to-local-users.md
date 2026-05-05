@@ -7,16 +7,20 @@
 | finding_id | `e7bb5e8149d081919c1598daf7c489f3` |
 | finding_url | https://chatgpt.com/codex/cloud/security/findings/e7bb5e8149d081919c1598daf7c489f3 |
 | severity | `low` |
-| status | `new` |
+| status | `mitigated-v125` |
 | detected_at | `2026-04-28T09:21:03.859298Z` |
 | committed_at | `2026-04-25 02:10:19 +0900` |
 | commit_hash | `b363df8eb6ddabb59fca9dca3c1ae5c988f2fea0` |
 | relevant_paths | `stage3/linux_init/init_v41.c` |
-| has_patch | `false` |
+| has_patch | `true` |
 
 ## CSV Description
 
 The new v41 logging layer writes boot/command logs to a fallback file at /tmp/native-init.log when /cache logging is unavailable. /tmp is mounted as mode 1777, and log files are created/opened with mode 0644. This makes the fallback log readable by any local user/process. Since the shell loop now logs command execution metadata (command name, rc, errno, duration), local actors can observe operator activity and system state transitions. This is an information disclosure issue introduced by the commit.
+
+## Local Remediation
+
+- v125 moves fallback logging to `/tmp/a90-native/native-init.log`, ensures `/tmp/a90-native` is private `0700`, and keeps log files `0600`.
 
 ## Codex Cloud Detail
 

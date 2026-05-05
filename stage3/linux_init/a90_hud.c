@@ -1,16 +1,26 @@
 #include "a90_hud.h"
 
 #include <errno.h>
+#include <fcntl.h>
 #include <stdarg.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+#include <unistd.h>
 
 #include "a90_config.h"
 #include "a90_draw.h"
 #include "a90_log.h"
 #include "a90_timeline.h"
 #include "a90_util.h"
+
+#ifndef O_CLOEXEC
+#define O_CLOEXEC 0
+#endif
+
+#ifndef O_NOFOLLOW
+#define O_NOFOLLOW 0
+#endif
 
 static char boot_splash_lines[BOOT_SPLASH_LINE_COUNT][BOOT_SPLASH_LINE_MAX] = {
     "[ KERNEL ] STOCK LINUX 4.14",
@@ -515,6 +525,10 @@ void a90_hud_draw_hud_log_tail(struct a90_fb *fb) {
     uint32_t y = fb->height / 16;
     uint32_t area_y;
 
+    if (!a90_hud_log_tail_enabled()) {
+        return;
+    }
+
     if (y > glyph_h + glyph_h / 2 + hud_scale * 2)
         y -= glyph_h + glyph_h / 2;
     area_y = y + 3 * slot + card_h + hud_scale * 8;
@@ -527,4 +541,36 @@ void a90_hud_draw_hud_log_tail(struct a90_fb *fb) {
                                 24,
                                 "LOG TAIL",
                                 scale);
+}
+
+bool a90_hud_log_tail_enabled(void) {
+    if (KMS_LOG_TAIL_DEFAULT_ENABLED) {
+        return true;
+    }
+    return access(HUD_LOG_TAIL_ENABLE_PATH, F_OK) == 0;
+}
+
+int a90_hud_set_log_tail_enabled(bool enabled) {
+    int fd;
+
+    if (!enabled) {
+        if (unlink(HUD_LOG_TAIL_ENABLE_PATH) < 0 && errno != ENOENT) {
+            return negative_errno_or(EIO);
+        }
+        return 0;
+    }
+
+    fd = open(HUD_LOG_TAIL_ENABLE_PATH,
+              O_WRONLY | O_CREAT | O_TRUNC | O_CLOEXEC | O_NOFOLLOW,
+              0600);
+    if (fd < 0) {
+        return negative_errno_or(EIO);
+    }
+    if (write_all_checked(fd, "enabled\n", 8) < 0) {
+        int saved_errno = errno;
+        close(fd);
+        return -saved_errno;
+    }
+    close(fd);
+    return 0;
 }
