@@ -17,6 +17,14 @@
 #include <sys/sysmacros.h>
 #include <unistd.h>
 
+#ifndef O_CLOEXEC
+#define O_CLOEXEC 0
+#endif
+
+#ifndef O_NOFOLLOW
+#define O_NOFOLLOW 0
+#endif
+
 static bool cache_ready = false;
 
 static struct a90_storage_status storage_state = {
@@ -185,7 +193,7 @@ static int read_ext4_uuid(const char *node_path, char *out, size_t out_size) {
 }
 
 static int write_text_file_sync(const char *path, const char *value) {
-    int fd = open(path, O_WRONLY | O_CREAT | O_TRUNC | O_CLOEXEC, 0644);
+    int fd = open(path, O_WRONLY | O_CREAT | O_TRUNC | O_CLOEXEC | O_NOFOLLOW, 0600);
 
     if (fd < 0) {
         return -1;
@@ -572,7 +580,9 @@ int a90_storage_cmd_mountsd(char **argv, int argc) {
     const char *mode = argc > 1 ? argv[1] : "ro";
     char node_path[PATH_MAX];
     char line[512];
+    char uuid[40];
     bool read_only = false;
+    bool wants_write;
     unsigned long flags;
     int rc;
 
@@ -606,6 +616,7 @@ int a90_storage_cmd_mountsd(char **argv, int argc) {
         a90_console_printf("usage: mountsd [status|ro|rw|off|init]\r\n");
         return -EINVAL;
     }
+    wants_write = strcmp(mode, "rw") == 0 || strcmp(mode, "init") == 0;
 
     ensure_dir("/mnt", 0755);
     ensure_dir(SD_MOUNT_POINT, 0755);
@@ -636,17 +647,49 @@ int a90_storage_cmd_mountsd(char **argv, int argc) {
     }
     storage_state.sd_present = true;
     storage_state.sd_mounted = true;
-    if ((flags & MS_RDONLY) == 0) {
-        (void)a90_log_set_path(SD_NATIVE_LOG_PATH);
+    if (read_ext4_uuid(node_path, uuid, sizeof(uuid)) == 0) {
+        snprintf(storage_state.sd_uuid, sizeof(storage_state.sd_uuid), "%s", uuid);
+        storage_state.sd_expected = strcmp(uuid, SD_EXPECTED_UUID) == 0;
+    } else {
+        snprintf(storage_state.sd_uuid, sizeof(storage_state.sd_uuid), "%s", "<read-failed>");
+        storage_state.sd_expected = false;
+    }
+    if (wants_write && !storage_state.sd_expected) {
+        (void)umount(SD_MOUNT_POINT);
+        storage_state.sd_mounted = false;
+        a90_console_printf("mountsd: refused %s uuid=%s expected=%s\r\n",
+                mode,
+                storage_state.sd_uuid,
+                SD_EXPECTED_UUID);
+        return -ESTALE;
     }
     a90_console_printf("mountsd: %s ready (%s)\r\n",
             SD_MOUNT_POINT,
             flags & MS_RDONLY ? "ro" : "rw");
-    if (strcmp(mode, "init") == 0) {
+    if (wants_write) {
         rc = ensure_sd_workspace();
         if (rc < 0) {
+            (void)umount(SD_MOUNT_POINT);
+            storage_state.sd_mounted = false;
             return rc;
         }
+        if (ensure_sd_identity_marker(storage_state.sd_uuid) < 0) {
+            int saved_errno = errno;
+
+            (void)umount(SD_MOUNT_POINT);
+            storage_state.sd_mounted = false;
+            a90_console_printf("mountsd: identity marker refused: %s\r\n", strerror(saved_errno));
+            return -saved_errno;
+        }
+        if (sd_write_read_probe() < 0) {
+            int saved_errno = errno;
+
+            (void)umount(SD_MOUNT_POINT);
+            storage_state.sd_mounted = false;
+            a90_console_printf("mountsd: rw probe failed: %s\r\n", strerror(saved_errno));
+            return -saved_errno;
+        }
+        storage_state.sd_rw_ok = true;
         (void)a90_log_set_path(SD_NATIVE_LOG_PATH);
         a90_console_printf("mountsd: workspace ready %s\r\n", SD_WORKSPACE_DIR);
     }

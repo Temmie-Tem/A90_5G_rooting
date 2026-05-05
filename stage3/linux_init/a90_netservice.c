@@ -14,8 +14,18 @@
 #include <stdbool.h>
 #include <stdio.h>
 #include <string.h>
+#include <sys/random.h>
+#include <sys/stat.h>
 #include <sys/wait.h>
 #include <unistd.h>
+
+#ifndef O_CLOEXEC
+#define O_CLOEXEC 0
+#endif
+
+#ifndef O_NOFOLLOW
+#define O_NOFOLLOW 0
+#endif
 
 static int netservice_run_wait(char *const argv[], const char *tag, int timeout_ms) {
     static char *const envp[] = {
@@ -90,6 +100,151 @@ void a90_netservice_reap(void) {
     }
 }
 
+static bool netservice_token_valid(const char *token) {
+    size_t len;
+    size_t index;
+
+    if (token == NULL) {
+        return false;
+    }
+    len = strlen(token);
+    if (len < 32 || len >= 64) {
+        return false;
+    }
+    for (index = 0; index < len; ++index) {
+        char ch = token[index];
+
+        if (!((ch >= '0' && ch <= '9') ||
+              (ch >= 'a' && ch <= 'f') ||
+              (ch >= 'A' && ch <= 'F'))) {
+            return false;
+        }
+    }
+    return true;
+}
+
+static int netservice_write_token(const char *token) {
+    int fd;
+
+    fd = open(NETSERVICE_TCP_TOKEN_PATH,
+              O_WRONLY | O_CREAT | O_TRUNC | O_CLOEXEC | O_NOFOLLOW,
+              0600);
+    if (fd < 0) {
+        return -errno;
+    }
+    if (fchmod(fd, 0600) < 0) {
+        int saved_errno = errno;
+
+        close(fd);
+        return -saved_errno;
+    }
+    if (write_all_checked(fd, token, strlen(token)) < 0 ||
+        write_all_checked(fd, "\n", 1) < 0) {
+        int saved_errno = errno;
+
+        close(fd);
+        return -saved_errno;
+    }
+    if (close(fd) < 0) {
+        return -errno;
+    }
+    return 0;
+}
+
+static int netservice_generate_token(char *out, size_t out_size) {
+    static const char hex[] = "0123456789abcdef";
+    unsigned char random_bytes[16];
+    size_t offset = 0;
+    size_t index;
+
+    if (out == NULL || out_size < 33) {
+        return -EINVAL;
+    }
+
+    while (offset < sizeof(random_bytes)) {
+        ssize_t rd = getrandom(random_bytes + offset,
+                               sizeof(random_bytes) - offset,
+                               0);
+
+        if (rd < 0) {
+            if (errno == EINTR) {
+                continue;
+            }
+            break;
+        }
+        if (rd == 0) {
+            break;
+        }
+        offset += (size_t)rd;
+    }
+
+    if (offset < sizeof(random_bytes)) {
+        int fd = open("/dev/urandom", O_RDONLY | O_CLOEXEC);
+
+        if (fd < 0) {
+            return -errno;
+        }
+        while (offset < sizeof(random_bytes)) {
+            ssize_t rd = read(fd,
+                              random_bytes + offset,
+                              sizeof(random_bytes) - offset);
+
+            if (rd < 0) {
+                int saved_errno = errno != 0 ? errno : EIO;
+
+                close(fd);
+                return -saved_errno;
+            }
+            if (rd == 0) {
+                close(fd);
+                return -EIO;
+            }
+            offset += (size_t)rd;
+        }
+        close(fd);
+    }
+
+    for (index = 0; index < sizeof(random_bytes); ++index) {
+        out[index * 2] = hex[random_bytes[index] >> 4];
+        out[index * 2 + 1] = hex[random_bytes[index] & 0x0f];
+    }
+    out[32] = '\0';
+    return 0;
+}
+
+int a90_netservice_rotate_token(char *out, size_t out_size) {
+    char token[64];
+    int rc;
+
+    rc = netservice_generate_token(token, sizeof(token));
+    if (rc < 0) {
+        return rc;
+    }
+    rc = netservice_write_token(token);
+    if (rc < 0) {
+        return rc;
+    }
+    if (out != NULL && out_size > 0) {
+        snprintf(out, out_size, "%s", token);
+    }
+    a90_logf("netservice", "tcpctl token rotated path=%s", NETSERVICE_TCP_TOKEN_PATH);
+    return 0;
+}
+
+int a90_netservice_token(char *out, size_t out_size) {
+    char token[64];
+
+    if (out == NULL || out_size == 0) {
+        return -EINVAL;
+    }
+    if (read_trimmed_text_file(NETSERVICE_TCP_TOKEN_PATH, token, sizeof(token)) == 0 &&
+        netservice_token_valid(token)) {
+        snprintf(out, out_size, "%s", token);
+        return 0;
+    }
+    return a90_netservice_rotate_token(out, out_size);
+}
+
 bool a90_netservice_enabled(void) {
     char state[64];
 
@@ -120,8 +275,8 @@ int a90_netservice_set_enabled(bool enabled) {
     }
 
     fd = open(NETSERVICE_FLAG_PATH,
-              O_WRONLY | O_CREAT | O_TRUNC | O_CLOEXEC,
-              0644);
+              O_WRONLY | O_CREAT | O_TRUNC | O_CLOEXEC | O_NOFOLLOW,
+              0600);
     if (fd < 0) {
         int saved_errno = errno;
         a90_console_printf("netservice: open %s: %s\r\n",
@@ -147,12 +302,15 @@ int a90_netservice_set_enabled(bool enabled) {
 }
 
 static int netservice_spawn_tcpctl(void) {
-    static char *const argv[] = {
+    char token[64];
+    char *const argv[] = {
         NETSERVICE_TCPCTL_HELPER,
         "listen",
+        NETSERVICE_TCP_BIND_ADDR,
         NETSERVICE_TCP_PORT,
         NETSERVICE_TCP_IDLE_SECONDS,
         NETSERVICE_TCP_MAX_CLIENTS,
+        NETSERVICE_TCP_TOKEN_PATH,
         NULL
     };
     static char *const envp[] = {
@@ -182,6 +340,12 @@ static int netservice_spawn_tcpctl(void) {
         return 0;
     }
 
+    rc = a90_netservice_token(token, sizeof(token));
+    if (rc < 0) {
+        a90_logf("netservice", "tcpctl token unavailable rc=%d", rc);
+        return rc;
+    }
+
     rc = a90_run_spawn(&config, &pid);
     if (rc < 0) {
         return rc;
@@ -194,8 +358,8 @@ static int netservice_spawn_tcpctl(void) {
         return -EIO;
     }
 
-    a90_logf("netservice", "tcpctl started pid=%ld port=%s",
-                (long)pid, NETSERVICE_TCP_PORT);
+    a90_logf("netservice", "tcpctl started pid=%ld bind=%s port=%s auth=required",
+                (long)pid, NETSERVICE_TCP_BIND_ADDR, NETSERVICE_TCP_PORT);
     return 0;
 }
 
@@ -302,5 +466,8 @@ int a90_netservice_status(struct a90_netservice_status *out) {
     out->tcp_port = NETSERVICE_TCP_PORT;
     out->tcp_idle_seconds = NETSERVICE_TCP_IDLE_SECONDS;
     out->tcp_max_clients = NETSERVICE_TCP_MAX_CLIENTS;
+    out->tcp_bind_addr = NETSERVICE_TCP_BIND_ADDR;
+    out->tcp_token_path = NETSERVICE_TCP_TOKEN_PATH;
+    out->tcp_token_present = access(NETSERVICE_TCP_TOKEN_PATH, R_OK) == 0;
     return 0;
 }

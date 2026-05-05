@@ -7,16 +7,20 @@
 | finding_id | `2534172617e481919b3be2d7835c68f1` |
 | finding_url | https://chatgpt.com/codex/cloud/security/findings/2534172617e481919b3be2d7835c68f1 |
 | severity | `medium` |
-| status | `new` |
+| status | `mitigated-host-batch3` |
 | detected_at | `2026-04-28T17:43:56.783462Z` |
 | committed_at | `2026-04-27 02:31:18 +0900` |
 | commit_hash | `225089c3bb912c89a195f9da39808407ca748f39` |
 | relevant_paths | `scripts/revalidation/a90ctl.py | scripts/revalidation/serial_tcp_bridge.py | stage3/linux_init/init_v73.c` |
-| has_patch | `false` |
+| has_patch | `true` |
 
 ## CSV Description
 
 Before this commit, `run_cmdv1_command()` sent one command and returned/failed once. After this commit, it retries when socket errors occur or when bridge output is empty / contains the serial-missing text. Because each retry re-sends the full `cmdv1 ...` line, transient disconnects can cause at-least-once execution semantics for non-idempotent root commands. In this project, cmdv1 can invoke destructive operations (`writefile`, `run`, `netservice`, `usbacmreset`, `reboot`, `recovery`, `poweroff`). An attacker who can influence bridge connectivity (or a flaky reconnect event) can trigger unintended repeated execution, causing integrity/availability impact (e.g., repeated reboot/reset or repeated state mutation).
+
+## Local Remediation
+
+- Batch 3 restricts automatic cmdv1 retries to an observation-command allowlist; non-observation commands fail on reconnect unless the operator passes `--retry-unsafe`.
 
 ## Codex Cloud Detail
 

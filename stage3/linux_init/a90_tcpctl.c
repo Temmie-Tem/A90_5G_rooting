@@ -24,6 +24,19 @@
 #define RUN_TIMEOUT_MS 10000
 #define RUN_OUTPUT_LIMIT (128 * 1024)
 
+struct tcpctl_server_config {
+    const char *bind_addr;
+    unsigned short port;
+    int idle_timeout_sec;
+    int max_clients;
+    const char *token_path;
+    bool require_auth;
+};
+
+struct tcpctl_client_state {
+    bool authenticated;
+};
+
 static long monotonic_millis(void)
 {
     struct timespec ts;
@@ -37,7 +50,10 @@ static long monotonic_millis(void)
 
 static void usage(const char *argv0)
 {
-    fprintf(stderr, "usage: %s listen <port> <idle_timeout_sec> [max_clients]\n", argv0);
+    fprintf(stderr,
+            "usage: %s listen <bind_addr> <port> <idle_timeout_sec> [max_clients] [token_path]\n"
+            "       %s listen <port> <idle_timeout_sec> [max_clients]  # legacy loopback/no-auth\n",
+            argv0, argv0);
 }
 
 static int parse_u16(const char *text, unsigned short *out)
@@ -217,23 +233,105 @@ static int set_nonblock(int fd)
     return fcntl(fd, F_SETFL, flags | O_NONBLOCK);
 }
 
-static int command_help(int client_fd)
+static int read_token_file(const char *path, char *buf, size_t size)
+{
+    int fd;
+    ssize_t rd;
+    size_t index;
+
+    if (path == NULL || path[0] == '\0' || strcmp(path, "-") == 0 ||
+        buf == NULL || size == 0) {
+        errno = EINVAL;
+        return -1;
+    }
+    fd = open(path, O_RDONLY);
+    if (fd < 0) {
+        return -1;
+    }
+    rd = read(fd, buf, size - 1);
+    close(fd);
+    if (rd <= 0) {
+        errno = rd == 0 ? EINVAL : errno;
+        return -1;
+    }
+    buf[rd] = '\0';
+    for (index = 0; buf[index] != '\0'; ++index) {
+        if (buf[index] == '\r' || buf[index] == '\n' ||
+            buf[index] == ' ' || buf[index] == '\t') {
+            buf[index] = '\0';
+            break;
+        }
+    }
+    if (buf[0] == '\0') {
+        errno = EINVAL;
+        return -1;
+    }
+    return 0;
+}
+
+static bool auth_required(const struct tcpctl_server_config *config)
+{
+    return config != NULL && config->require_auth;
+}
+
+static bool client_authorized(const struct tcpctl_server_config *config,
+                              const struct tcpctl_client_state *state)
+{
+    return !auth_required(config) || (state != NULL && state->authenticated);
+}
+
+static int command_auth(int client_fd,
+                        const struct tcpctl_server_config *config,
+                        struct tcpctl_client_state *state,
+                        char **argv,
+                        int argc)
+{
+    char expected[128];
+
+    if (!auth_required(config)) {
+        state->authenticated = true;
+        return send_text(client_fd, "OK auth-not-required\n");
+    }
+    if (argc != 2) {
+        return send_text(client_fd, "ERR usage: auth <token>\n");
+    }
+    if (read_token_file(config->token_path, expected, sizeof(expected)) < 0) {
+        return sendf(client_fd, "ERR auth-token-unavailable: %s\n", strerror(errno));
+    }
+    if (strcmp(argv[1], expected) != 0) {
+        return send_text(client_fd, "ERR auth-failed\n");
+    }
+    state->authenticated = true;
+    return send_text(client_fd, "OK authenticated\n");
+}
+
+static int command_help(int client_fd, const struct tcpctl_server_config *config)
 {
     send_text(client_fd, "commands:\n");
     send_text(client_fd, "  help\n");
     send_text(client_fd, "  ping\n");
     send_text(client_fd, "  version\n");
     send_text(client_fd, "  status\n");
+    if (auth_required(config)) {
+        send_text(client_fd, "  auth <token>\n");
+    }
     send_text(client_fd, "  run <absolute-path> [args...]\n");
     send_text(client_fd, "  quit\n");
     send_text(client_fd, "  shutdown\n");
     return send_text(client_fd, "OK\n");
 }
 
-static int command_status(int client_fd)
+static int command_status(int client_fd, const struct tcpctl_server_config *config)
 {
     struct utsname uts;
     struct sysinfo info;
+
+    if (config != NULL) {
+        sendf(client_fd, "listen: bind=%s port=%u auth=%s\n",
+              config->bind_addr,
+              config->port,
+              auth_required(config) ? "required" : "none");
+    }
 
     if (uname(&uts) == 0) {
         sendf(client_fd, "kernel: %s %s %s %s\n",
@@ -281,7 +379,11 @@ static int report_child_status(int client_fd, int status)
     return send_text(client_fd, "ERR child-status\n");
 }
 
-static int command_run(int client_fd, char **argv, int argc)
+static int command_run(int client_fd,
+                       const struct tcpctl_server_config *config,
+                       const struct tcpctl_client_state *state,
+                       char **argv,
+                       int argc)
 {
     static char *const envp[] = {
         "PATH=/cache:/cache/bin:/bin:/system/bin",
@@ -300,6 +402,9 @@ static int command_run(int client_fd, char **argv, int argc)
     int truncated = 0;
     long deadline = monotonic_millis() + RUN_TIMEOUT_MS;
 
+    if (!client_authorized(config, state)) {
+        return send_text(client_fd, "ERR auth-required\n");
+    }
     if (argc < 2) {
         return send_text(client_fd, "ERR usage: run <absolute-path> [args...]\n");
     }
@@ -431,79 +536,80 @@ static int command_run(int client_fd, char **argv, int argc)
     return report_child_status(client_fd, status);
 }
 
-static int handle_client(int client_fd, bool *stop_server)
+static int handle_client(int client_fd,
+                         const struct tcpctl_server_config *config,
+                         bool *stop_server)
 {
     char line[MAX_LINE];
     char *argv[MAX_ARGS];
-    int argc;
-    int rc;
+    struct tcpctl_client_state state = { false };
 
     send_text(client_fd, TCPCTL_VERSION " ready\n");
-    rc = read_line(client_fd, line, sizeof(line), 15000);
-    if (rc < 0) {
-        return sendf(client_fd, "ERR read=%d\n", rc);
-    }
 
-    argc = split_args(line, argv, MAX_ARGS);
-    if (argc == 0) {
-        return send_text(client_fd, "ERR empty\n");
-    }
+    for (;;) {
+        int argc;
+        int rc = read_line(client_fd, line, sizeof(line), 15000);
 
-    if (strcmp(argv[0], "help") == 0) {
-        return command_help(client_fd);
-    }
-    if (strcmp(argv[0], "ping") == 0) {
-        send_text(client_fd, "pong\n");
-        return send_text(client_fd, "OK\n");
-    }
-    if (strcmp(argv[0], "version") == 0) {
-        send_text(client_fd, TCPCTL_VERSION "\n");
-        return send_text(client_fd, "OK\n");
-    }
-    if (strcmp(argv[0], "status") == 0) {
-        return command_status(client_fd);
-    }
-    if (strcmp(argv[0], "run") == 0) {
-        return command_run(client_fd, argv, argc);
-    }
-    if (strcmp(argv[0], "quit") == 0) {
-        return send_text(client_fd, "OK bye\n");
-    }
-    if (strcmp(argv[0], "shutdown") == 0) {
-        *stop_server = true;
-        return send_text(client_fd, "OK shutdown\n");
-    }
+        if (rc < 0) {
+            return sendf(client_fd, "ERR read=%d\n", rc);
+        }
 
-    return sendf(client_fd, "ERR unknown command: %s\n", argv[0]);
+        argc = split_args(line, argv, MAX_ARGS);
+        if (argc == 0) {
+            return send_text(client_fd, "ERR empty\n");
+        }
+
+        if (strcmp(argv[0], "help") == 0) {
+            return command_help(client_fd, config);
+        }
+        if (strcmp(argv[0], "ping") == 0) {
+            send_text(client_fd, "pong\n");
+            return send_text(client_fd, "OK\n");
+        }
+        if (strcmp(argv[0], "version") == 0) {
+            send_text(client_fd, TCPCTL_VERSION "\n");
+            return send_text(client_fd, "OK\n");
+        }
+        if (strcmp(argv[0], "status") == 0) {
+            return command_status(client_fd, config);
+        }
+        if (strcmp(argv[0], "auth") == 0) {
+            if (command_auth(client_fd, config, &state, argv, argc) < 0) {
+                return -1;
+            }
+            if (!state.authenticated && auth_required(config)) {
+                return 0;
+            }
+            continue;
+        }
+        if (strcmp(argv[0], "run") == 0) {
+            return command_run(client_fd, config, &state, argv, argc);
+        }
+        if (strcmp(argv[0], "quit") == 0) {
+            return send_text(client_fd, "OK bye\n");
+        }
+        if (strcmp(argv[0], "shutdown") == 0) {
+            if (!client_authorized(config, &state)) {
+                return send_text(client_fd, "ERR auth-required\n");
+            }
+            *stop_server = true;
+            return send_text(client_fd, "OK shutdown\n");
+        }
+
+        return sendf(client_fd, "ERR unknown command: %s\n", argv[0]);
+    }
 }
 
-static int command_listen(const char *port_text,
-                          const char *timeout_text,
-                          const char *max_clients_text)
+static int command_listen(const struct tcpctl_server_config *config)
 {
-    unsigned short port;
-    int idle_timeout_sec;
     int idle_timeout_ms;
-    int max_clients = 16;
     int server_fd;
     int one = 1;
     int served = 0;
     bool stop_server = false;
     struct sockaddr_in addr;
 
-    if (parse_u16(port_text, &port) < 0 ||
-        parse_nonnegative_int(timeout_text, 3600, &idle_timeout_sec) < 0) {
-        fprintf(stderr, "listen: invalid port or timeout\n");
-        return 2;
-    }
-
-    if (max_clients_text != NULL &&
-        parse_nonnegative_int(max_clients_text, 10000, &max_clients) < 0) {
-        fprintf(stderr, "listen: invalid max_clients\n");
-        return 2;
-    }
-
-    idle_timeout_ms = idle_timeout_sec * 1000;
+    idle_timeout_ms = config->idle_timeout_sec * 1000;
     server_fd = socket(AF_INET, SOCK_STREAM, 0);
     if (server_fd < 0) {
         fprintf(stderr, "socket: %s\n", strerror(errno));
@@ -514,8 +620,12 @@ static int command_listen(const char *port_text,
 
     memset(&addr, 0, sizeof(addr));
     addr.sin_family = AF_INET;
-    addr.sin_addr.s_addr = htonl(INADDR_ANY);
-    addr.sin_port = htons(port);
+    if (inet_pton(AF_INET, config->bind_addr, &addr.sin_addr) != 1) {
+        fprintf(stderr, "listen: invalid bind_addr: %s\n", config->bind_addr);
+        close(server_fd);
+        return 2;
+    }
+    addr.sin_port = htons(config->port);
 
     if (bind(server_fd, (struct sockaddr *)&addr, sizeof(addr)) < 0) {
         fprintf(stderr, "bind: %s\n", strerror(errno));
@@ -529,11 +639,15 @@ static int command_listen(const char *port_text,
         return 1;
     }
 
-    printf("tcpctl: listening port=%u idle_timeout=%ds max_clients=%d\n",
-           port, idle_timeout_sec, max_clients);
+    printf("tcpctl: listening bind=%s port=%u idle_timeout=%ds max_clients=%d auth=%s\n",
+           config->bind_addr,
+           config->port,
+           config->idle_timeout_sec,
+           config->max_clients,
+           auth_required(config) ? "required" : "none");
     fflush(stdout);
 
-    while (!stop_server && (max_clients == 0 || served < max_clients)) {
+    while (!stop_server && (config->max_clients == 0 || served < config->max_clients)) {
         struct pollfd pfd;
         int poll_rc;
         int client_fd;
@@ -567,13 +681,51 @@ static int command_listen(const char *port_text,
         }
 
         ++served;
-        handle_client(client_fd, &stop_server);
+        handle_client(client_fd, config, &stop_server);
         shutdown(client_fd, SHUT_RDWR);
         close(client_fd);
     }
 
     close(server_fd);
     printf("tcpctl: served=%d stop=%d\n", served, stop_server ? 1 : 0);
+    return 0;
+}
+
+static int parse_listen_config(int argc, char **argv, struct tcpctl_server_config *config)
+{
+    const char *max_clients_text = NULL;
+
+    memset(config, 0, sizeof(*config));
+    config->bind_addr = "127.0.0.1";
+    config->max_clients = 16;
+    config->token_path = NULL;
+    config->require_auth = false;
+
+    if (argc == 4 || argc == 5) {
+        if (parse_u16(argv[2], &config->port) < 0 ||
+            parse_nonnegative_int(argv[3], 3600, &config->idle_timeout_sec) < 0) {
+            return -1;
+        }
+        max_clients_text = argc == 5 ? argv[4] : NULL;
+    } else if (argc == 6 || argc == 7) {
+        config->bind_addr = argv[2];
+        if (parse_u16(argv[3], &config->port) < 0 ||
+            parse_nonnegative_int(argv[4], 3600, &config->idle_timeout_sec) < 0) {
+            return -1;
+        }
+        max_clients_text = argv[5];
+        if (argc == 7 && strcmp(argv[6], "-") != 0) {
+            config->token_path = argv[6];
+            config->require_auth = true;
+        }
+    } else {
+        return -1;
+    }
+
+    if (max_clients_text != NULL &&
+        parse_nonnegative_int(max_clients_text, 10000, &config->max_clients) < 0) {
+        return -1;
+    }
     return 0;
 }
 
@@ -585,11 +737,13 @@ int main(int argc, char **argv)
     }
 
     if (strcmp(argv[1], "listen") == 0) {
-        if (argc != 4 && argc != 5) {
+        struct tcpctl_server_config config;
+
+        if (parse_listen_config(argc, argv, &config) < 0) {
             usage(argv[0]);
             return 2;
         }
-        return command_listen(argv[2], argv[3], argc == 5 ? argv[4] : NULL);
+        return command_listen(&config);
     }
 
     usage(argv[0]);

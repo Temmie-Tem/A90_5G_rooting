@@ -3,6 +3,8 @@
 import argparse
 import hashlib
 import os
+import posixpath
+import re
 import shlex
 import socket
 import subprocess
@@ -20,13 +22,22 @@ DEFAULT_BRIDGE_PORT = 54321
 DEFAULT_DEVICE_IP = "192.168.7.2"
 DEFAULT_TCP_PORT = 2325
 DEFAULT_TRANSFER_PORT = 18083
-DEFAULT_DEVICE_BINARY = "/cache/bin/a90_tcpctl"
+DEFAULT_DEVICE_BINARY = "/bin/a90_tcpctl"
 DEFAULT_TOYBOX = "/cache/bin/toybox"
 DEFAULT_LOCAL_BINARY = ROOT_DIR / "external_tools/userland/bin/a90_tcpctl-aarch64-static"
 DEFAULT_IDLE_TIMEOUT = 60
 DEFAULT_MAX_CLIENTS = 8
 DEFAULT_SOAK_MAX_CLIENTS = 0
+DEFAULT_TCPCTL_TOKEN_PATH = "/cache/native-init-tcpctl.token"
+DEFAULT_TOKEN_COMMAND = "netservice token show"
 CMDV1_END_MISSING_TEXT = "A90P1 END marker not found"
+TOKEN_RE = re.compile(r"tcpctl_token=([0-9A-Fa-f]{32})")
+SAFE_DEVICE_PATH_RE = re.compile(r"^[A-Za-z0-9_./-]+$")
+INSTALL_ALLOWED_PREFIXES = (
+    "/cache/bin/",
+    "/cache/a90-runtime/bin/",
+    "/mnt/sdext/a90/bin/",
+)
 
 
 def log(message: str) -> None:
@@ -42,6 +53,20 @@ def sha256_file(path: Path) -> str:
                 break
             digest.update(chunk)
     return digest.hexdigest()
+
+
+def validate_install_target(path: str) -> None:
+    parts = path.split("/")
+
+    if not path.startswith("/") or not SAFE_DEVICE_PATH_RE.fullmatch(path):
+        raise RuntimeError(f"unsafe device install path: {path}")
+    if any(part == ".." for part in parts):
+        raise RuntimeError(f"unsafe device install path: {path}")
+    if not any(path.startswith(prefix) for prefix in INSTALL_ALLOWED_PREFIXES):
+        raise RuntimeError(
+            "refusing to install outside runtime/cache helper roots: "
+            f"{path} (use /cache/bin, /cache/a90-runtime/bin, or /mnt/sdext/a90/bin)"
+        )
 
 
 def bridge_command(host: str,
@@ -166,6 +191,31 @@ def best_effort_hide_menu(args: argparse.Namespace) -> None:
         time.sleep(args.menu_hide_sleep)
 
 
+def parse_tcpctl_token(output: str) -> str:
+    match = TOKEN_RE.search(output)
+    if not match:
+        raise RuntimeError(f"tcpctl token was not found in output:\n{output}")
+    return match.group(1)
+
+
+def tcpctl_command_requires_auth(command: str) -> bool:
+    word = command.lstrip().split(maxsplit=1)[0] if command.strip() else ""
+    return word in {"run", "shutdown"}
+
+
+def get_tcpctl_token(args: argparse.Namespace) -> str:
+    cached = getattr(args, "_tcpctl_token", None)
+    if cached:
+        return cached
+    if args.token:
+        args._tcpctl_token = args.token
+        return args.token
+    output = device_command(args, args.token_command, timeout=args.bridge_timeout)
+    token = parse_tcpctl_token(output)
+    args._tcpctl_token = token
+    return token
+
+
 class BridgeRunThread(threading.Thread):
     def __init__(self, args: argparse.Namespace, command: str, *, echo: bool = False) -> None:
         super().__init__(daemon=True)
@@ -213,9 +263,12 @@ class BridgeRunThread(threading.Thread):
 
 def tcpctl_request(args: argparse.Namespace, command: str, *, timeout: float | None = None) -> str:
     timeout_sec = args.tcp_timeout if timeout is None else timeout
+    payload = command.rstrip("\n") + "\n"
+    if not args.no_auth and tcpctl_command_requires_auth(command):
+        payload = f"auth {get_tcpctl_token(args)}\n{payload}"
     with socket.create_connection((args.device_ip, args.tcp_port), timeout=timeout_sec) as sock:
         sock.settimeout(0.5)
-        sock.sendall((command.rstrip("\n") + "\n").encode())
+        sock.sendall(payload.encode())
         data = bytearray()
         deadline = time.monotonic() + timeout_sec
 
@@ -273,12 +326,15 @@ def wait_for_tcpctl(args: argparse.Namespace, timeout_sec: float) -> str:
 def tcpctl_listen_command(args: argparse.Namespace) -> str:
     return (
         f"run {args.device_binary} listen "
-        f"{args.tcp_port} {args.idle_timeout} {args.max_clients}"
+        f"{args.device_ip} {args.tcp_port} {args.idle_timeout} "
+        f"{args.max_clients} {args.token_path if not args.no_auth else '-'}"
     )
 
 
 def command_start(args: argparse.Namespace) -> int:
     best_effort_hide_menu(args)
+    if not args.no_auth:
+        get_tcpctl_token(args)
     command = tcpctl_listen_command(args)
     log(f"starting via bridge: {command}")
     runner = BridgeRunThread(args, command, echo=True)
@@ -343,54 +399,97 @@ def command_stop(args: argparse.Namespace) -> int:
 
 def command_install(args: argparse.Namespace) -> int:
     local_binary = Path(args.local_binary)
+    target = args.device_binary
+    target_dir = posixpath.dirname(target)
+    target_name = posixpath.basename(target)
+    tmp_target = f"{target_dir}/.{target_name}.tmp.{os.getpid()}.{int(time.time())}"
+
     if not local_binary.exists():
         raise FileNotFoundError(local_binary)
+    validate_install_target(target)
 
     local_hash = sha256_file(local_binary)
     best_effort_hide_menu(args)
     receive_command = (
         f"run {args.toybox} netcat -l -p {args.transfer_port} "
-        f"{args.toybox} dd of={args.device_binary} bs=4096"
+        f"{args.toybox} dd of={tmp_target} bs=4096"
     )
     log(f"device receive command: {receive_command}")
-    runner = BridgeRunThread(args, receive_command, echo=args.verbose)
-    runner.start()
-    time.sleep(args.transfer_delay)
 
-    with socket.create_connection((args.device_ip, args.transfer_port), timeout=args.connect_timeout) as sock:
-        with local_binary.open("rb") as fp:
-            while True:
-                chunk = fp.read(1024 * 1024)
-                if not chunk:
-                    break
-                sock.sendall(chunk)
-        sock.shutdown(socket.SHUT_WR)
+    try:
+        mkdir_output = device_command(
+            args,
+            f"mkdir {target_dir}",
+            timeout=args.bridge_timeout,
+            allow_error=True,
+        )
+        if mkdir_output:
+            print(mkdir_output, end="" if mkdir_output.endswith("\n") else "\n")
 
-    runner.join(args.transfer_timeout)
-    if runner.is_alive():
-        raise RuntimeError("device transfer did not finish")
-    if runner.error is not None:
-        raise RuntimeError(f"bridge transfer failed: {runner.error}")
-    if "[done] run" not in runner.text():
-        raise RuntimeError(f"device transfer did not report done:\n{runner.text()}")
+        cleanup_output = device_command(
+            args,
+            f"run {args.toybox} rm -f {tmp_target}",
+            timeout=args.bridge_timeout,
+            allow_error=True,
+        )
+        if cleanup_output:
+            print(cleanup_output, end="" if cleanup_output.endswith("\n") else "\n")
 
-    print(runner.text(), end="" if runner.text().endswith("\n") else "\n")
-    chmod_output = device_command(
-        args,
-        f"run {args.toybox} chmod 755 {args.device_binary}",
-        timeout=args.bridge_timeout,
-    )
-    print(chmod_output, end="" if chmod_output.endswith("\n") else "\n")
-    sha_output = device_command(
-        args,
-        f"run {args.toybox} sha256sum {args.device_binary}",
-        timeout=args.bridge_timeout,
-    )
-    print(sha_output, end="" if sha_output.endswith("\n") else "\n")
-    if local_hash not in sha_output:
-        raise RuntimeError(f"device sha256 did not match local {local_hash}")
+        runner = BridgeRunThread(args, receive_command, echo=args.verbose)
+        runner.start()
+        time.sleep(args.transfer_delay)
 
-    log(f"installed {args.device_binary} sha256={local_hash}")
+        with socket.create_connection((args.device_ip, args.transfer_port), timeout=args.connect_timeout) as sock:
+            with local_binary.open("rb") as fp:
+                while True:
+                    chunk = fp.read(1024 * 1024)
+                    if not chunk:
+                        break
+                    sock.sendall(chunk)
+            sock.shutdown(socket.SHUT_WR)
+
+        runner.join(args.transfer_timeout)
+        if runner.is_alive():
+            raise RuntimeError("device transfer did not finish")
+        if runner.error is not None:
+            raise RuntimeError(f"bridge transfer failed: {runner.error}")
+        if "[done] run" not in runner.text():
+            raise RuntimeError(f"device transfer did not report done:\n{runner.text()}")
+
+        print(runner.text(), end="" if runner.text().endswith("\n") else "\n")
+        chmod_output = device_command(
+            args,
+            f"run {args.toybox} chmod 755 {tmp_target}",
+            timeout=args.bridge_timeout,
+        )
+        print(chmod_output, end="" if chmod_output.endswith("\n") else "\n")
+        sha_output = device_command(
+            args,
+            f"run {args.toybox} sha256sum {tmp_target}",
+            timeout=args.bridge_timeout,
+        )
+        print(sha_output, end="" if sha_output.endswith("\n") else "\n")
+        if local_hash not in sha_output:
+            raise RuntimeError(f"device tmp sha256 did not match local {local_hash}")
+        mv_output = device_command(
+            args,
+            f"run {args.toybox} mv -f {tmp_target} {target}",
+            timeout=args.bridge_timeout,
+        )
+        print(mv_output, end="" if mv_output.endswith("\n") else "\n")
+    except Exception:
+        try:
+            device_command(
+                args,
+                f"run {args.toybox} rm -f {tmp_target}",
+                timeout=args.bridge_timeout,
+                allow_error=True,
+            )
+        except Exception as cleanup_exc:
+            log(f"cleanup failed for {tmp_target}: {cleanup_exc}")
+        raise
+
+    log(f"installed {target} sha256={local_hash}")
     return 0
 
 
@@ -399,6 +498,8 @@ def command_smoke(args: argparse.Namespace) -> int:
         command_install(args)
 
     best_effort_hide_menu(args)
+    if not args.no_auth:
+        get_tcpctl_token(args)
     runner = BridgeRunThread(args, tcpctl_listen_command(args), echo=args.verbose)
     runner.start()
     wait_for_tcpctl(args, args.ready_timeout)
@@ -454,6 +555,8 @@ def command_soak(args: argparse.Namespace) -> int:
         log(f"raised idle timeout for soak: {args.idle_timeout}s")
 
     best_effort_hide_menu(args)
+    if not args.no_auth:
+        get_tcpctl_token(args)
     runner = BridgeRunThread(args, tcpctl_listen_command(args), echo=args.verbose)
     runner.start()
 
@@ -596,6 +699,14 @@ def add_common_args(parser: argparse.ArgumentParser) -> None:
     parser.add_argument("--toybox", default=DEFAULT_TOYBOX)
     parser.add_argument("--idle-timeout", type=int, default=DEFAULT_IDLE_TIMEOUT)
     parser.add_argument("--max-clients", type=int, default=DEFAULT_MAX_CLIENTS)
+    parser.add_argument("--token", help="tcpctl auth token; defaults to reading it from native init")
+    parser.add_argument("--token-command", default=DEFAULT_TOKEN_COMMAND)
+    parser.add_argument("--token-path", default=DEFAULT_TCPCTL_TOKEN_PATH)
+    parser.add_argument(
+        "--no-auth",
+        action="store_true",
+        help="use legacy unauthenticated tcpctl listen/request mode",
+    )
     parser.add_argument("--connect-timeout", type=float, default=5.0)
     parser.add_argument("--tcp-timeout", type=float, default=10.0)
     parser.add_argument("--bridge-timeout", type=float, default=30.0)
@@ -683,3 +794,6 @@ if __name__ == "__main__":
     except KeyboardInterrupt:
         print("interrupted", file=sys.stderr)
         raise SystemExit(130)
+    except RuntimeError as exc:
+        print(f"error: {exc}", file=sys.stderr)
+        raise SystemExit(1)

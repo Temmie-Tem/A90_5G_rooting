@@ -26,6 +26,8 @@ struct a90_helper_entry {
     bool hash_match;
     bool required;
     bool manifest_entry;
+    bool manifest_path_allowed;
+    bool manifest_sha_valid;
     char warning[160];
 };
 

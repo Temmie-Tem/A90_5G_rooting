@@ -7,16 +7,20 @@
 | finding_id | `c1522842459881919ce5e5e7b4ba7d43` |
 | finding_url | https://chatgpt.com/codex/cloud/security/findings/c1522842459881919ce5e5e7b4ba7d43 |
 | severity | `medium` |
-| status | `new` |
+| status | `mitigated-host-batch3` |
 | detected_at | `2026-04-28T09:18:07.473788Z` |
 | committed_at | `2026-04-26 00:01:24 +0900` |
 | commit_hash | `db83601d65bfaf9ad21bffa98c623452f344e363` |
 | relevant_paths | `scripts/revalidation/ncm_host_setup.py` |
-| has_patch | `false` |
+| has_patch | `true` |
 
 ## CSV Description
 
 In `ncm_host_setup.py`, `ncm.host_addr` is parsed from device/bridge output and used as the sole selector for the host NIC. The script then executes `sudo ip addr replace ... dev <iface>` and `sudo ip link set <iface> up`. A malicious or compromised device helper (or spoofed bridge response) can return a MAC belonging to a different host interface (e.g., production Ethernet/Wi-Fi), causing privileged reconfiguration of the wrong interface. This can disrupt connectivity and potentially redirect traffic in lab environments where operators run the helper with sudo.
+
+## Local Remediation
+
+- Batch 3 changes NCM host setup to require `--interface <ifname>` for sudo host NIC configuration by default, with MAC auto-selection only behind explicit `--allow-auto-interface`.
 
 ## Codex Cloud Detail
 

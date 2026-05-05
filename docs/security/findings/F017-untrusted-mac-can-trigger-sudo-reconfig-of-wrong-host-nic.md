@@ -7,16 +7,20 @@
 | finding_id | `76510c5c6fe88191934b0a8170f4c25a` |
 | finding_url | https://chatgpt.com/codex/cloud/security/findings/76510c5c6fe88191934b0a8170f4c25a |
 | severity | `medium` |
-| status | `new` |
+| status | `mitigated-host-batch3` |
 | detected_at | `2026-04-28T06:45:57.155591Z` |
 | committed_at | `2026-04-26 02:02:10 +0900` |
 | commit_hash | `8d58ee16a7b1de4d4d2d4659ee1cb772bf4ab0a4` |
 | relevant_paths | `scripts/revalidation/netservice_reconnect_soak.py` |
-| has_patch | `false` |
+| has_patch | `true` |
 
 ## CSV Description
 
 In `netservice_reconnect_soak.py`, host interface selection is driven by `ncm.host_addr` parsed from device command output (`run /cache/bin/a90_usbnet status`). That value is then used to find a local interface by MAC and run privileged host commands (`ip addr replace`, `ip link set`) via sudo, without an interface allowlist or USB/NCM origin verification. A malicious or compromised device can report a MAC matching another host NIC (e.g., management LAN), causing unintended privileged reconfiguration and potential connectivity loss or traffic-path manipulation.
+
+## Local Remediation
+
+- Batch 3 changes reconnect soak to require `--interface <ifname>` for sudo host NIC configuration by default, with MAC auto-selection only behind explicit `--allow-auto-interface`.
 
 ## Codex Cloud Detail
 

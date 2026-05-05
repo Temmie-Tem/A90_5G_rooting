@@ -17,6 +17,33 @@ BRIDGE_SERIAL_MISSING_TEXT = "serial device is not connected"
 END_RE = re.compile(r"^A90P1 END (?P<fields>.+)$", re.MULTILINE)
 BEGIN_RE = re.compile(r"^A90P1 BEGIN (?P<fields>.+)$", re.MULTILINE)
 COMMAND_NAME_RE = re.compile(r"^[A-Za-z0-9_.+-]+$")
+SAFE_RETRY_COMMANDS = {
+    "version",
+    "status",
+    "bootstatus",
+    "selftest",
+    "pid1guard",
+    "runtime",
+    "storage",
+    "mountsd",
+    "helpers",
+    "userland",
+    "service",
+    "netservice",
+    "rshell",
+    "diag",
+    "wififeas",
+    "wifiinv",
+    "logpath",
+    "timeline",
+    "last",
+    "pwd",
+    "uname",
+    "mounts",
+    "ls",
+    "cat",
+    "stat",
+}
 
 
 @dataclass
@@ -81,7 +108,19 @@ def encode_cmdv1_line(command: list[str]) -> str:
     return "cmdv1x " + " ".join(encode_cmdv1x_arg(arg) for arg in command)
 
 
-def read_until(sock: socket.socket, markers: tuple[bytes, ...], timeout_sec: float) -> bytes:
+def has_prompt_after_last_end(data: bytearray) -> bool:
+    end_index = data.rfind(b"A90P1 END ")
+    if end_index < 0:
+        return False
+    tail = data[end_index:]
+    return b"\na90:/#" in tail or b"\ra90:/#" in tail
+
+
+def read_until(sock: socket.socket,
+               markers: tuple[bytes, ...],
+               timeout_sec: float,
+               *,
+               require_prompt_after_end: bool = False) -> bytes:
     deadline = time.monotonic() + timeout_sec
     data = bytearray()
     while time.monotonic() < deadline:
@@ -93,6 +132,8 @@ def read_until(sock: socket.socket, markers: tuple[bytes, ...], timeout_sec: flo
             break
         data.extend(chunk)
         if any(marker in data for marker in markers):
+            if require_prompt_after_end and not has_prompt_after_last_end(data):
+                continue
             time.sleep(0.15)
             try:
                 data.extend(sock.recv(8192))
@@ -106,12 +147,19 @@ def bridge_exchange(host: str,
                     port: int,
                     line: str,
                     timeout_sec: float,
-                    markers: tuple[bytes, ...]) -> str:
+                    markers: tuple[bytes, ...],
+                    *,
+                    require_prompt_after_end: bool = False) -> str:
     connect_timeout = min(3.0, max(0.1, timeout_sec))
     with socket.create_connection((host, port), timeout=connect_timeout) as sock:
         sock.settimeout(0.25)
         sock.sendall(("\n" + line + "\n").encode("utf-8"))
-        data = read_until(sock, markers, timeout_sec)
+        data = read_until(
+            sock,
+            markers,
+            timeout_sec,
+            require_prompt_after_end=require_prompt_after_end,
+        )
     return data.decode("utf-8", errors="replace")
 
 
@@ -126,28 +174,54 @@ def sleep_before_retry(deadline: float) -> None:
 
 
 def parse_protocol_output(text: str) -> ProtocolResult:
-    begin_match = BEGIN_RE.search(text)
-    end_match = END_RE.search(text)
+    begin_matches = list(BEGIN_RE.finditer(text))
+    end_matches = list(END_RE.finditer(text))
+    begin_match = begin_matches[-1] if begin_matches else None
+    end_match = end_matches[-1] if end_matches else None
     if end_match is None:
         raise RuntimeError(f"A90P1 END marker not found\n{text}")
+    end_fields = parse_fields(end_match.group("fields"))
+    if begin_match is not None:
+        matching_begin = None
+        for candidate in reversed(begin_matches):
+            begin_fields = parse_fields(candidate.group("fields"))
+            if (begin_fields.get("seq") == end_fields.get("seq") and
+                    begin_fields.get("cmd") == end_fields.get("cmd")):
+                matching_begin = candidate
+                break
+        if matching_begin is not None:
+            begin_match = matching_begin
     return ProtocolResult(
         begin=parse_fields(begin_match.group("fields")) if begin_match else {},
-        end=parse_fields(end_match.group("fields")),
+        end=end_fields,
         text=text,
     )
 
 
+def command_allows_retry(command: list[str]) -> bool:
+    return bool(command) and command[0] in SAFE_RETRY_COMMANDS
+
+
 def run_cmdv1(args: argparse.Namespace, command: list[str]) -> ProtocolResult:
-    return run_cmdv1_command(args.host, args.port, args.timeout, command)
+    return run_cmdv1_command(
+        args.host,
+        args.port,
+        args.timeout,
+        command,
+        retry_unsafe=args.retry_unsafe,
+    )
 
 
 def run_cmdv1_command(host: str,
                       port: int,
                       timeout_sec: float,
-                      command: list[str]) -> ProtocolResult:
+                      command: list[str],
+                      *,
+                      retry_unsafe: bool = False) -> ProtocolResult:
     deadline = time.monotonic() + timeout_sec
     last_error: OSError | None = None
     last_text = ""
+    allow_retry = retry_unsafe or command_allows_retry(command)
 
     line = encode_cmdv1_line(command)
     while time.monotonic() < deadline:
@@ -162,13 +236,18 @@ def run_cmdv1_command(host: str,
                 line,
                 remaining,
                 markers=(b"A90P1 END ",),
+                require_prompt_after_end=True,
             )
         except OSError as exc:
             last_error = exc
+            if not allow_retry:
+                raise
             sleep_before_retry(deadline)
             continue
 
         if END_RE.search(text) is not None:
+            return parse_protocol_output(text)
+        if not allow_retry:
             return parse_protocol_output(text)
         if not should_retry_cmdv1_exchange(text):
             return parse_protocol_output(text)
@@ -222,6 +301,11 @@ def main() -> int:
     parser.add_argument("--json", action="store_true", dest="as_json")
     parser.add_argument("--quiet", action="store_true")
     parser.add_argument("--verbose", action="store_true")
+    parser.add_argument(
+        "--retry-unsafe",
+        action="store_true",
+        help="allow reconnect retry for non-observation commands; default retries only read-only commands",
+    )
     parser.add_argument("command", nargs=argparse.REMAINDER)
     args = parser.parse_args()
 

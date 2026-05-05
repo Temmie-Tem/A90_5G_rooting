@@ -21,6 +21,8 @@
   - USB ACM shell을 TCP 클라이언트 한 개로 전달
   - serial 재연결 시 자동 재오픈
   - v48 이후 USB 재열거로 device node identity가 바뀌면 stale fd를 닫고 재연결
+  - Batch 3 이후 첫 연결 realpath를 pinning하고, `--expect-realpath`로 특정 serial node를 고정 가능
+  - `--device=auto`에서 여러 Samsung ACM 후보가 보이면 기본적으로 거부
   - 빠른 개발용 게이트 용도
 - `serial_console.py`
   - 위 브릿지에 붙는 interactive console client
@@ -34,6 +36,8 @@
   - bridge가 먼저 열리고 ACM serial이 늦게 붙는 재부팅 구간은 timeout 안에서 재시도
   - v74부터 whitespace/empty/`#` 시작 인자는 `cmdv1x <len:hex-utf8-arg>...`로 자동 인코딩
   - 단순 whitespace-free 인자는 기존 `cmdv1 <command> [args...]` wire format 유지
+  - Batch 3 이후 자동 재시도는 관찰 명령 allowlist에만 적용하고, 그 외 명령은 `--retry-unsafe`가 필요
+  - Batch 3 이후 child output의 가짜 `A90P1 END`는 real trailer/prompt와 sequence matching으로 걸러냄
 - `native_init_flash.py`
   - TWRP recovery ADB에서 native init boot image를 boot 파티션에 기록
   - `adb devices` 출력을 whitespace split으로 파싱해 `recovery` 상태를 안정적으로 감지
@@ -41,6 +45,7 @@
   - TWRP에서 system으로 돌아갈 때 `adb shell 'twrp reboot'` 무인자 사용
   - 부팅 후 기본 `--verify-protocol auto`로 v73 `cmdv1 version/status`를 확인
   - pre-v73 image는 `A90P1 END`가 없을 때 raw `version` 검증으로 fallback
+  - Batch 3 이후 `--remote-image`/`--boot-block`은 절대 경로만 허용하고 remote shell에서 안전하게 quote
 - `build_static_toybox.sh`
   - 공식 `toybox-0.8.13` tarball을 해시 검증 후 다운로드
   - `aarch64-linux-gnu-gcc`로 static ARM64 toybox를 빌드
@@ -51,6 +56,7 @@
   - `aarch64-linux-gnu-gcc`로 static ARM64 BusyBox를 빌드
   - 산출물은 gitignore된 `external_tools/userland/bin/busybox-aarch64-static-1.36.1`
   - v99 검증 시 SD runtime root의 `/mnt/sdext/a90/bin/busybox` 후보로 사용
+  - Batch 3 이후 dynamic-section 검사 임시 파일은 `mktemp`로 생성하고 종료 시 삭제
 - `busybox_userland.py`
   - v99 BusyBox/toybox 후보의 local-info, manifest, device status, smoke 비교를 수행
 - `diag_collect.py`
@@ -72,7 +78,8 @@
   - 기본 `--device-protocol auto`로 짧은 device command는 `cmdv1` rc/status를 우선 사용
   - `off`처럼 USB 재열거로 끊길 수 있는 명령은 raw bridge 경로 유지
   - v60 boot netservice처럼 NCM이 이미 켜져 있으면 재실행하지 않고 기존 `ncm0`/host MAC을 사용
-  - `ncm.host_addr`를 기준으로 host `enx...` 인터페이스를 자동 탐지
+  - Batch 3 이후 host sudo NIC 설정은 기본적으로 `--interface <ifname>`가 필요
+  - trusted single-device lab에서만 `--allow-auto-interface`로 `ncm.host_addr` 기반 자동 탐지를 opt-in
   - host `192.168.7.1/24`, device `192.168.7.2/24` ping 검증과 `off` rollback 제공
 - `build_nettest_helper.sh`
   - `stage3/linux_init/a90_nettest.c`를 static ARM64 TCP 검증 helper로 빌드
@@ -81,10 +88,13 @@
 - `build_tcpctl_helper.sh`
   - `stage3/linux_init/a90_tcpctl.c`를 static ARM64 TCP command helper로 빌드
   - 산출물은 gitignore된 `external_tools/userland/bin/a90_tcpctl-aarch64-static`
-  - `/cache/bin/a90_tcpctl listen <port> <idle_timeout_sec> [max_clients]`로 NCM 위의 작은 명령/응답 채널을 검증
+  - v123 이후 ramdisk `/bin/a90_tcpctl listen <bind_addr> <port> <idle_timeout_sec> [max_clients] [token_path]`로 NCM 위의 작은 명령/응답 채널을 검증
 - `tcpctl_host.py`
-  - host에서 `/cache/bin/a90_tcpctl`을 install/start/call/run/stop/smoke/soak 형태로 다루는 wrapper
+  - host에서 `/bin/a90_tcpctl`을 start/call/run/stop/smoke/soak 형태로 다루는 wrapper
   - serial bridge는 launch/rescue 채널로 유지하고, 명령은 NCM `192.168.7.2:2325`로 전달
+  - 기본값은 `netservice token show`로 tcpctl token을 읽어 `run`/`shutdown` 전에 `auth <token>`을 보낸다
+  - legacy pre-v123 checks only: `--no-auth`
+  - v124부터 `install`은 runtime/cache helper root만 허용하고 임시 파일 업로드, SHA256 검증, `mv -f` 교체, 실패 시 임시 파일 삭제 순서로 동작
   - install 후 chmod/sha256, smoke/soak의 bridge version 확인은 `cmdv1` rc/status 우선
   - tcpctl listener처럼 long-running serial command는 raw bridge streaming 유지
   - `smoke`는 start → ping/version/status/run/shutdown → serial/NCM 상태 확인을 한 번에 수행
@@ -93,10 +103,11 @@
   - v60 `netservice stop/start`로 USB UDC 재열거 뒤 ACM/NCM/tcpctl 복구를 검증
   - bridge version/netservice status/usbnet status/ifconfig 같은 짧은 확인은 `cmdv1` rc/status 우선
   - `netservice start|stop`처럼 USB 재열거로 끊길 수 있는 명령은 raw bridge 유지
+  - Batch 3 이후 host sudo NIC 설정은 기본적으로 `--interface <ifname>`가 필요하고 MAC 자동 선택은 `--allow-auto-interface` opt-in
 - `physical_usb_reconnect_check.py`
   - 실제 USB 케이블 unplug/replug 이후 ACM bridge, NCM ping, tcpctl 응답 복구를 한 번에 확인
   - 필요하면 netservice를 먼저 시작하고, sudo가 막히면 `--manual-host-config`로 host IP 수동 설정을 기다림
-  - NCM 재열거마다 host `enx...` 이름이 바뀔 수 있으므로 `host_addr` MAC으로 현재 interface를 다시 찾음
+  - NCM host 설정은 `netservice_reconnect_soak.py`의 `--interface`/`--allow-auto-interface` 정책을 따름
   - `--manual-host-config`는 sudo가 불가능한 환경에서 현재 `sudo ip ... dev <enx...>` 명령을 출력하고 사용자의 수동 설정을 기다림
 
 권장 순서:

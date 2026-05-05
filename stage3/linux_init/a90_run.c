@@ -11,6 +11,14 @@
 #include <sys/wait.h>
 #include <unistd.h>
 
+#ifndef O_CLOEXEC
+#define O_CLOEXEC 0
+#endif
+
+#ifndef O_NOFOLLOW
+#define O_NOFOLLOW 0
+#endif
+
 #ifndef ECANCELED
 #define ECANCELED 125
 #endif
@@ -35,7 +43,7 @@ static void redirect_log_stdio(const char *log_path) {
     int log_fd = -1;
 
     if (log_path != NULL) {
-        log_fd = open(log_path, O_WRONLY | O_CREAT | O_APPEND | O_CLOEXEC, 0644);
+        log_fd = open(log_path, O_WRONLY | O_CREAT | O_APPEND | O_CLOEXEC | O_NOFOLLOW, 0600);
     }
 
     if (null_fd >= 0) {

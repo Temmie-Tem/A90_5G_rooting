@@ -2,6 +2,7 @@
 
 import argparse
 import hashlib
+import shlex
 import socket
 import subprocess
 import sys
@@ -26,7 +27,7 @@ def run_command(args: list[str],
                 *,
                 check: bool = True,
                 capture: bool = False) -> subprocess.CompletedProcess:
-    log("+ " + " ".join(args))
+    log("+ " + shlex.join(args))
     if capture:
         return subprocess.run(
             args,
@@ -43,6 +44,12 @@ def adb_base(serial: str | None) -> list[str]:
     if serial:
         base.extend(["-s", serial])
     return base
+
+
+def quote_remote_path(path: str, *, label: str) -> str:
+    if not path.startswith("/") or "\x00" in path:
+        raise RuntimeError(f"{label} must be an absolute remote path")
+    return shlex.quote(path)
 
 
 def parse_adb_devices(output: str) -> list[tuple[str, str]]:
@@ -163,9 +170,10 @@ def inspect_local_image(args: argparse.Namespace) -> tuple[Path, str, int]:
 
 
 def remote_sha256(serial: str | None, remote_path: str) -> str:
+    remote = quote_remote_path(remote_path, label="remote image")
     command = adb_base(serial) + [
         "shell",
-        f"sha256sum {remote_path} 2>/dev/null || toybox sha256sum {remote_path}",
+        f"sha256sum {remote} 2>/dev/null || toybox sha256sum {remote}",
     ]
     result = run_command(command, capture=True)
     first_field = result.stdout.strip().split()[0]
@@ -178,12 +186,13 @@ def remote_boot_prefix_sha256(serial: str | None,
                               boot_block: str,
                               image_size: int) -> str:
     count = image_size // BOOT_READBACK_BLOCK_SIZE
+    block = quote_remote_path(boot_block, label="boot block")
     command = adb_base(serial) + [
         "shell",
         (
-            f"dd if={boot_block} bs={BOOT_READBACK_BLOCK_SIZE} count={count} "
+            f"dd if={block} bs={BOOT_READBACK_BLOCK_SIZE} count={count} "
             "2>/dev/null | sha256sum 2>/dev/null || "
-            f"dd if={boot_block} bs={BOOT_READBACK_BLOCK_SIZE} count={count} "
+            f"dd if={block} bs={BOOT_READBACK_BLOCK_SIZE} count={count} "
             "2>/dev/null | toybox sha256sum"
         ),
     ]
@@ -266,6 +275,9 @@ def flash_boot_image(args: argparse.Namespace,
                      image_path: Path,
                      local_hash: str,
                      image_size: int) -> None:
+    remote = quote_remote_path(args.remote_image, label="remote image")
+    block = quote_remote_path(args.boot_block, label="boot block")
+
     run_command(adb_base(serial) + ["push", str(image_path), args.remote_image])
 
     remote_hash = remote_sha256(serial, args.remote_image)
@@ -274,7 +286,7 @@ def flash_boot_image(args: argparse.Namespace,
         raise RuntimeError("remote sha256 mismatch after adb push")
 
     flash_cmd = (
-        f"dd if={args.remote_image} of={args.boot_block} "
+        f"dd if={remote} of={block} "
         "bs=4M conv=fsync && sync"
     )
     run_command(adb_base(serial) + ["shell", flash_cmd])

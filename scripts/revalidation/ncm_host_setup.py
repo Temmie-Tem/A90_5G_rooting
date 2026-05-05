@@ -26,6 +26,7 @@ HOST_ADDR_RE = re.compile(r"^ncm\.host_addr:\s*([0-9a-fA-F:]{17})\s*$", re.MULTI
 DEV_ADDR_RE = re.compile(r"^ncm\.dev_addr:\s*([0-9a-fA-F:]{17})\s*$", re.MULTILINE)
 IFNAME_RE = re.compile(r"^ncm\.ifname:\s*(\S+)\s*$", re.MULTILINE)
 CMDV1_END_MISSING_TEXT = "A90P1 END marker not found"
+HOST_IFACE_RE = re.compile(r"^[A-Za-z0-9_.:-]+$")
 
 
 @dataclass
@@ -212,6 +213,36 @@ def wait_for_interface_by_mac(mac: str, timeout_sec: float) -> str:
     raise RuntimeError(f"host interface with MAC {mac} was not found")
 
 
+def validate_host_interface_name(interface: str) -> None:
+    if not HOST_IFACE_RE.fullmatch(interface) or interface in {".", ".."}:
+        raise RuntimeError(f"unsafe host interface name: {interface!r}")
+    if not os.path.exists(f"/sys/class/net/{interface}"):
+        raise RuntimeError(f"host interface does not exist: {interface}")
+
+
+def select_host_interface(args: argparse.Namespace, status: UsbnetStatus) -> str:
+    if args.interface:
+        validate_host_interface_name(args.interface)
+        actual_mac = sysfs_mac_for(args.interface)
+        if status.host_addr and actual_mac and actual_mac != status.host_addr:
+            raise RuntimeError(
+                f"host interface {args.interface} MAC {actual_mac} does not match "
+                f"device-reported NCM host_addr {status.host_addr}"
+            )
+        return args.interface
+
+    if not args.allow_auto_interface:
+        raise RuntimeError(
+            "refusing sudo host NIC configuration from device-reported MAC; "
+            "pass --interface <ifname> or opt in with --allow-auto-interface"
+        )
+
+    if not status.host_addr:
+        raise RuntimeError("device NCM host_addr was not reported")
+    log(f"waiting for host interface with MAC {status.host_addr}")
+    return wait_for_interface_by_mac(status.host_addr, args.interface_timeout)
+
+
 def sudo_prefix(args: argparse.Namespace) -> list[str]:
     if args.no_sudo or os.geteuid() == 0:
         return []
@@ -268,8 +299,7 @@ def command_setup(args: argparse.Namespace) -> int:
     )
     print(output, end="" if output.endswith("\n") else "\n")
 
-    log(f"waiting for host interface with MAC {status.host_addr}")
-    interface = wait_for_interface_by_mac(status.host_addr, args.interface_timeout)
+    interface = select_host_interface(args, status)
     log(f"host interface: {interface}")
 
     run_host_command(
@@ -355,6 +385,12 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--host-ip", default=DEFAULT_HOST_IP)
     parser.add_argument("--prefix", type=int, default=DEFAULT_PREFIX)
     parser.add_argument("--interface-timeout", type=float, default=20.0)
+    parser.add_argument("--interface", help="explicit host NCM interface to configure")
+    parser.add_argument(
+        "--allow-auto-interface",
+        action="store_true",
+        help="allow selecting the sudo target interface from device-reported NCM MAC",
+    )
     parser.add_argument("--ping-count", type=int, default=3)
     parser.add_argument("--ping-timeout", type=int, default=2)
     parser.add_argument("--reattach-sleep", type=float, default=3.0)

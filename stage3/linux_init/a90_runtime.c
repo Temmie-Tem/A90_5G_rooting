@@ -17,6 +17,10 @@
 #define O_CLOEXEC 0
 #endif
 
+#ifndef O_NOFOLLOW
+#define O_NOFOLLOW 0
+#endif
+
 static struct a90_runtime_status runtime_state = {
     .initialized = false,
     .fallback = true,
@@ -85,7 +89,7 @@ static int runtime_write_probe(const char *dir) {
     const char payload[] = "a90-runtime-ok\n";
 
     runtime_join_path(path, sizeof(path), dir, A90_RUNTIME_RW_TEST_NAME);
-    fd = open(path, O_WRONLY | O_CREAT | O_TRUNC | O_CLOEXEC, 0644);
+    fd = open(path, O_WRONLY | O_CREAT | O_TRUNC | O_CLOEXEC | O_NOFOLLOW, 0600);
     if (fd < 0) {
         return -1;
     }

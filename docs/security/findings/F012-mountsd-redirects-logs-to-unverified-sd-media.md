@@ -7,12 +7,17 @@
 | finding_id | `cded187dd8348191b117aea958fb7f57` |
 | finding_url | https://chatgpt.com/codex/cloud/security/findings/cded187dd8348191b117aea958fb7f57 |
 | severity | `medium` |
-| status | `new` |
+| status | `mitigated-v124` |
 | detected_at | `2026-05-02T19:55:55.957098Z` |
 | committed_at | `2026-05-03 00:01:12 +0900` |
 | commit_hash | `b23f0d98ccee1ec713a7d44d90243a0c0801e622` |
 | relevant_paths | `stage3/linux_init/a90_config.h | stage3/linux_init/a90_storage.c | stage3/linux_init/a90_log.c` |
-| has_patch | `false` |
+| has_patch | `true` |
+
+## Local Remediation
+
+- v124 gates mountsd rw/init log redirection on expected SD UUID, identity marker, and RW probe; native log files are opened no-follow with 0600 mode.
+- Report: `docs/reports/NATIVE_INIT_V124_SECURITY_BATCH2_2026-05-06.md`
 
 ## CSV Description
 

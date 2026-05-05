@@ -14,15 +14,15 @@ Android userspace 대신 직접 만든 static `/init`를 실행하고,
 - build: `A908NKSU5EWA3`
 - kernel: Samsung stock Android kernel `Linux 4.14.190`
 - recovery: TWRP 사용 가능
-- latest verified build: `A90 Linux init 0.9.22 (v122)`
-- official version: `0.9.22`
-- build tag: `v122`
+- latest verified build: `A90 Linux init 0.9.24 (v124)`
+- official version: `0.9.24`
+- build tag: `v124`
 - creator: `made by temmie0214`
-- latest verified source: `stage3/linux_init/init_v122.c` + `stage3/linux_init/v122/*.inc.c` + `stage3/linux_init/helpers/a90_cpustress.c` + `stage3/linux_init/helpers/a90_rshell.c` + `stage3/linux_init/a90_config.h` + `stage3/linux_init/a90_util.c/h` + `stage3/linux_init/a90_log.c/h` + `stage3/linux_init/a90_timeline.c/h` + `stage3/linux_init/a90_console.c/h` + `stage3/linux_init/a90_cmdproto.c/h` + `stage3/linux_init/a90_run.c/h` + `stage3/linux_init/a90_service.c/h` + `stage3/linux_init/a90_kms.c/h` + `stage3/linux_init/a90_draw.c/h` + `stage3/linux_init/a90_input.c/h` + `stage3/linux_init/a90_hud.c/h` + `stage3/linux_init/a90_menu.c/h` + `stage3/linux_init/a90_metrics.c/h` + `stage3/linux_init/a90_shell.c/h` + `stage3/linux_init/a90_controller.c/h` + `stage3/linux_init/a90_storage.c/h` + `stage3/linux_init/a90_selftest.c/h` + `stage3/linux_init/a90_usb_gadget.c/h` + `stage3/linux_init/a90_netservice.c/h` + `stage3/linux_init/a90_pid1_guard.c/h` + `stage3/linux_init/a90_runtime.c/h` + `stage3/linux_init/a90_helper.c/h` + `stage3/linux_init/a90_userland.c/h` + `stage3/linux_init/a90_diag.c/h` + `stage3/linux_init/a90_wifiinv.c/h` + `stage3/linux_init/a90_wififeas.c/h` + `stage3/linux_init/a90_app_about.c/h` + `stage3/linux_init/a90_app_displaytest.c/h` + `stage3/linux_init/a90_app_inputmon.c/h`
-- latest verified boot image: `stage3/boot_linux_v122.img`
+- latest verified source: `stage3/linux_init/init_v124.c` + `stage3/linux_init/v124/*.inc.c` + `stage3/linux_init/helpers/a90_cpustress.c` + `stage3/linux_init/helpers/a90_rshell.c` + `stage3/linux_init/a90_config.h` + `stage3/linux_init/a90_util.c/h` + `stage3/linux_init/a90_log.c/h` + `stage3/linux_init/a90_timeline.c/h` + `stage3/linux_init/a90_console.c/h` + `stage3/linux_init/a90_cmdproto.c/h` + `stage3/linux_init/a90_run.c/h` + `stage3/linux_init/a90_service.c/h` + `stage3/linux_init/a90_kms.c/h` + `stage3/linux_init/a90_draw.c/h` + `stage3/linux_init/a90_input.c/h` + `stage3/linux_init/a90_hud.c/h` + `stage3/linux_init/a90_menu.c/h` + `stage3/linux_init/a90_metrics.c/h` + `stage3/linux_init/a90_shell.c/h` + `stage3/linux_init/a90_controller.c/h` + `stage3/linux_init/a90_storage.c/h` + `stage3/linux_init/a90_selftest.c/h` + `stage3/linux_init/a90_usb_gadget.c/h` + `stage3/linux_init/a90_netservice.c/h` + `stage3/linux_init/a90_pid1_guard.c/h` + `stage3/linux_init/a90_runtime.c/h` + `stage3/linux_init/a90_helper.c/h` + `stage3/linux_init/a90_userland.c/h` + `stage3/linux_init/a90_diag.c/h` + `stage3/linux_init/a90_wifiinv.c/h` + `stage3/linux_init/a90_wififeas.c/h` + `stage3/linux_init/a90_app_about.c/h` + `stage3/linux_init/a90_app_displaytest.c/h` + `stage3/linux_init/a90_app_inputmon.c/h`
+- latest verified boot image: `stage3/boot_linux_v124.img`
 - previous verified source-layout baseline: `stage3/linux_init/init_v80.c` + `stage3/linux_init/v80/*.inc.c`
 - known-good fallback: `stage3/boot_linux_v48.img`
-- local artifact retention: keep `v122` latest, `v121` rollback, and `v48` known-good; older ignored `stage3/boot_linux_v*.img`, `stage3/ramdisk_v*`, and compiled `init_v*` outputs are cleanup candidates
+- local artifact retention: keep `v124` latest, `v123` rollback, and `v48` known-good; older ignored `stage3/boot_linux_v*.img`, `stage3/ramdisk_v*`, and compiled `init_v*` outputs are cleanup candidates
 - control channel: USB CDC ACM serial (`/dev/ttyGS0` ↔ `/dev/ttyACM0`)
 - host bridge: `scripts/revalidation/serial_tcp_bridge.py --port 54321`
 - display: custom boot splash 후 상태 HUD/menu 자동 전환
@@ -30,19 +30,19 @@ Android userspace 대신 직접 만든 static `/init`를 실행하고,
 - logging: SD 정상 시 `/mnt/sdext/a90/logs/native-init.log`, fallback 시 `/cache/native-init.log`
 - blocking cancel: `waitkey`/`readinput`/`watchhud`/`blindmenu` q/Ctrl-C 취소 확인
 - boot timeline: `timeline` 명령과 log replay 확인
-- boot selftest: `selftest`/`bootstatus`에서 non-destructive module smoke test `pass=11 warn=0 fail=0` 확인
+- boot selftest: `selftest`/`bootstatus`에서 non-destructive module smoke test `pass=10 warn=1 fail=0` 확인; unverified SD BusyBox is intentionally blocked until manifest SHA-256 is provided
 - HUD boot summary: `BOOT OK shell` 표시 확인
 - run cancel: `/bin/a90sleep` helper로 q 취소 확인
 - storage: `/cache` safe write, ext4 SD workspace `/mnt/sdext/a90`, critical partitions do-not-touch
 - screen menu: 자동 메뉴, 앱 폴더, CPU stress app, nonblocking `screenmenu`, serial `hide`/busy gate 확인
 - USB map: ACM-only gadget `04e8:6861` / host `cdc_acm` 기준 문서화
-- userland: static BusyBox 1.36.1 SD runtime 실행과 toybox 0.8.13 fallback 실행 확인
+- userland: toybox fallback 실행 확인; v124부터 SD runtime BusyBox는 manifest SHA-256 검증 전에는 preferred helper가 되지 않음
 - remote shell: token-authenticated custom TCP shell `a90_rshell` over USB NCM `192.168.7.2:2326` 검증
 - service manager: `service list/status/start/stop/enable/disable`로 autohud/tcpctl/adbd/rshell 공통 operator view 검증
 - USB reattach: v48에서 ACM rebind 후 serial console 재연결 확인
 - USB NCM: persistent composite, device `ncm0`, IPv4 ping, IPv6 link-local ping, host→device netcat 확인
 - NCM ops: host interface 자동 탐지, ping, static TCP nettest 양방향 payload 검증 완료
-- TCP control: NCM 위에서 `a90_tcpctl` ping/status/run/shutdown 검증 완료
+- TCP control: NCM 위에서 token-authenticated `/bin/a90_tcpctl` ping/status/run/shutdown 검증 완료
 - TCP wrapper: `tcpctl_host.py smoke`로 launch/client/stop 자동 검증 완료
 - TCP soak: `tcpctl_host.py soak` 5분/30사이클 안정성 검증 완료
 - physical USB reconnect: 실제 케이블 unplug/replug 후 ACM bridge, NCM ping, tcpctl 복구 확인
@@ -98,6 +98,9 @@ Android userspace 대신 직접 만든 static `/init`를 실행하고,
 - command group API: v120에서 command table group metadata와 `cmdgroups [verbose]` inventory 추가
 - PID1 guard: v121에서 `a90_pid1_guard.c/h`와 `pid1guard [status|run|verbose]`로 boot/control invariant 점검 추가
 - Wi-Fi refresh: v122에서 `wifiinv refresh`/`wififeas refresh`로 v103/v104 baseline 대비 read-only 재평가 완료
+- security batch 1: v123에서 tcpctl auth/bind, ramdisk tcpctl helper, dangerous `service` gate, reconnect cleanup fail-closed 적용 완료
+- security batch 2: v124에서 runtime helper SHA-256 preference, no-follow storage/log writes, mountsd SD identity gate, tcpctl install rollback 적용 완료
+- security batch 3: host tooling에서 cmdv1 retry/framing, ADB shell path quoting, NCM interface pinning, serial bridge identity pinning 적용 완료
 - about app: `APPS / ABOUT`에서 version, changelog 목록/상세, credits 표시
 - input layout: `inputlayout`, `waitgesture`, `screenmenu`/`blindmenu` gesture action 확인
 - input monitor: `TOOLS / INPUT MONITOR`와 `inputmonitor [events]` raw/gesture trace 확인

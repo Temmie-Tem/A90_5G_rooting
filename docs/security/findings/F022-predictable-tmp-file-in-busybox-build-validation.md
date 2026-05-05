@@ -7,16 +7,20 @@
 | finding_id | `91a0342469308191ada6eaa2453cb478` |
 | finding_url | https://chatgpt.com/codex/cloud/security/findings/91a0342469308191ada6eaa2453cb478 |
 | severity | `low` |
-| status | `new` |
+| status | `mitigated-host-batch3` |
 | detected_at | `2026-05-04T10:31:59.152488Z` |
 | committed_at | `2026-05-03 22:36:11 +0900` |
 | commit_hash | `2c69abe3468adaf35aa38b5018868fcbf77c59e5` |
 | relevant_paths | `scripts/revalidation/build_static_busybox.sh` |
-| has_patch | `false` |
+| has_patch | `true` |
 
 ## CSV Description
 
 scripts/revalidation/build_static_busybox.sh stores readelf output in the hard-coded path /tmp/a90_busybox_dynamic_check.txt. Because /tmp is shared, another local user can pre-create this path as a symlink or controlled file before the operator runs the script. On systems without symlink protections, the redirection can overwrite an arbitrary file writable by the operator. Even when redirection fails, the command is masked with `|| true`, so the subsequent `cat`/`grep` can consume stale attacker-controlled contents and potentially bypass the dynamic-section validation. Use `mktemp` with a private file, a trap for cleanup, and avoid ignoring redirection/readelf failures; alternatively write the check output under the script-owned build directory.
+
+## Local Remediation
+
+- Batch 3 replaces the predictable `/tmp/a90_busybox_dynamic_check.txt` with a `mktemp` file removed by an EXIT trap.
 
 ## Codex Cloud Detail
 

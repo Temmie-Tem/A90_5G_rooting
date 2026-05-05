@@ -7,16 +7,20 @@
 | finding_id | `02396069e06c819181647d72e8963baa` |
 | finding_url | https://chatgpt.com/codex/cloud/security/findings/02396069e06c819181647d72e8963baa |
 | severity | `medium` |
-| status | `new` |
+| status | `mitigated-host-batch3` |
 | detected_at | `2026-04-28T09:19:16.229727Z` |
 | committed_at | `2026-04-25 04:32:03 +0900` |
 | commit_hash | `8dce12a0e3645d5f44e6188433e0cb23ee397527` |
 | relevant_paths | `scripts/revalidation/serial_tcp_bridge.py` |
-| has_patch | `false` |
+| has_patch | `true` |
 
 ## CSV Description
 
 This commit adds periodic serial identity checks in `serial_tcp_bridge.py`. Instead of validating the already-open device path, the new code re-runs auto-discovery (`glob` + first sorted match) every 0.5s and compares that result's stat identity to the active connection. If another matching device appears (or ordering changes), the bridge treats it as re-enumeration, disconnects, then reconnects to whichever device now sorts first. In practice, a malicious USB serial gadget spoofing the Samsung by-id pattern can cause device confusion/hijacking of the trusted root-shell channel (commands and responses redirected to attacker-controlled endpoint). This is newly introduced by the identity-check feature.
+
+## Local Remediation
+
+- Batch 3 makes the serial TCP bridge pin the first resolved serial realpath, adds `--expect-realpath`, and refuses ambiguous auto matches unless explicitly allowed.
 
 ## Codex Cloud Detail
 

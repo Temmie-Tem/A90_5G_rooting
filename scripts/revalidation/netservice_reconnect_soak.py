@@ -22,11 +22,14 @@ DEFAULT_DEVICE_IP = "192.168.7.2"
 DEFAULT_HOST_IP = "192.168.7.1"
 DEFAULT_PREFIX = 24
 DEFAULT_TCP_PORT = 2325
+DEFAULT_TOKEN_COMMAND = "netservice token show"
 
 HOST_ADDR_RE = re.compile(r"^ncm\.host_addr:\s*([0-9a-fA-F:]{17})\s*$", re.MULTILINE)
 DEV_ADDR_RE = re.compile(r"^ncm\.dev_addr:\s*([0-9a-fA-F:]{17})\s*$", re.MULTILINE)
 IFNAME_RE = re.compile(r"^ncm\.ifname:\s*(\S+)\s*$", re.MULTILINE)
 CMDV1_END_MISSING_TEXT = "A90P1 END marker not found"
+TOKEN_RE = re.compile(r"tcpctl_token=([0-9A-Fa-f]{32})")
+HOST_IFACE_RE = re.compile(r"^[A-Za-z0-9_.:-]+$")
 
 
 @dataclass
@@ -212,6 +215,35 @@ def wait_for_interface_by_mac(mac: str, timeout_sec: float) -> str:
     raise RuntimeError(f"host interface with MAC {mac} was not found")
 
 
+def validate_host_interface_name(interface: str) -> None:
+    if not HOST_IFACE_RE.fullmatch(interface) or interface in {".", ".."}:
+        raise RuntimeError(f"unsafe host interface name: {interface!r}")
+    if not os.path.exists(f"/sys/class/net/{interface}"):
+        raise RuntimeError(f"host interface does not exist: {interface}")
+
+
+def select_host_interface(args: argparse.Namespace, status: UsbnetStatus) -> str:
+    if args.interface:
+        validate_host_interface_name(args.interface)
+        actual_mac = sysfs_mac_for(args.interface)
+        if status.host_addr and actual_mac and actual_mac != status.host_addr:
+            raise RuntimeError(
+                f"host interface {args.interface} MAC {actual_mac} does not match "
+                f"device-reported NCM host_addr {status.host_addr}"
+            )
+        return args.interface
+
+    if not args.allow_auto_interface:
+        raise RuntimeError(
+            "refusing sudo host NIC configuration from device-reported MAC; "
+            "pass --interface <ifname> or opt in with --allow-auto-interface"
+        )
+
+    if not status.host_addr:
+        raise RuntimeError("device NCM host_addr was not reported")
+    return wait_for_interface_by_mac(status.host_addr, args.interface_timeout)
+
+
 def prefix_to_netmask(prefix: int) -> str:
     return str(ipaddress.IPv4Network(f"0.0.0.0/{prefix}").netmask)
 
@@ -298,9 +330,12 @@ def host_ping(args: argparse.Namespace) -> str:
 
 def tcpctl_request(args: argparse.Namespace, command: str, timeout: float | None = None) -> str:
     timeout_sec = args.tcp_timeout if timeout is None else timeout
+    payload = command.rstrip("\n") + "\n"
+    if not args.no_auth and tcpctl_command_requires_auth(command):
+        payload = f"auth {get_tcpctl_token(args)}\n{payload}"
     with socket.create_connection((args.device_ip, args.tcp_port), timeout=timeout_sec) as sock:
         sock.settimeout(0.5)
-        sock.sendall((command.rstrip("\n") + "\n").encode())
+        sock.sendall(payload.encode())
         data = bytearray()
         deadline = time.monotonic() + timeout_sec
         while time.monotonic() < deadline:
@@ -312,6 +347,31 @@ def tcpctl_request(args: argparse.Namespace, command: str, timeout: float | None
                 break
             data.extend(chunk)
     return data.decode("utf-8", errors="replace")
+
+
+def parse_tcpctl_token(output: str) -> str:
+    match = TOKEN_RE.search(output)
+    if not match:
+        raise RuntimeError(f"tcpctl token was not found in output:\n{output}")
+    return match.group(1)
+
+
+def tcpctl_command_requires_auth(command: str) -> bool:
+    word = command.lstrip().split(maxsplit=1)[0] if command.strip() else ""
+    return word in {"run", "shutdown"}
+
+
+def get_tcpctl_token(args: argparse.Namespace) -> str:
+    cached = getattr(args, "_tcpctl_token", None)
+    if cached:
+        return cached
+    if args.token:
+        args._tcpctl_token = args.token
+        return args.token
+    output = device_command(args, args.token_command, timeout=args.bridge_timeout)
+    token = parse_tcpctl_token(output)
+    args._tcpctl_token = token
+    return token
 
 
 def wait_for_tcpctl(args: argparse.Namespace) -> str:
@@ -405,7 +465,7 @@ def verify_ncm_and_tcp(args: argparse.Namespace) -> None:
     )
     print(output, end="" if output.endswith("\n") else "\n")
 
-    interface = wait_for_interface_by_mac(status.host_addr, args.interface_timeout)
+    interface = select_host_interface(args, status)
     log(f"host interface: {interface} ({status.host_addr})")
     configure_host_interface(args, interface)
 
@@ -508,11 +568,24 @@ def add_common_args(parser: argparse.ArgumentParser) -> None:
     parser.add_argument("--host-ip", default=DEFAULT_HOST_IP)
     parser.add_argument("--prefix", type=int, default=DEFAULT_PREFIX)
     parser.add_argument("--interface-timeout", type=float, default=25.0)
+    parser.add_argument("--interface", help="explicit host NCM interface to configure")
+    parser.add_argument(
+        "--allow-auto-interface",
+        action="store_true",
+        help="allow selecting the sudo target interface from device-reported NCM MAC",
+    )
     parser.add_argument("--ping-count", type=int, default=3)
     parser.add_argument("--ping-timeout", type=int, default=2)
     parser.add_argument("--tcp-port", type=int, default=DEFAULT_TCP_PORT)
     parser.add_argument("--tcp-timeout", type=float, default=8.0)
     parser.add_argument("--tcp-ready-timeout", type=float, default=15.0)
+    parser.add_argument("--token", help="tcpctl auth token; defaults to reading it from native init")
+    parser.add_argument("--token-command", default=DEFAULT_TOKEN_COMMAND)
+    parser.add_argument(
+        "--no-auth",
+        action="store_true",
+        help="use legacy unauthenticated tcpctl request mode",
+    )
     parser.add_argument("--sudo", default="sudo -n")
     parser.add_argument("--no-sudo", action="store_true")
     parser.add_argument("--no-configure-host", action="store_true")

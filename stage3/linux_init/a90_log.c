@@ -16,6 +16,10 @@
 #define O_CLOEXEC 0
 #endif
 
+#ifndef O_NOFOLLOW
+#define O_NOFOLLOW 0
+#endif
+
 static bool log_ready = false;
 static char log_path[PATH_MAX] = NATIVE_LOG_FALLBACK;
 
@@ -23,7 +27,7 @@ static void a90_log_rotate_if_needed(const char *path) {
     struct stat st;
     char rotated_path[PATH_MAX];
 
-    if (stat(path, &st) < 0 || st.st_size <= NATIVE_LOG_MAX_BYTES) {
+    if (lstat(path, &st) < 0 || S_ISLNK(st.st_mode) || st.st_size <= NATIVE_LOG_MAX_BYTES) {
         return;
     }
 
@@ -39,7 +43,7 @@ int a90_log_set_path(const char *path) {
     int fd;
 
     a90_log_rotate_if_needed(path);
-    fd = open(path, O_WRONLY | O_CREAT | O_APPEND | O_CLOEXEC, 0644);
+    fd = open(path, O_WRONLY | O_CREAT | O_APPEND | O_CLOEXEC | O_NOFOLLOW, 0600);
     if (fd < 0) {
         return -1;
     }
@@ -95,10 +99,10 @@ void a90_logf(const char *tag, const char *fmt, ...) {
         message[sizeof(message) - 1] = '\0';
     }
 
-    fd = open(log_path, O_WRONLY | O_CREAT | O_APPEND | O_CLOEXEC, 0644);
+    fd = open(log_path, O_WRONLY | O_CREAT | O_APPEND | O_CLOEXEC | O_NOFOLLOW, 0600);
     if (fd < 0 && strcmp(log_path, NATIVE_LOG_FALLBACK) != 0) {
         a90_log_select_or_fallback(NATIVE_LOG_FALLBACK);
-        fd = open(log_path, O_WRONLY | O_CREAT | O_APPEND | O_CLOEXEC, 0644);
+        fd = open(log_path, O_WRONLY | O_CREAT | O_APPEND | O_CLOEXEC | O_NOFOLLOW, 0600);
     }
     if (fd < 0) {
         errno = saved_errno;

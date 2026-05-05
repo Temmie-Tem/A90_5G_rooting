@@ -7,12 +7,17 @@
 | finding_id | `61bf8ce0f45481918f8afef5505b3d5e` |
 | finding_url | https://chatgpt.com/codex/cloud/security/findings/61bf8ce0f45481918f8afef5505b3d5e |
 | severity | `high` |
-| status | `new` |
+| status | `mitigated-v124` |
 | detected_at | `2026-05-04T10:30:04.837442Z` |
 | committed_at | `2026-05-03 06:09:56 +0900` |
 | commit_hash | `f3498d5bfd05bce4103b8b5aff9e6ff043fb5d2d` |
 | relevant_paths | `stage3/linux_init/a90_helper.c | stage3/linux_init/v98/60_shell_basic_commands.inc.c | stage3/linux_init/a90_run.c` |
-| has_patch | `false` |
+| has_patch | `true` |
+
+## Local Remediation
+
+- v124 requires an allowed runtime-root path and matching SHA-256 before a runtime helper can become preferred; otherwise the ramdisk/cache fallback remains selected.
+- Report: `docs/reports/NATIVE_INIT_V124_SECURITY_BATCH2_2026-05-06.md`
 
 ## CSV Description
 

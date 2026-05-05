@@ -7,16 +7,20 @@
 | finding_id | `b7c48a7ce9b08191b3ea1cbdbff18ee2` |
 | finding_url | https://chatgpt.com/codex/cloud/security/findings/b7c48a7ce9b08191b3ea1cbdbff18ee2 |
 | severity | `informational` |
-| status | `new` |
+| status | `mitigated-host-batch3` |
 | detected_at | `2026-04-27T22:44:02.496556Z` |
 | committed_at | `2026-04-23 03:55:06 +0900` |
 | commit_hash | `5812a3f34ef45b3c7a96b0c31cd1c9245f70445e` |
 | relevant_paths | `scripts/revalidation/capture_baseline.sh` |
-| has_patch | `false` |
+| has_patch | `true` |
 
 ## CSV Description
 
 `by_name` is read from device command output and then reused in later root commands. In this commit, calls were rewritten from patterns like `su -c "test -e '$by_name/$part'"` to `su -c $(sq_escape "test -e $by_name/$part")`. This only protects the outer shell tokenization, not the inner shell evaluation performed by `su -c`. If `by_name` contains shell metacharacters (e.g., `$(...)`, backticks, `;`, newlines), they can be evaluated by the shell that `su -c` invokes, leading to unintended command execution as root on the device.
+
+## Local Remediation
+
+- Batch 3 validates the discovered `by_name` path against a strict `/dev/block/.../by-name` shape and safe character set before later root shell use.
 
 ## Codex Cloud Detail
 

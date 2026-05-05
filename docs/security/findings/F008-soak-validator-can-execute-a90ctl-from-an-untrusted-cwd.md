@@ -7,16 +7,20 @@
 | finding_id | `546954b382d48191ae18852d95ce2c2c` |
 | finding_url | https://chatgpt.com/codex/cloud/security/findings/546954b382d48191ae18852d95ce2c2c |
 | severity | `medium` |
-| status | `new` |
+| status | `mitigated-host-batch3` |
 | detected_at | `2026-05-04T10:28:54.160265Z` |
 | committed_at | `2026-05-04 00:58:55 +0900` |
 | commit_hash | `e959e00df066f1adf429dcda570a51d19e7c9159` |
 | relevant_paths | `scripts/revalidation/native_soak_validate.py` |
-| has_patch | `false` |
+| has_patch | `true` |
 
 ## CSV Description
 
 The newly added soak validator builds its subprocess command with the literal relative path "scripts/revalidation/a90ctl.py". Because subprocess.run is called without cwd, that path is resolved relative to the process current working directory, not relative to native_soak_validate.py or the repository root. If an operator invokes /workspace/A90_5G_rooting/scripts/revalidation/native_soak_validate.py while their current directory is attacker-controlled, an attacker can place scripts/revalidation/a90ctl.py in that directory and have it executed by sys.executable with the operator's host privileges. Other nearby revalidation scripts avoid this by deriving REPO_ROOT from __file__ and passing an absolute A90CTL path. The fix is to compute REPO_ROOT = Path(__file__).resolve().parents[2], use str(REPO_ROOT / "scripts" / "revalidation" / "a90ctl.py"), and preferably set cwd=REPO_ROOT in subprocess.run.
+
+## Local Remediation
+
+- Batch 3 changes `native_soak_validate.py` to derive `A90CTL` from `__file__`, execute subprocesses with `cwd=REPO_ROOT`, and default to the v124 expected version.
 
 ## Codex Cloud Detail
 

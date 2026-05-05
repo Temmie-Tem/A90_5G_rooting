@@ -7,16 +7,20 @@
 | finding_id | `a3ea350673e08191a08a8b91ced9f864` |
 | finding_url | https://chatgpt.com/codex/cloud/security/findings/a3ea350673e08191a08a8b91ced9f864 |
 | severity | `medium` |
-| status | `new` |
+| status | `mitigated-host-batch3` |
 | detected_at | `2026-04-28T04:19:26.064573Z` |
 | committed_at | `2026-04-27 02:06:26 +0900` |
 | commit_hash | `c52738a672d377b134560e689f0ce661ca54e84a` |
 | relevant_paths | `scripts/revalidation/a90ctl.py | stage3/linux_init/init_v73.c` |
-| has_patch | `false` |
+| has_patch | `true` |
 
 ## CSV Description
 
 This commit introduces a framed shell protocol (`A90P1 BEGIN/END`) and a host parser (`a90ctl.py`). However, the parser stops reading as soon as any `A90P1 END ` substring appears and then parses the first regex match, without validating that BEGIN/END sequence IDs or command names match the issued request. On-device, cmdv1 intentionally preserves normal command stdout/stderr between BEGIN and END, and `run`/`runandroid` directly forward child process output to the same console stream. A command (or data it prints) can therefore emit a forged `A90P1 END ... rc=0 status=ok` line before the real protocol trailer. This can cause host automation to accept false success/error states, skip safety handling, or make unsafe workflow decisions (e.g., flash/verification orchestration based on spoofed status).
+
+## Local Remediation
+
+- Batch 3 waits for the prompt after the protocol trailer, parses the last `A90P1 END`, and correlates BEGIN/END by sequence and command when possible.
 
 ## Codex Cloud Detail
 

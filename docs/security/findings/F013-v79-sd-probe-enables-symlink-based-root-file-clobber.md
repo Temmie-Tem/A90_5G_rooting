@@ -7,12 +7,17 @@
 | finding_id | `8bc0e3443b248191b4ca5bc71fef0ab9` |
 | finding_url | https://chatgpt.com/codex/cloud/security/findings/8bc0e3443b248191b4ca5bc71fef0ab9 |
 | severity | `medium` |
-| status | `new` |
+| status | `mitigated-v124` |
 | detected_at | `2026-04-28T17:44:45.169915Z` |
 | committed_at | `2026-04-29 01:28:54 +0900` |
 | commit_hash | `11bc9a01dcdb38a4dd593c704b32059295893839` |
 | relevant_paths | `stage3/linux_init/init_v79.c` |
-| has_patch | `false` |
+| has_patch | `true` |
+
+## Local Remediation
+
+- v124 mitigates the current shared runtime/storage probe class with no-follow writes; v79 remains historical source only.
+- Report: `docs/reports/NATIVE_INIT_V124_SECURITY_BATCH2_2026-05-06.md`
 
 ## CSV Description
 

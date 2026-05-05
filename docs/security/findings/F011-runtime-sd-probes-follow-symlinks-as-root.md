@@ -7,12 +7,17 @@
 | finding_id | `1e3d3c36abf88191868b4bb217332756` |
 | finding_url | https://chatgpt.com/codex/cloud/security/findings/1e3d3c36abf88191868b4bb217332756 |
 | severity | `medium` |
-| status | `new` |
+| status | `mitigated-v124` |
 | detected_at | `2026-05-04T10:30:16.719678Z` |
 | committed_at | `2026-05-03 05:34:37 +0900` |
 | commit_hash | `c60950b27aeba3148b6f88c55972b532ecb61cf8` |
 | relevant_paths | `stage3/linux_init/a90_config.h | stage3/linux_init/v97/90_main.inc.c | stage3/linux_init/a90_runtime.c | stage3/linux_init/a90_util.c` |
-| has_patch | `false` |
+| has_patch | `true` |
+
+## Local Remediation
+
+- v124 changes ensure_dir to reject symlink collisions and changes runtime RW probes to no-follow private files.
+- Report: `docs/reports/NATIVE_INIT_V124_SECURITY_BATCH2_2026-05-06.md`
 
 ## CSV Description
 

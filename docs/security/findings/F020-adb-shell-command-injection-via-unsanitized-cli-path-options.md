@@ -7,16 +7,20 @@
 | finding_id | `177a42c608b88191b083f1a1034515c2` |
 | finding_url | https://chatgpt.com/codex/cloud/security/findings/177a42c608b88191b083f1a1034515c2 |
 | severity | `medium` |
-| status | `new` |
+| status | `mitigated-host-batch3` |
 | detected_at | `2026-04-28T09:18:43.256101Z` |
 | committed_at | `2026-04-25 01:56:45 +0900` |
 | commit_hash | `5ee4cb0c923e562c68a420cbfd642fc08983d65d` |
 | relevant_paths | `scripts/revalidation/native_init_flash.py` |
-| has_patch | `false` |
+| has_patch | `true` |
 
 ## CSV Description
 
 `scripts/revalidation/native_init_flash.py` concatenates `--remote-image` and `--boot-block` directly into shell command strings passed to `adb shell`. Because `adb shell <string>` is interpreted by a remote shell, metacharacters (e.g. `;`, `&&`, backticks, `$()`) in these arguments can execute unintended extra commands as recovery/root on the device. This is introduced in this commit with the new script. In a strictly trusted single-operator workflow this is less likely, but if arguments are sourced from untrusted input (shared automation, copied command lines, CI parameters), it becomes a command-injection primitive.
+
+## Local Remediation
+
+- Batch 3 validates remote ADB paths as absolute paths and quotes them with `shlex.quote()` before embedding them in remote shell commands.
 
 ## Codex Cloud Detail
 

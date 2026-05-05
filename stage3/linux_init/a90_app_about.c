@@ -116,6 +116,8 @@ int a90_app_about_draw_version(void) {
 
 int a90_app_about_draw_changelog(void) {
     const char *lines[] = {
+        "0.9.24 v124 SECURITY BATCH2",
+        "0.9.23 v123 SECURITY BATCH1",
         "0.9.22 v122 WIFI REFRESH",
         "0.9.21 v121 PID1 GUARD",
         "0.9.20 v120 COMMAND GROUP API",

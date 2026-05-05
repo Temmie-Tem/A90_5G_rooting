@@ -24,6 +24,14 @@
 #include <sys/utsname.h>
 #include <unistd.h>
 
+#ifndef O_CLOEXEC
+#define O_CLOEXEC 0
+#endif
+
+#ifndef O_NOFOLLOW
+#define O_NOFOLLOW 0
+#endif
+
 #define A90_DIAG_TAIL_BYTES 8192
 #define A90_DIAG_BUNDLE_TAIL_BYTES 16384
 
@@ -540,10 +548,10 @@ int a90_diag_write_bundle(char *out_path, size_t out_size) {
     }
 
     snprintf(path, sizeof(path), "%s/a90-diag-%ld.txt", dir, monotonic_millis());
-    fd = open(path, O_WRONLY | O_CREAT | O_TRUNC | O_CLOEXEC, 0644);
+    fd = open(path, O_WRONLY | O_CREAT | O_TRUNC | O_CLOEXEC | O_NOFOLLOW, 0600);
     if (fd < 0 && strcmp(dir, CACHE_STORAGE_ROOT) != 0) {
         snprintf(path, sizeof(path), "%s/a90-diag-%ld.txt", CACHE_STORAGE_ROOT, monotonic_millis());
-        fd = open(path, O_WRONLY | O_CREAT | O_TRUNC | O_CLOEXEC, 0644);
+        fd = open(path, O_WRONLY | O_CREAT | O_TRUNC | O_CLOEXEC | O_NOFOLLOW, 0600);
     }
     if (fd < 0) {
         int saved_errno = errno;

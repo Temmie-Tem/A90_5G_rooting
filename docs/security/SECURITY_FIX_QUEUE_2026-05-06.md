@@ -3,6 +3,7 @@
 Date: 2026-05-06
 
 Source relationship analysis: `docs/security/SECURITY_FINDINGS_RELATIONSHIP_2026-05-06.md`
+Current exposure map: `docs/security/SECURITY_FINDINGS_CURRENT_EXPOSURE_2026-05-06.md`
 
 This queue groups the 31 Codex security findings into implementation batches.
 The batch order is based on exploit chain reduction, not only finding severity.
@@ -22,8 +23,13 @@ Acceptance:
 
 - A status column exists for all F001 through F031.
 - No finding is closed only because it originated in an old version if the same pattern still exists in shared modules.
+- Batch 0 output is recorded in `docs/security/SECURITY_FINDINGS_CURRENT_EXPOSURE_2026-05-06.md`.
 
 ## Batch 1: Remote Root Control Surface Hardening
+
+Status: complete in `A90 Linux init 0.9.23 (v123)`.
+
+Report: `docs/reports/NATIVE_INIT_V123_SECURITY_BATCH1_2026-05-06.md`
 
 Findings:
 
@@ -45,19 +51,23 @@ Implementation direction:
 - Make reconnect/soak cleanup fail closed when tcpctl remains active.
 - Document USB ACM shell and local bridge as trusted-lab-only control channels.
 
-Suggested version theme:
+Implemented version:
 
-- `v123`: tcpctl auth/bind policy and dangerous service gate.
-- `v124`: host reconnect cleanup fail-closed and bridge exposure documentation.
+- `v123`: tcpctl auth/bind policy, ramdisk tcpctl helper path, dangerous service gate, and reconnect cleanup fail-closed.
 
 Validation:
 
-- `tcpctl` rejects unauthenticated commands.
+- `tcpctl` rejects unauthenticated `run`/`shutdown` commands.
 - `netservice status/start/stop` still works through intended local control.
-- `rshell start` does not implicitly expose unauthenticated tcpctl.
+- `rshell start` no longer implicitly exposes unauthenticated tcpctl.
 - host reconnect validators fail if cleanup leaves tcpctl running.
+- USB ACM and localhost serial bridge remain documented trusted-lab-only root control paths.
 
 ## Batch 2: Runtime Storage and Helper Trust
+
+Status: complete in `A90 Linux init 0.9.24 (v124)`.
+
+Report: `docs/reports/NATIVE_INIT_V124_SECURITY_BATCH2_2026-05-06.md`
 
 Findings:
 
@@ -76,18 +86,23 @@ Implementation direction:
 - Make `mountsd rw/init` enforce expected SD identity before log redirection.
 - Delete or quarantine failed helper installs.
 
-Suggested version theme:
+Implemented version:
 
-- `v125`: helper manifest verification and tcpctl install rollback.
-- `v126`: SD/cache safe-open and mountsd log trust policy.
+- `v124`: helper manifest SHA-256 verification, runtime-root path policy, no-follow storage/log writes, mountsd SD identity gate, and host tcpctl install fail-closed rollback.
 
 Validation:
 
-- crafted symlink under SD/cache cannot redirect PID1 writes.
-- invalid helper manifest never becomes preferred execution path.
-- failed helper install cannot leave executable poison at target path.
+- unverified SD runtime `busybox` remains non-preferred and produces a helper warning instead of execution preference.
+- `a90_cpustress` and `a90_tcpctl` continue to select ramdisk helpers.
+- `storage`/`mountsd status` verify the expected SD UUID before SD log use.
+- `tcpctl_host.py install` refuses the default `/bin/a90_tcpctl` ramdisk target and uses temp-file replacement for allowed runtime/cache targets.
 
 ## Batch 3: Host Tooling Trust Boundary
+
+Status: complete in host tooling Batch 3. Latest verified device image remains
+`A90 Linux init 0.9.24 (v124)`.
+
+Report: `docs/reports/NATIVE_INIT_SECURITY_BATCH3_HOST_TOOLING_2026-05-06.md`
 
 Findings:
 
@@ -112,11 +127,11 @@ Implementation direction:
 - Replace shell strings with argv arrays.
 - Use `mktemp -d` or Python temporary directories for build validation.
 
-Suggested version theme:
+Implemented scope:
 
-- `v127`: host path/shell injection fixes.
-- `v128`: cmdv1 framing/retry hardening.
-- `v129`: host USB/NCM identity pinning.
+- host path resolution, remote shell quoting, and temporary-file fixes.
+- cmdv1 retry/framing parser hardening.
+- host NCM interface explicit selection and serial bridge identity pinning.
 
 Validation:
 
@@ -200,7 +215,9 @@ Validation:
 
 ## Recommended Immediate Next Step
 
-Start with Batch 0 and Batch 1 before Wi-Fi or broader network work.
+Batch 0 through Batch 3 are complete. Continue with Batch 4 log,
+diagnostics, and on-screen disclosure hardening before Wi-Fi or broader
+network work.
 
 Reason:
 

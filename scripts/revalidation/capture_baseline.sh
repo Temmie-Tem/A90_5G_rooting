@@ -39,6 +39,13 @@ sq_escape() {
     printf "'%s'" "$s"
 }
 
+validate_by_name() {
+    local path="$1"
+    [[ "$path" == /dev/block/*/by-name || "$path" == /dev/block/by-name ]] || return 1
+    [[ "$path" =~ ^[A-Za-z0-9_./-]+$ ]] || return 1
+    [[ "$path" != *"/../"* && "$path" != *"/.." && "$path" != *"../"* ]] || return 1
+}
+
 serial=""
 label="baseline"
 output_dir=""
@@ -92,6 +99,10 @@ by_name="$("${adb_cmd[@]}" shell "su -c $(sq_escape "$find_by_name_cmd")" 2>/dev
 
 if [[ -z "$by_name" ]]; then
     printf 'Unable to locate by-name partition directory via su.\n' >&2
+    exit 1
+fi
+if ! validate_by_name "$by_name"; then
+    printf 'Unsafe by-name partition directory from device: %q\n' "$by_name" >&2
     exit 1
 fi
 

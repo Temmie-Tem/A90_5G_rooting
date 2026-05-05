@@ -39,6 +39,11 @@ class Bridge:
         self.serial_fd = None
         self.serial_device = None
         self.serial_stat = None
+        self.expected_serial_realpath = (
+            os.path.realpath(self.args.expect_realpath)
+            if self.args.expect_realpath else None
+        )
+        self.pinned_serial_realpath = self.expected_serial_realpath
         self.client = None
         self.client_addr = None
         self.capture_fp = None
@@ -85,7 +90,46 @@ class Bridge:
         matches = sorted(glob.glob(self.args.device_glob))
         if not matches:
             return None
+        if len(matches) > 1 and not self.args.allow_multiple_auto_matches:
+            self.log(
+                "refusing ambiguous auto serial match; pass --device explicitly "
+                "or --allow-multiple-auto-matches"
+            )
+            for match in matches:
+                self.log(f"  match: {match} -> {os.path.realpath(match)}")
+            return None
         return matches[0]
+
+    def serial_realpath_allowed(self, device: str) -> bool:
+        realpath = os.path.realpath(device)
+        if self.expected_serial_realpath and realpath != self.expected_serial_realpath:
+            self.log(
+                f"refusing serial device {device} -> {realpath}; "
+                f"expected {self.expected_serial_realpath}"
+            )
+            return False
+
+        if self.pinned_serial_realpath is None:
+            if not self.args.no_pin_device:
+                self.pinned_serial_realpath = realpath
+                self.log(f"pinned serial realpath: {realpath}")
+            return True
+
+        if realpath == self.pinned_serial_realpath:
+            return True
+
+        if self.args.allow_device_change and not self.expected_serial_realpath:
+            self.log(
+                f"serial realpath changed: {self.pinned_serial_realpath} -> {realpath}"
+            )
+            self.pinned_serial_realpath = realpath
+            return True
+
+        self.log(
+            f"refusing serial device change: {device} -> {realpath}; "
+            f"pinned {self.pinned_serial_realpath}"
+        )
+        return False
 
     def configure_serial(self, fd: int) -> None:
         attrs = termios.tcgetattr(fd)
@@ -107,6 +151,8 @@ class Bridge:
     def open_serial(self) -> None:
         device = self.resolve_device()
         if device is None:
+            return
+        if not self.serial_realpath_allowed(device):
             return
 
         try:
@@ -163,6 +209,9 @@ class Bridge:
         device = self.resolve_device()
         if device is None:
             self.log("serial device path disappeared")
+            self.close_serial()
+            return
+        if not self.serial_realpath_allowed(device):
             self.close_serial()
             return
 
@@ -341,6 +390,25 @@ def parse_args() -> argparse.Namespace:
         "--device-glob",
         default=DEFAULT_DEVICE_GLOB,
         help="glob used when --device=auto",
+    )
+    parser.add_argument(
+        "--expect-realpath",
+        help="require the resolved serial device path to match this path",
+    )
+    parser.add_argument(
+        "--allow-device-change",
+        action="store_true",
+        help="allow the resolved serial device path to change after first connect",
+    )
+    parser.add_argument(
+        "--no-pin-device",
+        action="store_true",
+        help="do not pin the first resolved serial device path",
+    )
+    parser.add_argument(
+        "--allow-multiple-auto-matches",
+        action="store_true",
+        help="allow --device=auto when the Samsung by-id glob matches multiple devices",
     )
     parser.add_argument("--host", default=DEFAULT_HOST, help="listen host")
     parser.add_argument(

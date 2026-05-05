@@ -32,9 +32,13 @@ need_cmd sha256sum
 need_cmd make
 need_cmd gcc
 need_cmd python3
+need_cmd mktemp
 need_cmd aarch64-linux-gnu-gcc
 need_cmd aarch64-linux-gnu-strip
 need_cmd aarch64-linux-gnu-readelf
+
+DYNAMIC_CHECK="$(mktemp -t a90_busybox_dynamic_check.XXXXXX)"
+trap 'rm -f "$DYNAMIC_CHECK"' EXIT
 need_cmd file
 
 mkdir -p "${DOWNLOAD_DIR}" "${SRC_DIR}" "${BIN_DIR}" "${BUILD_DIR}" "${PKG_DIR}"
@@ -149,9 +153,9 @@ if aarch64-linux-gnu-readelf -l "${OUT_BIN}" | grep -q INTERP; then
   exit 1
 fi
 
-aarch64-linux-gnu-readelf -d "${OUT_BIN}" >/tmp/a90_busybox_dynamic_check.txt 2>&1 || true
-cat /tmp/a90_busybox_dynamic_check.txt
-if ! grep -q "There is no dynamic section" /tmp/a90_busybox_dynamic_check.txt; then
+aarch64-linux-gnu-readelf -d "${OUT_BIN}" >"${DYNAMIC_CHECK}" 2>&1 || true
+cat "${DYNAMIC_CHECK}"
+if ! grep -q "There is no dynamic section" "${DYNAMIC_CHECK}"; then
   echo "warning: dynamic section found; binary may not be static" >&2
   exit 1
 fi

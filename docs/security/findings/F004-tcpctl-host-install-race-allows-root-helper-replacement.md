@@ -7,12 +7,17 @@
 | finding_id | `278067d006948191916329f6cf010e27` |
 | finding_url | https://chatgpt.com/codex/cloud/security/findings/278067d006948191916329f6cf010e27 |
 | severity | `high` |
-| status | `new` |
+| status | `mitigated-v124` |
 | detected_at | `2026-04-28T08:06:37.402346Z` |
 | committed_at | `2026-04-26 00:22:55 +0900` |
 | commit_hash | `c525cbada5e0efe571f844c5caf73e3a1f459028` |
 | relevant_paths | `scripts/revalidation/tcpctl_host.py` |
-| has_patch | `false` |
+| has_patch | `true` |
+
+## Local Remediation
+
+- v124 changes tcpctl_host install to upload to a temporary path, verify SHA-256 before replacement, clean up failed temp files, and refuse default ramdisk /bin target replacement.
+- Report: `docs/reports/NATIVE_INIT_V124_SECURITY_BATCH2_2026-05-06.md`
 
 ## CSV Description
 

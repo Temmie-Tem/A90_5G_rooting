@@ -9,6 +9,14 @@
 #include <time.h>
 #include <unistd.h>
 
+#ifndef O_CLOEXEC
+#define O_CLOEXEC 0
+#endif
+
+#ifndef O_NOFOLLOW
+#define O_NOFOLLOW 0
+#endif
+
 long monotonic_millis(void) {
     struct timespec ts;
 
@@ -20,8 +28,16 @@ long monotonic_millis(void) {
 }
 
 int ensure_dir(const char *path, mode_t mode) {
-    if (mkdir(path, mode) == 0 || errno == EEXIST) {
+    struct stat st;
+
+    if (mkdir(path, mode) == 0) {
         return 0;
+    }
+    if (errno == EEXIST) {
+        if (lstat(path, &st) == 0 && S_ISDIR(st.st_mode) && !S_ISLNK(st.st_mode)) {
+            return 0;
+        }
+        errno = ENOTDIR;
     }
     return -1;
 }
@@ -63,7 +79,7 @@ int read_text_file(const char *path, char *buf, size_t buf_size) {
         return -1;
     }
 
-    fd = open(path, O_RDONLY);
+    fd = open(path, O_RDONLY | O_CLOEXEC);
     if (fd < 0) {
         return -1;
     }

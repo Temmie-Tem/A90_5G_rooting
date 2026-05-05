@@ -1,8 +1,8 @@
 #ifndef A90_CONFIG_H
 #define A90_CONFIG_H
 
-#define INIT_VERSION "0.9.22"
-#define INIT_BUILD "v122"
+#define INIT_VERSION "0.9.24"
+#define INIT_BUILD "v124"
 #define INIT_CREATOR "made by temmie0214"
 #define INIT_BANNER "A90 Linux init " INIT_VERSION " (" INIT_BUILD ")"
 #define BOOT_SPLASH_SECONDS 2
@@ -21,7 +21,7 @@
 #define NETSERVICE_FLAG_PATH "/cache/native-init-netservice"
 #define NETSERVICE_LOG_PATH "/cache/native-init-netservice.log"
 #define NETSERVICE_USB_HELPER "/cache/bin/a90_usbnet"
-#define NETSERVICE_TCPCTL_HELPER "/cache/bin/a90_tcpctl"
+#define NETSERVICE_TCPCTL_HELPER "/bin/a90_tcpctl"
 #define NETSERVICE_TOYBOX "/cache/bin/toybox"
 #define A90_BUSYBOX_HELPER "/cache/bin/busybox"
 #define A90_BUSYBOX_RAMDISK_HELPER "/bin/busybox"
@@ -31,6 +31,8 @@
 #define NETSERVICE_TCP_PORT "2325"
 #define NETSERVICE_TCP_IDLE_SECONDS "3600"
 #define NETSERVICE_TCP_MAX_CLIENTS "0"
+#define NETSERVICE_TCP_BIND_ADDR NETSERVICE_DEVICE_IP
+#define NETSERVICE_TCP_TOKEN_PATH "/cache/native-init-tcpctl.token"
 #define A90_RSHELL_HELPER "/cache/bin/a90_rshell"
 #define A90_RSHELL_RAMDISK_HELPER "/bin/a90_rshell"
 #define A90_RSHELL_LOG_PATH "/cache/native-init-rshell.log"

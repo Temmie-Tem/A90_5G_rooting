@@ -11,6 +11,8 @@ import time
 from dataclasses import dataclass
 from pathlib import Path
 
+REPO_ROOT = Path(__file__).resolve().parents[2]
+A90CTL = REPO_ROOT / "scripts" / "revalidation" / "a90ctl.py"
 
 DEFAULT_COMMANDS = [
     "version",
@@ -48,7 +50,7 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--timeout", type=float, default=45.0, help="per-command timeout seconds")
     parser.add_argument(
         "--expect-version",
-        default="A90 Linux init 0.9.5 (v105)",
+        default="A90 Linux init 0.9.24 (v124)",
         help="expected version banner in the version command",
     )
     parser.add_argument("--out", default="tmp/soak/native-soak.txt", help="transcript path")
@@ -64,7 +66,7 @@ def parse_args() -> argparse.Namespace:
 def a90ctl_command(args: argparse.Namespace, command: str) -> list[str]:
     return [
         sys.executable,
-        "scripts/revalidation/a90ctl.py",
+        str(A90CTL),
         "--host",
         args.host,
         "--port",
@@ -79,6 +81,7 @@ def run_one(args: argparse.Namespace, cycle: int, command: str) -> CheckResult:
     started = time.monotonic()
     proc = subprocess.run(
         a90ctl_command(args, command),
+        cwd=REPO_ROOT,
         text=True,
         stdout=subprocess.PIPE,
         stderr=subprocess.STDOUT,

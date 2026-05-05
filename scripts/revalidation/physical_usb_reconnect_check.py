@@ -104,10 +104,7 @@ def run_once(args: argparse.Namespace) -> int:
     finally:
         if started_netservice and not args.leave_running:
             log("restoring ACM-only state because this script started netservice")
-            try:
-                stop_netservice(args)
-            except Exception as exc:
-                log(f"restore stop failed; check bridge manually: {exc}")
+            stop_netservice(args)
 
 
 def parse_args() -> argparse.Namespace:
