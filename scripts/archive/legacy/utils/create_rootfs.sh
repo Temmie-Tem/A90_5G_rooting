@@ -305,13 +305,13 @@ mkdir -p /run/sshd
 mkdir -p /root/.ssh
 chmod 700 /root/.ssh
 
-# SSH 설정
-sed -i 's/#PermitRootLogin prohibit-password/PermitRootLogin yes/' /etc/ssh/sshd_config
-sed -i 's/#PasswordAuthentication yes/PasswordAuthentication yes/' /etc/ssh/sshd_config
+# SSH 설정: 기본 root/password login은 금지한다.
+sed -i -E 's/^#?PermitRootLogin .*/PermitRootLogin prohibit-password/' /etc/ssh/sshd_config
+sed -i -E 's/^#?PasswordAuthentication .*/PasswordAuthentication no/' /etc/ssh/sshd_config
 sed -i 's/#Port 22/Port 22/' /etc/ssh/sshd_config
 
-# Root 비밀번호 (기본값)
-echo "root:root" | chpasswd
+# Root password login 방지. SSH 접속은 operator-provided key를 사용한다.
+passwd -l root >/dev/null 2>&1 || true
 
 # 타임존
 ln -sf /usr/share/zoneinfo/Asia/Seoul /etc/localtime
@@ -373,8 +373,8 @@ CHROOT_EOF
     echo ""
     echo "3. Magisk 모듈 설치 후 재부팅"
     echo ""
-    echo "기본 root 비밀번호: root"
-    echo "보안을 위해 SSH 접속 후 비밀번호를 변경하세요!"
+    echo "기본 root 비밀번호는 설정하지 않습니다."
+    echo "SSH 접속은 operator-provided key를 /root/.ssh/authorized_keys에 배치한 뒤 사용하세요."
     echo ""
 }
 

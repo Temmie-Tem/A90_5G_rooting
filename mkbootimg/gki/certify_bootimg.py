@@ -23,7 +23,10 @@ import os
 import shlex
 import shutil
 import subprocess
+import stat
+import tarfile
 import tempfile
+import zipfile
 
 from gki.generate_gki_certificate import generate_gki_certificate
 from unpack_bootimg import unpack_bootimg
@@ -195,6 +198,50 @@ def get_archive_name_and_format_for_shutil(path):
     raise ValueError(f"Unsupported archive format: '{path}'")
 
 
+def _validate_archive_member_path(name, unpack_dir):
+    """Returns the destination for |name| after verifying it stays inside."""
+    if os.path.isabs(name):
+        raise ValueError(f'Archive entry uses absolute path: {name}')
+    destination = os.path.realpath(os.path.join(unpack_dir, name))
+    unpack_root = os.path.realpath(unpack_dir)
+    if os.path.commonpath([unpack_root, destination]) != unpack_root:
+        raise ValueError(f'Archive entry escapes extraction dir: {name}')
+    return destination
+
+
+def _safe_unpack_tar(archive_path, unpack_dir):
+    with tarfile.open(archive_path) as archive:
+        for member in archive.getmembers():
+            _validate_archive_member_path(member.name, unpack_dir)
+            if not (member.isfile() or member.isdir()):
+                raise ValueError(
+                    f'Archive entry is not a regular file/dir: {member.name}')
+        archive.extractall(unpack_dir)
+
+
+def _safe_unpack_zip(archive_path, unpack_dir):
+    with zipfile.ZipFile(archive_path) as archive:
+        for info in archive.infolist():
+            _validate_archive_member_path(info.filename, unpack_dir)
+            mode = (info.external_attr >> 16) & 0o170000
+            if mode and mode not in (stat.S_IFREG, stat.S_IFDIR):
+                raise ValueError(
+                    f'Archive entry is not a regular file/dir: {info.filename}')
+        archive.extractall(unpack_dir)
+
+
+def safe_unpack_archive(archive_path, unpack_dir):
+    """Safely unpacks supported boot image archives into |unpack_dir|."""
+    _, archive_format = get_archive_name_and_format_for_shutil(archive_path)
+    if archive_format in ('tar', 'gztar', 'bztar', 'xztar'):
+        _safe_unpack_tar(archive_path, unpack_dir)
+        return
+    if archive_format == 'zip':
+        _safe_unpack_zip(archive_path, unpack_dir)
+        return
+    raise ValueError(f'Unsupported archive format: {archive_format}')
+
+
 def parse_cmdline():
     """Parse command-line options."""
     parser = ArgumentParser(add_help=True)
@@ -249,6 +296,12 @@ def parse_cmdline():
 def certify_bootimg(boot_img, output_img, algorithm, key, extra_args,
                     extra_footer_args):
     """Certify a GKI boot image by generating and appending a boot_signature."""
+    if os.path.islink(boot_img) or not os.path.isfile(boot_img):
+        raise ValueError(f'Input boot image must be a regular file: {boot_img}')
+    if os.path.exists(output_img) and (
+            os.path.islink(output_img) or not os.path.isfile(output_img)):
+        raise ValueError(
+            f'Output boot image must be a regular file: {output_img}')
     with tempfile.TemporaryDirectory() as temp_dir:
         boot_tmp = os.path.join(temp_dir, 'boot.tmp')
         shutil.copy2(boot_img, boot_tmp)
@@ -267,7 +320,7 @@ def certify_bootimg_archive(boot_img_archive, output_archive,
                             algorithm, key, extra_args, extra_footer_args):
     """Similar to certify_bootimg(), but for an archive of boot images."""
     with tempfile.TemporaryDirectory() as unpack_dir:
-        shutil.unpack_archive(boot_img_archive, unpack_dir)
+        safe_unpack_archive(boot_img_archive, unpack_dir)
 
         gki_info_file = os.path.join(unpack_dir, 'gki-info.txt')
         if os.path.exists(gki_info_file):

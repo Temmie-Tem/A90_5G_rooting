@@ -311,6 +311,7 @@ Samsung bootloader
 - Security Batch 2 상태: v124에서 runtime helper SHA-256 preference, no-follow storage/log writes, mountsd SD identity gate, tcpctl install rollback 적용 완료
 - Security Batch 3 상태: host tooling에서 cmdv1 retry/framing, ADB shell path quoting, NCM interface pinning, serial bridge identity pinning 적용 완료
 - Security Batch 4 상태: v125에서 diagnostics/log owner-only permissions, private fallback log, HUD log tail opt-in 적용 완료
+- Security Batch 5 상태: host/rootfs tooling에서 legacy root SSH default credential 제거와 safe archive extraction 적용 완료
 - ADB 상태: 보류
 
 상세 상태 문서:

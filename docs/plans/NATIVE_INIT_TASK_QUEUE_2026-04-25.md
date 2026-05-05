@@ -58,6 +58,7 @@
   - Security Batch 2 helper hash preference, no-follow storage/log writes, mountsd SD identity gate
   - Security Batch 3 host tooling trust boundary hardening
   - Security Batch 4 diagnostics/log owner-only permissions, private fallback log, HUD log tail opt-in
+  - Security Batch 5 legacy root SSH credential removal and safe archive extraction
 
 ## 실행 큐
 

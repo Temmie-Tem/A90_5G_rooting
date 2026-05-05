@@ -168,7 +168,7 @@ log "Chroot services started successfully!"
 log "========================================="
 
 if [ -n "$WIFI_IP" ]; then
-    log "SSH: ssh root@$WIFI_IP (password: root)"
+    log "SSH: ssh root@$WIFI_IP (key-based auth)"
 else
     log "Connect to WiFi and check IP with: ip addr show wlan0"
 fi

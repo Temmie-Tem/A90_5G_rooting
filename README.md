@@ -102,6 +102,7 @@ Android userspace 대신 직접 만든 static `/init`를 실행하고,
 - security batch 2: v124에서 runtime helper SHA-256 preference, no-follow storage/log writes, mountsd SD identity gate, tcpctl install rollback 적용 완료
 - security batch 3: host tooling에서 cmdv1 retry/framing, ADB shell path quoting, NCM interface pinning, serial bridge identity pinning 적용 완료
 - security batch 4: v125에서 diagnostics/log owner-only permissions, private fallback log, HUD log tail opt-in 적용 완료
+- security batch 5: host/rootfs tooling에서 legacy root SSH default credential 제거와 safe archive extraction 적용 완료
 - about app: `APPS / ABOUT`에서 version, changelog 목록/상세, credits 표시
 - input layout: `inputlayout`, `waitgesture`, `screenmenu`/`blindmenu` gesture action 확인
 - input monitor: `TOOLS / INPUT MONITOR`와 `inputmonitor [events]` raw/gesture trace 확인

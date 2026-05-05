@@ -7,16 +7,20 @@
 | finding_id | `c8457f7684208191bd5de8b6dc45e470` |
 | finding_url | https://chatgpt.com/codex/cloud/security/findings/c8457f7684208191bd5de8b6dc45e470 |
 | severity | `high` |
-| status | `new` |
+| status | `mitigated-host-batch5` |
 | detected_at | `2026-04-28T11:11:23.623133Z` |
 | committed_at | `2025-11-13 20:56:18 +0900` |
 | commit_hash | `54cf98250b310814cf09e2e1486e821d7deaf9a2` |
 | relevant_paths | `mkbootimg/gki/certify_bootimg.py` |
-| has_patch | `false` |
+| has_patch | `true` |
 
 ## CSV Description
 
 In `certify_bootimg_archive()`, untrusted `--boot_img_archive` input is extracted with `shutil.unpack_archive()` without a safety filter or path validation. A crafted tar can contain `../` entries (Zip Slip style) and write outside `unpack_dir`. After extraction, the script processes `boot*.img` entries and passes each path to `certify_bootimg()`, which uses `shutil.copy2()` for read/write. If a malicious archive provides symlinked `boot*.img` entries, `copy2()` can follow symlinks and overwrite files outside the temp extraction directory. This creates an arbitrary file write primitive on the host running the tool.
+
+## Local Remediation
+
+- Batch 5 replaces unfiltered archive extraction with safe tar/zip extraction that rejects traversal, links, and special entries, and refuses symlink/non-regular boot image paths before copy operations.
 
 ## Codex Cloud Detail
 

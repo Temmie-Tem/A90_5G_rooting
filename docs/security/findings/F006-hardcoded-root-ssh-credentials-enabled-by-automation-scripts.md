@@ -7,16 +7,20 @@
 | finding_id | `ab2b5073f1388191a97d38ceaf0ce7b9` |
 | finding_url | https://chatgpt.com/codex/cloud/security/findings/ab2b5073f1388191a97d38ceaf0ce7b9 |
 | severity | `high` |
-| status | `new` |
+| status | `mitigated-host-batch5` |
 | detected_at | `2026-04-27T22:50:57.207425Z` |
 | committed_at | `2025-11-18 11:14:47 +0900` |
 | commit_hash | `8775fe9dc00c9491470aae177203bf68a3b02234` |
-| relevant_paths | `scripts/utils/create_rootfs.sh | scripts/magisk_module/systemless_chroot/service.d/boot_chroot.sh | scripts/magisk_module/headless_boot_v2/service.sh` |
-| has_patch | `false` |
+| relevant_paths | `scripts/archive/legacy/utils/create_rootfs.sh | scripts/archive/legacy/magisk_module/systemless_chroot/service.d/boot_chroot.sh | scripts/archive/legacy/magisk_module/headless_boot_v2/service.sh` |
+| has_patch | `true` |
 
 ## CSV Description
 
 Newly added automation scripts set `PermitRootLogin yes`, keep password auth enabled, and set the root password to a known static value (`root`). Another boot-time script starts `sshd` automatically and even logs connection guidance including the default password. A headless boot script then invokes this chroot SSH startup automatically when the module exists. Any attacker on the same network segment who can reach port 22 can authenticate as root using default credentials if the user has not manually changed it.
+
+## Local Remediation
+
+- Batch 5 changes archived rootfs automation to disable password SSH auth, keep root login key-only, lock the root password, and remove default `root` password guidance from boot logs.
 
 ## Codex Cloud Detail
 

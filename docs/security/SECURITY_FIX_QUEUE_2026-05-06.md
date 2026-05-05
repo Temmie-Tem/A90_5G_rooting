@@ -172,6 +172,11 @@ Validation:
 
 ## Batch 5: Legacy High Impact Tools
 
+Status: complete in host/rootfs tooling Batch 5. No native image bump was
+needed; latest verified device image remains `A90 Linux init 0.9.25 (v125)`.
+
+Report: `docs/reports/NATIVE_INIT_SECURITY_BATCH5_LEGACY_TOOLING_2026-05-06.md`
+
 Findings:
 
 - F006: hardcoded root SSH credentials
@@ -184,14 +189,16 @@ Implementation direction:
 - Validate archive members before extraction.
 - Reject traversal, absolute paths, symlinks, hardlinks, devices, and special files.
 
-Suggested version theme:
+Implemented scope:
 
-- can be fixed independently before or during v123-v130 because it is host/rootfs tooling, not native init boot flow.
+- archived rootfs SSH defaults no longer set or advertise a hardcoded root password.
+- GKI boot image archive certification now rejects traversal, links, special
+  files, and symlink/non-regular boot image paths.
 
 Validation:
 
-- no script writes `root:root` or starts SSH with known default credential.
-- malicious archive fixture cannot write outside extraction directory.
+- no archived script writes `root:root` or starts SSH with known default credential guidance.
+- malicious tar/zip traversal and link fixtures are rejected before extraction.
 
 ## Batch 6: Historical Reproducibility and Reliability
 
@@ -221,8 +228,9 @@ Validation:
 
 ## Recommended Immediate Next Step
 
-Batch 0 through Batch 4 are complete. Continue with Batch 5 legacy high-impact
-tooling cleanup before Wi-Fi or broader network work.
+Batch 0 through Batch 5 are complete. Continue with Batch 6 historical
+reproducibility and retained rollback support cleanup before Wi-Fi or broader
+network work.
 
 Reason:
 
