@@ -6,6 +6,11 @@ Source split file: `docs/security/CODEX_SECURITY_FINDINGS_DETAIL_TEMPLATE_2026-0
 이 디렉터리는 Codex Cloud security finding 원문을 이슈별 파일로 분리한 보관소입니다.
 관계 분석과 수정 큐는 별도 문서에서 이 `FNNN` 번호를 참조합니다.
 
+## Analysis Documents
+
+- Relationship analysis: `../SECURITY_FINDINGS_RELATIONSHIP_2026-05-06.md`
+- Fix queue: `../SECURITY_FIX_QUEUE_2026-05-06.md`
+
 ## Findings
 
 | id | severity | status | title | file | relevant paths |
