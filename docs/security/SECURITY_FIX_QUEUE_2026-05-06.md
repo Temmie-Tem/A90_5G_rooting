@@ -41,6 +41,12 @@ PASS=16, WARN=1, FAIL=0 in
 still the accepted USB-local/localhost root-control boundary; v136 adds no new
 network exposure.
 
+v137 integrated validation matrix was flash-verified, and local targeted rescan
+result is PASS=17, WARN=1, FAIL=0 in
+`docs/security/SECURITY_FRESH_SCAN_V137_2026-05-07.md`. The remaining warning is
+still the accepted USB-local/localhost root-control boundary; v137 adds no new
+network exposure.
+
 ## Fresh Scan Follow-up: F032 Hold Timer Availability
 
 Status: mitigated as retained-source maintenance on 2026-05-07.

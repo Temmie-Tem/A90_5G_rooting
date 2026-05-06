@@ -1,19 +1,19 @@
 # Native Init Task Queue (2026-04-25)
 
-이 문서는 `A90 Linux init 0.9.36 (v136)` verified 이후 바로 실행할 작업 큐다.
+이 문서는 `A90 Linux init 0.9.37 (v137)` verified 이후 바로 실행할 작업 큐다.
 큰 방향은 “보이는 부팅 → 복구 가능한 로그 → 단독 조작 → 작은 userland → USB networking” 순서다.
 
 ## 현재 고정 기준점
 
-- latest verified build: `A90 Linux init 0.9.36 (v136)`
-- official version: `0.9.36`
-- build tag: `v136`
+- latest verified build: `A90 Linux init 0.9.37 (v137)`
+- official version: `0.9.37`
+- build tag: `v137`
 - creator: `made by temmie0214`
-- latest verified source: `stage3/linux_init/init_v136.c` + `stage3/linux_init/v136/*.inc.c` + `stage3/linux_init/helpers/a90_cpustress.c` + `stage3/linux_init/helpers/a90_rshell.c` + `stage3/linux_init/a90_config.h` + `stage3/linux_init/a90_util.c/h` + `stage3/linux_init/a90_log.c/h` + `stage3/linux_init/a90_timeline.c/h` + `stage3/linux_init/a90_console.c/h` + `stage3/linux_init/a90_cmdproto.c/h` + `stage3/linux_init/a90_run.c/h` + `stage3/linux_init/a90_service.c/h` + `stage3/linux_init/a90_kms.c/h` + `stage3/linux_init/a90_draw.c/h` + `stage3/linux_init/a90_input.c/h` + `stage3/linux_init/a90_hud.c/h` + `stage3/linux_init/a90_menu.c/h` + `stage3/linux_init/a90_metrics.c/h` + `stage3/linux_init/a90_shell.c/h` + `stage3/linux_init/a90_controller.c/h` + `stage3/linux_init/a90_storage.c/h` + `stage3/linux_init/a90_selftest.c/h` + `stage3/linux_init/a90_usb_gadget.c/h` + `stage3/linux_init/a90_netservice.c/h` + `stage3/linux_init/a90_pid1_guard.c/h` + `stage3/linux_init/a90_runtime.c/h` + `stage3/linux_init/a90_helper.c/h` + `stage3/linux_init/a90_userland.c/h` + `stage3/linux_init/a90_diag.c/h` + `stage3/linux_init/a90_exposure.c/h` + `stage3/linux_init/a90_wifiinv.c/h` + `stage3/linux_init/a90_wififeas.c/h` + `stage3/linux_init/a90_changelog.c/h` + `stage3/linux_init/a90_app_about.c/h` + `stage3/linux_init/a90_app_displaytest.c/h` + `stage3/linux_init/a90_app_inputmon.c/h`
-- latest verified boot image: `stage3/boot_linux_v136.img`
+- latest verified source: `stage3/linux_init/init_v137.c` + `stage3/linux_init/v137/*.inc.c` + `stage3/linux_init/helpers/a90_cpustress.c` + `stage3/linux_init/helpers/a90_rshell.c` + `stage3/linux_init/a90_config.h` + `stage3/linux_init/a90_util.c/h` + `stage3/linux_init/a90_log.c/h` + `stage3/linux_init/a90_timeline.c/h` + `stage3/linux_init/a90_console.c/h` + `stage3/linux_init/a90_cmdproto.c/h` + `stage3/linux_init/a90_run.c/h` + `stage3/linux_init/a90_service.c/h` + `stage3/linux_init/a90_kms.c/h` + `stage3/linux_init/a90_draw.c/h` + `stage3/linux_init/a90_input.c/h` + `stage3/linux_init/a90_hud.c/h` + `stage3/linux_init/a90_menu.c/h` + `stage3/linux_init/a90_metrics.c/h` + `stage3/linux_init/a90_shell.c/h` + `stage3/linux_init/a90_controller.c/h` + `stage3/linux_init/a90_storage.c/h` + `stage3/linux_init/a90_selftest.c/h` + `stage3/linux_init/a90_usb_gadget.c/h` + `stage3/linux_init/a90_netservice.c/h` + `stage3/linux_init/a90_pid1_guard.c/h` + `stage3/linux_init/a90_runtime.c/h` + `stage3/linux_init/a90_helper.c/h` + `stage3/linux_init/a90_userland.c/h` + `stage3/linux_init/a90_diag.c/h` + `stage3/linux_init/a90_exposure.c/h` + `stage3/linux_init/a90_wifiinv.c/h` + `stage3/linux_init/a90_wififeas.c/h` + `stage3/linux_init/a90_changelog.c/h` + `stage3/linux_init/a90_app_about.c/h` + `stage3/linux_init/a90_app_displaytest.c/h` + `stage3/linux_init/a90_app_inputmon.c/h`
+- latest verified boot image: `stage3/boot_linux_v137.img`
 - previous verified source-layout baseline: `stage3/linux_init/init_v80.c` + `stage3/linux_init/v80/*.inc.c`
 - known-good fallback: `stage3/boot_linux_v48.img`
-- local artifact retention: `v136` latest, `v135` rollback, `v48` known-good만 보존하고 나머지 ignored stage3 산출물은 정리 가능
+- local artifact retention: `v137` latest, `v136` rollback, `v48` known-good만 보존하고 나머지 ignored stage3 산출물은 정리 가능
 - control channel: USB ACM serial bridge
 - log: SD 정상 시 `/mnt/sdext/a90/logs/native-init.log`, fallback 시 `/cache/native-init.log`, emergency fallback 시 private `/tmp/a90-native/native-init.log`
 - verified:
@@ -179,23 +179,34 @@
 - 실기 flash 후 `selftest verbose`, `exposure guard`, `policycheck run`, `screenmenu`/`hide`, 3-cycle quick soak를 검증했다.
 - local targeted v136 rescan은 PASS=16/WARN=1/FAIL=0이다.
 
-## 다음 실행 항목: v137 Integrated Validation Matrix
+## 완료: v137 Integrated Validation Matrix
+
+계획 문서: `docs/plans/NATIVE_INIT_V137_INTEGRATED_VALIDATION_PLAN_2026-05-07.md`
+보고서: `docs/reports/NATIVE_INIT_V137_VALIDATION_MATRIX_2026-05-07.md`
+
+결과:
+
+- v137은 B 후보인 integrated validation matrix / host harness expansion으로 진행했다.
+- `scripts/revalidation/native_integrated_validate.py`를 추가했다.
+- 기본 gate는 `version`, `status`, `bootstatus`, `selftest verbose`, `pid1guard verbose`, `exposure guard|verbose`, `policycheck run|verbose`, service/netservice/rshell 상태, storage/runtime, `diag summary`, `screenmenu`/`hide`를 포함한다.
+- 실기 flash 후 integrated validation은 `PASS commands=24`로 통과했다.
+- local targeted v137 rescan은 PASS=17/WARN=1/FAIL=0이다.
+- quick native soak는 PASS cycles=3 commands=14다.
+
+## 다음 실행 항목: post-v137 후보 선정
 
 후보:
 
-- v135 policy matrix는 새 기능이 아니라 controller policy drift 방지 장치다.
-- F032/F033 follow-up fixes는 v135 tree에 포함되어 있고 local targeted rescan 기준 PASS다.
+- v137 integrated validation matrix는 새 기능이 아니라 post-v136 검증 gate다.
+- F032/F033 follow-up fixes는 v137 tree에 포함되어 있고 local targeted rescan 기준 PASS다.
 - 다음 보안 입력은 Codex Cloud fresh scan 또는 새 network-facing 변경 이후 scan 결과로 삼는다.
 
 다음 실행 항목:
 
 - v136 structure audit는 완료했다.
-- v137은 B 후보인 integrated validation matrix / host harness expansion으로 진행한다.
-  - 계획 문서: `docs/plans/NATIVE_INIT_V137_INTEGRATED_VALIDATION_PLAN_2026-05-07.md`
-  - 목표: `A90 Linux init 0.9.37 (v137)` / `0.9.37 v137 VALIDATION MATRIX`
-  - 대상: `exposure`, `selftest`, `service`, `netservice`, `rshell`, `policycheck`, soak gate를 한 번에 묶는 검증 강화
-  - v136 감사 결과를 반영해 상세 계획을 작성한다.
-- network-facing 기능 확장은 v134 exposure baseline과 v135 policy matrix를 둘 다 통과하는 상태에서만 진행한다.
+- v137 integrated validation matrix는 완료했다.
+- 다음 후보는 fresh scan follow-up, auto-HUD/menu controller cleanup, 또는 release-candidate extended soak 중에서 선정한다.
+- network-facing 기능 확장은 v137 integrated validation gate를 통과하는 상태에서만 진행한다.
 
 ## 실행 큐
 

@@ -8,6 +8,12 @@
     { label, summary, { d1, d2, d3, d4, d5 } }
 
 static const struct a90_changelog_entry changelog_entries[] = {
+    ENTRY("0.9.37 v137", "VALIDATION MATRIX",
+          "0.9.37 v137 VALIDATION MATRIX",
+          "Adds integrated validation harness",
+          "Covers selftest/pid1guard/exposure",
+          "Covers policy/service/network status",
+          "Keeps runtime behavior unchanged"),
     ENTRY("0.9.36 v136", "STRUCTURE AUDIT 3",
           "0.9.36 v136 STRUCTURE AUDIT 3",
           "Post-v135 module ownership and duplicate policy audit checkpoint.",

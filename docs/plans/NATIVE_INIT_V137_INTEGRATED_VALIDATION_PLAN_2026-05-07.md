@@ -67,7 +67,6 @@ version
 status
 bootstatus
 selftest verbose
-pid1guard run
 pid1guard verbose
 exposure guard
 exposure verbose
@@ -119,7 +118,7 @@ current safety layers agree:
 | Version/protocol | `version` | expected v137 and framed status ok |
 | Boot health | `bootstatus` | selftest/pid1guard/exposure summaries present |
 | Module smoke | `selftest verbose` | `fail=0` |
-| PID1 invariant | `pid1guard run` | `fail=0` |
+| PID1 invariant | `pid1guard verbose` | `fail=0` |
 | Root-control exposure | `exposure guard` | `guard=ok`, `fail=0` |
 | Menu/power policy | `policycheck run` | `fail=0` |
 | Service metadata | `service list`, `service status ...` | observable without mutation |
