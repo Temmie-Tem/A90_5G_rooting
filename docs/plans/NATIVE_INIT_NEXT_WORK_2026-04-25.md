@@ -269,12 +269,12 @@ Samsung bootloader
 
 ## 현재 기준점
 
-- 최신 확인 버전: `A90 Linux init 0.9.27 (v127)`
-- 공식 버전: `0.9.27`
-- build tag: `v127`
+- 최신 확인 버전: `A90 Linux init 0.9.28 (v128)`
+- 공식 버전: `0.9.28`
+- build tag: `v128`
 - creator: `made by temmie0214`
-- 최신 verified 소스: `stage3/linux_init/init_v127.c` + `stage3/linux_init/v127/*.inc.c` + `stage3/linux_init/helpers/a90_cpustress.c` + `stage3/linux_init/helpers/a90_rshell.c` + `stage3/linux_init/a90_config.h` + `stage3/linux_init/a90_util.c/h` + `stage3/linux_init/a90_log.c/h` + `stage3/linux_init/a90_timeline.c/h` + `stage3/linux_init/a90_console.c/h` + `stage3/linux_init/a90_cmdproto.c/h` + `stage3/linux_init/a90_run.c/h` + `stage3/linux_init/a90_service.c/h` + `stage3/linux_init/a90_kms.c/h` + `stage3/linux_init/a90_draw.c/h` + `stage3/linux_init/a90_input.c/h` + `stage3/linux_init/a90_hud.c/h` + `stage3/linux_init/a90_menu.c/h` + `stage3/linux_init/a90_metrics.c/h` + `stage3/linux_init/a90_shell.c/h` + `stage3/linux_init/a90_controller.c/h` + `stage3/linux_init/a90_storage.c/h` + `stage3/linux_init/a90_selftest.c/h` + `stage3/linux_init/a90_usb_gadget.c/h` + `stage3/linux_init/a90_netservice.c/h` + `stage3/linux_init/a90_pid1_guard.c/h` + `stage3/linux_init/a90_runtime.c/h` + `stage3/linux_init/a90_helper.c/h` + `stage3/linux_init/a90_userland.c/h` + `stage3/linux_init/a90_diag.c/h` + `stage3/linux_init/a90_wifiinv.c/h` + `stage3/linux_init/a90_wififeas.c/h` + `stage3/linux_init/a90_app_about.c/h` + `stage3/linux_init/a90_app_displaytest.c/h` + `stage3/linux_init/a90_app_inputmon.c/h`
-- 최신 verified boot image: `stage3/boot_linux_v127.img`
+- 최신 verified 소스: `stage3/linux_init/init_v128.c` + `stage3/linux_init/v128/*.inc.c` + `stage3/linux_init/helpers/a90_cpustress.c` + `stage3/linux_init/helpers/a90_rshell.c` + `stage3/linux_init/a90_config.h` + `stage3/linux_init/a90_util.c/h` + `stage3/linux_init/a90_log.c/h` + `stage3/linux_init/a90_timeline.c/h` + `stage3/linux_init/a90_console.c/h` + `stage3/linux_init/a90_cmdproto.c/h` + `stage3/linux_init/a90_run.c/h` + `stage3/linux_init/a90_service.c/h` + `stage3/linux_init/a90_kms.c/h` + `stage3/linux_init/a90_draw.c/h` + `stage3/linux_init/a90_input.c/h` + `stage3/linux_init/a90_hud.c/h` + `stage3/linux_init/a90_menu.c/h` + `stage3/linux_init/a90_metrics.c/h` + `stage3/linux_init/a90_shell.c/h` + `stage3/linux_init/a90_controller.c/h` + `stage3/linux_init/a90_storage.c/h` + `stage3/linux_init/a90_selftest.c/h` + `stage3/linux_init/a90_usb_gadget.c/h` + `stage3/linux_init/a90_netservice.c/h` + `stage3/linux_init/a90_pid1_guard.c/h` + `stage3/linux_init/a90_runtime.c/h` + `stage3/linux_init/a90_helper.c/h` + `stage3/linux_init/a90_userland.c/h` + `stage3/linux_init/a90_diag.c/h` + `stage3/linux_init/a90_wifiinv.c/h` + `stage3/linux_init/a90_wififeas.c/h` + `stage3/linux_init/a90_app_about.c/h` + `stage3/linux_init/a90_app_displaytest.c/h` + `stage3/linux_init/a90_app_inputmon.c/h`
+- 최신 verified boot image: `stage3/boot_linux_v128.img`
 - previous verified source-layout baseline: `stage3/linux_init/init_v80.c` + `stage3/linux_init/v80/*.inc.c`
 - known-good fallback: `stage3/boot_linux_v48.img`
 - 주 제어 채널: USB CDC ACM serial (`/dev/ttyGS0` ↔ `/dev/ttyACM0`)
@@ -305,7 +305,7 @@ Samsung bootloader
 - boot splash 상태: `A90 NATIVE INIT` custom splash와 `display-splash` timeline 기록 확인
 - splash layout 상태: v65에서 긴 문구/footer 잘림 방지 safe layout 적용
 - about app 상태: `APPS / ABOUT`에 version, changelog 목록/상세, credits 추가
-- menu gate 상태: v127 기준 메뉴 표시 중 allowlist 관찰/제어 명령만 허용하고 side-effect 명령은 `[busy]` 차단
+- menu gate 상태: v128 기준 메뉴 표시 중 read-only status/query subcommand만 추가 허용하고 side-effect 명령은 `[busy]` 차단
 - Wi-Fi 상태: v122 `wifiinv refresh`/`wififeas refresh` 기준 active bring-up은 계속 blocked
 - Security Batch 1 상태: v123에서 tcpctl auth/bind, ramdisk tcpctl helper, dangerous `service` gate, reconnect cleanup fail-closed 적용 완료
 - Security Batch 2 상태: v124에서 runtime helper SHA-256 preference, no-follow storage/log writes, mountsd SD identity gate, tcpctl install rollback 적용 완료
@@ -314,12 +314,14 @@ Samsung bootloader
 - Security Batch 5 상태: host/rootfs tooling에서 legacy root SSH default credential 제거와 safe archive extraction 적용 완료
 - Security Batch 6 상태: v126에서 retained-source compatibility, v84 changelog route, v42 run stdin, input event validation 정리 완료
 - Security Batch 7 상태: v127에서 menu-active busy gate deny-by-default allowlist 적용으로 F023 종료
+- v128 상태: F023 mitigation을 유지하면서 menu-visible read-only subcommand policy 적용 완료
 - ADB 상태: 보류
 
 다음 실행 후보:
 
-- `docs/plans/NATIVE_INIT_V128_MENU_SUBCOMMAND_POLICY_PLAN_2026-05-07.md`
-- v128은 v127 busy gate 보안을 유지하면서 `diag summary`, `mountsd status`, `service status` 같은 read-only subcommand만 menu-visible 상태에서 선택적으로 허용하는 UX 완화 작업이다.
+- 남은 security findings 재평가와 closure 문서 갱신.
+- v129 계획 수립: shell/serial usability, policy reporting cleanup, 또는 구조 리팩터링 후속 중 우선순위 결정.
+- v128은 F023 closure 이후 UX 완화 작업으로 완료됐으며, 추가 보안 closure로 계산하지 않는다.
 
 상세 상태 문서:
 

@@ -21,6 +21,12 @@ enum a90_controller_busy_reason a90_controller_command_busy_reason(const char *n
                                                                    unsigned int flags,
                                                                    bool menu_active,
                                                                    bool power_page_active);
+enum a90_controller_busy_reason a90_controller_command_busy_reason_ex(const char *name,
+                                                                      unsigned int flags,
+                                                                      int argc,
+                                                                      char **argv,
+                                                                      bool menu_active,
+                                                                      bool power_page_active);
 const char *a90_controller_busy_message(enum a90_controller_busy_reason reason);
 void a90_controller_clear_menu_ipc(void);
 void a90_controller_clear_menu_request(void);

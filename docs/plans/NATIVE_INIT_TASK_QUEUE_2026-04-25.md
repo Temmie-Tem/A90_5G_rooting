@@ -1,19 +1,19 @@
 # Native Init Task Queue (2026-04-25)
 
-이 문서는 `A90 Linux init 0.9.27 (v127)` verified 이후 바로 실행할 작업 큐다.
+이 문서는 `A90 Linux init 0.9.28 (v128)` verified 이후 바로 실행할 작업 큐다.
 큰 방향은 “보이는 부팅 → 복구 가능한 로그 → 단독 조작 → 작은 userland → USB networking” 순서다.
 
 ## 현재 고정 기준점
 
-- latest verified build: `A90 Linux init 0.9.27 (v127)`
-- official version: `0.9.27`
-- build tag: `v127`
+- latest verified build: `A90 Linux init 0.9.28 (v128)`
+- official version: `0.9.28`
+- build tag: `v128`
 - creator: `made by temmie0214`
-- latest verified source: `stage3/linux_init/init_v127.c` + `stage3/linux_init/v127/*.inc.c` + `stage3/linux_init/helpers/a90_cpustress.c` + `stage3/linux_init/helpers/a90_rshell.c` + `stage3/linux_init/a90_config.h` + `stage3/linux_init/a90_util.c/h` + `stage3/linux_init/a90_log.c/h` + `stage3/linux_init/a90_timeline.c/h` + `stage3/linux_init/a90_console.c/h` + `stage3/linux_init/a90_cmdproto.c/h` + `stage3/linux_init/a90_run.c/h` + `stage3/linux_init/a90_service.c/h` + `stage3/linux_init/a90_kms.c/h` + `stage3/linux_init/a90_draw.c/h` + `stage3/linux_init/a90_input.c/h` + `stage3/linux_init/a90_hud.c/h` + `stage3/linux_init/a90_menu.c/h` + `stage3/linux_init/a90_metrics.c/h` + `stage3/linux_init/a90_shell.c/h` + `stage3/linux_init/a90_controller.c/h` + `stage3/linux_init/a90_storage.c/h` + `stage3/linux_init/a90_selftest.c/h` + `stage3/linux_init/a90_usb_gadget.c/h` + `stage3/linux_init/a90_netservice.c/h` + `stage3/linux_init/a90_pid1_guard.c/h` + `stage3/linux_init/a90_runtime.c/h` + `stage3/linux_init/a90_helper.c/h` + `stage3/linux_init/a90_userland.c/h` + `stage3/linux_init/a90_diag.c/h` + `stage3/linux_init/a90_wifiinv.c/h` + `stage3/linux_init/a90_wififeas.c/h` + `stage3/linux_init/a90_app_about.c/h` + `stage3/linux_init/a90_app_displaytest.c/h` + `stage3/linux_init/a90_app_inputmon.c/h`
-- latest verified boot image: `stage3/boot_linux_v127.img`
+- latest verified source: `stage3/linux_init/init_v128.c` + `stage3/linux_init/v128/*.inc.c` + `stage3/linux_init/helpers/a90_cpustress.c` + `stage3/linux_init/helpers/a90_rshell.c` + `stage3/linux_init/a90_config.h` + `stage3/linux_init/a90_util.c/h` + `stage3/linux_init/a90_log.c/h` + `stage3/linux_init/a90_timeline.c/h` + `stage3/linux_init/a90_console.c/h` + `stage3/linux_init/a90_cmdproto.c/h` + `stage3/linux_init/a90_run.c/h` + `stage3/linux_init/a90_service.c/h` + `stage3/linux_init/a90_kms.c/h` + `stage3/linux_init/a90_draw.c/h` + `stage3/linux_init/a90_input.c/h` + `stage3/linux_init/a90_hud.c/h` + `stage3/linux_init/a90_menu.c/h` + `stage3/linux_init/a90_metrics.c/h` + `stage3/linux_init/a90_shell.c/h` + `stage3/linux_init/a90_controller.c/h` + `stage3/linux_init/a90_storage.c/h` + `stage3/linux_init/a90_selftest.c/h` + `stage3/linux_init/a90_usb_gadget.c/h` + `stage3/linux_init/a90_netservice.c/h` + `stage3/linux_init/a90_pid1_guard.c/h` + `stage3/linux_init/a90_runtime.c/h` + `stage3/linux_init/a90_helper.c/h` + `stage3/linux_init/a90_userland.c/h` + `stage3/linux_init/a90_diag.c/h` + `stage3/linux_init/a90_wifiinv.c/h` + `stage3/linux_init/a90_wififeas.c/h` + `stage3/linux_init/a90_app_about.c/h` + `stage3/linux_init/a90_app_displaytest.c/h` + `stage3/linux_init/a90_app_inputmon.c/h`
+- latest verified boot image: `stage3/boot_linux_v128.img`
 - previous verified source-layout baseline: `stage3/linux_init/init_v80.c` + `stage3/linux_init/v80/*.inc.c`
 - known-good fallback: `stage3/boot_linux_v48.img`
-- local artifact retention: `v127` latest, `v126` rollback, `v48` known-good만 보존하고 나머지 ignored stage3 산출물은 정리 가능
+- local artifact retention: `v128` latest, `v127` rollback, `v48` known-good만 보존하고 나머지 ignored stage3 산출물은 정리 가능
 - control channel: USB ACM serial bridge
 - log: SD 정상 시 `/mnt/sdext/a90/logs/native-init.log`, fallback 시 `/cache/native-init.log`, emergency fallback 시 private `/tmp/a90-native/native-init.log`
 - verified:
@@ -61,22 +61,27 @@
   - Security Batch 5 legacy root SSH credential removal and safe archive extraction
   - Security Batch 6 retained-source reliability and strict input event validation
   - Security Batch 7 menu busy gate deny-by-default allowlist
+  - v128 menu-visible read-only subcommand policy
 
-## 다음 실행 항목: v128 Menu Subcommand Policy
+## 완료: v128 Menu Subcommand Policy
 
 계획 문서: `docs/plans/NATIVE_INIT_V128_MENU_SUBCOMMAND_POLICY_PLAN_2026-05-07.md`
+보고서: `docs/reports/NATIVE_INIT_V128_MENU_SUBCOMMAND_POLICY_2026-05-07.md`
 
-목표:
+결과:
 
 - v127의 F023 mitigation은 유지한다.
 - 메뉴 표시 중에도 명확히 read-only인 status/query subcommand만 허용한다.
 - `run`, `writefile`, `mountfs`, `mknod*`, service/network mutation, power command는 계속 차단한다.
+- 실기 flash 후 `screenmenu` visible 상태에서 allowed/blocked command matrix를 검증했다.
 
-주의:
+## 다음 실행 항목: post-v128 후보 선정
 
-- v128은 보안 이슈 closure가 아니라 UX 완화 작업이다.
-- 구현 전 허용 subcommand 목록을 좁게 유지한다.
-- README/latest verified는 실기 flash 검증 전에는 갱신하지 않는다.
+후보:
+
+- 남은 security findings 재평가와 closure 문서 갱신.
+- v129 계획 수립: shell/serial usability 또는 policy/reporting cleanup 중 우선순위 결정.
+- 장기 v129+ 로드맵은 v128 실기 결과를 기준으로 다시 조정한다.
 
 ## 실행 큐
 

@@ -1,6 +1,7 @@
 #include "a90_controller.h"
 
 #include <fcntl.h>
+#include <stddef.h>
 #include <string.h>
 #include <unistd.h>
 
@@ -90,6 +91,113 @@ static bool command_allowed_during_menu(const char *name) {
            strcmp(name, "reattach") == 0;
 }
 
+static bool arg_equals(char **argv, int argc, int index, const char *value) {
+    return argc > index && argv != NULL && argv[index] != NULL && strcmp(argv[index], value) == 0;
+}
+
+static bool subcmd_absent_or_one_of(int argc, char **argv, const char *const *allowed, size_t allowed_count) {
+    size_t i;
+
+    if (argc <= 1) {
+        return true;
+    }
+    if (argc != 2) {
+        return false;
+    }
+    if (argv == NULL || argv[1] == NULL) {
+        return false;
+    }
+    for (i = 0; i < allowed_count; ++i) {
+        if (strcmp(argv[1], allowed[i]) == 0) {
+            return true;
+        }
+    }
+    return false;
+}
+
+static bool helpers_read_only(int argc, char **argv) {
+    static const char *const safe_helpers[] = {
+        "status",
+        "verbose",
+        "manifest",
+        "plan",
+    };
+
+    if (subcmd_absent_or_one_of(argc, argv, safe_helpers, sizeof(safe_helpers) / sizeof(safe_helpers[0]))) {
+        return true;
+    }
+    return argc == 3 && arg_equals(argv, argc, 1, "path");
+}
+
+static bool service_read_only(int argc, char **argv) {
+    if (argc <= 1) {
+        return true;
+    }
+    if (arg_equals(argv, argc, 1, "list")) {
+        return argc == 2;
+    }
+    if (arg_equals(argv, argc, 1, "status")) {
+        return argc == 2 || argc == 3;
+    }
+    return false;
+}
+
+static bool command_allowed_during_menu_ex(const char *name, int argc, char **argv) {
+    static const char *const status_verbose[] = {
+        "status",
+        "verbose",
+    };
+    static const char *const status_only[] = {
+        "status",
+    };
+    static const char *const diag_safe[] = {
+        "summary",
+        "paths",
+    };
+    static const char *const wififeas_safe[] = {
+        "summary",
+        "gate",
+        "paths",
+    };
+    static const char *const rshell_safe[] = {
+        "status",
+        "audit",
+    };
+
+    if (name == NULL) {
+        return false;
+    }
+    if (command_allowed_during_menu(name)) {
+        return true;
+    }
+    if (strcmp(name, "selftest") == 0 ||
+        strcmp(name, "pid1guard") == 0) {
+        return subcmd_absent_or_one_of(argc, argv, status_verbose, sizeof(status_verbose) / sizeof(status_verbose[0]));
+    }
+    if (strcmp(name, "helpers") == 0) {
+        return helpers_read_only(argc, argv);
+    }
+    if (strcmp(name, "mountsd") == 0 ||
+        strcmp(name, "hudlog") == 0 ||
+        strcmp(name, "netservice") == 0) {
+        return subcmd_absent_or_one_of(argc, argv, status_only, sizeof(status_only) / sizeof(status_only[0]));
+    }
+    if (strcmp(name, "diag") == 0 ||
+        strcmp(name, "wifiinv") == 0) {
+        return subcmd_absent_or_one_of(argc, argv, diag_safe, sizeof(diag_safe) / sizeof(diag_safe[0]));
+    }
+    if (strcmp(name, "wififeas") == 0) {
+        return subcmd_absent_or_one_of(argc, argv, wififeas_safe, sizeof(wififeas_safe) / sizeof(wififeas_safe[0]));
+    }
+    if (strcmp(name, "rshell") == 0) {
+        return subcmd_absent_or_one_of(argc, argv, rshell_safe, sizeof(rshell_safe) / sizeof(rshell_safe[0]));
+    }
+    if (strcmp(name, "service") == 0) {
+        return service_read_only(argc, argv);
+    }
+    return false;
+}
+
 enum a90_controller_busy_reason a90_controller_command_busy_reason(const char *name,
                                                                    unsigned int flags,
                                                                    bool menu_active,
@@ -109,6 +217,36 @@ enum a90_controller_busy_reason a90_controller_command_busy_reason(const char *n
         }
         if (command_allowed_during_menu(name)) {
             return A90_CONTROLLER_BUSY_NONE;
+        }
+        return A90_CONTROLLER_BUSY_AUTO_MENU;
+    }
+    if (command_allowed_on_power_page(name)) {
+        return A90_CONTROLLER_BUSY_NONE;
+    }
+    return A90_CONTROLLER_BUSY_POWER;
+}
+
+enum a90_controller_busy_reason a90_controller_command_busy_reason_ex(const char *name,
+                                                                      unsigned int flags,
+                                                                      int argc,
+                                                                      char **argv,
+                                                                      bool menu_active,
+                                                                      bool power_page_active) {
+    if (name == NULL || !menu_active) {
+        return A90_CONTROLLER_BUSY_NONE;
+    }
+    if (command_is_menu_control(name)) {
+        return A90_CONTROLLER_BUSY_NONE;
+    }
+    if (!power_page_active) {
+        if (command_waits_for_input(name)) {
+            return A90_CONTROLLER_BUSY_AUTO_MENU;
+        }
+        if (command_allowed_during_menu_ex(name, argc, argv)) {
+            return A90_CONTROLLER_BUSY_NONE;
+        }
+        if ((flags & CMD_DANGEROUS) != 0) {
+            return A90_CONTROLLER_BUSY_DANGEROUS;
         }
         return A90_CONTROLLER_BUSY_AUTO_MENU;
     }

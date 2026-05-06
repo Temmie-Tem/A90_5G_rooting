@@ -116,6 +116,7 @@ int a90_app_about_draw_version(void) {
 
 int a90_app_about_draw_changelog(void) {
     const char *lines[] = {
+        "0.9.28 v128 MENU SUBCOMMAND POLICY",
         "0.9.27 v127 MENU BUSY GATE",
         "0.9.26 v126 SECURITY BATCH6",
         "0.9.25 v125 SECURITY BATCH4",
