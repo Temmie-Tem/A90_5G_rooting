@@ -317,7 +317,7 @@ Samsung bootloader
 - v128 상태: F023 mitigation을 유지하면서 menu-visible read-only subcommand policy 적용 완료
 - v129 상태: changelog viewport/shared data/about page navigation 적용 완료
 - v130 상태: volume hold-repeat scroll과 VOL+DN physical back shortcut 적용 완료
-- v131 상태: EV_KEY repeat 미발생 환경을 위해 timer-based hold scroll 적용 완료
+- v131 상태: EV_KEY repeat 미발생 환경을 위해 timer-based hold scroll 적용 완료, 실기 UX 정상 확인
 - ADB 상태: 보류
 
 다음 실행 후보:

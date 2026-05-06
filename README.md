@@ -108,7 +108,7 @@ Android userspace 대신 직접 만든 static `/init`를 실행하고,
 - menu subcommand policy: v128에서 F023 mitigation을 유지하면서 read-only subcommand만 menu-visible 상태에서 허용
 - changelog paging: v129에서 long changelog viewport, shared changelog data, ABOUT page navigation 적용
 - menu hold/back: v130에서 volume hold-repeat scroll과 VOL+DN physical back shortcut 적용
-- menu hold timer: v131에서 EV_KEY repeat 없이 key-down 타이머 기반 연속 스크롤 적용
+- menu hold timer: v131에서 EV_KEY repeat 없이 key-down 타이머 기반 연속 스크롤 적용, 실기 UX 정상 확인
 - about app: `APPS / ABOUT`에서 version, changelog 목록/상세, credits 표시
 - input layout: `inputlayout`, `waitgesture`, `screenmenu`/`blindmenu` gesture action 확인
 - input monitor: `TOOLS / INPUT MONITOR`와 `inputmonitor [events]` raw/gesture trace 확인

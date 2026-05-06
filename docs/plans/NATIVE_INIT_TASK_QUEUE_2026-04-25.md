@@ -64,7 +64,7 @@
   - v128 menu-visible read-only subcommand policy
   - v129 changelog viewport/shared data/about paging
   - v130 menu hold-repeat scroll and physical combo back
-  - v131 timer-based hold scroll without EV_KEY repeat dependency
+  - v131 timer-based hold scroll without EV_KEY repeat dependency and physical UX confirmation
 
 ## 완료: v128 Menu Subcommand Policy
 
@@ -108,6 +108,7 @@
 
 - v130에서 드라이버 repeat 이벤트가 없으면 hold scroll이 동작하지 않는 문제를 수정했다.
 - VOL key down 상태와 monotonic timer를 이용해 450ms 이후 120ms 간격으로 반복 이동한다.
+- 실기에서 VOL long-hold continuous movement 정상 동작을 확인했다.
 - VOL+DN physical back shortcut과 v128/v129 menu busy policy는 유지한다.
 
 ## 다음 실행 항목: post-v131 후보 선정

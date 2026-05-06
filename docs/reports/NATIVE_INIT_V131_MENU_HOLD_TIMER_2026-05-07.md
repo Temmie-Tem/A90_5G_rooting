@@ -76,11 +76,10 @@ Evidence:
 - `hide` — PASS, returns `rc=0 status=ok`.
 - post-hide `run /bin/a90sleep 1` — PASS, returns `rc=0 status=ok`.
 
-## Manual Visual Check Needed
+## Manual Visual Check
 
-The code path is built and flashed. Physical UX still needs observation:
+Result: PASS. User confirmed physical behavior on device.
 
-- Open `APPS > ABOUT > CHANGELOG` and hold VOL+/VOL-.
-- Expected: after roughly `450ms`, selection continues moving every `120ms`
-  without needing kernel `EV_KEY value=2` repeat events.
-- Press VOLUP+VOLDOWN together to confirm back/hide behavior still works.
+- `APPS > ABOUT > CHANGELOG` VOL long-hold continuous movement — PASS.
+- Timer-based repeat works without kernel `EV_KEY value=2` repeat events — PASS.
+- `VOLUP+VOLDOWN` back/hide behavior remains usable — PASS.
