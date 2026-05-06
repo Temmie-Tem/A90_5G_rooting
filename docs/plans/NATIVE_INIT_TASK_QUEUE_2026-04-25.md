@@ -1,19 +1,19 @@
 # Native Init Task Queue (2026-04-25)
 
-이 문서는 `A90 Linux init 0.9.35 (v135)` verified 이후 바로 실행할 작업 큐다.
+이 문서는 `A90 Linux init 0.9.36 (v136)` verified 이후 바로 실행할 작업 큐다.
 큰 방향은 “보이는 부팅 → 복구 가능한 로그 → 단독 조작 → 작은 userland → USB networking” 순서다.
 
 ## 현재 고정 기준점
 
-- latest verified build: `A90 Linux init 0.9.35 (v135)`
-- official version: `0.9.35`
-- build tag: `v135`
+- latest verified build: `A90 Linux init 0.9.36 (v136)`
+- official version: `0.9.36`
+- build tag: `v136`
 - creator: `made by temmie0214`
-- latest verified source: `stage3/linux_init/init_v135.c` + `stage3/linux_init/v135/*.inc.c` + `stage3/linux_init/helpers/a90_cpustress.c` + `stage3/linux_init/helpers/a90_rshell.c` + `stage3/linux_init/a90_config.h` + `stage3/linux_init/a90_util.c/h` + `stage3/linux_init/a90_log.c/h` + `stage3/linux_init/a90_timeline.c/h` + `stage3/linux_init/a90_console.c/h` + `stage3/linux_init/a90_cmdproto.c/h` + `stage3/linux_init/a90_run.c/h` + `stage3/linux_init/a90_service.c/h` + `stage3/linux_init/a90_kms.c/h` + `stage3/linux_init/a90_draw.c/h` + `stage3/linux_init/a90_input.c/h` + `stage3/linux_init/a90_hud.c/h` + `stage3/linux_init/a90_menu.c/h` + `stage3/linux_init/a90_metrics.c/h` + `stage3/linux_init/a90_shell.c/h` + `stage3/linux_init/a90_controller.c/h` + `stage3/linux_init/a90_storage.c/h` + `stage3/linux_init/a90_selftest.c/h` + `stage3/linux_init/a90_usb_gadget.c/h` + `stage3/linux_init/a90_netservice.c/h` + `stage3/linux_init/a90_pid1_guard.c/h` + `stage3/linux_init/a90_runtime.c/h` + `stage3/linux_init/a90_helper.c/h` + `stage3/linux_init/a90_userland.c/h` + `stage3/linux_init/a90_diag.c/h` + `stage3/linux_init/a90_exposure.c/h` + `stage3/linux_init/a90_wifiinv.c/h` + `stage3/linux_init/a90_wififeas.c/h` + `stage3/linux_init/a90_changelog.c/h` + `stage3/linux_init/a90_app_about.c/h` + `stage3/linux_init/a90_app_displaytest.c/h` + `stage3/linux_init/a90_app_inputmon.c/h`
-- latest verified boot image: `stage3/boot_linux_v135.img`
+- latest verified source: `stage3/linux_init/init_v136.c` + `stage3/linux_init/v136/*.inc.c` + `stage3/linux_init/helpers/a90_cpustress.c` + `stage3/linux_init/helpers/a90_rshell.c` + `stage3/linux_init/a90_config.h` + `stage3/linux_init/a90_util.c/h` + `stage3/linux_init/a90_log.c/h` + `stage3/linux_init/a90_timeline.c/h` + `stage3/linux_init/a90_console.c/h` + `stage3/linux_init/a90_cmdproto.c/h` + `stage3/linux_init/a90_run.c/h` + `stage3/linux_init/a90_service.c/h` + `stage3/linux_init/a90_kms.c/h` + `stage3/linux_init/a90_draw.c/h` + `stage3/linux_init/a90_input.c/h` + `stage3/linux_init/a90_hud.c/h` + `stage3/linux_init/a90_menu.c/h` + `stage3/linux_init/a90_metrics.c/h` + `stage3/linux_init/a90_shell.c/h` + `stage3/linux_init/a90_controller.c/h` + `stage3/linux_init/a90_storage.c/h` + `stage3/linux_init/a90_selftest.c/h` + `stage3/linux_init/a90_usb_gadget.c/h` + `stage3/linux_init/a90_netservice.c/h` + `stage3/linux_init/a90_pid1_guard.c/h` + `stage3/linux_init/a90_runtime.c/h` + `stage3/linux_init/a90_helper.c/h` + `stage3/linux_init/a90_userland.c/h` + `stage3/linux_init/a90_diag.c/h` + `stage3/linux_init/a90_exposure.c/h` + `stage3/linux_init/a90_wifiinv.c/h` + `stage3/linux_init/a90_wififeas.c/h` + `stage3/linux_init/a90_changelog.c/h` + `stage3/linux_init/a90_app_about.c/h` + `stage3/linux_init/a90_app_displaytest.c/h` + `stage3/linux_init/a90_app_inputmon.c/h`
+- latest verified boot image: `stage3/boot_linux_v136.img`
 - previous verified source-layout baseline: `stage3/linux_init/init_v80.c` + `stage3/linux_init/v80/*.inc.c`
 - known-good fallback: `stage3/boot_linux_v48.img`
-- local artifact retention: `v135` latest, `v134` rollback, `v48` known-good만 보존하고 나머지 ignored stage3 산출물은 정리 가능
+- local artifact retention: `v136` latest, `v135` rollback, `v48` known-good만 보존하고 나머지 ignored stage3 산출물은 정리 가능
 - control channel: USB ACM serial bridge
 - log: SD 정상 시 `/mnt/sdext/a90/logs/native-init.log`, fallback 시 `/cache/native-init.log`, emergency fallback 시 private `/tmp/a90-native/native-init.log`
 - verified:
@@ -166,7 +166,20 @@
 - local targeted v135 rescan은 PASS=16/WARN=1/FAIL=0이다.
 - quick native soak는 PASS cycles=3 commands=14다.
 
-## 다음 실행 항목: v136/v137 C,B 분리 실행
+## 완료: v136 Structure Audit 3
+
+계획 문서: `docs/plans/NATIVE_INIT_V136_STRUCTURE_AUDIT_PLAN_2026-05-07.md`
+보고서: `docs/reports/NATIVE_INIT_V136_STRUCTURE_AUDIT_2026-05-07.md`
+
+결과:
+
+- v136은 C 후보인 post-v135 structure audit로 진행했다.
+- module ownership drift, duplicate policy logic, include-tree residue, PID1 growth hotspot을 점검했다.
+- blocking 구조 결함은 없고, 가장 큰 후속 후보는 `v136/40_menu_apps.inc.c`의 auto-HUD/menu controller hotspot이다.
+- 실기 flash 후 `selftest verbose`, `exposure guard`, `policycheck run`, `screenmenu`/`hide`, 3-cycle quick soak를 검증했다.
+- local targeted v136 rescan은 PASS=16/WARN=1/FAIL=0이다.
+
+## 다음 실행 항목: v137 Integrated Validation Matrix
 
 후보:
 
@@ -176,11 +189,8 @@
 
 다음 실행 항목:
 
-- v136은 C 후보인 post-v135 structure audit로 진행한다.
-  - 계획 문서: `docs/plans/NATIVE_INIT_V136_STRUCTURE_AUDIT_PLAN_2026-05-07.md`
-  - 목표: `A90 Linux init 0.9.36 (v136)` / `0.9.36 v136 STRUCTURE AUDIT 3`
-  - 범위: module ownership drift, duplicate policy logic, include-tree residue, PID1 growth hotspot 점검
-- v137은 B 후보인 integrated validation matrix / host harness expansion으로 예약한다.
+- v136 structure audit는 완료했다.
+- v137은 B 후보인 integrated validation matrix / host harness expansion으로 진행한다.
   - 대상: `exposure`, `selftest`, `service`, `netservice`, `rshell`, `policycheck`, soak gate를 한 번에 묶는 검증 강화
   - v136 감사 결과를 반영해 상세 계획을 작성한다.
 - network-facing 기능 확장은 v134 exposure baseline과 v135 policy matrix를 둘 다 통과하는 상태에서만 진행한다.

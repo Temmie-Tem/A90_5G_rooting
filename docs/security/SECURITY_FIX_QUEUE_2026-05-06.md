@@ -35,6 +35,12 @@ still the accepted USB-local/localhost root-control boundary; the new matrix
 keeps menu-visible side-effect command policy under repeatable regression
 coverage.
 
+v136 structure audit was flash-verified, and local targeted rescan result is
+PASS=16, WARN=1, FAIL=0 in
+`docs/security/SECURITY_FRESH_SCAN_V136_2026-05-07.md`. The remaining warning is
+still the accepted USB-local/localhost root-control boundary; v136 adds no new
+network exposure.
+
 ## Fresh Scan Follow-up: F032 Hold Timer Availability
 
 Status: mitigated as retained-source maintenance on 2026-05-07.

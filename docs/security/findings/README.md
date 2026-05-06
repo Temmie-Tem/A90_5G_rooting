@@ -16,6 +16,7 @@ Fresh scan follow-up: `F032` and `F033` were imported from the 2026-05-07 Codex 
 - Fresh local rescan: `../SECURITY_FRESH_SCAN_V133_2026-05-07.md`
 - Fresh v134 local rescan: `../SECURITY_FRESH_SCAN_V134_2026-05-07.md`
 - Fresh v135 local rescan: `../SECURITY_FRESH_SCAN_V135_2026-05-07.md`
+- Fresh v136 local rescan: `../SECURITY_FRESH_SCAN_V136_2026-05-07.md`
 
 ## Findings
 

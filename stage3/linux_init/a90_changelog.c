@@ -8,6 +8,12 @@
     { label, summary, { d1, d2, d3, d4, d5 } }
 
 static const struct a90_changelog_entry changelog_entries[] = {
+    ENTRY("0.9.36 v136", "STRUCTURE AUDIT 3",
+          "0.9.36 v136 STRUCTURE AUDIT 3",
+          "Post-v135 module ownership and duplicate policy audit checkpoint.",
+          "No new network exposure or user-facing runtime feature added.",
+          "Records keep/split/merge candidates",
+          "Reserves v137 for validation matrix expansion"),
     ENTRY("0.9.35 v135", "POLICY MATRIX",
           "0.9.35 v135 POLICY MATRIX",
           "Adds policycheck command",
