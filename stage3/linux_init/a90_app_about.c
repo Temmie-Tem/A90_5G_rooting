@@ -190,17 +190,17 @@ int a90_app_about_draw_version(void) {
 }
 
 int a90_app_about_draw_changelog_paged(size_t page) {
-    const char *lines[A90_CHANGELOG_MAX_ENTRIES];
-    size_t count = a90_changelog_count();
+    const char *lines[A90_CHANGELOG_MAX_SERIES];
+    size_t count = a90_changelog_series_count();
     size_t index;
 
-    if (count > A90_CHANGELOG_MAX_ENTRIES) {
-        count = A90_CHANGELOG_MAX_ENTRIES;
+    if (count > A90_CHANGELOG_MAX_SERIES) {
+        count = A90_CHANGELOG_MAX_SERIES;
     }
     for (index = 0; index < count; ++index) {
-        const struct a90_changelog_entry *entry = a90_changelog_entry_at(index);
+        const struct a90_changelog_series *series = a90_changelog_series_at(index);
 
-        lines[index] = entry != NULL ? entry->label : "UNKNOWN";
+        lines[index] = series != NULL ? series->label : "UNKNOWN";
     }
     return app_about_draw_lines_paged("ABOUT / CHANGELOG", lines, count, page);
 }
@@ -257,7 +257,7 @@ size_t a90_app_about_page_count(enum screen_app_id app_id, size_t changelog_inde
     case SCREEN_APP_ABOUT_VERSION:
         return app_about_page_count_for_lines(5);
     case SCREEN_APP_ABOUT_CHANGELOG:
-        return app_about_page_count_for_lines(a90_changelog_count());
+        return app_about_page_count_for_lines(a90_changelog_series_count());
     case SCREEN_APP_ABOUT_CREDITS:
         return app_about_page_count_for_lines(6);
     case SCREEN_APP_CHANGELOG_DETAIL:

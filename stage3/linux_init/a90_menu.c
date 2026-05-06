@@ -1,5 +1,7 @@
 #include "a90_menu.h"
 
+#include <stdio.h>
+
 #include "a90_changelog.h"
 
 static const struct screen_menu_item screen_menu_main_items[] = {
@@ -20,35 +22,87 @@ static const struct screen_menu_item screen_menu_apps_items[] = {
 
 static const struct screen_menu_item screen_menu_about_items[] = {
     { "VERSION",     "CURRENT BUILD",   SCREEN_MENU_ABOUT_VERSION,  SCREEN_MENU_PAGE_ABOUT },
-    { "CHANGELOG >", "VERSION DETAILS", SCREEN_MENU_SUBMENU,        SCREEN_MENU_PAGE_CHANGELOG },
+    { "CHANGELOG >", "VERSION SERIES",  SCREEN_MENU_SUBMENU,        SCREEN_MENU_PAGE_CHANGELOG_SERIES },
     { "CREDITS",     "MADE BY",         SCREEN_MENU_ABOUT_CREDITS,  SCREEN_MENU_PAGE_ABOUT },
     { "BACK",        "APPS",            SCREEN_MENU_BACK,           SCREEN_MENU_PAGE_APPS },
 };
 
-static struct screen_menu_item screen_menu_changelog_items[A90_CHANGELOG_MAX_ENTRIES + 1];
-static struct screen_menu_page screen_menu_changelog_page = {
+static struct screen_menu_item screen_menu_changelog_series_items[A90_CHANGELOG_MAX_SERIES + 1];
+static struct screen_menu_page screen_menu_changelog_series_page = {
     "ABOUT / CHANGELOG",
-    screen_menu_changelog_items,
+    screen_menu_changelog_series_items,
     0,
     SCREEN_MENU_PAGE_ABOUT,
 };
-static bool screen_menu_changelog_ready;
+static bool screen_menu_changelog_series_ready;
+
+static struct screen_menu_item screen_menu_changelog_items[A90_CHANGELOG_MAX_ENTRIES + 1];
+static char screen_menu_changelog_title[48];
+static struct screen_menu_page screen_menu_changelog_page = {
+    screen_menu_changelog_title,
+    screen_menu_changelog_items,
+    0,
+    SCREEN_MENU_PAGE_CHANGELOG_SERIES,
+};
+static size_t screen_menu_changelog_series_index;
+static size_t screen_menu_changelog_ready_series = (size_t)-1;
+
+static void screen_menu_init_changelog_series_page(void) {
+    size_t count;
+    size_t index;
+
+    if (screen_menu_changelog_series_ready) {
+        return;
+    }
+
+    count = a90_changelog_series_count();
+    if (count > A90_CHANGELOG_MAX_SERIES) {
+        count = A90_CHANGELOG_MAX_SERIES;
+    }
+
+    for (index = 0; index < count; ++index) {
+        const struct a90_changelog_series *series = a90_changelog_series_at(index);
+
+        screen_menu_changelog_series_items[index].name =
+            series != NULL ? series->label : "UNKNOWN";
+        screen_menu_changelog_series_items[index].summary =
+            series != NULL ? series->summary : "CHANGELOG";
+        screen_menu_changelog_series_items[index].action = SCREEN_MENU_CHANGELOG_SERIES;
+        screen_menu_changelog_series_items[index].target = SCREEN_MENU_PAGE_CHANGELOG;
+    }
+
+    screen_menu_changelog_series_items[count].name = "BACK";
+    screen_menu_changelog_series_items[count].summary = "ABOUT";
+    screen_menu_changelog_series_items[count].action = SCREEN_MENU_BACK;
+    screen_menu_changelog_series_items[count].target = SCREEN_MENU_PAGE_ABOUT;
+    screen_menu_changelog_series_page.count = count + 1;
+    screen_menu_changelog_series_ready = true;
+}
 
 static void screen_menu_init_changelog_page(void) {
     size_t count;
     size_t index;
+    const struct a90_changelog_series *series;
 
-    if (screen_menu_changelog_ready) {
+    if (screen_menu_changelog_ready_series == screen_menu_changelog_series_index) {
         return;
     }
 
-    count = a90_changelog_count();
+    series = a90_changelog_series_at(screen_menu_changelog_series_index);
+    snprintf(screen_menu_changelog_title,
+             sizeof(screen_menu_changelog_title),
+             "CHANGELOG / %s",
+             series != NULL ? series->label : "UNKNOWN");
+
+    count = a90_changelog_series_entry_count(screen_menu_changelog_series_index);
     if (count > A90_CHANGELOG_MAX_ENTRIES) {
         count = A90_CHANGELOG_MAX_ENTRIES;
     }
 
     for (index = 0; index < count; ++index) {
-        const struct a90_changelog_entry *entry = a90_changelog_entry_at(index);
+        size_t entry_index = a90_changelog_entry_index_for_series(screen_menu_changelog_series_index,
+                                                                  index);
+        const struct a90_changelog_entry *entry = a90_changelog_entry_at(entry_index);
 
         screen_menu_changelog_items[index].name = entry != NULL ? entry->label : "UNKNOWN";
         screen_menu_changelog_items[index].summary = entry != NULL ? entry->summary : "CHANGELOG";
@@ -59,9 +113,9 @@ static void screen_menu_init_changelog_page(void) {
     screen_menu_changelog_items[count].name = "BACK";
     screen_menu_changelog_items[count].summary = "ABOUT";
     screen_menu_changelog_items[count].action = SCREEN_MENU_BACK;
-    screen_menu_changelog_items[count].target = SCREEN_MENU_PAGE_ABOUT;
+    screen_menu_changelog_items[count].target = SCREEN_MENU_PAGE_CHANGELOG_SERIES;
     screen_menu_changelog_page.count = count + 1;
-    screen_menu_changelog_ready = true;
+    screen_menu_changelog_ready_series = screen_menu_changelog_series_index;
 }
 
 static const struct screen_menu_item screen_menu_monitoring_items[] = {
@@ -115,6 +169,10 @@ static const struct screen_menu_page screen_menu_pages[SCREEN_MENU_PAGE_COUNT] =
         "APPS / ABOUT", screen_menu_about_items,
         SCREEN_MENU_COUNT(screen_menu_about_items), SCREEN_MENU_PAGE_APPS
     },
+    [SCREEN_MENU_PAGE_CHANGELOG_SERIES] = {
+        "ABOUT / CHANGELOG", screen_menu_changelog_series_items,
+        0, SCREEN_MENU_PAGE_ABOUT
+    },
     [SCREEN_MENU_PAGE_MONITORING] = {
         "APPS / MONITORING", screen_menu_monitoring_items,
         SCREEN_MENU_COUNT(screen_menu_monitoring_items), SCREEN_MENU_PAGE_APPS
@@ -144,6 +202,10 @@ static const struct screen_menu_page screen_menu_pages[SCREEN_MENU_PAGE_COUNT] =
 const struct screen_menu_page *a90_menu_page(enum screen_menu_page_id page_id) {
     if ((int)page_id < 0 || page_id >= SCREEN_MENU_PAGE_COUNT) {
         page_id = SCREEN_MENU_PAGE_MAIN;
+    }
+    if (page_id == SCREEN_MENU_PAGE_CHANGELOG_SERIES) {
+        screen_menu_init_changelog_series_page();
+        return &screen_menu_changelog_series_page;
     }
     if (page_id == SCREEN_MENU_PAGE_CHANGELOG) {
         screen_menu_init_changelog_page();
@@ -295,7 +357,8 @@ bool a90_menu_app_is_changelog(enum screen_app_id app_id) {
 }
 
 bool a90_menu_page_is_changelog(enum screen_menu_page_id page_id) {
-    return page_id == SCREEN_MENU_PAGE_CHANGELOG;
+    return page_id == SCREEN_MENU_PAGE_CHANGELOG ||
+           page_id == SCREEN_MENU_PAGE_CHANGELOG_SERIES;
 }
 
 bool a90_menu_app_is_about(enum screen_app_id app_id) {
@@ -307,4 +370,30 @@ bool a90_menu_app_is_about(enum screen_app_id app_id) {
     default:
         return a90_menu_app_is_changelog(app_id);
     }
+}
+
+void a90_menu_set_changelog_series(size_t series_index) {
+    if (series_index >= a90_changelog_series_count()) {
+        series_index = 0;
+    }
+    if (screen_menu_changelog_series_index != series_index) {
+        screen_menu_changelog_ready_series = (size_t)-1;
+    }
+    screen_menu_changelog_series_index = series_index;
+}
+
+size_t a90_menu_changelog_series(void) {
+    return screen_menu_changelog_series_index;
+}
+
+size_t a90_menu_changelog_series_for_selected_index(size_t selected) {
+    if (selected >= a90_changelog_series_count()) {
+        return (size_t)-1;
+    }
+    return selected;
+}
+
+size_t a90_menu_changelog_entry_index_for_selected(size_t selected) {
+    return a90_changelog_entry_index_for_series(screen_menu_changelog_series_index,
+                                                selected);
 }

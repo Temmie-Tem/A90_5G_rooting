@@ -50,7 +50,7 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--timeout", type=float, default=45.0, help="per-command timeout seconds")
     parser.add_argument(
         "--expect-version",
-        default="A90 Linux init 0.9.32 (v132)",
+        default="A90 Linux init 0.9.33 (v133)",
         help="expected version banner in the version command",
     )
     parser.add_argument("--out", default="tmp/soak/native-soak.txt", help="transcript path")

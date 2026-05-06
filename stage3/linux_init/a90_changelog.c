@@ -1,9 +1,19 @@
 #include "a90_changelog.h"
 
+#include <stdbool.h>
+#include <stdio.h>
+#include <string.h>
+
 #define ENTRY(label, summary, d1, d2, d3, d4, d5) \
     { label, summary, { d1, d2, d3, d4, d5 } }
 
 static const struct a90_changelog_entry changelog_entries[] = {
+    ENTRY("0.9.33 v133", "CHANGELOG SERIES",
+          "0.9.33 v133 CHANGELOG SERIES",
+          "Groups changelog by version series",
+          "Adds 0.9.x/0.8.x/older menus",
+          "Keeps shared changelog table",
+          "Preserves detail page renderer"),
     ENTRY("0.9.32 v132", "CHANGELOG CLEANUP",
           "0.9.32 v132 CHANGELOG CLEANUP",
           "Removes legacy changelog enums",
@@ -468,6 +478,130 @@ static const struct a90_changelog_entry changelog_entries[] = {
           NULL),
 };
 
+struct a90_changelog_series_cache {
+    struct a90_changelog_series public;
+    char label[A90_CHANGELOG_SERIES_LABEL_MAX];
+    char summary[A90_CHANGELOG_SERIES_SUMMARY_MAX];
+    char key[16];
+    size_t entry_indices[A90_CHANGELOG_MAX_ENTRIES];
+};
+
+static struct a90_changelog_series_cache changelog_series[A90_CHANGELOG_MAX_SERIES];
+static size_t changelog_series_total;
+static bool changelog_series_ready;
+
+static void a90_changelog_series_key(const char *label, char *out, size_t out_size) {
+    const char *first_dot;
+    const char *second_dot;
+    size_t len;
+
+    if (out_size == 0) {
+        return;
+    }
+    out[0] = '\0';
+    if (label == NULL) {
+        snprintf(out, out_size, "other");
+        return;
+    }
+
+    first_dot = strchr(label, '.');
+    if (first_dot == NULL) {
+        snprintf(out, out_size, "other");
+        return;
+    }
+    second_dot = strchr(first_dot + 1, '.');
+    if (second_dot == NULL || second_dot == label) {
+        snprintf(out, out_size, "other");
+        return;
+    }
+
+    len = (size_t)(second_dot - label);
+    if (len + 2 >= out_size) {
+        len = out_size > 3 ? out_size - 3 : 0;
+    }
+    if (len == 0) {
+        snprintf(out, out_size, "other");
+        return;
+    }
+    memcpy(out, label, len);
+    out[len] = '\0';
+}
+
+static const char *a90_changelog_series_kind(size_t index) {
+    if (index == 0) {
+        return "RECENT";
+    }
+    if (index == 1) {
+        return "LEGACY";
+    }
+    return "OLDER";
+}
+
+static size_t a90_changelog_series_find(const char *key) {
+    size_t index;
+
+    for (index = 0; index < changelog_series_total; ++index) {
+        if (strcmp(changelog_series[index].key, key) == 0) {
+            return index;
+        }
+    }
+    return (size_t)-1;
+}
+
+static void a90_changelog_build_series(void) {
+    size_t entry_index;
+
+    if (changelog_series_ready) {
+        return;
+    }
+
+    for (entry_index = 0; entry_index < a90_changelog_count(); ++entry_index) {
+        const struct a90_changelog_entry *entry = a90_changelog_entry_at(entry_index);
+        char key[sizeof(changelog_series[0].key)];
+        size_t series_index;
+        struct a90_changelog_series_cache *series;
+
+        a90_changelog_series_key(entry != NULL ? entry->label : NULL, key, sizeof(key));
+        series_index = a90_changelog_series_find(key);
+        if (series_index == (size_t)-1) {
+            if (changelog_series_total >= A90_CHANGELOG_MAX_SERIES) {
+                continue;
+            }
+            series_index = changelog_series_total++;
+            series = &changelog_series[series_index];
+            memset(series, 0, sizeof(*series));
+            snprintf(series->key, sizeof(series->key), "%s", key);
+            if (strcmp(key, "other") == 0) {
+                snprintf(series->label, sizeof(series->label), "OTHER");
+            } else {
+                snprintf(series->label,
+                         sizeof(series->label),
+                         "%s.x %s",
+                         key,
+                         a90_changelog_series_kind(series_index));
+            }
+            series->public.label = series->label;
+            series->public.summary = series->summary;
+        } else {
+            series = &changelog_series[series_index];
+        }
+
+        if (series->public.count < A90_CHANGELOG_MAX_ENTRIES) {
+            series->entry_indices[series->public.count++] = entry_index;
+        }
+    }
+
+    for (entry_index = 0; entry_index < changelog_series_total; ++entry_index) {
+        struct a90_changelog_series_cache *series = &changelog_series[entry_index];
+
+        snprintf(series->summary,
+                 sizeof(series->summary),
+                 "%u ENTRIES",
+                 (unsigned int)series->public.count);
+    }
+    changelog_series_ready = true;
+}
+
 size_t a90_changelog_count(void) {
     return sizeof(changelog_entries) / sizeof(changelog_entries[0]);
 }
@@ -489,6 +623,36 @@ size_t a90_changelog_detail_count(const struct a90_changelog_entry *entry) {
         ++count;
     }
     return count;
+}
+
+size_t a90_changelog_series_count(void) {
+    a90_changelog_build_series();
+    return changelog_series_total;
+}
+
+const struct a90_changelog_series *a90_changelog_series_at(size_t index) {
+    a90_changelog_build_series();
+    if (index >= changelog_series_total) {
+        return NULL;
+    }
+    return &changelog_series[index].public;
+}
+
+size_t a90_changelog_series_entry_count(size_t series_index) {
+    const struct a90_changelog_series *series = a90_changelog_series_at(series_index);
+
+    return series != NULL ? series->count : 0;
+}
+
+size_t a90_changelog_entry_index_for_series(size_t series_index, size_t entry_index) {
+    a90_changelog_build_series();
+    if (series_index >= changelog_series_total) {
+        return (size_t)-1;
+    }
+    if (entry_index >= changelog_series[series_index].public.count) {
+        return (size_t)-1;
+    }
+    return changelog_series[series_index].entry_indices[entry_index];
 }
 
 #undef ENTRY

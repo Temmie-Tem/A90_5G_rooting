@@ -8,6 +8,7 @@ enum screen_menu_page_id {
     SCREEN_MENU_PAGE_MAIN = 0,
     SCREEN_MENU_PAGE_APPS,
     SCREEN_MENU_PAGE_ABOUT,
+    SCREEN_MENU_PAGE_CHANGELOG_SERIES,
     SCREEN_MENU_PAGE_CHANGELOG,
     SCREEN_MENU_PAGE_MONITORING,
     SCREEN_MENU_PAGE_TOOLS,
@@ -26,6 +27,7 @@ enum screen_menu_action {
     SCREEN_MENU_ABOUT_VERSION,
     SCREEN_MENU_ABOUT_CHANGELOG,
     SCREEN_MENU_ABOUT_CREDITS,
+    SCREEN_MENU_CHANGELOG_SERIES,
     SCREEN_MENU_CHANGELOG_ENTRY,
     SCREEN_MENU_INPUT_MONITOR,
     SCREEN_MENU_DISPLAY_TEST,
@@ -91,6 +93,10 @@ bool a90_menu_action_opens_app(enum screen_menu_action action, enum screen_app_i
 bool a90_menu_app_is_changelog(enum screen_app_id app_id);
 bool a90_menu_app_is_about(enum screen_app_id app_id);
 bool a90_menu_page_is_changelog(enum screen_menu_page_id page_id);
+void a90_menu_set_changelog_series(size_t series_index);
+size_t a90_menu_changelog_series(void);
+size_t a90_menu_changelog_series_for_selected_index(size_t selected);
+size_t a90_menu_changelog_entry_index_for_selected(size_t selected);
 long a90_menu_cpu_stress_seconds(enum screen_menu_action action);
 
 #endif
