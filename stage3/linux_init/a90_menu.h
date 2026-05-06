@@ -26,6 +26,7 @@ enum screen_menu_action {
     SCREEN_MENU_ABOUT_VERSION,
     SCREEN_MENU_ABOUT_CHANGELOG,
     SCREEN_MENU_ABOUT_CREDITS,
+    SCREEN_MENU_CHANGELOG_ENTRY,
     SCREEN_MENU_CHANGELOG_0847,
     SCREEN_MENU_CHANGELOG_0846,
     SCREEN_MENU_CHANGELOG_0845,
@@ -109,6 +110,7 @@ enum screen_app_id {
     SCREEN_APP_ABOUT_VERSION,
     SCREEN_APP_ABOUT_CHANGELOG,
     SCREEN_APP_ABOUT_CREDITS,
+    SCREEN_APP_CHANGELOG_DETAIL,
     SCREEN_APP_CHANGELOG_0847,
     SCREEN_APP_CHANGELOG_0846,
     SCREEN_APP_CHANGELOG_0845,
@@ -212,6 +214,7 @@ enum screen_app_id a90_menu_app_from_action(enum screen_menu_action action);
 bool a90_menu_action_opens_app(enum screen_menu_action action, enum screen_app_id *out);
 bool a90_menu_app_is_changelog(enum screen_app_id app_id);
 bool a90_menu_app_is_about(enum screen_app_id app_id);
+bool a90_menu_page_is_changelog(enum screen_menu_page_id page_id);
 long a90_menu_cpu_stress_seconds(enum screen_menu_action action);
 
 #endif

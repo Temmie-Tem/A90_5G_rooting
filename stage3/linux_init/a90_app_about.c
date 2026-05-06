@@ -6,6 +6,7 @@
 #include <string.h>
 
 #include "a90_config.h"
+#include "a90_changelog.h"
 #include "a90_draw.h"
 #include "a90_kms.h"
 #include "a90_util.h"
@@ -38,9 +39,49 @@ static uint32_t app_about_shrink_text_scale(const char *text,
     return scale;
 }
 
-static int app_about_draw_lines(const char *title,
-                                const char *const *lines,
-                                size_t count) {
+static size_t app_about_visible_line_count(void) {
+    uint32_t scale = app_about_text_scale();
+    uint32_t height = 2400;
+    uint32_t line_height = scale * 10;
+    uint32_t top;
+    uint32_t footer_y;
+    uint32_t usable;
+    struct a90_kms_info info;
+
+    a90_kms_info(&info);
+    if (info.height > 0) {
+        height = info.height;
+    }
+    top = height / 12;
+    top += line_height + scale * 4;
+    footer_y = height - scale * 16;
+    if (footer_y <= top + line_height) {
+        return 1;
+    }
+    usable = footer_y - top - scale * 4;
+    if (usable < line_height) {
+        return 1;
+    }
+    return usable / line_height;
+}
+
+static size_t app_about_page_count_for_lines(size_t count) {
+    size_t visible = app_about_visible_line_count();
+
+    if (visible == 0) {
+        visible = 1;
+    }
+    if (count == 0) {
+        return 1;
+    }
+    return (count + visible - 1) / visible;
+}
+
+static int app_about_draw_lines_paged(const char *title,
+                                      const char *const *lines,
+                                      size_t count,
+                                      size_t page) {
+    char title_buf[96];
     const char *footer = "PRESS ANY BUTTON TO RETURN";
     uint32_t scale;
     uint32_t title_scale;
@@ -48,6 +89,11 @@ static int app_about_draw_lines(const char *title,
     uint32_t top;
     uint32_t content_width;
     uint32_t line_height;
+    uint32_t footer_y;
+    size_t visible;
+    size_t page_count;
+    size_t start;
+    size_t end;
     size_t index;
 
     if (a90_kms_begin_frame(0x050505) < 0) {
@@ -63,6 +109,28 @@ static int app_about_draw_lines(const char *title,
     top = a90_kms_framebuffer()->height / 12;
     content_width = a90_kms_framebuffer()->width - (left * 2);
     line_height = scale * 10;
+    footer_y = a90_kms_framebuffer()->height - scale * 12;
+    visible = app_about_visible_line_count();
+    if (visible == 0) {
+        visible = 1;
+    }
+    page_count = app_about_page_count_for_lines(count);
+    if (page >= page_count) {
+        page = page_count - 1;
+    }
+    start = page * visible;
+    end = start + visible;
+    if (end > count) {
+        end = count;
+    }
+    if (page_count > 1) {
+        snprintf(title_buf, sizeof(title_buf), "%s %u/%u",
+                 title,
+                 (unsigned int)(page + 1),
+                 (unsigned int)page_count);
+        title = title_buf;
+        footer = "VOL PAGE  POWER BACK";
+    }
 
     a90_draw_text(a90_kms_framebuffer(), left, top, title, 0xffcc33,
                   app_about_shrink_text_scale(title, title_scale, content_width));
@@ -72,16 +140,17 @@ static int app_about_draw_lines(const char *title,
                   left - scale,
                   top - scale,
                   content_width,
-                  line_height * ((uint32_t)count + 1),
+                  line_height * ((uint32_t)(end - start) + 1),
                   0x202020);
 
-    for (index = 0; index < count; ++index) {
+    for (index = start; index < end; ++index) {
         const char *line = lines[index] != NULL ? lines[index] : "";
+        uint32_t row = (uint32_t)(index - start);
         uint32_t color = index == 0 ? 0x88ee88 : 0xffffff;
 
         a90_draw_text(a90_kms_framebuffer(),
                       left,
-                      top + (uint32_t)index * line_height,
+                      top + row * line_height,
                       line,
                       color,
                       app_about_shrink_text_scale(line, scale, content_width - scale * 2));
@@ -89,7 +158,7 @@ static int app_about_draw_lines(const char *title,
 
     a90_draw_text(a90_kms_framebuffer(),
                   left,
-                  a90_kms_framebuffer()->height - scale * 12,
+                  footer_y,
                   footer,
                   0xffffff,
                   app_about_shrink_text_scale(footer, scale, content_width));
@@ -98,6 +167,12 @@ static int app_about_draw_lines(const char *title,
         return negative_errno_or(EIO);
     }
     return 0;
+}
+
+static int app_about_draw_lines(const char *title,
+                                const char *const *lines,
+                                size_t count) {
+    return app_about_draw_lines_paged(title, lines, count, 0);
 }
 
 int a90_app_about_draw_version(void) {
@@ -114,81 +189,54 @@ int a90_app_about_draw_version(void) {
     return app_about_draw_lines("ABOUT / VERSION", lines, SCREEN_MENU_COUNT(lines));
 }
 
-int a90_app_about_draw_changelog(void) {
-    const char *lines[] = {
-        "0.9.28 v128 MENU SUBCOMMAND POLICY",
-        "0.9.27 v127 MENU BUSY GATE",
-        "0.9.26 v126 SECURITY BATCH6",
-        "0.9.25 v125 SECURITY BATCH4",
-        "0.9.24 v124 SECURITY BATCH2",
-        "0.9.23 v123 SECURITY BATCH1",
-        "0.9.22 v122 WIFI REFRESH",
-        "0.9.21 v121 PID1 GUARD",
-        "0.9.20 v120 COMMAND GROUP API",
-        "0.9.19 v119 MENU ROUTE API",
-        "0.9.18 v118 SHELL META API",
-        "0.9.17 v117 PID1 SLIM ROADMAP",
-        "0.9.16 v116 DIAG BUNDLE 2",
-        "0.9.15 v115 RSHELL HARDENING",
-        "0.9.14 v114 HELPER DEPLOY 2",
-        "0.9.13 v113 RUNTIME PACKAGE LAYOUT",
-        "0.9.12 v112 USB SERVICE SOAK",
-        "0.9.11 v111 EXTENDED SOAK RC",
-        "0.9.10 v110 APP CONTROLLER CLEANUP",
-        "0.9.9 v109 STRUCTURE AUDIT 2",
-        "0.9.8 v108 APP INPUTMON API",
-        "0.9.7 v107 APP DISPLAYTEST API",
-        "0.9.6 v106 APP ABOUT API",
-        "0.9.5 v105 SOAK RC",
-        "0.9.1 v101 SERVICE MANAGER",
-        "0.9.0 v100 REMOTE SHELL",
-        "0.8.29 v98 HELPER DEPLOY",
-        "0.8.28 v97 SD RUNTIME ROOT",
-        "0.8.27 v96 STRUCTURE AUDIT",
-        "0.8.26 v95 NETSERVICE USB API",
-        "0.8.25 v94 BOOT SELFTEST",
-        "0.8.24 v93 STORAGE API",
-        "0.8.23 v92 SHELL CONTROLLER",
-        "0.8.22 v91 CPUSTRESS HELPER",
-        "0.8.21 v90 METRICS API",
-        "0.8.20 v89 MENU CONTROL API",
-        "0.8.19 v88 HUD API",
-        "0.8.18 v87 INPUT API",
-        "0.8.17 v86 KMS DRAW API",
-        "0.8.16 v85 RUN SERVICE API",
-        "0.8.15 v84 CMDPROTO API",
-        "0.8.14 v83 CONSOLE API",
-        "0.8.13 v82 LOG TIMELINE API",
-        "0.8.12 v81 CONFIG UTIL API",
-        "0.8.11 v80 SOURCE MODULES",
-        "0.8.10 v79 BOOT SD PROBE",
-        "0.8.9 v78 SD WORKSPACE",
-        "0.8.8 v77 DISPLAY TEST PAGES",
-        "0.8.7 v76 AT FRAGMENT FILTER",
-        "0.8.6 v75 QUIET IDLE REATTACH",
-        "0.8.5 v74 CMDV1 ARG ENCODING",
-        "0.8.4 v73 CMDV1 PROTOCOL",
-        "0.8.3 v72 DISPLAY TEST FIX",
-        "0.8.2 v71 MENU LOG TAIL",
-        "0.8.1 v70 INPUT MONITOR APP",
-        "0.8.0 v69 INPUT GESTURE LAYOUT",
-        "0.7.5 v68 LOG TAIL + MORE HISTORY",
-        "0.7.4 v67 DETAIL CHANGELOG UI",
-        "0.7.3 v66 ABOUT + VERSIONING",
-        "0.7.2 v65 SPLASH SAFE LAYOUT",
-        "0.7.1 v64 CUSTOM BOOT SPLASH",
-        "0.7.0 v63 APP MENU + CPU STRESS",
-        "0.6.0 v62 CPU STRESS / DEV NODES",
-        "0.5.1 v61 CPU/GPU USAGE HUD",
-        "0.5.0 v60 NETSERVICE / RECONNECT",
-        "0.4.1 v59 AT SERIAL FILTER",
-        "0.4.0 v55 NCM TCP CONTROL",
-        "0.3.0 v53 MENU BUSY GATE",
-        "0.2.0 v40 SHELL LOG HUD CORE",
-        "0.1.0 v1  NATIVE INIT ORIGIN",
-    };
+int a90_app_about_draw_changelog_paged(size_t page) {
+    const char *lines[A90_CHANGELOG_MAX_ENTRIES];
+    size_t count = a90_changelog_count();
+    size_t index;
 
-    return app_about_draw_lines("ABOUT / CHANGELOG", lines, SCREEN_MENU_COUNT(lines));
+    if (count > A90_CHANGELOG_MAX_ENTRIES) {
+        count = A90_CHANGELOG_MAX_ENTRIES;
+    }
+    for (index = 0; index < count; ++index) {
+        const struct a90_changelog_entry *entry = a90_changelog_entry_at(index);
+
+        lines[index] = entry != NULL ? entry->label : "UNKNOWN";
+    }
+    return app_about_draw_lines_paged("ABOUT / CHANGELOG", lines, count, page);
+}
+
+int a90_app_about_draw_changelog(void) {
+    return a90_app_about_draw_changelog_paged(0);
+}
+
+int a90_app_about_draw_changelog_detail_index(size_t index, size_t page) {
+    const struct a90_changelog_entry *entry = a90_changelog_entry_at(index);
+    const char *lines[A90_CHANGELOG_DETAIL_MAX + 1];
+    char title[64];
+    size_t count = 0;
+    size_t detail_index;
+
+    if (entry == NULL) {
+        const char *fallback[] = {
+            "UNKNOWN CHANGELOG ENTRY",
+            "The selected changelog index is invalid",
+        };
+
+        return app_about_draw_lines_paged("CHANGELOG / UNKNOWN",
+                                          fallback,
+                                          SCREEN_MENU_COUNT(fallback),
+                                          0);
+    }
+
+    lines[count++] = entry->label;
+    for (detail_index = 0; detail_index < A90_CHANGELOG_DETAIL_MAX; ++detail_index) {
+        if (entry->details[detail_index] == NULL) {
+            break;
+        }
+        lines[count++] = entry->details[detail_index];
+    }
+    snprintf(title, sizeof(title), "CHANGELOG / %s", entry->label);
+    return app_about_draw_lines_paged(title, lines, count, page);
 }
 
 static int draw_screen_changelog_v0847(void) {
@@ -1196,18 +1244,44 @@ int a90_app_about_draw_credits(void) {
     return app_about_draw_lines("ABOUT / CREDITS", lines, SCREEN_MENU_COUNT(lines));
 }
 
-int a90_app_about_draw(enum screen_app_id app_id) {
+size_t a90_app_about_page_count(enum screen_app_id app_id, size_t changelog_index) {
+    switch (app_id) {
+    case SCREEN_APP_ABOUT_VERSION:
+        return app_about_page_count_for_lines(5);
+    case SCREEN_APP_ABOUT_CHANGELOG:
+        return app_about_page_count_for_lines(a90_changelog_count());
+    case SCREEN_APP_ABOUT_CREDITS:
+        return app_about_page_count_for_lines(6);
+    case SCREEN_APP_CHANGELOG_DETAIL:
+    {
+        const struct a90_changelog_entry *entry = a90_changelog_entry_at(changelog_index);
+        size_t count = entry != NULL ? a90_changelog_detail_count(entry) + 1 : 2;
+
+        return app_about_page_count_for_lines(count);
+    }
+    default:
+        return 1;
+    }
+}
+
+int a90_app_about_draw_paged(enum screen_app_id app_id, size_t changelog_index, size_t page) {
     switch (app_id) {
     case SCREEN_APP_ABOUT_VERSION:
         return a90_app_about_draw_version();
     case SCREEN_APP_ABOUT_CHANGELOG:
-        return a90_app_about_draw_changelog();
+        return a90_app_about_draw_changelog_paged(page);
     case SCREEN_APP_ABOUT_CREDITS:
         return a90_app_about_draw_credits();
+    case SCREEN_APP_CHANGELOG_DETAIL:
+        return a90_app_about_draw_changelog_detail_index(changelog_index, page);
     default:
         if (a90_menu_app_is_about(app_id)) {
             return a90_app_about_draw_changelog_detail(app_id);
         }
         return 0;
     }
+}
+
+int a90_app_about_draw(enum screen_app_id app_id) {
+    return a90_app_about_draw_paged(app_id, 0, 0);
 }

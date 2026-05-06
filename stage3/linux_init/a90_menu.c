@@ -1,5 +1,7 @@
 #include "a90_menu.h"
 
+#include "a90_changelog.h"
+
 static const struct screen_menu_item screen_menu_main_items[] = {
     { "APPS >",    "OPEN APP FOLDERS", SCREEN_MENU_SUBMENU, SCREEN_MENU_PAGE_APPS },
     { "STATUS",    "LIVE SYSTEM VIEW", SCREEN_MENU_STATUS, SCREEN_MENU_PAGE_MAIN },
@@ -23,72 +25,44 @@ static const struct screen_menu_item screen_menu_about_items[] = {
     { "BACK",        "APPS",            SCREEN_MENU_BACK,           SCREEN_MENU_PAGE_APPS },
 };
 
-static const struct screen_menu_item screen_menu_changelog_items[] = {
-    { "0.9.22 v122", "WIFI REFRESH", SCREEN_MENU_CHANGELOG_0847, SCREEN_MENU_PAGE_CHANGELOG },
-    { "0.9.21 v121", "PID1 GUARD", SCREEN_MENU_CHANGELOG_0846, SCREEN_MENU_PAGE_CHANGELOG },
-    { "0.9.20 v120", "COMMAND GROUP", SCREEN_MENU_CHANGELOG_0845, SCREEN_MENU_PAGE_CHANGELOG },
-    { "0.9.19 v119", "MENU ROUTE API", SCREEN_MENU_CHANGELOG_0844, SCREEN_MENU_PAGE_CHANGELOG },
-    { "0.9.18 v118", "SHELL META API", SCREEN_MENU_CHANGELOG_0843, SCREEN_MENU_PAGE_CHANGELOG },
-    { "0.9.17 v117", "PID1 SLIM PLAN", SCREEN_MENU_CHANGELOG_0842, SCREEN_MENU_PAGE_CHANGELOG },
-    { "0.9.16 v116", "DIAG BUNDLE 2", SCREEN_MENU_CHANGELOG_0841, SCREEN_MENU_PAGE_CHANGELOG },
-    { "0.9.15 v115", "RSHELL HARDEN", SCREEN_MENU_CHANGELOG_0840, SCREEN_MENU_PAGE_CHANGELOG },
-    { "0.9.14 v114", "HELPER DEPLOY 2", SCREEN_MENU_CHANGELOG_0839, SCREEN_MENU_PAGE_CHANGELOG },
-    { "0.9.13 v113", "RUNTIME LAYOUT", SCREEN_MENU_CHANGELOG_0838, SCREEN_MENU_PAGE_CHANGELOG },
-    { "0.9.12 v112", "USB SVC SOAK", SCREEN_MENU_CHANGELOG_0837, SCREEN_MENU_PAGE_CHANGELOG },
-    { "0.9.11 v111", "EXT SOAK RC", SCREEN_MENU_CHANGELOG_0836, SCREEN_MENU_PAGE_CHANGELOG },
-    { "0.9.10 v110", "APP CTRL CLEAN", SCREEN_MENU_CHANGELOG_0835, SCREEN_MENU_PAGE_CHANGELOG },
-    { "0.9.9 v109", "STRUCT AUDIT 2", SCREEN_MENU_CHANGELOG_0834, SCREEN_MENU_PAGE_CHANGELOG },
-    { "0.9.8 v108", "APP INPUTMON", SCREEN_MENU_CHANGELOG_0833, SCREEN_MENU_PAGE_CHANGELOG },
-    { "0.9.7 v107", "APP DISPLAYTEST", SCREEN_MENU_CHANGELOG_0832, SCREEN_MENU_PAGE_CHANGELOG },
-    { "0.9.6 v106", "APP ABOUT API", SCREEN_MENU_CHANGELOG_0831, SCREEN_MENU_PAGE_CHANGELOG },
-    { "0.9.5 v105", "SOAK RC", SCREEN_MENU_CHANGELOG_0830, SCREEN_MENU_PAGE_CHANGELOG },
-    { "0.9.4 v104", "WIFI FEASIBILITY", SCREEN_MENU_CHANGELOG_0830, SCREEN_MENU_PAGE_CHANGELOG },
-    { "0.8.29 v98", "HELPER DEPLOY",    SCREEN_MENU_CHANGELOG_0829, SCREEN_MENU_PAGE_CHANGELOG },
-    { "0.8.28 v97", "SD RUNTIME ROOT",  SCREEN_MENU_CHANGELOG_0828, SCREEN_MENU_PAGE_CHANGELOG },
-    { "0.8.27 v96", "STRUCTURE AUDIT",  SCREEN_MENU_CHANGELOG_0827, SCREEN_MENU_PAGE_CHANGELOG },
-    { "0.8.26 v95", "NETSERVICE USB",   SCREEN_MENU_CHANGELOG_0826, SCREEN_MENU_PAGE_CHANGELOG },
-    { "0.8.25 v94", "BOOT SELFTEST",    SCREEN_MENU_CHANGELOG_0825, SCREEN_MENU_PAGE_CHANGELOG },
-    { "0.8.24 v93", "STORAGE API",       SCREEN_MENU_CHANGELOG_0824, SCREEN_MENU_PAGE_CHANGELOG },
-    { "0.8.23 v92", "SHELL CONTROLLER",  SCREEN_MENU_CHANGELOG_0823, SCREEN_MENU_PAGE_CHANGELOG },
-    { "0.8.22 v91", "CPUSTRESS HELPER",   SCREEN_MENU_CHANGELOG_0822, SCREEN_MENU_PAGE_CHANGELOG },
-    { "0.8.21 v90", "METRICS API",        SCREEN_MENU_CHANGELOG_0821, SCREEN_MENU_PAGE_CHANGELOG },
-    { "0.8.20 v89", "MENU CONTROL API",   SCREEN_MENU_CHANGELOG_0820, SCREEN_MENU_PAGE_CHANGELOG },
-    { "0.8.19 v88", "HUD API",            SCREEN_MENU_CHANGELOG_0819, SCREEN_MENU_PAGE_CHANGELOG },
-    { "0.8.18 v87", "INPUT API",          SCREEN_MENU_CHANGELOG_0818, SCREEN_MENU_PAGE_CHANGELOG },
-    { "0.8.17 v86", "KMS DRAW API",      SCREEN_MENU_CHANGELOG_0817, SCREEN_MENU_PAGE_CHANGELOG },
-    { "0.8.16 v85", "RUN SERVICE API",    SCREEN_MENU_CHANGELOG_0816, SCREEN_MENU_PAGE_CHANGELOG },
-    { "0.8.15 v84", "CMDPROTO API",       SCREEN_MENU_CHANGELOG_0815, SCREEN_MENU_PAGE_CHANGELOG },
-    { "0.8.14 v83", "CONSOLE API",        SCREEN_MENU_CHANGELOG_0814, SCREEN_MENU_PAGE_CHANGELOG },
-    { "0.8.13 v82", "LOG TIMELINE API",   SCREEN_MENU_CHANGELOG_0813, SCREEN_MENU_PAGE_CHANGELOG },
-    { "0.8.12 v81", "CONFIG UTIL API",    SCREEN_MENU_CHANGELOG_0812, SCREEN_MENU_PAGE_CHANGELOG },
-    { "0.8.11 v80", "SOURCE MODULES",     SCREEN_MENU_CHANGELOG_0811, SCREEN_MENU_PAGE_CHANGELOG },
-    { "0.8.10 v79", "BOOT SD PROBE",      SCREEN_MENU_CHANGELOG_0810, SCREEN_MENU_PAGE_CHANGELOG },
-    { "0.8.9 v78", "SD WORKSPACE",         SCREEN_MENU_CHANGELOG_089, SCREEN_MENU_PAGE_CHANGELOG },
-    { "0.8.8 v77", "DISPLAY TEST PAGES",   SCREEN_MENU_CHANGELOG_088, SCREEN_MENU_PAGE_CHANGELOG },
-    { "0.8.7 v76", "AT FRAGMENT FILTER",    SCREEN_MENU_CHANGELOG_087, SCREEN_MENU_PAGE_CHANGELOG },
-    { "0.8.6 v75", "QUIET IDLE REATTACH",  SCREEN_MENU_CHANGELOG_086, SCREEN_MENU_PAGE_CHANGELOG },
-    { "0.8.5 v74", "CMDV1 ARG ENCODING",   SCREEN_MENU_CHANGELOG_085, SCREEN_MENU_PAGE_CHANGELOG },
-    { "0.8.4 v73", "CMDV1 PROTOCOL",       SCREEN_MENU_CHANGELOG_084, SCREEN_MENU_PAGE_CHANGELOG },
-    { "0.8.3 v72", "DISPLAY TEST FIX",     SCREEN_MENU_CHANGELOG_083, SCREEN_MENU_PAGE_CHANGELOG },
-    { "0.8.2 v71", "MENU LOG TAIL",        SCREEN_MENU_CHANGELOG_082, SCREEN_MENU_PAGE_CHANGELOG },
-    { "0.8.1 v70", "INPUT MONITOR APP",    SCREEN_MENU_CHANGELOG_081, SCREEN_MENU_PAGE_CHANGELOG },
-    { "0.8.0 v69", "INPUT GESTURE LAYOUT", SCREEN_MENU_CHANGELOG_080, SCREEN_MENU_PAGE_CHANGELOG },
-    { "0.7.5 v68", "LOG TAIL + HISTORY",  SCREEN_MENU_CHANGELOG_075, SCREEN_MENU_PAGE_CHANGELOG },
-    { "0.7.4 v67", "DETAIL CHANGELOG UI", SCREEN_MENU_CHANGELOG_074, SCREEN_MENU_PAGE_CHANGELOG },
-    { "0.7.3 v66", "ABOUT + VERSIONING",  SCREEN_MENU_CHANGELOG_073, SCREEN_MENU_PAGE_CHANGELOG },
-    { "0.7.2 v65", "SPLASH SAFE LAYOUT",  SCREEN_MENU_CHANGELOG_072, SCREEN_MENU_PAGE_CHANGELOG },
-    { "0.7.1 v64", "CUSTOM BOOT SPLASH",  SCREEN_MENU_CHANGELOG_071, SCREEN_MENU_PAGE_CHANGELOG },
-    { "0.7.0 v63", "APP MENU",            SCREEN_MENU_CHANGELOG_070, SCREEN_MENU_PAGE_CHANGELOG },
-    { "0.6.0 v62", "CPU DIAGNOSTICS",     SCREEN_MENU_CHANGELOG_060, SCREEN_MENU_PAGE_CHANGELOG },
-    { "0.5.1 v61", "CPU/GPU USAGE HUD",  SCREEN_MENU_CHANGELOG_051, SCREEN_MENU_PAGE_CHANGELOG },
-    { "0.5.0 v60", "NETSERVICE BOOT",    SCREEN_MENU_CHANGELOG_050, SCREEN_MENU_PAGE_CHANGELOG },
-    { "0.4.1 v59", "AT SERIAL FILTER",   SCREEN_MENU_CHANGELOG_041, SCREEN_MENU_PAGE_CHANGELOG },
-    { "0.4.0 v55", "NCM TCP CONTROL",    SCREEN_MENU_CHANGELOG_040, SCREEN_MENU_PAGE_CHANGELOG },
-    { "0.3.0 v53", "MENU BUSY GATE",     SCREEN_MENU_CHANGELOG_030, SCREEN_MENU_PAGE_CHANGELOG },
-    { "0.2.0 v40", "SHELL LOG HUD CORE", SCREEN_MENU_CHANGELOG_020, SCREEN_MENU_PAGE_CHANGELOG },
-    { "0.1.0 v1",  "NATIVE INIT ORIGIN", SCREEN_MENU_CHANGELOG_010, SCREEN_MENU_PAGE_CHANGELOG },
-    { "BACK",      "ABOUT",              SCREEN_MENU_BACK,           SCREEN_MENU_PAGE_ABOUT },
+static struct screen_menu_item screen_menu_changelog_items[A90_CHANGELOG_MAX_ENTRIES + 1];
+static struct screen_menu_page screen_menu_changelog_page = {
+    "ABOUT / CHANGELOG",
+    screen_menu_changelog_items,
+    0,
+    SCREEN_MENU_PAGE_ABOUT,
 };
+static bool screen_menu_changelog_ready;
+
+static void screen_menu_init_changelog_page(void) {
+    size_t count;
+    size_t index;
+
+    if (screen_menu_changelog_ready) {
+        return;
+    }
+
+    count = a90_changelog_count();
+    if (count > A90_CHANGELOG_MAX_ENTRIES) {
+        count = A90_CHANGELOG_MAX_ENTRIES;
+    }
+
+    for (index = 0; index < count; ++index) {
+        const struct a90_changelog_entry *entry = a90_changelog_entry_at(index);
+
+        screen_menu_changelog_items[index].name = entry != NULL ? entry->label : "UNKNOWN";
+        screen_menu_changelog_items[index].summary = entry != NULL ? entry->summary : "CHANGELOG";
+        screen_menu_changelog_items[index].action = SCREEN_MENU_CHANGELOG_ENTRY;
+        screen_menu_changelog_items[index].target = SCREEN_MENU_PAGE_CHANGELOG;
+    }
+
+    screen_menu_changelog_items[count].name = "BACK";
+    screen_menu_changelog_items[count].summary = "ABOUT";
+    screen_menu_changelog_items[count].action = SCREEN_MENU_BACK;
+    screen_menu_changelog_items[count].target = SCREEN_MENU_PAGE_ABOUT;
+    screen_menu_changelog_page.count = count + 1;
+    screen_menu_changelog_ready = true;
+}
 
 static const struct screen_menu_item screen_menu_monitoring_items[] = {
     { "LIVE STATUS", "DRAW STATUS HUD", SCREEN_MENU_STATUS, SCREEN_MENU_PAGE_MONITORING },
@@ -141,10 +115,6 @@ static const struct screen_menu_page screen_menu_pages[SCREEN_MENU_PAGE_COUNT] =
         "APPS / ABOUT", screen_menu_about_items,
         SCREEN_MENU_COUNT(screen_menu_about_items), SCREEN_MENU_PAGE_APPS
     },
-    [SCREEN_MENU_PAGE_CHANGELOG] = {
-        "ABOUT / CHANGELOG", screen_menu_changelog_items,
-        SCREEN_MENU_COUNT(screen_menu_changelog_items), SCREEN_MENU_PAGE_ABOUT
-    },
     [SCREEN_MENU_PAGE_MONITORING] = {
         "APPS / MONITORING", screen_menu_monitoring_items,
         SCREEN_MENU_COUNT(screen_menu_monitoring_items), SCREEN_MENU_PAGE_APPS
@@ -175,6 +145,10 @@ const struct screen_menu_page *a90_menu_page(enum screen_menu_page_id page_id) {
     if ((int)page_id < 0 || page_id >= SCREEN_MENU_PAGE_COUNT) {
         page_id = SCREEN_MENU_PAGE_MAIN;
     }
+    if (page_id == SCREEN_MENU_PAGE_CHANGELOG) {
+        screen_menu_init_changelog_page();
+        return &screen_menu_changelog_page;
+    }
     return &screen_menu_pages[page_id];
 }
 
@@ -201,6 +175,8 @@ enum screen_app_id a90_menu_app_from_action(enum screen_menu_action action) {
         return SCREEN_APP_ABOUT_CHANGELOG;
     case SCREEN_MENU_ABOUT_CREDITS:
         return SCREEN_APP_ABOUT_CREDITS;
+    case SCREEN_MENU_CHANGELOG_ENTRY:
+        return SCREEN_APP_CHANGELOG_DETAIL;
     case SCREEN_MENU_CHANGELOG_0847:
         return SCREEN_APP_CHANGELOG_0847;
     case SCREEN_MENU_CHANGELOG_0846:
@@ -439,8 +415,13 @@ bool a90_menu_state_back(struct a90_menu_state *state) {
 }
 
 bool a90_menu_app_is_changelog(enum screen_app_id app_id) {
-    return app_id >= SCREEN_APP_CHANGELOG_0847 &&
-           app_id <= SCREEN_APP_CHANGELOG_010;
+    return app_id == SCREEN_APP_CHANGELOG_DETAIL ||
+           (app_id >= SCREEN_APP_CHANGELOG_0847 &&
+            app_id <= SCREEN_APP_CHANGELOG_010);
+}
+
+bool a90_menu_page_is_changelog(enum screen_menu_page_id page_id) {
+    return page_id == SCREEN_MENU_PAGE_CHANGELOG;
 }
 
 bool a90_menu_app_is_about(enum screen_app_id app_id) {

@@ -269,12 +269,12 @@ Samsung bootloader
 
 ## 현재 기준점
 
-- 최신 확인 버전: `A90 Linux init 0.9.28 (v128)`
-- 공식 버전: `0.9.28`
-- build tag: `v128`
+- 최신 확인 버전: `A90 Linux init 0.9.29 (v129)`
+- 공식 버전: `0.9.29`
+- build tag: `v129`
 - creator: `made by temmie0214`
-- 최신 verified 소스: `stage3/linux_init/init_v128.c` + `stage3/linux_init/v128/*.inc.c` + `stage3/linux_init/helpers/a90_cpustress.c` + `stage3/linux_init/helpers/a90_rshell.c` + `stage3/linux_init/a90_config.h` + `stage3/linux_init/a90_util.c/h` + `stage3/linux_init/a90_log.c/h` + `stage3/linux_init/a90_timeline.c/h` + `stage3/linux_init/a90_console.c/h` + `stage3/linux_init/a90_cmdproto.c/h` + `stage3/linux_init/a90_run.c/h` + `stage3/linux_init/a90_service.c/h` + `stage3/linux_init/a90_kms.c/h` + `stage3/linux_init/a90_draw.c/h` + `stage3/linux_init/a90_input.c/h` + `stage3/linux_init/a90_hud.c/h` + `stage3/linux_init/a90_menu.c/h` + `stage3/linux_init/a90_metrics.c/h` + `stage3/linux_init/a90_shell.c/h` + `stage3/linux_init/a90_controller.c/h` + `stage3/linux_init/a90_storage.c/h` + `stage3/linux_init/a90_selftest.c/h` + `stage3/linux_init/a90_usb_gadget.c/h` + `stage3/linux_init/a90_netservice.c/h` + `stage3/linux_init/a90_pid1_guard.c/h` + `stage3/linux_init/a90_runtime.c/h` + `stage3/linux_init/a90_helper.c/h` + `stage3/linux_init/a90_userland.c/h` + `stage3/linux_init/a90_diag.c/h` + `stage3/linux_init/a90_wifiinv.c/h` + `stage3/linux_init/a90_wififeas.c/h` + `stage3/linux_init/a90_app_about.c/h` + `stage3/linux_init/a90_app_displaytest.c/h` + `stage3/linux_init/a90_app_inputmon.c/h`
-- 최신 verified boot image: `stage3/boot_linux_v128.img`
+- 최신 verified 소스: `stage3/linux_init/init_v129.c` + `stage3/linux_init/v129/*.inc.c` + `stage3/linux_init/helpers/a90_cpustress.c` + `stage3/linux_init/helpers/a90_rshell.c` + `stage3/linux_init/a90_config.h` + `stage3/linux_init/a90_util.c/h` + `stage3/linux_init/a90_log.c/h` + `stage3/linux_init/a90_timeline.c/h` + `stage3/linux_init/a90_console.c/h` + `stage3/linux_init/a90_cmdproto.c/h` + `stage3/linux_init/a90_run.c/h` + `stage3/linux_init/a90_service.c/h` + `stage3/linux_init/a90_kms.c/h` + `stage3/linux_init/a90_draw.c/h` + `stage3/linux_init/a90_input.c/h` + `stage3/linux_init/a90_hud.c/h` + `stage3/linux_init/a90_menu.c/h` + `stage3/linux_init/a90_metrics.c/h` + `stage3/linux_init/a90_shell.c/h` + `stage3/linux_init/a90_controller.c/h` + `stage3/linux_init/a90_storage.c/h` + `stage3/linux_init/a90_selftest.c/h` + `stage3/linux_init/a90_usb_gadget.c/h` + `stage3/linux_init/a90_netservice.c/h` + `stage3/linux_init/a90_pid1_guard.c/h` + `stage3/linux_init/a90_runtime.c/h` + `stage3/linux_init/a90_helper.c/h` + `stage3/linux_init/a90_userland.c/h` + `stage3/linux_init/a90_diag.c/h` + `stage3/linux_init/a90_wifiinv.c/h` + `stage3/linux_init/a90_wififeas.c/h` + `stage3/linux_init/a90_changelog.c/h` + `stage3/linux_init/a90_app_about.c/h` + `stage3/linux_init/a90_app_displaytest.c/h` + `stage3/linux_init/a90_app_inputmon.c/h`
+- 최신 verified boot image: `stage3/boot_linux_v129.img`
 - previous verified source-layout baseline: `stage3/linux_init/init_v80.c` + `stage3/linux_init/v80/*.inc.c`
 - known-good fallback: `stage3/boot_linux_v48.img`
 - 주 제어 채널: USB CDC ACM serial (`/dev/ttyGS0` ↔ `/dev/ttyACM0`)
@@ -315,13 +315,14 @@ Samsung bootloader
 - Security Batch 6 상태: v126에서 retained-source compatibility, v84 changelog route, v42 run stdin, input event validation 정리 완료
 - Security Batch 7 상태: v127에서 menu-active busy gate deny-by-default allowlist 적용으로 F023 종료
 - v128 상태: F023 mitigation을 유지하면서 menu-visible read-only subcommand policy 적용 완료
+- v129 상태: changelog viewport/shared data/about page navigation 적용 완료
 - ADB 상태: 보류
 
 다음 실행 후보:
 
+- 사용자가 물리 버튼으로 `ABOUT / CHANGELOG` viewport와 detail page UX를 실기 관찰한다.
+- v130 계획 수립: changelog detail 데이터 보강, shell/serial usability, 또는 security closure 문서 정리 중 우선순위 결정.
 - 남은 security findings 재평가와 closure 문서 갱신.
-- v129 계획 수립: shell/serial usability, policy reporting cleanup, 또는 구조 리팩터링 후속 중 우선순위 결정.
-- v128은 F023 closure 이후 UX 완화 작업으로 완료됐으며, 추가 보안 closure로 계산하지 않는다.
 
 상세 상태 문서:
 
