@@ -79,9 +79,9 @@ Evidence:
 
 ## Manual Visual Check
 
-Pending user confirmation on device display:
+Result: PASS. User confirmed physical display behavior on device.
 
-- `APPS / ABOUT / CHANGELOG` shows series groups first.
-- `0.9.x RECENT` opens v133/v132/v131 entries.
-- Selecting `0.9.33 v133` opens the v133 detail screen.
-- Back/hide and hold-scroll behavior remain usable.
+- `APPS / ABOUT / CHANGELOG` shows series groups first — PASS.
+- `0.9.x RECENT` opens v133/v132/v131 entries — PASS.
+- Selecting `0.9.33 v133` opens the v133 detail screen — PASS.
+- Back/hide and hold-scroll behavior remain usable — PASS.

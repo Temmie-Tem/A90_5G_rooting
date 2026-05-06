@@ -141,8 +141,8 @@
 
 후보:
 
-- v133 ABOUT/changelog 화면에서 series 목록, 0.9.x 진입, v133 detail 표시를 수동 시각 확인한다.
-- shell/serial usability, security closure 문서 정리, 또는 다음 UI cleanup 중 우선순위를 결정한다.
+- v133 ABOUT/changelog 화면에서 series 목록, 0.9.x 진입, v133 detail 표시를 수동 시각 확인했다.
+- 다음 우선순위는 security closure 문서 정리와 남은 보안 finding 재평가다.
 - 남은 security findings 재평가와 closure 문서 갱신.
 
 ## 실행 큐

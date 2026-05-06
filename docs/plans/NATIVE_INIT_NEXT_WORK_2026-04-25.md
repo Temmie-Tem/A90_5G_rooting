@@ -319,12 +319,12 @@ Samsung bootloader
 - v130 상태: volume hold-repeat scroll과 VOL+DN physical back shortcut 적용 완료
 - v131 상태: EV_KEY repeat 미발생 환경을 위해 timer-based hold scroll 적용 완료, 실기 UX 정상 확인
 - v132 상태: ABOUT/changelog legacy route 제거와 shared changelog table 단일 경로 정리 완료, 실기 flash/quick soak 확인
-- v133 상태: ABOUT/changelog version series 분류 메뉴 적용 완료, 실기 flash/quick soak 확인
+- v133 상태: ABOUT/changelog version series 분류 메뉴 적용 완료, 실기 flash/quick soak 및 수동 화면 확인
 - ADB 상태: 보류
 
 다음 실행 후보:
 
-- ABOUT/changelog series 목록과 v133 detail 수동 시각 확인, shell/serial usability, 또는 security closure 문서 정리 중 우선순위 결정.
+- v133 ABOUT/changelog 수동 화면 확인 완료. 다음 우선순위는 security closure 문서 정리와 남은 보안 finding 재평가.
 - 남은 security findings 재평가와 closure 문서 갱신.
 
 상세 상태 문서:
