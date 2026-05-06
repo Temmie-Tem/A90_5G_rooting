@@ -4,6 +4,12 @@
     { label, summary, { d1, d2, d3, d4, d5 } }
 
 static const struct a90_changelog_entry changelog_entries[] = {
+    ENTRY("0.9.32 v132", "CHANGELOG CLEANUP",
+          "0.9.32 v132 CHANGELOG CLEANUP",
+          "Removes legacy changelog enums",
+          "Removes per-version draw functions",
+          "Keeps shared changelog table only",
+          "Confirms v131 hold UX"),
     ENTRY("0.9.31 v131", "MENU HOLD TIMER",
           "0.9.31 v131 MENU HOLD TIMER",
           "Adds timer-based hold scrolling",

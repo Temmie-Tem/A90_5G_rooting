@@ -1,19 +1,19 @@
 # Native Init Task Queue (2026-04-25)
 
-이 문서는 `A90 Linux init 0.9.31 (v131)` verified 이후 바로 실행할 작업 큐다.
+이 문서는 `A90 Linux init 0.9.32 (v132)` verified 이후 바로 실행할 작업 큐다.
 큰 방향은 “보이는 부팅 → 복구 가능한 로그 → 단독 조작 → 작은 userland → USB networking” 순서다.
 
 ## 현재 고정 기준점
 
-- latest verified build: `A90 Linux init 0.9.31 (v131)`
-- official version: `0.9.31`
-- build tag: `v131`
+- latest verified build: `A90 Linux init 0.9.32 (v132)`
+- official version: `0.9.32`
+- build tag: `v132`
 - creator: `made by temmie0214`
-- latest verified source: `stage3/linux_init/init_v131.c` + `stage3/linux_init/v131/*.inc.c` + `stage3/linux_init/helpers/a90_cpustress.c` + `stage3/linux_init/helpers/a90_rshell.c` + `stage3/linux_init/a90_config.h` + `stage3/linux_init/a90_util.c/h` + `stage3/linux_init/a90_log.c/h` + `stage3/linux_init/a90_timeline.c/h` + `stage3/linux_init/a90_console.c/h` + `stage3/linux_init/a90_cmdproto.c/h` + `stage3/linux_init/a90_run.c/h` + `stage3/linux_init/a90_service.c/h` + `stage3/linux_init/a90_kms.c/h` + `stage3/linux_init/a90_draw.c/h` + `stage3/linux_init/a90_input.c/h` + `stage3/linux_init/a90_hud.c/h` + `stage3/linux_init/a90_menu.c/h` + `stage3/linux_init/a90_metrics.c/h` + `stage3/linux_init/a90_shell.c/h` + `stage3/linux_init/a90_controller.c/h` + `stage3/linux_init/a90_storage.c/h` + `stage3/linux_init/a90_selftest.c/h` + `stage3/linux_init/a90_usb_gadget.c/h` + `stage3/linux_init/a90_netservice.c/h` + `stage3/linux_init/a90_pid1_guard.c/h` + `stage3/linux_init/a90_runtime.c/h` + `stage3/linux_init/a90_helper.c/h` + `stage3/linux_init/a90_userland.c/h` + `stage3/linux_init/a90_diag.c/h` + `stage3/linux_init/a90_wifiinv.c/h` + `stage3/linux_init/a90_wififeas.c/h` + `stage3/linux_init/a90_changelog.c/h` + `stage3/linux_init/a90_app_about.c/h` + `stage3/linux_init/a90_app_displaytest.c/h` + `stage3/linux_init/a90_app_inputmon.c/h`
-- latest verified boot image: `stage3/boot_linux_v131.img`
+- latest verified source: `stage3/linux_init/init_v132.c` + `stage3/linux_init/v132/*.inc.c` + `stage3/linux_init/helpers/a90_cpustress.c` + `stage3/linux_init/helpers/a90_rshell.c` + `stage3/linux_init/a90_config.h` + `stage3/linux_init/a90_util.c/h` + `stage3/linux_init/a90_log.c/h` + `stage3/linux_init/a90_timeline.c/h` + `stage3/linux_init/a90_console.c/h` + `stage3/linux_init/a90_cmdproto.c/h` + `stage3/linux_init/a90_run.c/h` + `stage3/linux_init/a90_service.c/h` + `stage3/linux_init/a90_kms.c/h` + `stage3/linux_init/a90_draw.c/h` + `stage3/linux_init/a90_input.c/h` + `stage3/linux_init/a90_hud.c/h` + `stage3/linux_init/a90_menu.c/h` + `stage3/linux_init/a90_metrics.c/h` + `stage3/linux_init/a90_shell.c/h` + `stage3/linux_init/a90_controller.c/h` + `stage3/linux_init/a90_storage.c/h` + `stage3/linux_init/a90_selftest.c/h` + `stage3/linux_init/a90_usb_gadget.c/h` + `stage3/linux_init/a90_netservice.c/h` + `stage3/linux_init/a90_pid1_guard.c/h` + `stage3/linux_init/a90_runtime.c/h` + `stage3/linux_init/a90_helper.c/h` + `stage3/linux_init/a90_userland.c/h` + `stage3/linux_init/a90_diag.c/h` + `stage3/linux_init/a90_wifiinv.c/h` + `stage3/linux_init/a90_wififeas.c/h` + `stage3/linux_init/a90_changelog.c/h` + `stage3/linux_init/a90_app_about.c/h` + `stage3/linux_init/a90_app_displaytest.c/h` + `stage3/linux_init/a90_app_inputmon.c/h`
+- latest verified boot image: `stage3/boot_linux_v132.img`
 - previous verified source-layout baseline: `stage3/linux_init/init_v80.c` + `stage3/linux_init/v80/*.inc.c`
 - known-good fallback: `stage3/boot_linux_v48.img`
-- local artifact retention: `v131` latest, `v130` rollback, `v48` known-good만 보존하고 나머지 ignored stage3 산출물은 정리 가능
+- local artifact retention: `v132` latest, `v131` rollback, `v48` known-good만 보존하고 나머지 ignored stage3 산출물은 정리 가능
 - control channel: USB ACM serial bridge
 - log: SD 정상 시 `/mnt/sdext/a90/logs/native-init.log`, fallback 시 `/cache/native-init.log`, emergency fallback 시 private `/tmp/a90-native/native-init.log`
 - verified:
@@ -65,6 +65,7 @@
   - v129 changelog viewport/shared data/about paging
   - v130 menu hold-repeat scroll and physical combo back
   - v131 timer-based hold scroll without EV_KEY repeat dependency and physical UX confirmation
+  - v132 changelog cleanup with shared changelog table single route and quick soak
 
 ## 완료: v128 Menu Subcommand Policy
 
@@ -111,12 +112,24 @@
 - 실기에서 VOL long-hold continuous movement 정상 동작을 확인했다.
 - VOL+DN physical back shortcut과 v128/v129 menu busy policy는 유지한다.
 
-## 다음 실행 항목: post-v131 후보 선정
+## 완료: v132 Changelog Cleanup
+
+계획 문서: `docs/plans/NATIVE_INIT_V132_CHANGELOG_CLEANUP_PLAN_2026-05-07.md`
+보고서: `docs/reports/NATIVE_INIT_V132_CHANGELOG_CLEANUP_2026-05-07.md`
+
+결과:
+
+- ABOUT/changelog legacy per-version enum/app/render route를 제거하고 shared changelog table 단일 경로로 정리했다.
+- v132 changelog entry와 detail을 추가하고 최신 marker를 `0.9.32 v132 CHANGELOG CLEANUP`으로 갱신했다.
+- host harness로 changelog page count, first entry, app route를 검증했다.
+- 실기 flash 후 `status`, `selftest verbose`, `screenmenu` busy gate, `hide`, `run /bin/a90sleep 1`, 3-cycle native soak를 검증했다.
+
+## 다음 실행 항목: post-v132 후보 선정
 
 후보:
 
-- 사용자가 물리 버튼으로 timer-based long hold scroll과 VOL+DN back UX를 실기 관찰한다.
-- changelog detail 데이터 보강, shell/serial usability, 또는 security closure 문서 정리 중 우선순위 결정.
+- v132 ABOUT/changelog 화면에서 최신 entry/detail 표시를 수동 시각 확인한다.
+- shell/serial usability, security closure 문서 정리, 또는 다음 UI cleanup 중 우선순위를 결정한다.
 - 남은 security findings 재평가와 closure 문서 갱신.
 
 ## 실행 큐
