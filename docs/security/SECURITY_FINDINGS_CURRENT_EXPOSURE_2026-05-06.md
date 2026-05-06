@@ -13,12 +13,13 @@ Latest source baseline:
 
 Post-remediation note:
 
-- Batch 1 was mitigated in `A90 Linux init 0.9.23 (v123)` for F001, F003, F005, F010, F014, with F021/F030 documented as accepted lab-boundary controls and F023 partially closed.
+- Batch 1 was mitigated in `A90 Linux init 0.9.23 (v123)` for F001, F003, F005, F010, F014, with F021/F030 documented as accepted lab-boundary controls; F023 was later fully mitigated in v127.
 - Batch 2 was mitigated in `A90 Linux init 0.9.24 (v124)` for F002, F004, F011, F012, and the current-code class behind F013.
 - Batch 3 was mitigated in host tooling for F008, F015, F016, F017, F018, F019, F020, F022, and F031. No native image bump was needed for Batch 3 itself.
 - Batch 4 was mitigated in `A90 Linux init 0.9.25 (v125)` for F009, F024, and F025 through owner-only diagnostics/logs, private emergency fallback logs, and opt-in HUD log tail.
 - Batch 5 was mitigated in host/rootfs tooling for F006 and F007. No native image bump was needed.
 - Batch 6 was mitigated in `A90 Linux init 0.9.26 (v126)` for F026, F027, F028, and F029 through retained-source compatibility and strict input event validation.
+- v127 mitigated F023 by changing the menu-active controller policy to deny-by-default allowlist behavior for non-power menu states.
 - The matrix below remains the original v122 exposure map used to choose fix order; use `SECURITY_FIX_QUEUE_2026-05-06.md` and finding index statuses for current remediation state.
 
 ## Status Vocabulary
@@ -36,7 +37,8 @@ Post-remediation note:
 
 | bucket | count | findings |
 |---|---:|---|
-| Current native-init runtime/control surface | 16 | F001, F002, F003, F005, F009, F010, F011, F012, F013, F021, F023, F024, F025, F027, F029, F030 |
+| Current native-init runtime/control surface | 15 | F001, F002, F003, F005, F009, F010, F011, F012, F013, F021, F024, F025, F027, F029, F030 |
+| Post-remediation closed follow-up | 1 | F023 |
 | Current host tooling | 12 | F004, F007, F008, F014, F015, F016, F017, F018, F019, F020, F022, F031 |
 | Current historical build support issue | 1 | F026 |
 | Legacy/archive only | 2 | F006, F028 |
@@ -73,7 +75,7 @@ Interpretation:
 | F020 | `current-host-tool` | Flash tool still embeds CLI path arguments directly into remote `adb shell` strings for sha256 and dd. | `scripts/revalidation/native_init_flash.py:165`, `scripts/revalidation/native_init_flash.py:168`, `scripts/revalidation/native_init_flash.py:276` | Batch 3 |
 | F021 | `current-runtime` | USB ACM root shell remains the primary control channel after boot. This is intentional lab behavior, but it is still unauthenticated local root control and needs explicit trust-boundary documentation. | `stage3/linux_init/v122/90_main.inc.c:303`, `stage3/linux_init/v122/90_main.inc.c:305`, `scripts/revalidation/serial_tcp_bridge.py:333` | Batch 1 |
 | F022 | `current-host-tool` | BusyBox static build script still writes readelf validation output to predictable `/tmp/a90_busybox_dynamic_check.txt` and then trusts that same path. | `scripts/revalidation/build_static_busybox.sh:152`, `scripts/revalidation/build_static_busybox.sh:153`, `scripts/revalidation/build_static_busybox.sh:154` | Batch 3 |
-| F023 | `current-partial` | Old auto-menu bypass was improved, but current `service` command still provides a wrapper path around dangerous command flags. | `stage3/linux_init/a90_controller.c:65`, `stage3/linux_init/a90_controller.c:76`, `stage3/linux_init/v122/80_shell_dispatch.inc.c:923`, `stage3/linux_init/v122/80_shell_dispatch.inc.c:687` | Batch 1 |
+| F023 | `mitigated-v127` | v127 changed the non-power menu-active busy gate to deny-by-default allowlist behavior; risky side-effect commands now return busy while the menu is visible. | `stage3/linux_init/a90_controller.c`, `docs/reports/NATIVE_INIT_V127_MENU_BUSY_GATE_2026-05-07.md` | Batch 7 |
 | F024 | `current-runtime` | HUD log-tail is still an enabled display feature and reads native logs onto the screen. | `stage3/linux_init/a90_config.h:13`, `stage3/linux_init/a90_hud.c:449`, `stage3/linux_init/a90_hud.c:507`, `stage3/linux_init/a90_hud.c:522` | Batch 4 |
 | F025 | `current-runtime` | Fallback log remains `/tmp/native-init.log` and log files are created `0644`. | `stage3/linux_init/a90_config.h:11`, `stage3/linux_init/a90_log.c:42`, `stage3/linux_init/a90_log.c:79`, `stage3/linux_init/a90_log.c:98` | Batch 4 |
 | F026 | `current-legacy-build` | Latest shared headers no longer expose old HUD metrics types, while retained old version trees still reference them. This affects historical rebuild support, not latest v122 runtime. | `stage3/linux_init/a90_hud.h`, `stage3/linux_init/a90_metrics.h`, `stage3/linux_init/v89/60_shell_basic_commands.inc.c:123`, `stage3/linux_init/v89/40_menu_apps.inc.c:3350` | Batch 6 |
@@ -96,7 +98,7 @@ netservice flag or command
   -> root execve
 ```
 
-Current findings in chain: F003, F005, F010, F014, F021, F023, F030.
+Current findings in chain: F003, F005, F010, F014, F021, F030. F023 is closed in v127.
 
 ### Chain B: rshell starts token shell but also starts tcpctl
 

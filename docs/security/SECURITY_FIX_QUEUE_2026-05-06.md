@@ -62,6 +62,8 @@ Validation:
 - `rshell start` no longer implicitly exposes unauthenticated tcpctl.
 - host reconnect validators fail if cleanup leaves tcpctl running.
 - USB ACM and localhost serial bridge remain documented trusted-lab-only root control paths.
+- F023 was fully closed in the v127 follow-up by making the menu-active
+  non-power busy gate deny-by-default.
 
 ## Batch 2: Runtime Storage and Helper Trust
 
@@ -232,11 +234,43 @@ Validation:
 - latest v126 input event arguments must match `event[0-9]+`; traversal payloads are rejected.
 - retained v10 input helpers enforce the same event name rule.
 
+## Batch 7: Menu Busy Gate Closure
+
+Status: complete in `A90 Linux init 0.9.27 (v127)`.
+
+Report: `docs/reports/NATIVE_INIT_V127_MENU_BUSY_GATE_2026-05-07.md`
+
+Findings:
+
+- F023: auto-menu busy gate bypass
+
+Implementation direction:
+
+- Replace the non-power menu-active allow-by-default policy with an explicit
+  allowlist.
+- Keep observation/menu-control commands available while the menu is visible.
+- Block root side-effect commands such as `run`, `runandroid`, `writefile`,
+  `mountfs`, `mknodc`, and `mknodb` until the operator hides the menu.
+
+Implemented version:
+
+- `v127`: non-power menu-active busy gate now uses a deny-by-default allowlist
+  in `a90_controller.c`.
+
+Validation:
+
+- menu-visible `status`, `storage`, `timeline`, and `logpath` remain allowed.
+- menu-visible `run`, `runandroid`, `writefile`, `mountfs`, `mknodc`, and
+  `mknodb` return `rc=-16 status=busy`.
+- `hide` returns `rc=0 status=ok`, and `run /bin/a90sleep 1` works again after
+  hiding the menu.
+
 ## Recommended Immediate Next Step
 
-Batch 0 through Batch 6 are complete. Before Wi-Fi or broader network work,
-run a final completion audit against finding statuses, reports, latest docs,
-and the live v126 device state.
+Batch 0 through Batch 7 are complete. F021 and F030 remain accepted
+trusted-lab-boundary control channels rather than fixed vulnerabilities. Before
+Wi-Fi or broader network work, keep the USB ACM/bridge trust model explicit and
+avoid exposing operator-local root control paths beyond the attached host.
 
 Reason:
 

@@ -70,6 +70,26 @@ static bool command_allowed_on_power_page(const char *name) {
            strcmp(name, "stophud") == 0;
 }
 
+static bool command_allowed_during_menu(const char *name) {
+    return strcmp(name, "help") == 0 ||
+           strcmp(name, "cmdmeta") == 0 ||
+           strcmp(name, "cmdgroups") == 0 ||
+           strcmp(name, "version") == 0 ||
+           strcmp(name, "status") == 0 ||
+           strcmp(name, "bootstatus") == 0 ||
+           strcmp(name, "storage") == 0 ||
+           strcmp(name, "runtime") == 0 ||
+           strcmp(name, "timeline") == 0 ||
+           strcmp(name, "last") == 0 ||
+           strcmp(name, "logpath") == 0 ||
+           strcmp(name, "logcat") == 0 ||
+           strcmp(name, "inputlayout") == 0 ||
+           strcmp(name, "uname") == 0 ||
+           strcmp(name, "pwd") == 0 ||
+           strcmp(name, "mounts") == 0 ||
+           strcmp(name, "reattach") == 0;
+}
+
 enum a90_controller_busy_reason a90_controller_command_busy_reason(const char *name,
                                                                    unsigned int flags,
                                                                    bool menu_active,
@@ -87,7 +107,10 @@ enum a90_controller_busy_reason a90_controller_command_busy_reason(const char *n
         if (command_waits_for_input(name)) {
             return A90_CONTROLLER_BUSY_AUTO_MENU;
         }
-        return A90_CONTROLLER_BUSY_NONE;
+        if (command_allowed_during_menu(name)) {
+            return A90_CONTROLLER_BUSY_NONE;
+        }
+        return A90_CONTROLLER_BUSY_AUTO_MENU;
     }
     if (command_allowed_on_power_page(name)) {
         return A90_CONTROLLER_BUSY_NONE;
@@ -102,7 +125,7 @@ const char *a90_controller_busy_message(enum a90_controller_busy_reason reason) 
     case A90_CONTROLLER_BUSY_DANGEROUS:
         return "[busy] auto menu active; hide/q before dangerous command";
     case A90_CONTROLLER_BUSY_AUTO_MENU:
-        return "[busy] auto menu active; command waits for input/menu control";
+        return "[busy] auto menu active; send hide/q before command";
     case A90_CONTROLLER_BUSY_NONE:
     default:
         return "";
