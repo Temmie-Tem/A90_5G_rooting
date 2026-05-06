@@ -14,6 +14,7 @@ Fresh scan follow-up: `F032` and `F033` were imported from the 2026-05-07 Codex 
 - Current exposure map: `../SECURITY_FINDINGS_CURRENT_EXPOSURE_2026-05-06.md`
 - Closure review: `../SECURITY_FINDINGS_CLOSURE_REVIEW_2026-05-07.md`
 - Fresh local rescan: `../SECURITY_FRESH_SCAN_V133_2026-05-07.md`
+- Fresh v134 local rescan: `../SECURITY_FRESH_SCAN_V134_2026-05-07.md`
 
 ## Findings
 

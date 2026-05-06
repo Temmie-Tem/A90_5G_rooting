@@ -20,8 +20,13 @@ Closure review: `docs/security/SECURITY_FINDINGS_CLOSURE_REVIEW_2026-05-07.md`
 
 Next security action: close/mark external findings according to the closure
 review. Local targeted v133 rescan result is PASS=12, WARN=1, FAIL=0 in
-`docs/security/SECURITY_FRESH_SCAN_V133_2026-05-07.md`; run Codex Cloud scan
-when available before broader network exposure work.
+`docs/security/SECURITY_FRESH_SCAN_V133_2026-05-07.md`.
+
+v134 exposure guardrail was flash-verified, and local targeted rescan result is
+PASS=15, WARN=1, FAIL=0 in
+`docs/security/SECURITY_FRESH_SCAN_V134_2026-05-07.md`. The remaining warning is
+still the accepted USB-local/localhost root-control boundary. Run Codex Cloud
+scan when available before adding broader network exposure.
 
 ## Fresh Scan Follow-up: F032 Hold Timer Availability
 

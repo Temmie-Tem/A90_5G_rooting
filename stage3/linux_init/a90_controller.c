@@ -57,6 +57,7 @@ static bool command_allowed_on_power_page(const char *name) {
            strcmp(name, "version") == 0 ||
            strcmp(name, "status") == 0 ||
            strcmp(name, "bootstatus") == 0 ||
+           strcmp(name, "exposure") == 0 ||
            strcmp(name, "storage") == 0 ||
            strcmp(name, "timeline") == 0 ||
            strcmp(name, "last") == 0 ||
@@ -78,6 +79,7 @@ static bool command_allowed_during_menu(const char *name) {
            strcmp(name, "version") == 0 ||
            strcmp(name, "status") == 0 ||
            strcmp(name, "bootstatus") == 0 ||
+           strcmp(name, "exposure") == 0 ||
            strcmp(name, "storage") == 0 ||
            strcmp(name, "runtime") == 0 ||
            strcmp(name, "timeline") == 0 ||

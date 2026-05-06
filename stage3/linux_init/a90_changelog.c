@@ -8,6 +8,12 @@
     { label, summary, { d1, d2, d3, d4, d5 } }
 
 static const struct a90_changelog_entry changelog_entries[] = {
+    ENTRY("0.9.34 v134", "EXPOSURE GUARDRAIL",
+          "0.9.34 v134 EXPOSURE GUARDRAIL",
+          "Adds exposure status command",
+          "Reports ACM/NCM/tcpctl/rshell boundary",
+          "Adds exposure section to diag",
+          "Keeps network services opt-in"),
     ENTRY("0.9.33 v133", "CHANGELOG SERIES",
           "0.9.33 v133 CHANGELOG SERIES",
           "Groups changelog by version series",

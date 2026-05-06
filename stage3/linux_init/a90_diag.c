@@ -2,6 +2,7 @@
 
 #include "a90_config.h"
 #include "a90_console.h"
+#include "a90_exposure.h"
 #include "a90_helper.h"
 #include "a90_log.h"
 #include "a90_netservice.h"
@@ -480,6 +481,54 @@ static void diag_emit_rshell(struct a90_diag_sink *sink) {
               A90_RSHELL_LOG_PATH);
 }
 
+static void diag_emit_exposure(struct a90_diag_sink *sink) {
+    struct a90_exposure_snapshot exposure;
+    char summary[192];
+
+    memset(&exposure, 0, sizeof(exposure));
+    if (a90_exposure_collect(&exposure) < 0) {
+        diag_emit(sink, "[exposure]\r\nstatus=unavailable\r\n");
+        return;
+    }
+    a90_exposure_summary(&exposure, summary, sizeof(summary));
+    diag_emit(sink, "[exposure]\r\n");
+    diag_emit(sink, "summary=%s\r\n", summary);
+    diag_emit(sink,
+              "acm=%s trusted_lab_only=%s bridge_host=127.0.0.1 bridge_identity_pin=expected\r\n",
+              diag_yesno(exposure.usb_acm_present),
+              diag_yesno(exposure.usb_acm_trusted_local));
+    diag_emit(sink,
+              "ncm=%s if=%s ip=%s/%s netservice=%s flag=%s\r\n",
+              diag_yesno(exposure.ncm_present),
+              exposure.ncm_ifname != NULL ? exposure.ncm_ifname : "-",
+              exposure.ncm_device_ip != NULL ? exposure.ncm_device_ip : "-",
+              exposure.ncm_netmask != NULL ? exposure.ncm_netmask : "-",
+              exposure.netservice_enabled ? "enabled" : "disabled",
+              exposure.netservice_flag_present ? "present" : "absent");
+    diag_emit(sink,
+              "tcpctl=%s pid=%ld bind=%s port=%s auth=required token=%s mode=%s owner_only=%s token_path=%s token_value=hidden\r\n",
+              exposure.tcpctl_running ? "running" : "stopped",
+              (long)exposure.tcpctl_pid,
+              exposure.tcpctl_bind_addr != NULL ? exposure.tcpctl_bind_addr : "-",
+              exposure.tcpctl_port != NULL ? exposure.tcpctl_port : "-",
+              exposure.tcpctl_token_present ? "present" : "missing",
+              exposure.tcpctl_token_mode,
+              diag_yesno(exposure.tcpctl_token_owner_only),
+              exposure.tcpctl_token_path != NULL ? exposure.tcpctl_token_path : "-");
+    diag_emit(sink,
+              "rshell=%s pid=%ld bind=%s port=%s flag=%s token=%s mode=%s owner_only=%s flag_path=%s token_path=%s token_value=hidden\r\n",
+              exposure.rshell_running ? "running" : "stopped",
+              (long)exposure.rshell_pid,
+              exposure.rshell_bind_addr != NULL ? exposure.rshell_bind_addr : "-",
+              exposure.rshell_port != NULL ? exposure.rshell_port : "-",
+              exposure.rshell_flag_present ? "present" : "absent",
+              exposure.rshell_token_present ? "present" : "missing",
+              exposure.rshell_token_mode,
+              diag_yesno(exposure.rshell_token_owner_only),
+              exposure.rshell_flag_path,
+              exposure.rshell_token_path);
+}
+
 static void diag_emit_proc_files(struct a90_diag_sink *sink, bool include_logs, size_t log_tail_bytes) {
     diag_emit(sink, "[mounts]\r\n");
     diag_emit_file_tail(sink, "/proc/mounts", 16384);
@@ -524,6 +573,7 @@ static int diag_emit_report(struct a90_diag_sink *sink, bool verbose, bool inclu
     diag_emit_services(sink);
     diag_emit_network(sink);
     diag_emit_rshell(sink);
+    diag_emit_exposure(sink);
     if (verbose) {
         diag_emit_proc_files(sink, include_logs, log_tail_bytes);
     }

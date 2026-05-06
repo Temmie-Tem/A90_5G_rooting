@@ -1,19 +1,19 @@
 # Native Init Task Queue (2026-04-25)
 
-이 문서는 `A90 Linux init 0.9.33 (v133)` verified 이후 바로 실행할 작업 큐다.
+이 문서는 `A90 Linux init 0.9.34 (v134)` verified 이후 바로 실행할 작업 큐다.
 큰 방향은 “보이는 부팅 → 복구 가능한 로그 → 단독 조작 → 작은 userland → USB networking” 순서다.
 
 ## 현재 고정 기준점
 
-- latest verified build: `A90 Linux init 0.9.33 (v133)`
-- official version: `0.9.33`
-- build tag: `v133`
+- latest verified build: `A90 Linux init 0.9.34 (v134)`
+- official version: `0.9.34`
+- build tag: `v134`
 - creator: `made by temmie0214`
-- latest verified source: `stage3/linux_init/init_v133.c` + `stage3/linux_init/v133/*.inc.c` + `stage3/linux_init/helpers/a90_cpustress.c` + `stage3/linux_init/helpers/a90_rshell.c` + `stage3/linux_init/a90_config.h` + `stage3/linux_init/a90_util.c/h` + `stage3/linux_init/a90_log.c/h` + `stage3/linux_init/a90_timeline.c/h` + `stage3/linux_init/a90_console.c/h` + `stage3/linux_init/a90_cmdproto.c/h` + `stage3/linux_init/a90_run.c/h` + `stage3/linux_init/a90_service.c/h` + `stage3/linux_init/a90_kms.c/h` + `stage3/linux_init/a90_draw.c/h` + `stage3/linux_init/a90_input.c/h` + `stage3/linux_init/a90_hud.c/h` + `stage3/linux_init/a90_menu.c/h` + `stage3/linux_init/a90_metrics.c/h` + `stage3/linux_init/a90_shell.c/h` + `stage3/linux_init/a90_controller.c/h` + `stage3/linux_init/a90_storage.c/h` + `stage3/linux_init/a90_selftest.c/h` + `stage3/linux_init/a90_usb_gadget.c/h` + `stage3/linux_init/a90_netservice.c/h` + `stage3/linux_init/a90_pid1_guard.c/h` + `stage3/linux_init/a90_runtime.c/h` + `stage3/linux_init/a90_helper.c/h` + `stage3/linux_init/a90_userland.c/h` + `stage3/linux_init/a90_diag.c/h` + `stage3/linux_init/a90_wifiinv.c/h` + `stage3/linux_init/a90_wififeas.c/h` + `stage3/linux_init/a90_changelog.c/h` + `stage3/linux_init/a90_app_about.c/h` + `stage3/linux_init/a90_app_displaytest.c/h` + `stage3/linux_init/a90_app_inputmon.c/h`
-- latest verified boot image: `stage3/boot_linux_v133.img`
+- latest verified source: `stage3/linux_init/init_v134.c` + `stage3/linux_init/v134/*.inc.c` + `stage3/linux_init/helpers/a90_cpustress.c` + `stage3/linux_init/helpers/a90_rshell.c` + `stage3/linux_init/a90_config.h` + `stage3/linux_init/a90_util.c/h` + `stage3/linux_init/a90_log.c/h` + `stage3/linux_init/a90_timeline.c/h` + `stage3/linux_init/a90_console.c/h` + `stage3/linux_init/a90_cmdproto.c/h` + `stage3/linux_init/a90_run.c/h` + `stage3/linux_init/a90_service.c/h` + `stage3/linux_init/a90_kms.c/h` + `stage3/linux_init/a90_draw.c/h` + `stage3/linux_init/a90_input.c/h` + `stage3/linux_init/a90_hud.c/h` + `stage3/linux_init/a90_menu.c/h` + `stage3/linux_init/a90_metrics.c/h` + `stage3/linux_init/a90_shell.c/h` + `stage3/linux_init/a90_controller.c/h` + `stage3/linux_init/a90_storage.c/h` + `stage3/linux_init/a90_selftest.c/h` + `stage3/linux_init/a90_usb_gadget.c/h` + `stage3/linux_init/a90_netservice.c/h` + `stage3/linux_init/a90_pid1_guard.c/h` + `stage3/linux_init/a90_runtime.c/h` + `stage3/linux_init/a90_helper.c/h` + `stage3/linux_init/a90_userland.c/h` + `stage3/linux_init/a90_diag.c/h` + `stage3/linux_init/a90_exposure.c/h` + `stage3/linux_init/a90_wifiinv.c/h` + `stage3/linux_init/a90_wififeas.c/h` + `stage3/linux_init/a90_changelog.c/h` + `stage3/linux_init/a90_app_about.c/h` + `stage3/linux_init/a90_app_displaytest.c/h` + `stage3/linux_init/a90_app_inputmon.c/h`
+- latest verified boot image: `stage3/boot_linux_v134.img`
 - previous verified source-layout baseline: `stage3/linux_init/init_v80.c` + `stage3/linux_init/v80/*.inc.c`
 - known-good fallback: `stage3/boot_linux_v48.img`
-- local artifact retention: `v133` latest, `v132` rollback, `v48` known-good만 보존하고 나머지 ignored stage3 산출물은 정리 가능
+- local artifact retention: `v134` latest, `v133` rollback, `v48` known-good만 보존하고 나머지 ignored stage3 산출물은 정리 가능
 - control channel: USB ACM serial bridge
 - log: SD 정상 시 `/mnt/sdext/a90/logs/native-init.log`, fallback 시 `/cache/native-init.log`, emergency fallback 시 private `/tmp/a90-native/native-init.log`
 - verified:
@@ -67,6 +67,7 @@
   - v131 timer-based hold scroll without EV_KEY repeat dependency and physical UX confirmation
   - v132 changelog cleanup with shared changelog table single route and quick soak
   - v133 changelog series menus with 0.9.x/0.8.x grouped navigation and quick soak
+  - v134 network exposure guardrail with read-only `exposure`/`diag`/`status` summaries
 
 ## 완료: v128 Menu Subcommand Policy
 
@@ -137,19 +138,31 @@
 - host harness로 series count, first series, first detail index mapping을 검증했다.
 - 실기 flash 후 `status`, `selftest verbose`, `screenmenu` busy gate, `hide`, `run /bin/a90sleep 1`, 3-cycle native soak를 검증했다.
 
-## 다음 실행 항목: post-v133 후보 선정
+## 완료: v134 Network Exposure Guardrail
+
+계획 문서: `docs/plans/NATIVE_INIT_V134_NETWORK_EXPOSURE_GUARDRAIL_PLAN_2026-05-07.md`
+보고서: `docs/reports/NATIVE_INIT_V134_NETWORK_EXPOSURE_GUARDRAIL_2026-05-07.md`
+
+결과:
+
+- USB ACM, host bridge, NCM, tcpctl, rshell 노출 경계를 read-only snapshot으로 요약하는 `a90_exposure.c/h`를 추가했다.
+- `exposure [status|verbose|guard]` 명령과 `status`/`bootstatus` compact summary를 추가했다.
+- `diag`에 `[exposure]` 섹션을 추가하되 token value는 계속 `hidden`으로만 출력한다.
+- 실기 flash 후 `cmdv1 version/status`, `exposure status|verbose|guard`, `bootstatus`, `diag`, `screenmenu`/`hide` 회귀를 검증했다.
+- local targeted v134 rescan은 PASS=15/WARN=1/FAIL=0이다.
+
+## 다음 실행 항목: post-v134 후보 선정
 
 후보:
 
-- v133 ABOUT/changelog 화면에서 series 목록, 0.9.x 진입, v133 detail 표시를 수동 시각 확인했다.
-- security closure review를 작성해 F001-F031의 현재 처분을 fixed/accepted로 분류한다.
-- closure review 기준으로 외부 finding을 닫고, local targeted v133 rescan PASS=12/WARN=1/FAIL=0을 기록했다.
+- v134 exposure guardrail은 새 listener를 만들지 않고 관찰/검증 표면만 추가했다.
+- F032/F033 follow-up fixes는 v134 tree에 포함되어 있고 local targeted rescan 기준 PASS다.
 - 다음 보안 입력은 Codex Cloud fresh scan 또는 새 network-facing 변경 이후 scan 결과로 삼는다.
 
 다음 실행 항목:
 
-- v134 network exposure guardrail 계획을 작성했다: `docs/plans/NATIVE_INIT_V134_NETWORK_EXPOSURE_GUARDRAIL_PLAN_2026-05-07.md`
-- v134 목표는 새 네트워크 기능이 아니라 USB/NCM/root-control 노출 경계를 `exposure`/`diag`/`status`에서 기계적으로 확인 가능하게 만드는 것이다.
+- v135 후보는 fresh scan 결과가 있으면 보안 follow-up을 우선하고, 없으면 `controller command policy matrix` 또는 `exposure guardrail host harness` 중 하나로 잡는다.
+- network-facing 기능 확장은 v134 exposure baseline 위에서 새 노출 상태를 먼저 관찰 가능하게 만든 뒤 진행한다.
 
 ## 실행 큐
 

@@ -15,7 +15,7 @@ from dataclasses import dataclass
 from pathlib import Path
 
 REPO_ROOT = Path(__file__).resolve().parents[2]
-DEFAULT_OUT = REPO_ROOT / "docs" / "security" / "SECURITY_FRESH_SCAN_V133_2026-05-07.md"
+DEFAULT_OUT = REPO_ROOT / "docs" / "security" / "SECURITY_FRESH_SCAN_V134_2026-05-07.md"
 
 
 @dataclass(frozen=True)
@@ -86,8 +86,8 @@ def run_checks() -> list[Check]:
     netservice = read("stage3/linux_init/a90_netservice.c")
     helper = read("stage3/linux_init/a90_helper.c")
     controller = read("stage3/linux_init/a90_controller.c")
-    dispatch = read("stage3/linux_init/v133/80_shell_dispatch.inc.c")
-    storage_net = read("stage3/linux_init/v133/70_storage_android_net.inc.c")
+    dispatch = read("stage3/linux_init/v134/80_shell_dispatch.inc.c")
+    storage_net = read("stage3/linux_init/v134/70_storage_android_net.inc.c")
     serial_bridge = read("scripts/revalidation/serial_tcp_bridge.py")
     native_soak = read("scripts/revalidation/native_soak_validate.py")
     certify = read("mkbootimg/gki/certify_bootimg.py")
@@ -101,6 +101,7 @@ def run_checks() -> list[Check]:
         "stage3/linux_init/v131/40_menu_apps.inc.c",
         "stage3/linux_init/v132/40_menu_apps.inc.c",
         "stage3/linux_init/v133/40_menu_apps.inc.c",
+        "stage3/linux_init/v134/40_menu_apps.inc.c",
     ]
 
     active_network_paths = [
@@ -108,8 +109,8 @@ def run_checks() -> list[Check]:
         "stage3/linux_init/a90_tcpctl.c",
         "stage3/linux_init/a90_netservice.c",
         "stage3/linux_init/helpers/a90_rshell.c",
-        "stage3/linux_init/v133/70_storage_android_net.inc.c",
-        "stage3/linux_init/v133/80_shell_dispatch.inc.c",
+        "stage3/linux_init/v134/70_storage_android_net.inc.c",
+        "stage3/linux_init/v134/80_shell_dispatch.inc.c",
     ]
     active_root_ssh_patterns = r"PermitRootLogin yes|PasswordAuthentication yes|root:root|password[:= ]+root|passwd root"
 
@@ -263,7 +264,7 @@ def run_checks() -> list[Check]:
         "active host scripts do not set known root SSH credentials",
         status_from(not active_refs),
         "No active `scripts/revalidation` or `mkbootimg/gki/certify_bootimg.py` match for default root SSH credential patterns." if not active_refs else ", ".join(active_refs[:8]),
-        "Legacy archived docs/scripts are excluded from active v133 runtime/tooling scope.",
+        "Legacy archived docs/scripts are excluded from active v134 runtime/tooling scope.",
     ))
 
     checks.append(Check(
@@ -292,7 +293,7 @@ def run_checks() -> list[Check]:
         "S013",
         "volume hold repeat timer clears when a screen cannot consume repeats",
         status_from(menu_hold_ok),
-        "Retained v131-v133 auto-HUD loops clear `menu_hold_code` and `menu_hold_next_ms` when a timed repeat is not consumed.",
+        "Retained v131-v134 auto-HUD loops clear `menu_hold_code` and `menu_hold_next_ms` when a timed repeat is not consumed.",
         "Covers F032 zero-timeout poll/redraw spin in non-repeat screens.",
     ))
 
@@ -310,6 +311,21 @@ def run_checks() -> list[Check]:
 
     checks.append(Check(
         "S015",
+        "v134 exposure guardrail command and diagnostics are wired",
+        status_from(
+            (REPO_ROOT / "stage3/linux_init/a90_exposure.c").exists()
+            and (REPO_ROOT / "stage3/linux_init/a90_exposure.h").exists()
+            and '{ "exposure", handle_exposure, "exposure [status|verbose|guard]", CMD_NONE, A90_CMD_GROUP_NETWORK }' in dispatch
+            and "a90_exposure_summary(&exposure" in read("stage3/linux_init/v134/60_shell_basic_commands.inc.c")
+            and "[exposure]" in read("stage3/linux_init/a90_diag.c")
+            and "token_value=hidden" in read("stage3/linux_init/a90_diag.c")
+        ),
+        "`exposure [status|verbose|guard]`, `status`/`bootstatus` summaries, and `diag` exposure output are present without token values.",
+        "Provides machine-checkable evidence before broader network or Wi-Fi work.",
+    ))
+
+    checks.append(Check(
+        "S016",
         "accepted local root-control channels remain intentionally present",
         "WARN",
         "USB ACM root shell and localhost serial bridge are still present by design.",
@@ -325,14 +341,14 @@ def render_report(checks: list[Check]) -> str:
         counts[check.status] = counts.get(check.status, 0) + 1
 
     lines = [
-        "# v133 Fresh Local Security Rescan",
+        "# v134 Fresh Local Security Rescan",
         "",
         "Date: 2026-05-07",
-        "Baseline: `A90 Linux init 0.9.33 (v133)`",
+        "Baseline: `A90 Linux init 0.9.34 (v134)`",
         f"Git HEAD: `{run_git_head()}`",
-        "Scope: active v133 native-init source, shared modules, current revalidation host tools, and known root-control surfaces.",
+        "Scope: active v134 native-init source, shared modules, current revalidation host tools, and known root-control surfaces.",
         "",
-        "This is a local targeted rescan, not a Codex Cloud scanner replacement. It checks the previously imported F001-F033 pattern families against the current v133 repository state.",
+        "This is a local targeted rescan, not a Codex Cloud scanner replacement. It checks the previously imported F001-F033 pattern families and v134 exposure guardrails against the current repository state.",
         "",
         "## Summary",
         "",
@@ -354,14 +370,14 @@ def render_report(checks: list[Check]) -> str:
         "",
         "## Interpretation",
         "",
-        "The local targeted scan found no new implementation blocker in the active v133 code path. The remaining warning is the already accepted trusted-lab boundary for physical USB ACM/local serial bridge control.",
+        "The local targeted scan found no new implementation blocker in the active v134 code path. The remaining warning is the already accepted trusted-lab boundary for physical USB ACM/local serial bridge control.",
         "",
         "Before any Wi-Fi or broader network exposure, rerun this local scan and a Codex Cloud security scan, then revisit F021/F030 if the control channel is no longer USB-local/localhost-only.",
         "",
         "## Reproduction",
         "",
         "```bash",
-        "python3 scripts/revalidation/local_security_rescan.py --out docs/security/SECURITY_FRESH_SCAN_V133_2026-05-07.md",
+        "python3 scripts/revalidation/local_security_rescan.py --out docs/security/SECURITY_FRESH_SCAN_V134_2026-05-07.md",
         "git diff --check",
         "```",
         "",
