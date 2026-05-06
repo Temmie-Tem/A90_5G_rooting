@@ -82,7 +82,7 @@ static int app_about_draw_lines_paged(const char *title,
                                       size_t count,
                                       size_t page) {
     char title_buf[96];
-    const char *footer = "PRESS ANY BUTTON TO RETURN";
+    const char *footer = "POWER BACK";
     uint32_t scale;
     uint32_t title_scale;
     uint32_t left;
@@ -129,7 +129,7 @@ static int app_about_draw_lines_paged(const char *title,
                  (unsigned int)(page + 1),
                  (unsigned int)page_count);
         title = title_buf;
-        footer = "VOL PAGE  POWER BACK";
+        footer = "VOL/HOLD PAGE  POWER BACK";
     }
 
     a90_draw_text(a90_kms_framebuffer(), left, top, title, 0xffcc33,

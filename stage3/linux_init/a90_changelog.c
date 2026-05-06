@@ -4,6 +4,12 @@
     { label, summary, { d1, d2, d3, d4, d5 } }
 
 static const struct a90_changelog_entry changelog_entries[] = {
+    ENTRY("0.9.30 v130", "MENU HOLD BACK",
+          "0.9.30 v130 MENU HOLD BACK",
+          "Adds hold-repeat volume scrolling",
+          "Adds volume combo physical back",
+          "Clarifies menu/about footer hints",
+          "Keeps v129 changelog paging"),
     ENTRY("0.9.29 v129", "CHANGELOG PAGING",
           "0.9.29 v129 CHANGELOG PAGING",
           "Shares changelog list data",
