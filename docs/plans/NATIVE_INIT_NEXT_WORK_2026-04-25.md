@@ -269,12 +269,12 @@ Samsung bootloader
 
 ## 현재 기준점
 
-- 최신 확인 버전: `A90 Linux init 0.9.34 (v134)`
-- 공식 버전: `0.9.34`
-- build tag: `v134`
+- 최신 확인 버전: `A90 Linux init 0.9.35 (v135)`
+- 공식 버전: `0.9.35`
+- build tag: `v135`
 - creator: `made by temmie0214`
-- 최신 verified 소스: `stage3/linux_init/init_v134.c` + `stage3/linux_init/v134/*.inc.c` + `stage3/linux_init/helpers/a90_cpustress.c` + `stage3/linux_init/helpers/a90_rshell.c` + `stage3/linux_init/a90_config.h` + `stage3/linux_init/a90_util.c/h` + `stage3/linux_init/a90_log.c/h` + `stage3/linux_init/a90_timeline.c/h` + `stage3/linux_init/a90_console.c/h` + `stage3/linux_init/a90_cmdproto.c/h` + `stage3/linux_init/a90_run.c/h` + `stage3/linux_init/a90_service.c/h` + `stage3/linux_init/a90_kms.c/h` + `stage3/linux_init/a90_draw.c/h` + `stage3/linux_init/a90_input.c/h` + `stage3/linux_init/a90_hud.c/h` + `stage3/linux_init/a90_menu.c/h` + `stage3/linux_init/a90_metrics.c/h` + `stage3/linux_init/a90_shell.c/h` + `stage3/linux_init/a90_controller.c/h` + `stage3/linux_init/a90_storage.c/h` + `stage3/linux_init/a90_selftest.c/h` + `stage3/linux_init/a90_usb_gadget.c/h` + `stage3/linux_init/a90_netservice.c/h` + `stage3/linux_init/a90_pid1_guard.c/h` + `stage3/linux_init/a90_runtime.c/h` + `stage3/linux_init/a90_helper.c/h` + `stage3/linux_init/a90_userland.c/h` + `stage3/linux_init/a90_diag.c/h` + `stage3/linux_init/a90_exposure.c/h` + `stage3/linux_init/a90_wifiinv.c/h` + `stage3/linux_init/a90_wififeas.c/h` + `stage3/linux_init/a90_changelog.c/h` + `stage3/linux_init/a90_app_about.c/h` + `stage3/linux_init/a90_app_displaytest.c/h` + `stage3/linux_init/a90_app_inputmon.c/h`
-- 최신 verified boot image: `stage3/boot_linux_v134.img`
+- 최신 verified 소스: `stage3/linux_init/init_v135.c` + `stage3/linux_init/v135/*.inc.c` + `stage3/linux_init/helpers/a90_cpustress.c` + `stage3/linux_init/helpers/a90_rshell.c` + `stage3/linux_init/a90_config.h` + `stage3/linux_init/a90_util.c/h` + `stage3/linux_init/a90_log.c/h` + `stage3/linux_init/a90_timeline.c/h` + `stage3/linux_init/a90_console.c/h` + `stage3/linux_init/a90_cmdproto.c/h` + `stage3/linux_init/a90_run.c/h` + `stage3/linux_init/a90_service.c/h` + `stage3/linux_init/a90_kms.c/h` + `stage3/linux_init/a90_draw.c/h` + `stage3/linux_init/a90_input.c/h` + `stage3/linux_init/a90_hud.c/h` + `stage3/linux_init/a90_menu.c/h` + `stage3/linux_init/a90_metrics.c/h` + `stage3/linux_init/a90_shell.c/h` + `stage3/linux_init/a90_controller.c/h` + `stage3/linux_init/a90_storage.c/h` + `stage3/linux_init/a90_selftest.c/h` + `stage3/linux_init/a90_usb_gadget.c/h` + `stage3/linux_init/a90_netservice.c/h` + `stage3/linux_init/a90_pid1_guard.c/h` + `stage3/linux_init/a90_runtime.c/h` + `stage3/linux_init/a90_helper.c/h` + `stage3/linux_init/a90_userland.c/h` + `stage3/linux_init/a90_diag.c/h` + `stage3/linux_init/a90_exposure.c/h` + `stage3/linux_init/a90_wifiinv.c/h` + `stage3/linux_init/a90_wififeas.c/h` + `stage3/linux_init/a90_changelog.c/h` + `stage3/linux_init/a90_app_about.c/h` + `stage3/linux_init/a90_app_displaytest.c/h` + `stage3/linux_init/a90_app_inputmon.c/h`
+- 최신 verified boot image: `stage3/boot_linux_v135.img`
 - previous verified source-layout baseline: `stage3/linux_init/init_v80.c` + `stage3/linux_init/v80/*.inc.c`
 - known-good fallback: `stage3/boot_linux_v48.img`
 - 주 제어 채널: USB CDC ACM serial (`/dev/ttyGS0` ↔ `/dev/ttyACM0`)
@@ -321,15 +321,14 @@ Samsung bootloader
 - v132 상태: ABOUT/changelog legacy route 제거와 shared changelog table 단일 경로 정리 완료, 실기 flash/quick soak 확인
 - v133 상태: ABOUT/changelog version series 분류 메뉴 적용 완료, 실기 flash/quick soak 및 수동 화면 확인
 - v134 상태: network exposure guardrail 적용 완료, 실기 flash 후 `exposure status|verbose|guard`, `diag`, `screenmenu` 회귀 확인
+- v135 상태: controller policy matrix 적용 완료, 실기 flash 후 `policycheck run`, menu-visible allow/block 대표 케이스, quick soak 확인
 - ADB 상태: 보류
 
 다음 실행 후보:
 
-- v134 exposure guardrail 검증 완료. F021/F030 accepted boundary는 `exposure`/`diag`/`status`에서 관찰 가능해야 유지된다.
-- local targeted v134 rescan은 PASS=15/WARN=1/FAIL=0이며, 다음 보안 입력은 Codex Cloud fresh scan 또는 새 network-facing 변경 이후 scan 결과로 삼는다.
-- v135는 fresh scan blocker가 없으므로 controller command policy matrix로 확정한다.
-- v135 계획 문서: `docs/plans/NATIVE_INIT_V135_POLICY_MATRIX_PLAN_2026-05-07.md`
-- v135 목표는 menu-visible/power-page allowed/blocked 정책을 `policycheck [status|run|verbose]`로 자체 검증 가능하게 만드는 것이다.
+- v134 exposure guardrail과 v135 policy matrix 검증 완료. F021/F030 accepted boundary는 `exposure`/`diag`/`status`에서 관찰 가능해야 유지된다.
+- local targeted v135 rescan은 PASS=16/WARN=1/FAIL=0이며, 다음 보안 입력은 Codex Cloud fresh scan 또는 새 network-facing 변경 이후 scan 결과로 삼는다.
+- v136 후보는 fresh scan follow-up이 없으면 `exposure guardrail host harness`, `policy matrix host harness`, 또는 Wi-Fi/network 확장 전 release-candidate soak 중 하나로 선정한다.
 
 상세 상태 문서:
 

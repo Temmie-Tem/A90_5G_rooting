@@ -8,6 +8,12 @@
     { label, summary, { d1, d2, d3, d4, d5 } }
 
 static const struct a90_changelog_entry changelog_entries[] = {
+    ENTRY("0.9.35 v135", "POLICY MATRIX",
+          "0.9.35 v135 POLICY MATRIX",
+          "Adds policycheck command",
+          "Checks menu command allowlist",
+          "Checks power page command policy",
+          "Covers side-effect subcommands"),
     ENTRY("0.9.34 v134", "EXPOSURE GUARDRAIL",
           "0.9.34 v134 EXPOSURE GUARDRAIL",
           "Adds exposure status command",

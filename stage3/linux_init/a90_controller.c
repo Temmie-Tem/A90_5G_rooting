@@ -1,7 +1,9 @@
 #include "a90_controller.h"
 
+#include <errno.h>
 #include <fcntl.h>
 #include <stddef.h>
+#include <stdio.h>
 #include <string.h>
 #include <unistd.h>
 
@@ -16,6 +18,24 @@
 #ifndef O_NOFOLLOW
 #define O_NOFOLLOW 0
 #endif
+
+#define A90_POLICY_MAX_ARGS 5
+#define A90_POLICY_MAX_RESULTS 96
+
+struct controller_policy_case {
+    const char *label;
+    int argc;
+    const char *argv[A90_POLICY_MAX_ARGS];
+    bool power_page;
+    bool expected_allowed;
+};
+
+static struct a90_controller_policy_result policy_results[A90_POLICY_MAX_RESULTS];
+static size_t policy_result_count = 0;
+static size_t policy_pass_count = 0;
+static size_t policy_fail_count = 0;
+static size_t policy_allowed_count = 0;
+static size_t policy_blocked_count = 0;
 
 static void controller_write_file(const char *path, const char *value) {
     int fd = open(path, O_WRONLY | O_CREAT | O_TRUNC | O_CLOEXEC | O_NOFOLLOW, 0600);
@@ -58,6 +78,7 @@ static bool command_allowed_on_power_page(const char *name) {
            strcmp(name, "status") == 0 ||
            strcmp(name, "bootstatus") == 0 ||
            strcmp(name, "exposure") == 0 ||
+           strcmp(name, "policycheck") == 0 ||
            strcmp(name, "storage") == 0 ||
            strcmp(name, "timeline") == 0 ||
            strcmp(name, "last") == 0 ||
@@ -80,6 +101,7 @@ static bool command_allowed_during_menu(const char *name) {
            strcmp(name, "status") == 0 ||
            strcmp(name, "bootstatus") == 0 ||
            strcmp(name, "exposure") == 0 ||
+           strcmp(name, "policycheck") == 0 ||
            strcmp(name, "storage") == 0 ||
            strcmp(name, "runtime") == 0 ||
            strcmp(name, "timeline") == 0 ||
@@ -289,6 +311,192 @@ const char *a90_controller_busy_message(enum a90_controller_busy_reason reason) 
     default:
         return "";
     }
+}
+
+static const struct controller_policy_case policy_cases[] = {
+    { "menu allow version", 1, { "version" }, false, true },
+    { "menu allow status", 1, { "status" }, false, true },
+    { "menu allow bootstatus", 1, { "bootstatus" }, false, true },
+    { "menu allow exposure status", 2, { "exposure", "status" }, false, true },
+    { "menu allow exposure verbose", 2, { "exposure", "verbose" }, false, true },
+    { "menu allow policycheck", 1, { "policycheck" }, false, true },
+    { "menu allow policycheck run", 2, { "policycheck", "run" }, false, true },
+    { "menu allow storage", 1, { "storage" }, false, true },
+    { "menu allow runtime", 1, { "runtime" }, false, true },
+    { "menu allow timeline", 1, { "timeline" }, false, true },
+    { "menu allow logpath", 1, { "logpath" }, false, true },
+    { "menu allow helpers status", 2, { "helpers", "status" }, false, true },
+    { "menu allow helpers verbose", 2, { "helpers", "verbose" }, false, true },
+    { "menu allow helpers manifest", 2, { "helpers", "manifest" }, false, true },
+    { "menu allow helpers plan", 2, { "helpers", "plan" }, false, true },
+    { "menu allow helpers path", 3, { "helpers", "path", "a90_cpustress" }, false, true },
+    { "menu allow selftest status", 2, { "selftest", "status" }, false, true },
+    { "menu allow selftest verbose", 2, { "selftest", "verbose" }, false, true },
+    { "menu allow pid1guard status", 2, { "pid1guard", "status" }, false, true },
+    { "menu allow pid1guard verbose", 2, { "pid1guard", "verbose" }, false, true },
+    { "menu allow mountsd status", 2, { "mountsd", "status" }, false, true },
+    { "menu allow netservice status", 2, { "netservice", "status" }, false, true },
+    { "menu allow rshell status", 2, { "rshell", "status" }, false, true },
+    { "menu allow rshell audit", 2, { "rshell", "audit" }, false, true },
+    { "menu allow service list", 2, { "service", "list" }, false, true },
+    { "menu allow service status", 2, { "service", "status" }, false, true },
+    { "menu allow service status tcpctl", 3, { "service", "status", "tcpctl" }, false, true },
+    { "menu allow diag summary", 2, { "diag", "summary" }, false, true },
+    { "menu allow diag paths", 2, { "diag", "paths" }, false, true },
+    { "menu allow wifiinv summary", 2, { "wifiinv", "summary" }, false, true },
+    { "menu allow wifiinv paths", 2, { "wifiinv", "paths" }, false, true },
+    { "menu allow wififeas summary", 2, { "wififeas", "summary" }, false, true },
+    { "menu allow wififeas gate", 2, { "wififeas", "gate" }, false, true },
+    { "menu allow hide", 1, { "hide" }, false, true },
+    { "menu block bare mountsd", 1, { "mountsd" }, false, false },
+    { "menu block mountsd ro", 2, { "mountsd", "ro" }, false, false },
+    { "menu block mountsd rw", 2, { "mountsd", "rw" }, false, false },
+    { "menu block mountsd off", 2, { "mountsd", "off" }, false, false },
+    { "menu block mountsd init", 2, { "mountsd", "init" }, false, false },
+    { "menu block netservice start", 2, { "netservice", "start" }, false, false },
+    { "menu block netservice stop", 2, { "netservice", "stop" }, false, false },
+    { "menu block netservice enable", 2, { "netservice", "enable" }, false, false },
+    { "menu block netservice disable", 2, { "netservice", "disable" }, false, false },
+    { "menu block rshell start", 2, { "rshell", "start" }, false, false },
+    { "menu block rshell stop", 2, { "rshell", "stop" }, false, false },
+    { "menu block rshell enable", 2, { "rshell", "enable" }, false, false },
+    { "menu block rshell disable", 2, { "rshell", "disable" }, false, false },
+    { "menu block rshell token show", 3, { "rshell", "token", "show" }, false, false },
+    { "menu block rshell rotate-token", 2, { "rshell", "rotate-token" }, false, false },
+    { "menu block service start tcpctl", 3, { "service", "start", "tcpctl" }, false, false },
+    { "menu block service stop tcpctl", 3, { "service", "stop", "tcpctl" }, false, false },
+    { "menu block service enable tcpctl", 3, { "service", "enable", "tcpctl" }, false, false },
+    { "menu block service disable tcpctl", 3, { "service", "disable", "tcpctl" }, false, false },
+    { "menu block service start rshell", 3, { "service", "start", "rshell" }, false, false },
+    { "menu block hudlog on", 2, { "hudlog", "on" }, false, false },
+    { "menu block hudlog off", 2, { "hudlog", "off" }, false, false },
+    { "menu block diag full", 2, { "diag", "full" }, false, false },
+    { "menu block diag bundle", 2, { "diag", "bundle" }, false, false },
+    { "menu block wifiinv refresh", 2, { "wifiinv", "refresh" }, false, false },
+    { "menu block wififeas refresh", 2, { "wififeas", "refresh" }, false, false },
+    { "menu block userland test all", 3, { "userland", "test", "all" }, false, false },
+    { "menu block busybox sh", 2, { "busybox", "sh" }, false, false },
+    { "menu block toybox sh", 2, { "toybox", "sh" }, false, false },
+    { "menu block run", 3, { "run", "/bin/a90sleep", "1" }, false, false },
+    { "menu block runandroid", 3, { "runandroid", "/system/bin/toybox", "true" }, false, false },
+    { "menu block writefile", 4, { "writefile", "/tmp/x", "y" }, false, false },
+    { "menu block mountfs", 4, { "mountfs", "tmpfs", "/tmp/x", "tmpfs" }, false, false },
+    { "menu block mknodc", 4, { "mknodc", "/tmp/x", "1", "3" }, false, false },
+    { "menu block umount", 2, { "umount", "/mnt/sdext" }, false, false },
+    { "menu block reboot", 1, { "reboot" }, false, false },
+    { "menu block recovery", 1, { "recovery" }, false, false },
+    { "menu block poweroff", 1, { "poweroff" }, false, false },
+    { "power allow help", 1, { "help" }, true, true },
+    { "power allow status", 1, { "status" }, true, true },
+    { "power allow exposure status", 2, { "exposure", "status" }, true, true },
+    { "power allow policycheck", 1, { "policycheck" }, true, true },
+    { "power allow storage", 1, { "storage" }, true, true },
+    { "power allow timeline", 1, { "timeline" }, true, true },
+    { "power allow logpath", 1, { "logpath" }, true, true },
+    { "power allow inputlayout", 1, { "inputlayout" }, true, true },
+    { "power allow reattach", 1, { "reattach" }, true, true },
+    { "power allow stophud", 1, { "stophud" }, true, true },
+    { "power allow hide", 1, { "hide" }, true, true },
+    { "power block netservice start", 2, { "netservice", "start" }, true, false },
+    { "power block rshell start", 2, { "rshell", "start" }, true, false },
+    { "power block service start tcpctl", 3, { "service", "start", "tcpctl" }, true, false },
+    { "power block writefile", 4, { "writefile", "/tmp/x", "y" }, true, false },
+    { "power block run", 3, { "run", "/bin/a90sleep", "1" }, true, false },
+    { "power block reboot", 1, { "reboot" }, true, false },
+    { "power block recovery", 1, { "recovery" }, true, false },
+    { "power block poweroff", 1, { "poweroff" }, true, false },
+};
+
+static unsigned int controller_command_flags(const struct shell_command *commands,
+                                             size_t count,
+                                             const char *name) {
+    const struct shell_command *command = a90_shell_find_command(commands, count, name);
+
+    if (command == NULL) {
+        return CMD_NONE;
+    }
+    return command->flags;
+}
+
+int a90_controller_policy_matrix_run(const struct shell_command *commands, size_t count) {
+    size_t index;
+
+    policy_result_count = 0;
+    policy_pass_count = 0;
+    policy_fail_count = 0;
+    policy_allowed_count = 0;
+    policy_blocked_count = 0;
+
+    for (index = 0;
+         index < sizeof(policy_cases) / sizeof(policy_cases[0]) &&
+         index < A90_POLICY_MAX_RESULTS;
+         ++index) {
+        const struct controller_policy_case *policy_case = &policy_cases[index];
+        struct a90_controller_policy_result *result = &policy_results[policy_result_count];
+        char *argv[A90_POLICY_MAX_ARGS];
+        enum a90_controller_busy_reason reason;
+        unsigned int flags;
+        int arg_index;
+
+        memset(argv, 0, sizeof(argv));
+        for (arg_index = 0; arg_index < policy_case->argc && arg_index < A90_POLICY_MAX_ARGS; ++arg_index) {
+            argv[arg_index] = (char *)policy_case->argv[arg_index];
+        }
+
+        flags = controller_command_flags(commands, count, policy_case->argv[0]);
+        reason = a90_controller_command_busy_reason_ex(policy_case->argv[0],
+                                                       flags,
+                                                       policy_case->argc,
+                                                       argv,
+                                                       true,
+                                                       policy_case->power_page);
+        result->label = policy_case->label;
+        result->command = policy_case->argv[0];
+        result->power_page = policy_case->power_page;
+        result->expected_allowed = policy_case->expected_allowed;
+        result->actual_allowed = reason == A90_CONTROLLER_BUSY_NONE;
+        result->reason = reason;
+        result->flags = flags;
+
+        if (result->actual_allowed) {
+            policy_allowed_count++;
+        } else {
+            policy_blocked_count++;
+        }
+        if (result->expected_allowed == result->actual_allowed) {
+            policy_pass_count++;
+        } else {
+            policy_fail_count++;
+        }
+        policy_result_count++;
+    }
+
+    return policy_fail_count == 0 ? 0 : -EIO;
+}
+
+void a90_controller_policy_matrix_summary(char *out, size_t out_size) {
+    if (out == NULL || out_size == 0) {
+        return;
+    }
+    snprintf(out,
+             out_size,
+             "cases=%zu pass=%zu fail=%zu allowed=%zu blocked=%zu",
+             policy_result_count,
+             policy_pass_count,
+             policy_fail_count,
+             policy_allowed_count,
+             policy_blocked_count);
+}
+
+size_t a90_controller_policy_matrix_count(void) {
+    return policy_result_count;
+}
+
+const struct a90_controller_policy_result *a90_controller_policy_matrix_entry_at(size_t index) {
+    if (index >= policy_result_count) {
+        return NULL;
+    }
+    return &policy_results[index];
 }
 
 void a90_controller_clear_menu_ipc(void) {
