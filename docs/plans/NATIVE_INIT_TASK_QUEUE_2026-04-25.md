@@ -191,6 +191,8 @@
 
 - v136 structure audit는 완료했다.
 - v137은 B 후보인 integrated validation matrix / host harness expansion으로 진행한다.
+  - 계획 문서: `docs/plans/NATIVE_INIT_V137_INTEGRATED_VALIDATION_PLAN_2026-05-07.md`
+  - 목표: `A90 Linux init 0.9.37 (v137)` / `0.9.37 v137 VALIDATION MATRIX`
   - 대상: `exposure`, `selftest`, `service`, `netservice`, `rshell`, `policycheck`, soak gate를 한 번에 묶는 검증 강화
   - v136 감사 결과를 반영해 상세 계획을 작성한다.
 - network-facing 기능 확장은 v134 exposure baseline과 v135 policy matrix를 둘 다 통과하는 상태에서만 진행한다.
