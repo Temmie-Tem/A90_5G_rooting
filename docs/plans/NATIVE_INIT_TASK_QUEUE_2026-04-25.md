@@ -166,7 +166,7 @@
 - local targeted v135 rescan은 PASS=16/WARN=1/FAIL=0이다.
 - quick native soak는 PASS cycles=3 commands=14다.
 
-## 다음 실행 항목: post-v135 후보 선정
+## 다음 실행 항목: v136/v137 C,B 분리 실행
 
 후보:
 
@@ -176,7 +176,13 @@
 
 다음 실행 항목:
 
-- v136 후보는 fresh scan follow-up이 없으면 `exposure guardrail host harness`, `policy matrix host harness`, 또는 Wi-Fi/network 확장 전 release-candidate soak 중 하나로 잡는다.
+- v136은 C 후보인 post-v135 structure audit로 진행한다.
+  - 계획 문서: `docs/plans/NATIVE_INIT_V136_STRUCTURE_AUDIT_PLAN_2026-05-07.md`
+  - 목표: `A90 Linux init 0.9.36 (v136)` / `0.9.36 v136 STRUCTURE AUDIT 3`
+  - 범위: module ownership drift, duplicate policy logic, include-tree residue, PID1 growth hotspot 점검
+- v137은 B 후보인 integrated validation matrix / host harness expansion으로 예약한다.
+  - 대상: `exposure`, `selftest`, `service`, `netservice`, `rshell`, `policycheck`, soak gate를 한 번에 묶는 검증 강화
+  - v136 감사 결과를 반영해 상세 계획을 작성한다.
 - network-facing 기능 확장은 v134 exposure baseline과 v135 policy matrix를 둘 다 통과하는 상태에서만 진행한다.
 
 ## 실행 큐

@@ -328,7 +328,10 @@ Samsung bootloader
 
 - v134 exposure guardrail과 v135 policy matrix 검증 완료. F021/F030 accepted boundary는 `exposure`/`diag`/`status`에서 관찰 가능해야 유지된다.
 - local targeted v135 rescan은 PASS=16/WARN=1/FAIL=0이며, 다음 보안 입력은 Codex Cloud fresh scan 또는 새 network-facing 변경 이후 scan 결과로 삼는다.
-- v136 후보는 fresh scan follow-up이 없으면 `exposure guardrail host harness`, `policy matrix host harness`, 또는 Wi-Fi/network 확장 전 release-candidate soak 중 하나로 선정한다.
+- C/B 후보를 버전 분리한다.
+  - v136: post-v135 structure audit. 계획 문서 `docs/plans/NATIVE_INIT_V136_STRUCTURE_AUDIT_PLAN_2026-05-07.md`.
+  - v137: integrated validation matrix / host harness expansion. v136 감사 결과를 입력으로 상세 계획을 작성한다.
+- network-facing 기능 확장은 v136 구조 감사와 v137 통합 검증 강화를 통과한 뒤 다시 판단한다.
 
 상세 상태 문서:
 
