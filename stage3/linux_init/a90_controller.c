@@ -115,6 +115,23 @@ static bool subcmd_absent_or_one_of(int argc, char **argv, const char *const *al
     return false;
 }
 
+static bool subcmd_one_of(int argc, char **argv, const char *const *allowed, size_t allowed_count) {
+    size_t i;
+
+    if (argc != 2) {
+        return false;
+    }
+    if (argv == NULL || argv[1] == NULL) {
+        return false;
+    }
+    for (i = 0; i < allowed_count; ++i) {
+        if (strcmp(argv[1], allowed[i]) == 0) {
+            return true;
+        }
+    }
+    return false;
+}
+
 static bool helpers_read_only(int argc, char **argv) {
     static const char *const safe_helpers[] = {
         "status",
@@ -177,8 +194,10 @@ static bool command_allowed_during_menu_ex(const char *name, int argc, char **ar
     if (strcmp(name, "helpers") == 0) {
         return helpers_read_only(argc, argv);
     }
-    if (strcmp(name, "mountsd") == 0 ||
-        strcmp(name, "hudlog") == 0 ||
+    if (strcmp(name, "mountsd") == 0) {
+        return subcmd_one_of(argc, argv, status_only, sizeof(status_only) / sizeof(status_only[0]));
+    }
+    if (strcmp(name, "hudlog") == 0 ||
         strcmp(name, "netservice") == 0) {
         return subcmd_absent_or_one_of(argc, argv, status_only, sizeof(status_only) / sizeof(status_only[0]));
     }

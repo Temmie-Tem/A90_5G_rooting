@@ -3,7 +3,7 @@
 
 This is not a replacement for Codex Cloud's security scanner. It is a
 repository-local guardrail that checks the patterns that previously produced the
-F001-F032 findings and the current root-control surfaces.
+F001-F033 findings and the current root-control surfaces.
 """
 
 from __future__ import annotations
@@ -298,6 +298,18 @@ def run_checks() -> list[Check]:
 
     checks.append(Check(
         "S014",
+        "menu-visible mountsd requires explicit status subcommand",
+        status_from(
+            "static bool subcmd_one_of" in controller
+            and 'if (strcmp(name, "mountsd") == 0) {\n        return subcmd_one_of(argc, argv, status_only' in controller
+            and 'strcmp(name, "hudlog") == 0 ||\n        strcmp(name, "netservice") == 0' in controller
+        ),
+        "`a90_controller.c` allows `mountsd status` during menu-active operation, but no longer allows bare `mountsd`.",
+        "Covers F033 mountsd side effects through absent-subcommand menu policy.",
+    ))
+
+    checks.append(Check(
+        "S015",
         "accepted local root-control channels remain intentionally present",
         "WARN",
         "USB ACM root shell and localhost serial bridge are still present by design.",
@@ -320,7 +332,7 @@ def render_report(checks: list[Check]) -> str:
         f"Git HEAD: `{run_git_head()}`",
         "Scope: active v133 native-init source, shared modules, current revalidation host tools, and known root-control surfaces.",
         "",
-        "This is a local targeted rescan, not a Codex Cloud scanner replacement. It checks the previously imported F001-F032 pattern families against the current v133 repository state.",
+        "This is a local targeted rescan, not a Codex Cloud scanner replacement. It checks the previously imported F001-F033 pattern families against the current v133 repository state.",
         "",
         "## Summary",
         "",

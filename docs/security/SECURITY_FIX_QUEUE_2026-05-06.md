@@ -48,6 +48,30 @@ Acceptance:
 - v134 must be based on the patched v133 tree so this fix stays present in the
   next boot image.
 
+## Fresh Scan Follow-up: F033 Mountsd Menu Policy
+
+Status: mitigated in shared controller policy on 2026-05-07.
+
+Report: `docs/reports/NATIVE_INIT_SECURITY_F033_MOUNTSD_MENU_POLICY_2026-05-07.md`
+
+Finding:
+
+- F033: menu policy allows mountsd side effects with no subcommand.
+
+Implementation:
+
+- `mountsd` now uses an explicit-subcommand allow rule under the menu-active
+  busy gate.
+- Only `mountsd status` is allowed while the menu is visible.
+- Bare `mountsd` remains unchanged outside the menu gate, where it still means
+  `ro`.
+
+Acceptance:
+
+- Menu-visible `mountsd` no longer reaches the storage remount path.
+- Menu-visible `mountsd status` remains available as a read-only observation
+  command.
+
 ## Batch 0: Confirm Current Exposure
 
 Goal: avoid fixing obsolete paths blindly while still treating the findings as real until disproven.

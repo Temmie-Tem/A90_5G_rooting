@@ -2,7 +2,7 @@
 
 Source CSV: `docs/security/codex-security-findings-2026-05-05T16-26-57.929Z.csv`
 Source split file: `docs/security/CODEX_SECURITY_FINDINGS_DETAIL_TEMPLATE_2026-05-06.md`
-Fresh scan follow-up: `F032` was imported from the 2026-05-07 Codex Cloud scan.
+Fresh scan follow-up: `F032` and `F033` were imported from the 2026-05-07 Codex Cloud scan.
 
 이 디렉터리는 Codex Cloud security finding 원문을 이슈별 파일로 분리한 보관소입니다.
 관계 분석과 수정 큐는 별도 문서에서 이 `FNNN` 번호를 참조합니다.
@@ -51,6 +51,7 @@ Fresh scan follow-up: `F032` was imported from the 2026-05-07 Codex Cloud scan.
 | F030 | `informational` | `accepted-lab-boundary` | Unauthenticated root shell exposed via USB ACM and TCP bridge | [`F030-unauthenticated-root-shell-exposed-via-usb-acm-and-tcp-bridge.md`](F030-unauthenticated-root-shell-exposed-via-usb-acm-and-tcp-bridge.md) | stage3/linux_init/init_v8.c <br> scripts/revalidation/serial_tcp_bridge.py |
 | F031 | `informational` | `mitigated-host-batch3` | Command injection via unquoted by_name in su -c commands | [`F031-command-injection-via-unquoted-by-name-in-su-c-commands.md`](F031-command-injection-via-unquoted-by-name-in-su-c-commands.md) | scripts/revalidation/capture_baseline.sh |
 | F032 | `low` | `mitigated-retained-source` | Volume hold timer can spin autohud in non-repeat screens | [`F032-volume-hold-timer-can-spin-autohud-in-non-repeat-screens.md`](F032-volume-hold-timer-can-spin-autohud-in-non-repeat-screens.md) | stage3/linux_init/v131/40_menu_apps.inc.c <br> stage3/linux_init/v132/40_menu_apps.inc.c <br> stage3/linux_init/v133/40_menu_apps.inc.c |
+| F033 | `low` | `mitigated-shared-controller` | Menu policy allows mountsd side effects with no subcommand | [`F033-menu-policy-allows-mountsd-side-effects-with-no-subcommand.md`](F033-menu-policy-allows-mountsd-side-effects-with-no-subcommand.md) | stage3/linux_init/a90_controller.c <br> stage3/linux_init/a90_storage.c <br> stage3/linux_init/v128/80_shell_dispatch.inc.c |
 
 ## Notes
 
