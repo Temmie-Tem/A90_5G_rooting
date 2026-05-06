@@ -8,6 +8,20 @@ Current exposure map: `docs/security/SECURITY_FINDINGS_CURRENT_EXPOSURE_2026-05-
 This queue groups the 31 Codex security findings into implementation batches.
 The batch order is based on exploit chain reduction, not only finding severity.
 
+## Post-v133 Closure Review
+
+Status: all imported F001-F031 findings have a current disposition after v133.
+
+Closure review: `docs/security/SECURITY_FINDINGS_CLOSURE_REVIEW_2026-05-07.md`
+
+- Code/tooling mitigated: 29 findings.
+- Accepted trusted-lab boundary: F021, F030.
+- Still open for implementation: 0 findings from the imported set.
+
+Next security action: close/mark external findings according to the closure
+review, then run a fresh scan against the v133 baseline before broader network
+exposure work.
+
 ## Batch 0: Confirm Current Exposure
 
 Goal: avoid fixing obsolete paths blindly while still treating the findings as real until disproven.

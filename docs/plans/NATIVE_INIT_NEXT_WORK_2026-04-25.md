@@ -324,8 +324,8 @@ Samsung bootloader
 
 다음 실행 후보:
 
-- v133 ABOUT/changelog 수동 화면 확인 완료. 다음 우선순위는 security closure 문서 정리와 남은 보안 finding 재평가.
-- 남은 security findings 재평가와 closure 문서 갱신.
+- v133 ABOUT/changelog 수동 화면 확인 완료. security closure review 작성으로 F001-F031 현재 처분을 fixed/accepted로 분류.
+- 다음 보안 입력은 v133 baseline fresh scan 결과로 삼는다.
 
 상세 상태 문서:
 

@@ -10,6 +10,12 @@ Latest source baseline:
 - Relationship analysis: `docs/security/SECURITY_FINDINGS_RELATIONSHIP_2026-05-06.md`
 - Fix queue: `docs/security/SECURITY_FIX_QUEUE_2026-05-06.md`
 
+Post-v133 closure note:
+
+- Latest verified baseline is now `A90 Linux init 0.9.33 (v133)`.
+- Use `docs/security/SECURITY_FINDINGS_CLOSURE_REVIEW_2026-05-07.md` for current closure disposition.
+- The original matrix below is retained as the v122 exposure snapshot that drove Batch 1-Batch 7.
+
 
 Post-remediation note:
 

@@ -142,8 +142,8 @@
 후보:
 
 - v133 ABOUT/changelog 화면에서 series 목록, 0.9.x 진입, v133 detail 표시를 수동 시각 확인했다.
-- 다음 우선순위는 security closure 문서 정리와 남은 보안 finding 재평가다.
-- 남은 security findings 재평가와 closure 문서 갱신.
+- security closure review를 작성해 F001-F031의 현재 처분을 fixed/accepted로 분류한다.
+- closure review 기준으로 외부 finding을 닫고, v133 baseline fresh scan을 다음 보안 입력으로 사용한다.
 
 ## 실행 큐
 
