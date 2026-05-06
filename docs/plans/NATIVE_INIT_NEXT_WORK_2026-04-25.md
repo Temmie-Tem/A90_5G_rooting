@@ -316,6 +316,11 @@ Samsung bootloader
 - Security Batch 7 상태: v127에서 menu-active busy gate deny-by-default allowlist 적용으로 F023 종료
 - ADB 상태: 보류
 
+다음 실행 후보:
+
+- `docs/plans/NATIVE_INIT_V128_MENU_SUBCOMMAND_POLICY_PLAN_2026-05-07.md`
+- v128은 v127 busy gate 보안을 유지하면서 `diag summary`, `mountsd status`, `service status` 같은 read-only subcommand만 menu-visible 상태에서 선택적으로 허용하는 UX 완화 작업이다.
+
 상세 상태 문서:
 
 - `docs/reports/NATIVE_INIT_V82_LOG_TIMELINE_2026-04-29.md`

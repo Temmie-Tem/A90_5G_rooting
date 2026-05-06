@@ -62,6 +62,22 @@
   - Security Batch 6 retained-source reliability and strict input event validation
   - Security Batch 7 menu busy gate deny-by-default allowlist
 
+## 다음 실행 항목: v128 Menu Subcommand Policy
+
+계획 문서: `docs/plans/NATIVE_INIT_V128_MENU_SUBCOMMAND_POLICY_PLAN_2026-05-07.md`
+
+목표:
+
+- v127의 F023 mitigation은 유지한다.
+- 메뉴 표시 중에도 명확히 read-only인 status/query subcommand만 허용한다.
+- `run`, `writefile`, `mountfs`, `mknod*`, service/network mutation, power command는 계속 차단한다.
+
+주의:
+
+- v128은 보안 이슈 closure가 아니라 UX 완화 작업이다.
+- 구현 전 허용 subcommand 목록을 좁게 유지한다.
+- README/latest verified는 실기 flash 검증 전에는 갱신하지 않는다.
+
 ## 실행 큐
 
 ### V43. Boot Readiness Timeline — 완료
