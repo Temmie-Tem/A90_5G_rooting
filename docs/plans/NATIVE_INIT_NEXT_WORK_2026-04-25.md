@@ -326,6 +326,7 @@ Samsung bootloader
 
 - v133 ABOUT/changelog 수동 화면 확인 완료. security closure review 작성으로 F001-F031 현재 처분을 fixed/accepted로 분류.
 - local targeted v133 rescan은 PASS=12/WARN=1/FAIL=0이며, 다음 보안 입력은 Codex Cloud fresh scan 또는 새 network-facing 변경 이후 scan 결과로 삼는다.
+- v134 다음 후보는 network exposure guardrail: `exposure`/`diag`/`status`에서 USB/NCM/root-control 노출 경계를 확인 가능하게 만든다.
 
 상세 상태 문서:
 

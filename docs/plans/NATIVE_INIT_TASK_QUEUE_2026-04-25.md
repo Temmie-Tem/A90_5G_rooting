@@ -146,6 +146,11 @@
 - closure review 기준으로 외부 finding을 닫고, local targeted v133 rescan PASS=12/WARN=1/FAIL=0을 기록했다.
 - 다음 보안 입력은 Codex Cloud fresh scan 또는 새 network-facing 변경 이후 scan 결과로 삼는다.
 
+다음 실행 항목:
+
+- v134 network exposure guardrail 계획을 작성했다: `docs/plans/NATIVE_INIT_V134_NETWORK_EXPOSURE_GUARDRAIL_PLAN_2026-05-07.md`
+- v134 목표는 새 네트워크 기능이 아니라 USB/NCM/root-control 노출 경계를 `exposure`/`diag`/`status`에서 기계적으로 확인 가능하게 만드는 것이다.
+
 ## 실행 큐
 
 ### V43. Boot Readiness Timeline — 완료
