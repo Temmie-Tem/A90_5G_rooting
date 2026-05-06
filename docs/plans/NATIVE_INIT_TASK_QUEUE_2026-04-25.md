@@ -151,7 +151,7 @@
 - 실기 flash 후 `cmdv1 version/status`, `exposure status|verbose|guard`, `bootstatus`, `diag`, `screenmenu`/`hide` 회귀를 검증했다.
 - local targeted v134 rescan은 PASS=15/WARN=1/FAIL=0이다.
 
-## 다음 실행 항목: post-v134 후보 선정
+## 다음 실행 항목: v135 Policy Matrix
 
 후보:
 
@@ -161,7 +161,10 @@
 
 다음 실행 항목:
 
-- v135 후보는 fresh scan 결과가 있으면 보안 follow-up을 우선하고, 없으면 `controller command policy matrix` 또는 `exposure guardrail host harness` 중 하나로 잡는다.
+- v135 후보는 fresh scan 결과가 없으므로 `controller command policy matrix`로 확정한다.
+- v135 계획 문서: `docs/plans/NATIVE_INIT_V135_POLICY_MATRIX_PLAN_2026-05-07.md`
+- v135 목표는 메뉴 표시 중/파워 페이지에서 allowed/blocked command policy를 PID1 내부 matrix로 자체 검증하는 것이다.
+- 특히 bare `mountsd` 같은 absent-subcommand side-effect 재발을 막기 위해 `mountsd`, `netservice`, `rshell`, `service`, `run`, `writefile`, `mountfs`, `reboot` 계열을 명시 케이스로 둔다.
 - network-facing 기능 확장은 v134 exposure baseline 위에서 새 노출 상태를 먼저 관찰 가능하게 만든 뒤 진행한다.
 
 ## 실행 큐

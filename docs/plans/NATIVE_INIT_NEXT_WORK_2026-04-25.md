@@ -327,7 +327,9 @@ Samsung bootloader
 
 - v134 exposure guardrail 검증 완료. F021/F030 accepted boundary는 `exposure`/`diag`/`status`에서 관찰 가능해야 유지된다.
 - local targeted v134 rescan은 PASS=15/WARN=1/FAIL=0이며, 다음 보안 입력은 Codex Cloud fresh scan 또는 새 network-facing 변경 이후 scan 결과로 삼는다.
-- v135 후보는 fresh scan follow-up, controller command policy matrix, exposure guardrail host harness 중 현재 리스크가 가장 큰 항목으로 선정한다.
+- v135는 fresh scan blocker가 없으므로 controller command policy matrix로 확정한다.
+- v135 계획 문서: `docs/plans/NATIVE_INIT_V135_POLICY_MATRIX_PLAN_2026-05-07.md`
+- v135 목표는 menu-visible/power-page allowed/blocked 정책을 `policycheck [status|run|verbose]`로 자체 검증 가능하게 만드는 것이다.
 
 상세 상태 문서:
 
