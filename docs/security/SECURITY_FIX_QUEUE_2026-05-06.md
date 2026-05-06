@@ -23,6 +23,31 @@ review. Local targeted v133 rescan result is PASS=12, WARN=1, FAIL=0 in
 `docs/security/SECURITY_FRESH_SCAN_V133_2026-05-07.md`; run Codex Cloud scan
 when available before broader network exposure work.
 
+## Fresh Scan Follow-up: F032 Hold Timer Availability
+
+Status: mitigated as retained-source maintenance on 2026-05-07.
+
+Report: `docs/reports/NATIVE_INIT_SECURITY_F032_HOLD_TIMER_2026-05-07.md`
+
+Finding:
+
+- F032: volume hold timer can spin autohud in non-repeat screens.
+
+Implementation:
+
+- Retained v131, v132, and v133 auto-HUD menu loops now clear the hold timer
+  when a timeout fires but the current screen cannot consume a volume-repeat
+  step.
+- Repeat-capable About/changelog screens keep the existing repeat reschedule
+  behavior.
+
+Acceptance:
+
+- A stuck/held volume key on non-repeat screens no longer leaves
+  `menu_hold_next_ms` expired and cannot force a zero-timeout redraw loop.
+- v134 must be based on the patched v133 tree so this fix stays present in the
+  next boot image.
+
 ## Batch 0: Confirm Current Exposure
 
 Goal: avoid fixing obsolete paths blindly while still treating the findings as real until disproven.

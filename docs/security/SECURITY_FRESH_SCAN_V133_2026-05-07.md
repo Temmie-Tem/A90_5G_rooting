@@ -2,14 +2,14 @@
 
 Date: 2026-05-07
 Baseline: `A90 Linux init 0.9.33 (v133)`
-Git HEAD: `9114635`
+Git HEAD: `4adc9cd`
 Scope: active v133 native-init source, shared modules, current revalidation host tools, and known root-control surfaces.
 
-This is a local targeted rescan, not a Codex Cloud scanner replacement. It checks the previously imported F001-F031 pattern families against the current v133 repository state.
+This is a local targeted rescan, not a Codex Cloud scanner replacement. It checks the previously imported F001-F032 pattern families against the current v133 repository state.
 
 ## Summary
 
-- PASS: 12
+- PASS: 13
 - WARN: 1
 - FAIL: 0
 - New implementation blocker from this local scan: `0`
@@ -30,7 +30,8 @@ This is a local targeted rescan, not a Codex Cloud scanner replacement. It check
 | S010 | PASS | diagnostic bundles are private and redact log tails by default | Host diag output chmods `0700/0600`; device diag defaults redact log tails and token value. | Covers diagnostic disclosure findings. |
 | S011 | PASS | active host scripts do not set known root SSH credentials | No active `scripts/revalidation` or `mkbootimg/gki/certify_bootimg.py` match for default root SSH credential patterns. | Legacy archived docs/scripts are excluded from active v133 runtime/tooling scope. |
 | S012 | PASS | tcpctl host installer writes temp path, verifies hash, then moves into place | `tcpctl_host.py install` uses a per-run temp target, verifies SHA-256 before `mv`, and cleans the temp path on exceptions. | Covers tcpctl install race/poisoning follow-up guardrails. |
-| S013 | WARN | accepted local root-control channels remain intentionally present | USB ACM root shell and localhost serial bridge are still present by design. | Matches F021/F030 accepted-lab-boundary; do not expose bridge or ACM control over LAN/Wi-Fi without new auth. |
+| S013 | PASS | volume hold repeat timer clears when a screen cannot consume repeats | Retained v131-v133 auto-HUD loops clear `menu_hold_code` and `menu_hold_next_ms` when a timed repeat is not consumed. | Covers F032 zero-timeout poll/redraw spin in non-repeat screens. |
+| S014 | WARN | accepted local root-control channels remain intentionally present | USB ACM root shell and localhost serial bridge are still present by design. | Matches F021/F030 accepted-lab-boundary; do not expose bridge or ACM control over LAN/Wi-Fi without new auth. |
 
 ## Interpretation
 

@@ -292,16 +292,21 @@ static void auto_hud_loop(unsigned int refresh_sec) {
             if (menu_hold_code != 0) {
                 long now_ms = monotonic_millis();
 
-                if (now_ms >= menu_hold_next_ms &&
-                    auto_menu_handle_volume_step(menu_hold_code,
-                                                 &menu_active,
-                                                 active_app,
-                                                 &menu_state,
-                                                 about_changelog_index,
-                                                 &about_page_index)) {
-                    do {
-                        menu_hold_next_ms += AUTO_MENU_HOLD_REPEAT_INTERVAL_MS;
-                    } while (menu_hold_next_ms <= now_ms);
+                if (now_ms >= menu_hold_next_ms) {
+                    if (auto_menu_handle_volume_step(menu_hold_code,
+                                                     &menu_active,
+                                                     active_app,
+                                                     &menu_state,
+                                                     about_changelog_index,
+                                                     &about_page_index)) {
+                        do {
+                            menu_hold_next_ms +=
+                                AUTO_MENU_HOLD_REPEAT_INTERVAL_MS;
+                        } while (menu_hold_next_ms <= now_ms);
+                    } else {
+                        menu_hold_code = 0;
+                        menu_hold_next_ms = 0;
+                    }
                 }
             }
             continue; /* timeout → redraw */

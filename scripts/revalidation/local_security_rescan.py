@@ -3,7 +3,7 @@
 
 This is not a replacement for Codex Cloud's security scanner. It is a
 repository-local guardrail that checks the patterns that previously produced the
-F001-F031 findings and the current root-control surfaces.
+F001-F032 findings and the current root-control surfaces.
 """
 
 from __future__ import annotations
@@ -97,6 +97,11 @@ def run_checks() -> list[Check]:
     runtime = read("stage3/linux_init/a90_runtime.c")
     log = read("stage3/linux_init/a90_log.c")
     storage = read("stage3/linux_init/a90_storage.c")
+    menu_hold_sources = [
+        "stage3/linux_init/v131/40_menu_apps.inc.c",
+        "stage3/linux_init/v132/40_menu_apps.inc.c",
+        "stage3/linux_init/v133/40_menu_apps.inc.c",
+    ]
 
     active_network_paths = [
         "stage3/linux_init/a90_config.h",
@@ -275,8 +280,24 @@ def run_checks() -> list[Check]:
         "Covers tcpctl install race/poisoning follow-up guardrails.",
     ))
 
+    menu_hold_ok = True
+    for path in menu_hold_sources:
+        source = read(path)
+        menu_hold_ok = (
+            menu_hold_ok
+            and "if (now_ms >= menu_hold_next_ms) {\n                    if (auto_menu_handle_volume_step" in source
+            and "else {\n                        menu_hold_code = 0;\n                        menu_hold_next_ms = 0;\n                    }" in source
+        )
     checks.append(Check(
         "S013",
+        "volume hold repeat timer clears when a screen cannot consume repeats",
+        status_from(menu_hold_ok),
+        "Retained v131-v133 auto-HUD loops clear `menu_hold_code` and `menu_hold_next_ms` when a timed repeat is not consumed.",
+        "Covers F032 zero-timeout poll/redraw spin in non-repeat screens.",
+    ))
+
+    checks.append(Check(
+        "S014",
         "accepted local root-control channels remain intentionally present",
         "WARN",
         "USB ACM root shell and localhost serial bridge are still present by design.",
@@ -299,7 +320,7 @@ def render_report(checks: list[Check]) -> str:
         f"Git HEAD: `{run_git_head()}`",
         "Scope: active v133 native-init source, shared modules, current revalidation host tools, and known root-control surfaces.",
         "",
-        "This is a local targeted rescan, not a Codex Cloud scanner replacement. It checks the previously imported F001-F031 pattern families against the current v133 repository state.",
+        "This is a local targeted rescan, not a Codex Cloud scanner replacement. It checks the previously imported F001-F032 pattern families against the current v133 repository state.",
         "",
         "## Summary",
         "",
