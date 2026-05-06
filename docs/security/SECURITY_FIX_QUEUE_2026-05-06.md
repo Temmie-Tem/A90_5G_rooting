@@ -19,8 +19,9 @@ Closure review: `docs/security/SECURITY_FINDINGS_CLOSURE_REVIEW_2026-05-07.md`
 - Still open for implementation: 0 findings from the imported set.
 
 Next security action: close/mark external findings according to the closure
-review, then run a fresh scan against the v133 baseline before broader network
-exposure work.
+review. Local targeted v133 rescan result is PASS=12, WARN=1, FAIL=0 in
+`docs/security/SECURITY_FRESH_SCAN_V133_2026-05-07.md`; run Codex Cloud scan
+when available before broader network exposure work.
 
 ## Batch 0: Confirm Current Exposure
 

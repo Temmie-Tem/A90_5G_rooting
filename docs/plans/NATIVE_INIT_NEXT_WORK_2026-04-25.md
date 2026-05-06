@@ -325,7 +325,7 @@ Samsung bootloader
 다음 실행 후보:
 
 - v133 ABOUT/changelog 수동 화면 확인 완료. security closure review 작성으로 F001-F031 현재 처분을 fixed/accepted로 분류.
-- 다음 보안 입력은 v133 baseline fresh scan 결과로 삼는다.
+- local targeted v133 rescan은 PASS=12/WARN=1/FAIL=0이며, 다음 보안 입력은 Codex Cloud fresh scan 또는 새 network-facing 변경 이후 scan 결과로 삼는다.
 
 상세 상태 문서:
 

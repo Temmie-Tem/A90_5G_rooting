@@ -12,6 +12,7 @@ Source split file: `docs/security/CODEX_SECURITY_FINDINGS_DETAIL_TEMPLATE_2026-0
 - Fix queue: `../SECURITY_FIX_QUEUE_2026-05-06.md`
 - Current exposure map: `../SECURITY_FINDINGS_CURRENT_EXPOSURE_2026-05-06.md`
 - Closure review: `../SECURITY_FINDINGS_CLOSURE_REVIEW_2026-05-07.md`
+- Fresh local rescan: `../SECURITY_FRESH_SCAN_V133_2026-05-07.md`
 
 ## Findings
 

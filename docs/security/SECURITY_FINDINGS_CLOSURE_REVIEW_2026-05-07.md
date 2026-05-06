@@ -96,7 +96,7 @@ or broader network exposure should still follow these guardrails:
 
 ## Recommended Next Action
 
-Close/mark the external findings using the tables above, then run a fresh scan
-against the v133 baseline. If the fresh scan reports new issues, start a new
-security batch from the new finding set instead of reworking the closed v122-era
-map.
+Close/mark the external findings using the tables above. The local targeted
+v133 rescan is recorded in `docs/security/SECURITY_FRESH_SCAN_V133_2026-05-07.md`
+with PASS=12, WARN=1, FAIL=0; still run Codex Cloud security scan when available
+and use any new findings as the next security batch input.
