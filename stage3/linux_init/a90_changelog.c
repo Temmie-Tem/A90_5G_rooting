@@ -4,6 +4,12 @@
     { label, summary, { d1, d2, d3, d4, d5 } }
 
 static const struct a90_changelog_entry changelog_entries[] = {
+    ENTRY("0.9.31 v131", "MENU HOLD TIMER",
+          "0.9.31 v131 MENU HOLD TIMER",
+          "Adds timer-based hold scrolling",
+          "Removes dependency on EV_KEY repeat",
+          "Keeps VOL+DN physical back",
+          "Keeps v130 menu hints"),
     ENTRY("0.9.30 v130", "MENU HOLD BACK",
           "0.9.30 v130 MENU HOLD BACK",
           "Adds hold-repeat volume scrolling",
