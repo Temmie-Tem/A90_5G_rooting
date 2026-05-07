@@ -248,7 +248,11 @@ static bool command_allowed_during_menu_ex(const char *name, int argc, char **ar
     if (strcmp(name, "longsoak") == 0) {
         return subcmd_absent_or_one_of(argc, argv, longsoak_safe, sizeof(longsoak_safe) / sizeof(longsoak_safe[0])) ||
                (argc == 3 && argv != NULL && argv[1] != NULL &&
-                (strcmp(argv[1], "start") == 0 || strcmp(argv[1], "tail") == 0));
+                (strcmp(argv[1], "start") == 0 ||
+                 strcmp(argv[1], "tail") == 0 ||
+                 (strcmp(argv[1], "status") == 0 &&
+                  argv[2] != NULL &&
+                  strcmp(argv[2], "verbose") == 0)));
     }
     return false;
 }
@@ -354,6 +358,7 @@ static const struct controller_policy_case policy_cases[] = {
     { "menu allow service status", 2, { "service", "status" }, false, true },
     { "menu allow service status tcpctl", 3, { "service", "status", "tcpctl" }, false, true },
     { "menu allow longsoak status", 2, { "longsoak", "status" }, false, true },
+    { "menu allow longsoak status verbose", 3, { "longsoak", "status", "verbose" }, false, true },
     { "menu allow longsoak start", 3, { "longsoak", "start", "2" }, false, true },
     { "menu allow longsoak tail", 3, { "longsoak", "tail", "3" }, false, true },
     { "menu allow longsoak stop", 2, { "longsoak", "stop" }, false, true },

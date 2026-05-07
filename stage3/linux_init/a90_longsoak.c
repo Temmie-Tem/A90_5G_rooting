@@ -69,6 +69,128 @@ static bool longsoak_is_running(void) {
     return a90_service_pid(A90_SERVICE_LONGSOAK) > 0;
 }
 
+static unsigned long longsoak_parse_unsigned_field(const char *line,
+                                                   const char *name,
+                                                   unsigned long fallback) {
+    const char *start = strstr(line, name);
+    char *end = NULL;
+    unsigned long value;
+
+    if (start == NULL) {
+        return fallback;
+    }
+    start += strlen(name);
+    errno = 0;
+    value = strtoul(start, &end, 10);
+    if (errno != 0 || end == start) {
+        return fallback;
+    }
+    return value;
+}
+
+static void longsoak_parse_type(const char *line, char *out, size_t out_size) {
+    const char *start = strstr(line, "\"type\":\"");
+    size_t index = 0;
+
+    if (out == NULL || out_size == 0) {
+        return;
+    }
+    snprintf(out, out_size, "-");
+    if (start == NULL) {
+        return;
+    }
+    start += strlen("\"type\":\"");
+    while (start[index] != '\0' && start[index] != '"' && index + 1 < out_size) {
+        out[index] = start[index];
+        ++index;
+    }
+    out[index] = '\0';
+}
+
+static void longsoak_scan_file(struct a90_longsoak_status *status) {
+    int fd;
+    FILE *file;
+    char line[768];
+
+    if (status == NULL || status->path[0] == '\0') {
+        return;
+    }
+    fd = open(status->path, O_RDONLY | O_CLOEXEC);
+    if (fd < 0) {
+        return;
+    }
+    file = fdopen(fd, "r");
+    if (file == NULL) {
+        close(fd);
+        return;
+    }
+    while (fgets(line, sizeof(line), file) != NULL) {
+        unsigned long seq;
+        unsigned long ts_ms;
+
+        longsoak_parse_type(line, status->last_type, sizeof(status->last_type));
+        if (strstr(line, "\"type\":\"sample\"") != NULL) {
+            ++status->samples;
+        }
+        seq = longsoak_parse_unsigned_field(line, "\"seq\":", status->last_seq);
+        ts_ms = longsoak_parse_unsigned_field(line, "\"ts_ms\":", (unsigned long)status->last_ts_ms);
+        status->last_seq = seq;
+        status->last_ts_ms = (long)ts_ms;
+    }
+    fclose(file);
+    if (status->last_ts_ms > 0) {
+        status->last_age_ms = monotonic_millis() - status->last_ts_ms;
+        if (status->last_age_ms < 0) {
+            status->last_age_ms = 0;
+        }
+    }
+}
+
+int a90_longsoak_get_status(struct a90_longsoak_status *out) {
+    if (out == NULL) {
+        return -EINVAL;
+    }
+    memset(out, 0, sizeof(*out));
+    out->pid = -1;
+    snprintf(out->session, sizeof(out->session), "-");
+    snprintf(out->path, sizeof(out->path), "-");
+    snprintf(out->last_type, sizeof(out->last_type), "-");
+    out->running = longsoak_is_running();
+    out->pid = a90_service_pid(A90_SERVICE_LONGSOAK);
+    out->interval_sec = longsoak_interval_sec;
+    if (longsoak_session[0] != '\0') {
+        snprintf(out->session, sizeof(out->session), "%s", longsoak_session);
+    }
+    if (longsoak_path[0] != '\0') {
+        snprintf(out->path, sizeof(out->path), "%s", longsoak_path);
+    }
+    longsoak_scan_file(out);
+    return 0;
+}
+
+void a90_longsoak_summary(char *out, size_t out_size) {
+    struct a90_longsoak_status status;
+
+    if (out == NULL || out_size == 0) {
+        return;
+    }
+    if (a90_longsoak_get_status(&status) < 0) {
+        snprintf(out, out_size, "unavailable");
+        return;
+    }
+    snprintf(out,
+             out_size,
+             "running=%s pid=%ld interval=%ds samples=%u last=%s seq=%lu age=%ldms session=%s",
+             status.running ? "yes" : "no",
+             (long)status.pid,
+             status.interval_sec,
+             status.samples,
+             status.last_type,
+             status.last_seq,
+             status.last_age_ms,
+             status.session);
+}
+
 int a90_longsoak_start(int interval_sec) {
     char interval_arg[24];
     char *const argv[] = {
@@ -147,16 +269,29 @@ int a90_longsoak_stop(void) {
 }
 
 int a90_longsoak_status(void) {
-    bool running = longsoak_is_running();
+    struct a90_longsoak_status status;
 
-    a90_console_printf("longsoak: running=%s pid=%ld interval=%ds session=%s\r\n",
-            running ? "yes" : "no",
-            (long)a90_service_pid(A90_SERVICE_LONGSOAK),
-            longsoak_interval_sec,
-            longsoak_session[0] != '\0' ? longsoak_session : "-");
-    a90_console_printf("longsoak: path=%s\r\n",
-            longsoak_path[0] != '\0' ? longsoak_path : "-");
+    a90_longsoak_get_status(&status);
+    a90_console_printf("longsoak: running=%s pid=%ld interval=%ds session=%s samples=%u last=%s seq=%lu age=%ldms\r\n",
+            status.running ? "yes" : "no",
+            (long)status.pid,
+            status.interval_sec,
+            status.session,
+            status.samples,
+            status.last_type,
+            status.last_seq,
+            status.last_age_ms);
+    a90_console_printf("longsoak: path=%s\r\n", status.path);
     return 0;
+}
+
+int a90_longsoak_status_verbose(void) {
+    int rc = a90_longsoak_status();
+
+    if (longsoak_path[0] != '\0') {
+        (void)a90_longsoak_tail(1);
+    }
+    return rc;
 }
 
 int a90_longsoak_path(void) {
@@ -221,8 +356,11 @@ int a90_longsoak_cmd(char **argv, int argc) {
     int rc;
 
     if (strcmp(subcommand, "status") == 0) {
+        if (argc == 3 && strcmp(argv[2], "verbose") == 0) {
+            return a90_longsoak_status_verbose();
+        }
         if (argc != 1 && argc != 2) {
-            a90_console_printf("usage: longsoak [status|start [interval]|stop|path|tail [lines]]\r\n");
+            a90_console_printf("usage: longsoak [status [verbose]|start [interval]|stop|path|tail [lines]]\r\n");
             return -EINVAL;
         }
         return a90_longsoak_status();
@@ -272,6 +410,6 @@ int a90_longsoak_cmd(char **argv, int argc) {
         return a90_longsoak_tail(value);
     }
 
-    a90_console_printf("usage: longsoak [status|start [interval]|stop|path|tail [lines]]\r\n");
+    a90_console_printf("usage: longsoak [status [verbose]|start [interval]|stop|path|tail [lines]]\r\n");
     return -EINVAL;
 }

@@ -15,7 +15,7 @@ sys.path.insert(0, str(Path(__file__).resolve().parent))
 
 from a90ctl import ProtocolResult, run_cmdv1_command  # noqa: E402
 
-DEFAULT_EXPECT_VERSION = "A90 Linux init 0.9.46 (v146)"
+DEFAULT_EXPECT_VERSION = "A90 Linux init 0.9.47 (v147)"
 
 
 @dataclass
@@ -42,8 +42,9 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--expect-version", default=DEFAULT_EXPECT_VERSION)
     parser.add_argument("--start-device", action="store_true", help="start device longsoak recorder first")
     parser.add_argument("--no-stop-device", action="store_true", help="leave device recorder running")
-    parser.add_argument("--out", default="tmp/soak/native-long-soak-v146.txt")
-    parser.add_argument("--jsonl-out", default="tmp/soak/native-long-soak-v146.jsonl")
+    parser.add_argument("--out", default="tmp/soak/native-long-soak-v147.txt")
+    parser.add_argument("--jsonl-out", default="tmp/soak/native-long-soak-v147.jsonl")
+    parser.add_argument("--summary-json", default="tmp/soak/native-long-soak-v147-summary.json")
     return parser.parse_args()
 
 
@@ -84,7 +85,7 @@ def record_command(args: argparse.Namespace,
     if command == ["status"] and "selftest: pass=" not in text:
         ok = False
         error = (error + "; " if error else "") + "status missing selftest summary"
-    if command == ["longsoak", "status"] and "longsoak: running=" not in text:
+    if command[:2] == ["longsoak", "status"] and "longsoak: running=" not in text:
         ok = False
         error = (error + "; " if error else "") + "longsoak status missing running state"
 
@@ -141,6 +142,8 @@ def main() -> int:
 
     failures = 0
     seq = 0
+    ok_count = 0
+    max_duration = 0.0
 
     if args.start_device:
         sample, _ = record_command(
@@ -151,19 +154,23 @@ def main() -> int:
         )
         append_summary(lines, sample)
         failures += 0 if sample.ok else 1
+        ok_count += 1 if sample.ok else 0
+        max_duration = max(max_duration, sample.duration_sec)
         seq += 1
 
     deadline = time.monotonic() + args.duration_sec
     commands = [
         ["version"],
         ["status"],
-        ["longsoak", "status"],
+        ["longsoak", "status", "verbose"],
     ]
     while time.monotonic() < deadline:
         for command in commands:
             sample, _ = record_command(args, jsonl_path, seq, command)
             append_summary(lines, sample)
             failures += 0 if sample.ok else 1
+            ok_count += 1 if sample.ok else 0
+            max_duration = max(max_duration, sample.duration_sec)
             seq += 1
         remaining = deadline - time.monotonic()
         if remaining > 0:
@@ -172,6 +179,8 @@ def main() -> int:
     sample, tail_text = record_command(args, jsonl_path, seq, ["longsoak", "tail", "5"])
     append_summary(lines, sample)
     failures += 0 if sample.ok else 1
+    ok_count += 1 if sample.ok else 0
+    max_duration = max(max_duration, sample.duration_sec)
     seq += 1
     lines.append("\n## Device Tail\n\n")
     lines.append(tail_text.rstrip() + "\n\n")
@@ -180,17 +189,41 @@ def main() -> int:
         sample, _ = record_command(args, jsonl_path, seq, ["longsoak", "stop"])
         append_summary(lines, sample)
         failures += 0 if sample.ok else 1
+        ok_count += 1 if sample.ok else 0
+        max_duration = max(max_duration, sample.duration_sec)
+        seq += 1
 
     out_path.write_text("".join(lines), encoding="utf-8")
+    summary_path = Path(args.summary_json)
+    summary_path.parent.mkdir(parents=True, exist_ok=True)
+    summary_path.write_text(
+        json.dumps(
+            {
+                "expect_version": args.expect_version,
+                "samples": seq,
+                "ok": ok_count,
+                "failures": failures,
+                "max_duration_sec": max_duration,
+                "jsonl": str(jsonl_path),
+                "transcript": str(out_path),
+            },
+            ensure_ascii=False,
+            indent=2,
+            sort_keys=True,
+        ) + "\n",
+        encoding="utf-8",
+    )
     if failures:
         print(f"FAIL samples={seq} failures={failures}")
         print(out_path)
         print(jsonl_path)
+        print(summary_path)
         return 1
 
     print(f"PASS samples={seq} failures=0")
     print(out_path)
     print(jsonl_path)
+    print(summary_path)
     return 0
 
 
