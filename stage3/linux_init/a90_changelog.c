@@ -8,6 +8,12 @@
     { label, summary, { d1, d2, d3, d4, d5 } }
 
 static const struct a90_changelog_entry changelog_entries[] = {
+    ENTRY("0.9.58 v158", "WATCHDOG FEASIBILITY",
+          "0.9.58 v158 WATCHDOG FEASIBILITY",
+          "Adds read-only watchdog inventory command",
+          "Reports watchdog class devices, readable sysfs attributes, and device node presence",
+          "Adds watchdog summary to status and bootstatus",
+          "Keeps /dev/watchdog* stat-only and never opens watchdog devices"),
     ENTRY("0.9.57 v157", "PSTORE FEASIBILITY",
           "0.9.57 v157 PSTORE FEASIBILITY",
           "Adds read-only pstore and ramoops feasibility command",
