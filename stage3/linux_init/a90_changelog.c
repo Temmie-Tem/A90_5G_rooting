@@ -8,6 +8,12 @@
     { label, summary, { d1, d2, d3, d4, d5 } }
 
 static const struct a90_changelog_entry changelog_entries[] = {
+    ENTRY("0.9.56 v156", "THERMAL POWER MAP",
+          "0.9.56 v156 THERMAL POWER MAP",
+          "Adds read-only thermal and power sensor map command",
+          "Reports thermal zones, trip points, cooling devices, and power supplies",
+          "Adds sensormap summary to status and bootstatus",
+          "Prepares long-run stability analysis with named sensors"),
     ENTRY("0.9.55 v155", "KERNEL DIAG BUNDLE",
           "0.9.55 v155 KERNEL DIAG BUNDLE",
           "Adds host kernel diagnostics evidence bundle",

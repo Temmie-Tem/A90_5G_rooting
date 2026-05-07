@@ -945,14 +945,15 @@ Samsung bootloader
 
 상세 실행 큐는 `docs/plans/NATIVE_INIT_TASK_QUEUE_2026-04-25.md`를 따른다.
 
-1. post-v142 후보 선정
-   - 기준 결과: `docs/reports/NATIVE_INIT_V140_CPUSTRESS_APP_2026-05-08.md`
-   - 후보 A: fresh Codex Cloud scan follow-up
-   - 후보 B: network-facing 판단 재개
-   - 후보 C: 남은 UI/app renderer split 필요성 재평가
-2. 후보 확정 후 계획 문서 작성
-3. 계획 검증 후 구현 버전 결정
-4. network-facing 변경은 v145 green gate와 fresh scan 결과를 같이 보고 진행
+1. v157 Pstore/Ramoops Feasibility
+   - 기준 결과: `docs/reports/NATIVE_INIT_V156_THERMAL_POWER_SENSOR_MAP_2026-05-08.md`
+   - 원칙: read-only inventory만 수행하고 pstore mount/reboot 보존성 실험은 별도 opt-in으로 보류
+2. v158 Watchdog Read-only Feasibility
+   - `/dev/watchdog*`는 open하지 않고 sysfs/dev node 존재와 readable metadata만 확인
+3. v159 Tracefs/Ftrace Feasibility
+   - tracefs/debugfs support와 mounted state만 확인하고 tracing enable/mount는 보류
+4. v160 Wi-Fi Baseline Refresh
+   - v157-v159 커널 기능 baseline 이후 Android/TWRP/native Wi-Fi 자료를 다시 수집
 
 ---
 
