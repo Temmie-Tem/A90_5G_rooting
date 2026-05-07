@@ -8,6 +8,12 @@
     { label, summary, { d1, d2, d3, d4, d5 } }
 
 static const struct a90_changelog_entry changelog_entries[] = {
+    ENTRY("0.9.50 v150", "HOST DISCONNECT CLASSIFIER",
+          "0.9.50 v150 HOST DISCONNECT CLASSIFIER",
+          "Adds host-side ACM/NCM reachability classifier",
+          "Separates bridge, serial, NCM, and device recorder evidence",
+          "Writes JSON and Markdown disconnect reports",
+          "Keeps device-side longsoak supervisor behavior unchanged"),
     ENTRY("0.9.49 v149", "LONG SOAK SUPERVISOR",
           "0.9.49 v149 LONG SOAK SUPERVISOR",
           "Adds recorder health and stale-sample detection",
