@@ -8,6 +8,12 @@
     { label, summary, { d1, d2, d3, d4, d5 } }
 
 static const struct a90_changelog_entry changelog_entries[] = {
+    ENTRY("0.9.40 v140", "CPUSTRESS APP API",
+          "0.9.40 v140 CPUSTRESS APP API",
+          "Moves CPU stress app lifecycle into a module",
+          "Keeps screen menu stress UX unchanged",
+          "Keeps helper process-group cleanup policy",
+          "Preserves v139 controller behavior"),
     ENTRY("0.9.39 v139", "AUTOHUD CONTROLLER",
           "0.9.39 v139 AUTOHUD CONTROLLER",
           "Groups auto-HUD loop state",
