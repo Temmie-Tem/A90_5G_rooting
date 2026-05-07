@@ -8,6 +8,12 @@
     { label, summary, { d1, d2, d3, d4, d5 } }
 
 static const struct a90_changelog_entry changelog_entries[] = {
+    ENTRY("0.9.44 v144", "INPUTMON APP API",
+          "0.9.44 v144 INPUTMON APP API",
+          "Moves inputmonitor foreground command loop into inputmon app module",
+          "Keeps HUD stop and restore as small lifecycle callbacks",
+          "Reduces auto-HUD include-tree foreground app residue",
+          "Preserves inputmonitor raw and gesture UI behavior"),
     ENTRY("0.9.43 v143", "INPUT COMMAND API",
           "0.9.43 v143 INPUT COMMAND API",
           "Moves waitkey command handler into input command module",

@@ -46,4 +46,15 @@ void a90_app_inputmon_tick_state(struct a90_app_inputmon_state *monitor,
 int a90_app_inputmon_draw_state(const struct a90_app_inputmon_state *monitor);
 int a90_app_inputmon_draw_layout(void);
 
+struct a90_app_inputmon_foreground_hooks {
+    void (*prepare)(void *userdata);
+    void (*restore)(void *userdata, bool restore_hud);
+    void *userdata;
+};
+
+int a90_app_inputmon_run_foreground(
+    char **argv,
+    int argc,
+    const struct a90_app_inputmon_foreground_hooks *hooks);
+
 #endif

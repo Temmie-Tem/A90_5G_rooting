@@ -1,9 +1,11 @@
 #include "a90_app_inputmon.h"
 
 #include <errno.h>
+#include <poll.h>
 #include <stdint.h>
 #include <stdio.h>
 #include <string.h>
+#include <unistd.h>
 
 #include "a90_console.h"
 #include "a90_draw.h"
@@ -674,4 +676,176 @@ int a90_app_inputmon_draw_layout(void) {
         return negative_errno_or(EIO);
     }
     return 0;
+}
+
+static void inputmon_foreground_prepare(
+        const struct a90_app_inputmon_foreground_hooks *hooks) {
+    if (hooks != NULL && hooks->prepare != NULL) {
+        hooks->prepare(hooks->userdata);
+    }
+}
+
+static void inputmon_foreground_restore(
+        const struct a90_app_inputmon_foreground_hooks *hooks,
+        bool restore_hud) {
+    if (hooks != NULL && hooks->restore != NULL) {
+        hooks->restore(hooks->userdata, restore_hud);
+    }
+}
+
+static int inputmon_foreground_close_restore(
+        struct a90_input_context *ctx,
+        const struct a90_app_inputmon_foreground_hooks *hooks,
+        bool restore_hud,
+        int rc) {
+    if (ctx != NULL) {
+        a90_input_close(ctx);
+    }
+    inputmon_foreground_restore(hooks, restore_hud);
+    return rc;
+}
+
+int a90_app_inputmon_run_foreground(
+        char **argv,
+        int argc,
+        const struct a90_app_inputmon_foreground_hooks *hooks) {
+    struct a90_app_inputmon_state monitor;
+    struct a90_input_context ctx;
+    int target = 24;
+    int seen = 0;
+    int draw_rc;
+
+    if (argc >= 2 && sscanf(argv[1], "%d", &target) != 1) {
+        a90_console_printf("usage: inputmonitor [events]\r\n");
+        return -EINVAL;
+    }
+    if (target < 0) {
+        target = 0;
+    }
+
+    inputmon_foreground_prepare(hooks);
+    a90_app_inputmon_reset_state(&monitor);
+
+    if (a90_input_open(&ctx, "inputmonitor") < 0) {
+        inputmon_foreground_restore(hooks, true);
+        return negative_errno_or(ENOENT);
+    }
+
+    a90_console_printf("inputmonitor: raw DOWN/UP/REPEAT + gesture decode\r\n");
+    a90_console_printf("inputmonitor: events=%d, 0 means until all-buttons/q/Ctrl-C\r\n", target);
+    a90_console_printf("inputmonitor: all-buttons exits only in events=0 mode\r\n");
+
+    draw_rc = a90_app_inputmon_draw_state(&monitor);
+    if (draw_rc < 0) {
+        return inputmon_foreground_close_restore(&ctx, hooks, true, draw_rc);
+    }
+
+    while (target == 0 || seen < target) {
+        struct pollfd fds[3];
+        int timeout_ms;
+        int poll_rc;
+        int index;
+
+        a90_app_inputmon_tick_state(&monitor, true);
+        a90_app_inputmon_draw_state(&monitor);
+
+        fds[0].fd = ctx.fd0;
+        fds[0].events = POLLIN;
+        fds[0].revents = 0;
+        fds[1].fd = ctx.fd3;
+        fds[1].events = POLLIN;
+        fds[1].revents = 0;
+        fds[2].fd = STDIN_FILENO;
+        fds[2].events = POLLIN;
+        fds[2].revents = 0;
+
+        timeout_ms = a90_input_decoder_timeout_ms(&monitor.decoder);
+        poll_rc = poll(fds, 3, timeout_ms);
+        if (poll_rc < 0) {
+            int saved_errno = errno;
+
+            if (errno == EINTR) {
+                continue;
+            }
+            a90_console_printf("inputmonitor: poll: %s\r\n", strerror(saved_errno));
+            return inputmon_foreground_close_restore(
+                &ctx,
+                hooks,
+                true,
+                -saved_errno);
+        }
+
+        if (poll_rc == 0) {
+            continue;
+        }
+
+        if ((fds[2].revents & POLLIN) != 0) {
+            enum a90_cancel_kind cancel = a90_console_read_cancel_event();
+
+            if (cancel != CANCEL_NONE) {
+                return inputmon_foreground_close_restore(
+                    &ctx,
+                    hooks,
+                    true,
+                    a90_console_cancelled("inputmonitor", cancel));
+            }
+        }
+
+        for (index = 0; index < 2; ++index) {
+            if ((fds[index].revents & POLLIN) != 0) {
+                struct input_event event;
+                ssize_t rd;
+
+                while ((rd = read(fds[index].fd, &event, sizeof(event))) ==
+                       (ssize_t)sizeof(event)) {
+                    unsigned int before_count = monitor.event_count;
+
+                    if (a90_app_inputmon_feed_state(&monitor,
+                                                    &event,
+                                                    index,
+                                                    true,
+                                                    target == 0)) {
+                        a90_app_inputmon_draw_state(&monitor);
+                        return inputmon_foreground_close_restore(
+                            &ctx,
+                            hooks,
+                            true,
+                            0);
+                    }
+                    if (monitor.event_count > before_count) {
+                        ++seen;
+                    }
+                    a90_app_inputmon_draw_state(&monitor);
+                    if (target > 0 && seen >= target) {
+                        break;
+                    }
+                }
+
+                if (rd < 0 && errno != EAGAIN && errno != EWOULDBLOCK) {
+                    int saved_errno = errno;
+
+                    a90_console_printf("inputmonitor: read: %s\r\n",
+                                       strerror(saved_errno));
+                    return inputmon_foreground_close_restore(
+                        &ctx,
+                        hooks,
+                        true,
+                        -saved_errno);
+                }
+            }
+            if ((fds[index].revents & (POLLERR | POLLHUP | POLLNVAL)) != 0) {
+                a90_console_printf("inputmonitor: poll error revents=0x%x\r\n",
+                                   fds[index].revents);
+                return inputmon_foreground_close_restore(
+                    &ctx,
+                    hooks,
+                    true,
+                    -EIO);
+            }
+        }
+    }
+
+    a90_app_inputmon_tick_state(&monitor, true);
+    a90_app_inputmon_draw_state(&monitor);
+    return inputmon_foreground_close_restore(&ctx, hooks, true, 0);
 }
