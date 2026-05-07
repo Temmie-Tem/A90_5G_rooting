@@ -8,6 +8,12 @@
     { label, summary, { d1, d2, d3, d4, d5 } }
 
 static const struct a90_changelog_entry changelog_entries[] = {
+    ENTRY("0.9.59 v159", "TRACEFS FEASIBILITY",
+          "0.9.59 v159 TRACEFS FEASIBILITY",
+          "Adds read-only tracefs and ftrace feasibility command",
+          "Reports tracefs/debugfs support, mount state, current tracer, and readable samples",
+          "Adds tracefs summary to status and bootstatus",
+          "Keeps tracefs mount, tracing_on, and current_tracer writes disabled"),
     ENTRY("0.9.58 v158", "WATCHDOG FEASIBILITY",
           "0.9.58 v158 WATCHDOG FEASIBILITY",
           "Adds read-only watchdog inventory command",

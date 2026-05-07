@@ -945,11 +945,11 @@ Samsung bootloader
 
 상세 실행 큐는 `docs/plans/NATIVE_INIT_TASK_QUEUE_2026-04-25.md`를 따른다.
 
-1. v159 Tracefs/Ftrace Feasibility
-   - 기준 결과: `docs/reports/NATIVE_INIT_V158_WATCHDOG_FEASIBILITY_2026-05-08.md`
-   - tracefs/debugfs support와 mounted state만 확인하고 tracing enable/mount는 보류
-2. v160 Wi-Fi Baseline Refresh
+1. v160 Wi-Fi Baseline Refresh
+   - 기준 결과: `docs/reports/NATIVE_INIT_V159_TRACEFS_FEASIBILITY_2026-05-08.md`
    - v157-v159 커널 기능 baseline 이후 Android/TWRP/native Wi-Fi 자료를 다시 수집
+2. v161 Network Exposure Hardening
+   - Wi-Fi/NCM을 USB-local 밖으로 넓히기 전 인증/ACL/token/bind 정책을 다시 검토
 
 ---
 

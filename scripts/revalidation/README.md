@@ -74,6 +74,9 @@
 - `watchdog_feas_collect.py`
   - v158 watchdog feasibility host collector
   - captures `watchdoginv` summary/full/paths with private 0700/0600 output
+- `tracefs_feas_collect.py`
+  - v159 tracefs/ftrace feasibility host collector
+  - captures `tracefs` summary/full/paths with private 0700/0600 output
 - `diag_collect.py`
   - v102 diagnostics/log bundle host collector
   - v116 기준 기본 실행 시 `status`, `bootstatus`, `selftest verbose`, `runtime`, `helpers verbose`, `helpers verify`, `service list`, `netservice status`, `rshell audit`, `diag paths` device evidence를 함께 수집
