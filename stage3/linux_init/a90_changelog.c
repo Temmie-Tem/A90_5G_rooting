@@ -8,6 +8,12 @@
     { label, summary, { d1, d2, d3, d4, d5 } }
 
 static const struct a90_changelog_entry changelog_entries[] = {
+    ENTRY("0.9.54 v154", "KERNEL INVENTORY",
+          "0.9.54 v154 KERNEL INVENTORY",
+          "Adds read-only kernel capability inventory command",
+          "Reports config.gz, filesystems, mounts, cgroup, pstore, and tracefs",
+          "Maps thermal, power_supply, watchdog, and USB gadget presence",
+          "Keeps pstore, tracefs, watchdog, and network controls read-only"),
     ENTRY("0.9.53 v153", "LONGSOAK SECURITY",
           "0.9.53 v153 LONGSOAK SECURITY",
           "Adds bounded device-owned longsoak export",
