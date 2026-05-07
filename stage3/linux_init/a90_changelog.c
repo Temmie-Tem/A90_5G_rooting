@@ -8,6 +8,12 @@
     { label, summary, { d1, d2, d3, d4, d5 } }
 
 static const struct a90_changelog_entry changelog_entries[] = {
+    ENTRY("0.9.55 v155", "KERNEL DIAG BUNDLE",
+          "0.9.55 v155 KERNEL DIAG BUNDLE",
+          "Adds host kernel diagnostics evidence bundle",
+          "Captures kernelinv, diag, longsoak, exposure, wifiinv, and wififeas",
+          "Keeps pstore, tracefs, watchdog, Wi-Fi, and network controls read-only",
+          "Prepares evidence for thermal, pstore, watchdog, and tracefs decisions"),
     ENTRY("0.9.54 v154", "KERNEL INVENTORY",
           "0.9.54 v154 KERNEL INVENTORY",
           "Adds read-only kernel capability inventory command",

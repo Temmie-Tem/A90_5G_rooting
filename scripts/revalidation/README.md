@@ -62,6 +62,9 @@
 - `kernel_inventory_collect.py`
   - v154 kernel capability inventory host collector
   - captures `kernelinv` summary/full/paths with private 0700/0600 output
+- `kernel_diag_bundle.py`
+  - v155 kernel diagnostics evidence bundle
+  - captures `kernelinv`, `diag`, `longsoak`, `exposure`, `wifiinv`, and `wififeas` read-only outputs
 - `diag_collect.py`
   - v102 diagnostics/log bundle host collector
   - v116 기준 기본 실행 시 `status`, `bootstatus`, `selftest verbose`, `runtime`, `helpers verbose`, `helpers verify`, `service list`, `netservice status`, `rshell audit`, `diag paths` device evidence를 함께 수집
