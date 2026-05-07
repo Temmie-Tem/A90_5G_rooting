@@ -8,6 +8,12 @@
     { label, summary, { d1, d2, d3, d4, d5 } }
 
 static const struct a90_changelog_entry changelog_entries[] = {
+    ENTRY("0.9.42 v142", "CUTOUT APP API",
+          "0.9.42 v142 CUTOUT APP API",
+          "Moves cutout calibration state into displaytest module",
+          "Moves cutout key event handling into app API",
+          "Keeps displaytest/cutout UX unchanged",
+          "Preserves v141 renderer split"),
     ENTRY("0.9.41 v141", "LOG NETWORK APP API",
           "0.9.41 v141 LOG NETWORK APP API",
           "Moves LOG summary renderer into a module",

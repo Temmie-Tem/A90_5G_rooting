@@ -7,6 +7,7 @@
 
 #include "a90_config.h"
 #include "a90_draw.h"
+#include "a90_input.h"
 #include "a90_kms.h"
 #include "a90_menu.h"
 #include "a90_util.h"
@@ -47,7 +48,7 @@ static int app_displaytest_clamp_int(int value, int min_value, int max_value) {
     return value;
 }
 
-static void app_displaytest_cutout_clamp(struct cutout_calibration_state *cal) {
+void a90_app_displaytest_cutout_clamp(struct cutout_calibration_state *cal) {
     int width = (int)app_displaytest_width_or(1080);
     int height = (int)app_displaytest_height_or(2400);
     int min_size = width / 40;
@@ -69,7 +70,7 @@ static void app_displaytest_cutout_clamp(struct cutout_calibration_state *cal) {
     }
 }
 
-static void app_displaytest_cutout_init(struct cutout_calibration_state *cal) {
+void a90_app_displaytest_cutout_default(struct cutout_calibration_state *cal) {
     int width = (int)app_displaytest_width_or(1080);
     int height = (int)app_displaytest_height_or(2400);
 
@@ -77,7 +78,99 @@ static void app_displaytest_cutout_init(struct cutout_calibration_state *cal) {
     cal->center_y = height / 30;
     cal->size = width / 22;
     cal->field = CUTOUT_CAL_FIELD_Y;
-    app_displaytest_cutout_clamp(cal);
+    a90_app_displaytest_cutout_clamp(cal);
+}
+
+static void app_displaytest_cutout_adjust(struct cutout_calibration_state *cal,
+                                          int direction) {
+    int step = 4;
+
+    if (cal->field == CUTOUT_CAL_FIELD_SIZE) {
+        step = 2;
+    }
+    switch (cal->field) {
+    case CUTOUT_CAL_FIELD_X:
+        cal->center_x += direction * step;
+        break;
+    case CUTOUT_CAL_FIELD_Y:
+        cal->center_y += direction * step;
+        break;
+    case CUTOUT_CAL_FIELD_SIZE:
+        cal->size += direction * step;
+        break;
+    default:
+        break;
+    }
+    a90_app_displaytest_cutout_clamp(cal);
+}
+
+void a90_app_displaytest_cutout_reset(struct a90_app_cutout_calibration *state) {
+    if (state == NULL) {
+        return;
+    }
+    a90_app_displaytest_cutout_default(&state->cal);
+    state->down_mask = 0;
+    state->power_down_ms = 0;
+    state->last_power_up_ms = 0;
+}
+
+bool a90_app_displaytest_cutout_feed_event(struct a90_app_cutout_calibration *state,
+                                           const struct input_event *event) {
+    unsigned int mask;
+    long now_ms;
+
+    if (state == NULL || event == NULL || event->type != EV_KEY || event->value == 2) {
+        return false;
+    }
+
+    mask = a90_input_button_mask_from_key(event->code);
+    if (mask == 0) {
+        return false;
+    }
+
+    now_ms = monotonic_millis();
+    if (event->value == 1) {
+        state->down_mask |= mask;
+        if ((state->down_mask & (A90_INPUT_BUTTON_VOLUP | A90_INPUT_BUTTON_VOLDOWN)) ==
+            (A90_INPUT_BUTTON_VOLUP | A90_INPUT_BUTTON_VOLDOWN)) {
+            return true;
+        }
+        if (event->code == KEY_VOLUMEUP) {
+            app_displaytest_cutout_adjust(&state->cal, -1);
+        } else if (event->code == KEY_VOLUMEDOWN) {
+            app_displaytest_cutout_adjust(&state->cal, 1);
+        } else if (event->code == KEY_POWER) {
+            state->power_down_ms = now_ms;
+        }
+        return false;
+    }
+
+    state->down_mask &= ~mask;
+    if (event->code == KEY_POWER) {
+        long duration_ms = state->power_down_ms > 0 ? now_ms - state->power_down_ms : 0;
+
+        state->power_down_ms = 0;
+        if (duration_ms >= A90_INPUT_LONG_PRESS_MS) {
+            return true;
+        }
+        if (state->last_power_up_ms > 0 &&
+            now_ms - state->last_power_up_ms <= A90_INPUT_DOUBLE_CLICK_MS) {
+            state->last_power_up_ms = 0;
+            return true;
+        }
+        state->last_power_up_ms = now_ms;
+        state->cal.field = (enum cutout_calibration_field)
+                           (((int)state->cal.field + 1) % CUTOUT_CAL_FIELD_COUNT);
+    }
+    return false;
+}
+
+int a90_app_displaytest_cutout_draw(const struct a90_app_cutout_calibration *state,
+                                    bool interactive) {
+    if (state == NULL) {
+        return -EINVAL;
+    }
+    return a90_app_displaytest_draw_cutout_calibration(&state->cal, interactive);
 }
 
 static void display_text_next_chunk(const char *line,
@@ -170,7 +263,7 @@ int a90_app_displaytest_draw_cutout_calibration(const struct cutout_calibration_
     uint32_t panel_w;
     uint32_t footer_y;
 
-    app_displaytest_cutout_clamp(&local);
+    a90_app_displaytest_cutout_clamp(&local);
     if (a90_kms_begin_frame(0x05070c) < 0) {
         return negative_errno_or(ENODEV);
     }
@@ -390,7 +483,7 @@ int a90_app_displaytest_draw_page(unsigned int page_index,
     if (page_index == 2) {
         struct cutout_calibration_state cal;
 
-        app_displaytest_cutout_init(&cal);
+        a90_app_displaytest_cutout_default(&cal);
         return a90_app_displaytest_draw_cutout_calibration(&cal, false);
     }
 
