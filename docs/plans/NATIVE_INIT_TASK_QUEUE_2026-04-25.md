@@ -5,7 +5,7 @@
 
 ## 현재 고정 기준점
 
-- latest verified build: `A90 Linux init 0.9.49 (v149)`
+- latest verified build: `A90 Linux init 0.9.52 (v152)`
 - official version: `0.9.52`
 - build tag: `v152`
 - creator: `made by temmie0214`
