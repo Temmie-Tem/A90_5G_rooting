@@ -15,7 +15,7 @@ from typing import Callable
 
 REPO_ROOT = Path(__file__).resolve().parents[2]
 A90CTL = REPO_ROOT / "scripts" / "revalidation" / "a90ctl.py"
-DEFAULT_EXPECT_VERSION = "A90 Linux init 0.9.37 (v137)"
+DEFAULT_EXPECT_VERSION = "A90 Linux init 0.9.38 (v138)"
 
 DEFAULT_COMMANDS = [
     "version",
@@ -63,7 +63,7 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--port", type=int, default=54321, help="serial bridge TCP port")
     parser.add_argument("--timeout", type=float, default=45.0, help="per-command timeout seconds")
     parser.add_argument("--expect-version", default=DEFAULT_EXPECT_VERSION)
-    parser.add_argument("--out", default="tmp/validation/native-integrated-v137.txt")
+    parser.add_argument("--out", default="tmp/validation/native-integrated-v138.txt")
     parser.add_argument("--json-out", default=None)
     parser.add_argument("--command", action="append", dest="commands", help="override default command list; may be repeated")
     return parser.parse_args()

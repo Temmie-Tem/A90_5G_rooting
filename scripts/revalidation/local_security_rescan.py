@@ -86,9 +86,9 @@ def run_checks() -> list[Check]:
     netservice = read("stage3/linux_init/a90_netservice.c")
     helper = read("stage3/linux_init/a90_helper.c")
     controller = read("stage3/linux_init/a90_controller.c")
-    dispatch = read("stage3/linux_init/v137/80_shell_dispatch.inc.c")
-    shell_basic = read("stage3/linux_init/v137/60_shell_basic_commands.inc.c")
-    storage_net = read("stage3/linux_init/v137/70_storage_android_net.inc.c")
+    dispatch = read("stage3/linux_init/v138/80_shell_dispatch.inc.c")
+    shell_basic = read("stage3/linux_init/v138/60_shell_basic_commands.inc.c")
+    storage_net = read("stage3/linux_init/v138/70_storage_android_net.inc.c")
     serial_bridge = read("scripts/revalidation/serial_tcp_bridge.py")
     native_soak = read("scripts/revalidation/native_soak_validate.py")
     integrated_validate = read("scripts/revalidation/native_integrated_validate.py")
@@ -104,7 +104,7 @@ def run_checks() -> list[Check]:
         "stage3/linux_init/v132/40_menu_apps.inc.c",
         "stage3/linux_init/v133/40_menu_apps.inc.c",
         "stage3/linux_init/v134/40_menu_apps.inc.c",
-        "stage3/linux_init/v137/40_menu_apps.inc.c",
+        "stage3/linux_init/v138/40_menu_apps.inc.c",
     ]
 
     active_network_paths = [
@@ -112,8 +112,8 @@ def run_checks() -> list[Check]:
         "stage3/linux_init/a90_tcpctl.c",
         "stage3/linux_init/a90_netservice.c",
         "stage3/linux_init/helpers/a90_rshell.c",
-        "stage3/linux_init/v137/70_storage_android_net.inc.c",
-        "stage3/linux_init/v137/80_shell_dispatch.inc.c",
+        "stage3/linux_init/v138/70_storage_android_net.inc.c",
+        "stage3/linux_init/v138/80_shell_dispatch.inc.c",
     ]
     active_root_ssh_patterns = r"PermitRootLogin yes|PasswordAuthentication yes|root:root|password[:= ]+root|passwd root"
 
@@ -267,7 +267,7 @@ def run_checks() -> list[Check]:
         "active host scripts do not set known root SSH credentials",
         status_from(not active_refs),
         "No active `scripts/revalidation` or `mkbootimg/gki/certify_bootimg.py` match for default root SSH credential patterns." if not active_refs else ", ".join(active_refs[:8]),
-        "Legacy archived docs/scripts are excluded from active v137 runtime/tooling scope.",
+        "Legacy archived docs/scripts are excluded from active v138 runtime/tooling scope.",
     ))
 
     checks.append(Check(
@@ -296,7 +296,7 @@ def run_checks() -> list[Check]:
         "S013",
         "volume hold repeat timer clears when a screen cannot consume repeats",
         status_from(menu_hold_ok),
-        "Retained v131-v137 auto-HUD loops clear `menu_hold_code` and `menu_hold_next_ms` when a timed repeat is not consumed.",
+        "Retained v131-v138 auto-HUD loops clear `menu_hold_code` and `menu_hold_next_ms` when a timed repeat is not consumed.",
         "Covers F032 zero-timeout poll/redraw spin in non-repeat screens.",
     ))
 
@@ -362,7 +362,7 @@ def run_checks() -> list[Check]:
             and "screenmenu" in integrated_validate
             and "hide" in integrated_validate
             and "cwd=REPO_ROOT" in integrated_validate
-            and "DEFAULT_EXPECT_VERSION = \"A90 Linux init 0.9.37 (v137)\"" in integrated_validate
+            and "DEFAULT_EXPECT_VERSION = \"A90 Linux init 0.9.38 (v138)\"" in integrated_validate
         ),
         "`native_integrated_validate.py` covers selftest, pid1guard, exposure, policycheck, service/network status, and UI nonblocking checks.",
         "Provides one host gate before Wi-Fi/network-facing changes or large controller refactors.",
@@ -385,14 +385,14 @@ def render_report(checks: list[Check]) -> str:
         counts[check.status] = counts.get(check.status, 0) + 1
 
     lines = [
-        "# v137 Fresh Local Security Rescan",
+        "# v138 Fresh Local Security Rescan",
         "",
-        "Date: 2026-05-07",
-        "Baseline: `A90 Linux init 0.9.37 (v137)`",
+        "Date: 2026-05-08",
+        "Baseline: `A90 Linux init 0.9.38 (v138)`",
         f"Git HEAD: `{run_git_head()}`",
-        "Scope: active v137 native-init source, shared modules, current revalidation host tools, and known root-control surfaces.",
+        "Scope: active v138 native-init source, shared modules, current revalidation host tools, and known root-control surfaces.",
         "",
-        "This is a local targeted rescan, not a Codex Cloud scanner replacement. It checks the previously imported F001-F033 pattern families, exposure guardrails, and v137 controller policy matrix wiring against the current repository state.",
+        "This is a local targeted rescan, not a Codex Cloud scanner replacement. It checks the previously imported F001-F033 pattern families, exposure guardrails, and v138 controller policy matrix wiring against the current repository state.",
         "",
         "## Summary",
         "",
@@ -414,14 +414,14 @@ def render_report(checks: list[Check]) -> str:
         "",
         "## Interpretation",
         "",
-        "The local targeted scan found no new implementation blocker in the active v137 code path. The remaining warning is the already accepted trusted-lab boundary for physical USB ACM/local serial bridge control.",
+        "The local targeted scan found no new implementation blocker in the active v138 code path. The remaining warning is the already accepted trusted-lab boundary for physical USB ACM/local serial bridge control.",
         "",
         "Before any Wi-Fi or broader network exposure, rerun this local scan and a Codex Cloud security scan, then revisit F021/F030 if the control channel is no longer USB-local/localhost-only.",
         "",
         "## Reproduction",
         "",
         "```bash",
-        "python3 scripts/revalidation/local_security_rescan.py --out docs/security/SECURITY_FRESH_SCAN_V137_2026-05-07.md",
+        "python3 scripts/revalidation/local_security_rescan.py --out docs/security/SECURITY_FRESH_SCAN_V138_2026-05-08.md",
         "git diff --check",
         "```",
         "",
