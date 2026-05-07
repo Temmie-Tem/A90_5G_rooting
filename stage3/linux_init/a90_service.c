@@ -14,9 +14,11 @@ static pid_t service_pids[A90_SERVICE_COUNT] = {
     -1,
     -1,
     -1,
+    -1,
 };
 
 static bool service_enabled[A90_SERVICE_COUNT] = {
+    false,
     false,
     false,
     false,
@@ -72,6 +74,14 @@ static const struct a90_service_descriptor service_descriptors[A90_SERVICE_COUNT
             A90_SERVICE_FLAG_DANGEROUS,
         A90_RSHELL_FLAG_NAME,
     },
+    {
+        A90_SERVICE_LONGSOAK,
+        "longsoak",
+        "device-side long soak recorder",
+        A90_SERVICE_KIND_MONITOR,
+        A90_SERVICE_FLAG_BOOT_OPTIONAL,
+        NULL,
+    },
 };
 
 static const struct a90_service_descriptor *service_descriptor(enum a90_service_id service) {
@@ -103,6 +113,8 @@ const char *a90_service_kind_name(enum a90_service_kind kind) {
         return "remote";
     case A90_SERVICE_KIND_ANDROID:
         return "android";
+    case A90_SERVICE_KIND_MONITOR:
+        return "monitor";
     default:
         return "unknown";
     }
@@ -188,6 +200,8 @@ static const char *service_name_for_log(enum a90_service_id service) {
         return "adbd";
     case A90_SERVICE_RSHELL:
         return "rshell";
+    case A90_SERVICE_LONGSOAK:
+        return "longsoak";
     default:
         return "unknown";
     }

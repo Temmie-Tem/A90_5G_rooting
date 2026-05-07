@@ -16,7 +16,7 @@ REPO_ROOT = Path(__file__).resolve().parents[2]
 A90CTL = REPO_ROOT / "scripts" / "revalidation" / "a90ctl.py"
 INTEGRATED_VALIDATE = REPO_ROOT / "scripts" / "revalidation" / "native_integrated_validate.py"
 
-DEFAULT_EXPECT_VERSION = "A90 Linux init 0.9.45 (v145)"
+DEFAULT_EXPECT_VERSION = "A90 Linux init 0.9.46 (v146)"
 
 UI_COMMANDS = [
     "screenmenu",
@@ -74,7 +74,7 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--cycles", type=int, default=10, help="focused soak cycles")
     parser.add_argument("--sleep", type=float, default=0.5, help="seconds between focused cycles")
     parser.add_argument("--expect-version", default=DEFAULT_EXPECT_VERSION)
-    parser.add_argument("--out", default="tmp/soak/native-rc-v145.txt", help="text transcript path")
+    parser.add_argument("--out", default="tmp/soak/native-rc-v146.txt", help="text transcript path")
     parser.add_argument("--json-out", default=None, help="optional JSON summary path")
     parser.add_argument("--keep-going", action="store_true", help="continue after failures")
     parser.add_argument("--skip-integrated", action="store_true", help="skip native_integrated_validate.py phase")

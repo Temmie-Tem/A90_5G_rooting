@@ -1,8 +1,8 @@
 #ifndef A90_CONFIG_H
 #define A90_CONFIG_H
 
-#define INIT_VERSION "0.9.45"
-#define INIT_BUILD "v145"
+#define INIT_VERSION "0.9.46"
+#define INIT_BUILD "v146"
 #define INIT_CREATOR "made by temmie0214"
 #define INIT_BANNER "A90 Linux init " INIT_VERSION " (" INIT_BUILD ")"
 #define BOOT_SPLASH_SECONDS 2
@@ -45,6 +45,12 @@
 #define A90_RSHELL_FLAG_NAME "remote-shell.enabled"
 #define A90_RSHELL_TOKEN_NAME "remote-shell.token"
 #define CPUSTRESS_HELPER "/bin/a90_cpustress"
+#define A90_LONGSOAK_HELPER "/bin/a90_longsoak"
+#define A90_LONGSOAK_DEFAULT_INTERVAL_SEC 60
+#define A90_LONGSOAK_MIN_INTERVAL_SEC 1
+#define A90_LONGSOAK_MAX_INTERVAL_SEC 3600
+#define A90_LONGSOAK_TAIL_DEFAULT_LINES 8
+#define A90_LONGSOAK_TAIL_MAX_LINES 64
 #define CMDV1X_MAX_ARGS 32
 #define SD_BLOCK_NAME "mmcblk0p1"
 #define SD_MOUNT_POINT "/mnt/sdext"

@@ -9,6 +9,7 @@ enum a90_service_id {
     A90_SERVICE_TCPCTL,
     A90_SERVICE_ADBD,
     A90_SERVICE_RSHELL,
+    A90_SERVICE_LONGSOAK,
     A90_SERVICE_COUNT
 };
 
@@ -17,6 +18,7 @@ enum a90_service_kind {
     A90_SERVICE_KIND_NETWORK,
     A90_SERVICE_KIND_REMOTE,
     A90_SERVICE_KIND_ANDROID,
+    A90_SERVICE_KIND_MONITOR,
 };
 
 enum a90_service_flag {

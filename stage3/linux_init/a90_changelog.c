@@ -8,6 +8,12 @@
     { label, summary, { d1, d2, d3, d4, d5 } }
 
 static const struct a90_changelog_entry changelog_entries[] = {
+    ENTRY("0.9.46 v146", "LONG SOAK FOUNDATION",
+          "0.9.46 v146 LONG SOAK FOUNDATION",
+          "Adds device-side long soak recorder helper",
+          "Adds longsoak shell/service control",
+          "Adds host long soak observation harness",
+          "Keeps recorder alive across host disconnects"),
     ENTRY("0.9.45 v145", "INPUT CANCEL HARNESS",
           "0.9.45 v145 INPUT CANCEL HARNESS",
           "Adds host validation for waitkey q cancel path",
