@@ -3,6 +3,8 @@
 Source CSV: `docs/security/codex-security-findings-2026-05-05T16-26-57.929Z.csv`
 Source split file: `docs/security/CODEX_SECURITY_FINDINGS_DETAIL_TEMPLATE_2026-05-06.md`
 Fresh scan follow-up: `F032` and `F033` were imported from the 2026-05-07 Codex Cloud scan.
+Longsoak scan follow-up: `F034` through `F036` were imported from `docs/security/codex-security-findings-2026-05-07T20-00-44.982Z.csv`.
+Longsoak bundle follow-up: `F037` was imported from the 2026-05-08 Codex Cloud finding detail pasted by the operator.
 
 이 디렉터리는 Codex Cloud security finding 원문을 이슈별 파일로 분리한 보관소입니다.
 관계 분석과 수정 큐는 별도 문서에서 이 `FNNN` 번호를 참조합니다.
@@ -64,6 +66,10 @@ Fresh scan follow-up: `F032` and `F033` were imported from the 2026-05-07 Codex 
 | F031 | `informational` | `mitigated-host-batch3` | Command injection via unquoted by_name in su -c commands | [`F031-command-injection-via-unquoted-by-name-in-su-c-commands.md`](F031-command-injection-via-unquoted-by-name-in-su-c-commands.md) | scripts/revalidation/capture_baseline.sh |
 | F032 | `low` | `mitigated-retained-source` | Volume hold timer can spin autohud in non-repeat screens | [`F032-volume-hold-timer-can-spin-autohud-in-non-repeat-screens.md`](F032-volume-hold-timer-can-spin-autohud-in-non-repeat-screens.md) | stage3/linux_init/v131/40_menu_apps.inc.c <br> stage3/linux_init/v132/40_menu_apps.inc.c <br> stage3/linux_init/v133/40_menu_apps.inc.c |
 | F033 | `low` | `mitigated-shared-controller` | Menu policy allows mountsd side effects with no subcommand | [`F033-menu-policy-allows-mountsd-side-effects-with-no-subcommand.md`](F033-menu-policy-allows-mountsd-side-effects-with-no-subcommand.md) | stage3/linux_init/a90_controller.c <br> stage3/linux_init/a90_storage.c <br> stage3/linux_init/v128/80_shell_dispatch.inc.c |
+| F034 | `medium` | `planned-v153` | Unvalidated device path triggers unbounded host cat | [`F034-unvalidated-device-path-triggers-unbounded-host-cat.md`](F034-unvalidated-device-path-triggers-unbounded-host-cat.md) | scripts/revalidation/native_long_soak.py <br> scripts/revalidation/a90ctl.py <br> stage3/linux_init/v148/60_shell_basic_commands.inc.c |
+| F035 | `medium` | `planned-v153` | Longsoak helper follows symlinks when writing root logs | [`F035-longsoak-helper-follows-symlinks-when-writing-root-logs.md`](F035-longsoak-helper-follows-symlinks-when-writing-root-logs.md) | stage3/linux_init/a90_longsoak.c <br> stage3/linux_init/helpers/a90_longsoak.c |
+| F036 | `low` | `planned-v153` | Longsoak status treats '-' sentinel as a file path | [`F036-longsoak-status-treats-sentinel-as-a-file-path.md`](F036-longsoak-status-treats-sentinel-as-a-file-path.md) | stage3/linux_init/a90_longsoak.c <br> stage3/linux_init/v147/60_shell_basic_commands.inc.c |
+| F037 | `medium` | `planned-v153` | Long-soak bundle writes evidence without private file handling | [`F037-long-soak-bundle-writes-evidence-without-private-file-handling.md`](F037-long-soak-bundle-writes-evidence-without-private-file-handling.md) | scripts/revalidation/native_long_soak_bundle.py |
 
 ## Notes
 
