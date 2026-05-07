@@ -25,6 +25,13 @@ static char longsoak_path[PATH_MAX];
 static char longsoak_session[64];
 static int longsoak_interval_sec;
 
+static long longsoak_expected_max_age_ms(int interval_sec) {
+    if (interval_sec <= 0) {
+        interval_sec = A90_LONGSOAK_DEFAULT_INTERVAL_SEC;
+    }
+    return (long)interval_sec * 3000L + 5000L;
+}
+
 static int longsoak_parse_positive_int(const char *text, int *out) {
     char *end = NULL;
     long value;
@@ -155,9 +162,11 @@ int a90_longsoak_get_status(struct a90_longsoak_status *out) {
     snprintf(out->session, sizeof(out->session), "-");
     snprintf(out->path, sizeof(out->path), "-");
     snprintf(out->last_type, sizeof(out->last_type), "-");
+    snprintf(out->health, sizeof(out->health), "stopped");
     out->running = longsoak_is_running();
     out->pid = a90_service_pid(A90_SERVICE_LONGSOAK);
     out->interval_sec = longsoak_interval_sec;
+    out->expected_max_age_ms = longsoak_expected_max_age_ms(out->interval_sec);
     if (longsoak_session[0] != '\0') {
         snprintf(out->session, sizeof(out->session), "%s", longsoak_session);
     }
@@ -165,6 +174,16 @@ int a90_longsoak_get_status(struct a90_longsoak_status *out) {
         snprintf(out->path, sizeof(out->path), "%s", longsoak_path);
     }
     longsoak_scan_file(out);
+    if (out->running) {
+        if (out->samples == 0) {
+            snprintf(out->health, sizeof(out->health), "warming");
+        } else if (out->last_age_ms > out->expected_max_age_ms) {
+            out->stale = true;
+            snprintf(out->health, sizeof(out->health), "stale");
+        } else {
+            snprintf(out->health, sizeof(out->health), "ok");
+        }
+    }
     return 0;
 }
 
@@ -180,7 +199,8 @@ void a90_longsoak_summary(char *out, size_t out_size) {
     }
     snprintf(out,
              out_size,
-             "running=%s pid=%ld interval=%ds samples=%u last=%s seq=%lu age=%ldms session=%s",
+             "health=%s running=%s pid=%ld interval=%ds samples=%u last=%s seq=%lu age=%ldms session=%s",
+             status.health,
              status.running ? "yes" : "no",
              (long)status.pid,
              status.interval_sec,
@@ -189,6 +209,28 @@ void a90_longsoak_summary(char *out, size_t out_size) {
              status.last_seq,
              status.last_age_ms,
              status.session);
+}
+
+void a90_longsoak_health_summary(char *out, size_t out_size) {
+    struct a90_longsoak_status status;
+
+    if (out == NULL || out_size == 0) {
+        return;
+    }
+    if (a90_longsoak_get_status(&status) < 0) {
+        snprintf(out, out_size, "health=unavailable");
+        return;
+    }
+    snprintf(out,
+             out_size,
+             "health=%s stale=%s running=%s samples=%u age=%ldms max_age=%ldms path=%s",
+             status.health,
+             status.stale ? "yes" : "no",
+             status.running ? "yes" : "no",
+             status.samples,
+             status.last_age_ms,
+             status.expected_max_age_ms,
+             status.path);
 }
 
 int a90_longsoak_start(int interval_sec) {
@@ -272,15 +314,18 @@ int a90_longsoak_status(void) {
     struct a90_longsoak_status status;
 
     a90_longsoak_get_status(&status);
-    a90_console_printf("longsoak: running=%s pid=%ld interval=%ds session=%s samples=%u last=%s seq=%lu age=%ldms\r\n",
+    a90_console_printf("longsoak: health=%s running=%s stale=%s pid=%ld interval=%ds session=%s samples=%u last=%s seq=%lu age=%ldms max_age=%ldms\r\n",
+            status.health,
             status.running ? "yes" : "no",
+            status.stale ? "yes" : "no",
             (long)status.pid,
             status.interval_sec,
             status.session,
             status.samples,
             status.last_type,
             status.last_seq,
-            status.last_age_ms);
+            status.last_age_ms,
+            status.expected_max_age_ms);
     a90_console_printf("longsoak: path=%s\r\n", status.path);
     return 0;
 }

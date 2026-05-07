@@ -4,6 +4,7 @@
 #include "a90_helper.h"
 #include "a90_kms.h"
 #include "a90_log.h"
+#include "a90_longsoak.h"
 #include "a90_metrics.h"
 #include "a90_netservice.h"
 #include "a90_runtime.h"
@@ -409,6 +410,44 @@ static void selftest_service(void) {
                             detail);
 }
 
+static void selftest_longsoak(void) {
+    long started_ms = monotonic_millis();
+    struct a90_longsoak_status status;
+    enum a90_selftest_result result = A90_SELFTEST_PASS;
+    int code = 0;
+    int saved_errno = 0;
+    char detail[128];
+
+    if (a90_longsoak_get_status(&status) < 0) {
+        selftest_record_elapsed("longsoak",
+                                A90_SELFTEST_WARN,
+                                -EIO,
+                                EIO,
+                                started_ms,
+                                "status unavailable");
+        return;
+    }
+    if (status.stale) {
+        result = A90_SELFTEST_WARN;
+        code = -ETIMEDOUT;
+        saved_errno = ETIMEDOUT;
+    }
+    snprintf(detail,
+             sizeof(detail),
+             "health=%s running=%s samples=%u age=%ldms max=%ldms",
+             status.health,
+             status.running ? "yes" : "no",
+             status.samples,
+             status.last_age_ms,
+             status.expected_max_age_ms);
+    selftest_record_elapsed("longsoak",
+                            result,
+                            code,
+                            saved_errno,
+                            started_ms,
+                            detail);
+}
+
 static void selftest_usb(void) {
     long started_ms = monotonic_millis();
     struct a90_usb_gadget_status status;
@@ -457,6 +496,7 @@ static int selftest_run(const struct a90_selftest_boot_hooks *hooks, void *ctx, 
     selftest_kms();
     selftest_input();
     selftest_service();
+    selftest_longsoak();
     selftest_usb();
 
     selftest_duration_ms = monotonic_millis() - started_ms;

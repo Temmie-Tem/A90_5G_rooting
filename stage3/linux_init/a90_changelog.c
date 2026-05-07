@@ -8,6 +8,12 @@
     { label, summary, { d1, d2, d3, d4, d5 } }
 
 static const struct a90_changelog_entry changelog_entries[] = {
+    ENTRY("0.9.49 v149", "LONG SOAK SUPERVISOR",
+          "0.9.49 v149 LONG SOAK SUPERVISOR",
+          "Adds recorder health and stale-sample detection",
+          "Reports longsoak health in status and bootstatus",
+          "Adds longsoak selftest warning coverage",
+          "Keeps host/device correlation workflow unchanged"),
     ENTRY("0.9.48 v148", "LONG SOAK CORRELATION",
           "0.9.48 v148 LONG SOAK CORRELATION",
           "Adds host/device long soak report tool",
