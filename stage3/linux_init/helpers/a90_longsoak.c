@@ -283,6 +283,35 @@ static void write_sample(FILE *file,
     fsync(fileno(file));
 }
 
+static int open_output_file(const char *path) {
+    struct stat st;
+    int fd;
+    int saved_errno;
+
+    fd = open(path, O_WRONLY | O_CREAT | O_APPEND | O_CLOEXEC | O_NOFOLLOW, 0600);
+    if (fd < 0) {
+        return -1;
+    }
+    if (fstat(fd, &st) < 0) {
+        saved_errno = errno;
+        close(fd);
+        errno = saved_errno;
+        return -1;
+    }
+    if (!S_ISREG(st.st_mode)) {
+        close(fd);
+        errno = EINVAL;
+        return -1;
+    }
+    if (fchmod(fd, 0600) < 0) {
+        saved_errno = errno;
+        close(fd);
+        errno = saved_errno;
+        return -1;
+    }
+    return fd;
+}
+
 static void sleep_interval(int interval_sec) {
     int remaining;
 
@@ -300,6 +329,7 @@ int main(int argc, char **argv) {
     const char *session;
     int interval_sec;
     FILE *file;
+    int fd;
     unsigned long seq = 0;
 
     if (argc != 4) {
@@ -318,12 +348,20 @@ int main(int argc, char **argv) {
     signal(SIGHUP, SIG_IGN);
     signal(SIGPIPE, SIG_IGN);
 
-    file = fopen(path, "a");
-    if (file == NULL) {
+    fd = open_output_file(path);
+    if (fd < 0) {
         fprintf(stderr, "a90_longsoak: open %s: %s\n", path, strerror(errno));
         return 1;
     }
-    chmod(path, 0600);
+    file = fdopen(fd, "a");
+    if (file == NULL) {
+        int saved_errno = errno;
+
+        close(fd);
+        errno = saved_errno;
+        fprintf(stderr, "a90_longsoak: open %s: %s\n", path, strerror(errno));
+        return 1;
+    }
     write_event(file, session, "start", seq, interval_sec);
     while (!stop_requested) {
         write_sample(file, session, ++seq, interval_sec);

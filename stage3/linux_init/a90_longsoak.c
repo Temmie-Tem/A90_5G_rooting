@@ -15,11 +15,21 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+#include <sys/stat.h>
 #include <unistd.h>
 
 #ifndef O_CLOEXEC
 #define O_CLOEXEC 0
 #endif
+
+#ifndef O_NOFOLLOW
+#define O_NOFOLLOW 0
+#endif
+
+#define A90_LONGSOAK_EXPORT_DEFAULT_LINES 200000UL
+#define A90_LONGSOAK_EXPORT_MAX_LINES 200000UL
+#define A90_LONGSOAK_EXPORT_DEFAULT_BYTES (16UL * 1024UL * 1024UL)
+#define A90_LONGSOAK_EXPORT_MAX_BYTES (16UL * 1024UL * 1024UL)
 
 static char longsoak_path[PATH_MAX];
 static char longsoak_session[64];
@@ -52,6 +62,28 @@ static int longsoak_parse_positive_int(const char *text, int *out) {
     return 0;
 }
 
+static int longsoak_parse_bounded_ulong(const char *text,
+                                        unsigned long min_value,
+                                        unsigned long max_value,
+                                        unsigned long *out) {
+    char *end = NULL;
+    unsigned long value;
+
+    if (text == NULL || text[0] == '\0' || out == NULL) {
+        return -EINVAL;
+    }
+    errno = 0;
+    value = strtoul(text, &end, 10);
+    if (errno != 0 || end == text || *end != '\0') {
+        return -EINVAL;
+    }
+    if (value < min_value || value > max_value) {
+        return -ERANGE;
+    }
+    *out = value;
+    return 0;
+}
+
 static void longsoak_build_session(char *out, size_t out_size) {
     snprintf(out, out_size, "%s-%ld", INIT_BUILD, monotonic_millis());
 }
@@ -74,6 +106,88 @@ static int longsoak_build_path(const char *session, char *out, size_t out_size) 
 static bool longsoak_is_running(void) {
     (void)a90_service_reap(A90_SERVICE_LONGSOAK, NULL);
     return a90_service_pid(A90_SERVICE_LONGSOAK) > 0;
+}
+
+static bool longsoak_has_suffix(const char *text, const char *suffix) {
+    size_t text_len;
+    size_t suffix_len;
+
+    if (text == NULL || suffix == NULL) {
+        return false;
+    }
+    text_len = strlen(text);
+    suffix_len = strlen(suffix);
+    if (text_len < suffix_len) {
+        return false;
+    }
+    return strcmp(text + text_len - suffix_len, suffix) == 0;
+}
+
+static bool longsoak_path_under_dir(const char *path, const char *dir) {
+    size_t dir_len;
+
+    if (path == NULL || dir == NULL || path[0] != '/' || dir[0] == '\0') {
+        return false;
+    }
+    dir_len = strlen(dir);
+    if (strncmp(path, dir, dir_len) != 0) {
+        return false;
+    }
+    return path[dir_len] == '/';
+}
+
+static bool longsoak_path_has_expected_shape(const char *path) {
+    const char *basename;
+    const char *runtime_log_dir = a90_runtime_log_dir();
+
+    if (path == NULL || path[0] == '\0' || strcmp(path, "-") == 0 || path[0] != '/') {
+        return false;
+    }
+    if (strstr(path, "/../") != NULL || longsoak_has_suffix(path, "/..")) {
+        return false;
+    }
+    basename = strrchr(path, '/');
+    if (basename == NULL || basename[1] == '\0') {
+        return false;
+    }
+    ++basename;
+    if (strncmp(basename, "longsoak-", strlen("longsoak-")) != 0 ||
+        !longsoak_has_suffix(basename, ".jsonl")) {
+        return false;
+    }
+    if (runtime_log_dir != NULL &&
+        runtime_log_dir[0] != '\0' &&
+        longsoak_path_under_dir(path, runtime_log_dir)) {
+        return true;
+    }
+    return longsoak_path_under_dir(path, NATIVE_LOG_FALLBACK_DIR);
+}
+
+static int longsoak_open_log_readonly(const char *path) {
+    struct stat st;
+    int fd;
+    int saved_errno;
+
+    if (!longsoak_path_has_expected_shape(path)) {
+        errno = EINVAL;
+        return -1;
+    }
+    fd = open(path, O_RDONLY | O_CLOEXEC | O_NOFOLLOW);
+    if (fd < 0) {
+        return -1;
+    }
+    if (fstat(fd, &st) < 0) {
+        saved_errno = errno;
+        close(fd);
+        errno = saved_errno;
+        return -1;
+    }
+    if (!S_ISREG(st.st_mode)) {
+        close(fd);
+        errno = EINVAL;
+        return -1;
+    }
+    return fd;
 }
 
 static unsigned long longsoak_parse_unsigned_field(const char *line,
@@ -122,7 +236,7 @@ static void longsoak_scan_file(struct a90_longsoak_status *status) {
     if (status == NULL || status->path[0] == '\0') {
         return;
     }
-    fd = open(status->path, O_RDONLY | O_CLOEXEC);
+    fd = longsoak_open_log_readonly(status->path);
     if (fd < 0) {
         return;
     }
@@ -361,7 +475,7 @@ int a90_longsoak_tail(int lines) {
         a90_console_printf("longsoak: no path yet\r\n");
         return -ENOENT;
     }
-    fd = open(longsoak_path, O_RDONLY | O_CLOEXEC);
+    fd = longsoak_open_log_readonly(longsoak_path);
     if (fd < 0) {
         int saved_errno = errno;
 
@@ -395,6 +509,70 @@ int a90_longsoak_tail(int lines) {
     return 0;
 }
 
+static int a90_longsoak_export(unsigned long max_lines, unsigned long max_bytes) {
+    char line[768];
+    int fd;
+    FILE *file;
+    unsigned long lines = 0;
+    unsigned long bytes = 0;
+    bool truncated = false;
+
+    if (max_lines == 0 || max_lines > A90_LONGSOAK_EXPORT_MAX_LINES) {
+        max_lines = A90_LONGSOAK_EXPORT_DEFAULT_LINES;
+    }
+    if (max_bytes == 0 || max_bytes > A90_LONGSOAK_EXPORT_MAX_BYTES) {
+        max_bytes = A90_LONGSOAK_EXPORT_DEFAULT_BYTES;
+    }
+    if (longsoak_path[0] == '\0') {
+        a90_console_printf("longsoak: no path yet\r\n");
+        return -ENOENT;
+    }
+    fd = longsoak_open_log_readonly(longsoak_path);
+    if (fd < 0) {
+        int saved_errno = errno;
+
+        a90_console_printf("longsoak: open %s: %s\r\n",
+                longsoak_path, strerror(saved_errno));
+        return -saved_errno;
+    }
+    file = fdopen(fd, "r");
+    if (file == NULL) {
+        int saved_errno = errno;
+
+        close(fd);
+        a90_console_printf("longsoak: fdopen %s: %s\r\n",
+                longsoak_path, strerror(saved_errno));
+        return -saved_errno;
+    }
+    while (fgets(line, sizeof(line), file) != NULL) {
+        size_t line_len = strlen(line);
+
+        if (lines >= max_lines || bytes + (unsigned long)line_len > max_bytes) {
+            truncated = true;
+            break;
+        }
+        bytes += (unsigned long)line_len;
+        trim_newline(line);
+        a90_console_printf("%s\r\n", line);
+        ++lines;
+    }
+    if (ferror(file)) {
+        int saved_errno = errno;
+
+        fclose(file);
+        a90_console_printf("longsoak: read %s: %s\r\n",
+                longsoak_path, strerror(saved_errno));
+        return -saved_errno;
+    }
+    fclose(file);
+    a90_console_printf("longsoak: export path=%s lines=%lu bytes=%lu truncated=%s\r\n",
+            longsoak_path,
+            lines,
+            bytes,
+            truncated ? "yes" : "no");
+    return 0;
+}
+
 int a90_longsoak_cmd(char **argv, int argc) {
     const char *subcommand = argc > 1 ? argv[1] : "status";
     int value;
@@ -405,7 +583,7 @@ int a90_longsoak_cmd(char **argv, int argc) {
             return a90_longsoak_status_verbose();
         }
         if (argc != 1 && argc != 2) {
-            a90_console_printf("usage: longsoak [status [verbose]|start [interval]|stop|path|tail [lines]]\r\n");
+            a90_console_printf("usage: longsoak [status [verbose]|start [interval]|stop|path|tail [lines]|export [max_lines] [max_bytes]]\r\n");
             return -EINVAL;
         }
         return a90_longsoak_status();
@@ -454,7 +632,31 @@ int a90_longsoak_cmd(char **argv, int argc) {
         }
         return a90_longsoak_tail(value);
     }
+    if (strcmp(subcommand, "export") == 0) {
+        unsigned long max_lines = A90_LONGSOAK_EXPORT_DEFAULT_LINES;
+        unsigned long max_bytes = A90_LONGSOAK_EXPORT_DEFAULT_BYTES;
 
-    a90_console_printf("usage: longsoak [status [verbose]|start [interval]|stop|path|tail [lines]]\r\n");
+        if (argc > 4) {
+            a90_console_printf("usage: longsoak export [max_lines] [max_bytes]\r\n");
+            return -EINVAL;
+        }
+        if (argc >= 3) {
+            rc = longsoak_parse_bounded_ulong(argv[2], 1, A90_LONGSOAK_EXPORT_MAX_LINES, &max_lines);
+            if (rc < 0) {
+                a90_console_printf("longsoak: invalid export lines %s\r\n", argv[2]);
+                return rc;
+            }
+        }
+        if (argc == 4) {
+            rc = longsoak_parse_bounded_ulong(argv[3], 1, A90_LONGSOAK_EXPORT_MAX_BYTES, &max_bytes);
+            if (rc < 0) {
+                a90_console_printf("longsoak: invalid export bytes %s\r\n", argv[3]);
+                return rc;
+            }
+        }
+        return a90_longsoak_export(max_lines, max_bytes);
+    }
+
+    a90_console_printf("usage: longsoak [status [verbose]|start [interval]|stop|path|tail [lines]|export [max_lines] [max_bytes]]\r\n");
     return -EINVAL;
 }

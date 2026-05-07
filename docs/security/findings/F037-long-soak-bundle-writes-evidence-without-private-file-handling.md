@@ -7,7 +7,7 @@
 | finding_id | `b8266569c9ac8191ba0a8cfb28a78416` |
 | finding_url | https://chatgpt.com/codex/cloud/security/findings/b8266569c9ac8191ba0a8cfb28a78416 |
 | severity | `medium` |
-| status | `planned-v153` |
+| status | `mitigated-v153` |
 | detected_at | `2026-05-08 05:03:54 +0900` |
 | committed_at | `2026-05-08 05:03:54 +0900` |
 | commit_hash | `eba5e45` |
@@ -26,7 +26,7 @@
 
 ## Local Remediation
 
-- Planned for v153 Longsoak Security Hardening.
+- Mitigated in v153 Longsoak Security Hardening.
 - Add private host output helpers to `native_long_soak_bundle.py`.
 - Force bundle directory to `0700`.
 - Write command captures, `manifest.json`, and `README.md` with `os.open(..., 0600)` and no-follow semantics where available.

@@ -8,6 +8,12 @@
     { label, summary, { d1, d2, d3, d4, d5 } }
 
 static const struct a90_changelog_entry changelog_entries[] = {
+    ENTRY("0.9.53 v153", "LONGSOAK SECURITY",
+          "0.9.53 v153 LONGSOAK SECURITY",
+          "Adds bounded device-owned longsoak export",
+          "Hardens longsoak helper log writes against symlink clobber",
+          "Makes host long soak evidence bundle private",
+          "Removes host cat of device-provided longsoak paths"),
     ENTRY("0.9.52 v152", "POWER THERMAL TREND",
           "0.9.52 v152 POWER THERMAL TREND",
           "Adds device JSONL trend analysis to long soak report",

@@ -7,7 +7,7 @@
 | finding_id | `d08d0c6799308191a35805df1461a6ec` |
 | finding_url | https://chatgpt.com/codex/cloud/security/findings/d08d0c6799308191a35805df1461a6ec |
 | severity | `medium` |
-| status | `planned-v153` |
+| status | `mitigated-v153` |
 | detected_at | `2026-05-07T19:33:00.126769Z` |
 | committed_at | `2026-05-08 04:04:51 +0900` |
 | commit_hash | `be9feb12401ade15e501cc93169c58a3626a488d` |
@@ -26,7 +26,7 @@
 
 ## Local Remediation
 
-- Planned for v153 Longsoak Security Hardening.
+- Mitigated in v153 Longsoak Security Hardening.
 - Replace host-side `cat <device_path>` with a bounded device-side `longsoak export [max_lines] [max_bytes]` command.
 - Keep `longsoak path` as metadata only; do not use it as a host-selected read target.
 

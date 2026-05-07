@@ -28,6 +28,14 @@ Longsoak bundle follow-up: `F037` was imported from the 2026-05-08 Codex Cloud f
 - Fresh v143 local rescan: `../SECURITY_FRESH_SCAN_V143_2026-05-08.md`
 - Fresh v144 local rescan: `../SECURITY_FRESH_SCAN_V144_2026-05-08.md`
 - Fresh v145 local rescan: `../SECURITY_FRESH_SCAN_V145_2026-05-08.md`
+- Fresh v146 local rescan: `../SECURITY_FRESH_SCAN_V146_2026-05-08.md`
+- Fresh v147 local rescan: `../SECURITY_FRESH_SCAN_V147_2026-05-08.md`
+- Fresh v148 local rescan: `../SECURITY_FRESH_SCAN_V148_2026-05-08.md`
+- Fresh v149 local rescan: `../SECURITY_FRESH_SCAN_V149_2026-05-08.md`
+- Fresh v150 local rescan: `../SECURITY_FRESH_SCAN_V150_2026-05-08.md`
+- Fresh v151 local rescan: `../SECURITY_FRESH_SCAN_V151_2026-05-08.md`
+- Fresh v152 local rescan: `../SECURITY_FRESH_SCAN_V152_2026-05-08.md`
+- Fresh v153 local rescan: `../SECURITY_FRESH_SCAN_V153_2026-05-08.md`
 
 ## Findings
 
@@ -66,10 +74,10 @@ Longsoak bundle follow-up: `F037` was imported from the 2026-05-08 Codex Cloud f
 | F031 | `informational` | `mitigated-host-batch3` | Command injection via unquoted by_name in su -c commands | [`F031-command-injection-via-unquoted-by-name-in-su-c-commands.md`](F031-command-injection-via-unquoted-by-name-in-su-c-commands.md) | scripts/revalidation/capture_baseline.sh |
 | F032 | `low` | `mitigated-retained-source` | Volume hold timer can spin autohud in non-repeat screens | [`F032-volume-hold-timer-can-spin-autohud-in-non-repeat-screens.md`](F032-volume-hold-timer-can-spin-autohud-in-non-repeat-screens.md) | stage3/linux_init/v131/40_menu_apps.inc.c <br> stage3/linux_init/v132/40_menu_apps.inc.c <br> stage3/linux_init/v133/40_menu_apps.inc.c |
 | F033 | `low` | `mitigated-shared-controller` | Menu policy allows mountsd side effects with no subcommand | [`F033-menu-policy-allows-mountsd-side-effects-with-no-subcommand.md`](F033-menu-policy-allows-mountsd-side-effects-with-no-subcommand.md) | stage3/linux_init/a90_controller.c <br> stage3/linux_init/a90_storage.c <br> stage3/linux_init/v128/80_shell_dispatch.inc.c |
-| F034 | `medium` | `planned-v153` | Unvalidated device path triggers unbounded host cat | [`F034-unvalidated-device-path-triggers-unbounded-host-cat.md`](F034-unvalidated-device-path-triggers-unbounded-host-cat.md) | scripts/revalidation/native_long_soak.py <br> scripts/revalidation/a90ctl.py <br> stage3/linux_init/v148/60_shell_basic_commands.inc.c |
-| F035 | `medium` | `planned-v153` | Longsoak helper follows symlinks when writing root logs | [`F035-longsoak-helper-follows-symlinks-when-writing-root-logs.md`](F035-longsoak-helper-follows-symlinks-when-writing-root-logs.md) | stage3/linux_init/a90_longsoak.c <br> stage3/linux_init/helpers/a90_longsoak.c |
-| F036 | `low` | `planned-v153` | Longsoak status treats '-' sentinel as a file path | [`F036-longsoak-status-treats-sentinel-as-a-file-path.md`](F036-longsoak-status-treats-sentinel-as-a-file-path.md) | stage3/linux_init/a90_longsoak.c <br> stage3/linux_init/v147/60_shell_basic_commands.inc.c |
-| F037 | `medium` | `planned-v153` | Long-soak bundle writes evidence without private file handling | [`F037-long-soak-bundle-writes-evidence-without-private-file-handling.md`](F037-long-soak-bundle-writes-evidence-without-private-file-handling.md) | scripts/revalidation/native_long_soak_bundle.py |
+| F034 | `medium` | `mitigated-v153` | Unvalidated device path triggers unbounded host cat | [`F034-unvalidated-device-path-triggers-unbounded-host-cat.md`](F034-unvalidated-device-path-triggers-unbounded-host-cat.md) | scripts/revalidation/native_long_soak.py <br> scripts/revalidation/a90ctl.py <br> stage3/linux_init/v148/60_shell_basic_commands.inc.c |
+| F035 | `medium` | `mitigated-v153` | Longsoak helper follows symlinks when writing root logs | [`F035-longsoak-helper-follows-symlinks-when-writing-root-logs.md`](F035-longsoak-helper-follows-symlinks-when-writing-root-logs.md) | stage3/linux_init/a90_longsoak.c <br> stage3/linux_init/helpers/a90_longsoak.c |
+| F036 | `low` | `mitigated-v153` | Longsoak status treats '-' sentinel as a file path | [`F036-longsoak-status-treats-sentinel-as-a-file-path.md`](F036-longsoak-status-treats-sentinel-as-a-file-path.md) | stage3/linux_init/a90_longsoak.c <br> stage3/linux_init/v147/60_shell_basic_commands.inc.c |
+| F037 | `medium` | `mitigated-v153` | Long-soak bundle writes evidence without private file handling | [`F037-long-soak-bundle-writes-evidence-without-private-file-handling.md`](F037-long-soak-bundle-writes-evidence-without-private-file-handling.md) | scripts/revalidation/native_long_soak_bundle.py |
 
 ## Notes
 

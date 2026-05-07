@@ -3,7 +3,7 @@
 
 This is not a replacement for Codex Cloud's security scanner. It is a
 repository-local guardrail that checks the patterns that previously produced the
-F001-F033 findings and the current root-control surfaces.
+F001-F037 findings and the current root-control surfaces.
 """
 
 from __future__ import annotations
@@ -15,7 +15,7 @@ from dataclasses import dataclass
 from pathlib import Path
 
 REPO_ROOT = Path(__file__).resolve().parents[2]
-DEFAULT_OUT = REPO_ROOT / "docs" / "security" / "SECURITY_FRESH_SCAN_V148_2026-05-08.md"
+DEFAULT_OUT = REPO_ROOT / "docs" / "security" / "SECURITY_FRESH_SCAN_V153_2026-05-08.md"
 
 
 @dataclass(frozen=True)
@@ -100,9 +100,9 @@ def run_checks() -> list[Check]:
     netservice = read("stage3/linux_init/a90_netservice.c")
     helper = read("stage3/linux_init/a90_helper.c")
     controller = read("stage3/linux_init/a90_controller.c")
-    dispatch = read("stage3/linux_init/v148/80_shell_dispatch.inc.c")
-    shell_basic = read("stage3/linux_init/v148/60_shell_basic_commands.inc.c")
-    storage_net = read("stage3/linux_init/v148/70_storage_android_net.inc.c")
+    dispatch = read("stage3/linux_init/v153/80_shell_dispatch.inc.c")
+    shell_basic = read("stage3/linux_init/v153/60_shell_basic_commands.inc.c")
+    storage_net = read("stage3/linux_init/v153/70_storage_android_net.inc.c")
     serial_bridge = read("scripts/revalidation/serial_tcp_bridge.py")
     native_soak = read("scripts/revalidation/native_soak_validate.py")
     integrated_validate = read("scripts/revalidation/native_integrated_validate.py")
@@ -113,12 +113,16 @@ def run_checks() -> list[Check]:
     runtime = read("stage3/linux_init/a90_runtime.c")
     log = read("stage3/linux_init/a90_log.c")
     storage = read("stage3/linux_init/a90_storage.c")
+    longsoak = read("stage3/linux_init/a90_longsoak.c")
+    longsoak_helper = read("stage3/linux_init/helpers/a90_longsoak.c")
+    native_long_soak = read("scripts/revalidation/native_long_soak.py")
+    longsoak_bundle = read("scripts/revalidation/native_long_soak_bundle.py")
     menu_hold_sources = [
         "stage3/linux_init/v131/40_menu_apps.inc.c",
         "stage3/linux_init/v132/40_menu_apps.inc.c",
         "stage3/linux_init/v133/40_menu_apps.inc.c",
         "stage3/linux_init/v134/40_menu_apps.inc.c",
-        "stage3/linux_init/v148/40_menu_apps.inc.c",
+        "stage3/linux_init/v153/40_menu_apps.inc.c",
     ]
 
     active_network_paths = [
@@ -126,8 +130,8 @@ def run_checks() -> list[Check]:
         "stage3/linux_init/a90_tcpctl.c",
         "stage3/linux_init/a90_netservice.c",
         "stage3/linux_init/helpers/a90_rshell.c",
-        "stage3/linux_init/v148/70_storage_android_net.inc.c",
-        "stage3/linux_init/v148/80_shell_dispatch.inc.c",
+        "stage3/linux_init/v153/70_storage_android_net.inc.c",
+        "stage3/linux_init/v153/80_shell_dispatch.inc.c",
     ]
     active_root_ssh_patterns = r"PermitRootLogin yes|PasswordAuthentication yes|root:root|password[:= ]+root|passwd root"
 
@@ -281,7 +285,7 @@ def run_checks() -> list[Check]:
         "active host scripts do not set known root SSH credentials",
         status_from(not active_refs),
         "No active `scripts/revalidation` or `mkbootimg/gki/certify_bootimg.py` match for default root SSH credential patterns." if not active_refs else ", ".join(active_refs[:8]),
-        "Legacy archived docs/scripts are excluded from active v148 runtime/tooling scope.",
+        "Legacy archived docs/scripts are excluded from active v153 runtime/tooling scope.",
     ))
 
     checks.append(Check(
@@ -306,7 +310,7 @@ def run_checks() -> list[Check]:
         "S013",
         "volume hold repeat timer clears when a screen cannot consume repeats",
         status_from(menu_hold_ok),
-        "Retained v131-v148 auto-HUD loops clear `menu_hold_code` and `menu_hold_next_ms` when a timed repeat is not consumed.",
+        "Retained v131-v153 auto-HUD loops clear `menu_hold_code` and `menu_hold_next_ms` when a timed repeat is not consumed.",
         "Covers F032 zero-timeout poll/redraw spin in non-repeat screens.",
     ))
 
@@ -372,7 +376,7 @@ def run_checks() -> list[Check]:
             and "screenmenu" in integrated_validate
             and "hide" in integrated_validate
             and "cwd=REPO_ROOT" in integrated_validate
-            and "DEFAULT_EXPECT_VERSION = \"A90 Linux init 0.9.48 (v148)\"" in integrated_validate
+            and "DEFAULT_EXPECT_VERSION = \"A90 Linux init 0.9.53 (v153)\"" in integrated_validate
         ),
         "`native_integrated_validate.py` covers selftest, pid1guard, exposure, policycheck, service/network status, and UI nonblocking checks.",
         "Provides one host gate before Wi-Fi/network-facing changes or large controller refactors.",
@@ -380,6 +384,66 @@ def run_checks() -> list[Check]:
 
     checks.append(Check(
         "S018",
+        "longsoak host export is bounded and does not cat device-provided paths",
+        status_from(
+            '"longsoak",' in native_long_soak
+            and '"export",' in native_long_soak
+            and '["cat", device_path]' not in native_long_soak
+            and "DEFAULT_DEVICE_EXPORT_MAX_LINES" in native_long_soak
+            and "DEFAULT_DEVICE_EXPORT_MAX_BYTES" in native_long_soak
+            and "parse_longsoak_export_summary" in native_long_soak
+        ),
+        "`native_long_soak.py` collects recorder data through `longsoak export` with line/byte caps and no longer issues generic `cat <device_path>`.",
+        "Covers F034 unvalidated device path and unbounded host cat.",
+    ))
+
+    checks.append(Check(
+        "S019",
+        "longsoak helper opens root logs with no-follow private regular-file handling",
+        status_from(
+            "O_WRONLY | O_CREAT | O_APPEND | O_CLOEXEC | O_NOFOLLOW" in longsoak_helper
+            and "fstat(fd, &st)" in longsoak_helper
+            and "!S_ISREG(st.st_mode)" in longsoak_helper
+            and "fchmod(fd, 0600)" in longsoak_helper
+            and "chmod(path, 0600)" not in longsoak_helper
+        ),
+        "`helpers/a90_longsoak.c` uses `open(...O_NOFOLLOW, 0600)`, verifies a regular file with `fstat`, and applies `fchmod` on the fd.",
+        "Covers F035 helper symlink-following root log writes.",
+    ))
+
+    checks.append(Check(
+        "S020",
+        "longsoak status/tail/export reject display sentinels and unsafe paths",
+        status_from(
+            "strcmp(path, \"-\") == 0" in longsoak
+            and "longsoak_path_has_expected_shape" in longsoak
+            and "longsoak_open_log_readonly(status->path)" in longsoak
+            and "longsoak_open_log_readonly(longsoak_path)" in longsoak
+            and "O_RDONLY | O_CLOEXEC | O_NOFOLLOW" in longsoak
+            and "longsoak: export path=" in longsoak
+        ),
+        "`a90_longsoak.c` validates owned JSONL paths, rejects `-`, and routes status scan, tail, and export through the no-follow safe opener.",
+        "Covers F036 and the device-owned half of F034.",
+    ))
+
+    checks.append(Check(
+        "S021",
+        "longsoak bundle uses private no-follow output handling",
+        status_from(
+            "PRIVATE_DIR_MODE = 0o700" in longsoak_bundle
+            and "PRIVATE_FILE_MODE = 0o600" in longsoak_bundle
+            and "ensure_private_dir" in longsoak_bundle
+            and "write_private_text" in longsoak_bundle
+            and "copy_private_regular_file" in longsoak_bundle
+            and "shutil.copy2" not in longsoak_bundle
+            and ".write_text(" not in longsoak_bundle
+        ),
+        "`native_long_soak_bundle.py` forces `0700/0600`, rejects symlink destinations, and avoids `copy2`/`Path.write_text` for bundle outputs.",
+        "Covers F037 private evidence and symlink-clobber handling.",
+    ))
+
+    checks.append(Check(
+        "S022",
         "accepted local root-control channels remain intentionally present",
         "WARN",
         "USB ACM root shell and localhost serial bridge are still present by design.",
@@ -395,14 +459,14 @@ def render_report(checks: list[Check]) -> str:
         counts[check.status] = counts.get(check.status, 0) + 1
 
     lines = [
-        "# v148 Fresh Local Security Rescan",
+        "# v153 Fresh Local Security Rescan",
         "",
         "Date: 2026-05-08",
-        "Baseline: `A90 Linux init 0.9.48 (v148)`",
+        "Baseline: `A90 Linux init 0.9.53 (v153)`",
         f"Git HEAD: `{run_git_head()}`",
-        "Scope: active v148 native-init source, shared modules, current revalidation host tools, and known root-control surfaces.",
+        "Scope: active v153 native-init source, shared modules, current revalidation host tools, and known root-control surfaces.",
         "",
-        "This is a local targeted rescan, not a Codex Cloud scanner replacement. It checks the previously imported F001-F033 pattern families, exposure guardrails, and v148 controller policy matrix wiring against the current repository state.",
+        "This is a local targeted rescan, not a Codex Cloud scanner replacement. It checks the previously imported F001-F037 pattern families, exposure guardrails, and v153 controller policy matrix wiring against the current repository state.",
         "",
         "## Summary",
         "",
@@ -424,14 +488,14 @@ def render_report(checks: list[Check]) -> str:
         "",
         "## Interpretation",
         "",
-        "The local targeted scan found no new implementation blocker in the active v148 code path. The remaining warning is the already accepted trusted-lab boundary for physical USB ACM/local serial bridge control.",
+        "The local targeted scan found no new implementation blocker in the active v153 code path. The remaining warning is the already accepted trusted-lab boundary for physical USB ACM/local serial bridge control.",
         "",
         "Before any Wi-Fi or broader network exposure, rerun this local scan and a Codex Cloud security scan, then revisit F021/F030 if the control channel is no longer USB-local/localhost-only.",
         "",
         "## Reproduction",
         "",
         "```bash",
-        "python3 scripts/revalidation/local_security_rescan.py --out docs/security/SECURITY_FRESH_SCAN_V148_2026-05-08.md",
+        "python3 scripts/revalidation/local_security_rescan.py --out docs/security/SECURITY_FRESH_SCAN_V153_2026-05-08.md",
         "git diff --check",
         "```",
         "",

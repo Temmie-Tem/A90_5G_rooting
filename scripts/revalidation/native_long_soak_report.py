@@ -24,10 +24,10 @@ TREND_KEYS = (
 
 def parse_args() -> argparse.Namespace:
     parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument("--host-jsonl", default="tmp/soak/native-long-soak-v152-host.jsonl")
-    parser.add_argument("--device-jsonl", default="tmp/soak/native-long-soak-v152-device.jsonl")
-    parser.add_argument("--out-md", default="tmp/soak/native-long-soak-v152-report.md")
-    parser.add_argument("--out-json", default="tmp/soak/native-long-soak-v152-report.json")
+    parser.add_argument("--host-jsonl", default="tmp/soak/native-long-soak-v153-host.jsonl")
+    parser.add_argument("--device-jsonl", default="tmp/soak/native-long-soak-v153-device.jsonl")
+    parser.add_argument("--out-md", default="tmp/soak/native-long-soak-v153-report.md")
+    parser.add_argument("--out-json", default="tmp/soak/native-long-soak-v153-report.json")
     parser.add_argument("--min-device-samples", type=int, default=2)
     return parser.parse_args()
 

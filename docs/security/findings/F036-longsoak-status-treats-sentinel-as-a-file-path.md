@@ -7,7 +7,7 @@
 | finding_id | `c3087cc4db288191bc97dc60b5f442c1` |
 | finding_url | https://chatgpt.com/codex/cloud/security/findings/c3087cc4db288191bc97dc60b5f442c1 |
 | severity | `low` |
-| status | `planned-v153` |
+| status | `mitigated-v153` |
 | detected_at | `2026-05-07T19:33:34.577889Z` |
 | committed_at | `2026-05-08 03:59:09 +0900` |
 | commit_hash | `3c1dc516a2c9bf791cbce8fad08fa38c2ee008a1` |
@@ -26,7 +26,7 @@
 
 ## Local Remediation
 
-- Planned for v153 Longsoak Security Hardening.
+- Mitigated in v153 Longsoak Security Hardening.
 - Treat `-` as display-only; reject empty, sentinel, and non-absolute paths before scan/tail/export file opens.
 
 ## Codex Cloud Detail

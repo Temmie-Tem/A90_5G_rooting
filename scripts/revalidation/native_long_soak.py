@@ -15,7 +15,9 @@ sys.path.insert(0, str(Path(__file__).resolve().parent))
 
 from a90ctl import ProtocolResult, run_cmdv1_command  # noqa: E402
 
-DEFAULT_EXPECT_VERSION = "A90 Linux init 0.9.52 (v152)"
+DEFAULT_EXPECT_VERSION = "A90 Linux init 0.9.53 (v153)"
+DEFAULT_DEVICE_EXPORT_MAX_LINES = 200000
+DEFAULT_DEVICE_EXPORT_MAX_BYTES = 16 * 1024 * 1024
 
 
 @dataclass
@@ -39,13 +41,15 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--interval", type=float, default=10.0, help="host command interval")
     parser.add_argument("--timeout", type=float, default=20.0, help="per-command timeout")
     parser.add_argument("--device-interval", type=int, default=60, help="device recorder interval")
+    parser.add_argument("--device-export-max-lines", type=int, default=DEFAULT_DEVICE_EXPORT_MAX_LINES)
+    parser.add_argument("--device-export-max-bytes", type=int, default=DEFAULT_DEVICE_EXPORT_MAX_BYTES)
     parser.add_argument("--expect-version", default=DEFAULT_EXPECT_VERSION)
     parser.add_argument("--start-device", action="store_true", help="start device longsoak recorder first")
     parser.add_argument("--no-stop-device", action="store_true", help="leave device recorder running")
-    parser.add_argument("--out", default="tmp/soak/native-long-soak-v152.txt")
-    parser.add_argument("--jsonl-out", default="tmp/soak/native-long-soak-v152-host.jsonl")
-    parser.add_argument("--device-jsonl-out", default="tmp/soak/native-long-soak-v152-device.jsonl")
-    parser.add_argument("--summary-json", default="tmp/soak/native-long-soak-v152-summary.json")
+    parser.add_argument("--out", default="tmp/soak/native-long-soak-v153.txt")
+    parser.add_argument("--jsonl-out", default="tmp/soak/native-long-soak-v153-host.jsonl")
+    parser.add_argument("--device-jsonl-out", default="tmp/soak/native-long-soak-v153-device.jsonl")
+    parser.add_argument("--summary-json", default="tmp/soak/native-long-soak-v153-summary.json")
     return parser.parse_args()
 
 
@@ -142,6 +146,21 @@ def extract_longsoak_path(text: str) -> str | None:
     return None
 
 
+def parse_longsoak_export_summary(text: str) -> dict[str, str]:
+    prefix = "longsoak: export "
+    summary: dict[str, str] = {}
+
+    for line in text.splitlines():
+        if not line.startswith(prefix):
+            continue
+        for token in line[len(prefix):].split():
+            if "=" not in token:
+                continue
+            key, value = token.split("=", 1)
+            summary[key] = value
+    return summary
+
+
 def main() -> int:
     args = parse_args()
     if args.duration_sec < 1:
@@ -226,24 +245,40 @@ def main() -> int:
     seq += 1
     device_path = extract_longsoak_path(path_text)
     exported_device_lines: list[str] = []
-    if device_path is not None:
-        sample, _ = record_command(args, jsonl_path, seq, ["hide"])
-        append_summary(lines, sample)
-        failures += 0 if sample.ok else 1
-        ok_count += 1 if sample.ok else 0
-        max_duration = max(max_duration, sample.duration_sec)
-        seq += 1
-        sample, cat_text = record_command(args, jsonl_path, seq, ["cat", device_path])
-        append_summary(lines, sample)
-        failures += 0 if sample.ok else 1
-        ok_count += 1 if sample.ok else 0
-        max_duration = max(max_duration, sample.duration_sec)
-        seq += 1
-        exported_device_lines = extract_device_jsonl(cat_text)
-        device_jsonl_path.write_text("\n".join(exported_device_lines) + ("\n" if exported_device_lines else ""), encoding="utf-8")
-    else:
+    sample, _ = record_command(args, jsonl_path, seq, ["hide"])
+    append_summary(lines, sample)
+    failures += 0 if sample.ok else 1
+    ok_count += 1 if sample.ok else 0
+    max_duration = max(max_duration, sample.duration_sec)
+    seq += 1
+    sample, export_text = record_command(
+        args,
+        jsonl_path,
+        seq,
+        [
+            "longsoak",
+            "export",
+            str(args.device_export_max_lines),
+            str(args.device_export_max_bytes),
+        ],
+    )
+    append_summary(lines, sample)
+    failures += 0 if sample.ok else 1
+    ok_count += 1 if sample.ok else 0
+    max_duration = max(max_duration, sample.duration_sec)
+    seq += 1
+    export_summary = parse_longsoak_export_summary(export_text)
+    if not export_summary:
         failures += 1
-        lines.append("- FAIL device JSONL export path unavailable\n")
+        lines.append("- FAIL device JSONL export summary unavailable\n")
+    if device_path is None:
+        failures += 1
+        lines.append("- FAIL device JSONL path metadata unavailable\n")
+    exported_device_lines = extract_device_jsonl(export_text)
+    device_jsonl_path.write_text(
+        "\n".join(exported_device_lines) + ("\n" if exported_device_lines else ""),
+        encoding="utf-8",
+    )
 
     out_path.write_text("".join(lines), encoding="utf-8")
     summary_path = Path(args.summary_json)
@@ -259,6 +294,8 @@ def main() -> int:
                 "jsonl": str(jsonl_path),
                 "device_jsonl": str(device_jsonl_path),
                 "device_export_lines": len(exported_device_lines),
+                "device_export_summary": export_summary,
+                "device_path": device_path,
                 "transcript": str(out_path),
             },
             ensure_ascii=False,

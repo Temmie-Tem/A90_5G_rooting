@@ -7,7 +7,7 @@
 | finding_id | `deda7ea8fddc819199ff9c177b193dac` |
 | finding_url | https://chatgpt.com/codex/cloud/security/findings/deda7ea8fddc819199ff9c177b193dac |
 | severity | `medium` |
-| status | `planned-v153` |
+| status | `mitigated-v153` |
 | detected_at | `2026-05-07T19:32:21.020967Z` |
 | committed_at | `2026-05-08 03:51:56 +0900` |
 | commit_hash | `54a9077cc7bc789069f064586af5aeb79745b1ca` |
@@ -26,7 +26,7 @@
 
 ## Local Remediation
 
-- Planned for v153 Longsoak Security Hardening.
+- Mitigated in v153 Longsoak Security Hardening.
 - Replace helper `fopen(path, "a")` and path-based `chmod()` with no-follow `open()`, `fstat()` regular-file validation, `fdopen()`, and `fchmod()`.
 
 ## Codex Cloud Detail
