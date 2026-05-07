@@ -8,6 +8,12 @@
     { label, summary, { d1, d2, d3, d4, d5 } }
 
 static const struct a90_changelog_entry changelog_entries[] = {
+    ENTRY("0.9.39 v139", "AUTOHUD CONTROLLER",
+          "0.9.39 v139 AUTOHUD CONTROLLER",
+          "Groups auto-HUD loop state",
+          "Centralizes menu/app transitions",
+          "Keeps menu UX unchanged",
+          "Preserves v138 soak baseline"),
     ENTRY("0.9.38 v138", "EXTENDED SOAK",
           "0.9.38 v138 EXTENDED SOAK",
           "Adds release-candidate soak harness",

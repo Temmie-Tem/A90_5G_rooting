@@ -1,19 +1,19 @@
 # Native Init Task Queue (2026-04-25)
 
-이 문서는 `A90 Linux init 0.9.38 (v138)` verified 이후 바로 실행할 작업 큐다.
+이 문서는 `A90 Linux init 0.9.39 (v139)` verified 이후 바로 실행할 작업 큐다.
 큰 방향은 “보이는 부팅 → 복구 가능한 로그 → 단독 조작 → 작은 userland → USB networking” 순서다.
 
 ## 현재 고정 기준점
 
-- latest verified build: `A90 Linux init 0.9.38 (v138)`
-- official version: `0.9.38`
-- build tag: `v138`
+- latest verified build: `A90 Linux init 0.9.39 (v139)`
+- official version: `0.9.39`
+- build tag: `v139`
 - creator: `made by temmie0214`
-- latest verified source: `stage3/linux_init/init_v138.c` + `stage3/linux_init/v138/*.inc.c` + `stage3/linux_init/helpers/a90_cpustress.c` + `stage3/linux_init/helpers/a90_rshell.c` + `stage3/linux_init/a90_config.h` + `stage3/linux_init/a90_util.c/h` + `stage3/linux_init/a90_log.c/h` + `stage3/linux_init/a90_timeline.c/h` + `stage3/linux_init/a90_console.c/h` + `stage3/linux_init/a90_cmdproto.c/h` + `stage3/linux_init/a90_run.c/h` + `stage3/linux_init/a90_service.c/h` + `stage3/linux_init/a90_kms.c/h` + `stage3/linux_init/a90_draw.c/h` + `stage3/linux_init/a90_input.c/h` + `stage3/linux_init/a90_hud.c/h` + `stage3/linux_init/a90_menu.c/h` + `stage3/linux_init/a90_metrics.c/h` + `stage3/linux_init/a90_shell.c/h` + `stage3/linux_init/a90_controller.c/h` + `stage3/linux_init/a90_storage.c/h` + `stage3/linux_init/a90_selftest.c/h` + `stage3/linux_init/a90_usb_gadget.c/h` + `stage3/linux_init/a90_netservice.c/h` + `stage3/linux_init/a90_pid1_guard.c/h` + `stage3/linux_init/a90_runtime.c/h` + `stage3/linux_init/a90_helper.c/h` + `stage3/linux_init/a90_userland.c/h` + `stage3/linux_init/a90_diag.c/h` + `stage3/linux_init/a90_exposure.c/h` + `stage3/linux_init/a90_wifiinv.c/h` + `stage3/linux_init/a90_wififeas.c/h` + `stage3/linux_init/a90_changelog.c/h` + `stage3/linux_init/a90_app_about.c/h` + `stage3/linux_init/a90_app_displaytest.c/h` + `stage3/linux_init/a90_app_inputmon.c/h`
-- latest verified boot image: `stage3/boot_linux_v138.img`
+- latest verified source: `stage3/linux_init/init_v139.c` + `stage3/linux_init/v139/*.inc.c` + `stage3/linux_init/helpers/a90_cpustress.c` + `stage3/linux_init/helpers/a90_rshell.c` + `stage3/linux_init/a90_config.h` + `stage3/linux_init/a90_util.c/h` + `stage3/linux_init/a90_log.c/h` + `stage3/linux_init/a90_timeline.c/h` + `stage3/linux_init/a90_console.c/h` + `stage3/linux_init/a90_cmdproto.c/h` + `stage3/linux_init/a90_run.c/h` + `stage3/linux_init/a90_service.c/h` + `stage3/linux_init/a90_kms.c/h` + `stage3/linux_init/a90_draw.c/h` + `stage3/linux_init/a90_input.c/h` + `stage3/linux_init/a90_hud.c/h` + `stage3/linux_init/a90_menu.c/h` + `stage3/linux_init/a90_metrics.c/h` + `stage3/linux_init/a90_shell.c/h` + `stage3/linux_init/a90_controller.c/h` + `stage3/linux_init/a90_storage.c/h` + `stage3/linux_init/a90_selftest.c/h` + `stage3/linux_init/a90_usb_gadget.c/h` + `stage3/linux_init/a90_netservice.c/h` + `stage3/linux_init/a90_pid1_guard.c/h` + `stage3/linux_init/a90_runtime.c/h` + `stage3/linux_init/a90_helper.c/h` + `stage3/linux_init/a90_userland.c/h` + `stage3/linux_init/a90_diag.c/h` + `stage3/linux_init/a90_exposure.c/h` + `stage3/linux_init/a90_wifiinv.c/h` + `stage3/linux_init/a90_wififeas.c/h` + `stage3/linux_init/a90_changelog.c/h` + `stage3/linux_init/a90_app_about.c/h` + `stage3/linux_init/a90_app_displaytest.c/h` + `stage3/linux_init/a90_app_inputmon.c/h`
+- latest verified boot image: `stage3/boot_linux_v139.img`
 - previous verified source-layout baseline: `stage3/linux_init/init_v80.c` + `stage3/linux_init/v80/*.inc.c`
 - known-good fallback: `stage3/boot_linux_v48.img`
-- local artifact retention: `v138` latest, `v137` rollback, `v48` known-good만 보존하고 나머지 ignored stage3 산출물은 정리 가능
+- local artifact retention: `v139` latest, `v138` rollback, `v48` known-good만 보존하고 나머지 ignored stage3 산출물은 정리 가능
 - control channel: USB ACM serial bridge
 - log: SD 정상 시 `/mnt/sdext/a90/logs/native-init.log`, fallback 시 `/cache/native-init.log`, emergency fallback 시 private `/tmp/a90-native/native-init.log`
 - verified:
@@ -219,6 +219,27 @@
 - 다음 실행 항목은 v139 auto-HUD/menu controller cleanup 구현이다.
 - v139 계획 문서: `docs/plans/NATIVE_INIT_V139_AUTOHUD_CONTROLLER_PLAN_2026-05-08.md`
 - network-facing 기능 확장은 v138 RC soak와 v137 integrated validation gate를 모두 통과하는 상태에서만 진행한다.
+
+## 완료: v139 Auto-HUD/Menu Controller Cleanup
+
+계획 문서: `docs/plans/NATIVE_INIT_V139_AUTOHUD_CONTROLLER_PLAN_2026-05-08.md`
+보고서: `docs/reports/NATIVE_INIT_V139_AUTOHUD_CONTROLLER_2026-05-08.md`
+
+결과:
+
+- v139는 auto-HUD/menu controller cleanup으로 진행했다.
+- `stage3/linux_init/v139/40_menu_apps.inc.c`에 `struct auto_hud_state`와 helper 경계를 추가했다.
+- `auto_hud_loop()`의 menu/app 전환, hold timer reset, draw dispatch, input routing 책임을 작은 helper로 정리했다.
+- 실기 flash 후 `native_integrated_validate.py`는 `PASS commands=25`로 통과했다.
+- quick native soak는 `PASS cycles=3 commands=14`로 통과했다.
+- RC soak는 `PASS commands=62 failures=0`로 통과했다.
+- local targeted v139 rescan은 PASS=17/WARN=1/FAIL=0이다.
+
+다음 실행 항목:
+
+- v139 auto-HUD/menu controller cleanup은 완료했다.
+- 다음 후보는 longer RC soak, fresh Codex Cloud scan follow-up, 또는 network-facing 판단으로 다시 선정한다.
+- network-facing 기능 확장은 v139 RC soak와 local security rescan이 green인 상태에서만 진행한다.
 
 ## 실행 큐
 
@@ -2109,15 +2130,14 @@ python3 ./scripts/revalidation/physical_usb_reconnect_check.py --manual-host-con
 
 ## 지금 바로 진행할 항목
 
-1. v139 auto-HUD/menu controller cleanup 구현
+1. post-v139 후보 선정
 
-   - 기준 문서: `docs/plans/NATIVE_INIT_V139_AUTOHUD_CONTROLLER_PLAN_2026-05-08.md`
-   - 최신 결과: `docs/reports/NATIVE_INIT_V138_EXTENDED_SOAK_2026-05-08.md`
-   - 기준 버전: `A90 Linux init 0.9.38 (v138)`
-   - 목표 버전: `A90 Linux init 0.9.39 (v139)`
-   - 목적: `40_menu_apps.inc.c`의 auto-HUD/menu controller 상태 전환을 얇게 정리
-   - 필수 보존: `screenmenu` nonblocking, `hide` 복구, hold-repeat, menu busy gate
-   - 보류: network-facing 변경, Wi-Fi bring-up, shell command table 이동, app renderer 추가 분리
+   - 기준 문서: `docs/reports/NATIVE_INIT_V139_AUTOHUD_CONTROLLER_2026-05-08.md`
+   - 최신 결과: v139 실기 flash, integrated validation, quick soak, RC soak, local security rescan PASS
+   - 후보 A: `native_rc_soak.py --cycles 10` 이상 장시간 검증
+   - 후보 B: fresh Codex Cloud scan follow-up
+   - 후보 C: network-facing 판단 재개
+   - 후보 D: `40_menu_apps.inc.c` app-renderer 추가 split 필요성 재평가
 
 ### V106-V108. UI/App Architecture Split — DONE
 

@@ -269,12 +269,12 @@ Samsung bootloader
 
 ## 현재 기준점
 
-- 최신 확인 버전: `A90 Linux init 0.9.38 (v138)`
-- 공식 버전: `0.9.38`
-- build tag: `v138`
+- 최신 확인 버전: `A90 Linux init 0.9.39 (v139)`
+- 공식 버전: `0.9.39`
+- build tag: `v139`
 - creator: `made by temmie0214`
-- 최신 verified 소스: `stage3/linux_init/init_v138.c` + `stage3/linux_init/v138/*.inc.c` + `stage3/linux_init/helpers/a90_cpustress.c` + `stage3/linux_init/helpers/a90_rshell.c` + `stage3/linux_init/a90_config.h` + `stage3/linux_init/a90_util.c/h` + `stage3/linux_init/a90_log.c/h` + `stage3/linux_init/a90_timeline.c/h` + `stage3/linux_init/a90_console.c/h` + `stage3/linux_init/a90_cmdproto.c/h` + `stage3/linux_init/a90_run.c/h` + `stage3/linux_init/a90_service.c/h` + `stage3/linux_init/a90_kms.c/h` + `stage3/linux_init/a90_draw.c/h` + `stage3/linux_init/a90_input.c/h` + `stage3/linux_init/a90_hud.c/h` + `stage3/linux_init/a90_menu.c/h` + `stage3/linux_init/a90_metrics.c/h` + `stage3/linux_init/a90_shell.c/h` + `stage3/linux_init/a90_controller.c/h` + `stage3/linux_init/a90_storage.c/h` + `stage3/linux_init/a90_selftest.c/h` + `stage3/linux_init/a90_usb_gadget.c/h` + `stage3/linux_init/a90_netservice.c/h` + `stage3/linux_init/a90_pid1_guard.c/h` + `stage3/linux_init/a90_runtime.c/h` + `stage3/linux_init/a90_helper.c/h` + `stage3/linux_init/a90_userland.c/h` + `stage3/linux_init/a90_diag.c/h` + `stage3/linux_init/a90_exposure.c/h` + `stage3/linux_init/a90_wifiinv.c/h` + `stage3/linux_init/a90_wififeas.c/h` + `stage3/linux_init/a90_changelog.c/h` + `stage3/linux_init/a90_app_about.c/h` + `stage3/linux_init/a90_app_displaytest.c/h` + `stage3/linux_init/a90_app_inputmon.c/h`
-- 최신 verified boot image: `stage3/boot_linux_v138.img`
+- 최신 verified 소스: `stage3/linux_init/init_v139.c` + `stage3/linux_init/v139/*.inc.c` + `stage3/linux_init/helpers/a90_cpustress.c` + `stage3/linux_init/helpers/a90_rshell.c` + `stage3/linux_init/a90_config.h` + `stage3/linux_init/a90_util.c/h` + `stage3/linux_init/a90_log.c/h` + `stage3/linux_init/a90_timeline.c/h` + `stage3/linux_init/a90_console.c/h` + `stage3/linux_init/a90_cmdproto.c/h` + `stage3/linux_init/a90_run.c/h` + `stage3/linux_init/a90_service.c/h` + `stage3/linux_init/a90_kms.c/h` + `stage3/linux_init/a90_draw.c/h` + `stage3/linux_init/a90_input.c/h` + `stage3/linux_init/a90_hud.c/h` + `stage3/linux_init/a90_menu.c/h` + `stage3/linux_init/a90_metrics.c/h` + `stage3/linux_init/a90_shell.c/h` + `stage3/linux_init/a90_controller.c/h` + `stage3/linux_init/a90_storage.c/h` + `stage3/linux_init/a90_selftest.c/h` + `stage3/linux_init/a90_usb_gadget.c/h` + `stage3/linux_init/a90_netservice.c/h` + `stage3/linux_init/a90_pid1_guard.c/h` + `stage3/linux_init/a90_runtime.c/h` + `stage3/linux_init/a90_helper.c/h` + `stage3/linux_init/a90_userland.c/h` + `stage3/linux_init/a90_diag.c/h` + `stage3/linux_init/a90_exposure.c/h` + `stage3/linux_init/a90_wifiinv.c/h` + `stage3/linux_init/a90_wififeas.c/h` + `stage3/linux_init/a90_changelog.c/h` + `stage3/linux_init/a90_app_about.c/h` + `stage3/linux_init/a90_app_displaytest.c/h` + `stage3/linux_init/a90_app_inputmon.c/h`
+- 최신 verified boot image: `stage3/boot_linux_v139.img`
 - previous verified source-layout baseline: `stage3/linux_init/init_v80.c` + `stage3/linux_init/v80/*.inc.c`
 - known-good fallback: `stage3/boot_linux_v48.img`
 - 주 제어 채널: USB CDC ACM serial (`/dev/ttyGS0` ↔ `/dev/ttyACM0`)
@@ -325,19 +325,20 @@ Samsung bootloader
 - v136 상태: post-v135 structure audit 완료, 실기 flash 후 `selftest verbose`, `exposure guard`, `policycheck run`, quick soak 확인
 - v137 상태: integrated validation matrix 적용 완료, 실기 flash 후 `native_integrated_validate.py`, quick soak 확인
 - v138 상태: release-candidate extended soak 적용 완료, 실기 flash 후 `native_integrated_validate.py`, quick soak, `native_rc_soak.py --cycles 3` 확인
+- v139 상태: auto-HUD/menu controller cleanup 적용 완료, 실기 flash 후 integrated/quick/RC soak 확인
 - ADB 상태: 보류
 
 다음 실행 후보:
 
 - v134 exposure guardrail과 v135 policy matrix 검증 완료. F021/F030 accepted boundary는 `exposure`/`diag`/`status`에서 관찰 가능해야 유지된다.
-- local targeted v138 rescan은 PASS=17/WARN=1/FAIL=0이며, 다음 보안 입력은 Codex Cloud fresh scan 또는 새 network-facing 변경 이후 scan 결과로 삼는다.
+- local targeted v139 rescan은 PASS=17/WARN=1/FAIL=0이며, 다음 보안 입력은 Codex Cloud fresh scan 또는 새 network-facing 변경 이후 scan 결과로 삼는다.
 - C/B 후보를 버전 분리했다.
   - v136: post-v135 structure audit 완료. 보고서 `docs/reports/NATIVE_INIT_V136_STRUCTURE_AUDIT_2026-05-07.md`.
   - v137: integrated validation matrix 완료. 보고서 `docs/reports/NATIVE_INIT_V137_VALIDATION_MATRIX_2026-05-07.md`.
   - v138: release-candidate extended soak 완료. 보고서 `docs/reports/NATIVE_INIT_V138_EXTENDED_SOAK_2026-05-08.md`.
-- network-facing 기능 확장은 v137 통합 검증 gate와 v138 RC soak를 통과한 상태에서만 다시 판단한다.
-- post-v138 다음 실행 항목은 v139 auto-HUD/menu controller cleanup 구현이다.
-- v139 계획 문서: `docs/plans/NATIVE_INIT_V139_AUTOHUD_CONTROLLER_PLAN_2026-05-08.md`
+  - v139: auto-HUD/menu controller cleanup 완료. 보고서 `docs/reports/NATIVE_INIT_V139_AUTOHUD_CONTROLLER_2026-05-08.md`.
+- network-facing 기능 확장은 v139 통합 검증 gate와 RC soak를 통과한 상태에서만 다시 판단한다.
+- post-v139 다음 후보는 longer RC soak, fresh scan follow-up, 또는 network-facing 판단 중에서 다시 선정한다.
 
 상세 상태 문서:
 
@@ -928,13 +929,14 @@ Samsung bootloader
 
 상세 실행 큐는 `docs/plans/NATIVE_INIT_TASK_QUEUE_2026-04-25.md`를 따른다.
 
-1. v139 auto-HUD/menu controller cleanup 구현
-   - 기준 계획: `docs/plans/NATIVE_INIT_V139_AUTOHUD_CONTROLLER_PLAN_2026-05-08.md`
-   - 기준 결과: `docs/reports/NATIVE_INIT_V138_EXTENDED_SOAK_2026-05-08.md`
-   - 목표: `auto_hud_loop()` 상태 전환을 helper 경계로 정리
-2. v139 실기 flash 후 integrated/quick/RC soak 검증
-3. v139 검증 결과 보고서 작성과 latest verified 갱신
-4. v139 이후 fresh cloud scan 또는 network-facing 판단 재개
+1. post-v139 후보 선정
+   - 기준 결과: `docs/reports/NATIVE_INIT_V139_AUTOHUD_CONTROLLER_2026-05-08.md`
+   - 후보 A: longer `native_rc_soak.py --cycles 10` 이상
+   - 후보 B: fresh Codex Cloud scan follow-up
+   - 후보 C: network-facing 판단 재개
+2. 후보 확정 후 계획 문서 작성
+3. 계획 검증 후 구현 버전 결정
+4. network-facing 변경은 v139 green gate와 fresh scan 결과를 같이 보고 진행
 
 ---
 
