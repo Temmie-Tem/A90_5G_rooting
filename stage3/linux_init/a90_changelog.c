@@ -8,6 +8,12 @@
     { label, summary, { d1, d2, d3, d4, d5 } }
 
 static const struct a90_changelog_entry changelog_entries[] = {
+    ENTRY("0.9.45 v145", "INPUT CANCEL HARNESS",
+          "0.9.45 v145 INPUT CANCEL HARNESS",
+          "Adds host validation for waitkey q cancel path",
+          "Adds host validation for waitgesture q cancel path",
+          "Keeps blocking input commands cancel-safe before network work",
+          "Preserves v144 inputmonitor foreground app behavior"),
     ENTRY("0.9.44 v144", "INPUTMON APP API",
           "0.9.44 v144 INPUTMON APP API",
           "Moves inputmonitor foreground command loop into inputmon app module",
