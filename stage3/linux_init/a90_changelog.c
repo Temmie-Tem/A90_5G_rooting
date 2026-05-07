@@ -8,6 +8,12 @@
     { label, summary, { d1, d2, d3, d4, d5 } }
 
 static const struct a90_changelog_entry changelog_entries[] = {
+    ENTRY("0.9.57 v157", "PSTORE FEASIBILITY",
+          "0.9.57 v157 PSTORE FEASIBILITY",
+          "Adds read-only pstore and ramoops feasibility command",
+          "Reports pstore filesystem support, mount state, entries, and ramoops hints",
+          "Adds pstore summary to status and bootstatus",
+          "Keeps pstore mount and reboot persistence tests opt-in for later"),
     ENTRY("0.9.56 v156", "THERMAL POWER MAP",
           "0.9.56 v156 THERMAL POWER MAP",
           "Adds read-only thermal and power sensor map command",

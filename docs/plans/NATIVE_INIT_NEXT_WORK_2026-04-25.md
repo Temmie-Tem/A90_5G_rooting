@@ -945,14 +945,12 @@ Samsung bootloader
 
 상세 실행 큐는 `docs/plans/NATIVE_INIT_TASK_QUEUE_2026-04-25.md`를 따른다.
 
-1. v157 Pstore/Ramoops Feasibility
-   - 기준 결과: `docs/reports/NATIVE_INIT_V156_THERMAL_POWER_SENSOR_MAP_2026-05-08.md`
-   - 원칙: read-only inventory만 수행하고 pstore mount/reboot 보존성 실험은 별도 opt-in으로 보류
-2. v158 Watchdog Read-only Feasibility
+1. v158 Watchdog Read-only Feasibility
+   - 기준 결과: `docs/reports/NATIVE_INIT_V157_PSTORE_FEASIBILITY_2026-05-08.md`
    - `/dev/watchdog*`는 open하지 않고 sysfs/dev node 존재와 readable metadata만 확인
-3. v159 Tracefs/Ftrace Feasibility
+2. v159 Tracefs/Ftrace Feasibility
    - tracefs/debugfs support와 mounted state만 확인하고 tracing enable/mount는 보류
-4. v160 Wi-Fi Baseline Refresh
+3. v160 Wi-Fi Baseline Refresh
    - v157-v159 커널 기능 baseline 이후 Android/TWRP/native Wi-Fi 자료를 다시 수집
 
 ---
