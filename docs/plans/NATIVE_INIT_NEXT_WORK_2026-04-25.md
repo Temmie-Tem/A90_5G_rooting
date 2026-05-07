@@ -336,7 +336,8 @@ Samsung bootloader
   - v137: integrated validation matrix 완료. 보고서 `docs/reports/NATIVE_INIT_V137_VALIDATION_MATRIX_2026-05-07.md`.
   - v138: release-candidate extended soak 완료. 보고서 `docs/reports/NATIVE_INIT_V138_EXTENDED_SOAK_2026-05-08.md`.
 - network-facing 기능 확장은 v137 통합 검증 gate와 v138 RC soak를 통과한 상태에서만 다시 판단한다.
-- post-v138 다음 후보는 fresh scan follow-up, auto-HUD/menu controller cleanup, 또는 network-facing 판단 중에서 다시 선정한다.
+- post-v138 다음 실행 항목은 v139 auto-HUD/menu controller cleanup 구현이다.
+- v139 계획 문서: `docs/plans/NATIVE_INIT_V139_AUTOHUD_CONTROLLER_PLAN_2026-05-08.md`
 
 상세 상태 문서:
 
@@ -927,13 +928,13 @@ Samsung bootloader
 
 상세 실행 큐는 `docs/plans/NATIVE_INIT_TASK_QUEUE_2026-04-25.md`를 따른다.
 
-1. v106-v108 UI/App Architecture split 완료 감사와 변경분 커밋
-2. optional extended soak/reconnect 범위는 별도 수동 작업으로 분리
-3. Wi-Fi bring-up은 v104 gate 결과에 따라 계속 보류
-4. post-v108 후보 선정과 v109 계획
-   - v106: `docs/plans/NATIVE_INIT_V106_UI_APP_ABOUT_PLAN_2026-05-04.md`
-   - v107: `docs/plans/NATIVE_INIT_V107_UI_APP_DISPLAYTEST_PLAN_2026-05-04.md`
-   - v108: `docs/plans/NATIVE_INIT_V108_UI_APP_INPUTMON_PLAN_2026-05-04.md`
+1. v139 auto-HUD/menu controller cleanup 구현
+   - 기준 계획: `docs/plans/NATIVE_INIT_V139_AUTOHUD_CONTROLLER_PLAN_2026-05-08.md`
+   - 기준 결과: `docs/reports/NATIVE_INIT_V138_EXTENDED_SOAK_2026-05-08.md`
+   - 목표: `auto_hud_loop()` 상태 전환을 helper 경계로 정리
+2. v139 실기 flash 후 integrated/quick/RC soak 검증
+3. v139 검증 결과 보고서 작성과 latest verified 갱신
+4. v139 이후 fresh cloud scan 또는 network-facing 판단 재개
 
 ---
 

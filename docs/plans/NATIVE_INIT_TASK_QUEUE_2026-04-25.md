@@ -216,7 +216,8 @@
 - v136 structure audit는 완료했다.
 - v137 integrated validation matrix는 완료했다.
 - v138 release-candidate extended soak는 완료했다.
-- 다음 후보는 fresh scan follow-up, auto-HUD/menu controller cleanup, 또는 network-facing 판단으로 다시 선정한다.
+- 다음 실행 항목은 v139 auto-HUD/menu controller cleanup 구현이다.
+- v139 계획 문서: `docs/plans/NATIVE_INIT_V139_AUTOHUD_CONTROLLER_PLAN_2026-05-08.md`
 - network-facing 기능 확장은 v138 RC soak와 v137 integrated validation gate를 모두 통과하는 상태에서만 진행한다.
 
 ## 실행 큐
@@ -2108,22 +2109,15 @@ python3 ./scripts/revalidation/physical_usb_reconnect_check.py --manual-host-con
 
 ## 지금 바로 진행할 항목
 
-1. v117 planning
+1. v139 auto-HUD/menu controller cleanup 구현
 
-   - 기준 문서: `docs/reports/NATIVE_INIT_V109_V116_COMPLETION_AUDIT_2026-05-04.md`
-   - 최신 결과: `docs/reports/NATIVE_INIT_V109_V116_COMPLETION_AUDIT_2026-05-04.md`
-   - v109 결과: `docs/reports/NATIVE_INIT_V109_STRUCTURE_AUDIT_2026-05-04.md`
-   - v110 결과: `docs/reports/NATIVE_INIT_V110_APP_CONTROLLER_CLEANUP_2026-05-04.md`
-   - v111 결과: `docs/reports/NATIVE_INIT_V111_EXTENDED_SOAK_RC_2026-05-04.md`
-   - v112 결과: `docs/reports/NATIVE_INIT_V112_USB_SERVICE_SOAK_2026-05-04.md`
-   - v113 결과: `docs/reports/NATIVE_INIT_V113_RUNTIME_PACKAGE_LAYOUT_2026-05-04.md`
-   - v114 결과: `docs/reports/NATIVE_INIT_V114_HELPER_DEPLOY_2026-05-04.md`
-   - v115 결과: `docs/reports/NATIVE_INIT_V115_RSHELL_HARDENING_2026-05-04.md`
-   - v116 결과: `docs/reports/NATIVE_INIT_V116_DIAG_BUNDLE_2026-05-04.md`
-   - completion audit 결과: `docs/reports/NATIVE_INIT_V109_V116_COMPLETION_AUDIT_2026-05-04.md`
-   - 다음 실행 항목: v117 planning
-   - 목적: v116 verified baseline에서 다음 개발 사이클 주제/guardrail/검증 기준 확정
-   - 보류: risky Wi-Fi bring-up, partition writes, automatic remote downloads
+   - 기준 문서: `docs/plans/NATIVE_INIT_V139_AUTOHUD_CONTROLLER_PLAN_2026-05-08.md`
+   - 최신 결과: `docs/reports/NATIVE_INIT_V138_EXTENDED_SOAK_2026-05-08.md`
+   - 기준 버전: `A90 Linux init 0.9.38 (v138)`
+   - 목표 버전: `A90 Linux init 0.9.39 (v139)`
+   - 목적: `40_menu_apps.inc.c`의 auto-HUD/menu controller 상태 전환을 얇게 정리
+   - 필수 보존: `screenmenu` nonblocking, `hide` 복구, hold-repeat, menu busy gate
+   - 보류: network-facing 변경, Wi-Fi bring-up, shell command table 이동, app renderer 추가 분리
 
 ### V106-V108. UI/App Architecture Split — DONE
 
