@@ -15,7 +15,7 @@ from typing import Any
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 from a90ctl import ProtocolResult, run_cmdv1_command  # noqa: E402
 
-DEFAULT_EXPECT_VERSION = "A90 Linux init 0.9.51 (v151)"
+DEFAULT_EXPECT_VERSION = "A90 Linux init 0.9.52 (v152)"
 
 
 @dataclass
@@ -35,14 +35,14 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--port", type=int, default=54321, help="serial bridge TCP port")
     parser.add_argument("--timeout", type=float, default=15.0, help="per-command timeout")
     parser.add_argument("--expect-version", default=DEFAULT_EXPECT_VERSION)
-    parser.add_argument("--bundle-dir", default="tmp/soak/native-long-soak-v151-bundle")
-    parser.add_argument("--host-jsonl", default="tmp/soak/native-long-soak-v151-host.jsonl")
-    parser.add_argument("--device-jsonl", default="tmp/soak/native-long-soak-v151-device.jsonl")
-    parser.add_argument("--summary-json", default="tmp/soak/native-long-soak-v151-summary.json")
-    parser.add_argument("--correlation-md", default="tmp/soak/native-long-soak-v151-report.md")
-    parser.add_argument("--correlation-json", default="tmp/soak/native-long-soak-v151-report.json")
-    parser.add_argument("--disconnect-md", default="tmp/soak/native-disconnect-v151.md")
-    parser.add_argument("--disconnect-json", default="tmp/soak/native-disconnect-v151.json")
+    parser.add_argument("--bundle-dir", default="tmp/soak/native-long-soak-v152-bundle")
+    parser.add_argument("--host-jsonl", default="tmp/soak/native-long-soak-v152-host.jsonl")
+    parser.add_argument("--device-jsonl", default="tmp/soak/native-long-soak-v152-device.jsonl")
+    parser.add_argument("--summary-json", default="tmp/soak/native-long-soak-v152-summary.json")
+    parser.add_argument("--correlation-md", default="tmp/soak/native-long-soak-v152-report.md")
+    parser.add_argument("--correlation-json", default="tmp/soak/native-long-soak-v152-report.json")
+    parser.add_argument("--disconnect-md", default="tmp/soak/native-disconnect-v152.md")
+    parser.add_argument("--disconnect-json", default="tmp/soak/native-disconnect-v152.json")
     return parser.parse_args()
 
 

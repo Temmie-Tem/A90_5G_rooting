@@ -9,13 +9,25 @@ from pathlib import Path
 from statistics import mean
 from typing import Any
 
+TREND_KEYS = (
+    "uptime_sec",
+    "battery_pct",
+    "battery_temp_c",
+    "power_w",
+    "cpu_temp_c",
+    "gpu_temp_c",
+    "mem_used_mb",
+    "mem_total_mb",
+    "load1",
+)
+
 
 def parse_args() -> argparse.Namespace:
     parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument("--host-jsonl", default="tmp/soak/native-long-soak-v151-host.jsonl")
-    parser.add_argument("--device-jsonl", default="tmp/soak/native-long-soak-v151-device.jsonl")
-    parser.add_argument("--out-md", default="tmp/soak/native-long-soak-v151-report.md")
-    parser.add_argument("--out-json", default="tmp/soak/native-long-soak-v151-report.json")
+    parser.add_argument("--host-jsonl", default="tmp/soak/native-long-soak-v152-host.jsonl")
+    parser.add_argument("--device-jsonl", default="tmp/soak/native-long-soak-v152-device.jsonl")
+    parser.add_argument("--out-md", default="tmp/soak/native-long-soak-v152-report.md")
+    parser.add_argument("--out-json", default="tmp/soak/native-long-soak-v152-report.json")
     parser.add_argument("--min-device-samples", type=int, default=2)
     return parser.parse_args()
 
@@ -60,6 +72,45 @@ def monotonic_non_decreasing(rows: list[dict[str, Any]], key: str) -> bool:
     return True
 
 
+def numeric_values(rows: list[dict[str, Any]], key: str) -> list[float]:
+    values: list[float] = []
+
+    for row in rows:
+        raw = row.get(key)
+        if raw is None:
+            continue
+        try:
+            value = float(raw)
+        except (TypeError, ValueError):
+            continue
+        values.append(value)
+    return values
+
+
+def trend_stats(rows: list[dict[str, Any]], key: str) -> dict[str, float | int | None]:
+    values = numeric_values(rows, key)
+
+    if not values:
+        return {
+            "count": 0,
+            "first": None,
+            "last": None,
+            "min": None,
+            "max": None,
+            "delta": None,
+            "avg": None,
+        }
+    return {
+        "count": len(values),
+        "first": values[0],
+        "last": values[-1],
+        "min": min(values),
+        "max": max(values),
+        "delta": values[-1] - values[0],
+        "avg": mean(values),
+    }
+
+
 def main() -> int:
     args = parse_args()
     host_path = Path(args.host_jsonl)
@@ -72,6 +123,7 @@ def main() -> int:
     durations = [float(row.get("duration_sec", 0.0)) for row in host_rows]
     device_samples = [row for row in device_rows if row.get("type") == "sample"]
     device_stop = [row for row in device_rows if row.get("type") == "stop"]
+    trends = {key: trend_stats(device_samples, key) for key in TREND_KEYS}
     seq_ok = device_sequence_ok(device_samples)
     ts_ok = monotonic_non_decreasing(device_rows, "ts_ms")
     uptime_ok = monotonic_non_decreasing(device_samples, "uptime_sec")
@@ -98,6 +150,7 @@ def main() -> int:
         "device_seq_contiguous": seq_ok,
         "device_ts_monotonic": ts_ok,
         "device_uptime_monotonic": uptime_ok,
+        "trends": trends,
     }
     out_json.parent.mkdir(parents=True, exist_ok=True)
     out_md.parent.mkdir(parents=True, exist_ok=True)
@@ -115,7 +168,19 @@ def main() -> int:
         f"- device seq contiguous: {summary['device_seq_contiguous']}\n",
         f"- device ts monotonic: {summary['device_ts_monotonic']}\n",
         f"- device uptime monotonic: {summary['device_uptime_monotonic']}\n",
+        "\n## Trends\n\n",
+        "| Metric | Count | First | Last | Min | Max | Delta | Avg |\n",
+        "|---|---:|---:|---:|---:|---:|---:|---:|\n",
     ]
+    for key in TREND_KEYS:
+        stats = trends[key]
+        def fmt(value: float | int | None) -> str:
+            return "-" if value is None else f"{float(value):.3f}"
+        lines.append(
+            f"| `{key}` | `{stats['count']}` | {fmt(stats['first'])} | "
+            f"{fmt(stats['last'])} | {fmt(stats['min'])} | {fmt(stats['max'])} | "
+            f"{fmt(stats['delta'])} | {fmt(stats['avg'])} |\n"
+        )
     out_md.write_text("".join(lines), encoding="utf-8")
 
     print(f"{'PASS' if pass_ok else 'FAIL'} host_events={len(host_rows)} device_samples={len(device_samples)}")
