@@ -8,6 +8,12 @@
     { label, summary, { d1, d2, d3, d4, d5 } }
 
 static const struct a90_changelog_entry changelog_entries[] = {
+    ENTRY("0.9.48 v148", "LONG SOAK CORRELATION",
+          "0.9.48 v148 LONG SOAK CORRELATION",
+          "Adds host/device long soak report tool",
+          "Exports device recorder JSONL through host harness",
+          "Checks host failures and device sequence continuity",
+          "Prepares overnight soak evidence workflow"),
     ENTRY("0.9.47 v147", "LONG SOAK STATUS",
           "0.9.47 v147 LONG SOAK STATUS",
           "Adds longsoak status snapshot API",

@@ -15,7 +15,7 @@ sys.path.insert(0, str(Path(__file__).resolve().parent))
 
 from a90ctl import ProtocolResult, run_cmdv1_command  # noqa: E402
 
-DEFAULT_EXPECT_VERSION = "A90 Linux init 0.9.47 (v147)"
+DEFAULT_EXPECT_VERSION = "A90 Linux init 0.9.48 (v148)"
 
 
 @dataclass
@@ -42,9 +42,10 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--expect-version", default=DEFAULT_EXPECT_VERSION)
     parser.add_argument("--start-device", action="store_true", help="start device longsoak recorder first")
     parser.add_argument("--no-stop-device", action="store_true", help="leave device recorder running")
-    parser.add_argument("--out", default="tmp/soak/native-long-soak-v147.txt")
-    parser.add_argument("--jsonl-out", default="tmp/soak/native-long-soak-v147.jsonl")
-    parser.add_argument("--summary-json", default="tmp/soak/native-long-soak-v147-summary.json")
+    parser.add_argument("--out", default="tmp/soak/native-long-soak-v148.txt")
+    parser.add_argument("--jsonl-out", default="tmp/soak/native-long-soak-v148-host.jsonl")
+    parser.add_argument("--device-jsonl-out", default="tmp/soak/native-long-soak-v148-device.jsonl")
+    parser.add_argument("--summary-json", default="tmp/soak/native-long-soak-v148-summary.json")
     return parser.parse_args()
 
 
@@ -120,6 +121,27 @@ def append_summary(lines: list[str], sample: HostSample) -> None:
     lines[-1] += "\n"
 
 
+def extract_device_jsonl(text: str) -> list[str]:
+    lines: list[str] = []
+
+    for line in text.splitlines():
+        stripped = line.strip()
+        if stripped.startswith("{") and stripped.endswith("}"):
+            lines.append(stripped)
+    return lines
+
+
+def extract_longsoak_path(text: str) -> str | None:
+    for line in text.splitlines():
+        if line.startswith("longsoak: path="):
+            path = line.split("=", 1)[1].strip()
+            if path and path != "-":
+                return path
+        if line.startswith("/"):
+            return line.strip()
+    return None
+
+
 def main() -> int:
     args = parse_args()
     if args.duration_sec < 1:
@@ -129,9 +151,12 @@ def main() -> int:
 
     out_path = Path(args.out)
     jsonl_path = Path(args.jsonl_out)
+    device_jsonl_path = Path(args.device_jsonl_out)
     out_path.parent.mkdir(parents=True, exist_ok=True)
     jsonl_path.parent.mkdir(parents=True, exist_ok=True)
+    device_jsonl_path.parent.mkdir(parents=True, exist_ok=True)
     jsonl_path.write_text("", encoding="utf-8")
+    device_jsonl_path.write_text("", encoding="utf-8")
 
     lines: list[str] = []
     lines.append("# Native Long Soak Observation\n")
@@ -193,6 +218,33 @@ def main() -> int:
         max_duration = max(max_duration, sample.duration_sec)
         seq += 1
 
+    sample, path_text = record_command(args, jsonl_path, seq, ["longsoak", "path"])
+    append_summary(lines, sample)
+    failures += 0 if sample.ok else 1
+    ok_count += 1 if sample.ok else 0
+    max_duration = max(max_duration, sample.duration_sec)
+    seq += 1
+    device_path = extract_longsoak_path(path_text)
+    exported_device_lines: list[str] = []
+    if device_path is not None:
+        sample, _ = record_command(args, jsonl_path, seq, ["hide"])
+        append_summary(lines, sample)
+        failures += 0 if sample.ok else 1
+        ok_count += 1 if sample.ok else 0
+        max_duration = max(max_duration, sample.duration_sec)
+        seq += 1
+        sample, cat_text = record_command(args, jsonl_path, seq, ["cat", device_path])
+        append_summary(lines, sample)
+        failures += 0 if sample.ok else 1
+        ok_count += 1 if sample.ok else 0
+        max_duration = max(max_duration, sample.duration_sec)
+        seq += 1
+        exported_device_lines = extract_device_jsonl(cat_text)
+        device_jsonl_path.write_text("\n".join(exported_device_lines) + ("\n" if exported_device_lines else ""), encoding="utf-8")
+    else:
+        failures += 1
+        lines.append("- FAIL device JSONL export path unavailable\n")
+
     out_path.write_text("".join(lines), encoding="utf-8")
     summary_path = Path(args.summary_json)
     summary_path.parent.mkdir(parents=True, exist_ok=True)
@@ -205,6 +257,8 @@ def main() -> int:
                 "failures": failures,
                 "max_duration_sec": max_duration,
                 "jsonl": str(jsonl_path),
+                "device_jsonl": str(device_jsonl_path),
+                "device_export_lines": len(exported_device_lines),
                 "transcript": str(out_path),
             },
             ensure_ascii=False,
@@ -217,12 +271,14 @@ def main() -> int:
         print(f"FAIL samples={seq} failures={failures}")
         print(out_path)
         print(jsonl_path)
+        print(device_jsonl_path)
         print(summary_path)
         return 1
 
     print(f"PASS samples={seq} failures=0")
     print(out_path)
     print(jsonl_path)
+    print(device_jsonl_path)
     print(summary_path)
     return 0
 

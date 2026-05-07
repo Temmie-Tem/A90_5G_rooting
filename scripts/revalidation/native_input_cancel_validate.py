@@ -13,7 +13,7 @@ from pathlib import Path
 
 
 REPO_ROOT = Path(__file__).resolve().parents[2]
-DEFAULT_EXPECT_VERSION = "A90 Linux init 0.9.47 (v147)"
+DEFAULT_EXPECT_VERSION = "A90 Linux init 0.9.48 (v148)"
 END_RE = re.compile(r"^A90P1 END (?P<fields>.+)$", re.MULTILINE)
 
 
@@ -47,7 +47,7 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--port", type=int, default=54321, help="serial bridge TCP port")
     parser.add_argument("--timeout", type=float, default=8.0, help="per-case timeout seconds")
     parser.add_argument("--expect-version", default=DEFAULT_EXPECT_VERSION)
-    parser.add_argument("--out", default="tmp/validation/native-input-cancel-v147.txt")
+    parser.add_argument("--out", default="tmp/validation/native-input-cancel-v148.txt")
     parser.add_argument("--json-out", default=None)
     parser.add_argument("--skip-inputmonitor", action="store_true", help="only validate waitkey/waitgesture")
     return parser.parse_args()
