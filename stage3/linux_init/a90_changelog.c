@@ -8,6 +8,12 @@
     { label, summary, { d1, d2, d3, d4, d5 } }
 
 static const struct a90_changelog_entry changelog_entries[] = {
+    ENTRY("0.9.43 v143", "INPUT COMMAND API",
+          "0.9.43 v143 INPUT COMMAND API",
+          "Moves waitkey command handler into input command module",
+          "Moves waitgesture command handler into input command module",
+          "Moves inputlayout command handler into input command module",
+          "Preserves inputmonitor foreground HUD lifecycle"),
     ENTRY("0.9.42 v142", "CUTOUT APP API",
           "0.9.42 v142 CUTOUT APP API",
           "Moves cutout calibration state into displaytest module",
