@@ -15,7 +15,7 @@ from typing import Any
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 from a90ctl import ProtocolResult, run_cmdv1_command  # noqa: E402
 
-DEFAULT_EXPECT_VERSION = "A90 Linux init 0.9.50 (v150)"
+DEFAULT_EXPECT_VERSION = "A90 Linux init 0.9.51 (v151)"
 DEFAULT_DEVICE_IP = "192.168.7.2"
 
 
@@ -36,8 +36,8 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--timeout", type=float, default=12.0, help="cmdv1 timeout")
     parser.add_argument("--device-ip", default=DEFAULT_DEVICE_IP, help="USB NCM device IPv4")
     parser.add_argument("--expect-version", default=DEFAULT_EXPECT_VERSION)
-    parser.add_argument("--out-md", default="tmp/soak/native-disconnect-v150.md")
-    parser.add_argument("--out-json", default="tmp/soak/native-disconnect-v150.json")
+    parser.add_argument("--out-md", default="tmp/soak/native-disconnect-v151.md")
+    parser.add_argument("--out-json", default="tmp/soak/native-disconnect-v151.json")
     return parser.parse_args()
 
 

@@ -14,15 +14,15 @@ Android userspace 대신 직접 만든 static `/init`를 실행하고,
 - build: `A908NKSU5EWA3`
 - kernel: Samsung stock Android kernel `Linux 4.14.190`
 - recovery: TWRP 사용 가능
-- latest verified build: `A90 Linux init 0.9.50 (v150)`
-- official version: `0.9.50`
-- build tag: `v150`
+- latest verified build: `A90 Linux init 0.9.51 (v151)`
+- official version: `0.9.51`
+- build tag: `v151`
 - creator: `made by temmie0214`
-- latest verified source: `stage3/linux_init/init_v150.c` + `stage3/linux_init/v150/*.inc.c` + `stage3/linux_init/helpers/a90_cpustress.c` + `stage3/linux_init/helpers/a90_rshell.c` + `stage3/linux_init/helpers/a90_longsoak.c` + `stage3/linux_init/a90_config.h` + `stage3/linux_init/a90_util.c/h` + `stage3/linux_init/a90_log.c/h` + `stage3/linux_init/a90_timeline.c/h` + `stage3/linux_init/a90_console.c/h` + `stage3/linux_init/a90_cmdproto.c/h` + `stage3/linux_init/a90_run.c/h` + `stage3/linux_init/a90_service.c/h` + `stage3/linux_init/a90_kms.c/h` + `stage3/linux_init/a90_draw.c/h` + `stage3/linux_init/a90_input.c/h` + `stage3/linux_init/a90_input_cmd.c/h` + `stage3/linux_init/a90_hud.c/h` + `stage3/linux_init/a90_menu.c/h` + `stage3/linux_init/a90_metrics.c/h` + `stage3/linux_init/a90_shell.c/h` + `stage3/linux_init/a90_controller.c/h` + `stage3/linux_init/a90_storage.c/h` + `stage3/linux_init/a90_selftest.c/h` + `stage3/linux_init/a90_usb_gadget.c/h` + `stage3/linux_init/a90_netservice.c/h` + `stage3/linux_init/a90_pid1_guard.c/h` + `stage3/linux_init/a90_runtime.c/h` + `stage3/linux_init/a90_helper.c/h` + `stage3/linux_init/a90_userland.c/h` + `stage3/linux_init/a90_diag.c/h` + `stage3/linux_init/a90_exposure.c/h` + `stage3/linux_init/a90_wifiinv.c/h` + `stage3/linux_init/a90_wififeas.c/h` + `stage3/linux_init/a90_changelog.c/h` + `stage3/linux_init/a90_longsoak.c/h` + `stage3/linux_init/a90_app_about.c/h` + `stage3/linux_init/a90_app_cpustress.c/h` + `stage3/linux_init/a90_app_displaytest.c/h` + `stage3/linux_init/a90_app_inputmon.c/h` + `stage3/linux_init/a90_app_log.c/h` + `stage3/linux_init/a90_app_network.c/h`
-- latest verified boot image: `stage3/boot_linux_v150.img`
+- latest verified source: `stage3/linux_init/init_v151.c` + `stage3/linux_init/v151/*.inc.c` + `stage3/linux_init/helpers/a90_cpustress.c` + `stage3/linux_init/helpers/a90_rshell.c` + `stage3/linux_init/helpers/a90_longsoak.c` + `stage3/linux_init/a90_config.h` + `stage3/linux_init/a90_util.c/h` + `stage3/linux_init/a90_log.c/h` + `stage3/linux_init/a90_timeline.c/h` + `stage3/linux_init/a90_console.c/h` + `stage3/linux_init/a90_cmdproto.c/h` + `stage3/linux_init/a90_run.c/h` + `stage3/linux_init/a90_service.c/h` + `stage3/linux_init/a90_kms.c/h` + `stage3/linux_init/a90_draw.c/h` + `stage3/linux_init/a90_input.c/h` + `stage3/linux_init/a90_input_cmd.c/h` + `stage3/linux_init/a90_hud.c/h` + `stage3/linux_init/a90_menu.c/h` + `stage3/linux_init/a90_metrics.c/h` + `stage3/linux_init/a90_shell.c/h` + `stage3/linux_init/a90_controller.c/h` + `stage3/linux_init/a90_storage.c/h` + `stage3/linux_init/a90_selftest.c/h` + `stage3/linux_init/a90_usb_gadget.c/h` + `stage3/linux_init/a90_netservice.c/h` + `stage3/linux_init/a90_pid1_guard.c/h` + `stage3/linux_init/a90_runtime.c/h` + `stage3/linux_init/a90_helper.c/h` + `stage3/linux_init/a90_userland.c/h` + `stage3/linux_init/a90_diag.c/h` + `stage3/linux_init/a90_exposure.c/h` + `stage3/linux_init/a90_wifiinv.c/h` + `stage3/linux_init/a90_wififeas.c/h` + `stage3/linux_init/a90_changelog.c/h` + `stage3/linux_init/a90_longsoak.c/h` + `stage3/linux_init/a90_app_about.c/h` + `stage3/linux_init/a90_app_cpustress.c/h` + `stage3/linux_init/a90_app_displaytest.c/h` + `stage3/linux_init/a90_app_inputmon.c/h` + `stage3/linux_init/a90_app_log.c/h` + `stage3/linux_init/a90_app_network.c/h`
+- latest verified boot image: `stage3/boot_linux_v151.img`
 - previous verified source-layout baseline: `stage3/linux_init/init_v80.c` + `stage3/linux_init/v80/*.inc.c`
 - known-good fallback: `stage3/boot_linux_v48.img`
-- local artifact retention: keep `v150` latest, `v149` rollback, and `v48` known-good; older ignored `stage3/boot_linux_v*.img`, `stage3/ramdisk_v*`, and compiled `init_v*` outputs are cleanup candidates
+- local artifact retention: keep `v151` latest, `v150` rollback, and `v48` known-good; older ignored `stage3/boot_linux_v*.img`, `stage3/ramdisk_v*`, and compiled `init_v*` outputs are cleanup candidates
 - control channel: USB CDC ACM serial (`/dev/ttyGS0` ↔ `/dev/ttyACM0`)
 - host bridge: `scripts/revalidation/serial_tcp_bridge.py --port 54321`
 - display: custom boot splash 후 상태 HUD/menu 자동 전환
@@ -128,6 +128,7 @@ Android userspace 대신 직접 만든 static `/init`를 실행하고,
 - long soak correlation: v148에서 host/device JSONL export와 correlation report PASS 확인
 - long soak supervisor: v149에서 recorder health/stale detection을 `status`/`bootstatus`/`selftest`에 연결
 - host disconnect classifier: v150에서 serial bridge/cmdv1/NCM ping/longsoak evidence를 분류하는 host report 추가
+- long soak bundle: v151에서 host/device JSONL, correlation, disconnect, live status transcript를 한 디렉터리로 묶는 evidence bundle 추가
 - about app: `APPS / ABOUT`에서 version, changelog 목록/상세, credits 표시
 - input layout: `inputlayout`, `waitgesture`, `screenmenu`/`blindmenu` gesture action 확인
 - input monitor: `TOOLS / INPUT MONITOR`와 `inputmonitor [events]` raw/gesture trace 확인

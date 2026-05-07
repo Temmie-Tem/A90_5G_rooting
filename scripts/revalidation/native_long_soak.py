@@ -15,7 +15,7 @@ sys.path.insert(0, str(Path(__file__).resolve().parent))
 
 from a90ctl import ProtocolResult, run_cmdv1_command  # noqa: E402
 
-DEFAULT_EXPECT_VERSION = "A90 Linux init 0.9.50 (v150)"
+DEFAULT_EXPECT_VERSION = "A90 Linux init 0.9.51 (v151)"
 
 
 @dataclass
@@ -42,10 +42,10 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--expect-version", default=DEFAULT_EXPECT_VERSION)
     parser.add_argument("--start-device", action="store_true", help="start device longsoak recorder first")
     parser.add_argument("--no-stop-device", action="store_true", help="leave device recorder running")
-    parser.add_argument("--out", default="tmp/soak/native-long-soak-v150.txt")
-    parser.add_argument("--jsonl-out", default="tmp/soak/native-long-soak-v150-host.jsonl")
-    parser.add_argument("--device-jsonl-out", default="tmp/soak/native-long-soak-v150-device.jsonl")
-    parser.add_argument("--summary-json", default="tmp/soak/native-long-soak-v150-summary.json")
+    parser.add_argument("--out", default="tmp/soak/native-long-soak-v151.txt")
+    parser.add_argument("--jsonl-out", default="tmp/soak/native-long-soak-v151-host.jsonl")
+    parser.add_argument("--device-jsonl-out", default="tmp/soak/native-long-soak-v151-device.jsonl")
+    parser.add_argument("--summary-json", default="tmp/soak/native-long-soak-v151-summary.json")
     return parser.parse_args()
 
 

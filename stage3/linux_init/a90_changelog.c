@@ -8,6 +8,12 @@
     { label, summary, { d1, d2, d3, d4, d5 } }
 
 static const struct a90_changelog_entry changelog_entries[] = {
+    ENTRY("0.9.51 v151", "LONG SOAK BUNDLE",
+          "0.9.51 v151 LONG SOAK BUNDLE",
+          "Adds host bundle for long soak evidence files",
+          "Collects status, bootstatus, timeline, and log path transcripts",
+          "Bundles correlation and disconnect classifier outputs",
+          "Prepares handoff-ready soak artifacts"),
     ENTRY("0.9.50 v150", "HOST DISCONNECT CLASSIFIER",
           "0.9.50 v150 HOST DISCONNECT CLASSIFIER",
           "Adds host-side ACM/NCM reachability classifier",
