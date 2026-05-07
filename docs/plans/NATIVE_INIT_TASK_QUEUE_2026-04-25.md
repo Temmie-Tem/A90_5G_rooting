@@ -193,20 +193,25 @@
 - local targeted v137 rescan은 PASS=17/WARN=1/FAIL=0이다.
 - quick native soak는 PASS cycles=3 commands=14다.
 
-## 다음 실행 항목: post-v137 후보 선정
+## 다음 실행 항목: v138 Release-candidate Extended Soak
 
-후보:
+계획 문서: `docs/plans/NATIVE_INIT_V138_EXTENDED_SOAK_PLAN_2026-05-08.md`
+
+선정 이유:
 
 - v137 integrated validation matrix는 새 기능이 아니라 post-v136 검증 gate다.
 - F032/F033 follow-up fixes는 v137 tree에 포함되어 있고 local targeted rescan 기준 PASS다.
 - 다음 보안 입력은 Codex Cloud fresh scan 또는 새 network-facing 변경 이후 scan 결과로 삼는다.
+- auto-HUD/menu controller cleanup이나 Wi-Fi/network-facing 변경 전에 반복 검증 기준선을 먼저 고정한다.
 
 다음 실행 항목:
 
 - v136 structure audit는 완료했다.
 - v137 integrated validation matrix는 완료했다.
-- 다음 후보는 fresh scan follow-up, auto-HUD/menu controller cleanup, 또는 release-candidate extended soak 중에서 선정한다.
-- network-facing 기능 확장은 v137 integrated validation gate를 통과하는 상태에서만 진행한다.
+- v138은 release-candidate extended soak로 진행한다.
+- v138 구현은 `0.9.38 v138 EXTENDED SOAK` marker와 `native_rc_soak.py` host harness를 포함한다.
+- v138 통과 후 다음 후보는 fresh scan follow-up, auto-HUD/menu controller cleanup, 또는 network-facing 판단으로 다시 선정한다.
+- network-facing 기능 확장은 v138 RC soak와 v137 integrated validation gate를 모두 통과하는 상태에서만 진행한다.
 
 ## 실행 큐
 
