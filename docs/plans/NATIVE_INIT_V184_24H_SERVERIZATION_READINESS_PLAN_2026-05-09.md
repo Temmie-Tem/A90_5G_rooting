@@ -62,6 +62,7 @@ python3 scripts/revalidation/native_test_supervisor.py mixed-soak \
   --workload-profile quick \
   --seed 184 \
   --allow-ncm \
+  --stop-on-failure \
   --workload ncm-tcp-preflight \
   --workload storage-io \
   --workload cpu-memory-profiles \
@@ -79,6 +80,7 @@ python3 scripts/revalidation/native_test_supervisor.py mixed-soak \
   --workload-profile quick \
   --seed 184 \
   --allow-ncm \
+  --stop-on-failure \
   --workload ncm-tcp-preflight \
   --workload storage-io \
   --workload cpu-memory-profiles \

@@ -108,8 +108,16 @@ def bridge_command(host: str,
 
 
 def cmdv1_unavailable(exc: Exception) -> bool:
+    if isinstance(exc, OSError):
+        return True
     text = str(exc)
-    return CMDV1_END_MISSING_TEXT in text or "cmdv1 cannot safely encode command" in text
+    if "cmdv1 cannot safely encode command" in text:
+        return True
+    if "serial device is not connected" in text:
+        return True
+    if "unknown command: cmdv1" in text or "unknown command: cmdv1x" in text:
+        return True
+    return False
 
 
 def run_device_cmdv1(args: argparse.Namespace,

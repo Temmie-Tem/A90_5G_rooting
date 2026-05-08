@@ -52,6 +52,7 @@ python3 scripts/revalidation/native_test_supervisor.py mixed-soak \
   --workload-profile quick \
   --seed 183 \
   --allow-ncm \
+  --stop-on-failure \
   --workload ncm-tcp-preflight \
   --workload storage-io \
   --workload cpu-memory-profiles \
@@ -77,6 +78,8 @@ separate recovery validation, not part of the first 8 hour serverization pilot.
 
 The run must keep evidence even when interrupted or failed.
 
+- Use `--stop-on-failure` for the pilot so early bridge/storage failures finalize
+  immediately instead of burning the remaining 8 hour window.
 - `operator-interrupt`: acceptable only for an explicitly aborted run; not PASS.
 - `env-ncm-missing`: deferred, not PASS.
 - `policy-blocked`: harness configuration issue unless intentional negative test.

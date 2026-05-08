@@ -446,6 +446,7 @@ def run_mixed_soak(args: argparse.Namespace) -> int:
         duration_sec=duration_sec,
         observer_interval_sec=args.observer_interval,
         workload_profile=args.workload_profile,
+        stop_on_failure=args.stop_on_failure,
     )
     checks = [
         CheckResult("schedule generated", bool(schedule_payload.get("schedule")) or args.profile == "idle",
@@ -560,6 +561,7 @@ def parse_args() -> argparse.Namespace:
     mixed.add_argument("--allow-usb-rebind", action="store_true")
     mixed.add_argument("--allow-destructive", action="store_true")
     mixed.add_argument("--assume-yes", action="store_true")
+    mixed.add_argument("--stop-on-failure", action="store_true")
 
     return parser.parse_args()
 

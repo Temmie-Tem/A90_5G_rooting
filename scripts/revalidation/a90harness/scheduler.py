@@ -176,12 +176,14 @@ def run_mixed_soak_schedule(
     duration_sec: float,
     observer_interval_sec: float,
     workload_profile: str,
+    stop_on_failure: bool = False,
 ) -> MixedSoakResult:
     started = time.monotonic()
     observer_summary: ObserverSummary | None = None
     observer_error: list[BaseException] = []
     stop_event = threading.Event()
     interrupted = False
+    stopped_for_failure = False
 
     def observer_worker() -> None:
         nonlocal observer_summary
@@ -274,10 +276,14 @@ def run_mixed_soak_schedule(
                 )
             store.append_jsonl("workload-events.jsonl", event.to_dict())
             events.append(event)
+            if stop_on_failure and not event.ok:
+                stopped_for_failure = True
+                break
 
-        deadline = started + duration_sec
-        while time.monotonic() < deadline:
-            time.sleep(min(1.0, deadline - time.monotonic()))
+        if not stopped_for_failure:
+            deadline = started + duration_sec
+            while time.monotonic() < deadline:
+                time.sleep(min(1.0, deadline - time.monotonic()))
     except KeyboardInterrupt:
         interrupted = True
 
@@ -338,7 +344,7 @@ def run_mixed_soak_schedule(
         classification_path=str(store.path("failure-classification.json")),
         classification_summary=classification["summary"],
         interrupted=interrupted,
-        stop_reason="interrupt" if interrupted else "complete",
+        stop_reason="interrupt" if interrupted else ("failure" if stopped_for_failure else "complete"),
     )
     store.write_json("mixed-soak-result.json", result.to_dict())
     return result
