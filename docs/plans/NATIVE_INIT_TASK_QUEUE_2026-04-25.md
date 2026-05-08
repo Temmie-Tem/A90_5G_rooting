@@ -287,6 +287,14 @@
 - evidence: `tmp/soak/harness/v177-gate-allowed-20260508T180349Z/`
 - 다음 실행 항목: v178 Wi-Fi Baseline Refresh 또는 v170-v177 completion audit
 
+### V170-V177. Host Harness Completion Audit — DONE
+
+- 산출: `docs/reports/NATIVE_INIT_V170_V177_COMPLETION_AUDIT_2026-05-09.md`
+- 의도: v170~v177 전체 루프의 계획/구현/검증/보고서/커밋/evidence를 실제 상태 기준으로 감사
+- 검증: plan/report pair 모두 존재, evidence manifest 모두 pass, static validation PASS, v177 gate block rc=2 확인
+- deferral: storage/NCM full PASS는 host NCM 미구성으로 structured SKIP 및 explicit gate로 문서화
+- 다음 실행 항목: v178 Wi-Fi Baseline Refresh
+
 ### Planned. v170-v177 Host Test Harness Cycle
 
 - 로드맵: `docs/plans/NATIVE_INIT_V170_V177_HARNESS_ROADMAP_2026-05-09.md`
@@ -311,7 +319,7 @@
   - 완료: v176 Long-Run Supervisor
   - 완료: v177 Safety Gate / Dry-Run Policy
 - guardrails: observer는 read-only, serial command single-writer, side effect는 module에만 허용, evidence private/no-follow 유지.
-- 다음 실행 항목: v178 Wi-Fi Baseline Refresh 또는 v170-v177 completion audit
+- 다음 실행 항목: v178 Wi-Fi Baseline Refresh
 
 ### Planned. v162-v169 Stability Test Cycle
 

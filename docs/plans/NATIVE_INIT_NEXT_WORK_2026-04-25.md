@@ -946,11 +946,9 @@ Samsung bootloader
 
 상세 실행 큐는 `docs/plans/NATIVE_INIT_TASK_QUEUE_2026-04-25.md`를 따른다.
 
-1. v170-v177 Completion Audit
+1. v178 Wi-Fi Baseline Refresh
    - 상위 로드맵: `docs/plans/NATIVE_INIT_V170_V177_HARNESS_ROADMAP_2026-05-09.md`
-   - 최신 증거: v177 safety gate PASS, 위험/환경 의존 module 기본 차단 확인
-   - 각 버전별 계획/보고서/검증 증거와 문서 갱신 상태를 audit한다
-2. v178 Wi-Fi Baseline Refresh
+   - 최신 증거: v170-v177 completion audit PASS, safety gate와 dry-run 정책 준비 완료
    - v177 safety gate 위에서 Wi-Fi 자료를 다시 수집한다
 3. v178+ Wi-Fi Baseline Refresh
    - host test supervisor 기반 안정성/관찰 체계 위에서 Android/TWRP/native Wi-Fi 자료를 다시 수집
