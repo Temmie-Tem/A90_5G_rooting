@@ -363,6 +363,16 @@
 - acceptance: 8h complete, no unclassified failures, SD/NCM/final selftest PASS, ACM rescue 유지
 - 다음 실행 항목: v181 full NCM/TCP + Storage Workload Integration
 
+### V184. 24h+ Serverization Readiness Gate — PLANNED
+
+- 계획: `docs/plans/NATIVE_INIT_V184_24H_SERVERIZATION_READINESS_PLAN_2026-05-09.md`
+- baseline device build: `A90 Linux init 0.9.59 (v159)`
+- device flash: 없음. v184는 host-harness 24h+ validation gate이며 별도 native-init boot image 없음
+- precondition: v181 full NCM/TCP + storage PASS, v183 8h pilot PASS 또는 명시 승인된 WARN-only 결과
+- command: `native_test_supervisor.py mixed-soak --duration-sec 86400 --observer-interval 30 --profile balanced --workload-profile quick --seed 184 --allow-ncm`
+- acceptance: 24h+ complete, classified/no unclassified failures, SD/NCM/selftest/ACM rescue PASS, `GO|WARN-GO|NO-GO` 판정
+- 다음 실행 항목: v181 full NCM/TCP + Storage Workload Integration
+
 ### Planned. v178-v184 Mixed Soak / Serverization Gate Cycle
 
 - 로드맵: `docs/plans/NATIVE_INIT_V178_V184_MIXED_SOAK_SECURITY_ROADMAP_2026-05-09.md`
@@ -379,6 +389,7 @@
   - v181 external-bridge safety integration PARTIAL; full NCM run pending host setup.
   - v182 failure classifier and interrupt-safe partial bundle PASS.
   - v183 8h pilot plan is written; execution remains gated by v181 full NCM readiness.
+  - v184 24h+ readiness gate plan is written; execution remains gated by v181 and v183.
 - 계획 순서:
   - 완료: v178 Post-Security Harness Baseline
   - 완료: v179 Mixed Soak Scheduler Foundation
@@ -386,7 +397,7 @@
   - 진행 중: v181 NCM/TCP + Storage Workload Integration
   - 완료: v182 Failure Classifier + Recovery Policy
   - 계획 완료: v183 8h Pilot Mixed Soak
-  - v184 24h+ Serverization Readiness Gate
+  - 계획 완료: v184 24h+ Serverization Readiness Gate
 - guardrails: Wi-Fi enablement/rfkill write/module load/firmware mutation/public listener/watchdog open/destructive partition write 금지, ACM rescue 유지, evidence private/no-follow 유지.
 - 다음 실행 항목: v181 full NCM/TCP + Storage Workload Integration
 
