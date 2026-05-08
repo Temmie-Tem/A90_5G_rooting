@@ -946,15 +946,13 @@ Samsung bootloader
 
 상세 실행 큐는 `docs/plans/NATIVE_INIT_TASK_QUEUE_2026-04-25.md`를 따른다.
 
-1. v168 Kernel Selftest Feasibility
+1. v169 Fault/Debug Feasibility
    - 상위 로드맵: `docs/plans/NATIVE_INIT_V160_V169_STABILITY_ROADMAP_2026-05-09.md`
-   - 최신 증거: v167 FS Exerciser Mini PASS, 64 deterministic ops, failed records 0, cleanup PASS
-   - kselftest/LTP userspace subset 중 native init에서 안전하게 차용 가능한 후보를 분류한다
-2. v169 Fault/Debug Feasibility
+   - 최신 증거: v168 Kselftest Feasibility PASS, safe candidates 4, conditional/unknown 5, blocked 6, mutation_performed=False
    - fault/debug/trace/usbmon availability and safety classification
-3. v170+ Wi-Fi Baseline Refresh
+2. v170+ Wi-Fi Baseline Refresh
    - 안정성 cycle 완료 후 Android/TWRP/native Wi-Fi 자료를 다시 수집
-4. v171+ Network Exposure Hardening
+3. v171+ Network Exposure Hardening
    - Wi-Fi/NCM을 USB-local 밖으로 넓히기 전 인증/ACL/token/bind 정책을 다시 검토
 
 ---

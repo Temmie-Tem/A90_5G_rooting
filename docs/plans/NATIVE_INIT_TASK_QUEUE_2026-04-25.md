@@ -175,6 +175,17 @@
 - failed records: 0
 - 다음 실행 항목: v168 Kernel Selftest Feasibility
 
+### V168. Kernel Selftest Feasibility — DONE
+
+- 계획: `docs/plans/NATIVE_INIT_V168_KSELFTEST_FEASIBILITY_PLAN_2026-05-09.md`
+- 산출: `docs/reports/NATIVE_INIT_V168_KSELFTEST_FEASIBILITY_2026-05-09.md`
+- baseline build: `A90 Linux init 0.9.59 (v159)`
+- 의도: full kselftest/LTP 실행 전 native init에서 안전하게 차용 가능한 userspace subset 분류
+- 검증: mandatory inventory 8/8 PASS, optional inventory 10/10 PASS, mutation_performed=False
+- 분류: safe candidates 4, conditional/unknown 5, blocked 6
+- evidence: `tmp/soak/kselftest-feasibility/v168-kselftest-20260508T171140Z/`
+- 다음 실행 항목: v169 Fault/Debug Feasibility
+
 ### Planned. v162-v169 Stability Test Cycle
 
 - 로드맵: `docs/plans/NATIVE_INIT_V160_V169_STABILITY_ROADMAP_2026-05-09.md`
@@ -186,14 +197,14 @@
 - v165 계획: `docs/plans/NATIVE_INIT_V165_USB_RECOVERY_PLAN_2026-05-09.md`
 - v166 계획: `docs/plans/NATIVE_INIT_V166_NETWORK_THROUGHPUT_PLAN_2026-05-09.md`
 - v167 계획: `docs/plans/NATIVE_INIT_V167_FS_EXERCISER_PLAN_2026-05-09.md`
+- v168 계획: `docs/plans/NATIVE_INIT_V168_KSELFTEST_FEASIBILITY_PLAN_2026-05-09.md`
 - baseline: `A90 Linux init 0.9.59 (v159)`
 - 의도: Wi-Fi baseline refresh 전에 커널/PID1/SD/USB/NCM/helper lifecycle 안정성 기준선을 만든다.
-- 현재 증거: v159 idle longsoak 약 15.77시간 PASS, host cmdv1/serial failures 0, SD backend writable, NCM/tcpctl smoke PASS.
+- 현재 증거: v168까지 완료. v159 idle longsoak 약 15.77시간 PASS, v160 TCP soak PASS, v161-v167 stability profiles PASS, v168 kselftest feasibility PASS.
 - 계획 순서:
-  - v168 Kselftest Feasibility
   - v169 Fault/Debug Feasibility
 - guardrails: ACM rescue 유지, Wi-Fi enablement/partition write/watchdog open/active tracing 금지, host evidence private output 유지.
-- 다음 실행 항목: v168 Kernel Selftest Feasibility
+- 다음 실행 항목: v169 Fault/Debug Feasibility
 
 ### V158. Watchdog Read-only Feasibility — DONE
 
