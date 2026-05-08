@@ -50,6 +50,7 @@ Android userspace 대신 직접 만든 static `/init`를 실행하고,
 - host USB/NCM modules: v174에서 `usb-recovery` smoke PASS, `ncm-tcp-preflight`는 NCM 미구성 상태를 structured SKIP으로 기록
 - host evidence bundle: v175에서 supervisor 공통 `README.md`/`bundle-index.json` finalizer 추가, bundle schema `a90-harness-v175` 검증 PASS
 - host long-run supervisor: v176에서 `observe --duration-sec unlimited --max-cycles`와 `heartbeat.json` 추가, bounded unlimited smoke PASS
+- host safety gate: v177에서 `list`/`plan`/`run --dry-run`과 `--allow-ncm`/`--allow-usb-rebind` gate 추가, 위험/환경 의존 모듈 기본 차단 확인
 - screen menu: 자동 메뉴, 앱 폴더, CPU stress app, nonblocking `screenmenu`, serial `hide`/busy gate 확인
 - USB map: ACM-only gadget `04e8:6861` / host `cdc_acm` 기준 문서화
 - userland: toybox fallback 실행 확인; v124부터 SD runtime BusyBox는 manifest SHA-256 검증 전에는 preferred helper가 되지 않음

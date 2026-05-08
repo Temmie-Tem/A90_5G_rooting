@@ -16,6 +16,7 @@ class UsbRecoveryModule(TestModule):
     cycle_label = "v174"
     read_only = False
     requires_usb_rebind = True
+    operator_confirm_required = True
 
     def __init__(self) -> None:
         self._run_id = f"v174-usb-{int(time.time())}"

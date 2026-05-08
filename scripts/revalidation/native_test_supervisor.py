@@ -18,6 +18,7 @@ sys.path.insert(0, str(SCRIPT_DIR))
 from a90harness.device import DeviceClient  # noqa: E402
 from a90harness.bundle import finalize_bundle  # noqa: E402
 from a90harness.evidence import EvidenceStore  # noqa: E402
+from a90harness.gate import GateOptions, evaluate_gate  # noqa: E402
 from a90harness.modules.cpu_mem_thermal import CpuMemThermalModule  # noqa: E402
 from a90harness.modules.kselftest_feasibility import KselftestFeasibilityModule  # noqa: E402
 from a90harness.modules.ncm_tcp_preflight import NcmTcpPreflightModule  # noqa: E402
@@ -77,6 +78,36 @@ def host_metadata() -> dict[str, Any]:
         "git_dirty": bool(rc_status == 0 and status.strip()),
         "git_status_short": status.splitlines() if rc_status == 0 and status.strip() else [],
     }
+
+
+def module_gate_options(args: argparse.Namespace) -> GateOptions:
+    return GateOptions(
+        allow_ncm=getattr(args, "allow_ncm", False),
+        allow_usb_rebind=getattr(args, "allow_usb_rebind", False),
+        allow_destructive=getattr(args, "allow_destructive", False),
+        assume_yes=getattr(args, "assume_yes", False),
+    )
+
+
+def print_module_plan(name: str, module: Any, gate: Any) -> None:
+    metadata = module.metadata()
+    print(f"module: {name}")
+    print(f"description: {metadata.get('description')}")
+    print(f"cycle_label: {metadata.get('cycle_label')}")
+    print(f"read_only: {metadata.get('read_only')}")
+    print(f"destructive: {metadata.get('destructive')}")
+    print(f"requires_ncm: {metadata.get('requires_ncm')}")
+    print(f"requires_usb_rebind: {metadata.get('requires_usb_rebind')}")
+    print(f"operator_confirm_required: {metadata.get('operator_confirm_required')}")
+    print(f"allowed: {gate.allowed}")
+    if gate.reasons:
+        print("blocked_reasons:")
+        for reason in gate.reasons:
+            print(f"- {reason}")
+    if gate.required_flags:
+        print("required_flags:")
+        for flag in gate.required_flags:
+            print(f"- {flag}")
 
 
 def transcript_name(name: str) -> str:
@@ -243,6 +274,13 @@ def render_module_summary(result: HarnessResult, manifest: dict[str, Any]) -> st
 def run_module(args: argparse.Namespace) -> int:
     module_cls = MODULES[args.module]
     module = module_cls()
+    gate = evaluate_gate(module, module_gate_options(args))
+    if args.dry_run:
+        print_module_plan(args.module, module, gate)
+        return 0
+    if not gate.allowed:
+        print_module_plan(args.module, module, gate)
+        return 2
     run_dir = args.run_dir if args.run_dir is not None else default_run_dir(f"{module.cycle_label}-{module.name}")
     run_dir = run_dir if run_dir.is_absolute() else REPO_ROOT / run_dir
     store = EvidenceStore(run_dir)
@@ -294,6 +332,7 @@ def run_module(args: argparse.Namespace) -> int:
         "version_matches": version_matches,
         "host": host_metadata(),
         "module": module_outcome.to_dict(),
+        "gate": gate.to_dict(),
         "observer": observer_summary.to_dict() if observer_summary is not None else None,
         "result": result.to_dict(),
         "policy": "module runner; cleanup and verify always attempted; first module is read-only",
@@ -306,6 +345,27 @@ def run_module(args: argparse.Namespace) -> int:
     return 0 if ok else 1
 
 
+def run_list(args: argparse.Namespace) -> int:
+    options = module_gate_options(args)
+    for name in sorted(MODULES):
+        module = MODULES[name]()
+        gate = evaluate_gate(module, options)
+        required = ",".join(gate.required_flags) if gate.required_flags else "-"
+        print(
+            f"{name}\tallowed={gate.allowed}\tread_only={module.read_only}\t"
+            f"requires_ncm={module.requires_ncm}\trequires_usb_rebind={module.requires_usb_rebind}\t"
+            f"required_flags={required}"
+        )
+    return 0
+
+
+def run_plan(args: argparse.Namespace) -> int:
+    module = MODULES[args.module]()
+    gate = evaluate_gate(module, module_gate_options(args))
+    print_module_plan(args.module, module, gate)
+    return 0
+
+
 def parse_args() -> argparse.Namespace:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--host", default="127.0.0.1")
@@ -313,6 +373,19 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--timeout", type=float, default=20.0)
     parser.add_argument("--expect-version", default=DEFAULT_EXPECT_VERSION)
     subparsers = parser.add_subparsers(dest="command", required=True)
+
+    list_parser = subparsers.add_parser("list", help="list validation modules and gate state")
+    list_parser.add_argument("--allow-ncm", action="store_true")
+    list_parser.add_argument("--allow-usb-rebind", action="store_true")
+    list_parser.add_argument("--allow-destructive", action="store_true")
+    list_parser.add_argument("--assume-yes", action="store_true")
+
+    plan = subparsers.add_parser("plan", help="show one module plan and gate requirements")
+    plan.add_argument("module", choices=sorted(MODULES))
+    plan.add_argument("--allow-ncm", action="store_true")
+    plan.add_argument("--allow-usb-rebind", action="store_true")
+    plan.add_argument("--allow-destructive", action="store_true")
+    plan.add_argument("--assume-yes", action="store_true")
 
     smoke = subparsers.add_parser("smoke", help="run v170 harness foundation smoke check")
     smoke.add_argument("--run-dir", type=Path)
@@ -329,12 +402,21 @@ def parse_args() -> argparse.Namespace:
     run.add_argument("--run-dir", type=Path)
     run.add_argument("--observer-duration-sec", type=float, default=0.0)
     run.add_argument("--observer-interval", type=float, default=5.0)
+    run.add_argument("--dry-run", action="store_true")
+    run.add_argument("--allow-ncm", action="store_true")
+    run.add_argument("--allow-usb-rebind", action="store_true")
+    run.add_argument("--allow-destructive", action="store_true")
+    run.add_argument("--assume-yes", action="store_true")
 
     return parser.parse_args()
 
 
 def main() -> int:
     args = parse_args()
+    if args.command == "list":
+        return run_list(args)
+    if args.command == "plan":
+        return run_plan(args)
     if args.command == "smoke":
         return run_smoke(args)
     if args.command == "observe":
