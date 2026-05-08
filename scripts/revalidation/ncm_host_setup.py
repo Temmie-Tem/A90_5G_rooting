@@ -80,6 +80,8 @@ def bridge_command(host: str,
 
 
 def cmdv1_unavailable(exc: Exception) -> bool:
+    if isinstance(exc, OSError):
+        return True
     text = str(exc)
     return CMDV1_END_MISSING_TEXT in text or "cmdv1 cannot safely encode command" in text
 
@@ -107,7 +109,7 @@ def device_command(args: argparse.Namespace,
         if cmdv1_enabled and not cmdv1_failed_open:
             try:
                 result = run_device_cmdv1(args, command, timeout_sec)
-            except RuntimeError as exc:
+            except (RuntimeError, OSError) as exc:
                 if args.device_protocol == "cmdv1" or not cmdv1_unavailable(exc):
                     raise
                 log(f"cmdv1 unavailable for {command!r}; falling back to raw bridge")
