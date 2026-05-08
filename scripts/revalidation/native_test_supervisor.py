@@ -19,7 +19,9 @@ from a90harness.device import DeviceClient  # noqa: E402
 from a90harness.evidence import EvidenceStore  # noqa: E402
 from a90harness.modules.cpu_mem_thermal import CpuMemThermalModule  # noqa: E402
 from a90harness.modules.kselftest_feasibility import KselftestFeasibilityModule  # noqa: E402
+from a90harness.modules.ncm_tcp_preflight import NcmTcpPreflightModule  # noqa: E402
 from a90harness.modules.storage_io import StorageIoModule  # noqa: E402
+from a90harness.modules.usb_recovery import UsbRecoveryModule  # noqa: E402
 from a90harness.observer import run_observer  # noqa: E402
 from a90harness.runner import ModuleRunner  # noqa: E402
 from a90harness.schema import CheckResult, CommandRecord, HarnessResult  # noqa: E402
@@ -29,7 +31,9 @@ DEFAULT_EXPECT_VERSION = "A90 Linux init 0.9.59 (v159)"
 MODULES = {
     CpuMemThermalModule.name: CpuMemThermalModule,
     KselftestFeasibilityModule.name: KselftestFeasibilityModule,
+    NcmTcpPreflightModule.name: NcmTcpPreflightModule,
     StorageIoModule.name: StorageIoModule,
+    UsbRecoveryModule.name: UsbRecoveryModule,
 }
 
 
