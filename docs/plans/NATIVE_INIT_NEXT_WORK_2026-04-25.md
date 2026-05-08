@@ -953,6 +953,7 @@ Samsung bootloader
    - host NCM 구성 후 `--allow-ncm` mixed workload PASS를 확인한다
 2. v182-v184 Mixed Soak / Serverization Gate
    - v182 failure classifier는 완료됐지만, v181 full NCM gate가 먼저 필요하다
+   - v183 8h pilot 계획서는 작성됐고, 실행은 v181 full NCM PASS 후 진행한다
    - v181 full PASS 후 v183 8h pilot, v184 24h+ readiness gate로 진행한다
 3. v185+ Wi-Fi Baseline Refresh
    - mixed-soak readiness gate 이후 Android/TWRP/native Wi-Fi 자료를 다시 수집한다
