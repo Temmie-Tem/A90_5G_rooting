@@ -342,7 +342,7 @@ Samsung bootloader
 다음 실행 후보:
 
 - v134 exposure guardrail과 v135 policy matrix 검증 완료. F021/F030 accepted boundary는 `exposure`/`diag`/`status`에서 관찰 가능해야 유지된다.
-- local targeted v145 rescan은 PASS=17/WARN=1/FAIL=0이며, 다음 보안 입력은 Codex Cloud fresh scan 또는 새 network-facing 변경 이후 scan 결과로 삼는다.
+- 최신 local targeted rescan은 `docs/security/SECURITY_FRESH_SCAN_F038_F044_2026-05-09.md` 기준 PASS=27/WARN=1/FAIL=0이다. 다음 보안 입력은 Codex Cloud fresh scan 또는 새 network-facing 변경 이후 scan 결과로 삼는다.
 - C/B 후보를 버전 분리했다.
   - v136: post-v135 structure audit 완료. 보고서 `docs/reports/NATIVE_INIT_V136_STRUCTURE_AUDIT_2026-05-07.md`.
   - v137: integrated validation matrix 완료. 보고서 `docs/reports/NATIVE_INIT_V137_VALIDATION_MATRIX_2026-05-07.md`.
@@ -946,11 +946,13 @@ Samsung bootloader
 
 상세 실행 큐는 `docs/plans/NATIVE_INIT_TASK_QUEUE_2026-04-25.md`를 따른다.
 
-1. v178 Mixed Soak Scheduler Plan
+1. v178 Post-Security Harness Baseline
    - 상위 로드맵: `docs/plans/NATIVE_INIT_V178_V184_MIXED_SOAK_SECURITY_ROADMAP_2026-05-09.md`
-   - 최신 증거: v160-v169 개별 안정성 검증, v170-v177 host harness completion audit PASS
-   - Wi-Fi 연결과 서버화 전에 mixed long-soak, failure classifier, 8h/24h readiness gate를 먼저 고정한다
+   - 세부 계획: `docs/plans/NATIVE_INIT_V178_POST_SECURITY_BASELINE_PLAN_2026-05-09.md`
+   - 최신 증거: F038-F044 보안 패치 완료, local targeted rescan PASS=27 WARN=1 FAIL=0
+   - v160-v177 증거는 pre-security-patch historical baseline으로만 보고, patched harness로 핵심 smoke evidence를 다시 만든다
 2. v179-v184 Mixed Soak / Serverization Gate
+   - v178 baseline PASS 이후 진행한다
    - host test supervisor 기반으로 CPU/memory/NCM/TCP/storage workload를 장시간 혼합 실행한다
    - 테스트 프로세스와 observer를 분리하고, 실패를 serial/NCM/storage/thermal/policy로 분류한다
 3. v185+ Wi-Fi Baseline Refresh

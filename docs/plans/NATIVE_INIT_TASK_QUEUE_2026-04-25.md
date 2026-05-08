@@ -285,7 +285,7 @@
 - 검증: `list`, `plan usb-recovery`, `run usb-recovery --dry-run`, `run usb-recovery` rc=2 block, `run kselftest-feasibility` PASS
 - gate: NCM modules require `--allow-ncm`, USB rebind modules require `--allow-usb-rebind --assume-yes`
 - evidence: `tmp/soak/harness/v177-gate-allowed-20260508T180349Z/`
-- 다음 실행 항목: v178 Mixed Soak / Serverization Gate Roadmap 또는 v170-v177 completion audit
+- 다음 실행 항목: v178 Post-Security Harness Baseline 또는 v170-v177 completion audit
 
 ### V170-V177. Host Harness Completion Audit — DONE
 
@@ -293,16 +293,20 @@
 - 의도: v170~v177 전체 루프의 계획/구현/검증/보고서/커밋/evidence를 실제 상태 기준으로 감사
 - 검증: plan/report pair 모두 존재, evidence manifest 모두 pass, static validation PASS, v177 gate block rc=2 확인
 - deferral: storage/NCM full PASS는 host NCM 미구성으로 structured SKIP 및 explicit gate로 문서화
-- 다음 실행 항목: v178 Mixed Soak Scheduler Plan
+- 다음 실행 항목: v178 Post-Security Harness Baseline
 
 ### Planned. v178-v184 Mixed Soak / Serverization Gate Cycle
 
 - 로드맵: `docs/plans/NATIVE_INIT_V178_V184_MIXED_SOAK_SECURITY_ROADMAP_2026-05-09.md`
+- v178 세부 계획: `docs/plans/NATIVE_INIT_V178_POST_SECURITY_BASELINE_PLAN_2026-05-09.md`
 - baseline: `A90 Linux init 0.9.59 (v159)`
 - 의도: Wi-Fi 연결과 서버화 전에 host/device 장시간 혼합 안정성, 네트워크 노출 안전성, 증거 수집 신뢰성을 검증 가능한 기준으로 만든다.
-- 현재 증거: v160-v169 개별 안정성 PASS/DEFERRED 정리, v170-v177 host harness completion audit PASS.
+- 현재 증거:
+  - v160-v169 개별 안정성 PASS/DEFERRED 정리와 v170-v177 host harness completion audit PASS는 보안 패치 전 historical baseline으로 유지한다.
+  - F038-F044 host harness 보안 패치 완료: `0b8e9bc`, `c214478`, `952e572`, `fafa6d6`.
+  - local targeted rescan: `docs/security/SECURITY_FRESH_SCAN_F038_F044_2026-05-09.md`, PASS=27 WARN=1 FAIL=0.
 - 계획 순서:
-  - v178 Mixed Soak Scheduler Plan
+  - v178 Post-Security Harness Baseline
   - v179 Mixed Soak Scheduler Foundation
   - v180 CPU/Memory Workload Profiles
   - v181 NCM/TCP + Storage Workload Integration
@@ -310,7 +314,7 @@
   - v183 8h Pilot Mixed Soak
   - v184 24h+ Serverization Readiness Gate
 - guardrails: Wi-Fi enablement/rfkill write/module load/firmware mutation/public listener/watchdog open/destructive partition write 금지, ACM rescue 유지, evidence private/no-follow 유지.
-- 다음 실행 항목: v178 Mixed Soak Scheduler Plan
+- 다음 실행 항목: v178 Post-Security Harness Baseline
 
 ### Planned. v170-v177 Host Test Harness Cycle
 
@@ -336,7 +340,7 @@
   - 완료: v176 Long-Run Supervisor
   - 완료: v177 Safety Gate / Dry-Run Policy
 - guardrails: observer는 read-only, serial command single-writer, side effect는 module에만 허용, evidence private/no-follow 유지.
-- 다음 실행 항목: v178 Mixed Soak Scheduler Plan
+- 다음 실행 항목: v178 Post-Security Harness Baseline
 
 ### Planned. v162-v169 Stability Test Cycle
 
@@ -2611,17 +2615,25 @@ python3 ./scripts/revalidation/physical_usb_reconnect_check.py --manual-host-con
 
 ## 지금 바로 진행할 항목
 
-1. v168 Kernel Selftest Feasibility
+1. v178 Post-Security Harness Baseline
 
-   - 상위 로드맵: `docs/plans/NATIVE_INIT_V160_V169_STABILITY_ROADMAP_2026-05-09.md`
-   - 최신 결과: v167 FS Exerciser Mini PASS, 64 ops, failed records 0, cleanup PASS
-   - 범위: mainline kselftest/LTP userspace subset 후보를 read-only로 분류
-   - 기준: safe candidate/blocked/unknown lists, no kernel mutation
+   - 상위 로드맵: `docs/plans/NATIVE_INIT_V178_V184_MIXED_SOAK_SECURITY_ROADMAP_2026-05-09.md`
+   - 세부 계획: `docs/plans/NATIVE_INIT_V178_POST_SECURITY_BASELINE_PLAN_2026-05-09.md`
+   - 최신 결과: F038-F044 보안 패치 완료, local targeted rescan PASS=27 WARN=1 FAIL=0
+   - 범위: patched host harness가 다시 신뢰 가능한 evidence producer인지 검증
+   - 기준: negative input checks, unauthenticated tcpctl rejection, short real-device observer smoke
 
-2. v169 Fault/Debug Feasibility
+2. v179 Mixed Soak Scheduler Foundation
 
-   - fault/debug/trace/usbmon availability and safety classification
-   - Wi-Fi baseline refresh와 exposure hardening은 v169 이후로 재개
+   - v178 baseline PASS 이후 진행
+   - observer와 workload를 동시에 실행하는 scheduler foundation 추가
+   - seed 기반 schedule, resource lock, partial evidence output을 고정
+
+3. v180-v184 Mixed Soak / Serverization Gate
+
+   - CPU/memory, NCM/TCP, storage workload를 단계적으로 통합
+   - failure classifier, 8h pilot, 24h+ readiness gate 순서로 진행
+   - Wi-Fi baseline refresh와 exposure hardening은 v184 gate 이후로 재개
 
 ### V106-V108. UI/App Architecture Split — DONE
 

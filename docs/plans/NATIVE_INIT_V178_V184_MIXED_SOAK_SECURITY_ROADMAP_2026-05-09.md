@@ -4,12 +4,19 @@ Date: `2026-05-09`
 Baseline: `A90 Linux init 0.9.59 (v159)`
 Cycle target: Wi-Fi 연결과 서버화 전에 host/device 장시간 혼합 안정성, 네트워크 노출 안전성,
 증거 수집 신뢰성을 검증 가능한 기준으로 만든다.
+Post-security baseline: F038-F044 host harness fixes through `fafa6d6`.
 
 ## Summary
 
-v160-v169는 개별 안정성 축을 검증했다. v170-v177은 그 검증들을 공용 host
-harness 위로 올렸다. 다음 병목은 “장시간 실제 운영에 가까운 혼합 부하”와
-“Wi-Fi/server exposure 전 신뢰 기준”이다.
+v160-v169는 개별 안정성 축을 검증했고, v170-v177은 그 검증들을 공용 host
+harness 위로 올렸다. 이후 F038-F044 보안 스캔에서 host validator/path
+guard/replay/evidence 판정 문제가 확인되어 `0b8e9bc`, `c214478`, `952e572`,
+`fafa6d6`로 패치했다. 따라서 v160-v177 결과는 역사적 baseline으로만 유지하고,
+mixed-soak/serverization 판단은 post-security harness로 다시 만든 증거를
+기준으로 삼는다.
+
+다음 병목은 “패치된 harness 자체의 신뢰성 고정”, “장시간 실제 운영에 가까운
+혼합 부하”, “Wi-Fi/server exposure 전 신뢰 기준”이다.
 
 Wi-Fi를 연결하면 USB-local 실험 장비에서 무선 네트워크에 붙은 장비가 된다.
 그 순간부터 고려 대상이 달라진다.
@@ -39,6 +46,8 @@ native_test_supervisor.py
 
 중요한 한계도 분명하다.
 
+- F038-F044 이전에 만든 v160-v177 evidence는 보안 패치 전 host tooling으로
+  생성된 것이므로 최종 readiness evidence로 승격하지 않는다.
 - `ModuleRunner`는 현재 observer를 먼저 수행하고 module을 실행한다. 즉
   “부하 중 동시 관찰” 구조가 아니다.
 - 모듈은 하나씩 실행된다. CPU, memory, NCM/TCP, storage를 일정 주기 또는
@@ -143,23 +152,29 @@ Abort/cooldown policy:
 
 ## Version Plan
 
-### v178 — Mixed Soak Scheduler Plan
+### v178 — Post-Security Harness Baseline
 
 Goal:
 
-- 기존 `v178 Wi-Fi Baseline Refresh`를 뒤로 미루고, Wi-Fi/serverization gate
-  cycle을 먼저 고정한다.
+- F038-F044 패치 이후 host harness가 다시 신뢰 가능한 evidence producer인지
+  검증한다.
 
 Scope:
 
-- 이 로드맵 문서 작성.
-- task queue와 next-work 문서에서 v178-v184를 Wi-Fi 전 신뢰성 gate로 재정렬.
-- 구현 전 acceptance, sources, safety policy 확정.
+- 세부 계획: `docs/plans/NATIVE_INIT_V178_POST_SECURITY_BASELINE_PLAN_2026-05-09.md`
+- local security rescan F001-F044 `FAIL=0` 유지.
+- storage/fs path safety negative tests.
+- unauthenticated tcpctl transcript rejection fixture.
+- short real-device observer smoke.
+- SD/NCM smoke는 가능한 환경에서만 수행하고, 불가 시 structured `SKIP/DEFERRED`
+  로 남긴다.
 
 Acceptance:
 
-- 문서가 `git diff --check`를 통과한다.
-- next queue가 “Wi-Fi 전에 mixed-soak/security gate”를 명확히 가리킨다.
+- post-security local scan has `FAIL=0`.
+- negative tests fail before device contact.
+- observer heartbeat/sample counters are valid.
+- v179 mixed-soak scheduler foundation으로 넘어갈 수 있는 baseline report가 남는다.
 
 ### v179 — Mixed Soak Scheduler Foundation
 
@@ -326,6 +341,7 @@ Every mixed-soak run must produce:
 
 Wi-Fi baseline refresh can resume only when:
 
+- v178 post-security harness baseline passes;
 - mixed-soak foundation smoke passes;
 - at least one 1h NCM/TCP/storage mixed run passes or is explicitly deferred with
   environmental reason;
