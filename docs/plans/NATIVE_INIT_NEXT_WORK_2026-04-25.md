@@ -946,12 +946,12 @@ Samsung bootloader
 
 상세 실행 큐는 `docs/plans/NATIVE_INIT_TASK_QUEUE_2026-04-25.md`를 따른다.
 
-1. v178 Post-Security Harness Baseline
+1. v179 Mixed Soak Scheduler Foundation
    - 상위 로드맵: `docs/plans/NATIVE_INIT_V178_V184_MIXED_SOAK_SECURITY_ROADMAP_2026-05-09.md`
-   - 세부 계획: `docs/plans/NATIVE_INIT_V178_POST_SECURITY_BASELINE_PLAN_2026-05-09.md`
-   - 최신 증거: F038-F044 보안 패치 완료, local targeted rescan PASS=27 WARN=1 FAIL=0
-   - v160-v177 증거는 pre-security-patch historical baseline으로만 보고, patched harness로 핵심 smoke evidence를 다시 만든다
-2. v179-v184 Mixed Soak / Serverization Gate
+   - 최신 증거: `docs/reports/NATIVE_INIT_V178_POST_SECURITY_BASELINE_2026-05-09.md` PASS
+   - v178은 실기기 플래시 버전이 아니라 v159 실기기 위에서 수행한 post-security host harness baseline이다
+   - observer와 workload를 동시에 실행하는 scheduler foundation을 추가한다
+2. v180-v184 Mixed Soak / Serverization Gate
    - v178 baseline PASS 이후 진행한다
    - host test supervisor 기반으로 CPU/memory/NCM/TCP/storage workload를 장시간 혼합 실행한다
    - 테스트 프로세스와 observer를 분리하고, 실패를 serial/NCM/storage/thermal/policy로 분류한다
