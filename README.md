@@ -40,6 +40,7 @@ Android userspace 대신 직접 만든 static `/init`를 실행하고,
 - scheduler latency proxy: v164에서 idle/post-cpustress/post-tmpfs-io 각 20샘플, p99 101-102ms, missed deadline 0 검증 완료
 - USB recovery: v165에서 `usbacmreset` 3회와 `a90_usbnet ncm/off` 복구 5/5, max recovery 1.905s, final ACM-only 확인
 - network throughput: v166은 host NCM IP assignment에 local sudo가 필요해 deferred 처리, operator-configured NCM에서 재개
+- FS exerciser mini: v167에서 `/mnt/sdext/a90/test-fsx` 64 deterministic ops, create/write/truncate/rename/unlink/fsync/verify/cleanup PASS
 - screen menu: 자동 메뉴, 앱 폴더, CPU stress app, nonblocking `screenmenu`, serial `hide`/busy gate 확인
 - USB map: ACM-only gadget `04e8:6861` / host `cdc_acm` 기준 문서화
 - userland: toybox fallback 실행 확인; v124부터 SD runtime BusyBox는 manifest SHA-256 검증 전에는 preferred helper가 되지 않음
