@@ -153,6 +153,17 @@
 - final checks: `version` PASS, `selftest verbose` PASS
 - 다음 실행 항목: v166 Network Throughput / Impairment
 
+### V166. Network Throughput / Impairment — DEFERRED
+
+- 계획: `docs/plans/NATIVE_INIT_V166_NETWORK_THROUGHPUT_PLAN_2026-05-09.md`
+- 산출: `docs/reports/NATIVE_INIT_V166_NETWORK_THROUGHPUT_DEFERRED_2026-05-09.md`
+- baseline build: `A90 Linux init 0.9.59 (v159)`
+- 의도: USB NCM throughput/checksum/impairment baseline
+- deferral: host NCM `192.168.7.1/24` assignment requires local sudo; current non-interactive run cannot configure host network
+- evidence: final v165 state is ACM-only, `netservice: ncm0=absent tcpctl=stopped`, no host `192.168.7.1/24` interface present
+- resume: operator-configured NCM 후 throughput report 작성
+- 다음 실행 항목: v167 FS Exerciser Mini
+
 ### Planned. v162-v169 Stability Test Cycle
 
 - 로드맵: `docs/plans/NATIVE_INIT_V160_V169_STABILITY_ROADMAP_2026-05-09.md`
@@ -162,16 +173,16 @@
 - v163 계획: `docs/plans/NATIVE_INIT_V163_CPU_MEM_THERMAL_PLAN_2026-05-09.md`
 - v164 계획: `docs/plans/NATIVE_INIT_V164_SCHED_LATENCY_PLAN_2026-05-09.md`
 - v165 계획: `docs/plans/NATIVE_INIT_V165_USB_RECOVERY_PLAN_2026-05-09.md`
+- v166 계획: `docs/plans/NATIVE_INIT_V166_NETWORK_THROUGHPUT_PLAN_2026-05-09.md`
 - baseline: `A90 Linux init 0.9.59 (v159)`
 - 의도: Wi-Fi baseline refresh 전에 커널/PID1/SD/USB/NCM/helper lifecycle 안정성 기준선을 만든다.
 - 현재 증거: v159 idle longsoak 약 15.77시간 PASS, host cmdv1/serial failures 0, SD backend writable, NCM/tcpctl smoke PASS.
 - 계획 순서:
-  - v166 Network Throughput
   - v167 FS Exerciser Mini
   - v168 Kselftest Feasibility
   - v169 Fault/Debug Feasibility
 - guardrails: ACM rescue 유지, Wi-Fi enablement/partition write/watchdog open/active tracing 금지, host evidence private output 유지.
-- 다음 실행 항목: v166 Network Throughput / Impairment
+- 다음 실행 항목: v167 FS Exerciser Mini
 
 ### V158. Watchdog Read-only Feasibility — DONE
 
@@ -2425,16 +2436,15 @@ python3 ./scripts/revalidation/physical_usb_reconnect_check.py --manual-host-con
 
 ## 지금 바로 진행할 항목
 
-1. v166 Network Throughput / Impairment
+1. v167 FS Exerciser Mini
 
    - 상위 로드맵: `docs/plans/NATIVE_INIT_V160_V169_STABILITY_ROADMAP_2026-05-09.md`
-   - 최신 결과: v165 USB Recovery PASS, recovered 5/5, max recovery 1.905s, final ACM-only
-   - 범위: operator-configured NCM 위에서 netcat/tcpctl throughput와 impairment baseline
-   - 기준: bounded transfer PASS, checksum match, control channel recovery
+   - 최신 결과: v166 Network Throughput deferred, host NCM IP assignment requires local sudo; v165 final ACM-only confirmed
+   - 범위: `/mnt/sdext/a90/test-fsx` 안에서 deterministic create/write/read/truncate/rename/unlink/fsync sequence
+   - 기준: replay 가능한 operation log, checksum/size verification, cleanup
 
-2. v167-v169 Extended Stability/Feasibility
+2. v168-v169 Extended Stability/Feasibility
 
-   - v167 FS exerciser mini
    - v168 kselftest feasibility, v169 fault/debug feasibility
    - Wi-Fi baseline refresh와 exposure hardening은 v169 이후로 재개
 
