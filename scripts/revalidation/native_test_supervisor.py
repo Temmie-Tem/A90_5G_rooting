@@ -17,6 +17,7 @@ sys.path.insert(0, str(SCRIPT_DIR))
 
 from a90harness.device import DeviceClient  # noqa: E402
 from a90harness.evidence import EvidenceStore  # noqa: E402
+from a90harness.observer import run_observer  # noqa: E402
 from a90harness.schema import CheckResult, CommandRecord, HarnessResult  # noqa: E402
 
 
@@ -140,6 +141,47 @@ def run_smoke(args: argparse.Namespace) -> int:
     return 0 if ok else 1
 
 
+def run_observe(args: argparse.Namespace) -> int:
+    run_dir = args.run_dir if args.run_dir is not None else default_run_dir("v171-observer")
+    run_dir = run_dir if run_dir.is_absolute() else REPO_ROOT / run_dir
+    store = EvidenceStore(run_dir)
+    client = DeviceClient(args.host, args.port, args.timeout)
+    started = time.monotonic()
+
+    observer_summary = run_observer(
+        client,
+        store,
+        duration_sec=args.duration_sec,
+        interval_sec=args.interval,
+    )
+    observer_text = store.path("observer.jsonl").read_text(encoding="utf-8", errors="replace")
+    version_matches = args.expect_version in observer_text
+    checks = [
+        CheckResult("observer samples", observer_summary.samples > 0, f"samples={observer_summary.samples}"),
+        CheckResult("observer failures", observer_summary.failures == 0, f"failures={observer_summary.failures}"),
+        CheckResult("observer version matches", version_matches, args.expect_version),
+    ]
+    ok = observer_summary.ok and all(check.ok for check in checks)
+    result = HarnessResult("A90 v171 Observer API", ok, checks, [])
+    manifest: dict[str, Any] = {
+        "label": result.label,
+        "pass": ok,
+        "run_dir": str(run_dir),
+        "created_utc": dt.datetime.now(dt.timezone.utc).isoformat(),
+        "duration_sec": time.monotonic() - started,
+        "expect_version": args.expect_version,
+        "version_matches": version_matches,
+        "host": host_metadata(),
+        "observer": observer_summary.to_dict(),
+        "result": result.to_dict(),
+        "policy": "read-only observer; no device mutation",
+    }
+    store.write_json("manifest.json", manifest)
+    store.write_text("summary.md", render_summary(result, manifest))
+    print(f"{'PASS' if ok else 'FAIL'} run_dir={run_dir} samples={observer_summary.samples} failures={observer_summary.failures}")
+    return 0 if ok else 1
+
+
 def parse_args() -> argparse.Namespace:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--host", default="127.0.0.1")
@@ -151,6 +193,11 @@ def parse_args() -> argparse.Namespace:
     smoke = subparsers.add_parser("smoke", help="run v170 harness foundation smoke check")
     smoke.add_argument("--run-dir", type=Path)
 
+    observe = subparsers.add_parser("observe", help="run v171 read-only observer")
+    observe.add_argument("--run-dir", type=Path)
+    observe.add_argument("--duration-sec", type=float, default=60.0)
+    observe.add_argument("--interval", type=float, default=10.0)
+
     return parser.parse_args()
 
 
@@ -158,6 +205,8 @@ def main() -> int:
     args = parse_args()
     if args.command == "smoke":
         return run_smoke(args)
+    if args.command == "observe":
+        return run_observe(args)
     raise RuntimeError(f"unknown command: {args.command}")
 
 

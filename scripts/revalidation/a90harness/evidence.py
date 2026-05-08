@@ -54,6 +54,31 @@ def write_private_text(path: Path, text: str) -> None:
     write_private_bytes(path, text.encode("utf-8"))
 
 
+def append_private_text(path: Path, text: str) -> None:
+    ensure_private_dir(path.parent)
+    try:
+        info = path.lstat()
+    except FileNotFoundError:
+        pass
+    else:
+        if stat.S_ISLNK(info.st_mode):
+            raise RuntimeError(f"refusing symlink destination: {path}")
+    flags = os.O_WRONLY | os.O_CREAT | os.O_APPEND | cloexec_flag() | nofollow_flag()
+    fd = os.open(path, flags, PRIVATE_FILE_MODE)
+    try:
+        with os.fdopen(fd, "a", encoding="utf-8") as file_obj:
+            fd = -1
+            file_obj.write(text)
+    finally:
+        if fd >= 0:
+            os.close(fd)
+    path.chmod(PRIVATE_FILE_MODE)
+
+
+def append_private_jsonl(path: Path, payload: dict[str, Any]) -> None:
+    append_private_text(path, json.dumps(payload, ensure_ascii=False, sort_keys=True) + "\n")
+
+
 def write_private_json(path: Path, payload: dict[str, Any]) -> None:
     write_private_text(path, json.dumps(payload, ensure_ascii=False, indent=2, sort_keys=True) + "\n")
 
@@ -84,3 +109,7 @@ class EvidenceStore:
         write_private_json(path, payload)
         return path
 
+    def append_jsonl(self, relative_path: str, payload: dict[str, Any]) -> Path:
+        path = self.path(relative_path)
+        append_private_jsonl(path, payload)
+        return path

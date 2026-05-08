@@ -44,6 +44,7 @@ Android userspace 대신 직접 만든 static `/init`를 실행하고,
 - kselftest feasibility: v168에서 full kselftest/LTP 실행 없이 safe candidates 4, conditional/unknown 5, blocked 6으로 read-only 분류 완료
 - fault/debug feasibility: v169에서 debugfs/tracefs/usbmon/fault-injection/pstore reboot/watchdog/crash 계열을 read-only 분류하고 위험 기능은 opt-in 또는 blocked로 유지
 - host test harness: v170에서 `scripts/revalidation/a90harness/` 공용 device/evidence/schema와 `native_test_supervisor.py smoke` 추가, `version/status` smoke PASS
+- host observer: v171에서 `native_test_supervisor.py observe`와 `observer.jsonl`/`observer-summary.json` read-only sampler 추가, 15초 실기 관찰 samples=21 failures=0
 - screen menu: 자동 메뉴, 앱 폴더, CPU stress app, nonblocking `screenmenu`, serial `hide`/busy gate 확인
 - USB map: ACM-only gadget `04e8:6861` / host `cdc_acm` 기준 문서화
 - userland: toybox fallback 실행 확인; v124부터 SD runtime BusyBox는 manifest SHA-256 검증 전에는 preferred helper가 되지 않음
