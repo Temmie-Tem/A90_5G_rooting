@@ -55,11 +55,12 @@ python3 scripts/revalidation/native_test_supervisor.py mixed-soak \
 - stop reason: `complete`
 - failure classifications: `0`
 
-The run ended earlier than the requested 3600 seconds because the current
-mixed-soak scheduler executes the planned workloads at `0s`, `1200s`, and
-`2400s`, then finalizes after the last scheduled workload. This is acceptable
+The run ended earlier than the requested 3600 seconds because the scheduler at
+the time of this v181 run executed planned workloads at `0s`, `1200s`, and
+`2400s`, then finalized after the last scheduled workload. This is acceptable
 for v181 integration validation because all required workloads ran and passed.
-The v183/v184 plans still require effective 8h/24h runtime gates.
+The scheduler was fixed after this run so v183/v184 can enforce effective
+8h/24h runtime gates.
 
 ## Workloads
 

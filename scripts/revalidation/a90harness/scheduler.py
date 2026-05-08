@@ -274,6 +274,10 @@ def run_mixed_soak_schedule(
                 )
             store.append_jsonl("workload-events.jsonl", event.to_dict())
             events.append(event)
+
+        deadline = started + duration_sec
+        while time.monotonic() < deadline:
+            time.sleep(min(1.0, deadline - time.monotonic()))
     except KeyboardInterrupt:
         interrupted = True
 
