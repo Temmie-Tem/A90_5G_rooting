@@ -54,13 +54,17 @@ ncm.host_addr: <read:No such device>
 ## Operator Resume Steps
 
 ```bash
-python3 scripts/revalidation/ncm_host_setup.py setup --allow-auto-interface
+python3 scripts/revalidation/ncm_host_setup.py setup --interface <known-usb-ncm-ifname>
 
 # If sudo is required, run manually:
 sudo ip addr replace 192.168.7.1/24 dev <enx...>
 sudo ip link set <enx...> up
 ping -c 3 -W 2 192.168.7.2
 ```
+
+`--allow-auto-interface` is a diagnostic fallback only. Prefer an explicit
+known USB NCM interface so a reported or stale MAC cannot select the wrong sudo
+target on a multi-NIC host.
 
 After NCM is reachable, create the actual throughput report and replace this deferred report with measured direction/bytes/MB/s/checksum evidence.
 

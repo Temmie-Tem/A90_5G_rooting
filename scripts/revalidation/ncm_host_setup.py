@@ -389,7 +389,10 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument(
         "--allow-auto-interface",
         action="store_true",
-        help="allow selecting the sudo target interface from device-reported NCM MAC",
+        help=(
+            "diagnostic fallback only: allow selecting the sudo target interface "
+            "from device-reported NCM MAC; prefer --interface on multi-NIC hosts"
+        ),
     )
     parser.add_argument("--ping-count", type=int, default=3)
     parser.add_argument("--ping-timeout", type=int, default=2)

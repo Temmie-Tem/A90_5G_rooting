@@ -122,6 +122,18 @@ def parse_tcpctl_summary(text: str) -> TcpctlSummary:
     )
 
 
+def tcpctl_auth_required(text: str) -> bool:
+    return bool(re.search(r"\bauth=required\b", text))
+
+
+def tcpctl_auth_none(text: str) -> bool:
+    return bool(re.search(r"\bauth=none\b", text))
+
+
+def tcpctl_authenticated_flow(text: str) -> bool:
+    return "OK authenticated" in text
+
+
 def add_check(checks: list[Check], name: str, ok: bool, detail: str) -> None:
     checks.append(Check(name, ok, detail))
 
@@ -132,6 +144,9 @@ def validate_tcpctl(args: argparse.Namespace, text: str, summary: TcpctlSummary,
     add_check(checks, "shutdown marker", "--- shutdown ---" in text, "shutdown section present")
     add_check(checks, "serial run done", "[done] run" in text, "serial run reports [done] run")
     add_check(checks, "final ncm ping", "0% packet loss" in text, "final ping reports zero packet loss")
+    add_check(checks, "tcpctl auth required", tcpctl_auth_required(text), "transcript contains auth=required")
+    add_check(checks, "tcpctl authenticated flow", tcpctl_authenticated_flow(text), "transcript contains OK authenticated")
+    add_check(checks, "tcpctl no no-auth marker", not tcpctl_auth_none(text), "transcript must not contain auth=none")
     if args.expect_version:
         add_check(checks, "expected native version", args.expect_version in text, args.expect_version)
 

@@ -63,8 +63,19 @@ class NcmTcpPreflightModule(TestModule):
             timeout=240,
         )
         ctx.store.write_text(f"modules/{self.name}/wrapper-output.txt", "$ " + " ".join(command) + "\n\n" + result.stdout)
-        ok = result.returncode == 0 and "--- tcpctl-checks ---" in result.stdout
-        return StepResult("run", ok, f"rc={result.returncode}", 0.0)
+        required_markers = (
+            "--- ping ---",
+            "--- version ---",
+            "--- status ---",
+            "--- shutdown ---",
+            "--- serial-run ---",
+            "--- bridge-version ---",
+            "--- ncm-ping ---",
+            "[done] run",
+        )
+        missing = [marker for marker in required_markers if marker not in result.stdout]
+        ok = result.returncode == 0 and not missing
+        return StepResult("run", ok, f"rc={result.returncode} missing={missing}", 0.0)
 
     def cleanup(self, ctx: ModuleContext) -> StepResult:
         if self._skip_reason:
@@ -76,5 +87,12 @@ class NcmTcpPreflightModule(TestModule):
             return StepResult("verify", True, self._skip_reason, 0.0, skipped=True)
         output_path = ctx.module_dir / "wrapper-output.txt"
         text = output_path.read_text(encoding="utf-8", errors="replace") if output_path.exists() else ""
-        ok = "pong" in text and "shutdown" in text
-        return StepResult("verify", ok, f"pong={ 'pong' in text } shutdown={ 'shutdown' in text }", 0.0)
+        markers = {
+            "pong": "pong" in text,
+            "authenticated": "OK authenticated" in text,
+            "auth_required": "auth=required" in text,
+            "shutdown": "shutdown" in text,
+            "serial_done": "[done] run" in text,
+        }
+        ok = all(markers.values()) and "auth=none" not in text
+        return StepResult("verify", ok, " ".join(f"{key}={value}" for key, value in markers.items()), 0.0)
