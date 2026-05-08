@@ -18,6 +18,13 @@ from pathlib import Path
 from typing import Any
 
 sys.path.insert(0, str(Path(__file__).resolve().parent))
+from a90harness.path_safety import (  # noqa: E402
+    normalize_device_path,
+    require_path_under,
+    require_run_child,
+    require_safe_component,
+    require_safe_raw_arg,
+)
 from tcpctl_host import (  # noqa: E402
     BridgeRunThread,
     DEFAULT_BRIDGE_HOST,
@@ -128,18 +135,28 @@ def parse_sizes(text: str) -> list[int]:
     return sizes
 
 
-def validate_device_test_root(path: str) -> None:
-    if not path.startswith("/mnt/sdext/a90/test-"):
+def validate_device_test_root(path: str) -> str:
+    normalized = require_path_under(path, "/mnt/sdext/a90", "test root")
+    basename = posixpath.basename(normalized)
+    if not basename.startswith("test-"):
         raise RuntimeError(f"refusing test root outside /mnt/sdext/a90/test-*: {path}")
-    if "//" in path or "/../" in path or path.endswith("/.."):
-        raise RuntimeError(f"unsafe test root: {path}")
+    return normalized
 
 
-def validate_device_path(path: str, root: str) -> None:
-    if not path.startswith(root.rstrip("/") + "/"):
-        raise RuntimeError(f"refusing path outside test root: {path}")
-    if "/../" in path or path.endswith("/.."):
-        raise RuntimeError(f"unsafe device path: {path}")
+def validate_device_path(path: str, root: str) -> str:
+    return require_path_under(path, root, "device path")
+
+
+def raw_command(*args: str) -> str:
+    return " ".join(require_safe_raw_arg(arg, "raw command argument") for arg in args)
+
+
+def validate_common_args(args: argparse.Namespace) -> None:
+    args.test_root = validate_device_test_root(args.test_root)
+    args.run_id = require_safe_component(args.run_id, "run id")
+    args.toybox = require_safe_raw_arg(normalize_device_path(args.toybox, "toybox path"), "toybox path")
+    if not 1 <= args.transfer_port <= 65535:
+        raise RuntimeError(f"invalid transfer port: {args.transfer_port}")
 
 
 def run_device(args: argparse.Namespace,
@@ -151,24 +168,33 @@ def run_device(args: argparse.Namespace,
 
 
 def mkdir_chain(args: argparse.Namespace, path: str) -> None:
+    path = validate_device_path(path, args.test_root)
     parts = [part for part in path.split("/") if part]
     current = ""
     for part in parts:
         current += "/" + part
         if current in {"/mnt", "/mnt/sdext", "/mnt/sdext/a90"}:
             continue
-        run_device(args, f"mkdir {current}", timeout=args.bridge_timeout, allow_error=True)
+        run_device(args, raw_command("mkdir", current), timeout=args.bridge_timeout, allow_error=True)
 
 
 def transfer_file(args: argparse.Namespace, local_path: Path, device_path: str) -> str:
     tmp_path = f"{device_path}.tmp.{os.getpid()}.{int(time.time())}"
-    validate_device_path(device_path, args.test_root)
-    validate_device_path(tmp_path, args.test_root)
-    receive_command = (
-        f"run {args.toybox} netcat -l -p {args.transfer_port} "
-        f"{args.toybox} dd of={tmp_path} bs=4096"
+    device_path = validate_device_path(device_path, args.test_root)
+    tmp_path = validate_device_path(tmp_path, args.test_root)
+    receive_command = raw_command(
+        "run",
+        args.toybox,
+        "netcat",
+        "-l",
+        "-p",
+        str(args.transfer_port),
+        args.toybox,
+        "dd",
+        f"of={tmp_path}",
+        "bs=4096",
     )
-    cleanup_command = f"run {args.toybox} rm -f {tmp_path}"
+    cleanup_command = raw_command("run", args.toybox, "rm", "-f", tmp_path)
 
     run_device(args, cleanup_command, timeout=args.bridge_timeout, allow_error=True)
     runner = BridgeRunThread(args, receive_command, echo=args.verbose)
@@ -188,7 +214,7 @@ def transfer_file(args: argparse.Namespace, local_path: Path, device_path: str) 
         text = runner.text()
         if "[done] run" not in text:
             raise RuntimeError(f"device transfer did not report done:\n{text}")
-        run_device(args, f"run {args.toybox} mv -f {tmp_path} {device_path}", timeout=args.bridge_timeout)
+        run_device(args, raw_command("run", args.toybox, "mv", "-f", tmp_path, device_path), timeout=args.bridge_timeout)
         return text
     except Exception:
         run_device(args, cleanup_command, timeout=args.bridge_timeout, allow_error=True)
@@ -196,7 +222,8 @@ def transfer_file(args: argparse.Namespace, local_path: Path, device_path: str) 
 
 
 def device_sha256(args: argparse.Namespace, path: str) -> str:
-    text = run_device(args, f"run {args.toybox} sha256sum {path}", timeout=args.bridge_timeout)
+    path = validate_device_path(path, args.test_root)
+    text = run_device(args, raw_command("run", args.toybox, "sha256sum", path), timeout=args.bridge_timeout)
     for word in text.split():
         if len(word) == 64 and all(ch in "0123456789abcdefABCDEF" for ch in word):
             return word.lower()
@@ -209,8 +236,9 @@ def run_one_file(args: argparse.Namespace,
                  size: int) -> FileResult:
     name = f"file-{index:02d}-{size}.bin"
     local_path = local_dir / name
-    device_path = posixpath.join(args.test_root, args.run_id, name)
+    device_path = validate_device_path(posixpath.join(args.test_root, args.run_id, name), args.test_root)
     renamed_path = device_path + ".renamed"
+    renamed_path = validate_device_path(renamed_path, args.test_root)
     data = deterministic_bytes(size, f"{args.run_id}:{index}:{size}")
     digest = sha256_bytes(data)
     write_private_bytes(local_path, data)
@@ -218,17 +246,18 @@ def run_one_file(args: argparse.Namespace,
     transfer_file(args, local_path, device_path)
     first_hash = device_sha256(args, device_path)
     sha_ok = first_hash == digest
-    run_device(args, f"run {args.toybox} mv -f {device_path} {renamed_path}", timeout=args.bridge_timeout)
-    run_device(args, f"run {args.toybox} mv -f {renamed_path} {device_path}", timeout=args.bridge_timeout)
+    run_device(args, raw_command("run", args.toybox, "mv", "-f", device_path, renamed_path), timeout=args.bridge_timeout)
+    run_device(args, raw_command("run", args.toybox, "mv", "-f", renamed_path, device_path), timeout=args.bridge_timeout)
     second_hash = device_sha256(args, device_path)
     rename_ok = second_hash == digest
     run_device(args, "sync", timeout=args.bridge_timeout)
     fsync_ok = device_sha256(args, device_path) == digest
 
     unlink_probe = device_path + ".unlink-probe"
+    unlink_probe = validate_device_path(unlink_probe, args.test_root)
     transfer_file(args, local_path, unlink_probe)
-    run_device(args, f"run {args.toybox} rm -f {unlink_probe}", timeout=args.bridge_timeout)
-    stat_text = run_device(args, f"stat {unlink_probe}", timeout=args.bridge_timeout, allow_error=True)
+    run_device(args, raw_command("run", args.toybox, "rm", "-f", unlink_probe), timeout=args.bridge_timeout)
+    stat_text = run_device(args, raw_command("stat", unlink_probe), timeout=args.bridge_timeout, allow_error=True)
     unlink_ok = "No such file" in stat_text or "[err]" in stat_text or "ENOENT" in stat_text
 
     return FileResult(
@@ -245,7 +274,7 @@ def run_one_file(args: argparse.Namespace,
 
 
 def command_run(args: argparse.Namespace) -> int:
-    validate_device_test_root(args.test_root)
+    validate_common_args(args)
     sizes = parse_sizes(args.sizes)
     out_json = Path(args.out_json)
     out_md = Path(args.out_md)
@@ -253,7 +282,7 @@ def command_run(args: argparse.Namespace) -> int:
     local_dir = host_dir / "files"
     ensure_private_dir(local_dir)
 
-    device_run_root = posixpath.join(args.test_root, args.run_id)
+    device_run_root = require_run_child(args.test_root, args.run_id)
     validate_device_path(posixpath.join(device_run_root, "probe"), args.test_root)
     mkdir_chain(args, device_run_root)
 
@@ -300,10 +329,10 @@ def command_run(args: argparse.Namespace) -> int:
 
 
 def command_clean(args: argparse.Namespace) -> int:
-    validate_device_test_root(args.test_root)
-    target = posixpath.join(args.test_root, args.run_id) if args.run_id else args.test_root
+    validate_common_args(args)
+    target = require_run_child(args.test_root, args.run_id)
     validate_device_path(posixpath.join(target.rstrip("/"), "probe"), args.test_root)
-    text = run_device(args, f"run {args.toybox} rm -rf {target}", timeout=args.bridge_timeout, allow_error=True)
+    text = run_device(args, raw_command("run", args.toybox, "rm", "-rf", target), timeout=args.bridge_timeout, allow_error=True)
     print(text, end="" if text.endswith("\n") else "\n")
     print(f"cleaned {target}")
     return 0

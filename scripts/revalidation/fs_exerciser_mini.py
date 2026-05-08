@@ -19,6 +19,13 @@ from typing import Any
 
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 from a90ctl import run_cmdv1_command  # noqa: E402
+from a90harness.path_safety import (  # noqa: E402
+    normalize_device_path,
+    require_path_under,
+    require_run_child,
+    require_safe_component,
+    require_safe_raw_arg,
+)
 from tcpctl_host import DEFAULT_BRIDGE_HOST, DEFAULT_BRIDGE_PORT, DEFAULT_TOYBOX  # noqa: E402
 
 
@@ -110,19 +117,22 @@ def parse_args() -> argparse.Namespace:
     return parser.parse_args()
 
 
-def validate_test_root(path: str) -> None:
-    if not path.startswith("/mnt/sdext/a90/test-fsx"):
-        raise RuntimeError(f"refusing test root outside /mnt/sdext/a90/test-fsx*: {path}")
-    if "//" in path or "/../" in path or path.endswith("/.."):
-        raise RuntimeError(f"unsafe test root: {path}")
+def validate_test_root(path: str) -> str:
+    normalized = normalize_device_path(path, "test root")
+    if normalized != DEFAULT_TEST_ROOT:
+        raise RuntimeError(f"refusing test root outside {DEFAULT_TEST_ROOT}: {path}")
+    return normalized
 
 
-def validate_device_path(path: str, root: str) -> None:
-    root = root.rstrip("/")
-    if path != root and not path.startswith(root + "/"):
-        raise RuntimeError(f"refusing path outside test root: {path}")
-    if "/../" in path or path.endswith("/.."):
-        raise RuntimeError(f"unsafe device path: {path}")
+def validate_device_path(path: str, root: str) -> str:
+    return require_path_under(path, root, "device path")
+
+
+def validate_common_args(args: argparse.Namespace) -> None:
+    args.test_root = validate_test_root(args.test_root)
+    args.run_id = require_safe_component(args.run_id, "run id")
+    args.run_root = require_run_child(args.test_root, args.run_id)
+    args.toybox = require_safe_raw_arg(normalize_device_path(args.toybox, "toybox path"), "toybox path")
 
 
 def run_cmd(args: argparse.Namespace,
@@ -150,6 +160,7 @@ def run_cmd(args: argparse.Namespace,
 
 
 def mkdir_chain(args: argparse.Namespace, path: str) -> None:
+    path = validate_device_path(path, args.test_root)
     parts = [part for part in path.split("/") if part]
     current = ""
     for part in parts:
@@ -183,7 +194,7 @@ def parse_stat_size(text: str) -> int | None:
 
 
 def write_zero_file(args: argparse.Namespace, path: str, size: int) -> tuple[bool, str]:
-    validate_device_path(path, args.run_root)
+    path = validate_device_path(path, args.run_root)
     if size == 0:
         ok, text, rc, status = run_cmd(
             args,
@@ -203,7 +214,7 @@ def write_zero_file(args: argparse.Namespace, path: str, size: int) -> tuple[boo
 
 
 def verify_file(args: argparse.Namespace, path: str, expected_size: int) -> tuple[bool, str]:
-    validate_device_path(path, args.run_root)
+    path = validate_device_path(path, args.run_root)
     ok, stat_text, rc, status = run_cmd(args, ["stat", path], allow_error=True)
     if not ok:
         return False, f"stat rc={rc} status={status}\n{stat_text}"
@@ -240,9 +251,7 @@ def record(index: int,
 
 def main() -> int:
     args = parse_args()
-    validate_test_root(args.test_root)
-    args.run_root = posixpath.join(args.test_root, args.run_id)
-    validate_device_path(args.run_root, args.test_root)
+    validate_common_args(args)
     out_dir = Path(args.out_dir) / args.run_id
     ensure_private_dir(out_dir)
     rng = random.Random(args.seed)
@@ -264,7 +273,7 @@ def main() -> int:
 
         if op == "create":
             created_counter += 1
-            path = posixpath.join(args.run_root, f"file-{created_counter:03d}.bin")
+            path = validate_device_path(posixpath.join(args.run_root, f"file-{created_counter:03d}.bin"), args.run_root)
             size = rng.choice(SIZE_CHOICES)
             ok, detail = write_zero_file(args, path, size)
             if ok:
@@ -279,8 +288,7 @@ def main() -> int:
             records.append(record(index, op, state.path, None, size, ok, detail))
         elif op == "rename":
             state = choose_file(rng, files)
-            new_path = posixpath.join(args.run_root, f"renamed-{index:03d}.bin")
-            validate_device_path(new_path, args.run_root)
+            new_path = validate_device_path(posixpath.join(args.run_root, f"renamed-{index:03d}.bin"), args.run_root)
             ok, text, rc, status = run_cmd(
                 args,
                 ["run", args.toybox, "mv", "-f", state.path, new_path],
