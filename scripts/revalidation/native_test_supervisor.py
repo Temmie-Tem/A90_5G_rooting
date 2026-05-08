@@ -290,6 +290,8 @@ def render_mixed_soak_summary(result: HarnessResult, manifest: dict[str, Any]) -
             f"- fail_count: `{mixed.get('fail_count')}`\n",
             f"- schedule: `{mixed.get('schedule_path')}`\n",
             f"- events: `{mixed.get('events_path')}`\n",
+            f"- classification: `{mixed.get('classification_path')}`\n",
+            f"- classification_summary: `{mixed.get('classification_summary')}`\n",
         ])
     schedule = manifest.get("schedule", {})
     if schedule:
@@ -454,6 +456,8 @@ def run_mixed_soak(args: argparse.Namespace) -> int:
         CheckResult("schedule artifact", store.path("schedule.json").exists(), "schedule.json"),
         CheckResult("workload event artifact", store.path("workload-events.jsonl").exists() or not schedule,
                     "workload-events.jsonl"),
+        CheckResult("classification artifact", store.path("failure-classification.json").exists(),
+                    "failure-classification.json"),
     ]
     ok = mixed.ok and all(check.ok for check in checks)
     result = HarnessResult("A90 v179 Mixed Soak Scheduler Foundation", ok, checks, [])

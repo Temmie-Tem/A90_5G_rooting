@@ -952,8 +952,8 @@ Samsung bootloader
    - v178/v179는 실기기 플래시 버전이 아니라 v159 실기기 위에서 수행한 host harness baseline이다
    - host NCM 구성 후 `--allow-ncm` mixed workload PASS를 확인한다
 2. v182-v184 Mixed Soak / Serverization Gate
-   - v180 CPU/memory workload profile 이후 진행한다
-   - 테스트 프로세스와 observer를 분리하고, 실패를 serial/NCM/storage/thermal/policy로 분류한다
+   - v182 failure classifier는 완료됐지만, v181 full NCM gate가 먼저 필요하다
+   - v181 full PASS 후 v183 8h pilot, v184 24h+ readiness gate로 진행한다
 3. v185+ Wi-Fi Baseline Refresh
    - mixed-soak readiness gate 이후 Android/TWRP/native Wi-Fi 자료를 다시 수집한다
 4. v186+ Network Exposure Hardening

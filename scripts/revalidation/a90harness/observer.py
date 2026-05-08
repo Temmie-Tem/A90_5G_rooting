@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import threading
 import time
 from dataclasses import asdict, dataclass
 from typing import Any
@@ -97,7 +98,8 @@ def run_observer(client: DeviceClient,
                  duration_sec: float | None,
                  interval_sec: float,
                  max_cycles: int | None = None,
-                 jsonl_name: str = "observer.jsonl") -> ObserverSummary:
+                 jsonl_name: str = "observer.jsonl",
+                 stop_event: threading.Event | None = None) -> ObserverSummary:
     started = time.monotonic()
     deadline = None if duration_sec is None else started + duration_sec
     sample_count = 0
@@ -110,6 +112,9 @@ def run_observer(client: DeviceClient,
 
     try:
         while True:
+            if stop_event is not None and stop_event.is_set():
+                stop_reason = "stop-event"
+                break
             cycle += 1
             cycle_samples = observe_cycle(client, store, cycle, seq, jsonl_name=jsonl_name)
             seq += len(cycle_samples)
@@ -140,7 +145,12 @@ def run_observer(client: DeviceClient,
                 sleep_sec = interval_sec
             else:
                 sleep_sec = max(0.0, min(interval_sec, deadline - now))
-            time.sleep(sleep_sec)
+            if stop_event is not None:
+                if stop_event.wait(sleep_sec):
+                    stop_reason = "stop-event"
+                    break
+            else:
+                time.sleep(sleep_sec)
     except KeyboardInterrupt:
         stop_reason = "interrupt"
         interrupted = True

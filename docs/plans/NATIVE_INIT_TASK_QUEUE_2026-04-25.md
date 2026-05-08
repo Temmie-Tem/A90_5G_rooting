@@ -342,6 +342,17 @@
 - operator action: `python3 scripts/revalidation/ncm_host_setup.py setup --allow-auto-interface` 후 `ping -c 3 -W 2 192.168.7.2`
 - 다음 실행 항목: v181 full NCM/TCP + Storage Workload Integration
 
+### V182. Failure Classifier + Recovery Policy — PASS
+
+- 계획: `docs/plans/NATIVE_INIT_V182_FAILURE_CLASSIFIER_PLAN_2026-05-09.md`
+- 산출: `docs/reports/NATIVE_INIT_V182_FAILURE_CLASSIFIER_2026-05-09.md`
+- baseline device build: `A90 Linux init 0.9.59 (v159)`
+- device flash: 없음. v182는 host-harness classifier이며 별도 native-init boot image 없음
+- 구현: `scripts/revalidation/a90harness/failure.py`, `failure-classification.json`, interrupt partial bundle handling
+- 검증: Python compile PASS, `git diff --check` PASS, `policy-blocked` PASS, `env-ncm-missing` PASS, interrupt bundle PASS
+- evidence: `tmp/soak/harness/v182-policy-blocked-20260509-050457/`, `tmp/soak/harness/v182-ncm-missing-20260509-050519/`, `tmp/soak/harness/v182-interrupt-20260509-050613/`
+- 다음 실행 항목: v181 full NCM/TCP + Storage Workload Integration
+
 ### Planned. v178-v184 Mixed Soak / Serverization Gate Cycle
 
 - 로드맵: `docs/plans/NATIVE_INIT_V178_V184_MIXED_SOAK_SECURITY_ROADMAP_2026-05-09.md`
@@ -356,12 +367,13 @@
   - v179 mixed-soak scheduler foundation PASS.
   - v180 CPU/memory workload profiles PASS.
   - v181 external-bridge safety integration PARTIAL; full NCM run pending host setup.
+  - v182 failure classifier and interrupt-safe partial bundle PASS.
 - 계획 순서:
   - 완료: v178 Post-Security Harness Baseline
   - 완료: v179 Mixed Soak Scheduler Foundation
   - 완료: v180 CPU/Memory Workload Profiles
   - 진행 중: v181 NCM/TCP + Storage Workload Integration
-  - v182 Failure Classifier + Recovery Policy
+  - 완료: v182 Failure Classifier + Recovery Policy
   - v183 8h Pilot Mixed Soak
   - v184 24h+ Serverization Readiness Gate
 - guardrails: Wi-Fi enablement/rfkill write/module load/firmware mutation/public listener/watchdog open/destructive partition write 금지, ACM rescue 유지, evidence private/no-follow 유지.
