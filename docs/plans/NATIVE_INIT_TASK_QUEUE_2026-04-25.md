@@ -131,6 +131,17 @@
 - responsiveness: status samples 6/6, max status duration 32ms, longsoak health ok, controlled zombies 0
 - 다음 실행 항목: v164 Scheduler/Latency Baseline
 
+### V164. Scheduler/Latency Baseline — DONE
+
+- 계획: `docs/plans/NATIVE_INIT_V164_SCHED_LATENCY_PLAN_2026-05-09.md`
+- 산출: `docs/reports/NATIVE_INIT_V164_SCHED_LATENCY_2026-05-09.md`
+- baseline build: `A90 Linux init 0.9.59 (v159)`
+- 의도: PID1 run/cmdv1 latency proxy 기준선 수집
+- 검증: smoke PASS, full idle/post-cpustress/post-tmpfs-io 각 20 samples PASS
+- latency: idle p99 102ms, post-cpustress p99 102ms, post-tmpfs-io p99 101ms, missed deadline 0
+- 한계: true `clock_nanosleep`/cyclictest helper가 아니라 현재 run-loop regression baseline
+- 다음 실행 항목: v165 USB Recovery Stability
+
 ### Planned. v162-v169 Stability Test Cycle
 
 - 로드맵: `docs/plans/NATIVE_INIT_V160_V169_STABILITY_ROADMAP_2026-05-09.md`
@@ -138,18 +149,18 @@
 - v161 계획: `docs/plans/NATIVE_INIT_V161_STORAGE_IO_INTEGRITY_PLAN_2026-05-09.md`
 - v162 계획: `docs/plans/NATIVE_INIT_V162_PROCESS_CONCURRENCY_PLAN_2026-05-09.md`
 - v163 계획: `docs/plans/NATIVE_INIT_V163_CPU_MEM_THERMAL_PLAN_2026-05-09.md`
+- v164 계획: `docs/plans/NATIVE_INIT_V164_SCHED_LATENCY_PLAN_2026-05-09.md`
 - baseline: `A90 Linux init 0.9.59 (v159)`
 - 의도: Wi-Fi baseline refresh 전에 커널/PID1/SD/USB/NCM/helper lifecycle 안정성 기준선을 만든다.
 - 현재 증거: v159 idle longsoak 약 15.77시간 PASS, host cmdv1/serial failures 0, SD backend writable, NCM/tcpctl smoke PASS.
 - 계획 순서:
-  - v164 Scheduler Latency
   - v165 USB Recovery
   - v166 Network Throughput
   - v167 FS Exerciser Mini
   - v168 Kselftest Feasibility
   - v169 Fault/Debug Feasibility
 - guardrails: ACM rescue 유지, Wi-Fi enablement/partition write/watchdog open/active tracing 금지, host evidence private output 유지.
-- 다음 실행 항목: v164 Scheduler/Latency Baseline
+- 다음 실행 항목: v165 USB Recovery Stability
 
 ### V158. Watchdog Read-only Feasibility — DONE
 
@@ -2403,16 +2414,16 @@ python3 ./scripts/revalidation/physical_usb_reconnect_check.py --manual-host-con
 
 ## 지금 바로 진행할 항목
 
-1. v164 Scheduler/Latency Baseline
+1. v165 USB Recovery Stability
 
    - 상위 로드맵: `docs/plans/NATIVE_INIT_V160_V169_STABILITY_ROADMAP_2026-05-09.md`
-   - 최신 결과: v163 CPU/Mem/Thermal PASS, tmpfs 32MiB hash verify, cpustress 5 cycles, max CPU 43.1C/GPU 39.4C/BAT 31.1C
-   - 범위: cyclictest-style wakeup latency baseline, idle/load 비교
-   - 기준: min/max/avg/p95/p99와 missed deadline count 기록
+   - 최신 결과: v164 Scheduler/Latency PASS, 각 profile 20 samples, p99 101-102ms, missed deadline 0
+   - 범위: ACM/NCM software rebind, bridge reconnect, status/selftest 복구
+   - 기준: USB 재열거 후 serial bridge와 NCM ping/control channel 복구
 
-2. v165-v169 Extended Stability/Feasibility
+2. v166-v169 Extended Stability/Feasibility
 
-   - v165 USB recovery, v166 network throughput, v167 FS exerciser mini
+   - v166 network throughput, v167 FS exerciser mini
    - v168 kselftest feasibility, v169 fault/debug feasibility
    - Wi-Fi baseline refresh와 exposure hardening은 v169 이후로 재개
 

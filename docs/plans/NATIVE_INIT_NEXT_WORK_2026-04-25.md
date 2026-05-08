@@ -946,12 +946,12 @@ Samsung bootloader
 
 상세 실행 큐는 `docs/plans/NATIVE_INIT_TASK_QUEUE_2026-04-25.md`를 따른다.
 
-1. v164 Scheduler/Latency Baseline
+1. v165 USB Recovery Stability
    - 상위 로드맵: `docs/plans/NATIVE_INIT_V160_V169_STABILITY_ROADMAP_2026-05-09.md`
-   - 최신 증거: v163 CPU/Mem/Thermal PASS, tmpfs 32MiB hash verify, cpustress 5 cycles, max CPU 43.1C/GPU 39.4C/BAT 31.1C
-   - cyclictest-style wakeup latency min/max/avg/p95/p99와 missed deadline 기준선을 만든다
-2. v165-v169 Extended Stability/Feasibility
-   - USB recovery, network throughput, FS exerciser mini, kselftest feasibility, fault/debug feasibility
+   - 최신 증거: v164 Scheduler/Latency PASS, idle/post-cpustress/post-tmpfs-io 각 20 samples, p99 101-102ms, missed deadline 0
+   - USB software rebind 후 serial bridge, NCM 상태, selftest/status 복구 기준선을 만든다
+2. v166-v169 Extended Stability/Feasibility
+   - network throughput, FS exerciser mini, kselftest feasibility, fault/debug feasibility
 3. v170+ Wi-Fi Baseline Refresh
    - 안정성 cycle 완료 후 Android/TWRP/native Wi-Fi 자료를 다시 수집
 4. v171+ Network Exposure Hardening

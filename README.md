@@ -37,6 +37,7 @@ Android userspace 대신 직접 만든 static `/init`를 실행하고,
 - storage I/O: v161에서 `/mnt/sdext/a90/test-io` 4K/64K/1M/16M write/read/hash/rename/sync/unlink 검증 완료
 - process concurrency: v162에서 helper churn 32/32, tcpctl parallel 18/18, `/bin/a90_cpustress 3 2`, busy gate, zombie/fd snapshot 검증 완료
 - CPU/memory/thermal: v163에서 `/bin/a90_cpustress` 5사이클, tmpfs 32MiB hash verify, max CPU 43.1C/GPU 39.4C/BAT 31.1C, status max 32ms 검증 완료
+- scheduler latency proxy: v164에서 idle/post-cpustress/post-tmpfs-io 각 20샘플, p99 101-102ms, missed deadline 0 검증 완료
 - screen menu: 자동 메뉴, 앱 폴더, CPU stress app, nonblocking `screenmenu`, serial `hide`/busy gate 확인
 - USB map: ACM-only gadget `04e8:6861` / host `cdc_acm` 기준 문서화
 - userland: toybox fallback 실행 확인; v124부터 SD runtime BusyBox는 manifest SHA-256 검증 전에는 preferred helper가 되지 않음
