@@ -339,7 +339,7 @@
 - 구현: `DeviceClient.exclusive()`, `external_bridge_client`, `external-bridge` schedule lock
 - 검증: Python compile PASS, `git diff --check` PASS, `--allow-ncm` dry-run PASS, ACM-only mixed smoke PASS
 - 미완료: host NCM 미구성(`ncm0=absent`, `ping 192.168.7.2` 실패)으로 full NCM/TCP + storage run 대기
-- operator action: `python3 scripts/revalidation/ncm_host_setup.py setup --allow-auto-interface` 후 `ping -c 3 -W 2 192.168.7.2`
+- operator action: `python3 scripts/revalidation/ncm_host_setup.py setup --interface <known-usb-ncm-ifname> --manual-host-config --sudo "sudo -n"` 후 `ping -c 3 -W 2 192.168.7.2`
 - 다음 실행 항목: v181 full NCM/TCP + Storage Workload Integration
 
 ### V182. Failure Classifier + Recovery Policy — PASS

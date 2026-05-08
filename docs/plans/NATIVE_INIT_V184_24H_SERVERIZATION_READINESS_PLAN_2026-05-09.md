@@ -36,7 +36,11 @@ v184 must not start until these are true:
 cat /sys/module/usbcore/parameters/autosuspend
 echo -1 | sudo tee /sys/module/usbcore/parameters/autosuspend
 
-python3 scripts/revalidation/ncm_host_setup.py setup --allow-auto-interface
+ip -br link | grep enx
+python3 scripts/revalidation/ncm_host_setup.py setup \
+  --interface <known-usb-ncm-ifname> \
+  --manual-host-config \
+  --sudo "sudo -n"
 ping -c 3 -W 2 192.168.7.2
 
 python3 scripts/revalidation/a90ctl.py version

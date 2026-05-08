@@ -55,7 +55,11 @@ python3 scripts/revalidation/native_test_supervisor.py mixed-soak \
 Full NCM run after operator setup:
 
 ```bash
-python3 scripts/revalidation/ncm_host_setup.py setup --allow-auto-interface
+ip -br link | grep enx
+python3 scripts/revalidation/ncm_host_setup.py setup \
+  --interface <known-usb-ncm-ifname> \
+  --manual-host-config \
+  --sudo "sudo -n"
 ping -c 3 -W 2 192.168.7.2
 python3 scripts/revalidation/native_test_supervisor.py mixed-soak \
   --duration-sec 3600 \
@@ -64,6 +68,9 @@ python3 scripts/revalidation/native_test_supervisor.py mixed-soak \
   --allow-ncm \
   --workload-profile quick
 ```
+
+`--allow-auto-interface` is a diagnostic fallback only. Prefer pinning the
+current USB/NCM interface with `--interface`.
 
 ## Acceptance
 

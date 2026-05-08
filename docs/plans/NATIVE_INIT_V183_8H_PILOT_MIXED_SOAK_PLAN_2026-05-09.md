@@ -25,7 +25,11 @@ with `env-ncm-missing` classification.
 - Host NCM path is configured:
 
 ```bash
-python3 scripts/revalidation/ncm_host_setup.py setup --allow-auto-interface
+ip -br link | grep enx
+python3 scripts/revalidation/ncm_host_setup.py setup \
+  --interface <known-usb-ncm-ifname> \
+  --manual-host-config \
+  --sudo "sudo -n"
 ping -c 3 -W 2 192.168.7.2
 ```
 

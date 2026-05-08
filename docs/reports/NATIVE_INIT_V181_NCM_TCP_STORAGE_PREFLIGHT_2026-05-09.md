@@ -81,9 +81,16 @@ Current live state:
 Full v181 acceptance requires the operator to configure host NCM first:
 
 ```bash
-python3 scripts/revalidation/ncm_host_setup.py setup --allow-auto-interface
+ip -br link | grep enx
+python3 scripts/revalidation/ncm_host_setup.py setup \
+  --interface <known-usb-ncm-ifname> \
+  --manual-host-config \
+  --sudo "sudo -n"
 ping -c 3 -W 2 192.168.7.2
 ```
+
+Use `--allow-auto-interface` only as a trusted single-device lab diagnostic
+fallback. Normal runs should pin the current USB/NCM interface explicitly.
 
 After ping succeeds, run the full v181 mixed workload with `--allow-ncm`.
 

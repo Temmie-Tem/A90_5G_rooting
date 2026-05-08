@@ -260,6 +260,53 @@ def run_host_command(args: argparse.Namespace,
         raise RuntimeError(f"host command failed rc={result.returncode}: {shlex.join(full_command)}")
 
 
+def interface_has_addr(interface: str, cidr: str) -> bool:
+    result = subprocess.run(
+        ["ip", "-4", "-o", "addr", "show", "dev", interface],
+        text=True,
+        capture_output=True,
+        check=False,
+    )
+    return cidr in result.stdout
+
+
+def wait_for_host_addr(interface: str, cidr: str, timeout_sec: float) -> None:
+    deadline = time.monotonic() + timeout_sec
+    while time.monotonic() < deadline:
+        if interface_has_addr(interface, cidr):
+            log(f"host {interface} now has {cidr}")
+            return
+        time.sleep(1.0)
+    raise RuntimeError(f"host interface {interface} did not receive {cidr}")
+
+
+def print_required_host_commands(interface: str, cidr: str) -> None:
+    print("\nHost IP setup required:", file=sys.stderr)
+    print(f"  sudo ip addr replace {cidr} dev {interface}", file=sys.stderr)
+    print(f"  sudo ip link set {interface} up", file=sys.stderr)
+
+
+def configure_host_interface(args: argparse.Namespace, interface: str) -> None:
+    cidr = f"{args.host_ip}/{args.prefix}"
+    if interface_has_addr(interface, cidr):
+        log(f"host {interface} already has {cidr}")
+        return
+
+    for command in (
+        ["ip", "addr", "replace", cidr, "dev", interface],
+        ["ip", "link", "set", interface, "up"],
+    ):
+        try:
+            run_host_command(args, command, use_sudo=True)
+        except RuntimeError:
+            print_required_host_commands(interface, cidr)
+            if not args.manual_host_config:
+                raise
+            log("waiting for manual host IP setup; run the commands above in another terminal")
+            wait_for_host_addr(interface, cidr, args.manual_host_timeout)
+            return
+
+
 def run_ping(args: argparse.Namespace) -> None:
     command = [
         "ping",
@@ -302,12 +349,7 @@ def command_setup(args: argparse.Namespace) -> int:
     interface = select_host_interface(args, status)
     log(f"host interface: {interface}")
 
-    run_host_command(
-        args,
-        ["ip", "addr", "replace", f"{args.host_ip}/{args.prefix}", "dev", interface],
-        use_sudo=True,
-    )
-    run_host_command(args, ["ip", "link", "set", interface, "up"], use_sudo=True)
+    configure_host_interface(args, interface)
 
     log(f"pinging device {args.device_ip}")
     run_ping(args)
@@ -399,6 +441,12 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--reattach-sleep", type=float, default=3.0)
     parser.add_argument("--sudo", default="sudo")
     parser.add_argument("--no-sudo", action="store_true")
+    parser.add_argument(
+        "--manual-host-config",
+        action="store_true",
+        help="if sudo host IP setup fails, print commands and wait for manual setup",
+    )
+    parser.add_argument("--manual-host-timeout", type=float, default=120.0)
     return parser.parse_args()
 
 
