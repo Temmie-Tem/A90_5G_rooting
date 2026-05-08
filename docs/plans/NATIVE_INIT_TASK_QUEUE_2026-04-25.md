@@ -254,6 +254,17 @@
 - evidence: `tmp/soak/harness/v174-ncm-tcp-preflight-20260508T175654Z/`
 - 다음 실행 항목: v175 Unified Evidence Bundle
 
+### V175. Unified Evidence Bundle — DONE
+
+- 계획: `docs/plans/NATIVE_INIT_V175_UNIFIED_EVIDENCE_BUNDLE_PLAN_2026-05-09.md`
+- 산출: `docs/reports/NATIVE_INIT_V175_UNIFIED_EVIDENCE_BUNDLE_2026-05-09.md`
+- baseline build: `A90 Linux init 0.9.59 (v159)`
+- 의도: supervisor run output layout을 `manifest.json`/`summary.md`/`README.md`/`bundle-index.json`로 표준화
+- 검증: `native_test_supervisor.py run kselftest-feasibility --observer-duration-sec 5 --run-dir tmp/soak/harness/v175-bundle-20260508T175913Z` PASS
+- 결과: bundle schema `a90-harness-v175`, indexed files=27, directory 0700, key files 0600
+- evidence: `tmp/soak/harness/v175-bundle-20260508T175913Z/`
+- 다음 실행 항목: v176 Long-Run Supervisor
+
 ### Planned. v170-v177 Host Test Harness Cycle
 
 - 로드맵: `docs/plans/NATIVE_INIT_V170_V177_HARNESS_ROADMAP_2026-05-09.md`
@@ -262,15 +273,15 @@
 - v172 계획: `docs/plans/NATIVE_INIT_V172_MODULE_RUNNER_PLAN_2026-05-09.md`
 - v173 계획: `docs/plans/NATIVE_INIT_V173_STORAGE_CPU_MODULES_PLAN_2026-05-09.md`
 - v174 계획: `docs/plans/NATIVE_INIT_V174_USB_NCM_MODULES_PLAN_2026-05-09.md`
+- v175 계획: `docs/plans/NATIVE_INIT_V175_UNIFIED_EVIDENCE_BUNDLE_PLAN_2026-05-09.md`
 - baseline: `A90 Linux init 0.9.59 (v159)`
 - 의도: Wi-Fi baseline refresh 전에 테스트 실행자와 관찰자를 분리하고, 기존 host validators를 공용 하네스 위로 단계적으로 올린다.
-- 현재 증거: v174 USB/NCM module port까지 PASS/SKIP 정책 검증 완료.
+- 현재 증거: v175 unified evidence bundle까지 PASS.
 - 계획 순서:
-  - v175 Unified Evidence Bundle
   - v176 Long-Run Supervisor
   - v177 Safety Gate / Dry-Run Policy
 - guardrails: observer는 read-only, serial command single-writer, side effect는 module에만 허용, evidence private/no-follow 유지.
-- 다음 실행 항목: v175 Unified Evidence Bundle
+- 다음 실행 항목: v176 Long-Run Supervisor
 
 ### Planned. v162-v169 Stability Test Cycle
 

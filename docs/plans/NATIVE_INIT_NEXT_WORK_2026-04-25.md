@@ -946,12 +946,12 @@ Samsung bootloader
 
 상세 실행 큐는 `docs/plans/NATIVE_INIT_TASK_QUEUE_2026-04-25.md`를 따른다.
 
-1. v175 Unified Evidence Bundle
+1. v176 Long-Run Supervisor
    - 상위 로드맵: `docs/plans/NATIVE_INIT_V170_V177_HARNESS_ROADMAP_2026-05-09.md`
-   - 최신 증거: v174 USB recovery smoke PASS, NCM/TCP preflight structured SKIP
-   - 모든 supervisor run output layout을 표준화한다
-2. v176 Long-Run Supervisor
+   - 최신 증거: v175 bundle schema `a90-harness-v175`, indexed files=27, private modes 확인
    - bounded/unlimited observer와 partial-report-safe shutdown을 구현한다
+2. v177 Safety Gate / Dry-Run Policy
+   - 위험/환경 의존 module의 preflight/dry-run gate를 공통화한다
 3. v178+ Wi-Fi Baseline Refresh
    - host test supervisor 기반 안정성/관찰 체계 위에서 Android/TWRP/native Wi-Fi 자료를 다시 수집
 4. v179+ Network Exposure Hardening

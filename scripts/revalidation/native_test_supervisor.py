@@ -16,6 +16,7 @@ SCRIPT_DIR = Path(__file__).resolve().parent
 sys.path.insert(0, str(SCRIPT_DIR))
 
 from a90harness.device import DeviceClient  # noqa: E402
+from a90harness.bundle import finalize_bundle  # noqa: E402
 from a90harness.evidence import EvidenceStore  # noqa: E402
 from a90harness.modules.cpu_mem_thermal import CpuMemThermalModule  # noqa: E402
 from a90harness.modules.kselftest_feasibility import KselftestFeasibilityModule  # noqa: E402
@@ -148,8 +149,7 @@ def run_smoke(args: argparse.Namespace) -> int:
         "result": result.to_dict(),
         "policy": "host-side smoke; cmdv1 version/status only; no device mutation",
     }
-    store.write_json("manifest.json", manifest)
-    store.write_text("summary.md", render_summary(result, manifest))
+    finalize_bundle(store, manifest, render_summary(result, manifest))
     print(f"{'PASS' if ok else 'FAIL'} run_dir={run_dir}")
     return 0 if ok else 1
 
@@ -189,8 +189,7 @@ def run_observe(args: argparse.Namespace) -> int:
         "result": result.to_dict(),
         "policy": "read-only observer; no device mutation",
     }
-    store.write_json("manifest.json", manifest)
-    store.write_text("summary.md", render_summary(result, manifest))
+    finalize_bundle(store, manifest, render_summary(result, manifest))
     print(f"{'PASS' if ok else 'FAIL'} run_dir={run_dir} samples={observer_summary.samples} failures={observer_summary.failures}")
     return 0 if ok else 1
 
@@ -288,8 +287,7 @@ def run_module(args: argparse.Namespace) -> int:
         "result": result.to_dict(),
         "policy": "module runner; cleanup and verify always attempted; first module is read-only",
     }
-    store.write_json("manifest.json", manifest)
-    store.write_text("summary.md", render_module_summary(result, manifest))
+    finalize_bundle(store, manifest, render_module_summary(result, manifest))
     print(
         f"{'PASS' if ok else 'FAIL'} run_dir={run_dir} "
         f"module={module.name} observer_failures={observer_summary.failures if observer_summary else 'n/a'}"
