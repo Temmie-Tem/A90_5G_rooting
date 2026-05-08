@@ -265,6 +265,17 @@
 - evidence: `tmp/soak/harness/v175-bundle-20260508T175913Z/`
 - 다음 실행 항목: v176 Long-Run Supervisor
 
+### V176. Long-Run Supervisor — DONE
+
+- 계획: `docs/plans/NATIVE_INIT_V176_LONG_RUN_SUPERVISOR_PLAN_2026-05-09.md`
+- 산출: `docs/reports/NATIVE_INIT_V176_LONG_RUN_SUPERVISOR_2026-05-09.md`
+- baseline build: `A90 Linux init 0.9.59 (v159)`
+- 의도: observer를 bounded/unlimited 장시간 실행과 partial-report-safe evidence 구조로 확장
+- 검증: `observe --duration-sec unlimited --max-cycles 2 --interval 2` PASS
+- 결과: cycles=2, samples=14, failures=0, stop_reason=max-cycles, heartbeat 기록
+- evidence: `tmp/soak/harness/v176-long-run-20260508T180122Z/`
+- 다음 실행 항목: v177 Safety Gate / Dry-Run Policy
+
 ### Planned. v170-v177 Host Test Harness Cycle
 
 - 로드맵: `docs/plans/NATIVE_INIT_V170_V177_HARNESS_ROADMAP_2026-05-09.md`
@@ -274,14 +285,14 @@
 - v173 계획: `docs/plans/NATIVE_INIT_V173_STORAGE_CPU_MODULES_PLAN_2026-05-09.md`
 - v174 계획: `docs/plans/NATIVE_INIT_V174_USB_NCM_MODULES_PLAN_2026-05-09.md`
 - v175 계획: `docs/plans/NATIVE_INIT_V175_UNIFIED_EVIDENCE_BUNDLE_PLAN_2026-05-09.md`
+- v176 계획: `docs/plans/NATIVE_INIT_V176_LONG_RUN_SUPERVISOR_PLAN_2026-05-09.md`
 - baseline: `A90 Linux init 0.9.59 (v159)`
 - 의도: Wi-Fi baseline refresh 전에 테스트 실행자와 관찰자를 분리하고, 기존 host validators를 공용 하네스 위로 단계적으로 올린다.
-- 현재 증거: v175 unified evidence bundle까지 PASS.
+- 현재 증거: v176 long-run supervisor까지 PASS.
 - 계획 순서:
-  - v176 Long-Run Supervisor
   - v177 Safety Gate / Dry-Run Policy
 - guardrails: observer는 read-only, serial command single-writer, side effect는 module에만 허용, evidence private/no-follow 유지.
-- 다음 실행 항목: v176 Long-Run Supervisor
+- 다음 실행 항목: v177 Safety Gate / Dry-Run Policy
 
 ### Planned. v162-v169 Stability Test Cycle
 

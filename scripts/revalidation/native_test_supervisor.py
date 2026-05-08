@@ -46,6 +46,15 @@ def default_run_dir(label: str) -> Path:
     return REPO_ROOT / "tmp" / "soak" / "harness" / f"{label}-{utc_stamp()}"
 
 
+def parse_duration(value: str) -> float | None:
+    if value.lower() == "unlimited":
+        return None
+    duration = float(value)
+    if duration <= 0:
+        raise argparse.ArgumentTypeError("duration must be positive or 'unlimited'")
+    return duration
+
+
 def run_host_command(command: list[str], timeout: int = 10) -> tuple[int, str]:
     result = subprocess.run(
         command,
@@ -164,14 +173,16 @@ def run_observe(args: argparse.Namespace) -> int:
     observer_summary = run_observer(
         client,
         store,
-        duration_sec=args.duration_sec,
+        duration_sec=parse_duration(args.duration_sec),
         interval_sec=args.interval,
+        max_cycles=args.max_cycles,
     )
     observer_text = store.path("observer.jsonl").read_text(encoding="utf-8", errors="replace")
     version_matches = args.expect_version in observer_text
     checks = [
         CheckResult("observer samples", observer_summary.samples > 0, f"samples={observer_summary.samples}"),
         CheckResult("observer failures", observer_summary.failures == 0, f"failures={observer_summary.failures}"),
+        CheckResult("observer completed", not observer_summary.interrupted, f"stop_reason={observer_summary.stop_reason}"),
         CheckResult("observer version matches", version_matches, args.expect_version),
     ]
     ok = observer_summary.ok and all(check.ok for check in checks)
@@ -187,7 +198,7 @@ def run_observe(args: argparse.Namespace) -> int:
         "host": host_metadata(),
         "observer": observer_summary.to_dict(),
         "result": result.to_dict(),
-        "policy": "read-only observer; no device mutation",
+        "policy": "read-only observer; no device mutation; supports bounded and unlimited duration",
     }
     finalize_bundle(store, manifest, render_summary(result, manifest))
     print(f"{'PASS' if ok else 'FAIL'} run_dir={run_dir} samples={observer_summary.samples} failures={observer_summary.failures}")
@@ -308,8 +319,9 @@ def parse_args() -> argparse.Namespace:
 
     observe = subparsers.add_parser("observe", help="run v171 read-only observer")
     observe.add_argument("--run-dir", type=Path)
-    observe.add_argument("--duration-sec", type=float, default=60.0)
+    observe.add_argument("--duration-sec", default="60.0")
     observe.add_argument("--interval", type=float, default=10.0)
+    observe.add_argument("--max-cycles", type=int)
 
     run = subparsers.add_parser("run", help="run a v172 validation module")
     run.add_argument("module", choices=sorted(MODULES))
