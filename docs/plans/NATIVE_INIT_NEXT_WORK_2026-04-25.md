@@ -946,14 +946,14 @@ Samsung bootloader
 
 상세 실행 큐는 `docs/plans/NATIVE_INIT_TASK_QUEUE_2026-04-25.md`를 따른다.
 
-1. v179 Mixed Soak Scheduler Foundation
+1. v180 CPU/Memory Workload Profiles
    - 상위 로드맵: `docs/plans/NATIVE_INIT_V178_V184_MIXED_SOAK_SECURITY_ROADMAP_2026-05-09.md`
-   - 최신 증거: `docs/reports/NATIVE_INIT_V178_POST_SECURITY_BASELINE_2026-05-09.md` PASS
-   - v178은 실기기 플래시 버전이 아니라 v159 실기기 위에서 수행한 post-security host harness baseline이다
-   - observer와 workload를 동시에 실행하는 scheduler foundation을 추가한다
-2. v180-v184 Mixed Soak / Serverization Gate
-   - v178 baseline PASS 이후 진행한다
-   - host test supervisor 기반으로 CPU/memory/NCM/TCP/storage workload를 장시간 혼합 실행한다
+   - 최신 증거: `docs/reports/NATIVE_INIT_V179_MIXED_SOAK_SCHEDULER_2026-05-09.md` PASS
+   - v178/v179는 실기기 플래시 버전이 아니라 v159 실기기 위에서 수행한 host harness baseline이다
+   - CPU/memory workload를 low/medium/spike/cooldown profile로 분리한다
+2. v181-v184 Mixed Soak / Serverization Gate
+   - v179 scheduler foundation 이후 진행한다
+   - host test supervisor 기반으로 NCM/TCP/storage workload를 장시간 혼합 실행한다
    - 테스트 프로세스와 observer를 분리하고, 실패를 serial/NCM/storage/thermal/policy로 분류한다
 3. v185+ Wi-Fi Baseline Refresh
    - mixed-soak readiness gate 이후 Android/TWRP/native Wi-Fi 자료를 다시 수집한다

@@ -26,6 +26,7 @@ from a90harness.modules.storage_io import StorageIoModule  # noqa: E402
 from a90harness.modules.usb_recovery import UsbRecoveryModule  # noqa: E402
 from a90harness.observer import run_observer  # noqa: E402
 from a90harness.runner import ModuleRunner  # noqa: E402
+from a90harness.scheduler import build_schedule, run_mixed_soak_schedule, schedule_document  # noqa: E402
 from a90harness.schema import CheckResult, CommandRecord, HarnessResult  # noqa: E402
 
 
@@ -271,6 +272,39 @@ def render_module_summary(result: HarnessResult, manifest: dict[str, Any]) -> st
     return "".join(lines)
 
 
+def render_mixed_soak_summary(result: HarnessResult, manifest: dict[str, Any]) -> str:
+    lines = [render_summary(result, manifest)]
+    mixed = manifest.get("mixed_soak", {})
+    if mixed:
+        lines.extend([
+            "\n## Mixed Soak\n\n",
+            f"- seed: `{mixed.get('seed')}`\n",
+            f"- profile: `{mixed.get('profile')}`\n",
+            f"- duration_sec: `{mixed.get('duration_sec')}`\n",
+            f"- workload_count: `{mixed.get('workload_count')}`\n",
+            f"- pass_count: `{mixed.get('pass_count')}`\n",
+            f"- skip_count: `{mixed.get('skip_count')}`\n",
+            f"- blocked_count: `{mixed.get('blocked_count')}`\n",
+            f"- fail_count: `{mixed.get('fail_count')}`\n",
+            f"- schedule: `{mixed.get('schedule_path')}`\n",
+            f"- events: `{mixed.get('events_path')}`\n",
+        ])
+    schedule = manifest.get("schedule", {})
+    if schedule:
+        lines.extend([
+            "\n## Schedule\n\n",
+            f"- workload_count: `{schedule.get('workload_count')}`\n",
+            f"- observer_interval_sec: `{schedule.get('observer_interval_sec')}`\n",
+        ])
+        for entry in schedule.get("schedule", []):
+            lines.append(
+                f"- `{entry.get('workload')}` phase={entry.get('phase')} "
+                f"start={entry.get('start_sec')} end={entry.get('end_sec')} "
+                f"locks={entry.get('resource_locks')}\n"
+            )
+    return "".join(lines)
+
+
 def run_module(args: argparse.Namespace) -> int:
     module_cls = MODULES[args.module]
     module = module_cls()
@@ -345,6 +379,105 @@ def run_module(args: argparse.Namespace) -> int:
     return 0 if ok else 1
 
 
+def run_mixed_soak(args: argparse.Namespace) -> int:
+    run_dir = args.run_dir if args.run_dir is not None else default_run_dir("v179-mixed-soak")
+    run_dir = run_dir if run_dir.is_absolute() else REPO_ROOT / run_dir
+    store = EvidenceStore(run_dir)
+    client = DeviceClient(args.host, args.port, args.timeout)
+    started = time.monotonic()
+
+    seed = args.seed
+    if seed is None:
+        seed = int(time.time())
+    duration_sec = float(args.duration_sec)
+    if duration_sec <= 0:
+        raise RuntimeError("duration-sec must be positive")
+    schedule = build_schedule(
+        modules=MODULES,
+        workloads=args.workload,
+        profile=args.profile,
+        duration_sec=duration_sec,
+        seed=seed,
+    )
+    schedule_payload = schedule_document(
+        schedule,
+        seed=seed,
+        profile=args.profile,
+        duration_sec=duration_sec,
+        observer_interval_sec=args.observer_interval,
+    )
+    store.write_json("schedule.json", schedule_payload)
+
+    gates = {
+        entry.workload: evaluate_gate(MODULES[entry.workload](), module_gate_options(args)).to_dict()
+        for entry in schedule
+    }
+    if args.dry_run:
+        dry_run_payload = {
+            "label": "A90 v179 Mixed Soak Scheduler Foundation dry-run",
+            "pass": True,
+            "run_dir": str(run_dir),
+            "created_utc": dt.datetime.now(dt.timezone.utc).isoformat(),
+            "expect_version": args.expect_version,
+            "schedule": schedule_payload,
+            "gates": gates,
+            "policy": "dry-run only; no device commands; schedule and gate plan only",
+        }
+        store.write_json("mixed-soak-dry-run.json", dry_run_payload)
+        finalize_bundle(store, dry_run_payload, "# A90 v179 Mixed Soak Dry Run\n\n- result: `PASS`\n")
+        print(f"PASS dry-run run_dir={run_dir} workloads={len(schedule)} seed={seed}")
+        return 0
+
+    mixed = run_mixed_soak_schedule(
+        repo_root=REPO_ROOT,
+        store=store,
+        client=client,
+        modules=MODULES,
+        schedule=schedule,
+        gate_options=module_gate_options(args),
+        expect_version=args.expect_version,
+        host=args.host,
+        port=args.port,
+        timeout=args.timeout,
+        duration_sec=duration_sec,
+        observer_interval_sec=args.observer_interval,
+        workload_profile=args.workload_profile,
+    )
+    checks = [
+        CheckResult("schedule generated", bool(schedule_payload.get("schedule")) or args.profile == "idle",
+                    f"workloads={len(schedule)} seed={seed}"),
+        CheckResult("workload failures", mixed.fail_count == 0, f"failures={mixed.fail_count}"),
+        CheckResult("observer result", mixed.observer is not None and mixed.observer.ok,
+                    f"failures={mixed.observer.failures if mixed.observer else 'missing'}"),
+        CheckResult("schedule artifact", store.path("schedule.json").exists(), "schedule.json"),
+        CheckResult("workload event artifact", store.path("workload-events.jsonl").exists() or not schedule,
+                    "workload-events.jsonl"),
+    ]
+    ok = mixed.ok and all(check.ok for check in checks)
+    result = HarnessResult("A90 v179 Mixed Soak Scheduler Foundation", ok, checks, [])
+    manifest: dict[str, Any] = {
+        "label": result.label,
+        "pass": ok,
+        "run_dir": str(run_dir),
+        "created_utc": dt.datetime.now(dt.timezone.utc).isoformat(),
+        "duration_sec": time.monotonic() - started,
+        "expect_version": args.expect_version,
+        "host": host_metadata(),
+        "schedule": schedule_payload,
+        "gates": gates,
+        "mixed_soak": mixed.to_dict(),
+        "result": result.to_dict(),
+        "policy": "mixed-soak scheduler; observer runs concurrently; blocked unsafe modules are structured skips",
+    }
+    finalize_bundle(store, manifest, render_mixed_soak_summary(result, manifest))
+    print(
+        f"{'PASS' if ok else 'FAIL'} run_dir={run_dir} workloads={mixed.workload_count} "
+        f"pass={mixed.pass_count} skipped={mixed.skip_count} blocked={mixed.blocked_count} "
+        f"observer_failures={mixed.observer.failures if mixed.observer else 'missing'}"
+    )
+    return 0 if ok else 1
+
+
 def run_list(args: argparse.Namespace) -> int:
     options = module_gate_options(args)
     for name in sorted(MODULES):
@@ -408,6 +541,20 @@ def parse_args() -> argparse.Namespace:
     run.add_argument("--allow-destructive", action="store_true")
     run.add_argument("--assume-yes", action="store_true")
 
+    mixed = subparsers.add_parser("mixed-soak", help="run v179 mixed-soak scheduler foundation")
+    mixed.add_argument("--run-dir", type=Path)
+    mixed.add_argument("--duration-sec", type=float, default=120.0)
+    mixed.add_argument("--observer-interval", type=float, default=15.0)
+    mixed.add_argument("--profile", choices=("idle", "smoke", "balanced"), default="smoke")
+    mixed.add_argument("--workload-profile", choices=("smoke", "quick"), default="smoke")
+    mixed.add_argument("--workload", action="append", choices=sorted(MODULES), default=[])
+    mixed.add_argument("--seed", type=int)
+    mixed.add_argument("--dry-run", action="store_true")
+    mixed.add_argument("--allow-ncm", action="store_true")
+    mixed.add_argument("--allow-usb-rebind", action="store_true")
+    mixed.add_argument("--allow-destructive", action="store_true")
+    mixed.add_argument("--assume-yes", action="store_true")
+
     return parser.parse_args()
 
 
@@ -423,6 +570,8 @@ def main() -> int:
         return run_observe(args)
     if args.command == "run":
         return run_module(args)
+    if args.command == "mixed-soak":
+        return run_mixed_soak(args)
     raise RuntimeError(f"unknown command: {args.command}")
 
 

@@ -285,7 +285,7 @@
 - 검증: `list`, `plan usb-recovery`, `run usb-recovery --dry-run`, `run usb-recovery` rc=2 block, `run kselftest-feasibility` PASS
 - gate: NCM modules require `--allow-ncm`, USB rebind modules require `--allow-usb-rebind --assume-yes`
 - evidence: `tmp/soak/harness/v177-gate-allowed-20260508T180349Z/`
-- 다음 실행 항목: v179 Mixed Soak Scheduler Foundation
+- 다음 실행 항목: v180 CPU/Memory Workload Profiles
 
 ### V170-V177. Host Harness Completion Audit — DONE
 
@@ -293,7 +293,7 @@
 - 의도: v170~v177 전체 루프의 계획/구현/검증/보고서/커밋/evidence를 실제 상태 기준으로 감사
 - 검증: plan/report pair 모두 존재, evidence manifest 모두 pass, static validation PASS, v177 gate block rc=2 확인
 - deferral: storage/NCM full PASS는 host NCM 미구성으로 structured SKIP 및 explicit gate로 문서화
-- 다음 실행 항목: v179 Mixed Soak Scheduler Foundation
+- 다음 실행 항목: v180 CPU/Memory Workload Profiles
 
 
 ### V178. Post-Security Harness Baseline — PASS
@@ -306,7 +306,18 @@
 - 검증: live v159 verify-only PASS, status/bootstatus/selftest/storage/exposure/policycheck PASS, observer smoke PASS, FS exerciser smoke PASS
 - NCM: 현재 ACM-only/netservice disabled 환경이라 `ncm-tcp-preflight`는 structured SKIP 처리 PASS
 - evidence: `tmp/soak/harness/v178-post-security-observe-20260509-042523/`, `tmp/soak/fs-exerciser/v178-fsx-smoke-20260509-042552/`, `tmp/soak/harness/v178-ncm-preflight-20260509-042552/`
-- 다음 실행 항목: v179 Mixed Soak Scheduler Foundation
+- 다음 실행 항목: v180 CPU/Memory Workload Profiles
+
+### V179. Mixed Soak Scheduler Foundation — PASS
+
+- 계획: `docs/plans/NATIVE_INIT_V179_MIXED_SOAK_SCHEDULER_PLAN_2026-05-09.md`
+- 산출: `docs/reports/NATIVE_INIT_V179_MIXED_SOAK_SCHEDULER_2026-05-09.md`
+- baseline device build: `A90 Linux init 0.9.59 (v159)`
+- device flash: 없음. v179는 host-harness scheduler foundation이며 별도 native-init boot image 없음
+- 구현: `scripts/revalidation/a90harness/scheduler.py`, `native_test_supervisor.py mixed-soak`
+- 검증: Python compile PASS, `git diff --check` PASS, dry-run PASS, real-device 30s smoke PASS, deterministic seed PASS
+- evidence: `tmp/soak/harness/v179-dry-run-20260509-044249/`, `tmp/soak/harness/v179-smoke-20260509-044258/`
+- 다음 실행 항목: v180 CPU/Memory Workload Profiles
 
 ### Planned. v178-v184 Mixed Soak / Serverization Gate Cycle
 
@@ -319,16 +330,17 @@
   - v160-v169 개별 안정성 PASS/DEFERRED 정리와 v170-v177 host harness completion audit PASS는 보안 패치 전 historical baseline으로 유지한다.
   - F038-F044 host harness 보안 패치 완료: `0b8e9bc`, `c214478`, `952e572`, `fafa6d6`.
   - local targeted rescan: `docs/security/SECURITY_FRESH_SCAN_F038_F044_2026-05-09.md`, PASS=27 WARN=1 FAIL=0.
+  - v179 mixed-soak scheduler foundation PASS.
 - 계획 순서:
   - 완료: v178 Post-Security Harness Baseline
-  - v179 Mixed Soak Scheduler Foundation
+  - 완료: v179 Mixed Soak Scheduler Foundation
   - v180 CPU/Memory Workload Profiles
   - v181 NCM/TCP + Storage Workload Integration
   - v182 Failure Classifier + Recovery Policy
   - v183 8h Pilot Mixed Soak
   - v184 24h+ Serverization Readiness Gate
 - guardrails: Wi-Fi enablement/rfkill write/module load/firmware mutation/public listener/watchdog open/destructive partition write 금지, ACM rescue 유지, evidence private/no-follow 유지.
-- 다음 실행 항목: v179 Mixed Soak Scheduler Foundation
+- 다음 실행 항목: v180 CPU/Memory Workload Profiles
 
 ### Planned. v170-v177 Host Test Harness Cycle
 
@@ -354,7 +366,7 @@
   - 완료: v176 Long-Run Supervisor
   - 완료: v177 Safety Gate / Dry-Run Policy
 - guardrails: observer는 read-only, serial command single-writer, side effect는 module에만 허용, evidence private/no-follow 유지.
-- 다음 실행 항목: v179 Mixed Soak Scheduler Foundation
+- 다음 실행 항목: v180 CPU/Memory Workload Profiles
 
 ### Planned. v162-v169 Stability Test Cycle
 
@@ -2629,16 +2641,16 @@ python3 ./scripts/revalidation/physical_usb_reconnect_check.py --manual-host-con
 
 ## 지금 바로 진행할 항목
 
-1. v179 Mixed Soak Scheduler Foundation
+1. v180 CPU/Memory Workload Profiles
 
    - 상위 로드맵: `docs/plans/NATIVE_INIT_V178_V184_MIXED_SOAK_SECURITY_ROADMAP_2026-05-09.md`
-   - 최신 결과: v178 post-security harness baseline PASS
-   - observer와 workload를 동시에 실행하는 scheduler foundation 추가
-   - seed 기반 schedule, resource lock, partial evidence output을 고정
+   - 최신 결과: v179 mixed-soak scheduler foundation PASS
+   - CPU/memory workload를 low/medium/spike/cooldown profile로 분리
+   - observer evidence에서 CPU usage 상승, cooldown 복귀, memory verify mismatch 0을 확인
 
-2. v180-v184 Mixed Soak / Serverization Gate
+2. v181-v184 Mixed Soak / Serverization Gate
 
-   - CPU/memory, NCM/TCP, storage workload를 단계적으로 통합
+   - NCM/TCP, storage workload를 단계적으로 통합
    - failure classifier, 8h pilot, 24h+ readiness gate 순서로 진행
    - Wi-Fi baseline refresh와 exposure hardening은 v184 gate 이후로 재개
 
