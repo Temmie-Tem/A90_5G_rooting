@@ -87,7 +87,27 @@
 - build: `A90 Linux init 0.9.59 (v159)`
 - 의도: tracefs/debugfs support, mount state, ftrace control file readability를 read-only로 수집
 - 검증: real-device flash PASS, `tracefs full` PASS, `tracefs_feas_collect.py` PASS, integrated PASS, static checks PASS
-- 다음 실행 항목: v160 Wi-Fi Baseline Refresh
+- 다음 실행 항목: v160 NCM/TCP Stability
+
+### Planned. v160-v169 Stability Test Cycle
+
+- 로드맵: `docs/plans/NATIVE_INIT_V160_V169_STABILITY_ROADMAP_2026-05-09.md`
+- baseline: `A90 Linux init 0.9.59 (v159)`
+- 의도: Wi-Fi baseline refresh 전에 커널/PID1/SD/USB/NCM/helper lifecycle 안정성 기준선을 만든다.
+- 현재 증거: v159 idle longsoak 약 15.77시간 PASS, host cmdv1/serial failures 0, SD backend writable, NCM/tcpctl smoke PASS.
+- 계획 순서:
+  - v160 NCM/TCP Stability
+  - v161 Storage I/O Integrity
+  - v162 Process Concurrency
+  - v163 CPU/Mem/Thermal
+  - v164 Scheduler Latency
+  - v165 USB Recovery
+  - v166 Network Throughput
+  - v167 FS Exerciser Mini
+  - v168 Kselftest Feasibility
+  - v169 Fault/Debug Feasibility
+- guardrails: ACM rescue 유지, Wi-Fi enablement/partition write/watchdog open/active tracing 금지, host evidence private output 유지.
+- 다음 실행 항목: v160 NCM/TCP Stability
 
 ### V158. Watchdog Read-only Feasibility — DONE
 
@@ -2341,14 +2361,33 @@ python3 ./scripts/revalidation/physical_usb_reconnect_check.py --manual-host-con
 
 ## 지금 바로 진행할 항목
 
-1. post-v142 후보 선정
+1. v160 NCM/TCP Stability
 
-   - 기준 문서: `docs/reports/NATIVE_INIT_V140_CPUSTRESS_APP_2026-05-08.md`
-   - 최신 결과: v142 실기 flash, `displaytest safe`, `cutoutcal`, integrated validation, quick soak, local security rescan PASS
-   - 후보 A: fresh Codex Cloud scan follow-up
-   - 후보 B: network-facing 판단 재개
-   - 후보 C: 남은 UI/app renderer split 필요성 재평가
-   - 후보 D: `native_rc_soak.py --cycles 10` 이상 장시간 검증
+   - 기준 문서: `docs/plans/NATIVE_INIT_V160_V169_STABILITY_ROADMAP_2026-05-09.md`
+   - 최신 결과: v159 idle longsoak 약 15.77시간 PASS, NCM link PASS, 최신 `a90_tcpctl` smoke PASS
+   - 목표: NCM ping, token-auth `a90_tcpctl` ping/status/run, serial recovery, longsoak trend를 공식 PASS/FAIL evidence로 고정
+   - 주의: USB ACM bridge는 rescue 채널로 유지하고, netservice/USB 재열거 뒤 bridge 복구를 항상 확인
+
+2. v161 Storage I/O Integrity
+
+   - 범위: `/mnt/sdext/a90/test-*` 아래 SD write/read/hash/rename/unlink/fsync 검증
+   - 금지: raw block device, Android 파티션, `/efs`, modem/key/security 영역 write
+
+3. v162 Process Concurrency
+
+   - 범위: longsoak + autohud + tcpctl + short cpustress + helper churn 병행 검증
+   - 관찰: zombie/orphan, stale PID, FD growth, shell/menu 응답성
+
+4. v163 CPU/Mem/Thermal
+
+   - 범위: bounded CPU/memory load와 thermal/power trend 수집
+   - 기준: throttle/thermal trip 없이 종료 후 shell/control channel 정상
+
+5. v164-v169 Extended Stability/Feasibility
+
+   - v164 scheduler latency, v165 USB recovery, v166 network throughput, v167 FS exerciser mini
+   - v168 kselftest feasibility, v169 fault/debug feasibility
+   - Wi-Fi baseline refresh와 exposure hardening은 v169 이후로 재개
 
 ### V106-V108. UI/App Architecture Split — DONE
 

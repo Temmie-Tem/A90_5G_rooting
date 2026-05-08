@@ -945,10 +945,22 @@ Samsung bootloader
 
 상세 실행 큐는 `docs/plans/NATIVE_INIT_TASK_QUEUE_2026-04-25.md`를 따른다.
 
-1. v160 Wi-Fi Baseline Refresh
-   - 기준 결과: `docs/reports/NATIVE_INIT_V159_TRACEFS_FEASIBILITY_2026-05-08.md`
-   - v157-v159 커널 기능 baseline 이후 Android/TWRP/native Wi-Fi 자료를 다시 수집
-2. v161 Network Exposure Hardening
+1. v160 NCM/TCP Stability
+   - 기준 문서: `docs/plans/NATIVE_INIT_V160_V169_STABILITY_ROADMAP_2026-05-09.md`
+   - 최신 증거: v159 idle longsoak 약 15.77시간 PASS, NCM link PASS, 최신 `a90_tcpctl` smoke PASS
+   - 목표: NCM ping, token-auth TCP control, serial recovery, longsoak trend를 공식 안정성 baseline으로 고정
+2. v161 Storage I/O Integrity
+   - SD workspace 아래 write/read/hash/rename/unlink/fsync 검증
+   - raw block/Android 파티션 write는 계속 금지
+3. v162 Process Concurrency
+   - longsoak, autohud, tcpctl, short cpustress, helper churn 병행 시 PID1 응답성과 zombie/stale PID 확인
+4. v163 CPU/Mem/Thermal
+   - bounded stress로 CPU/GPU 온도, 배터리/전력, 메모리 trend를 안정성 기준선으로 만든다
+5. v164-v169 Extended Stability/Feasibility
+   - scheduler latency, USB recovery, network throughput, FS exerciser mini, kselftest feasibility, fault/debug feasibility
+6. v170+ Wi-Fi Baseline Refresh
+   - 안정성 cycle 완료 후 Android/TWRP/native Wi-Fi 자료를 다시 수집
+7. v171+ Network Exposure Hardening
    - Wi-Fi/NCM을 USB-local 밖으로 넓히기 전 인증/ACL/token/bind 정책을 다시 검토
 
 ---
