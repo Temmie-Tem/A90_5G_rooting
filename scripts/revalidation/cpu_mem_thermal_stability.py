@@ -291,9 +291,7 @@ def run_memory_verify(args: argparse.Namespace,
         ["run", args.toybox, "dd", "if=/dev/zero", f"of={path}", f"bs={block_size}", f"count={count}"],
         out_dir,
         checks,
-        retry_unsafe=True,
         timeout=max(args.bridge_timeout, 30.0),
-        attempts=2,
     )
     sha = run_cmd(
         args,
@@ -301,8 +299,6 @@ def run_memory_verify(args: argparse.Namespace,
         ["run", args.toybox, "sha256sum", path],
         out_dir,
         checks,
-        retry_unsafe=True,
-        attempts=2,
     )
     device_sha = None
     if sha.output_file:
@@ -314,8 +310,6 @@ def run_memory_verify(args: argparse.Namespace,
         out_dir,
         checks,
         allow_error=True,
-        retry_unsafe=True,
-        attempts=2,
     )
     result = MemoryCheck(
         size_bytes=size,
@@ -341,7 +335,6 @@ def process_snapshot(args: argparse.Namespace, out_dir: Path) -> ProcessSnapshot
         args.bridge_port,
         args.bridge_timeout,
         ["run", args.toybox, "ps", "-A", "-o", "pid,stat,comm"],
-        retry_unsafe=True,
     )
     write_private_text(out_dir / "process-ps.txt", result.text)
     pid_count = 0
@@ -414,7 +407,6 @@ def main() -> int:
             out_dir,
             checks,
             allow_error=True,
-            retry_unsafe=True,
         )
     )
     memory = run_memory_verify(args, out_dir, checks)
@@ -430,9 +422,7 @@ def main() -> int:
             ["run", "/bin/a90_cpustress", str(args.stress_sec), str(args.stress_workers)],
             out_dir,
             checks,
-            retry_unsafe=True,
             timeout=max(args.bridge_timeout, args.stress_sec + 20.0),
-            attempts=2,
         )
         command_records.append(stress)
         sample, record = read_status_sample(args, f"cycle-{index:02d}", out_dir)

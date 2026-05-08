@@ -100,7 +100,9 @@ def run_observer(client: DeviceClient,
                  jsonl_name: str = "observer.jsonl") -> ObserverSummary:
     started = time.monotonic()
     deadline = None if duration_sec is None else started + duration_sec
-    all_samples: list[ObserverSample] = []
+    sample_count = 0
+    failure_count = 0
+    recent_failures: list[dict[str, Any]] = []
     cycle = 0
     seq = 0
     stop_reason = "duration"
@@ -110,13 +112,19 @@ def run_observer(client: DeviceClient,
         while True:
             cycle += 1
             cycle_samples = observe_cycle(client, store, cycle, seq, jsonl_name=jsonl_name)
-            all_samples.extend(cycle_samples)
             seq += len(cycle_samples)
+            sample_count += len(cycle_samples)
+            for sample in cycle_samples:
+                if not sample.ok:
+                    failure_count += 1
+                    recent_failures.append(sample.to_dict())
+                    recent_failures = recent_failures[-16:]
             now = time.monotonic()
             store.write_json("heartbeat.json", {
                 "cycle": cycle,
-                "samples": len(all_samples),
-                "failures": sum(1 for sample in all_samples if not sample.ok),
+                "samples": sample_count,
+                "failures": failure_count,
+                "recent_failures": recent_failures,
                 "host_ts": time.time(),
                 "elapsed_sec": now - started,
                 "duration_sec": duration_sec,
@@ -137,12 +145,11 @@ def run_observer(client: DeviceClient,
         stop_reason = "interrupt"
         interrupted = True
 
-    failures = sum(1 for sample in all_samples if not sample.ok)
     summary = ObserverSummary(
-        ok=failures == 0 and not interrupted,
+        ok=failure_count == 0 and not interrupted,
         cycles=cycle,
-        samples=len(all_samples),
-        failures=failures,
+        samples=sample_count,
+        failures=failure_count,
         duration_sec=time.monotonic() - started,
         jsonl=str(store.path(jsonl_name)),
         stop_reason=stop_reason,
