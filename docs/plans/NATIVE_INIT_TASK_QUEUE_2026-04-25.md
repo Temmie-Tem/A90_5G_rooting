@@ -150,6 +150,7 @@
 - 의도: software USB rebind 후 ACM bridge recovery와 NCM on/off rollback 검증
 - 검증: smoke PASS, full `usbacmreset` 3회 + `a90_usbnet ncm/off` PASS
 - recovery: recovered 5/5, max recovery 1.905s, NCM function present after NCM step, final ACM-only
+- supplemental: 1-cycle USB recovery 중 longsoak before/after health=ok running=yes 확인
 - final checks: `version` PASS, `selftest verbose` PASS
 - 다음 실행 항목: v166 Network Throughput / Impairment
 

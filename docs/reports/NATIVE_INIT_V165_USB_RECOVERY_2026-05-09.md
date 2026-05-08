@@ -22,6 +22,10 @@ tmp/soak/usb-recovery/v165-smoke-20260509-015552/usb-recovery-report.md
 tmp/soak/usb-recovery/v165-smoke-20260509-015552/usb-recovery-report.json
 tmp/soak/usb-recovery/v165-usb-recovery-20260509-015633/usb-recovery-report.md
 tmp/soak/usb-recovery/v165-usb-recovery-20260509-015633/usb-recovery-report.json
+tmp/soak/usb-recovery/v165-usb-recovery-sensor-20260509-021853/usb-recovery-report.md
+tmp/soak/usb-recovery/v165-usb-recovery-sensor-20260509-021853/usb-recovery-report.json
+tmp/soak/usb-recovery/v165-usb-recovery-sensor-20260509-021853/longsoak-before.txt
+tmp/soak/usb-recovery/v165-usb-recovery-sensor-20260509-021853/longsoak-after.txt
 ```
 
 ## Smoke Profile
@@ -45,6 +49,23 @@ max_recovery_sec: 1.904982188003487
 ncm_present_after_ncm_step: True
 final_acm_only: True
 ```
+
+## Supplemental Longsoak Sensor Evidence
+
+```text
+run_id: v165-usb-recovery-sensor-20260509-021853
+result: PASS
+duration: 7.665s
+cycles: 1
+recovered: 3/3
+longsoak_before: health=ok running=yes samples=686 age=1883ms
+longsoak_after: health=ok running=yes samples=686 age=10019ms
+```
+
+The supplemental profile was added during the v160-v169 completion audit to make
+the USB recovery test's concurrent sensor/longsoak evidence explicit. The device
+remained recoverable and the longsoak recorder remained healthy before and after
+the software USB re-enumeration sequence.
 
 | Step | Command | Recovered | Recovery sec | Verify |
 |---|---|---|---:|---|
