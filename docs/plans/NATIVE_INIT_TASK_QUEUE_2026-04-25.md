@@ -99,15 +99,25 @@
 - longsoak correlation: PASS, host failures 0, device samples 428, sequence/time/uptime monotonic
 - 다음 실행 항목: v161 Storage I/O Integrity
 
-### Planned. v161-v169 Stability Test Cycle
+### V161. Storage I/O Integrity — DONE
+
+- 계획: `docs/plans/NATIVE_INIT_V161_STORAGE_IO_INTEGRITY_PLAN_2026-05-09.md`
+- 산출: `docs/reports/NATIVE_INIT_V161_STORAGE_IO_INTEGRITY_2026-05-09.md`
+- baseline build: `A90 Linux init 0.9.59 (v159)`
+- 의도: SD runtime root write/read/hash/rename/sync/unlink 검증
+- 검증: smoke 4K/64K PASS, full 4K/64K/1M/16M PASS, cleanup PASS
+- post-test: `storage`, `mountsd status`, `selftest verbose`, `longsoak status verbose` PASS
+- 다음 실행 항목: v162 Process Concurrency
+
+### Planned. v162-v169 Stability Test Cycle
 
 - 로드맵: `docs/plans/NATIVE_INIT_V160_V169_STABILITY_ROADMAP_2026-05-09.md`
 - v160 계획: `docs/plans/NATIVE_INIT_V160_NCM_TCP_STABILITY_PLAN_2026-05-09.md`
+- v161 계획: `docs/plans/NATIVE_INIT_V161_STORAGE_IO_INTEGRITY_PLAN_2026-05-09.md`
 - baseline: `A90 Linux init 0.9.59 (v159)`
 - 의도: Wi-Fi baseline refresh 전에 커널/PID1/SD/USB/NCM/helper lifecycle 안정성 기준선을 만든다.
 - 현재 증거: v159 idle longsoak 약 15.77시간 PASS, host cmdv1/serial failures 0, SD backend writable, NCM/tcpctl smoke PASS.
 - 계획 순서:
-  - v161 Storage I/O Integrity
   - v162 Process Concurrency
   - v163 CPU/Mem/Thermal
   - v164 Scheduler Latency
@@ -117,7 +127,7 @@
   - v168 Kselftest Feasibility
   - v169 Fault/Debug Feasibility
 - guardrails: ACM rescue 유지, Wi-Fi enablement/partition write/watchdog open/active tracing 금지, host evidence private output 유지.
-- 다음 실행 항목: v161 Storage I/O Integrity
+- 다음 실행 항목: v162 Process Concurrency
 
 ### V158. Watchdog Read-only Feasibility — DONE
 
@@ -2371,24 +2381,19 @@ python3 ./scripts/revalidation/physical_usb_reconnect_check.py --manual-host-con
 
 ## 지금 바로 진행할 항목
 
-1. v161 Storage I/O Integrity
+1. v162 Process Concurrency
 
    - 상위 로드맵: `docs/plans/NATIVE_INIT_V160_V169_STABILITY_ROADMAP_2026-05-09.md`
-   - 최신 결과: v160 NCM/TCP Stability PASS, 3602.5s/360 cycles, failures 0
-   - 목표: `/mnt/sdext/a90/test-*` 아래 SD write/read/hash/rename/unlink/fsync 검증
-   - 주의: raw block device, Android 파티션, `/efs`, modem/key/security 영역 write 금지
-
-2. v162 Process Concurrency
-
-   - 범위: longsoak + autohud + tcpctl + short cpustress + helper churn 병행 검증
+   - 최신 결과: v161 Storage I/O Integrity PASS, 4K/64K/1M/16M write/read/hash/rename/sync/unlink 완료
+   - 목표: longsoak + autohud + tcpctl + short cpustress + helper churn 병행 검증
    - 관찰: zombie/orphan, stale PID, FD growth, shell/menu 응답성
 
-3. v163 CPU/Mem/Thermal
+2. v163 CPU/Mem/Thermal
 
    - 범위: bounded CPU/memory load와 thermal/power trend 수집
    - 기준: throttle/thermal trip 없이 종료 후 shell/control channel 정상
 
-4. v164-v169 Extended Stability/Feasibility
+3. v164-v169 Extended Stability/Feasibility
 
    - v164 scheduler latency, v165 USB recovery, v166 network throughput, v167 FS exerciser mini
    - v168 kselftest feasibility, v169 fault/debug feasibility

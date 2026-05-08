@@ -291,6 +291,7 @@ Samsung bootloader
 - HUD 상태: `BOOT OK shell` summary 표시 확인
 - run/log 상태: `/bin/a90sleep` q 취소와 recovery 왕복 log preservation 확인
 - storage 상태: `/cache` safe write, ext4 SD workspace `/mnt/sdext/a90`, boot-time SD health check, critical partitions do-not-touch 기준 문서화
+- storage I/O 상태: v161에서 `/mnt/sdext/a90/test-io` 4K/64K/1M/16M write/read/hash/rename/sync/unlink 검증 완료
 - screen menu 상태: 자동 메뉴, 버튼 조작, input gesture layout, input monitor, serial `hide`/busy gate 확인
 - USB 상태: ACM-only gadget `04e8:6861` / host `cdc_acm` 기준 문서화
 - USB reattach 상태: v48 `usbacmreset`와 외부 helper `off` 후 serial 복구 확인
@@ -945,20 +946,17 @@ Samsung bootloader
 
 상세 실행 큐는 `docs/plans/NATIVE_INIT_TASK_QUEUE_2026-04-25.md`를 따른다.
 
-1. v161 Storage I/O Integrity
+1. v162 Process Concurrency
    - 상위 로드맵: `docs/plans/NATIVE_INIT_V160_V169_STABILITY_ROADMAP_2026-05-09.md`
-   - 최신 증거: v160 NCM/TCP Stability PASS, 3602.5s/360 cycles, tcp/status/run/host ping failures 0
-   - SD workspace 아래 write/read/hash/rename/unlink/fsync 검증
-   - raw block/Android 파티션 write는 계속 금지
-2. v162 Process Concurrency
+   - 최신 증거: v161 Storage I/O Integrity PASS, 4K/64K/1M/16M write/read/hash/rename/sync/unlink 완료
    - longsoak, autohud, tcpctl, short cpustress, helper churn 병행 시 PID1 응답성과 zombie/stale PID 확인
-3. v163 CPU/Mem/Thermal
+2. v163 CPU/Mem/Thermal
    - bounded stress로 CPU/GPU 온도, 배터리/전력, 메모리 trend를 안정성 기준선으로 만든다
-4. v164-v169 Extended Stability/Feasibility
+3. v164-v169 Extended Stability/Feasibility
    - scheduler latency, USB recovery, network throughput, FS exerciser mini, kselftest feasibility, fault/debug feasibility
-5. v170+ Wi-Fi Baseline Refresh
+4. v170+ Wi-Fi Baseline Refresh
    - 안정성 cycle 완료 후 Android/TWRP/native Wi-Fi 자료를 다시 수집
-6. v171+ Network Exposure Hardening
+5. v171+ Network Exposure Hardening
    - Wi-Fi/NCM을 USB-local 밖으로 넓히기 전 인증/ACL/token/bind 정책을 다시 검토
 
 ---
