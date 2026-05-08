@@ -35,6 +35,7 @@ Android userspace 대신 직접 만든 static `/init`를 실행하고,
 - run cancel: `/bin/a90sleep` helper로 q 취소 확인
 - storage: `/cache` safe write, ext4 SD workspace `/mnt/sdext/a90`, critical partitions do-not-touch
 - storage I/O: v161에서 `/mnt/sdext/a90/test-io` 4K/64K/1M/16M write/read/hash/rename/sync/unlink 검증 완료
+- process concurrency: v162에서 helper churn 32/32, tcpctl parallel 18/18, `/bin/a90_cpustress 3 2`, busy gate, zombie/fd snapshot 검증 완료
 - screen menu: 자동 메뉴, 앱 폴더, CPU stress app, nonblocking `screenmenu`, serial `hide`/busy gate 확인
 - USB map: ACM-only gadget `04e8:6861` / host `cdc_acm` 기준 문서화
 - userland: toybox fallback 실행 확인; v124부터 SD runtime BusyBox는 manifest SHA-256 검증 전에는 preferred helper가 되지 않음

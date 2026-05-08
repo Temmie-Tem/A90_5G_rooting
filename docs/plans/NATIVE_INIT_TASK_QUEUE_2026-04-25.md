@@ -109,16 +109,27 @@
 - post-test: `storage`, `mountsd status`, `selftest verbose`, `longsoak status verbose` PASS
 - 다음 실행 항목: v162 Process Concurrency
 
+### V162. Process/Concurrency Stability — DONE
+
+- 계획: `docs/plans/NATIVE_INIT_V162_PROCESS_CONCURRENCY_PLAN_2026-05-09.md`
+- 산출: `docs/reports/NATIVE_INIT_V162_PROCESS_CONCURRENCY_2026-05-09.md`
+- baseline build: `A90 Linux init 0.9.59 (v159)`
+- 의도: PID1 run/service/reap 경계와 tcpctl multi-client path 동시성 검증
+- 검증: smoke PASS, full helper churn 32/32, tcpctl parallel ops 18/18, `/bin/a90_cpustress 3 2` PASS
+- process snapshot: pid count 393→392, PID1 fd 5→5, global zombies 0, controlled zombies 0
+- busy gate: menu visible 상태에서 unsafe `run` blocked `busy/-16`, `policycheck run` PASS
+- 다음 실행 항목: v163 CPU/Mem/Thermal
+
 ### Planned. v162-v169 Stability Test Cycle
 
 - 로드맵: `docs/plans/NATIVE_INIT_V160_V169_STABILITY_ROADMAP_2026-05-09.md`
 - v160 계획: `docs/plans/NATIVE_INIT_V160_NCM_TCP_STABILITY_PLAN_2026-05-09.md`
 - v161 계획: `docs/plans/NATIVE_INIT_V161_STORAGE_IO_INTEGRITY_PLAN_2026-05-09.md`
+- v162 계획: `docs/plans/NATIVE_INIT_V162_PROCESS_CONCURRENCY_PLAN_2026-05-09.md`
 - baseline: `A90 Linux init 0.9.59 (v159)`
 - 의도: Wi-Fi baseline refresh 전에 커널/PID1/SD/USB/NCM/helper lifecycle 안정성 기준선을 만든다.
 - 현재 증거: v159 idle longsoak 약 15.77시간 PASS, host cmdv1/serial failures 0, SD backend writable, NCM/tcpctl smoke PASS.
 - 계획 순서:
-  - v162 Process Concurrency
   - v163 CPU/Mem/Thermal
   - v164 Scheduler Latency
   - v165 USB Recovery
@@ -127,7 +138,7 @@
   - v168 Kselftest Feasibility
   - v169 Fault/Debug Feasibility
 - guardrails: ACM rescue 유지, Wi-Fi enablement/partition write/watchdog open/active tracing 금지, host evidence private output 유지.
-- 다음 실행 항목: v162 Process Concurrency
+- 다음 실행 항목: v163 CPU/Mem/Thermal
 
 ### V158. Watchdog Read-only Feasibility — DONE
 
@@ -2381,19 +2392,14 @@ python3 ./scripts/revalidation/physical_usb_reconnect_check.py --manual-host-con
 
 ## 지금 바로 진행할 항목
 
-1. v162 Process Concurrency
+1. v163 CPU/Mem/Thermal
 
    - 상위 로드맵: `docs/plans/NATIVE_INIT_V160_V169_STABILITY_ROADMAP_2026-05-09.md`
-   - 최신 결과: v161 Storage I/O Integrity PASS, 4K/64K/1M/16M write/read/hash/rename/sync/unlink 완료
-   - 목표: longsoak + autohud + tcpctl + short cpustress + helper churn 병행 검증
-   - 관찰: zombie/orphan, stale PID, FD growth, shell/menu 응답성
-
-2. v163 CPU/Mem/Thermal
-
+   - 최신 결과: v162 Process/Concurrency PASS, helper churn 32/32, tcpctl parallel 18/18, controlled zombies 0, PID1 fd 5→5
    - 범위: bounded CPU/memory load와 thermal/power trend 수집
    - 기준: throttle/thermal trip 없이 종료 후 shell/control channel 정상
 
-3. v164-v169 Extended Stability/Feasibility
+2. v164-v169 Extended Stability/Feasibility
 
    - v164 scheduler latency, v165 USB recovery, v166 network throughput, v167 FS exerciser mini
    - v168 kselftest feasibility, v169 fault/debug feasibility
