@@ -20,6 +20,7 @@ from a90harness.bundle import finalize_bundle  # noqa: E402
 from a90harness.evidence import EvidenceStore  # noqa: E402
 from a90harness.gate import GateOptions, evaluate_gate  # noqa: E402
 from a90harness.modules.cpu_mem_thermal import CpuMemThermalModule  # noqa: E402
+from a90harness.modules.cpu_memory_profiles import CpuMemoryProfilesModule  # noqa: E402
 from a90harness.modules.kselftest_feasibility import KselftestFeasibilityModule  # noqa: E402
 from a90harness.modules.ncm_tcp_preflight import NcmTcpPreflightModule  # noqa: E402
 from a90harness.modules.storage_io import StorageIoModule  # noqa: E402
@@ -32,6 +33,7 @@ from a90harness.schema import CheckResult, CommandRecord, HarnessResult  # noqa:
 
 DEFAULT_EXPECT_VERSION = "A90 Linux init 0.9.59 (v159)"
 MODULES = {
+    CpuMemoryProfilesModule.name: CpuMemoryProfilesModule,
     CpuMemThermalModule.name: CpuMemThermalModule,
     KselftestFeasibilityModule.name: KselftestFeasibilityModule,
     NcmTcpPreflightModule.name: NcmTcpPreflightModule,

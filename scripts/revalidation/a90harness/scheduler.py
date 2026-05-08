@@ -86,7 +86,9 @@ def locks_for_module(module: TestModule) -> list[str]:
 
 
 def default_workloads(profile: str, modules: dict[str, type[TestModule]]) -> list[str]:
-    preferred = ["cpu-mem-thermal", "ncm-tcp-preflight", "storage-io"]
+    preferred = ["cpu-memory-profiles", "ncm-tcp-preflight", "storage-io"]
+    if "cpu-memory-profiles" not in modules:
+        preferred[0] = "cpu-mem-thermal"
     if profile in {"idle", "observer-only"}:
         return []
     return [name for name in preferred if name in modules]
