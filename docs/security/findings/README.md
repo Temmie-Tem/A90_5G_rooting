@@ -5,6 +5,7 @@ Source split file: `docs/security/CODEX_SECURITY_FINDINGS_DETAIL_TEMPLATE_2026-0
 Fresh scan follow-up: `F032` and `F033` were imported from the 2026-05-07 Codex Cloud scan.
 Longsoak scan follow-up: `F034` through `F036` were imported from `docs/security/codex-security-findings-2026-05-07T20-00-44.982Z.csv`.
 Longsoak bundle follow-up: `F037` was imported from the 2026-05-08 Codex Cloud finding detail pasted by the operator.
+Harness mixed-soak follow-up: `F038` through `F044` were imported from `docs/security/codex-security-findings-2026-05-08T18-39-05.112Z.csv`.
 
 이 디렉터리는 Codex Cloud security finding 원문을 이슈별 파일로 분리한 보관소입니다.
 관계 분석과 수정 큐는 별도 문서에서 이 `FNNN` 번호를 참조합니다.
@@ -15,6 +16,8 @@ Longsoak bundle follow-up: `F037` was imported from the 2026-05-08 Codex Cloud f
 - Fix queue: `../SECURITY_FIX_QUEUE_2026-05-06.md`
 - Current exposure map: `../SECURITY_FINDINGS_CURRENT_EXPOSURE_2026-05-06.md`
 - Closure review: `../SECURITY_FINDINGS_CLOSURE_REVIEW_2026-05-07.md`
+- F038-F044 analysis: `../SECURITY_FINDINGS_F038_F044_ANALYSIS_2026-05-09.md`
+- F038-F044 patch plan: `../SECURITY_FINDINGS_F038_F044_PATCH_PLAN_2026-05-09.md`
 - Fresh local rescan: `../SECURITY_FRESH_SCAN_V133_2026-05-07.md`
 - Fresh v134 local rescan: `../SECURITY_FRESH_SCAN_V134_2026-05-07.md`
 - Fresh v135 local rescan: `../SECURITY_FRESH_SCAN_V135_2026-05-07.md`
@@ -78,6 +81,13 @@ Longsoak bundle follow-up: `F037` was imported from the 2026-05-08 Codex Cloud f
 | F035 | `medium` | `mitigated-v153` | Longsoak helper follows symlinks when writing root logs | [`F035-longsoak-helper-follows-symlinks-when-writing-root-logs.md`](F035-longsoak-helper-follows-symlinks-when-writing-root-logs.md) | stage3/linux_init/a90_longsoak.c <br> stage3/linux_init/helpers/a90_longsoak.c |
 | F036 | `low` | `mitigated-v153` | Longsoak status treats '-' sentinel as a file path | [`F036-longsoak-status-treats-sentinel-as-a-file-path.md`](F036-longsoak-status-treats-sentinel-as-a-file-path.md) | stage3/linux_init/a90_longsoak.c <br> stage3/linux_init/v147/60_shell_basic_commands.inc.c |
 | F037 | `medium` | `mitigated-v153` | Long-soak bundle writes evidence without private file handling | [`F037-long-soak-bundle-writes-evidence-without-private-file-handling.md`](F037-long-soak-bundle-writes-evidence-without-private-file-handling.md) | scripts/revalidation/native_long_soak_bundle.py |
+| F038 | `medium` | `new` | Weak fs exerciser path guard can delete outside test dir | [`F038-weak-fs-exerciser-path-guard-can-delete-outside-test-dir.md`](F038-weak-fs-exerciser-path-guard-can-delete-outside-test-dir.md) | docs/plans/NATIVE_INIT_V167_FS_EXERCISER_PLAN_2026-05-09.md <br> scripts/revalidation/fs_exerciser_mini.py |
+| F039 | `medium` | `new` | NCM resume docs bypass interface pinning | [`F039-ncm-resume-docs-bypass-interface-pinning.md`](F039-ncm-resume-docs-bypass-interface-pinning.md) | docs/reports/NATIVE_INIT_V166_NETWORK_THROUGHPUT_DEFERRED_2026-05-09.md <br> scripts/revalidation/ncm_host_setup.py |
+| F040 | `medium` | `new` | Validator re-enables unsafe replay of root commands | [`F040-validator-re-enables-unsafe-replay-of-root-commands.md`](F040-validator-re-enables-unsafe-replay-of-root-commands.md) | scripts/revalidation/cpu_mem_thermal_stability.py <br> scripts/revalidation/a90ctl.py |
+| F041 | `medium` | `new` | Storage I/O helper allows serial command injection | [`F041-storage-io-helper-allows-serial-command-injection.md`](F041-storage-io-helper-allows-serial-command-injection.md) | scripts/revalidation/storage_iotest.py <br> scripts/revalidation/tcpctl_host.py |
+| F042 | `medium` | `new` | Reporter accepts unauthenticated tcpctl as PASS | [`F042-reporter-accepts-unauthenticated-tcpctl-as-pass.md`](F042-reporter-accepts-unauthenticated-tcpctl-as-pass.md) | docs/plans/NATIVE_INIT_V160_NCM_TCP_STABILITY_PLAN_2026-05-09.md <br> scripts/revalidation/ncm_tcp_stability_report.py <br> stage3/linux_init/a90_tcpctl.c |
+| F043 | `low` | `new` | Unlimited observer retains samples until memory exhaustion | [`F043-unlimited-observer-retains-samples-until-memory-exhaustion.md`](F043-unlimited-observer-retains-samples-until-memory-exhaustion.md) | scripts/revalidation/native_test_supervisor.py <br> scripts/revalidation/a90harness/observer.py |
+| F044 | `informational` | `new` | NCM/TCP preflight wrapper can never pass smoke mode | [`F044-ncm-tcp-preflight-wrapper-can-never-pass-smoke-mode.md`](F044-ncm-tcp-preflight-wrapper-can-never-pass-smoke-mode.md) | scripts/revalidation/a90harness/modules/ncm_tcp_preflight.py <br> scripts/revalidation/tcpctl_host.py |
 
 ## Notes
 

@@ -285,7 +285,7 @@
 - 검증: `list`, `plan usb-recovery`, `run usb-recovery --dry-run`, `run usb-recovery` rc=2 block, `run kselftest-feasibility` PASS
 - gate: NCM modules require `--allow-ncm`, USB rebind modules require `--allow-usb-rebind --assume-yes`
 - evidence: `tmp/soak/harness/v177-gate-allowed-20260508T180349Z/`
-- 다음 실행 항목: v178 Wi-Fi Baseline Refresh 또는 v170-v177 completion audit
+- 다음 실행 항목: v178 Mixed Soak / Serverization Gate Roadmap 또는 v170-v177 completion audit
 
 ### V170-V177. Host Harness Completion Audit — DONE
 
@@ -293,7 +293,24 @@
 - 의도: v170~v177 전체 루프의 계획/구현/검증/보고서/커밋/evidence를 실제 상태 기준으로 감사
 - 검증: plan/report pair 모두 존재, evidence manifest 모두 pass, static validation PASS, v177 gate block rc=2 확인
 - deferral: storage/NCM full PASS는 host NCM 미구성으로 structured SKIP 및 explicit gate로 문서화
-- 다음 실행 항목: v178 Wi-Fi Baseline Refresh
+- 다음 실행 항목: v178 Mixed Soak Scheduler Plan
+
+### Planned. v178-v184 Mixed Soak / Serverization Gate Cycle
+
+- 로드맵: `docs/plans/NATIVE_INIT_V178_V184_MIXED_SOAK_SECURITY_ROADMAP_2026-05-09.md`
+- baseline: `A90 Linux init 0.9.59 (v159)`
+- 의도: Wi-Fi 연결과 서버화 전에 host/device 장시간 혼합 안정성, 네트워크 노출 안전성, 증거 수집 신뢰성을 검증 가능한 기준으로 만든다.
+- 현재 증거: v160-v169 개별 안정성 PASS/DEFERRED 정리, v170-v177 host harness completion audit PASS.
+- 계획 순서:
+  - v178 Mixed Soak Scheduler Plan
+  - v179 Mixed Soak Scheduler Foundation
+  - v180 CPU/Memory Workload Profiles
+  - v181 NCM/TCP + Storage Workload Integration
+  - v182 Failure Classifier + Recovery Policy
+  - v183 8h Pilot Mixed Soak
+  - v184 24h+ Serverization Readiness Gate
+- guardrails: Wi-Fi enablement/rfkill write/module load/firmware mutation/public listener/watchdog open/destructive partition write 금지, ACM rescue 유지, evidence private/no-follow 유지.
+- 다음 실행 항목: v178 Mixed Soak Scheduler Plan
 
 ### Planned. v170-v177 Host Test Harness Cycle
 
@@ -319,7 +336,7 @@
   - 완료: v176 Long-Run Supervisor
   - 완료: v177 Safety Gate / Dry-Run Policy
 - guardrails: observer는 read-only, serial command single-writer, side effect는 module에만 허용, evidence private/no-follow 유지.
-- 다음 실행 항목: v178 Wi-Fi Baseline Refresh
+- 다음 실행 항목: v178 Mixed Soak Scheduler Plan
 
 ### Planned. v162-v169 Stability Test Cycle
 

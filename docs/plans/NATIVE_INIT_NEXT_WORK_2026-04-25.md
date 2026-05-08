@@ -946,14 +946,17 @@ Samsung bootloader
 
 상세 실행 큐는 `docs/plans/NATIVE_INIT_TASK_QUEUE_2026-04-25.md`를 따른다.
 
-1. v178 Wi-Fi Baseline Refresh
-   - 상위 로드맵: `docs/plans/NATIVE_INIT_V170_V177_HARNESS_ROADMAP_2026-05-09.md`
-   - 최신 증거: v170-v177 completion audit PASS, safety gate와 dry-run 정책 준비 완료
-   - v177 safety gate 위에서 Wi-Fi 자료를 다시 수집한다
-3. v178+ Wi-Fi Baseline Refresh
-   - host test supervisor 기반 안정성/관찰 체계 위에서 Android/TWRP/native Wi-Fi 자료를 다시 수집
-4. v179+ Network Exposure Hardening
-   - Wi-Fi/NCM을 USB-local 밖으로 넓히기 전 인증/ACL/token/bind 정책을 다시 검토
+1. v178 Mixed Soak Scheduler Plan
+   - 상위 로드맵: `docs/plans/NATIVE_INIT_V178_V184_MIXED_SOAK_SECURITY_ROADMAP_2026-05-09.md`
+   - 최신 증거: v160-v169 개별 안정성 검증, v170-v177 host harness completion audit PASS
+   - Wi-Fi 연결과 서버화 전에 mixed long-soak, failure classifier, 8h/24h readiness gate를 먼저 고정한다
+2. v179-v184 Mixed Soak / Serverization Gate
+   - host test supervisor 기반으로 CPU/memory/NCM/TCP/storage workload를 장시간 혼합 실행한다
+   - 테스트 프로세스와 observer를 분리하고, 실패를 serial/NCM/storage/thermal/policy로 분류한다
+3. v185+ Wi-Fi Baseline Refresh
+   - mixed-soak readiness gate 이후 Android/TWRP/native Wi-Fi 자료를 다시 수집한다
+4. v186+ Network Exposure Hardening
+   - Wi-Fi/NCM을 USB-local 밖으로 넓히기 전 인증/ACL/token/bind/listener lifecycle 정책을 다시 검토한다
 
 ---
 
