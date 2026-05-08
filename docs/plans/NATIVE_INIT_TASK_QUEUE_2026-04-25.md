@@ -186,6 +186,17 @@
 - evidence: `tmp/soak/kselftest-feasibility/v168-kselftest-20260508T171140Z/`
 - 다음 실행 항목: v169 Fault/Debug Feasibility
 
+### V169. Fault/Debug Feasibility — DONE
+
+- 계획: `docs/plans/NATIVE_INIT_V169_FAULT_DEBUG_FEASIBILITY_PLAN_2026-05-09.md`
+- 산출: `docs/reports/NATIVE_INIT_V169_FAULT_DEBUG_FEASIBILITY_2026-05-09.md`
+- baseline build: `A90 Linux init 0.9.59 (v159)`
+- 의도: fault/debug/trace/usbmon/pstore reboot 계열을 실제 실행 전 read-only로 분류
+- 검증: mandatory inventory 8/8 PASS, optional absence evidence 7건 기록, mutation_performed=False
+- 분류: debugfs read-only-only, tracefs active mode read-only-only, usbmon unavailable, pstore reboot opt-in-safe-candidate, fault/LKDTM/watchdog/raw-device blocked
+- evidence: `tmp/soak/fault-debug-feasibility/v169-fault-debug-20260508T171514Z/`
+- 다음 실행 항목: v170 Wi-Fi Baseline Refresh
+
 ### Planned. v162-v169 Stability Test Cycle
 
 - 로드맵: `docs/plans/NATIVE_INIT_V160_V169_STABILITY_ROADMAP_2026-05-09.md`
@@ -198,13 +209,13 @@
 - v166 계획: `docs/plans/NATIVE_INIT_V166_NETWORK_THROUGHPUT_PLAN_2026-05-09.md`
 - v167 계획: `docs/plans/NATIVE_INIT_V167_FS_EXERCISER_PLAN_2026-05-09.md`
 - v168 계획: `docs/plans/NATIVE_INIT_V168_KSELFTEST_FEASIBILITY_PLAN_2026-05-09.md`
+- v169 계획: `docs/plans/NATIVE_INIT_V169_FAULT_DEBUG_FEASIBILITY_PLAN_2026-05-09.md`
 - baseline: `A90 Linux init 0.9.59 (v159)`
 - 의도: Wi-Fi baseline refresh 전에 커널/PID1/SD/USB/NCM/helper lifecycle 안정성 기준선을 만든다.
-- 현재 증거: v168까지 완료. v159 idle longsoak 약 15.77시간 PASS, v160 TCP soak PASS, v161-v167 stability profiles PASS, v168 kselftest feasibility PASS.
-- 계획 순서:
-  - v169 Fault/Debug Feasibility
+- 현재 증거: v160-v169 stability cycle 완료. v159 idle longsoak 약 15.77시간 PASS, v160 TCP soak PASS, v161-v167 stability profiles PASS, v168/v169 feasibility PASS.
+- 계획 순서: 완료
 - guardrails: ACM rescue 유지, Wi-Fi enablement/partition write/watchdog open/active tracing 금지, host evidence private output 유지.
-- 다음 실행 항목: v169 Fault/Debug Feasibility
+- 다음 실행 항목: v170 Wi-Fi Baseline Refresh
 
 ### V158. Watchdog Read-only Feasibility — DONE
 

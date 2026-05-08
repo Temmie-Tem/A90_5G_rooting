@@ -42,6 +42,7 @@ Android userspace 대신 직접 만든 static `/init`를 실행하고,
 - network throughput: v166은 host NCM IP assignment에 local sudo가 필요해 deferred 처리, operator-configured NCM에서 재개
 - FS exerciser mini: v167에서 `/mnt/sdext/a90/test-fsx` 64 deterministic ops, create/write/truncate/rename/unlink/fsync/verify/cleanup PASS
 - kselftest feasibility: v168에서 full kselftest/LTP 실행 없이 safe candidates 4, conditional/unknown 5, blocked 6으로 read-only 분류 완료
+- fault/debug feasibility: v169에서 debugfs/tracefs/usbmon/fault-injection/pstore reboot/watchdog/crash 계열을 read-only 분류하고 위험 기능은 opt-in 또는 blocked로 유지
 - screen menu: 자동 메뉴, 앱 폴더, CPU stress app, nonblocking `screenmenu`, serial `hide`/busy gate 확인
 - USB map: ACM-only gadget `04e8:6861` / host `cdc_acm` 기준 문서화
 - userland: toybox fallback 실행 확인; v124부터 SD runtime BusyBox는 manifest SHA-256 검증 전에는 preferred helper가 되지 않음
