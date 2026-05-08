@@ -60,6 +60,5 @@ python3 -m py_compile: PASS
 
 ## Next
 
-- v160: Wi-Fi Baseline Refresh.
-- v161: Network Exposure Hardening before expanding beyond USB-local control.
-
+- v160: NCM/TCP Stability before Wi-Fi work.
+- v161+: Storage/process/thermal stability cycle before Wi-Fi baseline refresh.

@@ -44,7 +44,7 @@ Android userspace 대신 직접 만든 static `/init`를 실행하고,
 - NCM ops: host interface 자동 탐지, ping, static TCP nettest 양방향 payload 검증 완료
 - TCP control: NCM 위에서 token-authenticated `/bin/a90_tcpctl` ping/status/run/shutdown 검증 완료
 - TCP wrapper: `tcpctl_host.py smoke`로 launch/client/stop 자동 검증 완료
-- TCP soak: `tcpctl_host.py soak` 5분/30사이클 안정성 검증 완료
+- TCP soak: v160에서 `tcpctl_host.py soak` 3602.5초/360사이클, tcp/status/run/host ping failures 0 검증 완료
 - physical USB reconnect: 실제 케이블 unplug/replug 후 ACM bridge, NCM ping, tcpctl 복구 확인
 - serial noise: unsolicited `AT` modem probe line 무시 확인
 - boot netservice: `/cache/native-init-netservice` opt-in flag 기반 NCM/tcpctl 부팅 자동 시작 검증 완료

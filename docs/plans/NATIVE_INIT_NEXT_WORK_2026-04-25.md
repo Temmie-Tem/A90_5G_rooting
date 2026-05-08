@@ -298,7 +298,7 @@ Samsung bootloader
 - NCM 운영 helper 상태: host interface 자동 탐지, ping, static TCP nettest 양방향 payload 검증 완료
 - TCP control 상태: NCM 위에서 token-authenticated `/bin/a90_tcpctl` ping/status/run/shutdown 검증 완료
 - TCP wrapper 상태: `tcpctl_host.py smoke` launch/client/stop 자동 검증 완료
-- TCP soak 상태: `tcpctl_host.py soak` 5분/30사이클 안정성 검증 완료
+- TCP soak 상태: v160에서 `tcpctl_host.py soak` 3602.5초/360사이클 안정성 검증 완료
 - serial noise 상태: unsolicited `AT` modem probe line 무시 확인
 - boot netservice 상태: opt-in flag 기반 NCM/tcpctl 부팅 자동 시작과 rollback 검증 완료
 - netservice 기본값: disabled. `/cache/native-init-netservice` flag가 있을 때만 자동 시작
@@ -945,22 +945,20 @@ Samsung bootloader
 
 상세 실행 큐는 `docs/plans/NATIVE_INIT_TASK_QUEUE_2026-04-25.md`를 따른다.
 
-1. v160 NCM/TCP Stability
-   - 기준 문서: `docs/plans/NATIVE_INIT_V160_V169_STABILITY_ROADMAP_2026-05-09.md`
-   - 최신 증거: v159 idle longsoak 약 15.77시간 PASS, NCM link PASS, 최신 `a90_tcpctl` smoke PASS
-   - 목표: NCM ping, token-auth TCP control, serial recovery, longsoak trend를 공식 안정성 baseline으로 고정
-2. v161 Storage I/O Integrity
+1. v161 Storage I/O Integrity
+   - 상위 로드맵: `docs/plans/NATIVE_INIT_V160_V169_STABILITY_ROADMAP_2026-05-09.md`
+   - 최신 증거: v160 NCM/TCP Stability PASS, 3602.5s/360 cycles, tcp/status/run/host ping failures 0
    - SD workspace 아래 write/read/hash/rename/unlink/fsync 검증
    - raw block/Android 파티션 write는 계속 금지
-3. v162 Process Concurrency
+2. v162 Process Concurrency
    - longsoak, autohud, tcpctl, short cpustress, helper churn 병행 시 PID1 응답성과 zombie/stale PID 확인
-4. v163 CPU/Mem/Thermal
+3. v163 CPU/Mem/Thermal
    - bounded stress로 CPU/GPU 온도, 배터리/전력, 메모리 trend를 안정성 기준선으로 만든다
-5. v164-v169 Extended Stability/Feasibility
+4. v164-v169 Extended Stability/Feasibility
    - scheduler latency, USB recovery, network throughput, FS exerciser mini, kselftest feasibility, fault/debug feasibility
-6. v170+ Wi-Fi Baseline Refresh
+5. v170+ Wi-Fi Baseline Refresh
    - 안정성 cycle 완료 후 Android/TWRP/native Wi-Fi 자료를 다시 수집
-7. v171+ Network Exposure Hardening
+6. v171+ Network Exposure Hardening
    - Wi-Fi/NCM을 USB-local 밖으로 넓히기 전 인증/ACL/token/bind 정책을 다시 검토
 
 ---

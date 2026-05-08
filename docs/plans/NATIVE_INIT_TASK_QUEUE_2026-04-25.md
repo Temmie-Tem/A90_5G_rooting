@@ -89,14 +89,24 @@
 - 검증: real-device flash PASS, `tracefs full` PASS, `tracefs_feas_collect.py` PASS, integrated PASS, static checks PASS
 - 다음 실행 항목: v160 NCM/TCP Stability
 
-### Planned. v160-v169 Stability Test Cycle
+### V160. NCM/TCP Stability — DONE
+
+- 계획: `docs/plans/NATIVE_INIT_V160_NCM_TCP_STABILITY_PLAN_2026-05-09.md`
+- 산출: `docs/reports/NATIVE_INIT_V160_NCM_TCP_STABILITY_2026-05-09.md`
+- baseline build: `A90 Linux init 0.9.59 (v159)`
+- 의도: USB NCM + token-authenticated `a90_tcpctl` 경로를 1시간 반복 검증
+- 검증: NCM setup PASS, tcpctl soak 3602.5s/360 cycles PASS, tcp ping 360/360, status 120/120, run 120/120, host ping 360/360, failures 0
+- longsoak correlation: PASS, host failures 0, device samples 428, sequence/time/uptime monotonic
+- 다음 실행 항목: v161 Storage I/O Integrity
+
+### Planned. v161-v169 Stability Test Cycle
 
 - 로드맵: `docs/plans/NATIVE_INIT_V160_V169_STABILITY_ROADMAP_2026-05-09.md`
+- v160 계획: `docs/plans/NATIVE_INIT_V160_NCM_TCP_STABILITY_PLAN_2026-05-09.md`
 - baseline: `A90 Linux init 0.9.59 (v159)`
 - 의도: Wi-Fi baseline refresh 전에 커널/PID1/SD/USB/NCM/helper lifecycle 안정성 기준선을 만든다.
 - 현재 증거: v159 idle longsoak 약 15.77시간 PASS, host cmdv1/serial failures 0, SD backend writable, NCM/tcpctl smoke PASS.
 - 계획 순서:
-  - v160 NCM/TCP Stability
   - v161 Storage I/O Integrity
   - v162 Process Concurrency
   - v163 CPU/Mem/Thermal
@@ -107,7 +117,7 @@
   - v168 Kselftest Feasibility
   - v169 Fault/Debug Feasibility
 - guardrails: ACM rescue 유지, Wi-Fi enablement/partition write/watchdog open/active tracing 금지, host evidence private output 유지.
-- 다음 실행 항목: v160 NCM/TCP Stability
+- 다음 실행 항목: v161 Storage I/O Integrity
 
 ### V158. Watchdog Read-only Feasibility — DONE
 
@@ -2361,29 +2371,24 @@ python3 ./scripts/revalidation/physical_usb_reconnect_check.py --manual-host-con
 
 ## 지금 바로 진행할 항목
 
-1. v160 NCM/TCP Stability
+1. v161 Storage I/O Integrity
 
-   - 기준 문서: `docs/plans/NATIVE_INIT_V160_V169_STABILITY_ROADMAP_2026-05-09.md`
-   - 최신 결과: v159 idle longsoak 약 15.77시간 PASS, NCM link PASS, 최신 `a90_tcpctl` smoke PASS
-   - 목표: NCM ping, token-auth `a90_tcpctl` ping/status/run, serial recovery, longsoak trend를 공식 PASS/FAIL evidence로 고정
-   - 주의: USB ACM bridge는 rescue 채널로 유지하고, netservice/USB 재열거 뒤 bridge 복구를 항상 확인
+   - 상위 로드맵: `docs/plans/NATIVE_INIT_V160_V169_STABILITY_ROADMAP_2026-05-09.md`
+   - 최신 결과: v160 NCM/TCP Stability PASS, 3602.5s/360 cycles, failures 0
+   - 목표: `/mnt/sdext/a90/test-*` 아래 SD write/read/hash/rename/unlink/fsync 검증
+   - 주의: raw block device, Android 파티션, `/efs`, modem/key/security 영역 write 금지
 
-2. v161 Storage I/O Integrity
-
-   - 범위: `/mnt/sdext/a90/test-*` 아래 SD write/read/hash/rename/unlink/fsync 검증
-   - 금지: raw block device, Android 파티션, `/efs`, modem/key/security 영역 write
-
-3. v162 Process Concurrency
+2. v162 Process Concurrency
 
    - 범위: longsoak + autohud + tcpctl + short cpustress + helper churn 병행 검증
    - 관찰: zombie/orphan, stale PID, FD growth, shell/menu 응답성
 
-4. v163 CPU/Mem/Thermal
+3. v163 CPU/Mem/Thermal
 
    - 범위: bounded CPU/memory load와 thermal/power trend 수집
    - 기준: throttle/thermal trip 없이 종료 후 shell/control channel 정상
 
-5. v164-v169 Extended Stability/Feasibility
+4. v164-v169 Extended Stability/Feasibility
 
    - v164 scheduler latency, v165 USB recovery, v166 network throughput, v167 FS exerciser mini
    - v168 kselftest feasibility, v169 fault/debug feasibility
