@@ -34,6 +34,7 @@ class ModuleRunner:
     def run(self,
             module: TestModule,
             *,
+            profile: str = "smoke",
             observer_duration_sec: float = 0.0,
             observer_interval_sec: float = 5.0) -> tuple[ModuleOutcome, ObserverSummary | None]:
         started = time.monotonic()
@@ -48,6 +49,7 @@ class ModuleRunner:
             host=self.host,
             port=self.port,
             timeout=self.timeout,
+            profile=profile,
         )
 
         observer_summary: ObserverSummary | None = None
@@ -68,6 +70,7 @@ class ModuleRunner:
         metadata = module.metadata()
         metadata["duration_sec"] = time.monotonic() - started
         ok = all(step.ok for step in steps) and (observer_summary is None or observer_summary.ok)
-        outcome = ModuleOutcome(module.name, ok, steps, module.artifacts(ctx), metadata)
+        skipped = any(step.skipped for step in steps)
+        outcome = ModuleOutcome(module.name, ok, skipped, steps, module.artifacts(ctx), metadata)
         self.store.write_json(f"modules/{module.name}/module-result.json", outcome.to_dict())
         return outcome, observer_summary

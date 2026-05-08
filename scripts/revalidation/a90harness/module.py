@@ -18,6 +18,7 @@ class StepResult:
     detail: str
     duration_sec: float
     error: str = ""
+    skipped: bool = False
 
     def to_dict(self) -> dict[str, Any]:
         return asdict(self)
@@ -27,6 +28,7 @@ class StepResult:
 class ModuleOutcome:
     name: str
     ok: bool
+    skipped: bool
     steps: list[StepResult]
     artifacts: list[str]
     metadata: dict[str, Any]
@@ -35,6 +37,7 @@ class ModuleOutcome:
         return {
             "name": self.name,
             "ok": self.ok,
+            "skipped": self.skipped,
             "steps": [step.to_dict() for step in self.steps],
             "artifacts": self.artifacts,
             "metadata": self.metadata,
@@ -52,6 +55,7 @@ class ModuleContext:
     host: str
     port: int
     timeout: float
+    profile: str = "smoke"
 
 
 class TestModule:
@@ -59,6 +63,7 @@ class TestModule:
 
     name = "unnamed"
     description = ""
+    cycle_label = "v172"
     read_only = True
     destructive = False
     requires_ncm = False
@@ -88,6 +93,7 @@ class TestModule:
     def metadata(self) -> dict[str, Any]:
         return {
             "description": self.description,
+            "cycle_label": self.cycle_label,
             "read_only": self.read_only,
             "destructive": self.destructive,
             "requires_ncm": self.requires_ncm,

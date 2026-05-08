@@ -17,7 +17,9 @@ sys.path.insert(0, str(SCRIPT_DIR))
 
 from a90harness.device import DeviceClient  # noqa: E402
 from a90harness.evidence import EvidenceStore  # noqa: E402
+from a90harness.modules.cpu_mem_thermal import CpuMemThermalModule  # noqa: E402
 from a90harness.modules.kselftest_feasibility import KselftestFeasibilityModule  # noqa: E402
+from a90harness.modules.storage_io import StorageIoModule  # noqa: E402
 from a90harness.observer import run_observer  # noqa: E402
 from a90harness.runner import ModuleRunner  # noqa: E402
 from a90harness.schema import CheckResult, CommandRecord, HarnessResult  # noqa: E402
@@ -25,7 +27,9 @@ from a90harness.schema import CheckResult, CommandRecord, HarnessResult  # noqa:
 
 DEFAULT_EXPECT_VERSION = "A90 Linux init 0.9.59 (v159)"
 MODULES = {
+    CpuMemThermalModule.name: CpuMemThermalModule,
     KselftestFeasibilityModule.name: KselftestFeasibilityModule,
+    StorageIoModule.name: StorageIoModule,
 }
 
 
@@ -195,6 +199,7 @@ def render_module_summary(result: HarnessResult, manifest: dict[str, Any]) -> st
             "\n## Module\n\n",
             f"- name: `{module.get('name')}`\n",
             f"- result: `{'PASS' if module.get('ok') else 'FAIL'}`\n",
+            f"- skipped: `{module.get('skipped')}`\n",
             f"- artifacts: `{len(module.get('artifacts', []))}`\n\n",
             "## Module Steps\n\n",
         ])
@@ -224,7 +229,7 @@ def render_module_summary(result: HarnessResult, manifest: dict[str, Any]) -> st
 def run_module(args: argparse.Namespace) -> int:
     module_cls = MODULES[args.module]
     module = module_cls()
-    run_dir = args.run_dir if args.run_dir is not None else default_run_dir(f"v172-{module.name}")
+    run_dir = args.run_dir if args.run_dir is not None else default_run_dir(f"{module.cycle_label}-{module.name}")
     run_dir = run_dir if run_dir.is_absolute() else REPO_ROOT / run_dir
     store = EvidenceStore(run_dir)
     client = DeviceClient(args.host, args.port, args.timeout)
@@ -241,6 +246,7 @@ def run_module(args: argparse.Namespace) -> int:
     )
     module_outcome, observer_summary = runner.run(
         module,
+        profile=args.profile,
         observer_duration_sec=args.observer_duration_sec,
         observer_interval_sec=args.observer_interval,
     )
@@ -251,6 +257,7 @@ def run_module(args: argparse.Namespace) -> int:
     version_matches = args.expect_version in observer_text if observer_text else None
     checks = [
         CheckResult("module result", module_outcome.ok, module.name),
+        CheckResult("module skip state", True, f"skipped={module_outcome.skipped}"),
         CheckResult(
             "module steps",
             all(step.ok for step in module_outcome.steps),
@@ -304,6 +311,7 @@ def parse_args() -> argparse.Namespace:
 
     run = subparsers.add_parser("run", help="run a v172 validation module")
     run.add_argument("module", choices=sorted(MODULES))
+    run.add_argument("--profile", choices=("smoke", "quick"), default="smoke")
     run.add_argument("--run-dir", type=Path)
     run.add_argument("--observer-duration-sec", type=float, default=0.0)
     run.add_argument("--observer-interval", type=float, default=5.0)

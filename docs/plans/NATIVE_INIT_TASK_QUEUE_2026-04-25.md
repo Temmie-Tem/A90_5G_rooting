@@ -230,23 +230,35 @@
 - evidence: `tmp/soak/harness/v172-kselftest-feasibility-20260508T175009Z/`
 - 다음 실행 항목: v173 Storage/CPU Module Port
 
+### V173. Storage/CPU Module Port — DONE
+
+- 계획: `docs/plans/NATIVE_INIT_V173_STORAGE_CPU_MODULES_PLAN_2026-05-09.md`
+- 산출: `docs/reports/NATIVE_INIT_V173_STORAGE_CPU_MODULES_2026-05-09.md`
+- baseline build: `A90 Linux init 0.9.59 (v159)`
+- 의도: 기존 storage/CPU validator를 supervisor module wrapper로 포팅
+- 검증: `cpu-mem-thermal --profile smoke --observer-duration-sec 5` PASS
+- storage 상태: host NCM `192.168.7.2` 미도달로 `storage-io` structured SKIP, sudo/rebind/host network mutation 없음
+- evidence: `tmp/soak/harness/v173-cpu-mem-thermal-20260508T175358Z/`
+- evidence: `tmp/soak/harness/v173-storage-io-20260508T175421Z/`
+- 다음 실행 항목: v174 USB/NCM Module Port
+
 ### Planned. v170-v177 Host Test Harness Cycle
 
 - 로드맵: `docs/plans/NATIVE_INIT_V170_V177_HARNESS_ROADMAP_2026-05-09.md`
 - v170 계획: `docs/plans/NATIVE_INIT_V170_HARNESS_FOUNDATION_PLAN_2026-05-09.md`
 - v171 계획: `docs/plans/NATIVE_INIT_V171_OBSERVER_API_PLAN_2026-05-09.md`
 - v172 계획: `docs/plans/NATIVE_INIT_V172_MODULE_RUNNER_PLAN_2026-05-09.md`
+- v173 계획: `docs/plans/NATIVE_INIT_V173_STORAGE_CPU_MODULES_PLAN_2026-05-09.md`
 - baseline: `A90 Linux init 0.9.59 (v159)`
 - 의도: Wi-Fi baseline refresh 전에 테스트 실행자와 관찰자를 분리하고, 기존 host validators를 공용 하네스 위로 단계적으로 올린다.
-- 현재 증거: v172 module runner까지 PASS.
+- 현재 증거: v173 storage/CPU module port까지 PASS/SKIP 정책 검증 완료.
 - 계획 순서:
-  - v173 Storage/CPU Module Port
   - v174 USB/NCM Module Port
   - v175 Unified Evidence Bundle
   - v176 Long-Run Supervisor
   - v177 Safety Gate / Dry-Run Policy
 - guardrails: observer는 read-only, serial command single-writer, side effect는 module에만 허용, evidence private/no-follow 유지.
-- 다음 실행 항목: v173 Storage/CPU Module Port
+- 다음 실행 항목: v174 USB/NCM Module Port
 
 ### Planned. v162-v169 Stability Test Cycle
 

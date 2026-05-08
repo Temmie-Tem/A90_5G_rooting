@@ -46,6 +46,7 @@ Android userspace 대신 직접 만든 static `/init`를 실행하고,
 - host test harness: v170에서 `scripts/revalidation/a90harness/` 공용 device/evidence/schema와 `native_test_supervisor.py smoke` 추가, `version/status` smoke PASS
 - host observer: v171에서 `native_test_supervisor.py observe`와 `observer.jsonl`/`observer-summary.json` read-only sampler 추가, 15초 실기 관찰 samples=21 failures=0
 - host module runner: v172에서 `native_test_supervisor.py run kselftest-feasibility`와 `prepare/run/cleanup/verify` module API 추가, observer 포함 실기 run PASS
+- host module ports: v173에서 `cpu-mem-thermal` smoke PASS, `storage-io`는 NCM 미구성 상태를 sudo/rebind 없이 structured SKIP으로 기록
 - screen menu: 자동 메뉴, 앱 폴더, CPU stress app, nonblocking `screenmenu`, serial `hide`/busy gate 확인
 - USB map: ACM-only gadget `04e8:6861` / host `cdc_acm` 기준 문서화
 - userland: toybox fallback 실행 확인; v124부터 SD runtime BusyBox는 manifest SHA-256 검증 전에는 preferred helper가 되지 않음
