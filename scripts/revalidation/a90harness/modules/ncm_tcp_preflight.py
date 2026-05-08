@@ -19,6 +19,7 @@ class NcmTcpPreflightModule(TestModule):
 
     def __init__(self) -> None:
         self._skip_reason = ""
+        self._device_binary = "/bin/a90_tcpctl"
 
     def prepare(self, ctx: ModuleContext) -> StepResult:
         result = subprocess.run(
@@ -34,7 +35,22 @@ class NcmTcpPreflightModule(TestModule):
         if result.returncode != 0:
             self._skip_reason = "SKIP: host NCM path 192.168.7.2 is not reachable; not attempting sudo or USB rebind"
             return StepResult("prepare", True, self._skip_reason, 0.0, skipped=True)
-        return StepResult("prepare", True, "host NCM ping ok", 0.0)
+
+        for candidate in ("/bin/a90_tcpctl", "/cache/bin/a90_tcpctl"):
+            record, output = ctx.client.run(
+                f"stat-{candidate}",
+                ["stat", candidate],
+                timeout=ctx.timeout,
+            )
+            ctx.store.write_text(
+                f"modules/{self.name}/stat-{candidate.strip('/').replace('/', '-')}.txt",
+                output,
+            )
+            if record.ok:
+                self._device_binary = candidate
+                return StepResult("prepare", True, f"host NCM ping ok; tcpctl={candidate}", 0.0)
+
+        return StepResult("prepare", False, "tcpctl helper missing at /bin or /cache/bin", 0.0)
 
     def run(self, ctx: ModuleContext) -> StepResult:
         if self._skip_reason:
@@ -47,7 +63,7 @@ class NcmTcpPreflightModule(TestModule):
             "--bridge-port",
             str(ctx.port),
             "--device-binary",
-            "/bin/a90_tcpctl",
+            self._device_binary,
             "--toybox",
             "/cache/bin/toybox",
             "smoke",
