@@ -946,12 +946,12 @@ Samsung bootloader
 
 상세 실행 큐는 `docs/plans/NATIVE_INIT_TASK_QUEUE_2026-04-25.md`를 따른다.
 
-1. v172 Module Runner
+1. v173 Storage/CPU Module Port
    - 상위 로드맵: `docs/plans/NATIVE_INIT_V170_V177_HARNESS_ROADMAP_2026-05-09.md`
-   - 최신 증거: v171 Observer API PASS, 15초 observer run samples=21 failures=0
-   - `prepare → run → cleanup → verify` module interface와 supervisor runner를 고정한다
-2. v173 Storage/CPU Module Port
+   - 최신 증거: v172 Module Runner PASS, `kselftest-feasibility` observer 포함 실기 run failures=0
    - 기존 storage/CPU 부하 테스트를 supervisor module wrapper로 올린다
+2. v174 USB/NCM Module Port
+   - USB recovery와 NCM/TCP preflight를 supervisor module wrapper로 올린다
 3. v178+ Wi-Fi Baseline Refresh
    - host test supervisor 기반 안정성/관찰 체계 위에서 Android/TWRP/native Wi-Fi 자료를 다시 수집
 4. v179+ Network Exposure Hardening

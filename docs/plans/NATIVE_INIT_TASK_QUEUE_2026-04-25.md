@@ -219,23 +219,34 @@
 - evidence: `tmp/soak/harness/v171-observer-20260508T174309Z/`
 - 다음 실행 항목: v172 Module Runner
 
+### V172. Module Runner — DONE
+
+- 계획: `docs/plans/NATIVE_INIT_V172_MODULE_RUNNER_PLAN_2026-05-09.md`
+- 산출: `docs/reports/NATIVE_INIT_V172_MODULE_RUNNER_2026-05-09.md`
+- baseline build: `A90 Linux init 0.9.59 (v159)`
+- 의도: `prepare/run/cleanup/verify` module interface와 supervisor runner 고정
+- 검증: `native_test_supervisor.py run kselftest-feasibility --observer-duration-sec 5` PASS
+- 결과: module steps prepare/run/cleanup/verify 모두 PASS, observer samples=14 failures=0
+- evidence: `tmp/soak/harness/v172-kselftest-feasibility-20260508T175009Z/`
+- 다음 실행 항목: v173 Storage/CPU Module Port
+
 ### Planned. v170-v177 Host Test Harness Cycle
 
 - 로드맵: `docs/plans/NATIVE_INIT_V170_V177_HARNESS_ROADMAP_2026-05-09.md`
 - v170 계획: `docs/plans/NATIVE_INIT_V170_HARNESS_FOUNDATION_PLAN_2026-05-09.md`
 - v171 계획: `docs/plans/NATIVE_INIT_V171_OBSERVER_API_PLAN_2026-05-09.md`
+- v172 계획: `docs/plans/NATIVE_INIT_V172_MODULE_RUNNER_PLAN_2026-05-09.md`
 - baseline: `A90 Linux init 0.9.59 (v159)`
 - 의도: Wi-Fi baseline refresh 전에 테스트 실행자와 관찰자를 분리하고, 기존 host validators를 공용 하네스 위로 단계적으로 올린다.
-- 현재 증거: v171 observer API까지 PASS.
+- 현재 증거: v172 module runner까지 PASS.
 - 계획 순서:
-  - v172 Module Runner
   - v173 Storage/CPU Module Port
   - v174 USB/NCM Module Port
   - v175 Unified Evidence Bundle
   - v176 Long-Run Supervisor
   - v177 Safety Gate / Dry-Run Policy
 - guardrails: observer는 read-only, serial command single-writer, side effect는 module에만 허용, evidence private/no-follow 유지.
-- 다음 실행 항목: v172 Module Runner
+- 다음 실행 항목: v173 Storage/CPU Module Port
 
 ### Planned. v162-v169 Stability Test Cycle
 
