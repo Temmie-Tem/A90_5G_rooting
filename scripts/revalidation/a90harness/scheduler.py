@@ -80,6 +80,8 @@ def locks_for_module(module: TestModule) -> list[str]:
         locks.append("ncm")
     if module.requires_usb_rebind:
         locks.append("usb")
+    if getattr(module, "external_bridge_client", False):
+        locks.append("external-bridge")
     if module.name == "storage-io":
         locks.append("storage")
     return locks
@@ -228,12 +230,21 @@ def run_mixed_soak_schedule(
                 module=None,
             )
         else:
-            outcome, _ = runner.run(
-                module,
-                profile=workload_profile,
-                observer_duration_sec=0.0,
-                observer_interval_sec=observer_interval_sec,
-            )
+            if getattr(module, "external_bridge_client", False):
+                with client.exclusive():
+                    outcome, _ = runner.run(
+                        module,
+                        profile=workload_profile,
+                        observer_duration_sec=0.0,
+                        observer_interval_sec=observer_interval_sec,
+                    )
+            else:
+                outcome, _ = runner.run(
+                    module,
+                    profile=workload_profile,
+                    observer_duration_sec=0.0,
+                    observer_interval_sec=observer_interval_sec,
+                )
             skipped = outcome.skipped
             event = WorkloadEvent(
                 type="workload_event",

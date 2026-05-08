@@ -69,6 +69,7 @@ class TestModule:
     requires_ncm = False
     requires_usb_rebind = False
     operator_confirm_required = False
+    external_bridge_client = False
 
     def prepare(self, ctx: ModuleContext) -> StepResult:
         return StepResult("prepare", True, "no-op", 0.0)
@@ -100,6 +101,7 @@ class TestModule:
             "requires_ncm": self.requires_ncm,
             "requires_usb_rebind": self.requires_usb_rebind,
             "operator_confirm_required": self.operator_confirm_required,
+            "external_bridge_client": self.external_bridge_client,
         }
 
 

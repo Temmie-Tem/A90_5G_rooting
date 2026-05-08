@@ -17,6 +17,7 @@ class StorageIoModule(TestModule):
     cycle_label = "v173"
     read_only = False
     requires_ncm = True
+    external_bridge_client = True
 
     def __init__(self) -> None:
         self._skip_reason = ""

@@ -4,6 +4,8 @@ from __future__ import annotations
 
 import threading
 import time
+from contextlib import contextmanager
+from collections.abc import Iterator
 
 from a90ctl import ProtocolResult, run_cmdv1_command
 
@@ -18,6 +20,13 @@ class DeviceClient:
         self.port = port
         self.timeout = timeout
         self._lock = threading.RLock()
+
+    @contextmanager
+    def exclusive(self) -> Iterator[None]:
+        """Reserve the serial bridge for an external tool that cannot share this lock."""
+
+        with self._lock:
+            yield
 
     def run(self,
             name: str,
@@ -61,4 +70,3 @@ class DeviceClient:
                     error=f"{type(exc).__name__}: {exc}",
                 )
                 return record, record.error + "\n"
-
