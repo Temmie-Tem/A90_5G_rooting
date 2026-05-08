@@ -196,7 +196,36 @@
 - 검증: mandatory inventory 8/8 PASS, optional absence evidence 7건 기록, mutation_performed=False
 - 분류: debugfs read-only-only, tracefs active mode read-only-only, usbmon unavailable, pstore reboot opt-in-safe-candidate, fault/LKDTM/watchdog/raw-device blocked
 - evidence: `tmp/soak/fault-debug-feasibility/v169-fault-debug-20260508T171514Z/`
-- 다음 실행 항목: v170 Wi-Fi Baseline Refresh
+- 다음 실행 항목: v170 Harness Foundation
+
+### V170. Harness Foundation — DONE
+
+- 로드맵: `docs/plans/NATIVE_INIT_V170_V177_HARNESS_ROADMAP_2026-05-09.md`
+- 계획: `docs/plans/NATIVE_INIT_V170_HARNESS_FOUNDATION_PLAN_2026-05-09.md`
+- 산출: `docs/reports/NATIVE_INIT_V170_HARNESS_FOUNDATION_2026-05-09.md`
+- baseline build: `A90 Linux init 0.9.59 (v159)`
+- 의도: host-side 공용 device client, private evidence writer, result schema, supervisor smoke CLI 추가
+- 검증: `native_test_supervisor.py smoke` PASS, `version/status` rc=0 status=ok, failed_checks=0, failed_commands=0
+- evidence: `tmp/soak/harness/v170-smoke-20260508T173932Z/`
+- 다음 실행 항목: v171 Observer API
+
+### Planned. v170-v177 Host Test Harness Cycle
+
+- 로드맵: `docs/plans/NATIVE_INIT_V170_V177_HARNESS_ROADMAP_2026-05-09.md`
+- v170 계획: `docs/plans/NATIVE_INIT_V170_HARNESS_FOUNDATION_PLAN_2026-05-09.md`
+- baseline: `A90 Linux init 0.9.59 (v159)`
+- 의도: Wi-Fi baseline refresh 전에 테스트 실행자와 관찰자를 분리하고, 기존 host validators를 공용 하네스 위로 단계적으로 올린다.
+- 현재 증거: v170 foundation PASS.
+- 계획 순서:
+  - v171 Observer API
+  - v172 Module Runner
+  - v173 Storage/CPU Module Port
+  - v174 USB/NCM Module Port
+  - v175 Unified Evidence Bundle
+  - v176 Long-Run Supervisor
+  - v177 Safety Gate / Dry-Run Policy
+- guardrails: observer는 read-only, serial command single-writer, side effect는 module에만 허용, evidence private/no-follow 유지.
+- 다음 실행 항목: v171 Observer API
 
 ### Planned. v162-v169 Stability Test Cycle
 
@@ -217,7 +246,7 @@
 - 현재 증거: v160-v169 stability cycle 완료. v159 idle longsoak 약 15.77시간 PASS, v160 TCP soak PASS, v161-v167 stability profiles PASS, v168/v169 feasibility PASS.
 - 계획 순서: 완료
 - guardrails: ACM rescue 유지, Wi-Fi enablement/partition write/watchdog open/active tracing 금지, host evidence private output 유지.
-- 다음 실행 항목: v170 Wi-Fi Baseline Refresh
+- 다음 실행 항목: v170-v177 Host Test Harness Cycle
 
 ### V158. Watchdog Read-only Feasibility — DONE
 

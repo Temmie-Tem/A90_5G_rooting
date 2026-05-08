@@ -946,11 +946,15 @@ Samsung bootloader
 
 상세 실행 큐는 `docs/plans/NATIVE_INIT_TASK_QUEUE_2026-04-25.md`를 따른다.
 
-1. v170+ Wi-Fi Baseline Refresh
-   - 상위 로드맵: `docs/plans/NATIVE_INIT_V160_V169_STABILITY_ROADMAP_2026-05-09.md`
-   - 최신 증거: v160-v169 stability cycle 완료, v169 Fault/Debug Feasibility PASS, fault/LKDTM/watchdog/raw-device blocked 유지
-   - 안정성 cycle 완료 후 Android/TWRP/native Wi-Fi 자료를 다시 수집
-2. v171+ Network Exposure Hardening
+1. v171 Observer API
+   - 상위 로드맵: `docs/plans/NATIVE_INIT_V170_V177_HARNESS_ROADMAP_2026-05-09.md`
+   - 최신 증거: v170 Harness Foundation PASS, `native_test_supervisor.py smoke`로 `version/status` 공용 client 검증 완료
+   - 공용 read-only observer를 구현해 `observer.jsonl`과 summary를 남긴다
+2. v172 Module Runner
+   - `prepare → run → cleanup → verify` module interface와 supervisor runner를 고정한다
+3. v178+ Wi-Fi Baseline Refresh
+   - host test supervisor 기반 안정성/관찰 체계 위에서 Android/TWRP/native Wi-Fi 자료를 다시 수집
+4. v179+ Network Exposure Hardening
    - Wi-Fi/NCM을 USB-local 밖으로 넓히기 전 인증/ACL/token/bind 정책을 다시 검토
 
 ---
