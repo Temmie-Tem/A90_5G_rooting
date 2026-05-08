@@ -142,6 +142,17 @@
 - 한계: true `clock_nanosleep`/cyclictest helper가 아니라 현재 run-loop regression baseline
 - 다음 실행 항목: v165 USB Recovery Stability
 
+### V165. USB Recovery Stability — DONE
+
+- 계획: `docs/plans/NATIVE_INIT_V165_USB_RECOVERY_PLAN_2026-05-09.md`
+- 산출: `docs/reports/NATIVE_INIT_V165_USB_RECOVERY_2026-05-09.md`
+- baseline build: `A90 Linux init 0.9.59 (v159)`
+- 의도: software USB rebind 후 ACM bridge recovery와 NCM on/off rollback 검증
+- 검증: smoke PASS, full `usbacmreset` 3회 + `a90_usbnet ncm/off` PASS
+- recovery: recovered 5/5, max recovery 1.905s, NCM function present after NCM step, final ACM-only
+- final checks: `version` PASS, `selftest verbose` PASS
+- 다음 실행 항목: v166 Network Throughput / Impairment
+
 ### Planned. v162-v169 Stability Test Cycle
 
 - 로드맵: `docs/plans/NATIVE_INIT_V160_V169_STABILITY_ROADMAP_2026-05-09.md`
@@ -150,17 +161,17 @@
 - v162 계획: `docs/plans/NATIVE_INIT_V162_PROCESS_CONCURRENCY_PLAN_2026-05-09.md`
 - v163 계획: `docs/plans/NATIVE_INIT_V163_CPU_MEM_THERMAL_PLAN_2026-05-09.md`
 - v164 계획: `docs/plans/NATIVE_INIT_V164_SCHED_LATENCY_PLAN_2026-05-09.md`
+- v165 계획: `docs/plans/NATIVE_INIT_V165_USB_RECOVERY_PLAN_2026-05-09.md`
 - baseline: `A90 Linux init 0.9.59 (v159)`
 - 의도: Wi-Fi baseline refresh 전에 커널/PID1/SD/USB/NCM/helper lifecycle 안정성 기준선을 만든다.
 - 현재 증거: v159 idle longsoak 약 15.77시간 PASS, host cmdv1/serial failures 0, SD backend writable, NCM/tcpctl smoke PASS.
 - 계획 순서:
-  - v165 USB Recovery
   - v166 Network Throughput
   - v167 FS Exerciser Mini
   - v168 Kselftest Feasibility
   - v169 Fault/Debug Feasibility
 - guardrails: ACM rescue 유지, Wi-Fi enablement/partition write/watchdog open/active tracing 금지, host evidence private output 유지.
-- 다음 실행 항목: v165 USB Recovery Stability
+- 다음 실행 항목: v166 Network Throughput / Impairment
 
 ### V158. Watchdog Read-only Feasibility — DONE
 
@@ -2414,16 +2425,16 @@ python3 ./scripts/revalidation/physical_usb_reconnect_check.py --manual-host-con
 
 ## 지금 바로 진행할 항목
 
-1. v165 USB Recovery Stability
+1. v166 Network Throughput / Impairment
 
    - 상위 로드맵: `docs/plans/NATIVE_INIT_V160_V169_STABILITY_ROADMAP_2026-05-09.md`
-   - 최신 결과: v164 Scheduler/Latency PASS, 각 profile 20 samples, p99 101-102ms, missed deadline 0
-   - 범위: ACM/NCM software rebind, bridge reconnect, status/selftest 복구
-   - 기준: USB 재열거 후 serial bridge와 NCM ping/control channel 복구
+   - 최신 결과: v165 USB Recovery PASS, recovered 5/5, max recovery 1.905s, final ACM-only
+   - 범위: operator-configured NCM 위에서 netcat/tcpctl throughput와 impairment baseline
+   - 기준: bounded transfer PASS, checksum match, control channel recovery
 
-2. v166-v169 Extended Stability/Feasibility
+2. v167-v169 Extended Stability/Feasibility
 
-   - v166 network throughput, v167 FS exerciser mini
+   - v167 FS exerciser mini
    - v168 kselftest feasibility, v169 fault/debug feasibility
    - Wi-Fi baseline refresh와 exposure hardening은 v169 이후로 재개
 
