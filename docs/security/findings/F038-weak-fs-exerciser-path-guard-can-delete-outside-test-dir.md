@@ -7,7 +7,7 @@
 | finding_id | `5a5ce4100f888191b552a392a8fce1e0` |
 | finding_url | https://chatgpt.com/codex/cloud/security/findings/5a5ce4100f888191b552a392a8fce1e0 |
 | severity | `medium` |
-| status | `new` |
+| status | `mitigated-host-batch-a` |
 | detected_at | `2026-05-08T18:19:20.715142Z` |
 | committed_at | `2026-05-09 02:04:35 +0900` |
 | commit_hash | `6f254fbe78888d7197a0bb29a4d5cd597379b12a` |
@@ -26,6 +26,7 @@ The v167 fs exerciser is intended to confine all writes and cleanup to `/mnt/sde
 
 ## Local Remediation
 
+- Implemented in `0b8e9bc` (`Harden storage test device paths`).
 - Planned Batch A fix.
 - Require `--run-id` to be one safe path component, not `.`, `..`, or a path.
 - Normalize device paths and require exact root or `root + "/"` boundary, not string prefix.

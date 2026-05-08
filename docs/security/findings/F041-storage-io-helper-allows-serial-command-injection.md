@@ -7,7 +7,7 @@
 | finding_id | `7d77ebb14688819185f9bda50a93e5e0` |
 | finding_url | https://chatgpt.com/codex/cloud/security/findings/7d77ebb14688819185f9bda50a93e5e0 |
 | severity | `medium` |
-| status | `new` |
+| status | `mitigated-host-batch-a` |
 | detected_at | `2026-05-08T18:20:33.341079Z` |
 | committed_at | `2026-05-09 01:24:33 +0900` |
 | commit_hash | `45215b98372b55a791aaa3cf52b59a04daef2dd3` |
@@ -26,6 +26,7 @@ The new storage_iotest.py validates device paths only with prefix and '../' subs
 
 ## Local Remediation
 
+- Implemented in `0b8e9bc` (`Harden storage test device paths`).
 - Planned Batch A fix, first item.
 - Reject unsafe `--run-id`, `--test-root`, `--toybox`, device paths, and generated temp paths before raw bridge use.
 - Prefer `cmdv1x`/argv-framed commands for non-streaming operations.

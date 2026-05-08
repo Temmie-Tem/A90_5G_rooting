@@ -7,7 +7,7 @@
 | finding_id | `bfca11c90eb481919c3d98d0f7c66fdd` |
 | finding_url | https://chatgpt.com/codex/cloud/security/findings/bfca11c90eb481919c3d98d0f7c66fdd |
 | severity | `medium` |
-| status | `new` |
+| status | `mitigated-host-batch-c` |
 | detected_at | `2026-05-08T18:19:54.338307Z` |
 | committed_at | `2026-05-09 01:18:00 +0900` |
 | commit_hash | `d77e58e0724c5305fe94dfcf7960713e41d53565` |
@@ -26,6 +26,7 @@ The commit adds a reporter whose stated purpose is to validate a token-authentic
 
 ## Local Remediation
 
+- Implemented in `952e572` (`Require authenticated NCM tcpctl evidence`).
 - Planned Batch C fix.
 - Require `auth=required` in tcpctl transcript and fail if `auth=none` is present.
 - Add a negative fixture/check where a `--no-auth` transcript cannot pass.

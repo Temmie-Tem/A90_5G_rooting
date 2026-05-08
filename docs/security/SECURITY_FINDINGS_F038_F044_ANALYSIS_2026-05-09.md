@@ -28,13 +28,13 @@ Wi-Fi or serverization decisions.
 
 | id | severity | status | class | immediate priority |
 |---|---|---|---|---|
-| F038 | medium | new | device path confinement / destructive cleanup | P1 |
-| F039 | medium | new | host NIC selection / unsafe operational docs | P2 |
-| F040 | medium | new | unsafe replay of non-idempotent root commands | P1 |
-| F041 | medium | new | raw serial command injection / path validation | P0 |
-| F042 | medium | new | false PASS for unauthenticated tcpctl evidence | P1 |
-| F043 | low | new | unbounded host observer memory | P1 for long-run, P2 generally |
-| F044 | informational | new | NCM module false failure | P2 |
+| F038 | medium | mitigated-host-batch-a | device path confinement / destructive cleanup | P1 |
+| F039 | medium | mitigated-host-batch-d | host NIC selection / unsafe operational docs | P2 |
+| F040 | medium | mitigated-host-batch-b | unsafe replay of non-idempotent root commands | P1 |
+| F041 | medium | mitigated-host-batch-a | raw serial command injection / path validation | P0 |
+| F042 | medium | mitigated-host-batch-c | false PASS for unauthenticated tcpctl evidence | P1 |
+| F043 | low | mitigated-host-batch-b | unbounded host observer memory | P1 for long-run, P2 generally |
+| F044 | informational | mitigated-host-batch-c | NCM module false failure | P2 |
 
 Priority interpretation:
 

@@ -7,7 +7,7 @@
 | finding_id | `2ad2950f54ec8191a433659de7af6d82` |
 | finding_url | https://chatgpt.com/codex/cloud/security/findings/2ad2950f54ec8191a433659de7af6d82 |
 | severity | `medium` |
-| status | `new` |
+| status | `mitigated-host-batch-b` |
 | detected_at | `2026-05-08T18:19:21.821699Z` |
 | committed_at | `2026-05-09 01:48:08 +0900` |
 | commit_hash | `7e63134745ecc4f4b50662bba7c5a43650f1e270` |
@@ -26,6 +26,7 @@ The new script sends several non-observation commands through a90ctl's cmdv1 tra
 
 ## Local Remediation
 
+- Implemented in `c214478` (`Avoid unsafe replay in stability observers`).
 - Planned Batch B fix.
 - Remove `retry_unsafe=True` and script-level `attempts=2` from mutating commands.
 - Keep retries only for known read-only observation commands.

@@ -3,7 +3,7 @@
 
 This is not a replacement for Codex Cloud's security scanner. It is a
 repository-local guardrail that checks the patterns that previously produced the
-F001-F037 findings and the current root-control surfaces.
+F001-F044 findings and the current root-control surfaces.
 """
 
 from __future__ import annotations
@@ -15,7 +15,7 @@ from dataclasses import dataclass
 from pathlib import Path
 
 REPO_ROOT = Path(__file__).resolve().parents[2]
-DEFAULT_OUT = REPO_ROOT / "docs" / "security" / "SECURITY_FRESH_SCAN_V153_2026-05-08.md"
+DEFAULT_OUT = REPO_ROOT / "docs" / "security" / "SECURITY_FRESH_SCAN_F038_F044_2026-05-09.md"
 
 
 @dataclass(frozen=True)
@@ -117,6 +117,15 @@ def run_checks() -> list[Check]:
     longsoak_helper = read("stage3/linux_init/helpers/a90_longsoak.c")
     native_long_soak = read("scripts/revalidation/native_long_soak.py")
     longsoak_bundle = read("scripts/revalidation/native_long_soak_bundle.py")
+    path_safety = read("scripts/revalidation/a90harness/path_safety.py")
+    storage_iotest = read("scripts/revalidation/storage_iotest.py")
+    fs_exerciser = read("scripts/revalidation/fs_exerciser_mini.py")
+    cpu_mem_stability = read("scripts/revalidation/cpu_mem_thermal_stability.py")
+    observer = read("scripts/revalidation/a90harness/observer.py")
+    ncm_report = read("scripts/revalidation/ncm_tcp_stability_report.py")
+    ncm_preflight = read("scripts/revalidation/a90harness/modules/ncm_tcp_preflight.py")
+    ncm_host_setup = read("scripts/revalidation/ncm_host_setup.py")
+    v166_deferred_report = read("docs/reports/NATIVE_INIT_V166_NETWORK_THROUGHPUT_DEFERRED_2026-05-09.md")
     menu_hold_sources = [
         "stage3/linux_init/v131/40_menu_apps.inc.c",
         "stage3/linux_init/v132/40_menu_apps.inc.c",
@@ -443,6 +452,94 @@ def run_checks() -> list[Check]:
     ))
 
     checks.append(Check(
+        "S023",
+        "storage and filesystem exercisers enforce confined device paths",
+        status_from(
+            "def require_safe_component" in path_safety
+            and "def normalize_device_path" in path_safety
+            and "def require_path_under" in path_safety
+            and "def require_run_child" in path_safety
+            and "def require_safe_raw_arg" in path_safety
+            and "require_run_child(args.test_root, args.run_id)" in storage_iotest
+            and "raw_command(\"run\", args.toybox, \"rm\", \"-rf\", target)" in storage_iotest
+            and ".startswith(\"/mnt/sdext/a90/test-\")" not in storage_iotest
+            and "require_run_child(args.test_root, args.run_id)" in fs_exerciser
+            and "normalized != DEFAULT_TEST_ROOT" in fs_exerciser
+            and ".startswith(\"/mnt/sdext/a90/test-fsx\")" not in fs_exerciser
+        ),
+        "`path_safety.py` centralizes safe components/path-boundary/raw-arg checks; storage/fs tests no longer rely on weak string-prefix guards.",
+        "Covers F038 and F041 path escape / raw serial command injection findings.",
+    ))
+
+    checks.append(Check(
+        "S024",
+        "CPU/memory stability validator does not opt into unsafe replay",
+        status_from("retry_unsafe=True" not in cpu_mem_stability),
+        "`cpu_mem_thermal_stability.py` no longer marks `dd`, `rm`, `longsoak start`, `ps`, or cpustress `run` commands as retry-unsafe replayable.",
+        "Covers F040 replay of privileged non-idempotent commands.",
+    ))
+
+    checks.append(Check(
+        "S025",
+        "unlimited observer uses counters instead of retaining all samples",
+        status_from(
+            "all_samples" not in observer
+            and "sample_count" in observer
+            and "failure_count" in observer
+            and "recent_failures = recent_failures[-16:]" in observer
+        ),
+        "`a90harness/observer.py` streams JSONL and keeps counters plus a bounded recent-failure ring.",
+        "Covers F043 host memory growth during unlimited observer runs.",
+    ))
+
+    checks.append(Check(
+        "S026",
+        "NCM/TCP stability report requires authenticated tcpctl evidence",
+        status_from(
+            "tcpctl auth required" in ncm_report
+            and "tcpctl authenticated flow" in ncm_report
+            and "tcpctl no no-auth marker" in ncm_report
+            and "auth=required" in ncm_report
+            and "auth=none" in ncm_report
+            and "OK authenticated" in ncm_report
+        ),
+        "`ncm_tcp_stability_report.py` now requires `auth=required`, authenticated request flow, and absence of `auth=none`.",
+        "Covers F042 false PASS for unauthenticated tcpctl transcripts.",
+    ))
+
+    checks.append(Check(
+        "S027",
+        "NCM/TCP preflight matches tcpctl smoke output and checks auth",
+        status_from(
+            "--- tcpctl-checks ---" not in ncm_preflight
+            and "--- ping ---" in ncm_preflight
+            and "--- version ---" in ncm_preflight
+            and "--- status ---" in ncm_preflight
+            and "--- shutdown ---" in ncm_preflight
+            and "--- serial-run ---" in ncm_preflight
+            and "OK authenticated" in ncm_preflight
+            and "auth=required" in ncm_preflight
+            and "auth=none" in ncm_preflight
+        ),
+        "`ncm_tcp_preflight.py` no longer waits for a stale marker and verifies the authenticated smoke transcript.",
+        "Covers F044 false failure of the NCM/TCP preflight wrapper.",
+    ))
+
+    checks.append(Check(
+        "S028",
+        "NCM resume docs prefer explicit host interface pinning",
+        status_from(
+            "setup --allow-auto-interface" not in v166_deferred_report
+            and "setup --interface <known-usb-ncm-ifname>" in v166_deferred_report
+            and "diagnostic fallback only" in v166_deferred_report
+            and "diagnostic fallback only" in ncm_host_setup
+            and "prefer --interface on multi-NIC hosts" in ncm_host_setup
+        ),
+        "The v166 deferred throughput resume path recommends `--interface`; auto-interface is documented as diagnostic fallback only.",
+        "Covers F039 unsafe operational bypass of host NIC pinning.",
+    ))
+
+    checks.append(Check(
         "S022",
         "accepted local root-control channels remain intentionally present",
         "WARN",
@@ -459,14 +556,14 @@ def render_report(checks: list[Check]) -> str:
         counts[check.status] = counts.get(check.status, 0) + 1
 
     lines = [
-        "# v153 Fresh Local Security Rescan",
+        "# F038-F044 Fresh Local Security Rescan",
         "",
-        "Date: 2026-05-08",
-        "Baseline: `A90 Linux init 0.9.53 (v153)`",
+        "Date: 2026-05-09",
+        "Baseline: active v153 native-init plus post-v177 host harness security patches",
         f"Git HEAD: `{run_git_head()}`",
-        "Scope: active v153 native-init source, shared modules, current revalidation host tools, and known root-control surfaces.",
+        "Scope: active native-init source, shared modules, current revalidation host tools, F001-F044 local guardrails, and known root-control surfaces.",
         "",
-        "This is a local targeted rescan, not a Codex Cloud scanner replacement. It checks the previously imported F001-F037 pattern families, exposure guardrails, and v153 controller policy matrix wiring against the current repository state.",
+        "This is a local targeted rescan, not a Codex Cloud scanner replacement. It checks the imported F001-F044 pattern families, exposure guardrails, and controller policy matrix wiring against the current repository state.",
         "",
         "## Summary",
         "",
@@ -488,14 +585,14 @@ def render_report(checks: list[Check]) -> str:
         "",
         "## Interpretation",
         "",
-        "The local targeted scan found no new implementation blocker in the active v153 code path. The remaining warning is the already accepted trusted-lab boundary for physical USB ACM/local serial bridge control.",
+        "The local targeted scan found no new implementation blocker in the active code path. The remaining warning is the already accepted trusted-lab boundary for physical USB ACM/local serial bridge control.",
         "",
         "Before any Wi-Fi or broader network exposure, rerun this local scan and a Codex Cloud security scan, then revisit F021/F030 if the control channel is no longer USB-local/localhost-only.",
         "",
         "## Reproduction",
         "",
         "```bash",
-        "python3 scripts/revalidation/local_security_rescan.py --out docs/security/SECURITY_FRESH_SCAN_V153_2026-05-08.md",
+        "python3 scripts/revalidation/local_security_rescan.py --out docs/security/SECURITY_FRESH_SCAN_F038_F044_2026-05-09.md",
         "git diff --check",
         "```",
         "",
@@ -521,7 +618,11 @@ def main() -> int:
             out = REPO_ROOT / out
         out.parent.mkdir(parents=True, exist_ok=True)
         out.write_text(report, encoding="utf-8")
-        print(f"wrote {out.relative_to(REPO_ROOT)}")
+        try:
+            display_path = out.relative_to(REPO_ROOT)
+        except ValueError:
+            display_path = out
+        print(f"wrote {display_path}")
     return 1 if any(check.status == "FAIL" for check in checks) else 0
 
 

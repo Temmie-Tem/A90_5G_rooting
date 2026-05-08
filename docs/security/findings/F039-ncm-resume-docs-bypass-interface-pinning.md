@@ -7,7 +7,7 @@
 | finding_id | `ec50fb4622608191b75c079435edffac` |
 | finding_url | https://chatgpt.com/codex/cloud/security/findings/ec50fb4622608191b75c079435edffac |
 | severity | `medium` |
-| status | `new` |
+| status | `mitigated-host-batch-d` |
 | detected_at | `2026-05-08T18:17:47.898547Z` |
 | committed_at | `2026-05-09 02:00:18 +0900` |
 | commit_hash | `19daf49ccc738a762edd59568ab3e5d23a6124eb` |
@@ -26,6 +26,7 @@ This commit does not modify runtime code, but it introduces an unsafe operationa
 
 ## Local Remediation
 
+- Implemented in `952e572` (`Require authenticated NCM tcpctl evidence`).
 - Planned Batch D fix.
 - Change resume instructions to require `--interface <known-usb-ncm-ifname>`.
 - Keep `--allow-auto-interface` only as an explicit diagnostic fallback with a warning.

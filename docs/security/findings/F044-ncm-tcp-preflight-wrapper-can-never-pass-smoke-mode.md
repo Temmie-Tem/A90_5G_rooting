@@ -7,7 +7,7 @@
 | finding_id | `2655549e3b64819184f679e26684673e` |
 | finding_url | https://chatgpt.com/codex/cloud/security/findings/2655549e3b64819184f679e26684673e |
 | severity | `informational` |
-| status | `new` |
+| status | `mitigated-host-batch-c` |
 | detected_at | `2026-05-08T18:17:22.018854Z` |
 | committed_at | `2026-05-09 02:58:08 +0900` |
 | commit_hash | `e00f199081f3fb63e722f1e39b77fea494de0800` |
@@ -26,6 +26,7 @@ The commit adds scripts/revalidation/a90harness/modules/ncm_tcp_preflight.py to 
 
 ## Local Remediation
 
+- Implemented in `952e572` (`Require authenticated NCM tcpctl evidence`).
 - Planned Batch C fix.
 - Replace `--- tcpctl-checks ---` expectation with actual smoke sections: `--- ping ---`, `--- version ---`, `--- status ---`, `--- shutdown ---`, and `[done] run`.
 - Keep the structured SKIP behavior when host NCM is not configured.

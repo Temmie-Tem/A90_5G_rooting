@@ -6,6 +6,14 @@ Source CSV: `docs/security/codex-security-findings-2026-05-08T18-39-05.112Z.csv`
 
 ## Summary
 
+
+## Implementation Status
+
+- Batch A implemented in `0b8e9bc`: shared path safety, `storage_iotest.py`, and `fs_exerciser_mini.py`.
+- Batch B implemented in `c214478`: unsafe replay removal and bounded observer accounting.
+- Batch C/D implemented in `952e572`: authenticated tcpctl evidence checks, NCM preflight marker fix, and explicit-interface docs.
+- Batch E implemented in this follow-up: local security rescan coverage and F038-F044 status updates.
+
 This patch plan fixes the fresh v160-v177 harness/security findings before
 v178-v184 mixed-soak/serverization work continues.
 

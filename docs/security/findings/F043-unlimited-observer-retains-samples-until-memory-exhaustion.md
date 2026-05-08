@@ -7,7 +7,7 @@
 | finding_id | `3c3afb170d488191be694bee3b3010f1` |
 | finding_url | https://chatgpt.com/codex/cloud/security/findings/3c3afb170d488191be694bee3b3010f1 |
 | severity | `low` |
-| status | `new` |
+| status | `mitigated-host-batch-b` |
 | detected_at | `2026-05-08T18:17:34.463425Z` |
 | committed_at | `2026-05-09 03:02:34 +0900` |
 | commit_hash | `c7e28272c3325613f01457aa27ec33445a7cd11f` |
@@ -26,6 +26,7 @@ This commit adds `--duration-sec unlimited`, represented as `duration_sec=None`,
 
 ## Local Remediation
 
+- Implemented in `c214478` (`Avoid unsafe replay in stability observers`).
 - Planned Batch B fix.
 - Keep `observer.jsonl` as the full record and replace in-memory `all_samples` with streaming counters.
 - Track only counts and a bounded recent failure excerpt list in memory.
