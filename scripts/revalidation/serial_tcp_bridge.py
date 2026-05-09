@@ -149,7 +149,7 @@ class Bridge:
 
         termios.tcsetattr(fd, termios.TCSANOW, attrs)
         termios.tcflush(fd, termios.TCIOFLUSH)
-        if not self.args.no_assert_dtr_rts:
+        if self.args.assert_dtr_rts:
             self.assert_dtr_rts(fd)
 
     def assert_dtr_rts(self, fd: int) -> None:
@@ -458,9 +458,9 @@ def parse_args() -> argparse.Namespace:
         help="optional path to append raw bridge traffic",
     )
     parser.add_argument(
-        "--no-assert-dtr-rts",
+        "--assert-dtr-rts",
         action="store_true",
-        help="do not explicitly assert DTR/RTS after opening the CDC ACM tty",
+        help="explicitly assert DTR/RTS after opening the CDC ACM tty",
     )
     parser.add_argument(
         "--allow-client-without-serial",
