@@ -2,11 +2,13 @@
 
 import argparse
 import errno
+import fcntl
 import glob
 import os
 import selectors
 import signal
 import socket
+import struct
 import sys
 import termios
 import time
@@ -147,6 +149,15 @@ class Bridge:
 
         termios.tcsetattr(fd, termios.TCSANOW, attrs)
         termios.tcflush(fd, termios.TCIOFLUSH)
+        if not self.args.no_assert_dtr_rts:
+            self.assert_dtr_rts(fd)
+
+    def assert_dtr_rts(self, fd: int) -> None:
+        mask = termios.TIOCM_DTR | termios.TIOCM_RTS
+        try:
+            fcntl.ioctl(fd, termios.TIOCMBIS, struct.pack("I", mask))
+        except OSError as exc:
+            self.log(f"warning: failed to assert DTR/RTS: {exc}")
 
     def open_serial(self) -> None:
         device = self.resolve_device()
@@ -445,6 +456,11 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument(
         "--capture",
         help="optional path to append raw bridge traffic",
+    )
+    parser.add_argument(
+        "--no-assert-dtr-rts",
+        action="store_true",
+        help="do not explicitly assert DTR/RTS after opening the CDC ACM tty",
     )
     parser.add_argument(
         "--allow-client-without-serial",
