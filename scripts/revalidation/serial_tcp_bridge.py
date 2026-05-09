@@ -31,6 +31,8 @@ BAUD_MAP = {
     921600: termios.B921600,
 }
 
+CRTSCTS = getattr(termios, "CRTSCTS", 0)
+
 
 class Bridge:
     def __init__(self, args: argparse.Namespace) -> None:
@@ -139,7 +141,7 @@ class Bridge:
 
         attrs[0] = termios.IGNBRK
         attrs[1] = 0
-        attrs[2] &= ~(termios.CSIZE | termios.PARENB | termios.CSTOPB)
+        attrs[2] &= ~(termios.CSIZE | termios.PARENB | termios.CSTOPB | termios.HUPCL | CRTSCTS)
         attrs[2] |= termios.CLOCAL | termios.CREAD | termios.CS8
         attrs[3] = 0
         attrs[4] = baud
@@ -168,6 +170,8 @@ class Bridge:
 
         try:
             fd = os.open(device, os.O_RDWR | os.O_NOCTTY | os.O_NONBLOCK)
+            if not self.args.no_exclusive_tty:
+                self.set_exclusive_tty(fd)
             self.configure_serial(fd)
             serial_stat = os.fstat(fd)
         except OSError as exc:
@@ -186,6 +190,12 @@ class Bridge:
         self.next_serial_identity_check = time.monotonic() + 0.5
         self.selector.register(fd, selectors.EVENT_READ, "serial")
         self.log(f"serial connected: {device}")
+
+    def set_exclusive_tty(self, fd: int) -> None:
+        try:
+            fcntl.ioctl(fd, termios.TIOCEXCL)
+        except OSError as exc:
+            self.log(f"warning: failed to set TIOCEXCL: {exc}")
 
     def close_serial(self) -> None:
         if self.serial_fd is None:
@@ -461,6 +471,11 @@ def parse_args() -> argparse.Namespace:
         "--assert-dtr-rts",
         action="store_true",
         help="explicitly assert DTR/RTS after opening the CDC ACM tty",
+    )
+    parser.add_argument(
+        "--no-exclusive-tty",
+        action="store_true",
+        help="do not set TIOCEXCL on the serial tty after opening it",
     )
     parser.add_argument(
         "--allow-client-without-serial",
