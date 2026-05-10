@@ -285,7 +285,7 @@
 - 검증: `list`, `plan usb-recovery`, `run usb-recovery --dry-run`, `run usb-recovery` rc=2 block, `run kselftest-feasibility` PASS
 - gate: NCM modules require `--allow-ncm`, USB rebind modules require `--allow-usb-rebind --assume-yes`
 - evidence: `tmp/soak/harness/v177-gate-allowed-20260508T180349Z/`
-- 다음 실행 항목: v183 8h Pilot Mixed Soak
+- 다음 실행 항목: v184 24h+ Serverization Readiness Gate
 
 ### V170-V177. Host Harness Completion Audit — DONE
 
@@ -293,7 +293,7 @@
 - 의도: v170~v177 전체 루프의 계획/구현/검증/보고서/커밋/evidence를 실제 상태 기준으로 감사
 - 검증: plan/report pair 모두 존재, evidence manifest 모두 pass, static validation PASS, v177 gate block rc=2 확인
 - deferral: storage/NCM full PASS는 host NCM 미구성으로 structured SKIP 및 explicit gate로 문서화
-- 다음 실행 항목: v183 8h Pilot Mixed Soak
+- 다음 실행 항목: v184 24h+ Serverization Readiness Gate
 
 
 ### V178. Post-Security Harness Baseline — PASS
@@ -306,7 +306,7 @@
 - 검증: live v159 verify-only PASS, status/bootstatus/selftest/storage/exposure/policycheck PASS, observer smoke PASS, FS exerciser smoke PASS
 - NCM: 현재 ACM-only/netservice disabled 환경이라 `ncm-tcp-preflight`는 structured SKIP 처리 PASS
 - evidence: `tmp/soak/harness/v178-post-security-observe-20260509-042523/`, `tmp/soak/fs-exerciser/v178-fsx-smoke-20260509-042552/`, `tmp/soak/harness/v178-ncm-preflight-20260509-042552/`
-- 다음 실행 항목: v183 8h Pilot Mixed Soak
+- 다음 실행 항목: v184 24h+ Serverization Readiness Gate
 
 ### V179. Mixed Soak Scheduler Foundation — PASS
 
@@ -317,7 +317,7 @@
 - 구현: `scripts/revalidation/a90harness/scheduler.py`, `native_test_supervisor.py mixed-soak`
 - 검증: Python compile PASS, `git diff --check` PASS, dry-run PASS, real-device 30s smoke PASS, deterministic seed PASS
 - evidence: `tmp/soak/harness/v179-dry-run-20260509-044249/`, `tmp/soak/harness/v179-smoke-20260509-044258/`
-- 다음 실행 항목: v183 8h Pilot Mixed Soak
+- 다음 실행 항목: v184 24h+ Serverization Readiness Gate
 
 ### V180. CPU/Memory Workload Profiles — PASS
 
@@ -328,7 +328,7 @@
 - 구현: `scripts/revalidation/a90harness/modules/cpu_memory_profiles.py`, mixed-soak default CPU workload 갱신
 - 검증: Python compile PASS, `git diff --check` PASS, `run cpu-memory-profiles --profile quick` PASS, `mixed-soak` 30s smoke PASS
 - evidence: `tmp/soak/harness/v180-cpumem-quick-20260509-045117/`, `tmp/soak/harness/v180-mixed-smoke-20260509-045226/`
-- 다음 실행 항목: v183 8h Pilot Mixed Soak
+- 다음 실행 항목: v184 24h+ Serverization Readiness Gate
 
 ### V181. NCM/TCP + Storage Workload Integration — PASS
 
@@ -341,7 +341,7 @@
 - evidence: `tmp/soak/harness/v181-ncm-full-20260509-052830/`
 - full result: workloads=3 pass=3 skipped=0 blocked=0 observer_failures=0 failure_classifications=0
 - note: v159에는 `/bin/a90_tcpctl`이 없어 harness가 검증된 `/cache/bin/a90_tcpctl` fallback을 사용했다.
-- 다음 실행 항목: v183 8h Pilot Mixed Soak
+- 다음 실행 항목: v184 24h+ Serverization Readiness Gate
 
 ### V182. Failure Classifier + Recovery Policy — PASS
 
@@ -352,27 +352,29 @@
 - 구현: `scripts/revalidation/a90harness/failure.py`, `failure-classification.json`, interrupt partial bundle handling
 - 검증: Python compile PASS, `git diff --check` PASS, `policy-blocked` PASS, `env-ncm-missing` PASS, interrupt bundle PASS
 - evidence: `tmp/soak/harness/v182-policy-blocked-20260509-050457/`, `tmp/soak/harness/v182-ncm-missing-20260509-050519/`, `tmp/soak/harness/v182-interrupt-20260509-050613/`
-- 다음 실행 항목: v183 8h Pilot Mixed Soak
+- 다음 실행 항목: v184 24h+ Serverization Readiness Gate
 
-### V183. 8h Pilot Mixed Soak — PLANNED
+### V183. 8h Pilot Mixed Soak — PASS
 
 - 계획: `docs/plans/NATIVE_INIT_V183_8H_PILOT_MIXED_SOAK_PLAN_2026-05-09.md`
+- 산출: `docs/reports/NATIVE_INIT_V183_8H_PILOT_MIXED_SOAK_2026-05-10.md`
 - baseline device build: `A90 Linux init 0.9.59 (v159)`
 - device flash: 없음. v183은 host-harness 8h validation gate이며 별도 native-init boot image 없음
 - precondition: v181 full NCM/TCP + storage PASS 또는 최소 host NCM ping/TCP control 복구
-- command: `native_test_supervisor.py mixed-soak --duration-sec 28800 --observer-interval 30 --profile balanced --workload-profile quick --seed 183 --allow-ncm`
-- acceptance: 8h complete, no unclassified failures, SD/NCM/final selftest PASS, ACM rescue 유지
-- 다음 실행 항목: v183 8h Pilot Mixed Soak
+- command: `native_test_supervisor.py mixed-soak --duration-sec 28800 --observer-interval 30 --profile balanced --workload-profile quick --seed 183 --allow-ncm --stop-on-failure`
+- 검증: 8h complete, workloads=3 pass=3 skipped=0 blocked=0, observer_failures=0, failure_classifications=0
+- evidence: `tmp/soak/harness/v183-8h-pilot-20260509-230134/`
+- 다음 실행 항목: v184 24h+ Serverization Readiness Gate
 
 ### V184. 24h+ Serverization Readiness Gate — PLANNED
 
 - 계획: `docs/plans/NATIVE_INIT_V184_24H_SERVERIZATION_READINESS_PLAN_2026-05-09.md`
 - baseline device build: `A90 Linux init 0.9.59 (v159)`
 - device flash: 없음. v184는 host-harness 24h+ validation gate이며 별도 native-init boot image 없음
-- precondition: v181 full NCM/TCP + storage PASS, v183 8h pilot PASS 또는 명시 승인된 WARN-only 결과
-- command: `native_test_supervisor.py mixed-soak --duration-sec 86400 --observer-interval 30 --profile balanced --workload-profile quick --seed 184 --allow-ncm`
+- precondition: v181 full NCM/TCP + storage PASS, v183 8h pilot PASS
+- command: `native_test_supervisor.py mixed-soak --duration-sec 86400 --observer-interval 30 --profile balanced --workload-profile quick --seed 184 --allow-ncm --stop-on-failure`
 - acceptance: 24h+ complete, classified/no unclassified failures, SD/NCM/selftest/ACM rescue PASS, `GO|WARN-GO|NO-GO` 판정
-- 다음 실행 항목: v183 8h Pilot Mixed Soak
+- 다음 실행 항목: v184 24h+ Serverization Readiness Gate
 
 ### Planned. v178-v184 Mixed Soak / Serverization Gate Cycle
 
@@ -389,18 +391,18 @@
   - v180 CPU/memory workload profiles PASS.
   - v181 full NCM/TCP + storage mixed run PASS.
   - v182 failure classifier and interrupt-safe partial bundle PASS.
-  - v183 8h pilot plan is written and ready to execute.
-  - v184 24h+ readiness gate plan is written; execution remains gated by v183.
+  - v183 8h pilot mixed soak PASS.
+  - v184 24h+ readiness gate plan is written and ready to execute.
 - 계획 순서:
   - 완료: v178 Post-Security Harness Baseline
   - 완료: v179 Mixed Soak Scheduler Foundation
   - 완료: v180 CPU/Memory Workload Profiles
   - 완료: v181 NCM/TCP + Storage Workload Integration
   - 완료: v182 Failure Classifier + Recovery Policy
-  - 계획 완료: v183 8h Pilot Mixed Soak
+  - 완료: v183 8h Pilot Mixed Soak
   - 계획 완료: v184 24h+ Serverization Readiness Gate
 - guardrails: Wi-Fi enablement/rfkill write/module load/firmware mutation/public listener/watchdog open/destructive partition write 금지, ACM rescue 유지, evidence private/no-follow 유지.
-- 다음 실행 항목: v183 8h Pilot Mixed Soak
+- 다음 실행 항목: v184 24h+ Serverization Readiness Gate
 
 ### Planned. v170-v177 Host Test Harness Cycle
 
@@ -426,7 +428,7 @@
   - 완료: v176 Long-Run Supervisor
   - 완료: v177 Safety Gate / Dry-Run Policy
 - guardrails: observer는 read-only, serial command single-writer, side effect는 module에만 허용, evidence private/no-follow 유지.
-- 다음 실행 항목: v183 8h Pilot Mixed Soak
+- 다음 실행 항목: v184 24h+ Serverization Readiness Gate
 
 ### Planned. v162-v169 Stability Test Cycle
 
@@ -2701,17 +2703,17 @@ python3 ./scripts/revalidation/physical_usb_reconnect_check.py --manual-host-con
 
 ## 지금 바로 진행할 항목
 
-1. v183 8h Pilot Mixed Soak
+1. v184 24h+ Serverization Readiness Gate
 
    - 상위 로드맵: `docs/plans/NATIVE_INIT_V178_V184_MIXED_SOAK_SECURITY_ROADMAP_2026-05-09.md`
-   - 최신 결과: v181 full NCM/TCP + storage mixed run PASS
-   - 계획: `docs/plans/NATIVE_INIT_V183_8H_PILOT_MIXED_SOAK_PLAN_2026-05-09.md`
-   - `--duration-sec 28800 --allow-ncm` 8h pilot을 실행한다
+   - 최신 결과: v183 8h pilot mixed soak PASS
+   - 계획: `docs/plans/NATIVE_INIT_V184_24H_SERVERIZATION_READINESS_PLAN_2026-05-09.md`
+   - `--duration-sec 86400 --allow-ncm --stop-on-failure` 24h+ readiness gate를 실행한다
 
 2. v182-v184 Mixed Soak / Serverization Gate
 
-   - v182 failure classifier PASS, v183/v184 계획 문서 완료
-   - v183 8h pilot PASS 후 v184 24h+ readiness gate 진행
+   - v182 failure classifier PASS, v183 8h pilot PASS, v184 계획 문서 완료
+   - v184 24h+ readiness gate 진행
    - Wi-Fi baseline refresh와 exposure hardening은 v184 gate 이후로 재개
 
 ### V106-V108. UI/App Architecture Split — DONE

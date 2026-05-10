@@ -946,16 +946,16 @@ Samsung bootloader
 
 상세 실행 큐는 `docs/plans/NATIVE_INIT_TASK_QUEUE_2026-04-25.md`를 따른다.
 
-1. v183 8h Pilot Mixed Soak
+1. v184 24h+ Serverization Readiness Gate
    - 상위 로드맵: `docs/plans/NATIVE_INIT_V178_V184_MIXED_SOAK_SECURITY_ROADMAP_2026-05-09.md`
-   - 최신 증거: `docs/reports/NATIVE_INIT_V181_NCM_TCP_STORAGE_FULL_2026-05-09.md` PASS
+   - 최신 증거: `docs/reports/NATIVE_INIT_V183_8H_PILOT_MIXED_SOAK_2026-05-10.md` PASS
    - v178/v179는 실기기 플래시 버전이 아니라 v159 실기기 위에서 수행한 host harness baseline이다
-   - v181 full NCM/TCP + storage mixed workload PASS를 기반으로 8h pilot을 시작한다
+   - v183 8h pilot PASS를 기반으로 24h+ readiness gate를 시작한다
 2. v182-v184 Mixed Soak / Serverization Gate
    - v182 failure classifier는 완료됐다
-   - v183 8h pilot 계획서는 작성됐고, 실행 대기 중이다
-   - v184 24h+ readiness gate 계획서는 작성됐고, 실행은 v183 PASS 후 진행한다
-   - v183 8h pilot PASS 후 v184 24h+ readiness gate로 진행한다
+   - v183 8h pilot은 PASS했다
+   - v184 24h+ readiness gate 계획서는 작성됐고, 실행 준비 상태다
+   - v184 PASS 후 Wi-Fi baseline refresh와 exposure hardening으로 진행한다
 3. v185+ Wi-Fi Baseline Refresh
    - mixed-soak readiness gate 이후 Android/TWRP/native Wi-Fi 자료를 다시 수집한다
 4. v186+ Network Exposure Hardening
