@@ -7,7 +7,7 @@
 | finding_id | `893ea1f373148191b20516e1d75a843d` |
 | finding_url | https://chatgpt.com/codex/cloud/security/findings/893ea1f373148191b20516e1d75a843d |
 | severity | `medium` |
-| status | `duplicate-of-F046-currently-mitigated` |
+| status | `closed-duplicate-of-F046` |
 | detected_at | `2026-05-10T00:42:33.867773Z` |
 | committed_at | `2026-05-09 05:28:21 +0900` |
 | commit_hash | `c2ee250a976b1626444510afd9bd7d5a3da7ac94` |
@@ -27,6 +27,12 @@ The new NCM preflight logic now accepts /cache/bin/a90_tcpctl whenever the devic
 ## Local Remediation
 
 - No new patch required from this finding unless Codex Cloud still reproduces against current code. Keep linked to `F046` closure evidence.
+
+## Closure Evidence
+
+- Closed in Batch H3 as a duplicate of `F046`; see `docs/security/SECURITY_FINDINGS_F047_F053_H3_REPORT_2026-05-12.md`.
+- Current `scripts/revalidation/a90harness/modules/ncm_tcp_preflight.py` pins the trusted helper to `/bin/a90_tcpctl` and explicitly refuses `/cache/bin` fallback when the ramdisk helper is missing.
+- Local verification on 2026-05-12 confirmed no candidate loop selects `/cache/bin/a90_tcpctl`, and `python3 -m py_compile scripts/revalidation/a90harness/modules/ncm_tcp_preflight.py scripts/revalidation/tcpctl_host.py` passes.
 
 ## Codex Cloud Detail
 
@@ -192,4 +198,3 @@ The finding is real and in scope. ncm_tcp_preflight.py checks /bin/a90_tcpctl an
 - Static review cannot confirm how often /bin/a90_tcpctl is absent in real operator workflows.
 - No runtime device was available in this attack-path stage to observe real native-init UID/GID or mount options.
 - Repository contains lab tooling rather than deployment manifests, so exposure assessment is based on source defaults and documented workflow.
-

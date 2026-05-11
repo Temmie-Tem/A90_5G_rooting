@@ -17,11 +17,11 @@ This triage is based on the pasted Codex Cloud detail plus current local code in
 |---|---|---|---|---|
 | F047 | `high` | `confirmed-pending-patch` | Live recovery test can leak tcpctl auth token | valid live-test token disclosure path |
 | F048 | `high` | `confirmed-pending-patch` | Broker forwards exclusive root commands without authorization | valid broker authorization boundary issue |
-| F049 | `high` | `duplicate-of-F045-currently-mitigated` | Predictable /tmp root dd target permits symlink overwrite | duplicate/reopen of F045; current code appears fixed |
+| F049 | `high` | `closed-duplicate-of-F045` | Predictable /tmp root dd target permits symlink overwrite | duplicate/reopen of F045; current code appears fixed |
 | F050 | `medium` | `confirmed-pending-patch` | Outer soak timeout can orphan live broker processes | valid process-tree cleanup issue |
 | F051 | `medium` | `confirmed-pending-patch` | Default lifecycle run can fail to stop tcpctl listener | valid token/lifecycle cleanup issue |
 | F052 | `medium` | `confirmed-pending-patch` | NCM broker treats auth OK as command success | valid tcpctl response parser issue |
-| F053 | `medium` | `duplicate-of-F046-currently-mitigated` | NCM preflight may run untrusted cache tcpctl as root | duplicate/reopen of F046; current code appears fixed |
+| F053 | `medium` | `closed-duplicate-of-F046` | NCM preflight may run untrusted cache tcpctl as root | duplicate/reopen of F046; current code appears fixed |
 
 ## Local Code Check
 

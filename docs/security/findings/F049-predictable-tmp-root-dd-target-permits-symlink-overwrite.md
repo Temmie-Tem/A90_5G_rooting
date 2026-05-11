@@ -7,7 +7,7 @@
 | finding_id | `b3b8fb043bfc8191a9758e058f94988b` |
 | finding_url | https://chatgpt.com/codex/cloud/security/findings/b3b8fb043bfc8191a9758e058f94988b |
 | severity | `high` |
-| status | `duplicate-of-F045-currently-mitigated` |
+| status | `closed-duplicate-of-F045` |
 | detected_at | `2026-05-10T00:41:36.720530Z` |
 | committed_at | `2026-05-09 04:54:29 +0900` |
 | commit_hash | `31aae994b5b630caf254b13471905ab668fc5dbd` |
@@ -27,6 +27,12 @@ The commit adds cpu-memory-profiles and makes it the default mixed-soak CPU work
 ## Local Remediation
 
 - No new patch required from this finding unless Codex Cloud still reproduces against current code. Keep linked to `F045` closure evidence.
+
+## Closure Evidence
+
+- Closed in Batch H3 as a duplicate of `F045`; see `docs/security/SECURITY_FINDINGS_F047_F053_H3_REPORT_2026-05-12.md`.
+- Current `scripts/revalidation/a90harness/modules/cpu_memory_profiles.py` creates a safe per-profile temp directory under `/tmp` using `require_safe_component()` and `require_path_under()`, then places the memory file inside that directory instead of writing to the old predictable `/tmp/<run>-<profile>-mem.bin` pattern.
+- Local verification on 2026-05-12 confirmed the old timestamp-based path pattern is absent and `python3 -m py_compile scripts/revalidation/a90harness/modules/cpu_memory_profiles.py` passes.
 
 ## Codex Cloud Detail
 
@@ -272,4 +278,3 @@ The finding is real. The new CpuMemoryProfilesModule builds /tmp/v180-cpumem-<se
 - Static review cannot confirm device kernel symlink-following protections or toybox dd implementation details on the actual target, though normal POSIX behavior and validation evidence support exploitability.
 - The exact set of high-value writable targets depends on the mounted filesystems and device state during a harness run.
 - The likelihood depends on how often operators run mixed-soak in environments where untrusted local device processes exist.
-
