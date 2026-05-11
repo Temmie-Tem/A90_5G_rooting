@@ -21,7 +21,15 @@ sys.path.insert(0, str(SCRIPT_DIR))
 
 from a90_broker import DEFAULT_DEVICE_IP, DEFAULT_TCP_PORT, DEFAULT_TCP_TIMEOUT, redact_text  # noqa: E402
 from a90harness.evidence import EvidenceStore  # noqa: E402
-from tcpctl_host import DEFAULT_BRIDGE_HOST, DEFAULT_BRIDGE_PORT, DEFAULT_DEVICE_BINARY, DEFAULT_TOYBOX  # noqa: E402
+from tcpctl_host import (  # noqa: E402
+    DEFAULT_BRIDGE_HOST,
+    DEFAULT_BRIDGE_PORT,
+    DEFAULT_DEVICE_BINARY,
+    DEFAULT_TCPCTL_TOKEN_PATH,
+    DEFAULT_TOKEN_COMMAND,
+    DEFAULT_TOYBOX,
+    get_tcpctl_token,
+)
 
 
 READY_MARKER = "tcpctl: listening"
@@ -56,6 +64,9 @@ def build_parser() -> argparse.ArgumentParser:
     parser.add_argument("--max-clients", type=int, default=0,
                         help="tcpctl max_clients; default 0 keeps listener alive for lifecycle tests")
     parser.add_argument("--token")
+    parser.add_argument("--token-command", default=DEFAULT_TOKEN_COMMAND)
+    parser.add_argument("--token-path", default=DEFAULT_TCPCTL_TOKEN_PATH)
+    parser.add_argument("--bridge-timeout", type=float, default=30.0)
     parser.add_argument("--clients", type=int, default=2)
     parser.add_argument("--rounds", type=int, default=2)
     parser.add_argument("--ready-timeout", type=float, default=20.0)
@@ -124,6 +135,12 @@ def base_tcpctl_args(args: argparse.Namespace) -> list[str]:
         str(args.max_clients),
         "--tcp-timeout",
         str(args.tcp_timeout),
+        "--token-command",
+        args.token_command,
+        "--token-path",
+        args.token_path,
+        "--bridge-timeout",
+        str(args.bridge_timeout),
     ]
     if args.token:
         command.extend(["--token", args.token])
@@ -196,6 +213,26 @@ def stop_process(process: subprocess.Popen[str] | None) -> tuple[str, str]:
 
 def run_lifecycle(args: argparse.Namespace, store: EvidenceStore) -> list[LifecycleResult]:
     smoke_dir = store.mkdir("broker-ncm-smoke")
+    results: list[LifecycleResult] = []
+    if not args.dry_run and not args.token:
+        try:
+            args.token = get_tcpctl_token(args)
+            store.write_text("tcpctl-token-source.txt", "source=bridge token command\n")
+            results.append(LifecycleResult("tcpctl token captured", True, "source=bridge token command", ["tcpctl-token-source.txt"]))
+        except Exception as exc:  # noqa: BLE001 - lifecycle should report setup failure
+            store.write_text("tcpctl-token-error.txt", redact_text(f"{type(exc).__name__}: {exc}\n"))
+            return [
+                LifecycleResult(
+                    "tcpctl token captured",
+                    False,
+                    redact_text(f"{type(exc).__name__}: {exc}"),
+                    ["tcpctl-token-error.txt"],
+                )
+            ]
+    elif args.token:
+        store.write_text("tcpctl-token-source.txt", "source=cli token\n")
+        results.append(LifecycleResult("tcpctl token captured", True, "source=cli token", ["tcpctl-token-source.txt"]))
+
     planned = {
         "start": redacted_command(start_command(args)),
         "smoke": redacted_command(smoke_command(args, smoke_dir)),
@@ -208,7 +245,6 @@ def run_lifecycle(args: argparse.Namespace, store: EvidenceStore) -> list[Lifecy
             LifecycleResult("max-clients unlimited", args.max_clients == 0, f"max_clients={args.max_clients}", []),
         ]
 
-    results: list[LifecycleResult] = []
     start_proc: subprocess.Popen[str] | None = None
     reader: LineReader | None = None
     try:

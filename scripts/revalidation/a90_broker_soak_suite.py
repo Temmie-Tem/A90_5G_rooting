@@ -4,6 +4,8 @@
 from __future__ import annotations
 
 import argparse
+import os
+import signal
 import subprocess
 import sys
 import time
@@ -29,6 +31,7 @@ class SuiteStep:
     duration_sec: float
     command: list[str]
     output_file: str
+    timed_out: bool = False
 
 
 def timestamp() -> str:
@@ -56,31 +59,114 @@ def script(name: str) -> Path:
     return SCRIPT_DIR / name
 
 
+def cleanup_brokers_under(root: Path) -> list[str]:
+    root_text = str(root)
+    try:
+        result = subprocess.run(
+            ["ps", "-eo", "pid=,args="],
+            check=False,
+            text=True,
+            stdout=subprocess.PIPE,
+            stderr=subprocess.DEVNULL,
+        )
+    except OSError as exc:
+        return [f"ps unavailable: {exc}"]
+    actions: list[str] = []
+    for line in result.stdout.splitlines():
+        stripped = line.strip()
+        if not stripped:
+            continue
+        pid_text, _, command = stripped.partition(" ")
+        if not pid_text.isdigit():
+            continue
+        if "a90_broker.py" not in command or root_text not in command:
+            continue
+        pid = int(pid_text)
+        actions.append(f"terminating orphan broker pid={pid} command={command}")
+        try:
+            os.killpg(pid, signal.SIGTERM)
+        except ProcessLookupError:
+            continue
+        except OSError as exc:
+            actions.append(f"killpg SIGTERM failed pid={pid}: {exc}")
+            try:
+                os.kill(pid, signal.SIGTERM)
+            except OSError as kill_exc:
+                actions.append(f"kill SIGTERM failed pid={pid}: {kill_exc}")
+    time.sleep(0.2)
+    for line in result.stdout.splitlines():
+        stripped = line.strip()
+        if not stripped:
+            continue
+        pid_text, _, command = stripped.partition(" ")
+        if not pid_text.isdigit():
+            continue
+        if "a90_broker.py" not in command or root_text not in command:
+            continue
+        pid = int(pid_text)
+        try:
+            os.kill(pid, 0)
+        except OSError:
+            continue
+        actions.append(f"SIGKILL orphan broker pid={pid}")
+        try:
+            os.killpg(pid, signal.SIGKILL)
+        except OSError:
+            try:
+                os.kill(pid, signal.SIGKILL)
+            except OSError as exc:
+                actions.append(f"kill SIGKILL failed pid={pid}: {exc}")
+    return actions
+
+
 def run_step(store: EvidenceStore,
              name: str,
              command: list[str],
              *,
              timeout_sec: float) -> SuiteStep:
     started = time.monotonic()
-    result = subprocess.run(
+    process = subprocess.Popen(
         command,
         cwd=REPO_ROOT,
-        check=False,
         text=True,
         stdout=subprocess.PIPE,
         stderr=subprocess.STDOUT,
-        timeout=timeout_sec,
+        start_new_session=True,
     )
+    timed_out = False
+    try:
+        stdout, _stderr = process.communicate(timeout=timeout_sec)
+        rc = process.returncode if process.returncode is not None else 1
+    except subprocess.TimeoutExpired:
+        timed_out = True
+        try:
+            os.killpg(process.pid, signal.SIGTERM)
+        except ProcessLookupError:
+            pass
+        try:
+            stdout, _stderr = process.communicate(timeout=2.0)
+        except subprocess.TimeoutExpired:
+            try:
+                os.killpg(process.pid, signal.SIGKILL)
+            except ProcessLookupError:
+                pass
+            stdout, _stderr = process.communicate()
+        cleanup_actions = cleanup_brokers_under(store.run_dir)
+        stdout = (stdout or "") + f"\n[TIMEOUT] step exceeded {timeout_sec:.1f}s; process group terminated\n"
+        if cleanup_actions:
+            stdout += "\n[ORPHAN-CLEANUP]\n" + "\n".join(cleanup_actions) + "\n"
+        rc = 124
     duration_sec = time.monotonic() - started
     output_name = f"{name}.txt"
-    store.write_text(output_name, result.stdout)
+    store.write_text(output_name, stdout)
     return SuiteStep(
         name=name,
-        ok=result.returncode == 0,
-        rc=result.returncode,
+        ok=rc == 0 and not timed_out,
+        rc=rc,
         duration_sec=duration_sec,
         command=command,
         output_file=output_name,
+        timed_out=timed_out,
     )
 
 
@@ -156,7 +242,7 @@ def render_report(steps: list[SuiteStep], pass_ok: bool, args: argparse.Namespac
     for step in steps:
         lines.append(
             f"- {'PASS' if step.ok else 'FAIL'} `{step.name}` "
-            f"rc={step.rc} duration={step.duration_sec:.3f}s output=`{step.output_file}`\n"
+            f"rc={step.rc} timeout={step.timed_out} duration={step.duration_sec:.3f}s output=`{step.output_file}`\n"
         )
     return "".join(lines)
 

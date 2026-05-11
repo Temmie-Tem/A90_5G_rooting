@@ -7,7 +7,7 @@
 | finding_id | `e354d34c6c70819199f24eb1fcc36cdd` |
 | finding_url | https://chatgpt.com/codex/cloud/security/findings/e354d34c6c70819199f24eb1fcc36cdd |
 | severity | `medium` |
-| status | `confirmed-pending-patch` |
+| status | `mitigated-host-batch-h2` |
 | detected_at | `2026-05-11T19:23:35.362120Z` |
 | committed_at | `2026-05-11 22:04:38 +0900` |
 | commit_hash | `8edda96203df2af80ce2963cd3c6109c5ab71395` |
@@ -26,7 +26,7 @@ The newly added a90_broker_soak_suite.py executes each validator with subprocess
 
 ## Local Remediation
 
-- Replace outer `subprocess.run(timeout=...)` with process-group-aware launch/kill/communicate helper and always write timeout failure evidence.
+- Implemented in Batch H2; see `docs/security/SECURITY_FINDINGS_F047_F053_H2_REPORT_2026-05-12.md`. The broker soak suite now launches steps in a managed process group, records timeout failures, and performs orphan broker cleanup for suite-owned runtime directories.
 
 ## Codex Cloud Detail
 

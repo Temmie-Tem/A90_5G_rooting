@@ -7,7 +7,7 @@
 | finding_id | `9fe8c4632a00819188c50981a9fff7f1` |
 | finding_url | https://chatgpt.com/codex/cloud/security/findings/9fe8c4632a00819188c50981a9fff7f1 |
 | severity | `medium` |
-| status | `confirmed-pending-patch` |
+| status | `mitigated-host-batch-h2` |
 | detected_at | `2026-05-11T19:25:59.928477Z` |
 | committed_at | `2026-05-11 22:02:35 +0900` |
 | commit_hash | `33f94392fbce0ca194fa4456ffb15f000752ea2e` |
@@ -26,7 +26,7 @@ The new a90_broker_ncm_lifecycle_check.py wrapper launches tcpctl_host.py start 
 
 ## Local Remediation
 
-- Capture token once before start or pass an explicit token through start/smoke/stop; on cleanup, release/kill the host start process before authenticated stop fallback if the bridge is occupied.
+- Implemented in Batch H2; see `docs/security/SECURITY_FINDINGS_F047_F053_H2_REPORT_2026-05-12.md`. The NCM lifecycle wrapper now captures one tcpctl token before starting the listener and passes the redacted token consistently to start, smoke, and stop commands.
 
 ## Codex Cloud Detail
 
