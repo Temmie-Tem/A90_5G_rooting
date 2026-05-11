@@ -4,12 +4,18 @@ from __future__ import annotations
 
 import hashlib
 import json
+import posixpath
 import re
+import secrets
 import time
 from dataclasses import asdict, dataclass
 from typing import Any
 
+from a90harness.path_safety import require_path_under, require_safe_component
 from a90harness.module import ModuleContext, StepResult, TestModule
+
+DEVICE_TMP_ROOT = "/tmp"
+DEVICE_TMP_PREFIX = "a90-cpumem"
 
 
 @dataclass(frozen=True)
@@ -75,7 +81,7 @@ class CpuMemoryProfilesModule(TestModule):
     read_only = False
 
     def __init__(self) -> None:
-        self._run_id = f"v180-cpumem-{int(time.time())}"
+        self._run_id = f"v180-cpumem-{int(time.time())}-{secrets.token_hex(8)}"
 
     def _profiles(self, profile: str) -> tuple[CpuMemoryProfile, ...]:
         return QUICK_PROFILES if profile == "quick" else SMOKE_PROFILES
@@ -96,6 +102,22 @@ class CpuMemoryProfilesModule(TestModule):
         ctx.store.write_text(f"modules/{self.name}/{profile}/commands/{label}.txt", text)
         return record.ok, text, record.to_dict()
 
+    def _profile_temp_dir(self, spec: CpuMemoryProfile) -> str:
+        component = require_safe_component(
+            f"{DEVICE_TMP_PREFIX}.{self._run_id}.{spec.name}",
+            "cpu memory temp dir",
+        )
+        temp_dir = posixpath.join(DEVICE_TMP_ROOT, component)
+        return require_path_under(temp_dir, DEVICE_TMP_ROOT, "cpu memory temp dir")
+
+    def _profile_memory_path(self, temp_dir: str, spec: CpuMemoryProfile) -> str:
+        filename = require_safe_component(f"{spec.name}-mem.bin", "cpu memory filename")
+        return require_path_under(
+            posixpath.join(temp_dir, filename),
+            temp_dir,
+            "cpu memory file",
+        )
+
     def _run_profile(self, ctx: ModuleContext, spec: CpuMemoryProfile) -> dict[str, Any]:
         profile: dict[str, Any] = {
             "spec": spec.to_dict(),
@@ -104,7 +126,8 @@ class CpuMemoryProfilesModule(TestModule):
             "memory": {},
             "ok": False,
         }
-        path = f"/tmp/{self._run_id}-{spec.name}-mem.bin"
+        temp_dir = self._profile_temp_dir(spec)
+        path = self._profile_memory_path(temp_dir, spec)
         expected_hash = zero_sha256(spec.mem_size_bytes)
 
         ok, text, record = self._run_cmd(ctx, spec.name, "status-before", ["status"], timeout=ctx.timeout)
@@ -123,6 +146,37 @@ class CpuMemoryProfilesModule(TestModule):
         ok_after, text_after, record = self._run_cmd(ctx, spec.name, "status-after", ["status"], timeout=ctx.timeout)
         profile["commands"].append(record)
         profile["samples"].append({"label": "after", "ok": ok_after, "status": parse_status(text_after)})
+
+        mkdir_ok, _text, record = self._run_cmd(
+            ctx,
+            spec.name,
+            "mem-mkdir",
+            ["run", "/cache/bin/toybox", "mkdir", "-m", "700", temp_dir],
+            timeout=max(ctx.timeout, 20.0),
+        )
+        profile["commands"].append(record)
+
+        write_ok = False
+        hash_ok = False
+        device_hash = None
+        cleanup_ok = False
+
+        if not mkdir_ok:
+            memory = {
+                "temp_dir": temp_dir,
+                "path": path,
+                "size_bytes": spec.mem_size_bytes,
+                "expected_sha256": expected_hash,
+                "device_sha256": device_hash,
+                "mkdir_ok": mkdir_ok,
+                "write_ok": write_ok,
+                "hash_ok": hash_ok,
+                "cleanup_ok": cleanup_ok,
+            }
+            profile["memory"] = memory
+            if spec.cooldown_sec > 0:
+                time.sleep(spec.cooldown_sec)
+            return profile
 
         write_ok, _text, record = self._run_cmd(
             ctx,
@@ -156,16 +210,18 @@ class CpuMemoryProfilesModule(TestModule):
             ctx,
             spec.name,
             "mem-cleanup",
-            ["run", "/cache/bin/toybox", "rm", "-f", path],
+            ["run", "/cache/bin/toybox", "rm", "-rf", temp_dir],
             timeout=max(ctx.timeout, 20.0),
         )
         profile["commands"].append(record)
 
         memory = {
+            "temp_dir": temp_dir,
             "path": path,
             "size_bytes": spec.mem_size_bytes,
             "expected_sha256": expected_hash,
             "device_sha256": device_hash,
+            "mkdir_ok": mkdir_ok,
             "write_ok": write_ok,
             "hash_ok": hash_ok and device_hash == expected_hash,
             "cleanup_ok": cleanup_ok,
@@ -205,6 +261,7 @@ class CpuMemoryProfilesModule(TestModule):
                 failures.append(f"profile-failed:{profile.get('spec', {}).get('name')}")
             memory = profile.get("memory", {})
             if not (
+                memory.get("mkdir_ok") is True and
                 memory.get("write_ok") is True and
                 memory.get("hash_ok") is True and
                 memory.get("cleanup_ok") is True and

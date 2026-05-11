@@ -3,7 +3,7 @@
 
 This is not a replacement for Codex Cloud's security scanner. It is a
 repository-local guardrail that checks the patterns that previously produced the
-F001-F044 findings and the current root-control surfaces.
+F001-F046 findings and the current root-control surfaces.
 """
 
 from __future__ import annotations
@@ -15,7 +15,7 @@ from dataclasses import dataclass
 from pathlib import Path
 
 REPO_ROOT = Path(__file__).resolve().parents[2]
-DEFAULT_OUT = REPO_ROOT / "docs" / "security" / "SECURITY_FRESH_SCAN_F038_F044_2026-05-09.md"
+DEFAULT_OUT = REPO_ROOT / "docs" / "security" / "SECURITY_FRESH_SCAN_F045_F046_2026-05-11.md"
 
 
 @dataclass(frozen=True)
@@ -124,6 +124,7 @@ def run_checks() -> list[Check]:
     observer = read("scripts/revalidation/a90harness/observer.py")
     ncm_report = read("scripts/revalidation/ncm_tcp_stability_report.py")
     ncm_preflight = read("scripts/revalidation/a90harness/modules/ncm_tcp_preflight.py")
+    cpu_memory_profiles = read("scripts/revalidation/a90harness/modules/cpu_memory_profiles.py")
     ncm_host_setup = read("scripts/revalidation/ncm_host_setup.py")
     v166_deferred_report = read("docs/reports/NATIVE_INIT_V166_NETWORK_THROUGHPUT_DEFERRED_2026-05-09.md")
     menu_hold_sources = [
@@ -540,6 +541,38 @@ def run_checks() -> list[Check]:
     ))
 
     checks.append(Check(
+        "S029",
+        "CPU/memory profiles use private unpredictable device temp directories",
+        status_from(
+            "import secrets" in cpu_memory_profiles
+            and "secrets.token_hex" in cpu_memory_profiles
+            and "DEVICE_TMP_PREFIX = \"a90-cpumem\"" in cpu_memory_profiles
+            and "require_safe_component" in cpu_memory_profiles
+            and "require_path_under" in cpu_memory_profiles
+            and '"mem-mkdir"' in cpu_memory_profiles
+            and '"mkdir", "-m", "700", temp_dir' in cpu_memory_profiles
+            and '["run", "/cache/bin/toybox", "rm", "-rf", temp_dir]' in cpu_memory_profiles
+            and 'path = f"/tmp/{self._run_id}-{spec.name}-mem.bin"' not in cpu_memory_profiles
+        ),
+        "`cpu_memory_profiles.py` now creates a random root-owned `/tmp/a90-cpumem.*` directory before `dd` writes and cleans that directory.",
+        "Covers F045 predictable shared `/tmp` root `dd` target overwrite.",
+    ))
+
+    checks.append(Check(
+        "S030",
+        "NCM preflight refuses untrusted cache tcpctl fallback",
+        status_from(
+            'TRUSTED_TCPCTL_BINARY = "/bin/a90_tcpctl"' in ncm_preflight
+            and '"/cache/bin/a90_tcpctl"' not in ncm_preflight
+            and "for candidate in" not in ncm_preflight
+            and "trusted ramdisk tcpctl helper missing" in ncm_preflight
+            and "--device-binary" in ncm_preflight
+        ),
+        "`ncm_tcp_preflight.py` only selects the ramdisk `/bin/a90_tcpctl`; it no longer executes `/cache/bin/a90_tcpctl` after a plain stat.",
+        "Covers F046 untrusted persistent tcpctl helper fallback.",
+    ))
+
+    checks.append(Check(
         "S022",
         "accepted local root-control channels remain intentionally present",
         "WARN",
@@ -556,14 +589,14 @@ def render_report(checks: list[Check]) -> str:
         counts[check.status] = counts.get(check.status, 0) + 1
 
     lines = [
-        "# F038-F044 Fresh Local Security Rescan",
+        "# F045-F046 Fresh Local Security Rescan",
         "",
-        "Date: 2026-05-09",
-        "Baseline: active v153 native-init plus post-v177 host harness security patches",
+        "Date: 2026-05-11",
+        "Baseline: active v159 native-init plus post-v184 host harness security patches",
         f"Git HEAD: `{run_git_head()}`",
-        "Scope: active native-init source, shared modules, current revalidation host tools, F001-F044 local guardrails, and known root-control surfaces.",
+        "Scope: active native-init source, shared modules, current revalidation host tools, F001-F046 local guardrails, and known root-control surfaces.",
         "",
-        "This is a local targeted rescan, not a Codex Cloud scanner replacement. It checks the imported F001-F044 pattern families, exposure guardrails, and controller policy matrix wiring against the current repository state.",
+        "This is a local targeted rescan, not a Codex Cloud scanner replacement. It checks the imported F001-F046 pattern families, exposure guardrails, and controller policy matrix wiring against the current repository state.",
         "",
         "## Summary",
         "",
@@ -592,7 +625,7 @@ def render_report(checks: list[Check]) -> str:
         "## Reproduction",
         "",
         "```bash",
-        "python3 scripts/revalidation/local_security_rescan.py --out docs/security/SECURITY_FRESH_SCAN_F038_F044_2026-05-09.md",
+        "python3 scripts/revalidation/local_security_rescan.py --out docs/security/SECURITY_FRESH_SCAN_F045_F046_2026-05-11.md",
         "git diff --check",
         "```",
         "",

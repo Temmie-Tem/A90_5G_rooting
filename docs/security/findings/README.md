@@ -6,6 +6,7 @@ Fresh scan follow-up: `F032` and `F033` were imported from the 2026-05-07 Codex 
 Longsoak scan follow-up: `F034` through `F036` were imported from `docs/security/codex-security-findings-2026-05-07T20-00-44.982Z.csv`.
 Longsoak bundle follow-up: `F037` was imported from the 2026-05-08 Codex Cloud finding detail pasted by the operator.
 Harness mixed-soak follow-up: `F038` through `F044` were imported from `docs/security/codex-security-findings-2026-05-08T18-39-05.112Z.csv`.
+Post-v184 scan follow-up: `F045` and `F046` were imported from `docs/security/codex-security-findings-2026-05-11T07-54-55.648Z.csv`.
 
 이 디렉터리는 Codex Cloud security finding 원문을 이슈별 파일로 분리한 보관소입니다.
 관계 분석과 수정 큐는 별도 문서에서 이 `FNNN` 번호를 참조합니다.
@@ -18,6 +19,7 @@ Harness mixed-soak follow-up: `F038` through `F044` were imported from `docs/sec
 - Closure review: `../SECURITY_FINDINGS_CLOSURE_REVIEW_2026-05-07.md`
 - F038-F044 analysis: `../SECURITY_FINDINGS_F038_F044_ANALYSIS_2026-05-09.md`
 - F038-F044 patch plan: `../SECURITY_FINDINGS_F038_F044_PATCH_PLAN_2026-05-09.md`
+- F045-F046 analysis: `../SECURITY_FINDINGS_F045_F046_ANALYSIS_2026-05-11.md`
 - Fresh local rescan: `../SECURITY_FRESH_SCAN_V133_2026-05-07.md`
 - Fresh v134 local rescan: `../SECURITY_FRESH_SCAN_V134_2026-05-07.md`
 - Fresh v135 local rescan: `../SECURITY_FRESH_SCAN_V135_2026-05-07.md`
@@ -88,6 +90,8 @@ Harness mixed-soak follow-up: `F038` through `F044` were imported from `docs/sec
 | F042 | `medium` | `mitigated-host-batch-c` | Reporter accepts unauthenticated tcpctl as PASS | [`F042-reporter-accepts-unauthenticated-tcpctl-as-pass.md`](F042-reporter-accepts-unauthenticated-tcpctl-as-pass.md) | docs/plans/NATIVE_INIT_V160_NCM_TCP_STABILITY_PLAN_2026-05-09.md <br> scripts/revalidation/ncm_tcp_stability_report.py <br> stage3/linux_init/a90_tcpctl.c |
 | F043 | `low` | `mitigated-host-batch-b` | Unlimited observer retains samples until memory exhaustion | [`F043-unlimited-observer-retains-samples-until-memory-exhaustion.md`](F043-unlimited-observer-retains-samples-until-memory-exhaustion.md) | scripts/revalidation/native_test_supervisor.py <br> scripts/revalidation/a90harness/observer.py |
 | F044 | `informational` | `mitigated-host-batch-c` | NCM/TCP preflight wrapper can never pass smoke mode | [`F044-ncm-tcp-preflight-wrapper-can-never-pass-smoke-mode.md`](F044-ncm-tcp-preflight-wrapper-can-never-pass-smoke-mode.md) | scripts/revalidation/a90harness/modules/ncm_tcp_preflight.py <br> scripts/revalidation/tcpctl_host.py |
+| F045 | `high` | `mitigated-host-batch-f` | Predictable /tmp root dd target permits symlink overwrite | [`F045-predictable-tmp-root-dd-target-permits-symlink-overwrite.md`](F045-predictable-tmp-root-dd-target-permits-symlink-overwrite.md) | scripts/revalidation/a90harness/modules/cpu_memory_profiles.py <br> scripts/revalidation/a90harness/scheduler.py <br> stage3/linux_init/init_v73.c |
+| F046 | `medium` | `mitigated-host-batch-f` | NCM preflight may run untrusted cache tcpctl as root | [`F046-ncm-preflight-may-run-untrusted-cache-tcpctl-as-root.md`](F046-ncm-preflight-may-run-untrusted-cache-tcpctl-as-root.md) | scripts/revalidation/a90harness/modules/ncm_tcp_preflight.py <br> scripts/revalidation/tcpctl_host.py <br> stage3/linux_init/init_v73.c |
 
 ## Notes
 
