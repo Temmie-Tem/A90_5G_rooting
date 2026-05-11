@@ -621,7 +621,23 @@
   - security scan follow-up PASS: `tmp/a90-v196-security-followup/`
   - local targeted security rescan PASS/WARN/FAIL = 29/1/0
 - 남은 검증: 없음
-- 다음 실행 항목: post-v196 후보 재선정
+- 다음 실행 항목: v197 kernel config decoder
+
+### V197. Kernel Config Decoder / Capability Matrix — PASS
+
+- 계획: `docs/plans/NATIVE_INIT_V197_KERNEL_CONFIG_DECODER_PLAN_2026-05-12.md`
+- 보고서: `docs/reports/NATIVE_INIT_V197_KERNEL_CONFIG_DECODER_2026-05-12.md`
+- baseline device build: `A90 Linux init 0.9.59 (v159)`
+- device flash: 없음. v197은 host-side read-only kernel config decoder이며 별도 native-init boot image 없음
+- 구현:
+  - `scripts/revalidation/a90_kernel_tools.py`
+  - `scripts/revalidation/kernel_config_decode.py`
+- 검증:
+  - Python compile PASS
+  - `/proc/config.gz` decode PASS: `tmp/kernel-config/v197-kernel-config.md`
+  - parsed CONFIG entries: `5724`
+- 남은 검증: 없음
+- 다음 실행 항목: v198 netfilter/nftables exposure inventory
 
 ### V187. Harness Broker Backend — PASS
 
