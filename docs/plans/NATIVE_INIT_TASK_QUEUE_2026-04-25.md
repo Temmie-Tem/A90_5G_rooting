@@ -591,6 +591,22 @@
   - live NCM lifecycle는 bridge/NCM 준비 시 선택 실행
 - 다음 실행 항목: v195 broker-backed long/mixed soak
 
+### V195. Broker-backed Soak Suite — PASS
+
+- 계획: `docs/plans/NATIVE_INIT_V195_BROKER_SOAK_SUITE_PLAN_2026-05-11.md`
+- 보고서: `docs/reports/NATIVE_INIT_V195_BROKER_SOAK_SUITE_2026-05-11.md`
+- baseline device build: `A90 Linux init 0.9.59 (v159)`
+- device flash: 없음. v195는 host-side broker suite이며 별도 native-init boot image 없음
+- 구현:
+  - `scripts/revalidation/a90_broker_soak_suite.py`
+  - concurrent smoke + mixed-soak gate + recovery tests orchestration
+- 검증:
+  - Python compile PASS
+  - dry-run suite PASS: `tmp/a90-v195-dry-suite/`
+- 남은 검증:
+  - live 장시간 suite는 bridge/NCM 준비 시 선택 실행
+- 다음 실행 항목: v196 fresh security scan follow-up workflow
+
 ### V187. Harness Broker Backend — PASS
 
 - 보고서: `docs/reports/NATIVE_INIT_V187_HARNESS_BROKER_BACKEND_2026-05-11.md`
