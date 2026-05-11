@@ -972,7 +972,8 @@ Samsung bootloader
    - mixed-soak dry-run도 PASS했다
    - v188은 broker audit/reporting으로 시작했다
    - live ACM broker audit report와 broker-backed supervisor smoke audit report는 PASS했다
-   - 다음은 v189 NCM/tcpctl broker backend 또는 broker concurrent smoke script 선택이다
+   - v189 broker concurrent smoke script는 fake/live ACM 모두 PASS했다
+   - 다음은 v190 NCM/tcpctl broker backend 또는 broker mixed-soak gate 선택이다
 4. v190+ Broker Mixed-Soak Gate
    - broker를 통해 observer, workload, operator-style commands가 동시에 돌아도 serial/NCM 제어가 섞이지 않는지 검증한다
 5. 이후 Wi-Fi Baseline Refresh / Network Exposure Hardening

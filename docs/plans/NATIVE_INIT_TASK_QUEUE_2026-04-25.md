@@ -455,7 +455,31 @@
   - evidence: `tmp/a90-v188-broker-20260511-202018/`
 - 남은 검증:
   - 없음
-- 다음 실행 항목: v189 NCM/tcpctl broker backend or broker concurrent smoke script
+- 다음 실행 항목: v189 broker concurrent smoke script
+
+### V189. Broker Concurrent Smoke — PASS
+
+- baseline device build: `A90 Linux init 0.9.59 (v159)`
+- device flash: 없음. v189는 host-side broker concurrency validation이며 별도 native-init boot image 없음
+- 구현:
+  - `scripts/revalidation/a90_broker_concurrent_smoke.py`
+  - broker subprocess 자동 실행 또는 기존 broker socket 사용
+  - concurrent host client request fan-out
+  - read-only command response/id/version validation
+  - blocked `reboot` request가 `operator-required`로 남는지 확인
+  - private summary/response/audit evidence 생성
+- 검증:
+  - Python compile PASS
+  - fake backend concurrent smoke PASS: clients=4 rounds=3 requests=16 blocked_expected=4
+  - live ACM backend concurrent smoke PASS: clients=4 rounds=2 requests=12 blocked_expected=4
+  - live audit integrity PASS: accepted=12 dispatched=12 results=12 non_ok=4
+  - evidence:
+    - `tmp/a90-v189-fake-20260511-204752/`
+    - `tmp/a90-v189-live-20260511-204803/`
+- 보고서: `docs/reports/NATIVE_INIT_V189_BROKER_CONCURRENT_SMOKE_2026-05-11.md`
+- 남은 검증:
+  - 없음
+- 다음 실행 항목: v190 NCM/tcpctl broker backend or broker mixed-soak gate
 
 ### V187. Harness Broker Backend — PASS
 
