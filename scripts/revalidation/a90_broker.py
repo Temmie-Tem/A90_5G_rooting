@@ -8,6 +8,7 @@ import json
 import os
 import queue
 import re
+import shlex
 import socket
 import stat
 import sys
@@ -27,6 +28,11 @@ from a90harness.evidence import append_private_jsonl, ensure_private_dir, write_
 PROTO = "A90B1"
 DEFAULT_BRIDGE_HOST = "127.0.0.1"
 DEFAULT_BRIDGE_PORT = 54321
+DEFAULT_DEVICE_IP = "192.168.7.2"
+DEFAULT_TCP_PORT = 2325
+DEFAULT_TCP_TIMEOUT = 10.0
+DEFAULT_TOKEN_COMMAND = ("netservice", "token", "show")
+DEFAULT_TOKEN_PATH = "/cache/native-init-tcpctl.token"
 DEFAULT_RUNTIME_DIR = Path("tmp/a90-broker")
 DEFAULT_SOCKET_NAME = "a90b1.sock"
 DEFAULT_AUDIT_NAME = "audit.jsonl"
@@ -191,8 +197,16 @@ class BrokerError(RuntimeError):
 class Backend:
     name = "backend"
 
-    def execute(self, request: BrokerRequest) -> tuple[int, str, str]:
+    def execute(self, request: BrokerRequest) -> "BackendResult":
         raise NotImplementedError
+
+
+@dataclass(frozen=True)
+class BackendResult:
+    rc: int
+    status: str
+    text: str
+    backend: str
 
 
 class AcmCmdv1Backend(Backend):
@@ -202,7 +216,7 @@ class AcmCmdv1Backend(Backend):
         self.host = host
         self.port = port
 
-    def execute(self, request: BrokerRequest) -> tuple[int, str, str]:
+    def execute(self, request: BrokerRequest) -> BackendResult:
         result: ProtocolResult = run_cmdv1_command(
             self.host,
             self.port,
@@ -210,16 +224,94 @@ class AcmCmdv1Backend(Backend):
             request.argv,
             retry_unsafe=False,
         )
-        return result.rc, result.status, result.text
+        return BackendResult(result.rc, result.status, result.text, self.name)
+
+
+class NcmTcpctlBackend(Backend):
+    name = "ncm-tcpctl"
+
+    def __init__(self,
+                 host: str,
+                 port: int,
+                 device_ip: str,
+                 tcp_port: int,
+                 tcp_timeout: float,
+                 token: str | None,
+                 no_auth: bool) -> None:
+        self.acm = AcmCmdv1Backend(host, port)
+        self.device_ip = device_ip
+        self.tcp_port = tcp_port
+        self.tcp_timeout = tcp_timeout
+        self.token = token
+        self.no_auth = no_auth
+
+    def execute(self, request: BrokerRequest) -> BackendResult:
+        command = self.tcpctl_command(request.argv)
+        if command is None:
+            return self.acm.execute(request)
+        text = self.tcpctl_request(command, request.timeout_ms / 1000.0)
+        if "\nOK" not in text and not text.rstrip().endswith("OK"):
+            return BackendResult(1, "error", text, self.name)
+        return BackendResult(0, "ok", text, self.name)
+
+    @staticmethod
+    def tcpctl_command(argv: list[str]) -> str | None:
+        if len(argv) >= 2 and argv[0] == "run" and argv[1].startswith("/"):
+            return "run " + " ".join(shlex.quote(part) for part in argv[1:])
+        return None
+
+    def tcpctl_request(self, command: str, timeout_sec: float) -> str:
+        payload = command.rstrip("\n") + "\n"
+        if not self.no_auth and self.command_requires_auth(command):
+            payload = f"auth {self.get_token(timeout_sec)}\n{payload}"
+        with socket.create_connection((self.device_ip, self.tcp_port), timeout=min(timeout_sec, self.tcp_timeout)) as sock:
+            sock.settimeout(0.5)
+            sock.sendall(payload.encode())
+            data = bytearray()
+            deadline = time.monotonic() + min(timeout_sec, self.tcp_timeout)
+            while time.monotonic() < deadline:
+                try:
+                    chunk = sock.recv(8192)
+                except socket.timeout:
+                    continue
+                if not chunk:
+                    break
+                data.extend(chunk)
+        return data.decode("utf-8", errors="replace")
+
+    @staticmethod
+    def command_requires_auth(command: str) -> bool:
+        word = command.lstrip().split(maxsplit=1)[0] if command.strip() else ""
+        return word in {"run", "shutdown"}
+
+    def get_token(self, timeout_sec: float) -> str:
+        if self.token:
+            return self.token
+        token_request = BrokerRequest(
+            request_id="ncm-token",
+            client_id="broker",
+            op="cmd",
+            argv=list(DEFAULT_TOKEN_COMMAND),
+            timeout_ms=int(timeout_sec * 1000),
+            command_class="observe",
+        )
+        result = self.acm.execute(token_request)
+        if result.rc != 0 or result.status != "ok":
+            raise RuntimeError(f"token command failed rc={result.rc} status={result.status}\n{result.text}")
+        match = re.search(r"tcpctl_token=([0-9A-Fa-f]{32})", result.text)
+        if not match:
+            raise RuntimeError(f"tcpctl token was not found in output:\n{result.text}")
+        self.token = match.group(1)
+        return self.token
 
 
 class FakeBackend(Backend):
     name = "fake"
 
-    def execute(self, request: BrokerRequest) -> tuple[int, str, str]:
+    def execute(self, request: BrokerRequest) -> BackendResult:
         if request.argv and request.argv[0] == "fail":
-            return 1, "error", "fake failure\n"
-        return 0, "ok", f"fake {' '.join(request.argv)}\n"
+            return BackendResult(1, "error", "fake failure\n", self.name)
+        return BackendResult(0, "ok", f"fake {' '.join(request.argv)}\n", self.name)
 
 
 def log(message: str) -> None:
@@ -475,18 +567,18 @@ class BrokerServer:
                         "operator-required",
                         "rebind/destructive command is not broker-multiplexed; use foreground raw control",
                     )
-                rc, status, text = self.backend.execute(request)
+                result = self.backend.execute(request)
                 duration_ms = monotonic_ms() - started
                 response = BrokerResponse(
                     proto=PROTO,
                     request_id=request.request_id,
-                    ok=rc == 0 and status == "ok",
-                    rc=rc,
-                    status=status,
+                    ok=result.rc == 0 and result.status == "ok",
+                    rc=result.rc,
+                    status=result.status,
                     duration_ms=duration_ms,
-                    backend=self.backend.name,
+                    backend=result.backend,
                     command_class=request.command_class,
-                    text=text,
+                    text=result.text,
                 )
             except BrokerError as exc:
                 duration_ms = monotonic_ms() - started
@@ -591,6 +683,16 @@ def build_request(args: argparse.Namespace, argv: list[str]) -> dict[str, Any]:
 def make_backend(args: argparse.Namespace) -> Backend:
     if args.backend == "fake":
         return FakeBackend()
+    if args.backend == "ncm-tcpctl":
+        return NcmTcpctlBackend(
+            args.bridge_host,
+            args.bridge_port,
+            args.device_ip,
+            args.tcp_port,
+            args.tcp_timeout,
+            args.token,
+            args.no_auth,
+        )
     return AcmCmdv1Backend(args.bridge_host, args.bridge_port)
 
 
@@ -779,6 +881,8 @@ def cmd_serve(args: argparse.Namespace) -> int:
         "backend": args.backend,
         "bridge_host": args.bridge_host,
         "bridge_port": args.bridge_port,
+        "device_ip": getattr(args, "device_ip", None),
+        "tcp_port": getattr(args, "tcp_port", None),
         "socket": str(socket_path),
         "audit": str(audit_path),
     }
@@ -904,9 +1008,15 @@ def build_parser() -> argparse.ArgumentParser:
     serve.add_argument("--runtime-dir", type=Path, default=DEFAULT_RUNTIME_DIR)
     serve.add_argument("--socket-name", default=DEFAULT_SOCKET_NAME)
     serve.add_argument("--audit-name", default=DEFAULT_AUDIT_NAME)
-    serve.add_argument("--backend", choices=("acm-cmdv1", "fake"), default="acm-cmdv1")
+    serve.add_argument("--backend", choices=("acm-cmdv1", "fake", "ncm-tcpctl"), default="acm-cmdv1")
     serve.add_argument("--bridge-host", default=DEFAULT_BRIDGE_HOST)
     serve.add_argument("--bridge-port", type=int, default=DEFAULT_BRIDGE_PORT)
+    serve.add_argument("--device-ip", default=DEFAULT_DEVICE_IP)
+    serve.add_argument("--tcp-port", type=int, default=DEFAULT_TCP_PORT)
+    serve.add_argument("--tcp-timeout", type=float, default=DEFAULT_TCP_TIMEOUT)
+    serve.add_argument("--token")
+    serve.add_argument("--token-path", default=DEFAULT_TOKEN_PATH)
+    serve.add_argument("--no-auth", action="store_true")
     serve.set_defaults(func=cmd_serve)
 
     call = subparsers.add_parser("call", help="send one command through the broker")

@@ -503,6 +503,34 @@
   - 없음
 - 다음 실행 항목: v191 NCM/tcpctl broker backend
 
+### V191. NCM/tcpctl Broker Backend — PASS
+
+- 계획: `docs/plans/NATIVE_INIT_V191_NCM_TCPCTL_BROKER_BACKEND_PLAN_2026-05-11.md`
+- 보고서: `docs/reports/NATIVE_INIT_V191_NCM_TCPCTL_BROKER_BACKEND_2026-05-11.md`
+- baseline device build: `A90 Linux init 0.9.59 (v159)`
+- device flash: 없음. v191은 host-side broker backend 확장이며 별도 native-init boot image 없음
+- 구현:
+  - `a90_broker.py serve --backend ncm-tcpctl`
+  - `run /absolute/path ...` 요청은 NCM `a90_tcpctl`로 전달
+  - native shell built-in은 ACM `cmdv1` fallback 유지
+  - broker audit result에 실제 실행 backend를 기록하도록 backend result 모델 추가
+  - `a90_broker_concurrent_smoke.py`가 `ncm-tcpctl` backend 옵션을 지원
+- 검증:
+  - Python compile PASS
+  - `a90_broker.py selftest` PASS
+  - fake/acm regression PASS
+  - NCM host ping PASS after NetworkManager `a90-ncm-v191` activation
+  - `/cache/bin/a90_tcpctl` listener with `max_clients=0` PASS
+  - NCM broker smoke PASS: `tmp/a90-v191-ncm-smoke-fixed-20260511-213909/`
+  - NCM audit PASS: accepted=12 dispatched=12 results=12 non_ok=0 backend=`ncm-tcpctl`
+  - ACM fallback PASS: `tmp/a90-v191-ncm-fallback-20260511-213933/`, backend=`acm-cmdv1`
+- note:
+  - v159에는 `/bin/a90_tcpctl`이 없어서 live validation은 검증된 `/cache/bin/a90_tcpctl` helper를 사용했다.
+  - 첫 NCM attempt는 listener `max_clients=8`로 인해 8회 처리 후 종료되어 실패했고, `max_clients=0`으로 재실행해 PASS했다.
+- 남은 검증:
+  - 없음
+- 다음 실행 항목: v192 Broker Failure/Recovery Tests
+
 ### V187. Harness Broker Backend — PASS
 
 - 보고서: `docs/reports/NATIVE_INIT_V187_HARNESS_BROKER_BACKEND_2026-05-11.md`

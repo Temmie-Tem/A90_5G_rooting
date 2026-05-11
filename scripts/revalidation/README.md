@@ -42,6 +42,7 @@
   - v186 `A90B1` host-local broker skeleton
   - private Unix socket endpoint를 만들고 여러 host client request를 single worker queue로 직렬화
   - backend `acm-cmdv1`는 기존 `a90ctl.run_cmdv1_command()`를 사용해 USB ACM bridge에 명령을 전달
+  - backend `ncm-tcpctl`는 `run /absolute/path ...` 요청을 NCM `a90_tcpctl`로 보내고, native shell built-in은 ACM fallback으로 처리
   - backend `fake`와 `selftest`로 request id, observe command, rebind/destructive block 동작을 로컬 검증
   - `reboot`/`recovery`/`poweroff` 같은 rebind/destructive command는 broker multiplex 대상이 아니며 foreground raw-control 경로를 유지
   - audit JSONL은 private/no-follow helper를 통해 owner-only 파일로 남기고, v188 `report`로 integrity/summary/redacted records를 생성
@@ -235,6 +236,21 @@ python3 ./scripts/revalidation/a90_broker.py call \
 
 python3 ./scripts/revalidation/a90_broker.py report \
   --runtime-dir tmp/a90-broker
+```
+
+A90B1 broker의 NCM/tcpctl backend 예:
+
+```bash
+# 전제: host 192.168.7.1/24, device 192.168.7.2, a90_tcpctl listener running
+python3 ./scripts/revalidation/a90_broker.py serve \
+  --backend ncm-tcpctl \
+  --runtime-dir tmp/a90-broker-ncm \
+  --token "$A90_TCPCTL_TOKEN"
+
+python3 ./scripts/revalidation/a90_broker.py call \
+  --runtime-dir tmp/a90-broker-ncm \
+  --json \
+  run /cache/bin/toybox uptime
 ```
 
 하네스가 broker를 통하게 하는 예:

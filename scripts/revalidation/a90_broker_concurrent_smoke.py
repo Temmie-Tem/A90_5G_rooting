@@ -23,7 +23,10 @@ from a90_broker import (  # noqa: E402
     DEFAULT_AUDIT_NAME,
     DEFAULT_BRIDGE_HOST,
     DEFAULT_BRIDGE_PORT,
+    DEFAULT_DEVICE_IP,
     DEFAULT_SOCKET_NAME,
+    DEFAULT_TCP_PORT,
+    DEFAULT_TCP_TIMEOUT,
     PROTO,
     connect_and_call,
     read_audit_jsonl,
@@ -89,9 +92,14 @@ def build_parser() -> argparse.ArgumentParser:
                         help="existing broker socket path; implies --use-existing-broker")
     parser.add_argument("--use-existing-broker", action="store_true",
                         help="do not spawn a broker subprocess")
-    parser.add_argument("--backend", choices=("acm-cmdv1", "fake"), default="acm-cmdv1")
+    parser.add_argument("--backend", choices=("acm-cmdv1", "fake", "ncm-tcpctl"), default="acm-cmdv1")
     parser.add_argument("--bridge-host", default=DEFAULT_BRIDGE_HOST)
     parser.add_argument("--bridge-port", type=int, default=DEFAULT_BRIDGE_PORT)
+    parser.add_argument("--device-ip", default=DEFAULT_DEVICE_IP)
+    parser.add_argument("--tcp-port", type=int, default=DEFAULT_TCP_PORT)
+    parser.add_argument("--tcp-timeout", type=float, default=DEFAULT_TCP_TIMEOUT)
+    parser.add_argument("--token")
+    parser.add_argument("--no-auth", action="store_true")
     parser.add_argument("--clients", type=int, default=4)
     parser.add_argument("--rounds", type=int, default=3)
     parser.add_argument("--timeout", type=float, default=20.0)
@@ -141,7 +149,17 @@ def start_broker(args: argparse.Namespace, runtime_dir: Path) -> subprocess.Pope
         args.bridge_host,
         "--bridge-port",
         str(args.bridge_port),
+        "--device-ip",
+        args.device_ip,
+        "--tcp-port",
+        str(args.tcp_port),
+        "--tcp-timeout",
+        str(args.tcp_timeout),
     ]
+    if args.token:
+        command.extend(["--token", args.token])
+    if args.no_auth:
+        command.append("--no-auth")
     return subprocess.Popen(
         command,
         stdout=subprocess.PIPE,
