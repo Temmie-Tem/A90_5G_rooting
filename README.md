@@ -160,6 +160,7 @@ Android userspace 대신 직접 만든 static `/init`를 실행하고,
 - cgroup/PSI inventory: v199에서 host `cgroup_psi_inventory.py`로 cgroup controller, PSI, mount 상태와 service isolation 가능성을 read-only 판정
 - debug observability plan: v200에서 host `debug_observability_plan.py`로 tracefs/pstore/debugfs/usbmon opt-in 계획을 read-only 생성
 - host evidence helper: v201에서 v197-v200 kernel capability tools의 private/no-follow evidence writer를 `a90harness.evidence`로 통합
+- kernel capability summary: v202에서 host `kernel_capability_summary.py`로 config/netfilter/cgroup-PSI/tracefs-pstore/Wi-Fi gate를 한 화면에 통합
 - about app: `APPS / ABOUT`에서 version, changelog 목록/상세, credits 표시
 - input layout: `inputlayout`, `waitgesture`, `screenmenu`/`blindmenu` gesture action 확인
 - input monitor: `TOOLS / INPUT MONITOR`와 `inputmonitor [events]` raw/gesture trace 확인

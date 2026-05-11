@@ -700,6 +700,22 @@
 - 남은 검증: legacy v154-v159 collector full migration은 별도 후보
 - 다음 실행 항목: v202 kernel capability summary view
 
+### V202. Kernel Capability Summary View — PASS
+
+- 계획: `docs/plans/NATIVE_INIT_V202_KERNEL_CAPABILITY_SUMMARY_PLAN_2026-05-12.md`
+- 보고서: `docs/reports/NATIVE_INIT_V202_KERNEL_CAPABILITY_SUMMARY_2026-05-12.md`
+- baseline device build: `A90 Linux init 0.9.59 (v159)`
+- device flash: 없음. v202는 host-side kernel capability summary이며 별도 native-init boot image 없음
+- 구현:
+  - `scripts/revalidation/kernel_capability_summary.py`
+- 검증:
+  - Python compile PASS
+  - summary from existing JSON PASS: `tmp/kernel-capability/v202-kernel-capability.json`
+  - summary with `--refresh` PASS: `tmp/kernel-capability/v202-kernel-capability-refresh.json`
+  - Wi-Fi gate: `baseline-required`
+- 남은 검증: 없음
+- 다음 실행 항목: v203 read-only Wi-Fi baseline refresh 후보
+
 ### V187. Harness Broker Backend — PASS
 
 - 보고서: `docs/reports/NATIVE_INIT_V187_HARNESS_BROKER_BACKEND_2026-05-11.md`
