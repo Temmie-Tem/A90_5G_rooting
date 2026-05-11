@@ -434,6 +434,29 @@
   - broker audit bundle retention/reporting
 - 다음 실행 항목: v188 broker audit/reporting or NCM/tcpctl backend selection
 
+### V188. Broker Audit Reporting — PASS
+
+- 보고서: `docs/reports/NATIVE_INIT_V188_BROKER_AUDIT_REPORTING_2026-05-11.md`
+- baseline device build: `A90 Linux init 0.9.59 (v159)`
+- device flash: 없음. v188은 host-side broker evidence/reporting cycle이며 별도 native-init boot image 없음
+- 구현:
+  - `a90_broker.py report`
+  - audit JSONL integrity summary
+  - request/result counts, status/class/backend/command counts, duration summary
+  - redacted audit records output
+  - report output via private/no-follow evidence helpers
+  - audit `accept`/`dispatch` argv redaction
+- 검증:
+  - Python compile PASS
+  - `a90_broker.py selftest` PASS with audit integrity check
+  - fake backend serve/call/report PASS
+  - live ACM broker audit report PASS
+  - broker-backed supervisor smoke + audit report PASS
+  - evidence: `tmp/a90-v188-broker-20260511-202018/`
+- 남은 검증:
+  - 없음
+- 다음 실행 항목: v189 NCM/tcpctl broker backend or broker concurrent smoke script
+
 ### V187. Harness Broker Backend — PASS
 
 - 보고서: `docs/reports/NATIVE_INIT_V187_HARNESS_BROKER_BACKEND_2026-05-11.md`

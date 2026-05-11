@@ -15,12 +15,13 @@ import tempfile
 import threading
 import time
 import uuid
+from collections import Counter, defaultdict
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Any
 
 from a90ctl import ProtocolResult, run_cmdv1_command
-from a90harness.evidence import append_private_jsonl, ensure_private_dir, write_private_json
+from a90harness.evidence import append_private_jsonl, ensure_private_dir, write_private_json, write_private_text
 
 
 PROTO = "A90B1"
@@ -33,6 +34,16 @@ MAX_REQUEST_BYTES = 64 * 1024
 MAX_TIMEOUT_MS = 5 * 60 * 1000
 REQUEST_ID_RE = re.compile(r"^[A-Za-z0-9_.:-]{1,96}$")
 CLIENT_ID_RE = re.compile(r"^[A-Za-z0-9_.:@%+=,-]{1,128}$")
+TOKEN_RE = re.compile(r"^[0-9A-Fa-f]{24,}$")
+SENSITIVE_ARG_WORDS = {
+    "auth",
+    "credential",
+    "key",
+    "passwd",
+    "password",
+    "secret",
+    "token",
+}
 
 
 OBSERVE_COMMANDS = {
@@ -227,6 +238,49 @@ def command_subcommand(argv: list[str]) -> str | None:
     return argv[1] if len(argv) > 1 else None
 
 
+def argv_command(argv: list[str]) -> str:
+    return argv[0] if argv else ""
+
+
+def redact_arg(arg: str) -> str:
+    lower = arg.lower()
+    if TOKEN_RE.match(arg):
+        return "<redacted>"
+    for word in SENSITIVE_ARG_WORDS:
+        if lower == word:
+            return arg
+        if lower.startswith(word + "=") or lower.startswith("--" + word + "="):
+            return arg.split("=", 1)[0] + "=<redacted>"
+    return arg
+
+
+def redact_argv(argv: list[Any]) -> list[str]:
+    redacted: list[str] = []
+    hide_next = False
+    for item in argv:
+        arg = str(item)
+        lower = arg.lower().lstrip("-")
+        if hide_next:
+            redacted.append("<redacted>")
+            hide_next = False
+            continue
+        redacted.append(redact_arg(arg))
+        if lower in SENSITIVE_ARG_WORDS and "=" not in arg:
+            hide_next = True
+    return redacted
+
+
+def audit_request_payload(request: BrokerRequest) -> dict[str, Any]:
+    return {
+        "id": request.request_id,
+        "client_id": request.client_id,
+        "command": argv_command(request.argv),
+        "argc": len(request.argv),
+        "argv": redact_argv(request.argv),
+        "class": request.command_class,
+    }
+
+
 def classify_command(argv: list[str]) -> str:
     if not argv:
         raise BrokerError("bad-request", "argv must not be empty")
@@ -411,10 +465,7 @@ class BrokerServer:
             self.audit(
                 "dispatch",
                 {
-                    "id": request.request_id,
-                    "client_id": request.client_id,
-                    "argv": request.argv,
-                    "class": request.command_class,
+                    **audit_request_payload(request),
                     "backend": self.backend.name,
                 },
             )
@@ -484,12 +535,7 @@ class BrokerServer:
             response_queue: "queue.Queue[BrokerResponse]" = queue.Queue(maxsize=1)
             self.audit(
                 "accept",
-                {
-                    "id": request.request_id,
-                    "client_id": request.client_id,
-                    "argv": request.argv,
-                    "class": request.command_class,
-                },
+                audit_request_payload(request),
             )
             self.work_queue.put(WorkItem(request, response_queue))
             response = response_queue.get(timeout=(request.timeout_ms / 1000.0) + 5.0)
@@ -546,6 +592,184 @@ def make_backend(args: argparse.Namespace) -> Backend:
     if args.backend == "fake":
         return FakeBackend()
     return AcmCmdv1Backend(args.bridge_host, args.bridge_port)
+
+
+def read_audit_jsonl(path: Path) -> tuple[list[dict[str, Any]], list[dict[str, Any]]]:
+    records: list[dict[str, Any]] = []
+    malformed: list[dict[str, Any]] = []
+    if not path.exists():
+        raise RuntimeError(f"audit file does not exist: {path}")
+    with path.open("r", encoding="utf-8", errors="replace") as file_obj:
+        for line_no, line in enumerate(file_obj, start=1):
+            text = line.strip()
+            if not text:
+                continue
+            try:
+                payload = json.loads(text)
+            except json.JSONDecodeError as exc:
+                malformed.append({"line": line_no, "error": str(exc), "text": text[:200]})
+                continue
+            if not isinstance(payload, dict):
+                malformed.append({"line": line_no, "error": "record is not a JSON object", "text": text[:200]})
+                continue
+            payload["_line"] = line_no
+            records.append(payload)
+    return records, malformed
+
+
+def sanitized_audit_record(record: dict[str, Any]) -> dict[str, Any]:
+    sanitized = dict(record)
+    if "argv" in sanitized and isinstance(sanitized["argv"], list):
+        sanitized["argv"] = redact_argv(sanitized["argv"])
+    if "error" in sanitized and isinstance(sanitized["error"], str):
+        sanitized["error"] = sanitized["error"][:512]
+    return sanitized
+
+
+def count_by_key(records: list[dict[str, Any]], key: str) -> dict[str, int]:
+    counts = Counter(str(record.get(key, "missing")) for record in records)
+    return dict(sorted(counts.items()))
+
+
+def summarize_audit(records: list[dict[str, Any]],
+                    malformed: list[dict[str, Any]],
+                    audit_path: Path) -> dict[str, Any]:
+    event_counts = count_by_key(records, "event")
+    accepted: dict[str, list[dict[str, Any]]] = defaultdict(list)
+    dispatched: dict[str, list[dict[str, Any]]] = defaultdict(list)
+    results: dict[str, list[dict[str, Any]]] = defaultdict(list)
+    result_records: list[dict[str, Any]] = []
+    command_counts: Counter[str] = Counter()
+
+    for record in records:
+        event = record.get("event")
+        request_id = record.get("id")
+        if isinstance(record.get("command"), str):
+            command_counts[str(record["command"])] += 1
+        elif isinstance(record.get("argv"), list) and record["argv"]:
+            command_counts[str(record["argv"][0])] += 1
+        if not isinstance(request_id, str) or not request_id:
+            continue
+        if event == "accept":
+            accepted[request_id].append(record)
+        elif event == "dispatch":
+            dispatched[request_id].append(record)
+        elif event == "result":
+            results[request_id].append(record)
+            result_records.append(record)
+
+    accepted_ids = set(accepted)
+    dispatched_ids = set(dispatched)
+    result_ids = set(results)
+    missing_dispatch = sorted(accepted_ids - dispatched_ids)
+    missing_result = sorted(dispatched_ids - result_ids)
+    duplicate_results = sorted(request_id for request_id, rows in results.items() if len(rows) > 1)
+    orphan_results = sorted(result_ids - dispatched_ids)
+    non_ok_results = [record for record in result_records if not record.get("ok")]
+    durations = [
+        int(record["duration_ms"])
+        for record in result_records
+        if isinstance(record.get("duration_ms"), int)
+    ]
+    integrity_ok = (
+        not malformed and
+        not missing_dispatch and
+        not missing_result and
+        not duplicate_results and
+        not orphan_results
+    )
+
+    return {
+        "schema": "a90-broker-audit-report-v188",
+        "audit_path": str(audit_path),
+        "record_count": len(records),
+        "malformed_count": len(malformed),
+        "event_counts": event_counts,
+        "request_counts": {
+            "accepted": len(accepted_ids),
+            "dispatched": len(dispatched_ids),
+            "results": len(result_ids),
+            "non_ok_results": len(non_ok_results),
+        },
+        "class_counts": count_by_key(result_records, "class"),
+        "backend_counts": count_by_key(result_records, "backend"),
+        "status_counts": count_by_key(result_records, "status"),
+        "command_counts": dict(sorted(command_counts.items())),
+        "duration_ms": {
+            "min": min(durations) if durations else None,
+            "max": max(durations) if durations else None,
+            "avg": round(sum(durations) / len(durations), 3) if durations else None,
+        },
+        "integrity": {
+            "ok": integrity_ok,
+            "malformed": malformed,
+            "missing_dispatch": missing_dispatch,
+            "missing_result": missing_result,
+            "duplicate_results": duplicate_results,
+            "orphan_results": orphan_results,
+        },
+        "non_ok_results": [sanitized_audit_record(record) for record in non_ok_results[-32:]],
+    }
+
+
+def render_audit_markdown(summary: dict[str, Any]) -> str:
+    result = "PASS" if summary["integrity"]["ok"] else "FAIL"
+    lines = [
+        "# A90B1 Broker Audit Report\n\n",
+        f"- result: `{result}`\n",
+        f"- audit_path: `{summary['audit_path']}`\n",
+        f"- records: `{summary['record_count']}`\n",
+        f"- malformed: `{summary['malformed_count']}`\n",
+        f"- accepted: `{summary['request_counts']['accepted']}`\n",
+        f"- dispatched: `{summary['request_counts']['dispatched']}`\n",
+        f"- results: `{summary['request_counts']['results']}`\n",
+        f"- non_ok_results: `{summary['request_counts']['non_ok_results']}`\n",
+        f"- duration_ms: `{summary['duration_ms']}`\n\n",
+        "## Event Counts\n\n",
+    ]
+    for key, value in summary["event_counts"].items():
+        lines.append(f"- `{key}`: `{value}`\n")
+    lines.append("\n## Status Counts\n\n")
+    for key, value in summary["status_counts"].items():
+        lines.append(f"- `{key}`: `{value}`\n")
+    lines.append("\n## Class Counts\n\n")
+    for key, value in summary["class_counts"].items():
+        lines.append(f"- `{key}`: `{value}`\n")
+    lines.append("\n## Integrity\n\n")
+    integrity = summary["integrity"]
+    for key in ("missing_dispatch", "missing_result", "duplicate_results", "orphan_results"):
+        lines.append(f"- `{key}`: `{len(integrity[key])}`\n")
+    if summary["non_ok_results"]:
+        lines.append("\n## Non-OK Results\n\n")
+        for record in summary["non_ok_results"]:
+            lines.append(
+                f"- id=`{record.get('id')}` status=`{record.get('status')}` "
+                f"rc=`{record.get('rc')}` class=`{record.get('class')}` "
+                f"backend=`{record.get('backend')}`\n"
+            )
+    return "".join(lines)
+
+
+def cmd_report(args: argparse.Namespace) -> int:
+    audit_path = args.audit if args.audit else args.runtime_dir / args.audit_name
+    out_dir = args.out_dir if args.out_dir else args.runtime_dir / "audit-report"
+    ensure_private_dir(out_dir)
+    records, malformed = read_audit_jsonl(audit_path)
+    sanitized_records = [sanitized_audit_record(record) for record in records]
+    summary = summarize_audit(records, malformed, audit_path)
+    write_private_json(out_dir / "broker-audit-summary.json", summary)
+    write_private_json(out_dir / "broker-audit-records-redacted.json", {"records": sanitized_records})
+    write_private_text(out_dir / "broker-audit-report.md", render_audit_markdown(summary))
+    if args.json:
+        print(json.dumps(summary, ensure_ascii=False, indent=2, sort_keys=True))
+    else:
+        result = "PASS" if summary["integrity"]["ok"] else "FAIL"
+        print(
+            f"{result} audit={audit_path} records={summary['record_count']} "
+            f"results={summary['request_counts']['results']} "
+            f"non_ok={summary['request_counts']['non_ok_results']} out={out_dir}"
+        )
+    return 0 if summary["integrity"]["ok"] or args.allow_integrity_fail else 1
 
 
 def cmd_serve(args: argparse.Namespace) -> int:
@@ -641,6 +865,13 @@ def cmd_selftest(_: argparse.Namespace) -> int:
         if blocked_response.get("status") != "operator-required":
             raise RuntimeError(f"reboot was not blocked: {blocked_response}")
 
+        records, malformed = read_audit_jsonl(audit_path)
+        summary = summarize_audit(records, malformed, audit_path)
+        if not summary["integrity"]["ok"]:
+            raise RuntimeError(f"audit integrity failed: {summary['integrity']}")
+        if summary["request_counts"]["results"] != 3:
+            raise RuntimeError(f"unexpected audit result count: {summary['request_counts']}")
+
         print("a90_broker selftest: PASS")
         return 0
     finally:
@@ -654,6 +885,12 @@ def cmd_selftest(_: argparse.Namespace) -> int:
             meta_file = temp_dir / "broker.json"
             if meta_file.exists() and not meta_file.is_symlink():
                 meta_file.unlink()
+            report_dir = temp_dir / "audit-report"
+            if report_dir.exists() and not report_dir.is_symlink():
+                for child in report_dir.iterdir():
+                    if child.is_file() and not child.is_symlink():
+                        child.unlink()
+                report_dir.rmdir()
             temp_dir.rmdir()
         except OSError:
             pass
@@ -684,6 +921,15 @@ def build_parser() -> argparse.ArgumentParser:
     call.add_argument("--allow-error", action="store_true")
     call.add_argument("command", nargs=argparse.REMAINDER)
     call.set_defaults(func=cmd_call)
+
+    report = subparsers.add_parser("report", help="summarize and validate broker audit JSONL")
+    report.add_argument("--runtime-dir", type=Path, default=DEFAULT_RUNTIME_DIR)
+    report.add_argument("--audit-name", default=DEFAULT_AUDIT_NAME)
+    report.add_argument("--audit", type=Path)
+    report.add_argument("--out-dir", type=Path)
+    report.add_argument("--json", action="store_true")
+    report.add_argument("--allow-integrity-fail", action="store_true")
+    report.set_defaults(func=cmd_report)
 
     selftest = subparsers.add_parser("selftest", help="run broker fake-backend selftest")
     selftest.set_defaults(func=cmd_selftest)

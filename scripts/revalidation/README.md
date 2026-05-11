@@ -44,7 +44,7 @@
   - backend `acm-cmdv1`는 기존 `a90ctl.run_cmdv1_command()`를 사용해 USB ACM bridge에 명령을 전달
   - backend `fake`와 `selftest`로 request id, observe command, rebind/destructive block 동작을 로컬 검증
   - `reboot`/`recovery`/`poweroff` 같은 rebind/destructive command는 broker multiplex 대상이 아니며 foreground raw-control 경로를 유지
-  - audit JSONL은 private/no-follow helper를 통해 owner-only 파일로 남김
+  - audit JSONL은 private/no-follow helper를 통해 owner-only 파일로 남기고, v188 `report`로 integrity/summary/redacted records를 생성
 - `native_init_flash.py`
   - TWRP recovery ADB에서 native init boot image를 boot 파티션에 기록
   - `adb devices` 출력을 whitespace split으로 파싱해 `recovery` 상태를 안정적으로 감지
@@ -195,6 +195,9 @@ python3 ./scripts/revalidation/a90_broker.py serve \
 python3 ./scripts/revalidation/a90_broker.py call \
   --runtime-dir tmp/a90-broker \
   --json version
+
+python3 ./scripts/revalidation/a90_broker.py report \
+  --runtime-dir tmp/a90-broker
 ```
 
 하네스가 broker를 통하게 하는 예:
