@@ -407,7 +407,33 @@
   - command class: observe, operator-action, exclusive, rebind/destructive
   - request id, client id, timeout, cancel, backend, audit JSONL
   - ACM direct path는 rescue로 유지하고 public/multi-client root shell로 확장하지 않음
-- 다음 실행 항목: v186 host broker skeleton implementation
+- 다음 실행 항목: v186 host broker skeleton live ACM smoke
+
+### V186. Host Broker Skeleton — STARTED
+
+- baseline device build: `A90 Linux init 0.9.59 (v159)`
+- device flash: 없음. v186은 host-side broker skeleton이며 별도 native-init boot image 없음
+- 구현:
+  - `scripts/revalidation/a90_broker.py`
+  - `A90B1` JSON request/response
+  - private Unix socket endpoint
+  - single worker queue
+  - backend `acm-cmdv1` wrapper around `run_cmdv1_command()`
+  - backend `fake` selftest/smoke
+  - rebind/destructive command broker block
+  - private audit JSONL
+- 검증:
+  - Python compile PASS
+  - fake backend selftest PASS
+  - fake Unix socket serve/call smoke PASS
+  - live ACM `version`/`status` through broker PASS
+  - concurrent read-only clients `version`/`status`/`bootstatus` through broker PASS
+  - live ACM `selftest verbose` through broker PASS
+  - live backend rebind/destructive block `reboot` PASS
+- 남은 검증:
+  - broker audit bundle retention/reporting
+  - harness `DeviceClient` broker backend
+- 다음 실행 항목: v187 harness `DeviceClient` broker backend
 
 ### Planned. v178-v184 Mixed Soak / Serverization Gate Cycle
 
@@ -2751,8 +2777,9 @@ python3 ./scripts/revalidation/physical_usb_reconnect_check.py --manual-host-con
 
 3. v186+ Broker Skeleton / Harness Integration
 
-   - `A90B1` host-local broker endpoint와 ACM `cmdv1` backend을 구현한다
-   - observer/supervisor/read-only validators가 raw bridge를 직접 점유하지 않도록 broker backend을 추가한다
+   - `A90B1` host-local broker skeleton은 `scripts/revalidation/a90_broker.py`로 시작했다
+   - live ACM bridge smoke, concurrent read-only client, rebind block 검증은 PASS했다
+   - 다음은 observer/supervisor/read-only validators가 raw bridge를 직접 점유하지 않도록 broker backend을 추가하는 작업이다
 
 4. v190+ Broker Mixed-Soak Gate 이후 Wi-Fi 재개
 

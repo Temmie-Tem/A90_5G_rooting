@@ -38,6 +38,13 @@
   - 단순 whitespace-free 인자는 기존 `cmdv1 <command> [args...]` wire format 유지
   - Batch 3 이후 자동 재시도는 관찰 명령 allowlist에만 적용하고, 그 외 명령은 `--retry-unsafe`가 필요
   - Batch 3 이후 child output의 가짜 `A90P1 END`는 real trailer/prompt와 sequence matching으로 걸러냄
+- `a90_broker.py`
+  - v186 `A90B1` host-local broker skeleton
+  - private Unix socket endpoint를 만들고 여러 host client request를 single worker queue로 직렬화
+  - backend `acm-cmdv1`는 기존 `a90ctl.run_cmdv1_command()`를 사용해 USB ACM bridge에 명령을 전달
+  - backend `fake`와 `selftest`로 request id, observe command, rebind/destructive block 동작을 로컬 검증
+  - `reboot`/`recovery`/`poweroff` 같은 rebind/destructive command는 broker multiplex 대상이 아니며 foreground raw-control 경로를 유지
+  - audit JSONL은 private/no-follow helper를 통해 owner-only 파일로 남김
 - `native_init_flash.py`
   - TWRP recovery ADB에서 native init boot image를 boot 파티션에 기록
   - `adb devices` 출력을 whitespace split으로 파싱해 `recovery` 상태를 안정적으로 감지
@@ -166,6 +173,28 @@ framed one-shot command 예:
 python3 ./scripts/revalidation/a90ctl.py status
 python3 ./scripts/revalidation/a90ctl.py --json --allow-error nope
 python3 ./scripts/revalidation/a90ctl.py --hide-on-busy status
+```
+
+A90B1 broker smoke 예:
+
+```bash
+python3 ./scripts/revalidation/a90_broker.py selftest
+python3 ./scripts/revalidation/a90_broker.py serve --backend fake --runtime-dir tmp/a90-broker
+python3 ./scripts/revalidation/a90_broker.py call --runtime-dir tmp/a90-broker --json status
+```
+
+A90B1 broker로 실제 ACM bridge를 감싸는 예:
+
+```bash
+python3 ./scripts/revalidation/a90_broker.py serve \
+  --backend acm-cmdv1 \
+  --runtime-dir tmp/a90-broker \
+  --bridge-host 127.0.0.1 \
+  --bridge-port 54321
+
+python3 ./scripts/revalidation/a90_broker.py call \
+  --runtime-dir tmp/a90-broker \
+  --json version
 ```
 
 native init 이미지 플래시/검증 예:

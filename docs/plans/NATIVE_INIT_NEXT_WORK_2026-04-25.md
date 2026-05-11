@@ -965,8 +965,9 @@ Samsung bootloader
    - v184 24h+ readiness gate는 PASS했다
    - Wi-Fi baseline refresh와 exposure hardening은 post-v184 roadmap에서 우선순위를 다시 정한다
 3. v186+ Broker Skeleton / Harness Integration
-   - `A90B1` host-local broker endpoint, request id, command class, audit JSONL, ACM backend을 먼저 구현한다
-   - observer/supervisor가 raw bridge를 직접 점유하지 않도록 broker backend을 추가한다
+   - `A90B1` host-local broker skeleton은 `scripts/revalidation/a90_broker.py`로 시작했다
+   - live ACM bridge smoke, concurrent read-only client, rebind block 검증은 PASS했다
+   - 다음은 observer/supervisor가 raw bridge를 직접 점유하지 않도록 broker backend을 추가하는 작업이다
 4. v190+ Broker Mixed-Soak Gate
    - broker를 통해 observer, workload, operator-style commands가 동시에 돌아도 serial/NCM 제어가 섞이지 않는지 검증한다
 5. 이후 Wi-Fi Baseline Refresh / Network Exposure Hardening
