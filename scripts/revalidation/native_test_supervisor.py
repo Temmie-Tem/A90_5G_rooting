@@ -5,6 +5,7 @@ from __future__ import annotations
 
 import argparse
 import datetime as dt
+import os
 import subprocess
 import sys
 import time
@@ -32,6 +33,8 @@ from a90harness.schema import CheckResult, CommandRecord, HarnessResult  # noqa:
 
 
 DEFAULT_EXPECT_VERSION = "A90 Linux init 0.9.59 (v159)"
+DEFAULT_BROKER_RUNTIME_DIR = Path("tmp/a90-broker")
+DEFAULT_BROKER_SOCKET_NAME = "a90b1.sock"
 MODULES = {
     CpuMemoryProfilesModule.name: CpuMemoryProfilesModule,
     CpuMemThermalModule.name: CpuMemThermalModule,
@@ -48,6 +51,29 @@ def utc_stamp() -> str:
 
 def default_run_dir(label: str) -> Path:
     return REPO_ROOT / "tmp" / "soak" / "harness" / f"{label}-{utc_stamp()}"
+
+
+def resolve_repo_path(path: Path) -> Path:
+    return path if path.is_absolute() else REPO_ROOT / path
+
+
+def broker_socket_path(args: argparse.Namespace) -> Path | None:
+    if args.device_backend != "broker":
+        return None
+    if args.broker_socket is not None:
+        return resolve_repo_path(args.broker_socket)
+    return resolve_repo_path(args.broker_runtime_dir) / args.broker_socket_name
+
+
+def make_device_client(args: argparse.Namespace) -> DeviceClient:
+    return DeviceClient(
+        args.host,
+        args.port,
+        args.timeout,
+        backend=args.device_backend,
+        broker_socket=broker_socket_path(args),
+        client_id=args.broker_client_id,
+    )
 
 
 def parse_duration(value: str) -> float | None:
@@ -161,7 +187,7 @@ def run_smoke(args: argparse.Namespace) -> int:
     run_dir = run_dir if run_dir.is_absolute() else REPO_ROOT / run_dir
     store = EvidenceStore(run_dir)
     store.mkdir("commands")
-    client = DeviceClient(args.host, args.port, args.timeout)
+    client = make_device_client(args)
     started = time.monotonic()
 
     commands: list[CommandRecord] = []
@@ -189,6 +215,7 @@ def run_smoke(args: argparse.Namespace) -> int:
         "expect_version": args.expect_version,
         "version_matches": version_matches,
         "host": host_metadata(),
+        "device_client": client.metadata(),
         "result": result.to_dict(),
         "policy": "host-side smoke; cmdv1 version/status only; no device mutation",
     }
@@ -201,7 +228,7 @@ def run_observe(args: argparse.Namespace) -> int:
     run_dir = args.run_dir if args.run_dir is not None else default_run_dir("v171-observer")
     run_dir = run_dir if run_dir.is_absolute() else REPO_ROOT / run_dir
     store = EvidenceStore(run_dir)
-    client = DeviceClient(args.host, args.port, args.timeout)
+    client = make_device_client(args)
     started = time.monotonic()
 
     observer_summary = run_observer(
@@ -230,6 +257,7 @@ def run_observe(args: argparse.Namespace) -> int:
         "expect_version": args.expect_version,
         "version_matches": version_matches,
         "host": host_metadata(),
+        "device_client": client.metadata(),
         "observer": observer_summary.to_dict(),
         "result": result.to_dict(),
         "policy": "read-only observer; no device mutation; supports bounded and unlimited duration",
@@ -322,7 +350,7 @@ def run_module(args: argparse.Namespace) -> int:
     run_dir = args.run_dir if args.run_dir is not None else default_run_dir(f"{module.cycle_label}-{module.name}")
     run_dir = run_dir if run_dir.is_absolute() else REPO_ROOT / run_dir
     store = EvidenceStore(run_dir)
-    client = DeviceClient(args.host, args.port, args.timeout)
+    client = make_device_client(args)
     started = time.monotonic()
 
     runner = ModuleRunner(
@@ -369,6 +397,7 @@ def run_module(args: argparse.Namespace) -> int:
         "expect_version": args.expect_version,
         "version_matches": version_matches,
         "host": host_metadata(),
+        "device_client": client.metadata(),
         "module": module_outcome.to_dict(),
         "gate": gate.to_dict(),
         "observer": observer_summary.to_dict() if observer_summary is not None else None,
@@ -387,7 +416,7 @@ def run_mixed_soak(args: argparse.Namespace) -> int:
     run_dir = args.run_dir if args.run_dir is not None else default_run_dir("v179-mixed-soak")
     run_dir = run_dir if run_dir.is_absolute() else REPO_ROOT / run_dir
     store = EvidenceStore(run_dir)
-    client = DeviceClient(args.host, args.port, args.timeout)
+    client = make_device_client(args)
     started = time.monotonic()
 
     seed = args.seed
@@ -470,6 +499,7 @@ def run_mixed_soak(args: argparse.Namespace) -> int:
         "duration_sec": time.monotonic() - started,
         "expect_version": args.expect_version,
         "host": host_metadata(),
+        "device_client": client.metadata(),
         "schedule": schedule_payload,
         "gates": gates,
         "mixed_soak": mixed.to_dict(),
@@ -512,6 +542,16 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--port", type=int, default=54321)
     parser.add_argument("--timeout", type=float, default=20.0)
     parser.add_argument("--expect-version", default=DEFAULT_EXPECT_VERSION)
+    parser.add_argument(
+        "--device-backend",
+        choices=("direct", "broker"),
+        default="direct",
+        help="device command backend: direct cmdv1 bridge or A90B1 broker",
+    )
+    parser.add_argument("--broker-runtime-dir", type=Path, default=DEFAULT_BROKER_RUNTIME_DIR)
+    parser.add_argument("--broker-socket-name", default=DEFAULT_BROKER_SOCKET_NAME)
+    parser.add_argument("--broker-socket", type=Path)
+    parser.add_argument("--broker-client-id", default=f"supervisor:{os.getpid()}")
     subparsers = parser.add_subparsers(dest="command", required=True)
 
     list_parser = subparsers.add_parser("list", help="list validation modules and gate state")

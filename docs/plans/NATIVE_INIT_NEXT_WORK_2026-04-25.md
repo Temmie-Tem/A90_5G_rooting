@@ -967,7 +967,10 @@ Samsung bootloader
 3. v186+ Broker Skeleton / Harness Integration
    - `A90B1` host-local broker skeleton은 `scripts/revalidation/a90_broker.py`로 시작했다
    - live ACM bridge smoke, concurrent read-only client, rebind block 검증은 PASS했다
-   - 다음은 observer/supervisor가 raw bridge를 직접 점유하지 않도록 broker backend을 추가하는 작업이다
+   - `DeviceClient`와 `native_test_supervisor.py`의 broker backend 연결을 시작했다
+   - broker-backed supervisor smoke/observe live 검증은 PASS했다
+   - mixed-soak dry-run도 PASS했다
+   - 다음은 v188 broker audit/reporting 또는 NCM/tcpctl backend 선택이다
 4. v190+ Broker Mixed-Soak Gate
    - broker를 통해 observer, workload, operator-style commands가 동시에 돌아도 serial/NCM 제어가 섞이지 않는지 검증한다
 5. 이후 Wi-Fi Baseline Refresh / Network Exposure Hardening

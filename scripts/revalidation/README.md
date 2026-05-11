@@ -197,6 +197,15 @@ python3 ./scripts/revalidation/a90_broker.py call \
   --json version
 ```
 
+하네스가 broker를 통하게 하는 예:
+
+```bash
+python3 ./scripts/revalidation/native_test_supervisor.py \
+  --device-backend broker \
+  --broker-runtime-dir tmp/a90-broker \
+  smoke
+```
+
 native init 이미지 플래시/검증 예:
 
 ```bash

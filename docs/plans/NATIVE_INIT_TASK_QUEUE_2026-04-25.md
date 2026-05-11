@@ -432,8 +432,28 @@
   - live backend rebind/destructive block `reboot` PASS
 - 남은 검증:
   - broker audit bundle retention/reporting
-  - harness `DeviceClient` broker backend
-- 다음 실행 항목: v187 harness `DeviceClient` broker backend
+- 다음 실행 항목: v188 broker audit/reporting or NCM/tcpctl backend selection
+
+### V187. Harness Broker Backend — PASS
+
+- 보고서: `docs/reports/NATIVE_INIT_V187_HARNESS_BROKER_BACKEND_2026-05-11.md`
+- baseline device build: `A90 Linux init 0.9.59 (v159)`
+- device flash: 없음. v187은 host harness backend integration이며 별도 native-init boot image 없음
+- 구현:
+  - `a90harness.device.DeviceClient`에 `backend=direct|broker` 추가
+  - broker backend은 `A90B1` Unix socket으로 request id/client id/argv/timeout을 전달
+  - direct backend은 기존 `run_cmdv1_command()` 경로 유지
+  - `native_test_supervisor.py`에 `--device-backend broker`, `--broker-runtime-dir`, `--broker-socket` 옵션 추가
+  - supervisor manifest에 `device_client` metadata 기록
+- 남은 검증:
+  - 없음
+- 검증:
+  - Python compile PASS
+  - live broker-backed supervisor `smoke` PASS
+  - live broker-backed supervisor `observe --max-cycles 1` PASS
+  - broker option mixed-soak dry-run PASS
+  - evidence: `tmp/a90-v187-broker.7GzqCq/`, `tmp/a90-v187-dry.yGivGM/`
+- 다음 실행 항목: v188 broker audit/reporting or NCM/tcpctl backend selection
 
 ### Planned. v178-v184 Mixed Soak / Serverization Gate Cycle
 
@@ -2779,7 +2799,7 @@ python3 ./scripts/revalidation/physical_usb_reconnect_check.py --manual-host-con
 
    - `A90B1` host-local broker skeleton은 `scripts/revalidation/a90_broker.py`로 시작했다
    - live ACM bridge smoke, concurrent read-only client, rebind block 검증은 PASS했다
-   - 다음은 observer/supervisor/read-only validators가 raw bridge를 직접 점유하지 않도록 broker backend을 추가하는 작업이다
+   - observer/supervisor가 raw bridge를 직접 점유하지 않도록 broker backend을 추가했고 live smoke/observe PASS했다
 
 4. v190+ Broker Mixed-Soak Gate 이후 Wi-Fi 재개
 
