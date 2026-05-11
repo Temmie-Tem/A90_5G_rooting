@@ -7,7 +7,7 @@
 | finding_id | `94ed5ca8246481919bcb415840c3e58f` |
 | finding_url | https://chatgpt.com/codex/cloud/security/findings/94ed5ca8246481919bcb415840c3e58f |
 | severity | `medium` |
-| status | `confirmed-pending-patch` |
+| status | `mitigated-host-batch-h1` |
 | detected_at | `2026-05-11T19:22:42.006948Z` |
 | committed_at | `2026-05-11 21:41:54 +0900` |
 | commit_hash | `a801e4598e6e0cb139feca259d71b8f34e0b768d` |
@@ -26,7 +26,7 @@ The newly added NcmTcpctlBackend sends an auth line before run commands by defau
 
 ## Local Remediation
 
-- Parse the final non-empty tcpctl protocol trailer. Treat final `ERR ...` as failure and only accept final command `OK` as success.
+- Implemented in Batch H1; see `docs/security/SECURITY_FINDINGS_F047_F053_H1_REPORT_2026-05-12.md`. The NCM tcpctl backend now parses the final non-empty tcpctl trailer and treats final `ERR ...` as failure.
 
 ## Codex Cloud Detail
 

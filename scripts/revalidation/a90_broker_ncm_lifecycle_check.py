@@ -152,6 +152,7 @@ def smoke_command(args: argparse.Namespace, smoke_dir: Path) -> list[str]:
         str(args.tcp_port),
         "--tcp-timeout",
         str(args.tcp_timeout),
+        "--allow-exclusive",
         "--bridge-host",
         args.bridge_host,
         "--bridge-port",

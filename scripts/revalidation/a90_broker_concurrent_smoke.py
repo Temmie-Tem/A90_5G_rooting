@@ -105,6 +105,10 @@ def build_parser() -> argparse.ArgumentParser:
         action="store_true",
         help="explicitly allow legacy unauthenticated ncm-tcpctl mode for negative tests",
     )
+    parser.add_argument("--allow-operator", action="store_true",
+                        help="allow operator-action commands through a spawned broker")
+    parser.add_argument("--allow-exclusive", action="store_true",
+                        help="allow exclusive commands through a spawned broker")
     parser.add_argument("--clients", type=int, default=4)
     parser.add_argument("--rounds", type=int, default=3)
     parser.add_argument("--timeout", type=float, default=20.0)
@@ -167,6 +171,10 @@ def start_broker(args: argparse.Namespace, runtime_dir: Path) -> subprocess.Pope
         command.append("--no-auth")
     if args.allow_no_auth:
         command.append("--allow-no-auth")
+    if args.allow_operator:
+        command.append("--allow-operator")
+    if args.allow_exclusive:
+        command.append("--allow-exclusive")
     return subprocess.Popen(
         command,
         stdout=subprocess.PIPE,

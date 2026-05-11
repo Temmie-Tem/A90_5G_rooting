@@ -7,7 +7,7 @@
 | finding_id | `3e2d2646d61c819189e730e29dfc70b2` |
 | finding_url | https://chatgpt.com/codex/cloud/security/findings/3e2d2646d61c819189e730e29dfc70b2 |
 | severity | `high` |
-| status | `confirmed-pending-patch` |
+| status | `mitigated-host-batch-h1` |
 | detected_at | `2026-05-11T19:23:10.587898Z` |
 | committed_at | `2026-05-11 21:46:35 +0900` |
 | commit_hash | `d0e7956a28174a7dd8d80f1578f5888ce328b94f` |
@@ -26,7 +26,7 @@ The added recovery test starts an ncm-tcpctl broker pointed at TCP port 29999 an
 
 ## Local Remediation
 
-- Patch recovery live negative test to avoid retrieving/sending the real tcpctl token to an arbitrary listener; require a closed-port precheck or use explicit dummy/no-auth test mode that cannot leak production token.
+- Implemented in Batch H1; see `docs/security/SECURITY_FINDINGS_F047_F053_H1_REPORT_2026-05-12.md`. The recovery live negative test now refuses an already-open test port and uses explicit no-auth/allow-no-auth for the listener-down path, so it does not fetch or send a real tcpctl token to an arbitrary listener.
 
 ## Codex Cloud Detail
 

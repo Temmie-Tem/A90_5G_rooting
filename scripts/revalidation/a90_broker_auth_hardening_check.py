@@ -16,7 +16,7 @@ from typing import Any
 SCRIPT_DIR = Path(__file__).resolve().parent
 sys.path.insert(0, str(SCRIPT_DIR))
 
-from a90_broker import DEFAULT_AUDIT_NAME, DEFAULT_SOCKET_NAME, connect_and_call  # noqa: E402
+from a90_broker import DEFAULT_AUDIT_NAME, DEFAULT_SOCKET_NAME, NcmTcpctlBackend, connect_and_call  # noqa: E402
 from a90harness.evidence import EvidenceStore, ensure_private_dir  # noqa: E402
 
 
@@ -54,7 +54,7 @@ def run_command(command: list[str], timeout: float = 10.0) -> subprocess.Complet
     )
 
 
-def start_broker(runtime_dir: Path, *extra: str) -> subprocess.Popen[str]:
+def start_broker(runtime_dir: Path, *extra: str, backend: str = "ncm-tcpctl") -> subprocess.Popen[str]:
     ensure_private_dir(runtime_dir)
     command = [
         sys.executable,
@@ -63,7 +63,7 @@ def start_broker(runtime_dir: Path, *extra: str) -> subprocess.Popen[str]:
         "--runtime-dir",
         str(runtime_dir),
         "--backend",
-        "ncm-tcpctl",
+        backend,
         *extra,
     ]
     return subprocess.Popen(
@@ -173,7 +173,7 @@ def check_allow_no_auth_metadata(store: EvidenceStore, ready_timeout: float) -> 
         store.write_json("no-auth-allowed-response.json", response)
         store.write_text("no-auth-allowed-metadata.json", metadata)
         ok = (
-            response.get("backend") == "acm-cmdv1" and
+            response.get("backend") in {"acm-cmdv1", "ncm-tcpctl"} and
             '"required": false' in metadata and
             '"token_source": "disabled"' in metadata
         )
@@ -184,6 +184,89 @@ def check_allow_no_auth_metadata(store: EvidenceStore, ready_timeout: float) -> 
             store.write_text("no-auth-allowed-stdout.txt", stdout)
         if stderr:
             store.write_text("no-auth-allowed-stderr.txt", stderr)
+
+
+def broker_call(socket_path: Path, argv: list[str], command_class: str | None = None) -> dict[str, Any]:
+    payload: dict[str, Any] = {
+        "proto": "A90B1",
+        "id": f"v193-policy-{os.getpid()}-{len(argv)}-{'-'.join(argv[:2])}",
+        "client_id": "v193-auth-check",
+        "op": "cmd",
+        "argv": argv,
+        "timeout_ms": 1000,
+    }
+    if command_class is not None:
+        payload["class"] = command_class
+    return connect_and_call(socket_path, payload, 3.0)
+
+
+def check_default_policy_blocks_mutating(store: EvidenceStore, ready_timeout: float) -> CheckResult:
+    runtime_dir = store.mkdir("default-policy-runtime")
+    socket_path = runtime_dir / DEFAULT_SOCKET_NAME
+    process = start_broker(runtime_dir, backend="fake")
+    try:
+        wait_for_socket(socket_path, process, ready_timeout)
+        status = broker_call(socket_path, ["status"], "observe")
+        run = broker_call(socket_path, ["run", "id"], "exclusive")
+        menu = broker_call(socket_path, ["menu"], "operator-action")
+        reboot = broker_call(socket_path, ["reboot"], "rebind-destructive")
+        store.write_json("default-policy-responses.json", {
+            "status": status,
+            "run": run,
+            "menu": menu,
+            "reboot": reboot,
+        })
+        ok = (
+            status.get("ok") is True and
+            run.get("ok") is False and run.get("status") == "exclusive-required" and
+            menu.get("ok") is False and menu.get("status") == "operator-required" and
+            reboot.get("ok") is False and reboot.get("status") == "operator-required"
+        )
+        return CheckResult("default broker policy blocks mutating commands", ok, f"run={run.get('status')} menu={menu.get('status')} reboot={reboot.get('status')}")
+    finally:
+        stdout, stderr = stop_broker(process)
+        if stdout:
+            store.write_text("default-policy-stdout.txt", stdout)
+        if stderr:
+            store.write_text("default-policy-stderr.txt", stderr)
+
+
+def check_allow_policy_flags(store: EvidenceStore, ready_timeout: float) -> CheckResult:
+    runtime_dir = store.mkdir("allow-policy-runtime")
+    socket_path = runtime_dir / DEFAULT_SOCKET_NAME
+    process = start_broker(runtime_dir, "--allow-exclusive", backend="fake")
+    try:
+        wait_for_socket(socket_path, process, ready_timeout)
+        run = broker_call(socket_path, ["run", "id"], "exclusive")
+        menu = broker_call(socket_path, ["menu"], "operator-action")
+        store.write_json("allow-policy-responses.json", {"run": run, "menu": menu})
+        ok = run.get("ok") is True and menu.get("ok") is True
+        return CheckResult("allow-exclusive permits exclusive and operator classes", ok, f"run={run.get('status')} menu={menu.get('status')}")
+    finally:
+        stdout, stderr = stop_broker(process)
+        if stdout:
+            store.write_text("allow-policy-stdout.txt", stdout)
+        if stderr:
+            store.write_text("allow-policy-stderr.txt", stderr)
+
+
+def check_tcpctl_final_status_parser(_: EvidenceStore) -> CheckResult:
+    cases = {
+        "auth_then_err": ("a90_tcpctl v1 ready\nOK authenticated\n[exit 1]\nERR exit=1\n", "error"),
+        "auth_then_ok": ("a90_tcpctl v1 ready\nOK authenticated\n[exit 0]\nOK\n", "ok"),
+        "auth_required": ("a90_tcpctl v1 ready\nERR auth-required\n", "auth-failed"),
+        "auth_failed": ("a90_tcpctl v1 ready\nERR auth-failed\n", "auth-failed"),
+    }
+    failures: list[str] = []
+    for name, (text, expected) in cases.items():
+        actual = NcmTcpctlBackend.tcpctl_status(text)
+        if actual != expected:
+            failures.append(f"{name}: expected {expected} got {actual}")
+    return CheckResult(
+        "tcpctl final status parser",
+        not failures,
+        "ok" if not failures else "; ".join(failures),
+    )
 
 
 def render_report(checks: list[CheckResult], pass_ok: bool, run_dir: Path) -> str:
@@ -206,6 +289,9 @@ def main() -> int:
         check_no_auth_requires_explicit_allow(store),
         check_bad_token_rejected(store),
         check_allow_no_auth_metadata(store, args.ready_timeout),
+        check_default_policy_blocks_mutating(store, args.ready_timeout),
+        check_allow_policy_flags(store, args.ready_timeout),
+        check_tcpctl_final_status_parser(store),
     ]
     pass_ok = all(check.ok for check in checks)
     summary: dict[str, Any] = {

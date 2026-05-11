@@ -7,7 +7,7 @@
 | finding_id | `1c09efe426088191a862c203b91a3a92` |
 | finding_url | https://chatgpt.com/codex/cloud/security/findings/1c09efe426088191a862c203b91a3a92 |
 | severity | `high` |
-| status | `confirmed-pending-patch` |
+| status | `mitigated-host-batch-h1` |
 | detected_at | `2026-05-11T11:30:26.335390Z` |
 | committed_at | `2026-05-11 18:45:32 +0900` |
 | commit_hash | `1e85d1b0827ca33882abb88ae34a0abe211625b0` |
@@ -26,7 +26,7 @@ The commit introduces a host-local multi-client broker intended to mediate acces
 
 ## Local Remediation
 
-- Add explicit authorization policy for broker clients. Default should allow observe-only unless an operator-capable mode/token/allow flag is present; keep destructive/rebind commands foreground/raw-only.
+- Implemented in Batch H1; see `docs/security/SECURITY_FINDINGS_F047_F053_H1_REPORT_2026-05-12.md`. The broker now defaults to observe-only and requires explicit `--allow-operator` or `--allow-exclusive` for mutating command classes; rebind/destructive commands remain blocked.
 
 ## Codex Cloud Detail
 

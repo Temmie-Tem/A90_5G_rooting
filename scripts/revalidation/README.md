@@ -213,6 +213,22 @@ python3 ./scripts/revalidation/a90_broker.py serve --backend fake --runtime-dir 
 python3 ./scripts/revalidation/a90_broker.py call --runtime-dir tmp/a90-broker --json status
 ```
 
+v201 이후 broker 기본 정책은 observe-only입니다. `run`, `cpustress`,
+`mountsd`, `menu` 같은 operator/exclusive 명령은 명시적으로 허용한 broker
+인스턴스에서만 실행합니다.
+
+```bash
+python3 ./scripts/revalidation/a90_broker.py serve \
+  --backend fake \
+  --runtime-dir tmp/a90-broker-exclusive \
+  --allow-exclusive
+
+python3 ./scripts/revalidation/a90_broker.py call \
+  --runtime-dir tmp/a90-broker-exclusive \
+  --json \
+  run id
+```
+
 A90B1 broker concurrent smoke 예:
 
 ```bash
@@ -305,7 +321,8 @@ A90B1 broker의 NCM/tcpctl backend 예:
 python3 ./scripts/revalidation/a90_broker.py serve \
   --backend ncm-tcpctl \
   --runtime-dir tmp/a90-broker-ncm \
-  --token "$A90_TCPCTL_TOKEN"
+  --token "$A90_TCPCTL_TOKEN" \
+  --allow-exclusive
 
 python3 ./scripts/revalidation/a90_broker.py call \
   --runtime-dir tmp/a90-broker-ncm \

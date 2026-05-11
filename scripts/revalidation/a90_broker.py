@@ -11,6 +11,7 @@ import re
 import shlex
 import socket
 import stat
+import struct
 import sys
 import tempfile
 import threading
@@ -189,6 +190,43 @@ class WorkItem:
     response_queue: "queue.Queue[BrokerResponse]"
 
 
+@dataclass(frozen=True)
+class BrokerPolicy:
+    allow_operator: bool = False
+    allow_exclusive: bool = False
+
+    def to_dict(self) -> dict[str, bool]:
+        return {
+            "allow_operator": self.allow_operator,
+            "allow_exclusive": self.allow_exclusive,
+            "allow_rebind_destructive": False,
+        }
+
+    def authorize(self, request: BrokerRequest) -> None:
+        if request.command_class == "observe":
+            return
+        if request.command_class == "operator-action":
+            if self.allow_operator or self.allow_exclusive:
+                return
+            raise BrokerError(
+                "operator-required",
+                "operator-action command requires --allow-operator or --allow-exclusive",
+            )
+        if request.command_class == "exclusive":
+            if self.allow_exclusive:
+                return
+            raise BrokerError(
+                "exclusive-required",
+                "exclusive command requires --allow-exclusive",
+            )
+        if request.command_class == "rebind-destructive":
+            raise BrokerError(
+                "operator-required",
+                "rebind/destructive command is not broker-multiplexed; use foreground raw control",
+            )
+        raise BrokerError("bad-request", f"unsupported command class: {request.command_class}")
+
+
 class BrokerError(RuntimeError):
     def __init__(self, status: str, message: str) -> None:
         super().__init__(message)
@@ -301,8 +339,14 @@ class NcmTcpctlBackend(Backend):
                 "ERR auth-failed" in text or
                 "ERR auth-token-unavailable" in text):
             return "auth-failed"
-        if "\nOK" in text or text.rstrip().endswith("OK"):
+        lines = [line.strip() for line in text.splitlines() if line.strip()]
+        if not lines:
+            return "error"
+        final = lines[-1]
+        if final == "OK":
             return "ok"
+        if final.startswith("ERR "):
+            return "error"
         return "error"
 
     def tcpctl_request(self, command: str, timeout_sec: float) -> str:
@@ -564,6 +608,17 @@ def write_json_line(conn: socket.socket, payload: dict[str, Any]) -> None:
     conn.sendall((json.dumps(payload, ensure_ascii=False, sort_keys=True) + "\n").encode("utf-8"))
 
 
+def peer_credentials(conn: socket.socket) -> dict[str, int] | None:
+    if not hasattr(socket, "SO_PEERCRED"):
+        return None
+    try:
+        data = conn.getsockopt(socket.SOL_SOCKET, socket.SO_PEERCRED, struct.calcsize("3i"))
+        pid, uid, gid = struct.unpack("3i", data)
+    except OSError:
+        return None
+    return {"pid": pid, "uid": uid, "gid": gid}
+
+
 def safe_unlink_socket(path: Path) -> None:
     try:
         info = path.lstat()
@@ -591,10 +646,11 @@ def prepare_runtime_paths(runtime_dir: Path,
 
 
 class BrokerServer:
-    def __init__(self, backend: Backend, socket_path: Path, audit_path: Path) -> None:
+    def __init__(self, backend: Backend, socket_path: Path, audit_path: Path, policy: BrokerPolicy | None = None) -> None:
         self.backend = backend
         self.socket_path = socket_path
         self.audit_path = audit_path
+        self.policy = policy or BrokerPolicy()
         self.work_queue: "queue.Queue[WorkItem | None]" = queue.Queue()
         self.audit_lock = threading.Lock()
         self.worker = threading.Thread(target=self.worker_loop, name="a90-broker-worker", daemon=True)
@@ -620,11 +676,7 @@ class BrokerServer:
                 },
             )
             try:
-                if request.command_class == "rebind-destructive":
-                    raise BrokerError(
-                        "operator-required",
-                        "rebind/destructive command is not broker-multiplexed; use foreground raw control",
-                    )
+                self.policy.authorize(request)
                 result = self.backend.execute(request)
                 duration_ms = monotonic_ms() - started
                 response = BrokerResponse(
@@ -677,6 +729,7 @@ class BrokerServer:
 
     def handle_client(self, conn: socket.socket) -> None:
         request_id = "missing"
+        peer = peer_credentials(conn)
         try:
             conn.settimeout(1.0)
             payload = read_json_line(conn)
@@ -685,7 +738,10 @@ class BrokerServer:
             response_queue: "queue.Queue[BrokerResponse]" = queue.Queue(maxsize=1)
             self.audit(
                 "accept",
-                audit_request_payload(request),
+                {
+                    **audit_request_payload(request),
+                    "peer": peer,
+                },
             )
             self.work_queue.put(WorkItem(request, response_queue))
             response = response_queue.get(timeout=(request.timeout_ms / 1000.0) + 5.0)
@@ -706,7 +762,10 @@ class BrokerServer:
             server.bind(str(self.socket_path))
             os.chmod(self.socket_path, 0o600)
             server.listen(16)
-            self.audit("start", {"socket": str(self.socket_path), "backend": self.backend.name})
+            self.audit(
+                "start",
+                {"socket": str(self.socket_path), "backend": self.backend.name, "policy": self.policy.to_dict()},
+            )
             log(f"ready socket={self.socket_path} backend={self.backend.name}")
             while True:
                 conn, _ = server.accept()
@@ -940,16 +999,18 @@ def cmd_serve(args: argparse.Namespace) -> int:
         backend = make_backend(args)
     except ValueError as exc:
         raise SystemExit(str(exc)) from exc
+    policy = BrokerPolicy(allow_operator=args.allow_operator, allow_exclusive=args.allow_exclusive)
     socket_path, audit_path = prepare_runtime_paths(args.runtime_dir, args.socket_name, args.audit_name)
     metadata = {
         "proto": PROTO,
         "backend": backend.name,
         "backend_metadata": backend.metadata(),
+        "policy": policy.to_dict(),
         "socket": str(socket_path),
         "audit": str(audit_path),
     }
     write_private_json(args.runtime_dir / "broker.json", metadata)
-    server = BrokerServer(backend, socket_path, audit_path)
+    server = BrokerServer(backend, socket_path, audit_path, policy)
     try:
         server.serve_forever()
     except KeyboardInterrupt:
@@ -1015,8 +1076,21 @@ def cmd_selftest(_: argparse.Namespace) -> int:
             "class": "exclusive",
         }
         mountsd_response = connect_and_call(socket_path, mountsd_request, 3.0)
-        if not mountsd_response.get("ok") or mountsd_response.get("class") != "exclusive":
-            raise RuntimeError(f"bare mountsd was not classified exclusive: {mountsd_response}")
+        if mountsd_response.get("ok") is not False or mountsd_response.get("status") != "exclusive-required":
+            raise RuntimeError(f"bare mountsd was not blocked as exclusive: {mountsd_response}")
+
+        menu_request = {
+            "proto": PROTO,
+            "id": "selftest-menu",
+            "client_id": "selftest",
+            "op": "cmd",
+            "argv": ["menu"],
+            "timeout_ms": 1000,
+            "class": "operator-action",
+        }
+        menu_response = connect_and_call(socket_path, menu_request, 3.0)
+        if menu_response.get("ok") is not False or menu_response.get("status") != "operator-required":
+            raise RuntimeError(f"menu was not blocked as operator-action: {menu_response}")
 
         blocked_request = {
             "proto": PROTO,
@@ -1035,7 +1109,7 @@ def cmd_selftest(_: argparse.Namespace) -> int:
         summary = summarize_audit(records, malformed, audit_path)
         if not summary["integrity"]["ok"]:
             raise RuntimeError(f"audit integrity failed: {summary['integrity']}")
-        if summary["request_counts"]["results"] != 3:
+        if summary["request_counts"]["results"] != 4:
             raise RuntimeError(f"unexpected audit result count: {summary['request_counts']}")
 
         print("a90_broker selftest: PASS")
@@ -1083,6 +1157,16 @@ def build_parser() -> argparse.ArgumentParser:
         "--allow-no-auth",
         action="store_true",
         help="explicitly allow legacy unauthenticated ncm-tcpctl mode for negative tests",
+    )
+    serve.add_argument(
+        "--allow-operator",
+        action="store_true",
+        help="allow operator-action commands such as menu/autohud through the broker",
+    )
+    serve.add_argument(
+        "--allow-exclusive",
+        action="store_true",
+        help="allow exclusive root-control commands such as run/cpustress through the broker",
     )
     serve.set_defaults(func=cmd_serve)
 

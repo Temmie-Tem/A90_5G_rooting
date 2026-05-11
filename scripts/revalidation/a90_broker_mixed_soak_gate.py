@@ -109,6 +109,7 @@ def start_broker(args: argparse.Namespace, runtime_dir: Path) -> subprocess.Pope
         args.bridge_host,
         "--bridge-port",
         str(args.bridge_port),
+        "--allow-exclusive",
     ]
     return subprocess.Popen(
         command,

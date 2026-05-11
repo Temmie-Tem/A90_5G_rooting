@@ -81,7 +81,10 @@ def start_broker(args: argparse.Namespace,
                  runtime_dir: Path,
                  *,
                  backend: str,
-                 tcp_port: int | None = None) -> subprocess.Popen[str]:
+                 tcp_port: int | None = None,
+                 no_auth: bool = False,
+                 allow_no_auth: bool = False,
+                 allow_exclusive: bool = False) -> subprocess.Popen[str]:
     ensure_private_dir(runtime_dir)
     command = [
         sys.executable,
@@ -106,6 +109,12 @@ def start_broker(args: argparse.Namespace,
         "--tcp-timeout",
         str(args.tcp_timeout),
     ]
+    if no_auth:
+        command.append("--no-auth")
+    if allow_no_auth:
+        command.append("--allow-no-auth")
+    if allow_exclusive:
+        command.append("--allow-exclusive")
     return subprocess.Popen(
         command,
         cwd=REPO_ROOT,
@@ -178,6 +187,14 @@ def collect_audit(store: EvidenceStore, runtime_dir: Path, label: str) -> dict[s
     store.write_json(f"{label}-audit-summary.json", summary)
     store.write_text(f"{label}-audit-report.md", render_audit_markdown(summary))
     return summary
+
+
+def tcp_port_open(host: str, port: int, timeout_sec: float) -> bool:
+    try:
+        with socket.create_connection((host, port), timeout=timeout_sec):
+            return True
+    except OSError:
+        return False
 
 
 def run_blocked_audit_test(args: argparse.Namespace, store: EvidenceStore) -> TestCaseResult:
@@ -281,8 +298,30 @@ def run_ncm_down_test(args: argparse.Namespace, store: EvidenceStore) -> TestCas
     runtime_dir = store.mkdir("ncm-down-runtime")
     socket_path = runtime_dir / DEFAULT_SOCKET_NAME
     unused_port = 29999
-    process = start_broker(args, runtime_dir, backend="ncm-tcpctl", tcp_port=unused_port)
     artifacts: list[str] = []
+    precheck_open = tcp_port_open(args.device_ip, unused_port, min(args.tcp_timeout, 1.0))
+    store.write_text(
+        "ncm-down-port-precheck.txt",
+        f"host={args.device_ip} port={unused_port} open={precheck_open}\n",
+    )
+    artifacts.append("ncm-down-port-precheck.txt")
+    if precheck_open:
+        return TestCaseResult(
+            "ncm listener down transport-error",
+            False,
+            f"unsafe precheck: {args.device_ip}:{unused_port} is open; refused to send request",
+            time.monotonic() - started,
+            artifacts,
+        )
+    process = start_broker(
+        args,
+        runtime_dir,
+        backend="ncm-tcpctl",
+        tcp_port=unused_port,
+        no_auth=True,
+        allow_no_auth=True,
+        allow_exclusive=True,
+    )
     try:
         wait_for_socket(socket_path, process, args.ready_timeout)
         response = call(socket_path, ["run", "/cache/bin/toybox", "uptime"], args.timeout)
