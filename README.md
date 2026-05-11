@@ -155,6 +155,10 @@ Android userspace 대신 직접 만든 static `/init`를 실행하고,
 - pstore feasibility: v157에서 `pstore [summary|full|paths]`와 host `pstore_feas_collect.py`로 pstore/ramoops 상태를 read-only 수집
 - watchdog feasibility: v158에서 `watchdoginv [summary|full|paths]`와 host `watchdog_feas_collect.py`로 watchdog 상태를 read-only 수집
 - tracefs feasibility: v159에서 `tracefs [summary|full|paths]`와 host `tracefs_feas_collect.py`로 tracefs/ftrace 상태를 read-only 수집
+- kernel config decoder: v197에서 host `kernel_config_decode.py`로 `/proc/config.gz`를 CONFIG 단위 capability matrix로 분류
+- netfilter inventory: v198에서 host `netfilter_inventory.py`로 legacy iptables/conntrack/nftables 가능성을 read-only 판정
+- cgroup/PSI inventory: v199에서 host `cgroup_psi_inventory.py`로 cgroup controller, PSI, mount 상태와 service isolation 가능성을 read-only 판정
+- debug observability plan: v200에서 host `debug_observability_plan.py`로 tracefs/pstore/debugfs/usbmon opt-in 계획을 read-only 생성
 - about app: `APPS / ABOUT`에서 version, changelog 목록/상세, credits 표시
 - input layout: `inputlayout`, `waitgesture`, `screenmenu`/`blindmenu` gesture action 확인
 - input monitor: `TOOLS / INPUT MONITOR`와 `inputmonitor [events]` raw/gesture trace 확인

@@ -669,6 +669,21 @@
 - 남은 검증: 없음
 - 다음 실행 항목: v200 tracefs/pstore debug observability plan
 
+### V200. Tracefs / Pstore Debug Observability Plan — PASS
+
+- 계획: `docs/plans/NATIVE_INIT_V200_DEBUG_OBSERVABILITY_PLAN_2026-05-12.md`
+- 보고서: `docs/reports/NATIVE_INIT_V200_DEBUG_OBSERVABILITY_2026-05-12.md`
+- baseline device build: `A90 Linux init 0.9.59 (v159)`
+- device flash: 없음. v200은 host-side read-only debug observability planner이며 별도 native-init boot image 없음
+- 구현:
+  - `scripts/revalidation/debug_observability_plan.py`
+- 검증:
+  - Python compile PASS
+  - live tracefs/pstore observability plan PASS: `tmp/debug-observability/v200-debug-observability.md`
+  - tracefs support yes/mounted no, pstore support yes/mounted no, usbmon kernel-missing
+- 남은 검증: 없음
+- 다음 실행 항목: v201 Wi-Fi baseline refresh 후보 검토
+
 ### V187. Harness Broker Backend — PASS
 
 - 보고서: `docs/reports/NATIVE_INIT_V187_HARNESS_BROKER_BACKEND_2026-05-11.md`
