@@ -72,6 +72,9 @@
   - v195 broker-backed soak suite
   - concurrent smoke, mixed-soak gate, recovery tests를 하나의 private bundle로 묶음
   - `--dry-run`은 device-safe wiring 검증, live mode는 장시간 broker soak에 사용
+- `security_scan_followup.py`
+  - v196 fresh security scan follow-up helper
+  - Codex Cloud CSV export가 local finding index에 반영됐는지 확인하고 private summary/report를 생성
 - `native_init_flash.py`
   - TWRP recovery ADB에서 native init boot image를 boot 파티션에 기록
   - `adb devices` 출력을 whitespace split으로 파싱해 `recovery` 상태를 안정적으로 감지
@@ -268,6 +271,14 @@ python3 ./scripts/revalidation/a90_broker_soak_suite.py \
 python3 ./scripts/revalidation/a90_broker_soak_suite.py \
   --duration-sec 3600 \
   --include-live-recovery
+```
+
+Security scan follow-up 예:
+
+```bash
+python3 ./scripts/revalidation/security_scan_followup.py \
+  --require-indexed \
+  --run-dir tmp/a90-v196-security-followup
 ```
 
 A90B1 broker로 실제 ACM bridge를 감싸는 예:

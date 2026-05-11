@@ -607,6 +607,22 @@
   - live 장시간 suite는 bridge/NCM 준비 시 선택 실행
 - 다음 실행 항목: v196 fresh security scan follow-up workflow
 
+### V196. Fresh Security Scan Follow-up Workflow — PASS
+
+- 계획: `docs/plans/NATIVE_INIT_V196_SECURITY_SCAN_FOLLOWUP_PLAN_2026-05-11.md`
+- 보고서: `docs/reports/NATIVE_INIT_V196_SECURITY_SCAN_FOLLOWUP_2026-05-11.md`
+- baseline device build: `A90 Linux init 0.9.59 (v159)`
+- device flash: 없음. v196은 host-side security follow-up workflow이며 별도 native-init boot image 없음
+- 구현:
+  - `scripts/revalidation/security_scan_followup.py`
+  - `docs/security/SECURITY_FRESH_SCAN_V196_2026-05-11.md`
+- 검증:
+  - Python compile PASS
+  - security scan follow-up PASS: `tmp/a90-v196-security-followup/`
+  - local targeted security rescan PASS/WARN/FAIL = 29/1/0
+- 남은 검증: 없음
+- 다음 실행 항목: post-v196 후보 재선정
+
 ### V187. Harness Broker Backend — PASS
 
 - 보고서: `docs/reports/NATIVE_INIT_V187_HARNESS_BROKER_BACKEND_2026-05-11.md`

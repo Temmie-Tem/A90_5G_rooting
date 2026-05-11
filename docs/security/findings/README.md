@@ -41,6 +41,7 @@ Post-v184 scan follow-up: `F045` and `F046` were imported from `docs/security/co
 - Fresh v151 local rescan: `../SECURITY_FRESH_SCAN_V151_2026-05-08.md`
 - Fresh v152 local rescan: `../SECURITY_FRESH_SCAN_V152_2026-05-08.md`
 - Fresh v153 local rescan: `../SECURITY_FRESH_SCAN_V153_2026-05-08.md`
+- Fresh v196 local rescan: `../SECURITY_FRESH_SCAN_V196_2026-05-11.md`
 
 ## Findings
 
