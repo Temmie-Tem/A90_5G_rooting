@@ -973,9 +973,11 @@ Samsung bootloader
    - v188은 broker audit/reporting으로 시작했다
    - live ACM broker audit report와 broker-backed supervisor smoke audit report는 PASS했다
    - v189 broker concurrent smoke script는 fake/live ACM 모두 PASS했다
-   - 다음은 v190 NCM/tcpctl broker backend 또는 broker mixed-soak gate 선택이다
-4. v190+ Broker Mixed-Soak Gate
-   - broker를 통해 observer, workload, operator-style commands가 동시에 돌아도 serial/NCM 제어가 섞이지 않는지 검증한다
+   - v190 broker mixed-soak gate는 live ACM에서 PASS했다
+   - 다음은 v191 NCM/tcpctl broker backend 구현이다
+4. v191+ NCM/TCP Broker Backend
+   - NCM/tcpctl transport를 broker backend로 추가하고 ACM fallback/rescue 정책을 유지한다
+   - observer/workload가 NCM backend를 쓸 때도 audit, timeout, auth failure, fallback 상태가 명확해야 한다
 5. 이후 Wi-Fi Baseline Refresh / Network Exposure Hardening
    - broker/security gate 이후 Android/TWRP/native Wi-Fi 자료를 다시 수집한다
    - Wi-Fi/NCM을 USB-local 밖으로 넓히기 전 인증/ACL/token/bind/listener lifecycle 정책을 다시 검토한다

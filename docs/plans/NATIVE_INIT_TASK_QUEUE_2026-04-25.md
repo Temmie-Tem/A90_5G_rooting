@@ -479,7 +479,29 @@
 - 보고서: `docs/reports/NATIVE_INIT_V189_BROKER_CONCURRENT_SMOKE_2026-05-11.md`
 - 남은 검증:
   - 없음
-- 다음 실행 항목: v190 NCM/tcpctl broker backend or broker mixed-soak gate
+- 다음 실행 항목: v190 broker mixed-soak gate
+
+### V190. Broker Mixed-Soak Gate — PASS
+
+- 계획: `docs/plans/NATIVE_INIT_V190_BROKER_MIXED_SOAK_GATE_PLAN_2026-05-11.md`
+- 보고서: `docs/reports/NATIVE_INIT_V190_BROKER_MIXED_SOAK_GATE_2026-05-11.md`
+- baseline device build: `A90 Linux init 0.9.59 (v159)`
+- device flash: 없음. v190은 host-side broker/supervisor gate이며 별도 native-init boot image 없음
+- 구현:
+  - `scripts/revalidation/a90_broker_mixed_soak_gate.py`
+  - broker subprocess 자동 실행
+  - `native_test_supervisor.py mixed-soak --device-backend broker` 실행
+  - supervisor manifest와 broker audit summary를 함께 판정
+  - 기본 workload는 `cpu-memory-profiles`로 observer/workload command 모두 broker를 경유
+- 검증:
+  - Python compile PASS
+  - dry-run PASS: `tmp/a90-v190-dry-fixed-20260511-212931/`
+  - live ACM broker mixed-soak PASS: `tmp/a90-v190-live-fixed-20260511-212947/`
+  - supervisor PASS: workload_count=1 pass_count=1 fail_count=0 observer_failures=0 samples=28
+  - broker audit PASS: accepted=42 dispatched=42 results=42 non_ok=0 status=ok
+- 남은 검증:
+  - 없음
+- 다음 실행 항목: v191 NCM/tcpctl broker backend
 
 ### V187. Harness Broker Backend — PASS
 

@@ -50,6 +50,11 @@
   - 여러 host client가 동시에 `A90B1` request를 보내도 broker가 single worker queue로 backend command를 직렬화하는지 검증
   - `fake`와 `acm-cmdv1` backend를 지원하고, 선택적으로 blocked `reboot` request가 `operator-required`로 남는지 확인
   - summary/response/audit evidence는 private/no-follow output helper로 `tmp/a90-v189-*` 아래에 저장
+- `a90_broker_mixed_soak_gate.py`
+  - v190 broker-backed mixed-soak gate
+  - broker subprocess를 실행한 뒤 `native_test_supervisor.py mixed-soak`을 `--device-backend broker`로 구동
+  - supervisor manifest와 broker audit integrity/count/status를 함께 판정
+  - 기본 workload는 `cpu-memory-profiles`라 observer와 workload command가 모두 broker를 통과
 - `native_init_flash.py`
   - TWRP recovery ADB에서 native init boot image를 boot 파티션에 기록
   - `adb devices` 출력을 whitespace split으로 파싱해 `recovery` 상태를 안정적으로 감지
@@ -203,6 +208,16 @@ python3 ./scripts/revalidation/a90_broker_concurrent_smoke.py \
   --rounds 2 \
   --include-blocked \
   --expect-version "A90 Linux init 0.9.59 (v159)"
+```
+
+A90B1 broker mixed-soak gate 예:
+
+```bash
+python3 ./scripts/revalidation/a90_broker_mixed_soak_gate.py \
+  --duration-sec 45 \
+  --observer-interval 10 \
+  --workload-profile smoke \
+  --seed 190
 ```
 
 A90B1 broker로 실제 ACM bridge를 감싸는 예:
