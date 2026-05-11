@@ -15,7 +15,7 @@
 - 현재 기준 예:
   - Native build: `A90 Linux init 0.9.59`
   - Device build tag: `v159`
-  - Cycle label: `v184` host-harness 24h readiness gate
+  - Cycle label: `v185` host protocol/broker design
   - Device flash: none
 - 상세 규칙: `docs/operations/VERSIONING_POLICY.md`
 
@@ -393,7 +393,21 @@
 - 검증: 24h+ complete, workloads=3 pass=3 skipped=0 blocked=0, observer_failures=0, failure_classifications=0
 - decision: `GO`
 - evidence: `tmp/soak/harness/v184-24h-readiness-20260510-095036/`
-- 다음 실행 항목: post-v184 roadmap selection
+- 다음 실행 항목: v185 Communication Broker Protocol Plan
+
+### V185. Communication Broker Protocol Plan — PLANNED
+
+- 계획: `docs/plans/NATIVE_INIT_V185_COMMUNICATION_BROKER_PLAN_2026-05-11.md`
+- baseline device build: `A90 Linux init 0.9.59 (v159)`
+- device flash: 없음. v185는 host protocol/broker 설계 cycle이며 별도 native-init boot image 없음
+- 의도: Wi-Fi/server-style exposure 전에 USB ACM serial bridge, `cmdv1`/`A90P1`, NCM `tcpctl`, rshell 경계를 하나의 broker 정책으로 정리한다.
+- 핵심 설계:
+  - host-local `A90B1` request/response schema
+  - broker가 serial/NCM transport의 single owner가 됨
+  - command class: observe, operator-action, exclusive, rebind/destructive
+  - request id, client id, timeout, cancel, backend, audit JSONL
+  - ACM direct path는 rescue로 유지하고 public/multi-client root shell로 확장하지 않음
+- 다음 실행 항목: v186 host broker skeleton implementation
 
 ### Planned. v178-v184 Mixed Soak / Serverization Gate Cycle
 
@@ -421,7 +435,7 @@
   - 완료: v183 8h Pilot Mixed Soak
   - 완료: v184 24h+ Serverization Readiness Gate
 - guardrails: Wi-Fi enablement/rfkill write/module load/firmware mutation/public listener/watchdog open/destructive partition write 금지, ACM rescue 유지, evidence private/no-follow 유지.
-- 다음 실행 항목: post-v184 roadmap selection
+- 다음 실행 항목: v185 Communication Broker Protocol Plan
 
 ### Planned. v170-v177 Host Test Harness Cycle
 
@@ -2722,17 +2736,27 @@ python3 ./scripts/revalidation/physical_usb_reconnect_check.py --manual-host-con
 
 ## 지금 바로 진행할 항목
 
-1. post-v184 roadmap selection
+1. v185 Communication Broker Protocol Plan
 
-   - 상위 로드맵: `docs/plans/NATIVE_INIT_V178_V184_MIXED_SOAK_SECURITY_ROADMAP_2026-05-09.md`
+   - 계획: `docs/plans/NATIVE_INIT_V185_COMMUNICATION_BROKER_PLAN_2026-05-11.md`
    - 최신 결과: v184 24h+ readiness gate PASS
    - 산출: `docs/reports/NATIVE_INIT_V184_24H_SERVERIZATION_READINESS_2026-05-11.md`
-   - 다음 후보를 통신 프로토콜/broker, 보안 스캔 패치, kernel diagnostics, contention stress, Wi-Fi baseline refresh로 분류한다
+   - 다음 큰 주제는 통신 프로토콜/broker로 선택했다
+   - 이유: 보안 스캔과 패치효과 확인은 병렬/대기 시간이 크고, Wi-Fi/server화 전에 raw bridge 공유 구조를 먼저 안정화해야 한다
 
 2. v182-v184 Mixed Soak / Serverization Gate
 
    - v182 failure classifier PASS, v183 8h pilot PASS, v184 24h+ readiness gate PASS
    - Wi-Fi baseline refresh와 exposure hardening은 post-v184 roadmap에서 재개 여부를 결정한다
+
+3. v186+ Broker Skeleton / Harness Integration
+
+   - `A90B1` host-local broker endpoint와 ACM `cmdv1` backend을 구현한다
+   - observer/supervisor/read-only validators가 raw bridge를 직접 점유하지 않도록 broker backend을 추가한다
+
+4. v190+ Broker Mixed-Soak Gate 이후 Wi-Fi 재개
+
+   - broker가 multi-client read-only, exclusive lock, reconnect/audit를 통과하면 Wi-Fi baseline refresh를 재개한다
 
 ### V106-V108. UI/App Architecture Split — DONE
 

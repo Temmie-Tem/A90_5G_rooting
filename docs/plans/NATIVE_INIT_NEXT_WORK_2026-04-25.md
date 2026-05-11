@@ -20,7 +20,7 @@
 - numeric `MAJOR.MINOR.PATCH`는 native init / boot image version이다.
 - `v###`는 project execution cycle이며 host tooling, 계획, 보고서, 검증 gate에도 사용한다.
 - `v###`가 항상 새 boot image나 device flash를 뜻하지 않는다.
-- 현재 예: native build `A90 Linux init 0.9.59`, device build tag `v159`, active validation cycle `v184`, device flash 없음.
+- 현재 예: native build `A90 Linux init 0.9.59`, device build tag `v159`, active execution cycle `v185`, device flash 없음.
 - 상세 규칙: `docs/operations/VERSIONING_POLICY.md`
 
 ---
@@ -954,19 +954,23 @@ Samsung bootloader
 
 상세 실행 큐는 `docs/plans/NATIVE_INIT_TASK_QUEUE_2026-04-25.md`를 따른다.
 
-1. post-v184 roadmap selection
-   - 상위 로드맵: `docs/plans/NATIVE_INIT_V178_V184_MIXED_SOAK_SECURITY_ROADMAP_2026-05-09.md`
+1. v185 Communication Broker Protocol Plan
+   - 계획: `docs/plans/NATIVE_INIT_V185_COMMUNICATION_BROKER_PLAN_2026-05-11.md`
    - 최신 증거: `docs/reports/NATIVE_INIT_V184_24H_SERVERIZATION_READINESS_2026-05-11.md` PASS
-   - v178/v179는 실기기 플래시 버전이 아니라 v159 실기기 위에서 수행한 host harness baseline이다
-   - v184 24h+ readiness gate가 PASS했으므로 다음 큰 주제를 선택한다
+   - 선택 이유: Wi-Fi/NCM 노출을 넓히기 전에 raw ACM bridge를 직접 여러 도구가 공유하는 구조를 정리한다
+   - v185는 실기기 플래시 버전이 아니라 v159 실기기 위에서 수행할 host protocol/broker 설계 cycle이다
 2. v182-v184 Mixed Soak / Serverization Gate
    - v182 failure classifier는 완료됐다
    - v183 8h pilot은 PASS했다
    - v184 24h+ readiness gate는 PASS했다
    - Wi-Fi baseline refresh와 exposure hardening은 post-v184 roadmap에서 우선순위를 다시 정한다
-3. v185+ Wi-Fi Baseline Refresh
-   - mixed-soak readiness gate 이후 Android/TWRP/native Wi-Fi 자료를 다시 수집한다
-4. v186+ Network Exposure Hardening
+3. v186+ Broker Skeleton / Harness Integration
+   - `A90B1` host-local broker endpoint, request id, command class, audit JSONL, ACM backend을 먼저 구현한다
+   - observer/supervisor가 raw bridge를 직접 점유하지 않도록 broker backend을 추가한다
+4. v190+ Broker Mixed-Soak Gate
+   - broker를 통해 observer, workload, operator-style commands가 동시에 돌아도 serial/NCM 제어가 섞이지 않는지 검증한다
+5. 이후 Wi-Fi Baseline Refresh / Network Exposure Hardening
+   - broker/security gate 이후 Android/TWRP/native Wi-Fi 자료를 다시 수집한다
    - Wi-Fi/NCM을 USB-local 밖으로 넓히기 전 인증/ACL/token/bind/listener lifecycle 정책을 다시 검토한다
 
 ---
