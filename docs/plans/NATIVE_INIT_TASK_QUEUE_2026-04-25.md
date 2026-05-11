@@ -682,7 +682,23 @@
   - live tracefs/pstore observability plan PASS: `tmp/debug-observability/v200-debug-observability.md`
   - tracefs support yes/mounted no, pstore support yes/mounted no, usbmon kernel-missing
 - 남은 검증: 없음
-- 다음 실행 항목: v201 Wi-Fi baseline refresh 후보 검토
+- 다음 실행 항목: v201 host evidence helper consolidation
+
+### V201. Host Evidence Helper Consolidation — PASS
+
+- 계획: `docs/plans/NATIVE_INIT_V201_HOST_EVIDENCE_HELPER_PLAN_2026-05-12.md`
+- 보고서: `docs/reports/NATIVE_INIT_V201_HOST_EVIDENCE_HELPER_2026-05-12.md`
+- baseline device build: `A90 Linux init 0.9.59 (v159)`
+- device flash: 없음. v201은 host-side evidence helper consolidation이며 별도 native-init boot image 없음
+- 구현:
+  - `scripts/revalidation/a90_kernel_tools.py`
+  - shared private output path: `scripts/revalidation/a90harness/evidence.py`
+- 검증:
+  - Python compile PASS
+  - v197-v200 live collector rerun PASS
+  - evidence: `tmp/kernel-config/v201-kernel-config.json`, `tmp/netfilter/v201-netfilter.json`, `tmp/cgroup-psi/v201-cgroup-psi.json`, `tmp/debug-observability/v201-debug-observability.json`
+- 남은 검증: legacy v154-v159 collector full migration은 별도 후보
+- 다음 실행 항목: v202 kernel capability summary view
 
 ### V187. Harness Broker Backend — PASS
 
