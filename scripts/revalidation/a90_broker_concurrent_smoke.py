@@ -100,6 +100,11 @@ def build_parser() -> argparse.ArgumentParser:
     parser.add_argument("--tcp-timeout", type=float, default=DEFAULT_TCP_TIMEOUT)
     parser.add_argument("--token")
     parser.add_argument("--no-auth", action="store_true")
+    parser.add_argument(
+        "--allow-no-auth",
+        action="store_true",
+        help="explicitly allow legacy unauthenticated ncm-tcpctl mode for negative tests",
+    )
     parser.add_argument("--clients", type=int, default=4)
     parser.add_argument("--rounds", type=int, default=3)
     parser.add_argument("--timeout", type=float, default=20.0)
@@ -160,6 +165,8 @@ def start_broker(args: argparse.Namespace, runtime_dir: Path) -> subprocess.Pope
         command.extend(["--token", args.token])
     if args.no_auth:
         command.append("--no-auth")
+    if args.allow_no_auth:
+        command.append("--allow-no-auth")
     return subprocess.Popen(
         command,
         stdout=subprocess.PIPE,

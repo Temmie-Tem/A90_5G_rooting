@@ -558,6 +558,22 @@
   - 없음
 - 다음 실행 항목: v193 후보 재선정 또는 v193 broker/auth hardening follow-up
 
+### V193. Broker/Auth Hardening Follow-up — PASS
+
+- 계획: `docs/plans/NATIVE_INIT_V193_BROKER_AUTH_HARDENING_PLAN_2026-05-11.md`
+- 보고서: `docs/reports/NATIVE_INIT_V193_BROKER_AUTH_HARDENING_2026-05-11.md`
+- baseline device build: `A90 Linux init 0.9.59 (v159)`
+- device flash: 없음. v193은 host-side broker/auth hardening이며 별도 native-init boot image 없음
+- 구현:
+  - `scripts/revalidation/a90_broker.py` no-auth explicit allow gate, token validation, auth-failed classification, token redaction
+  - `scripts/revalidation/a90_broker_auth_hardening_check.py`
+- 검증:
+  - Python compile PASS
+  - auth hardening check PASS: `tmp/a90-v193-auth-check/`
+  - fake concurrent regression PASS: `tmp/a90-v193-fake-regress/`
+- 남은 검증: 없음
+- 다음 실행 항목: v194 NCM/tcpctl listener lifecycle automation
+
 ### V187. Harness Broker Backend — PASS
 
 - 보고서: `docs/reports/NATIVE_INIT_V187_HARNESS_BROKER_BACKEND_2026-05-11.md`

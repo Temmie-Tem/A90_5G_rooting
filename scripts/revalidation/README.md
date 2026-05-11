@@ -43,6 +43,7 @@
   - private Unix socket endpoint를 만들고 여러 host client request를 single worker queue로 직렬화
   - backend `acm-cmdv1`는 기존 `a90ctl.run_cmdv1_command()`를 사용해 USB ACM bridge에 명령을 전달
   - backend `ncm-tcpctl`는 `run /absolute/path ...` 요청을 NCM `a90_tcpctl`로 보내고, native shell built-in은 ACM fallback으로 처리
+  - v193부터 `ncm-tcpctl --no-auth`는 `--allow-no-auth`가 같이 있어야만 허용되며, broker metadata/audit/error는 token 값을 redaction한다
   - backend `fake`와 `selftest`로 request id, observe command, rebind/destructive block 동작을 로컬 검증
   - `reboot`/`recovery`/`poweroff` 같은 rebind/destructive command는 broker multiplex 대상이 아니며 foreground raw-control 경로를 유지
   - audit JSONL은 private/no-follow helper를 통해 owner-only 파일로 남기고, v188 `report`로 integrity/summary/redacted records를 생성
@@ -60,6 +61,9 @@
   - v192 broker failure/recovery validator
   - blocked command audit, broker restart stale socket recovery, stale non-socket refusal을 fake backend로 검증
   - `--include-live` 사용 시 NCM listener-down `transport-error`와 `ncm-tcpctl` backend의 ACM fallback도 검증
+- `a90_broker_auth_hardening_check.py`
+  - v193 broker/auth hardening validator
+  - `--no-auth` explicit allow gate, invalid token rejection, selftest, no-auth metadata recording을 host-only로 검증
 - `native_init_flash.py`
   - TWRP recovery ADB에서 native init boot image를 boot 파티션에 기록
   - `adb devices` 출력을 whitespace split으로 파싱해 `recovery` 상태를 안정적으로 감지
@@ -230,6 +234,12 @@ A90B1 broker recovery tests 예:
 ```bash
 python3 ./scripts/revalidation/a90_broker_recovery_tests.py
 python3 ./scripts/revalidation/a90_broker_recovery_tests.py --include-live
+```
+
+A90B1 broker auth hardening 예:
+
+```bash
+python3 ./scripts/revalidation/a90_broker_auth_hardening_check.py
 ```
 
 A90B1 broker로 실제 ACM bridge를 감싸는 예:

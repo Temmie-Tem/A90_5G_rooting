@@ -41,6 +41,7 @@ MAX_TIMEOUT_MS = 5 * 60 * 1000
 REQUEST_ID_RE = re.compile(r"^[A-Za-z0-9_.:-]{1,96}$")
 CLIENT_ID_RE = re.compile(r"^[A-Za-z0-9_.:@%+=,-]{1,128}$")
 TOKEN_RE = re.compile(r"^[0-9A-Fa-f]{24,}$")
+TOKEN_TEXT_RE = re.compile(r"(tcpctl_token=)[0-9A-Fa-f]{24,}|(?<![0-9A-Fa-f])[0-9A-Fa-f]{32,}(?![0-9A-Fa-f])")
 SENSITIVE_ARG_WORDS = {
     "auth",
     "credential",
@@ -200,6 +201,9 @@ class Backend:
     def execute(self, request: BrokerRequest) -> "BackendResult":
         raise NotImplementedError
 
+    def metadata(self) -> dict[str, Any]:
+        return {"backend": self.name}
+
 
 @dataclass(frozen=True)
 class BackendResult:
@@ -226,6 +230,13 @@ class AcmCmdv1Backend(Backend):
         )
         return BackendResult(result.rc, result.status, result.text, self.name)
 
+    def metadata(self) -> dict[str, Any]:
+        return {
+            "backend": self.name,
+            "bridge_host": self.host,
+            "bridge_port": self.port,
+        }
+
 
 class NcmTcpctlBackend(Backend):
     name = "ncm-tcpctl"
@@ -237,28 +248,62 @@ class NcmTcpctlBackend(Backend):
                  tcp_port: int,
                  tcp_timeout: float,
                  token: str | None,
+                 token_path: str,
                  no_auth: bool) -> None:
         self.acm = AcmCmdv1Backend(host, port)
         self.device_ip = device_ip
         self.tcp_port = tcp_port
         self.tcp_timeout = tcp_timeout
+        self.token_path = token_path
+        self.token_lock = threading.Lock()
         self.token = token
         self.no_auth = no_auth
+        if token is not None:
+            self.validate_token(token)
 
     def execute(self, request: BrokerRequest) -> BackendResult:
         command = self.tcpctl_command(request.argv)
         if command is None:
             return self.acm.execute(request)
         text = self.tcpctl_request(command, request.timeout_ms / 1000.0)
-        if "\nOK" not in text and not text.rstrip().endswith("OK"):
-            return BackendResult(1, "error", text, self.name)
-        return BackendResult(0, "ok", text, self.name)
+        status = self.tcpctl_status(text)
+        return BackendResult(0 if status == "ok" else 1, status, text, self.name)
+
+    def metadata(self) -> dict[str, Any]:
+        return {
+            "backend": self.name,
+            "device_ip": self.device_ip,
+            "tcp_port": self.tcp_port,
+            "tcp_timeout": self.tcp_timeout,
+            "auth": {
+                "required": not self.no_auth,
+                "token_source": "disabled" if self.no_auth else ("cli" if self.token else "acm-command"),
+                "token_path": None if self.no_auth else self.token_path,
+            },
+            "fallback": self.acm.metadata(),
+        }
 
     @staticmethod
     def tcpctl_command(argv: list[str]) -> str | None:
         if len(argv) >= 2 and argv[0] == "run" and argv[1].startswith("/"):
             return "run " + " ".join(shlex.quote(part) for part in argv[1:])
         return None
+
+    @staticmethod
+    def validate_token(token: str) -> str:
+        if not TOKEN_RE.match(token):
+            raise ValueError("tcpctl token must be a 24+ char hex string")
+        return token
+
+    @staticmethod
+    def tcpctl_status(text: str) -> str:
+        if ("ERR auth-required" in text or
+                "ERR auth-failed" in text or
+                "ERR auth-token-unavailable" in text):
+            return "auth-failed"
+        if "\nOK" in text or text.rstrip().endswith("OK"):
+            return "ok"
+        return "error"
 
     def tcpctl_request(self, command: str, timeout_sec: float) -> str:
         payload = command.rstrip("\n") + "\n"
@@ -285,24 +330,28 @@ class NcmTcpctlBackend(Backend):
         return word in {"run", "shutdown"}
 
     def get_token(self, timeout_sec: float) -> str:
-        if self.token:
+        with self.token_lock:
+            if self.token:
+                return self.token
+            token_request = BrokerRequest(
+                request_id="ncm-token",
+                client_id="broker",
+                op="cmd",
+                argv=list(DEFAULT_TOKEN_COMMAND),
+                timeout_ms=int(timeout_sec * 1000),
+                command_class="observe",
+            )
+            result = self.acm.execute(token_request)
+            if result.rc != 0 or result.status != "ok":
+                raise RuntimeError(
+                    "token command failed "
+                    f"rc={result.rc} status={result.status}\n{redact_text(result.text)}"
+                )
+            match = re.search(r"tcpctl_token=([0-9A-Fa-f]{32})", result.text)
+            if not match:
+                raise RuntimeError(f"tcpctl token was not found in output:\n{redact_text(result.text)}")
+            self.token = self.validate_token(match.group(1))
             return self.token
-        token_request = BrokerRequest(
-            request_id="ncm-token",
-            client_id="broker",
-            op="cmd",
-            argv=list(DEFAULT_TOKEN_COMMAND),
-            timeout_ms=int(timeout_sec * 1000),
-            command_class="observe",
-        )
-        result = self.acm.execute(token_request)
-        if result.rc != 0 or result.status != "ok":
-            raise RuntimeError(f"token command failed rc={result.rc} status={result.status}\n{result.text}")
-        match = re.search(r"tcpctl_token=([0-9A-Fa-f]{32})", result.text)
-        if not match:
-            raise RuntimeError(f"tcpctl token was not found in output:\n{result.text}")
-        self.token = match.group(1)
-        return self.token
 
 
 class FakeBackend(Backend):
@@ -344,6 +393,15 @@ def redact_arg(arg: str) -> str:
         if lower.startswith(word + "=") or lower.startswith("--" + word + "="):
             return arg.split("=", 1)[0] + "=<redacted>"
     return arg
+
+
+def redact_text(text: str) -> str:
+    def replace(match: re.Match[str]) -> str:
+        if match.group(1):
+            return match.group(1) + "<redacted>"
+        return "<redacted>"
+
+    return TOKEN_TEXT_RE.sub(replace, text)
 
 
 def redact_argv(argv: list[Any]) -> list[str]:
@@ -475,7 +533,7 @@ def response_from_error(request_id: str,
         backend=backend,
         command_class=command_class,
         text="",
-        error=message,
+        error=redact_text(message),
     )
 
 
@@ -691,6 +749,7 @@ def make_backend(args: argparse.Namespace) -> Backend:
             args.tcp_port,
             args.tcp_timeout,
             args.token,
+            args.token_path,
             args.no_auth,
         )
     return AcmCmdv1Backend(args.bridge_host, args.bridge_port)
@@ -724,7 +783,7 @@ def sanitized_audit_record(record: dict[str, Any]) -> dict[str, Any]:
     if "argv" in sanitized and isinstance(sanitized["argv"], list):
         sanitized["argv"] = redact_argv(sanitized["argv"])
     if "error" in sanitized and isinstance(sanitized["error"], str):
-        sanitized["error"] = sanitized["error"][:512]
+        sanitized["error"] = redact_text(sanitized["error"])[:512]
     return sanitized
 
 
@@ -875,19 +934,22 @@ def cmd_report(args: argparse.Namespace) -> int:
 
 
 def cmd_serve(args: argparse.Namespace) -> int:
+    if args.backend == "ncm-tcpctl" and args.no_auth and not args.allow_no_auth:
+        raise SystemExit("--no-auth requires --allow-no-auth for explicit legacy/negative testing")
+    try:
+        backend = make_backend(args)
+    except ValueError as exc:
+        raise SystemExit(str(exc)) from exc
     socket_path, audit_path = prepare_runtime_paths(args.runtime_dir, args.socket_name, args.audit_name)
     metadata = {
         "proto": PROTO,
-        "backend": args.backend,
-        "bridge_host": args.bridge_host,
-        "bridge_port": args.bridge_port,
-        "device_ip": getattr(args, "device_ip", None),
-        "tcp_port": getattr(args, "tcp_port", None),
+        "backend": backend.name,
+        "backend_metadata": backend.metadata(),
         "socket": str(socket_path),
         "audit": str(audit_path),
     }
     write_private_json(args.runtime_dir / "broker.json", metadata)
-    server = BrokerServer(make_backend(args), socket_path, audit_path)
+    server = BrokerServer(backend, socket_path, audit_path)
     try:
         server.serve_forever()
     except KeyboardInterrupt:
@@ -1017,6 +1079,11 @@ def build_parser() -> argparse.ArgumentParser:
     serve.add_argument("--token")
     serve.add_argument("--token-path", default=DEFAULT_TOKEN_PATH)
     serve.add_argument("--no-auth", action="store_true")
+    serve.add_argument(
+        "--allow-no-auth",
+        action="store_true",
+        help="explicitly allow legacy unauthenticated ncm-tcpctl mode for negative tests",
+    )
     serve.set_defaults(func=cmd_serve)
 
     call = subparsers.add_parser("call", help="send one command through the broker")
