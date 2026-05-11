@@ -574,6 +574,23 @@
 - 남은 검증: 없음
 - 다음 실행 항목: v194 NCM/tcpctl listener lifecycle automation
 
+### V194. NCM/tcpctl Broker Lifecycle Automation — PASS
+
+- 계획: `docs/plans/NATIVE_INIT_V194_NCM_TCPCTL_LIFECYCLE_PLAN_2026-05-11.md`
+- 보고서: `docs/reports/NATIVE_INIT_V194_NCM_TCPCTL_LIFECYCLE_2026-05-11.md`
+- baseline device build: `A90 Linux init 0.9.59 (v159)`
+- device flash: 없음. v194는 host-side lifecycle wrapper이며 별도 native-init boot image 없음
+- 구현:
+  - `scripts/revalidation/a90_broker_ncm_lifecycle_check.py`
+  - authenticated tcpctl start → NCM broker smoke → tcpctl stop lifecycle wrapper
+  - dry-run command plan mode
+- 검증:
+  - Python compile PASS
+  - dry-run lifecycle PASS: `tmp/a90-v194-dry-run/`
+- 남은 검증:
+  - live NCM lifecycle는 bridge/NCM 준비 시 선택 실행
+- 다음 실행 항목: v195 broker-backed long/mixed soak
+
 ### V187. Harness Broker Backend — PASS
 
 - 보고서: `docs/reports/NATIVE_INIT_V187_HARNESS_BROKER_BACKEND_2026-05-11.md`

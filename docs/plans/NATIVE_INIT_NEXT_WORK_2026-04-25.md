@@ -979,7 +979,8 @@ Samsung bootloader
    - 다음은 v193 후보 재선정 또는 broker/auth hardening follow-up이다
 4. v193+ Broker/Auth Hardening Follow-up
    - v193 broker/auth hardening은 PASS했다: no-auth explicit allow gate, token validation, auth-failed classification, token redaction
-   - 다음은 v194 NCM/tcpctl listener lifecycle automation이다
+   - v194 NCM/tcpctl listener lifecycle automation은 dry-run PASS했다
+   - 다음은 v195 broker-backed long/mixed soak이다
 5. 이후 Wi-Fi Baseline Refresh / Network Exposure Hardening
    - broker/security gate 이후 Android/TWRP/native Wi-Fi 자료를 다시 수집한다
    - Wi-Fi/NCM을 USB-local 밖으로 넓히기 전 인증/ACL/token/bind/listener lifecycle 정책을 다시 검토한다

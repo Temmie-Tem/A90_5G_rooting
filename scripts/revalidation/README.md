@@ -64,6 +64,10 @@
 - `a90_broker_auth_hardening_check.py`
   - v193 broker/auth hardening validator
   - `--no-auth` explicit allow gate, invalid token rejection, selftest, no-auth metadata recording을 host-only로 검증
+- `a90_broker_ncm_lifecycle_check.py`
+  - v194 NCM/tcpctl broker lifecycle validator
+  - authenticated tcpctl listener start → NCM broker smoke → tcpctl stop을 하나의 private evidence bundle로 검증
+  - `--dry-run`으로 device state 변경 없이 command plan을 검증
 - `native_init_flash.py`
   - TWRP recovery ADB에서 native init boot image를 boot 파티션에 기록
   - `adb devices` 출력을 whitespace split으로 파싱해 `recovery` 상태를 안정적으로 감지
@@ -240,6 +244,14 @@ A90B1 broker auth hardening 예:
 
 ```bash
 python3 ./scripts/revalidation/a90_broker_auth_hardening_check.py
+```
+
+A90B1 broker NCM/tcpctl lifecycle 예:
+
+```bash
+python3 ./scripts/revalidation/a90_broker_ncm_lifecycle_check.py --dry-run
+# NCM host IP와 bridge가 준비된 상태에서는 --dry-run 없이 실행
+python3 ./scripts/revalidation/a90_broker_ncm_lifecycle_check.py
 ```
 
 A90B1 broker로 실제 ACM bridge를 감싸는 예:
