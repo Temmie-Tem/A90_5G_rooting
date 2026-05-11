@@ -56,6 +56,10 @@
   - broker subprocess를 실행한 뒤 `native_test_supervisor.py mixed-soak`을 `--device-backend broker`로 구동
   - supervisor manifest와 broker audit integrity/count/status를 함께 판정
   - 기본 workload는 `cpu-memory-profiles`라 observer와 workload command가 모두 broker를 통과
+- `a90_broker_recovery_tests.py`
+  - v192 broker failure/recovery validator
+  - blocked command audit, broker restart stale socket recovery, stale non-socket refusal을 fake backend로 검증
+  - `--include-live` 사용 시 NCM listener-down `transport-error`와 `ncm-tcpctl` backend의 ACM fallback도 검증
 - `native_init_flash.py`
   - TWRP recovery ADB에서 native init boot image를 boot 파티션에 기록
   - `adb devices` 출력을 whitespace split으로 파싱해 `recovery` 상태를 안정적으로 감지
@@ -219,6 +223,13 @@ python3 ./scripts/revalidation/a90_broker_mixed_soak_gate.py \
   --observer-interval 10 \
   --workload-profile smoke \
   --seed 190
+```
+
+A90B1 broker recovery tests 예:
+
+```bash
+python3 ./scripts/revalidation/a90_broker_recovery_tests.py
+python3 ./scripts/revalidation/a90_broker_recovery_tests.py --include-live
 ```
 
 A90B1 broker로 실제 ACM bridge를 감싸는 예:

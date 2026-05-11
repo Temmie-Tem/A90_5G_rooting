@@ -531,6 +531,33 @@
   - 없음
 - 다음 실행 항목: v192 Broker Failure/Recovery Tests
 
+### V192. Broker Failure/Recovery Tests — PASS
+
+- 계획: `docs/plans/NATIVE_INIT_V192_BROKER_RECOVERY_TESTS_PLAN_2026-05-11.md`
+- 보고서: `docs/reports/NATIVE_INIT_V192_BROKER_RECOVERY_TESTS_2026-05-11.md`
+- baseline device build: `A90 Linux init 0.9.59 (v159)`
+- device flash: 없음. v192는 host-side broker failure/recovery validation이며 별도 native-init boot image 없음
+- 구현:
+  - `scripts/revalidation/a90_broker_recovery_tests.py`
+  - fake backend recovery tests:
+    - blocked command audit
+    - broker restart after stale socket
+    - stale non-socket path refusal
+  - live tests:
+    - NCM listener down → `transport-error`
+    - `ncm-tcpctl` backend native shell built-in → ACM fallback
+- 검증:
+  - Python compile PASS
+  - fake-only recovery PASS: `tmp/a90-v192-fake-20260511-214426/`
+  - live recovery PASS: `tmp/a90-v192-live-20260511-214438/`
+  - live result: tests=5 failed=0
+  - blocked audit: `operator-required`
+  - NCM down audit: `transport-error`
+  - fallback audit: backend=`acm-cmdv1`
+- 남은 검증:
+  - 없음
+- 다음 실행 항목: v193 후보 재선정 또는 v193 broker/auth hardening follow-up
+
 ### V187. Harness Broker Backend — PASS
 
 - 보고서: `docs/reports/NATIVE_INIT_V187_HARNESS_BROKER_BACKEND_2026-05-11.md`

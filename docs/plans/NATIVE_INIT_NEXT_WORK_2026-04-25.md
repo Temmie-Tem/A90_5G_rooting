@@ -975,10 +975,11 @@ Samsung bootloader
    - v189 broker concurrent smoke script는 fake/live ACM 모두 PASS했다
    - v190 broker mixed-soak gate는 live ACM에서 PASS했다
    - v191 NCM/tcpctl broker backend는 NCM `run` path와 ACM fallback 모두 PASS했다
-   - 다음은 v192 broker failure/recovery tests 구현이다
-4. v192+ Broker Failure/Recovery Tests
-   - backend timeout, socket stale, broker crash, NCM listener down, ACM fallback, blocked command audit를 독립적으로 검증한다
-   - 실패 상태가 `transport-error`, `operator-required`, `timeout` 등으로 명확히 남는지 확인한다
+   - v192 broker failure/recovery tests는 fake/live 모두 PASS했다
+   - 다음은 v193 후보 재선정 또는 broker/auth hardening follow-up이다
+4. v193+ Broker/Auth Hardening Follow-up
+   - broker token handling, NCM listener lifecycle, backend selection policy, audit retention을 재점검한다
+   - Wi-Fi/server-style exposure 전에 보안 스캔과 실제 운용 정책을 다시 맞춘다
 5. 이후 Wi-Fi Baseline Refresh / Network Exposure Hardening
    - broker/security gate 이후 Android/TWRP/native Wi-Fi 자료를 다시 수집한다
    - Wi-Fi/NCM을 USB-local 밖으로 넓히기 전 인증/ACL/token/bind/listener lifecycle 정책을 다시 검토한다
