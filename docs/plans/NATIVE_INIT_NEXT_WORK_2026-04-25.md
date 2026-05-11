@@ -15,6 +15,14 @@
 - 저장소와 로그는 복구 가능한 영역부터 사용한다.
 - ADB는 보류하고 USB ACM serial을 기준 제어 채널로 유지한다.
 
+## 버전 표기 규칙
+
+- numeric `MAJOR.MINOR.PATCH`는 native init / boot image version이다.
+- `v###`는 project execution cycle이며 host tooling, 계획, 보고서, 검증 gate에도 사용한다.
+- `v###`가 항상 새 boot image나 device flash를 뜻하지 않는다.
+- 현재 예: native build `A90 Linux init 0.9.59`, device build tag `v159`, active validation cycle `v184`, device flash 없음.
+- 상세 규칙: `docs/operations/VERSIONING_POLICY.md`
+
 ---
 
 ## 모듈화 설계 기준
@@ -946,16 +954,16 @@ Samsung bootloader
 
 상세 실행 큐는 `docs/plans/NATIVE_INIT_TASK_QUEUE_2026-04-25.md`를 따른다.
 
-1. v184 24h+ Serverization Readiness Gate
+1. post-v184 roadmap selection
    - 상위 로드맵: `docs/plans/NATIVE_INIT_V178_V184_MIXED_SOAK_SECURITY_ROADMAP_2026-05-09.md`
-   - 최신 증거: `docs/reports/NATIVE_INIT_V183_8H_PILOT_MIXED_SOAK_2026-05-10.md` PASS
+   - 최신 증거: `docs/reports/NATIVE_INIT_V184_24H_SERVERIZATION_READINESS_2026-05-11.md` PASS
    - v178/v179는 실기기 플래시 버전이 아니라 v159 실기기 위에서 수행한 host harness baseline이다
-   - v183 8h pilot PASS를 기반으로 24h+ readiness gate를 시작한다
+   - v184 24h+ readiness gate가 PASS했으므로 다음 큰 주제를 선택한다
 2. v182-v184 Mixed Soak / Serverization Gate
    - v182 failure classifier는 완료됐다
    - v183 8h pilot은 PASS했다
-   - v184 24h+ readiness gate 계획서는 작성됐고, 실행 준비 상태다
-   - v184 PASS 후 Wi-Fi baseline refresh와 exposure hardening으로 진행한다
+   - v184 24h+ readiness gate는 PASS했다
+   - Wi-Fi baseline refresh와 exposure hardening은 post-v184 roadmap에서 우선순위를 다시 정한다
 3. v185+ Wi-Fi Baseline Refresh
    - mixed-soak readiness gate 이후 Android/TWRP/native Wi-Fi 자료를 다시 수집한다
 4. v186+ Network Exposure Hardening

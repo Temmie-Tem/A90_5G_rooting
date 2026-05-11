@@ -3,6 +3,22 @@
 이 문서는 `A90 Linux init 0.9.59 (v159)` verified 이후 바로 실행할 작업 큐다.
 큰 방향은 “보이는 부팅 → 복구 가능한 로그 → 단독 조작 → 작은 userland → USB networking” 순서다.
 
+## 버전 표기 규칙
+
+- numeric `MAJOR.MINOR.PATCH`는 native init / boot image의 canonical version이다.
+  - 예: `A90 Linux init 0.9.59`, `0.9.59`
+  - PID 1, ramdisk helper, boot image, device-visible native behavior가 바뀌고 실기기에 flash할 때만 증가시킨다.
+- `v###`는 project execution cycle이다.
+  - host tooling, security batch, 계획/보고서, long-soak/mixed-soak gate, documentation-only milestone에도 사용할 수 있다.
+  - `v###`가 항상 boot image 또는 device flash를 의미하지 않는다.
+- 모든 계획/보고서는 `Native build`, `Cycle label`, `Device flash`, `Host commit`을 분리해 적는다.
+- 현재 기준 예:
+  - Native build: `A90 Linux init 0.9.59`
+  - Device build tag: `v159`
+  - Cycle label: `v184` host-harness 24h readiness gate
+  - Device flash: none
+- 상세 규칙: `docs/operations/VERSIONING_POLICY.md`
+
 ## 현재 고정 기준점
 
 - latest verified build: `A90 Linux init 0.9.59 (v159)`
@@ -366,15 +382,18 @@
 - evidence: `tmp/soak/harness/v183-8h-pilot-20260509-230134/`
 - 다음 실행 항목: v184 24h+ Serverization Readiness Gate
 
-### V184. 24h+ Serverization Readiness Gate — PLANNED
+### V184. 24h+ Serverization Readiness Gate — PASS
 
 - 계획: `docs/plans/NATIVE_INIT_V184_24H_SERVERIZATION_READINESS_PLAN_2026-05-09.md`
+- 산출: `docs/reports/NATIVE_INIT_V184_24H_SERVERIZATION_READINESS_2026-05-11.md`
 - baseline device build: `A90 Linux init 0.9.59 (v159)`
 - device flash: 없음. v184는 host-harness 24h+ validation gate이며 별도 native-init boot image 없음
 - precondition: v181 full NCM/TCP + storage PASS, v183 8h pilot PASS
 - command: `native_test_supervisor.py mixed-soak --duration-sec 86400 --observer-interval 30 --profile balanced --workload-profile quick --seed 184 --allow-ncm --stop-on-failure`
-- acceptance: 24h+ complete, classified/no unclassified failures, SD/NCM/selftest/ACM rescue PASS, `GO|WARN-GO|NO-GO` 판정
-- 다음 실행 항목: v184 24h+ Serverization Readiness Gate
+- 검증: 24h+ complete, workloads=3 pass=3 skipped=0 blocked=0, observer_failures=0, failure_classifications=0
+- decision: `GO`
+- evidence: `tmp/soak/harness/v184-24h-readiness-20260510-095036/`
+- 다음 실행 항목: post-v184 roadmap selection
 
 ### Planned. v178-v184 Mixed Soak / Serverization Gate Cycle
 
@@ -392,7 +411,7 @@
   - v181 full NCM/TCP + storage mixed run PASS.
   - v182 failure classifier and interrupt-safe partial bundle PASS.
   - v183 8h pilot mixed soak PASS.
-  - v184 24h+ readiness gate plan is written and ready to execute.
+  - v184 24h+ readiness gate PASS.
 - 계획 순서:
   - 완료: v178 Post-Security Harness Baseline
   - 완료: v179 Mixed Soak Scheduler Foundation
@@ -400,9 +419,9 @@
   - 완료: v181 NCM/TCP + Storage Workload Integration
   - 완료: v182 Failure Classifier + Recovery Policy
   - 완료: v183 8h Pilot Mixed Soak
-  - 계획 완료: v184 24h+ Serverization Readiness Gate
+  - 완료: v184 24h+ Serverization Readiness Gate
 - guardrails: Wi-Fi enablement/rfkill write/module load/firmware mutation/public listener/watchdog open/destructive partition write 금지, ACM rescue 유지, evidence private/no-follow 유지.
-- 다음 실행 항목: v184 24h+ Serverization Readiness Gate
+- 다음 실행 항목: post-v184 roadmap selection
 
 ### Planned. v170-v177 Host Test Harness Cycle
 
@@ -2703,18 +2722,17 @@ python3 ./scripts/revalidation/physical_usb_reconnect_check.py --manual-host-con
 
 ## 지금 바로 진행할 항목
 
-1. v184 24h+ Serverization Readiness Gate
+1. post-v184 roadmap selection
 
    - 상위 로드맵: `docs/plans/NATIVE_INIT_V178_V184_MIXED_SOAK_SECURITY_ROADMAP_2026-05-09.md`
-   - 최신 결과: v183 8h pilot mixed soak PASS
-   - 계획: `docs/plans/NATIVE_INIT_V184_24H_SERVERIZATION_READINESS_PLAN_2026-05-09.md`
-   - `--duration-sec 86400 --allow-ncm --stop-on-failure` 24h+ readiness gate를 실행한다
+   - 최신 결과: v184 24h+ readiness gate PASS
+   - 산출: `docs/reports/NATIVE_INIT_V184_24H_SERVERIZATION_READINESS_2026-05-11.md`
+   - 다음 후보를 통신 프로토콜/broker, 보안 스캔 패치, kernel diagnostics, contention stress, Wi-Fi baseline refresh로 분류한다
 
 2. v182-v184 Mixed Soak / Serverization Gate
 
-   - v182 failure classifier PASS, v183 8h pilot PASS, v184 계획 문서 완료
-   - v184 24h+ readiness gate 진행
-   - Wi-Fi baseline refresh와 exposure hardening은 v184 gate 이후로 재개
+   - v182 failure classifier PASS, v183 8h pilot PASS, v184 24h+ readiness gate PASS
+   - Wi-Fi baseline refresh와 exposure hardening은 post-v184 roadmap에서 재개 여부를 결정한다
 
 ### V106-V108. UI/App Architecture Split — DONE
 

@@ -23,6 +23,7 @@ Android userspace 대신 직접 만든 static `/init`를 실행하고,
 - previous verified source-layout baseline: `stage3/linux_init/init_v80.c` + `stage3/linux_init/v80/*.inc.c`
 - known-good fallback: `stage3/boot_linux_v48.img`
 - local artifact retention: keep `v159` latest, `v158` rollback, and `v48` known-good; older ignored `stage3/boot_linux_v*.img`, `stage3/ramdisk_v*`, and compiled `init_v*` outputs are cleanup candidates
+- versioning policy: numeric `0.x.y` identifies native init / boot image builds; `v###` identifies project cycles, host tooling, plans, reports, validation gates, or legacy native build tags; see `docs/operations/VERSIONING_POLICY.md`
 - control channel: USB CDC ACM serial (`/dev/ttyGS0` ↔ `/dev/ttyACM0`)
 - host bridge: `scripts/revalidation/serial_tcp_bridge.py --port 54321`
 - display: custom boot splash 후 상태 HUD/menu 자동 전환
