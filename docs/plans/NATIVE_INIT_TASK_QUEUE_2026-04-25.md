@@ -639,6 +639,21 @@
 - 남은 검증: 없음
 - 다음 실행 항목: v198 netfilter/nftables exposure inventory
 
+### V198. Netfilter / Nftables Exposure Inventory — PASS
+
+- 계획: `docs/plans/NATIVE_INIT_V198_NETFILTER_INVENTORY_PLAN_2026-05-12.md`
+- 보고서: `docs/reports/NATIVE_INIT_V198_NETFILTER_INVENTORY_2026-05-12.md`
+- baseline device build: `A90 Linux init 0.9.59 (v159)`
+- device flash: 없음. v198은 host-side read-only network exposure inventory이며 별도 native-init boot image 없음
+- 구현:
+  - `scripts/revalidation/netfilter_inventory.py`
+- 검증:
+  - Python compile PASS
+  - live netfilter inventory PASS: `tmp/netfilter/v198-netfilter.md`
+  - decision: `legacy-iptables-runtime-present`
+- 남은 검증: 없음
+- 다음 실행 항목: v199 cgroup/PSI resource control inventory
+
 ### V187. Harness Broker Backend — PASS
 
 - 보고서: `docs/reports/NATIVE_INIT_V187_HARNESS_BROKER_BACKEND_2026-05-11.md`
