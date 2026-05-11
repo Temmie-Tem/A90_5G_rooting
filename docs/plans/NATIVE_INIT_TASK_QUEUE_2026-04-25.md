@@ -654,6 +654,21 @@
 - 남은 검증: 없음
 - 다음 실행 항목: v199 cgroup/PSI resource control inventory
 
+### V199. Cgroup / PSI Resource Control Inventory — PASS
+
+- 계획: `docs/plans/NATIVE_INIT_V199_CGROUP_PSI_INVENTORY_PLAN_2026-05-12.md`
+- 보고서: `docs/reports/NATIVE_INIT_V199_CGROUP_PSI_INVENTORY_2026-05-12.md`
+- baseline device build: `A90 Linux init 0.9.59 (v159)`
+- device flash: 없음. v199은 host-side read-only cgroup/PSI inventory이며 별도 native-init boot image 없음
+- 구현:
+  - `scripts/revalidation/cgroup_psi_inventory.py`
+- 검증:
+  - Python compile PASS
+  - live cgroup/PSI inventory PASS: `tmp/cgroup-psi/v199-cgroup-psi.md`
+  - decision: `supported-unmounted-psi-present`
+- 남은 검증: 없음
+- 다음 실행 항목: v200 tracefs/pstore debug observability plan
+
 ### V187. Harness Broker Backend — PASS
 
 - 보고서: `docs/reports/NATIVE_INIT_V187_HARNESS_BROKER_BACKEND_2026-05-11.md`
