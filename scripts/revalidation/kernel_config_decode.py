@@ -218,10 +218,12 @@ def build_report(args: argparse.Namespace,
             "options": {option: config_state(config, option) for option in options},
         })
 
+    pass_ok = config_ok and (version_matches if not args.config_file else True)
     manifest = {
         "created": dt.datetime.now(dt.timezone.utc).isoformat(),
         "expect_version": args.expect_version,
         "version_matches": version_matches,
+        "pass": pass_ok,
         "config_option_count": len(config),
         "config_ok": config_ok,
         "source": "local-file" if args.config_file else "device-proc-config-gz",
@@ -229,7 +231,6 @@ def build_report(args: argparse.Namespace,
         "categories": category_data,
         "captures": [capture_to_manifest(capture) for capture in captures],
     }
-    pass_ok = config_ok and (version_matches if not args.config_file else True)
 
     lines = [
         "# A90 Kernel Config Capability Matrix",
