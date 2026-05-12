@@ -137,15 +137,21 @@ def get_category(data: dict[str, Any], name: str) -> dict[str, Any]:
     return {}
 
 
-def wifi_gate(args: argparse.Namespace) -> tuple[str, str]:
+VALID_WIFI_DECISIONS = {"baseline-required", "no-go", "go"}
+
+
+def wifi_gate(args: argparse.Namespace) -> tuple[str, str, bool, str]:
     capture = run_capture(args, "wififeas-gate", ["wififeas", "gate"], timeout=20.0)
     text = capture.text
+    if not text and capture.error:
+        text = f"[capture-error] {capture.error}\n"
     decision = "unknown"
     for line in text.splitlines():
         if line.startswith("wififeas: decision="):
             decision = line.split("=", 1)[1].strip()
             break
-    return decision, text
+    gate_ok = capture.ok and decision in VALID_WIFI_DECISIONS
+    return decision, text, gate_ok, capture.status
 
 
 def build_summary(args: argparse.Namespace,
@@ -154,13 +160,22 @@ def build_summary(args: argparse.Namespace,
                   cgroup_data: dict[str, Any],
                   debug_data: dict[str, Any],
                   wifi_decision: str,
-                  wifi_text: str) -> tuple[str, dict[str, Any], bool]:
+                  wifi_text: str,
+                  wifi_gate_ok: bool,
+                  wifi_status: str) -> tuple[str, dict[str, Any], bool]:
     config_pass = bool(config_data.get("pass"))
     netfilter_pass = bool(netfilter_data.get("pass"))
     cgroup_pass = bool(cgroup_data.get("pass"))
     debug_pass = bool(debug_data.get("pass"))
     version_matches = all(bool(data.get("version_matches")) for data in (config_data, netfilter_data, cgroup_data, debug_data))
-    pass_ok = config_pass and netfilter_pass and cgroup_pass and debug_pass and version_matches
+    pass_ok = (
+        config_pass and
+        netfilter_pass and
+        cgroup_pass and
+        debug_pass and
+        version_matches and
+        wifi_gate_ok
+    )
 
     matrix_rows = [
         [
@@ -190,7 +205,11 @@ def build_summary(args: argparse.Namespace,
         [
             "Wi-Fi gate",
             wifi_decision,
-            "active bring-up blocked" if wifi_decision != "go" else "review required",
+            (
+                "active bring-up blocked" if wifi_gate_ok and wifi_decision != "go"
+                else "review required" if wifi_gate_ok
+                else f"gate failed status={wifi_status}"
+            ),
             "Do not enable Wi-Fi until native WLAN/rfkill/module gates change.",
         ],
     ]
@@ -214,6 +233,8 @@ def build_summary(args: argparse.Namespace,
         "expect_version": args.expect_version,
         "pass": pass_ok,
         "version_matches": version_matches,
+        "wifi_gate_ok": wifi_gate_ok,
+        "wifi_gate_status": wifi_status,
         "wifi_decision": wifi_decision,
         "source_files": {
             "config": str(repo_path(args.config_json)),
@@ -233,6 +254,7 @@ def build_summary(args: argparse.Namespace,
         f"- result: {'PASS' if pass_ok else 'FAIL'}",
         f"- expected version: `{args.expect_version}`",
         f"- all source versions match: `{version_matches}`",
+        f"- live Wi-Fi gate captured: `{wifi_gate_ok}` status=`{wifi_status}`",
         f"- Wi-Fi decision: `{wifi_decision}`",
         "- policy: summary only; no mount, no firewall writes, no cgroup writes, no Wi-Fi enablement",
         "",
@@ -266,13 +288,23 @@ def main() -> int:
     netfilter_data = load_json(args.netfilter_json)
     cgroup_data = load_json(args.cgroup_json)
     debug_data = load_json(args.debug_json)
-    wifi_decision, wifi_text = wifi_gate(args)
-    report, manifest, pass_ok = build_summary(args, config_data, netfilter_data, cgroup_data, debug_data, wifi_decision, wifi_text)
+    wifi_decision, wifi_text, wifi_gate_ok, wifi_status = wifi_gate(args)
+    report, manifest, pass_ok = build_summary(
+        args,
+        config_data,
+        netfilter_data,
+        cgroup_data,
+        debug_data,
+        wifi_decision,
+        wifi_text,
+        wifi_gate_ok,
+        wifi_status,
+    )
     output = repo_path(args.out)
     json_output = repo_path(args.json_out) if args.json_out else output.with_suffix(".json")
     write_private_text(output, report.rstrip() + "\n")
     write_private_json(json_output, manifest)
-    print(f"{'PASS' if pass_ok else 'FAIL'} out={output} json={json_output} wifi={wifi_decision}")
+    print(f"{'PASS' if pass_ok else 'FAIL'} out={output} json={json_output} wifi={wifi_decision} gate_ok={wifi_gate_ok}")
     return 0 if pass_ok else 1
 
 

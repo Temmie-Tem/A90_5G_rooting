@@ -26,6 +26,10 @@ Post-v200 scan follow-up: `F047` through `F053` were imported from `docs/securit
 - F047/F048/F052 H1 report: `../SECURITY_FINDINGS_F047_F053_H1_REPORT_2026-05-12.md`
 - F050/F051 H2 report: `../SECURITY_FINDINGS_F047_F053_H2_REPORT_2026-05-12.md`
 - F049/F053 H3 report: `../SECURITY_FINDINGS_F047_F053_H3_REPORT_2026-05-12.md`
+- F054-F056 analysis: `../SECURITY_FINDINGS_F054_F056_ANALYSIS_2026-05-12.md`
+- F054-F056 relationship: `../SECURITY_FINDINGS_F054_F056_RELATIONSHIP_2026-05-12.md`
+- F054-F056 patch plan: `../SECURITY_FINDINGS_F054_F056_PATCH_PLAN_2026-05-12.md`
+- F054-F056 patch report: `../SECURITY_FINDINGS_F054_F056_PATCH_REPORT_2026-05-12.md`
 - Fresh local rescan: `../SECURITY_FRESH_SCAN_V133_2026-05-07.md`
 - Fresh v134 local rescan: `../SECURITY_FRESH_SCAN_V134_2026-05-07.md`
 - Fresh v135 local rescan: `../SECURITY_FRESH_SCAN_V135_2026-05-07.md`
@@ -106,6 +110,9 @@ Post-v200 scan follow-up: `F047` through `F053` were imported from `docs/securit
 | F051 | `medium` | `mitigated-host-batch-h2` | Default lifecycle run can fail to stop tcpctl listener | [`F051-default-lifecycle-run-can-fail-to-stop-tcpctl-listener.md`](F051-default-lifecycle-run-can-fail-to-stop-tcpctl-listener.md) | scripts/revalidation/a90_broker_ncm_lifecycle_check.py <br> scripts/revalidation/tcpctl_host.py <br> scripts/revalidation/a90_broker.py <br> scripts/revalidation/serial_tcp_bridge.py |
 | F052 | `medium` | `mitigated-host-batch-h1` | NCM broker treats auth OK as command success | [`F052-ncm-broker-treats-auth-ok-as-command-success.md`](F052-ncm-broker-treats-auth-ok-as-command-success.md) | scripts/revalidation/a90_broker.py <br> stage3/linux_init/a90_tcpctl.c |
 | F053 | `medium` | `closed-duplicate-of-F046` | NCM preflight may run untrusted cache tcpctl as root | [`F053-ncm-preflight-may-run-untrusted-cache-tcpctl-as-root.md`](F053-ncm-preflight-may-run-untrusted-cache-tcpctl-as-root.md) | scripts/revalidation/a90harness/modules/ncm_tcp_preflight.py <br> scripts/revalidation/tcpctl_host.py <br> stage3/linux_init/init_v73.c |
+| F054 | `high` | `mitigated-host-batch-i1` | Observe-only broker can leak tcpctl auth token | [`F054-observe-only-broker-can-leak-tcpctl-auth-token.md`](F054-observe-only-broker-can-leak-tcpctl-auth-token.md) | scripts/revalidation/a90_broker.py <br> stage3/linux_init/init_v73.c |
+| F055 | `medium` | `mitigated-host-batch-i2` | Wi-Fi gate failure does not fail capability summary | [`F055-wifi-gate-failure-does-not-fail-capability-summary.md`](F055-wifi-gate-failure-does-not-fail-capability-summary.md) | scripts/revalidation/a90_kernel_tools.py <br> scripts/revalidation/kernel_capability_summary.py |
+| F056 | `informational` | `mitigated-host-batch-i3` | Lifecycle token capture crashes before starting tcpctl | [`F056-lifecycle-token-capture-crashes-before-starting-tcpctl.md`](F056-lifecycle-token-capture-crashes-before-starting-tcpctl.md) | scripts/revalidation/a90_broker_ncm_lifecycle_check.py <br> scripts/revalidation/tcpctl_host.py |
 
 ## Notes
 

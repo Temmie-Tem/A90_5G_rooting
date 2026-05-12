@@ -16,7 +16,7 @@ from typing import Any
 SCRIPT_DIR = Path(__file__).resolve().parent
 sys.path.insert(0, str(SCRIPT_DIR))
 
-from a90_broker import DEFAULT_AUDIT_NAME, DEFAULT_SOCKET_NAME, NcmTcpctlBackend, connect_and_call  # noqa: E402
+from a90_broker import DEFAULT_AUDIT_NAME, DEFAULT_SOCKET_NAME, DEFAULT_TOKEN_PATH, NcmTcpctlBackend, connect_and_call  # noqa: E402
 from a90harness.evidence import EvidenceStore, ensure_private_dir  # noqa: E402
 
 
@@ -187,9 +187,10 @@ def check_allow_no_auth_metadata(store: EvidenceStore, ready_timeout: float) -> 
 
 
 def broker_call(socket_path: Path, argv: list[str], command_class: str | None = None) -> dict[str, Any]:
+    safe_name = "-".join(part.replace("/", "_") for part in argv[:2])
     payload: dict[str, Any] = {
         "proto": "A90B1",
-        "id": f"v193-policy-{os.getpid()}-{len(argv)}-{'-'.join(argv[:2])}",
+        "id": f"v193-policy-{os.getpid()}-{len(argv)}-{safe_name}",
         "client_id": "v193-auth-check",
         "op": "cmd",
         "argv": argv,
@@ -209,20 +210,27 @@ def check_default_policy_blocks_mutating(store: EvidenceStore, ready_timeout: fl
         status = broker_call(socket_path, ["status"], "observe")
         run = broker_call(socket_path, ["run", "id"], "exclusive")
         menu = broker_call(socket_path, ["menu"], "operator-action")
+        sensitive_cat = broker_call(socket_path, ["cat", DEFAULT_TOKEN_PATH], "operator-action")
         reboot = broker_call(socket_path, ["reboot"], "rebind-destructive")
         store.write_json("default-policy-responses.json", {
             "status": status,
             "run": run,
             "menu": menu,
+            "sensitive_cat": sensitive_cat,
             "reboot": reboot,
         })
         ok = (
             status.get("ok") is True and
             run.get("ok") is False and run.get("status") == "exclusive-required" and
             menu.get("ok") is False and menu.get("status") == "operator-required" and
+            sensitive_cat.get("ok") is False and sensitive_cat.get("status") == "sensitive-path-denied" and
             reboot.get("ok") is False and reboot.get("status") == "operator-required"
         )
-        return CheckResult("default broker policy blocks mutating commands", ok, f"run={run.get('status')} menu={menu.get('status')} reboot={reboot.get('status')}")
+        return CheckResult(
+            "default broker policy blocks mutating commands",
+            ok,
+            f"run={run.get('status')} menu={menu.get('status')} sensitive_cat={sensitive_cat.get('status')} reboot={reboot.get('status')}",
+        )
     finally:
         stdout, stderr = stop_broker(process)
         if stdout:
@@ -239,9 +247,19 @@ def check_allow_policy_flags(store: EvidenceStore, ready_timeout: float) -> Chec
         wait_for_socket(socket_path, process, ready_timeout)
         run = broker_call(socket_path, ["run", "id"], "exclusive")
         menu = broker_call(socket_path, ["menu"], "operator-action")
-        store.write_json("allow-policy-responses.json", {"run": run, "menu": menu})
-        ok = run.get("ok") is True and menu.get("ok") is True
-        return CheckResult("allow-exclusive permits exclusive and operator classes", ok, f"run={run.get('status')} menu={menu.get('status')}")
+        sensitive_cat = broker_call(socket_path, ["cat", DEFAULT_TOKEN_PATH], "operator-action")
+        store.write_json("allow-policy-responses.json", {"run": run, "menu": menu, "sensitive_cat": sensitive_cat})
+        ok = (
+            run.get("ok") is True and
+            menu.get("ok") is True and
+            sensitive_cat.get("ok") is False and
+            sensitive_cat.get("status") == "sensitive-path-denied"
+        )
+        return CheckResult(
+            "allow-exclusive permits exclusive and operator classes",
+            ok,
+            f"run={run.get('status')} menu={menu.get('status')} sensitive_cat={sensitive_cat.get('status')}",
+        )
     finally:
         stdout, stderr = stop_broker(process)
         if stdout:

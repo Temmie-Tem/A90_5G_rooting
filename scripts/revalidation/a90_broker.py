@@ -6,6 +6,7 @@ from __future__ import annotations
 import argparse
 import json
 import os
+import posixpath
 import queue
 import re
 import shlex
@@ -34,6 +35,13 @@ DEFAULT_TCP_PORT = 2325
 DEFAULT_TCP_TIMEOUT = 10.0
 DEFAULT_TOKEN_COMMAND = ("netservice", "token", "show")
 DEFAULT_TOKEN_PATH = "/cache/native-init-tcpctl.token"
+SENSITIVE_DEVICE_READ_PATHS = {
+    DEFAULT_TOKEN_PATH,
+}
+SENSITIVE_DEVICE_READ_PREFIXES = (
+    "/mnt/sdext/a90/runtime/",
+    "/cache/a90/runtime/",
+)
 DEFAULT_RUNTIME_DIR = Path("tmp/a90-broker")
 DEFAULT_SOCKET_NAME = "a90b1.sock"
 DEFAULT_AUDIT_NAME = "audit.jsonl"
@@ -79,7 +87,6 @@ OBSERVE_COMMANDS = {
     "uname",
     "mounts",
     "ls",
-    "cat",
     "stat",
     "exposure",
     "policycheck",
@@ -101,6 +108,7 @@ OPERATOR_COMMANDS = {
     "longsoak",
     "statushud",
     "watchhud",
+    "cat",
 }
 
 EXCLUSIVE_COMMANDS = {
@@ -203,6 +211,7 @@ class BrokerPolicy:
         }
 
     def authorize(self, request: BrokerRequest) -> None:
+        deny_sensitive_read(request)
         if request.command_class == "observe":
             return
         if request.command_class == "operator-action":
@@ -231,6 +240,31 @@ class BrokerError(RuntimeError):
     def __init__(self, status: str, message: str) -> None:
         super().__init__(message)
         self.status = status
+
+
+def normalize_device_path(path: str) -> str:
+    if path.startswith("/"):
+        return posixpath.normpath(path)
+    return posixpath.normpath("/" + path)
+
+
+def is_sensitive_device_read_path(path: str) -> bool:
+    normalized = normalize_device_path(path)
+    if normalized in SENSITIVE_DEVICE_READ_PATHS:
+        return True
+    return any(
+        normalized == prefix.rstrip("/") or normalized.startswith(prefix)
+        for prefix in SENSITIVE_DEVICE_READ_PREFIXES
+    )
+
+
+def deny_sensitive_read(request: BrokerRequest) -> None:
+    if request.argv and request.argv[0] == "cat" and len(request.argv) > 1:
+        if is_sensitive_device_read_path(request.argv[1]):
+            raise BrokerError(
+                "sensitive-path-denied",
+                "cat of sensitive device path is blocked by broker policy",
+            )
 
 
 class Backend:
@@ -1092,6 +1126,20 @@ def cmd_selftest(_: argparse.Namespace) -> int:
         if menu_response.get("ok") is not False or menu_response.get("status") != "operator-required":
             raise RuntimeError(f"menu was not blocked as operator-action: {menu_response}")
 
+        sensitive_cat_request = {
+            "proto": PROTO,
+            "id": "selftest-sensitive-cat",
+            "client_id": "selftest",
+            "op": "cmd",
+            "argv": ["cat", DEFAULT_TOKEN_PATH],
+            "timeout_ms": 1000,
+            "class": "operator-action",
+        }
+        sensitive_cat_response = connect_and_call(socket_path, sensitive_cat_request, 3.0)
+        if (sensitive_cat_response.get("ok") is not False or
+                sensitive_cat_response.get("status") != "sensitive-path-denied"):
+            raise RuntimeError(f"sensitive cat was not blocked: {sensitive_cat_response}")
+
         blocked_request = {
             "proto": PROTO,
             "id": "selftest-reboot",
@@ -1109,7 +1157,7 @@ def cmd_selftest(_: argparse.Namespace) -> int:
         summary = summarize_audit(records, malformed, audit_path)
         if not summary["integrity"]["ok"]:
             raise RuntimeError(f"audit integrity failed: {summary['integrity']}")
-        if summary["request_counts"]["results"] != 4:
+        if summary["request_counts"]["results"] != 5:
             raise RuntimeError(f"unexpected audit result count: {summary['request_counts']}")
 
         print("a90_broker selftest: PASS")
