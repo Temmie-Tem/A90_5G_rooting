@@ -1004,7 +1004,12 @@ Samsung bootloader
    - v206 보고서: `docs/reports/NATIVE_INIT_V206_ANDROID_ICNSS_CNSS_MAP_2026-05-13.md`
    - v206 상태: PASS, decision `ready-for-native-preflight-plan`
    - v206 실기: Android ADB/root collector PASS 후 native v159 복구 PASS
-   - 다음은 v207 native read-only Wi-Fi preflight 계획이다
+   - v207 계획서: `docs/plans/NATIVE_INIT_V207_NATIVE_WIFI_PREFLIGHT_PLAN_2026-05-13.md`
+   - v207 collector: `scripts/revalidation/native_wifi_preflight.py`
+   - v207 보고서: `docs/reports/NATIVE_INIT_V207_NATIVE_WIFI_PREFLIGHT_2026-05-13.md`
+   - v207 상태: PASS, decision `missing-mounted-vendor`
+   - v207 실기: native basic control, `mountsystem ro`, ICNSS sysfs PASS; mounted vendor firmware/init path, WLAN netdev/wiphy/rfkill, remote `a90_nl80211_ro`는 absent
+   - 다음은 v208 native vendor/firmware mount visibility 계획이다
    - Wi-Fi/NCM을 USB-local 밖으로 넓히기 전 인증/ACL/token/bind/listener lifecycle 정책을 다시 검토한다
 
 ---

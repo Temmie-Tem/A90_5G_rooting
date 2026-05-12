@@ -873,6 +873,60 @@
   - v207 native read-only Wi-Fi preflight 계획
   - active Wi-Fi bring-up은 계속 blocked
 
+### V207. Native Read-Only Wi-Fi Preflight — PASS
+
+- 계획: `docs/plans/NATIVE_INIT_V207_NATIVE_WIFI_PREFLIGHT_PLAN_2026-05-13.md`
+- 보고서: `docs/reports/NATIVE_INIT_V207_NATIVE_WIFI_PREFLIGHT_2026-05-13.md`
+- device flash: 없음. v207은 host-side/native read-only preflight collector로 시작한다.
+- 기준:
+  - v205 native baseline: `native-icnss-present-no-wiphy`
+  - v206 Android map: `ready-for-native-preflight-plan`
+- 구현:
+  - `scripts/revalidation/native_wifi_preflight.py`
+  - private/no-follow evidence output under `tmp/wifi/v207-native-wifi-preflight`
+  - v205/v206 manifest comparison
+  - active Wi-Fi command guard
+- 허용:
+  - native version/status/bootstatus metadata 수집
+  - `mountsystem ro` 후 mounted-system firmware/init rc path read-only 확인
+  - ICNSS sysfs, WLAN netdev, rfkill, `ieee80211`, firmware loader state read-only 수집
+  - existing `/cache/bin/a90_nl80211_ro` GET-only helper 실행 if already present
+- 금지:
+  - Wi-Fi enablement, rfkill write, WLAN link-up
+  - scan/connect, active `nl80211` set/scan/connect commands
+  - module load/unload, `firmware_class.path` write, firmware mutation
+  - `cnss-daemon`, `wificond`, Wi-Fi HAL, supplicant, hostapd start
+  - `/data/misc/wifi`, `cmd wifi`, `svc wifi`, `dumpsys wifi` collection
+- 결정 모델:
+  - `native-preflight-ready`
+  - `userspace-service-gap-confirmed`
+  - `missing-mounted-vendor`
+  - `missing-firmware-path`
+  - `missing-icnss-sysfs`
+  - `missing-nl80211-helper`
+  - `missing-wiphy-netdev`
+  - `manual-review-required`
+- 검증 계획:
+  - Python compile PASS
+  - v207 command guard PASS
+  - `git diff --check` PASS
+  - native bridge live collector run PASS
+- 실기 결과:
+  - runtime: `A90 Linux init 0.9.59 (v159)`
+  - decision: `missing-mounted-vendor`
+  - basic control: PASS
+  - `mountsystem ro`: PASS
+  - native ICNSS sysfs: present
+  - mounted system init path: present
+  - mounted vendor firmware/init paths: missing
+  - native WLAN netdev/wiphy/Wi-Fi rfkill: absent
+  - remote `/cache/bin/a90_nl80211_ro`: absent
+  - manifest SHA256: `d3d88598d9b66b179044416a404d5649f377567482a74e214ac07706e9aae7b4`
+  - summary SHA256: `ef1dd5cfa4acca5003fb2041f194834b796ab1402981d3a712228ef31490edb6`
+- 다음 실행 항목:
+  - v208 native vendor/firmware mount visibility 계획
+  - active Wi-Fi bring-up은 계속 blocked
+
 ### V187. Harness Broker Backend — PASS
 
 - 보고서: `docs/reports/NATIVE_INIT_V187_HARNESS_BROKER_BACKEND_2026-05-11.md`
