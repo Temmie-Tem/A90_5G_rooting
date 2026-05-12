@@ -14,7 +14,7 @@
 | author | `shs02140@gmail.com` |
 | repo | `Temmie-Tem/A90_5G_rooting` |
 | relevant_paths | `scripts/revalidation/a90_broker.py` <br> `stage3/linux_init/init_v73.c` |
-| source_csv | `docs/security/codex-security-findings-2026-05-12T08-30-30.417Z.csv` |
+| source_csv | `docs/security/scans/codex-security-findings-2026-05-12T08-30-30.417Z.csv` |
 
 ## CSV Description
 
@@ -28,7 +28,7 @@ This commit adds a broker authorization boundary where default policy permits on
 
 ## Local Remediation
 
-- Implemented in Batch I1; see `docs/security/SECURITY_FINDINGS_F054_F056_PATCH_REPORT_2026-05-12.md`.
+- Implemented in Batch I1; see `docs/security/batches/SECURITY_FINDINGS_F054_F056_PATCH_REPORT_2026-05-12.md`.
 - `cat` is no longer a default observe-only broker command; it is classified as `operator-action`.
 - Broker policy now blocks `cat /cache/native-init-tcpctl.token` and runtime secret prefixes with `sensitive-path-denied`, even when broader operator/exclusive flags are enabled.
 - Broker selftest and auth hardening checks now cover sensitive token path reads.

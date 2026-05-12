@@ -14,7 +14,7 @@
 | author | `shs02140@gmail.com` |
 | repo | `Temmie-Tem/A90_5G_rooting` |
 | relevant_paths | `scripts/revalidation/a90_broker_recovery_tests.py` <br> `scripts/revalidation/a90_broker.py` <br> `stage3/linux_init/a90_tcpctl.c` <br> `scripts/revalidation/README.md` |
-| source_csv | `docs/security/codex-security-findings-2026-05-11T19-48-19.047Z.csv` |
+| source_csv | `docs/security/scans/codex-security-findings-2026-05-11T19-48-19.047Z.csv` |
 
 ## CSV Description
 
@@ -26,7 +26,7 @@ The added recovery test starts an ncm-tcpctl broker pointed at TCP port 29999 an
 
 ## Local Remediation
 
-- Implemented in Batch H1; see `docs/security/SECURITY_FINDINGS_F047_F053_H1_REPORT_2026-05-12.md`. The recovery live negative test now refuses an already-open test port and uses explicit no-auth/allow-no-auth for the listener-down path, so it does not fetch or send a real tcpctl token to an arbitrary listener.
+- Implemented in Batch H1; see `docs/security/batches/SECURITY_FINDINGS_F047_F053_H1_REPORT_2026-05-12.md`. The recovery live negative test now refuses an already-open test port and uses explicit no-auth/allow-no-auth for the listener-down path, so it does not fetch or send a real tcpctl token to an arbitrary listener.
 
 ## Codex Cloud Detail
 

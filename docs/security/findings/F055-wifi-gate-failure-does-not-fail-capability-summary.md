@@ -14,7 +14,7 @@
 | author | `shs02140@gmail.com` |
 | repo | `Temmie-Tem/A90_5G_rooting` |
 | relevant_paths | `scripts/revalidation/a90_kernel_tools.py` <br> `scripts/revalidation/kernel_capability_summary.py` |
-| source_csv | `docs/security/codex-security-findings-2026-05-12T08-30-30.417Z.csv` |
+| source_csv | `docs/security/scans/codex-security-findings-2026-05-12T08-30-30.417Z.csv` |
 
 ## CSV Description
 
@@ -28,7 +28,7 @@ The v202 summary is intended to merge v197-v200 evidence with a live `wififeas g
 
 ## Local Remediation
 
-- Implemented in Batch I2; see `docs/security/SECURITY_FINDINGS_F054_F056_PATCH_REPORT_2026-05-12.md`.
+- Implemented in Batch I2; see `docs/security/batches/SECURITY_FINDINGS_F054_F056_PATCH_REPORT_2026-05-12.md`.
 - `wifi_gate()` now returns parsed decision, evidence text, capture status, and a boolean `wifi_gate_ok`.
 - `kernel_capability_summary.py` now includes `wifi_gate_ok` in `pass_ok`, so missing or malformed live gate output fails the summary.
 - A local fixture confirmed failed `run_capture()` produces `pass=false` and `wifi_gate_ok=false`.

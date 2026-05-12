@@ -12,7 +12,7 @@
 | committed_at | `2026-05-08 04:04:51 +0900` |
 | commit_hash | `be9feb12401ade15e501cc93169c58a3626a488d` |
 | relevant_paths | `scripts/revalidation/native_long_soak.py` <br> `scripts/revalidation/a90ctl.py` <br> `stage3/linux_init/v148/60_shell_basic_commands.inc.c` |
-| source_csv | `docs/security/codex-security-findings-2026-05-07T20-00-44.982Z.csv` |
+| source_csv | `docs/security/scans/codex-security-findings-2026-05-07T20-00-44.982Z.csv` |
 
 ## CSV Description
 

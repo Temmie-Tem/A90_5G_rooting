@@ -9,7 +9,7 @@ broker v193-v195 work. This is a host tooling/documentation change only.
 ## Changes
 
 - Added `scripts/revalidation/security_scan_followup.py`.
-- Added `docs/security/SECURITY_FRESH_SCAN_V196_2026-05-11.md`.
+- Added `docs/security/scans/SECURITY_FRESH_SCAN_V196_2026-05-11.md`.
 - Updated the security findings index with the fresh v196 rescan reference.
 - Updated broker/tooling README and task queue docs.
 
@@ -43,7 +43,7 @@ Summary:
 
 ```bash
 python3 scripts/revalidation/local_security_rescan.py \
-  --out docs/security/SECURITY_FRESH_SCAN_V196_2026-05-11.md
+  --out docs/security/scans/SECURITY_FRESH_SCAN_V196_2026-05-11.md
 ```
 
 Result: PASS by local targeted scan.

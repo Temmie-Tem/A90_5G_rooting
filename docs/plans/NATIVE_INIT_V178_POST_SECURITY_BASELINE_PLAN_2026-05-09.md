@@ -68,7 +68,7 @@ python3 -m py_compile \
   scripts/revalidation/local_security_rescan.py
 
 python3 scripts/revalidation/local_security_rescan.py \
-  --out docs/security/SECURITY_FRESH_SCAN_F038_F044_2026-05-09.md
+  --out docs/security/scans/SECURITY_FRESH_SCAN_F038_F044_2026-05-09.md
 
 git diff --check
 ```

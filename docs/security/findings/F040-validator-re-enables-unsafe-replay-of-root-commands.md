@@ -12,7 +12,7 @@
 | committed_at | `2026-05-09 01:48:08 +0900` |
 | commit_hash | `7e63134745ecc4f4b50662bba7c5a43650f1e270` |
 | relevant_paths | `scripts/revalidation/cpu_mem_thermal_stability.py` <br> `scripts/revalidation/a90ctl.py` |
-| source_csv | `docs/security/codex-security-findings-2026-05-08T18-39-05.112Z.csv` |
+| source_csv | `docs/security/scans/codex-security-findings-2026-05-08T18-39-05.112Z.csv` |
 
 ## CSV Description
 

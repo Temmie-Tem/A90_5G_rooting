@@ -12,7 +12,7 @@
 | committed_at | `2026-05-09 01:18:00 +0900` |
 | commit_hash | `d77e58e0724c5305fe94dfcf7960713e41d53565` |
 | relevant_paths | `docs/plans/NATIVE_INIT_V160_NCM_TCP_STABILITY_PLAN_2026-05-09.md` <br> `scripts/revalidation/ncm_tcp_stability_report.py` <br> `stage3/linux_init/a90_tcpctl.c` |
-| source_csv | `docs/security/codex-security-findings-2026-05-08T18-39-05.112Z.csv` |
+| source_csv | `docs/security/scans/codex-security-findings-2026-05-08T18-39-05.112Z.csv` |
 
 ## CSV Description
 

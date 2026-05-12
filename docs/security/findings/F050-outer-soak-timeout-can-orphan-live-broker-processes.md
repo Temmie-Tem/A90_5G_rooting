@@ -14,7 +14,7 @@
 | author | `shs02140@gmail.com` |
 | repo | `Temmie-Tem/A90_5G_rooting` |
 | relevant_paths | `scripts/revalidation/a90_broker_soak_suite.py` <br> `scripts/revalidation/a90_broker_mixed_soak_gate.py` <br> `scripts/revalidation/a90_broker.py` |
-| source_csv | `docs/security/codex-security-findings-2026-05-11T19-48-19.047Z.csv` |
+| source_csv | `docs/security/scans/codex-security-findings-2026-05-11T19-48-19.047Z.csv` |
 
 ## CSV Description
 
@@ -26,7 +26,7 @@ The newly added a90_broker_soak_suite.py executes each validator with subprocess
 
 ## Local Remediation
 
-- Implemented in Batch H2; see `docs/security/SECURITY_FINDINGS_F047_F053_H2_REPORT_2026-05-12.md`. The broker soak suite now launches steps in a managed process group, records timeout failures, and performs orphan broker cleanup for suite-owned runtime directories.
+- Implemented in Batch H2; see `docs/security/batches/SECURITY_FINDINGS_F047_F053_H2_REPORT_2026-05-12.md`. The broker soak suite now launches steps in a managed process group, records timeout failures, and performs orphan broker cleanup for suite-owned runtime directories.
 
 ## Codex Cloud Detail
 

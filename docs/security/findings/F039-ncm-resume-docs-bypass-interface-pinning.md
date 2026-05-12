@@ -12,7 +12,7 @@
 | committed_at | `2026-05-09 02:00:18 +0900` |
 | commit_hash | `19daf49ccc738a762edd59568ab3e5d23a6124eb` |
 | relevant_paths | `docs/reports/NATIVE_INIT_V166_NETWORK_THROUGHPUT_DEFERRED_2026-05-09.md` <br> `scripts/revalidation/ncm_host_setup.py` |
-| source_csv | `docs/security/codex-security-findings-2026-05-08T18-39-05.112Z.csv` |
+| source_csv | `docs/security/scans/codex-security-findings-2026-05-08T18-39-05.112Z.csv` |
 
 ## CSV Description
 

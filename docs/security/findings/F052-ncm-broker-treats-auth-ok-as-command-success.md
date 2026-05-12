@@ -14,7 +14,7 @@
 | author | `shs02140@gmail.com` |
 | repo | `Temmie-Tem/A90_5G_rooting` |
 | relevant_paths | `scripts/revalidation/a90_broker.py` <br> `stage3/linux_init/a90_tcpctl.c` |
-| source_csv | `docs/security/codex-security-findings-2026-05-11T19-48-19.047Z.csv` |
+| source_csv | `docs/security/scans/codex-security-findings-2026-05-11T19-48-19.047Z.csv` |
 
 ## CSV Description
 
@@ -26,7 +26,7 @@ The newly added NcmTcpctlBackend sends an auth line before run commands by defau
 
 ## Local Remediation
 
-- Implemented in Batch H1; see `docs/security/SECURITY_FINDINGS_F047_F053_H1_REPORT_2026-05-12.md`. The NCM tcpctl backend now parses the final non-empty tcpctl trailer and treats final `ERR ...` as failure.
+- Implemented in Batch H1; see `docs/security/batches/SECURITY_FINDINGS_F047_F053_H1_REPORT_2026-05-12.md`. The NCM tcpctl backend now parses the final non-empty tcpctl trailer and treats final `ERR ...` as failure.
 
 ## Codex Cloud Detail
 

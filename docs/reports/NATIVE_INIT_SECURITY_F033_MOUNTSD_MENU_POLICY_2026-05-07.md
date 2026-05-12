@@ -36,7 +36,7 @@ A fresh Codex Cloud scan found a low-severity policy bug in the menu-active comm
 - ARM64 static v133 syntax/build check to `/tmp/a90_init_v133_check` — PASS.
 - `strings` marker check for `A90 Linux init 0.9.33 (v133)`, `A90v133`, and `0.9.33 v133 CHANGELOG SERIES` — PASS.
 - Source pattern check confirms `mountsd` uses explicit-subcommand policy.
-- `python3 scripts/revalidation/local_security_rescan.py --out docs/security/SECURITY_FRESH_SCAN_V133_2026-05-07.md` — PASS.
+- `python3 scripts/revalidation/local_security_rescan.py --out docs/security/scans/SECURITY_FRESH_SCAN_V133_2026-05-07.md` — PASS.
 - `git diff --check` — PASS.
 - `python3 -m py_compile scripts/revalidation/a90ctl.py scripts/revalidation/native_init_flash.py scripts/revalidation/local_security_rescan.py` — PASS.
 

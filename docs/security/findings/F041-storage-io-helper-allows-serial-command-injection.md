@@ -12,7 +12,7 @@
 | committed_at | `2026-05-09 01:24:33 +0900` |
 | commit_hash | `45215b98372b55a791aaa3cf52b59a04daef2dd3` |
 | relevant_paths | `scripts/revalidation/storage_iotest.py` <br> `scripts/revalidation/tcpctl_host.py` |
-| source_csv | `docs/security/codex-security-findings-2026-05-08T18-39-05.112Z.csv` |
+| source_csv | `docs/security/scans/codex-security-findings-2026-05-08T18-39-05.112Z.csv` |
 
 ## CSV Description
 

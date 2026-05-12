@@ -12,7 +12,7 @@
 | committed_at | `2026-05-09 02:04:35 +0900` |
 | commit_hash | `6f254fbe78888d7197a0bb29a4d5cd597379b12a` |
 | relevant_paths | `docs/plans/NATIVE_INIT_V167_FS_EXERCISER_PLAN_2026-05-09.md` <br> `scripts/revalidation/fs_exerciser_mini.py` |
-| source_csv | `docs/security/codex-security-findings-2026-05-08T18-39-05.112Z.csv` |
+| source_csv | `docs/security/scans/codex-security-findings-2026-05-08T18-39-05.112Z.csv` |
 
 ## CSV Description
 

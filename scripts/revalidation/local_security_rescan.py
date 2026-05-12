@@ -15,7 +15,7 @@ from dataclasses import dataclass
 from pathlib import Path
 
 REPO_ROOT = Path(__file__).resolve().parents[2]
-DEFAULT_OUT = REPO_ROOT / "docs" / "security" / "SECURITY_FRESH_SCAN_F045_F046_2026-05-11.md"
+DEFAULT_OUT = REPO_ROOT / "docs" / "security" / "scans" / "SECURITY_FRESH_SCAN_F045_F046_2026-05-11.md"
 
 
 @dataclass(frozen=True)
@@ -625,7 +625,7 @@ def render_report(checks: list[Check]) -> str:
         "## Reproduction",
         "",
         "```bash",
-        "python3 scripts/revalidation/local_security_rescan.py --out docs/security/SECURITY_FRESH_SCAN_F045_F046_2026-05-11.md",
+        "python3 scripts/revalidation/local_security_rescan.py --out docs/security/scans/SECURITY_FRESH_SCAN_F045_F046_2026-05-11.md",
         "git diff --check",
         "```",
         "",

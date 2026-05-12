@@ -12,7 +12,7 @@
 | committed_at | `2026-05-09 03:02:34 +0900` |
 | commit_hash | `c7e28272c3325613f01457aa27ec33445a7cd11f` |
 | relevant_paths | `scripts/revalidation/native_test_supervisor.py` <br> `scripts/revalidation/a90harness/observer.py` |
-| source_csv | `docs/security/codex-security-findings-2026-05-08T18-39-05.112Z.csv` |
+| source_csv | `docs/security/scans/codex-security-findings-2026-05-08T18-39-05.112Z.csv` |
 
 ## CSV Description
 

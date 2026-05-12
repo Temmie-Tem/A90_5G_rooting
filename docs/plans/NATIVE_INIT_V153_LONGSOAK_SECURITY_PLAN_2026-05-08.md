@@ -7,7 +7,7 @@ Baseline: `A90 Linux init 0.9.52 (v152)`
 ## Summary
 
 v153 should pause kernel-inventory feature work and first close the new longsoak
-security findings from `docs/security/codex-security-findings-2026-05-07T20-00-44.982Z.csv`.
+security findings from `docs/security/scans/codex-security-findings-2026-05-07T20-00-44.982Z.csv`.
 
 Scope:
 
@@ -228,7 +228,7 @@ After real-device validation:
 
 - Update F034-F037 finding status to `mitigated-v153`.
 - Add `docs/reports/NATIVE_INIT_V153_LONGSOAK_SECURITY_2026-05-08.md`.
-- Add `docs/security/SECURITY_FRESH_SCAN_V153_2026-05-08.md`.
+- Add `docs/security/scans/SECURITY_FRESH_SCAN_V153_2026-05-08.md`.
 - Update `README.md` and `docs/plans/NATIVE_INIT_TASK_QUEUE_2026-04-25.md` latest verified from v152 to v153.
 
 ### 9. Safe longsoak path handling
@@ -363,7 +363,7 @@ python3 scripts/revalidation/a90ctl.py longsoak stop
 python3 scripts/revalidation/native_long_soak.py --duration-sec 10 --device-interval 2 --start-device
 python3 scripts/revalidation/native_long_soak_report.py
 python3 scripts/revalidation/native_long_soak_bundle.py
-python3 scripts/revalidation/local_security_rescan.py --out docs/security/SECURITY_FRESH_SCAN_V153_2026-05-08.md
+python3 scripts/revalidation/local_security_rescan.py --out docs/security/scans/SECURITY_FRESH_SCAN_V153_2026-05-08.md
 ```
 
 Acceptance:

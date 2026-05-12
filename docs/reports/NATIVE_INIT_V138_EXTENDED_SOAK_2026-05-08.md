@@ -58,7 +58,7 @@ Result:
 
 Security report:
 
-- `docs/security/SECURITY_FRESH_SCAN_V138_2026-05-08.md`
+- `docs/security/scans/SECURITY_FRESH_SCAN_V138_2026-05-08.md`
 
 ## Flash Validation
 

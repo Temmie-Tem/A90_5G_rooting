@@ -14,7 +14,7 @@
 | author | `shs02140@gmail.com` |
 | repo | `Temmie-Tem/A90_5G_rooting` |
 | relevant_paths | `scripts/revalidation/a90harness/modules/cpu_memory_profiles.py` <br> `scripts/revalidation/a90harness/scheduler.py` <br> `stage3/linux_init/init_v73.c` |
-| source_csv | `docs/security/codex-security-findings-2026-05-11T19-48-19.047Z.csv` |
+| source_csv | `docs/security/scans/codex-security-findings-2026-05-11T19-48-19.047Z.csv` |
 
 ## CSV Description
 
@@ -30,7 +30,7 @@ The commit adds cpu-memory-profiles and makes it the default mixed-soak CPU work
 
 ## Closure Evidence
 
-- Closed in Batch H3 as a duplicate of `F045`; see `docs/security/SECURITY_FINDINGS_F047_F053_H3_REPORT_2026-05-12.md`.
+- Closed in Batch H3 as a duplicate of `F045`; see `docs/security/batches/SECURITY_FINDINGS_F047_F053_H3_REPORT_2026-05-12.md`.
 - Current `scripts/revalidation/a90harness/modules/cpu_memory_profiles.py` creates a safe per-profile temp directory under `/tmp` using `require_safe_component()` and `require_path_under()`, then places the memory file inside that directory instead of writing to the old predictable `/tmp/<run>-<profile>-mem.bin` pattern.
 - Local verification on 2026-05-12 confirmed the old timestamp-based path pattern is absent and `python3 -m py_compile scripts/revalidation/a90harness/modules/cpu_memory_profiles.py` passes.
 

@@ -15,7 +15,7 @@ from typing import Any
 from a90harness.evidence import EvidenceStore
 
 
-DEFAULT_CSV = Path("docs/security/codex-security-findings-2026-05-11T07-54-55.648Z.csv")
+DEFAULT_CSV = Path("docs/security/scans/codex-security-findings-2026-05-11T07-54-55.648Z.csv")
 DEFAULT_INDEX = Path("docs/security/findings/README.md")
 
 

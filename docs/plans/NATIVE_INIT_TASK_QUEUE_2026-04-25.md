@@ -615,7 +615,7 @@
 - device flash: 없음. v196은 host-side security follow-up workflow이며 별도 native-init boot image 없음
 - 구현:
   - `scripts/revalidation/security_scan_followup.py`
-  - `docs/security/SECURITY_FRESH_SCAN_V196_2026-05-11.md`
+  - `docs/security/scans/SECURITY_FRESH_SCAN_V196_2026-05-11.md`
 - 검증:
   - Python compile PASS
   - security scan follow-up PASS: `tmp/a90-v196-security-followup/`
@@ -747,7 +747,7 @@
 - 현재 증거:
   - v160-v169 개별 안정성 PASS/DEFERRED 정리와 v170-v177 host harness completion audit PASS는 보안 패치 전 historical baseline으로 유지한다.
   - F038-F044 host harness 보안 패치 완료: `0b8e9bc`, `c214478`, `952e572`, `fafa6d6`.
-  - local targeted rescan: `docs/security/SECURITY_FRESH_SCAN_F038_F044_2026-05-09.md`, PASS=27 WARN=1 FAIL=0.
+  - local targeted rescan: `docs/security/scans/SECURITY_FRESH_SCAN_F038_F044_2026-05-09.md`, PASS=27 WARN=1 FAIL=0.
   - v179 mixed-soak scheduler foundation PASS.
   - v180 CPU/memory workload profiles PASS.
   - v181 full NCM/TCP + storage mixed run PASS.

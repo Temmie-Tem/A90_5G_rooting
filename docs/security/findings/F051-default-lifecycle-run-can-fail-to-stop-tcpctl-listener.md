@@ -14,7 +14,7 @@
 | author | `shs02140@gmail.com` |
 | repo | `Temmie-Tem/A90_5G_rooting` |
 | relevant_paths | `scripts/revalidation/a90_broker_ncm_lifecycle_check.py` <br> `scripts/revalidation/tcpctl_host.py` <br> `scripts/revalidation/a90_broker.py` <br> `scripts/revalidation/serial_tcp_bridge.py` |
-| source_csv | `docs/security/codex-security-findings-2026-05-11T19-48-19.047Z.csv` |
+| source_csv | `docs/security/scans/codex-security-findings-2026-05-11T19-48-19.047Z.csv` |
 
 ## CSV Description
 
@@ -26,7 +26,7 @@ The new a90_broker_ncm_lifecycle_check.py wrapper launches tcpctl_host.py start 
 
 ## Local Remediation
 
-- Implemented in Batch H2; see `docs/security/SECURITY_FINDINGS_F047_F053_H2_REPORT_2026-05-12.md`. The NCM lifecycle wrapper now captures one tcpctl token before starting the listener and passes the redacted token consistently to start, smoke, and stop commands.
+- Implemented in Batch H2; see `docs/security/batches/SECURITY_FINDINGS_F047_F053_H2_REPORT_2026-05-12.md`. The NCM lifecycle wrapper now captures one tcpctl token before starting the listener and passes the redacted token consistently to start, smoke, and stop commands.
 
 ## Codex Cloud Detail
 

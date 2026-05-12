@@ -1,6 +1,6 @@
 # Raw New Findings
 
-Source CSV: `docs/security/codex-security-findings-2026-05-12T08-30-30.417Z.csv`
+Source CSV: `docs/security/scans/codex-security-findings-2026-05-12T08-30-30.417Z.csv`
 
 ---
 

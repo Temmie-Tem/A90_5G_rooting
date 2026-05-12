@@ -1,57 +1,24 @@
 # Codex Security Findings Index
 
-Source CSV: `docs/security/codex-security-findings-2026-05-05T16-26-57.929Z.csv`
-Source split file: `docs/security/CODEX_SECURITY_FINDINGS_DETAIL_TEMPLATE_2026-05-06.md`
+Source CSV: `docs/security/scans/codex-security-findings-2026-05-05T16-26-57.929Z.csv`
+Source split file: `docs/security/templates/CODEX_SECURITY_FINDINGS_DETAIL_TEMPLATE_2026-05-06.md`
 Fresh scan follow-up: `F032` and `F033` were imported from the 2026-05-07 Codex Cloud scan.
-Longsoak scan follow-up: `F034` through `F036` were imported from `docs/security/codex-security-findings-2026-05-07T20-00-44.982Z.csv`.
+Longsoak scan follow-up: `F034` through `F036` were imported from `docs/security/scans/codex-security-findings-2026-05-07T20-00-44.982Z.csv`.
 Longsoak bundle follow-up: `F037` was imported from the 2026-05-08 Codex Cloud finding detail pasted by the operator.
-Harness mixed-soak follow-up: `F038` through `F044` were imported from `docs/security/codex-security-findings-2026-05-08T18-39-05.112Z.csv`.
-Post-v184 scan follow-up: `F045` and `F046` were imported from `docs/security/codex-security-findings-2026-05-11T07-54-55.648Z.csv`.
-Post-v200 scan follow-up: `F047` through `F053` were imported from `docs/security/codex-security-findings-2026-05-11T19-48-19.047Z.csv`.
+Harness mixed-soak follow-up: `F038` through `F044` were imported from `docs/security/scans/codex-security-findings-2026-05-08T18-39-05.112Z.csv`.
+Post-v184 scan follow-up: `F045` and `F046` were imported from `docs/security/scans/codex-security-findings-2026-05-11T07-54-55.648Z.csv`.
+Post-v200 scan follow-up: `F047` through `F053` were imported from `docs/security/scans/codex-security-findings-2026-05-11T19-48-19.047Z.csv`.
+Post-v202 scan follow-up: `F054` through `F056` were imported from `docs/security/scans/codex-security-findings-2026-05-12T08-30-30.417Z.csv`.
 
 이 디렉터리는 Codex Cloud security finding 원문을 이슈별 파일로 분리한 보관소입니다.
 관계 분석과 수정 큐는 별도 문서에서 이 `FNNN` 번호를 참조합니다.
 
-## Analysis Documents
+## Related Documents
 
-- Relationship analysis: `../SECURITY_FINDINGS_RELATIONSHIP_2026-05-06.md`
-- Fix queue: `../SECURITY_FIX_QUEUE_2026-05-06.md`
-- Current exposure map: `../SECURITY_FINDINGS_CURRENT_EXPOSURE_2026-05-06.md`
-- Closure review: `../SECURITY_FINDINGS_CLOSURE_REVIEW_2026-05-07.md`
-- F038-F044 analysis: `../SECURITY_FINDINGS_F038_F044_ANALYSIS_2026-05-09.md`
-- F038-F044 patch plan: `../SECURITY_FINDINGS_F038_F044_PATCH_PLAN_2026-05-09.md`
-- F045-F046 analysis: `../SECURITY_FINDINGS_F045_F046_ANALYSIS_2026-05-11.md`
-- F047-F053 analysis: `../SECURITY_FINDINGS_F047_F053_ANALYSIS_2026-05-12.md`
-- F047-F053 patch plan: `../SECURITY_FINDINGS_F047_F053_PATCH_PLAN_2026-05-12.md`
-- F047/F048/F052 H1 report: `../SECURITY_FINDINGS_F047_F053_H1_REPORT_2026-05-12.md`
-- F050/F051 H2 report: `../SECURITY_FINDINGS_F047_F053_H2_REPORT_2026-05-12.md`
-- F049/F053 H3 report: `../SECURITY_FINDINGS_F047_F053_H3_REPORT_2026-05-12.md`
-- F054-F056 analysis: `../SECURITY_FINDINGS_F054_F056_ANALYSIS_2026-05-12.md`
-- F054-F056 relationship: `../SECURITY_FINDINGS_F054_F056_RELATIONSHIP_2026-05-12.md`
-- F054-F056 patch plan: `../SECURITY_FINDINGS_F054_F056_PATCH_PLAN_2026-05-12.md`
-- F054-F056 patch report: `../SECURITY_FINDINGS_F054_F056_PATCH_REPORT_2026-05-12.md`
-- Fresh local rescan: `../SECURITY_FRESH_SCAN_V133_2026-05-07.md`
-- Fresh v134 local rescan: `../SECURITY_FRESH_SCAN_V134_2026-05-07.md`
-- Fresh v135 local rescan: `../SECURITY_FRESH_SCAN_V135_2026-05-07.md`
-- Fresh v136 local rescan: `../SECURITY_FRESH_SCAN_V136_2026-05-07.md`
-- Fresh v137 local rescan: `../SECURITY_FRESH_SCAN_V137_2026-05-07.md`
-- Fresh v138 local rescan: `../SECURITY_FRESH_SCAN_V138_2026-05-08.md`
-- Fresh v139 local rescan: `../SECURITY_FRESH_SCAN_V139_2026-05-08.md`
-- Fresh v140 local rescan: `../SECURITY_FRESH_SCAN_V140_2026-05-08.md`
-- Fresh v141 local rescan: `../SECURITY_FRESH_SCAN_V141_2026-05-08.md`
-- Fresh v142 local rescan: `../SECURITY_FRESH_SCAN_V142_2026-05-08.md`
-- Fresh v143 local rescan: `../SECURITY_FRESH_SCAN_V143_2026-05-08.md`
-- Fresh v144 local rescan: `../SECURITY_FRESH_SCAN_V144_2026-05-08.md`
-- Fresh v145 local rescan: `../SECURITY_FRESH_SCAN_V145_2026-05-08.md`
-- Fresh v146 local rescan: `../SECURITY_FRESH_SCAN_V146_2026-05-08.md`
-- Fresh v147 local rescan: `../SECURITY_FRESH_SCAN_V147_2026-05-08.md`
-- Fresh v148 local rescan: `../SECURITY_FRESH_SCAN_V148_2026-05-08.md`
-- Fresh v149 local rescan: `../SECURITY_FRESH_SCAN_V149_2026-05-08.md`
-- Fresh v150 local rescan: `../SECURITY_FRESH_SCAN_V150_2026-05-08.md`
-- Fresh v151 local rescan: `../SECURITY_FRESH_SCAN_V151_2026-05-08.md`
-- Fresh v152 local rescan: `../SECURITY_FRESH_SCAN_V152_2026-05-08.md`
-- Fresh v153 local rescan: `../SECURITY_FRESH_SCAN_V153_2026-05-08.md`
-- Fresh v196 local rescan: `../SECURITY_FRESH_SCAN_V196_2026-05-11.md`
+- Directory map and workflow: `../README.md`
+- Cross-cutting overviews: `../overviews/README.md`
+- Batch analysis and patch reports: `../batches/README.md`
+- Raw CSVs and local scan outputs: `../scans/README.md`
 
 ## Findings
 
@@ -117,4 +84,4 @@ Post-v200 scan follow-up: `F047` through `F053` were imported from `docs/securit
 ## Notes
 
 - 원문 상세는 각 finding 파일의 `Codex Cloud Detail` 섹션에 그대로 보관합니다.
-- 이 index는 분류/관계 분석 전 단계이며, severity/status는 CSV 원본 값을 유지합니다.
+- 이 index의 `status`는 현재 로컬 판정을 기준으로 갱신합니다.

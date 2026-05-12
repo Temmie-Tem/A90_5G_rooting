@@ -13,7 +13,7 @@ security rescan after v193-v195 broker work.
 - Report which fresh findings are already imported/indexed and what local status
   they currently have.
 - Run local targeted security rescan and record the result as
-  `docs/security/SECURITY_FRESH_SCAN_V196_2026-05-11.md`.
+  `docs/security/scans/SECURITY_FRESH_SCAN_V196_2026-05-11.md`.
 
 ## Non-Goals
 
@@ -30,7 +30,7 @@ python3 scripts/revalidation/security_scan_followup.py \
   --require-indexed \
   --run-dir tmp/a90-v196-security-followup
 python3 scripts/revalidation/local_security_rescan.py \
-  --out docs/security/SECURITY_FRESH_SCAN_V196_2026-05-11.md
+  --out docs/security/scans/SECURITY_FRESH_SCAN_V196_2026-05-11.md
 ```
 
 ## Acceptance

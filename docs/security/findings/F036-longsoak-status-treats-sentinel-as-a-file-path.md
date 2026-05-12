@@ -12,7 +12,7 @@
 | committed_at | `2026-05-08 03:59:09 +0900` |
 | commit_hash | `3c1dc516a2c9bf791cbce8fad08fa38c2ee008a1` |
 | relevant_paths | `stage3/linux_init/a90_longsoak.c` <br> `stage3/linux_init/v147/60_shell_basic_commands.inc.c` |
-| source_csv | `docs/security/codex-security-findings-2026-05-07T20-00-44.982Z.csv` |
+| source_csv | `docs/security/scans/codex-security-findings-2026-05-07T20-00-44.982Z.csv` |
 
 ## CSV Description
 

@@ -14,7 +14,7 @@
 | author | `shs02140@gmail.com` |
 | repo | `Temmie-Tem/A90_5G_rooting` |
 | relevant_paths | `scripts/revalidation/a90_broker_ncm_lifecycle_check.py` <br> `scripts/revalidation/tcpctl_host.py` |
-| source_csv | `docs/security/codex-security-findings-2026-05-12T08-30-30.417Z.csv` |
+| source_csv | `docs/security/scans/codex-security-findings-2026-05-12T08-30-30.417Z.csv` |
 
 ## CSV Description
 
@@ -28,7 +28,7 @@ In non-dry-run mode without an explicit --token, a90_broker_ncm_lifecycle_check.
 
 ## Local Remediation
 
-- Implemented in Batch I3; see `docs/security/SECURITY_FINDINGS_F054_F056_PATCH_REPORT_2026-05-12.md`.
+- Implemented in Batch I3; see `docs/security/batches/SECURITY_FINDINGS_F054_F056_PATCH_REPORT_2026-05-12.md`.
 - `a90_broker_ncm_lifecycle_check.py` now exposes the `tcpctl_host.get_tcpctl_token()` namespace fields required for token acquisition: `device_protocol`, `busy_retries`, `busy_retry_sleep`, and `menu_hide_sleep`.
 - Dry-run planned command redaction remains unchanged.
 - A local namespace fixture confirmed the lifecycle wrapper parser provides all token helper fields.

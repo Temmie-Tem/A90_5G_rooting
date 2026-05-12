@@ -12,7 +12,7 @@
 | committed_at | `2026-05-09 04:54:29 +0900` |
 | commit_hash | `31aae994b5b630caf254b13471905ab668fc5dbd` |
 | relevant_paths | `scripts/revalidation/a90harness/modules/cpu_memory_profiles.py` <br> `scripts/revalidation/a90harness/scheduler.py` <br> `stage3/linux_init/init_v73.c` |
-| source_csv | `docs/security/codex-security-findings-2026-05-11T07-54-55.648Z.csv` |
+| source_csv | `docs/security/scans/codex-security-findings-2026-05-11T07-54-55.648Z.csv` |
 
 ## CSV Description
 
@@ -35,7 +35,7 @@ The commit adds cpu-memory-profiles and makes it the default mixed-soak CPU work
 - Local validation:
   - `python3 -m py_compile scripts/revalidation/a90harness/modules/cpu_memory_profiles.py`
   - `native_test_supervisor.py run cpu-memory-profiles --profile smoke` PASS at `tmp/security/f045-cpumem-20260511-171146`.
-  - `local_security_rescan.py` S029 PASS in `../SECURITY_FRESH_SCAN_F045_F046_2026-05-11.md`.
+  - `local_security_rescan.py` S029 PASS in `../scans/SECURITY_FRESH_SCAN_F045_F046_2026-05-11.md`.
 
 ## Codex Cloud Detail
 

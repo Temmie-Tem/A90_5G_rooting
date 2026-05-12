@@ -12,7 +12,7 @@
 | committed_at | `2026-05-09 02:58:08 +0900` |
 | commit_hash | `e00f199081f3fb63e722f1e39b77fea494de0800` |
 | relevant_paths | `scripts/revalidation/a90harness/modules/ncm_tcp_preflight.py` <br> `scripts/revalidation/tcpctl_host.py` |
-| source_csv | `docs/security/codex-security-findings-2026-05-08T18-39-05.112Z.csv` |
+| source_csv | `docs/security/scans/codex-security-findings-2026-05-08T18-39-05.112Z.csv` |
 
 ## CSV Description
 

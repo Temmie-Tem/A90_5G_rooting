@@ -12,7 +12,7 @@
 | committed_at | `2026-05-09 05:28:21 +0900` |
 | commit_hash | `c2ee250a976b1626444510afd9bd7d5a3da7ac94` |
 | relevant_paths | `scripts/revalidation/a90harness/modules/ncm_tcp_preflight.py` <br> `scripts/revalidation/tcpctl_host.py` <br> `stage3/linux_init/init_v73.c` |
-| source_csv | `docs/security/codex-security-findings-2026-05-11T07-54-55.648Z.csv` |
+| source_csv | `docs/security/scans/codex-security-findings-2026-05-11T07-54-55.648Z.csv` |
 
 ## CSV Description
 
@@ -36,7 +36,7 @@ The new NCM preflight logic now accepts /cache/bin/a90_tcpctl whenever the devic
   - `python3 -m py_compile scripts/revalidation/a90harness/modules/ncm_tcp_preflight.py`
   - fake-client command-generation check confirmed only `stat /bin/a90_tcpctl` is issued.
   - `native_test_supervisor.py run ncm-tcp-preflight --allow-ncm` PASS/SKIP when host NCM was unreachable at `tmp/security/f046-ncm-preflight-20260511-171218`.
-  - `local_security_rescan.py` S030 PASS in `../SECURITY_FRESH_SCAN_F045_F046_2026-05-11.md`.
+  - `local_security_rescan.py` S030 PASS in `../scans/SECURITY_FRESH_SCAN_F045_F046_2026-05-11.md`.
 
 ## Codex Cloud Detail
 

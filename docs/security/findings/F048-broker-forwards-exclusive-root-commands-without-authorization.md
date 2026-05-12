@@ -14,7 +14,7 @@
 | author | `shs02140@gmail.com` |
 | repo | `Temmie-Tem/A90_5G_rooting` |
 | relevant_paths | `scripts/revalidation/a90_broker.py` |
-| source_csv | `docs/security/codex-security-findings-2026-05-11T19-48-19.047Z.csv` |
+| source_csv | `docs/security/scans/codex-security-findings-2026-05-11T19-48-19.047Z.csv` |
 
 ## CSV Description
 
@@ -26,7 +26,7 @@ The commit introduces a host-local multi-client broker intended to mediate acces
 
 ## Local Remediation
 
-- Implemented in Batch H1; see `docs/security/SECURITY_FINDINGS_F047_F053_H1_REPORT_2026-05-12.md`. The broker now defaults to observe-only and requires explicit `--allow-operator` or `--allow-exclusive` for mutating command classes; rebind/destructive commands remain blocked.
+- Implemented in Batch H1; see `docs/security/batches/SECURITY_FINDINGS_F047_F053_H1_REPORT_2026-05-12.md`. The broker now defaults to observe-only and requires explicit `--allow-operator` or `--allow-exclusive` for mutating command classes; rebind/destructive commands remain blocked.
 
 ## Codex Cloud Detail
 

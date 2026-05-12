@@ -14,7 +14,7 @@
 | author | `shs02140@gmail.com` |
 | repo | `Temmie-Tem/A90_5G_rooting` |
 | relevant_paths | `scripts/revalidation/a90harness/modules/ncm_tcp_preflight.py` <br> `scripts/revalidation/tcpctl_host.py` <br> `stage3/linux_init/init_v73.c` |
-| source_csv | `docs/security/codex-security-findings-2026-05-11T19-48-19.047Z.csv` |
+| source_csv | `docs/security/scans/codex-security-findings-2026-05-11T19-48-19.047Z.csv` |
 
 ## CSV Description
 
@@ -30,7 +30,7 @@ The new NCM preflight logic now accepts /cache/bin/a90_tcpctl whenever the devic
 
 ## Closure Evidence
 
-- Closed in Batch H3 as a duplicate of `F046`; see `docs/security/SECURITY_FINDINGS_F047_F053_H3_REPORT_2026-05-12.md`.
+- Closed in Batch H3 as a duplicate of `F046`; see `docs/security/batches/SECURITY_FINDINGS_F047_F053_H3_REPORT_2026-05-12.md`.
 - Current `scripts/revalidation/a90harness/modules/ncm_tcp_preflight.py` pins the trusted helper to `/bin/a90_tcpctl` and explicitly refuses `/cache/bin` fallback when the ramdisk helper is missing.
 - Local verification on 2026-05-12 confirmed no candidate loop selects `/cache/bin/a90_tcpctl`, and `python3 -m py_compile scripts/revalidation/a90harness/modules/ncm_tcp_preflight.py scripts/revalidation/tcpctl_host.py` passes.
 
