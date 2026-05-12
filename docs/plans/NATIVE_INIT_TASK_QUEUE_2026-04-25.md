@@ -786,6 +786,93 @@
 - 남은 검증: 없음
 - 다음 실행 항목: v205 ICNSS/WCNSS/QCA + nl80211 read-only sysfs/firmware probe 계획
 
+### V205. ICNSS/WCNSS/QCA + nl80211 Read-Only Probe — PASS
+
+- 계획: `docs/plans/NATIVE_INIT_V205_ICNSS_NL80211_READONLY_PLAN_2026-05-13.md`
+- 보고서: `docs/reports/NATIVE_INIT_V205_ICNSS_NL80211_READONLY_2026-05-13.md`
+- baseline device build: `A90 Linux init 0.9.59 (v159)`
+- device flash: 없음. v205는 host-side/native read-only Wi-Fi probe로 시작한다.
+- 배경:
+  - v203 native baseline은 `no-go`: WLAN netdev, Wi-Fi rfkill, WLAN/CNSS/QCA module evidence 없음
+  - v204 Android baseline은 `ready-for-readonly-nl80211-probe-plan`: `wlan0`, `swlan0`, `p2p0`, `wifi-aware0`, ICNSS rfkill/sysfs, root dmesg readiness 확인
+- 구현 후보:
+  - `scripts/revalidation/wifi_icnss_nl80211_probe.py`
+  - optional `/cache/bin/a90_nl80211_ro` read-only helper
+  - private/no-follow evidence output under `tmp/wifi/v205-icnss-nl80211-readonly`
+- 허용:
+  - `/sys/class/net`, `/sys/class/rfkill`, `/sys/class/ieee80211`, ICNSS sysfs, firmware path read-only 수집
+  - `NL80211_CMD_GET_PROTOCOL_FEATURES`, `NL80211_CMD_GET_WIPHY`, `NL80211_CMD_GET_INTERFACE`
+  - v203/v204 evidence 비교
+- 금지:
+  - Wi-Fi enablement, rfkill write, `ip link set wlan0 up`
+  - scan/connect, `NL80211_CMD_TRIGGER_SCAN`, `SET_INTERFACE`, `SET_WIPHY`
+  - module load/unload, firmware mutation, Android Wi-Fi service/supplicant/hostapd start
+- 결정 모델:
+  - `no-native-icnss`
+  - `native-icnss-present-no-wiphy`
+  - `native-wiphy-readonly-ok`
+  - `android-only-driver-ready`
+  - `manual-review-required`
+- 검증:
+  - Python compile PASS
+  - v205 command guard PASS
+  - `a90_nl80211_ro` static ARM64 build PASS
+  - native `mountsystem ro` PASS
+  - `python3 scripts/revalidation/wifi_icnss_nl80211_probe.py --native-bridge --v203-manifest tmp/wifi/v203-baseline/manifest.json --v204-android-manifest tmp/wifi/v204-android-baseline/manifest.json --out-dir tmp/wifi/v205-icnss-nl80211-readonly` PASS
+- 실기 결과:
+  - decision: `native-icnss-present-no-wiphy`
+  - native ICNSS sysfs: present
+  - native WLAN netdev/wiphy/Wi-Fi rfkill: absent
+  - remote `/cache/bin/a90_nl80211_ro`: absent on current v159 runtime
+- 다음 실행 항목: v206 Android ICNSS/CNSS dependency map live Android 실행
+
+### V206. Android ICNSS/CNSS Dependency Map — PASS
+
+- 계획: `docs/plans/NATIVE_INIT_V206_ANDROID_ICNSS_CNSS_MAP_PLAN_2026-05-13.md`
+- 보고서: `docs/reports/NATIVE_INIT_V206_ANDROID_ICNSS_CNSS_MAP_2026-05-13.md`
+- device flash: 없음. v206은 host-side Android ADB/root read-only dependency map collector다.
+- 기준:
+  - v204 Android baseline: `ready-for-readonly-nl80211-probe-plan`
+  - v205 native baseline: `native-icnss-present-no-wiphy`
+- 구현:
+  - `scripts/revalidation/android_icnss_cnss_map.py`
+  - private/no-follow evidence output under `tmp/wifi/v206-android-icnss-cnss-map`
+  - v204/v205 manifest comparison
+  - active Wi-Fi command guard
+- 허용:
+  - Android init rc/service/property state read-only 수집
+  - firmware path/stat read-only 수집
+  - ICNSS/WLAN/rfkill/ieee80211 sysfs read-only 수집
+  - dmesg/logcat Wi-Fi/CNSS/ICNSS/QMI/firmware readiness grep
+- 금지:
+  - Wi-Fi enablement, rfkill write, WLAN link-up
+  - scan/connect, module load/unload, firmware mutation
+  - Android Wi-Fi service/supplicant/hostapd/cnss-daemon start
+  - `/data/misc/wifi`, `dumpsys wifi`, saved network material 기본 수집
+- 결정 모델:
+  - `ready-for-native-preflight-plan`
+  - `android-cnss-map-complete`
+  - `missing-firmware-map`
+  - `missing-service-map`
+  - `native-replay-prereq-missing`
+  - `manual-review-required`
+- 정적 검증:
+  - Python compile PASS
+  - v206 command guard PASS
+- 실기 검증:
+  - Android boot image flash: `backups/baseline_a_20260423_030309/boot.img`, SHA256 `c15ce425abb8da41f0b1696d19d05a625fd7cec949b4ae50651a5f1e7293057b`
+  - Android ADB/root PASS: `product:r3qks model:SM_A908N device:r3q`, `uid=0(root) ... context=u:r:magisk:s0`
+  - `python3 scripts/revalidation/android_icnss_cnss_map.py --android-adb --su --v204-android-manifest tmp/wifi/v204-android-baseline/manifest.json --v205-manifest tmp/wifi/v205-icnss-nl80211-readonly/manifest.json --out-dir tmp/wifi/v206-android-icnss-cnss-map` PASS
+  - decision: `ready-for-native-preflight-plan`
+  - evidence: service/init/firmware/interface/ICNSS/QMI/log/mount 모두 mapped
+  - manifest SHA256: `2837fe4d2003b3fa25d0a1b590068f9e9cc8b4975d371b084f103fa3ed93ac20`
+  - summary SHA256: `1232ca6b2888cb966aaa796fd3178c1ee368af90933f581e57a68c7749c3603c`
+  - native restore: `stage3/boot_linux_v159.img`, SHA256 `7e7e81a6af774b3b523c993851d64b86484be4c471dbee02edf062b3903c536f`
+  - post-restore `cmdv1 version/status` PASS: `A90 Linux init 0.9.59 (v159)`
+- 다음 실행 항목:
+  - v207 native read-only Wi-Fi preflight 계획
+  - active Wi-Fi bring-up은 계속 blocked
+
 ### V187. Harness Broker Backend — PASS
 
 - 보고서: `docs/reports/NATIVE_INIT_V187_HARNESS_BROKER_BACKEND_2026-05-11.md`

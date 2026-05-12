@@ -994,7 +994,17 @@ Samsung bootloader
    - v204 보고서: `docs/reports/NATIVE_INIT_V204_ANDROID_TWRP_WIFI_BASELINE_2026-05-13.md`
    - v204 상태: TWRP ADB PASS, decision `driver-candidate-found`
    - v204 Android 상태: Android ADB + Magisk root PASS, decision `ready-for-readonly-nl80211-probe-plan`
-   - 다음은 v205 ICNSS/WCNSS/QCA + nl80211 read-only sysfs/firmware probe 계획이다
+   - v205 계획서: `docs/plans/NATIVE_INIT_V205_ICNSS_NL80211_READONLY_PLAN_2026-05-13.md`
+   - v205 collector: `scripts/revalidation/wifi_icnss_nl80211_probe.py`
+   - v205 helper source: `stage3/linux_init/helpers/a90_nl80211_ro.c`
+   - v205 보고서: `docs/reports/NATIVE_INIT_V205_ICNSS_NL80211_READONLY_2026-05-13.md`
+   - v205 상태: PASS, decision `native-icnss-present-no-wiphy`
+   - v206 계획서: `docs/plans/NATIVE_INIT_V206_ANDROID_ICNSS_CNSS_MAP_PLAN_2026-05-13.md`
+   - v206 collector: `scripts/revalidation/android_icnss_cnss_map.py`
+   - v206 보고서: `docs/reports/NATIVE_INIT_V206_ANDROID_ICNSS_CNSS_MAP_2026-05-13.md`
+   - v206 상태: PASS, decision `ready-for-native-preflight-plan`
+   - v206 실기: Android ADB/root collector PASS 후 native v159 복구 PASS
+   - 다음은 v207 native read-only Wi-Fi preflight 계획이다
    - Wi-Fi/NCM을 USB-local 밖으로 넓히기 전 인증/ACL/token/bind/listener lifecycle 정책을 다시 검토한다
 
 ---
