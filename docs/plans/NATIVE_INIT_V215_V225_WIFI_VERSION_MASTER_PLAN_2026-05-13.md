@@ -60,6 +60,7 @@
 | v218 | PASS | `daemon-dryrun-partial` | CNSS daemon dependency 일부 확인, ELF/library gap 남음 |
 | v219 | PASS | `shim-plan-partial` | Android-env shim matrix 작성, property/QMI/recovery blocker 남음 |
 | v220 | PASS | `no-go` | lifecycle-aware gate 통과, active Wi-Fi blocker 유지 |
+| v221 | PASS | `vendor-root-required` | ELF/library inspection needs host-visible vendor root evidence |
 
 ## Version-By-Version Plan
 
@@ -217,6 +218,16 @@ Plan:
 
 - `docs/plans/NATIVE_INIT_V221_HOST_VENDOR_ELF_LIBRARY_EVIDENCE_PLAN_2026-05-13.md`
 
+Status:
+
+- done
+- result: `vendor-root-required`
+- report:
+  `docs/reports/NATIVE_INIT_V221_HOST_VENDOR_ELF_LIBRARY_EVIDENCE_2026-05-13.md`
+- required paths:
+  - `<vendor-root>/bin/cnss-daemon`
+  - `<vendor-root>/bin/cnss_diag`
+
 Deliverables:
 
 - host vendor root locator or mounted vendor bundle parser
@@ -228,7 +239,26 @@ Decision:
 - `elf-evidence-ready`
 - `daemon-native-blocked`
 
-#### v222. Recovery / Rollback Policy Hardening
+#### v222. Vendor Root Evidence Export / Extraction
+
+Mode: `read-only`
+
+Goal: v221 `vendor-root-required` 결과를 닫기 위해 host-visible vendor root
+또는 최소 vendor evidence bundle을 안전하게 확보한다.
+
+Deliverables:
+
+- private/no-follow vendor evidence output
+- `cnss-daemon` and `cnss_diag` binary files
+- related `lib`/`lib64` vendor shared libraries
+- re-run instructions for v221 `--vendor-root`
+
+Decision:
+
+- `vendor-root-ready`
+- `vendor-export-blocked`
+
+#### v223. Recovery / Rollback Policy Hardening
 
 Mode: `read-only` plus reboot-only policy documentation
 
@@ -246,7 +276,7 @@ Decision:
 - `reboot-recovery-accepted`
 - `active-mutation-blocked`
 
-#### v223. Android-Env Shim Dry-Run Materialization
+#### v224. Android-Env Shim Dry-Run Materialization
 
 Mode: `temporary-mutating` only for reversible mount/path stubs, no daemon start
 
@@ -271,38 +301,25 @@ Decision:
 - `shim-materialized`
 - `shim-too-wide`
 
-#### v224. Wi-Fi Exposure / Credential Security Gate
+#### v225. Wi-Fi Exposure / Credential Security Gate + Gate v3
 
 Mode: `read-only`
 
 Goal: Wi-Fi가 열렸을 때 root-control 채널이 USB-local 밖으로 노출되지 않도록
-listener binding, auth token, credential handling, redaction을 재검토한다.
+listener binding, auth token, credential handling, redaction을 재검토하고
+v221-v224 결과를 gate v3로 통합한다.
 
 Deliverables:
 
 - exposure matrix for ACM, NCM, tcpctl, rshell, broker
 - credential and artifact redaction policy
 - test AP isolation requirements
-
-Decision:
-
-- `scan-security-approved`
-- `scan-security-blocked`
-
-#### v225. Preflight Gate v3 / Controlled CNSS Start Plan
-
-Mode: `read-only` gate, optional plan only
-
-Goal: v221-v224 blocker closure를 다시 통합해 controlled CNSS start를 실제
-계획할 수 있는지 판정한다.
+- go/no-go for controlled CNSS start planning
 
 Decision:
 
 - `cnss-start-plan-approved`
 - `still-no-go`
-
-If approved, actual controlled CNSS start is scheduled after v225, not silently
-inside v225.
 
 ### Path B. If v220 Returns `go-scan-prep`
 
@@ -343,10 +360,10 @@ Connect only if v223 scan and v224 security review pass.
 
 ## Practical Next Action
 
-The immediate next work is v221.
+The immediate next work is v222.
 
-1. write v221 plan as Path A / `Host Vendor ELF Library Evidence Closure`
-2. inspect host-visible vendor evidence for `cnss-daemon` and `cnss_diag`
+1. write v222 plan for vendor root evidence export/extraction
+2. collect or validate host-visible vendor evidence for `cnss-daemon` and `cnss_diag`
 3. keep daemon execution blocked
 4. keep Path B inactive unless a future reviewed gate supersedes v220
 

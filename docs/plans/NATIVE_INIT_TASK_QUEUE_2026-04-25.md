@@ -1319,14 +1319,14 @@
   - v219: native Android-env shim plan
   - v220: Wi-Fi bring-up preflight gate v2
   - v221: host vendor ELF/library evidence closure
-  - v222: recovery/rollback policy hardening
-  - v223: Android-env shim dry-run materialization
-  - v224: Wi-Fi exposure/credential security gate
-  - v225: preflight gate v3 / controlled CNSS start plan
+  - v222: vendor root evidence export/extraction
+  - v223: recovery/rollback policy hardening
+  - v224: Android-env shim dry-run materialization
+  - v225: Wi-Fi exposure/credential security gate + preflight gate v3
 - 다음 실행 항목:
-  - v215 계획서 작성 및 lifecycle collector 설계
-  - 추가 unbind/bind, rfkill write, link-up, scan/connect는 v220 gate 전까지 금지
-  - v220 gate 결과가 `no-go`이면 v221은 controlled CNSS start가 아니라 host vendor ELF/library evidence closure로 전환
+  - v222 vendor root evidence export/extraction 계획서 작성
+  - 추가 unbind/bind, rfkill write, link-up, scan/connect는 계속 금지
+  - v221 결과가 `vendor-root-required`이므로 controlled CNSS start는 vendor root evidence 확보 전까지 blocked
 
 ### V215. ICNSS/CNSS Lifecycle Research — PASS
 
@@ -1515,14 +1515,15 @@
   - v221은 controlled CNSS start가 아니라 host vendor ELF/library evidence closure와 recovery/security prerequisite closure로 진행
   - `cnss-daemon`/`cnss_diag` ELF/interpreter/DT_NEEDED/config/library path evidence를 먼저 닫는다
 
-### V221. Host Vendor ELF / Library Evidence Closure — PLANNED
+### V221. Host Vendor ELF / Library Evidence Closure — PASS
 
 - 계획: `docs/plans/NATIVE_INIT_V221_HOST_VENDOR_ELF_LIBRARY_EVIDENCE_PLAN_2026-05-13.md`
+- 보고서: `docs/reports/NATIVE_INIT_V221_HOST_VENDOR_ELF_LIBRARY_EVIDENCE_2026-05-13.md`
 - 목표:
   - v218 blocker `elf-inspection-no-host-vendor-root`를 daemon 실행 없이 닫는다
   - `cnss-daemon`/`cnss_diag` ELF interpreter, `DT_NEEDED`, `DT_RPATH`, `DT_RUNPATH`, library path evidence를 수집한다
   - vendor root가 없으면 `vendor-root-required`를 PASS planning result로 출력하고 필요한 경로 checklist를 만든다
-- 예정 구현:
+- 구현:
   - `scripts/revalidation/wifi_vendor_elf_library_closure.py`
 - 입력:
   - v210 vendor asset classifier
@@ -1531,21 +1532,47 @@
   - v219 shim matrix
   - v220 bring-up gate v2
   - optional `--vendor-root`
-- 예정 산출물:
+- 산출물:
   - `tmp/wifi/v221-host-vendor-elf-library-evidence/manifest.json`
   - `tmp/wifi/v221-host-vendor-elf-library-evidence/elf-dependencies.json`
   - `tmp/wifi/v221-host-vendor-elf-library-evidence/summary.md`
-- 예상:
-  - host-visible vendor root가 없으면 `vendor-root-required`
-  - vendor root가 있으면 `elf-evidence-ready` 또는 `daemon-native-blocked`
+- 결과:
+  - PASS, decision `vendor-root-required`
+  - `vendor_root_status=not-provided`
+  - `visible_vendor_paths_count=47`
+  - required paths: `<vendor-root>/bin/cnss-daemon`, `<vendor-root>/bin/cnss_diag`
+- 해석:
+  - v218 blocker가 정확히 host-visible vendor root 부재로 좁혀짐
+  - daemon 실행은 승인되지 않음
+  - 기존 v222 recovery/rollback policy hardening은 vendor root evidence 확보 후로 미룸
 - 금지:
   - daemon 실행
   - Android service start
   - rfkill write, link-up, scan/connect
   - ICNSS/sysfs/debugfs writes
 - 다음 실행 항목:
-  - v221 구현
-  - 결과에 따라 vendor root 확보 재시도 또는 v222 recovery/rollback policy hardening 계획
+  - v222 vendor root evidence export/extraction 계획
+  - private/no-follow host evidence bundle에 `cnss-daemon`, `cnss_diag`, related `lib`/`lib64`를 확보한 뒤 v221 `--vendor-root` 재실행
+
+### V222. Vendor Root Evidence Export / Extraction — PLANNED
+
+- 목표:
+  - v221 `vendor-root-required` 결과를 닫기 위해 host-visible vendor root 또는 최소 vendor evidence bundle을 안전하게 확보한다
+  - `/vendor/bin/cnss-daemon`, `/vendor/bin/cnss_diag`, related `lib`/`lib64` 파일을 private/no-follow output으로 수집한다
+  - full partition overwrite나 active Wi-Fi 작업 없이 read-only extraction만 허용한다
+- 예정 계획서:
+  - `docs/plans/NATIVE_INIT_V222_VENDOR_ROOT_EVIDENCE_EXPORT_PLAN_2026-05-13.md`
+- 후보 구현:
+  - host-side vendor root locator/export helper
+  - existing v209/v210 temporary `ro,noload` vendor mount evidence 재사용
+  - optional operator-provided extracted vendor root path 검증
+- 금지:
+  - daemon 실행
+  - writable vendor/system mount
+  - full uncontrolled partition dump into world-readable path
+  - Wi-Fi scan/connect
+- 다음 실행 항목:
+  - v222 계획서 작성
 
 ### V187. Harness Broker Backend — PASS
 

@@ -65,10 +65,12 @@ native init must keep active Wi-Fi bring-up blocked.
 - v218: CNSS daemon dry-run feasibility passed with `daemon-dryrun-partial`.
 - v219: native Android-env shim planning passed with `shim-plan-partial`.
 - v220: lifecycle-aware bring-up preflight gate v2 passed with `no-go`.
+- v221: host vendor ELF/library evidence closure passed with
+  `vendor-root-required`.
 
 ## Current Execution Status
 
-This roadmap is now in the post-v220 phase.
+This roadmap is now in the post-v221 phase.
 
 - completed:
   - v215 `ICNSS/CNSS Lifecycle Research`
@@ -77,16 +79,17 @@ This roadmap is now in the post-v220 phase.
   - v218 `CNSS Daemon Dry-Run Feasibility`
   - v219 `Native Android-Env Shim Plan`
   - v220 `Wi-Fi Bring-Up Preflight Gate v2`
-- next execution item:
   - v221 `Host Vendor ELF / Library Evidence Closure`
+- next execution item:
+  - v222 `Vendor Root Evidence Export / Extraction`
 - still blocked:
   - `cnss-daemon` and `cnss_diag` execution
   - Wi-Fi HAL execution
   - supplicant/hostapd execution
   - rfkill writes, link-up, scan, connect
 - current highest-risk unknown:
-  - whether host ELF/library evidence plus reboot-only recovery/security policy
-    can justify any later temporary-mutating CNSS experiment
+  - whether a host-visible vendor root can be safely exported for ELF/library
+    inspection before any later temporary-mutating CNSS experiment
 
 ## Safety Policy
 
@@ -146,26 +149,27 @@ Exit gate:
 - temporary mounts/properties/sockets are scoped
 - `wififeas gate` can produce a defensible `go-scan-prep` or `no-go`
 
-### Phase C. Controlled State Transition
+### Phase C. Prerequisite Closure
 
-Versions: v221-v223
+Versions: v221-v224
 
-Purpose: move from read-only evidence to the smallest reversible kernel state
-change, then scan-only Wi-Fi if WLAN objects appear safely.
+Purpose: close the evidence, recovery, and shim prerequisites that v220/v221
+proved are still missing before any reversible kernel state change is planned.
 
-- v221 starts the smallest CNSS-related component under strict timeout.
-- v222 inspects WLAN/rfkill/nl80211 state passively if objects appear.
-- v223 performs first scan-only test only after prior gates pass.
+- v221 narrows the ELF/library gap to missing host-visible vendor root evidence.
+- v222 exports or validates private vendor root evidence.
+- v223 hardens reboot-only recovery/rollback policy.
+- v224 materializes only reversible shim pieces without daemon execution.
 
 Exit gate:
 
 - serial/NCM fallback remains available
 - health/thermal/longsoak monitoring is active
-- scan-only succeeds or fails with enough evidence to stop safely
+- v225 can produce an explicit go/no-go for controlled CNSS start planning
 
-### Phase D. Pre-Connect Security and Test AP Connect
+### Phase D. Exposure Gate and Future Active-Network Decision
 
-Versions: v224-v225
+Versions: v225+
 
 Purpose: avoid turning a local lab kernel experiment into an exposed root
 network target.
@@ -449,7 +453,37 @@ Decision:
 - `daemon-native-blocked`: binary/library/runtime dependency remains too wide
   or incomplete
 
-### v222. Recovery / Rollback Policy Hardening
+Status:
+
+- done
+- result: `vendor-root-required`
+- report:
+  `docs/reports/NATIVE_INIT_V221_HOST_VENDOR_ELF_LIBRARY_EVIDENCE_2026-05-13.md`
+- required paths:
+  - `<vendor-root>/bin/cnss-daemon`
+  - `<vendor-root>/bin/cnss_diag`
+
+### v222. Vendor Root Evidence Export / Extraction
+
+Mode: `read-only`
+
+Goal: safely obtain a host-visible vendor root or minimum vendor evidence bundle
+for v221 `--vendor-root` rerun.
+
+Planned work:
+
+- export or validate `cnss-daemon`, `cnss_diag`, and related `lib`/`lib64`
+  files into private/no-follow host evidence
+- avoid world-readable output and destination symlink clobber
+- avoid writable vendor/system mounts
+- keep all daemon execution blocked
+
+Decision:
+
+- `vendor-root-ready`
+- `vendor-export-blocked`
+
+### v223. Recovery / Rollback Policy Hardening
 
 Mode: `read-only`
 
@@ -468,7 +502,7 @@ Decision:
 - `reboot-recovery-accepted`
 - `active-mutation-blocked`
 
-### v223. Android-Env Shim Dry-Run Materialization
+### v224. Android-Env Shim Dry-Run Materialization
 
 Mode: `temporary-mutating`, no daemon start
 
@@ -493,12 +527,13 @@ Decision:
 - `shim-materialized`
 - `shim-too-wide`
 
-### v224. Wi-Fi Exposure / Credential Security Gate
+### v225. Wi-Fi Exposure / Credential Security Gate + Gate v3
 
 Mode: `read-only`
 
 Goal: review exposure and credential handling before any scan or connect
-experiment can be approved.
+experiment can be approved, then integrate v221-v224 prerequisite results into
+a final go/no-go for controlled CNSS start planning.
 
 Planned work:
 
@@ -507,28 +542,6 @@ Planned work:
 - review NCM/tcpctl/rshell coexistence with Wi-Fi
 - define firewall/bind/listener policy before Wi-Fi gives wider reachability
 - define logging redaction for SSID/BSSID/PSK-sensitive artifacts
-
-Decision:
-
-- `connect-approved-test-only`
-- `connect-blocked-security`
-
-### v225. Preflight Gate v3 / Controlled CNSS Start Plan
-
-Mode: `read-only`
-
-Goal: re-run an integrated gate after v221-v224 prerequisite closure and decide
-whether controlled CNSS start can be planned after v225.
-
-Required preconditions:
-
-- v221 ELF/library evidence is complete
-- v222 recovery policy is accepted or blocks mutation
-- v223 shim materialization is bounded and reversible
-- v224 exposure/security gate passes
-
-Planned work:
-
 - integrate v221-v224 results into gate v3
 - keep daemon start outside v225 unless a later explicit plan approves it
 - produce go/no-go for controlled CNSS start
@@ -554,16 +567,16 @@ Decision:
 
 ## Recommended Immediate Next Step
 
-Start v221 as prerequisite closure. Do not execute `cnss-daemon`, `cnss_diag`,
+Start v222 as vendor root evidence export/extraction. Do not execute
+`cnss-daemon`, `cnss_diag`,
 Wi-Fi HAL, supplicant, or hostapd yet.
 
-The next concrete deliverable should close the v218/v220 evidence gap by
-inspecting host-visible vendor ELF/library requirements for:
+The next concrete deliverable should safely produce host-visible evidence for:
 
 - `cnss-daemon`
 - `cnss_diag`
-- their interpreter and `DT_NEEDED` library graph
-- related config, firmware, device-node, group, and capability requirements
+- related vendor `lib`/`lib64` shared libraries
+- a private output directory that can be passed to v221 `--vendor-root`
 
-Only after v221-v224 close the remaining evidence, recovery, shim, and exposure
+Only after v222-v224 close the remaining evidence, recovery, shim, and exposure
 gaps can v225 decide whether controlled CNSS start is eligible for planning.
