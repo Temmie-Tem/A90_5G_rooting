@@ -1083,9 +1083,10 @@
   - v211 firmware path/layout policy 계획
   - active Wi-Fi bring-up은 계속 blocked
 
-### V211. Firmware Path / Vendor Layout Policy — PLAN
+### V211. Firmware Path / Vendor Layout Policy — PASS
 
 - 계획: `docs/plans/NATIVE_INIT_V211_FIRMWARE_PATH_POLICY_PLAN_2026-05-13.md`
+- 보고서: `docs/reports/NATIVE_INIT_V211_FIRMWARE_PATH_POLICY_2026-05-13.md`
 - 목표:
   - v210 `firmware-path-policy-needed` 결과를 기준으로 native firmware lookup policy를 먼저 설계
   - required Wi-Fi/CNSS firmware request name이 어떤 candidate root에서 resolve되는지 read-only로 모델링
@@ -1113,8 +1114,31 @@
   - `vendor-layout-risk-too-high`
   - `cleanup-failed`
   - `manual-review-required`
+- 검증:
+  - Python compile PASS
+  - v211 command guard PASS
+  - `git diff --check` PASS
+  - native bridge live collector run PASS
+- 실기 결과:
+  - runtime: `A90 Linux init 0.9.59 (v159)`
+  - decision: `sysfs-path-update-needed`
+  - reason: `isolated vendor firmware root resolves likely request names; future implementation needs guarded firmware_class.path update`
+  - `sda29` major/minor: `259:22`
+  - ext4 available: true
+  - mount command: `run /cache/bin/toybox mount -t ext4 -o ro,noload /tmp/a90-v211-*/sda29 /tmp/a90-v211-*/vendor`
+  - mounted line: `ext4 ro,relatime,norecovery,i_version`
+  - cleanup rc: `0`
+  - leftover mount: false
+  - `firmware_class.path`: `/vendor/firmware_mnt/image`
+  - post-probe `firmware_class.path`: `/vendor/firmware_mnt/image`
+  - current `/vendor/firmware_mnt/image` model: likely request names resolve none
+  - isolated `/mnt/vendor/firmware` model: likely request names resolve all
+  - synthetic `/vendor/firmware_mnt/image` bind model: likely request names resolve all
+  - uncertain bare request names unresolved: `WCNSS_qcom_cfg.ini`, `bdwlan.bin`, `regdb.bin`
+  - manifest SHA256: `5ad7c822cf9d9214bc9803f393865a2f8a87a739b31de2cb4744d94a6d5c0c51`
+  - summary SHA256: `2ccf688181243c6f84f76f72c5d784a9c1ee39f88be34c10235d9d2726c01bdf`
 - 다음 실행 항목:
-  - v211 policy probe 구현
+  - v212 guarded opt-in `firmware_class.path=/mnt/vendor/firmware` update and rollback test 계획
   - active Wi-Fi bring-up은 계속 blocked
 
 ### V187. Harness Broker Backend — PASS

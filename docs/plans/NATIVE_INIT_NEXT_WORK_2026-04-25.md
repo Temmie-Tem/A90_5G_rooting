@@ -1025,8 +1025,11 @@ Samsung bootloader
    - v210 상태: PASS, decision `firmware-path-policy-needed`
    - v210 실기: required vendor firmware/init rc/service binaries/VINTF는 native-visible vendor mount에서 확인됐고, `firmware_class.path=/vendor/firmware_mnt/image`가 현재 visible Wi-Fi firmware layout을 가리키지 않는 것이 다음 blocker다
    - v211 계획서: `docs/plans/NATIVE_INIT_V211_FIRMWARE_PATH_POLICY_PLAN_2026-05-13.md`
-   - v211 방향: `firmware_class.path` write 없이 required firmware request name이 어떤 read-only candidate layout에서 resolve되는지 먼저 모델링한다
-   - 다음은 v211 policy probe 구현이다
+   - v211 collector: `scripts/revalidation/native_firmware_path_policy_probe.py`
+   - v211 보고서: `docs/reports/NATIVE_INIT_V211_FIRMWARE_PATH_POLICY_2026-05-13.md`
+   - v211 상태: PASS, decision `sysfs-path-update-needed`
+   - v211 실기: isolated `/mnt/vendor/firmware` model과 synthetic `/vendor/firmware_mnt/image` bind model은 likely request names를 모두 resolve하지만, 현재 `/vendor/firmware_mnt/image`는 resolve하지 못한다
+   - 다음은 v212 guarded opt-in `firmware_class.path=/mnt/vendor/firmware` update and rollback test 계획이다
    - Wi-Fi/NCM을 USB-local 밖으로 넓히기 전 인증/ACL/token/bind/listener lifecycle 정책을 다시 검토한다
 
 ---
