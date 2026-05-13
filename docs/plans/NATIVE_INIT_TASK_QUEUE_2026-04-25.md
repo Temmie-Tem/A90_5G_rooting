@@ -1296,21 +1296,23 @@
   - post-reboot helper SHA 유지 PASS
 - 다음 실행 항목:
   - v215 ICNSS/CNSS lifecycle research
-  - v215-v225 큰 계획: `docs/plans/NATIVE_INIT_V215_V225_WIFI_LIFECYCLE_ROADMAP_2026-05-13.md`
+  - v215-v225 큰 계획: `docs/plans/NATIVE_INIT_V215_V225_WIFI_BIG_PLAN_2026-05-13.md`
+  - v215-v225 상세 로드맵: `docs/plans/NATIVE_INIT_V215_V225_WIFI_LIFECYCLE_ROADMAP_2026-05-13.md`
   - Android/TWRP dmesg/init service ordering, ICNSS recovery/debug controls, vendor CNSS hooks 조사
   - 추가 unbind/bind와 Wi-Fi scan/connect는 blocked
 
 ### V215-V225. ICNSS/CNSS Lifecycle to Controlled Wi-Fi Bring-Up — ROADMAP
 
-- 계획: `docs/plans/NATIVE_INIT_V215_V225_WIFI_LIFECYCLE_ROADMAP_2026-05-13.md`
+- 큰 계획: `docs/plans/NATIVE_INIT_V215_V225_WIFI_BIG_PLAN_2026-05-13.md`
+- 상세 로드맵: `docs/plans/NATIVE_INIT_V215_V225_WIFI_LIFECYCLE_ROADMAP_2026-05-13.md`
 - version master plan:
   `docs/plans/NATIVE_INIT_V215_V225_WIFI_VERSION_MASTER_PLAN_2026-05-13.md`
 - 기준:
   - v214가 `icnss-rebind-failed`로 safety stop 되었으므로 active Wi-Fi bring-up은 계속 blocked
   - generic ICNSS sysfs `unbind`/`bind`는 unsafe path로 분류
   - v215-v220은 lifecycle/dependency/read-only gate 중심
-  - v221 이후에만 opt-in temporary mutation을 검토
-  - v223 이후에만 scan-only active-network 실험을 검토
+  - v221-v225는 현재 active Wi-Fi가 아니라 evidence/recovery/shim/security blocker closure
+  - scan/connect는 v225 gate v3 이전까지 blocked
 - 버전 축:
   - v215: ICNSS/CNSS lifecycle research
   - v216: Android service replay model
@@ -1324,7 +1326,7 @@
   - v224: Android-env shim dry-run materialization
   - v225: Wi-Fi exposure/credential security gate + preflight gate v3
 - 다음 실행 항목:
-  - v222 vendor root evidence export/extraction 계획서 작성
+  - v222 vendor root evidence export/extraction 구현 또는 source vendor root 확보
   - 추가 unbind/bind, rfkill write, link-up, scan/connect는 계속 금지
   - v221 결과가 `vendor-root-required`이므로 controlled CNSS start는 vendor root evidence 확보 전까지 blocked
 
@@ -1553,6 +1555,12 @@
 - 다음 실행 항목:
   - v222 vendor root evidence export/extraction 계획
   - private/no-follow host evidence bundle에 `cnss-daemon`, `cnss_diag`, related `lib`/`lib64`를 확보한 뒤 v221 `--vendor-root` 재실행
+
+### V215-V225. Wi-Fi Big Plan — REFERENCE
+
+- 큰 계획: `docs/plans/NATIVE_INIT_V215_V225_WIFI_BIG_PLAN_2026-05-13.md`
+- 역할: v215-v225 Wi-Fi blocker closure의 버전별 목적, gate, stop condition을 한 화면에서 본다
+- 상세 실행은 각 버전별 plan/report 문서를 기준으로 한다
 
 ### V222. Vendor Root Evidence Export / Extraction — PLANNED
 
