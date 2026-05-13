@@ -1409,6 +1409,32 @@
   - v218 CNSS daemon dry-run feasibility 계획서 작성
   - daemon 실행 없이 executable/library/mount/property/socket/device-node/capability requirements 조사
 
+### V218. CNSS Daemon Dry-Run Feasibility — PLANNED
+
+- 계획: `docs/plans/NATIVE_INIT_V218_CNSS_DAEMON_DRYRUN_FEASIBILITY_PLAN_2026-05-13.md`
+- 목표:
+  - `cnss-daemon`/`cnss_diag` 실행 없이 executable, linker/library, mount alias, property/socket/device-node/capability requirements를 모델링
+  - v219 native Android-env shim 계획으로 진행 가능한지 판정
+- 예정 구현:
+  - `scripts/revalidation/wifi_cnss_daemon_dryrun.py`
+- 입력:
+  - `tmp/wifi/v210-vendor-asset-classifier/manifest.json`
+  - `tmp/wifi/v216-service-replay-model/manifest.json`
+  - `tmp/wifi/v217-icnss-debug-recovery-inventory/manifest.json`
+  - `tmp/wifi/v217-icnss-debug-recovery-inventory-native/manifest.json`
+- 예정 산출물:
+  - `tmp/wifi/v218-cnss-daemon-dryrun/manifest.json`
+  - `tmp/wifi/v218-cnss-daemon-dryrun/daemon-dependencies.json`
+  - `tmp/wifi/v218-cnss-daemon-dryrun/summary.md`
+- 금지:
+  - `cnss-daemon`, `cnss_diag`, Wi-Fi HAL, `wificond`, supplicant, hostapd 실행
+  - Android `ctl.start`/`class_start`
+  - ICNSS sysfs/debugfs writes
+  - rfkill write, link-up, scan/connect
+- 다음 실행 항목:
+  - v218 modeler 구현
+  - manifest-only PASS 후 필요 시 native read-only path/stat 검증
+
 ### V187. Harness Broker Backend — PASS
 
 - 보고서: `docs/reports/NATIVE_INIT_V187_HARNESS_BROKER_BACKEND_2026-05-11.md`
