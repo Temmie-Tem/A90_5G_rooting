@@ -250,16 +250,25 @@ Plan:
 
 - `docs/plans/NATIVE_INIT_V222_VENDOR_ROOT_EVIDENCE_EXPORT_PLAN_2026-05-13.md`
 
+Status:
+
+- done
+- result: `export-source-required`
+- report:
+  `docs/reports/NATIVE_INIT_V222_VENDOR_ROOT_EVIDENCE_EXPORT_2026-05-13.md`
+- tool: `scripts/revalidation/wifi_vendor_root_evidence_export.py`
+
 Deliverables:
 
-- private/no-follow vendor evidence output
-- `cnss-daemon` and `cnss_diag` binary files
-- related `lib`/`lib64` vendor shared libraries
+- private/no-follow vendor evidence output model
+- required path checklist for `cnss-daemon` and `cnss_diag`
+- `--source-vendor-root` export mode for related `lib`/`lib64` vendor shared libraries
 - re-run instructions for v221 `--vendor-root`
 
 Decision:
 
 - `vendor-root-ready`
+- `export-source-required`
 - `vendor-export-blocked`
 
 #### v223. Recovery / Rollback Policy Hardening
@@ -364,12 +373,13 @@ Connect only if v223 scan and v224 security review pass.
 
 ## Practical Next Action
 
-The immediate next work is v222.
+v222 tooling is implemented and currently returns `export-source-required` because no source vendor root has been provided.
 
-1. write v222 plan for vendor root evidence export/extraction
-2. collect or validate host-visible vendor evidence for `cnss-daemon` and `cnss_diag`
-3. keep daemon execution blocked
-4. keep Path B inactive unless a future reviewed gate supersedes v220
+1. collect or validate host-visible vendor evidence for `cnss-daemon` and `cnss_diag` with v222 `--source-vendor-root`;
+2. rerun v221 with the exported `vendor-root/` if v222 returns `vendor-root-ready`;
+3. alternatively, proceed to v223 recovery/rollback policy hardening while preserving the vendor-root blocker;
+4. keep daemon execution blocked;
+5. keep Path B inactive unless a future reviewed gate supersedes v220.
 
 ## Acceptance For This Master Plan
 

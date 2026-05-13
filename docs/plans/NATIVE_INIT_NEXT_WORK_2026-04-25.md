@@ -1082,8 +1082,11 @@ Samsung bootloader
    - v221 보고서: `docs/reports/NATIVE_INIT_V221_HOST_VENDOR_ELF_LIBRARY_EVIDENCE_2026-05-13.md`
    - v221 상태: PASS, decision `vendor-root-required`
    - v221 결과: host-visible vendor root가 필요하며 required paths는 `<vendor-root>/bin/cnss-daemon`, `<vendor-root>/bin/cnss_diag`
-   - 다음은 v222 vendor root evidence export/extraction 계획이다. private/no-follow evidence bundle로 target binaries와 related `lib`/`lib64`를 확보한 뒤 v221 `--vendor-root` 재실행을 목표로 한다
    - v222 계획서: `docs/plans/NATIVE_INIT_V222_VENDOR_ROOT_EVIDENCE_EXPORT_PLAN_2026-05-13.md`
+   - v222 보고서: `docs/reports/NATIVE_INIT_V222_VENDOR_ROOT_EVIDENCE_EXPORT_2026-05-13.md`
+   - v222 상태: PASS, decision `export-source-required`
+   - v222 결과: `scripts/revalidation/wifi_vendor_root_evidence_export.py` 구현 완료, source vendor root 미제공 상태에서는 private/no-follow export plan과 required paths만 생성
+   - 다음은 source vendor root 확보 후 v222/v221 재실행 또는 v223 recovery/rollback policy hardening이다. daemon 실행, generic sysfs unbind/bind, Wi-Fi scan/connect는 blocked
    - Wi-Fi/NCM을 USB-local 밖으로 넓히기 전 인증/ACL/token/bind/listener lifecycle 정책을 다시 검토한다
 
 ---

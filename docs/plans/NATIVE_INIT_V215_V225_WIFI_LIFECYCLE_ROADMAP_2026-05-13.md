@@ -67,10 +67,12 @@ native init must keep active Wi-Fi bring-up blocked.
 - v220: lifecycle-aware bring-up preflight gate v2 passed with `no-go`.
 - v221: host vendor ELF/library evidence closure passed with
   `vendor-root-required`.
+- v222: vendor root evidence export helper passed with
+  `export-source-required`.
 
 ## Current Execution Status
 
-This roadmap is now in the post-v221 phase.
+This roadmap is now in the post-v222 phase.
 
 - completed:
   - v215 `ICNSS/CNSS Lifecycle Research`
@@ -80,8 +82,9 @@ This roadmap is now in the post-v221 phase.
   - v219 `Native Android-Env Shim Plan`
   - v220 `Wi-Fi Bring-Up Preflight Gate v2`
   - v221 `Host Vendor ELF / Library Evidence Closure`
-- next execution item:
   - v222 `Vendor Root Evidence Export / Extraction`
+- next execution item:
+  - source vendor root acquisition and v222/v221 rerun, or v223 `Recovery / Rollback Policy Hardening` with the vendor blocker preserved
 - still blocked:
   - `cnss-daemon` and `cnss_diag` execution
   - Wi-Fi HAL execution
@@ -470,18 +473,24 @@ Mode: `read-only`
 Goal: safely obtain a host-visible vendor root or minimum vendor evidence bundle
 for v221 `--vendor-root` rerun.
 
-Planned work:
+Status:
 
-- export or validate `cnss-daemon`, `cnss_diag`, and related `lib`/`lib64`
-  files into private/no-follow host evidence
-- avoid world-readable output and destination symlink clobber
-- avoid writable vendor/system mounts
-- keep all daemon execution blocked
+- done
+- decision: `export-source-required`
+- report: `docs/reports/NATIVE_INIT_V222_VENDOR_ROOT_EVIDENCE_EXPORT_2026-05-13.md`
+- tool: `scripts/revalidation/wifi_vendor_root_evidence_export.py`
+
+Completed work:
+
+- default plan-only run with private/no-follow host evidence output
+- source-root export mode for `cnss-daemon`, `cnss_diag`, and related `lib`/`lib64`
+- synthetic source-root export smoke test
+- v221 rerun command emitted in summary
 
 Decision:
 
-- `vendor-root-ready`
-- `vendor-export-blocked`
+- `export-source-required`
+- source vendor root must still be provided before the vendor evidence blocker is closed
 
 ### v223. Recovery / Rollback Policy Hardening
 
@@ -567,16 +576,17 @@ Decision:
 
 ## Recommended Immediate Next Step
 
-Start v222 as vendor root evidence export/extraction. Do not execute
-`cnss-daemon`, `cnss_diag`,
-Wi-Fi HAL, supplicant, or hostapd yet.
+Provide a source vendor root and rerun v222, or proceed to v223 recovery/rollback
+policy hardening while explicitly preserving the vendor-root blocker. Do not
+execute `cnss-daemon`, `cnss_diag`, Wi-Fi HAL, supplicant, or hostapd yet.
 
-The next concrete deliverable should safely produce host-visible evidence for:
+The next source-root command is:
 
-- `cnss-daemon`
-- `cnss_diag`
-- related vendor `lib`/`lib64` shared libraries
-- a private output directory that can be passed to v221 `--vendor-root`
+```bash
+python3 scripts/revalidation/wifi_vendor_root_evidence_export.py \
+  --source-vendor-root <vendor-root> \
+  --out-dir tmp/wifi/v222-vendor-root-evidence-export
+```
 
 Only after v222-v224 close the remaining evidence, recovery, shim, and exposure
 gaps can v225 decide whether controlled CNSS start is eligible for planning.

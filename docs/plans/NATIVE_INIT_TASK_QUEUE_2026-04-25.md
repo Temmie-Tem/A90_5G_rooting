@@ -1553,8 +1553,8 @@
   - rfkill write, link-up, scan/connect
   - ICNSS/sysfs/debugfs writes
 - 다음 실행 항목:
-  - v222 vendor root evidence export/extraction 계획
-  - private/no-follow host evidence bundle에 `cnss-daemon`, `cnss_diag`, related `lib`/`lib64`를 확보한 뒤 v221 `--vendor-root` 재실행
+  - v222 vendor root evidence export/extraction 구현 완료
+  - source vendor root 확보 후 v222 `--source-vendor-root`와 v221 `--vendor-root` 재실행
 
 ### V215-V225. Wi-Fi Big Plan — REFERENCE
 
@@ -1562,25 +1562,26 @@
 - 역할: v215-v225 Wi-Fi blocker closure의 버전별 목적, gate, stop condition을 한 화면에서 본다
 - 상세 실행은 각 버전별 plan/report 문서를 기준으로 한다
 
-### V222. Vendor Root Evidence Export / Extraction — PLANNED
+### V222. Vendor Root Evidence Export / Extraction — PASS
 
 - 계획: `docs/plans/NATIVE_INIT_V222_VENDOR_ROOT_EVIDENCE_EXPORT_PLAN_2026-05-13.md`
-- 목표:
-  - v221 `vendor-root-required` 결과를 닫기 위해 host-visible vendor root 또는 최소 vendor evidence bundle을 안전하게 확보한다
-  - `/vendor/bin/cnss-daemon`, `/vendor/bin/cnss_diag`, related `lib`/`lib64` 파일을 private/no-follow output으로 수집한다
-  - full partition overwrite나 active Wi-Fi 작업 없이 read-only extraction만 허용한다
-- 후보 구현:
-  - host-side vendor root locator/export helper
-  - existing v209/v210 temporary `ro,noload` vendor mount evidence 재사용
-  - optional operator-provided extracted vendor root path 검증
-- 금지:
+- 보고서: `docs/reports/NATIVE_INIT_V222_VENDOR_ROOT_EVIDENCE_EXPORT_2026-05-13.md`
+- 구현: `scripts/revalidation/wifi_vendor_root_evidence_export.py`
+- 결과:
+  - decision `export-source-required`
+  - no source-root 기본 실행 PASS
+  - required paths: `<vendor-root>/bin/cnss-daemon`, `<vendor-root>/bin/cnss_diag`
+  - private/no-follow output: `tmp/wifi/v222-vendor-root-evidence-export/manifest.json`, `export-plan.json`, `summary.md`
+  - synthetic source-root export smoke PASS, final retained output은 plan-only `export-source-required`
+- 금지 유지:
   - daemon 실행
   - writable vendor/system mount
   - full uncontrolled partition dump into world-readable path
   - Wi-Fi scan/connect
 - 다음 실행 항목:
-  - v222 구현
-  - no source-root 기본 실행에서 `export-source-required` PASS 확인
+  - source vendor root 확보 후 v222 `--source-vendor-root` 실행
+  - `vendor-root-ready`가 나오면 v221 `--vendor-root tmp/wifi/v222-vendor-root-evidence-export/vendor-root` 재실행
+  - source 확보 전에는 v223 recovery/rollback policy hardening만 read-only로 진행 가능
 
 ### V187. Harness Broker Backend — PASS
 

@@ -53,7 +53,7 @@ This plan does **not** approve Wi-Fi scan, connect, rfkill writes, link-up,
 | v219 | PASS | `shim-plan-partial` | Native Android-env shim matrix exists; blocked items remain |
 | v220 | PASS | `no-go` | Lifecycle-aware gate blocks active Wi-Fi work |
 | v221 | PASS | `vendor-root-required` | Host-visible vendor root is required for ELF/library closure |
-| v222 | PLANNED | `export-source-required` expected without source | Safe vendor root evidence export/extraction |
+| v222 | PASS | `export-source-required` | Export helper ready; source vendor root still required |
 | v223 | PLANNED | TBD | Recovery/rollback policy hardening |
 | v224 | PLANNED | TBD | Reversible Android-env shim materialization dry-run |
 | v225 | PLANNED | TBD | Exposure/security gate and gate v3 integration |
@@ -172,14 +172,20 @@ Plan:
 
 - `docs/plans/NATIVE_INIT_V222_VENDOR_ROOT_EVIDENCE_EXPORT_PLAN_2026-05-13.md`
 
-Expected implementation:
+Status:
 
-- add `scripts/revalidation/wifi_vendor_root_evidence_export.py`
-- support plan-only `export-source-required` when no source vendor root is
+- done
+- report: `docs/reports/NATIVE_INIT_V222_VENDOR_ROOT_EVIDENCE_EXPORT_2026-05-13.md`
+- tool: `scripts/revalidation/wifi_vendor_root_evidence_export.py`
+- result: `export-source-required` because no source vendor root was provided
+
+Implementation:
+
+- supports plan-only `export-source-required` when no source vendor root is
   provided
-- support `--source-vendor-root <path>` to copy an allowlisted minimal vendor
+- supports `--source-vendor-root <path>` to copy an allowlisted minimal vendor
   root with private/no-follow host writes
-- output `tmp/wifi/v222-vendor-root-evidence-export/manifest.json`,
+- outputs `tmp/wifi/v222-vendor-root-evidence-export/manifest.json`,
   `export-plan.json`, `summary.md`, and optional `vendor-root/`
 
 Decision model:
@@ -273,7 +279,7 @@ Decision model:
 
 ## Execution Order
 
-1. Finish v222 tool/report or collect a vendor root source for v222.
+1. Provide a source vendor root and rerun v222, or keep the vendor-root blocker open.
 2. Rerun v221 with v222 `vendor-root/` if `vendor-root-ready` is achieved.
 3. Write v223 recovery/rollback hardening plan.
 4. Write v224 shim materialization dry-run plan only after recovery constraints
