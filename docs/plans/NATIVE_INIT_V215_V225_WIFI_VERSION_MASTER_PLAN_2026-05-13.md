@@ -282,6 +282,14 @@ Plan:
 Goal: reboot-only recovery를 accepted risk로 둘 수 있는지 판단하고, active
 experiment 전에 필요한 stop condition과 evidence bundle을 고정한다.
 
+Status:
+
+- done
+- result: `reboot-recovery-accepted`
+- report:
+  `docs/reports/NATIVE_INIT_V223_RECOVERY_ROLLBACK_POLICY_2026-05-13.md`
+- tool: `scripts/revalidation/wifi_recovery_rollback_policy.py`
+
 Deliverables:
 
 - ICNSS broken-state detection checklist
@@ -377,11 +385,11 @@ Connect only if v223 scan and v224 security review pass.
 
 ## Practical Next Action
 
-v222 tooling is implemented and currently returns `export-source-required` because no source vendor root has been provided.
+v222 tooling is implemented and currently returns `export-source-required`; v223 recovery policy is implemented and returns `reboot-recovery-accepted`.
 
 1. collect or validate host-visible vendor evidence for `cnss-daemon` and `cnss_diag` with v222 `--source-vendor-root`;
 2. rerun v221 with the exported `vendor-root/` if v222 returns `vendor-root-ready`;
-3. alternatively, proceed to v223 recovery/rollback policy hardening while preserving the vendor-root blocker;
+3. alternatively, proceed to v224 Android-env shim dry-run materialization planning while preserving the vendor-root blocker;
 4. keep daemon execution blocked;
 5. keep Path B inactive unless a future reviewed gate supersedes v220.
 

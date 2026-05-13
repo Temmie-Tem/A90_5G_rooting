@@ -69,10 +69,11 @@ native init must keep active Wi-Fi bring-up blocked.
   `vendor-root-required`.
 - v222: vendor root evidence export helper passed with
   `export-source-required`.
+- v223: recovery/rollback policy passed with `reboot-recovery-accepted`.
 
 ## Current Execution Status
 
-This roadmap is now in the post-v222 phase.
+This roadmap is now in the post-v223 phase.
 
 - completed:
   - v215 `ICNSS/CNSS Lifecycle Research`
@@ -83,8 +84,9 @@ This roadmap is now in the post-v222 phase.
   - v220 `Wi-Fi Bring-Up Preflight Gate v2`
   - v221 `Host Vendor ELF / Library Evidence Closure`
   - v222 `Vendor Root Evidence Export / Extraction`
+  - v223 `Recovery / Rollback Policy Hardening`
 - next execution item:
-  - source vendor root acquisition and v222/v221 rerun, or v223 `Recovery / Rollback Policy Hardening` with the vendor blocker preserved
+  - source vendor root acquisition and v222/v221 rerun, or v224 `Android-Env Shim Dry-Run Materialization` with daemon execution blocked
 - still blocked:
   - `cnss-daemon` and `cnss_diag` execution
   - Wi-Fi HAL execution
@@ -112,8 +114,8 @@ Every version in this roadmap must state one of three modes:
    - scoped to scan-only first, then controlled test AP
    - requires exposure/security review before use
 
-v215-v220 should remain `read-only` or tightly bounded `temporary-mutating`.
-`active-network` starts no earlier than v223.
+v215-v223 should remain `read-only` or policy-only after the v220 `no-go` path.
+`active-network` remains blocked until a later v225+ security/gate decision explicitly approves scan-only planning.
 
 ## Phase Map
 
@@ -503,12 +505,19 @@ Plan:
 Goal: decide whether reboot-only ICNSS recovery can be accepted for any later
 temporary-mutating CNSS experiment.
 
-Planned work:
+Status:
 
-- define ICNSS broken-state detection checklist
-- define stop/reboot handoff policy
-- define required pre/post evidence bundle
-- keep generic ICNSS bind/unbind denied
+- done
+- decision: `reboot-recovery-accepted`
+- report: `docs/reports/NATIVE_INIT_V223_RECOVERY_ROLLBACK_POLICY_2026-05-13.md`
+- tool: `scripts/revalidation/wifi_recovery_rollback_policy.py`
+
+Completed work:
+
+- defined ICNSS broken-state detection checklist
+- defined stop/reboot handoff policy
+- defined required pre/post evidence bundle
+- kept generic ICNSS bind/unbind denied
 
 Decision:
 
@@ -580,9 +589,10 @@ Decision:
 
 ## Recommended Immediate Next Step
 
-Provide a source vendor root and rerun v222, or proceed to v223 recovery/rollback
-policy hardening while explicitly preserving the vendor-root blocker. Do not
-execute `cnss-daemon`, `cnss_diag`, Wi-Fi HAL, supplicant, or hostapd yet.
+Provide a source vendor root and rerun v222/v221, or proceed to v224
+Android-env shim dry-run materialization planning while explicitly preserving
+the vendor-root blocker. Do not execute `cnss-daemon`, `cnss_diag`, Wi-Fi HAL,
+supplicant, or hostapd yet.
 
 The next source-root command is:
 

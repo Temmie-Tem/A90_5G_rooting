@@ -54,7 +54,7 @@ This plan does **not** approve Wi-Fi scan, connect, rfkill writes, link-up,
 | v220 | PASS | `no-go` | Lifecycle-aware gate blocks active Wi-Fi work |
 | v221 | PASS | `vendor-root-required` | Host-visible vendor root is required for ELF/library closure |
 | v222 | PASS | `export-source-required` | Export helper ready; source vendor root still required |
-| v223 | PLANNED | TBD | Recovery/rollback policy hardening |
+| v223 | PASS | `reboot-recovery-accepted` | Reboot-only recovery policy accepted for later opt-in planning |
 | v224 | PLANNED | TBD | Reversible Android-env shim materialization dry-run |
 | v225 | PLANNED | TBD | Exposure/security gate and gate v3 integration |
 
@@ -213,7 +213,14 @@ Plan:
 
 - `docs/plans/NATIVE_INIT_V223_RECOVERY_ROLLBACK_POLICY_PLAN_2026-05-13.md`
 
-Planned deliverables:
+Status:
+
+- done
+- report: `docs/reports/NATIVE_INIT_V223_RECOVERY_ROLLBACK_POLICY_2026-05-13.md`
+- tool: `scripts/revalidation/wifi_recovery_rollback_policy.py`
+- result: `reboot-recovery-accepted`
+
+Completed deliverables:
 
 - broken-state detection checklist
 - pre/post evidence capture checklist
@@ -285,10 +292,8 @@ Decision model:
 
 1. Provide a source vendor root and rerun v222, or keep the vendor-root blocker open.
 2. Rerun v221 with v222 `vendor-root/` if `vendor-root-ready` is achieved.
-3. Write v223 recovery/rollback hardening plan.
-4. Write v224 shim materialization dry-run plan only after recovery constraints
-   are explicit.
-5. Write v225 security/exposure gate and gate v3 after v221-v224 results are
+3. Write v224 shim materialization dry-run plan using v223 policy as a hard dependency.
+4. Write v225 security/exposure gate and gate v3 after v221-v224 results are
    available.
 
 ## Stop Conditions

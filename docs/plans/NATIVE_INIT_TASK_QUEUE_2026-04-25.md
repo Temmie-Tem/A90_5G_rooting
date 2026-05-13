@@ -1581,25 +1581,30 @@
 - 다음 실행 항목:
   - source vendor root 확보 후 v222 `--source-vendor-root` 실행
   - `vendor-root-ready`가 나오면 v221 `--vendor-root tmp/wifi/v222-vendor-root-evidence-export/vendor-root` 재실행
-  - source 확보 전에는 v223 recovery/rollback policy hardening만 read-only로 진행 가능
+  - source 확보 전에는 v224 Android-env shim dry-run materialization 계획만 daemon 실행 없이 진행 가능
 
 
-### V223. Recovery / Rollback Policy Hardening — PLANNED
+### V223. Recovery / Rollback Policy Hardening — PASS
 
 - 계획: `docs/plans/NATIVE_INIT_V223_RECOVERY_ROLLBACK_POLICY_PLAN_2026-05-13.md`
-- 목표:
-  - v214 `icnss-rebind-failed`, v217 `state-only-inventory`, v220 `no-go`, v222 `export-source-required` 결과를 recovery policy로 고정한다
-  - reboot-only recovery를 어떤 조건에서 수용할지 명시한다
-  - future temporary mutation의 preflight, stop condition, post-reboot verification을 표준화한다
-- 금지:
+- 보고서: `docs/reports/NATIVE_INIT_V223_RECOVERY_ROLLBACK_POLICY_2026-05-13.md`
+- 구현: `scripts/revalidation/wifi_recovery_rollback_policy.py`
+- 결과:
+  - decision `reboot-recovery-accepted`
+  - v214 post-reboot recovery evidence complete
+  - v217 unsafe write count `10`
+  - v220 `icnss_recovery` gate remains `blocked`
+  - accepted primitive: native reboot only
+  - denied: generic ICNSS unbind/bind, `driver_override`, unreviewed sysfs/debugfs/configfs writes
+- 금지 유지:
   - live device command by default
   - reboot 실행
   - ICNSS sysfs/debugfs/configfs write
   - daemon 실행
   - rfkill write, link-up, scan/connect
 - 다음 실행 항목:
-  - `scripts/revalidation/wifi_recovery_rollback_policy.py` 구현
-  - no-live-command policy run에서 `reboot-recovery-accepted` 또는 `active-mutation-blocked` 판정
+  - v224 Android-env shim dry-run materialization 계획
+  - v224는 v223 policy를 hard dependency로 사용하고 daemon 실행은 계속 금지
 
 ### V187. Harness Broker Backend — PASS
 
