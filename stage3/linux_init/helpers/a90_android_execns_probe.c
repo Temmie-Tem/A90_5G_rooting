@@ -3,6 +3,7 @@
 #include <errno.h>
 #include <fcntl.h>
 #include <poll.h>
+#include <stdint.h>
 #include <signal.h>
 #include <stdbool.h>
 #include <stdio.h>
@@ -21,9 +22,10 @@
 #define MNT_DETACH 2
 #endif
 
-#define EXECNS_VERSION "a90_android_execns_probe v1"
+#define EXECNS_VERSION "a90_android_execns_probe v2"
 #define MAX_PATH_LEN 512
 #define MAX_CAPTURE_SIZE (1024 * 1024)
+#define MAX_LINKERCONFIG_SIZE (256 * 1024)
 
 struct config {
     const char *system_root;
@@ -32,6 +34,8 @@ struct config {
     const char *target;
     const char *linker;
     const char *mode;
+    const char *linkerconfig_mode;
+    const char *linkerconfig_source;
     int timeout_sec;
 };
 
@@ -63,6 +67,8 @@ static void usage(FILE *out) {
             "--target /vendor/bin/cnss-daemon "
             "--linker /system/bin/linker64 "
             "--mode linker-list "
+            "[--linkerconfig-mode none|copy-real|minimal-vendor] "
+            "[--linkerconfig-source /cache/path/to/ld.config.txt] "
             "--timeout-sec <1..30>\n");
 }
 
@@ -92,6 +98,7 @@ static bool parse_int_range(const char *value, int min_value, int max_value, int
 static int parse_args(int argc, char **argv, struct config *cfg) {
     memset(cfg, 0, sizeof(*cfg));
     cfg->timeout_sec = 10;
+    cfg->linkerconfig_mode = "none";
 
     for (int i = 1; i < argc; i++) {
         if (strcmp(argv[i], "--help") == 0) {
@@ -114,6 +121,10 @@ static int parse_args(int argc, char **argv, struct config *cfg) {
             cfg->linker = argv[++i];
         } else if (strcmp(argv[i], "--mode") == 0) {
             cfg->mode = argv[++i];
+        } else if (strcmp(argv[i], "--linkerconfig-mode") == 0) {
+            cfg->linkerconfig_mode = argv[++i];
+        } else if (strcmp(argv[i], "--linkerconfig-source") == 0) {
+            cfg->linkerconfig_source = argv[++i];
         } else if (strcmp(argv[i], "--timeout-sec") == 0) {
             if (!parse_int_range(argv[++i], 1, 30, &cfg->timeout_sec)) {
                 fprintf(stderr, "invalid --timeout-sec\n");
@@ -130,8 +141,22 @@ static int parse_args(int argc, char **argv, struct config *cfg) {
         !streq(cfg->vendor_fstype, "ext4") ||
         !streq(cfg->target, "/vendor/bin/cnss-daemon") ||
         !streq(cfg->linker, "/system/bin/linker64") ||
-        !streq(cfg->mode, "linker-list")) {
-        fprintf(stderr, "arguments do not match v231 allowlist\n");
+        !streq(cfg->mode, "linker-list") ||
+        !(streq(cfg->linkerconfig_mode, "none") ||
+          streq(cfg->linkerconfig_mode, "copy-real") ||
+          streq(cfg->linkerconfig_mode, "minimal-vendor"))) {
+        fprintf(stderr, "arguments do not match v231/v232 allowlist\n");
+        return 2;
+    }
+    if (streq(cfg->linkerconfig_mode, "copy-real")) {
+        if (cfg->linkerconfig_source == NULL ||
+            strncmp(cfg->linkerconfig_source, "/cache/", 7) != 0 ||
+            strstr(cfg->linkerconfig_source, "..") != NULL) {
+            fprintf(stderr, "--linkerconfig-source must be an absolute /cache path for copy-real\n");
+            return 2;
+        }
+    } else if (cfg->linkerconfig_source != NULL) {
+        fprintf(stderr, "--linkerconfig-source is only valid with --linkerconfig-mode copy-real\n");
         return 2;
     }
     return 0;
@@ -215,12 +240,182 @@ static int bind_ro(const char *source, const char *target) {
     return 0;
 }
 
+static uint64_t fnv1a64_update(uint64_t hash, const void *data, size_t len) {
+    const unsigned char *bytes = data;
+
+    for (size_t i = 0; i < len; i++) {
+        hash ^= bytes[i];
+        hash *= UINT64_C(1099511628211);
+    }
+    return hash;
+}
+
+static int write_all_fd(int fd, const void *data, size_t len) {
+    const unsigned char *bytes = data;
+    size_t done = 0;
+
+    while (done < len) {
+        ssize_t nwritten = write(fd, bytes + done, len - done);
+
+        if (nwritten < 0) {
+            if (errno == EINTR) {
+                continue;
+            }
+            return -1;
+        }
+        if (nwritten == 0) {
+            errno = EIO;
+            return -1;
+        }
+        done += (size_t)nwritten;
+    }
+    return 0;
+}
+
+static const char minimal_vendor_linkerconfig[] =
+    "# A90 v232 synthetic private linkerconfig for linker64 --list only\n"
+    "dir.vendor = /vendor/bin/\n"
+    "\n"
+    "[vendor]\n"
+    "namespace.default.isolated = false\n"
+    "namespace.default.search.paths = /vendor/${LIB}\n"
+    "namespace.default.search.paths += /system/${LIB}\n"
+    "namespace.default.search.paths += /apex/com.android.runtime/${LIB}/bionic\n"
+    "namespace.default.permitted.paths = /vendor/${LIB}\n"
+    "namespace.default.permitted.paths += /system/${LIB}\n"
+    "namespace.default.permitted.paths += /apex/com.android.runtime/${LIB}/bionic\n";
+
+static int append_linkerconfig_file(const char *dest,
+                                    const char *data,
+                                    size_t len,
+                                    size_t *total_bytes,
+                                    uint64_t *hash) {
+    int fd = open(dest, O_WRONLY | O_CREAT | O_APPEND | O_CLOEXEC, 0644);
+
+    if (fd < 0) {
+        return -1;
+    }
+    if (write_all_fd(fd, data, len) < 0) {
+        int saved_errno = errno;
+        close(fd);
+        errno = saved_errno;
+        return -1;
+    }
+    close(fd);
+    *hash = fnv1a64_update(*hash, data, len);
+    *total_bytes += len;
+    return 0;
+}
+
+static int copy_linkerconfig_file(const char *source,
+                                  const char *dest,
+                                  size_t *total_bytes,
+                                  uint64_t *hash) {
+    char tmp[4096];
+    int in_fd = open(source, O_RDONLY | O_CLOEXEC);
+    int out_fd;
+
+    if (in_fd < 0) {
+        return -1;
+    }
+    out_fd = open(dest, O_WRONLY | O_CREAT | O_TRUNC | O_CLOEXEC, 0644);
+    if (out_fd < 0) {
+        int saved_errno = errno;
+        close(in_fd);
+        errno = saved_errno;
+        return -1;
+    }
+    for (;;) {
+        ssize_t nread = read(in_fd, tmp, sizeof(tmp));
+
+        if (nread < 0) {
+            if (errno == EINTR) {
+                continue;
+            }
+            goto fail;
+        }
+        if (nread == 0) {
+            break;
+        }
+        if (*total_bytes + (size_t)nread > MAX_LINKERCONFIG_SIZE) {
+            errno = EFBIG;
+            goto fail;
+        }
+        if (write_all_fd(out_fd, tmp, (size_t)nread) < 0) {
+            goto fail;
+        }
+        *hash = fnv1a64_update(*hash, tmp, (size_t)nread);
+        *total_bytes += (size_t)nread;
+    }
+    close(out_fd);
+    close(in_fd);
+    return 0;
+
+fail:
+    {
+        int saved_errno = errno;
+        close(out_fd);
+        close(in_fd);
+        errno = saved_errno;
+        return -1;
+    }
+}
+
+static int materialize_linkerconfig(const struct config *cfg,
+                                    const struct paths *paths,
+                                    size_t *total_bytes,
+                                    uint64_t *hash,
+                                    char *error_buf,
+                                    size_t error_size) {
+    char dest[MAX_PATH_LEN];
+
+    *total_bytes = 0;
+    *hash = UINT64_C(1469598103934665603);
+    if (append_path(dest, sizeof(dest), paths->linkerconfig, "ld.config.txt") < 0) {
+        snprintf(error_buf, error_size, "linkerconfig path: %s", strerror(errno));
+        return -1;
+    }
+    if (unlink(dest) < 0 && errno != ENOENT) {
+        snprintf(error_buf, error_size, "unlink linkerconfig: %s", strerror(errno));
+        return -1;
+    }
+    if (streq(cfg->linkerconfig_mode, "minimal-vendor")) {
+        if (append_linkerconfig_file(dest,
+                                     minimal_vendor_linkerconfig,
+                                     strlen(minimal_vendor_linkerconfig),
+                                     total_bytes,
+                                     hash) < 0) {
+            snprintf(error_buf, error_size, "write minimal linkerconfig: %s", strerror(errno));
+            return -1;
+        }
+        return 0;
+    }
+    if (streq(cfg->linkerconfig_mode, "copy-real")) {
+        if (copy_linkerconfig_file(cfg->linkerconfig_source, dest, total_bytes, hash) < 0) {
+            snprintf(error_buf, error_size, "copy linkerconfig: %s", strerror(errno));
+            return -1;
+        }
+        return 0;
+    }
+    errno = EINVAL;
+    snprintf(error_buf, error_size, "invalid linkerconfig mode");
+    return -1;
+}
+
 static void cleanup_paths(const struct paths *paths) {
+    char linkerconfig_file[MAX_PATH_LEN];
+
     if (paths->apex[0] != '\0') {
         umount2(paths->apex, MNT_DETACH);
     }
     if (paths->linkerconfig[0] != '\0') {
         umount2(paths->linkerconfig, MNT_DETACH);
+        if (append_path(linkerconfig_file,
+                        sizeof(linkerconfig_file),
+                        paths->linkerconfig,
+                        "ld.config.txt") == 0) {
+            unlink(linkerconfig_file);
+        }
     }
     umount2(paths->proc, MNT_DETACH);
     umount2(paths->vendor, MNT_DETACH);
@@ -466,7 +661,12 @@ fail:
     return -1;
 }
 
-static int setup_namespace(const struct config *cfg, struct paths *paths, char *error_buf, size_t error_size) {
+static int setup_namespace(const struct config *cfg,
+                           struct paths *paths,
+                           size_t *linkerconfig_bytes,
+                           uint64_t *linkerconfig_hash,
+                           char *error_buf,
+                           size_t error_size) {
     char system_apex[MAX_PATH_LEN];
     const char *vendor_mount_source = cfg->vendor_block;
     const char *linkerconfig_source = "/mnt/system/linkerconfig";
@@ -538,7 +738,16 @@ static int setup_namespace(const struct config *cfg, struct paths *paths, char *
         rmdir(paths->apex);
         paths->apex[0] = '\0';
     }
-    if (access(linkerconfig_source, R_OK | X_OK) == 0) {
+    if (!streq(cfg->linkerconfig_mode, "none")) {
+        if (materialize_linkerconfig(cfg,
+                                     paths,
+                                     linkerconfig_bytes,
+                                     linkerconfig_hash,
+                                     error_buf,
+                                     error_size) < 0) {
+            return -1;
+        }
+    } else if (access(linkerconfig_source, R_OK | X_OK) == 0) {
         if (bind_ro(linkerconfig_source, paths->linkerconfig) < 0) {
             snprintf(error_buf, error_size, "bind linkerconfig: %s", strerror(errno));
             return -1;
@@ -569,6 +778,8 @@ int main(int argc, char **argv) {
     char setup_error[256] = "";
     int child_exit_code = -1;
     int child_signal = 0;
+    size_t linkerconfig_bytes = 0;
+    uint64_t linkerconfig_hash = 0;
     bool timed_out = false;
     int parse_rc;
     int run_rc;
@@ -586,6 +797,9 @@ int main(int argc, char **argv) {
 
     printf("A90_EXECNS_BEGIN version=\"%s\"\n", EXECNS_VERSION);
     printf("mode=%s\n", cfg.mode);
+    printf("linkerconfig_mode=%s\n", cfg.linkerconfig_mode);
+    printf("linkerconfig_source=%s\n",
+           cfg.linkerconfig_source != NULL ? cfg.linkerconfig_source : "<none>");
     printf("system_root=%s\n", cfg.system_root);
     printf("vendor_block=%s\n", cfg.vendor_block);
     printf("vendor_fstype=%s\n", cfg.vendor_fstype);
@@ -593,7 +807,12 @@ int main(int argc, char **argv) {
     printf("linker=%s\n", cfg.linker);
     printf("timeout_sec=%d\n", cfg.timeout_sec);
 
-    if (setup_namespace(&cfg, &paths, setup_error, sizeof(setup_error)) < 0) {
+    if (setup_namespace(&cfg,
+                        &paths,
+                        &linkerconfig_bytes,
+                        &linkerconfig_hash,
+                        setup_error,
+                        sizeof(setup_error)) < 0) {
         printf("helper_status=setup-error\n");
         printf("setup_error=%s\n", setup_error);
         cleanup_paths(&paths);
@@ -610,7 +829,11 @@ int main(int argc, char **argv) {
     printf("vendor_mount_source=%s\n",
            access(paths.vendor_source, F_OK) == 0 ? paths.vendor_source : cfg.vendor_block);
     printf("linkerconfig_mount_source=%s\n",
-           paths.linkerconfig[0] != '\0' ? "/mnt/system/linkerconfig" : "<absent>");
+           streq(cfg.linkerconfig_mode, "none")
+               ? (paths.linkerconfig[0] != '\0' ? "/mnt/system/linkerconfig" : "<absent>")
+               : "<private-materialized>");
+    printf("linkerconfig_bytes=%zu\n", linkerconfig_bytes);
+    printf("linkerconfig_hash=0x%016llx\n", (unsigned long long)linkerconfig_hash);
     run_rc = run_linker_list(&cfg, &paths, &stdout_buf, &stderr_buf, &child_exit_code, &child_signal, &timed_out);
     printf("probe_run_rc=%d\n", run_rc);
     printf("child_exit_code=%d\n", child_exit_code);

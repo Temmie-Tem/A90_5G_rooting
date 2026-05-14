@@ -1,9 +1,9 @@
 #!/usr/bin/env python3
 """Inventory/probe Android execution namespace prerequisites for Wi-Fi bring-up.
 
-v231 still refuses Android daemon execution and global bind mounts.  The probe
-can run one allowlisted helper that creates a temporary/private namespace and
-executes ``linker64 --list`` against ``/vendor/bin/cnss-daemon``.
+v231/v232 still refuse Android daemon execution and global bind mounts.  The
+probe can run one allowlisted helper that creates a temporary/private namespace
+and executes ``linker64 --list`` against ``/vendor/bin/cnss-daemon``.
 """
 
 from __future__ import annotations
@@ -38,6 +38,7 @@ DEFAULT_V226_MANIFEST = Path("tmp/wifi/v226-vendor-root-live-export/manifest.jso
 DEFAULT_V227_MANIFEST = Path("tmp/wifi/v227-android-core-system-library-evidence/manifest.json")
 DEFAULT_V228_MANIFEST = Path("tmp/wifi/v228-controlled-cnss-start-plan/manifest.json")
 DEFAULT_V229_MANIFEST = Path("tmp/wifi/v229-controlled-cnss-start-experiment/manifest.json")
+SCRIPT_LABEL = "v231"
 REMOTE_EXECNS_HELPER = "/cache/bin/a90_android_execns_probe"
 ANDROID_SYSTEM_ROOT = "/mnt/system/system"
 ANDROID_VENDOR_BLOCK = "/dev/block/sda29"
@@ -330,8 +331,13 @@ def read_record_text(store: EvidenceStore, record: CommandRecord | None) -> str:
     return strip_cmdv1_text(path.read_text(encoding="utf-8", errors="replace"))
 
 
-def android_execns_helper_command(timeout_sec: int) -> list[str]:
-    return [
+def android_execns_helper_command(
+    timeout_sec: int,
+    *,
+    linkerconfig_mode: str = "none",
+    linkerconfig_source: str | None = None,
+) -> list[str]:
+    command = [
         "run",
         REMOTE_EXECNS_HELPER,
         "--system-root",
@@ -346,14 +352,28 @@ def android_execns_helper_command(timeout_sec: int) -> list[str]:
         ANDROID_LINKER,
         "--mode",
         "linker-list",
+        "--linkerconfig-mode",
+        linkerconfig_mode,
         "--timeout-sec",
         str(timeout_sec),
     ]
+    if linkerconfig_source:
+        command.extend(["--linkerconfig-source", linkerconfig_source])
+    return command
 
 
-def validate_execns_helper_command(command: list[str], timeout_sec: int) -> list[str]:
-    expected = android_execns_helper_command(timeout_sec)
-    return [] if command == expected else ["android exec namespace helper command does not match v231 allowlist"]
+def validate_execns_helper_command(
+    command: list[str],
+    timeout_sec: int,
+    linkerconfig_mode: str,
+    linkerconfig_source: str | None,
+) -> list[str]:
+    expected = android_execns_helper_command(
+        timeout_sec,
+        linkerconfig_mode=linkerconfig_mode,
+        linkerconfig_source=linkerconfig_source,
+    )
+    return [] if command == expected else ["android exec namespace helper command does not match v231/v232 allowlist"]
 
 
 def parse_int_field(fields: dict[str, str], name: str, default: int = -1) -> int:
@@ -426,6 +446,8 @@ def classify_execns_helper_result(requirements: dict[str, Any], parsed: dict[str
     run_rc = parse_int_field(fields, "probe_run_rc")
     timed_out = fields.get("timed_out") == "1"
     helper_status = fields.get("helper_status", "missing")
+    linkerconfig_mode = fields.get("linkerconfig_mode", "none")
+    materialized = linkerconfig_mode in {"copy-real", "minimal-vendor"}
     linkerconfig_hint_patterns = (
         "not accessible for the namespace",
         "permitted.paths",
@@ -448,13 +470,13 @@ def classify_execns_helper_result(requirements: dict[str, Any], parsed: dict[str
         if setup_error:
             detail += f" setup_error={setup_error}"
         return {
-            "decision": "android-namespace-helper-blocked",
+            "decision": "android-linkerconfig-materialization-blocked" if materialized else "android-namespace-helper-blocked",
             "pass": False,
             "reason": detail,
         }
     if timed_out:
         return {
-            "decision": "android-namespace-helper-blocked",
+            "decision": "android-linkerconfig-materialization-blocked" if materialized else "android-namespace-helper-blocked",
             "pass": False,
             "reason": "linker --list timed out inside private namespace",
         }
@@ -472,7 +494,7 @@ def classify_execns_helper_result(requirements: dict[str, Any], parsed: dict[str
         }
     if child_signal != 0:
         return {
-            "decision": "android-namespace-manual-review-required",
+            "decision": "android-linkerconfig-crash-persists" if materialized else "android-namespace-manual-review-required",
             "pass": False,
             "reason": f"linker process terminated by signal {child_signal}",
         }
@@ -766,11 +788,12 @@ def classify_requirements(
 
 def build_namespace_plan(requirements: dict[str, Any] | None) -> dict[str, Any]:
     return {
-        "mode": "inventory-first-private-namespace-linker-list",
-        "daemon_execution": False,
+            "mode": "inventory-first-private-namespace-linker-list",
+            "linkerconfig_modes": ["none", "copy-real", "minimal-vendor"],
+            "daemon_execution": False,
         "global_mounts_allowed": False,
         "helper": REMOTE_EXECNS_HELPER,
-        "helper_command": android_execns_helper_command(10),
+            "helper_command": android_execns_helper_command(10),
         "requires_probe_flags": ["--allow-temp-namespace", "--allow-linker-list", "--assume-yes"],
         "namespace_steps_candidate": [
             "fresh-v229-preflight-must-return-start-only-runtime-gap",
@@ -875,6 +898,26 @@ def run_helper_probe(
         }
         store.write_json("helper-result.json", result)
         return result
+    if args.linkerconfig_mode != "none" and not args.allow_private_linkerconfig:
+        result = {
+            "decision": "android-linkerconfig-materialization-blocked",
+            "pass": False,
+            "reason": "private linkerconfig modes require --allow-private-linkerconfig",
+            "ran": False,
+            "linkerconfig_mode": args.linkerconfig_mode,
+        }
+        store.write_json("helper-result.json", result)
+        return result
+    if args.linkerconfig_mode == "copy-real" and not args.linkerconfig_source:
+        result = {
+            "decision": "android-linkerconfig-materialization-blocked",
+            "pass": False,
+            "reason": "--linkerconfig-source is required for --linkerconfig-mode copy-real",
+            "ran": False,
+            "linkerconfig_mode": args.linkerconfig_mode,
+        }
+        store.write_json("helper-result.json", result)
+        return result
     if requirements is None:
         result = {
             "decision": "android-namespace-helper-blocked",
@@ -913,8 +956,17 @@ def run_helper_probe(
         store.write_json("helper-result.json", result)
         return result
 
-    command = android_execns_helper_command(args.helper_timeout_sec)
-    problems = validate_execns_helper_command(command, args.helper_timeout_sec)
+    command = android_execns_helper_command(
+        args.helper_timeout_sec,
+        linkerconfig_mode=args.linkerconfig_mode,
+        linkerconfig_source=args.linkerconfig_source,
+    )
+    problems = validate_execns_helper_command(
+        command,
+        args.helper_timeout_sec,
+        args.linkerconfig_mode,
+        args.linkerconfig_source,
+    )
     if problems:
         result = {
             "decision": "android-namespace-helper-blocked",
@@ -953,6 +1005,8 @@ def run_helper_probe(
             "end_rc": parsed.get("end_rc"),
             "has_end": parsed.get("has_end"),
         },
+        "linkerconfig_mode": args.linkerconfig_mode,
+        "linkerconfig_source": args.linkerconfig_source,
     }
     store.write_json("helper-result.json", result)
     return result
@@ -983,7 +1037,7 @@ def build_summary(manifest: dict[str, Any]) -> str:
         for item in manifest["prior_checks"]
     ]
     lines = [
-        "# v231 Android Linker Namespace Probe",
+        f"# {SCRIPT_LABEL} Android Linker Namespace Probe",
         "",
         f"- generated: `{manifest['created']}`",
         f"- mode: `{manifest['mode']}`",
@@ -1046,8 +1100,8 @@ def build_summary(manifest: dict[str, Any]) -> str:
         [
             "## Guardrails",
             "",
-            "- v231 does not execute `cnss-daemon`.",
-            "- v231 does not create global bind mounts.",
+            f"- {SCRIPT_LABEL} does not execute `cnss-daemon`.",
+            f"- {SCRIPT_LABEL} does not create global bind mounts.",
             "- The helper may only run `linker64 --list /vendor/bin/cnss-daemon` inside a private namespace.",
             "",
         ]
@@ -1120,6 +1174,8 @@ def run_mode(args: argparse.Namespace) -> int:
             "no persistent Android partition writes",
             "private namespace helper is restricted to linker64 --list",
         ],
+        "linkerconfig_mode": args.linkerconfig_mode,
+        "linkerconfig_source": args.linkerconfig_source,
     }
     store.write_json("manifest.json", manifest)
     store.write_text("summary.md", build_summary(manifest))
@@ -1159,12 +1215,18 @@ def parse_args() -> argparse.Namespace:
     probe_parser = subparsers.add_parser("probe", parents=[common])
     probe_parser.add_argument("--allow-temp-namespace", action="store_true")
     probe_parser.add_argument("--allow-linker-list", action="store_true")
+    probe_parser.add_argument("--allow-private-linkerconfig", action="store_true")
+    probe_parser.add_argument("--linkerconfig-mode", choices=("none", "copy-real", "minimal-vendor"), default="none")
+    probe_parser.add_argument("--linkerconfig-source")
     probe_parser.add_argument("--assume-yes", action="store_true")
     subparsers.add_parser("cleanup", parents=[common])
     args = parser.parse_args()
     if args.subcommand != "probe":
         args.allow_temp_namespace = False
         args.allow_linker_list = False
+        args.allow_private_linkerconfig = False
+        args.linkerconfig_mode = "none"
+        args.linkerconfig_source = None
         args.assume_yes = False
     if not (1 <= args.helper_timeout_sec <= 30):
         parser.error("--helper-timeout-sec must be between 1 and 30")

@@ -1836,9 +1836,10 @@
   - `/mnt/system/linkerconfig` empty + `/system/etc/ld.config*.txt` absent 상태에서 linker namespace config를 어떻게 공급할지 설계
   - 계속 금지: daemon entrypoint, global mount, persistent Android write, Wi-Fi scan/connect/link-up
 
-### V232. Private Linkerconfig Materialization Probe — PLANNED
+### V232. Private Linkerconfig Materialization Probe — EXECUTED / CRASH PERSISTS
 
 - 계획: `docs/plans/NATIVE_INIT_V232_LINKERCONFIG_MATERIALIZATION_PLAN_2026-05-15.md`
+- 보고서: `docs/reports/NATIVE_INIT_V232_LINKERCONFIG_MATERIALIZATION_2026-05-15.md`
 - 입력:
   - v231 report `android-namespace-manual-review-required`
   - helper setup `namespace-ready`
@@ -1855,9 +1856,11 @@
   - no global bind mount, no persistent Android write
   - `allow_all_shared_libs`는 별도 계획 전 금지
 - 다음 실행 항목:
-  - v232 host wrapper + helper mode 설계 구현
-  - 가능하면 stock Android boot에서 real `/linkerconfig/ld.config.txt` read-only capture
-  - 불가 시 private-only `minimal-vendor` candidate로 crash가 config 문제인지 검증
+  - 구현: `a90_android_execns_probe v2`, `--linkerconfig-mode none|copy-real|minimal-vendor`
+  - 배포: `/cache/bin/a90_android_execns_probe`, SHA256 `a4a56e6b1cc263602b143003c2807b0f896bbdd94c75d8bbd945776434b85e23`
+  - 실기 결과: `minimal-vendor` private linkerconfig에서도 child `SIGSEGV(11)`, stdout/stderr empty
+  - 비교 결과: `none` baseline도 child `SIGSEGV(11)`, no mount leak observed
+  - 다음 후보: stock Android boot에서 real `/linkerconfig` capture 후 `copy-real` 재검증 또는 linker crash context 수집
 
 ### V187. Harness Broker Backend — PASS
 
