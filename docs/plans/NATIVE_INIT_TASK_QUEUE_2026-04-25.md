@@ -1806,6 +1806,9 @@
   - no daemon entrypoint, no `cnss_diag`, no scan/connect/link-up, no credential, no ICNSS unbind/bind, no persistent Android write
   - `probe`는 `--allow-temp-namespace --allow-linker-list --assume-yes` 필요
   - helper와 host wrapper 모두 exact allowlist와 timeout/postflight 검증 필요
+  - `/proc`는 `chroot` 이전에 `<root>/proc`로 private namespace 안에서 mount해야 한다
+  - vendor `sda29`가 `needs-remount`이면 helper가 매번 private namespace 안에서 mount하고 reverse-order cleanup을 수행한다
+  - `linker64 --list` stdout/stderr는 명시된 pattern priority로 `documented-absent|required|runtime-gap|manual-review` 중 하나로 분류한다
 - 참고:
   - Android linker namespace와 linkerconfig는 vendor process dependency resolution에 직접 영향 가능
   - bionic linker `--list`는 ldd-like mode로 target entrypoint 이전에 종료하므로 v231 dry-run에 적합

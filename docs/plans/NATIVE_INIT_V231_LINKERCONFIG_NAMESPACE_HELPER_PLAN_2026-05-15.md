@@ -123,26 +123,40 @@ Required helper behavior:
 3. Immediately call `mount(NULL, "/", NULL, MS_REC | MS_PRIVATE, NULL)` or
    equivalent private/slave propagation.
 4. Create a temp root under `/tmp/a90-v231-<pid>/root`.
-5. Bind `/mnt/system/system` read-only to `<root>/system`.
-6. Mount `sda29` read-only with `noload` to `<root>/vendor`.
-7. Preserve `/system/vendor -> /vendor` by relying on the symlink already present
+5. Create all mountpoint directories before `chroot`: `<root>/system`,
+   `<root>/vendor`, `<root>/proc`, `<root>/apex`, and optional `<root>/dev` or
+   `<root>/sys` if explicitly needed.
+6. Bind `/mnt/system/system` read-only to `<root>/system`.
+7. Mount `sda29` read-only with `noload` to `<root>/vendor`.
+   - `needs-remount` means the helper must mount vendor for every probe inside
+     the private namespace.
+   - The helper must track whether it mounted vendor and must unmount
+     `<root>/vendor` on every normal/error/timeout exit path before removing temp
+     directories.
+   - If vendor is already live-mounted in a future run, it may use a read-only
+     bind instead, but the source must be recorded in `helper-result.json`.
+8. Preserve `/system/vendor -> /vendor` by relying on the symlink already present
    in the mounted system tree.
-8. Bind or mount minimal `/proc` for bionic linker path/proc introspection.
-9. Bind `/sys` and `/dev` only if dry-run requires them; default should avoid
-   broad writable device exposure.
-10. Bind `/mnt/system/system/apex` to `<root>/apex` if present.
-11. Do not synthesize `/linkerconfig` unless a later explicit plan proves a safe
+9. Mount minimal `/proc` at `<root>/proc` before `chroot`, not after `chroot`.
+   The default should be `proc` with `nosuid,nodev,noexec` in the private
+   namespace. This is required before the linker process starts because bionic may
+   inspect `/proc/self/exe` or fall back to argv during executable discovery.
+10. Bind `/sys` and `/dev` only if dry-run proves they are required; default
+    should avoid broad writable device exposure.
+11. Bind `/mnt/system/system/apex` to `<root>/apex` if present.
+12. Do not synthesize `/linkerconfig` unless a later explicit plan proves a safe
     generated config is required and reviewed.
-12. `chroot(<root>)`, then execute only:
+13. `chroot(<root>)`, then execute only:
 
 ```text
 /system/bin/linker64 --list /vendor/bin/cnss-daemon
 ```
 
-13. Capture stdout/stderr, exit code, duration, and missing-library messages.
-14. Kill the child on timeout.
-15. Exit and let the private namespace tear down automatically.
-16. Post-run, host wrapper verifies no global `/tmp/a90-v231-*` mount remains.
+14. Capture stdout/stderr, exit code, duration, and missing-library messages.
+15. Kill the child on timeout.
+16. Unmount helper-created mounts in reverse order inside the private namespace.
+17. Exit and let the private namespace tear down automatically.
+18. Post-run, host wrapper verifies no global `/tmp/a90-v231-*` mount remains.
 
 ## Host Tool Changes
 
@@ -182,6 +196,33 @@ Extend `wifi_android_exec_namespace_probe.py`:
 If `--list` fails with namespace/config/permitted-path/library resolution
 errors, v231 must return `android-linkerconfig-required` or
 `android-linker-list-runtime-gap`. It must not continue to daemon start.
+
+## Linker Output Classification
+
+The host wrapper must classify `linker64 --list` output deterministically. The
+helper should return raw `stdout`, raw `stderr`, numeric `exit_code`, and
+`timed_out` without making policy decisions.
+
+Classification rules:
+
+| Condition | Decision | Notes |
+| --- | --- | --- |
+| timeout or helper killed child | `android-namespace-helper-blocked` | cleanup/postflight still required |
+| helper setup/mount/chroot/exec failure before linker starts | `android-namespace-helper-blocked` | include failing syscall/path |
+| `exit_code == 0` and output contains no `CANNOT LINK EXECUTABLE`, `not found`, `cannot locate`, `not accessible for the namespace`, or `linkerconfig` error | `android-linker-list-pass` or `android-linkerconfig-documented-absent` | choose documented-absent when `/linkerconfig` is absent in inventory |
+| output contains `not accessible for the namespace`, `permitted.paths`, `namespace`, `ld.config`, or `linkerconfig` | `android-linkerconfig-required` | namespace policy/config blocker |
+| output contains `library \"...\" not found`, `cannot locate`, `needed by`, or missing library names from v221 dependency graph | `android-linker-list-runtime-gap` | dependency/source mapping blocker |
+| output contains `No such file or directory` for `/system/bin/linker64`, `/vendor/bin/cnss-daemon`, `/apex`, `/proc`, or mount paths | `android-linker-list-runtime-gap` | namespace materialization blocker |
+| any unknown nonzero failure | `android-namespace-manual-review-required` | preserve full stdout/stderr for review |
+
+If multiple patterns match, priority is:
+
+```text
+timeout/helper setup > linkerconfig/namespace > missing dependency/path > unknown nonzero > pass
+```
+
+The report must include `classification_patterns_matched` so later scans can
+audit why a label was selected.
 
 ## Safety Guard
 
@@ -233,6 +274,11 @@ python3 scripts/revalidation/helper_deploy.py push \
   --role android-exec-namespace-probe
 ```
 
+`helper_deploy.py` already exists and prints operator-safe deploy instructions.
+v231 reuses it; the v231 implementation may add
+`a90_android_execns_probe` to its known helper manifest list, but must not turn
+`push` into an automatic copy path unless a separate deploy plan is reviewed.
+
 Opt-in linker-list probe:
 
 ```bash
@@ -266,6 +312,8 @@ v231 is accepted if:
 - `/linkerconfig` status is converted from `unknown` to either documented absent,
   required, or a concrete runtime gap;
 - postflight shows no global mount/network/ICNSS drift;
+- helper result records vendor mount source, cleanup status, and no leftover
+  global `/tmp/a90-v231-*` mountpoints;
 - v229/v230 guardrails remain intact.
 
 ## Next Work After v231
