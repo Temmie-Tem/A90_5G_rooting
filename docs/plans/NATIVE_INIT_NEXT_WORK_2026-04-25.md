@@ -1141,9 +1141,10 @@ Samsung bootloader
    - v234 결과: `system-toybox`, `system-sh`, `linker64-self`, `cnss-daemon` 모두 `linker64 --list`에서 `SIGSEGV(11)`로 종료했다
    - v234 decision: `android-linker-crash-generic`; 문제는 `cnss-daemon` target-specific이 아니라 generic Android linker invocation/private namespace context 쪽이다
    - v235 계획서: `docs/plans/NATIVE_INIT_V235_LINKER_INVOCATION_PATH_PLAN_2026-05-15.md`
-   - v235 구현: helper v4 + `scripts/revalidation/wifi_linker_invocation_path_probe.py`
-   - v235 상태: 정적 검증 PASS, live 검증은 `/dev/ttyACM*` absent/bridge disconnected/tcpctl unreachable 때문에 pending
-   - 다음 방향: native ACM/NCM control 복구 후 v235 live matrix를 실행하고, 결과가 path-independent crash이면 v236 bounded crash context capture를 계획한다
+   - v235 보고서: `docs/reports/NATIVE_INIT_V235_LINKER_INVOCATION_PATH_2026-05-18.md`
+   - v235 결과: `/system/bin/linker64`와 direct `/apex/com.android.runtime/bin/linker64` 모두 20-case matrix에서 child `SIGSEGV(11)`, stdout/stderr empty
+   - v235 decision: `android-linker-crash-path-independent`; symlink path 문제가 아니라 Android linker process context/namespace crash 쪽이다
+   - 다음 방향: v236 bounded crash context capture 또는 Android process-context comparison을 계획한다
    - 아직 Wi-Fi scan/connect/link-up/credential/DHCP/routing은 별도 승인 전까지 blocked
 
 ---
