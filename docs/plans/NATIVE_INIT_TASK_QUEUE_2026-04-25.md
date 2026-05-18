@@ -2176,9 +2176,32 @@
   - v241 symlink-only APEX farm is superseded by bind-backed APEX entries for dynamic exec
   - this is not daemon start or Wi-Fi bring-up
 - 다음 실행 항목:
-  - v245 controlled CNSS start-only runner plan
+  - 완료: v245 controlled CNSS start-only runner plan
+  - 다음: v245 safe plan/preflight/dry-run runner implementation
   - keep start-only opt-in, short-timeout, no scan/connect, process-group cleanup, postflight, and reboot-only recovery policy
   - Wi-Fi scan/connect/link-up/credential/DHCP/routing remain blocked
+
+### V245. CNSS Start-Only Runner Plan — DOCUMENTED / SAFE IMPLEMENTATION NEXT
+
+- 계획: `docs/plans/NATIVE_INIT_V245_CNSS_START_ONLY_RUNNER_PLAN_2026-05-19.md`
+- 기준:
+  - v244 decision은 `cnss-identity-probe-pass`
+  - v245 계획은 PID1 boot image 변경 없이 host-side start-only runner 재설계만 다룬다
+  - live daemon start는 계획서 작성/커밋 범위에서 실행하지 않는다
+- 핵심 방향:
+  - v229 `runandroid` path는 superseded
+  - future runner는 v244 private Android execution namespace와 bind-backed `/apex` farm을 재사용
+  - default subcommands는 `plan`, `preflight`, `dry-run` only
+  - `run`은 `--allow-daemon-start --assume-yes --i-understand-reboot-only-recovery` 없이는 fail closed
+- guardrails:
+  - no scan/connect/link-up/credential/DHCP/routing
+  - no `cnss_diag`
+  - no rfkill unblock, `ip link set wlan* up`, `iw scan/connect`
+  - no ICNSS generic bind/unbind or persistent Android partition write
+- 다음 실행 항목:
+  - implement `scripts/revalidation/wifi_cnss_start_only_runner.py`
+  - implement only plan/preflight/dry-run first
+  - live start-only run requires separate operator approval after reviewing dry-run evidence
 
 ### V187. Harness Broker Backend — PASS
 
