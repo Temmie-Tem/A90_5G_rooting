@@ -2006,8 +2006,38 @@
   - current blocker is missing null-device context inside the private Android execution namespace
   - problem remains generic linker process context, not `cnss-daemon` target-specific behavior
 - 다음 실행 항목:
-  - v239 private namespace `/dev/null` materialization probe
-  - rerun `linker64 --list` matrix before any daemon start
+  - 완료: v239 private namespace `/dev/null` materialization probe
+  - 다음: v240 `cnss-daemon` linker dependency/namespace gap classification
+  - Wi-Fi daemon start remains blocked
+
+### V239. Private Devnull Materialization Probe — EXECUTED / EARLY ABORT CLEARED
+
+- 계획: `docs/plans/NATIVE_INIT_V239_PRIVATE_DEVNULL_PROBE_PLAN_2026-05-18.md`
+- 보고서: `docs/reports/NATIVE_INIT_V239_PRIVATE_DEVNULL_PROBE_2026-05-18.md`
+- 기준:
+  - native device baseline target remains `A90 Linux init 0.9.59 (v159)`
+  - v239는 PID1 boot image 변경 없이 helper/host probe만 확장했다
+  - v238 decision은 `linker-early-abort-dev-null-open-failed`
+- 구현:
+  - `a90_android_execns_probe v6`
+  - `--null-device-mode none|dev-null|dev-null-selinux`
+  - private `<root>/dev/null` char device `1:3`, mode `0666`
+  - host probe fault-address reporting and v239 classifier
+- 검증:
+  - helper static build PASS, SHA-256 `822608844d89ea8d888c7f16000256acc0dc9a2583d1a330c74f32c323fd6438`
+  - helper deployed to `/cache/bin/a90_android_execns_probe`
+  - real linkerconfig support files reinstalled from v233 evidence
+  - live probe PASS: decision `android-linker-devnull-early-abort-cleared`
+  - 6 selected matrix rows: no `SIGSEGV(11)`, no fault addr `0xa1`
+  - `system-toybox` baseline linker-list PASS under both `/system/bin/linker64` and direct APEX linker invocation
+- 해석:
+  - v238 hypothesis is confirmed: missing private `/dev/null` caused the generic bionic early abort
+  - `/sys/fs/selinux/null` fallback was not needed in this run
+  - blocker moved to normal target dependency/namespace resolution for `cnss-daemon`
+  - new blocker text: `library "libcutils.so" not found: needed by main executable`
+- 다음 실행 항목:
+  - v240 classify why `cnss-daemon` linker-list cannot resolve `libcutils.so` while `system-toybox` can
+  - compare linker namespace target classification, search paths, and vendor/system permitted paths
   - Wi-Fi daemon start remains blocked
 
 ### V187. Harness Broker Backend — PASS

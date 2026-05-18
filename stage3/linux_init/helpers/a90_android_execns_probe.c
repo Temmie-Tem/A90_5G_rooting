@@ -31,7 +31,7 @@
 #define NT_PRSTATUS 1
 #endif
 
-#define EXECNS_VERSION "a90_android_execns_probe v5"
+#define EXECNS_VERSION "a90_android_execns_probe v6"
 #define MAX_PATH_LEN 512
 #define MAX_CAPTURE_SIZE (1024 * 1024)
 #define MAX_LINKERCONFIG_SIZE (256 * 1024)
@@ -46,6 +46,7 @@ struct config {
     const char *env_mode;
     const char *mode;
     const char *capture_mode;
+    const char *null_device_mode;
     const char *linkerconfig_mode;
     const char *linkerconfig_source;
     const char *apex_libraries_source;
@@ -65,6 +66,12 @@ struct paths {
     char system[MAX_PATH_LEN];
     char vendor[MAX_PATH_LEN];
     char vendor_source[MAX_PATH_LEN];
+    char dev[MAX_PATH_LEN];
+    char dev_null[MAX_PATH_LEN];
+    char sys[MAX_PATH_LEN];
+    char sys_fs[MAX_PATH_LEN];
+    char sys_fs_selinux[MAX_PATH_LEN];
+    char sys_fs_selinux_null[MAX_PATH_LEN];
     char proc[MAX_PATH_LEN];
     char apex[MAX_PATH_LEN];
     char linkerconfig[MAX_PATH_LEN];
@@ -82,6 +89,7 @@ static void usage(FILE *out) {
             "--linker /system/bin/linker64|/apex/com.android.runtime/bin/linker64 "
             "[--env-mode clean|ld-debug-1|ld-debug-2|auxv] "
             "[--capture-mode none|ptrace-lite] "
+            "[--null-device-mode none|dev-null|dev-null-selinux] "
             "--mode linker-list "
             "[--linkerconfig-mode none|copy-real|minimal-vendor] "
             "[--linkerconfig-source /cache/path/to/ld.config.txt] "
@@ -120,6 +128,7 @@ static int parse_args(int argc, char **argv, struct config *cfg) {
     cfg->target = "/vendor/bin/cnss-daemon";
     cfg->env_mode = "clean";
     cfg->capture_mode = "none";
+    cfg->null_device_mode = "none";
 
     for (int i = 1; i < argc; i++) {
         if (strcmp(argv[i], "--help") == 0) {
@@ -149,6 +158,8 @@ static int parse_args(int argc, char **argv, struct config *cfg) {
             cfg->mode = argv[++i];
         } else if (strcmp(argv[i], "--capture-mode") == 0) {
             cfg->capture_mode = argv[++i];
+        } else if (strcmp(argv[i], "--null-device-mode") == 0) {
+            cfg->null_device_mode = argv[++i];
         } else if (strcmp(argv[i], "--linkerconfig-mode") == 0) {
             cfg->linkerconfig_mode = argv[++i];
         } else if (strcmp(argv[i], "--linkerconfig-source") == 0) {
@@ -198,6 +209,9 @@ static int parse_args(int argc, char **argv, struct config *cfg) {
         !streq(cfg->mode, "linker-list") ||
         !(streq(cfg->capture_mode, "none") ||
           streq(cfg->capture_mode, "ptrace-lite")) ||
+        !(streq(cfg->null_device_mode, "none") ||
+          streq(cfg->null_device_mode, "dev-null") ||
+          streq(cfg->null_device_mode, "dev-null-selinux")) ||
         !(streq(cfg->env_mode, "clean") ||
           streq(cfg->env_mode, "ld-debug-1") ||
           streq(cfg->env_mode, "ld-debug-2") ||
@@ -279,6 +293,15 @@ static int init_paths(struct paths *paths) {
         append_path(paths->system, sizeof(paths->system), paths->root, "system") < 0 ||
         append_path(paths->vendor, sizeof(paths->vendor), paths->root, "vendor") < 0 ||
         append_path(paths->vendor_source, sizeof(paths->vendor_source), paths->base, "vendor-block-sda29") < 0 ||
+        append_path(paths->dev, sizeof(paths->dev), paths->root, "dev") < 0 ||
+        append_path(paths->dev_null, sizeof(paths->dev_null), paths->dev, "null") < 0 ||
+        append_path(paths->sys, sizeof(paths->sys), paths->root, "sys") < 0 ||
+        append_path(paths->sys_fs, sizeof(paths->sys_fs), paths->sys, "fs") < 0 ||
+        append_path(paths->sys_fs_selinux, sizeof(paths->sys_fs_selinux), paths->sys_fs, "selinux") < 0 ||
+        append_path(paths->sys_fs_selinux_null,
+                    sizeof(paths->sys_fs_selinux_null),
+                    paths->sys_fs_selinux,
+                    "null") < 0 ||
         append_path(paths->proc, sizeof(paths->proc), paths->root, "proc") < 0 ||
         append_path(paths->apex, sizeof(paths->apex), paths->root, "apex") < 0 ||
         append_path(paths->linkerconfig, sizeof(paths->linkerconfig), paths->root, "linkerconfig") < 0) {
@@ -482,6 +505,51 @@ static int materialize_linkerconfig(const struct config *cfg,
     return -1;
 }
 
+static int materialize_null_devices(const struct config *cfg,
+                                    const struct paths *paths,
+                                    char *error_buf,
+                                    size_t error_size) {
+    if (streq(cfg->null_device_mode, "none")) {
+        return 0;
+    }
+    if (mkdir_p(paths->dev, 0755) < 0) {
+        snprintf(error_buf, error_size, "mkdir dev: %s", strerror(errno));
+        return -1;
+    }
+    if (unlink(paths->dev_null) < 0 && errno != ENOENT) {
+        snprintf(error_buf, error_size, "unlink dev null: %s", strerror(errno));
+        return -1;
+    }
+    if (mknod(paths->dev_null, S_IFCHR | 0666, makedev(1, 3)) < 0) {
+        snprintf(error_buf, error_size, "mknod dev null: %s", strerror(errno));
+        return -1;
+    }
+    if (chmod(paths->dev_null, 0666) < 0) {
+        snprintf(error_buf, error_size, "chmod dev null: %s", strerror(errno));
+        return -1;
+    }
+    if (!streq(cfg->null_device_mode, "dev-null-selinux")) {
+        return 0;
+    }
+    if (mkdir_p(paths->sys_fs_selinux, 0755) < 0) {
+        snprintf(error_buf, error_size, "mkdir sys fs selinux: %s", strerror(errno));
+        return -1;
+    }
+    if (unlink(paths->sys_fs_selinux_null) < 0 && errno != ENOENT) {
+        snprintf(error_buf, error_size, "unlink selinux null: %s", strerror(errno));
+        return -1;
+    }
+    if (mknod(paths->sys_fs_selinux_null, S_IFCHR | 0666, makedev(1, 3)) < 0) {
+        snprintf(error_buf, error_size, "mknod selinux null: %s", strerror(errno));
+        return -1;
+    }
+    if (chmod(paths->sys_fs_selinux_null, 0666) < 0) {
+        snprintf(error_buf, error_size, "chmod selinux null: %s", strerror(errno));
+        return -1;
+    }
+    return 0;
+}
+
 static void cleanup_paths(const struct paths *paths) {
     char linkerconfig_file[MAX_PATH_LEN];
 
@@ -506,6 +574,24 @@ static void cleanup_paths(const struct paths *paths) {
     umount2(paths->proc, MNT_DETACH);
     umount2(paths->vendor, MNT_DETACH);
     umount2(paths->system, MNT_DETACH);
+    if (paths->sys_fs_selinux_null[0] != '\0') {
+        unlink(paths->sys_fs_selinux_null);
+    }
+    if (paths->dev_null[0] != '\0') {
+        unlink(paths->dev_null);
+    }
+    if (paths->sys_fs_selinux[0] != '\0') {
+        rmdir(paths->sys_fs_selinux);
+    }
+    if (paths->sys_fs[0] != '\0') {
+        rmdir(paths->sys_fs);
+    }
+    if (paths->sys[0] != '\0') {
+        rmdir(paths->sys);
+    }
+    if (paths->dev[0] != '\0') {
+        rmdir(paths->dev);
+    }
     if (paths->apex[0] != '\0') {
         rmdir(paths->apex);
     }
@@ -694,7 +780,14 @@ static void print_context_path(const struct paths *paths, const char *label, con
            S_ISREG(st.st_mode) ? "regular" :
            S_ISDIR(st.st_mode) ? "directory" :
            S_ISLNK(st.st_mode) ? "symlink" :
+           S_ISCHR(st.st_mode) ? "char" :
            S_ISBLK(st.st_mode) ? "block" : "other");
+    if (S_ISCHR(st.st_mode) || S_ISBLK(st.st_mode)) {
+        printf("context.%s.rdev=%u:%u\n",
+               label,
+               major(st.st_rdev),
+               minor(st.st_rdev));
+    }
     printf("context.%s.size=%lld\n", label, (long long)st.st_size);
     nreadlink = readlink(host_path, link_target, sizeof(link_target) - 1);
     if (nreadlink >= 0) {
@@ -712,6 +805,8 @@ static void print_context_path(const struct paths *paths, const char *label, con
 static void print_preexec_context(const struct config *cfg, const struct paths *paths) {
     print_context_path(paths, "linker", cfg->linker);
     print_context_path(paths, "target", cfg->target);
+    print_context_path(paths, "dev_null", "/dev/null");
+    print_context_path(paths, "selinux_null", "/sys/fs/selinux/null");
     print_context_path(paths, "ld_config", "/linkerconfig/ld.config.txt");
     print_context_path(paths, "apex_libraries", "/linkerconfig/apex.libraries.config.txt");
     print_context_path(paths, "apex_runtime", "/apex/com.android.runtime");
@@ -1251,6 +1346,9 @@ static int setup_namespace(const struct config *cfg,
         snprintf(error_buf, error_size, "bind system: %s", strerror(errno));
         return -1;
     }
+    if (materialize_null_devices(cfg, paths, error_buf, error_size) < 0) {
+        return -1;
+    }
     if (access(cfg->vendor_block, F_OK) < 0) {
         FILE *dev_file;
         unsigned int major_no;
@@ -1362,6 +1460,7 @@ int main(int argc, char **argv) {
     printf("A90_EXECNS_BEGIN version=\"%s\"\n", EXECNS_VERSION);
     printf("mode=%s\n", cfg.mode);
     printf("capture_mode=%s\n", cfg.capture_mode);
+    printf("null_device_mode=%s\n", cfg.null_device_mode);
     printf("linkerconfig_mode=%s\n", cfg.linkerconfig_mode);
     printf("target_profile=%s\n", cfg.target_profile);
     printf("env_mode=%s\n", cfg.env_mode);

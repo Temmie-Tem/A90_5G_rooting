@@ -57,6 +57,7 @@ class MatrixResult:
     exec_captured: bool
     crash_captured: bool
     siginfo_signo: int
+    fault_addr: str
     regset_bytes: int
     output_file: str
     command: list[str]
@@ -105,6 +106,8 @@ def helper_command(args: argparse.Namespace, linker_profile: str, profile: str, 
         str(args.helper_timeout_sec),
         "--capture-mode",
         args.capture_mode,
+        "--null-device-mode",
+        args.null_device_mode,
     ]
     if args.linkerconfig_mode == "copy-real":
         command.extend(["--linkerconfig-source", args.linkerconfig_source])
@@ -187,6 +190,7 @@ def run_matrix(store: EvidenceStore, args: argparse.Namespace) -> list[MatrixRes
                         exec_captured=fields.get("capture.exec_captured") == "1",
                         crash_captured=fields.get("capture.crash_captured") == "1",
                         siginfo_signo=parse_int(fields.get("capture.crash.siginfo.signo"), 0),
+                        fault_addr=str(fields.get("capture.crash.siginfo.addr", "")),
                         regset_bytes=parse_int(fields.get("capture.crash.regset.nt_prstatus.bytes"), 0),
                         output_file=output_file,
                         command=command,
@@ -196,11 +200,17 @@ def run_matrix(store: EvidenceStore, args: argparse.Namespace) -> list[MatrixRes
     return results
 
 
-def decide(results: list[MatrixResult]) -> tuple[str, str, bool]:
+def decide(results: list[MatrixResult], null_device_mode: str) -> tuple[str, str, bool]:
     if not results:
         return "android-linker-crash-capture-blocked", "matrix produced no results", False
     if any(not item.ok and item.decision == "android-linker-crash-context-blocked" for item in results):
         return "android-linker-crash-capture-blocked", "one or more helper runs were blocked", False
+    if null_device_mode != "none":
+        fault_0xa1 = [item for item in results if item.fault_addr.lower() == "0xa1"]
+        if fault_0xa1:
+            return "android-linker-devnull-blocker-persists", "one or more linker runs still early-aborted at fault address 0xa1", False
+        if all(item.decision != "android-linker-crash-context-blocked" for item in results):
+            return "android-linker-devnull-early-abort-cleared", "null-device materialization cleared the 0xa1 early-abort signature in the selected matrix", True
     if any(item.decision == "android-linker-debug-output-ready" for item in results):
         return "android-linker-debug-output-ready", "at least one debug/env run emitted linker output", True
     if all(item.child_signal == 11 for item in results) and all(item.crash_captured for item in results):
@@ -221,16 +231,18 @@ def build_summary(manifest: dict[str, Any]) -> str:
         f"- decision: `{manifest['decision']}`",
         f"- reason: `{manifest['reason']}`",
         f"- out_dir: `{manifest['out_dir']}`",
+        f"- null_device_mode: `{manifest.get('null_device_mode', 'none')}`",
         "",
         "## Matrix",
         "",
-        "| env | linker | profile | decision | signal | exit | exec | crash | siginfo | regs |",
-        "| --- | --- | --- | --- | ---: | ---: | --- | --- | ---: | ---: |",
+        "| env | linker | profile | decision | signal | exit | fault | exec | crash | siginfo | regs |",
+        "| --- | --- | --- | --- | ---: | ---: | --- | --- | --- | ---: | ---: |",
     ]
     for item in manifest["matrix"]:
         lines.append(
             f"| `{item['env_mode']}` | `{item['linker_profile']}` | `{item['profile']}` | `{item['decision']}` | "
             f"`{item['child_signal']}` | `{item['child_exit_code']}` | "
+            f"`{item.get('fault_addr', '')}` | "
             f"`{item['exec_captured']}` | `{item['crash_captured']}` | "
             f"`{item['siginfo_signo']}` | `{item['regset_bytes']}` |"
         )
@@ -306,7 +318,7 @@ def run(args: argparse.Namespace) -> int:
             decision, reason, pass_ok = "android-linker-crash-context-blocked", f"real apex libraries config missing at {args.apex_libraries_source}", False
         else:
             results = run_matrix(store, args)
-            decision, reason, pass_ok = decide(results)
+            decision, reason, pass_ok = decide(results, args.null_device_mode)
         postflight = {
             "selftest": device_capture(store, args, "post-selftest", ["selftest", "verbose"], timeout=max(args.timeout, 20.0)),
             "mounts": device_capture(store, args, "post-mounts", ["cat", "/proc/mounts"], timeout=args.timeout),
@@ -326,6 +338,7 @@ def run(args: argparse.Namespace) -> int:
         "linker_profiles": args.linker_profiles,
         "linker_paths": {item: LINKER_PROFILES[item] for item in args.linker_profiles},
         "capture_mode": args.capture_mode,
+        "null_device_mode": args.null_device_mode,
         "target_profiles": args.target_profiles,
         "env_modes": args.env_modes,
         "bridge": bridge,
@@ -353,6 +366,7 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--helper", default=DEFAULT_HELPER)
     parser.add_argument("--helper-timeout-sec", type=int, default=10)
     parser.add_argument("--capture-mode", choices=("ptrace-lite",), default="ptrace-lite")
+    parser.add_argument("--null-device-mode", choices=("none", "dev-null", "dev-null-selinux"), default="none")
     parser.add_argument("--linkerconfig-mode", choices=("copy-real", "minimal-vendor", "none"), default="copy-real")
     parser.add_argument("--linkerconfig-source", default=DEFAULT_REAL_LINKERCONFIG)
     parser.add_argument("--apex-libraries-source", default=DEFAULT_REAL_APEX_LIBRARIES)

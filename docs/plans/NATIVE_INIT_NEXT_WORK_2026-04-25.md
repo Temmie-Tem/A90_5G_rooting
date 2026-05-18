@@ -1159,6 +1159,11 @@ Samsung bootloader
    - v238 결과: decision `linker-early-abort-dev-null-open-failed`, abort code `0xa1` maps to call site `0x1000b8` in `__dl__Z21__libc_init_AT_SECUREPPc+0xa0`
    - v238 해석: private Android execution namespace 안에 bionic이 기대하는 `/dev/null` 또는 `/sys/fs/selinux/null` context가 없어서 `linker64 --list`도 early abort한다
    - 다음 blocker closure: v239에서 private namespace root에 최소 `/dev/null` materialization/bind 후 linker list matrix 재실행
+   - v239 계획서: `docs/plans/NATIVE_INIT_V239_PRIVATE_DEVNULL_PROBE_PLAN_2026-05-18.md`
+   - v239 보고서: `docs/reports/NATIVE_INIT_V239_PRIVATE_DEVNULL_PROBE_2026-05-18.md`
+   - v239 결과: `a90_android_execns_probe v6` + `--null-device-mode dev-null` 실기 PASS, decision `android-linker-devnull-early-abort-cleared`
+   - v239 해석: `/dev/null` char device `1:3` materialization만으로 `0xa1` early abort와 `SIGSEGV(11)`가 6-case matrix에서 사라졌다
+   - 새 blocker: `cnss-daemon` linker-list가 정상 stderr로 `library "libcutils.so" not found`를 보고한다; 다음은 linker namespace/dependency search path 분류
    - 아직 Wi-Fi scan/connect/link-up/credential/DHCP/routing은 별도 승인 전까지 blocked
 
 ---
