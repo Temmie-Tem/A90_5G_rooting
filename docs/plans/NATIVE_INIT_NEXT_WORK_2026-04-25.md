@@ -1238,7 +1238,11 @@ Samsung bootloader
    - v257 보고서: `docs/reports/NATIVE_INIT_V257_CNSS_V10_LIVE_RETRY_2026-05-19.md`
    - v257 결과: explicit approval 후 v10 bounded live retry PASS, decision `start-only-pass`, `cnss_start.observable=1`, `reaped=1`, `postflight_safe=1`, final `pidof cnss-daemon` rc=1, `/proc/net/dev`에 `wlan*` 없음
    - v257 해석: `cnss-daemon -n -l` start/observe/stop/reap primitive는 검증됐다. 아직 Wi-Fi scan/connect/link-up/credential/DHCP/routing readiness는 아니다
-   - 다음 후보: V257 captured CNSS runtime evidence 분석으로 property/socket/device-node/QRTR blocker 분류, 또는 broader live operation 전 no-start post-run analyzer 작성
+   - v258 계획서: `docs/plans/NATIVE_INIT_V258_CNSS_LIVE_EVIDENCE_ANALYZER_PLAN_2026-05-19.md`
+   - v258 보고서: `docs/reports/NATIVE_INIT_V258_CNSS_LIVE_EVIDENCE_ANALYZER_2026-05-19.md`
+   - v258 결과: `scripts/revalidation/wifi_cnss_live_evidence_analyzer.py` 구현, V257 evidence를 `cnss-start-only-evidence-classified`로 분류, checks `11/11` PASS
+   - v258 해석: lifecycle/identity/namespace/maps/postflight는 pass. runtime warning은 `perfd-client-unavailable`, `kmsg-write-denied`, `shell-quote-noise`
+   - 다음 후보: V259 perfd/property/kmsg warning surface classification, 또는 QRTR/QMI socket/device-node interaction no-scan probe
    - live daemon start 범위를 벗어나는 Wi-Fi scan/connect/link-up/credential/DHCP/routing은 별도 계획과 승인 전까지 blocked
 
 ---

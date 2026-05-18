@@ -2560,6 +2560,29 @@
   - analyze V257 captured CNSS runtime evidence for property/socket/device-node/QRTR blockers, or
   - build no-start post-run analyzer before any broader live operation
 
+### V258. CNSS Live Evidence Analyzer — PASS
+
+- 계획: `docs/plans/NATIVE_INIT_V258_CNSS_LIVE_EVIDENCE_ANALYZER_PLAN_2026-05-19.md`
+- 보고서: `docs/reports/NATIVE_INIT_V258_CNSS_LIVE_EVIDENCE_ANALYZER_2026-05-19.md`
+- tool: `scripts/revalidation/wifi_cnss_live_evidence_analyzer.py`
+- input: `tmp/wifi/v257-cnss-live-start-only-run/`
+- output: `tmp/wifi/v258-cnss-live-evidence-analysis/`
+- decision: `cnss-start-only-evidence-classified`
+- checks: `11/11` PASS
+- classified:
+  - lifecycle: `start-only-pass`, `observable=1`, `reaped=1`, `postflight_safe=1`
+  - identity: uid/gid `1000/1000`, groups `1010,3003,3005`, CAP_NET_ADMIN effective
+  - namespace: required context paths present
+  - mapped libs: `apex=12`, `system=6`, `vendor=8`, `target=1`, QMI/peripheral related libs `6`
+  - postflight: no daemon, no `wlan*`, `wlan_like=0`
+- runtime warnings:
+  - `perfd-client-unavailable`
+  - `kmsg-write-denied`
+  - `shell-quote-noise`
+- 다음 실행 항목:
+  - V259 perfd/property/kmsg warning surface classification, or
+  - QRTR/QMI socket/device-node interaction probe without scan/connect/link-up
+
 ### V187. Harness Broker Backend — PASS
 
 - 보고서: `docs/reports/NATIVE_INIT_V187_HARNESS_BROKER_BACKEND_2026-05-11.md`
