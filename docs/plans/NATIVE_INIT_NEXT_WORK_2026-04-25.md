@@ -1206,7 +1206,11 @@ Samsung bootloader
    - v249 보고서: `docs/reports/NATIVE_INIT_V249_CNSS_RUNTIME_GAP_CLASSIFIER_2026-05-19.md`
    - v249 결과: decision `cnss-runtime-gaps-classified`, daemon start not executed, `QIPCRTR` kernel family present, helper `dev-null-selinux` no-allow materialization PASS
    - v249 해석: property service/area는 Android-init-owned gap, QRTR은 kernel family가 아니라 userspace nameservice/endpoint risk, diag는 `cnss_diag` phase2 blocker
-   - 다음 후보: first bounded live start-only operator approval review 또는 no-start AF_QIPCRTR socket/nameservice probe
+   - v250 계획서: `docs/plans/NATIVE_INIT_V250_QRTR_SOCKET_PROBE_PLAN_2026-05-19.md`
+   - v250 보고서: `docs/reports/NATIVE_INIT_V250_QRTR_SOCKET_PROBE_2026-05-19.md`
+   - v250 결과: decision `qrtr-socket-local-bind-pass`, daemon start not executed, `AF_QIPCRTR` socket open and local ephemeral bind PASS, no send/connect
+   - v250 해석: QRTR은 kernel socket-family/local bind 수준에서는 blocker가 아니며, 남은 리스크는 userspace nameservice/endpoint behavior
+   - 다음 후보: first bounded live start-only operator approval review 또는 no-start QRTR nameservice visibility / property-read surface analysis
    - live daemon start는 `--allow-daemon-start --assume-yes --i-understand-reboot-only-recovery`와 별도 operator approval 전까지 blocked
    - 아직 Wi-Fi scan/connect/link-up/credential/DHCP/routing은 별도 승인 전까지 blocked
 

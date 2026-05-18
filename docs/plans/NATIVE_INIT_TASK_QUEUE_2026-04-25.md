@@ -2336,6 +2336,33 @@
   - if no live approval yet, plan no-start AF_QIPCRTR socket/nameservice probe
   - otherwise request explicit approval for exactly one bounded live start-only attempt
 
+### V250. QRTR Socket No-Start Probe — PASS
+
+- 계획: `docs/plans/NATIVE_INIT_V250_QRTR_SOCKET_PROBE_PLAN_2026-05-19.md`
+- 보고서: `docs/reports/NATIVE_INIT_V250_QRTR_SOCKET_PROBE_2026-05-19.md`
+- device helper: `stage3/linux_init/helpers/a90_qrtr_probe.c`
+- host tool: `scripts/revalidation/wifi_qrtr_socket_probe.py`
+- output: `tmp/wifi/v250-qrtr-socket-probe/`
+- helper SHA-256: `92500fa51a7c910877d59b704210b915dfeed4abb0daca36d894b10f319be8a5`
+- decision: `qrtr-socket-local-bind-pass`
+- daemon start: not executed
+- 검증:
+  - `scripts/revalidation/build_qrtr_probe_helper.sh` PASS, static ARM64/no INTERP/no dynamic section
+  - NCM/tcpctl deploy to `/cache/bin/a90_qrtr_probe` PASS
+  - `python3 -m py_compile scripts/revalidation/wifi_qrtr_socket_probe.py` PASS
+  - `git diff --check` PASS
+  - `AF_QIPCRTR` socket open PASS (`domain=42`, `type=2`)
+  - local ephemeral bind PASS (`node=1`, selected port `16424`)
+  - helper reports `send_attempted=0`, `connect_attempted=0`
+  - `pidof cnss-daemon` returned rc=1 after validation
+- 해석:
+  - QRTR is not blocked at kernel socket-family or local bind level
+  - remaining QRTR risk is userspace nameservice/endpoint behavior
+  - this still does not authorize Wi-Fi scan/connect/link-up
+- 다음 실행 항목:
+  - first bounded live start-only operator approval review, or
+  - no-start QRTR nameservice visibility / property-read surface analysis
+
 ### V187. Harness Broker Backend — PASS
 
 - 보고서: `docs/reports/NATIVE_INIT_V187_HARNESS_BROKER_BACKEND_2026-05-11.md`
