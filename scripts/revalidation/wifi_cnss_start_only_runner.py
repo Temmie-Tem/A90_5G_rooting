@@ -17,6 +17,7 @@ from typing import Any
 
 from a90_kernel_tools import REPO_ROOT, capture_to_manifest, collect_host_metadata, markdown_table, repo_path, run_capture
 from a90harness.evidence import EvidenceStore
+from wifi_cnss_zombie_audit import parse_ps_stat_comm, summarize_cnss_processes
 
 DEFAULT_OUT_DIR = Path("tmp/wifi/v247-cnss-start-only-runner")
 DEFAULT_EXPECT_VERSION = "A90 Linux init 0.9.59 (v159)"
@@ -50,6 +51,7 @@ READ_ONLY_COMMANDS: tuple[tuple[str, ...], ...] = (
     ("stat", "/mnt/system/system/bin/toybox"),
     ("stat", "/sys/class/block/sda29/dev"),
     ("stat", "/sys/devices/platform/soc/18800000.qcom,icnss"),
+    ("run", "/cache/bin/toybox", "ps", "-A", "-o", "pid,stat,comm"),
     ("ls", "/sys/class/net"),
     ("ls", "/sys/class/rfkill"),
 )
@@ -69,6 +71,7 @@ REQUIRED_PREFLIGHT = {
     "stat-mnt-system-system-bin-toybox",
     "stat-sys-class-block-sda29-dev",
     "stat-sys-devices-platform-soc-18800000-qcom-icnss",
+    "run-cache-bin-toybox-ps-A-o-pid-stat-comm",
 }
 
 DENIED_TEXT_PATTERNS = (
@@ -82,6 +85,7 @@ DENIED_TEXT_PATTERNS = (
 )
 
 CNSS_START_RE = re.compile(r"^cnss_start\.([A-Za-z0-9_]+)=(.*)$")
+CNSS_PROCESS_COMMAND = ("run", "/cache/bin/toybox", "ps", "-A", "-o", "pid,stat,comm")
 
 
 def now_iso() -> str:
@@ -236,10 +240,15 @@ def build_start_observation(capture: Any) -> dict[str, Any]:
     }
 
 
+def cnss_process_summary_from_text(text: str) -> dict[str, Any]:
+    return summarize_cnss_processes(parse_ps_stat_comm(text))
+
+
 def capture_preflight(store: EvidenceStore, args: argparse.Namespace) -> tuple[list[dict[str, Any]], dict[str, Any]]:
     records: list[dict[str, Any]] = []
     required_failures: list[str] = []
     active_wifi_warnings: list[str] = []
+    cnss_process_summary: dict[str, Any] | None = None
     helper_sha_ok = False
     for command in READ_ONLY_COMMANDS:
         name = safe_name(command)
@@ -253,6 +262,12 @@ def capture_preflight(store: EvidenceStore, args: argparse.Namespace) -> tuple[l
             helper_sha_ok = True
         if name == "cat-proc-net-dev" and re.search(r"^\s*wlan\S*:", capture.text, re.MULTILINE):
             active_wifi_warnings.append("wlan interface present in /proc/net/dev")
+        if command == CNSS_PROCESS_COMMAND and capture.ok:
+            cnss_process_summary = cnss_process_summary_from_text(capture.text)
+            if cnss_process_summary["target_zombie_count"] > 0:
+                required_failures.append("cnss-zombie-preflight")
+            if cnss_process_summary["target_running_count"] > 0:
+                required_failures.append("cnss-running-preflight")
     if not helper_sha_ok:
         required_failures.append("helper-sha256-match")
     summary = {
@@ -262,9 +277,36 @@ def capture_preflight(store: EvidenceStore, args: argparse.Namespace) -> tuple[l
         "helper_sha256_expected": args.helper_sha256,
         "helper_sha256_match": helper_sha_ok,
         "active_wifi_warnings": active_wifi_warnings,
+        "cnss_process_summary": cnss_process_summary,
         "pass": not required_failures and not active_wifi_warnings,
     }
     return records, summary
+
+
+def capture_postflight_processes(store: EvidenceStore,
+                                 args: argparse.Namespace,
+                                 start_observation: dict[str, Any]) -> dict[str, Any]:
+    capture = run_capture(
+        args,
+        "post-cnss-processes",
+        list(CNSS_PROCESS_COMMAND),
+        timeout=args.timeout,
+    )
+    store.write_text("commands/post-cnss-processes.txt", capture.text if capture.text else capture.error + "\n")
+    summary = cnss_process_summary_from_text(capture.text) if capture.ok else None
+    result = {
+        "capture": capture_to_manifest(capture),
+        "process_summary": summary,
+        "clean": bool(capture.ok and summary is not None and summary["clean"]),
+    }
+    if not result["clean"]:
+        start_observation["postflight_safe"] = False
+        start_observation["postflight_process_clean"] = False
+        start_observation["postflight_process_reason"] = "cnss target process remains after helper cleanup"
+    else:
+        start_observation["postflight_process_clean"] = True
+        start_observation["postflight_process_reason"] = "no cnss target process remains"
+    return result
 
 
 def decide(mode: str,
@@ -347,6 +389,16 @@ def render_summary(manifest: dict[str, Any]) -> str:
                 f"- active Wi-Fi warnings: `{preflight['active_wifi_warnings']}`\n\n",
             ]
         )
+        process_summary = preflight.get("cnss_process_summary")
+        if process_summary is not None:
+            lines.extend(
+                [
+                    "### CNSS Process Preflight\n\n",
+                    f"- target_process_count: `{process_summary['target_process_count']}`\n",
+                    f"- target_zombie_count: `{process_summary['target_zombie_count']}`\n",
+                    f"- target_running_count: `{process_summary['target_running_count']}`\n\n",
+                ]
+            )
     if manifest.get("start_observation") is not None:
         observation = manifest["start_observation"]
         lines.extend(
@@ -357,6 +409,7 @@ def render_summary(manifest: dict[str, Any]) -> str:
                 f"- exec attempted: `{observation['exec_attempted']}`\n",
                 f"- child started: `{observation['child_started']}`\n",
                 f"- postflight safe: `{observation['postflight_safe']}`\n",
+                f"- postflight process clean: `{observation.get('postflight_process_clean')}`\n",
                 f"- reaped: `{observation['reaped']}`\n\n",
             ]
         )
@@ -385,6 +438,7 @@ def build_manifest(args: argparse.Namespace, mode: str) -> dict[str, Any]:
         preflight_records, preflight_summary = capture_preflight(store, args)
         store.write_json("preflight.json", {"summary": preflight_summary, "commands": preflight_records})
     start_observation: dict[str, Any] | None = None
+    postflight_processes: dict[str, Any] | None = None
     approved_run = (
         mode == "run"
         and args.allow_daemon_start
@@ -407,6 +461,7 @@ def build_manifest(args: argparse.Namespace, mode: str) -> dict[str, Any]:
         )
         store.write_text("commands/cnss-start-only-run.txt", capture.text if capture.text else capture.error + "\n")
         start_observation = build_start_observation(capture)
+        postflight_processes = capture_postflight_processes(store, args, start_observation)
         store.write_json("start-observation.json", start_observation)
         store.write_json(
             "postflight.json",
@@ -414,6 +469,7 @@ def build_manifest(args: argparse.Namespace, mode: str) -> dict[str, Any]:
                 "postflight_safe": start_observation["postflight_safe"],
                 "helper_result": start_observation["helper_result"],
                 "helper_reason": start_observation["helper_reason"],
+                "processes": postflight_processes,
             },
         )
         store.write_json(
@@ -439,6 +495,7 @@ def build_manifest(args: argparse.Namespace, mode: str) -> dict[str, Any]:
         "preflight_summary": preflight_summary,
         "preflight_commands": preflight_records,
         "start_observation": start_observation,
+        "postflight_processes": postflight_processes,
         "guardrails": [
             "no daemon execution in plan/preflight/dry-run modes",
             "run mode requires --allow-daemon-start --assume-yes --i-understand-reboot-only-recovery",

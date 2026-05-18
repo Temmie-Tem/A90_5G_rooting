@@ -14,6 +14,7 @@ from typing import Any
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 from a90_kernel_tools import collect_host_metadata, repo_path  # noqa: E402
 from a90harness.evidence import EvidenceStore  # noqa: E402
+from wifi_cnss_zombie_audit import parse_ps_stat_comm, summarize_cnss_processes  # noqa: E402
 
 
 DEFAULT_RUN_DIR = Path("tmp/wifi/v257-cnss-live-start-only-run")
@@ -207,6 +208,7 @@ def classify(args: argparse.Namespace) -> dict[str, Any]:
     post_netdev = maybe_read(repo_path(args.post_netdev) if args.post_netdev else None)
     post_wifiinv = maybe_read(repo_path(args.post_wifiinv) if args.post_wifiinv else None)
     post_status = maybe_read(repo_path(args.post_status) if args.post_status else None)
+    post_processes = maybe_read(repo_path(args.post_processes) if args.post_processes else None)
 
     checks: list[dict[str, Any]] = []
     runner_decision = runner_manifest.get("decision")
@@ -238,9 +240,23 @@ def classify(args: argparse.Namespace) -> dict[str, Any]:
     pidof_absent = post_pidof_absent(post_pidof)
     no_wlan = post_no_wlan(post_netdev)
     wifiinv_no_wlan = post_wifiinv_no_wlan_like(post_wifiinv)
+    cnss_process_summary = summarize_cnss_processes(parse_ps_stat_comm(post_processes)) if post_processes else None
     add_check(checks, "post-pidof-absent", pidof_absent is True, f"pidof_absent={pidof_absent}")
     add_check(checks, "post-netdev-no-wlan", no_wlan is True, f"no_wlan={no_wlan}")
     add_check(checks, "post-wifiinv-no-wlan-like", wifiinv_no_wlan is True, f"wifiinv_no_wlan_like={wifiinv_no_wlan}", severity="warning")
+    if cnss_process_summary is None:
+        add_check(checks, "post-cnss-process-audit-present", False, "post-process ps evidence was not provided", severity="warning")
+    else:
+        add_check(
+            checks,
+            "post-cnss-process-clean",
+            bool(cnss_process_summary["clean"]),
+            json.dumps({
+                "target_process_count": cnss_process_summary["target_process_count"],
+                "target_zombie_count": cnss_process_summary["target_zombie_count"],
+                "target_running_count": cnss_process_summary["target_running_count"],
+            }, sort_keys=True),
+        )
 
     warnings: list[dict[str, str]] = []
     if any("Failed to become a perfd client" in line for line in daemon_messages):
@@ -253,6 +269,7 @@ def classify(args: argparse.Namespace) -> dict[str, Any]:
     critical_pass = all(item["pass"] for item in checks if item["severity"] == "critical")
     decision = "cnss-start-only-evidence-classified" if critical_pass else "cnss-start-only-evidence-incomplete"
     next_candidates = [
+        "Treat any postflight CNSS target zombie as a cleanup blocker before another live CNSS retry.",
         "Classify whether perfd client absence is benign for CNSS start-only or needs a private perfd/property shim.",
         "Inspect QRTR/QMI socket/device-node interaction without scan/connect/link-up.",
         "Fix /dev/kmsg logging quote/no-permission noise in helper instrumentation before broader live operations.",
@@ -284,6 +301,7 @@ def classify(args: argparse.Namespace) -> dict[str, Any]:
             "pidof_absent": pidof_absent,
             "netdev_no_wlan": no_wlan,
             "wifiinv_no_wlan_like": wifiinv_no_wlan,
+            "cnss_process_summary": cnss_process_summary,
             "status_contains_selftest_fail_0": "selftest:" in post_status and "fail=0" in post_status if post_status else None,
         },
         "warnings": warnings,
@@ -339,6 +357,7 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--post-netdev", type=Path, default=Path("tmp/wifi/v257-live-post-proc-net-dev.txt"))
     parser.add_argument("--post-status", type=Path, default=Path("tmp/wifi/v257-live-post-status.txt"))
     parser.add_argument("--post-wifiinv", type=Path, default=Path("tmp/wifi/v257-live-post-wifiinv-full.txt"))
+    parser.add_argument("--post-processes", type=Path, default=Path("tmp/wifi/v257-live-post-processes.txt"))
     return parser.parse_args()
 
 

@@ -2601,10 +2601,33 @@
   - `shell-quote-noise-not-helper-source`
 - 해석:
   - V258 warnings are Android runtime service/logging gaps, not helper cleanup bugs.
-  - V257 start-only lifecycle remains valid.
+  - V257 start-only lifecycle needed stronger process-table postflight because `pidof` can miss zombies.
 - 다음 실행 항목:
-  - QRTR/QMI endpoint interaction probe without scan/connect/link-up, or
-  - no-start property/perfd shim model before broader live Wi-Fi operation
+  - V260 CNSS zombie postflight hardening before QRTR/QMI or another live retry
+
+### V260. CNSS Zombie Postflight Hardening — TOOL PASS / LIVE BLOCKED
+
+- 계획: `docs/plans/NATIVE_INIT_V260_CNSS_ZOMBIE_POSTFLIGHT_PLAN_2026-05-19.md`
+- 보고서: `docs/reports/NATIVE_INIT_V260_CNSS_ZOMBIE_POSTFLIGHT_2026-05-19.md`
+- tool: `scripts/revalidation/wifi_cnss_zombie_audit.py`
+- outputs:
+  - `tmp/wifi/v260-cnss-zombie-audit/`
+  - `tmp/wifi/v260-runner-preflight-with-zombie/`
+  - `tmp/wifi/v260-cnss-live-evidence-reclass-with-process-audit/`
+- device action: read-only process/status audit only
+- finding:
+  - `pidof cnss-daemon` rc=1 is insufficient
+  - `ps -A -o pid,stat,comm` shows `5900 Zs [cnss-daemon]`
+  - `/proc/5900/status` confirms `State: Z (zombie)` and `PPid: 1`
+- tool changes:
+  - start-only runner now blocks preflight when CNSS target zombie/running residue exists
+  - live evidence analyzer now marks post-process zombie evidence as critical failure
+- decision:
+  - no further live CNSS retry while target zombie residue exists
+  - QRTR/QMI probing is deferred until clean-state validation or explicit blocker acceptance
+- next execution item:
+  - PID1 orphan/zombie reaper hardening, or
+  - reboot/clean-state validation before QRTR/QMI endpoint probing
 
 ### V187. Harness Broker Backend — PASS
 
