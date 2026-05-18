@@ -21,7 +21,7 @@ from a90harness.evidence import EvidenceStore
 DEFAULT_OUT_DIR = Path("tmp/wifi/v247-cnss-start-only-runner")
 DEFAULT_EXPECT_VERSION = "A90 Linux init 0.9.59 (v159)"
 DEFAULT_HELPER = "/cache/bin/a90_android_execns_probe"
-DEFAULT_HELPER_SHA256 = "77fbdcdcbc6774abe5e34712097496edbac4a4ed763d87c82cf02effb88cd319"
+DEFAULT_HELPER_SHA256 = "80e8afb1b77fdba23dfbc71d6a8e17e5a2a095ed1de728474fd2855923c351a1"
 DEFAULT_HELPER_TIMEOUT_SEC = 10
 
 REQUIRED_MANIFESTS = {

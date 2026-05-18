@@ -1218,7 +1218,11 @@ Samsung bootloader
    - v252 보고서: `docs/reports/NATIVE_INIT_V252_CNSS_DATA_WIFI_SURFACE_2026-05-19.md`
    - v252 결과: decision `cnss-data-wifi-surface-missing`, `/data`는 있으나 `/data/vendor`, `/data/vendor/wifi`, `/data/vendor/wifi/sockets`는 missing, daemon start not executed
    - v252 해석: runtime Wi-Fi data tree는 property service/QRTR와 별도 gap이며, helper private namespace 안에서만 materialize할지 별도 계획 필요
-   - 다음 후보: first bounded live start-only operator approval review 또는 no-mutation private runtime directory materialization plan
+   - v253 계획서: `docs/plans/NATIVE_INIT_V253_PRIVATE_DATA_WIFI_MATERIALIZATION_PLAN_2026-05-19.md`
+   - v253 보고서: `docs/reports/NATIVE_INIT_V253_PRIVATE_DATA_WIFI_MATERIALIZATION_2026-05-19.md`
+   - v253 결과: decision `private-data-wifi-materialization-pass`, helper v9 SHA `80e8afb1b77fdba23dfbc71d6a8e17e5a2a095ed1de728474fd2855923c351a1`, private `/data/vendor/wifi/sockets` materialization PASS, real `/data/vendor/wifi` remains missing
+   - v253 해석: runtime data tree gap은 helper private namespace 안에서 닫을 수 있음. 다음 live profile에는 `dev-null-selinux` + `private-empty` 조합을 제안할 수 있으나 실행은 여전히 approval-gated
+   - 다음 후보: update start-only runner dry-run profile for `dev-null-selinux` + `private-empty`, or first bounded live start-only operator approval review
    - live daemon start는 `--allow-daemon-start --assume-yes --i-understand-reboot-only-recovery`와 별도 operator approval 전까지 blocked
    - 아직 Wi-Fi scan/connect/link-up/credential/DHCP/routing은 별도 승인 전까지 blocked
 

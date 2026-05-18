@@ -2414,6 +2414,33 @@
   - first bounded live start-only operator approval review, or
   - no-mutation plan for private runtime directory materialization inside helper namespace
 
+### V253. Private Data Wi-Fi Materialization — PASS
+
+- 계획: `docs/plans/NATIVE_INIT_V253_PRIVATE_DATA_WIFI_MATERIALIZATION_PLAN_2026-05-19.md`
+- 보고서: `docs/reports/NATIVE_INIT_V253_PRIVATE_DATA_WIFI_MATERIALIZATION_2026-05-19.md`
+- helper: `stage3/linux_init/helpers/a90_android_execns_probe.c`
+- host tool: `scripts/revalidation/wifi_cnss_private_data_wifi_probe.py`
+- output: `tmp/wifi/v253-private-data-wifi-probe/`
+- helper version: `a90_android_execns_probe v9`
+- helper SHA-256: `80e8afb1b77fdba23dfbc71d6a8e17e5a2a095ed1de728474fd2855923c351a1`
+- decision: `private-data-wifi-materialization-pass`
+- daemon start: not executed
+- 구현:
+  - add `--data-wifi-mode none|private-empty`
+  - print context uid/gid for helper paths
+  - materialize private `/data/vendor/wifi/sockets` as `system:wifi` mode `0770`
+- 검증:
+  - helper static ARM64 build PASS
+  - NCM/tcpctl deploy to `/cache/bin/a90_android_execns_probe` PASS
+  - `py_compile` for dependent host tools PASS
+  - `git diff --check` PASS
+  - helper no-allow guard remains `cnss_start.result=start-only-blocked`, `exec_attempted=0`
+  - real `/data/vendor/wifi` remains missing after validation
+  - `pidof cnss-daemon` returned rc=1 after validation
+- 다음 실행 항목:
+  - update start-only runner dry-run plan to include `dev-null-selinux` + `private-empty` profile without running live daemon
+  - first bounded live start-only still requires explicit operator approval
+
 ### V187. Harness Broker Backend — PASS
 
 - 보고서: `docs/reports/NATIVE_INIT_V187_HARNESS_BROKER_BACKEND_2026-05-11.md`

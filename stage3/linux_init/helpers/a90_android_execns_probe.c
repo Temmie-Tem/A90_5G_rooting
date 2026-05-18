@@ -43,7 +43,7 @@
 #define PR_CAP_AMBIENT_RAISE 2
 #endif
 
-#define EXECNS_VERSION "a90_android_execns_probe v8"
+#define EXECNS_VERSION "a90_android_execns_probe v9"
 #define MAX_PATH_LEN 512
 #define MAX_CAPTURE_SIZE (1024 * 1024)
 #define MAX_LINKERCONFIG_SIZE (256 * 1024)
@@ -63,6 +63,7 @@ struct config {
     const char *mode;
     const char *capture_mode;
     const char *null_device_mode;
+    const char *data_wifi_mode;
     const char *vndk_apex_alias_mode;
     const char *linkerconfig_mode;
     const char *linkerconfig_source;
@@ -90,6 +91,10 @@ struct paths {
     char sys_fs[MAX_PATH_LEN];
     char sys_fs_selinux[MAX_PATH_LEN];
     char sys_fs_selinux_null[MAX_PATH_LEN];
+    char data[MAX_PATH_LEN];
+    char data_vendor[MAX_PATH_LEN];
+    char data_vendor_wifi[MAX_PATH_LEN];
+    char data_vendor_wifi_sockets[MAX_PATH_LEN];
     char proc[MAX_PATH_LEN];
     char apex[MAX_PATH_LEN];
     char linkerconfig[MAX_PATH_LEN];
@@ -109,6 +114,7 @@ static void usage(FILE *out) {
             "[--env-mode clean|ld-debug-1|ld-debug-2|auxv] "
             "[--capture-mode none|ptrace-lite] "
             "[--null-device-mode none|dev-null|dev-null-selinux] "
+            "[--data-wifi-mode none|private-empty] "
             "[--vndk-apex-alias-mode none|v30-to-current] "
             "[--linkerconfig-mode none|copy-real|minimal-vendor] "
             "[--linkerconfig-source /cache/path/to/ld.config.txt] "
@@ -150,6 +156,7 @@ static int parse_args(int argc, char **argv, struct config *cfg) {
     cfg->env_mode = "clean";
     cfg->capture_mode = "none";
     cfg->null_device_mode = "none";
+    cfg->data_wifi_mode = "none";
     cfg->vndk_apex_alias_mode = "none";
 
     for (int i = 1; i < argc; i++) {
@@ -186,6 +193,8 @@ static int parse_args(int argc, char **argv, struct config *cfg) {
             cfg->capture_mode = argv[++i];
         } else if (strcmp(argv[i], "--null-device-mode") == 0) {
             cfg->null_device_mode = argv[++i];
+        } else if (strcmp(argv[i], "--data-wifi-mode") == 0) {
+            cfg->data_wifi_mode = argv[++i];
         } else if (strcmp(argv[i], "--vndk-apex-alias-mode") == 0) {
             cfg->vndk_apex_alias_mode = argv[++i];
         } else if (strcmp(argv[i], "--linkerconfig-mode") == 0) {
@@ -240,6 +249,8 @@ static int parse_args(int argc, char **argv, struct config *cfg) {
         !(streq(cfg->null_device_mode, "none") ||
           streq(cfg->null_device_mode, "dev-null") ||
           streq(cfg->null_device_mode, "dev-null-selinux")) ||
+        !(streq(cfg->data_wifi_mode, "none") ||
+          streq(cfg->data_wifi_mode, "private-empty")) ||
         !(streq(cfg->vndk_apex_alias_mode, "none") ||
           streq(cfg->vndk_apex_alias_mode, "v30-to-current")) ||
         !(streq(cfg->env_mode, "clean") ||
@@ -358,6 +369,16 @@ static int init_paths(struct paths *paths) {
                     sizeof(paths->sys_fs_selinux_null),
                     paths->sys_fs_selinux,
                     "null") < 0 ||
+        append_path(paths->data, sizeof(paths->data), paths->root, "data") < 0 ||
+        append_path(paths->data_vendor, sizeof(paths->data_vendor), paths->data, "vendor") < 0 ||
+        append_path(paths->data_vendor_wifi,
+                    sizeof(paths->data_vendor_wifi),
+                    paths->data_vendor,
+                    "wifi") < 0 ||
+        append_path(paths->data_vendor_wifi_sockets,
+                    sizeof(paths->data_vendor_wifi_sockets),
+                    paths->data_vendor_wifi,
+                    "sockets") < 0 ||
         append_path(paths->proc, sizeof(paths->proc), paths->root, "proc") < 0 ||
         append_path(paths->apex, sizeof(paths->apex), paths->root, "apex") < 0 ||
         append_path(paths->linkerconfig, sizeof(paths->linkerconfig), paths->root, "linkerconfig") < 0) {
@@ -606,6 +627,37 @@ static int materialize_null_devices(const struct config *cfg,
     return 0;
 }
 
+static int materialize_data_wifi(const struct config *cfg,
+                                 const struct paths *paths,
+                                 char *error_buf,
+                                 size_t error_size) {
+    if (streq(cfg->data_wifi_mode, "none")) {
+        return 0;
+    }
+    if (!streq(cfg->data_wifi_mode, "private-empty")) {
+        snprintf(error_buf, error_size, "invalid data wifi mode");
+        errno = EINVAL;
+        return -1;
+    }
+    if (mkdir_p(paths->data_vendor_wifi_sockets, 0770) < 0) {
+        snprintf(error_buf, error_size, "mkdir data vendor wifi sockets: %s", strerror(errno));
+        return -1;
+    }
+    (void)chmod(paths->data, 0771);
+    (void)chmod(paths->data_vendor, 0771);
+    (void)chmod(paths->data_vendor_wifi, 0770);
+    (void)chmod(paths->data_vendor_wifi_sockets, 0770);
+    if (chown(paths->data_vendor_wifi, A90_AID_SYSTEM, A90_AID_WIFI) < 0) {
+        snprintf(error_buf, error_size, "chown data vendor wifi: %s", strerror(errno));
+        return -1;
+    }
+    if (chown(paths->data_vendor_wifi_sockets, A90_AID_SYSTEM, A90_AID_WIFI) < 0) {
+        snprintf(error_buf, error_size, "chown data vendor wifi sockets: %s", strerror(errno));
+        return -1;
+    }
+    return 0;
+}
+
 static bool safe_apex_name(const char *name) {
     return name != NULL &&
            name[0] != '\0' &&
@@ -790,6 +842,18 @@ static void cleanup_paths(const struct paths *paths) {
     if (paths->dev[0] != '\0') {
         rmdir(paths->dev);
     }
+    if (paths->data_vendor_wifi_sockets[0] != '\0') {
+        rmdir(paths->data_vendor_wifi_sockets);
+    }
+    if (paths->data_vendor_wifi[0] != '\0') {
+        rmdir(paths->data_vendor_wifi);
+    }
+    if (paths->data_vendor[0] != '\0') {
+        rmdir(paths->data_vendor);
+    }
+    if (paths->data[0] != '\0') {
+        rmdir(paths->data);
+    }
     if (paths->apex[0] != '\0') {
         rmdir(paths->apex);
     }
@@ -973,6 +1037,8 @@ static void print_context_path(const struct paths *paths, const char *label, con
         return;
     }
     printf("context.%s.exists=1\n", label);
+    printf("context.%s.uid=%u\n", label, (unsigned int)st.st_uid);
+    printf("context.%s.gid=%u\n", label, (unsigned int)st.st_gid);
     printf("context.%s.mode=%o\n", label, st.st_mode & 07777);
     printf("context.%s.type=%s\n", label,
            S_ISREG(st.st_mode) ? "regular" :
@@ -1009,6 +1075,10 @@ static void print_preexec_context(const struct config *cfg, const struct paths *
     }
     print_context_path(paths, "dev_null", "/dev/null");
     print_context_path(paths, "selinux_null", "/sys/fs/selinux/null");
+    print_context_path(paths, "data", "/data");
+    print_context_path(paths, "data_vendor", "/data/vendor");
+    print_context_path(paths, "data_vendor_wifi", "/data/vendor/wifi");
+    print_context_path(paths, "data_vendor_wifi_sockets", "/data/vendor/wifi/sockets");
     print_context_path(paths, "ld_config", "/linkerconfig/ld.config.txt");
     print_context_path(paths, "apex_libraries", "/linkerconfig/apex.libraries.config.txt");
     print_context_path(paths, "apex_runtime", "/apex/com.android.runtime");
@@ -2509,6 +2579,9 @@ static int setup_namespace(const struct config *cfg,
     if (materialize_null_devices(cfg, paths, error_buf, error_size) < 0) {
         return -1;
     }
+    if (materialize_data_wifi(cfg, paths, error_buf, error_size) < 0) {
+        return -1;
+    }
     if (access(cfg->vendor_block, F_OK) < 0) {
         FILE *dev_file;
         unsigned int major_no;
@@ -2625,6 +2698,7 @@ int main(int argc, char **argv) {
     printf("mode=%s\n", cfg.mode);
     printf("capture_mode=%s\n", cfg.capture_mode);
     printf("null_device_mode=%s\n", cfg.null_device_mode);
+    printf("data_wifi_mode=%s\n", cfg.data_wifi_mode);
     printf("vndk_apex_alias_mode=%s\n", cfg.vndk_apex_alias_mode);
     printf("linkerconfig_mode=%s\n", cfg.linkerconfig_mode);
     printf("target_profile=%s\n", cfg.target_profile);
