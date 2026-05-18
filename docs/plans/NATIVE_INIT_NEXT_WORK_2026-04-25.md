@@ -1198,7 +1198,11 @@ Samsung bootloader
    - v247 보고서: `docs/reports/NATIVE_INIT_V247_CNSS_START_OBSERVE_STOP_BODY_2026-05-19.md`
    - v247 결과: helper에 실제 start/observe/stop body와 host parser 구현 완료, static + safe no-start 검증 PASS, 직접 no-allow는 `cnss_start.result=start-only-blocked`, runner `plan`/`preflight`/`dry-run` PASS, runner `run` 기본값은 fail-closed
    - v247 helper SHA-256: `77fbdcdcbc6774abe5e34712097496edbac4a4ed763d87c82cf02effb88cd319`
-   - 다음 후보: first bounded live start-only operator approval review 또는 v248 no-start runtime primitive preflight/deeper evidence
+   - v248 계획서: `docs/plans/NATIVE_INIT_V248_CNSS_RUNTIME_PRIMITIVE_PREFLIGHT_PLAN_2026-05-19.md`
+   - v248 보고서: `docs/reports/NATIVE_INIT_V248_CNSS_RUNTIME_PRIMITIVES_PREFLIGHT_2026-05-19.md`
+   - v248 결과: decision `cnss-runtime-primitives-ready-for-live-approval`, daemon start not executed, helper no-allow namespace/guard PASS, private `/vendor/bin/cnss-daemon` target evidence PASS
+   - v248 runtime gaps: property service/socket area, SELinux null, `/dev/diag`, `/dev/qrtr`, global `/vendor` remain missing/expected gaps
+   - 다음 후보: first bounded live start-only operator approval review 또는 property/QRTR/SELinux no-start gap analysis
    - live daemon start는 `--allow-daemon-start --assume-yes --i-understand-reboot-only-recovery`와 별도 operator approval 전까지 blocked
    - 아직 Wi-Fi scan/connect/link-up/credential/DHCP/routing은 별도 승인 전까지 blocked
 

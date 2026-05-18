@@ -2270,6 +2270,39 @@
   - if approved, run exactly one bounded v247 `run --allow-daemon-start --assume-yes --i-understand-reboot-only-recovery`
   - if not approved, plan v248 runtime primitive preflight/deeper evidence without daemon start
 
+### V248. CNSS Runtime Primitive Preflight — PASS / LIVE APPROVAL STILL REQUIRED
+
+- 계획: `docs/plans/NATIVE_INIT_V248_CNSS_RUNTIME_PRIMITIVE_PREFLIGHT_PLAN_2026-05-19.md`
+- 보고서: `docs/reports/NATIVE_INIT_V248_CNSS_RUNTIME_PRIMITIVES_PREFLIGHT_2026-05-19.md`
+- host tool: `scripts/revalidation/wifi_cnss_runtime_primitives_preflight.py`
+- output: `tmp/wifi/v248-cnss-runtime-primitives-preflight/`
+- decision: `cnss-runtime-primitives-ready-for-live-approval`
+- daemon start: not executed
+- 검증:
+  - `python3 -m py_compile scripts/revalidation/wifi_cnss_runtime_primitives_preflight.py` PASS
+  - `git diff --check` PASS
+  - v242/v243/v244/v247 prerequisite gates PASS
+  - helper SHA-256: `77fbdcdcbc6774abe5e34712097496edbac4a4ed763d87c82cf02effb88cd319`
+  - helper no-allow path: `helper_status=namespace-ready`, `cnss_start.result=start-only-blocked`, `exec_attempted=0`
+  - private namespace target: `/vendor/bin/cnss-daemon` exists and is executable inside helper namespace
+  - no active `wlan*` in `/proc/net/dev`
+  - `pidof cnss-daemon` returned rc=1 after validation
+- runtime gaps:
+  - property service socket missing
+  - Android property area missing
+  - SELinux null missing
+  - `/dev/diag` missing
+  - `/dev/qrtr` missing
+  - global `/vendor` absent outside private helper namespace
+- guardrails:
+  - no `--allow-cnss-start-only`
+  - no `cnss-daemon` or `cnss_diag` execution
+  - no Wi-Fi scan/connect/link-up/credential/DHCP/routing
+  - no rfkill unblock, ICNSS bind/unbind, firmware mutation, Android partition write, or reboot
+- 다음 실행 항목:
+  - first bounded live start-only operator approval review, or
+  - continue no-start analysis for property/QRTR/SELinux runtime primitive gaps
+
 ### V187. Harness Broker Backend — PASS
 
 - 보고서: `docs/reports/NATIVE_INIT_V187_HARNESS_BROKER_BACKEND_2026-05-11.md`
