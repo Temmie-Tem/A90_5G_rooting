@@ -2583,6 +2583,29 @@
   - V259 perfd/property/kmsg warning surface classification, or
   - QRTR/QMI socket/device-node interaction probe without scan/connect/link-up
 
+### V259. CNSS Warning Surface Probe — PASS
+
+- 계획: `docs/plans/NATIVE_INIT_V259_CNSS_WARNING_SURFACE_PLAN_2026-05-19.md`
+- 보고서: `docs/reports/NATIVE_INIT_V259_CNSS_WARNING_SURFACE_2026-05-19.md`
+- tool: `scripts/revalidation/wifi_cnss_warning_surface_probe.py`
+- output: `tmp/wifi/v259-cnss-warning-surface/`
+- decision: `cnss-warning-surface-classified`
+- daemon execution: none
+- critical checks:
+  - v258 prerequisite PASS
+  - `pidof cnss-daemon` rc=1
+- findings:
+  - `perfd-client-surface-present-socket-absent`
+  - `property-service-socket-absent`
+  - `property-area-absent`
+  - `shell-quote-noise-not-helper-source`
+- 해석:
+  - V258 warnings are Android runtime service/logging gaps, not helper cleanup bugs.
+  - V257 start-only lifecycle remains valid.
+- 다음 실행 항목:
+  - QRTR/QMI endpoint interaction probe without scan/connect/link-up, or
+  - no-start property/perfd shim model before broader live Wi-Fi operation
+
 ### V187. Harness Broker Backend — PASS
 
 - 보고서: `docs/reports/NATIVE_INIT_V187_HARNESS_BROKER_BACKEND_2026-05-11.md`

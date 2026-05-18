@@ -1242,7 +1242,11 @@ Samsung bootloader
    - v258 보고서: `docs/reports/NATIVE_INIT_V258_CNSS_LIVE_EVIDENCE_ANALYZER_2026-05-19.md`
    - v258 결과: `scripts/revalidation/wifi_cnss_live_evidence_analyzer.py` 구현, V257 evidence를 `cnss-start-only-evidence-classified`로 분류, checks `11/11` PASS
    - v258 해석: lifecycle/identity/namespace/maps/postflight는 pass. runtime warning은 `perfd-client-unavailable`, `kmsg-write-denied`, `shell-quote-noise`
-   - 다음 후보: V259 perfd/property/kmsg warning surface classification, 또는 QRTR/QMI socket/device-node interaction no-scan probe
+   - v259 계획서: `docs/plans/NATIVE_INIT_V259_CNSS_WARNING_SURFACE_PLAN_2026-05-19.md`
+   - v259 보고서: `docs/reports/NATIVE_INIT_V259_CNSS_WARNING_SURFACE_2026-05-19.md`
+   - v259 결과: `scripts/revalidation/wifi_cnss_warning_surface_probe.py` 구현, decision `cnss-warning-surface-classified`, daemon 실행 없이 PASS
+   - v259 해석: perfd client surface는 있으나 runtime socket 없음, Android property service/socket/area 없음, kmsg/quote noise는 helper source가 아니라 daemon/library logging-path stderr로 분류
+   - 다음 후보: QRTR/QMI endpoint interaction no-scan probe, 또는 broader live Wi-Fi operation 전 no-start property/perfd shim model
    - live daemon start 범위를 벗어나는 Wi-Fi scan/connect/link-up/credential/DHCP/routing은 별도 계획과 승인 전까지 blocked
 
 ---
