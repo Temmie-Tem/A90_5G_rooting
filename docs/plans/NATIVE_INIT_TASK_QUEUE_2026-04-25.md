@@ -2388,6 +2388,32 @@
   - first bounded live start-only operator approval review, or
   - no-start `/data/vendor/wifi` socket path/runtime filesystem surface analysis
 
+### V252. CNSS Data Wi-Fi Runtime Surface — PASS / SURFACE MISSING
+
+- 계획: `docs/plans/NATIVE_INIT_V252_CNSS_DATA_WIFI_SURFACE_PLAN_2026-05-19.md`
+- 보고서: `docs/reports/NATIVE_INIT_V252_CNSS_DATA_WIFI_SURFACE_2026-05-19.md`
+- host tool: `scripts/revalidation/wifi_cnss_data_wifi_surface.py`
+- output: `tmp/wifi/v252-cnss-data-wifi-surface/`
+- decision: `cnss-data-wifi-surface-missing`
+- daemon start: not executed
+- 검증:
+  - `python3 -m py_compile scripts/revalidation/wifi_cnss_data_wifi_surface.py` PASS
+  - `git diff --check` PASS
+  - v251 prerequisite PASS
+  - current `/data` exists, but `/data/vendor`, `/data/vendor/wifi`, `/data/vendor/wifi/sockets` are missing
+  - `pidof cnss-daemon` returned rc=1 after validation
+- relevant strings:
+  - `/data/vendor/wifi/sockets/cnss_user_client`
+  - `/data/vendor/wifi/sockets/cnss_user_server`
+  - `/data/vendor/wifi/wlfw_cal_%02d.bin`
+  - `/data/vendor/wifi/qdss_trace*.bin`
+- 해석:
+  - runtime Wi-Fi data tree is a separate gap from property service and QRTR
+  - no directory creation, userdata mount/remount, ownership/permission mutation was performed
+- 다음 실행 항목:
+  - first bounded live start-only operator approval review, or
+  - no-mutation plan for private runtime directory materialization inside helper namespace
+
 ### V187. Harness Broker Backend — PASS
 
 - 보고서: `docs/reports/NATIVE_INIT_V187_HARNESS_BROKER_BACKEND_2026-05-11.md`

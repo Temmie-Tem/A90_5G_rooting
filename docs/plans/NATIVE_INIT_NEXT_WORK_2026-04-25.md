@@ -1214,7 +1214,11 @@ Samsung bootloader
    - v251 보고서: `docs/reports/NATIVE_INIT_V251_CNSS_PROPERTY_SURFACE_2026-05-19.md`
    - v251 결과: decision `cnss-property-read-only-surface`, host-only analysis, property read symbols `property_get`/`property_get_int32`, no property write/control symbols detected
    - v251 해석: property service/area gap은 write/control risk보다 read/default risk이며, `/data/vendor/wifi/sockets/...`는 별도 runtime filesystem/socket surface로 분리
-   - 다음 후보: first bounded live start-only operator approval review 또는 no-start `/data/vendor/wifi` socket path/runtime filesystem surface analysis
+   - v252 계획서: `docs/plans/NATIVE_INIT_V252_CNSS_DATA_WIFI_SURFACE_PLAN_2026-05-19.md`
+   - v252 보고서: `docs/reports/NATIVE_INIT_V252_CNSS_DATA_WIFI_SURFACE_2026-05-19.md`
+   - v252 결과: decision `cnss-data-wifi-surface-missing`, `/data`는 있으나 `/data/vendor`, `/data/vendor/wifi`, `/data/vendor/wifi/sockets`는 missing, daemon start not executed
+   - v252 해석: runtime Wi-Fi data tree는 property service/QRTR와 별도 gap이며, helper private namespace 안에서만 materialize할지 별도 계획 필요
+   - 다음 후보: first bounded live start-only operator approval review 또는 no-mutation private runtime directory materialization plan
    - live daemon start는 `--allow-daemon-start --assume-yes --i-understand-reboot-only-recovery`와 별도 operator approval 전까지 blocked
    - 아직 Wi-Fi scan/connect/link-up/credential/DHCP/routing은 별도 승인 전까지 blocked
 
