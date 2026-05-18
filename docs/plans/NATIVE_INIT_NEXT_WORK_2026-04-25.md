@@ -1153,6 +1153,12 @@ Samsung bootloader
    - v237 결과: `/mnt/system/system/apex/com.android.runtime/bin/linker64` export + readelf/objdump 분석 PASS, decision `linker-offset-symbolized`
    - v237 symbolization: offset `0x1002f4` -> `.text` / `__dl__ZL13__early_aborti+0x14` / `str wzr, [x8]`, linker64 SHA-256 `ebd1db608558ccb01f851a4988abea2f2dd8844b7bc09e1847ebaf05e36a421d`
    - v237 해석: crash는 임의 미상 코드가 아니라 bionic linker의 intentional early-abort trap이며, 다음은 `__early_abort` call-site/abort-code 분석
+   - v238 계획서: `docs/plans/NATIVE_INIT_V238_LINKER_EARLY_ABORT_MAP_PLAN_2026-05-18.md`
+   - v238 host tool: `scripts/revalidation/wifi_linker_early_abort_map.py`
+   - v238 보고서: `docs/reports/NATIVE_INIT_V238_LINKER_EARLY_ABORT_MAP_2026-05-18.md`
+   - v238 결과: decision `linker-early-abort-dev-null-open-failed`, abort code `0xa1` maps to call site `0x1000b8` in `__dl__Z21__libc_init_AT_SECUREPPc+0xa0`
+   - v238 해석: private Android execution namespace 안에 bionic이 기대하는 `/dev/null` 또는 `/sys/fs/selinux/null` context가 없어서 `linker64 --list`도 early abort한다
+   - 다음 blocker closure: v239에서 private namespace root에 최소 `/dev/null` materialization/bind 후 linker list matrix 재실행
    - 아직 Wi-Fi scan/connect/link-up/credential/DHCP/routing은 별도 승인 전까지 blocked
 
 ---

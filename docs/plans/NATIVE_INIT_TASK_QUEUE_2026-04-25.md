@@ -1975,8 +1975,39 @@
   - crash is intentional bionic linker early-abort trap, not unknown arbitrary code execution
   - v236 fault address `0xa1` is the abort-code address written by `str wzr, [x8]`
 - 다음 실행 항목:
-  - v238 `__early_abort` call-site and abort-code mapping
-  - correlate abort code `0xa1` / `161` with bionic linker source or all call references
+  - 완료: v238 `__early_abort` call-site and abort-code mapping
+  - 다음: v239 private namespace `/dev/null` materialization probe
+  - Wi-Fi daemon start remains blocked
+
+### V238. Linker Early-Abort Call-Site Map — EXECUTED / DEV NULL BLOCKER IDENTIFIED
+
+- 계획: `docs/plans/NATIVE_INIT_V238_LINKER_EARLY_ABORT_MAP_PLAN_2026-05-18.md`
+- 보고서: `docs/reports/NATIVE_INIT_V238_LINKER_EARLY_ABORT_MAP_2026-05-18.md`
+- 기준:
+  - native device baseline target remains `A90 Linux init 0.9.59 (v159)`
+  - v238는 PID1 boot image 변경 없이 host-side ELF/disassembly tooling만 추가했다
+  - v237 decision은 `linker-offset-symbolized`
+- 구현:
+  - host wrapper `scripts/revalidation/wifi_linker_early_abort_map.py`
+  - local `linker64` full disassembly scan
+  - all `__dl__ZL13__early_aborti` call-site extraction
+  - backward `mov w0, #imm` abort-code recovery
+  - captured fault address `0xa1` to caller correlation
+- 검증:
+  - Python compile PASS
+  - plan smoke PASS
+  - analyze PASS: decision `linker-early-abort-dev-null-open-failed`
+  - selected caller: `0x1000b8` in `__dl__Z21__libc_init_AT_SECUREPPc+0xa0`
+  - abort code: `0xa1` / `161`, loaded at `0x1000b4`
+  - full call map: abort codes `0xa1`, `0xba`, `0xbd`, `0x14f`, `0xc4`
+  - string correlation: `/dev/null`, `/sys/fs/selinux/null`, `failed to open /dev/null`, `__dl_libc_init_common.cpp`
+- 해석:
+  - v236/v237/v238 now point to bionic stdio nullification before normal linker execution
+  - current blocker is missing null-device context inside the private Android execution namespace
+  - problem remains generic linker process context, not `cnss-daemon` target-specific behavior
+- 다음 실행 항목:
+  - v239 private namespace `/dev/null` materialization probe
+  - rerun `linker64 --list` matrix before any daemon start
   - Wi-Fi daemon start remains blocked
 
 ### V187. Harness Broker Backend — PASS
