@@ -136,7 +136,7 @@ def helper_start_argv(args: argparse.Namespace) -> list[str]:
         "--mode",
         "cnss-start-only",
         "--null-device-mode",
-        "dev-null",
+        "dev-null-selinux",
         "--vndk-apex-alias-mode",
         "v30-to-current",
         "--linkerconfig-mode",
@@ -145,6 +145,8 @@ def helper_start_argv(args: argparse.Namespace) -> list[str]:
         "/cache/bin/a90_real_ld.config.txt",
         "--apex-libraries-source",
         "/cache/bin/a90_real_apex.libraries.config.txt",
+        "--data-wifi-mode",
+        "private-empty",
         "--timeout-sec",
         str(args.max_runtime_sec),
     ]
@@ -163,6 +165,13 @@ def build_dry_run_plan(args: argparse.Namespace) -> dict[str, Any]:
         "helper": args.helper,
         "helper_expected_sha256": args.helper_sha256,
         "helper_argv": argv,
+        "runtime_materialization": {
+            "null_device_mode": "dev-null-selinux",
+            "data_wifi_mode": "private-empty",
+            "data_wifi_path": "/data/vendor/wifi",
+            "data_wifi_sockets_path": "/data/vendor/wifi/sockets",
+            "private_namespace_only": True,
+        },
         "daemon": {
             "path_inside_namespace": "/vendor/bin/cnss-daemon",
             "argv": ["/vendor/bin/cnss-daemon", "-n", "-l"],

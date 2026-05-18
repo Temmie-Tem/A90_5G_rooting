@@ -2441,6 +2441,38 @@
   - update start-only runner dry-run plan to include `dev-null-selinux` + `private-empty` profile without running live daemon
   - first bounded live start-only still requires explicit operator approval
 
+### V254. CNSS Start-Only Profile Refresh — PASS
+
+- 계획: `docs/plans/NATIVE_INIT_V254_START_ONLY_PROFILE_REFRESH_PLAN_2026-05-19.md`
+- 보고서: `docs/reports/NATIVE_INIT_V254_START_ONLY_PROFILE_REFRESH_2026-05-19.md`
+- host tool: `scripts/revalidation/wifi_cnss_start_only_runner.py`
+- output:
+  - `tmp/wifi/v254-start-only-profile-plan/`
+  - `tmp/wifi/v254-start-only-profile-preflight/`
+  - `tmp/wifi/v254-start-only-profile-dryrun/`
+  - `tmp/wifi/v254-start-only-profile-run-blocked/`
+- decision: `start-only-profile-refresh-pass`
+- device build: `A90 Linux init 0.9.59 (v159)`
+- helper version: `a90_android_execns_probe v9`
+- helper SHA-256: `80e8afb1b77fdba23dfbc71d6a8e17e5a2a095ed1de728474fd2855923c351a1`
+- daemon start: not executed
+- 구현:
+  - runner default profile now uses `--null-device-mode dev-null-selinux`
+  - runner default profile now uses `--data-wifi-mode private-empty`
+  - dry-run manifest exposes `runtime_materialization`
+- 검증:
+  - `py_compile` PASS
+  - `git diff --check` PASS
+  - runner `plan` decision `dry-run-ready`
+  - runner `preflight` decision `preflight-ready`
+  - runner `dry-run` decision `preflight-ready`
+  - default runner `run` remains `start-only-blocked` without approval
+  - helper no-allow direct run keeps `cnss_start.result=start-only-blocked`, `exec_attempted=0`
+  - `pidof cnss-daemon` returned rc=1 after validation
+- 다음 실행 항목:
+  - first bounded live start-only operator approval review, or
+  - freeze the no-start live profile and rollback checklist before approval
+
 ### V187. Harness Broker Backend — PASS
 
 - 보고서: `docs/reports/NATIVE_INIT_V187_HARNESS_BROKER_BACKEND_2026-05-11.md`
