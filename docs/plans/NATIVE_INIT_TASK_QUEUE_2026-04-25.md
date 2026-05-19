@@ -4433,6 +4433,23 @@
 - next:
   - exact v317 approval phrase가 있으면 readiness packet의 command로 v317 minimal live proof 진행
 
+### V337. V317 Runner Pre-live Gate Requirement — PASS / HOST-ONLY
+
+- 계획: `docs/plans/NATIVE_INIT_V337_V317_RUNNER_PRELIVE_GATE_PLAN_2026-05-19.md`
+- 보고서: `docs/reports/NATIVE_INIT_V337_V317_RUNNER_PRELIVE_GATE_2026-05-19.md`
+- target: `scripts/revalidation/wifi_private_property_namespace_proof.py`
+- boot image: 없음. v337은 host-side runner gate hardening이며 native init version 변경 없음
+- validation:
+  - `py_compile` PASS
+  - `git diff --check` PASS
+  - no-approval run remains `private-property-namespace-proof-approval-required`
+  - dirty-tree exact approval blocks on `v336-prelive-gate`
+  - approval gate regression remains `wifi-approval-gate-regression-pass`
+  - `device_commands_executed=false`
+  - `device_mutations=false`
+- next:
+  - impacted host-only gate evidence를 clean HEAD에서 재생성한 뒤 exact v317 approval phrase가 있으면 V317 minimal live proof 진행
+
 ### V187. Harness Broker Backend — PASS
 
 - 보고서: `docs/reports/NATIVE_INIT_V187_HARNESS_BROKER_BACKEND_2026-05-11.md`

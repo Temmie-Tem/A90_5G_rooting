@@ -1542,6 +1542,9 @@ Samsung bootloader
    - v336 계획서: `docs/plans/NATIVE_INIT_V336_V317_PRELIVE_GATE_AUDIT_PLAN_2026-05-19.md`
    - v336 보고서: `docs/reports/NATIVE_INIT_V336_V317_PRELIVE_GATE_AUDIT_2026-05-19.md`
    - v336 해석: V325-V335 gate evidence를 통합 감사했다. 현재 remaining blocker는 `exact-v317-approval-phrase` 하나이며, V317 live proof 자체는 아직 실행하지 않았다
+   - v337 계획서: `docs/plans/NATIVE_INIT_V337_V317_RUNNER_PRELIVE_GATE_PLAN_2026-05-19.md`
+   - v337 보고서: `docs/reports/NATIVE_INIT_V337_V317_RUNNER_PRELIVE_GATE_2026-05-19.md`
+   - v337 해석: V317 runner가 exact approval만으로 실행되지 않도록 V336 pre-live gate와 clean current HEAD를 추가로 요구하게 했다. dirty-tree exact approval은 device command 없이 blocked 처리된다
    - live daemon start 범위를 벗어나는 Wi-Fi scan/connect/link-up/credential/DHCP/routing은 별도 계획과 승인 전까지 blocked
 
 ---
