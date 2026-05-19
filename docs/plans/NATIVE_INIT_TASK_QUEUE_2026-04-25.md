@@ -2958,6 +2958,37 @@
   - v273 explicit-approval QRTR nameservice readback matrix for known service ids, or
   - v273 WLFW service-object locator
 
+### V273. QRTR Readback Matrix — PASS
+
+- 계획: `docs/plans/NATIVE_INIT_V273_QRTR_READBACK_MATRIX_PLAN_2026-05-19.md`
+- 보고서: `docs/reports/NATIVE_INIT_V273_QRTR_READBACK_MATRIX_2026-05-19.md`
+- boot image change: 없음
+- baseline device build: `A90 Linux init 0.9.60 (v261)`
+- tool: `scripts/revalidation/wifi_qrtr_readback_matrix.py`
+- helper: `/cache/bin/a90_qrtr_ns_probe`
+- helper sha256: `375c30c21e5715218698a67832bf31d8052be95d4933d2ab98c198d73a45076a`
+- live evidence: `tmp/wifi/v273-qrtr-readback-matrix-live-20260519-110229/`
+- validation:
+  - plan mode PASS, no packet transmission
+  - preflight PASS: `qrtr-readback-matrix-preflight-ready`
+  - approved live matrix PASS: `qrtr-readback-matrix-timeout`
+  - postflight PASS: shell responsive, `cnss-daemon` absent, no `wlan*`
+- matrix:
+  - WDS service `1`, instance `0`: timeout, events `0`, `qmi_attempted=0`
+  - WDS service `1`, instance `1`: timeout, events `0`, `qmi_attempted=0`
+  - DMS service `2`, instance `0`: timeout, events `0`, `qmi_attempted=0`
+  - DMS service `2`, instance `1`: timeout, events `0`, `qmi_attempted=0`
+- interpretation:
+  - evidence-based DMS/WDS nameservice visibility still produced no QRTR service notifications
+  - remaining blocker is likely CNSS/runtime endpoint registration or unresolved WLFW service-object identity
+  - this result does not justify QMI payloads
+- guardrails:
+  - no QMI payload
+  - no Wi-Fi scan/connect/link-up or daemon start
+  - service id `0` global wildcard blocked
+- next execution item:
+  - v274 WLFW service-object locator
+
 ### V187. Harness Broker Backend — PASS
 
 - 보고서: `docs/reports/NATIVE_INIT_V187_HARNESS_BROKER_BACKEND_2026-05-11.md`
