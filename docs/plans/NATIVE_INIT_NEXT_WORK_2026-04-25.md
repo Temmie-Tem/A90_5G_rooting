@@ -1818,3 +1818,8 @@ Samsung bootloader
    - v387 구현 상태: `a90_android_execns_probe v18`은 service-manager `ptrace-lite` timeout cleanup에서 `WIFSTOPPED`를 reap으로 계산하지 않고, TERM/KILL cleanup phase에서 `PTRACE_CONT`로 종료 시그널을 주입한다. 로컬 SHA256은 `1131f0e3dd61bafc5023c25d7fb019303902cdf6cea76dd2e09b44b13a42378e`이다
    - v387 검증 상태: static build/required strings/py_compile/plan-only gates/no-approval executor PASS. read-only device preflight는 remote helper가 아직 v17이므로 expected `helper-v18` blocker로 막혔고 daemon start/Wi-Fi bring-up은 없음
    - v387 실행 조건: deploy는 exact `approve v387 deploy execns helper v18 only; no daemon start and no Wi-Fi bring-up`, live는 exact `approve v387 service-manager ptrace timeout cleanup only; no Wi-Fi HAL start and no Wi-Fi bring-up` 필요
+
+   - v387 approved result report: `docs/reports/NATIVE_INIT_V387_APPROVED_LIVE_RESULT_2026-05-20.md`
+   - v387 approved deploy: serial transfer installed helper v18 SHA `1131f0e3dd61bafc5023c25d7fb019303902cdf6cea76dd2e09b44b13a42378e`; daemon start/Wi-Fi bring-up 없음
+   - v387 approved live: `hwservicemanager` cleanup blocker is fixed. It now reports `start-only-pass`, `cleanup_stop_continued=1`, `reaped=1`, `residual_cleared=1`, `postflight_safe=1`. `servicemanager` still exits with SIGABRT but crash evidence is captured and cleanup is safe
+   - v388 다음: `servicemanager` SIGABRT evidence triage and targeted runtime repair planning. Wi-Fi HAL/start/scan/connect remains blocked until this runtime gap is understood

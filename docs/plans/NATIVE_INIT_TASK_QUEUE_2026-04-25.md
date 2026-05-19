@@ -8207,3 +8207,17 @@ python3 ./scripts/revalidation/physical_usb_reconnect_check.py --manual-host-con
   - `scripts/revalidation/wifi_v387_deploy_live_executor.py`
 - validation: local static build PASS, required strings PASS, `py_compile` PASS, plan-only gates PASS, no-approval executor PASS, read-only real-device preflight blocks on expected remote helper v18 mismatch.
 - next execution item: wait for exact v387 deploy approval, then exact v387 ptrace timeout cleanup live approval. Wi-Fi HAL/start/scan/connect remains blocked.
+
+### V387. Approved Ptrace Timeout Cleanup Live — RUNTIME GAP
+
+- result: `docs/reports/NATIVE_INIT_V387_APPROVED_LIVE_RESULT_2026-05-20.md`
+- deploy evidence: `tmp/wifi/v387-approved-deploy-serial-20260520-055534/`
+- live evidence: `tmp/wifi/v387-approved-live-20260520-060136/`
+- classifier evidence: `tmp/wifi/v387-approved-live-20260520-060136/classify/`
+- result:
+  - helper v18 deployed by serial path, SHA `1131f0e3dd61bafc5023c25d7fb019303902cdf6cea76dd2e09b44b13a42378e`
+  - `hwservicemanager`: `start-only-pass`, `cleanup_stop_continued=1`, `reaped=1`, `residual_cleared=1`, `postflight_safe=1`
+  - `servicemanager`: `start-only-runtime-gap`, SIGABRT captured, `postflight_safe=1`
+  - classifier: `service-manager-runtime-gap-servicemanager-sigabrt-captured`
+  - postflight read-only checks: native status/selftest PASS, no manager process, no Wi-Fi link
+- next execution item: V388 `servicemanager` SIGABRT evidence triage/runtime repair plan; Wi-Fi HAL/start/scan/connect remains blocked.
