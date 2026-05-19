@@ -4889,6 +4889,23 @@
 - next:
   - exact V317 approval phrase 없이는 executor `run`/`cleanup` 실행하지 않음
 
+### V359. V317 Live Blocker Snapshot — HOST-ONLY PENDING
+
+- 계획: `docs/plans/NATIVE_INIT_V359_LIVE_BLOCKER_SNAPSHOT_PLAN_2026-05-19.md`
+- 보고서: `docs/reports/NATIVE_INIT_V359_LIVE_BLOCKER_SNAPSHOT_2026-05-19.md`
+- tool: `scripts/revalidation/wifi_v317_blocker_snapshot.py`
+- boot image: 없음. v359는 host-side blocker snapshot이며 native init version 변경 없음
+- 구현:
+  - V357 pre-approval audit를 재실행하고 V350 operator checklist를 읽어 현재 live blocker 상태를 manifest로 기록
+  - V317 live proof가 `exact-v317-approval-phrase` 하나 때문에 막힌 상태인지 확인
+  - preferred live path가 V351 executor인지 확인
+- validation:
+  - pre-commit dirty tree에서 `v317-live-blocker-snapshot-blocked` 확인
+  - pre-commit `device_commands_executed=false`, `device_mutations=false` 확인
+  - post-commit clean HEAD에서 `v317-live-blocked-awaiting-exact-approval` 기대
+- next:
+  - exact V317 approval phrase 없이는 executor `run`/`cleanup` 실행하지 않음
+
 ### V187. Harness Broker Backend — PASS
 
 - 보고서: `docs/reports/NATIVE_INIT_V187_HARNESS_BROKER_BACKEND_2026-05-11.md`
