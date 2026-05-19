@@ -4,7 +4,7 @@
 - scope: host-only V317 gate refresh coverage
 - device command: none
 - device mutation: none
-- result: `PRE-COMMIT STRUCTURE PASS / POST-COMMIT REFRESH REQUIRED`
+- result: `PASS / HOST-ONLY`
 
 ## Summary
 
@@ -40,10 +40,33 @@ device_mutations=false
 overall refresh blocked as expected because the current source tree is dirty
 ```
 
-## Post-commit Validation Plan
+## Post-commit Validation
 
-After commit, rerun V344 refresh on clean HEAD and expect both preflight steps to
-PASS.
+After commit, reran V344 refresh on clean HEAD:
+
+```bash
+python3 scripts/revalidation/wifi_v317_gate_refresh.py \
+  --run-approved-preflight \
+  --out-dir tmp/wifi/v344-v317-gate-refresh \
+  refresh
+```
+
+Observed result:
+
+```text
+decision: v317-gate-refresh-ready
+pass: True
+v342-approved-preflight: pass
+v340-generated-preflight: pass
+device_commands_executed: false
+device_mutations: false
+blocked_steps: []
+```
+
+Evidence:
+
+- refresh manifest: `tmp/wifi/v344-v317-gate-refresh/manifest.json`
+- generated preflight manifest: `tmp/wifi/v317-private-property-namespace-proof-preflight/manifest.json`
 
 ## Safety
 

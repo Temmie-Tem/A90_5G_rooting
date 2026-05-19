@@ -4631,7 +4631,7 @@
   - exact V317 approval phrase 없이는 live proof 실행하지 않음
 
 
-### V347. Gate Refresh Runs Generated Handoff Preflight — HOST-ONLY / PENDING POST-COMMIT REFRESH
+### V347. Gate Refresh Runs Generated Handoff Preflight — PASS / HOST-ONLY
 
 - 계획: `docs/plans/NATIVE_INIT_V347_GATE_REFRESH_GENERATED_PREFLIGHT_PLAN_2026-05-19.md`
 - 보고서: `docs/reports/NATIVE_INIT_V347_GATE_REFRESH_GENERATED_PREFLIGHT_2026-05-19.md`
@@ -4646,7 +4646,11 @@
   - dirty-tree refresh는 block되지만 `v340-generated-preflight` step 포함 확인
   - `device_commands_executed=false`, `device_mutations=false`
 - post-commit validation:
-  - clean HEAD에서 V344 refresh 재실행 예정
+  - clean HEAD에서 V344 refresh 재실행 PASS
+  - `v342-approved-preflight` PASS
+  - `v340-generated-preflight` PASS
+  - `device_commands_executed=false`, `device_mutations=false`
+  - blocked steps 없음
 - next:
   - exact V317 approval phrase 없이는 live proof 실행하지 않음
 
