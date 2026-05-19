@@ -4280,6 +4280,30 @@
   - exact v317 approval phrase가 있으면 v317 minimal live proof 진행
   - approval이 없으면 다른 host-only/read-only Wi-Fi readiness 작업 진행
 
+### V329. Wi-Fi Readiness Dashboard — PASS / HOST-ONLY
+
+- 계획: `docs/plans/NATIVE_INIT_V329_WIFI_READINESS_DASHBOARD_PLAN_2026-05-19.md`
+- 보고서: `docs/reports/NATIVE_INIT_V329_WIFI_READINESS_DASHBOARD_2026-05-19.md`
+- tool: `scripts/revalidation/wifi_readiness_dashboard.py`
+- evidence: `tmp/wifi/v329-wifi-readiness-dashboard/`
+- boot image: 없음. v329는 host-only evidence aggregation이며 native init version 변경 없음
+- validation:
+  - `py_compile` PASS
+  - `git diff --check` PASS
+  - decision `wifi-readiness-dashboard-ready-blocked-by-v317`
+  - `pass=true`
+  - `device_commands_executed=false`
+  - `device_mutations=false`
+- current summary:
+  - vendor assets visible
+  - repeated CNSS start-only path is not useful because prior deltas showed no WLAN/wiphy readiness change
+  - Binder open-only blocker is cleared, but service-manager remains blocked by property runtime/process requirements
+  - Android property capture and private property layout are ready
+  - next concrete live gate remains V317 exact approval
+- next:
+  - exact v317 approval phrase가 있으면 v317 minimal live proof 진행
+  - approval이 없으면 dashboard 기반으로 다른 host-only/read-only 후보 선정
+
 ### V187. Harness Broker Backend — PASS
 
 - 보고서: `docs/reports/NATIVE_INIT_V187_HARNESS_BROKER_BACKEND_2026-05-11.md`

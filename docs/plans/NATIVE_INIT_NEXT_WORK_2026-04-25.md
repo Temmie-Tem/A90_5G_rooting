@@ -1518,6 +1518,9 @@ Samsung bootloader
    - v328 계획서: `docs/plans/NATIVE_INIT_V328_V317_RUNNER_APPROVAL_REFRESH_GATE_PLAN_2026-05-19.md`
    - v328 보고서: `docs/reports/NATIVE_INIT_V328_V317_RUNNER_APPROVAL_REFRESH_GATE_2026-05-19.md`
    - v328 해석: V317 runner가 v327 approval refresh manifest를 blocker로 요구하도록 조정했다. plan은 PASS, run-without-approval은 approval-required로 fail-closed이며 device command/mutation은 없다
+   - v329 계획서: `docs/plans/NATIVE_INIT_V329_WIFI_READINESS_DASHBOARD_PLAN_2026-05-19.md`
+   - v329 보고서: `docs/reports/NATIVE_INIT_V329_WIFI_READINESS_DASHBOARD_2026-05-19.md`
+   - v329 해석: Wi-Fi readiness dashboard를 host-only로 생성했다. 현재 decision은 `wifi-readiness-dashboard-ready-blocked-by-v317`이며, vendor assets/property layout은 준비됐지만 CNSS start-only 반복은 유효하지 않고 service-manager는 property runtime/process prerequisites로 막혀 있다
    - live daemon start 범위를 벗어나는 Wi-Fi scan/connect/link-up/credential/DHCP/routing은 별도 계획과 승인 전까지 blocked
 
 ---
