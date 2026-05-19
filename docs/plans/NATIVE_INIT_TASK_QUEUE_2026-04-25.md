@@ -3291,6 +3291,32 @@
 - next:
   - v286 Android/TWRP/native ICNSS boot-log timing comparison
 
+### V286. ICNSS Boot Timing Compare — PASS
+
+- 계획: `docs/plans/NATIVE_INIT_V286_ICNSS_BOOT_TIMING_COMPARE_PLAN_2026-05-19.md`
+- 보고서: `docs/reports/NATIVE_INIT_V286_ICNSS_BOOT_TIMING_COMPARE_2026-05-19.md`
+- boot image change: none
+- baseline device build: `A90 Linux init 0.9.60 (v261)`
+- tool: `scripts/revalidation/wifi_icnss_boot_timing_compare.py`
+- evidence: `tmp/wifi/v286-icnss-boot-timing-native-20260519-133421/`
+- decision: `icnss-boot-timing-gap-mapped`
+- result:
+  - existing Android/TWRP Wi-Fi evidence parsed
+  - current native dmesg/netdev/wiphy/rfkill/module/process evidence collected read-only
+  - native version matched `A90 Linux init 0.9.60 (v261)`
+  - Android event count `195`, TWRP event count `3`, native event count `132`
+  - native boot-window filter excludes prior start-only residual dmesg entries
+  - first missing native event: `android_wifi_action`
+- interpretation:
+  - Android reaches Wi-Fi service ordering and WLFW/QMI readiness around `7s..15s`
+  - native lacks Android Wi-Fi service ordering in boot-window evidence
+  - next work should model service-order replay before any QMI payload or link-up probe
+- safety:
+  - no daemon execution, no QMI payload, no QRTR nameservice packet
+  - no scan/connect/link-up, no credential/DHCP/routing, no rfkill/ICNSS writes
+- next:
+  - v287 Android Wi-Fi service-order replay plan
+
 ### V187. Harness Broker Backend — PASS
 
 - 보고서: `docs/reports/NATIVE_INIT_V187_HARNESS_BROKER_BACKEND_2026-05-11.md`

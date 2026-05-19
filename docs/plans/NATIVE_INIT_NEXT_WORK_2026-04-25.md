@@ -1355,6 +1355,10 @@ Samsung bootloader
    - v285 보고서: `docs/reports/NATIVE_INIT_V285_ICNSS_QCA6390_DURING_START_2026-05-19.md`
    - v285 결과: decision `icnss-qca6390-focused-no-during-delta`, serial CNSS start-only `start-only-pass`, NCM/tcpctl 19 focused samples PASS, focused delta `0`, no `wlan*`/wiphy, postflight clean
    - v285 해석: focused ICNSS/QCA6390 during-start sampling also shows no state delta. 동일 start-only 반복보다는 Android/TWRP/native ICNSS boot timing 비교가 다음 후보이다
+   - v286 계획서: `docs/plans/NATIVE_INIT_V286_ICNSS_BOOT_TIMING_COMPARE_PLAN_2026-05-19.md`
+   - v286 보고서: `docs/reports/NATIVE_INIT_V286_ICNSS_BOOT_TIMING_COMPARE_2026-05-19.md`
+   - v286 결과: decision `icnss-boot-timing-gap-mapped`, first missing native event `android_wifi_action`, Android Wi-Fi service/WLFW/QMI readiness chain visible around `7s..15s`, native boot-window evidence lacks that chain
+   - v286 해석: 다음은 blind start-only 반복이 아니라 Android Wi-Fi service-order replay plan이다. QMI payload와 link-up은 계속 blocked
    - live daemon start 범위를 벗어나는 Wi-Fi scan/connect/link-up/credential/DHCP/routing은 별도 계획과 승인 전까지 blocked
 
 ---
