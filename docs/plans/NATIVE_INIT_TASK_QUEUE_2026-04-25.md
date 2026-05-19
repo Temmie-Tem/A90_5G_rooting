@@ -3788,6 +3788,26 @@
 - next:
   - v307 candidate: read-only property shim design using Android-backed seed
 
+### V307. Property Shim Design Model — READY
+
+- 계획: `docs/plans/NATIVE_INIT_V307_PROPERTY_SHIM_DESIGN_PLAN_2026-05-19.md`
+- 보고서: `docs/reports/NATIVE_INIT_V307_PROPERTY_SHIM_DESIGN_2026-05-19.md`
+- boot image change: none
+- restored device build: `A90 Linux init 0.9.60 (v261)`
+- tool: `scripts/revalidation/wifi_property_shim_design.py`
+- evidence: `tmp/wifi/v307-property-shim-design/`
+- decision: `property-shim-design-model-ready`
+- selected next prototype: `private-readonly-property-area`
+- result:
+  - Android-backed property seed is complete for selected keys
+  - candidate matrix created for `analysis-only-seed`, `private-readonly-property-area`, `ld-preload-property-get-shim`, and `minimal-property-service-socket`
+  - `minimal-property-service-socket` remains blocked as too broad/high-risk
+- safety:
+  - host-only design model
+  - no property runtime node creation, ADB/device command, Android service start, or Wi-Fi bring-up action
+- next:
+  - v308 candidate: private read-only property area format/proof model, still no runtime node creation
+
 ### V187. Harness Broker Backend — PASS
 
 - 보고서: `docs/reports/NATIVE_INIT_V187_HARNESS_BROKER_BACKEND_2026-05-11.md`

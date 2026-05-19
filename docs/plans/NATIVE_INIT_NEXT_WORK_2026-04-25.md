@@ -1439,6 +1439,10 @@ Samsung bootloader
    - v306 보고서: `docs/reports/NATIVE_INIT_V306_ANDROID_CAPTURE_LIVE_RESULT_2026-05-19.md`
    - v306 결과: approval-gated v300 live handoff PASS, Android property capture PASS, baseline compare READY, Android-backed seed READY, native v261 restored and verified
    - v306 해석: property shim 설계에 필요한 Android-backed required keys가 확보됐다. 다음 후보는 read-only property shim design이며, property runtime mutation/service-manager/HAL/Wi-Fi daemon/scan/connect는 계속 별도 safety gate 전까지 금지다
+   - v307 계획서: `docs/plans/NATIVE_INIT_V307_PROPERTY_SHIM_DESIGN_PLAN_2026-05-19.md`
+   - v307 보고서: `docs/reports/NATIVE_INIT_V307_PROPERTY_SHIM_DESIGN_2026-05-19.md`
+   - v307 결과: decision `property-shim-design-model-ready`, selected next prototype `private-readonly-property-area`
+   - v307 해석: 다음은 private namespace 안에서 read-only property area format/proof 모델을 만드는 것이며, global `/dev/__properties__`나 property service socket 생성은 여전히 금지다
    - live daemon start 범위를 벗어나는 Wi-Fi scan/connect/link-up/credential/DHCP/routing은 별도 계획과 승인 전까지 blocked
 
 ---
