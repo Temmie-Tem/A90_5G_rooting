@@ -27,7 +27,7 @@ LIVE_GUARD_MANIFEST = Path("tmp/wifi/v304-android-capture-live-guard-final/manif
 FALLBACK_LIVE_COMMAND = (
     "python3 scripts/revalidation/android_capture_handoff_execute.py "
     "--out-dir tmp/wifi/v300-android-capture-executor-live "
-    "run --allow-android-boot-flash --assume-yes --i-understand-native-rollback"
+    "--allow-android-boot-flash --assume-yes --i-understand-native-rollback run"
 )
 
 

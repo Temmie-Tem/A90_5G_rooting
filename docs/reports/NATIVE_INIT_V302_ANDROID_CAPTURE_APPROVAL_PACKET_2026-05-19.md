@@ -62,10 +62,10 @@ devices or a non-default ADB executable.
 ```bash
 python3 scripts/revalidation/android_capture_handoff_execute.py \
   --out-dir tmp/wifi/v300-android-capture-executor-live \
-  run \
   --allow-android-boot-flash \
   --assume-yes \
-  --i-understand-native-rollback
+  --i-understand-native-rollback \
+  run
 ```
 
 ## Abort Conditions

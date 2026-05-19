@@ -55,7 +55,7 @@ The guard copies the v302 command into `live-command.txt` only when blocker
 checks pass:
 
 ```bash
-python3 scripts/revalidation/android_capture_handoff_execute.py --out-dir tmp/wifi/v300-android-capture-executor-live run --allow-android-boot-flash --assume-yes --i-understand-native-rollback
+python3 scripts/revalidation/android_capture_handoff_execute.py --out-dir tmp/wifi/v300-android-capture-executor-live --allow-android-boot-flash --assume-yes --i-understand-native-rollback run
 ```
 
 ## Safety

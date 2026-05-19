@@ -26,10 +26,10 @@ EXPECTED_NATIVE_VERSION = "A90 Linux init 0.9.60 (v261)"
 LIVE_COMMAND = (
     "python3 scripts/revalidation/android_capture_handoff_execute.py "
     "--out-dir tmp/wifi/v300-android-capture-executor-live "
-    "run "
     "--allow-android-boot-flash "
     "--assume-yes "
-    "--i-understand-native-rollback"
+    "--i-understand-native-rollback "
+    "run"
 )
 
 
