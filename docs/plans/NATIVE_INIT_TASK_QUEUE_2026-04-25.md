@@ -3673,6 +3673,26 @@
 - next:
   - operator-approved v300 live run remains the blocker before Android-backed seed generation
 
+### V302. Android Capture Approval Packet — READY / OPERATOR APPROVAL REQUIRED
+
+- 계획: `docs/plans/NATIVE_INIT_V302_ANDROID_CAPTURE_APPROVAL_PACKET_PLAN_2026-05-19.md`
+- 보고서: `docs/reports/NATIVE_INIT_V302_ANDROID_CAPTURE_APPROVAL_PACKET_2026-05-19.md`
+- boot image change: none
+- baseline device build: `A90 Linux init 0.9.60 (v261)`
+- tool: `scripts/revalidation/android_capture_approval_packet.py`
+- evidence: `tmp/wifi/v302-android-capture-approval-packet/`
+- decision: `android-capture-approval-ready`
+- result:
+  - v299 preflight PASS
+  - v300 dry-run/refusal PASS
+  - current native `version/status` PASS
+  - live command and abort conditions generated
+- safety:
+  - no reboot/recovery/flash was executed
+  - no property mutation or Wi-Fi bring-up action was executed
+- next:
+  - execute v300 live command only with explicit operator approval
+
 ### V187. Harness Broker Backend — PASS
 
 - 보고서: `docs/reports/NATIVE_INIT_V187_HARNESS_BROKER_BACKEND_2026-05-11.md`

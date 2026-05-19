@@ -1419,6 +1419,10 @@ Samsung bootloader
    - v301 보고서: `docs/reports/NATIVE_INIT_V301_PROPERTY_SHIM_SEED_2026-05-19.md`
    - v301 결과: decision `property-shim-seed-waiting-for-android`, `seed.json`은 생성됐지만 모든 selected key가 Android capture 부재로 blocked
    - v301 해석: 추가 host-only 모델은 준비됐고, 실제 unblock은 v300 live handoff로 Android capture를 얻는 것이다
+   - v302 계획서: `docs/plans/NATIVE_INIT_V302_ANDROID_CAPTURE_APPROVAL_PACKET_PLAN_2026-05-19.md`
+   - v302 보고서: `docs/reports/NATIVE_INIT_V302_ANDROID_CAPTURE_APPROVAL_PACKET_2026-05-19.md`
+   - v302 결과: decision `android-capture-approval-ready`, v299/v300/current-native evidence를 묶은 final approval packet 생성
+   - v302 해석: 이제 남은 것은 host-only 준비가 아니라 operator-approved live command 실행이다
    - live daemon start 범위를 벗어나는 Wi-Fi scan/connect/link-up/credential/DHCP/routing은 별도 계획과 승인 전까지 blocked
 
 ---
