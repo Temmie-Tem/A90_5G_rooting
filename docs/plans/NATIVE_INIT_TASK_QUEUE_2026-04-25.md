@@ -3139,6 +3139,32 @@
 - next:
   - v280 no-start CNSS/QCA6390 source/sysfs expectation comparison, or read-only kernel log extraction if accessible
 
+### V280. CNSS/QCA6390 Probe Expectation — PASS
+
+- 계획: `docs/plans/NATIVE_INIT_V280_CNSS_QCA6390_PROBE_EXPECTATION_PLAN_2026-05-19.md`
+- 보고서: `docs/reports/NATIVE_INIT_V280_CNSS_QCA6390_PROBE_EXPECTATION_2026-05-19.md`
+- boot image change: none
+- baseline device build: `A90 Linux init 0.9.60 (v261)`
+- tool: `scripts/revalidation/wifi_cnss_qca6390_probe_expectation.py`
+- evidence: `tmp/wifi/v280-cnss-qca6390-probe-expectation/`
+- decision: `cnss2-driver-dir-missing-qca-unbound`
+- result:
+  - QCA6390 compatible/modalias visible: `qcom,cnss-qca6390`
+  - QCA6390 driver link absent
+  - `/sys/bus/platform/drivers/cnss2` absent
+  - `/sys/bus/platform/drivers/icnss` present
+  - kernel config sample: `CONFIG_CNSS2=n`, `CONFIG_CNSS_QCA6390=n`, `CONFIG_WLAN=y`, `CONFIG_QCA_CLD_WLAN=y`
+  - `/sys/kernel/cnss` absent, `/sys/kernel/shutdown_wlan` present
+  - no `wlan*` netdev, wiphy, or CNSS process
+- interpretation:
+  - CNSS2 source model is not the live kernel binding model on this device
+  - repeating userspace `cnss-daemon` start-only is unlikely to bind QCA6390 by itself
+  - next blocker is the live `icnss` platform-driver model and why QCA6390 remains a separate unbound node
+- safety:
+  - no daemon start, no QRTR nameservice packet, no QMI payload, no scan/connect/link-up, no sysfs/control write, no reboot/remount
+- next:
+  - v281 ICNSS source/sysfs expectation comparison, read-only first
+
 ### V187. Harness Broker Backend — PASS
 
 - 보고서: `docs/reports/NATIVE_INIT_V187_HARNESS_BROKER_BACKEND_2026-05-11.md`
