@@ -1308,6 +1308,13 @@ Samsung bootloader
    - v261 결과: `A90 Linux init 0.9.60 (v261)` 실기 플래시 PASS, `reaper [status|run|verbose]` 추가, `pid1guard` reaper 항목 PASS, CNSS zombie audit clean PASS
    - v261 live retry: explicit approval 후 bounded CNSS start-only retry PASS, decision `start-only-pass`, `reaped=1`, `postflight_safe=1`, postflight CNSS process clean PASS
    - v261 해석: PID1 orphan reaper와 process-table audit gate가 동작한다. 다음 후보는 QRTR/QMI endpoint interaction no-scan probe 또는 CNSS warning/perfd/kmsg noise 개선이다
+   - v274 계획서: `docs/plans/NATIVE_INIT_V274_WLFW_SERVICE_LOCATOR_PLAN_2026-05-19.md`
+   - v274 보고서: `docs/reports/NATIVE_INIT_V274_WLFW_SERVICE_LOCATOR_2026-05-19.md`
+   - v274 결과: decision `wlfw-service-id-source-backed`, WLFW service id `69`/`0x45`, version `1`, local cnss-daemon WLFW string coverage PASS
+   - v275 계획서: `docs/plans/NATIVE_INIT_V275_WLFW_QRTR_READBACK_PLAN_2026-05-19.md`
+   - v275 보고서: `docs/reports/NATIVE_INIT_V275_WLFW_QRTR_READBACK_2026-05-19.md`
+   - v275 결과: decision `qrtr-readback-matrix-timeout`, WLFW service `69` instance `0/1` both timeout with events `0`, service_events `0`, qmi_attempted `0`
+   - v275 해석: WDS/DMS/WLFW 모두 native QRTR nameservice readback에서 notification이 없으므로 다음은 QMI payload가 아니라 QRTR/CNSS registration-state correlation이다
    - 다음 후보: QRTR/QMI endpoint interaction no-scan probe, CNSS warning surface cleanup, 또는 broader Wi-Fi readiness gate
    - live daemon start 범위를 벗어나는 Wi-Fi scan/connect/link-up/credential/DHCP/routing은 별도 계획과 승인 전까지 blocked
 

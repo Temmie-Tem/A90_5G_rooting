@@ -3019,6 +3019,29 @@
 - next execution item:
   - v275 explicit-approval WLFW QRTR nameservice readback matrix
 
+### V275. WLFW QRTR Readback — PASS
+
+- 계획: `docs/plans/NATIVE_INIT_V275_WLFW_QRTR_READBACK_PLAN_2026-05-19.md`
+- 보고서: `docs/reports/NATIVE_INIT_V275_WLFW_QRTR_READBACK_2026-05-19.md`
+- boot image change: none
+- baseline device build: `A90 Linux init 0.9.60 (v261)`
+- tool: `scripts/revalidation/wifi_qrtr_readback_matrix.py`
+- helper: `/cache/bin/a90_qrtr_ns_probe`
+- live evidence: `tmp/wifi/v275-wlfw-qrtr-readback-live-20260519-111529/`
+- decision: `qrtr-readback-matrix-timeout`
+- result:
+  - WLFW service `69` instance `0`: timeout, events `0`, service_events `0`, qmi_attempted `0`
+  - WLFW service `69` instance `1`: timeout, events `0`, service_events `0`, qmi_attempted `0`
+- interpretation:
+  - source-backed WLFW service id did not produce QRTR nameservice notifications in current native state
+  - WDS/DMS/WLFW all timing out points toward runtime endpoint registration or CNSS/platform state, not only service-id selection
+  - QMI request payloads remain blocked
+- safety:
+  - only QRTR nameservice `NEW_LOOKUP` plus cleanup `DEL_LOOKUP` packets were sent
+  - no QMI payload, daemon start, scan/connect/link-up, credentials, DHCP, routing, rfkill write, ICNSS bind/unbind, firmware mutation, partition write, or reboot
+- next:
+  - v276 QRTR/CNSS registration-state correlation plan before any QMI payload consideration
+
 ### V187. Harness Broker Backend — PASS
 
 - 보고서: `docs/reports/NATIVE_INIT_V187_HARNESS_BROKER_BACKEND_2026-05-11.md`
