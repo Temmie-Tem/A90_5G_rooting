@@ -4852,6 +4852,23 @@
 - next:
   - exact V317 approval phrase 없이는 executor `run`/`cleanup` 실행하지 않음
 
+### V357. V317 Pre-Approval Audit — HOST-ONLY PENDING
+
+- 계획: `docs/plans/NATIVE_INIT_V357_PREAPPROVAL_AUDIT_PLAN_2026-05-19.md`
+- 보고서: `docs/reports/NATIVE_INIT_V357_PREAPPROVAL_AUDIT_2026-05-19.md`
+- tool: `scripts/revalidation/wifi_v317_preapproval_audit.py`
+- boot image: 없음. v357은 host-side audit이며 native init version 변경 없음
+- 구현:
+  - V349 final readiness, V350 operator checklist, V351 executor plan, V352 executor regression을 한 번에 재검증
+  - clean HEAD/current evidence/no device mutation/approval blocker only 조건을 통합 검사
+  - V350 executor preference, V351 no-approval plan, no/partial/wrong phrase regression matrix를 재확인
+- validation:
+  - pre-commit dirty tree에서 `v317-preapproval-audit-blocked` 확인
+  - pre-commit `device_commands_executed=false`, `device_mutations=false` 확인
+  - post-commit clean HEAD에서 `v317-preapproval-audit-awaiting-approval` 기대
+- next:
+  - exact V317 approval phrase 없이는 executor `run`/`cleanup` 실행하지 않음
+
 ### V187. Harness Broker Backend — PASS
 
 - 보고서: `docs/reports/NATIVE_INIT_V187_HARNESS_BROKER_BACKEND_2026-05-11.md`
