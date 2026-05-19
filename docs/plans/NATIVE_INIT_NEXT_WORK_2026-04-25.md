@@ -1539,6 +1539,9 @@ Samsung bootloader
    - v335 계획서: `docs/plans/NATIVE_INIT_V335_WIFI_APPROVAL_GATE_REGRESSION_PLAN_2026-05-19.md`
    - v335 보고서: `docs/reports/NATIVE_INIT_V335_WIFI_APPROVAL_GATE_REGRESSION_2026-05-19.md`
    - v335 해석: V317/V320 approval gate regression을 host-only로 추가했다. partial approval과 V320-before-V317은 device command/mutation 없이 거부된다
+   - v336 계획서: `docs/plans/NATIVE_INIT_V336_V317_PRELIVE_GATE_AUDIT_PLAN_2026-05-19.md`
+   - v336 보고서: `docs/reports/NATIVE_INIT_V336_V317_PRELIVE_GATE_AUDIT_2026-05-19.md`
+   - v336 해석: V325-V335 gate evidence를 통합 감사했다. 현재 remaining blocker는 `exact-v317-approval-phrase` 하나이며, V317 live proof 자체는 아직 실행하지 않았다
    - live daemon start 범위를 벗어나는 Wi-Fi scan/connect/link-up/credential/DHCP/routing은 별도 계획과 승인 전까지 blocked
 
 ---

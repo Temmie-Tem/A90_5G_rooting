@@ -4415,6 +4415,24 @@
 - next:
   - exact v317 approval phrase가 있으면 router/readiness packet의 command로 v317 minimal live proof 진행
 
+### V336. V317 Pre-live Gate Audit — PASS / HOST-ONLY
+
+- 계획: `docs/plans/NATIVE_INIT_V336_V317_PRELIVE_GATE_AUDIT_PLAN_2026-05-19.md`
+- 보고서: `docs/reports/NATIVE_INIT_V336_V317_PRELIVE_GATE_AUDIT_2026-05-19.md`
+- tool: `scripts/revalidation/wifi_v317_prelive_gate_audit.py`
+- evidence: `tmp/wifi/v336-v317-prelive-gate-audit/`
+- boot image: 없음. v336은 host-only pre-live gate audit이며 native init version 변경 없음
+- validation:
+  - `py_compile` PASS
+  - `git diff --check` PASS
+  - decision `v317-prelive-gate-awaiting-approval`
+  - `pass=true`
+  - remaining blocker `exact-v317-approval-phrase`
+  - `device_commands_executed=false`
+  - `device_mutations=false`
+- next:
+  - exact v317 approval phrase가 있으면 readiness packet의 command로 v317 minimal live proof 진행
+
 ### V187. Harness Broker Backend — PASS
 
 - 보고서: `docs/reports/NATIVE_INIT_V187_HARNESS_BROKER_BACKEND_2026-05-11.md`
