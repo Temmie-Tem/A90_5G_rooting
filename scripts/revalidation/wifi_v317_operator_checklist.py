@@ -24,6 +24,7 @@ EXPECTED_PREFLIGHT_OUT = "tmp/wifi/v317-private-property-namespace-proof-preflig
 EXPECTED_LIVE_OUT = "tmp/wifi/v317-private-property-namespace-proof"
 EXPECTED_CLEANUP_OUT = "tmp/wifi/v317-private-property-namespace-proof-cleanup"
 RUNNER = "scripts/revalidation/wifi_private_property_namespace_proof.py"
+EXECUTOR = "scripts/revalidation/wifi_v317_live_executor.py"
 
 
 @dataclass
@@ -108,6 +109,24 @@ def command_view(name: str, raw: str) -> CommandView:
         allow_device_mutation="--allow-device-mutation" in argv,
         assume_yes="--assume-yes" in argv,
     )
+
+
+def executor_command(subcommand: str) -> str:
+    argv = [
+        "python3",
+        EXECUTOR,
+        "--out-dir",
+        "tmp/wifi/v351-v317-live-executor",
+    ]
+    if subcommand in {"run", "cleanup"}:
+        argv.extend([
+            "--approval-phrase",
+            APPROVAL_PHRASE,
+            "--allow-device-mutation",
+            "--assume-yes",
+        ])
+    argv.append(subcommand)
+    return " ".join(shlex.quote(item) for item in argv)
 
 
 def check_command(view: CommandView, expected_subcommand: str, expected_out_dir: str) -> list[ChecklistCheck]:
@@ -255,26 +274,42 @@ def render_summary(manifest: dict[str, Any]) -> str:
         "## Execution Order After Approval",
         "",
         "1. Confirm the serial bridge is open and responsive.",
-        "2. Re-run V349 final readiness on a clean HEAD.",
-        "3. Run the V317 live command exactly as generated.",
-        "4. Run the post-V317 router to choose the next plan.",
-        "5. Run cleanup only if the live proof fails or manual rollback is needed.",
+        "2. Re-run V349/V350 or run the V351 executor `plan` on a clean HEAD.",
+        "3. Run the V351 executor `run` command exactly as generated.",
+        "4. Use the executor-produced post-V317 router result to choose the next plan.",
+        "5. Run the V351 executor `cleanup` command only if the live proof fails or manual rollback is needed.",
         "",
-        "## Commands",
+        "## Preferred Commands",
         "",
-        "### Final readiness",
+        "### V351 executor plan",
         "",
         "```bash",
-        manifest["final_readiness_command"],
+        manifest["executor_plan_command"],
         "```",
         "",
-        "### V317 live proof",
+        "### V351 executor run",
+        "",
+        "```bash",
+        manifest["executor_run_command"],
+        "```",
+        "",
+        "### V351 executor cleanup",
+        "",
+        "```bash",
+        manifest["executor_cleanup_command"],
+        "```",
+        "",
+        "## Internal Raw Commands",
+        "",
+        "These are kept for contract inspection. Prefer the V351 executor commands above.",
+        "",
+        "### Raw V317 live proof",
         "",
         "```bash",
         manifest["live_command"],
         "```",
         "",
-        "### V317 cleanup",
+        "### Raw V317 cleanup",
         "",
         "```bash",
         manifest["cleanup_command"],
@@ -314,6 +349,9 @@ def build_manifest(args: argparse.Namespace) -> dict[str, Any]:
         "remaining_blockers": blockers,
         "approval_phrase": APPROVAL_PHRASE,
         "final_readiness_command": "python3 scripts/revalidation/wifi_v317_final_readiness.py --out-dir tmp/wifi/v349-v317-final-readiness check",
+        "executor_plan_command": executor_command("plan"),
+        "executor_run_command": executor_command("run"),
+        "executor_cleanup_command": executor_command("cleanup"),
         "preflight_command": views["preflight"].raw,
         "live_command": views["live"].raw,
         "cleanup_command": views["cleanup"].raw,

@@ -4763,6 +4763,22 @@
 - next:
   - exact V317 approval phrase 없이는 executor `run`/`cleanup` 실행하지 않음
 
+
+### V353. Operator Executor Preference — HOST-ONLY / PENDING VALIDATION
+
+- 계획: `docs/plans/NATIVE_INIT_V353_OPERATOR_EXECUTOR_PREFERENCE_PLAN_2026-05-19.md`
+- 보고서: `docs/reports/NATIVE_INIT_V353_OPERATOR_EXECUTOR_PREFERENCE_2026-05-19.md`
+- tool: `scripts/revalidation/wifi_v317_operator_checklist.py`
+- boot image: 없음. v353은 host-side checklist hardening이며 native init version 변경 없음
+- 구현:
+  - V350 checklist의 preferred live/cleanup command를 V351 executor command로 변경
+  - raw V340 live/cleanup command는 internal raw command로만 유지
+  - exact V317 approval phrase gate 유지
+- validation:
+  - 실행 예정
+- next:
+  - exact V317 approval phrase 없이는 executor `run`/`cleanup` 실행하지 않음
+
 ### V187. Harness Broker Backend — PASS
 
 - 보고서: `docs/reports/NATIVE_INIT_V187_HARNESS_BROKER_BACKEND_2026-05-11.md`
