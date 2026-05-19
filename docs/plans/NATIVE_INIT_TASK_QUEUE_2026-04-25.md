@@ -2668,9 +2668,29 @@
   - QRTR kernel socket/local bind remains ready
   - visible `/dev` QRTR/QMI/diag/IPA/WLAN nodes remain absent
   - remaining gap is userspace/runtime endpoint or nameservice behavior, not basic QRTR socket availability
+### V263. CNSS Warning Disposition — PASS
+
+- 계획: `docs/plans/NATIVE_INIT_V263_CNSS_WARNING_DISPOSITION_PLAN_2026-05-19.md`
+- 보고서: `docs/reports/NATIVE_INIT_V263_CNSS_WARNING_DISPOSITION_2026-05-19.md`
+- baseline evidence: `tmp/wifi/v261-cnss-live-evidence-analysis-final-20260519-085902/manifest.json`
+- approved retry evidence: `tmp/wifi/v263-cnss-live-retry-20260519-091608/`
+- boot image change: 없음
+- host tool: `scripts/revalidation/wifi_cnss_warning_disposition.py`
+- output: `tmp/wifi/v263-cnss-warning-disposition/`
+- decision: `cnss-warning-disposition-ready`
+- validation:
+  - analysis-pass PASS
+  - warning-surface PASS
+  - post CNSS process audit PASS: `cnss-process-clean`
+  - approved bounded live retry PASS: `start-only-pass`
+  - retry postflight PASS: `cnss-process-clean`, evidence analyzer PASS, warning disposition PASS
+- dispositions:
+  - `perfd-client-unavailable`: accepted for start-only, broader-Wi-Fi runtime service gap
+  - `kmsg-write-denied`: accepted for start-only, private namespace logging gap
+  - `shell-quote-noise`: coalesced with kmsg logging-path stderr noise
 - next execution item:
-  - CNSS warning/perfd/kmsg logging surface cleanup, or
-  - QRTR/QMI userspace nameservice model with packet transmission still approval-gated
+  - QRTR/QMI userspace nameservice model with packet transmission still approval-gated, or
+  - opt-in kmsg/perfd shim design without execution
 
 ### V187. Harness Broker Backend — PASS
 
