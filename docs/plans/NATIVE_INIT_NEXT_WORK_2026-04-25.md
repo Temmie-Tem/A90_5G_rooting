@@ -1371,6 +1371,10 @@ Samsung bootloader
    - v289 보고서: `docs/reports/NATIVE_INIT_V289_BINDER_SERVICE_MANAGER_FEASIBILITY_2026-05-19.md`
    - v289 결과: decision `binder-kernel-present-devnodes-missing`, `CONFIG_ANDROID_BINDER_IPC=y`, `CONFIG_ANDROID_BINDER_DEVICES=binder,hwbinder,vndbinder`, `/proc/misc` Binder devices present, native Binder `/dev` nodes absent, binderfs absent
    - v289 해석: Binder 커널 지원은 있으나 native init이 Binder devnode를 만들지 않는다. 다음은 service-manager/HAL 실행이 아니라 private Binder devnode feasibility plan이다
+   - v290 계획서: `docs/plans/NATIVE_INIT_V290_BINDER_DEVNODE_FEASIBILITY_PLAN_2026-05-19.md`
+   - v290 보고서: `docs/reports/NATIVE_INIT_V290_BINDER_DEVNODE_FEASIBILITY_2026-05-19.md`
+   - v290 결과: decision `binder-devnode-plan-ready`, Binder devnode 후보 `10:81`, `10:80`, `10:79` 확인, native `/dev` 노드는 계속 absent
+   - v290 해석: 다음은 read-only inventory가 아니라 temporary Binder devnode create/cleanup smoke이다. 이는 `mknod`를 수행하는 non-read-only 단계이므로 실행 전 범위가 명확해야 한다
    - live daemon start 범위를 벗어나는 Wi-Fi scan/connect/link-up/credential/DHCP/routing은 별도 계획과 승인 전까지 blocked
 
 ---

@@ -3385,6 +3385,32 @@
 - next:
   - v290 private Binder devnode feasibility plan before any service-manager/HAL execution
 
+### V290. Binder Devnode Feasibility Inventory — PASS
+
+- 계획: `docs/plans/NATIVE_INIT_V290_BINDER_DEVNODE_FEASIBILITY_PLAN_2026-05-19.md`
+- 보고서: `docs/reports/NATIVE_INIT_V290_BINDER_DEVNODE_FEASIBILITY_2026-05-19.md`
+- boot image change: none
+- baseline device build: `A90 Linux init 0.9.60 (v261)`
+- tool: `scripts/revalidation/wifi_binder_devnode_feasibility.py`
+- evidence:
+  - `tmp/wifi/v290-binder-devnode-plan/`
+  - `tmp/wifi/v290-binder-devnode-live-20260519-140441/`
+- decision: `binder-devnode-plan-ready`
+- result:
+  - `/sys/class/misc/binder/dev` and `/proc/misc` agree on `10:81`
+  - `/sys/class/misc/hwbinder/dev` and `/proc/misc` agree on `10:80`
+  - `/sys/class/misc/vndbinder/dev` and `/proc/misc` agree on `10:79`
+  - native `/dev/binder`, `/dev/hwbinder`, `/dev/vndbinder` remain absent
+  - non-executed candidates were emitted:
+    - `mknod -m 0600 /dev/binder c 10 81`
+    - `mknod -m 0600 /dev/hwbinder c 10 80`
+    - `mknod -m 0600 /dev/vndbinder c 10 79`
+- safety:
+  - no `mknod`, no Binder ioctl/open smoke, no service-manager execution
+  - no Wi-Fi daemon execution, no QMI/QRTR payload, no scan/connect/link-up
+- next:
+  - v291 temporary Binder devnode create/cleanup smoke, with explicit approval because it is non-read-only
+
 ### V187. Harness Broker Backend — PASS
 
 - 보고서: `docs/reports/NATIVE_INIT_V187_HARNESS_BROKER_BACKEND_2026-05-11.md`
