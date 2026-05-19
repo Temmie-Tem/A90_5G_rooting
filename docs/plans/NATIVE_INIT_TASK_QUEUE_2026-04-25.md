@@ -4852,7 +4852,7 @@
 - next:
   - exact V317 approval phrase 없이는 executor `run`/`cleanup` 실행하지 않음
 
-### V357. V317 Pre-Approval Audit — HOST-ONLY PENDING
+### V357. V317 Pre-Approval Audit — HOST-ONLY PASS
 
 - 계획: `docs/plans/NATIVE_INIT_V357_PREAPPROVAL_AUDIT_PLAN_2026-05-19.md`
 - 보고서: `docs/reports/NATIVE_INIT_V357_PREAPPROVAL_AUDIT_2026-05-19.md`
@@ -4866,7 +4866,8 @@
 - validation:
   - pre-commit dirty tree에서 `v317-preapproval-audit-blocked` 확인
   - pre-commit `device_commands_executed=false`, `device_mutations=false` 확인
-  - post-commit clean HEAD에서 `v317-preapproval-audit-awaiting-approval` 기대
+  - post-commit clean HEAD에서 `v317-preapproval-audit-awaiting-approval` PASS
+  - V349/V350/V351-plan/V352-regression 모두 current clean-head PASS
 - next:
   - exact V317 approval phrase 없이는 executor `run`/`cleanup` 실행하지 않음
 

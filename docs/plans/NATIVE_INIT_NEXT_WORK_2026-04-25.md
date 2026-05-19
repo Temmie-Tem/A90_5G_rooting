@@ -1604,7 +1604,7 @@ Samsung bootloader
    - v356 해석: mutation flags가 모두 있어도 exact phrase가 아니면 거부하는 회귀를 추가했고 clean HEAD에서 PASS했다
    - v357 계획서: `docs/plans/NATIVE_INIT_V357_PREAPPROVAL_AUDIT_PLAN_2026-05-19.md`
    - v357 보고서: `docs/reports/NATIVE_INIT_V357_PREAPPROVAL_AUDIT_2026-05-19.md`
-   - v357 해석: V349/V350/V351-plan/V352-regression을 한 번 더 묶어 clean HEAD/current evidence/no-device-action/exact-approval-only 상태인지 확인하는 host-only pre-approval audit를 추가한다
+   - v357 해석: V349/V350/V351-plan/V352-regression을 한 번 더 묶어 clean HEAD/current evidence/no-device-action/exact-approval-only 상태인지 확인하는 host-only pre-approval audit를 추가했고 clean HEAD에서 PASS했다
    - live daemon start 범위를 벗어나는 Wi-Fi scan/connect/link-up/credential/DHCP/routing은 별도 계획과 승인 전까지 blocked
 
 ---

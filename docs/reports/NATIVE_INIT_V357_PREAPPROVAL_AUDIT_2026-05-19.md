@@ -4,7 +4,7 @@
 - scope: host-only final pre-approval audit for V317 live proof
 - device command: none
 - device mutation: none
-- result: `PENDING`
+- result: `PASS`
 
 ## Summary
 
@@ -48,7 +48,30 @@ uncommitted, so all clean-head evidence checks must fail closed.
 
 ## Post-commit Validation
 
-To be filled after clean-head validation.
+Observed clean-head result:
+
+```text
+decision: v317-preapproval-audit-awaiting-approval
+pass: true
+remaining_blockers: ['exact-v317-approval-phrase']
+device_commands_executed: false
+device_mutations: false
+v349-final-readiness: PASS
+v350-operator-checklist: PASS
+v351-live-executor-plan: PASS
+v352-executor-regression: PASS
+```
+
+The audit confirms that all host-only gates are current at clean HEAD and the
+only remaining blocker is the exact V317 approval phrase.
+
+## Acceptance Result
+
+- V349 final readiness is current and clean.
+- V350 operator checklist is current and prefers the V351 executor path.
+- V351 executor `plan` is current, non-mutating, and explicitly approval-blocked.
+- V352 executor regression includes no/partial/wrong phrase guard cases.
+- No device command or device mutation was performed.
 
 ## Safety
 
