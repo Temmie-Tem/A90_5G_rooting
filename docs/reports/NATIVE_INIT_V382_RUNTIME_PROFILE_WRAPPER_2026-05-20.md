@@ -28,6 +28,8 @@
 | --- | --- | --- |
 | plan | `tmp/wifi/v382-service-manager-live-wrapper-plan/manifest.json` | pass |
 | preflight | `tmp/wifi/v382-service-manager-live-wrapper-preflight/manifest.json` | blocked only by remote helper v14 not deployed |
+| deploy no-approval regression | `tmp/wifi/v382-deploy-noapproval-regression/manifest.json` | blocked, no mutation |
+| live no-approval regression | `tmp/wifi/v382-live-noapproval-regression/manifest.json` | approval-required, no daemon start |
 
 ## Checks
 
@@ -40,6 +42,17 @@
   - `property-root-visible`: PASS
   - `data-wifi-mode`: PASS
   - `helper-v14`: BLOCKED because the remote helper is still v13
+- V382 deploy no-approval regression:
+  - decision: `execns-helper-v14-deploy-blocked`
+  - `device_mutations=false`
+  - `daemon_start_executed=false`
+  - `wifi_bringup_executed=false`
+- V382 live no-approval regression:
+  - decision: `service-manager-start-only-live-approval-required`
+  - `steps_len=0`
+  - `observations_len=0`
+  - `daemon_start_executed=false`
+  - `wifi_bringup_executed=false`
 
 ## Interpretation
 
