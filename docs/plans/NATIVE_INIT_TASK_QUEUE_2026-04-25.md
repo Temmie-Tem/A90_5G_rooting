@@ -4740,6 +4740,27 @@
 - next:
   - exact V317 approval phrase 없이는 executor `run`/`cleanup` 실행하지 않음
 
+
+### V352. V317 Live Executor Regression — HOST-ONLY / PENDING POST-COMMIT RUN
+
+- 계획: `docs/plans/NATIVE_INIT_V352_V317_LIVE_EXECUTOR_REGRESSION_PLAN_2026-05-19.md`
+- 보고서: `docs/reports/NATIVE_INIT_V352_V317_LIVE_EXECUTOR_REGRESSION_2026-05-19.md`
+- tool: `scripts/revalidation/wifi_v317_live_executor_regression.py`
+- boot image: 없음. v352는 host-side regression이며 native init version 변경 없음
+- 구현:
+  - no-approval/partial-approval `run`과 `cleanup` 거부 경로 회귀
+  - current-state `plan` 경로 회귀
+  - no live approval/device command/device mutation 검증
+- pre-commit validation:
+  - `py_compile` PASS
+  - regression PASS
+  - dirty tree에서 `plan-current-state`가 readiness-blocked로 pass
+  - `device_commands_executed=false`, `device_mutations=false`
+- post-commit validation:
+  - clean HEAD에서 regression 재실행 예정
+- next:
+  - exact V317 approval phrase 없이는 executor `run`/`cleanup` 실행하지 않음
+
 ### V187. Harness Broker Backend — PASS
 
 - 보고서: `docs/reports/NATIVE_INIT_V187_HARNESS_BROKER_BACKEND_2026-05-11.md`
