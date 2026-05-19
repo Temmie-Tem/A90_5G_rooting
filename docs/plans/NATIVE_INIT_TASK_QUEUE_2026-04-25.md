@@ -4982,6 +4982,42 @@
   - future command remains blocked until a separate explicit operator instruction for bounded CNSS start-only
   - Wi-Fi scan/connect/link-up remains blocked even if start-only is later approved
 
+### V362. Bounded CNSS Start-Only Live Run — START-ONLY PASS
+
+- 계획: `docs/plans/NATIVE_INIT_V362_CNSS_START_ONLY_LIVE_PLAN_2026-05-20.md`
+- 보고서: `docs/reports/NATIVE_INIT_V362_CNSS_START_ONLY_LIVE_2026-05-20.md`
+- tool: `scripts/revalidation/wifi_cnss_start_only_runner.py`
+- analyzer: `scripts/revalidation/wifi_cnss_live_evidence_analyzer.py`
+- warning disposition: `scripts/revalidation/wifi_cnss_warning_disposition.py`
+- boot image: 없음. v362는 host/live validation이며 native init version 변경 없음
+- approval:
+  - user explicitly requested daemon start; execution scope was restricted to one bounded CNSS start-only run
+  - Wi-Fi scan/connect/link-up/credential/DHCP/routing remain outside approval scope
+- validation:
+  - preflight decision `preflight-ready`
+  - approval packet decision `live-approval-packet-ready`
+  - live runner decision `start-only-pass`
+  - evidence analyzer decision `cnss-start-only-evidence-classified`
+  - warning disposition decision `cnss-warning-disposition-ready`
+- key markers:
+  - `daemon_start_executed=true`
+  - `cnss_start.observable=1`
+  - `cnss_start.timed_out=1`
+  - `cnss_start.term_sent=1`
+  - `cnss_start.kill_sent=1`
+  - `cnss_start.reaped=1`
+  - `cnss_start.postflight_safe=1`
+  - `cnss_start.scan_connect_linkup=0`
+  - postflight target process count/running/zombie all `0`
+  - postflight `/proc/net/dev` and `wifiinv full` show no `wlan*`/wlan-like interface
+- warnings accepted for start-only:
+  - `perfd-client-unavailable`
+  - `kmsg-write-denied`
+  - `shell-quote-noise`
+- next:
+  - plan no-scan/no-connect readiness delta observer before any broader Wi-Fi action
+  - broader Wi-Fi scan/connect/link-up remains blocked until a separate explicit plan and approval
+
 ### V187. Harness Broker Backend — PASS
 
 - 보고서: `docs/reports/NATIVE_INIT_V187_HARNESS_BROKER_BACKEND_2026-05-11.md`

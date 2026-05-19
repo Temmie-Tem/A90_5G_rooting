@@ -1620,6 +1620,11 @@ Samsung bootloader
    - v361 계획서: `docs/plans/NATIVE_INIT_V361_CNSS_START_ONLY_APPROVAL_PACKET_PLAN_2026-05-19.md`
    - v361 보고서: `docs/reports/NATIVE_INIT_V361_CNSS_START_ONLY_APPROVAL_PACKET_2026-05-19.md`
    - v361 해석: v11 helper 기준 approval packet을 재생성했고 `live-approval-packet-ready` PASS, helper no-allow fail-closed PASS, `daemon_start_executed=false`를 확인했다. 생성된 future command는 별도 bounded start-only 승인 전까지 실행하지 않는다
+   - v362 계획서: `docs/plans/NATIVE_INIT_V362_CNSS_START_ONLY_LIVE_PLAN_2026-05-20.md`
+   - v362 보고서: `docs/reports/NATIVE_INIT_V362_CNSS_START_ONLY_LIVE_2026-05-20.md`
+   - v362 해석: 별도 daemon start 요청 후 bounded `cnss-daemon -n -l` start-only live run을 1회 실행했고 `start-only-pass` / `cnss-start-only-evidence-classified` / `cnss-warning-disposition-ready`를 확인했다
+   - v362 결과: child observable, timeout 후 SIGTERM/SIGKILL/reap, `postflight_safe=1`, postflight process count/running/zombie `0`, `/proc/net/dev`와 `wifiinv full`에서 `wlan*`/wlan-like interface 없음, `scan_connect_linkup=0`
+   - v362 경계: 이 결과는 CNSS daemon start-only 가능성만 의미한다. Wi-Fi scan/connect/link-up/credential/DHCP/routing/supplicant/wificond/hostapd/Wi-Fi HAL은 별도 계획과 승인 전까지 계속 blocked
    - live daemon start 범위를 벗어나는 Wi-Fi scan/connect/link-up/credential/DHCP/routing은 별도 계획과 승인 전까지 blocked
 
 ---
