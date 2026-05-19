@@ -43,7 +43,7 @@
 #define PR_CAP_AMBIENT_RAISE 2
 #endif
 
-#define EXECNS_VERSION "a90_android_execns_probe v14"
+#define EXECNS_VERSION "a90_android_execns_probe v15"
 #define MAX_PATH_LEN 512
 #define MAX_CAPTURE_SIZE (1024 * 1024)
 #define MAX_LINKERCONFIG_SIZE (256 * 1024)
@@ -361,13 +361,19 @@ static int parse_args(int argc, char **argv, struct config *cfg) {
             fprintf(stderr, "--linker is not used by service-manager-start-only mode\n");
             return 2;
         }
-        if (!streq(cfg->capture_mode, "none")) {
-            fprintf(stderr, "--capture-mode must be none for service-manager-start-only mode\n");
+        if (!(streq(cfg->capture_mode, "none") ||
+              streq(cfg->capture_mode, "ptrace-lite"))) {
+            fprintf(stderr, "--capture-mode must be none or ptrace-lite for service-manager-start-only mode\n");
             return 2;
         }
         if (!(streq(cfg->target, "/system/bin/servicemanager") ||
               streq(cfg->target, "/system/bin/hwservicemanager"))) {
             fprintf(stderr, "service-manager-start-only target is fixed to system service-manager binaries\n");
+            return 2;
+        }
+        if (streq(cfg->capture_mode, "ptrace-lite") &&
+            !cfg->allow_service_manager_start_only) {
+            fprintf(stderr, "--capture-mode ptrace-lite requires --allow-service-manager-start-only\n");
             return 2;
         }
     }
@@ -1826,6 +1832,7 @@ static void print_capture_snapshot(pid_t pid, const char *label, bool include_ma
     print_proc_link(pid, label, "cwd");
     print_proc_auxv(pid, label);
     print_ptrace_regs(pid, label);
+    print_proc_text(pid, label, "status", 8192);
     if (include_maps) {
         print_proc_text(pid, label, "maps", 65536);
         print_proc_text(pid, label, "mountinfo", 65536);
@@ -2958,6 +2965,417 @@ fail:
     return -1;
 }
 
+static int run_service_manager_start_only_guarded_ptrace(const struct config *cfg,
+                                                         const struct paths *paths,
+                                                         struct buffer *stdout_buf,
+                                                         struct buffer *stderr_buf,
+                                                         int *child_exit_code,
+                                                         int *child_signal,
+                                                         bool *timed_out) {
+    int stdout_pipe[2] = {-1, -1};
+    int stderr_pipe[2] = {-1, -1};
+    bool stdout_open = true;
+    bool stderr_open = true;
+    bool child_done = false;
+    bool observable = false;
+    bool proc_status_captured = false;
+    bool fd_summary_captured = false;
+    bool maps_summary_captured = false;
+    bool term_sent = false;
+    bool kill_sent = false;
+    bool reaped = false;
+    bool postflight_safe = false;
+    bool exited_before_timeout = false;
+    bool exec_captured = false;
+    bool crash_captured = false;
+    long deadline;
+    pid_t pid = -1;
+    pid_t pgid = -1;
+    int status = 0;
+
+    *child_exit_code = -1;
+    *child_signal = 0;
+    *timed_out = false;
+
+    if (append_literal(stdout_buf, "service_manager_start.begin=1\n") < 0 ||
+        append_literal(stdout_buf, "service_manager_start.mode=guarded\n") < 0 ||
+        append_literal(stdout_buf, "service_manager_start.capture_mode=ptrace-lite\n") < 0 ||
+        append_format(stdout_buf, "service_manager_start.target=%s\n", cfg->target) < 0 ||
+        append_format(stdout_buf, "service_manager_start.argv=%s\n", cfg->target) < 0 ||
+        append_literal(stdout_buf, "service_manager_start.wifi_hal=0\n") < 0 ||
+        append_literal(stdout_buf, "service_manager_start.scan_connect_linkup=0\n") < 0 ||
+        append_literal(stdout_buf, "service_manager_start.allowed=1\n") < 0) {
+        return -1;
+    }
+    printf("capture.mode=ptrace-lite\n");
+    printf("capture.scope=service-manager-start-only\n");
+
+    if (pipe2(stdout_pipe, O_CLOEXEC) < 0 || pipe2(stderr_pipe, O_CLOEXEC) < 0) {
+        if (append_format(stdout_buf,
+                          "service_manager_start.exec_attempted=0\n"
+                          "service_manager_start.child_started=0\n"
+                          "service_manager_start.pid=-1\n"
+                          "service_manager_start.pgid=-1\n"
+                          "service_manager_start.observable=0\n"
+                          "service_manager_start.exited=0\n"
+                          "service_manager_start.exit_code=-1\n"
+                          "service_manager_start.signal=0\n"
+                          "service_manager_start.timed_out=0\n"
+                          "service_manager_start.term_sent=0\n"
+                          "service_manager_start.kill_sent=0\n"
+                          "service_manager_start.reaped=0\n"
+                          "service_manager_start.proc_status_captured=0\n"
+                          "service_manager_start.fd_summary_captured=0\n"
+                          "service_manager_start.maps_summary_captured=0\n"
+                          "service_manager_start.capture_exec=0\n"
+                          "service_manager_start.capture_crash=0\n"
+                          "service_manager_start.postflight_safe=0\n"
+                          "service_manager_start.result=manual-review-required\n"
+                          "service_manager_start.reason=pipe-failed-%s\n"
+                          "service_manager_start.end=1\n",
+                          strerror(errno)) < 0) {
+            return -1;
+        }
+        goto fail;
+    }
+    pid = fork();
+    if (pid < 0) {
+        if (append_format(stdout_buf,
+                          "service_manager_start.exec_attempted=0\n"
+                          "service_manager_start.child_started=0\n"
+                          "service_manager_start.pid=-1\n"
+                          "service_manager_start.pgid=-1\n"
+                          "service_manager_start.observable=0\n"
+                          "service_manager_start.exited=0\n"
+                          "service_manager_start.exit_code=-1\n"
+                          "service_manager_start.signal=0\n"
+                          "service_manager_start.timed_out=0\n"
+                          "service_manager_start.term_sent=0\n"
+                          "service_manager_start.kill_sent=0\n"
+                          "service_manager_start.reaped=0\n"
+                          "service_manager_start.proc_status_captured=0\n"
+                          "service_manager_start.fd_summary_captured=0\n"
+                          "service_manager_start.maps_summary_captured=0\n"
+                          "service_manager_start.capture_exec=0\n"
+                          "service_manager_start.capture_crash=0\n"
+                          "service_manager_start.postflight_safe=0\n"
+                          "service_manager_start.result=manual-review-required\n"
+                          "service_manager_start.reason=fork-failed-%s\n"
+                          "service_manager_start.end=1\n",
+                          strerror(errno)) < 0) {
+            return -1;
+        }
+        goto fail;
+    }
+    if (pid == 0) {
+        char *const manager_argv[] = {
+            (char *)cfg->target,
+            NULL,
+        };
+
+        close(stdout_pipe[0]);
+        close(stderr_pipe[0]);
+        dup2(stdout_pipe[1], STDOUT_FILENO);
+        dup2(stderr_pipe[1], STDERR_FILENO);
+        close(stdout_pipe[1]);
+        close(stderr_pipe[1]);
+        if (setsid() < 0) {
+            perror("setsid");
+            _exit(123);
+        }
+        if (chroot(paths->root) < 0) {
+            perror("chroot");
+            _exit(120);
+        }
+        if (chdir("/") < 0) {
+            perror("chdir");
+            _exit(121);
+        }
+        apply_child_env(cfg);
+        printf("service_manager_child.begin=1\n");
+        if (apply_service_manager_identity_contract("service_manager_child") < 0) {
+            printf("service_manager_child.end=1\n");
+            fflush(stdout);
+            _exit(126);
+        }
+        printf("service_manager_child.exec_target=%s\n", cfg->target);
+        fflush(stdout);
+        if (ptrace(PTRACE_TRACEME, 0, NULL, NULL) < 0) {
+            printf("service_manager_child.ptrace_traceme_error=%s\n", strerror(errno));
+            printf("service_manager_child.end=1\n");
+            fflush(stdout);
+            _exit(122);
+        }
+        raise(SIGSTOP);
+        execv(cfg->target, manager_argv);
+        printf("service_manager_child.exec_error=%s\n", strerror(errno));
+        printf("service_manager_child.end=1\n");
+        fflush(stdout);
+        _exit(127);
+    }
+
+    close(stdout_pipe[1]);
+    close(stderr_pipe[1]);
+    stdout_pipe[1] = -1;
+    stderr_pipe[1] = -1;
+    set_nonblock(stdout_pipe[0]);
+    set_nonblock(stderr_pipe[0]);
+    pgid = wait_for_child_session_pgid(pid, 1000);
+    if (append_format(stdout_buf,
+                      "service_manager_start.exec_attempted=1\n"
+                      "service_manager_start.child_started=1\n"
+                      "service_manager_start.pid=%ld\n"
+                      "service_manager_start.pgid=%ld\n",
+                      (long)pid,
+                      (long)pgid) < 0) {
+        goto fail;
+    }
+
+    if (waitpid(pid, &status, 0) != pid) {
+        printf("capture.initial_wait.error=%s\n", strerror(errno));
+        goto fail;
+    }
+    if (!WIFSTOPPED(status)) {
+        printf("capture.initial_stop.unexpected_status=0x%x\n", status);
+        if (WIFEXITED(status)) {
+            child_done = true;
+            reaped = true;
+            exited_before_timeout = true;
+            *child_exit_code = WEXITSTATUS(status);
+        } else if (WIFSIGNALED(status)) {
+            child_done = true;
+            reaped = true;
+            exited_before_timeout = true;
+            *child_signal = WTERMSIG(status);
+        }
+    } else {
+        printf("capture.initial_stop.signal=%d\n", WSTOPSIG(status));
+        if (ptrace(PTRACE_SETOPTIONS,
+                   pid,
+                   NULL,
+                   (void *)(long)(PTRACE_O_TRACEEXEC | PTRACE_O_EXITKILL)) < 0) {
+            printf("capture.setoptions.error=%s\n", strerror(errno));
+        }
+        if (ptrace(PTRACE_CONT, pid, NULL, NULL) < 0) {
+            printf("capture.initial_cont.error=%s\n", strerror(errno));
+            goto fail;
+        }
+    }
+    deadline = monotonic_ms() + cfg->timeout_sec * 1000L;
+
+    while (stdout_open || stderr_open || !child_done) {
+        struct pollfd fds[2];
+        int nfds = 0;
+        int poll_timeout = 50;
+        long now = monotonic_ms();
+
+        if (!child_done && now >= deadline) {
+            *timed_out = true;
+            printf("capture.timeout.kill=1\n");
+            break;
+        }
+        if (stdout_open) {
+            fds[nfds].fd = stdout_pipe[0];
+            fds[nfds].events = POLLIN | POLLHUP | POLLERR;
+            nfds++;
+        }
+        if (stderr_open) {
+            fds[nfds].fd = stderr_pipe[0];
+            fds[nfds].events = POLLIN | POLLHUP | POLLERR;
+            nfds++;
+        }
+        if (nfds > 0) {
+            int rc = poll(fds, nfds, poll_timeout);
+
+            if (rc > 0) {
+                int idx = 0;
+
+                if (stdout_open) {
+                    if (fds[idx].revents != 0) {
+                        drain_fd(stdout_pipe[0], stdout_buf, &stdout_open);
+                    }
+                    idx++;
+                }
+                if (stderr_open) {
+                    if (fds[idx].revents != 0) {
+                        drain_fd(stderr_pipe[0], stderr_buf, &stderr_open);
+                    }
+                }
+            }
+        } else {
+            usleep(50000);
+        }
+        if (!child_done) {
+            pid_t wait_rc = waitpid(pid, &status, WNOHANG);
+
+            if (wait_rc == pid) {
+                if (WIFEXITED(status)) {
+                    child_done = true;
+                    reaped = true;
+                    exited_before_timeout = !*timed_out;
+                    *child_exit_code = WEXITSTATUS(status);
+                    printf("capture.child.exit=%d\n", *child_exit_code);
+                } else if (WIFSIGNALED(status)) {
+                    child_done = true;
+                    reaped = true;
+                    exited_before_timeout = !*timed_out;
+                    *child_signal = WTERMSIG(status);
+                    printf("capture.child.signal=%d\n", *child_signal);
+                } else if (WIFSTOPPED(status)) {
+                    int sig = WSTOPSIG(status);
+                    unsigned int event = (unsigned int)status >> 16;
+                    int deliver_sig = 0;
+
+                    printf("capture.stop.signal=%d\n", sig);
+                    printf("capture.stop.event=%u\n", event);
+                    if (sig == SIGTRAP && !exec_captured) {
+                        exec_captured = true;
+                        printf("capture.exec_stop=1\n");
+                        print_capture_snapshot(pid, "exec", true);
+                    } else if (sig == SIGSEGV || sig == SIGBUS || sig == SIGILL || sig == SIGABRT) {
+                        crash_captured = true;
+                        printf("capture.crash_stop=1\n");
+                        print_ptrace_siginfo(pid, "crash");
+                        print_capture_snapshot(pid, "crash", true);
+                        deliver_sig = sig;
+                    } else if (sig != SIGTRAP) {
+                        deliver_sig = sig;
+                    }
+                    if (ptrace(PTRACE_CONT, pid, NULL, (void *)(long)deliver_sig) < 0) {
+                        printf("capture.cont.error=%s\n", strerror(errno));
+                        kill(-pgid, SIGKILL);
+                        kill(pid, SIGKILL);
+                    }
+                }
+            } else if (wait_rc < 0 && errno != EINTR && errno != ECHILD) {
+                append_format(stdout_buf, "service_manager_start.wait.error=%s\n", strerror(errno));
+                break;
+            }
+        }
+    }
+
+    if (!child_done && kill(pid, 0) == 0) {
+        observable = true;
+        append_proc_file_capture(stdout_buf, pid, "status", 8192, &proc_status_captured);
+        append_proc_fd_summary(stdout_buf, pid, &fd_summary_captured);
+        append_proc_file_capture(stdout_buf, pid, "maps", 65536, &maps_summary_captured);
+    }
+    if (!child_done) {
+        if (kill(-pgid, SIGTERM) == 0 || errno == ESRCH) {
+            term_sent = true;
+        }
+        deadline = monotonic_ms() + 1000L;
+        while (!child_done && monotonic_ms() < deadline) {
+            if (waitpid(pid, &status, WNOHANG) == pid) {
+                child_done = true;
+                reaped = true;
+                if (WIFEXITED(status)) {
+                    *child_exit_code = WEXITSTATUS(status);
+                } else if (WIFSIGNALED(status)) {
+                    *child_signal = WTERMSIG(status);
+                }
+                break;
+            }
+            usleep(50000);
+        }
+    }
+    if (!child_done) {
+        if (kill(-pgid, SIGKILL) == 0 || errno == ESRCH) {
+            kill_sent = true;
+        }
+        deadline = monotonic_ms() + 1000L;
+        while (!child_done && monotonic_ms() < deadline) {
+            if (waitpid(pid, &status, WNOHANG) == pid) {
+                child_done = true;
+                reaped = true;
+                if (WIFEXITED(status)) {
+                    *child_exit_code = WEXITSTATUS(status);
+                } else if (WIFSIGNALED(status)) {
+                    *child_signal = WTERMSIG(status);
+                }
+                break;
+            }
+            usleep(50000);
+        }
+    }
+    if (stdout_open) {
+        drain_fd(stdout_pipe[0], stdout_buf, &stdout_open);
+    }
+    if (stderr_open) {
+        drain_fd(stderr_pipe[0], stderr_buf, &stderr_open);
+    }
+    postflight_safe = reaped && (kill(-pgid, 0) < 0 && errno == ESRCH);
+
+    if (append_format(stdout_buf,
+                      "service_manager_start.observable=%d\n"
+                      "service_manager_start.exited=%d\n"
+                      "service_manager_start.exit_code=%d\n"
+                      "service_manager_start.signal=%d\n"
+                      "service_manager_start.timed_out=%d\n"
+                      "service_manager_start.term_sent=%d\n"
+                      "service_manager_start.kill_sent=%d\n"
+                      "service_manager_start.reaped=%d\n"
+                      "service_manager_start.proc_status_captured=%d\n"
+                      "service_manager_start.fd_summary_captured=%d\n"
+                      "service_manager_start.maps_summary_captured=%d\n"
+                      "service_manager_start.capture_exec=%d\n"
+                      "service_manager_start.capture_crash=%d\n"
+                      "service_manager_start.postflight_safe=%d\n",
+                      observable ? 1 : 0,
+                      child_done ? 1 : 0,
+                      *child_exit_code,
+                      *child_signal,
+                      *timed_out ? 1 : 0,
+                      term_sent ? 1 : 0,
+                      kill_sent ? 1 : 0,
+                      reaped ? 1 : 0,
+                      proc_status_captured ? 1 : 0,
+                      fd_summary_captured ? 1 : 0,
+                      maps_summary_captured ? 1 : 0,
+                      exec_captured ? 1 : 0,
+                      crash_captured ? 1 : 0,
+                      postflight_safe ? 1 : 0) < 0) {
+        goto fail;
+    }
+    if (!postflight_safe) {
+        append_literal(stdout_buf,
+                       "service_manager_start.result=start-only-reboot-required\n"
+                       "service_manager_start.reason=process-not-proven-stopped\n");
+    } else if (*timed_out && observable) {
+        append_literal(stdout_buf,
+                       "service_manager_start.result=start-only-pass\n"
+                       "service_manager_start.reason=observed-until-timeout-clean-stop\n");
+    } else if (exited_before_timeout || *child_exit_code >= 0 || *child_signal != 0) {
+        append_literal(stdout_buf,
+                       "service_manager_start.result=start-only-runtime-gap\n"
+                       "service_manager_start.reason=child-exited-before-observe-window\n");
+    } else {
+        append_literal(stdout_buf,
+                       "service_manager_start.result=manual-review-required\n"
+                       "service_manager_start.reason=unclassified-lifecycle-state\n");
+    }
+    append_literal(stdout_buf, "service_manager_start.end=1\n");
+    printf("capture.exec_captured=%d\n", exec_captured ? 1 : 0);
+    printf("capture.crash_captured=%d\n", crash_captured ? 1 : 0);
+    if (stdout_pipe[0] >= 0) close(stdout_pipe[0]);
+    if (stderr_pipe[0] >= 0) close(stderr_pipe[0]);
+    return 0;
+
+fail:
+    if (pid > 0) {
+        if (pgid > 1) {
+            kill(-pgid, SIGKILL);
+        }
+        kill(pid, SIGKILL);
+        waitpid(pid, NULL, WNOHANG);
+    }
+    if (stdout_pipe[0] >= 0) close(stdout_pipe[0]);
+    if (stdout_pipe[1] >= 0) close(stdout_pipe[1]);
+    if (stderr_pipe[0] >= 0) close(stderr_pipe[0]);
+    if (stderr_pipe[1] >= 0) close(stderr_pipe[1]);
+    return -1;
+}
+
 static int run_service_manager_start_only_guarded(const struct config *cfg,
                                                   const struct paths *paths,
                                                   struct buffer *stdout_buf,
@@ -2965,6 +3383,16 @@ static int run_service_manager_start_only_guarded(const struct config *cfg,
                                                   int *child_exit_code,
                                                   int *child_signal,
                                                   bool *timed_out) {
+    if (streq(cfg->capture_mode, "ptrace-lite")) {
+        return run_service_manager_start_only_guarded_ptrace(cfg,
+                                                            paths,
+                                                            stdout_buf,
+                                                            stderr_buf,
+                                                            child_exit_code,
+                                                            child_signal,
+                                                            timed_out);
+    }
+
     int stdout_pipe[2] = {-1, -1};
     int stderr_pipe[2] = {-1, -1};
     bool stdout_open = true;

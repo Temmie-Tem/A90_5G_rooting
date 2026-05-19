@@ -32,6 +32,7 @@ DEFAULT_HELPER = "/cache/bin/a90_android_execns_probe"
 DEFAULT_HELPER_SHA256 = "fef21de2897b16e4ead7fe780eff1817675d4ce988e558013ac9a37dc928d918"
 DEFAULT_PROPERTY_ROOT = ""
 DEFAULT_DATA_WIFI_MODE = "none"
+DEFAULT_CAPTURE_MODE = "none"
 SUMMARY_TITLE = "v376 Service-Manager Start-Only Live Runner"
 HELPER_LABEL = "v12"
 HELPER_DEPLOY_HINT = "run V375 deploy first"
@@ -105,6 +106,7 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--helper-sha256", default=DEFAULT_HELPER_SHA256)
     parser.add_argument("--property-root", default=DEFAULT_PROPERTY_ROOT)
     parser.add_argument("--data-wifi-mode", choices=("none", "private-empty"), default=DEFAULT_DATA_WIFI_MODE)
+    parser.add_argument("--capture-mode", choices=("none", "ptrace-lite"), default=DEFAULT_CAPTURE_MODE)
     parser.add_argument("--max-runtime-sec", type=int, default=8)
     parser.add_argument("--approval-phrase", default="")
     parser.add_argument("--apply", action="store_true")
@@ -183,6 +185,8 @@ def build_helper_argv(args: argparse.Namespace, target_profile: str) -> list[str
         "--timeout-sec",
         str(args.max_runtime_sec),
     ]
+    if args.capture_mode != "none":
+        argv.extend(["--capture-mode", args.capture_mode])
     if args.data_wifi_mode != "none":
         argv.extend(["--data-wifi-mode", args.data_wifi_mode])
     if args.property_root:
@@ -200,6 +204,7 @@ def build_plan(args: argparse.Namespace) -> dict[str, Any]:
         "max_runtime_sec": args.max_runtime_sec,
         "property_root": args.property_root,
         "data_wifi_mode": args.data_wifi_mode,
+        "capture_mode": args.capture_mode,
         "commands": {
             target: ["run", *build_helper_argv(args, target)]
             for target in SERVICE_TARGETS
@@ -234,6 +239,7 @@ def build_checks(args: argparse.Namespace, store: EvidenceStore, steps: list[Ste
     if args.property_root:
         add_check(checks, "property-root-visible", "pass" if step_ok(steps, "stat-property-root") else "blocked", "blocker", f"path={args.property_root} visible={step_ok(steps, 'stat-property-root')}", [args.property_root], "private property root must be exported before start-only run")
     add_check(checks, "data-wifi-mode", "pass", "info", f"mode={args.data_wifi_mode}", [], "helper creates private-empty data tree only inside its temp namespace")
+    add_check(checks, "capture-mode", "pass", "info", f"mode={args.capture_mode}", [], "ptrace-lite is capture-only and still bounded by service-manager start-only approval")
     add_check(checks, "process-surface-clean", "pass" if not managers else "blocked", "blocker", f"process_count={len(managers)}", managers[:8], "do not run over existing manager processes")
     add_check(checks, "wifi-link-clean", "pass" if not wifi_links else "blocked", "blocker", f"wifi_link_count={len(wifi_links)}", wifi_links[:8], "do not run while Wi-Fi link is active")
     add_check(checks, "temporary-binder-nodes-clean", "pass" if not step_ok(steps, "stat-binder") and not step_ok(steps, "stat-hwbinder") and not step_ok(steps, "stat-vndbinder") else "blocked", "blocker", f"binder={step_ok(steps, 'stat-binder')} hwbinder={step_ok(steps, 'stat-hwbinder')} vndbinder={step_ok(steps, 'stat-vndbinder')}", [], "helper must own temporary node lifecycle")

@@ -1726,7 +1726,9 @@ Samsung bootloader
    - v383 classifier 보고서: `docs/reports/NATIVE_INIT_V383_SERVICEMANAGER_SIGABRT_CLASSIFIER_2026-05-20.md`
    - v383 결과: `scripts/revalidation/wifi_service_manager_runtime_gap_classifier.py`가 V382 live evidence를 `service-manager-runtime-gap-servicemanager-sigabrt-capture-required`로 분류한다. device command/mutation 없이 regression PASS
    - v384 계획서: `docs/plans/NATIVE_INIT_V384_SERVICEMANAGER_CRASH_CAPTURE_PLAN_2026-05-20.md`
-   - v383 다음: V384에서 service-manager start-only 전용 `ptrace-lite` 또는 동등한 early-crash evidence capture helper를 추가한다. Wi-Fi HAL/start/scan/connect는 계속 blocked
+   - v384 구현 보고서: `docs/reports/NATIVE_INIT_V384_SERVICEMANAGER_CRASH_CAPTURE_2026-05-20.md`
+   - v384 결과: 로컬 `a90_android_execns_probe v15`가 `service-manager-start-only --capture-mode ptrace-lite`를 지원한다. deploy/live wrapper는 fail-closed이며, v382/v373 승인 문구로는 v384 live/deploy가 실행되지 않는다. 아직 v15 배포와 live crash capture는 미실행
+   - v384 다음: exact v384 deploy 승인으로 v15를 `/cache/bin`에 배포한 뒤, exact v384 ptrace-lite 승인으로 bounded service-manager crash capture를 실행한다. Wi-Fi HAL/start/scan/connect는 계속 blocked
 
 ---
 

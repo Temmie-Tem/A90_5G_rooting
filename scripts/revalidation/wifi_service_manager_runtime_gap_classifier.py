@@ -36,6 +36,9 @@ class TargetGap:
     data_missing: bool
     signal_abort: bool
     stderr_sigabrt: bool
+    ptrace_exec_stop: bool
+    ptrace_crash_stop: bool
+    ptrace_siginfo_signo: str
     postflight_safe: bool
     evidence: list[str]
 
@@ -115,8 +118,12 @@ def classify_targets(manifest: dict[str, Any]) -> list[TargetGap]:
                 or raw_line.startswith("child_signal=")
                 or raw_line.startswith("service_manager_start.signal=")
                 or raw_line.startswith("service_manager_start.reason=")
+                or raw_line.startswith("service_manager_start.capture_")
                 or raw_line.startswith("context.dev_properties.exists=")
                 or raw_line.startswith("context.data.exists=")
+                or raw_line.startswith("capture.exec_stop=")
+                or raw_line.startswith("capture.crash_stop=")
+                or raw_line.startswith("capture.crash.siginfo.")
                 or "SIGABRT" in raw_line
                 or "Fatal signal 6" in raw_line
             ):
@@ -133,6 +140,9 @@ def classify_targets(manifest: dict[str, Any]) -> list[TargetGap]:
             data_missing=context_missing(text, "context.data"),
             signal_abort=child_signal == "6",
             stderr_sigabrt="SIGABRT" in text or "Fatal signal 6" in text,
+            ptrace_exec_stop=key_value(text, "capture.exec_stop") == "1" or key_value(text, "service_manager_start.capture_exec") == "1",
+            ptrace_crash_stop=key_value(text, "capture.crash_stop") == "1" or key_value(text, "service_manager_start.capture_crash") == "1",
+            ptrace_siginfo_signo=key_value(text, "capture.crash.siginfo.signo"),
             postflight_safe=bool(observation.get("postflight_safe")),
             evidence=evidence[:12],
         ))
@@ -191,6 +201,22 @@ def decide(manifest: dict[str, Any], gaps: list[TargetGap]) -> tuple[str, bool, 
             "property runtime is missing for: " + ", ".join(property_missing),
             "plan private property area materialization before HAL work",
             ["property-runtime"],
+        )
+    servicemanager_captured = [
+        gap for gap in gaps
+        if gap.target == "system-servicemanager"
+        and gap.ptrace_crash_stop
+        and (gap.signal_abort or gap.ptrace_siginfo_signo == "6")
+        and not gap.binder_open_failed
+        and not gap.dev_properties_missing
+    ]
+    if servicemanager_captured:
+        return (
+            "service-manager-runtime-gap-servicemanager-sigabrt-captured",
+            True,
+            "servicemanager SIGABRT was captured by ptrace-lite crash evidence",
+            "inspect captured siginfo/register/maps/status evidence before runtime repair",
+            ["servicemanager-sigabrt-evidence"],
         )
     servicemanager_abort = [
         gap for gap in gaps
@@ -314,8 +340,11 @@ def classify_targets_synthetic(manifest: dict[str, Any]) -> list[TargetGap]:
             data_missing=context_missing(text, "context.data"),
             signal_abort=child_signal == "6",
             stderr_sigabrt="SIGABRT" in text or "Fatal signal 6" in text,
+            ptrace_exec_stop=key_value(text, "capture.exec_stop") == "1" or key_value(text, "service_manager_start.capture_exec") == "1",
+            ptrace_crash_stop=key_value(text, "capture.crash_stop") == "1" or key_value(text, "service_manager_start.capture_crash") == "1",
+            ptrace_siginfo_signo=key_value(text, "capture.crash.siginfo.signo"),
             postflight_safe=bool(observation.get("postflight_safe", manifest.get("_postflight_safe", True))),
-            evidence=[line for line in text.splitlines() if "Binder driver" in line or "SIGABRT" in line or line.startswith("child_signal=")][:12],
+            evidence=[line for line in text.splitlines() if "Binder driver" in line or "SIGABRT" in line or line.startswith("child_signal=") or line.startswith("capture.")][:12],
         ))
     return gaps
 
@@ -359,12 +388,25 @@ def synthetic_cases() -> list[tuple[str, dict[str, Any], str, bool, tuple[str, .
         "svc.txt": synthetic_gap_text("libc: Fatal signal 6 (SIGABRT), code -1", dev_properties_missing=False, data_missing=False),
         "hwsvc.txt": "child_signal=15\nservice_manager_start.signal=15\nservice_manager_start.reason=observed-until-timeout-clean-stop\ncontext.dev_properties.exists=1\ncontext.data.exists=1\n",
     }
+    captured_files = {
+        "svc.txt": "\n".join([
+            synthetic_gap_text("libc: Fatal signal 6 (SIGABRT), code -1", dev_properties_missing=False, data_missing=False),
+            "capture.exec_stop=1",
+            "capture.crash_stop=1",
+            "capture.crash.siginfo.signo=6",
+            "capture.crash.siginfo.code=-1",
+            "service_manager_start.capture_exec=1",
+            "service_manager_start.capture_crash=1",
+        ]),
+        "hwsvc.txt": sigabrt_files["hwsvc.txt"],
+    }
     return [
         ("missing", {"present": False, "path": ""}, "service-manager-runtime-gap-classifier-awaiting-v376", True, ("v376-approved-manifest",)),
         ("not-needed", synthetic_manifest("service-manager-start-only-live-pass", obs, files), "service-manager-runtime-gap-classifier-not-needed", True, ()),
         ("missing-observations", synthetic_manifest("service-manager-start-only-live-runtime-gap", []), "service-manager-runtime-gap-classifier-missing-observations", False, ("missing-observations",)),
         ("binder-required", synthetic_manifest("service-manager-start-only-live-runtime-gap", obs, files), "service-manager-runtime-gap-binder-devnode-required", True, ("private-binder-devnodes",)),
         ("property-required", synthetic_manifest("service-manager-start-only-live-runtime-gap", obs, prop_files), "service-manager-runtime-gap-property-runtime-required", True, ("property-runtime",)),
+        ("servicemanager-sigabrt-captured", synthetic_manifest("service-manager-start-only-live-runtime-gap", sigabrt_obs, captured_files), "service-manager-runtime-gap-servicemanager-sigabrt-captured", True, ("servicemanager-sigabrt-evidence",)),
         ("servicemanager-sigabrt", synthetic_manifest("service-manager-start-only-live-runtime-gap", sigabrt_obs, sigabrt_files), "service-manager-runtime-gap-servicemanager-sigabrt-capture-required", True, ("servicemanager-sigabrt-capture",)),
         ("unsafe", synthetic_manifest("service-manager-start-only-live-runtime-gap", [{**obs[0], "postflight_safe": False}], files), "service-manager-runtime-gap-classifier-unsafe-postflight", False, ("postflight-safety",)),
     ]
@@ -424,11 +466,13 @@ def render_summary(manifest: dict[str, Any]) -> str:
                 str(item["dev_properties_missing"]),
                 str(item["signal_abort"]),
                 str(item["stderr_sigabrt"]),
+                str(item["ptrace_exec_stop"]),
+                str(item["ptrace_crash_stop"]),
                 str(item["postflight_safe"]),
             ]
             for item in manifest["target_gaps"]
         ]
-        body = markdown_table(["target", "result", "reason", "signal", "binder_open_failed", "props_missing", "signal_abort", "stderr_sigabrt", "safe"], rows)
+        body = markdown_table(["target", "result", "reason", "signal", "binder_open_failed", "props_missing", "signal_abort", "stderr_sigabrt", "ptrace_exec", "ptrace_crash", "safe"], rows)
     return "\n".join([
         "# V378 Service-Manager Runtime Gap Classifier",
         "",
