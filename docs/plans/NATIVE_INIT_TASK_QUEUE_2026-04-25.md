@@ -3865,6 +3865,25 @@
 - next:
   - v311 candidate: context-aware `property_contexts` mapping proof before runtime prototype
 
+### V311. Property Context Mapping Proof — READY
+
+- 계획: `docs/plans/NATIVE_INIT_V311_PROPERTY_CONTEXT_MAPPING_PLAN_2026-05-19.md`
+- 보고서: `docs/reports/NATIVE_INIT_V311_PROPERTY_CONTEXT_MAPPING_2026-05-19.md`
+- boot image change: none
+- restored device build: `A90 Linux init 0.9.60 (v261)`
+- tool: `scripts/revalidation/wifi_property_context_mapping_proof.py`
+- evidence: `tmp/wifi/v311-property-context-mapping-proof/`
+- decision: `property-context-mapping-ready`
+- result:
+  - captured Android `property_contexts` rule count `1264`
+  - selected seed key mappings PASS
+  - context-aware `property_info` binary roundtrip PASS
+- safety:
+  - host-only mapping proof
+  - no device/ADB command, runtime property install, property service socket, daemon, or Wi-Fi bring-up action
+- next:
+  - v312 candidate: private property runtime layout package dry-run before any live install
+
 ### V187. Harness Broker Backend — PASS
 
 - 보고서: `docs/reports/NATIVE_INIT_V187_HARNESS_BROKER_BACKEND_2026-05-11.md`
