@@ -111,16 +111,6 @@ GATES = (
         "readiness aggregation still blocked by V317",
     ),
     GateSpec(
-        "v331-live-readiness-packet",
-        Path("tmp/wifi/v331-v317-live-readiness-packet/manifest.json"),
-        {"v317-live-readiness-packet-ready"},
-        True,
-        (
-            "scripts/revalidation/wifi_private_property_namespace_proof.py",
-        ),
-        "operator handoff packet; packet script changes are not live-path blockers",
-    ),
-    GateSpec(
         "v332-readonly-live-preflight",
         Path("tmp/wifi/v332-current-readonly-live-preflight/manifest.json"),
         {"private-property-live-preflight-ready"},
@@ -131,18 +121,6 @@ GATES = (
         ),
         "read-only current-device preflight",
         False,
-    ),
-    GateSpec(
-        "v333-post-v317-router",
-        Path("tmp/wifi/v333-post-v317-router/manifest.json"),
-        {"post-v317-router-awaiting-v317"},
-        True,
-        (
-            "scripts/revalidation/wifi_post_v317_router.py",
-            "scripts/revalidation/wifi_private_property_namespace_proof.py",
-            "scripts/revalidation/wifi_private_property_lookup_proof.py",
-        ),
-        "router still awaits V317 PASS",
     ),
     GateSpec(
         "v334-freshness-audit",

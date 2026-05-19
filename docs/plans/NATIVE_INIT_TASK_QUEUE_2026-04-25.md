@@ -4540,6 +4540,27 @@
 - next:
   - exact v317 approval phrase가 있으면 handoff packet의 preflight command를 먼저 실행하고, PASS 후 live `run` command를 별도 실행
 
+
+### V343. Break V331/V336 Handoff Cycle — HOST-ONLY / PENDING POST-COMMIT REGEN
+
+- 계획: `docs/plans/NATIVE_INIT_V343_BREAK_V331_V336_CYCLE_PLAN_2026-05-19.md`
+- 보고서: `docs/reports/NATIVE_INIT_V343_BREAK_V331_V336_CYCLE_2026-05-19.md`
+- target: `scripts/revalidation/wifi_v317_prelive_gate_audit.py`
+- boot image: 없음. v343은 host-side gate dependency correction이며 native init version 변경 없음
+- 변경:
+  - V336 pre-live gate에서 V331 readiness packet 의존성 제거
+  - V336 pre-live gate에서 V333 post-V317 router 의존성 제거
+  - V340이 V331/V336/V339를 묶는 최종 handoff aggregation point로 유지
+- pre-commit validation:
+  - `py_compile` PASS
+  - V336 audit에서 V331/V333 순환 blocker 제거 확인
+- post-commit validation:
+  - clean HEAD에서 V326/V327/V328/V335/V336/V331/V339/V340 evidence 재생성
+  - approved `preflight`가 device command 없이 `private-property-namespace-proof-preflight-ready`인지 확인
+- next:
+  - V343 commit 후 canonical evidence 재생성
+  - exact V317 approval phrase 없이는 live proof 실행하지 않음
+
 ### V187. Harness Broker Backend — PASS
 
 - 보고서: `docs/reports/NATIVE_INIT_V187_HARNESS_BROKER_BACKEND_2026-05-11.md`
