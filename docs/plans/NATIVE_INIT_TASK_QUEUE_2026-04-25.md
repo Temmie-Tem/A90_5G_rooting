@@ -3946,7 +3946,27 @@
   - no device command, no ADB command, no generated file installation
   - no bind mount, no property service socket, no daemon start, no Wi-Fi bring-up
 - next:
-  - v315 candidate: choose between a safer intermediate live-readonly proof and the first private namespace materialization implementation
+  - v315 read-only live preflight before any materialization implementation
+
+### V315. Private Property Live Preflight — PASS
+
+- 계획: `docs/plans/NATIVE_INIT_V315_PRIVATE_PROPERTY_LIVE_PREFLIGHT_PLAN_2026-05-19.md`
+- 보고서: `docs/reports/NATIVE_INIT_V315_PRIVATE_PROPERTY_LIVE_PREFLIGHT_2026-05-19.md`
+- boot image change: none
+- restored device build: `A90 Linux init 0.9.60 (v261)`
+- tool: `scripts/revalidation/wifi_private_property_live_preflight.py`
+- evidence: `tmp/wifi/v315-private-property-live-preflight/`
+- decision: `private-property-live-preflight-ready`
+- result:
+  - live native version/status/selftest/storage/mountsd/logpath read-only checks PASS
+  - SD workspace is mounted read-write and expected
+  - netservice remains disabled
+  - selftest reports `fail=0`
+- safety:
+  - `device_mutations=false`
+  - no `run`, write, mount, push, reboot, property service socket, daemon start, or Wi-Fi bring-up action
+- next:
+  - v316 candidate: approved minimal private namespace copy/materialization proof with no daemon start
 
 ### V187. Harness Broker Backend — PASS
 

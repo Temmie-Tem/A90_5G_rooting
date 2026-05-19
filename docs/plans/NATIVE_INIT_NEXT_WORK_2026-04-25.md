@@ -1471,6 +1471,10 @@ Samsung bootloader
    - v314 보고서: `docs/reports/NATIVE_INIT_V314_PRIVATE_PROPERTY_MATERIALIZATION_EXECUTOR_2026-05-19.md`
    - v314 결과: decisions `private-property-materialization-executor-plan-ready`, `private-property-materialization-executor-approval-required`, `private-property-materialization-executor-live-not-implemented`
    - v314 해석: executor scaffold가 future live sequence와 approval gate를 문서화했지만, v314는 device command/ADB command/generated file install/bind mount를 전혀 수행하지 않는다. 다음은 v315에서 더 작은 live-readonly proof를 둘지, 첫 private namespace materialization 구현으로 갈지 결정해야 한다
+   - v315 계획서: `docs/plans/NATIVE_INIT_V315_PRIVATE_PROPERTY_LIVE_PREFLIGHT_PLAN_2026-05-19.md`
+   - v315 보고서: `docs/reports/NATIVE_INIT_V315_PRIVATE_PROPERTY_LIVE_PREFLIGHT_2026-05-19.md`
+   - v315 결과: decision `private-property-live-preflight-ready`
+   - v315 해석: 실제 native v261 기기에서 version/status/selftest/storage/mountsd/logpath read-only preflight가 PASS했다. SD workspace는 rw 상태이고 netservice는 disabled, selftest는 fail=0이다. 다음 v316은 승인된 최소 private namespace copy/materialization proof 후보이며 daemon/Wi-Fi bring-up은 여전히 금지다
    - live daemon start 범위를 벗어나는 Wi-Fi scan/connect/link-up/credential/DHCP/routing은 별도 계획과 승인 전까지 blocked
 
 ---
