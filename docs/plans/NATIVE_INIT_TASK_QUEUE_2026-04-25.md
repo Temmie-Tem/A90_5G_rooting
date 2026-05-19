@@ -5124,6 +5124,25 @@
   - even approved V366 is only temporary node creation, private property lookup, cleanup, and postflight cleanliness
   - do not run service-manager/HAL/scan/connect before V366 approved smoke passes and a later separate approval packet exists
 
+
+### V367. Runtime Repair Smoke Gate Regression — PASS
+
+- 계획: `docs/plans/NATIVE_INIT_V367_RUNTIME_REPAIR_SMOKE_REGRESSION_PLAN_2026-05-20.md`
+- 보고서: `docs/reports/NATIVE_INIT_V367_RUNTIME_REPAIR_SMOKE_REGRESSION_2026-05-20.md`
+- evidence:
+  - regression: `tmp/wifi/v367-runtime-repair-smoke-regression-20260520-010304/`
+  - live no-approval refresh: `tmp/wifi/v367-v366-refusal-refresh-20260520-010326/`
+- boot image: 없음. v367은 host-only regression + V366 runner ordering fix
+- validation:
+  - regression decision `runtime-repair-smoke-regression-pass`
+  - live no-approval refresh decision `runtime-repair-smoke-approval-required`
+  - exact approval + clean synthetic path reaches create/stat/property/cleanup calls
+  - exact approval + preexisting vendor/binder node blocks before mutation calls
+  - no live mutation, service-manager/HAL/scan/connect execution 없음
+- next:
+  - V366 approved live smoke remains pending until exact phrase is supplied
+  - do not run service-manager/HAL/scan/connect before V366 approved smoke passes and a later separate approval packet exists
+
 ### V187. Harness Broker Backend — PASS
 
 - 보고서: `docs/reports/NATIVE_INIT_V187_HARNESS_BROKER_BACKEND_2026-05-11.md`

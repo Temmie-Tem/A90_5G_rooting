@@ -345,6 +345,7 @@ def render_summary(manifest: dict[str, Any]) -> str:
 def build_manifest(args: argparse.Namespace, store: EvidenceStore) -> dict[str, Any]:
     v365 = load_manifest(args.v365_manifest)
     steps: list[StepResult] = []
+    checks: list[Check] | None = None
     if args.command in {"preflight", "run"}:
         steps.extend(run_preflight(args, store))
     elif args.command == "cleanup":
@@ -355,14 +356,19 @@ def build_manifest(args: argparse.Namespace, store: EvidenceStore) -> dict[str, 
         store.mkdir("native")
     approval_ok = args.command == "run" and args.approval_phrase == APPROVAL_PHRASE and args.apply and args.assume_yes
     if approval_ok:
-        try:
-            steps.extend(create_nodes(args, store, steps))
-            steps.extend(stat_created(args, store))
-            steps.append(property_lookup(args, store))
-        finally:
-            steps.extend(cleanup_nodes(args, store))
-            steps.extend(postflight(args, store))
-    checks = build_checks(args, store, v365, steps)
+        preflight_checks = build_checks(args, store, v365, steps)
+        if any(check_blocks(check) for check in preflight_checks):
+            checks = preflight_checks
+        else:
+            try:
+                steps.extend(create_nodes(args, store, steps))
+                steps.extend(stat_created(args, store))
+                steps.append(property_lookup(args, store))
+            finally:
+                steps.extend(cleanup_nodes(args, store))
+                steps.extend(postflight(args, store))
+    if checks is None:
+        checks = build_checks(args, store, v365, steps)
     pass_ok, decision, reason = decide(args, checks, steps)
     return {
         "generated_at": now_iso(),
