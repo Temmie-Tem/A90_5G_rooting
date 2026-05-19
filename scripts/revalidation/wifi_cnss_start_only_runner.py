@@ -22,7 +22,7 @@ from wifi_cnss_zombie_audit import parse_ps_stat_comm, summarize_cnss_processes
 DEFAULT_OUT_DIR = Path("tmp/wifi/v247-cnss-start-only-runner")
 DEFAULT_EXPECT_VERSION = "A90 Linux init 0.9.59 (v159)"
 DEFAULT_HELPER = "/cache/bin/a90_android_execns_probe"
-DEFAULT_HELPER_SHA256 = "1c0234f5468f053ae559c5307124db4682f6ed89a1644312194eca730a623750"
+DEFAULT_HELPER_SHA256 = "f40db33a2823662f64d7a2b3c6dca9ce174801208c14c4a83647a12db1ce636b"
 DEFAULT_HELPER_TIMEOUT_SEC = 10
 
 REQUIRED_MANIFESTS = {

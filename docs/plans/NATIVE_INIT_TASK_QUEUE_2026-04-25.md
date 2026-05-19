@@ -4932,6 +4932,30 @@
 - next:
   - exact V317 approval phrase 없이는 executor `run`/`cleanup` 실행하지 않음
 
+### V360. CNSS Pre-Start Runner Refresh After V320 — NO-START PASS
+
+- 계획: `docs/plans/NATIVE_INIT_V360_CNSS_PRESTART_RUNNER_REFRESH_PLAN_2026-05-19.md`
+- 보고서: `docs/reports/NATIVE_INIT_V360_CNSS_PRESTART_RUNNER_REFRESH_2026-05-19.md`
+- target: `scripts/revalidation/wifi_cnss_start_only_runner.py`
+- boot image: 없음. v360은 host runner default refresh이며 native init version 변경 없음
+- 배경:
+  - V320 live property lookup PASS 후 `/cache/bin/a90_android_execns_probe`는 v11 helper로 교체됐다
+  - 기존 CNSS start-only runner 기본 helper SHA가 v10이라 no-start preflight가 false `start-only-blocked`를 냈다
+- 구현:
+  - default helper SHA를 v11 `f40db33a2823662f64d7a2b3c6dca9ce174801208c14c4a83647a12db1ce636b`로 갱신
+  - `run` mode, daemon start, Wi-Fi bring-up은 실행하지 않음
+- validation:
+  - `py_compile` PASS
+  - CNSS start plan decision `cnss-start-plan-ready`
+  - runner `plan` decision `dry-run-ready`
+  - runner `preflight` decision `preflight-ready`
+  - runner `dry-run` decision `preflight-ready`
+  - preflight `helper_sha256_match=true`, `required_failures=[]`
+  - `daemon_start_executed=false`
+- next:
+  - 별도 exact approval boundary 없이는 `wifi_cnss_start_only_runner.py run` 실행하지 않음
+  - 다음 후보는 bounded CNSS start-only approval packet refresh 또는 추가 no-start readiness probe
+
 ### V187. Harness Broker Backend — PASS
 
 - 보고서: `docs/reports/NATIVE_INIT_V187_HARNESS_BROKER_BACKEND_2026-05-11.md`
