@@ -3966,7 +3966,28 @@
   - `device_mutations=false`
   - no `run`, write, mount, push, reboot, property service socket, daemon start, or Wi-Fi bring-up action
 - next:
-  - v316 candidate: approved minimal private namespace copy/materialization proof with no daemon start
+  - v316 approval packet for the next minimal private namespace copy/materialization proof
+
+### V316. Private Property Live Approval Packet — READY / WAITING FOR OPERATOR
+
+- 계획: `docs/plans/NATIVE_INIT_V316_PRIVATE_PROPERTY_LIVE_APPROVAL_PLAN_2026-05-19.md`
+- 보고서: `docs/reports/NATIVE_INIT_V316_PRIVATE_PROPERTY_LIVE_APPROVAL_2026-05-19.md`
+- boot image change: none
+- restored device build: `A90 Linux init 0.9.60 (v261)`
+- tool: `scripts/revalidation/wifi_private_property_live_approval_packet.py`
+- evidence: `tmp/wifi/v316-private-property-live-approval/`
+- decision: `private-property-live-approval-ready`
+- result:
+  - v314 executor plan PASS
+  - v315 read-only live preflight PASS
+  - exact v317 approval phrase emitted
+- required approval phrase:
+  - `approve v317 minimal private property namespace proof only; no daemon start and no Wi-Fi bring-up`
+- safety:
+  - `device_commands_executed=false`
+  - no device command, ADB command, generated file copy, mount, daemon start, or Wi-Fi bring-up
+- next:
+  - v317 is blocked until explicit operator approval
 
 ### V187. Harness Broker Backend — PASS
 

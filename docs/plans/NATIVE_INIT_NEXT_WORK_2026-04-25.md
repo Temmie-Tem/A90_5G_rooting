@@ -1475,6 +1475,10 @@ Samsung bootloader
    - v315 보고서: `docs/reports/NATIVE_INIT_V315_PRIVATE_PROPERTY_LIVE_PREFLIGHT_2026-05-19.md`
    - v315 결과: decision `private-property-live-preflight-ready`
    - v315 해석: 실제 native v261 기기에서 version/status/selftest/storage/mountsd/logpath read-only preflight가 PASS했다. SD workspace는 rw 상태이고 netservice는 disabled, selftest는 fail=0이다. 다음 v316은 승인된 최소 private namespace copy/materialization proof 후보이며 daemon/Wi-Fi bring-up은 여전히 금지다
+   - v316 계획서: `docs/plans/NATIVE_INIT_V316_PRIVATE_PROPERTY_LIVE_APPROVAL_PLAN_2026-05-19.md`
+   - v316 보고서: `docs/reports/NATIVE_INIT_V316_PRIVATE_PROPERTY_LIVE_APPROVAL_2026-05-19.md`
+   - v316 결과: decision `private-property-live-approval-ready`
+   - v316 해석: v317 최소 private namespace proof의 승인 문구를 고정했다. 진행하려면 `approve v317 minimal private property namespace proof only; no daemon start and no Wi-Fi bring-up` 문구의 명시 승인이 필요하다
    - live daemon start 범위를 벗어나는 Wi-Fi scan/connect/link-up/credential/DHCP/routing은 별도 계획과 승인 전까지 blocked
 
 ---
