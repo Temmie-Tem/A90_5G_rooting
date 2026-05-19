@@ -1,8 +1,8 @@
 #ifndef A90_CONFIG_H
 #define A90_CONFIG_H
 
-#define INIT_VERSION "0.9.60"
-#define INIT_BUILD "v261"
+#define INIT_VERSION "0.9.61"
+#define INIT_BUILD "v319"
 #define INIT_CREATOR "made by temmie0214"
 #define INIT_BANNER "A90 Linux init " INIT_VERSION " (" INIT_BUILD ")"
 #define BOOT_SPLASH_SECONDS 2
@@ -17,6 +17,7 @@
 #define BOOT_TIMELINE_MAX 32
 #define CONSOLE_POLL_TIMEOUT_MS 1000
 #define CONSOLE_IDLE_REATTACH_MS 60000
+#define CONSOLE_LINE_MAX 4096
 #define DISPLAY_TEST_PAGE_COUNT 4
 #define AUTO_MENU_STATE_PATH "/tmp/a90-auto-menu-active"
 #define AUTO_MENU_REQUEST_PATH "/tmp/a90-auto-menu-request"
@@ -52,6 +53,7 @@
 #define A90_LONGSOAK_TAIL_DEFAULT_LINES 8
 #define A90_LONGSOAK_TAIL_MAX_LINES 64
 #define CMDV1X_MAX_ARGS 32
+#define CMDV1X_BUFFER_BYTES 4096
 #define SD_BLOCK_NAME "mmcblk0p1"
 #define SD_MOUNT_POINT "/mnt/sdext"
 #define SD_FS_TYPE "ext4"

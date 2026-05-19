@@ -31,7 +31,7 @@ APPROVAL_PHRASE = "approve v317 minimal private property namespace proof only; n
 REMOTE_WORKDIR = "/mnt/sdext/a90/private-property-v317"
 REMOTE_PROP_PREFIX = REMOTE_WORKDIR + "/dev/__properties__"
 TOYBOX = "/cache/bin/toybox"
-CHUNK_SIZE = 384
+CHUNK_SIZE = 1536
 SAFE_DEVICE_PATH_RE = re.compile(r"^[A-Za-z0-9_./:+-]+$")
 SHA256_RE = re.compile(r"\b([0-9a-fA-F]{64})\b")
 
@@ -135,12 +135,6 @@ def validate_device_path(path: str) -> bool:
     )
 
 
-def shell_quote_single(value: str) -> str:
-    if "'" in value or "\x00" in value:
-        raise RuntimeError(f"unsafe shell value: {value!r}")
-    return "'" + value + "'"
-
-
 def file_entries(v312: dict[str, Any]) -> list[LayoutFile]:
     base_dir = Path(str(v312.get("path") or "")).parent
     entries: list[LayoutFile] = []
@@ -230,31 +224,61 @@ def build_checks(args: argparse.Namespace,
     ]
 
 
+
+
+def uuencode_base64_payload(data: bytes, name: str) -> str:
+    safe_name = re.sub(r"[^A-Za-z0-9_.+-]", "_", name) or "payload"
+    encoded = base64.b64encode(data).decode("ascii")
+    lines = ["begin-base64 600 " + safe_name]
+    lines.extend(encoded[index:index + 76] for index in range(0, len(encoded), 76))
+    lines.append("====")
+    return "\n".join(lines) + "\n"
+
+
+def estimate_cmdv1x_line_chars(argv: list[str]) -> int:
+    total = len("cmdv1x")
+    for arg in argv:
+        data_len = len(arg.encode("utf-8"))
+        total += 1 + len(str(data_len)) + 1 + data_len * 2
+    return total
+
+
 def estimate_transfer(files: list[LayoutFile], chunk_size: int) -> TransferEstimate:
     total_bytes = 0
     total_chunks = 0
     max_script_chars = 0
-    if chunk_size < 64 or chunk_size > 2048:
+    if chunk_size < 256 or chunk_size > 1800:
         return TransferEstimate(len(files), 0, chunk_size, 0, 0, 0, "bad-chunk-size")
     for entry in files:
         if entry.status != "pass":
             continue
-        data_len = Path(entry.local_path).stat().st_size
-        encoded_len = ((data_len + 2) // 3) * 4
-        chunks = (encoded_len + chunk_size - 1) // chunk_size
-        script_chars = len("printf %s ") + chunk_size + len(" >> ") + len(entry.remote_path) + len(".b64") + 4
-        total_bytes += data_len
+        data = Path(entry.local_path).read_bytes()
+        encoded_text = uuencode_base64_payload(data, Path(entry.remote_path).name)
+        chunks = (len(encoded_text) + chunk_size - 1) // chunk_size
+        script_chars = estimate_cmdv1x_line_chars([
+            "appendfile",
+            entry.remote_path + ".uue",
+            "X" * min(chunk_size, len(encoded_text)),
+        ])
+        total_bytes += len(data)
         total_chunks += chunks
         max_script_chars = max(max_script_chars, script_chars)
-    manifest_estimate_bytes = 4096 + len(files) * 512
-    manifest_chunks = ((((manifest_estimate_bytes + 2) // 3) * 4) + chunk_size - 1) // chunk_size
+    manifest_estimate_text = uuencode_base64_payload(b"X" * (4096 + len(files) * 512), "manifest.json")
+    manifest_chunks = (len(manifest_estimate_text) + chunk_size - 1) // chunk_size
+    manifest_script_chars = estimate_cmdv1x_line_chars([
+        "appendfile",
+        REMOTE_WORKDIR + "/manifest.json.uue",
+        "X" * min(chunk_size, len(manifest_estimate_text)),
+    ])
+    max_script_chars = max(max_script_chars, manifest_script_chars)
     total_chunks += manifest_chunks
-    estimated_commands = 1 + 3 + sum(
-        (((((Path(entry.local_path).stat().st_size + 2) // 3) * 4) + chunk_size - 1) // chunk_size) + 5
-        for entry in files
-        if entry.status == "pass"
-    ) + manifest_chunks + 5
-    status = "pass" if total_chunks > 0 and estimated_commands < 5000 and max_script_chars < 4096 else "too-large"
+    estimated_commands = 1 + 3 + manifest_chunks + 5
+    for entry in files:
+        if entry.status != "pass":
+            continue
+        encoded_len = len(uuencode_base64_payload(Path(entry.local_path).read_bytes(), Path(entry.remote_path).name))
+        estimated_commands += ((encoded_len + chunk_size - 1) // chunk_size) + 5
+    status = "pass" if total_chunks > 0 and estimated_commands < 1000 and max_script_chars < 3900 else "too-large"
     return TransferEstimate(len(files), total_bytes, chunk_size, total_chunks, estimated_commands, max_script_chars, status)
 
 
@@ -301,10 +325,6 @@ def device_cmd(args: argparse.Namespace,
     return result
 
 
-def toybox_sh(script: str) -> list[str]:
-    return ["run", TOYBOX, "sh", "-c", script]
-
-
 def mkdir_sequence(args: argparse.Namespace, store: EvidenceStore, records: list[CommandRecord]) -> None:
     for index, path in enumerate([
         REMOTE_WORKDIR,
@@ -325,31 +345,29 @@ def upload_bytes(args: argparse.Namespace,
                  data: bytes,
                  expected_sha: str,
                  label: str) -> None:
-    if args.chunk_size < 64 or args.chunk_size > 2048:
-        raise RuntimeError("chunk size must be between 64 and 2048")
+    if args.chunk_size < 256 or args.chunk_size > 1800:
+        raise RuntimeError("chunk size must be between 256 and 1800")
     if not validate_device_path(remote_path):
         raise RuntimeError(f"unsafe remote path: {remote_path}")
-    tmp_b64 = remote_path + ".b64"
+    tmp_uue = remote_path + ".uue"
     tmp_file = remote_path + ".tmp"
-    for path in [tmp_b64, tmp_file, remote_path]:
+    for path in [tmp_uue, tmp_file, remote_path]:
         if not validate_device_path(path):
             raise RuntimeError(f"unsafe temp path: {path}")
 
-    device_cmd(args, store, records, f"{label}-rm-old", ["run", TOYBOX, "rm", "-f", tmp_b64, tmp_file])
-    encoded = base64.b64encode(data).decode("ascii")
-    for index in range(0, len(encoded), args.chunk_size):
-        chunk = encoded[index:index + args.chunk_size]
-        script = f"printf %s {shell_quote_single(chunk)} >> {shell_quote_single(tmp_b64)}"
-        device_cmd(args, store, records, f"{label}-chunk-{index // args.chunk_size:04d}", toybox_sh(script))
-    decode_script = f"{TOYBOX} base64 -d {shell_quote_single(tmp_b64)} > {shell_quote_single(tmp_file)}"
-    device_cmd(args, store, records, f"{label}-decode", toybox_sh(decode_script))
+    device_cmd(args, store, records, f"{label}-rm-old", ["run", TOYBOX, "rm", "-f", tmp_uue, tmp_file, remote_path])
+    encoded_text = uuencode_base64_payload(data, Path(remote_path).name)
+    for index in range(0, len(encoded_text), args.chunk_size):
+        chunk = encoded_text[index:index + args.chunk_size]
+        device_cmd(args, store, records, f"{label}-chunk-{index // args.chunk_size:04d}", ["appendfile", tmp_uue, chunk])
+    device_cmd(args, store, records, f"{label}-decode", ["run", TOYBOX, "uudecode", "-o", tmp_file, tmp_uue])
     sha_result = device_cmd(args, store, records, f"{label}-sha256", ["run", TOYBOX, "sha256sum", tmp_file])
     match = SHA256_RE.search(sha_result.text)
     actual_sha = match.group(1).lower() if match else ""
     if actual_sha != expected_sha:
         raise RuntimeError(f"sha256 mismatch for {remote_path}: expected={expected_sha} actual={actual_sha}")
     device_cmd(args, store, records, f"{label}-mv", ["run", TOYBOX, "mv", "-f", tmp_file, remote_path])
-    device_cmd(args, store, records, f"{label}-rm-b64", ["run", TOYBOX, "rm", "-f", tmp_b64])
+    device_cmd(args, store, records, f"{label}-rm-uue", ["run", TOYBOX, "rm", "-f", tmp_uue])
 
 
 def live_run(args: argparse.Namespace, store: EvidenceStore, files: list[LayoutFile]) -> tuple[list[CommandRecord], str]:

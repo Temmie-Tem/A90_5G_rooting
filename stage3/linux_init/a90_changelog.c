@@ -8,6 +8,12 @@
     { label, summary, { d1, d2, d3, d4, d5 } }
 
 static const struct a90_changelog_entry changelog_entries[] = {
+    ENTRY("0.9.61 v319", "SERIAL TRANSFER APPEND",
+          "0.9.61 v319 SERIAL TRANSFER APPEND",
+          "Adds bounded appendfile command for ACM serial transfer staging",
+          "Expands cmdv1x decode buffer and shell line size to 4096 bytes",
+          "Keeps appendfile scoped to A90 runtime/cache/temp workspaces",
+          "Prepares private property namespace proof without toybox sh pipelines"),
     ENTRY("0.9.60 v261", "PID1 ORPHAN REAPER",
           "0.9.60 v261 PID1 ORPHAN REAPER",
           "Adds PID1 waitpid(-1) orphan/zombie reap polling",

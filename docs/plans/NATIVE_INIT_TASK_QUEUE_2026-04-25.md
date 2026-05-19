@@ -1,35 +1,35 @@
 # Native Init Task Queue (2026-04-25)
 
-이 문서는 `A90 Linux init 0.9.60 (v261)` verified 이후 바로 실행할 작업 큐다.
+이 문서는 `A90 Linux init 0.9.61 (v319)` verified 이후 바로 실행할 작업 큐다.
 큰 방향은 “보이는 부팅 → 복구 가능한 로그 → 단독 조작 → 작은 userland → USB networking” 순서다.
 
 ## 버전 표기 규칙
 
 - numeric `MAJOR.MINOR.PATCH`는 native init / boot image의 canonical version이다.
-  - 예: `A90 Linux init 0.9.60`, `0.9.60`
+  - 예: `A90 Linux init 0.9.61`, `0.9.61`
   - PID 1, ramdisk helper, boot image, device-visible native behavior가 바뀌고 실기기에 flash할 때만 증가시킨다.
 - `v###`는 project execution cycle이다.
   - host tooling, security batch, 계획/보고서, long-soak/mixed-soak gate, documentation-only milestone에도 사용할 수 있다.
   - `v###`가 항상 boot image 또는 device flash를 의미하지 않는다.
 - 모든 계획/보고서는 `Native build`, `Cycle label`, `Device flash`, `Host commit`을 분리해 적는다.
 - 현재 기준 예:
-  - Native build: `A90 Linux init 0.9.60`
-  - Device build tag: `v261`
+  - Native build: `A90 Linux init 0.9.61`
+  - Device build tag: `v319`
   - Cycle label: `v185` host protocol/broker design
   - Device flash: none
 - 상세 규칙: `docs/operations/VERSIONING_POLICY.md`
 
 ## 현재 고정 기준점
 
-- latest verified build: `A90 Linux init 0.9.60 (v261)`
-- official version: `0.9.60`
-- build tag: `v261`
+- latest verified build: `A90 Linux init 0.9.61 (v319)`
+- official version: `0.9.61`
+- build tag: `v319`
 - creator: `made by temmie0214`
-- latest verified source: `stage3/linux_init/init_v261.c` + `stage3/linux_init/v261/*.inc.c` + `stage3/linux_init/helpers/a90_cpustress.c` + `stage3/linux_init/helpers/a90_rshell.c` + `stage3/linux_init/helpers/a90_longsoak.c` + `stage3/linux_init/a90_config.h` + `stage3/linux_init/a90_util.c/h` + `stage3/linux_init/a90_log.c/h` + `stage3/linux_init/a90_timeline.c/h` + `stage3/linux_init/a90_console.c/h` + `stage3/linux_init/a90_cmdproto.c/h` + `stage3/linux_init/a90_run.c/h` + `stage3/linux_init/a90_service.c/h` + `stage3/linux_init/a90_kms.c/h` + `stage3/linux_init/a90_draw.c/h` + `stage3/linux_init/a90_input.c/h` + `stage3/linux_init/a90_input_cmd.c/h` + `stage3/linux_init/a90_kernelinv.c/h` + `stage3/linux_init/a90_sensormap.c/h` + `stage3/linux_init/a90_pstore.c/h` + `stage3/linux_init/a90_watchdoginv.c/h` + `stage3/linux_init/a90_tracefs.c/h` + `stage3/linux_init/a90_hud.c/h` + `stage3/linux_init/a90_menu.c/h` + `stage3/linux_init/a90_metrics.c/h` + `stage3/linux_init/a90_shell.c/h` + `stage3/linux_init/a90_controller.c/h` + `stage3/linux_init/a90_storage.c/h` + `stage3/linux_init/a90_selftest.c/h` + `stage3/linux_init/a90_usb_gadget.c/h` + `stage3/linux_init/a90_netservice.c/h` + `stage3/linux_init/a90_pid1_guard.c/h` + `stage3/linux_init/a90_reaper.c/h` + `stage3/linux_init/a90_runtime.c/h` + `stage3/linux_init/a90_helper.c/h` + `stage3/linux_init/a90_userland.c/h` + `stage3/linux_init/a90_diag.c/h` + `stage3/linux_init/a90_exposure.c/h` + `stage3/linux_init/a90_wifiinv.c/h` + `stage3/linux_init/a90_wififeas.c/h` + `stage3/linux_init/a90_changelog.c/h` + `stage3/linux_init/a90_longsoak.c/h` + `stage3/linux_init/a90_app_about.c/h` + `stage3/linux_init/a90_app_cpustress.c/h` + `stage3/linux_init/a90_app_displaytest.c/h` + `stage3/linux_init/a90_app_inputmon.c/h` + `stage3/linux_init/a90_app_log.c/h` + `stage3/linux_init/a90_app_network.c/h`
-- latest verified boot image: `stage3/boot_linux_v261.img`
+- latest verified source: `stage3/linux_init/init_v319.c` + `stage3/linux_init/v319/*.inc.c` + `stage3/linux_init/helpers/a90_cpustress.c` + `stage3/linux_init/helpers/a90_rshell.c` + `stage3/linux_init/helpers/a90_longsoak.c` + `stage3/linux_init/a90_config.h` + `stage3/linux_init/a90_util.c/h` + `stage3/linux_init/a90_log.c/h` + `stage3/linux_init/a90_timeline.c/h` + `stage3/linux_init/a90_console.c/h` + `stage3/linux_init/a90_cmdproto.c/h` + `stage3/linux_init/a90_run.c/h` + `stage3/linux_init/a90_service.c/h` + `stage3/linux_init/a90_kms.c/h` + `stage3/linux_init/a90_draw.c/h` + `stage3/linux_init/a90_input.c/h` + `stage3/linux_init/a90_input_cmd.c/h` + `stage3/linux_init/a90_kernelinv.c/h` + `stage3/linux_init/a90_sensormap.c/h` + `stage3/linux_init/a90_pstore.c/h` + `stage3/linux_init/a90_watchdoginv.c/h` + `stage3/linux_init/a90_tracefs.c/h` + `stage3/linux_init/a90_hud.c/h` + `stage3/linux_init/a90_menu.c/h` + `stage3/linux_init/a90_metrics.c/h` + `stage3/linux_init/a90_shell.c/h` + `stage3/linux_init/a90_controller.c/h` + `stage3/linux_init/a90_storage.c/h` + `stage3/linux_init/a90_selftest.c/h` + `stage3/linux_init/a90_usb_gadget.c/h` + `stage3/linux_init/a90_netservice.c/h` + `stage3/linux_init/a90_pid1_guard.c/h` + `stage3/linux_init/a90_reaper.c/h` + `stage3/linux_init/a90_runtime.c/h` + `stage3/linux_init/a90_helper.c/h` + `stage3/linux_init/a90_userland.c/h` + `stage3/linux_init/a90_diag.c/h` + `stage3/linux_init/a90_exposure.c/h` + `stage3/linux_init/a90_wifiinv.c/h` + `stage3/linux_init/a90_wififeas.c/h` + `stage3/linux_init/a90_changelog.c/h` + `stage3/linux_init/a90_longsoak.c/h` + `stage3/linux_init/a90_app_about.c/h` + `stage3/linux_init/a90_app_cpustress.c/h` + `stage3/linux_init/a90_app_displaytest.c/h` + `stage3/linux_init/a90_app_inputmon.c/h` + `stage3/linux_init/a90_app_log.c/h` + `stage3/linux_init/a90_app_network.c/h`
+- latest verified boot image: `stage3/boot_linux_v319.img`
 - previous verified source-layout baseline: `stage3/linux_init/init_v80.c` + `stage3/linux_init/v80/*.inc.c`
 - known-good fallback: `stage3/boot_linux_v48.img`
-- local artifact retention: `v261` latest, `v159` rollback, `v48` known-good만 보존하고 나머지 ignored stage3 산출물은 정리 가능
+- local artifact retention: `v319` latest, `v261` rollback, `v48` known-good만 보존하고 나머지 ignored stage3 산출물은 정리 가능
 - control channel: USB ACM serial bridge
 - log: SD 정상 시 `/mnt/sdext/a90/logs/native-init.log`, fallback 시 `/cache/native-init.log`, emergency fallback 시 private `/tmp/a90-native/native-init.log`
 - verified:
@@ -4007,7 +4007,7 @@
   - `private-property-namespace-proof-audit-pass`
   - `private-property-namespace-proof-audit-selftest-pass`
 - transfer estimate:
-  - files `5`, bytes `524988`, chunks `1851`, estimated device commands `1885`
+  - files `5`, bytes `524988`, chunks `471`, estimated device commands `505`
 - required approval phrase:
   - `approve v317 minimal private property namespace proof only; no daemon start and no Wi-Fi bring-up`
 - intended scope:
@@ -4046,6 +4046,28 @@
   - no file write/create/remove, no NCM/tcpctl start, no daemon start, no Wi-Fi bring-up
 - next:
   - patch V317 runner to use a redirection-free `uudecode -o` transfer strategy before any live namespace proof
+
+### V319. Serial Transfer Append — PASS
+
+- 계획: `docs/plans/NATIVE_INIT_V319_SERIAL_TRANSFER_APPEND_PLAN_2026-05-19.md`
+- 보고서: `docs/reports/NATIVE_INIT_V319_SERIAL_TRANSFER_APPEND_2026-05-19.md`
+- native build: `A90 Linux init 0.9.61 (v319)`
+- boot image: `stage3/boot_linux_v319.img`
+- artifact sha256:
+  - init `d8cf63a6231d95a1c29e4a3587cc38e900ff46007f8f686f22c9fc814c60d7d1`
+  - ramdisk `d264d2130f1480e4cc19f33b618fd4365e65238101b9fe13c38474d138ee7256`
+  - boot `98cc57153bcc4c235193e28fd52650485ffc1f19aa6464942e5216839d4597c8`
+- validation:
+  - native-init flash PASS
+  - `cmdv1 version/status` PASS
+  - appendfile transfer smoke PASS
+  - long `cmdv1x` 1500-byte append PASS
+  - V317 plan/refusal/audit revalidation PASS
+- result:
+  - added scoped `appendfile` and 4096-byte shell/cmdv1x buffers
+  - V317 runner now uses `appendfile` + `uudecode -o` instead of unavailable `toybox sh`
+- next:
+  - V317 live private namespace proof may run after the exact V317 approval phrase; still no daemon start or Wi-Fi bring-up
 
 ### V187. Harness Broker Backend — PASS
 

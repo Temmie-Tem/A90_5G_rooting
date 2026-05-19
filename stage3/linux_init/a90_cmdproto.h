@@ -7,7 +7,7 @@
 
 struct a90_cmdproto_decoded {
     char *argv[CMDV1X_MAX_ARGS];
-    char buffer[512];
+    char buffer[CMDV1X_BUFFER_BYTES];
     int argc;
 };
 
