@@ -1880,3 +1880,8 @@ Samsung bootloader
    - v394 report: `docs/reports/NATIVE_INIT_V394_POST_V392_ROUTER_2026-05-20.md`
    - v394 결과: `scripts/revalidation/wifi_v392_post_live_router.py`가 V392 executor/framechain manifest를 host-only로 라우팅한다. synthetic regression PASS, current no-approval route는 expected `v392-post-live-router-awaiting-approval` PASS
    - v394 해석: approved V392 live 후 framechain 결과가 symbolized caller, abort-only, missing ELF, missing maprow, clean service-manager 중 어디에 해당하는지 자동 분기한다. Wi-Fi HAL/start/scan/connect remains blocked until V392 evidence says service-manager path is clean enough for a separate HAL start-only approval packet
+
+   - v395 plan: `docs/plans/NATIVE_INIT_V395_CURRENT_READINESS_PACKET_PLAN_2026-05-20.md`
+   - v395 report: `docs/reports/NATIVE_INIT_V395_CURRENT_READINESS_PACKET_2026-05-20.md`
+   - v395 결과: `scripts/revalidation/wifi_v392_current_readiness_packet.py`가 최신 safe preflight/no-approval/router/read-only health evidence를 묶어 `v392-current-readiness-ready-for-approval` PASS로 판정했다. 디바이스 명령 실행/뮤테이션/daemon/Wi-Fi bring-up은 없음
+   - v395 해석: V392 approved executor를 실행할 준비는 됐지만 exact approval phrase 두 개가 없으면 계속 fail-closed 상태다

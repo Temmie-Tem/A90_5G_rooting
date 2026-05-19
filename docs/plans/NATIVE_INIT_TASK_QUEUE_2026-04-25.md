@@ -8362,3 +8362,25 @@ python3 ./scripts/revalidation/physical_usb_reconnect_check.py --manual-host-con
   - no device commands, mutations, daemon start, or Wi-Fi bring-up
 - validation: `py_compile` PASS, synthetic router regression PASS, current no-approval route PASS, V392 no-approval executor PASS, read-only device health PASS.
 - next execution item: V392 exact-approved helper v21 deploy and service-manager backchain capture live run, then route the resulting executor manifest through V394. Wi-Fi HAL/start/scan/connect remains blocked.
+
+### V395. Current V392 Readiness Packet — PASS / READY FOR APPROVAL
+
+- plan: `docs/plans/NATIVE_INIT_V395_CURRENT_READINESS_PACKET_PLAN_2026-05-20.md`
+- report: `docs/reports/NATIVE_INIT_V395_CURRENT_READINESS_PACKET_2026-05-20.md`
+- tool: `scripts/revalidation/wifi_v392_current_readiness_packet.py`
+- evidence:
+  - safe refresh: `tmp/wifi/v395-refresh-20260520-072026/`
+  - readiness packet: `tmp/wifi/v395-current-readiness-packet/`
+  - final readiness packet: `tmp/wifi/v395-final-current-readiness-packet/`
+  - regression: `tmp/wifi/v395-readiness-regression/`
+  - final regression: `tmp/wifi/v395-final-readiness-regression/`
+- result:
+  - deploy preflight is blocked only by expected remote helper v21 mismatch plus approval gate
+  - live preflight is blocked only by helper v21 not deployed yet plus approval gate
+  - no-approval executor remains fail-closed
+  - post-live router points to awaiting approval
+  - read-only device health PASS
+  - packet decision `v392-current-readiness-ready-for-approval`
+  - no device commands, mutations, daemon start, or Wi-Fi bring-up from packet generation
+- validation: `py_compile` PASS, readiness regression PASS, current packet PASS, `git diff --check` PASS.
+- next execution item: provide exact V392 deploy and backchain capture approval phrases, then run the approved V392 executor. Wi-Fi HAL/start/scan/connect remains blocked.
