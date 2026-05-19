@@ -1391,6 +1391,10 @@ Samsung bootloader
    - v294 보고서: `docs/reports/NATIVE_INIT_V294_PROPERTY_RUNTIME_FEASIBILITY_2026-05-19.md`
    - v294 결과: decision `property-runtime-inputs-visible-runtime-absent`, mounted property contexts/build props visible, `/dev/socket/property_service`, `/dev/__properties__`, `/dev/socket` absent
    - v294 해석: Android property 입력은 보이지만 runtime은 없다. 다음은 service-manager 실행이 아니라 read-only property snapshot/shim model이다
+   - v295 계획서: `docs/plans/NATIVE_INIT_V295_PROPERTY_SNAPSHOT_MODEL_PLAN_2026-05-19.md`
+   - v295 보고서: `docs/reports/NATIVE_INIT_V295_PROPERTY_SNAPSHOT_MODEL_2026-05-19.md`
+   - v295 결과: decision `property-snapshot-model-ready`, static property `248`개와 property context `1264`라인 파싱, Wi-Fi 관련 property `7`개, selected required baseline `1/4`
+   - v295 해석: 정적 property snapshot은 만들 수 있으나 live property runtime은 아니다. 다음은 property shim strategy model이다
    - live daemon start 범위를 벗어나는 Wi-Fi scan/connect/link-up/credential/DHCP/routing은 별도 계획과 승인 전까지 blocked
 
 ---

@@ -3511,6 +3511,31 @@
 - next:
   - v295 read-only property snapshot/shim model before any service-manager execution
 
+### V295. Read-Only Property Snapshot Model — PASS
+
+- 계획: `docs/plans/NATIVE_INIT_V295_PROPERTY_SNAPSHOT_MODEL_PLAN_2026-05-19.md`
+- 보고서: `docs/reports/NATIVE_INIT_V295_PROPERTY_SNAPSHOT_MODEL_2026-05-19.md`
+- boot image change: none
+- baseline device build: `A90 Linux init 0.9.60 (v261)`
+- tool: `scripts/revalidation/wifi_property_snapshot_model.py`
+- evidence:
+  - `tmp/wifi/v295-property-snapshot-plan/`
+  - `tmp/wifi/v295-property-snapshot-live-20260519-142740/`
+- decision: `property-snapshot-model-ready`
+- result:
+  - parsed `3` property files
+  - parsed `248` property key/value pairs
+  - parsed `2` property context files and `1264` context lines
+  - found `7` Wi-Fi-related static properties
+  - selected required runtime baseline keys are partial: `1/4`
+- safety:
+  - no property service creation or property mutation
+  - no service-manager execution
+  - no Binder ioctl/devnode creation
+  - no Wi-Fi daemon execution, QMI/QRTR, scan/connect/link-up
+- next:
+  - v296 property shim strategy model before any property runtime creation or service-manager execution
+
 ### V187. Harness Broker Backend — PASS
 
 - 보고서: `docs/reports/NATIVE_INIT_V187_HARNESS_BROKER_BACKEND_2026-05-11.md`
