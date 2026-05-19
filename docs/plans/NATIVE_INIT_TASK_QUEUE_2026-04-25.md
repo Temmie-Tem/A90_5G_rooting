@@ -2898,6 +2898,35 @@
 - next execution item:
   - v271 QRTR service/instance selection and evidence correlation plan
 
+### V271. QRTR Service Selector — PASS
+
+- 계획: `docs/plans/NATIVE_INIT_V271_QRTR_SERVICE_SELECTOR_PLAN_2026-05-19.md`
+- 보고서: `docs/reports/NATIVE_INIT_V271_QRTR_SERVICE_SELECTOR_2026-05-19.md`
+- boot image change: 없음
+- baseline device build: `A90 Linux init 0.9.60 (v261)`
+- tool: `scripts/revalidation/wifi_qrtr_service_selector.py`
+- evidence: `tmp/wifi/v271-qrtr-service-selector/`
+- validation:
+  - host-only analyzer PASS: `qrtr-service-selector-ready`
+  - v270 primary/long readback evidence recognized as service `1`, instance `1`, zero events, `qmi_attempted=0`
+  - `cnss-daemon` QMI client imports PASS
+  - DMS service object evidence PASS
+  - WLFW string evidence PASS
+  - `qmi_idl_get_service_id` helper evidence PASS
+- interpretation:
+  - service `1`, instance `1` is negative/weak because both v270 readback windows returned zero events
+  - DMS is the strongest exported service-object-backed candidate
+  - WLFW is Wi-Fi-specific but unresolved because current evidence does not show an exported service object symbol
+  - next step should extract numeric service ids from real service objects before another live QRTR lookup or any QMI-control payload plan
+- guardrails:
+  - no QRTR socket opened
+  - no QRTR nameservice packet sent
+  - no QMI payload sent
+  - no device command executed
+  - no Wi-Fi scan/connect/link-up or daemon start
+- next execution item:
+  - v272 QMI service-object ID extractor plan without QMI payloads
+
 ### V187. Harness Broker Backend — PASS
 
 - 보고서: `docs/reports/NATIVE_INIT_V187_HARNESS_BROKER_BACKEND_2026-05-11.md`
