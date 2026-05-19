@@ -34,6 +34,7 @@
 - V398 result: non-mutating SELinuxfs mount approval packet PASS; V399 executor is fail-closed without exact approval.
 - V399 result: exact-approved SELinuxfs mount smoke reached the approved live path, but `cmdv1 mount` is not implemented. No `selinuxfs` status page appeared; post-smoke proof still returns `service-manager-selinux-status-native-missing`.
 - V400 result: non-mutating toybox-backed SELinuxfs mount approval packet PASS; V401 executor is fail-closed without exact approval.
+- V401 preapproval syntax check: direct `toybox mount --help` and `toybox umount --help` through `cmdv1 run` PASS; `toybox --list` unsupported but not required.
 - next execution item: V401 exact-approved toybox-backed SELinuxfs mount smoke only; no daemon start or Wi-Fi bring-up.
 
 ## 현재 고정 기준점
@@ -8482,10 +8483,12 @@ python3 ./scripts/revalidation/physical_usb_reconnect_check.py --manual-host-con
   - `scripts/revalidation/wifi_selinuxfs_toybox_mount_live_executor.py`
   - `scripts/revalidation/wifi_selinuxfs_toybox_mount_approval_packet.py`
 - evidence: `tmp/wifi/v400-toybox-selinuxfs-mount-approval-packet-final-20260520-081415/`
+- preapproval syntax evidence: `tmp/wifi/v401-preapproval-toybox-syntax-20260520-082122/`
 - result:
   - decision `toybox-selinuxfs-mount-approval-packet-ready`
   - fresh SELinux proof still returns `service-manager-selinux-status-native-missing`
   - read-only `cmdv1 run /cache/bin/toybox mount` inventory PASS
+  - direct `toybox mount --help` and `toybox umount --help` syntax PASS
   - V401 executor plan PASS
   - V401 run/cleanup without approval refuse before device commands
   - `device_mutations=False`, `daemon_start_executed=False`, `wifi_bringup_executed=False`

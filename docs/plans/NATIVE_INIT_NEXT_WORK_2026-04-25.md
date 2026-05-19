@@ -1921,6 +1921,8 @@ Samsung bootloader
    - v400 plan: `docs/plans/NATIVE_INIT_V400_TOYBOX_SELINUXFS_MOUNT_APPROVAL_PACKET_PLAN_2026-05-20.md`
    - v400 report: `docs/reports/NATIVE_INIT_V400_TOYBOX_SELINUXFS_MOUNT_APPROVAL_PACKET_2026-05-20.md`
    - v400 evidence: `tmp/wifi/v400-toybox-selinuxfs-mount-approval-packet-final-20260520-081415/`
+   - v401 preapproval syntax evidence: `tmp/wifi/v401-preapproval-toybox-syntax-20260520-082122/`
    - v400 결과: `toybox-selinuxfs-mount-approval-packet-ready` PASS. V401 executor는 exact approval phrase 없이는 run/cleanup 모두 device command 전에 refuse한다. packet은 fresh SELinux proof, read-only toybox mount inventory, executor plan/refusal checks를 포함했고 device mutation/daemon/Wi-Fi bring-up은 없음
+   - v401 preapproval syntax 결과: direct `toybox mount --help` and `toybox umount --help` PASS. `toybox --list`는 unsupported지만 V401 command contract에는 필요 없다
    - v400 해석: V399 tooling gap의 수정 경로가 준비됐다. 다음 live mutation은 `run /cache/bin/toybox mount -t selinuxfs selinuxfs /sys/fs/selinux` 하나로 제한된다. cleanup은 `run /cache/bin/toybox umount /sys/fs/selinux`로 분리한다
    - v401 다음: exact-approved toybox-backed SELinuxfs mount smoke. `/sys/fs/selinux/status` 가시성을 증명한 뒤 별도 cycle에서 service-manager start-only packet으로 넘어간다. Wi-Fi HAL/start/scan/connect remains blocked

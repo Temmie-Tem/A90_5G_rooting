@@ -32,6 +32,7 @@ Primary evidence:
 - approval command: `tmp/wifi/v400-toybox-selinuxfs-mount-approval-packet-final-20260520-081415/approval-command.sh`
 - cleanup command: `tmp/wifi/v400-toybox-selinuxfs-mount-approval-packet-final-20260520-081415/cleanup-command.sh`
 - rollback checklist: `tmp/wifi/v400-toybox-selinuxfs-mount-approval-packet-final-20260520-081415/rollback-checklist.md`
+- V401 preapproval syntax evidence: `tmp/wifi/v401-preapproval-toybox-syntax-20260520-082122/`
 
 Packet result:
 
@@ -60,6 +61,25 @@ Checks:
 | `refusals-before-device-commands` | `pass` | no mutation in refusal paths |
 | `approval-command-contract` | `pass` | exact V401 approval phrase and mutation flags present |
 | `cleanup-command-contract` | `pass` | exact V401 cleanup phrase and mutation flags present |
+
+Preapproval syntax check:
+
+```text
+decision: v401-toybox-syntax-preapproval-pass
+pass: True
+mount_help_rc0: True
+mount_supports_type: True
+mount_supports_device_dir: True
+umount_help_rc0: True
+umount_supports_dir: True
+toybox_list_supported: False
+toybox_list_required: False
+device_mutations: False
+daemon_start_executed: False
+wifi_bringup_executed: False
+```
+
+`toybox --list` is not supported by this build, but it is not required for V401. Direct `toybox mount --help` and `toybox umount --help` both execute successfully through `cmdv1 run`, and they confirm the planned V401 `mount -t TYPE DEVICE DIR` plus `umount DIR` argument forms.
 
 ## Approval Boundary
 
@@ -131,6 +151,15 @@ python3 scripts/revalidation/wifi_selinuxfs_toybox_mount_approval_packet.py \
 ```
 
 Result: PASS as an approval packet, with fresh read-only SELinux proof, read-only toybox mount inventory, and no mutation.
+
+Preapproval syntax evidence:
+
+```text
+python3 scripts/revalidation/a90ctl.py run /cache/bin/toybox mount --help
+python3 scripts/revalidation/a90ctl.py run /cache/bin/toybox umount --help
+```
+
+Result: PASS as a read-only syntax check. `toybox --list` was attempted and returned unsupported, but it is not part of the V401 run or cleanup command contract.
 
 `git diff --check`: PASS.
 
