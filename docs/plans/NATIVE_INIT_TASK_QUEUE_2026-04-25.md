@@ -5458,7 +5458,9 @@
 ### V382. Execns Helper V14 Deploy + Property Runtime Start-Only — READY / APPROVAL REQUIRED
 
 - 계획: `docs/plans/NATIVE_INIT_V382_EXECNS_HELPER_V14_DEPLOY_LIVE_PLAN_2026-05-20.md`
+- 준비 보고서: `docs/reports/NATIVE_INIT_V382_RUNTIME_PROFILE_WRAPPER_2026-05-20.md`
 - deploy wrapper: `scripts/revalidation/wifi_execns_helper_v14_deploy_preflight.py`
+- live wrapper: `scripts/revalidation/wifi_service_manager_start_only_v382_live_runner.py`
 - helper: `a90_android_execns_probe v14`
 - artifact: `tmp/wifi/v381-a90_android_execns_probe-v14/a90_android_execns_probe`
 - sha256: `f8cde6848ad49755b06bfac8136cd81f0b985ca1be13dbf27b369cdb4fe4aea7`
@@ -5467,8 +5469,12 @@
   - live approval: `approve v373 service-manager start-only smoke only; no Wi-Fi HAL start and no Wi-Fi bring-up`
 - scope:
   - deploy one helper binary to `/cache/bin/a90_android_execns_probe`
-  - rerun service-manager start-only with private property root + private-empty `/data`
+  - rerun service-manager start-only through the v382 live wrapper with private property root + private-empty `/data`
   - no Wi-Fi HAL start, scan, connect, DHCP, routing, or credential operation
+- local readiness:
+  - V382 live wrapper plan PASS
+  - V382 live wrapper preflight blocked only by remote helper v14 not deployed
+  - property root visible and `private-empty` data profile included in planned argv
 - next:
   - execute V382 only after explicit approval; if runtime gap remains, classify before HAL readiness
 

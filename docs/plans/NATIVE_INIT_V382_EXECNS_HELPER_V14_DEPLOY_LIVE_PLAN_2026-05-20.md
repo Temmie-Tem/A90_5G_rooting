@@ -28,6 +28,7 @@
 - local artifact: `tmp/wifi/v381-a90_android_execns_probe-v14/a90_android_execns_probe`
 - artifact sha256: `f8cde6848ad49755b06bfac8136cd81f0b985ca1be13dbf27b369cdb4fe4aea7`
 - deploy wrapper: `scripts/revalidation/wifi_execns_helper_v14_deploy_preflight.py`
+- live wrapper: `scripts/revalidation/wifi_service_manager_start_only_v382_live_runner.py`
 - helper marker: `a90_android_execns_probe v14`
 
 ## Expected Outcomes
@@ -60,11 +61,14 @@ Local/static:
 python3 -m py_compile \
   scripts/revalidation/wifi_execns_helper_v14_deploy_preflight.py \
   scripts/revalidation/wifi_execns_helper_v12_deploy_preflight.py \
+  scripts/revalidation/wifi_service_manager_start_only_v382_live_runner.py \
   scripts/revalidation/wifi_service_manager_start_only_live_runner.py \
   scripts/revalidation/wifi_service_manager_runtime_gap_classifier.py
 
 python3 scripts/revalidation/wifi_execns_helper_v14_deploy_preflight.py plan
 python3 scripts/revalidation/wifi_execns_helper_v14_deploy_preflight.py preflight
+python3 scripts/revalidation/wifi_service_manager_start_only_v382_live_runner.py plan
+python3 scripts/revalidation/wifi_service_manager_start_only_v382_live_runner.py preflight
 ```
 
 Approved deploy:
@@ -80,8 +84,7 @@ python3 scripts/revalidation/wifi_execns_helper_v14_deploy_preflight.py \
 Approved start-only live smoke:
 
 ```bash
-python3 scripts/revalidation/wifi_service_manager_start_only_live_runner.py \
-  --helper-sha256 f8cde6848ad49755b06bfac8136cd81f0b985ca1be13dbf27b369cdb4fe4aea7 \
+python3 scripts/revalidation/wifi_service_manager_start_only_v382_live_runner.py \
   --approval-phrase "approve v373 service-manager start-only smoke only; no Wi-Fi HAL start and no Wi-Fi bring-up" \
   --apply \
   --assume-yes \

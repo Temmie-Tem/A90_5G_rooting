@@ -30,6 +30,11 @@ from wifi_service_manager_start_only_approval_packet import APPROVAL_PHRASE, DEF
 DEFAULT_OUT_DIR = Path("tmp/wifi/v376-service-manager-start-only-live-runner")
 DEFAULT_HELPER = "/cache/bin/a90_android_execns_probe"
 DEFAULT_HELPER_SHA256 = "fef21de2897b16e4ead7fe780eff1817675d4ce988e558013ac9a37dc928d918"
+DEFAULT_PROPERTY_ROOT = ""
+DEFAULT_DATA_WIFI_MODE = "none"
+SUMMARY_TITLE = "v376 Service-Manager Start-Only Live Runner"
+HELPER_LABEL = "v12"
+HELPER_DEPLOY_HINT = "run V375 deploy first"
 TOYBOX = "/cache/bin/toybox"
 SERVICE_TARGETS = ("system-servicemanager", "system-hwservicemanager")
 SERVICE_PROCESS_RE = re.compile(r"\b(servicemanager|hwservicemanager|vndservicemanager)\b")
@@ -98,6 +103,8 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--expect-version", default=DEFAULT_EXPECT_VERSION)
     parser.add_argument("--helper", default=DEFAULT_HELPER)
     parser.add_argument("--helper-sha256", default=DEFAULT_HELPER_SHA256)
+    parser.add_argument("--property-root", default=DEFAULT_PROPERTY_ROOT)
+    parser.add_argument("--data-wifi-mode", choices=("none", "private-empty"), default=DEFAULT_DATA_WIFI_MODE)
     parser.add_argument("--max-runtime-sec", type=int, default=8)
     parser.add_argument("--approval-phrase", default="")
     parser.add_argument("--apply", action="store_true")
@@ -139,7 +146,10 @@ def step_ok(steps: list[Step], name: str) -> bool:
 
 def run_preflight(args: argparse.Namespace, store: EvidenceStore) -> list[Step]:
     store.mkdir("native")
-    return [capture_command(args, store, name, command, timeout) for name, command, timeout in READ_ONLY_COMMANDS]
+    commands = list(READ_ONLY_COMMANDS)
+    if args.property_root:
+        commands.append(("stat-property-root", ["stat", args.property_root], 10.0))
+    return [capture_command(args, store, name, command, timeout) for name, command, timeout in commands]
 
 
 def add_check(checks: list[Check], name: str, status: str, severity: str, detail: str,
@@ -173,6 +183,10 @@ def build_helper_argv(args: argparse.Namespace, target_profile: str) -> list[str
         "--timeout-sec",
         str(args.max_runtime_sec),
     ]
+    if args.data_wifi_mode != "none":
+        argv.extend(["--data-wifi-mode", args.data_wifi_mode])
+    if args.property_root:
+        argv.extend(["--property-root", args.property_root])
     if approved(args):
         argv.append("--allow-service-manager-start-only")
     return argv
@@ -184,6 +198,8 @@ def build_plan(args: argparse.Namespace) -> dict[str, Any]:
         "helper": args.helper,
         "expected_sha256": args.helper_sha256,
         "max_runtime_sec": args.max_runtime_sec,
+        "property_root": args.property_root,
+        "data_wifi_mode": args.data_wifi_mode,
         "commands": {
             target: ["run", *build_helper_argv(args, target)]
             for target in SERVICE_TARGETS
@@ -212,9 +228,12 @@ def build_checks(args: argparse.Namespace, store: EvidenceStore, steps: list[Ste
 
     add_check(checks, "native-version", "pass" if args.expect_version in version else "warn", "warning", f"expect_version={args.expect_version}", [line for line in version.splitlines() if "A90 Linux init" in line][:3], "refresh baseline if native version intentionally changed")
     add_check(checks, "native-clean", "pass" if step_ok(steps, "status") and step_ok(steps, "selftest") and "fail=0" in status and "fail=0" in selftest else "blocked", "blocker", "status/selftest rc=0 fail=0 expected", [line.strip() for line in (status + "\n" + selftest).splitlines() if line.strip().startswith("selftest:")][:4], "fix native health before live run")
-    add_check(checks, "helper-v12", "pass" if args.helper_sha256 in helper_sha and "service-manager-start-only" in helper_usage and "--allow-service-manager-start-only" in helper_usage else "blocked", "blocker", "remote helper must be deployed v12 with service-manager mode", [line for line in helper_sha.splitlines() if args.helper in line][:2], "run V375 deploy first")
+    add_check(checks, f"helper-{HELPER_LABEL}", "pass" if args.helper_sha256 in helper_sha and "service-manager-start-only" in helper_usage and "--allow-service-manager-start-only" in helper_usage else "blocked", "blocker", f"remote helper must be deployed {HELPER_LABEL} with service-manager mode", [line for line in helper_sha.splitlines() if args.helper in line][:2], HELPER_DEPLOY_HINT)
     add_check(checks, "service-manager-binaries", "pass" if step_ok(steps, "stat-servicemanager") and step_ok(steps, "stat-hwservicemanager") else "blocked", "blocker", f"servicemanager={step_ok(steps, 'stat-servicemanager')} hwservicemanager={step_ok(steps, 'stat-hwservicemanager')} vndservicemanager={step_ok(steps, 'stat-vndservicemanager')}", [], "both core service-manager binaries must be visible")
     add_check(checks, "runtime-materials", "pass" if step_ok(steps, "stat-real-ld-config") and step_ok(steps, "stat-real-apex-libraries") and step_ok(steps, "stat-sda29-sysfs") else "blocked", "blocker", f"ld={step_ok(steps, 'stat-real-ld-config')} apex={step_ok(steps, 'stat-real-apex-libraries')} sda29_sysfs={step_ok(steps, 'stat-sda29-sysfs')}", [], "runtime materialization inputs must be present")
+    if args.property_root:
+        add_check(checks, "property-root-visible", "pass" if step_ok(steps, "stat-property-root") else "blocked", "blocker", f"path={args.property_root} visible={step_ok(steps, 'stat-property-root')}", [args.property_root], "private property root must be exported before start-only run")
+    add_check(checks, "data-wifi-mode", "pass", "info", f"mode={args.data_wifi_mode}", [], "helper creates private-empty data tree only inside its temp namespace")
     add_check(checks, "process-surface-clean", "pass" if not managers else "blocked", "blocker", f"process_count={len(managers)}", managers[:8], "do not run over existing manager processes")
     add_check(checks, "wifi-link-clean", "pass" if not wifi_links else "blocked", "blocker", f"wifi_link_count={len(wifi_links)}", wifi_links[:8], "do not run while Wi-Fi link is active")
     add_check(checks, "temporary-binder-nodes-clean", "pass" if not step_ok(steps, "stat-binder") and not step_ok(steps, "stat-hwbinder") and not step_ok(steps, "stat-vndbinder") else "blocked", "blocker", f"binder={step_ok(steps, 'stat-binder')} hwbinder={step_ok(steps, 'stat-hwbinder')} vndbinder={step_ok(steps, 'stat-vndbinder')}", [], "helper must own temporary node lifecycle")
@@ -302,7 +321,7 @@ def render_summary(manifest: dict[str, Any]) -> str:
     check_rows = [[c["name"], c["status"], c["severity"], c["detail"], c["next_step"]] for c in manifest["checks"]]
     step_rows = [[s["name"], "PASS" if s["ok"] else "FAIL", s["rc"], s["status"], s["file"]] for s in manifest["steps"]]
     lines = [
-        "# v376 Service-Manager Start-Only Live Runner",
+        f"# {SUMMARY_TITLE}",
         "",
         f"- generated: `{manifest['generated_at']}`",
         f"- command: `{manifest['command']}`",
