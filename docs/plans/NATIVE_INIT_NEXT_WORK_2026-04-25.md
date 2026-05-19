@@ -1548,6 +1548,9 @@ Samsung bootloader
    - v338 계획서: `docs/plans/NATIVE_INIT_V338_V317_READINESS_PACKET_V336_AWARE_PLAN_2026-05-19.md`
    - v338 보고서: `docs/reports/NATIVE_INIT_V338_V317_READINESS_PACKET_V336_AWARE_2026-05-19.md`
    - v338 해석: V317 readiness packet이 V336 pre-live gate를 명시적으로 확인하고 generated live command에 `--prelive-gate-manifest`를 포함하도록 갱신했다
+   - v339 계획서: `docs/plans/NATIVE_INIT_V339_V317_LIVE_SURFACE_LINTER_PLAN_2026-05-19.md`
+   - v339 보고서: `docs/reports/NATIVE_INIT_V339_V317_LIVE_SURFACE_LINTER_2026-05-19.md`
+   - v339 해석: V317 runner의 `device_cmd()` 호출 표면을 AST로 검사해 허용된 private-workdir 파일 작업만 남아 있음을 확인했다
    - live daemon start 범위를 벗어나는 Wi-Fi scan/connect/link-up/credential/DHCP/routing은 별도 계획과 승인 전까지 blocked
 
 ---

@@ -4468,6 +4468,24 @@
 - next:
   - clean HEAD에서 canonical V331/V336 evidence 재생성 후 exact v317 approval phrase가 있으면 V317 minimal live proof 진행
 
+### V339. V317 Live Surface Linter — PASS / HOST-ONLY
+
+- 계획: `docs/plans/NATIVE_INIT_V339_V317_LIVE_SURFACE_LINTER_PLAN_2026-05-19.md`
+- 보고서: `docs/reports/NATIVE_INIT_V339_V317_LIVE_SURFACE_LINTER_2026-05-19.md`
+- tool: `scripts/revalidation/wifi_v317_live_surface_linter.py`
+- evidence: `tmp/wifi/v339-v317-live-surface-linter/`
+- boot image: 없음. v339는 host-only static live-surface linter이며 native init version 변경 없음
+- validation:
+  - `py_compile` PASS
+  - `git diff --check` PASS
+  - decision `v317-live-surface-lint-pass`
+  - all V317 `device_cmd()` signatures allowlisted
+  - readiness packet includes V336 gate and `--prelive-gate-manifest`
+  - `device_commands_executed=false`
+  - `device_mutations=false`
+- next:
+  - exact v317 approval phrase가 있으면 V317 minimal live proof 진행
+
 ### V187. Harness Broker Backend — PASS
 
 - 보고서: `docs/reports/NATIVE_INIT_V187_HARNESS_BROKER_BACKEND_2026-05-11.md`
