@@ -5245,6 +5245,26 @@
   - implement V373 fail-closed service-manager start-only smoke runner
   - do not start Wi-Fi HAL, scan/connect/link-up, credentials, DHCP, or routing
 
+### V373. Service-Manager Start-Only Smoke Runner Scaffold — PASS / BLOCKED BEFORE MUTATION
+
+- 계획: `docs/plans/NATIVE_INIT_V373_SERVICE_MANAGER_START_ONLY_SMOKE_PLAN_2026-05-20.md`
+- 보고서: `docs/reports/NATIVE_INIT_V373_SERVICE_MANAGER_START_ONLY_SMOKE_2026-05-20.md`
+- evidence:
+  - plan: `tmp/wifi/v373-service-manager-start-only-smoke-plan-20260520-013827/`
+  - preflight: `tmp/wifi/v373-service-manager-start-only-smoke-preflight-20260520-013827/`
+  - no-approval run: `tmp/wifi/v373-service-manager-start-only-smoke-refusal-20260520-013827/`
+- boot image: 없음. v373은 host-side runner scaffold이며 native init version 변경 없음
+- validation:
+  - plan decision `service-manager-start-only-smoke-plan-ready`
+  - preflight decision `service-manager-start-only-smoke-blocked`
+  - no-approval run decision `service-manager-start-only-smoke-approval-required` with `steps=0`
+  - preflight confirms V372 packet, native status/selftest, service-manager binaries, clean process surface, clean Wi-Fi link surface, and cleaned temporary Binder nodes
+  - current blocker is `helper-service-manager-mode`: deployed `a90_android_execns_probe` does not yet advertise bounded service-manager start-only mode
+  - `daemon_start_executed=false`, `device_mutations=false`
+- next:
+  - V374: add or design bounded service-manager start-only mode for `a90_android_execns_probe`
+  - do not run service-manager live until helper mode and approval-gated runner both pass
+
 ### V187. Harness Broker Backend — PASS
 
 - 보고서: `docs/reports/NATIVE_INIT_V187_HARNESS_BROKER_BACKEND_2026-05-11.md`
