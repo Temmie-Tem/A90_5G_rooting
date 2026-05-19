@@ -12,10 +12,10 @@
 Result: PASS for the current safe implementation stage.
 
 v320 adds a host-side runner skeleton for the next private property lookup proof.
-Because the required v317 live proof has not passed yet, the runner correctly
-refuses `plan`/`run` as `private-property-lookup-blocked-v317-missing` and does
-not execute any device command or mutation. This keeps the Wi-Fi path moving
-without bypassing the V317 approval gate.
+Before V317 live proof, the runner correctly refused `plan`/`run` as
+`private-property-lookup-blocked-v317-missing`. After the approved V317 live
+proof passed, the runner now produces a V320 plan and remains blocked only by
+the separate V320 exact approval phrase for live lookup.
 
 ## Evidence
 
@@ -24,6 +24,7 @@ without bypassing the V317 approval gate.
 | plan/refusal | `tmp/wifi/v320-private-property-lookup-proof-plan/` | `private-property-lookup-blocked-v317-missing` |
 | run/refusal | `tmp/wifi/v320-private-property-lookup-proof-refuse/` | `private-property-lookup-blocked-v317-missing` |
 | cleanup/no-op | `tmp/wifi/v320-private-property-lookup-proof-cleanup/` | `private-property-lookup-cleanup-not-needed` |
+| plan after V317 | `tmp/wifi/v320-private-property-lookup-proof-plan-after-v317/` | `private-property-lookup-plan-ready` |
 
 ## Selected Lookup Keys
 
@@ -54,13 +55,33 @@ git diff --check
 
 Result: PASS.
 
+Post-V317 plan validation:
+
+```bash
+python3 scripts/revalidation/wifi_private_property_lookup_proof.py \
+  --out-dir tmp/wifi/v320-private-property-lookup-proof-plan-after-v317 \
+  plan
+```
+
+Observed output:
+
+```text
+decision: private-property-lookup-plan-ready
+pass: True
+reason: all prerequisites are present; live run still requires approval and helper implementation
+device_commands_executed: false
+device_mutations: false
+```
+
 ## Guardrails Verified
 
 - `device_commands_executed=false`.
 - `device_mutations=false`.
 - v312 property layout is present and parsed.
 - v319 report is present.
-- v317 live proof evidence is missing, so lookup proof is blocked.
+- Pre-V317 state blocked because V317 live proof evidence was missing.
+- Post-V317 state detects `private-property-namespace-proof-pass`.
+- V320 plan records four read-only property lookup commands.
 - Required V320 approval phrase is recorded but not accepted implicitly.
 
 ## Required Future Approval Phrase
@@ -69,12 +90,12 @@ Result: PASS.
 approve v320 private property lookup proof only; no daemon start and no Wi-Fi bring-up
 ```
 
-This phrase is not useful until V317 live proof passes. The current blocker
-remains V317 exact approval and execution.
+This phrase is now the next live blocker after V317 PASS. It is separate from
+the V317 approval and still does not approve daemon start or Wi-Fi bring-up.
 
 ## Decision
 
-- decision: `private-property-lookup-blocked-v317-missing`
-- current status: fail-closed runner ready
-- next step: run V317 live proof only after the exact V317 approval phrase, then
-  extend the Android exec namespace helper with a read-only property lookup mode.
+- historical decision: `private-property-lookup-blocked-v317-missing`
+- post-V317 decision: `private-property-lookup-plan-ready`
+- current status: V320 plan ready, live lookup approval-gated
+- next step: review V320 plan and provide the exact V320 phrase only if proceeding.

@@ -4080,7 +4080,7 @@
 - next:
   - V317 live private namespace proof may run after the exact V317 approval phrase; still no daemon start or Wi-Fi bring-up
 
-### V320. Private Property Lookup Proof — FAIL-CLOSED RUNNER READY / V317 PASS AVAILABLE
+### V320. Private Property Lookup Proof — PLAN READY / V320 APPROVAL REQUIRED
 
 - 계획: `docs/plans/NATIVE_INIT_V320_PRIVATE_PROPERTY_LOOKUP_PROOF_PLAN_2026-05-19.md`
 - 보고서: `docs/reports/NATIVE_INIT_V320_PRIVATE_PROPERTY_LOOKUP_PROOF_2026-05-19.md`
@@ -4097,6 +4097,8 @@
   - `run` decision `private-property-lookup-blocked-v317-missing`
   - `cleanup` decision `private-property-lookup-cleanup-not-needed`
   - `device_commands_executed=false`, `device_mutations=false`
+  - post-V317 plan decision `private-property-lookup-plan-ready`
+  - post-V317 plan `device_commands_executed=false`, `device_mutations=false`
 - intended proof:
   - run an Android-linked read-only property reader such as `/system/bin/getprop` inside a private Android execution namespace
   - expose only the v317 private property directory to that child as `/dev/__properties__`
@@ -4106,8 +4108,8 @@
   - no `/dev/socket/property_service`
   - no property mutation, daemon start, Wi-Fi scan/connect/link-up, credential, DHCP, routing, rfkill write, module load, or firmware mutation
 - next:
-  - rerun V320 plan against current V317 PASS evidence
-  - V320 live lookup remains blocked until its own exact approval phrase
+  - V320 live lookup remains blocked until its own exact approval phrase:
+    `approve v320 private property lookup proof only; no daemon start and no Wi-Fi bring-up`
 
 ### V321. Execns Property Lookup Helper Support — STATIC PASS / LIVE BLOCKED BY V317
 
@@ -4158,7 +4160,7 @@
 - next:
   - v323 audit confirms exact v317 approval is the only remaining private-property chain live blocker
 
-### V323. Private Property Chain Gate Audit — PASS / BLOCKED BY V317 LIVE APPROVAL
+### V323. Private Property Chain Gate Audit — PASS / READY FOR V320 APPROVAL
 
 - 계획: `docs/plans/NATIVE_INIT_V323_PRIVATE_PROPERTY_CHAIN_AUDIT_PLAN_2026-05-19.md`
 - 보고서: `docs/reports/NATIVE_INIT_V323_PRIVATE_PROPERTY_CHAIN_AUDIT_2026-05-19.md`
@@ -4173,8 +4175,11 @@
   - `chain_ready=false`
   - `device_commands_executed=false`
   - `device_mutations=false`
+  - post-V317 audit decision `private-property-chain-ready-for-v320-approval`
+  - post-V317 `chain_ready=true`
 - gate result:
-  - v312/v315/v316/v317-plan/v317-audit/v319/v321/v322 prerequisites PASS
+  - v312/v315/v316/v317-plan/v317-audit/v317-live/v319/v321/v322/v325 prerequisites PASS
+  - next blocker is V320 exact approval phrase
   - v317 live PASS evidence missing
 - next:
   - v324 refreshed the exact approval packet with post-v319 transfer estimates and post-v323 gate status
