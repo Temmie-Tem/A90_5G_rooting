@@ -41,6 +41,9 @@ python3 -m py_compile scripts/revalidation/wifi_private_property_namespace_proof
 python3 scripts/revalidation/wifi_private_property_namespace_proof_audit.py \
   --out-dir tmp/wifi/v317-private-property-namespace-proof-audit \
   run
+python3 scripts/revalidation/wifi_private_property_namespace_proof_audit.py \
+  --out-dir tmp/wifi/v317-private-property-namespace-proof-audit \
+  selftest
 git diff --check
 ```
 
@@ -80,6 +83,18 @@ The audit verifies:
 - blocked actions include global property replacement, property service socket,
   NCM/tcpctl transfer, and Wi-Fi bring-up.
 - approval phrase exactly matches the v316 packet.
+
+## Audit Selftest
+
+`selftest` validates that the audit catches synthetic bad cases:
+
+- base manifest passes.
+- out-of-scope remote path blocks.
+- missing blocked-actions list blocks.
+- excessive transfer estimate blocks.
+- unexpected command/mutation records block.
+
+Result: `private-property-namespace-proof-audit-selftest-pass`.
 
 ## Required Approval Phrase
 

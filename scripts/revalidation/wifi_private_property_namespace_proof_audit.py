@@ -43,6 +43,7 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--cleanup-refuse-manifest", type=Path, default=DEFAULT_CLEANUP_REFUSE)
     subparsers = parser.add_subparsers(dest="command", required=True)
     subparsers.add_parser("run")
+    subparsers.add_parser("selftest")
     return parser.parse_args()
 
 
@@ -179,8 +180,90 @@ def render_summary(manifest: dict[str, Any]) -> str:
     ])
 
 
+def selftest_result(name: str, expected_pass: bool, checks: list[AuditCheck]) -> dict[str, Any]:
+    decision, pass_ok, reason = decide(checks)
+    return {
+        "name": name,
+        "expected_pass": expected_pass,
+        "actual_pass": pass_ok,
+        "ok": pass_ok is expected_pass,
+        "decision": decision,
+        "reason": reason,
+        "checks": [asdict(check) for check in checks],
+    }
+
+
+def run_selftest(args: argparse.Namespace) -> int:
+    plan = load_json(args.plan_manifest)
+    run_refuse = load_json(args.run_refuse_manifest)
+    cleanup_refuse = load_json(args.cleanup_refuse_manifest)
+    base_checks = [
+        decision_check("plan-decision", plan, "private-property-namespace-proof-plan-ready", True),
+        decision_check("run-refusal-decision", run_refuse, "private-property-namespace-proof-approval-required", False),
+        decision_check("cleanup-refusal-decision", cleanup_refuse, "private-property-namespace-proof-approval-required", False),
+        mutation_check("plan-no-mutation", plan),
+        mutation_check("run-refusal-no-mutation", run_refuse),
+        mutation_check("cleanup-refusal-no-mutation", cleanup_refuse),
+        transfer_check(plan),
+        path_scope_check(plan),
+        blocked_actions_check(plan),
+        approval_phrase_check(plan),
+    ]
+    bad_path = json.loads(json.dumps(plan))
+    bad_path["files"][0]["remote_path"] = "/tmp/outside"
+    bad_actions = json.loads(json.dumps(plan))
+    bad_actions["blocked_actions"] = []
+    bad_transfer = json.loads(json.dumps(plan))
+    bad_transfer["transfer_estimate"]["estimated_commands"] = 999999
+    bad_mutation = json.loads(json.dumps(plan))
+    bad_mutation["device_mutations"] = True
+    bad_mutation["commands"] = [{"name": "unexpected"}]
+    results = [
+        selftest_result("base-pass", True, base_checks),
+        selftest_result("bad-path-blocked", False, [path_scope_check(bad_path)]),
+        selftest_result("bad-actions-blocked", False, [blocked_actions_check(bad_actions)]),
+        selftest_result("bad-transfer-blocked", False, [transfer_check(bad_transfer)]),
+        selftest_result("bad-mutation-blocked", False, [mutation_check("bad-mutation", bad_mutation)]),
+    ]
+    pass_ok = all(item["ok"] for item in results)
+    manifest = {
+        "generated_at": now_iso(),
+        "decision": "private-property-namespace-proof-audit-selftest-pass" if pass_ok else "private-property-namespace-proof-audit-selftest-failed",
+        "pass": pass_ok,
+        "reason": "audit selftest cases behaved as expected" if pass_ok else "one or more audit selftest cases failed",
+        "host": collect_host_metadata(),
+        "results": results,
+        "device_commands_executed": False,
+    }
+    store = EvidenceStore(repo_path(args.out_dir))
+    store.write_json("selftest-manifest.json", manifest)
+    store.write_text(
+        "selftest-summary.md",
+        "\n".join([
+            "# v317 Audit Selftest",
+            "",
+            f"- decision: `{manifest['decision']}`",
+            f"- pass: `{manifest['pass']}`",
+            "",
+            "| case | expected | actual | ok | decision |",
+            "| --- | --- | --- | --- | --- |",
+            *[
+                f"| `{item['name']}` | `{item['expected_pass']}` | `{item['actual_pass']}` | `{item['ok']}` | `{item['decision']}` |"
+                for item in results
+            ],
+            "",
+        ]),
+    )
+    print(f"decision: {manifest['decision']}")
+    print(f"pass: {pass_ok}")
+    print(f"evidence: {store.run_dir}")
+    return 0 if pass_ok else 1
+
+
 def main() -> int:
     args = parse_args()
+    if args.command == "selftest":
+        return run_selftest(args)
     plan = load_json(args.plan_manifest)
     run_refuse = load_json(args.run_refuse_manifest)
     cleanup_refuse = load_json(args.cleanup_refuse_manifest)

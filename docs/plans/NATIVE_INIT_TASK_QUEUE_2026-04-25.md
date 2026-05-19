@@ -4005,6 +4005,7 @@
   - `private-property-namespace-proof-plan-ready`
   - `private-property-namespace-proof-approval-required`
   - `private-property-namespace-proof-audit-pass`
+  - `private-property-namespace-proof-audit-selftest-pass`
 - transfer estimate:
   - files `5`, bytes `524988`, chunks `1851`, estimated device commands `1885`
 - required approval phrase:
@@ -4023,6 +4024,7 @@
   - no service-manager/HAL/Wi-Fi daemon start
   - no Wi-Fi scan/connect/link-up/credential/DHCP/routing
   - audit confirms plan/refusal manifests are fail-closed and scope-bounded
+  - audit selftest confirms bad path, missing blocked-actions, excessive transfer, and mutation records are blocked
 - next:
   - live run only after explicit operator approval
 
