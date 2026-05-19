@@ -3717,6 +3717,27 @@
 - next:
   - explicit operator approval for v300 live handoff remains the blocker
 
+### V304. Android Capture Live Guard — GO / OPERATOR APPROVAL REQUIRED
+
+- 계획: `docs/plans/NATIVE_INIT_V304_ANDROID_CAPTURE_LIVE_GUARD_PLAN_2026-05-19.md`
+- 보고서: `docs/reports/NATIVE_INIT_V304_ANDROID_CAPTURE_LIVE_GUARD_2026-05-19.md`
+- boot image change: none
+- baseline device build: `A90 Linux init 0.9.60 (v261)`
+- tool: `scripts/revalidation/android_capture_live_guard.py`
+- evidence: `tmp/wifi/v304-android-capture-live-guard/`
+- decision: `android-capture-live-guard-go`
+- result:
+  - v302 approval packet PASS
+  - v300 target propagation PASS
+  - Android boot image and native rollback image hash/size PASS
+  - v303 postprocess waiting state PASS
+  - current native `version/status` PASS
+  - generated `live-command.txt` only because blocker checks passed
+- safety:
+  - guard executed no ADB command, reboot, recovery, flash, property mutation, or Wi-Fi bring-up action
+- next:
+  - explicit operator approval is still required before executing the v300 live command
+
 ### V187. Harness Broker Backend — PASS
 
 - 보고서: `docs/reports/NATIVE_INIT_V187_HARNESS_BROKER_BACKEND_2026-05-11.md`

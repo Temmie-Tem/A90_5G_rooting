@@ -1428,6 +1428,10 @@ Samsung bootloader
    - v303 보고서: `docs/reports/NATIVE_INIT_V303_ANDROID_CAPTURE_POSTPROCESS_2026-05-19.md`
    - v303 결과: current decision `android-capture-postprocess-waiting-for-live`, synthetic ready path `android-capture-postprocess-seed-ready`
    - v303 해석: live 이후 v300/v297/v298/v301 결과 판독은 자동화됐고, 현재 blocker는 여전히 v300 live handoff 명시 승인이다
+   - v304 계획서: `docs/plans/NATIVE_INIT_V304_ANDROID_CAPTURE_LIVE_GUARD_PLAN_2026-05-19.md`
+   - v304 보고서: `docs/reports/NATIVE_INIT_V304_ANDROID_CAPTURE_LIVE_GUARD_2026-05-19.md`
+   - v304 결과: decision `android-capture-live-guard-go`, v302 approval/v300 target propagation/image hash/native bridge/v303 waiting state PASS
+   - v304 해석: host-side readiness is GO; destructive live handoff remains blocked only by explicit operator approval
    - live daemon start 범위를 벗어나는 Wi-Fi scan/connect/link-up/credential/DHCP/routing은 별도 계획과 승인 전까지 blocked
 
 ---
