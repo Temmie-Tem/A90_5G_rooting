@@ -3884,6 +3884,26 @@
 - next:
   - v312 candidate: private property runtime layout package dry-run before any live install
 
+### V312. Private Property Runtime Layout Dry-run — READY
+
+- 계획: `docs/plans/NATIVE_INIT_V312_PRIVATE_PROPERTY_LAYOUT_PLAN_2026-05-19.md`
+- 보고서: `docs/reports/NATIVE_INIT_V312_PRIVATE_PROPERTY_LAYOUT_2026-05-19.md`
+- boot image change: none
+- restored device build: `A90 Linux init 0.9.60 (v261)`
+- tool: `scripts/revalidation/wifi_private_property_layout_dryrun.py`
+- evidence: `tmp/wifi/v312-private-property-runtime-layout/`
+- decision: `private-property-layout-dryrun-ready`
+- result:
+  - local `layout/dev/__properties__/property_info` generated
+  - local `properties_serial` generated
+  - local per-context `prop_area` files generated for `bootloader_prop`, `build_prop`, `build_vendor_prop`
+  - layout roundtrip PASS
+- safety:
+  - host-only dry-run
+  - no device/ADB command, runtime install, bind mount, property service socket, daemon, or Wi-Fi bring-up action
+- next:
+  - v313 candidate: private property runtime materialization approval packet
+
 ### V187. Harness Broker Backend — PASS
 
 - 보고서: `docs/reports/NATIVE_INIT_V187_HARNESS_BROKER_BACKEND_2026-05-11.md`
