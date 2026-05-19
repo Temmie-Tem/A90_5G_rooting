@@ -1379,6 +1379,10 @@ Samsung bootloader
    - v291 보고서: `docs/reports/NATIVE_INIT_V291_BINDER_DEVNODE_SMOKE_2026-05-19.md`
    - v291 결과: decision `binder-devnode-create-cleanup-pass`, 세 Binder devnode를 `mknodc`로 생성하고 `stat` 확인 후 `toybox rm -f`로 정리 PASS
    - v291 해석: native `/dev` Binder surface는 임시 복구 가능하다. 다음은 Binder protocol이 아니라 open/close만 검증하는 static helper smoke이다
+   - v292 계획서: `docs/plans/NATIVE_INIT_V292_BINDER_OPEN_SMOKE_PLAN_2026-05-19.md`
+   - v292 보고서: `docs/reports/NATIVE_INIT_V292_BINDER_OPEN_SMOKE_2026-05-19.md`
+   - v292 결과: decision `binder-open-only-smoke-pass`, `toybox dd if=/dev/<binder-node> of=/dev/null bs=1 count=0`로 세 Binder domain open/close PASS, cleanup PASS
+   - v292 해석: Binder device open 최저 레벨 blocker는 제거됐다. 다음은 service-manager process/property/SELinux/linker namespace prerequisite model이며, HAL/`wificond` 실행은 아직 금지다
    - live daemon start 범위를 벗어나는 Wi-Fi scan/connect/link-up/credential/DHCP/routing은 별도 계획과 승인 전까지 blocked
 
 ---

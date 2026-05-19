@@ -3437,6 +3437,29 @@
 - next:
   - v292 Binder open-only helper smoke, still no Binder ioctl or service-manager execution
 
+### V292. Binder Open-Only Smoke — PASS
+
+- 계획: `docs/plans/NATIVE_INIT_V292_BINDER_OPEN_SMOKE_PLAN_2026-05-19.md`
+- 보고서: `docs/reports/NATIVE_INIT_V292_BINDER_OPEN_SMOKE_2026-05-19.md`
+- boot image change: none
+- baseline device build: `A90 Linux init 0.9.60 (v261)`
+- tool: `scripts/revalidation/wifi_binder_open_smoke.py`
+- evidence:
+  - `tmp/wifi/v292-binder-open-smoke-plan/`
+  - `tmp/wifi/v292-binder-open-smoke-live-20260519-141358/`
+- decision: `binder-open-only-smoke-pass`
+- result:
+  - temporary `/dev/binder`, `/dev/hwbinder`, `/dev/vndbinder` creation PASS
+  - `toybox dd if=/dev/<node> of=/dev/null bs=1 count=0` PASS for all three nodes
+  - all three nodes removed after the test
+  - `dd` copied `0` bytes, so this was open/close only
+- safety:
+  - no Binder ioctl, no binderfs mount
+  - no service-manager/HAL/`wificond` execution
+  - no Wi-Fi scan/connect/link-up/credential/DHCP/routing
+- next:
+  - v293 service-manager prerequisite model before any service-manager execution
+
 ### V187. Harness Broker Backend — PASS
 
 - 보고서: `docs/reports/NATIVE_INIT_V187_HARNESS_BROKER_BACKEND_2026-05-11.md`
