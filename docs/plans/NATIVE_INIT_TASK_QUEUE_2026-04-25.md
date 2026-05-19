@@ -8348,3 +8348,17 @@ python3 ./scripts/revalidation/physical_usb_reconnect_check.py --manual-host-con
   - no device commands, mutations, daemon start, or Wi-Fi bring-up
 - validation: `py_compile` PASS, synthetic auto-ELF smoke PASS, no-auto regression PASS, V390 negative regression PASS, V392 no-approval executor PASS, read-only device health PASS.
 - next execution item: V392 exact-approved helper v21 deploy and service-manager backchain capture live run. Wi-Fi HAL/start/scan/connect remains blocked.
+
+### V394. Post-V392 Result Router — PASS / HOST-ONLY
+
+- plan: `docs/plans/NATIVE_INIT_V394_POST_V392_ROUTER_PLAN_2026-05-20.md`
+- report: `docs/reports/NATIVE_INIT_V394_POST_V392_ROUTER_2026-05-20.md`
+- tool: `scripts/revalidation/wifi_v392_post_live_router.py`
+- result:
+  - routes missing V392 executor evidence to awaiting-executor
+  - routes no-approval V392 executor evidence to awaiting-approval
+  - detects scope violation if Wi-Fi bring-up appears in evidence
+  - routes symbolized non-abort callers, abort-only framechain, missing ELF, missing maprow, and missing backchain evidence to separate next steps
+  - no device commands, mutations, daemon start, or Wi-Fi bring-up
+- validation: `py_compile` PASS, synthetic router regression PASS, current no-approval route PASS, V392 no-approval executor PASS, read-only device health PASS.
+- next execution item: V392 exact-approved helper v21 deploy and service-manager backchain capture live run, then route the resulting executor manifest through V394. Wi-Fi HAL/start/scan/connect remains blocked.

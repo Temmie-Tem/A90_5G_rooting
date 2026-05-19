@@ -1875,3 +1875,8 @@ Samsung bootloader
    - v393 report: `docs/reports/NATIVE_INIT_V393_FRAMECHAIN_AUTO_ELF_RESOLVER_2026-05-20.md`
    - v393 결과: framechain analyzer가 V391 read-only `libc.so` pull과 V221/V227/V222 host-side ELF roots를 자동 재사용한다. synthetic framechain log에서 `/tmp/.../root/apex/com.android.runtime/lib64/bionic/libc.so + 0x8be90`을 `abort`로 symbolization PASS했고 V390 negative regression은 expected `service-manager-framechain-needs-v392-live` PASS
    - v393 해석: 다음 approved V392 live에서 frame return-address가 cached Android ELF에 매핑되면 수동 `--elf-root` 없이 top-level executor route가 symbolized caller inspection으로 이어질 수 있다. Wi-Fi HAL/start/scan/connect remains blocked until V392 exact approval
+
+   - v394 plan: `docs/plans/NATIVE_INIT_V394_POST_V392_ROUTER_PLAN_2026-05-20.md`
+   - v394 report: `docs/reports/NATIVE_INIT_V394_POST_V392_ROUTER_2026-05-20.md`
+   - v394 결과: `scripts/revalidation/wifi_v392_post_live_router.py`가 V392 executor/framechain manifest를 host-only로 라우팅한다. synthetic regression PASS, current no-approval route는 expected `v392-post-live-router-awaiting-approval` PASS
+   - v394 해석: approved V392 live 후 framechain 결과가 symbolized caller, abort-only, missing ELF, missing maprow, clean service-manager 중 어디에 해당하는지 자동 분기한다. Wi-Fi HAL/start/scan/connect remains blocked until V392 evidence says service-manager path is clean enough for a separate HAL start-only approval packet
