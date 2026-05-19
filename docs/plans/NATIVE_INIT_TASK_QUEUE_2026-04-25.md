@@ -3808,6 +3808,25 @@
 - next:
   - v308 candidate: private read-only property area format/proof model, still no runtime node creation
 
+### V308. Private Property Area Proof Model — NEEDS FORMAT SOURCE
+
+- 계획: `docs/plans/NATIVE_INIT_V308_PRIVATE_PROPERTY_AREA_PROOF_PLAN_2026-05-19.md`
+- 보고서: `docs/reports/NATIVE_INIT_V308_PRIVATE_PROPERTY_AREA_PROOF_2026-05-19.md`
+- boot image change: none
+- restored device build: `A90 Linux init 0.9.60 (v261)`
+- tool: `scripts/revalidation/wifi_private_property_area_proof.py`
+- evidence: `tmp/wifi/v308-private-property-area-proof/`
+- decision: `private-property-area-proof-needs-format-source`
+- result:
+  - Android-backed selected seed keys are valid read-only `ro.*` values
+  - v297 Android capture and v307 design selection are present
+  - property area binary layout and serialized `property_info` compatibility remain unproven
+- safety:
+  - host-only proof model
+  - no device/ADB command, property runtime node, socket, service-manager/HAL/Wi-Fi daemon, or Wi-Fi bring-up action
+- next:
+  - v309 candidate: AOSP property area/property info format extractor before any runtime prototype
+
 ### V187. Harness Broker Backend — PASS
 
 - 보고서: `docs/reports/NATIVE_INIT_V187_HARNESS_BROKER_BACKEND_2026-05-11.md`

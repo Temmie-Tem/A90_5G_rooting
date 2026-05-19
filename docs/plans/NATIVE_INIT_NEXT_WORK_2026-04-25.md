@@ -1443,6 +1443,10 @@ Samsung bootloader
    - v307 보고서: `docs/reports/NATIVE_INIT_V307_PROPERTY_SHIM_DESIGN_2026-05-19.md`
    - v307 결과: decision `property-shim-design-model-ready`, selected next prototype `private-readonly-property-area`
    - v307 해석: 다음은 private namespace 안에서 read-only property area format/proof 모델을 만드는 것이며, global `/dev/__properties__`나 property service socket 생성은 여전히 금지다
+   - v308 계획서: `docs/plans/NATIVE_INIT_V308_PRIVATE_PROPERTY_AREA_PROOF_PLAN_2026-05-19.md`
+   - v308 보고서: `docs/reports/NATIVE_INIT_V308_PRIVATE_PROPERTY_AREA_PROOF_2026-05-19.md`
+   - v308 결과: decision `private-property-area-proof-needs-format-source`
+   - v308 해석: Android-backed seed는 read-only 모델 입력으로 유효하지만 property area binary layout과 serialized `property_info` compatibility가 아직 증명되지 않았다. 다음은 runtime node 생성이 아니라 AOSP source 기반 format extractor/proof이다
    - live daemon start 범위를 벗어나는 Wi-Fi scan/connect/link-up/credential/DHCP/routing은 별도 계획과 승인 전까지 blocked
 
 ---
