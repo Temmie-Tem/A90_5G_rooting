@@ -206,7 +206,7 @@ def build_manifest(args: argparse.Namespace) -> dict[str, Any]:
         "decision": decision,
         "pass": pass_ok,
         "reason": reason,
-        "next_step": "v315 private property namespace materialization live implementation" if decision.endswith("plan-ready") else "resolve blockers or provide exact v314 approval for a future live implementation",
+        "next_step": "v315 read-only live preflight before any materialization implementation" if decision.endswith("plan-ready") else "resolve blockers or provide exact approval for a future live implementation",
         "host": collect_host_metadata(),
         "inputs": {
             "v312": {"path": v312.get("path"), "present": bool(v312.get("present")), "decision": v312.get("decision"), "pass": v312.get("pass")},

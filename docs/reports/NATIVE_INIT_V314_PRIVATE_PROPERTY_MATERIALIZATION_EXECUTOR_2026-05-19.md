@@ -59,5 +59,5 @@ None of these steps are executed by v314.
 
 - decision: `private-property-materialization-executor-plan-ready`
 - reason: execution plan generated without device mutation.
-- next step: v315 private property namespace materialization live implementation
-  or a safer intermediate proof.
+- next step: v315 read-only live preflight before any materialization
+  implementation.
