@@ -4486,6 +4486,24 @@
 - next:
   - exact v317 approval phrase가 있으면 V317 minimal live proof 진행
 
+### V340. V317 Final Handoff Packet — PASS / HOST-ONLY
+
+- 계획: `docs/plans/NATIVE_INIT_V340_V317_FINAL_HANDOFF_PACKET_PLAN_2026-05-19.md`
+- 보고서: `docs/reports/NATIVE_INIT_V340_V317_FINAL_HANDOFF_PACKET_2026-05-19.md`
+- tool: `scripts/revalidation/wifi_v317_handoff_packet.py`
+- evidence: `tmp/wifi/v340-v317-final-handoff-packet/`
+- boot image: 없음. v340은 host-only operator handoff packet이며 native init version 변경 없음
+- validation:
+  - `py_compile` PASS
+  - `git diff --check` PASS
+  - decision `v317-handoff-awaiting-approval`
+  - remaining blocker `exact-v317-approval-phrase`
+  - V331/V336/V339 gates PASS
+  - `device_commands_executed=false`
+  - `device_mutations=false`
+- next:
+  - exact v317 approval phrase가 있으면 handoff packet의 command로 V317 minimal live proof 진행
+
 ### V187. Harness Broker Backend — PASS
 
 - 보고서: `docs/reports/NATIVE_INIT_V187_HARNESS_BROKER_BACKEND_2026-05-11.md`

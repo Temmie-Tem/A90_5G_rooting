@@ -1551,6 +1551,9 @@ Samsung bootloader
    - v339 계획서: `docs/plans/NATIVE_INIT_V339_V317_LIVE_SURFACE_LINTER_PLAN_2026-05-19.md`
    - v339 보고서: `docs/reports/NATIVE_INIT_V339_V317_LIVE_SURFACE_LINTER_2026-05-19.md`
    - v339 해석: V317 runner의 `device_cmd()` 호출 표면을 AST로 검사해 허용된 private-workdir 파일 작업만 남아 있음을 확인했다
+   - v340 계획서: `docs/plans/NATIVE_INIT_V340_V317_FINAL_HANDOFF_PACKET_PLAN_2026-05-19.md`
+   - v340 보고서: `docs/reports/NATIVE_INIT_V340_V317_FINAL_HANDOFF_PACKET_2026-05-19.md`
+   - v340 해석: V331/V336/V339를 단일 operator handoff packet으로 묶었다. 남은 blocker는 `exact-v317-approval-phrase` 하나다
    - live daemon start 범위를 벗어나는 Wi-Fi scan/connect/link-up/credential/DHCP/routing은 별도 계획과 승인 전까지 blocked
 
 ---
