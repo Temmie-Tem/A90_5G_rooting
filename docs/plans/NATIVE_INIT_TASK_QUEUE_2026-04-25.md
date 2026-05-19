@@ -5388,6 +5388,28 @@
   - V379 helper-private Binder devnode provisioning for service-manager start-only mode
   - HAL start-only approval packet remains blocked
 
+
+### V379. Execns Private Binder Devnodes — LOCAL PASS
+
+- 계획: `docs/plans/NATIVE_INIT_V379_EXECNS_PRIVATE_BINDER_DEVNODES_PLAN_2026-05-20.md`
+- 보고서: `docs/reports/NATIVE_INIT_V379_EXECNS_PRIVATE_BINDER_DEVNODES_2026-05-20.md`
+- helper: `a90_android_execns_probe v13`
+- artifact: `tmp/wifi/v379-a90_android_execns_probe-v13/a90_android_execns_probe`
+- sha256: `9866c8f1e7c346906f4a400ee431ea35ed3880c157e5ee4e8b1757377dcfffa8`
+- validation:
+  - static ARM64 build PASS
+  - required strings PASS
+  - no dynamic section PASS
+  - `git diff --check` PASS
+  - host Python py_compile PASS
+- scope:
+  - local helper source/build only
+  - no `/cache/bin` deploy
+  - no daemon start
+  - no Wi-Fi HAL start or Wi-Fi bring-up
+- next:
+  - V380 deploy v13 and rerun service-manager start-only preflight
+
 ### V187. Harness Broker Backend — PASS
 
 - 보고서: `docs/reports/NATIVE_INIT_V187_HARNESS_BROKER_BACKEND_2026-05-11.md`

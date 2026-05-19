@@ -43,7 +43,7 @@
 #define PR_CAP_AMBIENT_RAISE 2
 #endif
 
-#define EXECNS_VERSION "a90_android_execns_probe v12"
+#define EXECNS_VERSION "a90_android_execns_probe v13"
 #define MAX_PATH_LEN 512
 #define MAX_CAPTURE_SIZE (1024 * 1024)
 #define MAX_LINKERCONFIG_SIZE (256 * 1024)
@@ -91,6 +91,9 @@ struct paths {
     char vendor_source[MAX_PATH_LEN];
     char dev[MAX_PATH_LEN];
     char dev_null[MAX_PATH_LEN];
+    char dev_binder[MAX_PATH_LEN];
+    char dev_hwbinder[MAX_PATH_LEN];
+    char dev_vndbinder[MAX_PATH_LEN];
     char dev_properties[MAX_PATH_LEN];
     char sys[MAX_PATH_LEN];
     char sys_fs[MAX_PATH_LEN];
@@ -466,6 +469,9 @@ static int init_paths(struct paths *paths) {
         append_path(paths->vendor_source, sizeof(paths->vendor_source), paths->base, "vendor-block-sda29") < 0 ||
         append_path(paths->dev, sizeof(paths->dev), paths->root, "dev") < 0 ||
         append_path(paths->dev_null, sizeof(paths->dev_null), paths->dev, "null") < 0 ||
+        append_path(paths->dev_binder, sizeof(paths->dev_binder), paths->dev, "binder") < 0 ||
+        append_path(paths->dev_hwbinder, sizeof(paths->dev_hwbinder), paths->dev, "hwbinder") < 0 ||
+        append_path(paths->dev_vndbinder, sizeof(paths->dev_vndbinder), paths->dev, "vndbinder") < 0 ||
         append_path(paths->dev_properties,
                     sizeof(paths->dev_properties),
                     paths->dev,
@@ -772,6 +778,46 @@ static int materialize_null_devices(const struct config *cfg,
     }
     if (chmod(paths->sys_fs_selinux_null, 0666) < 0) {
         snprintf(error_buf, error_size, "chmod selinux null: %s", strerror(errno));
+        return -1;
+    }
+    return 0;
+}
+
+static int materialize_one_binder_device(const char *path,
+                                         unsigned int minor_no,
+                                         const char *name,
+                                         char *error_buf,
+                                         size_t error_size) {
+    if (unlink(path) < 0 && errno != ENOENT) {
+        snprintf(error_buf, error_size, "unlink %s: %s", name, strerror(errno));
+        return -1;
+    }
+    if (mknod(path, S_IFCHR | 0666, makedev(10, minor_no)) < 0) {
+        snprintf(error_buf, error_size, "mknod %s: %s", name, strerror(errno));
+        return -1;
+    }
+    if (chmod(path, 0666) < 0) {
+        snprintf(error_buf, error_size, "chmod %s: %s", name, strerror(errno));
+        return -1;
+    }
+    return 0;
+}
+
+static int materialize_service_manager_binder_devices(const struct config *cfg,
+                                                      const struct paths *paths,
+                                                      char *error_buf,
+                                                      size_t error_size) {
+    if (!streq(cfg->mode, "service-manager-start-only") ||
+        !cfg->allow_service_manager_start_only) {
+        return 0;
+    }
+    if (mkdir_p(paths->dev, 0755) < 0) {
+        snprintf(error_buf, error_size, "mkdir dev for binder: %s", strerror(errno));
+        return -1;
+    }
+    if (materialize_one_binder_device(paths->dev_binder, 81, "binder", error_buf, error_size) < 0 ||
+        materialize_one_binder_device(paths->dev_hwbinder, 80, "hwbinder", error_buf, error_size) < 0 ||
+        materialize_one_binder_device(paths->dev_vndbinder, 79, "vndbinder", error_buf, error_size) < 0) {
         return -1;
     }
     return 0;
@@ -1228,6 +1274,9 @@ static void print_preexec_context(const struct config *cfg, const struct paths *
         print_context_path(paths, "target", cfg->target);
     }
     print_context_path(paths, "dev_null", "/dev/null");
+    print_context_path(paths, "dev_binder", "/dev/binder");
+    print_context_path(paths, "dev_hwbinder", "/dev/hwbinder");
+    print_context_path(paths, "dev_vndbinder", "/dev/vndbinder");
     print_context_path(paths, "dev_properties", "/dev/__properties__");
     print_context_path(paths, "selinux_null", "/sys/fs/selinux/null");
     print_context_path(paths, "data", "/data");
@@ -3275,6 +3324,9 @@ static int setup_namespace(const struct config *cfg,
         return -1;
     }
     if (materialize_null_devices(cfg, paths, error_buf, error_size) < 0) {
+        return -1;
+    }
+    if (materialize_service_manager_binder_devices(cfg, paths, error_buf, error_size) < 0) {
         return -1;
     }
     if (materialize_private_properties(cfg, paths, error_buf, error_size) < 0) {

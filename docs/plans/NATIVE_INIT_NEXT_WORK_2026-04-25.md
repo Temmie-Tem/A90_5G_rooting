@@ -1695,6 +1695,11 @@ Samsung bootloader
    - v378 다음: V379에서 service-manager start-only helper namespace 안에 private Binder devnode provisioning을 추가한다. binderfs는 별도 mount/ioctl 정책이 필요하므로 우선 static misc devnode 방식이 더 작다
    - live daemon start 범위를 벗어나는 Wi-Fi scan/connect/link-up/credential/DHCP/routing은 별도 계획과 승인 전까지 blocked
 
+   - v379 계획서: `docs/plans/NATIVE_INIT_V379_EXECNS_PRIVATE_BINDER_DEVNODES_PLAN_2026-05-20.md`
+   - v379 보고서: `docs/reports/NATIVE_INIT_V379_EXECNS_PRIVATE_BINDER_DEVNODES_2026-05-20.md`
+   - v379 해석: `a90_android_execns_probe v13` 로컬 static helper에 service-manager start-only 전용 private `/dev/binder`, `/dev/hwbinder`, `/dev/vndbinder` provisioning을 추가했다. helper child는 Android `system` uid로 drop되므로 private Binder nodes는 `0666`으로 만든다. 아직 `/cache/bin` 배포나 daemon start는 하지 않았다
+   - v379 다음: V380에서 v13 helper를 배포/검증하고, 별도 live 승인 범위에서 bounded service-manager start-only를 재실행한다
+
 ---
 
 ## 당장 하지 않을 것
