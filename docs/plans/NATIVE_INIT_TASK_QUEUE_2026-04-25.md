@@ -3627,6 +3627,31 @@
 - next:
   - operator-approved Android boot handoff, then v297 capture and v298 compare
 
+### V300. Android Capture Executor — DRY-RUN PASS / APPROVAL REQUIRED
+
+- 계획: `docs/plans/NATIVE_INIT_V300_ANDROID_CAPTURE_EXECUTOR_PLAN_2026-05-19.md`
+- 보고서: `docs/reports/NATIVE_INIT_V300_ANDROID_CAPTURE_EXECUTOR_2026-05-19.md`
+- boot image change: none
+- baseline device build: `A90 Linux init 0.9.60 (v261)`
+- tool: `scripts/revalidation/android_capture_handoff_execute.py`
+- evidence:
+  - `tmp/wifi/v300-android-capture-executor-plan/`
+  - `tmp/wifi/v300-android-capture-executor-dryrun/`
+  - `tmp/wifi/v300-android-capture-executor-refuse/`
+- decisions:
+  - `android-capture-executor-plan-ready`
+  - `android-capture-executor-dryrun-ready`
+  - `android-capture-executor-approval-required`
+- result:
+  - dry-run recorded the full Android handoff, v297 capture, v298 compare, and native rollback sequence
+  - `run` without `--allow-android-boot-flash --assume-yes --i-understand-native-rollback` refused before dangerous actions
+  - post-check still shows native `A90 Linux init 0.9.60 (v261)`
+- safety:
+  - no live reboot/recovery/flash was executed
+  - no property mutation or Wi-Fi bring-up action was executed
+- next:
+  - explicit operator approval is required before v300 live `run`
+
 ### V187. Harness Broker Backend — PASS
 
 - 보고서: `docs/reports/NATIVE_INIT_V187_HARNESS_BROKER_BACKEND_2026-05-11.md`

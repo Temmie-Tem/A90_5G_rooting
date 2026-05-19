@@ -1411,6 +1411,10 @@ Samsung bootloader
    - v299 보고서: `docs/reports/NATIVE_INIT_V299_ANDROID_CAPTURE_HANDOFF_2026-05-19.md`
    - v299 결과: decision `android-capture-handoff-ready-needs-operator`, native rollback image와 Android boot candidate가 확인됐고 native bridge `version/status` PASS
    - v299 해석: Android property capture를 위해 boot partition 전환이 필요하므로 여기서 명시적 operator 승인 경계다. 승인 전 자동 reboot/flash는 하지 않는다
+   - v300 계획서: `docs/plans/NATIVE_INIT_V300_ANDROID_CAPTURE_EXECUTOR_PLAN_2026-05-19.md`
+   - v300 보고서: `docs/reports/NATIVE_INIT_V300_ANDROID_CAPTURE_EXECUTOR_2026-05-19.md`
+   - v300 결과: decision `android-capture-executor-dryrun-ready`, 승인 없는 `run`은 `android-capture-executor-approval-required`로 거부됨
+   - v300 해석: live Android handoff 실행기는 준비됐지만 `--allow-android-boot-flash --assume-yes --i-understand-native-rollback` 명시 승인 전까지 실행 금지
    - live daemon start 범위를 벗어나는 Wi-Fi scan/connect/link-up/credential/DHCP/routing은 별도 계획과 승인 전까지 blocked
 
 ---
