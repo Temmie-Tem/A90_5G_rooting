@@ -32,6 +32,7 @@
 - v384 plan: `docs/plans/NATIVE_INIT_V384_SERVICEMANAGER_CRASH_CAPTURE_PLAN_2026-05-20.md`.
 - v384 local/helper implementation: `docs/reports/NATIVE_INIT_V384_SERVICEMANAGER_CRASH_CAPTURE_2026-05-20.md`; helper v15 local SHA `dfd543c02ccefbbbcf2fe0eb7ee168b40d40363927a63104c7aef0b9aed0bb16`; no deploy/live executed.
 - v384 executor: `scripts/revalidation/wifi_v384_deploy_live_executor.py`; report `docs/reports/NATIVE_INIT_V384_DEPLOY_LIVE_EXECUTOR_2026-05-20.md`; no-approval full regression PASS with no device commands/mutations/daemon/Wi-Fi.
+- v384 handoff: `docs/operations/WIFI_V384_PTRACE_LIVE_HANDOFF.md`.
 - next execution item: v384 approved deploy of helper v15, then approved service-manager ptrace-lite crash capture; no Wi-Fi HAL/start/scan/connect.
 
 ## 현재 고정 기준점
