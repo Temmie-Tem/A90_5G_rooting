@@ -51,7 +51,7 @@
 #define BINDER_BUFFER_FLAG_REF 0x02
 #endif
 
-#define EXECNS_VERSION "a90_android_execns_probe v45"
+#define EXECNS_VERSION "a90_android_execns_probe v46"
 #define MAX_PATH_LEN 512
 #define MAX_CAPTURE_SIZE (1024 * 1024)
 #define MAX_LINKERCONFIG_SIZE (256 * 1024)
@@ -203,7 +203,7 @@ static void usage(FILE *out) {
             "[--allow-wifi-hal-start-only] "
             "[--allow-hal-service-query] "
             "[--allow-iwifi-start-only] "
-            "--mode linker-list|identity-probe|selinux-domain-proof|cnss-start-only|property-lookup|service-manager-start-only|private-selinux-proof|wifi-hal-lshal-vintf-status-list|wifi-hal-composite-start-only|wifi-hal-composite-lshal-list|wifi-hal-composite-lshal-binderized-list|wifi-hal-composite-lshal-wait-target|wifi-surface-composite-lshal-wait-iwifi|wifi-surface-composite-lshal-wait-samsung|wifi-surface-composite-lshal-wait-samsung-ptrace|wifi-hal-composite-lshal-status-list|wifi-hal-composite-lshal-binderized-status-list|wifi-surface-composite-start-only|wifi-iwifi-start-surface "
+            "--mode linker-list|identity-probe|sepolicy-inventory|selinux-domain-proof|cnss-start-only|property-lookup|service-manager-start-only|private-selinux-proof|wifi-hal-lshal-vintf-status-list|wifi-hal-composite-start-only|wifi-hal-composite-lshal-list|wifi-hal-composite-lshal-binderized-list|wifi-hal-composite-lshal-wait-target|wifi-surface-composite-lshal-wait-iwifi|wifi-surface-composite-lshal-wait-samsung|wifi-surface-composite-lshal-wait-samsung-ptrace|wifi-hal-composite-lshal-status-list|wifi-hal-composite-lshal-binderized-status-list|wifi-surface-composite-start-only|wifi-iwifi-start-surface "
             "[v27 binderized query runs: /system/bin/lshal list --types=binderized --neat] "
             "[v28 target query runs: /system/bin/lshal wait <fqinstance>] "
             "[v29 status query runs: /system/bin/lshal list --types=binderized,vintf --neat -V -S -i -p -e -c] "
@@ -508,6 +508,7 @@ static int parse_args(int argc, char **argv, struct config *cfg) {
         !streq(cfg->vendor_fstype, "ext4") ||
         !(streq(cfg->mode, "linker-list") ||
           streq(cfg->mode, "identity-probe") ||
+          streq(cfg->mode, "sepolicy-inventory") ||
           streq(cfg->mode, "selinux-domain-proof") ||
           streq(cfg->mode, "cnss-start-only") ||
           streq(cfg->mode, "property-lookup") ||
@@ -554,6 +555,28 @@ static int parse_args(int argc, char **argv, struct config *cfg) {
     if (streq(cfg->mode, "identity-probe") && !streq(cfg->capture_mode, "none")) {
         fprintf(stderr, "--capture-mode must be none for identity-probe mode\n");
         return 2;
+    }
+    if (streq(cfg->mode, "sepolicy-inventory")) {
+        if (cfg->linker != NULL) {
+            fprintf(stderr, "--linker is not used by sepolicy-inventory mode\n");
+            return 2;
+        }
+        if (!streq(cfg->capture_mode, "none")) {
+            fprintf(stderr, "--capture-mode must be none for sepolicy-inventory mode\n");
+            return 2;
+        }
+        if (!streq(cfg->target, "/system/bin/toybox")) {
+            fprintf(stderr, "sepolicy-inventory target-profile must be system-toybox\n");
+            return 2;
+        }
+        if (cfg->allow_cnss_start_only ||
+            cfg->allow_service_manager_start_only ||
+            cfg->allow_wifi_hal_start_only ||
+            cfg->allow_hal_service_query ||
+            cfg->allow_iwifi_start_only) {
+            fprintf(stderr, "sepolicy-inventory does not accept daemon/HAL allow flags\n");
+            return 2;
+        }
     }
     if (streq(cfg->mode, "selinux-domain-proof")) {
         if (cfg->linker != NULL) {
@@ -954,6 +977,7 @@ static int materialize_selinuxfs_surface(const struct config *cfg,
     struct stat st;
 
     if (!streq(cfg->mode, "private-selinux-proof") &&
+        !streq(cfg->mode, "sepolicy-inventory") &&
         !streq(cfg->mode, "selinux-domain-proof") &&
         !streq(cfg->mode, "service-manager-start-only") &&
         !(is_wifi_hal_composite_mode(cfg->mode) &&
@@ -3478,6 +3502,369 @@ static int append_format(struct buffer *buf, const char *fmt, ...) {
     rc = buffer_append(buf, dynamic_buf, (size_t)rc);
     free(dynamic_buf);
     return rc;
+}
+
+struct sepolicy_inventory_path {
+    const char *label;
+    const char *path;
+};
+
+static void sanitize_one_line(char *value) {
+    for (size_t i = 0; value[i] != '\0'; i++) {
+        unsigned char ch = (unsigned char)value[i];
+
+        if (ch == '\n' || ch == '\r') {
+            value[i] = '\0';
+            return;
+        }
+        if (ch < 0x20 || ch > 0x7e) {
+            value[i] = '?';
+        }
+    }
+}
+
+static int read_root_first_line(const struct paths *paths,
+                                const char *absolute_path,
+                                char *out,
+                                size_t out_size,
+                                bool *present) {
+    char host_path[MAX_PATH_LEN];
+    int fd;
+    ssize_t nread;
+
+    *present = false;
+    if (out_size == 0) {
+        errno = EINVAL;
+        return -1;
+    }
+    out[0] = '\0';
+    if (path_in_root(host_path, sizeof(host_path), paths, absolute_path) < 0) {
+        return -1;
+    }
+    fd = open(host_path, O_RDONLY | O_CLOEXEC);
+    if (fd < 0) {
+        if (errno == ENOENT || errno == ENOTDIR) {
+            return 0;
+        }
+        return -1;
+    }
+    *present = true;
+    nread = read(fd, out, out_size - 1U);
+    close(fd);
+    if (nread < 0) {
+        out[0] = '\0';
+        return -1;
+    }
+    out[nread] = '\0';
+    sanitize_one_line(out);
+    return 0;
+}
+
+static int append_sepolicy_path_info(struct buffer *buf,
+                                     const struct paths *paths,
+                                     const char *label,
+                                     const char *absolute_path) {
+    char host_path[MAX_PATH_LEN];
+    char line[256];
+    struct stat st;
+    uint64_t hash;
+    size_t bytes;
+    bool present = false;
+
+    if (path_in_root(host_path, sizeof(host_path), paths, absolute_path) < 0) {
+        return append_format(buf, "sepolicy.path.%s.error=path-too-long\n", label);
+    }
+    if (append_format(buf, "sepolicy.path.%s.path=%s\n", label, absolute_path) < 0 ||
+        append_format(buf, "sepolicy.path.%s.host_path=%s\n", label, host_path) < 0) {
+        return -1;
+    }
+    if (lstat(host_path, &st) < 0) {
+        return append_format(buf,
+                             "sepolicy.path.%s.exists=0\n"
+                             "sepolicy.path.%s.errno=%d\n",
+                             label,
+                             label,
+                             errno);
+    }
+    if (append_format(buf,
+                      "sepolicy.path.%s.exists=1\n"
+                      "sepolicy.path.%s.mode=%o\n"
+                      "sepolicy.path.%s.type=%s\n"
+                      "sepolicy.path.%s.size=%lld\n"
+                      "sepolicy.path.%s.access_r=%d\n"
+                      "sepolicy.path.%s.access_x=%d\n",
+                      label,
+                      label,
+                      st.st_mode & 07777,
+                      label,
+                      S_ISREG(st.st_mode) ? "regular" :
+                      S_ISDIR(st.st_mode) ? "directory" :
+                      S_ISLNK(st.st_mode) ? "symlink" :
+                      S_ISCHR(st.st_mode) ? "char" :
+                      S_ISBLK(st.st_mode) ? "block" : "other",
+                      label,
+                      (long long)st.st_size,
+                      label,
+                      access(host_path, R_OK) == 0 ? 1 : 0,
+                      label,
+                      access(host_path, X_OK) == 0 ? 1 : 0) < 0) {
+        return -1;
+    }
+    if (S_ISREG(st.st_mode) && fnv1a64_file(host_path, &hash, &bytes) == 0) {
+        if (append_format(buf,
+                          "sepolicy.path.%s.bytes=%zu\n"
+                          "sepolicy.path.%s.hash=0x%016llx\n",
+                          label,
+                          bytes,
+                          label,
+                          (unsigned long long)hash) < 0) {
+            return -1;
+        }
+    }
+    if (S_ISREG(st.st_mode) &&
+        read_root_first_line(paths, absolute_path, line, sizeof(line), &present) == 0 &&
+        present && line[0] != '\0') {
+        if (append_format(buf, "sepolicy.path.%s.first_line=%s\n", label, line) < 0) {
+            return -1;
+        }
+    }
+    return 0;
+}
+
+static int append_sepolicy_hash_compare(struct buffer *buf,
+                                        const struct paths *paths,
+                                        const char *label,
+                                        const char *actual_path,
+                                        const char *precompiled_path) {
+    char actual[256];
+    char precompiled[256];
+    bool actual_present = false;
+    bool precompiled_present = false;
+    int actual_rc;
+    int precompiled_rc;
+    bool match = false;
+
+    actual_rc = read_root_first_line(paths, actual_path, actual, sizeof(actual), &actual_present);
+    precompiled_rc = read_root_first_line(paths,
+                                          precompiled_path,
+                                          precompiled,
+                                          sizeof(precompiled),
+                                          &precompiled_present);
+    if (actual_rc < 0 || precompiled_rc < 0) {
+        return append_format(buf,
+                             "sepolicy.hash.%s.error=read-failed\n"
+                             "sepolicy.hash.%s.actual_rc=%d\n"
+                             "sepolicy.hash.%s.precompiled_rc=%d\n",
+                             label,
+                             label,
+                             actual_rc,
+                             label,
+                             precompiled_rc);
+    }
+    match = actual_present && precompiled_present && actual[0] != '\0' && streq(actual, precompiled);
+    return append_format(buf,
+                         "sepolicy.hash.%s.actual_present=%d\n"
+                         "sepolicy.hash.%s.precompiled_present=%d\n"
+                         "sepolicy.hash.%s.match=%d\n"
+                         "sepolicy.hash.%s.actual=%s\n"
+                         "sepolicy.hash.%s.precompiled=%s\n",
+                         label,
+                         actual_present ? 1 : 0,
+                         label,
+                         precompiled_present ? 1 : 0,
+                         label,
+                         match ? 1 : 0,
+                         label,
+                         actual_present ? actual : "<missing>",
+                         label,
+                         precompiled_present ? precompiled : "<missing>");
+}
+
+static bool root_path_exists(const struct paths *paths, const char *absolute_path) {
+    char host_path[MAX_PATH_LEN];
+
+    if (path_in_root(host_path, sizeof(host_path), paths, absolute_path) < 0) {
+        return false;
+    }
+    return access(host_path, F_OK) == 0;
+}
+
+static int run_sepolicy_inventory(const struct config *cfg,
+                                  const struct paths *paths,
+                                  struct buffer *stdout_buf) {
+    static const struct sepolicy_inventory_path inventory_paths[] = {
+        {"system_plat_cil", "/system/etc/selinux/plat_sepolicy.cil"},
+        {"system_plat_mapping_sha", "/system/etc/selinux/plat_sepolicy_and_mapping.sha256"},
+        {"system_mapping_dir", "/system/etc/selinux/mapping"},
+        {"system_secilc", "/system/bin/secilc"},
+        {"system_plat_pub_versioned", "/system/etc/selinux/plat_pub_versioned.cil"},
+        {"system_ext_cil", "/system/system_ext/etc/selinux/system_ext_sepolicy.cil"},
+        {"system_ext_hash", "/system/system_ext/etc/selinux/system_ext_sepolicy_and_mapping.sha256"},
+        {"system_ext_mapping_dir", "/system/system_ext/etc/selinux/mapping"},
+        {"system_ext_root_cil", "/system_ext/etc/selinux/system_ext_sepolicy.cil"},
+        {"product_cil", "/system/product/etc/selinux/product_sepolicy.cil"},
+        {"product_hash", "/system/product/etc/selinux/product_sepolicy_and_mapping.sha256"},
+        {"product_mapping_dir", "/system/product/etc/selinux/mapping"},
+        {"product_root_cil", "/product/etc/selinux/product_sepolicy.cil"},
+        {"vendor_precompiled", "/vendor/etc/selinux/precompiled_sepolicy"},
+        {"vendor_precompiled_plat_hash", "/vendor/etc/selinux/precompiled_sepolicy.plat_sepolicy_and_mapping.sha256"},
+        {"vendor_precompiled_system_ext_hash", "/vendor/etc/selinux/precompiled_sepolicy.system_ext_sepolicy_and_mapping.sha256"},
+        {"vendor_precompiled_product_hash", "/vendor/etc/selinux/precompiled_sepolicy.product_sepolicy_and_mapping.sha256"},
+        {"vendor_plat_pub_versioned", "/vendor/etc/selinux/plat_pub_versioned.cil"},
+        {"vendor_policy_cil", "/vendor/etc/selinux/vendor_sepolicy.cil"},
+        {"vendor_plat_sepolicy_vers", "/vendor/etc/selinux/plat_sepolicy_vers.txt"},
+        {"vendor_file_contexts", "/vendor/etc/selinux/vendor_file_contexts"},
+        {"vendor_service_contexts", "/vendor/etc/selinux/vendor_service_contexts"},
+        {"vendor_hwservice_contexts", "/vendor/etc/selinux/vendor_hwservice_contexts"},
+        {"odm_precompiled", "/odm/etc/selinux/precompiled_sepolicy"},
+        {"odm_policy_cil", "/odm/etc/selinux/odm_sepolicy.cil"},
+    };
+    bool split_policy;
+    bool vendor_precompiled;
+    bool secilc;
+    bool vendor_policy;
+    bool vendor_plat_pub;
+    int hash_match_count = 0;
+    int hash_required_count = 0;
+
+    (void)cfg;
+    if (append_literal(stdout_buf,
+                       "sepolicy_inventory.begin=1\n"
+                       "sepolicy_inventory.daemon_start_executed=0\n"
+                       "sepolicy_inventory.wifi_hal_start_executed=0\n"
+                       "sepolicy_inventory.wifi_bringup_executed=0\n") < 0) {
+        return -1;
+    }
+    for (size_t i = 0; i < sizeof(inventory_paths) / sizeof(inventory_paths[0]); i++) {
+        if (append_sepolicy_path_info(stdout_buf,
+                                      paths,
+                                      inventory_paths[i].label,
+                                      inventory_paths[i].path) < 0) {
+            return -1;
+        }
+    }
+    if (append_sepolicy_hash_compare(stdout_buf,
+                                     paths,
+                                     "plat",
+                                     "/system/etc/selinux/plat_sepolicy_and_mapping.sha256",
+                                     "/vendor/etc/selinux/precompiled_sepolicy.plat_sepolicy_and_mapping.sha256") < 0 ||
+        append_sepolicy_hash_compare(stdout_buf,
+                                     paths,
+                                     "system_ext",
+                                     "/system/system_ext/etc/selinux/system_ext_sepolicy_and_mapping.sha256",
+                                     "/vendor/etc/selinux/precompiled_sepolicy.system_ext_sepolicy_and_mapping.sha256") < 0 ||
+        append_sepolicy_hash_compare(stdout_buf,
+                                     paths,
+                                     "product",
+                                     "/system/product/etc/selinux/product_sepolicy_and_mapping.sha256",
+                                     "/vendor/etc/selinux/precompiled_sepolicy.product_sepolicy_and_mapping.sha256") < 0) {
+        return -1;
+    }
+    split_policy = root_path_exists(paths, "/system/etc/selinux/plat_sepolicy.cil");
+    vendor_precompiled = root_path_exists(paths, "/vendor/etc/selinux/precompiled_sepolicy");
+    secilc = root_path_exists(paths, "/system/bin/secilc");
+    vendor_policy = root_path_exists(paths, "/vendor/etc/selinux/vendor_sepolicy.cil");
+    vendor_plat_pub = root_path_exists(paths, "/vendor/etc/selinux/plat_pub_versioned.cil");
+    if (root_path_exists(paths, "/system/etc/selinux/plat_sepolicy_and_mapping.sha256")) {
+        hash_required_count++;
+        if (root_path_exists(paths, "/vendor/etc/selinux/precompiled_sepolicy.plat_sepolicy_and_mapping.sha256")) {
+            char actual[256];
+            char precompiled[256];
+            bool actual_present = false;
+            bool precompiled_present = false;
+
+            if (read_root_first_line(paths,
+                                     "/system/etc/selinux/plat_sepolicy_and_mapping.sha256",
+                                     actual,
+                                     sizeof(actual),
+                                     &actual_present) == 0 &&
+                read_root_first_line(paths,
+                                     "/vendor/etc/selinux/precompiled_sepolicy.plat_sepolicy_and_mapping.sha256",
+                                     precompiled,
+                                     sizeof(precompiled),
+                                     &precompiled_present) == 0 &&
+                actual_present &&
+                precompiled_present &&
+                streq(actual, precompiled)) {
+                hash_match_count++;
+            }
+        }
+    }
+    if (root_path_exists(paths, "/system/system_ext/etc/selinux/system_ext_sepolicy_and_mapping.sha256")) {
+        hash_required_count++;
+        if (root_path_exists(paths, "/vendor/etc/selinux/precompiled_sepolicy.system_ext_sepolicy_and_mapping.sha256")) {
+            char actual[256];
+            char precompiled[256];
+            bool actual_present = false;
+            bool precompiled_present = false;
+
+            if (read_root_first_line(paths,
+                                     "/system/system_ext/etc/selinux/system_ext_sepolicy_and_mapping.sha256",
+                                     actual,
+                                     sizeof(actual),
+                                     &actual_present) == 0 &&
+                read_root_first_line(paths,
+                                     "/vendor/etc/selinux/precompiled_sepolicy.system_ext_sepolicy_and_mapping.sha256",
+                                     precompiled,
+                                     sizeof(precompiled),
+                                     &precompiled_present) == 0 &&
+                actual_present &&
+                precompiled_present &&
+                streq(actual, precompiled)) {
+                hash_match_count++;
+            }
+        }
+    }
+    if (root_path_exists(paths, "/system/product/etc/selinux/product_sepolicy_and_mapping.sha256")) {
+        hash_required_count++;
+        if (root_path_exists(paths, "/vendor/etc/selinux/precompiled_sepolicy.product_sepolicy_and_mapping.sha256")) {
+            char actual[256];
+            char precompiled[256];
+            bool actual_present = false;
+            bool precompiled_present = false;
+
+            if (read_root_first_line(paths,
+                                     "/system/product/etc/selinux/product_sepolicy_and_mapping.sha256",
+                                     actual,
+                                     sizeof(actual),
+                                     &actual_present) == 0 &&
+                read_root_first_line(paths,
+                                     "/vendor/etc/selinux/precompiled_sepolicy.product_sepolicy_and_mapping.sha256",
+                                     precompiled,
+                                     sizeof(precompiled),
+                                     &precompiled_present) == 0 &&
+                actual_present &&
+                precompiled_present &&
+                streq(actual, precompiled)) {
+                hash_match_count++;
+            }
+        }
+    }
+    if (append_format(stdout_buf,
+                      "sepolicy_inventory.split_policy_device=%d\n"
+                      "sepolicy_inventory.vendor_precompiled_present=%d\n"
+                      "sepolicy_inventory.precompiled_hash_required_count=%d\n"
+                      "sepolicy_inventory.precompiled_hash_match_count=%d\n"
+                      "sepolicy_inventory.precompiled_usable=%d\n"
+                      "sepolicy_inventory.secilc_present=%d\n"
+                      "sepolicy_inventory.vendor_policy_cil_present=%d\n"
+                      "sepolicy_inventory.vendor_plat_pub_versioned_present=%d\n"
+                      "sepolicy_inventory.compile_inputs_present=%d\n"
+                      "sepolicy_inventory.result=%s\n"
+                      "sepolicy_inventory.end=1\n",
+                      split_policy ? 1 : 0,
+                      vendor_precompiled ? 1 : 0,
+                      hash_required_count,
+                      hash_match_count,
+                      vendor_precompiled && hash_required_count > 0 && hash_match_count == hash_required_count ? 1 : 0,
+                      secilc ? 1 : 0,
+                      vendor_policy ? 1 : 0,
+                      vendor_plat_pub ? 1 : 0,
+                      split_policy && secilc && vendor_policy && vendor_plat_pub ? 1 : 0,
+                      split_policy ? "split-policy-inventory-pass" : "split-policy-inventory-missing") < 0) {
+        return -1;
+    }
+    return 0;
 }
 
 static bool wifi_surface_iface_name(const char *name) {
@@ -8697,6 +9084,10 @@ int main(int argc, char **argv) {
                                     &child_exit_code,
                                     &child_signal,
                                     &timed_out);
+    } else if (streq(cfg.mode, "sepolicy-inventory")) {
+        run_rc = run_sepolicy_inventory(&cfg, &paths, &stdout_buf);
+        child_exit_code = run_rc == 0 ? 0 : run_rc;
+        child_signal = 0;
     } else if (streq(cfg.mode, "selinux-domain-proof")) {
         run_rc = run_selinux_domain_proof(&cfg,
                                           &paths,
