@@ -99,7 +99,10 @@
 - V416 planned current gate packet: aggregate V411-V415 evidence into one no-device-command gate decision and required next approval phrase. Plan: `docs/plans/NATIVE_INIT_V416_CURRENT_GATE_PACKET_PLAN_2026-05-20.md`.
 - V416 result: current gate packet routes to `v416-current-gate-waiting-for-v411-deploy`, confirms V412-V416 follow-up tooling is ready, and records the only next approval phrase. Report: `docs/reports/NATIVE_INIT_V416_CURRENT_GATE_PACKET_2026-05-20.md`.
 - V417 current gate refresh: reran V411 deploy/query preflights plus V412/V415/V416 host-only routers; current state is unchanged at `v416-current-gate-waiting-for-v411-deploy`, with no helper deploy, daemon/HAL start, or Wi-Fi bring-up. Report: `docs/reports/NATIVE_INIT_V417_CURRENT_GATE_REFRESH_2026-05-20.md`.
-- next execution item: exact-approved V411 helper v27 deploy only. Required phrase: `approve v411 deploy execns helper v27 only; no daemon start and no Wi-Fi bring-up`.
+- V418 live deploy result: helper v27 deployed to `/cache/bin/a90_android_execns_probe` through serial fallback, and post-deploy V411 binderized query preflight became ready; no daemon/HAL start or Wi-Fi bring-up occurred.
+- V419 live query result: bounded binderized `lshal list --types=binderized --neat` timed out with `v411-hal-registration-query-runtime-gap`; postflight was clean, with no residual manager/HAL processes, no Wi-Fi links, and no Wi-Fi bring-up.
+- V420 post-live routing result: V412 and V415 both route the result to `micro-query-needed`; the updated current gate packet reports `v416-current-gate-micro-query-needed`. Report: `docs/reports/NATIVE_INIT_V418_V419_V420_BINDERIZED_QUERY_LIVE_2026-05-20.md`.
+- next execution item: V421 micro hwservicemanager/HIDL query plan and implementation using V414 primary target patterns; keep scan/connect/link-up and Wi-Fi bring-up out of scope.
 
 ## 현재 고정 기준점
 

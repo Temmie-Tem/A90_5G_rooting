@@ -1,8 +1,9 @@
 #!/usr/bin/env python3
 """V416 host-only Wi-Fi gate status packet.
 
-This aggregates V411-V415 evidence into one current gate decision.  It executes
-no bridge/device command and performs no mutation or Wi-Fi bring-up.
+This aggregates V411-V415 evidence into one current gate decision.  The packet
+itself executes no bridge/device command and performs no mutation or Wi-Fi
+bring-up; the input evidence can include earlier bounded deploy/query steps.
 """
 
 from __future__ import annotations
@@ -28,6 +29,31 @@ DEFAULT_V415 = Path("tmp/wifi/v415-runtime-static-comparator-20260520-121831/man
 
 V411_DEPLOY_PHRASE = "approve v411 deploy execns helper v27 only; no daemon start and no Wi-Fi bring-up"
 V411_QUERY_PHRASE = "approve v411 bounded binderized lshal registration query only; no scan/connect/link-up and no Wi-Fi bring-up"
+V411_DEPLOY_DECISIONS = {
+    "execns-helper-v27-deploy-preflight-ready-needs-deploy",
+    "execns-helper-v27-deploy-pass",
+}
+V411_QUERY_DECISIONS = {
+    "v411-hal-registration-query-blocked",
+    "v411-hal-registration-query-preflight-ready",
+    "v411-hal-registration-query-pass",
+    "v411-hal-registration-query-runtime-gap",
+    "v411-hal-registration-query-tool-missing",
+}
+V412_DECISIONS = {
+    "v412-registration-router-waiting-for-v411-deploy",
+    "v412-registration-router-waiting-for-v411-live-query",
+    "v412-registration-router-wifi-service-candidates-ready",
+    "v412-registration-router-no-wifi-service",
+    "v412-registration-router-micro-query-needed",
+    "v412-registration-router-tool-missing",
+}
+V415_DECISIONS = {
+    "v415-runtime-static-comparator-waiting-for-v411-deploy",
+    "v415-runtime-static-primary-match",
+    "v415-runtime-static-review-required",
+    "v415-runtime-static-comparator-micro-query-needed",
+}
 
 
 @dataclass(frozen=True)
@@ -134,6 +160,49 @@ def input_map(args: argparse.Namespace) -> dict[str, dict[str, Any]]:
     }
 
 
+def decision_ok(payload: dict[str, Any], allowed: set[str], *, allow_blocked: set[str] | None = None) -> bool:
+    decision = str(payload.get("decision") or "")
+    if decision not in allowed:
+        return False
+    if allow_blocked and decision in allow_blocked:
+        return True
+    return bool(payload.get("pass"))
+
+
+def mutation_boundary(inputs: dict[str, dict[str, Any]]) -> tuple[list[str], list[str]]:
+    wifi_bringup = [
+        name
+        for name, payload in inputs.items()
+        if payload.get("wifi_bringup_executed")
+    ]
+    unexpected: list[str] = []
+    for name, payload in inputs.items():
+        decision = str(payload.get("decision") or "")
+        device_mutation = bool(payload.get("device_mutations"))
+        daemon_start = bool(payload.get("daemon_start_executed"))
+        wifi_hal_start = bool(payload.get("wifi_hal_start_executed"))
+        if name == "v411_deploy":
+            if decision == "execns-helper-v27-deploy-pass":
+                if daemon_start or wifi_hal_start:
+                    unexpected.append(name)
+            elif device_mutation or daemon_start or wifi_hal_start:
+                unexpected.append(name)
+            continue
+        if name == "v411_query":
+            if decision in {
+                "v411-hal-registration-query-pass",
+                "v411-hal-registration-query-runtime-gap",
+                "v411-hal-registration-query-tool-missing",
+            }:
+                continue
+            if device_mutation or daemon_start or wifi_hal_start:
+                unexpected.append(name)
+            continue
+        if device_mutation or daemon_start or wifi_hal_start:
+            unexpected.append(name)
+    return wifi_bringup, unexpected
+
+
 def build_checks(inputs: dict[str, dict[str, Any]]) -> list[Check]:
     checks: list[Check] = []
     for name, payload in inputs.items():
@@ -153,27 +222,27 @@ def build_checks(inputs: dict[str, dict[str, Any]]) -> list[Check]:
     v415 = inputs["v415"]
     add_check(
         checks,
-        "v411-deploy-ready",
-        "pass" if v411_deploy.get("decision") == "execns-helper-v27-deploy-preflight-ready-needs-deploy" and v411_deploy.get("pass") else "blocked",
+        "v411-deploy-state",
+        "pass" if decision_ok(v411_deploy, V411_DEPLOY_DECISIONS) else "blocked",
         str(v411_deploy.get("reason") or ""),
         [str(v411_deploy.get("path", ""))],
-        "exact-approved helper v27 deploy is the next live gate",
+        "use deploy-wait or deploy-pass evidence",
     )
     add_check(
         checks,
-        "v411-query-waits-helper",
-        "pass" if v411_query.get("decision") == "v411-hal-registration-query-blocked" else "review",
+        "v411-query-state",
+        "pass" if decision_ok(v411_query, V411_QUERY_DECISIONS, allow_blocked={"v411-hal-registration-query-blocked"}) else "blocked",
         str(v411_query.get("reason") or ""),
         [str(v411_query.get("path", ""))],
-        "rerun query preflight after helper v27 deploy",
+        "use blocked, preflight-ready, pass, runtime-gap, or tool-missing evidence",
     )
     add_check(
         checks,
-        "branch-router-waits-deploy",
-        "pass" if v412.get("decision") == "v412-registration-router-waiting-for-v411-deploy" else "review",
+        "branch-router-state",
+        "pass" if decision_ok(v412, V412_DECISIONS) else "blocked",
         str(v412.get("reason") or ""),
         [str(v412.get("path", ""))],
-        "rerun router after V411 live result",
+        "rerun router after V411 state changes",
     )
     add_check(
         checks,
@@ -185,24 +254,28 @@ def build_checks(inputs: dict[str, dict[str, Any]]) -> list[Check]:
     )
     add_check(
         checks,
-        "runtime-static-comparator-waits-deploy",
-        "pass" if v415.get("decision") == "v415-runtime-static-comparator-waiting-for-v411-deploy" else "review",
+        "runtime-static-comparator-state",
+        "pass" if decision_ok(v415, V415_DECISIONS) else "blocked",
         str(v415.get("reason") or ""),
         [str(v415.get("path", ""))],
-        "rerun V415 after V411 live query",
+        "rerun V415 after V411 state changes",
     )
-    mutations = [
-        name
-        for name, payload in inputs.items()
-        if payload.get("device_mutations") or payload.get("wifi_bringup_executed")
-    ]
+    wifi_bringup, unexpected_mutations = mutation_boundary(inputs)
     add_check(
         checks,
         "no-wifi-bringup-boundary",
-        "pass" if not mutations else "blocked",
-        "all current inputs keep device_mutations/wifi_bringup false" if not mutations else "mutation flags in " + ", ".join(mutations),
-        mutations,
-        "do not proceed if any unexpected mutation appears in gate evidence",
+        "pass" if not wifi_bringup else "blocked",
+        "no input evidence executed Wi-Fi bring-up" if not wifi_bringup else "Wi-Fi bring-up flags in " + ", ".join(wifi_bringup),
+        wifi_bringup,
+        "do not proceed if any Wi-Fi bring-up appears in gate evidence",
+    )
+    add_check(
+        checks,
+        "bounded-mutation-boundary",
+        "pass" if not unexpected_mutations else "blocked",
+        "only V411 deploy/query bounded mutations are present" if not unexpected_mutations else "unexpected mutation flags in " + ", ".join(unexpected_mutations),
+        unexpected_mutations,
+        "review evidence before widening scope",
     )
     return checks
 
