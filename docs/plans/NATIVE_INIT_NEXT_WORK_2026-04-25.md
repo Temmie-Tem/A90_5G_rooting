@@ -2307,3 +2307,14 @@ Samsung bootloader
 - result: operator preflight readiness PASS. V450 confirmed the latest V448 packet is ready, generated scripts are private and structurally valid, V449 routes to host preflight, and no private preflight/live result has superseded the packet yet.
 - interpretation: there is no remaining repo-side/env-free blocker before local Wi-Fi input. The next required action is running the generated host preflight script.
 - next: run `bash /home/temmie/dev/A90_5G_rooting/tmp/wifi/v448-operator-handoff-packet-run-final-20260520-182644/run-v447-host-preflight.sh`, then rerun V449/V450. Server exposure remains blocked.
+
+### V451. Wi-Fi Operator Script Validation Result
+
+- plan: `docs/plans/NATIVE_INIT_V451_WIFI_OPERATOR_SCRIPT_VALIDATION_PLAN_2026-05-20.md`
+- report: `docs/reports/NATIVE_INIT_V451_WIFI_OPERATOR_SCRIPT_VALIDATION_2026-05-20.md`
+- evidence:
+  - plan `tmp/wifi/v451-operator-script-validation-plan-final-20260520-184016/`
+  - run `tmp/wifi/v451-operator-script-validation-run-final-20260520-184016/`
+- result: operator script validation PASS. V451 validated generated V448 host preflight/live scripts with `bash -n`, verified host preflight empty-input fail-closed behavior, and verified live cancellation fail-closed behavior.
+- interpretation: generated operator scripts now have syntax and fail-closed prompt validation in addition to V450 structural/private-mode validation.
+- next: run the generated host preflight script, enter Wi-Fi values locally, then rerun V449/V450. Server exposure remains blocked.

@@ -9158,3 +9158,22 @@ python3 ./scripts/revalidation/physical_usb_reconnect_check.py --manual-host-con
   - `wifi_bringup_executed=False`.
 - interpretation: repo-side and operator-handoff readiness are complete up to local Wi-Fi input. No private V447 host preflight result exists yet.
 - next execution item: run `bash /home/temmie/dev/A90_5G_rooting/tmp/wifi/v448-operator-handoff-packet-run-final-20260520-182644/run-v447-host-preflight.sh`, enter Wi-Fi values locally, then rerun V449/V450. Server exposure remains blocked.
+
+### V451. Wi-Fi Operator Script Validation — PASS / FAIL-CLOSED CHECKED
+
+- plan: `docs/plans/NATIVE_INIT_V451_WIFI_OPERATOR_SCRIPT_VALIDATION_PLAN_2026-05-20.md`
+- report: `docs/reports/NATIVE_INIT_V451_WIFI_OPERATOR_SCRIPT_VALIDATION_2026-05-20.md`
+- validator: `scripts/revalidation/wifi_operator_script_validation_v451.py`
+- evidence:
+  - plan `tmp/wifi/v451-operator-script-validation-plan-final-20260520-184016/`
+  - run `tmp/wifi/v451-operator-script-validation-run-final-20260520-184016/`
+- result:
+  - decision `v451-operator-script-validation-pass`.
+  - host preflight script passed `bash -n`.
+  - live script passed `bash -n`.
+  - host preflight empty-input probe failed closed before V447 success path.
+  - live cancellation probe failed closed before Wi-Fi input and before V445 live path.
+  - no device commands or mutations ran.
+  - `wifi_bringup_executed=False`.
+- interpretation: the generated handoff scripts are structurally valid, shell-syntax valid, and fail closed on accidental empty/cancel input.
+- next execution item: run `bash /home/temmie/dev/A90_5G_rooting/tmp/wifi/v448-operator-handoff-packet-run-final-20260520-182644/run-v447-host-preflight.sh`, enter Wi-Fi values locally, then rerun V449/V450. Server exposure remains blocked.
