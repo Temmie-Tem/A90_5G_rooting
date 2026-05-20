@@ -79,8 +79,10 @@
 - V410 deploy result: exact-approved helper v26 deploy PASS through serial fallback; remote helper is now ready for the V410 registration query path.
 - latest V410 deploy report: `docs/reports/NATIVE_INIT_V410_HELPER_V26_DEPLOY_LIVE_2026-05-20.md`.
 - V410 post-deploy preflight result: `v410-hal-registration-query-preflight-ready`; `helper-v26`, `lshal-binary`, runtime materials, service-manager binaries, clean process surface, and clean Wi-Fi link surface all PASS.
-- current interpretation: next live step is the bounded lshal registration query only. It is separate from deploy and still must not perform scan/connect/link-up or Wi-Fi bring-up.
-- next execution item: exact-approved V410 bounded lshal registration query only. Required phrase: `approve v410 bounded lshal registration query only; no scan/connect/link-up and no Wi-Fi bring-up`.
+- V410 live query result: exact-approved bounded `lshal` registration query returned `v410-hal-registration-query-runtime-gap` with `service_query.reason=lshal-timeout`; the service-manager trio and Wi-Fi HAL were observable, safely terminated, and postflight clean; Wi-Fi bring-up remained false.
+- latest V410 live report: `docs/reports/NATIVE_INIT_V410_HAL_REGISTRATION_QUERY_LIVE_2026-05-20.md`.
+- current interpretation: V410 proves the composite namespace remains stable, but default `lshal` is too broad for this gate. Next target is V411 binderized-only `lshal list --types=binderized --neat`.
+- next execution item: implement V411 helper/runner prep for binderized-only HAL registration query; live deploy/query still require separate exact approval phrases.
 
 ## 현재 고정 기준점
 
