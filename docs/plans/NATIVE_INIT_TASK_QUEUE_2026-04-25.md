@@ -8822,3 +8822,20 @@ python3 ./scripts/revalidation/physical_usb_reconnect_check.py --manual-host-con
   - `wifi_bringup_executed=False`.
 - interpretation: Android boot-complete already owns the complete Wi-Fi runtime surface. Native private reconstruction is now lower leverage than a bounded Android-managed first-control gate.
 - next execution item: V432 Android-managed Wi-Fi control gate plan. Do not connect yet; design an enable-only or status-only gate with explicit rollback/cleanup and no credentials/routing.
+
+### V432. Android Wi-Fi Control Gate — PASS / AUTO-CONNECT CONTAINMENT REQUIRED
+
+- plan: `docs/plans/NATIVE_INIT_V432_ANDROID_WIFI_CONTROL_GATE_PLAN_2026-05-20.md`
+- report: `docs/reports/NATIVE_INIT_V432_ANDROID_WIFI_CONTROL_GATE_2026-05-20.md`
+- collector: `scripts/revalidation/wifi_android_control_gate_v432.py`
+- handoff: `scripts/revalidation/android_wifi_control_gate_handoff_v432.py`
+- corrected live evidence: `tmp/wifi/v432-android-control-gate-handoff-live-classifierfix-20260520-154009/`
+- result:
+  - decision `v432-android-wifi-already-connected-auto-gate-pass`.
+  - Android boot-complete passed and native rollback restored `A90 Linux init 0.9.61 (v319)`.
+  - Android Wi-Fi was already enabled and connected from saved framework state by boot-complete.
+  - state markers: `wifi_connected=True`, `android_auto_connect_observed=True`, `wlan0_has_ip=True`, `airplane_off=True`, `framework_services_present=True`, `runtime_processes_present=True`.
+  - V432 did not issue Wi-Fi enable, scan, connect, credentials, DHCP, routing, rfkill/sysfs writes, module operations, `setprop`, or direct daemon starts.
+  - `wifi_bringup_executed=False`.
+- interpretation: Android-managed Wi-Fi is functional enough to auto-connect without the V432 test causing it. The next gate is no longer enable-only; it must characterize and contain already-connected state before any explicit scan/connect or server exposure.
+- next execution item: V433 Android Wi-Fi auto-connect containment/stability gate. Keep scan/connect/credentials/routing blocked until containment and cleanup behavior are proven.

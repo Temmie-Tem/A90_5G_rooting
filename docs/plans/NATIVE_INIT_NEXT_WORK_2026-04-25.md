@@ -2123,3 +2123,11 @@ Samsung bootloader
 - live evidence: `tmp/wifi/v431-android-runtime-gap-handoff-live-su-quote-20260520-152315/`
 - result: Android boot-complete runtime map PASS. Android has the four target Wi-Fi runtime services running and defined, plus framework services, wifihal/wpa/CNSS sockets, `/dev/wlan`, `wlan0`/`swlan0`/`wifi-aware0`, and `/data/vendor/wifi` layout. Wi-Fi bring-up remains false and native v319 rollback was verified.
 - next: V432 Android-managed Wi-Fi control gate plan. Split first control into a narrow enable/status gate with explicit cleanup; keep scan/connect/credentials/routing as later gates.
+
+### V432. Android Wi-Fi Control Gate Result
+
+- plan: `docs/plans/NATIVE_INIT_V432_ANDROID_WIFI_CONTROL_GATE_PLAN_2026-05-20.md`
+- report: `docs/reports/NATIVE_INIT_V432_ANDROID_WIFI_CONTROL_GATE_2026-05-20.md`
+- live evidence: `tmp/wifi/v432-android-control-gate-handoff-live-classifierfix-20260520-154009/`
+- result: Android boot-complete handoff and native rollback PASS. Android Wi-Fi was already enabled and connected from saved framework state by boot-complete, with `wifi_connected=True`, `android_auto_connect_observed=True`, and `wlan0_has_ip=True`. V432 did not issue enable/scan/connect/credential/routing operations and `wifi_bringup_executed=False`.
+- next: V433 Android Wi-Fi auto-connect containment/stability gate. Do not proceed to scan/connect or server exposure until routing exposure, stability, cleanup, and intentional-disable behavior are characterized.
