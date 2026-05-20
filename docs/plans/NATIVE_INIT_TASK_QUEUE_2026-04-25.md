@@ -9241,3 +9241,21 @@ python3 ./scripts/revalidation/physical_usb_reconnect_check.py --manual-host-con
   - `wifi_bringup_executed=False`.
 - interpretation: V454 supersedes V453 as the safest current operator handoff packet.
 - next execution item: run `bash /home/temmie/dev/A90_5G_rooting/tmp/wifi/v454-operator-strict-postroute-packet-run-20260520-185718/run-v454-host-preflight-strict-route.sh`, enter Wi-Fi values locally, then follow the routed live command. Server exposure remains blocked.
+
+### V455. Wi-Fi Strict Post-route Semantics — PASS / STRICT RC PROVEN
+
+- plan: `docs/plans/NATIVE_INIT_V455_WIFI_STRICT_POSTROUTE_SEMANTICS_PLAN_2026-05-20.md`
+- report: `docs/reports/NATIVE_INIT_V455_WIFI_STRICT_POSTROUTE_SEMANTICS_2026-05-20.md`
+- proof: `scripts/revalidation/wifi_strict_postroute_semantics_v455.py`
+- evidence:
+  - plan `tmp/wifi/v455-strict-postroute-semantics-plan-20260520-190248/`
+  - run `tmp/wifi/v455-strict-postroute-semantics-run-20260520-190248/`
+- result:
+  - decision `v455-strict-postroute-semantics-pass`.
+  - generated V454 host preflight/live scripts contain strict post-route markers.
+  - return-code matrix proved route/proof failure propagates when V447 succeeds.
+  - return-code matrix proved V447 failure return code is preserved.
+  - no generated operator script, device command, or Wi-Fi bring-up ran.
+  - `wifi_bringup_executed=False`.
+- interpretation: V454 strict post-route behavior is proven. There is no remaining repo-side blocker before local Wi-Fi input.
+- next execution item: run `bash /home/temmie/dev/A90_5G_rooting/tmp/wifi/v454-operator-strict-postroute-packet-run-20260520-185718/run-v454-host-preflight-strict-route.sh`, enter Wi-Fi values locally, then follow the routed live command. Server exposure remains blocked.
