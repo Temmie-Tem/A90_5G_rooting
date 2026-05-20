@@ -332,6 +332,18 @@ class PropAreaBuilder:
         start = self.data_abs(offset + PROP_BT_FIXED_SIZE)
         return self.data[start:start + namelen].decode("utf-8")
 
+    @staticmethod
+    def cmp_prop_name(one: str, two: str) -> int:
+        if len(one) < len(two):
+            return -1
+        if len(one) > len(two):
+            return 1
+        if one < two:
+            return -1
+        if one > two:
+            return 1
+        return 0
+
     def create_node(self, name: str) -> int:
         encoded = name.encode("utf-8")
         offset = self.allocate(PROP_BT_FIXED_SIZE + len(encoded) + 1)
@@ -346,7 +358,7 @@ class PropAreaBuilder:
             current_name = self.node_name(current)
             if name == current_name:
                 return current
-            field = 8 if name < current_name else 12
+            field = 8 if self.cmp_prop_name(name, current_name) < 0 else 12
             next_offset = self.read_u32_rel(current + field)
             if next_offset != 0:
                 current = next_offset
@@ -403,13 +415,24 @@ def find_property_in_area(data: bytes, property_name: str) -> str | None:
         start = PROP_AREA_HEADER_SIZE + offset + PROP_BT_FIXED_SIZE
         return data[start:start + namelen].decode("utf-8")
 
+    def cmp_prop_name(one: str, two: str) -> int:
+        if len(one) < len(two):
+            return -1
+        if len(one) > len(two):
+            return 1
+        if one < two:
+            return -1
+        if one > two:
+            return 1
+        return 0
+
     def find_sibling(root_offset: int, name: str) -> int:
         current = root_offset
         while current != 0:
             current_name = node_name(current)
             if name == current_name:
                 return current
-            current = read_rel(current + (8 if name < current_name else 12))
+            current = read_rel(current + (8 if cmp_prop_name(name, current_name) < 0 else 12))
         return 0
 
     current = 0
