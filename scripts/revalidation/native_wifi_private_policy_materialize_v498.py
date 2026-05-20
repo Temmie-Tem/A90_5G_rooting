@@ -34,6 +34,10 @@ RAW_SECRET_FIELD_RE = re.compile(
 )
 MAC_RE = re.compile(r"\b(?:[0-9A-Fa-f]{2}:){5}[0-9A-Fa-f]{2}\b")
 EXPECTED_V497_DECISION = "v497-native-scan-only-pass-redacted"
+KNOWN_SYNTHETIC_VALUES = {
+    "12345678",
+    "codex-test-network",
+}
 
 
 def now_iso() -> str:
@@ -141,6 +145,10 @@ def build_policy_from_env(args: argparse.Namespace) -> tuple[dict[str, Any] | No
         issues.append("A90_WIFI_PSK is required for wpa2/wpa3")
     if args.security in {"open", "owe"} and psk:
         issues.append("A90_WIFI_PSK must be unset for open/owe")
+    if ssid in KNOWN_SYNTHETIC_VALUES:
+        issues.append("A90_WIFI_SSID must not use a known synthetic placeholder")
+    if psk in KNOWN_SYNTHETIC_VALUES:
+        issues.append("A90_WIFI_PSK must not use a known synthetic placeholder")
     if issues:
         return None, state, issues
 
@@ -315,6 +323,7 @@ def classify(args: argparse.Namespace,
              v497: dict[str, Any]) -> dict[str, Any]:
     approval, missing = approval_ok(args)
     state = v497_state(v497)
+    synthetic_placeholder_detected = any("synthetic placeholder" in item for item in issues)
     v497_ready = (
         state["decision"] == EXPECTED_V497_DECISION
         and state["pass"]
@@ -370,6 +379,7 @@ def classify(args: argparse.Namespace,
         "missing_approval_flags": missing,
         "env_state": env_state,
         "issues": issues,
+        "synthetic_placeholder_detected": synthetic_placeholder_detected,
         "policy_materialized": policy is not None,
         "validation": validation,
         "v497_state": state,

@@ -67,7 +67,7 @@
 #define NLA_TYPE_MASK ~(NLA_F_NESTED | NLA_F_NET_BYTEORDER)
 #endif
 
-#define EXECNS_VERSION "a90_android_execns_probe v50"
+#define EXECNS_VERSION "a90_android_execns_probe v51"
 #define MAX_PATH_LEN 512
 #define MAX_CAPTURE_SIZE (1024 * 1024)
 #define MAX_LINKERCONFIG_SIZE (256 * 1024)
@@ -227,7 +227,7 @@ static void usage(FILE *out) {
             "[--allow-iwifi-start-only] "
             "[--allow-scan-only] "
             "[--allow-policy-load-proof] "
-            "--mode linker-list|identity-probe|sepolicy-inventory|sepolicy-compile-proof|sepolicy-load-proof|selinux-domain-proof|cnss-start-only|property-lookup|service-manager-start-only|private-selinux-proof|wifi-hal-lshal-vintf-status-list|wifi-hal-composite-start-only|wifi-hal-composite-lshal-list|wifi-hal-composite-lshal-binderized-list|wifi-hal-composite-lshal-wait-target|wifi-surface-composite-lshal-wait-iwifi|wifi-surface-composite-lshal-wait-samsung|wifi-surface-composite-lshal-wait-samsung-ptrace|wifi-hal-composite-lshal-status-list|wifi-hal-composite-lshal-binderized-status-list|wifi-surface-composite-start-only|wifi-iwifi-start-surface|wifi-active-session-surface|wifi-active-session-scan-only "
+            "--mode linker-list|identity-probe|sepolicy-inventory|sepolicy-compile-proof|sepolicy-load-proof|selinux-domain-proof|cnss-start-only|property-lookup|service-manager-start-only|private-selinux-proof|wifi-hal-lshal-vintf-status-list|wifi-hal-composite-start-only|wifi-hal-composite-lshal-list|wifi-hal-composite-lshal-binderized-list|wifi-hal-composite-lshal-wait-target|wifi-surface-composite-lshal-wait-iwifi|wifi-surface-composite-lshal-wait-samsung|wifi-surface-composite-lshal-wait-samsung-ptrace|wifi-hal-composite-lshal-status-list|wifi-hal-composite-lshal-binderized-status-list|wifi-surface-composite-start-only|wifi-iwifi-start-surface|wifi-active-session-surface|wifi-active-session-scan-only|wifi-connect-tool-surface "
             "[v27 binderized query runs: /system/bin/lshal list --types=binderized --neat] "
             "[v28 target query runs: /system/bin/lshal wait <fqinstance>] "
             "[v29 status query runs: /system/bin/lshal list --types=binderized,vintf --neat -V -S -i -p -e -c] "
@@ -273,6 +273,10 @@ static bool is_wifi_active_session_surface_mode(const char *mode) {
 
 static bool is_wifi_active_session_scan_only_mode(const char *mode) {
     return streq(mode, "wifi-active-session-scan-only");
+}
+
+static bool is_wifi_connect_tool_surface_mode(const char *mode) {
+    return streq(mode, "wifi-connect-tool-surface");
 }
 
 static bool is_wifi_iwifi_start_surface_mode(const char *mode) {
@@ -562,6 +566,7 @@ static int parse_args(int argc, char **argv, struct config *cfg) {
           streq(cfg->mode, "property-lookup") ||
           streq(cfg->mode, "private-selinux-proof") ||
           streq(cfg->mode, "service-manager-start-only") ||
+          is_wifi_connect_tool_surface_mode(cfg->mode) ||
           is_lshal_readonly_query_mode(cfg->mode) ||
           is_wifi_hal_composite_mode(cfg->mode)) ||
         !(streq(cfg->capture_mode, "none") ||
@@ -3886,6 +3891,213 @@ static bool root_path_exists(const struct paths *paths, const char *absolute_pat
         return false;
     }
     return access(host_path, F_OK) == 0;
+}
+
+static int append_stat_line(struct buffer *stdout_buf,
+                            const char *prefix,
+                            const char *label,
+                            const char *path,
+                            const struct stat *st,
+                            int err_no) {
+    return append_format(stdout_buf,
+                         "%s.%s.path=%s\n"
+                         "%s.%s.present=%d\n"
+                         "%s.%s.executable=%d\n"
+                         "%s.%s.mode=%o\n"
+                         "%s.%s.size=%lld\n"
+                         "%s.%s.errno=%d\n",
+                         prefix,
+                         label,
+                         path,
+                         prefix,
+                         label,
+                         err_no == 0 ? 1 : 0,
+                         prefix,
+                         label,
+                         (err_no == 0 && (st->st_mode & 0111) != 0) ? 1 : 0,
+                         prefix,
+                         label,
+                         err_no == 0 ? (unsigned int)(st->st_mode & 07777) : 0,
+                         prefix,
+                         label,
+                         err_no == 0 ? (long long)st->st_size : 0LL,
+                         prefix,
+                         label,
+                         err_no);
+}
+
+static int append_root_stat_line(const struct paths *paths,
+                                 struct buffer *stdout_buf,
+                                 const char *prefix,
+                                 const char *label,
+                                 const char *absolute_path,
+                                 bool *present,
+                                 bool *executable) {
+    char host_path[MAX_PATH_LEN];
+    struct stat st;
+    int err_no = 0;
+
+    *present = false;
+    *executable = false;
+    if (path_in_root(host_path, sizeof(host_path), paths, absolute_path) < 0) {
+        err_no = errno;
+        memset(&st, 0, sizeof(st));
+    } else if (stat(host_path, &st) < 0) {
+        err_no = errno;
+        memset(&st, 0, sizeof(st));
+    } else {
+        *present = true;
+        *executable = (st.st_mode & 0111) != 0;
+    }
+    return append_stat_line(stdout_buf, prefix, label, absolute_path, &st, err_no);
+}
+
+static int append_host_stat_line(struct buffer *stdout_buf,
+                                 const char *prefix,
+                                 const char *label,
+                                 const char *path,
+                                 bool *present,
+                                 bool *executable) {
+    struct stat st;
+    int err_no = 0;
+
+    *present = false;
+    *executable = false;
+    if (stat(path, &st) < 0) {
+        err_no = errno;
+        memset(&st, 0, sizeof(st));
+    } else {
+        *present = true;
+        *executable = (st.st_mode & 0111) != 0;
+    }
+    return append_stat_line(stdout_buf, prefix, label, path, &st, err_no);
+}
+
+static int run_wifi_connect_tool_surface(const struct config *cfg,
+                                         const struct paths *paths,
+                                         struct buffer *stdout_buf) {
+    bool vendor_wpa_hw_present = false;
+    bool vendor_wpa_hw_executable = false;
+    bool vendor_wpa_present = false;
+    bool vendor_wpa_executable = false;
+    bool system_wificond_present = false;
+    bool system_wificond_executable = false;
+    bool system_ip_present = false;
+    bool system_ip_executable = false;
+    bool system_ping_present = false;
+    bool system_ping_executable = false;
+    bool system_dhcpcd_present = false;
+    bool system_dhcpcd_executable = false;
+    bool system_udhcpc_present = false;
+    bool system_udhcpc_executable = false;
+    bool cache_busybox_present = false;
+    bool cache_busybox_executable = false;
+    bool cache_toybox_present = false;
+    bool cache_toybox_executable = false;
+    bool supplicant_ready;
+    bool dhcp_ready;
+    bool ping_ready;
+
+    (void)cfg;
+    if (append_literal(stdout_buf,
+                       "wifi_connect_tool_surface.begin=1\n"
+                       "wifi_connect_tool_surface.device_commands_executed=0\n"
+                       "wifi_connect_tool_surface.device_mutations=0\n"
+                       "wifi_connect_tool_surface.credentials_read=0\n"
+                       "wifi_connect_tool_surface.scan_connect_executed=0\n"
+                       "wifi_connect_tool_surface.external_ping_executed=0\n"
+                       "wifi_connect_tool_surface.strategy=wpa-supplicant-plus-dhcp-plus-ping\n") < 0) {
+        return -1;
+    }
+    if (append_root_stat_line(paths,
+                              stdout_buf,
+                              "wifi_connect_tool_surface",
+                              "vendor_wpa_supplicant_hw",
+                              "/vendor/bin/hw/wpa_supplicant",
+                              &vendor_wpa_hw_present,
+                              &vendor_wpa_hw_executable) < 0 ||
+        append_root_stat_line(paths,
+                              stdout_buf,
+                              "wifi_connect_tool_surface",
+                              "vendor_wpa_supplicant",
+                              "/vendor/bin/wpa_supplicant",
+                              &vendor_wpa_present,
+                              &vendor_wpa_executable) < 0 ||
+        append_root_stat_line(paths,
+                              stdout_buf,
+                              "wifi_connect_tool_surface",
+                              "system_wificond",
+                              "/system/bin/wificond",
+                              &system_wificond_present,
+                              &system_wificond_executable) < 0 ||
+        append_root_stat_line(paths,
+                              stdout_buf,
+                              "wifi_connect_tool_surface",
+                              "system_ip",
+                              "/system/bin/ip",
+                              &system_ip_present,
+                              &system_ip_executable) < 0 ||
+        append_root_stat_line(paths,
+                              stdout_buf,
+                              "wifi_connect_tool_surface",
+                              "system_ping",
+                              "/system/bin/ping",
+                              &system_ping_present,
+                              &system_ping_executable) < 0 ||
+        append_root_stat_line(paths,
+                              stdout_buf,
+                              "wifi_connect_tool_surface",
+                              "system_dhcpcd",
+                              "/system/bin/dhcpcd",
+                              &system_dhcpcd_present,
+                              &system_dhcpcd_executable) < 0 ||
+        append_root_stat_line(paths,
+                              stdout_buf,
+                              "wifi_connect_tool_surface",
+                              "system_udhcpc",
+                              "/system/bin/udhcpc",
+                              &system_udhcpc_present,
+                              &system_udhcpc_executable) < 0 ||
+        append_host_stat_line(stdout_buf,
+                              "wifi_connect_tool_surface",
+                              "cache_busybox",
+                              "/cache/bin/busybox",
+                              &cache_busybox_present,
+                              &cache_busybox_executable) < 0 ||
+        append_host_stat_line(stdout_buf,
+                              "wifi_connect_tool_surface",
+                              "cache_toybox",
+                              "/cache/bin/toybox",
+                              &cache_toybox_present,
+                              &cache_toybox_executable) < 0) {
+        return -1;
+    }
+    supplicant_ready = (vendor_wpa_hw_present && vendor_wpa_hw_executable) ||
+                       (vendor_wpa_present && vendor_wpa_executable);
+    dhcp_ready = (system_dhcpcd_present && system_dhcpcd_executable) ||
+                 (system_udhcpc_present && system_udhcpc_executable) ||
+                 (cache_busybox_present && cache_busybox_executable);
+    ping_ready = system_ip_present && system_ip_executable &&
+                 system_ping_present && system_ping_executable;
+    if (append_format(stdout_buf,
+                      "wifi_connect_tool_surface.supplicant_ready=%d\n"
+                      "wifi_connect_tool_surface.dhcp_ready=%d\n"
+                      "wifi_connect_tool_surface.ping_ready=%d\n",
+                      supplicant_ready ? 1 : 0,
+                      dhcp_ready ? 1 : 0,
+                      ping_ready ? 1 : 0) < 0) {
+        return -1;
+    }
+    if (supplicant_ready && dhcp_ready && ping_ready) {
+        return append_literal(stdout_buf,
+                              "wifi_connect_tool_surface.result=connect-tools-ready\n"
+                              "wifi_connect_tool_surface.reason=supplicant-dhcp-ping-tools-present\n"
+                              "wifi_connect_tool_surface.end=1\n");
+    }
+    return append_literal(stdout_buf,
+                          "wifi_connect_tool_surface.result=connect-tools-missing\n"
+                          "wifi_connect_tool_surface.reason=supplicant-dhcp-or-ping-tool-missing\n"
+                          "wifi_connect_tool_surface.end=1\n");
 }
 
 static int run_sepolicy_inventory(const struct config *cfg,
@@ -10928,6 +11140,11 @@ int main(int argc, char **argv) {
         run_rc = run_sepolicy_inventory(&cfg, &paths, &stdout_buf);
         child_exit_code = run_rc == 0 ? 0 : run_rc;
         child_signal = 0;
+    } else if (streq(cfg.mode, "wifi-connect-tool-surface")) {
+        run_rc = run_wifi_connect_tool_surface(&cfg, &paths, &stdout_buf);
+        child_exit_code = run_rc == 0 ? 0 : run_rc;
+        child_signal = 0;
+        timed_out = false;
     } else if (streq(cfg.mode, "sepolicy-compile-proof")) {
         run_rc = run_sepolicy_compile_proof(&cfg, &paths, &stdout_buf, &stderr_buf);
         child_exit_code = run_rc == 0 ? 0 : run_rc;

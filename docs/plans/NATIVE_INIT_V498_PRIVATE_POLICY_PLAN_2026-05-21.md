@@ -60,6 +60,10 @@ are present:
 --allow-read-wifi-env --i-understand-wifi-secret-env
 ```
 
+Known synthetic placeholders such as `codex-test-network` and `12345678` are
+rejected for this native connect path so stale demo evidence cannot unlock
+V499/V500.
+
 ## Ignore/Leak Policy
 
 Native private policy files are repository-ignored:
