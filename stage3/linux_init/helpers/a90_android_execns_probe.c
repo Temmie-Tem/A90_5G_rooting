@@ -51,10 +51,11 @@
 #define BINDER_BUFFER_FLAG_REF 0x02
 #endif
 
-#define EXECNS_VERSION "a90_android_execns_probe v47"
+#define EXECNS_VERSION "a90_android_execns_probe v48"
 #define MAX_PATH_LEN 512
 #define MAX_CAPTURE_SIZE (1024 * 1024)
 #define MAX_LINKERCONFIG_SIZE (256 * 1024)
+#define MAX_SEPOLICY_LOAD_SIZE (16 * 1024 * 1024)
 #define A90_PROP_NAME_MAX 512
 #define A90_PROP_VALUE_MAX 1024
 #define A90_PROP_MSG_SETPROP2 0x00020001u
@@ -104,6 +105,7 @@ struct config {
     bool allow_wifi_hal_start_only;
     bool allow_hal_service_query;
     bool allow_iwifi_start_only;
+    bool allow_policy_load_proof;
 };
 
 struct a90_hidl_string_wire {
@@ -164,6 +166,7 @@ struct paths {
     char sys_fs_selinux_null[MAX_PATH_LEN];
     char sys_fs_selinux_status[MAX_PATH_LEN];
     char sys_fs_selinux_enforce[MAX_PATH_LEN];
+    char sys_fs_selinux_load[MAX_PATH_LEN];
     char data[MAX_PATH_LEN];
     char data_vendor[MAX_PATH_LEN];
     char data_vendor_wifi[MAX_PATH_LEN];
@@ -203,7 +206,8 @@ static void usage(FILE *out) {
             "[--allow-wifi-hal-start-only] "
             "[--allow-hal-service-query] "
             "[--allow-iwifi-start-only] "
-            "--mode linker-list|identity-probe|sepolicy-inventory|sepolicy-compile-proof|selinux-domain-proof|cnss-start-only|property-lookup|service-manager-start-only|private-selinux-proof|wifi-hal-lshal-vintf-status-list|wifi-hal-composite-start-only|wifi-hal-composite-lshal-list|wifi-hal-composite-lshal-binderized-list|wifi-hal-composite-lshal-wait-target|wifi-surface-composite-lshal-wait-iwifi|wifi-surface-composite-lshal-wait-samsung|wifi-surface-composite-lshal-wait-samsung-ptrace|wifi-hal-composite-lshal-status-list|wifi-hal-composite-lshal-binderized-status-list|wifi-surface-composite-start-only|wifi-iwifi-start-surface "
+            "[--allow-policy-load-proof] "
+            "--mode linker-list|identity-probe|sepolicy-inventory|sepolicy-compile-proof|sepolicy-load-proof|selinux-domain-proof|cnss-start-only|property-lookup|service-manager-start-only|private-selinux-proof|wifi-hal-lshal-vintf-status-list|wifi-hal-composite-start-only|wifi-hal-composite-lshal-list|wifi-hal-composite-lshal-binderized-list|wifi-hal-composite-lshal-wait-target|wifi-surface-composite-lshal-wait-iwifi|wifi-surface-composite-lshal-wait-samsung|wifi-surface-composite-lshal-wait-samsung-ptrace|wifi-hal-composite-lshal-status-list|wifi-hal-composite-lshal-binderized-status-list|wifi-surface-composite-start-only|wifi-iwifi-start-surface "
             "[v27 binderized query runs: /system/bin/lshal list --types=binderized --neat] "
             "[v28 target query runs: /system/bin/lshal wait <fqinstance>] "
             "[v29 status query runs: /system/bin/lshal list --types=binderized,vintf --neat -V -S -i -p -e -c] "
@@ -398,6 +402,10 @@ static int parse_args(int argc, char **argv, struct config *cfg) {
             cfg->allow_iwifi_start_only = true;
             continue;
         }
+        if (strcmp(argv[i], "--allow-policy-load-proof") == 0) {
+            cfg->allow_policy_load_proof = true;
+            continue;
+        }
         if (i + 1 >= argc) {
             fprintf(stderr, "missing value for %s\n", argv[i]);
             return 2;
@@ -510,6 +518,7 @@ static int parse_args(int argc, char **argv, struct config *cfg) {
           streq(cfg->mode, "identity-probe") ||
           streq(cfg->mode, "sepolicy-inventory") ||
           streq(cfg->mode, "sepolicy-compile-proof") ||
+          streq(cfg->mode, "sepolicy-load-proof") ||
           streq(cfg->mode, "selinux-domain-proof") ||
           streq(cfg->mode, "cnss-start-only") ||
           streq(cfg->mode, "property-lookup") ||
@@ -574,7 +583,8 @@ static int parse_args(int argc, char **argv, struct config *cfg) {
             cfg->allow_service_manager_start_only ||
             cfg->allow_wifi_hal_start_only ||
             cfg->allow_hal_service_query ||
-            cfg->allow_iwifi_start_only) {
+            cfg->allow_iwifi_start_only ||
+            cfg->allow_policy_load_proof) {
             fprintf(stderr, "sepolicy-inventory does not accept daemon/HAL allow flags\n");
             return 2;
         }
@@ -596,10 +606,40 @@ static int parse_args(int argc, char **argv, struct config *cfg) {
             cfg->allow_service_manager_start_only ||
             cfg->allow_wifi_hal_start_only ||
             cfg->allow_hal_service_query ||
-            cfg->allow_iwifi_start_only) {
+            cfg->allow_iwifi_start_only ||
+            cfg->allow_policy_load_proof) {
             fprintf(stderr, "sepolicy-compile-proof does not accept daemon/HAL allow flags\n");
             return 2;
         }
+    }
+    if (streq(cfg->mode, "sepolicy-load-proof")) {
+        if (cfg->linker != NULL) {
+            fprintf(stderr, "--linker is not used by sepolicy-load-proof mode\n");
+            return 2;
+        }
+        if (!streq(cfg->capture_mode, "none")) {
+            fprintf(stderr, "--capture-mode must be none for sepolicy-load-proof mode\n");
+            return 2;
+        }
+        if (!streq(cfg->target, "/system/bin/toybox")) {
+            fprintf(stderr, "sepolicy-load-proof target-profile must be system-toybox\n");
+            return 2;
+        }
+        if (!cfg->allow_policy_load_proof) {
+            fprintf(stderr, "sepolicy-load-proof requires --allow-policy-load-proof\n");
+            return 2;
+        }
+        if (cfg->allow_cnss_start_only ||
+            cfg->allow_service_manager_start_only ||
+            cfg->allow_wifi_hal_start_only ||
+            cfg->allow_hal_service_query ||
+            cfg->allow_iwifi_start_only) {
+            fprintf(stderr, "sepolicy-load-proof does not accept daemon/HAL allow flags\n");
+            return 2;
+        }
+    } else if (cfg->allow_policy_load_proof) {
+        fprintf(stderr, "--allow-policy-load-proof is only valid with sepolicy-load-proof mode\n");
+        return 2;
     }
     if (streq(cfg->mode, "selinux-domain-proof")) {
         if (cfg->linker != NULL) {
@@ -899,6 +939,10 @@ static int init_paths(struct paths *paths) {
                     sizeof(paths->sys_fs_selinux_enforce),
                     paths->sys_fs_selinux,
                     "enforce") < 0 ||
+        append_path(paths->sys_fs_selinux_load,
+                    sizeof(paths->sys_fs_selinux_load),
+                    paths->sys_fs_selinux,
+                    "load") < 0 ||
         append_path(paths->data, sizeof(paths->data), paths->root, "data") < 0 ||
         append_path(paths->data_vendor, sizeof(paths->data_vendor), paths->data, "vendor") < 0 ||
         append_path(paths->data_vendor_wifi,
@@ -1002,6 +1046,7 @@ static int materialize_selinuxfs_surface(const struct config *cfg,
     if (!streq(cfg->mode, "private-selinux-proof") &&
         !streq(cfg->mode, "sepolicy-inventory") &&
         !streq(cfg->mode, "sepolicy-compile-proof") &&
+        !streq(cfg->mode, "sepolicy-load-proof") &&
         !streq(cfg->mode, "selinux-domain-proof") &&
         !streq(cfg->mode, "service-manager-start-only") &&
         !(is_wifi_hal_composite_mode(cfg->mode) &&
@@ -1052,6 +1097,83 @@ static int write_all_fd(int fd, const void *data, size_t len) {
             return -1;
         }
         done += (size_t)nwritten;
+    }
+    return 0;
+}
+
+static int read_exact_fd(int fd, unsigned char *data, size_t len) {
+    size_t done = 0;
+
+    while (done < len) {
+        ssize_t nread = read(fd, data + done, len - done);
+
+        if (nread < 0) {
+            if (errno == EINTR) {
+                continue;
+            }
+            return -1;
+        }
+        if (nread == 0) {
+            errno = EIO;
+            return -1;
+        }
+        done += (size_t)nread;
+    }
+    return 0;
+}
+
+static int write_file_once_to_fd(const char *path, int out_fd, size_t *bytes_out, uint64_t *hash_out) {
+    struct stat st;
+    unsigned char *data;
+    size_t total = 0;
+    uint64_t hash;
+    int in_fd = open(path, O_RDONLY | O_CLOEXEC);
+    ssize_t nwritten;
+
+    if (in_fd < 0) {
+        return -1;
+    }
+    if (fstat(in_fd, &st) < 0) {
+        close(in_fd);
+        return -1;
+    }
+    if (!S_ISREG(st.st_mode) || st.st_size <= 0 || st.st_size > MAX_SEPOLICY_LOAD_SIZE) {
+        close(in_fd);
+        errno = EFBIG;
+        return -1;
+    }
+    total = (size_t)st.st_size;
+    data = malloc(total);
+    if (data == NULL) {
+        close(in_fd);
+        return -1;
+    }
+    if (read_exact_fd(in_fd, data, total) < 0) {
+        int saved_errno = errno;
+
+        free(data);
+        close(in_fd);
+        errno = saved_errno;
+        return -1;
+    }
+    close(in_fd);
+    hash = fnv1a64_update(UINT64_C(1469598103934665603), data, total);
+    do {
+        nwritten = write(out_fd, data, total);
+    } while (nwritten < 0 && errno == EINTR);
+    if (nwritten < 0 || (size_t)nwritten != total) {
+        int saved_errno = nwritten < 0 ? errno : EIO;
+
+        free(data);
+        errno = saved_errno;
+        return -1;
+    }
+    free(data);
+    if (bytes_out != NULL) {
+        *bytes_out = total;
+    }
+    if (hash_out != NULL) {
+        *hash_out = hash;
     }
     return 0;
 }
@@ -1665,6 +1787,7 @@ static long monotonic_ms(void) {
 }
 
 static pid_t wait_for_child_session_pgid(pid_t pid, long timeout_ms);
+static int read_small_file_trim(const char *path, char *out, size_t out_size);
 
 static int path_in_root(char *out, size_t out_size, const struct paths *paths, const char *absolute_path) {
     const char *relative = absolute_path;
@@ -3973,7 +4096,8 @@ static int add_sepolicy_compile_input(struct buffer *stdout_buf,
 static int append_sepolicy_compile_output_info(struct buffer *stdout_buf,
                                                const struct paths *paths,
                                                const char *attempt,
-                                               const char *output_path) {
+                                               const char *output_path,
+                                               bool remove_output) {
     char host_path[MAX_PATH_LEN];
     struct stat st;
     uint64_t hash = 0;
@@ -4040,7 +4164,9 @@ static int append_sepolicy_compile_output_info(struct buffer *stdout_buf,
                              attempt) < 0) {
         return -1;
     }
-    unlink(host_path);
+    if (remove_output) {
+        unlink(host_path);
+    }
     return 0;
 }
 
@@ -4057,7 +4183,12 @@ static int run_sepolicy_compile_attempt(const struct config *cfg,
                                         struct buffer *stderr_buf,
                                         const char *policy_version,
                                         const char *vendor_mapping_version,
-                                        int timeout_ms) {
+                                        int timeout_ms,
+                                        bool keep_output,
+                                        char *output_host_path,
+                                        size_t output_host_path_size,
+                                        char *output_chroot_path,
+                                        size_t output_chroot_path_size) {
     char secilc_host_path[MAX_PATH_LEN];
     char plat_mapping[128];
     char plat_compat[128];
@@ -4079,6 +4210,13 @@ static int run_sepolicy_compile_attempt(const struct config *cfg,
     int exit_code = -1;
     int signal_no = 0;
     long deadline;
+
+    if (output_host_path != NULL && output_host_path_size > 0) {
+        output_host_path[0] = '\0';
+    }
+    if (output_chroot_path != NULL && output_chroot_path_size > 0) {
+        output_chroot_path[0] = '\0';
+    }
 
     if (snprintf(plat_mapping,
                  sizeof(plat_mapping),
@@ -4107,7 +4245,7 @@ static int run_sepolicy_compile_attempt(const struct config *cfg,
         strlen(product_mapping) >= sizeof(product_mapping) ||
         snprintf(output_path,
                  sizeof(output_path),
-                 "/sepolicy-v489-%s.compiled",
+                 "/sepolicy-compile-proof-%s.compiled",
                  policy_version) < 0 ||
         strlen(output_path) >= sizeof(output_path)) {
         append_format(stdout_buf,
@@ -4115,6 +4253,18 @@ static int run_sepolicy_compile_attempt(const struct config *cfg,
                       "sepolicy_compile.attempt_%s.reason=path-format-overflow\n",
                       policy_version,
                       policy_version);
+        return -1;
+    }
+    if (output_chroot_path != NULL && output_chroot_path_size > 0) {
+        int rc = snprintf(output_chroot_path, output_chroot_path_size, "%s", output_path);
+
+        if (rc < 0 || (size_t)rc >= output_chroot_path_size) {
+            errno = ENAMETOOLONG;
+            return -1;
+        }
+    }
+    if (output_host_path != NULL && output_host_path_size > 0 &&
+        path_in_root(output_host_path, output_host_path_size, paths, output_path) < 0) {
         return -1;
     }
 
@@ -4491,7 +4641,11 @@ static int run_sepolicy_compile_attempt(const struct config *cfg,
                   signal_no,
                   policy_version,
                   timed_out ? 1 : 0);
-    append_sepolicy_compile_output_info(stdout_buf, paths, policy_version, output_path);
+    append_sepolicy_compile_output_info(stdout_buf,
+                                        paths,
+                                        policy_version,
+                                        output_path,
+                                        !keep_output);
     if (timed_out) {
         append_format(stdout_buf,
                       "sepolicy_compile.attempt_%s.result=compile-timeout\n"
@@ -4591,7 +4745,12 @@ static int run_sepolicy_compile_proof(const struct config *cfg,
                                         stderr_buf,
                                         "31",
                                         vendor_mapping_version,
-                                        cfg->timeout_sec * 1000);
+                                        cfg->timeout_sec * 1000,
+                                        false,
+                                        NULL,
+                                        0,
+                                        NULL,
+                                        0);
     if (rc31 == 0) {
         append_literal(stdout_buf,
                        "sepolicy_compile.attempts=1\n"
@@ -4607,7 +4766,12 @@ static int run_sepolicy_compile_proof(const struct config *cfg,
                                         stderr_buf,
                                         "30",
                                         vendor_mapping_version,
-                                        cfg->timeout_sec * 1000);
+                                        cfg->timeout_sec * 1000,
+                                        false,
+                                        NULL,
+                                        0,
+                                        NULL,
+                                        0);
     if (rc30 == 0) {
         append_literal(stdout_buf,
                        "sepolicy_compile.attempts=2\n"
@@ -4627,6 +4791,204 @@ static int run_sepolicy_compile_proof(const struct config *cfg,
                   rc31,
                   rc30);
     return 11;
+}
+
+static int append_sepolicy_load_state(struct buffer *stdout_buf,
+                                      const struct paths *paths,
+                                      const char *phase) {
+    char current[256] = "<read-failed>";
+    char enforce[64] = "<read-failed>";
+    char policyvers[64] = "<read-failed>";
+    bool enforce_present = false;
+    bool policyvers_present = false;
+
+    read_small_file_trim("/proc/self/attr/current", current, sizeof(current));
+    read_root_first_line(paths, "/sys/fs/selinux/enforce", enforce, sizeof(enforce), &enforce_present);
+    read_root_first_line(paths, "/sys/fs/selinux/policyvers", policyvers, sizeof(policyvers), &policyvers_present);
+    return append_format(stdout_buf,
+                         "sepolicy_load.%s.current=%s\n"
+                         "sepolicy_load.%s.enforce.present=%d\n"
+                         "sepolicy_load.%s.enforce=%s\n"
+                         "sepolicy_load.%s.policyvers.present=%d\n"
+                         "sepolicy_load.%s.policyvers=%s\n"
+                         "sepolicy_load.%s.load_path=%s\n"
+                         "sepolicy_load.%s.load_writable=%d\n",
+                         phase,
+                         current,
+                         phase,
+                         enforce_present ? 1 : 0,
+                         phase,
+                         enforce_present ? enforce : "<missing>",
+                         phase,
+                         policyvers_present ? 1 : 0,
+                         phase,
+                         policyvers_present ? policyvers : "<missing>",
+                         phase,
+                         paths->sys_fs_selinux_load,
+                         phase,
+                         access(paths->sys_fs_selinux_load, W_OK) == 0 ? 1 : 0);
+}
+
+static int run_sepolicy_load_proof(const struct config *cfg,
+                                   const struct paths *paths,
+                                   struct buffer *stdout_buf,
+                                   struct buffer *stderr_buf) {
+    char vendor_mapping_version[64];
+    char kernel_policy_version[64];
+    char output_host_path[MAX_PATH_LEN];
+    char output_chroot_path[MAX_PATH_LEN];
+    bool vendor_mapping_present = false;
+    bool kernel_policy_present = false;
+    int compile_rc;
+    const char *compiled_policy_version = "31";
+    int load_fd;
+    size_t load_bytes = 0;
+    uint64_t load_hash = 0;
+
+    if (append_literal(stdout_buf,
+                       "sepolicy_load.begin=1\n"
+                       "sepolicy_load.policy_load_attempted=0\n"
+                       "sepolicy_load.policy_load_executed=0\n"
+                       "sepolicy_load.init_reexec_executed=0\n"
+                       "sepolicy_load.daemon_start_executed=0\n"
+                       "sepolicy_load.wifi_hal_start_executed=0\n"
+                       "sepolicy_load.wifi_bringup_executed=0\n") < 0) {
+        return -1;
+    }
+    if (!cfg->allow_policy_load_proof) {
+        append_literal(stdout_buf,
+                       "sepolicy_load.result=approval-missing\n"
+                       "sepolicy_load.reason=missing-allow-policy-load-proof\n"
+                       "sepolicy_load.end=1\n");
+        return 13;
+    }
+    if (append_sepolicy_path_info(stdout_buf, paths, "load_system_secilc", "/system/bin/secilc") < 0 ||
+        append_sepolicy_path_info(stdout_buf, paths, "load_system_plat_cil", "/system/etc/selinux/plat_sepolicy.cil") < 0 ||
+        append_sepolicy_path_info(stdout_buf, paths, "load_vendor_policy_cil", "/vendor/etc/selinux/vendor_sepolicy.cil") < 0 ||
+        append_sepolicy_path_info(stdout_buf, paths, "load_vendor_plat_pub_versioned", "/vendor/etc/selinux/plat_pub_versioned.cil") < 0 ||
+        append_sepolicy_path_info(stdout_buf, paths, "load_selinux_load", "/sys/fs/selinux/load") < 0 ||
+        append_sepolicy_load_state(stdout_buf, paths, "pre") < 0) {
+        return -1;
+    }
+    if (read_root_first_line(paths,
+                             "/vendor/etc/selinux/plat_sepolicy_vers.txt",
+                             vendor_mapping_version,
+                             sizeof(vendor_mapping_version),
+                             &vendor_mapping_present) < 0) {
+        append_literal(stdout_buf,
+                       "sepolicy_load.result=compile-input-gap\n"
+                       "sepolicy_load.reason=vendor-mapping-version-read-failed\n"
+                       "sepolicy_load.end=1\n");
+        return 11;
+    }
+    if (read_root_first_line(paths,
+                             "/sys/fs/selinux/policyvers",
+                             kernel_policy_version,
+                             sizeof(kernel_policy_version),
+                             &kernel_policy_present) < 0) {
+        kernel_policy_version[0] = '\0';
+    }
+    append_format(stdout_buf,
+                  "sepolicy_load.vendor_mapping_version.present=%d\n"
+                  "sepolicy_load.vendor_mapping_version=%s\n"
+                  "sepolicy_load.kernel_policy_version.present=%d\n"
+                  "sepolicy_load.kernel_policy_version=%s\n",
+                  vendor_mapping_present ? 1 : 0,
+                  vendor_mapping_present ? vendor_mapping_version : "<missing>",
+                  kernel_policy_present ? 1 : 0,
+                  kernel_policy_present ? kernel_policy_version : "<missing>");
+    if (!vendor_mapping_present || !sepolicy_mapping_version_safe(vendor_mapping_version)) {
+        append_literal(stdout_buf,
+                       "sepolicy_load.result=compile-input-gap\n"
+                       "sepolicy_load.reason=vendor-mapping-version-missing-or-unsafe\n"
+                       "sepolicy_load.end=1\n");
+        return 11;
+    }
+
+    compile_rc = run_sepolicy_compile_attempt(cfg,
+                                              paths,
+                                              stdout_buf,
+                                              stderr_buf,
+                                              "31",
+                                              vendor_mapping_version,
+                                              cfg->timeout_sec * 1000,
+                                              true,
+                                              output_host_path,
+                                              sizeof(output_host_path),
+                                              output_chroot_path,
+                                              sizeof(output_chroot_path));
+    if (compile_rc != 0) {
+        compiled_policy_version = "30";
+        compile_rc = run_sepolicy_compile_attempt(cfg,
+                                                  paths,
+                                                  stdout_buf,
+                                                  stderr_buf,
+                                                  "30",
+                                                  vendor_mapping_version,
+                                                  cfg->timeout_sec * 1000,
+                                                  true,
+                                                  output_host_path,
+                                                  sizeof(output_host_path),
+                                                  output_chroot_path,
+                                                  sizeof(output_chroot_path));
+    }
+    if (compile_rc != 0) {
+        append_format(stdout_buf,
+                      "sepolicy_load.result=compile-runtime-gap\n"
+                      "sepolicy_load.reason=compile-before-load-failed\n"
+                      "sepolicy_load.compile_rc=%d\n"
+                      "sepolicy_load.end=1\n",
+                      compile_rc);
+        return 11;
+    }
+    append_format(stdout_buf,
+                  "sepolicy_load.compiled_policy.version=%s\n"
+                  "sepolicy_load.compiled_policy.host_path=%s\n"
+                  "sepolicy_load.compiled_policy.chroot_path=%s\n",
+                  compiled_policy_version,
+                  output_host_path,
+                  output_chroot_path);
+    load_fd = open(paths->sys_fs_selinux_load, O_WRONLY | O_CLOEXEC);
+    append_literal(stdout_buf, "sepolicy_load.policy_load_attempted=1\n");
+    if (load_fd < 0) {
+        append_format(stdout_buf,
+                      "sepolicy_load.result=policy-load-open-failed\n"
+                      "sepolicy_load.reason=open-selinux-load-failed-%s\n"
+                      "sepolicy_load.end=1\n",
+                      strerror(errno));
+        unlink(output_host_path);
+        return 12;
+    }
+    if (write_file_once_to_fd(output_host_path, load_fd, &load_bytes, &load_hash) < 0) {
+        int saved_errno = errno;
+
+        close(load_fd);
+        append_format(stdout_buf,
+                      "sepolicy_load.result=policy-load-write-failed\n"
+                      "sepolicy_load.reason=write-selinux-load-failed-%s\n"
+                      "sepolicy_load.bytes=%zu\n"
+                      "sepolicy_load.hash=0x%016llx\n"
+                      "sepolicy_load.end=1\n",
+                      strerror(saved_errno),
+                      load_bytes,
+                      (unsigned long long)load_hash);
+        unlink(output_host_path);
+        return 12;
+    }
+    close(load_fd);
+    append_format(stdout_buf,
+                  "sepolicy_load.policy_load_executed=1\n"
+                  "sepolicy_load.bytes=%zu\n"
+                  "sepolicy_load.hash=0x%016llx\n",
+                  load_bytes,
+                  (unsigned long long)load_hash);
+    append_sepolicy_load_state(stdout_buf, paths, "post");
+    unlink(output_host_path);
+    append_literal(stdout_buf,
+                   "sepolicy_load.result=policy-load-pass\n"
+                   "sepolicy_load.reason=selinux-load-write-success\n"
+                   "sepolicy_load.end=1\n");
+    return 0;
 }
 
 static bool wifi_surface_iface_name(const char *name) {
@@ -9803,6 +10165,8 @@ int main(int argc, char **argv) {
            cfg.allow_hal_service_query ? 1 : 0);
     printf("allow_iwifi_start_only=%d\n",
            cfg.allow_iwifi_start_only ? 1 : 0);
+    printf("allow_policy_load_proof=%d\n",
+           cfg.allow_policy_load_proof ? 1 : 0);
 
     if (setup_namespace(&cfg,
                         &paths,
@@ -9855,6 +10219,11 @@ int main(int argc, char **argv) {
         child_exit_code = run_rc == 0 ? 0 : run_rc;
         child_signal = 0;
         timed_out = run_rc == 12;
+    } else if (streq(cfg.mode, "sepolicy-load-proof")) {
+        run_rc = run_sepolicy_load_proof(&cfg, &paths, &stdout_buf, &stderr_buf);
+        child_exit_code = run_rc == 0 ? 0 : run_rc;
+        child_signal = 0;
+        timed_out = false;
     } else if (streq(cfg.mode, "selinux-domain-proof")) {
         run_rc = run_selinux_domain_proof(&cfg,
                                           &paths,
