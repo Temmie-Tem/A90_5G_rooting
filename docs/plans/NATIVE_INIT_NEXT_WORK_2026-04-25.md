@@ -2036,3 +2036,8 @@ Samsung bootloader
    - v409 결과: helper v25 `wifi-hal-composite-lshal-list` mode와 `--allow-hal-service-query` guard를 구현했고 static ARM64 build PASS, SHA `e90639d55dacc5486c998c4d1470235a6c72e4759cc63ebd1f07cf90c5852b37`. plan/no-approval manifests는 모두 device command와 mutation 없이 fail-closed PASS
    - v409 해석: 실제 `hwservicemanager` publication listing은 `/system/bin/lshal` 또는 별도 HIDL client가 필요하다. V409 runner는 먼저 `/mnt/system/system/bin/lshal` 존재를 read-only preflight로 확인하고, 없으면 V410으로 라우팅한다
    - v409 다음: `approve v409 deploy execns helper v25 only; no daemon start and no Wi-Fi bring-up` 승인 시 helper deploy만 수행한다. 이후 preflight가 `lshal`을 확인한 뒤 별도 `approve v409 bounded lshal registration query only; no scan/connect/link-up and no Wi-Fi bring-up` 승인이 필요하다
+
+   - v409 read-only deploy preflight: `tmp/wifi/v409-helper-v25-deploy-readonly-preflight-20260520-103906/`
+   - v409 read-only query preflight: `tmp/wifi/v409-registration-query-readonly-preflight-20260520-103926/`
+   - v409 preflight 결과: deploy preflight는 `execns-helper-v25-deploy-preflight-ready-needs-deploy` PASS. query preflight는 `v409-hal-registration-query-blocked`이며 blocker는 `helper-v25`뿐이다. `/mnt/system/system/bin/lshal`, runtime materials, system_ext VNDK v30, service-manager binaries, process surface, Wi-Fi link surface는 모두 pass. device mutation, daemon start, HAL start, Wi-Fi bring-up은 모두 false
+   - v409 preflight 해석: V410 대체 HIDL client로 우회할 필요는 현재 없다. `lshal` direct path가 존재하므로 다음은 exact-approved helper v25 deploy다

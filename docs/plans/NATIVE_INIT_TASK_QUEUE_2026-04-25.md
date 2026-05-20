@@ -68,7 +68,8 @@
 - current interpretation: V407 reached a viable Wi-Fi HAL service surface with Binder/HwBinder devnodes, hwservice context inputs, HIDL/HwBinder maps, observable HAL/hwservicemanager captures, and clean postflight. Actual `hwservicemanager` service publication is not proven yet.
 - V409 prep result: helper v25 `wifi-hal-composite-lshal-list` mode, deploy wrapper, and fail-closed registration query runner are implemented. Static ARM64 helper build PASS, SHA `e90639d55dacc5486c998c4d1470235a6c72e4759cc63ebd1f07cf90c5852b37`.
 - latest V409 prep report: `docs/reports/NATIVE_INIT_V409_HAL_REGISTRATION_QUERY_PREP_2026-05-20.md`.
-- current interpretation: next live step is helper v25 deploy only. Registration query is a separate later approval and is blocked unless `/mnt/system/system/bin/lshal` is present in read-only preflight.
+- V409 read-only preflight result: deploy preflight PASS and needs helper v25 deploy; registration-query preflight confirms `/mnt/system/system/bin/lshal` is present, with only `helper-v25` blocked. No device mutation, daemon start, HAL start, or Wi-Fi bring-up was executed.
+- current interpretation: next live step is helper v25 deploy only. Registration query is a separate later approval after deploy and post-deploy preflight.
 - next execution item: exact-approved V409 helper v25 deploy only. Required phrase: `approve v409 deploy execns helper v25 only; no daemon start and no Wi-Fi bring-up`.
 
 ## 현재 고정 기준점

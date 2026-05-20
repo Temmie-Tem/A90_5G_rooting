@@ -141,15 +141,88 @@ Manifest assertion check:
 v409 fail-closed assertions: PASS
 ```
 
+## Read-Only Device Preflight
+
+After the prep commit, V409 read-only device preflight was run without deploy
+approval.  It did not mutate the device, start daemons, start the Wi-Fi HAL, or
+bring up Wi-Fi.
+
+Helper v25 deploy preflight:
+
+```text
+evidence: tmp/wifi/v409-helper-v25-deploy-readonly-preflight-20260520-103906/
+decision: execns-helper-v25-deploy-preflight-ready-needs-deploy
+pass: True
+reason: preflight complete; helper v25 deploy still requires exact approval
+device_mutations: False
+daemon_start_executed: False
+wifi_bringup_executed: False
+```
+
+Key deploy-preflight checks:
+
+```text
+local-helper-v25: pass
+native-clean: pass
+service-manager-processes-clean: pass
+wifi-link-surface-clean: pass
+remote-helper-v25: needs-deploy
+approval-gate: needs-operator
+```
+
+NCM host ping was warning-only in auto transfer mode:
+
+```text
+ncm-host-reachable: warn
+```
+
+This does not block deploy because the deploy wrapper can use serial fallback.
+
+V409 registration query preflight:
+
+```text
+evidence: tmp/wifi/v409-registration-query-readonly-preflight-20260520-103926/
+decision: v409-hal-registration-query-blocked
+pass: False
+reason: blocked before live run by helper-v25
+device_commands_executed: True
+device_mutations: False
+daemon_start_executed: False
+wifi_hal_start_executed: False
+wifi_bringup_executed: False
+```
+
+Key query-preflight checks:
+
+```text
+v408-registration-surface-pass: pass
+native-clean: pass
+helper-v25: blocked
+lshal-binary: pass
+runtime-materials: pass
+system-ext-vndk-v30: pass
+service-manager-binaries: pass
+process-surface-clean: pass
+wifi-link-clean: pass
+approval-gate: needs-operator
+```
+
+The important narrowing is:
+
+```text
+/mnt/system/system/bin/lshal exists and is usable for the direct V409 query path.
+The remaining blocker is helper v25 deploy.
+```
+
 ## Interpretation
 
 V409 is ready for the next operator-approved live step, but it has not been
 executed live.
 
-The direct query path depends on `/mnt/system/system/bin/lshal`.  If preflight
-finds it missing, the correct next step is not Wi-Fi bring-up.  Route to V410
-for either Android-side `lshal` extraction or a minimal private-namespace HIDL
-service-list client.
+The direct query path depends on `/mnt/system/system/bin/lshal`.  Read-only
+preflight now proves that it is present.  Therefore the next live step remains
+helper v25 deploy only.  The actual registration query remains a separate later
+approval after deploy and post-deploy preflight.
 
 ## Next Target
 
