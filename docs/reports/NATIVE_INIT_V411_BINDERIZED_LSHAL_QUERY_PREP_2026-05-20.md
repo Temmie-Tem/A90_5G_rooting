@@ -36,6 +36,54 @@ wifi-hal-composite-lshal-binderized-list
 --allow-hal-service-query
 ```
 
+## Contract Linter
+
+V411 binderized-lshal contract linter:
+
+```text
+script: scripts/revalidation/wifi_v411_binderized_lshal_linter.py
+evidence: tmp/wifi/v411-binderized-lshal-linter-20260520-113507/
+decision: v411-binderized-lshal-contract-pass
+pass: True
+reason: all V411 binderized-lshal contract checks passed
+device_commands_executed: False
+device_mutations: False
+daemon_start_executed: False
+wifi_hal_start_executed: False
+wifi_bringup_executed: False
+```
+
+The linter proves the helper source, runner, deploy wrapper, and generated
+approval manifests agree on:
+
+```text
+helper-v27-version: pass
+helper-binderized-mode-allowlisted: pass
+helper-implicit-data-wifi-default: pass
+helper-binderized-lshal-argv: pass
+runner-v27-sha-mode-approval: pass
+runner-records-implicit-contract: pass
+runner-checks-binderized-helper-strings: pass
+deploy-v27-sha-mode-and-guard: pass
+deploy-checks-binderized-helper-strings: pass
+approved-command-arg-budget: pass
+approved-command-mode: pass
+approved-command-query-guard: pass
+approved-command-uses-implicit-data-wifi: pass
+approved-plan-host-only: pass
+noapproval-no-device-command: pass
+deploy-plan-local-helper-pass: pass
+query-preflight-expected-helper-blocker: pass
+```
+
+Linter evidence permissions:
+
+```text
+700 tmp/wifi/v411-binderized-lshal-linter-20260520-113507
+600 tmp/wifi/v411-binderized-lshal-linter-20260520-113507/manifest.json
+600 tmp/wifi/v411-binderized-lshal-linter-20260520-113507/README.md
+```
+
 ## Prepared Gates
 
 ```text
