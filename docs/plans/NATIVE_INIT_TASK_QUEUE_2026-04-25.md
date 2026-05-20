@@ -8908,3 +8908,20 @@ python3 ./scripts/revalidation/physical_usb_reconnect_check.py --manual-host-con
   - `wifi_disable_executed=False`, `wifi_bringup_executed=False`.
 - interpretation: Android disabled containment persisted across a fresh Android boot-complete handoff. This is now the safe baseline before any controlled re-enable or native-side Wi-Fi branch.
 - next execution item: V437 controlled Android Wi-Fi branch decision. Choose controlled re-enable observation or native-side Wi-Fi work while preserving disabled containment.
+
+### V437. Wi-Fi Branch Decision — PASS / CONTROLLED RE-ENABLE SELECTED
+
+- plan: `docs/plans/NATIVE_INIT_V437_WIFI_BRANCH_DECISION_PLAN_2026-05-20.md`
+- report: `docs/reports/NATIVE_INIT_V437_WIFI_BRANCH_DECISION_2026-05-20.md`
+- selector: `scripts/revalidation/wifi_android_branch_decision_v437.py`
+- evidence:
+  - plan `tmp/wifi/v437-wifi-branch-decision-plan-20260520-164708/`
+  - host-run `tmp/wifi/v437-wifi-branch-decision-hostrun-20260520-164708/`
+- result:
+  - decision `v437-wifi-branch-controlled-reenable-selected`.
+  - branch `controlled-android-reenable-observation`.
+  - input V436 evidence proved Android Wi-Fi disabled persistence and absent route/DNS/connectivity/listener exposure.
+  - V437 did not execute device commands or mutations.
+  - `wifi_bringup_executed=False`.
+- interpretation: contained Android baseline is strong enough for the next Wi-Fi-progressing gate to be controlled framework re-enable observation. This is still not scan/connect or server exposure.
+- next execution item: V438 controlled Android Wi-Fi re-enable observation. Allow only bounded `cmd wifi set-wifi-enabled enabled`; keep scan/connect, credentials, server exposure, external probes, and routing mutation blocked.

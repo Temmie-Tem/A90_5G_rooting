@@ -2163,3 +2163,11 @@ Samsung bootloader
 - live evidence: `tmp/wifi/v436-android-wifi-disabled-persistence-handoff-live-20260520-164037/`
 - result: read-only Android disabled persistence PASS. Android boot-complete showed Wi-Fi still disabled, no `wlan0` IP, no `wlan0` route candidate, no active validated Wi-Fi connectivity, no active DNS surface, and no global listener. No additional disable command ran.
 - next: V437 controlled Android Wi-Fi branch decision. Decide whether to run a controlled re-enable observation gate or resume native-side Wi-Fi integration while preserving Android disabled containment.
+
+### V437. Wi-Fi Branch Decision Result
+
+- plan: `docs/plans/NATIVE_INIT_V437_WIFI_BRANCH_DECISION_PLAN_2026-05-20.md`
+- report: `docs/reports/NATIVE_INIT_V437_WIFI_BRANCH_DECISION_2026-05-20.md`
+- host-run evidence: `tmp/wifi/v437-wifi-branch-decision-hostrun-20260520-164708/`
+- result: host-side branch decision PASS. Selected `controlled-android-reenable-observation` because V436 proved persistent disabled containment. No device command or mutation ran.
+- next: V438 controlled Android Wi-Fi re-enable observation. Permit only bounded `cmd wifi set-wifi-enabled enabled`; still forbid scan/connect, credentials, server exposure, external probes, and routing mutation.
