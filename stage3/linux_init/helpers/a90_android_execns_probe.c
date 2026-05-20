@@ -30,6 +30,10 @@
 #include <grp.h>
 #include <linux/capability.h>
 #include <linux/android/binder.h>
+#include <linux/genetlink.h>
+#include <linux/netlink.h>
+#include <linux/nl80211.h>
+#include <linux/rtnetlink.h>
 #include <sys/un.h>
 
 #ifndef MNT_DETACH
@@ -50,8 +54,20 @@
 #ifndef BINDER_BUFFER_FLAG_REF
 #define BINDER_BUFFER_FLAG_REF 0x02
 #endif
+#ifndef NLA_ALIGNTO
+#define NLA_ALIGNTO 4
+#endif
+#ifndef NLA_ALIGN
+#define NLA_ALIGN(len) (((len) + NLA_ALIGNTO - 1) & ~(NLA_ALIGNTO - 1))
+#endif
+#ifndef NLA_HDRLEN
+#define NLA_HDRLEN ((int)NLA_ALIGN(sizeof(struct nlattr)))
+#endif
+#ifndef NLA_TYPE_MASK
+#define NLA_TYPE_MASK ~(NLA_F_NESTED | NLA_F_NET_BYTEORDER)
+#endif
 
-#define EXECNS_VERSION "a90_android_execns_probe v49"
+#define EXECNS_VERSION "a90_android_execns_probe v50"
 #define MAX_PATH_LEN 512
 #define MAX_CAPTURE_SIZE (1024 * 1024)
 #define MAX_LINKERCONFIG_SIZE (256 * 1024)
@@ -77,6 +93,8 @@
 #define A90_HWBINDER_DATA_MAX 2048
 #define A90_HWBINDER_OBJECT_MAX 16
 #define A90_HWBINDER_READ_MAX 8192
+#define A90_NL80211_RECV_BUF_SIZE 65536
+#define A90_NL80211_IFNAME_MAX 64
 
 struct config {
     const char *system_root;
@@ -105,6 +123,7 @@ struct config {
     bool allow_wifi_hal_start_only;
     bool allow_hal_service_query;
     bool allow_iwifi_start_only;
+    bool allow_scan_only;
     bool allow_policy_load_proof;
 };
 
@@ -206,8 +225,9 @@ static void usage(FILE *out) {
             "[--allow-wifi-hal-start-only] "
             "[--allow-hal-service-query] "
             "[--allow-iwifi-start-only] "
+            "[--allow-scan-only] "
             "[--allow-policy-load-proof] "
-            "--mode linker-list|identity-probe|sepolicy-inventory|sepolicy-compile-proof|sepolicy-load-proof|selinux-domain-proof|cnss-start-only|property-lookup|service-manager-start-only|private-selinux-proof|wifi-hal-lshal-vintf-status-list|wifi-hal-composite-start-only|wifi-hal-composite-lshal-list|wifi-hal-composite-lshal-binderized-list|wifi-hal-composite-lshal-wait-target|wifi-surface-composite-lshal-wait-iwifi|wifi-surface-composite-lshal-wait-samsung|wifi-surface-composite-lshal-wait-samsung-ptrace|wifi-hal-composite-lshal-status-list|wifi-hal-composite-lshal-binderized-status-list|wifi-surface-composite-start-only|wifi-iwifi-start-surface|wifi-active-session-surface "
+            "--mode linker-list|identity-probe|sepolicy-inventory|sepolicy-compile-proof|sepolicy-load-proof|selinux-domain-proof|cnss-start-only|property-lookup|service-manager-start-only|private-selinux-proof|wifi-hal-lshal-vintf-status-list|wifi-hal-composite-start-only|wifi-hal-composite-lshal-list|wifi-hal-composite-lshal-binderized-list|wifi-hal-composite-lshal-wait-target|wifi-surface-composite-lshal-wait-iwifi|wifi-surface-composite-lshal-wait-samsung|wifi-surface-composite-lshal-wait-samsung-ptrace|wifi-hal-composite-lshal-status-list|wifi-hal-composite-lshal-binderized-status-list|wifi-surface-composite-start-only|wifi-iwifi-start-surface|wifi-active-session-surface|wifi-active-session-scan-only "
             "[v27 binderized query runs: /system/bin/lshal list --types=binderized --neat] "
             "[v28 target query runs: /system/bin/lshal wait <fqinstance>] "
             "[v29 status query runs: /system/bin/lshal list --types=binderized,vintf --neat -V -S -i -p -e -c] "
@@ -232,7 +252,8 @@ static bool is_wifi_hal_composite_mode(const char *mode) {
            streq(mode, "wifi-hal-composite-lshal-binderized-status-list") ||
            streq(mode, "wifi-surface-composite-start-only") ||
            streq(mode, "wifi-iwifi-start-surface") ||
-           streq(mode, "wifi-active-session-surface");
+           streq(mode, "wifi-active-session-surface") ||
+           streq(mode, "wifi-active-session-scan-only");
 }
 
 static bool is_wifi_surface_composite_mode(const char *mode) {
@@ -241,11 +262,17 @@ static bool is_wifi_surface_composite_mode(const char *mode) {
            streq(mode, "wifi-surface-composite-lshal-wait-samsung") ||
            streq(mode, "wifi-surface-composite-lshal-wait-samsung-ptrace") ||
            streq(mode, "wifi-iwifi-start-surface") ||
-           streq(mode, "wifi-active-session-surface");
+           streq(mode, "wifi-active-session-surface") ||
+           streq(mode, "wifi-active-session-scan-only");
 }
 
 static bool is_wifi_active_session_surface_mode(const char *mode) {
-    return streq(mode, "wifi-active-session-surface");
+    return streq(mode, "wifi-active-session-surface") ||
+           streq(mode, "wifi-active-session-scan-only");
+}
+
+static bool is_wifi_active_session_scan_only_mode(const char *mode) {
+    return streq(mode, "wifi-active-session-scan-only");
 }
 
 static bool is_wifi_iwifi_start_surface_mode(const char *mode) {
@@ -407,6 +434,10 @@ static int parse_args(int argc, char **argv, struct config *cfg) {
         }
         if (strcmp(argv[i], "--allow-iwifi-start-only") == 0) {
             cfg->allow_iwifi_start_only = true;
+            continue;
+        }
+        if (strcmp(argv[i], "--allow-scan-only") == 0) {
+            cfg->allow_scan_only = true;
             continue;
         }
         if (strcmp(argv[i], "--allow-policy-load-proof") == 0) {
@@ -743,17 +774,30 @@ static int parse_args(int argc, char **argv, struct config *cfg) {
             fprintf(stderr, "--allow-iwifi-start-only requires service-manager, Wi-Fi HAL, and CNSS allow flags\n");
             return 2;
         }
+        if (cfg->allow_scan_only &&
+            (!cfg->allow_service_manager_start_only ||
+             !cfg->allow_wifi_hal_start_only ||
+             !cfg->allow_cnss_start_only ||
+             !cfg->allow_iwifi_start_only)) {
+            fprintf(stderr, "--allow-scan-only requires service-manager, Wi-Fi HAL, CNSS, and IWifi.start allow flags\n");
+            return 2;
+        }
         if (is_wifi_surface_composite_mode(cfg->mode) &&
             (!cfg->allow_service_manager_start_only ||
              !cfg->allow_wifi_hal_start_only ||
              !cfg->allow_cnss_start_only ||
-             (is_wifi_iwifi_start_surface_mode(cfg->mode) && !cfg->allow_iwifi_start_only))) {
+             (is_wifi_iwifi_start_surface_mode(cfg->mode) && !cfg->allow_iwifi_start_only) ||
+             (is_wifi_active_session_scan_only_mode(cfg->mode) && !cfg->allow_scan_only))) {
             fprintf(stderr, "wifi surface modes require service-manager, Wi-Fi HAL, CNSS, and mode-specific allow flags\n");
             return 2;
         }
     }
     if (cfg->allow_iwifi_start_only && !is_wifi_iwifi_start_surface_mode(cfg->mode)) {
-        fprintf(stderr, "--allow-iwifi-start-only is only valid with wifi-iwifi-start-surface or wifi-active-session-surface mode\n");
+        fprintf(stderr, "--allow-iwifi-start-only is only valid with wifi-iwifi-start-surface or active-session modes\n");
+        return 2;
+    }
+    if (cfg->allow_scan_only && !is_wifi_active_session_scan_only_mode(cfg->mode)) {
+        fprintf(stderr, "--allow-scan-only is only valid with wifi-active-session-scan-only mode\n");
         return 2;
     }
     if (is_lshal_readonly_query_mode(cfg->mode)) {
@@ -9651,6 +9695,610 @@ static int stop_property_service_shim(struct property_service_shim *shim,
     return 0;
 }
 
+struct a90_scan_iface {
+    uint32_t ifindex;
+    uint32_t iftype;
+    char ifname[A90_NL80211_IFNAME_MAX];
+    int total_count;
+};
+
+static int a90_nla_len(const struct nlattr *attr) {
+    return (int)attr->nla_len - NLA_HDRLEN;
+}
+
+static void *a90_nla_data(const struct nlattr *attr) {
+    return (void *)((const char *)attr + NLA_HDRLEN);
+}
+
+static bool a90_nla_ok(const struct nlattr *attr, int remaining) {
+    return remaining >= (int)sizeof(*attr) &&
+           attr->nla_len >= sizeof(*attr) &&
+           attr->nla_len <= remaining;
+}
+
+static struct nlattr *a90_nla_next(struct nlattr *attr, int *remaining) {
+    int aligned = NLA_ALIGN(attr->nla_len);
+
+    *remaining -= aligned;
+    return (struct nlattr *)((char *)attr + aligned);
+}
+
+static unsigned int a90_nla_type(const struct nlattr *attr) {
+    return attr->nla_type & NLA_TYPE_MASK;
+}
+
+static uint32_t a90_nla_u32(const struct nlattr *attr, uint32_t fallback) {
+    if (a90_nla_len(attr) < (int)sizeof(uint32_t)) {
+        return fallback;
+    }
+    return *(uint32_t *)a90_nla_data(attr);
+}
+
+static const char *a90_nla_string(const struct nlattr *attr) {
+    if (a90_nla_len(attr) <= 0) {
+        return "";
+    }
+    return (const char *)a90_nla_data(attr);
+}
+
+static void a90_parse_attrs(struct nlattr **attrs,
+                            int max_attr,
+                            struct nlattr *attr,
+                            int len) {
+    memset(attrs, 0, sizeof(struct nlattr *) * (size_t)(max_attr + 1));
+    while (a90_nla_ok(attr, len)) {
+        unsigned int type = a90_nla_type(attr);
+
+        if (type <= (unsigned int)max_attr) {
+            attrs[type] = attr;
+        }
+        attr = a90_nla_next(attr, &len);
+    }
+}
+
+static int a90_add_attr(char *buf,
+                        size_t buf_size,
+                        size_t *offset,
+                        int type,
+                        const void *data,
+                        size_t len) {
+    struct nlattr *attr;
+    size_t attr_len = NLA_HDRLEN + len;
+    size_t aligned = NLA_ALIGN(attr_len);
+
+    if (*offset + aligned > buf_size) {
+        errno = EMSGSIZE;
+        return -1;
+    }
+    attr = (struct nlattr *)(buf + *offset);
+    attr->nla_type = (unsigned short)type;
+    attr->nla_len = (unsigned short)attr_len;
+    if (len > 0 && data != NULL) {
+        memcpy((char *)attr + NLA_HDRLEN, data, len);
+    }
+    if (aligned > attr_len) {
+        memset(buf + *offset + attr_len, 0, aligned - attr_len);
+    }
+    *offset += aligned;
+    return 0;
+}
+
+static struct nlattr *a90_nest_start(char *buf,
+                                     size_t buf_size,
+                                     size_t *offset,
+                                     int type) {
+    struct nlattr *attr;
+    size_t attr_len = NLA_HDRLEN;
+    size_t aligned = NLA_ALIGN(attr_len);
+
+    if (*offset + aligned > buf_size) {
+        errno = EMSGSIZE;
+        return NULL;
+    }
+    attr = (struct nlattr *)(buf + *offset);
+    attr->nla_type = (unsigned short)(type | NLA_F_NESTED);
+    attr->nla_len = (unsigned short)attr_len;
+    if (aligned > attr_len) {
+        memset(buf + *offset + attr_len, 0, aligned - attr_len);
+    }
+    *offset += aligned;
+    return attr;
+}
+
+static void a90_nest_end(char *buf, size_t offset, struct nlattr *attr) {
+    attr->nla_len = (unsigned short)((buf + offset) - (char *)attr);
+}
+
+static int a90_open_genl_socket(void) {
+    struct sockaddr_nl local;
+    int fd = socket(AF_NETLINK, SOCK_RAW | SOCK_CLOEXEC, NETLINK_GENERIC);
+
+    if (fd < 0) {
+        return -1;
+    }
+    memset(&local, 0, sizeof(local));
+    local.nl_family = AF_NETLINK;
+    if (bind(fd, (struct sockaddr *)&local, sizeof(local)) < 0) {
+        close(fd);
+        return -1;
+    }
+    return fd;
+}
+
+static int a90_send_genl(int fd,
+                         uint16_t family_id,
+                         uint8_t command,
+                         uint16_t flags,
+                         uint32_t seq,
+                         const char *family_name,
+                         uint32_t ifindex,
+                         bool include_ifindex,
+                         bool include_wildcard_ssid) {
+    char buffer[1024];
+    struct nlmsghdr *nlh = (struct nlmsghdr *)buffer;
+    struct genlmsghdr *genlh;
+    struct sockaddr_nl addr;
+    size_t offset;
+
+    memset(buffer, 0, sizeof(buffer));
+    nlh->nlmsg_len = NLMSG_LENGTH(sizeof(*genlh));
+    nlh->nlmsg_type = family_id;
+    nlh->nlmsg_flags = NLM_F_REQUEST | flags;
+    nlh->nlmsg_seq = seq;
+    nlh->nlmsg_pid = 0;
+    genlh = (struct genlmsghdr *)NLMSG_DATA(nlh);
+    genlh->cmd = command;
+    genlh->version = 1;
+    offset = NLMSG_ALIGN(nlh->nlmsg_len);
+    if (family_name != NULL) {
+        if (a90_add_attr(buffer,
+                         sizeof(buffer),
+                         &offset,
+                         CTRL_ATTR_FAMILY_NAME,
+                         family_name,
+                         strlen(family_name) + 1) < 0) {
+            return -1;
+        }
+    }
+    if (include_ifindex) {
+        if (a90_add_attr(buffer,
+                         sizeof(buffer),
+                         &offset,
+                         NL80211_ATTR_IFINDEX,
+                         &ifindex,
+                         sizeof(ifindex)) < 0) {
+            return -1;
+        }
+    }
+    if (include_wildcard_ssid) {
+        struct nlattr *scan_ssids = a90_nest_start(buffer,
+                                                   sizeof(buffer),
+                                                   &offset,
+                                                   NL80211_ATTR_SCAN_SSIDS);
+
+        if (scan_ssids == NULL) {
+            return -1;
+        }
+        if (a90_add_attr(buffer, sizeof(buffer), &offset, 1, NULL, 0) < 0) {
+            return -1;
+        }
+        a90_nest_end(buffer, offset, scan_ssids);
+    }
+    nlh->nlmsg_len = (uint32_t)offset;
+
+    memset(&addr, 0, sizeof(addr));
+    addr.nl_family = AF_NETLINK;
+    if (sendto(fd, buffer, nlh->nlmsg_len, 0, (struct sockaddr *)&addr, sizeof(addr)) < 0) {
+        return -1;
+    }
+    return 0;
+}
+
+static int a90_recv_family_id(int fd, uint32_t seq) {
+    char buffer[A90_NL80211_RECV_BUF_SIZE];
+    ssize_t received;
+    struct nlmsghdr *nlh;
+    int remaining;
+
+    received = recv(fd, buffer, sizeof(buffer), 0);
+    if (received < 0) {
+        return -1;
+    }
+    for (nlh = (struct nlmsghdr *)buffer, remaining = (int)received;
+         NLMSG_OK(nlh, remaining);
+         nlh = NLMSG_NEXT(nlh, remaining)) {
+        struct genlmsghdr *genlh;
+        struct nlattr *attrs[CTRL_ATTR_MAX + 1];
+        int attr_len;
+
+        if (nlh->nlmsg_seq != seq) {
+            continue;
+        }
+        if (nlh->nlmsg_type == NLMSG_ERROR) {
+            struct nlmsgerr *err = (struct nlmsgerr *)NLMSG_DATA(nlh);
+            errno = err->error < 0 ? -err->error : EIO;
+            return -1;
+        }
+        if (nlh->nlmsg_type == NLMSG_DONE) {
+            break;
+        }
+        genlh = (struct genlmsghdr *)NLMSG_DATA(nlh);
+        attr_len = (int)nlh->nlmsg_len - (int)NLMSG_LENGTH(sizeof(*genlh));
+        if (attr_len < 0) {
+            continue;
+        }
+        a90_parse_attrs(attrs,
+                        CTRL_ATTR_MAX,
+                        (struct nlattr *)((char *)genlh + GENL_HDRLEN),
+                        attr_len);
+        if (attrs[CTRL_ATTR_FAMILY_ID] != NULL) {
+            return (int)*(uint16_t *)a90_nla_data(attrs[CTRL_ATTR_FAMILY_ID]);
+        }
+    }
+    errno = ENOENT;
+    return -1;
+}
+
+static int a90_get_family_id(int fd, const char *name) {
+    const uint32_t seq = 4901;
+
+    if (a90_send_genl(fd,
+                      GENL_ID_CTRL,
+                      CTRL_CMD_GETFAMILY,
+                      0,
+                      seq,
+                      name,
+                      0,
+                      false,
+                      false) < 0) {
+        return -1;
+    }
+    return a90_recv_family_id(fd, seq);
+}
+
+static int a90_recv_ack(int fd, uint32_t seq) {
+    char buffer[A90_NL80211_RECV_BUF_SIZE];
+
+    for (;;) {
+        ssize_t received = recv(fd, buffer, sizeof(buffer), 0);
+        struct nlmsghdr *nlh;
+        int remaining;
+
+        if (received < 0) {
+            return -1;
+        }
+        for (nlh = (struct nlmsghdr *)buffer, remaining = (int)received;
+             NLMSG_OK(nlh, remaining);
+             nlh = NLMSG_NEXT(nlh, remaining)) {
+            if (nlh->nlmsg_seq != seq) {
+                continue;
+            }
+            if (nlh->nlmsg_type == NLMSG_ERROR) {
+                struct nlmsgerr *err = (struct nlmsgerr *)NLMSG_DATA(nlh);
+
+                if (err->error == 0) {
+                    return 0;
+                }
+                errno = err->error < 0 ? -err->error : EIO;
+                return -1;
+            }
+            if (nlh->nlmsg_type == NLMSG_DONE) {
+                return 0;
+            }
+        }
+    }
+}
+
+static bool a90_scan_iface_preferred_name(const char *ifname) {
+    return strncmp(ifname, "wlan", 4) == 0 ||
+           strncmp(ifname, "swlan", 5) == 0 ||
+           strncmp(ifname, "p2p", 3) == 0 ||
+           strncmp(ifname, "wifi-aware", 10) == 0;
+}
+
+static int a90_dump_interfaces_select(int fd,
+                                      int family_id,
+                                      struct a90_scan_iface *selected,
+                                      struct buffer *stdout_buf) {
+    char buffer[A90_NL80211_RECV_BUF_SIZE];
+    const uint32_t seq = 4902;
+    bool done = false;
+    bool selected_preferred = false;
+
+    memset(selected, 0, sizeof(*selected));
+    if (a90_send_genl(fd,
+                      (uint16_t)family_id,
+                      NL80211_CMD_GET_INTERFACE,
+                      NLM_F_DUMP,
+                      seq,
+                      NULL,
+                      0,
+                      false,
+                      false) < 0) {
+        return -1;
+    }
+    while (!done) {
+        ssize_t received = recv(fd, buffer, sizeof(buffer), 0);
+        struct nlmsghdr *nlh;
+        int remaining;
+
+        if (received < 0) {
+            return -1;
+        }
+        for (nlh = (struct nlmsghdr *)buffer, remaining = (int)received;
+             NLMSG_OK(nlh, remaining);
+             nlh = NLMSG_NEXT(nlh, remaining)) {
+            struct genlmsghdr *genlh;
+            struct nlattr *attrs[NL80211_ATTR_MAX + 1];
+            int attr_len;
+            uint32_t ifindex = 0;
+            uint32_t iftype = 0;
+            const char *ifname = "";
+            bool preferred;
+
+            if (nlh->nlmsg_seq != seq) {
+                continue;
+            }
+            if (nlh->nlmsg_type == NLMSG_DONE) {
+                done = true;
+                break;
+            }
+            if (nlh->nlmsg_type == NLMSG_ERROR) {
+                struct nlmsgerr *err = (struct nlmsgerr *)NLMSG_DATA(nlh);
+
+                if (err->error == 0) {
+                    done = true;
+                    break;
+                }
+                errno = err->error < 0 ? -err->error : EIO;
+                return -1;
+            }
+            genlh = (struct genlmsghdr *)NLMSG_DATA(nlh);
+            attr_len = (int)nlh->nlmsg_len - (int)NLMSG_LENGTH(sizeof(*genlh));
+            if (attr_len < 0) {
+                continue;
+            }
+            a90_parse_attrs(attrs,
+                            NL80211_ATTR_MAX,
+                            (struct nlattr *)((char *)genlh + GENL_HDRLEN),
+                            attr_len);
+            if (attrs[NL80211_ATTR_IFINDEX] != NULL) {
+                ifindex = a90_nla_u32(attrs[NL80211_ATTR_IFINDEX], 0);
+            }
+            if (attrs[NL80211_ATTR_IFTYPE] != NULL) {
+                iftype = a90_nla_u32(attrs[NL80211_ATTR_IFTYPE], 0);
+            }
+            if (attrs[NL80211_ATTR_IFNAME] != NULL) {
+                ifname = a90_nla_string(attrs[NL80211_ATTR_IFNAME]);
+            }
+            if (ifindex == 0) {
+                continue;
+            }
+            selected->total_count++;
+            preferred = a90_scan_iface_preferred_name(ifname);
+            if (selected->ifindex == 0 || (preferred && !selected_preferred)) {
+                selected->ifindex = ifindex;
+                selected->iftype = iftype;
+                snprintf(selected->ifname, sizeof(selected->ifname), "%s", ifname);
+                selected_preferred = preferred;
+            }
+        }
+    }
+    if (append_format(stdout_buf,
+                      "wifi_scan_only.interface_count=%d\n",
+                      selected->total_count) < 0) {
+        return -1;
+    }
+    if (selected->ifindex == 0) {
+        errno = ENODEV;
+        return 1;
+    }
+    return 0;
+}
+
+static int a90_trigger_scan(int fd, int family_id, uint32_t ifindex) {
+    const uint32_t seq = 4903;
+
+    if (a90_send_genl(fd,
+                      (uint16_t)family_id,
+                      NL80211_CMD_TRIGGER_SCAN,
+                      NLM_F_ACK,
+                      seq,
+                      NULL,
+                      ifindex,
+                      true,
+                      true) < 0) {
+        return -1;
+    }
+    return a90_recv_ack(fd, seq);
+}
+
+static int a90_dump_scan_count(int fd,
+                               int family_id,
+                               uint32_t ifindex,
+                               int *scan_count) {
+    char buffer[A90_NL80211_RECV_BUF_SIZE];
+    const uint32_t seq = 4904;
+    bool done = false;
+
+    *scan_count = 0;
+    if (a90_send_genl(fd,
+                      (uint16_t)family_id,
+                      NL80211_CMD_GET_SCAN,
+                      NLM_F_DUMP,
+                      seq,
+                      NULL,
+                      ifindex,
+                      true,
+                      false) < 0) {
+        return -1;
+    }
+    while (!done) {
+        ssize_t received = recv(fd, buffer, sizeof(buffer), 0);
+        struct nlmsghdr *nlh;
+        int remaining;
+
+        if (received < 0) {
+            return -1;
+        }
+        for (nlh = (struct nlmsghdr *)buffer, remaining = (int)received;
+             NLMSG_OK(nlh, remaining);
+             nlh = NLMSG_NEXT(nlh, remaining)) {
+            struct genlmsghdr *genlh;
+            struct nlattr *attrs[NL80211_ATTR_MAX + 1];
+            int attr_len;
+
+            if (nlh->nlmsg_seq != seq) {
+                continue;
+            }
+            if (nlh->nlmsg_type == NLMSG_DONE) {
+                done = true;
+                break;
+            }
+            if (nlh->nlmsg_type == NLMSG_ERROR) {
+                struct nlmsgerr *err = (struct nlmsgerr *)NLMSG_DATA(nlh);
+
+                if (err->error == 0) {
+                    done = true;
+                    break;
+                }
+                errno = err->error < 0 ? -err->error : EIO;
+                return -1;
+            }
+            genlh = (struct genlmsghdr *)NLMSG_DATA(nlh);
+            attr_len = (int)nlh->nlmsg_len - (int)NLMSG_LENGTH(sizeof(*genlh));
+            if (attr_len < 0) {
+                continue;
+            }
+            a90_parse_attrs(attrs,
+                            NL80211_ATTR_MAX,
+                            (struct nlattr *)((char *)genlh + GENL_HDRLEN),
+                            attr_len);
+            if (attrs[NL80211_ATTR_BSS] != NULL) {
+                (*scan_count)++;
+            }
+        }
+    }
+    return 0;
+}
+
+static int run_wifi_scan_only_probe(struct buffer *stdout_buf) {
+    struct a90_scan_iface selected;
+    int fd;
+    int family_id;
+    int saved_errno;
+    int iface_rc;
+    int trigger_rc;
+    int trigger_errno = 0;
+    int scan_count = 0;
+
+    if (append_literal(stdout_buf,
+                       "wifi_scan_only.begin=1\n"
+                       "wifi_scan_only.credentials=0\n"
+                       "wifi_scan_only.connect_linkup=0\n"
+                       "wifi_scan_only.dhcp_routing=0\n"
+                       "wifi_scan_only.external_ping=0\n"
+                       "wifi_scan_only.raw_results_redacted=1\n") < 0) {
+        return 33;
+    }
+    fd = a90_open_genl_socket();
+    if (fd < 0) {
+        saved_errno = errno;
+        append_format(stdout_buf,
+                      "wifi_scan_only.netlink_open=0\n"
+                      "wifi_scan_only.errno=%d\n"
+                      "wifi_scan_only.result=nl80211-unavailable\n"
+                      "wifi_scan_only.reason=netlink-open-failed\n"
+                      "wifi_scan_only.end=1\n",
+                      saved_errno);
+        return 33;
+    }
+    append_literal(stdout_buf, "wifi_scan_only.netlink_open=1\n");
+    family_id = a90_get_family_id(fd, "nl80211");
+    if (family_id < 0) {
+        saved_errno = errno;
+        close(fd);
+        append_format(stdout_buf,
+                      "wifi_scan_only.family_id=0\n"
+                      "wifi_scan_only.errno=%d\n"
+                      "wifi_scan_only.result=nl80211-unavailable\n"
+                      "wifi_scan_only.reason=family-id-missing\n"
+                      "wifi_scan_only.end=1\n",
+                      saved_errno);
+        return 33;
+    }
+    if (append_format(stdout_buf, "wifi_scan_only.family_id=%d\n", family_id) < 0) {
+        close(fd);
+        return 33;
+    }
+    iface_rc = a90_dump_interfaces_select(fd, family_id, &selected, stdout_buf);
+    if (iface_rc != 0) {
+        saved_errno = errno;
+        close(fd);
+        append_format(stdout_buf,
+                      "wifi_scan_only.interface.ifindex=0\n"
+                      "wifi_scan_only.errno=%d\n"
+                      "wifi_scan_only.result=interface-missing\n"
+                      "wifi_scan_only.reason=%s\n"
+                      "wifi_scan_only.end=1\n",
+                      saved_errno,
+                      iface_rc > 0 ? "nl80211-interface-not-found" : "interface-dump-failed");
+        return 30;
+    }
+    if (append_format(stdout_buf,
+                      "wifi_scan_only.interface.ifindex=%u\n"
+                      "wifi_scan_only.interface.ifname=%s\n"
+                      "wifi_scan_only.interface.iftype=%u\n"
+                      "wifi_scan_only.trigger_attempted=1\n",
+                      selected.ifindex,
+                      selected.ifname,
+                      selected.iftype) < 0) {
+        close(fd);
+        return 33;
+    }
+    trigger_rc = a90_trigger_scan(fd, family_id, selected.ifindex);
+    if (trigger_rc < 0) {
+        trigger_errno = errno;
+    }
+    if (append_format(stdout_buf,
+                      "wifi_scan_only.trigger_rc=%d\n"
+                      "wifi_scan_only.trigger_errno=%d\n",
+                      trigger_rc,
+                      trigger_errno) < 0) {
+        close(fd);
+        return 33;
+    }
+    if (trigger_rc < 0) {
+        close(fd);
+        append_literal(stdout_buf,
+                       "wifi_scan_only.result=trigger-failed\n"
+                       "wifi_scan_only.reason=nl80211-trigger-scan-failed\n"
+                       "wifi_scan_only.end=1\n");
+        return 31;
+    }
+    usleep(2000000);
+    if (a90_dump_scan_count(fd, family_id, selected.ifindex, &scan_count) < 0) {
+        saved_errno = errno;
+        close(fd);
+        append_format(stdout_buf,
+                      "wifi_scan_only.scan_result_count=0\n"
+                      "wifi_scan_only.errno=%d\n"
+                      "wifi_scan_only.result=dump-failed\n"
+                      "wifi_scan_only.reason=nl80211-get-scan-failed\n"
+                      "wifi_scan_only.end=1\n",
+                      saved_errno);
+        return 32;
+    }
+    close(fd);
+    append_format(stdout_buf,
+                  "wifi_scan_only.scan_result_count=%d\n"
+                  "wifi_scan_only.result=pass\n"
+                  "wifi_scan_only.reason=nl80211-scan-triggered-and-redacted-counts-captured\n"
+                  "wifi_scan_only.end=1\n",
+                  scan_count);
+    return 0;
+}
+
 static int run_wifi_hal_composite_start_only_guarded(const struct config *cfg,
                                                      const struct paths *paths,
                                                      struct buffer *stdout_buf,
@@ -9664,6 +10312,7 @@ static int run_wifi_hal_composite_start_only_guarded(const struct config *cfg,
     const bool status_query_mode = streq(cfg->mode, "wifi-hal-composite-lshal-status-list");
     const bool surface_composite_mode = is_wifi_surface_composite_mode(cfg->mode);
     const bool active_session_mode = is_wifi_active_session_surface_mode(cfg->mode);
+    const bool scan_only_mode = is_wifi_active_session_scan_only_mode(cfg->mode);
     const bool iwifi_start_mode = is_wifi_iwifi_start_surface_mode(cfg->mode);
     const size_t child_count = surface_composite_mode ?
         A90_WIFI_SURFACE_COMPOSITE_CHILD_COUNT :
@@ -9672,6 +10321,7 @@ static int run_wifi_hal_composite_start_only_guarded(const struct config *cfg,
     bool any_runtime_gap = false;
     bool all_observable_at_timeout = true;
     int service_query_result = 0;
+    int scan_only_result = 0;
     long deadline;
     struct property_service_shim property_shim;
 
@@ -9708,7 +10358,9 @@ static int run_wifi_hal_composite_start_only_guarded(const struct config *cfg,
         append_format(stdout_buf, "wifi_hal_composite_start.service_query=%d\n", service_query_mode ? 1 : 0) < 0 ||
         append_format(stdout_buf, "wifi_hal_composite_start.iwifi_start=%d\n", iwifi_start_mode ? 1 : 0) < 0 ||
         append_format(stdout_buf, "wifi_hal_composite_start.active_session=%d\n", active_session_mode ? 1 : 0) < 0 ||
-        append_literal(stdout_buf, "wifi_hal_composite_start.scan_connect_linkup=0\n") < 0 ||
+        append_format(stdout_buf, "wifi_hal_composite_start.scan_only=%d\n", scan_only_mode ? 1 : 0) < 0 ||
+        append_literal(stdout_buf, "wifi_hal_composite_start.connect_linkup=0\n") < 0 ||
+        append_format(stdout_buf, "wifi_hal_composite_start.scan_connect_linkup=%d\n", scan_only_mode ? 1 : 0) < 0 ||
         append_literal(stdout_buf, "wifi_hal_composite_start.wificond=0\n") < 0 ||
         append_literal(stdout_buf, "wifi_hal_composite_start.supplicant=0\n") < 0 ||
         append_literal(stdout_buf, "wifi_hal_composite_start.hostapd=0\n") < 0 ||
@@ -9720,7 +10372,8 @@ static int run_wifi_hal_composite_start_only_guarded(const struct config *cfg,
         !cfg->allow_wifi_hal_start_only ||
         (surface_composite_mode && !cfg->allow_cnss_start_only) ||
         (service_query_mode && !cfg->allow_hal_service_query) ||
-        (iwifi_start_mode && !cfg->allow_iwifi_start_only)) {
+        (iwifi_start_mode && !cfg->allow_iwifi_start_only) ||
+        (scan_only_mode && !cfg->allow_scan_only)) {
         if (append_format(stdout_buf,
                           "wifi_hal_composite_start.allowed=0\n"
                           "wifi_hal_composite_start.allow_cnss_start_only=%d\n"
@@ -9728,6 +10381,7 @@ static int run_wifi_hal_composite_start_only_guarded(const struct config *cfg,
                           "wifi_hal_composite_start.allow_wifi_hal_start_only=%d\n"
                           "wifi_hal_composite_start.allow_hal_service_query=%d\n"
                           "wifi_hal_composite_start.allow_iwifi_start_only=%d\n"
+                          "wifi_hal_composite_start.allow_scan_only=%d\n"
                           "wifi_hal_composite_start.exec_attempted=0\n"
                           "wifi_hal_composite_start.child_started=0\n"
                           "wifi_hal_composite_start.result=start-only-blocked\n"
@@ -9737,7 +10391,8 @@ static int run_wifi_hal_composite_start_only_guarded(const struct config *cfg,
                           cfg->allow_service_manager_start_only ? 1 : 0,
                           cfg->allow_wifi_hal_start_only ? 1 : 0,
                           cfg->allow_hal_service_query ? 1 : 0,
-                          cfg->allow_iwifi_start_only ? 1 : 0) < 0) {
+                          cfg->allow_iwifi_start_only ? 1 : 0,
+                          cfg->allow_scan_only ? 1 : 0) < 0) {
             return -1;
         }
         return 0;
@@ -9752,14 +10407,19 @@ static int run_wifi_hal_composite_start_only_guarded(const struct config *cfg,
         append_format(stdout_buf,
                       "wifi_active_session.begin=1\n"
                       "wifi_active_session.helper_version=%s\n"
-                      "wifi_active_session.mode=bounded-surface-window\n"
+                      "wifi_active_session.mode=%s\n"
                       "wifi_active_session.timeout_sec=%d\n"
-                      "wifi_active_session.scan_connect_linkup=0\n"
+                      "wifi_active_session.scan_only=%d\n"
+                      "wifi_active_session.connect_linkup=0\n"
+                      "wifi_active_session.scan_connect_linkup=%d\n"
                       "wifi_active_session.credentials=0\n"
                       "wifi_active_session.dhcp_routing=0\n"
                       "wifi_active_session.external_ping=0\n",
                       EXECNS_VERSION,
-                      cfg->timeout_sec) < 0) {
+                      scan_only_mode ? "bounded-scan-only-window" : "bounded-surface-window",
+                      cfg->timeout_sec,
+                      scan_only_mode ? 1 : 0,
+                      scan_only_mode ? 1 : 0) < 0) {
         return -1;
     }
     if (surface_composite_mode &&
@@ -9814,6 +10474,9 @@ static int run_wifi_hal_composite_start_only_guarded(const struct config *cfg,
                 composite_cleanup_children(children, child_count, stdout_buf);
                 stop_property_service_shim(&property_shim, paths, stdout_buf);
                 return -1;
+            }
+            if (scan_only_mode) {
+                scan_only_result = run_wifi_scan_only_probe(stdout_buf);
             }
         } else if (wait_target_query_mode) {
             const int wait_timeout_ms = surface_composite_mode ?
@@ -9976,6 +10639,26 @@ static int run_wifi_hal_composite_start_only_guarded(const struct config *cfg,
         append_literal(stdout_buf,
                        "wifi_hal_composite_start.result=iwifi-transaction-failed\n"
                        "wifi_hal_composite_start.reason=IWifi-start-transaction-not-clean\n");
+    } else if (scan_only_mode && scan_only_result == 30) {
+        append_literal(stdout_buf,
+                       "wifi_hal_composite_start.result=scan-only-interface-missing\n"
+                       "wifi_hal_composite_start.reason=nl80211-interface-not-found\n");
+    } else if (scan_only_mode && scan_only_result == 31) {
+        append_literal(stdout_buf,
+                       "wifi_hal_composite_start.result=scan-only-trigger-failed\n"
+                       "wifi_hal_composite_start.reason=nl80211-trigger-scan-failed\n");
+    } else if (scan_only_mode && scan_only_result == 32) {
+        append_literal(stdout_buf,
+                       "wifi_hal_composite_start.result=scan-only-dump-failed\n"
+                       "wifi_hal_composite_start.reason=nl80211-get-scan-failed\n");
+    } else if (scan_only_mode && scan_only_result != 0) {
+        append_literal(stdout_buf,
+                       "wifi_hal_composite_start.result=scan-only-runtime-gap\n"
+                       "wifi_hal_composite_start.reason=nl80211-scan-only-runtime-gap\n");
+    } else if (scan_only_mode && *timed_out && all_observable_at_timeout) {
+        append_literal(stdout_buf,
+                       "wifi_hal_composite_start.result=scan-only-pass\n"
+                       "wifi_hal_composite_start.reason=nl80211-scan-triggered-and-redacted-counts-captured\n");
     } else if (iwifi_start_mode && *timed_out && all_observable_at_timeout) {
         append_literal(stdout_buf,
                        "wifi_hal_composite_start.result=iwifi-start-transaction-pass\n"
@@ -10194,6 +10877,8 @@ int main(int argc, char **argv) {
            cfg.allow_hal_service_query ? 1 : 0);
     printf("allow_iwifi_start_only=%d\n",
            cfg.allow_iwifi_start_only ? 1 : 0);
+    printf("allow_scan_only=%d\n",
+           cfg.allow_scan_only ? 1 : 0);
     printf("allow_policy_load_proof=%d\n",
            cfg.allow_policy_load_proof ? 1 : 0);
 
