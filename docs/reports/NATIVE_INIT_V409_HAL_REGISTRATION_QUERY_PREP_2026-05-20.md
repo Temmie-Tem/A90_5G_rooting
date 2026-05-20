@@ -232,6 +232,27 @@ First live gate:
 approve v409 deploy execns helper v25 only; no daemon start and no Wi-Fi bring-up
 ```
 
+Approved deploy command:
+
+```bash
+OUT=tmp/wifi/v409-execns-helper-v25-deploy-live-$(date +%Y%m%d-%H%M%S)
+python3 scripts/revalidation/wifi_execns_helper_v25_deploy_preflight.py \
+  --out-dir "$OUT" \
+  --approval-phrase 'approve v409 deploy execns helper v25 only; no daemon start and no Wi-Fi bring-up' \
+  --apply \
+  --assume-yes \
+  run
+```
+
+Post-deploy read-only preflight command:
+
+```bash
+OUT=tmp/wifi/v409-registration-query-post-deploy-preflight-$(date +%Y%m%d-%H%M%S)
+python3 scripts/revalidation/wifi_hal_registration_query_v409_runner.py \
+  --out-dir "$OUT" \
+  preflight
+```
+
 Second live gate, only after deploy and preflight:
 
 ```text
