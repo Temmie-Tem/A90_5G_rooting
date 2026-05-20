@@ -24,8 +24,8 @@
 
 - current native build remains `A90 Linux init 0.9.61 (v319)`.
 - current Wi-Fi work is host tooling plus bounded read-only evidence, not a new boot-image flash.
-- latest approved live step: V405 exact-approved composite Wi-Fi HAL start-only smoke, no scan/connect/link-up and no Wi-Fi bring-up.
-- latest approved-live report: `docs/reports/NATIVE_INIT_V405_HELPER_V23_DEPLOY_LIVE_2026-05-20.md`.
+- latest approved live step: V406 exact-approved helper v24 deploy only, no daemon start and no Wi-Fi bring-up.
+- latest approved-live report: `docs/reports/NATIVE_INIT_V406_HELPER_V24_DEPLOY_LIVE_2026-05-20.md`.
 - V392 live result: `hwservicemanager` start-only PASS; `servicemanager` remains `start-only-runtime-gap` with SIGABRT; cleanup/postflight safe; Wi-Fi bring-up false.
 - V396 result: read-only pull of `/mnt/system/system/bin/servicemanager`, `/mnt/system/system/lib64/libbase.so`, and `/mnt/system/system/lib64/liblog.so` PASS.
 - V396 framechain rerun: `service-manager-framechain-symbolization-pass`, no remaining missing-ELF blockers.
@@ -53,9 +53,11 @@
 - V405 composite HAL live result: exact-approved start-only smoke reached the approved runtime boundary and stayed safe, but classified `composite-hal-start-only-runtime-gap` because `/vendor/bin/hw/vendor.samsung.hardware.wifi@2.0-service` could not link `android.hardware.wifi@1.0.so`.
 - latest V405 composite HAL live report: `docs/reports/NATIVE_INIT_V405_COMPOSITE_HAL_START_ONLY_LIVE_2026-05-20.md`.
 - current blocker: helper private `/apex` materialization uses `/mnt/system/system/apex`, while the Wi-Fi HIDL interface libraries are under `/mnt/system/system/system_ext/apex/com.android.vndk.v30`.
-- V406 prep result: helper v24 and fail-closed deploy/linker-list gates are implemented. No helper deploy, daemon start, Wi-Fi HAL start, or Wi-Fi bring-up has been executed in V406.
+- V406 prep result: helper v24 and fail-closed deploy/linker-list gates are implemented.
 - latest V406 prep report: `docs/reports/NATIVE_INIT_V406_SYSTEM_EXT_VNDK_APEX_PREP_2026-05-20.md`.
-- next execution item: exact-approved V406 helper v24 deploy only. Wi-Fi scan/connect/link-up, credentials, DHCP, and routing remain blocked.
+- V406 deploy result: exact-approved helper v24 deploy PASS through serial fallback; remote helper SHA/mode now match v24; post-deploy linker-list preflight is ready.
+- latest V406 deploy report: `docs/reports/NATIVE_INIT_V406_HELPER_V24_DEPLOY_LIVE_2026-05-20.md`.
+- next execution item: exact-approved V406 system_ext VNDK APEX linker-list proof only. Wi-Fi scan/connect/link-up, credentials, DHCP, and routing remain blocked.
 
 ## 현재 고정 기준점
 
@@ -8663,3 +8665,18 @@ python3 ./scripts/revalidation/physical_usb_reconnect_check.py --manual-host-con
   - `daemon_start_executed=False`, `wifi_hal_start_executed=False`, `wifi_bringup_executed=False`.
 - interpretation: V406 is ready for helper v24 deploy approval. The linker-list proof remains a separate later approval after deploy.
 - next execution item: exact-approved helper v24 deploy only. Required phrase: `approve v406 deploy execns helper v24 only; no daemon start and no Wi-Fi bring-up`.
+
+### V406. Helper v24 Deploy Live — PASS / READY FOR LINKER-LIST APPROVAL
+
+- report: `docs/reports/NATIVE_INIT_V406_HELPER_V24_DEPLOY_LIVE_2026-05-20.md`
+- approved deploy evidence: `tmp/wifi/v406-execns-helper-v24-deploy-live-20260520-095625/`
+- post-deploy helper check: `tmp/wifi/v406-execns-helper-v24-deploy-postcheck-20260520-100244/`
+- post-deploy runner preflight: `tmp/wifi/v406-system-ext-vndk-runner-post-deploy-preflight-20260520-100252/`
+- result:
+  - decision `execns-helper-v24-deploy-pass`.
+  - serial fallback deploy PASS: 783 chunks, 1,094,836 encoded bytes.
+  - remote helper v24 SHA/mode pass: `7ec11d95085f1c3dc370884725b080b44150bf8b0a5f7d897df048188a815063`.
+  - post-deploy V406 runner preflight `system-ext-vndk-linker-list-preflight-ready`.
+  - `daemon_start_executed=False`, `wifi_hal_start_executed=False`, `wifi_bringup_executed=False`
+- interpretation: helper deploy is no longer the blocker. The next live step is a separate `linker-list` proof only, not daemon/HAL start.
+- next execution item: exact-approved V406 system_ext VNDK APEX linker-list proof only. Required phrase: `approve v406 system_ext VNDK APEX linker-list proof only; no daemon start and no Wi-Fi bring-up`.

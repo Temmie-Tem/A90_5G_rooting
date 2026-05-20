@@ -1993,3 +1993,10 @@ Samsung bootloader
    - v406 결과: helper v24가 `v30-to-system-ext-v30` private APEX materialization mode를 추가했고 static ARM64 build PASS, SHA `7ec11d95085f1c3dc370884725b080b44150bf8b0a5f7d897df048188a815063`
    - v406 gate 결과: runner preflight는 `system-ext-vndk-linker-list-preflight-ready-needs-deploy`, deploy preflight는 `execns-helper-v24-deploy-preflight-ready-needs-deploy`, deploy no-approval은 `execns-helper-v24-deploy-approval-required`, runner no-approval은 `system-ext-vndk-linker-list-approval-required`. daemon start, HAL start, Wi-Fi bring-up은 모두 false
    - v406 다음: 먼저 `approve v406 deploy execns helper v24 only; no daemon start and no Wi-Fi bring-up` 승인으로 helper deploy만 진행한다. 그 다음 별도 `approve v406 system_ext VNDK APEX linker-list proof only; no daemon start and no Wi-Fi bring-up` 승인으로 linker-list proof만 진행한다
+
+   - v406 deploy report: `docs/reports/NATIVE_INIT_V406_HELPER_V24_DEPLOY_LIVE_2026-05-20.md`
+   - v406 deploy evidence: `tmp/wifi/v406-execns-helper-v24-deploy-live-20260520-095625/`
+   - v406 post-deploy checks: helper check `tmp/wifi/v406-execns-helper-v24-deploy-postcheck-20260520-100244/`, runner preflight `tmp/wifi/v406-system-ext-vndk-runner-post-deploy-preflight-20260520-100252/`
+   - v406 deploy 결과: exact-approved helper v24 deploy PASS. serial fallback으로 783 chunks / 1,094,836 encoded bytes를 전송했고 remote helper SHA/mode가 v24로 확인됐다. daemon start, HAL start, Wi-Fi bring-up은 모두 false
+   - v406 post-deploy preflight 결과: `system-ext-vndk-linker-list-preflight-ready` PASS. 남은 gate는 exact approval phrase뿐이다
+   - v406 다음: `approve v406 system_ext VNDK APEX linker-list proof only; no daemon start and no Wi-Fi bring-up` 승인 시 linker-list proof만 실행한다. HAL start-only retry, scan/connect/link-up, credentials, DHCP, routing은 별도 gate로 유지한다
