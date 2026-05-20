@@ -2147,3 +2147,11 @@ Samsung bootloader
 - live evidence: `tmp/wifi/v434-android-autoconnect-policy-handoff-live-20260520-161134/`
 - result: fresh V433 containment handoff plus host-side policy selection PASS. Policy is `contain-first` because Android Wi-Fi is stable and externally routed through saved auto-connect state. Native rollback restored `A90 Linux init 0.9.61 (v319)`, postflight selftest passed, and redaction scan passed.
 - next: V435 bounded Android Wi-Fi auto-connect disable/containment proof. This is the first cleanup/containment gate; it should still forbid scan/connect, credentials, server exposure, and external probes.
+
+### V435. Android Wi-Fi Auto-connect Disable Result
+
+- plan: `docs/plans/NATIVE_INIT_V435_ANDROID_WIFI_AUTOCONNECT_DISABLE_PLAN_2026-05-20.md`
+- report: `docs/reports/NATIVE_INIT_V435_ANDROID_WIFI_AUTOCONNECT_DISABLE_2026-05-20.md`
+- live evidence: `tmp/wifi/v435-android-wifi-disable-handoff-live-statefix-20260520-163102/`
+- result: bounded Android Wi-Fi disable containment PASS. `cmd wifi set-wifi-enabled disabled` executed, final corrected state had Wi-Fi disabled, no `wlan0` IP, no `wlan0` route candidate, no active validated Wi-Fi connectivity, no DNS surface, and no global listener. Native rollback restored `A90 Linux init 0.9.61 (v319)`.
+- next: V436 Android Wi-Fi disabled persistence check. Boot Android and verify containment without another disable command before deciding controlled re-enable or native-side Wi-Fi work.

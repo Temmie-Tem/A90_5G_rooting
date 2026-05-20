@@ -8875,3 +8875,20 @@ python3 ./scripts/revalidation/physical_usb_reconnect_check.py --manual-host-con
   - `wifi_bringup_executed=False`.
 - interpretation: Wi-Fi is usable but externally routed via saved Android auto-connect. The project should contain or intentionally disable auto-connect for lab runs before any server exposure.
 - next execution item: V435 bounded Android Wi-Fi auto-connect disable/containment proof. Keep scan/connect, credentials, server exposure, and external probes blocked.
+
+### V435. Android Wi-Fi Auto-connect Disable — PASS / CONTAINED
+
+- plan: `docs/plans/NATIVE_INIT_V435_ANDROID_WIFI_AUTOCONNECT_DISABLE_PLAN_2026-05-20.md`
+- report: `docs/reports/NATIVE_INIT_V435_ANDROID_WIFI_AUTOCONNECT_DISABLE_2026-05-20.md`
+- collector: `scripts/revalidation/wifi_android_autoconnect_disable_v435.py`
+- handoff: `scripts/revalidation/android_wifi_autoconnect_disable_handoff_v435.py`
+- corrected live evidence: `tmp/wifi/v435-android-wifi-disable-handoff-live-statefix-20260520-163102/`
+- result:
+  - decision `v435-android-wifi-autoconnect-contained-pass`.
+  - Android accepted `cmd wifi set-wifi-enabled disabled`; final corrected live showed Wi-Fi disabled before and after the disable proof.
+  - post-cleanup state: `wlan0_has_ip=False`, `default_route_wlan=False`, `route_get_wlan=False`, `connectivity_validated_wifi=False`, `dns_surface_wlan=False`, `global_listener_observed=False`.
+  - native rollback restored `A90 Linux init 0.9.61 (v319)`, selftest passed, and redaction scan passed.
+  - V435 did not run scan/connect, credentials, server exposure, external probes, DHCP/routing mutation, rfkill/sysfs writes, module operations, `setprop`, or direct daemon starts.
+  - `wifi_disable_executed=True`, `wifi_bringup_executed=False`.
+- interpretation: Android Wi-Fi auto-connect can be contained through framework disable, removing the route/DNS/connectivity exposure that V433 mapped. The final pass also implies disabled state persisted into a later Android boot-complete handoff.
+- next execution item: V436 Android Wi-Fi disabled persistence check. Boot Android and verify containment without issuing another disable command; keep re-enable, scan/connect, credentials, and server exposure blocked.
