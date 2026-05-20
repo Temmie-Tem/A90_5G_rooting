@@ -1972,3 +1972,10 @@ Samsung bootloader
    - v405 결과: `v405-composite-hal-approval-packet-ready` PASS. helper v23 local artifact SHA는 `64c80e73d791b82e0b9f60b05db1df1781bf5033b1ffd76e323cf52ce3dbc520`이고, `wifi-hal-composite-start-only`, `vendor-wifi-hal-ext`, `vendor-wifi-hal-legacy`, `--allow-wifi-hal-start-only` guard strings가 확인됐다
    - v405 guard 결과: deploy preflight는 expected `execns-helper-v23-deploy-preflight-ready-needs-deploy`, deploy no-approval은 `execns-helper-v23-deploy-approval-required`, HAL runner no-approval은 `composite-hal-start-only-approval-required`로 모두 fail-closed. device mutation, daemon start, HAL start, Wi-Fi bring-up은 모두 false
    - v405 다음: exact-approved helper v23 deploy only. HAL start-only는 deploy 후 V405 runner preflight PASS를 본 뒤 별도 exact approval로만 진행한다. scan/connect/link-up/credentials/DHCP/routing remain blocked
+
+   - v405 deploy report: `docs/reports/NATIVE_INIT_V405_HELPER_V23_DEPLOY_LIVE_2026-05-20.md`
+   - v405 deploy evidence: `tmp/wifi/v405-execns-helper-v23-deploy-live-20260520-092918/`
+   - v405 post-deploy checks: helper check `tmp/wifi/v405-execns-helper-v23-deploy-postcheck-20260520-093620/`, composite preflight `tmp/wifi/v405-composite-hal-preflight-post-deploy-20260520-093529/`
+   - v405 deploy 결과: exact-approved helper v23 deploy PASS. serial fallback으로 783 chunks / 1,094,836 encoded bytes를 전송했고 remote helper SHA/mode가 v23으로 확인됐다. daemon start, HAL start, Wi-Fi bring-up은 모두 false
+   - v405 post-deploy preflight 결과: `composite-hal-start-only-preflight-ready` PASS. 남은 gate는 exact approval phrase뿐이다
+   - v405 다음: `approve v405 composite Wi-Fi HAL start-only smoke only; no scan/connect/link-up and no Wi-Fi bring-up` 승인 시 bounded composite HAL start-only smoke만 실행한다. Wi-Fi scan/connect/link-up/credentials/DHCP/routing remain blocked

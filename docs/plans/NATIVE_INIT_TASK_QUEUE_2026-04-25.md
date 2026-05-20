@@ -24,8 +24,8 @@
 
 - current native build remains `A90 Linux init 0.9.61 (v319)`.
 - current Wi-Fi work is host tooling plus bounded read-only evidence, not a new boot-image flash.
-- latest approved live step: V403 exact-approved service-manager/hwservicemanager start-only retry, no Wi-Fi HAL start and no Wi-Fi bring-up.
-- latest approved-live report: `docs/reports/NATIVE_INIT_V403_SERVICE_MANAGER_START_ONLY_RETRY_LIVE_2026-05-20.md`.
+- latest approved live step: V405 exact-approved helper v23 deploy only, no daemon start and no Wi-Fi bring-up.
+- latest approved-live report: `docs/reports/NATIVE_INIT_V405_HELPER_V23_DEPLOY_LIVE_2026-05-20.md`.
 - V392 live result: `hwservicemanager` start-only PASS; `servicemanager` remains `start-only-runtime-gap` with SIGABRT; cleanup/postflight safe; Wi-Fi bring-up false.
 - V396 result: read-only pull of `/mnt/system/system/bin/servicemanager`, `/mnt/system/system/lib64/libbase.so`, and `/mnt/system/system/lib64/liblog.so` PASS.
 - V396 framechain rerun: `service-manager-framechain-symbolization-pass`, no remaining missing-ELF blockers.
@@ -48,7 +48,9 @@
 - latest V404 packet report: `docs/reports/NATIVE_INIT_V404_PRIVATE_COMPOSITE_HAL_READINESS_PACKET_2026-05-20.md`.
 - V405 packet result: helper v23 composite HAL mode built locally and non-mutating approval packet PASS; deploy and HAL start-only both remain behind separate exact approval phrases.
 - latest V405 packet report: `docs/reports/NATIVE_INIT_V405_COMPOSITE_HAL_APPROVAL_PACKET_2026-05-20.md`.
-- next execution item: exact-approved V405 helper v23 deploy only. Wi-Fi HAL start, scan/connect/link-up, credentials, DHCP, and routing remain blocked.
+- V405 deploy result: exact-approved helper v23 deploy PASS through serial fallback; remote helper SHA/mode now match v23; post-deploy composite HAL preflight is ready.
+- latest V405 deploy report: `docs/reports/NATIVE_INIT_V405_HELPER_V23_DEPLOY_LIVE_2026-05-20.md`.
+- next execution item: exact-approved V405 composite Wi-Fi HAL start-only smoke. Wi-Fi scan/connect/link-up, credentials, DHCP, and routing remain blocked.
 
 ## 현재 고정 기준점
 
@@ -8595,3 +8597,18 @@ python3 ./scripts/revalidation/physical_usb_reconnect_check.py --manual-host-con
   - `live_execution_approved=False`, `device_mutations=False`, `daemon_start_executed=False`, `wifi_hal_start_executed=False`, `wifi_bringup_executed=False`
 - interpretation: helper v23 now has the composite mode V404 required, but the device still has helper v22. The next mutation is helper deploy only, not HAL start.
 - next execution item: exact-approved V405 helper v23 deploy. Wi-Fi HAL start-only requires a separate approval after deploy and preflight.
+
+### V405. Helper v23 Deploy Live — PASS / READY FOR COMPOSITE HAL APPROVAL
+
+- report: `docs/reports/NATIVE_INIT_V405_HELPER_V23_DEPLOY_LIVE_2026-05-20.md`
+- approved deploy evidence: `tmp/wifi/v405-execns-helper-v23-deploy-live-20260520-092918/`
+- post-deploy helper check: `tmp/wifi/v405-execns-helper-v23-deploy-postcheck-20260520-093620/`
+- post-deploy composite preflight: `tmp/wifi/v405-composite-hal-preflight-post-deploy-20260520-093529/`
+- result:
+  - decision `execns-helper-v23-deploy-pass`.
+  - serial fallback deploy PASS: 783 chunks, 1,094,836 encoded bytes.
+  - remote helper v23 SHA/mode pass: `64c80e73d791b82e0b9f60b05db1df1781bf5033b1ffd76e323cf52ce3dbc520`.
+  - post-deploy V405 composite preflight `composite-hal-start-only-preflight-ready`.
+  - `daemon_start_executed=False`, `wifi_hal_start_executed=False`, `wifi_bringup_executed=False`
+- interpretation: helper deploy is no longer the blocker. The next live mutation is the separate bounded composite HAL start-only smoke, and it still needs exact approval.
+- next execution item: exact-approved V405 composite Wi-Fi HAL start-only smoke. Wi-Fi scan/connect/link-up remains blocked.
