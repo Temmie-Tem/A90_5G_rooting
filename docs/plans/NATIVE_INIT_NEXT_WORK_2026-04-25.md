@@ -2216,3 +2216,14 @@ Samsung bootloader
 - result: host-side target/credential policy gate PASS in template mode. V441 evidence was ready, V442 generated a secret-free target policy template, and the tracked example policy was correctly rejected as not live-ready because it contains a placeholder `ssid_sha256`.
 - interpretation: explicit scan/connect is now blocked on an operator-provided private untracked target policy, not on basic Wi-Fi function. Raw SSID/BSSID/password/passphrase/PSK values must not enter tracked files or evidence.
 - next: V443 private-policy validation plus explicit scan/connect preflight. Do not issue scan/connect until V442 returns `v442-wifi-target-policy-allowlist-ready` for a private policy.
+
+### V443. Wi-Fi Private Policy Materialize Result
+
+- plan: `docs/plans/NATIVE_INIT_V443_WIFI_PRIVATE_POLICY_MATERIALIZE_PLAN_2026-05-20.md`
+- report: `docs/reports/NATIVE_INIT_V443_WIFI_PRIVATE_POLICY_MATERIALIZE_2026-05-20.md`
+- evidence:
+  - `tmp/wifi/v443-private-policy-materialize-plan-20260520-174833/`
+  - `tmp/wifi/v443-private-policy-materialize-env-missing-20260520-174833/`
+- result: materializer plan PASS and env-missing negative validation PASS. `A90_WIFI_SSID` and `A90_WIFI_PSK` are not currently present, so V443 refused to create a private policy.
+- interpretation: the private policy materializer is ready. The next blocker is local operator env values, which must not be pasted into chat, committed, or written to tracked files.
+- next: set `A90_WIFI_SSID` and `A90_WIFI_PSK` locally, rerun V443 to produce `v443-wifi-private-policy-materialized-pass`, then proceed to V444 explicit scan/connect preflight.

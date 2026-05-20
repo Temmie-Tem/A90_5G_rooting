@@ -9015,3 +9015,19 @@ python3 ./scripts/revalidation/physical_usb_reconnect_check.py --manual-host-con
   - `wifi_bringup_executed=False`.
 - interpretation: explicit scan/connect now has a concrete safety contract. The next blocker is a private untracked target policy containing only hashes/env references, not raw SSID/BSSID/PSK.
 - next execution item: V443 private-policy validation plus explicit scan/connect preflight. Server exposure remains blocked, and scan/connect remains blocked until V442 returns `v442-wifi-target-policy-allowlist-ready` for a private policy.
+
+### V443. Wi-Fi Private Policy Materialize — BLOCKED / ENV VALUES REQUIRED
+
+- plan: `docs/plans/NATIVE_INIT_V443_WIFI_PRIVATE_POLICY_MATERIALIZE_PLAN_2026-05-20.md`
+- report: `docs/reports/NATIVE_INIT_V443_WIFI_PRIVATE_POLICY_MATERIALIZE_2026-05-20.md`
+- materializer: `scripts/revalidation/wifi_android_private_policy_materialize_v443.py`
+- evidence:
+  - plan `tmp/wifi/v443-private-policy-materialize-plan-20260520-174833/`
+  - env-missing `tmp/wifi/v443-private-policy-materialize-env-missing-20260520-174833/`
+- result:
+  - decision `v443-wifi-private-policy-env-missing` for approved run without env.
+  - `A90_WIFI_SSID` and `A90_WIFI_PSK` are currently absent.
+  - no device commands or mutations ran.
+  - no raw network identifiers or credentials were written.
+- interpretation: V443 tool path is ready, but explicit scan/connect cannot progress until local private env values are set by the operator.
+- next execution item: rerun V443 with private env values to create `wifi-target-policy.private.json`; then V444 explicit scan/connect preflight can consume that private policy. Server exposure remains blocked.
