@@ -8805,3 +8805,20 @@ python3 ./scripts/revalidation/physical_usb_reconnect_check.py --manual-host-con
   - `wifi_bringup_executed=False`.
 - interpretation: `lshal -S` should no longer be the decisive probe. Android boot-complete already runs the relevant Wi-Fi daemon stack, while native private `lshal` still times out.
 - next execution item: V431 Android Wi-Fi runtime gap map. Keep it read-only: collect Android init service definitions, Wi-Fi properties, socket/devnode/data surfaces, and native namespace deltas before choosing Android-managed Wi-Fi control versus deeper native repair.
+
+### V431. Android Wi-Fi Runtime Gap Map — PASS / READY FOR ANDROID-MANAGED CONTROL GATE
+
+- plan: `docs/plans/NATIVE_INIT_V431_ANDROID_RUNTIME_GAP_MAP_PLAN_2026-05-20.md`
+- report: `docs/reports/NATIVE_INIT_V431_ANDROID_RUNTIME_GAP_MAP_2026-05-20.md`
+- collector: `scripts/revalidation/wifi_android_runtime_gap_v431.py`
+- handoff: `scripts/revalidation/android_wifi_runtime_gap_handoff_v431.py`
+- corrected live evidence: `tmp/wifi/v431-android-runtime-gap-handoff-live-su-quote-20260520-152315/`
+- result:
+  - decision `v431-android-runtime-gap-map-pass`.
+  - Android boot-complete passed and native rollback restored `A90 Linux init 0.9.61 (v319)`.
+  - all four target runtime services were present as processes and init rc definitions: `android.hardware.wifi@1.0-service`, `vendor.samsung.hardware.wifi@2.0-service`, `wificond`, `wpa_supplicant`.
+  - captured framework service names, wifihal/wpa/CNSS sockets, `/dev/wlan`, `wlan0`/`swlan0`/`wifi-aware0`, and `/data/vendor/wifi` layout without reading credential contents.
+  - all corrected collector captures returned ok.
+  - `wifi_bringup_executed=False`.
+- interpretation: Android boot-complete already owns the complete Wi-Fi runtime surface. Native private reconstruction is now lower leverage than a bounded Android-managed first-control gate.
+- next execution item: V432 Android-managed Wi-Fi control gate plan. Do not connect yet; design an enable-only or status-only gate with explicit rollback/cleanup and no credentials/routing.

@@ -2115,3 +2115,11 @@ Samsung bootloader
 - live evidence: `tmp/wifi/v430-android-lshal-explicit-handoff-live-fix-20260520-145456/`
 - result: Android boot-complete handoff and native rollback PASS. Android neat `lshal` shows all three Samsung `ISehWifi/default` target rows, but explicit `lshal -S` exits `rc=136`; Wi-Fi bring-up remains false.
 - next: V431 Android Wi-Fi runtime gap map. Collect read-only Android init rc/service/property/socket/devnode/data surfaces and compare them with the native private namespace before deciding Android-managed Wi-Fi control or native repair.
+
+### V431. Android Wi-Fi Runtime Gap Map Result
+
+- plan: `docs/plans/NATIVE_INIT_V431_ANDROID_RUNTIME_GAP_MAP_PLAN_2026-05-20.md`
+- report: `docs/reports/NATIVE_INIT_V431_ANDROID_RUNTIME_GAP_MAP_2026-05-20.md`
+- live evidence: `tmp/wifi/v431-android-runtime-gap-handoff-live-su-quote-20260520-152315/`
+- result: Android boot-complete runtime map PASS. Android has the four target Wi-Fi runtime services running and defined, plus framework services, wifihal/wpa/CNSS sockets, `/dev/wlan`, `wlan0`/`swlan0`/`wifi-aware0`, and `/data/vendor/wifi` layout. Wi-Fi bring-up remains false and native v319 rollback was verified.
+- next: V432 Android-managed Wi-Fi control gate plan. Split first control into a narrow enable/status gate with explicit cleanup; keep scan/connect/credentials/routing as later gates.
