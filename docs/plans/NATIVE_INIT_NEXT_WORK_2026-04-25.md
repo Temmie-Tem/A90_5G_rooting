@@ -2418,3 +2418,16 @@ Samsung bootloader
 - result: saved-profile handoff PASS. V459 generated a private script that lists saved NetworkManager Wi-Fi profiles by number and length metadata only, then runs V447 preflight/live with strict route/proof handling.
 - interpretation: V459 supersedes V456 as the preferred next local action on this host because two saved Wi-Fi profiles exist and the operator can choose by number without typing SSID/PSK into the terminal.
 - next: run `bash /home/temmie/dev/A90_5G_rooting/tmp/wifi/v459-nm-profile-handoff-packet-run-20260520-193122/run-v459-nm-profile-wifi-flow.sh`, select the intended saved profile, and type `V447-LIVE` only if preflight passes. Server exposure remains blocked.
+
+### V460. Wi-Fi Live Retry Pass Result
+
+- plan: `docs/plans/NATIVE_INIT_V460_WIFI_LIVE_RETRY_PASS_PLAN_2026-05-20.md`
+- report: `docs/reports/NATIVE_INIT_V460_WIFI_LIVE_RETRY_PASS_2026-05-20.md`
+- evidence:
+  - live `tmp/wifi/v447-explicit-connect-flow-live-20260520-194306/`
+  - cleanup proof `tmp/wifi/v452-wifi-live-cleanup-proof-postlive-20260520-194829/`
+  - outcome `tmp/wifi/v457-wifi-operator-session-outcome-postlive2-20260520-194857/`
+  - bundle `tmp/wifi/v458-wifi-operator-session-bundle-postlive2-20260520-194857/`
+- result: bounded Wi-Fi live PASS. V447 live produced explicit scan/connect evidence, V452 proved cleanup containment and rollback step presence, and native `A90 Linux init 0.9.61 (v319)` was verified after rollback.
+- interpretation: Wi-Fi bring-up is proven for a bounded live run. This is not yet a long-running Wi-Fi stability or server exposure approval.
+- next: plan bounded Wi-Fi stability and binding policy before any server exposure. Server exposure remains blocked.

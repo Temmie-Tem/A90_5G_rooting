@@ -114,14 +114,26 @@ def packet_command(packet: dict[str, Any] | None) -> str:
     return str(payload.get("nm_profile_command") or payload.get("one_session_command") or payload.get("preflight_command") or "")
 
 
+def newest_payload(*payloads: dict[str, Any] | None) -> dict[str, Any] | None:
+    rows = [item for item in payloads if item]
+    rows.sort(key=lambda item: float(item.get("_mtime") or 0.0))
+    return rows[-1] if rows else None
+
+
 def evidence_state(args: argparse.Namespace) -> dict[str, Any]:
     root = args.wifi_root
     live = latest(root, "v447-explicit-connect-flow-live-*/manifest.json", include_synthetic=args.include_synthetic)
+    preflight = latest(root, "v447-explicit-connect-flow-private-preflight-*/manifest.json", include_synthetic=args.include_synthetic)
+    stale_live = None
+    if live and preflight and float(live.get("_mtime") or 0.0) < float(preflight.get("_mtime") or 0.0):
+        stale_live = live
+        live = None
     return {
         "operator_packet": latest_operator_packet(root),
         "v456": latest_v456(root),
-        "preflight": latest(root, "v447-explicit-connect-flow-private-preflight-*/manifest.json", include_synthetic=args.include_synthetic),
+        "preflight": preflight,
         "live": live,
+        "stale_live": stale_live,
         "nested_v445": nested_v445(live),
         "cleanup": latest(root, "v452-wifi-live-cleanup-proof-*/manifest.json", include_synthetic=args.include_synthetic),
         "router_after_preflight": latest(root, "v449-wifi-handoff-result-router-after-preflight-*/manifest.json", include_synthetic=True),
@@ -146,7 +158,7 @@ def classify(command: str, state: dict[str, Any]) -> dict[str, Any]:
     packet = state.get("operator_packet") or state.get("v456")
     preflight = state.get("preflight")
     live = state.get("live")
-    cleanup = state.get("cleanup_after_live") or state.get("cleanup")
+    cleanup = newest_payload(state.get("cleanup_after_live"), state.get("cleanup"))
     command_text = packet_command(packet)
 
     if not packet:
@@ -244,6 +256,7 @@ def render_summary(manifest: dict[str, Any]) -> str:
         manifest_row("operator_packet", state.get("operator_packet")),
         manifest_row("v447_private_preflight", state.get("preflight")),
         manifest_row("v447_live", state.get("live")),
+        manifest_row("v447_stale_live", state.get("stale_live")),
         manifest_row("nested_v445", state.get("nested_v445")),
         manifest_row("v452_cleanup", state.get("cleanup")),
         manifest_row("v449_after_preflight", state.get("router_after_preflight")),

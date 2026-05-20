@@ -128,6 +128,7 @@ def selected_manifests(state: dict[str, Any]) -> list[dict[str, Any]]:
         manifest_summary("v456_packet", state.get("v456")),
         manifest_summary("v447_private_preflight", state.get("preflight")),
         manifest_summary("v447_live", state.get("live")),
+        manifest_summary("v447_stale_live", state.get("stale_live")),
         manifest_summary("nested_v445", state.get("nested_v445")),
         manifest_summary("v452_cleanup", state.get("cleanup")),
         manifest_summary("v449_after_preflight", state.get("router_after_preflight")),

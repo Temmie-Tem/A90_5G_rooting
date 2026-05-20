@@ -602,7 +602,17 @@ def render_summary(manifest: dict[str, Any]) -> str:
             f"{item['duration_sec']:.3f}s",
             item["file"],
         ]
-        for item in manifest["steps"]
+        for item in manifest.get("steps", [])
+    ]
+    capture_rows = [
+        [
+            item.get("name", "-"),
+            "ok" if item.get("ok") else "fail",
+            str(item.get("rc")),
+            f"{float(item.get('duration_sec') or 0.0):.3f}s",
+            str(item.get("file") or "-"),
+        ]
+        for item in manifest.get("captures", [])
     ]
     return "\n".join(
         [
@@ -620,6 +630,10 @@ def render_summary(manifest: dict[str, Any]) -> str:
             "## Steps",
             "",
             markdown_table(["step", "status", "rc", "duration", "file"], step_rows if step_rows else [["none", "-", "-", "-", "-"]]),
+            "",
+            "## Captures",
+            "",
+            markdown_table(["capture", "status", "rc", "duration", "file"], capture_rows if capture_rows else [["none", "-", "-", "-", "-"]]),
             "",
             "## Guardrails",
             "",

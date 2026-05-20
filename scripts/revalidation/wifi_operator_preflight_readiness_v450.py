@@ -183,12 +183,17 @@ def route_state(args: argparse.Namespace) -> dict[str, Any]:
     router = latest_manifest(args.wifi_root, "v449-wifi-handoff-result-router-*/manifest.json")
     private_preflight = latest_manifest(args.wifi_root, "v447-explicit-connect-flow-private-preflight-*/manifest.json")
     live = latest_manifest(args.wifi_root, "v447-explicit-connect-flow-live-*/manifest.json")
+    stale_live = None
+    if live and private_preflight and float(live.get("_mtime") or 0.0) < float(private_preflight.get("_mtime") or 0.0):
+        stale_live = live
+        live = None
     scripts = audit_scripts(packet)
     return {
         "packet": packet,
         "router": router,
         "private_preflight": private_preflight,
         "live": live,
+        "stale_live": stale_live,
         "scripts": scripts,
         "env_state": env_state(),
     }
@@ -322,6 +327,7 @@ def render_summary(manifest: dict[str, Any]) -> str:
         manifest_row("v449_router", state.get("router")),
         manifest_row("v447_private_preflight", state.get("private_preflight")),
         manifest_row("v447_live", state.get("live")),
+        manifest_row("v447_stale_live", state.get("stale_live")),
     ]
     env_rows = [
         [name, str(data.get("present")), str(data.get("length"))]

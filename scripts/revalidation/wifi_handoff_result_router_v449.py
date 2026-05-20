@@ -129,10 +129,15 @@ def evidence_state(args: argparse.Namespace) -> dict[str, Any]:
     packet = latest_packet(root)
     private_preflight = latest(root, "v447-explicit-connect-flow-private-preflight-*/manifest.json", include_synthetic=args.include_synthetic)
     live = latest(root, "v447-explicit-connect-flow-live-*/manifest.json", include_synthetic=args.include_synthetic)
+    stale_live = None
+    if live and private_preflight and float(live.get("_mtime") or 0.0) < float(private_preflight.get("_mtime") or 0.0):
+        stale_live = live
+        live = None
     return {
         "packet": packet,
         "private_preflight": private_preflight,
         "live": live,
+        "stale_live": stale_live,
         "nested_v445": nested_v445(live),
         "packet_commands": packet_commands(packet),
     }
@@ -242,6 +247,7 @@ def render_summary(manifest: dict[str, Any]) -> str:
         manifest_row("v448_packet", state.get("packet")),
         manifest_row("v447_private_preflight", state.get("private_preflight")),
         manifest_row("v447_live", state.get("live")),
+        manifest_row("v447_stale_live", state.get("stale_live")),
         manifest_row("nested_v445", state.get("nested_v445")),
     ]
     commands = state.get("packet_commands") or {}

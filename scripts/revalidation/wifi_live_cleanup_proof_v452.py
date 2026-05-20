@@ -82,7 +82,11 @@ def latest_manifest(root: Path, pattern: str, include_synthetic: bool) -> dict[s
 def live_manifest(args: argparse.Namespace) -> dict[str, Any] | None:
     if args.live_manifest:
         return load_manifest(repo_path(args.live_manifest))
-    return latest_manifest(args.wifi_root, "v447-explicit-connect-flow-live-*/manifest.json", args.include_synthetic)
+    live = latest_manifest(args.wifi_root, "v447-explicit-connect-flow-live-*/manifest.json", args.include_synthetic)
+    preflight = latest_manifest(args.wifi_root, "v447-explicit-connect-flow-private-preflight-*/manifest.json", args.include_synthetic)
+    if live and preflight and float(live.get("_mtime") or 0.0) < float(preflight.get("_mtime") or 0.0):
+        return None
+    return live
 
 
 def nested_v445(live: dict[str, Any] | None) -> dict[str, Any]:
@@ -109,13 +113,28 @@ def cleanup_state(v445: dict[str, Any]) -> dict[str, Any]:
     return nested_classification.get("cleanup_state") or {}
 
 
+def v445_classification(v445: dict[str, Any]) -> dict[str, Any]:
+    classification = v445.get("classification") or {}
+    if classification:
+        return classification
+    nested = (v445.get("context") or {}).get("v445") or {}
+    return nested.get("classification") or {}
+
+
 def step_names(live: dict[str, Any]) -> set[str]:
     return {str(step.get("name")) for step in live.get("steps") or []}
 
 
+def combined_step_names(live: dict[str, Any] | None, v445: dict[str, Any]) -> set[str]:
+    names = step_names(live or {})
+    names.update(str(step.get("name")) for step in v445.get("steps") or [])
+    return names
+
+
 def cleanup_checks(live: dict[str, Any] | None, v445: dict[str, Any]) -> dict[str, Any]:
     state = cleanup_state(v445)
-    names = step_names(live or {})
+    names = combined_step_names(live, v445)
+    classification = v445_classification(v445)
     checks = {
         "live_present": live is not None,
         "live_pass": bool((live or {}).get("pass")),
@@ -129,9 +148,9 @@ def cleanup_checks(live: dict[str, Any] | None, v445: dict[str, Any]) -> dict[st
         "cleanup_state_present": bool(state),
         "cleanup_disabled": bool(state.get("disabled_by_status")),
         "cleanup_false_keys_ok": all(not state.get(key) for key in CLEANUP_FALSE_KEYS),
-        "exposure_removed": bool((v445.get("classification") or {}).get("exposure_removed")),
-        "forget_ok": bool((v445.get("classification") or {}).get("forget_ok")),
-        "connected_observed": bool((v445.get("classification") or {}).get("connected_observed")),
+        "exposure_removed": bool(classification.get("exposure_removed")),
+        "forget_ok": bool(classification.get("forget_ok")),
+        "connected_observed": bool(classification.get("connected_observed")),
     }
     checks["cleanup_contained"] = (
         checks["cleanup_state_present"]

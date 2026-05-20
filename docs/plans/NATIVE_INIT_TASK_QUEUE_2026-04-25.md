@@ -9348,3 +9348,28 @@ python3 ./scripts/revalidation/physical_usb_reconnect_check.py --manual-host-con
   - `wifi_bringup_executed=False`.
 - interpretation: current blocker is now local saved-profile selection, not manual SSID/PSK entry or repo-side readiness.
 - next execution item: run `bash /home/temmie/dev/A90_5G_rooting/tmp/wifi/v459-nm-profile-handoff-packet-run-20260520-193122/run-v459-nm-profile-wifi-flow.sh`, select the intended saved profile, and type `V447-LIVE` only after preflight passes. Server exposure remains blocked.
+
+### V460. Wi-Fi Live Retry Pass — PASS / BOUNDED BRING-UP PROVEN
+
+- plan: `docs/plans/NATIVE_INIT_V460_WIFI_LIVE_RETRY_PASS_PLAN_2026-05-20.md`
+- report: `docs/reports/NATIVE_INIT_V460_WIFI_LIVE_RETRY_PASS_2026-05-20.md`
+- patched:
+  - `scripts/revalidation/wifi_android_explicit_connect_live_v445.py`
+  - `scripts/revalidation/wifi_handoff_result_router_v449.py`
+  - `scripts/revalidation/wifi_operator_preflight_readiness_v450.py`
+  - `scripts/revalidation/wifi_live_cleanup_proof_v452.py`
+  - `scripts/revalidation/wifi_operator_session_outcome_v457.py`
+  - `scripts/revalidation/wifi_operator_session_bundle_v458.py`
+- evidence:
+  - live `tmp/wifi/v447-explicit-connect-flow-live-20260520-194306/`
+  - cleanup proof `tmp/wifi/v452-wifi-live-cleanup-proof-postlive-20260520-194829/`
+  - outcome `tmp/wifi/v457-wifi-operator-session-outcome-postlive2-20260520-194857/`
+  - bundle `tmp/wifi/v458-wifi-operator-session-bundle-postlive2-20260520-194857/`
+- result:
+  - decision `v447-explicit-connect-flow-live-pass`.
+  - decision `v452-wifi-live-cleanup-proof-pass`.
+  - decision `v457-wifi-session-live-cleanup-pass`.
+  - decision `v458-wifi-session-bundle-live-cleanup-pass`.
+  - native rollback verified as `A90 Linux init 0.9.61 (v319)`.
+- interpretation: bounded Android Wi-Fi bring-up and cleanup are now proven. Long-running Wi-Fi stability and server binding policy remain separate next gates.
+- next execution item: plan bounded Wi-Fi stability before any server exposure. Server exposure remains blocked.
