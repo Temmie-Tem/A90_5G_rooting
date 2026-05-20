@@ -51,7 +51,7 @@
 #define BINDER_BUFFER_FLAG_REF 0x02
 #endif
 
-#define EXECNS_VERSION "a90_android_execns_probe v46"
+#define EXECNS_VERSION "a90_android_execns_probe v47"
 #define MAX_PATH_LEN 512
 #define MAX_CAPTURE_SIZE (1024 * 1024)
 #define MAX_LINKERCONFIG_SIZE (256 * 1024)
@@ -203,7 +203,7 @@ static void usage(FILE *out) {
             "[--allow-wifi-hal-start-only] "
             "[--allow-hal-service-query] "
             "[--allow-iwifi-start-only] "
-            "--mode linker-list|identity-probe|sepolicy-inventory|selinux-domain-proof|cnss-start-only|property-lookup|service-manager-start-only|private-selinux-proof|wifi-hal-lshal-vintf-status-list|wifi-hal-composite-start-only|wifi-hal-composite-lshal-list|wifi-hal-composite-lshal-binderized-list|wifi-hal-composite-lshal-wait-target|wifi-surface-composite-lshal-wait-iwifi|wifi-surface-composite-lshal-wait-samsung|wifi-surface-composite-lshal-wait-samsung-ptrace|wifi-hal-composite-lshal-status-list|wifi-hal-composite-lshal-binderized-status-list|wifi-surface-composite-start-only|wifi-iwifi-start-surface "
+            "--mode linker-list|identity-probe|sepolicy-inventory|sepolicy-compile-proof|selinux-domain-proof|cnss-start-only|property-lookup|service-manager-start-only|private-selinux-proof|wifi-hal-lshal-vintf-status-list|wifi-hal-composite-start-only|wifi-hal-composite-lshal-list|wifi-hal-composite-lshal-binderized-list|wifi-hal-composite-lshal-wait-target|wifi-surface-composite-lshal-wait-iwifi|wifi-surface-composite-lshal-wait-samsung|wifi-surface-composite-lshal-wait-samsung-ptrace|wifi-hal-composite-lshal-status-list|wifi-hal-composite-lshal-binderized-status-list|wifi-surface-composite-start-only|wifi-iwifi-start-surface "
             "[v27 binderized query runs: /system/bin/lshal list --types=binderized --neat] "
             "[v28 target query runs: /system/bin/lshal wait <fqinstance>] "
             "[v29 status query runs: /system/bin/lshal list --types=binderized,vintf --neat -V -S -i -p -e -c] "
@@ -509,6 +509,7 @@ static int parse_args(int argc, char **argv, struct config *cfg) {
         !(streq(cfg->mode, "linker-list") ||
           streq(cfg->mode, "identity-probe") ||
           streq(cfg->mode, "sepolicy-inventory") ||
+          streq(cfg->mode, "sepolicy-compile-proof") ||
           streq(cfg->mode, "selinux-domain-proof") ||
           streq(cfg->mode, "cnss-start-only") ||
           streq(cfg->mode, "property-lookup") ||
@@ -575,6 +576,28 @@ static int parse_args(int argc, char **argv, struct config *cfg) {
             cfg->allow_hal_service_query ||
             cfg->allow_iwifi_start_only) {
             fprintf(stderr, "sepolicy-inventory does not accept daemon/HAL allow flags\n");
+            return 2;
+        }
+    }
+    if (streq(cfg->mode, "sepolicy-compile-proof")) {
+        if (cfg->linker != NULL) {
+            fprintf(stderr, "--linker is not used by sepolicy-compile-proof mode\n");
+            return 2;
+        }
+        if (!streq(cfg->capture_mode, "none")) {
+            fprintf(stderr, "--capture-mode must be none for sepolicy-compile-proof mode\n");
+            return 2;
+        }
+        if (!streq(cfg->target, "/system/bin/toybox")) {
+            fprintf(stderr, "sepolicy-compile-proof target-profile must be system-toybox\n");
+            return 2;
+        }
+        if (cfg->allow_cnss_start_only ||
+            cfg->allow_service_manager_start_only ||
+            cfg->allow_wifi_hal_start_only ||
+            cfg->allow_hal_service_query ||
+            cfg->allow_iwifi_start_only) {
+            fprintf(stderr, "sepolicy-compile-proof does not accept daemon/HAL allow flags\n");
             return 2;
         }
     }
@@ -978,6 +1001,7 @@ static int materialize_selinuxfs_surface(const struct config *cfg,
 
     if (!streq(cfg->mode, "private-selinux-proof") &&
         !streq(cfg->mode, "sepolicy-inventory") &&
+        !streq(cfg->mode, "sepolicy-compile-proof") &&
         !streq(cfg->mode, "selinux-domain-proof") &&
         !streq(cfg->mode, "service-manager-start-only") &&
         !(is_wifi_hal_composite_mode(cfg->mode) &&
@@ -1640,6 +1664,7 @@ static long monotonic_ms(void) {
     return ts.tv_sec * 1000L + ts.tv_nsec / 1000000L;
 }
 
+static pid_t wait_for_child_session_pgid(pid_t pid, long timeout_ms);
 
 static int path_in_root(char *out, size_t out_size, const struct paths *paths, const char *absolute_path) {
     const char *relative = absolute_path;
@@ -3865,6 +3890,743 @@ static int run_sepolicy_inventory(const struct config *cfg,
         return -1;
     }
     return 0;
+}
+
+static int add_sepolicy_compile_input(struct buffer *stdout_buf,
+                                      const struct paths *paths,
+                                      const char *attempt,
+                                      const char *label,
+                                      const char *absolute_path,
+                                      bool required,
+                                      char **argv,
+                                      size_t *argc,
+                                      size_t max_argc,
+                                      int *required_missing) {
+    char host_path[MAX_PATH_LEN];
+    struct stat st;
+    bool present = false;
+    bool readable = false;
+
+    if (path_in_root(host_path, sizeof(host_path), paths, absolute_path) < 0) {
+        if (required) {
+            (*required_missing)++;
+        }
+        return append_format(stdout_buf,
+                             "sepolicy_compile.attempt_%s.input.%s.path=%s\n"
+                             "sepolicy_compile.attempt_%s.input.%s.required=%d\n"
+                             "sepolicy_compile.attempt_%s.input.%s.present=0\n"
+                             "sepolicy_compile.attempt_%s.input.%s.error=path-too-long\n",
+                             attempt,
+                             label,
+                             absolute_path,
+                             attempt,
+                             label,
+                             required ? 1 : 0,
+                             attempt,
+                             label,
+                             attempt,
+                             label);
+    }
+    if (stat(host_path, &st) == 0 && S_ISREG(st.st_mode)) {
+        present = true;
+        readable = access(host_path, R_OK) == 0;
+    }
+    if (append_format(stdout_buf,
+                      "sepolicy_compile.attempt_%s.input.%s.path=%s\n"
+                      "sepolicy_compile.attempt_%s.input.%s.host_path=%s\n"
+                      "sepolicy_compile.attempt_%s.input.%s.required=%d\n"
+                      "sepolicy_compile.attempt_%s.input.%s.present=%d\n"
+                      "sepolicy_compile.attempt_%s.input.%s.readable=%d\n",
+                      attempt,
+                      label,
+                      absolute_path,
+                      attempt,
+                      label,
+                      host_path,
+                      attempt,
+                      label,
+                      required ? 1 : 0,
+                      attempt,
+                      label,
+                      present ? 1 : 0,
+                      attempt,
+                      label,
+                      readable ? 1 : 0) < 0) {
+        return -1;
+    }
+    if (!present || !readable) {
+        if (required) {
+            (*required_missing)++;
+        }
+        return 0;
+    }
+    if (*argc + 1 >= max_argc) {
+        return append_format(stdout_buf,
+                             "sepolicy_compile.attempt_%s.input.%s.error=argv-overflow\n",
+                             attempt,
+                             label);
+    }
+    argv[(*argc)++] = (char *)absolute_path;
+    return 0;
+}
+
+static int append_sepolicy_compile_output_info(struct buffer *stdout_buf,
+                                               const struct paths *paths,
+                                               const char *attempt,
+                                               const char *output_path) {
+    char host_path[MAX_PATH_LEN];
+    struct stat st;
+    uint64_t hash = 0;
+    size_t bytes = 0;
+
+    if (path_in_root(host_path, sizeof(host_path), paths, output_path) < 0) {
+        return append_format(stdout_buf,
+                             "sepolicy_compile.attempt_%s.output.path=%s\n"
+                             "sepolicy_compile.attempt_%s.output.exists=0\n"
+                             "sepolicy_compile.attempt_%s.output.error=path-too-long\n",
+                             attempt,
+                             output_path,
+                             attempt,
+                             attempt);
+    }
+    if (lstat(host_path, &st) < 0) {
+        return append_format(stdout_buf,
+                             "sepolicy_compile.attempt_%s.output.path=%s\n"
+                             "sepolicy_compile.attempt_%s.output.host_path=%s\n"
+                             "sepolicy_compile.attempt_%s.output.exists=0\n"
+                             "sepolicy_compile.attempt_%s.output.errno=%d\n",
+                             attempt,
+                             output_path,
+                             attempt,
+                             host_path,
+                             attempt,
+                             attempt,
+                             errno);
+    }
+    if (S_ISREG(st.st_mode) && fnv1a64_file(host_path, &hash, &bytes) == 0) {
+        if (append_format(stdout_buf,
+                          "sepolicy_compile.attempt_%s.output.path=%s\n"
+                          "sepolicy_compile.attempt_%s.output.host_path=%s\n"
+                          "sepolicy_compile.attempt_%s.output.exists=1\n"
+                          "sepolicy_compile.attempt_%s.output.size=%lld\n"
+                          "sepolicy_compile.attempt_%s.output.bytes=%zu\n"
+                          "sepolicy_compile.attempt_%s.output.hash=0x%016llx\n",
+                          attempt,
+                          output_path,
+                          attempt,
+                          host_path,
+                          attempt,
+                          attempt,
+                          (long long)st.st_size,
+                          attempt,
+                          bytes,
+                          attempt,
+                          (unsigned long long)hash) < 0) {
+            return -1;
+        }
+    } else if (append_format(stdout_buf,
+                             "sepolicy_compile.attempt_%s.output.path=%s\n"
+                             "sepolicy_compile.attempt_%s.output.host_path=%s\n"
+                             "sepolicy_compile.attempt_%s.output.exists=1\n"
+                             "sepolicy_compile.attempt_%s.output.size=%lld\n"
+                             "sepolicy_compile.attempt_%s.output.hash=<unavailable>\n",
+                             attempt,
+                             output_path,
+                             attempt,
+                             host_path,
+                             attempt,
+                             attempt,
+                             (long long)st.st_size,
+                             attempt) < 0) {
+        return -1;
+    }
+    unlink(host_path);
+    return 0;
+}
+
+static bool sepolicy_mapping_version_safe(const char *version) {
+    if (version == NULL || version[0] == '\0') {
+        return false;
+    }
+    return strspn(version, "0123456789.") == strlen(version);
+}
+
+static int run_sepolicy_compile_attempt(const struct config *cfg,
+                                        const struct paths *paths,
+                                        struct buffer *stdout_buf,
+                                        struct buffer *stderr_buf,
+                                        const char *policy_version,
+                                        const char *vendor_mapping_version,
+                                        int timeout_ms) {
+    char secilc_host_path[MAX_PATH_LEN];
+    char plat_mapping[128];
+    char plat_compat[128];
+    char system_ext_mapping[160];
+    char system_ext_compat[160];
+    char product_mapping[160];
+    char output_path[64];
+    char *child_argv[64];
+    size_t argc = 0;
+    int required_missing = 0;
+    int stdout_pipe[2] = {-1, -1};
+    int stderr_pipe[2] = {-1, -1};
+    pid_t pid;
+    pid_t pgid;
+    bool stdout_open = false;
+    bool stderr_open = false;
+    bool child_done = false;
+    bool timed_out = false;
+    int exit_code = -1;
+    int signal_no = 0;
+    long deadline;
+
+    if (snprintf(plat_mapping,
+                 sizeof(plat_mapping),
+                 "/system/etc/selinux/mapping/%s.cil",
+                 vendor_mapping_version) < 0 ||
+        strlen(plat_mapping) >= sizeof(plat_mapping) ||
+        snprintf(plat_compat,
+                 sizeof(plat_compat),
+                 "/system/etc/selinux/mapping/%s.compat.cil",
+                 vendor_mapping_version) < 0 ||
+        strlen(plat_compat) >= sizeof(plat_compat) ||
+        snprintf(system_ext_mapping,
+                 sizeof(system_ext_mapping),
+                 "/system/system_ext/etc/selinux/mapping/%s.cil",
+                 vendor_mapping_version) < 0 ||
+        strlen(system_ext_mapping) >= sizeof(system_ext_mapping) ||
+        snprintf(system_ext_compat,
+                 sizeof(system_ext_compat),
+                 "/system/system_ext/etc/selinux/mapping/%s.compat.cil",
+                 vendor_mapping_version) < 0 ||
+        strlen(system_ext_compat) >= sizeof(system_ext_compat) ||
+        snprintf(product_mapping,
+                 sizeof(product_mapping),
+                 "/system/product/etc/selinux/mapping/%s.cil",
+                 vendor_mapping_version) < 0 ||
+        strlen(product_mapping) >= sizeof(product_mapping) ||
+        snprintf(output_path,
+                 sizeof(output_path),
+                 "/sepolicy-v489-%s.compiled",
+                 policy_version) < 0 ||
+        strlen(output_path) >= sizeof(output_path)) {
+        append_format(stdout_buf,
+                      "sepolicy_compile.attempt_%s.result=manual-review-required\n"
+                      "sepolicy_compile.attempt_%s.reason=path-format-overflow\n",
+                      policy_version,
+                      policy_version);
+        return -1;
+    }
+
+    if (path_in_root(secilc_host_path, sizeof(secilc_host_path), paths, "/system/bin/secilc") < 0) {
+        append_format(stdout_buf,
+                      "sepolicy_compile.attempt_%s.result=compile-tool-missing\n"
+                      "sepolicy_compile.attempt_%s.reason=secilc-path-too-long\n",
+                      policy_version,
+                      policy_version);
+        return 10;
+    }
+    append_format(stdout_buf,
+                  "sepolicy_compile.attempt_%s.begin=1\n"
+                  "sepolicy_compile.attempt_%s.tool=/system/bin/secilc\n"
+                  "sepolicy_compile.attempt_%s.tool_host_path=%s\n"
+                  "sepolicy_compile.attempt_%s.tool_exists=%d\n"
+                  "sepolicy_compile.attempt_%s.tool_executable=%d\n"
+                  "sepolicy_compile.attempt_%s.policy_version=%s\n"
+                  "sepolicy_compile.attempt_%s.vendor_mapping_version=%s\n"
+                  "sepolicy_compile.attempt_%s.output=%s\n"
+                  "sepolicy_compile.attempt_%s.policy_load_executed=0\n"
+                  "sepolicy_compile.attempt_%s.init_reexec_executed=0\n"
+                  "sepolicy_compile.attempt_%s.daemon_start_executed=0\n"
+                  "sepolicy_compile.attempt_%s.wifi_hal_start_executed=0\n"
+                  "sepolicy_compile.attempt_%s.wifi_bringup_executed=0\n",
+                  policy_version,
+                  policy_version,
+                  policy_version,
+                  secilc_host_path,
+                  policy_version,
+                  access(secilc_host_path, F_OK) == 0 ? 1 : 0,
+                  policy_version,
+                  access(secilc_host_path, X_OK) == 0 ? 1 : 0,
+                  policy_version,
+                  policy_version,
+                  policy_version,
+                  vendor_mapping_version,
+                  policy_version,
+                  output_path,
+                  policy_version,
+                  policy_version,
+                  policy_version,
+                  policy_version,
+                  policy_version);
+    if (access(secilc_host_path, X_OK) < 0) {
+        append_format(stdout_buf,
+                      "sepolicy_compile.attempt_%s.exec_attempted=0\n"
+                      "sepolicy_compile.attempt_%s.result=compile-tool-missing\n"
+                      "sepolicy_compile.attempt_%s.reason=system-bin-secilc-unavailable-%s\n"
+                      "sepolicy_compile.attempt_%s.end=1\n",
+                      policy_version,
+                      policy_version,
+                      policy_version,
+                      strerror(errno),
+                      policy_version);
+        return 10;
+    }
+
+    child_argv[argc++] = (char *)"/system/bin/secilc";
+    if (add_sepolicy_compile_input(stdout_buf,
+                                   paths,
+                                   policy_version,
+                                   "plat",
+                                   "/system/etc/selinux/plat_sepolicy.cil",
+                                   true,
+                                   child_argv,
+                                   &argc,
+                                   sizeof(child_argv) / sizeof(child_argv[0]),
+                                   &required_missing) < 0) {
+        return -1;
+    }
+    child_argv[argc++] = (char *)"-m";
+    child_argv[argc++] = (char *)"-M";
+    child_argv[argc++] = (char *)"true";
+    child_argv[argc++] = (char *)"-G";
+    child_argv[argc++] = (char *)"-N";
+    child_argv[argc++] = (char *)"-c";
+    child_argv[argc++] = (char *)policy_version;
+    if (add_sepolicy_compile_input(stdout_buf,
+                                   paths,
+                                   policy_version,
+                                   "plat_mapping",
+                                   plat_mapping,
+                                   true,
+                                   child_argv,
+                                   &argc,
+                                   sizeof(child_argv) / sizeof(child_argv[0]),
+                                   &required_missing) < 0) {
+        return -1;
+    }
+    child_argv[argc++] = (char *)"-o";
+    child_argv[argc++] = output_path;
+    child_argv[argc++] = (char *)"-f";
+    child_argv[argc++] = (char *)"/sys/fs/selinux/null";
+    if (add_sepolicy_compile_input(stdout_buf,
+                                   paths,
+                                   policy_version,
+                                   "plat_compat",
+                                   plat_compat,
+                                   false,
+                                   child_argv,
+                                   &argc,
+                                   sizeof(child_argv) / sizeof(child_argv[0]),
+                                   &required_missing) < 0 ||
+        add_sepolicy_compile_input(stdout_buf,
+                                   paths,
+                                   policy_version,
+                                   "system_ext",
+                                   "/system/system_ext/etc/selinux/system_ext_sepolicy.cil",
+                                   false,
+                                   child_argv,
+                                   &argc,
+                                   sizeof(child_argv) / sizeof(child_argv[0]),
+                                   &required_missing) < 0 ||
+        add_sepolicy_compile_input(stdout_buf,
+                                   paths,
+                                   policy_version,
+                                   "system_ext_mapping",
+                                   system_ext_mapping,
+                                   false,
+                                   child_argv,
+                                   &argc,
+                                   sizeof(child_argv) / sizeof(child_argv[0]),
+                                   &required_missing) < 0 ||
+        add_sepolicy_compile_input(stdout_buf,
+                                   paths,
+                                   policy_version,
+                                   "system_ext_compat",
+                                   system_ext_compat,
+                                   false,
+                                   child_argv,
+                                   &argc,
+                                   sizeof(child_argv) / sizeof(child_argv[0]),
+                                   &required_missing) < 0 ||
+        add_sepolicy_compile_input(stdout_buf,
+                                   paths,
+                                   policy_version,
+                                   "product",
+                                   "/system/product/etc/selinux/product_sepolicy.cil",
+                                   false,
+                                   child_argv,
+                                   &argc,
+                                   sizeof(child_argv) / sizeof(child_argv[0]),
+                                   &required_missing) < 0 ||
+        add_sepolicy_compile_input(stdout_buf,
+                                   paths,
+                                   policy_version,
+                                   "product_mapping",
+                                   product_mapping,
+                                   false,
+                                   child_argv,
+                                   &argc,
+                                   sizeof(child_argv) / sizeof(child_argv[0]),
+                                   &required_missing) < 0 ||
+        add_sepolicy_compile_input(stdout_buf,
+                                   paths,
+                                   policy_version,
+                                   "plat_pub_versioned",
+                                   "/vendor/etc/selinux/plat_pub_versioned.cil",
+                                   true,
+                                   child_argv,
+                                   &argc,
+                                   sizeof(child_argv) / sizeof(child_argv[0]),
+                                   &required_missing) < 0 ||
+        add_sepolicy_compile_input(stdout_buf,
+                                   paths,
+                                   policy_version,
+                                   "vendor",
+                                   "/vendor/etc/selinux/vendor_sepolicy.cil",
+                                   true,
+                                   child_argv,
+                                   &argc,
+                                   sizeof(child_argv) / sizeof(child_argv[0]),
+                                   &required_missing) < 0 ||
+        add_sepolicy_compile_input(stdout_buf,
+                                   paths,
+                                   policy_version,
+                                   "odm",
+                                   "/odm/etc/selinux/odm_sepolicy.cil",
+                                   false,
+                                   child_argv,
+                                   &argc,
+                                   sizeof(child_argv) / sizeof(child_argv[0]),
+                                   &required_missing) < 0) {
+        return -1;
+    }
+    child_argv[argc] = NULL;
+    append_format(stdout_buf,
+                  "sepolicy_compile.attempt_%s.argc=%zu\n"
+                  "sepolicy_compile.attempt_%s.required_missing=%d\n",
+                  policy_version,
+                  argc,
+                  policy_version,
+                  required_missing);
+    for (size_t i = 0; i < argc; i++) {
+        append_format(stdout_buf,
+                      "sepolicy_compile.attempt_%s.argv.%zu=%s\n",
+                      policy_version,
+                      i,
+                      child_argv[i]);
+    }
+    if (required_missing > 0) {
+        append_format(stdout_buf,
+                      "sepolicy_compile.attempt_%s.exec_attempted=0\n"
+                      "sepolicy_compile.attempt_%s.result=compile-input-gap\n"
+                      "sepolicy_compile.attempt_%s.reason=required-input-missing\n"
+                      "sepolicy_compile.attempt_%s.end=1\n",
+                      policy_version,
+                      policy_version,
+                      policy_version,
+                      policy_version);
+        return 11;
+    }
+
+    if (pipe2(stdout_pipe, O_CLOEXEC) < 0 || pipe2(stderr_pipe, O_CLOEXEC) < 0) {
+        append_format(stdout_buf,
+                      "sepolicy_compile.attempt_%s.result=manual-review-required\n"
+                      "sepolicy_compile.attempt_%s.reason=pipe-failed-%s\n"
+                      "sepolicy_compile.attempt_%s.end=1\n",
+                      policy_version,
+                      policy_version,
+                      strerror(errno),
+                      policy_version);
+        if (stdout_pipe[0] >= 0) close(stdout_pipe[0]);
+        if (stdout_pipe[1] >= 0) close(stdout_pipe[1]);
+        if (stderr_pipe[0] >= 0) close(stderr_pipe[0]);
+        if (stderr_pipe[1] >= 0) close(stderr_pipe[1]);
+        return -1;
+    }
+    pid = fork();
+    if (pid < 0) {
+        append_format(stdout_buf,
+                      "sepolicy_compile.attempt_%s.result=manual-review-required\n"
+                      "sepolicy_compile.attempt_%s.reason=fork-failed-%s\n"
+                      "sepolicy_compile.attempt_%s.end=1\n",
+                      policy_version,
+                      policy_version,
+                      strerror(errno),
+                      policy_version);
+        close(stdout_pipe[0]);
+        close(stdout_pipe[1]);
+        close(stderr_pipe[0]);
+        close(stderr_pipe[1]);
+        return -1;
+    }
+    if (pid == 0) {
+        close(stdout_pipe[0]);
+        close(stderr_pipe[0]);
+        dup2(stdout_pipe[1], STDOUT_FILENO);
+        dup2(stderr_pipe[1], STDERR_FILENO);
+        close(stdout_pipe[1]);
+        close(stderr_pipe[1]);
+        if (setsid() < 0) {
+            perror("setsid");
+            _exit(123);
+        }
+        if (chroot(paths->root) < 0) {
+            perror("chroot");
+            _exit(120);
+        }
+        if (chdir("/") < 0) {
+            perror("chdir");
+            _exit(121);
+        }
+        apply_child_env(cfg);
+        printf("sepolicy_compile.attempt_%s.child.begin=1\n", policy_version);
+        printf("sepolicy_compile.attempt_%s.child.exec_target=/system/bin/secilc\n", policy_version);
+        printf("sepolicy_compile.attempt_%s.child.policy_load_executed=0\n", policy_version);
+        fflush(stdout);
+        execv("/system/bin/secilc", child_argv);
+        printf("sepolicy_compile.attempt_%s.child.exec_error=%s\n", policy_version, strerror(errno));
+        printf("sepolicy_compile.attempt_%s.child.end=1\n", policy_version);
+        fflush(stdout);
+        _exit(127);
+    }
+    close(stdout_pipe[1]);
+    close(stderr_pipe[1]);
+    stdout_open = true;
+    stderr_open = true;
+    set_nonblock(stdout_pipe[0]);
+    set_nonblock(stderr_pipe[0]);
+    pgid = wait_for_child_session_pgid(pid, 1000);
+    append_format(stdout_buf,
+                  "sepolicy_compile.attempt_%s.exec_attempted=1\n"
+                  "sepolicy_compile.attempt_%s.child_started=1\n"
+                  "sepolicy_compile.attempt_%s.pid=%ld\n"
+                  "sepolicy_compile.attempt_%s.pgid=%ld\n",
+                  policy_version,
+                  policy_version,
+                  policy_version,
+                  (long)pid,
+                  policy_version,
+                  (long)pgid);
+    deadline = monotonic_ms() + timeout_ms;
+    while (stdout_open || stderr_open || !child_done) {
+        struct pollfd fds[2];
+        int nfds = 0;
+
+        if (!child_done && monotonic_ms() >= deadline) {
+            timed_out = true;
+            if (pgid > 1) {
+                kill(-pgid, SIGTERM);
+            }
+            kill(pid, SIGTERM);
+        }
+        if (stdout_open) {
+            fds[nfds].fd = stdout_pipe[0];
+            fds[nfds].events = POLLIN | POLLHUP | POLLERR;
+            nfds++;
+        }
+        if (stderr_open) {
+            fds[nfds].fd = stderr_pipe[0];
+            fds[nfds].events = POLLIN | POLLHUP | POLLERR;
+            nfds++;
+        }
+        if (nfds > 0) {
+            int rc = poll(fds, nfds, 50);
+
+            if (rc > 0) {
+                int idx = 0;
+
+                if (stdout_open) {
+                    if (fds[idx].revents != 0) {
+                        drain_fd(stdout_pipe[0], stdout_buf, &stdout_open);
+                    }
+                    idx++;
+                }
+                if (stderr_open && fds[idx].revents != 0) {
+                    drain_fd(stderr_pipe[0], stderr_buf, &stderr_open);
+                }
+            }
+        } else {
+            usleep(50000);
+        }
+        if (!child_done) {
+            int status = 0;
+            pid_t wait_rc = waitpid(pid, &status, WNOHANG);
+
+            if (wait_rc == pid) {
+                child_done = true;
+                if (WIFEXITED(status)) {
+                    exit_code = WEXITSTATUS(status);
+                } else if (WIFSIGNALED(status)) {
+                    signal_no = WTERMSIG(status);
+                }
+            } else if (wait_rc < 0) {
+                if (errno == ECHILD) {
+                    child_done = true;
+                } else if (errno != EINTR) {
+                    append_format(stdout_buf,
+                                  "sepolicy_compile.attempt_%s.wait.error=%s\n",
+                                  policy_version,
+                                  strerror(errno));
+                    child_done = true;
+                }
+            }
+        }
+        if (timed_out && !child_done && monotonic_ms() >= deadline + 1000L) {
+            if (pgid > 1) {
+                kill(-pgid, SIGKILL);
+            }
+            kill(pid, SIGKILL);
+        }
+    }
+    if (stdout_pipe[0] >= 0) close(stdout_pipe[0]);
+    if (stderr_pipe[0] >= 0) close(stderr_pipe[0]);
+    append_format(stdout_buf,
+                  "sepolicy_compile.attempt_%s.exit_code=%d\n"
+                  "sepolicy_compile.attempt_%s.signal=%d\n"
+                  "sepolicy_compile.attempt_%s.timed_out=%d\n",
+                  policy_version,
+                  exit_code,
+                  policy_version,
+                  signal_no,
+                  policy_version,
+                  timed_out ? 1 : 0);
+    append_sepolicy_compile_output_info(stdout_buf, paths, policy_version, output_path);
+    if (timed_out) {
+        append_format(stdout_buf,
+                      "sepolicy_compile.attempt_%s.result=compile-timeout\n"
+                      "sepolicy_compile.attempt_%s.reason=secilc-timeout\n"
+                      "sepolicy_compile.attempt_%s.end=1\n",
+                      policy_version,
+                      policy_version,
+                      policy_version);
+        return 12;
+    }
+    if (exit_code == 0 && signal_no == 0) {
+        append_format(stdout_buf,
+                      "sepolicy_compile.attempt_%s.result=compile-pass\n"
+                      "sepolicy_compile.attempt_%s.reason=secilc-exit-zero\n"
+                      "sepolicy_compile.attempt_%s.end=1\n",
+                      policy_version,
+                      policy_version,
+                      policy_version);
+        return 0;
+    }
+    append_format(stdout_buf,
+                  "sepolicy_compile.attempt_%s.result=compile-runtime-gap\n"
+                  "sepolicy_compile.attempt_%s.reason=secilc-nonzero\n"
+                  "sepolicy_compile.attempt_%s.end=1\n",
+                  policy_version,
+                  policy_version,
+                  policy_version);
+    return 11;
+}
+
+static int run_sepolicy_compile_proof(const struct config *cfg,
+                                      const struct paths *paths,
+                                      struct buffer *stdout_buf,
+                                      struct buffer *stderr_buf) {
+    char vendor_mapping_version[64];
+    char kernel_policy_version[64];
+    bool vendor_mapping_present = false;
+    bool kernel_policy_present = false;
+    int rc31;
+    int rc30 = 99;
+
+    if (append_literal(stdout_buf,
+                       "sepolicy_compile.begin=1\n"
+                       "sepolicy_compile.policy_load_executed=0\n"
+                       "sepolicy_compile.init_reexec_executed=0\n"
+                       "sepolicy_compile.daemon_start_executed=0\n"
+                       "sepolicy_compile.wifi_hal_start_executed=0\n"
+                       "sepolicy_compile.wifi_bringup_executed=0\n") < 0) {
+        return -1;
+    }
+    if (append_sepolicy_path_info(stdout_buf, paths, "compile_system_secilc", "/system/bin/secilc") < 0 ||
+        append_sepolicy_path_info(stdout_buf, paths, "compile_system_plat_cil", "/system/etc/selinux/plat_sepolicy.cil") < 0 ||
+        append_sepolicy_path_info(stdout_buf, paths, "compile_vendor_policy_cil", "/vendor/etc/selinux/vendor_sepolicy.cil") < 0 ||
+        append_sepolicy_path_info(stdout_buf, paths, "compile_vendor_plat_pub_versioned", "/vendor/etc/selinux/plat_pub_versioned.cil") < 0 ||
+        append_sepolicy_path_info(stdout_buf, paths, "compile_vendor_plat_sepolicy_vers", "/vendor/etc/selinux/plat_sepolicy_vers.txt") < 0 ||
+        append_sepolicy_path_info(stdout_buf, paths, "compile_selinux_null", "/sys/fs/selinux/null") < 0) {
+        return -1;
+    }
+    if (read_root_first_line(paths,
+                             "/vendor/etc/selinux/plat_sepolicy_vers.txt",
+                             vendor_mapping_version,
+                             sizeof(vendor_mapping_version),
+                             &vendor_mapping_present) < 0) {
+        append_literal(stdout_buf,
+                       "sepolicy_compile.result=compile-input-gap\n"
+                       "sepolicy_compile.reason=vendor-mapping-version-read-failed\n"
+                       "sepolicy_compile.end=1\n");
+        return 11;
+    }
+    if (read_root_first_line(paths,
+                             "/sys/fs/selinux/policyvers",
+                             kernel_policy_version,
+                             sizeof(kernel_policy_version),
+                             &kernel_policy_present) < 0) {
+        kernel_policy_version[0] = '\0';
+    }
+    append_format(stdout_buf,
+                  "sepolicy_compile.vendor_mapping_version.present=%d\n"
+                  "sepolicy_compile.vendor_mapping_version=%s\n"
+                  "sepolicy_compile.kernel_policy_version.present=%d\n"
+                  "sepolicy_compile.kernel_policy_version=%s\n",
+                  vendor_mapping_present ? 1 : 0,
+                  vendor_mapping_present ? vendor_mapping_version : "<missing>",
+                  kernel_policy_present ? 1 : 0,
+                  kernel_policy_present ? kernel_policy_version : "<missing>");
+    if (!vendor_mapping_present || !sepolicy_mapping_version_safe(vendor_mapping_version)) {
+        append_literal(stdout_buf,
+                       "sepolicy_compile.result=compile-input-gap\n"
+                       "sepolicy_compile.reason=vendor-mapping-version-missing-or-unsafe\n"
+                       "sepolicy_compile.end=1\n");
+        return 11;
+    }
+
+    rc31 = run_sepolicy_compile_attempt(cfg,
+                                        paths,
+                                        stdout_buf,
+                                        stderr_buf,
+                                        "31",
+                                        vendor_mapping_version,
+                                        cfg->timeout_sec * 1000);
+    if (rc31 == 0) {
+        append_literal(stdout_buf,
+                       "sepolicy_compile.attempts=1\n"
+                       "sepolicy_compile.pass_version=31\n"
+                       "sepolicy_compile.result=compile-pass\n"
+                       "sepolicy_compile.reason=policy-version-31-pass\n"
+                       "sepolicy_compile.end=1\n");
+        return 0;
+    }
+    rc30 = run_sepolicy_compile_attempt(cfg,
+                                        paths,
+                                        stdout_buf,
+                                        stderr_buf,
+                                        "30",
+                                        vendor_mapping_version,
+                                        cfg->timeout_sec * 1000);
+    if (rc30 == 0) {
+        append_literal(stdout_buf,
+                       "sepolicy_compile.attempts=2\n"
+                       "sepolicy_compile.pass_version=30\n"
+                       "sepolicy_compile.result=compile-pass\n"
+                       "sepolicy_compile.reason=policy-version-30-pass\n"
+                       "sepolicy_compile.end=1\n");
+        return 0;
+    }
+    append_format(stdout_buf,
+                  "sepolicy_compile.attempts=2\n"
+                  "sepolicy_compile.result=compile-runtime-gap\n"
+                  "sepolicy_compile.reason=all-compile-attempts-failed\n"
+                  "sepolicy_compile.rc31=%d\n"
+                  "sepolicy_compile.rc30=%d\n"
+                  "sepolicy_compile.end=1\n",
+                  rc31,
+                  rc30);
+    return 11;
 }
 
 static bool wifi_surface_iface_name(const char *name) {
@@ -9088,6 +9850,11 @@ int main(int argc, char **argv) {
         run_rc = run_sepolicy_inventory(&cfg, &paths, &stdout_buf);
         child_exit_code = run_rc == 0 ? 0 : run_rc;
         child_signal = 0;
+    } else if (streq(cfg.mode, "sepolicy-compile-proof")) {
+        run_rc = run_sepolicy_compile_proof(&cfg, &paths, &stdout_buf, &stderr_buf);
+        child_exit_code = run_rc == 0 ? 0 : run_rc;
+        child_signal = 0;
+        timed_out = run_rc == 12;
     } else if (streq(cfg.mode, "selinux-domain-proof")) {
         run_rc = run_selinux_domain_proof(&cfg,
                                           &paths,
