@@ -2019,3 +2019,11 @@ Samsung bootloader
    - v407 live 결과: exact-approved bounded composite HAL start-only retry PASS. `servicemanager`, `hwservicemanager`, `vendor.samsung.hardware.wifi@2.0-service`가 모두 observe window 끝까지 observable했고 SIGTERM cleanup/reap/postflight safe로 종료됐다. scan/connect/link-up 및 Wi-Fi bring-up은 false
    - v407 해석: private namespace와 helper v24 `v30-to-system-ext-v30` 조합은 첫 HAL 후보를 bounded start-only로 유지할 수 있다
    - v408 다음: HAL registration/service-surface evidence를 수집하는 plan/approval packet을 작성한다. scan/connect/link-up, credentials, DHCP, routing은 계속 별도 gate로 유지한다
+
+   - v408 plan: `docs/plans/NATIVE_INIT_V408_HAL_REGISTRATION_SURFACE_PLAN_2026-05-20.md`
+   - v408 report: `docs/reports/NATIVE_INIT_V408_HAL_REGISTRATION_SURFACE_PACKET_2026-05-20.md`
+   - v408 evidence: `tmp/wifi/v408-hal-registration-surface-packet-20260520-102249/`
+   - v408 runner: `scripts/revalidation/wifi_hal_registration_surface_v408_packet.py`
+   - v408 결과: host-only evidence packet PASS. V407 transcript에서 no-bring-up boundary, composite child start, private Binder/HwBinder/VndBinder devnodes, hwservice context inputs, HAL/hwservicemanager proc/fd/maps captures, Wi-Fi HIDL/HwBinder maps, fatal-runtime-noise absence, clean postflight를 모두 확인했다. V408 자체는 device command, daemon start, HAL start, Wi-Fi bring-up을 실행하지 않았다
+   - v408 해석: V407은 실제 Wi-Fi bring-up이 아니라 “HAL service surface까지 살아 있음”을 증명한다. `hwservicemanager`에 실제 service publication/listing이 되었는지는 아직 미검증이다
+   - v409 다음: 같은 bounded trio를 live로 띄운 상태에서 `hwservicemanager`/HIDL service-list registration query를 수행하는 gate를 설계한다. scan/connect/link-up, credentials, DHCP, routing은 계속 별도 gate로 유지한다

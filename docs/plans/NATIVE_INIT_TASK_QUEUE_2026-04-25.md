@@ -20,7 +20,7 @@
 - 상세 규칙: `docs/operations/VERSIONING_POLICY.md`
 
 
-## Current Wi-Fi V406 System_ext VNDK APEX Status (2026-05-20)
+## Current Wi-Fi V408 Registration Surface Status (2026-05-20)
 
 - current native build remains `A90 Linux init 0.9.61 (v319)`.
 - current Wi-Fi work is host tooling plus bounded read-only evidence, not a new boot-image flash.
@@ -63,7 +63,10 @@
 - latest V407 approval packet report: `docs/reports/NATIVE_INIT_V407_COMPOSITE_HAL_RETRY_APPROVAL_PACKET_2026-05-20.md`.
 - V407 live result: exact-approved bounded composite HAL start-only retry PASS; `servicemanager`, `hwservicemanager`, and `vendor.samsung.hardware.wifi@2.0-service` were all observable until timeout and cleaned safely.
 - latest V407 live report: `docs/reports/NATIVE_INIT_V407_COMPOSITE_HAL_START_ONLY_RETRY_LIVE_2026-05-20.md`.
-- next execution item: V408 Wi-Fi HAL registration/service-surface evidence. Wi-Fi scan/connect/link-up, credentials, DHCP, and routing remain blocked.
+- V408 packet result: host-only registration/service-surface evidence classification PASS. V408 executed no device command and did not start daemon/HAL/Wi-Fi bring-up.
+- latest V408 packet report: `docs/reports/NATIVE_INIT_V408_HAL_REGISTRATION_SURFACE_PACKET_2026-05-20.md`.
+- current interpretation: V407 reached a viable Wi-Fi HAL service surface with Binder/HwBinder devnodes, hwservice context inputs, HIDL/HwBinder maps, observable HAL/hwservicemanager captures, and clean postflight. Actual `hwservicemanager` service publication is not proven yet.
+- next execution item: V409 bounded `hwservicemanager`/service-list registration query. Wi-Fi scan/connect/link-up, credentials, DHCP, and routing remain blocked.
 
 ## 현재 고정 기준점
 
