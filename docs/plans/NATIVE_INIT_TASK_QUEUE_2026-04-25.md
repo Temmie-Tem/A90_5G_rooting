@@ -8942,3 +8942,21 @@ python3 ./scripts/revalidation/physical_usb_reconnect_check.py --manual-host-con
   - `wifi_enable_executed=True`, `wifi_bringup_executed=True`.
 - interpretation: V438 intentionally changed Android framework Wi-Fi to enabled, so future Android boots may not start from the V436 disabled baseline. Current native v319 boot remains contained. Do not proceed to server exposure, credentials, or explicit scan/connect until the post-reenable state is resolved.
 - next execution item: V439 post-reenable persistence and containment decision. Prefer longer read-only enabled observation followed by explicit cleanup/disable if no immediate next Wi-Fi control test is run.
+
+### V439. Android Post-reenable Observation — PASS / AUTO-CONNECT EXPOSURE PROVEN
+
+- plan: `docs/plans/NATIVE_INIT_V439_ANDROID_POST_REENABLE_OBSERVATION_PLAN_2026-05-20.md`
+- report: `docs/reports/NATIVE_INIT_V439_ANDROID_POST_REENABLE_OBSERVATION_2026-05-20.md`
+- collector: `scripts/revalidation/wifi_android_post_reenable_observation_v439.py`
+- handoff: `scripts/revalidation/android_wifi_post_reenable_handoff_v439.py`
+- live evidence: `tmp/wifi/v439-android-wifi-post-reenable-handoff-live-20260520-170736/`
+- result:
+  - decision `v439-android-wifi-post-reenable-exposure-observed-cleanup-pass`.
+  - V439 did not enable Wi-Fi; it observed the Android framework state left enabled by V438.
+  - Android auto-connected immediately on fresh Android boot: all seven samples had `wifi_connected=True`, `wlan0_has_ip=True`, `default_route_wlan=True`, `route_get_wlan=True`, `connectivity_validated_wifi=True`, and `dns_surface_wlan=True`.
+  - `global_listener_observed=False` across the observation window.
+  - final cleanup disable passed and removed active `wlan0` IP, route, route-get, DNS, and validated connectivity exposure.
+  - native rollback restored `A90 Linux init 0.9.61 (v319)`, selftest passed, and redaction scan passed.
+  - `wifi_disable_executed=True`, `wifi_bringup_executed=False`.
+- interpretation: Android-managed Wi-Fi is functional and saved auto-connect produces external network exposure. The cleanup path is reliable enough to restore the contained lab baseline. This still does not approve server exposure or explicit scan/connect.
+- next execution item: V440 Android Wi-Fi control policy after proven auto-connect. Choose contained lab mode, exposure-aware observation mode, or explicit scan/connect mode with credential/target allowlist handling before continuing.

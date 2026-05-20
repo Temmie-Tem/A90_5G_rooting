@@ -2180,3 +2180,12 @@ Samsung bootloader
 - result: bounded Android Wi-Fi re-enable observation PASS. Android accepted `cmd wifi set-wifi-enabled enabled`; post-enable status reported Wi-Fi enabled, but no active Wi-Fi connection, no `wlan0` IP, no `wlan0` route candidate, no validated Wi-Fi connectivity, no DNS surface, and no global listener were observed. Native rollback restored `A90 Linux init 0.9.61 (v319)`, postflight selftest passed, and redaction scan passed.
 - interpretation: V438 is a controlled bring-up observation, not permission for scan/connect, credentials, server exposure, or external traffic. Android framework Wi-Fi is now set enabled and may persist on a future Android boot, even though the current native boot is contained.
 - next: V439 post-reenable persistence and containment decision. Either run a longer read-only enabled observation, or disable Wi-Fi again to restore the V436 contained baseline before continuing native/server-side work.
+
+### V439. Android Post-reenable Observation Result
+
+- plan: `docs/plans/NATIVE_INIT_V439_ANDROID_POST_REENABLE_OBSERVATION_PLAN_2026-05-20.md`
+- report: `docs/reports/NATIVE_INIT_V439_ANDROID_POST_REENABLE_OBSERVATION_2026-05-20.md`
+- live evidence: `tmp/wifi/v439-android-wifi-post-reenable-handoff-live-20260520-170736/`
+- result: Android post-reenable observation PASS with exposure observed. V439 did not enable Wi-Fi; it observed the V438-enabled Android state. Android immediately auto-connected and exposed `wlan0` IP, default route, route-get, DNS, and validated Wi-Fi connectivity across seven samples, with no global listener observed. Final cleanup disable passed and removed active IP/route/DNS/connectivity exposure. Native rollback restored `A90 Linux init 0.9.61 (v319)`.
+- interpretation: Android-managed Wi-Fi is now proven functional, but it is also proven to create external network exposure via saved auto-connect. Cleanup containment works, so lab-safe work should default to disabled Wi-Fi except during bounded Wi-Fi tests.
+- next: V440 Android Wi-Fi control policy after proven auto-connect. Decide contained lab mode versus exposure-aware Android Wi-Fi mode versus explicit scan/connect mode before any server exposure or credential work.
