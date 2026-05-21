@@ -150,6 +150,7 @@
 
 ### 4. Current Native Init Reports
 
+- `reports/NATIVE_INIT_V577_V95_BROADER_IWIFI_RETRY_2026-05-21.md` – V95 init-root 계약으로 service-manager/dual-HAL/`IWifi.start()` broader window 재검증, 여전히 `ERROR_UNKNOWN/9` 및 QRTR socket 0
 - `reports/NATIVE_INIT_V576_QRTR_NAMESPACE_SURFACE_2026-05-21.md` – V95 companion baseline 이후 read-only QRTR namespace surface 재분류, `QIPCRTR` protocol은 있으나 socket 0/`/proc/net/qrtr` 없음
 - `reports/NATIVE_INIT_V575_COMPANION_INIT_ROOT_RETRY_2026-05-21.md` – V95에서 `rmt_storage`/`tftp_server`를 Android init-root start 계약으로 수정, companion window는 통과했지만 QRTR/QMI/BDF/FW marker는 아직 없음
 - `reports/NATIVE_INIT_V574_BOOTPROBE_RESCUE_ONLY_2026-05-21.md` – V572 opt-in pre-ACM block 이후 stale bootprobe flags를 소비만 하는 rescue-only boot image local build
