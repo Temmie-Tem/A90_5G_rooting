@@ -34,6 +34,33 @@ RMT_STORAGE_OBSERVED_KEYS = (
     "init.svc.vendor.rmt_storage",
 )
 
+COMPANION_OBSERVED_KEYS = (
+    "debug.ld.app.qrtr-ns",
+    "arm64.memtag.process.qrtr-ns",
+    "debug.ld.app.tftp_server",
+    "arm64.memtag.process.tftp_server",
+    "persist.log.tag.tftp_server",
+    "log.tag.tftp_server",
+    "debug.ld.app.pd-mapper",
+    "arm64.memtag.process.pd-mapper",
+    "persist.log.tag.pd-mapper-svc",
+    "log.tag.pd-mapper-svc",
+    "persist.vendor.pd_locater_debug",
+    "debug.ld.app.cnss_diag",
+    "arm64.memtag.process.cnss_diag",
+    "persist.log.tag.CNSS",
+    "log.tag.CNSS",
+    "debug.ld.app.cnss-daemon",
+    "arm64.memtag.process.cnss-daemon",
+    "persist.log.tag.cnss-daemon",
+    "log.tag.cnss-daemon",
+    "persist.vendor.cnss-daemon.debug_level",
+    "persist.vendor.cnss-daemon.hw_trc_disable_override",
+    "persist.vendor.cnss-daemon.kmsg_logging",
+)
+
+WIFI_COMPANION_OBSERVED_KEYS = tuple(dict.fromkeys(RMT_STORAGE_OBSERVED_KEYS + COMPANION_OBSERVED_KEYS))
+
 RMT_STORAGE_FALLBACK_VALUES = {
     "debug.ld.app.rmt_storage": "",
     "arm64.memtag.process.rmt_storage": "",
@@ -43,6 +70,7 @@ RMT_STORAGE_FALLBACK_VALUES = {
     "ro.baseband": "mdm",
     "init.svc.vendor.rmt_storage": "running",
 }
+RMT_STORAGE_FALLBACK_VALUES.update({key: "" for key in COMPANION_OBSERVED_KEYS})
 
 
 def parse_args() -> argparse.Namespace:
@@ -60,7 +88,7 @@ def _with_rmt_keys(args: argparse.Namespace, store: EvidenceStore) -> dict[str, 
     original_runtime_keys = base.RUNTIME_OBSERVED_KEYS
     original_fallback_values = dict(base.FALLBACK_VALUES)
     try:
-        base.RUNTIME_OBSERVED_KEYS = tuple(dict.fromkeys(original_runtime_keys + RMT_STORAGE_OBSERVED_KEYS))
+        base.RUNTIME_OBSERVED_KEYS = tuple(dict.fromkeys(original_runtime_keys + WIFI_COMPANION_OBSERVED_KEYS))
         base.FALLBACK_VALUES.update(RMT_STORAGE_FALLBACK_VALUES)
         manifest = base.build_manifest(args, store)
     finally:
@@ -86,8 +114,8 @@ def _with_rmt_keys(args: argparse.Namespace, store: EvidenceStore) -> dict[str, 
     )
     model = manifest.setdefault("model", {})
     model["scope"] = "host-only rmt_storage private /dev/__properties__ layout"
-    model["rmt_storage_observed_keys"] = list(RMT_STORAGE_OBSERVED_KEYS)
-    manifest["rmt_storage_observed_keys"] = list(RMT_STORAGE_OBSERVED_KEYS)
+    model["rmt_storage_observed_keys"] = list(WIFI_COMPANION_OBSERVED_KEYS)
+    manifest["rmt_storage_observed_keys"] = list(WIFI_COMPANION_OBSERVED_KEYS)
     return manifest
 
 

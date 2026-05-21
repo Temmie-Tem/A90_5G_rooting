@@ -22,7 +22,7 @@ import native_selinux_policy_inventory_v488 as base
 
 base.__doc__ = __doc__
 base.DEFAULT_OUT_DIR = Path("tmp/wifi/v490-native-selinux-policy-load-proof")
-base.DEFAULT_HELPER_SHA256 = "3c41c86852c43eb475b991628ca2d9e1234f635b8b6ca80463ffa62978e230a4"
+base.DEFAULT_HELPER_SHA256 = "be213411b81f344c4c2a4bc783e88b2c9b089988da01e98302f2ad144794c621"
 base.APPROVAL_PHRASE = (
     "approve v490 native SELinux policy-load proof only; "
     "no init reexec, no daemon start and no Wi-Fi bring-up"
@@ -130,6 +130,10 @@ def build_checks(args: base.argparse.Namespace,
             "a90_android_execns_probe v65",
             "a90_android_execns_probe v66",
             "a90_android_execns_probe v67",
+            "a90_android_execns_probe v68",
+            "a90_android_execns_probe v69",
+            "a90_android_execns_probe v70",
+            "a90_android_execns_probe v71",
         )
     )
     sha_match = base.helper_sha_matches(args.helper_sha256, helper_sha, args.helper)

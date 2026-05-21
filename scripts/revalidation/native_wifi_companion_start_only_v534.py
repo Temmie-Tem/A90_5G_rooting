@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """V534 bounded native Wi-Fi companion start-only proof.
 
-This is the v66-helper successor to V527/V528. It keeps the same bounded
+This is the current-helper successor to V527/V528. It keeps the same bounded
 contract: QRTR/rmt/tftp/pd-mapper/CNSS companion services only, no
 service-manager, no Wi-Fi HAL, no scan/connect/link-up, no DHCP, and no
 external ping. V534 also requires the V533 rmt_storage-only window proof before
@@ -19,11 +19,12 @@ import native_wifi_companion_start_only_v527 as base
 
 
 DEFAULT_V533_MANIFEST = Path("tmp/wifi/v533-rmt-storage-start-only/manifest.json")
+DEFAULT_PROPERTY_ROOT = "/mnt/sdext/a90/private-property-v317/v535/dev/__properties__"
 
 base.__doc__ = __doc__
 base.DEFAULT_OUT_DIR = Path("tmp/wifi/v534-companion-start-only")
-base.DEFAULT_HELPER_SHA256 = "d64f389601783d8826f2821febc681c1b12e9bd7cd6a3e2fae9d77461331faa5"
-base.DEFAULT_HELPER_MARKER = "a90_android_execns_probe v66"
+base.DEFAULT_HELPER_SHA256 = "be213411b81f344c4c2a4bc783e88b2c9b089988da01e98302f2ad144794c621"
+base.DEFAULT_HELPER_MARKER = "a90_android_execns_probe v71"
 base.PROOF_VERSION = "V534"
 base.PROOF_SLUG = "v534-companion-start-only"
 base.LIVE_HELPER_STEP_NAME = "v534-helper-run"
@@ -36,6 +37,7 @@ _orig_build_checks = base.build_checks
 _orig_build_manifest = base.build_manifest
 _orig_render_summary = base.render_summary
 _orig_run_live = base.run_live
+_orig_helper_command = base.helper_command
 
 
 SECTION_RE = re.compile(r"^A90_EXECNS_(STDOUT|STDERR)_BEGIN\n(.*?)^A90_EXECNS_\1_END .*$", re.MULTILINE | re.DOTALL)
@@ -75,6 +77,12 @@ def _v533_manifest() -> dict[str, Any]:
     if not manifest.get("exists"):
         manifest["path"] = str(base.repo_path(DEFAULT_V533_MANIFEST))
     return manifest
+
+
+def helper_command(args: base.argparse.Namespace) -> list[str]:
+    command = _orig_helper_command(args)
+    command.extend(["--property-root", DEFAULT_PROPERTY_ROOT])
+    return command
 
 
 def build_checks(args: base.argparse.Namespace,
@@ -151,6 +159,7 @@ def build_manifest(args: base.argparse.Namespace, store: base.EvidenceStore) -> 
 
 
 base.build_checks = build_checks
+base.helper_command = helper_command
 base.run_live = run_live
 base.render_summary = render_summary
 base.build_manifest = build_manifest

@@ -17,7 +17,7 @@ import native_property_runtime_live_v472 as live
 live.__doc__ = __doc__
 live.DEFAULT_OUT_DIR = Path("tmp/wifi/v535-rmt-property-runtime-live")
 live.DEFAULT_V471 = Path("tmp/wifi/v535-rmt-storage-private-property-runtime/manifest.json")
-live.DEFAULT_HELPER_SHA256 = "3c41c86852c43eb475b991628ca2d9e1234f635b8b6ca80463ffa62978e230a4"
+live.DEFAULT_HELPER_SHA256 = "be213411b81f344c4c2a4bc783e88b2c9b089988da01e98302f2ad144794c621"
 live.REMOTE_WORKDIR = "/mnt/sdext/a90/private-property-v317/v535"
 live.REMOTE_PROP_ROOT = live.REMOTE_WORKDIR + "/dev/__properties__"
 live.APPROVAL_PHRASE = (
@@ -33,6 +33,28 @@ live.LOOKUP_KEYS = (
     "log.tag.vendor.rmt_storage",
     "persist.log.semlevel",
     "init.svc.vendor.rmt_storage",
+    "debug.ld.app.qrtr-ns",
+    "arm64.memtag.process.qrtr-ns",
+    "debug.ld.app.tftp_server",
+    "arm64.memtag.process.tftp_server",
+    "persist.log.tag.tftp_server",
+    "log.tag.tftp_server",
+    "debug.ld.app.pd-mapper",
+    "arm64.memtag.process.pd-mapper",
+    "persist.log.tag.pd-mapper-svc",
+    "log.tag.pd-mapper-svc",
+    "persist.vendor.pd_locater_debug",
+    "debug.ld.app.cnss_diag",
+    "arm64.memtag.process.cnss_diag",
+    "persist.log.tag.CNSS",
+    "log.tag.CNSS",
+    "debug.ld.app.cnss-daemon",
+    "arm64.memtag.process.cnss-daemon",
+    "persist.log.tag.cnss-daemon",
+    "log.tag.cnss-daemon",
+    "persist.vendor.cnss-daemon.debug_level",
+    "persist.vendor.cnss-daemon.hw_trc_disable_override",
+    "persist.vendor.cnss-daemon.kmsg_logging",
 )
 
 
@@ -71,12 +93,12 @@ def build_checks(args, layout, files, records, lookups):
             "provide exact approval phrase and flags before live private deploy",
         ),
         live.Check(
-            "helper-v67",
+            "helper-v70",
             "pass" if args.command == "plan" or args.helper_sha256 in sha_text else "blocked",
             "blocker",
             f"expected_sha={args.helper_sha256}",
             [line for line in sha_text.splitlines() if args.helper in line][:2],
-            "deploy helper v67 before property lookup proof",
+            "deploy helper v70 before property lookup proof",
         ),
         live.Check(
             "device-commands",

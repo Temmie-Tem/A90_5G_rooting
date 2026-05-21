@@ -70,7 +70,7 @@
 #define NLA_TYPE_MASK ~(NLA_F_NESTED | NLA_F_NET_BYTEORDER)
 #endif
 
-#define EXECNS_VERSION "a90_android_execns_probe v67"
+#define EXECNS_VERSION "a90_android_execns_probe v71"
 #define MAX_PATH_LEN 512
 #define MAX_CAPTURE_SIZE (1024 * 1024)
 #define MAX_LINKERCONFIG_SIZE (256 * 1024)
@@ -209,8 +209,16 @@ struct paths {
     char dev_socket[MAX_PATH_LEN];
     char property_service_socket[MAX_PATH_LEN];
     char sys[MAX_PATH_LEN];
+    char sys_bus[MAX_PATH_LEN];
+    char sys_bus_esoc[MAX_PATH_LEN];
+    char sys_bus_msm_subsys[MAX_PATH_LEN];
     char sys_class[MAX_PATH_LEN];
     char sys_class_uio[MAX_PATH_LEN];
+    char sys_devices[MAX_PATH_LEN];
+    char sys_devices_platform[MAX_PATH_LEN];
+    char sys_devices_platform_soc[MAX_PATH_LEN];
+    char sys_devices_platform_soc_mdm3[MAX_PATH_LEN];
+    char sys_devices_platform_soc_mss[MAX_PATH_LEN];
     char sys_power[MAX_PATH_LEN];
     char sys_power_wake_lock[MAX_PATH_LEN];
     char sys_power_wake_unlock[MAX_PATH_LEN];
@@ -524,6 +532,28 @@ static bool property_key_allowed(const char *key) {
            streq(key, "init.svc.wpa_supplicant") ||
            streq(key, "init.svc.cnss-daemon") ||
            streq(key, "init.svc.cnss_diag") ||
+           streq(key, "debug.ld.app.qrtr-ns") ||
+           streq(key, "arm64.memtag.process.qrtr-ns") ||
+           streq(key, "debug.ld.app.tftp_server") ||
+           streq(key, "arm64.memtag.process.tftp_server") ||
+           streq(key, "persist.log.tag.tftp_server") ||
+           streq(key, "log.tag.tftp_server") ||
+           streq(key, "debug.ld.app.pd-mapper") ||
+           streq(key, "arm64.memtag.process.pd-mapper") ||
+           streq(key, "persist.log.tag.pd-mapper-svc") ||
+           streq(key, "log.tag.pd-mapper-svc") ||
+           streq(key, "persist.vendor.pd_locater_debug") ||
+           streq(key, "debug.ld.app.cnss_diag") ||
+           streq(key, "arm64.memtag.process.cnss_diag") ||
+           streq(key, "persist.log.tag.CNSS") ||
+           streq(key, "log.tag.CNSS") ||
+           streq(key, "debug.ld.app.cnss-daemon") ||
+           streq(key, "arm64.memtag.process.cnss-daemon") ||
+           streq(key, "persist.log.tag.cnss-daemon") ||
+           streq(key, "log.tag.cnss-daemon") ||
+           streq(key, "persist.vendor.cnss-daemon.debug_level") ||
+           streq(key, "persist.vendor.cnss-daemon.hw_trc_disable_override") ||
+           streq(key, "persist.vendor.cnss-daemon.kmsg_logging") ||
            streq(key, "debug.ld.app.rmt_storage") ||
            streq(key, "arm64.memtag.process.rmt_storage") ||
            streq(key, "persist.log.tag.vendor.rmt_storage") ||
@@ -986,7 +1016,8 @@ static int parse_args(int argc, char **argv, struct config *cfg) {
             fprintf(stderr, "rmt-storage-start-only does not accept CNSS/service-manager/HAL/scan/connect allow flags\n");
             return 2;
         }
-    } else if (cfg->allow_wifi_companion_start_only) {
+    } else if (cfg->allow_wifi_companion_start_only &&
+               !is_wifi_companion_start_only_mode(cfg->mode)) {
         fprintf(stderr, "--allow-wifi-companion-start-only is only valid with wifi-companion-start-only or rmt-storage-start-only mode\n");
         return 2;
     }
@@ -1306,8 +1337,31 @@ static int init_paths(struct paths *paths) {
                     paths->dev_socket,
                     "property_service") < 0 ||
         append_path(paths->sys, sizeof(paths->sys), paths->root, "sys") < 0 ||
+        append_path(paths->sys_bus, sizeof(paths->sys_bus), paths->sys, "bus") < 0 ||
+        append_path(paths->sys_bus_esoc, sizeof(paths->sys_bus_esoc), paths->sys_bus, "esoc") < 0 ||
+        append_path(paths->sys_bus_msm_subsys,
+                    sizeof(paths->sys_bus_msm_subsys),
+                    paths->sys_bus,
+                    "msm_subsys") < 0 ||
         append_path(paths->sys_class, sizeof(paths->sys_class), paths->sys, "class") < 0 ||
         append_path(paths->sys_class_uio, sizeof(paths->sys_class_uio), paths->sys_class, "uio") < 0 ||
+        append_path(paths->sys_devices, sizeof(paths->sys_devices), paths->sys, "devices") < 0 ||
+        append_path(paths->sys_devices_platform,
+                    sizeof(paths->sys_devices_platform),
+                    paths->sys_devices,
+                    "platform") < 0 ||
+        append_path(paths->sys_devices_platform_soc,
+                    sizeof(paths->sys_devices_platform_soc),
+                    paths->sys_devices_platform,
+                    "soc") < 0 ||
+        append_path(paths->sys_devices_platform_soc_mdm3,
+                    sizeof(paths->sys_devices_platform_soc_mdm3),
+                    paths->sys_devices_platform_soc,
+                    "soc:qcom,mdm3") < 0 ||
+        append_path(paths->sys_devices_platform_soc_mss,
+                    sizeof(paths->sys_devices_platform_soc_mss),
+                    paths->sys_devices_platform_soc,
+                    "4080000.qcom,mss") < 0 ||
         append_path(paths->sys_power, sizeof(paths->sys_power), paths->sys, "power") < 0 ||
         append_path(paths->sys_power_wake_lock,
                     sizeof(paths->sys_power_wake_lock),
@@ -2086,6 +2140,18 @@ static void cleanup_paths(const struct paths *paths) {
     if (paths->sys_class_uio[0] != '\0') {
         umount2(paths->sys_class_uio, MNT_DETACH);
     }
+    if (paths->sys_bus_esoc[0] != '\0') {
+        umount2(paths->sys_bus_esoc, MNT_DETACH);
+    }
+    if (paths->sys_bus_msm_subsys[0] != '\0') {
+        umount2(paths->sys_bus_msm_subsys, MNT_DETACH);
+    }
+    if (paths->sys_devices_platform_soc_mdm3[0] != '\0') {
+        umount2(paths->sys_devices_platform_soc_mdm3, MNT_DETACH);
+    }
+    if (paths->sys_devices_platform_soc_mss[0] != '\0') {
+        umount2(paths->sys_devices_platform_soc_mss, MNT_DETACH);
+    }
     if (paths->sys_fs_selinux_null[0] != '\0') {
         unlink(paths->sys_fs_selinux_null);
     }
@@ -2152,6 +2218,30 @@ static void cleanup_paths(const struct paths *paths) {
     }
     if (paths->sys_class[0] != '\0') {
         rmdir(paths->sys_class);
+    }
+    if (paths->sys_bus_esoc[0] != '\0') {
+        rmdir(paths->sys_bus_esoc);
+    }
+    if (paths->sys_bus_msm_subsys[0] != '\0') {
+        rmdir(paths->sys_bus_msm_subsys);
+    }
+    if (paths->sys_bus[0] != '\0') {
+        rmdir(paths->sys_bus);
+    }
+    if (paths->sys_devices_platform_soc_mdm3[0] != '\0') {
+        rmdir(paths->sys_devices_platform_soc_mdm3);
+    }
+    if (paths->sys_devices_platform_soc_mss[0] != '\0') {
+        rmdir(paths->sys_devices_platform_soc_mss);
+    }
+    if (paths->sys_devices_platform_soc[0] != '\0') {
+        rmdir(paths->sys_devices_platform_soc);
+    }
+    if (paths->sys_devices_platform[0] != '\0') {
+        rmdir(paths->sys_devices_platform);
+    }
+    if (paths->sys_devices[0] != '\0') {
+        rmdir(paths->sys_devices);
     }
     if (paths->sys_fs_selinux[0] != '\0') {
         rmdir(paths->sys_fs_selinux);
@@ -2421,6 +2511,15 @@ static void print_preexec_context(const struct config *cfg, const struct paths *
     print_context_path(paths, "sys_class_uio0_map0_addr", "/sys/class/uio/uio0/maps/map0/addr");
     print_context_path(paths, "sys_class_uio0_map0_size", "/sys/class/uio/uio0/maps/map0/size");
     print_context_path(paths, "sys_class_uio0_map0_offset", "/sys/class/uio/uio0/maps/map0/offset");
+    print_context_path(paths, "sys_bus_esoc", "/sys/bus/esoc");
+    print_context_path(paths, "sys_bus_esoc_device_esoc0", "/sys/bus/esoc/devices/esoc0");
+    print_context_path(paths, "sys_bus_msm_subsys", "/sys/bus/msm_subsys");
+    print_context_path(paths, "sys_bus_msm_subsys_device_subsys9", "/sys/bus/msm_subsys/devices/subsys9");
+    print_context_path(paths, "sys_mdm3_esoc0_esoc_name", "/sys/devices/platform/soc/soc:qcom,mdm3/esoc0/esoc_name");
+    print_context_path(paths, "sys_mdm3_esoc0_esoc_link", "/sys/devices/platform/soc/soc:qcom,mdm3/esoc0/esoc_link");
+    print_context_path(paths, "sys_mdm3_esoc0_esoc_link_info", "/sys/devices/platform/soc/soc:qcom,mdm3/esoc0/esoc_link_info");
+    print_context_path(paths, "sys_mdm3_subsys9_name", "/sys/devices/platform/soc/soc:qcom,mdm3/subsys9/name");
+    print_context_path(paths, "sys_mss_subsys0_name", "/sys/devices/platform/soc/4080000.qcom,mss/subsys0/name");
     print_context_path(paths, "sys_power_wake_lock", "/sys/power/wake_lock");
     print_context_path(paths, "sys_power_wake_unlock", "/sys/power/wake_unlock");
     print_context_path(paths, "selinux_status", "/sys/fs/selinux/status");
@@ -6476,6 +6575,70 @@ static int materialize_rmt_uio_surface(const struct paths *paths,
     return 0;
 }
 
+static int bind_optional_ro_dir(const char *source,
+                                const char *target,
+                                const char *label,
+                                char *error_buf,
+                                size_t error_size) {
+    struct stat st;
+
+    if (stat(source, &st) < 0) {
+        if (errno == ENOENT || errno == ENOTDIR) {
+            return 0;
+        }
+        snprintf(error_buf, error_size, "stat %s: %s", label, strerror(errno));
+        return -1;
+    }
+    if (!S_ISDIR(st.st_mode)) {
+        snprintf(error_buf, error_size, "%s is not a directory", label);
+        errno = ENOTDIR;
+        return -1;
+    }
+    if (mkdir_p(target, 0755) < 0) {
+        snprintf(error_buf, error_size, "mkdir private %s: %s", label, strerror(errno));
+        return -1;
+    }
+    if (bind_ro(source, target) < 0) {
+        snprintf(error_buf, error_size, "bind private %s: %s", label, strerror(errno));
+        return -1;
+    }
+    return 0;
+}
+
+static int materialize_rmt_modem_detect_surface(const struct paths *paths,
+                                                char *error_buf,
+                                                size_t error_size) {
+    if (bind_optional_ro_dir("/sys/devices/platform/soc/soc:qcom,mdm3",
+                             paths->sys_devices_platform_soc_mdm3,
+                             "mdm3 sysfs",
+                             error_buf,
+                             error_size) < 0) {
+        return -1;
+    }
+    if (bind_optional_ro_dir("/sys/devices/platform/soc/4080000.qcom,mss",
+                             paths->sys_devices_platform_soc_mss,
+                             "mss sysfs",
+                             error_buf,
+                             error_size) < 0) {
+        return -1;
+    }
+    if (bind_optional_ro_dir("/sys/bus/esoc",
+                             paths->sys_bus_esoc,
+                             "esoc bus sysfs",
+                             error_buf,
+                             error_size) < 0) {
+        return -1;
+    }
+    if (bind_optional_ro_dir("/sys/bus/msm_subsys",
+                             paths->sys_bus_msm_subsys,
+                             "msm_subsys bus sysfs",
+                             error_buf,
+                             error_size) < 0) {
+        return -1;
+    }
+    return 0;
+}
+
 static int materialize_rmt_storage_runtime_surface(const struct config *cfg,
                                                    const struct paths *paths,
                                                    char *error_buf,
@@ -6508,6 +6671,9 @@ static int materialize_rmt_storage_runtime_surface(const struct config *cfg,
         }
     }
     if (materialize_rmt_uio_surface(paths, error_buf, error_size) < 0) {
+        return -1;
+    }
+    if (materialize_rmt_modem_detect_surface(paths, error_buf, error_size) < 0) {
         return -1;
     }
     if (unlink(paths->dev_kmsg) < 0 && errno != ENOENT) {
@@ -10903,6 +11069,16 @@ static bool composite_child_postflight_safe(const struct composite_child *child)
     return true;
 }
 
+static bool composite_child_runtime_gap(const struct composite_child *child, bool timed_out) {
+    if (timed_out && child->observable && child->term_sent && !child->exited_before_timeout) {
+        if (child->signal == SIGTERM || child->exit_code == 0 ||
+            (child->exit_code < 0 && child->signal == 0)) {
+            return false;
+        }
+    }
+    return child->exited_before_timeout || child->exit_code >= 0 || child->signal != 0;
+}
+
 static int run_cnss_userspace_readiness_guarded(const struct config *cfg,
                                                 const struct paths *paths,
                                                 struct buffer *stdout_buf,
@@ -11001,7 +11177,7 @@ static int run_cnss_userspace_readiness_guarded(const struct config *cfg,
         if (children[i].observable) {
             any_observable = true;
         }
-        if (children[i].exited_before_timeout || children[i].exit_code >= 0 || children[i].signal != 0) {
+        if (composite_child_runtime_gap(&children[i], *timed_out)) {
             any_runtime_gap = true;
             if (*child_exit_code < 0 && children[i].exit_code >= 0) {
                 *child_exit_code = children[i].exit_code;
@@ -11241,7 +11417,7 @@ static int run_wifi_companion_start_only_guarded(const struct config *cfg,
         if (!children[i].observable) {
             all_observable = false;
         }
-        if (children[i].exited_before_timeout || children[i].exit_code >= 0 || children[i].signal != 0) {
+        if (composite_child_runtime_gap(&children[i], *timed_out)) {
             any_runtime_gap = true;
             if (*child_exit_code < 0 && children[i].exit_code >= 0) {
                 *child_exit_code = children[i].exit_code;
@@ -11415,7 +11591,7 @@ static int run_rmt_storage_start_only_guarded(const struct config *cfg,
     stop_property_service_shim(&property_shim, paths, stdout_buf);
 
     safe = composite_child_postflight_safe(&child);
-    if (child.exited_before_timeout || child.exit_code >= 0 || child.signal != 0) {
+    if (composite_child_runtime_gap(&child, *timed_out)) {
         runtime_gap = true;
         if (child.exit_code >= 0) {
             *child_exit_code = child.exit_code;
@@ -12928,7 +13104,7 @@ static int run_wifi_hal_composite_start_only_guarded(const struct config *cfg,
         if (!children[i].observable) {
             all_observable_at_timeout = false;
         }
-        if (children[i].exited_before_timeout || children[i].exit_code >= 0 || children[i].signal != 0) {
+        if (composite_child_runtime_gap(&children[i], *timed_out)) {
             any_runtime_gap = true;
             if (*child_exit_code < 0 && children[i].exit_code >= 0) {
                 *child_exit_code = children[i].exit_code;

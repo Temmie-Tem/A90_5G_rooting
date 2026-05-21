@@ -13,6 +13,10 @@ from __future__ import annotations
 import argparse
 import datetime as dt
 import json
+import os
+import subprocess
+import sys
+import time
 from dataclasses import asdict
 from pathlib import Path
 from typing import Any
@@ -25,6 +29,10 @@ import native_property_runtime_live_v535 as v535
 
 DEFAULT_OUT_DIR = Path("tmp/wifi/v536-rmt-property-incremental-live")
 DEFAULT_V535 = Path("tmp/wifi/v535-rmt-storage-private-property-runtime/manifest.json")
+TCPCTL_SCRIPT = Path("scripts/revalidation/tcpctl_host.py")
+DEFAULT_DEVICE_IP = "192.168.7.2"
+DEFAULT_TRANSFER_PORT = 18085
+DEFAULT_NCM_STAGING_DIR = "/cache/a90-runtime/bin"
 SELECTED_RELATIVE_PATHS = (
     "layout/dev/__properties__/property_info",
     "layout/dev/__properties__/u:object_r:debug_prop:s0",
@@ -50,6 +58,10 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--chunk-size", type=int, default=v535.live.CHUNK_SIZE)
     parser.add_argument("--helper", default=v535.live.DEFAULT_HELPER)
     parser.add_argument("--helper-sha256", default=v535.live.DEFAULT_HELPER_SHA256)
+    parser.add_argument("--device-ip", default=DEFAULT_DEVICE_IP)
+    parser.add_argument("--transfer-port", type=int, default=DEFAULT_TRANSFER_PORT)
+    parser.add_argument("--transfer-method", choices=("ncm", "serial"), default="ncm")
+    parser.add_argument("--ncm-staging-dir", default=DEFAULT_NCM_STAGING_DIR)
     parser.add_argument("--approval-phrase", default="")
     parser.add_argument("--apply", action="store_true")
     parser.add_argument("--assume-yes", action="store_true")
@@ -74,12 +86,46 @@ def load_json(path: Path) -> dict[str, Any]:
     return data
 
 
+def run_host(command: list[str], *, timeout: float = 180.0) -> tuple[int, str, float]:
+    started = time.monotonic()
+    result = subprocess.run(
+        command,
+        cwd=repo_path("."),
+        check=False,
+        text=True,
+        stdout=subprocess.PIPE,
+        stderr=subprocess.STDOUT,
+        timeout=timeout,
+    )
+    return result.returncode, result.stdout, time.monotonic() - started
+
+
+def validate_ncm_staging_path(path: str) -> bool:
+    return (
+        bool(path)
+        and "\x00" not in path
+        and "'" not in path
+        and path.startswith(DEFAULT_NCM_STAGING_DIR + "/")
+        and ".." not in Path(path).parts
+        and bool(v535.live.SAFE_DEVICE_PATH_RE.match(path))
+    )
+
+
 def selected_files(layout: dict[str, Any]) -> list[v535.live.LayoutFile]:
     files_by_path = {
         item.relative_path: item
         for item in v535.live.layout_files(layout)
     }
-    return [files_by_path[path] for path in SELECTED_RELATIVE_PATHS if path in files_by_path]
+    selected_paths = set(SELECTED_RELATIVE_PATHS)
+    observed_keys = set(layout.get("rmt_storage_observed_keys") or [])
+    for mapping in layout.get("mappings", []):
+        if mapping.get("key") not in observed_keys:
+            continue
+        context = mapping.get("context")
+        if not context:
+            continue
+        selected_paths.add(f"layout/dev/__properties__/{context}")
+    return [files_by_path[path] for path in sorted(selected_paths) if path in files_by_path]
 
 
 def preflight(args: argparse.Namespace,
@@ -96,16 +142,90 @@ def deploy_delta(args: argparse.Namespace,
                  records: list[v535.live.CommandRecord],
                  files: list[v535.live.LayoutFile]) -> None:
     for index, item in enumerate(files, start=1):
-        v535.live.upload_bytes(
-            args,
-            store,
-            records,
-            item.remote_path,
-            Path(item.local_path).read_bytes(),
-            item.sha256,
-            f"file-{index:02d}",
-            v535.live.REMOTE_PROP_FILE_MODE,
-        )
+        label = f"file-{index:02d}"
+        data = Path(item.local_path).read_bytes()
+        if args.transfer_method == "ncm":
+            upload_bytes_ncm(args, store, records, item.remote_path, data, item.sha256, label, v535.live.REMOTE_PROP_FILE_MODE, index)
+        else:
+            v535.live.upload_bytes(
+                args,
+                store,
+                records,
+                item.remote_path,
+                data,
+                item.sha256,
+                label,
+                v535.live.REMOTE_PROP_FILE_MODE,
+            )
+
+
+def upload_bytes_ncm(args: argparse.Namespace,
+                     store: EvidenceStore,
+                     records: list[v535.live.CommandRecord],
+                     remote_path: str,
+                     data: bytes,
+                     expected_sha: str,
+                     label: str,
+                     mode: str,
+                     index: int) -> None:
+    staging_dir = args.ncm_staging_dir.rstrip("/")
+    staging = f"{staging_dir}/.v536-{label}-{os.getpid()}-{int(time.time())}"
+    if not v535.live.validate_device_path(remote_path):
+        raise RuntimeError(f"unsafe remote path: {remote_path}")
+    if not validate_ncm_staging_path(staging):
+        raise RuntimeError(f"unsafe NCM staging path: {staging}")
+
+    store.mkdir("host")
+    payload = store.path("host", f"{label}-payload.bin")
+    payload.write_bytes(data)
+    os.chmod(payload, 0o600)
+
+    v535.live.device_cmd(args, store, records, f"{label}-ncm-mkdir-staging", ["run", v535.live.TOYBOX, "mkdir", "-p", staging_dir])
+    v535.live.device_cmd(args, store, records, f"{label}-ncm-rm-staging", ["run", v535.live.TOYBOX, "rm", "-f", staging])
+
+    command = [
+        sys.executable,
+        str(repo_path(TCPCTL_SCRIPT)),
+        "--bridge-host",
+        args.host,
+        "--bridge-port",
+        str(args.port),
+        "--device-ip",
+        args.device_ip,
+        "--device-binary",
+        staging,
+        "--toybox",
+        v535.live.TOYBOX,
+        "install",
+        "--local-binary",
+        str(payload),
+        "--transfer-port",
+        str(args.transfer_port + index),
+    ]
+    rc, output, duration = run_host(command, timeout=max(180.0, args.timeout * 6.0))
+    rel = f"host/{label}-ncm-install.txt"
+    store.write_text(rel, output)
+    records.append(v535.live.CommandRecord(
+        name=f"{label}-ncm-install",
+        command=" ".join(command),
+        ok=rc == 0,
+        rc=rc,
+        status="host",
+        duration_sec=duration,
+        file=rel,
+        error="" if rc == 0 else output[-1000:],
+    ))
+    if rc != 0:
+        raise RuntimeError(f"NCM install failed for {remote_path}: rc={rc}")
+
+    sha_result = v535.live.device_cmd(args, store, records, f"{label}-ncm-sha-staging", ["run", v535.live.TOYBOX, "sha256sum", staging])
+    match = v535.live.SHA256_RE.search(sha_result.text)
+    actual_sha = match.group(1).lower() if match else ""
+    if actual_sha != expected_sha:
+        raise RuntimeError(f"sha256 mismatch for {staging}: expected={expected_sha} actual={actual_sha}")
+    v535.live.device_cmd(args, store, records, f"{label}-ncm-mv", ["run", v535.live.TOYBOX, "mv", "-f", staging, remote_path])
+    v535.live.device_cmd(args, store, records, f"{label}-ncm-chmod", ["run", v535.live.TOYBOX, "chmod", mode, remote_path])
+    v535.live.device_cmd(args, store, records, f"{label}-ncm-sha-final", ["run", v535.live.TOYBOX, "sha256sum", remote_path])
 
 
 def decide(args: argparse.Namespace,
