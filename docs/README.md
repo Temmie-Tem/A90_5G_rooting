@@ -142,6 +142,7 @@
 - `plans/NATIVE_INIT_V102_DIAGNOSTICS_PLAN_2026-05-03.md` – v102 diagnostics/log bundle 실행 계획
 - `plans/NATIVE_INIT_V103_WIFI_INVENTORY_PLAN_2026-05-04.md` – v103 Wi-Fi read-only inventory 실행 계획
 - `plans/NATIVE_INIT_V104_WIFI_FEASIBILITY_PLAN_2026-05-04.md` – v104 Wi-Fi enablement feasibility gate 실행 계획
+- `plans/NATIVE_INIT_V586_QRTR_COMPANION_BLOCKER_PLAN_2026-05-22.md` – V585 이후 QRTR/control-plane blocker를 boot-time 재시도 없이 read-only로 분류하는 계획
 - `plans/NATIVE_INIT_V572_BOOT_TIME_COMPANION_TIMING_PLAN_2026-05-21.md` – V571 이후 QRTR/modem readiness 타이밍 가설을 검증하기 위한 opt-in boot-time companion timing 계획
 - `plans/MINIMAL_BOOT_ALLOWLIST_2026-04-22.txt` – 현재 최소 부팅 allowlist
 - `plans/MINIMAL_BOOT_DELETE_CANDIDATES_2026-04-22.txt` – allowlist 기준 삭제 후보 스냅샷
@@ -150,6 +151,9 @@
 
 ### 4. Current Native Init Reports
 
+- `reports/NATIVE_INIT_V586_QRTR_COMPANION_BLOCKER_2026-05-22.md` – V585 private firmware mount + companion window 이후에도 QRTR proc table 부재, `QIPCRTR` socket 0, Android-only QRTR/QMI/WLAN-PD/WLFW marker 부재를 read-only로 분류
+- `reports/NATIVE_INIT_V585_COMPANION_FIRMWARE_MOUNT_LIVE_2026-05-22.md` – helper-private `apnhlos`/`modem` mount와 companion start-only window는 통과했지만 QRTR/QMI/WLFW/BDF/FW-ready marker가 없음을 확인
+- `reports/NATIVE_INIT_V584_FIRMWARE_MODEM_MOUNT_PROOF_2026-05-22.md` – native에서 Android firmware/modem mount parity를 read-only mount/cleanup proof로 재현했지만 readiness delta는 없음을 확인
 - `reports/NATIVE_INIT_V583_FIRMWARE_MOUNT_PARITY_2026-05-22.md` – Android가 QRTR modem readiness 전에 `/vendor/firmware_mnt`와 `/vendor/firmware-modem`을 마운트하지만 native global namespace에는 해당 parity가 없음을 read-only로 분류
 - `reports/NATIVE_INIT_V582_MODEM_COMPANION_CLASSIFIER_2026-05-22.md` – `sysmon-qmi`/`service-notifier`/WLAN-PD gap을 missing userspace daemon이 아닌 kernel/QMI readiness path로 분류
 - `reports/NATIVE_INIT_V581_ICNSS_ORDER_GAP_2026-05-22.md` – Android boot-complete와 최신 V580 native evidence를 비교해 native가 QRTR modem readiness/service-notifier/WLAN-PD/WLFW 단계에 진입하지 못함을 host-only로 분류
