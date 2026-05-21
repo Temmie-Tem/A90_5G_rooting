@@ -34,8 +34,11 @@ COMPANION_TERMS = (
     "service-notifier",
     "wlan_pd",
     "rmtfs",
+    "rmt_storage",
     "pd-mapper",
     "tqftp",
+    "tftp",
+    "tftp_server",
     "cnss",
     "icnss",
     "wlan",
@@ -44,7 +47,7 @@ COMPANION_TERMS = (
     "perfd",
 )
 COMPANION_RE = re.compile("|".join(re.escape(term) for term in COMPANION_TERMS), re.IGNORECASE)
-BIN_RE = re.compile(r"/(?:system|system_ext|vendor|odm|product)/.*(?:qrtr-ns|qmiproxy|sysmon-qmi|service-notifier|rmtfs|pd-mapper|tqftpserv|cnss-daemon|cnss_diag)$", re.IGNORECASE)
+BIN_RE = re.compile(r"/(?:system|system_ext|vendor|odm|product)/.*(?:qrtr-ns|qmiproxy|sysmon-qmi|service-notifier|rmtfs|rmt_storage|pd-mapper|tqftpserv|tftp_server|cnss-daemon|cnss_diag)$", re.IGNORECASE)
 QMI_READY_RE = re.compile(r"QMI Server Connected|BDF file|WLAN FW is ready|wlan_pd|sysmon-qmi|service-notifier|Modem QMI Readiness", re.IGNORECASE)
 
 ADB_COMMANDS: tuple[tuple[str, str, int], ...] = (
@@ -55,27 +58,27 @@ ADB_COMMANDS: tuple[tuple[str, str, int], ...] = (
     ),
     (
         "companion-processes",
-        "ps -AZ 2>/dev/null | grep -Ei 'qrtr|qmi|qmiproxy|sysmon|service-notifier|rmtfs|pd-mapper|tqftp|cnss|wlan|wifi|servicemanager|perfd' || true",
+        "ps -AZ 2>/dev/null | grep -Ei 'qrtr|qmi|qmiproxy|sysmon|service-notifier|rmtfs|rmt_storage|pd-mapper|tqftp|tftp|tftp_server|cnss|wlan|wifi|servicemanager|perfd' || true",
         25,
     ),
     (
         "companion-processes-wide",
-        "ps -A -o USER,PID,PPID,STAT,COMM,ARGS 2>/dev/null | grep -Ei 'qrtr|qmi|qmiproxy|sysmon|service-notifier|rmtfs|pd-mapper|tqftp|cnss|wlan|wifi|servicemanager|perfd' || true",
+        "ps -A -o USER,PID,PPID,STAT,COMM,ARGS 2>/dev/null | grep -Ei 'qrtr|qmi|qmiproxy|sysmon|service-notifier|rmtfs|rmt_storage|pd-mapper|tqftp|tftp|tftp_server|cnss|wlan|wifi|servicemanager|perfd' || true",
         25,
     ),
     (
         "companion-props",
-        "getprop | grep -Ei 'init\\.svc\\..*(qrtr|qmi|qmiproxy|sysmon|service|rmtfs|pd|tqftp|cnss|wifi|wlan)|ro\\.boottime\\..*(qrtr|qmi|qmiproxy|sysmon|service|rmtfs|pd|tqftp|cnss|wifi|wlan)|qrtr|qmi|qmiproxy|sysmon|service-notifier|rmtfs|pd-mapper|tqftp|wlan_pd|firmware' || true",
+        "getprop | grep -Ei 'init\\.svc\\..*(qrtr|qmi|qmiproxy|sysmon|service|rmtfs|rmt|pd|tqftp|tftp|cnss|wifi|wlan)|ro\\.boottime\\..*(qrtr|qmi|qmiproxy|sysmon|service|rmtfs|rmt|pd|tqftp|tftp|cnss|wifi|wlan)|qrtr|qmi|qmiproxy|sysmon|service-notifier|rmtfs|rmt_storage|pd-mapper|tqftp|tftp|tftp_server|wlan_pd|firmware' || true",
         25,
     ),
     (
         "companion-initrc",
-        "grep -RHiE 'service .*(qrtr|qmi|qmiproxy|sysmon|service-notifier|rmtfs|pd-mapper|tqftp|cnss|wifi|wlan)|on property:.*(qrtr|qmi|qmiproxy|sysmon|rmtfs|pd-mapper|tqftp|cnss|wifi|wlan)|wlan_pd|pdr' /system/etc/init /system_ext/etc/init /vendor/etc/init /odm/etc/init /product/etc/init 2>/dev/null || true",
+        "grep -RHiE 'service .*(qrtr|qmi|qmiproxy|sysmon|service-notifier|rmtfs|rmt_storage|pd-mapper|tqftp|tftp|tftp_server|cnss|wifi|wlan)|on property:.*(qrtr|qmi|qmiproxy|sysmon|rmtfs|rmt_storage|pd-mapper|tqftp|tftp|cnss|wifi|wlan)|wlan_pd|pdr' /system/etc/init /system_ext/etc/init /vendor/etc/init /odm/etc/init /product/etc/init 2>/dev/null || true",
         45,
     ),
     (
         "companion-binaries",
-        "find /system /system_ext /vendor /odm /product -type f \\( -name qrtr-ns -o -name qmiproxy -o -name sysmon-qmi -o -name service-notifier -o -name rmtfs -o -name pd-mapper -o -name tqftpserv -o -name cnss-daemon -o -name cnss_diag \\) 2>/dev/null | sort || true",
+        "find /system /system_ext /vendor /odm /product -type f \\( -name qrtr-ns -o -name qmiproxy -o -name sysmon-qmi -o -name service-notifier -o -name rmtfs -o -name rmt_storage -o -name pd-mapper -o -name tqftpserv -o -name tftp_server -o -name cnss-daemon -o -name cnss_diag \\) 2>/dev/null | sort || true",
         45,
     ),
     (
@@ -90,12 +93,12 @@ ADB_COMMANDS: tuple[tuple[str, str, int], ...] = (
     ),
     (
         "companion-dmesg",
-        "dmesg 2>/dev/null | grep -Ei 'qrtr|qmi|qmiproxy|sysmon|service-notifier|wlan_pd|rmtfs|pd-mapper|tqftp|cnss|icnss|bdf|bdwlan|regdb|firmware' | tail -n 1000 || true",
+        "dmesg 2>/dev/null | grep -Ei 'qrtr|qmi|qmiproxy|sysmon|service-notifier|wlan_pd|rmtfs|rmt_storage|pd-mapper|tqftp|tftp|tftp_server|cnss|icnss|bdf|bdwlan|regdb|firmware' | tail -n 1000 || true",
         60,
     ),
     (
         "companion-logcat",
-        "logcat -d -v threadtime 2>/dev/null | grep -Ei 'qrtr|qmi|qmiproxy|sysmon|service-notifier|wlan_pd|rmtfs|pd-mapper|tqftp|cnss|icnss|bdf|bdwlan|regdb|firmware' | tail -n 1000 || true",
+        "logcat -d -v threadtime 2>/dev/null | grep -Ei 'qrtr|qmi|qmiproxy|sysmon|service-notifier|wlan_pd|rmtfs|rmt_storage|pd-mapper|tqftp|tftp|tftp_server|cnss|icnss|bdf|bdwlan|regdb|firmware' | tail -n 1000 || true",
         75,
     ),
 )
@@ -287,7 +290,7 @@ def collect(args: argparse.Namespace, store: EvidenceStore) -> list[Capture]:
     return captures
 
 
-def decide(command: str, v520: dict[str, Any], devices: dict[str, Any], captures: list[Capture], summary: dict[str, Any]) -> tuple[str, bool, str, str]:
+def decide(command: str, serial: str | None, v520: dict[str, Any], devices: dict[str, Any], captures: list[Capture], summary: dict[str, Any]) -> tuple[str, bool, str, str]:
     if command == "plan":
         return "v521-android-companion-recapture-plan-ready", True, "plan-only; no adb command executed", "boot Android and run V521 recapture"
     if v520.get("decision") != "v520-companion-android-recapture-needed" or v520.get("pass") is not True:
@@ -295,7 +298,7 @@ def decide(command: str, v520: dict[str, Any], devices: dict[str, Any], captures
     if devices["device_count"] == 0:
         return "v521-android-adb-unavailable", True, "no Android ADB device is currently visible", "boot Android or run approved Android handoff before recapture"
     if command == "preflight":
-        if not selected_device_available(argparse.Namespace(serial=args.serial), devices):
+        if not selected_device_available(argparse.Namespace(serial=serial), devices):
             return "v521-android-adb-selection-needed", True, f"device_count={devices['device_count']}", "rerun with --serial"
         return "v521-android-recapture-preflight-ready", True, "one Android ADB device is visible", "run V521 recapture"
     if not captures or not summary.get("boot_completed"):
@@ -381,7 +384,7 @@ def build_manifest(args: argparse.Namespace, store: EvidenceStore) -> dict[str, 
     if args.command == "run" and selected_device_available(args, devices):
         captures = collect(args, store)
         android_summary = summarize(captures)
-    decision, pass_ok, reason, next_step = decide(args.command, v520, devices, captures, android_summary)
+    decision, pass_ok, reason, next_step = decide(args.command, args.serial, v520, devices, captures, android_summary)
     return {
         "generated_at": now_iso(),
         "command": args.command,
