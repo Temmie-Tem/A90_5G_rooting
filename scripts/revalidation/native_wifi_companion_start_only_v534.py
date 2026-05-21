@@ -23,8 +23,8 @@ DEFAULT_PROPERTY_ROOT = "/mnt/sdext/a90/private-property-v317/v535/dev/__propert
 
 base.__doc__ = __doc__
 base.DEFAULT_OUT_DIR = Path("tmp/wifi/v534-companion-start-only")
-base.DEFAULT_HELPER_SHA256 = "be213411b81f344c4c2a4bc783e88b2c9b089988da01e98302f2ad144794c621"
-base.DEFAULT_HELPER_MARKER = "a90_android_execns_probe v71"
+base.DEFAULT_HELPER_SHA256 = "8030c00267a35581406f6faf487090e081133f5aca1967b6d2edeae737db3948"
+base.DEFAULT_HELPER_MARKER = "a90_android_execns_probe v94"
 base.PROOF_VERSION = "V534"
 base.PROOF_SLUG = "v534-companion-start-only"
 base.LIVE_HELPER_STEP_NAME = "v534-helper-run"

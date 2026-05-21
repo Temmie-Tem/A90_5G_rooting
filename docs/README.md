@@ -97,17 +97,19 @@
 
 1. `overview/PROJECT_STATUS.md` – 현재 상태와 다음 후보를 본다.
 2. `operations/NATIVE_INIT_FLASH_AND_BRIDGE_GUIDE.md` – flash/bridge 조작 절차를 따른다.
-3. `operations/CLAUDE_NATIVE_INIT_RUNBOOK.md` – 에이전트가 실수하지 않도록 운영 규칙을 확인한다.
-4. `plans/NATIVE_INIT_TASK_QUEUE_2026-04-25.md` – 바로 이어서 할 작업 큐를 본다.
-5. `plans/NATIVE_INIT_V109_V116_ROADMAP_2026-05-04.md` – v109 이후 장기 순서를 본다.
-6. `plans/NATIVE_INIT_LONG_TERM_ROADMAP_2026-05-03.md` – v101 이후 장기 순서를 본다.
+3. `operations/DEVELOPMENT_LOOP_STANDARD.md` – 상태 확인부터 커밋까지 표준 개발 루프를 따른다.
+4. `operations/CLAUDE_NATIVE_INIT_RUNBOOK.md` – 에이전트가 실수하지 않도록 운영 규칙을 확인한다.
+5. `plans/NATIVE_INIT_TASK_QUEUE_2026-04-25.md` – 바로 이어서 할 작업 큐를 본다.
+6. `plans/NATIVE_INIT_V109_V116_ROADMAP_2026-05-04.md` – v109 이후 장기 순서를 본다.
+7. `plans/NATIVE_INIT_LONG_TERM_ROADMAP_2026-05-03.md` – v101 이후 장기 순서를 본다.
 
 ### 새 에이전트 인계
 
 1. `operations/CLAUDE_HANDOFF_PROMPT.md`
-2. `operations/CLAUDE_NATIVE_INIT_RUNBOOK.md`
-3. `overview/PROJECT_STATUS.md`
-4. `docs/README.md`
+2. `operations/DEVELOPMENT_LOOP_STANDARD.md`
+3. `operations/CLAUDE_NATIVE_INIT_RUNBOOK.md`
+4. `overview/PROJECT_STATUS.md`
+5. `docs/README.md`
 
 ## 문서 카테고리
 
@@ -120,6 +122,7 @@
 
 ### 2. Operations
 
+- `operations/DEVELOPMENT_LOOP_STANDARD.md` – native init 작업 표준 개발 루프, gate, bypass mode 기준
 - `operations/CLAUDE_NATIVE_INIT_RUNBOOK.md` – 에이전트용 bridge/TWRP/custom init 작업 런북
 - `operations/NATIVE_INIT_FLASH_AND_BRIDGE_GUIDE.md` – 사람이 직접 따라 하는 flash/bridge 운영 절차서
 - `operations/CLAUDE_HANDOFF_PROMPT.md` – Claude에게 그대로 붙여 넣는 안전 작업 프롬프트
@@ -139,6 +142,7 @@
 - `plans/NATIVE_INIT_V102_DIAGNOSTICS_PLAN_2026-05-03.md` – v102 diagnostics/log bundle 실행 계획
 - `plans/NATIVE_INIT_V103_WIFI_INVENTORY_PLAN_2026-05-04.md` – v103 Wi-Fi read-only inventory 실행 계획
 - `plans/NATIVE_INIT_V104_WIFI_FEASIBILITY_PLAN_2026-05-04.md` – v104 Wi-Fi enablement feasibility gate 실행 계획
+- `plans/NATIVE_INIT_V572_BOOT_TIME_COMPANION_TIMING_PLAN_2026-05-21.md` – V571 이후 QRTR/modem readiness 타이밍 가설을 검증하기 위한 opt-in boot-time companion timing 계획
 - `plans/MINIMAL_BOOT_ALLOWLIST_2026-04-22.txt` – 현재 최소 부팅 allowlist
 - `plans/MINIMAL_BOOT_DELETE_CANDIDATES_2026-04-22.txt` – allowlist 기준 삭제 후보 스냅샷
 - `plans/NATIVE_LINUX_RECHALLENGE_PLAN.md` – native init 진입점 확보 이전 로드맵, 보존 기록
@@ -146,6 +150,28 @@
 
 ### 4. Current Native Init Reports
 
+- `reports/NATIVE_INIT_V574_BOOTPROBE_RESCUE_ONLY_2026-05-21.md` – V572 opt-in pre-ACM block 이후 stale bootprobe flags를 소비만 하는 rescue-only boot image local build
+- `reports/NATIVE_INIT_V573_BOOTPROBE_FAIL_OPEN_RESCUE_2026-05-21.md` – V572 opt-in pre-ACM block 이후 one-shot/two-flag/fail-open rescue boot image local build
+- `reports/NATIVE_INIT_V572_BOOT_TIME_COMPANION_BOOTPROBE_2026-05-21.md` – disabled-flag flash PASS, opt-in pre-ACM bootprobe blocked USB return and led to V573 rescue
+- `reports/NATIVE_INIT_V571_QRTR_MODEM_READINESS_DELTA_2026-05-21.md` – read-only 비교 결과 native는 `QIPCRTR` protocol은 있으나 socket 0, QRTR/service-notifier/WLAN-PD/QMI readiness 미진입
+- `reports/NATIVE_INIT_V570_RMT_TFTP_IDENTITY_2026-05-21.md` – `rmt_storage`/`tftp_server`를 Android 실측 UID/GID/groups/caps로 맞춘 helper v94 identity retry 결과
+- `reports/NATIVE_INIT_V569_HAL_ERROR_UNKNOWN_DEPENDENCY_2026-05-21.md` – `IWifi.start()`는 `ERROR_UNKNOWN/9`, WLFW QRTR readback은 service event 없이 end-of-list, QIPCRTR socket 0
+- `reports/NATIVE_INIT_V568_IWIFI_START_STATUS_2026-05-21.md` – raw `IWifi.start()` transport는 성공했지만 HAL `WifiStatus.ERROR_UNKNOWN/9`, QRTR/QMI/BDF/WLFW readiness 없음
+- `reports/NATIVE_INIT_V567_HWBINDER_HANDLE_RETAIN_2026-05-21.md` – `IWifi/default` handle retain 후 raw hwbinder `IWifi.start()` transport 성공, Wi-Fi surface는 아직 없음
+- `reports/NATIVE_INIT_V566_HWBINDER_TOKEN_COMPAT_2026-05-21.md` – legacy C-string interface token으로 raw `IServiceManager.get(IWifi/default)` handle 획득, 다음 blocker는 handle lifetime
+- `reports/NATIVE_INIT_V562_LSHAL_THEN_IWIFI_START_2026-05-21.md` – 같은 dual-HAL 창에서 `lshal wait IWifi/default`는 성공하지만 raw hwbinder get은 service-null, raw parcel 계약 수리 필요
+- `reports/NATIVE_INIT_V561_COMPANION_DUAL_HAL_WIFICOND_IWIFI_START_2026-05-21.md` – dual-HAL 등록 후 raw hwbinder `get(IWifi/default)`는 service-null, `IWifi.start()` 미실행
+- `reports/NATIVE_INIT_V560_COMPANION_DUAL_HAL_WIFICOND_IWIFI_REGISTRATION_2026-05-21.md` – Android-like dual-HAL 창에서 AOSP `IWifi/default` 등록 관측, 다음은 bounded `IWifi.start()`
+- `reports/NATIVE_INIT_V559_COMPANION_HAL_WIFICOND_IWIFI_REGISTRATION_2026-05-21.md` – Samsung `ISehWifi/default` 등록 후에도 AOSP `IWifi/default`는 Samsung-HAL-only 창에서 timeout, dual-HAL 필요
+- `reports/NATIVE_INIT_V558_COMPANION_HAL_WIFICOND_REGISTRATION_2026-05-21.md` – V557 11-child window에서 Samsung Wi-Fi HAL `ISehWifi/default` 등록 관측, 아직 firmware/netdev marker 없음
+- `reports/NATIVE_INIT_V557_COMPANION_HAL_WIFICOND_ORDER_2026-05-21.md` – service-manager/companion/HAL/`wificond`/CNSS 11-child start-only window cleanup-safe, WLFW/QMI/BDF는 여전히 없음
+- `reports/NATIVE_INIT_V556_COMPANION_HAL_ORDER_2026-05-21.md` – service-manager/companion/HAL/CNSS 10-child start-only window cleanup-safe, WLFW/QMI/BDF는 여전히 없음
+- `reports/NATIVE_INIT_V555_QMI_COMPANION_GAP_2026-05-21.md` – `qmiproxy`/`ssgqmigd`는 init 선언만 있고 startable binary가 없어 combined companion+HAL order proof로 전환
+- `reports/NATIVE_INIT_V554_COMPANION_QRTR_WLFW_READBACK_2026-05-21.md` – companion window에서 WLFW QRTR readback end-of-list, Android modem/QRTR companion gap 확인 필요
+- `reports/NATIVE_INIT_V553_FD_DETAIL_MAPPER_2026-05-21.md` – fdinfo/tcp6/udp6/raw/raw6 추가 후에도 13개 socket fd unmapped, QRTR-specific readback 필요
+- `reports/NATIVE_INIT_V552_SOCKET_FAMILY_MAPPER_2026-05-21.md` – companion socket fd를 `unix`/`netlink`/unmapped으로 분류, QRTR 후보 fd 추가 확인 필요
+- `reports/NATIVE_INIT_V551_QRTR_WINDOW_SNAPSHOT_2026-05-21.md` – companion window에서 `QIPCRTR` socket count 0 확인, socket family mapper 필요
+- `reports/NATIVE_INIT_V550_VNDSERVICEMANAGER_COPYREAL_REPLAY_2026-05-21.md` – copy-real linkerconfig로 `vndservicemanager` 관측, binder gap 해소, QRTR/QMI blocker 전환
 - `reports/NATIVE_INIT_V54_NCM_LINK_2026-04-25.md` – USB NCM persistent link, IPv4/IPv6 ping, host→device netcat 검증
 - `reports/NATIVE_INIT_V55_NCM_OPS_2026-04-25.md` – NCM host setup helper와 양방향 TCP nettest helper 검증
 - `reports/NATIVE_INIT_V56_TCPCTL_2026-04-26.md` – NCM 위의 작은 TCP command service helper 검증

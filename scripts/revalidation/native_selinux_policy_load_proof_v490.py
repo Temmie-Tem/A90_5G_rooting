@@ -22,7 +22,7 @@ import native_selinux_policy_inventory_v488 as base
 
 base.__doc__ = __doc__
 base.DEFAULT_OUT_DIR = Path("tmp/wifi/v490-native-selinux-policy-load-proof")
-base.DEFAULT_HELPER_SHA256 = "be213411b81f344c4c2a4bc783e88b2c9b089988da01e98302f2ad144794c621"
+base.DEFAULT_HELPER_SHA256 = "8030c00267a35581406f6faf487090e081133f5aca1967b6d2edeae737db3948"
 base.APPROVAL_PHRASE = (
     "approve v490 native SELinux policy-load proof only; "
     "no init reexec, no daemon start and no Wi-Fi bring-up"
@@ -116,26 +116,9 @@ def build_checks(args: base.argparse.Namespace,
     base.add_check(checks, "native-clean", "pass" if "fail=0" in status else "blocked", "blocker",
                    "status/selftest fail=0 expected", [line for line in status.splitlines() if "selftest:" in line][:2],
                    "fix native runtime before SELinux policy-load proof")
-    helper_marker_ready = any(
-        marker in helper_usage
-        for marker in (
-            "a90_android_execns_probe v48",
-            "a90_android_execns_probe v52",
-            "a90_android_execns_probe v53",
-            "a90_android_execns_probe v60",
-            "a90_android_execns_probe v61",
-            "a90_android_execns_probe v62",
-            "a90_android_execns_probe v63",
-            "a90_android_execns_probe v64",
-            "a90_android_execns_probe v65",
-            "a90_android_execns_probe v66",
-            "a90_android_execns_probe v67",
-            "a90_android_execns_probe v68",
-            "a90_android_execns_probe v69",
-            "a90_android_execns_probe v70",
-            "a90_android_execns_probe v71",
-        )
-    )
+    helper_marker_match = base.re.search(r"a90_android_execns_probe v([0-9]+)", helper_usage)
+    helper_marker_version = int(helper_marker_match.group(1)) if helper_marker_match else 0
+    helper_marker_ready = helper_marker_version >= 48
     sha_match = base.helper_sha_matches(args.helper_sha256, helper_sha, args.helper)
     helper_ready = (
         sha_match
@@ -147,7 +130,12 @@ def build_checks(args: base.argparse.Namespace,
                    f"sha_match={sha_match} marker={helper_marker_ready} mode={'sepolicy-load-proof' in helper_usage} allow_flag={'--allow-policy-load-proof' in helper_usage}",
                    [line for line in helper_sha.splitlines() if args.helper in line][:2],
                    "deploy helper v48 before V490 run")
-    system_root_ready = "/mnt/system/system" in system_root and "/mnt/system/system/bin" in system_root
+    system_root_ready = bool(
+        steps.get("system-root")
+        and steps["system-root"].ok
+        and "/mnt/system/system" in system_root
+        and "/mnt/system/system/bin" in system_root
+    )
     base.add_check(checks, "system-root-mounted", "pass" if system_root_ready else "blocked", "blocker",
                    "Android system root must be mounted before policy load proof",
                    [line for line in system_root.splitlines() if "/mnt/system/system" in line][:4],

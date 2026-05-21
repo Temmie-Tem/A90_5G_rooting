@@ -17,7 +17,7 @@ import native_property_runtime_live_v472 as live
 live.__doc__ = __doc__
 live.DEFAULT_OUT_DIR = Path("tmp/wifi/v535-rmt-property-runtime-live")
 live.DEFAULT_V471 = Path("tmp/wifi/v535-rmt-storage-private-property-runtime/manifest.json")
-live.DEFAULT_HELPER_SHA256 = "be213411b81f344c4c2a4bc783e88b2c9b089988da01e98302f2ad144794c621"
+live.DEFAULT_HELPER_SHA256 = "8030c00267a35581406f6faf487090e081133f5aca1967b6d2edeae737db3948"
 live.REMOTE_WORKDIR = "/mnt/sdext/a90/private-property-v317/v535"
 live.REMOTE_PROP_ROOT = live.REMOTE_WORKDIR + "/dev/__properties__"
 live.APPROVAL_PHRASE = (
