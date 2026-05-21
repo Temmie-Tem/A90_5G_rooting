@@ -110,22 +110,26 @@ ADB_COMMANDS: tuple[tuple[str, str, int], ...] = (
         "wifi-cnss-props",
         "getprop | grep -Ei 'init\\.svc\\..*(wifi|wlan|wificond|supplicant|hostapd|cnss|icnss|qca)|"
         "ro\\.boottime\\..*(wifi|wlan|wificond|supplicant|hostapd|cnss|icnss|qca)|"
-        "wifi|wlan|wificond|supplicant|hostapd|cnss|icnss|wcn|qca|qcacld|qmi|firmware' || true",
+        "wifi|wlan|wificond|supplicant|hostapd|cnss|icnss|wcn|qca|qcacld|qmi|qrtr|"
+        "qmiproxy|sysmon|service-notifier|rmtfs|pd-mapper|tqftp|firmware' || true",
         25,
     ),
     (
         "processes-wifi-cnss",
-        "ps -AZ 2>/dev/null | grep -Ei 'wifi|wlan|wificond|supplicant|hostapd|cnss|icnss|wcn|qca|qcacld|qmi|qrtr' || "
-        "ps -A 2>/dev/null | grep -Ei 'wifi|wlan|wificond|supplicant|hostapd|cnss|icnss|wcn|qca|qcacld|qmi|qrtr' || true",
+        "ps -AZ 2>/dev/null | grep -Ei 'wifi|wlan|wificond|supplicant|hostapd|cnss|icnss|wcn|qca|qcacld|qmi|qrtr|"
+        "qmiproxy|sysmon|service-notifier|rmtfs|pd-mapper|tqftp|perfd|servicemanager' || "
+        "ps -A 2>/dev/null | grep -Ei 'wifi|wlan|wificond|supplicant|hostapd|cnss|icnss|wcn|qca|qcacld|qmi|qrtr|"
+        "qmiproxy|sysmon|service-notifier|rmtfs|pd-mapper|tqftp|perfd|servicemanager' || true",
         25,
     ),
     (
         "initrc-wifi-cnss",
         "grep -RHiE 'service .*("
-        "wifi|wlan|wificond|supplicant|hostapd|cnss|icnss|wcn|qca|qmi)|"
-        "on property:.*(wifi|wlan|cnss|icnss|wcn|qca)|"
+        "wifi|wlan|wificond|supplicant|hostapd|cnss|icnss|wcn|qca|qmi|qrtr|qmiproxy|"
+        "sysmon|service-notifier|rmtfs|pd-mapper|tqftp|perfd)|"
+        "on property:.*(wifi|wlan|cnss|icnss|wcn|qca|qmi|qrtr|rmtfs|pd-mapper|tqftp)|"
         "class_start .*wifi|class .*wifi|capabilities .*NET_(RAW|ADMIN)|group .*net_(raw|admin)|"
-        "firmware|vendor\\.wifi|android\\.hardware\\.wifi' "
+        "firmware|vendor\\.wifi|android\\.hardware\\.wifi|wlan_pd|pdr|service_notifier' "
         "/system/etc/init /system_ext/etc/init /vendor/etc/init /odm/etc/init /product/etc/init 2>/dev/null || true",
         45,
     ),
@@ -176,12 +180,14 @@ ADB_COMMANDS: tuple[tuple[str, str, int], ...] = (
     ),
     (
         "dmesg-wifi-cnss-tail",
-        "dmesg 2>/dev/null | grep -Ei 'wifi|wlan|wificond|supplicant|hostapd|cnss|icnss|wcn|qca|qcacld|firmware|qmi|qrtr|bdf|bdwlan|regdb|nl80211|cfg80211|pdr|ssr' | tail -n 800 || true",
+        "dmesg 2>/dev/null | grep -Ei 'wifi|wlan|wificond|supplicant|hostapd|cnss|icnss|wcn|qca|qcacld|firmware|qmi|qrtr|"
+        "qmiproxy|sysmon|service-notifier|wlan_pd|rmtfs|pd-mapper|tqftp|bdf|bdwlan|regdb|nl80211|cfg80211|pdr|ssr' | tail -n 800 || true",
         60,
     ),
     (
         "logcat-wifi-cnss-tail",
-        "logcat -d -v threadtime 2>/dev/null | grep -Ei 'wifi|wlan|wificond|supplicant|hostapd|cnss|icnss|wcn|qca|qcacld|firmware|qmi|qrtr|bdf|bdwlan|regdb|nl80211|cfg80211|pdr|ssr' | tail -n 800 || true",
+        "logcat -d -v threadtime 2>/dev/null | grep -Ei 'wifi|wlan|wificond|supplicant|hostapd|cnss|icnss|wcn|qca|qcacld|firmware|qmi|qrtr|"
+        "qmiproxy|sysmon|service-notifier|wlan_pd|rmtfs|pd-mapper|tqftp|bdf|bdwlan|regdb|nl80211|cfg80211|pdr|ssr' | tail -n 800 || true",
         75,
     ),
 )
