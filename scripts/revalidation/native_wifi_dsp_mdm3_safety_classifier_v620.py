@@ -122,6 +122,24 @@ FORBIDDEN_ACTIONS = [
     "credential/DHCP/routing/external ping",
 ]
 
+EXTERNAL_REFERENCES = [
+    {
+        "title": "postmarketOS SDM845 Wi-Fi notes",
+        "url": "https://wiki.postmarketos.org/wiki/Qualcomm_Snapdragon_845/850_%28SDM845/SDM850%29",
+        "relevance": "Adjacent Qualcomm Wi-Fi notes list rmtfs, pd-mapper, and tqftpserv as firmware-loading prerequisites.",
+    },
+    {
+        "title": "pmaports QRTR dependency issue",
+        "url": "https://gitlab.com/postmarketOS/pmaports/-/issues/863",
+        "relevance": "pmaports discusses pd-mapper/tqftpserv dependence on QRTR or kernel QRTR availability.",
+    },
+    {
+        "title": "pmaports SM8150 kernel upgrade",
+        "url": "https://gitlab.com/postmarketOS/pmaports/-/merge_requests/3019",
+        "relevance": "SM8150 mainline history exists, but no vendor-kernel mdm_helper/esoc start recipe is exposed here.",
+    },
+]
+
 
 @dataclass(frozen=True)
 class Event:
@@ -331,12 +349,23 @@ def evidence_rows(manifest: dict[str, Any]) -> list[list[str]]:
         ],
         [
             "mdm3/esoc0 state",
-            "strong pre-service-notifier blocker",
+            "state delta, not notifier prerequisite",
             (
                 f"android mdm3={android['mdm3_state']}, sysmon_esoc0={android['counts'].get('sysmon_esoc0', 0)}; "
-                f"v619 mdm3={v619['mdm3_after_companion']}, sysmon_esoc0={v619['counts'].get('sysmon_esoc0', 0)}"
+                f"v619 mdm3={v619['mdm3_after_companion']}, sysmon_esoc0={v619['counts'].get('sysmon_esoc0', 0)}; "
+                f"android 180->esoc0={android['deltas_ms'].get('service_notifier_180_to_sysmon_esoc0')}ms"
             ),
-            "resolve mdm_helper/launcher/wcnss-service trigger path before live writes",
+            "do not claim sysmon_esoc0 is required before service-notifier",
+        ],
+        [
+            "sysmon_esoc0 timing",
+            "not causal for first notifier",
+            (
+                f"android sysmon_modem->180={android['deltas_ms'].get('sysmon_modem_to_service_notifier_180')}ms; "
+                f"android 180->esoc0={android['deltas_ms'].get('service_notifier_180_to_sysmon_esoc0')}ms; "
+                f"android wlan_pd->esoc0={android['deltas_ms'].get('wlan_pd_to_sysmon_esoc0')}ms"
+            ),
+            "focus next analysis on mdm_helper/launcher path and same-boot timing",
         ],
         [
             "direct DSP boot nodes",
@@ -376,7 +405,7 @@ def evidence_rows(manifest: dict[str, Any]) -> list[list[str]]:
                 f"launcher={bool_text(bool(manifest['vendor_static_hits'].get('mdm_launcher_service')))}; "
                 f"baseband_gate={bool_text(bool(manifest['vendor_static_hits'].get('mdm_helper_baseband_gate')))}"
             ),
-            "classify exact Android trigger/identity before any start-only proof",
+            "classify exact Android trigger/identity and ioctl/property path before any start-only proof",
         ],
     ]
 
@@ -397,6 +426,7 @@ def classify(manifest: dict[str, Any]) -> tuple[str, bool, str, str]:
     v619_lacks_esoc0 = v619["counts"].get("sysmon_esoc0", 0) == 0
     direct_dsp_unsafe = v619["marker_counts"].get("kernel_warning", 0) > 0
     order_falsified = v619["order"] == ANDROID_ORDER and v619_missing_notifier
+    esoc0_after_notifier = (android["deltas_ms"].get("service_notifier_180_to_sysmon_esoc0") or 0) > 0
 
     if (
         prior_pass
@@ -409,17 +439,18 @@ def classify(manifest: dict[str, Any]) -> tuple[str, bool, str, str]:
         and v619_lacks_esoc0
         and direct_dsp_unsafe
         and order_falsified
+        and esoc0_after_notifier
     ):
         return (
-            "v620-mdm3-trigger-gap-classified",
+            "v620-esoc0-notifier-causality-refined",
             True,
             (
-                "Android publishes service-notifier after lower sysmon with mdm3/esoc0 online, "
+                "Android publishes service-notifier after lower sysmon before sysmon_esoc0 appears, "
                 "while V619 reproduces sibling sysmon under Android-order companion but leaves "
-                "mdm3 OFFLINING, lacks esoc0 sysmon, and triggers pm_qos warnings. "
-                "The remaining gap is lower mdm3/esoc0 QMI service publication, not CNSS/HAL or companion order."
+                "mdm3 OFFLINING, lacks service-notifier, and triggers pm_qos warnings. "
+                "Missing sysmon_esoc0 is a later state delta, not a proven pre-notifier cause."
             ),
-            "V621 should remain host-only and resolve vendor.mdm_helper/launcher/wcnss-service trigger contracts before any bounded start-only proof",
+            "V621 should remain host-only and resolve vendor.mdm_helper/launcher ioctl/property timing before any bounded start-only proof",
         )
 
     if direct_dsp_unsafe:
@@ -547,6 +578,11 @@ def build_manifest(args: argparse.Namespace) -> dict[str, Any]:
         "wifi_bringup_executed": False,
         "external_ping_executed": False,
     }
+    manifest["android_v611"]["deltas_ms"].update({
+        "service_notifier_180_to_sysmon_esoc0": delta_ms(android_found, "sysmon_esoc0", "service_notifier_180"),
+        "wlan_pd_to_sysmon_esoc0": delta_ms(android_found, "sysmon_esoc0", "wlan_pd"),
+        "qmi_server_connected_to_sysmon_esoc0": delta_ms(android_found, "sysmon_esoc0", "qmi_server_connected"),
+    })
 
     if args.command == "plan":
         decision, pass_ok, reason, next_step = (
@@ -570,9 +606,11 @@ def build_manifest(args: argparse.Namespace) -> dict[str, Any]:
         "userspace_cnss_daemon_not_primary_trigger": True,
         "android_order_lower_companion_falsified": manifest["native_v619"]["order"] == ANDROID_ORDER,
         "direct_dsp_boot_node_retry_blocked_by_warning": manifest["native_v619"]["marker_counts"].get("kernel_warning", 0) > 0,
-        "mdm3_esoc0_publication_is_current_gap": decision == "v620-mdm3-trigger-gap-classified",
+        "sysmon_esoc0_is_not_pre_notifier_prerequisite": decision == "v620-esoc0-notifier-causality-refined",
+        "mdm3_state_delta_still_unresolved": True,
         "wifi_bringup_still_blocked": True,
     }
+    manifest["external_references"] = EXTERNAL_REFERENCES
     return manifest
 
 
@@ -613,6 +651,8 @@ def render_summary(manifest: dict[str, Any]) -> str:
                 ["sysmon_modem_to_service_notifier_180_ms", str(android["deltas_ms"].get("sysmon_modem_to_service_notifier_180"))],
                 ["service_notifier_180_to_wlan_pd_ms", str(android["deltas_ms"].get("service_notifier_180_to_wlan_pd"))],
                 ["service_notifier_180_to_qmi_server_connected_ms", str(android["deltas_ms"].get("service_notifier_180_to_qmi_server_connected"))],
+                ["service_notifier_180_to_sysmon_esoc0_ms", str(android["deltas_ms"].get("service_notifier_180_to_sysmon_esoc0"))],
+                ["wlan_pd_to_sysmon_esoc0_ms", str(android["deltas_ms"].get("wlan_pd_to_sysmon_esoc0"))],
             ],
         ),
         "",
@@ -638,6 +678,13 @@ def render_summary(manifest: dict[str, Any]) -> str:
         "## Inferences",
         "",
         markdown_table(["key", "value"], [[key, str(value)] for key, value in manifest["inferences"].items()]),
+        "",
+        "## External References",
+        "",
+        markdown_table(
+            ["title", "url", "relevance"],
+            [[item["title"], item["url"], item["relevance"]] for item in manifest["external_references"]],
+        ),
         "",
         "## Guardrails",
         "",
