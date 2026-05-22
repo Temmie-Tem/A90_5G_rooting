@@ -142,6 +142,7 @@
 - `plans/NATIVE_INIT_V102_DIAGNOSTICS_PLAN_2026-05-03.md` – v102 diagnostics/log bundle 실행 계획
 - `plans/NATIVE_INIT_V103_WIFI_INVENTORY_PLAN_2026-05-04.md` – v103 Wi-Fi read-only inventory 실행 계획
 - `plans/NATIVE_INIT_V104_WIFI_FEASIBILITY_PLAN_2026-05-04.md` – v104 Wi-Fi enablement feasibility gate 실행 계획
+- `plans/NATIVE_INIT_V610_QMI_PUBLICATION_PRECONDITION_PLAN_2026-05-23.md` – V609 이후 Android/native lower QMI publication precondition을 host-only로 비교하는 계획
 - `plans/NATIVE_INIT_V609_POST_SYSMON_OBSERVER_PLAN_2026-05-23.md` – V608 이후 CNSS 없이 QRTR/sysmon 이후 service-notifier publication을 관찰하는 bounded observer 계획
 - `plans/NATIVE_INIT_V608_HELPER_V100_BASELINE_REPLAY_PLAN_2026-05-23.md` – V607의 helper-version delta를 검증하기 위해 helper v100으로 V598 no-service-manager baseline을 재생하는 bounded live 계획
 - `plans/NATIVE_INIT_V607_QMI_SERVICE_PUBLICATION_DELTA_PLAN_2026-05-23.md` – V598-positive/V606-negative 증거를 host-only로 비교해 `sysmon-qmi` 이후 QMI service publication 갭을 분류하는 계획
@@ -164,6 +165,7 @@
 
 ### 4. Current Native Init Reports
 
+- `reports/NATIVE_INIT_V609_POST_SYSMON_OBSERVER_LIVE_2026-05-23.md` – CNSS 없는 post-sysmon observer에서 QRTR TX/`sysmon-qmi`까지 도달했지만 `service-notifier`/WLFW service `69`는 미등록이라 lower QMI publication precondition 갭으로 분류
 - `reports/NATIVE_INIT_V609_POST_SYSMON_OBSERVER_PREP_2026-05-23.md` – helper v103에 CNSS 없는 post-sysmon observer mode를 추가하고 runner/deploy preflight를 검증해 V609 live 준비 완료
 - `reports/NATIVE_INIT_V608_HELPER_V100_BASELINE_REPLAY_2026-05-23.md` – helper v100 재배포 후 V598 baseline을 재생해도 `service-notifier` `180`이 복구되지 않아 lower modem QMI publication 안정성/전제조건 갭으로 재분류
 - `reports/NATIVE_INIT_V607_QMI_SERVICE_PUBLICATION_DELTA_2026-05-23.md` – V598/V606 비교에서 lower readiness/order/readback/timing은 같고 helper marker만 v100→v102로 바뀐 상태에서 `service-notifier` `180`이 소실되어 helper v100 replay를 다음 gate로 선정
