@@ -193,6 +193,7 @@
 
 ### 4. Current Native Init Reports
 
+- `reports/NATIVE_INIT_V640_SAFE_SIBLING_TRIGGER_RECLASSIFICATION_2026-05-23.md` – V640 host-only 결과 service `74` 이전 미검증 non-write daemon 후보는 없고 late all-sibling write는 차단되어 다음은 rollback-ready firmware-backed early-boot sibling trigger proof로 분류
 - `reports/NATIVE_INIT_V639_SIBLING_WARNING_ATTRIBUTION_2026-05-23.md` – V639 host-only 결과 V638 `pm_qos` warnings는 late all-sibling ADSP/CDSP/SLPI direct write sequence에 묶이고 CDSP-only/V636 service-180 path는 warning-free라 direct all-sibling retry를 중단
 - `reports/NATIVE_INIT_V638_FIRMWARE_SIBLING_SSCTL_COMPOSITE_LIVE_2026-05-23.md` – V638 live 결과 firmware-backed ADSP/CDSP/SLPI child writes는 모두 반환됐지만 sibling `sysmon-qmi`/service `74`/WLAN-PD/WLFW/`wlan0`는 진전 없고 `pm_qos` kernel warning이 발생해 direct all-sibling write path를 중단
 - `reports/NATIVE_INIT_V638_FIRMWARE_SIBLING_SSCTL_COMPOSITE_PREP_2026-05-23.md` – V638 prep 결과 firmware-backed ADSP/CDSP/SLPI per-node sibling SSCTL composite runner가 preflight-ready이며 live는 child timeout/reap, marker capture, mount cleanup, reboot cleanup으로 제한
