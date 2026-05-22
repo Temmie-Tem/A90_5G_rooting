@@ -142,6 +142,7 @@
 - `plans/NATIVE_INIT_V102_DIAGNOSTICS_PLAN_2026-05-03.md` – v102 diagnostics/log bundle 실행 계획
 - `plans/NATIVE_INIT_V103_WIFI_INVENTORY_PLAN_2026-05-04.md` – v103 Wi-Fi read-only inventory 실행 계획
 - `plans/NATIVE_INIT_V104_WIFI_FEASIBILITY_PLAN_2026-05-04.md` – v104 Wi-Fi enablement feasibility gate 실행 계획
+- `plans/NATIVE_INIT_V635_FIRMWARE_CDSP_ONLY_PROOF_PLAN_2026-05-23.md` – V634 firmware mount parity에 CDSP-only bounded boot-node write를 더해 service `74`/WLAN-PD 진입 여부를 확인하는 V635 계획
 - `plans/NATIVE_INIT_V634_FIRMWARE_MOUNT_PARITY_PLAN_2026-05-23.md` – V633 firmware surface missing 이후 `apnhlos`/`modem` read-only mount parity와 cleanup을 검증하는 V634 계획
 - `plans/NATIVE_INIT_V633_CDSP_SURFACE_READONLY_PLAN_2026-05-23.md` – V632 이후 native v319에서 CDSP boot-node/subsys/firmware/dmesg surface를 read-only로 수집하는 V633 계획
 - `plans/NATIVE_INIT_V632_CDSP_BLOCKER_CLASSIFIER_PLAN_2026-05-23.md` – V631이 CDSP timeout을 격리한 뒤 CDSP loader/firmware/readiness prerequisite을 host-only로 분류하는 V632 계획
@@ -187,6 +188,7 @@
 
 ### 4. Current Native Init Reports
 
+- `reports/NATIVE_INIT_V635_FIRMWARE_CDSP_ONLY_PROOF_LIVE_2026-05-23.md` – V635 live 결과 firmware mount 상태에서 CDSP write는 timeout 없이 반환되고 CDSP PIL/reset/power-clock까지 진행했지만 `sysmon_cdsp`/service `74`/WLAN-PD/WLFW는 없어 post-CDSP-online gap이 다음 blocker
 - `reports/NATIVE_INIT_V634_FIRMWARE_MOUNT_PARITY_LIVE_2026-05-23.md` – V634 live 결과 `apnhlos -> /vendor/firmware_mnt`, `modem -> /vendor/firmware-modem` read-only mount와 cleanup은 PASS, mount-only QRTR delta는 없어 V635 CDSP-only bounded proof가 다음 gate
 - `reports/NATIVE_INIT_V633_CDSP_SURFACE_READONLY_LIVE_2026-05-23.md` – V633 live read-only 결과 `firmware_class.path=/vendor/firmware_mnt/image`이지만 native v319에 matching firmware mount/dir가 없어 CDSP write 전 firmware surface mount/verify가 다음 gate
 - `reports/NATIVE_INIT_V632_CDSP_BLOCKER_CLASSIFIER_2026-05-23.md` – V632 host-only 결과 V631의 CDSP-only timeout과 Android V622 CDSP/service `74` timing을 묶어 다음 gate를 read-only native CDSP surface collector로 분류
