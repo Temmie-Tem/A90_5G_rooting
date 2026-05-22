@@ -142,6 +142,7 @@
 - `plans/NATIVE_INIT_V102_DIAGNOSTICS_PLAN_2026-05-03.md` – v102 diagnostics/log bundle 실행 계획
 - `plans/NATIVE_INIT_V103_WIFI_INVENTORY_PLAN_2026-05-04.md` – v103 Wi-Fi read-only inventory 실행 계획
 - `plans/NATIVE_INIT_V104_WIFI_FEASIBILITY_PLAN_2026-05-04.md` – v104 Wi-Fi enablement feasibility gate 실행 계획
+- `plans/NATIVE_INIT_V639_SIBLING_WARNING_ATTRIBUTION_PLAN_2026-05-23.md` – V638 `pm_qos` warning 재발을 V619/V635/V636과 비교해 direct all-sibling write retry 가능 여부를 host-only로 분류하는 V639 계획
 - `plans/NATIVE_INIT_V638_FIRMWARE_SIBLING_SSCTL_COMPOSITE_PLAN_2026-05-23.md` – V637 이후 firmware-backed ADSP/CDSP/SLPI per-node sibling SSCTL write가 Android-like sibling `sysmon-qmi`/service `74`를 만드는지 검증하는 V638 bounded live 계획
 - `plans/NATIVE_INIT_V637_SERVICE74_POST_CDSP_CLASSIFIER_PLAN_2026-05-23.md` – V636 CDSP-online + V598 composite가 service `180`까지만 재현한 뒤 service `74` blocker가 CDSP power가 아닌 sibling SSCTL sysmon 계층인지 host-only로 분류하는 V637 계획
 - `plans/NATIVE_INIT_V636_CDSP_V598_COMPOSITE_PLAN_2026-05-23.md` – V635 CDSP-online proof와 V625/V627 V598-class partial-positive를 같은 boot에서 결합해 service `74`/WLAN-PD/WLFW 진전 여부를 확인하는 V636 계획
@@ -191,6 +192,7 @@
 
 ### 4. Current Native Init Reports
 
+- `reports/NATIVE_INIT_V639_SIBLING_WARNING_ATTRIBUTION_2026-05-23.md` – V639 host-only 결과 V638 `pm_qos` warnings는 late all-sibling ADSP/CDSP/SLPI direct write sequence에 묶이고 CDSP-only/V636 service-180 path는 warning-free라 direct all-sibling retry를 중단
 - `reports/NATIVE_INIT_V638_FIRMWARE_SIBLING_SSCTL_COMPOSITE_LIVE_2026-05-23.md` – V638 live 결과 firmware-backed ADSP/CDSP/SLPI child writes는 모두 반환됐지만 sibling `sysmon-qmi`/service `74`/WLAN-PD/WLFW/`wlan0`는 진전 없고 `pm_qos` kernel warning이 발생해 direct all-sibling write path를 중단
 - `reports/NATIVE_INIT_V638_FIRMWARE_SIBLING_SSCTL_COMPOSITE_PREP_2026-05-23.md` – V638 prep 결과 firmware-backed ADSP/CDSP/SLPI per-node sibling SSCTL composite runner가 preflight-ready이며 live는 child timeout/reap, marker capture, mount cleanup, reboot cleanup으로 제한
 - `reports/NATIVE_INIT_V637_SERVICE74_POST_CDSP_CLASSIFIER_2026-05-23.md` – V637 host-only 결과 CDSP power/ONLINE은 Android CDSP SSCTL `sysmon-qmi`와 다르며 V636이 service `180`까지만 재현했으므로 다음은 firmware-backed per-node sibling SSCTL composite observer 계획
