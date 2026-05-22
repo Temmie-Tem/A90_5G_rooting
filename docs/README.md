@@ -142,6 +142,7 @@
 - `plans/NATIVE_INIT_V102_DIAGNOSTICS_PLAN_2026-05-03.md` – v102 diagnostics/log bundle 실행 계획
 - `plans/NATIVE_INIT_V103_WIFI_INVENTORY_PLAN_2026-05-04.md` – v103 Wi-Fi read-only inventory 실행 계획
 - `plans/NATIVE_INIT_V104_WIFI_FEASIBILITY_PLAN_2026-05-04.md` – v104 Wi-Fi enablement feasibility gate 실행 계획
+- `plans/NATIVE_INIT_V650_POST_WARNING_CONTINUATION_PLAN_2026-05-23.md` – Android V649와 native V644의 ASoC warning 이후 WLFW/WLAN-PD/QMI/BDF/`wlan0` continuation 차이를 비교하는 V650 계획
 - `plans/NATIVE_INIT_V649_ANDROID_FULL_AUDIO_WIFI_RECAPTURE_PLAN_2026-05-23.md` – Android same-boot audio/ASoC + Wi-Fi lower-surface full dmesg reference를 수집하는 V649 계획
 - `plans/NATIVE_INIT_V648_AUDIO_ASOC_PARITY_GUARD_PLAN_2026-05-23.md` – V647 이후 current native idle audio surface와 V644/Android evidence를 비교해 ASoC warning guard를 정하는 V648 계획
 - `plans/NATIVE_INIT_V647_WARNING_SOURCE_CLASSIFIER_PLAN_2026-05-23.md` – V644 service `74` 직후 warning이 Wi-Fi QMI/HAL이 아니라 ASoC duplicate `pm_qos` 경로인지 host-only로 분류하는 V647 계획
@@ -202,6 +203,7 @@
 
 ### 4. Current Native Init Reports
 
+- `reports/NATIVE_INIT_V650_POST_WARNING_CONTINUATION_2026-05-23.md` – V650 host-only 결과 Android/native 모두 ASoC warning 후 sound-card까지 진행하지만 native만 WLFW/WLAN-PD/QMI/BDF/`wlan0`가 없어 다음 gate는 CNSS/WLFW continuation guard
 - `reports/NATIVE_INIT_V649_ANDROID_FULL_AUDIO_WIFI_RECAPTURE_LIVE_2026-05-23.md` – V649 live/replay 결과 Android도 service `74` 직후 ASoC duplicate `pm_qos` warning을 내지만 WLFW/WLAN-PD/QMI/BDF/`wlan0`까지 계속 진행하므로 다음 gate는 post-warning continuation gap 비교
 - `reports/NATIVE_INIT_V649_ANDROID_FULL_AUDIO_WIFI_RECAPTURE_PREP_2026-05-23.md` – V649 prep 결과 Android full audio/Wi-Fi collector와 v641 rollback handoff가 plan/dry-run 통과했고 다음은 live handoff recapture
 - `reports/NATIVE_INIT_V648_AUDIO_ASOC_PARITY_GUARD_LIVE_2026-05-23.md` – V648 read-only 결과 current native v641 idle은 ASoC probe/duplicate `pm_qos`가 없고 V644 service `74` 경로에서만 warning이 나타나므로 다음 gate는 Android full audio/Wi-Fi dmesg recapture
