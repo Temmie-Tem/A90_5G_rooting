@@ -4,6 +4,7 @@
 - status: `prepared`; live proof not yet executed
 - helper source: `stage3/linux_init/helpers/a90_android_execns_probe.c`
 - deploy wrapper: `scripts/revalidation/wifi_execns_helper_v101_deploy_preflight.py`
+- live runner: `scripts/revalidation/native_wifi_modem_holder_qrtr_first_service_manager_v603.py`
 - local artifact: `tmp/wifi/v603-execns-helper-v101-build/a90_android_execns_probe`
 
 ## Scope
@@ -36,12 +37,19 @@ auto_transfer_preflight_next: deploy helper v101, then run qrtr-first service-ma
 auto_transfer_device_mutations: false
 auto_transfer_daemon_start_executed: false
 auto_transfer_wifi_bringup_executed: false
+live_runner_plan_decision: v603-qrtr-first-service-manager-plan-ready
+live_runner_preflight_decision: v603-qrtr-first-service-manager-blocked
+live_runner_preflight_blockers: v490-current-policy-load, helper-v101-base-ready, helper-v101-qrtr-first-ready
 ```
 
 The default `ncm` block is intentional. It prevents an accidental slow serial
 deploy when the NCM host path is not configured. `--transfer-method auto`
 confirms that the device and local helper are otherwise ready for an explicitly
 accepted serial fallback or an NCM setup retry.
+
+The live runner was added and plan-only validation passed. Read-only preflight
+correctly blocks because the current boot still needs a fresh V490 policy-load
+manifest and the device still has the previous helper instead of helper v101.
 
 ## Interpretation
 

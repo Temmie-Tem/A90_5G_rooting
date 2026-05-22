@@ -4,6 +4,7 @@
 - status: `planned`; helper v101 preparation
 - helper source: `stage3/linux_init/helpers/a90_android_execns_probe.c`
 - deploy wrapper: `scripts/revalidation/wifi_execns_helper_v101_deploy_preflight.py`
+- live runner: `scripts/revalidation/native_wifi_modem_holder_qrtr_first_service_manager_v603.py`
 
 ## Objective
 
@@ -47,6 +48,9 @@ The proof is only useful if it preserves both earlier advances:
    strings.
 6. Add a V603 deploy/preflight wrapper that installs only
    `/cache/bin/a90_android_execns_probe` when explicitly approved.
+7. Add a V603 live runner that reuses the V601 modem-holder/copy-real
+   linkerconfig path but switches the bounded companion mode to QRTR-first
+   service-manager ordering.
 
 ## Live Preconditions
 
