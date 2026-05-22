@@ -166,6 +166,7 @@
 
 ### 4. Current Native Init Reports
 
+- `reports/NATIVE_INIT_V612_ANDROID_LOWER_SURFACE_HANDOFF_PREP_2026-05-23.md` – V611 Android lower-surface collector를 Android boot handoff/rollback 경로에 연결하는 wrapper를 추가하고 plan/dry-run 검증 완료
 - `reports/NATIVE_INIT_V611_ANDROID_LOWER_SURFACE_RECAPTURE_PREP_2026-05-23.md` – V610의 Android evidence limit을 닫기 위한 lower-surface Android read-only collector를 추가했고 현재 native 상태에서는 ADB 없음으로 preflight가 차단됨
 - `reports/NATIVE_INIT_V610_QMI_PUBLICATION_PRECONDITION_2026-05-23.md` – Android는 `mss/mdm3` ONLINE과 sibling sysmon/service-notifier를 갖지만 native V609는 `mss`만 ONLINE이고 `mdm3=OFFLINING`이라 lower publication surface gap으로 분류
 - `reports/NATIVE_INIT_V609_POST_SYSMON_OBSERVER_LIVE_2026-05-23.md` – CNSS 없는 post-sysmon observer에서 QRTR TX/`sysmon-qmi`까지 도달했지만 `service-notifier`/WLFW service `69`는 미등록이라 lower QMI publication precondition 갭으로 분류
