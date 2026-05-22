@@ -142,6 +142,7 @@
 - `plans/NATIVE_INIT_V102_DIAGNOSTICS_PLAN_2026-05-03.md` – v102 diagnostics/log bundle 실행 계획
 - `plans/NATIVE_INIT_V103_WIFI_INVENTORY_PLAN_2026-05-04.md` – v103 Wi-Fi read-only inventory 실행 계획
 - `plans/NATIVE_INIT_V104_WIFI_FEASIBILITY_PLAN_2026-05-04.md` – v104 Wi-Fi enablement feasibility gate 실행 계획
+- `plans/NATIVE_INIT_V632_CDSP_BLOCKER_CLASSIFIER_PLAN_2026-05-23.md` – V631이 CDSP timeout을 격리한 뒤 CDSP loader/firmware/readiness prerequisite을 host-only로 분류하는 V632 계획
 - `plans/NATIVE_INIT_V631_PER_NODE_SIBLING_SSCTL_PROOF_PLAN_2026-05-23.md` – V630의 ADSP 이후 timeout을 좁히기 위해 ADSP/CDSP/SLPI를 per-node child/timeout으로 분리하는 V631 계획
 - `plans/NATIVE_INIT_V630_SIBLING_SSCTL_BOOT_WINDOW_PROOF_PLAN_2026-05-23.md` – V629가 선정한 ADSP/CDSP/SLPI sibling SSCTL trigger를 post-ACM one-shot boot window에서 검증하는 V630 계획
 - `plans/NATIVE_INIT_V629_SIBLING_SSCTL_TRIGGER_CLASSIFIER_PLAN_2026-05-23.md` – V628 이후 Android의 early-boot ADSP/CDSP/SLPI sibling SSCTL trigger와 native v319 누락을 host-only로 분류하는 V629 계획
@@ -184,6 +185,7 @@
 
 ### 4. Current Native Init Reports
 
+- `reports/NATIVE_INIT_V632_CDSP_BLOCKER_CLASSIFIER_2026-05-23.md` – V632 host-only 결과 V631의 CDSP-only timeout과 Android V622 CDSP/service `74` timing을 묶어 다음 gate를 read-only native CDSP surface collector로 분류
 - `reports/NATIVE_INIT_V631_PER_NODE_SIBLING_SSCTL_PROOF_LIVE_2026-05-23.md` – V631 live 결과 ADSP/SLPI boot-node write는 성공했지만 CDSP write가 timeout 후 reaped되어 service `74` 이전 active blocking node를 CDSP로 분류하고 v319 rollback 완료
 - `reports/NATIVE_INIT_V631_PER_NODE_SIBLING_SSCTL_PROOF_PREP_2026-05-23.md` – V631 prep 결과 ADSP/CDSP/SLPI를 per-node child/timeout으로 나눈 `A90 Linux init 0.9.66 (v631)` boot image 로컬 빌드와 marker 검증 통과
 - `reports/NATIVE_INIT_V630_SIBLING_SSCTL_BOOT_WINDOW_PROOF_LIVE_2026-05-23.md` – V630 live 결과 disabled-smoke와 rollback은 PASS, armed proof는 ADSP write 성공 후 child timeout으로 CDSP/SLPI 전 중단되어 V631 per-node bounded proof가 다음 gate
