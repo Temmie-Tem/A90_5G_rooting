@@ -183,6 +183,7 @@
 
 ### 4. Current Native Init Reports
 
+- `reports/NATIVE_INIT_V630_SIBLING_SSCTL_BOOT_WINDOW_PROOF_LIVE_2026-05-23.md` – V630 live 결과 disabled-smoke와 rollback은 PASS, armed proof는 ADSP write 성공 후 child timeout으로 CDSP/SLPI 전 중단되어 V631 per-node bounded proof가 다음 gate
 - `reports/NATIVE_INIT_V630_SIBLING_SSCTL_BOOT_WINDOW_PROOF_PREP_2026-05-23.md` – V630 prep 결과 `A90 Linux init 0.9.65 (v630)` boot image를 로컬 빌드했고 post-ACM one-shot sibling SSCTL proof marker 검증 통과, live disabled-smoke/armed proof/rollback이 다음 단계
 - `reports/NATIVE_INIT_V629_SIBLING_SSCTL_TRIGGER_CLASSIFIER_2026-05-23.md` – V629 host-only 결과 Android visible trigger는 early-boot ADSP/CDSP/SLPI boot-node writes이고 native v319에는 equivalent path가 없어 V630 rollback-ready boot-time one-shot proof를 다음 gate로 선정
 - `reports/NATIVE_INIT_V628_SERVICE74_PUBLISHER_CLASSIFIER_2026-05-23.md` – V628 host-only 결과 native V627은 service-locator/`180`까지 도달했지만 Android의 SLPI/CDSP/ADSP sibling `sysmon-qmi`와 service `74`가 없어 V629 safe sibling-SSCTL trigger 분석을 다음 gate로 선정
