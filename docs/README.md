@@ -191,6 +191,7 @@
 
 ### 4. Current Native Init Reports
 
+- `reports/NATIVE_INIT_V638_FIRMWARE_SIBLING_SSCTL_COMPOSITE_LIVE_2026-05-23.md` – V638 live 결과 firmware-backed ADSP/CDSP/SLPI child writes는 모두 반환됐지만 sibling `sysmon-qmi`/service `74`/WLAN-PD/WLFW/`wlan0`는 진전 없고 `pm_qos` kernel warning이 발생해 direct all-sibling write path를 중단
 - `reports/NATIVE_INIT_V638_FIRMWARE_SIBLING_SSCTL_COMPOSITE_PREP_2026-05-23.md` – V638 prep 결과 firmware-backed ADSP/CDSP/SLPI per-node sibling SSCTL composite runner가 preflight-ready이며 live는 child timeout/reap, marker capture, mount cleanup, reboot cleanup으로 제한
 - `reports/NATIVE_INIT_V637_SERVICE74_POST_CDSP_CLASSIFIER_2026-05-23.md` – V637 host-only 결과 CDSP power/ONLINE은 Android CDSP SSCTL `sysmon-qmi`와 다르며 V636이 service `180`까지만 재현했으므로 다음은 firmware-backed per-node sibling SSCTL composite observer 계획
 - `reports/NATIVE_INIT_V636_CDSP_V598_COMPOSITE_LIVE_2026-05-23.md` – V636 live 결과 CDSP-online + V598-class modem-holder/readback 조합에서도 service `180`만 재현되고 service `74`/WLAN-PD/WLFW/BDF/`wlan0`는 없어 lower service `74` publisher dependency가 다음 blocker
