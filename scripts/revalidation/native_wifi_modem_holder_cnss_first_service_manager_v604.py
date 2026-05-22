@@ -299,6 +299,14 @@ def decide(args: base.argparse.Namespace,
             "compare V598/V604 timing and test a longer pre-service-manager CNSS window",
             True,
         )
+    if service_notifier_180 == 0 and binder_failed > 0:
+        return (
+            "v604-cnss-first-no-service-notifier-binder-gap",
+            True,
+            f"service_notifier_180 is missing and binder failures persisted; counts={counts}",
+            "compare V598/V604 timing and test a longer CNSS-only window before service-manager",
+            True,
+        )
     return (
         "v604-cnss-first-no-intersection",
         True,

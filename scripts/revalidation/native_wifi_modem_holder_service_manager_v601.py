@@ -179,7 +179,7 @@ def _v601_counts(dmesg_delta: str, helper_text: str, readback: dict[str, Any]) -
         "bdf": _count(r"BDF file|bdwlan\.bin|regdb\.bin", dmesg_delta),
         "wlan_fw_ready": _count(r"WLAN FW is ready", dmesg_delta),
         "wlan0": _count(r"\bwlan0\b", dmesg_delta),
-        "binder_transaction_failed": _count(r"binder transaction failed", dmesg_delta),
+        "binder_transaction_failed": _count(r"binder: .*transaction failed|binder transaction failed", dmesg_delta),
         "binder_ioctl_unsupported": _count(r"BINDER_ENABLE_ONEWAY_SPAM_DETECTION|oneway spam|binder: .*ioctl .* returned -22", dmesg_delta),
         "cnss_daemon_binder_mentions": _count(r"cnss-daemon.*binder|binder.*cnss-daemon", dmesg_delta),
         "linker_symbol_gap": _count(r"cannot locate symbol|CANNOT LINK EXECUTABLE", helper_text),
