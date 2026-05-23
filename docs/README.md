@@ -143,6 +143,7 @@
 - `plans/NATIVE_INIT_V102_DIAGNOSTICS_PLAN_2026-05-03.md` – v102 diagnostics/log bundle 실행 계획
 - `plans/NATIVE_INIT_V103_WIFI_INVENTORY_PLAN_2026-05-04.md` – v103 Wi-Fi read-only inventory 실행 계획
 - `plans/NATIVE_INIT_V104_WIFI_FEASIBILITY_PLAN_2026-05-04.md` – v104 Wi-Fi enablement feasibility gate 실행 계획
+- `plans/NATIVE_INIT_V680_BINDER_DEBUGFS_GAP_PLAN_2026-05-24.md` – V679 registry snapshot은 실행됐지만 `/sys/kernel/debug/binder*`가 ENOENT인 원인을 host-only로 분류해 V681 private debugfs/Binder debug proof 후보를 정하는 V680 계획
 - `plans/NATIVE_INIT_V679_BINDER_REGISTRY_SNAPSHOT_PLAN_2026-05-24.md` – V678이 좁힌 Binder transaction blocker를 같은 V535 Android userspace-order 실패 창에서 helper v112 registry/debug snapshot으로 캡처하는 V679 계획
 - `plans/NATIVE_INIT_V678_BINDER_FAILURE_TARGET_CLASSIFIER_PLAN_2026-05-24.md` – V677 이후 property denial 0 상태에서 남은 Binder `-22` actor/code/FD surface를 host-only로 분류해 V679 registry/debug capture gate를 정하는 V678 계획
 - `plans/NATIVE_INIT_V677_V676_RESIDUAL_PROPERTY_PLAN_2026-05-24.md` – V676 잔여 20개 property denial을 V535 private property root에 delta로 반영해 property blocker 제거 여부를 검증하는 V677 계획
@@ -233,6 +234,7 @@
 
 ### 4. Current Native Init Reports
 
+- `reports/NATIVE_INIT_V680_BINDER_DEBUGFS_GAP_2026-05-24.md` – V680 host-only 결과 V679 snapshot phase는 실행됐지만 Binder debug path blocks 20개가 모두 비어 있고 `/sys/kernel/debug/binder*` ENOENT가 반복되어 다음은 V681 private debugfs/Binder debug read-only surface proof
 - `reports/NATIVE_INIT_V679_BINDER_REGISTRY_SNAPSHOT_LIVE_2026-05-24.md` – V679 live 결과 helper v112 Binder registry snapshot phases는 모두 실행됐고 property denial은 0으로 유지됐지만 Binder debug files/per-child proc는 캡처되지 않아 다음은 V680 Binder debugfs/대체 transaction observability 분류
 - `reports/NATIVE_INIT_V678_BINDER_FAILURE_TARGET_CLASSIFIER_2026-05-24.md` – V678 host-only 결과 V677 property denial 0 상태에서 Binder failure 5개를 `servicemanager`/`hwservicemanager`/`wificond` ioctl noise와 `cnss-daemon` vndbinder transaction blocker로 분류했고 다음은 V679 Binder registry/debug snapshot
 - `reports/NATIVE_INIT_V677_V676_RESIDUAL_PROPERTY_LIVE_2026-05-24.md` – V677 live 결과 V676 잔여 property denial 370개/20키를 private property root delta로 제거해 property denial이 0이 되었고, 남은 blocker는 Binder `-22` registration/transaction 경로로 좁혀짐
