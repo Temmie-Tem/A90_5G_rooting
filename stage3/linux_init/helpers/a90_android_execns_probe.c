@@ -76,7 +76,7 @@
 #define AF_QIPCRTR 42
 #endif
 
-#define EXECNS_VERSION "a90_android_execns_probe v109"
+#define EXECNS_VERSION "a90_android_execns_probe v110"
 #define MAX_PATH_LEN 512
 #define MAX_CAPTURE_SIZE (1024 * 1024)
 #define MAX_LINKERCONFIG_SIZE (256 * 1024)
@@ -8632,6 +8632,136 @@ static int append_wifi_window_surface_capture(struct buffer *buf, const char *ph
     return 0;
 }
 
+static int append_wifi_cnss2_focus_capture(struct buffer *buf, const char *phase) {
+    bool icnss_driver_captured = false;
+    bool icnss_device_captured = false;
+    bool qca6390_device_captured = false;
+    bool net_class_captured = false;
+    bool wlan0_captured = false;
+    bool icnss_uevent_captured = false;
+    bool icnss_modalias_captured = false;
+    bool icnss_power_control_captured = false;
+    bool icnss_power_runtime_status_captured = false;
+    bool qca6390_uevent_captured = false;
+    bool qca6390_modalias_captured = false;
+    bool qca6390_power_control_captured = false;
+    bool qca6390_power_runtime_status_captured = false;
+    bool debug_icnss_captured = false;
+    int value_captures = 0;
+
+    if (append_format(buf, "wifi_companion_start.cnss2_focus_%s.begin=1\n", phase) < 0 ||
+        append_dir_capture_named(buf,
+                                 "/sys/bus/platform/drivers/icnss",
+                                 "wifi_cnss2_focus_icnss_driver",
+                                 false,
+                                 96,
+                                 &icnss_driver_captured) < 0 ||
+        append_dir_capture_named(buf,
+                                 "/sys/bus/platform/devices/18800000.qcom,icnss",
+                                 "wifi_cnss2_focus_icnss_device",
+                                 false,
+                                 128,
+                                 &icnss_device_captured) < 0 ||
+        append_dir_capture_named(buf,
+                                 "/sys/bus/platform/devices/a0000000.qcom,cnss-qca6390",
+                                 "wifi_cnss2_focus_qca6390_device",
+                                 false,
+                                 128,
+                                 &qca6390_device_captured) < 0 ||
+        append_dir_capture_named(buf,
+                                 "/sys/class/net",
+                                 "wifi_cnss2_focus_net_class",
+                                 false,
+                                 128,
+                                 &net_class_captured) < 0 ||
+        append_dir_capture_named(buf,
+                                 "/sys/class/net/wlan0",
+                                 "wifi_cnss2_focus_wlan0",
+                                 false,
+                                 128,
+                                 &wlan0_captured) < 0 ||
+        append_path_file_capture_named(buf,
+                                       "/sys/bus/platform/devices/18800000.qcom,icnss/uevent",
+                                       "wifi_cnss2_focus_icnss_uevent",
+                                       4096,
+                                       &icnss_uevent_captured) < 0 ||
+        append_path_file_capture_named(buf,
+                                       "/sys/bus/platform/devices/18800000.qcom,icnss/modalias",
+                                       "wifi_cnss2_focus_icnss_modalias",
+                                       4096,
+                                       &icnss_modalias_captured) < 0 ||
+        append_path_file_capture_named(buf,
+                                       "/sys/bus/platform/devices/18800000.qcom,icnss/power/control",
+                                       "wifi_cnss2_focus_icnss_power_control",
+                                       1024,
+                                       &icnss_power_control_captured) < 0 ||
+        append_path_file_capture_named(buf,
+                                       "/sys/bus/platform/devices/18800000.qcom,icnss/power/runtime_status",
+                                       "wifi_cnss2_focus_icnss_power_runtime_status",
+                                       1024,
+                                       &icnss_power_runtime_status_captured) < 0 ||
+        append_path_file_capture_named(buf,
+                                       "/sys/bus/platform/devices/a0000000.qcom,cnss-qca6390/uevent",
+                                       "wifi_cnss2_focus_qca6390_uevent",
+                                       4096,
+                                       &qca6390_uevent_captured) < 0 ||
+        append_path_file_capture_named(buf,
+                                       "/sys/bus/platform/devices/a0000000.qcom,cnss-qca6390/modalias",
+                                       "wifi_cnss2_focus_qca6390_modalias",
+                                       4096,
+                                       &qca6390_modalias_captured) < 0 ||
+        append_path_file_capture_named(buf,
+                                       "/sys/bus/platform/devices/a0000000.qcom,cnss-qca6390/power/control",
+                                       "wifi_cnss2_focus_qca6390_power_control",
+                                       1024,
+                                       &qca6390_power_control_captured) < 0 ||
+        append_path_file_capture_named(buf,
+                                       "/sys/bus/platform/devices/a0000000.qcom,cnss-qca6390/power/runtime_status",
+                                       "wifi_cnss2_focus_qca6390_power_runtime_status",
+                                       1024,
+                                       &qca6390_power_runtime_status_captured) < 0 ||
+        append_dir_capture_named(buf,
+                                 "/sys/kernel/debug/icnss",
+                                 "wifi_cnss2_focus_debug_icnss",
+                                 false,
+                                 128,
+                                 &debug_icnss_captured) < 0) {
+        return -1;
+    }
+    value_captures += icnss_uevent_captured ? 1 : 0;
+    value_captures += icnss_modalias_captured ? 1 : 0;
+    value_captures += icnss_power_control_captured ? 1 : 0;
+    value_captures += icnss_power_runtime_status_captured ? 1 : 0;
+    value_captures += qca6390_uevent_captured ? 1 : 0;
+    value_captures += qca6390_modalias_captured ? 1 : 0;
+    value_captures += qca6390_power_control_captured ? 1 : 0;
+    value_captures += qca6390_power_runtime_status_captured ? 1 : 0;
+    return append_format(buf,
+                         "wifi_companion_start.cnss2_focus_%s.icnss_driver_captured=%d\n"
+                         "wifi_companion_start.cnss2_focus_%s.icnss_device_captured=%d\n"
+                         "wifi_companion_start.cnss2_focus_%s.qca6390_device_captured=%d\n"
+                         "wifi_companion_start.cnss2_focus_%s.net_class_captured=%d\n"
+                         "wifi_companion_start.cnss2_focus_%s.wlan0_captured=%d\n"
+                         "wifi_companion_start.cnss2_focus_%s.debug_icnss_captured=%d\n"
+                         "wifi_companion_start.cnss2_focus_%s.value_captures=%d\n"
+                         "wifi_companion_start.cnss2_focus_%s.end=1\n",
+                         phase,
+                         icnss_driver_captured ? 1 : 0,
+                         phase,
+                         icnss_device_captured ? 1 : 0,
+                         phase,
+                         qca6390_device_captured ? 1 : 0,
+                         phase,
+                         net_class_captured ? 1 : 0,
+                         phase,
+                         wlan0_captured ? 1 : 0,
+                         phase,
+                         debug_icnss_captured ? 1 : 0,
+                         phase,
+                         value_captures,
+                         phase);
+}
+
 
 static int count_dir_entries_matching(const char *path,
                                       const char *needle,
@@ -14268,6 +14398,11 @@ static int run_wifi_companion_start_only_guarded(const struct config *cfg,
             if (!service74_gate_open) {
                 break;
             }
+            if (append_wifi_cnss2_focus_capture(stdout_buf, "service74_open") < 0) {
+                composite_cleanup_children(children, active_child_count, stdout_buf, stderr_buf);
+                stop_property_service_shim(&property_shim, paths, stdout_buf);
+                return -1;
+            }
         } else if ((service74_gated_vnd_readiness ||
                     service74_gated_cnss_retry ||
                     service74_gated_registry_snapshot) &&
@@ -14383,6 +14518,11 @@ static int run_wifi_companion_start_only_guarded(const struct config *cfg,
         return -1;
     }
     if (append_wifi_window_surface_capture(stdout_buf, "window") < 0) {
+        composite_cleanup_children(children, active_child_count, stdout_buf, stderr_buf);
+        stop_property_service_shim(&property_shim, paths, stdout_buf);
+        return -1;
+    }
+    if (append_wifi_cnss2_focus_capture(stdout_buf, "window") < 0) {
         composite_cleanup_children(children, active_child_count, stdout_buf, stderr_buf);
         stop_property_service_shim(&property_shim, paths, stdout_buf);
         return -1;
