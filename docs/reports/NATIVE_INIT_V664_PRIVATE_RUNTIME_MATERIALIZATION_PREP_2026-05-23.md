@@ -60,3 +60,17 @@ V317 private property root.
 
 Refresh V490 and the V641 clean-DSP state, then rerun V664 preflight. A live run
 should only proceed if both blockers are resolved in the same current boot.
+
+## Live Reclassification Note
+
+Later V664 live evidence at
+`tmp/wifi/v664-private-runtime-materialization-live/` showed the private
+property root and property-service shim were visible, but the registry snapshot
+still opened host/global `/dev/__properties__` and `/dev/socket`. The V664
+runner parser was corrected so helper transcript `context.*` and
+`property_service_shim.*` keys are read from the full helper transcript, and so
+service `74` gate timeouts are not overwritten by materialization decisions.
+
+That reclassifies V664 as a path-selection gap, not a private property root
+creation failure. V665 addresses this by making helper v109 capture the private
+temp-root paths directly.

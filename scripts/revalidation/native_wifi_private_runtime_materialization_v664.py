@@ -41,6 +41,8 @@ _v662_decide = base.decide
 _v662_render_summary = base.render_summary
 _v662_build_manifest = base.build_manifest
 
+KEY_RE = base.re.compile(r"^([A-Za-z0-9_.-]+)=(.*)$")
+
 
 def _rewrite_text(text: str) -> str:
     return (
@@ -99,18 +101,41 @@ def _intish(value: Any) -> int:
         return 0
 
 
+def _keys_from_helper_text(text: str) -> dict[str, str]:
+    keys: dict[str, str] = {}
+    for raw_line in text.replace("\0", "\n").splitlines():
+        match = KEY_RE.match(raw_line.strip())
+        if match:
+            keys[match.group(1)] = match.group(2).strip()
+    return keys
+
+
+def _merged_companion_keys(live: dict[str, Any]) -> dict[str, str]:
+    helper_text = str(live.get("v662_helper_stdout_stderr") or live.get("helper_stdout_stderr") or "")
+    return {**(live.get("companion_keys") or {}), **_keys_from_helper_text(helper_text)}
+
+
 def _materialization_surface(live: dict[str, Any]) -> dict[str, Any]:
-    keys = live.get("companion_keys") or {}
+    keys = _merged_companion_keys(live)
     surface = live.get("v662_surface") or {}
     registry = surface.get("registry_snapshot") or {}
     return {
         "property_root": PROPERTY_ROOT,
         "context_dev_properties_exists": keys.get("context.dev_properties.exists", ""),
         "context_dev_properties_access_r": keys.get("context.dev_properties.access_r", ""),
+        "context_dev_properties_access_x": keys.get("context.dev_properties.access_x", ""),
+        "context_dev_properties_host_path": keys.get("context.dev_properties.host_path", ""),
         "context_dev_socket_exists": keys.get("context.dev_socket.exists", ""),
         "property_service_shim_mode": keys.get("wifi_hal_composite_start.property_service_shim.mode", ""),
         "property_service_shim_started": keys.get("wifi_hal_composite_start.property_service_shim.started", ""),
         "property_service_socket": keys.get("wifi_hal_composite_start.property_service_shim.socket", ""),
+        "property_service_shim_child_started": keys.get("wifi_hal_composite_start.property_service_shim.child_started", ""),
+        "property_service_shim_request_count": keys.get("wifi_hal_composite_start.property_service_shim.request_count", ""),
+        "property_service_shim_postflight_safe": keys.get("wifi_hal_composite_start.property_service_shim.postflight_safe", ""),
+        "before_dev_properties_capture_path": registry.get("before_dev_properties_capture_path", keys.get("wifi_registry_snapshot.before_initial_cnss_cleanup.dev_properties_capture_path", "")),
+        "after_dev_properties_capture_path": registry.get("after_dev_properties_capture_path", keys.get("wifi_registry_snapshot.after_initial_cnss_cleanup.dev_properties_capture_path", "")),
+        "before_dev_socket_capture_path": registry.get("before_dev_socket_capture_path", keys.get("wifi_registry_snapshot.before_initial_cnss_cleanup.dev_socket_capture_path", "")),
+        "after_dev_socket_capture_path": registry.get("after_dev_socket_capture_path", keys.get("wifi_registry_snapshot.after_initial_cnss_cleanup.dev_socket_capture_path", "")),
         "before_dirs_captured": registry.get("before_dirs_captured", ""),
         "after_dirs_captured": registry.get("after_dirs_captured", ""),
         "before_end": registry.get("before_end", ""),
@@ -131,12 +156,24 @@ def _materialization_passed(surface: dict[str, Any]) -> bool:
     return (
         surface.get("context_dev_properties_exists") == "1"
         and surface.get("context_dev_properties_access_r") == "1"
+        and surface.get("context_dev_properties_access_x") == "1"
         and surface.get("property_service_shim_started") == "1"
         and surface.get("property_service_socket") == "/dev/socket/property_service"
+        and surface.get("property_service_shim_postflight_safe") == "1"
         and _intish(surface.get("before_dirs_captured")) >= 2
         and _intish(surface.get("after_dirs_captured")) >= 2
         and surface.get("before_end") == "1"
         and surface.get("after_end") == "1"
+    )
+
+
+def _runtime_visible(surface: dict[str, Any]) -> bool:
+    return (
+        surface.get("context_dev_properties_exists") == "1"
+        and surface.get("context_dev_properties_access_r") == "1"
+        and surface.get("context_dev_properties_access_x") == "1"
+        and surface.get("property_service_shim_started") == "1"
+        and surface.get("property_service_socket") == "/dev/socket/property_service"
     )
 
 
@@ -168,12 +205,28 @@ def decide(args: base.argparse.Namespace,
     materialization = live.get("v664_materialization_surface") or {}
     if not pass_ok:
         return _rewrite_text(decision), pass_ok, _rewrite_text(reason), _rewrite_text(next_step), live_executed
+    if decision != "v662-registry-context-snapshot-pass":
+        return _rewrite_text(decision), pass_ok, _rewrite_text(reason), _rewrite_text(next_step), live_executed
     if _materialization_passed(materialization):
         return (
             "v664-private-runtime-materialization-pass",
             True,
             f"materialization={materialization}",
             "plan V665 fresh CNSS retry with private property/runtime surface; keep Wi-Fi HAL, scan/connect, credentials, DHCP, routes, and external ping blocked",
+            live_executed,
+        )
+    if (
+        _runtime_visible(materialization)
+        and materialization.get("before_end") == "1"
+        and materialization.get("after_end") == "1"
+        and _intish(materialization.get("before_dirs_captured")) == 0
+        and _intish(materialization.get("after_dirs_captured")) == 0
+    ):
+        return (
+            "v664-private-runtime-visible-snapshot-path-gap",
+            True,
+            f"materialization={materialization}",
+            "build V665 helper snapshot repair so registry capture reads the private temp-root paths before enabling CNSS retry",
             live_executed,
         )
     return (

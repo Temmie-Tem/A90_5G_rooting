@@ -76,7 +76,7 @@
 #define AF_QIPCRTR 42
 #endif
 
-#define EXECNS_VERSION "a90_android_execns_probe v108"
+#define EXECNS_VERSION "a90_android_execns_probe v109"
 #define MAX_PATH_LEN 512
 #define MAX_CAPTURE_SIZE (1024 * 1024)
 #define MAX_LINKERCONFIG_SIZE (256 * 1024)
@@ -11721,6 +11721,7 @@ static void composite_child_init(struct composite_child *child,
 
 static int append_wifi_registry_context_snapshot(struct buffer *buf,
                                                  const char *phase,
+                                                 const struct paths *paths,
                                                  const struct composite_child *children,
                                                  size_t child_count) {
     const char *debug_files[] = {
@@ -11768,11 +11769,17 @@ static int append_wifi_registry_context_snapshot(struct buffer *buf,
         }
     }
     {
+        const char *dev_properties_path =
+            (paths != NULL && paths->dev_properties[0] != '\0') ?
+            paths->dev_properties : "/dev/__properties__";
+        const char *dev_socket_path =
+            (paths != NULL && paths->dev_socket[0] != '\0') ?
+            paths->dev_socket : "/dev/socket";
         const char *dir_paths[] = {
             "/sys/kernel/debug/binder",
             "/sys/kernel/debug/binder/proc",
-            "/dev/__properties__",
-            "/dev/socket",
+            dev_properties_path,
+            dev_socket_path,
         };
         const char *dir_labels[] = {
             "binder_debug_dir",
@@ -11793,6 +11800,15 @@ static int append_wifi_registry_context_snapshot(struct buffer *buf,
             128,
         };
 
+        if (append_format(buf,
+                          "wifi_registry_snapshot.%s.dev_properties_capture_path=%s\n"
+                          "wifi_registry_snapshot.%s.dev_socket_capture_path=%s\n",
+                          phase,
+                          dev_properties_path,
+                          phase,
+                          dev_socket_path) < 0) {
+            return -1;
+        }
         for (size_t dir_index = 0; dir_index < sizeof(dir_paths) / sizeof(dir_paths[0]); dir_index++) {
             char label[128];
 
@@ -14267,6 +14283,7 @@ static int run_wifi_companion_start_only_guarded(const struct config *cfg,
                 if (service74_gated_registry_snapshot &&
                     append_wifi_registry_context_snapshot(stdout_buf,
                                                           "before_initial_cnss_cleanup",
+                                                          paths,
                                                           children,
                                                           active_child_count) < 0) {
                     composite_cleanup_children(children, active_child_count, stdout_buf, stderr_buf);
@@ -14313,6 +14330,7 @@ static int run_wifi_companion_start_only_guarded(const struct config *cfg,
             if (service74_gated_registry_snapshot &&
                 append_wifi_registry_context_snapshot(stdout_buf,
                                                       "after_initial_cnss_cleanup",
+                                                      paths,
                                                       children,
                                                       active_child_count) < 0) {
                 composite_cleanup_children(children, active_child_count, stdout_buf, stderr_buf);
