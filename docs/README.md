@@ -143,6 +143,7 @@
 - `plans/NATIVE_INIT_V102_DIAGNOSTICS_PLAN_2026-05-03.md` – v102 diagnostics/log bundle 실행 계획
 - `plans/NATIVE_INIT_V103_WIFI_INVENTORY_PLAN_2026-05-04.md` – v103 Wi-Fi read-only inventory 실행 계획
 - `plans/NATIVE_INIT_V104_WIFI_FEASIBILITY_PLAN_2026-05-04.md` – v104 Wi-Fi enablement feasibility gate 실행 계획
+- `plans/NATIVE_INIT_V673_SAME_HELPER_REPLAY_PLAN_2026-05-24.md` – V672가 좁힌 service `74/180` regression을 helper v111 same-helper replay matrix로 재검증하는 V673 계획
 - `plans/NATIVE_INIT_V672_SERVICE74_REGRESSION_CLASSIFIER_PLAN_2026-05-24.md` – V671 service `74/180` timeout을 V668 service74-positive 증거와 비교해 Wi-Fi HAL/`wificond` 이전 lower service-notifier 재현성 문제인지 분류하는 V672 계획
 - `plans/NATIVE_INIT_V671_SERVICE74_ANDROID_USERSPACE_ORDER_PLAN_2026-05-24.md` – V670 service-order delta 이후 service `74` positive path에 Wi-Fi HAL legacy/ext와 `wificond` start-only를 결합한 V671 계획
 - `plans/NATIVE_INIT_V670_ANDROID_SERVICE_ORDER_DELTA_PLAN_2026-05-24.md` – V669 runtime gap 이후 Android Wi-Fi HAL/wificond/CNSS service order와 V668 native order를 비교해 다음 start-only gate를 정하는 V670 계획
@@ -226,6 +227,7 @@
 
 ### 4. Current Native Init Reports
 
+- `reports/NATIVE_INIT_V673_SAME_HELPER_REPLAY_LIVE_2026-05-24.md` – V673 live 결과 helper v111 same-helper matrix에서 V668-compatible/V671 둘 다 service `74/180`을 재현했고 V671은 Wi-Fi HAL/`wificond`/fresh CNSS retry까지 cleanup-safe로 실행했지만 WLFW/BDF/`wlan0`는 0이라 다음은 post-HAL/wificond runtime classifier
 - `reports/NATIVE_INIT_V672_SERVICE74_REGRESSION_CLASSIFIER_2026-05-24.md` – V672 host-only 결과 V668과 V671 모두 QRTR RX/TX와 `sysmon-qmi` 및 firmware/modem surface는 같지만 V671에서만 service `74/180`이 사라져 다음은 helper v111 same-helper replay matrix
 - `reports/NATIVE_INIT_V671_SERVICE74_ANDROID_USERSPACE_ORDER_LIVE_2026-05-24.md` – V671 live 결과 QRTR RX/TX와 `sysmon-qmi`는 재현됐지만 service `74/180` gate가 timeout되어 Wi-Fi HAL/`wificond` child start는 withheld됐고 다음은 V668-positive 대비 lower service-notifier regression classifier
 - `reports/NATIVE_INIT_V670_ANDROID_SERVICE_ORDER_DELTA_2026-05-24.md` – V670 host-only 결과 Android는 Wi-Fi HAL legacy/ext, `cnss_diag`, `wificond`가 `cnss-daemon`보다 먼저 running이고 V668 native order에는 HAL/wificond가 없어 다음은 service74-gated Android userspace-order start-only proof
