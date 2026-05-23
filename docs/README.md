@@ -143,6 +143,7 @@
 - `plans/NATIVE_INIT_V102_DIAGNOSTICS_PLAN_2026-05-03.md` – v102 diagnostics/log bundle 실행 계획
 - `plans/NATIVE_INIT_V103_WIFI_INVENTORY_PLAN_2026-05-04.md` – v103 Wi-Fi read-only inventory 실행 계획
 - `plans/NATIVE_INIT_V104_WIFI_FEASIBILITY_PLAN_2026-05-04.md` – v104 Wi-Fi enablement feasibility gate 실행 계획
+- `plans/NATIVE_INIT_V698_CNSS_RETRY_ATTRIBUTION_PLAN_2026-05-24.md` – V695의 Binder `29189/-22`가 post-provider retry가 아니라 초기 pre-provider `cnss-daemon`에 귀속되는지 pid/order/dmesg로 분리하는 V698 host-only 계획
 - `plans/NATIVE_INIT_V697_CNSS_BINDER_RUNTIME_TARGET_PLAN_2026-05-24.md` – V666/V667/V681 causal-chain 확인 이후 V684/V695/V696 증거를 합쳐 남은 블로커를 `cnss-daemon`/`libperipheral_client` vendor Binder transaction framing으로 좁히는 V697 host-only 계획
 - `plans/NATIVE_INIT_V696_POST_PROVIDER_RETRY_BLOCKER_CLASSIFIER_PLAN_2026-05-24.md` – V695 이후 WLFW 전 정지의 1차 원인이 CNSS Binder `-22`인지 duplicate `pm_qos`인지 Android/V695 dmesg 타이밍으로 분류하는 V696 host-only 계획
 - `plans/NATIVE_INIT_V695_PROVIDER_CONFIRMED_CNSS_RETRY_PLAN_2026-05-24.md` – V694로 확인한 `vendor.qcom.PeripheralManager` 등록 뒤 같은 private namespace에서 fresh `cnss-daemon` retry tail을 실행하는 V695 계획
@@ -251,6 +252,7 @@
 
 ### 4. Current Native Init Reports
 
+- `reports/NATIVE_INIT_V698_CNSS_RETRY_ATTRIBUTION_2026-05-24.md` – V698 host-only 결과 Binder `29189/-22`는 초기 pre-provider `cnss-daemon` pid에 귀속되고 post-provider retry는 Binder fail 없이 netlink 뒤 WLFW 전 정지로 분류되어 다음은 provider-first initial-suppressed CNSS live gate
 - `reports/NATIVE_INIT_V697_CNSS_BINDER_RUNTIME_TARGET_2026-05-24.md` – V697 host-only 결과 provider 등록, `/dev/vndbinder`, `vndservicemanager`, CNSS SELinux preexec가 모두 확인되어 남은 블로커를 `cnss-daemon` vendor Binder transaction `29189/-22` framing/runtime 경로로 분류
 - `reports/NATIVE_INIT_V696_POST_PROVIDER_RETRY_BLOCKER_CLASSIFIER_2026-05-24.md` – V696 host-only 결과 V695 provider-confirmed retry 이후에도 native-only CNSS Binder `-22`가 WLFW 전 primary blocker로 남고 duplicate `pm_qos`는 secondary signal로 분류
 - `reports/NATIVE_INIT_V695_PROVIDER_CONFIRMED_CNSS_RETRY_LIVE_2026-05-24.md` – V695 live 결과 provider 등록 확인 뒤 fresh `cnss-daemon` retry tail은 실행됐지만 WLFW/BDF/`wlan0`는 여전히 0이라 다음은 post-provider retry blocker classifier
