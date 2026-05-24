@@ -130,6 +130,7 @@
 
 ### 3. Plans
 
+- `plans/NATIVE_INIT_V806_WLFW_SERVICE69_LIVE_GATE_PLAN_2026-05-25.md` – V805에서 선정한 WLFW service `0x45/69` publication을 provider-first + `boot_wlan` live gate로 직접 관측하는 계획
 - `plans/NATIVE_INIT_V805_ICNSS_FW_READY_WLFW_GATE_CLASSIFIER_PLAN_2026-05-25.md` – V804 이후 ICNSS `FW_READY`가 WLFW service `0x45/69` 도착에 의해 열리는지 source/evidence로 host-only 분류하는 계획
 - `plans/NATIVE_INIT_V804_PLD_ICNSS_REGISTER_PROBE_PREREQ_CLASSIFIER_PLAN_2026-05-25.md` – V803 register/probe boundary를 OSRC source와 stock config로 재검증해 PLD register block인지 ICNSS FW_READY/probe gate인지 host-only로 분류하는 계획
 - `plans/NATIVE_INIT_V803_PROVIDER_FIRST_HDD_PLD_PREREQ_CLASSIFIER_PLAN_2026-05-25.md` – V802 evidence와 Samsung OSRC source order를 host-only로 비교해 HDD/PLD register/probe boundary를 선정하는 계획
@@ -345,6 +346,7 @@
 
 ### 4. Current Native Init Reports
 
+- `reports/NATIVE_INIT_V806_WLFW_SERVICE69_LIVE_GATE_2026-05-25.md` – V806 결과 provider-first + `boot_wlan`에서도 QRTR WLFW service `69`가 absent라 pre-WLFW publication prerequisite 분류로 라우팅
 - `reports/NATIVE_INIT_V805_ICNSS_FW_READY_WLFW_GATE_CLASSIFIER_2026-05-25.md` – V805 결과 WLFW service `0x45/69` publication이 `FW_READY`/probe/BDF/`wlan0` 전 첫 missing observable임을 host-only로 선정
 - `reports/NATIVE_INIT_V804_PLD_ICNSS_REGISTER_PROBE_PREREQ_CLASSIFIER_2026-05-25.md` – V804 결과 PLD/SNOC register 자체보다 ICNSS FW_READY/WLFW service-arrival gate가 다음 blocker임을 host-only로 재분류
 - `reports/NATIVE_INIT_V803_PROVIDER_FIRST_HDD_PLD_PREREQ_CLASSIFIER_2026-05-25.md` – V803 결과 V802 blocker를 `wlan_hdd_register_driver()`/PLD/ICNSS register-probe completion 전후로 좁혀 V804 non-flash prerequisite classifier로 라우팅
