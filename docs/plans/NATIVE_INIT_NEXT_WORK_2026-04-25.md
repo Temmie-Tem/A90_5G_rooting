@@ -2628,3 +2628,16 @@ Samsung bootloader
 - result: read-only classifier passed. Dynamic debug is not compiled in and has no control catalog; kprobes and kprobe events are not configured; printk exists but current dmesg does not expose the missing PLD/HDD/register-driver boundary; target kallsyms remain partially visible; no wiphy or `wlan0` appeared.
 - interpretation: live ftrace/dyndbg/kprobe instrumentation is not available on this kernel state. Another `boot_wlan` retry will not add evidence.
 - next: V757 should either perform expanded Android/native dmesg differential analysis around the HDD/PLD window or plan a rollback-safe boot-image/kernel-log instrumentation unit. Keep service-manager, Wi-Fi HAL, scan/connect, credentials, DHCP/routes, and external ping blocked.
+
+### V757. Android/Native HDD/PLD Differential
+
+- plan: `docs/plans/NATIVE_INIT_V757_ANDROID_NATIVE_HDD_PLD_DIFF_PLAN_2026-05-24.md`
+- report: `docs/reports/NATIVE_INIT_V757_ANDROID_NATIVE_HDD_PLD_DIFF_2026-05-24.md`
+- runner: `scripts/revalidation/native_wifi_android_native_hdd_pld_diff_v757.py`
+- evidence:
+  - plan `tmp/wifi/v757-android-native-hdd-pld-diff-plan/`
+  - run `tmp/wifi/v757-android-native-hdd-pld-diff/`
+- decision: `v757-boot-image-log-instrumentation-selected`
+- result: host-only classifier passed. Android success evidence contains QMI/BDF/FW-ready/`wlan0`; native V752 evidence contains HDD entry/qcwlanstate creation with success-marker absence; existing Android dmesg has post-FW HDD markers but no pre-QMI PLD/HDD/register-driver boundary.
+- interpretation: existing dmesg proves the gap but cannot locate the internal failing call. Live ftrace/dyndbg/kprobe routes are closed.
+- next: V758 should classify rollback-safe kernel/source/boot-image log instrumentation feasibility before any patch. Keep service-manager, Wi-Fi HAL, scan/connect, credentials, DHCP/routes, and external ping blocked.
