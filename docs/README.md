@@ -130,6 +130,7 @@
 
 ### 3. Plans
 
+- `plans/NATIVE_INIT_V815_SUBSYSTEM_SYSMON_SNAPSHOT_PLAN_2026-05-25.md` – V814 이후 stock v724 idle 상태에서 msm_subsys/sysmon/service-locator/esoc/ICNSS/QRTR/dmesg surface를 read-only로 수집하는 계획
 - `plans/NATIVE_INIT_V814_SIBLING_SYSMON_SOURCE_CLASSIFIER_PLAN_2026-05-25.md` – V813 이후 Samsung OSRC `service-notifier`/`sysmon`/`subsystem_restart` 소스 anchor로 다음 blocker가 subsystem/sysmon/service-publication registration surface인지 host-only로 분류하는 계획
 - `plans/NATIVE_INIT_V813_POST_SYSMON_PUBLICATION_CLASSIFIER_PLAN_2026-05-25.md` – V812/V811/V785/V783/V626/V739 증거만으로 memshare가 아닌 sibling sysmon/service-publication precondition이 다음 blocker인지 host-only로 분류하는 계획
 - `plans/NATIVE_INIT_V812_MDM3_WLANPD_SERVICE69_OBSERVER_PLAN_2026-05-25.md` – V811에서 선정한 mdm3/WLAN-PD/service69 publication blocker를 현재 stock v724에서 V401/V490 refresh와 lower companion/CNSS-only window로 제한 관측하는 계획
@@ -354,6 +355,7 @@
 
 ### 4. Current Native Init Reports
 
+- `reports/NATIVE_INIT_V815_SUBSYSTEM_SYSMON_SNAPSHOT_2026-05-25.md` – V815 결과 idle stock v724에서 msm_subsys 10개, modem/mss `OFFLINING`, mdm3/esoc0 `OFFLINING`, ICNSS platform present, service-locator timeout marker, runtime service74/WLAN-PD/WLFW/BDF/`wlan0` absent를 read-only로 캡처
 - `reports/NATIVE_INIT_V814_SIBLING_SYSMON_SOURCE_CLASSIFIER_2026-05-25.md` – V814 결과 OSRC source가 service-notifier를 SERVREG QMI listener/state indication 경로로, sysmon을 subsystem registration/QMI lookup 경로로 매핑하므로 V815를 stock v724 read-only subsystem/sysmon/service-locator registration snapshot으로 선정
 - `reports/NATIVE_INIT_V813_POST_SYSMON_PUBLICATION_CLASSIFIER_2026-05-25.md` – V813 결과 V812는 mss/QRTR/sysmon까지만 도달하고, V785는 memshare를 단독 blocker에서 제외하며, Android는 sibling sysmon/service74/WLAN-PD/WLFW로 이어지지만 native는 sibling sysmon/service74/WLFW가 없어 V814를 service-publication precondition isolation으로 선정
 - `reports/NATIVE_INIT_V812_MDM3_WLANPD_SERVICE69_OBSERVER_2026-05-25.md` – V812 결과 V401/V490 refresh와 lower companion/CNSS diagnostic stack 후에도 mss/QRTR/sysmon까지만 도달하고 mdm3 `OFFLINING`, service69/WLFW/BDF/`wlan0` absent가 유지되어 post-sysmon mdm3/WLAN-PD publication precondition으로 라우팅
