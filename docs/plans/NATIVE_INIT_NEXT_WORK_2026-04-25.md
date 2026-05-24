@@ -2906,3 +2906,19 @@ Samsung bootloader
 - focused candidates: `cfg80211:cfg80211_report_wowlan_wakeup`, `dfc:dfc_qmi_tc`, and `msm_pil_event:{pil_event,pil_notif,pil_func}`. Network and scheduler events are broad context rather than primary Wi-Fi bring-up evidence.
 - safety: BPF attach, ftrace control writes, Wi-Fi action, scan/connect, credential use, DHCP/routes, external ping, reboot, flash, and partition write were all not executed. Postflight tracefs status confirms no tracefs mount remains.
 - interpretation: stock kernel static tracepoints are viable enough for a next observer gate, but not yet enough for BPF attach. V777 should inspect selected tracepoint `format` files and field semantics before any attach proof. Custom OSRC kernel flashing remains paused.
+- next: superseded by V777.
+
+### V777. Tracepoint Format Classifier
+
+- plan: `docs/plans/NATIVE_INIT_V777_TRACEPOINT_FORMAT_CLASSIFIER_PLAN_2026-05-25.md`
+- report: `docs/reports/NATIVE_INIT_V777_TRACEPOINT_FORMAT_CLASSIFIER_2026-05-25.md`
+- runner: `scripts/revalidation/native_wifi_tracepoint_format_classifier_v777.py`
+- evidence:
+  - `tmp/wifi/v777-tracepoint-format-classifier/manifest.json`
+  - `tmp/wifi/v777-tracepoint-format-classifier/summary.md`
+  - `tmp/wifi/v777-tracepoint-format-classifier/native/format-*.txt`
+- decision: `v777-tracepoint-format-fields-classified`
+- result: live stock-v724 bounded format read PASS. All 5 selected tracepoints have readable `format` files and event-specific fields. `msm_pil_event:pil_event` exposes `event_name,fw_name`; `msm_pil_event:pil_notif` exposes `event_name,code,fw_name`; `msm_pil_event:pil_func` exposes `func_name`; `dfc:dfc_qmi_tc` exposes `dev_name,txq,enable`; `cfg80211:cfg80211_report_wowlan_wakeup` exposes wiphy/wakeup fields.
+- safety: BPF attach, ftrace control writes, Wi-Fi action, scan/connect, credential use, DHCP/routes, external ping, reboot, flash, and partition write were all not executed. Tracefs was unmounted after the read window.
+- interpretation: `msm_pil_event:pil_notif` is the best V778 target because it is modem/PIL-adjacent and exposes event name, code, and firmware name without requiring Wi-Fi HAL or network actions. `cfg80211` is likely post-wiphy and not useful for the current pre-`wlan0` blocker.
+- next: V778 should plan one bounded BPF tracepoint idle attach/read/detach feasibility proof for `msm_pil_event:pil_notif` only. No modem/Wi-Fi trigger, scan/connect, credential use, or custom kernel flash.
