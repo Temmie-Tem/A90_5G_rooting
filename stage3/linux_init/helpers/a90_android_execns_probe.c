@@ -76,7 +76,7 @@
 #define AF_QIPCRTR 42
 #endif
 
-#define EXECNS_VERSION "a90_android_execns_probe v120"
+#define EXECNS_VERSION "a90_android_execns_probe v121"
 #define MAX_PATH_LEN 512
 #define MAX_CAPTURE_SIZE (1024 * 1024)
 #define MAX_LINKERCONFIG_SIZE (256 * 1024)
@@ -8703,6 +8703,208 @@ static int append_wifi_window_surface_capture(struct buffer *buf, const char *ph
     return 0;
 }
 
+static int build_phase_label(char *out, size_t out_size, const char *phase, const char *suffix) {
+    int rc = snprintf(out, out_size, "wifi_icnss_edge_%s_%s", phase, suffix);
+
+    if (rc < 0 || (size_t)rc >= out_size) {
+        errno = ENAMETOOLONG;
+        return -1;
+    }
+    return 0;
+}
+
+static int append_wifi_icnss_edge_capture(struct buffer *buf, const char *phase) {
+    bool mhi_devices_captured = false;
+    bool mhi_drivers_captured = false;
+    bool pci_devices_captured = false;
+    bool pci_drivers_captured = false;
+    bool rpmsg_devices_captured = false;
+    bool rpmsg_drivers_captured = false;
+    bool icnss_params_captured = false;
+    bool wlan_params_captured = false;
+    bool icnss_power_captured = false;
+    bool qca6390_power_captured = false;
+    bool interrupts_captured = false;
+    bool icnss_quirks_captured = false;
+    bool icnss_dynamic_feature_mask_captured = false;
+    bool wlan_fwpath_captured = false;
+    bool wlan_con_mode_captured = false;
+    bool wlan_country_code_captured = false;
+    bool wlan_prealloc_disabled_captured = false;
+    int value_captures = 0;
+    char label[128];
+
+    if (append_format(buf, "wifi_companion_start.icnss_edge_%s.begin=1\n", phase) < 0 ||
+        append_runtime_path_status(buf,
+                                   "wifi_icnss_edge",
+                                   phase,
+                                   "icnss_driver_link",
+                                   "/sys/bus/platform/devices/18800000.qcom,icnss/driver") < 0 ||
+        append_runtime_path_status(buf,
+                                   "wifi_icnss_edge",
+                                   phase,
+                                   "qca6390_driver_link",
+                                   "/sys/bus/platform/devices/a0000000.qcom,cnss-qca6390/driver") < 0 ||
+        append_runtime_path_status(buf,
+                                   "wifi_icnss_edge",
+                                   phase,
+                                   "wlan0_netdev",
+                                   "/sys/class/net/wlan0") < 0 ||
+        append_runtime_path_status(buf,
+                                   "wifi_icnss_edge",
+                                   phase,
+                                   "shutdown_wlan",
+                                   "/sys/kernel/shutdown_wlan") < 0) {
+        return -1;
+    }
+
+    if (build_phase_label(label, sizeof(label), phase, "mhi_devices") < 0 ||
+        append_dir_capture_named(buf,
+                                 "/sys/bus/mhi/devices",
+                                 label,
+                                 false,
+                                 96,
+                                 &mhi_devices_captured) < 0 ||
+        build_phase_label(label, sizeof(label), phase, "mhi_drivers") < 0 ||
+        append_dir_capture_named(buf,
+                                 "/sys/bus/mhi/drivers",
+                                 label,
+                                 false,
+                                 96,
+                                 &mhi_drivers_captured) < 0 ||
+        build_phase_label(label, sizeof(label), phase, "pci_devices") < 0 ||
+        append_dir_capture_named(buf,
+                                 "/sys/bus/pci/devices",
+                                 label,
+                                 false,
+                                 96,
+                                 &pci_devices_captured) < 0 ||
+        build_phase_label(label, sizeof(label), phase, "pci_drivers") < 0 ||
+        append_dir_capture_named(buf,
+                                 "/sys/bus/pci/drivers",
+                                 label,
+                                 false,
+                                 128,
+                                 &pci_drivers_captured) < 0 ||
+        build_phase_label(label, sizeof(label), phase, "rpmsg_devices") < 0 ||
+        append_dir_capture_named(buf,
+                                 "/sys/bus/rpmsg/devices",
+                                 label,
+                                 false,
+                                 128,
+                                 &rpmsg_devices_captured) < 0 ||
+        build_phase_label(label, sizeof(label), phase, "rpmsg_drivers") < 0 ||
+        append_dir_capture_named(buf,
+                                 "/sys/bus/rpmsg/drivers",
+                                 label,
+                                 false,
+                                 128,
+                                 &rpmsg_drivers_captured) < 0 ||
+        build_phase_label(label, sizeof(label), phase, "icnss_params") < 0 ||
+        append_dir_capture_named(buf,
+                                 "/sys/module/icnss/parameters",
+                                 label,
+                                 false,
+                                 96,
+                                 &icnss_params_captured) < 0 ||
+        build_phase_label(label, sizeof(label), phase, "wlan_params") < 0 ||
+        append_dir_capture_named(buf,
+                                 "/sys/module/wlan/parameters",
+                                 label,
+                                 false,
+                                 128,
+                                 &wlan_params_captured) < 0 ||
+        build_phase_label(label, sizeof(label), phase, "icnss_power") < 0 ||
+        append_dir_capture_named(buf,
+                                 "/sys/bus/platform/devices/18800000.qcom,icnss/power",
+                                 label,
+                                 false,
+                                 96,
+                                 &icnss_power_captured) < 0 ||
+        build_phase_label(label, sizeof(label), phase, "qca6390_power") < 0 ||
+        append_dir_capture_named(buf,
+                                 "/sys/bus/platform/devices/a0000000.qcom,cnss-qca6390/power",
+                                 label,
+                                 false,
+                                 96,
+                                 &qca6390_power_captured) < 0 ||
+        build_phase_label(label, sizeof(label), phase, "proc_interrupts") < 0 ||
+        append_path_file_capture_named(buf,
+                                       "/proc/interrupts",
+                                       label,
+                                       16384,
+                                       &interrupts_captured) < 0) {
+        return -1;
+    }
+
+    if (append_path_file_capture_named(buf,
+                                       "/sys/module/icnss/parameters/quirks",
+                                       "wifi_icnss_edge_icnss_quirks",
+                                       1024,
+                                       &icnss_quirks_captured) < 0 ||
+        append_path_file_capture_named(buf,
+                                       "/sys/module/icnss/parameters/dynamic_feature_mask",
+                                       "wifi_icnss_edge_icnss_dynamic_feature_mask",
+                                       1024,
+                                       &icnss_dynamic_feature_mask_captured) < 0 ||
+        append_path_file_capture_named(buf,
+                                       "/sys/module/wlan/parameters/fwpath",
+                                       "wifi_icnss_edge_wlan_fwpath",
+                                       1024,
+                                       &wlan_fwpath_captured) < 0 ||
+        append_path_file_capture_named(buf,
+                                       "/sys/module/wlan/parameters/con_mode",
+                                       "wifi_icnss_edge_wlan_con_mode",
+                                       1024,
+                                       &wlan_con_mode_captured) < 0 ||
+        append_path_file_capture_named(buf,
+                                       "/sys/module/wlan/parameters/country_code",
+                                       "wifi_icnss_edge_wlan_country_code",
+                                       1024,
+                                       &wlan_country_code_captured) < 0 ||
+        append_path_file_capture_named(buf,
+                                       "/sys/module/wlan/parameters/prealloc_disabled",
+                                       "wifi_icnss_edge_wlan_prealloc_disabled",
+                                       1024,
+                                       &wlan_prealloc_disabled_captured) < 0) {
+        return -1;
+    }
+
+    value_captures += icnss_quirks_captured ? 1 : 0;
+    value_captures += icnss_dynamic_feature_mask_captured ? 1 : 0;
+    value_captures += wlan_fwpath_captured ? 1 : 0;
+    value_captures += wlan_con_mode_captured ? 1 : 0;
+    value_captures += wlan_country_code_captured ? 1 : 0;
+    value_captures += wlan_prealloc_disabled_captured ? 1 : 0;
+    return append_format(buf,
+                         "wifi_companion_start.icnss_edge_%s.mhi_devices_captured=%d\n"
+                         "wifi_companion_start.icnss_edge_%s.mhi_drivers_captured=%d\n"
+                         "wifi_companion_start.icnss_edge_%s.pci_devices_captured=%d\n"
+                         "wifi_companion_start.icnss_edge_%s.pci_drivers_captured=%d\n"
+                         "wifi_companion_start.icnss_edge_%s.rpmsg_devices_captured=%d\n"
+                         "wifi_companion_start.icnss_edge_%s.rpmsg_drivers_captured=%d\n"
+                         "wifi_companion_start.icnss_edge_%s.icnss_params_captured=%d\n"
+                         "wifi_companion_start.icnss_edge_%s.wlan_params_captured=%d\n"
+                         "wifi_companion_start.icnss_edge_%s.icnss_power_captured=%d\n"
+                         "wifi_companion_start.icnss_edge_%s.qca6390_power_captured=%d\n"
+                         "wifi_companion_start.icnss_edge_%s.interrupts_captured=%d\n"
+                         "wifi_companion_start.icnss_edge_%s.value_captures=%d\n"
+                         "wifi_companion_start.icnss_edge_%s.end=1\n",
+                         phase, mhi_devices_captured ? 1 : 0,
+                         phase, mhi_drivers_captured ? 1 : 0,
+                         phase, pci_devices_captured ? 1 : 0,
+                         phase, pci_drivers_captured ? 1 : 0,
+                         phase, rpmsg_devices_captured ? 1 : 0,
+                         phase, rpmsg_drivers_captured ? 1 : 0,
+                         phase, icnss_params_captured ? 1 : 0,
+                         phase, wlan_params_captured ? 1 : 0,
+                         phase, icnss_power_captured ? 1 : 0,
+                         phase, qca6390_power_captured ? 1 : 0,
+                         phase, interrupts_captured ? 1 : 0,
+                         phase, value_captures,
+                         phase);
+}
+
 static int append_wifi_cnss2_focus_capture(struct buffer *buf, const char *phase) {
     bool icnss_driver_captured = false;
     bool icnss_device_captured = false;
@@ -8807,30 +9009,36 @@ static int append_wifi_cnss2_focus_capture(struct buffer *buf, const char *phase
     value_captures += qca6390_modalias_captured ? 1 : 0;
     value_captures += qca6390_power_control_captured ? 1 : 0;
     value_captures += qca6390_power_runtime_status_captured ? 1 : 0;
-    return append_format(buf,
-                         "wifi_companion_start.cnss2_focus_%s.icnss_driver_captured=%d\n"
-                         "wifi_companion_start.cnss2_focus_%s.icnss_device_captured=%d\n"
-                         "wifi_companion_start.cnss2_focus_%s.qca6390_device_captured=%d\n"
-                         "wifi_companion_start.cnss2_focus_%s.net_class_captured=%d\n"
-                         "wifi_companion_start.cnss2_focus_%s.wlan0_captured=%d\n"
-                         "wifi_companion_start.cnss2_focus_%s.debug_icnss_captured=%d\n"
-                         "wifi_companion_start.cnss2_focus_%s.value_captures=%d\n"
-                         "wifi_companion_start.cnss2_focus_%s.end=1\n",
-                         phase,
-                         icnss_driver_captured ? 1 : 0,
-                         phase,
-                         icnss_device_captured ? 1 : 0,
-                         phase,
-                         qca6390_device_captured ? 1 : 0,
-                         phase,
-                         net_class_captured ? 1 : 0,
-                         phase,
-                         wlan0_captured ? 1 : 0,
-                         phase,
-                         debug_icnss_captured ? 1 : 0,
-                         phase,
-                         value_captures,
-                         phase);
+    if (append_format(buf,
+                      "wifi_companion_start.cnss2_focus_%s.icnss_driver_captured=%d\n"
+                      "wifi_companion_start.cnss2_focus_%s.icnss_device_captured=%d\n"
+                      "wifi_companion_start.cnss2_focus_%s.qca6390_device_captured=%d\n"
+                      "wifi_companion_start.cnss2_focus_%s.net_class_captured=%d\n"
+                      "wifi_companion_start.cnss2_focus_%s.wlan0_captured=%d\n"
+                      "wifi_companion_start.cnss2_focus_%s.debug_icnss_captured=%d\n"
+                      "wifi_companion_start.cnss2_focus_%s.value_captures=%d\n",
+                      phase,
+                      icnss_driver_captured ? 1 : 0,
+                      phase,
+                      icnss_device_captured ? 1 : 0,
+                      phase,
+                      qca6390_device_captured ? 1 : 0,
+                      phase,
+                      net_class_captured ? 1 : 0,
+                      phase,
+                      wlan0_captured ? 1 : 0,
+                      phase,
+                      debug_icnss_captured ? 1 : 0,
+                      phase,
+                      value_captures) < 0 ||
+        append_wifi_icnss_edge_capture(buf, phase) < 0 ||
+        append_format(buf, "wifi_companion_start.cnss2_focus_%s.icnss_edge_captured=1\n"
+                           "wifi_companion_start.cnss2_focus_%s.end=1\n",
+                      phase,
+                      phase) < 0) {
+        return -1;
+    }
+    return 0;
 }
 
 
