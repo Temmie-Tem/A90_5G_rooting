@@ -9,7 +9,7 @@ Samsung Galaxy A90 5G (SM-A908N) — stock Android Linux kernel 4.14.190, custom
 - **Device**: SM-A908N, Android 12, Magisk 30.7, TWRP available
 - **Current native build**: `A90 Linux init 0.9.68 (v724)` — `stage3/boot_linux_v724.img`
 - **Known-good fallback**: `stage3/boot_linux_v48.img`
-- **Active research cycle**: v816 pending after V815 idle snapshot; compare idle-vs-trigger subsystem/sysmon/service publication delta
+- **Active research cycle**: v817 pending after V816 idle-vs-trigger delta; add in-window read-only subsystem/sysmon/service-locator sampler
 - **Versioning policy**: `docs/operations/VERSIONING_POLICY.md` — `vNNN` cycle ≠ device flash
 
 ## Versioning rules
@@ -157,7 +157,7 @@ New `vNNN` experiment scripts must:
 - Gate live action behind explicit `--allow-*` + `--assume-yes` flags
 - Run `version`, `status`, `bootstatus`, `selftest verbose` as postflight regression
 
-## Wi-Fi bring-up research state (v598–v815, active)
+## Wi-Fi bring-up research state (v598–v816, active)
 
 Goal: bring up `wlan0` from native init without Android userspace.
 
@@ -179,7 +179,7 @@ stable enough in every boot. Helper v124 added a `sysmon-qmi` gated
 `mdm_helper` mode. V746 proved `mdm_helper` starts safely after `sysmon-qmi`,
 but it does not advance mdm3/WLAN-PD/WLFW.
 
-### Current blocker (V815)
+### Current blocker (V816)
 
 ```
 mss: OFFLINING → ONLINE ✓  (read-only firmware mounts + subsys_modem holder)
@@ -232,6 +232,7 @@ V812 mdm3/WLAN-PD/service69 observer: live stock-v724 PASS. Current-boot V401 SE
 V813 post-sysmon classifier: host-only PASS. V812 confirms current sysmon-without-service69, V785 demotes memshare/CMA as a sole blocker, and V626/V783 show Android publishes sibling sysmon plus service74/WLAN-PD/WLFW while native lacks sibling sysmon/service74/WLFW. Next gate is V814 sibling sysmon/service-publication precondition isolation below HAL/connect, with custom-kernel flashing still paused.
 V814 sibling sysmon source classifier: host-only PASS. Samsung OSRC source maps service-notifier to SERVREG QMI listener/state indication and sysmon to subsystem registration/QMI lookup. This confirms the next useful step is a read-only stock-v724 subsystem/sysmon/service-locator registration snapshot, not userspace daemon/HAL/connect retry or custom-kernel flash.
 V815 subsystem/sysmon snapshot: live stock-v724 read-only PASS. Idle native has msm_subsys surface present, modem/mss `OFFLINING`, mdm3/esoc0 `OFFLINING`, esoc sysfs present, ICNSS platform present, service-locator timeout markers, and no runtime service-notifier/service74/WLAN-PD/WLFW/BDF/`wlan0`. Static devicetree/sysfs WLAN strings are separated from runtime marker counts. Next gate is V816 idle-vs-trigger delta classification using V815 and V812 evidence.
+V816 idle-vs-trigger delta classifier: host-only PASS. Idle has modem/mdm3 `OFFLINING` and no runtime service publication. V812 lower trigger advances mss/QRTR/sysmon, but mdm3 remains `OFFLINING` and service74/WLAN-PD/WLFW/service69/BDF/`wlan0` remain absent. Next gate is V817 in-window read-only sampling of V815 surfaces around the existing lower trigger, not HAL/connect or custom-kernel flash.
 ```
 
 Vendor firmware files (`wlanmdsp.mbn`, `bdwlan.bin`, `regdb.bin`) confirmed at `sda29` (isolated mount), NOT in default native `/vendor`.
@@ -326,6 +327,7 @@ path should be closed for this blocker.
 | v813 | host-only post-sysmon classifier selects sibling sysmon/service-publication prerequisites as the next blocker; custom-kernel flashing remains paused |
 | v814 | host-only source classifier maps service-notifier/sysmon to kernel registration paths; next is read-only stock-v724 subsystem/sysmon/service-locator snapshot |
 | v815 | live read-only idle snapshot captures modem/mdm3 OFFLINING baseline and no runtime service74/WLAN-PD/WLFW; next is idle-vs-trigger delta classifier |
+| v816 | host-only idle-vs-trigger delta: lower trigger advances mss/sysmon only; mdm3 and service-publication stay blocked |
 
 ### Safety additions (Wi-Fi research)
 
