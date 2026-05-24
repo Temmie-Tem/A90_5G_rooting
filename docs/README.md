@@ -143,6 +143,7 @@
 - `plans/NATIVE_INIT_V102_DIAGNOSTICS_PLAN_2026-05-03.md` – v102 diagnostics/log bundle 실행 계획
 - `plans/NATIVE_INIT_V103_WIFI_INVENTORY_PLAN_2026-05-04.md` – v103 Wi-Fi read-only inventory 실행 계획
 - `plans/NATIVE_INIT_V104_WIFI_FEASIBILITY_PLAN_2026-05-04.md` – v104 Wi-Fi enablement feasibility gate 실행 계획
+- `plans/NATIVE_INIT_V708_PROVIDER_FIRST_CNSS_V120_STALL_PLAN_2026-05-24.md` – helper v120으로 provider-first CNSS retry를 재실행해 `cnss_daemon_retry` live stall snapshot을 수집하는 계획
 - `plans/NATIVE_INIT_V706_CNSS2_PD_NOTIFIER_READONLY_PLAN_2026-05-24.md` – service-notifier `180` 이후 kernel `icnss`/CNSS pd-notifier 및 QCA6390 power/WLFW 진행 여부를 현재 부팅에서 read-only로 분류하는 계획
 - `plans/NATIVE_INIT_V705_EXECNS_HELPER_V120_STALL_CAPTURE_PLAN_2026-05-24.md` – provider-first `cnss-daemon` retry의 live stall point를 잡기 위한 helper v120 read-only proc/socket 관측성 추가 계획
 - `plans/NATIVE_INIT_V704_CNSS_RETRY_STALL_SNAPSHOT_PLAN_2026-05-24.md` – V700 provider-first `cnss-daemon` retry가 crash/Binder 실패가 아니라 alive pre-WLFW stall인지 기존 proc/fd snapshot으로 분류하는 V704 host-only 계획
@@ -260,6 +261,9 @@
 
 ### 4. Current Native Init Reports
 
+- `reports/NATIVE_INIT_V709_V708_STALL_CLASSIFIER_2026-05-24.md` – V709 host-only 결과 v120 stall snapshot에서 `cnss-daemon` retry가 service `180/74`와 provider 등록 후 `poll/futex` 대기 중이라 다음은 kernel ICNSS/WLFW event source 분류
+- `reports/NATIVE_INIT_V708_PROVIDER_FIRST_CNSS_V120_STALL_LIVE_2026-05-24.md` – V708 live 결과 helper v120 provider-first path가 service `180/74`, provider 등록, post-provider CNSS retry, stall snapshot을 모두 통과했지만 WLFW/BDF/`wlan0`는 여전히 0
+- `reports/NATIVE_INIT_V707_LOWER_REPLAY_AND_V120_DEPLOY_2026-05-24.md` – V707 결과 V598-class replay는 QRTR/sysmon까지만 복원하고 service `180`은 미재현했으며 helper v120 deploy는 성공
 - `reports/NATIVE_INIT_V706_CNSS2_PD_NOTIFIER_READONLY_LIVE_2026-05-24.md` – V706 live 결과 현재 부팅은 service-notifier `180`이 재현되지 않고 `mss`/`mdm3`가 `OFFLINING`이라 CNSS retry/HAL보다 lower modem/WLAN-PD readiness 복원이 선행되어야 함
 - `reports/NATIVE_INIT_V705_EXECNS_HELPER_V120_STALL_CAPTURE_PREP_2026-05-24.md` – V705 prep 결과 helper v120이 `cnss_daemon_retry` live `wchan`/`syscall`/task/socket 관측성을 포함해 static build와 deploy preflight 통과
 - `reports/NATIVE_INIT_V704_CNSS_RETRY_STALL_SNAPSHOT_2026-05-24.md` – V704 결과 provider-first `cnss-daemon` retry는 alive/sleeping + vndbinder/socket fd 상태로 WLFW 전에서 멈추므로 다음은 live `wchan`/`syscall`/task/socket inode stall capture
