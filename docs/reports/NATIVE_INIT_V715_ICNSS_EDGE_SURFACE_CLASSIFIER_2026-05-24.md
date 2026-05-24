@@ -66,10 +66,12 @@ The current blocker is not provider registration, `vndservicemanager`, a CNSS
 Binder transaction, or ICNSS parent binding. During the service `180/74`
 positive window, ICNSS is bound but the QCA6390 platform child remains unbound.
 
-Therefore, another CNSS retry, Wi-Fi HAL start, or scan/connect attempt is not
-the next best gate. The next gate should inspect QCA6390 bind prerequisites and
-deferred-probe evidence before attempting any WLAN state write or Wi-Fi
-connection.
+V716 reconciles this with the older V703 Android reference. The QCA6390 child
+unbound state is real, but V703 shows Android reaches Wi-Fi netdevs under the
+ICNSS parent path and rejects manual QCA6390 `bind`/`unbind` as the next target.
+Therefore, another CNSS retry, Wi-Fi HAL start, scan/connect attempt, or QCA
+bind/unbind write is not the next best gate. The next gate is the ICNSS-QMI/WLFW
+readiness trigger.
 
 ## Validation
 

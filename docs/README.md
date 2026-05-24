@@ -130,6 +130,7 @@
 
 ### 3. Plans
 
+- `plans/NATIVE_INIT_V716_QCA_BIND_RECONCILIATION_PLAN_2026-05-24.md` – V715의 QCA6390 child-unbound 결과를 V703 Android reference와 대조해 QCA bind/unbind가 아니라 ICNSS-QMI/WLFW readiness edge가 다음 target임을 고정하는 host-only 계획
 - `plans/NATIVE_INIT_V715_ICNSS_EDGE_SURFACE_CLASSIFIER_PLAN_2026-05-24.md` – V712 helper v121 ICNSS edge capture를 host-only로 분류해 ICNSS parent/QCA6390 child/WLFW·BDF·`wlan0` 중 어느 경계에서 멈췄는지 라벨링하는 계획
 - `plans/NATIVE_INIT_NEXT_WORK_2026-04-25.md` – v42 이후 역추적/셸/HUD/로그/네트워크 작업 목록
 - `plans/NATIVE_INIT_TASK_QUEUE_2026-04-25.md` – v47 이후 바로 실행할 작업 큐
@@ -265,7 +266,8 @@
 
 ### 4. Current Native Init Reports
 
-- `reports/NATIVE_INIT_V715_ICNSS_EDGE_SURFACE_CLASSIFIER_2026-05-24.md` – V714/V712 edge evidence를 host-only 분류한 결과 service `180/74` window에서 ICNSS parent는 bound지만 QCA6390 platform child가 unbound라 다음은 QCA6390 bind prerequisite/deferred-probe 조사
+- `reports/NATIVE_INIT_V716_QCA_BIND_RECONCILIATION_2026-05-24.md` – V715의 QCA6390 child-unbound는 사실이나 V703 Android reference가 QCA bind/unbind target을 거부하므로 다음 live gate를 ICNSS-QMI/WLFW readiness trigger로 재고정
+- `reports/NATIVE_INIT_V715_ICNSS_EDGE_SURFACE_CLASSIFIER_2026-05-24.md` – V714/V712 edge evidence를 host-only 분류한 결과 service `180/74` window에서 ICNSS parent는 bound지만 QCA6390 platform child가 unbound임을 확인했고, V716에서 QCA bind/unbind가 아닌 ICNSS-QMI/WLFW edge로 재라우팅
 - `reports/NATIVE_INIT_V714_HELPER_V121_ICNSS_EDGE_LIVE_2026-05-24.md` – helper v121을 serial safe chunk로 배포하고 V712 provider-first ICNSS edge proof를 실행했으며, WLFW/BDF/`wlan0` 미진입과 top-level orchestrator summary 보정 내용을 기록
 - `reports/NATIVE_INIT_V713_V666_CNSS2_PD_NOTIFIER_CURRENT_2026-05-24.md` – V666 read-only CNSS2 pd-notifier check를 현재 부팅에서 재실행한 결과 service `180/74` 자체가 없어 현 부팅은 lower modem/WLAN-PD readiness 복원이 먼저이며, service-positive 경로는 V712 helper v121 edge capture로 계속 진행
 - `reports/NATIVE_INIT_V712_EXECNS_HELPER_V121_ICNSS_EDGE_PREP_2026-05-24.md` – V712 prep 결과 helper v121 static build/strings 계약과 V712 provider-first/deploy preflight wrapper가 통과했고 실제 배포와 live proof가 다음 gate
