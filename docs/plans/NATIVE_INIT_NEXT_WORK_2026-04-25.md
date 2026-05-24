@@ -2458,3 +2458,15 @@ Samsung bootloader
 - result: helper v122 still reproduces the V735 CNSS-only service publication path: `mss=ONLINE`, QRTR RX/TX, `sysmon-qmi`, and service-notifier `180` appeared; MHI/QCA6390/WLFW/service `69`/BDF/`wlan0` remained absent.
 - interpretation: helper v122 itself is not the regression. The active blocker is now the service-publication-to-MHI/WLFW gap, plus a secondary repair candidate in V741 gated `mdm_helper` gate timing.
 - next: implement a two-phase same-window proof: first observe CNSS-only service publication, then start `mdm_helper` only after that marker, still below service-manager/HAL/scan/connect.
+
+### V745. Service180-gated MDM Helper Prep Result
+
+- plan: `docs/plans/NATIVE_INIT_V745_SERVICE180_GATED_MDM_HELPER_PLAN_2026-05-24.md`
+- report: `docs/reports/NATIVE_INIT_V745_SERVICE180_GATED_MDM_HELPER_PREP_2026-05-24.md`
+- evidence:
+  - helper build `tmp/wifi/v745-execns-helper-v123-build/`
+  - runner plan `tmp/wifi/v745-mdm-helper-service180-live-plan2/`
+  - deploy preflight `tmp/wifi/v745-execns-helper-v123-deploy-preflight-after-hide/`
+- result: helper v123 adds `wifi-companion-service180-gated-mdm-helper-start-only`; local static build, mode/order markers, V745 runner plan, and deploy preflight pass. Remote helper remains v122 and needs deploy.
+- interpretation: the next safe live gate is not HAL/connect. It is v123 deploy followed by same-window service `180` gated `mdm_helper` start-only.
+- next: deploy helper v123, refresh current-boot SELinuxfs/policy-load prep, then run V745 live. Wi-Fi HAL/scan/connect/credentials/DHCP/external ping remain blocked until lower WLFW/BDF/`wlan0` evidence appears.
