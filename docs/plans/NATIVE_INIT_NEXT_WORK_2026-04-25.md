@@ -2817,3 +2817,15 @@ Samsung bootloader
 - safety: created a local tmp boot image only. No device command, partition write, flash, reboot, service-manager/Wi-Fi HAL start, scan/connect, credential use, DHCP/routes, or external ping was executed.
 - interpretation: the diagnostic boot artifact is ready for an explicitly gated live handoff. This still has not proven runtime Wi-Fi; it only prepares the observable kernel needed to classify the HDD/PLD/ICNSS stall on-device.
 - next: V771 should flash the staged diagnostic image under rollback rules, boot native init, verify serial/bridge health, capture dmesg for `A90V765` markers around `boot_wlan`, and roll back if health fails. Wi-Fi scan/connect and credential use remain blocked until `wlan0`/wiphy exists.
+
+### V771. Diagnostic Live Handoff Boot Failure
+
+- report: `docs/reports/NATIVE_INIT_V771_DIAGNOSTIC_LIVE_HANDOFF_BOOT_FAIL_2026-05-25.md`
+- evidence:
+  - `tmp/wifi/v771-diagnostic-live-handoff-20260525-013724/native-init-flash.txt`
+  - `tmp/wifi/v771-diagnostic-live-handoff-20260525-013724/abort-state.txt`
+- decision: `v771-instrumented-kernel-boot-failed-download-mode`
+- result: live handoff failed after a successful TWRP flash/readback. The V770 image was pushed to recovery, remote sha256 matched local, `dd` to `/dev/block/by-name/boot` completed, and boot partition prefix sha256 matched. After `twrp reboot`, native init did not verify and the phone enumerated as Samsung Download mode (`04e8:685d`) with no ADB device.
+- interpretation: the failure is not an adb push, TWRP transfer, or boot partition write mismatch. The V769/V770 instrumented OSRC kernel image is not currently boot-compatible with the known-good native-init boot image. Do not retry the same V770 image as-is.
+- recovery: rollback is pending and requires TWRP/recovery ADB or another boot-partition write path. Preferred rollback target is `stage3/boot_linux_v724.img` with expected version `A90 Linux init 0.9.68 (v724)`.
+- next: after rollback is verified, V772 should run a host-only boot incompatibility classifier before any further flash. Wi-Fi scan/connect and credential use remain blocked until `wlan0`/wiphy exists on a healthy native boot.
