@@ -2477,11 +2477,25 @@ Samsung bootloader
 ### V746. Sysmon-gated MDM Helper Prep Result
 
 - plan: `docs/plans/NATIVE_INIT_V746_SYSMON_GATED_MDM_HELPER_PLAN_2026-05-24.md`
-- report: `docs/reports/NATIVE_INIT_V746_SYSMON_GATED_MDM_HELPER_PREP_2026-05-24.md`
+- prep report: `docs/reports/NATIVE_INIT_V746_SYSMON_GATED_MDM_HELPER_PREP_2026-05-24.md`
+- live report: `docs/reports/NATIVE_INIT_V746_SYSMON_GATED_MDM_HELPER_LIVE_2026-05-24.md`
 - evidence:
   - helper build `tmp/wifi/v746-execns-helper-v124-build/`
   - runner plan `tmp/wifi/v746-mdm-helper-sysmon-live-plan-final/`
   - deploy preflight `tmp/wifi/v746-execns-helper-v124-deploy-preflight-final/`
-- result: helper v124 adds `wifi-companion-sysmon-gated-mdm-helper-start-only`; local static build, mode/order markers, V746 runner plan, and deploy preflight pass. Remote helper remains v123 and needs deploy.
-- interpretation: the next safe live gate is v124 deploy followed by same-window `sysmon-qmi` gated `mdm_helper` start-only.
-- next: deploy helper v124, refresh current-boot SELinuxfs/policy-load prep, then run V746 live. Wi-Fi HAL/scan/connect/credentials/DHCP/external ping remain blocked until lower WLFW/BDF/`wlan0` evidence appears.
+  - deploy run `tmp/wifi/v746-execns-helper-v124-deploy-run-serial1850/`
+  - live run `tmp/wifi/v746-mdm-helper-sysmon-live-current/`
+- result: helper v124 deployed and live-tested. The `sysmon-qmi` gate opened, `mdm_helper` started and was postflight-safe, but `mdm3` stayed `OFFLINING`; MHI/QCA6390/WLFW/service `69`/BDF/`wlan0` stayed absent. Service-manager, Wi-Fi HAL, scan/connect, credentials, DHCP/routes, and external ping were not executed.
+- interpretation: `mdm_helper` is not sufficient for the current lower blocker. Native evidence now shows the `a0000000.qcom,cnss-qca6390` platform device exists but has no `driver` link, and `/sys/bus/mhi/devices` is empty.
+- next: V747 should be a read-only Android/native QCA6390 driver-binding and MHI power-up comparison. Do not perform generic ICNSS/CNSS bind or unbind.
+
+### V747. QCA6390 Driver-binding Delta Plan
+
+- plan: `docs/plans/NATIVE_INIT_V747_QCA6390_DRIVER_BINDING_DELTA_PLAN_2026-05-24.md`
+- basis evidence:
+  - `tmp/wifi/v746-mdm-helper-sysmon-live-current/`
+  - `tmp/wifi/v717-provider-first-icnss-edge-long-observe-20260524-103333/`
+  - `tmp/wifi/v717-icnss-edge-surface-classifier/`
+  - `tmp/wifi/v717-qca-bind-reconciliation/`
+- result: planned only.
+- next: implement a host-only/read-only classifier. If Android-side QCA6390 driver-link evidence is missing, require a narrow Android handoff capture rather than guessing.

@@ -130,6 +130,7 @@
 
 ### 3. Plans
 
+- `plans/NATIVE_INIT_V747_QCA6390_DRIVER_BINDING_DELTA_PLAN_2026-05-24.md` – V746/V717 증거를 묶어 QCA6390 platform child driver link 부재와 MHI device 미생성을 Android/native read-only로 분류하는 다음 계획
 - `plans/NATIVE_INIT_V746_SYSMON_GATED_MDM_HELPER_PLAN_2026-05-24.md` – V745에서 service `180` gate가 닫힌 반면 `sysmon-qmi`는 재현된 결과를 반영해 helper v124로 `mdm_helper`를 sysmon 뒤에서만 시작하는 계획
 - `plans/NATIVE_INIT_V745_SERVICE180_GATED_MDM_HELPER_PLAN_2026-05-24.md` – V744에서 재현된 service-notifier `180`을 gate로 삼아 `mdm_helper`를 같은 bounded window에서 늦게 시작하는 helper v123/V745 계획
 - `plans/NATIVE_INIT_V744_V122_CNSS_ONLY_COMPARISON_PLAN_2026-05-24.md` – V743 service-`74` gate miss가 helper v122 자체 문제인지 분리하기 위해 V735 CNSS-only 경로를 helper v122로 재실행하는 비교 계획
@@ -296,7 +297,8 @@
 
 ### 4. Current Native Init Reports
 
-- `reports/NATIVE_INIT_V746_SYSMON_GATED_MDM_HELPER_PREP_2026-05-24.md` – helper v124에 `sysmon-qmi` gated `mdm_helper` mode를 추가했고 static build, V746 plan, v124 deploy preflight가 통과했으며 remote helper는 deploy 대기
+- `reports/NATIVE_INIT_V746_SYSMON_GATED_MDM_HELPER_LIVE_2026-05-24.md` – helper v124 배포 후 `sysmon-qmi` gate가 열려 `mdm_helper`는 시작됐지만 mdm3/MHI/WLFW/`wlan0` 진전이 없고 QCA6390 platform device driver link가 비어 있음을 확인
+- `reports/NATIVE_INIT_V746_SYSMON_GATED_MDM_HELPER_PREP_2026-05-24.md` – helper v124에 `sysmon-qmi` gated `mdm_helper` mode를 추가했고 static build, V746 plan, v124 deploy preflight가 통과했으며 이후 live로 검증됨
 - `reports/NATIVE_INIT_V745_SERVICE180_GATED_MDM_HELPER_LIVE_2026-05-24.md` – helper v123 배포 후 V745 live를 실행했지만 service `180` gate가 열리지 않아 `mdm_helper`는 시작되지 않았고, QRTR TX/sysmon까지만 재현됨
 - `reports/NATIVE_INIT_V745_SERVICE180_GATED_MDM_HELPER_PREP_2026-05-24.md` – helper v123에 service `180` gated `mdm_helper` mode를 추가했고 static build, V745 plan, v123 deploy preflight가 통과했으며 이후 live로 검증됨
 - `reports/NATIVE_INIT_V744_V122_CNSS_ONLY_COMPARISON_2026-05-24.md` – V735 CNSS-only 경로를 helper v122로 재실행해 QRTR TX/sysmon/service-notifier는 재현되고 MHI/WLFW/`wlan0`는 여전히 absent임을 확인했으며, V743 gate miss를 helper v122 자체 문제와 분리

@@ -16,8 +16,10 @@ minimal follow-up to V745: V745 proved the service `180` gate can stay closed
 even when QRTR TX and `sysmon-qmi` are present, so V746 uses `sysmon-qmi` as the
 gate and starts only `/vendor/bin/mdm_helper` after that marker.
 
-The committed prep unit is static/read-only validated. Remote `/cache/bin` still
-contains helper v123 until the v124 deploy run is executed.
+The prep unit was followed by live execution. Helper v124 was deployed in
+`tmp/wifi/v746-execns-helper-v124-deploy-run-serial1850/`, and the live result
+is recorded in
+`docs/reports/NATIVE_INIT_V746_SYSMON_GATED_MDM_HELPER_LIVE_2026-05-24.md`.
 
 ## Key Results
 
@@ -71,6 +73,6 @@ wifi_bringup_executed: False
 
 ## Next Gate
 
-Deploy helper v124, refresh current-boot SELinuxfs/policy-load prep, then run
-V746 live. The live proof may start `mdm_helper` only after `sysmon-qmi` appears
-inside the bounded lower/CNSS-only window.
+V746 live showed `mdm_helper` starts safely after `sysmon-qmi`, but it does not
+advance mdm3/MHI/WLFW/`wlan0`. Continue with a read-only QCA6390 driver-binding
+comparison before considering any bind/power action.
