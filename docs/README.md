@@ -264,6 +264,7 @@
 
 ### 4. Current Native Init Reports
 
+- `reports/NATIVE_INIT_V713_V666_CNSS2_PD_NOTIFIER_CURRENT_2026-05-24.md` – V666 read-only CNSS2 pd-notifier check를 현재 부팅에서 재실행한 결과 service `180/74` 자체가 없어 현 부팅은 lower modem/WLAN-PD readiness 복원이 먼저이며, service-positive 경로는 V712 helper v121 edge capture로 계속 진행
 - `reports/NATIVE_INIT_V712_EXECNS_HELPER_V121_ICNSS_EDGE_PREP_2026-05-24.md` – V712 prep 결과 helper v121 static build/strings 계약과 V712 provider-first/deploy preflight wrapper가 통과했고 실제 배포와 live proof가 다음 gate
 - `reports/NATIVE_INIT_V711_ICNSS_EDGE_READONLY_LIVE_2026-05-24.md` – V711 live read-only 결과 현재 ICNSS core는 bound, QCA6390 context는 visible/unbound, `wlan0`는 absent라 다음 V712를 ICNSS-QMI/WLFW event-source window capture로 선정
 - `reports/NATIVE_INIT_V710_KERNEL_EVENT_SOURCE_CLASSIFIER_2026-05-24.md` – V710 host-only 결과 service `180/74` + provider + CNSS retry poll wait 이후 QCA6390은 visible/unbound이고 WLFW/BDF/`wlan0`가 없어 다음 target을 QCA6390 bind/power/MHI-or-ICNSS edge로 분류
