@@ -130,6 +130,7 @@
 
 ### 3. Plans
 
+- `plans/NATIVE_INIT_V810_REGISTER_PROBE_WLFW_FWREADY_CLASSIFIER_PLAN_2026-05-25.md` – V809 이후 PLD/SNOC/ICNSS register 자체가 아니라 WLFW/service69와 `FW_READY`가 QCACLD probe를 여는 gate인지 host-only로 분류하는 계획
 - `plans/NATIVE_INIT_V809_ICNSS_MODULES_NOT_INITIALIZED_SOURCE_CLASSIFIER_PLAN_2026-05-25.md` – V808 true-overlap 결과의 `icnss: Modules not initialized`/qcwlanstate `OFF`가 원인이 아니라 QCACLD `DRIVER_MODULES_ENABLED` 미도달 status mirror인지 host-only로 소스 매핑하는 계획
 - `plans/NATIVE_INIT_V808_OVERLAP_COMPANION_BOOT_WLAN_PLAN_2026-05-25.md` – V807에서 선정한 provider-first companion과 `boot_wlan`의 true overlap live gate로 WLFW/service69 publication 여부를 검증하는 계획
 - `plans/NATIVE_INIT_V807_PRE_WLFW_OVERLAP_CLASSIFIER_PLAN_2026-05-25.md` – V806 service69 absent 결과가 provider-first companion과 `boot_wlan`의 sequential cleanup/lifetime gap인지 host-only로 분류하는 계획
@@ -349,6 +350,7 @@
 
 ### 4. Current Native Init Reports
 
+- `reports/NATIVE_INIT_V810_REGISTER_PROBE_WLFW_FWREADY_CLASSIFIER_2026-05-25.md` – V810 결과 PLD/SNOC/ICNSS register는 async 등록 경로이고 실제 QCACLD probe는 WLFW/service69 -> ICNSS-QMI -> `FW_READY` 이후에만 열리므로 다음 blocker를 WLFW publication precondition으로 선정
 - `reports/NATIVE_INIT_V809_ICNSS_MODULES_NOT_INITIALIZED_SOURCE_CLASSIFIER_2026-05-25.md` – V809 결과 qcwlanstate `OFF`는 원인이 아니라 ICNSS/QCACLD가 `DRIVER_MODULES_ENABLED`에 도달하지 못했음을 보여주는 status mirror이며, 다음 blocker를 PLD/ICNSS register-to-WLFW/FW_READY 경계로 선정
 - `reports/NATIVE_INIT_V808_OVERLAP_COMPANION_BOOT_WLAN_2026-05-25.md` – V808 결과 provider-first companion이 `boot_wlan` 시작 시 살아 있고 service74/provider/CNSS retry 계약이 성립해도 WLFW/service69/FW_READY/BDF/`wlan0`가 absent라 ICNSS module-initialized prerequisite 분류로 라우팅
 - `reports/NATIVE_INIT_V807_PRE_WLFW_OVERLAP_CLASSIFIER_2026-05-25.md` – V807 결과 V806은 companion cleanup 후 `boot_wlan`을 실행한 sequential gate였으므로 V808 overlapped companion + `boot_wlan` live gate로 라우팅

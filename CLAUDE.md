@@ -9,7 +9,7 @@ Samsung Galaxy A90 5G (SM-A908N) — stock Android Linux kernel 4.14.190, custom
 - **Device**: SM-A908N, Android 12, Magisk 30.7, TWRP available
 - **Current native build**: `A90 Linux init 0.9.68 (v724)` — `stage3/boot_linux_v724.img`
 - **Known-good fallback**: `stage3/boot_linux_v48.img`
-- **Active research cycle**: v810 pending after V809 source mapping; classify the PLD/ICNSS register-to-WLFW/FW_READY boundary before HAL/scan/connect widening
+- **Active research cycle**: v811 pending after V810 register/probe mapping; classify WLFW service69 publication preconditions before HAL/scan/connect widening
 - **Versioning policy**: `docs/operations/VERSIONING_POLICY.md` — `vNNN` cycle ≠ device flash
 
 ## Versioning rules
@@ -316,6 +316,7 @@ path should be closed for this blocker.
 | v786 | host-only clean-DSP/v724 gap classifier: stock v724 already contains the V641 one-shot sibling SSCTL hook/boot markers, but V782 did not arm or execute it; next is V787 arm-only stock-v724 clean-DSP proof |
 | v787 | live stock-v724 clean-DSP arm-only proof: V641 one-shot passed, ADSP/CDSP/SLPI reached `status=0x0`, no warning boundary, firmware mounts cleaned; next is clean-DSP plus lower companion readback |
 | v809 | host-only source mapping: qcwlanstate `OFF` is a status mirror for QCACLD not reaching `DRIVER_MODULES_ENABLED`; next boundary is PLD/ICNSS register-to-WLFW/FW_READY |
+| v810 | host-only register/probe mapping: PLD/SNOC/ICNSS register is async, while QCACLD probe is gated by WLFW/service69 -> ICNSS-QMI -> `FW_READY`; next is WLFW publication preconditions |
 
 ### Safety additions (Wi-Fi research)
 
