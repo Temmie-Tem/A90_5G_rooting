@@ -3030,3 +3030,16 @@ Samsung bootloader
 - result: live read-only PASS on v724. Native exposes memshare sysfs, `client_4`, CMA, and reserved-memory nodes including `linux,cma`, `pil_wlan_fw_region`, and `mhi_region`. V782 failure sizes were confirmed as `100663296` and `33554432` bytes, while current idle `CmaFree` was `243380224` bytes, larger than the V782 request sum.
 - hard gates: no boot image or partition write, reboot, mount/unmount, bind/unbind, `driver_override`, module load/unload, `boot_wlan`, `qcwlanstate ON`, service-manager/Wi-Fi HAL, scan/connect, credential use, DHCP/routes, or external ping was executed.
 - next: V785 should recapture Android and native dmesg with explicit memshare/CMA filters and map `client_4` / client id `3` registration before any further WLAN trigger.
+
+### V785. Android/Native Memshare Delta
+
+- plan: `docs/plans/NATIVE_INIT_V785_ANDROID_NATIVE_MEMSHARE_DELTA_PLAN_2026-05-25.md`
+- report: `docs/reports/NATIVE_INIT_V785_ANDROID_NATIVE_MEMSHARE_DELTA_2026-05-25.md`
+- runner: `scripts/revalidation/native_wifi_android_native_memshare_delta_v785.py`
+- evidence:
+  - `tmp/wifi/v785-android-native-memshare-delta/manifest.json`
+  - `tmp/wifi/v785-android-native-memshare-delta/summary.md`
+- decision: `v785-memshare-common-nonfatal-sibling-sysmon-gap`
+- result: host-only PASS. Android V611 and native V782 both show identical memshare request sizes `100663296` and `33554432`, identical failed sizes, and the same `8192`-page CMA `-12` failure. Android proceeds to sibling sysmon, service-notifier `180/74`, WLAN-PD, ICNSS-QMI, BDF, firmware-ready, and `wlan0`; native first divergence is `sysmon_slpi`, with sibling sysmon absent and `mdm3=OFFLINING`.
+- hard gates: no device command, Android handoff, boot image or partition write, reboot, Wi-Fi HAL/service-manager, scan/connect, credential use, DHCP/routes, external ping, `boot_wlan`, `qcwlanstate ON`, module load/unload, bind/unbind, or `esoc0` access was executed.
+- next: V786 should target mdm3/esoc0 `ONLINE` and sibling sysmon/service-notifier prerequisites, not another memshare-only or blind `boot_wlan` retry.
