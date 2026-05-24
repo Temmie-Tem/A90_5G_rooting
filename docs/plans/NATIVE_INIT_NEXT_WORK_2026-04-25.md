@@ -3057,3 +3057,19 @@ Samsung bootloader
 - interpretation: V785's missing sibling-sysmon gap does not require a custom OSRC kernel retry or rebuild yet. It routes to an explicit stock-v724 arm-only clean-DSP proof.
 - hard gates: no device command, reboot, boot image or partition write, custom kernel flash, Wi-Fi HAL/service-manager, scan/connect, credential use, DHCP/routes, external ping, `boot_wlan`, `qcwlanstate`, `esoc0`, bind/unbind, or module load/unload was executed.
 - next: V787 should arm only `/cache/native-init-sibling-fwssctl-v641` on stock v724, reboot, collect V641 proof/timeline/dmesg/rpmsg evidence, and stop. Do not arm the v724 QRTR flag, CNSS/HAL, scan/connect, or custom-kernel flash in the same gate.
+
+### V787. Clean-DSP Arm-Only Live Proof
+
+- plan: `docs/plans/NATIVE_INIT_V787_CLEAN_DSP_ARM_ONLY_PLAN_2026-05-25.md`
+- report: `docs/reports/NATIVE_INIT_V787_CLEAN_DSP_ARM_ONLY_2026-05-25.md`
+- runner: `scripts/revalidation/native_wifi_clean_dsp_arm_only_v787.py`
+- evidence:
+  - `tmp/wifi/v787-clean-dsp-arm-only/manifest.json`
+  - `tmp/wifi/v787-clean-dsp-arm-only/summary.md`
+  - `tmp/wifi/v787-clean-dsp-arm-only/native/post-timeline.txt`
+  - `tmp/wifi/v787-clean-dsp-arm-only/native/post-dmesg-markers.txt`
+- decision: `v787-clean-dsp-arm-only-proof-pass`
+- result: live stock-v724 PASS. V641 one-shot arm and reboot succeeded; timeline reached `complete failures=0 timeouts=0`; ADSP/CDSP/SLPI each returned `status=0x0` and produced PIL reset/power-clock markers. No `pm_qos`/reference/esoc warning boundary appeared. Firmware mountpoints were unmounted and post-cleanup status stayed healthy.
+- interpretation: clean-DSP prerequisite is restored on current v724, but arm-only still does not produce sibling `sysmon-qmi`, service-notifier, WLFW/BDF, or `wlan0`. This matches historical V641 and keeps scan/connect premature.
+- hard gates: no boot image or partition write, custom kernel flash, v724 QRTR flag, `boot_wlan`, `qcwlanstate`, CNSS/HAL/service-manager, scan/connect, credential use, DHCP/routes, or external ping was executed.
+- next: V788 should be a separate clean-DSP plus lower companion readback gate. It should arm V641, reboot, then run only the lower companion observer/readback; still no HAL, scan/connect, credentials, DHCP/routes, external ping, or custom-kernel flash.

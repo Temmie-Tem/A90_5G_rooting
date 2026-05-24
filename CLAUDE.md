@@ -306,6 +306,7 @@ path should be closed for this blocker.
 | v784 | live read-only memshare/CMA surface: client_4/CMA/reserved-memory present, idle CMA headroom exceeds V782 request sum, so next lead is client registration/timing or Android/native memshare behavior |
 | v785 | host-only Android/native memshare delta: identical memshare/CMA failures are common/non-fatal; first native divergence is missing sibling sysmon (`slpi/adsp/cdsp`) and `mdm3=OFFLINING` |
 | v786 | host-only clean-DSP/v724 gap classifier: stock v724 already contains the V641 one-shot sibling SSCTL hook/boot markers, but V782 did not arm or execute it; next is V787 arm-only stock-v724 clean-DSP proof |
+| v787 | live stock-v724 clean-DSP arm-only proof: V641 one-shot passed, ADSP/CDSP/SLPI reached `status=0x0`, no warning boundary, firmware mounts cleaned; next is clean-DSP plus lower companion readback |
 
 ### Safety additions (Wi-Fi research)
 
