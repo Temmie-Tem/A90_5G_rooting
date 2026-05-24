@@ -2702,6 +2702,20 @@ Samsung bootloader
 - evidence:
   - run `tmp/wifi/v760-source-staging/`
 - decision: `v760-source-targets-verified`
-- result: host-only verifier passed after operator staging. `Kernel.tar.gz` inside `kernel_build/SM-A908N_KOR_12_Opensource/` exposes all required target groups: `qcacld_hdd_main`, `qcacld_hdd_driver_ops`, `cnss2_main`, and `cnss2_qmi`. V760 was tightened to require all four groups and accept Samsung's actual `drivers/net/wireless/qualcomm/wcn39xx/qcacld-3.0` path.
-- interpretation: the source acquisition blocker is cleared for planning. This does not authorize patching, building, flashing, or live Wi-Fi bring-up yet.
-- next: V763 should plan minimal kernel log instrumentation against the verified HDD/QCACLD/CNSS2 source targets. Keep source patching/building, boot-image writes, live device, Wi-Fi HAL, scan/connect, credentials, DHCP/routes, and external ping blocked until their own gates.
+- result: host-only verifier passed after operator staging. `Kernel.tar.gz` inside `kernel_build/SM-A908N_KOR_12_Opensource/` exposes the live ICNSS/QCACLD target groups: `qcacld_hdd_main`, `qcacld_hdd_driver_ops`, `qcacld_pld_snoc`, `icnss_core`, and `icnss_qmi`. V760 was tightened to require those groups and accept Samsung's actual `drivers/net/wireless/qualcomm/wcn39xx/qcacld-3.0` path.
+- interpretation: the source acquisition blocker is cleared for planning, and the instrumentation target must be ICNSS/QMI/WLFW service-69 plus PLD-SNOC callbacks rather than CNSS2/MHI. This does not authorize patching, building, flashing, or live Wi-Fi bring-up yet.
+- next: V763 should rebase the architecture target to ICNSS/QCACLD before V764 plans minimal kernel log instrumentation. Keep source patching/building, boot-image writes, live device, Wi-Fi HAL, scan/connect, credentials, DHCP/routes, and external ping blocked until their own gates.
+
+### V763. ICNSS Architecture Rebase
+
+- plan: `docs/plans/NATIVE_INIT_V763_ICNSS_ARCH_REBASE_PLAN_2026-05-24.md`
+- report: `docs/reports/NATIVE_INIT_V763_ICNSS_ARCH_REBASE_2026-05-24.md`
+- runner: host/source/evidence review
+- evidence:
+  - `tmp/wifi/v760-source-staging/`
+  - `tmp/wifi/v711-icnss-edge-readonly-live/native/`
+  - `tmp/wifi/v744-v122-cnss-only-comparison/native/cnss2-driver-ls-before.txt`
+- decision: `v763-icnss-architecture-rebased`
+- result: host-only correction passed. SM-A908N live path is ICNSS/QCACLD SNOC, not CNSS2/MHI. Source and evidence identify `drivers/soc/qcom/icnss_qmi.c`, `drivers/soc/qcom/icnss.c`, `pld_snoc.c`, and HDD files as the instrumentation targets.
+- interpretation: the root edge to prove is WLFW service `69` -> `wlfw_new_server()` -> `icnss_call_driver_probe()` -> `pld_snoc_probe()` -> HDD startup. Service `180/74` remains side evidence, not the direct driver-probe trigger.
+- next: V764 should plan minimal kernel log instrumentation at ICNSS/QMI/WLFW, PLD-SNOC, and HDD handoff points. Keep source patching/building, boot-image writes, live device, Wi-Fi HAL, scan/connect, credentials, DHCP/routes, and external ping blocked until their own gates.

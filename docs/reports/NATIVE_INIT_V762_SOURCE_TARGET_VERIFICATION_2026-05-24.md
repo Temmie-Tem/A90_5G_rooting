@@ -20,13 +20,14 @@ Verified source archive:
 kernel_build/SM-A908N_KOR_12_Opensource/Kernel.tar.gz
 ```
 
-Verified target groups:
+Verified target groups after the ICNSS correction:
 
 ```text
 qcacld_hdd_main
 qcacld_hdd_driver_ops
-cnss2_main
-cnss2_qmi
+qcacld_pld_snoc
+icnss_core
+icnss_qmi
 ```
 
 Resolved paths inside `Kernel.tar.gz`:
@@ -34,8 +35,9 @@ Resolved paths inside `Kernel.tar.gz`:
 ```text
 ./drivers/net/wireless/qualcomm/wcn39xx/qcacld-3.0/core/hdd/src/wlan_hdd_main.c
 ./drivers/net/wireless/qualcomm/wcn39xx/qcacld-3.0/core/hdd/src/wlan_hdd_driver_ops.c
-./drivers/net/wireless/cnss2/main.c
-./drivers/net/wireless/cnss2/qmi.c
+./drivers/net/wireless/qualcomm/wcn39xx/qcacld-3.0/core/pld/src/pld_snoc.c
+./drivers/soc/qcom/icnss.c
+./drivers/soc/qcom/icnss_qmi.c
 ```
 
 ## Fixes Made
@@ -46,7 +48,8 @@ Resolved paths inside `Kernel.tar.gz`:
   - scan one-level nested archives under staged source roots;
   - accept Samsung's actual `drivers/net/wireless/qualcomm/wcn39xx/qcacld-3.0`
     QCACLD path;
-  - require all four target groups before reporting instrumentation readiness.
+  - require the live ICNSS/QCACLD target groups before reporting instrumentation
+    readiness.
 
 ## Safety Result
 
@@ -57,9 +60,9 @@ credential use, no DHCP/routes, and no external ping.
 
 ## Next Gate
 
-V763 should plan minimal kernel log instrumentation against the verified source
-targets. Patching, building, flashing, and live boot handoff remain separate
-gates.
+V763 should rebase the architecture target to ICNSS/QCACLD before V764 plans
+minimal kernel log instrumentation. Patching, building, flashing, and live boot
+handoff remain separate gates.
 
 ## Evidence
 

@@ -21,8 +21,8 @@ instrumentation planning.
    - `cnss2_main`
    - `cnss2_qmi`
 4. Keep patching/building/flashing blocked.
-5. Select V763 kernel log instrumentation planning only if all target groups are
-   present.
+5. Select the architecture-rebase gate before kernel log instrumentation planning
+   if all target groups are present.
 
 ## Forbidden
 

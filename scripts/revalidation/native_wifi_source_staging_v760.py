@@ -3,7 +3,7 @@
 
 V759 identified the exact Samsung OSRC source package, but the download is
 manual-gated. V760 checks whether the operator has staged the official archive
-or extracted source tree, and verifies target QCACLD/CNSS source visibility
+or extracted source tree, and verifies target QCACLD/ICNSS source visibility
 without extracting large archives or loading them into memory.
 """
 
@@ -52,11 +52,15 @@ TARGET_SOURCE_GROUPS = {
         "drivers/staging/qcacld-3.0/core/hdd/src/wlan_hdd_driver_ops.c",
         "drivers/net/wireless/qualcomm/wcn39xx/qcacld-3.0/core/hdd/src/wlan_hdd_driver_ops.c",
     ),
-    "cnss2_main": (
-        "drivers/net/wireless/cnss2/main.c",
+    "qcacld_pld_snoc": (
+        "drivers/staging/qcacld-3.0/core/pld/src/pld_snoc.c",
+        "drivers/net/wireless/qualcomm/wcn39xx/qcacld-3.0/core/pld/src/pld_snoc.c",
     ),
-    "cnss2_qmi": (
-        "drivers/net/wireless/cnss2/qmi.c",
+    "icnss_core": (
+        "drivers/soc/qcom/icnss.c",
+    ),
+    "icnss_qmi": (
+        "drivers/soc/qcom/icnss_qmi.c",
     ),
 }
 
@@ -366,7 +370,7 @@ def build_analysis(args: argparse.Namespace) -> dict[str, Any]:
             "extract_required": archive_present and archive_readable and not target_sources_verified and nested_archive_count > 0,
             "target_sources_verified": target_sources_verified,
             "can_plan_kernel_instrumentation": target_sources_verified,
-            "next_cycle": "v763-kernel-log-instrumentation-plan" if target_sources_verified else "v760-stage-official-source-and-rerun",
+            "next_cycle": "v764-kernel-log-instrumentation-plan" if target_sources_verified else "v760-stage-official-source-and-rerun",
         },
     }
 
@@ -424,7 +428,7 @@ def build_checks(analysis: dict[str, Any] | None) -> list[Check]:
         "blocker",
         f"archive_hits={stage['archive_target_hits']} root_hits={stage['root_target_hits']} nested_archives={stage['nested_archive_count']}",
         [],
-        "extract nested source if needed, then verify QCACLD/CNSS target files",
+        "extract nested source if needed, then verify QCACLD/ICNSS target files",
     )
     add_check(
         checks,
@@ -463,8 +467,8 @@ def decide(command: str, checks: list[Check], analysis: dict[str, Any] | None) -
         return (
             "v760-source-targets-verified",
             True,
-            "staged source exposes required QCACLD/CNSS target files",
-            "V763 can plan minimal kernel log instrumentation without live flash",
+            "staged source exposes required QCACLD/ICNSS target files",
+            "V764 can plan minimal kernel log instrumentation without live flash",
         )
     if route["extract_required"]:
         return (

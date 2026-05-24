@@ -163,10 +163,10 @@ Goal: bring up `wlan0` from native init without Android userspace.
 
 ### Confirmed architecture (SM8250/QCA6390)
 
-- **Driver**: `drivers/net/wireless/cnss2/` (PCIe/MHI path) — NOT icnss (that is SDM845/AHB)
-- **cnss2 bootstrap**: probe → `power_on_device()` → `mhi_sync_power_up()` → QCA6390 boots → WLFW service 69 on QRTR → BDF → wlan0
+- **Driver**: ICNSS core (`drivers/soc/qcom/icnss.c`, `drivers/soc/qcom/icnss_qmi.c`) plus QCACLD SNOC/PLD path — not the live `cnss2` PCIe/MHI path
+- **ICNSS bootstrap**: ICNSS platform probe → QCACLD `pld_snoc_register_driver()` / `icnss_register_driver()` → WLFW service 69 on QRTR triggers `wlfw_new_server()` / `icnss_call_driver_probe()` → HDD probe/startup → BDF/FW-ready → `wlan0`
 - **WLAN-PD** (`msm/modem/wlan_pd`, instance 180) runs ON modem MPSS DSP — modem must be ONLINE for `wlanmdsp.mbn` to load and WLFW to appear
-- **service-notifier 180/74** are side evidence, not cnss2 triggers
+- **service-notifier 180/74** are side evidence, not direct ICNSS driver-probe triggers
 - **wlan module**: static (`/sys/module/wlan` exists, not in `/proc/modules`)
 
 ### Companion stack (required, confirmed working)
@@ -177,9 +177,9 @@ Current CNSS-only ordering is confirmed with helper v122. Helper v123 added a
 service `180` gated `mdm_helper` mode, but V745 live showed that marker is not
 stable enough in every boot. Helper v124 added a `sysmon-qmi` gated
 `mdm_helper` mode. V746 proved `mdm_helper` starts safely after `sysmon-qmi`,
-but it does not advance mdm3/WLAN-PD/MHI/WLFW.
+but it does not advance mdm3/WLAN-PD/WLFW.
 
-### Current blocker (V762)
+### Current blocker (V763)
 
 ```
 mss: OFFLINING → ONLINE ✓  (read-only firmware mounts + subsys_modem holder)
@@ -189,7 +189,7 @@ service-notifier 180: not stable
 mdm_helper after sysmon: starts safely but no lower progress
 QCA6390 platform device: exists but driver link missing
 mdm3: stays OFFLINING
-MHI/QCA6390/WLFW/BDF/wlan0: absent
+ICNSS-QMI/WLFW/service69/BDF/wlan0: absent
 lower-window boot_wlan: write executes, but qcwlanstate stays OFF and no /dev/wlan/wiphy/wlan0
 QCACLD/HDD init: boot_wlan reaches "wlan: Loading driver" and qcwlanstate char-device creation, but never reaches "wlan: driver loaded", ICNSS-QMI, FW-ready, BDF, wiphy, or wlan0
 CNSS-before-boot_wlan ordering: cnss_diag and cnss-daemon start safely before boot_wlan, but the same HDD/qcwlanstate stall remains
@@ -198,11 +198,12 @@ Traceability: tracefs/debugfs support exists and target symbols are partially vi
 Ftrace result: tracefs mount/cleanup works, but function filter controls/target functions are unavailable; ftrace is not a usable HDD/PLD instrumentation route
 Non-ftrace live observers: dynamic debug is not compiled in and has no control catalog; kprobes/kprobe_events are not configured; printk/dmesg exists but does not resolve the PLD/HDD/register-driver boundary
 Android/native differential: Android proves QMI/BDF/FW-ready/wlan0, native proves HDD/qcwlanstate entry with success-marker absence, but existing dmesg lacks the pre-QMI PLD/HDD/register-driver boundary
-Instrumentation feasibility: boot-image tooling and rollback artifacts are present, but exact local kernel/QCACLD/CNSS source is absent; do not patch or flash instrumentation until source is acquired and verified
-Source acquisition: exact Samsung OSRC source package is identified as SM-A908N_KOR_12_Opensource.zip for SM-A908N/A908NKSU5EWA3, source upload id 13272, but download is hCaptcha/manual-browser gated and no local archive/source tree is staged yet
-Source staging: kernel_build/ is prepared as ignored local staging, but the official archive/extracted source is still absent; V760 verifier reports no target QCACLD/CNSS files, so V761 kernel instrumentation remains blocked
+Instrumentation feasibility: boot-image tooling and rollback artifacts are present, but exact local kernel/QCACLD/ICNSS source was initially absent; do not patch or flash instrumentation until source is acquired and verified
+Source acquisition: exact Samsung OSRC source package is identified as SM-A908N_KOR_12_Opensource.zip for SM-A908N/A908NKSU5EWA3, source upload id 13272, and has now been staged locally
+Source staging: kernel_build/ is prepared as ignored local staging; V760 verifier now reports live ICNSS/QCACLD target files present
 Source handoff: V761 generated a private operator handoff script for manual OSRC download/staging and V760 rerun; browser open is opt-in via V761_OPEN_BROWSER=1, and kernel instrumentation remains blocked until V760 verifies target files
-Source target verification: operator staged OSRC source; V760 now verifies all four target groups in Kernel.tar.gz (`qcacld_hdd_main`, `qcacld_hdd_driver_ops`, `cnss2_main`, `cnss2_qmi`). Source acquisition blocker is cleared for planning only; no patch/build/flash/live handoff yet.
+Source target verification: operator staged OSRC source; V760 now verifies live ICNSS/QCACLD target groups in Kernel.tar.gz (`qcacld_hdd_main`, `qcacld_hdd_driver_ops`, `qcacld_pld_snoc`, `icnss_core`, `icnss_qmi`). Source acquisition blocker is cleared for planning only; no patch/build/flash/live handoff yet.
+Architecture correction: SM-A908N live evidence shows `18800000.qcom,icnss` bound and `/sys/bus/platform/drivers/cnss2` absent. V763 planning must target ICNSS/QMI/WLFW service-69 and PLD-SNOC callbacks, not CNSS2/MHI.
 ```
 
 Vendor firmware files (`wlanmdsp.mbn`, `bdwlan.bin`, `regdb.bin`) confirmed at `sda29` (isolated mount), NOT in default native `/vendor`.
@@ -216,7 +217,7 @@ present. V746 deployed helper v124 and proved `mdm_helper` can start after
 the QCA6390 child driver-link gap as **not a bind/unbind target**. V748
 host-only then rejected `mdm_helper` retry, repeated CNSS/HAL start, vendor
 namespace repair, and `wlan` module load as next candidates. The selected next
-gate is a read-only non-bind ICNSS/CNSS2/QCA trigger capture for the transition
+gate is a read-only non-bind ICNSS/QCA trigger capture for the transition
 from ICNSS parent readiness to WLFW/BDF/`wlan0`. V749 then classified the
 concrete control surfaces: current native has `boot_wlan` and `qcwlanstate=OFF`,
 does not expose `fs_ready`, and still has no `/dev/wlan`, wiphy, or `wlan0`.
