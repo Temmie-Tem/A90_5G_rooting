@@ -9,7 +9,7 @@ Samsung Galaxy A90 5G (SM-A908N) — stock Android Linux kernel 4.14.190, custom
 - **Device**: SM-A908N, Android 12, Magisk 30.7, TWRP available
 - **Current native build**: `A90 Linux init 0.9.68 (v724)` — `stage3/boot_linux_v724.img`
 - **Known-good fallback**: `stage3/boot_linux_v48.img`
-- **Active research cycle**: v741+ (service74-gated `mdm_helper` lower trigger proof)
+- **Active research cycle**: v744+ (CNSS-only service-publication-to-MHI gap; gated `mdm_helper` timing repair candidate)
 - **Versioning policy**: `docs/operations/VERSIONING_POLICY.md` — `vNNN` cycle ≠ device flash
 
 ## Versioning rules
@@ -157,7 +157,7 @@ New `vNNN` experiment scripts must:
 - Gate live action behind explicit `--allow-*` + `--assume-yes` flags
 - Run `version`, `status`, `bootstatus`, `selftest verbose` as postflight regression
 
-## Wi-Fi bring-up research state (v598–v741, active)
+## Wi-Fi bring-up research state (v598–v744, active)
 
 Goal: bring up `wlan0` from native init without Android userspace.
 
@@ -173,20 +173,28 @@ Goal: bring up `wlan0` from native init without Android userspace.
 
 Must run before cnss-daemon: `qrtr-ns → pd-mapper → rmt_storage → tftp_server`
 Then: `cnss_diag → cnss-daemon`
-Ordering enforced via service-74 gate in helper.
+Current CNSS-only ordering is confirmed with helper v122. The service-74 gated
+`mdm_helper` mode exists, but its gate timing/logic needs repair before it can
+test `mdm_helper` as a lower trigger.
 
-### Current blocker (V738/V740)
+### Current blocker (V744)
 
 ```
-mss: OFFLINING → ONLINE ✓  (subsys_modem holder)
+mss: OFFLINING → ONLINE ✓  (read-only firmware mounts + subsys_modem holder)
+QRTR RX/TX: present ✓
+sysmon-qmi: present ✓
+service-notifier 180: present ✓
 mdm3: stays OFFLINING
-MHI devices: 0
-PCI devices: 0  ← QCA6390 PCIe enumeration not completing
-WLFW service 69: absent
-wlan0: absent
+MHI/QCA6390/WLFW/BDF/wlan0: absent
 ```
 
 Vendor firmware files (`wlanmdsp.mbn`, `bdwlan.bin`, `regdb.bin`) confirmed at `sda29` (isolated mount), NOT in default native `/vendor`.
+
+V743 proved the new service-74 gated `mdm_helper` mode did not start
+`mdm_helper` because the gate stayed closed in that run. V744 proved helper v122
+still reproduces the older CNSS-only service publication window, so the next
+implementation should repair the gated decision point or use a two-phase same
+window: CNSS-only publication observed first, then `mdm_helper` start-only.
 
 ### Key milestones
 
@@ -201,7 +209,10 @@ Vendor firmware files (`wlanmdsp.mbn`, `bdwlan.bin`, `regdb.bin`) confirmed at `
 | v735 | live CNSS-only: mss ONLINE, cnss_diag+cnss-daemon started, WLFW/MHI still 0 |
 | v738 | live modem/WLAN/MHI observer: mss ONLINE, mdm3 OFFLINING, MHI/WLFW/BDF/wlan0 still 0 |
 | v740 | host-only mdm_helper contract: not first-trigger, but valid post-notifier candidate |
-| v741 | helper v122 adds service74-gated mdm_helper start-only proof; live pending deploy/run |
+| v741 | helper v122 adds service74-gated mdm_helper start-only proof |
+| v742 | helper v122 deployed to `/cache/bin/a90_android_execns_probe` |
+| v743 | gated `mdm_helper` live: service-74 gate stayed closed, no HAL/connect |
+| v744 | helper v122 CNSS-only comparison: QRTR TX/sysmon/service-notifier 180 reproduced, no MHI/WLFW/wlan0 |
 
 ### Safety additions (Wi-Fi research)
 

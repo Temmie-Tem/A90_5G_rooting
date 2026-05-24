@@ -2431,3 +2431,30 @@ Samsung bootloader
 - result: bounded Wi-Fi live PASS. V447 live produced explicit scan/connect evidence, V452 proved cleanup containment and rollback step presence, and native `A90 Linux init 0.9.61 (v319)` was verified after rollback.
 - interpretation: Wi-Fi bring-up is proven for a bounded live run. This is not yet a long-running Wi-Fi stability or server exposure approval.
 - next: plan bounded Wi-Fi stability and binding policy before any server exposure. Server exposure remains blocked.
+
+### V742. Execns Helper v122 Deploy Result
+
+- plan: `docs/plans/NATIVE_INIT_V742_EXECNS_HELPER_V122_DEPLOY_PLAN_2026-05-24.md`
+- report: `docs/reports/NATIVE_INIT_V742_EXECNS_HELPER_V122_DEPLOY_2026-05-24.md`
+- evidence: `tmp/wifi/v742-execns-helper-v122-deploy-run-serial1850/`
+- result: helper v122 deployed to `/cache/bin/a90_android_execns_probe`; remote SHA `032fe43041b908577bb1a2e4b3ff7a7dfea24958169723907df5d403f811e989` and marker `a90_android_execns_probe v122` verified.
+- interpretation: helper v122 deployment is not the active blocker. Serial chunk size `1850` is safe; chunk size `3000` was rejected before writes because it exceeded the safe command-line limit.
+- next: run current-boot V741 gated `mdm_helper` proof after SELinuxfs and policy-load prep.
+
+### V743. V741 Current Live Execution Result
+
+- plan: `docs/plans/NATIVE_INIT_V743_V741_CURRENT_LIVE_EXECUTION_PLAN_2026-05-24.md`
+- report: `docs/reports/NATIVE_INIT_V743_V741_CURRENT_LIVE_EXECUTION_2026-05-24.md`
+- evidence: `tmp/wifi/v743-v741-mdm-helper-gated-live-current/`
+- result: V741 gated mode ran safely, `mss` reached `ONLINE`, lower/CNSS children started, but service `74` gate stayed closed and `mdm_helper` was not started. Wi-Fi HAL, scan/connect, credentials, DHCP/routes, external ping were not executed.
+- interpretation: do not force `mdm_helper`; first separate whether the gate miss is helper v122 regression or gated-mode timing/logic.
+- next: rerun V735 CNSS-only path with helper v122.
+
+### V744. V122 CNSS-only Comparison Result
+
+- plan: `docs/plans/NATIVE_INIT_V744_V122_CNSS_ONLY_COMPARISON_PLAN_2026-05-24.md`
+- report: `docs/reports/NATIVE_INIT_V744_V122_CNSS_ONLY_COMPARISON_2026-05-24.md`
+- evidence: `tmp/wifi/v744-v122-cnss-only-comparison-retry/`
+- result: helper v122 still reproduces the V735 CNSS-only service publication path: `mss=ONLINE`, QRTR RX/TX, `sysmon-qmi`, and service-notifier `180` appeared; MHI/QCA6390/WLFW/service `69`/BDF/`wlan0` remained absent.
+- interpretation: helper v122 itself is not the regression. The active blocker is now the service-publication-to-MHI/WLFW gap, plus a secondary repair candidate in V741 gated `mdm_helper` gate timing.
+- next: implement a two-phase same-window proof: first observe CNSS-only service publication, then start `mdm_helper` only after that marker, still below service-manager/HAL/scan/connect.

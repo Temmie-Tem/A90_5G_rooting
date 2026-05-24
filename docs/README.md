@@ -130,6 +130,8 @@
 
 ### 3. Plans
 
+- `plans/NATIVE_INIT_V744_V122_CNSS_ONLY_COMPARISON_PLAN_2026-05-24.md` – V743 service-`74` gate miss가 helper v122 자체 문제인지 분리하기 위해 V735 CNSS-only 경로를 helper v122로 재실행하는 비교 계획
+- `plans/NATIVE_INIT_V743_V741_CURRENT_LIVE_EXECUTION_PLAN_2026-05-24.md` – V742 helper v122 배포 후 현재 부팅에서 V741 service-`74` gated `mdm_helper` proof를 제한 실행하는 계획
 - `plans/NATIVE_INIT_V742_EXECNS_HELPER_V122_DEPLOY_PLAN_2026-05-24.md` – helper v122를 `/cache/bin/a90_android_execns_probe`로 배포하기 위한 V742 wrapper 계획과 busy read-only preflight blocker 기준
 - `plans/NATIVE_INIT_V741_MDM_HELPER_GATED_LIVE_PLAN_2026-05-24.md` – V740이 선정한 post-notifier `mdm_helper` 후보를 service `74` gate 뒤 bounded start-only proof로 검증하기 위한 helper v122/V741 계획
 - `plans/NATIVE_INIT_V740_MDM_HELPER_BASEBAND_CONTRACT_PLAN_2026-05-24.md` – V621/V622 `mdm_helper`/`ro.baseband` 계약을 V739 `mdm3=OFFLINING` blocker와 재조합해 blind start 금지와 post-notifier gated proof를 고정하는 V740 계획
@@ -292,6 +294,9 @@
 
 ### 4. Current Native Init Reports
 
+- `reports/NATIVE_INIT_V744_V122_CNSS_ONLY_COMPARISON_2026-05-24.md` – V735 CNSS-only 경로를 helper v122로 재실행해 QRTR TX/sysmon/service-notifier는 재현되고 MHI/WLFW/`wlan0`는 여전히 absent임을 확인했으며, V743 gate miss를 helper v122 자체 문제와 분리
+- `reports/NATIVE_INIT_V743_V741_CURRENT_LIVE_EXECUTION_2026-05-24.md` – V741 gated `mdm_helper` proof를 현재 부팅에서 실행했지만 service `74` gate가 열리지 않아 `mdm_helper`는 시작되지 않았고, 안전 경계와 postflight는 통과
+- `reports/NATIVE_INIT_V742_EXECNS_HELPER_V122_DEPLOY_2026-05-24.md` – helper v122를 serial chunk `1850`으로 `/cache/bin/a90_android_execns_probe`에 배포했고 remote hash/marker 및 V741 plan rerun이 통과
 - `reports/NATIVE_INIT_V742_EXECNS_HELPER_V122_DEPLOY_PREP_2026-05-24.md` – V742 helper v122 deploy wrapper/preflight가 통과했고, auto menu `busy`를 deploy blocker로 승격했으며 실제 배포는 다음 run 단계
 - `reports/NATIVE_INIT_V741_MDM_HELPER_GATED_LIVE_2026-05-24.md` – helper v122가 service `74` gate 뒤 `/vendor/bin/mdm_helper`만 추가하는 V741 start-only proof를 구현했고, plan/static 검증은 통과했으며 live는 helper v122 배포 후 실행 예정
 - `reports/NATIVE_INIT_V740_MDM_HELPER_BASEBAND_CONTRACT_2026-05-24.md` – V740 host-only 결과 Android `mdm_helper`는 service `180` 이후/WLAN-PD 이전에 시작되므로 first-trigger가 아니라 bounded post-notifier candidate이며 V741은 gated start-only proof로 진행
