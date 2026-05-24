@@ -3103,3 +3103,19 @@ Samsung bootloader
 - result: host-only PASS. V788 is the only compared run with the `pm_qos_add_request` warning boundary: V788 `kernel_warning=5`, V733 `0`, V735 `0`, V787 `0`. V788 warning context occurs after service-notifier `180/74`, ADSP/APR audio activity, and duplicate `msm_asoc_machine_probe`; the call trace goes through `msm_asoc_machine_probe` and `deferred_probe_work_func`. WLFW/BDF/wiphy/`wlan0` remain absent.
 - hard gates: no device command, reboot, mount/unmount, daemon start, Wi-Fi HAL, scan/connect, credential use, DHCP/routes, external ping, boot image/partition write, or custom kernel flash was executed.
 - next: V790 should be narrower than V788: clean-DSP plus current V401/V490 prep plus lower-only companion readback, omitting `cnss_diag` and `cnss-daemon`. If warning-free, CNSS-only can be reintroduced later with a narrower guard; if it warns, classify clean-DSP/lower/audio ordering before repeating CNSS.
+
+### V790. Clean-DSP Lower-Only Warning Isolation
+
+- plan: `docs/plans/NATIVE_INIT_V790_CLEAN_DSP_LOWER_ONLY_PLAN_2026-05-25.md`
+- report: `docs/reports/NATIVE_INIT_V790_CLEAN_DSP_LOWER_ONLY_2026-05-25.md`
+- runner: `scripts/revalidation/native_wifi_clean_dsp_lower_only_v790.py`
+- evidence:
+  - `tmp/wifi/v790-clean-dsp-lower-only/manifest.json`
+  - `tmp/wifi/v790-clean-dsp-lower-only/summary.md`
+  - `tmp/wifi/v790-clean-dsp-lower-only/native/dmesg-delta.txt`
+  - `tmp/wifi/v790-clean-dsp-lower-only/lower-only-summary.json`
+- decision: `v790-clean-dsp-lower-only-blocked`
+- result: live stock-v724 BLOCKED. Inline clean-DSP, V401, V490, firmware mounts, and `subsys_modem` holder passed. Lower-only companion order `qrtr-ns,rmt_storage,tftp_server,pd-mapper` ran with no `cnss_diag` or `cnss-daemon`. `mss` reached `ONLINE`, `mdm3` stayed `OFFLINING`, QRTR RX/TX, `sysmon-qmi`, and service-notifier markers appeared, but MHI/QCA6390/WLFW/BDF/wiphy/`wlan0` stayed absent.
+- blocker: the same `pm_qos_add_request() called for already added request` warning recurred through duplicate `msm_asoc_machine_probe` in deferred probe work after service-notifier `180/74` and ADSP/APR audio activity. This proves CNSS-only userspace is not required for the warning.
+- hard gates: no `cnss_diag`, `cnss-daemon`, service-manager, Wi-Fi HAL, scan/connect, credential use, DHCP/routes, external ping, boot image or partition write, or custom kernel flash was executed. Cleanup reboot returned to healthy v724.
+- next: V791 should be host-only first. Compare V790, V788, V787, and historical V733 to choose whether the next safe live isolation omits V401/V490, omits clean-DSP, or only reads lower service surfaces without spawning lower daemons.
