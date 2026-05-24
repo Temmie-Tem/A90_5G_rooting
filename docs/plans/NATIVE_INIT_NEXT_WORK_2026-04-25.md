@@ -3043,3 +3043,17 @@ Samsung bootloader
 - result: host-only PASS. Android V611 and native V782 both show identical memshare request sizes `100663296` and `33554432`, identical failed sizes, and the same `8192`-page CMA `-12` failure. Android proceeds to sibling sysmon, service-notifier `180/74`, WLAN-PD, ICNSS-QMI, BDF, firmware-ready, and `wlan0`; native first divergence is `sysmon_slpi`, with sibling sysmon absent and `mdm3=OFFLINING`.
 - hard gates: no device command, Android handoff, boot image or partition write, reboot, Wi-Fi HAL/service-manager, scan/connect, credential use, DHCP/routes, external ping, `boot_wlan`, `qcwlanstate ON`, module load/unload, bind/unbind, or `esoc0` access was executed.
 - next: V786 should target mdm3/esoc0 `ONLINE` and sibling sysmon/service-notifier prerequisites, not another memshare-only or blind `boot_wlan` retry.
+
+### V786. Clean-DSP/v724 Gap Classifier
+
+- plan: `docs/plans/NATIVE_INIT_V786_CLEAN_DSP_V724_GAP_PLAN_2026-05-25.md`
+- report: `docs/reports/NATIVE_INIT_V786_CLEAN_DSP_V724_GAP_2026-05-25.md`
+- runner: `scripts/revalidation/native_wifi_clean_dsp_v724_gap_v786.py`
+- evidence:
+  - `tmp/wifi/v786-clean-dsp-v724-gap/manifest.json`
+  - `tmp/wifi/v786-clean-dsp-v724-gap/summary.md`
+- decision: `v786-v724-clean-dsp-hook-available-but-unarmed`
+- result: host-only PASS. Current v724 source and `stage3/boot_linux_v724.img` already contain the V641 firmware-backed sibling SSCTL one-shot hook and markers. V782 did not arm or execute that hook: V641 runtime markers, sibling sysmon, and service-notifier counts are all `0`.
+- interpretation: V785's missing sibling-sysmon gap does not require a custom OSRC kernel retry or rebuild yet. It routes to an explicit stock-v724 arm-only clean-DSP proof.
+- hard gates: no device command, reboot, boot image or partition write, custom kernel flash, Wi-Fi HAL/service-manager, scan/connect, credential use, DHCP/routes, external ping, `boot_wlan`, `qcwlanstate`, `esoc0`, bind/unbind, or module load/unload was executed.
+- next: V787 should arm only `/cache/native-init-sibling-fwssctl-v641` on stock v724, reboot, collect V641 proof/timeline/dmesg/rpmsg evidence, and stop. Do not arm the v724 QRTR flag, CNSS/HAL, scan/connect, or custom-kernel flash in the same gate.
