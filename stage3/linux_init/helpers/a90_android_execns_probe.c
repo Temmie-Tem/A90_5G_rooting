@@ -76,7 +76,7 @@
 #define AF_QIPCRTR 42
 #endif
 
-#define EXECNS_VERSION "a90_android_execns_probe v121"
+#define EXECNS_VERSION "a90_android_execns_probe v122"
 #define MAX_PATH_LEN 512
 #define MAX_CAPTURE_SIZE (1024 * 1024)
 #define MAX_LINKERCONFIG_SIZE (256 * 1024)
@@ -98,6 +98,7 @@
 #define A90_AID_GPS 1021
 #define A90_AID_MEDIA_RW 1023
 #define A90_AID_DIAG 2002
+#define A90_AID_SHELL 2000
 #define A90_AID_VENDOR_RFS 2903
 #define A90_AID_VENDOR_RFS_SHARED 2904
 #define A90_AID_VENDOR_QRTR 2906
@@ -310,7 +311,7 @@ static void usage(FILE *out) {
             "[--connect-config /cache/a90-wifi/...] "
             "[--connect-iface auto|wlan0] "
             "[--ping-target 1.1.1.1] "
-            "--mode linker-list|identity-probe|sepolicy-inventory|sepolicy-compile-proof|sepolicy-load-proof|selinux-domain-proof|cnss-start-only|cnss-userspace-readiness|wifi-companion-start-only|wifi-companion-post-sysmon-observer-start-only|wifi-companion-android-order-post-sysmon-observer-start-only|wifi-companion-service-manager-start-only|wifi-companion-vnd-service-manager-start-only|wifi-companion-qrtr-first-vnd-service-manager-start-only|wifi-companion-cnss-first-delayed-vnd-service-manager-start-only|wifi-companion-service74-gated-vnd-service-manager-start-only|wifi-companion-service74-gated-vnd-service-manager-readiness-start-only|wifi-companion-service74-gated-vnd-service-manager-cnss-retry-start-only|wifi-companion-service74-gated-peripheral-manager-cnss-retry-start-only|wifi-companion-service74-gated-peripheral-manager-cnss-retry-registry-snapshot-start-only|wifi-companion-service74-gated-peripheral-manager-vndservice-query-start-only|wifi-companion-service74-gated-peripheral-manager-vndservice-query-cnss-retry-start-only|wifi-companion-service74-gated-peripheral-manager-vndservice-query-provider-first-cnss-start-only|wifi-companion-service74-gated-android-userspace-cnss-retry-start-only|wifi-companion-service74-gated-android-userspace-cnss-retry-registry-snapshot-start-only|wifi-companion-service74-gated-vnd-service-manager-registry-snapshot-start-only|wifi-companion-hal-order-start-only|wifi-companion-hal-wificond-order-start-only|wifi-companion-hal-wificond-lshal-wait-samsung|wifi-companion-hal-wificond-lshal-wait-iwifi|wifi-companion-dual-hal-wificond-lshal-wait-iwifi|wifi-companion-dual-hal-wificond-iwifi-start|wifi-companion-dual-hal-wificond-lshal-then-iwifi-start|rmt-storage-start-only|property-lookup|service-manager-start-only|private-selinux-proof|wifi-hal-lshal-vintf-status-list|wifi-hal-composite-start-only|wifi-hal-composite-lshal-list|wifi-hal-composite-lshal-binderized-list|wifi-hal-composite-lshal-wait-target|wifi-surface-composite-lshal-wait-iwifi|wifi-surface-composite-lshal-wait-samsung|wifi-surface-composite-lshal-wait-samsung-ptrace|wifi-hal-composite-lshal-status-list|wifi-hal-composite-lshal-binderized-status-list|wifi-surface-composite-start-only|wifi-dual-hal-lshal-wait-iwifi|wifi-dual-hal-iwifi-start-surface|wifi-iwifi-start-surface|wifi-active-session-surface|wifi-active-session-scan-only|wifi-active-session-connect-ping|wifi-connect-tool-surface|subsys-hold-open-proof "
+            "--mode linker-list|identity-probe|sepolicy-inventory|sepolicy-compile-proof|sepolicy-load-proof|selinux-domain-proof|cnss-start-only|cnss-userspace-readiness|wifi-companion-start-only|wifi-companion-post-sysmon-observer-start-only|wifi-companion-android-order-post-sysmon-observer-start-only|wifi-companion-service-manager-start-only|wifi-companion-vnd-service-manager-start-only|wifi-companion-qrtr-first-vnd-service-manager-start-only|wifi-companion-cnss-first-delayed-vnd-service-manager-start-only|wifi-companion-service74-gated-vnd-service-manager-start-only|wifi-companion-service74-gated-vnd-service-manager-readiness-start-only|wifi-companion-service74-gated-vnd-service-manager-cnss-retry-start-only|wifi-companion-service74-gated-peripheral-manager-cnss-retry-start-only|wifi-companion-service74-gated-peripheral-manager-cnss-retry-registry-snapshot-start-only|wifi-companion-service74-gated-peripheral-manager-vndservice-query-start-only|wifi-companion-service74-gated-peripheral-manager-vndservice-query-cnss-retry-start-only|wifi-companion-service74-gated-peripheral-manager-vndservice-query-provider-first-cnss-start-only|wifi-companion-service74-gated-android-userspace-cnss-retry-start-only|wifi-companion-service74-gated-android-userspace-cnss-retry-registry-snapshot-start-only|wifi-companion-service74-gated-vnd-service-manager-registry-snapshot-start-only|wifi-companion-service74-gated-mdm-helper-start-only|wifi-companion-hal-order-start-only|wifi-companion-hal-wificond-order-start-only|wifi-companion-hal-wificond-lshal-wait-samsung|wifi-companion-hal-wificond-lshal-wait-iwifi|wifi-companion-dual-hal-wificond-lshal-wait-iwifi|wifi-companion-dual-hal-wificond-iwifi-start|wifi-companion-dual-hal-wificond-lshal-then-iwifi-start|rmt-storage-start-only|property-lookup|service-manager-start-only|private-selinux-proof|wifi-hal-lshal-vintf-status-list|wifi-hal-composite-start-only|wifi-hal-composite-lshal-list|wifi-hal-composite-lshal-binderized-list|wifi-hal-composite-lshal-wait-target|wifi-surface-composite-lshal-wait-iwifi|wifi-surface-composite-lshal-wait-samsung|wifi-surface-composite-lshal-wait-samsung-ptrace|wifi-hal-composite-lshal-status-list|wifi-hal-composite-lshal-binderized-status-list|wifi-surface-composite-start-only|wifi-dual-hal-lshal-wait-iwifi|wifi-dual-hal-iwifi-start-surface|wifi-iwifi-start-surface|wifi-active-session-surface|wifi-active-session-scan-only|wifi-active-session-connect-ping|wifi-connect-tool-surface|subsys-hold-open-proof "
             "[v27 binderized query runs: /system/bin/lshal list --types=binderized --neat] "
             "[v28 target query runs: /system/bin/lshal wait <fqinstance>] "
             "[v29 status query runs: /system/bin/lshal list --types=binderized,vintf --neat -V -S -i -p -e -c] "
@@ -462,6 +463,10 @@ static bool is_wifi_companion_service74_gated_vnd_service_manager_registry_snaps
     return streq(mode, "wifi-companion-service74-gated-vnd-service-manager-registry-snapshot-start-only");
 }
 
+static bool is_wifi_companion_service74_gated_mdm_helper_start_only_mode(const char *mode) {
+    return streq(mode, "wifi-companion-service74-gated-mdm-helper-start-only");
+}
+
 static bool is_wifi_companion_with_service_manager_start_only_mode(const char *mode) {
     return is_wifi_companion_service_manager_start_only_mode(mode) ||
            is_wifi_companion_vnd_service_manager_start_only_mode(mode) ||
@@ -484,6 +489,7 @@ static bool is_wifi_companion_any_start_only_mode(const char *mode) {
     return is_wifi_companion_start_only_mode(mode) ||
            is_wifi_companion_post_sysmon_observer_start_only_mode(mode) ||
            is_wifi_companion_android_order_post_sysmon_observer_start_only_mode(mode) ||
+           is_wifi_companion_service74_gated_mdm_helper_start_only_mode(mode) ||
            is_wifi_companion_with_service_manager_start_only_mode(mode);
 }
 
@@ -3664,6 +3670,20 @@ static int apply_pd_mapper_identity_contract(const char *prefix) {
                                              caps,
                                              sizeof(caps) / sizeof(caps[0]),
                                              true);
+}
+
+static int apply_mdm_helper_identity_contract(const char *prefix) {
+    gid_t groups[] = {A90_AID_SYSTEM, A90_AID_WAKELOCK, A90_AID_SHELL};
+
+    return apply_companion_identity_contract(prefix,
+                                             "mdm-helper",
+                                             0,
+                                             A90_AID_SYSTEM,
+                                             groups,
+                                             sizeof(groups) / sizeof(groups[0]),
+                                             NULL,
+                                             0,
+                                             false);
 }
 
 static int apply_peripheral_manager_identity_contract(const char *prefix) {
@@ -12251,6 +12271,7 @@ enum composite_identity {
     COMPOSITE_ID_RMT_STORAGE,
     COMPOSITE_ID_TFTP_SERVER,
     COMPOSITE_ID_PD_MAPPER,
+    COMPOSITE_ID_MDM_HELPER,
     COMPOSITE_ID_PER_MGR,
     COMPOSITE_ID_PER_PROXY,
     COMPOSITE_ID_WIFICOND,
@@ -12636,6 +12657,12 @@ static int composite_spawn_child(const struct config *cfg,
             }
         } else if (child->identity == COMPOSITE_ID_PD_MAPPER) {
             if (apply_pd_mapper_identity_contract(prefix) < 0) {
+                printf("%s.end=1\n", prefix);
+                fflush(stdout);
+                _exit(126);
+            }
+        } else if (child->identity == COMPOSITE_ID_MDM_HELPER) {
+            if (apply_mdm_helper_identity_contract(prefix) < 0) {
                 printf("%s.end=1\n", prefix);
                 fflush(stdout);
                 _exit(126);
@@ -14889,6 +14916,8 @@ static int run_wifi_companion_start_only_guarded(const struct config *cfg,
         service74_gated_android_userspace_registry_retry;
     const bool service74_gated_registry_snapshot =
         is_wifi_companion_service74_gated_vnd_service_manager_registry_snapshot_start_only_mode(cfg->mode);
+    const bool service74_gated_mdm_helper =
+        is_wifi_companion_service74_gated_mdm_helper_start_only_mode(cfg->mode);
     const bool service74_gated_registry_capture =
         service74_gated_registry_snapshot ||
         service74_gated_peripheral_manager_registry_retry ||
@@ -14906,6 +14935,9 @@ static int run_wifi_companion_start_only_guarded(const struct config *cfg,
         service74_gated_peripheral_manager_any ||
         service74_gated_android_userspace_retry ||
         service74_gated_registry_snapshot;
+    const bool service74_gate_required =
+        service74_gated_any ||
+        service74_gated_mdm_helper;
     const bool post_sysmon_observer =
         is_wifi_companion_post_sysmon_observer_start_only_mode(cfg->mode) ||
         is_wifi_companion_android_order_post_sysmon_observer_start_only_mode(cfg->mode);
@@ -14925,7 +14957,7 @@ static int run_wifi_companion_start_only_guarded(const struct config *cfg,
     bool any_runtime_gap = false;
     bool all_observable = true;
     bool service74_gate_baseline_available = false;
-    bool service74_gate_open = !service74_gated_any;
+    bool service74_gate_open = !service74_gate_required;
     bool service_manager_started = false;
     unsigned int service74_gate_baseline_count = 0;
     size_t active_child_count = 0;
@@ -15077,6 +15109,11 @@ static int run_wifi_companion_start_only_guarded(const struct config *cfg,
                              "per_proxy",
                              "/vendor/bin/pm-proxy",
                              COMPOSITE_ID_PER_PROXY);
+    } else if (service74_gated_mdm_helper) {
+        composite_child_init(&children[child_count++],
+                             "mdm_helper",
+                             "/vendor/bin/mdm_helper",
+                             COMPOSITE_ID_MDM_HELPER);
     }
     if (post_sysmon_observer) {
         order = android_order_post_sysmon_observer
@@ -15090,6 +15127,8 @@ static int run_wifi_companion_start_only_guarded(const struct config *cfg,
         order = service74_gated_android_userspace_registry_retry
                     ? "qrtr_ns,rmt_storage,tftp_server,pd_mapper,cnss_diag,cnss_daemon,service74_gate,servicemanager,hwservicemanager,vndservicemanager,vndservicemanager_ready,cnss_daemon_initial_cleanup,wifi_hal_legacy,wifi_hal_ext,wificond,cnss_daemon_retry,registry_snapshot"
                     : "qrtr_ns,rmt_storage,tftp_server,pd_mapper,cnss_diag,cnss_daemon,service74_gate,servicemanager,hwservicemanager,vndservicemanager,vndservicemanager_ready,cnss_daemon_initial_cleanup,wifi_hal_legacy,wifi_hal_ext,wificond,cnss_daemon_retry";
+    } else if (service74_gated_mdm_helper) {
+        order = "qrtr_ns,rmt_storage,tftp_server,pd_mapper,cnss_diag,cnss_daemon,service74_gate,mdm_helper";
     } else if (service74_gated_cnss_retry) {
         order = "qrtr_ns,rmt_storage,tftp_server,pd_mapper,cnss_diag,cnss_daemon,service74_gate,servicemanager,hwservicemanager,vndservicemanager,vndservicemanager_ready,cnss_daemon_initial_cleanup,cnss_daemon_retry";
     } else if (service74_gated_peripheral_manager_any_retry) {
@@ -15139,6 +15178,7 @@ static int run_wifi_companion_start_only_guarded(const struct config *cfg,
         append_literal(stdout_buf, "wifi_companion_start.pd_mapper_argv=/vendor/bin/pd-mapper\n") < 0 ||
         append_literal(stdout_buf, "wifi_companion_start.per_mgr_argv=/vendor/bin/pm-service\n") < 0 ||
         append_literal(stdout_buf, "wifi_companion_start.per_proxy_argv=/vendor/bin/pm-proxy\n") < 0 ||
+        append_literal(stdout_buf, "wifi_companion_start.mdm_helper_argv=/vendor/bin/mdm_helper\n") < 0 ||
         append_literal(stdout_buf, "wifi_companion_start.cnss_diag_argv=/vendor/bin/cnss_diag -q -f -t HELIUM\n") < 0 ||
         append_literal(stdout_buf, "wifi_companion_start.cnss_daemon_argv=/vendor/bin/cnss-daemon -n -l\n") < 0 ||
         append_format(stdout_buf,
@@ -15147,7 +15187,7 @@ static int run_wifi_companion_start_only_guarded(const struct config *cfg,
         append_format(stdout_buf,
                       "wifi_companion_start.service74_gate.enabled=%d\n"
                       "wifi_companion_start.service74_gate.wait_limit_ms=%ld\n",
-                      service74_gated_any ? 1 : 0,
+                      service74_gate_required ? 1 : 0,
                       A90_SERVICE74_GATE_WAIT_MS) < 0 ||
         append_format(stdout_buf,
                       "wifi_companion_start.vndservicemanager_readiness.enabled=%d\n"
@@ -15177,6 +15217,8 @@ static int run_wifi_companion_start_only_guarded(const struct config *cfg,
                       service74_gated_android_userspace_retry ? 2 : 0) < 0 ||
         append_format(stdout_buf, "wifi_companion_start.wificond=%d\n",
                       service74_gated_android_userspace_retry ? 1 : 0) < 0 ||
+        append_format(stdout_buf, "wifi_companion_start.mdm_helper=%d\n",
+                      service74_gated_mdm_helper ? 1 : 0) < 0 ||
         append_literal(stdout_buf, "wifi_companion_start.wifi_hal_legacy_argv=/vendor/bin/hw/android.hardware.wifi@1.0-service\n") < 0 ||
         append_literal(stdout_buf, "wifi_companion_start.wifi_hal_ext_argv=/vendor/bin/hw/vendor.samsung.hardware.wifi@2.0-service\n") < 0 ||
         append_literal(stdout_buf, "wifi_companion_start.wificond_argv=/system/bin/wificond\n") < 0 ||
@@ -15223,7 +15265,7 @@ static int run_wifi_companion_start_only_guarded(const struct config *cfg,
     if (append_qipcrtr_protocol_summary(stdout_buf, "wifi_companion_start.net_before") < 0) {
         return -1;
     }
-    if (service74_gated_any) {
+    if (service74_gate_required) {
         if (read_service74_klog_state(&service74_gate_baseline) < 0 ||
             append_service74_gate_state(stdout_buf,
                                         "baseline",
@@ -15246,7 +15288,7 @@ static int run_wifi_companion_start_only_guarded(const struct config *cfg,
         return 0;
     }
     for (size_t i = 0; i < child_count; i++) {
-        if (service74_gated_any &&
+        if (service74_gate_required &&
             (int)i > service74_gate_after_index &&
             !service74_gate_open) {
             break;
@@ -15278,9 +15320,9 @@ static int run_wifi_companion_start_only_guarded(const struct config *cfg,
             usleep(i < 3 ? 50000 : 200000);
         } else if ((qrtr_first_service_manager ||
                     cnss_first_delayed_service_manager ||
-                    service74_gated_any) && i == 0) {
+                    service74_gate_required) && i == 0) {
             usleep(1000000);
-        } else if (service74_gated_any && (int)i == service74_gate_after_index) {
+        } else if (service74_gate_required && (int)i == service74_gate_after_index) {
             long gate_elapsed_ms = 0;
 
             if (wait_for_service74_gate(stdout_buf,

@@ -7,9 +7,9 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 Samsung Galaxy A90 5G (SM-A908N) — stock Android Linux kernel 4.14.190, custom static `/init` as PID 1, building a minimal embedded Linux console without Android userspace. Device flashed via TWRP, controlled over USB CDC ACM serial bridge.
 
 - **Device**: SM-A908N, Android 12, Magisk 30.7, TWRP available
-- **Current native build**: `A90 Linux init 0.9.60 (v261)` — `stage3/boot_linux_v261.img`
+- **Current native build**: `A90 Linux init 0.9.68 (v724)` — `stage3/boot_linux_v724.img`
 - **Known-good fallback**: `stage3/boot_linux_v48.img`
-- **Active research cycle**: v268+ (QRTR nameservice probe)
+- **Active research cycle**: v741+ (service74-gated `mdm_helper` lower trigger proof)
 - **Versioning policy**: `docs/operations/VERSIONING_POLICY.md` — `vNNN` cycle ≠ device flash
 
 ## Versioning rules
@@ -19,7 +19,7 @@ Two independent axes:
 | Axis | Format | Increments when |
 |---|---|---|
 | Native build | `MAJOR.MINOR.PATCH` (e.g. `0.9.60`) | boot image changes on device |
-| Project cycle | `vNNN` (e.g. `v268`) | any plan/report/tooling milestone |
+| Project cycle | `vNNN` (e.g. `v741`) | any plan/report/tooling milestone |
 
 A new `vNNN` cycle does **not** imply a new device flash. Always state both in plans/reports.
 
@@ -156,6 +156,60 @@ New `vNNN` experiment scripts must:
 - Use `EvidenceStore` for all output under `tmp/wifi/vNNN-*/`
 - Gate live action behind explicit `--allow-*` + `--assume-yes` flags
 - Run `version`, `status`, `bootstatus`, `selftest verbose` as postflight regression
+
+## Wi-Fi bring-up research state (v598–v741, active)
+
+Goal: bring up `wlan0` from native init without Android userspace.
+
+### Confirmed architecture (SM8250/QCA6390)
+
+- **Driver**: `drivers/net/wireless/cnss2/` (PCIe/MHI path) — NOT icnss (that is SDM845/AHB)
+- **cnss2 bootstrap**: probe → `power_on_device()` → `mhi_sync_power_up()` → QCA6390 boots → WLFW service 69 on QRTR → BDF → wlan0
+- **WLAN-PD** (`msm/modem/wlan_pd`, instance 180) runs ON modem MPSS DSP — modem must be ONLINE for `wlanmdsp.mbn` to load and WLFW to appear
+- **service-notifier 180/74** are side evidence, not cnss2 triggers
+- **wlan module**: static (`/sys/module/wlan` exists, not in `/proc/modules`)
+
+### Companion stack (required, confirmed working)
+
+Must run before cnss-daemon: `qrtr-ns → pd-mapper → rmt_storage → tftp_server`
+Then: `cnss_diag → cnss-daemon`
+Ordering enforced via service-74 gate in helper.
+
+### Current blocker (V738/V740)
+
+```
+mss: OFFLINING → ONLINE ✓  (subsys_modem holder)
+mdm3: stays OFFLINING
+MHI devices: 0
+PCI devices: 0  ← QCA6390 PCIe enumeration not completing
+WLFW service 69: absent
+wlan0: absent
+```
+
+Vendor firmware files (`wlanmdsp.mbn`, `bdwlan.bin`, `regdb.bin`) confirmed at `sda29` (isolated mount), NOT in default native `/vendor`.
+
+### Key milestones
+
+| cycle | result |
+|---|---|
+| v257 | cnss-daemon live start-only SUCCESS |
+| v261 | init 0.9.60 flashed — PID1 orphan reaper added |
+| v598 | service-notifier 180 first appearance |
+| v644 | service-notifier 180/74 stable with service-74 gate |
+| v653 | service-74 gated service-manager: 180/74 preserved |
+| v724 | init 0.9.68 flashed — qrtr-ns boot hook; service-locator connects at 4.4s |
+| v735 | live CNSS-only: mss ONLINE, cnss_diag+cnss-daemon started, WLFW/MHI still 0 |
+| v738 | live modem/WLAN/MHI observer: mss ONLINE, mdm3 OFFLINING, MHI/WLFW/BDF/wlan0 still 0 |
+| v740 | host-only mdm_helper contract: not first-trigger, but valid post-notifier candidate |
+| v741 | helper v122 adds service74-gated mdm_helper start-only proof; live pending deploy/run |
+
+### Safety additions (Wi-Fi research)
+
+- `esoc0` raw open **blocked** — blocks in `__subsystem_get(esoc0)`, requires reboot
+- No DSP boot node writes without explicit approval (V615 kernel warning incident)
+- No `wlan.ko` load/unload without explicit approval
+- `firmware_class.path` rollback value: `/vendor/firmware_mnt/image`
+- `sda29` mount must be read-only in all proof windows
 
 ## Docs structure
 
