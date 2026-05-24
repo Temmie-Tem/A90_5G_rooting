@@ -2921,4 +2921,19 @@ Samsung bootloader
 - result: live stock-v724 bounded format read PASS. All 5 selected tracepoints have readable `format` files and event-specific fields. `msm_pil_event:pil_event` exposes `event_name,fw_name`; `msm_pil_event:pil_notif` exposes `event_name,code,fw_name`; `msm_pil_event:pil_func` exposes `func_name`; `dfc:dfc_qmi_tc` exposes `dev_name,txq,enable`; `cfg80211:cfg80211_report_wowlan_wakeup` exposes wiphy/wakeup fields.
 - safety: BPF attach, ftrace control writes, Wi-Fi action, scan/connect, credential use, DHCP/routes, external ping, reboot, flash, and partition write were all not executed. Tracefs was unmounted after the read window.
 - interpretation: `msm_pil_event:pil_notif` is the best V778 target because it is modem/PIL-adjacent and exposes event name, code, and firmware name without requiring Wi-Fi HAL or network actions. `cfg80211` is likely post-wiphy and not useful for the current pre-`wlan0` blocker.
-- next: V778 should plan one bounded BPF tracepoint idle attach/read/detach feasibility proof for `msm_pil_event:pil_notif` only. No modem/Wi-Fi trigger, scan/connect, credential use, or custom kernel flash.
+- next: superseded by V778. No modem/Wi-Fi trigger, scan/connect, credential use, or custom kernel flash.
+
+### V778. BPF Attach Feasibility
+
+- plan: `docs/plans/NATIVE_INIT_V778_BPF_ATTACH_FEASIBILITY_PLAN_2026-05-25.md`
+- report: `docs/reports/NATIVE_INIT_V778_BPF_ATTACH_FEASIBILITY_2026-05-25.md`
+- runner: `scripts/revalidation/native_wifi_bpf_attach_feasibility_v778.py`
+- evidence:
+  - `tmp/wifi/v778-bpf-attach-feasibility/manifest.json`
+  - `tmp/wifi/v778-bpf-attach-feasibility/summary.md`
+  - `tmp/wifi/v778-bpf-attach-feasibility/native/bpf-loader-surface.txt`
+- decision: `v778-custom-bpf-loader-build-needed`
+- result: live feasibility classifier PASS. `msm_pil_event:pil_notif` remains the selected target with `event_name,code,fw_name`, but no `bpftool` or `bpftrace` exists on the device. Device sysctls: `perf_event_paranoid=3`, `unprivileged_bpf_disabled=0`. `/sys/kernel/tracing` exists and `/sys/kernel/debug/tracing` is absent.
+- host surface: `aarch64-linux-gnu-gcc`, `aarch64-linux-gnu-strip`, and `aarch64-linux-gnu-readelf` are present, and BPF/perf headers are available. Host can build a minimal static aarch64 C helper.
+- safety: BPF attach, ftrace control writes, Wi-Fi action, scan/connect, credential use, DHCP/routes, external ping, reboot, flash, and partition write were all not executed.
+- interpretation: V778 cannot proceed directly to attach because there is no existing loader. V779 should be build-only: create and statically build a minimal reviewed helper for one target, then audit it before any deploy or attach proof.

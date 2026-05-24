@@ -130,6 +130,7 @@
 
 ### 3. Plans
 
+- `plans/NATIVE_INIT_V778_BPF_ATTACH_FEASIBILITY_PLAN_2026-05-25.md` – V777에서 선정한 `msm_pil_event:pil_notif` BPF attach proof 전에 device loader/sysctl과 host static helper build 가능성을 분류하는 계획
 - `plans/NATIVE_INIT_V777_TRACEPOINT_FORMAT_CLASSIFIER_PLAN_2026-05-25.md` – V776 후보 tracepoint의 `format`/`id` 파일만 읽어 BPF attach proof 전에 event-specific field 의미를 분류하는 계획
 - `plans/NATIVE_INIT_V776_TRACEPOINT_INVENTORY_PLAN_2026-05-25.md` – V775 이후 custom kernel flash 대신 recovered v724 stock kernel에서 tracefs `available_events`와 ICNSS/WLAN/QMI/QRTR 후보 tracepoint를 bounded mount/read/cleanup으로 분류하는 계획
 - `plans/NATIVE_INIT_V775_BOOT_INCOMPAT_POSTMORTEM_PLAN_2026-05-25.md` – V774 이후 custom OSRC kernel flash를 중단하고 v724 stock kernel과 V773 diagnostic payload의 non-DTB 차이 및 tracepoint/BPF 관측 후보를 host-only로 분류하는 계획
@@ -325,6 +326,7 @@
 
 ### 4. Current Native Init Reports
 
+- `reports/NATIVE_INIT_V778_BPF_ATTACH_FEASIBILITY_2026-05-25.md` – V778 결과 device에 `bpftool`/`bpftrace` loader가 없어 바로 attach하지 않고, host aarch64 static helper build surface가 준비됐음을 확인해 V779 custom minimal loader build gate로 라우팅
 - `reports/NATIVE_INIT_V777_TRACEPOINT_FORMAT_CLASSIFIER_2026-05-25.md` – V777 결과 `msm_pil_event:pil_notif` 등 5개 후보 tracepoint format을 읽어 event-specific field를 확인하고, V778 후보를 `msm_pil_event:pil_notif` idle attach/read/detach proof로 선정
 - `reports/NATIVE_INIT_V776_TRACEPOINT_INVENTORY_2026-05-25.md` – V776 결과 recovered v724 stock kernel에서 tracefs `available_events=1250`와 후보 event 153개를 확인했고, `msm_pil_event:*`, `dfc:dfc_qmi_tc`, `cfg80211:cfg80211_report_wowlan_wakeup` 등을 V777 format 분류 후보로 선정
 - `reports/NATIVE_INIT_V775_BOOT_INCOMPAT_POSTMORTEM_2026-05-25.md` – V775 결과 V773/V774로 DTB tail 누락은 단독 원인이 아님을 확인하고, pre-DTB `+16` byte delta, kernel provenance/toolchain, RKP/RTIC marker delta를 남은 custom-kernel boot incompatibility 후보로 분류
