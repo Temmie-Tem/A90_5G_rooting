@@ -130,6 +130,7 @@
 
 ### 3. Plans
 
+- `plans/NATIVE_INIT_V731_FIRMWARE_MOUNTED_MODEM_HOLDER_PLAN_2026-05-24.md` – V730이 재고정한 current-build firmware mount prerequisite을 실제로 적용해 `/vendor/firmware_mnt`/`/vendor/firmware-modem` read-only mount + `subsys_modem` holder로 `mss`/QRTR RX 복원을 검증하는 V731 계획
 - `plans/NATIVE_INIT_V730_MODEM_TRIGGER_RECONCILE_PLAN_2026-05-24.md` – V729 open-pending 결과를 V592 no-firmware class 및 V594/V595/V596 firmware-mounted modem readiness와 대조해, 다음 gate를 `mdm_helper`가 아니라 global firmware mount + `subsys_modem` holder로 재고정하는 V730 계획
 - `plans/NATIVE_INIT_V729_MODEM_ONLY_HOLD_PLAN_2026-05-24.md` – V728이 증명한 private real vendor root 이후, `esoc0` 없이 임시 `subsys_modem` cdev만 bounded open해 modem ONLINE/QRTR/sysmon/MHI/WLFW 진행 여부를 분류하는 V729 계획
 - `plans/NATIVE_INIT_V728_PRIVATE_VENDOR_ROOT_PLAN_2026-05-24.md` – V727이 확인한 real `sda29` vendor firmware를 기존 exec namespace helper의 private `/vendor` layout과 상관시켜, modem ONLINE 전에 helper namespace vendor root가 맞는지 증명하는 V728 계획
@@ -280,6 +281,7 @@
 
 ### 4. Current Native Init Reports
 
+- `reports/NATIVE_INIT_V731_FIRMWARE_MOUNTED_MODEM_HOLDER_2026-05-24.md` – V731 live 결과 current V724에서 read-only firmware mount + `subsys_modem` holder가 `mss=ONLINE`과 QRTR RX를 복원했고, `esoc0`/daemon/HAL/scan/connect 없이 reboot cleanup pass라 다음은 같은 창에서 lower companion start-only
 - `reports/NATIVE_INIT_V730_MODEM_TRIGGER_RECONCILE_2026-05-24.md` – V730 read-only 결과 현재 global `/vendor/firmware_mnt`, `/vendor/firmware-modem`, `/firmware`와 `modem.b00`가 모두 absent라 V729는 no-firmware open-pending 재현으로 분류되고, V731은 current-build read-only firmware mount + `subsys_modem` holder gate가 다음
 - `reports/NATIVE_INIT_V729_MODEM_ONLY_HOLD_2026-05-24.md` – V729 live 결과 `subsys_modem` 임시 cdev open attempt는 bounded window 동안 pending/blocking 상태로 남고 `mss/mdm3`는 계속 `OFFLINING`, QRTR/sysmon/MHI/WLFW/BDF/`wlan0`는 0이라 다음은 Android `mdm_helper`/ioctl/property trigger 비교
 - `reports/NATIVE_INIT_V728_PRIVATE_VENDOR_ROOT_2026-05-24.md` – V728 live 결과 기존 helper `v121`이 private namespace에서 `sda29`를 `/vendor`로 마운트하고 `/vendor/bin/cnss-daemon`을 볼 수 있으며, 같은 `sda29`에 Wi-Fi firmware가 있음을 상관시켜 V729 safe modem ONLINE trigger proof가 다음
