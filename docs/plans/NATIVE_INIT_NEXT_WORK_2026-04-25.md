@@ -2955,3 +2955,19 @@ Samsung bootloader
 - helper contract: default run is check-only and no attach. Attach path is present but gated by `--allow-attach`, targets only `msm_pil_event:pil_notif`, reads the tracepoint id from tracefs, loads a minimal two-instruction tracepoint BPF program, attaches through `perf_event_open`, waits briefly, disables, and closes fds.
 - safety: no device command, deploy, BPF attach, ftrace control write, Wi-Fi action, scan/connect, credential use, DHCP/routes, external ping, reboot, flash, or partition write was executed.
 - next: V780 should deploy the helper and run only `--check-only` on device, verifying remote hash/version/default no-attach behavior. BPF attach remains blocked until a later separate gate.
+
+### V780. BPF Loader Deploy Check-Only
+
+- plan: `docs/plans/NATIVE_INIT_V780_BPF_LOADER_DEPLOY_CHECKONLY_PLAN_2026-05-25.md`
+- report: `docs/reports/NATIVE_INIT_V780_BPF_LOADER_DEPLOY_CHECKONLY_2026-05-25.md`
+- runner: `scripts/revalidation/native_wifi_bpf_loader_deploy_checkonly_v780.py`
+- evidence:
+  - `tmp/wifi/v780-bpf-loader-deploy-checkonly/manifest.json`
+  - `tmp/wifi/v780-bpf-loader-deploy-checkonly/summary.md`
+  - `tmp/wifi/v780-bpf-loader-deploy-checkonly/native/sha-helper.txt`
+  - `tmp/wifi/v780-bpf-loader-deploy-checkonly/native/helper-check-only.txt`
+  - `tmp/wifi/v780-bpf-loader-deploy-checkonly/native/helper-default.txt`
+- decision: `v780-bpf-loader-deploy-checkonly-pass`
+- result: serial deploy to `/cache/bin/a90_bpf_trace_probe` PASS. Remote sha256 matched `9d8fdfeaa9281ba814db62ddc588b37959021d68fbd08164ae366dde3f08b1c3`. `--check-only` and default no-argument modes both printed marker `a90_bpf_trace_probe v779`, `result=check-only`, and `attach_attempted=0`.
+- hard gates: no `--allow-attach`, BPF attach, ftrace control write, Wi-Fi action, scan/connect, credential use, DHCP/routes/external ping, reboot/flash/partition write was executed.
+- next: V781 may be planned as a separate bounded idle attach/detach proof for `msm_pil_event:pil_notif`.
