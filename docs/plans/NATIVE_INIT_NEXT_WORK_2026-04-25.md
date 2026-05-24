@@ -2717,5 +2717,19 @@ Samsung bootloader
   - `tmp/wifi/v744-v122-cnss-only-comparison/native/cnss2-driver-ls-before.txt`
 - decision: `v763-icnss-architecture-rebased`
 - result: host-only correction passed. SM-A908N live path is ICNSS/QCACLD SNOC, not CNSS2/MHI. Source and evidence identify `drivers/soc/qcom/icnss_qmi.c`, `drivers/soc/qcom/icnss.c`, `pld_snoc.c`, and HDD files as the instrumentation targets.
-- interpretation: the root edge to prove is WLFW service `69` -> `wlfw_new_server()` -> `icnss_call_driver_probe()` -> `pld_snoc_probe()` -> HDD startup. Service `180/74` remains side evidence, not the direct driver-probe trigger.
-- next: V764 should plan minimal kernel log instrumentation at ICNSS/QMI/WLFW, PLD-SNOC, and HDD handoff points. Keep source patching/building, boot-image writes, live device, Wi-Fi HAL, scan/connect, credentials, DHCP/routes, and external ping blocked until their own gates.
+- interpretation: the root edge to prove is WLFW service `69` -> `wlfw_new_server()` -> `icnss_call_driver_probe()` -> `pld_snoc_probe()` -> HDD startup. Service `180/74` remains side evidence, but V764 was redirected to retry the current service180-gated `mdm_helper` question before source instrumentation.
+- next: V764 should classify V745-V749 evidence and rerun a bounded service180-gated `mdm_helper` proof with direct mdm/esoc surface capture. Keep source patching/building, boot-image writes, Wi-Fi HAL, scan/connect, credentials, DHCP/routes, and external ping blocked until their own gates.
+
+### V764. Service180-gated MDM Helper Retry
+
+- plan: `docs/plans/NATIVE_INIT_V764_SERVICE180_MDM_HELPER_RETRY_PLAN_2026-05-24.md`
+- report: `docs/reports/NATIVE_INIT_V764_SERVICE180_MDM_HELPER_RETRY_2026-05-24.md`
+- runner: `scripts/revalidation/native_wifi_mdm_helper_service180_retry_v764.py`
+- evidence:
+  - V401 prerequisite: `tmp/wifi/v764-v401-toybox-selinuxfs-mount/`
+  - live: `tmp/wifi/v764-mdm-helper-service180-retry/`
+- decision: `v764-mdm-helper-started-no-lower-progress`
+- result: bounded live proof passed. Current service-notifier `180` opened, helper v124 started `mdm_helper`, and cleanup left native healthy. `mss` reached `ONLINE`, but `mdm3` stayed `OFFLINING`; WLFW service `69`, MHI/QCA6390, BDF, and `wlan0` remained absent. No service-manager, Wi-Fi HAL, scan/connect, credentials, DHCP/routes, external ping, esoc0 open/hold, subsystem write, bind/unbind, or boot image write was executed.
+- access surface: `/sys/bus/esoc/devices/esoc0` and `/sys/class/subsys/subsys_esoc0` are visible with `SDX50M`/`PCIe` metadata, but `/dev/subsys_esoc0` is absent. Global native `/vendor/bin/mdm_helper` is not visible; it only starts inside the private vendor namespace helper path.
+- interpretation: this closes the requested mdm_helper retry. `mdm_helper` is safe and startable under service180, but still insufficient as the lower trigger. Unless new evidence changes the service180/esoc model, do not repeat `mdm_helper` as the primary trigger.
+- next: reconcile V764 with V749/V750 lower-window `boot_wlan` and the later HDD/PLD stall evidence. If that still cannot locate the gap, return to minimal ICNSS/QCACLD source log instrumentation as a separate V765+ gate.

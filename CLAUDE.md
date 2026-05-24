@@ -157,7 +157,7 @@ New `vNNN` experiment scripts must:
 - Gate live action behind explicit `--allow-*` + `--assume-yes` flags
 - Run `version`, `status`, `bootstatus`, `selftest verbose` as postflight regression
 
-## Wi-Fi bring-up research state (v598–v758, active)
+## Wi-Fi bring-up research state (v598–v764, active)
 
 Goal: bring up `wlan0` from native init without Android userspace.
 
@@ -179,14 +179,15 @@ stable enough in every boot. Helper v124 added a `sysmon-qmi` gated
 `mdm_helper` mode. V746 proved `mdm_helper` starts safely after `sysmon-qmi`,
 but it does not advance mdm3/WLAN-PD/WLFW.
 
-### Current blocker (V763)
+### Current blocker (V764)
 
 ```
 mss: OFFLINING → ONLINE ✓  (read-only firmware mounts + subsys_modem holder)
 QRTR RX/TX: present ✓
 sysmon-qmi: present ✓
-service-notifier 180: not stable
-mdm_helper after sysmon: starts safely but no lower progress
+service-notifier 180: can open on current boot, but remains a side signal
+mdm_helper after service180: starts safely but no lower progress
+esoc0 surface: `/sys/bus/esoc/devices/esoc0` and `/sys/class/subsys/subsys_esoc0` visible with SDX50M/PCIe metadata, but `/dev/subsys_esoc0` absent and no esoc0 open/hold executed
 QCA6390 platform device: exists but driver link missing
 mdm3: stays OFFLINING
 ICNSS-QMI/WLFW/service69/BDF/wlan0: absent
@@ -204,6 +205,7 @@ Source staging: kernel_build/ is prepared as ignored local staging; V760 verifie
 Source handoff: V761 generated a private operator handoff script for manual OSRC download/staging and V760 rerun; browser open is opt-in via V761_OPEN_BROWSER=1, and kernel instrumentation remains blocked until V760 verifies target files
 Source target verification: operator staged OSRC source; V760 now verifies live ICNSS/QCACLD target groups in Kernel.tar.gz (`qcacld_hdd_main`, `qcacld_hdd_driver_ops`, `qcacld_pld_snoc`, `icnss_core`, `icnss_qmi`). Source acquisition blocker is cleared for planning only; no patch/build/flash/live handoff yet.
 Architecture correction: SM-A908N live evidence shows `18800000.qcom,icnss` bound and `/sys/bus/platform/drivers/cnss2` absent. V763 planning must target ICNSS/QMI/WLFW service-69 and PLD-SNOC callbacks, not CNSS2/MHI.
+V764 service180 retry: helper v124 started `mdm_helper` under service180 gate, but mdm3/WLAN-PD/MHI/QCA6390/WLFW/BDF/wlan0 did not advance. This closes `mdm_helper` as the immediate lower trigger unless new evidence changes the service180/esoc model.
 ```
 
 Vendor firmware files (`wlanmdsp.mbn`, `bdwlan.bin`, `regdb.bin`) confirmed at `sda29` (isolated mount), NOT in default native `/vendor`.
@@ -213,7 +215,9 @@ because the gate stayed closed. V744 proved helper v122 still reproduces the
 older CNSS-only service publication window. V745 deployed helper v123 and proved
 the service `180` gate can stay closed even with QRTR TX and `sysmon-qmi`
 present. V746 deployed helper v124 and proved `mdm_helper` can start after
-`sysmon-qmi`, but lower markers still do not move. V747 host-only classified
+`sysmon-qmi`, but lower markers still do not move. V764 later proved
+`mdm_helper` can also start under service `180`, with the same no-lower-progress
+result. V747 host-only classified
 the QCA6390 child driver-link gap as **not a bind/unbind target**. V748
 host-only then rejected `mdm_helper` retry, repeated CNSS/HAL start, vendor
 namespace repair, and `wlan` module load as next candidates. The selected next
