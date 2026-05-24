@@ -179,7 +179,7 @@ stable enough in every boot. Helper v124 added a `sysmon-qmi` gated
 `mdm_helper` mode. V746 proved `mdm_helper` starts safely after `sysmon-qmi`,
 but it does not advance mdm3/WLAN-PD/MHI/WLFW.
 
-### Current blocker (V746)
+### Current blocker (V748)
 
 ```
 mss: OFFLINING → ONLINE ✓  (read-only firmware mounts + subsys_modem holder)
@@ -200,9 +200,11 @@ older CNSS-only service publication window. V745 deployed helper v123 and proved
 the service `180` gate can stay closed even with QRTR TX and `sysmon-qmi`
 present. V746 deployed helper v124 and proved `mdm_helper` can start after
 `sysmon-qmi`, but lower markers still do not move. V747 host-only classified
-the QCA6390 child driver-link gap as **not a bind/unbind target**. Next work
-should classify the non-bind ICNSS/QCA power-up trigger that Android uses before
-MHI/WLFW appears.
+the QCA6390 child driver-link gap as **not a bind/unbind target**. V748
+host-only then rejected `mdm_helper` retry, repeated CNSS/HAL start, vendor
+namespace repair, and `wlan` module load as next candidates. The selected next
+gate is a read-only non-bind ICNSS/CNSS2/QCA trigger capture for the transition
+from ICNSS parent readiness to WLFW/BDF/`wlan0`.
 
 ### Key milestones
 
@@ -223,6 +225,8 @@ MHI/WLFW appears.
 | v744 | helper v122 CNSS-only comparison: QRTR TX/sysmon/service-notifier 180 reproduced, no MHI/WLFW/wlan0 |
 | v745 | helper v123 deployed and live-tested: service180 gate stayed closed; no `mdm_helper`, no HAL/connect |
 | v746 | helper v124 deployed and live-tested: sysmon gate opened and `mdm_helper` started, but no mdm3/MHI/WLFW/wlan0 progress |
+| v747 | QCA6390 driver-link gap classified as not a bind/unbind target |
+| v748 | host-only candidate matrix selects non-bind ICNSS/CNSS2/QCA WLFW trigger capture |
 | v747 | host-only QCA6390 driver-binding delta: child unbound confirmed; bind/unbind remains blocked |
 
 ### Safety additions (Wi-Fi research)

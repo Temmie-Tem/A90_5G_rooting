@@ -2501,4 +2501,17 @@ Samsung bootloader
 - run evidence: `tmp/wifi/v747-qca6390-driver-binding-delta/`
 - result: host-only classifier passed with decision `v747-qca-driver-link-gap-not-bind-target`. V746 confirms `mdm_helper` is safe but insufficient; QCA6390 child remains unbound; V716 keeps bind/unbind blocked; Android reference is usable.
 - interpretation: the next target is not `mdm_helper` and not QCA6390 `bind`/`unbind`.
-- next: V748 should classify the non-bind ICNSS/QCA power-up trigger or capture a narrow Android binding/power-up reference if existing evidence is insufficient.
+- next: V748 classified the remaining candidate matrix and selected a read-only non-bind ICNSS/QCA WLFW trigger capture as the next gate.
+
+### V748. Non-bind ICNSS/QCA Power-up Trigger Classifier
+
+- plan: `docs/plans/NATIVE_INIT_V748_NONBIND_POWERUP_TRIGGER_PLAN_2026-05-24.md`
+- report: `docs/reports/NATIVE_INIT_V748_NONBIND_POWERUP_TRIGGER_2026-05-24.md`
+- runner: `scripts/revalidation/native_wifi_nonbind_powerup_trigger_v748.py`
+- plan evidence: `tmp/wifi/v748-nonbind-powerup-trigger-plan/`
+- preflight evidence: `tmp/wifi/v748-nonbind-powerup-trigger-preflight/`
+- run evidence: `tmp/wifi/v748-nonbind-powerup-trigger/`
+- decision: `v748-icnss-qmi-wlfw-nonbind-trigger-selected`
+- result: host-only classifier passed. It rejected QCA6390 `bind`/`unbind`, `mdm_helper` retry, repeated CNSS/HAL start, and `wlan` module load; it marked the private vendor firmware namespace as satisfied.
+- interpretation: the remaining pre-connection blocker is below Wi-Fi HAL/connect. The next unit must identify the non-bind ICNSS/CNSS2/QCA path that advances Android from ICNSS parent readiness to WLFW/BDF/`wlan0`.
+- next: V749 should be a read-only Android/native ICNSS-QMI/WLFW trigger capture. Do not start Wi-Fi HAL, scan/connect, credentials, DHCP/routes, external ping, or QCA bind/unbind.
