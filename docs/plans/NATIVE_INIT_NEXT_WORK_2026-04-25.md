@@ -25,7 +25,7 @@
 
 ## 현재 Wi-Fi Gate
 
-- 최신 기준: V889 helper v141 source/build-only conditional response mode pass.
+- 최신 기준: V890 helper v141 deploy-only pass.
 - V874 결론: `/dev/esoc-0` read-only control path가 live에서 열렸고
   `GET_STATUS`/`GET_ERR_FATAL`은 rc `0`, `GET_LINK_ID`는 errno `22`로
   반환됐다. 결과는 `read-only-ioctl-probe-complete`이며 created nodes cleanup,
@@ -120,6 +120,10 @@
   logic은 `ESOC_REQ_IMG` 관측 후 `ESOC_IMG_XFER_DONE`, `ESOC_GET_STATUS` polling,
   status `1`일 때만 `ESOC_BOOT_DONE`을 수행하도록 준비됐지만 V889에서는
   deploy/live 실행이 없었다. 다음 후보는 V890 helper `v141` deploy-only다.
+- V890 결론: helper `v141` deploy-only가 통과했다. Remote sha는
+  `e6909cbfee79a4a1f55a3f039cdc29dca57f31e00c19d63a1a452d633c060f21`이고
+  conditional response mode token이 확인됐다. 다음 후보는 V891 bounded live
+  conditional response proof다.
 
 - 아래 V840-V847 항목은 V874/V875 이전 경로 요약이다.
 - V840 결론: provider-first service-manager/PeripheralManager, CNSS retry,
@@ -4405,3 +4409,20 @@ Samsung bootloader
   service-manager, no Wi-Fi HAL, scan/connect, DHCP/routes, credentials, or
   external ping.
 - next: V890 helper `v141` deploy-only checksum/version/mode proof.
+
+### V890. Helper v141 Deploy-only Proof
+
+- plan: `docs/plans/NATIVE_INIT_V890_HELPER_V141_DEPLOY_PLAN_2026-05-26.md`
+- report: `docs/reports/NATIVE_INIT_V890_HELPER_V141_DEPLOY_2026-05-26.md`
+- deploy wrapper: `scripts/revalidation/wifi_execns_helper_v141_deploy_preflight.py`
+- evidence:
+  - `tmp/wifi/v890-execns-helper-v141-plan/manifest.json`
+  - `tmp/wifi/v890-execns-helper-v141-preflight/manifest.json`
+  - `tmp/wifi/v890-execns-helper-v141-deploy-preflight/manifest.json`
+- decision: `execns-helper-v141-deploy-pass`
+- result: deploy-only PASS. Helper `v141` was installed by serial transfer and
+  remote sha/mode marker matched.
+- hard gates held: no live eSoC ioctl, no `/dev/subsys_esoc0` open, no
+  `ESOC_NOTIFY`, no actor start, no service-manager, no Wi-Fi HAL,
+  scan/connect, DHCP/routes, credentials, or external ping.
+- next: V891 bounded conditional response proof using helper `v141`.

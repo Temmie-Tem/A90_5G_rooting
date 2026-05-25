@@ -1138,3 +1138,42 @@ Next candidate:
 
 - V890 helper `v141` deploy-only checksum/version/mode proof.
 - Live conditional response remains blocked until a separate bounded proof.
+
+---
+
+## 33. V890 helper v141 deploy result
+
+V890 deployed helper `v141` to `/cache/bin/a90_android_execns_probe`.
+
+Evidence:
+
+- `tmp/wifi/v890-execns-helper-v141-plan/manifest.json`
+- `tmp/wifi/v890-execns-helper-v141-preflight/manifest.json`
+- `tmp/wifi/v890-execns-helper-v141-deploy-preflight/manifest.json`
+- `docs/plans/NATIVE_INIT_V890_HELPER_V141_DEPLOY_PLAN_2026-05-26.md`
+- `docs/reports/NATIVE_INIT_V890_HELPER_V141_DEPLOY_2026-05-26.md`
+
+Decision:
+
+- `execns-helper-v141-deploy-pass`
+
+Result:
+
+- Remote helper sha256 matches V889:
+  `e6909cbfee79a4a1f55a3f039cdc29dca57f31e00c19d63a1a452d633c060f21`.
+- Remote helper usage output includes `a90_android_execns_probe v141`.
+- Remote helper advertises
+  `wifi-companion-esoc-conditional-response-preflight`.
+- Serial transfer used chunk `1850`, `788` chunks, max line `3890`, safe limit
+  `3968`.
+- Post-deploy read-only health checks passed; no Wi-Fi bring-up occurred.
+
+Guardrails held: V890 did not execute live eSoC ioctls, did not open
+`/dev/subsys_esoc0`, did not issue `ESOC_NOTIFY`, did not start Android actors,
+and did not bring up Wi-Fi.
+
+Next candidate:
+
+- V891 bounded conditional response proof using helper `v141`.
+- This is the first live `ESOC_NOTIFY` candidate and must include timeout and
+  reboot cleanup criteria.

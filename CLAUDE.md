@@ -9,7 +9,7 @@ Samsung Galaxy A90 5G (SM-A908N) — stock Android Linux kernel 4.14.190, custom
 - **Device**: SM-A908N, Android 12, Magisk 30.7, TWRP available
 - **Current native build**: `A90 Linux init 0.9.68 (v724)` — `stage3/boot_linux_v724.img`
 - **Known-good fallback**: `stage3/boot_linux_v48.img`
-- **Active research cycle**: V889 built helper `v141`; next is V890 deploy-only checksum/version/mode proof before any live conditional response
+- **Active research cycle**: V890 deployed helper `v141`; next is V891 bounded conditional response proof with timeout and reboot cleanup gates
 - **Versioning policy**: `docs/operations/VERSIONING_POLICY.md` — `vNNN` cycle ≠ device flash
 
 ## Versioning rules
@@ -602,6 +602,7 @@ path should be closed for this blocker.
 | v887 | helper v140 deploy-only: serial chunk 3000 blocked safely before writes, chunk 1850 deploy passed; remote sha/mode marker verified, no live eSoC ioctl or Wi-Fi bring-up |
 | v888 | host-only response gate classifier: choose `ESOC_IMG_XFER_DONE` first, then readiness-gated `ESOC_BOOT_DONE`; blind BOOT_DONE remains blocked |
 | v889 | helper v141 source/build-only: adds fail-closed conditional response mode and allow flag; no deploy or live notify |
+| v890 | helper v141 deploy-only: serial deploy pass; remote sha/mode marker, selftest, actor-clean, and Wi-Fi-link-clean pass; no live eSoC ioctl |
 
 ### Safety additions (Wi-Fi research)
 
@@ -728,7 +729,11 @@ path should be closed for this blocker.
   `v141` source/build-only conditional response mode. V889 then built helper
   `v141` with mode `wifi-companion-esoc-conditional-response-preflight` and
   allow flag `--allow-esoc-conditional-response-preflight`; no deploy or live
-  notify occurred. Next is V890 helper `v141` deploy-only proof.
+  notify occurred. V890 then deployed helper `v141` to
+  `/cache/bin/a90_android_execns_probe` and verified remote sha/mode marker,
+  selftest, actor-clean, and Wi-Fi-link-clean state without live eSoC ioctl.
+  Next is V891 bounded conditional response proof with explicit timeout and
+  reboot cleanup gates.
   Keep Wi-Fi HAL, scan/connect, DHCP/routes, credentials, external ping, live
   direct userspace `CMD_EXE`/explicit userspace `PWR_ON`, `NOTIFY`, subsystem
   writes, GPIO/sysfs/debugfs writes, module load/unload, and boot image writes
