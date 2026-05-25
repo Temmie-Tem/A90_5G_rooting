@@ -466,3 +466,77 @@ Decision:
 - `REG_REQ_ENG`, `REG_CMD_ENG`, `CMD_EXE`, `WAIT_FOR_REQ`, `NOTIFY`,
   `PWR_ON`, `mdm_helper`, `ks`, `pm_proxy_helper`, CNSS, HAL, scan/connect는
   계속 별도 gate 전까지 차단한다.
+
+---
+
+## 15. V872 helper v136 classification repair
+
+V871 live evidence showed that helper `v135` reached argument parsing but did
+not reach the eSoC preflight body. The mode was still grouped with
+PeripheralManager/service-manager node-materialization modes, so setup tried to
+materialize SELinuxfs/service-manager runtime surfaces before the read-only
+`/dev/esoc-0` probe.
+
+V872 repaired this by splitting the helper classification:
+
+- PeripheralManager service-node materialization remains separate.
+- `wifi-companion-esoc-control-preflight` still creates the private eSoC nodes:
+  `/dev/esoc-0`, `/dev/subsys_esoc0`, and `/dev/subsys_modem`.
+- The eSoC preflight no longer inherits service-manager or SELinuxfs runtime
+  requirements.
+
+Evidence:
+
+- `tmp/wifi/v872-execns-helper-v136-build/a90_android_execns_probe`
+- `docs/reports/NATIVE_INIT_V872_ESOC_PREFLIGHT_HELPER_V136_BUILD_2026-05-25.md`
+
+## 16. V873 helper v136 deploy result
+
+V873 deployed helper `v136` to `/cache/bin/a90_android_execns_probe` with serial
+appendfile/uudecode only.
+
+Evidence:
+
+- `tmp/wifi/v873-execns-helper-v136-deploy/manifest.json`
+- remote sha256:
+  `76dce733b8444073fc615a44df240aa7f8256dfb7f6c123c3f5e388907356980`
+
+Guardrails held: no actor start, no Wi-Fi bring-up, and no live eSoC ioctl in
+V873.
+
+## 17. V874 read-only eSoC control preflight result
+
+V874 ran the bounded live read-only eSoC control preflight with helper `v136`.
+
+Decision:
+
+- `v874-esoc-readonly-ioctl-probe-pass`
+
+Observed read-only ioctl results:
+
+| ioctl | request | rc | errno | value |
+| --- | --- | --- | --- | --- |
+| `GET_STATUS` | `0x8004cc04` | `0` | `0` | `0` |
+| `GET_ERR_FATAL` | `0x8004cc05` | `0` | `0` | `0` |
+| `GET_LINK_ID` | `0xc008cc09` | `-1` | `22` | `0` |
+
+Important guardrails:
+
+- `REG_REQ_ENG`, `REG_CMD_ENG`, `CMD_EXE`, `WAIT_FOR_REQ`, `NOTIFY`, and
+  `PWR_ON` were not attempted.
+- `mdm_helper`, `ks`, `pm_proxy_helper`, CNSS, service-manager trio, Wi-Fi HAL,
+  scan/connect, credentials, DHCP/routes, and external ping were not executed.
+- Created device nodes were cleaned up and postflight selftest stayed
+  `pass=11 warn=1 fail=0`.
+
+Current interpretation:
+
+- `/dev/esoc-0` is reachable for read-only control ioctls.
+- The immediate blocker is now safe design of a future mutating CMD/REQ engine
+  registration gate.
+- `PWR_ON` remains blocked until a later explicit gate.
+
+Next candidate:
+
+- V875 host-only eSoC state-machine precondition classifier for
+  `REG_CMD_ENG`/`REG_REQ_ENG`, fd ownership, timeout, cleanup, and rollback.

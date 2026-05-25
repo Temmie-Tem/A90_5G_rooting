@@ -88,7 +88,7 @@
 #define IOPRIO_PRIO_VALUE(class_value, data) (((class_value) << IOPRIO_CLASS_SHIFT) | (data))
 #endif
 
-#define EXECNS_VERSION "a90_android_execns_probe v135"
+#define EXECNS_VERSION "a90_android_execns_probe v136"
 #define MAX_PATH_LEN 512
 #define MAX_CAPTURE_SIZE (1024 * 1024)
 #define MAX_LINKERCONFIG_SIZE (256 * 1024)
@@ -503,10 +503,14 @@ static bool is_wifi_companion_esoc_control_preflight_mode(const char *mode) {
     return streq(mode, "wifi-companion-esoc-control-preflight");
 }
 
-static bool is_wifi_companion_peripheral_manager_node_materialization_mode(const char *mode) {
+static bool is_wifi_companion_peripheral_manager_service_node_materialization_mode(const char *mode) {
     return is_wifi_companion_peripheral_manager_node_parity_start_only_mode(mode) ||
            is_wifi_companion_peripheral_manager_property_contract_start_only_mode(mode) ||
-           is_wifi_companion_peripheral_manager_init_contract_start_only_mode(mode) ||
+           is_wifi_companion_peripheral_manager_init_contract_start_only_mode(mode);
+}
+
+static bool is_wifi_companion_peripheral_manager_node_materialization_mode(const char *mode) {
+    return is_wifi_companion_peripheral_manager_service_node_materialization_mode(mode) ||
            is_wifi_companion_esoc_control_preflight_mode(mode);
 }
 
@@ -562,7 +566,7 @@ static bool is_wifi_companion_with_service_manager_start_only_mode(const char *m
            is_wifi_companion_service74_gated_vnd_service_manager_start_only_mode(mode) ||
            is_wifi_companion_service74_gated_vnd_service_manager_readiness_start_only_mode(mode) ||
            is_wifi_companion_service74_gated_vnd_service_manager_cnss_retry_start_only_mode(mode) ||
-           is_wifi_companion_peripheral_manager_node_materialization_mode(mode) ||
+           is_wifi_companion_peripheral_manager_service_node_materialization_mode(mode) ||
            is_wifi_companion_service74_gated_peripheral_manager_cnss_retry_start_only_mode(mode) ||
            is_wifi_companion_service74_gated_peripheral_manager_cnss_retry_registry_snapshot_start_only_mode(mode) ||
            is_wifi_companion_service74_gated_peripheral_manager_vndservice_query_start_only_mode(mode) ||

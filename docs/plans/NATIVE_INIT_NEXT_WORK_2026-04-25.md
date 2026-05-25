@@ -25,6 +25,22 @@
 
 ## 현재 Wi-Fi Gate
 
+- 최신 기준: V874 pass.
+- V872 결론: helper `v135`의 eSoC preflight mode가 service-manager/SELinuxfs
+  runtime setup으로 오분류되던 문제를 helper `v136`에서 분리했다.
+- V873 결론: helper `v136`을 `/cache/bin/a90_android_execns_probe`에 serial
+  deploy했고 remote sha/mode marker가 pass였다. actor start와 Wi-Fi bring-up은
+  없었다.
+- V874 결론: `/dev/esoc-0` read-only control path가 live에서 열렸고
+  `GET_STATUS`/`GET_ERR_FATAL`은 rc `0`, `GET_LINK_ID`는 errno `22`로
+  반환됐다. 결과는 `read-only-ioctl-probe-complete`이며 created nodes cleanup,
+  selftest fail0, actor-clean, Wi-Fi-link-clean이 모두 pass다.
+- 다음 후보: V875 host-only eSoC state-machine precondition classifier.
+  `REG_CMD_ENG`/`REG_REQ_ENG`의 fd ownership, timeout, cleanup, rollback을
+  먼저 설계한다. `CMD_EXE`, `PWR_ON`, `WAIT_FOR_REQ`, `NOTIFY`, `mdm_helper`,
+  `ks`, `pm_proxy_helper`, CNSS, HAL, scan/connect, credentials, DHCP/routes,
+  external ping은 별도 gate 전까지 계속 막는다.
+
 - 최신 기준: V847 pass.
 - V840 결론: provider-first service-manager/PeripheralManager, CNSS retry,
   prearmed WLAN-PD listener를 결합해도 native는 WLAN-PD `UNINIT` 상태이고
@@ -3958,3 +3974,54 @@ Samsung bootloader
 - next: V871 should run a bounded live eSoC control preflight with helper
   `v135`, limited to node visibility and read-only eSoC status ioctls. Mutating
   eSoC state-machine steps remain blocked.
+
+
+### V872. eSoC Preflight Helper v136 Build
+
+- plan: `docs/plans/NATIVE_INIT_V872_ESOC_PREFLIGHT_HELPER_V136_PLAN_2026-05-25.md`
+- report: `docs/reports/NATIVE_INIT_V872_ESOC_PREFLIGHT_HELPER_V136_BUILD_2026-05-25.md`
+- helper source: `stage3/linux_init/helpers/a90_android_execns_probe.c`
+- evidence:
+  - `tmp/wifi/v872-execns-helper-v136-build/a90_android_execns_probe`
+- result: source/build-only PASS. Helper `v136` splits eSoC control preflight
+  from service-manager/SELinuxfs runtime classification while preserving private
+  `/dev/esoc-0`, `/dev/subsys_esoc0`, and `/dev/subsys_modem` materialization.
+- build: sha256
+  `76dce733b8444073fc615a44df240aa7f8256dfb7f6c123c3f5e388907356980`, static
+  ARM64, no dynamic section.
+- hard gates held: no deploy, no live eSoC ioctl, no actor start, no Wi-Fi
+  bring-up.
+- next: V873 helper `v136` deploy-only proof.
+
+### V873. Helper v136 Deploy-only Proof
+
+- plan: `docs/plans/NATIVE_INIT_V873_HELPER_V136_DEPLOY_PLAN_2026-05-25.md`
+- report: `docs/reports/NATIVE_INIT_V873_HELPER_V136_DEPLOY_2026-05-25.md`
+- deploy wrapper: `scripts/revalidation/wifi_execns_helper_v136_deploy_preflight.py`
+- evidence:
+  - `tmp/wifi/v873-execns-helper-v136-plan/manifest.json`
+  - `tmp/wifi/v873-execns-helper-v136-preflight/manifest.json`
+  - `tmp/wifi/v873-execns-helper-v136-deploy/manifest.json`
+- decision: `execns-helper-v136-deploy-pass`
+- result: deploy-only PASS. Helper `v136` was installed by serial
+  appendfile/uudecode using 1850-byte chunks.
+- hard gates held: no actor start, no Wi-Fi bring-up, no live eSoC ioctl.
+- next: V874 bounded read-only eSoC control preflight.
+
+### V874. eSoC Control Read-only Preflight
+
+- plan: `docs/plans/NATIVE_INIT_V874_ESOC_CONTROL_PREFLIGHT_PLAN_2026-05-25.md`
+- report: `docs/reports/NATIVE_INIT_V874_ESOC_CONTROL_PREFLIGHT_2026-05-25.md`
+- live runner: `scripts/revalidation/native_wifi_esoc_control_preflight_v874.py`
+- evidence:
+  - `tmp/wifi/v874-esoc-control-preflight-plan/manifest.json`
+  - `tmp/wifi/v874-esoc-control-preflight-live/manifest.json`
+- decision: `v874-esoc-readonly-ioctl-probe-pass`
+- result: `/dev/esoc-0` open succeeded and read-only ioctl probe completed.
+  `GET_STATUS` and `GET_ERR_FATAL` returned rc `0`; `GET_LINK_ID` returned
+  errno `22`, which is recorded as diagnostic data rather than a gate failure.
+- hard gates held: no `REG_REQ_ENG`, `REG_CMD_ENG`, `CMD_EXE`, `WAIT_FOR_REQ`,
+  `NOTIFY`, `PWR_ON`, actor start, Wi-Fi HAL, scan/connect, DHCP/routes,
+  credentials, or external ping.
+- next: V875 host-only eSoC state-machine precondition classifier for future
+  CMD/REQ registration.

@@ -130,6 +130,9 @@
 
 ### 3. Plans
 
+- `plans/NATIVE_INIT_V874_ESOC_CONTROL_PREFLIGHT_PLAN_2026-05-25.md` – helper `v136`으로 `/dev/esoc-0` read-only status ioctl preflight를 실행하는 V874 계획
+- `plans/NATIVE_INIT_V873_HELPER_V136_DEPLOY_PLAN_2026-05-25.md` – helper `v136`을 deploy-only로 설치하고 checksum/version/mode parity를 증명하는 V873 계획
+- `plans/NATIVE_INIT_V872_ESOC_PREFLIGHT_HELPER_V136_PLAN_2026-05-25.md` – helper `v135`의 eSoC preflight service-manager/SELinuxfs 오분류를 v136에서 분리하는 V872 계획
 - `plans/NATIVE_INIT_V870_HELPER_V135_DEPLOY_PLAN_2026-05-25.md` – helper `v135`를 `/cache/bin/a90_android_execns_probe`에 deploy-only로 설치하고 checksum/version/mode parity를 증명하는 V870 계획
 - `plans/NATIVE_INIT_V869_ESOC_CONTROL_PREFLIGHT_HELPER_PLAN_2026-05-25.md` – helper `v135`에 `/dev/esoc-0` eSoC control preflight mode를 source/build-only로 추가하는 V869 계획
 - `plans/NATIVE_INIT_V868_PM_ESOC_CONTRACT_CLASSIFIER_PLAN_2026-05-25.md` – V867 `pm_proxy_helper` D-state를 로컬 A90 eSoC UAPI와 비교해 다음 gate를 `/dev/esoc-0` control preflight로 좁히는 V868 계획
@@ -382,6 +385,9 @@
 
 ### 4. Current Native Init Reports
 
+- `reports/NATIVE_INIT_V874_ESOC_CONTROL_PREFLIGHT_2026-05-25.md` – V874 결과 `/dev/esoc-0` read-only ioctl preflight PASS, mutating eSoC ioctl/actor/Wi-Fi bring-up 없음
+- `reports/NATIVE_INIT_V873_HELPER_V136_DEPLOY_2026-05-25.md` – V873 결과 helper `v136` deploy-only PASS, remote sha/mode marker 확인
+- `reports/NATIVE_INIT_V872_ESOC_PREFLIGHT_HELPER_V136_BUILD_2026-05-25.md` – V872 결과 helper `v136` classification repair와 static ARM64 build PASS
 - `reports/NATIVE_INIT_V870_HELPER_V135_DEPLOY_2026-05-25.md` – V870 결과 helper `v135` deploy-only PASS, remote sha/mode marker/selftest/actor-clean/Wi-Fi-link-clean 확인
 - `reports/NATIVE_INIT_V869_ESOC_CONTROL_PREFLIGHT_HELPER_BUILD_2026-05-25.md` – V869 결과 helper `v135`가 `wifi-companion-esoc-control-preflight`와 fail-closed eSoC UAPI markers를 포함해 static build 통과
 - `reports/NATIVE_INIT_V868_PM_ESOC_CONTRACT_CLASSIFIER_2026-05-25.md` – V868 결과 `pm_proxy_helper` 단독 재시도를 닫고 A90 로컬 `ESOC_REG_REQ_ENG=7`/`ESOC_REG_CMD_ENG=8` 기반 eSoC control preflight를 V869 후보로 선정

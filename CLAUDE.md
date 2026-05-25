@@ -583,6 +583,10 @@ path should be closed for this blocker.
 | v868 | PM/eSoC contract classifier: `pm_proxy_helper` alone is closed; local A90 OSRC requires `/dev/esoc-0` CMD/REQ engine preflight (`ESOC_REG_REQ_ENG=7`, `ESOC_REG_CMD_ENG=8`) before another `/dev/subsys_esoc0` hold |
 | v869 | helper v135 source/build-only: adds `wifi-companion-esoc-control-preflight`, local eSoC UAPI markers, `--allow-esoc-control-preflight`, and fail-closed markers with static ARM64 build pass |
 | v870 | helper v135 deploy-only: serial deploy to `/cache/bin/a90_android_execns_probe`; remote sha/version/mode, selftest, actor-clean, and Wi-Fi-link-clean pass |
+| v871 | bounded eSoC preflight attempt exposed helper v135 classification bug: mode was treated as service-manager/SELinuxfs runtime before reaching read-only ioctl body |
+| v872 | helper v136 source/build-only: splits eSoC control preflight from service-manager/SELinuxfs classification while preserving private eSoC node materialization |
+| v873 | helper v136 deploy-only: serial deploy to `/cache/bin/a90_android_execns_probe`; remote sha/version/mode pass, no actor start and no Wi-Fi bring-up |
+| v874 | bounded eSoC read-only control preflight pass: `/dev/esoc-0` opened, `GET_STATUS`/`GET_ERR_FATAL` rc 0, `GET_LINK_ID` errno 22; no mutating ioctl or actor start |
 
 ### Safety additions (Wi-Fi research)
 
@@ -642,12 +646,19 @@ path should be closed for this blocker.
   and fail-closed markers. The next candidate is V870 deploy-only for helper
   `v135` with checksum/version/mode proof and post-deploy health. V870 deployed
   helper `v135` successfully; remote sha/mode marker, selftest, actor-clean, and
-  Wi-Fi-link-clean pass. The next candidate is V871 bounded live eSoC control
-  preflight, limited to node visibility and read-only eSoC status ioctls. Keep
-  Wi-Fi HAL, scan/connect, DHCP/routes, credentials, external ping, live
-  `ESOC_PWR_ON`, subsystem writes, GPIO/sysfs/debugfs writes, module
-  load/unload, and boot image writes blocked. Do not start `mdm_helper`, `ks`,
-  HAL, or scan/connect before a separate mutating eSoC state-machine gate.
+  Wi-Fi-link-clean pass. V871 then exposed a helper classification bug before
+  the read-only ioctl body. V872 fixed that by splitting helper `v136` eSoC
+  preflight from service-manager/SELinuxfs runtime classification, V873 deployed
+  helper `v136`, and V874 proved `/dev/esoc-0` read-only control preflight:
+  `GET_STATUS`/`GET_ERR_FATAL` returned rc `0`, `GET_LINK_ID` returned errno
+  `22`, created nodes were cleaned up, selftest stayed fail0, and actor/Wi-Fi
+  surfaces stayed clean. The next candidate is V875 host-only eSoC
+  state-machine precondition classification for future `REG_CMD_ENG` and
+  `REG_REQ_ENG`. Keep Wi-Fi HAL, scan/connect, DHCP/routes, credentials,
+  external ping, live `CMD_EXE`/`PWR_ON`, subsystem writes,
+  GPIO/sysfs/debugfs writes, module load/unload, and boot image writes blocked.
+  Do not start `mdm_helper`, `ks`, HAL, or scan/connect before a separate
+  mutating eSoC state-machine gate.
 
 ## Docs structure
 
