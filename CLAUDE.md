@@ -9,7 +9,7 @@ Samsung Galaxy A90 5G (SM-A908N) — stock Android Linux kernel 4.14.190, custom
 - **Device**: SM-A908N, Android 12, Magisk 30.7, TWRP available
 - **Current native build**: `A90 Linux init 0.9.68 (v724)` — `stage3/boot_linux_v724.img`
 - **Known-good fallback**: `stage3/boot_linux_v48.img`
-- **Active research cycle**: V894 selected `/proc/interrupts` GPIO 142 `mdm status` as the read-only readiness observer; next is V895 bounded IRQ snapshot proof
+- **Active research cycle**: V895 proved `ESOC_IMG_XFER_DONE` does not fire GPIO 142 `mdm status`; next is host-only Android `mdm_helper` image-transfer contract classification
 - **Versioning policy**: `docs/operations/VERSIONING_POLICY.md` — `vNNN` cycle ≠ device flash
 
 ## Versioning rules
@@ -157,7 +157,7 @@ New `vNNN` experiment scripts must:
 - Gate live action behind explicit `--allow-*` + `--assume-yes` flags
 - Run `version`, `status`, `bootstatus`, `selftest verbose` as postflight regression
 
-## Wi-Fi bring-up research state (v598–v850, active)
+## Wi-Fi bring-up research state (v598–v895, active)
 
 Goal: bring up `wlan0` from native init without Android userspace.
 
@@ -607,6 +607,7 @@ path should be closed for this blocker.
 | v892 | helper v142 allowlist repair/deploy: adds conditional response mode to global v235 allowlist; deploy-only pass |
 | v893 | host-only post-image-done classifier: `IMG_XFER_DONE` is not a readiness setter; next blocker is MDM2AP status/ready transition |
 | v894 | MDM2AP ready-surface classifier: `/proc/interrupts` exposes GPIO 142 `mdm status` as read-only observer; debugfs GPIO absent |
+| v895 | MDM2AP IRQ snapshot proof: `IMG_XFER_DONE` sent, `GET_STATUS` stayed 0, GPIO142 `mdm status` IRQ count stayed 0; cleanup reboot pass |
 
 ### Safety additions (Wi-Fi research)
 
@@ -747,8 +748,13 @@ path should be closed for this blocker.
   readiness observer, not blind `BOOT_DONE` or actor/HAL start. V894 selected
   `/proc/interrupts` line `msmgpio-dc 142 Edge mdm status` as the read-only
   observer for that transition; debugfs GPIO is absent in current native boot.
-  Next is V895 bounded IRQ snapshot proof around the existing guarded
-  `IMG_XFER_DONE` flow.
+  V895 built and deployed helper `v143`, then reran the guarded
+  `IMG_XFER_DONE` flow with IRQ snapshots. `ESOC_REQ_IMG` was observed,
+  `IMG_XFER_DONE` was sent, `GET_STATUS` stayed `0` for 86 polls, `BOOT_DONE`
+  was not sent, and GPIO 142 `mdm status` IRQ count stayed `0` across 89
+  phases. Cleanup reboot restored healthy selftest. Next is host-only Android
+  `mdm_helper` / image-transfer contract classification before any new live
+  mutating eSoC state-machine attempt.
   Keep Wi-Fi HAL, scan/connect, DHCP/routes, credentials, external ping, live
   direct userspace `CMD_EXE`/explicit userspace `PWR_ON`, `NOTIFY`, subsystem
   writes, GPIO/sysfs/debugfs writes, module load/unload, and boot image writes

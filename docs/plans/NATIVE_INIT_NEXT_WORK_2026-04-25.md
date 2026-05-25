@@ -25,9 +25,10 @@
 
 ## 현재 Wi-Fi Gate
 
-- 최신 기준: V894 MDM2AP ready-surface classifier pass. Helper `v142` is
-  deployed, `ESOC_IMG_XFER_DONE` succeeds, and `/proc/interrupts` GPIO 142
-  `mdm status` is the next read-only readiness observer.
+- 최신 기준: V895 MDM2AP IRQ snapshot proof pass. Helper `v143` is deployed,
+  `ESOC_IMG_XFER_DONE` succeeds, `ESOC_GET_STATUS` stays `0`, and GPIO 142
+  `mdm status` IRQ count stays `0`; next is host-only Android `mdm_helper`
+  image-transfer contract classification.
 - V874 결론: `/dev/esoc-0` read-only control path가 live에서 열렸고
   `GET_STATUS`/`GET_ERR_FATAL`은 rc `0`, `GET_LINK_ID`는 errno `22`로
   반환됐다. 결과는 `read-only-ioctl-probe-complete`이며 created nodes cleanup,
@@ -142,6 +143,13 @@
   `/proc/interrupts`의 `msmgpio-dc 142 Edge mdm status` line이 MDM2AP
   readiness transition의 read-only observer다. debugfs GPIO는 현재 native
   boot에서 없다. 다음 후보는 V895 bounded IRQ snapshot proof다.
+- V895 결론: helper `v143`이 GPIO 142 `mdm status` IRQ snapshot을 추가했고
+  deploy/live proof가 통과했다. `ESOC_REQ_IMG` 관측 후 `ESOC_IMG_XFER_DONE`은
+  전송됐지만 `ESOC_GET_STATUS`는 86회 모두 `0`, `ESOC_BOOT_DONE`은 미전송,
+  GPIO 142 IRQ count는 89개 phase 전체에서 `0`이었다. cleanup reboot 후
+  `bootstatus`와 `selftest fail=0`가 통과했다. 다음 후보는 live 재시도가
+  아니라 Android `mdm_helper` / image-transfer contract host-only
+  classifier다.
 
 - 아래 V840-V847 항목은 V874/V875 이전 경로 요약이다.
 - V840 결론: provider-first service-manager/PeripheralManager, CNSS retry,
@@ -452,7 +460,7 @@ Samsung bootloader
 - 최신 확인 버전: `A90 Linux init 0.9.53 (v153)`
 - 공식 버전: `0.9.53`
 - build tag: `v153`
-- creator: `made by temmie0214`
+- creator: redacted legacy field
 - 최신 verified 소스: `stage3/linux_init/init_v153.c` + `stage3/linux_init/v153/*.inc.c` + `stage3/linux_init/helpers/a90_cpustress.c` + `stage3/linux_init/helpers/a90_rshell.c` + `stage3/linux_init/helpers/a90_longsoak.c` + `stage3/linux_init/a90_config.h` + `stage3/linux_init/a90_util.c/h` + `stage3/linux_init/a90_log.c/h` + `stage3/linux_init/a90_timeline.c/h` + `stage3/linux_init/a90_console.c/h` + `stage3/linux_init/a90_cmdproto.c/h` + `stage3/linux_init/a90_run.c/h` + `stage3/linux_init/a90_service.c/h` + `stage3/linux_init/a90_kms.c/h` + `stage3/linux_init/a90_draw.c/h` + `stage3/linux_init/a90_input.c/h` + `stage3/linux_init/a90_input_cmd.c/h` + `stage3/linux_init/a90_hud.c/h` + `stage3/linux_init/a90_menu.c/h` + `stage3/linux_init/a90_metrics.c/h` + `stage3/linux_init/a90_shell.c/h` + `stage3/linux_init/a90_controller.c/h` + `stage3/linux_init/a90_storage.c/h` + `stage3/linux_init/a90_selftest.c/h` + `stage3/linux_init/a90_usb_gadget.c/h` + `stage3/linux_init/a90_netservice.c/h` + `stage3/linux_init/a90_pid1_guard.c/h` + `stage3/linux_init/a90_runtime.c/h` + `stage3/linux_init/a90_helper.c/h` + `stage3/linux_init/a90_userland.c/h` + `stage3/linux_init/a90_diag.c/h` + `stage3/linux_init/a90_exposure.c/h` + `stage3/linux_init/a90_wifiinv.c/h` + `stage3/linux_init/a90_wififeas.c/h` + `stage3/linux_init/a90_changelog.c/h` + `stage3/linux_init/a90_longsoak.c/h` + `stage3/linux_init/a90_app_about.c/h` + `stage3/linux_init/a90_app_cpustress.c/h` + `stage3/linux_init/a90_app_displaytest.c/h` + `stage3/linux_init/a90_app_inputmon.c/h` + `stage3/linux_init/a90_app_log.c/h` + `stage3/linux_init/a90_app_network.c/h`
 - 최신 verified boot image: `stage3/boot_linux_v153.img`
 - previous verified source-layout baseline: `stage3/linux_init/init_v80.c` + `stage3/linux_init/v80/*.inc.c`
@@ -4523,3 +4531,31 @@ Samsung bootloader
   external ping.
 - next: V895 bounded `mdm status` IRQ snapshot proof around the existing
   guarded `IMG_XFER_DONE` flow.
+
+### V895. MDM2AP IRQ Snapshot Proof
+
+- plan: `docs/plans/NATIVE_INIT_V895_MDM2AP_IRQ_SNAPSHOT_PROOF_PLAN_2026-05-26.md`
+- report: `docs/reports/NATIVE_INIT_V895_MDM2AP_IRQ_SNAPSHOT_PROOF_2026-05-26.md`
+- helper source: `stage3/linux_init/helpers/a90_android_execns_probe.c`
+- deploy wrapper: `scripts/revalidation/wifi_execns_helper_v143_deploy_preflight.py`
+- live runner: `scripts/revalidation/native_wifi_mdm2ap_irq_snapshot_v895.py`
+- evidence:
+  - `tmp/wifi/v895-execns-helper-v143-build/manifest.json`
+  - `tmp/wifi/v895-execns-helper-v143-deploy-safe/manifest.json`
+  - `tmp/wifi/v895-mdm2ap-irq-snapshot-live/manifest.json`
+- decision: `v895-mdm-status-irq-not-fired-reboot-cleaned`
+- result: bounded live PASS. Helper `v143` was built/deployed, `ESOC_REQ_IMG`
+  was observed, `ESOC_IMG_XFER_DONE` was sent, `ESOC_GET_STATUS` stayed `0`
+  for 86 polls, and `ESOC_BOOT_DONE` was not sent.
+- IRQ result: GPIO `142` `mdm status` snapshots parsed in 89 phases; count
+  stayed `0` before image-done, after image-done, and throughout the polling
+  window.
+- cleanup: helper child was not proven stopped, recovery reboot executed, and
+  post-reboot plus manual `bootstatus`/`selftest` rechecks showed fail=0.
+- hard gates held: no `REG_CMD_ENG`, direct userspace `CMD_EXE`, explicit
+  userspace `PWR_ON`, blind `ESOC_BOOT_DONE`, actor start, Wi-Fi HAL,
+  scan/connect, credentials, DHCP/routes, external ping, module load/unload,
+  boot image write, partition write, firmware mutation, GPIO/sysfs/debugfs
+  write, or Wi-Fi link-up.
+- next: V896 host-only Android `mdm_helper` / image-transfer contract
+  classifier before any new live mutating eSoC state-machine attempt.

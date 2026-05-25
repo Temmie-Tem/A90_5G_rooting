@@ -1306,3 +1306,49 @@ Next candidate:
 - It should sample `/proc/interrupts` before `IMG_XFER_DONE`, during
   `GET_STATUS` polling, and after cleanup. `BOOT_DONE` remains blocked unless
   readiness is proven.
+
+---
+
+## 37. V895 MDM2AP IRQ snapshot result
+
+V895 added helper `v143` IRQ snapshots and reran the guarded image-done proof.
+
+Evidence:
+
+- `tmp/wifi/v895-execns-helper-v143-build/manifest.json`
+- `tmp/wifi/v895-execns-helper-v143-deploy-safe/manifest.json`
+- `tmp/wifi/v895-mdm2ap-irq-snapshot-live/manifest.json`
+- `docs/plans/NATIVE_INIT_V895_MDM2AP_IRQ_SNAPSHOT_PROOF_PLAN_2026-05-26.md`
+- `docs/reports/NATIVE_INIT_V895_MDM2AP_IRQ_SNAPSHOT_PROOF_2026-05-26.md`
+
+Decision:
+
+- `v895-mdm-status-irq-not-fired-reboot-cleaned`
+
+Result:
+
+- helper `v143` deployed with sha256
+  `994959b2f70339c25f37d836803c12e9fda10f577cdd3b7452a883efa42f6bc4`.
+- `ESOC_REQ_IMG` was observed.
+- `ESOC_IMG_XFER_DONE` was sent.
+- `ESOC_GET_STATUS` was polled `86` times and stayed value `0`.
+- `ESOC_BOOT_DONE` was not attempted.
+- `mdm status` IRQ snapshots parsed GPIO `142` in `89` phases.
+- IRQ count stayed `0` before image-done, after image-done, and across the
+  polling window.
+- cleanup reboot restored healthy native `bootstatus` and `selftest fail=0`.
+
+Interpretation:
+
+- The kernel ready-state setter was not reached because the MDM2AP status IRQ
+  never fired.
+- The next blocker is below userspace notification: SDX50M did not drive
+  MDM2AP status high after native sent `ESOC_IMG_XFER_DONE`.
+- Blind `ESOC_BOOT_DONE`, generic command-engine expansion, GPIO writes, or a
+  longer retry do not answer the remaining question.
+
+Next candidate:
+
+- V896 host-only Android `mdm_helper` / image-transfer contract classifier.
+- Determine what Android does between `ESOC_REQ_IMG` and MDM2AP status-high
+  before any new live mutating eSoC state-machine attempt.

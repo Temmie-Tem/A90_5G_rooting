@@ -88,7 +88,7 @@
 #define IOPRIO_PRIO_VALUE(class_value, data) (((class_value) << IOPRIO_CLASS_SHIFT) | (data))
 #endif
 
-#define EXECNS_VERSION "a90_android_execns_probe v142"
+#define EXECNS_VERSION "a90_android_execns_probe v143"
 #define MAX_PATH_LEN 512
 #define MAX_CAPTURE_SIZE (1024 * 1024)
 #define MAX_LINKERCONFIG_SIZE (256 * 1024)
@@ -9965,6 +9965,179 @@ static void read_state_or_error(const char *path, char *out, size_t out_size) {
     snprintf(out, out_size, "error:%s", strerror(saved_errno));
 }
 
+struct mdm_status_irq_snapshot {
+    bool present;
+    bool parsed;
+    int saved_errno;
+    int irq;
+    int gpio;
+    unsigned long count_total;
+    char controller[64];
+    char trigger[64];
+    char name[128];
+    char line[512];
+};
+
+static bool parse_mdm_status_irq_line(const char *line, struct mdm_status_irq_snapshot *snapshot) {
+    char copy[512];
+    char *colon;
+    char *token;
+    char *saveptr = NULL;
+    char *endptr;
+    char *gpio_token;
+    char *trigger_token;
+    char *name_token;
+    unsigned long value;
+    unsigned long gpio_value;
+
+    snprintf(copy, sizeof(copy), "%s", line);
+    colon = strchr(copy, ':');
+    if (colon == NULL) {
+        return false;
+    }
+    *colon = '\0';
+    errno = 0;
+    value = strtoul(copy, &endptr, 10);
+    if (errno != 0 || endptr == copy) {
+        return false;
+    }
+    snapshot->irq = (int)value;
+
+    token = strtok_r(colon + 1, " \t\r\n", &saveptr);
+    while (token != NULL) {
+        errno = 0;
+        value = strtoul(token, &endptr, 10);
+        if (errno != 0 || endptr == token || *endptr != '\0') {
+            break;
+        }
+        snapshot->count_total += value;
+        token = strtok_r(NULL, " \t\r\n", &saveptr);
+    }
+    if (token == NULL) {
+        return false;
+    }
+    snprintf(snapshot->controller, sizeof(snapshot->controller), "%s", token);
+
+    gpio_token = strtok_r(NULL, " \t\r\n", &saveptr);
+    trigger_token = strtok_r(NULL, " \t\r\n", &saveptr);
+    if (gpio_token == NULL || trigger_token == NULL) {
+        return false;
+    }
+    errno = 0;
+    gpio_value = strtoul(gpio_token, &endptr, 10);
+    if (errno != 0 || endptr == gpio_token || *endptr != '\0') {
+        return false;
+    }
+    snapshot->gpio = (int)gpio_value;
+    snprintf(snapshot->trigger, sizeof(snapshot->trigger), "%s", trigger_token);
+    name_token = saveptr;
+    while (name_token != NULL && (*name_token == ' ' || *name_token == '\t')) {
+        name_token++;
+    }
+    snprintf(snapshot->name, sizeof(snapshot->name), "%s", name_token != NULL ? name_token : "");
+    sanitize_one_line(snapshot->name);
+    return true;
+}
+
+static struct mdm_status_irq_snapshot collect_mdm_status_irq_snapshot(void) {
+    struct mdm_status_irq_snapshot snapshot;
+    FILE *file;
+    char line[512];
+
+    memset(&snapshot, 0, sizeof(snapshot));
+    snapshot.irq = -1;
+    snapshot.gpio = -1;
+    file = fopen("/proc/interrupts", "re");
+    if (file == NULL) {
+        snapshot.saved_errno = errno;
+        return snapshot;
+    }
+    while (fgets(line, sizeof(line), file) != NULL) {
+        if (strstr(line, "mdm status") == NULL) {
+            continue;
+        }
+        snapshot.present = true;
+        snprintf(snapshot.line, sizeof(snapshot.line), "%s", line);
+        sanitize_one_line(snapshot.line);
+        snapshot.parsed = parse_mdm_status_irq_line(line, &snapshot);
+        break;
+    }
+    fclose(file);
+    return snapshot;
+}
+
+static void write_mdm_status_irq_snapshot_fd(int out_fd, const char *phase) {
+    struct mdm_status_irq_snapshot snapshot = collect_mdm_status_irq_snapshot();
+
+    dprintf(out_fd,
+            "esoc_conditional_response_preflight.irq_snapshot.%s.mdm_status_irq_present=%d\n"
+            "esoc_conditional_response_preflight.irq_snapshot.%s.mdm_status_irq_parsed=%d\n"
+            "esoc_conditional_response_preflight.irq_snapshot.%s.mdm_status_irq_errno=%d\n"
+            "esoc_conditional_response_preflight.irq_snapshot.%s.mdm_status_irq=%d\n"
+            "esoc_conditional_response_preflight.irq_snapshot.%s.mdm_status_gpio=%d\n"
+            "esoc_conditional_response_preflight.irq_snapshot.%s.mdm_status_count_total=%lu\n"
+            "esoc_conditional_response_preflight.irq_snapshot.%s.mdm_status_controller=%s\n"
+            "esoc_conditional_response_preflight.irq_snapshot.%s.mdm_status_trigger=%s\n"
+            "esoc_conditional_response_preflight.irq_snapshot.%s.mdm_status_name=%s\n"
+            "esoc_conditional_response_preflight.irq_snapshot.%s.mdm_status_line=%s\n",
+            phase,
+            snapshot.present ? 1 : 0,
+            phase,
+            snapshot.parsed ? 1 : 0,
+            phase,
+            snapshot.saved_errno,
+            phase,
+            snapshot.irq,
+            phase,
+            snapshot.gpio,
+            phase,
+            snapshot.count_total,
+            phase,
+            snapshot.controller,
+            phase,
+            snapshot.trigger,
+            phase,
+            snapshot.name,
+            phase,
+            snapshot.line);
+}
+
+static int append_mdm_status_irq_snapshot(struct buffer *buf, const char *phase) {
+    struct mdm_status_irq_snapshot snapshot = collect_mdm_status_irq_snapshot();
+
+    return append_format(buf,
+                         "esoc_req_registered_subsys_hold_preflight.snapshot.%s.mdm_status_irq_present=%d\n"
+                         "esoc_req_registered_subsys_hold_preflight.snapshot.%s.mdm_status_irq_parsed=%d\n"
+                         "esoc_req_registered_subsys_hold_preflight.snapshot.%s.mdm_status_irq_errno=%d\n"
+                         "esoc_req_registered_subsys_hold_preflight.snapshot.%s.mdm_status_irq=%d\n"
+                         "esoc_req_registered_subsys_hold_preflight.snapshot.%s.mdm_status_gpio=%d\n"
+                         "esoc_req_registered_subsys_hold_preflight.snapshot.%s.mdm_status_count_total=%lu\n"
+                         "esoc_req_registered_subsys_hold_preflight.snapshot.%s.mdm_status_controller=%s\n"
+                         "esoc_req_registered_subsys_hold_preflight.snapshot.%s.mdm_status_trigger=%s\n"
+                         "esoc_req_registered_subsys_hold_preflight.snapshot.%s.mdm_status_name=%s\n"
+                         "esoc_req_registered_subsys_hold_preflight.snapshot.%s.mdm_status_line=%s\n",
+                         phase,
+                         snapshot.present ? 1 : 0,
+                         phase,
+                         snapshot.parsed ? 1 : 0,
+                         phase,
+                         snapshot.saved_errno,
+                         phase,
+                         snapshot.irq,
+                         phase,
+                         snapshot.gpio,
+                         phase,
+                         snapshot.count_total,
+                         phase,
+                         snapshot.controller,
+                         phase,
+                         snapshot.trigger,
+                         phase,
+                         snapshot.name,
+                         phase,
+                         snapshot.line);
+}
+
 static int append_subsys_hold_snapshot(struct buffer *buf, const char *phase) {
     char mss_state[128];
     char mdm3_state[128];
@@ -10021,22 +10194,25 @@ static int append_esoc_req_subsys_hold_snapshot(struct buffer *buf, const char *
                                    &rpmsg_ipcrtr_present) < 0) {
         rpmsg_error = true;
     }
-    return append_format(buf,
-                         "esoc_req_registered_subsys_hold_preflight.snapshot.%s.mss_state=%s\n"
-                         "esoc_req_registered_subsys_hold_preflight.snapshot.%s.mdm3_state=%s\n"
-                         "esoc_req_registered_subsys_hold_preflight.snapshot.%s.rpmsg_count=%d\n"
-                         "esoc_req_registered_subsys_hold_preflight.snapshot.%s.rpmsg_ipcrtr_present=%d\n"
-                         "esoc_req_registered_subsys_hold_preflight.snapshot.%s.rpmsg_error=%d\n",
-                         phase,
-                         mss_state,
-                         phase,
-                         mdm3_state,
-                         phase,
-                         rpmsg_count,
-                         phase,
-                         rpmsg_ipcrtr_present ? 1 : 0,
-                         phase,
-                         rpmsg_error ? 1 : 0);
+    if (append_format(buf,
+                      "esoc_req_registered_subsys_hold_preflight.snapshot.%s.mss_state=%s\n"
+                      "esoc_req_registered_subsys_hold_preflight.snapshot.%s.mdm3_state=%s\n"
+                      "esoc_req_registered_subsys_hold_preflight.snapshot.%s.rpmsg_count=%d\n"
+                      "esoc_req_registered_subsys_hold_preflight.snapshot.%s.rpmsg_ipcrtr_present=%d\n"
+                      "esoc_req_registered_subsys_hold_preflight.snapshot.%s.rpmsg_error=%d\n",
+                      phase,
+                      mss_state,
+                      phase,
+                      mdm3_state,
+                      phase,
+                      rpmsg_count,
+                      phase,
+                      rpmsg_ipcrtr_present ? 1 : 0,
+                      phase,
+                      rpmsg_error ? 1 : 0) < 0) {
+        return -1;
+    }
+    return append_mdm_status_irq_snapshot(buf, phase);
 }
 
 static int parse_dev_major_minor(const char *path,
@@ -10345,8 +10521,10 @@ static int run_esoc_conditional_response_child(int out_fd, int req_fd, int hold_
         return 35;
     }
 
+    write_mdm_status_irq_snapshot_fd(out_fd, "before_img_xfer");
     notify_rc = esoc_notify_response_value(out_fd, req_fd, "ESOC_IMG_XFER_DONE", A90_ESOC_IMG_XFER_DONE);
     img_xfer_done_sent = notify_rc == 0;
+    write_mdm_status_irq_snapshot_fd(out_fd, "after_img_xfer");
     dprintf(out_fd,
             "esoc_conditional_response_preflight.notify.ESOC_IMG_XFER_DONE.attempted=1\n"
             "esoc_conditional_response_preflight.notify.ESOC_IMG_XFER_DONE.sent=%d\n",
@@ -10368,12 +10546,14 @@ static int run_esoc_conditional_response_child(int out_fd, int req_fd, int hold_
         poll_count++;
         snprintf(label, sizeof(label), "poll_%02d", poll_count);
         status_rc = esoc_get_status_response_value(out_fd, req_fd, label, &status_value);
+        write_mdm_status_irq_snapshot_fd(out_fd, label);
         if (status_rc == 0 && status_value == 1U) {
             status_ready = true;
             break;
         }
         usleep(100000);
     }
+    write_mdm_status_irq_snapshot_fd(out_fd, "after_status_loop");
     dprintf(out_fd,
             "esoc_conditional_response_preflight.status.poll_count=%d\n"
             "esoc_conditional_response_preflight.status.ready=%d\n"
