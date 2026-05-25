@@ -25,7 +25,7 @@
 
 ## 현재 Wi-Fi Gate
 
-- 최신 기준: V841 pass.
+- 최신 기준: V842 pass.
 - V840 결론: provider-first service-manager/PeripheralManager, CNSS retry,
   prearmed WLAN-PD listener를 결합해도 native는 WLAN-PD `UNINIT` 상태이고
   `wlfw_start`, BDF, FW-ready, `wlan0`가 모두 없다.
@@ -33,9 +33,12 @@
   먼저 나오지만, native V840은 CNSS netlink/CLD80211까지 도달하고도
   `wlfw_start`가 없다. `sysmon_esoc0`는 Android에서 WLAN-PD 이후라
   현재 증거상 선행 prerequisite로 보지 않는다.
-- 다음 후보: V842 `cnss-daemon` pre-WLFW launch/runtime contract classifier.
-  argv/init service contract, properties, SELinux domain, inherited fds,
-  Binder/vndbinder context, child lifetime/exit reason을 비교한다.
+- V842 결론: coarse `cnss-daemon` launch contract는 닫혔다. Android/native
+  모두 command, identity, SELinux domain, capability, vndbinder/fd surface가
+  맞고 native는 alive sleeping pre-WLFW stall이다.
+- 다음 후보: V843 current-window `cnss-daemon` stall snapshot. V840 provider-
+  first 순서를 유지하고 cleanup 전 `wchan`, syscall, task status/stat,
+  optional stack, fd/socket inode, dmesg delta를 캡처한다.
 - Wi-Fi HAL, scan/connect, DHCP/routes, credentials, external ping, `esoc0`,
   subsystem writes, module load/unload, boot image writes는 계속 막는다.
 

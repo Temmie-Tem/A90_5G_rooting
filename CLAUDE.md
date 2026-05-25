@@ -9,7 +9,7 @@ Samsung Galaxy A90 5G (SM-A908N) — stock Android Linux kernel 4.14.190, custom
 - **Device**: SM-A908N, Android 12, Magisk 30.7, TWRP available
 - **Current native build**: `A90 Linux init 0.9.68 (v724)` — `stage3/boot_linux_v724.img`
 - **Known-good fallback**: `stage3/boot_linux_v48.img`
-- **Active research cycle**: v841 selected V842 `cnss-daemon` pre-WLFW launch/runtime contract classification, still below HAL/connect
+- **Active research cycle**: v842 selected V843 current-window `cnss-daemon` pre-WLFW stall snapshot, still below HAL/connect
 - **Versioning policy**: `docs/operations/VERSIONING_POLICY.md` — `vNNN` cycle ≠ device flash
 
 ## Versioning rules
@@ -157,7 +157,7 @@ New `vNNN` experiment scripts must:
 - Gate live action behind explicit `--allow-*` + `--assume-yes` flags
 - Run `version`, `status`, `bootstatus`, `selftest verbose` as postflight regression
 
-## Wi-Fi bring-up research state (v598–v841, active)
+## Wi-Fi bring-up research state (v598–v842, active)
 
 Goal: bring up `wlan0` from native init without Android userspace.
 
@@ -263,6 +263,16 @@ Therefore `sysmon_esoc0` is not the next proven prerequisite. The next gate is
 V842: classify the Android/native `cnss-daemon` pre-WLFW launch/runtime
 contract, including argv/init service contract, properties, SELinux domain,
 inherited fds, Binder/vndbinder context, child lifetime, and exit reason.
+
+V842 host-only PASS compared V841/V840 with V704, V697, V525, and Android V622.
+The broad launch contract is closed for the current blocker: Android and native
+match the `cnss-daemon -n -l` command, `u:r:vendor_wcnss_service:s0` domain,
+system uid/gid, expected groups, `CAP_NET_ADMIN`, vndbinder fd, and active
+socket surface. Native `cnss-daemon` is alive/sleeping with four threads, but
+never emits `wlfw_start`. The next gate is V843: capture the current-window
+provider-first CNSS retry stall point with `wchan`, syscall, task status/stat,
+optional stack, fd targets, socket inode mapping, and dmesg deltas before
+cleanup.
 
 ```text
 servloc:64:257;ssctl:43:4098;servnotif:66:18945,46081;wlfw:69:1
@@ -453,6 +463,7 @@ path should be closed for this blocker.
 | v839 | host-only classifier selects provider-first CNSS retry plus prearmed WLAN-PD listener as V840 |
 | v840 | provider-first service-manager/PeripheralManager + CNSS retry with prearmed WLAN-PD listener still reports `UNINIT`; no WLFW/BDF/wlan0 |
 | v841 | host-only classifier selects `cnss-daemon` pre-WLFW launch/runtime contract as V842; `sysmon_esoc0` is not the current prerequisite |
+| v842 | host-only classifier closes coarse CNSS launch contract and selects current-window CNSS stall snapshot as V843 |
 
 ### Safety additions (Wi-Fi research)
 
@@ -461,11 +472,11 @@ path should be closed for this blocker.
 - No `wlan.ko` load/unload without explicit approval
 - `firmware_class.path` rollback value: `/vendor/firmware_mnt/image`
 - `sda29` mount must be read-only in all proof windows
-- Current Wi-Fi gate after V841: native reaches CNSS netlink/CLD80211 but never
-  emits `cnss-daemon wlfw_start`; Android emits `wlfw_start` before WLAN-PD
-  `UP`. Keep Wi-Fi HAL, scan/connect, DHCP/routes, credentials, external ping,
-  `esoc0`, subsystem writes, module load/unload, and boot image writes blocked;
-  next classify the `cnss-daemon` pre-WLFW launch/runtime contract.
+- Current Wi-Fi gate after V842: native `cnss-daemon` launch contract is good
+  enough and the process is alive/sleeping before WLFW. Keep Wi-Fi HAL,
+  scan/connect, DHCP/routes, credentials, external ping, `esoc0`, subsystem
+  writes, module load/unload, and boot image writes blocked; next capture the
+  current-window CNSS retry stall point before cleanup.
 
 ## Docs structure
 
