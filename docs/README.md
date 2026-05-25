@@ -247,6 +247,8 @@
 - `plans/NATIVE_INIT_V101_SERVICE_MANAGER_PLAN_2026-05-03.md` – v101 minimal service manager 구현 계획
 - `plans/NATIVE_INIT_V102_DIAGNOSTICS_PLAN_2026-05-03.md` – v102 diagnostics/log bundle 실행 계획
 - `plans/NATIVE_INIT_V103_WIFI_INVENTORY_PLAN_2026-05-04.md` – v103 Wi-Fi read-only inventory 실행 계획
+- `plans/NATIVE_INIT_V859_PM_SERVICE_PROPERTY_DELTA_REPLAY_PLAN_2026-05-25.md` – V858 property delta 적용 후 helper 재배포 없이 `pm-service`/`pm-proxy` start-only를 재실행해 기존 denial 제거 여부와 새 property gap을 분류하는 V859 계획
+- `plans/NATIVE_INIT_V858_PM_SERVICE_PROPERTY_CONTEXT_DELTA_PLAN_2026-05-25.md` – V857에서 드러난 `pm-service`/`pm-proxy` property-context gap 8개를 private property root delta로 매핑/배포하는 V858 계획
 - `plans/NATIVE_INIT_V104_WIFI_FEASIBILITY_PLAN_2026-05-04.md` – v104 Wi-Fi enablement feasibility gate 실행 계획
 - `plans/NATIVE_INIT_V712_EXECNS_HELPER_V121_ICNSS_EDGE_PLAN_2026-05-24.md` – V711이 고정한 ICNSS-QMI/WLFW readiness edge를 service `180/74` provider window 안에서 캡처하기 위한 helper v121 관측성 추가 계획
 - `plans/NATIVE_INIT_V711_ICNSS_EDGE_READONLY_PLAN_2026-05-24.md` – V710의 QCA6390/WLFW event-source 결과를 현재 ICNSS 모델로 재정렬해 다음 target을 qca bind 쓰기가 아닌 ICNSS-QMI/WLFW readiness edge로 고정하는 read-only 계획
@@ -497,6 +499,8 @@
 - `reports/NATIVE_INIT_V700_PROVIDER_FIRST_CNSS_LIVE_2026-05-24.md` – V700 live 결과 초기 pre-provider CNSS를 억제한 상태에서 provider 등록과 post-provider CNSS retry는 통과했지만 WLFW/BDF/`wlan0`는 여전히 0이라 다음은 pre-WLFW trigger classifier
 - `reports/NATIVE_INIT_V699_PROVIDER_FIRST_CNSS_HELPER_2026-05-24.md` – V699 helper-build 결과 `a90_android_execns_probe v119`에 provider-first initial-suppressed CNSS 모드를 추가했고 다음은 helper v119 배포 후 bounded live proof
 - `reports/NATIVE_INIT_V698_CNSS_RETRY_ATTRIBUTION_2026-05-24.md` – V698 host-only 결과 Binder `29189/-22`는 초기 pre-provider `cnss-daemon` pid에 귀속되고 post-provider retry는 Binder fail 없이 netlink 뒤 WLFW 전 정지로 분류되어 다음은 provider-first initial-suppressed CNSS live gate
+- `reports/NATIVE_INIT_V859_PM_SERVICE_PROPERTY_DELTA_REPLAY_2026-05-25.md` – V859 live 결과 V858 target denial 8개는 제거됐고 새 `vndservicemanager`/`ServiceManager`/`PerMgrLib` property gap으로 이동했으며 `pm-service` subsystem fd hold는 아직 미증명
+- `reports/NATIVE_INIT_V858_PM_SERVICE_PROPERTY_CONTEXT_DELTA_2026-05-25.md` – V858 결과 V857 residual property key 8개를 Android property_context에 모두 매핑하고 private V535 property root에 델타 배포 및 device-side hash 검증 완료
 - `reports/NATIVE_INIT_V697_CNSS_BINDER_RUNTIME_TARGET_2026-05-24.md` – V697 host-only 결과 provider 등록, `/dev/vndbinder`, `vndservicemanager`, CNSS SELinux preexec가 모두 확인되어 남은 블로커를 `cnss-daemon` vendor Binder transaction `29189/-22` framing/runtime 경로로 분류
 - `reports/NATIVE_INIT_V696_POST_PROVIDER_RETRY_BLOCKER_CLASSIFIER_2026-05-24.md` – V696 host-only 결과 V695 provider-confirmed retry 이후에도 native-only CNSS Binder `-22`가 WLFW 전 primary blocker로 남고 duplicate `pm_qos`는 secondary signal로 분류
 - `reports/NATIVE_INIT_V695_PROVIDER_CONFIRMED_CNSS_RETRY_LIVE_2026-05-24.md` – V695 live 결과 provider 등록 확인 뒤 fresh `cnss-daemon` retry tail은 실행됐지만 WLFW/BDF/`wlan0`는 여전히 0이라 다음은 post-provider retry blocker classifier

@@ -9,7 +9,7 @@ Samsung Galaxy A90 5G (SM-A908N) — stock Android Linux kernel 4.14.190, custom
 - **Device**: SM-A908N, Android 12, Magisk 30.7, TWRP available
 - **Current native build**: `A90 Linux init 0.9.68 (v724)` — `stage3/boot_linux_v724.img`
 - **Known-good fallback**: `stage3/boot_linux_v48.img`
-- **Active research cycle**: v857 passed pm-service property-contract replay but no subsystem fd hold; next is V858 property-info context delta, still below mdm_helper/HAL/connect
+- **Active research cycle**: v859 proved V858 removed the targeted pm-service/pm-proxy property denials, but new vndservicemanager/ServiceManager/PerMgrLib property gaps remain; next is V860 property superset delta, still below mdm_helper/HAL/connect
 - **Versioning policy**: `docs/operations/VERSIONING_POLICY.md` — `vNNN` cycle ≠ device flash
 
 ## Versioning rules
@@ -570,6 +570,8 @@ path should be closed for this blocker.
 | v855 | native node parity preflight materializes `/dev/esoc-0`, `/dev/subsys_esoc0`, and `/dev/subsys_modem`, confirms no holders, cleans up, and preserves health |
 | v856 | pm-service node-parity start-only reaches service managers plus `pm-service`/`pm-proxy`, but no subsystem fd hold; next is narrow `vendor.peripheral.shutdown_critical_list` property-contract replay |
 | v857 | pm-service property-contract replay allows the observed shutdown-critical-list values but still has no subsystem fd hold; next is property-info context delta for pm-service/pm-proxy read keys |
+| v858 | pm-service/pm-proxy property-context delta maps 8 V857 residual keys and deploys the private property root update without daemon start |
+| v859 | V858 target denials are gone, but new vndservicemanager/ServiceManager/PerMgrLib property denials remain; no subsystem fd hold yet |
 
 ### Safety additions (Wi-Fi research)
 
@@ -588,13 +590,14 @@ path should be closed for this blocker.
   However, native `pm-service` did not prove `/dev/subsys_esoc0` or
   `/dev/subsys_modem` fd holds even after the observed
   `vendor.peripheral.shutdown_critical_list` values were allowed by the private
-  property shim. The immediate gap is now property-info/context coverage for
-  service-specific `pm-service`/`pm-proxy` read keys.
-  Keep Wi-Fi HAL, scan/connect, DHCP/routes, credentials, external ping, raw
-  eSoC ioctl, subsystem writes, GPIO/sysfs/debugfs writes, module load/unload,
-  and boot image writes blocked. Next gate is V858 property-info context delta
-  and minimal overlay proof. Do not start `mdm_helper`, `ks`, HAL, or
-  scan/connect yet.
+  property shim. V858 then added the service-specific `pm-service`/`pm-proxy`
+  property-context delta, and V859 proved those target denials are gone. The
+  next gap is now the newly exposed `vndservicemanager`/`ServiceManager`/
+  `PerMgrLib` property keys. Keep Wi-Fi HAL, scan/connect, DHCP/routes,
+  credentials, external ping, raw eSoC ioctl, subsystem writes,
+  GPIO/sysfs/debugfs writes, module load/unload, and boot image writes blocked.
+  Next gate is V860 property superset delta and replay. Do not start
+  `mdm_helper`, `ks`, HAL, or scan/connect yet.
 
 ## Docs structure
 

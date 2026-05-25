@@ -3601,3 +3601,49 @@ Samsung bootloader
   property input overlay. Do not escalate to `mdm_helper`/`ks` until
   PeripheralManager either holds the subsystem nodes or the remaining
   property/context gap is closed and shown irrelevant.
+
+### V858. pm-service Property Context Delta
+
+- plan: `docs/plans/NATIVE_INIT_V858_PM_SERVICE_PROPERTY_CONTEXT_DELTA_PLAN_2026-05-25.md`
+- report: `docs/reports/NATIVE_INIT_V858_PM_SERVICE_PROPERTY_CONTEXT_DELTA_2026-05-25.md`
+- classifier: `scripts/revalidation/native_property_runtime_pm_service_v858.py`
+- deployer: `scripts/revalidation/native_property_runtime_incremental_v858.py`
+- evidence:
+  - `tmp/wifi/v858-pm-service-private-property-runtime/manifest.json`
+  - `tmp/wifi/v858-pm-service-property-incremental-live/manifest.json`
+- decision: `v858-pm-service-property-incremental-deploy-pass`
+- result: V858 mapped all eight V857 `pm-service`/`pm-proxy` residual property
+  keys to Android property contexts, generated a private property layout with
+  zero roundtrip failures, then deployed selected files into the private V535
+  property root with device-side hash verification.
+- hard gates: no daemon start, no `mdm_helper`/`ks`, no Wi-Fi HAL,
+  scan/connect, credentials, DHCP/routes, external ping, global property root
+  replacement, raw eSoC ioctl, GPIO/sysfs/debugfs/subsystem write,
+  module load/unload, boot image write, or partition write.
+- next: V859 should rerun only the bounded `pm-service`/`pm-proxy` start-only
+  path against the updated private root, without helper redeploy.
+
+### V859. pm-service Property Delta Replay
+
+- plan: `docs/plans/NATIVE_INIT_V859_PM_SERVICE_PROPERTY_DELTA_REPLAY_PLAN_2026-05-25.md`
+- report: `docs/reports/NATIVE_INIT_V859_PM_SERVICE_PROPERTY_DELTA_REPLAY_2026-05-25.md`
+- runner: `scripts/revalidation/native_wifi_pm_service_property_delta_replay_v859.py`
+- evidence:
+  - `tmp/wifi/v859-pm-service-property-delta-replay-r2/manifest.json`
+  - `tmp/wifi/v859-pm-service-property-delta-replay-r2/summary.md`
+- decision: `v859-v858-target-denials-removed-new-property-gap`
+- result: bounded native live PASS. V859 reused helper v132 without redeploy,
+  materialized and cleaned up Android-equivalent eSoC/subsys nodes, and proved
+  `v858_target_remaining=[]`. The previous `pm-service`/`pm-proxy` denial set
+  is gone, but `pm-service` still does not hold `/dev/subsys_esoc0` or
+  `/dev/subsys_modem`.
+- new blocker: property denials moved to `vndservicemanager`, `ServiceManager`,
+  and `PerMgrLib` keys. This indicates the next useful step is another private
+  property superset delta, not `mdm_helper`/`ks` replay yet.
+- hard gates: no helper deployment, no `mdm_helper`/`ks`, no Wi-Fi HAL,
+  scan/connect, credentials, DHCP/routes, external ping, raw eSoC ioctl,
+  GPIO/sysfs/debugfs/subsystem write, module load/unload, boot image write, or
+  partition write.
+- next: V860 should extend the private property layout for the new
+  `vndservicemanager`/`ServiceManager`/`PerMgrLib` keys and rerun the same
+  bounded replay before any actor escalation.

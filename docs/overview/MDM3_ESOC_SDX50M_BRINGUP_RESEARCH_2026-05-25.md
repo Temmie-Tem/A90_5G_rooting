@@ -340,3 +340,41 @@ Android/native property-info context delta classifier가 되어야 한다.
 | 로컬 OSRC `sm8150-sec-r3q-kor-overlay-r00.dts` | r3q GPIO 할당 확정 |
 | 로컬 OSRC `mhi_arch_qcom.c` | MHI esoc 클라이언트 훅 |
 | V849 evidence `tmp/wifi/v849-subsys-esoc0-wait-state-sampler/` | wchan D-state 확정 |
+
+## 13. V858/V859 property delta outcome
+
+V858 closed the immediate V857 property-context gap. The following eight
+`pm-service`/`pm-proxy` keys were added to the private property layout and
+deployed into the versioned private root:
+
+- `debug.ld.app.pm-service`
+- `arm64.memtag.process.pm-service`
+- `persist.log.tag.PerMgrSrv`
+- `log.tag.PerMgrSrv`
+- `debug.ld.app.pm-proxy`
+- `arm64.memtag.process.pm-proxy`
+- `persist.log.tag.PerMgrProxy`
+- `log.tag.PerMgrProxy`
+
+V859 then reran the bounded `pm-service`/`pm-proxy` start-only gate without
+helper redeploy. Result: `v858_target_remaining=[]`, so the target V857 denials
+were removed. However `pm-service` still did not hold `/dev/subsys_esoc0` or
+`/dev/subsys_modem`.
+
+The next exposed gap is a broader service-manager/log property set:
+
+| Key | Count |
+|---|---:|
+| `persist.log.tag.vndservicemanager` | 104 |
+| `log.tag.vndservicemanager` | 104 |
+| `persist.log.tag.ServiceManager` | 102 |
+| `log.tag.ServiceManager` | 102 |
+| `debug.ld.app.vndservicemanager` | 20 |
+| `persist.log.tag.PerMgrLib` | 4 |
+| `log.tag.PerMgrLib` | 4 |
+| `arm64.memtag.process.vndservicemanager` | 2 |
+
+Interpretation: the current path is still property-runtime completeness below
+PeripheralManager lifetime, not `mdm_helper`/`ks` or GPIO/eSoC writes. V860
+should produce a superset property delta that preserves the V858 keys and adds
+these newly exposed keys, then rerun the same bounded replay.
