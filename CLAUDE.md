@@ -9,7 +9,7 @@ Samsung Galaxy A90 5G (SM-A908N) — stock Android Linux kernel 4.14.190, custom
 - **Device**: SM-A908N, Android 12, Magisk 30.7, TWRP available
 - **Current native build**: `A90 Linux init 0.9.68 (v724)` — `stage3/boot_linux_v724.img`
 - **Known-good fallback**: `stage3/boot_linux_v48.img`
-- **Active research cycle**: V897 classified that current helper lacks the required pre-subsys `mdm_helper`/`ks` image/link contract; next is V898 source/build-only helper support
+- **Active research cycle**: V898 added helper `v144` source/build-only `mdm_helper`/`ks` image-contract support; next is V899 deploy-only parity
 - **Versioning policy**: `docs/operations/VERSIONING_POLICY.md` — `vNNN` cycle ≠ device flash
 
 ## Versioning rules
@@ -764,9 +764,17 @@ path should be closed for this blocker.
   has only old service-gated `mdm_helper` modes and lacks a distinct
   pre-subsys `mdm_helper`/`ks` image-contract mode, `/vendor/bin/ks`
   observation, `/dev/mhi_0305_01.01.00_pipe_10` visibility handling, and
-  enforced `mdm_helper` before `/dev/subsys_esoc0` ordering. Next is V898
-  source/build-only helper support for that fail-closed contract; deploy and
-  live actor start remain separate cycles.
+  enforced `mdm_helper` before `/dev/subsys_esoc0` ordering. V898 then added
+  helper `v144` source/build-only support for
+  `wifi-companion-mdm-helper-ks-image-contract-preflight` with
+  `--allow-mdm-helper-ks-contract-preflight`: the mode materializes eSoC/subsys
+  nodes, starts `/vendor/bin/mdm_helper` before `/dev/subsys_esoc0`, observes
+  `/vendor/bin/ks` and `/dev/mhi_0305_01.01.00_pipe_10`, and still blocks
+  controller-side `REG_REQ_ENG`, `ESOC_NOTIFY`, and `BOOT_DONE`. Static ARM64
+  build passed with sha256
+  `c7b02320f143f57a837b5f1cf8af17258307439be3b8969dc33000735116ce4e`. Next is
+  V899 deploy-only helper `v144` parity; live actor start remains a later
+  bounded cycle.
   Keep Wi-Fi HAL, scan/connect, DHCP/routes, credentials, external ping, live
   direct userspace `CMD_EXE`/explicit userspace `PWR_ON`, `NOTIFY`, subsystem
   writes, GPIO/sysfs/debugfs writes, module load/unload, and boot image writes

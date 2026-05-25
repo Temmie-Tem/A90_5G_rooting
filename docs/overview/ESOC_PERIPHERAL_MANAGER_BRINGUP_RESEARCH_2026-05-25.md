@@ -1443,3 +1443,54 @@ Next candidate:
 - V898 source/build-only fail-closed `mdm_helper`/`ks` image-contract helper
   support.
 - Deploy and bounded live execution must remain separate cycles.
+
+---
+
+## 40. V898 mdm_helper/ks contract helper build result
+
+V898 implemented the helper-side contract selected by V897, source/build-only.
+
+Evidence:
+
+- `tmp/wifi/v898-mdm-helper-ks-contract-helper-build/manifest.json`
+- `tmp/wifi/v898-v897-contract-presence-validate/manifest.json`
+- `docs/plans/NATIVE_INIT_V898_MDM_HELPER_KS_CONTRACT_HELPER_PLAN_2026-05-26.md`
+- `docs/reports/NATIVE_INIT_V898_MDM_HELPER_KS_CONTRACT_HELPER_BUILD_2026-05-26.md`
+
+Decision:
+
+- `v898-helper-v144-build-pass`
+
+Result:
+
+- Helper marker bumped to `a90_android_execns_probe v144`.
+- New mode:
+  `wifi-companion-mdm-helper-ks-image-contract-preflight`.
+- New allow flag:
+  `--allow-mdm-helper-ks-contract-preflight`.
+- Static ARM64 build passed with no dynamic section.
+- Artifact sha256:
+  `c7b02320f143f57a837b5f1cf8af17258307439be3b8969dc33000735116ce4e`.
+- V897 classifier re-run now reports
+  `v897-mdm-helper-ks-contract-support-present`.
+
+Contract encoded:
+
+- materialize `/dev/esoc-0`, `/dev/subsys_esoc0`, and `/dev/subsys_modem`;
+- start `/vendor/bin/mdm_helper` before any `/dev/subsys_esoc0` open;
+- do not `REG_REQ_ENG`, `ESOC_NOTIFY`, or `BOOT_DONE` from the controller;
+- observe `/vendor/bin/ks` and `/dev/mhi_0305_01.01.00_pipe_10`;
+- treat unproven actor/trigger cleanup as reboot-required.
+
+Interpretation:
+
+- V898 does not prove Wi-Fi bring-up. It creates the missing native helper
+  support required for the next safe deploy and live gates.
+- The old service-gated `mdm_helper` path and blind `IMG_XFER_DONE` path remain
+  closed.
+
+Next candidate:
+
+- V899 deploy-only helper `v144` parity.
+- V900 or later bounded live `mdm_helper`/`ks` contract proof only after remote
+  checksum/version/mode parity is confirmed.

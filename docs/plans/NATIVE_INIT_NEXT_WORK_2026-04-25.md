@@ -4612,3 +4612,33 @@ Samsung bootloader
 - next: V898 source/build-only helper support for a fail-closed
   `mdm_helper`/`ks` image-contract mode. Deploy and live proof remain separate
   cycles.
+
+### V898. mdm_helper/ks Contract Helper v144 Build
+
+- plan: `docs/plans/NATIVE_INIT_V898_MDM_HELPER_KS_CONTRACT_HELPER_PLAN_2026-05-26.md`
+- report: `docs/reports/NATIVE_INIT_V898_MDM_HELPER_KS_CONTRACT_HELPER_BUILD_2026-05-26.md`
+- helper source: `stage3/linux_init/helpers/a90_android_execns_probe.c`
+- evidence:
+  - `tmp/wifi/v898-mdm-helper-ks-contract-helper-build/manifest.json`
+  - `tmp/wifi/v898-mdm-helper-ks-contract-helper-build/summary.md`
+  - `tmp/wifi/v898-v897-contract-presence-validate/manifest.json`
+- decision: `v898-helper-v144-build-pass`
+- result: source/build-only PASS. Helper marker is now
+  `a90_android_execns_probe v144`, and the artifact advertises
+  `wifi-companion-mdm-helper-ks-image-contract-preflight` plus
+  `--allow-mdm-helper-ks-contract-preflight`.
+- contract added: materialize eSoC/subsys nodes, start
+  `/vendor/bin/mdm_helper` before `/dev/subsys_esoc0` open, do not
+  `REG_REQ_ENG`/`ESOC_NOTIFY`/`BOOT_DONE` from the controller, observe
+  `/vendor/bin/ks` and `/dev/mhi_0305_01.01.00_pipe_10`, and classify unsafe
+  cleanup as reboot-required.
+- build: static AArch64 ELF, no dynamic section, sha256
+  `c7b02320f143f57a837b5f1cf8af17258307439be3b8969dc33000735116ce4e`.
+- hard gates held: no deploy, no new live device action, no live eSoC ioctl,
+  no `/dev/subsys_esoc0` open, no `mdm_helper`/`ks` start, no live notify or
+  `BOOT_DONE`, no service-manager, CNSS daemon, Wi-Fi HAL, scan/connect,
+  credentials, DHCP/routes, external ping, boot image write, partition write,
+  firmware mutation, GPIO/sysfs/debugfs write, module load/unload, reboot, or
+  Wi-Fi link-up.
+- next: V899 deploy-only helper `v144` checksum/version/mode parity. First
+  live contract execution remains a separate bounded cycle.
