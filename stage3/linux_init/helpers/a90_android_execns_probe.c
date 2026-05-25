@@ -88,7 +88,7 @@
 #define IOPRIO_PRIO_VALUE(class_value, data) (((class_value) << IOPRIO_CLASS_SHIFT) | (data))
 #endif
 
-#define EXECNS_VERSION "a90_android_execns_probe v148"
+#define EXECNS_VERSION "a90_android_execns_probe v149"
 #define MAX_PATH_LEN 512
 #define MAX_CAPTURE_SIZE (1024 * 1024)
 #define MAX_LINKERCONFIG_SIZE (256 * 1024)
@@ -12556,6 +12556,19 @@ static int append_proc_fd_target_match_scan(struct buffer *buf,
             closedir(dir);
             return -1;
         }
+        {
+            char fdinfo_label[160];
+
+            if (snprintf(fdinfo_label,
+                         sizeof(fdinfo_label),
+                         "%s.%s",
+                         prefix,
+                         phase) >= (int)sizeof(fdinfo_label) ||
+                append_proc_fdinfo_compact(buf, pid, fdinfo_label, shown, entry->d_name) < 0) {
+                closedir(dir);
+                return -1;
+            }
+        }
         shown++;
     }
     closedir(dir);
@@ -17591,6 +17604,9 @@ static int run_wifi_companion_mdm_helper_runtime_contract_capture_guarded(const 
                                                   8,
                                                   &mhi_cmdline_count_window) < 0 ||
                 append_mdm_helper_runtime_path_visibility(stdout_buf, paths, "window") < 0 ||
+                append_generic_stall_snapshot_capture(stdout_buf,
+                                                      mdm_helper->pid,
+                                                      "mdm_helper_runtime_window") < 0 ||
                 append_subsys_hold_snapshot(stdout_buf, "runtime_contract_window") < 0 ||
                 append_wifi_cnss2_focus_capture(stdout_buf, "runtime_contract_window") < 0) {
                 composite_cleanup_children(children, 2, stdout_buf, stderr_buf);
@@ -17640,6 +17656,9 @@ static int run_wifi_companion_mdm_helper_runtime_contract_capture_guarded(const 
                                               8,
                                               &mhi_cmdline_count_final) < 0 ||
             append_mdm_helper_runtime_path_visibility(stdout_buf, paths, "final") < 0 ||
+            append_generic_stall_snapshot_capture(stdout_buf,
+                                                  mdm_helper->pid,
+                                                  "mdm_helper_runtime_final") < 0 ||
             append_subsys_hold_snapshot(stdout_buf, "runtime_contract_final") < 0 ||
             append_wifi_cnss2_focus_capture(stdout_buf, "runtime_contract_final") < 0) {
             composite_cleanup_children(children, 2, stdout_buf, stderr_buf);
