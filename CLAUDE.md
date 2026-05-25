@@ -9,7 +9,7 @@ Samsung Galaxy A90 5G (SM-A908N) — stock Android Linux kernel 4.14.190, custom
 - **Device**: SM-A908N, Android 12, Magisk 30.7, TWRP available
 - **Current native build**: `A90 Linux init 0.9.68 (v724)` — `stage3/boot_linux_v724.img`
 - **Known-good fallback**: `stage3/boot_linux_v48.img`
-- **Active research cycle**: v834 pending after V833 Android positive-control proved the same `msm/modem/wlan_pd` service-notifier listener returns `UP` on Android while native V830/V831 return `UNINIT`
+- **Active research cycle**: v835 selected after V834 classified Android `UP` vs native `UNINIT`; next gate is a bounded corrected service-notifier listener replay inside the known-ASoC-warning clean-DSP/CNSS lower window
 - **Versioning policy**: `docs/operations/VERSIONING_POLICY.md` — `vNNN` cycle ≠ device flash
 
 ## Versioning rules
@@ -157,7 +157,7 @@ New `vNNN` experiment scripts must:
 - Gate live action behind explicit `--allow-*` + `--assume-yes` flags
 - Run `version`, `status`, `bootstatus`, `selftest verbose` as postflight regression
 
-## Wi-Fi bring-up research state (v598–v833, active)
+## Wi-Fi bring-up research state (v598–v834, active)
 
 Goal: bring up `wlan0` from native init without Android userspace.
 
@@ -179,7 +179,7 @@ stable enough in every boot. Helper v124 added a `sysmon-qmi` gated
 `mdm_helper` mode. V746 proved `mdm_helper` starts safely after `sysmon-qmi`,
 but it does not advance mdm3/WLAN-PD/WLFW.
 
-### Current blocker (V833)
+### Current blocker (V834)
 
 V829 executed the exact bounded service-locator `GET_DOMAIN_LIST` QMI request
 for `wlan/fw`:
@@ -207,9 +207,14 @@ as `SERVREG_NOTIF_SERVICE_STATE_UP_V01`.
 
 This proves the listener payload/model is valid. Native V830/V831 `UNINIT`
 therefore means native is genuinely missing the lower WLAN-PD state transition
-before WLFW/service69, BDF, wiphy, and `wlan0`. V834 should be a host-only
-Android/native state-up delta classifier before selecting the next native lower
-trigger.
+before WLFW/service69, BDF, wiphy, and `wlan0`.
+
+V834 was host-only and selected the next narrow native gate. It rejects repeating
+V829 service-locator, V830/V831 listener timing, `boot_wlan`, `qcwlanstate`,
+`mdm_helper`, custom diagnostic kernel flashing, service-manager, Wi-Fi HAL,
+scan/connect, DHCP, routes, and external ping. The next selected gate is V835:
+run the corrected service-notifier listener inside the best existing bounded
+native lower window, the known-ASoC-warning clean-DSP/CNSS path from V792.
 
 ```text
 servloc:64:257;ssctl:43:4098;servnotif:66:18945,46081;wlfw:69:1
