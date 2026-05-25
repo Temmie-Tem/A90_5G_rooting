@@ -3906,3 +3906,27 @@ Samsung bootloader
   preflight. Live `ESOC_PWR_ON`, `mdm_helper`, `ks`, PM actor starts, CNSS,
   HAL, scan/connect, credentials, DHCP/routes, and external ping remain blocked
   until separate gates.
+
+### V869. eSoC Control Preflight Helper Build
+
+- plan: `docs/plans/NATIVE_INIT_V869_ESOC_CONTROL_PREFLIGHT_HELPER_PLAN_2026-05-25.md`
+- report: `docs/reports/NATIVE_INIT_V869_ESOC_CONTROL_PREFLIGHT_HELPER_BUILD_2026-05-25.md`
+- helper source: `stage3/linux_init/helpers/a90_android_execns_probe.c`
+- evidence:
+  - `tmp/wifi/v869-execns-helper-v135-build/a90_android_execns_probe`
+- result: source/build-only PASS. Helper `v135` adds
+  `wifi-companion-esoc-control-preflight`, local A90 eSoC UAPI markers,
+  `--allow-esoc-control-preflight`, and fail-closed markers proving no
+  `mdm_helper`, `ks`, Wi-Fi HAL, scan/connect, credentials, DHCP/routes,
+  external ping, `REG_REQ_ENG`, `REG_CMD_ENG`, `CMD_EXE`, `WAIT_FOR_REQ`,
+  `NOTIFY`, or `PWR_ON` is attempted by default.
+- build: static ARM64 artifact created with sha256
+  `ad1bbbf295be61ef612406091ccd469c4ef45ab44c0f753c4de034e487ddaad1` and no
+  dynamic section.
+- hard gates held: no helper deploy, device contact, live eSoC ioctl,
+  `mdm_helper`, `ks`, `pm_proxy_helper`, CNSS, Wi-Fi HAL, scan/connect,
+  credentials, DHCP/routes, external ping, module load/unload, boot image
+  write, or partition write.
+- next: V870 should deploy helper `v135` only with checksum/version/mode proof
+  and post-deploy health. Live eSoC control preflight remains a separate later
+  gate.

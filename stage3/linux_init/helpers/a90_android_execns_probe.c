@@ -88,7 +88,7 @@
 #define IOPRIO_PRIO_VALUE(class_value, data) (((class_value) << IOPRIO_CLASS_SHIFT) | (data))
 #endif
 
-#define EXECNS_VERSION "a90_android_execns_probe v134"
+#define EXECNS_VERSION "a90_android_execns_probe v135"
 #define MAX_PATH_LEN 512
 #define MAX_CAPTURE_SIZE (1024 * 1024)
 #define MAX_LINKERCONFIG_SIZE (256 * 1024)
@@ -159,6 +159,19 @@
 #define SYS_syslog __NR_syslog
 #endif
 #endif
+#define A90_ESOC_CODE 0xCC
+#define A90_ESOC_CMD_EXE _IOW(A90_ESOC_CODE, 1, unsigned int)
+#define A90_ESOC_WAIT_FOR_REQ _IOR(A90_ESOC_CODE, 2, unsigned int)
+#define A90_ESOC_NOTIFY _IOW(A90_ESOC_CODE, 3, unsigned int)
+#define A90_ESOC_GET_STATUS _IOR(A90_ESOC_CODE, 4, unsigned int)
+#define A90_ESOC_GET_ERR_FATAL _IOR(A90_ESOC_CODE, 5, unsigned int)
+#define A90_ESOC_WAIT_FOR_CRASH _IOR(A90_ESOC_CODE, 6, unsigned int)
+#define A90_ESOC_REG_REQ_ENG _IO(A90_ESOC_CODE, 7)
+#define A90_ESOC_REG_CMD_ENG _IO(A90_ESOC_CODE, 8)
+#define A90_ESOC_GET_LINK_ID _IOWR(A90_ESOC_CODE, 9, uint64_t)
+#define A90_ESOC_PWR_ON 1U
+#define A90_ESOC_IMG_XFER_DONE 1U
+#define A90_ESOC_BOOT_DONE 2U
 
 struct config {
     const char *system_root;
@@ -200,6 +213,7 @@ struct config {
     bool allow_scan_only;
     bool allow_connect_dhcp_ping;
     bool allow_policy_load_proof;
+    bool allow_esoc_control_preflight;
 };
 
 struct a90_hidl_string_wire {
@@ -344,11 +358,12 @@ static void usage(FILE *out) {
             "[--allow-scan-only] "
             "[--allow-connect-dhcp-ping] "
             "[--allow-policy-load-proof] "
+            "[--allow-esoc-control-preflight] "
             "[--qrtr-readback-matrix label:service:instance[,instance][;...]] "
             "[--connect-config /cache/a90-wifi/...] "
             "[--connect-iface auto|wlan0] "
             "[--ping-target 1.1.1.1] "
-            "--mode linker-list|identity-probe|sepolicy-inventory|sepolicy-compile-proof|sepolicy-load-proof|selinux-domain-proof|cnss-start-only|cnss-userspace-readiness|wifi-companion-start-only|wifi-companion-post-sysmon-observer-start-only|wifi-companion-android-order-post-sysmon-observer-start-only|wifi-companion-service-manager-start-only|wifi-companion-vnd-service-manager-start-only|wifi-companion-qrtr-first-vnd-service-manager-start-only|wifi-companion-cnss-first-delayed-vnd-service-manager-start-only|wifi-companion-service74-gated-vnd-service-manager-start-only|wifi-companion-service74-gated-vnd-service-manager-readiness-start-only|wifi-companion-service74-gated-vnd-service-manager-cnss-retry-start-only|wifi-companion-peripheral-manager-node-parity-start-only|wifi-companion-peripheral-manager-property-contract-start-only|wifi-companion-peripheral-manager-init-contract-start-only|wifi-companion-service74-gated-peripheral-manager-cnss-retry-start-only|wifi-companion-service74-gated-peripheral-manager-cnss-retry-registry-snapshot-start-only|wifi-companion-service74-gated-peripheral-manager-vndservice-query-start-only|wifi-companion-service74-gated-peripheral-manager-vndservice-query-cnss-retry-start-only|wifi-companion-service74-gated-peripheral-manager-vndservice-query-provider-first-cnss-start-only|wifi-companion-service74-gated-android-userspace-cnss-retry-start-only|wifi-companion-service74-gated-android-userspace-cnss-retry-registry-snapshot-start-only|wifi-companion-service74-gated-vnd-service-manager-registry-snapshot-start-only|wifi-companion-service74-gated-mdm-helper-start-only|wifi-companion-service180-gated-mdm-helper-start-only|wifi-companion-sysmon-gated-mdm-helper-start-only|wifi-companion-hal-order-start-only|wifi-companion-hal-wificond-order-start-only|wifi-companion-hal-wificond-lshal-wait-samsung|wifi-companion-hal-wificond-lshal-wait-iwifi|wifi-companion-dual-hal-wificond-lshal-wait-iwifi|wifi-companion-dual-hal-wificond-iwifi-start|wifi-companion-dual-hal-wificond-lshal-then-iwifi-start|rmt-storage-start-only|property-lookup|service-manager-start-only|private-selinux-proof|wifi-hal-lshal-vintf-status-list|wifi-hal-composite-start-only|wifi-hal-composite-lshal-list|wifi-hal-composite-lshal-binderized-list|wifi-hal-composite-lshal-wait-target|wifi-surface-composite-lshal-wait-iwifi|wifi-surface-composite-lshal-wait-samsung|wifi-surface-composite-lshal-wait-samsung-ptrace|wifi-hal-composite-lshal-status-list|wifi-hal-composite-lshal-binderized-status-list|wifi-surface-composite-start-only|wifi-dual-hal-lshal-wait-iwifi|wifi-dual-hal-iwifi-start-surface|wifi-iwifi-start-surface|wifi-active-session-surface|wifi-active-session-scan-only|wifi-active-session-connect-ping|wifi-connect-tool-surface|subsys-hold-open-proof|service-notifier-listener-only "
+            "--mode linker-list|identity-probe|sepolicy-inventory|sepolicy-compile-proof|sepolicy-load-proof|selinux-domain-proof|cnss-start-only|cnss-userspace-readiness|wifi-companion-start-only|wifi-companion-post-sysmon-observer-start-only|wifi-companion-android-order-post-sysmon-observer-start-only|wifi-companion-service-manager-start-only|wifi-companion-vnd-service-manager-start-only|wifi-companion-qrtr-first-vnd-service-manager-start-only|wifi-companion-cnss-first-delayed-vnd-service-manager-start-only|wifi-companion-service74-gated-vnd-service-manager-start-only|wifi-companion-service74-gated-vnd-service-manager-readiness-start-only|wifi-companion-service74-gated-vnd-service-manager-cnss-retry-start-only|wifi-companion-peripheral-manager-node-parity-start-only|wifi-companion-peripheral-manager-property-contract-start-only|wifi-companion-peripheral-manager-init-contract-start-only|wifi-companion-esoc-control-preflight|wifi-companion-service74-gated-peripheral-manager-cnss-retry-start-only|wifi-companion-service74-gated-peripheral-manager-cnss-retry-registry-snapshot-start-only|wifi-companion-service74-gated-peripheral-manager-vndservice-query-start-only|wifi-companion-service74-gated-peripheral-manager-vndservice-query-cnss-retry-start-only|wifi-companion-service74-gated-peripheral-manager-vndservice-query-provider-first-cnss-start-only|wifi-companion-service74-gated-android-userspace-cnss-retry-start-only|wifi-companion-service74-gated-android-userspace-cnss-retry-registry-snapshot-start-only|wifi-companion-service74-gated-vnd-service-manager-registry-snapshot-start-only|wifi-companion-service74-gated-mdm-helper-start-only|wifi-companion-service180-gated-mdm-helper-start-only|wifi-companion-sysmon-gated-mdm-helper-start-only|wifi-companion-hal-order-start-only|wifi-companion-hal-wificond-order-start-only|wifi-companion-hal-wificond-lshal-wait-samsung|wifi-companion-hal-wificond-lshal-wait-iwifi|wifi-companion-dual-hal-wificond-lshal-wait-iwifi|wifi-companion-dual-hal-wificond-iwifi-start|wifi-companion-dual-hal-wificond-lshal-then-iwifi-start|rmt-storage-start-only|property-lookup|service-manager-start-only|private-selinux-proof|wifi-hal-lshal-vintf-status-list|wifi-hal-composite-start-only|wifi-hal-composite-lshal-list|wifi-hal-composite-lshal-binderized-list|wifi-hal-composite-lshal-wait-target|wifi-surface-composite-lshal-wait-iwifi|wifi-surface-composite-lshal-wait-samsung|wifi-surface-composite-lshal-wait-samsung-ptrace|wifi-hal-composite-lshal-status-list|wifi-hal-composite-lshal-binderized-status-list|wifi-surface-composite-start-only|wifi-dual-hal-lshal-wait-iwifi|wifi-dual-hal-iwifi-start-surface|wifi-iwifi-start-surface|wifi-active-session-surface|wifi-active-session-scan-only|wifi-active-session-connect-ping|wifi-connect-tool-surface|subsys-hold-open-proof|service-notifier-listener-only "
             "[v27 binderized query runs: /system/bin/lshal list --types=binderized --neat] "
             "[v28 target query runs: /system/bin/lshal wait <fqinstance>] "
             "[v29 status query runs: /system/bin/lshal list --types=binderized,vintf --neat -V -S -i -p -e -c] "
@@ -484,10 +499,15 @@ static bool is_wifi_companion_peripheral_manager_init_contract_start_only_mode(c
     return streq(mode, "wifi-companion-peripheral-manager-init-contract-start-only");
 }
 
+static bool is_wifi_companion_esoc_control_preflight_mode(const char *mode) {
+    return streq(mode, "wifi-companion-esoc-control-preflight");
+}
+
 static bool is_wifi_companion_peripheral_manager_node_materialization_mode(const char *mode) {
     return is_wifi_companion_peripheral_manager_node_parity_start_only_mode(mode) ||
            is_wifi_companion_peripheral_manager_property_contract_start_only_mode(mode) ||
-           is_wifi_companion_peripheral_manager_init_contract_start_only_mode(mode);
+           is_wifi_companion_peripheral_manager_init_contract_start_only_mode(mode) ||
+           is_wifi_companion_esoc_control_preflight_mode(mode);
 }
 
 static bool is_wifi_companion_service74_gated_peripheral_manager_cnss_retry_start_only_mode(const char *mode) {
@@ -895,6 +915,10 @@ static int parse_args(int argc, char **argv, struct config *cfg) {
             cfg->allow_policy_load_proof = true;
             continue;
         }
+        if (strcmp(argv[i], "--allow-esoc-control-preflight") == 0) {
+            cfg->allow_esoc_control_preflight = true;
+            continue;
+        }
         if (i + 1 >= argc) {
             fprintf(stderr, "missing value for %s\n", argv[i]);
             return 2;
@@ -1066,6 +1090,7 @@ static int parse_args(int argc, char **argv, struct config *cfg) {
           is_cnss_userspace_readiness_mode(cfg->mode) ||
           is_rmt_storage_start_only_mode(cfg->mode) ||
           is_subsys_hold_open_proof_mode(cfg->mode) ||
+          is_wifi_companion_esoc_control_preflight_mode(cfg->mode) ||
           is_wifi_companion_any_start_only_mode(cfg->mode) ||
           is_wifi_companion_hal_order_start_only_mode(cfg->mode) ||
           streq(cfg->mode, "property-lookup") ||
@@ -1197,6 +1222,11 @@ static int parse_args(int argc, char **argv, struct config *cfg) {
         }
     } else if (cfg->allow_policy_load_proof) {
         fprintf(stderr, "--allow-policy-load-proof is only valid with sepolicy-load-proof mode\n");
+        return 2;
+    }
+    if (cfg->allow_esoc_control_preflight &&
+        !is_wifi_companion_esoc_control_preflight_mode(cfg->mode)) {
+        fprintf(stderr, "--allow-esoc-control-preflight is only valid with wifi-companion-esoc-control-preflight mode\n");
         return 2;
     }
     if (streq(cfg->mode, "selinux-domain-proof")) {
@@ -7084,6 +7114,162 @@ static int append_private_android_node_status(struct buffer *buf,
                          (long)st.st_gid,
                          label,
                          path);
+}
+
+static int append_esoc_ioctl_probe_result(struct buffer *buf,
+                                          int fd,
+                                          const char *name,
+                                          unsigned long request,
+                                          unsigned long long *value) {
+    int saved_errno;
+    unsigned int value32 = 0;
+    uint64_t value64 = 0;
+    int rc;
+
+    errno = 0;
+    if (streq(name, "GET_LINK_ID")) {
+        rc = ioctl(fd, request, &value64);
+        *value = value64;
+    } else {
+        rc = ioctl(fd, request, &value32);
+        *value = value32;
+    }
+    saved_errno = errno;
+    return append_format(buf,
+                         "esoc_control_preflight.ioctl.%s.request=0x%lx\n"
+                         "esoc_control_preflight.ioctl.%s.rc=%d\n"
+                         "esoc_control_preflight.ioctl.%s.errno=%d\n"
+                         "esoc_control_preflight.ioctl.%s.value=%llu\n",
+                         name,
+                         request,
+                         name,
+                         rc,
+                         name,
+                         saved_errno,
+                         name,
+                         *value);
+}
+
+static int run_wifi_companion_esoc_control_preflight_guarded(const struct config *cfg,
+                                                            const struct paths *paths,
+                                                            struct buffer *stdout_buf,
+                                                            struct buffer *stderr_buf,
+                                                            int *child_exit_code,
+                                                            int *child_signal,
+                                                            bool *timed_out) {
+    char esoc_path[MAX_PATH_LEN];
+    int fd = -1;
+    int saved_errno = 0;
+    unsigned long long value = 0;
+
+    (void)stderr_buf;
+    *child_signal = 0;
+    *timed_out = false;
+    if (append_literal(stdout_buf,
+                       "esoc_control_preflight.begin=1\n"
+                       "esoc_control_preflight.mode=guarded\n"
+                       "esoc_control_preflight.device=/dev/esoc-0\n"
+                       "esoc_control_preflight.daemon_start_executed=0\n"
+                       "esoc_control_preflight.mdm_helper_start_executed=0\n"
+                       "esoc_control_preflight.ks_start_executed=0\n"
+                       "esoc_control_preflight.wifi_hal_start_executed=0\n"
+                       "esoc_control_preflight.scan_connect_linkup=0\n"
+                       "esoc_control_preflight.credentials=0\n"
+                       "esoc_control_preflight.dhcp_routing=0\n"
+                       "esoc_control_preflight.external_ping=0\n"
+                       "esoc_control_preflight.reg_req_eng_attempted=0\n"
+                       "esoc_control_preflight.reg_cmd_eng_attempted=0\n"
+                       "esoc_control_preflight.cmd_exe_attempted=0\n"
+                       "esoc_control_preflight.wait_for_req_attempted=0\n"
+                       "esoc_control_preflight.notify_attempted=0\n"
+                       "esoc_control_preflight.pwr_on_attempted=0\n") < 0 ||
+        append_format(stdout_buf,
+                      "esoc_control_preflight.uapi.ESOC_CODE=0x%x\n"
+                      "esoc_control_preflight.uapi.ESOC_CMD_EXE.nr=1\n"
+                      "esoc_control_preflight.uapi.ESOC_WAIT_FOR_REQ.nr=2\n"
+                      "esoc_control_preflight.uapi.ESOC_NOTIFY.nr=3\n"
+                      "esoc_control_preflight.uapi.ESOC_GET_STATUS.nr=4\n"
+                      "esoc_control_preflight.uapi.ESOC_GET_ERR_FATAL.nr=5\n"
+                      "esoc_control_preflight.uapi.ESOC_WAIT_FOR_CRASH.nr=6\n"
+                      "esoc_control_preflight.uapi.ESOC_REG_REQ_ENG.nr=7\n"
+                      "esoc_control_preflight.uapi.ESOC_REG_CMD_ENG.nr=8\n"
+                      "esoc_control_preflight.uapi.ESOC_GET_LINK_ID.nr=9\n"
+                      "esoc_control_preflight.uapi.ESOC_PWR_ON.value=%u\n"
+                      "esoc_control_preflight.uapi.ESOC_IMG_XFER_DONE.value=%u\n"
+                      "esoc_control_preflight.uapi.ESOC_BOOT_DONE.value=%u\n",
+                      A90_ESOC_CODE,
+                      A90_ESOC_PWR_ON,
+                      A90_ESOC_IMG_XFER_DONE,
+                      A90_ESOC_BOOT_DONE) < 0 ||
+        append_private_android_node_status(stdout_buf, paths, "esoc-0", "esoc_0") < 0 ||
+        append_private_android_node_status(stdout_buf, paths, "subsys_esoc0", "subsys_esoc0") < 0 ||
+        append_private_android_node_status(stdout_buf, paths, "subsys_modem", "subsys_modem") < 0) {
+        return -1;
+    }
+    if (!cfg->allow_esoc_control_preflight) {
+        if (append_literal(stdout_buf,
+                           "esoc_control_preflight.allowed=0\n"
+                           "esoc_control_preflight.open_attempted=0\n"
+                           "esoc_control_preflight.result=blocked\n"
+                           "esoc_control_preflight.reason=missing-esoc-control-preflight-allow-flag\n"
+                           "esoc_control_preflight.end=1\n") < 0) {
+            return -1;
+        }
+        *child_exit_code = 0;
+        return 0;
+    }
+    if (append_literal(stdout_buf,
+                       "esoc_control_preflight.allowed=1\n"
+                       "esoc_control_preflight.open_attempted=1\n") < 0) {
+        return -1;
+    }
+    if (append_path(esoc_path, sizeof(esoc_path), paths->dev, "esoc-0") < 0) {
+        if (append_literal(stdout_buf,
+                           "esoc_control_preflight.result=path-too-long\n"
+                           "esoc_control_preflight.end=1\n") < 0) {
+            return -1;
+        }
+        *child_exit_code = 0;
+        return 0;
+    }
+    fd = open(esoc_path, O_RDONLY | O_CLOEXEC);
+    saved_errno = errno;
+    if (append_format(stdout_buf,
+                      "esoc_control_preflight.open.path=%s\n"
+                      "esoc_control_preflight.open.fd=%d\n"
+                      "esoc_control_preflight.open.errno=%d\n",
+                      esoc_path,
+                      fd,
+                      saved_errno) < 0) {
+        if (fd >= 0) {
+            close(fd);
+        }
+        return -1;
+    }
+    if (fd < 0) {
+        if (append_literal(stdout_buf,
+                           "esoc_control_preflight.result=open-failed\n"
+                           "esoc_control_preflight.end=1\n") < 0) {
+            return -1;
+        }
+        *child_exit_code = 0;
+        return 0;
+    }
+    if (append_esoc_ioctl_probe_result(stdout_buf, fd, "GET_STATUS", A90_ESOC_GET_STATUS, &value) < 0 ||
+        append_esoc_ioctl_probe_result(stdout_buf, fd, "GET_ERR_FATAL", A90_ESOC_GET_ERR_FATAL, &value) < 0 ||
+        append_esoc_ioctl_probe_result(stdout_buf, fd, "GET_LINK_ID", A90_ESOC_GET_LINK_ID, &value) < 0) {
+        close(fd);
+        return -1;
+    }
+    close(fd);
+    if (append_literal(stdout_buf,
+                       "esoc_control_preflight.close_attempted=1\n"
+                       "esoc_control_preflight.result=read-only-ioctl-probe-complete\n"
+                       "esoc_control_preflight.end=1\n") < 0) {
+        return -1;
+    }
+    *child_exit_code = 0;
+    return 0;
 }
 
 struct rmt_block_partition {
@@ -20733,6 +20919,8 @@ int main(int argc, char **argv) {
            cfg.allow_connect_dhcp_ping ? 1 : 0);
     printf("allow_policy_load_proof=%d\n",
            cfg.allow_policy_load_proof ? 1 : 0);
+    printf("allow_esoc_control_preflight=%d\n",
+           cfg.allow_esoc_control_preflight ? 1 : 0);
     printf("connect_config=%s\n", cfg.connect_config != NULL ? cfg.connect_config : "<none>");
     printf("connect_iface=%s\n", cfg.connect_iface != NULL ? cfg.connect_iface : "<none>");
     printf("ping_target=%s\n", cfg.ping_target != NULL ? cfg.ping_target : "<none>");
@@ -20888,6 +21076,14 @@ int main(int argc, char **argv) {
                                             &child_exit_code,
                                             &child_signal,
                                             &timed_out);
+    } else if (is_wifi_companion_esoc_control_preflight_mode(cfg.mode)) {
+        run_rc = run_wifi_companion_esoc_control_preflight_guarded(&cfg,
+                                                                   &paths,
+                                                                   &stdout_buf,
+                                                                   &stderr_buf,
+                                                                   &child_exit_code,
+                                                                   &child_signal,
+                                                                   &timed_out);
     } else if (is_wifi_companion_any_start_only_mode(cfg.mode)) {
         run_rc = run_wifi_companion_start_only_guarded(&cfg,
                                                        &paths,

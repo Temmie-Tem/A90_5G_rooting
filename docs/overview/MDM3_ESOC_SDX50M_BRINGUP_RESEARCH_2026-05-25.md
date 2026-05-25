@@ -747,3 +747,28 @@ Next gate: V869 should be source/build-only helper design for an A90 eSoC
 control preflight. Live `ESOC_PWR_ON`, `mdm_helper`, `ks`, Wi-Fi HAL,
 scan/connect, credentials, DHCP/routes, and external ping remain blocked until
 separate gates.
+
+## 24. V869 eSoC control preflight helper outcome
+
+V869 added helper `v135` source/build-only support for
+`wifi-companion-esoc-control-preflight`.
+
+Evidence:
+
+| Unit | Path | Result |
+|---|---|---|
+| helper artifact | `tmp/wifi/v869-execns-helper-v135-build/a90_android_execns_probe` | static ARM64 build PASS |
+| report | `docs/reports/NATIVE_INIT_V869_ESOC_CONTROL_PREFLIGHT_HELPER_BUILD_2026-05-25.md` | source/build-only PASS |
+
+Added contract:
+
+- helper marker `a90_android_execns_probe v135`;
+- mode `wifi-companion-esoc-control-preflight`;
+- flag `--allow-esoc-control-preflight`;
+- fail-closed markers for no `mdm_helper`, no `ks`, no Wi-Fi HAL,
+  no scan/connect, no credentials, no external ping, no `REG_REQ_ENG`,
+  no `REG_CMD_ENG`, no `CMD_EXE`, no `WAIT_FOR_REQ`, no `NOTIFY`, and
+  no `PWR_ON`.
+
+Next gate: V870 deploy-only for helper `v135`. Live eSoC control preflight
+remains blocked until deploy parity and native health are proven.

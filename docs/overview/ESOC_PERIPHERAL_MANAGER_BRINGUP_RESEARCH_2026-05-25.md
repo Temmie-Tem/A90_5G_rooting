@@ -406,3 +406,32 @@ Decision:
 - 다음 구현 대상은 Wi-Fi HAL, scan/connect, credential 사용이 아니라
   A90 로컬 `esoc_ctrl.h` 값에 기반한 eSoC control preflight helper다.
 - live `ESOC_PWR_ON`은 별도 gate 전까지 차단한다.
+
+---
+
+## 13. V869 helper 결과
+
+V869 source/build-only:
+`stage3/linux_init/helpers/a90_android_execns_probe.c`
+
+Evidence:
+
+- `tmp/wifi/v869-execns-helper-v135-build/a90_android_execns_probe`
+- `docs/reports/NATIVE_INIT_V869_ESOC_CONTROL_PREFLIGHT_HELPER_BUILD_2026-05-25.md`
+
+결과:
+
+- helper marker: `a90_android_execns_probe v135`
+- new mode: `wifi-companion-esoc-control-preflight`
+- allow flag: `--allow-esoc-control-preflight`
+- static ARM64 build PASS
+
+이 mode는 다음 live gate를 위한 기반만 제공한다. 기본 상태에서는
+`REG_REQ_ENG`, `REG_CMD_ENG`, `CMD_EXE`, `WAIT_FOR_REQ`, `NOTIFY`, `PWR_ON`,
+`mdm_helper`, `ks`, Wi-Fi HAL, scan/connect, DHCP/routes, external ping을 모두
+시도하지 않는다.
+
+다음 후보:
+
+- V870 helper `v135` deploy-only checksum/version/mode proof
+- V871 bounded live eSoC control preflight는 V870 이후 별도 gate

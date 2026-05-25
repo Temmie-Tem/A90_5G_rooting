@@ -581,6 +581,7 @@ path should be closed for this blocker.
 | v866 | helper v134 deploy-only: serial 1850-byte chunk deploy to `/cache/bin/a90_android_execns_probe`; remote sha/version/mode, selftest, and actor-clean state pass |
 | v867 | PM init-contract start-only: mode/ioprio/lifecycle markers execute, but runtime domains stay `kernel`, no subsystem fd hold appears, and `pm_proxy_helper` remains D-state until native reboot cleanup |
 | v868 | PM/eSoC contract classifier: `pm_proxy_helper` alone is closed; local A90 OSRC requires `/dev/esoc-0` CMD/REQ engine preflight (`ESOC_REG_REQ_ENG=7`, `ESOC_REG_CMD_ENG=8`) before another `/dev/subsys_esoc0` hold |
+| v869 | helper v135 source/build-only: adds `wifi-companion-esoc-control-preflight`, local eSoC UAPI markers, `--allow-esoc-control-preflight`, and fail-closed markers with static ARM64 build pass |
 
 ### Safety additions (Wi-Fi research)
 
@@ -635,13 +636,15 @@ path should be closed for this blocker.
   next gate is V868 host-only/read-only classification of `pm_proxy_helper`
   blocking behavior and SELinux transition semantics. V868 then tied the
   D-state to the missing `/dev/esoc-0` CMD/REQ engine side of the Android eSoC
-  contract and closed `pm_proxy_helper`-alone retries. The next candidate is
-  V869 source/build-only helper design for A90 eSoC control preflight using the
-  local Samsung OSRC UAPI values. Keep Wi-Fi HAL, scan/connect, DHCP/routes,
-  credentials, external ping, live `ESOC_PWR_ON`, subsystem writes,
-  GPIO/sysfs/debugfs writes, module load/unload, and boot image writes blocked.
-  Do not start `mdm_helper`, `ks`, HAL, or scan/connect until a narrower eSoC
-  control preflight gate is implemented and reviewed.
+  contract and closed `pm_proxy_helper`-alone retries. V869 then added helper
+  `v135` with a source/build-only `wifi-companion-esoc-control-preflight` mode
+  and fail-closed markers. The next candidate is V870 deploy-only for helper
+  `v135` with checksum/version/mode proof and post-deploy health. Keep Wi-Fi
+  HAL, scan/connect, DHCP/routes, credentials, external ping, live
+  `ESOC_PWR_ON`, subsystem writes, GPIO/sysfs/debugfs writes, module
+  load/unload, and boot image writes blocked. Do not start `mdm_helper`, `ks`,
+  HAL, or scan/connect until helper v135 is deployed and a narrower eSoC
+  control preflight live gate is planned.
 
 ## Docs structure
 
