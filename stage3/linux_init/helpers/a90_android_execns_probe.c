@@ -88,7 +88,7 @@
 #define IOPRIO_PRIO_VALUE(class_value, data) (((class_value) << IOPRIO_CLASS_SHIFT) | (data))
 #endif
 
-#define EXECNS_VERSION "a90_android_execns_probe v145"
+#define EXECNS_VERSION "a90_android_execns_probe v146"
 #define MAX_PATH_LEN 512
 #define MAX_CAPTURE_SIZE (1024 * 1024)
 #define MAX_LINKERCONFIG_SIZE (256 * 1024)
@@ -11837,6 +11837,66 @@ static int append_cnss_stall_snapshot_capture(struct buffer *buf, pid_t pid, con
                          label);
 }
 
+static int append_generic_stall_snapshot_capture(struct buffer *buf, pid_t pid, const char *label) {
+    char capture_label[160];
+    bool wchan_captured = false;
+    bool syscall_captured = false;
+    bool stack_captured = false;
+    bool stat_captured = false;
+    bool status_captured = false;
+    bool sched_captured = false;
+    bool task_captured = false;
+
+    if (append_format(buf,
+                      "capture.%s.stall_snapshot.begin=1\n"
+                      "capture.%s.stall_snapshot.pid=%ld\n",
+                      label,
+                      label,
+                      (long)pid) < 0) {
+        return -1;
+    }
+    if (snprintf(capture_label, sizeof(capture_label), "%s_wchan", label) >= (int)sizeof(capture_label) ||
+        append_proc_file_capture_named(buf, pid, "wchan", capture_label, 1024, &wchan_captured) < 0 ||
+        snprintf(capture_label, sizeof(capture_label), "%s_syscall", label) >= (int)sizeof(capture_label) ||
+        append_proc_file_capture_named(buf, pid, "syscall", capture_label, 1024, &syscall_captured) < 0 ||
+        snprintf(capture_label, sizeof(capture_label), "%s_stack", label) >= (int)sizeof(capture_label) ||
+        append_proc_file_capture_named(buf, pid, "stack", capture_label, 8192, &stack_captured) < 0 ||
+        snprintf(capture_label, sizeof(capture_label), "%s_stat", label) >= (int)sizeof(capture_label) ||
+        append_proc_file_capture_named(buf, pid, "stat", capture_label, 2048, &stat_captured) < 0 ||
+        snprintf(capture_label, sizeof(capture_label), "%s_status", label) >= (int)sizeof(capture_label) ||
+        append_proc_file_capture_named(buf, pid, "status", capture_label, 8192, &status_captured) < 0 ||
+        snprintf(capture_label, sizeof(capture_label), "%s_sched", label) >= (int)sizeof(capture_label) ||
+        append_proc_file_capture_named(buf, pid, "sched", capture_label, 8192, &sched_captured) < 0 ||
+        append_proc_task_stall_capture(buf, pid, label) < 0) {
+        return -1;
+    }
+    task_captured = true;
+    return append_format(buf,
+                         "capture.%s.stall_snapshot.wchan_captured=%d\n"
+                         "capture.%s.stall_snapshot.syscall_captured=%d\n"
+                         "capture.%s.stall_snapshot.stack_captured=%d\n"
+                         "capture.%s.stall_snapshot.stat_captured=%d\n"
+                         "capture.%s.stall_snapshot.status_captured=%d\n"
+                         "capture.%s.stall_snapshot.sched_captured=%d\n"
+                         "capture.%s.stall_snapshot.task_captured=%d\n"
+                         "capture.%s.stall_snapshot.end=1\n",
+                         label,
+                         wchan_captured ? 1 : 0,
+                         label,
+                         syscall_captured ? 1 : 0,
+                         label,
+                         stack_captured ? 1 : 0,
+                         label,
+                         stat_captured ? 1 : 0,
+                         label,
+                         status_captured ? 1 : 0,
+                         label,
+                         sched_captured ? 1 : 0,
+                         label,
+                         task_captured ? 1 : 0,
+                         label);
+}
+
 static int append_qipcrtr_protocol_summary(struct buffer *buf, const char *prefix) {
     FILE *file;
     char line[512];
@@ -16104,6 +16164,7 @@ static int run_wifi_companion_mdm_helper_ks_image_contract_preflight_guarded(con
     bool trigger_term_sent = false;
     bool trigger_kill_sent = false;
     bool trigger_reaped = false;
+    bool trigger_stall_snapshot_captured = false;
     int trigger_exit_code = -1;
     int trigger_signal = 0;
     int trigger_status = 0;
@@ -16346,6 +16407,16 @@ static int run_wifi_companion_mdm_helper_ks_image_contract_preflight_guarded(con
         goto fail;
     }
     if (!trigger_done) {
+        if (append_literal(stdout_buf,
+                           "mdm_helper_ks_image_contract.subsys_trigger.blocker_capture_attempted=1\n") < 0 ||
+            append_generic_stall_snapshot_capture(stdout_buf,
+                                                  trigger_pid,
+                                                  "mdm_helper_ks_subsys_trigger") < 0) {
+            goto fail;
+        }
+        trigger_stall_snapshot_captured = true;
+    }
+    if (!trigger_done) {
         if (trigger_pgid > 1 && (kill(-trigger_pgid, SIGTERM) == 0 || errno == ESRCH)) {
             trigger_term_sent = true;
         }
@@ -16430,6 +16501,7 @@ static int run_wifi_companion_mdm_helper_ks_image_contract_preflight_guarded(con
                       "mdm_helper_ks_image_contract.subsys_trigger.term_sent=%d\n"
                       "mdm_helper_ks_image_contract.subsys_trigger.kill_sent=%d\n"
                       "mdm_helper_ks_image_contract.subsys_trigger.reaped=%d\n"
+                      "mdm_helper_ks_image_contract.subsys_trigger.blocker_snapshot_captured=%d\n"
                       "mdm_helper_ks_image_contract.mdm_helper.postflight_safe=%d\n"
                       "mdm_helper_ks_image_contract.all_postflight_safe=%d\n"
                       "mdm_helper_ks_image_contract.timed_out=%d\n",
@@ -16444,6 +16516,7 @@ static int run_wifi_companion_mdm_helper_ks_image_contract_preflight_guarded(con
                       trigger_term_sent ? 1 : 0,
                       trigger_kill_sent ? 1 : 0,
                       trigger_reaped ? 1 : 0,
+                      trigger_stall_snapshot_captured ? 1 : 0,
                       composite_child_postflight_safe(&mdm_helper) ? 1 : 0,
                       all_postflight_safe ? 1 : 0,
                       *timed_out ? 1 : 0) < 0) {

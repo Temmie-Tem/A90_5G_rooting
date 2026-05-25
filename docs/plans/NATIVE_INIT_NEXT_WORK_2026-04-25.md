@@ -25,14 +25,16 @@
 
 ## 현재 Wi-Fi Gate
 
-- 최신 기준: V900/V901 mdm_helper/ks live contract proof pass as diagnostic.
-  Helper `v145` is deployed. Native can start `/vendor/bin/mdm_helper` and
-  attempt `/dev/subsys_esoc0` only after `mdm_helper_observable=1`, but the
-  trigger child blocks and is not reaped, forcing cleanup reboot. No `ks`, MHI
-  pipe, GPIO 142 IRQ, `mdm3=ONLINE`, WLFW/BDF, or `wlan0` progress was
-  observed. Next is V902 blocker capture (`wchan`/process state/available
-  stack) before repeating this subsystem-open path. Wi-Fi HAL, scan/connect,
-  credentials, DHCP/routes, and external ping remain blocked.
+- 최신 기준: V902 mdm_helper/ks blocker capture pass as diagnostic. Helper
+  `v146` is deployed. Native can start `/vendor/bin/mdm_helper` and attempt
+  `/dev/subsys_esoc0` only after `mdm_helper_observable=1`, but the trigger
+  child blocks in `mdm_subsys_powerup` D-state with stack
+  `mdm_subsys_powerup -> __subsystem_get -> subsys_device_open`. `mdm_helper`
+  itself did not hold `/dev/esoc-0`; only tty, pipes, and one socket were
+  visible. No `ks`, MHI pipe, GPIO 142 IRQ, `mdm3=ONLINE`, WLFW/BDF, or `wlan0`
+  progress was observed. Next is V903 `mdm_helper`-only deep capture without
+  `/dev/subsys_esoc0` open. Wi-Fi HAL, scan/connect, credentials, DHCP/routes,
+  and external ping remain blocked.
 - V874 결론: `/dev/esoc-0` read-only control path가 live에서 열렸고
   `GET_STATUS`/`GET_ERR_FATAL`은 rc `0`, `GET_LINK_ID`는 errno `22`로
   반환됐다. 결과는 `read-only-ioctl-probe-complete`이며 created nodes cleanup,

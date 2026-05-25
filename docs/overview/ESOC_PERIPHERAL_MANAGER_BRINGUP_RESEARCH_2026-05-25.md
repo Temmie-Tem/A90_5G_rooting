@@ -1591,3 +1591,53 @@ Next candidate:
 - Keep `ESOC_NOTIFY`, `BOOT_DONE`, service-manager, CNSS, Wi-Fi HAL,
   scan/connect, credentials, DHCP/routes, external ping, GPIO writes, module
   load/unload, and boot image writes blocked.
+
+---
+
+## 43. V902 mdm_helper/ks blocker capture result
+
+V902 captured the blocked `/dev/subsys_esoc0` open child after `mdm_helper` was
+observable.
+
+Evidence:
+
+- `tmp/wifi/v902-execns-helper-v146-build/a90_android_execns_probe`
+- `tmp/wifi/v902-execns-helper-v146-deploy-preflight/manifest.json`
+- `tmp/wifi/v902-mdm-helper-ks-blocker-capture-live/manifest.json`
+- `docs/plans/NATIVE_INIT_V902_MDM_HELPER_KS_BLOCKER_CAPTURE_PLAN_2026-05-26.md`
+- `docs/reports/NATIVE_INIT_V902_MDM_HELPER_KS_BLOCKER_CAPTURE_2026-05-26.md`
+
+Decision:
+
+- `v902-reboot-required-cleaned`
+
+Result:
+
+- Helper `v146` adds blocker snapshot capture to the existing
+  `mdm_helper`/`ks` contract mode.
+- The blocker's `/proc` evidence was captured:
+  - `wchan=mdm_subsys_powerup`
+  - task state `D (disk sleep)`
+  - stack:
+    `mdm_subsys_powerup -> __subsystem_get -> subsys_device_open ->
+    chrdev_open -> do_dentry_open -> vfs_open -> path_openat -> do_sys_open ->
+    SyS_openat`
+- `mdm_helper` was observable but did not hold `/dev/esoc-0`; visible fds were
+  `/dev/ttyGS0`, stdout/stderr pipes, and one socket.
+- No `ks`, MHI pipe command line, MHI device node, GPIO 142 IRQ,
+  `mdm3=ONLINE`, WLFW/BDF, or `wlan0` progress was observed.
+- Cleanup reboot restored `bootstatus` OK and `selftest fail=0`.
+
+Interpretation:
+
+- V902 proves the same proprietary-provider `mdm_subsys_powerup` block as V849,
+  but now after `mdm_helper` was started in the Android-derived order.
+- The missing piece is no longer only the subsystem open. Native `mdm_helper`
+  did not enter the full Android state-machine path that opens `/dev/esoc-0`,
+  registers engines, spawns `ks`, and drives MHI image transfer.
+
+Next candidate:
+
+- V903 should be `mdm_helper`-only deep capture: start `mdm_helper`, do not open
+  `/dev/subsys_esoc0`, and capture its `wchan`, `syscall`, stack, socket/proc-net
+  context, property reads, and fd evolution.
