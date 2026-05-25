@@ -4136,3 +4136,23 @@ Samsung bootloader
   credentials, or external ping.
 - next: V880 helper `v138` source/build-only stale-open-errno repair plus
   fail-closed REQ-registered subsystem-hold preflight support.
+
+### V880. REQ-registered Subsystem Hold Helper v138 Build
+
+- plan: `docs/plans/NATIVE_INIT_V880_REQ_REGISTERED_SUBSYS_HOLD_HELPER_PLAN_2026-05-26.md`
+- report: `docs/reports/NATIVE_INIT_V880_REQ_REGISTERED_SUBSYS_HOLD_HELPER_BUILD_2026-05-26.md`
+- helper source: `stage3/linux_init/helpers/a90_android_execns_probe.c`
+- evidence:
+  - `tmp/wifi/v880-execns-helper-v138-build/manifest.json`
+  - `tmp/wifi/v880-execns-helper-v138-build/a90_android_execns_probe`
+- decision: `v880-helper-v138-build-pass`
+- result: source/build-only PASS. Helper `v138` repairs stale successful-open
+  errno reporting and adds fail-closed
+  `wifi-companion-esoc-req-registered-subsys-hold-preflight` support.
+- build: sha256
+  `2ac8c6730768f86a221722a6ff259e3a4617134221498bd1956a63980a22a9b5`, static
+  ARM64, no dynamic section.
+- hard gates held: no device contact, no helper deploy, no live eSoC ioctl, no
+  `/dev/subsys_esoc0` open, no actor start, no Wi-Fi HAL, scan/connect,
+  DHCP/routes, credentials, or external ping.
+- next: V881 helper `v138` deploy-only checksum/version/mode proof.

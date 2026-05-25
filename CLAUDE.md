@@ -672,9 +672,14 @@ path should be closed for this blocker.
   next safe subsystem-powerup guardrails. V879 classified direct userspace
   `CMD_EXE` as blocked because command-engine ownership was not acquired, while
   `REG_REQ_ENG rc0` makes a REQ-registered subsystem-open helper mode the next
-  source/build-only candidate. Next is V880 helper `v138`: repair stale
-  successful-open errno reporting and add fail-closed REQ-registered
-  subsystem-hold preflight support. Keep Wi-Fi HAL, scan/connect, DHCP/routes,
+  source/build-only candidate. V880 added helper `v138`, repaired stale
+  successful-open errno reporting, and added fail-closed
+  `wifi-companion-esoc-req-registered-subsys-hold-preflight` support. Static
+  ARM64 build passed with sha256
+  `2ac8c6730768f86a221722a6ff259e3a4617134221498bd1956a63980a22a9b5`; no
+  deploy, device contact, live eSoC ioctl, `/dev/subsys_esoc0` open, actors, or
+  Wi-Fi bring-up occurred. Next is V881 deploy-only helper `v138`
+  checksum/version/mode proof. Keep Wi-Fi HAL, scan/connect, DHCP/routes,
   credentials, external ping, live direct userspace `CMD_EXE`/explicit
   userspace `PWR_ON`, `WAIT_FOR_REQ`, `NOTIFY`, subsystem writes,
   GPIO/sysfs/debugfs writes, module load/unload, and boot image writes blocked.

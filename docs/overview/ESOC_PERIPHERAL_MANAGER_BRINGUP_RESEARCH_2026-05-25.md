@@ -720,3 +720,42 @@ Next candidate:
   3. keep direct userspace `CMD_EXE`, explicit userspace `PWR_ON`,
      `WAIT_FOR_REQ`, `NOTIFY`, actors, Wi-Fi HAL, scan/connect, credentials,
      DHCP/routes, and external ping blocked.
+
+---
+
+## 23. V880 REQ-registered subsystem-hold helper build result
+
+V880 implemented the V879-selected helper support as a source/build-only step.
+
+Evidence:
+
+- `tmp/wifi/v880-execns-helper-v138-build/manifest.json`
+- `docs/plans/NATIVE_INIT_V880_REQ_REGISTERED_SUBSYS_HOLD_HELPER_PLAN_2026-05-26.md`
+- `docs/reports/NATIVE_INIT_V880_REQ_REGISTERED_SUBSYS_HOLD_HELPER_BUILD_2026-05-26.md`
+
+Decision:
+
+- `v880-helper-v138-build-pass`
+
+Result:
+
+- helper marker: `a90_android_execns_probe v138`
+- artifact sha256:
+  `2ac8c6730768f86a221722a6ff259e3a4617134221498bd1956a63980a22a9b5`
+- new mode token:
+  `wifi-companion-esoc-req-registered-subsys-hold-preflight`
+- new allow flag:
+  `--allow-esoc-req-registered-subsys-hold-preflight`
+- stale successful-open errno reporting repaired for existing eSoC open paths
+- new mode remains fail-closed by default and records reboot-required evidence
+  if a future bounded child cannot be proven stopped
+
+Guardrails held: V880 did not deploy the helper, did not contact the device,
+did not execute live eSoC ioctls, did not open `/dev/subsys_esoc0`, did not
+start Android actors, and did not bring up Wi-Fi.
+
+Next candidate:
+
+- V881 helper `v138` deploy-only checksum/version/mode proof.
+- Still block live eSoC ioctls, `/dev/subsys_esoc0` open, actors, Wi-Fi HAL,
+  scan/connect, credentials, DHCP/routes, and external ping.
