@@ -3804,3 +3804,29 @@ Samsung bootloader
 - next: V865 should implement source/build-only helper support for the missing
   PeripheralManager init-contract model. V866 deploy and V867 live start-only
   remain blocked until V865 static validation passes.
+
+### V865. PeripheralManager Init Contract Helper Build
+
+- plan: `docs/plans/NATIVE_INIT_V865_PM_INIT_CONTRACT_HELPER_PLAN_2026-05-25.md`
+- report: `docs/reports/NATIVE_INIT_V865_PM_INIT_CONTRACT_HELPER_BUILD_2026-05-25.md`
+- helper source: `stage3/linux_init/helpers/a90_android_execns_probe.c`
+- evidence:
+  - `tmp/wifi/v865-execns-helper-v134-build/a90_android_execns_probe`
+  - `tmp/wifi/v865-post-build-v864-classifier/manifest.json`
+- result: source/build-only PASS. Helper `v134` adds
+  `wifi-companion-peripheral-manager-init-contract-start-only`, a distinct
+  `/vendor/bin/pm_proxy_helper` child, `u:r:per_proxy_helper:s0` target mapping,
+  `per_mgr` `SYS_ioprio_set` realtime priority `4` instrumentation,
+  `init.svc.vendor.per_mgr=running` proxy lifecycle markers, and bounded
+  shutdown-stop markers for `vendor.per_proxy`.
+- classifier: post-build V864 classifier shows all source support markers
+  present. Remaining gaps are runtime evidence only: V861 still had
+  `attr/current=kernel` and no `/dev/subsys_esoc0` or `/dev/subsys_modem` fd
+  hold.
+- hard gates: no helper deploy, no actor start, no `mdm_helper`, no `ks`, no
+  Wi-Fi HAL, scan/connect, credentials, DHCP/routes, external ping, raw eSoC
+  ioctl, GPIO/sysfs/debugfs/subsystem write, module load/unload, boot image
+  write, or partition write.
+- next: V866 should deploy helper `v134` only with checksum/version proof and
+  no actor start. V867 should then run the first bounded
+  `pm_proxy_helper`/`per_mgr`/`per_proxy` init-contract start-only proof.

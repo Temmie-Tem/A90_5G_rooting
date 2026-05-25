@@ -576,3 +576,49 @@ missing model and keep all live starts blocked. V866 can deploy only after
 V865 static validation passes. V867 is the first allowed live start-only proof,
 and it remains below `mdm_helper`, `ks`, Wi-Fi HAL, scan/connect, credentials,
 DHCP/routes, and external ping.
+
+## 20. V865 helper v134 init-contract implementation outcome
+
+V865 completed source/build-only. It did not deploy a helper and did not start
+any device actor.
+
+Implemented in `stage3/linux_init/helpers/a90_android_execns_probe.c`:
+
+- helper version bumped to `a90_android_execns_probe v134`;
+- new `wifi-companion-peripheral-manager-init-contract-start-only` mode;
+- distinct `per_proxy_helper` child for `/vendor/bin/pm_proxy_helper`;
+- default exec-context mapping for `/vendor/bin/pm_proxy_helper` to
+  `u:r:per_proxy_helper:s0`;
+- `SYS_ioprio_set` realtime class priority `4` instrumentation for `per_mgr`;
+- `init.svc.vendor.per_mgr=running` lifecycle gate marker before `per_proxy`;
+- shutdown-stop markers for bounded `vendor.per_proxy` cleanup without setting
+  `sys.shutdown.requested`.
+
+The OSRC kernel source strengthened the reason for modelling `pm_proxy_helper`
+as a separate actor: `drivers/soc/qcom/subsystem_restart.c` has a
+`pm_proxy_helper`-specific branch around eSoC shutdown handling. That makes
+`pm_proxy_helper` actor parity more relevant than another blind `mdm_helper`
+retry.
+
+Validation:
+
+| Check | Result |
+|---|---|
+| static ARM64 helper build | pass |
+| artifact | `tmp/wifi/v865-execns-helper-v134-build/a90_android_execns_probe` |
+| sha256 | `92792fb954de42825d328c047498c5291be803185d9897d22dd734fd9bd77582` |
+| post-build V864 classifier source support | all requirements supported |
+
+The classifier still returns `v864-init-contract-wrapper-needed` only because
+its input evidence is still V861-era live evidence. The remaining blockers are
+not source-support gaps anymore:
+
+- runtime `attr/current` stayed `kernel` in V861;
+- `pm-service` did not prove `/dev/subsys_esoc0` or `/dev/subsys_modem` fd
+  holds in V861.
+
+Next gate: V866 should be deploy-only for helper `v134` with checksum/version
+proof and no actor start. V867 should be the first bounded live proof of the new
+init-contract mode: `pm_proxy_helper` oneshot, `per_mgr` with ioprio, and
+property-gated `per_proxy` under Android node parity. `mdm_helper`, `ks`, Wi-Fi
+HAL, scan/connect, credentials, DHCP/routes, and external ping remain blocked.

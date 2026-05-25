@@ -9,7 +9,7 @@ Samsung Galaxy A90 5G (SM-A908N) — stock Android Linux kernel 4.14.190, custom
 - **Device**: SM-A908N, Android 12, Magisk 30.7, TWRP available
 - **Current native build**: `A90 Linux init 0.9.68 (v724)` — `stage3/boot_linux_v724.img`
 - **Known-good fallback**: `stage3/boot_linux_v48.img`
-- **Active research cycle**: v864 classified the current helper as missing the full PeripheralManager init-contract model; next is V865 source/build-only helper support for `pm_proxy_helper`, `ioprio rt 4`, `init.svc.vendor.per_mgr=running`, and shutdown-stop semantics below mdm_helper/HAL/connect
+- **Active research cycle**: V865 built helper `v134` with PeripheralManager init-contract support; next is V866 deploy-only checksum proof, then V867 bounded `pm_proxy_helper` + `per_mgr`/`per_proxy` start-only below `mdm_helper`/HAL/connect
 - **Versioning policy**: `docs/operations/VERSIONING_POLICY.md` — `vNNN` cycle ≠ device flash
 
 ## Versioning rules
@@ -577,6 +577,7 @@ path should be closed for this blocker.
 | v862 | Android init contract classifier: `vendor.per_mgr` has `ioprio rt 4`, `vendor.per_proxy` is property-started, and Android starts `vendor.per_proxy_helper`; next is read-only `pm_proxy_helper.rc` capture |
 | v863 | live read-only `pm_proxy_helper.rc` capture: `vendor.per_proxy_helper /vendor/bin/pm_proxy_helper`, `class core`, `system:system`, `disabled`, `oneshot`, started at `post-fs-data`; current `sda29` dev is `259:13` |
 | v864 | host-only helper-support classifier: current helper has runtime domain/fd capture but lacks `pm_proxy_helper`, `per_proxy_helper` SELinux mapping, `ioprio rt 4`, `init.svc.vendor.per_mgr=running`, and shutdown-stop contract support |
+| v865 | helper v134 source/build-only: adds `pm_proxy_helper`, `per_proxy_helper` SELinux mapping, `per_mgr` `ioprio rt 4`, `init.svc.vendor.per_mgr=running` proxy gate, and shutdown-stop markers; static ARM64 build passes |
 
 ### Safety additions (Wi-Fi research)
 
@@ -612,15 +613,20 @@ path should be closed for this blocker.
   `disabled`, `oneshot`, and starts from `on post-fs-data`. Current `sda29`
   major/minor is `259:13`; do not reuse older hardcoded `259:22`.
   V864 then classified helper support host-only. Runtime domain and fd capture
-  primitives already exist, but the helper still lacks `pm_proxy_helper`
+  primitives already existed, but the helper still lacked `pm_proxy_helper`
   child modelling, `/vendor/bin/pm_proxy_helper` SELinux mapping,
   `vendor.per_mgr` `ioprio rt 4`, `init.svc.vendor.per_mgr=running` lifecycle,
-  and explicit shutdown-stop semantics for `vendor.per_proxy`. The next gate is
-  V865 source/build-only helper implementation. Keep Wi-Fi HAL, scan/connect,
+  and explicit shutdown-stop semantics for `vendor.per_proxy`. V865 added those
+  pieces to helper `v134` and built a static ARM64 artifact; the post-build
+  classifier now shows all source support markers present. The remaining gaps
+  are live evidence questions: runtime `attr/current` previously stayed
+  `kernel`, and `pm-service` has not yet proved `/dev/subsys_esoc0` or
+  `/dev/subsys_modem` fd holds. The next gate is V866 deploy-only checksum
+  proof, then V867 bounded start-only. Keep Wi-Fi HAL, scan/connect,
   DHCP/routes, credentials, external ping, raw eSoC ioctl, subsystem writes,
   GPIO/sysfs/debugfs writes, module load/unload, and boot image writes blocked.
-  Do not deploy a new helper or start `mdm_helper`, `ks`, HAL, or scan/connect
-  until V865 static validation passes.
+  Do not start `mdm_helper`, `ks`, HAL, or scan/connect until V867 proves PM
+  lifecycle parity is useful and cleanup-safe.
 
 ## Docs structure
 
