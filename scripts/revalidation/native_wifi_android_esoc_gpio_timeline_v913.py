@@ -262,6 +262,8 @@ def dmesg_time(line: str) -> float | None:
 def first_timed_line(lines: list[str], pattern: str) -> dict[str, Any]:
     regex = re.compile(pattern, re.IGNORECASE)
     for line in lines:
+        if line.lstrip().startswith("$ "):
+            continue
         if regex.search(line):
             return {"present": True, "time": dmesg_time(line), "line": line.strip()}
     return {"present": False, "time": None, "line": ""}
@@ -317,6 +319,24 @@ def parse_props(text: str) -> dict[str, str]:
     return props
 
 
+def process_has_current_ks(process_text: str) -> bool:
+    for line in process_text.splitlines():
+        if not line.startswith("PROC "):
+            continue
+        if re.search(r"\bcomm=ks\b|cmd=/vendor/bin/ks(?:\s|$)", line):
+            return True
+    return False
+
+
+def process_has_mhi_pipe(process_text: str) -> bool:
+    for line in process_text.splitlines():
+        if line.lstrip().startswith("$ "):
+            continue
+        if re.search(r"->\s*/dev/mhi_0305_01\.01\.00_pipe_10\b|/dev/mhi_0305_01\.01\.00_pipe_10\b", line):
+            return True
+    return False
+
+
 def classify(captures: dict[str, Capture]) -> dict[str, Any]:
     dmesg_text = captures.get("dmesg-full", Capture("", "", False, None, "", 0.0, "", "", "")).text
     focus_text = captures.get("dmesg-focus", Capture("", "", False, None, "", 0.0, "", "", "")).text
@@ -332,23 +352,34 @@ def classify(captures: dict[str, Capture]) -> dict[str, Any]:
         "ap2mdm_status": first_timed_line(lines, r"ap2mdm|gpio\s*135|gpio135"),
         "pmic_gpio9_or_reset": first_timed_line(lines, r"pmic.*gpio.*9|gpio.*9.*pmic|pm8150|pon|pbl|reset|de-assert|deassert"),
         "mdm2ap_gpio142": first_timed_line(lines, r"mdm2ap|gpio\s*142|gpio142|mdm status"),
-        "pcie_link": first_timed_line(lines, r"msm_pcie|pcie|LTSSM_L0|link.*init|mhi_pci_probe|mhi_arch_esoc_ops_power_on"),
+        "pcie_link": first_timed_line(
+            lines,
+            r"LTSSM_L0|link initialized|msm_pcie.*(?:link|enable|RC)|mhi_pci_probe|mhi_arch_esoc_ops_power_on",
+        ),
         "mdm3_online": first_timed_line(lines, r"mdm3.*ONLINE|subsys.*mdm3.*ONLINE"),
         "ks": first_timed_line(lines, r"/vendor/bin/ks|\bks\b|mhi_0305"),
         "mhi_pipe": first_timed_line(lines, r"mhi_0305|pipe_10|mhi"),
         "wlan_pd": first_timed_line(lines, r"wlan_pd|service-notifier.*74|service-notifier.*180"),
         "wlfw": first_timed_line(lines, r"wlfw|service\s+69"),
-        "bdf": first_timed_line(lines, r"BDF|bdwlan|regdb"),
+        "bdf": first_timed_line(lines, r"BDF file|bdwlan\.bin|regdb\.bin"),
         "wlan0": first_timed_line(lines, r"\bwlan0\b"),
     }
     irq = parse_irq_line(interrupts_text)
     props = parse_props(props_text)
     mdm3_state_online = bool(re.search(r"state\s*\n?ONLINE|FILE .*subsys9/state\s*\nONLINE", subsys_text, re.IGNORECASE))
-    ks_observed = bool(re.search(r"PROC .*(/vendor/bin/ks|\bks\b)|mhi_0305", process_text, re.IGNORECASE))
-    mhi_observed = bool(re.search(r"/dev/mhi_0305_01\.01\.00_pipe_10|mhi_0305", process_text, re.IGNORECASE))
+    ks_observed = process_has_current_ks(process_text)
+    mhi_observed = process_has_mhi_pipe(process_text)
     gpio_debug_readable = "GPIO_DEBUG readable=1" in gpio_text
+    upper_wifi_positive = (
+        props.get("sys.boot_completed") == "1"
+        and timeline["wlan_pd"]["present"]
+        and timeline["wlfw"]["present"]
+        and timeline["bdf"]["present"]
+        and timeline["wlan0"]["present"]
+    )
     positive_markers = {
         "boot_completed": props.get("sys.boot_completed") == "1",
+        "upper_wifi_positive": upper_wifi_positive,
         "mdm3_online": mdm3_state_online or timeline["mdm3_online"]["present"],
         "gpio142_irq_positive": irq.get("count_total", 0) > 0,
         "pcie_link": timeline["pcie_link"]["present"],
@@ -358,19 +389,14 @@ def classify(captures: dict[str, Capture]) -> dict[str, Any]:
         "bdf": timeline["bdf"]["present"],
         "wlan0": timeline["wlan0"]["present"],
     }
-    enough_for_trigger_model = (
-        positive_markers["boot_completed"]
-        and positive_markers["mdm3_online"]
-        and positive_markers["gpio142_irq_positive"]
-        and positive_markers["pcie_link"]
-        and positive_markers["ks_observed"]
-        and positive_markers["mhi_observed"]
-    )
-    if enough_for_trigger_model:
-        decision = "v913-android-esoc-gpio-timeline-positive"
+    if upper_wifi_positive:
+        decision = "v913-android-upper-wifi-positive-lower-gpio-postboot-negative"
         pass_ok = True
-        reason = "Android positive boot exposes mdm3 ONLINE, GPIO142 IRQ, PCIe, ks, and MHI ordering evidence."
-        next_step = "V914 source/build-only helper support for mdm_helper-held /dev/subsys_esoc0 trigger capture."
+        reason = (
+            "Android boot proves WLAN-PD, WLFW, BDF, and wlan0 despite post-boot "
+            "mdm3/GPIO142/MHI markers not being positive; do not require those sampled lower markers for V912 success."
+        )
+        next_step = "Run the post-V913 route classifier and adjust V912-derived native trigger success criteria before live subsystem-open."
     else:
         decision = "v913-android-esoc-gpio-timeline-incomplete"
         pass_ok = False
