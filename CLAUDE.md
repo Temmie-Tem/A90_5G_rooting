@@ -9,7 +9,7 @@ Samsung Galaxy A90 5G (SM-A908N) — stock Android Linux kernel 4.14.190, custom
 - **Device**: SM-A908N, Android 12, Magisk 30.7, TWRP available
 - **Current native build**: `A90 Linux init 0.9.68 (v724)` — `stage3/boot_linux_v724.img`
 - **Known-good fallback**: `stage3/boot_linux_v48.img`
-- **Active research cycle**: v822 pending after V821 matrix; classify why kernel sysmon/service-locator dmesg appears while AF_QIPCRTR nameservice publication stays empty below HAL/connect
+- **Active research cycle**: v823 pending after V822 classifier; extend helper v125 nameservice matrix with sysmon SSCTL `43/16` below QMI payload/HAL/connect
 - **Versioning policy**: `docs/operations/VERSIONING_POLICY.md` — `vNNN` cycle ≠ device flash
 
 ## Versioning rules
@@ -157,7 +157,7 @@ New `vNNN` experiment scripts must:
 - Gate live action behind explicit `--allow-*` + `--assume-yes` flags
 - Run `version`, `status`, `bootstatus`, `selftest verbose` as postflight regression
 
-## Wi-Fi bring-up research state (v598–v821, active)
+## Wi-Fi bring-up research state (v598–v822, active)
 
 Goal: bring up `wlan0` from native init without Android userspace.
 
@@ -179,7 +179,7 @@ stable enough in every boot. Helper v124 added a `sysmon-qmi` gated
 `mdm_helper` mode. V746 proved `mdm_helper` starts safely after `sysmon-qmi`,
 but it does not advance mdm3/WLAN-PD/WLFW.
 
-### Current blocker (V821)
+### Current blocker (V822)
 
 ```
 mss: OFFLINING → ONLINE ✓  (read-only firmware mounts + subsys_modem holder)
@@ -238,6 +238,7 @@ V818 mdm3/esoc registration classifier: host-only PASS. V817 proves the live low
 V819 mdm3/esoc registration catalogue: live stock-v724 PASS. Wrapped V817 still passes: mss moves `OFFLINING -> ONLINE -> ONLINE`, mdm3 remains `OFFLINING`, and WLAN-PD/WLFW remain absent. Added read-only catalogue shows esoc/mdm3 sysfs surfaces exist, but debugfs service surfaces are missing, global `/proc/net/qrtr` is missing, and per-process QRTR catalogue sections are empty. Cleanup reboot restored healthy v724. Next gate V820 should inspect helper/per-process QRTR namespace state and service-locator visibility without HAL/connect.
 V820 QRTR namespace classifier: host-only PASS. V819 evidence shows QIPCRTR protocol visibility and working helper AF_QIPCRTR readback, while `/proc/net/qrtr`/debugfs visibility remains absent and WLFW service69 publication remains empty. This demotes procfs/debugfs absence to a visibility limitation rather than proof of QRTR failure. Custom OSRC kernel flashing remains paused under the V775 postmortem. Next gate V821 should run an in-helper QRTR nameservice matrix for service-locator/service-notifier/WLAN-PD/WLFW candidates without QMI payload, service-manager, Wi-Fi HAL, scan/connect, credentials, DHCP/routes, or external ping.
 V821 QRTR nameservice matrix: live stock-v724 PASS. Helper v125 added `--qrtr-readback-matrix` and was deployed below HAL/connect. The V817 lower window still passes, AF_QIPCRTR lookup/delete sends work for service-locator `64/1`, service-notifier `66/74`, service-notifier `66/180`, WLFW `69/0`, and WLFW `69/1`, but all five cases return only end-of-list with `service_events=0`. No QMI payload, service-manager, Wi-Fi HAL, scan/connect, credential use, DHCP/routes, external ping, `esoc0`, module load/unload, boot image write, partition write, or custom-kernel flash executed. Cleanup reboot restored healthy v724. Next gate V822 should classify why kernel sysmon/service-locator dmesg appears while userspace AF_QIPCRTR nameservice publication stays clean-empty.
+V822 sysmon nameservice gap classifier: host-only PASS. OSRC source shows service-locator is `64/1`, service-notifier is `66/<instance>`, WLFW is `69/0`, but `sysmon-qmi.c` looks up SSCTL service `0x2b` version `2` with `desc->ssctl_instance_id`. The r3q board DTS sets mdm3 `qcom,ssctl-instance-id=<0x10>`, so V821 did not query the actual sysmon SSCTL nameservice path. Next gate V823 should reuse helper v125 and add `ssctl:43:16` to the no-QMI matrix before any QMI payload, service-manager, Wi-Fi HAL, scan/connect, credential, DHCP/routes, external ping, or custom-kernel flash.
 ```
 
 Vendor firmware files (`wlanmdsp.mbn`, `bdwlan.bin`, `regdb.bin`) confirmed at `sda29` (isolated mount), NOT in default native `/vendor`.
@@ -338,6 +339,7 @@ path should be closed for this blocker.
 | v819 | live read-only registration catalogue: esoc/mdm3 sysfs exists, but debugfs service surfaces, global `/proc/net/qrtr`, and per-process QRTR sections are absent; next is helper/per-process QRTR namespace inspection |
 | v820 | host-only QRTR namespace classifier: QIPCRTR/AF_QIPCRTR readback works, but procfs/debugfs visibility is absent and service69 publication is still empty; next is in-helper nameservice matrix |
 | v821 | live helper v125 nameservice matrix: AF_QIPCRTR lookup works for service-locator/service-notifier/WLFW candidates, but all return end-of-list with service publication 0; next is sysmon dmesg vs userspace nameservice gap classification |
+| v822 | host-only source/evidence classifier: sysmon-qmi uses SSCTL service `43` instance `16`, which V821 did not query; next is V823 no-QMI matrix extension with `ssctl:43:16` |
 
 ### Safety additions (Wi-Fi research)
 
