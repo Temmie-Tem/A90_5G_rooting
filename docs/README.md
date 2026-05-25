@@ -130,6 +130,8 @@
 
 ### 3. Plans
 
+- `plans/NATIVE_INIT_V892_HELPER_V142_ALLOWLIST_DEPLOY_PLAN_2026-05-26.md` – helper `v142`에서 conditional response mode 전역 allowlist 누락을 수정하고 deploy-only로 올리는 V892 계획
+- `plans/NATIVE_INIT_V891_ESOC_CONDITIONAL_RESPONSE_PROOF_PLAN_2026-05-26.md` – `ESOC_REQ_IMG`에 `ESOC_IMG_XFER_DONE`으로 응답하고 status-gated `BOOT_DONE`을 검증하는 V891 계획
 - `plans/NATIVE_INIT_V890_HELPER_V141_DEPLOY_PLAN_2026-05-26.md` – helper `v141`을 `/cache/bin/a90_android_execns_probe`에 deploy-only로 올리는 V890 계획
 - `plans/NATIVE_INIT_V889_ESOC_CONDITIONAL_RESPONSE_HELPER_PLAN_2026-05-26.md` – helper `v141`에 status-gated eSoC conditional response mode를 source/build-only로 추가하는 V889 계획
 - `plans/NATIVE_INIT_V888_ESOC_RESPONSE_GATE_CLASSIFIER_PLAN_2026-05-26.md` – `ESOC_REQ_IMG` 이후 첫 response와 `BOOT_DONE` 조건을 host-only로 분류하는 V888 계획
@@ -401,6 +403,8 @@
 
 ### 4. Current Native Init Reports
 
+- `reports/NATIVE_INIT_V892_HELPER_V142_ALLOWLIST_DEPLOY_2026-05-26.md` – V892 결과 helper `v142` allowlist repair/build/deploy PASS
+- `reports/NATIVE_INIT_V891_ESOC_CONDITIONAL_RESPONSE_PROOF_2026-05-26.md` – V891 결과 `ESOC_IMG_XFER_DONE` sent, `GET_STATUS` not-ready, cleanup reboot PASS
 - `reports/NATIVE_INIT_V890_HELPER_V141_DEPLOY_2026-05-26.md` – V890 결과 helper `v141` deploy-only PASS, remote sha/mode marker/selftest/actor-clean/Wi-Fi-link-clean 확인
 - `reports/NATIVE_INIT_V889_ESOC_CONDITIONAL_RESPONSE_HELPER_BUILD_2026-05-26.md` – V889 결과 helper `v141` static build PASS, conditional response mode와 allow flag 추가
 - `reports/NATIVE_INIT_V888_ESOC_RESPONSE_GATE_CLASSIFIER_2026-05-26.md` – V888 결과 `ESOC_IMG_XFER_DONE` first, readiness-gated `ESOC_BOOT_DONE` response gate 선정

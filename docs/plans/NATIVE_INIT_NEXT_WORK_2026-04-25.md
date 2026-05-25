@@ -25,7 +25,9 @@
 
 ## 현재 Wi-Fi Gate
 
-- 최신 기준: V890 helper v141 deploy-only pass.
+- 최신 기준: V891/V892 conditional eSoC response proof pass. Helper `v142`
+  is deployed, `ESOC_IMG_XFER_DONE` succeeds, and `ESOC_GET_STATUS` remains
+  not-ready.
 - V874 결론: `/dev/esoc-0` read-only control path가 live에서 열렸고
   `GET_STATUS`/`GET_ERR_FATAL`은 rc `0`, `GET_LINK_ID`는 errno `22`로
   반환됐다. 결과는 `read-only-ioctl-probe-complete`이며 created nodes cleanup,
@@ -124,6 +126,13 @@
   `e6909cbfee79a4a1f55a3f039cdc29dca57f31e00c19d63a1a452d633c060f21`이고
   conditional response mode token이 확인됐다. 다음 후보는 V891 bounded live
   conditional response proof다.
+- V891/V892 결론: helper `v141`의 global allowlist 누락 때문에 첫 V891은
+  live eSoC action 전에 rc `2`로 중단됐다. V892에서 helper `v142`로 repair
+  및 deploy했고, repaired V891은 `ESOC_REQ_IMG` 관측 후
+  `ESOC_IMG_XFER_DONE`을 rc `0`으로 전송했다. `ESOC_GET_STATUS`는 87회 모두
+  value `0`이어서 `ESOC_BOOT_DONE`은 보내지 않았다. cleanup reboot 후
+  `bootstatus`와 `selftest fail=0`가 통과했다. 다음 후보는 V893
+  post-image-done readiness classifier다.
 
 - 아래 V840-V847 항목은 V874/V875 이전 경로 요약이다.
 - V840 결론: provider-first service-manager/PeripheralManager, CNSS retry,
@@ -4426,3 +4435,43 @@ Samsung bootloader
   `ESOC_NOTIFY`, no actor start, no service-manager, no Wi-Fi HAL,
   scan/connect, DHCP/routes, credentials, or external ping.
 - next: V891 bounded conditional response proof using helper `v141`.
+
+### V891. eSoC Conditional Response Proof
+
+- plan: `docs/plans/NATIVE_INIT_V891_ESOC_CONDITIONAL_RESPONSE_PROOF_PLAN_2026-05-26.md`
+- report: `docs/reports/NATIVE_INIT_V891_ESOC_CONDITIONAL_RESPONSE_PROOF_2026-05-26.md`
+- runner: `scripts/revalidation/native_wifi_esoc_conditional_response_v891.py`
+- evidence:
+  - `tmp/wifi/v891-esoc-conditional-response-plan/manifest.json`
+  - `tmp/wifi/v891-esoc-conditional-response-live/manifest.json`
+  - `tmp/wifi/v891-esoc-conditional-response-live-v142/manifest.json`
+- decision: `v891-img-xfer-done-sent-status-not-ready-reboot-cleaned`
+- result: bounded live proof PASS after V892 helper repair. `ESOC_REQ_IMG`
+  was observed, `ESOC_IMG_XFER_DONE` was sent with rc `0`, and
+  `ESOC_GET_STATUS` stayed value `0` for 87 polls. `ESOC_BOOT_DONE` was not
+  attempted.
+- cleanup: helper child remained unkillable, recovery reboot executed, and
+  post-reboot `bootstatus` plus `selftest fail=0` passed.
+- hard gates held: no `REG_CMD_ENG`, direct userspace `CMD_EXE`, explicit
+  userspace `PWR_ON`, blind `ESOC_BOOT_DONE`, actor start, service-manager,
+  Wi-Fi HAL, scan/connect, credentials, DHCP/routes, external ping, module
+  load/unload, boot image write, partition write, firmware mutation, or Wi-Fi
+  link-up.
+- next: V893 post-image-done readiness classifier.
+
+### V892. Helper v142 Allowlist Repair and Deploy
+
+- plan: `docs/plans/NATIVE_INIT_V892_HELPER_V142_ALLOWLIST_DEPLOY_PLAN_2026-05-26.md`
+- report: `docs/reports/NATIVE_INIT_V892_HELPER_V142_ALLOWLIST_DEPLOY_2026-05-26.md`
+- deploy wrapper: `scripts/revalidation/wifi_execns_helper_v142_deploy_preflight.py`
+- evidence:
+  - `tmp/wifi/v892-execns-helper-v142-build/manifest.json`
+  - `tmp/wifi/v892-execns-helper-v142-plan/manifest.json`
+  - `tmp/wifi/v892-execns-helper-v142-preflight/manifest.json`
+  - `tmp/wifi/v892-execns-helper-v142-deploy-preflight/manifest.json`
+- decision: `execns-helper-v142-deploy-pass`
+- result: helper `v142` adds conditional response mode to the global v235
+  allowlist and deploys cleanly.
+- hard gates held: deploy-only helper replacement; no live eSoC ioctl,
+  subsystem open, actor start, service-manager, Wi-Fi HAL, scan/connect,
+  credentials, DHCP/routes, external ping, reboot, or Wi-Fi bring-up.

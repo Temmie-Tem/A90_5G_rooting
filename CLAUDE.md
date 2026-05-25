@@ -9,7 +9,7 @@ Samsung Galaxy A90 5G (SM-A908N) — stock Android Linux kernel 4.14.190, custom
 - **Device**: SM-A908N, Android 12, Magisk 30.7, TWRP available
 - **Current native build**: `A90 Linux init 0.9.68 (v724)` — `stage3/boot_linux_v724.img`
 - **Known-good fallback**: `stage3/boot_linux_v48.img`
-- **Active research cycle**: V890 deployed helper `v141`; next is V891 bounded conditional response proof with timeout and reboot cleanup gates
+- **Active research cycle**: V891 proved `ESOC_IMG_XFER_DONE` can be sent; next is post-image-done `ESOC_GET_STATUS` not-ready classification
 - **Versioning policy**: `docs/operations/VERSIONING_POLICY.md` — `vNNN` cycle ≠ device flash
 
 ## Versioning rules
@@ -603,6 +603,8 @@ path should be closed for this blocker.
 | v888 | host-only response gate classifier: choose `ESOC_IMG_XFER_DONE` first, then readiness-gated `ESOC_BOOT_DONE`; blind BOOT_DONE remains blocked |
 | v889 | helper v141 source/build-only: adds fail-closed conditional response mode and allow flag; no deploy or live notify |
 | v890 | helper v141 deploy-only: serial deploy pass; remote sha/mode marker, selftest, actor-clean, and Wi-Fi-link-clean pass; no live eSoC ioctl |
+| v891 | bounded conditional response proof: first v141 attempt failed allowlist before live action; v142 rerun sent `ESOC_IMG_XFER_DONE`, `GET_STATUS` stayed 0, no `BOOT_DONE`, cleanup reboot pass |
+| v892 | helper v142 allowlist repair/deploy: adds conditional response mode to global v235 allowlist; deploy-only pass |
 
 ### Safety additions (Wi-Fi research)
 
@@ -732,8 +734,13 @@ path should be closed for this blocker.
   notify occurred. V890 then deployed helper `v141` to
   `/cache/bin/a90_android_execns_probe` and verified remote sha/mode marker,
   selftest, actor-clean, and Wi-Fi-link-clean state without live eSoC ioctl.
-  Next is V891 bounded conditional response proof with explicit timeout and
-  reboot cleanup gates.
+  V891 initially failed before live eSoC action because helper `v141` omitted
+  the conditional response mode from the global v235 allowlist. V892 repaired
+  and deployed helper `v142`. The repaired V891 live proof observed
+  `ESOC_REQ_IMG`, sent `ESOC_IMG_XFER_DONE` with rc `0`, then polled
+  `ESOC_GET_STATUS` 87 times with value `0`; `ESOC_BOOT_DONE` was not sent.
+  Cleanup reboot restored healthy native selftest. Next is classifying why
+  post-image-done status stays not-ready.
   Keep Wi-Fi HAL, scan/connect, DHCP/routes, credentials, external ping, live
   direct userspace `CMD_EXE`/explicit userspace `PWR_ON`, `NOTIFY`, subsystem
   writes, GPIO/sysfs/debugfs writes, module load/unload, and boot image writes

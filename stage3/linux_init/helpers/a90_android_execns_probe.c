@@ -88,7 +88,7 @@
 #define IOPRIO_PRIO_VALUE(class_value, data) (((class_value) << IOPRIO_CLASS_SHIFT) | (data))
 #endif
 
-#define EXECNS_VERSION "a90_android_execns_probe v141"
+#define EXECNS_VERSION "a90_android_execns_probe v142"
 #define MAX_PATH_LEN 512
 #define MAX_CAPTURE_SIZE (1024 * 1024)
 #define MAX_LINKERCONFIG_SIZE (256 * 1024)
@@ -1131,6 +1131,7 @@ static int parse_args(int argc, char **argv, struct config *cfg) {
           is_wifi_companion_esoc_control_preflight_mode(cfg->mode) ||
           is_wifi_companion_esoc_engine_register_preflight_mode(cfg->mode) ||
           is_wifi_companion_esoc_req_registered_subsys_hold_preflight_mode(cfg->mode) ||
+          is_wifi_companion_esoc_conditional_response_preflight_mode(cfg->mode) ||
           is_wifi_companion_any_start_only_mode(cfg->mode) ||
           is_wifi_companion_hal_order_start_only_mode(cfg->mode) ||
           streq(cfg->mode, "property-lookup") ||

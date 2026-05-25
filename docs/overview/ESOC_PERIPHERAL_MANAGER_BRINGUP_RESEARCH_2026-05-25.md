@@ -1177,3 +1177,57 @@ Next candidate:
 - V891 bounded conditional response proof using helper `v141`.
 - This is the first live `ESOC_NOTIFY` candidate and must include timeout and
   reboot cleanup criteria.
+
+---
+
+## 34. V891/V892 conditional response result
+
+V891 ran the first guarded conditional eSoC response proof. The first attempt
+with helper `v141` failed before any live eSoC action because the conditional
+response mode was missing from the global v235 helper allowlist. V892 repaired
+that bug, built helper `v142`, and deployed it to
+`/cache/bin/a90_android_execns_probe`.
+
+Evidence:
+
+- `tmp/wifi/v891-esoc-conditional-response-plan/manifest.json`
+- `tmp/wifi/v891-esoc-conditional-response-live/manifest.json`
+- `tmp/wifi/v892-execns-helper-v142-build/manifest.json`
+- `tmp/wifi/v892-execns-helper-v142-deploy-preflight/manifest.json`
+- `tmp/wifi/v891-esoc-conditional-response-live-v142/manifest.json`
+- `docs/plans/NATIVE_INIT_V891_ESOC_CONDITIONAL_RESPONSE_PROOF_PLAN_2026-05-26.md`
+- `docs/plans/NATIVE_INIT_V892_HELPER_V142_ALLOWLIST_DEPLOY_PLAN_2026-05-26.md`
+- `docs/reports/NATIVE_INIT_V891_ESOC_CONDITIONAL_RESPONSE_PROOF_2026-05-26.md`
+- `docs/reports/NATIVE_INIT_V892_HELPER_V142_ALLOWLIST_DEPLOY_2026-05-26.md`
+
+Decisions:
+
+- initial v141 attempt: `v891-step-failed`
+- v142 deploy: `execns-helper-v142-deploy-pass`
+- repaired live proof:
+  `v891-img-xfer-done-sent-status-not-ready-reboot-cleaned`
+
+Result:
+
+- `REG_REQ_ENG` succeeded with rc `0`, errno `0`.
+- `/dev/subsys_esoc0` open emitted `ESOC_REQ_IMG`.
+- `ESOC_NOTIFY(ESOC_IMG_XFER_DONE)` succeeded with rc `0`, errno `0`.
+- `ESOC_GET_STATUS` was polled 87 times and stayed value `0`.
+- `ESOC_BOOT_DONE` was not attempted or sent.
+- The helper child stayed unkillable, so cleanup reboot was required and
+  post-reboot `bootstatus` plus `selftest fail=0` passed.
+- No Android actors, service-manager, Wi-Fi HAL, scan/connect, credentials,
+  DHCP/routes, external ping, boot image write, module load/unload, firmware
+  mutation, GPIO/sysfs/debugfs write, or Wi-Fi link-up occurred.
+
+Current interpretation:
+
+- The REQ engine, request FIFO, and `ESOC_IMG_XFER_DONE` notify path work.
+- The blocker moved to the readiness transition after image-done.
+- Blind `ESOC_BOOT_DONE` remains blocked because status never became ready.
+
+Next candidate:
+
+- V893 post-image-done readiness classifier.
+- Specifically classify what Android/mdm_helper does between
+  `ESOC_IMG_XFER_DONE` and readiness/status transition.
