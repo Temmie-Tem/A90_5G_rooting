@@ -88,7 +88,7 @@
 #define IOPRIO_PRIO_VALUE(class_value, data) (((class_value) << IOPRIO_CLASS_SHIFT) | (data))
 #endif
 
-#define EXECNS_VERSION "a90_android_execns_probe v150"
+#define EXECNS_VERSION "a90_android_execns_probe v151"
 #define MAX_PATH_LEN 512
 #define MAX_CAPTURE_SIZE (1024 * 1024)
 #define MAX_LINKERCONFIG_SIZE (256 * 1024)
@@ -17788,6 +17788,105 @@ static int run_wifi_companion_mdm_helper_runtime_contract_capture_guarded(const 
     return all_postflight_safe ? 0 : 42;
 }
 
+static int start_mdm_helper_subsys_trigger_child(const struct config *cfg,
+                                                 const struct paths *paths,
+                                                 struct buffer *stdout_buf,
+                                                 int trigger_pipe[2],
+                                                 pid_t *trigger_pid,
+                                                 pid_t *trigger_pgid,
+                                                 bool *trigger_started,
+                                                 bool *trigger_stdout_open) {
+    if (pipe2(trigger_pipe, O_CLOEXEC) < 0) {
+        return append_format(stdout_buf,
+                             "mdm_helper_subsys_trigger.subsys_esoc0_open_attempted=0\n"
+                             "mdm_helper_subsys_trigger.result=manual-review-required\n"
+                             "mdm_helper_subsys_trigger.reason=trigger-pipe-failed-%s\n"
+                             "mdm_helper_subsys_trigger.end=1\n",
+                             strerror(errno));
+    }
+    *trigger_pid = fork();
+    if (*trigger_pid < 0) {
+        int saved_errno = errno;
+
+        close(trigger_pipe[0]);
+        close(trigger_pipe[1]);
+        trigger_pipe[0] = -1;
+        trigger_pipe[1] = -1;
+        return append_format(stdout_buf,
+                             "mdm_helper_subsys_trigger.subsys_esoc0_open_attempted=0\n"
+                             "mdm_helper_subsys_trigger.result=manual-review-required\n"
+                             "mdm_helper_subsys_trigger.reason=trigger-fork-failed-%s\n"
+                             "mdm_helper_subsys_trigger.end=1\n",
+                             strerror(saved_errno));
+    }
+    if (*trigger_pid == 0) {
+        int fd = -1;
+        int saved_errno = 0;
+        int hold_sec = cfg->timeout_sec > 3 ? cfg->timeout_sec - 2 : 1;
+
+        close(trigger_pipe[0]);
+        if (setsid() < 0) {
+            dprintf(trigger_pipe[1], "mdm_helper_subsys_trigger.subsys_trigger.setsid_error=%s\n", strerror(errno));
+            _exit(120);
+        }
+        if (chroot(paths->root) < 0) {
+            dprintf(trigger_pipe[1], "mdm_helper_subsys_trigger.subsys_trigger.chroot_error=%s\n", strerror(errno));
+            _exit(121);
+        }
+        if (chdir("/") < 0) {
+            dprintf(trigger_pipe[1], "mdm_helper_subsys_trigger.subsys_trigger.chdir_error=%s\n", strerror(errno));
+            _exit(122);
+        }
+        dprintf(trigger_pipe[1],
+                "mdm_helper_subsys_trigger.subsys_trigger.child_chroot=1\n"
+                "mdm_helper_subsys_trigger.subsys_trigger.hold_sec=%d\n"
+                "mdm_helper_subsys_trigger.subsys_trigger.no_notify=1\n"
+                "mdm_helper_subsys_trigger.subsys_trigger.no_boot_done=1\n"
+                "mdm_helper_subsys_trigger.subsys_esoc0_open_attempting=1\n",
+                hold_sec);
+        errno = 0;
+        fd = open("/dev/subsys_esoc0", O_RDONLY | O_NONBLOCK | O_CLOEXEC);
+        if (fd < 0 && errno == EINVAL) {
+            errno = 0;
+            fd = open("/dev/subsys_esoc0", O_RDONLY | O_CLOEXEC);
+        }
+        saved_errno = fd < 0 ? errno : 0;
+        if (fd < 0) {
+            dprintf(trigger_pipe[1],
+                    "mdm_helper_subsys_trigger.subsys_esoc0_opened=0\n"
+                    "mdm_helper_subsys_trigger.subsys_esoc0_open_errno=%d\n"
+                    "mdm_helper_subsys_trigger.subsys_esoc0_open_error=%s\n",
+                    saved_errno,
+                    strerror(saved_errno));
+            close(trigger_pipe[1]);
+            _exit(31);
+        }
+        dprintf(trigger_pipe[1],
+                "mdm_helper_subsys_trigger.subsys_esoc0_opened=1\n"
+                "mdm_helper_subsys_trigger.subsys_esoc0_fd=%d\n",
+                fd);
+        for (int i = 0; i < hold_sec * 10; i++) {
+            usleep(100000);
+        }
+        close(fd);
+        dprintf(trigger_pipe[1], "mdm_helper_subsys_trigger.subsys_trigger.child_done=1\n");
+        close(trigger_pipe[1]);
+        _exit(0);
+    }
+    *trigger_started = true;
+    close(trigger_pipe[1]);
+    trigger_pipe[1] = -1;
+    *trigger_stdout_open = true;
+    set_nonblock(trigger_pipe[0]);
+    *trigger_pgid = wait_for_child_session_pgid(*trigger_pid, 1000);
+    return append_format(stdout_buf,
+                         "mdm_helper_subsys_trigger.subsys_esoc0_open_attempted=1\n"
+                         "mdm_helper_subsys_trigger.subsys_trigger.pid=%ld\n"
+                         "mdm_helper_subsys_trigger.subsys_trigger.pgid=%ld\n",
+                         (long)*trigger_pid,
+                         (long)*trigger_pgid);
+}
+
 static int run_wifi_companion_mdm_helper_runtime_subsys_trigger_capture_guarded(const struct config *cfg,
                                                                                 const struct paths *paths,
                                                                                 struct buffer *stdout_buf,
@@ -17820,14 +17919,17 @@ static int run_wifi_companion_mdm_helper_runtime_subsys_trigger_capture_guarded(
     int mhi_cmdline_count_final = -1;
     int esoc0_fd_count_window = -1;
     int esoc0_fd_count_final = -1;
+    int esoc0_fd_count_gate = -1;
     int subsys_esoc0_fd_count_window = -1;
     int subsys_esoc0_fd_count_final = -1;
     int mhi_fd_count_window = -1;
     int mhi_fd_count_final = -1;
+    int gate_poll_count = 0;
     pid_t trigger_pid = -1;
     pid_t trigger_pgid = -1;
     long settle_deadline;
     long deadline;
+    long next_gate_poll_ms = 0;
 
     *child_exit_code = -1;
     *child_signal = 0;
@@ -18034,101 +18136,59 @@ static int run_wifi_companion_mdm_helper_runtime_subsys_trigger_capture_guarded(
             }
             window_snapshot_captured = true;
             if (esoc0_fd_count_window > 0) {
-                if (pipe2(trigger_pipe, O_CLOEXEC) < 0) {
-                    if (append_format(stdout_buf,
-                                      "mdm_helper_subsys_trigger.subsys_esoc0_open_attempted=0\n"
-                                      "mdm_helper_subsys_trigger.result=manual-review-required\n"
-                                      "mdm_helper_subsys_trigger.reason=trigger-pipe-failed-%s\n"
-                                      "mdm_helper_subsys_trigger.end=1\n",
-                                      strerror(errno)) < 0) {
-                        goto fail;
-                    }
+                if (start_mdm_helper_subsys_trigger_child(cfg,
+                                                          paths,
+                                                          stdout_buf,
+                                                          trigger_pipe,
+                                                          &trigger_pid,
+                                                          &trigger_pgid,
+                                                          &trigger_started,
+                                                          &trigger_stdout_open) < 0 ||
+                    append_wifi_window_surface_capture(stdout_buf, "subsys_trigger_after_open") < 0 ||
+                    append_wifi_cnss2_focus_capture(stdout_buf, "subsys_trigger_after_open") < 0) {
                     goto fail;
                 }
-                trigger_pid = fork();
-                if (trigger_pid < 0) {
-                    int saved_errno = errno;
+            }
+        }
+        if (window_snapshot_captured &&
+            !trigger_started &&
+            !mdm_helper->child_done &&
+            kill(mdm_helper->pid, 0) == 0 &&
+            monotonic_ms() >= next_gate_poll_ms) {
+            char poll_phase[64];
 
-                    close(trigger_pipe[0]);
-                    close(trigger_pipe[1]);
-                    trigger_pipe[0] = -1;
-                    trigger_pipe[1] = -1;
-                    if (append_format(stdout_buf,
-                                      "mdm_helper_subsys_trigger.subsys_esoc0_open_attempted=0\n"
-                                      "mdm_helper_subsys_trigger.result=manual-review-required\n"
-                                      "mdm_helper_subsys_trigger.reason=trigger-fork-failed-%s\n"
-                                      "mdm_helper_subsys_trigger.end=1\n",
-                                      strerror(saved_errno)) < 0) {
-                        goto fail;
-                    }
-                    goto fail;
-                }
-                if (trigger_pid == 0) {
-                    int fd = -1;
-                    int saved_errno = 0;
-                    int hold_sec = cfg->timeout_sec > 3 ? cfg->timeout_sec - 2 : 1;
-
-                    close(trigger_pipe[0]);
-                    if (setsid() < 0) {
-                        dprintf(trigger_pipe[1], "mdm_helper_subsys_trigger.subsys_trigger.setsid_error=%s\n", strerror(errno));
-                        _exit(120);
-                    }
-                    if (chroot(paths->root) < 0) {
-                        dprintf(trigger_pipe[1], "mdm_helper_subsys_trigger.subsys_trigger.chroot_error=%s\n", strerror(errno));
-                        _exit(121);
-                    }
-                    if (chdir("/") < 0) {
-                        dprintf(trigger_pipe[1], "mdm_helper_subsys_trigger.subsys_trigger.chdir_error=%s\n", strerror(errno));
-                        _exit(122);
-                    }
-                    dprintf(trigger_pipe[1],
-                            "mdm_helper_subsys_trigger.subsys_trigger.child_chroot=1\n"
-                            "mdm_helper_subsys_trigger.subsys_trigger.hold_sec=%d\n"
-                            "mdm_helper_subsys_trigger.subsys_trigger.no_notify=1\n"
-                            "mdm_helper_subsys_trigger.subsys_trigger.no_boot_done=1\n"
-                            "mdm_helper_subsys_trigger.subsys_esoc0_open_attempting=1\n",
-                            hold_sec);
-                    errno = 0;
-                    fd = open("/dev/subsys_esoc0", O_RDONLY | O_NONBLOCK | O_CLOEXEC);
-                    if (fd < 0 && errno == EINVAL) {
-                        errno = 0;
-                        fd = open("/dev/subsys_esoc0", O_RDONLY | O_CLOEXEC);
-                    }
-                    saved_errno = fd < 0 ? errno : 0;
-                    if (fd < 0) {
-                        dprintf(trigger_pipe[1],
-                                "mdm_helper_subsys_trigger.subsys_esoc0_opened=0\n"
-                                "mdm_helper_subsys_trigger.subsys_esoc0_open_errno=%d\n"
-                                "mdm_helper_subsys_trigger.subsys_esoc0_open_error=%s\n",
-                                saved_errno,
-                                strerror(saved_errno));
-                        close(trigger_pipe[1]);
-                        _exit(31);
-                    }
-                    dprintf(trigger_pipe[1],
-                            "mdm_helper_subsys_trigger.subsys_esoc0_opened=1\n"
-                            "mdm_helper_subsys_trigger.subsys_esoc0_fd=%d\n",
-                            fd);
-                    for (int i = 0; i < hold_sec * 10; i++) {
-                        usleep(100000);
-                    }
-                    close(fd);
-                    dprintf(trigger_pipe[1], "mdm_helper_subsys_trigger.subsys_trigger.child_done=1\n");
-                    close(trigger_pipe[1]);
-                    _exit(0);
-                }
-                trigger_started = true;
-                close(trigger_pipe[1]);
-                trigger_pipe[1] = -1;
-                trigger_stdout_open = true;
-                set_nonblock(trigger_pipe[0]);
-                trigger_pgid = wait_for_child_session_pgid(trigger_pid, 1000);
-                if (append_format(stdout_buf,
-                                  "mdm_helper_subsys_trigger.subsys_esoc0_open_attempted=1\n"
-                                  "mdm_helper_subsys_trigger.subsys_trigger.pid=%ld\n"
-                                  "mdm_helper_subsys_trigger.subsys_trigger.pgid=%ld\n",
-                                  (long)trigger_pid,
-                                  (long)trigger_pgid) < 0 ||
+            if (snprintf(poll_phase,
+                         sizeof(poll_phase),
+                         "gate_esoc0_poll_%02d",
+                         gate_poll_count) >= (int)sizeof(poll_phase)) {
+                goto fail;
+            }
+            if (append_proc_fd_target_match_scan(stdout_buf,
+                                                 mdm_helper->pid,
+                                                 "mdm_helper_subsys_trigger",
+                                                 poll_phase,
+                                                 "/dev/esoc-0",
+                                                 &esoc0_fd_count_gate) < 0 ||
+                append_format(stdout_buf,
+                              "mdm_helper_subsys_trigger.subsys_esoc0_open_gate_poll=%d\n"
+                              "mdm_helper_subsys_trigger.subsys_esoc0_open_gate_count=%d\n"
+                              "mdm_helper_subsys_trigger.subsys_esoc0_open_gate_open=%d\n",
+                              gate_poll_count,
+                              esoc0_fd_count_gate,
+                              esoc0_fd_count_gate > 0 ? 1 : 0) < 0) {
+                goto fail;
+            }
+            gate_poll_count++;
+            next_gate_poll_ms = monotonic_ms() + 250L;
+            if (esoc0_fd_count_gate > 0) {
+                if (start_mdm_helper_subsys_trigger_child(cfg,
+                                                          paths,
+                                                          stdout_buf,
+                                                          trigger_pipe,
+                                                          &trigger_pid,
+                                                          &trigger_pgid,
+                                                          &trigger_started,
+                                                          &trigger_stdout_open) < 0 ||
                     append_wifi_window_surface_capture(stdout_buf, "subsys_trigger_after_open") < 0 ||
                     append_wifi_cnss2_focus_capture(stdout_buf, "subsys_trigger_after_open") < 0) {
                     goto fail;
@@ -18278,7 +18338,9 @@ static int run_wifi_companion_mdm_helper_runtime_subsys_trigger_capture_guarded(
                       "mdm_helper_subsys_trigger.window_snapshot_captured=%d\n"
                       "mdm_helper_subsys_trigger.final_snapshot_captured=%d\n"
                       "mdm_helper_subsys_trigger.fd_esoc0_count.window=%d\n"
+                      "mdm_helper_subsys_trigger.fd_esoc0_count.gate=%d\n"
                       "mdm_helper_subsys_trigger.fd_esoc0_count.final=%d\n"
+                      "mdm_helper_subsys_trigger.gate_poll_count=%d\n"
                       "mdm_helper_subsys_trigger.fd_subsys_esoc0_count.window=%d\n"
                       "mdm_helper_subsys_trigger.fd_subsys_esoc0_count.final=%d\n"
                       "mdm_helper_subsys_trigger.fd_mhi_pipe_count.window=%d\n"
@@ -18303,7 +18365,9 @@ static int run_wifi_companion_mdm_helper_runtime_subsys_trigger_capture_guarded(
                       window_snapshot_captured ? 1 : 0,
                       final_snapshot_captured ? 1 : 0,
                       esoc0_fd_count_window,
+                      esoc0_fd_count_gate,
                       esoc0_fd_count_final,
+                      gate_poll_count,
                       subsys_esoc0_fd_count_window,
                       subsys_esoc0_fd_count_final,
                       mhi_fd_count_window,
@@ -18337,7 +18401,7 @@ static int run_wifi_companion_mdm_helper_runtime_subsys_trigger_capture_guarded(
     } else if (!trigger_started) {
         append_literal(stdout_buf,
                        "mdm_helper_subsys_trigger.result=trigger-not-attempted-no-esoc-fd\n"
-                       "mdm_helper_subsys_trigger.reason=mdm-helper-did-not-hold-dev-esoc-0-in-window\n");
+                       "mdm_helper_subsys_trigger.reason=bounded-gate-did-not-see-dev-esoc-0\n");
     } else {
         append_literal(stdout_buf,
                        "mdm_helper_subsys_trigger.result=trigger-window-captured\n"
