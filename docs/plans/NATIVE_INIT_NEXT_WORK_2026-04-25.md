@@ -4585,3 +4585,30 @@ Samsung bootloader
   write, boot image write, or Wi-Fi bring-up.
 - next: V897 host-only native `mdm_helper`/`ks` contract design and preflight
   classifier before any live actor start.
+
+### V897. Native mdm_helper/ks Contract Design Classifier
+
+- plan: `docs/plans/NATIVE_INIT_V897_MDM_HELPER_KS_CONTRACT_DESIGN_PLAN_2026-05-26.md`
+- report: `docs/reports/NATIVE_INIT_V897_MDM_HELPER_KS_CONTRACT_DESIGN_2026-05-26.md`
+- classifier:
+  `scripts/revalidation/native_wifi_mdm_helper_ks_contract_design_v897.py`
+- evidence:
+  - `tmp/wifi/v897-mdm-helper-ks-contract-design/manifest.json`
+  - `tmp/wifi/v897-mdm-helper-ks-contract-design/summary.md`
+- decision: `v897-mdm-helper-ks-contract-build-needed`
+- result: host-only PASS. V896/V895/V764/V855/V867 evidence shows the current
+  helper has only old service-gated `mdm_helper` modes and lacks the Android
+  pre-subsys `mdm_helper`/`ks` image/link contract.
+- required delta: add a distinct helper mode that materializes eSoC/subsys
+  nodes, starts `/vendor/bin/mdm_helper` before `/dev/subsys_esoc0` open, lets
+  `mdm_helper` own `/dev/esoc-0` request handling, observes `ks` and
+  `/dev/mhi_0305_01.01.00_pipe_10`, and keeps `BOOT_DONE`/HAL/scan/connect
+  blocked unless readiness is proven.
+- hard gates held: no device contact, Android boot, ADB command, Magisk module,
+  live eSoC ioctl, subsystem open, actor start, `mdm_helper` start, `ks` start,
+  daemon start, Wi-Fi HAL, scan/connect, credentials, DHCP/routes, external
+  ping, GPIO/sysfs/debugfs write, boot image write, partition write, firmware
+  mutation, module load/unload, or Wi-Fi link-up.
+- next: V898 source/build-only helper support for a fail-closed
+  `mdm_helper`/`ks` image-contract mode. Deploy and live proof remain separate
+  cycles.

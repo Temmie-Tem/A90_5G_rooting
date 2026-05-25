@@ -130,6 +130,7 @@
 
 ### 3. Plans
 
+- `plans/NATIVE_INIT_V897_MDM_HELPER_KS_CONTRACT_DESIGN_PLAN_2026-05-26.md` – Android `mdm_helper`/`ks` image/link contract를 native helper에 어떻게 옮길지 host-only로 분류하는 V897 계획
 - `plans/NATIVE_INIT_V896_ANDROID_MDM_HELPER_IMAGE_CONTRACT_PLAN_2026-05-26.md` – Android `mdm_helper`/`ks` MHI image/link contract를 기존 증거만으로 V895 negative control과 비교 분류하는 V896 계획
 - `plans/NATIVE_INIT_V895_MDM2AP_IRQ_SNAPSHOT_PROOF_PLAN_2026-05-26.md` – `IMG_XFER_DONE` 전후 GPIO 142 `mdm status` IRQ count를 bounded live로 관측하는 V895 계획
 - `plans/NATIVE_INIT_V894_MDM2AP_READY_SURFACE_PLAN_2026-05-26.md` – MDM2AP status/ready 전환을 관측할 read-only surface를 분류하는 V894 계획
@@ -407,6 +408,7 @@
 
 ### 4. Current Native Init Reports
 
+- `reports/NATIVE_INIT_V897_MDM_HELPER_KS_CONTRACT_DESIGN_2026-05-26.md` – V897 결과 current helper가 pre-subsys `mdm_helper`/`ks` image-contract mode를 아직 갖지 않아 V898 source/build-only helper 작업이 필요함을 분류
 - `reports/NATIVE_INIT_V896_ANDROID_MDM_HELPER_IMAGE_CONTRACT_2026-05-26.md` – V896 결과 Android `mdm_helper`/`ks` MHI image/link contract 부재가 V895 native `IMG_XFER_DONE` failure의 다음 blocker임을 host-only로 분류
 - `reports/NATIVE_INIT_V895_MDM2AP_IRQ_SNAPSHOT_PROOF_2026-05-26.md` – V895 결과 `IMG_XFER_DONE` 이후에도 GPIO 142 `mdm status` IRQ delta가 0임을 live proof로 분류
 - `reports/NATIVE_INIT_V894_MDM2AP_READY_SURFACE_2026-05-26.md` – V894 결과 `/proc/interrupts`의 GPIO 142 `mdm status` IRQ를 다음 readiness observer로 선정

@@ -9,7 +9,7 @@ Samsung Galaxy A90 5G (SM-A908N) — stock Android Linux kernel 4.14.190, custom
 - **Device**: SM-A908N, Android 12, Magisk 30.7, TWRP available
 - **Current native build**: `A90 Linux init 0.9.68 (v724)` — `stage3/boot_linux_v724.img`
 - **Known-good fallback**: `stage3/boot_linux_v48.img`
-- **Active research cycle**: V896 classified the missing Android `mdm_helper`/`ks` MHI image/link contract; next is host-only native contract design before any live actor start
+- **Active research cycle**: V897 classified that current helper lacks the required pre-subsys `mdm_helper`/`ks` image/link contract; next is V898 source/build-only helper support
 - **Versioning policy**: `docs/operations/VERSIONING_POLICY.md` — `vNNN` cycle ≠ device flash
 
 ## Versioning rules
@@ -760,8 +760,13 @@ path should be closed for this blocker.
   `/dev/mhi_0305_01.01.00_pipe_10`, and `pm-service` holds
   `/dev/subsys_esoc0` plus `/dev/subsys_modem`. Existing Android dmesg/IRQ
   evidence was sufficient, so no Magisk module or new Android boot was needed.
-  Next is V897 host-only native `mdm_helper`/`ks` contract design before any
-  live actor start.
+  V897 then classified the native helper delta host-only: helper `v143` still
+  has only old service-gated `mdm_helper` modes and lacks a distinct
+  pre-subsys `mdm_helper`/`ks` image-contract mode, `/vendor/bin/ks`
+  observation, `/dev/mhi_0305_01.01.00_pipe_10` visibility handling, and
+  enforced `mdm_helper` before `/dev/subsys_esoc0` ordering. Next is V898
+  source/build-only helper support for that fail-closed contract; deploy and
+  live actor start remain separate cycles.
   Keep Wi-Fi HAL, scan/connect, DHCP/routes, credentials, external ping, live
   direct userspace `CMD_EXE`/explicit userspace `PWR_ON`, `NOTIFY`, subsystem
   writes, GPIO/sysfs/debugfs writes, module load/unload, and boot image writes

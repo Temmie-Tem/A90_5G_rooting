@@ -1397,3 +1397,49 @@ Next candidate:
 - Keep live actor start, Wi-Fi HAL, scan/connect, credentials, DHCP/routes,
   external ping, GPIO/sysfs/debugfs writes, and boot image writes blocked until
   a separate bounded live gate.
+
+---
+
+## 39. V897 native mdm_helper/ks contract design result
+
+V897 converted the Android image/link contract finding into a native helper
+design gate.
+
+Evidence:
+
+- `tmp/wifi/v897-mdm-helper-ks-contract-design/manifest.json`
+- `docs/plans/NATIVE_INIT_V897_MDM_HELPER_KS_CONTRACT_DESIGN_PLAN_2026-05-26.md`
+- `docs/reports/NATIVE_INIT_V897_MDM_HELPER_KS_CONTRACT_DESIGN_2026-05-26.md`
+
+Decision:
+
+- `v897-mdm-helper-ks-contract-build-needed`
+
+Result:
+
+- V896 proves Android reaches GPIO 142 IRQ, `mdm3=ONLINE`, WLFW/BDF, and
+  `wlan0` with `mdm_helper` plus `ks` active.
+- V895 proves native immediate `ESOC_IMG_XFER_DONE` leaves GPIO 142 IRQ delta
+  at `0`.
+- V764 proves the old service-gated `mdm_helper` mode did not advance lower
+  state.
+- V855 proves eSoC/subsys node parity is available.
+- V867 keeps PeripheralManager-alone retries closed because they did not hold
+  the needed subsystem fds and created cleanup risk.
+- Current helper `v143` lacks a distinct pre-subsys `mdm_helper`/`ks`
+  image-contract mode, `/vendor/bin/ks` observation, MHI pipe visibility
+  handling, and enforced `mdm_helper` before `/dev/subsys_esoc0` ordering.
+
+Interpretation:
+
+- The next work is not a Magisk module, another Android dmesg capture, blind
+  `BOOT_DONE`, or generic command-engine expansion.
+- The next work is a source/build-only helper mode that safely mirrors the
+  Android ordering: node parity, `mdm_helper` first, subsystem trigger second,
+  then `ks`/MHI/readiness observation.
+
+Next candidate:
+
+- V898 source/build-only fail-closed `mdm_helper`/`ks` image-contract helper
+  support.
+- Deploy and bounded live execution must remain separate cycles.
