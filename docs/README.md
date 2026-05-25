@@ -130,6 +130,7 @@
 
 ### 3. Plans
 
+- `plans/NATIVE_INIT_V820_QRTR_NAMESPACE_CLASSIFIER_PLAN_2026-05-25.md` – V819 helper/catalogue evidence를 host-only로 파싱해 QRTR procfs/debugfs 부재와 AF_QIPCRTR readback/service-publication 상태를 분류하는 계획
 - `plans/NATIVE_INIT_V819_MDM3_ESOC_REGISTRATION_CATALOGUE_PLAN_2026-05-25.md` – V818이 선정한 mdm3/esoc0 service-locator/sysmon registration catalogue를 V817 lower window 안에서 read-only로 수집하는 계획
 - `plans/NATIVE_INIT_V818_MDM3_ESOC_REGISTRATION_CLASSIFIER_PLAN_2026-05-25.md` – V817/V798/V795 증거를 host-only로 묶어 다음 blocker가 mdm3/esoc0 service-locator/sysmon registration인지 분류하는 계획
 - `plans/NATIVE_INIT_V817_IN_WINDOW_SYSMON_SAMPLER_PLAN_2026-05-25.md` – V816 이후 기존 lower-trigger window 안에서 before-holder/after-holder/after-companion read-only subsystem/sysmon/service-locator surface를 샘플링하는 계획
@@ -359,6 +360,7 @@
 
 ### 4. Current Native Init Reports
 
+- `reports/NATIVE_INIT_V820_QRTR_NAMESPACE_CLASSIFIER_2026-05-25.md` – V820 결과 QIPCRTR/AF_QIPCRTR readback은 동작하지만 `/proc/net/qrtr`/debugfs visibility가 없고 service69 publication이 비어 있어 V821 in-helper nameservice matrix로 라우팅
 - `reports/NATIVE_INIT_V819_MDM3_ESOC_REGISTRATION_CATALOGUE_2026-05-25.md` – V819 결과 V817 lower window를 보존하면서 registration catalogue를 수집했고 debugfs service surfaces, `/proc/net/qrtr`, per-process QRTR sections가 비어 있어 V820 helper/per-process QRTR namespace inspection으로 라우팅
 - `reports/NATIVE_INIT_V818_MDM3_ESOC_REGISTRATION_CLASSIFIER_2026-05-25.md` – V818 결과 V817 lower window, V798 complete PIL, V795 holder-only 증거를 묶어 mdm3/esoc0 registration gap을 확정하고 V819 bounded read-only catalogue로 라우팅
 - `reports/NATIVE_INIT_V817_IN_WINDOW_SYSMON_SAMPLER_2026-05-25.md` – V817 결과 lower window 안에서 mss/QRTR/sysmon은 전진하지만 mdm3는 계속 `OFFLINING`, service74/WLAN-PD/WLFW/BDF/`wlan0`는 absent라 V818 mdm3/esoc0 service-locator/sysmon registration isolation으로 라우팅
