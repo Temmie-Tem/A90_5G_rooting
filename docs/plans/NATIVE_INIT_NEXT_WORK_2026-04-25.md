@@ -25,7 +25,7 @@
 
 ## 현재 Wi-Fi Gate
 
-- 최신 기준: V844 pass.
+- 최신 기준: V845 pass.
 - V840 결론: provider-first service-manager/PeripheralManager, CNSS retry,
   prearmed WLAN-PD listener를 결합해도 native는 WLAN-PD `UNINIT` 상태이고
   `wlfw_start`, BDF, FW-ready, `wlan0`가 모두 없다.
@@ -45,9 +45,15 @@
   실제 초기 진행은 QRTR service 69 `wlfw_new_server()` publication에
   의존한다. Native는 `mss=ONLINE`이어도 `mdm3=OFFLINING`이고 WLFW/BDF/
   FW-ready/`wlan0`가 없다.
-- 다음 후보: V845 read-only mdm3/ext-sdx50m eSoC GPIO/sysfs surface snapshot.
-  CNSS launcher/listener 재시도나 HAL/scan/connect가 아니라, raw `esoc0`
-  open과 GPIO/sysfs write 전에 안전한 boot-interface 표면을 먼저 분류한다.
+- V845 결론: live read-only에서 mdm3/eSoC sysfs, `subsys_esoc0`, live
+  devicetree `qcom,ext-sdx50m`, AP/MDM GPIO properties가 존재한다.
+  `mdm3=OFFLINING`, raw `/dev/esoc*`/`/dev/subsys*`는 없고, GPIO 135/142는
+  export되어 있지 않다. `esoc_link`, `esoc_link_info`, `esoc_name`,
+  `subsys9/state`, `subsys0/state`는 readable+writable 후보지만 V845는
+  읽기만 수행했다.
+- 다음 후보: V846 source-backed mdm3/eSoC state-control contract classifier.
+  쓰기 가능한 파일이 있다는 이유로 바로 쓰지 말고, OSRC eSoC/subsystem
+  code path와 rollback 가능성을 먼저 분류한다.
 - Wi-Fi HAL, scan/connect, DHCP/routes, credentials, external ping, `esoc0`,
   subsystem writes, module load/unload, boot image writes는 계속 막는다.
 
@@ -3216,3 +3222,26 @@ Samsung bootloader
 - next: V845 should capture a read-only live mdm3/ext-sdx50m eSoC GPIO/sysfs
   surface snapshot before any raw `esoc0` open, GPIO/sysfs write, HAL/connect,
   or boot-image work.
+
+### V845. mdm3/ext-sdx50m Surface Snapshot
+
+- plan: `docs/plans/NATIVE_INIT_V845_MDM3_EXT_SDX50M_SURFACE_SNAPSHOT_PLAN_2026-05-25.md`
+- report: `docs/reports/NATIVE_INIT_V845_MDM3_EXT_SDX50M_SURFACE_SNAPSHOT_2026-05-25.md`
+- runner: `scripts/revalidation/native_wifi_mdm3_ext_sdx50m_surface_snapshot_v845.py`
+- evidence:
+  - `tmp/wifi/v845-mdm3-ext-sdx50m-surface-snapshot/manifest.json`
+  - `tmp/wifi/v845-mdm3-ext-sdx50m-surface-snapshot/summary.md`
+- decision: `v845-mdm3-ext-sdx50m-surface-captured`
+- result: live stock-v724 read-only PASS. Pre/post health stayed `BOOT OK`
+  with selftest `fail=0`. mdm3/eSoC sysfs, `subsys_esoc0`, live devicetree
+  `qcom,ext-sdx50m`, and AP/MDM GPIO properties are present; `mdm3` is
+  `OFFLINING`; raw `/dev/esoc*` and `/dev/subsys*` nodes are absent;
+  `/sys/kernel/debug/gpio` is not readable; GPIO 135/142 are not exported.
+  Existing readable+writable candidates include `esoc_link`, `esoc_link_info`,
+  `esoc_name`, `subsys9/state`, and `subsys0/state`.
+- hard gates: no raw `esoc0` open, GPIO/sysfs/debugfs write, subsystem state
+  write, bind/unbind, module load/unload, daemon start, service-manager, Wi-Fi
+  HAL, scan/connect, credential use, DHCP/routes, external ping, boot image
+  write, partition write, or custom kernel flash was executed.
+- next: V846 should classify the source-backed mdm3/eSoC state-control contract
+  before any bounded write or GPIO action.

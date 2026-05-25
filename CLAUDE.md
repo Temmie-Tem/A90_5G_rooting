@@ -9,7 +9,7 @@ Samsung Galaxy A90 5G (SM-A908N) — stock Android Linux kernel 4.14.190, custom
 - **Device**: SM-A908N, Android 12, Magisk 30.7, TWRP available
 - **Current native build**: `A90 Linux init 0.9.68 (v724)` — `stage3/boot_linux_v724.img`
 - **Known-good fallback**: `stage3/boot_linux_v48.img`
-- **Active research cycle**: v844 selected V845 read-only mdm3/ext-sdx50m eSoC GPIO/sysfs surface classification, still below HAL/connect
+- **Active research cycle**: v845 selected V846 source-backed mdm3/eSoC state-control contract classification, still below HAL/connect
 - **Versioning policy**: `docs/operations/VERSIONING_POLICY.md` — `vNNN` cycle ≠ device flash
 
 ## Versioning rules
@@ -157,7 +157,7 @@ New `vNNN` experiment scripts must:
 - Gate live action behind explicit `--allow-*` + `--assume-yes` flags
 - Run `version`, `status`, `bootstatus`, `selftest verbose` as postflight regression
 
-## Wi-Fi bring-up research state (v598–v844, active)
+## Wi-Fi bring-up research state (v598–v845, active)
 
 Goal: bring up `wlan0` from native init without Android userspace.
 
@@ -293,6 +293,17 @@ FW-ready/`wlan0`. The next gate is V845: read-only live mdm3/ext-sdx50m eSoC
 GPIO/sysfs surface classification. Keep raw `esoc0` open, GPIO/sysfs writes,
 Wi-Fi HAL, scan/connect, DHCP/routes, credentials, external ping, and boot-image
 work blocked.
+
+V845 live read-only PASS captured the mdm3/ext-sdx50m surface on stock native
+v724. mdm3/eSoC sysfs, `subsys_esoc0`, live devicetree compatible
+`qcom,ext-sdx50m`, and AP/MDM GPIO properties are present; mdm3 remains
+`OFFLINING`; `/sys/kernel/debug/gpio` is not readable; GPIO 135/142 are not
+exported; raw `/dev/esoc*` and `/dev/subsys*` nodes are absent. Existing
+writable candidates include `esoc_link`, `esoc_link_info`, `esoc_name`,
+`subsys9/state`, and `subsys0/state`, but V845 performed no writes. The next
+gate is V846: source-backed mdm3/eSoC state-control contract classification
+before any bounded write or GPIO action. HAL/connect, credentials, DHCP/routes,
+external ping, and boot-image work remain blocked.
 
 ```text
 servloc:64:257;ssctl:43:4098;servnotif:66:18945,46081;wlfw:69:1
