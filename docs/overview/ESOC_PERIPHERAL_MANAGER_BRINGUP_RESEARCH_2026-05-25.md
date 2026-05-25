@@ -576,3 +576,31 @@ Recommended sequence:
    `CMD_EXE`/`PWR_ON`/`WAIT_FOR_REQ`/`NOTIFY`/`/dev/subsys_esoc0` open.
 4. Later gate: firmware request loop and only then explicit `PWR_ON`
    consideration.
+
+---
+
+## 19. V876 helper v137 CMD/REQ registration support
+
+V876 implemented source/build-only helper support for the next eSoC gate.
+
+Evidence:
+
+- `tmp/wifi/v876-execns-helper-v137-build/a90_android_execns_probe`
+- `docs/reports/NATIVE_INIT_V876_ESOC_ENGINE_REGISTER_HELPER_BUILD_2026-05-25.md`
+
+Result:
+
+- helper marker: `a90_android_execns_probe v137`
+- mode: `wifi-companion-esoc-engine-register-preflight`
+- allow flag: `--allow-esoc-engine-register-preflight`
+- sha256: `e47eb52b0b2b2fb601fdbc4ecebdf72e2fda9519eac37e776d62c11d2d469aa3`
+
+V876 did not deploy the helper and did not execute live eSoC ioctls. The helper
+now has the source path needed for a later bounded CMD/REQ registration live
+gate while explicitly keeping `CMD_EXE`, `PWR_ON`, `WAIT_FOR_REQ`, `NOTIFY`,
+`/dev/subsys_esoc0` open, actor start, Wi-Fi HAL, scan/connect, credentials,
+DHCP/routes, and external ping blocked.
+
+Next candidate:
+
+- V877 helper `v137` deploy-only checksum/version/mode proof.

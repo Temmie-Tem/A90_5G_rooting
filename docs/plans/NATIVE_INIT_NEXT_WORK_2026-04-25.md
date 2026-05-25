@@ -45,6 +45,10 @@
   및 mutating eSoC ioctl은 없었다. 다음 후보는 V876 helper `v137`
   source/build-only이며, `CMD_EXE`, `PWR_ON`, `WAIT_FOR_REQ`, `NOTIFY`,
   `/dev/subsys_esoc0` open, actor start, Wi-Fi bring-up은 계속 막는다.
+- V876 결론: helper `v137` source/build-only가 통과했다. 새 mode는
+  `wifi-companion-esoc-engine-register-preflight`이고 allow flag는
+  `--allow-esoc-engine-register-preflight`이다. V876에서는 deploy/live ioctl
+  실행이 없었다. 다음 후보는 V877 helper `v137` deploy-only proof다.
 
 - 아래 V840-V847 항목은 V874/V875 이전 경로 요약이다.
 - V840 결론: provider-first service-manager/PeripheralManager, CNSS retry,
@@ -4047,3 +4051,22 @@ Samsung bootloader
   `WAIT_FOR_REQ`, `NOTIFY`, `/dev/subsys_esoc0` open, actor start, Wi-Fi HAL,
   scan/connect, DHCP/routes, credentials, or external ping.
 - next: V876 helper `v137` source/build-only CMD/REQ registration support.
+
+
+### V876. eSoC Engine Register Helper v137 Build
+
+- plan: `docs/plans/NATIVE_INIT_V876_ESOC_ENGINE_REGISTER_HELPER_PLAN_2026-05-25.md`
+- report: `docs/reports/NATIVE_INIT_V876_ESOC_ENGINE_REGISTER_HELPER_BUILD_2026-05-25.md`
+- helper source: `stage3/linux_init/helpers/a90_android_execns_probe.c`
+- evidence:
+  - `tmp/wifi/v876-execns-helper-v137-build/a90_android_execns_probe`
+- result: source/build-only PASS. Helper `v137` adds
+  `wifi-companion-esoc-engine-register-preflight` and
+  `--allow-esoc-engine-register-preflight`.
+- build: sha256
+  `e47eb52b0b2b2fb601fdbc4ecebdf72e2fda9519eac37e776d62c11d2d469aa3`, static
+  ARM64, no dynamic section.
+- hard gates held: no deploy, no live eSoC ioctl, no `CMD_EXE`, `PWR_ON`,
+  `WAIT_FOR_REQ`, `NOTIFY`, `/dev/subsys_esoc0` open, actor start, Wi-Fi HAL,
+  scan/connect, DHCP/routes, credentials, or external ping.
+- next: V877 helper `v137` deploy-only checksum/version/mode proof.

@@ -588,6 +588,7 @@ path should be closed for this blocker.
 | v873 | helper v136 deploy-only: serial deploy to `/cache/bin/a90_android_execns_probe`; remote sha/version/mode pass, no actor start and no Wi-Fi bring-up |
 | v874 | bounded eSoC read-only control preflight pass: `/dev/esoc-0` opened, `GET_STATUS`/`GET_ERR_FATAL` rc 0, `GET_LINK_ID` errno 22; no mutating ioctl or actor start |
 | v875 | host-only eSoC state-machine classifier: selects helper-only CMD/REQ registration support as V876; no live contact or mutating ioctl |
+| v876 | helper v137 source/build-only: adds fail-closed `wifi-companion-esoc-engine-register-preflight` mode and allow flag; no deploy or live ioctl |
 
 ### Safety additions (Wi-Fi research)
 
@@ -654,12 +655,15 @@ path should be closed for this blocker.
   `GET_STATUS`/`GET_ERR_FATAL` returned rc `0`, `GET_LINK_ID` returned errno
   `22`, created nodes were cleaned up, selftest stayed fail0, and actor/Wi-Fi
   surfaces stayed clean. V875 then classified the eSoC state machine host-only and selected V876
-  helper `v137` source/build-only CMD/REQ registration support. Keep Wi-Fi HAL,
-  scan/connect, DHCP/routes, credentials, external ping, live `CMD_EXE`/
-  `PWR_ON`, `WAIT_FOR_REQ`, `NOTIFY`, `/dev/subsys_esoc0` open, subsystem
-  writes, GPIO/sysfs/debugfs writes, module load/unload, and boot image writes
-  blocked. Do not start `mdm_helper`, `ks`, HAL, or scan/connect before a
-  separate mutating eSoC state-machine gate.
+  helper `v137` source/build-only CMD/REQ registration support. V876 added the
+  fail-closed `wifi-companion-esoc-engine-register-preflight` mode and
+  `--allow-esoc-engine-register-preflight` flag without deploy or live ioctl.
+  Next is V877 helper `v137` deploy-only proof. Keep Wi-Fi HAL, scan/connect,
+  DHCP/routes, credentials, external ping, live `CMD_EXE`/`PWR_ON`,
+  `WAIT_FOR_REQ`, `NOTIFY`, `/dev/subsys_esoc0` open, subsystem writes,
+  GPIO/sysfs/debugfs writes, module load/unload, and boot image writes blocked.
+  Do not start `mdm_helper`, `ks`, HAL, or scan/connect before a separate
+  mutating eSoC state-machine gate.
 
 ## Docs structure
 
