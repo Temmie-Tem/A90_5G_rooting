@@ -88,7 +88,7 @@
 #define IOPRIO_PRIO_VALUE(class_value, data) (((class_value) << IOPRIO_CLASS_SHIFT) | (data))
 #endif
 
-#define EXECNS_VERSION "a90_android_execns_probe v154"
+#define EXECNS_VERSION "a90_android_execns_probe v155"
 #define MAX_PATH_LEN 512
 #define MAX_CAPTURE_SIZE (1024 * 1024)
 #define MAX_LINKERCONFIG_SIZE (256 * 1024)
@@ -9692,6 +9692,260 @@ static int append_dir_capture_named(struct buffer *buf,
                          truncated ? 1 : 0);
 }
 
+struct mdm_helper_property_probe {
+    const char *tag;
+    const char *key;
+};
+
+static const struct mdm_helper_property_probe MDM_HELPER_PROPERTY_PROBES[] = {
+    {"memtag_mdm_helper", "arm64.memtag.process.mdm_helper"},
+    {"persist_fail_action", "persist.vendor.mdm_helper.fail_action"},
+    {"persist_timeout", "persist.vendor.mdm_helper.timeout"},
+    {"persist_log_tag_mdm_helper", "persist.log.tag.mdm_helper"},
+    {"log_tag_mdm_helper", "log.tag.mdm_helper"},
+};
+
+static const struct mdm_helper_property_probe MDM_HELPER_PROPERTY_PREFIX_PROBES[] = {
+    {"persist_log_tag", "persist.log.tag"},
+    {"log_tag", "log.tag"},
+};
+
+static int append_mdm_helper_lower_path_stat(struct buffer *buf,
+                                             const char *phase,
+                                             const char *label,
+                                             const char *path) {
+    struct stat st;
+    int rc;
+    int saved_errno = 0;
+
+    rc = lstat(path, &st);
+    if (rc < 0) {
+        saved_errno = errno;
+    }
+    return append_format(buf,
+                         "mdm_helper_lower_contract.path.%s.%s=%s\n"
+                         "mdm_helper_lower_contract.path.%s.%s.exists=%d\n"
+                         "mdm_helper_lower_contract.path.%s.%s.errno=%d\n"
+                         "mdm_helper_lower_contract.path.%s.%s.mode=0%o\n"
+                         "mdm_helper_lower_contract.path.%s.%s.is_dir=%d\n"
+                         "mdm_helper_lower_contract.path.%s.%s.is_chr=%d\n"
+                         "mdm_helper_lower_contract.path.%s.%s.dev_major=%u\n"
+                         "mdm_helper_lower_contract.path.%s.%s.dev_minor=%u\n",
+                         phase,
+                         label,
+                         path,
+                         phase,
+                         label,
+                         rc == 0 ? 1 : 0,
+                         phase,
+                         label,
+                         saved_errno,
+                         phase,
+                         label,
+                         rc == 0 ? (unsigned int)(st.st_mode & 07777) : 0U,
+                         phase,
+                         label,
+                         (rc == 0 && S_ISDIR(st.st_mode)) ? 1 : 0,
+                         phase,
+                         label,
+                         (rc == 0 && S_ISCHR(st.st_mode)) ? 1 : 0,
+                         phase,
+                         label,
+                         (rc == 0 && S_ISCHR(st.st_mode)) ? major(st.st_rdev) : 0U,
+                         phase,
+                         label,
+                         (rc == 0 && S_ISCHR(st.st_mode)) ? minor(st.st_rdev) : 0U);
+}
+
+static int append_mdm_helper_property_context_scan(struct buffer *buf,
+                                                   const char *phase,
+                                                   const char *label,
+                                                   const char *path) {
+    FILE *file;
+    char line[512];
+    int exact_counts[sizeof(MDM_HELPER_PROPERTY_PROBES) / sizeof(MDM_HELPER_PROPERTY_PROBES[0])] = {0};
+    int prefix_counts[sizeof(MDM_HELPER_PROPERTY_PREFIX_PROBES) / sizeof(MDM_HELPER_PROPERTY_PREFIX_PROBES[0])] = {0};
+    int line_count = 0;
+    int shown = 0;
+    bool truncated = false;
+
+    if (append_format(buf,
+                      "mdm_helper_lower_contract.property_context.%s.%s.begin=1\n"
+                      "mdm_helper_lower_contract.property_context.%s.%s.path=%s\n",
+                      phase,
+                      label,
+                      phase,
+                      label,
+                      path) < 0) {
+        return -1;
+    }
+    file = fopen(path, "r");
+    if (file == NULL) {
+        return append_format(buf,
+                             "mdm_helper_lower_contract.property_context.%s.%s.open_error=%s\n"
+                             "mdm_helper_lower_contract.property_context.%s.%s.end=1\n",
+                             phase,
+                             label,
+                             strerror(errno),
+                             phase,
+                             label);
+    }
+    while (line_count < 4096 && fgets(line, sizeof(line), file) != NULL) {
+        bool interesting = false;
+
+        line_count++;
+        for (size_t i = 0; i < sizeof(MDM_HELPER_PROPERTY_PROBES) / sizeof(MDM_HELPER_PROPERTY_PROBES[0]); i++) {
+            if (strstr(line, MDM_HELPER_PROPERTY_PROBES[i].key) != NULL) {
+                exact_counts[i]++;
+                interesting = true;
+            }
+        }
+        for (size_t i = 0; i < sizeof(MDM_HELPER_PROPERTY_PREFIX_PROBES) / sizeof(MDM_HELPER_PROPERTY_PREFIX_PROBES[0]); i++) {
+            if (strstr(line, MDM_HELPER_PROPERTY_PREFIX_PROBES[i].key) != NULL) {
+                prefix_counts[i]++;
+                interesting = true;
+            }
+        }
+        if (!interesting) {
+            continue;
+        }
+        if (shown >= 16) {
+            truncated = true;
+            continue;
+        }
+        sanitize_one_line(line);
+        if (append_format(buf,
+                          "mdm_helper_lower_contract.property_context.%s.%s.entry_%02d=%s\n",
+                          phase,
+                          label,
+                          shown,
+                          line) < 0) {
+            fclose(file);
+            return -1;
+        }
+        shown++;
+    }
+    if (ferror(file)) {
+        int saved_errno = errno;
+        fclose(file);
+        return append_format(buf,
+                             "mdm_helper_lower_contract.property_context.%s.%s.read_error=%s\n"
+                             "mdm_helper_lower_contract.property_context.%s.%s.end=1\n",
+                             phase,
+                             label,
+                             strerror(saved_errno),
+                             phase,
+                             label);
+    }
+    if (line_count >= 4096) {
+        truncated = true;
+    }
+    fclose(file);
+    for (size_t i = 0; i < sizeof(MDM_HELPER_PROPERTY_PROBES) / sizeof(MDM_HELPER_PROPERTY_PROBES[0]); i++) {
+        if (append_format(buf,
+                          "mdm_helper_lower_contract.property_context.%s.%s.exact.%s=%d\n",
+                          phase,
+                          label,
+                          MDM_HELPER_PROPERTY_PROBES[i].tag,
+                          exact_counts[i]) < 0) {
+            return -1;
+        }
+    }
+    for (size_t i = 0; i < sizeof(MDM_HELPER_PROPERTY_PREFIX_PROBES) / sizeof(MDM_HELPER_PROPERTY_PREFIX_PROBES[0]); i++) {
+        if (append_format(buf,
+                          "mdm_helper_lower_contract.property_context.%s.%s.prefix.%s=%d\n",
+                          phase,
+                          label,
+                          MDM_HELPER_PROPERTY_PREFIX_PROBES[i].tag,
+                          prefix_counts[i]) < 0) {
+            return -1;
+        }
+    }
+    return append_format(buf,
+                         "mdm_helper_lower_contract.property_context.%s.%s.lines=%d\n"
+                         "mdm_helper_lower_contract.property_context.%s.%s.shown=%d\n"
+                         "mdm_helper_lower_contract.property_context.%s.%s.truncated=%d\n"
+                         "mdm_helper_lower_contract.property_context.%s.%s.end=1\n",
+                         phase,
+                         label,
+                         line_count,
+                         phase,
+                         label,
+                         shown,
+                         phase,
+                         label,
+                         truncated ? 1 : 0,
+                         phase,
+                         label);
+}
+
+static int append_mdm_helper_lower_contract_snapshot(struct buffer *buf,
+                                                     const struct paths *paths,
+                                                     const char *phase) {
+    char private_esoc0[MAX_PATH_LEN];
+    char plat_context[MAX_PATH_LEN];
+    char system_ext_context[MAX_PATH_LEN];
+    char vendor_context[MAX_PATH_LEN];
+    char vendor_odm_context[MAX_PATH_LEN];
+    char dir_label[128];
+    bool dir_captured = false;
+
+    if (append_format(buf,
+                      "mdm_helper_lower_contract.%s.begin=1\n"
+                      "mdm_helper_lower_contract.%s.property_root_present=%d\n"
+                      "mdm_helper_lower_contract.%s.note=read-only-lower-contract-diagnostics\n",
+                      phase,
+                      phase,
+                      paths->dev_properties[0] != '\0' ? 1 : 0,
+                      phase) < 0) {
+        return -1;
+    }
+    if (append_path(private_esoc0, sizeof(private_esoc0), paths->dev, "esoc-0") < 0 ||
+        append_path(plat_context, sizeof(plat_context), paths->system, "etc/selinux/plat_property_contexts") < 0 ||
+        append_path(system_ext_context,
+                    sizeof(system_ext_context),
+                    paths->system,
+                    "system_ext/etc/selinux/system_ext_property_contexts") < 0 ||
+        append_path(vendor_context, sizeof(vendor_context), paths->vendor, "etc/selinux/vendor_property_contexts") < 0 ||
+        append_path(vendor_odm_context,
+                    sizeof(vendor_odm_context),
+                    paths->vendor,
+                    "odm/etc/selinux/odm_property_contexts") < 0) {
+        return append_format(buf,
+                             "mdm_helper_lower_contract.%s.error=path-too-long\n"
+                             "mdm_helper_lower_contract.%s.end=1\n",
+                             phase,
+                             phase);
+    }
+    if (append_mdm_helper_lower_path_stat(buf, phase, "dev_properties", paths->dev_properties) < 0 ||
+        append_mdm_helper_lower_path_stat(buf, phase, "property_service_socket", paths->property_service_socket) < 0 ||
+        append_mdm_helper_lower_path_stat(buf, phase, "private_esoc0", private_esoc0) < 0 ||
+        append_mdm_helper_lower_path_stat(buf, phase, "sys_bus_esoc", paths->sys_bus_esoc) < 0 ||
+        append_mdm_helper_lower_path_stat(buf, phase, "sys_bus_msm_subsys", paths->sys_bus_msm_subsys) < 0) {
+        return -1;
+    }
+    if (snprintf(dir_label,
+                 sizeof(dir_label),
+                 "mdm_helper_lower_%s_dev_properties",
+                 phase) >= (int)sizeof(dir_label) ||
+        append_dir_capture_named(buf, paths->dev_properties, dir_label, false, 96, &dir_captured) < 0 ||
+        append_format(buf,
+                      "mdm_helper_lower_contract.%s.dev_properties_dir_captured=%d\n",
+                      phase,
+                      dir_captured ? 1 : 0) < 0) {
+        return -1;
+    }
+    if (append_mdm_helper_property_context_scan(buf, phase, "plat", plat_context) < 0 ||
+        append_mdm_helper_property_context_scan(buf, phase, "system_ext", system_ext_context) < 0 ||
+        append_mdm_helper_property_context_scan(buf, phase, "vendor", vendor_context) < 0 ||
+        append_mdm_helper_property_context_scan(buf, phase, "vendor_odm", vendor_odm_context) < 0) {
+        return -1;
+    }
+    return append_format(buf,
+                         "mdm_helper_lower_contract.%s.end=1\n",
+                         phase);
+}
+
 static int append_wifi_window_surface_capture(struct buffer *buf, const char *phase) {
     bool proc_qrtr_captured = false;
     bool dev_filtered_captured = false;
@@ -17601,6 +17855,7 @@ static int run_wifi_companion_mdm_helper_runtime_contract_capture_guarded(const 
         append_private_android_node_status(stdout_buf, paths, "subsys_esoc0", "subsys_esoc0") < 0 ||
         append_private_android_node_status(stdout_buf, paths, "subsys_modem", "subsys_modem") < 0 ||
         append_mdm_helper_runtime_path_visibility(stdout_buf, paths, "before") < 0 ||
+        append_mdm_helper_lower_contract_snapshot(stdout_buf, paths, "runtime_contract_before") < 0 ||
         mirror_mdm_helper_runtime_mhi_pipe_if_present(stdout_buf, paths, "before") < 0 ||
         append_subsys_hold_snapshot(stdout_buf, "runtime_contract_before") < 0 ||
         append_wifi_cnss2_focus_capture(stdout_buf, "runtime_contract_before") < 0) {
@@ -17738,6 +17993,7 @@ static int run_wifi_companion_mdm_helper_runtime_contract_capture_guarded(const 
                                                   8,
                                                   &mhi_cmdline_count_window) < 0 ||
                 append_mdm_helper_runtime_path_visibility(stdout_buf, paths, "window") < 0 ||
+                append_mdm_helper_lower_contract_snapshot(stdout_buf, paths, "runtime_contract_window") < 0 ||
                 append_generic_stall_snapshot_capture(stdout_buf,
                                                       mdm_helper->pid,
                                                       "mdm_helper_runtime_window") < 0 ||
@@ -17790,6 +18046,7 @@ static int run_wifi_companion_mdm_helper_runtime_contract_capture_guarded(const 
                                               8,
                                               &mhi_cmdline_count_final) < 0 ||
             append_mdm_helper_runtime_path_visibility(stdout_buf, paths, "final") < 0 ||
+            append_mdm_helper_lower_contract_snapshot(stdout_buf, paths, "runtime_contract_final") < 0 ||
             append_generic_stall_snapshot_capture(stdout_buf,
                                                   mdm_helper->pid,
                                                   "mdm_helper_runtime_final") < 0 ||
@@ -17816,6 +18073,7 @@ static int run_wifi_companion_mdm_helper_runtime_contract_capture_guarded(const 
         *child_signal = 0;
     }
     if (append_mdm_helper_runtime_path_visibility(stdout_buf, paths, "after") < 0 ||
+        append_mdm_helper_lower_contract_snapshot(stdout_buf, paths, "runtime_contract_after") < 0 ||
         append_format(stdout_buf,
                       "mdm_helper_runtime_contract.mdm_helper_observable=%d\n"
                       "mdm_helper_runtime_contract.window_snapshot_captured=%d\n"
