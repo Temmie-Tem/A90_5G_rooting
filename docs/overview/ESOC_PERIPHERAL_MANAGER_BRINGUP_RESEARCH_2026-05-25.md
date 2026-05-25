@@ -1641,3 +1641,52 @@ Next candidate:
 - V903 should be `mdm_helper`-only deep capture: start `mdm_helper`, do not open
   `/dev/subsys_esoc0`, and capture its `wchan`, `syscall`, stack, socket/proc-net
   context, property reads, and fd evolution.
+
+---
+
+## 44. V903 mdm_helper-only deep capture result
+
+V903 removed the `/dev/subsys_esoc0` open from the experiment and captured
+native `mdm_helper` directly.
+
+Evidence:
+
+- `tmp/wifi/v903-execns-helper-v147-build/a90_android_execns_probe`
+- `tmp/wifi/v903-execns-helper-v147-deploy-preflight/manifest.json`
+- `tmp/wifi/v903-mdm-helper-only-deep-capture-live/manifest.json`
+- `docs/plans/NATIVE_INIT_V903_MDM_HELPER_ONLY_DEEP_CAPTURE_PLAN_2026-05-26.md`
+- `docs/reports/NATIVE_INIT_V903_MDM_HELPER_ONLY_DEEP_CAPTURE_2026-05-26.md`
+
+Decision:
+
+- `v903-mdm-helper-no-esoc-fd`
+
+Result:
+
+- Helper `v147` adds
+  `wifi-companion-mdm-helper-only-deep-capture` gated by
+  `--allow-mdm-helper-only-capture`.
+- `/vendor/bin/mdm_helper` started and was observable.
+- `/dev/subsys_esoc0` was not opened:
+  `mdm_helper_only_capture.subsys_esoc0_open_attempted=0`.
+- `mdm_helper` held no `/dev/esoc-0`, `/dev/subsys_esoc0`, or MHI pipe fd in
+  either the window or final snapshot.
+- No `/vendor/bin/ks` process or MHI pipe command line appeared.
+- Cleanup was clean without reboot; postflight had no helper/ks leftovers and
+  no Wi-Fi link-up.
+
+Interpretation:
+
+- Native `mdm_helper` alone is not taking the Android branch that opens
+  `/dev/esoc-0`, spawns `ks`, or handles MHI image transfer.
+- The next blocker is now likely an Android runtime contract mismatch:
+  init/service context, argv/basename, properties, SELinux context, socket/fd
+  availability, or another Android-only input.
+- Existing Android evidence classified in V896 is sufficient for the GPIO/esoc
+  timing question. A Magisk module or new Android handoff should be reserved
+  for a focused missing input, not used as a broad recapture step.
+
+Next candidate:
+
+- V904 should compare Android and native `mdm_helper` runtime inputs before any
+  new `/dev/subsys_esoc0` open retry.

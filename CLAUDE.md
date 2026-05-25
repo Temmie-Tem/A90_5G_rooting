@@ -9,7 +9,7 @@ Samsung Galaxy A90 5G (SM-A908N) — stock Android Linux kernel 4.14.190, custom
 - **Device**: SM-A908N, Android 12, Magisk 30.7, TWRP available
 - **Current native build**: `A90 Linux init 0.9.68 (v724)` — `stage3/boot_linux_v724.img`
 - **Known-good fallback**: `stage3/boot_linux_v48.img`
-- **Active research cycle**: V902 blocker capture completed; next is V903 mdm_helper-only deep capture before any subsystem-open retry
+- **Active research cycle**: V903 mdm_helper-only deep capture completed; next is V904 Android/native mdm_helper runtime-input parity before any subsystem-open retry
 - **Versioning policy**: `docs/operations/VERSIONING_POLICY.md` — `vNNN` cycle ≠ device flash
 
 ## Versioning rules
@@ -800,10 +800,15 @@ path should be closed for this blocker.
   captured the blocked child: `wchan=mdm_subsys_powerup`, state `D`, stack
   `mdm_subsys_powerup -> __subsystem_get -> subsys_device_open -> ... ->
   SyS_openat`. It also showed native `mdm_helper` itself did not hold
-  `/dev/esoc-0`; only tty, pipes, and one socket were visible. Next is V903
-  `mdm_helper`-only deep capture without `/dev/subsys_esoc0` open;
-  Wi-Fi HAL, scan/connect, credentials, DHCP/routes, and external ping remain
-  blocked until lower readiness is proven.
+  `/dev/esoc-0`; only tty, pipes, and one socket were visible. V903 then
+  deployed helper `v147` and captured `mdm_helper` directly without opening
+  `/dev/subsys_esoc0`: `mdm_helper` was observable but held no `/dev/esoc-0`,
+  `/dev/subsys_esoc0`, or MHI pipe fd, spawned no `/vendor/bin/ks`, and
+  postflight was clean without reboot. Next is V904 Android/native
+  `mdm_helper` runtime-input parity: init/service context, argv/basename,
+  properties, SELinux context, socket/fd surface, or another Android-only
+  input before any subsystem-open retry. Wi-Fi HAL, scan/connect, credentials,
+  DHCP/routes, and external ping remain blocked until lower readiness is proven.
   Keep Wi-Fi HAL, scan/connect, DHCP/routes, credentials, external ping, live
   direct userspace `CMD_EXE`/explicit userspace `PWR_ON`, `NOTIFY`, subsystem
   writes, GPIO/sysfs/debugfs writes, module load/unload, and boot image writes

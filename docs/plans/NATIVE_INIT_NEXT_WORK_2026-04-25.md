@@ -25,16 +25,14 @@
 
 ## 현재 Wi-Fi Gate
 
-- 최신 기준: V902 mdm_helper/ks blocker capture pass as diagnostic. Helper
-  `v146` is deployed. Native can start `/vendor/bin/mdm_helper` and attempt
-  `/dev/subsys_esoc0` only after `mdm_helper_observable=1`, but the trigger
-  child blocks in `mdm_subsys_powerup` D-state with stack
-  `mdm_subsys_powerup -> __subsystem_get -> subsys_device_open`. `mdm_helper`
-  itself did not hold `/dev/esoc-0`; only tty, pipes, and one socket were
-  visible. No `ks`, MHI pipe, GPIO 142 IRQ, `mdm3=ONLINE`, WLFW/BDF, or `wlan0`
-  progress was observed. Next is V903 `mdm_helper`-only deep capture without
-  `/dev/subsys_esoc0` open. Wi-Fi HAL, scan/connect, credentials, DHCP/routes,
-  and external ping remain blocked.
+- 최신 기준: V903 mdm_helper-only deep capture pass as diagnostic. Helper
+  `v147` is deployed. Native can start `/vendor/bin/mdm_helper`, but without
+  opening `/dev/subsys_esoc0` it does not hold `/dev/esoc-0`, does not spawn
+  `/vendor/bin/ks`, and does not touch the MHI pipe. This moves the blocker to
+  Android `mdm_helper` runtime input parity: init/service context,
+  argv/basename, properties, SELinux context, socket/fd surface, or another
+  Android-only input. Wi-Fi HAL, scan/connect, credentials, DHCP/routes, and
+  external ping remain blocked.
 - V874 결론: `/dev/esoc-0` read-only control path가 live에서 열렸고
   `GET_STATUS`/`GET_ERR_FATAL`은 rc `0`, `GET_LINK_ID`는 errno `22`로
   반환됐다. 결과는 `read-only-ioctl-probe-complete`이며 created nodes cleanup,
@@ -4675,3 +4673,50 @@ Samsung bootloader
   link-up.
 - next: V900 bounded live `mdm_helper`/`ks` contract proof. Wi-Fi HAL,
   scan/connect, credentials, DHCP/routes, and external ping remain blocked.
+
+### V900. mdm_helper/ks Contract Live Proof
+
+- plan: `docs/plans/NATIVE_INIT_V900_MDM_HELPER_KS_CONTRACT_LIVE_PLAN_2026-05-26.md`
+- report: `docs/reports/NATIVE_INIT_V900_MDM_HELPER_KS_CONTRACT_LIVE_2026-05-26.md`
+- runner: `scripts/revalidation/native_wifi_mdm_helper_ks_contract_live_v900.py`
+- evidence:
+  - `tmp/wifi/v900-mdm-helper-ks-contract-live/manifest.json`
+- decision: `v900-reboot-required-cleaned`
+- result: repaired helper `v145` starts `/vendor/bin/mdm_helper`, then attempts
+  `/dev/subsys_esoc0` only after `mdm_helper_observable=1`. The trigger blocks,
+  no `ks`/MHI/GPIO142/`mdm3=ONLINE`/WLFW/BDF/`wlan0` progress appears, and
+  cleanup reboot restores native health.
+- next: V902 blocker capture before any repeat of the same subsystem-open path.
+
+### V902. mdm_helper/ks Blocker Capture
+
+- plan: `docs/plans/NATIVE_INIT_V902_MDM_HELPER_KS_BLOCKER_CAPTURE_PLAN_2026-05-26.md`
+- report: `docs/reports/NATIVE_INIT_V902_MDM_HELPER_KS_BLOCKER_CAPTURE_2026-05-26.md`
+- runner: `scripts/revalidation/native_wifi_mdm_helper_ks_blocker_capture_v902.py`
+- evidence:
+  - `tmp/wifi/v902-mdm-helper-ks-blocker-capture-live/manifest.json`
+- decision: `v902-reboot-required-cleaned`
+- result: helper `v146` captures blocked trigger evidence:
+  `wchan=mdm_subsys_powerup`, D-state, stack
+  `mdm_subsys_powerup -> __subsystem_get -> subsys_device_open -> ... ->
+  SyS_openat`. Native `mdm_helper` itself did not hold `/dev/esoc-0`.
+- next: V903 `mdm_helper`-only deep capture with no `/dev/subsys_esoc0` open.
+
+### V903. mdm_helper-only Deep Capture
+
+- plan: `docs/plans/NATIVE_INIT_V903_MDM_HELPER_ONLY_DEEP_CAPTURE_PLAN_2026-05-26.md`
+- report: `docs/reports/NATIVE_INIT_V903_MDM_HELPER_ONLY_DEEP_CAPTURE_2026-05-26.md`
+- deploy wrapper:
+  `scripts/revalidation/wifi_execns_helper_v147_deploy_preflight.py`
+- runner:
+  `scripts/revalidation/native_wifi_mdm_helper_only_deep_capture_v903.py`
+- evidence:
+  - `tmp/wifi/v903-execns-helper-v147-build/a90_android_execns_probe`
+  - `tmp/wifi/v903-execns-helper-v147-deploy-preflight/manifest.json`
+  - `tmp/wifi/v903-mdm-helper-only-deep-capture-live/manifest.json`
+- decision: `v903-mdm-helper-no-esoc-fd`
+- result: helper `v147` starts `/vendor/bin/mdm_helper` only. It is observable,
+  but holds no `/dev/esoc-0`, `/dev/subsys_esoc0`, or MHI pipe fd, spawns no
+  `/vendor/bin/ks`, and postflight is clean without reboot.
+- next: V904 Android/native `mdm_helper` runtime-input parity classifier before
+  any new subsystem-open retry.

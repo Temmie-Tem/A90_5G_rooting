@@ -88,7 +88,7 @@
 #define IOPRIO_PRIO_VALUE(class_value, data) (((class_value) << IOPRIO_CLASS_SHIFT) | (data))
 #endif
 
-#define EXECNS_VERSION "a90_android_execns_probe v146"
+#define EXECNS_VERSION "a90_android_execns_probe v147"
 #define MAX_PATH_LEN 512
 #define MAX_CAPTURE_SIZE (1024 * 1024)
 #define MAX_LINKERCONFIG_SIZE (256 * 1024)
@@ -219,6 +219,7 @@ struct config {
     bool allow_esoc_req_registered_subsys_hold_preflight;
     bool allow_esoc_conditional_response_preflight;
     bool allow_mdm_helper_ks_contract_preflight;
+    bool allow_mdm_helper_only_capture;
 };
 
 struct a90_hidl_string_wire {
@@ -368,11 +369,12 @@ static void usage(FILE *out) {
             "[--allow-esoc-req-registered-subsys-hold-preflight] "
             "[--allow-esoc-conditional-response-preflight] "
             "[--allow-mdm-helper-ks-contract-preflight] "
+            "[--allow-mdm-helper-only-capture] "
             "[--qrtr-readback-matrix label:service:instance[,instance][;...]] "
             "[--connect-config /cache/a90-wifi/...] "
             "[--connect-iface auto|wlan0] "
             "[--ping-target 1.1.1.1] "
-            "--mode linker-list|identity-probe|sepolicy-inventory|sepolicy-compile-proof|sepolicy-load-proof|selinux-domain-proof|cnss-start-only|cnss-userspace-readiness|wifi-companion-start-only|wifi-companion-post-sysmon-observer-start-only|wifi-companion-android-order-post-sysmon-observer-start-only|wifi-companion-service-manager-start-only|wifi-companion-vnd-service-manager-start-only|wifi-companion-qrtr-first-vnd-service-manager-start-only|wifi-companion-cnss-first-delayed-vnd-service-manager-start-only|wifi-companion-service74-gated-vnd-service-manager-start-only|wifi-companion-service74-gated-vnd-service-manager-readiness-start-only|wifi-companion-service74-gated-vnd-service-manager-cnss-retry-start-only|wifi-companion-peripheral-manager-node-parity-start-only|wifi-companion-peripheral-manager-property-contract-start-only|wifi-companion-peripheral-manager-init-contract-start-only|wifi-companion-esoc-control-preflight|wifi-companion-esoc-engine-register-preflight|wifi-companion-esoc-req-registered-subsys-hold-preflight|wifi-companion-esoc-conditional-response-preflight|wifi-companion-mdm-helper-ks-image-contract-preflight|wifi-companion-service74-gated-peripheral-manager-cnss-retry-start-only|wifi-companion-service74-gated-peripheral-manager-cnss-retry-registry-snapshot-start-only|wifi-companion-service74-gated-peripheral-manager-vndservice-query-start-only|wifi-companion-service74-gated-peripheral-manager-vndservice-query-cnss-retry-start-only|wifi-companion-service74-gated-peripheral-manager-vndservice-query-provider-first-cnss-start-only|wifi-companion-service74-gated-android-userspace-cnss-retry-start-only|wifi-companion-service74-gated-android-userspace-cnss-retry-registry-snapshot-start-only|wifi-companion-service74-gated-vnd-service-manager-registry-snapshot-start-only|wifi-companion-service74-gated-mdm-helper-start-only|wifi-companion-service180-gated-mdm-helper-start-only|wifi-companion-sysmon-gated-mdm-helper-start-only|wifi-companion-hal-order-start-only|wifi-companion-hal-wificond-order-start-only|wifi-companion-hal-wificond-lshal-wait-samsung|wifi-companion-hal-wificond-lshal-wait-iwifi|wifi-companion-dual-hal-wificond-lshal-wait-iwifi|wifi-companion-dual-hal-wificond-iwifi-start|wifi-companion-dual-hal-wificond-lshal-then-iwifi-start|rmt-storage-start-only|property-lookup|service-manager-start-only|private-selinux-proof|wifi-hal-lshal-vintf-status-list|wifi-hal-composite-start-only|wifi-hal-composite-lshal-list|wifi-hal-composite-lshal-binderized-list|wifi-hal-composite-lshal-wait-target|wifi-surface-composite-lshal-wait-iwifi|wifi-surface-composite-lshal-wait-samsung|wifi-surface-composite-lshal-wait-samsung-ptrace|wifi-hal-composite-lshal-status-list|wifi-hal-composite-lshal-binderized-status-list|wifi-surface-composite-start-only|wifi-dual-hal-lshal-wait-iwifi|wifi-dual-hal-iwifi-start-surface|wifi-iwifi-start-surface|wifi-active-session-surface|wifi-active-session-scan-only|wifi-active-session-connect-ping|wifi-connect-tool-surface|subsys-hold-open-proof|service-notifier-listener-only "
+            "--mode linker-list|identity-probe|sepolicy-inventory|sepolicy-compile-proof|sepolicy-load-proof|selinux-domain-proof|cnss-start-only|cnss-userspace-readiness|wifi-companion-start-only|wifi-companion-post-sysmon-observer-start-only|wifi-companion-android-order-post-sysmon-observer-start-only|wifi-companion-service-manager-start-only|wifi-companion-vnd-service-manager-start-only|wifi-companion-qrtr-first-vnd-service-manager-start-only|wifi-companion-cnss-first-delayed-vnd-service-manager-start-only|wifi-companion-service74-gated-vnd-service-manager-start-only|wifi-companion-service74-gated-vnd-service-manager-readiness-start-only|wifi-companion-service74-gated-vnd-service-manager-cnss-retry-start-only|wifi-companion-peripheral-manager-node-parity-start-only|wifi-companion-peripheral-manager-property-contract-start-only|wifi-companion-peripheral-manager-init-contract-start-only|wifi-companion-esoc-control-preflight|wifi-companion-esoc-engine-register-preflight|wifi-companion-esoc-req-registered-subsys-hold-preflight|wifi-companion-esoc-conditional-response-preflight|wifi-companion-mdm-helper-ks-image-contract-preflight|wifi-companion-mdm-helper-only-deep-capture|wifi-companion-service74-gated-peripheral-manager-cnss-retry-start-only|wifi-companion-service74-gated-peripheral-manager-cnss-retry-registry-snapshot-start-only|wifi-companion-service74-gated-peripheral-manager-vndservice-query-start-only|wifi-companion-service74-gated-peripheral-manager-vndservice-query-cnss-retry-start-only|wifi-companion-service74-gated-peripheral-manager-vndservice-query-provider-first-cnss-start-only|wifi-companion-service74-gated-android-userspace-cnss-retry-start-only|wifi-companion-service74-gated-android-userspace-cnss-retry-registry-snapshot-start-only|wifi-companion-service74-gated-vnd-service-manager-registry-snapshot-start-only|wifi-companion-service74-gated-mdm-helper-start-only|wifi-companion-service180-gated-mdm-helper-start-only|wifi-companion-sysmon-gated-mdm-helper-start-only|wifi-companion-hal-order-start-only|wifi-companion-hal-wificond-order-start-only|wifi-companion-hal-wificond-lshal-wait-samsung|wifi-companion-hal-wificond-lshal-wait-iwifi|wifi-companion-dual-hal-wificond-lshal-wait-iwifi|wifi-companion-dual-hal-wificond-iwifi-start|wifi-companion-dual-hal-wificond-lshal-then-iwifi-start|rmt-storage-start-only|property-lookup|service-manager-start-only|private-selinux-proof|wifi-hal-lshal-vintf-status-list|wifi-hal-composite-start-only|wifi-hal-composite-lshal-list|wifi-hal-composite-lshal-binderized-list|wifi-hal-composite-lshal-wait-target|wifi-surface-composite-lshal-wait-iwifi|wifi-surface-composite-lshal-wait-samsung|wifi-surface-composite-lshal-wait-samsung-ptrace|wifi-hal-composite-lshal-status-list|wifi-hal-composite-lshal-binderized-status-list|wifi-surface-composite-start-only|wifi-dual-hal-lshal-wait-iwifi|wifi-dual-hal-iwifi-start-surface|wifi-iwifi-start-surface|wifi-active-session-surface|wifi-active-session-scan-only|wifi-active-session-connect-ping|wifi-connect-tool-surface|subsys-hold-open-proof|service-notifier-listener-only "
             "[v27 binderized query runs: /system/bin/lshal list --types=binderized --neat] "
             "[v28 target query runs: /system/bin/lshal wait <fqinstance>] "
             "[v29 status query runs: /system/bin/lshal list --types=binderized,vintf --neat -V -S -i -p -e -c] "
@@ -528,6 +530,10 @@ static bool is_wifi_companion_mdm_helper_ks_image_contract_preflight_mode(const 
     return streq(mode, "wifi-companion-mdm-helper-ks-image-contract-preflight");
 }
 
+static bool is_wifi_companion_mdm_helper_only_deep_capture_mode(const char *mode) {
+    return streq(mode, "wifi-companion-mdm-helper-only-deep-capture");
+}
+
 static bool is_wifi_companion_peripheral_manager_service_node_materialization_mode(const char *mode) {
     return is_wifi_companion_peripheral_manager_node_parity_start_only_mode(mode) ||
            is_wifi_companion_peripheral_manager_property_contract_start_only_mode(mode) ||
@@ -540,7 +546,8 @@ static bool is_wifi_companion_peripheral_manager_node_materialization_mode(const
            is_wifi_companion_esoc_engine_register_preflight_mode(mode) ||
            is_wifi_companion_esoc_req_registered_subsys_hold_preflight_mode(mode) ||
            is_wifi_companion_esoc_conditional_response_preflight_mode(mode) ||
-           is_wifi_companion_mdm_helper_ks_image_contract_preflight_mode(mode);
+           is_wifi_companion_mdm_helper_ks_image_contract_preflight_mode(mode) ||
+           is_wifi_companion_mdm_helper_only_deep_capture_mode(mode);
 }
 
 static bool is_wifi_companion_service74_gated_peripheral_manager_cnss_retry_start_only_mode(const char *mode) {
@@ -968,6 +975,10 @@ static int parse_args(int argc, char **argv, struct config *cfg) {
             cfg->allow_mdm_helper_ks_contract_preflight = true;
             continue;
         }
+        if (strcmp(argv[i], "--allow-mdm-helper-only-capture") == 0) {
+            cfg->allow_mdm_helper_only_capture = true;
+            continue;
+        }
         if (i + 1 >= argc) {
             fprintf(stderr, "missing value for %s\n", argv[i]);
             return 2;
@@ -1144,6 +1155,7 @@ static int parse_args(int argc, char **argv, struct config *cfg) {
           is_wifi_companion_esoc_req_registered_subsys_hold_preflight_mode(cfg->mode) ||
           is_wifi_companion_esoc_conditional_response_preflight_mode(cfg->mode) ||
           is_wifi_companion_mdm_helper_ks_image_contract_preflight_mode(cfg->mode) ||
+          is_wifi_companion_mdm_helper_only_deep_capture_mode(cfg->mode) ||
           is_wifi_companion_any_start_only_mode(cfg->mode) ||
           is_wifi_companion_hal_order_start_only_mode(cfg->mode) ||
           streq(cfg->mode, "property-lookup") ||
@@ -1304,6 +1316,11 @@ static int parse_args(int argc, char **argv, struct config *cfg) {
         fprintf(stderr, "--allow-mdm-helper-ks-contract-preflight is only valid with wifi-companion-mdm-helper-ks-image-contract-preflight mode\n");
         return 2;
     }
+    if (cfg->allow_mdm_helper_only_capture &&
+        !is_wifi_companion_mdm_helper_only_deep_capture_mode(cfg->mode)) {
+        fprintf(stderr, "--allow-mdm-helper-only-capture is only valid with wifi-companion-mdm-helper-only-deep-capture mode\n");
+        return 2;
+    }
     if (is_wifi_companion_esoc_engine_register_preflight_mode(cfg->mode)) {
         if (cfg->linker != NULL) {
             fprintf(stderr, "--linker is not used by wifi-companion-esoc-engine-register-preflight mode\n");
@@ -1330,7 +1347,8 @@ static int parse_args(int argc, char **argv, struct config *cfg) {
             cfg->allow_esoc_control_preflight ||
             cfg->allow_esoc_req_registered_subsys_hold_preflight ||
             cfg->allow_esoc_conditional_response_preflight ||
-            cfg->allow_mdm_helper_ks_contract_preflight) {
+            cfg->allow_mdm_helper_ks_contract_preflight ||
+            cfg->allow_mdm_helper_only_capture) {
             fprintf(stderr, "wifi-companion-esoc-engine-register-preflight does not accept actor/HAL/scan/connect or other proof allow flags\n");
             return 2;
         }
@@ -1361,7 +1379,8 @@ static int parse_args(int argc, char **argv, struct config *cfg) {
             cfg->allow_esoc_control_preflight ||
             cfg->allow_esoc_engine_register_preflight ||
             cfg->allow_esoc_conditional_response_preflight ||
-            cfg->allow_mdm_helper_ks_contract_preflight) {
+            cfg->allow_mdm_helper_ks_contract_preflight ||
+            cfg->allow_mdm_helper_only_capture) {
             fprintf(stderr, "wifi-companion-esoc-req-registered-subsys-hold-preflight does not accept actor/HAL/scan/connect or other proof allow flags\n");
             return 2;
         }
@@ -1392,7 +1411,8 @@ static int parse_args(int argc, char **argv, struct config *cfg) {
             cfg->allow_esoc_control_preflight ||
             cfg->allow_esoc_engine_register_preflight ||
             cfg->allow_esoc_req_registered_subsys_hold_preflight ||
-            cfg->allow_mdm_helper_ks_contract_preflight) {
+            cfg->allow_mdm_helper_ks_contract_preflight ||
+            cfg->allow_mdm_helper_only_capture) {
             fprintf(stderr, "wifi-companion-esoc-conditional-response-preflight does not accept actor/HAL/scan/connect or other proof allow flags\n");
             return 2;
         }
@@ -1423,8 +1443,41 @@ static int parse_args(int argc, char **argv, struct config *cfg) {
             cfg->allow_esoc_control_preflight ||
             cfg->allow_esoc_engine_register_preflight ||
             cfg->allow_esoc_req_registered_subsys_hold_preflight ||
-            cfg->allow_esoc_conditional_response_preflight) {
+            cfg->allow_esoc_conditional_response_preflight ||
+            cfg->allow_mdm_helper_only_capture) {
             fprintf(stderr, "wifi-companion-mdm-helper-ks-image-contract-preflight does not accept daemon/HAL/scan/connect or other proof allow flags\n");
+            return 2;
+        }
+    }
+    if (is_wifi_companion_mdm_helper_only_deep_capture_mode(cfg->mode)) {
+        if (cfg->linker != NULL) {
+            fprintf(stderr, "--linker is not used by wifi-companion-mdm-helper-only-deep-capture mode\n");
+            return 2;
+        }
+        if (!streq(cfg->capture_mode, "none")) {
+            fprintf(stderr, "--capture-mode must be none for wifi-companion-mdm-helper-only-deep-capture mode\n");
+            return 2;
+        }
+        if (cfg->allow_cnss_start_only ||
+            cfg->allow_wifi_companion_start_only ||
+            cfg->allow_service_manager_start_only ||
+            cfg->allow_wifi_hal_start_only ||
+            cfg->allow_hal_service_query ||
+            cfg->allow_iwifi_start_only ||
+            cfg->allow_wlan_driver_state_on ||
+            cfg->allow_cnss_userspace_readiness ||
+            cfg->allow_qrtr_ns_readback ||
+            cfg->allow_servloc_domain_list_probe ||
+            cfg->allow_service_notifier_listener_probe ||
+            cfg->allow_scan_only ||
+            cfg->allow_connect_dhcp_ping ||
+            cfg->allow_policy_load_proof ||
+            cfg->allow_esoc_control_preflight ||
+            cfg->allow_esoc_engine_register_preflight ||
+            cfg->allow_esoc_req_registered_subsys_hold_preflight ||
+            cfg->allow_esoc_conditional_response_preflight ||
+            cfg->allow_mdm_helper_ks_contract_preflight) {
+            fprintf(stderr, "wifi-companion-mdm-helper-only-deep-capture does not accept daemon/HAL/scan/connect or other proof allow flags\n");
             return 2;
         }
     }
@@ -12186,6 +12239,226 @@ static int append_mdm_helper_ks_path_visibility(struct buffer *buf,
                          (global_exists && !private_exists) ? 1 : 0);
 }
 
+static int append_mdm_helper_only_path_visibility(struct buffer *buf,
+                                                  const struct paths *paths,
+                                                  const char *phase) {
+    const char *global_mhi = "/dev/mhi_0305_01.01.00_pipe_10";
+    char private_mhi[MAX_PATH_LEN];
+    struct stat st;
+    int global_errno = 0;
+    int private_errno = 0;
+    int private_path_ready;
+    int global_exists;
+    int private_exists;
+
+    global_exists = stat(global_mhi, &st) == 0;
+    if (!global_exists) {
+        global_errno = errno;
+    }
+    private_path_ready =
+        append_path(private_mhi, sizeof(private_mhi), paths->dev, "mhi_0305_01.01.00_pipe_10") == 0;
+    private_exists = private_path_ready && stat(private_mhi, &st) == 0;
+    if (private_path_ready && !private_exists) {
+        private_errno = errno;
+    }
+    return append_format(buf,
+                         "mdm_helper_only_capture.path_visibility.%s.global_mhi_path=%s\n"
+                         "mdm_helper_only_capture.path_visibility.%s.global_mhi_exists=%d\n"
+                         "mdm_helper_only_capture.path_visibility.%s.global_mhi_errno=%d\n"
+                         "mdm_helper_only_capture.path_visibility.%s.private_mhi_path=%s\n"
+                         "mdm_helper_only_capture.path_visibility.%s.private_mhi_path_ready=%d\n"
+                         "mdm_helper_only_capture.path_visibility.%s.private_mhi_exists=%d\n"
+                         "mdm_helper_only_capture.path_visibility.%s.private_mhi_errno=%d\n"
+                         "mdm_helper_only_capture.path_visibility.%s.mirror_strategy_required=%d\n",
+                         phase,
+                         global_mhi,
+                         phase,
+                         global_exists ? 1 : 0,
+                         phase,
+                         global_errno,
+                         phase,
+                         private_path_ready ? private_mhi : "<path-too-long>",
+                         phase,
+                         private_path_ready ? 1 : 0,
+                         phase,
+                         private_exists ? 1 : 0,
+                         phase,
+                         private_errno,
+                         phase,
+                         (global_exists && !private_exists) ? 1 : 0);
+}
+
+static int append_proc_fd_target_match_scan(struct buffer *buf,
+                                            pid_t pid,
+                                            const char *prefix,
+                                            const char *phase,
+                                            const char *needle,
+                                            int *match_count) {
+    char dir_path[MAX_PATH_LEN];
+    DIR *dir;
+    struct dirent *entry;
+    int count = 0;
+    int shown = 0;
+    bool truncated = false;
+
+    *match_count = -1;
+    proc_path(dir_path, sizeof(dir_path), pid, "fd");
+    if (append_format(buf,
+                      "%s.fd_match.%s.begin=1\n"
+                      "%s.fd_match.%s.pid=%ld\n"
+                      "%s.fd_match.%s.needle=%s\n"
+                      "%s.fd_match.%s.path=%s\n",
+                      prefix,
+                      phase,
+                      prefix,
+                      phase,
+                      (long)pid,
+                      prefix,
+                      phase,
+                      needle,
+                      prefix,
+                      phase,
+                      dir_path) < 0) {
+        return -1;
+    }
+    dir = opendir(dir_path);
+    if (dir == NULL) {
+        return append_format(buf,
+                             "%s.fd_match.%s.error=%s\n"
+                             "%s.fd_match.%s.count=-1\n"
+                             "%s.fd_match.%s.end=1\n",
+                             prefix,
+                             phase,
+                             strerror(errno),
+                             prefix,
+                             phase,
+                             prefix,
+                             phase);
+    }
+    while ((entry = readdir(dir)) != NULL) {
+        char fd_path[MAX_PATH_LEN];
+        char target[MAX_PATH_LEN];
+        ssize_t nread;
+
+        if (strcmp(entry->d_name, ".") == 0 || strcmp(entry->d_name, "..") == 0) {
+            continue;
+        }
+        if (snprintf(fd_path, sizeof(fd_path), "%s/%s", dir_path, entry->d_name) >= (int)sizeof(fd_path)) {
+            truncated = true;
+            continue;
+        }
+        nread = readlink(fd_path, target, sizeof(target) - 1);
+        if (nread < 0) {
+            continue;
+        }
+        target[nread] = '\0';
+        if (strstr(target, needle) == NULL) {
+            continue;
+        }
+        count++;
+        if (shown >= 16) {
+            truncated = true;
+            continue;
+        }
+        sanitize_one_line(target);
+        if (append_format(buf,
+                          "%s.fd_match.%s.entry_%02d.fd=%s\n"
+                          "%s.fd_match.%s.entry_%02d.target=%s\n",
+                          prefix,
+                          phase,
+                          shown,
+                          entry->d_name,
+                          prefix,
+                          phase,
+                          shown,
+                          target) < 0) {
+            closedir(dir);
+            return -1;
+        }
+        shown++;
+    }
+    closedir(dir);
+    *match_count = count;
+    return append_format(buf,
+                         "%s.fd_match.%s.count=%d\n"
+                         "%s.fd_match.%s.shown=%d\n"
+                         "%s.fd_match.%s.truncated=%d\n"
+                         "%s.fd_match.%s.end=1\n",
+                         prefix,
+                         phase,
+                         count,
+                         prefix,
+                         phase,
+                         shown,
+                         prefix,
+                         phase,
+                         truncated ? 1 : 0,
+                         prefix,
+                         phase);
+}
+
+static int append_mdm_helper_only_deep_snapshot(struct buffer *buf, pid_t pid, const char *phase) {
+    char label[96];
+    char capture_label[160];
+    bool attr_captured = false;
+    bool maps_captured = false;
+    bool netlink_captured = false;
+    bool unix_captured = false;
+    bool qrtr_captured = false;
+    bool protocols_captured = false;
+
+    if (snprintf(label, sizeof(label), "mdm_helper_only_%s", phase) >= (int)sizeof(label)) {
+        return append_format(buf,
+                             "mdm_helper_only_capture.snapshot.%s.error=label-too-long\n",
+                             phase);
+    }
+    if (append_format(buf,
+                      "mdm_helper_only_capture.snapshot.%s.begin=1\n"
+                      "mdm_helper_only_capture.snapshot.%s.pid=%ld\n",
+                      phase,
+                      phase,
+                      (long)pid) < 0 ||
+        append_generic_stall_snapshot_capture(buf, pid, label) < 0 ||
+        append_proc_fd_links_compact(buf, pid, label) < 0) {
+        return -1;
+    }
+    if (snprintf(capture_label, sizeof(capture_label), "%s_attr_current", label) >= (int)sizeof(capture_label) ||
+        append_proc_file_capture_named(buf, pid, "attr/current", capture_label, 4096, &attr_captured) < 0 ||
+        snprintf(capture_label, sizeof(capture_label), "%s_maps", label) >= (int)sizeof(capture_label) ||
+        append_proc_file_capture_named(buf, pid, "maps", capture_label, 32768, &maps_captured) < 0 ||
+        snprintf(capture_label, sizeof(capture_label), "%s_proc_net_netlink", label) >= (int)sizeof(capture_label) ||
+        append_path_file_capture_named(buf, "/proc/net/netlink", capture_label, 32768, &netlink_captured) < 0 ||
+        snprintf(capture_label, sizeof(capture_label), "%s_proc_net_unix", label) >= (int)sizeof(capture_label) ||
+        append_path_file_capture_named(buf, "/proc/net/unix", capture_label, 32768, &unix_captured) < 0 ||
+        snprintf(capture_label, sizeof(capture_label), "%s_proc_net_qrtr", label) >= (int)sizeof(capture_label) ||
+        append_path_file_capture_named(buf, "/proc/net/qrtr", capture_label, 32768, &qrtr_captured) < 0 ||
+        snprintf(capture_label, sizeof(capture_label), "%s_proc_net_protocols", label) >= (int)sizeof(capture_label) ||
+        append_path_file_capture_named(buf, "/proc/net/protocols", capture_label, 32768, &protocols_captured) < 0) {
+        return -1;
+    }
+    return append_format(buf,
+                         "mdm_helper_only_capture.snapshot.%s.attr_current_captured=%d\n"
+                         "mdm_helper_only_capture.snapshot.%s.maps_captured=%d\n"
+                         "mdm_helper_only_capture.snapshot.%s.netlink_captured=%d\n"
+                         "mdm_helper_only_capture.snapshot.%s.unix_captured=%d\n"
+                         "mdm_helper_only_capture.snapshot.%s.qrtr_captured=%d\n"
+                         "mdm_helper_only_capture.snapshot.%s.protocols_captured=%d\n"
+                         "mdm_helper_only_capture.snapshot.%s.end=1\n",
+                         phase,
+                         attr_captured ? 1 : 0,
+                         phase,
+                         maps_captured ? 1 : 0,
+                         phase,
+                         netlink_captured ? 1 : 0,
+                         phase,
+                         unix_captured ? 1 : 0,
+                         phase,
+                         qrtr_captured ? 1 : 0,
+                         phase,
+                         protocols_captured ? 1 : 0,
+                         phase);
+}
+
 static int append_pgid_scan_summary(struct buffer *buf,
                                     const char *prefix,
                                     const char *phase,
@@ -16550,6 +16823,263 @@ fail:
     if (trigger_pipe[1] >= 0) close(trigger_pipe[1]);
     composite_cleanup_children(&mdm_helper, 1, stdout_buf, stderr_buf);
     return -1;
+}
+
+static int run_wifi_companion_mdm_helper_only_deep_capture_guarded(const struct config *cfg,
+                                                                   const struct paths *paths,
+                                                                   struct buffer *stdout_buf,
+                                                                   struct buffer *stderr_buf,
+                                                                   int *child_exit_code,
+                                                                   int *child_signal,
+                                                                   bool *timed_out) {
+    struct composite_child mdm_helper;
+    int ks_count_window = -1;
+    int mhi_cmdline_count_window = -1;
+    int esoc0_fd_count_window = -1;
+    int esoc0_fd_count_final = -1;
+    int subsys_esoc0_fd_count_window = -1;
+    int subsys_esoc0_fd_count_final = -1;
+    int mhi_fd_count_window = -1;
+    int mhi_fd_count_final = -1;
+    bool mdm_observable = false;
+    bool window_snapshot_captured = false;
+    bool final_snapshot_captured = false;
+    bool all_postflight_safe = true;
+    bool deadline_expired = false;
+    long deadline;
+
+    *child_exit_code = -1;
+    *child_signal = 0;
+    *timed_out = false;
+    composite_child_init(&mdm_helper,
+                         "mdm_helper",
+                         "/vendor/bin/mdm_helper",
+                         COMPOSITE_ID_MDM_HELPER);
+
+    if (append_literal(stdout_buf,
+                       "mdm_helper_only_capture.begin=1\n"
+                       "mdm_helper_only_capture.mode=mdm-helper-only-deep-capture\n"
+                       "mdm_helper_only_capture.order=mdm_helper-only-no-subsys-open\n"
+                       "mdm_helper_only_capture.mdm_helper_argv=/vendor/bin/mdm_helper\n"
+                       "mdm_helper_only_capture.service_manager_start_executed=0\n"
+                       "mdm_helper_only_capture.cnss_start_executed=0\n"
+                       "mdm_helper_only_capture.wifi_hal_start_executed=0\n"
+                       "mdm_helper_only_capture.scan_connect_linkup=0\n"
+                       "mdm_helper_only_capture.credentials=0\n"
+                       "mdm_helper_only_capture.dhcp_routing=0\n"
+                       "mdm_helper_only_capture.external_ping=0\n"
+                       "mdm_helper_only_capture.subsys_esoc0_open_attempted=0\n"
+                       "mdm_helper_only_capture.reg_req_eng_attempted=0\n"
+                       "mdm_helper_only_capture.notify_attempted=0\n"
+                       "mdm_helper_only_capture.boot_done_attempted=0\n") < 0 ||
+        append_private_android_node_status(stdout_buf, paths, "esoc-0", "esoc_0") < 0 ||
+        append_private_android_node_status(stdout_buf, paths, "subsys_esoc0", "subsys_esoc0") < 0 ||
+        append_private_android_node_status(stdout_buf, paths, "subsys_modem", "subsys_modem") < 0 ||
+        append_mdm_helper_only_path_visibility(stdout_buf, paths, "before") < 0) {
+        return -1;
+    }
+    if (!cfg->allow_mdm_helper_only_capture) {
+        if (append_literal(stdout_buf,
+                           "mdm_helper_only_capture.allowed=0\n"
+                           "mdm_helper_only_capture.mdm_helper_start_attempted=0\n"
+                           "mdm_helper_only_capture.result=blocked\n"
+                           "mdm_helper_only_capture.reason=missing-allow-mdm-helper-only-capture\n"
+                           "mdm_helper_only_capture.end=1\n") < 0) {
+            return -1;
+        }
+        *child_exit_code = 0;
+        return 0;
+    }
+    if (append_literal(stdout_buf,
+                       "mdm_helper_only_capture.allowed=1\n"
+                       "mdm_helper_only_capture.mdm_helper_start_attempted=1\n") < 0) {
+        return -1;
+    }
+    if (composite_spawn_child(cfg, paths, &mdm_helper, stdout_buf) < 0) {
+        append_literal(stdout_buf,
+                       "mdm_helper_only_capture.result=manual-review-required\n"
+                       "mdm_helper_only_capture.reason=mdm-helper-spawn-failed\n"
+                       "mdm_helper_only_capture.end=1\n");
+        return -1;
+    }
+
+    deadline = monotonic_ms() + cfg->timeout_sec * 1000L;
+    while (monotonic_ms() < deadline) {
+        int status = 0;
+        pid_t wait_rc;
+
+        if (mdm_helper.stdout_open && mdm_helper.stdout_fd >= 0) {
+            drain_fd(mdm_helper.stdout_fd, stdout_buf, &mdm_helper.stdout_open);
+        }
+        if (mdm_helper.stderr_open && mdm_helper.stderr_fd >= 0) {
+            drain_fd(mdm_helper.stderr_fd, stderr_buf, &mdm_helper.stderr_open);
+        }
+        wait_rc = waitpid(mdm_helper.pid, &status, WNOHANG);
+        if (wait_rc == mdm_helper.pid) {
+            mdm_helper.child_done = true;
+            mdm_helper.reaped = true;
+            if (WIFEXITED(status)) {
+                mdm_helper.exit_code = WEXITSTATUS(status);
+            } else if (WIFSIGNALED(status)) {
+                mdm_helper.signal = WTERMSIG(status);
+            }
+            break;
+        }
+        if (wait_rc < 0 && errno != EINTR && errno != ECHILD) {
+            break;
+        }
+        if (!window_snapshot_captured && kill(mdm_helper.pid, 0) == 0) {
+            mdm_helper.observable = true;
+            mdm_observable = true;
+            if (append_mdm_helper_only_deep_snapshot(stdout_buf, mdm_helper.pid, "window") < 0 ||
+                append_proc_fd_target_match_scan(stdout_buf,
+                                                 mdm_helper.pid,
+                                                 "mdm_helper_only_capture",
+                                                 "window_esoc0",
+                                                 "/dev/esoc-0",
+                                                 &esoc0_fd_count_window) < 0 ||
+                append_proc_fd_target_match_scan(stdout_buf,
+                                                 mdm_helper.pid,
+                                                 "mdm_helper_only_capture",
+                                                 "window_subsys_esoc0",
+                                                 "/dev/subsys_esoc0",
+                                                 &subsys_esoc0_fd_count_window) < 0 ||
+                append_proc_fd_target_match_scan(stdout_buf,
+                                                 mdm_helper.pid,
+                                                 "mdm_helper_only_capture",
+                                                 "window_mhi_pipe",
+                                                 "/dev/mhi_0305_01.01.00_pipe_10",
+                                                 &mhi_fd_count_window) < 0 ||
+                append_process_cmdline_match_scan(stdout_buf,
+                                                  "mdm_helper_only_capture",
+                                                  "window_ks",
+                                                  "/vendor/bin/ks",
+                                                  8,
+                                                  &ks_count_window) < 0 ||
+                append_process_cmdline_match_scan(stdout_buf,
+                                                  "mdm_helper_only_capture",
+                                                  "window_mhi_pipe_cmdline",
+                                                  "/dev/mhi_0305_01.01.00_pipe_10",
+                                                  8,
+                                                  &mhi_cmdline_count_window) < 0 ||
+                append_mdm_helper_only_path_visibility(stdout_buf, paths, "window") < 0) {
+                composite_cleanup_children(&mdm_helper, 1, stdout_buf, stderr_buf);
+                return -1;
+            }
+            window_snapshot_captured = true;
+        }
+        usleep(100000);
+    }
+    deadline_expired = !mdm_helper.child_done;
+    if (!mdm_helper.child_done && kill(mdm_helper.pid, 0) == 0) {
+        mdm_helper.observable = true;
+        mdm_observable = true;
+        if (append_mdm_helper_only_deep_snapshot(stdout_buf, mdm_helper.pid, "final") < 0 ||
+            append_proc_fd_target_match_scan(stdout_buf,
+                                             mdm_helper.pid,
+                                             "mdm_helper_only_capture",
+                                             "final_esoc0",
+                                             "/dev/esoc-0",
+                                             &esoc0_fd_count_final) < 0 ||
+            append_proc_fd_target_match_scan(stdout_buf,
+                                             mdm_helper.pid,
+                                             "mdm_helper_only_capture",
+                                             "final_subsys_esoc0",
+                                             "/dev/subsys_esoc0",
+                                             &subsys_esoc0_fd_count_final) < 0 ||
+            append_proc_fd_target_match_scan(stdout_buf,
+                                             mdm_helper.pid,
+                                             "mdm_helper_only_capture",
+                                             "final_mhi_pipe",
+                                             "/dev/mhi_0305_01.01.00_pipe_10",
+                                             &mhi_fd_count_final) < 0) {
+            composite_cleanup_children(&mdm_helper, 1, stdout_buf, stderr_buf);
+            return -1;
+        }
+        final_snapshot_captured = true;
+    }
+    if (mdm_helper.stdout_open && mdm_helper.stdout_fd >= 0) {
+        drain_fd(mdm_helper.stdout_fd, stdout_buf, &mdm_helper.stdout_open);
+    }
+    if (mdm_helper.stderr_open && mdm_helper.stderr_fd >= 0) {
+        drain_fd(mdm_helper.stderr_fd, stderr_buf, &mdm_helper.stderr_open);
+    }
+    composite_cleanup_children(&mdm_helper, 1, stdout_buf, stderr_buf);
+    all_postflight_safe = composite_child_postflight_safe(&mdm_helper);
+    *timed_out = deadline_expired;
+    if (!all_postflight_safe) {
+        *child_exit_code = mdm_helper.exit_code >= 0 ? mdm_helper.exit_code : 42;
+        *child_signal = mdm_helper.signal;
+    } else {
+        *child_exit_code = 0;
+        *child_signal = 0;
+    }
+    if (append_mdm_helper_only_path_visibility(stdout_buf, paths, "after") < 0 ||
+        append_format(stdout_buf,
+                      "mdm_helper_only_capture.mdm_helper_observable=%d\n"
+                      "mdm_helper_only_capture.window_snapshot_captured=%d\n"
+                      "mdm_helper_only_capture.final_snapshot_captured=%d\n"
+                      "mdm_helper_only_capture.fd_esoc0_count.window=%d\n"
+                      "mdm_helper_only_capture.fd_esoc0_count.final=%d\n"
+                      "mdm_helper_only_capture.fd_subsys_esoc0_count.window=%d\n"
+                      "mdm_helper_only_capture.fd_subsys_esoc0_count.final=%d\n"
+                      "mdm_helper_only_capture.fd_mhi_pipe_count.window=%d\n"
+                      "mdm_helper_only_capture.fd_mhi_pipe_count.final=%d\n"
+                      "mdm_helper_only_capture.ks_count.window=%d\n"
+                      "mdm_helper_only_capture.mhi_pipe_cmdline_count.window=%d\n"
+                      "mdm_helper_only_capture.mdm_helper.exit_code=%d\n"
+                      "mdm_helper_only_capture.mdm_helper.signal=%d\n"
+                      "mdm_helper_only_capture.mdm_helper.term_sent=%d\n"
+                      "mdm_helper_only_capture.mdm_helper.kill_sent=%d\n"
+                      "mdm_helper_only_capture.mdm_helper.reaped=%d\n"
+                      "mdm_helper_only_capture.mdm_helper.postflight_safe=%d\n"
+                      "mdm_helper_only_capture.all_postflight_safe=%d\n"
+                      "mdm_helper_only_capture.timed_out=%d\n",
+                      mdm_observable ? 1 : 0,
+                      window_snapshot_captured ? 1 : 0,
+                      final_snapshot_captured ? 1 : 0,
+                      esoc0_fd_count_window,
+                      esoc0_fd_count_final,
+                      subsys_esoc0_fd_count_window,
+                      subsys_esoc0_fd_count_final,
+                      mhi_fd_count_window,
+                      mhi_fd_count_final,
+                      ks_count_window,
+                      mhi_cmdline_count_window,
+                      mdm_helper.exit_code,
+                      mdm_helper.signal,
+                      mdm_helper.term_sent ? 1 : 0,
+                      mdm_helper.kill_sent ? 1 : 0,
+                      mdm_helper.reaped ? 1 : 0,
+                      composite_child_postflight_safe(&mdm_helper) ? 1 : 0,
+                      all_postflight_safe ? 1 : 0,
+                      *timed_out ? 1 : 0) < 0) {
+        return -1;
+    }
+    if (!all_postflight_safe) {
+        append_literal(stdout_buf,
+                       "mdm_helper_only_capture.result=reboot-required\n"
+                       "mdm_helper_only_capture.reason=mdm-helper-not-proven-stopped\n");
+    } else if (!mdm_observable) {
+        append_literal(stdout_buf,
+                       "mdm_helper_only_capture.result=mdm-helper-not-observable\n"
+                       "mdm_helper_only_capture.reason=mdm-helper-exited-before-capture-window\n");
+    } else if (esoc0_fd_count_window > 0 || esoc0_fd_count_final > 0) {
+        append_literal(stdout_buf,
+                       "mdm_helper_only_capture.result=mdm-helper-esoc-fd-observed\n"
+                       "mdm_helper_only_capture.reason=mdm-helper-opened-dev-esoc-0-without-subsys-trigger\n");
+    } else if (ks_count_window > 0 || mhi_cmdline_count_window > 0 ||
+               mhi_fd_count_window > 0 || mhi_fd_count_final > 0) {
+        append_literal(stdout_buf,
+                       "mdm_helper_only_capture.result=mdm-helper-produced-ks-mhi\n"
+                       "mdm_helper_only_capture.reason=mdm-helper-produced-ks-or-mhi-pipe-without-subsys-trigger\n");
+    } else {
+        append_literal(stdout_buf,
+                       "mdm_helper_only_capture.result=mdm-helper-no-esoc-fd\n"
+                       "mdm_helper_only_capture.reason=mdm-helper-observable-but-no-dev-esoc-0-or-ks-mhi-surface\n");
+    }
+    append_literal(stdout_buf, "mdm_helper_only_capture.end=1\n");
+    return all_postflight_safe ? 0 : 42;
 }
 
 static const char *qrtr_ctrl_cmd_name(uint32_t cmd) {
@@ -22884,6 +23414,8 @@ int main(int argc, char **argv) {
            cfg.allow_esoc_conditional_response_preflight ? 1 : 0);
     printf("allow_mdm_helper_ks_contract_preflight=%d\n",
            cfg.allow_mdm_helper_ks_contract_preflight ? 1 : 0);
+    printf("allow_mdm_helper_only_capture=%d\n",
+           cfg.allow_mdm_helper_only_capture ? 1 : 0);
     printf("connect_config=%s\n", cfg.connect_config != NULL ? cfg.connect_config : "<none>");
     printf("connect_iface=%s\n", cfg.connect_iface != NULL ? cfg.connect_iface : "<none>");
     printf("ping_target=%s\n", cfg.ping_target != NULL ? cfg.ping_target : "<none>");
@@ -23072,6 +23604,14 @@ int main(int argc, char **argv) {
                                                                                    &child_exit_code,
                                                                                    &child_signal,
                                                                                    &timed_out);
+    } else if (is_wifi_companion_mdm_helper_only_deep_capture_mode(cfg.mode)) {
+        run_rc = run_wifi_companion_mdm_helper_only_deep_capture_guarded(&cfg,
+                                                                         &paths,
+                                                                         &stdout_buf,
+                                                                         &stderr_buf,
+                                                                         &child_exit_code,
+                                                                         &child_signal,
+                                                                         &timed_out);
     } else if (is_wifi_companion_any_start_only_mode(cfg.mode)) {
         run_rc = run_wifi_companion_start_only_guarded(&cfg,
                                                        &paths,
