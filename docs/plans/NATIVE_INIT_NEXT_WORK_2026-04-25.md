@@ -3572,3 +3572,32 @@ Samsung bootloader
   values under the same no-`mdm_helper`/no-Wi-Fi guardrails. If subsystem fd
   holds appear, then V858 can plan `mdm_helper`/`ks` contract replay; otherwise
   continue classifying missing init property/context/service inputs.
+
+### V857. pm-service Property Contract Start-Only
+
+- plan: `docs/plans/NATIVE_INIT_V857_PM_SERVICE_PROPERTY_CONTRACT_PLAN_2026-05-25.md`
+- report: `docs/reports/NATIVE_INIT_V857_PM_SERVICE_PROPERTY_CONTRACT_2026-05-25.md`
+- runner: `scripts/revalidation/native_wifi_pm_service_property_contract_start_only_v857.py`
+- deploy wrapper: `scripts/revalidation/wifi_execns_helper_v132_deploy_preflight.py`
+- helper: `a90_android_execns_probe v132`
+- evidence:
+  - `tmp/wifi/v857-pm-service-property-contract-start-only/manifest.json`
+  - `tmp/wifi/v857-pm-service-property-contract-start-only/summary.md`
+- decision: `v857-pm-property-contract-no-subsys-hold`
+- result: bounded native live PASS. V857 replayed the two observed
+  `vendor.peripheral.shutdown_critical_list` values and both property requests
+  returned success. The run still avoided `mdm_helper`, `ks`, CNSS retry, Wi-Fi
+  HAL, scan/connect, credential use, DHCP/routes, external ping, raw eSoC
+  ioctl, GPIO/sysfs/debugfs write, subsystem state write, module load/unload,
+  boot-image write, and Android partition write.
+- finding: allowing the shutdown-critical-list contract did not make native
+  `pm-service` hold `/dev/subsys_esoc0` or `/dev/subsys_modem`. Newly exposed
+  stderr gaps are service-specific property context/read keys:
+  `debug.ld.app.pm-service`, `arm64.memtag.process.pm-service`,
+  `persist.log.tag.PerMgrSrv`, `log.tag.PerMgrSrv`, and corresponding
+  `pm-proxy` keys.
+- next: V858 should classify Android/native property-info context deltas for
+  those `pm-service`/`pm-proxy` lookup keys, then prove the smallest safe
+  property input overlay. Do not escalate to `mdm_helper`/`ks` until
+  PeripheralManager either holds the subsystem nodes or the remaining
+  property/context gap is closed and shown irrelevant.

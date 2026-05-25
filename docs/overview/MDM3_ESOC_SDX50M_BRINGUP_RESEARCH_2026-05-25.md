@@ -312,6 +312,16 @@ private property root, private node parity를 갖춘 상태에서
 차단됐다. 따라서 다음 gate는 `mdm_helper`/`ks`가 아니라
 PeripheralManager property contract를 좁게 재현하는 V857이다.
 
+V857 live 결과 shutdown-critical-list property contract는 닫혔다.
+`vendor.peripheral.shutdown_critical_list=SDX50M ` 및
+`vendor.peripheral.shutdown_critical_list=SDX50M modem ` 요청이 모두
+성공했지만, `pm-service`는 여전히 `/dev/subsys_esoc0` 또는
+`/dev/subsys_modem` fd hold를 증명하지 못했다. 새로 남은 갭은
+`debug.ld.app.pm-service`, `arm64.memtag.process.pm-service`,
+`persist.log.tag.PerMgrSrv`, `log.tag.PerMgrSrv` 및 `pm-proxy` 대응 키의
+property context/read 입력이다. 따라서 V858은 `mdm_helper`가 아니라
+Android/native property-info context delta classifier가 되어야 한다.
+
 ---
 
 ## 참고 문헌

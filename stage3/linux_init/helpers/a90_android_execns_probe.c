@@ -76,7 +76,7 @@
 #define AF_QIPCRTR 42
 #endif
 
-#define EXECNS_VERSION "a90_android_execns_probe v131"
+#define EXECNS_VERSION "a90_android_execns_probe v132"
 #define MAX_PATH_LEN 512
 #define MAX_CAPTURE_SIZE (1024 * 1024)
 #define MAX_LINKERCONFIG_SIZE (256 * 1024)
@@ -336,7 +336,7 @@ static void usage(FILE *out) {
             "[--connect-config /cache/a90-wifi/...] "
             "[--connect-iface auto|wlan0] "
             "[--ping-target 1.1.1.1] "
-            "--mode linker-list|identity-probe|sepolicy-inventory|sepolicy-compile-proof|sepolicy-load-proof|selinux-domain-proof|cnss-start-only|cnss-userspace-readiness|wifi-companion-start-only|wifi-companion-post-sysmon-observer-start-only|wifi-companion-android-order-post-sysmon-observer-start-only|wifi-companion-service-manager-start-only|wifi-companion-vnd-service-manager-start-only|wifi-companion-qrtr-first-vnd-service-manager-start-only|wifi-companion-cnss-first-delayed-vnd-service-manager-start-only|wifi-companion-service74-gated-vnd-service-manager-start-only|wifi-companion-service74-gated-vnd-service-manager-readiness-start-only|wifi-companion-service74-gated-vnd-service-manager-cnss-retry-start-only|wifi-companion-peripheral-manager-node-parity-start-only|wifi-companion-service74-gated-peripheral-manager-cnss-retry-start-only|wifi-companion-service74-gated-peripheral-manager-cnss-retry-registry-snapshot-start-only|wifi-companion-service74-gated-peripheral-manager-vndservice-query-start-only|wifi-companion-service74-gated-peripheral-manager-vndservice-query-cnss-retry-start-only|wifi-companion-service74-gated-peripheral-manager-vndservice-query-provider-first-cnss-start-only|wifi-companion-service74-gated-android-userspace-cnss-retry-start-only|wifi-companion-service74-gated-android-userspace-cnss-retry-registry-snapshot-start-only|wifi-companion-service74-gated-vnd-service-manager-registry-snapshot-start-only|wifi-companion-service74-gated-mdm-helper-start-only|wifi-companion-service180-gated-mdm-helper-start-only|wifi-companion-sysmon-gated-mdm-helper-start-only|wifi-companion-hal-order-start-only|wifi-companion-hal-wificond-order-start-only|wifi-companion-hal-wificond-lshal-wait-samsung|wifi-companion-hal-wificond-lshal-wait-iwifi|wifi-companion-dual-hal-wificond-lshal-wait-iwifi|wifi-companion-dual-hal-wificond-iwifi-start|wifi-companion-dual-hal-wificond-lshal-then-iwifi-start|rmt-storage-start-only|property-lookup|service-manager-start-only|private-selinux-proof|wifi-hal-lshal-vintf-status-list|wifi-hal-composite-start-only|wifi-hal-composite-lshal-list|wifi-hal-composite-lshal-binderized-list|wifi-hal-composite-lshal-wait-target|wifi-surface-composite-lshal-wait-iwifi|wifi-surface-composite-lshal-wait-samsung|wifi-surface-composite-lshal-wait-samsung-ptrace|wifi-hal-composite-lshal-status-list|wifi-hal-composite-lshal-binderized-status-list|wifi-surface-composite-start-only|wifi-dual-hal-lshal-wait-iwifi|wifi-dual-hal-iwifi-start-surface|wifi-iwifi-start-surface|wifi-active-session-surface|wifi-active-session-scan-only|wifi-active-session-connect-ping|wifi-connect-tool-surface|subsys-hold-open-proof|service-notifier-listener-only "
+            "--mode linker-list|identity-probe|sepolicy-inventory|sepolicy-compile-proof|sepolicy-load-proof|selinux-domain-proof|cnss-start-only|cnss-userspace-readiness|wifi-companion-start-only|wifi-companion-post-sysmon-observer-start-only|wifi-companion-android-order-post-sysmon-observer-start-only|wifi-companion-service-manager-start-only|wifi-companion-vnd-service-manager-start-only|wifi-companion-qrtr-first-vnd-service-manager-start-only|wifi-companion-cnss-first-delayed-vnd-service-manager-start-only|wifi-companion-service74-gated-vnd-service-manager-start-only|wifi-companion-service74-gated-vnd-service-manager-readiness-start-only|wifi-companion-service74-gated-vnd-service-manager-cnss-retry-start-only|wifi-companion-peripheral-manager-node-parity-start-only|wifi-companion-peripheral-manager-property-contract-start-only|wifi-companion-service74-gated-peripheral-manager-cnss-retry-start-only|wifi-companion-service74-gated-peripheral-manager-cnss-retry-registry-snapshot-start-only|wifi-companion-service74-gated-peripheral-manager-vndservice-query-start-only|wifi-companion-service74-gated-peripheral-manager-vndservice-query-cnss-retry-start-only|wifi-companion-service74-gated-peripheral-manager-vndservice-query-provider-first-cnss-start-only|wifi-companion-service74-gated-android-userspace-cnss-retry-start-only|wifi-companion-service74-gated-android-userspace-cnss-retry-registry-snapshot-start-only|wifi-companion-service74-gated-vnd-service-manager-registry-snapshot-start-only|wifi-companion-service74-gated-mdm-helper-start-only|wifi-companion-service180-gated-mdm-helper-start-only|wifi-companion-sysmon-gated-mdm-helper-start-only|wifi-companion-hal-order-start-only|wifi-companion-hal-wificond-order-start-only|wifi-companion-hal-wificond-lshal-wait-samsung|wifi-companion-hal-wificond-lshal-wait-iwifi|wifi-companion-dual-hal-wificond-lshal-wait-iwifi|wifi-companion-dual-hal-wificond-iwifi-start|wifi-companion-dual-hal-wificond-lshal-then-iwifi-start|rmt-storage-start-only|property-lookup|service-manager-start-only|private-selinux-proof|wifi-hal-lshal-vintf-status-list|wifi-hal-composite-start-only|wifi-hal-composite-lshal-list|wifi-hal-composite-lshal-binderized-list|wifi-hal-composite-lshal-wait-target|wifi-surface-composite-lshal-wait-iwifi|wifi-surface-composite-lshal-wait-samsung|wifi-surface-composite-lshal-wait-samsung-ptrace|wifi-hal-composite-lshal-status-list|wifi-hal-composite-lshal-binderized-status-list|wifi-surface-composite-start-only|wifi-dual-hal-lshal-wait-iwifi|wifi-dual-hal-iwifi-start-surface|wifi-iwifi-start-surface|wifi-active-session-surface|wifi-active-session-scan-only|wifi-active-session-connect-ping|wifi-connect-tool-surface|subsys-hold-open-proof|service-notifier-listener-only "
             "[v27 binderized query runs: /system/bin/lshal list --types=binderized --neat] "
             "[v28 target query runs: /system/bin/lshal wait <fqinstance>] "
             "[v29 status query runs: /system/bin/lshal list --types=binderized,vintf --neat -V -S -i -p -e -c] "
@@ -464,6 +464,15 @@ static bool is_wifi_companion_peripheral_manager_node_parity_start_only_mode(con
     return streq(mode, "wifi-companion-peripheral-manager-node-parity-start-only");
 }
 
+static bool is_wifi_companion_peripheral_manager_property_contract_start_only_mode(const char *mode) {
+    return streq(mode, "wifi-companion-peripheral-manager-property-contract-start-only");
+}
+
+static bool is_wifi_companion_peripheral_manager_node_materialization_mode(const char *mode) {
+    return is_wifi_companion_peripheral_manager_node_parity_start_only_mode(mode) ||
+           is_wifi_companion_peripheral_manager_property_contract_start_only_mode(mode);
+}
+
 static bool is_wifi_companion_service74_gated_peripheral_manager_cnss_retry_start_only_mode(const char *mode) {
     return streq(mode, "wifi-companion-service74-gated-peripheral-manager-cnss-retry-start-only");
 }
@@ -516,7 +525,7 @@ static bool is_wifi_companion_with_service_manager_start_only_mode(const char *m
            is_wifi_companion_service74_gated_vnd_service_manager_start_only_mode(mode) ||
            is_wifi_companion_service74_gated_vnd_service_manager_readiness_start_only_mode(mode) ||
            is_wifi_companion_service74_gated_vnd_service_manager_cnss_retry_start_only_mode(mode) ||
-           is_wifi_companion_peripheral_manager_node_parity_start_only_mode(mode) ||
+           is_wifi_companion_peripheral_manager_node_materialization_mode(mode) ||
            is_wifi_companion_service74_gated_peripheral_manager_cnss_retry_start_only_mode(mode) ||
            is_wifi_companion_service74_gated_peripheral_manager_cnss_retry_registry_snapshot_start_only_mode(mode) ||
            is_wifi_companion_service74_gated_peripheral_manager_vndservice_query_start_only_mode(mode) ||
@@ -1255,7 +1264,7 @@ static int parse_args(int argc, char **argv, struct config *cfg) {
             is_wifi_companion_post_sysmon_observer_start_only_mode(cfg->mode) ||
             is_wifi_companion_android_order_post_sysmon_observer_start_only_mode(cfg->mode);
         const bool peripheral_manager_node_parity =
-            is_wifi_companion_peripheral_manager_node_parity_start_only_mode(cfg->mode);
+            is_wifi_companion_peripheral_manager_node_materialization_mode(cfg->mode);
         const bool with_service_manager =
             is_wifi_companion_with_service_manager_start_only_mode(cfg->mode);
         const bool service74_gated_android_userspace_retry =
@@ -1280,7 +1289,7 @@ static int parse_args(int argc, char **argv, struct config *cfg) {
             return 2;
         }
         if (peripheral_manager_node_parity && cfg->allow_cnss_start_only) {
-            fprintf(stderr, "wifi-companion-peripheral-manager-node-parity-start-only must not use --allow-cnss-start-only\n");
+            fprintf(stderr, "wifi-companion-peripheral-manager node-only modes must not use --allow-cnss-start-only\n");
             return 2;
         }
         if (post_sysmon_observer && cfg->allow_cnss_start_only) {
@@ -2299,7 +2308,7 @@ static int materialize_service_manager_binder_devices(const struct config *cfg,
           (is_wifi_companion_any_start_only_mode(cfg->mode) &&
            cfg->allow_wifi_companion_start_only &&
            cfg->allow_cnss_start_only) ||
-          (is_wifi_companion_peripheral_manager_node_parity_start_only_mode(cfg->mode) &&
+          (is_wifi_companion_peripheral_manager_node_materialization_mode(cfg->mode) &&
            cfg->allow_wifi_companion_start_only &&
            cfg->allow_service_manager_start_only) ||
           (is_wifi_companion_hal_order_start_only_mode(cfg->mode) &&
@@ -6921,7 +6930,7 @@ static int materialize_peripheral_manager_node_parity(const struct config *cfg,
     unsigned int major_no = 0;
     unsigned int minor_no = 0;
 
-    if (!is_wifi_companion_peripheral_manager_node_parity_start_only_mode(cfg->mode)) {
+    if (!is_wifi_companion_peripheral_manager_node_materialization_mode(cfg->mode)) {
         return 0;
     }
     if (mkdir_p(paths->dev, 0755) < 0) {
@@ -17144,8 +17153,10 @@ static int run_wifi_companion_start_only_guarded(const struct config *cfg,
         is_wifi_companion_qrtr_first_vnd_service_manager_start_only_mode(cfg->mode);
     const bool cnss_first_delayed_service_manager =
         is_wifi_companion_cnss_first_delayed_vnd_service_manager_start_only_mode(cfg->mode);
+    const bool peripheral_manager_property_contract =
+        is_wifi_companion_peripheral_manager_property_contract_start_only_mode(cfg->mode);
     const bool peripheral_manager_node_parity =
-        is_wifi_companion_peripheral_manager_node_parity_start_only_mode(cfg->mode);
+        is_wifi_companion_peripheral_manager_node_materialization_mode(cfg->mode);
     const bool service74_gated_service_manager =
         is_wifi_companion_service74_gated_vnd_service_manager_start_only_mode(cfg->mode);
     const bool service74_gated_vnd_readiness =
@@ -17481,6 +17492,7 @@ static int run_wifi_companion_start_only_guarded(const struct config *cfg,
                       "wifi_companion_start.cnss_retry.enabled=%d\n"
                       "wifi_companion_start.initial_cnss_daemon.suppressed=%d\n"
                       "wifi_companion_start.peripheral_manager.enabled=%d\n"
+                      "wifi_companion_start.peripheral_manager.property_contract=%d\n"
                       "wifi_companion_start.android_userspace_order.enabled=%d\n"
                       "wifi_companion_start.registry_snapshot.enabled=%d\n",
                       (service74_gated_vnd_readiness ||
@@ -17495,6 +17507,7 @@ static int run_wifi_companion_start_only_guarded(const struct config *cfg,
                       service74_gated_peripheral_manager_provider_first_cnss ? 1 : 0,
                       (service74_gated_peripheral_manager_any ||
                        peripheral_manager_node_parity) ? 1 : 0,
+                      peripheral_manager_property_contract ? 1 : 0,
                       service74_gated_android_userspace_retry ? 1 : 0,
                       service74_gated_registry_capture ? 1 : 0) < 0 ||
         append_format(stdout_buf,
@@ -18460,14 +18473,22 @@ static void property_shim_record(int fd,
             result);
 }
 
-static bool property_shim_set_allowed(const char *name, const char *value) {
+static bool property_shim_set_allowed(const char *name,
+                                      const char *value,
+                                      bool allow_peripheral_shutdown_list) {
     return (streq(name, "hwservicemanager.ready") && streq(value, "true")) ||
            (streq(name, "ctl.stop") && streq(value, "vendor.rmt_storage")) ||
            (streq(name, "vendor.peripheral.SDX50M.state") && streq(value, "OFFLINE")) ||
-           (streq(name, "vendor.peripheral.modem.state") && streq(value, "OFFLINE"));
+           (streq(name, "vendor.peripheral.modem.state") && streq(value, "OFFLINE")) ||
+           (allow_peripheral_shutdown_list &&
+            streq(name, "vendor.peripheral.shutdown_critical_list") &&
+            (streq(value, "SDX50M ") || streq(value, "SDX50M modem ")));
 }
 
-static uint32_t property_shim_handle_client(int client_fd, int record_fd, int *request_count) {
+static uint32_t property_shim_handle_client(int client_fd,
+                                            int record_fd,
+                                            int *request_count,
+                                            bool allow_peripheral_shutdown_list) {
     long deadline = monotonic_ms() + 2000L;
     uint32_t cmd = 0;
     uint32_t result = A90_PROP_ERROR_READ_CMD;
@@ -18488,7 +18509,7 @@ static uint32_t property_shim_handle_client(int client_fd, int record_fd, int *r
                                               sizeof(value),
                                               deadline) < 0) {
             result = A90_PROP_ERROR_READ_DATA;
-        } else if (property_shim_set_allowed(name, value)) {
+        } else if (property_shim_set_allowed(name, value, allow_peripheral_shutdown_list)) {
             allowed = true;
             result = A90_PROP_SUCCESS;
         } else {
@@ -18502,7 +18523,7 @@ static uint32_t property_shim_handle_client(int client_fd, int record_fd, int *r
         if (property_shim_read_string(client_fd, name, sizeof(name), deadline) < 0 ||
             property_shim_read_string(client_fd, value, sizeof(value), deadline) < 0) {
             result = A90_PROP_ERROR_READ_DATA;
-        } else if (property_shim_set_allowed(name, value)) {
+        } else if (property_shim_set_allowed(name, value, allow_peripheral_shutdown_list)) {
             allowed = true;
             result = A90_PROP_SUCCESS;
         } else {
@@ -18520,7 +18541,10 @@ static uint32_t property_shim_handle_client(int client_fd, int record_fd, int *r
     return result;
 }
 
-static void property_service_shim_child(int listen_fd, int record_fd, int timeout_sec) {
+static void property_service_shim_child(int listen_fd,
+                                        int record_fd,
+                                        int timeout_sec,
+                                        bool allow_peripheral_shutdown_list) {
     long deadline = monotonic_ms() + ((long)timeout_sec + 3L) * 1000L;
     int request_count = 0;
 
@@ -18529,7 +18553,12 @@ static void property_service_shim_child(int listen_fd, int record_fd, int timeou
     dprintf(record_fd,
             "wifi_hal_composite_start.property_service_shim.child_started=1\n"
             "wifi_hal_composite_start.property_service_shim.protocol=PROP_MSG_SETPROP|PROP_MSG_SETPROP2\n"
-            "wifi_hal_composite_start.property_service_shim.allowlist=hwservicemanager.ready:true,ctl.stop:vendor.rmt_storage,vendor.peripheral.SDX50M.state:OFFLINE,vendor.peripheral.modem.state:OFFLINE\n");
+            "wifi_hal_composite_start.property_service_shim.allow_peripheral_shutdown_list=%d\n"
+            "wifi_hal_composite_start.property_service_shim.allowlist=hwservicemanager.ready:true,ctl.stop:vendor.rmt_storage,vendor.peripheral.SDX50M.state:OFFLINE,vendor.peripheral.modem.state:OFFLINE%s\n",
+            allow_peripheral_shutdown_list ? 1 : 0,
+            allow_peripheral_shutdown_list
+                ? ",vendor.peripheral.shutdown_critical_list:SDX50M_|SDX50M_modem_"
+                : "");
     while (monotonic_ms() < deadline && request_count < 16) {
         int timeout_ms = (int)(deadline - monotonic_ms());
         struct pollfd pfd;
@@ -18557,7 +18586,10 @@ static void property_service_shim_child(int listen_fd, int record_fd, int timeou
                     strerror(errno));
             break;
         }
-        property_shim_handle_client(client_fd, record_fd, &request_count);
+        property_shim_handle_client(client_fd,
+                                    record_fd,
+                                    &request_count,
+                                    allow_peripheral_shutdown_list);
         close(client_fd);
     }
     dprintf(record_fd,
@@ -18665,8 +18697,14 @@ static int start_property_service_shim(const struct config *cfg,
                              strerror(errno));
     }
     if (shim->pid == 0) {
+        bool allow_peripheral_shutdown_list =
+            is_wifi_companion_peripheral_manager_property_contract_start_only_mode(cfg->mode);
+
         close(pipe_fds[0]);
-        property_service_shim_child(listen_fd, pipe_fds[1], cfg->timeout_sec);
+        property_service_shim_child(listen_fd,
+                                    pipe_fds[1],
+                                    cfg->timeout_sec,
+                                    allow_peripheral_shutdown_list);
         close(pipe_fds[1]);
         close(listen_fd);
         _exit(0);
