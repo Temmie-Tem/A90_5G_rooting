@@ -544,3 +544,35 @@ Selected next candidates:
 Primary decision: **V864 is the immediate next cycle.** It should not start
 anything. It should produce a concrete implementation checklist for V865 and
 block V867 until helper support is explicitly proven.
+
+## 19. V864 helper-support classifier outcome
+
+V864 completed host-only. It compared V861/V862/V863 evidence against the
+current helper source and returned:
+
+`v864-init-contract-wrapper-needed`
+
+Prerequisites were present and matched expected decisions:
+
+| Evidence | Decision |
+|---|---|
+| V861 | `v861-exec-target-accepted-current-kernel-no-subsys-hold` |
+| V862 | `v862-init-contract-classified-pm-proxy-helper-content-needed` |
+| V863 | `v863-pm-proxy-helper-contract-captured` |
+
+Current helper already has runtime domain and fd capture primitives, but still
+lacks the Android init-contract behavior needed for the next live proof:
+
+- no distinct `vendor.per_proxy_helper /vendor/bin/pm_proxy_helper` child;
+- no `/vendor/bin/pm_proxy_helper` default SELinux mapping;
+- no `SYS_ioprio_set`/`IOPRIO_CLASS_RT` model for `vendor.per_mgr`
+  `ioprio rt 4`;
+- no `init.svc.vendor.per_mgr=running` lifecycle gate before starting
+  `vendor.per_proxy`;
+- no explicit shutdown-stop model for `vendor.per_proxy`.
+
+Next gate: V865 source/build-only helper implementation. It should add the
+missing model and keep all live starts blocked. V866 can deploy only after
+V865 static validation passes. V867 is the first allowed live start-only proof,
+and it remains below `mdm_helper`, `ks`, Wi-Fi HAL, scan/connect, credentials,
+DHCP/routes, and external ping.

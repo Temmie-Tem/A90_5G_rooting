@@ -9,7 +9,7 @@ Samsung Galaxy A90 5G (SM-A908N) — stock Android Linux kernel 4.14.190, custom
 - **Device**: SM-A908N, Android 12, Magisk 30.7, TWRP available
 - **Current native build**: `A90 Linux init 0.9.68 (v724)` — `stage3/boot_linux_v724.img`
 - **Known-good fallback**: `stage3/boot_linux_v48.img`
-- **Active research cycle**: v863 captured `pm_proxy_helper.rc` read-only; `vendor.per_proxy_helper` is a disabled/oneshot `post-fs-data` service under `system:system`; next is V864 helper-support classification below mdm_helper/HAL/connect
+- **Active research cycle**: v864 classified the current helper as missing the full PeripheralManager init-contract model; next is V865 source/build-only helper support for `pm_proxy_helper`, `ioprio rt 4`, `init.svc.vendor.per_mgr=running`, and shutdown-stop semantics below mdm_helper/HAL/connect
 - **Versioning policy**: `docs/operations/VERSIONING_POLICY.md` — `vNNN` cycle ≠ device flash
 
 ## Versioning rules
@@ -576,6 +576,7 @@ path should be closed for this blocker.
 | v861 | helper v133 accepts `vendor_per_mgr` exec targets for `pm-service`/`pm-proxy`, but runtime `attr/current` stays `kernel`; still no subsystem fd hold |
 | v862 | Android init contract classifier: `vendor.per_mgr` has `ioprio rt 4`, `vendor.per_proxy` is property-started, and Android starts `vendor.per_proxy_helper`; next is read-only `pm_proxy_helper.rc` capture |
 | v863 | live read-only `pm_proxy_helper.rc` capture: `vendor.per_proxy_helper /vendor/bin/pm_proxy_helper`, `class core`, `system:system`, `disabled`, `oneshot`, started at `post-fs-data`; current `sda29` dev is `259:13` |
+| v864 | host-only helper-support classifier: current helper has runtime domain/fd capture but lacks `pm_proxy_helper`, `per_proxy_helper` SELinux mapping, `ioprio rt 4`, `init.svc.vendor.per_mgr=running`, and shutdown-stop contract support |
 
 ### Safety additions (Wi-Fi research)
 
@@ -610,12 +611,16 @@ path should be closed for this blocker.
   `/vendor/bin/pm_proxy_helper`, `class core`, `user system`, `group system`,
   `disabled`, `oneshot`, and starts from `on post-fs-data`. Current `sda29`
   major/minor is `259:13`; do not reuse older hardcoded `259:22`.
-  The next gate is V864 helper-support classification for the complete
-  PeripheralManager init contract before modelling or starting anything new.
-  Keep Wi-Fi HAL, scan/connect, DHCP/routes, credentials, external ping, raw
-  eSoC ioctl, subsystem writes, GPIO/sysfs/debugfs writes, module load/unload,
-  and boot image writes blocked. Do not start `mdm_helper`, `ks`, HAL, or
-  scan/connect yet.
+  V864 then classified helper support host-only. Runtime domain and fd capture
+  primitives already exist, but the helper still lacks `pm_proxy_helper`
+  child modelling, `/vendor/bin/pm_proxy_helper` SELinux mapping,
+  `vendor.per_mgr` `ioprio rt 4`, `init.svc.vendor.per_mgr=running` lifecycle,
+  and explicit shutdown-stop semantics for `vendor.per_proxy`. The next gate is
+  V865 source/build-only helper implementation. Keep Wi-Fi HAL, scan/connect,
+  DHCP/routes, credentials, external ping, raw eSoC ioctl, subsystem writes,
+  GPIO/sysfs/debugfs writes, module load/unload, and boot image writes blocked.
+  Do not deploy a new helper or start `mdm_helper`, `ks`, HAL, or scan/connect
+  until V865 static validation passes.
 
 ## Docs structure
 

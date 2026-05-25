@@ -3781,3 +3781,26 @@ Samsung bootloader
   scan/connect, credentials, DHCP/routes, external ping, raw eSoC ioctl,
   GPIO/sysfs/debugfs/subsystem write, module load/unload, boot image write, or
   partition write.
+
+### V864. PeripheralManager Helper-support Classifier
+
+- plan: `docs/plans/NATIVE_INIT_V864_PM_INIT_CONTRACT_SUPPORT_PLAN_2026-05-25.md`
+- report: `docs/reports/NATIVE_INIT_V864_PM_INIT_CONTRACT_SUPPORT_2026-05-25.md`
+- classifier: `scripts/revalidation/native_wifi_pm_init_contract_support_v864.py`
+- evidence:
+  - `tmp/wifi/v864-pm-init-contract-support-plan/manifest.json`
+  - `tmp/wifi/v864-pm-init-contract-support/manifest.json`
+- decision: `v864-init-contract-wrapper-needed`
+- result: host-only PASS. V864 proved the V861/V862/V863 prerequisite evidence
+  is present and then classified the current helper source. Runtime
+  attr/current and fd capture primitives already exist, but the helper does not
+  yet model `pm_proxy_helper`, `per_proxy_helper` SELinux mapping,
+  `vendor.per_mgr` `ioprio rt 4`, `init.svc.vendor.per_mgr=running`
+  property-start lifecycle, or shutdown-stop semantics for `vendor.per_proxy`.
+- hard gates: no device contact, helper deploy, daemon start, `mdm_helper`,
+  `ks`, Wi-Fi HAL, scan/connect, credentials, DHCP/routes, external ping, raw
+  eSoC ioctl, GPIO/sysfs/debugfs/subsystem write, module load/unload, boot
+  image write, or partition write.
+- next: V865 should implement source/build-only helper support for the missing
+  PeripheralManager init-contract model. V866 deploy and V867 live start-only
+  remain blocked until V865 static validation passes.
