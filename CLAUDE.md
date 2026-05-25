@@ -9,7 +9,7 @@ Samsung Galaxy A90 5G (SM-A908N) — stock Android Linux kernel 4.14.190, custom
 - **Device**: SM-A908N, Android 12, Magisk 30.7, TWRP available
 - **Current native build**: `A90 Linux init 0.9.68 (v724)` — `stage3/boot_linux_v724.img`
 - **Known-good fallback**: `stage3/boot_linux_v48.img`
-- **Active research cycle**: v846 selected V847 bounded `subsys_esoc0` char-device materialize/open smoke, still below HAL/connect
+- **Active research cycle**: v847 selected V848 host-only `subsys_esoc0` open-block boundary classifier, still below HAL/connect
 - **Versioning policy**: `docs/operations/VERSIONING_POLICY.md` — `vNNN` cycle ≠ device flash
 
 ## Versioning rules
@@ -157,7 +157,7 @@ New `vNNN` experiment scripts must:
 - Gate live action behind explicit `--allow-*` + `--assume-yes` flags
 - Run `version`, `status`, `bootstatus`, `selftest verbose` as postflight regression
 
-## Wi-Fi bring-up research state (v598–v846, active)
+## Wi-Fi bring-up research state (v598–v847, active)
 
 Goal: bring up `wlan0` from native init without Android userspace.
 
@@ -317,6 +317,17 @@ V847: materialize only `/dev/subsys_esoc0` and run one bounded open/hold smoke
 with watchdog, dmesg/state evidence, cleanup reboot, and postflight health.
 Still no service-manager, Wi-Fi HAL, scan/connect, credentials, DHCP/routes,
 external ping, or boot-image work.
+
+V847 live bounded PASS materialized `/dev/subsys_esoc0` from V845 uevent
+`236:9`, started one background open/hold, captured state/dmesg, removed the
+node, and reboot-cleaned back to healthy v724. The open reached
+`__subsystem_get: esoc0 count:0` and changed `fw_name` to `esoc0`, but did not
+report `holder.opened=1` inside the bounded window. mdm3 stayed `OFFLINING`;
+MHI/PCIe, WLFW/BDF/FW-ready/`wlan0`, warning, panic, and fatal markers stayed
+absent in the focused output. Next gate is V848 host-only: classify the
+`subsys_esoc0` open-block boundary below `subsystem_get()` and before MHI/WLFW
+before any retry, longer hold, HAL/connect, DHCP/routes, credentials, external
+ping, or boot-image work.
 
 ```text
 servloc:64:257;ssctl:43:4098;servnotif:66:18945,46081;wlfw:69:1

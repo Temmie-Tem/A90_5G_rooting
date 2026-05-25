@@ -25,7 +25,7 @@
 
 ## 현재 Wi-Fi Gate
 
-- 최신 기준: V846 pass.
+- 최신 기준: V847 pass.
 - V840 결론: provider-first service-manager/PeripheralManager, CNSS retry,
   prearmed WLAN-PD listener를 결합해도 native는 WLAN-PD `UNINIT` 상태이고
   `wlfw_start`, BDF, FW-ready, `wlan0`가 모두 없다.
@@ -63,6 +63,14 @@
 - 다음 후보: V847 bounded live `subsys_esoc0` char-device materialize/open
   smoke. V845 uevent `major=236 minor=9 devname=subsys_esoc0`만 사용하고,
   watchdog, dmesg/state evidence, cleanup reboot, postflight health를 포함한다.
+- V847 결론: `/dev/subsys_esoc0`를 `236:9`로 materialize했고 background
+  open/hold가 `__subsystem_get: esoc0 count:0` 및 `fw_name=esoc0` 변경까지
+  진입했다. 그러나 bounded window 안에서 `holder.opened=1`은 없었고
+  `mdm3=OFFLINING`, MHI/PCIe, WLFW/BDF/FW-ready/`wlan0`는 여전히 없다.
+  cleanup reboot 후 native health는 복구됐다.
+- 다음 후보: V848 host-only `subsys_esoc0` open-block boundary classifier.
+  바로 재시도하거나 hold 시간을 늘리지 말고, OSRC `subsys_start()`/ext-mdm/
+  MHI hook 경계와 V847 dmesg를 먼저 분류한다.
 - Wi-Fi HAL, scan/connect, DHCP/routes, credentials, external ping, `esoc0`,
   subsystem writes, module load/unload, boot image writes는 계속 막는다.
 
@@ -3279,3 +3287,27 @@ Samsung bootloader
 - next: V847 should run one bounded live `subsys_esoc0` char-device
   materialize/open/hold smoke with watchdog, dmesg/state evidence, cleanup
   reboot, and postflight health checks.
+
+### V847. subsys_esoc0 Char-Device Open Smoke
+
+- plan: `docs/plans/NATIVE_INIT_V847_SUBSYS_ESOC0_CHAR_OPEN_SMOKE_PLAN_2026-05-25.md`
+- report: `docs/reports/NATIVE_INIT_V847_SUBSYS_ESOC0_CHAR_OPEN_SMOKE_2026-05-25.md`
+- runner: `scripts/revalidation/native_wifi_subsys_esoc0_char_open_smoke_v847.py`
+- evidence:
+  - `tmp/wifi/v847-subsys-esoc0-char-open-smoke/manifest.json`
+  - `tmp/wifi/v847-subsys-esoc0-char-open-smoke/summary.md`
+  - `tmp/wifi/v847-subsys-esoc0-char-open-smoke/native/dmesg-after-observe.txt`
+- decision: `v847-subsys-esoc0-open-blocked-or-pending`
+- result: live stock-v724 bounded PASS. V847 created `/dev/subsys_esoc0`
+  from V845 uevent major `236`, minor `9`, started one background holder, and
+  reboot-cleaned successfully. The open reached kernel dmesg
+  `__subsystem_get: esoc0 count:0` and `Changing subsys fw_name to esoc0`, but
+  no `holder.opened=1` status appeared within the observation window. mdm3
+  remained `OFFLINING`; MHI/PCIe, WLFW/BDF/FW-ready/`wlan0`, warning, panic,
+  and fatal markers stayed absent in the focused output.
+- hard gates: no raw `/dev/esoc*` open/ioctl, sysfs/GPIO/debugfs write,
+  bind/unbind, module load/unload, daemon start, service-manager, Wi-Fi HAL,
+  scan/connect, credential use, DHCP/routes, external ping, boot image write,
+  partition write, or custom kernel flash was executed.
+- next: V848 should classify the `subsys_esoc0` open-block boundary below
+  `subsystem_get()` and before MHI/WLFW, using V847 evidence and OSRC source.
