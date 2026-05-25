@@ -30,8 +30,9 @@ The `/dev/subsys_esoc0` child-open gate therefore stayed closed.
 | `mdm_helper` `/dev/esoc-0` fd seen | `true` |
 | `cnss_diag` start attempted | `true` |
 | `cnss-daemon` start attempted | `true` |
-| `cnss-daemon` Binder failures in post dmesg | `18` |
-| CNSS `cld80211` dmesg hits | `20` |
+| current `cnss-daemon` PID Binder failures | `0` |
+| stale Binder failures retained in post dmesg tail | `18` |
+| current `cnss-daemon` PID `cld80211` hits | `2` |
 | service-notifier `180` hits | `0` |
 | WLFW hits | `0` |
 | BDF hits | `0` |
@@ -41,25 +42,20 @@ The `/dev/subsys_esoc0` child-open gate therefore stayed closed.
 
 ## Interpretation
 
-The `before-cnss` order preserves the `mdm_helper` lower fd window but does not
-reproduce the V601/V603 Binder-cleared condition in the current helper `v154`
-matrix environment. This rules out simple service-manager ordering as the
-remaining blocker.
+The `before-cnss` order preserves the `mdm_helper` lower fd window and, after
+V934 current-pid attribution, does reproduce the Binder-cleared condition.
+Simple service-manager ordering is no longer the remaining blocker.
 
 The blocker is now narrower:
 
 1. service-manager processes can be spawned and hold binder device nodes;
-2. CNSS can reach `cld80211`;
+2. CNSS can reach `cld80211` and current Binder failures are cleared;
 3. `mdm_helper` can hold `/dev/esoc-0`;
-4. but `cnss-daemon` still sees Binder transaction failures and no WLFW
-   precondition appears.
+4. but no WLFW precondition appears.
 
-The next useful unit is host-only V934: compare V601/V603 service-manager
-readiness with V931/V933 matrix evidence. Specifically, classify whether the
-current matrix service managers are only "process-started" but not equivalent
-to Android init readiness, for example due to missing readiness property timing,
-SELinux service-manager class visibility, Binder context-manager state,
-or service registration differences.
+The next useful unit is host-only V934: fresh-pid attribution across V927,
+V931, and V933. That classifier should separate stale tail lines from current
+child process evidence before another live gate is selected.
 
 ## Guardrails
 

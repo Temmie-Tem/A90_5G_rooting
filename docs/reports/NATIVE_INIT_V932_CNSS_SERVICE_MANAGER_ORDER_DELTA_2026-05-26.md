@@ -10,17 +10,23 @@ V932 compares the existing V927, V601/V603, and V931 evidence. It does not
 contact the device. The result selects the next bounded live order as
 `before-cnss`, using helper `v154` and the existing WLFW-precondition gate.
 
+> Correction: V934 later re-attributed V931/V933 dmesg lines by current child
+> PID and showed that raw post-tail Binder counts included stale lines from an
+> earlier `cnss-daemon`. V932's selected live test was still useful, but the
+> blocker interpretation is superseded by V934.
+
 ## Findings
 
 | Case | Key Result |
 | --- | --- |
 | V927 no service-manager | Preserves `mdm_helper` `/dev/esoc-0` fd and reaches CNSS `cld80211`, but `cnss-daemon` repeats Binder failures and WLFW remains absent. |
 | V601/V603 service-manager before CNSS | Binder transaction failures are cleared, but lower service-notifier publication still does not reach WLFW. |
-| V931 after `mdm_helper` `/dev/esoc-0` fd | Preserves the lower fd window and starts service-manager/CNSS actors, but Binder failures remain and WLFW remains absent. |
+| V931 after `mdm_helper` `/dev/esoc-0` fd | Preserves the lower fd window and starts service-manager/CNSS actors. V934 later corrected the current-pid Binder count to `0`; WLFW still remains absent. |
 
 V931 improved the matrix coverage but did not satisfy the same-window
-intersection: it kept the `mdm_helper` lower fd window, yet it did not clear the
-`cnss-daemon` Binder failure path or produce WLFW/BDF/`wlan0`.
+intersection: it kept the `mdm_helper` lower fd window, and V934 later proved
+the current `cnss-daemon` Binder path was clear, yet WLFW/BDF/`wlan0` still did
+not appear.
 
 ## Interpretation
 
@@ -46,8 +52,8 @@ highest-value live test because:
   external ping.
 
 `after-cnss` is lower priority. It intentionally starts CNSS before service
-managers, so it is more likely to repeat the V927/V931 Binder failure path and
-is best kept as a later negative-control order if `before-cnss` still fails.
+managers, so it is best kept as a later negative-control order if fresh-pid
+attribution ever requires another service-manager matrix.
 
 ## Guardrails
 
