@@ -40,8 +40,13 @@
   먼저 설계한다. `CMD_EXE`, `PWR_ON`, `WAIT_FOR_REQ`, `NOTIFY`, `mdm_helper`,
   `ks`, `pm_proxy_helper`, CNSS, HAL, scan/connect, credentials, DHCP/routes,
   external ping은 별도 gate 전까지 계속 막는다.
+- V875 결론: host-only classifier가 local OSRC와 V849/V874 evidence를 기준으로
+  helper-only CMD/REQ registration support를 다음 단계로 선택했다. Live contact
+  및 mutating eSoC ioctl은 없었다. 다음 후보는 V876 helper `v137`
+  source/build-only이며, `CMD_EXE`, `PWR_ON`, `WAIT_FOR_REQ`, `NOTIFY`,
+  `/dev/subsys_esoc0` open, actor start, Wi-Fi bring-up은 계속 막는다.
 
-- 최신 기준: V847 pass.
+- 아래 V840-V847 항목은 V874/V875 이전 경로 요약이다.
 - V840 결론: provider-first service-manager/PeripheralManager, CNSS retry,
   prearmed WLAN-PD listener를 결합해도 native는 WLAN-PD `UNINIT` 상태이고
   `wlfw_start`, BDF, FW-ready, `wlan0`가 모두 없다.
@@ -4025,3 +4030,20 @@ Samsung bootloader
   credentials, or external ping.
 - next: V875 host-only eSoC state-machine precondition classifier for future
   CMD/REQ registration.
+
+
+### V875. eSoC State-machine Precondition Classifier
+
+- plan: `docs/plans/NATIVE_INIT_V875_ESOC_STATE_MACHINE_PRECONDITION_PLAN_2026-05-25.md`
+- report: `docs/reports/NATIVE_INIT_V875_ESOC_STATE_MACHINE_PRECONDITION_2026-05-25.md`
+- classifier: `scripts/revalidation/native_wifi_esoc_state_machine_precondition_classifier_v875.py`
+- evidence:
+  - `tmp/wifi/v875-esoc-state-machine-precondition-classifier/manifest.json`
+- decision: `v875-esoc-state-machine-precondition-pass`
+- result: host-only PASS. The next implementation step is helper `v137`
+  source/build-only support for CMD/REQ registration. V875 did not contact the
+  device and did not execute any eSoC ioctl.
+- hard gates held: no `REG_CMD_ENG`, `REG_REQ_ENG`, `CMD_EXE`, `PWR_ON`,
+  `WAIT_FOR_REQ`, `NOTIFY`, `/dev/subsys_esoc0` open, actor start, Wi-Fi HAL,
+  scan/connect, DHCP/routes, credentials, or external ping.
+- next: V876 helper `v137` source/build-only CMD/REQ registration support.

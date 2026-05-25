@@ -540,3 +540,39 @@ Next candidate:
 
 - V875 host-only eSoC state-machine precondition classifier for
   `REG_CMD_ENG`/`REG_REQ_ENG`, fd ownership, timeout, cleanup, and rollback.
+
+---
+
+## 18. V875 state-machine precondition classifier
+
+V875 classified the next eSoC gate host-only. It used local A90 OSRC plus V849
+and V874 evidence, and did not contact the device.
+
+Evidence:
+
+- `tmp/wifi/v875-esoc-state-machine-precondition-classifier/manifest.json`
+- `docs/reports/NATIVE_INIT_V875_ESOC_STATE_MACHINE_PRECONDITION_2026-05-25.md`
+
+Decision:
+
+- `v875-esoc-state-machine-precondition-pass`
+
+Important classifications:
+
+| Operation | Result |
+| --- | --- |
+| `ESOC_REG_CMD_ENG` | next source/build helper support only |
+| `ESOC_REG_REQ_ENG` | next source/build helper support only |
+| `ESOC_CMD_EXE(ESOC_PWR_ON)` | blocked |
+| `ESOC_WAIT_FOR_REQ` | blocked |
+| `ESOC_NOTIFY` | blocked |
+| `/dev/subsys_esoc0` open | blocked until CMD/REQ/PWR_ON sequencing is defined |
+
+Recommended sequence:
+
+1. V876 source/build helper `v137` with fail-closed CMD/REQ registration mode.
+2. V877 deploy-only helper `v137` checksum/version/mode proof.
+3. V878 bounded live CMD/REQ registration preflight, still no
+   `CMD_EXE`/`PWR_ON`/`WAIT_FOR_REQ`/`NOTIFY`/`/dev/subsys_esoc0` open.
+4. Later gate: firmware request loop and only then explicit `PWR_ON`
+   consideration.
