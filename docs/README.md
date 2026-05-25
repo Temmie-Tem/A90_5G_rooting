@@ -434,6 +434,7 @@
 
 ### 4. Current Native Init Reports
 
+- `reports/NATIVE_INIT_V943_MDM_HELPER_QUEUE_TIMING_CAPTURE_2026-05-26.md` – helper `v156` queue-timing live capture 결과; `mdm_helper`는 spawn 후 약 14ms 내 `/dev/esoc-0` fd를 잡지만 `per_mgr`는 subsystem fd 없이 살아 있고 fresh SDX50M queue failure가 같은 window에 발생함을 확인한 V943 결과
 - `reports/NATIVE_INIT_V942_HELPER_V156_DEPLOY_2026-05-26.md` – helper `v156`를 `/cache/bin/a90_android_execns_probe`로 deploy-only 배포하고 remote checksum/contract parity와 postflight health를 확인한 V942 결과
 - `reports/NATIVE_INIT_V941_MDM_HELPER_QUEUE_TIMING_SUPPORT_2026-05-26.md` – helper `v156`에 `mdm_helper_queue_timing.*` 진단을 기존 runtime-contract mode에 source/build-only로 추가하고 static build/guardrail 검증을 통과한 V941 결과
 - `reports/NATIVE_INIT_V940_SDX50M_QUEUE_INPUT_CONTRACT_2026-05-26.md` – V938/V939와 V857/V860/V861/V867 PM evidence를 묶어 다음 작업을 helper `v156` queue-timing diagnostics로 좁힌 V940 결과
