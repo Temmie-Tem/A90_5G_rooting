@@ -3880,3 +3880,29 @@ Samsung bootloader
   write, or partition write.
 - next: V868 should classify `pm_proxy_helper` blocking behavior and SELinux
   transition semantics host-only/read-only before any more live actor start.
+
+### V868. PM/eSoC Contract Classifier
+
+- plan: `docs/plans/NATIVE_INIT_V868_PM_ESOC_CONTRACT_CLASSIFIER_PLAN_2026-05-25.md`
+- report: `docs/reports/NATIVE_INIT_V868_PM_ESOC_CONTRACT_CLASSIFIER_2026-05-25.md`
+- runner: `scripts/revalidation/native_wifi_pm_esoc_contract_classifier_v868.py`
+- evidence:
+  - `tmp/wifi/v868-pm-esoc-contract-classifier/manifest.json`
+  - `tmp/wifi/v868-pm-esoc-contract-classifier/summary.md`
+- decision: `v868-esoc-req-eng-precondition-selected`
+- result: host-only PASS. V868 tied the V867 `pm_proxy_helper` D-state to the
+  local A90 Samsung OSRC eSoC contract: `ESOC_REG_REQ_ENG=7`,
+  `ESOC_REG_CMD_ENG=8`, `ESOC_CMD_EXE=1`, and `ESOC_PWR_ON=1`. It also
+  confirmed the Samsung `subsystem_restart.c` `pm_proxy_helper` exception.
+- interpretation: `pm_proxy_helper` alone should not be retried. Android likely
+  brings up the `/dev/esoc-0` CMD/REQ engine side first, then allows
+  `pm_proxy_helper` to hold `/dev/subsys_esoc0`; V867 did only the hold side
+  and reproduced the D-state class.
+- hard gates held: no device contact, daemon start, `mdm_helper`, `ks`,
+  Wi-Fi HAL, scan/connect, credentials, DHCP/routes, external ping, raw live
+  eSoC ioctl, GPIO/sysfs/debugfs/subsystem state write, module load/unload,
+  boot image write, or partition write.
+- next: V869 should be source/build-only helper design for an A90 eSoC control
+  preflight. Live `ESOC_PWR_ON`, `mdm_helper`, `ks`, PM actor starts, CNSS,
+  HAL, scan/connect, credentials, DHCP/routes, and external ping remain blocked
+  until separate gates.

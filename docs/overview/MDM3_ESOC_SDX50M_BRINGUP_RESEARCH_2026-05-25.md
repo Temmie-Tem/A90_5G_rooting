@@ -714,3 +714,36 @@ Next gate: V868 should be host-only/read-only first. It should classify:
 3. whether the next live attempt should suppress `pm_proxy_helper`, run it in a
    shorter isolated observation window, or repair the launch context before
    another PM proof.
+
+## 23. V868 PM/eSoC contract classifier outcome
+
+V868 ran host-only with no device contact:
+`scripts/revalidation/native_wifi_pm_esoc_contract_classifier_v868.py`.
+
+Evidence:
+
+| Unit | Path | Result |
+|---|---|---|
+| classifier | `tmp/wifi/v868-pm-esoc-contract-classifier/manifest.json` | `v868-esoc-req-eng-precondition-selected` |
+| summary | `tmp/wifi/v868-pm-esoc-contract-classifier/summary.md` | host-only PASS |
+
+Local A90 OSRC values:
+
+| Macro | Value |
+|---|---|
+| `ESOC_REG_REQ_ENG` | `7` |
+| `ESOC_REG_CMD_ENG` | `8` |
+| `ESOC_CMD_EXE` | `1` |
+| `ESOC_PWR_ON` | `1` |
+| `ESOC_WAIT_FOR_REQ` | `2` |
+| `ESOC_NOTIFY` | `3` |
+
+Interpretation: `pm_proxy_helper` alone is closed as a retry candidate. The
+current best model is that Android first establishes the `/dev/esoc-0` CMD/REQ
+engine side, then `pm_proxy_helper` holds `/dev/subsys_esoc0`. V867 started the
+hold side without the control side and reproduced the D-state class.
+
+Next gate: V869 should be source/build-only helper design for an A90 eSoC
+control preflight. Live `ESOC_PWR_ON`, `mdm_helper`, `ks`, Wi-Fi HAL,
+scan/connect, credentials, DHCP/routes, and external ping remain blocked until
+separate gates.

@@ -130,6 +130,7 @@
 
 ### 3. Plans
 
+- `plans/NATIVE_INIT_V868_PM_ESOC_CONTRACT_CLASSIFIER_PLAN_2026-05-25.md` – V867 `pm_proxy_helper` D-state를 로컬 A90 eSoC UAPI와 비교해 다음 gate를 `/dev/esoc-0` control preflight로 좁히는 V868 계획
 - `plans/NATIVE_INIT_V829_SERVLOC_DOMAIN_LIST_PROBE_PLAN_2026-05-25.md` – V828에서 도출한 `GET_DOMAIN_LIST wlan/fw` request를 helper v126으로 bounded live QMI probe하고 응답 TLV를 파싱하는 계획
 - `plans/NATIVE_INIT_V828_SERVLOC_DOMAIN_LIST_PAYLOAD_PLAN_2026-05-25.md` – V827 이후 service-locator `GET_DOMAIN_LIST wlan/fw` QMI request bytes를 host-only로 도출하는 계획
 - `plans/NATIVE_INIT_V827_SERVICE_NOTIFIER_CONTINUATION_PLAN_2026-05-25.md` – V826 visible service-notifier 180 endpoint가 ICNSS continuation에 충분한지 OSRC source와 evidence로 분류하는 계획
@@ -379,6 +380,7 @@
 
 ### 4. Current Native Init Reports
 
+- `reports/NATIVE_INIT_V868_PM_ESOC_CONTRACT_CLASSIFIER_2026-05-25.md` – V868 결과 `pm_proxy_helper` 단독 재시도를 닫고 A90 로컬 `ESOC_REG_REQ_ENG=7`/`ESOC_REG_CMD_ENG=8` 기반 eSoC control preflight를 V869 후보로 선정
 - `reports/NATIVE_INIT_V829_SERVLOC_DOMAIN_LIST_PROBE_2026-05-25.md` – V829 결과 service-locator `GET_DOMAIN_LIST wlan/fw` live QMI 응답에서 `msm/modem/wlan_pd` instance `180`을 확인해 V830 service-notifier listener proof로 라우팅
 - `reports/NATIVE_INIT_V828_SERVLOC_DOMAIN_LIST_PAYLOAD_2026-05-25.md` – V828 결과 `wlan/fw` `GET_DOMAIN_LIST` request hex를 도출해 V829 bounded no-HAL live QMI probe로 라우팅
 - `reports/NATIVE_INIT_V827_SERVICE_NOTIFIER_CONTINUATION_2026-05-25.md` – V827 결과 service-notifier 180은 control endpoint일 뿐이며 ICNSS continuation은 service-locator `wlan/fw` domain-list QMI proof가 필요해 V828로 라우팅
