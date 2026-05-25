@@ -25,16 +25,19 @@
 
 ## 현재 Wi-Fi Gate
 
-- 최신 기준: V839 pass.
-- V838 결론: service-notifier listener는 service `74`보다 약 `637ms` 먼저
-  등록됐고 service `74` + `5s` 이상 유지됐지만 WLAN-PD `UP` indication은
-  없었다.
-- 따라서 단순 timing blocker는 닫혔다.
-- V839 결론: Android V833 positive-control, native V838, V700 provider-first
-  CNSS retry를 비교하면 다음 최소 gate는 provider-first CNSS retry와
-  prearmed WLAN-PD listener의 결합이다.
-- 다음 후보: V840 provider-first prearmed service-notifier listener.
-  Wi-Fi HAL, scan/connect, DHCP/routes, credentials, external ping은 계속 막는다.
+- 최신 기준: V841 pass.
+- V840 결론: provider-first service-manager/PeripheralManager, CNSS retry,
+  prearmed WLAN-PD listener를 결합해도 native는 WLAN-PD `UNINIT` 상태이고
+  `wlfw_start`, BDF, FW-ready, `wlan0`가 모두 없다.
+- V841 결론: Android V622는 `cnss-daemon wlfw_start`가 WLAN-PD `UP`보다
+  먼저 나오지만, native V840은 CNSS netlink/CLD80211까지 도달하고도
+  `wlfw_start`가 없다. `sysmon_esoc0`는 Android에서 WLAN-PD 이후라
+  현재 증거상 선행 prerequisite로 보지 않는다.
+- 다음 후보: V842 `cnss-daemon` pre-WLFW launch/runtime contract classifier.
+  argv/init service contract, properties, SELinux domain, inherited fds,
+  Binder/vndbinder context, child lifetime/exit reason을 비교한다.
+- Wi-Fi HAL, scan/connect, DHCP/routes, credentials, external ping, `esoc0`,
+  subsystem writes, module load/unload, boot image writes는 계속 막는다.
 
 ---
 

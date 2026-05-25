@@ -9,7 +9,7 @@ Samsung Galaxy A90 5G (SM-A908N) — stock Android Linux kernel 4.14.190, custom
 - **Device**: SM-A908N, Android 12, Magisk 30.7, TWRP available
 - **Current native build**: `A90 Linux init 0.9.68 (v724)` — `stage3/boot_linux_v724.img`
 - **Known-good fallback**: `stage3/boot_linux_v48.img`
-- **Active research cycle**: v838 selected after V837 proved current listener placement starts after service74, still below HAL/connect
+- **Active research cycle**: v841 selected V842 `cnss-daemon` pre-WLFW launch/runtime contract classification, still below HAL/connect
 - **Versioning policy**: `docs/operations/VERSIONING_POLICY.md` — `vNNN` cycle ≠ device flash
 
 ## Versioning rules
@@ -157,7 +157,7 @@ New `vNNN` experiment scripts must:
 - Gate live action behind explicit `--allow-*` + `--assume-yes` flags
 - Run `version`, `status`, `bootstatus`, `selftest verbose` as postflight regression
 
-## Wi-Fi bring-up research state (v598–v839, active)
+## Wi-Fi bring-up research state (v598–v841, active)
 
 Goal: bring up `wlan0` from native init without Android userspace.
 
@@ -251,6 +251,18 @@ explanation. V839 host-only PASS then compared V833 Android positive-control,
 V838, and V700 provider-first CNSS retry. It selected V840: combine
 provider-first CNSS retry with the V838-style prearmed WLAN-PD listener, still
 below Wi-Fi HAL, scan/connect, DHCP/routes, and external ping.
+
+V840 live PASS combined provider-first service-manager/PeripheralManager, a
+fresh CNSS retry, and a prearmed WLAN-PD listener. Native had service `180/74`,
+CNSS netlink, and CLD80211 access, but still had no `wlfw_start`, WLAN-PD
+indication, BDF, FW-ready, or `wlan0`. V841 host-only PASS compared that result
+with Android V622 and the already closed V618/V746/V764 branches. Android V622
+emits `cnss-daemon wlfw_start` about `1415.75 ms` after service `180`, before
+WLAN-PD `UP` at `2427.362 ms`; `sysmon_esoc0` appears later at `4491.638 ms`.
+Therefore `sysmon_esoc0` is not the next proven prerequisite. The next gate is
+V842: classify the Android/native `cnss-daemon` pre-WLFW launch/runtime
+contract, including argv/init service contract, properties, SELinux domain,
+inherited fds, Binder/vndbinder context, child lifetime, and exit reason.
 
 ```text
 servloc:64:257;ssctl:43:4098;servnotif:66:18945,46081;wlfw:69:1
@@ -440,6 +452,7 @@ path should be closed for this blocker.
 | v838 | concurrent prearmed listener registers about `637ms` before service74, stays open through service74+5s, and still receives no WLAN-PD `UP`; timing blocker ruled out |
 | v839 | host-only classifier selects provider-first CNSS retry plus prearmed WLAN-PD listener as V840 |
 | v840 | provider-first service-manager/PeripheralManager + CNSS retry with prearmed WLAN-PD listener still reports `UNINIT`; no WLFW/BDF/wlan0 |
+| v841 | host-only classifier selects `cnss-daemon` pre-WLFW launch/runtime contract as V842; `sysmon_esoc0` is not the current prerequisite |
 
 ### Safety additions (Wi-Fi research)
 
@@ -448,11 +461,11 @@ path should be closed for this blocker.
 - No `wlan.ko` load/unload without explicit approval
 - `firmware_class.path` rollback value: `/vendor/firmware_mnt/image`
 - `sda29` mount must be read-only in all proof windows
-- Current Wi-Fi gate after V840: provider-first service-manager/PeripheralManager
-  plus CNSS retry does not supply WLAN-PD `UP`. Keep Wi-Fi HAL, scan/connect,
-  DHCP/routes, credentials, and external ping blocked; next classify the lower
-  native WLAN-PD state-up trigger, with `sysmon_esoc0` still a key missing
-  native signal.
+- Current Wi-Fi gate after V841: native reaches CNSS netlink/CLD80211 but never
+  emits `cnss-daemon wlfw_start`; Android emits `wlfw_start` before WLAN-PD
+  `UP`. Keep Wi-Fi HAL, scan/connect, DHCP/routes, credentials, external ping,
+  `esoc0`, subsystem writes, module load/unload, and boot image writes blocked;
+  next classify the `cnss-daemon` pre-WLFW launch/runtime contract.
 
 ## Docs structure
 
