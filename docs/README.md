@@ -427,6 +427,7 @@
 
 ### 4. Current Native Init Reports
 
+- `reports/NATIVE_INIT_V922_HELPER_V152_DEPLOY_2026-05-26.md` – helper `v152`를 `/cache/bin/a90_android_execns_probe`에 deploy-only로 배포하고 sha/mode parity, bootstatus/selftest, no-daemon/no-Wi-Fi guard를 확인한 V922 결과
 - `reports/NATIVE_INIT_V921_CNSS_BEFORE_ESOC_HELPER_BUILD_2026-05-26.md` – helper `v152`에 `cnss-daemon wlfw_start` 계열 precondition이 관찰될 때만 `/dev/subsys_esoc0` trigger child를 여는 fail-closed source/build-only V921 결과
 - `reports/NATIVE_INIT_V919_SDX50M_SOFT_RESET_BLOCKER_CLASSIFIER_2026-05-26.md` – V918의 `sdx50m_toggle_soft_reset` D-state blocker를 기존 V913 Android dmesg/GPIO/IRQ evidence와 비교해 새 Magisk/Android 재부팅 없이 host-only로 분류한 V919 결과
 - `reports/NATIVE_INIT_V918_MDM_HELPER_SUBSYS_TRIGGER_WAIT_LIVE_2026-05-26.md` – helper v151 wait-gated `/dev/subsys_esoc0` trigger 결과; gate는 열렸지만 `sdx50m_toggle_soft_reset` D-state blocker와 cleanup reboot를 확인한 V918 결과
