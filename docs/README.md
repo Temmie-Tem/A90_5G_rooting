@@ -130,6 +130,7 @@
 
 ### 3. Plans
 
+- `plans/NATIVE_INIT_V929_CURRENT_V153_CNSS_SERVICE_MANAGER_MATRIX_PLAN_2026-05-26.md` – V603/V604/V605/V606의 단순 ordering 실패를 반복하지 않도록 helper `v153` repaired namespace 기반 CNSS/service-manager matrix helper `v154`를 source/build-only로 설계하는 V929 계획
 - `plans/NATIVE_INIT_V928_CNSS_BINDER_LOWER_INTERSECTION_PLAN_2026-05-26.md` – V927 compact 결과와 V603 service-manager 결과를 host-only로 비교해 다음 blocker가 Binder-clean과 lower publication을 같은 window에 맞추는 문제인지 분류하는 V928 계획
 - `plans/NATIVE_INIT_V927_CNSS_BEFORE_ESOC_COMPACT_LIVE_PLAN_2026-05-26.md` – helper `v153` compact CNSS surface로 V923 CNSS-before-eSoC live gate를 재실행해 transcript truncation 없이 WLFW precondition gap을 확인하는 V927 계획
 - `plans/NATIVE_INIT_V926_HELPER_V153_DEPLOY_PLAN_2026-05-26.md` – helper `v153`를 `/cache/bin/a90_android_execns_probe`로 deploy-only 배포하고 remote checksum parity를 증명하는 V926 계획
