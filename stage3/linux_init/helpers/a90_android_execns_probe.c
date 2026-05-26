@@ -97,7 +97,7 @@
 #define IOPRIO_PRIO_VALUE(class_value, data) (((class_value) << IOPRIO_CLASS_SHIFT) | (data))
 #endif
 
-#define EXECNS_VERSION "a90_android_execns_probe v202"
+#define EXECNS_VERSION "a90_android_execns_probe v203"
 #define MAX_PATH_LEN 512
 #define MAX_CAPTURE_SIZE (1024 * 1024)
 #define MAX_LINKERCONFIG_SIZE (256 * 1024)
@@ -1879,7 +1879,6 @@ static int parse_args(int argc, char **argv, struct config *cfg) {
             cfg->allow_iwifi_start_only ||
             cfg->allow_wlan_driver_state_on ||
             cfg->allow_cnss_userspace_readiness ||
-            cfg->allow_qrtr_ns_readback ||
             cfg->allow_servloc_domain_list_probe ||
             cfg->allow_service_notifier_listener_probe ||
             cfg->allow_scan_only ||
@@ -2166,7 +2165,8 @@ static int parse_args(int argc, char **argv, struct config *cfg) {
     }
     if (cfg->allow_qrtr_ns_readback &&
         !is_wifi_companion_any_start_only_mode(cfg->mode) &&
-        !is_wifi_companion_hal_order_start_only_mode(cfg->mode)) {
+        !is_wifi_companion_hal_order_start_only_mode(cfg->mode) &&
+        !streq(cfg->mode, "wifi-companion-pm-service-trigger-observer")) {
         fprintf(stderr, "--allow-qrtr-ns-readback is only valid with Wi-Fi companion modes\n");
         return 2;
     }
@@ -26659,6 +26659,113 @@ static int drain_pm_service_trigger_observer_children(struct composite_child *ch
     return drain_property_service_shim_records(property_shim, stdout_buf);
 }
 
+static int append_pm_provider_lower_surface_snapshot(struct buffer *buf,
+                                                     const struct config *cfg,
+                                                     const char *phase) {
+    struct service74_klog_state klog_state;
+    char mss_state[128];
+    char mdm3_state[128];
+    char mdm3_crash_count[128];
+    char mdm3_firmware_name[128];
+    char mdm3_restart_level[128];
+    char icnss_runtime_status[128];
+    char wlan0_operstate[128];
+    bool wlan0_exists = access("/sys/class/net/wlan0", F_OK) == 0;
+    bool qcwlanstate_exists = access("/dev/qcwlanstate", F_OK) == 0;
+
+    read_state_or_error("/sys/devices/platform/soc/4080000.qcom,mss/subsys0/state",
+                        mss_state,
+                        sizeof(mss_state));
+    read_state_or_error("/sys/devices/platform/soc/soc:qcom,mdm3/subsys9/state",
+                        mdm3_state,
+                        sizeof(mdm3_state));
+    read_state_or_error("/sys/devices/platform/soc/soc:qcom,mdm3/subsys9/crash_count",
+                        mdm3_crash_count,
+                        sizeof(mdm3_crash_count));
+    read_state_or_error("/sys/devices/platform/soc/soc:qcom,mdm3/subsys9/firmware_name",
+                        mdm3_firmware_name,
+                        sizeof(mdm3_firmware_name));
+    read_state_or_error("/sys/devices/platform/soc/soc:qcom,mdm3/subsys9/restart_level",
+                        mdm3_restart_level,
+                        sizeof(mdm3_restart_level));
+    read_state_or_error("/sys/bus/platform/devices/18800000.qcom,icnss/power/runtime_status",
+                        icnss_runtime_status,
+                        sizeof(icnss_runtime_status));
+    read_state_or_error("/sys/class/net/wlan0/operstate",
+                        wlan0_operstate,
+                        sizeof(wlan0_operstate));
+    if (read_service74_klog_state(&klog_state) < 0) {
+        return -1;
+    }
+    if (append_format(buf,
+                      "pm_service_trigger_observer.post_provider_surface.%s.begin=1\n"
+                      "pm_service_trigger_observer.post_provider_surface.%s.wifi_hal_start_executed=0\n"
+                      "pm_service_trigger_observer.post_provider_surface.%s.scan_connect_linkup=0\n"
+                      "pm_service_trigger_observer.post_provider_surface.%s.external_ping=0\n"
+                      "pm_service_trigger_observer.post_provider_surface.%s.subsys_esoc0_open_attempted=0\n"
+                      "pm_service_trigger_observer.post_provider_surface.%s.mss_state=%s\n"
+                      "pm_service_trigger_observer.post_provider_surface.%s.mdm3_state=%s\n"
+                      "pm_service_trigger_observer.post_provider_surface.%s.mdm3_crash_count=%s\n"
+                      "pm_service_trigger_observer.post_provider_surface.%s.mdm3_firmware_name=%s\n"
+                      "pm_service_trigger_observer.post_provider_surface.%s.mdm3_restart_level=%s\n"
+                      "pm_service_trigger_observer.post_provider_surface.%s.icnss_runtime_status=%s\n"
+                      "pm_service_trigger_observer.post_provider_surface.%s.qcwlanstate_exists=%d\n"
+                      "pm_service_trigger_observer.post_provider_surface.%s.wlan0_exists=%d\n"
+                      "pm_service_trigger_observer.post_provider_surface.%s.wlan0_operstate=%s\n"
+                      "pm_service_trigger_observer.post_provider_surface.%s.klog_syslog_available=%d\n"
+                      "pm_service_trigger_observer.post_provider_surface.%s.klog_syslog_errno=%d\n"
+                      "pm_service_trigger_observer.post_provider_surface.%s.klog_count_sysmon_qmi=%u\n"
+                      "pm_service_trigger_observer.post_provider_surface.%s.klog_count_service180=%u\n"
+                      "pm_service_trigger_observer.post_provider_surface.%s.klog_count_service74=%u\n"
+                      "pm_service_trigger_observer.post_provider_surface.%s.klog_last_sysmon_qmi=%s\n"
+                      "pm_service_trigger_observer.post_provider_surface.%s.klog_last_service74=%s\n",
+                      phase,
+                      phase,
+                      phase,
+                      phase,
+                      phase,
+                      phase,
+                      mss_state,
+                      phase,
+                      mdm3_state,
+                      phase,
+                      mdm3_crash_count,
+                      phase,
+                      mdm3_firmware_name,
+                      phase,
+                      mdm3_restart_level,
+                      phase,
+                      icnss_runtime_status,
+                      phase,
+                      qcwlanstate_exists ? 1 : 0,
+                      phase,
+                      wlan0_exists ? 1 : 0,
+                      phase,
+                      wlan0_operstate,
+                      phase,
+                      klog_state.syslog_available ? 1 : 0,
+                      phase,
+                      klog_state.syslog_errno,
+                      phase,
+                      klog_state.sysmon_qmi_count,
+                      phase,
+                      klog_state.service180_count,
+                      phase,
+                      klog_state.service74_count,
+                      phase,
+                      klog_state.last_sysmon_qmi,
+                      phase,
+                      klog_state.last_service74) < 0 ||
+        append_qipcrtr_protocol_summary(buf, "pm_service_trigger_observer.post_provider_surface.qipcrtr") < 0 ||
+        append_companion_qrtr_wlfw_readback(buf, cfg) < 0 ||
+        append_format(buf,
+                      "pm_service_trigger_observer.post_provider_surface.%s.end=1\n",
+                      phase) < 0) {
+        return -1;
+    }
+    return 0;
+}
+
 static int run_wifi_companion_pm_service_trigger_observer_guarded(const struct config *cfg,
                                                                   const struct paths *paths,
                                                                   struct buffer *stdout_buf,
@@ -26873,6 +26980,13 @@ static int run_wifi_companion_pm_service_trigger_observer_guarded(const struct c
             }
             if (query_provider_seen) {
                 vndservice_provider_seen = true;
+                if (append_pm_provider_lower_surface_snapshot(stdout_buf,
+                                                              cfg,
+                                                              "after_provider") < 0) {
+                    composite_cleanup_children(children, active_child_count, stdout_buf, stderr_buf);
+                    stop_property_service_shim(&property_shim, paths, stdout_buf);
+                    return -1;
+                }
                 break;
             }
             continue;
