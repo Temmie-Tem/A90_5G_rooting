@@ -88,7 +88,7 @@
 #define IOPRIO_PRIO_VALUE(class_value, data) (((class_value) << IOPRIO_CLASS_SHIFT) | (data))
 #endif
 
-#define EXECNS_VERSION "a90_android_execns_probe v184"
+#define EXECNS_VERSION "a90_android_execns_probe v185"
 #define MAX_PATH_LEN 512
 #define MAX_CAPTURE_SIZE (1024 * 1024)
 #define MAX_LINKERCONFIG_SIZE (256 * 1024)
@@ -3055,6 +3055,8 @@ static int materialize_service_manager_binder_devices(const struct config *cfg,
             cfg->allow_mdm_helper_subsys_trigger_capture ||
             cfg->allow_mdm_helper_cnss_before_subsys_trigger_capture ||
             cfg->allow_mdm_helper_cnss_service_manager_matrix)) ||
+          (is_wifi_companion_pm_service_trigger_observer_mode(cfg->mode) &&
+           cfg->allow_pm_service_trigger_observer) ||
           (is_wifi_companion_peripheral_manager_node_materialization_mode(cfg->mode) &&
            cfg->allow_wifi_companion_start_only &&
            cfg->allow_service_manager_start_only) ||
@@ -25940,7 +25942,10 @@ static int run_wifi_companion_pm_service_trigger_observer_guarded(const struct c
                        "pm_service_trigger_observer.exec_attempted=1\n") < 0 ||
         append_private_android_node_status(stdout_buf, paths, "subsys_modem", "subsys_modem") < 0 ||
         append_private_android_node_status(stdout_buf, paths, "subsys_esoc0", "subsys_esoc0") < 0 ||
-        append_private_android_node_status(stdout_buf, paths, "esoc-0", "esoc_0") < 0) {
+        append_private_android_node_status(stdout_buf, paths, "esoc-0", "esoc_0") < 0 ||
+        append_private_android_node_status(stdout_buf, paths, "binder", "binder") < 0 ||
+        append_private_android_node_status(stdout_buf, paths, "hwbinder", "hwbinder") < 0 ||
+        append_private_android_node_status(stdout_buf, paths, "vndbinder", "vndbinder") < 0) {
         return -1;
     }
     if (start_property_service_shim(cfg, paths, &property_shim, stdout_buf) < 0) {
