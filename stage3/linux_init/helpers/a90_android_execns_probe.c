@@ -88,7 +88,7 @@
 #define IOPRIO_PRIO_VALUE(class_value, data) (((class_value) << IOPRIO_CLASS_SHIFT) | (data))
 #endif
 
-#define EXECNS_VERSION "a90_android_execns_probe v175"
+#define EXECNS_VERSION "a90_android_execns_probe v176"
 #define MAX_PATH_LEN 512
 #define MAX_CAPTURE_SIZE (1024 * 1024)
 #define MAX_LINKERCONFIG_SIZE (256 * 1024)
@@ -799,6 +799,10 @@ static bool selinux_context_allowed(const char *context) {
            streq(context, "u:r:wificond:s0") ||
            streq(context, "u:r:vndservicemanager:s0") ||
            streq(context, "u:r:vendor_wcnss_service:s0") ||
+           streq(context, "u:r:per_proxy_helper:s0") ||
+           streq(context, "u:r:vendor_per_mgr:s0") ||
+           streq(context, "u:r:vendor_per_proxy:s0") ||
+           streq(context, "u:r:vendor_mdm_helper:s0") ||
            streq(context, "u:r:vendor_qrtr:s0") ||
            streq(context, "u:r:vendor_rmt_storage:s0") ||
            streq(context, "u:r:vendor_rfs_access:s0") ||
