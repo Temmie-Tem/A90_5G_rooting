@@ -130,6 +130,7 @@
 
 ### 3. Plans
 
+- `plans/NATIVE_INIT_V968_ANDROID_DMESG_ESOC_GPIO_TIMING_PLAN_2026-05-26.md` – Android-good boot의 MDM3/eSoC GPIO/PMIC/PCIe timing을 read-only dmesg와 sysfs evidence로 분류해 V967 service-window live 전 native divergence를 줄이는 V968 계획
 - `plans/NATIVE_INIT_V940_SDX50M_QUEUE_INPUT_CONTRACT_PLAN_2026-05-26.md` – V938/V939 이후 exact property-context override 대신 `mdm_helper`/PeripheralManager SDX50M queue input contract를 host-only로 분류하기 위한 V940 계획
 - `plans/NATIVE_INIT_V929_CURRENT_V153_CNSS_SERVICE_MANAGER_MATRIX_PLAN_2026-05-26.md` – V603/V604/V605/V606의 단순 ordering 실패를 반복하지 않도록 helper `v153` repaired namespace 기반 CNSS/service-manager matrix helper `v154`를 source/build-only로 설계하는 V929 계획
 - `plans/NATIVE_INIT_V928_CNSS_BINDER_LOWER_INTERSECTION_PLAN_2026-05-26.md` – V927 compact 결과와 V603 service-manager 결과를 host-only로 비교해 다음 blocker가 Binder-clean과 lower publication을 같은 window에 맞추는 문제인지 분류하는 V928 계획
@@ -434,6 +435,7 @@
 
 ### 4. Current Native Init Reports
 
+- `reports/NATIVE_INIT_V967_ANDROID_WIFI_SERVICE_WINDOW_SUPPORT_2026-05-26.md` – helper `v161`에 Android Wi-Fi service-window start-only mode를 source/build-only로 추가하고 no-qcwlanstate/no-eSoC/no-scan/connect guard를 검증한 V967 결과
 - `reports/NATIVE_INIT_V966_ANDROID_WLFW_START_ATTRIBUTION_2026-05-26.md` – V913 Android same-boot dmesg와 V963 native comparator를 host-only로 비교해 `wlfw_start`가 Android init Wi-Fi service-window에서 발생하며 direct eSoC open/qcwlanstate 재시도보다 V967 service-window parity가 먼저임을 분류한 결과
 - `reports/NATIVE_INIT_V965_V964_ROUTE_CLASSIFIER_2026-05-26.md` – V963/V964 이후 direct `/dev/subsys_esoc0`, `qcwlanstate`, `IWifi.start` 재시도를 보류하고 다음 단위를 Android `cnss-daemon wlfw_start` trigger attribution으로 선정한 V965 결과
 - `reports/NATIVE_INIT_V964_V963_POST_PROVIDER_TRIGGER_CLASSIFIER_2026-05-26.md` – V963 post-provider trigger evidence를 host-only로 분류해 `/dev/subsys_esoc0` open이 `sdx50m_toggle_soft_reset`/`mdm_subsys_powerup` 경로에서 stall됨을 확정한 V964 결과
