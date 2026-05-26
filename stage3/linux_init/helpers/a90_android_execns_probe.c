@@ -88,7 +88,7 @@
 #define IOPRIO_PRIO_VALUE(class_value, data) (((class_value) << IOPRIO_CLASS_SHIFT) | (data))
 #endif
 
-#define EXECNS_VERSION "a90_android_execns_probe v166"
+#define EXECNS_VERSION "a90_android_execns_probe v167"
 #define MAX_PATH_LEN 512
 #define MAX_CAPTURE_SIZE (1024 * 1024)
 #define MAX_LINKERCONFIG_SIZE (256 * 1024)
@@ -15443,6 +15443,17 @@ static void composite_child_init(struct composite_child *child,
     child->exit_code = -1;
 }
 
+static bool composite_child_should_trace(const struct config *cfg,
+                                         const struct composite_child *child) {
+    return (is_wifi_hal_composite_ptrace_mode(cfg->mode) &&
+            child->identity == COMPOSITE_ID_WIFI_HAL) ||
+           (is_wifi_companion_ptrace_capture(cfg) &&
+            child->identity == COMPOSITE_ID_CNSS) ||
+           (is_wifi_companion_android_wifi_service_window_start_only_mode(cfg->mode) &&
+            cfg->allow_android_wifi_service_window &&
+            child->identity == COMPOSITE_ID_WIFICOND);
+}
+
 static int append_wifi_registry_context_snapshot(struct buffer *buf,
                                                  const char *phase,
                                                  const struct paths *paths,
@@ -15806,10 +15817,7 @@ static int composite_spawn_child(const struct config *cfg,
             fflush(stdout);
             _exit(126);
         }
-        if ((is_wifi_hal_composite_ptrace_mode(cfg->mode) &&
-             child->identity == COMPOSITE_ID_WIFI_HAL) ||
-            (is_wifi_companion_ptrace_capture(cfg) &&
-             child->identity == COMPOSITE_ID_CNSS)) {
+        if (composite_child_should_trace(cfg, child)) {
             if (ptrace(PTRACE_TRACEME, 0, NULL, NULL) < 0) {
                 printf("%s.ptrace_traceme_error=%s\n", prefix, strerror(errno));
                 printf("%s.end=1\n", prefix);
@@ -15843,10 +15851,7 @@ static int composite_spawn_child(const struct config *cfg,
     child->stderr_fd = stderr_pipe[0];
     child->stdout_open = true;
     child->stderr_open = true;
-    child->traced = (is_wifi_hal_composite_ptrace_mode(cfg->mode) &&
-                     child->identity == COMPOSITE_ID_WIFI_HAL) ||
-        (is_wifi_companion_ptrace_capture(cfg) &&
-         child->identity == COMPOSITE_ID_CNSS);
+    child->traced = composite_child_should_trace(cfg, child);
     set_nonblock(child->stdout_fd);
     set_nonblock(child->stderr_fd);
     child->pgid = wait_for_child_session_pgid(child->pid, 1000);
