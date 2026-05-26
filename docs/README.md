@@ -434,6 +434,9 @@
 
 ### 4. Current Native Init Reports
 
+- `reports/NATIVE_INIT_V958_V957_PM_PROXY_MATRIX_CLASSIFIER_2026-05-26.md` – V957 `pm-proxy` matrix evidence를 V953과 비교해 provider lifecycle gap은 수리됐고 남은 blocker가 post-provider WLFW/CNSS gap임을 분류한 V958 결과
+- `reports/NATIVE_INIT_V957_PM_PROXY_MATRIX_LIVE_2026-05-26.md` – helper `v159` bounded `pm-proxy` matrix live 결과; `pm-service`/`pm-proxy` provider surface는 service-manager/CNSS 이후까지 유지되지만 WLFW precondition은 계속 없음
+- `reports/NATIVE_INIT_V956_HELPER_V159_DEPLOY_2026-05-26.md` – helper `v159`를 `/cache/bin/a90_android_execns_probe`로 deploy-only 배포하고 no-daemon/no-Wi-Fi guard를 확인한 V956 결과
 - `reports/NATIVE_INIT_V955_PM_PROXY_MATRIX_SUPPORT_2026-05-26.md` – helper `v159`에 bounded `pm-proxy` matrix order를 source/build-only로 추가하고 `pm_proxy_helper`/subsystem open/Wi-Fi bring-up guard를 검증한 V955 결과
 - `reports/NATIVE_INIT_V954_V953_AFTER_MDM_PROVIDER_CLASSIFIER_2026-05-26.md` – V953 after-mdm provider evidence를 host-only로 분류해 다음 safe comparator를 `pm-proxy` matrix로 선정한 V954 결과
 - `reports/NATIVE_INIT_V953_MATRIX_PROVIDER_READINESS_AFTER_MDM_2026-05-26.md` – helper `v158` matrix `after-mdm-helper-esoc-fd` order에서 service-manager 전후 `pm-service`/vndbinder provider surface 변화를 관측한 V953 live 결과
