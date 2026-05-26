@@ -88,7 +88,7 @@
 #define IOPRIO_PRIO_VALUE(class_value, data) (((class_value) << IOPRIO_CLASS_SHIFT) | (data))
 #endif
 
-#define EXECNS_VERSION "a90_android_execns_probe v168"
+#define EXECNS_VERSION "a90_android_execns_probe v169"
 #define MAX_PATH_LEN 512
 #define MAX_CAPTURE_SIZE (1024 * 1024)
 #define MAX_LINKERCONFIG_SIZE (256 * 1024)
@@ -344,7 +344,7 @@ static void usage(FILE *out) {
             "--system-root /mnt/system/system "
             "--vendor-block /dev/block/sda29 "
             "--vendor-fstype ext4 "
-            "[--target-profile cnss-daemon|system-toybox|system-sh|linker64-self|apex-linker64-self|system-getprop|system-servicemanager|system-hwservicemanager|vendor-wifi-hal-ext|vendor-wifi-hal-legacy] "
+            "[--target-profile cnss-daemon|system-toybox|system-sh|linker64-self|apex-linker64-self|system-getprop|system-servicemanager|system-hwservicemanager|system-wificond|vendor-vndservicemanager|vendor-wifi-hal-ext|vendor-wifi-hal-legacy] "
             "[--target /vendor/bin/cnss-daemon] "
             "[--linker /system/bin/linker64|/apex/com.android.runtime/bin/linker64] "
             "[--env-mode clean|ld-debug-1|ld-debug-2|auxv] "
@@ -779,6 +779,8 @@ static bool selinux_context_allowed(const char *context) {
            streq(context, "u:r:hal_wifi_default:s0") ||
            streq(context, "u:r:hwservicemanager:s0") ||
            streq(context, "u:r:servicemanager:s0") ||
+           streq(context, "u:r:wificond:s0") ||
+           streq(context, "u:r:vndservicemanager:s0") ||
            streq(context, "u:r:vendor_wcnss_service:s0") ||
            streq(context, "u:r:vendor_qrtr:s0") ||
            streq(context, "u:r:vendor_rmt_storage:s0") ||
@@ -1152,6 +1154,10 @@ static int parse_args(int argc, char **argv, struct config *cfg) {
         cfg->target = "/system/bin/servicemanager";
     } else if (streq(cfg->target_profile, "system-hwservicemanager")) {
         cfg->target = "/system/bin/hwservicemanager";
+    } else if (streq(cfg->target_profile, "system-wificond")) {
+        cfg->target = "/system/bin/wificond";
+    } else if (streq(cfg->target_profile, "vendor-vndservicemanager")) {
+        cfg->target = "/vendor/bin/vndservicemanager";
     } else if (streq(cfg->target_profile, "vendor-wifi-hal-ext")) {
         cfg->target = "/vendor/bin/hw/vendor.samsung.hardware.wifi@2.0-service";
     } else if (streq(cfg->target_profile, "vendor-wifi-hal-legacy")) {
@@ -1165,6 +1171,8 @@ static int parse_args(int argc, char **argv, struct config *cfg) {
               streq(cfg->target, "/system/bin/getprop") ||
               streq(cfg->target, "/system/bin/servicemanager") ||
               streq(cfg->target, "/system/bin/hwservicemanager") ||
+              streq(cfg->target, "/system/bin/wificond") ||
+              streq(cfg->target, "/vendor/bin/vndservicemanager") ||
               streq(cfg->target, "/vendor/bin/hw/vendor.samsung.hardware.wifi@2.0-service") ||
               streq(cfg->target, "/vendor/bin/hw/android.hardware.wifi@1.0-service"))) {
             fprintf(stderr, "--target must match a v235 allowlisted profile path\n");
