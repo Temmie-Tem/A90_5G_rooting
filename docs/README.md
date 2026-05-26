@@ -161,6 +161,9 @@
 - `plans/NATIVE_INIT_V1032_PM_RUNTIME_DOMAIN_GUARD_LIVE_PLAN_2026-05-26.md` – helper `v175` PM full-contract order에 Android SELinux exec match guard를 적용해 PM actor `execv` 전 fail-closed를 검증하는 계획
 - `plans/NATIVE_INIT_V1033_PM_SELINUX_DOMAIN_PROOF_PLAN_2026-05-26.md` – current-boot V490 policy-load 뒤 PM SELinux domain proof를 시도하고 helper allowlist blocker를 분류하는 계획
 - `plans/NATIVE_INIT_V1034_PM_SELINUX_DOMAIN_ALLOWLIST_SUPPORT_PLAN_2026-05-26.md` – helper `v176`에 PM SELinux domain-proof contexts를 추가하는 source/build-only 계획
+- `plans/NATIVE_INIT_V1035_HELPER_V176_DEPLOY_PLAN_2026-05-26.md` – helper `v176`을 `/cache/bin/a90_android_execns_probe`로 deploy-only 배포하고 원격 sha/marker parity를 확인하는 계획
+- `plans/NATIVE_INIT_V1036_PM_SELINUX_DOMAIN_PROOF_V176_PLAN_2026-05-26.md` – helper `v176`과 current-boot V490 policy-load로 PM SELinux domain proof를 재실행하는 계획
+- `plans/NATIVE_INIT_V1037_PM_RUNTIME_DOMAIN_GUARD_LIVE_V176_PLAN_2026-05-26.md` – helper `v176` PM runtime-domain guard를 live로 재검증하고 PM fd contract blocker를 분리하는 계획
 - `plans/NATIVE_INIT_V1003_HELPER_V170_DEPLOY_PLAN_2026-05-26.md` – V1002 helper `v170` 산출물을 `/cache/bin/a90_android_execns_probe`로 deploy-only 배포하고 sha/contract parity를 확인하는 V1003 계획
 - `plans/NATIVE_INIT_V1002_ANDROID_SERVICE_WINDOW_SUBSYS_TRIGGER_SUPPORT_PLAN_2026-05-26.md` – V1001에서 선택한 service-window-scoped `/dev/subsys_esoc0` trigger capture를 helper `v170`에 source/build-only로 추가하는 V1002 계획
 - `plans/NATIVE_INIT_V1001_V1000_ROUTE_COMPARATOR_PLAN_2026-05-26.md` – V1000 Android timing과 V998/V923/V964/V965 native evidence를 비교해 WLFW-precondition gate가 circular인지 host-only로 판정하는 V1001 계획
