@@ -97,7 +97,7 @@
 #define IOPRIO_PRIO_VALUE(class_value, data) (((class_value) << IOPRIO_CLASS_SHIFT) | (data))
 #endif
 
-#define EXECNS_VERSION "a90_android_execns_probe v196"
+#define EXECNS_VERSION "a90_android_execns_probe v197"
 #define MAX_PATH_LEN 512
 #define MAX_CAPTURE_SIZE (1024 * 1024)
 #define MAX_LINKERCONFIG_SIZE (256 * 1024)
@@ -8644,6 +8644,17 @@ static int materialize_rmt_modem_detect_surface(const struct paths *paths,
         return -1;
     }
     return 0;
+}
+
+static int materialize_pm_service_modem_detect_surface(const struct config *cfg,
+                                                       const struct paths *paths,
+                                                       char *error_buf,
+                                                       size_t error_size) {
+    if (!(is_wifi_companion_pm_service_trigger_observer_mode(cfg->mode) &&
+          cfg->allow_pm_service_trigger_observer)) {
+        return 0;
+    }
+    return materialize_rmt_modem_detect_surface(paths, error_buf, error_size);
 }
 
 static int materialize_rmt_storage_runtime_surface(const struct config *cfg,
@@ -29099,6 +29110,9 @@ static int setup_namespace(const struct config *cfg,
         return -1;
     }
     if (materialize_peripheral_manager_node_parity(cfg, paths, error_buf, error_size) < 0) {
+        return -1;
+    }
+    if (materialize_pm_service_modem_detect_surface(cfg, paths, error_buf, error_size) < 0) {
         return -1;
     }
     if (materialize_wifi_wlan_device(cfg, paths, error_buf, error_size) < 0) {
