@@ -589,6 +589,7 @@
 - `reports/NATIVE_INIT_V1087_PM_ADDSERVICE_HOST_CLASSIFIER_2026-05-27.md` – V1087 host-only 결과 V1071 exit-255/BPF 방향은 stale이며 다음 PM observer retry는 V694 positive-control의 V490 policy-load와 `vndservicemanager_ready` precondition을 재현해야 함을 분류한 결과
 - `reports/NATIVE_INIT_V1092_PM_PROVIDER_READY_2026-05-27.md` – V1092 결과 V490 policy-load와 `vndservicemanager` readiness 뒤 `vendor.qcom.PeripheralManager` provider 등록을 확인한 결과
 - `reports/NATIVE_INIT_V1093_PM_POST_PROVIDER_SURFACE_2026-05-27.md` – V1093 결과 provider-positive window에서도 `mdm3=OFFLINING`, WLFW service `69` 없음, `wlan0` 없음이 유지되어 lower mdm3/eSoC trigger가 다음 blocker임을 확인한 결과
+- `reports/NATIVE_INIT_V1094_PM_PER_PROXY_SURFACE_2026-05-27.md` – V1094 결과 `pm-proxy`까지 이어진 provider-positive window에서도 `/dev/subsys_modem` fd, mdm3, WLFW, `wlan0`가 모두 전진하지 않아 다음 blocker를 lower PM client/voter 또는 eSoC trigger로 좁힌 결과
 - `reports/NATIVE_INIT_V1004_SERVICE_WINDOW_SUBSYS_TRIGGER_LIVE_2026-05-26.md` – V1004 live 결과 current-boot SELinux refresh 후 Android service-window actors는 관측됐지만 `mdm_helper`가 `/dev/esoc-0` fd를 hold하지 않아 `/dev/subsys_esoc0` trigger는 안전하게 미실행된 결과
 - `reports/NATIVE_INIT_V1003_HELPER_V170_DEPLOY_2026-05-26.md` – helper `v170`을 `/cache/bin/a90_android_execns_probe`로 deploy-only 설치하고 remote sha/contract parity 및 no-Wi-Fi guard를 확인한 V1003 결과
 - `reports/NATIVE_INIT_V1002_ANDROID_SERVICE_WINDOW_SUBSYS_TRIGGER_SUPPORT_2026-05-26.md` – helper `v170`에 Android service-window scoped `/dev/subsys_esoc0` trigger capture mode를 source/build-only로 추가한 V1002 결과

@@ -24,6 +24,8 @@ DEVICE_WORK_DIR = "/cache/a90-runtime/v1093"
 DEVICE_SCRIPT = f"{DEVICE_WORK_DIR}/pm-post-provider-surface.sh"
 DEVICE_OUTPUT = f"{DEVICE_WORK_DIR}/pm-post-provider-surface-output.txt"
 QRTR_READBACK_MATRIX = "wlfw:69:0,1;serv74:74:0,1;serv180:180:0,1"
+CYCLE_LABEL = "v1093"
+SUMMARY_HEADING = "# V1093 PM Observer Post-Provider Surface Live"
 original_helper_surface = base.helper_surface
 
 
@@ -187,6 +189,19 @@ def write_device_runner(args: argparse.Namespace, store: EvidenceStore, steps: l
     append_device_file(args, store, steps, DEVICE_SCRIPT, script, "v1093-runner-script")
 
 
+def run_helper_script(args: argparse.Namespace,
+                      store: EvidenceStore,
+                      steps: list[dict[str, Any]]) -> dict[str, Any]:
+    return base.run_tcpctl(
+        args,
+        store,
+        steps,
+        "pm-post-provider-surface-script",
+        [args.busybox, "sh", DEVICE_SCRIPT],
+        timeout=args.toybox_timeout_sec + 60.0,
+    )
+
+
 def execute(args: argparse.Namespace, store: EvidenceStore) -> tuple[list[dict[str, Any]], dict[str, Any]]:
     steps: list[dict[str, Any]] = []
     analysis: dict[str, Any] = {}
@@ -203,14 +218,7 @@ def execute(args: argparse.Namespace, store: EvidenceStore) -> tuple[list[dict[s
     base.run_a90ctl(args, store, steps, "real-apex-libraries-stat", ["stat", base.DEFAULT_REAL_APEX_LIBRARIES], timeout=12.0, allow_error=True)
     analysis["remote_helper"] = base.remote_helper_state(args, store, steps)
     write_device_runner(args, store, steps)
-    helper_step = base.run_tcpctl(
-        args,
-        store,
-        steps,
-        "pm-post-provider-surface-script",
-        [args.busybox, "sh", DEVICE_SCRIPT],
-        timeout=args.toybox_timeout_sec + 60.0,
-    )
+    helper_step = run_helper_script(args, store, steps)
     helper_text = (store.run_dir / helper_step["file"]).read_text(encoding="utf-8", errors="replace")
     analysis["helper"] = helper_surface(helper_text)
     analysis["device_runner"] = {
@@ -364,7 +372,7 @@ def render_summary(manifest: dict[str, Any]) -> str:
     ]
     step_rows = [[step["name"], step["ok"], step["rc"], step["duration_sec"], step["file"]] for step in manifest.get("steps", [])]
     return "\n".join([
-        "# V1093 PM Observer Post-Provider Surface Live",
+        SUMMARY_HEADING,
         "",
         f"- generated: `{manifest['generated_at']}`",
         f"- command: `{manifest['command']}`",
@@ -414,7 +422,7 @@ def build_manifest(args: argparse.Namespace, store: EvidenceStore) -> dict[str, 
     post_provider = helper.get("post_provider_surface") or {}
     cleanup = analysis.get("reboot_cleanup") or {}
     return {
-        "cycle": "v1093",
+        "cycle": CYCLE_LABEL,
         "generated_at": now_iso(),
         "command": args.command,
         "decision": decision,
