@@ -34,6 +34,9 @@ RAMDISK_HELPERS = {
     "bin/a90_cpustress": LINUX_INIT / "helpers" / "a90_cpustress",
     "bin/a90_longsoak": LINUX_INIT / "helpers" / "a90_longsoak",
     "bin/a90_rshell": LINUX_INIT / "helpers" / "a90_rshell",
+    "bin/a90_tcpctl": (
+        REPO_ROOT / "external_tools" / "userland" / "bin" / "a90_tcpctl-aarch64-static"
+    ),
 }
 
 EXPECTED_MARKERS = (

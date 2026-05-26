@@ -540,6 +540,7 @@
 - `reports/NATIVE_INIT_V1054_HELPER_V180_DEPLOY_2026-05-26.md` – V1054 결과 helper `v180` remote sha/usage contract가 일치하고 native health/no-Wi-Fi guard를 유지한 deploy-only 결과
 - `reports/NATIVE_INIT_V1055_PM_FULL_CONTRACT_WITH_MODEM_HOLDER_V180_2026-05-26.md` – V1055 결과 nonblocking open은 `errno=14`, plain fallback은 반환하지 않아 native first-opener/PIL blocker로 분류한 결과
 - `reports/NATIVE_INIT_V1056_PM_FIRST_OPENER_RECLASSIFIER_2026-05-26.md` – V1056 결과 Android도 `modem count:0`에서 `pm_proxy_helper` first-open을 시작해 `count:1`로 진행하므로 synthetic pre-holder가 아니라 first-open runtime prerequisite가 다음 blocker임을 분류한 결과
+- `reports/NATIVE_INIT_V1057_TCPCTL_RAMDISK_REPACK_2026-05-26.md` – V1057 결과 v724 ramdisk에 누락된 `/bin/a90_tcpctl`을 reproducible builder에 포함하고 flash/readback/native/NCM TCP control 검증을 통과한 결과
 - `reports/NATIVE_INIT_V1004_SERVICE_WINDOW_SUBSYS_TRIGGER_LIVE_2026-05-26.md` – V1004 live 결과 current-boot SELinux refresh 후 Android service-window actors는 관측됐지만 `mdm_helper`가 `/dev/esoc-0` fd를 hold하지 않아 `/dev/subsys_esoc0` trigger는 안전하게 미실행된 결과
 - `reports/NATIVE_INIT_V1003_HELPER_V170_DEPLOY_2026-05-26.md` – helper `v170`을 `/cache/bin/a90_android_execns_probe`로 deploy-only 설치하고 remote sha/contract parity 및 no-Wi-Fi guard를 확인한 V1003 결과
 - `reports/NATIVE_INIT_V1002_ANDROID_SERVICE_WINDOW_SUBSYS_TRIGGER_SUPPORT_2026-05-26.md` – helper `v170`에 Android service-window scoped `/dev/subsys_esoc0` trigger capture mode를 source/build-only로 추가한 V1002 결과
