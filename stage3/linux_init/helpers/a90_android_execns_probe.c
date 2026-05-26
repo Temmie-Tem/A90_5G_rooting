@@ -88,7 +88,7 @@
 #define IOPRIO_PRIO_VALUE(class_value, data) (((class_value) << IOPRIO_CLASS_SHIFT) | (data))
 #endif
 
-#define EXECNS_VERSION "a90_android_execns_probe v181"
+#define EXECNS_VERSION "a90_android_execns_probe v184"
 #define MAX_PATH_LEN 512
 #define MAX_CAPTURE_SIZE (1024 * 1024)
 #define MAX_LINKERCONFIG_SIZE (256 * 1024)
@@ -1346,6 +1346,7 @@ static int parse_args(int argc, char **argv, struct config *cfg) {
           is_wifi_companion_mdm_helper_ks_image_contract_preflight_mode(cfg->mode) ||
           is_wifi_companion_mdm_helper_only_deep_capture_mode(cfg->mode) ||
           is_wifi_companion_mdm_helper_runtime_any_mode(cfg->mode) ||
+          is_wifi_companion_pm_service_trigger_observer_mode(cfg->mode) ||
           is_wifi_companion_any_start_only_mode(cfg->mode) ||
           is_wifi_companion_hal_order_start_only_mode(cfg->mode) ||
           is_wifi_companion_android_wifi_service_window_any_mode(cfg->mode) ||
@@ -2391,6 +2392,7 @@ static int parse_args(int argc, char **argv, struct config *cfg) {
                is_lshal_readonly_query_mode(cfg->mode) ||
                is_rmt_storage_start_only_mode(cfg->mode) ||
                is_wifi_companion_mdm_helper_runtime_any_mode(cfg->mode) ||
+               is_wifi_companion_pm_service_trigger_observer_mode(cfg->mode) ||
                is_wifi_companion_any_start_only_mode(cfg->mode) ||
                is_wifi_companion_hal_order_start_only_mode(cfg->mode) ||
                is_wifi_hal_composite_mode(cfg->mode)) {
@@ -25953,8 +25955,6 @@ static int run_wifi_companion_pm_service_trigger_observer_guarded(const struct c
         return 0;
     }
     for (size_t i = 0; i < PM_OBSERVER_CHILD_COUNT; i++) {
-        char phase[96];
-
         if (composite_spawn_child(cfg, paths, &children[i], stdout_buf) < 0) {
             composite_cleanup_children(children, active_child_count, stdout_buf, stderr_buf);
             stop_property_service_shim(&property_shim, paths, stdout_buf);
@@ -25978,17 +25978,6 @@ static int run_wifi_companion_pm_service_trigger_observer_guarded(const struct c
             }
         }
         if (drain_property_service_shim_records(&property_shim, stdout_buf) < 0) {
-            composite_cleanup_children(children, active_child_count, stdout_buf, stderr_buf);
-            stop_property_service_shim(&property_shim, paths, stdout_buf);
-            return -1;
-        }
-        if (snprintf(phase, sizeof(phase), "after_start_%s", children[i].name) >= (int)sizeof(phase)) {
-            composite_cleanup_children(children, active_child_count, stdout_buf, stderr_buf);
-            stop_property_service_shim(&property_shim, paths, stdout_buf);
-            return -1;
-        }
-        if (append_mdm_helper_provider_readiness_snapshot(stdout_buf, paths, phase, per_mgr, NULL) < 0 ||
-            append_mdm_helper_queue_timing_snapshot(stdout_buf, phase, per_mgr, NULL) < 0) {
             composite_cleanup_children(children, active_child_count, stdout_buf, stderr_buf);
             stop_property_service_shim(&property_shim, paths, stdout_buf);
             return -1;
@@ -26029,9 +26018,7 @@ static int run_wifi_companion_pm_service_trigger_observer_guarded(const struct c
                                                                per_mgr,
                                                                pm_proxy_helper,
                                                                &per_mgr_subsys_modem_count,
-                                                               &pm_proxy_helper_subsys_modem_count) < 0 ||
-                append_mdm_helper_provider_readiness_snapshot(stdout_buf, paths, phase, per_mgr, NULL) < 0 ||
-                append_mdm_helper_queue_timing_snapshot(stdout_buf, phase, per_mgr, NULL) < 0) {
+                                                               &pm_proxy_helper_subsys_modem_count) < 0) {
                 composite_cleanup_children(children, active_child_count, stdout_buf, stderr_buf);
                 stop_property_service_shim(&property_shim, paths, stdout_buf);
                 return -1;
