@@ -88,7 +88,7 @@
 #define IOPRIO_PRIO_VALUE(class_value, data) (((class_value) << IOPRIO_CLASS_SHIFT) | (data))
 #endif
 
-#define EXECNS_VERSION "a90_android_execns_probe v174"
+#define EXECNS_VERSION "a90_android_execns_probe v175"
 #define MAX_PATH_LEN 512
 #define MAX_CAPTURE_SIZE (1024 * 1024)
 #define MAX_LINKERCONFIG_SIZE (256 * 1024)
@@ -232,6 +232,7 @@ struct config {
     bool allow_mdm_helper_cnss_service_manager_matrix;
     bool allow_android_wifi_service_window;
     bool allow_android_wifi_service_window_subsys_trigger_capture;
+    bool require_android_selinux_exec_match;
 };
 
 struct a90_hidl_string_wire {
@@ -361,6 +362,7 @@ static void usage(FILE *out) {
             "[--selinux-context u:r:hal_wifi_default:s0] "
             "[--selinux-attr-mode current|exec|both] "
             "[--android-selinux-context-mode auto|none|service-defaults] "
+            "[--require-android-selinux-exec-match] "
             "[internal --selinux-print-current static postexec proof] "
             "[--allow-cnss-start-only] "
             "[--allow-wifi-companion-start-only] "
@@ -1082,6 +1084,10 @@ static int parse_args(int argc, char **argv, struct config *cfg) {
         }
         if (strcmp(argv[i], "--allow-android-wifi-service-window-subsys-trigger-capture") == 0) {
             cfg->allow_android_wifi_service_window_subsys_trigger_capture = true;
+            continue;
+        }
+        if (strcmp(argv[i], "--require-android-selinux-exec-match") == 0) {
+            cfg->require_android_selinux_exec_match = true;
             continue;
         }
         if (i + 1 >= argc) {
@@ -3967,6 +3973,24 @@ static int apply_android_exec_selinux_context_if_requested(const struct config *
     printf("%s.selinux_exec.ok=1\n", prefix);
     printf("%s.selinux_exec.errno=0\n", prefix);
     print_selinux_attr_snapshot(prefix);
+    printf("%s.selinux_exec.match_required=%d\n",
+           prefix,
+           cfg->require_android_selinux_exec_match ? 1 : 0);
+    if (cfg->require_android_selinux_exec_match) {
+        char exec_value[256];
+        if (read_selinux_attr("exec", exec_value, sizeof(exec_value)) < 0) {
+            printf("%s.selinux_exec.attr_exec_match=0\n", prefix);
+            printf("%s.selinux_exec.attr_exec_error=%s\n", prefix, strerror(errno));
+            return -1;
+        }
+        printf("%s.selinux_exec.attr_exec_observed=%s\n", prefix, exec_value);
+        printf("%s.selinux_exec.attr_exec_expected=%s\n", prefix, context);
+        if (!streq(exec_value, context)) {
+            printf("%s.selinux_exec.attr_exec_match=0\n", prefix);
+            return -1;
+        }
+        printf("%s.selinux_exec.attr_exec_match=1\n", prefix);
+    }
     return 0;
 }
 
@@ -27737,6 +27761,8 @@ int main(int argc, char **argv) {
     printf("selinux_context=%s\n", cfg.selinux_context != NULL ? cfg.selinux_context : "<none>");
     printf("selinux_attr_mode=%s\n", cfg.selinux_attr_mode);
     printf("android_selinux_context_mode=%s\n", cfg.android_selinux_context_mode);
+    printf("require_android_selinux_exec_match=%d\n",
+           cfg.require_android_selinux_exec_match ? 1 : 0);
     printf("system_root=%s\n", cfg.system_root);
     printf("vendor_block=%s\n", cfg.vendor_block);
     printf("vendor_fstype=%s\n", cfg.vendor_fstype);
