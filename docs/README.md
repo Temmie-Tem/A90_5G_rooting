@@ -434,8 +434,11 @@
 
 ### 4. Current Native Init Reports
 
-- `reports/NATIVE_INIT_V944_V943_QUEUE_TIMING_CLASSIFIER_2026-05-26.md` – V943 fresh queue failure를 host-only로 분류해 `mdm_helper` `/dev/esoc-0` reachability가 아니라 `per_mgr` provider/lifetime gap이 남은 blocker임을 확정한 V944 결과
+- `reports/NATIVE_INIT_V948_V947_PROVIDER_READINESS_CLASSIFIER_2026-05-26.md` – V947 provider-readiness evidence를 host-only로 분류해 binder/property surface는 존재하고 다음 비교 대상은 CNSS/service-manager matrix provider fd 관측성임을 확정한 V948 결과
+- `reports/NATIVE_INIT_V947_PROVIDER_READINESS_CAPTURE_2026-05-26.md` – helper `v157` live capture에서 `pm-service` vndbinder fd, `mdm_helper` `/dev/esoc-0`, service-manager/proxy absence, subsystem fd absence를 bounded runtime-contract path로 수집한 V947 결과
+- `reports/NATIVE_INIT_V946_HELPER_V157_DEPLOY_2026-05-26.md` – helper `v157`를 `/cache/bin/a90_android_execns_probe`로 deploy-only 배포하고 remote checksum/contract parity와 no-daemon/no-Wi-Fi guard를 확인한 V946 결과
 - `reports/NATIVE_INIT_V945_PROVIDER_READINESS_SUPPORT_2026-05-26.md` – V944 provider/lifetime gap 후속으로 기존 bounded `mdm_helper` runtime-contract path에 service-manager/binder/provider fd readiness 관측성을 추가한 helper `v157` source/build-only 결과
+- `reports/NATIVE_INIT_V944_V943_QUEUE_TIMING_CLASSIFIER_2026-05-26.md` – V943 fresh queue failure를 host-only로 분류해 `mdm_helper` `/dev/esoc-0` reachability가 아니라 `per_mgr` provider/lifetime gap이 남은 blocker임을 확정한 V944 결과
 - `reports/NATIVE_INIT_V943_MDM_HELPER_QUEUE_TIMING_CAPTURE_2026-05-26.md` – helper `v156` queue-timing live capture 결과; `mdm_helper`는 spawn 후 약 14ms 내 `/dev/esoc-0` fd를 잡지만 `per_mgr`는 subsystem fd 없이 살아 있고 fresh SDX50M queue failure가 같은 window에 발생함을 확인한 V943 결과
 - `reports/NATIVE_INIT_V942_HELPER_V156_DEPLOY_2026-05-26.md` – helper `v156`를 `/cache/bin/a90_android_execns_probe`로 deploy-only 배포하고 remote checksum/contract parity와 postflight health를 확인한 V942 결과
 - `reports/NATIVE_INIT_V941_MDM_HELPER_QUEUE_TIMING_SUPPORT_2026-05-26.md` – helper `v156`에 `mdm_helper_queue_timing.*` 진단을 기존 runtime-contract mode에 source/build-only로 추가하고 static build/guardrail 검증을 통과한 V941 결과
