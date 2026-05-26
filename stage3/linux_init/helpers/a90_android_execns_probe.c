@@ -88,7 +88,7 @@
 #define IOPRIO_PRIO_VALUE(class_value, data) (((class_value) << IOPRIO_CLASS_SHIFT) | (data))
 #endif
 
-#define EXECNS_VERSION "a90_android_execns_probe v179"
+#define EXECNS_VERSION "a90_android_execns_probe v180"
 #define MAX_PATH_LEN 512
 #define MAX_CAPTURE_SIZE (1024 * 1024)
 #define MAX_LINKERCONFIG_SIZE (256 * 1024)
@@ -20218,6 +20218,7 @@ static int run_wifi_companion_mdm_helper_cnss_before_subsys_trigger_capture_guar
         }
         if (modem_pre_holder_pid == 0) {
             int mfd;
+            int nonblock_errno = 0;
             close(_holder_pipe[0]);
             if (setsid() < 0) {
                 dprintf(_holder_pipe[1],
@@ -20253,21 +20254,37 @@ static int run_wifi_companion_mdm_helper_cnss_before_subsys_trigger_capture_guar
                     "cnss_before_esoc.modem_pre_holder_child_chroot=1\n"
                     "cnss_before_esoc.modem_pre_holder_path=/dev/subsys_modem\n");
             mfd = open("/dev/subsys_modem", O_RDONLY | O_NONBLOCK | O_CLOEXEC);
-            if (mfd < 0 && errno == EINVAL)
+            if (mfd < 0) {
+                nonblock_errno = errno;
+                dprintf(_holder_pipe[1],
+                        "cnss_before_esoc.modem_pre_holder_nonblock_opened=0\n"
+                        "cnss_before_esoc.modem_pre_holder_nonblock_errno=%d\n"
+                        "cnss_before_esoc.modem_pre_holder_plain_retry=1\n",
+                        nonblock_errno);
                 mfd = open("/dev/subsys_modem", O_RDONLY | O_CLOEXEC);
+            } else {
+                dprintf(_holder_pipe[1],
+                        "cnss_before_esoc.modem_pre_holder_nonblock_opened=1\n"
+                        "cnss_before_esoc.modem_pre_holder_nonblock_errno=0\n"
+                        "cnss_before_esoc.modem_pre_holder_plain_retry=0\n");
+            }
             if (mfd < 0) {
                 int e = errno;
                 dprintf(_holder_pipe[1],
                         "cnss_before_esoc.modem_pre_holder_opened=0\n"
-                        "cnss_before_esoc.modem_pre_holder_errno=%d\n",
-                        e);
+                        "cnss_before_esoc.modem_pre_holder_errno=%d\n"
+                        "cnss_before_esoc.modem_pre_holder_first_errno=%d\n",
+                        e,
+                        nonblock_errno);
                 close(_holder_pipe[1]);
                 _exit(31);
             }
             dprintf(_holder_pipe[1],
                     "cnss_before_esoc.modem_pre_holder_opened=1\n"
-                    "cnss_before_esoc.modem_pre_holder_fd=%d\n",
-                    mfd);
+                    "cnss_before_esoc.modem_pre_holder_fd=%d\n"
+                    "cnss_before_esoc.modem_pre_holder_first_errno=%d\n",
+                    mfd,
+                    nonblock_errno);
             close(_holder_pipe[1]);
             /* Hold fd until killed by parent cleanup */
             for (;;) {
