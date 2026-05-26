@@ -88,7 +88,7 @@
 #define IOPRIO_PRIO_VALUE(class_value, data) (((class_value) << IOPRIO_CLASS_SHIFT) | (data))
 #endif
 
-#define EXECNS_VERSION "a90_android_execns_probe v165"
+#define EXECNS_VERSION "a90_android_execns_probe v166"
 #define MAX_PATH_LEN 512
 #define MAX_CAPTURE_SIZE (1024 * 1024)
 #define MAX_LINKERCONFIG_SIZE (256 * 1024)
@@ -24398,6 +24398,9 @@ static bool property_service_shim_needed(const struct config *cfg) {
         return cfg->allow_wifi_companion_start_only &&
                cfg->allow_service_manager_start_only &&
                cfg->allow_wifi_hal_start_only;
+    }
+    if (is_wifi_companion_android_wifi_service_window_start_only_mode(cfg->mode)) {
+        return cfg->allow_android_wifi_service_window;
     }
     if (is_rmt_storage_start_only_mode(cfg->mode) ||
         is_wifi_companion_mdm_helper_runtime_any_mode(cfg->mode) ||

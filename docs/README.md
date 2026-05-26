@@ -435,6 +435,8 @@
 
 ### 4. Current Native Init Reports
 
+- `reports/NATIVE_INIT_V983_ANDROID_SERVICE_WINDOW_PROPERTY_SHIM_2026-05-26.md` – helper `v166`에서 Android service-window 전용 mode에 private property service shim을 활성화해 V982 `wificond` property-service gap을 source/build-only로 수리한 V983 결과
+- `reports/NATIVE_INIT_V982_ANDROID_SERVICE_WINDOW_LIVE_V165_2026-05-26.md` – helper `v165` Android service-window에서 binder abort는 해소됐으나 property service shim 비활성으로 `wificond` `SIGABRT` runtime gap이 남았음을 분류한 V982 결과
 - `reports/NATIVE_INIT_V981_HELPER_V165_DEPLOY_2026-05-26.md` – helper `v165`를 `/cache/bin/a90_android_execns_probe`에 deploy-only로 설치하고 remote sha/mode parity 및 no-Wi-Fi guard를 확인한 V981 결과
 - `reports/NATIVE_INIT_V980_ANDROID_SERVICE_WINDOW_BINDER_MATERIALIZATION_2026-05-26.md` – V979 조기 `SIGABRT` 원인이 private namespace `/dev/binder` 부재임을 반영해 helper `v165`에서 Android service-window 전용 binder/hwbinder/vndbinder materialization gate를 source/build-only로 수리한 V980 결과
 - `reports/NATIVE_INIT_V979_ANDROID_SERVICE_WINDOW_LIVE_V164_2026-05-26.md` – helper `v164` Android service-window start-only가 14개 actor 실행까지 도달했으나 service-manager/HAL 계열 조기 `SIGABRT`와 `wlfw_precondition=0` runtime gap으로 분류된 V979 결과
