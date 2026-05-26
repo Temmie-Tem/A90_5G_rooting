@@ -88,7 +88,7 @@
 #define IOPRIO_PRIO_VALUE(class_value, data) (((class_value) << IOPRIO_CLASS_SHIFT) | (data))
 #endif
 
-#define EXECNS_VERSION "a90_android_execns_probe v170"
+#define EXECNS_VERSION "a90_android_execns_probe v171"
 #define MAX_PATH_LEN 512
 #define MAX_CAPTURE_SIZE (1024 * 1024)
 #define MAX_LINKERCONFIG_SIZE (256 * 1024)
@@ -13132,6 +13132,121 @@ static int append_proc_fd_target_match_scan(struct buffer *buf,
                          phase,
                          truncated ? 1 : 0,
                          prefix,
+                         phase);
+}
+
+struct fd_poll_summary {
+    int polls;
+    int seen;
+    int max_count;
+    int last_count;
+    long first_seen_elapsed_ms;
+};
+
+static void fd_poll_summary_init(struct fd_poll_summary *summary) {
+    summary->polls = 0;
+    summary->seen = 0;
+    summary->max_count = 0;
+    summary->last_count = -1;
+    summary->first_seen_elapsed_ms = -1;
+}
+
+static int append_service_window_mdm_helper_fd_poll(struct buffer *buf,
+                                                   pid_t pid,
+                                                   const char *phase,
+                                                   int duration_ms,
+                                                   int interval_ms,
+                                                   struct fd_poll_summary *summary) {
+    long started_ms = monotonic_ms();
+    long deadline_ms = started_ms + duration_ms;
+    int poll_index = 0;
+
+    fd_poll_summary_init(summary);
+    if (append_format(buf,
+                      "android_wifi_service_window.fd_poll.%s.begin=1\n"
+                      "android_wifi_service_window.fd_poll.%s.pid=%ld\n"
+                      "android_wifi_service_window.fd_poll.%s.needle=/dev/esoc-0\n"
+                      "android_wifi_service_window.fd_poll.%s.duration_ms=%d\n"
+                      "android_wifi_service_window.fd_poll.%s.interval_ms=%d\n",
+                      phase,
+                      phase,
+                      (long)pid,
+                      phase,
+                      phase,
+                      duration_ms,
+                      phase,
+                      interval_ms) < 0) {
+        return -1;
+    }
+    while (poll_index < 64) {
+        char label[96];
+        long now_ms = monotonic_ms();
+        int count = -1;
+
+        if (now_ms > deadline_ms && poll_index > 0) {
+            break;
+        }
+        if (snprintf(label,
+                     sizeof(label),
+                     "mdm_helper_esoc0_%s_poll_%02d",
+                     phase,
+                     poll_index) >= (int)sizeof(label)) {
+            return append_format(buf,
+                                 "android_wifi_service_window.fd_poll.%s.error=label-too-long\n"
+                                 "android_wifi_service_window.fd_poll.%s.end=1\n",
+                                 phase,
+                                 phase);
+        }
+        if (append_format(buf,
+                          "android_wifi_service_window.fd_poll.%s.poll_%02d.elapsed_ms=%ld\n",
+                          phase,
+                          poll_index,
+                          now_ms - started_ms) < 0 ||
+            append_proc_fd_target_match_scan(buf,
+                                             pid,
+                                             "android_wifi_service_window",
+                                             label,
+                                             "/dev/esoc-0",
+                                             &count) < 0 ||
+            append_format(buf,
+                          "android_wifi_service_window.fd_poll.%s.poll_%02d.count=%d\n",
+                          phase,
+                          poll_index,
+                          count) < 0) {
+            return -1;
+        }
+        summary->polls++;
+        summary->last_count = count;
+        if (count > summary->max_count) {
+            summary->max_count = count;
+        }
+        if (count > 0 && summary->seen == 0) {
+            summary->seen = 1;
+            summary->first_seen_elapsed_ms = now_ms - started_ms;
+        }
+        poll_index++;
+        if (monotonic_ms() >= deadline_ms) {
+            break;
+        }
+        usleep((useconds_t)interval_ms * 1000U);
+    }
+    return append_format(buf,
+                         "android_wifi_service_window.fd_poll.%s.polls=%d\n"
+                         "android_wifi_service_window.fd_poll.%s.seen=%d\n"
+                         "android_wifi_service_window.fd_poll.%s.max_count=%d\n"
+                         "android_wifi_service_window.fd_poll.%s.last_count=%d\n"
+                         "android_wifi_service_window.fd_poll.%s.first_seen_elapsed_ms=%ld\n"
+                         "android_wifi_service_window.fd_poll.%s.end=1\n",
+                         phase,
+                         summary->polls,
+                         phase,
+                         summary->seen,
+                         phase,
+                         summary->max_count,
+                         phase,
+                         summary->last_count,
+                         phase,
+                         summary->first_seen_elapsed_ms,
                          phase);
 }
 
@@ -26610,6 +26725,8 @@ static int run_wifi_companion_android_wifi_service_window_guarded(const struct c
     int trigger_exit_code = -1;
     int trigger_signal = 0;
     int mdm_helper_esoc0_fd_count = -1;
+    struct fd_poll_summary mdm_helper_fd_poll_after_mdm;
+    struct fd_poll_summary mdm_helper_fd_poll_after_cnss;
     pid_t trigger_pid = -1;
     pid_t trigger_pgid = -1;
     long deadline;
@@ -26618,6 +26735,8 @@ static int run_wifi_companion_android_wifi_service_window_guarded(const struct c
     *child_signal = 0;
     *timed_out = false;
     property_service_shim_init(&property_shim);
+    fd_poll_summary_init(&mdm_helper_fd_poll_after_mdm);
+    fd_poll_summary_init(&mdm_helper_fd_poll_after_cnss);
     memset(children, 0, sizeof(children));
 
     composite_child_init(&children[0],
@@ -26770,7 +26889,31 @@ static int run_wifi_companion_android_wifi_service_window_guarded(const struct c
             stop_property_service_shim(&property_shim, paths, stdout_buf);
             return -1;
         }
-        if (i == 2 || i == 6 || i == 8 || i == 9 || i == 11 || i == 12) {
+        if (subsys_trigger_capture && i == 12) {
+            if (append_service_window_mdm_helper_fd_poll(stdout_buf,
+                                                        children[12].pid,
+                                                        "after_mdm_helper_spawn",
+                                                        60,
+                                                        30,
+                                                        &mdm_helper_fd_poll_after_mdm) < 0) {
+                composite_cleanup_children(children, i + 1U, stdout_buf, stderr_buf);
+                stop_property_service_shim(&property_shim, paths, stdout_buf);
+                return -1;
+            }
+            usleep(10000);
+        } else if (subsys_trigger_capture && i == 13) {
+            if (append_service_window_mdm_helper_fd_poll(stdout_buf,
+                                                        children[12].pid,
+                                                        "after_cnss_daemon_spawn",
+                                                        700,
+                                                        50,
+                                                        &mdm_helper_fd_poll_after_cnss) < 0) {
+                composite_cleanup_children(children, i + 1U, stdout_buf, stderr_buf);
+                stop_property_service_shim(&property_shim, paths, stdout_buf);
+                return -1;
+            }
+            usleep(100000);
+        } else if (i == 2 || i == 6 || i == 8 || i == 9 || i == 11 || i == 12) {
             usleep(300000);
         } else {
             usleep(100000);
@@ -26786,6 +26929,23 @@ static int run_wifi_companion_android_wifi_service_window_guarded(const struct c
         return -1;
     }
     if (subsys_trigger_capture) {
+        if (append_format(stdout_buf,
+                          "android_wifi_service_window.mdm_helper_esoc0_fd_poll_seen=%d\n"
+                          "android_wifi_service_window.mdm_helper_esoc0_fd_poll_max_count=%d\n"
+                          "android_wifi_service_window.mdm_helper_esoc0_fd_poll_last_count=%d\n"
+                          "android_wifi_service_window.mdm_helper_esoc0_fd_poll_after_mdm_seen=%d\n"
+                          "android_wifi_service_window.mdm_helper_esoc0_fd_poll_after_cnss_seen=%d\n",
+                          (mdm_helper_fd_poll_after_mdm.seen || mdm_helper_fd_poll_after_cnss.seen) ? 1 : 0,
+                          mdm_helper_fd_poll_after_mdm.max_count > mdm_helper_fd_poll_after_cnss.max_count
+                              ? mdm_helper_fd_poll_after_mdm.max_count
+                              : mdm_helper_fd_poll_after_cnss.max_count,
+                          mdm_helper_fd_poll_after_cnss.last_count,
+                          mdm_helper_fd_poll_after_mdm.seen,
+                          mdm_helper_fd_poll_after_cnss.seen) < 0) {
+            composite_cleanup_children(children, child_count, stdout_buf, stderr_buf);
+            stop_property_service_shim(&property_shim, paths, stdout_buf);
+            return -1;
+        }
         if (append_proc_fd_target_match_scan(stdout_buf,
                                              children[12].pid,
                                              "android_wifi_service_window",
