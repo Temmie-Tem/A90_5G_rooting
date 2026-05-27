@@ -295,26 +295,49 @@ def decide_v1179(args: Any, manifest: dict[str, Any]) -> tuple[str, bool, str, s
     first_connect = dst.get("first_per_proxy_connect_time")
 
     # Early timing was engaged but the PM state machine never fired at all.
-    # Most likely cause: per_mgr exited before per_proxy could connect.
-    # V1179 attempt 1 (delta=2159ms) showed per_mgr exits within ~2100ms
-    # of pph start; at 2159ms per_proxy arrived just after per_mgr had gone.
-    # Retry with a smaller delta (800ms puts per_proxy before modem's pm-proxy
-    # at pph+1254ms, while per_mgr is still alive and dep is still state=0).
+    # Read pm_contract from the manifest for accurate early_per_proxy fields.
     if _is_early_timing_skip and dst.get("state_set_event_count", 0) == 0:
-        early_pp = dst.get("early_per_proxy_timing", {})
-        actual_delta = early_pp.get("target_delta_ms", str(EARLY_PER_PROXY_PPH_DELTA_MS))
+        pm_contract = (
+            (manifest.get("analysis") or {})
+            .get("tracefs_uprobe", {})
+            .get("pm_contract") or {}
+        )
+        already_elapsed = pm_contract.get("early_per_proxy.already_elapsed") == "1"
+        elapsed_ms = pm_contract.get("early_per_proxy.elapsed_since_pph_ms", "?")
+        target_ms = pm_contract.get("early_per_proxy.target_delta_ms", str(EARLY_PER_PROXY_PPH_DELTA_MS))
+        probe_wait_ms = pm_contract.get("child.per_mgr.post_start_probe_wait_ms", "?")
+        per_mgr_gone = pm_contract.get("child.per_mgr.post_start_observable") == "0"
+
+        if already_elapsed and per_mgr_gone:
+            return (
+                "v1179-per-mgr-probe-wait-delays-per-proxy-too-late",
+                True,
+                (
+                    f"per_mgr probe wait ({probe_wait_ms}ms) delayed per_proxy to "
+                    f"pph+{elapsed_ms}ms; target_delta={target_ms}ms < probe_wait "
+                    f"so already_elapsed=1; per_mgr exits before no-client pm-service "
+                    f"timeout (~800ms); pm_contract={pm_contract}"
+                ),
+                (
+                    "V1180: helper v219 with per_mgr probe_wait=0ms and per_proxy "
+                    f"pph_delta ~300ms; per_mgr starts at pph+177ms, per_proxy at "
+                    "pph+300ms connects before pm-service init timeout; "
+                    "modem pm-proxy at pph+1254ms then drives dep state=1"
+                ),
+            )
+
         return (
             "v1179-per-mgr-exited-before-per-proxy-pph-delta-too-large",
             True,
             (
-                f"early per_proxy timing used (pph_delta={actual_delta}ms) but PM "
+                f"early per_proxy timing used (pph_delta={target_ms}ms) but PM "
                 f"state machine never fired; per_mgr exited before per_proxy connected; "
-                f"early_pp={early_pp}"
+                f"already_elapsed={already_elapsed} elapsed_ms={elapsed_ms} "
+                f"per_mgr_gone={per_mgr_gone}"
             ),
             (
-                "retry with EARLY_PER_PROXY_PPH_DELTA_MS=800ms: per_mgr exits ~2100ms "
-                "after pph start, modem pm-proxy connects at pph+1254ms, per_proxy at "
-                "pph+800ms should find per_mgr alive and dep still in state=0"
+                "reduce EARLY_PER_PROXY_PPH_DELTA_MS below per_mgr probe wait "
+                f"({probe_wait_ms}ms) so per_proxy connects while per_mgr is alive"
             ),
         )
 
