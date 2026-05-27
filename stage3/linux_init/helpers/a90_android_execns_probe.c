@@ -97,7 +97,7 @@
 #define IOPRIO_PRIO_VALUE(class_value, data) (((class_value) << IOPRIO_CLASS_SHIFT) | (data))
 #endif
 
-#define EXECNS_VERSION "a90_android_execns_probe v207"
+#define EXECNS_VERSION "a90_android_execns_probe v209"
 #define MAX_PATH_LEN 512
 #define MAX_CAPTURE_SIZE (1024 * 1024)
 #define MAX_LINKERCONFIG_SIZE (256 * 1024)
@@ -12893,6 +12893,31 @@ static char read_proc_state(pid_t pid) {
     return close_paren[2];
 }
 
+static bool read_first_line_path(const char *path, char *out, size_t out_size) {
+    FILE *file;
+    size_t len;
+
+    if (out_size == 0) {
+        return false;
+    }
+    out[0] = '\0';
+    file = fopen(path, "re");
+    if (file == NULL) {
+        return false;
+    }
+    if (fgets(out, (int)out_size, file) == NULL) {
+        fclose(file);
+        out[0] = '\0';
+        return false;
+    }
+    fclose(file);
+    len = strlen(out);
+    while (len > 0 && (out[len - 1] == '\n' || out[len - 1] == '\r')) {
+        out[--len] = '\0';
+    }
+    return true;
+}
+
 static bool read_proc_cmdline_compact(pid_t pid, char *out, size_t out_size) {
     char path[MAX_PATH_LEN];
     int fd;
@@ -13879,8 +13904,114 @@ static int append_escaped_ascii(struct buffer *buf, const unsigned char *data, s
     return 0;
 }
 
+static unsigned long long a90_untag_user_ptr(unsigned long long addr) {
+    return addr & 0x00ffffffffffffffULL;
+}
+
 static bool plausible_user_ptr(unsigned long long addr) {
+    addr = a90_untag_user_ptr(addr);
     return addr >= 0x1000ULL && addr < 0x0001000000000000ULL;
+}
+
+static int append_process_vm_c_string_field(struct buffer *buf,
+                                            pid_t pid,
+                                            const char *prefix,
+                                            const char *field,
+                                            unsigned long long addr,
+                                            size_t max_bytes) {
+#ifdef SYS_process_vm_readv
+    unsigned char bytes[256];
+    struct iovec local_iov;
+    struct iovec remote_iov;
+    unsigned long long read_addr;
+    ssize_t nread;
+    size_t text_len = 0;
+
+    if (max_bytes > sizeof(bytes)) {
+        max_bytes = sizeof(bytes);
+    }
+    if (!plausible_user_ptr(addr)) {
+        return append_format(buf,
+                             "%s.%s.addr=0x%016llx\n"
+                             "%s.%s.valid=0\n"
+                             "%s.%s.reason=not-plausible-user-pointer\n",
+                             prefix,
+                             field,
+                             addr,
+                             prefix,
+                             field,
+                             prefix,
+                             field);
+    }
+    read_addr = a90_untag_user_ptr(addr);
+    memset(bytes, 0, sizeof(bytes));
+    local_iov.iov_base = bytes;
+    local_iov.iov_len = max_bytes - 1U;
+    remote_iov.iov_base = (void *)(uintptr_t)read_addr;
+    remote_iov.iov_len = max_bytes - 1U;
+    nread = syscall(SYS_process_vm_readv,
+                    pid,
+                    &local_iov,
+                    1UL,
+                    &remote_iov,
+                    1UL,
+                    0UL);
+    if (nread < 0) {
+        return append_format(buf,
+                             "%s.%s.addr=0x%016llx\n"
+                             "%s.%s.untagged_addr=0x%016llx\n"
+                             "%s.%s.valid=0\n"
+                             "%s.%s.error=%s\n",
+                             prefix,
+                             field,
+                             addr,
+                             prefix,
+                             field,
+                             read_addr,
+                             prefix,
+                             field,
+                             prefix,
+                             field,
+                             strerror(errno));
+    }
+    while (text_len < (size_t)nread && bytes[text_len] != '\0') {
+        text_len++;
+    }
+    if (append_format(buf,
+                      "%s.%s.addr=0x%016llx\n"
+                      "%s.%s.untagged_addr=0x%016llx\n"
+                      "%s.%s.valid=1\n"
+                      "%s.%s.bytes=%ld\n"
+                      "%s.%s.value=",
+                      prefix,
+                      field,
+                      addr,
+                      prefix,
+                      field,
+                      read_addr,
+                      prefix,
+                      field,
+                      prefix,
+                      field,
+                      (long)nread,
+                      prefix,
+                      field) < 0 ||
+        append_escaped_ascii(buf, bytes, text_len) < 0 ||
+        append_literal(buf, "\n") < 0) {
+        return -1;
+    }
+    return 0;
+#else
+    (void)pid;
+    (void)addr;
+    return append_format(buf,
+                         "%s.%s.valid=0\n"
+                         "%s.%s.reason=process-vm-readv-unavailable\n",
+                         prefix,
+                         field,
+                         prefix,
+                         field);
+#endif
 }
 
 static int append_ptrace_memory_ascii_scan(struct buffer *buf,
@@ -15893,6 +16024,7 @@ static int ptrace_read_bytes_best_effort(pid_t pid,
         errno = EFAULT;
         return -1;
     }
+    addr = a90_untag_user_ptr(addr);
     while (bytes_read < max_bytes) {
         unsigned long word;
         size_t copy = sizeof(word);
@@ -16144,6 +16276,28 @@ static bool a90_syscall_trace_selected(long nr) {
     default:
         return false;
     }
+}
+
+static int a90_syscall_path_arg_index(long nr) {
+#ifdef SYS_openat
+    if (nr == SYS_openat) return 1;
+#endif
+#ifdef SYS_newfstatat
+    if (nr == SYS_newfstatat) return 1;
+#endif
+#ifdef SYS_faccessat
+    if (nr == SYS_faccessat) return 1;
+#endif
+#ifdef SYS_faccessat2
+    if (nr == SYS_faccessat2) return 1;
+#endif
+#ifdef SYS_readlinkat
+    if (nr == SYS_readlinkat) return 1;
+#endif
+#ifdef SYS_statx
+    if (nr == SYS_statx) return 1;
+#endif
+    return -1;
 }
 
 static const char *a90_socket_family_name(unsigned long long family) {
@@ -26639,6 +26793,10 @@ static int stop_property_service_shim(struct property_service_shim *shim,
     return 0;
 }
 
+static int append_pm_service_trigger_observer_syscall_probe(struct buffer *buf,
+                                                            const char *phase,
+                                                            const struct composite_child *per_mgr);
+
 static int append_pm_service_trigger_observer_fd_snapshot(struct buffer *buf,
                                                           const char *phase,
                                                           const struct composite_child *per_mgr,
@@ -26695,6 +26853,9 @@ static int append_pm_service_trigger_observer_fd_snapshot(struct buffer *buf,
             return -1;
         }
     }
+    if (append_pm_service_trigger_observer_syscall_probe(buf, phase, per_mgr) < 0) {
+        return -1;
+    }
     return append_format(buf,
                          "pm_service_trigger_observer.%s.per_mgr_subsys_modem_count=%d\n"
                          "pm_service_trigger_observer.%s.per_mgr_vndbinder_count=%d\n"
@@ -26709,6 +26870,189 @@ static int append_pm_service_trigger_observer_fd_snapshot(struct buffer *buf,
                          *pm_proxy_helper_subsys_modem_count,
                          phase,
                          pm_proxy_helper_vndbinder_count,
+                         phase);
+}
+
+static bool parse_proc_syscall_line(const char *line,
+                                    long *nr,
+                                    unsigned long long args[6]) {
+    return sscanf(line,
+                  "%ld %llx %llx %llx %llx %llx %llx",
+                  nr,
+                  &args[0],
+                  &args[1],
+                  &args[2],
+                  &args[3],
+                  &args[4],
+                  &args[5]) == 7;
+}
+
+static int append_pm_service_trigger_observer_syscall_probe(struct buffer *buf,
+                                                            const char *phase,
+                                                            const struct composite_child *per_mgr) {
+    char task_path[MAX_PATH_LEN];
+    DIR *dir;
+    struct dirent *entry;
+    int count = 0;
+    int shown = 0;
+    int path_candidate_count = 0;
+    bool truncated = false;
+
+    if (!composite_child_alive_for_snapshot(per_mgr)) {
+        return append_format(buf,
+                             "pm_service_trigger_observer.syscall_probe.%s.begin=1\n"
+                             "pm_service_trigger_observer.syscall_probe.%s.pid=%ld\n"
+                             "pm_service_trigger_observer.syscall_probe.%s.alive=0\n"
+                             "pm_service_trigger_observer.syscall_probe.%s.end=1\n",
+                             phase,
+                             phase,
+                             per_mgr != NULL ? (long)per_mgr->pid : -1L,
+                             phase,
+                             phase);
+    }
+    if (snprintf(task_path, sizeof(task_path), "/proc/%ld/task", (long)per_mgr->pid) >= (int)sizeof(task_path)) {
+        return append_format(buf,
+                             "pm_service_trigger_observer.syscall_probe.%s.begin=1\n"
+                             "pm_service_trigger_observer.syscall_probe.%s.error=task-path-too-long\n"
+                             "pm_service_trigger_observer.syscall_probe.%s.end=1\n",
+                             phase,
+                             phase,
+                             phase);
+    }
+    dir = opendir(task_path);
+    if (dir == NULL) {
+        return append_format(buf,
+                             "pm_service_trigger_observer.syscall_probe.%s.begin=1\n"
+                             "pm_service_trigger_observer.syscall_probe.%s.pid=%ld\n"
+                             "pm_service_trigger_observer.syscall_probe.%s.error=%s\n"
+                             "pm_service_trigger_observer.syscall_probe.%s.end=1\n",
+                             phase,
+                             phase,
+                             (long)per_mgr->pid,
+                             phase,
+                             strerror(errno),
+                             phase);
+    }
+    if (append_format(buf,
+                      "pm_service_trigger_observer.syscall_probe.%s.begin=1\n"
+                      "pm_service_trigger_observer.syscall_probe.%s.pid=%ld\n"
+                      "pm_service_trigger_observer.syscall_probe.%s.alive=1\n",
+                      phase,
+                      phase,
+                      (long)per_mgr->pid,
+                      phase) < 0) {
+        closedir(dir);
+        return -1;
+    }
+    while ((entry = readdir(dir)) != NULL) {
+        char syscall_path[MAX_PATH_LEN];
+        char wchan_path[MAX_PATH_LEN];
+        char comm_path[MAX_PATH_LEN];
+        char syscall_line[512];
+        char wchan[128];
+        char comm[128];
+        char prefix[160];
+        long nr = -1;
+        unsigned long long args[6] = {0};
+        int path_index;
+        pid_t tid;
+
+        if (!decimal_name(entry->d_name)) {
+            continue;
+        }
+        count++;
+        if (shown >= 16) {
+            truncated = true;
+            continue;
+        }
+        tid = (pid_t)strtol(entry->d_name, NULL, 10);
+        if (snprintf(syscall_path, sizeof(syscall_path), "%s/%s/syscall", task_path, entry->d_name) >= (int)sizeof(syscall_path) ||
+            snprintf(wchan_path, sizeof(wchan_path), "%s/%s/wchan", task_path, entry->d_name) >= (int)sizeof(wchan_path) ||
+            snprintf(comm_path, sizeof(comm_path), "%s/%s/comm", task_path, entry->d_name) >= (int)sizeof(comm_path) ||
+            snprintf(prefix,
+                     sizeof(prefix),
+                     "pm_service_trigger_observer.syscall_probe.%s.entry_%02d",
+                     phase,
+                     shown) >= (int)sizeof(prefix)) {
+            closedir(dir);
+            return -1;
+        }
+        read_first_line_path(syscall_path, syscall_line, sizeof(syscall_line));
+        read_first_line_path(wchan_path, wchan, sizeof(wchan));
+        read_first_line_path(comm_path, comm, sizeof(comm));
+        if (append_format(buf,
+                          "%s.tid=%ld\n"
+                          "%s.comm=",
+                          prefix,
+                          (long)tid,
+                          prefix) < 0 ||
+            append_escaped_ascii(buf, (const unsigned char *)comm, strlen(comm)) < 0 ||
+            append_format(buf,
+                          "\n%s.wchan=",
+                          prefix) < 0 ||
+            append_escaped_ascii(buf, (const unsigned char *)wchan, strlen(wchan)) < 0 ||
+            append_format(buf,
+                          "\n%s.syscall.raw=",
+                          prefix) < 0 ||
+            append_escaped_ascii(buf, (const unsigned char *)syscall_line, strlen(syscall_line)) < 0 ||
+            append_literal(buf, "\n") < 0) {
+            closedir(dir);
+            return -1;
+        }
+        if (parse_proc_syscall_line(syscall_line, &nr, args)) {
+            path_index = a90_syscall_path_arg_index(nr);
+            if (append_format(buf,
+                              "%s.nr=%ld\n"
+                              "%s.name=%s\n"
+                              "%s.path_arg_index=%d\n",
+                              prefix,
+                              nr,
+                              prefix,
+                              a90_syscall_name(nr),
+                              prefix,
+                              path_index) < 0) {
+                closedir(dir);
+                return -1;
+            }
+            if (path_index >= 0) {
+                path_candidate_count++;
+                if (append_process_vm_c_string_field(buf,
+                                                     per_mgr->pid,
+                                                     prefix,
+                                                     "path",
+                                                     args[path_index],
+                                                     192) < 0) {
+                    closedir(dir);
+                    return -1;
+                }
+            }
+        } else if (append_format(buf,
+                                 "%s.nr=-1\n"
+                                 "%s.name=unparsed\n"
+                                 "%s.path_arg_index=-1\n",
+                                 prefix,
+                                 prefix,
+                                 prefix) < 0) {
+            closedir(dir);
+            return -1;
+        }
+        shown++;
+    }
+    closedir(dir);
+    return append_format(buf,
+                         "pm_service_trigger_observer.syscall_probe.%s.count=%d\n"
+                         "pm_service_trigger_observer.syscall_probe.%s.shown=%d\n"
+                         "pm_service_trigger_observer.syscall_probe.%s.truncated=%d\n"
+                         "pm_service_trigger_observer.syscall_probe.%s.path_candidate_count=%d\n"
+                         "pm_service_trigger_observer.syscall_probe.%s.end=1\n",
+                         phase,
+                         count,
+                         phase,
+                         shown,
+                         phase,
+                         truncated ? 1 : 0,
+                         phase,
+                         path_candidate_count,
                          phase);
 }
 
