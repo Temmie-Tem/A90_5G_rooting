@@ -97,7 +97,7 @@
 #define IOPRIO_PRIO_VALUE(class_value, data) (((class_value) << IOPRIO_CLASS_SHIFT) | (data))
 #endif
 
-#define EXECNS_VERSION "a90_android_execns_probe v215"
+#define EXECNS_VERSION "a90_android_execns_probe v216"
 #define MAX_PATH_LEN 512
 #define MAX_CAPTURE_SIZE (1024 * 1024)
 #define MAX_LINKERCONFIG_SIZE (256 * 1024)
@@ -257,6 +257,7 @@ struct config {
     bool pm_observer_private_firmware_mounts;
     bool pm_observer_modem_pre_holder;
     bool pm_observer_start_mdm_helper_after_cnss;
+    bool pm_observer_start_per_proxy_after_mdm_helper_esoc_fd;
 };
 
 struct a90_hidl_string_wire {
@@ -427,6 +428,7 @@ static void usage(FILE *out) {
             "[--pm-observer-private-firmware-mounts] "
             "[--pm-observer-modem-pre-holder] "
             "[--pm-observer-start-mdm-helper-after-cnss] "
+            "[--pm-observer-start-per-proxy-after-mdm-helper-esoc-fd] "
             "[--qrtr-readback-matrix label:service:instance[,instance][;...]] "
             "[--connect-config /cache/a90-wifi/...] "
             "[--connect-iface auto|wlan0] "
@@ -1199,6 +1201,10 @@ static int parse_args(int argc, char **argv, struct config *cfg) {
             cfg->pm_observer_start_mdm_helper_after_cnss = true;
             continue;
         }
+        if (strcmp(argv[i], "--pm-observer-start-per-proxy-after-mdm-helper-esoc-fd") == 0) {
+            cfg->pm_observer_start_per_proxy_after_mdm_helper_esoc_fd = true;
+            continue;
+        }
         if (strcmp(argv[i], "--allow-android-wifi-service-window") == 0) {
             cfg->allow_android_wifi_service_window = true;
             continue;
@@ -1747,6 +1753,32 @@ static int parse_args(int argc, char **argv, struct config *cfg) {
         !cfg->pm_observer_start_cnss_immediate_after_per_mgr &&
         !cfg->pm_observer_start_cnss_zero_delay_after_per_mgr) {
         fprintf(stderr, "--pm-observer-start-mdm-helper-after-cnss requires a CNSS PM observer start order\n");
+        return 2;
+    }
+    if (cfg->pm_observer_start_per_proxy_after_mdm_helper_esoc_fd &&
+        !is_wifi_companion_post_pm_mdm_helper_esoc_observer_mode(cfg->mode)) {
+        fprintf(stderr, "--pm-observer-start-per-proxy-after-mdm-helper-esoc-fd is only valid with wifi-companion-post-pm-mdm-helper-esoc-observer mode\n");
+        return 2;
+    }
+    if (cfg->pm_observer_start_per_proxy_after_mdm_helper_esoc_fd &&
+        !cfg->allow_post_pm_mdm_helper_esoc_observer) {
+        fprintf(stderr, "--pm-observer-start-per-proxy-after-mdm-helper-esoc-fd requires --allow-post-pm-mdm-helper-esoc-observer\n");
+        return 2;
+    }
+    if (cfg->pm_observer_start_per_proxy_after_mdm_helper_esoc_fd &&
+        !cfg->pm_observer_start_mdm_helper_after_cnss) {
+        fprintf(stderr, "--pm-observer-start-per-proxy-after-mdm-helper-esoc-fd requires --pm-observer-start-mdm-helper-after-cnss\n");
+        return 2;
+    }
+    if (cfg->pm_observer_start_per_proxy_after_mdm_helper_esoc_fd &&
+        !cfg->pm_observer_start_cnss_before_per_proxy) {
+        fprintf(stderr, "--pm-observer-start-per-proxy-after-mdm-helper-esoc-fd requires --pm-observer-start-cnss-before-per-proxy\n");
+        return 2;
+    }
+    if (cfg->pm_observer_start_per_proxy_after_mdm_helper_esoc_fd &&
+        (cfg->pm_observer_start_cnss_immediate_after_per_mgr ||
+         cfg->pm_observer_start_cnss_zero_delay_after_per_mgr)) {
+        fprintf(stderr, "--pm-observer-start-per-proxy-after-mdm-helper-esoc-fd requires the standard post-provider CNSS order\n");
         return 2;
     }
     if (cfg->allow_android_wifi_service_window &&
@@ -26953,6 +26985,7 @@ static int append_pm_service_trigger_observer_fd_snapshot(struct buffer *buf,
                                                           int *per_mgr_subsys_modem_count,
                                                           int *pm_proxy_helper_subsys_modem_count) {
     char label[160];
+    int per_mgr_subsys_esoc0_count = -1;
     int per_mgr_vndbinder_count = -1;
     int pm_proxy_helper_vndbinder_count = -1;
 
@@ -26974,6 +27007,13 @@ static int append_pm_service_trigger_observer_fd_snapshot(struct buffer *buf,
                                              label,
                                              "/dev/subsys_modem",
                                              per_mgr_subsys_modem_count) < 0 ||
+            snprintf(label, sizeof(label), "%s_per_mgr_subsys_esoc0", phase) >= (int)sizeof(label) ||
+            append_proc_fd_target_match_scan(buf,
+                                             per_mgr->pid,
+                                             "pm_service_trigger_observer",
+                                             label,
+                                             "/dev/subsys_esoc0",
+                                             &per_mgr_subsys_esoc0_count) < 0 ||
             snprintf(label, sizeof(label), "%s_per_mgr_vndbinder", phase) >= (int)sizeof(label) ||
             append_proc_fd_target_match_scan(buf,
                                              per_mgr->pid,
@@ -27007,12 +27047,15 @@ static int append_pm_service_trigger_observer_fd_snapshot(struct buffer *buf,
     }
     return append_format(buf,
                          "pm_service_trigger_observer.%s.per_mgr_subsys_modem_count=%d\n"
+                         "pm_service_trigger_observer.%s.per_mgr_subsys_esoc0_count=%d\n"
                          "pm_service_trigger_observer.%s.per_mgr_vndbinder_count=%d\n"
                          "pm_service_trigger_observer.%s.pm_proxy_helper_subsys_modem_count=%d\n"
                          "pm_service_trigger_observer.%s.pm_proxy_helper_vndbinder_count=%d\n"
                          "pm_service_trigger_observer.%s.fd_snapshot.end=1\n",
                          phase,
                          *per_mgr_subsys_modem_count,
+                         phase,
+                         per_mgr_subsys_esoc0_count,
                          phase,
                          per_mgr_vndbinder_count,
                          phase,
@@ -27760,6 +27803,7 @@ static int run_wifi_companion_pm_service_trigger_observer_guarded(const struct c
     struct composite_child children[PM_OBSERVER_CHILD_COUNT];
     struct composite_child *pm_proxy_helper = &children[PM_OBSERVER_PM_PROXY_HELPER];
     struct composite_child *per_mgr = &children[PM_OBSERVER_PER_MGR];
+    struct composite_child *per_proxy = &children[PM_OBSERVER_PER_PROXY];
     struct composite_child *cnss_daemon = &children[PM_OBSERVER_CNSS_DAEMON];
     struct composite_child *mdm_helper = &children[PM_OBSERVER_MDM_HELPER];
     struct property_service_shim property_shim;
@@ -27779,6 +27823,11 @@ static int run_wifi_companion_pm_service_trigger_observer_guarded(const struct c
     bool post_pm_mdm_helper_allowed = cfg->allow_post_pm_mdm_helper_esoc_observer;
     bool post_pm_mdm_helper_start = cfg->pm_observer_start_mdm_helper_after_cnss;
     bool post_pm_mdm_helper_lower_trace = cfg->allow_post_pm_mdm_helper_lower_trace;
+    bool late_per_proxy_requested = cfg->pm_observer_start_per_proxy_after_mdm_helper_esoc_fd;
+    bool late_per_proxy_started = false;
+    bool late_per_proxy_snapshot_captured = false;
+    bool late_per_proxy_gate_positive = false;
+    int late_per_proxy_poll_count = 0;
     bool mdm_helper_observable = false;
     bool mdm_helper_window_snapshot_captured = false;
     int mdm_helper_lower_trace_samples = 0;
@@ -27816,7 +27865,7 @@ static int run_wifi_companion_pm_service_trigger_observer_guarded(const struct c
                          "per_mgr",
                          "/vendor/bin/pm-service",
                          COMPOSITE_ID_PER_MGR);
-    composite_child_init(&children[PM_OBSERVER_PER_PROXY],
+    composite_child_init(per_proxy,
                          "per_proxy",
                          "/vendor/bin/pm-proxy",
                          COMPOSITE_ID_PER_PROXY);
@@ -27837,6 +27886,8 @@ static int run_wifi_companion_pm_service_trigger_observer_guarded(const struct c
                       "pm_service_trigger_observer.pm_proxy_helper_start_executed=1\n"
                       "pm_service_trigger_observer.per_mgr_start_executed=1\n"
                       "pm_service_trigger_observer.per_proxy_start_executed=%d\n"
+                      "pm_service_trigger_observer.per_proxy_initial_start_executed=%d\n"
+                      "pm_service_trigger_observer.late_per_proxy_after_mdm_helper_esoc_fd_requested=%d\n"
                       "pm_service_trigger_observer.mdm_helper_start_executed=%d\n"
                       "pm_service_trigger_observer.cnss_daemon_start_executed=%d\n"
                       "pm_service_trigger_observer.wifi_hal_start_executed=0\n"
@@ -27867,14 +27918,18 @@ static int run_wifi_companion_pm_service_trigger_observer_guarded(const struct c
                                  : "servicemanager,hwservicemanager,vndservicemanager,vndservicemanager_ready,pm_proxy_helper,per_mgr,cnss_daemon_immediate,per_proxy_skipped,vndservice_query")
                           : (cfg->pm_observer_start_cnss_before_per_proxy
                           ? (post_pm_mdm_helper_start
-                                 ? "servicemanager,hwservicemanager,vndservicemanager,vndservicemanager_ready,pm_proxy_helper,per_mgr,vndservice_query,per_proxy_skipped,cnss_daemon,mdm_helper,vndservice_query"
+                                 ? (late_per_proxy_requested
+                                        ? "servicemanager,hwservicemanager,vndservicemanager,vndservicemanager_ready,pm_proxy_helper,per_mgr,vndservice_query,per_proxy_deferred,cnss_daemon,mdm_helper,late_per_proxy,vndservice_query"
+                                        : "servicemanager,hwservicemanager,vndservicemanager,vndservicemanager_ready,pm_proxy_helper,per_mgr,vndservice_query,per_proxy_skipped,cnss_daemon,mdm_helper,vndservice_query")
                                  : "servicemanager,hwservicemanager,vndservicemanager,vndservicemanager_ready,pm_proxy_helper,per_mgr,vndservice_query,per_proxy_skipped,cnss_daemon,vndservice_query")
                           : (cfg->pm_observer_start_cnss_after_provider
                           ? (post_pm_mdm_helper_start
                                  ? "servicemanager,hwservicemanager,vndservicemanager,vndservicemanager_ready,pm_proxy_helper,per_mgr,vndservice_query,per_proxy,vndservice_query,cnss_daemon,mdm_helper,vndservice_query"
                                  : "servicemanager,hwservicemanager,vndservicemanager,vndservicemanager_ready,pm_proxy_helper,per_mgr,vndservice_query,per_proxy,vndservice_query,cnss_daemon,vndservice_query")
                              : "servicemanager,hwservicemanager,vndservicemanager,vndservicemanager_ready,pm_proxy_helper,per_mgr,vndservice_query,per_proxy,vndservice_query"))),
+                      (late_per_proxy_requested || !cfg->pm_observer_start_cnss_before_per_proxy) ? 1 : 0,
                       cfg->pm_observer_start_cnss_before_per_proxy ? 0 : 1,
+                      late_per_proxy_requested ? 1 : 0,
                       post_pm_mdm_helper_start ? 1 : 0,
                       cfg->pm_observer_start_cnss_after_provider ? 1 : 0,
                       cfg->pm_observer_continue_after_provider ? 1 : 0,
@@ -27899,10 +27954,12 @@ static int run_wifi_companion_pm_service_trigger_observer_guarded(const struct c
                           "post_pm_mdm_helper_esoc_observer.credentials=0\n"
                           "post_pm_mdm_helper_esoc_observer.dhcp_routing=0\n"
                           "post_pm_mdm_helper_esoc_observer.external_ping=0\n"
-                          "post_pm_mdm_helper_esoc_observer.lower_trace_allowed=%d\n",
+                          "post_pm_mdm_helper_esoc_observer.lower_trace_allowed=%d\n"
+                          "post_pm_mdm_helper_esoc_observer.late_per_proxy_after_mdm_helper_esoc_fd_requested=%d\n",
                           post_pm_mdm_helper_allowed ? 1 : 0,
                           post_pm_mdm_helper_start ? 1 : 0,
-                          post_pm_mdm_helper_lower_trace ? 1 : 0) < 0) {
+                          post_pm_mdm_helper_lower_trace ? 1 : 0,
+                          late_per_proxy_requested ? 1 : 0) < 0) {
             return -1;
         }
     }
@@ -27967,11 +28024,14 @@ static int run_wifi_companion_pm_service_trigger_observer_guarded(const struct c
             if (append_format(stdout_buf,
                               "pm_service_trigger_observer.child.%s.start_order=%zu\n"
                               "pm_service_trigger_observer.child.%s.start_skipped=1\n"
-                              "pm_service_trigger_observer.child.%s.skip_reason=cnss-before-per-proxy\n",
+                              "pm_service_trigger_observer.child.%s.skip_reason=%s\n",
                               children[i].name,
                               active_child_count,
                               children[i].name,
-                              children[i].name) < 0) {
+                              children[i].name,
+                              late_per_proxy_requested
+                                  ? "deferred-until-mdm-helper-esoc-fd"
+                                  : "cnss-before-per-proxy") < 0) {
                 composite_cleanup_children(children, active_child_count, stdout_buf, stderr_buf);
                 stop_property_service_shim(&property_shim, paths, stdout_buf);
                 return -1;
@@ -28421,6 +28481,121 @@ static int run_wifi_companion_pm_service_trigger_observer_guarded(const struct c
                 return -1;
             }
             mdm_helper_window_snapshot_captured = true;
+            if (late_per_proxy_requested) {
+                late_per_proxy_gate_positive = mdm_helper_observable &&
+                                               mdm_helper_esoc0_fd_count > 0;
+                if (append_format(stdout_buf,
+                                  "pm_service_trigger_observer.late_per_proxy.begin=1\n"
+                                  "pm_service_trigger_observer.late_per_proxy.gate_mdm_helper_observable=%d\n"
+                                  "pm_service_trigger_observer.late_per_proxy.gate_mdm_helper_esoc0_fd_count=%d\n"
+                                  "pm_service_trigger_observer.late_per_proxy.gate_positive=%d\n"
+                                  "post_pm_mdm_helper_esoc_observer.late_per_proxy.gate_positive=%d\n"
+                                  "post_pm_mdm_helper_esoc_observer.late_per_proxy.gate_fd_esoc0_count=%d\n",
+                                  mdm_helper_observable ? 1 : 0,
+                                  mdm_helper_esoc0_fd_count,
+                                  late_per_proxy_gate_positive ? 1 : 0,
+                                  late_per_proxy_gate_positive ? 1 : 0,
+                                  mdm_helper_esoc0_fd_count) < 0) {
+                    composite_cleanup_children(children, active_child_count, stdout_buf, stderr_buf);
+                    stop_property_service_shim(&property_shim, paths, stdout_buf);
+                    return -1;
+                }
+                if (!late_per_proxy_gate_positive) {
+                    if (append_literal(stdout_buf,
+                                       "pm_service_trigger_observer.late_per_proxy.start_attempted=0\n"
+                                       "pm_service_trigger_observer.late_per_proxy.started=0\n"
+                                       "pm_service_trigger_observer.late_per_proxy.skip_reason=mdm-helper-esoc0-fd-not-positive\n"
+                                       "pm_service_trigger_observer.late_per_proxy.end=1\n"
+                                       "post_pm_mdm_helper_esoc_observer.late_per_proxy.start_attempted=0\n"
+                                       "post_pm_mdm_helper_esoc_observer.late_per_proxy.started=0\n"
+                                       "post_pm_mdm_helper_esoc_observer.late_per_proxy.skip_reason=mdm-helper-esoc0-fd-not-positive\n") < 0) {
+                        composite_cleanup_children(children, active_child_count, stdout_buf, stderr_buf);
+                        stop_property_service_shim(&property_shim, paths, stdout_buf);
+                        return -1;
+                    }
+                } else {
+                    composite_child_init(per_proxy,
+                                         "per_proxy",
+                                         "/vendor/bin/pm-proxy",
+                                         COMPOSITE_ID_PER_PROXY);
+                    if (append_literal(stdout_buf,
+                                       "pm_service_trigger_observer.late_per_proxy.start_attempted=1\n"
+                                       "post_pm_mdm_helper_esoc_observer.late_per_proxy.start_attempted=1\n") < 0 ||
+                        composite_spawn_child(cfg, paths, per_proxy, stdout_buf) < 0) {
+                        composite_cleanup_children(children, active_child_count, stdout_buf, stderr_buf);
+                        stop_property_service_shim(&property_shim, paths, stdout_buf);
+                        return -1;
+                    }
+                    late_per_proxy_started = true;
+                    if (append_format(stdout_buf,
+                                      "pm_service_trigger_observer.child.%s.late_start=1\n"
+                                      "pm_service_trigger_observer.child.%s.late_start_order=%zu\n"
+                                      "pm_service_trigger_observer.late_per_proxy.started=1\n"
+                                      "pm_service_trigger_observer.late_per_proxy.pid=%ld\n"
+                                      "post_pm_mdm_helper_esoc_observer.late_per_proxy.started=1\n"
+                                      "post_pm_mdm_helper_esoc_observer.late_per_proxy.pid=%ld\n",
+                                      per_proxy->name,
+                                      per_proxy->name,
+                                      active_child_count,
+                                      (long)per_proxy->pid,
+                                      (long)per_proxy->pid) < 0) {
+                        composite_cleanup_children(children, active_child_count, stdout_buf, stderr_buf);
+                        stop_property_service_shim(&property_shim, paths, stdout_buf);
+                        return -1;
+                    }
+                    for (int poll = 0; poll < 6; poll++) {
+                        char phase[64];
+                        int per_mgr_subsys_modem_count = -1;
+                        int pm_proxy_helper_subsys_modem_count = -1;
+
+                        usleep(500000);
+                        if (drain_pm_service_trigger_observer_children(children,
+                                                                       active_child_count,
+                                                                       &property_shim,
+                                                                       stdout_buf,
+                                                                       stderr_buf) < 0 ||
+                            snprintf(phase,
+                                     sizeof(phase),
+                                     "late_per_proxy_poll_%02d",
+                                     poll) >= (int)sizeof(phase) ||
+                            append_pm_service_trigger_observer_fd_snapshot(stdout_buf,
+                                                                           phase,
+                                                                           per_mgr,
+                                                                           pm_proxy_helper,
+                                                                           &per_mgr_subsys_modem_count,
+                                                                           &pm_proxy_helper_subsys_modem_count) < 0 ||
+                            append_mdm_helper_queue_timing_snapshot(stdout_buf,
+                                                                    phase,
+                                                                    per_mgr,
+                                                                    mdm_helper) < 0) {
+                            composite_cleanup_children(children, active_child_count, stdout_buf, stderr_buf);
+                            stop_property_service_shim(&property_shim, paths, stdout_buf);
+                            return -1;
+                        }
+                        if (per_mgr_subsys_modem_count > 0) {
+                            per_mgr_subsys_modem_seen = true;
+                        }
+                        if (pm_proxy_helper_subsys_modem_count > 0) {
+                            pm_proxy_helper_subsys_modem_seen = true;
+                        }
+                        late_per_proxy_poll_count++;
+                    }
+                    if (append_subsys_hold_snapshot(stdout_buf, "late_per_proxy_window") < 0 ||
+                        append_wifi_cnss2_focus_capture(stdout_buf, "late_per_proxy_window") < 0 ||
+                        append_pm_provider_lower_surface_snapshot(stdout_buf,
+                                                                  cfg,
+                                                                  "late_per_proxy_window") < 0 ||
+                        append_literal(stdout_buf,
+                                       "pm_service_trigger_observer.late_per_proxy.snapshot_captured=1\n"
+                                       "pm_service_trigger_observer.late_per_proxy.end=1\n"
+                                       "post_pm_mdm_helper_esoc_observer.late_per_proxy.snapshot_captured=1\n") < 0) {
+                        composite_cleanup_children(children, active_child_count, stdout_buf, stderr_buf);
+                        stop_property_service_shim(&property_shim, paths, stdout_buf);
+                        return -1;
+                    }
+                    late_per_proxy_snapshot_captured = true;
+                }
+            }
             break;
         }
         usleep(150000);
@@ -28627,6 +28802,11 @@ static int run_wifi_companion_pm_service_trigger_observer_guarded(const struct c
                       "pm_service_trigger_observer.snapshot_count=%d\n"
                       "pm_service_trigger_observer.per_mgr_subsys_modem_seen=%d\n"
                       "pm_service_trigger_observer.pm_proxy_helper_subsys_modem_seen=%d\n"
+                      "pm_service_trigger_observer.late_per_proxy_requested=%d\n"
+                      "pm_service_trigger_observer.late_per_proxy_gate_positive=%d\n"
+                      "pm_service_trigger_observer.late_per_proxy_started=%d\n"
+                      "pm_service_trigger_observer.late_per_proxy_poll_count=%d\n"
+                      "pm_service_trigger_observer.late_per_proxy_snapshot_captured=%d\n"
                       "pm_service_trigger_observer.timed_out=%d\n"
                       "pm_service_trigger_observer.all_observable=%d\n"
                       "pm_service_trigger_observer.all_postflight_safe=%d\n"
@@ -28639,6 +28819,11 @@ static int run_wifi_companion_pm_service_trigger_observer_guarded(const struct c
                       snapshot_index,
                       per_mgr_subsys_modem_seen ? 1 : 0,
                       pm_proxy_helper_subsys_modem_seen ? 1 : 0,
+                      late_per_proxy_requested ? 1 : 0,
+                      late_per_proxy_gate_positive ? 1 : 0,
+                      late_per_proxy_started ? 1 : 0,
+                      late_per_proxy_poll_count,
+                      late_per_proxy_snapshot_captured ? 1 : 0,
                       *timed_out ? 1 : 0,
                       all_observable ? 1 : 0,
                       all_postflight_safe ? 1 : 0,
@@ -28667,6 +28852,11 @@ static int run_wifi_companion_pm_service_trigger_observer_guarded(const struct c
                           "post_pm_mdm_helper_esoc_observer.fd_mhi_pipe_count.window=%d\n"
                           "post_pm_mdm_helper_esoc_observer.ks_count.window=%d\n"
                           "post_pm_mdm_helper_esoc_observer.mhi_pipe_cmdline_count.window=%d\n"
+                          "post_pm_mdm_helper_esoc_observer.late_per_proxy_requested=%d\n"
+                          "post_pm_mdm_helper_esoc_observer.late_per_proxy_gate_positive=%d\n"
+                          "post_pm_mdm_helper_esoc_observer.late_per_proxy_started=%d\n"
+                          "post_pm_mdm_helper_esoc_observer.late_per_proxy_poll_count=%d\n"
+                          "post_pm_mdm_helper_esoc_observer.late_per_proxy_snapshot_captured=%d\n"
                           "post_pm_mdm_helper_esoc_observer.lower_artifact_observed=%d\n"
                           "post_pm_mdm_helper_esoc_observer.lower_trace_samples=%d\n",
                           mdm_helper_window_snapshot_captured ? 1 : 0,
@@ -28676,6 +28866,11 @@ static int run_wifi_companion_pm_service_trigger_observer_guarded(const struct c
                           mdm_helper_mhi_fd_count,
                           mdm_helper_ks_count,
                           mdm_helper_mhi_cmdline_count,
+                          late_per_proxy_requested ? 1 : 0,
+                          late_per_proxy_gate_positive ? 1 : 0,
+                          late_per_proxy_started ? 1 : 0,
+                          late_per_proxy_poll_count,
+                          late_per_proxy_snapshot_captured ? 1 : 0,
                           mdm_lower_artifact_observed ? 1 : 0,
                           mdm_helper_lower_trace_samples) < 0) {
             return -1;
@@ -28688,6 +28883,10 @@ static int run_wifi_companion_pm_service_trigger_observer_guarded(const struct c
             append_literal(stdout_buf,
                            "post_pm_mdm_helper_esoc_observer.result=lower-artifact-observed\n"
                            "post_pm_mdm_helper_esoc_observer.reason=mdm-helper-produced-esoc-or-mhi-artifact\n");
+        } else if (late_per_proxy_started && late_per_proxy_snapshot_captured) {
+            append_literal(stdout_buf,
+                           "post_pm_mdm_helper_esoc_observer.result=late-per-proxy-observed-no-lower-publication\n"
+                           "post_pm_mdm_helper_esoc_observer.reason=late-pm-proxy-ran-after-mdm-helper-esoc-fd-but-no-esoc-mhi-wlfw-artifact\n");
         } else if (mdm_helper_observable) {
             append_literal(stdout_buf,
                            "post_pm_mdm_helper_esoc_observer.result=mdm-helper-observed-no-lower-publication\n"

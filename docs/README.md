@@ -68,6 +68,8 @@
 - V1159에서 `pm-service` `Binder:1554_2` thread가 `openat -> subsys_device_open -> __subsystem_get(esoc0) -> mdm_subsys_powerup` 경로에 D-state로 들어가는 것을 포착해, 다음 native gate를 PM-service Binder request 재현/분류로 좁혔습니다.
 - 최신 V1160 PM eSoC trigger reconcile 결과는 `docs/reports/NATIVE_INIT_V1160_PM_ESOC_TRIGGER_RECONCILE_2026-05-27.md`입니다.
 - V1160에서 Android-good 경로의 `vendor.per_proxy -> pm-service Binder esoc0 get` 타이밍과 native V1139의 `per_proxy` 스킵을 비교해, 다음 단위를 late-`per_proxy` eSoC trigger gate로 좁혔습니다.
+- 최신 V1161 late `pm-proxy` helper build 결과는 `docs/reports/NATIVE_INIT_V1161_LATE_PER_PROXY_HELPER_BUILD_2026-05-27.md`입니다.
+- V1161에서 helper `v216`에 `mdm_helper` `/dev/esoc-0` 확인 뒤 `pm-proxy`를 late-start하는 guarded eSoC trigger gate를 추가하고 static ARM64 build를 통과했습니다.
 - 2026-05-27 기준 최신 PM observer live gate는 `docs/reports/NATIVE_INIT_V1124_PRIVATE_FIRMWARE_PM_OBSERVER_LIVE_2026-05-27.md`입니다.
 - 최신 firmware mount-only provider gate는 `docs/reports/NATIVE_INIT_V1121_FIRMWARE_MOUNT_ONLY_PROVIDER_LIVE_2026-05-27.md`입니다.
 - 최신 provider namespace delta classifier는 `docs/reports/NATIVE_INIT_V1122_PROVIDER_NAMESPACE_DELTA_CLASSIFIER_2026-05-27.md`입니다.
