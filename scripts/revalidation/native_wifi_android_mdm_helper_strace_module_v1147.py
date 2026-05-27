@@ -49,6 +49,12 @@ def parse_args() -> argparse.Namespace:
         default=None,
         help="Optional static aarch64 strace binary to stage into the module.",
     )
+    parser.add_argument(
+        "--wrapper-binary",
+        type=Path,
+        default=None,
+        help="Optional static aarch64 ELF mdm_helper wrapper to stage into the module.",
+    )
     return parser.parse_args()
 
 
@@ -100,8 +106,8 @@ def write_module_file(store: EvidenceStore, relative_path: str, text: str, mode:
 def module_prop() -> str:
     return f"""id={MODULE_ID}
 name=A90 mdm_helper strace capture scaffold
-version=v1147
-versionCode=1147
+version=v1151
+versionCode=1151
 author=Temmie/Codex
 description=Temporary Android mdm_helper/ks strace capture scaffold. Remove after capture.
 """
@@ -248,10 +254,11 @@ This directory is host-generated only. It has not been installed on the device.
 ## Required live sequence
 
 1. Place a static aarch64 `strace` at `module/bin/strace` if absent.
-2. Zip the contents of `module/` only after re-running the verifier.
-3. Install through Magisk, not by directly mutating `/vendor`.
-4. Boot Android once and collect `{TRACE_DIR}/`.
-5. Disable/remove the module and roll back to native init.
+2. Place the static ELF wrapper at both mdm_helper overlay paths; do not use the shell fallback for live.
+3. Zip the contents of `module/` only after re-running the verifier.
+4. Install through Magisk, not by directly mutating `/vendor`.
+5. Boot Android once and collect `{TRACE_DIR}/`.
+6. Disable/remove the module and roll back to native init.
 
 ## Capture contract
 
@@ -351,6 +358,108 @@ def verify_strace_binary(path: Path | None, store: EvidenceStore) -> dict[str, A
     }
 
 
+def verify_wrapper_binary(path: Path | None, store: EvidenceStore) -> dict[str, Any]:
+    if path is None:
+        return {
+            "mode": "shell-fallback",
+            "provided": False,
+            "present": False,
+            "copied": False,
+            "aarch64": False,
+            "static_or_no_interp": False,
+            "has_required_markers": False,
+            "ok": False,
+            "reason": "no --wrapper-binary provided; shell wrapper is scaffold-only after V1149 load_script crash",
+        }
+
+    resolved = repo_path(path)
+    if not resolved.exists():
+        return {
+            "mode": "elf",
+            "provided": True,
+            "present": False,
+            "copied": False,
+            "aarch64": False,
+            "static_or_no_interp": False,
+            "has_required_markers": False,
+            "ok": False,
+            "reason": f"missing source binary: {resolved}",
+        }
+
+    mode = resolved.stat().st_mode
+    if not stat.S_ISREG(mode):
+        return {
+            "mode": "elf",
+            "provided": True,
+            "present": True,
+            "copied": False,
+            "aarch64": False,
+            "static_or_no_interp": False,
+            "has_required_markers": False,
+            "ok": False,
+            "reason": f"not a regular file: {resolved}",
+        }
+
+    file_rc, file_out = run_host_command(["file", str(resolved)], timeout=5)
+    readelf_h_rc, readelf_h = run_host_command(["readelf", "-h", str(resolved)], timeout=5)
+    readelf_l_rc, readelf_l = run_host_command(["readelf", "-l", str(resolved)], timeout=5)
+    readelf_d_rc, readelf_d = run_host_command(["readelf", "-d", str(resolved)], timeout=5)
+    strings_rc, strings_out = run_host_command(["strings", "-a", str(resolved)], timeout=5)
+
+    aarch64 = "AArch64" in readelf_h or "ARM aarch64" in file_out
+    has_interp = "INTERP" in readelf_l
+    has_dynamic = "There is no dynamic section" not in readelf_d if readelf_d_rc == 0 else False
+    static_or_no_interp = readelf_l_rc == 0 and not has_interp
+    markers = {
+        "version": "a90_mdm_helper_strace_wrapper v1151" in strings_out,
+        "strace_path": f"{MODULE_DIR}/bin/strace" in strings_out,
+        "trace_out": f"{TRACE_DIR}/mdm_helper.strace.txt" in strings_out,
+        "syscall_filter": f"trace={','.join(REQUIRED_SYSCALLS)}" in strings_out,
+        "mirror_search": "/sbin/.magisk/mirror/vendor/bin/mdm_helper" in strings_out,
+        "original_fallback": f"/data/adb/modules/{MODULE_ID}/original/mdm_helper" in strings_out,
+        "recursive_guard": "refusing recursive original path" in strings_out,
+    }
+    has_required_markers = all(markers.values())
+    ok = aarch64 and static_or_no_interp and has_required_markers
+
+    store.write_text("wrapper-file.txt", file_out if file_rc == 0 else file_out)
+    store.write_text("wrapper-readelf-h.txt", readelf_h if readelf_h_rc == 0 else readelf_h)
+    store.write_text("wrapper-readelf-l.txt", readelf_l)
+    store.write_text("wrapper-readelf-d.txt", readelf_d)
+    store.write_text(
+        "wrapper-strings-grep.txt",
+        "\n".join(
+            line
+            for line in strings_out.splitlines()
+            if "mdm_helper" in line or "strace" in line or "trace=" in line or "recursive" in line
+        )
+        + "\n",
+    )
+
+    if ok:
+        for relative_path in (WRAPPER_RELATIVE_PATH, VENDOR_WRAPPER_RELATIVE_PATH):
+            target = store.path(relative_path)
+            write_private_bytes(target, resolved.read_bytes())
+            target.chmod(0o700)
+
+    return {
+        "mode": "elf",
+        "provided": True,
+        "present": True,
+        "copied": ok,
+        "aarch64": aarch64,
+        "static_or_no_interp": static_or_no_interp,
+        "has_interp": has_interp,
+        "has_dynamic": has_dynamic,
+        "markers": markers,
+        "has_required_markers": has_required_markers,
+        "ok": ok,
+        "reason": "ok" if ok else "wrapper binary is not verified as static/no-interp aarch64 with required contract markers",
+        "source": str(resolved),
+        "strings_rc": strings_rc,
+    }
+
+
 def verify_wrapper(text: str) -> dict[str, Any]:
     syscall_filter = ",".join(REQUIRED_SYSCALLS)
     has_syscalls = all(syscall in text for syscall in REQUIRED_SYSCALLS)
@@ -360,6 +469,7 @@ def verify_wrapper(text: str) -> dict[str, Any]:
         for line in text.splitlines()
     )
     return {
+        "mode": "shell-fallback",
         "has_f_flag": " -f " in text,
         "has_tt_flag": " -tt " in text,
         "has_s_256": " -s 256 " in text,
@@ -371,6 +481,8 @@ def verify_wrapper(text: str) -> dict[str, Any]:
         "has_original_fallback": f"/data/adb/modules/{MODULE_ID}/original/mdm_helper" in text,
         "has_recursive_guard": "refusing recursive original path" in text,
         "forbidden_direct_exec": forbidden_exec,
+        "ok": False,
+        "reason": "shell wrapper is scaffold-only after Android vendor init load_script crash",
     }
 
 
@@ -397,6 +509,8 @@ def build_summary(manifest: dict[str, Any]) -> str:
         ["scaffold_ready", f"`{manifest['classification']['scaffold_ready']}`"],
         ["install_ready", f"`{manifest['classification']['install_ready']}`"],
         ["strace_binary_present", f"`{manifest['classification']['strace_binary']['present']}`"],
+        ["wrapper_mode", f"`{manifest['classification']['wrapper']['mode']}`"],
+        ["wrapper_binary_present", f"`{manifest['classification']['wrapper_binary']['present']}`"],
         ["wrapper_nonrecursive", f"`{manifest['classification']['wrapper']['has_recursive_guard']}`"],
         ["module_root", f"`{manifest['module_root']}`"],
     ]
@@ -436,10 +550,8 @@ def main() -> int:
     write_exec_text(store, VENDOR_WRAPPER_RELATIVE_PATH, wrapper_text)
     write_module_file(store, "module/original/README.md", "Optional fallback location for copied original mdm_helper.\n")
 
-    strace_info = verify_strace_binary(args.strace_binary, store)
-    install_ready = bool(strace_info["ok"])
-    scaffold_ready = True
     wrapper_info = verify_wrapper(wrapper_text)
+    wrapper_binary_info = verify_wrapper_binary(args.wrapper_binary, store)
     wrapper_ready = all(
         bool(wrapper_info[key])
         for key in (
@@ -454,21 +566,42 @@ def main() -> int:
             "has_recursive_guard",
         )
     ) and not bool(wrapper_info["forbidden_direct_exec"])
-    scaffold_ready = scaffold_ready and wrapper_ready
+    if wrapper_binary_info["ok"]:
+        wrapper_info = {
+            "mode": "elf",
+            "has_f_flag": True,
+            "has_tt_flag": True,
+            "has_s_256": True,
+            "has_required_syscalls": True,
+            "syscall_filter": ",".join(REQUIRED_SYSCALLS),
+            "uses_strace_variable": True,
+            "uses_original_variable": True,
+            "has_mirror_search": bool(wrapper_binary_info["markers"]["mirror_search"]),
+            "has_original_fallback": bool(wrapper_binary_info["markers"]["original_fallback"]),
+            "has_recursive_guard": bool(wrapper_binary_info["markers"]["recursive_guard"]),
+            "forbidden_direct_exec": False,
+            "ok": True,
+            "reason": "static ELF wrapper verified",
+        }
+        wrapper_ready = True
+
+    strace_info = verify_strace_binary(args.strace_binary, store)
+    install_ready = bool(strace_info["ok"]) and bool(wrapper_binary_info["ok"])
+    scaffold_ready = wrapper_ready
 
     readme_text = scaffold_readme(strace_binary_present=bool(strace_info["present"]), install_ready=install_ready)
     write_module_file(store, "README.md", readme_text)
 
     decision = (
-        "v1147-magisk-strace-module-install-ready"
+        "v1151-magisk-strace-module-elf-wrapper-install-ready"
         if scaffold_ready and install_ready
-        else "v1147-magisk-strace-module-scaffold-ready-strace-required"
+        else "v1151-magisk-strace-module-scaffold-ready-elf-wrapper-required"
     )
     if not scaffold_ready:
         decision = "v1147-magisk-strace-module-scaffold-invalid"
 
     manifest: dict[str, Any] = {
-        "version": "v1147",
+        "version": "v1151",
         "created_at": now_iso(),
         "decision": decision,
         "pass": scaffold_ready,
@@ -482,6 +615,7 @@ def main() -> int:
             "scaffold_ready": scaffold_ready,
             "install_ready": install_ready,
             "wrapper": wrapper_info,
+            "wrapper_binary": wrapper_binary_info,
             "strace_binary": strace_info,
             "android_trace_dir": TRACE_DIR,
             "module_id": MODULE_ID,

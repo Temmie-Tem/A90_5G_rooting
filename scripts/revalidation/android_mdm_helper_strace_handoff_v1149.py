@@ -144,13 +144,33 @@ def verify_module_root(module_root: Path) -> tuple[bool, list[str]]:
             problems.append("bin/strace is not executable")
     wrapper = root / "system/vendor/bin/mdm_helper"
     if wrapper.exists():
-        text = wrapper.read_text(encoding="utf-8", errors="replace")
-        if "refusing recursive original path" not in text:
-            problems.append("wrapper lacks recursive original-path guard")
-        for syscall in ("openat", "ioctl", "read", "write", "execve"):
-            if syscall not in text:
-                problems.append(f"wrapper lacks syscall filter {syscall}")
+        wrapper_mode = wrapper.stat().st_mode & 0o777
+        if wrapper_mode & 0o111 == 0:
+            problems.append("system/vendor/bin/mdm_helper wrapper is not executable")
+        wrapper_bytes = wrapper.read_bytes()
+        if wrapper_bytes.startswith(b"\x7fELF"):
+            required_markers = [
+                b"a90_mdm_helper_strace_wrapper v1151",
+                b"/data/adb/modules/a90_mdm_trace/bin/strace",
+                b"trace=openat,ioctl,read,write,execve",
+                b"/sbin/.magisk/mirror/vendor/bin/mdm_helper",
+                b"refusing recursive original path",
+            ]
+            for marker in required_markers:
+                if marker not in wrapper_bytes:
+                    problems.append(f"ELF wrapper lacks marker {marker.decode('utf-8', errors='replace')}")
+        else:
+            text = wrapper_bytes.decode("utf-8", errors="replace")
+            if "refusing recursive original path" not in text:
+                problems.append("wrapper lacks recursive original-path guard")
+            for syscall in ("openat", "ioctl", "read", "write", "execve"):
+                if syscall not in text:
+                    problems.append(f"wrapper lacks syscall filter {syscall}")
     vendor_wrapper = root / "vendor/bin/mdm_helper"
+    if vendor_wrapper.exists():
+        vendor_mode = vendor_wrapper.stat().st_mode & 0o777
+        if vendor_mode & 0o111 == 0:
+            problems.append("vendor/bin/mdm_helper wrapper is not executable")
     if vendor_wrapper.exists() and wrapper.exists() and vendor_wrapper.read_bytes() != wrapper.read_bytes():
         problems.append("vendor/bin/mdm_helper wrapper differs from system/vendor/bin/mdm_helper")
     return not problems, problems
@@ -439,9 +459,15 @@ def extract_trace_tar(store: EvidenceStore) -> dict[str, Any]:
     strace_log = trace_root / "mdm_helper.strace.txt"
     service_log = trace_root / "service.log"
     pids = trace_root / "pids.txt"
+    boot_dmesg = trace_root / "boot_dmesg.txt"
     strace_text = strace_log.read_text(encoding="utf-8", errors="replace")[:2_000_000] if strace_log.exists() else ""
     wrapper_text = wrapper_log.read_text(encoding="utf-8", errors="replace")[:200_000] if wrapper_log.exists() else ""
     pids_text = pids.read_text(encoding="utf-8", errors="replace")[:200_000] if pids.exists() else ""
+    dmesg_text = boot_dmesg.read_text(encoding="utf-8", errors="replace")[:2_000_000] if boot_dmesg.exists() else ""
+    mdm_helper_exit_statuses = [
+        int(match.group(1))
+        for match in re.finditer(r"Service 'vendor\.mdm_helper'.*exited with status (\d+)", dmesg_text)
+    ]
     return {
         "present": True,
         "trace_root": str(trace_root),
@@ -458,6 +484,11 @@ def extract_trace_tar(store: EvidenceStore) -> dict[str, Any]:
         "strace_has_ks": "ks" in strace_text or "ks " in pids_text,
         "strace_has_mhi_pipe": "/dev/mhi_0305_01.01.00_pipe_10" in strace_text,
         "strace_size": strace_log.stat().st_size if strace_log.exists() else 0,
+        "dmesg_present": boot_dmesg.exists(),
+        "mdm_helper_init_started": "starting service 'vendor.mdm_helper'" in dmesg_text,
+        "mdm_helper_exit_statuses": mdm_helper_exit_statuses,
+        "mdm_helper_exit_127": 127 in mdm_helper_exit_statuses,
+        "mdm_helper_load_script_crash": "Comm: mdm_helper" in dmesg_text and "load_script" in dmesg_text,
     }
 
 
@@ -465,6 +496,12 @@ def decide_trace(trace: dict[str, Any]) -> tuple[str, bool, str]:
     if not trace.get("present"):
         return "v1149-android-strace-trace-missing-rollback-complete", False, str(trace.get("reason"))
     if not trace.get("wrapper_started"):
+        if trace.get("mdm_helper_exit_127"):
+            return (
+                "v1149-android-elf-wrapper-exit127-rollback-complete",
+                False,
+                "vendor.mdm_helper exits 127 under ELF overlay; likely wrapper cannot access strace/log path",
+            )
         return "v1149-android-strace-wrapper-not-started-rollback-complete", False, "wrapper log did not show mdm_helper wrapper start"
     if not trace.get("strace_log_present"):
         return "v1149-android-strace-log-missing-rollback-complete", False, "strace output file missing"
@@ -577,6 +614,10 @@ def reason_for(decision: str, context: dict[str, Any]) -> str:
         "v1149-handoff-image-collision": "Android and native rollback images unexpectedly match",
         "v1149-handoff-approval-required": "live run refused because approval flags are missing",
         "v1149-handoff-active-wifi-command-blocked": "handoff plan contains forbidden active Wi-Fi command pattern",
+        "v1149-android-elf-wrapper-exit127-rollback-complete": context.get(
+            "trace_reason",
+            "vendor.mdm_helper exits 127 under ELF overlay and native rollback completed",
+        ),
         "v1149-android-mdm-helper-strace-captured-rollback-complete": context.get("trace_reason", "Android strace captured and native rollback completed"),
     }.get(decision, context.get("trace_reason", decision))
 
