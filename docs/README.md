@@ -51,7 +51,9 @@
 - V1145에서 Android PM fd + `mdm_helper`/`ks`/MHI/WLFW positive chain과 현재 V1143/V1144 post-PM `ESOC_WAIT_FOR_REQ` 대기를 재비교했고, 기존 helper가 post-PM observer와 구형 `mdm_helper`/`ks` trigger mode로 분리되어 있음을 확인했습니다.
 - 최신 V1146 계획은 `docs/plans/NATIVE_INIT_V1146_ANDROID_MDM_HELPER_STRACE_PLAN_2026-05-27.md`입니다.
 - V1146에서 새 Magisk/Android strace 방향을 반영해, native `/dev/subsys_esoc0` 재시도 전에 Android `mdm_helper`/`ks` syscall image-link 계약을 먼저 캡처하는 흐름으로 우선순위를 조정했습니다.
-- 다음 단위는 V1147 Magisk module scaffold/dry-run verifier입니다.
+- 최신 V1147 Magisk module scaffold 결과는 `docs/reports/NATIVE_INIT_V1147_ANDROID_MDM_HELPER_STRACE_MODULE_2026-05-27.md`입니다.
+- V1147에서 Android `mdm_helper` wrapper + baseline sampler Magisk module scaffold를 host-only로 생성했고, non-recursive original path guard와 `strace -f -tt -s 256 -e trace=openat,ioctl,read,write,execve` 계약을 검증했습니다. 현재 static aarch64 `strace`가 없어 install-ready는 `false`입니다.
+- 다음 단위는 V1148 static aarch64 `strace` 확보/검증 후 V1147 scaffold 재생성입니다.
 - 2026-05-27 기준 최신 PM observer live gate는 `docs/reports/NATIVE_INIT_V1124_PRIVATE_FIRMWARE_PM_OBSERVER_LIVE_2026-05-27.md`입니다.
 - 최신 firmware mount-only provider gate는 `docs/reports/NATIVE_INIT_V1121_FIRMWARE_MOUNT_ONLY_PROVIDER_LIVE_2026-05-27.md`입니다.
 - 최신 provider namespace delta classifier는 `docs/reports/NATIVE_INIT_V1122_PROVIDER_NAMESPACE_DELTA_CLASSIFIER_2026-05-27.md`입니다.

@@ -1,0 +1,504 @@
+#!/usr/bin/env python3
+"""V1147 host-only Magisk module scaffold for Android mdm_helper strace capture.
+
+This script does not install a module, boot Android, contact the device, open
+eSoC/subsys nodes, start Wi-Fi HAL, scan/connect, use credentials, run DHCP or
+routes, external ping, or write boot/partitions. It only creates a private
+host-side scaffold and verifies the wrapper contract.
+"""
+
+from __future__ import annotations
+
+import argparse
+import datetime as dt
+import json
+import os
+import shutil
+import stat
+import subprocess
+from pathlib import Path
+from typing import Any
+
+from a90_kernel_tools import collect_host_metadata, markdown_table, repo_path
+from a90harness.evidence import EvidenceStore, write_private_bytes, write_private_text
+
+
+DEFAULT_OUT_DIR = Path("tmp/wifi/v1147-android-mdm-helper-strace-module")
+LATEST_POINTER = Path("tmp/wifi/latest-v1147-android-mdm-helper-strace-module.txt")
+PLAN_PATH = Path("docs/plans/NATIVE_INIT_V1146_ANDROID_MDM_HELPER_STRACE_PLAN_2026-05-27.md")
+
+MODULE_ID = "a90_mdm_trace"
+TRACE_DIR = "/data/local/tmp/a90-wifi"
+MODULE_DIR = f"/data/adb/modules/{MODULE_ID}"
+WRAPPER_RELATIVE_PATH = "module/system/vendor/bin/mdm_helper"
+STRACE_RELATIVE_PATH = "module/bin/strace"
+
+REQUIRED_SYSCALLS = ("openat", "ioctl", "read", "write", "execve")
+
+
+def now_iso() -> str:
+    return dt.datetime.now(dt.timezone.utc).isoformat()
+
+
+def parse_args() -> argparse.Namespace:
+    parser = argparse.ArgumentParser(description=__doc__)
+    parser.add_argument("--out-dir", type=Path, default=DEFAULT_OUT_DIR)
+    parser.add_argument(
+        "--strace-binary",
+        type=Path,
+        default=None,
+        help="Optional static aarch64 strace binary to stage into the module.",
+    )
+    return parser.parse_args()
+
+
+def run_host_command(command: list[str], timeout: int = 10) -> tuple[int, str]:
+    result = subprocess.run(
+        command,
+        cwd=repo_path("."),
+        check=False,
+        text=True,
+        stdout=subprocess.PIPE,
+        stderr=subprocess.STDOUT,
+        timeout=timeout,
+    )
+    return result.returncode, result.stdout
+
+
+def read_text(path: Path, limit: int = 2_000_000) -> str:
+    resolved = repo_path(path)
+    if not resolved.exists():
+        return ""
+    return resolved.read_bytes()[:limit].replace(b"\0", b"\\0").decode("utf-8", errors="replace")
+
+
+def write_exec_text(store: EvidenceStore, relative_path: str, text: str) -> Path:
+    path = store.write_text(relative_path, text)
+    path.chmod(0o700)
+    return path
+
+
+def write_module_file(store: EvidenceStore, relative_path: str, text: str, mode: int = 0o600) -> Path:
+    path = store.write_text(relative_path, text)
+    path.chmod(mode)
+    return path
+
+
+def module_prop() -> str:
+    return f"""id={MODULE_ID}
+name=A90 mdm_helper strace capture scaffold
+version=v1147
+versionCode=1147
+author=Temmie/Codex
+description=Temporary Android mdm_helper/ks strace capture scaffold. Remove after capture.
+"""
+
+
+def wrapper_script() -> str:
+    syscall_filter = ",".join(REQUIRED_SYSCALLS)
+    return f"""#!/system/bin/sh
+TRACE_DIR="{TRACE_DIR}"
+MODULE_DIR="{MODULE_DIR}"
+STRACE_BIN="$MODULE_DIR/bin/strace"
+TRACE_OUT="$TRACE_DIR/mdm_helper.strace.txt"
+WRAPPER_LOG="$TRACE_DIR/mdm_helper.wrapper.log"
+
+umask 077
+mkdir -p "$TRACE_DIR"
+
+{{
+  echo "wrapper_start=$(date '+%Y-%m-%dT%H:%M:%S%z') pid=$$ argv=$*"
+  id
+  cat /proc/self/attr/current 2>/dev/null || true
+}} >> "$WRAPPER_LOG" 2>&1
+
+if [ ! -x "$STRACE_BIN" ]; then
+  echo "missing executable strace: $STRACE_BIN" >> "$WRAPPER_LOG"
+  exit 127
+fi
+
+ORIG=""
+for candidate in \\
+  /sbin/.magisk/mirror/vendor/bin/mdm_helper \\
+  /debug_ramdisk/.magisk/mirror/vendor/bin/mdm_helper \\
+  /data/adb/modules/{MODULE_ID}/original/mdm_helper
+do
+  if [ "$candidate" = "/vendor/bin/mdm_helper" ]; then
+    continue
+  fi
+  if [ "$candidate" = "/system/vendor/bin/mdm_helper" ]; then
+    continue
+  fi
+  if [ -x "$candidate" ]; then
+    ORIG="$candidate"
+    break
+  fi
+done
+
+if [ -z "$ORIG" ]; then
+  echo "original mdm_helper not found in Magisk mirror/original fallback" >> "$WRAPPER_LOG"
+  exit 126
+fi
+
+case "$ORIG" in
+  /vendor/bin/mdm_helper|/system/vendor/bin/mdm_helper|"$0")
+    echo "refusing recursive original path: $ORIG" >> "$WRAPPER_LOG"
+    exit 126
+    ;;
+esac
+
+echo "exec_strace=$STRACE_BIN original=$ORIG out=$TRACE_OUT" >> "$WRAPPER_LOG"
+exec "$STRACE_BIN" -f -tt -s 256 -e trace={syscall_filter} -o "$TRACE_OUT" "$ORIG" "$@"
+"""
+
+
+def post_fs_data_script() -> str:
+    return f"""#!/system/bin/sh
+TRACE_DIR="{TRACE_DIR}"
+umask 077
+mkdir -p "$TRACE_DIR"
+{{
+  echo "post_fs_data_start=$(date '+%Y-%m-%dT%H:%M:%S%z') pid=$$"
+  id
+  getenforce 2>/dev/null || true
+  cat /proc/self/attr/current 2>/dev/null || true
+}} >> "$TRACE_DIR/post-fs-data.log" 2>&1
+exit 0
+"""
+
+
+def service_script() -> str:
+    return f"""#!/system/bin/sh
+TRACE_DIR="{TRACE_DIR}"
+
+collect_one_pid() {{
+  name="$1"
+  pid="$2"
+  proc_dir="$TRACE_DIR/proc_${{name}}_${{pid}}"
+  mkdir -p "$proc_dir"
+  cat "/proc/$pid/cmdline" > "$proc_dir/cmdline.bin" 2>/dev/null || true
+  cat "/proc/$pid/status" > "$proc_dir/status.txt" 2>/dev/null || true
+  cat "/proc/$pid/wchan" > "$proc_dir/wchan.txt" 2>/dev/null || true
+  cat "/proc/$pid/attr/current" > "$proc_dir/attr_current.txt" 2>/dev/null || true
+  ls -l "/proc/$pid/fd" > "$proc_dir/fd.txt" 2>&1 || true
+}}
+
+(
+  umask 077
+  mkdir -p "$TRACE_DIR"
+  echo "service_start=$(date '+%Y-%m-%dT%H:%M:%S%z') pid=$$" >> "$TRACE_DIR/service.log"
+
+  i=0
+  while [ "$i" -lt 120 ]; do
+    if [ "$(getprop sys.boot_completed 2>/dev/null)" = "1" ]; then
+      break
+    fi
+    i=$((i + 1))
+    sleep 1
+  done
+
+  date '+%Y-%m-%dT%H:%M:%S%z' > "$TRACE_DIR/snapshot_time.txt" 2>/dev/null || true
+  getprop > "$TRACE_DIR/getprop.txt" 2>&1 || true
+  dmesg > "$TRACE_DIR/boot_dmesg.txt" 2>&1 || true
+  ps -AZef > "$TRACE_DIR/ps_azef.txt" 2>&1 || ps -A -Z -f > "$TRACE_DIR/ps_azef.txt" 2>&1 || true
+  cat /proc/interrupts > "$TRACE_DIR/interrupts.txt" 2>&1 || true
+  cat /sys/kernel/debug/gpio > "$TRACE_DIR/gpio.txt" 2>&1 || true
+
+  : > "$TRACE_DIR/pids.txt"
+  for name in mdm_helper ks pm-service pm_proxy_helper cnss-daemon; do
+    pids="$(pidof "$name" 2>/dev/null)"
+    echo "$name $pids" >> "$TRACE_DIR/pids.txt"
+    for pid in $pids; do
+      collect_one_pid "$name" "$pid"
+    done
+  done
+) &
+
+exit 0
+"""
+
+
+def scaffold_readme(strace_binary_present: bool, install_ready: bool) -> str:
+    return f"""# V1147 A90 mdm_helper strace Magisk scaffold
+
+This directory is host-generated only. It has not been installed on the device.
+
+## State
+
+- `strace_binary_present`: `{strace_binary_present}`
+- `install_ready`: `{install_ready}`
+- wrapper path: `{WRAPPER_RELATIVE_PATH}`
+- strace path: `{STRACE_RELATIVE_PATH}`
+- Android output directory: `{TRACE_DIR}`
+
+## Required live sequence
+
+1. Place a static aarch64 `strace` at `module/bin/strace` if absent.
+2. Zip the contents of `module/` only after re-running the verifier.
+3. Install through Magisk, not by directly mutating `/vendor`.
+4. Boot Android once and collect `{TRACE_DIR}/`.
+5. Disable/remove the module and roll back to native init.
+
+## Capture contract
+
+The wrapper executes:
+
+```sh
+strace -f -tt -s 256 -e trace=openat,ioctl,read,write,execve \\
+  -o {TRACE_DIR}/mdm_helper.strace.txt <original-mdm_helper> "$@"
+```
+
+Expected evidence:
+
+- `openat`: firmware and runtime paths used by `mdm_helper`;
+- `ioctl`: `/dev/esoc-0` request sequence such as `ESOC_WAIT_FOR_REQ`;
+- `execve`: `ks` spawn timing and argv, or absence;
+- `read`/`write`: coarse image-link and MHI pipe activity;
+- dmesg/fd/process snapshots from `service.sh`.
+
+## Guardrails
+
+- No native `/dev/subsys_esoc0` retry.
+- No native eSoC ioctl.
+- No Wi-Fi credentials, scan/connect, DHCP/routes, or external ping.
+- No direct vendor partition mutation.
+- Do not keep this module installed after capture.
+"""
+
+
+def verify_strace_binary(path: Path | None, store: EvidenceStore) -> dict[str, Any]:
+    if path is None:
+        return {
+            "provided": False,
+            "present": False,
+            "copied": False,
+            "aarch64": False,
+            "static_or_no_interp": False,
+            "ok": False,
+            "reason": "no --strace-binary provided",
+        }
+
+    resolved = repo_path(path)
+    if not resolved.exists():
+        return {
+            "provided": True,
+            "present": False,
+            "copied": False,
+            "aarch64": False,
+            "static_or_no_interp": False,
+            "ok": False,
+            "reason": f"missing source binary: {resolved}",
+        }
+
+    mode = resolved.stat().st_mode
+    if not stat.S_ISREG(mode):
+        return {
+            "provided": True,
+            "present": True,
+            "copied": False,
+            "aarch64": False,
+            "static_or_no_interp": False,
+            "ok": False,
+            "reason": f"not a regular file: {resolved}",
+        }
+
+    file_rc, file_out = run_host_command(["file", str(resolved)], timeout=5)
+    readelf_h_rc, readelf_h = run_host_command(["readelf", "-h", str(resolved)], timeout=5)
+    readelf_l_rc, readelf_l = run_host_command(["readelf", "-l", str(resolved)], timeout=5)
+    readelf_d_rc, readelf_d = run_host_command(["readelf", "-d", str(resolved)], timeout=5)
+
+    aarch64 = "AArch64" in readelf_h or "ARM aarch64" in file_out
+    has_interp = "INTERP" in readelf_l
+    has_dynamic = "There is no dynamic section" not in readelf_d if readelf_d_rc == 0 else False
+    static_or_no_interp = readelf_l_rc == 0 and not has_interp
+    ok = aarch64 and static_or_no_interp
+
+    store.write_text("strace-file.txt", file_out if file_rc == 0 else file_out)
+    store.write_text("strace-readelf-h.txt", readelf_h)
+    store.write_text("strace-readelf-l.txt", readelf_l)
+    store.write_text("strace-readelf-d.txt", readelf_d)
+
+    if ok:
+        target = store.path(STRACE_RELATIVE_PATH)
+        write_private_bytes(target, resolved.read_bytes())
+        target.chmod(0o700)
+
+    return {
+        "provided": True,
+        "present": True,
+        "copied": ok,
+        "aarch64": aarch64,
+        "static_or_no_interp": static_or_no_interp,
+        "has_interp": has_interp,
+        "has_dynamic": has_dynamic,
+        "ok": ok,
+        "reason": "ok" if ok else "binary is not verified as static/no-interp aarch64",
+        "source": str(resolved),
+    }
+
+
+def verify_wrapper(text: str) -> dict[str, Any]:
+    syscall_filter = ",".join(REQUIRED_SYSCALLS)
+    has_syscalls = all(syscall in text for syscall in REQUIRED_SYSCALLS)
+    forbidden_exec = any(
+        line.strip().startswith("exec /vendor/bin/mdm_helper")
+        or line.strip().startswith("exec /system/vendor/bin/mdm_helper")
+        for line in text.splitlines()
+    )
+    return {
+        "has_f_flag": " -f " in text,
+        "has_tt_flag": " -tt " in text,
+        "has_s_256": " -s 256 " in text,
+        "has_required_syscalls": has_syscalls,
+        "syscall_filter": syscall_filter,
+        "uses_strace_variable": 'exec "$STRACE_BIN"' in text,
+        "uses_original_variable": '"$ORIG" "$@"' in text,
+        "has_mirror_search": "/sbin/.magisk/mirror/vendor/bin/mdm_helper" in text,
+        "has_original_fallback": f"/data/adb/modules/{MODULE_ID}/original/mdm_helper" in text,
+        "has_recursive_guard": "refusing recursive original path" in text,
+        "forbidden_direct_exec": forbidden_exec,
+    }
+
+
+def generated_files(root: Path) -> list[dict[str, Any]]:
+    files: list[dict[str, Any]] = []
+    for path in sorted(root.rglob("*")):
+        if not path.is_file():
+            continue
+        rel = path.relative_to(root).as_posix()
+        files.append(
+            {
+                "path": rel,
+                "mode": oct(path.stat().st_mode & 0o777),
+                "size": path.stat().st_size,
+            }
+        )
+    return files
+
+
+def build_summary(manifest: dict[str, Any]) -> str:
+    rows = [
+        ["decision", f"`{manifest['decision']}`"],
+        ["pass", f"`{manifest['pass']}`"],
+        ["scaffold_ready", f"`{manifest['classification']['scaffold_ready']}`"],
+        ["install_ready", f"`{manifest['classification']['install_ready']}`"],
+        ["strace_binary_present", f"`{manifest['classification']['strace_binary']['present']}`"],
+        ["wrapper_nonrecursive", f"`{manifest['classification']['wrapper']['has_recursive_guard']}`"],
+        ["module_root", f"`{manifest['module_root']}`"],
+    ]
+    return "\n".join(
+        [
+            "# V1147 Android mdm_helper strace scaffold summary",
+            "",
+            markdown_table(["item", "value"], rows),
+            "",
+            "Generated files:",
+            "",
+            markdown_table(
+                ["path", "mode", "size"],
+                [[item["path"], item["mode"], str(item["size"])] for item in manifest["generated_files"]],
+            ),
+            "",
+        ]
+    )
+
+
+def main() -> int:
+    args = parse_args()
+    out_dir = repo_path(args.out_dir)
+    store = EvidenceStore(out_dir)
+    module_root = store.mkdir("module")
+    store.mkdir("module/bin")
+    store.mkdir("module/system/vendor/bin")
+    store.mkdir("module/original")
+
+    write_module_file(store, "module/module.prop", module_prop())
+    write_exec_text(store, "module/post-fs-data.sh", post_fs_data_script())
+    write_exec_text(store, "module/service.sh", service_script())
+    wrapper_text = wrapper_script()
+    write_exec_text(store, WRAPPER_RELATIVE_PATH, wrapper_text)
+    write_module_file(store, "module/original/README.md", "Optional fallback location for copied original mdm_helper.\n")
+
+    strace_info = verify_strace_binary(args.strace_binary, store)
+    install_ready = bool(strace_info["ok"])
+    scaffold_ready = True
+    wrapper_info = verify_wrapper(wrapper_text)
+    wrapper_ready = all(
+        bool(wrapper_info[key])
+        for key in (
+            "has_f_flag",
+            "has_tt_flag",
+            "has_s_256",
+            "has_required_syscalls",
+            "uses_strace_variable",
+            "uses_original_variable",
+            "has_mirror_search",
+            "has_original_fallback",
+            "has_recursive_guard",
+        )
+    ) and not bool(wrapper_info["forbidden_direct_exec"])
+    scaffold_ready = scaffold_ready and wrapper_ready
+
+    readme_text = scaffold_readme(strace_binary_present=bool(strace_info["present"]), install_ready=install_ready)
+    write_module_file(store, "README.md", readme_text)
+
+    decision = (
+        "v1147-magisk-strace-module-install-ready"
+        if scaffold_ready and install_ready
+        else "v1147-magisk-strace-module-scaffold-ready-strace-required"
+    )
+    if not scaffold_ready:
+        decision = "v1147-magisk-strace-module-scaffold-invalid"
+
+    manifest: dict[str, Any] = {
+        "version": "v1147",
+        "created_at": now_iso(),
+        "decision": decision,
+        "pass": scaffold_ready,
+        "runner": "scripts/revalidation/native_wifi_android_mdm_helper_strace_module_v1147.py",
+        "module_root": str(module_root),
+        "readme": str(store.path("README.md")),
+        "summary": str(store.path("summary.md")),
+        "plan": str(repo_path(PLAN_PATH)),
+        "host": collect_host_metadata(),
+        "classification": {
+            "scaffold_ready": scaffold_ready,
+            "install_ready": install_ready,
+            "wrapper": wrapper_info,
+            "strace_binary": strace_info,
+            "android_trace_dir": TRACE_DIR,
+            "module_id": MODULE_ID,
+        },
+        "guardrails": {
+            "device_contact_executed": False,
+            "android_boot_executed": False,
+            "module_install_executed": False,
+            "native_subsys_esoc0_retry_executed": False,
+            "native_esoc_ioctl_executed": False,
+            "wifi_hal_start_executed": False,
+            "scan_connect_executed": False,
+            "credential_use_executed": False,
+            "dhcp_route_executed": False,
+            "external_ping_executed": False,
+            "boot_partition_write_executed": False,
+            "flash_executed": False,
+        },
+        "generated_files": generated_files(out_dir),
+        "source_notes": {
+            "strace_filter": f"-f -tt -s 256 -e trace={','.join(REQUIRED_SYSCALLS)}",
+            "wrapper_mode_preferred_over_attach": True,
+            "selinux_live_check_required": "verify wrapper/original executes under vendor_mdm_helper domain during Android capture",
+        },
+    }
+    store.write_json("manifest.json", manifest)
+    store.write_text("summary.md", build_summary(manifest))
+
+    pointer = repo_path(LATEST_POINTER)
+    write_private_text(pointer, str(store.path("manifest.json")) + "\n")
+
+    print(json.dumps({"decision": decision, "pass": scaffold_ready, "install_ready": install_ready, "manifest": str(store.path("manifest.json"))}, ensure_ascii=False, sort_keys=True))
+    return 0 if scaffold_ready else 1
+
+
+if __name__ == "__main__":
+    raise SystemExit(main())
