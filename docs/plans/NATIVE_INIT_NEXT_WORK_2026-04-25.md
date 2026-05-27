@@ -4767,3 +4767,50 @@ Samsung bootloader
   Binary: sha256 `7df75c618f58d599ece1a6017f66040aff57badb8955a70e07de2a77a3561c75`,
   size 1336728, static aarch64, no dynamic section.
 - next: V1048 deploy-only preflight, then V1049 bounded live gate.
+
+### V1176. PM State-3 Dependency Classifier
+
+- report: `docs/reports/NATIVE_INIT_V1176_PM_STATE3_DEPENDENCY_CLASSIFIER_2026-05-27.md`
+- classifier: `scripts/revalidation/native_wifi_pm_state3_dependency_classifier_v1176.py`
+- evidence: `tmp/wifi/v1176-pm-state3-dependency-classifier/manifest.json`
+- decision: `v1176-dependency-flag-state-order-gap-classified`
+- result: host-only PASS. V1175 confirmed state-2 opens `/dev/subsys_modem` (not
+  esoc0) because `dependency_flag=0`. Disassembly confirms: zero dependency flag
+  at `[x20,#320]` skips dependency branch; state-3 falls through to return
+  (no-op); state-0 path contains a dependency flag setter and state-1 transition.
+  State-0 arrives ~15.99s after state-2.
+- next: V1177 live trace of PM dependency flag setter path.
+
+### V1177. PM Dependency Flag Live
+
+- report: `docs/reports/NATIVE_INIT_V1177_PM_DEPENDENCY_FLAG_LIVE_2026-05-27.md`
+- classifier: `scripts/revalidation/native_wifi_pm_dependency_flag_live_v1177.py`
+- evidence: `tmp/wifi/v1177-pm-dependency-flag-live-after-v490/manifest.json`
+- decision: `v1177-dependency-flag-not-armed`
+- result: live PASS. Native state order `[2, 3, 0, 1]`. State-2 sees
+  `dependency_flag=0` → skips esoc0 → opens `/dev/subsys_modem`. State-3 is a
+  no-op. State-0 arrives at t=1009.93s (gap=15.99s from state-2 at t=993.94s);
+  state-0 dep at `peripheral+0x40` is already `state=1` → flag-set path never
+  reached. Two distinct dependency objects: state-2 dep at `peripheral-0x180`,
+  state-0 dep at `peripheral+0x40`.
+- next: V1178 PM dependency init/order parity classifier.
+
+### V1178. PM Dependency Init Classifier
+
+- report: `docs/reports/NATIVE_INIT_V1178_PM_DEPENDENCY_INIT_CLASSIFIER_2026-05-28.md`
+- classifier: `scripts/revalidation/native_wifi_pm_dependency_init_classifier_v1178.py`
+- evidence: `tmp/wifi/v1178-pm-dependency-init-classifier/manifest.json`
+- decision: `v1178-pm-dep-init-order-gap-classified`
+- result: host-only PASS. Root cause: native starts `per_proxy` late (after
+  `mdm_helper` acquires `/dev/esoc-0`), by which time per_proxy_helper's PM
+  state machine has already completed and the dep at `peripheral+0x40` is
+  `state=1`. Android starts `per_proxy` within ~2.16s of `per_proxy_helper`
+  (8.824s − 6.666s), so when the parent peripheral's `state-0` arrives the dep
+  is still `state<1` and the flag-set path runs. The fix: start `per_proxy`
+  before per_proxy_helper's state machine completes, independently of the
+  `mdm_helper` esoc-0 gate.
+- next: V1179 — arm uprobes before per_proxy_helper/per_proxy/pm-service startup
+  to catch the dep transition from state=0 to state=1 and prove that early
+  per_proxy start keeps the dep in state=0 when parent state-0 is processed.
+  Keep Wi-Fi HAL, scan/connect, credentials, DHCP/routes, external ping, boot
+  image write, partition write, and flash blocked.
