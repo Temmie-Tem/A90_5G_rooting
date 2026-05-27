@@ -97,7 +97,7 @@
 #define IOPRIO_PRIO_VALUE(class_value, data) (((class_value) << IOPRIO_CLASS_SHIFT) | (data))
 #endif
 
-#define EXECNS_VERSION "a90_android_execns_probe v213"
+#define EXECNS_VERSION "a90_android_execns_probe v214"
 #define MAX_PATH_LEN 512
 #define MAX_CAPTURE_SIZE (1024 * 1024)
 #define MAX_LINKERCONFIG_SIZE (256 * 1024)
@@ -244,6 +244,7 @@ struct config {
     bool allow_pm_full_contract_with_modem_holder;
     bool allow_pm_service_trigger_observer;
     bool allow_pm_observer_modem_pre_holder;
+    bool allow_post_pm_mdm_helper_esoc_observer;
     bool allow_android_wifi_service_window;
     bool allow_android_wifi_service_window_subsys_trigger_capture;
     bool require_android_selinux_exec_match;
@@ -254,6 +255,7 @@ struct config {
     bool pm_observer_start_cnss_zero_delay_after_per_mgr;
     bool pm_observer_private_firmware_mounts;
     bool pm_observer_modem_pre_holder;
+    bool pm_observer_start_mdm_helper_after_cnss;
 };
 
 struct a90_hidl_string_wire {
@@ -412,6 +414,7 @@ static void usage(FILE *out) {
             "[--allow-pm-full-contract-with-modem-holder] "
             "[--allow-pm-service-trigger-observer] "
             "[--allow-pm-observer-modem-pre-holder] "
+            "[--allow-post-pm-mdm-helper-esoc-observer] "
             "[--allow-android-wifi-service-window] "
             "[--allow-android-wifi-service-window-subsys-trigger-capture] "
             "[--pm-observer-continue-after-provider] "
@@ -421,6 +424,7 @@ static void usage(FILE *out) {
             "[--pm-observer-start-cnss-zero-delay-after-per-mgr] "
             "[--pm-observer-private-firmware-mounts] "
             "[--pm-observer-modem-pre-holder] "
+            "[--pm-observer-start-mdm-helper-after-cnss] "
             "[--qrtr-readback-matrix label:service:instance[,instance][;...]] "
             "[--connect-config /cache/a90-wifi/...] "
             "[--connect-iface auto|wlan0] "
@@ -428,7 +432,7 @@ static void usage(FILE *out) {
             "[--cnss-surface-mode full|compact] "
             "[--service-manager-order none|before-cnss|after-cnss|after-mdm-helper-esoc-fd|after-mdm-helper-esoc-fd-with-pm-proxy|after-mdm-helper-esoc-fd-with-pm-full-contract|after-mdm-helper-esoc-fd-with-pm-full-contract-with-modem-holder|after-mdm-helper-esoc-fd-with-wifi-surface|after-mdm-helper-esoc-fd-with-wifi-surface-subsys-window] "
             "[--subsys-trigger-gate wlfw-precondition|post-provider-no-wlfw|post-upper-surface-no-wlfw] "
-            "--mode linker-list|identity-probe|sepolicy-inventory|sepolicy-compile-proof|sepolicy-load-proof|selinux-domain-proof|cnss-start-only|cnss-userspace-readiness|wifi-companion-start-only|wifi-companion-post-sysmon-observer-start-only|wifi-companion-android-order-post-sysmon-observer-start-only|wifi-companion-service-manager-start-only|wifi-companion-vnd-service-manager-start-only|wifi-companion-qrtr-first-vnd-service-manager-start-only|wifi-companion-cnss-first-delayed-vnd-service-manager-start-only|wifi-companion-service74-gated-vnd-service-manager-start-only|wifi-companion-service74-gated-vnd-service-manager-readiness-start-only|wifi-companion-service74-gated-vnd-service-manager-cnss-retry-start-only|wifi-companion-peripheral-manager-node-parity-start-only|wifi-companion-peripheral-manager-property-contract-start-only|wifi-companion-peripheral-manager-init-contract-start-only|wifi-companion-pm-service-trigger-observer|wifi-companion-esoc-control-preflight|wifi-companion-esoc-engine-register-preflight|wifi-companion-esoc-req-registered-subsys-hold-preflight|wifi-companion-esoc-conditional-response-preflight|wifi-companion-mdm-helper-ks-image-contract-preflight|wifi-companion-mdm-helper-only-deep-capture|wifi-companion-mdm-helper-runtime-contract-capture|wifi-companion-mdm-helper-runtime-subsys-trigger-capture|wifi-companion-mdm-helper-cnss-before-subsys-trigger-capture|wifi-companion-mdm-helper-cnss-service-manager-matrix|wifi-companion-android-wifi-service-window-start-only|wifi-companion-android-wifi-service-window-subsys-trigger-capture|wifi-companion-service74-gated-peripheral-manager-cnss-retry-start-only|wifi-companion-service74-gated-peripheral-manager-cnss-retry-registry-snapshot-start-only|wifi-companion-service74-gated-peripheral-manager-vndservice-query-start-only|wifi-companion-service74-gated-peripheral-manager-vndservice-query-cnss-retry-start-only|wifi-companion-service74-gated-peripheral-manager-vndservice-query-provider-first-cnss-start-only|wifi-companion-service74-gated-android-userspace-cnss-retry-start-only|wifi-companion-service74-gated-android-userspace-cnss-retry-registry-snapshot-start-only|wifi-companion-service74-gated-vnd-service-manager-registry-snapshot-start-only|wifi-companion-service74-gated-mdm-helper-start-only|wifi-companion-service180-gated-mdm-helper-start-only|wifi-companion-sysmon-gated-mdm-helper-start-only|wifi-companion-hal-order-start-only|wifi-companion-hal-wificond-order-start-only|wifi-companion-hal-wificond-lshal-wait-samsung|wifi-companion-hal-wificond-lshal-wait-iwifi|wifi-companion-dual-hal-wificond-lshal-wait-iwifi|wifi-companion-dual-hal-wificond-iwifi-start|wifi-companion-dual-hal-wificond-lshal-then-iwifi-start|rmt-storage-start-only|property-lookup|service-manager-start-only|private-selinux-proof|wifi-hal-lshal-vintf-status-list|wifi-hal-composite-start-only|wifi-hal-composite-lshal-list|wifi-hal-composite-lshal-binderized-list|wifi-hal-composite-lshal-wait-target|wifi-surface-composite-lshal-wait-iwifi|wifi-surface-composite-lshal-wait-samsung|wifi-surface-composite-lshal-wait-samsung-ptrace|wifi-hal-composite-lshal-status-list|wifi-hal-composite-lshal-binderized-status-list|wifi-surface-composite-start-only|wifi-dual-hal-lshal-wait-iwifi|wifi-dual-hal-iwifi-start-surface|wifi-iwifi-start-surface|wifi-active-session-surface|wifi-active-session-scan-only|wifi-active-session-connect-ping|wifi-connect-tool-surface|subsys-hold-open-proof|service-notifier-listener-only "
+            "--mode linker-list|identity-probe|sepolicy-inventory|sepolicy-compile-proof|sepolicy-load-proof|selinux-domain-proof|cnss-start-only|cnss-userspace-readiness|wifi-companion-start-only|wifi-companion-post-sysmon-observer-start-only|wifi-companion-android-order-post-sysmon-observer-start-only|wifi-companion-service-manager-start-only|wifi-companion-vnd-service-manager-start-only|wifi-companion-qrtr-first-vnd-service-manager-start-only|wifi-companion-cnss-first-delayed-vnd-service-manager-start-only|wifi-companion-service74-gated-vnd-service-manager-start-only|wifi-companion-service74-gated-vnd-service-manager-readiness-start-only|wifi-companion-service74-gated-vnd-service-manager-cnss-retry-start-only|wifi-companion-peripheral-manager-node-parity-start-only|wifi-companion-peripheral-manager-property-contract-start-only|wifi-companion-peripheral-manager-init-contract-start-only|wifi-companion-pm-service-trigger-observer|wifi-companion-post-pm-mdm-helper-esoc-observer|wifi-companion-esoc-control-preflight|wifi-companion-esoc-engine-register-preflight|wifi-companion-esoc-req-registered-subsys-hold-preflight|wifi-companion-esoc-conditional-response-preflight|wifi-companion-mdm-helper-ks-image-contract-preflight|wifi-companion-mdm-helper-only-deep-capture|wifi-companion-mdm-helper-runtime-contract-capture|wifi-companion-mdm-helper-runtime-subsys-trigger-capture|wifi-companion-mdm-helper-cnss-before-subsys-trigger-capture|wifi-companion-mdm-helper-cnss-service-manager-matrix|wifi-companion-android-wifi-service-window-start-only|wifi-companion-android-wifi-service-window-subsys-trigger-capture|wifi-companion-service74-gated-peripheral-manager-cnss-retry-start-only|wifi-companion-service74-gated-peripheral-manager-cnss-retry-registry-snapshot-start-only|wifi-companion-service74-gated-peripheral-manager-vndservice-query-start-only|wifi-companion-service74-gated-peripheral-manager-vndservice-query-cnss-retry-start-only|wifi-companion-service74-gated-peripheral-manager-vndservice-query-provider-first-cnss-start-only|wifi-companion-service74-gated-android-userspace-cnss-retry-start-only|wifi-companion-service74-gated-android-userspace-cnss-retry-registry-snapshot-start-only|wifi-companion-service74-gated-vnd-service-manager-registry-snapshot-start-only|wifi-companion-service74-gated-mdm-helper-start-only|wifi-companion-service180-gated-mdm-helper-start-only|wifi-companion-sysmon-gated-mdm-helper-start-only|wifi-companion-hal-order-start-only|wifi-companion-hal-wificond-order-start-only|wifi-companion-hal-wificond-lshal-wait-samsung|wifi-companion-hal-wificond-lshal-wait-iwifi|wifi-companion-dual-hal-wificond-lshal-wait-iwifi|wifi-companion-dual-hal-wificond-iwifi-start|wifi-companion-dual-hal-wificond-lshal-then-iwifi-start|rmt-storage-start-only|property-lookup|service-manager-start-only|private-selinux-proof|wifi-hal-lshal-vintf-status-list|wifi-hal-composite-start-only|wifi-hal-composite-lshal-list|wifi-hal-composite-lshal-binderized-list|wifi-hal-composite-lshal-wait-target|wifi-surface-composite-lshal-wait-iwifi|wifi-surface-composite-lshal-wait-samsung|wifi-surface-composite-lshal-wait-samsung-ptrace|wifi-hal-composite-lshal-status-list|wifi-hal-composite-lshal-binderized-status-list|wifi-surface-composite-start-only|wifi-dual-hal-lshal-wait-iwifi|wifi-dual-hal-iwifi-start-surface|wifi-iwifi-start-surface|wifi-active-session-surface|wifi-active-session-scan-only|wifi-active-session-connect-ping|wifi-connect-tool-surface|subsys-hold-open-proof|service-notifier-listener-only "
             "[v27 binderized query runs: /system/bin/lshal list --types=binderized --neat] "
             "[v28 target query runs: /system/bin/lshal wait <fqinstance>] "
             "[v29 status query runs: /system/bin/lshal list --types=binderized,vintf --neat -V -S -i -p -e -c] "
@@ -581,6 +585,15 @@ static bool is_wifi_companion_pm_service_trigger_observer_mode(const char *mode)
     return streq(mode, "wifi-companion-pm-service-trigger-observer");
 }
 
+static bool is_wifi_companion_post_pm_mdm_helper_esoc_observer_mode(const char *mode) {
+    return streq(mode, "wifi-companion-post-pm-mdm-helper-esoc-observer");
+}
+
+static bool is_wifi_companion_pm_observer_any_mode(const char *mode) {
+    return is_wifi_companion_pm_service_trigger_observer_mode(mode) ||
+           is_wifi_companion_post_pm_mdm_helper_esoc_observer_mode(mode);
+}
+
 static bool is_wifi_companion_esoc_control_preflight_mode(const char *mode) {
     return streq(mode, "wifi-companion-esoc-control-preflight");
 }
@@ -667,7 +680,7 @@ static bool is_wifi_companion_peripheral_manager_service_node_materialization_mo
 
 static bool is_wifi_companion_peripheral_manager_node_materialization_mode(const char *mode) {
     return is_wifi_companion_peripheral_manager_service_node_materialization_mode(mode) ||
-           is_wifi_companion_pm_service_trigger_observer_mode(mode) ||
+           is_wifi_companion_pm_observer_any_mode(mode) ||
            is_wifi_companion_esoc_control_preflight_mode(mode) ||
            is_wifi_companion_esoc_engine_register_preflight_mode(mode) ||
            is_wifi_companion_esoc_req_registered_subsys_hold_preflight_mode(mode) ||
@@ -1144,6 +1157,10 @@ static int parse_args(int argc, char **argv, struct config *cfg) {
             cfg->allow_pm_observer_modem_pre_holder = true;
             continue;
         }
+        if (strcmp(argv[i], "--allow-post-pm-mdm-helper-esoc-observer") == 0) {
+            cfg->allow_post_pm_mdm_helper_esoc_observer = true;
+            continue;
+        }
         if (strcmp(argv[i], "--pm-observer-continue-after-provider") == 0) {
             cfg->pm_observer_continue_after_provider = true;
             continue;
@@ -1170,6 +1187,10 @@ static int parse_args(int argc, char **argv, struct config *cfg) {
         }
         if (strcmp(argv[i], "--pm-observer-modem-pre-holder") == 0) {
             cfg->pm_observer_modem_pre_holder = true;
+            continue;
+        }
+        if (strcmp(argv[i], "--pm-observer-start-mdm-helper-after-cnss") == 0) {
+            cfg->pm_observer_start_mdm_helper_after_cnss = true;
             continue;
         }
         if (strcmp(argv[i], "--allow-android-wifi-service-window") == 0) {
@@ -1308,6 +1329,7 @@ static int parse_args(int argc, char **argv, struct config *cfg) {
          is_subsys_hold_open_proof_mode(cfg->mode) ||
          is_wifi_companion_any_start_only_mode(cfg->mode) ||
          is_wifi_companion_mdm_helper_runtime_any_mode(cfg->mode) ||
+         is_wifi_companion_pm_observer_any_mode(cfg->mode) ||
          is_wifi_companion_android_wifi_service_window_any_mode(cfg->mode) ||
          is_wifi_companion_hal_order_start_only_mode(cfg->mode)) &&
         streq(cfg->data_wifi_mode, "none")) {
@@ -1418,7 +1440,7 @@ static int parse_args(int argc, char **argv, struct config *cfg) {
           is_wifi_companion_mdm_helper_ks_image_contract_preflight_mode(cfg->mode) ||
           is_wifi_companion_mdm_helper_only_deep_capture_mode(cfg->mode) ||
           is_wifi_companion_mdm_helper_runtime_any_mode(cfg->mode) ||
-          is_wifi_companion_pm_service_trigger_observer_mode(cfg->mode) ||
+          is_wifi_companion_pm_observer_any_mode(cfg->mode) ||
           is_wifi_companion_any_start_only_mode(cfg->mode) ||
           is_wifi_companion_hal_order_start_only_mode(cfg->mode) ||
           is_wifi_companion_android_wifi_service_window_any_mode(cfg->mode) ||
@@ -1614,23 +1636,28 @@ static int parse_args(int argc, char **argv, struct config *cfg) {
         return 2;
     }
     if (cfg->allow_pm_service_trigger_observer &&
-        !is_wifi_companion_pm_service_trigger_observer_mode(cfg->mode)) {
-        fprintf(stderr, "--allow-pm-service-trigger-observer is only valid with wifi-companion-pm-service-trigger-observer mode\n");
+        !is_wifi_companion_pm_observer_any_mode(cfg->mode)) {
+        fprintf(stderr, "--allow-pm-service-trigger-observer is only valid with Wi-Fi PM observer modes\n");
         return 2;
     }
     if (cfg->allow_pm_observer_modem_pre_holder &&
-        !is_wifi_companion_pm_service_trigger_observer_mode(cfg->mode)) {
-        fprintf(stderr, "--allow-pm-observer-modem-pre-holder is only valid with wifi-companion-pm-service-trigger-observer mode\n");
+        !is_wifi_companion_pm_observer_any_mode(cfg->mode)) {
+        fprintf(stderr, "--allow-pm-observer-modem-pre-holder is only valid with Wi-Fi PM observer modes\n");
+        return 2;
+    }
+    if (cfg->allow_post_pm_mdm_helper_esoc_observer &&
+        !is_wifi_companion_post_pm_mdm_helper_esoc_observer_mode(cfg->mode)) {
+        fprintf(stderr, "--allow-post-pm-mdm-helper-esoc-observer is only valid with wifi-companion-post-pm-mdm-helper-esoc-observer mode\n");
         return 2;
     }
     if (cfg->pm_observer_continue_after_provider &&
-        !is_wifi_companion_pm_service_trigger_observer_mode(cfg->mode)) {
-        fprintf(stderr, "--pm-observer-continue-after-provider is only valid with wifi-companion-pm-service-trigger-observer mode\n");
+        !is_wifi_companion_pm_observer_any_mode(cfg->mode)) {
+        fprintf(stderr, "--pm-observer-continue-after-provider is only valid with Wi-Fi PM observer modes\n");
         return 2;
     }
     if (cfg->pm_observer_start_cnss_after_provider &&
-        !is_wifi_companion_pm_service_trigger_observer_mode(cfg->mode)) {
-        fprintf(stderr, "--pm-observer-start-cnss-after-provider is only valid with wifi-companion-pm-service-trigger-observer mode\n");
+        !is_wifi_companion_pm_observer_any_mode(cfg->mode)) {
+        fprintf(stderr, "--pm-observer-start-cnss-after-provider is only valid with Wi-Fi PM observer modes\n");
         return 2;
     }
     if (cfg->pm_observer_start_cnss_after_provider &&
@@ -1639,8 +1666,8 @@ static int parse_args(int argc, char **argv, struct config *cfg) {
         return 2;
     }
     if (cfg->pm_observer_start_cnss_before_per_proxy &&
-        !is_wifi_companion_pm_service_trigger_observer_mode(cfg->mode)) {
-        fprintf(stderr, "--pm-observer-start-cnss-before-per-proxy is only valid with wifi-companion-pm-service-trigger-observer mode\n");
+        !is_wifi_companion_pm_observer_any_mode(cfg->mode)) {
+        fprintf(stderr, "--pm-observer-start-cnss-before-per-proxy is only valid with Wi-Fi PM observer modes\n");
         return 2;
     }
     if (cfg->pm_observer_start_cnss_before_per_proxy &&
@@ -1649,8 +1676,8 @@ static int parse_args(int argc, char **argv, struct config *cfg) {
         return 2;
     }
     if (cfg->pm_observer_start_cnss_immediate_after_per_mgr &&
-        !is_wifi_companion_pm_service_trigger_observer_mode(cfg->mode)) {
-        fprintf(stderr, "--pm-observer-start-cnss-immediate-after-per-mgr is only valid with wifi-companion-pm-service-trigger-observer mode\n");
+        !is_wifi_companion_pm_observer_any_mode(cfg->mode)) {
+        fprintf(stderr, "--pm-observer-start-cnss-immediate-after-per-mgr is only valid with Wi-Fi PM observer modes\n");
         return 2;
     }
     if (cfg->pm_observer_start_cnss_immediate_after_per_mgr &&
@@ -1659,8 +1686,8 @@ static int parse_args(int argc, char **argv, struct config *cfg) {
         return 2;
     }
     if (cfg->pm_observer_start_cnss_zero_delay_after_per_mgr &&
-        !is_wifi_companion_pm_service_trigger_observer_mode(cfg->mode)) {
-        fprintf(stderr, "--pm-observer-start-cnss-zero-delay-after-per-mgr is only valid with wifi-companion-pm-service-trigger-observer mode\n");
+        !is_wifi_companion_pm_observer_any_mode(cfg->mode)) {
+        fprintf(stderr, "--pm-observer-start-cnss-zero-delay-after-per-mgr is only valid with Wi-Fi PM observer modes\n");
         return 2;
     }
     if (cfg->pm_observer_start_cnss_zero_delay_after_per_mgr &&
@@ -1674,18 +1701,36 @@ static int parse_args(int argc, char **argv, struct config *cfg) {
         return 2;
     }
     if (cfg->pm_observer_private_firmware_mounts &&
-        !is_wifi_companion_pm_service_trigger_observer_mode(cfg->mode)) {
-        fprintf(stderr, "--pm-observer-private-firmware-mounts is only valid with wifi-companion-pm-service-trigger-observer mode\n");
+        !is_wifi_companion_pm_observer_any_mode(cfg->mode)) {
+        fprintf(stderr, "--pm-observer-private-firmware-mounts is only valid with Wi-Fi PM observer modes\n");
         return 2;
     }
     if (cfg->pm_observer_modem_pre_holder &&
-        !is_wifi_companion_pm_service_trigger_observer_mode(cfg->mode)) {
-        fprintf(stderr, "--pm-observer-modem-pre-holder is only valid with wifi-companion-pm-service-trigger-observer mode\n");
+        !is_wifi_companion_pm_observer_any_mode(cfg->mode)) {
+        fprintf(stderr, "--pm-observer-modem-pre-holder is only valid with Wi-Fi PM observer modes\n");
         return 2;
     }
     if (cfg->pm_observer_modem_pre_holder &&
         !cfg->allow_pm_observer_modem_pre_holder) {
         fprintf(stderr, "--pm-observer-modem-pre-holder requires --allow-pm-observer-modem-pre-holder\n");
+        return 2;
+    }
+    if (cfg->pm_observer_start_mdm_helper_after_cnss &&
+        !is_wifi_companion_post_pm_mdm_helper_esoc_observer_mode(cfg->mode)) {
+        fprintf(stderr, "--pm-observer-start-mdm-helper-after-cnss is only valid with wifi-companion-post-pm-mdm-helper-esoc-observer mode\n");
+        return 2;
+    }
+    if (is_wifi_companion_post_pm_mdm_helper_esoc_observer_mode(cfg->mode) &&
+        !cfg->pm_observer_start_mdm_helper_after_cnss) {
+        fprintf(stderr, "wifi-companion-post-pm-mdm-helper-esoc-observer requires --pm-observer-start-mdm-helper-after-cnss\n");
+        return 2;
+    }
+    if (cfg->pm_observer_start_mdm_helper_after_cnss &&
+        !cfg->pm_observer_start_cnss_before_per_proxy &&
+        !cfg->pm_observer_start_cnss_after_provider &&
+        !cfg->pm_observer_start_cnss_immediate_after_per_mgr &&
+        !cfg->pm_observer_start_cnss_zero_delay_after_per_mgr) {
+        fprintf(stderr, "--pm-observer-start-mdm-helper-after-cnss requires a CNSS PM observer start order\n");
         return 2;
     }
     if (cfg->allow_android_wifi_service_window &&
@@ -1975,14 +2020,14 @@ static int parse_args(int argc, char **argv, struct config *cfg) {
             fprintf(stderr, "Android Wi-Fi service-window modes accept only their service-window allow flags and no other actor/HAL/scan/connect proof flags\n");
             return 2;
         }
-    } else if (is_wifi_companion_pm_service_trigger_observer_mode(cfg->mode)) {
+    } else if (is_wifi_companion_pm_observer_any_mode(cfg->mode)) {
         if (cfg->linker != NULL) {
-            fprintf(stderr, "--linker is not used by wifi-companion-pm-service-trigger-observer mode\n");
+            fprintf(stderr, "--linker is not used by Wi-Fi PM observer modes\n");
             return 2;
         }
         if (!(streq(cfg->capture_mode, "none") ||
               streq(cfg->capture_mode, "ptrace-lite"))) {
-            fprintf(stderr, "--capture-mode must be none or ptrace-lite for wifi-companion-pm-service-trigger-observer mode\n");
+            fprintf(stderr, "--capture-mode must be none or ptrace-lite for Wi-Fi PM observer modes\n");
             return 2;
         }
         if (!cfg->allow_pm_service_trigger_observer) {
@@ -2084,7 +2129,7 @@ static int parse_args(int argc, char **argv, struct config *cfg) {
           is_wifi_companion_any_start_only_mode(cfg->mode) ||
           is_wifi_companion_mdm_helper_runtime_any_mode(cfg->mode) ||
           is_wifi_companion_android_wifi_service_window_any_mode(cfg->mode) ||
-          is_wifi_companion_pm_service_trigger_observer_mode(cfg->mode) ||
+          is_wifi_companion_pm_observer_any_mode(cfg->mode) ||
           is_wifi_companion_hal_order_start_only_mode(cfg->mode))) {
         fprintf(stderr, "--android-selinux-context-mode is only valid with service-manager, Wi-Fi HAL composite, CNSS userspace readiness, or Wi-Fi companion modes\n");
         return 2;
@@ -2535,7 +2580,7 @@ static int parse_args(int argc, char **argv, struct config *cfg) {
                is_lshal_readonly_query_mode(cfg->mode) ||
                is_rmt_storage_start_only_mode(cfg->mode) ||
                is_wifi_companion_mdm_helper_runtime_any_mode(cfg->mode) ||
-               is_wifi_companion_pm_service_trigger_observer_mode(cfg->mode) ||
+               is_wifi_companion_pm_observer_any_mode(cfg->mode) ||
                is_wifi_companion_any_start_only_mode(cfg->mode) ||
                is_wifi_companion_hal_order_start_only_mode(cfg->mode) ||
                is_wifi_hal_composite_mode(cfg->mode)) {
@@ -2780,8 +2825,9 @@ static int materialize_private_properties(const struct config *cfg,
           cfg->allow_mdm_helper_cnss_before_subsys_trigger_capture ||
           cfg->allow_mdm_helper_cnss_service_manager_matrix) &&
          cfg->property_root != NULL) ||
-        (is_wifi_companion_pm_service_trigger_observer_mode(cfg->mode) &&
-         cfg->allow_pm_service_trigger_observer &&
+        (is_wifi_companion_pm_observer_any_mode(cfg->mode) &&
+         (cfg->allow_pm_service_trigger_observer ||
+          cfg->allow_post_pm_mdm_helper_esoc_observer) &&
          cfg->property_root != NULL) ||
         ((is_rmt_storage_start_only_mode(cfg->mode) ||
           is_wifi_companion_any_start_only_mode(cfg->mode) ||
@@ -2842,8 +2888,9 @@ static int materialize_selinuxfs_surface(const struct config *cfg,
         !streq(cfg->mode, "selinux-domain-proof") &&
         !streq(cfg->mode, "service-manager-start-only") &&
         !is_rmt_storage_start_only_mode(cfg->mode) &&
-        !(is_wifi_companion_pm_service_trigger_observer_mode(cfg->mode) &&
-          cfg->allow_pm_service_trigger_observer) &&
+        !(is_wifi_companion_pm_observer_any_mode(cfg->mode) &&
+          (cfg->allow_pm_service_trigger_observer ||
+           cfg->allow_post_pm_mdm_helper_esoc_observer)) &&
         !is_wifi_companion_mdm_helper_runtime_any_mode(cfg->mode) &&
         !is_wifi_companion_any_start_only_mode(cfg->mode) &&
         !is_wifi_companion_hal_order_start_only_mode(cfg->mode) &&
@@ -3203,8 +3250,9 @@ static int materialize_service_manager_binder_devices(const struct config *cfg,
             cfg->allow_mdm_helper_subsys_trigger_capture ||
             cfg->allow_mdm_helper_cnss_before_subsys_trigger_capture ||
             cfg->allow_mdm_helper_cnss_service_manager_matrix)) ||
-          (is_wifi_companion_pm_service_trigger_observer_mode(cfg->mode) &&
-           cfg->allow_pm_service_trigger_observer) ||
+          (is_wifi_companion_pm_observer_any_mode(cfg->mode) &&
+           (cfg->allow_pm_service_trigger_observer ||
+            cfg->allow_post_pm_mdm_helper_esoc_observer)) ||
           (is_wifi_companion_peripheral_manager_node_materialization_mode(cfg->mode) &&
            cfg->allow_wifi_companion_start_only &&
            cfg->allow_service_manager_start_only) ||
@@ -8607,7 +8655,7 @@ static int materialize_wifi_firmware_mounts(const struct config *cfg,
         !is_wifi_companion_hal_order_start_only_mode(cfg->mode) &&
         !is_subsys_hold_open_proof_mode(cfg->mode) &&
         !is_wifi_hal_composite_mode(cfg->mode) &&
-        !(is_wifi_companion_pm_service_trigger_observer_mode(cfg->mode) &&
+        !(is_wifi_companion_pm_observer_any_mode(cfg->mode) &&
           cfg->pm_observer_private_firmware_mounts)) {
         return 0;
     }
@@ -8770,8 +8818,9 @@ static int materialize_pm_service_modem_detect_surface(const struct config *cfg,
                                                        const struct paths *paths,
                                                        char *error_buf,
                                                        size_t error_size) {
-    if (!(is_wifi_companion_pm_service_trigger_observer_mode(cfg->mode) &&
-          cfg->allow_pm_service_trigger_observer)) {
+    if (!(is_wifi_companion_pm_observer_any_mode(cfg->mode) &&
+          (cfg->allow_pm_service_trigger_observer ||
+           cfg->allow_post_pm_mdm_helper_esoc_observer))) {
         return 0;
     }
     return materialize_rmt_modem_detect_surface(paths, error_buf, error_size);
@@ -16740,8 +16789,9 @@ static bool composite_child_should_trace(const struct config *cfg,
             child->identity == COMPOSITE_ID_WIFI_HAL) ||
            (is_wifi_companion_ptrace_capture(cfg) &&
             child->identity == COMPOSITE_ID_CNSS) ||
-           (is_wifi_companion_pm_service_trigger_observer_mode(cfg->mode) &&
-            cfg->allow_pm_service_trigger_observer &&
+           (is_wifi_companion_pm_observer_any_mode(cfg->mode) &&
+            (cfg->allow_pm_service_trigger_observer ||
+             cfg->allow_post_pm_mdm_helper_esoc_observer) &&
             streq(cfg->capture_mode, "ptrace-lite") &&
             (child->identity == COMPOSITE_ID_SERVICE_MANAGER ||
              child->identity == COMPOSITE_ID_VND_SERVICE_MANAGER ||
@@ -17151,8 +17201,9 @@ static int composite_spawn_child(const struct config *cfg,
     child->stderr_open = true;
     child->traced = composite_child_should_trace(cfg, child);
     child->trace_minimal =
-        is_wifi_companion_pm_service_trigger_observer_mode(cfg->mode) &&
-        cfg->allow_pm_service_trigger_observer &&
+        is_wifi_companion_pm_observer_any_mode(cfg->mode) &&
+        (cfg->allow_pm_service_trigger_observer ||
+         cfg->allow_post_pm_mdm_helper_esoc_observer) &&
         streq(cfg->capture_mode, "ptrace-lite");
     child->trace_syscalls =
         child->trace_minimal &&
@@ -26357,8 +26408,9 @@ static bool property_service_shim_needed(const struct config *cfg) {
     if (is_wifi_companion_android_wifi_service_window_any_mode(cfg->mode)) {
         return cfg->allow_android_wifi_service_window;
     }
-    if (is_wifi_companion_pm_service_trigger_observer_mode(cfg->mode)) {
-        return cfg->allow_pm_service_trigger_observer;
+    if (is_wifi_companion_pm_observer_any_mode(cfg->mode)) {
+        return cfg->allow_pm_service_trigger_observer ||
+               cfg->allow_post_pm_mdm_helper_esoc_observer;
     }
     if (is_rmt_storage_start_only_mode(cfg->mode) ||
         is_wifi_companion_mdm_helper_runtime_any_mode(cfg->mode) ||
@@ -26735,7 +26787,7 @@ static int start_property_service_shim(const struct config *cfg,
     if (shim->pid == 0) {
         bool allow_peripheral_shutdown_list =
             is_wifi_companion_peripheral_manager_property_contract_start_only_mode(cfg->mode) ||
-            is_wifi_companion_pm_service_trigger_observer_mode(cfg->mode) ||
+            is_wifi_companion_pm_observer_any_mode(cfg->mode) ||
             is_wifi_companion_mdm_helper_runtime_any_mode(cfg->mode);
 
         close(pipe_fds[0]);
@@ -27410,12 +27462,14 @@ static int run_wifi_companion_pm_service_trigger_observer_guarded(const struct c
         PM_OBSERVER_PER_MGR = 4,
         PM_OBSERVER_PER_PROXY = 5,
         PM_OBSERVER_CNSS_DAEMON = 6,
-        PM_OBSERVER_CHILD_COUNT = 7,
+        PM_OBSERVER_MDM_HELPER = 7,
+        PM_OBSERVER_CHILD_COUNT = 8,
     };
     struct composite_child children[PM_OBSERVER_CHILD_COUNT];
     struct composite_child *pm_proxy_helper = &children[PM_OBSERVER_PM_PROXY_HELPER];
     struct composite_child *per_mgr = &children[PM_OBSERVER_PER_MGR];
     struct composite_child *cnss_daemon = &children[PM_OBSERVER_CNSS_DAEMON];
+    struct composite_child *mdm_helper = &children[PM_OBSERVER_MDM_HELPER];
     struct property_service_shim property_shim;
     size_t active_child_count = 0;
     long deadline;
@@ -27429,6 +27483,16 @@ static int run_wifi_companion_pm_service_trigger_observer_guarded(const struct c
     bool vndservicemanager_ready = false;
     bool vndservicemanager_ready_checked = false;
     bool vndservice_provider_seen = false;
+    bool post_pm_mdm_helper_mode = is_wifi_companion_post_pm_mdm_helper_esoc_observer_mode(cfg->mode);
+    bool post_pm_mdm_helper_allowed = cfg->allow_post_pm_mdm_helper_esoc_observer;
+    bool post_pm_mdm_helper_start = cfg->pm_observer_start_mdm_helper_after_cnss;
+    bool mdm_helper_observable = false;
+    bool mdm_helper_window_snapshot_captured = false;
+    int mdm_helper_esoc0_fd_count = -1;
+    int mdm_helper_subsys_esoc0_fd_count = -1;
+    int mdm_helper_mhi_fd_count = -1;
+    int mdm_helper_ks_count = -1;
+    int mdm_helper_mhi_cmdline_count = -1;
     pid_t modem_pre_holder_pid = -1;
     bool modem_pre_holder_opened = false;
     bool modem_pre_holder_cleanup_kill_sent = false;
@@ -27466,16 +27530,20 @@ static int run_wifi_companion_pm_service_trigger_observer_guarded(const struct c
                          "cnss_daemon",
                          "/vendor/bin/cnss-daemon",
                          COMPOSITE_ID_CNSS);
+    composite_child_init(mdm_helper,
+                         "mdm_helper",
+                         "/vendor/bin/mdm_helper",
+                         COMPOSITE_ID_MDM_HELPER);
 
     if (append_format(stdout_buf,
                       "pm_service_trigger_observer.begin=1\n"
-                      "pm_service_trigger_observer.mode=wifi-companion-pm-service-trigger-observer\n"
+                      "pm_service_trigger_observer.mode=%s\n"
                       "pm_service_trigger_observer.order=%s\n"
                       "pm_service_trigger_observer.service_manager_start_executed=1\n"
                       "pm_service_trigger_observer.pm_proxy_helper_start_executed=1\n"
                       "pm_service_trigger_observer.per_mgr_start_executed=1\n"
                       "pm_service_trigger_observer.per_proxy_start_executed=%d\n"
-                      "pm_service_trigger_observer.mdm_helper_start_executed=0\n"
+                      "pm_service_trigger_observer.mdm_helper_start_executed=%d\n"
                       "pm_service_trigger_observer.cnss_daemon_start_executed=%d\n"
                       "pm_service_trigger_observer.wifi_hal_start_executed=0\n"
                       "pm_service_trigger_observer.scan_connect_linkup=0\n"
@@ -27494,16 +27562,26 @@ static int run_wifi_companion_pm_service_trigger_observer_guarded(const struct c
                       "pm_service_trigger_observer.private_firmware_modem_mounted=%d\n"
                       "pm_service_trigger_observer.modem_pre_holder_requested=%d\n"
                       "pm_service_trigger_observer.modem_pre_holder_allowed=%d\n",
+                      cfg->mode,
                       cfg->pm_observer_start_cnss_zero_delay_after_per_mgr
-                          ? "servicemanager,hwservicemanager,vndservicemanager,vndservicemanager_ready,pm_proxy_helper,per_mgr,cnss_daemon_zero_delay,per_proxy_skipped,vndservice_query"
+                          ? (post_pm_mdm_helper_start
+                                 ? "servicemanager,hwservicemanager,vndservicemanager,vndservicemanager_ready,pm_proxy_helper,per_mgr,cnss_daemon_zero_delay,mdm_helper,per_proxy_skipped,vndservice_query"
+                                 : "servicemanager,hwservicemanager,vndservicemanager,vndservicemanager_ready,pm_proxy_helper,per_mgr,cnss_daemon_zero_delay,per_proxy_skipped,vndservice_query")
                           : (cfg->pm_observer_start_cnss_immediate_after_per_mgr
-                          ? "servicemanager,hwservicemanager,vndservicemanager,vndservicemanager_ready,pm_proxy_helper,per_mgr,cnss_daemon_immediate,per_proxy_skipped,vndservice_query"
+                          ? (post_pm_mdm_helper_start
+                                 ? "servicemanager,hwservicemanager,vndservicemanager,vndservicemanager_ready,pm_proxy_helper,per_mgr,cnss_daemon_immediate,mdm_helper,per_proxy_skipped,vndservice_query"
+                                 : "servicemanager,hwservicemanager,vndservicemanager,vndservicemanager_ready,pm_proxy_helper,per_mgr,cnss_daemon_immediate,per_proxy_skipped,vndservice_query")
                           : (cfg->pm_observer_start_cnss_before_per_proxy
-                          ? "servicemanager,hwservicemanager,vndservicemanager,vndservicemanager_ready,pm_proxy_helper,per_mgr,vndservice_query,per_proxy_skipped,cnss_daemon,vndservice_query"
+                          ? (post_pm_mdm_helper_start
+                                 ? "servicemanager,hwservicemanager,vndservicemanager,vndservicemanager_ready,pm_proxy_helper,per_mgr,vndservice_query,per_proxy_skipped,cnss_daemon,mdm_helper,vndservice_query"
+                                 : "servicemanager,hwservicemanager,vndservicemanager,vndservicemanager_ready,pm_proxy_helper,per_mgr,vndservice_query,per_proxy_skipped,cnss_daemon,vndservice_query")
                           : (cfg->pm_observer_start_cnss_after_provider
-                          ? "servicemanager,hwservicemanager,vndservicemanager,vndservicemanager_ready,pm_proxy_helper,per_mgr,vndservice_query,per_proxy,vndservice_query,cnss_daemon,vndservice_query"
+                          ? (post_pm_mdm_helper_start
+                                 ? "servicemanager,hwservicemanager,vndservicemanager,vndservicemanager_ready,pm_proxy_helper,per_mgr,vndservice_query,per_proxy,vndservice_query,cnss_daemon,mdm_helper,vndservice_query"
+                                 : "servicemanager,hwservicemanager,vndservicemanager,vndservicemanager_ready,pm_proxy_helper,per_mgr,vndservice_query,per_proxy,vndservice_query,cnss_daemon,vndservice_query")
                              : "servicemanager,hwservicemanager,vndservicemanager,vndservicemanager_ready,pm_proxy_helper,per_mgr,vndservice_query,per_proxy,vndservice_query"))),
                       cfg->pm_observer_start_cnss_before_per_proxy ? 0 : 1,
+                      post_pm_mdm_helper_start ? 1 : 0,
                       cfg->pm_observer_start_cnss_after_provider ? 1 : 0,
                       cfg->pm_observer_continue_after_provider ? 1 : 0,
                       cfg->pm_observer_start_cnss_after_provider ? 1 : 0,
@@ -27517,13 +27595,35 @@ static int run_wifi_companion_pm_service_trigger_observer_guarded(const struct c
                       cfg->allow_pm_observer_modem_pre_holder ? 1 : 0) < 0) {
         return -1;
     }
-    if (!cfg->allow_pm_service_trigger_observer) {
+    if (post_pm_mdm_helper_mode) {
+        if (append_format(stdout_buf,
+                          "post_pm_mdm_helper_esoc_observer.begin=1\n"
+                          "post_pm_mdm_helper_esoc_observer.allowed=%d\n"
+                          "post_pm_mdm_helper_esoc_observer.start_after_cnss=%d\n"
+                          "post_pm_mdm_helper_esoc_observer.wifi_hal_start_executed=0\n"
+                          "post_pm_mdm_helper_esoc_observer.scan_connect_linkup=0\n"
+                          "post_pm_mdm_helper_esoc_observer.credentials=0\n"
+                          "post_pm_mdm_helper_esoc_observer.dhcp_routing=0\n"
+                          "post_pm_mdm_helper_esoc_observer.external_ping=0\n",
+                          post_pm_mdm_helper_allowed ? 1 : 0,
+                          post_pm_mdm_helper_start ? 1 : 0) < 0) {
+            return -1;
+        }
+    }
+    if (!cfg->allow_pm_service_trigger_observer &&
+        !post_pm_mdm_helper_allowed) {
         if (append_literal(stdout_buf,
                            "pm_service_trigger_observer.allowed=0\n"
                            "pm_service_trigger_observer.exec_attempted=0\n"
                            "pm_service_trigger_observer.result=observer-blocked\n"
                            "pm_service_trigger_observer.reason=missing-allow-pm-service-trigger-observer\n"
-                           "pm_service_trigger_observer.end=1\n") < 0) {
+                           "pm_service_trigger_observer.end=1\n") < 0 ||
+            (post_pm_mdm_helper_mode &&
+             append_literal(stdout_buf,
+                            "post_pm_mdm_helper_esoc_observer.exec_attempted=0\n"
+                            "post_pm_mdm_helper_esoc_observer.result=observer-blocked\n"
+                            "post_pm_mdm_helper_esoc_observer.reason=missing-allow-post-pm-mdm-helper-esoc-observer\n"
+                            "post_pm_mdm_helper_esoc_observer.end=1\n") < 0)) {
             return -1;
         }
         *child_exit_code = 0;
@@ -27556,6 +27656,9 @@ static int run_wifi_companion_pm_service_trigger_observer_guarded(const struct c
             !cfg->pm_observer_start_cnss_immediate_after_per_mgr &&
             !cfg->pm_observer_start_cnss_zero_delay_after_per_mgr &&
             (!cfg->pm_observer_start_cnss_after_provider || !vndservice_provider_seen)) {
+            break;
+        }
+        if (i == PM_OBSERVER_MDM_HELPER && !post_pm_mdm_helper_start) {
             break;
         }
         if (i == PM_OBSERVER_PER_PROXY &&
@@ -27864,6 +27967,114 @@ static int run_wifi_companion_pm_service_trigger_observer_guarded(const struct c
             if (pm_proxy_helper_subsys_modem_count > 0) {
                 pm_proxy_helper_subsys_modem_seen = true;
             }
+            if (post_pm_mdm_helper_start) {
+                continue;
+            }
+            break;
+        }
+        if (i == PM_OBSERVER_MDM_HELPER) {
+            bool child_ready;
+
+            usleep(1500000);
+            if (drain_pm_service_trigger_observer_children(children,
+                                                           active_child_count,
+                                                           &property_shim,
+                                                           stdout_buf,
+                                                           stderr_buf) < 0) {
+                composite_cleanup_children(children, active_child_count, stdout_buf, stderr_buf);
+                stop_property_service_shim(&property_shim, paths, stdout_buf);
+                return -1;
+            }
+            composite_capture_observable_children(&children[i], 1, stdout_buf);
+            child_ready = children[i].observable &&
+                          !children[i].child_done &&
+                          children[i].fd_summary_captured;
+            mdm_helper_observable = children[i].observable &&
+                                    !children[i].child_done;
+            if (append_format(stdout_buf,
+                              "pm_service_trigger_observer.child.%s.post_start_probe=1\n"
+                              "pm_service_trigger_observer.child.%s.post_start_probe_wait_ms=1500\n"
+                              "pm_service_trigger_observer.child.%s.post_start_observable=%d\n"
+                              "pm_service_trigger_observer.child.%s.post_start_fd_summary_captured=%d\n"
+                              "pm_service_trigger_observer.child.%s.post_start_ready=%d\n",
+                              children[i].name,
+                              children[i].name,
+                              children[i].name,
+                              children[i].observable ? 1 : 0,
+                              children[i].name,
+                              children[i].fd_summary_captured ? 1 : 0,
+                              children[i].name,
+                              child_ready ? 1 : 0) < 0) {
+                composite_cleanup_children(children, active_child_count, stdout_buf, stderr_buf);
+                stop_property_service_shim(&property_shim, paths, stdout_buf);
+                return -1;
+            }
+            if (mdm_helper_observable) {
+                if (append_mdm_helper_runtime_contract_snapshot(stdout_buf,
+                                                                mdm_helper->pid,
+                                                                "post_pm_window") < 0 ||
+                    append_proc_fd_target_match_scan(stdout_buf,
+                                                     mdm_helper->pid,
+                                                     "post_pm_mdm_helper_esoc_observer",
+                                                     "window_esoc0",
+                                                     "/dev/esoc-0",
+                                                     &mdm_helper_esoc0_fd_count) < 0 ||
+                    append_proc_fd_target_match_scan(stdout_buf,
+                                                     mdm_helper->pid,
+                                                     "post_pm_mdm_helper_esoc_observer",
+                                                     "window_subsys_esoc0",
+                                                     "/dev/subsys_esoc0",
+                                                     &mdm_helper_subsys_esoc0_fd_count) < 0 ||
+                    append_proc_fd_target_match_scan(stdout_buf,
+                                                     mdm_helper->pid,
+                                                     "post_pm_mdm_helper_esoc_observer",
+                                                     "window_mhi_pipe",
+                                                     "/dev/mhi_0305_01.01.00_pipe_10",
+                                                     &mdm_helper_mhi_fd_count) < 0) {
+                    composite_cleanup_children(children, active_child_count, stdout_buf, stderr_buf);
+                    stop_property_service_shim(&property_shim, paths, stdout_buf);
+                    return -1;
+                }
+            } else if (append_literal(stdout_buf,
+                                      "post_pm_mdm_helper_esoc_observer.window_snapshot.skipped=1\n"
+                                      "post_pm_mdm_helper_esoc_observer.window_snapshot.skip_reason=mdm-helper-not-alive\n") < 0) {
+                composite_cleanup_children(children, active_child_count, stdout_buf, stderr_buf);
+                stop_property_service_shim(&property_shim, paths, stdout_buf);
+                return -1;
+            }
+            if (append_process_cmdline_match_scan(stdout_buf,
+                                                  "post_pm_mdm_helper_esoc_observer",
+                                                  "window_ks",
+                                                  "/vendor/bin/ks",
+                                                  8,
+                                                  &mdm_helper_ks_count) < 0 ||
+                append_process_cmdline_match_scan(stdout_buf,
+                                                  "post_pm_mdm_helper_esoc_observer",
+                                                  "window_mhi_pipe_cmdline",
+                                                  "/dev/mhi_0305_01.01.00_pipe_10",
+                                                  8,
+                                                  &mdm_helper_mhi_cmdline_count) < 0 ||
+                append_mdm_helper_queue_timing_snapshot(stdout_buf,
+                                                        "post_pm_window",
+                                                        per_mgr,
+                                                        mdm_helper) < 0 ||
+                append_mdm_helper_provider_readiness_snapshot(stdout_buf,
+                                                              paths,
+                                                              "post_pm_window",
+                                                              per_mgr,
+                                                              mdm_helper) < 0 ||
+                append_mdm_helper_runtime_path_visibility(stdout_buf, paths, "post_pm_window") < 0 ||
+                append_mdm_helper_lower_contract_snapshot(stdout_buf, paths, "post_pm_window") < 0 ||
+                append_subsys_hold_snapshot(stdout_buf, "post_pm_mdm_helper_window") < 0 ||
+                append_wifi_cnss2_focus_capture(stdout_buf, "post_pm_mdm_helper_window") < 0 ||
+                append_pm_provider_lower_surface_snapshot(stdout_buf,
+                                                          cfg,
+                                                          "post_pm_mdm_helper_window") < 0) {
+                composite_cleanup_children(children, active_child_count, stdout_buf, stderr_buf);
+                stop_property_service_shim(&property_shim, paths, stdout_buf);
+                return -1;
+            }
+            mdm_helper_window_snapshot_captured = true;
             break;
         }
         usleep(150000);
@@ -28092,6 +28303,53 @@ static int run_wifi_companion_pm_service_trigger_observer_guarded(const struct c
                       vndservicemanager_ready ? 1 : 0,
                       vndservice_provider_seen ? 1 : 0) < 0) {
         return -1;
+    }
+    if (post_pm_mdm_helper_mode) {
+        bool mdm_esoc_observed = mdm_helper_esoc0_fd_count > 0 ||
+                                 mdm_helper_subsys_esoc0_fd_count > 0;
+        bool mdm_lower_artifact_observed = mdm_esoc_observed ||
+                                           mdm_helper_mhi_fd_count > 0 ||
+                                           mdm_helper_ks_count > 0 ||
+                                           mdm_helper_mhi_cmdline_count > 0;
+
+        if (append_format(stdout_buf,
+                          "post_pm_mdm_helper_esoc_observer.exec_attempted=1\n"
+                          "post_pm_mdm_helper_esoc_observer.window_snapshot_captured=%d\n"
+                          "post_pm_mdm_helper_esoc_observer.mdm_helper_observable=%d\n"
+                          "post_pm_mdm_helper_esoc_observer.fd_esoc0_count.window=%d\n"
+                          "post_pm_mdm_helper_esoc_observer.fd_subsys_esoc0_count.window=%d\n"
+                          "post_pm_mdm_helper_esoc_observer.fd_mhi_pipe_count.window=%d\n"
+                          "post_pm_mdm_helper_esoc_observer.ks_count.window=%d\n"
+                          "post_pm_mdm_helper_esoc_observer.mhi_pipe_cmdline_count.window=%d\n"
+                          "post_pm_mdm_helper_esoc_observer.lower_artifact_observed=%d\n",
+                          mdm_helper_window_snapshot_captured ? 1 : 0,
+                          mdm_helper_observable ? 1 : 0,
+                          mdm_helper_esoc0_fd_count,
+                          mdm_helper_subsys_esoc0_fd_count,
+                          mdm_helper_mhi_fd_count,
+                          mdm_helper_ks_count,
+                          mdm_helper_mhi_cmdline_count,
+                          mdm_lower_artifact_observed ? 1 : 0) < 0) {
+            return -1;
+        }
+        if (!all_postflight_safe) {
+            append_literal(stdout_buf,
+                           "post_pm_mdm_helper_esoc_observer.result=reboot-required\n"
+                           "post_pm_mdm_helper_esoc_observer.reason=actor-not-proven-stopped\n");
+        } else if (mdm_lower_artifact_observed) {
+            append_literal(stdout_buf,
+                           "post_pm_mdm_helper_esoc_observer.result=lower-artifact-observed\n"
+                           "post_pm_mdm_helper_esoc_observer.reason=mdm-helper-produced-esoc-or-mhi-artifact\n");
+        } else if (mdm_helper_observable) {
+            append_literal(stdout_buf,
+                           "post_pm_mdm_helper_esoc_observer.result=mdm-helper-observed-no-lower-publication\n"
+                           "post_pm_mdm_helper_esoc_observer.reason=post-pm-mdm-helper-alive-but-no-esoc-mhi-wlfw-artifact\n");
+        } else {
+            append_literal(stdout_buf,
+                           "post_pm_mdm_helper_esoc_observer.result=mdm-helper-not-observable\n"
+                           "post_pm_mdm_helper_esoc_observer.reason=mdm-helper-exited-before-post-pm-window\n");
+        }
+        append_literal(stdout_buf, "post_pm_mdm_helper_esoc_observer.end=1\n");
     }
     if (!all_postflight_safe) {
         append_literal(stdout_buf,
@@ -30572,7 +30830,7 @@ int main(int argc, char **argv) {
                       : "<private-bind-farm>"));
     printf("linkerconfig_bytes=%zu\n", linkerconfig_bytes);
     printf("linkerconfig_hash=0x%016llx\n", (unsigned long long)linkerconfig_hash);
-    if (is_wifi_companion_pm_service_trigger_observer_mode(cfg.mode) &&
+    if (is_wifi_companion_pm_observer_any_mode(cfg.mode) &&
         streq(cfg.capture_mode, "ptrace-lite")) {
         printf("preexec_context_suppressed=1\n");
         printf("preexec_context_suppressed_reason=pm-service-trigger-observer-ptrace-lite-output-budget\n");
@@ -30735,7 +30993,7 @@ int main(int argc, char **argv) {
                                                                         &child_exit_code,
                                                                         &child_signal,
                                                                         &timed_out);
-    } else if (is_wifi_companion_pm_service_trigger_observer_mode(cfg.mode)) {
+    } else if (is_wifi_companion_pm_observer_any_mode(cfg.mode)) {
         run_rc = run_wifi_companion_pm_service_trigger_observer_guarded(&cfg,
                                                                         &paths,
                                                                         &stdout_buf,
