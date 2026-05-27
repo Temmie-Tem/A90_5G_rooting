@@ -82,6 +82,8 @@
 - V1166에서 `pm-service` connect branch disassembly를 기준으로 old voter count, reconnect/timer flag, state helper call을 분리하는 V1167 tracefs offset plan을 확정했습니다.
 - 최신 V1167 PM-service action branch live 결과는 `docs/reports/NATIVE_INIT_V1167_PM_ACTION_BRANCH_LIVE_2026-05-27.md`입니다.
 - V1167에서 첫 PM connect가 old voter `0 -> 1`, reconnect flag `0`, `0x92dc(state=2)`까지 정상 진입함을 확인했지만 `/dev/subsys_esoc0`은 열리지 않아 blocker를 state helper의 client callback dispatch 아래로 좁혔습니다.
+- 최신 V1168 PM-service callback dispatch live 결과는 `docs/reports/NATIVE_INIT_V1168_PM_CALLBACK_DISPATCH_LIVE_2026-05-27.md`입니다.
+- V1168에서 state helper가 client record를 순회해 callback pointer `0x7f9a0eca5c`로 branch함을 확인했지만 `/dev/subsys_esoc0`은 열리지 않았고, maps 캡처는 post-child 시점이라 비어 다음 단위를 live sample-loop maps mapping으로 좁혔습니다.
 - 2026-05-27 기준 최신 PM observer live gate는 `docs/reports/NATIVE_INIT_V1124_PRIVATE_FIRMWARE_PM_OBSERVER_LIVE_2026-05-27.md`입니다.
 - 최신 firmware mount-only provider gate는 `docs/reports/NATIVE_INIT_V1121_FIRMWARE_MOUNT_ONLY_PROVIDER_LIVE_2026-05-27.md`입니다.
 - 최신 provider namespace delta classifier는 `docs/reports/NATIVE_INIT_V1122_PROVIDER_NAMESPACE_DELTA_CLASSIFIER_2026-05-27.md`입니다.
@@ -236,6 +238,7 @@
 - `plans/NATIVE_INIT_V1165_LATE_PM_PROXY_ACTIONABILITY_PLAN_2026-05-27.md` – helper `v217`로 late `pm-proxy` post-connect window를 늘리고 PM connect/start-vote 후 eSoC open 여부를 확인하는 V1165 계획
 - `plans/NATIVE_INIT_V1166_PM_ACTION_BRANCH_CLASSIFIER_PLAN_2026-05-27.md` – V1165의 PM connect success/no-eSoC gap을 `pm-service` vote-count/state-transition branch로 분해하는 V1166 host-only 계획
 - `plans/NATIVE_INIT_V1167_PM_ACTION_BRANCH_LIVE_PLAN_2026-05-27.md` – V1166에서 고른 `pm-service` action-branch offsets를 live tracefs로 확인하는 V1167 계획
+- `plans/NATIVE_INIT_V1168_PM_CALLBACK_DISPATCH_LIVE_PLAN_2026-05-27.md` – V1167이 증명한 `state=2` helper 아래 client callback dispatch와 callback target pointer를 추적하는 V1168 계획
 - `plans/NATIVE_INIT_V1004_SERVICE_WINDOW_SUBSYS_TRIGGER_LIVE_PLAN_2026-05-26.md` – helper `v170`으로 current-boot SELinux refresh 후 Android service-window scoped `/dev/subsys_esoc0` trigger capture를 수행하는 V1004 live 계획
 - `plans/NATIVE_INIT_V1005_V1004_FD_GAP_CLASSIFIER_PLAN_2026-05-26.md` – V1000 Android dmesg/process, V911 native `mdm_helper` fd, V1004 service-window fd-gate 실패를 host-only로 비교해 다음 gate를 고르는 V1005 계획
 - `plans/NATIVE_INIT_V1006_SERVICE_WINDOW_FD_POLL_SUPPORT_PLAN_2026-05-26.md` – V1005가 선택한 helper `v171` service-window `mdm_helper` `/dev/esoc-0` repeated fd-poll support source/build 계획
@@ -757,6 +760,7 @@
 - `reports/NATIVE_INIT_V1165_LATE_PM_PROXY_ACTIONABILITY_2026-05-27.md` – V1165 결과 late `pm-proxy`가 full window 동안 살아 있고 PM server connect/start-vote가 성공해도 `/dev/subsys_esoc0`은 열리지 않는 결과
 - `reports/NATIVE_INIT_V1166_PM_ACTION_BRANCH_CLASSIFIER_2026-05-27.md` – V1166 결과 `pm-service` connect branch의 voter count/reconnect flag/state helper offsets를 다음 live 계측점으로 확정한 결과
 - `reports/NATIVE_INIT_V1167_PM_ACTION_BRANCH_LIVE_2026-05-27.md` – V1167 결과 `pm-service`가 `state=2` helper까지 진입하지만 `/dev/subsys_esoc0`은 열지 않아 다음 blocker를 client callback dispatch로 좁힌 결과
+- `reports/NATIVE_INIT_V1168_PM_CALLBACK_DISPATCH_LIVE_2026-05-27.md` – V1168 결과 callback pointer `0x7f9a0eca5c` branch는 발생하지만 eSoC open은 없고 maps mapping은 sample-loop로 옮겨야 함을 확인한 결과
 - `reports/NATIVE_INIT_V1004_SERVICE_WINDOW_SUBSYS_TRIGGER_LIVE_2026-05-26.md` – V1004 live 결과 current-boot SELinux refresh 후 Android service-window actors는 관측됐지만 `mdm_helper`가 `/dev/esoc-0` fd를 hold하지 않아 `/dev/subsys_esoc0` trigger는 안전하게 미실행된 결과
 - `reports/NATIVE_INIT_V1003_HELPER_V170_DEPLOY_2026-05-26.md` – helper `v170`을 `/cache/bin/a90_android_execns_probe`로 deploy-only 설치하고 remote sha/contract parity 및 no-Wi-Fi guard를 확인한 V1003 결과
 - `reports/NATIVE_INIT_V1002_ANDROID_SERVICE_WINDOW_SUBSYS_TRIGGER_SUPPORT_2026-05-26.md` – helper `v170`에 Android service-window scoped `/dev/subsys_esoc0` trigger capture mode를 source/build-only로 추가한 V1002 결과
