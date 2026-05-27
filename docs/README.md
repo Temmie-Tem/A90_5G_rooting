@@ -47,7 +47,9 @@
 - V1143에서 `mdm_helper`는 `/dev/esoc-0` fd를 유지하고 worker thread가 `esoc_dev_ioctl` request `0x8004cc02`에 머무름을 확인했지만, `/dev/subsys_esoc0`/MHI/`ks`/WLFW/service69/wlan0는 전진하지 않았습니다.
 - 최신 V1144 eSoC wait ioctl contract classifier는 `docs/reports/NATIVE_INIT_V1144_ESOC_WAIT_IOCTL_CONTRACT_2026-05-27.md`입니다.
 - V1144에서 `0x8004cc02`를 `_IOR(0xcc, 2, unsigned int)` = `ESOC_WAIT_FOR_REQ`로 host-only 분류했고, 현재 `mdm_helper`가 직접 power-on이 아니라 eSoC request FIFO를 기다리는 상태임을 고정했습니다.
-- 다음 단위는 Android `mdm_helper`/`ks`/MHI image-link contract를 host-only로 재구성해 native에서 fail-closed verifier를 설계하는 것입니다.
+- 최신 V1145 post-PM image-link contract classifier는 `docs/reports/NATIVE_INIT_V1145_POST_PM_IMAGE_LINK_CONTRACT_2026-05-27.md`입니다.
+- V1145에서 Android PM fd + `mdm_helper`/`ks`/MHI/WLFW positive chain과 현재 V1143/V1144 post-PM `ESOC_WAIT_FOR_REQ` 대기를 재비교했고, 기존 helper가 post-PM observer와 구형 `mdm_helper`/`ks` trigger mode로 분리되어 있음을 확인했습니다.
+- 다음 단위는 V1146 source/build-only로 post-PM eSoC request verifier mode를 추가하는 것입니다.
 - 2026-05-27 기준 최신 PM observer live gate는 `docs/reports/NATIVE_INIT_V1124_PRIVATE_FIRMWARE_PM_OBSERVER_LIVE_2026-05-27.md`입니다.
 - 최신 firmware mount-only provider gate는 `docs/reports/NATIVE_INIT_V1121_FIRMWARE_MOUNT_ONLY_PROVIDER_LIVE_2026-05-27.md`입니다.
 - 최신 provider namespace delta classifier는 `docs/reports/NATIVE_INIT_V1122_PROVIDER_NAMESPACE_DELTA_CLASSIFIER_2026-05-27.md`입니다.
