@@ -4814,3 +4814,21 @@ Samsung bootloader
   per_proxy start keeps the dep in state=0 when parent state-0 is processed.
   Keep Wi-Fi HAL, scan/connect, credentials, DHCP/routes, external ping, boot
   image write, partition write, and flash blocked.
+
+### V1179. PM Dep Early Per-Proxy Observer
+
+- script: `scripts/revalidation/native_wifi_pm_dep_early_per_proxy_observer_v1179.py`
+- result: live PASS (two attempts). `EARLY_PER_PROXY_PPH_DELTA_MS=2159ms` (attempt 1)
+  and `800ms` (attempt 2) both reach `decision: v1179-per-mgr-probe-wait-delays-per-proxy-too-late`.
+  Root cause: helper per_mgr post-start probe wait is 1000ms; even with target_delta=800ms,
+  `already_elapsed=1` because probe_wait(1000ms) > target_delta(800ms), pushing actual
+  per_proxy start to pph+1244ms — 244ms after per_mgr has already exited.
+  Per_mgr exits cleanly (exit_code=0) within ~600-800ms because pm-service times out with
+  no initial clients (pm_proxy_helper vndbinder fd count=0). State machine never fires:
+  `state_set_event_count=0`, `pm_proxy_helper_vndbinder_count=0`.
+- next: V1180 — helper v219 with per_mgr probe_wait=0ms and per_proxy pph_delta ~300ms.
+  Per_mgr starts at pph+177ms; per_proxy at pph+300ms should connect while pm-service
+  is still alive (before ~500-800ms init timeout). Modem pm-proxy at pph+1254ms then
+  drives dep state=1 after per_proxy is already connected.
+  Keep Wi-Fi HAL, scan/connect, credentials, DHCP/routes, external ping, boot image
+  write, partition write, and flash blocked.
