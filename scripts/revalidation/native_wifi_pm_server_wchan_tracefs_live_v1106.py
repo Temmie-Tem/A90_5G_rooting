@@ -459,9 +459,13 @@ sample_pm_service_threads() {{
 {enable_calls}
 
 echo observe_begin=1
+$BB touch "$CHILD_LOG" 2>/dev/null || true
 $BB sh "$CHILD" > "$CHILD_LOG" 2>&1 &
 child_pid=$!
 echo "child.pid=$child_pid"
+$BB tail -f "$CHILD_LOG" &
+tail_pid=$!
+echo "tail.pid=$tail_pid"
 sample_index=0
 while $BB kill -0 "$child_pid" 2>/dev/null && $BB test "$sample_index" -lt "$SAMPLE_COUNT"; do
   sample_pm_service_threads "$sample_index"
@@ -475,6 +479,7 @@ else
 fi
 wait "$child_pid"
 child_rc=$?
+kill "$tail_pid" 2>/dev/null; wait "$tail_pid" 2>/dev/null || true
 echo "child.rc=$child_rc"
 if $BB test -r "$CHILD_LOG"; then
   child_bytes=$($BB wc -c < "$CHILD_LOG" 2>/dev/null)

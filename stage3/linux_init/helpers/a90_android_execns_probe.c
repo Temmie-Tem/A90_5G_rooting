@@ -97,7 +97,7 @@
 #define IOPRIO_PRIO_VALUE(class_value, data) (((class_value) << IOPRIO_CLASS_SHIFT) | (data))
 #endif
 
-#define EXECNS_VERSION "a90_android_execns_probe v237"
+#define EXECNS_VERSION "a90_android_execns_probe v238"
 #define MAX_PATH_LEN 512
 #define MAX_CAPTURE_SIZE (1024 * 1024)
 #define MAX_LINKERCONFIG_SIZE (256 * 1024)
@@ -235,6 +235,7 @@ struct config {
     bool allow_esoc_engine_register_preflight;
     bool allow_esoc_req_registered_subsys_hold_preflight;
     bool allow_esoc_conditional_response_preflight;
+    bool allow_esoc_img_xfer_mhi_observe;
     bool allow_mdm_helper_ks_contract_preflight;
     bool allow_mdm_helper_only_capture;
     bool allow_mdm_helper_runtime_contract_capture;
@@ -418,6 +419,7 @@ static void usage(FILE *out) {
             "[--allow-esoc-engine-register-preflight] "
             "[--allow-esoc-req-registered-subsys-hold-preflight] "
             "[--allow-esoc-conditional-response-preflight] "
+            "[--allow-esoc-img-xfer-mhi-observe] "
             "[--allow-mdm-helper-ks-contract-preflight] "
             "[--allow-mdm-helper-only-capture] "
             "[--allow-mdm-helper-runtime-contract-capture] "
@@ -452,7 +454,7 @@ static void usage(FILE *out) {
             "[--cnss-surface-mode full|compact] "
             "[--service-manager-order none|before-cnss|after-cnss|after-mdm-helper-esoc-fd|after-mdm-helper-esoc-fd-with-pm-proxy|after-mdm-helper-esoc-fd-with-pm-full-contract|after-mdm-helper-esoc-fd-with-pm-full-contract-with-modem-holder|after-mdm-helper-esoc-fd-with-wifi-surface|after-mdm-helper-esoc-fd-with-wifi-surface-subsys-window] "
             "[--subsys-trigger-gate wlfw-precondition|post-provider-no-wlfw|post-upper-surface-no-wlfw] "
-            "--mode linker-list|identity-probe|sepolicy-inventory|sepolicy-compile-proof|sepolicy-load-proof|selinux-domain-proof|cnss-start-only|cnss-userspace-readiness|wifi-companion-start-only|wifi-companion-post-sysmon-observer-start-only|wifi-companion-android-order-post-sysmon-observer-start-only|wifi-companion-service-manager-start-only|wifi-companion-vnd-service-manager-start-only|wifi-companion-qrtr-first-vnd-service-manager-start-only|wifi-companion-cnss-first-delayed-vnd-service-manager-start-only|wifi-companion-service74-gated-vnd-service-manager-start-only|wifi-companion-service74-gated-vnd-service-manager-readiness-start-only|wifi-companion-service74-gated-vnd-service-manager-cnss-retry-start-only|wifi-companion-peripheral-manager-node-parity-start-only|wifi-companion-peripheral-manager-property-contract-start-only|wifi-companion-peripheral-manager-init-contract-start-only|wifi-companion-pm-service-trigger-observer|wifi-companion-post-pm-mdm-helper-esoc-observer|wifi-companion-esoc-control-preflight|wifi-companion-esoc-engine-register-preflight|wifi-companion-esoc-req-registered-subsys-hold-preflight|wifi-companion-esoc-conditional-response-preflight|wifi-companion-mdm-helper-ks-image-contract-preflight|wifi-companion-mdm-helper-only-deep-capture|wifi-companion-mdm-helper-runtime-contract-capture|wifi-companion-mdm-helper-runtime-subsys-trigger-capture|wifi-companion-mdm-helper-cnss-before-subsys-trigger-capture|wifi-companion-mdm-helper-cnss-service-manager-matrix|wifi-companion-android-wifi-service-window-start-only|wifi-companion-android-wifi-service-window-subsys-trigger-capture|wifi-companion-service74-gated-peripheral-manager-cnss-retry-start-only|wifi-companion-service74-gated-peripheral-manager-cnss-retry-registry-snapshot-start-only|wifi-companion-service74-gated-peripheral-manager-vndservice-query-start-only|wifi-companion-service74-gated-peripheral-manager-vndservice-query-cnss-retry-start-only|wifi-companion-service74-gated-peripheral-manager-vndservice-query-provider-first-cnss-start-only|wifi-companion-service74-gated-android-userspace-cnss-retry-start-only|wifi-companion-service74-gated-android-userspace-cnss-retry-registry-snapshot-start-only|wifi-companion-service74-gated-vnd-service-manager-registry-snapshot-start-only|wifi-companion-service74-gated-mdm-helper-start-only|wifi-companion-service180-gated-mdm-helper-start-only|wifi-companion-sysmon-gated-mdm-helper-start-only|wifi-companion-hal-order-start-only|wifi-companion-hal-wificond-order-start-only|wifi-companion-hal-wificond-lshal-wait-samsung|wifi-companion-hal-wificond-lshal-wait-iwifi|wifi-companion-dual-hal-wificond-lshal-wait-iwifi|wifi-companion-dual-hal-wificond-iwifi-start|wifi-companion-dual-hal-wificond-lshal-then-iwifi-start|rmt-storage-start-only|property-lookup|service-manager-start-only|private-selinux-proof|wifi-hal-lshal-vintf-status-list|wifi-hal-composite-start-only|wifi-hal-composite-lshal-list|wifi-hal-composite-lshal-binderized-list|wifi-hal-composite-lshal-wait-target|wifi-surface-composite-lshal-wait-iwifi|wifi-surface-composite-lshal-wait-samsung|wifi-surface-composite-lshal-wait-samsung-ptrace|wifi-hal-composite-lshal-status-list|wifi-hal-composite-lshal-binderized-status-list|wifi-surface-composite-start-only|wifi-dual-hal-lshal-wait-iwifi|wifi-dual-hal-iwifi-start-surface|wifi-iwifi-start-surface|wifi-active-session-surface|wifi-active-session-scan-only|wifi-active-session-connect-ping|wifi-connect-tool-surface|subsys-hold-open-proof|service-notifier-listener-only "
+            "--mode linker-list|identity-probe|sepolicy-inventory|sepolicy-compile-proof|sepolicy-load-proof|selinux-domain-proof|cnss-start-only|cnss-userspace-readiness|wifi-companion-start-only|wifi-companion-post-sysmon-observer-start-only|wifi-companion-android-order-post-sysmon-observer-start-only|wifi-companion-service-manager-start-only|wifi-companion-vnd-service-manager-start-only|wifi-companion-qrtr-first-vnd-service-manager-start-only|wifi-companion-cnss-first-delayed-vnd-service-manager-start-only|wifi-companion-service74-gated-vnd-service-manager-start-only|wifi-companion-service74-gated-vnd-service-manager-readiness-start-only|wifi-companion-service74-gated-vnd-service-manager-cnss-retry-start-only|wifi-companion-peripheral-manager-node-parity-start-only|wifi-companion-peripheral-manager-property-contract-start-only|wifi-companion-peripheral-manager-init-contract-start-only|wifi-companion-pm-service-trigger-observer|wifi-companion-post-pm-mdm-helper-esoc-observer|wifi-companion-esoc-control-preflight|wifi-companion-esoc-engine-register-preflight|wifi-companion-esoc-req-registered-subsys-hold-preflight|wifi-companion-esoc-conditional-response-preflight|wifi-companion-esoc-img-xfer-mhi-observe|wifi-companion-mdm-helper-ks-image-contract-preflight|wifi-companion-mdm-helper-only-deep-capture|wifi-companion-mdm-helper-runtime-contract-capture|wifi-companion-mdm-helper-runtime-subsys-trigger-capture|wifi-companion-mdm-helper-cnss-before-subsys-trigger-capture|wifi-companion-mdm-helper-cnss-service-manager-matrix|wifi-companion-android-wifi-service-window-start-only|wifi-companion-android-wifi-service-window-subsys-trigger-capture|wifi-companion-service74-gated-peripheral-manager-cnss-retry-start-only|wifi-companion-service74-gated-peripheral-manager-cnss-retry-registry-snapshot-start-only|wifi-companion-service74-gated-peripheral-manager-vndservice-query-start-only|wifi-companion-service74-gated-peripheral-manager-vndservice-query-cnss-retry-start-only|wifi-companion-service74-gated-peripheral-manager-vndservice-query-provider-first-cnss-start-only|wifi-companion-service74-gated-android-userspace-cnss-retry-start-only|wifi-companion-service74-gated-android-userspace-cnss-retry-registry-snapshot-start-only|wifi-companion-service74-gated-vnd-service-manager-registry-snapshot-start-only|wifi-companion-service74-gated-mdm-helper-start-only|wifi-companion-service180-gated-mdm-helper-start-only|wifi-companion-sysmon-gated-mdm-helper-start-only|wifi-companion-hal-order-start-only|wifi-companion-hal-wificond-order-start-only|wifi-companion-hal-wificond-lshal-wait-samsung|wifi-companion-hal-wificond-lshal-wait-iwifi|wifi-companion-dual-hal-wificond-lshal-wait-iwifi|wifi-companion-dual-hal-wificond-iwifi-start|wifi-companion-dual-hal-wificond-lshal-then-iwifi-start|rmt-storage-start-only|property-lookup|service-manager-start-only|private-selinux-proof|wifi-hal-lshal-vintf-status-list|wifi-hal-composite-start-only|wifi-hal-composite-lshal-list|wifi-hal-composite-lshal-binderized-list|wifi-hal-composite-lshal-wait-target|wifi-surface-composite-lshal-wait-iwifi|wifi-surface-composite-lshal-wait-samsung|wifi-surface-composite-lshal-wait-samsung-ptrace|wifi-hal-composite-lshal-status-list|wifi-hal-composite-lshal-binderized-status-list|wifi-surface-composite-start-only|wifi-dual-hal-lshal-wait-iwifi|wifi-dual-hal-iwifi-start-surface|wifi-iwifi-start-surface|wifi-active-session-surface|wifi-active-session-scan-only|wifi-active-session-connect-ping|wifi-connect-tool-surface|subsys-hold-open-proof|service-notifier-listener-only "
             "[v27 binderized query runs: /system/bin/lshal list --types=binderized --neat] "
             "[v28 target query runs: /system/bin/lshal wait <fqinstance>] "
             "[v29 status query runs: /system/bin/lshal list --types=binderized,vintf --neat -V -S -i -p -e -c] "
@@ -630,6 +632,10 @@ static bool is_wifi_companion_esoc_conditional_response_preflight_mode(const cha
     return streq(mode, "wifi-companion-esoc-conditional-response-preflight");
 }
 
+static bool is_wifi_companion_esoc_img_xfer_mhi_observe_mode(const char *mode) {
+    return streq(mode, "wifi-companion-esoc-img-xfer-mhi-observe");
+}
+
 static bool is_wifi_companion_mdm_helper_ks_image_contract_preflight_mode(const char *mode) {
     return streq(mode, "wifi-companion-mdm-helper-ks-image-contract-preflight");
 }
@@ -705,6 +711,7 @@ static bool is_wifi_companion_peripheral_manager_node_materialization_mode(const
            is_wifi_companion_esoc_engine_register_preflight_mode(mode) ||
            is_wifi_companion_esoc_req_registered_subsys_hold_preflight_mode(mode) ||
            is_wifi_companion_esoc_conditional_response_preflight_mode(mode) ||
+           is_wifi_companion_esoc_img_xfer_mhi_observe_mode(mode) ||
            is_wifi_companion_mdm_helper_ks_image_contract_preflight_mode(mode) ||
            is_wifi_companion_mdm_helper_only_deep_capture_mode(mode) ||
            is_wifi_companion_mdm_helper_runtime_any_mode(mode);
@@ -1141,6 +1148,10 @@ static int parse_args(int argc, char **argv, struct config *cfg) {
             cfg->allow_esoc_conditional_response_preflight = true;
             continue;
         }
+        if (strcmp(argv[i], "--allow-esoc-img-xfer-mhi-observe") == 0) {
+            cfg->allow_esoc_img_xfer_mhi_observe = true;
+            continue;
+        }
         if (strcmp(argv[i], "--allow-mdm-helper-ks-contract-preflight") == 0) {
             cfg->allow_mdm_helper_ks_contract_preflight = true;
             continue;
@@ -1502,6 +1513,7 @@ static int parse_args(int argc, char **argv, struct config *cfg) {
           is_wifi_companion_esoc_engine_register_preflight_mode(cfg->mode) ||
           is_wifi_companion_esoc_req_registered_subsys_hold_preflight_mode(cfg->mode) ||
           is_wifi_companion_esoc_conditional_response_preflight_mode(cfg->mode) ||
+          is_wifi_companion_esoc_img_xfer_mhi_observe_mode(cfg->mode) ||
           is_wifi_companion_mdm_helper_ks_image_contract_preflight_mode(cfg->mode) ||
           is_wifi_companion_mdm_helper_only_deep_capture_mode(cfg->mode) ||
           is_wifi_companion_mdm_helper_runtime_any_mode(cfg->mode) ||
@@ -1663,6 +1675,11 @@ static int parse_args(int argc, char **argv, struct config *cfg) {
     if (cfg->allow_esoc_conditional_response_preflight &&
         !is_wifi_companion_esoc_conditional_response_preflight_mode(cfg->mode)) {
         fprintf(stderr, "--allow-esoc-conditional-response-preflight is only valid with wifi-companion-esoc-conditional-response-preflight mode\n");
+        return 2;
+    }
+    if (cfg->allow_esoc_img_xfer_mhi_observe &&
+        !is_wifi_companion_esoc_img_xfer_mhi_observe_mode(cfg->mode)) {
+        fprintf(stderr, "--allow-esoc-img-xfer-mhi-observe is only valid with wifi-companion-esoc-img-xfer-mhi-observe mode\n");
         return 2;
     }
     if (cfg->allow_mdm_helper_ks_contract_preflight &&
@@ -1898,6 +1915,7 @@ static int parse_args(int argc, char **argv, struct config *cfg) {
             cfg->allow_esoc_control_preflight ||
             cfg->allow_esoc_req_registered_subsys_hold_preflight ||
             cfg->allow_esoc_conditional_response_preflight ||
+            cfg->allow_esoc_img_xfer_mhi_observe ||
             cfg->allow_mdm_helper_ks_contract_preflight ||
             cfg->allow_mdm_helper_only_capture ||
             cfg->allow_mdm_helper_runtime_contract_capture) {
@@ -1931,6 +1949,7 @@ static int parse_args(int argc, char **argv, struct config *cfg) {
             cfg->allow_esoc_control_preflight ||
             cfg->allow_esoc_engine_register_preflight ||
             cfg->allow_esoc_conditional_response_preflight ||
+            cfg->allow_esoc_img_xfer_mhi_observe ||
             cfg->allow_mdm_helper_ks_contract_preflight ||
             cfg->allow_mdm_helper_only_capture ||
             cfg->allow_mdm_helper_runtime_contract_capture) {
@@ -1971,6 +1990,40 @@ static int parse_args(int argc, char **argv, struct config *cfg) {
             return 2;
         }
     }
+    if (is_wifi_companion_esoc_img_xfer_mhi_observe_mode(cfg->mode)) {
+        if (cfg->linker != NULL) {
+            fprintf(stderr, "--linker is not used by wifi-companion-esoc-img-xfer-mhi-observe mode\n");
+            return 2;
+        }
+        if (!streq(cfg->capture_mode, "none")) {
+            fprintf(stderr, "--capture-mode must be none for wifi-companion-esoc-img-xfer-mhi-observe mode\n");
+            return 2;
+        }
+        if (cfg->allow_cnss_start_only ||
+            cfg->allow_wifi_companion_start_only ||
+            cfg->allow_service_manager_start_only ||
+            cfg->allow_wifi_hal_start_only ||
+            cfg->allow_hal_service_query ||
+            cfg->allow_iwifi_start_only ||
+            cfg->allow_wlan_driver_state_on ||
+            cfg->allow_cnss_userspace_readiness ||
+            cfg->allow_qrtr_ns_readback ||
+            cfg->allow_servloc_domain_list_probe ||
+            cfg->allow_service_notifier_listener_probe ||
+            cfg->allow_scan_only ||
+            cfg->allow_connect_dhcp_ping ||
+            cfg->allow_policy_load_proof ||
+            cfg->allow_esoc_control_preflight ||
+            cfg->allow_esoc_engine_register_preflight ||
+            cfg->allow_esoc_req_registered_subsys_hold_preflight ||
+            cfg->allow_esoc_conditional_response_preflight ||
+            cfg->allow_mdm_helper_ks_contract_preflight ||
+            cfg->allow_mdm_helper_only_capture ||
+            cfg->allow_mdm_helper_runtime_contract_capture) {
+            fprintf(stderr, "wifi-companion-esoc-img-xfer-mhi-observe does not accept actor/HAL/scan/connect or other proof allow flags\n");
+            return 2;
+        }
+    }
     if (is_wifi_companion_mdm_helper_ks_image_contract_preflight_mode(cfg->mode)) {
         if (cfg->linker != NULL) {
             fprintf(stderr, "--linker is not used by wifi-companion-mdm-helper-ks-image-contract-preflight mode\n");
@@ -1998,6 +2051,7 @@ static int parse_args(int argc, char **argv, struct config *cfg) {
             cfg->allow_esoc_engine_register_preflight ||
             cfg->allow_esoc_req_registered_subsys_hold_preflight ||
             cfg->allow_esoc_conditional_response_preflight ||
+            cfg->allow_esoc_img_xfer_mhi_observe ||
             cfg->allow_mdm_helper_only_capture ||
             cfg->allow_mdm_helper_runtime_contract_capture) {
             fprintf(stderr, "wifi-companion-mdm-helper-ks-image-contract-preflight does not accept daemon/HAL/scan/connect or other proof allow flags\n");
@@ -2031,6 +2085,7 @@ static int parse_args(int argc, char **argv, struct config *cfg) {
             cfg->allow_esoc_engine_register_preflight ||
             cfg->allow_esoc_req_registered_subsys_hold_preflight ||
             cfg->allow_esoc_conditional_response_preflight ||
+            cfg->allow_esoc_img_xfer_mhi_observe ||
             cfg->allow_mdm_helper_ks_contract_preflight ||
             cfg->allow_mdm_helper_runtime_contract_capture) {
             fprintf(stderr, "wifi-companion-mdm-helper-only-deep-capture does not accept daemon/HAL/scan/connect or other proof allow flags\n");
@@ -2064,6 +2119,7 @@ static int parse_args(int argc, char **argv, struct config *cfg) {
             cfg->allow_esoc_engine_register_preflight ||
             cfg->allow_esoc_req_registered_subsys_hold_preflight ||
             cfg->allow_esoc_conditional_response_preflight ||
+            cfg->allow_esoc_img_xfer_mhi_observe ||
             cfg->allow_mdm_helper_ks_contract_preflight ||
             cfg->allow_mdm_helper_only_capture) {
             fprintf(stderr, "mdm-helper runtime capture modes do not accept daemon/HAL/scan/connect or other proof allow flags\n");
@@ -2132,6 +2188,7 @@ static int parse_args(int argc, char **argv, struct config *cfg) {
             cfg->allow_esoc_engine_register_preflight ||
             cfg->allow_esoc_req_registered_subsys_hold_preflight ||
             cfg->allow_esoc_conditional_response_preflight ||
+            cfg->allow_esoc_img_xfer_mhi_observe ||
             cfg->allow_mdm_helper_ks_contract_preflight ||
             cfg->allow_mdm_helper_only_capture ||
             cfg->allow_mdm_helper_runtime_contract_capture ||
@@ -2172,6 +2229,7 @@ static int parse_args(int argc, char **argv, struct config *cfg) {
             cfg->allow_esoc_engine_register_preflight ||
             cfg->allow_esoc_req_registered_subsys_hold_preflight ||
             cfg->allow_esoc_conditional_response_preflight ||
+            cfg->allow_esoc_img_xfer_mhi_observe ||
             cfg->allow_mdm_helper_ks_contract_preflight ||
             cfg->allow_mdm_helper_only_capture ||
             cfg->allow_mdm_helper_runtime_contract_capture ||
@@ -11782,6 +11840,151 @@ static int run_esoc_conditional_response_child(int out_fd, int req_fd, int hold_
     return boot_done_sent ? 0 : (status_ready ? 36 : 37);
 }
 
+/* v238: MHI observe child — send IMG_XFER_DONE then poll for MHI device appearance.
+ * Does NOT send BOOT_DONE. Reports mhi_dev_count, gpio142_count, mhi_pipe_exists
+ * every 1s for up to hold_sec seconds after IMG_XFER_DONE. */
+static int run_esoc_img_xfer_mhi_observe_child(int out_fd, int req_fd, int hold_sec) {
+    unsigned int request_value = 0;
+    int rc;
+    int saved_errno;
+    int notify_rc;
+    bool request_observed;
+    bool img_xfer_done_sent = false;
+    long started_ms = monotonic_ms();
+    long poll_deadline_ms;
+
+    dprintf(out_fd,
+            "esoc_img_xfer_mhi_observe.begin=1\n"
+            "esoc_img_xfer_mhi_observe.mode=img-xfer-mhi-observe-no-boot-done\n"
+            "esoc_img_xfer_mhi_observe.hold_sec=%d\n"
+            "esoc_img_xfer_mhi_observe.wait_for_req.ioctl.request=0x%lx\n"
+            "esoc_img_xfer_mhi_observe.notify.ESOC_IMG_XFER_DONE.planned=1\n"
+            "esoc_img_xfer_mhi_observe.notify.ESOC_BOOT_DONE.planned=0\n"
+            "esoc_img_xfer_mhi_observe.mhi_pipe_path=/dev/mhi_0305_01.01.00_pipe_10\n"
+            "esoc_img_xfer_mhi_observe.mhi_bus_path=/sys/bus/mhi/devices\n",
+            hold_sec,
+            (unsigned long)A90_ESOC_WAIT_FOR_REQ);
+    errno = 0;
+    rc = ioctl(req_fd, A90_ESOC_WAIT_FOR_REQ, &request_value);
+    saved_errno = rc < 0 ? errno : 0;
+    request_observed = esoc_wait_for_req_observed(rc, request_value);
+    dprintf(out_fd,
+            "esoc_img_xfer_mhi_observe.wait_for_req.ioctl.rc=%d\n"
+            "esoc_img_xfer_mhi_observe.wait_for_req.ioctl.errno=%d\n"
+            "esoc_img_xfer_mhi_observe.wait_for_req.ioctl.byte_count=%d\n"
+            "esoc_img_xfer_mhi_observe.wait_for_req.ioctl.value=%u\n"
+            "esoc_img_xfer_mhi_observe.wait_for_req.ioctl.request_name=%s\n"
+            "esoc_img_xfer_mhi_observe.wait_for_req.ioctl.request_observed=%d\n"
+            "esoc_img_xfer_mhi_observe.wait_for_req.result=%s\n",
+            rc,
+            saved_errno,
+            rc,
+            request_value,
+            esoc_req_name(request_value),
+            request_observed ? 1 : 0,
+            esoc_wait_for_req_result(rc, saved_errno, request_value));
+    if (!request_observed || request_value != A90_ESOC_REQ_IMG) {
+        dprintf(out_fd,
+                "esoc_img_xfer_mhi_observe.notify.ESOC_IMG_XFER_DONE.attempted=0\n"
+                "esoc_img_xfer_mhi_observe.result=no-esoc-req-img\n"
+                "esoc_img_xfer_mhi_observe.elapsed_ms=%ld\n"
+                "esoc_img_xfer_mhi_observe.end=1\n",
+                monotonic_ms() - started_ms);
+        return 38;
+    }
+
+    notify_rc = esoc_notify_response_value(out_fd, req_fd, "ESOC_IMG_XFER_DONE", A90_ESOC_IMG_XFER_DONE);
+    img_xfer_done_sent = notify_rc == 0;
+    dprintf(out_fd,
+            "esoc_img_xfer_mhi_observe.notify.ESOC_IMG_XFER_DONE.attempted=1\n"
+            "esoc_img_xfer_mhi_observe.notify.ESOC_IMG_XFER_DONE.sent=%d\n"
+            "esoc_img_xfer_mhi_observe.notify.ESOC_IMG_XFER_DONE.rc=%d\n"
+            "esoc_img_xfer_mhi_observe.notify.ESOC_IMG_XFER_DONE.elapsed_ms=%ld\n",
+            img_xfer_done_sent ? 1 : 0,
+            notify_rc,
+            monotonic_ms() - started_ms);
+    if (!img_xfer_done_sent) {
+        dprintf(out_fd,
+                "esoc_img_xfer_mhi_observe.result=img-xfer-done-notify-failed\n"
+                "esoc_img_xfer_mhi_observe.elapsed_ms=%ld\n"
+                "esoc_img_xfer_mhi_observe.end=1\n",
+                monotonic_ms() - started_ms);
+        return notify_rc != 0 ? notify_rc : 39;
+    }
+
+    /* Poll for MHI device appearance every 1s for up to hold_sec. */
+    poll_deadline_ms = started_ms + (long)hold_sec * 1000L;
+    {
+        int poll_index = 0;
+        int mhi_found = 0;
+
+        dprintf(out_fd,
+                "esoc_img_xfer_mhi_observe.mhi_poll.begin=1\n"
+                "esoc_img_xfer_mhi_observe.mhi_poll.interval_ms=1000\n"
+                "esoc_img_xfer_mhi_observe.mhi_poll.max_sec=%d\n",
+                hold_sec);
+        while (monotonic_ms() < poll_deadline_ms) {
+            long now_ms = monotonic_ms();
+            long elapsed_since_xfer = now_ms - started_ms;
+            struct stat mhi_st;
+            int mhi_pipe_exists = (stat("/dev/mhi_0305_01.01.00_pipe_10", &mhi_st) == 0) ? 1 : 0;
+            struct mdm_status_irq_snapshot irq = collect_mdm_status_irq_snapshot();
+
+            /* Count /sys/bus/mhi/devices entries */
+            int mhi_bus_count = 0;
+            {
+                DIR *d = opendir("/sys/bus/mhi/devices");
+                if (d != NULL) {
+                    struct dirent *de;
+                    while ((de = readdir(d)) != NULL) {
+                        if (de->d_name[0] != '.') {
+                            mhi_bus_count++;
+                        }
+                    }
+                    closedir(d);
+                }
+            }
+
+            dprintf(out_fd,
+                    "esoc_img_xfer_mhi_observe.mhi_poll.%02d.elapsed_ms=%ld\n"
+                    "esoc_img_xfer_mhi_observe.mhi_poll.%02d.mhi_pipe_exists=%d\n"
+                    "esoc_img_xfer_mhi_observe.mhi_poll.%02d.mhi_bus_count=%d\n"
+                    "esoc_img_xfer_mhi_observe.mhi_poll.%02d.gpio142_count=%lu\n",
+                    poll_index, elapsed_since_xfer,
+                    poll_index, mhi_pipe_exists,
+                    poll_index, mhi_bus_count,
+                    poll_index, irq.parsed ? irq.count_total : 0UL);
+
+            if (mhi_pipe_exists || mhi_bus_count > 0) {
+                mhi_found = 1;
+                dprintf(out_fd,
+                        "esoc_img_xfer_mhi_observe.mhi_poll.mhi_appeared=1\n"
+                        "esoc_img_xfer_mhi_observe.mhi_poll.mhi_appeared_at_ms=%ld\n"
+                        "esoc_img_xfer_mhi_observe.mhi_poll.mhi_appeared_at_index=%d\n",
+                        elapsed_since_xfer, poll_index);
+                break;
+            }
+            poll_index++;
+            usleep(1000000);
+        }
+        if (!mhi_found) {
+            dprintf(out_fd, "esoc_img_xfer_mhi_observe.mhi_poll.mhi_appeared=0\n");
+        }
+        dprintf(out_fd,
+                "esoc_img_xfer_mhi_observe.mhi_poll.end=1\n"
+                "esoc_img_xfer_mhi_observe.mhi_poll.total_polls=%d\n",
+                poll_index);
+    }
+
+    dprintf(out_fd,
+            "esoc_img_xfer_mhi_observe.notify.ESOC_BOOT_DONE.attempted=0\n"
+            "esoc_img_xfer_mhi_observe.result=img-xfer-done-mhi-observe-complete\n"
+            "esoc_img_xfer_mhi_observe.elapsed_ms=%ld\n"
+            "esoc_img_xfer_mhi_observe.end=1\n",
+            monotonic_ms() - started_ms);
+    return 0;
+}
+
 static pid_t wait_for_child_session_pgid(pid_t pid, long timeout_ms);
 
 static int run_subsys_hold_open_proof(const struct config *cfg,
@@ -12108,6 +12311,7 @@ static int run_wifi_companion_esoc_req_registered_subsys_hold_preflight_guarded(
                                                                                bool *timed_out) {
     char esoc_path[MAX_PATH_LEN];
     bool conditional_response_mode = is_wifi_companion_esoc_conditional_response_preflight_mode(cfg->mode);
+    bool mhi_observe_mode = is_wifi_companion_esoc_img_xfer_mhi_observe_mode(cfg->mode);
     int req_fd = -1;
     int req_rc = -1;
     int saved_errno = 0;
@@ -12184,9 +12388,11 @@ static int run_wifi_companion_esoc_req_registered_subsys_hold_preflight_guarded(
         append_private_android_node_status(stdout_buf, paths, "subsys_modem", "subsys_modem") < 0) {
         return -1;
     }
-    if (!(conditional_response_mode
-          ? cfg->allow_esoc_conditional_response_preflight
-          : cfg->allow_esoc_req_registered_subsys_hold_preflight)) {
+    if (!(mhi_observe_mode
+          ? cfg->allow_esoc_img_xfer_mhi_observe
+          : (conditional_response_mode
+             ? cfg->allow_esoc_conditional_response_preflight
+             : cfg->allow_esoc_req_registered_subsys_hold_preflight))) {
         if (append_format(stdout_buf,
                            "esoc_req_registered_subsys_hold_preflight.allowed=0\n"
                            "esoc_req_registered_subsys_hold_preflight.open_req_attempted=0\n"
@@ -12197,9 +12403,11 @@ static int run_wifi_companion_esoc_req_registered_subsys_hold_preflight_guarded(
                            "esoc_req_registered_subsys_hold_preflight.result=blocked\n"
                            "esoc_req_registered_subsys_hold_preflight.reason=%s\n"
                            "esoc_req_registered_subsys_hold_preflight.end=1\n",
-                           conditional_response_mode
-                               ? "missing-esoc-conditional-response-preflight-allow-flag"
-                               : "missing-esoc-req-registered-subsys-hold-preflight-allow-flag") < 0) {
+                           mhi_observe_mode
+                               ? "missing-esoc-img-xfer-mhi-observe-allow-flag"
+                               : (conditional_response_mode
+                                  ? "missing-esoc-conditional-response-preflight-allow-flag"
+                                  : "missing-esoc-req-registered-subsys-hold-preflight-allow-flag")) < 0) {
             return -1;
         }
         *child_exit_code = 0;
@@ -12345,17 +12553,21 @@ static int run_wifi_companion_esoc_req_registered_subsys_hold_preflight_guarded(
                     errno,
                     strerror(errno));
         } else if (observer_pid == 0) {
-            int observer_rc = conditional_response_mode
-                ? run_esoc_conditional_response_child(stdout_pipe[1], req_fd, hold_sec)
-                : run_esoc_wait_for_req_observer_child(stdout_pipe[1], req_fd, hold_sec);
+            int observer_rc = mhi_observe_mode
+                ? run_esoc_img_xfer_mhi_observe_child(stdout_pipe[1], req_fd, hold_sec)
+                : (conditional_response_mode
+                   ? run_esoc_conditional_response_child(stdout_pipe[1], req_fd, hold_sec)
+                   : run_esoc_wait_for_req_observer_child(stdout_pipe[1], req_fd, hold_sec));
 
             _exit(observer_rc);
         } else {
             dprintf(stdout_pipe[1],
                     "esoc_req_registered_subsys_hold_preflight.wait_for_req_observer.child_started=1\n"
                     "esoc_req_registered_subsys_hold_preflight.wait_for_req_observer.conditional_response=%d\n"
+                    "esoc_req_registered_subsys_hold_preflight.wait_for_req_observer.mhi_observe=%d\n"
                     "esoc_req_registered_subsys_hold_preflight.wait_for_req_observer.pid=%ld\n",
                     conditional_response_mode ? 1 : 0,
+                    mhi_observe_mode ? 1 : 0,
                     (long)observer_pid);
         }
         esoc_fd = open_esoc_req_registered_subsys_child_node(stdout_pipe[1]);
@@ -32398,7 +32610,8 @@ int main(int argc, char **argv) {
                                                                            &child_signal,
                                                                            &timed_out);
     } else if (is_wifi_companion_esoc_req_registered_subsys_hold_preflight_mode(cfg.mode) ||
-               is_wifi_companion_esoc_conditional_response_preflight_mode(cfg.mode)) {
+               is_wifi_companion_esoc_conditional_response_preflight_mode(cfg.mode) ||
+               is_wifi_companion_esoc_img_xfer_mhi_observe_mode(cfg.mode)) {
         run_rc = run_wifi_companion_esoc_req_registered_subsys_hold_preflight_guarded(&cfg,
                                                                                       &paths,
                                                                                       &stdout_buf,

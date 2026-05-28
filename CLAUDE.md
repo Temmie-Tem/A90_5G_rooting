@@ -9,7 +9,7 @@ Samsung Galaxy A90 5G (SM-A908N) — stock Android Linux kernel 4.14.190, custom
 - **Device**: SM-A908N, Android 12, Magisk 30.7, TWRP available
 - **Current native build**: `A90 Linux init 0.9.68 (v724)` — `stage3/boot_linux_v724.img`
 - **Known-good fallback**: `stage3/boot_linux_v48.img`
-- **Active research cycle**: V904 mdm_helper runtime-input parity completed; next is V905 fail-closed runtime-input repair design before any subsystem-open retry
+- **Active research cycle**: V1198 LIVE PASS — PM service observer + subsys_esoc0 trigger; `sdx50m_toggle_soft_reset` + `esoc_dev_ioctl` captured; GPIO 142 silent; next is V1199 MHI observation after IMG_XFER_DONE + mdm_helper SELinux context probe
 - **Versioning policy**: `docs/operations/VERSIONING_POLICY.md` — `vNNN` cycle ≠ device flash
 
 ## Versioning rules
@@ -615,6 +615,24 @@ path should be closed for this blocker.
 | v900 | bounded live `mdm_helper`/`ks` contract: after v145 repair, `mdm_helper` observable, `/dev/subsys_esoc0` open child blocked, no `ks`/MHI/GPIO142 progress; cleanup reboot pass |
 | v901 | helper v145 allowlist repair/deploy: adds mdm_helper/ks mode to global v235 allowlist and deploys repaired helper |
 | v902 | helper v146 blocker capture: blocked child wchan=`mdm_subsys_powerup`, D-state stack captured, native `mdm_helper` did not hold `/dev/esoc-0`; cleanup reboot pass |
+| v903 | helper v147 mdm_helper direct capture (no subsys trigger): mdm_helper observable, no `/dev/esoc-0`/MHI fd, no `ks`, `kernel` context; clean postflight without reboot |
+| v904 | host-only Android/native parity classifier: Android runs `vendor_mdm_helper:s0` with esoc-0+ks+MHI; native stays `kernel` context; selected PM service observer as next path |
+| v905–v1179 | PM service observer framework development: vndservice gate design, per_mgr/per_proxy ordering, SELinux domain probes; multiple helper versions (v200–v220) and script iterations |
+| v1180 | live PASS: per_proxy starts within pph+247ms; per_mgr subsys_modem fd hold confirmed |
+| v1181 | host-only: per_mgr self-exit race classified; per_proxy skipped when per_mgr exits before vndservice ready |
+| v1182 | source/build: per-proxy-after-vndservice-provider mode added (helper v219) |
+| v1183 | live FAIL: vndservice gate placed after per_proxy spawn — design bug; log-only |
+| v1184 | host-only PASS: gate position + parse bug fixed |
+| v1185 | live FAIL: gate timeout after fix; per_proxy_skipped=1 — per_mgr exits before gate |
+| v1186–v1187 | host-only + live: per_mgr domain=`kernel` confirmed; grep-filter fix (helper v223) |
+| v1188–v1190 | setcurrent SELinux domain fix iterations; precompiled policy load fix (helper v224–v225) |
+| v1191 | live PASS: per_mgr domain=`u:r:vendor_per_mgr:s0` in 30ms with precompiled policy load |
+| v1192 | host-only: per_mgr PM IPC confirmed; subsys_modem fd hold observed post-per_proxy |
+| v1193 | helper v226 mdm_helper-before-cnss mode; live: subsys_esoc0 crash classified as expected reboot |
+| v1194 | helper v228: subsys_esoc0 power-on trigger + stdout flush fix; v1194 live script |
+| v1195–v1196 | live FAIL: SAMPLE_COUNT!=0 → /proc/maps serial flood → timeout before child_summary; data lost |
+| v1197 | live FAIL: `--pm-observer-trigger-pcie-enumerate` writes to PCIe RC1 → kernel panic/reboot mid-run; tail -f fix needed |
+| v1198 | live PASS: PCIe flag removed, `tail -f "$CHILD_LOG"` streaming fix (v1106 collector); 10 status entries captured; `sdx50m_toggle_soft_reset` at t=0ms; mdm_helper thread in `esoc_dev_ioctl` at t=0ms then `SyS_nanosleep`; `mdm_helper_fds=none`; GPIO 142 count=0; mdm3 OFFLINING; next is MHI observation + mdm_helper SELinux context probe |
 
 ### Safety additions (Wi-Fi research)
 
@@ -623,15 +641,24 @@ path should be closed for this blocker.
 - No `wlan.ko` load/unload without explicit approval
 - `firmware_class.path` rollback value: `/vendor/firmware_mnt/image`
 - `sda29` mount must be read-only in all proof windows
-- Current Wi-Fi gate after V902: Android proves the stock kernel/hardware can
-  bring mdm3/mss `ONLINE`, publish WLAN-PD, download BDF, and create `wlan0`,
-  and it identifies the lower actors: `mdm_helper`/`ks` hold `/dev/esoc-0`,
-  while `pm-service` holds `/dev/subsys_esoc0` and `/dev/subsys_modem`.
-  Native has now reproduced the `mdm_helper` before `/dev/subsys_esoc0`
-  ordering, but the subsystem open child still blocks in `mdm_subsys_powerup`
-  and produces no `ks`, MHI pipe, GPIO 142, WLFW/BDF, or `wlan0`. V902 also
-  proved native `mdm_helper` did not hold `/dev/esoc-0`, so next capture
-  `mdm_helper` itself before repeating the same open blindly.
+- Current Wi-Fi gate after V1198: PM service observer (`wifi-companion-pm-service-trigger-observer`,
+  helper v237, v1106 collector with `tail -f` streaming) now executes full sequence:
+  per_mgr (`u:r:vendor_per_mgr:s0`), per_proxy, pm_proxy_helper, vndservice gate,
+  mdm_helper early spawn before CNSS, subsys_esoc0 power-on trigger.
+  V1198 LIVE PASS captured 10 status entries via tail -f streaming (V1197 PCIe
+  panic fixed). Key findings: (1) subsys_esoc0 open immediately triggers
+  `sdx50m_toggle_soft_reset` (SDX50M hardware reset); (2) mdm_helper thread is
+  in `esoc_dev_ioctl` at t=0ms then `SyS_nanosleep` by t=10ms — received
+  ESOC_REQ_IMG but did not complete image response; (3) `mdm_helper_fds=none`
+  throughout — no MHI fd, no firmware fd; (4) GPIO 142 `mdm status` IRQ count
+  stays 0 across 100s; (5) mdm3 stays OFFLINING; subsys_esoc0 child blocks in
+  `mdm_subsys_powerup`. RELATED restart level triggers device reboot after hold.
+  Next V1199: two parallel information probes — (A) mdm_helper SELinux context
+  repair (`kernel→vendor_mdm_helper` + `vendor_mdm_helper→vendor_ks` policy
+  transitions via private policy loader, observe if ks spawns and opens MHI pipe);
+  (B) native ESOC_IMG_XFER_DONE + MHI device appearance poll (extend V891, observe
+  if MDM creates `/dev/mhi_*` after IMG_XFER_DONE without actual firmware).
+  Results combined before committing to one path.
   Native can materialize and clean up Android-equivalent `/dev/esoc-0`,
   `/dev/subsys_esoc0`, and `/dev/subsys_modem` nodes, and can start
   service-manager trio plus `pm-service`/`pm-proxy` under that node parity.

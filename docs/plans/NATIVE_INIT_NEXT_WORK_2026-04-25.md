@@ -25,20 +25,36 @@
 
 ## 현재 Wi-Fi Gate
 
-- 최신 기준: V1197 — helper v237 deploy + live gate (mdm_helper fd/wchan listing).
-  V1196 결과: GPIO 142 silent, mhi_dev_count=0, PCIe RC1 POLL_COMPLIANCE,
-  MDM PMIC GPIO not supported, mdm_helper thread 2 went esoc_dev_ioctl→SyS_nanosleep
-  at t<10s (ESOC_REQ_IMG received). restart_level=RELATED confirmed (no reboot).
-  v237: periodic status now includes mdm_helper fd listing (/dev/mhi*, /dev/esoc*, .mbn, .bin)
-  and thread wchans. Goal: determine if mdm_helper attempts MHI path after ESOC_REQ_IMG.
-  SHA256: a450e8274745144c23efbd57d56d51cce701391a8f919bc11be2994f4841b9df.
-  다음: deploy helper v237 → run V1197 live gate → classify mdm_helper path from fds/wchans.
+- 최신 기준: V1198 — helper v237 (reuse) + live gate, PCIe enumerate 제거 + tail -f 스트리밍.
+  V1197 root cause 분석 완료: 세 가지 레이어 문제가 중첩됨.
+  (1) V1194/V1195/V1196: SAMPLE_COUNT!=0 → serial 홍수 (pm_proxy/pm-service /proc/maps 덤프
+      매 0.25s) → 480s timeout 안에 wait "$child_pid" 미도달 → child_summary 미실행.
+  (2) V1197 attempt 3 (--thread-sample-count 0): 샘플링 없앴으나 PCIe enumerate가
+      /sys/devices/platform/soc/1c08000.qcom,pcie/debug/enumerate에 write "1\n" →
+      PCIe RC1 enumerate trigger → 커널 패닉 / full device reboot 유발.
+      wait "$child_pid" 블록 중 기기 재부팅 → TCP FIN → read_until이 A90P1 END 없이
+      EOF 반환 → parse_protocol_output RuntimeError (device output 332줄 포함) →
+      observer 파일에 traceback+device output 포함되나 child_summary 없음.
+  (3) CHILD_LOG(/cache/.../pm-mdm-esoc-power-on-output.txt)의 pm_observer_mdm_power_on
+      데이터가 재부팅 시 손실됨 — collector가 child_summary grep을 실행해야 host로 전달됨.
+  V1197 v1106 collector 구조 문제: wait "$child_pid" 완료 전에 기기가 재부팅되면
+  CHILD_LOG 내용이 host에 전달되지 않음. vndservice-gate-not-activated는 child_summary
+  미실행의 증상이지 mdm_helper 문제가 아님.
+  V1195/V1196 "RELATED confirmed no reboot" 주석은 실제 결과가 아니라 계획상 기댓값.
+  실제 V1195/V1196 live run은 모두 serial 홍수로 실패.
+  V1198 수정사항:
+  - --pm-observer-trigger-pcie-enumerate 제거 (재부팅 원인)
+  - v1106 collector에 tail -f "$CHILD_LOG" & 추가 → CHILD_LOG 내용 실시간 serial 전송
+    → 기기 재부팅 시에도 host가 pm_observer_mdm_power_on.status.* 데이터 수신 가능
+  - --thread-sample-count 0 유지
+  - helper v237 재사용 (SHA: a450e8274745144c23efbd57d56d51cce701391a8f919bc11be2994f4841b9df)
+  다음: run V1198 live gate → classify mdm_helper fd/wchan from status entries.
   Wi-Fi HAL, scan/connect, credentials, DHCP/routes, external ping 계속 블록.
-- V1196 live results (v229–v236 progressive):
-  - v229: restart_level=RELATED write (prevents device reboot on MDM SSR) — confirmed working
-  - v230–v231: 10s periodic status + fdatasync — 18 status entries captured in V1196
-  - v232–v233: mdm_helper PID tracking + thread wchans — esoc_dev_ioctl→nanosleep observed
-  - v235–v236: PCIe enumerate pre-fork — POLL_COMPLIANCE persists regardless of timing
+- V1196 live results (v229–v236 progressive, 실제 결과 아님 — serial 홍수로 미완):
+  - v229: restart_level=RELATED write — sysfs 쓰기 작동 확인 (V1196 script 주석)
+  - v230–v231: 10s periodic status + fdatasync — 설계상 포함
+  - v232–v233: mdm_helper PID tracking + thread wchans — 설계상 포함
+  - v235–v236: PCIe enumerate pre-fork — V1197에서 재부팅 유발로 판명, V1198에서 제거
   - PCIe RC1 LTSSM always reaches POLL_COMPLIANCE; "MDM PMIC GPIO is not supported" from mdm-4x
   - mhi_dev_count=0 throughout 3-minute window; GPIO 142 IRQ count=0
 - V1186 host-only 분류기 — per_mgr SELinux 도메인 및 early exit path 분류.
