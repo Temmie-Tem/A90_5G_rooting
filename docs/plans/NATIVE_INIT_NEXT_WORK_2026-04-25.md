@@ -25,17 +25,11 @@
 
 ## 현재 Wi-Fi Gate
 
-- 최신 기준: V1186 host-only 분류기 — per_mgr SELinux 도메인 및 early exit path 분류.
-  V1185 live 결과: gate_begin=True, poll_count=22, gate_timeout → per_proxy_skipped=1.
-  V1181 race condition은 차단됐으나 per_mgr이 vndservicemanager 등록 전에 exit_code=0으로
-  자발 종료 (per_mgr_vndbinder_count=-1, pm_server_register_entry=0, per_mgr_obs_at_probe=1).
-  per_mgr은 시작 직후 alive 상태였으나 ~5s gate window 내 종료.
-  `preexec_context_suppressed_reason=pm-service-trigger-observer-ptrace-lite-output-budget`
-  → per_mgr exec context 로그 없음. helper가 `kernel` 도메인에서 실행 시
-  `allow kernel vendor_per_mgr:process transition` 규칙 없으면 per_mgr도 `kernel`
-  도메인으로 실행 → pm-service 초기화(vendor socket, binder 등) 실패 가능.
-  다음: V1186 host-only — per_mgr 실행 도메인 캡처 (ptrace-lite 예산 한도 완화 또는
-  별도 SELinux 컨텍스트 확인 방법 검토). Wi-Fi HAL, scan/connect, credentials,
+- 최신 기준: V1191 live PASS — per_mgr SELinux domain fix + vndservice gate open.
+  precompiled_sepolicy (1,329,357 bytes) 로드, enforce=0, per_mgr 도메인
+  `u:r:vendor_per_mgr:s0` 확인, vndservice gate ready (poll_count=1, elapsed_ms=30ms).
+  다음: V1192 — per_proxy spawn + PM subsystem open (per_proxy 시작 및 /dev/subsys_esoc0,
+  /dev/subsys_modem fd hold 확인). Wi-Fi HAL, scan/connect, credentials,
   DHCP/routes, external ping 계속 블록.
 - V1185 live FAIL (gate timeout, new blocker) — gate 위치 수정 확인됨 (per_proxy_skipped=1).
   per_mgr이 vndbinder 없이 exit_code=0으로 종료. pm_server_register_entry=0.
