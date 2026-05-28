@@ -97,7 +97,7 @@
 #define IOPRIO_PRIO_VALUE(class_value, data) (((class_value) << IOPRIO_CLASS_SHIFT) | (data))
 #endif
 
-#define EXECNS_VERSION "a90_android_execns_probe v227"
+#define EXECNS_VERSION "a90_android_execns_probe v228"
 #define MAX_PATH_LEN 512
 #define MAX_CAPTURE_SIZE (1024 * 1024)
 #define MAX_LINKERCONFIG_SIZE (256 * 1024)
@@ -27986,12 +27986,13 @@ static int load_precompiled_policy_for_pm_observer(const struct paths *paths,
                          enforce_fd >= 0 ? 1 : 0);
 }
 
-/* v227: Open subsys_esoc0 in a child process to trigger MDM power-on.
+/* v227/v228: Open subsys_esoc0 in a child process to trigger MDM power-on.
  * mdm_helper must already hold esoc-0 (REQ_ENG registered) before calling.
  * The child blocks in mdm_subsys_powerup() until MDM hardware powers on,
- * handles ESOC_REQ_IMG, and GPIO 142 fires. Polls GPIO 142 from parent. */
+ * handles ESOC_REQ_IMG, and GPIO 142 fires. Polls GPIO 142 from parent.
+ * v228: writes directly to stdout (not stdout_buf) so output survives
+ * a device reboot triggered by the subsys_esoc0 open. */
 static void pm_observer_trigger_mdm_power_on(const struct paths *paths,
-                                              struct buffer *stdout_buf,
                                               int hold_sec) {
     char subsys_esoc0_path[MAX_PATH_LEN * 2];
     pid_t child_pid;
@@ -28004,30 +28005,31 @@ static void pm_observer_trigger_mdm_power_on(const struct paths *paths,
 
     snprintf(subsys_esoc0_path, sizeof(subsys_esoc0_path),
              "%s/dev/subsys_esoc0", paths->root);
-    append_format(stdout_buf,
-                  "pm_observer_mdm_power_on.begin=1\n"
-                  "pm_observer_mdm_power_on.path=%s\n"
-                  "pm_observer_mdm_power_on.hold_sec=%d\n",
-                  subsys_esoc0_path, hold_sec);
+    /* write directly to stdout so output survives a reboot */
+    printf("pm_observer_mdm_power_on.begin=1\n"
+           "pm_observer_mdm_power_on.path=%s\n"
+           "pm_observer_mdm_power_on.hold_sec=%d\n",
+           subsys_esoc0_path, hold_sec);
+    fflush(stdout);
     irq_before = collect_mdm_status_irq_snapshot();
-    append_format(stdout_buf,
-                  "pm_observer_mdm_power_on.gpio142_before=%lu\n"
-                  "pm_observer_mdm_power_on.gpio142_before_parsed=%d\n",
-                  irq_before.count_total, irq_before.parsed ? 1 : 0);
+    printf("pm_observer_mdm_power_on.gpio142_before=%lu\n"
+           "pm_observer_mdm_power_on.gpio142_before_parsed=%d\n",
+           irq_before.count_total, irq_before.parsed ? 1 : 0);
+    fflush(stdout);
 
     if (pipe(pipefd) < 0) {
-        append_format(stdout_buf,
-                      "pm_observer_mdm_power_on.pipe_failed=1\n"
-                      "pm_observer_mdm_power_on.end=1\n");
+        printf("pm_observer_mdm_power_on.pipe_failed=1\n"
+               "pm_observer_mdm_power_on.end=1\n");
+        fflush(stdout);
         return;
     }
     child_pid = fork();
     if (child_pid < 0) {
         close(pipefd[0]);
         close(pipefd[1]);
-        append_format(stdout_buf,
-                      "pm_observer_mdm_power_on.fork_failed=1\n"
-                      "pm_observer_mdm_power_on.end=1\n");
+        printf("pm_observer_mdm_power_on.fork_failed=1\n"
+               "pm_observer_mdm_power_on.end=1\n");
+        fflush(stdout);
         return;
     }
     if (child_pid == 0) {
@@ -28062,9 +28064,9 @@ static void pm_observer_trigger_mdm_power_on(const struct paths *paths,
             ssize_t n = read(pipefd[0], child_buf, sizeof(child_buf) - 1);
             if (n > 0) {
                 child_buf[n] = '\0';
-                append_format(stdout_buf,
-                              "pm_observer_mdm_power_on.child_status=%s\n",
-                              child_buf);
+                printf("pm_observer_mdm_power_on.child_status=%s\n",
+                       child_buf);
+                fflush(stdout);
                 open_reported = 1;
             }
         }
@@ -28074,21 +28076,21 @@ static void pm_observer_trigger_mdm_power_on(const struct paths *paths,
             if (irq_after.parsed && irq_before.parsed &&
                 irq_after.count_total != irq_before.count_total) {
                 gpio_fired = 1;
-                append_format(stdout_buf,
-                              "pm_observer_mdm_power_on.gpio142_fired=1\n"
-                              "pm_observer_mdm_power_on.gpio142_after=%lu\n"
-                              "pm_observer_mdm_power_on.gpio142_elapsed_ms=%d\n",
-                              irq_after.count_total, i * 100);
+                printf("pm_observer_mdm_power_on.gpio142_fired=1\n"
+                       "pm_observer_mdm_power_on.gpio142_after=%lu\n"
+                       "pm_observer_mdm_power_on.gpio142_elapsed_ms=%d\n",
+                       irq_after.count_total, i * 100);
+                fflush(stdout);
             }
         }
     }
 
     if (!gpio_fired) {
         irq_after = collect_mdm_status_irq_snapshot();
-        append_format(stdout_buf,
-                      "pm_observer_mdm_power_on.gpio142_fired=0\n"
-                      "pm_observer_mdm_power_on.gpio142_after=%lu\n",
-                      irq_after.count_total);
+        printf("pm_observer_mdm_power_on.gpio142_fired=0\n"
+               "pm_observer_mdm_power_on.gpio142_after=%lu\n",
+               irq_after.count_total);
+        fflush(stdout);
     }
 
     /* clean up child */
@@ -28106,9 +28108,9 @@ static void pm_observer_trigger_mdm_power_on(const struct paths *paths,
         }
     }
     close(pipefd[0]);
-    append_format(stdout_buf,
-                  "pm_observer_mdm_power_on.reboot_required=1\n"
-                  "pm_observer_mdm_power_on.end=1\n");
+    printf("pm_observer_mdm_power_on.reboot_required=1\n"
+           "pm_observer_mdm_power_on.end=1\n");
+    fflush(stdout);
 }
 
 static int run_wifi_companion_pm_service_trigger_observer_guarded(const struct config *cfg,
@@ -28571,7 +28573,15 @@ static int run_wifi_companion_pm_service_trigger_observer_guarded(const struct c
                 /* v227: if esoc0 found and flag set, open subsys_esoc0 to
                  * trigger MDM power-on (mdm_subsys_powerup → ESOC_REQ_IMG) */
                 if (cfg->pm_observer_open_subsys_esoc0_after_mdm_helper_esoc && esoc0_found) {
-                    pm_observer_trigger_mdm_power_on(paths, stdout_buf, 300);
+                    /* v228: flush stdout_buf before triggering subsys_esoc0 open.
+                     * The open may cause a device reboot; direct printf in
+                     * pm_observer_trigger_mdm_power_on survives the reboot. */
+                    if (stdout_buf->data != NULL && stdout_buf->len > 0) {
+                        fwrite(stdout_buf->data, 1, stdout_buf->len, stdout);
+                        fflush(stdout);
+                        stdout_buf->len = 0;
+                    }
+                    pm_observer_trigger_mdm_power_on(paths, 300);
                 }
             }
         }
