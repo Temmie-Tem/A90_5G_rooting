@@ -97,7 +97,7 @@
 #define IOPRIO_PRIO_VALUE(class_value, data) (((class_value) << IOPRIO_CLASS_SHIFT) | (data))
 #endif
 
-#define EXECNS_VERSION "a90_android_execns_probe v250"
+#define EXECNS_VERSION "a90_android_execns_probe v252"
 #define MAX_PATH_LEN 512
 #define MAX_CAPTURE_SIZE (1024 * 1024)
 #define MAX_LINKERCONFIG_SIZE (256 * 1024)
@@ -265,6 +265,7 @@ struct config {
     bool pm_observer_start_mdm_helper_before_cnss; /* v226 */
     bool pm_observer_mknod_esoc_dev_node_before_cnss; /* v247 */
     bool pm_observer_fake_esoc_name_sdxprairie; /* v250 */
+    bool pm_observer_fake_esoc_name_readback_only; /* v251 */
     bool pm_observer_open_subsys_esoc0_after_mdm_helper_esoc; /* v227 */
     bool pm_observer_set_mdm3_restart_level_related; /* v229 */
     bool pm_observer_trigger_pcie_enumerate; /* v235/v236 */
@@ -457,6 +458,7 @@ static void usage(FILE *out) {
             "[--pm-observer-start-per-proxy-after-mdm-helper-esoc-fd] "
             "[--pm-observer-mknod-esoc-dev-node-before-cnss] "
             "[--pm-observer-fake-esoc-name-sdxprairie] "
+            "[--pm-observer-fake-esoc-name-readback-only] "
             "[--pm-observer-load-precompiled-policy] "
             "[--qrtr-readback-matrix label:service:instance[,instance][;...]] "
             "[--connect-config /cache/a90-wifi/...] "
@@ -1300,6 +1302,10 @@ static int parse_args(int argc, char **argv, struct config *cfg) {
             cfg->pm_observer_fake_esoc_name_sdxprairie = true;
             continue;
         }
+        if (strcmp(argv[i], "--pm-observer-fake-esoc-name-readback-only") == 0) {
+            cfg->pm_observer_fake_esoc_name_readback_only = true;
+            continue;
+        }
         if (strcmp(argv[i], "--allow-android-wifi-service-window") == 0) {
             cfg->allow_android_wifi_service_window = true;
             continue;
@@ -1925,6 +1931,16 @@ static int parse_args(int argc, char **argv, struct config *cfg) {
     if (cfg->pm_observer_fake_esoc_name_sdxprairie &&
         !is_wifi_companion_pm_observer_any_mode(cfg->mode)) {
         fprintf(stderr, "--pm-observer-fake-esoc-name-sdxprairie is only valid with Wi-Fi PM observer modes\n");
+        return 2;
+    }
+    if (cfg->pm_observer_fake_esoc_name_readback_only &&
+        !is_wifi_companion_pm_observer_any_mode(cfg->mode)) {
+        fprintf(stderr, "--pm-observer-fake-esoc-name-readback-only is only valid with Wi-Fi PM observer modes\n");
+        return 2;
+    }
+    if (cfg->pm_observer_fake_esoc_name_readback_only &&
+        !cfg->pm_observer_fake_esoc_name_sdxprairie) {
+        fprintf(stderr, "--pm-observer-fake-esoc-name-readback-only requires --pm-observer-fake-esoc-name-sdxprairie\n");
         return 2;
     }
     if (cfg->allow_android_wifi_service_window &&
@@ -3128,6 +3144,7 @@ static int materialize_selinuxfs_surface(const struct config *cfg,
         !streq(cfg->mode, "service-manager-start-only") &&
         !is_rmt_storage_start_only_mode(cfg->mode) &&
         !(is_wifi_companion_pm_observer_any_mode(cfg->mode) &&
+          !cfg->pm_observer_fake_esoc_name_readback_only &&
           (cfg->allow_pm_service_trigger_observer ||
            cfg->allow_post_pm_mdm_helper_esoc_observer)) &&
         !is_wifi_companion_mdm_helper_runtime_any_mode(cfg->mode) &&
@@ -9128,6 +9145,194 @@ static int materialize_pm_service_modem_detect_surface(const struct config *cfg,
     return materialize_rmt_modem_detect_surface(paths, error_buf, error_size);
 }
 
+static void sanitize_readback_label(const char *in, char *out, size_t out_size) {
+    size_t j = 0;
+
+    if (out_size == 0) {
+        return;
+    }
+    for (size_t i = 0; in != NULL && in[i] != '\0' && j + 1 < out_size; i++) {
+        char ch = in[i];
+        if ((ch >= 'A' && ch <= 'Z') ||
+            (ch >= 'a' && ch <= 'z') ||
+            (ch >= '0' && ch <= '9') ||
+            ch == '_') {
+            out[j++] = ch;
+        } else {
+            out[j++] = '_';
+        }
+    }
+    out[j] = '\0';
+}
+
+static const char *context_mode_type(mode_t mode) {
+    if (S_ISREG(mode)) {
+        return "regular";
+    }
+    if (S_ISDIR(mode)) {
+        return "directory";
+    }
+    if (S_ISLNK(mode)) {
+        return "symlink";
+    }
+    if (S_ISCHR(mode)) {
+        return "char";
+    }
+    if (S_ISBLK(mode)) {
+        return "block";
+    }
+    return "other";
+}
+
+static void print_fake_esoc_readback_path(const struct paths *paths,
+                                          const char *label,
+                                          const char *absolute_path) {
+    char host_path[MAX_PATH_LEN];
+    char link_target[MAX_PATH_LEN];
+    char value[256];
+    struct stat st;
+    ssize_t nreadlink;
+    int saved_errno;
+
+    printf("fake_esoc_readback.%s.path=%s\n", label, absolute_path);
+    if (path_in_root(host_path, sizeof(host_path), paths, absolute_path) < 0) {
+        printf("fake_esoc_readback.%s.path_rc=-1\n", label);
+        printf("fake_esoc_readback.%s.errno=%d\n", label, errno);
+        return;
+    }
+    printf("fake_esoc_readback.%s.host_path=%s\n", label, host_path);
+    if (lstat(host_path, &st) < 0) {
+        saved_errno = errno;
+        printf("fake_esoc_readback.%s.exists=0\n", label);
+        printf("fake_esoc_readback.%s.errno=%d\n", label, saved_errno);
+        printf("fake_esoc_readback.%s.error=%s\n", label, strerror(saved_errno));
+        return;
+    }
+    printf("fake_esoc_readback.%s.exists=1\n", label);
+    printf("fake_esoc_readback.%s.type=%s\n", label, context_mode_type(st.st_mode));
+    printf("fake_esoc_readback.%s.mode=%o\n", label, st.st_mode & 07777);
+    nreadlink = readlink(host_path, link_target, sizeof(link_target) - 1);
+    if (nreadlink >= 0) {
+        link_target[nreadlink] = '\0';
+        printf("fake_esoc_readback.%s.readlink=%s\n", label, link_target);
+    }
+    if (read_small_file_trim(host_path, value, sizeof(value)) == 0) {
+        printf("fake_esoc_readback.%s.read_rc=0\n", label);
+        printf("fake_esoc_readback.%s.value=%s\n", label, value);
+    } else {
+        saved_errno = errno;
+        printf("fake_esoc_readback.%s.read_rc=-1\n", label);
+        printf("fake_esoc_readback.%s.read_errno=%d\n", label, saved_errno);
+        printf("fake_esoc_readback.%s.read_error=%s\n", label, strerror(saved_errno));
+    }
+}
+
+static void print_fake_esoc_readback_class_entry(const struct paths *paths,
+                                                 const char *entry_name,
+                                                 unsigned int index) {
+    char label[192];
+    char safe[96];
+    char absolute_path[MAX_PATH_LEN];
+
+    sanitize_readback_label(entry_name, safe, sizeof(safe));
+    printf("fake_esoc_readback.sys_class_esoc_dev.entry%u.name=%s\n", index, entry_name);
+    if (snprintf(label, sizeof(label), "sys_class_esoc_dev_entry%u_%s", index, safe) < 0) {
+        return;
+    }
+    if (snprintf(absolute_path,
+                 sizeof(absolute_path),
+                 "/sys/class/esoc-dev/%s",
+                 entry_name) < 0 ||
+        strlen(absolute_path) >= sizeof(absolute_path)) {
+        return;
+    }
+    print_fake_esoc_readback_path(paths, label, absolute_path);
+    if (snprintf(absolute_path,
+                 sizeof(absolute_path),
+                 "/sys/class/esoc-dev/%s/esoc_name",
+                 entry_name) >= 0 &&
+        strlen(absolute_path) < sizeof(absolute_path)) {
+        snprintf(label, sizeof(label), "sys_class_esoc_dev_entry%u_%s_esoc_name", index, safe);
+        print_fake_esoc_readback_path(paths, label, absolute_path);
+    }
+    if (snprintf(absolute_path,
+                 sizeof(absolute_path),
+                 "/sys/class/esoc-dev/%s/esoc_link",
+                 entry_name) >= 0 &&
+        strlen(absolute_path) < sizeof(absolute_path)) {
+        snprintf(label, sizeof(label), "sys_class_esoc_dev_entry%u_%s_esoc_link", index, safe);
+        print_fake_esoc_readback_path(paths, label, absolute_path);
+    }
+    if (snprintf(absolute_path,
+                 sizeof(absolute_path),
+                 "/sys/class/esoc-dev/%s/esoc_link_info",
+                 entry_name) >= 0 &&
+        strlen(absolute_path) < sizeof(absolute_path)) {
+        snprintf(label, sizeof(label), "sys_class_esoc_dev_entry%u_%s_esoc_link_info", index, safe);
+        print_fake_esoc_readback_path(paths, label, absolute_path);
+    }
+    if (snprintf(absolute_path,
+                 sizeof(absolute_path),
+                 "/sys/class/esoc-dev/%s/name",
+                 entry_name) >= 0 &&
+        strlen(absolute_path) < sizeof(absolute_path)) {
+        snprintf(label, sizeof(label), "sys_class_esoc_dev_entry%u_%s_name", index, safe);
+        print_fake_esoc_readback_path(paths, label, absolute_path);
+    }
+}
+
+static void print_fake_esoc_name_readbacks(const struct paths *paths) {
+    DIR *dir;
+    struct dirent *entry;
+    unsigned int count = 0;
+
+    printf("fake_esoc_readback.begin=1\n");
+    print_fake_esoc_readback_path(paths,
+                                  "platform_mdm3_esoc0_esoc_name",
+                                  "/sys/devices/platform/soc/soc:qcom,mdm3/esoc0/esoc_name");
+    print_fake_esoc_readback_path(paths,
+                                  "platform_mdm3_esoc0_esoc_link",
+                                  "/sys/devices/platform/soc/soc:qcom,mdm3/esoc0/esoc_link");
+    print_fake_esoc_readback_path(paths,
+                                  "platform_mdm3_esoc0_esoc_link_info",
+                                  "/sys/devices/platform/soc/soc:qcom,mdm3/esoc0/esoc_link_info");
+    print_fake_esoc_readback_path(paths,
+                                  "bus_esoc_devices_esoc0",
+                                  "/sys/bus/esoc/devices/esoc0");
+    print_fake_esoc_readback_path(paths,
+                                  "bus_esoc_devices_esoc0_esoc_name",
+                                  "/sys/bus/esoc/devices/esoc0/esoc_name");
+    print_fake_esoc_readback_path(paths,
+                                  "bus_esoc_devices_esoc0_esoc_link",
+                                  "/sys/bus/esoc/devices/esoc0/esoc_link");
+    print_fake_esoc_readback_path(paths,
+                                  "bus_esoc_devices_esoc0_esoc_link_info",
+                                  "/sys/bus/esoc/devices/esoc0/esoc_link_info");
+    printf("fake_esoc_readback.sys_class_esoc_dev.path=/sys/class/esoc-dev\n");
+    printf("fake_esoc_readback.sys_class_esoc_dev.host_path=%s\n", paths->sys_class_esoc_dev);
+    dir = opendir(paths->sys_class_esoc_dev);
+    if (dir == NULL) {
+        int saved_errno = errno;
+        printf("fake_esoc_readback.sys_class_esoc_dev.opendir_rc=-1\n");
+        printf("fake_esoc_readback.sys_class_esoc_dev.errno=%d\n", saved_errno);
+        printf("fake_esoc_readback.sys_class_esoc_dev.error=%s\n", strerror(saved_errno));
+    } else {
+        printf("fake_esoc_readback.sys_class_esoc_dev.opendir_rc=0\n");
+        while ((entry = readdir(dir)) != NULL) {
+            if (strcmp(entry->d_name, ".") == 0 || strcmp(entry->d_name, "..") == 0) {
+                continue;
+            }
+            if (count < 16U) {
+                print_fake_esoc_readback_class_entry(paths, entry->d_name, count);
+            }
+            count++;
+        }
+        closedir(dir);
+    }
+    printf("fake_esoc_readback.sys_class_esoc_dev.count=%u\n", count);
+    printf("fake_esoc_readback.end=1\n");
+}
+
 /* v250: bind-mount a fake esoc_name file containing "SDXPRAIRIE\n" over the
  * real /sys/devices/platform/soc/soc:qcom,mdm3/esoc0/esoc_name inside the
  * private chroot.  libmdmdetect get_soc_name("esoc0") reads this file via the
@@ -9193,6 +9398,7 @@ static int materialize_fake_esoc_name_sdxprairie(const struct config *cfg,
     printf("fake_esoc_name.target=%s\n", target);
     printf("fake_esoc_name.content=SDXPRAIRIE\n");
     printf("fake_esoc_name.bind_rc=0\n");
+    print_fake_esoc_name_readbacks(paths);
     return 0;
 }
 
@@ -33150,7 +33356,29 @@ int main(int argc, char **argv) {
     } else {
         print_preexec_context(&cfg, &paths);
     }
-    if (streq(cfg.mode, "identity-probe")) {
+    if (is_wifi_companion_pm_observer_any_mode(cfg.mode) &&
+        cfg.pm_observer_fake_esoc_name_readback_only) {
+        if (append_literal(&stdout_buf,
+                           "fake_esoc_name_readback_only.begin=1\n"
+                           "fake_esoc_name_readback_only.namespace=private\n"
+                           "fake_esoc_name_readback_only.daemon_start_executed=0\n"
+                           "fake_esoc_name_readback_only.service_manager_start_executed=0\n"
+                           "fake_esoc_name_readback_only.wifi_hal_start_executed=0\n"
+                           "fake_esoc_name_readback_only.scan_connect_linkup=0\n"
+                           "fake_esoc_name_readback_only.credentials=0\n"
+                           "fake_esoc_name_readback_only.dhcp_routing=0\n"
+                           "fake_esoc_name_readback_only.external_ping=0\n"
+                           "fake_esoc_name_readback_only.result=complete\n"
+                           "fake_esoc_name_readback_only.end=1\n") < 0) {
+            run_rc = -1;
+            child_exit_code = 20;
+        } else {
+            run_rc = 0;
+            child_exit_code = 0;
+        }
+        child_signal = 0;
+        timed_out = false;
+    } else if (streq(cfg.mode, "identity-probe")) {
         run_rc = run_identity_probe(&cfg,
                                     &paths,
                                     &stdout_buf,

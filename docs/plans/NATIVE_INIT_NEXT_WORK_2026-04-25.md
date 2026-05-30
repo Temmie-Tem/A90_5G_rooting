@@ -25,20 +25,19 @@
 
 ## 현재 Wi-Fi Gate
 
-- 최신 기준: V1216 LIVE FAIL — helper v250 fake `esoc_name=SDXPRAIRIE`
-  bind mount는 성공했지만, `cnss-daemon`은 여전히 `peripheral='modem'`만
-  등록했다.
-  V1216 결과: `fake_esoc_name.bind_rc=0`, `fake_esoc_name.content=SDXPRAIRIE`,
-  `cnss_registered_peripherals=['modem']`, `per_mgr_esoc0_any=False`,
-  `mdm_subsys_powerup_any=False`, `wlan0_up=False`.
-  `per_mgr`는 `/dev/subsys_esoc0`를 열지 않았고 MDM/WLFW/`wlan0` 전진도 없었다.
-  다음 게이트 V1217: `libmdmdetect.so`가 실제로 읽는 sysfs path를 같은
-  private chroot 안에서 readback으로 증명한다. 최소 readback 대상은
-  `/sys/devices/platform/soc/soc:qcom,mdm3/esoc0/esoc_name`,
-  `/sys/bus/esoc/devices/esoc0/esoc_name`, `/sys/class/esoc-dev/*` symlink와
-  name/link 파일이다. 정확한 read path가 `SDXPRAIRIE`를 읽는 것이 확인되기
-  전까지 PM/CNSS trigger 재시도는 보류한다.
-  Wi-Fi HAL, scan/connect, credentials, DHCP/routes, external ping 계속 블록.
+- 최신 기준: V1217 LIVE PASS — helper v252 readback-only proof가 같은
+  private chroot 안에서 fake `esoc_name=SDXPRAIRIE` bind의 실제 read path를
+  증명했다.
+  V1217 결과: direct platform path
+  `/sys/devices/platform/soc/soc:qcom,mdm3/esoc0/esoc_name=SDXPRAIRIE`,
+  bus alias `/sys/bus/esoc/devices/esoc0/esoc_name=SDXPRAIRIE`,
+  `/sys/class/esoc-dev` `opendir_rc=0`, `count=1`.
+  helper control marker 기준 daemon/service-manager/Wi-Fi HAL/scan-connect/
+  credentials/DHCP/routes/external ping은 모두 0이다.
+  다음 게이트 V1218: helper v252로 bounded PM/CNSS observer를 재실행하고
+  tracefs에서 `cnss-daemon`이 `peripheral='SDXPRAIRIE'`를 등록하는지,
+  `per_mgr`가 `/dev/subsys_esoc0`를 여는지 검증한다. Wi-Fi HAL, scan/connect,
+  credentials, DHCP/routes, external ping은 계속 블록한다.
 - V1198 배경: V1197 root cause 분석 완료: 세 가지 레이어 문제가 중첩됨.
   V1197 root cause 분석 완료: 세 가지 레이어 문제가 중첩됨.
   (1) V1194/V1195/V1196: SAMPLE_COUNT!=0 → serial 홍수 (pm_proxy/pm-service /proc/maps 덤프
