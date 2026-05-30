@@ -4979,3 +4979,16 @@ Samsung bootloader
 - next: V1205 host-only — identify what PM client triggers pm-service to open subsys_esoc0
   in Android V853 evidence. Focus on pm_client_connect call pattern for MDM3/eSoC
   peripheral vs modem peripheral. Check if cnss-daemon or mdm_helper makes this call.
+
+## V1221 Private CNSS Daemon SDX50M Live Gate (2026-05-31)
+
+- helper: `a90_android_execns_probe v253`
+- helper deploy: `tmp/wifi/v1221-execns-helper-v253-deploy/manifest.json`
+- artifact deploy: `tmp/wifi/v1221-cnss-daemon-sdx50m-artifact-deploy/manifest.json`
+- live evidence: `tmp/wifi/v1221-private-cnss-daemon-sdx50m-live/manifest.json`
+- report: `docs/reports/NATIVE_INIT_V1221_PRIVATE_CNSS_DAEMON_SDX50M_LIVE_2026-05-31.md`
+- result: `v1221-sdx50m-per-mgr-esoc0`, pass `true`.
+- finding: private `/cache/bin/cnss-daemon.sdx50m` bind-mounted over `/vendor/bin/cnss-daemon` in the helper namespace (`bind_rc=0`), CNSS registered both `modem` and `SDX50M`, and dmesg showed `pm-service` reaching `__subsystem_get(): esoc0 count:0` plus `Changing subsys fw_name to esoc0`.
+- current blocker: eSoC subsystem power-up starts but does not complete; `mdm3` remains `OFFLINING`, WLFW service 69/BDF/FW-ready/`wlan0` are still absent.
+- safety: no Wi-Fi HAL, scan/connect, credentials, DHCP/routes, external ping, boot image write, or vendor partition write. `cnss-daemon` start was intentional for this gate.
+- next: V1222 should focus on the post-`subsys_esoc0` power-up boundary: MDM down/crash markers, `mdm3` transitions, WLFW service 69, BDF, and `wlan0`. Keep Wi-Fi HAL and connect/ping gates blocked until lower readiness is proven.

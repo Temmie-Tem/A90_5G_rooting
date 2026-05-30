@@ -888,3 +888,7 @@ docs/security/scans/                       # security scan results
 ```
 
 Plans and reports are append-only historical records. Update `docs/plans/NATIVE_INIT_NEXT_WORK_2026-04-25.md` with cycle state after each completion.
+
+## Latest native Wi-Fi state: V1221 (2026-05-31)
+
+V1221 deployed helper `a90_android_execns_probe v253` and private artifact `/cache/bin/cnss-daemon.sdx50m` (`784fd7bd9b602d8e1f94c9ceef977845909f452611025c40fda589d0e57de5fd`). The bounded live gate passed as `v1221-sdx50m-per-mgr-esoc0`: private bind `rc=0`, CNSS PM registrations included `modem` and `SDX50M`, and dmesg showed `pm-service` reaching `__subsystem_get(): esoc0 count:0`. No Wi-Fi HAL, scan/connect, credentials, DHCP/routes, external ping, boot image write, or vendor partition write occurred. `mdm3` still remained `OFFLINING`; WLFW service 69/BDF/FW-ready/`wlan0` are still absent. Next gate should observe the post-`subsys_esoc0` power-up completion boundary before any Wi-Fi HAL or connect test.
