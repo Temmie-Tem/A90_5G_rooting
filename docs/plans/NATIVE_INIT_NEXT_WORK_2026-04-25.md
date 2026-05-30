@@ -25,14 +25,19 @@
 
 ## 현재 Wi-Fi Gate
 
-- 최신 기준: V1203 LIVE PASS — PCIe 링크 트레이닝 실패 직접 확인 완료.
-  V1203 결과: `pcie_link_state=absent`, `pci_dev_count=0`, `mhi_bus_count=0` 100s 내내.
-  mdm_helper: vendor_mdm_helper:s0, esoc-0 fd 보유 확인. GPIO 142 미발화.
-  ROOT CAUSE CONFIRMED: sdx50m_toggle_soft_reset 후 PCIe RC1 LTSSM이 POLL_COMPLIANCE에
-  머무르며 MDM endpoint가 없음 — PCIe PERST#/전원이 PM 프레임워크 없이 관리되지 않음.
-  다음 게이트 V1204: PM dependency_flag=1 수정 — per_proxy를 per_proxy_helper 상태 머신
-  state-0 처리 전에 연결시켜 pm-service가 esoc0를 PCIe 리소스 보팅과 함께 여는 경로.
-  V1202: host-only 분류기 (exec 커맨드 미지원으로 binary grep 실패; PCIe 관찰은 V1203에서 수행).
+- 최신 기준: V1216 LIVE FAIL — helper v250 fake `esoc_name=SDXPRAIRIE`
+  bind mount는 성공했지만, `cnss-daemon`은 여전히 `peripheral='modem'`만
+  등록했다.
+  V1216 결과: `fake_esoc_name.bind_rc=0`, `fake_esoc_name.content=SDXPRAIRIE`,
+  `cnss_registered_peripherals=['modem']`, `per_mgr_esoc0_any=False`,
+  `mdm_subsys_powerup_any=False`, `wlan0_up=False`.
+  `per_mgr`는 `/dev/subsys_esoc0`를 열지 않았고 MDM/WLFW/`wlan0` 전진도 없었다.
+  다음 게이트 V1217: `libmdmdetect.so`가 실제로 읽는 sysfs path를 같은
+  private chroot 안에서 readback으로 증명한다. 최소 readback 대상은
+  `/sys/devices/platform/soc/soc:qcom,mdm3/esoc0/esoc_name`,
+  `/sys/bus/esoc/devices/esoc0/esoc_name`, `/sys/class/esoc-dev/*` symlink와
+  name/link 파일이다. 정확한 read path가 `SDXPRAIRIE`를 읽는 것이 확인되기
+  전까지 PM/CNSS trigger 재시도는 보류한다.
   Wi-Fi HAL, scan/connect, credentials, DHCP/routes, external ping 계속 블록.
 - V1198 배경: V1197 root cause 분석 완료: 세 가지 레이어 문제가 중첩됨.
   V1197 root cause 분석 완료: 세 가지 레이어 문제가 중첩됨.
