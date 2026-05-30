@@ -97,7 +97,7 @@
 #define IOPRIO_PRIO_VALUE(class_value, data) (((class_value) << IOPRIO_CLASS_SHIFT) | (data))
 #endif
 
-#define EXECNS_VERSION "a90_android_execns_probe v254"
+#define EXECNS_VERSION "a90_android_execns_probe v255"
 #define MAX_PATH_LEN 512
 #define MAX_CAPTURE_SIZE (1024 * 1024)
 #define MAX_LINKERCONFIG_SIZE (256 * 1024)
@@ -14329,6 +14329,41 @@ static int append_proc_fd_target_match_scan(struct buffer *buf,
                          phase);
 }
 
+static int count_proc_fd_target_matches(pid_t pid, const char *needle) {
+    char dir_path[MAX_PATH_LEN];
+    DIR *dir;
+    struct dirent *entry;
+    int count = 0;
+
+    proc_path(dir_path, sizeof(dir_path), pid, "fd");
+    dir = opendir(dir_path);
+    if (dir == NULL) {
+        return -1;
+    }
+    while ((entry = readdir(dir)) != NULL) {
+        char fd_path[MAX_PATH_LEN];
+        char target[MAX_PATH_LEN];
+        ssize_t nread;
+
+        if (strcmp(entry->d_name, ".") == 0 || strcmp(entry->d_name, "..") == 0) {
+            continue;
+        }
+        if (snprintf(fd_path, sizeof(fd_path), "%s/%s", dir_path, entry->d_name) >= (int)sizeof(fd_path)) {
+            continue;
+        }
+        nread = readlink(fd_path, target, sizeof(target) - 1);
+        if (nread < 0) {
+            continue;
+        }
+        target[nread] = '\0';
+        if (strstr(target, needle) != NULL) {
+            count++;
+        }
+    }
+    closedir(dir);
+    return count;
+}
+
 struct fd_poll_summary {
     int polls;
     int seen;
@@ -27899,6 +27934,20 @@ static bool parse_proc_syscall_line(const char *line,
                   &args[5]) == 7;
 }
 
+static const char *esoc_ioctl_request_name(unsigned long long request) {
+    request &= 0xFFFFFFFFULL;
+    if (request == (unsigned long)A90_ESOC_CMD_EXE) return "ESOC_CMD_EXE";
+    if (request == (unsigned long)A90_ESOC_WAIT_FOR_REQ) return "ESOC_WAIT_FOR_REQ";
+    if (request == (unsigned long)A90_ESOC_NOTIFY) return "ESOC_NOTIFY";
+    if (request == (unsigned long)A90_ESOC_GET_STATUS) return "ESOC_GET_STATUS";
+    if (request == (unsigned long)A90_ESOC_GET_ERR_FATAL) return "ESOC_GET_ERR_FATAL";
+    if (request == (unsigned long)A90_ESOC_WAIT_FOR_CRASH) return "ESOC_WAIT_FOR_CRASH";
+    if (request == (unsigned long)A90_ESOC_REG_REQ_ENG) return "ESOC_REG_REQ_ENG";
+    if (request == (unsigned long)A90_ESOC_REG_CMD_ENG) return "ESOC_REG_CMD_ENG";
+    if (request == (unsigned long)A90_ESOC_GET_LINK_ID) return "ESOC_GET_LINK_ID";
+    return "unknown";
+}
+
 static int append_pm_service_trigger_observer_syscall_probe(struct buffer *buf,
                                                             const char *phase,
                                                             const struct composite_child *per_mgr) {
@@ -28066,6 +28115,178 @@ static int append_pm_service_trigger_observer_syscall_probe(struct buffer *buf,
                          phase,
                          path_candidate_count,
                          phase);
+}
+
+static int append_mdm_helper_early_compact_trace_sample(struct buffer *buf,
+                                                        int sample_index,
+                                                        const struct composite_child *mdm_helper) {
+    char sample[32];
+    char task_path[MAX_PATH_LEN];
+    DIR *dir;
+    struct dirent *entry;
+    bool alive = composite_child_alive_for_snapshot(mdm_helper);
+    char state = alive ? read_proc_state(mdm_helper->pid) : '-';
+    int esoc0_count = alive ? count_proc_fd_target_matches(mdm_helper->pid, "/dev/esoc-0") : -1;
+    int subsys_esoc0_count = alive ? count_proc_fd_target_matches(mdm_helper->pid, "/dev/subsys_esoc0") : -1;
+    int mhi_pipe_count = alive ? count_proc_fd_target_matches(mdm_helper->pid, "/dev/mhi_0305_01.01.00_pipe_10") : -1;
+    int thread_count = 0;
+    int shown = 0;
+    bool truncated = false;
+
+    snprintf(sample, sizeof(sample), "sample_%03d", sample_index);
+    if (append_format(buf,
+                      "post_pm_mdm_helper_early_trace.%s.begin=1\n"
+                      "post_pm_mdm_helper_early_trace.%s.monotonic_ms=%ld\n"
+                      "post_pm_mdm_helper_early_trace.%s.pid=%ld\n"
+                      "post_pm_mdm_helper_early_trace.%s.alive=%d\n"
+                      "post_pm_mdm_helper_early_trace.%s.state=%c\n"
+                      "post_pm_mdm_helper_early_trace.%s.fd_esoc0_count=%d\n"
+                      "post_pm_mdm_helper_early_trace.%s.fd_subsys_esoc0_count=%d\n"
+                      "post_pm_mdm_helper_early_trace.%s.fd_mhi_pipe_count=%d\n",
+                      sample,
+                      sample,
+                      monotonic_ms(),
+                      sample,
+                      mdm_helper != NULL ? (long)mdm_helper->pid : -1L,
+                      sample,
+                      alive ? 1 : 0,
+                      sample,
+                      state,
+                      sample,
+                      esoc0_count,
+                      sample,
+                      subsys_esoc0_count,
+                      sample,
+                      mhi_pipe_count) < 0) {
+        return -1;
+    }
+    if (!alive) {
+        return append_format(buf,
+                             "post_pm_mdm_helper_early_trace.%s.thread_count=0\n"
+                             "post_pm_mdm_helper_early_trace.%s.end=1\n",
+                             sample,
+                             sample);
+    }
+    if (snprintf(task_path, sizeof(task_path), "/proc/%ld/task", (long)mdm_helper->pid) >= (int)sizeof(task_path)) {
+        return append_format(buf,
+                             "post_pm_mdm_helper_early_trace.%s.error=task-path-too-long\n"
+                             "post_pm_mdm_helper_early_trace.%s.end=1\n",
+                             sample,
+                             sample);
+    }
+    dir = opendir(task_path);
+    if (dir == NULL) {
+        return append_format(buf,
+                             "post_pm_mdm_helper_early_trace.%s.error=%s\n"
+                             "post_pm_mdm_helper_early_trace.%s.end=1\n",
+                             sample,
+                             strerror(errno),
+                             sample);
+    }
+    while ((entry = readdir(dir)) != NULL) {
+        char syscall_path[MAX_PATH_LEN];
+        char wchan_path[MAX_PATH_LEN];
+        char comm_path[MAX_PATH_LEN];
+        char syscall_line[512];
+        char wchan[128];
+        char comm[128];
+        char prefix[192];
+        long nr = -1;
+        unsigned long long args[6] = {0};
+        pid_t tid;
+
+        if (!decimal_name(entry->d_name)) {
+            continue;
+        }
+        thread_count++;
+        if (shown >= 4) {
+            truncated = true;
+            continue;
+        }
+        tid = (pid_t)strtol(entry->d_name, NULL, 10);
+        if (snprintf(syscall_path, sizeof(syscall_path), "%s/%s/syscall", task_path, entry->d_name) >= (int)sizeof(syscall_path) ||
+            snprintf(wchan_path, sizeof(wchan_path), "%s/%s/wchan", task_path, entry->d_name) >= (int)sizeof(wchan_path) ||
+            snprintf(comm_path, sizeof(comm_path), "%s/%s/comm", task_path, entry->d_name) >= (int)sizeof(comm_path) ||
+            snprintf(prefix,
+                     sizeof(prefix),
+                     "post_pm_mdm_helper_early_trace.%s.thread_%02d",
+                     sample,
+                     shown) >= (int)sizeof(prefix)) {
+            closedir(dir);
+            return -1;
+        }
+        read_first_line_path(syscall_path, syscall_line, sizeof(syscall_line));
+        read_first_line_path(wchan_path, wchan, sizeof(wchan));
+        read_first_line_path(comm_path, comm, sizeof(comm));
+        if (append_format(buf,
+                          "%s.tid=%ld\n"
+                          "%s.comm=",
+                          prefix,
+                          (long)tid,
+                          prefix) < 0 ||
+            append_escaped_ascii(buf, (const unsigned char *)comm, strlen(comm)) < 0 ||
+            append_format(buf,
+                          "\n%s.wchan=",
+                          prefix) < 0 ||
+            append_escaped_ascii(buf, (const unsigned char *)wchan, strlen(wchan)) < 0 ||
+            append_format(buf,
+                          "\n%s.syscall.raw=",
+                          prefix) < 0 ||
+            append_escaped_ascii(buf, (const unsigned char *)syscall_line, strlen(syscall_line)) < 0 ||
+            append_literal(buf, "\n") < 0) {
+            closedir(dir);
+            return -1;
+        }
+        if (parse_proc_syscall_line(syscall_line, &nr, args)) {
+            if (append_format(buf,
+                              "%s.nr=%ld\n"
+                              "%s.name=%s\n"
+                              "%s.arg0=0x%llx\n"
+                              "%s.arg1=0x%llx\n",
+                              prefix,
+                              nr,
+                              prefix,
+                              a90_syscall_name(nr),
+                              prefix,
+                              args[0],
+                              prefix,
+                              args[1]) < 0) {
+                closedir(dir);
+                return -1;
+            }
+#ifdef SYS_ioctl
+            if (nr == SYS_ioctl &&
+                append_format(buf,
+                              "%s.ioctl_name=%s\n",
+                              prefix,
+                              esoc_ioctl_request_name(args[1])) < 0) {
+                closedir(dir);
+                return -1;
+            }
+#endif
+        } else if (append_format(buf,
+                                 "%s.nr=-1\n"
+                                 "%s.name=unparsed\n",
+                                 prefix,
+                                 prefix) < 0) {
+            closedir(dir);
+            return -1;
+        }
+        shown++;
+    }
+    closedir(dir);
+    return append_format(buf,
+                         "post_pm_mdm_helper_early_trace.%s.thread_count=%d\n"
+                         "post_pm_mdm_helper_early_trace.%s.shown=%d\n"
+                         "post_pm_mdm_helper_early_trace.%s.truncated=%d\n"
+                         "post_pm_mdm_helper_early_trace.%s.end=1\n",
+                         sample,
+                         thread_count,
+                         sample,
+                         shown,
+                         sample,
+                         truncated ? 1 : 0,
+                         sample);
 }
 
 static int append_post_pm_mdm_helper_thread_probe(struct buffer *buf,
@@ -29645,7 +29866,27 @@ static int run_wifi_companion_pm_service_trigger_observer_guarded(const struct c
                 char esoc0_target[MAX_PATH_LEN];
                 int esoc0_poll_count = 0;
                 int esoc0_found = 0;
+                int early_trace_samples = 0;
+                bool early_trace_truncated = false;
                 const int poll_max = 60;
+                const int early_trace_max_samples = 80;
+
+                if (post_pm_mdm_helper_lower_trace &&
+                    append_literal(stdout_buf,
+                                   "post_pm_mdm_helper_early_trace.begin=1\n"
+                                   "post_pm_mdm_helper_early_trace.mode=read-only-proc-fd-syscall\n"
+                                   "post_pm_mdm_helper_early_trace.sample_interval_ms=50\n"
+                                   "post_pm_mdm_helper_early_trace.max_samples=80\n"
+                                   "post_pm_mdm_helper_early_trace.subsys_esoc0_open_attempted=0\n"
+                                   "post_pm_mdm_helper_early_trace.wifi_hal_start_executed=0\n"
+                                   "post_pm_mdm_helper_early_trace.scan_connect_linkup=0\n"
+                                   "post_pm_mdm_helper_early_trace.credentials=0\n"
+                                   "post_pm_mdm_helper_early_trace.dhcp_routing=0\n"
+                                   "post_pm_mdm_helper_early_trace.external_ping=0\n") < 0) {
+                    composite_cleanup_children(children, active_child_count, stdout_buf, stderr_buf);
+                    stop_property_service_shim(&property_shim, paths, stdout_buf);
+                    return -1;
+                }
 
                 if (snprintf(esoc0_target, sizeof(esoc0_target),
                              "%s/dev/esoc-0", paths->root) >= (int)sizeof(esoc0_target)) {
@@ -29656,7 +29897,23 @@ static int run_wifi_companion_pm_service_trigger_observer_guarded(const struct c
                     DIR *dp;
                     struct dirent *ent;
 
-                    usleep(500000);
+                    for (int sub_sample = 0; sub_sample < 10; sub_sample++) {
+                        usleep(50000);
+                        if (post_pm_mdm_helper_lower_trace) {
+                            if (early_trace_samples < early_trace_max_samples) {
+                                if (append_mdm_helper_early_compact_trace_sample(stdout_buf,
+                                                                                 early_trace_samples,
+                                                                                 mdm_helper) < 0) {
+                                    composite_cleanup_children(children, active_child_count, stdout_buf, stderr_buf);
+                                    stop_property_service_shim(&property_shim, paths, stdout_buf);
+                                    return -1;
+                                }
+                                early_trace_samples++;
+                            } else {
+                                early_trace_truncated = true;
+                            }
+                        }
+                    }
                     esoc0_poll_count++;
                     if (mdm_helper->child_done || mdm_helper->pid <= 0) {
                         break;
@@ -29682,6 +29939,19 @@ static int run_wifi_companion_pm_service_trigger_observer_guarded(const struct c
                         }
                     }
                     closedir(dp);
+                }
+                if (post_pm_mdm_helper_lower_trace &&
+                    append_format(stdout_buf,
+                                  "post_pm_mdm_helper_early_trace.sample_count=%d\n"
+                                  "post_pm_mdm_helper_early_trace.truncated=%d\n"
+                                  "post_pm_mdm_helper_early_trace.esoc0_found=%d\n"
+                                  "post_pm_mdm_helper_early_trace.end=1\n",
+                                  early_trace_samples,
+                                  early_trace_truncated ? 1 : 0,
+                                  esoc0_found) < 0) {
+                    composite_cleanup_children(children, active_child_count, stdout_buf, stderr_buf);
+                    stop_property_service_shim(&property_shim, paths, stdout_buf);
+                    return -1;
                 }
                 if (append_format(stdout_buf,
                                   "pm_service_trigger_observer.child.mdm_helper_early.esoc0_poll_count=%d\n"
