@@ -287,9 +287,11 @@
   selftest도 통과했다. V1316은 같은 late `per_proxy` PM-service path 주변에 bounded
   tracefs lower-event collector를 붙여 PASS했다. `pm-service`는 `/dev/subsys_esoc0` /
   `mdm_subsys_powerup`에 도달했고, tracefs lower events는 total `81174`, critical
-  `3936`, noise `77238`을 기록했다. 다음 V1317은 captured trace lines를 event
-  content/device/timing 기준으로 분류해 SDX50M-relevant activity와 background noise를
-  나눈다.
+  `3936`, noise `77238`을 기록했다. V1317은 captured trace lines를 host-only로 분류해
+  PASS했다. 저장된 `260` lines 중 critical sample은 `10`개였고 SDX50M/PCIe/MHI/WLAN/CNSS
+  target keyword나 target GPIO `135`/`142`/`1270`은 없었다. Broad IRQ/clock noise가
+  line budget을 대부분 소비했으므로 다음 V1318은 IRQ/clock을 제외한 critical-only
+  collector로 더 많은 regulator/gpio/power/PIL line을 보존한다.
   GPIO line request, PMIC GPIO9 hold, PMIC write, direct eSoC ioctl, new
   PM/CNSS/HAL start, scan/connect, credentials, DHCP/routes, external ping, flash,
   boot image write, partition write는 별도 gate 전까지 계속 블록한다.
