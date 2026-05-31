@@ -434,10 +434,13 @@ ADB 방식이 막혀 USB CDC ACM serial (ttyGS0)로 전환. v79까지 반복 안
 연구 사이클만 진행). 상세는 `CLAUDE.md`와
 `docs/plans/NATIVE_INIT_NEXT_WORK_2026-04-25.md`를 기준으로 한다.
 
-1. **V1264** — read-only ext-mdm/AP2MDM contract observer plan
+1. **V1265** — source/build-only helper `a90_android_execns_probe v264`
+   (late `per_proxy` / PM-service response sampler에 read-only PMIC GPIO9
+   `GPIO_GET_LINEINFO_IOCTL` snapshots 추가; no userspace GPIO line request/hold)
+2. **V1266** — bounded live ext-mdm/AP2MDM observer
    (kernel-owned `AP2MDM_SOFT_RESET` line state + GPIO142 IRQ + PCIe RC1/MHI +
-   `mdm_subsys_powerup` timing; no userspace GPIO line request/hold)
-2. **SDX50M eSoC power-up gate** — `pm-service`가 `/dev/subsys_esoc0`를 열어
+   `mdm_subsys_powerup` timing을 같은 `/dev/subsys_esoc0` window에서 확인)
+3. **SDX50M eSoC power-up gate** — `pm-service`가 `/dev/subsys_esoc0`를 열어
    `mdm_subsys_powerup`까지 진입하지만 MDM3가 `OFFLINING`에 머무는 원인(위 PMIC 전원
    레일 / GPIO142 / PCIe RC1) 규명
 

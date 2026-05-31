@@ -89,12 +89,17 @@
   `0x1`, `GPIOLINE_FLAG_KERNEL=1`, consumer `AP2MDM_SOFT_RESET`를 확인했다. 따라서
   direct userspace PMIC GPIO9 line request/hold는 다음 안전 경로가 아니다. V1263은
   V1262/V1239/V1242/V1243 증거를 host-only로 분류해 direct userspace PMIC GPIO9
-  line request/hold를 reject했다. 다음 V1264는 read-only ext-mdm/AP2MDM contract
-  observer 계획이 우선이다. 관찰 대상은 kernel-owned line state, GPIO142 IRQ count,
-  PCIe RC1/MHI surface, `mdm_subsys_powerup` timing이며, GPIO line request,
-  PMIC GPIO9 hold, PMIC write, PM/CNSS/HAL start, scan/connect, credentials,
-  DHCP/routes, external ping, flash, boot image write, partition write는 별도 gate
-  전까지 계속 블록한다.
+  line request/hold를 reject했다. V1264는 host-only로 read-only ext-mdm/AP2MDM
+  observer contract를 고정했다. 현재 helper gap은 V1243 sampler가 PMIC soft-reset
+  pinctrl text는 보지만, 같은 PM-service `/dev/subsys_esoc0` response window에서
+  gpiochip line-info flags/name/consumer를 보지 않는 점이다. 다음 V1265는
+  source/build-only helper `a90_android_execns_probe v264`로 late `per_proxy`
+  response sampler에 read-only PMIC GPIO9 `GPIO_GET_LINEINFO_IOCTL` snapshots를
+  before/during/after phase에 추가한다. 관찰 대상은 kernel-owned line state, GPIO142
+  IRQ count, PCIe RC1/MHI surface, `mdm_subsys_powerup` timing이며, GPIO line
+  request, PMIC GPIO9 hold, PMIC write, direct eSoC ioctl, new PM/CNSS/HAL start,
+  scan/connect, credentials, DHCP/routes, external ping, flash, boot image write,
+  partition write는 별도 gate 전까지 계속 블록한다.
 - V1198 배경: V1197 root cause 분석 완료: 세 가지 레이어 문제가 중첩됨.
   V1197 root cause 분석 완료: 세 가지 레이어 문제가 중첩됨.
   (1) V1194/V1195/V1196: SAMPLE_COUNT!=0 → serial 홍수 (pm_proxy/pm-service /proc/maps 덤프
