@@ -430,6 +430,10 @@ def _sample_rows(manifest: dict[str, Any]) -> list[list[Any]]:
         ["pmic_soft_reset_seen", sampler.get("pmic_soft_reset_seen")],
         ["pcie1_gdsc_seen", sampler.get("pcie1_gdsc_seen")],
         ["pcie0_gdsc_seen", sampler.get("pcie0_gdsc_seen")],
+        ["gpiochip_lineinfo_seen", sampler.get("gpiochip_lineinfo_seen")],
+        ["gpiochip_lineinfo_kernel_owned_seen", sampler.get("gpiochip_lineinfo_kernel_owned_seen")],
+        ["gpiochip_lineinfo_ap2mdm_consumer_seen", sampler.get("gpiochip_lineinfo_ap2mdm_consumer_seen")],
+        ["gpiochip_lineinfo_zero_action_ok", sampler.get("gpiochip_lineinfo_zero_action_ok")],
     ]
 
 
@@ -506,6 +510,10 @@ def _print_result(manifest: dict[str, Any]) -> None:
     print(f"mhi_pipe_seen:            {sampler.get('mhi_pipe_seen')}")
     print(f"wlan0_seen:               {sampler.get('wlan0_seen')}")
     print(f"debugfs_pinctrl_seen:     {sampler.get('debugfs_pinctrl_seen')}")
+    print(f"gpiochip_lineinfo_seen:   {sampler.get('gpiochip_lineinfo_seen')}")
+    print(f"lineinfo_kernel_owned:    {sampler.get('gpiochip_lineinfo_kernel_owned_seen')}")
+    print(f"lineinfo_ap2mdm_consumer: {sampler.get('gpiochip_lineinfo_ap2mdm_consumer_seen')}")
+    print(f"lineinfo_zero_action_ok:  {sampler.get('gpiochip_lineinfo_zero_action_ok')}")
     print(f"pm_service_esoc0_attempt: {pm.get('pm_service_actor_esoc0_attempt')}")
     print(f"late_per_proxy_started:   {pm.get('late_per_proxy_started')}")
     print(f"debugfs_mounted_during:   {debugfs.get('mounted_during')}")
