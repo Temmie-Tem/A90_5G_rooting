@@ -101,7 +101,7 @@
 #define SYSLOG_ACTION_READ_ALL 3
 #endif
 
-#define EXECNS_VERSION "a90_android_execns_probe v269"
+#define EXECNS_VERSION "a90_android_execns_probe v270"
 #define MAX_PATH_LEN 512
 #define MAX_CAPTURE_SIZE (1024 * 1024)
 #define MAX_LINKERCONFIG_SIZE (256 * 1024)
@@ -12448,6 +12448,29 @@ static bool read_debugfs_gpio_block(const char *needle_a,
                                            source_size);
 }
 
+static bool read_debugfs_gpio_number_line(int gpio,
+                                          char *out,
+                                          size_t out_size,
+                                          char *source,
+                                          size_t source_size) {
+    char needle[32];
+
+    snprintf(needle, sizeof(needle), "gpio%d", gpio);
+    return read_debugfs_gpio_line(needle, NULL, NULL, out, out_size, source, source_size);
+}
+
+static bool read_debugfs_gpio_number_block(int gpio,
+                                           int after_lines,
+                                           char *out,
+                                           size_t out_size,
+                                           char *source,
+                                           size_t source_size) {
+    char needle[32];
+
+    snprintf(needle, sizeof(needle), "gpio%d", gpio);
+    return read_debugfs_gpio_block(needle, NULL, NULL, after_lines, out, out_size, source, source_size);
+}
+
 static bool parse_debugfs_gpio_range_header(const char *line, int *start_out, int *end_out) {
     int start;
     int end;
@@ -12814,6 +12837,14 @@ static int append_pm_esoc_response_sample(struct buffer *buf, const char *phase)
     char tlmm_gpio135_debugfs_range_block_source[MAX_PATH_LEN];
     char tlmm_gpio142_debugfs_range_block[1536];
     char tlmm_gpio142_debugfs_range_block_source[MAX_PATH_LEN];
+    char tlmm_gpio135_debugfs_target_line[512];
+    char tlmm_gpio135_debugfs_target_line_source[MAX_PATH_LEN];
+    char tlmm_gpio142_debugfs_target_line[512];
+    char tlmm_gpio142_debugfs_target_line_source[MAX_PATH_LEN];
+    char tlmm_gpio135_debugfs_target_block[1024];
+    char tlmm_gpio135_debugfs_target_block_source[MAX_PATH_LEN];
+    char tlmm_gpio142_debugfs_target_block[1024];
+    char tlmm_gpio142_debugfs_target_block_source[MAX_PATH_LEN];
     char pmic9_pinconf_line[512];
     char pmic9_pinconf_source[MAX_PATH_LEN];
     char pin135_pinconf_line[512];
@@ -12848,6 +12879,10 @@ static int append_pm_esoc_response_sample(struct buffer *buf, const char *phase)
     bool tlmm_gpio142_debugfs_block_seen;
     bool tlmm_gpio135_debugfs_range_block_seen;
     bool tlmm_gpio142_debugfs_range_block_seen;
+    bool tlmm_gpio135_debugfs_target_line_seen;
+    bool tlmm_gpio142_debugfs_target_line_seen;
+    bool tlmm_gpio135_debugfs_target_block_seen;
+    bool tlmm_gpio142_debugfs_target_block_seen;
     bool pmic9_pinconf_seen;
     bool pin135_pinconf_seen;
     bool pin142_pinconf_seen;
@@ -12977,6 +13012,32 @@ static int append_pm_esoc_response_sample(struct buffer *buf, const char *phase)
                                                sizeof(tlmm_gpio142_debugfs_range_block_source),
                                                &tlmm_gpio142_debugfs_range_start,
                                                &tlmm_gpio142_debugfs_range_end);
+    tlmm_gpio135_debugfs_target_line_seen =
+        read_debugfs_gpio_number_line(135,
+                                      tlmm_gpio135_debugfs_target_line,
+                                      sizeof(tlmm_gpio135_debugfs_target_line),
+                                      tlmm_gpio135_debugfs_target_line_source,
+                                      sizeof(tlmm_gpio135_debugfs_target_line_source));
+    tlmm_gpio142_debugfs_target_line_seen =
+        read_debugfs_gpio_number_line(142,
+                                      tlmm_gpio142_debugfs_target_line,
+                                      sizeof(tlmm_gpio142_debugfs_target_line),
+                                      tlmm_gpio142_debugfs_target_line_source,
+                                      sizeof(tlmm_gpio142_debugfs_target_line_source));
+    tlmm_gpio135_debugfs_target_block_seen =
+        read_debugfs_gpio_number_block(135,
+                                       4,
+                                       tlmm_gpio135_debugfs_target_block,
+                                       sizeof(tlmm_gpio135_debugfs_target_block),
+                                       tlmm_gpio135_debugfs_target_block_source,
+                                       sizeof(tlmm_gpio135_debugfs_target_block_source));
+    tlmm_gpio142_debugfs_target_block_seen =
+        read_debugfs_gpio_number_block(142,
+                                       4,
+                                       tlmm_gpio142_debugfs_target_block,
+                                       sizeof(tlmm_gpio142_debugfs_target_block),
+                                       tlmm_gpio142_debugfs_target_block_source,
+                                       sizeof(tlmm_gpio142_debugfs_target_block_source));
     pmic9_pinconf_seen = read_pmic_pinconf_line(pmic9_pinconf_line,
                                                 sizeof(pmic9_pinconf_line),
                                                 pmic9_pinconf_source,
@@ -13041,6 +13102,14 @@ static int append_pm_esoc_response_sample(struct buffer *buf, const char *phase)
     if (!tlmm_gpio135_debugfs_range_block_seen) tlmm_gpio135_debugfs_range_block_source[0] = '\0';
     if (!tlmm_gpio142_debugfs_range_block_seen) tlmm_gpio142_debugfs_range_block[0] = '\0';
     if (!tlmm_gpio142_debugfs_range_block_seen) tlmm_gpio142_debugfs_range_block_source[0] = '\0';
+    if (!tlmm_gpio135_debugfs_target_line_seen) tlmm_gpio135_debugfs_target_line[0] = '\0';
+    if (!tlmm_gpio135_debugfs_target_line_seen) tlmm_gpio135_debugfs_target_line_source[0] = '\0';
+    if (!tlmm_gpio142_debugfs_target_line_seen) tlmm_gpio142_debugfs_target_line[0] = '\0';
+    if (!tlmm_gpio142_debugfs_target_line_seen) tlmm_gpio142_debugfs_target_line_source[0] = '\0';
+    if (!tlmm_gpio135_debugfs_target_block_seen) tlmm_gpio135_debugfs_target_block[0] = '\0';
+    if (!tlmm_gpio135_debugfs_target_block_seen) tlmm_gpio135_debugfs_target_block_source[0] = '\0';
+    if (!tlmm_gpio142_debugfs_target_block_seen) tlmm_gpio142_debugfs_target_block[0] = '\0';
+    if (!tlmm_gpio142_debugfs_target_block_seen) tlmm_gpio142_debugfs_target_block_source[0] = '\0';
     if (!pmic9_pinconf_seen) pmic9_pinconf_line[0] = '\0';
     if (!pmic9_pinconf_seen) pmic9_pinconf_source[0] = '\0';
     if (!pin135_pinconf_seen) pin135_pinconf_line[0] = '\0';
@@ -13255,6 +13324,18 @@ static int append_pm_esoc_response_sample(struct buffer *buf, const char *phase)
     }
     return append_format(buf,
                          "pm_service_trigger_observer.response_sample.%s.gpiochip_lineinfo_attempted=%d\n"
+                         "pm_service_trigger_observer.response_sample.%s.tlmm_gpio135_debugfs_target_line_seen=%d\n"
+                         "pm_service_trigger_observer.response_sample.%s.tlmm_gpio135_debugfs_target_line_source=%s\n"
+                         "pm_service_trigger_observer.response_sample.%s.tlmm_gpio135_debugfs_target_line=%s\n"
+                         "pm_service_trigger_observer.response_sample.%s.tlmm_gpio142_debugfs_target_line_seen=%d\n"
+                         "pm_service_trigger_observer.response_sample.%s.tlmm_gpio142_debugfs_target_line_source=%s\n"
+                         "pm_service_trigger_observer.response_sample.%s.tlmm_gpio142_debugfs_target_line=%s\n"
+                         "pm_service_trigger_observer.response_sample.%s.tlmm_gpio135_debugfs_target_block_seen=%d\n"
+                         "pm_service_trigger_observer.response_sample.%s.tlmm_gpio135_debugfs_target_block_source=%s\n"
+                         "pm_service_trigger_observer.response_sample.%s.tlmm_gpio135_debugfs_target_block=%s\n"
+                         "pm_service_trigger_observer.response_sample.%s.tlmm_gpio142_debugfs_target_block_seen=%d\n"
+                         "pm_service_trigger_observer.response_sample.%s.tlmm_gpio142_debugfs_target_block_source=%s\n"
+                         "pm_service_trigger_observer.response_sample.%s.tlmm_gpio142_debugfs_target_block=%s\n"
                          "pm_service_trigger_observer.response_sample.%s.gpiochip_lineinfo_expected_dev=%d\n"
                          "pm_service_trigger_observer.response_sample.%s.gpiochip_lineinfo_expected_label=%d\n"
                          "pm_service_trigger_observer.response_sample.%s.gpiochip_lineinfo_expected_base=%d\n"
@@ -13274,6 +13355,18 @@ static int append_pm_esoc_response_sample(struct buffer *buf, const char *phase)
                          "pm_service_trigger_observer.response_sample.%s.esoc_ioctl_executed=0\n"
                          "pm_service_trigger_observer.response_sample.%s.end=1\n",
                          phase, gpiochip_line.lineinfo_executed ? 1 : 0,
+                         phase, tlmm_gpio135_debugfs_target_line_seen ? 1 : 0,
+                         phase, tlmm_gpio135_debugfs_target_line_source,
+                         phase, tlmm_gpio135_debugfs_target_line,
+                         phase, tlmm_gpio142_debugfs_target_line_seen ? 1 : 0,
+                         phase, tlmm_gpio142_debugfs_target_line_source,
+                         phase, tlmm_gpio142_debugfs_target_line,
+                         phase, tlmm_gpio135_debugfs_target_block_seen ? 1 : 0,
+                         phase, tlmm_gpio135_debugfs_target_block_source,
+                         phase, tlmm_gpio135_debugfs_target_block,
+                         phase, tlmm_gpio142_debugfs_target_block_seen ? 1 : 0,
+                         phase, tlmm_gpio142_debugfs_target_block_source,
+                         phase, tlmm_gpio142_debugfs_target_block,
                          phase, gpiochip_line.expected_dev ? 1 : 0,
                          phase, gpiochip_line.expected_label ? 1 : 0,
                          phase, gpiochip_line.expected_base ? 1 : 0,

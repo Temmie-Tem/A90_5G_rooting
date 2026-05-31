@@ -178,7 +178,9 @@
   native gpio9은 Android의 `out/high` PMIC shape와 이미 일치하지만 PCIe GDSC는 `0mV`,
   GPIO142/PCIe/MHI/WLFW/SDX50M response는 absent다. 다음 V1288은 source/build-only로
   untruncated GPIO135/GPIO142, PMIC9, PCIe GDSC delta를 기록하는 no-write observer를
-  추가한다.
+  추가한다. V1288은 helper v270 static aarch64 build를 통과했고, sha256은
+  `f1748fdc9c64a748c3270cd02a2b9bb796065b79632849e7384c2f37910f6e88`다. 다음 gate는
+  V1289 deploy-only, 이후 V1290 bounded no-write TLMM/PCIe response sampler다.
   GPIO line request, PMIC GPIO9 hold, PMIC write, direct eSoC ioctl, new
   PM/CNSS/HAL start, scan/connect, credentials, DHCP/routes, external ping, flash,
   boot image write, partition write는 별도 gate 전까지 계속 블록한다.
