@@ -25,19 +25,18 @@
 
 ## 현재 Wi-Fi Gate
 
-- 최신 기준: V1232 LIVE PASS — helper `a90_android_execns_probe v256`의
-  `post_wait_req.*` observer가 direct subsystem-trigger path에서
-  `mdm_helper`의 `ESOC_WAIT_FOR_REQ` 이탈을 잡았다. 결과는
-  `v1232-wait-req-returned-no-ks-mhi`: sample `4`에서 wait thread count가
-  `1 → 0`으로 변했고, 이후 `80`개 post-transition samples 동안
-  `/vendor/bin/ks`, `/dev/mhi_0305_01.01.00_pipe_10`, MHI fd는 모두 `0`이었다.
-  따라서 blocker는 더 이상 "WAIT_FOR_REQ가 반환되는가"가 아니라
-  "반환 직후 `mdm_helper`가 어떤 branch를 타며 왜 Android의 `ks` image-link
-  경로를 실행하지 않는가"다. 다음 게이트 V1233은 source/build-only로
-  transition 주변 thread/fd/syscall snapshot을 더 촘촘히 추가한다.
-  Wi-Fi HAL, scan/connect, credentials, DHCP/routes, external ping,
-  `ESOC_NOTIFY`, `ESOC_BOOT_DONE`, boot image write, partition write는 계속
-  블록한다.
+- 최신 기준: V1233 SOURCE/BUILD PASS — helper `a90_android_execns_probe v257`
+  (`66c3bc5a9cc0daa9a9a04fe7b98ebe2d7aa974798ed131adf82e5b314b2753e5`)
+  가 V1232의 `ESOC_WAIT_FOR_REQ` 이탈 지점을 더 촘촘히 보기 위한
+  `post_wait_branch.*` non-ptrace snapshot을 추가했다. V1232는 sample `4`에서
+  wait thread count가 `1 → 0`으로 변하고 이후 `80`개 post-transition samples
+  동안 `/vendor/bin/ks`, `/dev/mhi_0305_01.01.00_pipe_10`, MHI fd가 모두 `0`임을
+  확인했다. V1233은 반환 직후 thread `wchan`, `/proc/<tid>/syscall`, selected
+  syscall names/args/path strings, `/dev/esoc-0`/MHI fd counts, 20-sample 10ms
+  transition burst를 수집하는 관측성을 준비했다. 다음 게이트 V1234는 deploy-only,
+  V1235는 bounded live branch snapshot이다. Wi-Fi HAL, scan/connect,
+  credentials, DHCP/routes, external ping, `ESOC_NOTIFY`, `ESOC_BOOT_DONE`,
+  boot image write, partition write는 계속 블록한다.
 - V1198 배경: V1197 root cause 분석 완료: 세 가지 레이어 문제가 중첩됨.
   V1197 root cause 분석 완료: 세 가지 레이어 문제가 중첩됨.
   (1) V1194/V1195/V1196: SAMPLE_COUNT!=0 → serial 홍수 (pm_proxy/pm-service /proc/maps 덤프

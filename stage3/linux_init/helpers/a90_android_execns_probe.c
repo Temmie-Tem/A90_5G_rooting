@@ -97,7 +97,7 @@
 #define IOPRIO_PRIO_VALUE(class_value, data) (((class_value) << IOPRIO_CLASS_SHIFT) | (data))
 #endif
 
-#define EXECNS_VERSION "a90_android_execns_probe v256"
+#define EXECNS_VERSION "a90_android_execns_probe v257"
 #define MAX_PATH_LEN 512
 #define MAX_CAPTURE_SIZE (1024 * 1024)
 #define MAX_LINKERCONFIG_SIZE (256 * 1024)
@@ -251,6 +251,7 @@ struct config {
     bool allow_post_pm_mdm_helper_lower_trace;
     bool pm_observer_mdm_helper_only_syscall_trace; /* v254 */
     bool pm_observer_mdm_helper_post_wait_req_ks_observer; /* v256 */
+    bool pm_observer_mdm_helper_post_wait_req_branch_snapshot; /* v257 */
     bool allow_android_wifi_service_window;
     bool allow_android_wifi_service_window_subsys_trigger_capture;
     bool require_android_selinux_exec_match;
@@ -447,6 +448,7 @@ static void usage(FILE *out) {
             "[--allow-post-pm-mdm-helper-lower-trace] "
             "[--pm-observer-mdm-helper-only-syscall-trace] "
             "[--pm-observer-mdm-helper-post-wait-req-ks-observer] "
+            "[--pm-observer-mdm-helper-post-wait-req-branch-snapshot] "
             "[--allow-android-wifi-service-window] "
             "[--allow-android-wifi-service-window-subsys-trigger-capture] "
             "[--pm-observer-continue-after-provider] "
@@ -1231,6 +1233,10 @@ static int parse_args(int argc, char **argv, struct config *cfg) {
             cfg->pm_observer_mdm_helper_post_wait_req_ks_observer = true;
             continue;
         }
+        if (strcmp(argv[i], "--pm-observer-mdm-helper-post-wait-req-branch-snapshot") == 0) {
+            cfg->pm_observer_mdm_helper_post_wait_req_branch_snapshot = true;
+            continue;
+        }
         if (strcmp(argv[i], "--pm-observer-continue-after-provider") == 0) {
             cfg->pm_observer_continue_after_provider = true;
             continue;
@@ -1811,6 +1817,11 @@ static int parse_args(int argc, char **argv, struct config *cfg) {
     if (cfg->pm_observer_mdm_helper_post_wait_req_ks_observer &&
         !cfg->allow_post_pm_mdm_helper_lower_trace) {
         fprintf(stderr, "--pm-observer-mdm-helper-post-wait-req-ks-observer requires --allow-post-pm-mdm-helper-lower-trace\n");
+        return 2;
+    }
+    if (cfg->pm_observer_mdm_helper_post_wait_req_branch_snapshot &&
+        !cfg->pm_observer_mdm_helper_post_wait_req_ks_observer) {
+        fprintf(stderr, "--pm-observer-mdm-helper-post-wait-req-branch-snapshot requires --pm-observer-mdm-helper-post-wait-req-ks-observer\n");
         return 2;
     }
     if (cfg->pm_observer_continue_after_provider &&
@@ -17287,6 +17298,50 @@ static const char *a90_syscall_name(long nr) {
     case SYS_ioctl:
         return "ioctl";
 #endif
+#ifdef SYS_read
+    case SYS_read:
+        return "read";
+#endif
+#ifdef SYS_write
+    case SYS_write:
+        return "write";
+#endif
+#ifdef SYS_close
+    case SYS_close:
+        return "close";
+#endif
+#ifdef SYS_execve
+    case SYS_execve:
+        return "execve";
+#endif
+#ifdef SYS_execveat
+    case SYS_execveat:
+        return "execveat";
+#endif
+#ifdef SYS_clone
+    case SYS_clone:
+        return "clone";
+#endif
+#ifdef SYS_futex
+    case SYS_futex:
+        return "futex";
+#endif
+#ifdef SYS_ppoll
+    case SYS_ppoll:
+        return "ppoll";
+#endif
+#ifdef SYS_clock_nanosleep
+    case SYS_clock_nanosleep:
+        return "clock_nanosleep";
+#endif
+#ifdef SYS_nanosleep
+    case SYS_nanosleep:
+        return "nanosleep";
+#endif
+#ifdef SYS_wait4
+    case SYS_wait4:
+        return "wait4";
+#endif
 #ifdef SYS_exit
     case SYS_exit:
         return "exit";
@@ -17342,6 +17397,50 @@ static bool a90_syscall_trace_selected(long nr) {
     case SYS_ioctl:
         return true;
 #endif
+#ifdef SYS_read
+    case SYS_read:
+        return true;
+#endif
+#ifdef SYS_write
+    case SYS_write:
+        return true;
+#endif
+#ifdef SYS_close
+    case SYS_close:
+        return true;
+#endif
+#ifdef SYS_execve
+    case SYS_execve:
+        return true;
+#endif
+#ifdef SYS_execveat
+    case SYS_execveat:
+        return true;
+#endif
+#ifdef SYS_clone
+    case SYS_clone:
+        return true;
+#endif
+#ifdef SYS_futex
+    case SYS_futex:
+        return true;
+#endif
+#ifdef SYS_ppoll
+    case SYS_ppoll:
+        return true;
+#endif
+#ifdef SYS_clock_nanosleep
+    case SYS_clock_nanosleep:
+        return true;
+#endif
+#ifdef SYS_nanosleep
+    case SYS_nanosleep:
+        return true;
+#endif
+#ifdef SYS_wait4
+    case SYS_wait4:
+        return true;
+#endif
 #ifdef SYS_exit
     case SYS_exit:
         return true;
@@ -17373,6 +17472,12 @@ static int a90_syscall_path_arg_index(long nr) {
 #endif
 #ifdef SYS_statx
     if (nr == SYS_statx) return 1;
+#endif
+#ifdef SYS_execve
+    if (nr == SYS_execve) return 0;
+#endif
+#ifdef SYS_execveat
+    if (nr == SYS_execveat) return 1;
 #endif
     return -1;
 }
@@ -28517,6 +28622,220 @@ static void emit_mdm_helper_post_wait_req_sample(int sample_index,
            sample);
 }
 
+static int append_mdm_helper_post_wait_req_branch_snapshot(struct buffer *buf,
+                                                           const char *phase,
+                                                           int branch_index,
+                                                           int mdm_helper_pid,
+                                                           int source_sample,
+                                                           const char *source) {
+    char task_path[MAX_PATH_LEN];
+    DIR *dir;
+    struct dirent *entry;
+    int shown = 0;
+    int thread_count = 0;
+    bool truncated = false;
+    int alive = (mdm_helper_pid > 0 && kill((pid_t)mdm_helper_pid, 0) == 0) ? 1 : 0;
+    char state = alive ? read_proc_state((pid_t)mdm_helper_pid) : '-';
+    int wait_count = alive ? count_mdm_helper_wait_for_req_threads((pid_t)mdm_helper_pid) : -1;
+    int fd_esoc0_count = alive ? count_proc_fd_target_matches((pid_t)mdm_helper_pid, "/dev/esoc-0") : -1;
+    int fd_mhi_count = alive ? count_proc_fd_target_matches((pid_t)mdm_helper_pid, "/dev/mhi_0305_01.01.00_pipe_10") : -1;
+
+    if (append_format(buf,
+                      "post_wait_branch.%s.begin=1\n"
+                      "post_wait_branch.%s.branch_index=%d\n"
+                      "post_wait_branch.%s.source=%s\n"
+                      "post_wait_branch.%s.source_sample=%d\n"
+                      "post_wait_branch.%s.monotonic_ms=%ld\n"
+                      "post_wait_branch.%s.pid=%d\n"
+                      "post_wait_branch.%s.alive=%d\n"
+                      "post_wait_branch.%s.state=%c\n"
+                      "post_wait_branch.%s.wait_for_req_thread_count=%d\n"
+                      "post_wait_branch.%s.fd_esoc0_count=%d\n"
+                      "post_wait_branch.%s.fd_mhi_pipe_count=%d\n",
+                      phase,
+                      phase, branch_index,
+                      phase, source,
+                      phase, source_sample,
+                      phase, monotonic_ms(),
+                      phase, mdm_helper_pid,
+                      phase, alive,
+                      phase, state,
+                      phase, wait_count,
+                      phase, fd_esoc0_count,
+                      phase, fd_mhi_count) < 0) {
+        return -1;
+    }
+    if (!alive) {
+        return append_format(buf,
+                             "post_wait_branch.%s.thread_count=0\n"
+                             "post_wait_branch.%s.shown=0\n"
+                             "post_wait_branch.%s.truncated=0\n"
+                             "post_wait_branch.%s.end=1\n",
+                             phase, phase, phase, phase);
+    }
+    if (snprintf(task_path, sizeof(task_path), "/proc/%ld/task", (long)mdm_helper_pid) >= (int)sizeof(task_path)) {
+        return append_format(buf,
+                             "post_wait_branch.%s.error=task-path-too-long\n"
+                             "post_wait_branch.%s.end=1\n",
+                             phase,
+                             phase);
+    }
+    dir = opendir(task_path);
+    if (dir == NULL) {
+        return append_format(buf,
+                             "post_wait_branch.%s.error=%s\n"
+                             "post_wait_branch.%s.end=1\n",
+                             phase,
+                             strerror(errno),
+                             phase);
+    }
+    while ((entry = readdir(dir)) != NULL) {
+        char syscall_path[MAX_PATH_LEN];
+        char wchan_path[MAX_PATH_LEN];
+        char comm_path[MAX_PATH_LEN];
+        char syscall_line[512];
+        char wchan[128];
+        char comm[128];
+        char prefix[192];
+        long nr = -1;
+        int path_index;
+        unsigned long long args[6] = {0};
+        pid_t tid;
+
+        if (!decimal_name(entry->d_name)) {
+            continue;
+        }
+        thread_count++;
+        if (shown >= 6) {
+            truncated = true;
+            continue;
+        }
+        tid = (pid_t)strtol(entry->d_name, NULL, 10);
+        if (snprintf(syscall_path, sizeof(syscall_path), "%s/%s/syscall", task_path, entry->d_name) >= (int)sizeof(syscall_path) ||
+            snprintf(wchan_path, sizeof(wchan_path), "%s/%s/wchan", task_path, entry->d_name) >= (int)sizeof(wchan_path) ||
+            snprintf(comm_path, sizeof(comm_path), "%s/%s/comm", task_path, entry->d_name) >= (int)sizeof(comm_path) ||
+            snprintf(prefix,
+                     sizeof(prefix),
+                     "post_wait_branch.%s.thread_%02d",
+                     phase,
+                     shown) >= (int)sizeof(prefix)) {
+            closedir(dir);
+            return -1;
+        }
+        read_first_line_path(syscall_path, syscall_line, sizeof(syscall_line));
+        read_first_line_path(wchan_path, wchan, sizeof(wchan));
+        read_first_line_path(comm_path, comm, sizeof(comm));
+        if (append_format(buf,
+                          "%s.tid=%ld\n"
+                          "%s.comm=",
+                          prefix,
+                          (long)tid,
+                          prefix) < 0 ||
+            append_escaped_ascii(buf, (const unsigned char *)comm, strlen(comm)) < 0 ||
+            append_format(buf,
+                          "\n%s.wchan=",
+                          prefix) < 0 ||
+            append_escaped_ascii(buf, (const unsigned char *)wchan, strlen(wchan)) < 0 ||
+            append_format(buf,
+                          "\n%s.syscall.raw=",
+                          prefix) < 0 ||
+            append_escaped_ascii(buf, (const unsigned char *)syscall_line, strlen(syscall_line)) < 0 ||
+            append_literal(buf, "\n") < 0) {
+            closedir(dir);
+            return -1;
+        }
+        if (parse_proc_syscall_line(syscall_line, &nr, args)) {
+            if (append_format(buf,
+                              "%s.nr=%ld\n"
+                              "%s.name=%s\n"
+                              "%s.arg0=0x%llx\n"
+                              "%s.arg1=0x%llx\n"
+                              "%s.arg2=0x%llx\n"
+                              "%s.arg3=0x%llx\n",
+                              prefix, nr,
+                              prefix, a90_syscall_name(nr),
+                              prefix, args[0],
+                              prefix, args[1],
+                              prefix, args[2],
+                              prefix, args[3]) < 0) {
+                closedir(dir);
+                return -1;
+            }
+#ifdef SYS_ioctl
+            if (nr == SYS_ioctl &&
+                append_format(buf,
+                              "%s.ioctl_name=%s\n",
+                              prefix,
+                              esoc_ioctl_request_name(args[1])) < 0) {
+                closedir(dir);
+                return -1;
+            }
+#endif
+            path_index = a90_syscall_path_arg_index(nr);
+            if (path_index >= 0 &&
+                append_process_vm_c_string_field(buf,
+                                                 mdm_helper_pid,
+                                                 prefix,
+                                                 "path",
+                                                 args[path_index],
+                                                 192) < 0) {
+                closedir(dir);
+                return -1;
+            }
+        } else if (append_format(buf,
+                                 "%s.nr=-1\n"
+                                 "%s.name=unparsed\n",
+                                 prefix,
+                                 prefix) < 0) {
+            closedir(dir);
+            return -1;
+        }
+        shown++;
+    }
+    closedir(dir);
+    return append_format(buf,
+                         "post_wait_branch.%s.thread_count=%d\n"
+                         "post_wait_branch.%s.shown=%d\n"
+                         "post_wait_branch.%s.truncated=%d\n"
+                         "post_wait_branch.%s.end=1\n",
+                         phase,
+                         thread_count,
+                         phase,
+                         shown,
+                         phase,
+                         truncated ? 1 : 0,
+                         phase);
+}
+
+static void emit_mdm_helper_post_wait_req_branch_snapshot(const char *source,
+                                                          int branch_index,
+                                                          int mdm_helper_pid,
+                                                          int source_sample) {
+    struct buffer buf;
+    char phase[64];
+
+    if (snprintf(phase, sizeof(phase), "%s_%03d", source, branch_index) >= (int)sizeof(phase)) {
+        return;
+    }
+    if (buffer_init(&buf) < 0) {
+        return;
+    }
+    if (append_mdm_helper_post_wait_req_branch_snapshot(&buf,
+                                                        phase,
+                                                        branch_index,
+                                                        mdm_helper_pid,
+                                                        source_sample,
+                                                        source) == 0 &&
+        buf.data != NULL &&
+        buf.len > 0) {
+        fwrite(buf.data, 1, buf.len, stdout);
+        if (buf.truncated) {
+            printf("post_wait_branch.%s.truncated_by_buffer=1\n", phase);
+        }
+    }
+    buffer_free(&buf);
+}
+
 static void max_int_assign(int *target, int value) {
     if (value > *target) {
         *target = value;
@@ -28542,17 +28861,24 @@ static void pm_observer_read_child_status_once(int pipe_fd, int *open_reported) 
 
 static void run_mdm_helper_post_wait_req_ks_observer(int mdm_helper_pid,
                                                      int pipe_fd,
-                                                     int *open_reported) {
+                                                     int *open_reported,
+                                                     bool branch_snapshot) {
     const int pre_samples = 80;
     const int post_samples = 80;
     const int interval_us = 50000;
+    const int branch_pre_samples = 8;
+    const int branch_post_samples = 8;
+    const int branch_burst_samples = 20;
     int initial_wait_count = count_mdm_helper_wait_for_req_threads((pid_t)mdm_helper_pid);
     int last_waiting = initial_wait_count > 0 ? 1 : 0;
     int wait_seen = last_waiting;
     int transition_detected = 0;
     int transition_sample = -1;
+    int transition_burst_done = 0;
     int sample_count = 0;
     int post_transition_count = 0;
+    int branch_snapshot_count = 0;
+    int branch_burst_count = 0;
     int max_ks_process_count = -1;
     int max_mhi_pipe_exists = -1;
     int max_mhi_pipe_fd_count = -1;
@@ -28564,6 +28890,10 @@ static void run_mdm_helper_post_wait_req_ks_observer(int mdm_helper_pid,
            "post_wait_req.sample_interval_ms=50\n"
            "post_wait_req.pre_transition_max_samples=80\n"
            "post_wait_req.post_transition_max_samples=80\n"
+           "post_wait_req.branch_snapshot_enabled=%d\n"
+           "post_wait_req.branch_snapshot_pre_samples=%d\n"
+           "post_wait_req.branch_snapshot_post_samples=%d\n"
+           "post_wait_req.branch_snapshot_burst_samples=%d\n"
            "post_wait_req.mdm_helper_pid=%d\n"
            "post_wait_req.initial_wait_for_req_thread_count=%d\n"
            "post_wait_req.esoc_notify_attempted=0\n"
@@ -28573,8 +28903,23 @@ static void run_mdm_helper_post_wait_req_ks_observer(int mdm_helper_pid,
            "post_wait_req.credentials=0\n"
            "post_wait_req.dhcp_routing=0\n"
            "post_wait_req.external_ping=0\n",
+           branch_snapshot ? 1 : 0,
+           branch_pre_samples,
+           branch_post_samples,
+           branch_burst_samples,
            mdm_helper_pid,
            initial_wait_count);
+    if (branch_snapshot) {
+        printf("post_wait_branch.begin=1\n"
+               "post_wait_branch.mode=mdm-helper-post-wait-req-branch-snapshot\n"
+               "post_wait_branch.esoc_notify_attempted=0\n"
+               "post_wait_branch.boot_done_attempted=0\n"
+               "post_wait_branch.wifi_hal_start_executed=0\n"
+               "post_wait_branch.scan_connect_linkup=0\n"
+               "post_wait_branch.credentials=0\n"
+               "post_wait_branch.dhcp_routing=0\n"
+               "post_wait_branch.external_ping=0\n");
+    }
     fflush(stdout);
 
     while (sample_count < pre_samples + post_samples) {
@@ -28605,6 +28950,29 @@ static void run_mdm_helper_post_wait_req_ks_observer(int mdm_helper_pid,
                                              transition_detected,
                                              transition_sample,
                                              &metrics);
+        if (branch_snapshot && sample_count < branch_pre_samples) {
+            emit_mdm_helper_post_wait_req_branch_snapshot("pre",
+                                                          branch_snapshot_count++,
+                                                          mdm_helper_pid,
+                                                          sample_count);
+        }
+        if (branch_snapshot && transition_detected && post_transition_count < branch_post_samples) {
+            emit_mdm_helper_post_wait_req_branch_snapshot("post",
+                                                          branch_snapshot_count++,
+                                                          mdm_helper_pid,
+                                                          sample_count);
+        }
+        if (branch_snapshot && transition_detected && !transition_burst_done) {
+            for (int burst = 0; burst < branch_burst_samples; burst++) {
+                usleep(10000);
+                emit_mdm_helper_post_wait_req_branch_snapshot("burst",
+                                                              branch_snapshot_count++,
+                                                              mdm_helper_pid,
+                                                              sample_count);
+                branch_burst_count++;
+            }
+            transition_burst_done = 1;
+        }
         fflush(stdout);
         fdatasync(fileno(stdout));
         sample_count++;
@@ -28627,6 +28995,8 @@ static void run_mdm_helper_post_wait_req_ks_observer(int mdm_helper_pid,
            "post_wait_req.mhi_pipe_fd_count=%d\n"
            "post_wait_req.mhi_pipe_cmdline_count=%d\n"
            "post_wait_req.mdm_helper_mhi_pipe_fd_count=%d\n"
+           "post_wait_req.branch_snapshot_count=%d\n"
+           "post_wait_req.branch_burst_count=%d\n"
            "post_wait_req.end=1\n",
            sample_count,
            transition_detected,
@@ -28636,7 +29006,16 @@ static void run_mdm_helper_post_wait_req_ks_observer(int mdm_helper_pid,
            max_mhi_pipe_exists,
            max_mhi_pipe_fd_count,
            max_mhi_pipe_cmdline_count,
-           max_fd_mhi_pipe_count);
+           max_fd_mhi_pipe_count,
+           branch_snapshot_count,
+           branch_burst_count);
+    if (branch_snapshot) {
+        printf("post_wait_branch.sample_count=%d\n"
+               "post_wait_branch.burst_count=%d\n"
+               "post_wait_branch.end=1\n",
+               branch_snapshot_count,
+               branch_burst_count);
+    }
     fflush(stdout);
     fdatasync(fileno(stdout));
 }
@@ -29396,7 +29775,10 @@ static void pm_observer_trigger_mdm_power_on(const struct config *cfg,
     close(pipefd[1]);
     fcntl(pipefd[0], F_SETFL, O_NONBLOCK);
     if (cfg->pm_observer_mdm_helper_post_wait_req_ks_observer) {
-        run_mdm_helper_post_wait_req_ks_observer(mdm_helper_pid, pipefd[0], &open_reported);
+        run_mdm_helper_post_wait_req_ks_observer(mdm_helper_pid,
+                                                 pipefd[0],
+                                                 &open_reported,
+                                                 cfg->pm_observer_mdm_helper_post_wait_req_branch_snapshot);
     }
     for (int i = 0; i < hold_sec * 10 && !gpio_fired; i++) {
         usleep(100000);  /* 100ms poll */
@@ -29978,11 +30360,13 @@ static int run_wifi_companion_pm_service_trigger_observer_guarded(const struct c
                           "post_pm_mdm_helper_esoc_observer.external_ping=0\n"
                           "post_pm_mdm_helper_esoc_observer.lower_trace_allowed=%d\n"
                           "post_pm_mdm_helper_esoc_observer.post_wait_req_ks_observer=%d\n"
+                          "post_pm_mdm_helper_esoc_observer.post_wait_req_branch_snapshot=%d\n"
                           "post_pm_mdm_helper_esoc_observer.late_per_proxy_after_mdm_helper_esoc_fd_requested=%d\n",
                           post_pm_mdm_helper_allowed ? 1 : 0,
                           post_pm_mdm_helper_start ? 1 : 0,
                           post_pm_mdm_helper_lower_trace ? 1 : 0,
                           cfg->pm_observer_mdm_helper_post_wait_req_ks_observer ? 1 : 0,
+                          cfg->pm_observer_mdm_helper_post_wait_req_branch_snapshot ? 1 : 0,
                           late_per_proxy_requested ? 1 : 0) < 0) {
             return -1;
         }
