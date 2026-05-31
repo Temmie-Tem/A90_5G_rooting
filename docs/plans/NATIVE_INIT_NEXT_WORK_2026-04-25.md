@@ -284,8 +284,12 @@
   V1315는 regulator/gpio/irq/clk/power/msm_pil_event availability/format preflight로
   PASS했다. `available_events=1250`, target formats는 regulator `4/4`, gpio `2/2`,
   irq `2/2`, clk `4/4`, power `3/3`, `msm_pil_event` `3/3`이고 tracefs cleanup과 post
-  selftest도 통과했다. 다음 V1316은 같은 late `per_proxy` PM-service path 주변에 bounded
-  tracefs lower-event collector를 붙인다.
+  selftest도 통과했다. V1316은 같은 late `per_proxy` PM-service path 주변에 bounded
+  tracefs lower-event collector를 붙여 PASS했다. `pm-service`는 `/dev/subsys_esoc0` /
+  `mdm_subsys_powerup`에 도달했고, tracefs lower events는 total `81174`, critical
+  `3936`, noise `77238`을 기록했다. 다음 V1317은 captured trace lines를 event
+  content/device/timing 기준으로 분류해 SDX50M-relevant activity와 background noise를
+  나눈다.
   GPIO line request, PMIC GPIO9 hold, PMIC write, direct eSoC ioctl, new
   PM/CNSS/HAL start, scan/connect, credentials, DHCP/routes, external ping, flash,
   boot image write, partition write는 별도 gate 전까지 계속 블록한다.
