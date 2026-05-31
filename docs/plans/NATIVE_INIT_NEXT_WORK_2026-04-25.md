@@ -25,8 +25,8 @@
 
 ## 현재 Wi-Fi Gate
 
-- 최신 기준: V1243 LIVE PASS —
-  `v1243-pm-esoc0-trigger-sampled-mdm2ap-silent-reboot-required`.
+- 최신 기준: V1244 HOST-ONLY PASS —
+  `v1244-android-pmic-pcie-delta-classified`.
   V1239는 Android/V1238 증거를 비교해 blocker를 `pm-service`
   `/dev/subsys_esoc0` / `mdm_subsys_powerup` 이후로 낮췄고, V1240은
   SDX50M/eSoC response surface와 GPIO142 `mdm status` IRQ count `0`을
@@ -39,10 +39,13 @@
   `a90_android_execns_probe v259`로 sampler를 보강해 PM8150L soft-reset GPIO와
   PCIe GDSC regulator source를 분리했다. 결과는 PMIC soft-reset pinctrl line
   `pin 7 (gpio9): (MUX UNCLAIMED)` 유지, PCIe GDSC lines `0mV` 유지, GPIO142
-  IRQ count `0`, PCI/MHI/`wlan0` absent이다.
-  따라서 다음 V1244는 blind retry가 아니라 Android-positive 동일 surface 비교
-  또는 proprietary eSoC powerup path가 PMIC/GDSC operation까지 도달하는지
-  증명하는 classifier여야 한다. Wi-Fi HAL, scan/connect, credentials,
+  IRQ count `0`, PCI/MHI/`wlan0` absent이다. V1244는 Android-positive
+  증거와 비교해 Android에서는 PM8150L soft-reset `gpio9`가 output으로 claim되고
+  PCIe RC1/WLAN-PD/ICNSS-QMI/FW-ready/`wlan0`까지 진행되지만, native V1243는
+  동일 PMIC/GDSC response surface에 도달하지 못함을 분류했다.
+  따라서 다음 V1245는 native `mdm_subsys_powerup`이 PM8150L soft-reset/GDSC
+  operation까지 도달하는지 증명하거나, 다음 bounded `esoc0` trigger 전에
+  Android PMIC pinctrl setup을 재현하는 방향이어야 한다. Wi-Fi HAL, scan/connect, credentials,
   DHCP/routes, external ping, flash, boot image write, partition write는 계속
   블록한다.
 - V1198 배경: V1197 root cause 분석 완료: 세 가지 레이어 문제가 중첩됨.
