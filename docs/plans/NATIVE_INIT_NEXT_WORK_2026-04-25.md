@@ -220,8 +220,12 @@
   process/thread count, `mdm_subsys_powerup` thread count, inferred `/dev/subsys_esoc0`
   reachability, first blocked thread metadata, and best-effort syscall path capture를
   기록한다. Built helper sha256은
-  `dd1d15a5ef01189526720814c50b007f6dc9a0f25e9239caf0e9da34c65b6b46`이다. 다음 V1302는
-  helper `v273` deploy-only, V1303은 bounded compact dense live rerun이다.
+  `dd1d15a5ef01189526720814c50b007f6dc9a0f25e9239caf0e9da34c65b6b46`이다. V1302는
+  helper `v273`을 `/cache/bin/a90_android_execns_probe`에 배포했고 PASS했다. NCM이
+  inactive여서 serial fallback을 사용했으며 chunk size `1800`, chunks `1010`,
+  encoded bytes `1817918`, max cmdv1 line `3788`/safe `3968`이다. Post-deploy sha와
+  helper marker가 `v273`으로 확인됐고 selftest는 `fail=0`이다. 다음 V1303은 bounded
+  compact dense live rerun이며 새 `powerup_marker` key 존재를 gate로 삼는다.
   GPIO line request, PMIC GPIO9 hold, PMIC write, direct eSoC ioctl, new
   PM/CNSS/HAL start, scan/connect, credentials, DHCP/routes, external ping, flash,
   boot image write, partition write는 별도 gate 전까지 계속 블록한다.
