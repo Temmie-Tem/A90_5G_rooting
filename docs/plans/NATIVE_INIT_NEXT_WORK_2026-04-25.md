@@ -6217,6 +6217,29 @@ Samsung bootloader
     - Hard stop: still below Wi-Fi bring-up. No Wi-Fi HAL, scan/connect/
       credentials, DHCP/routes, external ping, direct PMIC/GPIO/GDSC writes,
       eSoC notify/`BOOT_DONE`, flash, boot image write, or partition write.
+    - Result:
+      `docs/reports/NATIVE_INIT_V1376_ANDROID_PARTICIPANT_CORRECTED_RC1_LIVE_2026-06-01.md`.
+      Decision: `v1376-corrected-rc1-not-triggered`. The run was safe and
+      informative but did not execute `rc_sel=2`/`case=11`: helper v282 gated on
+      `per_mgr_subsys_esoc0_count > 0`, while the actual desired lower state is
+      `pm-service` blocked inside `open("/dev/subsys_esoc0")` /
+      `mdm_subsys_powerup`, before an fd is created. Timing did prove
+      `timing_pm_service_powerup_seen=True` over 120 samples, with no GPIO142,
+      PCI, MHI, WLFW, or `wlan0` transition. V1377 must patch the helper gate to
+      trigger on powerup-thread/wchan observation.
+
+25. **V1377 corrected RC1 powerup-thread gate support (source/build-only).**
+    - Goal: bump helper to v283 and change the corrected RC1 enumerate gate from
+      fd ownership to `mdm_subsys_powerup`/powerup-thread observation, while
+      preserving the existing late-`per_proxy` and MDM2AP timing sampler
+      requirements.
+    - Success criteria: source/build checks prove helper v283 reports both
+      `gate_per_mgr_subsys_esoc0_count` and
+      `gate_pm_service_powerup_thread_count`, triggers when the powerup thread
+      count is positive, and still skips without either lower gate.
+    - Hard stop: source/build-only. No device command, Wi-Fi HAL, scan/connect,
+      DHCP/routes, external ping, PMIC/GPIO/GDSC direct write, eSoC notify/
+      `BOOT_DONE`, flash, boot image write, or partition write.
 
 ### Required decision before any new mutation
 
@@ -6294,6 +6317,9 @@ Samsung bootloader
   bounded Android participant parity + corrected RC1 enumerate gate, still
   below Wi-Fi HAL/scan/connect/network and with reboot cleanup/recovery
   evidence required.
+- V1376 proves the corrected RC1 trigger gate must use the observed
+  `mdm_subsys_powerup` thread, not `/dev/subsys_esoc0` fd ownership. V1377
+  should patch helper v283 before any V1378 retry.
 - If V1359 only finds platform bind/probe or global PCI rescan, stop for a new
   design instead of binding or rescanning blindly.
 - If both pcie1 RC and PON parity are read-only-proven healthy yet MDM2AP still

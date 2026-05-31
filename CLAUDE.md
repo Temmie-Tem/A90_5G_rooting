@@ -1333,3 +1333,14 @@ Update after V1354/V1355:
   post selftest remained clean. No daemon start, Wi-Fi HAL, scan/connect,
   credentials, DHCP/routes, external ping, flash, boot image write, or
   partition write occurred. Next is V1376 bounded live.
+- V1376 bounded live (`v1376-corrected-rc1-not-triggered`) proved the v282
+  trigger gate is wrong, not that the Android participant + corrected RC1 path
+  failed. The child command contained the private CNSS, precondition, and
+  corrected RC1 flags; debugfs mounted and cleaned up; timing captured
+  `timing_pm_service_powerup_seen=True` with 120 samples and no GPIO142/PCI/MHI/
+  WLFW/`wlan0`. However `corrected_rc1_enumerate.triggered=False` because v282
+  waited for a `/dev/subsys_esoc0` fd count. In the real blocking path,
+  `pm-service` is still inside `open("/dev/subsys_esoc0")` /
+  `mdm_subsys_powerup`, so no fd exists yet. Next is a helper fix that gates
+  corrected RC1 enumerate on `mdm_subsys_powerup`/powerup-thread observation,
+  not fd ownership.
