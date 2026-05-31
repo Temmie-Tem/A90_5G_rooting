@@ -296,7 +296,12 @@
   lines를 확보했고, `fw=esoc0` PIL notification, GPIO `1270` PMIC soft-reset toggle,
   GPIO `135` AP2MDM high가 보였다. 반면 GPIO `142`는 `0` lines였고 GPIO135 high 이후
   약 `49.28s` sample이 이어졌으므로 다음 V1319는 GPIO135 assertion 이후 GPIO142/PCIe
-  response absence를 명시 blocker로 분류한다.
+  response absence를 명시 blocker로 분류한다. V1319는 host-only로 PASS했고,
+  V1304의 AP2MDM assertion/visibility gap을 supersede했다. Native는 GPIO135 high까지
+  도달하지만 GPIO142/PCIe/MHI/WLFW response가 없고, Android-positive reference에는
+  GPIO142 IRQ `1`, PCIe RC1 `18` lines, Android `ks`/MHI pipe, WLFW/BDF/`wlan0`가 있다.
+  다음 V1320은 Android `mdm_helper`/`ks`/MHI image-transfer response contract를
+  post-GPIO135 prerequisite로 분류한다.
   GPIO line request, PMIC GPIO9 hold, PMIC write, direct eSoC ioctl, new
   PM/CNSS/HAL start, scan/connect, credentials, DHCP/routes, external ping, flash,
   boot image write, partition write는 별도 gate 전까지 계속 블록한다.
