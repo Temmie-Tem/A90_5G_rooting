@@ -265,7 +265,14 @@
   host-only classifier로 PASS했고 static PMIC GPIO9/TLMM GPIO135/GPIO142 shape를
   닫았다. Active blocker는 `mdm_subsys_powerup` 이후 dynamic PCIe/GDSC/eSoC lower
   power sequencing이다. 다음 V1311은 stdout-reduced full-window lower-sequence
-  sampler support가 우선이다.
+  sampler support가 우선이다. V1311은 helper `v275` source/build-only support를
+  추가했고 `v1311-lower-sequence-summary-sampler-build-pass`로 PASS했다. 새 flag는
+  `--pm-observer-late-per-proxy-lower-sequence-summary-sampler`, mode는
+  `late-per-proxy-lower-sequence-summary`, output contract는 aggregate
+  `response_summary.*` keys다. 빌드된 static aarch64 helper sha256은
+  `66e52e7507dd07bcb4071afd04bc60e51d1c6bb7b9cb7363205f1eb4f44d4677`이다. 다음
+  V1312는 helper `v275` deploy-only, V1313은 bounded lower-sequence summary sampler
+  live다.
   GPIO line request, PMIC GPIO9 hold, PMIC write, direct eSoC ioctl, new
   PM/CNSS/HAL start, scan/connect, credentials, DHCP/routes, external ping, flash,
   boot image write, partition write는 별도 gate 전까지 계속 블록한다.
