@@ -25,8 +25,8 @@
 
 ## 현재 Wi-Fi Gate
 
-- 최신 기준: V1248 SOURCE/BUILD-ONLY PASS —
-  `v1248-pmic-soft-reset-preflight-build-pass`.
+- 최신 기준: V1250 READ-ONLY LIVE PASS —
+  `v1250-pmic-soft-reset-readonly-classified-no-candidate`.
   V1239는 Android/V1238 증거를 비교해 blocker를 `pm-service`
   `/dev/subsys_esoc0` / `mdm_subsys_powerup` 이후로 낮췄고, V1240은
   SDX50M/eSoC response surface와 GPIO142 `mdm status` IRQ count `0`을
@@ -39,33 +39,18 @@
   `a90_android_execns_probe v259`로 sampler를 보강해 PM8150L soft-reset GPIO와
   PCIe GDSC regulator source를 분리했다. 결과는 PMIC soft-reset pinctrl line
   `pin 7 (gpio9): (MUX UNCLAIMED)` 유지, PCIe GDSC lines `0mV` 유지, GPIO142
-  IRQ count `0`, PCI/MHI/`wlan0` absent이다. V1244는 Android-positive
-  증거와 비교해 Android에서는 PM8150L soft-reset `gpio9`가 output으로 claim되고
-  PCIe RC1/WLAN-PD/ICNSS-QMI/FW-ready/`wlan0`까지 진행되지만, native V1243는
-  동일 PMIC/GDSC response surface에 도달하지 못함을 분류했다.
-  V1245는 V918/V1243/V1244를 결합해 native가 proprietary SDX50M soft-reset
-  stack(`sdx50m_toggle_soft_reset -> mdm4x_do_first_power_on -> mdm_cmd_exe ->
-  mdm_subsys_powerup`)에는 도달하지만 Android-equivalent PM8150L pinctrl/GDSC
-  response는 여전히 나타나지 않음을 분류했다. V1246은 V1243 같은 run의 12개
-  late-`per_proxy` phase에서 `pm-service` Binder thread가 `mdm_subsys_powerup`에
-  막힌 상태와 PM8150L/GDSC/GPIO142/PCI/MHI/`wlan0` silent 상태가 동시에 관찰됨을
-  확인했다. V1247은 direct `/sys/class/gpio` export/write, debugfs
-  pinctrl/regulator mutation, direct PCIe GDSC enable, blind `/dev/subsys_esoc0`
-  retry를 모두 reject하고, 다음 경로를 fail-closed PMIC preflight helper로
-  선택했다. 따라서 V1248은 source/build-only로 DTS/PMIC/native-state invariant를
-  검증하고 별도 명시 write gate 없이는 mutation을 거부하는 helper skeleton을
-  추가해야 한다. V1248은 helper `a90_android_execns_probe v260`에
-  `wifi-companion-pmic-soft-reset-preflight` 모드를 추가했고, static aarch64
-  binary `stage3/linux_init/helpers/a90_android_execns_probe_v260`
-  (`0313d613d95c56af5681871062b7fceb47ede3c3ef8fcff534d0eea3338eaa2f`)를
-  빌드했다. 이 모드는 read-only preflight만 수행하고
-  `write_gate_implemented=0`, `mutation_attempted=0`, `esoc_ioctl_executed=0`을
-  출력하며, reserved `--allow-pmic-soft-reset-write`는 v260에서 의도적으로
-  reject한다. 따라서 다음 V1249는 helper v260 deploy-only, V1250은 read-only
-  PMIC soft-reset preflight live gate이다.
-  Wi-Fi HAL, scan/connect, credentials,
-  DHCP/routes, external ping, flash, boot image write, partition write는 계속
-  블록한다.
+  IRQ count `0`, PCI/MHI/`wlan0` absent이다. V1247은 direct GPIO/debugfs/GDSC
+  write와 blind `/dev/subsys_esoc0` retry를 reject하고 fail-closed PMIC
+  preflight helper를 선택했다. V1248은 helper `a90_android_execns_probe v260`을
+  빌드했고, V1249는 `/cache/bin/a90_android_execns_probe`에 배포했다. V1250은
+  read-only preflight를 실행해 zero-action markers를 확인했지만 global
+  namespace에서 `debugfs_pinctrl_present=0`, `debugfs_regulator_present=0`이라
+  PMIC/GDSC line을 읽지 못해 `read-only-incomplete`로 분류됐다. 따라서 다음
+  V1251은 V1241 패턴처럼 debugfs를 임시 mount하여 read-only 관찰 표면만 열고,
+  helper v260 preflight를 다시 실행한 뒤 unmount/cleanup/selftest를 검증해야 한다.
+  PMIC/GPIO/debugfs/regulator write, eSoC ioctl, Wi-Fi HAL, scan/connect,
+  credentials, DHCP/routes, external ping, flash, boot image write, partition
+  write는 계속 블록한다.
 - V1198 배경: V1197 root cause 분석 완료: 세 가지 레이어 문제가 중첩됨.
   V1197 root cause 분석 완료: 세 가지 레이어 문제가 중첩됨.
   (1) V1194/V1195/V1196: SAMPLE_COUNT!=0 → serial 홍수 (pm_proxy/pm-service /proc/maps 덤프
