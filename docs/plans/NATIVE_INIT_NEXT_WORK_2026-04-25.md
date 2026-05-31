@@ -105,13 +105,14 @@
   GPIO142 IRQ count `0`, `mdm3=OFFLINING`, PCI device count `0`, MHI bus count `0`,
   MHI pipe absent, `wlan0` absent가 유지됐다. cleanup은 reboot-required로
   분류됐고 reboot 후 version `0.9.68 (v724)`, selftest `fail=0`, transient
-  debugfs/vendor/system mount cleanup을 확인했다. 다음 V1268은 host-only로 다음
-  read-only observer 대상을 분류한다. 우선 후보는 같은 PM-service window에서 PMIC
-  GPIO9 value(debugfs gpio 가능 시), TLMM GPIO135/142 value/pinconf, PCIe
-  GDSC/regulator state를 함께 보는 것이다. GPIO line request, PMIC GPIO9 hold,
-  PMIC write, direct eSoC ioctl, new PM/CNSS/HAL start, scan/connect, credentials,
-  DHCP/routes, external ping, flash, boot image write, partition write는 별도 gate
-  전까지 계속 블록한다.
+  debugfs/vendor/system mount cleanup을 확인했다. V1268은 host-only로 다음
+  read-only observer 대상을 분류했고, V1269 source/build-only helper v265를
+  선택했다. V1269는 같은 PM-service window에서 PMIC GPIO9 value(debugfs gpio 가능 시),
+  PMIC GPIO9 pinconf, TLMM GPIO135/142 value/pinconf, PCIe GDSC/regulator state를
+  추가로 샘플링해야 한다. GPIO line request, PMIC GPIO9 hold, PMIC write, direct
+  eSoC ioctl, new PM/CNSS/HAL start, scan/connect, credentials, DHCP/routes,
+  external ping, flash, boot image write, partition write는 별도 gate 전까지 계속
+  블록한다.
 - V1198 배경: V1197 root cause 분석 완료: 세 가지 레이어 문제가 중첩됨.
   V1197 root cause 분석 완료: 세 가지 레이어 문제가 중첩됨.
   (1) V1194/V1195/V1196: SAMPLE_COUNT!=0 → serial 홍수 (pm_proxy/pm-service /proc/maps 덤프
