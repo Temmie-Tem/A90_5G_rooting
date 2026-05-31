@@ -180,7 +180,13 @@
   untruncated GPIO135/GPIO142, PMIC9, PCIe GDSC delta를 기록하는 no-write observer를
   추가한다. V1288은 helper v270 static aarch64 build를 통과했고, sha256은
   `f1748fdc9c64a748c3270cd02a2b9bb796065b79632849e7384c2f37910f6e88`다. 다음 gate는
-  V1289 deploy-only, 이후 V1290 bounded no-write TLMM/PCIe response sampler다.
+  V1289 deploy-only, 이후 V1290 bounded no-write TLMM/PCIe response sampler다. V1289는
+  serial fallback으로 helper v270을 배포했고 remote SHA와 post-deploy selftest
+  `fail=0`을 확인했다. V1290은 exact GPIO135/GPIO142 target scan을 live에서 통과했다:
+  native GPIO135=`out 0 16mA no pull`, GPIO142=`in 0 8mA no pull`로 Android-positive
+  static evidence와 일치한다. 그러나 GPIO142 IRQ, PCIe/MHI/WLFW/SDX50M kmsg, MHI pipe,
+  `wlan0`는 여전히 absent다. 다음 V1291은 host-only로 static GPIO shape를 blocker에서
+  제외하고 dynamic PCIe/GDSC/eSoC power sequencing gate를 선정한다.
   GPIO line request, PMIC GPIO9 hold, PMIC write, direct eSoC ioctl, new
   PM/CNSS/HAL start, scan/connect, credentials, DHCP/routes, external ping, flash,
   boot image write, partition write는 별도 gate 전까지 계속 블록한다.
