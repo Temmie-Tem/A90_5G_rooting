@@ -25,8 +25,8 @@
 
 ## 현재 Wi-Fi Gate
 
-- 최신 기준: V1245 HOST-ONLY PASS —
-  `v1245-soft-reset-reached-pmic-gdsc-not-applied`.
+- 최신 기준: V1246 HOST-ONLY PASS —
+  `v1246-same-run-mdm-powerup-pmic-gdsc-silent`.
   V1239는 Android/V1238 증거를 비교해 blocker를 `pm-service`
   `/dev/subsys_esoc0` / `mdm_subsys_powerup` 이후로 낮췄고, V1240은
   SDX50M/eSoC response surface와 GPIO142 `mdm status` IRQ count `0`을
@@ -46,9 +46,12 @@
   V1245는 V918/V1243/V1244를 결합해 native가 proprietary SDX50M soft-reset
   stack(`sdx50m_toggle_soft_reset -> mdm4x_do_first_power_on -> mdm_cmd_exe ->
   mdm_subsys_powerup`)에는 도달하지만 Android-equivalent PM8150L pinctrl/GDSC
-  response는 여전히 나타나지 않음을 분류했다. 따라서 다음 V1246은 같은 bounded
-  live run 안에서 soft-reset stack과 PMIC/GDSC response를 함께 캡처하거나, 다음
-  `esoc0` trigger 전에 Android PMIC pinctrl setup을 재현하는 방향이어야 한다.
+  response는 여전히 나타나지 않음을 분류했다. V1246은 V1243 같은 run의 12개
+  late-`per_proxy` phase에서 `pm-service` Binder thread가 `mdm_subsys_powerup`에
+  막힌 상태와 PM8150L/GDSC/GPIO142/PCI/MHI/`wlan0` silent 상태가 동시에 관찰됨을
+  확인했다. 따라서 다음 V1247은 `esoc0` trigger 전에 Android PMIC pinctrl setup을
+  어떻게 재현할지 source/Android-contract 기준으로 먼저 정리하고, 정확한 surface가
+  방어 가능할 때만 bounded write gate로 진행해야 한다.
   Wi-Fi HAL, scan/connect, credentials,
   DHCP/routes, external ping, flash, boot image write, partition write는 계속
   블록한다.
