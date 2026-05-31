@@ -25,18 +25,18 @@
 
 ## 현재 Wi-Fi Gate
 
-- 최신 기준: V1240 LIVE READ-ONLY PASS — `v1240-response-inputs-visible-mdm2ap-silent`.
+- 최신 기준: V1241 LIVE PASS — `v1241-pinctrl-observer-ready-no-line-level`.
   V1239는 Android/V1238 증거를 비교해 blocker를 `pm-service`
-  `/dev/subsys_esoc0` / `mdm_subsys_powerup` 이후로 낮췄고, V1240은 live
-  action을 넓히지 않은 read-only classifier로 SDX50M/eSoC response surface를
-  확인했다. Native init에서 `esoc_name=SDX50M`, `esoc_link=PCIe`,
-  `esoc_link_info=0305_01.01.00`, MDM status IRQ line
-  `msmgpio-dc 142 Edge mdm status`는 보이지만 IRQ count는 `0`이고
-  `mdm3=OFFLINING`, WLFW `0`, `wlan0=false`에 머문다. 따라서 다음 V1241은
-  `pm-service` esoc0 retry가 아니라 AP2MDM assertion observability, MDM2AP
-  response, PMIC/regulator readiness, PCIe RC1 prerequisites, cleanup boundary를
-  먼저 분류해야 한다. Wi-Fi HAL, scan/connect, credentials, DHCP/routes,
-  external ping, flash, boot image write, partition write는 계속 블록한다.
+  `/dev/subsys_esoc0` / `mdm_subsys_powerup` 이후로 낮췄고, V1240은
+  SDX50M/eSoC response surface와 GPIO142 `mdm status` IRQ count `0`을
+  확인했다. V1241은 임시 debugfs mount/cleanup이 가능하고, pinctrl에서
+  AP2MDM GPIO135 및 MDM2AP GPIO142 ownership이 보인다는 점을 확인했다.
+  단, high/low GPIO line level은 직접 노출되지 않는다. 따라서 다음 V1242는
+  line-level에 의존하지 말고 bounded `pm-service` esoc0 trigger 중
+  GPIO142 IRQ count, pinctrl ownership/configuration, PCIe RC1 debug/sysfs,
+  dmesg MHI/SSCTL/WLFW/BDF/`wlan0`, cleanup state를 샘플링해야 한다.
+  Wi-Fi HAL, scan/connect, credentials, DHCP/routes, external ping, flash,
+  boot image write, partition write는 계속 블록한다.
 - V1198 배경: V1197 root cause 분석 완료: 세 가지 레이어 문제가 중첩됨.
   V1197 root cause 분석 완료: 세 가지 레이어 문제가 중첩됨.
   (1) V1194/V1195/V1196: SAMPLE_COUNT!=0 → serial 홍수 (pm_proxy/pm-service /proc/maps 덤프

@@ -9,7 +9,7 @@ Samsung Galaxy A90 5G (SM-A908N) — stock Android Linux kernel 4.14.190, custom
 - **Device**: SM-A908N, Android 12, Magisk 30.7, TWRP available
 - **Current native build**: `A90 Linux init 0.9.68 (v724)` — `stage3/boot_linux_v724.img`
 - **Known-good fallback**: `stage3/boot_linux_v48.img`
-- **Active research cycle**: V1240 LIVE READ-ONLY PASS → V1241 AP2MDM/PMIC/PCIe prerequisite classifier planned — V1240 proves the SDX50M/eSoC response surfaces are readable in native init, but `mdm3` remains `OFFLINING` and the MDM status / GPIO142 IRQ count remains `0`. The remaining gap is after `pm-service` enters `/dev/subsys_esoc0` / `mdm_subsys_powerup` and before Android's GPIO142/PCIe RC1/SSCTL/MHI/WLFW response. Still no Wi-Fi HAL/scan/connect, credentials, DHCP/routes, external ping, flash, boot image write, or partition write.
+- **Active research cycle**: V1241 LIVE PASS → V1242 bounded esoc0 trigger sampler planned — V1241 proves temporary debugfs mount/cleanup works and exposes pinctrl ownership for AP2MDM GPIO135 and MDM2AP GPIO142, but no direct high/low GPIO line values. The remaining gap is still after `pm-service` enters `/dev/subsys_esoc0` / `mdm_subsys_powerup` and before Android's GPIO142/PCIe RC1/SSCTL/MHI/WLFW response. V1242 should sample pinctrl/IRQ/PCIe around a bounded trigger; still no Wi-Fi HAL/scan/connect, credentials, DHCP/routes, external ping, flash, boot image write, or partition write.
 - **Versioning policy**: `docs/operations/VERSIONING_POLICY.md` — `vNNN` cycle ≠ device flash
 
 ## Versioning rules
