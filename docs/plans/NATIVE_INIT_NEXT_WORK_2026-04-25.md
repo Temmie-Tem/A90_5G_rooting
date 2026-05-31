@@ -126,6 +126,9 @@
   확정했다. V1272 decision은 `v1272-ap2mdm-block-sampler-selected`이고, V1273은
   source/build-only helper v266으로 PM8150L GPIO9/global GPIO1270, TLMM GPIO135/142,
   PCIe RC1/GDSC 주변 block capture를 기존 late PM-service response sampler에 추가한다.
+  V1273은 static aarch64 helper v266 build를 통과했고 SHA256은
+  `3bf4105d685f023ccdeb75ae28d7d104ca005fc9f70870dc6f402a9ea4038ed4`다. 다음 V1274는
+  deploy-only, V1275는 bounded block sampler live gate다.
   GPIO line request, PMIC GPIO9 hold, PMIC write, direct eSoC ioctl, new
   PM/CNSS/HAL start, scan/connect, credentials, DHCP/routes, external ping, flash,
   boot image write, partition write는 별도 gate 전까지 계속 블록한다.
