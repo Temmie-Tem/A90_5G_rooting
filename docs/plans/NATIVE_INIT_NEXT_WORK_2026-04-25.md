@@ -6074,6 +6074,36 @@ Samsung bootloader
       assert/deassert, no PMIC/GPIO/GDSC direct write, no eSoC notify/`BOOT_DONE`,
       no Wi-Fi HAL, scan/connect/credentials, DHCP/routes, external ping, flash,
       boot image write, or partition write.
+    - Result:
+      `docs/reports/NATIVE_INIT_V1371_RC1_LTSSM_FAILURE_CLASSIFIER_2026-06-01.md`.
+      Decision: `v1371-endpoint-readiness-gap-after-rc1-power-proven`. V1370
+      proves the AP-side pcie1 RC path can run corrected enumerate, enable
+      power/clocks/PERST, reach PHY-ready, release endpoint reset, and enter
+      LTSSM. Native stops in poll active/compliance before L0; Android reaches
+      L0 only after esoc0/provider startup. Therefore the next blocker is
+      endpoint/SDX50M readiness at PERST release, not a missing `pci-msm`
+      enumerate entry or upper Wi-Fi HAL path.
+
+20. **V1372 provider-held delayed corrected-RC1 enumerate proof (bounded live design).**
+    - Goal: match Android ordering without starting Wi-Fi HAL/network bring-up:
+      hold the SDX50M provider/eSoC path first, wait near the Android
+      esoc0-to-RC1 interval, then run only corrected `rc_sel=2` + `case=11`.
+    - Candidate order: preflight native selftest `fail=0`; capture debugfs
+      mount state; start the existing lower/provider path that holds
+      `/dev/subsys_esoc0` and toggles AP2MDM/PON; wait roughly the Android
+      `esoc0` to RC1 interval or poll readable AP2MDM/PON state; write only
+      `rc_sel=2` then `case=11`; capture GPIO142, pcie1 LTSSM/L0, PCI/MHI,
+      dmesg, cleanup, and post-selftest.
+    - Success signals: RC1 reaches L0 or PCI/MHI appears while post-selftest
+      remains `fail=0`; or, if still no L0, evidence cleanly proves the
+      provider-held endpoint state did not change the LTSSM failure class.
+    - Failure signals: transport loss/reboot, cleanup failure, post-selftest
+      failure, non-RC1 PCI side effects, or any unexpected Wi-Fi/network
+      activity.
+    - Hard stop: no Wi-Fi HAL, scan/connect/credentials, DHCP/routes, external
+      ping, PERST assert/deassert debug cases, PMIC/GPIO/GDSC direct writes,
+      eSoC notify/`BOOT_DONE` spoof, flash, boot image write, or partition
+      write.
 
 ### Required decision before any new mutation
 
@@ -6131,6 +6161,10 @@ Samsung bootloader
   without transport loss, but RC1 does not reach L0 and creates no PCI/MHI
   device. The next step is V1371 host-only Android-vs-native LTSSM/source
   classification, not Wi-Fi HAL or another blind live mutation.
+- V1371 proves the remaining pcie1 gap is endpoint readiness at PERST release:
+  the RC side is no longer missing an enumerate entry. V1372 should combine the
+  already-known provider/eSoC hold path with the corrected RC1 enumerate timing;
+  it must not start Wi-Fi HAL/network bring-up.
 - If V1359 only finds platform bind/probe or global PCI rescan, stop for a new
   design instead of binding or rescanning blindly.
 - If both pcie1 RC and PON parity are read-only-proven healthy yet MDM2AP still

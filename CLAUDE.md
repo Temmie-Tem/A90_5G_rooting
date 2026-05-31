@@ -1281,3 +1281,14 @@ Update after V1354/V1355:
   mount state, and post-selftest stayed `fail=0`. This parks Wi-Fi HAL/network
   work again; next gate is V1371 host-only classification of why RC1 stops in
   LTSSM poll/compliance versus Android's RC1 L0 path.
+- V1371 host-only classifier
+  (`v1371-endpoint-readiness-gap-after-rc1-power-proven`) compares V1370 native
+  against Android V852 and pci-msm source. V1370 proves the AP-side pcie1 RC can
+  run corrected enumerate, enable power/clocks/PERST, reach PHY-ready, release
+  endpoint reset, and enter LTSSM. Android reaches L0 only after esoc0/provider
+  startup; native V1370 did not hold the provider path and stops in
+  poll/compliance before L0. The next gate is V1372: a bounded provider-held +
+  delayed corrected-RC1 enumerate proof that matches Android ordering. Still no
+  Wi-Fi HAL, scan/connect, credentials, DHCP/routes, external ping, direct
+  PMIC/GPIO/GDSC writes, eSoC notify/`BOOT_DONE` spoof, flash, boot image write,
+  or partition write.
