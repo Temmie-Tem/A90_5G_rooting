@@ -9,7 +9,7 @@ Samsung Galaxy A90 5G (SM-A908N) — stock Android Linux kernel 4.14.190, custom
 - **Device**: SM-A908N, Android 12, Magisk 30.7, TWRP available
 - **Current native build**: `A90 Linux init 0.9.68 (v724)` — `stage3/boot_linux_v724.img`
 - **Known-good fallback**: `stage3/boot_linux_v48.img`
-- **Active research cycle**: V1377 source/build-only PASS patched helper v283 so corrected RC1 enumerate can gate on the observed `pm-service` `mdm_subsys_powerup` thread instead of requiring an already-open `/dev/subsys_esoc0` fd. Next is V1378 helper v283 deploy/preflight, then V1379 bounded Android participant + corrected RC1 live rerun. Preserve hard exclusions: no PMIC/GPIO/GDSC direct write, blind eSoC notify/BOOT_DONE spoof, Wi-Fi HAL, scan/connect, credentials, DHCP/routes, external ping, flash outside approved Android handoff/rollback, boot image write outside approved rollback, or partition write.
+- **Active research cycle**: V1378 deploy-only PASS installed helper v283 to `/cache/bin/a90_android_execns_probe` and verified SHA/marker/selftest. Next is V1379 bounded Android participant + corrected RC1 live rerun, now gated on observed `pm-service` `mdm_subsys_powerup` thread state instead of `/dev/subsys_esoc0` fd ownership. Preserve hard exclusions: no PMIC/GPIO/GDSC direct write, blind eSoC notify/BOOT_DONE spoof, Wi-Fi HAL, scan/connect, credentials, DHCP/routes, external ping, flash outside approved Android handoff/rollback, boot image write outside approved rollback, or partition write.
 - **Versioning policy**: `docs/operations/VERSIONING_POLICY.md` — `vNNN` cycle ≠ device flash
 
 ## Versioning rules
@@ -1355,3 +1355,14 @@ Update after V1354/V1355:
   RC1 gate. Wi-Fi HAL, scan/connect, credentials, DHCP/routes, external ping,
   PMIC/GPIO/GDSC direct writes, eSoC notify/`BOOT_DONE`, flash, boot image
   write, and partition write remain excluded.
+- V1378 deploy-only preflight (`execns-helper-v283-deploy-pass`) installed
+  helper v283 to `/cache/bin/a90_android_execns_probe`. NCM was inactive, so
+  `auto` transfer used serial fallback with the V1375-proven chunk size `1800`;
+  transfer wrote `1061` chunks with max cmdv1 line size `3786` below the safe
+  limit `3968`. Post-deploy SHA matched
+  `985eba4834b3b0324d886df39cecff9811ae183ea800119fdaea2d6ef8431a18`, helper
+  usage exposed `a90_android_execns_probe v283` and
+  `gate_pm_service_powerup_thread_count`, and post selftest remained clean.
+  No daemon start, Wi-Fi HAL, scan/connect, credentials, DHCP/routes, external
+  ping, flash, boot image write, or partition write occurred. Next is V1379
+  bounded live rerun.

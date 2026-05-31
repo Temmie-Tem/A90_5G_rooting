@@ -6267,6 +6267,15 @@ Samsung bootloader
       scan/connect, credentials, DHCP/routes, external ping, PMIC/GPIO/GDSC
       writes, eSoC notify/`BOOT_DONE`, flash, boot image write, or partition
       write.
+    - Result:
+      `docs/reports/NATIVE_INIT_V1378_EXECNS_HELPER_V283_DEPLOY_2026-06-01.md`.
+      Decision: `execns-helper-v283-deploy-pass`. Helper v283 was installed to
+      `/cache/bin/a90_android_execns_probe`; post-deploy SHA matched
+      `985eba4834b3b0324d886df39cecff9811ae183ea800119fdaea2d6ef8431a18`,
+      helper usage exposed `a90_android_execns_probe v283` and
+      `gate_pm_service_powerup_thread_count`, and post selftest stayed clean.
+      NCM was inactive, so `auto` transfer used serial fallback with safe
+      chunk size `1800`, `1061` chunks, and max cmdv1 line bytes `3786`.
 27. **V1379 bounded Android participant + corrected RC1 live rerun.**
     - Goal: rerun the V1376 lower Android participant parity path with helper
       v283 so corrected RC1 enumerate triggers when `pm-service` is observed
@@ -6373,6 +6382,9 @@ Samsung bootloader
   Android participant + corrected RC1 gate, and it must remain below Wi-Fi HAL,
   scan/connect, credentials, DHCP/routes, external ping, PMIC/GPIO/GDSC writes,
   and eSoC notify/`BOOT_DONE` spoofing.
+- V1378 proves helper v283 is on-device and healthy. V1379 may now run the
+  bounded Android participant parity + corrected RC1 live rerun. It must
+  classify transport loss as recovery evidence, not success.
 - If V1359 only finds platform bind/probe or global PCI rescan, stop for a new
   design instead of binding or rescanning blindly.
 - If both pcie1 RC and PON parity are read-only-proven healthy yet MDM2AP still
