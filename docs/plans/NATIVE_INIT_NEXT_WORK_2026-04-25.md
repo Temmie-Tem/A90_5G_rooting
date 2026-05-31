@@ -5919,6 +5919,30 @@ Samsung bootloader
       write, no MMIO write cases, no platform bind/unbind, no PCI rescan, no
       PMIC/GPIO/GDSC direct write, no eSoC notify/`BOOT_DONE`, no Wi-Fi HAL,
       scan/connect/DHCP/routes/external ping.
+    - Result:
+      `docs/reports/NATIVE_INIT_V1365_PCI_MSM_STATUS_CASE_LIVE_2026-06-01.md`.
+      Decision: `v1365-case26-transport-reset-reboot-risk`. The debugfs
+      surface was mounted and read successfully, but `rc_sel=1` followed by
+      `case=26` caused cmdv1 transport loss before settle/after-captures could
+      complete. A later manual health check showed the device recovered
+      normally, but the write cannot be treated as a harmless status-only
+      operation. Therefore `case=11` enumerate is blocked, and further
+      pci-msm `case` writes require source/disassembly proof or a new
+      reboot-safe design.
+
+14. **V1366 pci-msm debugfs case-path classifier (host-only).**
+    - Inputs: V1363 `pci-msm/case` listing, V1364 contract classifier, V1365
+      transport-loss evidence, stock kernel strings/kallsyms, available OSRC
+      pcie sources, and any local Samsung source drop.
+    - Required output: prove whether `case=26` really is status-only, whether
+      `case` writes synchronously call into RC reset/enumeration paths, and
+      whether `rc_sel=1` is sufficient to scope side effects to pcie1/RC1.
+      If source cannot prove this, mark pci-msm debugfs case writes unsafe and
+      return to a kernel-side shim or Android-reference capture path.
+    - Keep host-only: no debugfs/sysfs writes, no `case=11`, no PERST
+      assert/deassert, no PCI rescan, no platform bind/unbind, no PMIC/GPIO/
+      GDSC write, no eSoC notify/`BOOT_DONE`, no Wi-Fi HAL, scan/connect,
+      DHCP/routes, external ping, flash, boot image write, or partition write.
 
 ### Required decision before any new mutation
 
@@ -5954,6 +5978,10 @@ Samsung bootloader
   enumerate. The next live gate is status-only: `rc_sel=1` then `case=26`
   (`OUTPUT PERST AND WAKE GPIO STATUS`) to validate selection/observability
   before considering any enumerate.
+- V1365 invalidates the assumption that `case=26` is a safe live stepping
+  stone: the write caused command transport loss and prevented after-captures.
+  Treat the whole pci-msm `case` debugfs path as unsafe until the proprietary
+  call path is proven. Do not attempt `case=11` enumerate from V1365 evidence.
 - If V1359 only finds platform bind/probe or global PCI rescan, stop for a new
   design instead of binding or rescanning blindly.
 - If both pcie1 RC and PON parity are read-only-proven healthy yet MDM2AP still

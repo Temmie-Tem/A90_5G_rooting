@@ -1226,3 +1226,12 @@ Update after V1354/V1355:
   PERST assert/deassert cases, boot option, MMIO write cases, platform
   bind/unbind, PCI rescan, PMIC/GPIO/GDSC writes, and Wi-Fi bring-up remain
   excluded.
+- V1365 bounded live proof (`v1365-case26-transport-reset-reboot-risk`) shows
+  that the presumed status-only pci-msm debugfs write is not a safe stepping
+  stone on this native path. `rc_sel=1` followed by `case=26` caused cmdv1
+  transport loss before after-captures completed; the device later recovered
+  normally, but the observation window was lost. Treat pci-msm `case` writes as
+  unsafe until source/disassembly proves the selected case cannot reset or
+  wedge the RC/control path. Do not attempt `case=11` enumerate from this
+  evidence. Next gate is V1366 host-only pci-msm case-path classification; no
+  live debugfs `case` write is selected.
