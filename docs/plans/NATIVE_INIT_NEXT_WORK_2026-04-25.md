@@ -5711,6 +5711,16 @@ Samsung bootloader
      change GDSC/regulator state, call eSoC notify/BOOT_DONE, start Wi-Fi HAL,
      scan/connect, use credentials, DHCP/routes, external ping, flash, boot
      image write, or partition write.
+   - Support status: PASS (source/build-only). Helper `a90_android_execns_probe
+     v281` now emits read-only pcie1 RC fields for `pcie_1_gdsc`,
+     pcie1/refgen/pipe clocks, and GPIO102/PERST, GPIO103/CLKREQ,
+     GPIO104/WAKE in the existing MDM2AP timing summary. Parser/report support
+     and deploy wrapper are staged. See
+     `docs/reports/NATIVE_INIT_V1354_PCIE1_RC_POWER_OBSERVER_SUPPORT_2026-06-01.md`.
+   - Remaining V1354 live gate: deploy helper v281 and run the bounded
+     read-only current-route timing sampler. Decision target is whether pcie1
+     RC GDSC/refclk/PERST/CLKREQ/WAKE ever transitions while provider/PON
+     runs and MDM2AP remains low.
 3. **V1355 PM8150L GPIO9 PON parity classifier.**
    - Compare provider `sdx50m_toggle_soft_reset` / `mdm4x_do_first_power_on`
      strings/DTS timing (`reset-time-ms`) with native read-only evidence for

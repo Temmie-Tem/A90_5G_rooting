@@ -101,7 +101,7 @@
 #define SYSLOG_ACTION_READ_ALL 3
 #endif
 
-#define EXECNS_VERSION "a90_android_execns_probe v280"
+#define EXECNS_VERSION "a90_android_execns_probe v281"
 #define MAX_PATH_LEN 512
 #define MAX_CAPTURE_SIZE (1024 * 1024)
 #define MAX_LINKERCONFIG_SIZE (256 * 1024)
@@ -12272,6 +12272,28 @@ static bool read_regulator_line(const char *needle,
                                             source_size);
 }
 
+static bool read_clock_line(const char *needle_a,
+                            const char *needle_b,
+                            char *out,
+                            size_t out_size,
+                            char *source,
+                            size_t source_size) {
+    static const char * const clock_files[] = {
+        "/sys/kernel/debug/clk/clk_summary",
+        "/d/clk/clk_summary",
+        NULL,
+    };
+
+    return read_line_from_files_with_source(clock_files,
+                                            needle_a,
+                                            needle_b,
+                                            NULL,
+                                            out,
+                                            out_size,
+                                            source,
+                                            source_size);
+}
+
 struct response_kmsg_markers {
     char source[32];
     char block[2048];
@@ -17950,6 +17972,28 @@ struct mdm2ap_timing_summary {
     char pcie_link_state_last[64];
     char pcie_runtime_status_initial[64];
     char pcie_runtime_status_last[64];
+    int pcie1_gdsc_seen;
+    int pcie1_gdsc_nonzero_seen;
+    char pcie1_gdsc_initial[512];
+    char pcie1_gdsc_last[512];
+    int pcie1_clkref_seen;
+    char pcie1_clkref_initial[512];
+    char pcie1_clkref_last[512];
+    int pcie1_phy_refgen_seen;
+    char pcie1_phy_refgen_initial[512];
+    char pcie1_phy_refgen_last[512];
+    int pcie1_pipe_clk_seen;
+    char pcie1_pipe_clk_initial[512];
+    char pcie1_pipe_clk_last[512];
+    int gpio102_perst_seen;
+    char gpio102_perst_initial[512];
+    char gpio102_perst_last[512];
+    int gpio103_clkreq_seen;
+    char gpio103_clkreq_initial[512];
+    char gpio103_clkreq_last[512];
+    int gpio104_wake_seen;
+    char gpio104_wake_initial[512];
+    char gpio104_wake_last[512];
 };
 
 static void mdm2ap_timing_summary_init(struct mdm2ap_timing_summary *summary) {
@@ -17988,6 +18032,20 @@ static bool mdm2ap_string_changed(const char *initial, const char *current) {
     return initial[0] != '\0' && current[0] != '\0' && strcmp(initial, current) != 0;
 }
 
+static void mdm2ap_record_initial_last(char *initial,
+                                       size_t initial_size,
+                                       char *last,
+                                       size_t last_size,
+                                       const char *value) {
+    if (value == NULL || value[0] == '\0') {
+        return;
+    }
+    if (initial[0] == '\0') {
+        snprintf(initial, initial_size, "%s", value);
+    }
+    snprintf(last, last_size, "%s", value);
+}
+
 static void mdm2ap_timing_summary_sample(struct mdm2ap_timing_summary *summary) {
     struct mdm_status_irq_snapshot gpio142_irq = collect_mdm_status_irq_snapshot();
     struct mdm_status_irq_snapshot errfatal_irq = collect_mdm_errfatal_irq_snapshot();
@@ -17996,6 +18054,20 @@ static void mdm2ap_timing_summary_sample(struct mdm2ap_timing_summary *summary) 
     char pcie_current_link_state[64];
     char pcie_link_state[64];
     char pcie_runtime_status[64];
+    char pcie1_gdsc_line[512] = "";
+    char pcie1_gdsc_source[MAX_PATH_LEN] = "";
+    char pcie1_clkref_line[512] = "";
+    char pcie1_clkref_source[MAX_PATH_LEN] = "";
+    char pcie1_phy_refgen_line[512] = "";
+    char pcie1_phy_refgen_source[MAX_PATH_LEN] = "";
+    char pcie1_pipe_clk_line[512] = "";
+    char pcie1_pipe_clk_source[MAX_PATH_LEN] = "";
+    char gpio102_perst_line[512] = "";
+    char gpio102_perst_source[MAX_PATH_LEN] = "";
+    char gpio103_clkreq_line[512] = "";
+    char gpio103_clkreq_source[MAX_PATH_LEN] = "";
+    char gpio104_wake_line[512] = "";
+    char gpio104_wake_source[MAX_PATH_LEN] = "";
     int sample_index = summary->sample_count;
     int powerup_threads = count_pm_service_powerup_threads();
     int pci_dev_count = -1;
@@ -18007,6 +18079,13 @@ static void mdm2ap_timing_summary_sample(struct mdm2ap_timing_summary *summary) 
     int cnss_diag_count = count_process_cmdline_or_comm_matches("cnss_diag", "cnss_diag");
     bool matched = false;
     bool transition_seen = false;
+    bool pcie1_gdsc_seen;
+    bool pcie1_clkref_seen;
+    bool pcie1_phy_refgen_seen;
+    bool pcie1_pipe_clk_seen;
+    bool gpio102_perst_seen;
+    bool gpio103_clkreq_seen;
+    bool gpio104_wake_seen;
 
     read_state_or_error("/sys/devices/platform/soc/1c08000.qcom,pcie/current_link_state",
                         pcie_current_link_state,
@@ -18023,6 +18102,44 @@ static void mdm2ap_timing_summary_sample(struct mdm2ap_timing_summary *summary) 
     if (count_dir_entries_matching("/sys/bus/mhi/devices", NULL, &mhi_bus_count, &matched) < 0) {
         mhi_bus_count = -1;
     }
+    pcie1_gdsc_seen = read_regulator_line("pcie_1_gdsc",
+                                          pcie1_gdsc_line,
+                                          sizeof(pcie1_gdsc_line),
+                                          pcie1_gdsc_source,
+                                          sizeof(pcie1_gdsc_source));
+    pcie1_clkref_seen = read_clock_line("pcie_1_clkref",
+                                        "pcie_1_ldo",
+                                        pcie1_clkref_line,
+                                        sizeof(pcie1_clkref_line),
+                                        pcie1_clkref_source,
+                                        sizeof(pcie1_clkref_source));
+    pcie1_phy_refgen_seen = read_clock_line("pcie1_phy_refgen",
+                                            "pcie_phy_refgen",
+                                            pcie1_phy_refgen_line,
+                                            sizeof(pcie1_phy_refgen_line),
+                                            pcie1_phy_refgen_source,
+                                            sizeof(pcie1_phy_refgen_source));
+    pcie1_pipe_clk_seen = read_clock_line("pcie_1_pipe",
+                                          "pcie1_pipe",
+                                          pcie1_pipe_clk_line,
+                                          sizeof(pcie1_pipe_clk_line),
+                                          pcie1_pipe_clk_source,
+                                          sizeof(pcie1_pipe_clk_source));
+    gpio102_perst_seen = read_debugfs_gpio_number_line(102,
+                                                       gpio102_perst_line,
+                                                       sizeof(gpio102_perst_line),
+                                                       gpio102_perst_source,
+                                                       sizeof(gpio102_perst_source));
+    gpio103_clkreq_seen = read_debugfs_gpio_number_line(103,
+                                                       gpio103_clkreq_line,
+                                                       sizeof(gpio103_clkreq_line),
+                                                       gpio103_clkreq_source,
+                                                       sizeof(gpio103_clkreq_source));
+    gpio104_wake_seen = read_debugfs_gpio_number_line(104,
+                                                     gpio104_wake_line,
+                                                     sizeof(gpio104_wake_line),
+                                                     gpio104_wake_source,
+                                                     sizeof(gpio104_wake_source));
 
     if (!summary->initialized) {
         summary->initialized = true;
@@ -18100,6 +18217,65 @@ static void mdm2ap_timing_summary_sample(struct mdm2ap_timing_summary *summary) 
              sizeof(summary->pcie_runtime_status_last),
              "%s",
              pcie_runtime_status);
+    if (pcie1_gdsc_seen) {
+        summary->pcie1_gdsc_seen = 1;
+        if (strstr(pcie1_gdsc_line, "0mV") == NULL) {
+            summary->pcie1_gdsc_nonzero_seen = 1;
+        }
+        mdm2ap_record_initial_last(summary->pcie1_gdsc_initial,
+                                   sizeof(summary->pcie1_gdsc_initial),
+                                   summary->pcie1_gdsc_last,
+                                   sizeof(summary->pcie1_gdsc_last),
+                                   pcie1_gdsc_line);
+    }
+    if (pcie1_clkref_seen) {
+        summary->pcie1_clkref_seen = 1;
+        mdm2ap_record_initial_last(summary->pcie1_clkref_initial,
+                                   sizeof(summary->pcie1_clkref_initial),
+                                   summary->pcie1_clkref_last,
+                                   sizeof(summary->pcie1_clkref_last),
+                                   pcie1_clkref_line);
+    }
+    if (pcie1_phy_refgen_seen) {
+        summary->pcie1_phy_refgen_seen = 1;
+        mdm2ap_record_initial_last(summary->pcie1_phy_refgen_initial,
+                                   sizeof(summary->pcie1_phy_refgen_initial),
+                                   summary->pcie1_phy_refgen_last,
+                                   sizeof(summary->pcie1_phy_refgen_last),
+                                   pcie1_phy_refgen_line);
+    }
+    if (pcie1_pipe_clk_seen) {
+        summary->pcie1_pipe_clk_seen = 1;
+        mdm2ap_record_initial_last(summary->pcie1_pipe_clk_initial,
+                                   sizeof(summary->pcie1_pipe_clk_initial),
+                                   summary->pcie1_pipe_clk_last,
+                                   sizeof(summary->pcie1_pipe_clk_last),
+                                   pcie1_pipe_clk_line);
+    }
+    if (gpio102_perst_seen) {
+        summary->gpio102_perst_seen = 1;
+        mdm2ap_record_initial_last(summary->gpio102_perst_initial,
+                                   sizeof(summary->gpio102_perst_initial),
+                                   summary->gpio102_perst_last,
+                                   sizeof(summary->gpio102_perst_last),
+                                   gpio102_perst_line);
+    }
+    if (gpio103_clkreq_seen) {
+        summary->gpio103_clkreq_seen = 1;
+        mdm2ap_record_initial_last(summary->gpio103_clkreq_initial,
+                                   sizeof(summary->gpio103_clkreq_initial),
+                                   summary->gpio103_clkreq_last,
+                                   sizeof(summary->gpio103_clkreq_last),
+                                   gpio103_clkreq_line);
+    }
+    if (gpio104_wake_seen) {
+        summary->gpio104_wake_seen = 1;
+        mdm2ap_record_initial_last(summary->gpio104_wake_initial,
+                                   sizeof(summary->gpio104_wake_initial),
+                                   summary->gpio104_wake_last,
+                                   sizeof(summary->gpio104_wake_last),
+                                   gpio104_wake_line);
+    }
 
     transition_seen =
         mdm2ap_string_changed(summary->pcie_current_link_state_initial, pcie_current_link_state) ||
@@ -18147,6 +18323,28 @@ static int append_mdm2ap_timing_summary(struct buffer *buf,
                          "mdm2ap_timing.pcie_link_state_last=%s\n"
                          "mdm2ap_timing.pcie_runtime_status_initial=%s\n"
                          "mdm2ap_timing.pcie_runtime_status_last=%s\n"
+                         "mdm2ap_timing.pcie1_gdsc_seen=%d\n"
+                         "mdm2ap_timing.pcie1_gdsc_nonzero_seen=%d\n"
+                         "mdm2ap_timing.pcie1_gdsc_initial=%s\n"
+                         "mdm2ap_timing.pcie1_gdsc_last=%s\n"
+                         "mdm2ap_timing.pcie1_clkref_seen=%d\n"
+                         "mdm2ap_timing.pcie1_clkref_initial=%s\n"
+                         "mdm2ap_timing.pcie1_clkref_last=%s\n"
+                         "mdm2ap_timing.pcie1_phy_refgen_seen=%d\n"
+                         "mdm2ap_timing.pcie1_phy_refgen_initial=%s\n"
+                         "mdm2ap_timing.pcie1_phy_refgen_last=%s\n"
+                         "mdm2ap_timing.pcie1_pipe_clk_seen=%d\n"
+                         "mdm2ap_timing.pcie1_pipe_clk_initial=%s\n"
+                         "mdm2ap_timing.pcie1_pipe_clk_last=%s\n"
+                         "mdm2ap_timing.gpio102_perst_seen=%d\n"
+                         "mdm2ap_timing.gpio102_perst_initial=%s\n"
+                         "mdm2ap_timing.gpio102_perst_last=%s\n"
+                         "mdm2ap_timing.gpio103_clkreq_seen=%d\n"
+                         "mdm2ap_timing.gpio103_clkreq_initial=%s\n"
+                         "mdm2ap_timing.gpio103_clkreq_last=%s\n"
+                         "mdm2ap_timing.gpio104_wake_seen=%d\n"
+                         "mdm2ap_timing.gpio104_wake_initial=%s\n"
+                         "mdm2ap_timing.gpio104_wake_last=%s\n"
                          "mdm2ap_timing.pci_dev_initial=%d\n"
                          "mdm2ap_timing.pci_dev_max=%d\n"
                          "mdm2ap_timing.mhi_bus_max=%d\n"
@@ -18188,6 +18386,28 @@ static int append_mdm2ap_timing_summary(struct buffer *buf,
                          summary->pcie_link_state_last,
                          summary->pcie_runtime_status_initial,
                          summary->pcie_runtime_status_last,
+                         summary->pcie1_gdsc_seen,
+                         summary->pcie1_gdsc_nonzero_seen,
+                         summary->pcie1_gdsc_initial,
+                         summary->pcie1_gdsc_last,
+                         summary->pcie1_clkref_seen,
+                         summary->pcie1_clkref_initial,
+                         summary->pcie1_clkref_last,
+                         summary->pcie1_phy_refgen_seen,
+                         summary->pcie1_phy_refgen_initial,
+                         summary->pcie1_phy_refgen_last,
+                         summary->pcie1_pipe_clk_seen,
+                         summary->pcie1_pipe_clk_initial,
+                         summary->pcie1_pipe_clk_last,
+                         summary->gpio102_perst_seen,
+                         summary->gpio102_perst_initial,
+                         summary->gpio102_perst_last,
+                         summary->gpio103_clkreq_seen,
+                         summary->gpio103_clkreq_initial,
+                         summary->gpio103_clkreq_last,
+                         summary->gpio104_wake_seen,
+                         summary->gpio104_wake_initial,
+                         summary->gpio104_wake_last,
                          summary->pci_dev_initial,
                          summary->pci_dev_max,
                          summary->mhi_bus_max,
