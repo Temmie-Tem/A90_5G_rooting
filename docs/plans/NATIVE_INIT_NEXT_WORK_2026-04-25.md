@@ -316,7 +316,13 @@
   GPIO142/PCIe/MHI/WLFW/`wlan0` response 전이라고 분류했다. 따라서 다음 V1322는
   image-link 재시도가 아니라 SDX50M response input classifier로 잡는다: read-only
   PCIe RC1, GPIO142 IRQ/state, regulator/pinctrl/GDSC, MHI surface, cleanup-safe reboot
-  boundary를 분류한다.
+  boundary를 분류한다. V1322는 host-only로 PASS했고, SDX50M metadata/IRQ/PCIe/regulator
+  surfaces가 보이며 static PMIC/TLMM shape와 image-link/PM actor delivery는 더 이상
+  shortest blocker가 아니라고 정리했다. V1318 first-power-on trace는 GPIO1270 soft-reset,
+  GPIO135 high, regulator/GPIO/PIL events를 보였지만 GPIO142/PCIe/MHI/WLFW는 끝까지
+  없었다. 다음 V1323은 proprietary provider wait cause를 분류한다:
+  `mdm_subsys_powerup`, GPIO142/MDM2AP, `err_ready`를 host/source first로 분석하고,
+  필요할 때만 bounded read-only 또는 reboot-bounded live gate로 확장한다.
   GPIO line request, PMIC GPIO9 hold, PMIC write, direct eSoC ioctl, new
   PM/CNSS/HAL start, scan/connect, credentials, DHCP/routes, external ping, flash,
   boot image write, partition write는 별도 gate 전까지 계속 블록한다.
