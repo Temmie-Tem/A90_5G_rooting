@@ -25,8 +25,8 @@
 
 ## 현재 Wi-Fi Gate
 
-- 최신 기준: V1251 READ-ONLY LIVE PASS —
-  `v1251-pmic-debugfs-native-reproduction-candidate`.
+- 최신 기준: V1252 HOST-ONLY PASS —
+  `v1252-bounded-pmic-power-write-gate-plan-ready`.
   V1239는 Android/V1238 증거를 비교해 blocker를 `pm-service`
   `/dev/subsys_esoc0` / `mdm_subsys_powerup` 이후로 낮췄고, V1240은
   SDX50M/eSoC response surface와 GPIO142 `mdm status` IRQ count `0`을
@@ -49,11 +49,15 @@
   `read-only-pass`: `debugfs_pinctrl_present=1`, `debugfs_regulator_present=1`,
   PM8150L soft-reset GPIO line `pin 7 (gpio9): (MUX UNCLAIMED)`, PCIe GDSC
   lines `0mV`, `mdm3=OFFLINING`, GPIO142 IRQ count `0`, `read_contract_ready=1`,
-  `native_reproduction_candidate=1`, postflight selftest `fail=0`이다. 따라서
-  다음 V1252는 source/plan-only로 bounded PMIC/power-surface write gate를
-  설계해야 한다. PMIC/GPIO/debugfs/regulator write, eSoC ioctl, Wi-Fi HAL,
-  scan/connect, credentials, DHCP/routes, external ping, flash, boot image
-  write, partition write는 explicit write-gate 전까지 계속 블록한다.
+  `native_reproduction_candidate=1`, postflight selftest `fail=0`이다. V1252는
+  host-only로 해당 증거를 검증하고 다음 단위를 helper v261 source/build-only로
+  선택했다. 다음 V1253은 `wifi-companion-pmic-power-surface-write-gate-preflight`
+  mode를 추가해 V1251 read contract 재검증, PM8150L `gpiochip` 후보 탐지,
+  PMIC GPIO9 global line `1270` / offset `7` mapping 검증을 수행하되 live write는
+  하지 않는다. 첫 later live proof도 PMIC GPIO9 bounded line-hold만 허용하고,
+  `/dev/subsys_esoc0` open, PM/CNSS/HAL start, scan/connect, credentials,
+  DHCP/routes, external ping, flash, boot image write, partition write는 별도
+  gate 전까지 계속 블록한다.
 - V1198 배경: V1197 root cause 분석 완료: 세 가지 레이어 문제가 중첩됨.
   V1197 root cause 분석 완료: 세 가지 레이어 문제가 중첩됨.
   (1) V1194/V1195/V1196: SAMPLE_COUNT!=0 → serial 홍수 (pm_proxy/pm-service /proc/maps 덤프
