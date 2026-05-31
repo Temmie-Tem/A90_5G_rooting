@@ -1199,3 +1199,9 @@ Update after V1354/V1355:
   no `/dev/mhi*`, and no PCIe link-up markers. Next gate is V1361 host-only MHI
   ownership/downstream classification; do not bind MHI client drivers, rescan
   PCI, or touch PMIC/GPIO/GDSC/eSoC notify paths from this evidence alone.
+- V1361 host-only classifier (`v1361-mhi-surfaces-downstream-no-safe-mutation`)
+  closes the MHI client-surface branch. OSRC shows `mhi_pci_probe()` requires an
+  existing `pci_dev`, while live MHI bind files belong to client drivers that
+  need existing `mhi_device` instances. MHI bind/debugfs surfaces cannot initiate
+  SDX50M/pcie1 enumeration. Next gate is V1362 host-only `pci-msm`/pcie1
+  mutation risk classification before any platform bind/rescan attempt.

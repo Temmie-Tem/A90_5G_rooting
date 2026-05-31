@@ -5846,6 +5846,25 @@ Samsung bootloader
    - Keep this host-only: no live command, platform bind/unbind, PCI rescan,
      PMIC/GPIO/GDSC write, eSoC notify/`BOOT_DONE`, Wi-Fi HAL/scan/connect,
      DHCP/routes, or external ping.
+   - Result:
+     `docs/reports/NATIVE_INIT_V1361_MHI_SURFACE_OWNERSHIP_CLASSIFIER_2026-06-01.md`.
+     Decision: `v1361-mhi-surfaces-downstream-no-safe-mutation`. The live MHI
+     bus drivers are client drivers and require existing `mhi_device`
+     instances; the MHI controller is created from an existing `pci_dev`.
+     Therefore MHI bind/debugfs surfaces are downstream of pcie1 enumeration and
+     are not a narrower safe mutation.
+
+10. **V1362 pci-msm/pcie1 mutation risk classifier (host-only).**
+    - With ICNSS `dev_boot` and MHI client surfaces closed, classify the
+      remaining already-bound `pci-msm` platform surface and generic PCI rescan
+      paths before any live mutation.
+    - Required output: risk table for platform unbind/bind, driver reprobe,
+      `drivers_probe`, and global PCI rescan; identify whether any option can
+      be made RC1-specific, bounded, observable, and rollback-safe. If not,
+      choose a kernel-side shim/design route instead of a blind mutation.
+    - Keep this host-only: no live command, no platform bind/unbind, no PCI
+      rescan, no PMIC/GPIO/GDSC write, no eSoC notify/`BOOT_DONE`, no Wi-Fi
+      HAL/scan/connect/DHCP/routes/external ping.
 
 ### Required decision before any new mutation
 
@@ -5865,6 +5884,10 @@ Samsung bootloader
 - V1360 found MHI topology and MHI bus/client-driver surfaces, but no live MHI
   devices or `/dev/mhi*` nodes. V1361 must classify whether these are only
   downstream of PCIe enumeration before any mutation is selected.
+- V1361 proved the observed MHI bind/debugfs surfaces are downstream consumers:
+  `mhi_pci_probe()` requires an existing `pci_dev`, and MHI client driver bind
+  files require existing `mhi_device` instances. The next decision is V1362
+  host-only risk classification of the remaining `pci-msm`/PCI rescan options.
 - If V1359 only finds platform bind/probe or global PCI rescan, stop for a new
   design instead of binding or rescanning blindly.
 - If both pcie1 RC and PON parity are read-only-proven healthy yet MDM2AP still
