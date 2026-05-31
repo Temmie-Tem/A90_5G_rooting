@@ -123,7 +123,9 @@
   cleanup은 reboot-required로 분류됐고 reboot 후 version `0.9.68 (v724)`,
   selftest `fail=0`, transient debugfs/vendor/system mount cleanup을 확인했다. 다음
   V1272는 host-only로 broader read-only debugfs GPIO/pinconf block sampler 범위를
-  확정한다.
+  확정했다. V1272 decision은 `v1272-ap2mdm-block-sampler-selected`이고, V1273은
+  source/build-only helper v266으로 PM8150L GPIO9/global GPIO1270, TLMM GPIO135/142,
+  PCIe RC1/GDSC 주변 block capture를 기존 late PM-service response sampler에 추가한다.
   GPIO line request, PMIC GPIO9 hold, PMIC write, direct eSoC ioctl, new
   PM/CNSS/HAL start, scan/connect, credentials, DHCP/routes, external ping, flash,
   boot image write, partition write는 별도 gate 전까지 계속 블록한다.
