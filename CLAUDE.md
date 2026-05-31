@@ -1301,3 +1301,12 @@ Update after V1354/V1355:
   appeared, and reboot cleanup returned native selftest `fail=0`. The next gate
   is V1373 host-only parity classification of why Android's provider/pm-service
   path makes the endpoint ready but raw provider-hold + RC1 enumerate does not.
+- V1373 host-only classifier
+  (`v1373-gap-is-android-participant-plus-rc1-combination`) closes the raw
+  provider-holder branch. Existing evidence has separately tested: Android PM
+  actors/`mdm_helper` without corrected RC1 enumerate (no native L0), corrected
+  RC1 enumerate without PM actors (no L0), and raw provider-hold plus corrected
+  RC1 enumerate without Android `mdm_helper`/`pm-service` context (no L0). The
+  remaining narrow untested combination is Android participant parity
+  (`mdm_helper` CMD_ENG/WAIT_FOR_REQ plus `pm-service` `/dev/subsys_esoc0`) with
+  corrected `rc_sel=2` + `case=11`, still below Wi-Fi HAL/scan/connect/network.

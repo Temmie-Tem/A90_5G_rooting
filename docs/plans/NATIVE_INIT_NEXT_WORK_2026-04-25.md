@@ -6132,6 +6132,35 @@ Samsung bootloader
       assert/deassert, PMIC/GPIO/GDSC direct write, eSoC notify/`BOOT_DONE`,
       Wi-Fi HAL, scan/connect/credentials, DHCP/routes, external ping, flash,
       boot image write, or partition write.
+    - Result:
+      `docs/reports/NATIVE_INIT_V1373_PROVIDER_PATH_PARITY_CLASSIFIER_2026-06-01.md`.
+      Decision: `v1373-gap-is-android-participant-plus-rc1-combination`.
+      Existing evidence has tested PM actors without corrected RC1 enumerate,
+      corrected RC1 enumerate without PM actors, and raw provider-hold plus
+      corrected RC1 enumerate without Android `mdm_helper`/`pm-service`
+      context. All native variants stop below RC1 L0/MDM2AP/WLFW/`wlan0`; the
+      Android reference reaches all of them. The remaining narrow untested
+      combination is Android participant parity plus corrected RC1 enumerate.
+
+22. **V1374 Android participant parity + corrected RC1 enumerate design (source/build-only first).**
+    - Goal: turn V1373 into a bounded live runner design that starts only the
+      lower Android participant parity needed for `mdm_helper` CMD_ENG /
+      WAIT_FOR_REQ and `pm-service` `/dev/subsys_esoc0`, then writes corrected
+      `rc_sel=2` + `case=11` after that provider window is confirmed.
+    - Required preflight: native selftest `fail=0`, debugfs mount state,
+      `/dev/esoc-0` fd or equivalent `mdm_helper` evidence, `pm-service`
+      `/dev/subsys_esoc0` `wchan=mdm_subsys_powerup`, no existing PCI/MHI/WLFW
+      link, and explicit reboot cleanup path.
+    - Success signals: RC1 reaches L0, GPIO142/MDM2AP asserts, PCI/MHI appears,
+      WLFW/BDF markers appear, or a strictly stronger lower-boundary failure is
+      captured while post-selftest returns `fail=0`.
+    - Failure signals: transport loss without cleanup, post-selftest failure,
+      accidental HAL/scan/connect/network activity, or non-RC1/global PCI side
+      effects.
+    - Hard stop: source/build-only first. No live execution until the runner
+      preflight is implemented. No Wi-Fi HAL, scan/connect/credentials,
+      DHCP/routes, external ping, direct PMIC/GPIO/GDSC writes, eSoC notify/
+      `BOOT_DONE` spoof, flash, boot image write, or partition write.
 
 ### Required decision before any new mutation
 
@@ -6198,6 +6227,10 @@ Samsung bootloader
   GPIO142/MDM2AP never asserts. V1373 must compare Android's full
   `mdm_helper`/`pm-service` provider path against this raw-holder path before
   any new live mutation.
+- V1373 proves the next live design must not retry raw provider-hold or isolated
+  RC1 enumerate. The untested narrow path is Android participant parity plus
+  corrected RC1 enumerate; V1374 should design that runner first, still below
+  Wi-Fi HAL/scan/connect/network.
 - If V1359 only finds platform bind/probe or global PCI rescan, stop for a new
   design instead of binding or rescanning blindly.
 - If both pcie1 RC and PON parity are read-only-proven healthy yet MDM2AP still
