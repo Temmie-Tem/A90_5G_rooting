@@ -9,7 +9,7 @@ Samsung Galaxy A90 5G (SM-A908N) — stock Android Linux kernel 4.14.190, custom
 - **Device**: SM-A908N, Android 12, Magisk 30.7, TWRP available
 - **Current native build**: `A90 Linux init 0.9.68 (v724)` — `stage3/boot_linux_v724.img`
 - **Known-good fallback**: `stage3/boot_linux_v48.img`
-- **Active research cycle**: V1378 deploy-only PASS installed helper v283 to `/cache/bin/a90_android_execns_probe` and verified SHA/marker/selftest. Next is V1379 bounded Android participant + corrected RC1 live rerun, now gated on observed `pm-service` `mdm_subsys_powerup` thread state instead of `/dev/subsys_esoc0` fd ownership. Preserve hard exclusions: no PMIC/GPIO/GDSC direct write, blind eSoC notify/BOOT_DONE spoof, Wi-Fi HAL, scan/connect, credentials, DHCP/routes, external ping, flash outside approved Android handoff/rollback, boot image write outside approved rollback, or partition write.
+- **Active research cycle**: V1379 bounded live PASS triggered corrected RC1 enumerate inside the Android participant window using helper v283's `pm-service` `mdm_subsys_powerup` gate. RC1 transitioned, but GPIO142/MDM2AP, PCI/MHI, WLFW, and `wlan0` still stayed absent. Next is host-only LTSSM/participant-gap classification before any new live mutation. Preserve hard exclusions: no PMIC/GPIO/GDSC direct write, blind eSoC notify/BOOT_DONE spoof, Wi-Fi HAL, scan/connect, credentials, DHCP/routes, external ping, flash outside approved Android handoff/rollback, boot image write outside approved rollback, or partition write.
 - **Versioning policy**: `docs/operations/VERSIONING_POLICY.md` — `vNNN` cycle ≠ device flash
 
 ## Versioning rules
@@ -1366,3 +1366,14 @@ Update after V1354/V1355:
   No daemon start, Wi-Fi HAL, scan/connect, credentials, DHCP/routes, external
   ping, flash, boot image write, or partition write occurred. Next is V1379
   bounded live rerun.
+- V1379 bounded live (`v1379-corrected-rc1-ltssm-no-downstream-clean`) reran
+  the Android participant + corrected RC1 path with helper v283. The corrected
+  RC1 block triggered at `late_per_proxy_poll_00` with
+  `gate_pm_service_powerup_thread_count=1`, `rc_sel_rc=0`, and `case_rc=0`.
+  The timing sampler captured `timing_pcie_rc1_transition_seen=True` over
+  `120` samples, but GPIO142 IRQ delta stayed `0`, PCI and MHI device counts
+  stayed `0`, MHI pipe/`ks` stayed absent, WLFW kmsg count stayed `0`, and
+  `wlan0` remained absent. Safety markers remained clear, debugfs cleanup
+  completed, and post selftest stayed `fail=0`; netservice stayed disabled.
+  Next is a host-only LTSSM/Android-participant gap classifier before any new
+  live mutation or Wi-Fi HAL/network action.

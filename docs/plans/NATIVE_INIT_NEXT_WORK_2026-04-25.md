@@ -6297,6 +6297,30 @@ Samsung bootloader
     - Hard stop: still below Wi-Fi bring-up. No Wi-Fi HAL, scan/connect,
       credentials, DHCP/routes, external ping, direct PMIC/GPIO/GDSC writes,
       eSoC notify/`BOOT_DONE`, flash, boot image write, or partition write.
+    - Result:
+      `docs/reports/NATIVE_INIT_V1379_ANDROID_PARTICIPANT_CORRECTED_RC1_LIVE_2026-06-01.md`.
+      Decision: `v1379-corrected-rc1-ltssm-no-downstream-clean`. Helper v283
+      triggered corrected RC1 enumerate inside the Android participant window:
+      `gate_pm_service_powerup_thread_count=1`, `rc_sel_rc=0`, and
+      `case_rc=0`. The timing sampler saw RC1 transition
+      (`timing_pcie_rc1_transition_seen=True`) but no GPIO142/MDM2AP, PCI/MHI,
+      MHI pipe, `ks`, WLFW, or `wlan0`. Safety markers stayed clear, debugfs
+      cleanup completed, and post selftest stayed clean.
+28. **V1380 RC1 LTSSM/participant gap classifier (host-only).**
+    - Goal: classify V1379 against Android-positive RC1 L0 evidence and prior
+      V1370/V1372/V1373 results to decide what Android participant or endpoint
+      prerequisite is still missing after the v283 powerup-thread gate.
+    - Inputs: V1379 manifest/report, focused V1379 dmesg/pcie kmsg evidence,
+      Android V852 RC1 L0 timing, V1370 isolated corrected-RC1 enumerate,
+      V1372 raw provider-held enumerate, and V1373 parity classifier.
+    - Required output: source/evidence-backed answer for whether the remaining
+      gap is only timing, missing participant/service, endpoint reset/refclk
+      readiness, or a lower SDX50M response condition. It must select exactly
+      one next candidate or explicitly stop live mutation.
+    - Hard stop: host-only. No device command, debugfs/sysfs write,
+      `rc_sel`/`case` write, PMIC/GPIO/GDSC write, eSoC notify/`BOOT_DONE`,
+      Wi-Fi HAL, scan/connect, credentials, DHCP/routes, external ping, flash,
+      boot image write, or partition write.
 
 ### Required decision before any new mutation
 
@@ -6385,6 +6409,10 @@ Samsung bootloader
 - V1378 proves helper v283 is on-device and healthy. V1379 may now run the
   bounded Android participant parity + corrected RC1 live rerun. It must
   classify transport loss as recovery evidence, not success.
+- V1379 proves the fixed gate works and RC1 can transition in the Android
+  participant window, but it still does not reach MDM2AP/GPIO142, PCI/MHI,
+  WLFW, or `wlan0`. V1380 must be host-only classification; do not run another
+  live mutation until that classifier chooses a narrower next action.
 - If V1359 only finds platform bind/probe or global PCI rescan, stop for a new
   design instead of binding or rescanning blindly.
 - If both pcie1 RC and PON parity are read-only-proven healthy yet MDM2AP still
