@@ -277,8 +277,11 @@
   fallback으로 배포했으며 daemon start나 Wi-Fi bring-up은 없었다. V1313은 bounded
   lower-sequence summary sampler live로 PASS했다. Helper stdout truncation 없이
   `81` samples와 `response_summary.end=1`을 확보했고, `mdm_subsys_powerup`은 보이나
-  PCIe GDSC/MHI/`ks`/`wlan0` transition은 없었다. 다음 V1314는 exact safe dynamic
-  GDSC/eSoC prerequisite 분류다.
+  PCIe GDSC/MHI/`ks`/`wlan0` transition은 없었다. V1314는 host-only classifier로
+  PASS했고 `v1314-provider-internal-first-power-on-trace-gate-selected`를 냈다. 직접
+  PMIC/GPIO/GDSC/eSoC mutation은 계속 배제하고, 다음 안전 prerequisite는 tracefs static
+  events로 provider-internal first-power-on event visibility를 증명하는 것이다. 다음
+  V1315는 regulator/gpio/irq/clk/power/msm_pil_event availability/format preflight다.
   GPIO line request, PMIC GPIO9 hold, PMIC write, direct eSoC ioctl, new
   PM/CNSS/HAL start, scan/connect, credentials, DHCP/routes, external ping, flash,
   boot image write, partition write는 별도 gate 전까지 계속 블록한다.
