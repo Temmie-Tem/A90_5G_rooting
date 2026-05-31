@@ -1205,3 +1205,9 @@ Update after V1354/V1355:
   need existing `mhi_device` instances. MHI bind/debugfs surfaces cannot initiate
   SDX50M/pcie1 enumeration. Next gate is V1362 host-only `pci-msm`/pcie1
   mutation risk classification before any platform bind/rescan attempt.
+- V1362 host-only classifier (`v1362-no-safe-userspace-pci-msm-mutation`) rejects
+  the remaining userspace mutations. Platform unbind/bind for
+  `1c08000.qcom,pcie` is only partially RC1-scoped and enters the proprietary
+  `pci-msm` remove/probe lifecycle without timeout/rollback proof; generic
+  `drivers_probe` and PCI rescan are not RC1-specific. Next gate is V1363
+  host-only feasibility for a kernel-side `msm_pcie_enumerate(1)` shim.
