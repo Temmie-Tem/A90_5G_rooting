@@ -83,6 +83,10 @@ stage3/linux_init/helpers/a90_fwpathctl
 stage3/linux_init/helpers/a90_icnssctl
 stage3/linux_init/helpers/a90_android_execns_probe
 stage3/linux_init/helpers/a90_qrtr_probe
+# compiled helper binary snapshots — reproducible from *.c + build scripts,
+# identity tracked via SHA256 in reports/CLAUDE.md; do not bloat git with them
+stage3/linux_init/helpers/*_v[0-9]*
+!stage3/linux_init/helpers/*.c
 stage3/ramdisk_v*/
 stage3/ramdisk_v*.cpio
 

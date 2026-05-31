@@ -17,7 +17,9 @@ from pathlib import Path
 ROOT = Path(__file__).resolve().parents[2]
 STAGE3 = ROOT / "stage3"
 LINUX_INIT = STAGE3 / "linux_init"
-DEFAULT_KEEP = ("v48", "v98", "v99")
+# Retention policy: known-good fallback (v48), previous rollback (v261),
+# current device build (v724). Update when a new image is flashed.
+DEFAULT_KEEP = ("v48", "v261", "v724")
 
 
 def parse_args() -> argparse.Namespace:
@@ -29,7 +31,7 @@ def parse_args() -> argparse.Namespace:
         action="append",
         default=list(DEFAULT_KEEP),
         metavar="vNN",
-        help="build tag to keep; may be repeated (default: v48, v98, v99)",
+        help="build tag to keep; may be repeated (default: v48, v261, v724)",
     )
     parser.add_argument(
         "--execute",
