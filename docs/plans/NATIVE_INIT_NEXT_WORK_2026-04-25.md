@@ -5555,3 +5555,25 @@ Samsung bootloader
   remained `pass=11 warn=1 fail=0`.
 - next: V1329 should classify the Android-only SDX50M response prerequisite
   before any PMIC/GPIO/eSoC mutation.
+
+## V1329 Android-only SDX50M Prerequisite Classifier (2026-05-31)
+
+- runner: `scripts/revalidation/native_wifi_android_only_sdx50m_prereq_classifier_v1329.py`
+- evidence: `tmp/wifi/v1329-android-only-sdx50m-prereq-classifier/manifest.json`
+- report: `docs/reports/NATIVE_INIT_V1329_ANDROID_ONLY_SDX50M_PREREQ_CLASSIFIER_2026-05-31.md`
+- result: `v1329-android-prereq-is-earlier-sdx50m-response-sequence`, pass `true`.
+- finding: V1328 proves native reaches `mdm_subsys_powerup` with a complete
+  no-transition timing window. Android-positive V852/V896/V1239 evidence has
+  GPIO142 IRQ, PCIe RC1/L0, `ks` on the MHI pipe, WLFW/BDF, and `wlan0`; the
+  existing Android evidence places PCIe L0 before the captured `pm-service`
+  eSoC timestamp.
+- interpretation: the next blocker is not a longer native wait and not Wi-Fi
+  HAL/scan/connect. It is an Android-only earlier SDX50M response prerequisite
+  or timing relation that native has not reproduced.
+- safety: host-only classifier. No device command, helper deploy, actor start,
+  tracefs write, live eSoC ioctl/notify, PMIC write, GPIO request, GDSC/eSoC
+  write, Wi-Fi HAL start, scan/connect, credential use, DHCP/routes, external
+  ping, flash, boot image write, or partition write occurred.
+- next: V1330 should design a focused Android read-only timing recapture around
+  earliest `per_mgr`/`per_proxy`, `mdm_helper`, GPIO142, PCIe RC1, and `ks`/MHI
+  on one monotonic timeline before any native PMIC/GPIO/eSoC mutation.
