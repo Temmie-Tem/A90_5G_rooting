@@ -27,6 +27,11 @@ PLAN_OUT_DIR = Path("tmp/wifi/v1345-current-route-mdm2ap-timing-sampler-plan")
 PLAN_LATEST_POINTER = Path("tmp/wifi/latest-v1345-current-route-mdm2ap-timing-sampler-plan.txt")
 REPORT_PATH = Path("docs/reports/NATIVE_INIT_V1345_CURRENT_ROUTE_MDM2AP_TIMING_SAMPLER_LIVE_2026-06-01.md")
 
+CYCLE_LABEL = "v1345"
+CYCLE_NAME = "V1345"
+SUMMARY_HEADING = "V1345 Current Route MDM2AP Timing Sampler"
+REPORT_TITLE = "Native Init V1345 Current Route MDM2AP Timing Sampler Live"
+SCRIPT_PATH = "scripts/revalidation/native_wifi_current_route_mdm2ap_timing_sampler_live_v1345.py"
 HELPER_MARKER = "a90_android_execns_probe v279"
 HELPER_SHA256 = "2ec7c9584e0adb09755e1066ee01a986e3b7fd719c11b8a96aaf5c500d9dd15a"
 PRIVATE_CNSS_FLAG = "--pm-observer-private-cnss-daemon-sdx50m"
@@ -84,10 +89,10 @@ def configure() -> None:
     base.LATEST_POINTER = LATEST_POINTER
     base.HELPER_MARKER = HELPER_MARKER
     base.HELPER_SHA256 = HELPER_SHA256
-    base.CYCLE_LABEL = "v1345"
-    base.CYCLE_NAME = "V1345"
-    base.SUMMARY_HEADING = "V1345 Current Route MDM2AP Timing Sampler"
-    base.EVIDENCE_FILE_PREFIX = "v1345"
+    base.CYCLE_LABEL = CYCLE_LABEL
+    base.CYCLE_NAME = CYCLE_NAME
+    base.SUMMARY_HEADING = SUMMARY_HEADING
+    base.EVIDENCE_FILE_PREFIX = CYCLE_LABEL
     base._force_response_sampler_child_command = _force_current_route_child_command
 
 
@@ -132,11 +137,25 @@ def _timing_safety_clear(sampler: dict[str, Any]) -> bool:
     return all(_int_value(sampler.get(key), -1) == 0 for key in safety_keys)
 
 
+def _field_changed(sampler: dict[str, Any], initial_key: str, last_key: str) -> bool:
+    initial = str(sampler.get(initial_key) or "")
+    last = str(sampler.get(last_key) or "")
+    return bool(initial and last and initial != last)
+
+
 def _timing_progress(sampler: dict[str, Any]) -> bool:
     return (
         _int_value(sampler.get("timing_gpio142_irq_delta"), 0) > 0
         or _int_value(sampler.get("timing_errfatal_irq_delta"), 0) > 0
         or bool(sampler.get("timing_pcie_rc1_transition_seen"))
+        or bool(sampler.get("timing_pcie1_gdsc_nonzero_seen"))
+        or _field_changed(sampler, "timing_pcie1_gdsc_initial", "timing_pcie1_gdsc_last")
+        or _field_changed(sampler, "timing_pcie1_clkref_initial", "timing_pcie1_clkref_last")
+        or _field_changed(sampler, "timing_pcie1_phy_refgen_initial", "timing_pcie1_phy_refgen_last")
+        or _field_changed(sampler, "timing_pcie1_pipe_clk_initial", "timing_pcie1_pipe_clk_last")
+        or _field_changed(sampler, "timing_gpio102_perst_initial", "timing_gpio102_perst_last")
+        or _field_changed(sampler, "timing_gpio103_clkreq_initial", "timing_gpio103_clkreq_last")
+        or _field_changed(sampler, "timing_gpio104_wake_initial", "timing_gpio104_wake_last")
         or _int_value(sampler.get("timing_pci_dev_max"), 0) > 0
         or _int_value(sampler.get("timing_mhi_bus_max"), 0) > 0
         or bool(sampler.get("timing_mhi_pipe_seen"))
@@ -147,13 +166,31 @@ def _timing_progress(sampler: dict[str, Any]) -> bool:
     )
 
 
+def _pcie1_rc_stayed_off(sampler: dict[str, Any]) -> bool:
+    perst_initial = str(sampler.get("timing_gpio102_perst_initial") or "")
+    perst_last = str(sampler.get("timing_gpio102_perst_last") or "")
+    return (
+        bool(sampler.get("timing_pcie1_gdsc_seen"))
+        and not bool(sampler.get("timing_pcie1_gdsc_nonzero_seen"))
+        and "0mV" in str(sampler.get("timing_pcie1_gdsc_initial") or "")
+        and "0mV" in str(sampler.get("timing_pcie1_gdsc_last") or "")
+        and "out 0" in perst_initial
+        and "out 0" in perst_last
+        and _int_value(sampler.get("timing_pci_dev_max"), 0) == 0
+        and _int_value(sampler.get("timing_mhi_bus_max"), 0) == 0
+    )
+
+
 def decide_v1345(manifest: dict[str, Any]) -> tuple[str, bool, str, str]:
+    def decision(suffix: str) -> str:
+        return f"{CYCLE_LABEL}-{suffix}"
+
     if manifest.get("command") == "plan":
         return (
-            "v1345-current-route-mdm2ap-timing-plan-ready",
+            decision("current-route-mdm2ap-timing-plan-ready"),
             True,
             "plan-only; no device command or live action executed",
-            "run V1345 current-route MDM2AP timing sampler live",
+            f"run {CYCLE_NAME} current-route MDM2AP timing sampler live",
         )
 
     sampler = manifest.get("response_sampler") or {}
@@ -162,62 +199,69 @@ def decide_v1345(manifest: dict[str, Any]) -> tuple[str, bool, str, str]:
 
     if current_route.get("private_flag_in_child_script") != 1:
         return (
-            "v1345-current-route-private-cnss-missing",
+            decision("current-route-private-cnss-missing"),
             False,
             "child command did not include private cnss-daemon SDX50M flag",
-            "repair V1345 child command injection before live retry",
+            f"repair {CYCLE_NAME} child command injection before live retry",
         )
     if private_cnss.get("bind_rc") != "0" or private_cnss.get("expected_c_string") != "SDX50M":
         return (
-            "v1345-current-route-private-cnss-missing",
+            decision("current-route-private-cnss-missing"),
             False,
             f"private_cnss={private_cnss}",
             "verify /cache/bin/cnss-daemon.sdx50m identity and private bind markers",
         )
     if not sampler.get("timing_emitted") or not sampler.get("timing_end"):
         return (
-            "v1345-current-route-timing-missing",
+            decision("current-route-timing-missing"),
             False,
             "mdm2ap_timing summary did not emit a complete begin/end block",
             "inspect helper stdout before retrying",
         )
     if sampler.get("timing_mode") != "late-per-proxy-mdm2ap-errfatal-pcie-timing":
         return (
-            "v1345-current-route-timing-missing",
+            decision("current-route-timing-missing"),
             False,
             f"unexpected timing mode={sampler.get('timing_mode')!r}",
             "verify timing sampler flag injection",
         )
     if _int_value(sampler.get("timing_sample_count"), 0) < timing.EXPECTED_MIN_TIMING_SAMPLE_COUNT:
         return (
-            "v1345-current-route-timing-missing",
+            decision("current-route-timing-missing"),
             False,
             f"timing sample_count={sampler.get('timing_sample_count')}",
             "inspect helper timing window before retrying",
         )
     if not _timing_safety_clear(sampler):
         return (
-            "v1345-current-route-safety-violation",
+            decision("current-route-safety-violation"),
             False,
             "timing summary reports a forbidden Wi-Fi/network/lower mutation action",
             "stop and audit helper output",
         )
     if _timing_progress(sampler):
         return (
-            "v1345-current-route-mdm2ap-progress",
+            decision("current-route-mdm2ap-progress"),
             True,
             "current private SDX50M route observed lower response progress",
             "classify the first progressed surface before Wi-Fi HAL, scan/connect, DHCP, or external ping",
         )
     if sampler.get("timing_pm_service_powerup_seen"):
+        if _pcie1_rc_stayed_off(sampler):
+            return (
+                decision("current-route-pcie1-rc-stayed-off"),
+                True,
+                "current private SDX50M route reached mdm_subsys_powerup, but pcie1 RC stayed off: pcie_1_gdsc remained 0mV, PERST stayed low, and no PCI/MHI/WLFW/wlan0 transition appeared",
+                "classify PM8150L GPIO9 PON parity, then design a bounded pcie1 RC enable experiment only if PON parity is healthy",
+            )
         return (
-            "v1345-current-route-mdm2ap-full-window-no-transition",
+            decision("current-route-mdm2ap-full-window-no-transition"),
             True,
             "current private SDX50M route reached mdm_subsys_powerup, but full timing window saw no GPIO142/errfatal/PCIe/MHI/ks/WLFW/wlan0 transition",
             "classify Android-only SDX50M response prerequisite before any PMIC/GPIO/eSoC mutation",
         )
     return (
-        "v1345-current-route-no-powerup",
+        decision("current-route-no-powerup"),
         False,
         "current private SDX50M route did not reach mdm_subsys_powerup in timing sampler",
         "repair current route trigger before lower-response sampling",
@@ -240,7 +284,7 @@ def augment_manifest(manifest: dict[str, Any]) -> dict[str, Any]:
         "timing_progress": _timing_progress(sampler),
         "timing_safety_clear": _timing_safety_clear(sampler),
     }
-    manifest["cycle"] = "v1345"
+    manifest["cycle"] = CYCLE_LABEL
     manifest["helper_version"] = HELPER_MARKER
     manifest["helper_sha256"] = HELPER_SHA256
     manifest["private_cnss_daemon"] = private_cnss
@@ -276,6 +320,28 @@ def _key_rows(manifest: dict[str, Any]) -> list[list[Any]]:
         ["timing_gpio142_irq_delta", sampler.get("timing_gpio142_irq_delta")],
         ["timing_errfatal_irq_delta", sampler.get("timing_errfatal_irq_delta")],
         ["timing_pcie_rc1_transition_seen", sampler.get("timing_pcie_rc1_transition_seen")],
+        ["timing_pcie1_gdsc_seen", sampler.get("timing_pcie1_gdsc_seen")],
+        ["timing_pcie1_gdsc_nonzero_seen", sampler.get("timing_pcie1_gdsc_nonzero_seen")],
+        ["timing_pcie1_gdsc_initial", sampler.get("timing_pcie1_gdsc_initial")],
+        ["timing_pcie1_gdsc_last", sampler.get("timing_pcie1_gdsc_last")],
+        ["timing_pcie1_clkref_seen", sampler.get("timing_pcie1_clkref_seen")],
+        ["timing_pcie1_clkref_initial", sampler.get("timing_pcie1_clkref_initial")],
+        ["timing_pcie1_clkref_last", sampler.get("timing_pcie1_clkref_last")],
+        ["timing_pcie1_phy_refgen_seen", sampler.get("timing_pcie1_phy_refgen_seen")],
+        ["timing_pcie1_phy_refgen_initial", sampler.get("timing_pcie1_phy_refgen_initial")],
+        ["timing_pcie1_phy_refgen_last", sampler.get("timing_pcie1_phy_refgen_last")],
+        ["timing_pcie1_pipe_clk_seen", sampler.get("timing_pcie1_pipe_clk_seen")],
+        ["timing_pcie1_pipe_clk_initial", sampler.get("timing_pcie1_pipe_clk_initial")],
+        ["timing_pcie1_pipe_clk_last", sampler.get("timing_pcie1_pipe_clk_last")],
+        ["timing_gpio102_perst_seen", sampler.get("timing_gpio102_perst_seen")],
+        ["timing_gpio102_perst_initial", sampler.get("timing_gpio102_perst_initial")],
+        ["timing_gpio102_perst_last", sampler.get("timing_gpio102_perst_last")],
+        ["timing_gpio103_clkreq_seen", sampler.get("timing_gpio103_clkreq_seen")],
+        ["timing_gpio103_clkreq_initial", sampler.get("timing_gpio103_clkreq_initial")],
+        ["timing_gpio103_clkreq_last", sampler.get("timing_gpio103_clkreq_last")],
+        ["timing_gpio104_wake_seen", sampler.get("timing_gpio104_wake_seen")],
+        ["timing_gpio104_wake_initial", sampler.get("timing_gpio104_wake_initial")],
+        ["timing_gpio104_wake_last", sampler.get("timing_gpio104_wake_last")],
         ["timing_pci_dev_max", sampler.get("timing_pci_dev_max")],
         ["timing_mhi_bus_max", sampler.get("timing_mhi_bus_max")],
         ["timing_mhi_pipe_seen", sampler.get("timing_mhi_pipe_seen")],
@@ -308,19 +374,19 @@ def _cleanup_rows(manifest: dict[str, Any]) -> list[list[Any]]:
 
 def render_report(manifest: dict[str, Any]) -> str:
     return "\n".join([
-        "# Native Init V1345 Current Route MDM2AP Timing Sampler Live",
+        f"# {REPORT_TITLE}",
         "",
         "## Summary",
         "",
-        "- Cycle: `V1345`",
+        f"- Cycle: `{CYCLE_NAME}`",
         "- Type: bounded live lower-response timing sampler",
         f"- Decision: `{manifest.get('decision', '')}`",
         f"- Result: {'PASS' if manifest.get('pass') else 'FAIL'}",
         "- Evidence:",
-        "  - `tmp/wifi/v1345-current-route-mdm2ap-timing-sampler-live/manifest.json`",
-        "  - `tmp/wifi/v1345-current-route-mdm2ap-timing-sampler-live/summary.md`",
-        "- Script: `scripts/revalidation/native_wifi_current_route_mdm2ap_timing_sampler_live_v1345.py`",
-        "- Helper: `/cache/bin/a90_android_execns_probe` (`a90_android_execns_probe v279`)",
+        f"  - `{DEFAULT_OUT_DIR}/manifest.json`",
+        f"  - `{DEFAULT_OUT_DIR}/summary.md`",
+        f"- Script: `{SCRIPT_PATH}`",
+        f"- Helper: `/cache/bin/a90_android_execns_probe` (`{HELPER_MARKER}`)",
         "",
         "## Key Observations",
         "",
@@ -334,7 +400,7 @@ def render_report(manifest: dict[str, Any]) -> str:
         "",
         str(manifest.get("reason", "")),
         "",
-        "V1345 remains below Wi-Fi bring-up. It does not start Wi-Fi HAL, scan,",
+        f"{CYCLE_NAME} remains below Wi-Fi bring-up. It does not start Wi-Fi HAL, scan,",
         "connect, credential handling, DHCP/routes, or external ping.",
         "",
         "## Next",
@@ -346,7 +412,7 @@ def render_report(manifest: dict[str, Any]) -> str:
 
 def render_summary(manifest: dict[str, Any]) -> str:
     return "\n".join([
-        "# V1345 Current Route MDM2AP Timing Sampler",
+        f"# {SUMMARY_HEADING}",
         "",
         f"- decision: `{manifest.get('decision', '')}`",
         f"- pass: `{manifest.get('pass')}`",
@@ -367,11 +433,11 @@ def write_augmented_outputs(manifest: dict[str, Any]) -> None:
 
 
 def print_v1345_result(manifest: dict[str, Any]) -> None:
-    print(f"v1345_decision: {manifest.get('decision')}")
-    print(f"v1345_pass: {manifest.get('pass')}")
-    print(f"v1345_reason: {manifest.get('reason')}")
-    print(f"v1345_next: {manifest.get('next_step')}")
-    print(f"v1345_manifest: {_run_dir() / 'manifest.json'}")
+    print(f"{CYCLE_LABEL}_decision: {manifest.get('decision')}")
+    print(f"{CYCLE_LABEL}_pass: {manifest.get('pass')}")
+    print(f"{CYCLE_LABEL}_reason: {manifest.get('reason')}")
+    print(f"{CYCLE_LABEL}_next: {manifest.get('next_step')}")
+    print(f"{CYCLE_LABEL}_manifest: {_run_dir() / 'manifest.json'}")
 
 
 def main() -> int:

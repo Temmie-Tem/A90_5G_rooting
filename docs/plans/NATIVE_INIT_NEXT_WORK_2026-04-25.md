@@ -5721,6 +5721,14 @@ Samsung bootloader
      read-only current-route timing sampler. Decision target is whether pcie1
      RC GDSC/refclk/PERST/CLKREQ/WAKE ever transitions while provider/PON
      runs and MDM2AP remains low.
+   - Live status: PASS. Helper v281 was deployed by serial fallback and V1354
+     live returned `v1354-current-route-pcie1-rc-stayed-off`. Evidence:
+     `docs/reports/NATIVE_INIT_V1354_EXECNS_HELPER_V281_DEPLOY_2026-06-01.md`
+     and
+     `docs/reports/NATIVE_INIT_V1354_PCIE1_RC_POWER_OBSERVER_LIVE_2026-06-01.md`.
+     The current route reached `mdm_subsys_powerup`, but `pcie_1_gdsc` stayed
+     `0mV`, pcie1 clkref/pipe lines stayed disabled, GPIO102/PERST stayed low,
+     and no GPIO142/PCI/MHI/WLFW/wlan0 transition appeared.
 3. **V1355 PM8150L GPIO9 PON parity classifier.**
    - Compare provider `sdx50m_toggle_soft_reset` / `mdm4x_do_first_power_on`
      strings/DTS timing (`reset-time-ms`) with native read-only evidence for
