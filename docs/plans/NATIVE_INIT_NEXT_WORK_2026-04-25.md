@@ -25,8 +25,8 @@
 
 ## 현재 Wi-Fi Gate
 
-- 최신 기준: V1257 SOURCE/BUILD PASS —
-  `v1257-gpiochip-devnode-open-helper-build-pass`.
+- 최신 기준: V1258 DEPLOY PASS —
+  `execns-helper-v262-deploy-pass`.
   V1239는 Android/V1238 증거를 비교해 blocker를 `pm-service`
   `/dev/subsys_esoc0` / `mdm_subsys_powerup` 이후로 낮췄고, V1240은
   SDX50M/eSoC response surface와 GPIO142 `mdm status` IRQ count `0`을
@@ -71,8 +71,11 @@
   `gpiochip1263` base `1263`, `ngpio=11`, PM8150L label)를 fail-closed로 확인한
   뒤, 별도 live gate에서만 임시 `/dev/gpiochip2` char node를 만들고 read-only
   `GPIO_GET_CHIPINFO_IOCTL`을 실행하도록 준비됐다. V1257은 build-only라 deploy,
-  device command, live mknod/open을 실행하지 않았다. 다음 V1258은 v262 deploy-only,
-  V1259는 bounded live devnode-open proof다. GPIO line request, PMIC GPIO9 hold,
+  device command, live mknod/open을 실행하지 않았다. V1258은 serial fallback으로
+  v262를 `/cache/bin/a90_android_execns_probe`에 배포했고 remote SHA가
+  `17773e5bcdec090c061a962833d27a783439e1b718c96b47a504f625d79cc36d`로 일치했다.
+  postflight selftest는 `fail=0`이고 service-manager/Wi-Fi link surface는 clean이다.
+  다음 V1259는 bounded live devnode-open proof다. GPIO line request, PMIC GPIO9 hold,
   `/dev/subsys_esoc0` open, PM/CNSS/HAL start, scan/connect, credentials,
   DHCP/routes, external ping, flash, boot image write, partition write는 별도 gate
   전까지 계속 블록한다.
