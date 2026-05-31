@@ -25,17 +25,16 @@
 
 ## 현재 Wi-Fi Gate
 
-- 최신 기준: V1230 SOURCE/BUILD PASS — helper `a90_android_execns_probe v256`
-  에 `--pm-observer-mdm-helper-post-wait-req-ks-observer`를 추가했다.
-  V1228/V1229에서 좁힌 active blocker는 `mdm_helper`가
-  `ESOC_WAIT_FOR_REQ`까지 도달한 뒤 Android의 `ks` + MHI image-link 경로로
-  전환되지 않는 지점이다. V1230은 subsystem-trigger child 실행 직후
-  `post_wait_req.*` 샘플을 50 ms 간격으로 최대 `80 + 80`개 남겨
-  `ESOC_WAIT_FOR_REQ` 이탈 시점, `/vendor/bin/ks`, 그리고
-  `/dev/mhi_0305_01.01.00_pipe_10` 출현 여부를 잡을 수 있게 했다.
-  빌드 산출물은 `stage3/linux_init/helpers/a90_android_execns_probe_v256`,
-  SHA256 `56ab12b7c7951f2fd5ff9132d6d9662b77560fc2cd55da712115b99b2ec029e9`.
-  다음 게이트는 V1231 deploy-only, V1232 bounded live observer다.
+- 최신 기준: V1232 LIVE PASS — helper `a90_android_execns_probe v256`의
+  `post_wait_req.*` observer가 direct subsystem-trigger path에서
+  `mdm_helper`의 `ESOC_WAIT_FOR_REQ` 이탈을 잡았다. 결과는
+  `v1232-wait-req-returned-no-ks-mhi`: sample `4`에서 wait thread count가
+  `1 → 0`으로 변했고, 이후 `80`개 post-transition samples 동안
+  `/vendor/bin/ks`, `/dev/mhi_0305_01.01.00_pipe_10`, MHI fd는 모두 `0`이었다.
+  따라서 blocker는 더 이상 "WAIT_FOR_REQ가 반환되는가"가 아니라
+  "반환 직후 `mdm_helper`가 어떤 branch를 타며 왜 Android의 `ks` image-link
+  경로를 실행하지 않는가"다. 다음 게이트 V1233은 source/build-only로
+  transition 주변 thread/fd/syscall snapshot을 더 촘촘히 추가한다.
   Wi-Fi HAL, scan/connect, credentials, DHCP/routes, external ping,
   `ESOC_NOTIFY`, `ESOC_BOOT_DONE`, boot image write, partition write는 계속
   블록한다.

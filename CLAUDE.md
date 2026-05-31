@@ -9,7 +9,7 @@ Samsung Galaxy A90 5G (SM-A908N) — stock Android Linux kernel 4.14.190, custom
 - **Device**: SM-A908N, Android 12, Magisk 30.7, TWRP available
 - **Current native build**: `A90 Linux init 0.9.68 (v724)` — `stage3/boot_linux_v724.img`
 - **Known-good fallback**: `stage3/boot_linux_v48.img`
-- **Active research cycle**: V1230 SOURCE/BUILD PASS → V1231 deploy-only planned — helper `a90_android_execns_probe v256` adds `--pm-observer-mdm-helper-post-wait-req-ks-observer` to observe the post-`ESOC_WAIT_FOR_REQ` transition toward Android's `ks` + `/dev/mhi_0305_01.01.00_pipe_10` image-link path. Artifact: `stage3/linux_init/helpers/a90_android_execns_probe_v256`, sha256 `56ab12b7c7951f2fd5ff9132d6d9662b77560fc2cd55da712115b99b2ec029e9`. No Wi-Fi HAL/scan/connect, credentials, DHCP/routes, external ping, `ESOC_NOTIFY`, or `ESOC_BOOT_DONE` in this gate.
+- **Active research cycle**: V1232 LIVE PASS → V1233 source/build planned — helper `a90_android_execns_probe v256` showed `mdm_helper` leaves `ESOC_WAIT_FOR_REQ` at sample `4`, but `/vendor/bin/ks`, `/dev/mhi_0305_01.01.00_pipe_10`, and MHI fds remain `0` through `80` post-transition samples. Active blocker: classify the immediate `mdm_helper` post-return branch and why Android's `ks` image-link path does not launch. No Wi-Fi HAL/scan/connect, credentials, DHCP/routes, external ping, `ESOC_NOTIFY`, or `ESOC_BOOT_DONE` in this gate.
 - **Versioning policy**: `docs/operations/VERSIONING_POLICY.md` — `vNNN` cycle ≠ device flash
 
 ## Versioning rules
