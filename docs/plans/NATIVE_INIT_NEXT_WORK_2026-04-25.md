@@ -25,8 +25,8 @@
 
 ## 현재 Wi-Fi Gate
 
-- 최신 기준: V1246 HOST-ONLY PASS —
-  `v1246-same-run-mdm-powerup-pmic-gdsc-silent`.
+- 최신 기준: V1247 HOST-ONLY PASS —
+  `v1247-select-fail-closed-pmic-preflight-before-write`.
   V1239는 Android/V1238 증거를 비교해 blocker를 `pm-service`
   `/dev/subsys_esoc0` / `mdm_subsys_powerup` 이후로 낮췄고, V1240은
   SDX50M/eSoC response surface와 GPIO142 `mdm status` IRQ count `0`을
@@ -49,9 +49,12 @@
   response는 여전히 나타나지 않음을 분류했다. V1246은 V1243 같은 run의 12개
   late-`per_proxy` phase에서 `pm-service` Binder thread가 `mdm_subsys_powerup`에
   막힌 상태와 PM8150L/GDSC/GPIO142/PCI/MHI/`wlan0` silent 상태가 동시에 관찰됨을
-  확인했다. 따라서 다음 V1247은 `esoc0` trigger 전에 Android PMIC pinctrl setup을
-  어떻게 재현할지 source/Android-contract 기준으로 먼저 정리하고, 정확한 surface가
-  방어 가능할 때만 bounded write gate로 진행해야 한다.
+  확인했다. V1247은 direct `/sys/class/gpio` export/write, debugfs
+  pinctrl/regulator mutation, direct PCIe GDSC enable, blind `/dev/subsys_esoc0`
+  retry를 모두 reject하고, 다음 경로를 fail-closed PMIC preflight helper로
+  선택했다. 따라서 V1248은 source/build-only로 DTS/PMIC/native-state invariant를
+  검증하고 별도 명시 write gate 없이는 mutation을 거부하는 helper skeleton을
+  추가해야 한다.
   Wi-Fi HAL, scan/connect, credentials,
   DHCP/routes, external ping, flash, boot image write, partition write는 계속
   블록한다.
