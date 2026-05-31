@@ -185,8 +185,9 @@
   `fail=0`을 확인했다. V1290은 exact GPIO135/GPIO142 target scan을 live에서 통과했다:
   native GPIO135=`out 0 16mA no pull`, GPIO142=`in 0 8mA no pull`로 Android-positive
   static evidence와 일치한다. 그러나 GPIO142 IRQ, PCIe/MHI/WLFW/SDX50M kmsg, MHI pipe,
-  `wlan0`는 여전히 absent다. 다음 V1291은 host-only로 static GPIO shape를 blocker에서
-  제외하고 dynamic PCIe/GDSC/eSoC power sequencing gate를 선정한다.
+  `wlan0`는 여전히 absent다. V1291은 host-only로 static GPIO shape를 blocker에서
+  제외했다. 다음 V1292는 dynamic PCIe/GDSC/eSoC power sequencing observability를
+  먼저 분류하고, 이후에만 더 넓은 power sequencing gate를 선정한다.
   GPIO line request, PMIC GPIO9 hold, PMIC write, direct eSoC ioctl, new
   PM/CNSS/HAL start, scan/connect, credentials, DHCP/routes, external ping, flash,
   boot image write, partition write는 별도 gate 전까지 계속 블록한다.
