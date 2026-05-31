@@ -291,7 +291,12 @@
   PASS했다. 저장된 `260` lines 중 critical sample은 `10`개였고 SDX50M/PCIe/MHI/WLAN/CNSS
   target keyword나 target GPIO `135`/`142`/`1270`은 없었다. Broad IRQ/clock noise가
   line budget을 대부분 소비했으므로 다음 V1318은 IRQ/clock을 제외한 critical-only
-  collector로 더 많은 regulator/gpio/power/PIL line을 보존한다.
+  collector로 더 많은 regulator/gpio/power/PIL line을 보존한다. V1318은 bounded
+  critical-only collector live로 PASS했다. `3920` critical events와 `2000` preserved
+  lines를 확보했고, `fw=esoc0` PIL notification, GPIO `1270` PMIC soft-reset toggle,
+  GPIO `135` AP2MDM high가 보였다. 반면 GPIO `142`는 `0` lines였고 GPIO135 high 이후
+  약 `49.28s` sample이 이어졌으므로 다음 V1319는 GPIO135 assertion 이후 GPIO142/PCIe
+  response absence를 명시 blocker로 분류한다.
   GPIO line request, PMIC GPIO9 hold, PMIC write, direct eSoC ioctl, new
   PM/CNSS/HAL start, scan/connect, credentials, DHCP/routes, external ping, flash,
   boot image write, partition write는 별도 gate 전까지 계속 블록한다.
