@@ -97,7 +97,7 @@
 #define IOPRIO_PRIO_VALUE(class_value, data) (((class_value) << IOPRIO_CLASS_SHIFT) | (data))
 #endif
 
-#define EXECNS_VERSION "a90_android_execns_probe v255"
+#define EXECNS_VERSION "a90_android_execns_probe v256"
 #define MAX_PATH_LEN 512
 #define MAX_CAPTURE_SIZE (1024 * 1024)
 #define MAX_LINKERCONFIG_SIZE (256 * 1024)
@@ -250,6 +250,7 @@ struct config {
     bool allow_post_pm_mdm_helper_esoc_observer;
     bool allow_post_pm_mdm_helper_lower_trace;
     bool pm_observer_mdm_helper_only_syscall_trace; /* v254 */
+    bool pm_observer_mdm_helper_post_wait_req_ks_observer; /* v256 */
     bool allow_android_wifi_service_window;
     bool allow_android_wifi_service_window_subsys_trigger_capture;
     bool require_android_selinux_exec_match;
@@ -445,6 +446,7 @@ static void usage(FILE *out) {
             "[--allow-post-pm-mdm-helper-esoc-observer] "
             "[--allow-post-pm-mdm-helper-lower-trace] "
             "[--pm-observer-mdm-helper-only-syscall-trace] "
+            "[--pm-observer-mdm-helper-post-wait-req-ks-observer] "
             "[--allow-android-wifi-service-window] "
             "[--allow-android-wifi-service-window-subsys-trigger-capture] "
             "[--pm-observer-continue-after-provider] "
@@ -1225,6 +1227,10 @@ static int parse_args(int argc, char **argv, struct config *cfg) {
             cfg->pm_observer_mdm_helper_only_syscall_trace = true;
             continue;
         }
+        if (strcmp(argv[i], "--pm-observer-mdm-helper-post-wait-req-ks-observer") == 0) {
+            cfg->pm_observer_mdm_helper_post_wait_req_ks_observer = true;
+            continue;
+        }
         if (strcmp(argv[i], "--pm-observer-continue-after-provider") == 0) {
             cfg->pm_observer_continue_after_provider = true;
             continue;
@@ -1800,6 +1806,11 @@ static int parse_args(int argc, char **argv, struct config *cfg) {
     if (cfg->pm_observer_mdm_helper_only_syscall_trace &&
         !cfg->allow_post_pm_mdm_helper_lower_trace) {
         fprintf(stderr, "--pm-observer-mdm-helper-only-syscall-trace requires --allow-post-pm-mdm-helper-lower-trace\n");
+        return 2;
+    }
+    if (cfg->pm_observer_mdm_helper_post_wait_req_ks_observer &&
+        !cfg->allow_post_pm_mdm_helper_lower_trace) {
+        fprintf(stderr, "--pm-observer-mdm-helper-post-wait-req-ks-observer requires --allow-post-pm-mdm-helper-lower-trace\n");
         return 2;
     }
     if (cfg->pm_observer_continue_after_provider &&
@@ -14357,6 +14368,69 @@ static int count_proc_fd_target_matches(pid_t pid, const char *needle) {
         }
         target[nread] = '\0';
         if (strstr(target, needle) != NULL) {
+            count++;
+        }
+    }
+    closedir(dir);
+    return count;
+}
+
+static int count_all_proc_fd_target_matches(const char *needle) {
+    DIR *dir;
+    struct dirent *entry;
+    int count = 0;
+
+    dir = opendir("/proc");
+    if (dir == NULL) {
+        return -1;
+    }
+    while ((entry = readdir(dir)) != NULL) {
+        pid_t pid;
+        int one_count;
+
+        if (!parse_pid_name(entry->d_name, &pid)) {
+            continue;
+        }
+        one_count = count_proc_fd_target_matches(pid, needle);
+        if (one_count > 0) {
+            count += one_count;
+        }
+    }
+    closedir(dir);
+    return count;
+}
+
+static int count_process_cmdline_or_comm_matches(const char *cmdline_needle,
+                                                 const char *comm_exact) {
+    DIR *dir;
+    struct dirent *entry;
+    int count = 0;
+
+    dir = opendir("/proc");
+    if (dir == NULL) {
+        return -1;
+    }
+    while ((entry = readdir(dir)) != NULL) {
+        pid_t pid;
+        char cmdline[512];
+        char comm[128];
+        bool matched = false;
+
+        if (!parse_pid_name(entry->d_name, &pid)) {
+            continue;
+        }
+        if (cmdline_needle != NULL &&
+            read_proc_cmdline_compact(pid, cmdline, sizeof(cmdline)) &&
+            strstr(cmdline, cmdline_needle) != NULL) {
+            matched = true;
+        }
+        if (!matched && comm_exact != NULL) {
+            read_proc_comm(pid, comm, sizeof(comm));
+            if (strcmp(comm, comm_exact) == 0) {
+                matched = true;
+            }
+        }
+        if (matched) {
             count++;
         }
     }
@@ -28289,6 +28363,284 @@ static int append_mdm_helper_early_compact_trace_sample(struct buffer *buf,
                          sample);
 }
 
+static int count_mdm_helper_wait_for_req_threads(pid_t pid) {
+    char task_path[MAX_PATH_LEN];
+    DIR *dir;
+    struct dirent *entry;
+    int count = 0;
+
+    if (pid <= 0) {
+        return -1;
+    }
+    if (snprintf(task_path, sizeof(task_path), "/proc/%ld/task", (long)pid) >= (int)sizeof(task_path)) {
+        return -1;
+    }
+    dir = opendir(task_path);
+    if (dir == NULL) {
+        return -1;
+    }
+    while ((entry = readdir(dir)) != NULL) {
+        char syscall_path[MAX_PATH_LEN];
+        char wchan_path[MAX_PATH_LEN];
+        char syscall_line[512];
+        char wchan[128];
+        long nr = -1;
+        unsigned long long args[6] = {0};
+        bool wait_req = false;
+
+        if (!decimal_name(entry->d_name)) {
+            continue;
+        }
+        if (snprintf(syscall_path, sizeof(syscall_path), "%s/%s/syscall", task_path, entry->d_name) >= (int)sizeof(syscall_path) ||
+            snprintf(wchan_path, sizeof(wchan_path), "%s/%s/wchan", task_path, entry->d_name) >= (int)sizeof(wchan_path)) {
+            continue;
+        }
+        read_first_line_path(syscall_path, syscall_line, sizeof(syscall_line));
+        read_first_line_path(wchan_path, wchan, sizeof(wchan));
+#ifdef SYS_ioctl
+        if (parse_proc_syscall_line(syscall_line, &nr, args) &&
+            nr == SYS_ioctl &&
+            strcmp(esoc_ioctl_request_name(args[1]), "ESOC_WAIT_FOR_REQ") == 0) {
+            wait_req = true;
+        }
+#endif
+        if (!wait_req && strstr(wchan, "esoc_dev_ioctl") != NULL) {
+            wait_req = true;
+        }
+        if (wait_req) {
+            count++;
+        }
+    }
+    closedir(dir);
+    return count;
+}
+
+static int count_mdm_helper_thread_count(pid_t pid) {
+    char task_path[MAX_PATH_LEN];
+    DIR *dir;
+    struct dirent *entry;
+    int count = 0;
+
+    if (pid <= 0) {
+        return -1;
+    }
+    if (snprintf(task_path, sizeof(task_path), "/proc/%ld/task", (long)pid) >= (int)sizeof(task_path)) {
+        return -1;
+    }
+    dir = opendir(task_path);
+    if (dir == NULL) {
+        return -1;
+    }
+    while ((entry = readdir(dir)) != NULL) {
+        if (decimal_name(entry->d_name)) {
+            count++;
+        }
+    }
+    closedir(dir);
+    return count;
+}
+
+struct post_wait_req_sample_metrics {
+    int alive;
+    char state;
+    int thread_count;
+    int fd_esoc0_count;
+    int fd_subsys_esoc0_count;
+    int fd_mhi_pipe_count;
+    int mhi_pipe_exists;
+    int mhi_pipe_global_fd_count;
+    int ks_process_count;
+    int pm_proxy_helper_process_count;
+    int mhi_pipe_cmdline_count;
+};
+
+static void collect_mdm_helper_post_wait_req_metrics(int mdm_helper_pid,
+                                                     struct post_wait_req_sample_metrics *metrics) {
+    struct stat st;
+
+    metrics->alive = (mdm_helper_pid > 0 && kill((pid_t)mdm_helper_pid, 0) == 0) ? 1 : 0;
+    metrics->state = metrics->alive ? read_proc_state((pid_t)mdm_helper_pid) : '-';
+    metrics->thread_count = metrics->alive ? count_mdm_helper_thread_count((pid_t)mdm_helper_pid) : -1;
+    metrics->fd_esoc0_count = metrics->alive ? count_proc_fd_target_matches((pid_t)mdm_helper_pid, "/dev/esoc-0") : -1;
+    metrics->fd_subsys_esoc0_count = metrics->alive ? count_proc_fd_target_matches((pid_t)mdm_helper_pid, "/dev/subsys_esoc0") : -1;
+    metrics->fd_mhi_pipe_count = metrics->alive ? count_proc_fd_target_matches((pid_t)mdm_helper_pid, "/dev/mhi_0305_01.01.00_pipe_10") : -1;
+    metrics->mhi_pipe_exists = (lstat("/dev/mhi_0305_01.01.00_pipe_10", &st) == 0) ? 1 : 0;
+    metrics->mhi_pipe_global_fd_count = count_all_proc_fd_target_matches("/dev/mhi_0305_01.01.00_pipe_10");
+    metrics->ks_process_count = count_process_cmdline_or_comm_matches("/vendor/bin/ks", "ks");
+    metrics->pm_proxy_helper_process_count = count_process_cmdline_or_comm_matches("pm_proxy_helper", "pm_proxy_helper");
+    metrics->mhi_pipe_cmdline_count = count_process_cmdline_or_comm_matches("/dev/mhi_0305_01.01.00_pipe_10", NULL);
+}
+
+static void emit_mdm_helper_post_wait_req_sample(int sample_index,
+                                                 int mdm_helper_pid,
+                                                 int wait_req_count,
+                                                 int transition_detected,
+                                                 int transition_sample,
+                                                 const struct post_wait_req_sample_metrics *metrics) {
+    char sample[32];
+
+    snprintf(sample, sizeof(sample), "sample_%03d", sample_index);
+    printf("post_wait_req.%s.begin=1\n"
+           "post_wait_req.%s.monotonic_ms=%ld\n"
+           "post_wait_req.%s.mdm_helper_pid=%d\n"
+           "post_wait_req.%s.mdm_helper_alive=%d\n"
+           "post_wait_req.%s.mdm_helper_state=%c\n"
+           "post_wait_req.%s.mdm_helper_thread_count=%d\n"
+           "post_wait_req.%s.wait_for_req_thread_count=%d\n"
+           "post_wait_req.%s.transition_detected=%d\n"
+           "post_wait_req.%s.transition_sample=%d\n"
+           "post_wait_req.%s.fd_esoc0_count=%d\n"
+           "post_wait_req.%s.fd_subsys_esoc0_count=%d\n"
+           "post_wait_req.%s.fd_mhi_pipe_count=%d\n"
+           "post_wait_req.%s.mhi_pipe_exists=%d\n"
+           "post_wait_req.%s.mhi_pipe_fd_count=%d\n"
+           "post_wait_req.%s.ks_process_count=%d\n"
+           "post_wait_req.%s.pm_proxy_helper_process_count=%d\n"
+           "post_wait_req.%s.mhi_pipe_cmdline_count=%d\n"
+           "post_wait_req.%s.end=1\n",
+           sample, sample, monotonic_ms(),
+           sample, mdm_helper_pid,
+           sample, metrics->alive,
+           sample, metrics->state,
+           sample, metrics->thread_count,
+           sample, wait_req_count,
+           sample, transition_detected,
+           sample, transition_sample,
+           sample, metrics->fd_esoc0_count,
+           sample, metrics->fd_subsys_esoc0_count,
+           sample, metrics->fd_mhi_pipe_count,
+           sample, metrics->mhi_pipe_exists,
+           sample, metrics->mhi_pipe_global_fd_count,
+           sample, metrics->ks_process_count,
+           sample, metrics->pm_proxy_helper_process_count,
+           sample, metrics->mhi_pipe_cmdline_count,
+           sample);
+}
+
+static void max_int_assign(int *target, int value) {
+    if (value > *target) {
+        *target = value;
+    }
+}
+
+static void pm_observer_read_child_status_once(int pipe_fd, int *open_reported) {
+    char child_buf[512];
+    ssize_t n;
+
+    if (open_reported == NULL || *open_reported) {
+        return;
+    }
+    n = read(pipe_fd, child_buf, sizeof(child_buf) - 1);
+    if (n > 0) {
+        child_buf[n] = '\0';
+        printf("pm_observer_mdm_power_on.child_status=%s\n", child_buf);
+        fflush(stdout);
+        fdatasync(fileno(stdout));
+        *open_reported = 1;
+    }
+}
+
+static void run_mdm_helper_post_wait_req_ks_observer(int mdm_helper_pid,
+                                                     int pipe_fd,
+                                                     int *open_reported) {
+    const int pre_samples = 80;
+    const int post_samples = 80;
+    const int interval_us = 50000;
+    int initial_wait_count = count_mdm_helper_wait_for_req_threads((pid_t)mdm_helper_pid);
+    int last_waiting = initial_wait_count > 0 ? 1 : 0;
+    int wait_seen = last_waiting;
+    int transition_detected = 0;
+    int transition_sample = -1;
+    int sample_count = 0;
+    int post_transition_count = 0;
+    int max_ks_process_count = -1;
+    int max_mhi_pipe_exists = -1;
+    int max_mhi_pipe_fd_count = -1;
+    int max_mhi_pipe_cmdline_count = -1;
+    int max_fd_mhi_pipe_count = -1;
+
+    printf("post_wait_req.begin=1\n"
+           "post_wait_req.mode=mdm-helper-post-wait-req-ks-observer\n"
+           "post_wait_req.sample_interval_ms=50\n"
+           "post_wait_req.pre_transition_max_samples=80\n"
+           "post_wait_req.post_transition_max_samples=80\n"
+           "post_wait_req.mdm_helper_pid=%d\n"
+           "post_wait_req.initial_wait_for_req_thread_count=%d\n"
+           "post_wait_req.esoc_notify_attempted=0\n"
+           "post_wait_req.boot_done_attempted=0\n"
+           "post_wait_req.wifi_hal_start_executed=0\n"
+           "post_wait_req.scan_connect_linkup=0\n"
+           "post_wait_req.credentials=0\n"
+           "post_wait_req.dhcp_routing=0\n"
+           "post_wait_req.external_ping=0\n",
+           mdm_helper_pid,
+           initial_wait_count);
+    fflush(stdout);
+
+    while (sample_count < pre_samples + post_samples) {
+        struct post_wait_req_sample_metrics metrics;
+        int wait_req_count;
+        int waiting_now;
+
+        usleep(interval_us);
+        pm_observer_read_child_status_once(pipe_fd, open_reported);
+        wait_req_count = count_mdm_helper_wait_for_req_threads((pid_t)mdm_helper_pid);
+        waiting_now = wait_req_count > 0 ? 1 : 0;
+        if (waiting_now) {
+            wait_seen = 1;
+        }
+        if (!transition_detected && wait_seen && last_waiting && !waiting_now) {
+            transition_detected = 1;
+            transition_sample = sample_count;
+        }
+        collect_mdm_helper_post_wait_req_metrics(mdm_helper_pid, &metrics);
+        max_int_assign(&max_ks_process_count, metrics.ks_process_count);
+        max_int_assign(&max_mhi_pipe_exists, metrics.mhi_pipe_exists);
+        max_int_assign(&max_mhi_pipe_fd_count, metrics.mhi_pipe_global_fd_count);
+        max_int_assign(&max_mhi_pipe_cmdline_count, metrics.mhi_pipe_cmdline_count);
+        max_int_assign(&max_fd_mhi_pipe_count, metrics.fd_mhi_pipe_count);
+        emit_mdm_helper_post_wait_req_sample(sample_count,
+                                             mdm_helper_pid,
+                                             wait_req_count,
+                                             transition_detected,
+                                             transition_sample,
+                                             &metrics);
+        fflush(stdout);
+        fdatasync(fileno(stdout));
+        sample_count++;
+        if (transition_detected) {
+            post_transition_count++;
+            if (post_transition_count >= post_samples) {
+                break;
+            }
+        } else if (sample_count >= pre_samples) {
+            break;
+        }
+        last_waiting = waiting_now;
+    }
+    printf("post_wait_req.sample_count=%d\n"
+           "post_wait_req.transition_detected=%d\n"
+           "post_wait_req.transition_sample=%d\n"
+           "post_wait_req.post_transition_sample_count=%d\n"
+           "post_wait_req.ks_process_count=%d\n"
+           "post_wait_req.mhi_pipe_exists=%d\n"
+           "post_wait_req.mhi_pipe_fd_count=%d\n"
+           "post_wait_req.mhi_pipe_cmdline_count=%d\n"
+           "post_wait_req.mdm_helper_mhi_pipe_fd_count=%d\n"
+           "post_wait_req.end=1\n",
+           sample_count,
+           transition_detected,
+           transition_sample,
+           post_transition_count,
+           max_ks_process_count,
+           max_mhi_pipe_exists,
+           max_mhi_pipe_fd_count,
+           max_mhi_pipe_cmdline_count,
+           max_fd_mhi_pipe_count);
+    fflush(stdout);
+    fdatasync(fileno(stdout));
+}
+
 static int append_post_pm_mdm_helper_thread_probe(struct buffer *buf,
                                                   const char *phase,
                                                   const struct composite_child *mdm_helper) {
@@ -28943,7 +29295,6 @@ static void pm_observer_trigger_mdm_power_on(const struct config *cfg,
     struct mdm_status_irq_snapshot irq_after;
     int gpio_fired = 0;
     int open_reported = 0;
-    char child_buf[512];
 
     snprintf(subsys_esoc0_path, sizeof(subsys_esoc0_path),
              "%s/dev/subsys_esoc0", paths->root);
@@ -29044,20 +29395,13 @@ static void pm_observer_trigger_mdm_power_on(const struct config *cfg,
     /* parent: read child status, then poll GPIO 142 with periodic status */
     close(pipefd[1]);
     fcntl(pipefd[0], F_SETFL, O_NONBLOCK);
+    if (cfg->pm_observer_mdm_helper_post_wait_req_ks_observer) {
+        run_mdm_helper_post_wait_req_ks_observer(mdm_helper_pid, pipefd[0], &open_reported);
+    }
     for (int i = 0; i < hold_sec * 10 && !gpio_fired; i++) {
         usleep(100000);  /* 100ms poll */
 
-        if (!open_reported) {
-            ssize_t n = read(pipefd[0], child_buf, sizeof(child_buf) - 1);
-            if (n > 0) {
-                child_buf[n] = '\0';
-                printf("pm_observer_mdm_power_on.child_status=%s\n",
-                       child_buf);
-                fflush(stdout);
-                fdatasync(fileno(stdout)); /* v231 */
-                open_reported = 1;
-            }
-        }
+        pm_observer_read_child_status_once(pipefd[0], &open_reported);
 
         /* v230: every 10s emit periodic status snapshot */
         if ((i % 100) == 0) {
@@ -29633,10 +29977,12 @@ static int run_wifi_companion_pm_service_trigger_observer_guarded(const struct c
                           "post_pm_mdm_helper_esoc_observer.dhcp_routing=0\n"
                           "post_pm_mdm_helper_esoc_observer.external_ping=0\n"
                           "post_pm_mdm_helper_esoc_observer.lower_trace_allowed=%d\n"
+                          "post_pm_mdm_helper_esoc_observer.post_wait_req_ks_observer=%d\n"
                           "post_pm_mdm_helper_esoc_observer.late_per_proxy_after_mdm_helper_esoc_fd_requested=%d\n",
                           post_pm_mdm_helper_allowed ? 1 : 0,
                           post_pm_mdm_helper_start ? 1 : 0,
                           post_pm_mdm_helper_lower_trace ? 1 : 0,
+                          cfg->pm_observer_mdm_helper_post_wait_req_ks_observer ? 1 : 0,
                           late_per_proxy_requested ? 1 : 0) < 0) {
             return -1;
         }

@@ -25,19 +25,20 @@
 
 ## 현재 Wi-Fi Gate
 
-- 최신 기준: V1220 HOST PASS — V1219 trace로 확인된 selection gap에 대해
-  private `cnss-daemon` artifact 후보를 생성했다. 단일 `SDXPRAIRIE\0`
-  literal at `0x6cd4`를 `SDX50M\0` C string으로 바꾸며, 파일 크기
-  `95112` 유지, byte delta `4`, output SHA256
-  `784fd7bd9b602d8e1f94c9ceef977845909f452611025c40fda589d0e57de5fd`.
-  산출물은 `tmp/wifi/v1220-cnss-daemon-sdx50m-patch/artifacts/cnss-daemon.sdx50m`.
-  다음 게이트 V1221: helper live gate에서 vendor partition write 없이
-  private namespace 안에서만 patched `cnss-daemon`을 사용한다. 성공 기준은
-  `libmdmdetect`가 real `SDX50M` eSoC entry를 유지하고, `cnss-daemon`이
-  type-0 PM client registration을 내며, 그 다음 `per_mgr`가
-  `/dev/subsys_esoc0`로 전진하는지 보는 것이다. Wi-Fi HAL, scan/connect,
-  credentials, DHCP/routes, external ping, boot image write, partition write는
-  계속 블록한다.
+- 최신 기준: V1230 SOURCE/BUILD PASS — helper `a90_android_execns_probe v256`
+  에 `--pm-observer-mdm-helper-post-wait-req-ks-observer`를 추가했다.
+  V1228/V1229에서 좁힌 active blocker는 `mdm_helper`가
+  `ESOC_WAIT_FOR_REQ`까지 도달한 뒤 Android의 `ks` + MHI image-link 경로로
+  전환되지 않는 지점이다. V1230은 subsystem-trigger child 실행 직후
+  `post_wait_req.*` 샘플을 50 ms 간격으로 최대 `80 + 80`개 남겨
+  `ESOC_WAIT_FOR_REQ` 이탈 시점, `/vendor/bin/ks`, 그리고
+  `/dev/mhi_0305_01.01.00_pipe_10` 출현 여부를 잡을 수 있게 했다.
+  빌드 산출물은 `stage3/linux_init/helpers/a90_android_execns_probe_v256`,
+  SHA256 `56ab12b7c7951f2fd5ff9132d6d9662b77560fc2cd55da712115b99b2ec029e9`.
+  다음 게이트는 V1231 deploy-only, V1232 bounded live observer다.
+  Wi-Fi HAL, scan/connect, credentials, DHCP/routes, external ping,
+  `ESOC_NOTIFY`, `ESOC_BOOT_DONE`, boot image write, partition write는 계속
+  블록한다.
 - V1198 배경: V1197 root cause 분석 완료: 세 가지 레이어 문제가 중첩됨.
   V1197 root cause 분석 완료: 세 가지 레이어 문제가 중첩됨.
   (1) V1194/V1195/V1196: SAMPLE_COUNT!=0 → serial 홍수 (pm_proxy/pm-service /proc/maps 덤프

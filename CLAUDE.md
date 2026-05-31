@@ -9,7 +9,7 @@ Samsung Galaxy A90 5G (SM-A908N) — stock Android Linux kernel 4.14.190, custom
 - **Device**: SM-A908N, Android 12, Magisk 30.7, TWRP available
 - **Current native build**: `A90 Linux init 0.9.68 (v724)` — `stage3/boot_linux_v724.img`
 - **Known-good fallback**: `stage3/boot_linux_v48.img`
-- **Active research cycle**: V1220 HOST PASS → V1221 planned — private host-only `cnss-daemon` artifact changed the single runtime selection literal `SDXPRAIRIE\0` at `0x6cd4` to C string `SDX50M\0` (size unchanged, delta_count=4, sha256 `784fd7bd9b602d8e1f94c9ceef977845909f452611025c40fda589d0e57de5fd`). Next: helper live gate to use this private binary only inside the bounded namespace, with no vendor writes and no Wi-Fi HAL/scan/connect yet.
+- **Active research cycle**: V1230 SOURCE/BUILD PASS → V1231 deploy-only planned — helper `a90_android_execns_probe v256` adds `--pm-observer-mdm-helper-post-wait-req-ks-observer` to observe the post-`ESOC_WAIT_FOR_REQ` transition toward Android's `ks` + `/dev/mhi_0305_01.01.00_pipe_10` image-link path. Artifact: `stage3/linux_init/helpers/a90_android_execns_probe_v256`, sha256 `56ab12b7c7951f2fd5ff9132d6d9662b77560fc2cd55da712115b99b2ec029e9`. No Wi-Fi HAL/scan/connect, credentials, DHCP/routes, external ping, `ESOC_NOTIFY`, or `ESOC_BOOT_DONE` in this gate.
 - **Versioning policy**: `docs/operations/VERSIONING_POLICY.md` — `vNNN` cycle ≠ device flash
 
 ## Versioning rules
