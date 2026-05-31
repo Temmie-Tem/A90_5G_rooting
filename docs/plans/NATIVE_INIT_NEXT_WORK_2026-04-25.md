@@ -159,7 +159,11 @@
   V1282 deploy-only, 이후 V1283 bounded live PCIe/GDSC/kmsg response sampler다. V1282는
   serial fallback으로 helper v268을 `/cache/bin/a90_android_execns_probe`에 배포했고,
   remote SHA와 post-deploy selftest `fail=0`을 확인했다. 따라서 다음은 V1283 live
-  sampler다.
+  sampler다. V1283은 PM-service eSoC trigger와 기존 GPIO/PCI/MHI silence를 재확인했지만,
+  helper kmsg collector는 `/dev/kmsg` absent(`errno=2`)로 실패했다. 별도 native shell
+  확인에서 `/proc/kmsg`는 존재하고 `busybox dmesg`는 동작한다. 다음 V1284는
+  source/build-only로 read-only syslog/klogctl 또는 wrapper-level dmesg fallback을 추가해
+  PCIe/GDSC/dmesg sampler를 수리한다.
   GPIO line request, PMIC GPIO9 hold, PMIC write, direct eSoC ioctl, new
   PM/CNSS/HAL start, scan/connect, credentials, DHCP/routes, external ping, flash,
   boot image write, partition write는 별도 gate 전까지 계속 블록한다.
