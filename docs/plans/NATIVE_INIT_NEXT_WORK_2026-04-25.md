@@ -25,8 +25,8 @@
 
 ## 현재 Wi-Fi Gate
 
-- 최신 기준: V1262 LIVE PASS —
-  `v1262-gpiochip-line-info-pass`.
+- 최신 기준: V1263 HOST-ONLY PASS —
+  `v1263-kernel-owned-soft-reset-line-request-rejected`.
   V1239는 Android/V1238 증거를 비교해 blocker를 `pm-service`
   `/dev/subsys_esoc0` / `mdm_subsys_powerup` 이후로 낮췄고, V1240은
   SDX50M/eSoC response surface와 GPIO142 `mdm status` IRQ count `0`을
@@ -87,10 +87,12 @@
   remote SHA가 `32ac877a165a266d96589387d9974dfea38c81d0adb368bf17ff15de77a9f9fb`로
   일치했다. V1262는 bounded live line-info proof를 실행했고 offset `7` line flags
   `0x1`, `GPIOLINE_FLAG_KERNEL=1`, consumer `AP2MDM_SOFT_RESET`를 확인했다. 따라서
-  direct userspace PMIC GPIO9 line request/hold는 다음 안전 경로가 아니다. 다음
-  V1263은 kernel-owned `AP2MDM_SOFT_RESET`와 ext-mdm power-up contract를 host-only
-  또는 read-only로 재분류해야 한다. GPIO line request, PMIC GPIO9 hold,
-  `/dev/subsys_esoc0` open, PM/CNSS/HAL start, scan/connect, credentials,
+  direct userspace PMIC GPIO9 line request/hold는 다음 안전 경로가 아니다. V1263은
+  V1262/V1239/V1242/V1243 증거를 host-only로 분류해 direct userspace PMIC GPIO9
+  line request/hold를 reject했다. 다음 V1264는 read-only ext-mdm/AP2MDM contract
+  observer 계획이 우선이다. 관찰 대상은 kernel-owned line state, GPIO142 IRQ count,
+  PCIe RC1/MHI surface, `mdm_subsys_powerup` timing이며, GPIO line request,
+  PMIC GPIO9 hold, PMIC write, PM/CNSS/HAL start, scan/connect, credentials,
   DHCP/routes, external ping, flash, boot image write, partition write는 별도 gate
   전까지 계속 블록한다.
 - V1198 배경: V1197 root cause 분석 완료: 세 가지 레이어 문제가 중첩됨.
