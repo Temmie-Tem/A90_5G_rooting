@@ -299,6 +299,23 @@ def tcpctl_expect_ok(args: argparse.Namespace, command: str) -> str:
     return output
 
 
+def tcpctl_run_line(argv: list[str]) -> str:
+    return "run " + " ".join(shlex.quote(part) for part in argv)
+
+
+def tcpctl_install_command(args: argparse.Namespace,
+                           command: str,
+                           *,
+                           timeout: float | None = None,
+                           allow_error: bool = False) -> str:
+    output = tcpctl_request(args, command, timeout=timeout)
+    if "\nOK" not in output and not output.rstrip().endswith("OK"):
+        if allow_error and "\nERR" in output:
+            return output
+        raise RuntimeError(f"tcpctl install command did not end with OK: {command}\n{output}")
+    return output
+
+
 def host_ping(args: argparse.Namespace, count: int) -> str:
     result = subprocess.run(
         ["ping", "-c", str(count), "-W", "2", args.device_ip],
@@ -406,6 +423,9 @@ def command_stop(args: argparse.Namespace) -> int:
 
 
 def command_install(args: argparse.Namespace) -> int:
+    if args.install_control_channel == "tcpctl":
+        return command_install_via_tcpctl(args)
+
     local_binary = Path(args.local_binary)
     target = args.device_binary
     target_dir = posixpath.dirname(target)
@@ -497,6 +517,105 @@ def command_install(args: argparse.Namespace) -> int:
             log(f"cleanup failed for {tmp_target}: {cleanup_exc}")
         raise
 
+    log(f"installed {target} sha256={local_hash}")
+    return 0
+
+
+def command_install_via_tcpctl(args: argparse.Namespace) -> int:
+    local_binary = Path(args.local_binary)
+    target = args.device_binary
+    target_dir = posixpath.dirname(target)
+    target_name = posixpath.basename(target)
+    tmp_target = f"{target_dir}/.{target_name}.tmp.{os.getpid()}.{int(time.time())}"
+    transfer_output: dict[str, str] = {}
+    transfer_error: dict[str, Exception] = {}
+
+    if not local_binary.exists():
+        raise FileNotFoundError(local_binary)
+    validate_install_target(target)
+
+    local_hash = sha256_file(local_binary)
+    tcpctl_expect_ok(args, "ping")
+    mkdir_output = tcpctl_install_command(
+        args,
+        tcpctl_run_line([args.toybox, "mkdir", "-p", target_dir]),
+        timeout=args.tcp_timeout,
+    )
+    print(mkdir_output, end="" if mkdir_output.endswith("\n") else "\n")
+    cleanup_output = tcpctl_install_command(
+        args,
+        tcpctl_run_line([args.toybox, "rm", "-f", tmp_target]),
+        timeout=args.tcp_timeout,
+        allow_error=True,
+    )
+    print(cleanup_output, end="" if cleanup_output.endswith("\n") else "\n")
+
+    receive_command = tcpctl_run_line([
+        args.toybox,
+        "netcat",
+        "-l",
+        "-p",
+        str(args.transfer_port),
+        args.toybox,
+        "dd",
+        f"of={tmp_target}",
+        "bs=4096",
+    ])
+    log(f"device receive command via tcpctl: {receive_command}")
+
+    def receiver() -> None:
+        try:
+            transfer_output["text"] = tcpctl_request(
+                args,
+                receive_command,
+                timeout=args.transfer_timeout + args.transfer_delay + 10.0,
+            )
+        except Exception as exc:  # noqa: BLE001 - host install reports full context
+            transfer_error["error"] = exc
+
+    thread = threading.Thread(target=receiver, daemon=True)
+    thread.start()
+    time.sleep(args.transfer_delay)
+
+    with socket.create_connection((args.device_ip, args.transfer_port), timeout=args.connect_timeout) as sock:
+        with local_binary.open("rb") as fp:
+            while True:
+                chunk = fp.read(1024 * 1024)
+                if not chunk:
+                    break
+                sock.sendall(chunk)
+        sock.shutdown(socket.SHUT_WR)
+
+    thread.join(args.transfer_timeout + args.transfer_delay + 15.0)
+    if thread.is_alive():
+        raise RuntimeError("device transfer did not finish")
+    if transfer_error:
+        raise RuntimeError(f"tcpctl transfer failed: {transfer_error['error']}")
+    output = transfer_output.get("text", "")
+    if "\nOK" not in output and not output.rstrip().endswith("OK"):
+        raise RuntimeError(f"device transfer did not report OK:\n{output}")
+    print(output, end="" if output.endswith("\n") else "\n")
+
+    chmod_output = tcpctl_install_command(
+        args,
+        tcpctl_run_line([args.toybox, "chmod", "755", tmp_target]),
+        timeout=args.tcp_timeout,
+    )
+    print(chmod_output, end="" if chmod_output.endswith("\n") else "\n")
+    sha_output = tcpctl_install_command(
+        args,
+        tcpctl_run_line([args.toybox, "sha256sum", tmp_target]),
+        timeout=args.tcp_timeout,
+    )
+    print(sha_output, end="" if sha_output.endswith("\n") else "\n")
+    if local_hash not in sha_output:
+        raise RuntimeError(f"device tmp sha256 did not match local {local_hash}")
+    mv_output = tcpctl_install_command(
+        args,
+        tcpctl_run_line([args.toybox, "mv", "-f", tmp_target, target]),
+        timeout=args.tcp_timeout,
+    )
+    print(mv_output, end="" if mv_output.endswith("\n") else "\n")
     log(f"installed {target} sha256={local_hash}")
     return 0
 
@@ -757,6 +876,7 @@ def parse_args() -> argparse.Namespace:
     install.add_argument("--transfer-port", type=int, default=DEFAULT_TRANSFER_PORT)
     install.add_argument("--transfer-delay", type=float, default=2.0)
     install.add_argument("--transfer-timeout", type=float, default=90.0)
+    install.add_argument("--install-control-channel", choices=("bridge", "tcpctl"), default="bridge")
     install.add_argument("--verbose", action="store_true")
     install.set_defaults(func=command_install)
 
