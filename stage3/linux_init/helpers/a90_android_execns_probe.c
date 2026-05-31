@@ -97,8 +97,11 @@
 #ifndef IOPRIO_PRIO_VALUE
 #define IOPRIO_PRIO_VALUE(class_value, data) (((class_value) << IOPRIO_CLASS_SHIFT) | (data))
 #endif
+#ifndef SYSLOG_ACTION_READ_ALL
+#define SYSLOG_ACTION_READ_ALL 3
+#endif
 
-#define EXECNS_VERSION "a90_android_execns_probe v268"
+#define EXECNS_VERSION "a90_android_execns_probe v269"
 #define MAX_PATH_LEN 512
 #define MAX_CAPTURE_SIZE (1024 * 1024)
 #define MAX_LINKERCONFIG_SIZE (256 * 1024)
@@ -12190,6 +12193,7 @@ static bool read_regulator_line(const char *needle,
 }
 
 struct response_kmsg_markers {
+    char source[32];
     char block[2048];
     int open_errno;
     int lines_read;
@@ -12252,69 +12256,159 @@ static bool kmsg_line_interesting(const char *line, struct response_kmsg_markers
     return matched;
 }
 
-static struct response_kmsg_markers collect_response_kmsg_markers(void) {
-    struct response_kmsg_markers markers;
+static void process_kmsg_text(struct response_kmsg_markers *markers,
+                              const char *text,
+                              size_t text_size,
+                              size_t *line_used,
+                              char *line,
+                              size_t line_size,
+                              size_t *block_used) {
+    for (size_t idx = 0; idx < text_size; idx++) {
+        char ch = text[idx];
+
+        if (*line_used < line_size - 1U) {
+            line[(*line_used)++] = ch;
+        }
+        if (ch != '\n') {
+            continue;
+        }
+        line[*line_used] = '\0';
+        markers->lines_read++;
+        if (kmsg_line_interesting(line, markers)) {
+            markers->filtered_count++;
+            append_sanitized_block_line(markers->block,
+                                        sizeof(markers->block),
+                                        block_used,
+                                        line);
+        }
+        *line_used = 0;
+    }
+    if (*line_used >= line_size - 1U) {
+        line[*line_used] = '\0';
+        markers->lines_read++;
+        if (kmsg_line_interesting(line, markers)) {
+            markers->filtered_count++;
+            append_sanitized_block_line(markers->block,
+                                        sizeof(markers->block),
+                                        block_used,
+                                        line);
+        }
+        *line_used = 0;
+    }
+}
+
+static void finish_partial_kmsg_line(struct response_kmsg_markers *markers,
+                                     char *line,
+                                     size_t *line_used,
+                                     size_t *block_used) {
+    if (*line_used == 0) {
+        return;
+    }
+    line[*line_used] = '\0';
+    markers->lines_read++;
+    if (kmsg_line_interesting(line, markers)) {
+        markers->filtered_count++;
+        append_sanitized_block_line(markers->block,
+                                    sizeof(markers->block),
+                                    block_used,
+                                    line);
+    }
+    *line_used = 0;
+}
+
+static bool collect_response_dev_kmsg_markers(struct response_kmsg_markers *markers) {
     char line[1024];
-    size_t line_used = 0;
     size_t block_used = 0;
+    size_t line_used = 0;
+    char read_buf[1024];
     ssize_t nread;
     int fd;
 
-    memset(&markers, 0, sizeof(markers));
     fd = open("/dev/kmsg", O_RDONLY | O_NONBLOCK | O_CLOEXEC);
     if (fd < 0) {
-        markers.open_errno = errno;
-        return markers;
+        markers->open_errno = errno;
+        return false;
     }
-    markers.open_ok = true;
-    while ((nread = read(fd, line + line_used, sizeof(line) - 1U - line_used)) > 0) {
-        size_t start = 0;
-        size_t total;
-
-        line_used += (size_t)nread;
-        line[line_used] = '\0';
-        total = line_used;
-        for (size_t idx = 0; idx < total; idx++) {
-            if (line[idx] != '\n') {
-                continue;
-            }
-            line[idx] = '\0';
-            markers.lines_read++;
-            if (kmsg_line_interesting(line + start, &markers)) {
-                markers.filtered_count++;
-                append_sanitized_block_line(markers.block,
-                                            sizeof(markers.block),
-                                            &block_used,
-                                            line + start);
-            }
-            start = idx + 1U;
-        }
-        if (start > 0) {
-            memmove(line, line + start, total - start);
-            line_used = total - start;
-        }
-        if (markers.lines_read >= 2048 || markers.filtered_count >= 96) {
+    markers->open_ok = true;
+    snprintf(markers->source, sizeof(markers->source), "dev-kmsg");
+    while ((nread = read(fd, read_buf, sizeof(read_buf))) > 0) {
+        process_kmsg_text(markers,
+                          read_buf,
+                          (size_t)nread,
+                          &line_used,
+                          line,
+                          sizeof(line),
+                          &block_used);
+        if (markers->lines_read >= 2048 || markers->filtered_count >= 96) {
             break;
         }
-        if (line_used >= sizeof(line) - 1U) {
-            line_used = 0;
-        }
     }
-    if (line_used > 0) {
-        line[line_used] = '\0';
-        markers.lines_read++;
-        if (kmsg_line_interesting(line, &markers)) {
-            markers.filtered_count++;
-            append_sanitized_block_line(markers.block,
-                                        sizeof(markers.block),
-                                        &block_used,
-                                        line);
-        }
-    }
+    finish_partial_kmsg_line(markers, line, &line_used, &block_used);
     if (nread < 0 && errno != EAGAIN && errno != EWOULDBLOCK) {
-        markers.open_errno = errno;
+        markers->open_errno = errno;
     }
     close(fd);
+    return true;
+}
+
+static bool collect_response_syslog_markers(struct response_kmsg_markers *markers) {
+    char line[1024];
+    char *log_buf;
+    long nread;
+    size_t block_used = 0;
+    size_t line_used = 0;
+    size_t log_size = 256U * 1024U;
+
+    log_buf = malloc(log_size);
+    if (log_buf == NULL) {
+        markers->open_errno = ENOMEM;
+        return false;
+    }
+    nread = syscall(SYS_syslog, SYSLOG_ACTION_READ_ALL, log_buf, (int)(log_size - 1U));
+    if (nread < 0) {
+        markers->open_errno = errno;
+        free(log_buf);
+        return false;
+    }
+    markers->open_ok = true;
+    markers->open_errno = 0;
+    snprintf(markers->source, sizeof(markers->source), "syslog-read-all");
+    process_kmsg_text(markers,
+                      log_buf,
+                      (size_t)nread,
+                      &line_used,
+                      line,
+                      sizeof(line),
+                      &block_used);
+    finish_partial_kmsg_line(markers, line, &line_used, &block_used);
+    free(log_buf);
+    return true;
+}
+
+static struct response_kmsg_markers collect_response_kmsg_markers(void) {
+    struct response_kmsg_markers markers;
+
+    memset(&markers, 0, sizeof(markers));
+    snprintf(markers.source, sizeof(markers.source), "none");
+    if (collect_response_dev_kmsg_markers(&markers)) {
+        return markers;
+    }
+    memset(markers.block, 0, sizeof(markers.block));
+    markers.open_ok = false;
+    markers.lines_read = 0;
+    markers.filtered_count = 0;
+    markers.pcie_count = 0;
+    markers.gdsc_count = 0;
+    markers.mhi_count = 0;
+    markers.esoc_count = 0;
+    markers.mdm_count = 0;
+    markers.sdx50m_count = 0;
+    markers.icnss_count = 0;
+    markers.wlfw_count = 0;
+    markers.subsys_count = 0;
+    if (collect_response_syslog_markers(&markers)) {
+        return markers;
+    }
     return markers;
 }
 
@@ -13045,6 +13139,7 @@ static int append_pm_esoc_response_sample(struct buffer *buf, const char *phase)
                          "pm_service_trigger_observer.response_sample.%s.mhi_pipe_exists=%d\n"
                          "pm_service_trigger_observer.response_sample.%s.wlan0_exists=%d\n"
                          "pm_service_trigger_observer.response_sample.%s.kmsg_open_ok=%d\n"
+                         "pm_service_trigger_observer.response_sample.%s.kmsg_source=%s\n"
                          "pm_service_trigger_observer.response_sample.%s.kmsg_open_errno=%d\n"
                          "pm_service_trigger_observer.response_sample.%s.kmsg_lines_read=%d\n"
                          "pm_service_trigger_observer.response_sample.%s.kmsg_filtered_count=%d\n"
@@ -13142,6 +13237,7 @@ static int append_pm_esoc_response_sample(struct buffer *buf, const char *phase)
                       phase, mhi_pipe_exists ? 1 : 0,
                       phase, wlan0_exists ? 1 : 0,
                       phase, kmsg.open_ok ? 1 : 0,
+                      phase, kmsg.source,
                       phase, kmsg.open_errno,
                       phase, kmsg.lines_read,
                       phase, kmsg.filtered_count,
