@@ -3,7 +3,7 @@
 
 #define INIT_VERSION "0.9.68"
 #define INIT_BUILD "v724"
-#define INIT_CREATOR "made by temmie0214"
+#define INIT_CREATOR "made by device owner"
 #define INIT_BANNER "A90 Linux init " INIT_VERSION " (" INIT_BUILD ")"
 #define BOOT_SPLASH_SECONDS 2
 #define BOOT_HUD_REFRESH_SECONDS 2
