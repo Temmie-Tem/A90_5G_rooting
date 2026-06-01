@@ -2068,3 +2068,14 @@ Update after V1354/V1355:
   sanity over the exact V1493 manifest before another rollbackable live
   handoff. Report:
   `docs/reports/NATIVE_INIT_V1493_WIFI_AUTO_READINESS_RC1_WINDOW_SOURCE_BUILD_2026-06-01.md`.
+- V1494 local-only artifact sanity
+  (`v1494-wifi-auto-readiness-rc1-window-artifact-sanity-pass`) verifies the
+  exact V1493 manifest and image. Checks passed for manifest decision, static
+  init/helper, ramdisk entries, boot markers, AP2MDM-hold marker absence,
+  v724 header/kernel parity, private artifact modes, forbidden credential-like
+  byte absence, and the enabled RC1 watcher/window contract. V1494 ran no
+  device command or live action. Next gate: V1495 rollbackable live handoff for
+  only the V1493 image, collecting V1493 log/summary, RC1 watcher/window
+  results, focused dmesg, and `wlan0`, then rolling back to v724 and verifying
+  selftest `fail=0`. Report:
+  `docs/reports/NATIVE_INIT_V1494_WIFI_AUTO_READINESS_RC1_WINDOW_ARTIFACT_SANITY_2026-06-01.md`.
