@@ -7296,6 +7296,17 @@ Samsung bootloader
   PERST/CLKREQ/WAKE/MDM2AP, and LTSSM are sampled immediately around the
   `case=11` write inside PID1, or else capture an Android positive reference
   for the same exact fields before any new live mutation.
+- V1437 source/build-only passes with
+  `v1437-wifi-test-boot-immediate-endpoint-source-build-pass`. It generated
+  `tmp/wifi/v1437-wifi-test-boot-immediate-endpoint-sampler/boot_linux_v1437_wifi_test.img`
+  with native init `0.9.80 (v1437-wifitest)`, keeps the V1433 focused endpoint
+  sampler, and adds `read-only-v1437-immediate-endpoint`. The new immediate
+  sampler runs inside the PID1 watcher after the corrected RC1 `case=11` write
+  and records exact pcie1 regulator/clock/GPIO/pinmux/pinconf/link-state fields
+  at `after_case_0ms`, `after_case_1ms`, `after_case_5ms`, and
+  `after_case_20ms`. V1438 should be local-only artifact sanity over this exact
+  manifest, marker contract, v724 header/kernel parity, private modes, and
+  forbidden credential-like byte absence before any live handoff.
 - If V1359 only finds platform bind/probe or global PCI rescan, stop for a new
   design instead of binding or rescanning blindly.
 - If both pcie1 RC and PON parity are read-only-proven healthy yet MDM2AP still
