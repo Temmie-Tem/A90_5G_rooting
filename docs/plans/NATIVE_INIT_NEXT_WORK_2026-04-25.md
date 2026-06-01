@@ -6634,6 +6634,24 @@ Samsung bootloader
       staged artifact passed local sanity checks. The boot image remains
       `tmp/wifi/v1393-wifi-test-boot/boot_linux_v1393_wifi_test.img`
       (`sha256=ebb4097db71dee77cdf7a26b671a1535a8e0afe1e53b4a23400af518d4d63048`).
+43. **V1395 Wi-Fi test boot live handoff (bounded live with rollback).**
+    - Goal: flash the V1393 test boot image, collect below-connect boot
+      evidence, and roll back to v724.
+    - Required output: test image flash/readback/verify evidence, V1393 version
+      and boot status, V1393 boot log, dmesg grep for provider/RC1/MHI/WLFW
+      markers, `wlan0` presence check, and rollback verification.
+    - Hard stop: test boot flash plus rollback only. No Wi-Fi HAL, no
+      scan/connect, no credentials, no DHCP/routes, no external ping, no
+      PMIC/GPIO/GDSC direct write, and no blind eSoC notify/`BOOT_DONE` spoof.
+    - Result:
+      `docs/reports/NATIVE_INIT_V1395_WIFI_TEST_BOOT_HANDOFF_2026-06-01.md`.
+      Decision: `v1395-test-boot-provider-trigger-no-downstream-rollback-pass`.
+      The test boot verified `A90 Linux init 0.9.69 (v1393-wifitest)`, spawned
+      the ramdisk helper, reached `subsys_modem` and `__subsystem_get: esoc0`,
+      and rolled back to healthy `A90 Linux init 0.9.68 (v724)`. No RC1 L0,
+      MHI, WLFW/BDF, or `wlan0` appeared; `wlan0` stayed absent. V1395 collected
+      immediately after bridge verification, so the helper's `30s` window was
+      likely cut short by rollback.
 
 ### Required decision before any new mutation
 
@@ -6769,6 +6787,11 @@ Samsung bootloader
   `tmp/wifi/v1393-wifi-test-boot/boot_linux_v1393_wifi_test.img`, capture the
   V1393 boot evidence, and rollback to `stage3/boot_linux_v724.img` unless a
   later explicit decision keeps the test boot. V1395 still must not perform
+  Wi-Fi scan/connect, credential handling, DHCP/routes, or external ping.
+- V1395 proves the test boot can boot and roll back safely, and it reaches the
+  eSoC provider trigger, but it does not yet prove the 30s helper window. V1396
+  should rerun the same test boot with an explicit post-boot hold before
+  collecting dmesg/helper output and rolling back. V1396 still must not perform
   Wi-Fi scan/connect, credential handling, DHCP/routes, or external ping.
 - If V1359 only finds platform bind/probe or global PCI rescan, stop for a new
   design instead of binding or rescanning blindly.
