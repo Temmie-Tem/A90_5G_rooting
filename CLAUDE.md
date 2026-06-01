@@ -9,7 +9,7 @@ Samsung Galaxy A90 5G (SM-A908N) — stock Android Linux kernel 4.14.190, custom
 - **Device**: SM-A908N, Android 12, Magisk 30.7, TWRP available
 - **Current native build**: `A90 Linux init 0.9.68 (v724)` — `stage3/boot_linux_v724.img`
 - **Known-good fallback**: `stage3/boot_linux_v48.img`
-- **Active research cycle**: V1399 bounded live handoff PASS (`v1399-test-boot-provider-trigger-no-downstream-rollback-pass`). The V1397 test boot flashed, booted, collected fresh log/summary evidence, reached `subsys_modem` and `__subsystem_get: esoc0`, then rolled back to v724. No RC1 L0/MHI/WLFW/BDF/`wlan0` appeared. New key fact: the PID1-launched helper was already `State: Z (zombie)` at the `35s` watcher sample, so next is V1400 source/build-only supervised helper wait/exit-status capture. Preserve hard exclusions: no credential use, Wi-Fi scan/connect/DHCP/external ping, PMIC/GPIO/GDSC direct write, blind eSoC notify/BOOT_DONE spoof, flash outside an explicit test-boot/rollback gate, boot image write outside an explicit test-boot/rollback gate, or partition write.
+- **Active research cycle**: V1400 source/build-only PASS (`v1400-wifi-test-boot-supervisor-source-build-pass`). The next rollbackable Wi-Fi test boot artifact is `tmp/wifi/v1400-wifi-test-boot/boot_linux_v1400_wifi_test.img` (`A90 Linux init 0.9.71 (v1400-wifitest)`) with a non-blocking supervisor child that waits for helper exit and records status/timeout/log summary. No device command or flash occurred in V1400. Next is V1401 local artifact sanity over the exact V1400 manifest before any live handoff. Preserve hard exclusions: no credential use, Wi-Fi scan/connect/DHCP/external ping, PMIC/GPIO/GDSC direct write, blind eSoC notify/BOOT_DONE spoof, flash outside an explicit test-boot/rollback gate, boot image write outside an explicit test-boot/rollback gate, or partition write.
 - **Versioning policy**: `docs/operations/VERSIONING_POLICY.md` — `vNNN` cycle ≠ device flash
 
 ## Versioning rules
@@ -1598,3 +1598,16 @@ Update after V1354/V1355:
   source/build-only: run the helper under a non-blocking supervisor child that
   waits for helper exit and records exit status/duration/timeout/log summary
   without blocking PID1 long term.
+- V1400 source/build-only (`v1400-wifi-test-boot-supervisor-source-build-pass`)
+  implements that supervisor path:
+  `docs/reports/NATIVE_INIT_V1400_WIFI_TEST_BOOT_SUPERVISOR_SOURCE_BUILD_2026-06-01.md`.
+  PID1 now forks a non-blocking supervisor child in supervised builds; the
+  supervisor spawns the helper, waits with a bounded `40s` timeout, and writes
+  helper wait result, timeout state, raw wait status, exit code or signal,
+  log size, and `wlan0` presence into the summary. The V1400 artifact is
+  `tmp/wifi/v1400-wifi-test-boot/boot_linux_v1400_wifi_test.img`
+  (`sha256=461d69cdf9d0680421dea9f77b3f444f028bb4c188a964bd6d7fd98142cdd27c`),
+  built as `A90 Linux init 0.9.71 (v1400-wifitest)`. V1400 did not issue any
+  device command, flash, reboot, partition write, Wi-Fi scan/connect,
+  credential handling, DHCP/routes, or external ping. Next is V1401 local
+  artifact sanity over the exact V1400 manifest before any live handoff.

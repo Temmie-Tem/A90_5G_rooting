@@ -44,6 +44,7 @@ DEFAULT_WIFI_TEST_SUMMARY = "/cache/native-init-wifi-test-boot-v1393.summary"
 DEFAULT_WIFI_TEST_PID = "/cache/native-init-wifi-test-boot-v1393.pid"
 DEFAULT_WIFI_TEST_WATCHER_PID = "/cache/native-init-wifi-test-boot-v1393-watcher.pid"
 DEFAULT_WIFI_TEST_WATCH_SEC = 35
+DEFAULT_WIFI_TEST_SUPERVISOR_TIMEOUT_SEC = 40
 EXPECTED_HELPER_MARKER = "a90_android_execns_probe v286"
 EXPECTED_HELPER_SHA256 = "e5fc81a5becb2c6e6efd2ca026800560ed9e0e72a692f0fbb07861cf26d5380f"
 REPRODUCIBLE_MTIME = 0
@@ -103,6 +104,7 @@ def build_helper(args: argparse.Namespace) -> None:
 
 def build_init(args: argparse.Namespace) -> None:
     args.out_dir.mkdir(parents=True, exist_ok=True)
+    supervisor_flags = ["-DA90_WIFI_TEST_BOOT_SUPERVISE_HELPER=1"] if args.wifi_test_supervise_helper else []
     command = [
         args.cross_gcc,
         "-static",
@@ -121,6 +123,8 @@ def build_init(args: argparse.Namespace) -> None:
         shell_define("A90_WIFI_TEST_BOOT_PID", args.wifi_test_pid),
         shell_define("A90_WIFI_TEST_BOOT_WATCHER_PID", args.wifi_test_watcher_pid),
         f"-DA90_WIFI_TEST_BOOT_WATCH_SEC={args.wifi_test_watch_sec}",
+        f"-DA90_WIFI_TEST_BOOT_SUPERVISOR_TIMEOUT_SEC={args.wifi_test_supervisor_timeout_sec}",
+        *supervisor_flags,
         "-o",
         args.init_binary,
         *pid1_sources(),
@@ -274,6 +278,8 @@ def write_manifest(args: argparse.Namespace) -> None:
             "watch_sec": args.wifi_test_watch_sec,
             "fresh_log": True,
             "summary_watcher": True,
+            "supervise_helper": args.wifi_test_supervise_helper,
+            "supervisor_timeout_sec": args.wifi_test_supervisor_timeout_sec,
         },
         "init_binary": str(args.init_binary.relative_to(REPO_ROOT)),
         "init_sha256": sha256(args.init_binary),
@@ -324,6 +330,8 @@ def parse_args(argv: Sequence[str] | None = None) -> argparse.Namespace:
     parser.add_argument("--wifi-test-pid", default=DEFAULT_WIFI_TEST_PID)
     parser.add_argument("--wifi-test-watcher-pid", default=DEFAULT_WIFI_TEST_WATCHER_PID)
     parser.add_argument("--wifi-test-watch-sec", type=int, default=DEFAULT_WIFI_TEST_WATCH_SEC)
+    parser.add_argument("--wifi-test-supervise-helper", action="store_true")
+    parser.add_argument("--wifi-test-supervisor-timeout-sec", type=int, default=DEFAULT_WIFI_TEST_SUPERVISOR_TIMEOUT_SEC)
     parser.add_argument("--init-binary", type=Path)
     parser.add_argument("--helper-binary", type=Path)
     parser.add_argument("--ramdisk-dir", type=Path)

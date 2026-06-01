@@ -6734,6 +6734,27 @@ Samsung bootloader
       `35001ms` and found the helper process in `State: Z (zombie)`. No `PCIe
       RC1`, `LTSSM`, MHI, WLFW/BDF, or `wlan0` marker appeared; `wlan0` stayed
       absent.
+48. **V1400 Wi-Fi test boot supervisor source/build (local-only).**
+    - Goal: convert the test boot from direct PID1 helper spawn to a
+      non-blocking supervisor child so helper exit status and timeout can be
+      observed without blocking PID1.
+    - Required output: source/build-only hook changes, V1400 boot artifact,
+      manifest SHA256 values, supervised-helper contract fields, and no-secret
+      artifact checks.
+    - Hard stop: source/build/local artifact only. No device command, no flash,
+      no reboot, no boot partition write, no partition write, no Wi-Fi HAL, no
+      scan/connect, no credentials, no DHCP/routes, no external ping, no
+      PMIC/GPIO/GDSC direct write, and no blind eSoC notify/`BOOT_DONE` spoof.
+    - Result:
+      `docs/reports/NATIVE_INIT_V1400_WIFI_TEST_BOOT_SUPERVISOR_SOURCE_BUILD_2026-06-01.md`.
+      Decision: `v1400-wifi-test-boot-supervisor-source-build-pass`. PID1 now
+      forks a non-blocking supervisor child in supervised builds; the supervisor
+      spawns the helper, waits with a bounded `40s` timeout, and writes helper
+      wait result, timeout state, raw wait status, exit code or signal, log
+      size, and `wlan0` presence into the summary. The V1400 artifact is
+      `tmp/wifi/v1400-wifi-test-boot/boot_linux_v1400_wifi_test.img`
+      (`sha256=461d69cdf9d0680421dea9f77b3f444f028bb4c188a964bd6d7fd98142cdd27c`),
+      built as `A90 Linux init 0.9.71 (v1400-wifitest)`.
 
 ### Required decision before any new mutation
 
@@ -6901,6 +6922,12 @@ Samsung bootloader
   should be source/build-only: add a non-blocking supervisor child that spawns
   the helper, waits with a bounded timeout, records exit status/duration/log
   size/`wlan0` state, and leaves PID1 responsive.
+- V1400 completes the supervised source/build path and stages a new test boot
+  artifact. V1401 should be local artifact sanity over the exact V1400 manifest
+  and boot image before any live flash. A later live gate may flash only
+  `tmp/wifi/v1400-wifi-test-boot/boot_linux_v1400_wifi_test.img`, expect
+  `A90 Linux init 0.9.71 (v1400-wifitest)`, collect the V1400 log and summary,
+  then roll back to `stage3/boot_linux_v724.img`.
 - If V1359 only finds platform bind/probe or global PCI rescan, stop for a new
   design instead of binding or rescanning blindly.
 - If both pcie1 RC and PON parity are read-only-proven healthy yet MDM2AP still
