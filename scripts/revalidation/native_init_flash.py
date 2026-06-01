@@ -324,6 +324,8 @@ def reboot_twrp_to_system(args: argparse.Namespace, serial: str) -> None:
 
 
 def verify_native_init(args: argparse.Namespace) -> str:
+    if args.verify_protocol == "selftest":
+        return verify_native_init_selftest(args)
     if args.verify_protocol == "raw":
         return verify_native_init_raw(args)
 
@@ -336,6 +338,21 @@ def verify_native_init(args: argparse.Namespace) -> str:
             raise
         log(f"cmdv1 verify unavailable; falling back to raw version check: {exc}")
         return verify_native_init_raw(args)
+
+
+def verify_native_init_selftest(args: argparse.Namespace) -> str:
+    result = run_cmdv1_command(
+        args.bridge_host,
+        args.bridge_port,
+        args.bridge_timeout,
+        ["selftest"],
+    )
+    print(result.text, end="" if result.text.endswith("\n") else "\n")
+    verify_cmdv1_result(result, "selftest")
+    if "fail=0" not in result.text:
+        raise RuntimeError("native selftest did not report fail=0")
+    log("cmdv1 verify passed: selftest rc=0 status=ok fail=0")
+    return result.text
 
 
 def verify_native_init_raw(args: argparse.Namespace) -> str:
@@ -401,7 +418,7 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--expect-version", help="string expected in the native init version output")
     parser.add_argument(
         "--verify-protocol",
-        choices=("auto", "cmdv1", "raw"),
+        choices=("auto", "cmdv1", "raw", "selftest"),
         default="auto",
         help="post-boot verification method; auto tries cmdv1 first and falls back to raw version",
     )

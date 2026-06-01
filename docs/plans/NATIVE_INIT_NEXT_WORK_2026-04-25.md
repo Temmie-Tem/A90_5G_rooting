@@ -8474,6 +8474,30 @@ Samsung bootloader
   Wi-Fi connect/credential/network paths.
   Report:
   `docs/reports/NATIVE_INIT_V1531_TARGETED_TRACE_SOURCE_CLASSIFIER_2026-06-02.md`.
+- V1532 rollbackable Android targeted tracefs queue-pair handoff passes with
+  `v1532-targeted-tracefs-partial-rollback-pass`. It adds
+  `scripts/revalidation/android_targeted_tracefs_queue_pair_handoff_v1532.py`
+  and executes the bounded Android/Magisk/native-rollback handoff with sched
+  exec, workqueue queue/activate/execute, PIL, and printk console tracefs
+  events. The run captures Android-good lower Wi-Fi progress and one paired
+  `icnss_driver_event_work` queue/execute item, then restores native v724 with
+  `selftest` verification. `native_init_flash.py` now supports
+  `--verify-protocol selftest`, and the V1532 handoff replaces native
+  `version`/`status` precheck with `selftest` to avoid sensitive status text in
+  new evidence. Report:
+  `docs/reports/NATIVE_INIT_V1532_ANDROID_TARGETED_TRACEFS_QUEUE_PAIR_HANDOFF_2026-06-02.md`.
+- V1533 host-only queue-pair classifier passes with
+  `v1533-icnss-queue-pair-is-hdd-register-path-not-first-l0-trigger`. It adds
+  `scripts/revalidation/native_wifi_v1532_queue_pair_classifier_v1533.py` and
+  classifies the V1532 pair: `/vendor/bin/hw/macloader` queues
+  `icnss_driver_event_work` during WLAN driver load at ~40.882s, it executes
+  about 0.012 ms later, and it precedes pm-service `subsys_esoc0` by ~2.78s
+  and QMI server connect by ~3.54s. Therefore the visible ICNSS workqueue event
+  is HDD/register-driver path evidence, not Android's first-L0 trigger. Next
+  gate: V1534 should target pm-service Binder/QMI voter behavior around
+  `subsys_esoc0` and the immediate pci-msm first-L0 path; do not return to
+  firmware/MHI/WLFW until native L0 and PCI enumeration exist. Report:
+  `docs/reports/NATIVE_INIT_V1533_V1532_QUEUE_PAIR_CLASSIFIER_2026-06-02.md`.
 - If V1359 only finds platform bind/probe or global PCI rescan, stop for a new
   design instead of binding or rescanning blindly.
 - If both pcie1 RC and PON parity are read-only-proven healthy yet MDM2AP still

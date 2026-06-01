@@ -9,7 +9,7 @@ Samsung Galaxy A90 5G (SM-A908N) — stock Android Linux kernel 4.14.190, custom
 - **Device**: SM-A908N, Android 12, Magisk 30.7, TWRP available
 - **Current native build**: `A90 Linux init 0.9.68 (v724)` — `stage3/boot_linux_v724.img`
 - **Known-good fallback**: `stage3/boot_linux_v48.img`
-- **Active research cycle**: V1531 host-only targeted trace/source classifier PASS (`v1531-targeted-trace-source-classifies-visible-signals-not-trigger`). V1531 maps V1529/V1530 evidence against ICNSS, pm-service, and pci-msm source: `icnss_driver_event_work` is a shared dispatcher for SERVER_ARRIVE/FW_READY/REGISTER_DRIVER/etc., so workqueue trace alone cannot identify the event type; `pm-service` is the proprietary `vendor.qcom.PeripheralManager` Binder/QMI voter actor and V1529 sees it exec then Binder `subsystem_get(modem)`, WLFW start, Binder `subsystem_get(esoc0)`, QMI server, BDF, FW-ready, and `wlan0`; pci-msm TEST:11, wake IRQ work, sysfs enumerate, and probe paths all converge on `msm_pcie_enumerate`, while native still reaches enable/LTSSM and fails before L0. Next gate is V1532: targeted Android tracefs design/capture for `workqueue_queue_work` + execute pairing and pm-service Binder `subsystem_get` timing, without broad IRQ tracing. Do not proceed to firmware/MHI deep dive/WLFW/scan/connect until native RC1 L0 and PCI enumeration exist. Preserve hard exclusions: no credential use, Wi-Fi scan/connect/DHCP/external ping, Wi-Fi HAL start, PMIC/GPIO/GDSC direct write, blind eSoC notify/`BOOT_DONE` spoof, global PCI rescan, platform bind/unbind, flash outside an explicit test-boot/rollback gate, boot image write outside an explicit test-boot/rollback gate, or partition write.
+- **Active research cycle**: V1533 host-only V1532 queue-pair classifier PASS (`v1533-icnss-queue-pair-is-hdd-register-path-not-first-l0-trigger`). V1532 live Android handoff captured bounded tracefs `workqueue_queue_work`/activate/execute evidence and rolled back to native with selftest pass. V1533 proves the visible `icnss_driver_event_work` item is queued by `/vendor/bin/hw/macloader` during WLAN driver load at ~40.882s and executes ~0.012ms later, well before pm-service opens `subsys_esoc0` at ~43.664s and before QMI/BDF/FW-ready/`wlan0`; therefore that ICNSS workqueue signal is HDD/register-driver path evidence, not Android's first-L0 trigger. Next gate is V1534: target pm-service Binder/QMI voter behavior that opens `subsys_esoc0` and the immediate pci-msm first-L0 path. Do not proceed to firmware/MHI deep dive/WLFW/scan/connect until native RC1 L0 and PCI enumeration exist. Preserve hard exclusions: no credential use, Wi-Fi scan/connect/DHCP/external ping, Wi-Fi HAL start, PMIC/GPIO/GDSC direct write, blind eSoC notify/`BOOT_DONE` spoof, global PCI rescan, platform bind/unbind, flash outside an explicit test-boot/rollback gate, boot image write outside an explicit test-boot/rollback gate, or partition write.
 - **Versioning policy**: `docs/operations/VERSIONING_POLICY.md` — `vNNN` cycle ≠ device flash
 
 ## Versioning rules
@@ -2534,3 +2534,25 @@ Update after V1354/V1355:
   `subsystem_get` timing, without broad IRQ tracing or any Wi-Fi connect path.
   Report:
   `docs/reports/NATIVE_INIT_V1531_TARGETED_TRACE_SOURCE_CLASSIFIER_2026-06-02.md`.
+- V1532 rollbackable Android targeted tracefs queue-pair handoff passes with
+  `v1532-targeted-tracefs-partial-rollback-pass`. It adds
+  `scripts/revalidation/android_targeted_tracefs_queue_pair_handoff_v1532.py`
+  and extends the V1521/V1529 Android handoff module to enable only sched exec,
+  workqueue queue/activate/execute, PIL, and printk console tracefs events. The
+  live run flashed the known Android boot image, installed the temporary Magisk
+  sampler, captured Android-good lower Wi-Fi progress, pulled partial evidence,
+  removed the temporary module, and restored native v724. The restore path now
+  uses `native_init_flash.py --verify-protocol selftest` to avoid recording
+  sensitive `version`/`status` text in new handoff evidence. Report:
+  `docs/reports/NATIVE_INIT_V1532_ANDROID_TARGETED_TRACEFS_QUEUE_PAIR_HANDOFF_2026-06-02.md`.
+- V1533 host-only V1532 queue-pair classifier passes with
+  `v1533-icnss-queue-pair-is-hdd-register-path-not-first-l0-trigger`. It adds
+  `scripts/revalidation/native_wifi_v1532_queue_pair_classifier_v1533.py` and
+  proves the queued `icnss_driver_event_work` item is from
+  `/vendor/bin/hw/macloader` during WLAN driver load, executes about 0.012 ms
+  later, and precedes pm-service `subsys_esoc0`, QMI server, BDF, FW-ready, and
+  `wlan0`. This closes the visible ICNSS workqueue line as a first-L0 lead.
+  Next gate: V1534 should target the pm-service Binder/QMI voter path that opens
+  `subsys_esoc0` and the immediate pci-msm first-L0 path, not firmware/MHI or
+  ICNSS workqueue. Report:
+  `docs/reports/NATIVE_INIT_V1533_V1532_QUEUE_PAIR_CLASSIFIER_2026-06-02.md`.
