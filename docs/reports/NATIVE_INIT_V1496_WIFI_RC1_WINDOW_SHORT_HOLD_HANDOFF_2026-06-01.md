@@ -42,9 +42,10 @@
 No Wi-Fi scan/connect, credential handling, DHCP/routes, external ping,
 PMIC/GPIO/GDSC direct write, or blind eSoC notify/`BOOT_DONE` spoof was
 performed by this runner.
-Device mutation was limited to flashing the test boot image and
-rolling back to `stage3/boot_linux_v724.img`. If enabled, native
-direct rollback may restore the boot partition from a pre-staged
+Device mutation included flashing the test boot image, the test image's bounded
+corrected RC1 enumerate through pci-msm debugfs `rc_sel=2` + `case=11` after the
+provider trigger, and rolling back to `stage3/boot_linux_v724.img`. If enabled,
+native direct rollback may restore the boot partition from a pre-staged
 `/cache` rollback image when recovery ADB is unavailable.
 
 ## Images

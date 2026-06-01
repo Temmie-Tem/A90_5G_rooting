@@ -705,10 +705,11 @@ def render_report(result: dict[str, Any]) -> str:
         ])
     else:
         lines.extend([
-            "Device mutation was limited to flashing the test boot image and",
-            "rolling back to `stage3/boot_linux_v724.img`. If enabled, native",
-            "direct rollback may restore the boot partition from a pre-staged",
-            "`/cache` rollback image when recovery ADB is unavailable.",
+            "Device mutation included flashing the test boot image, any bounded",
+            "in-boot actions declared by that test image's artifact contract, and",
+            "rolling back to `stage3/boot_linux_v724.img`. If enabled, native direct",
+            "rollback may restore the boot partition from a pre-staged `/cache`",
+            "rollback image when recovery ADB is unavailable.",
         ])
     lines.extend([
         "",

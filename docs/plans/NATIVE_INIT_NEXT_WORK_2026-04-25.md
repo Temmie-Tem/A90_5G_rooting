@@ -7975,8 +7975,10 @@ Samsung bootloader
   `v1493-wifi-auto-readiness-rc1-window-test-boot-source-build-pass`. It adds
   `scripts/revalidation/build_native_init_wifi_test_boot_v1493.py` and builds a
   rollbackable credential-free test boot that keeps the V1488 timeout-safe
-  `auto_readiness_pid1.*` summary while enabling PID1 RC1 watcher and RC1
-  window sampler. Built image:
+  `auto_readiness_pid1.*` summary while enabling a PID1 RC1 watcher and RC1
+  window sampler. The watcher is not observation-only: after the provider
+  trigger it performs bounded pci-msm debugfs corrected RC1 enumerate writes
+  (`rc_sel=2` + `case=11`) while the sampler records the window. Built image:
   `tmp/wifi/v1493-wifi-auto-readiness-rc1-window-test-boot/boot_linux_v1493_wifi_test.img`
   (`sha256=bc1a6484eb8786323b2a534b099839db32ad627d7688395265c63b647ed56c8e`),
   native init `0.9.92 (v1493-wifitest)`, init sha256
@@ -7991,8 +7993,9 @@ Samsung bootloader
   exact V1493 manifest and image, including static init/helper binaries,
   ramdisk entries, RC1 watcher/window boot markers, absence of AP2MDM-hold
   markers, v724 header/kernel parity, private artifact modes, forbidden
-  credential-like byte absence, and RC1 auto-readiness contract. V1494
-  performed no device command or live action. V1495 may perform a rollbackable
+  credential-like byte absence, and RC1 auto-readiness contract including the
+  bounded `rc_sel=2` + `case=11` watcher writes. V1494 performed no device
+  command or live action. V1495 may perform a rollbackable
   live handoff for only the V1493 image, expecting
   `A90 Linux init 0.9.92 (v1493-wifitest)`, collecting V1493 log/summary, RC1
   watcher/window results, focused dmesg, and `wlan0` state, then rolling back
@@ -8001,7 +8004,10 @@ Samsung bootloader
 - V1495 rollbackable live handoff reached `v1495-test-boot-version-missing`.
   The exact V1493 RC1-window test image was flashed and the generic
   from-native rollback restored v724 successfully; post-run validation showed
-  selftest `fail=0`. The flash verifier saw the V1493 version marker
+  selftest `fail=0`. The V1493 image may issue bounded pci-msm debugfs
+  corrected RC1 enumerate writes (`rc_sel=2` + `case=11`) after the provider
+  trigger, but V1495 did not collect the post-trigger sidecars, so the in-boot
+  watcher result is unproven for this run. The flash verifier saw the V1493 version marker
   immediately after reboot, but after the 100s hold all post-hold `cmdv1`
   evidence reads failed with missing END marker or bridge connection reset.
   Therefore V1495 proves rollback safety for this image but not RC1/MHI
@@ -8015,7 +8021,9 @@ Samsung bootloader
   RC1-window test image but shortened the hold to 10s, proving the V1495
   post-hold failure was a long-window communication-loss issue rather than an
   immediate RC1-window wedge. Evidence collection succeeded and rollback
-  verified v724/selftest `fail=0`. The critical new blocker is no longer
+  verified v724/selftest `fail=0`. This run also executed the test image's
+  bounded pci-msm debugfs corrected RC1 enumerate (`rc_sel=2` + `case=11`) after
+  the provider trigger. The critical new blocker is no longer
   provider-only: RC1 PHY became ready and LTSSM entered polling, but link
   training stopped at `LTSSM_POLL_COMPLIANCE` with
   `PCIe RC1 link initialization failed (LTSSM_STATE:0x3)`. No L0, MHI, WLFW,
@@ -8025,6 +8033,21 @@ Samsung bootloader
   classify this RC1 link failure host-only against Android-good RC1 timing and
   DTS pin/power contracts before any bounded write experiment. Report:
   `docs/reports/NATIVE_INIT_V1496_WIFI_RC1_WINDOW_SHORT_HOLD_HANDOFF_2026-06-01.md`.
+- V1497 host-only classifier passes with
+  `v1497-auto-readiness-rc1-fail-reconciled-existing-endpoint-gap`. It adds
+  `scripts/revalidation/native_wifi_auto_readiness_rc1_failure_classifier_v1497.py`
+  and reconciles V1496 against V1371/V1379/V1432/V1448/V1461/V1475 plus the
+  V1476 lower-intervention design gate and the V1481/V1482 AP2MDM closure.
+  V1496 proved the rollbackable test boot can execute bounded corrected RC1
+  enumerate (`rc_sel=2` + `case=11`) and collect evidence, but this still
+  matches the established endpoint-readiness gap: LTSSM fails before L0 and no
+  MHI/WLFW/BDF/FW-ready/`wlan0` appears. Repeating GPIO135 sysfs hold or
+  corrected RC1-only experiments is rejected. Next work should continue from the
+  V1482/V1496 endpoint-readiness branch and start with a source/build-only
+  pre-L0 endpoint parity observer; keep Wi-Fi HAL, credentials, scan/connect,
+  DHCP/routes, and external ping blocked until `wlan0` exists.
+  Report:
+  `docs/reports/NATIVE_INIT_V1497_AUTO_READINESS_RC1_FAILURE_CLASSIFIER_2026-06-01.md`.
 - If V1359 only finds platform bind/probe or global PCI rescan, stop for a new
   design instead of binding or rescanning blindly.
 - If both pcie1 RC and PON parity are read-only-proven healthy yet MDM2AP still

@@ -19,6 +19,9 @@
 - boot markers: `True`
 - AP2MDM hold marker absence: `True`
 - RC1 auto-readiness contract: `True`
+- RC1 watcher contract includes bounded pci-msm debugfs writes:
+  `/sys/kernel/debug/pci-msm/rc_sel=2` then
+  `/sys/kernel/debug/pci-msm/case=11`.
 - header parity: `True`
 - kernel parity: `True`
 - forbidden credential-like bytes absent: `True`
@@ -38,7 +41,9 @@
 No device command, flash, reboot, boot partition write, partition write,
 Wi-Fi HAL, scan/connect, credential handling, DHCP/routes, external ping,
 PMIC/GPIO/GDSC direct write, blind eSoC notify/`BOOT_DONE` spoof, global
-PCI rescan, or platform bind/unbind was performed.
+PCI rescan, or platform bind/unbind was performed by this verifier. The
+verified test image itself is not observation-only: if booted, its PID1 watcher
+may issue the bounded corrected RC1 enumerate debugfs writes listed above.
 
 ## Next
 

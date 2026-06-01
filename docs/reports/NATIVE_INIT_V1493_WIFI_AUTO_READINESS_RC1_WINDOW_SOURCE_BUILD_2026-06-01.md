@@ -6,7 +6,7 @@
 - Type: source/build-only rollbackable Wi-Fi test boot artifact
 - Decision: `v1493-wifi-auto-readiness-rc1-window-test-boot-source-build-pass`
 - Result: PASS
-- Reason: built a credential-free test boot that keeps the V1488 auto path and enables PID1 RC1 watcher/window capture
+- Reason: built a credential-free test boot that keeps the V1488 auto path and enables a PID1 RC1 watcher/window path
 - Manifest: `tmp/wifi/v1493-wifi-auto-readiness-rc1-window-test-boot/manifest.json`
 - Boot image: `tmp/wifi/v1493-wifi-auto-readiness-rc1-window-test-boot/boot_linux_v1493_wifi_test.img`
 - Boot SHA256: `bc1a6484eb8786323b2a534b099839db32ad627d7688395265c63b647ed56c8e`
@@ -24,7 +24,10 @@
 - RC1 watcher delay ms: `0`
 - RC1 watcher result path: `/cache/native-init-wifi-test-boot-v1493-rc1-watcher.result`
 - RC1 window result path: `/cache/native-init-wifi-test-boot-v1493-rc1-window.result`
-- Captures boot-time RC1/LTSSM/MHI/proc/sysfs evidence around the provider-trigger path.
+- On provider trigger, the watcher performs a bounded corrected RC1 enumerate by
+  writing `/sys/kernel/debug/pci-msm/rc_sel=2` and
+  `/sys/kernel/debug/pci-msm/case=11`, while the window sampler captures
+  boot-time RC1/LTSSM/MHI/proc/sysfs evidence.
 - Does not start Wi-Fi HAL, scan/connect, use credentials, configure DHCP/routes, or external ping.
 - Log path: `/cache/native-init-wifi-test-boot-v1493.log`
 - Summary path: `/cache/native-init-wifi-test-boot-v1493.summary`
