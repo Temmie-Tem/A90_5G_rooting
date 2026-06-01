@@ -2643,3 +2643,34 @@ GEN/WLFW/BDF/`wlan0`. Next gate is V1541 source/build-only endpoint electrical
 observer design for PERST/refclk/GDSC/CLKREQ/WAKE/AP2MDM/MDM2AP in the exact
 RC1 link-training window. Do not repeat enumerate retries or move to
 firmware/MHI/WLFW/connect-side work until native L0 and PCI enumeration exist.
+
+## Latest native Wi-Fi state: V1541-V1544 (2026-06-02)
+
+V1541-V1543 built and ran a rollbackable endpoint-electrical observer test
+boot. V1541 adds
+`scripts/revalidation/build_native_init_wifi_test_boot_v1541.py`, producing
+`tmp/wifi/v1541-endpoint-electrical-observer-test-boot/boot_linux_v1541_wifi_test.img`
+with init `A90 Linux init 0.9.99 (v1541-wifitest)` and helper marker
+`a90_android_execns_probe v287`. V1542 adds
+`scripts/revalidation/native_wifi_endpoint_electrical_artifact_sanity_v1542.py`
+and passes artifact sanity. V1543 adds
+`scripts/revalidation/native_wifi_endpoint_electrical_handoff_v1543.py` and
+passes the live handoff/rollback with progress decision
+`rc1-ltssm-link-failed-no-l0`.
+
+V1544 adds
+`scripts/revalidation/native_wifi_endpoint_electrical_result_classifier_v1544.py`
+and classifies the V1543 evidence with
+`v1544-endpoint-electrical-confirms-no-l0-gpio-gdsc-zero-clk-postfail` PASS.
+The sysfs/client enumerate writer succeeds and reaches RC1 assert, PHY-ready,
+PERST release, LTSSM poll active/compliance, then
+`PCIe RC1 link initialization failed (LTSSM_STATE:0x3)`. GPIO104/WAKE and
+GPIO142/MDM2AP stay low with zero IRQ count, GPIO135 remains low in captured
+debug GPIO samples, `pcie_1_gdsc` is observed at 0mV, and no MHI/WLFW/BDF/
+FW-ready/`wlan0` marker appears. Focused `clk_summary` lines show disabled
+pcie1 clocks after capture, but `clk_summary` is too slow for a definitive
+sub-120ms pre-fail clock-state proof. Next gate: V1545 should be a host/source
+classifier or test-boot design for a low-overhead pre-fail endpoint-state
+observer that avoids full `clk_summary` reads in the critical RC1 window. Do
+not repeat enumerate-only experiments or move to firmware/MHI/WLFW/connect-side
+work until native RC1 L0 and PCI enumeration exist.

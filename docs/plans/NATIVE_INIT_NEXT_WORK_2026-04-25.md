@@ -8593,6 +8593,42 @@ Samsung bootloader
   firmware/MHI/WLFW/Wi-Fi HAL/scan/connect/credentials/DHCP/routes/external
   ping until native RC1 L0 and PCI enumeration exist. Report:
   `docs/reports/NATIVE_INIT_V1540_ENDPOINT_READINESS_CLASSIFIER_2026-06-02.md`.
+- V1541/V1542 endpoint-electrical observer test-boot preparation passes.
+  V1541 adds `scripts/revalidation/build_native_init_wifi_test_boot_v1541.py`
+  and builds the rollbackable test image
+  `tmp/wifi/v1541-endpoint-electrical-observer-test-boot/boot_linux_v1541_wifi_test.img`
+  with init `A90 Linux init 0.9.99 (v1541-wifitest)` and helper marker
+  `a90_android_execns_probe v287`. The image keeps the targeted
+  sysfs/client enumerate writer and adds the focused endpoint-state sampler.
+  V1542 adds
+  `scripts/revalidation/native_wifi_endpoint_electrical_artifact_sanity_v1542.py`
+  and passes artifact sanity before any live handoff. Reports:
+  `docs/reports/NATIVE_INIT_V1541_ENDPOINT_ELECTRICAL_OBSERVER_SOURCE_BUILD_2026-06-02.md`,
+  `docs/reports/NATIVE_INIT_V1542_ENDPOINT_ELECTRICAL_ARTIFACT_SANITY_2026-06-02.md`.
+- V1543 rollbackable endpoint-electrical observer handoff passes with
+  `v1543-test-boot-downstream-progress-rollback-pass`. The test image writes
+  `/sys/devices/platform/soc/1c08000.qcom,pcie/debug/enumerate`, reaches RC1
+  assert, PHY-ready, PERST release, LTSSM poll active/compliance, and then
+  fails with `PCIe RC1 link initialization failed (LTSSM_STATE:0x3)`. Rollback
+  to v724 passes selftest verification. The fixed progress decision remains
+  `rc1-ltssm-link-failed-no-l0`, with no L0, MHI, WLFW, BDF, FW-ready,
+  `wlan0`, scan/connect, DHCP/routes, or external ping. Report:
+  `docs/reports/NATIVE_INIT_V1543_ENDPOINT_ELECTRICAL_HANDOFF_2026-06-02.md`.
+- V1544 host-only endpoint-electrical result classifier passes with
+  `v1544-endpoint-electrical-confirms-no-l0-gpio-gdsc-zero-clk-postfail`. It
+  adds
+  `scripts/revalidation/native_wifi_endpoint_electrical_result_classifier_v1544.py`
+  and fixes the current blocker: the AP-side writer reaches RC1/LTSSM, but
+  SDX50M does not enter L0. GPIO104/WAKE and GPIO142/MDM2AP stay low with zero
+  IRQ count, GPIO135 remains low in captured debug GPIO samples, `pcie_1_gdsc`
+  is observed at 0mV, and no downstream Wi-Fi marker appears. Focused
+  `clk_summary` lines are disabled but too slow for a definitive sub-120ms
+  pre-fail clock proof. Next gate: V1545 should design a lower-overhead
+  pre-fail endpoint-state observer that does not read full `clk_summary` in
+  the critical RC1 window. Do not repeat enumerate-only experiments or move to
+  firmware/MHI/WLFW/connect-side work until native RC1 L0 and PCI enumeration
+  exist. Report:
+  `docs/reports/NATIVE_INIT_V1544_ENDPOINT_ELECTRICAL_RESULT_CLASSIFIER_2026-06-02.md`.
 - If V1359 only finds platform bind/probe or global PCI rescan, stop for a new
   design instead of binding or rescanning blindly.
 - If both pcie1 RC and PON parity are read-only-proven healthy yet MDM2AP still
