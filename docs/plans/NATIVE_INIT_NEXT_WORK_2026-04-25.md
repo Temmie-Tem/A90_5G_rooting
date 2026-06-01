@@ -8576,6 +8576,23 @@ Samsung bootloader
   Wi-Fi HAL/scan/connect/credentials/DHCP/routes/external ping until native
   RC1 L0 and PCI enumeration exist. Report:
   `docs/reports/NATIVE_INIT_V1539_SYSFS_ENUMERATE_RESULT_CLASSIFIER_2026-06-02.md`.
+- V1540 host-only endpoint-readiness classifier passes with
+  `v1540-endpoint-readiness-gap-after-sysfs-enumerate`. It adds
+  `scripts/revalidation/native_wifi_endpoint_readiness_classifier_v1540.py` and
+  reconciles V1538/V1539 against local DTS plus `pci-msm.c`. The RC1 contract
+  is now explicit: GPIO102 PERST, GPIO104 WAKE, `pcie_1_gdsc`, `pm8150l_l3`,
+  `pm8150_l5`, clkref/refgen/pipe clocks, SDX50M/MHI endpoint `17cb:0305`, and
+  eSoC AP2MDM GPIO135 / MDM2AP GPIO142 / PM8150L GPIO9 PON. Source order in
+  `msm_pcie_enable()` is PERST assert, vregs/clocks/PHY/pipe, PHY ready, PERST
+  release, LTSSM enable, and link polling. Native V1538 reaches this sequence
+  but fails at `POLL_COMPLIANCE`/no L0 with GPIO142 IRQ `0` and no
+  MHI/WLFW/BDF/FW-ready/`wlan0`; Android V852 reaches L0/current GEN/WLFW/BDF/
+  `wlan0`. Next gate: V1541 source/build-only endpoint electrical observer
+  design for PERST/refclk/GDSC/CLKREQ/WAKE/AP2MDM/MDM2AP in the exact RC1
+  link-training window. Do not repeat enumerate retries or move to
+  firmware/MHI/WLFW/Wi-Fi HAL/scan/connect/credentials/DHCP/routes/external
+  ping until native RC1 L0 and PCI enumeration exist. Report:
+  `docs/reports/NATIVE_INIT_V1540_ENDPOINT_READINESS_CLASSIFIER_2026-06-02.md`.
 - If V1359 only finds platform bind/probe or global PCI rescan, stop for a new
   design instead of binding or rescanning blindly.
 - If both pcie1 RC and PON parity are read-only-proven healthy yet MDM2AP still

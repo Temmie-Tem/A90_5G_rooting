@@ -9,7 +9,7 @@ Samsung Galaxy A90 5G (SM-A908N) — stock Android Linux kernel 4.14.190, custom
 - **Device**: SM-A908N, Android 12, Magisk 30.7, TWRP available
 - **Current native build**: `A90 Linux init 0.9.68 (v724)` — `stage3/boot_linux_v724.img`
 - **Known-good fallback**: `stage3/boot_linux_v48.img`
-- **Active research cycle**: V1539 host-only sysfs/client enumerate result classifier PASS (`v1539-sysfs-client-enumerate-closes-ap-side-trigger-no-l0`). V1538 flashed the V1536 rollbackable test image, successfully wrote `/sys/devices/platform/soc/1c08000.qcom,pcie/debug/enumerate`, collected RC1 evidence, and rolled back to v724 with selftest verification. The targeted sysfs/client enumerate path reaches RC1 assert/release, PHY ready, and LTSSM poll active/compliance, then fails before L0 (`PCIe RC1 link initialization failed`, `LTSSM_STATE:0x3`). No MHI, WLFW, BDF, FW-ready, `wlan0`, scan/connect, DHCP/routes, or external ping occurred. The active blocker is now below AP-side caller semantics: SDX50M endpoint readiness/electrical/reset/refclk/PERST response before PCIe RC1 L0. Next gate is V1540 host-only endpoint-readiness/electrical classification; preserve hard exclusions: no credential use, Wi-Fi scan/connect/DHCP/external ping, Wi-Fi HAL start, PMIC/GPIO/GDSC direct write, blind eSoC notify/`BOOT_DONE` spoof, global PCI rescan, platform bind/unbind, flash outside an explicit test-boot/rollback gate, boot image write outside an explicit test-boot/rollback gate, or partition write.
+- **Active research cycle**: V1540 host-only endpoint-readiness classifier PASS (`v1540-endpoint-readiness-gap-after-sysfs-enumerate`). V1538/V1539 closed AP-side enumerate caller semantics: targeted sysfs/client enumerate writes successfully reach RC1 assert/release, PHY ready, and LTSSM poll active/compliance, then fail before L0 (`PCIe RC1 link initialization failed`, `LTSSM_STATE:0x3`). V1540 ties the remaining blocker to the SDX50M endpoint readiness/electrical boundary: RC1 software enable is partially healthy, Android-good reaches L0/current GEN/WLFW/BDF/`wlan0`, but native has no L0, GPIO142 IRQ/level, MHI, WLFW, BDF, FW-ready, or `wlan0`. Next gate is V1541 source/build-only endpoint electrical observer design around GPIO102/PERST, pcie_1 GDSC/clocks/refclk/refgen, GPIO103/CLKREQ, GPIO104/WAKE, GPIO135/AP2MDM, and GPIO142/MDM2AP in the exact RC1 link-training window. Preserve hard exclusions: no credential use, Wi-Fi scan/connect/DHCP/external ping, Wi-Fi HAL start, PMIC/GPIO/GDSC direct write, blind eSoC notify/`BOOT_DONE` spoof, global PCI rescan, platform bind/unbind, flash outside an explicit test-boot/rollback gate, boot image write outside an explicit test-boot/rollback gate, or partition write.
 - **Versioning policy**: `docs/operations/VERSIONING_POLICY.md` — `vNNN` cycle ≠ device flash
 
 ## Versioning rules
@@ -2625,3 +2625,21 @@ enumerate paths. Next gate is V1540 host-only endpoint-readiness/electrical
 classification around PERST/refclk/GDSC/reset/GPIO135/GPIO142/SDX50M response.
 Do not return to firmware/MHI/WLFW/Wi-Fi HAL/scan/connect/credentials/DHCP/
 routes/external ping until native RC1 L0 and PCI enumeration exist.
+
+## Latest native Wi-Fi state: V1540 (2026-06-02)
+
+V1540 added
+`scripts/revalidation/native_wifi_endpoint_readiness_classifier_v1540.py` and
+classified V1538/V1539 against the local DTS and `pci-msm.c` source. Result:
+`v1540-endpoint-readiness-gap-after-sysfs-enumerate` PASS. The source contract
+shows RC1 uses GPIO102 PERST, GPIO104 WAKE, `pcie_1_gdsc`, `pm8150l_l3`,
+`pm8150_l5`, clkref/refgen/pipe clocks, and SDX50M/MHI endpoint `17cb:0305`
+via `esoc0`; the eSoC side uses AP2MDM GPIO135, MDM2AP GPIO142, and PM8150L
+GPIO9 PON. `msm_pcie_enable()` order is PERST assert, vregs/clocks/PHY/pipe,
+PHY-ready wait, PERST release, LTSSM enable, and link polling. Native V1538
+reaches that sequence but stops at `POLL_COMPLIANCE`/no L0 with GPIO142 IRQ
+`0`, no MHI/WLFW/BDF/FW-ready/`wlan0`; Android-good V852 reaches L0/current
+GEN/WLFW/BDF/`wlan0`. Next gate is V1541 source/build-only endpoint electrical
+observer design for PERST/refclk/GDSC/CLKREQ/WAKE/AP2MDM/MDM2AP in the exact
+RC1 link-training window. Do not repeat enumerate retries or move to
+firmware/MHI/WLFW/connect-side work until native L0 and PCI enumeration exist.
