@@ -6359,13 +6359,23 @@ Samsung bootloader
     - Goal: deploy `a90_android_execns_probe v284` to `/cache/bin/` and prove
       on-device SHA/version/usage markers before any immediate-RC1 live run.
     - Required checks: local SHA matches V1381, deployed SHA matches, helper
-      usage exposes `a90_android_execns_probe v284`, the immediate corrected RC1
-      flag, `response_sampler.immediate_corrected_rc1_enumerate_enabled`, and
+      usage exposes `a90_android_execns_probe v284` and the immediate corrected
+      RC1 flag; V1381 source/build evidence covers internal output markers such
+      as `response_sampler.immediate_corrected_rc1_enumerate_enabled` and
       `gate_pm_service_powerup_thread_count`; post selftest remains `fail=0`.
     - Hard stop: deploy/preflight only. No daemon start, no `rc_sel`/`case`
       write, no PMIC/GPIO/GDSC direct write, no eSoC notify/`BOOT_DONE`, no
       Wi-Fi HAL, scan/connect, credentials, DHCP/routes, external ping, flash,
       boot image write, or partition write.
+    - Result:
+      `docs/reports/NATIVE_INIT_V1382_EXECNS_HELPER_V284_DEPLOY_2026-06-01.md`.
+      Decision: `execns-helper-v284-deploy-pass`. Helper v284 was installed to
+      `/cache/bin/a90_android_execns_probe`; NCM was not reachable so `auto`
+      selected serial fallback (`1061` chunks, chunk size `1800`, max cmdv1
+      line `3788` under safe limit `3968`). Post-deploy SHA matched, usage
+      printed the v284 marker and immediate flag, V373 preflight remained
+      approval-required, and post selftest stayed clean. No daemon start or
+      Wi-Fi bring-up occurred.
 31. **V1383 bounded immediate corrected RC1 live gate.**
     - Goal: rerun the Android participant path with helper v284 and
       `--pm-observer-late-per-proxy-immediate-corrected-rc1-enumerate`, so
@@ -6472,8 +6482,7 @@ Samsung bootloader
   participant window, but it still does not reach MDM2AP/GPIO142, PCI/MHI,
   WLFW, or `wlan0`. V1380 must be host-only classification; do not run another
   live mutation until that classifier chooses a narrower next action.
-- V1381 proves helper v284 can move corrected RC1 action before the
-  post-window sampler. V1382 must be deploy/preflight only; V1383 is the first
+- V1382 proves helper v284 is deployed and healthy. V1383 is the first
   bounded live gate allowed to exercise the immediate path, still below Wi-Fi
   HAL, scan/connect, credentials, DHCP/routes, external ping, PMIC/GPIO/GDSC
   direct write, eSoC notify/`BOOT_DONE`, flash, boot image write, and partition

@@ -9,7 +9,7 @@ Samsung Galaxy A90 5G (SM-A908N) — stock Android Linux kernel 4.14.190, custom
 - **Device**: SM-A908N, Android 12, Magisk 30.7, TWRP available
 - **Current native build**: `A90 Linux init 0.9.68 (v724)` — `stage3/boot_linux_v724.img`
 - **Known-good fallback**: `stage3/boot_linux_v48.img`
-- **Active research cycle**: V1381 source/build-only PASS produced helper `a90_android_execns_probe v284` (SHA256 `da1f8b65cbc3872f7ec31a368bd382720a399d3a785e50ae383c800632047b9f`) with an immediate corrected RC1 enumerate path. Next is V1382 deploy/preflight of v284, then V1383 bounded live gate to test whether moving `case=11` into the powerup-thread poll window closes the Android timing gap. Preserve hard exclusions: no PMIC/GPIO/GDSC direct write, blind eSoC notify/BOOT_DONE spoof, Wi-Fi HAL, scan/connect, credentials, DHCP/routes, external ping, flash outside approved Android handoff/rollback, boot image write outside approved rollback, or partition write.
+- **Active research cycle**: V1382 deploy-only PASS installed helper `a90_android_execns_probe v284` (SHA256 `da1f8b65cbc3872f7ec31a368bd382720a399d3a785e50ae383c800632047b9f`) to `/cache/bin/a90_android_execns_probe`. Next is V1383 bounded live gate to test whether moving `case=11` into the powerup-thread poll window closes the Android timing gap. Preserve hard exclusions: no PMIC/GPIO/GDSC direct write, blind eSoC notify/BOOT_DONE spoof, Wi-Fi HAL, scan/connect, credentials, DHCP/routes, external ping, flash outside approved Android handoff/rollback, boot image write outside approved rollback, or partition write.
 - **Versioning policy**: `docs/operations/VERSIONING_POLICY.md` — `vNNN` cycle ≠ device flash
 
 ## Versioning rules
@@ -1397,3 +1397,13 @@ Update after V1354/V1355:
   old delayed path remains guarded for non-immediate runs. Next is V1382
   deploy/preflight, then V1383 bounded live timing test; no device command was
   run in V1381.
+- V1382 deploy-only preflight (`execns-helper-v284-deploy-pass`) installed
+  helper v284 to `/cache/bin/a90_android_execns_probe`. NCM was not reachable,
+  so `auto` transfer used serial fallback with chunk size `1800`; transfer
+  wrote `1061` chunks with max cmdv1 line size `3788` under the safe limit
+  `3968`. Post-deploy SHA matched, helper usage printed the v284 marker and
+  immediate corrected RC1 flag, V373 post-deploy preflight returned
+  `service-manager-start-only-smoke-approval-required`, and post selftest stayed
+  clean. No daemon start, Wi-Fi HAL, scan/connect, credentials, DHCP/routes,
+  external ping, flash, boot image write, or partition write occurred. Next is
+  V1383 bounded immediate corrected RC1 live gate.
