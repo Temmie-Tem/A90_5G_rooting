@@ -210,13 +210,30 @@ def rollback(args: argparse.Namespace,
     return {"attempt": "from-recovery", "ok": bool(second["ok"])}
 
 
+def cycle_slug(cycle: str) -> str:
+    return cycle.strip().lower()
+
+
+def decision_label(cycle: str, suffix: str) -> str:
+    return f"{cycle_slug(cycle)}-{suffix}"
+
+
+def display_path(path: Path) -> str:
+    resolved = path.resolve()
+    try:
+        return str(resolved.relative_to(REPO_ROOT))
+    except ValueError:
+        return str(path)
+
+
 def classify(test_flash: dict[str, Any],
              evidence: dict[str, Any],
              rollback_result: dict[str, Any],
-             store: EvidenceStore) -> tuple[str, bool, str]:
+             store: EvidenceStore,
+             cycle: str) -> tuple[str, bool, str]:
     if not test_flash["ok"]:
         return (
-            "v1395-test-boot-flash-or-verify-failed",
+            decision_label(cycle, "test-boot-flash-or-verify-failed"),
             False,
             "test boot flash/verify did not complete; inspect rollback evidence before retry",
         )
@@ -232,42 +249,43 @@ def classify(test_flash: dict[str, Any],
     provider_trigger = "__subsystem_get: esoc0" in dmesg
     if TEST_EXPECT_VERSION not in test_version:
         return (
-            "v1395-test-boot-version-missing",
+            decision_label(cycle, "test-boot-version-missing"),
             False,
             "test boot returned through bridge but expected V1393 version marker was missing",
         )
     if not rollback_result.get("ok"):
         return (
-            "v1395-test-boot-rollback-failed",
+            decision_label(cycle, "test-boot-rollback-failed"),
             False,
             "test boot evidence collected but rollback did not verify",
         )
     if rc1_progress or firmware_progress or wlan0_present:
         return (
-            "v1395-test-boot-downstream-progress-rollback-pass",
+            decision_label(cycle, "test-boot-downstream-progress-rollback-pass"),
             True,
             "test boot produced downstream Wi-Fi/PCIe evidence and rollback verified",
         )
     if provider_trigger:
         return (
-            "v1395-test-boot-provider-trigger-no-downstream-rollback-pass",
+            decision_label(cycle, "test-boot-provider-trigger-no-downstream-rollback-pass"),
             True,
             "test boot reached the esoc0 provider trigger and rollback verified, but no RC1/MHI/WLFW/wlan0 progress marker appeared",
         )
     return (
-        "v1395-test-boot-no-downstream-progress-rollback-pass",
+        decision_label(cycle, "test-boot-no-downstream-progress-rollback-pass"),
         True,
         "test boot ran and rollback verified, but no MDM2AP/PCIe/MHI/WLFW/wlan0 progress marker appeared",
     )
 
 
 def render_report(result: dict[str, Any]) -> str:
+    cycle = str(result["cycle"])
     return "\n".join([
-        "# Native Init V1395 Wi-Fi Test Boot Handoff",
+        f"# Native Init {cycle} Wi-Fi Test Boot Handoff",
         "",
         "## Summary",
         "",
-        "- Cycle: `V1395`",
+        f"- Cycle: `{cycle}`",
         "- Type: bounded live test-boot handoff with rollback",
         f"- Decision: `{result['decision']}`",
         f"- Result: {'PASS' if result['pass'] else 'BLOCKED'}",
@@ -302,6 +320,8 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--v1394-manifest", type=Path, default=DEFAULT_V1394_MANIFEST)
     parser.add_argument("--test-image", type=Path, default=DEFAULT_TEST_IMAGE)
     parser.add_argument("--rollback-image", type=Path, default=DEFAULT_ROLLBACK_IMAGE)
+    parser.add_argument("--cycle", default="V1395")
+    parser.add_argument("--post-boot-hold-sec", type=float, default=0.0)
     parser.add_argument("--flash-timeout-sec", type=float, default=720.0)
     parser.add_argument("--collect-timeout-sec", type=float, default=120.0)
     parser.add_argument("--classify-only", action="store_true")
@@ -316,13 +336,13 @@ def main() -> int:
     store.write_json("preflight.json", pre)
     if not pre["v1394_pass"] or not pre["test_image_exists"] or not pre["rollback_image_exists"]:
         result = {
-            "cycle": "V1395",
-            "decision": "v1395-preflight-blocked",
+            "cycle": args.cycle,
+            "decision": decision_label(args.cycle, "preflight-blocked"),
             "pass": False,
             "reason": "V1394 pass, test image, or rollback image missing",
             "preflight": pre,
             "steps": steps,
-            "out_dir": str(args.out_dir.relative_to(REPO_ROOT)),
+            "out_dir": display_path(args.out_dir),
         }
         store.write_json("manifest.json", result)
         args.report_path.write_text(render_report(result), encoding="utf-8")
@@ -351,9 +371,9 @@ def main() -> int:
             "attempt": "existing",
             "ok": rollback_path.exists() and ROLLBACK_EXPECT_VERSION in rollback_path.read_text(encoding="utf-8", errors="replace"),
         }
-        label, pass_ok, reason = classify(test_flash, evidence, rollback_result, store)
+        label, pass_ok, reason = classify(test_flash, evidence, rollback_result, store, args.cycle)
         result = {
-            "cycle": "V1395",
+            "cycle": args.cycle,
             "decision": label,
             "pass": pass_ok,
             "reason": reason,
@@ -362,7 +382,7 @@ def main() -> int:
             "evidence": evidence,
             "rollback": rollback_result,
             "steps": [],
-            "out_dir": str(args.out_dir.relative_to(REPO_ROOT)),
+            "out_dir": display_path(args.out_dir),
             "classify_only": True,
         }
         store.write_json("manifest.json", result)
@@ -379,12 +399,22 @@ def main() -> int:
 
     evidence: dict[str, Any] = {}
     if test_flash["ok"]:
+        if args.post_boot_hold_sec > 0:
+            hold = run_command(
+                [
+                    "python3",
+                    "-c",
+                    f"import time; time.sleep({args.post_boot_hold_sec!r})",
+                ],
+                timeout=args.post_boot_hold_sec + 10.0,
+            )
+            write_step(store, steps, "post-boot-hold", hold)
         evidence = collect_test_boot_evidence(args, store, steps)
 
     rollback_result = rollback(args, store, steps)
-    label, pass_ok, reason = classify(test_flash, evidence, rollback_result, store)
+    label, pass_ok, reason = classify(test_flash, evidence, rollback_result, store, args.cycle)
     result = {
-        "cycle": "V1395",
+        "cycle": args.cycle,
         "decision": label,
         "pass": pass_ok,
         "reason": reason,
@@ -393,7 +423,7 @@ def main() -> int:
         "evidence": evidence,
         "rollback": rollback_result,
         "steps": steps,
-        "out_dir": str(args.out_dir.relative_to(REPO_ROOT)),
+        "out_dir": display_path(args.out_dir),
     }
     store.write_json("manifest.json", result)
     store.write_text("summary.md", render_report(result))

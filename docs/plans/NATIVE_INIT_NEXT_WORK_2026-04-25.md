@@ -6652,6 +6652,27 @@ Samsung bootloader
       MHI, WLFW/BDF, or `wlan0` appeared; `wlan0` stayed absent. V1395 collected
       immediately after bridge verification, so the helper's `30s` window was
       likely cut short by rollback.
+44. **V1396 Wi-Fi test boot hold handoff (bounded live with rollback).**
+    - Goal: rerun the same V1393 test boot with an explicit post-boot hold
+      before collecting evidence and rolling back, closing the V1395
+      short-window ambiguity.
+    - Required output: test image flash/readback/verify evidence, V1393 version
+      and boot status, post-boot hold evidence, V1393 boot log, dmesg grep for
+      provider/RC1/MHI/WLFW markers, `wlan0` presence check, and rollback
+      verification.
+    - Hard stop: test boot flash plus rollback only. No Wi-Fi HAL, no
+      scan/connect, no credentials, no DHCP/routes, no external ping, no
+      PMIC/GPIO/GDSC direct write, and no blind eSoC notify/`BOOT_DONE` spoof.
+    - Result:
+      `docs/reports/NATIVE_INIT_V1396_WIFI_TEST_BOOT_HOLD_HANDOFF_2026-06-01.md`.
+      Decision: `v1396-test-boot-provider-trigger-no-downstream-rollback-pass`.
+      The test boot verified `A90 Linux init 0.9.69 (v1393-wifitest)`, held for
+      `40s`, reached the PID1-launched helper path, `subsys_modem`, and
+      `__subsystem_get: esoc0`, then rolled back to healthy
+      `A90 Linux init 0.9.68 (v724)`. No `PCIe RC1`, `LTSSM`, MHI, WLFW/BDF, or
+      `wlan0` marker appeared after the hold; `wlan0` stayed absent. V1396
+      closes the immediate-rollback explanation and moves the next useful work
+      to test-boot logging/observability cleanup.
 
 ### Required decision before any new mutation
 
@@ -6793,6 +6814,13 @@ Samsung bootloader
   should rerun the same test boot with an explicit post-boot hold before
   collecting dmesg/helper output and rolling back. V1396 still must not perform
   Wi-Fi scan/connect, credential handling, DHCP/routes, or external ping.
+- V1396 proves the same test boot still reaches the eSoC provider trigger after
+  an explicit `40s` post-boot hold and rolls back safely, but it still produces
+  no RC1/MHI/WLFW/`wlan0` downstream marker. The next cycle should not be
+  another blind live handoff or a scan/connect gate; V1397 should be
+  source/build-only logging cleanup for the Wi-Fi test boot so the
+  PID1-launched helper writes a fresh per-boot transcript/summary before any
+  V1398/V1399 rebuild/live retry.
 - If V1359 only finds platform bind/probe or global PCI rescan, stop for a new
   design instead of binding or rescanning blindly.
 - If both pcie1 RC and PON parity are read-only-proven healthy yet MDM2AP still

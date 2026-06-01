@@ -9,7 +9,7 @@ Samsung Galaxy A90 5G (SM-A908N) — stock Android Linux kernel 4.14.190, custom
 - **Device**: SM-A908N, Android 12, Magisk 30.7, TWRP available
 - **Current native build**: `A90 Linux init 0.9.68 (v724)` — `stage3/boot_linux_v724.img`
 - **Known-good fallback**: `stage3/boot_linux_v48.img`
-- **Active research cycle**: V1395 bounded live handoff PASS (`v1395-test-boot-provider-trigger-no-downstream-rollback-pass`). The V1393 test boot flashed, booted, verified `A90 Linux init 0.9.69 (v1393-wifitest)`, reached `subsys_modem` and `__subsystem_get: esoc0`, then rolled back to healthy v724. No RC1 L0/MHI/WLFW/BDF/`wlan0` appeared; `wlan0` remained absent. Next is V1396: rerun the same test boot with an explicit post-boot hold before collection/rollback because V1395 collected too soon for the helper's 30s window. Preserve hard exclusions: no credential use, Wi-Fi scan/connect/DHCP/external ping, PMIC/GPIO/GDSC direct write, blind eSoC notify/BOOT_DONE spoof, flash outside an explicit test-boot/rollback gate, boot image write outside an explicit test-boot/rollback gate, or partition write.
+- **Active research cycle**: V1396 bounded live handoff PASS (`v1396-test-boot-provider-trigger-no-downstream-rollback-pass`). The V1393 test boot flashed, booted, held for `40s`, verified `A90 Linux init 0.9.69 (v1393-wifitest)`, reached `subsys_modem` and `__subsystem_get: esoc0`, then rolled back to healthy v724. No RC1 L0/MHI/WLFW/BDF/`wlan0` appeared; `wlan0` remained absent. Next is V1397 source/build-only test-boot logging cleanup so the PID1-launched helper writes a clean per-boot transcript/summary before another live handoff. Preserve hard exclusions: no credential use, Wi-Fi scan/connect/DHCP/external ping, PMIC/GPIO/GDSC direct write, blind eSoC notify/BOOT_DONE spoof, flash outside an explicit test-boot/rollback gate, boot image write outside an explicit test-boot/rollback gate, or partition write.
 - **Versioning policy**: `docs/operations/VERSIONING_POLICY.md` — `vNNN` cycle ≠ device flash
 
 ## Versioning rules
@@ -1545,3 +1545,16 @@ Update after V1354/V1355:
   ping. Next V1396 should repeat with a longer post-boot hold before evidence
   collection and rollback, because V1395 collected immediately after bridge
   verification while the helper window is `30s`.
+- V1396 bounded live handoff (`v1396-test-boot-provider-trigger-no-downstream-rollback-pass`)
+  reused the V1395 handoff runner with an explicit `40s` post-boot hold before
+  collection and rollback:
+  `docs/reports/NATIVE_INIT_V1396_WIFI_TEST_BOOT_HOLD_HANDOFF_2026-06-01.md`.
+  The test boot again verified `A90 Linux init 0.9.69 (v1393-wifitest)`, reached
+  the PID1-launched helper path, `subsys_modem`, and `__subsystem_get: esoc0`,
+  then rolled back to healthy `A90 Linux init 0.9.68 (v724)`. No `PCIe RC1`,
+  `LTSSM`, MHI, WLFW/BDF, or `wlan0` marker appeared after the hold; `wlan0`
+  remained absent. This closes the V1395 short-window ambiguity. Next V1397
+  should be source/build-only: improve the Wi-Fi test boot's per-boot logging
+  by truncating/rotating `/cache/native-init-wifi-test-boot-v1393.log` or writing
+  a dedicated helper transcript/summary so another live handoff can compare the
+  PID1-launched helper's own keys against external-helper runs.
