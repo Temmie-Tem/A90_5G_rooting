@@ -9,7 +9,7 @@ Samsung Galaxy A90 5G (SM-A908N) — stock Android Linux kernel 4.14.190, custom
 - **Device**: SM-A908N, Android 12, Magisk 30.7, TWRP available
 - **Current native build**: `A90 Linux init 0.9.68 (v724)` — `stage3/boot_linux_v724.img`
 - **Known-good fallback**: `stage3/boot_linux_v48.img`
-- **Active research cycle**: V1383 bounded live PASS with helper `a90_android_execns_probe v284`: immediate corrected RC1 fired at `late_per_proxy_poll_00`, but dmesg still shows RC1 assert about `3.666s` after `__subsystem_get(esoc0)`, then LTSSM poll/compliance and link failure before L0. GPIO142, PCI/MHI, WLFW, and `wlan0` remained absent. Next is V1384 host-only timing/gap classifier before any new mutation. Preserve hard exclusions: no PMIC/GPIO/GDSC direct write, blind eSoC notify/BOOT_DONE spoof, Wi-Fi HAL, scan/connect, credentials, DHCP/routes, external ping, flash outside approved Android handoff/rollback, boot image write outside approved rollback, or partition write.
+- **Active research cycle**: V1384 host-only PASS classifies V1383 as still too late: immediate v284 fired in first poll, but RC1 assert was still `3.666s` after `__subsystem_get(esoc0)` versus Android `0.255s` and only `0.456s` faster than V1379. Debugfs write latency is not primary (`TEST 11` to assert about `20us`); the gap is late poll/per_proxy ordering. Next is V1385 source/build-only to move the RC1 trigger earlier than the late_per_proxy poll loop or add tighter instrumentation around per_proxy start/powerup-thread first observation. Preserve hard exclusions: no PMIC/GPIO/GDSC direct write, blind eSoC notify/BOOT_DONE spoof, Wi-Fi HAL, scan/connect, credentials, DHCP/routes, external ping, flash outside approved Android handoff/rollback, boot image write outside approved rollback, or partition write.
 - **Versioning policy**: `docs/operations/VERSIONING_POLICY.md` — `vNNN` cycle ≠ device flash
 
 ## Versioning rules
@@ -1417,3 +1417,12 @@ Update after V1354/V1355:
   MHI pipe/`ks`, WLFW, and `wlan0` all stayed absent. Safety markers remained
   clear, cleanup completed, and no Wi-Fi bring-up/network action occurred. Next
   is V1384 host-only timing/gap classification before another live mutation.
+- V1384 host-only classifier (`v1384-immediate-flag-still-too-late-poll-entry-gap`)
+  compares V1383, V1379, and Android timing. V1383 improved
+  `esoc0`-to-RC1 assert by only about `0.456s` versus V1379 and remains about
+  `14.38x` slower than Android (`3.666s` vs `0.255s`). The pci-msm debugfs
+  write path itself is not the primary delay (`TEST 11` to assert about `20us`);
+  the remaining gap is before the write, in late_per_proxy poll entry or
+  per_proxy/Binder/powerup-thread ordering. Another live retry without
+  reordering is low value. Next is V1385 source/build-only support for an
+  earlier trigger or tighter first-observation instrumentation.

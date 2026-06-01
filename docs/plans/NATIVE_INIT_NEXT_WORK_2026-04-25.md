@@ -6412,6 +6412,26 @@ Samsung bootloader
       `rc_sel`/`case` write, PMIC/GPIO/GDSC direct write, eSoC notify/`BOOT_DONE`,
       Wi-Fi HAL, scan/connect, credentials, DHCP/routes, external ping, flash,
       boot image write, or partition write.
+    - Result:
+      `docs/reports/NATIVE_INIT_V1384_V1383_TIMING_GAP_CLASSIFIER_2026-06-01.md`.
+      Decision: `v1384-immediate-flag-still-too-late-poll-entry-gap`. V1383
+      improved `esoc0`-to-RC1 assert by only about `0.456s` versus V1379 and
+      remains about `14.38x` slower than Android. Debugfs write latency is not
+      primary (`TEST 11` to assert about `20us`); the remaining gap is before
+      the write, in late_per_proxy poll entry or per_proxy/Binder/powerup-thread
+      ordering.
+33. **V1385 earlier RC1 trigger/instrumentation support (source/build-only).**
+    - Goal: update the helper so the next live gate can either trigger corrected
+      RC1 earlier than the late_per_proxy poll loop or record tighter monotonic
+      timestamps around `per_proxy` start, pm-service powerup-thread first
+      observation, and debugfs write start/return.
+    - Required output: source/build-only helper bump, exact new markers, static
+      aarch64 artifact, and fail-closed validation that no live action runs in
+      V1385.
+    - Hard stop: source/build-only. No device command, debugfs/sysfs write,
+      `rc_sel`/`case` live write, PMIC/GPIO/GDSC direct write, eSoC
+      notify/`BOOT_DONE`, Wi-Fi HAL, scan/connect, credentials, DHCP/routes,
+      external ping, flash, boot image write, or partition write.
 
 ### Required decision before any new mutation
 
@@ -6504,10 +6524,11 @@ Samsung bootloader
   participant window, but it still does not reach MDM2AP/GPIO142, PCI/MHI,
   WLFW, or `wlan0`. V1380 must be host-only classification; do not run another
   live mutation until that classifier chooses a narrower next action.
-- V1383 proves the immediate flag fires and RC1 still reaches LTSSM, but
-  esoc0-to-RC1 assert is still about `3.666s`, not Android's about `0.255s`,
-  and there is still no GPIO142/PCI/MHI/WLFW/`wlan0`. V1384 must be host-only
-  timing/gap classification before any new live mutation.
+- V1384 proves the remaining V1383 gap is still pre-write ordering/poll
+  latency, not debugfs write latency. V1385 should be source/build-only support
+  for an earlier trigger or tighter first-observation timestamps; do not run
+  another live mutation until that helper support is built and separately
+  deployed.
 - If V1359 only finds platform bind/probe or global PCI rescan, stop for a new
   design instead of binding or rescanning blindly.
 - If both pcie1 RC and PON parity are read-only-proven healthy yet MDM2AP still
