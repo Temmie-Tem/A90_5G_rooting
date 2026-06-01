@@ -7062,6 +7062,15 @@ Samsung bootloader
   RC1 watcher result, dmesg, and `wlan0` state, then roll back to
   `stage3/boot_linux_v724.img`. Keep scan/connect, credentials, DHCP/routes,
   and external ping blocked.
+- V1413 rollbackable live handoff passes for procedure and downstream RC1
+  progress. The `/proc/kmsg` fallback watcher triggered corrected RC1
+  successfully (`write_rc=0`), but still failed before L0 with no
+  MHI/WLFW/BDF/`wlan0`. Timing is now too early: `esoc0_to_test11` is about
+  `0.032s`, while Android reference `esoc0_to_assert` is about `0.255s`.
+  V1414 should be source/build-only: add a configurable PID1 RC1 watcher delay
+  after the first `esoc0`/powerup marker, initially `250ms`, then rebuild and
+  sanity-check before any live handoff. Keep scan/connect, credentials,
+  DHCP/routes, and external ping blocked.
 - If V1359 only finds platform bind/probe or global PCI rescan, stop for a new
   design instead of binding or rescanning blindly.
 - If both pcie1 RC and PON parity are read-only-proven healthy yet MDM2AP still
