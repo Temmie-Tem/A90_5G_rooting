@@ -6463,6 +6463,30 @@ Samsung bootloader
       scan/connect, credentials, DHCP/routes, external ping, PMIC/GPIO/GDSC
       direct write, eSoC notify/`BOOT_DONE`, flash, boot image write, or
       partition write.
+    - Result:
+      `docs/reports/NATIVE_INIT_V1387_ANDROID_PARTICIPANT_PREPOLL_CORRECTED_RC1_LIVE_2026-06-01.md`.
+      Decision: `v1387-corrected-rc1-ltssm-no-downstream-clean`. The helper v285
+      pre-poll block triggered immediately at `late_per_proxy_prepoll_000`
+      (`prepoll_triggered=true`, `poll_count=0`, `elapsed_ms=119`) and wrote
+      corrected RC1 debugfs controls successfully (`rc_sel_rc=0`, `case_rc=0`).
+      Dmesg saw RC1 TEST 11, reset assert/release, PHY ready, poll-compliance,
+      and link failure before L0. However `__subsystem_get(esoc0)` to RC1 assert
+      remained about `3.561s` versus Android's about `0.255s`; GPIO142, PCI/MHI,
+      MHI pipe/`ks`, WLFW, and `wlan0` stayed absent. Safety markers remained
+      clear.
+36. **V1388 V1387 timing/participant classifier (host-only).**
+    - Goal: classify why even the V1387 pre-poll gate still reaches RC1 too
+      late. Compare V1387, V1383, V1379, Android V852/V1371 timing, and the
+      helper ordering around late `per_proxy`, Binder `pm-service`, and
+      `mdm_subsys_powerup`.
+    - Required output: decide whether the next design must start Android
+      participants earlier, split `per_proxy` startup from corrected RC1 action,
+      instrument first Binder request timing more tightly, or stop live mutation
+      and return to Android reference capture.
+    - Hard stop: host-only. No device command, debugfs/sysfs write,
+      `rc_sel`/`case` write, PMIC/GPIO/GDSC direct write, eSoC notify/
+      `BOOT_DONE`, Wi-Fi HAL, scan/connect, credentials, DHCP/routes, external
+      ping, flash, boot image write, or partition write.
 
 ### Required decision before any new mutation
 
@@ -6557,6 +6581,11 @@ Samsung bootloader
   live mutation until that classifier chooses a narrower next action.
 - V1386 proves helper v285 is deployed and healthy. V1387 is the first
   bounded live gate allowed to exercise the pre-poll path.
+- V1387 proves the pre-poll code path works, but it only moves the corrected
+  RC1 write slightly earlier (`3.561s` after `__subsystem_get(esoc0)`, still far
+  from Android's about `0.255s`). Do not run another RC1 live mutation until
+  V1388 host-only classification explains the late participant/Binder ordering
+  and selects a narrower next design.
 - If V1359 only finds platform bind/probe or global PCI rescan, stop for a new
   design instead of binding or rescanning blindly.
 - If both pcie1 RC and PON parity are read-only-proven healthy yet MDM2AP still
