@@ -8789,6 +8789,18 @@ Samsung bootloader
   provider-driven path to explain why Android produces wake/status endpoint
   signals while native remains endpoint-silent. Report:
   `docs/reports/NATIVE_INIT_V1557_NATIVE_ENDPOINT_LONG_HOLD_HANDOFF_2026-06-02.md`.
+- V1558 host-only post-V1557 next-gate classifier passes with
+  `v1558-next-gate-android-pre-endpoint-sequence-classifier`. It adds
+  `scripts/revalidation/native_wifi_post_v1557_next_gate_classifier_v1558.py`
+  and combines V1523, V1552, V1555, V1556, and V1557 evidence. This fixes the
+  next branch: do not repeat same-path V1493/V1496 long-hold or blind pci-msm
+  TEST:11 timing retries, and keep firmware/MHI/WLFW downstream until RC1 L0
+  or PCI enumeration exists. Next gate: V1559 should compare Android-good
+  pre-endpoint/pre-IRQ ordering against native provider-driven endpoint silence,
+  specifically provider/esoc0 timing, GPIO135/AP2MDM, GPIO102/PERST, pcie1
+  refclk/pipe/GDSC, GPIO104/WAKE + IRQ252, GPIO142/MDM2AP + IRQ290, and only
+  then first L0/PCI/MHI ordering if the evidence can prove it. Report:
+  `docs/reports/NATIVE_INIT_V1558_POST_V1557_NEXT_GATE_CLASSIFIER_2026-06-02.md`.
 - If V1359 only finds platform bind/probe or global PCI rescan, stop for a new
   design instead of binding or rescanning blindly.
 - If both pcie1 RC and PON parity are read-only-proven healthy yet MDM2AP still

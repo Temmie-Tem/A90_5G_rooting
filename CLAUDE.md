@@ -2896,3 +2896,20 @@ more long-hold retries on the same V1493/V1496 path. Next gate: compare the
 Android-good pre-endpoint/pre-IRQ sequence against the native provider-driven
 path, focusing on why Android produces GPIO104/GPIO142/IRQ252/IRQ290 while the
 native AP-side power/refclk/PERST path remains endpoint-silent.
+
+## Latest native Wi-Fi state: V1558 (2026-06-02)
+
+V1558 adds
+`scripts/revalidation/native_wifi_post_v1557_next_gate_classifier_v1558.py`
+and passes host-only with
+`v1558-next-gate-android-pre-endpoint-sequence-classifier`. It combines V1523
+`msm_pcie` TEST:11 static analysis, V1552 native endpoint-silent tracefs,
+V1555 Android-good minimal trace, V1556 endpoint comparator, and V1557 native
+long-hold evidence.
+
+The selected next gate is now fixed: do not repeat same-path V1493/V1496
+long-hold or blind pci-msm TEST:11 timing retries. Firmware/MHI/WLFW remains
+downstream. V1559 should compare the Android-good pre-endpoint/pre-IRQ sequence
+against the native provider-driven path: provider/esoc0 timing, GPIO135/AP2MDM,
+GPIO102/PERST, pcie1 refclk/pipe/GDSC, GPIO104/WAKE + IRQ252, GPIO142/MDM2AP +
+IRQ290, and only then first L0/PCI/MHI ordering if the evidence can prove it.
