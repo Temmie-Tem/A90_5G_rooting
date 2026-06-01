@@ -169,6 +169,11 @@ def build_init(args: argparse.Namespace) -> None:
         if args.wifi_test_rc1_case_aligned_micro_endpoint_sampler
         else []
     )
+    rc1_sysfs_client_enumerate_flags = (
+        ["-DA90_WIFI_TEST_BOOT_RC1_SYSFS_CLIENT_ENUMERATE=1"]
+        if args.wifi_test_rc1_sysfs_client_enumerate
+        else []
+    )
     provider_trigger_micro_endpoint_flags = (
         ["-DA90_WIFI_TEST_BOOT_PROVIDER_TRIGGER_MICRO_ENDPOINT_SAMPLER=1"]
         if args.wifi_test_provider_trigger_micro_endpoint_sampler
@@ -256,6 +261,7 @@ def build_init(args: argparse.Namespace) -> None:
         *rc1_micro_source_timestamped_flags,
         *rc1_micro_critical_fast_endpoint_flags,
         *rc1_case_aligned_micro_endpoint_flags,
+        *rc1_sysfs_client_enumerate_flags,
         *provider_trigger_micro_endpoint_flags,
         *provider_trigger_exact_line_flags,
         *provider_trigger_long_window_flags,
@@ -390,8 +396,9 @@ def verify_markers(args: argparse.Namespace) -> None:
         expected.extend([
             "debugfs_mount_requested",
             "debugfs prepare rc=",
-            "/sys/kernel/debug/pci-msm/case",
         ])
+        if not args.wifi_test_rc1_sysfs_client_enumerate:
+            expected.append("/sys/kernel/debug/pci-msm/case")
     if args.wifi_test_pid1_rc1_watcher:
         expected.extend([
             "pid1_rc1_watcher_requested",
@@ -400,8 +407,9 @@ def verify_markers(args: argparse.Namespace) -> None:
             "delay_ms=%d",
             "/dev/kmsg",
             "/proc/kmsg",
-            "/sys/kernel/debug/pci-msm/rc_sel",
         ])
+        if not args.wifi_test_rc1_sysfs_client_enumerate:
+            expected.append("/sys/kernel/debug/pci-msm/rc_sel")
     if args.wifi_test_rc1_window_sampler:
         sampler_marker = (
             "auto-v1485-wifi-readiness-test"
@@ -599,6 +607,14 @@ def verify_markers(args: argparse.Namespace) -> None:
         ])
         if not args.wifi_test_auto_readiness_supervisor:
             expected.append("read-only-v1445-case-aligned-micro-endpoint")
+    if args.wifi_test_rc1_sysfs_client_enumerate:
+        expected.extend([
+            "sysfs_client_enumerate",
+            "sysfs_client_enumerate=%d",
+            "trigger_mode=%s",
+            "sysfs_path=%s",
+            "/sys/devices/platform/soc/1c08000.qcom,pcie/debug/enumerate",
+        ])
     if args.wifi_test_provider_trigger_micro_endpoint_sampler:
         expected.extend([
             "provider_trigger_micro_endpoint_sampler_requested",
@@ -785,6 +801,7 @@ def write_manifest(args: argparse.Namespace) -> None:
             "rc1_micro_source_timestamped_sampler": args.wifi_test_rc1_micro_source_timestamped_sampler,
             "rc1_micro_critical_fast_endpoint_sampler": args.wifi_test_rc1_micro_critical_fast_endpoint_sampler,
             "rc1_case_aligned_micro_endpoint_sampler": args.wifi_test_rc1_case_aligned_micro_endpoint_sampler,
+            "rc1_sysfs_client_enumerate": args.wifi_test_rc1_sysfs_client_enumerate,
             "provider_trigger_micro_endpoint_sampler": args.wifi_test_provider_trigger_micro_endpoint_sampler,
             "provider_trigger_exact_line": args.wifi_test_provider_trigger_exact_line,
             "provider_trigger_long_window": args.wifi_test_provider_trigger_long_window,
@@ -872,6 +889,7 @@ def parse_args(argv: Sequence[str] | None = None) -> argparse.Namespace:
     parser.add_argument("--wifi-test-rc1-micro-source-timestamped-sampler", action="store_true")
     parser.add_argument("--wifi-test-rc1-micro-critical-fast-endpoint-sampler", action="store_true")
     parser.add_argument("--wifi-test-rc1-case-aligned-micro-endpoint-sampler", action="store_true")
+    parser.add_argument("--wifi-test-rc1-sysfs-client-enumerate", action="store_true")
     parser.add_argument("--wifi-test-provider-trigger-micro-endpoint-sampler", action="store_true")
     parser.add_argument("--wifi-test-provider-trigger-exact-line", action="store_true")
     parser.add_argument("--wifi-test-provider-trigger-long-window", action="store_true")

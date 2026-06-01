@@ -112,6 +112,18 @@ static void selftest_boot_draw_frame(void *ctx) {
 #ifndef A90_WIFI_TEST_BOOT_RC1_CASE_ALIGNED_MICRO_ENDPOINT_SAMPLER
 #define A90_WIFI_TEST_BOOT_RC1_CASE_ALIGNED_MICRO_ENDPOINT_SAMPLER 0
 #endif
+#ifndef A90_WIFI_TEST_BOOT_RC1_SYSFS_CLIENT_ENUMERATE
+#define A90_WIFI_TEST_BOOT_RC1_SYSFS_CLIENT_ENUMERATE 0
+#endif
+#if A90_WIFI_TEST_BOOT_RC1_SYSFS_CLIENT_ENUMERATE
+#define A90_V1536_RC1_ENUMERATE_TRIGGER_MODE "sysfs_client_enumerate"
+#define A90_V1536_RC1_ENUMERATE_TRIGGER_PATH "/sys/devices/platform/soc/1c08000.qcom,pcie/debug/enumerate"
+#define A90_V1536_RC1_ENUMERATE_TRIGGER_VALUE "1\n"
+#else
+#define A90_V1536_RC1_ENUMERATE_TRIGGER_MODE "debugfs_test11"
+#define A90_V1536_RC1_ENUMERATE_RC_SEL_PATH "/sys/kernel/debug/pci-msm/rc_sel"
+#define A90_V1536_RC1_ENUMERATE_CASE_PATH "/sys/kernel/debug/pci-msm/case"
+#endif
 #ifndef A90_WIFI_TEST_BOOT_PROVIDER_TRIGGER_MICRO_ENDPOINT_SAMPLER
 #define A90_WIFI_TEST_BOOT_PROVIDER_TRIGGER_MICRO_ENDPOINT_SAMPLER 0
 #endif
@@ -177,6 +189,8 @@ static void selftest_boot_draw_frame(void *ctx) {
 #define A90_V1393_WIFI_TEST_RC1_WINDOW_SAMPLER_NAME "read-only-v1454-exact-provider-long-endpoint"
 #elif A90_WIFI_TEST_BOOT_PROVIDER_TRIGGER_MICRO_ENDPOINT_SAMPLER
 #define A90_V1393_WIFI_TEST_RC1_WINDOW_SAMPLER_NAME "read-only-v1450-provider-trigger-micro-endpoint"
+#elif A90_WIFI_TEST_BOOT_RC1_SYSFS_CLIENT_ENUMERATE
+#define A90_V1393_WIFI_TEST_RC1_WINDOW_SAMPLER_NAME "read-only-v1536-sysfs-client-enumerate"
 #elif A90_WIFI_TEST_BOOT_RC1_CASE_ALIGNED_MICRO_ENDPOINT_SAMPLER
 #define A90_V1393_WIFI_TEST_RC1_WINDOW_SAMPLER_NAME "read-only-v1445-case-aligned-micro-endpoint"
 #elif A90_WIFI_TEST_BOOT_RC1_MICRO_ENDPOINT_SAMPLER
@@ -653,15 +667,60 @@ static int v1393_write_wifi_test_sysfs_string(const char *path, const char *valu
     return rc < 0 ? negative_errno_or(EIO) : 0;
 }
 
+static int v1536_pid1_rc1_write_enumerate_trigger(long start_ms,
+                                                   char *summary,
+                                                   size_t summary_size) {
+#if A90_WIFI_TEST_BOOT_RC1_SYSFS_CLIENT_ENUMERATE
+    int sysfs_rc;
+    long sysfs_ms;
+
+    sysfs_rc = v1393_write_wifi_test_sysfs_string(A90_V1536_RC1_ENUMERATE_TRIGGER_PATH,
+                                                  A90_V1536_RC1_ENUMERATE_TRIGGER_VALUE);
+    sysfs_ms = monotonic_millis();
+    if (summary != NULL && summary_size > 0) {
+        snprintf(summary,
+                 summary_size,
+                 "trigger_mode=%s sysfs_path=%s sysfs_rc=%d sysfs_elapsed_ms=%ld rc_sel_elapsed_ms=-1 case_elapsed_ms=-1",
+                 A90_V1536_RC1_ENUMERATE_TRIGGER_MODE,
+                 A90_V1536_RC1_ENUMERATE_TRIGGER_PATH,
+                 sysfs_rc,
+                 sysfs_ms >= start_ms ? sysfs_ms - start_ms : -1);
+    }
+    return sysfs_rc;
+#else
+    int rc_sel_rc;
+    int case_rc = -EIO;
+    long rc_sel_ms;
+    long case_ms;
+
+    rc_sel_rc = v1393_write_wifi_test_sysfs_string(A90_V1536_RC1_ENUMERATE_RC_SEL_PATH, "2\n");
+    rc_sel_ms = monotonic_millis();
+    if (rc_sel_rc == 0) {
+        case_rc = v1393_write_wifi_test_sysfs_string(A90_V1536_RC1_ENUMERATE_CASE_PATH, "11\n");
+    }
+    case_ms = monotonic_millis();
+    if (summary != NULL && summary_size > 0) {
+        snprintf(summary,
+                 summary_size,
+                 "trigger_mode=%s rc_sel_path=%s case_path=%s rc_sel_rc=%d case_rc=%d rc_sel_elapsed_ms=%ld case_elapsed_ms=%ld",
+                 A90_V1536_RC1_ENUMERATE_TRIGGER_MODE,
+                 A90_V1536_RC1_ENUMERATE_RC_SEL_PATH,
+                 A90_V1536_RC1_ENUMERATE_CASE_PATH,
+                 rc_sel_rc,
+                 case_rc,
+                 rc_sel_ms >= start_ms ? rc_sel_ms - start_ms : -1,
+                 case_ms >= start_ms ? case_ms - start_ms : -1);
+    }
+    return rc_sel_rc < 0 ? rc_sel_rc : case_rc;
+#endif
+}
+
 #if (!A90_WIFI_TEST_BOOT_RC1_IMMEDIATE_ENDPOINT_SAMPLER && !A90_WIFI_TEST_BOOT_RC1_MICRO_ENDPOINT_SAMPLER) || A90_WIFI_TEST_BOOT_RC1_RETRY_COUNT > 0
 static int v1393_pid1_rc1_write_corrected_enumerate(void) {
-    int rc;
+    char summary[256];
 
-    rc = v1393_write_wifi_test_sysfs_string("/sys/kernel/debug/pci-msm/rc_sel", "2\n");
-    if (rc < 0) {
-        return rc;
-    }
-    return v1393_write_wifi_test_sysfs_string("/sys/kernel/debug/pci-msm/case", "11\n");
+    summary[0] = '\0';
+    return v1536_pid1_rc1_write_enumerate_trigger(monotonic_millis(), summary, sizeof(summary));
 }
 #endif
 #endif
@@ -2113,23 +2172,18 @@ static void v1393_provider_tracepoint_sample(const char *sample,
 static void v1393_rc1_micro_writer_child(int pipe_fd, long start_ms) {
     int rc;
     int saved_errno;
-    long rc_sel_ms;
-    long case_ms;
+    char trigger_summary[320];
 
-    rc = v1393_write_wifi_test_sysfs_string("/sys/kernel/debug/pci-msm/rc_sel", "2\n");
+    trigger_summary[0] = '\0';
+    rc = v1536_pid1_rc1_write_enumerate_trigger(start_ms,
+                                                trigger_summary,
+                                                sizeof(trigger_summary));
     saved_errno = rc < 0 ? -rc : 0;
-    rc_sel_ms = monotonic_millis();
-    if (rc == 0) {
-        rc = v1393_write_wifi_test_sysfs_string("/sys/kernel/debug/pci-msm/case", "11\n");
-        saved_errno = rc < 0 ? -rc : 0;
-    }
-    case_ms = monotonic_millis();
     dprintf(pipe_fd,
-            "micro_writer rc=%d errno=%d rc_sel_elapsed_ms=%ld case_elapsed_ms=%ld\n",
+            "micro_writer rc=%d errno=%d %s\n",
             rc,
             saved_errno,
-            rc_sel_ms >= start_ms ? rc_sel_ms - start_ms : -1,
-            case_ms >= start_ms ? case_ms - start_ms : -1);
+            trigger_summary);
     close(pipe_fd);
     _exit(rc == 0 ? 0 : 3);
 }
@@ -2437,7 +2491,7 @@ static void v1393_rc1_window_prepare(long start_ms, long detect_ms, const char *
 
     snprintf(header,
              sizeof(header),
-             "state=armed sampler=%s detect_elapsed_ms=%ld delay_ms=%d exact_provider_line=%d long_provider_window=%d tracepoint_sampler=%d pil_tracepoint_sampler=%d line=%.*s\n",
+             "state=armed sampler=%s detect_elapsed_ms=%ld delay_ms=%d exact_provider_line=%d long_provider_window=%d tracepoint_sampler=%d pil_tracepoint_sampler=%d sysfs_client_enumerate=%d trigger_mode=%s line=%.*s\n",
              A90_V1393_WIFI_TEST_RC1_WINDOW_SAMPLER_NAME,
              detect_ms >= start_ms ? detect_ms - start_ms : -1,
              A90_WIFI_TEST_BOOT_RC1_WATCHER_DELAY_MS,
@@ -2445,6 +2499,8 @@ static void v1393_rc1_window_prepare(long start_ms, long detect_ms, const char *
              A90_WIFI_TEST_BOOT_PROVIDER_TRIGGER_LONG_WINDOW,
              A90_WIFI_TEST_BOOT_PROVIDER_TRIGGER_TRACEPOINT_SAMPLER,
              A90_WIFI_TEST_BOOT_PROVIDER_TRIGGER_PIL_TRACEPOINT_SAMPLER,
+             A90_WIFI_TEST_BOOT_RC1_SYSFS_CLIENT_ENUMERATE,
+             A90_V1536_RC1_ENUMERATE_TRIGGER_MODE,
              160,
              line != NULL ? line : "");
     flatten_inline_text(header);
@@ -2487,16 +2543,18 @@ static int v1393_spawn_rc1_window_sampler(long start_ms, long detect_ms) {
 #if A90_WIFI_TEST_BOOT_RC1_IMMEDIATE_ENDPOINT_SAMPLER
 static int v1393_pid1_rc1_write_corrected_enumerate_with_immediate_samples(long start_ms,
                                                                            long detect_ms) {
-    int rc;
     int case_rc;
     long immediate_start_ms;
+    char trigger_summary[320];
 
-    rc = v1393_write_wifi_test_sysfs_string("/sys/kernel/debug/pci-msm/rc_sel", "2\n");
-    if (rc < 0) {
-        return rc;
-    }
-    case_rc = v1393_write_wifi_test_sysfs_string("/sys/kernel/debug/pci-msm/case", "11\n");
+    trigger_summary[0] = '\0';
+    case_rc = v1536_pid1_rc1_write_enumerate_trigger(start_ms,
+                                                     trigger_summary,
+                                                     sizeof(trigger_summary));
     immediate_start_ms = monotonic_millis();
+    (void)v1393_append_wifi_test_log("pid1 rc1 immediate trigger %s rc=%d\n",
+                                    trigger_summary,
+                                    case_rc);
 #if A90_WIFI_TEST_BOOT_RC1_WINDOW_SAMPLER
     v1393_rc1_immediate_endpoint_sample("after_case_0ms",
                                         start_ms,
@@ -2675,8 +2733,9 @@ static void v1393_pid1_rc1_watcher_child(void) {
 
                 snprintf(result,
                          sizeof(result),
-                         "state=triggered source=%s write_rc=%d errno=%d detect_elapsed_ms=%ld write_elapsed_ms=%ld delay_ms=%d retry_count=%d retry_delay_ms=%d%s line=%.*s\n",
+                         "state=triggered source=%s trigger_mode=%s write_rc=%d errno=%d detect_elapsed_ms=%ld write_elapsed_ms=%ld delay_ms=%d retry_count=%d retry_delay_ms=%d%s line=%.*s\n",
                          source,
+                         A90_V1536_RC1_ENUMERATE_TRIGGER_MODE,
                          write_rc,
                          saved_errno,
                          detect_ms >= start_ms ? detect_ms - start_ms : -1,
@@ -2688,8 +2747,9 @@ static void v1393_pid1_rc1_watcher_child(void) {
                          120,
                          line);
                 (void)v724_write_private_file(A90_V1393_WIFI_TEST_RC1_WATCHER_RESULT, result);
-                (void)v1393_append_wifi_test_log("pid1 rc1 watcher triggered source=%s write_rc=%d detect_elapsed_ms=%ld write_elapsed_ms=%ld delay_ms=%d\n",
+                (void)v1393_append_wifi_test_log("pid1 rc1 watcher triggered source=%s trigger_mode=%s write_rc=%d detect_elapsed_ms=%ld write_elapsed_ms=%ld delay_ms=%d\n",
                                                 source,
+                                                A90_V1536_RC1_ENUMERATE_TRIGGER_MODE,
                                                 write_rc,
                                                 detect_ms >= start_ms ? detect_ms - start_ms : -1,
                                                 write_ms >= start_ms ? write_ms - start_ms : -1,

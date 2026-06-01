@@ -8532,6 +8532,27 @@ Samsung bootloader
   eSoC notify/BOOT_DONE spoof, and no Wi-Fi HAL/scan/connect/credentials/DHCP/
   routes/external ping. Report:
   `docs/reports/NATIVE_INIT_V1535_FIRST_L0_TRIGGER_CANDIDATE_CLASSIFIER_2026-06-02.md`.
+- V1536/V1537 sysfs/client enumerate test-boot preparation passes. V1536 adds
+  `scripts/revalidation/build_native_init_wifi_test_boot_v1536.py`, extends
+  the V1393 build base with `--wifi-test-rc1-sysfs-client-enumerate`, and adds
+  a PID1 writer mode that targets
+  `/sys/devices/platform/soc/1c08000.qcom,pcie/debug/enumerate` instead of
+  debugfs `rc_sel=2` + `case=11`. It preserves the V1515 critical-source,
+  source-timestamped, case-aligned micro sampling contract and builds
+  `tmp/wifi/v1536-wifi-sysfs-client-enumerate-test-boot/boot_linux_v1536_wifi_test.img`
+  with SHA256
+  `9a8f10f9ae3cf6247faa49e78baa2fa9de5ce2539380893c8b7a777923b4e527`.
+  V1537 adds
+  `scripts/revalidation/native_wifi_test_boot_artifact_sanity_v1537.py` and
+  passes local artifact sanity with
+  `v1537-wifi-sysfs-client-enumerate-artifact-sanity-pass`. The shared
+  rollbackable handoff base now requests `--verify-protocol selftest` from
+  `native_init_flash.py` so new flash verifier logs do not need rollback
+  version/status output. Next gate: V1538 live handoff for only the V1536 image,
+  collect sysfs-client enumerate evidence, roll back to v724, and verify native
+  selftest `fail=0`. Reports:
+  `docs/reports/NATIVE_INIT_V1536_WIFI_SYSFS_CLIENT_ENUMERATE_SOURCE_BUILD_2026-06-02.md`,
+  `docs/reports/NATIVE_INIT_V1537_WIFI_SYSFS_CLIENT_ENUMERATE_ARTIFACT_SANITY_2026-06-02.md`.
 - If V1359 only finds platform bind/probe or global PCI rescan, stop for a new
   design instead of binding or rescanning blindly.
 - If both pcie1 RC and PON parity are read-only-proven healthy yet MDM2AP still

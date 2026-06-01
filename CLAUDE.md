@@ -2584,3 +2584,21 @@ Update after V1354/V1355:
   no global PCI rescan or platform bind/unbind, and no Wi-Fi HAL/scan/connect/
   credentials/DHCP/routes/external ping. Report:
   `docs/reports/NATIVE_INIT_V1535_FIRST_L0_TRIGGER_CANDIDATE_CLASSIFIER_2026-06-02.md`.
+- V1536/V1537 sysfs/client enumerate test-boot preparation passes. V1536 adds
+  `scripts/revalidation/build_native_init_wifi_test_boot_v1536.py` plus the
+  PID1 compile flag `A90_WIFI_TEST_BOOT_RC1_SYSFS_CLIENT_ENUMERATE`, changing
+  the first-L0 trigger write from debugfs TEST:11 to
+  `/sys/devices/platform/soc/1c08000.qcom,pcie/debug/enumerate`. It builds
+  `tmp/wifi/v1536-wifi-sysfs-client-enumerate-test-boot/boot_linux_v1536_wifi_test.img`
+  with SHA256
+  `9a8f10f9ae3cf6247faa49e78baa2fa9de5ce2539380893c8b7a777923b4e527`.
+  V1537 adds
+  `scripts/revalidation/native_wifi_test_boot_artifact_sanity_v1537.py` and
+  passes with `v1537-wifi-sysfs-client-enumerate-artifact-sanity-pass`. The
+  base test-boot handoff now uses `native_init_flash.py --verify-protocol
+  selftest` to avoid recording rollback version/status text in new flash
+  verifier output. Next gate: V1538 rollbackable live handoff for only the V1536
+  test image, collect log/summary/RC1 watcher/sysfs-client result/focused dmesg/
+  `wlan0`, then roll back to v724 and verify selftest `fail=0`. Reports:
+  `docs/reports/NATIVE_INIT_V1536_WIFI_SYSFS_CLIENT_ENUMERATE_SOURCE_BUILD_2026-06-02.md`,
+  `docs/reports/NATIVE_INIT_V1537_WIFI_SYSFS_CLIENT_ENUMERATE_ARTIFACT_SANITY_2026-06-02.md`.
