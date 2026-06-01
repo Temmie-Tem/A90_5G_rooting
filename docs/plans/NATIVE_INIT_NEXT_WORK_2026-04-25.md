@@ -9136,3 +9136,24 @@ Samsung bootloader
   `docs/reports/NATIVE_INIT_V1588_SERVICE_WINDOW_LOWER_MARKER_ARTIFACT_SANITY_2026-06-02.md`,
   and
   `docs/reports/NATIVE_INIT_V1589_SERVICE_WINDOW_LOWER_MARKER_HANDOFF_2026-06-02.md`.
+
+- V1590 host-only PM-service lifetime route classifier is complete.  It passes
+  as `v1590-route-current-service-window-loses-pm-service-owned-powerup` and
+  compares current V1589 lower-marker evidence with older positive route
+  references V1238/V1303.  The current V1589 service-window route starts the
+  scoped `/dev/subsys_esoc0` trigger, but loses the Android-good PM-service
+  owned path: `per_mgr` exits `0`, `pm_proxy` exits `1`,
+  `global_subsys_esoc0_fd_max=0`, `pm_service_powerup_seen=0`, and no dmesg
+  `pm-service` `__subsystem_get: esoc0` marker exists.  The process captured in
+  `mdm_subsys_powerup` is the scoped helper trigger child, not PM-service.
+
+  V1238/V1303 remain the positive PM-service route references:
+  late `pm-proxy` made PM-service reach `/dev/subsys_esoc0`,
+  `mdm_subsys_powerup`, and a powerup marker.  Next gate: V1591
+  source/build-only should derive a firmware-mount-preserving
+  late-`per_proxy`-only service-window test boot with lower-marker sampling, no
+  direct scoped trigger, and explicit PM-service lifetime/exit markers.  Keep
+  credentials, scan/connect, DHCP/routes, external ping, PMIC/GPIO/GDSC direct
+  writes, blind eSoC notify/`BOOT_DONE`, global PCI rescan, and platform
+  bind/unbind blocked.  Report:
+  `docs/reports/NATIVE_INIT_V1590_PM_SERVICE_LIFETIME_ROUTE_CLASSIFIER_2026-06-02.md`.

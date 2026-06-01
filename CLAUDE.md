@@ -9,7 +9,7 @@ Samsung Galaxy A90 5G (SM-A908N) — stock Android Linux kernel 4.14.190, custom
 - **Device**: SM-A908N, Android 12, Magisk 30.7, TWRP available
 - **Current native build**: `A90 Linux init 0.9.68 (v724)` — `stage3/boot_linux_v724.img`
 - **Known-good fallback**: `stage3/boot_linux_v48.img`
-- **Active research cycle**: V1589 rollbackable lower-marker handoff PASS (`v1589-test-boot-downstream-progress-rollback-pass`) with rollback verified to v724/selftest `fail=0`. V1588 built helper `a90_android_execns_probe v293` and a V1586-parity service-window test boot with compact `android_wifi_service_window.lower_marker` sampling. V1589 proves `pm_proxy_helper` holds `/dev/subsys_modem`, `pm_proxy`/`mdm_helper`/CNSS actors are alive, `mdm_helper` holds `/dev/esoc-0`, and the scoped trigger child reaches `mdm_subsys_powerup`; however `pm-service` is not alive in the lower-marker window, no `/dev/subsys_esoc0` fd returns, and RC1/LTSSM/runtime MHI/`ks`/WLFW start/BDF/FW-ready/`wlan0` remain absent. Next gate should classify `pm-service` lifetime/exit and the Android-good PM-service-owned powerup contract before any credentials, scan/connect, DHCP/routes, external ping, PMIC/GPIO/GDSC direct write, blind eSoC notify/`BOOT_DONE` spoof, global PCI rescan, platform bind/unbind, or unbounded boot image/partition write.
+- **Active research cycle**: V1590 host-only PM-service lifetime route classifier PASS (`v1590-route-current-service-window-loses-pm-service-owned-powerup`). V1589 lower-marker handoff remains valid and rollback verified to v724/selftest `fail=0`, but it also proves the current V1588 service-window route loses the Android-good PM-service-owned powerup path: `per_mgr` exits `0`, `pm_proxy` exits `1`, `pm-service` is absent from the lower-marker window, and no PM-service-owned `/dev/subsys_esoc0`/`mdm_subsys_powerup` marker appears. V1238/V1303 remain the positive route references because late `pm-proxy` made PM-service reach `/dev/subsys_esoc0` and `mdm_subsys_powerup`. Next gate should be V1591 source/build-only: firmware-mount-preserving late-`per_proxy`-only service-window test boot with lower-marker sampling, no direct scoped trigger, and explicit PM-service lifetime/exit markers. Keep credentials, scan/connect, DHCP/routes, external ping, PMIC/GPIO/GDSC direct write, blind eSoC notify/`BOOT_DONE` spoof, global PCI rescan, platform bind/unbind, or unbounded boot image/partition write blocked.
 - **Versioning policy**: `docs/operations/VERSIONING_POLICY.md` — `vNNN` cycle ≠ device flash
 
 ## Versioning rules
@@ -3412,3 +3412,36 @@ Reports:
 `docs/reports/NATIVE_INIT_V1588_SERVICE_WINDOW_LOWER_MARKER_ARTIFACT_SANITY_2026-06-02.md`,
 and
 `docs/reports/NATIVE_INIT_V1589_SERVICE_WINDOW_LOWER_MARKER_HANDOFF_2026-06-02.md`.
+
+## Latest native Wi-Fi state: V1590 (2026-06-02)
+
+V1590 adds
+`scripts/revalidation/native_wifi_pm_service_lifetime_route_classifier_v1590.py`
+and passes host-only as
+`v1590-route-current-service-window-loses-pm-service-owned-powerup`.
+It compares current V1589 lower-marker evidence against the older positive
+PM-service-owned route references V1238 and V1303.
+
+V1590 confirms the current V1588/V1589 service-window ordering is not the right
+lower route to repeat as-is:
+
+- V1589 current route: `per_mgr_alive_seen=0`, `per_mgr_child_exit_code=0`,
+  `pm_proxy_child_exit_code=1`, `global_subsys_esoc0_fd_max=0`,
+  `pm_service_powerup_seen=0`, and `dmesg_pm_service_esoc0_get=0`.
+- The live `mdm_subsys_powerup` stack in V1589 belongs to the scoped helper
+  trigger child, not PM-service.
+- V1238 remains a positive route reference:
+  `pm_service_actor_esoc0_attempt=True` and
+  `post_pm_fd_esoc0_count=1`.
+- V1303 remains a positive route reference:
+  `powerup_subsys_esoc0_inferred_seen=True`,
+  `max_powerup_thread_count=1`, `powerup_first_path_values=/dev/subsys_esoc0`,
+  and `powerup_first_wchans=mdm_subsys_powerup`.
+
+Next work: V1591 should be source/build-only and derive a
+firmware-mount-preserving late-`per_proxy`-only service-window test boot with
+lower-marker sampling, no direct scoped trigger, and explicit PM-service
+lifetime/exit markers.  Do not proceed to credentials, scan/connect,
+DHCP/routes, external ping, PMIC/GPIO/GDSC direct writes, blind eSoC
+notify/`BOOT_DONE`, global PCI rescan, or platform bind/unbind.  Report:
+`docs/reports/NATIVE_INIT_V1590_PM_SERVICE_LIFETIME_ROUTE_CLASSIFIER_2026-06-02.md`.
