@@ -7828,6 +7828,19 @@ Samsung bootloader
   V1483 should be source/build-only design for that rollbackable test boot.
   Report:
   `docs/reports/NATIVE_INIT_V1482_ANDROID_AP2MDM_REFERENCE_CLASSIFIER_2026-06-01.md`.
+- V1483 plan is ready with
+  `v1483-plan-auto-readiness-test-boot-before-credentials`. It converts the
+  user's test-boot direction into a concrete gated sequence: first add a compact
+  helper readiness summary (`auto_readiness.*`) for WLFW, ICNSS/QMI or WLFW
+  service progress, BDF, FW-ready, `wlan0`, and lower diagnostics; then build a
+  rollbackable credential-free PID1 Wi-Fi readiness test image that runs one
+  Android-order provider/CNSS route automatically at boot. V1483 keeps
+  scan/connect, credential materialization, DHCP/routes, external ping, direct
+  PMIC/GPIO/GDSC writes, raw MMIO/pinctrl writes, blind eSoC notify/`BOOT_DONE`,
+  global PCI rescan, platform bind/unbind, and custom OSRC kernel flash
+  blocked. V1484 should be source/build-only helper support for the compact
+  readiness summary. Plan:
+  `docs/plans/NATIVE_INIT_V1483_WIFI_AUTO_READINESS_TEST_BOOT_PLAN_2026-06-01.md`.
 - If V1359 only finds platform bind/probe or global PCI rescan, stop for a new
   design instead of binding or rescanning blindly.
 - If both pcie1 RC and PON parity are read-only-proven healthy yet MDM2AP still

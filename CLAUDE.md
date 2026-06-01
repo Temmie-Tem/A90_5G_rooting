@@ -1920,3 +1920,16 @@ Update after V1354/V1355:
   diagnostics. Do not use credentials, scan/connect, DHCP/routes, or external
   ping until `wlan0` exists. Report:
   `docs/reports/NATIVE_INIT_V1482_ANDROID_AP2MDM_REFERENCE_CLASSIFIER_2026-06-01.md`.
+- V1483 plan
+  (`v1483-plan-auto-readiness-test-boot-before-credentials`) defines the next
+  implementation sequence for the user's dedicated Wi-Fi test boot direction.
+  First add a compact helper readiness summary (`auto_readiness.*`) that tracks
+  WLFW, ICNSS/QMI or WLFW service progress, BDF, FW-ready, `wlan0`, GPIO135/142,
+  pcie1, MHI, `ks`, and safety zeros. Then build a rollbackable credential-free
+  PID1 test image that automatically runs one Android-order provider/CNSS
+  readiness route at boot. Keep scan/connect, credentials, DHCP/routes,
+  external ping, direct PMIC/GPIO/GDSC writes, raw MMIO/pinctrl writes, blind
+  eSoC notify/`BOOT_DONE`, global PCI rescan, platform bind/unbind, and custom
+  OSRC kernel flash blocked. Next gate: V1484 source/build-only helper support
+  for the compact readiness summary. Plan:
+  `docs/plans/NATIVE_INIT_V1483_WIFI_AUTO_READINESS_TEST_BOOT_PLAN_2026-06-01.md`.
