@@ -8498,6 +8498,22 @@ Samsung bootloader
   `subsys_esoc0` and the immediate pci-msm first-L0 path; do not return to
   firmware/MHI/WLFW until native L0 and PCI enumeration exist. Report:
   `docs/reports/NATIVE_INIT_V1533_V1532_QUEUE_PAIR_CLASSIFIER_2026-06-02.md`.
+- V1534 host-only PM route first-L0 focus classifier passes with
+  `v1534-current-pm-route-supersedes-old-gap-first-l0-focus`. It adds
+  `scripts/revalidation/native_wifi_pm_route_first_l0_focus_classifier_v1534.py`
+  and reclassifies the PM-service branch against the current route. The older
+  V1178 late-`per_proxy` dependency gap is preserved as historical context, but
+  V1343 proves current SDX50M registration plus `per_mgr_esoc0`, V1345 proves
+  current-route `mdm_subsys_powerup` with no lower response, V1496/V1517 prove
+  RC1 LTSSM progress with no L0, V1523 proves TEST:11 shares the core pci-msm
+  enumerate/enable path with normal callers, and V1525/V1533 close MHI
+  PM-resume plus ICNSS workqueue as first-L0 leads. The active blocker is now
+  PCIe RC1 endpoint readiness/link training, not PM registration or
+  firmware/MHI. Next gate: V1535 should design or run a bounded first-L0
+  trigger/readiness observer focused on endpoint wake GPIO104, sysfs/client
+  enumerate, or vendor request semantics around `msm_pcie_enumerate`, with
+  rollback and no scan/connect path. Report:
+  `docs/reports/NATIVE_INIT_V1534_PM_ROUTE_FIRST_L0_FOCUS_CLASSIFIER_2026-06-02.md`.
 - If V1359 only finds platform bind/probe or global PCI rescan, stop for a new
   design instead of binding or rescanning blindly.
 - If both pcie1 RC and PON parity are read-only-proven healthy yet MDM2AP still

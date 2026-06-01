@@ -9,7 +9,7 @@ Samsung Galaxy A90 5G (SM-A908N) — stock Android Linux kernel 4.14.190, custom
 - **Device**: SM-A908N, Android 12, Magisk 30.7, TWRP available
 - **Current native build**: `A90 Linux init 0.9.68 (v724)` — `stage3/boot_linux_v724.img`
 - **Known-good fallback**: `stage3/boot_linux_v48.img`
-- **Active research cycle**: V1533 host-only V1532 queue-pair classifier PASS (`v1533-icnss-queue-pair-is-hdd-register-path-not-first-l0-trigger`). V1532 live Android handoff captured bounded tracefs `workqueue_queue_work`/activate/execute evidence and rolled back to native with selftest pass. V1533 proves the visible `icnss_driver_event_work` item is queued by `/vendor/bin/hw/macloader` during WLAN driver load at ~40.882s and executes ~0.012ms later, well before pm-service opens `subsys_esoc0` at ~43.664s and before QMI/BDF/FW-ready/`wlan0`; therefore that ICNSS workqueue signal is HDD/register-driver path evidence, not Android's first-L0 trigger. Next gate is V1534: target pm-service Binder/QMI voter behavior that opens `subsys_esoc0` and the immediate pci-msm first-L0 path. Do not proceed to firmware/MHI deep dive/WLFW/scan/connect until native RC1 L0 and PCI enumeration exist. Preserve hard exclusions: no credential use, Wi-Fi scan/connect/DHCP/external ping, Wi-Fi HAL start, PMIC/GPIO/GDSC direct write, blind eSoC notify/`BOOT_DONE` spoof, global PCI rescan, platform bind/unbind, flash outside an explicit test-boot/rollback gate, boot image write outside an explicit test-boot/rollback gate, or partition write.
+- **Active research cycle**: V1534 host-only PM route first-L0 focus classifier PASS (`v1534-current-pm-route-supersedes-old-gap-first-l0-focus`). V1534 reconciles the older PM dependency/actionability branch with the current lower route: V1343 proves SDX50M registration and `per_mgr_esoc0`, V1345 proves the current route reaches `mdm_subsys_powerup` but gets no GPIO142/PCIe/MHI/WLFW/`wlan0`, V1496/V1517 prove native can drive RC1 LTSSM but fails before L0, V1523 proves TEST:11 and normal pci-msm callers share the core enumerate/enable path, and V1533 closes the visible ICNSS workqueue line as a first-L0 lead. The active blocker is PCIe RC1 endpoint readiness/link training (`LTSSM_POLL_COMPLIANCE`/no L0), not PM registration, ICNSS workqueue, firmware/MHI, or Wi-Fi HAL. Next gate is V1535: bounded first-L0 trigger/readiness observer or test-boot focused on endpoint wake/sysfs/client enumerate/vendor request semantics around `msm_pcie_enumerate`, with rollback and no scan/connect path. Preserve hard exclusions: no credential use, Wi-Fi scan/connect/DHCP/external ping, Wi-Fi HAL start, PMIC/GPIO/GDSC direct write, blind eSoC notify/`BOOT_DONE` spoof, global PCI rescan, platform bind/unbind, flash outside an explicit test-boot/rollback gate, boot image write outside an explicit test-boot/rollback gate, or partition write.
 - **Versioning policy**: `docs/operations/VERSIONING_POLICY.md` — `vNNN` cycle ≠ device flash
 
 ## Versioning rules
@@ -2556,3 +2556,16 @@ Update after V1354/V1355:
   `subsys_esoc0` and the immediate pci-msm first-L0 path, not firmware/MHI or
   ICNSS workqueue. Report:
   `docs/reports/NATIVE_INIT_V1533_V1532_QUEUE_PAIR_CLASSIFIER_2026-06-02.md`.
+- V1534 host-only PM route first-L0 focus classifier passes with
+  `v1534-current-pm-route-supersedes-old-gap-first-l0-focus`. It adds
+  `scripts/revalidation/native_wifi_pm_route_first_l0_focus_classifier_v1534.py`
+  and reconciles the older PM dependency/actionability branch with the current
+  lower route. V1178 remains useful history for late-`per_proxy` dependency
+  ordering, but V1343/V1345 already prove current SDX50M registration,
+  `per_mgr_esoc0`, and `mdm_subsys_powerup`; V1496/V1517 move the active
+  failure down to RC1 LTSSM progress with no L0; V1523 proves TEST:11 shares the
+  core pci-msm enumerate/enable path with normal callers; V1525 and V1533 close
+  MHI PM-resume and ICNSS workqueue as first-L0 leads. Next gate: V1535 should
+  focus on endpoint readiness/trigger semantics around `msm_pcie_enumerate`
+  rather than PM registration or firmware/MHI. Report:
+  `docs/reports/NATIVE_INIT_V1534_PM_ROUTE_FIRST_L0_FOCUS_CLASSIFIER_2026-06-02.md`.
