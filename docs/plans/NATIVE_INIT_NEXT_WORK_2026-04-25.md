@@ -7270,6 +7270,19 @@ Samsung bootloader
   summary, RC1 watcher result, focused endpoint window result, expanded dmesg
   markers, and `wlan0` state, then rolling back to `stage3/boot_linux_v724.img`
   and verifying selftest fail=0.
+- V1435 rollbackable live handoff passes with
+  `v1435-test-boot-downstream-progress-rollback-pass`, then rolls back to v724
+  with selftest fail=0. The V1433 focused test boot still ends at
+  `rc1-ltssm-link-failed-no-l0`: RC1/LTSSM progresses, L0 remains false, and
+  MHI/WLFW/BDF/FW-ready/`wlan0` remain absent. The focused endpoint sampler
+  removed broad summary truncation and recorded exact pcie1 regulator/clock/
+  GPIO/pinmux/pinconf lines, but it also shows same-window timing sensitivity:
+  broad `pre_rc1` saw `pcie_1_gdsc` and pcie1 clocks enabled, while later
+  focused exact `pre_rc1` reads had them already off. V1436 should be
+  host-only/read-only classification of this V1435 evidence before any new live
+  mutation, with the likely next branch being a tighter in-PID1 immediate
+  around-write sampler or Android reference capture. Keep connect-side work
+  blocked until at least L0/MHI/WLFW/`wlan0` progress appears.
 - If V1359 only finds platform bind/probe or global PCI rescan, stop for a new
   design instead of binding or rescanning blindly.
 - If both pcie1 RC and PON parity are read-only-proven healthy yet MDM2AP still
