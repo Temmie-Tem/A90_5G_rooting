@@ -8992,6 +8992,19 @@ Samsung bootloader
   mdm-helper `/dev/esoc-0` fd predicate is satisfied or deliberately replaced by
   a reviewed gate. Report:
   `docs/reports/NATIVE_INIT_V1569_SERVICE_WINDOW_RESULT_HANDOFF_2026-06-02.md`.
+- V1570 host-only mdm-helper fd-gate classifier passes with
+  `v1570-select-mdm-helper-launch-contract-delta`. It consumes V1569 plus
+  Android V1158, reduced-native V1228, and the prior service-window negative
+  V1008/V1009 references. The result confirms the active route is not currently
+  an RC1/LTSSM failure: V1569 starts `mdm_helper` but never observes
+  `/dev/esoc-0`, while Android and reduced native references prove the fd
+  predicate is achievable. Next gate: V1571 source/build-only should add a
+  service-window `mdm_helper` launch-contract comparator for argv/env/
+  properties/dev-node/context against known positive mdm-helper modes. Do not
+  retry RC1, firmware/MHI, credentials/connect, DHCP/routes, or external ping
+  until the mdm-helper `/dev/esoc-0` fd predicate is satisfied or a new reviewed
+  bounded gate replaces that predicate. Report:
+  `docs/reports/NATIVE_INIT_V1570_MDM_HELPER_FD_GATE_CLASSIFIER_2026-06-02.md`.
 - If V1359 only finds platform bind/probe or global PCI rescan, stop for a new
   design instead of binding or rescanning blindly.
 - If both pcie1 RC and PON parity are read-only-proven healthy yet MDM2AP still

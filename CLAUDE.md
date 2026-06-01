@@ -3203,3 +3203,25 @@ service-window launch and add a bounded mdm-helper fd acquisition classifier if
 needed.  Do not move to credentials/connect, DHCP/routes, external ping,
 firmware/MHI deep dive, or RC1 retry until the mdm-helper `/dev/esoc-0` fd
 predicate is satisfied or deliberately replaced by a reviewed gate.
+
+## Latest native Wi-Fi state: V1570 (2026-06-02)
+
+V1570 adds a host-only mdm-helper fd-gate classifier and passes with
+`v1570-select-mdm-helper-launch-contract-delta`.  It consumes V1569 plus the
+older Android/reduced-native references and confirms the active service-window
+route is blocked before RC1/LTSSM.
+
+Key checks all pass: V1569 handoff/rollback was clean, V1569 helper result was
+complete, V1569 had `mdm_helper_esoc0_fd_count=0` and
+`subsys-trigger-not-attempted-no-mdm-helper-esoc-fd`, Android V1158 proves
+`mdm_helper` opens `/dev/esoc-0`, reduced native V1228 proves native
+`mdm_helper` can hold `/dev/esoc-0` and reach `ESOC_WAIT_FOR_REQ`, and V1008/
+V1009 show this is the same known service-window negative delta.
+
+Next gate: V1571 should be source/build-only.  Add a service-window
+`mdm_helper` launch-contract comparator that records the native
+service-window `mdm_helper` argv/env/properties/dev-node/context and compares it
+against the known positive mdm-helper modes.  Do not retry RC1, firmware/MHI,
+credentials/connect, DHCP/routes, or external ping until the mdm-helper
+`/dev/esoc-0` fd predicate is satisfied or a new reviewed bounded gate replaces
+that predicate.
