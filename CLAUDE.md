@@ -9,7 +9,7 @@ Samsung Galaxy A90 5G (SM-A908N) — stock Android Linux kernel 4.14.190, custom
 - **Device**: SM-A908N, Android 12, Magisk 30.7, TWRP available
 - **Current native build**: `A90 Linux init 0.9.68 (v724)` — `stage3/boot_linux_v724.img`
 - **Known-good fallback**: `stage3/boot_linux_v48.img`
-- **Active research cycle**: V1397 source/build-only PASS (`v1397-wifi-test-boot-logging-source-build-pass`). The next rollbackable Wi-Fi test boot artifact is `tmp/wifi/v1397-wifi-test-boot/boot_linux_v1397_wifi_test.img` (`A90 Linux init 0.9.70 (v1397-wifitest)`) with fresh per-boot log `/cache/native-init-wifi-test-boot-v1397.log` and summary `/cache/native-init-wifi-test-boot-v1397.summary`. No device command or flash occurred in V1397. Next is V1398 local artifact sanity over the exact V1397 manifest before any live handoff. Preserve hard exclusions: no credential use, Wi-Fi scan/connect/DHCP/external ping, PMIC/GPIO/GDSC direct write, blind eSoC notify/BOOT_DONE spoof, flash outside an explicit test-boot/rollback gate, boot image write outside an explicit test-boot/rollback gate, or partition write.
+- **Active research cycle**: V1398 local artifact sanity PASS (`v1398-wifi-test-boot-artifact-sanity-pass`). The rollbackable Wi-Fi test boot artifact `tmp/wifi/v1397-wifi-test-boot/boot_linux_v1397_wifi_test.img` (`A90 Linux init 0.9.70 (v1397-wifitest)`) passed manifest/SHA/static/ramdisk/header/kernel/no-secret/private-mode checks. Next live gate may flash only that image, collect `/cache/native-init-wifi-test-boot-v1397.log` and `/cache/native-init-wifi-test-boot-v1397.summary`, then roll back to v724. Preserve hard exclusions: no credential use, Wi-Fi scan/connect/DHCP/external ping, PMIC/GPIO/GDSC direct write, blind eSoC notify/BOOT_DONE spoof, flash outside an explicit test-boot/rollback gate, boot image write outside an explicit test-boot/rollback gate, or partition write.
 - **Versioning policy**: `docs/operations/VERSIONING_POLICY.md` — `vNNN` cycle ≠ device flash
 
 ## Versioning rules
@@ -1572,3 +1572,16 @@ Update after V1354/V1355:
   reboot, partition write, Wi-Fi scan/connect, credential handling,
   DHCP/routes, or external ping. Next is V1398 local artifact sanity over the
   exact V1397 manifest before any live handoff.
+- V1398 local-only artifact sanity (`v1398-wifi-test-boot-artifact-sanity-pass`)
+  added `scripts/revalidation/native_wifi_test_boot_artifact_sanity_v1398.py`
+  and verified the exact V1397 staged artifact:
+  `docs/reports/NATIVE_INIT_V1398_WIFI_TEST_BOOT_ARTIFACT_SANITY_2026-06-01.md`.
+  Checks passed for manifest decision, SHA values, static PID1/helper,
+  ramdisk entries, boot markers, Wi-Fi test logging contract, v724 header/kernel
+  parity, forbidden credential-like byte absence, and private artifact modes.
+  V1398 did not issue any device command, flash, reboot, partition write,
+  Wi-Fi scan/connect, credential handling, DHCP/routes, or external ping. The
+  next live gate may flash only
+  `tmp/wifi/v1397-wifi-test-boot/boot_linux_v1397_wifi_test.img`, expect
+  `A90 Linux init 0.9.70 (v1397-wifitest)`, collect the V1397 log and summary,
+  then roll back to `stage3/boot_linux_v724.img`.
