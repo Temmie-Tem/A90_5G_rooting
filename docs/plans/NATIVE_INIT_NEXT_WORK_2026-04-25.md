@@ -8144,6 +8144,25 @@ Samsung bootloader
   for only the V1503 image, collect dense pre-L0 parity result and focused
   dmesg, then roll back to v724 and verify selftest `fail=0`. Report:
   `docs/reports/NATIVE_INIT_V1504_WIFI_DENSE_PRE_L0_PARITY_ARTIFACT_SANITY_2026-06-01.md`.
+- V1505 rollbackable live handoff passes with
+  `v1505-test-boot-downstream-progress-rollback-pass`. It adds
+  `scripts/revalidation/native_wifi_test_boot_handoff_v1505.py`, boots only the
+  V1503 dense image, collects V1503 log/summary/RC1 watcher/dense pre-L0 parity
+  result/focused dmesg/`wlan0`, then rolls back to v724 from native. Rollback
+  succeeds and v724 selftest stays `fail=0`; the progress decision remains
+  `rc1-ltssm-link-failed-no-l0`. Report:
+  `docs/reports/NATIVE_INIT_V1505_WIFI_DENSE_PRE_L0_PARITY_HANDOFF_2026-06-01.md`.
+- V1506 host-only V1505 evidence classifier passes with
+  `v1506-dense-pre-l0-captures-off-state-but-overruns-micro-window`. It adds
+  `scripts/revalidation/native_wifi_dense_pre_l0_parity_classifier_v1506.py`.
+  Dense focused reads confirm `pcie_1_gdsc` and PCIe1 clocks are off, refgen is
+  available, GPIO102/103/104/135/142 are in expected states, GPIO142 IRQ stays
+  zero, and no L0/MHI/WLFW/BDF/FW-ready/`wlan0` appears. But the exact-match
+  dense sampler overruns the micro schedule: nominal `1ms` starts near
+  `1007ms`, and max sample elapsed reaches about `12564ms`. V1507 should be
+  source/build-only and replace per-needle exact-match scanning with a batched
+  per-file sampler that reads each debugfs file at most once per sample. Report:
+  `docs/reports/NATIVE_INIT_V1506_WIFI_DENSE_PRE_L0_PARITY_CLASSIFIER_2026-06-01.md`.
 - If V1359 only finds platform bind/probe or global PCI rescan, stop for a new
   design instead of binding or rescanning blindly.
 - If both pcie1 RC and PON parity are read-only-proven healthy yet MDM2AP still

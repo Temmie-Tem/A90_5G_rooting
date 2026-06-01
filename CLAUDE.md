@@ -9,7 +9,7 @@ Samsung Galaxy A90 5G (SM-A908N) — stock Android Linux kernel 4.14.190, custom
 - **Device**: SM-A908N, Android 12, Magisk 30.7, TWRP available
 - **Current native build**: `A90 Linux init 0.9.68 (v724)` — `stage3/boot_linux_v724.img`
 - **Known-good fallback**: `stage3/boot_linux_v48.img`
-- **Active research cycle**: V1504 local artifact sanity PASS (`v1504-wifi-dense-pre-l0-parity-artifact-sanity-pass`) over the V1503 dense pre-L0 parity image. V1503 builds `A90 Linux init 0.9.94 (v1503-wifitest)` at `tmp/wifi/v1503-wifi-dense-pre-l0-parity-test-boot/boot_linux_v1503_wifi_test.img` (`sha256=dbb0ee6feb6fa2640797d6bd9b1901b4e7c20af8cea1e0af4c7eaee8bc68d522`). It keeps corrected RC1 enumerate after provider trigger and adds `micro_focused_*` regulator/clock/GDSC/GPIO/pinmux/pinconf reads inside every 0/1/2/5/10/20/50/100/150ms case-aligned micro sample. Next gate may be V1505 rollbackable live handoff for only the V1503 image, then rollback to v724 and verify selftest. Preserve hard exclusions: no credential use, Wi-Fi scan/connect/DHCP/external ping, Wi-Fi HAL start, PMIC/GPIO/GDSC direct write, blind eSoC notify/`BOOT_DONE` spoof, global PCI rescan, platform bind/unbind, flash outside an explicit test-boot/rollback gate, boot image write outside an explicit test-boot/rollback gate, or partition write.
+- **Active research cycle**: V1506 host-only classifier PASS (`v1506-dense-pre-l0-captures-off-state-but-overruns-micro-window`) over V1505 live handoff evidence. V1505 booted the V1503 dense image and rolled back to v724 successfully. It again proves `rc1-ltssm-link-failed-no-l0`: RC1 reaches `DETECT_QUIET` → `POLL_ACTIVE` → `POLL_COMPLIANCE`, link fails before L0, and no MHI/WLFW/BDF/FW-ready/`wlan0` appears. Dense focused reads show `pcie_1_gdsc` and PCIe1 clocks off, refgen available, GPIO102/103/104/135/142 in expected states, and GPIO142 IRQ zero, but exact-match sampling is too slow: nominal `1ms` sample starts around `1007ms`, max sample around `12564ms`. Next gate should be V1507 source/build-only batched per-file micro sampler; do not proceed to firmware/MHI/WLFW/scan/connect until RC1 L0 and PCI enumeration exist. Preserve hard exclusions: no credential use, Wi-Fi scan/connect/DHCP/external ping, Wi-Fi HAL start, PMIC/GPIO/GDSC direct write, blind eSoC notify/`BOOT_DONE` spoof, global PCI rescan, platform bind/unbind, flash outside an explicit test-boot/rollback gate, boot image write outside an explicit test-boot/rollback gate, or partition write.
 - **Versioning policy**: `docs/operations/VERSIONING_POLICY.md` — `vNNN` cycle ≠ device flash
 
 ## Versioning rules
@@ -2215,3 +2215,23 @@ Update after V1354/V1355:
   for only the V1503 image, collect dense pre-L0 parity evidence, roll back to
   v724, and verify selftest `fail=0`. Report:
   `docs/reports/NATIVE_INIT_V1504_WIFI_DENSE_PRE_L0_PARITY_ARTIFACT_SANITY_2026-06-01.md`.
+- V1505 rollbackable live handoff
+  (`v1505-test-boot-downstream-progress-rollback-pass`) adds
+  `scripts/revalidation/native_wifi_test_boot_handoff_v1505.py`, boots only the
+  V1503 dense pre-L0 image, collects V1503 log/summary/RC1 watcher/dense
+  pre-L0 parity result/focused dmesg/`wlan0`, then rolls back to v724 from
+  native. Rollback succeeded and v724 selftest remained `fail=0`. Progress
+  still classifies as `rc1-ltssm-link-failed-no-l0`: RC1 reaches PHY/LTSSM,
+  L0 is absent, and no MHI/WLFW/BDF/FW-ready/`wlan0` appears. Report:
+  `docs/reports/NATIVE_INIT_V1505_WIFI_DENSE_PRE_L0_PARITY_HANDOFF_2026-06-01.md`.
+- V1506 host-only V1505 evidence classifier
+  (`v1506-dense-pre-l0-captures-off-state-but-overruns-micro-window`) adds
+  `scripts/revalidation/native_wifi_dense_pre_l0_parity_classifier_v1506.py`.
+  It confirms dense focused fields are readable and remain in the blocked
+  state: `pcie_1_gdsc` off, PCIe1 clocks off, refgen available, GPIO102/103/104/
+  135/142 expected, GPIO142 IRQ zero, and no L0/MHI/WLFW/BDF/FW-ready/`wlan0`.
+  It also proves the V1503 exact-match approach is too slow for micro timing:
+  the nominal `1ms` sample starts around `1007ms`, with max sample elapsed about
+  `12564ms`. Next gate: V1507 source/build-only batched per-file micro sampler
+  so each debugfs file is scanned at most once per sample. Report:
+  `docs/reports/NATIVE_INIT_V1506_WIFI_DENSE_PRE_L0_PARITY_CLASSIFIER_2026-06-01.md`.
