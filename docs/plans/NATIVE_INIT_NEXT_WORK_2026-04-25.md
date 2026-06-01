@@ -8514,6 +8514,24 @@ Samsung bootloader
   enumerate, or vendor request semantics around `msm_pcie_enumerate`, with
   rollback and no scan/connect path. Report:
   `docs/reports/NATIVE_INIT_V1534_PM_ROUTE_FIRST_L0_FOCUS_CLASSIFIER_2026-06-02.md`.
+- V1535 host-only first-L0 trigger candidate classifier passes with
+  `v1535-first-l0-candidates-narrowed-to-client-enumerate-or-endpoint-readiness`.
+  It adds
+  `scripts/revalidation/native_wifi_first_l0_trigger_candidate_classifier_v1535.py`
+  and fixes the next action around the current lowest blocker. V1496/V1517
+  prove native RC1/LTSSM progress with no L0, V1523 proves TEST:11 and normal
+  callers converge on `msm_pcie_enumerate`, V1525 closes MHI PM-resume, V1533
+  closes visible ICNSS workqueue, and Android V852/V1527/V1529/V1532 do not
+  prove endpoint wake GPIO104 or trace-visible RC1 as the initial caller. The
+  only AP-side trigger still worth an empirical close-out is targeted
+  sysfs/client enumerate; if that path also reaches LTSSM but no L0, move focus
+  to endpoint electrical/readiness around PERST/refclk/reset/SDX50M response.
+  Next gate: V1536 source/build-only rollbackable test-boot variant that uses
+  targeted pci-msm sysfs/client enumerate instead of debugfs TEST:11. Keep no
+  global PCI rescan, no platform bind/unbind, no PMIC/GPIO/GDSC writes, no
+  eSoC notify/BOOT_DONE spoof, and no Wi-Fi HAL/scan/connect/credentials/DHCP/
+  routes/external ping. Report:
+  `docs/reports/NATIVE_INIT_V1535_FIRST_L0_TRIGGER_CANDIDATE_CLASSIFIER_2026-06-02.md`.
 - If V1359 only finds platform bind/probe or global PCI rescan, stop for a new
   design instead of binding or rescanning blindly.
 - If both pcie1 RC and PON parity are read-only-proven healthy yet MDM2AP still

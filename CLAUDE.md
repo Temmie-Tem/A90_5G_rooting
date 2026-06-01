@@ -2569,3 +2569,18 @@ Update after V1354/V1355:
   focus on endpoint readiness/trigger semantics around `msm_pcie_enumerate`
   rather than PM registration or firmware/MHI. Report:
   `docs/reports/NATIVE_INIT_V1534_PM_ROUTE_FIRST_L0_FOCUS_CLASSIFIER_2026-06-02.md`.
+- V1535 host-only first-L0 trigger candidate classifier passes with
+  `v1535-first-l0-candidates-narrowed-to-client-enumerate-or-endpoint-readiness`.
+  It adds
+  `scripts/revalidation/native_wifi_first_l0_trigger_candidate_classifier_v1535.py`
+  and reconciles V1496/V1517 native no-L0 evidence, V1523 pci-msm source, V1525
+  MHI PM-resume closure, V1533 ICNSS workqueue closure, and Android V852/V1527/
+  V1529/V1532 references. Closed immediate leads: old PM gap, MHI PM-resume,
+  visible ICNSS workqueue, probe-time enumeration, and blind TEST:11 timing
+  retry. Remaining AP-side empirical check is targeted sysfs/client enumerate;
+  if it also fails before L0, focus moves to endpoint electrical/readiness
+  around PERST/refclk/reset/SDX50M response. Next gate: V1536 source/build-only
+  rollbackable test-boot variant using targeted pci-msm sysfs/client enumerate,
+  no global PCI rescan or platform bind/unbind, and no Wi-Fi HAL/scan/connect/
+  credentials/DHCP/routes/external ping. Report:
+  `docs/reports/NATIVE_INIT_V1535_FIRST_L0_TRIGGER_CANDIDATE_CLASSIFIER_2026-06-02.md`.
