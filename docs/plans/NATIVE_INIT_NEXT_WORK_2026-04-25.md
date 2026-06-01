@@ -8100,6 +8100,29 @@ Samsung bootloader
   then rolling back to `stage3/boot_linux_v724.img` and verifying selftest
   `fail=0`. Report:
   `docs/reports/NATIVE_INIT_V1500_WIFI_AUTO_READINESS_PRE_L0_PARITY_ARTIFACT_SANITY_2026-06-01.md`.
+- V1501 rollbackable live handoff passes with
+  `v1501-test-boot-downstream-progress-rollback-pass`. It adds
+  `scripts/revalidation/native_wifi_test_boot_handoff_v1501.py`, boots only the
+  V1499 pre-L0 parity test image, collects log/summary/RC1 watcher/pre-L0 parity
+  result/focused dmesg/`wlan0`, and rolls back to v724 from native. The collected
+  progress decision remains `rc1-ltssm-link-failed-no-l0`: corrected RC1
+  enumerate succeeds, PHY/LTSSM progresses, L0 stays absent, and no
+  MHI/WLFW/BDF/FW-ready/`wlan0` appears. Report:
+  `docs/reports/NATIVE_INIT_V1501_WIFI_PRE_L0_PARITY_HANDOFF_2026-06-01.md`.
+- V1502 host-only V1501 evidence classifier passes with
+  `v1502-pre-l0-parity-confirms-rc1-link-fail-with-endpoint-lines-low`. It adds
+  `scripts/revalidation/native_wifi_pre_l0_parity_classifier_v1502.py` and fixes
+  the evidence interpretation gap left by the generic V1501 report: all nine
+  case-aligned micro samples are present at 0/1/2/5/10/20/50/100/150ms after
+  `case=11`, GPIO102/PERST remains `out 0`, GPIO103/CLKREQ remains `in 1`,
+  GPIO104/WAKE remains `in 0`, GPIO135/AP2MDM remains `out 0`, GPIO142/MDM2AP
+  remains `in 0`, and GPIO104/GPIO142 IRQ counts stay zero. The 200ms post
+  sample shows `pcie_1_gdsc` and PCIe1 focused clocks off with refgen available,
+  but that 200ms sample may be after link-failure cleanup. Next work should
+  either add focused regulator/clock/GDSC reads to each micro sample or capture
+  an Android-good RC1 parity reference before returning to firmware/MHI/WLFW
+  work. Report:
+  `docs/reports/NATIVE_INIT_V1502_WIFI_PRE_L0_PARITY_CLASSIFIER_2026-06-01.md`.
 - If V1359 only finds platform bind/probe or global PCI rescan, stop for a new
   design instead of binding or rescanning blindly.
 - If both pcie1 RC and PON parity are read-only-proven healthy yet MDM2AP still

@@ -9,7 +9,7 @@ Samsung Galaxy A90 5G (SM-A908N) — stock Android Linux kernel 4.14.190, custom
 - **Device**: SM-A908N, Android 12, Magisk 30.7, TWRP available
 - **Current native build**: `A90 Linux init 0.9.68 (v724)` — `stage3/boot_linux_v724.img`
 - **Known-good fallback**: `stage3/boot_linux_v48.img`
-- **Active research cycle**: V1500 local artifact sanity PASS (`v1500-wifi-auto-readiness-pre-l0-parity-artifact-sanity-pass`) over the exact V1499 image. V1500 verifies static init/helper, ramdisk entries, boot markers, v724 header/kernel parity, private modes, forbidden credential-like byte absence, and the V1499 pre-L0 parity contract. Next gate may be V1501 rollbackable live handoff for only `tmp/wifi/v1499-wifi-auto-readiness-pre-l0-parity-test-boot/boot_linux_v1499_wifi_test.img`, expecting `A90 Linux init 0.9.93 (v1499-wifitest)`, collecting V1499 log/summary/watcher/pre-L0 parity/focused dmesg/`wlan0`, then rolling back to v724 and verifying selftest. Preserve hard exclusions: no credential use, Wi-Fi scan/connect/DHCP/external ping, Wi-Fi HAL start, PMIC/GPIO/GDSC direct write, blind eSoC notify/`BOOT_DONE` spoof, global PCI rescan, platform bind/unbind, flash outside an explicit test-boot/rollback gate, boot image write outside an explicit test-boot/rollback gate, or partition write.
+- **Active research cycle**: V1502 host-only classifier PASS (`v1502-pre-l0-parity-confirms-rc1-link-fail-with-endpoint-lines-low`) over V1501 live handoff evidence. V1501 booted the V1499 test image, collected pre-L0 endpoint parity evidence, and rolled back to v724. V1502 confirms corrected RC1 enumerate reaches PHY/LTSSM (`DETECT_QUIET` → `POLL_ACTIVE` → `POLL_COMPLIANCE`) and then fails before L0; GPIO102/PERST stays `out 0`, GPIO103/CLKREQ stays `in 1`, GPIO104/WAKE stays `in 0`, GPIO135/AP2MDM stays `out 0`, GPIO142/MDM2AP stays `in 0`, GPIO104/GPIO142 IRQ counts stay zero, and no MHI/WLFW/BDF/FW-ready/`wlan0` appears. Next gate should add dense focused regulator/clock/GDSC sampling inside the 0/1/2/5/10/20/50/100/150ms window or capture an Android-good RC1 parity reference. Preserve hard exclusions: no credential use, Wi-Fi scan/connect/DHCP/external ping, Wi-Fi HAL start, PMIC/GPIO/GDSC direct write, blind eSoC notify/`BOOT_DONE` spoof, global PCI rescan, platform bind/unbind, flash outside an explicit test-boot/rollback gate, boot image write outside an explicit test-boot/rollback gate, or partition write.
 - **Versioning policy**: `docs/operations/VERSIONING_POLICY.md` — `vNNN` cycle ≠ device flash
 
 ## Versioning rules
@@ -2168,3 +2168,29 @@ Update after V1354/V1355:
   log, summary, RC1 watcher result, pre-L0 parity result, focused dmesg, and
   `wlan0` state, then rolling back to v724 and verifying selftest. Report:
   `docs/reports/NATIVE_INIT_V1500_WIFI_AUTO_READINESS_PRE_L0_PARITY_ARTIFACT_SANITY_2026-06-01.md`.
+- V1501 rollbackable live handoff
+  (`v1501-test-boot-downstream-progress-rollback-pass`) adds
+  `scripts/revalidation/native_wifi_test_boot_handoff_v1501.py`, flashes only
+  the V1499 test image, collects the V1499 log/summary/RC1 watcher/pre-L0 parity
+  result/focused dmesg/`wlan0` state, then rolls back to
+  `stage3/boot_linux_v724.img`. Rollback succeeded from native and v724 selftest
+  remained `fail=0`. The live evidence still classifies as
+  `rc1-ltssm-link-failed-no-l0`: corrected RC1 enumerate writes succeed, RC1 PHY
+  becomes ready, LTSSM reaches `POLL_COMPLIANCE`, L0 never appears, and no
+  MHI/WLFW/BDF/FW-ready/`wlan0` appears. Report:
+  `docs/reports/NATIVE_INIT_V1501_WIFI_PRE_L0_PARITY_HANDOFF_2026-06-01.md`.
+- V1502 host-only V1501 evidence classifier
+  (`v1502-pre-l0-parity-confirms-rc1-link-fail-with-endpoint-lines-low`) adds
+  `scripts/revalidation/native_wifi_pre_l0_parity_classifier_v1502.py` and
+  parses the V1501 handoff output. It confirms all nine case-aligned micro
+  samples exist at 0/1/2/5/10/20/50/100/150ms after `case=11`; GPIO102/PERST
+  stays `out 0`, GPIO103/CLKREQ stays `in 1`, GPIO104/WAKE stays `in 0`,
+  GPIO135/AP2MDM stays `out 0`, GPIO142/MDM2AP stays `in 0`, GPIO104/GPIO142
+  IRQ counts remain zero, PCIe1 link-state sysfs remains unreadable, and the
+  200ms post sample shows `pcie_1_gdsc` plus PCIe1 focused clocks off while
+  refgen remains available. Because the focused regulator/clock/GDSC fields are
+  currently only sampled at 200ms, likely after link-failure cleanup, the next
+  gate should either add dense focused regulator/clock/GDSC reads to each micro
+  sample or capture an Android-good RC1 parity reference with the same fields.
+  Report:
+  `docs/reports/NATIVE_INIT_V1502_WIFI_PRE_L0_PARITY_CLASSIFIER_2026-06-01.md`.
