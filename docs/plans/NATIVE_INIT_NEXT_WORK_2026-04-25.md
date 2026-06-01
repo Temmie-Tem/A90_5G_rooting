@@ -7333,6 +7333,20 @@ Samsung bootloader
   minimal fast reader for the narrowest fields that can be sampled within the
   sub-100ms RC1 window. Keep connect-side work blocked until at least
   L0/MHI/WLFW/`wlan0` progress appears.
+- V1441 source/build-only passes with
+  `v1441-wifi-test-boot-micro-endpoint-source-build-pass`. It generated
+  `tmp/wifi/v1441-wifi-test-boot-micro-endpoint-sampler/boot_linux_v1441_wifi_test.img`
+  with native init `0.9.81 (v1441-wifitest)` and adds
+  `read-only-v1441-micro-endpoint`. The new sampler forks a concurrent writer
+  for corrected `rc_sel=2` and `case=11`, while the parent samples only narrow
+  active-window fields: selected interrupts, exact endpoint GPIOs
+  (GPIO102/GPIO103/GPIO104/GPIO135/GPIO142), and pcie1 link-state files at
+  `0ms`, `1ms`, `2ms`, `5ms`, `10ms`, `20ms`, `50ms`, `100ms`, and `150ms`.
+  It deliberately avoids regulator and clock summary scans during the active
+  window and keeps one slower `post_micro_200ms` context sample. V1442 should
+  be local-only artifact sanity over this exact manifest, marker contract,
+  v724 header/kernel parity, private modes, and forbidden credential-like byte
+  absence before any live handoff.
 - If V1359 only finds platform bind/probe or global PCI rescan, stop for a new
   design instead of binding or rescanning blindly.
 - If both pcie1 RC and PON parity are read-only-proven healthy yet MDM2AP still
