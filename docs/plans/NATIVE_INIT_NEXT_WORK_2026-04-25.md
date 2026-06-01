@@ -7719,6 +7719,16 @@ Samsung bootloader
   (`sha256=2835568c31f9a9a25dac6e7830cdb51d666bdd050bf16646fa1518b8d7ed1e02`),
   native init `0.9.88 (v1472-wifitest)`. V1473 should be local-only artifact
   sanity over the exact V1472 manifest before any rollbackable live handoff.
+- V1473 local-only artifact sanity passes with
+  `v1473-wifi-test-boot-effective-level-artifact-sanity-pass`. It verifies the
+  exact V1472 manifest, base boot, static init/helper binaries, ramdisk entries,
+  boot markers, retry/legacy/case-writer marker absence, header/kernel parity,
+  forbidden credential-like byte absence, private modes, and the effective-level
+  sampler contract. V1474 may be a rollbackable live handoff for only the V1472
+  image, expecting `A90 Linux init 0.9.88 (v1472-wifitest)`, collecting V1472
+  log/summary, RC1 watcher result, effective-level window result, expanded
+  dmesg markers, and `wlan0` state, then rolling back to
+  `stage3/boot_linux_v724.img` and verifying selftest fail=0.
 - If V1359 only finds platform bind/probe or global PCI rescan, stop for a new
   design instead of binding or rescanning blindly.
 - If both pcie1 RC and PON parity are read-only-proven healthy yet MDM2AP still

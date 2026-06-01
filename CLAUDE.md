@@ -9,7 +9,7 @@ Samsung Galaxy A90 5G (SM-A908N) — stock Android Linux kernel 4.14.190, custom
 - **Device**: SM-A908N, Android 12, Magisk 30.7, TWRP available
 - **Current native build**: `A90 Linux init 0.9.68 (v724)` — `stage3/boot_linux_v724.img`
 - **Known-good fallback**: `stage3/boot_linux_v48.img`
-- **Active research cycle**: V1472 effective-level test-boot source build PASS (`v1472-wifi-test-boot-effective-level-source-build-pass`). V1472 builds `A90 Linux init 0.9.88 (v1472-wifitest)` as a rollbackable test boot that preserves the exact provider/PIL/GPIO tracepoint path, extends provider-trigger samples through `3000ms`, and adds full read-only endpoint/pinctrl/regulator/clock snapshots from `250ms` onward. Boot image: `tmp/wifi/v1472-wifi-test-boot-exact-provider-effective-level-sampler/boot_linux_v1472_wifi_test.img` (`sha256=2835568c31f9a9a25dac6e7830cdb51d666bdd050bf16646fa1518b8d7ed1e02`). Next gate: V1473 local-only artifact sanity before any V1474 rollbackable live handoff. Preserve hard exclusions: no credential use, Wi-Fi scan/connect/DHCP/external ping, Wi-Fi HAL start, PMIC/GPIO/GDSC direct write, blind eSoC notify/`BOOT_DONE` spoof, global PCI rescan, platform bind/unbind, flash outside an explicit test-boot/rollback gate, boot image write outside an explicit test-boot/rollback gate, or partition write.
+- **Active research cycle**: V1473 effective-level test-boot artifact sanity PASS (`v1473-wifi-test-boot-effective-level-artifact-sanity-pass`). V1473 verifies the exact V1472 manifest, static init/helper, ramdisk entries, boot markers, absent retry/legacy/case-writer markers, header/kernel parity, private modes, forbidden credential-like byte absence, and effective-level sampler contract. The rollbackable V1472 test boot is now ready for V1474 live handoff only: flash `tmp/wifi/v1472-wifi-test-boot-exact-provider-effective-level-sampler/boot_linux_v1472_wifi_test.img`, expect `A90 Linux init 0.9.88 (v1472-wifitest)`, collect V1472 log/summary/watcher/window/dmesg/`wlan0`, then roll back to `stage3/boot_linux_v724.img` and verify selftest fail=0. Preserve hard exclusions: no credential use, Wi-Fi scan/connect/DHCP/external ping, Wi-Fi HAL start, PMIC/GPIO/GDSC direct write, blind eSoC notify/`BOOT_DONE` spoof, global PCI rescan, platform bind/unbind, flash outside an explicit test-boot/rollback gate, boot image write outside an explicit test-boot/rollback gate, or partition write.
 - **Versioning policy**: `docs/operations/VERSIONING_POLICY.md` — `vNNN` cycle ≠ device flash
 
 ## Versioning rules
@@ -1790,3 +1790,14 @@ Update after V1354/V1355:
   sanity over the exact V1472 manifest before any rollbackable live handoff.
   Report:
   `docs/reports/NATIVE_INIT_V1472_WIFI_TEST_BOOT_EFFECTIVE_LEVEL_SOURCE_BUILD_2026-06-01.md`.
+- V1473 local-only artifact sanity
+  (`v1473-wifi-test-boot-effective-level-artifact-sanity-pass`) verifies the
+  exact V1472 manifest, base boot, static init/helper binaries, ramdisk entries,
+  boot markers, absent retry/legacy/case-writer markers, v724 header/kernel
+  parity, forbidden credential-like byte absence, private modes, and the
+  effective-level sampler contract. V1474 may be a rollbackable live handoff
+  for only the V1472 image, expecting `A90 Linux init 0.9.88 (v1472-wifitest)`,
+  collecting the V1472 log, summary, RC1 watcher result, effective-level window
+  result, expanded dmesg markers, and `wlan0` state, then rolling back to
+  `stage3/boot_linux_v724.img` and verifying selftest fail=0. Report:
+  `docs/reports/NATIVE_INIT_V1473_WIFI_TEST_BOOT_EFFECTIVE_LEVEL_ARTIFACT_SANITY_2026-06-01.md`.
