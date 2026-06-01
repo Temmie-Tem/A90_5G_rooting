@@ -2951,3 +2951,31 @@ therefore compare Android vs native `cnss-daemon` WLFW start/request contracts
 (invocation, properties, sockets, service-manager context) before any new live
 connect-side action. Keep forced RC1 enumerate diagnostic-only until the WLFW
 start/request contract is reproduced.
+
+## Latest native Wi-Fi state: V1561 (2026-06-02)
+
+V1561 adds
+`scripts/revalidation/native_wifi_wlfw_contract_rebase_classifier_v1561.py`
+and passes host-only with
+`v1561-current-wlfw-contract-rebases-v966-service-window-next`. It reconciles
+the older V966 Android WLFW attribution with current V1560/V1496/V1557
+evidence.
+
+The classification fixes the current branch: Android-good evidence reaches
+`cnss-daemon wlfw_start`/`wlfw_service_request` before `/dev/subsys_esoc0`,
+BDF, FW-ready, and `wlan0`; the current native v1393 Wi-Fi test boot is still
+hardwired to `wifi-companion-post-pm-mdm-helper-esoc-observer`, which reaches
+generic `cnss-daemon` netlink and PM/eSoC observer surfaces but never emits
+`wlfw_start`. The helper already contains bounded
+`wifi-companion-android-wifi-service-window-start-only` and
+`wifi-companion-android-wifi-service-window-subsys-trigger-capture` modes with
+service-window-only allow flags and explicit scan/connect guardrails.
+
+Next gate: V1562 should be source/build-only route selection, not live connect.
+Either make the native Wi-Fi test boot select the existing Android Wi-Fi
+service-window start-only mode, or build an equivalent bounded helper runner.
+Success means the artifact contains the service-window mode plus
+`--allow-android-wifi-service-window` and no scan/connect, credential,
+DHCP/route, external-ping, PMIC/GPIO/GDSC write, blind eSoC notify, global PCI
+rescan, or platform bind/unbind path. The live follow-up should first look for
+`wlfw_start`/`wlfw_service_request`, not credentials or external connectivity.

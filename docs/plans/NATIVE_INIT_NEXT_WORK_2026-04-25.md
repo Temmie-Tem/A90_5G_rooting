@@ -8830,6 +8830,21 @@ Samsung bootloader
   action. Keep forced RC1 enumerate diagnostic-only until native reproduces the
   WLFW start/request contract. Report:
   `docs/reports/NATIVE_INIT_V1560_ANDROID_ORDER_VS_NATIVE_ROUTE_CLASSIFIER_2026-06-02.md`.
+- V1561 host-only WLFW contract rebase classifier passes with
+  `v1561-current-wlfw-contract-rebases-v966-service-window-next`. It adds
+  `scripts/revalidation/native_wifi_wlfw_contract_rebase_classifier_v1561.py`
+  and reconciles V966 with current V1560/V1496/V1557 evidence. Android-good
+  reaches `cnss-daemon wlfw_start`/`wlfw_service_request` before
+  `/dev/subsys_esoc0`, BDF, FW-ready, and `wlan0`; current native v1393 test
+  boot is still hardwired to `wifi-companion-post-pm-mdm-helper-esoc-observer`
+  and never emits `wlfw_start`. The helper already has bounded
+  `wifi-companion-android-wifi-service-window-start-only` and
+  `wifi-companion-android-wifi-service-window-subsys-trigger-capture` modes.
+  Next gate: V1562 should be source/build-only route selection to use that
+  service-window mode with `--allow-android-wifi-service-window` and without
+  scan/connect, credentials, DHCP/routes, external ping, PMIC/GPIO/GDSC writes,
+  blind eSoC notify, global PCI rescan, or platform bind/unbind. Report:
+  `docs/reports/NATIVE_INIT_V1561_WLFW_CONTRACT_REBASE_CLASSIFIER_2026-06-02.md`.
 - If V1359 only finds platform bind/probe or global PCI rescan, stop for a new
   design instead of binding or rescanning blindly.
 - If both pcie1 RC and PON parity are read-only-proven healthy yet MDM2AP still
