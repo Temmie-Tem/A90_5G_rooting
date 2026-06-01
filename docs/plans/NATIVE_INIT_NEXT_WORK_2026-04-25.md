@@ -7471,6 +7471,20 @@ Samsung bootloader
   exclusions: no Wi-Fi HAL, scan/connect, credential handling, DHCP/routes,
   external ping, PMIC/GPIO/GDSC direct write, blind eSoC notify/`BOOT_DONE`
   spoof, global PCI rescan, or platform bind/unbind.
+- V1453 host-only classifier passes with
+  `v1453-provider-window-low-no-downstream`. It confirms V1452 did not issue an
+  explicit RC1 debugfs test, did collect nine provider-window micro samples,
+  kept GPIO135 `out 0` and GPIO142 `in 0`, kept MDM status and PCIe wake IRQ
+  counts at zero, saw pcie1 GDSC at `0mV` with pcie1 clocks zero-enabled in the
+  context sample, and saw no RC1/MHI/WLFW/BDF/FW-ready/`wlan0` progress. The
+  remaining measurement weakness is chunk-level `/proc/kmsg` recording: the
+  stored line prefix can show an earlier cnss-daemon netlink message even when
+  the chunk matched the provider trigger. V1454 should be source/build-only and
+  create an exact-line provider-trigger test boot: split kmsg chunks into
+  individual lines, trigger only on `__subsystem_get: esoc0` or
+  `mdm_subsys_powerup`, keep the run read-only, and extend endpoint samples to
+  at least `250ms`, `300ms`, `500ms`, and `1000ms` after the exact provider
+  trigger.
 - If V1359 only finds platform bind/probe or global PCI rescan, stop for a new
   design instead of binding or rescanning blindly.
 - If both pcie1 RC and PON parity are read-only-proven healthy yet MDM2AP still
