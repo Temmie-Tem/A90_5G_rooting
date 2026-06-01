@@ -7947,6 +7947,16 @@ Samsung bootloader
   pre-staged `/cache/boot_linux_v724.img` when recovery ADB is unavailable.
   Report:
   `docs/reports/NATIVE_INIT_V1490_WIFI_AUTO_READINESS_TIMEOUT_SAFE_HANDOFF_2026-06-01.md`.
+- V1491 source-only safety update passes with
+  `v1491-native-direct-rollback-fallback-source-pass`. The shared handoff
+  runner now supports `--native-direct-rollback-fallback`, which verifies a
+  pre-staged `/cache/boot_linux_v724.img`, creates `/dev/block/sda24` if
+  missing (`259:8`), writes the image with `dd ... conv=fsync && sync`, checks
+  the boot prefix sha256, reboots, and verifies the expected rollback version.
+  V1491 performed no live mutation. V1492 may use this fallback in a bounded
+  live handoff, but only after the rollback image is pre-staged on-device with
+  the expected v724 sha256. Report:
+  `docs/reports/NATIVE_INIT_V1491_NATIVE_DIRECT_ROLLBACK_FALLBACK_SOURCE_2026-06-01.md`.
 - If V1359 only finds platform bind/probe or global PCI rescan, stop for a new
   design instead of binding or rescanning blindly.
 - If both pcie1 RC and PON parity are read-only-proven healthy yet MDM2AP still

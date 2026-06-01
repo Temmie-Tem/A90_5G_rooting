@@ -10,6 +10,7 @@ from __future__ import annotations
 
 import argparse
 import datetime as dt
+import hashlib
 import json
 import subprocess
 from pathlib import Path
@@ -118,6 +119,19 @@ def a90ctl_command(command: list[str]) -> list[object]:
     return ["python3", "scripts/revalidation/a90ctl.py", *command]
 
 
+def a90ctl_command_timed(command: list[str], *, timeout: float, retry_unsafe: bool = False) -> list[object]:
+    result: list[object] = [
+        "python3",
+        "scripts/revalidation/a90ctl.py",
+        "--timeout",
+        str(timeout),
+    ]
+    if retry_unsafe:
+        result.append("--retry-unsafe")
+    result.extend(command)
+    return result
+
+
 def flash_command(image: Path, expect_version: str, *, from_native: bool) -> list[object]:
     command: list[object] = [
         "python3",
@@ -137,6 +151,14 @@ def flash_command(image: Path, expect_version: str, *, from_native: bool) -> lis
 
 def load_json(path: Path) -> dict[str, Any]:
     return json.loads(path.read_text(encoding="utf-8"))
+
+
+def local_sha256(path: Path) -> str:
+    digest = hashlib.sha256()
+    with path.open("rb") as handle:
+        for chunk in iter(lambda: handle.read(1024 * 1024), b""):
+            digest.update(chunk)
+    return digest.hexdigest()
 
 
 def read_evidence_text(evidence_dir: Path, file_name: str) -> str:
@@ -379,12 +401,150 @@ def rollback(args: argparse.Namespace,
     if first["ok"]:
         return {"attempt": "from-native", "ok": True}
 
+    if args.native_direct_rollback_fallback:
+        direct = native_direct_rollback(args, store, steps)
+        if direct["ok"]:
+            return direct
+
     second = run_command(
         flash_command(args.rollback_image, args.expect_rollback_version, from_native=False),
         timeout=args.flash_timeout_sec,
     )
     write_step(store, steps, "rollback-from-recovery", second)
-    return {"attempt": "from-recovery", "ok": bool(second["ok"])}
+    if second["ok"]:
+        return {"attempt": "from-recovery", "ok": True}
+
+    if args.native_direct_rollback_fallback:
+        retry_direct = native_direct_rollback(args, store, steps, suffix="after-recovery-failure")
+        if retry_direct["ok"]:
+            return retry_direct
+
+    return {"attempt": "from-recovery", "ok": False}
+
+
+def native_direct_rollback(args: argparse.Namespace,
+                           store: EvidenceStore,
+                           steps: list[dict[str, Any]],
+                           *,
+                           suffix: str = "after-native-recovery-failure") -> dict[str, Any]:
+    image_hash = local_sha256(args.rollback_image)
+    image_size = args.rollback_image.stat().st_size
+    readback_count = (image_size + 4095) // 4096
+    prefix = f"rollback-native-direct-{suffix}"
+    remote = args.native_direct_rollback_remote_image
+    block = args.native_direct_rollback_boot_block
+
+    check_remote = run_a90ctl_step(
+        store,
+        steps,
+        f"{prefix}-remote-sha256",
+        a90ctl_command_timed([
+            "run",
+            "/cache/bin/toybox",
+            "sha256sum",
+            remote,
+        ], timeout=args.collect_timeout_sec),
+        args.collect_timeout_sec + 10.0,
+    )
+    if image_hash not in str(check_remote.get("stdout") or ""):
+        return {
+            "attempt": "native-direct",
+            "ok": False,
+            "stage": "remote-sha256",
+            "expected_sha256": image_hash,
+            "remote_image": remote,
+        }
+
+    ensure_block = run_a90ctl_step(
+        store,
+        steps,
+        f"{prefix}-ensure-block",
+        a90ctl_command_timed([
+            "run",
+            "/cache/bin/busybox",
+            "sh",
+            "-c",
+            (
+                f"test -b {block} || "
+                f"mknod {block} b {args.native_direct_rollback_boot_major} "
+                f"{args.native_direct_rollback_boot_minor}"
+            ),
+        ], timeout=args.collect_timeout_sec, retry_unsafe=True),
+        args.collect_timeout_sec + 10.0,
+    )
+    if not ensure_block["ok"]:
+        return {"attempt": "native-direct", "ok": False, "stage": "ensure-block"}
+
+    write_boot = run_a90ctl_step(
+        store,
+        steps,
+        f"{prefix}-write-boot",
+        a90ctl_command_timed([
+            "run",
+            "/cache/bin/busybox",
+            "sh",
+            "-c",
+            f"dd if={remote} of={block} bs=4M conv=fsync && sync",
+        ], timeout=args.native_direct_rollback_timeout_sec, retry_unsafe=True),
+        args.native_direct_rollback_timeout_sec + 10.0,
+    )
+    if not write_boot["ok"]:
+        return {"attempt": "native-direct", "ok": False, "stage": "write-boot"}
+
+    readback = run_a90ctl_step(
+        store,
+        steps,
+        f"{prefix}-readback-sha256",
+        a90ctl_command_timed([
+            "run",
+            "/cache/bin/busybox",
+            "sh",
+            "-c",
+            (
+                f"dd if={block} bs=4096 count={readback_count} 2>/dev/null | "
+                "/cache/bin/toybox sha256sum"
+            ),
+        ], timeout=args.native_direct_rollback_timeout_sec),
+        args.native_direct_rollback_timeout_sec + 10.0,
+    )
+    if image_hash not in str(readback.get("stdout") or ""):
+        return {
+            "attempt": "native-direct",
+            "ok": False,
+            "stage": "readback-sha256",
+            "expected_sha256": image_hash,
+        }
+
+    reboot = run_command(
+        a90ctl_command_timed(["reboot"], timeout=20.0, retry_unsafe=True),
+        timeout=30.0,
+    )
+    write_step(store, steps, f"{prefix}-reboot", reboot)
+
+    verify = run_command(
+        [
+            "python3",
+            "scripts/revalidation/native_init_flash.py",
+            "--verify-only",
+            "--expect-version",
+            args.expect_rollback_version,
+            "--bridge-timeout",
+            str(args.bridge_verify_timeout_sec),
+        ],
+        timeout=args.bridge_verify_timeout_sec + 30.0,
+    )
+    write_step(store, steps, f"{prefix}-verify", verify)
+    if not verify["ok"]:
+        return {"attempt": "native-direct", "ok": False, "stage": "verify"}
+
+    return {
+        "attempt": "native-direct",
+        "ok": True,
+        "remote_image": remote,
+        "boot_block": block,
+        "sha256": image_hash,
+        "readback_count": readback_count,
+    }
 
 
 def cycle_slug(cycle: str) -> str:
@@ -494,6 +654,11 @@ def render_report(result: dict[str, Any]) -> str:
         lines.append(f"- Source evidence: `{result['source_out_dir']}`")
     if "handoff_pass" in result:
         lines.append(f"- Handoff/rollback pass: `{result['handoff_pass']}`")
+    if "rollback" in result:
+        rollback_info = result["rollback"]
+        lines.append(f"- Rollback attempt: `{rollback_info.get('attempt')}`")
+        if rollback_info.get("boot_block"):
+            lines.append(f"- Rollback boot block: `{rollback_info.get('boot_block')}`")
     if "strict_wifi_progress" in result:
         lines.append(f"- Strict Wi-Fi progress mode: `{result['strict_wifi_progress']}`")
     if "wifi_progress" in result:
@@ -541,7 +706,9 @@ def render_report(result: dict[str, Any]) -> str:
     else:
         lines.extend([
             "Device mutation was limited to flashing the test boot image and",
-            "rolling back to `stage3/boot_linux_v724.img`.",
+            "rolling back to `stage3/boot_linux_v724.img`. If enabled, native",
+            "direct rollback may restore the boot partition from a pre-staged",
+            "`/cache` rollback image when recovery ADB is unavailable.",
         ])
     lines.extend([
         "",
@@ -578,6 +745,13 @@ def parse_args(argv: list[str] | None = None) -> argparse.Namespace:
     parser.add_argument("--dmesg-grep-pattern", default=DEFAULT_DMESG_PATTERN)
     parser.add_argument("--flash-timeout-sec", type=float, default=720.0)
     parser.add_argument("--collect-timeout-sec", type=float, default=120.0)
+    parser.add_argument("--bridge-verify-timeout-sec", type=float, default=240.0)
+    parser.add_argument("--native-direct-rollback-fallback", action="store_true")
+    parser.add_argument("--native-direct-rollback-remote-image", default="/cache/boot_linux_v724.img")
+    parser.add_argument("--native-direct-rollback-boot-block", default="/dev/block/sda24")
+    parser.add_argument("--native-direct-rollback-boot-major", type=int, default=259)
+    parser.add_argument("--native-direct-rollback-boot-minor", type=int, default=8)
+    parser.add_argument("--native-direct-rollback-timeout-sec", type=float, default=120.0)
     parser.add_argument("--classify-only", action="store_true")
     parser.add_argument("--classify-input-dir", type=Path)
     parser.add_argument("--strict-wifi-progress", action="store_true")

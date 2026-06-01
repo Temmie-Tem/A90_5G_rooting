@@ -2028,3 +2028,14 @@ Update after V1354/V1355:
   gate: V1491 should add an explicit native direct rollback fallback for future
   handoff runners before more test-boot flashes. Report:
   `docs/reports/NATIVE_INIT_V1490_WIFI_AUTO_READINESS_TIMEOUT_SAFE_HANDOFF_2026-06-01.md`.
+- V1491 source-only safety update
+  (`v1491-native-direct-rollback-fallback-source-pass`) updates the shared
+  Wi-Fi test-boot handoff runner with `--native-direct-rollback-fallback`.
+  When enabled, rollback first tries the generic TWRP route; if recovery ADB is
+  unavailable, it can verify a pre-staged `/cache/boot_linux_v724.img`, create
+  `/dev/block/sda24` (`259:8`) if missing, write the boot partition, verify the
+  boot prefix sha256, reboot, and verify the expected rollback version through
+  the serial bridge. V1491 performed no live mutation. Next gate: V1492 may run
+  a bounded live handoff with this fallback after pre-staging the v724 rollback
+  image on-device. Report:
+  `docs/reports/NATIVE_INIT_V1491_NATIVE_DIRECT_ROLLBACK_FALLBACK_SOURCE_2026-06-01.md`.
