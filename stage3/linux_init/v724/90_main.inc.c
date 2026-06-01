@@ -100,6 +100,9 @@ static void selftest_boot_draw_frame(void *ctx) {
 #ifndef A90_WIFI_TEST_BOOT_RC1_CASE_ALIGNED_MICRO_ENDPOINT_SAMPLER
 #define A90_WIFI_TEST_BOOT_RC1_CASE_ALIGNED_MICRO_ENDPOINT_SAMPLER 0
 #endif
+#ifndef A90_WIFI_TEST_BOOT_PROVIDER_TRIGGER_MICRO_ENDPOINT_SAMPLER
+#define A90_WIFI_TEST_BOOT_PROVIDER_TRIGGER_MICRO_ENDPOINT_SAMPLER 0
+#endif
 #ifndef A90_WIFI_TEST_BOOT_RC1_RETRY_COUNT
 #define A90_WIFI_TEST_BOOT_RC1_RETRY_COUNT 0
 #endif
@@ -113,7 +116,9 @@ static void selftest_boot_draw_frame(void *ctx) {
 #define A90_V1393_WIFI_TEST_WATCHER_PID A90_WIFI_TEST_BOOT_WATCHER_PID
 #define A90_V1393_WIFI_TEST_RC1_WATCHER_RESULT A90_WIFI_TEST_BOOT_RC1_WATCHER_RESULT
 #define A90_V1393_WIFI_TEST_RC1_WINDOW_RESULT A90_WIFI_TEST_BOOT_RC1_WINDOW_RESULT
-#if A90_WIFI_TEST_BOOT_RC1_CASE_ALIGNED_MICRO_ENDPOINT_SAMPLER
+#if A90_WIFI_TEST_BOOT_PROVIDER_TRIGGER_MICRO_ENDPOINT_SAMPLER
+#define A90_V1393_WIFI_TEST_RC1_WINDOW_SAMPLER_NAME "read-only-v1450-provider-trigger-micro-endpoint"
+#elif A90_WIFI_TEST_BOOT_RC1_CASE_ALIGNED_MICRO_ENDPOINT_SAMPLER
 #define A90_V1393_WIFI_TEST_RC1_WINDOW_SAMPLER_NAME "read-only-v1445-case-aligned-micro-endpoint"
 #elif A90_WIFI_TEST_BOOT_RC1_MICRO_ENDPOINT_SAMPLER
 #define A90_V1393_WIFI_TEST_RC1_WINDOW_SAMPLER_NAME "read-only-v1441-micro-endpoint"
@@ -508,6 +513,7 @@ static int v1393_cleanup_wifi_test_debugfs(void) {
 #endif
 
 #if A90_WIFI_TEST_BOOT_PID1_RC1_WATCHER
+#if !A90_WIFI_TEST_BOOT_PROVIDER_TRIGGER_MICRO_ENDPOINT_SAMPLER
 static int v1393_write_wifi_test_sysfs_string(const char *path, const char *value) {
     int fd;
     int rc;
@@ -533,6 +539,7 @@ static int v1393_pid1_rc1_write_corrected_enumerate(void) {
     }
     return v1393_write_wifi_test_sysfs_string("/sys/kernel/debug/pci-msm/case", "11\n");
 }
+#endif
 #endif
 
 static bool v1393_pid1_rc1_trigger_line(const char *line) {
@@ -1176,6 +1183,7 @@ static void v1393_rc1_micro_endpoint_sample(const char *sample,
     close(out_fd);
 }
 
+#if !A90_WIFI_TEST_BOOT_PROVIDER_TRIGGER_MICRO_ENDPOINT_SAMPLER
 static void v1393_rc1_micro_writer_child(int pipe_fd, long start_ms) {
     int rc;
     int saved_errno;
@@ -1305,7 +1313,7 @@ static int v1393_rc1_micro_writer_status_to_rc(int writer_wait_rc, int status) {
     return -EIO;
 }
 
-#if !A90_WIFI_TEST_BOOT_RC1_CASE_ALIGNED_MICRO_ENDPOINT_SAMPLER
+#if !A90_WIFI_TEST_BOOT_RC1_CASE_ALIGNED_MICRO_ENDPOINT_SAMPLER && !A90_WIFI_TEST_BOOT_PROVIDER_TRIGGER_MICRO_ENDPOINT_SAMPLER
 static int v1393_pid1_rc1_micro_endpoint_sample_with_writer(long start_ms, long detect_ms) {
     static const int targets_ms[] = {0, 1, 2, 5, 10, 20, 50, 100, 150};
     int pipe_fds[2];
@@ -1361,6 +1369,7 @@ static int v1393_pid1_rc1_micro_endpoint_sample_with_writer(long start_ms, long 
 }
 #endif
 
+#if !A90_WIFI_TEST_BOOT_PROVIDER_TRIGGER_MICRO_ENDPOINT_SAMPLER
 static int v1393_pid1_rc1_case_aligned_micro_endpoint_sample_with_writer(long start_ms,
                                                                          long detect_ms) {
     static const int targets_ms[] = {0, 1, 2, 5, 10, 20, 50, 100, 150};
@@ -1418,6 +1427,28 @@ static int v1393_pid1_rc1_case_aligned_micro_endpoint_sample_with_writer(long st
     }
 
     v1393_rc1_window_sample("post_case_aligned_micro_200ms",
+                            start_ms,
+                            detect_ms,
+                            micro_start_ms);
+    return 0;
+}
+#endif
+#endif
+
+static int v1393_pid1_provider_trigger_micro_endpoint_sample(long start_ms, long detect_ms) {
+    static const int targets_ms[] = {0, 1, 2, 5, 10, 20, 50, 100, 150};
+    long micro_start_ms = monotonic_millis();
+    size_t index;
+
+    for (index = 0; index < sizeof(targets_ms) / sizeof(targets_ms[0]); index++) {
+        char sample[64];
+
+        v1393_rc1_micro_sleep_until(micro_start_ms, targets_ms[index]);
+        snprintf(sample, sizeof(sample), "provider_micro_after_trigger_%dms", targets_ms[index]);
+        v1393_rc1_micro_endpoint_sample(sample, start_ms, detect_ms, micro_start_ms);
+    }
+
+    v1393_rc1_window_sample("post_provider_micro_200ms",
                             start_ms,
                             detect_ms,
                             micro_start_ms);
@@ -1582,13 +1613,17 @@ static void v1393_pid1_rc1_watcher_child(void) {
                 v1393_rc1_window_sample("pre_delay", start_ms, detect_ms, detect_ms);
 #endif
 #endif
-                if (A90_WIFI_TEST_BOOT_RC1_WATCHER_DELAY_MS > 0) {
+                if (A90_WIFI_TEST_BOOT_RC1_WATCHER_DELAY_MS > 0 &&
+                    !A90_WIFI_TEST_BOOT_PROVIDER_TRIGGER_MICRO_ENDPOINT_SAMPLER) {
                     usleep((useconds_t)A90_WIFI_TEST_BOOT_RC1_WATCHER_DELAY_MS * 1000U);
                 }
 #if A90_WIFI_TEST_BOOT_RC1_WINDOW_SAMPLER && !A90_WIFI_TEST_BOOT_RC1_MICRO_ENDPOINT_SAMPLER
                 (void)v1393_spawn_rc1_window_sampler(start_ms, detect_ms);
 #endif
-#if A90_WIFI_TEST_BOOT_RC1_CASE_ALIGNED_MICRO_ENDPOINT_SAMPLER
+#if A90_WIFI_TEST_BOOT_PROVIDER_TRIGGER_MICRO_ENDPOINT_SAMPLER
+                write_rc = v1393_pid1_provider_trigger_micro_endpoint_sample(start_ms,
+                                                                             detect_ms);
+#elif A90_WIFI_TEST_BOOT_RC1_CASE_ALIGNED_MICRO_ENDPOINT_SAMPLER
                 write_rc = v1393_pid1_rc1_case_aligned_micro_endpoint_sample_with_writer(start_ms,
                                                                                          detect_ms);
 #elif A90_WIFI_TEST_BOOT_RC1_MICRO_ENDPOINT_SAMPLER
@@ -1797,6 +1832,9 @@ static void v1393_write_wifi_test_summary(pid_t helper_pid, long spawn_ms) {
     dprintf(fd,
             "rc1_case_aligned_micro_endpoint_sampler_requested=%d\n",
             A90_WIFI_TEST_BOOT_RC1_CASE_ALIGNED_MICRO_ENDPOINT_SAMPLER);
+    dprintf(fd,
+            "provider_trigger_micro_endpoint_sampler_requested=%d\n",
+            A90_WIFI_TEST_BOOT_PROVIDER_TRIGGER_MICRO_ENDPOINT_SAMPLER);
     dprintf(fd, "rc1_retry_count=%d\n", A90_WIFI_TEST_BOOT_RC1_RETRY_COUNT);
     dprintf(fd, "rc1_retry_delay_ms=%d\n", A90_WIFI_TEST_BOOT_RC1_RETRY_DELAY_MS);
 #if A90_WIFI_TEST_BOOT_RC1_WINDOW_SAMPLER

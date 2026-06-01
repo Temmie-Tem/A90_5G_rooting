@@ -7429,6 +7429,19 @@ Samsung bootloader
   PID1 kmsg for `__subsystem_get: esoc0`/`mdm_subsys_powerup`, then samples
   GPIO135/GPIO142/RC1 status immediately around that provider event without
   Wi-Fi scan/connect or credential handling.
+- V1450 source/build-only passes with
+  `v1450-wifi-test-boot-provider-trigger-micro-endpoint-source-build-pass`. It
+  generated
+  `tmp/wifi/v1450-wifi-test-boot-provider-trigger-micro-endpoint-sampler/boot_linux_v1450_wifi_test.img`
+  with native init `0.9.83 (v1450-wifitest)` and adds
+  `read-only-v1450-provider-trigger-micro-endpoint`. The PID1 watcher keeps the
+  provider-level kmsg trigger, sets delay to `0ms`, does not write RC1 debugfs
+  `rc_sel`/`case`, and samples selected interrupts, exact endpoint GPIOs, and
+  pcie1 link state at `0ms`, `1ms`, `2ms`, `5ms`, `10ms`, `20ms`, `50ms`,
+  `100ms`, and `150ms` after provider-trigger detection. V1451 should be
+  local-only artifact sanity over this exact manifest, marker contract, v724
+  header/kernel parity, private modes, and forbidden credential-like byte
+  absence before any live handoff.
 - If V1359 only finds platform bind/probe or global PCI rescan, stop for a new
   design instead of binding or rescanning blindly.
 - If both pcie1 RC and PON parity are read-only-proven healthy yet MDM2AP still

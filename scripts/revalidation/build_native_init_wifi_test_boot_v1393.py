@@ -149,6 +149,11 @@ def build_init(args: argparse.Namespace) -> None:
         if args.wifi_test_rc1_case_aligned_micro_endpoint_sampler
         else []
     )
+    provider_trigger_micro_endpoint_flags = (
+        ["-DA90_WIFI_TEST_BOOT_PROVIDER_TRIGGER_MICRO_ENDPOINT_SAMPLER=1"]
+        if args.wifi_test_provider_trigger_micro_endpoint_sampler
+        else []
+    )
     rc1_retry_flags = []
     if args.wifi_test_rc1_retry_count > 0:
         rc1_retry_flags = [
@@ -183,6 +188,7 @@ def build_init(args: argparse.Namespace) -> None:
         *rc1_immediate_endpoint_flags,
         *rc1_micro_endpoint_flags,
         *rc1_case_aligned_micro_endpoint_flags,
+        *provider_trigger_micro_endpoint_flags,
         *rc1_retry_flags,
         "-o",
         args.init_binary,
@@ -322,6 +328,9 @@ def verify_markers(args: argparse.Namespace) -> None:
         ])
     if args.wifi_test_rc1_window_sampler:
         sampler_marker = (
+            "read-only-v1450-provider-trigger-micro-endpoint"
+            if args.wifi_test_provider_trigger_micro_endpoint_sampler
+            else
             "read-only-v1445-case-aligned-micro-endpoint"
             if args.wifi_test_rc1_case_aligned_micro_endpoint_sampler
             else
@@ -389,10 +398,16 @@ def verify_markers(args: argparse.Namespace) -> None:
             "micro_interrupts",
             "micro_debug_gpio",
             "micro_pcie1_current_link_state",
-            "micro_writer rc=%d",
-            "rc1_micro_writer_summary",
         ])
-        if not args.wifi_test_rc1_case_aligned_micro_endpoint_sampler:
+        if not args.wifi_test_provider_trigger_micro_endpoint_sampler:
+            expected.extend([
+                "micro_writer rc=%d",
+                "rc1_micro_writer_summary",
+            ])
+        if (
+            not args.wifi_test_rc1_case_aligned_micro_endpoint_sampler
+            and not args.wifi_test_provider_trigger_micro_endpoint_sampler
+        ):
             expected.extend([
                 "read-only-v1441-micro-endpoint",
                 "micro_after_case_%dms",
@@ -404,6 +419,13 @@ def verify_markers(args: argparse.Namespace) -> None:
             "read-only-v1445-case-aligned-micro-endpoint",
             "case_aligned_micro_after_case_%dms",
             "post_case_aligned_micro_200ms",
+        ])
+    if args.wifi_test_provider_trigger_micro_endpoint_sampler:
+        expected.extend([
+            "provider_trigger_micro_endpoint_sampler_requested",
+            "read-only-v1450-provider-trigger-micro-endpoint",
+            "provider_micro_after_trigger_%dms",
+            "post_provider_micro_200ms",
         ])
     if args.wifi_test_rc1_retry_count > 0:
         expected.extend([
@@ -459,6 +481,7 @@ def write_manifest(args: argparse.Namespace) -> None:
             "rc1_immediate_endpoint_sampler": args.wifi_test_rc1_immediate_endpoint_sampler,
             "rc1_micro_endpoint_sampler": args.wifi_test_rc1_micro_endpoint_sampler,
             "rc1_case_aligned_micro_endpoint_sampler": args.wifi_test_rc1_case_aligned_micro_endpoint_sampler,
+            "provider_trigger_micro_endpoint_sampler": args.wifi_test_provider_trigger_micro_endpoint_sampler,
             "rc1_retry_count": args.wifi_test_rc1_retry_count,
             "rc1_retry_delay_ms": args.wifi_test_rc1_retry_delay_ms,
         },
@@ -531,6 +554,7 @@ def parse_args(argv: Sequence[str] | None = None) -> argparse.Namespace:
     parser.add_argument("--wifi-test-rc1-immediate-endpoint-sampler", action="store_true")
     parser.add_argument("--wifi-test-rc1-micro-endpoint-sampler", action="store_true")
     parser.add_argument("--wifi-test-rc1-case-aligned-micro-endpoint-sampler", action="store_true")
+    parser.add_argument("--wifi-test-provider-trigger-micro-endpoint-sampler", action="store_true")
     parser.add_argument("--wifi-test-rc1-retry-count", type=int, default=0)
     parser.add_argument("--wifi-test-rc1-retry-delay-ms", type=int, default=0)
     parser.add_argument("--init-binary", type=Path)
