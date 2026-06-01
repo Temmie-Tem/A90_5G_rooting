@@ -8933,6 +8933,24 @@ Samsung bootloader
   external ping, blind eSoC notify/`BOOT_DONE`, global PCI rescan, or platform
   bind/unbind. Report:
   `docs/reports/NATIVE_INIT_V1566_SERVICE_WINDOW_SUBSYS_TRIGGER_ARTIFACT_SANITY_2026-06-02.md`.
+- V1567 rollbackable live handoff of the V1566 service-window subsystem-trigger
+  artifact completes and rolls back cleanly. The test boot reaches
+  `A90 Linux init 0.9.69 (v1566-service-window-subsys-trigger)`, launches
+  `wifi-companion-android-wifi-service-window-subsys-trigger-capture`, and the
+  helper exits normally with `helper_exit_code=0` and `helper_timed_out=0`.
+  Strict Wi-Fi progress still blocks with final decision
+  `no-provider-no-downstream`: no RC1/MHI/WLFW/BDF/FW-ready/`wlan0` marker is
+  captured. Focused dmesg shows generic `cnss_diag`, `cnss-daemon`, and
+  `wificond` activity only. The new blocker is evidence quality: the persisted
+  PID1 log contains supervisor lifecycle lines but not the helper's detailed
+  `android_wifi_service_window.*`, `cnss_before_esoc.*`, or `subsys_trigger.*`
+  contract fields, so the run cannot classify whether `/dev/subsys_esoc0` was
+  attempted or predicate-skipped. Next gate: V1568 source/build-only should
+  repair helper contract output persistence in a private result artifact or
+  equivalent PID1-captured stdout/stderr log, then sanity-check before any live
+  rerun. Still no credentials, scan/connect, DHCP/routes, external ping, blind
+  eSoC notify/`BOOT_DONE`, global PCI rescan, or platform bind/unbind. Report:
+  `docs/reports/NATIVE_INIT_V1567_SERVICE_WINDOW_SUBSYS_TRIGGER_HANDOFF_2026-06-02.md`.
 - If V1359 only finds platform bind/probe or global PCI rescan, stop for a new
   design instead of binding or rescanning blindly.
 - If both pcie1 RC and PON parity are read-only-proven healthy yet MDM2AP still

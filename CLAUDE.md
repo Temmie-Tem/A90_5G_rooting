@@ -3108,3 +3108,33 @@ image, collect helper log/summary, focused dmesg, trigger-window fields, and
 progress and trigger-window classification. Do not use credentials,
 scan/connect, DHCP/routes, external ping, blind eSoC notify/`BOOT_DONE`, global
 PCI rescan, or platform bind/unbind.
+
+## Latest native Wi-Fi state: V1567 (2026-06-02)
+
+V1567 adds
+`scripts/revalidation/native_wifi_test_boot_handoff_v1567.py` and performs the
+rollbackable live handoff of the V1566 service-window subsystem-trigger test
+boot.  The image boots, the PID1 supervisor launches
+`wifi-companion-android-wifi-service-window-subsys-trigger-capture`, the helper
+exits normally with `helper_exit_code=0` and `helper_timed_out=0`, and rollback
+to `stage3/boot_linux_v724.img` succeeds.
+
+Strict Wi-Fi progress still blocks with
+`v1567-test-boot-no-downstream-wifi-progress-blocked` and final decision
+`no-provider-no-downstream`: no RC1/MHI/WLFW/BDF/FW-ready/`wlan0` marker appears.
+Focused dmesg shows generic `cnss_diag`, `cnss-daemon`, and `wificond` activity,
+but no downstream Wi-Fi bring-up marker.
+
+The important new finding is an evidence-path gap.  The helper source emits
+`android_wifi_service_window.*`, `cnss_before_esoc.*`, and `subsys_trigger.*`
+contract fields, but the persisted PID1 log contains only supervisor lifecycle
+lines.  Therefore V1567 cannot classify whether `/dev/subsys_esoc0` was
+attempted, skipped by the mdm-helper eSoC-fd predicate, or attempted without
+provider/RC1 progress.
+
+Next gate: V1568 should be source/build-only.  Repair the V1393/V1566 test-boot
+evidence path so the service-window helper contract output is persisted in a
+private result artifact or equivalent PID1-captured stdout/stderr log, then
+sanity-check the artifact before any live rerun.  Still do not use credentials,
+scan/connect, DHCP/routes, external ping, blind eSoC notify/`BOOT_DONE`, global
+PCI rescan, or platform bind/unbind.
