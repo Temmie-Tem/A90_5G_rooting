@@ -172,10 +172,27 @@ def classify_wifi_progress(evidence_dir: Path) -> dict[str, Any]:
     rc1_markers = matching_markers(
         dmesg,
         (
+            "TEST: 11",
             "PCIe RC1 PHY is ready",
             "LTSSM_STATE",
             "PCIe RC1 Current",
             "msm_pcie_enable: PCIe",
+        ),
+    )
+    rc1_l0_markers = matching_markers(
+        dmesg,
+        (
+            "LTSSM_STATE: LTSSM_L0",
+            "PCIe RC1 link initialized",
+            "PCIe RC1 Current GEN",
+        ),
+    )
+    rc1_failure_markers = matching_markers(
+        dmesg,
+        (
+            "PCIe RC1 link initialization failed",
+            "LTSSM_POLL_COMPLIANCE",
+            "LTSSM_STATE:0x3",
         ),
     )
     mhi_markers = matching_markers(
@@ -199,6 +216,8 @@ def classify_wifi_progress(evidence_dir: Path) -> dict[str, Any]:
         or summary_fields.get("wlan0_present") == "1"
     )
     rc1_progress = bool(rc1_markers)
+    rc1_l0 = bool(rc1_l0_markers)
+    rc1_link_failed = bool(rc1_failure_markers)
     mhi_progress = bool(mhi_markers)
     wlfw_progress = bool(wlfw_markers)
     bdf_progress = bool(bdf_markers)
@@ -216,6 +235,8 @@ def classify_wifi_progress(evidence_dir: Path) -> dict[str, Any]:
         final_decision = "wlan0-present"
     elif wlfw_progress or bdf_progress or fw_ready_progress:
         final_decision = "firmware-progress-no-wlan0"
+    elif rc1_progress and rc1_link_failed and not rc1_l0:
+        final_decision = "rc1-ltssm-link-failed-no-l0"
     elif rc1_progress or mhi_progress:
         final_decision = "rc1-or-mhi-progress-only"
     elif provider_trigger:
@@ -228,6 +249,10 @@ def classify_wifi_progress(evidence_dir: Path) -> dict[str, Any]:
         "modem_trigger": modem_trigger,
         "rc1_progress": rc1_progress,
         "rc1_markers": rc1_markers,
+        "rc1_l0": rc1_l0,
+        "rc1_l0_markers": rc1_l0_markers,
+        "rc1_link_failed": rc1_link_failed,
+        "rc1_failure_markers": rc1_failure_markers,
         "mhi_progress": mhi_progress,
         "mhi_markers": mhi_markers,
         "wlfw_progress": wlfw_progress,
@@ -244,6 +269,9 @@ def classify_wifi_progress(evidence_dir: Path) -> dict[str, Any]:
         "helper_supervised": summary_fields.get("supervised"),
         "helper_exit_code": summary_fields.get("helper_exit_code"),
         "helper_timed_out": summary_fields.get("helper_timed_out"),
+        "debugfs_mount_requested": summary_fields.get("debugfs_mount_requested"),
+        "debugfs_mounted_by_pid1": summary_fields.get("debugfs_mounted_by_pid1"),
+        "debugfs_pci_msm_case_present": summary_fields.get("debugfs_pci_msm_case_present"),
     }
 
 
@@ -446,12 +474,16 @@ def render_report(result: dict[str, Any]) -> str:
             "",
             f"- `provider_trigger`: `{progress['provider_trigger']}`",
             f"- `rc1_progress`: `{progress['rc1_progress']}`",
+            f"- `rc1_l0`: `{progress.get('rc1_l0')}`",
+            f"- `rc1_link_failed`: `{progress.get('rc1_link_failed')}`",
             f"- `mhi_progress`: `{progress['mhi_progress']}`",
             f"- `wlfw_progress`: `{progress['wlfw_progress']}`",
             f"- `bdf_progress`: `{progress['bdf_progress']}`",
             f"- `fw_ready_progress`: `{progress['fw_ready_progress']}`",
             f"- `wlan0_present`: `{progress['wlan0_present']}`",
             f"- `connect_ready`: `{progress['connect_ready']}`",
+            f"- `debugfs_pci_msm_case_present`: `{progress.get('debugfs_pci_msm_case_present')}`",
+            f"- `helper_timed_out`: `{progress.get('helper_timed_out')}`",
         ])
     lines.extend([
         "",

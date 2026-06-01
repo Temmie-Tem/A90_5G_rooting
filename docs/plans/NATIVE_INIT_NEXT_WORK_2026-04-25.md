@@ -7006,6 +7006,14 @@ Samsung bootloader
   V1406 should classify `debugfs_pci_msm_case_present`, corrected RC1 write
   execution, `TEST: 11`, RC1/LTSSM, MHI/WLFW/BDF, and `wlan0`. No scan/connect,
   credentials, DHCP/routes, or external ping until `wlan0` progress is proven.
+- V1406 proves the debugfs-prepared test boot successfully reaches the corrected
+  RC1 enumerate path from boot (`TEST: 11`) and produces RC1 PHY/LTSSM activity,
+  but still fails before L0 with `LTSSM_STATE:0x3` and no MHI/WLFW/BDF/`wlan0`.
+  Rollback to v724 and selftest fail=0 were verified. V1407 should be host-only:
+  compare V1406 with Android and V1370/V1371/V1372/V1391 to classify the
+  endpoint-readiness delta at PERST/LTSSM, then select the narrowest next
+  below-connect action. Keep scan/connect, credentials, DHCP/routes, and
+  external ping blocked.
 - If V1359 only finds platform bind/probe or global PCI rescan, stop for a new
   design instead of binding or rescanning blindly.
 - If both pcie1 RC and PON parity are read-only-proven healthy yet MDM2AP still

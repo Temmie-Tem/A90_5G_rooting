@@ -9,7 +9,7 @@ Samsung Galaxy A90 5G (SM-A908N) — stock Android Linux kernel 4.14.190, custom
 - **Device**: SM-A908N, Android 12, Magisk 30.7, TWRP available
 - **Current native build**: `A90 Linux init 0.9.68 (v724)` — `stage3/boot_linux_v724.img`
 - **Known-good fallback**: `stage3/boot_linux_v48.img`
-- **Active research cycle**: V1405 local artifact sanity PASS (`v1405-wifi-test-boot-debugfs-artifact-sanity-pass`). V1405 independently verified the exact V1404 debugfs-prepared test boot image at `tmp/wifi/v1404-wifi-test-boot-debugfs/boot_linux_v1404_wifi_test.img` (`A90 Linux init 0.9.72 (v1404-wifitest)`, SHA256 `3b61ffd507479941729cf20a86c662d6dd75ee4d60148cde442b244d79c2c2c9`). Checks passed for static init/helper, ramdisk entries, boot markers, v724 header/kernel parity, `mount_debugfs=true` contract, private artifact modes, and forbidden credential-like byte absence. Next is V1406 rollbackable live handoff: flash only the V1404 image, collect V1404 log/summary/dmesg with strict progress classification, then roll back to `stage3/boot_linux_v724.img`. Preserve hard exclusions: no credential use, Wi-Fi scan/connect/DHCP/external ping, PMIC/GPIO/GDSC direct write, blind eSoC notify/BOOT_DONE spoof, flash outside an explicit test-boot/rollback gate, boot image write outside an explicit test-boot/rollback gate, or partition write.
+- **Active research cycle**: V1406 rollbackable live handoff PASS for procedure, BLOCKED for Wi-Fi connect readiness (`v1406-test-boot-rc1-ltssm-link-failed-no-l0-rollback-pass`). The V1404 debugfs-prepared test boot flashed and booted, PID1 mounted debugfs (`debugfs_pci_msm_case_present=1`), and the helper triggered corrected RC1 enumerate (`TEST: 11`). RC1 reached PHY-ready and LTSSM `DETECT_QUIET`/`POLL_ACTIVE`/`POLL_COMPLIANCE`, then failed before L0 (`LTSSM_STATE:0x3`). No MHI/WLFW/BDF/FW-ready/`wlan0`; `connect_ready=false`. Rollback verified v724 and selftest fail=0. Next is V1407 host-only comparison against Android and prior V1370/V1371/V1372/V1391 RC1 evidence to choose the endpoint-readiness action. Preserve hard exclusions: no credential use, Wi-Fi scan/connect/DHCP/external ping, PMIC/GPIO/GDSC direct write, blind eSoC notify/BOOT_DONE spoof, flash outside an explicit test-boot/rollback gate, boot image write outside an explicit test-boot/rollback gate, or partition write.
 - **Versioning policy**: `docs/operations/VERSIONING_POLICY.md` — `vNNN` cycle ≠ device flash
 
 ## Versioning rules
@@ -1674,3 +1674,16 @@ Update after V1354/V1355:
   DHCP/routes, external ping, PMIC/GPIO/GDSC direct write, or eSoC
   notify/`BOOT_DONE` spoof occurred. V1406 may run the rollbackable handoff of
   only `tmp/wifi/v1404-wifi-test-boot-debugfs/boot_linux_v1404_wifi_test.img`.
+- V1406 rollbackable live handoff (`v1406-test-boot-rc1-ltssm-link-failed-no-l0-rollback-pass`)
+  flashed only the V1404 debugfs-prepared test boot, held `65s`, collected
+  V1404 log/summary/dmesg/`wlan0`, and rolled back to healthy v724. The V1404
+  hook fixed the prior missing-debugfs issue: summary recorded
+  `debugfs_mount_requested=1`, `debugfs_mounted_by_pid1=1`, and
+  `debugfs_pci_msm_case_present=1`. Dmesg then showed `PCIe: TEST: 11`,
+  RC1 PHY-ready, and LTSSM `DETECT_QUIET`/`POLL_ACTIVE`/`POLL_COMPLIANCE`, but
+  ended in `PCIe RC1 link initialization failed (LTSSM_STATE:0x3)`. No
+  MHI/WLFW/BDF/FW-ready/`wlan0` appeared and `connect_ready=false`. Report:
+  `docs/reports/NATIVE_INIT_V1406_WIFI_TEST_BOOT_DEBUGFS_HANDOFF_2026-06-01.md`.
+  The device was verified back on `A90 Linux init 0.9.68 (v724)` with selftest
+  fail=0. Next V1407 should be host-only endpoint-readiness classification; do
+  not scan/connect or use credentials.
