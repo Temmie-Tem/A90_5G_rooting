@@ -85,6 +85,12 @@ static void selftest_boot_draw_frame(void *ctx) {
 #ifndef A90_WIFI_TEST_BOOT_RC1_WINDOW_RESULT
 #define A90_WIFI_TEST_BOOT_RC1_WINDOW_RESULT "/cache/native-init-wifi-test-boot-v1393-rc1-window.result"
 #endif
+#ifndef A90_WIFI_TEST_BOOT_RC1_RETRY_COUNT
+#define A90_WIFI_TEST_BOOT_RC1_RETRY_COUNT 0
+#endif
+#ifndef A90_WIFI_TEST_BOOT_RC1_RETRY_DELAY_MS
+#define A90_WIFI_TEST_BOOT_RC1_RETRY_DELAY_MS 0
+#endif
 #define A90_V1393_WIFI_TEST_DISABLE A90_WIFI_TEST_BOOT_DISABLE
 #define A90_V1393_WIFI_TEST_LOG A90_WIFI_TEST_BOOT_LOG
 #define A90_V1393_WIFI_TEST_SUMMARY A90_WIFI_TEST_BOOT_SUMMARY
@@ -745,7 +751,7 @@ static void v1393_pid1_rc1_watcher_child(void) {
     int fd;
     int dev_kmsg_errno = 0;
     const char *source = "/dev/kmsg";
-    char result[512];
+    char result[1024];
 
     fd = open("/dev/kmsg", O_RDONLY | O_NONBLOCK | O_CLOEXEC);
     if (fd < 0) {
@@ -802,6 +808,7 @@ static void v1393_pid1_rc1_watcher_child(void) {
                 int write_rc;
                 long write_ms;
                 int saved_errno;
+                char retry_result[320] = "";
 
 #if A90_WIFI_TEST_BOOT_RC1_WINDOW_SAMPLER
                 v1393_rc1_window_prepare(start_ms, detect_ms, line);
@@ -817,15 +824,62 @@ static void v1393_pid1_rc1_watcher_child(void) {
                 saved_errno = write_rc < 0 ? -write_rc : 0;
                 write_ms = monotonic_millis();
 
+#if A90_WIFI_TEST_BOOT_RC1_RETRY_COUNT > 0
+                {
+                    size_t retry_len = 0;
+                    int retry_index;
+
+                    for (retry_index = 1;
+                         retry_index <= A90_WIFI_TEST_BOOT_RC1_RETRY_COUNT;
+                         retry_index++) {
+                        int retry_rc;
+                        int retry_errno;
+                        long retry_ms;
+
+                        if (A90_WIFI_TEST_BOOT_RC1_RETRY_DELAY_MS > 0) {
+                            usleep((useconds_t)A90_WIFI_TEST_BOOT_RC1_RETRY_DELAY_MS * 1000U);
+                        }
+                        retry_rc = v1393_pid1_rc1_write_corrected_enumerate();
+                        retry_errno = retry_rc < 0 ? -retry_rc : 0;
+                        retry_ms = monotonic_millis();
+                        if (retry_len < sizeof(retry_result)) {
+                            int written = snprintf(retry_result + retry_len,
+                                                   sizeof(retry_result) - retry_len,
+                                                   " retry%d_rc=%d retry%d_errno=%d retry%d_elapsed_ms=%ld",
+                                                   retry_index,
+                                                   retry_rc,
+                                                   retry_index,
+                                                   retry_errno,
+                                                   retry_index,
+                                                   retry_ms >= start_ms ? retry_ms - start_ms : -1);
+                            if (written > 0) {
+                                retry_len += (size_t)written;
+                                if (retry_len >= sizeof(retry_result)) {
+                                    retry_len = sizeof(retry_result) - 1;
+                                }
+                            }
+                        }
+                        (void)v1393_append_wifi_test_log("pid1 rc1 watcher retry index=%d rc=%d elapsed_ms=%ld retry_delay_ms=%d\n",
+                                                        retry_index,
+                                                        retry_rc,
+                                                        retry_ms >= start_ms ? retry_ms - start_ms : -1,
+                                                        A90_WIFI_TEST_BOOT_RC1_RETRY_DELAY_MS);
+                    }
+                }
+#endif
+
                 snprintf(result,
                          sizeof(result),
-                         "state=triggered source=%s write_rc=%d errno=%d detect_elapsed_ms=%ld write_elapsed_ms=%ld delay_ms=%d line=%.*s\n",
+                         "state=triggered source=%s write_rc=%d errno=%d detect_elapsed_ms=%ld write_elapsed_ms=%ld delay_ms=%d retry_count=%d retry_delay_ms=%d%s line=%.*s\n",
                          source,
                          write_rc,
                          saved_errno,
                          detect_ms >= start_ms ? detect_ms - start_ms : -1,
                          write_ms >= start_ms ? write_ms - start_ms : -1,
                          A90_WIFI_TEST_BOOT_RC1_WATCHER_DELAY_MS,
+                         A90_WIFI_TEST_BOOT_RC1_RETRY_COUNT,
+                         A90_WIFI_TEST_BOOT_RC1_RETRY_DELAY_MS,
+                         retry_result,
                          120,
                          line);
                 (void)v724_write_private_file(A90_V1393_WIFI_TEST_RC1_WATCHER_RESULT, result);
@@ -955,6 +1009,8 @@ static void v1393_write_wifi_test_summary(pid_t helper_pid, long spawn_ms) {
     }
 #endif
     dprintf(fd, "rc1_window_sampler_requested=%d\n", A90_WIFI_TEST_BOOT_RC1_WINDOW_SAMPLER);
+    dprintf(fd, "rc1_retry_count=%d\n", A90_WIFI_TEST_BOOT_RC1_RETRY_COUNT);
+    dprintf(fd, "rc1_retry_delay_ms=%d\n", A90_WIFI_TEST_BOOT_RC1_RETRY_DELAY_MS);
 #if A90_WIFI_TEST_BOOT_RC1_WINDOW_SAMPLER
     {
         char window_result[384] = "missing";

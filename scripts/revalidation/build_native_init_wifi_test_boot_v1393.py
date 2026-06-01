@@ -124,6 +124,12 @@ def build_init(args: argparse.Namespace) -> None:
         if args.wifi_test_rc1_window_sampler
         else []
     )
+    rc1_retry_flags = []
+    if args.wifi_test_rc1_retry_count > 0:
+        rc1_retry_flags = [
+            f"-DA90_WIFI_TEST_BOOT_RC1_RETRY_COUNT={args.wifi_test_rc1_retry_count}",
+            f"-DA90_WIFI_TEST_BOOT_RC1_RETRY_DELAY_MS={args.wifi_test_rc1_retry_delay_ms}",
+        ]
     command = [
         args.cross_gcc,
         "-static",
@@ -147,6 +153,7 @@ def build_init(args: argparse.Namespace) -> None:
         *debugfs_flags,
         *rc1_watcher_flags,
         *rc1_window_flags,
+        *rc1_retry_flags,
         "-o",
         args.init_binary,
         *pid1_sources(),
@@ -293,6 +300,13 @@ def verify_markers(args: argparse.Namespace) -> None:
             "/sys/kernel/debug/gpio",
             "/sys/kernel/debug/pinctrl/3000000.pinctrl/pinmux-pins",
         ])
+    if args.wifi_test_rc1_retry_count > 0:
+        expected.extend([
+            "retry_count=%d",
+            "retry_delay_ms=%d",
+            "rc1_retry_count",
+            "pid1 rc1 watcher retry index=%d",
+        ])
     missing = [marker for marker in expected if marker not in strings]
     if missing:
         raise RuntimeError("missing boot image markers: " + ", ".join(missing))
@@ -335,6 +349,8 @@ def write_manifest(args: argparse.Namespace) -> None:
             "rc1_watcher_result": args.wifi_test_rc1_watcher_result,
             "rc1_window_sampler": args.wifi_test_rc1_window_sampler,
             "rc1_window_result": args.wifi_test_rc1_window_result,
+            "rc1_retry_count": args.wifi_test_rc1_retry_count,
+            "rc1_retry_delay_ms": args.wifi_test_rc1_retry_delay_ms,
         },
         "init_binary": str(args.init_binary.relative_to(REPO_ROOT)),
         "init_sha256": sha256(args.init_binary),
@@ -400,6 +416,8 @@ def parse_args(argv: Sequence[str] | None = None) -> argparse.Namespace:
         "--wifi-test-rc1-window-result",
         default="/cache/native-init-wifi-test-boot-v1393-rc1-window.result",
     )
+    parser.add_argument("--wifi-test-rc1-retry-count", type=int, default=0)
+    parser.add_argument("--wifi-test-rc1-retry-delay-ms", type=int, default=0)
     parser.add_argument("--init-binary", type=Path)
     parser.add_argument("--helper-binary", type=Path)
     parser.add_argument("--ramdisk-dir", type=Path)

@@ -7177,6 +7177,14 @@ Samsung bootloader
   response, not credential/scan/connect work: either build a higher-resolution
   read-only sampler or design a narrowly justified rollbackable RC1 retry/timing
   experiment.
+- V1425 source/build-only passes with
+  `v1425-wifi-test-boot-rc1-retry-source-build-pass`. The generated artifact is
+  `tmp/wifi/v1425-wifi-test-boot-rc1-retry/boot_linux_v1425_wifi_test.img` with
+  native init `0.9.77 (v1425-wifitest)`. It preserves the 250ms delayed
+  corrected-RC1 path and adds two bounded corrected-RC1 retries spaced by
+  `500ms` after the first write. V1426 should perform local artifact sanity over
+  this exact manifest and marker contract. V1427 may live-test only after V1426
+  passes, and must roll back to v724/selftest afterward.
 - If V1359 only finds platform bind/probe or global PCI rescan, stop for a new
   design instead of binding or rescanning blindly.
 - If both pcie1 RC and PON parity are read-only-proven healthy yet MDM2AP still
