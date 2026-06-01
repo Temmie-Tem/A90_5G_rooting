@@ -85,6 +85,9 @@ static void selftest_boot_draw_frame(void *ctx) {
 #ifndef A90_WIFI_TEST_BOOT_RC1_WINDOW_RESULT
 #define A90_WIFI_TEST_BOOT_RC1_WINDOW_RESULT "/cache/native-init-wifi-test-boot-v1393-rc1-window.result"
 #endif
+#ifndef A90_WIFI_TEST_BOOT_RC1_ENDPOINT_SAMPLER
+#define A90_WIFI_TEST_BOOT_RC1_ENDPOINT_SAMPLER 0
+#endif
 #ifndef A90_WIFI_TEST_BOOT_RC1_RETRY_COUNT
 #define A90_WIFI_TEST_BOOT_RC1_RETRY_COUNT 0
 #endif
@@ -98,6 +101,11 @@ static void selftest_boot_draw_frame(void *ctx) {
 #define A90_V1393_WIFI_TEST_WATCHER_PID A90_WIFI_TEST_BOOT_WATCHER_PID
 #define A90_V1393_WIFI_TEST_RC1_WATCHER_RESULT A90_WIFI_TEST_BOOT_RC1_WATCHER_RESULT
 #define A90_V1393_WIFI_TEST_RC1_WINDOW_RESULT A90_WIFI_TEST_BOOT_RC1_WINDOW_RESULT
+#if A90_WIFI_TEST_BOOT_RC1_ENDPOINT_SAMPLER
+#define A90_V1393_WIFI_TEST_RC1_WINDOW_SAMPLER_NAME "read-only-v1429-endpoint-prereq"
+#else
+#define A90_V1393_WIFI_TEST_RC1_WINDOW_SAMPLER_NAME "read-only-v1420"
+#endif
 #define A90_V1393_WIFI_TEST_HELPER "/bin/a90_android_execns_probe"
 #define A90_V1393_WIFI_TEST_TIMEOUT_SEC "30"
 #define A90_V1393_WIFI_TEST_MODE "wifi-companion-post-pm-mdm-helper-esoc-observer"
@@ -627,6 +635,34 @@ static void v1393_rc1_window_append_matching_lines(int out_fd,
     close(in_fd);
 }
 
+#if A90_WIFI_TEST_BOOT_RC1_ENDPOINT_SAMPLER
+static void v1393_rc1_window_append_trimmed_file(int out_fd,
+                                                 const char *sample,
+                                                 const char *source_name,
+                                                 const char *path) {
+    char value[256];
+    int rc;
+
+    rc = read_trimmed_text_file(path, value, sizeof(value));
+    if (rc < 0) {
+        dprintf(out_fd,
+                "sample=%s source=%s path=%s unreadable_rc=%d\n",
+                sample,
+                source_name,
+                path,
+                rc);
+        return;
+    }
+    flatten_inline_text(value);
+    dprintf(out_fd,
+            "sample=%s source=%s path=%s value=%s\n",
+            sample,
+            source_name,
+            path,
+            value);
+}
+#endif
+
 static void v1393_rc1_window_sample(const char *sample, long start_ms, long detect_ms, long child_start_ms) {
     static const char *const interrupts_needles[] = {
         "mdm status",
@@ -640,23 +676,48 @@ static void v1393_rc1_window_sample(const char *sample, long start_ms, long dete
     };
     static const char *const gpio_needles[] = {
         "gpio102",
+        "gpio103",
         "gpio104",
         "gpio135",
         "gpio142",
         "gpio-102",
+        "gpio-103",
         "gpio-104",
         "gpio-135",
         "gpio-142",
         "GPIO_102",
+        "GPIO_103",
         "GPIO_104",
         "GPIO_135",
         "GPIO_142",
         " 102",
+        " 103",
         " 104",
         " 135",
         " 142",
         NULL,
     };
+#if A90_WIFI_TEST_BOOT_RC1_ENDPOINT_SAMPLER
+    static const char *const regulator_needles[] = {
+        "pcie_1_gdsc",
+        "pcie_0_gdsc",
+        "pm8150l_l3",
+        "pm8150_l5",
+        "VDD_CX_LEVEL",
+        NULL,
+    };
+    static const char *const clk_needles[] = {
+        "GCC_PCIE_1",
+        "GCC_PCIE1",
+        "pcie_1_",
+        "pcie1",
+        "pcie_phy",
+        "pcie_pipe",
+        "ref_clk",
+        "refgen",
+        NULL,
+    };
+#endif
     int out_fd;
     long now_ms = monotonic_millis();
 
@@ -672,6 +733,9 @@ static void v1393_rc1_window_sample(const char *sample, long start_ms, long dete
             now_ms >= start_ms ? now_ms - start_ms : -1,
             detect_ms >= start_ms ? detect_ms - start_ms : -1,
             now_ms >= child_start_ms ? now_ms - child_start_ms : -1);
+#if A90_WIFI_TEST_BOOT_RC1_ENDPOINT_SAMPLER
+    dprintf(out_fd, "sample=%s endpoint_sampler=1\n", sample);
+#endif
     v1393_rc1_window_append_matching_lines(out_fd,
                                            sample,
                                            "interrupts",
@@ -697,6 +761,47 @@ static void v1393_rc1_window_sample(const char *sample, long start_ms, long dete
                                            "pinctrl_pinconf",
                                            "/sys/kernel/debug/pinctrl/3000000.pinctrl/pinconf-pins",
                                            gpio_needles);
+#if A90_WIFI_TEST_BOOT_RC1_ENDPOINT_SAMPLER
+    v1393_rc1_window_append_matching_lines(out_fd,
+                                           sample,
+                                           "regulator_summary",
+                                           "/sys/kernel/debug/regulator/regulator_summary",
+                                           regulator_needles);
+    v1393_rc1_window_append_matching_lines(out_fd,
+                                           sample,
+                                           "regulator_summary_alt",
+                                           "/sys/kernel/debug/regulator_summary",
+                                           regulator_needles);
+    v1393_rc1_window_append_matching_lines(out_fd,
+                                           sample,
+                                           "clk_summary",
+                                           "/sys/kernel/debug/clk/clk_summary",
+                                           clk_needles);
+    v1393_rc1_window_append_trimmed_file(out_fd,
+                                         sample,
+                                         "pcie1_current_link_state",
+                                         "/sys/devices/platform/soc/1c08000.qcom,pcie/current_link_state");
+    v1393_rc1_window_append_trimmed_file(out_fd,
+                                         sample,
+                                         "pcie1_link_state",
+                                         "/sys/devices/platform/soc/1c08000.qcom,pcie/link_state");
+    v1393_rc1_window_append_trimmed_file(out_fd,
+                                         sample,
+                                         "pcie1_runtime_status",
+                                         "/sys/devices/platform/soc/1c08000.qcom,pcie/power/runtime_status");
+    v1393_rc1_window_append_trimmed_file(out_fd,
+                                         sample,
+                                         "pcie1_power_control",
+                                         "/sys/devices/platform/soc/1c08000.qcom,pcie/power/control");
+    v1393_rc1_window_append_trimmed_file(out_fd,
+                                         sample,
+                                         "pcie1_bus_current_link_state",
+                                         "/sys/bus/platform/devices/1c08000.qcom,pcie/current_link_state");
+    v1393_rc1_window_append_trimmed_file(out_fd,
+                                         sample,
+                                         "pcie1_bus_link_state",
+                                         "/sys/bus/platform/devices/1c08000.qcom,pcie/link_state");
+#endif
     close(out_fd);
 }
 
@@ -705,7 +810,8 @@ static void v1393_rc1_window_prepare(long start_ms, long detect_ms, const char *
 
     snprintf(header,
              sizeof(header),
-             "state=armed sampler=read-only-v1420 detect_elapsed_ms=%ld delay_ms=%d line=%.*s\n",
+             "state=armed sampler=%s detect_elapsed_ms=%ld delay_ms=%d line=%.*s\n",
+             A90_V1393_WIFI_TEST_RC1_WINDOW_SAMPLER_NAME,
              detect_ms >= start_ms ? detect_ms - start_ms : -1,
              A90_WIFI_TEST_BOOT_RC1_WATCHER_DELAY_MS,
              160,

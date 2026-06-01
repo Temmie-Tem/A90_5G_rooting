@@ -7211,6 +7211,17 @@ Samsung bootloader
   below Wi-Fi HAL, scan/connect, credentials, DHCP/routes, external ping,
   PMIC/GPIO/GDSC direct writes, eSoC notify/`BOOT_DONE`, global PCI rescan,
   platform bind/unbind, flash, boot image write, and partition write.
+- V1429 source/build-only passes with
+  `v1429-wifi-test-boot-endpoint-prereq-source-build-pass`. It generated
+  `tmp/wifi/v1429-wifi-test-boot-endpoint-prereq-sampler/boot_linux_v1429_wifi_test.img`
+  with native init `0.9.78 (v1429-wifitest)`. The test boot keeps the 250ms
+  corrected-RC1 watcher, removes retry widening (`rc1_retry_count=0`), and adds
+  read-only endpoint-prerequisite sampling for GPIO102/PERST, GPIO103/CLKREQ,
+  GPIO104/WAKE, `pcie_1_gdsc`, pcie1 refclk/pipe clocks, GPIO142/MDM2AP IRQ,
+  pcie1 link state files, and LTSSM terminal state. V1430 should perform
+  local-only artifact sanity over this exact manifest and marker contract before
+  any live handoff. Keep connect-side work blocked until at least
+  L0/MHI/WLFW/`wlan0` progress appears.
 - If V1359 only finds platform bind/probe or global PCI rescan, stop for a new
   design instead of binding or rescanning blindly.
 - If both pcie1 RC and PON parity are read-only-proven healthy yet MDM2AP still

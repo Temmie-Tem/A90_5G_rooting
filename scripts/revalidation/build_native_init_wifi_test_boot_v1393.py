@@ -124,6 +124,11 @@ def build_init(args: argparse.Namespace) -> None:
         if args.wifi_test_rc1_window_sampler
         else []
     )
+    rc1_endpoint_flags = (
+        ["-DA90_WIFI_TEST_BOOT_RC1_ENDPOINT_SAMPLER=1"]
+        if args.wifi_test_rc1_endpoint_sampler
+        else []
+    )
     rc1_retry_flags = []
     if args.wifi_test_rc1_retry_count > 0:
         rc1_retry_flags = [
@@ -153,6 +158,7 @@ def build_init(args: argparse.Namespace) -> None:
         *debugfs_flags,
         *rc1_watcher_flags,
         *rc1_window_flags,
+        *rc1_endpoint_flags,
         *rc1_retry_flags,
         "-o",
         args.init_binary,
@@ -291,14 +297,28 @@ def verify_markers(args: argparse.Namespace) -> None:
             "/sys/kernel/debug/pci-msm/rc_sel",
         ])
     if args.wifi_test_rc1_window_sampler:
+        sampler_marker = (
+            "read-only-v1429-endpoint-prereq"
+            if args.wifi_test_rc1_endpoint_sampler
+            else "read-only-v1420"
+        )
         expected.extend([
             "rc1_window_sampler_requested",
             "rc1_window_sample label=%s",
-            "read-only-v1420",
+            sampler_marker,
             args.wifi_test_rc1_window_result,
             "/proc/interrupts",
             "/sys/kernel/debug/gpio",
             "/sys/kernel/debug/pinctrl/3000000.pinctrl/pinmux-pins",
+        ])
+    if args.wifi_test_rc1_endpoint_sampler:
+        expected.extend([
+            "endpoint_sampler=1",
+            "pcie_1_gdsc",
+            "gpio103",
+            "/sys/kernel/debug/regulator/regulator_summary",
+            "/sys/kernel/debug/clk/clk_summary",
+            "current_link_state",
         ])
     if args.wifi_test_rc1_retry_count > 0:
         expected.extend([
@@ -349,6 +369,7 @@ def write_manifest(args: argparse.Namespace) -> None:
             "rc1_watcher_result": args.wifi_test_rc1_watcher_result,
             "rc1_window_sampler": args.wifi_test_rc1_window_sampler,
             "rc1_window_result": args.wifi_test_rc1_window_result,
+            "rc1_endpoint_sampler": args.wifi_test_rc1_endpoint_sampler,
             "rc1_retry_count": args.wifi_test_rc1_retry_count,
             "rc1_retry_delay_ms": args.wifi_test_rc1_retry_delay_ms,
         },
@@ -416,6 +437,7 @@ def parse_args(argv: Sequence[str] | None = None) -> argparse.Namespace:
         "--wifi-test-rc1-window-result",
         default="/cache/native-init-wifi-test-boot-v1393-rc1-window.result",
     )
+    parser.add_argument("--wifi-test-rc1-endpoint-sampler", action="store_true")
     parser.add_argument("--wifi-test-rc1-retry-count", type=int, default=0)
     parser.add_argument("--wifi-test-rc1-retry-delay-ms", type=int, default=0)
     parser.add_argument("--init-binary", type=Path)
