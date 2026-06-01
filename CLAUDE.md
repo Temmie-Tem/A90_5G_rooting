@@ -2002,3 +2002,15 @@ Update after V1354/V1355:
   `290b59d23fd29ca862a716992f34e3c753fdceb36fa69781531178003dc209ce`. Next
   gate: V1489 local artifact sanity over the exact V1488 manifest. Report:
   `docs/reports/NATIVE_INIT_V1488_WIFI_AUTO_READINESS_TIMEOUT_SAFE_SOURCE_BUILD_2026-06-01.md`.
+- V1489 local-only artifact sanity
+  (`v1489-wifi-auto-readiness-timeout-safe-artifact-sanity-pass`) verifies the
+  exact V1488 manifest, static init/helper binaries, ramdisk entries, timeout-
+  safe `auto_readiness_pid1.*` markers, AP2MDM hold marker absence, v724
+  header/kernel parity, forbidden credential-like byte absence, and private
+  artifact modes. Verified boot image:
+  `tmp/wifi/v1488-wifi-auto-readiness-timeout-safe-test-boot/boot_linux_v1488_wifi_test.img`
+  (`sha256=3d18c340e69f5f448be27fca370479e06b19bccb3a903a797ca3f5b0181eac32`).
+  Next gate: V1490 rollbackable live handoff for only the V1488 image, collect
+  V1488 log/summary/focused dmesg/`wlan0`, then roll back to v724 and verify
+  selftest `fail=0`. Report:
+  `docs/reports/NATIVE_INIT_V1489_WIFI_AUTO_READINESS_TIMEOUT_SAFE_ARTIFACT_SANITY_2026-06-01.md`.
