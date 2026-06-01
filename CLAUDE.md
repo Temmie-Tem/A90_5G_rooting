@@ -9,7 +9,7 @@ Samsung Galaxy A90 5G (SM-A908N) — stock Android Linux kernel 4.14.190, custom
 - **Device**: SM-A908N, Android 12, Magisk 30.7, TWRP available
 - **Current native build**: `A90 Linux init 0.9.68 (v724)` — `stage3/boot_linux_v724.img`
 - **Known-good fallback**: `stage3/boot_linux_v48.img`
-- **Active research cycle**: V1385 source/build-only PASS produced helper `a90_android_execns_probe v285` (SHA256 `09827b6f0301f077cd0beb4ed2ae9d48a63662d0ca34eff38245704f2f724cf4`) with `--pm-observer-late-per-proxy-prepoll-corrected-rc1-enumerate`. It checks the fd/powerup-thread gate every 1ms immediately after late `per_proxy` spawn, before the main 50ms sampler loop. Next is V1386 deploy/preflight, then V1387 bounded pre-poll corrected RC1 live gate. Preserve hard exclusions: no PMIC/GPIO/GDSC direct write, blind eSoC notify/BOOT_DONE spoof, Wi-Fi HAL, scan/connect, credentials, DHCP/routes, external ping, flash outside approved Android handoff/rollback, boot image write outside approved rollback, or partition write.
+- **Active research cycle**: V1386 deploy-only PASS installed helper `a90_android_execns_probe v285` (SHA256 `09827b6f0301f077cd0beb4ed2ae9d48a63662d0ca34eff38245704f2f724cf4`) to `/cache/bin/a90_android_execns_probe`. Next is V1387 bounded pre-poll corrected RC1 live gate using `--pm-observer-late-per-proxy-prepoll-corrected-rc1-enumerate`. Preserve hard exclusions: no PMIC/GPIO/GDSC direct write, blind eSoC notify/BOOT_DONE spoof, Wi-Fi HAL, scan/connect, credentials, DHCP/routes, external ping, flash outside approved Android handoff/rollback, boot image write outside approved rollback, or partition write.
 - **Versioning policy**: `docs/operations/VERSIONING_POLICY.md` — `vNNN` cycle ≠ device flash
 
 ## Versioning rules
@@ -1436,3 +1436,13 @@ Update after V1354/V1355:
   every `1000us` for up to `500` iterations before the main sampler loop, then
   uses the existing corrected RC1 writer. No device command was run in V1385.
   Next is V1386 deploy/preflight, then V1387 bounded live timing test.
+- V1386 deploy-only preflight (`execns-helper-v285-deploy-pass`) installed
+  helper v285 to `/cache/bin/a90_android_execns_probe`. NCM was not reachable,
+  so `auto` transfer used serial fallback with chunk size `1800`; transfer
+  wrote `1061` chunks with max cmdv1 line size `3788` under the safe limit
+  `3968`. Post-deploy SHA matched, helper usage printed the v285 marker and
+  pre-poll corrected RC1 flag, V373 post-deploy preflight returned
+  `service-manager-start-only-smoke-approval-required`, and post selftest stayed
+  clean. No daemon start, Wi-Fi HAL, scan/connect, credentials, DHCP/routes,
+  external ping, flash, boot image write, or partition write occurred. Next is
+  V1387 bounded pre-poll corrected RC1 live gate.

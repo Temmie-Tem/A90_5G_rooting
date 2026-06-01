@@ -6446,6 +6446,15 @@ Samsung bootloader
       write, no PMIC/GPIO/GDSC direct write, no eSoC notify/`BOOT_DONE`, no
       Wi-Fi HAL, scan/connect, credentials, DHCP/routes, external ping, flash,
       boot image write, or partition write.
+    - Result:
+      `docs/reports/NATIVE_INIT_V1386_EXECNS_HELPER_V285_DEPLOY_2026-06-01.md`.
+      Decision: `execns-helper-v285-deploy-pass`. Helper v285 was installed to
+      `/cache/bin/a90_android_execns_probe`; NCM was not reachable so `auto`
+      selected serial fallback (`1061` chunks, chunk size `1800`, max cmdv1
+      line `3788` under safe limit `3968`). Post-deploy SHA matched, usage
+      printed the v285 marker and pre-poll flag, V373 preflight remained
+      approval-required, and post selftest stayed clean. No daemon start or
+      Wi-Fi bring-up occurred.
 35. **V1387 bounded pre-poll corrected RC1 live gate.**
     - Goal: rerun the Android participant path with helper v285 and
       `--pm-observer-late-per-proxy-prepoll-corrected-rc1-enumerate`, then
@@ -6546,9 +6555,8 @@ Samsung bootloader
   participant window, but it still does not reach MDM2AP/GPIO142, PCI/MHI,
   WLFW, or `wlan0`. V1380 must be host-only classification; do not run another
   live mutation until that classifier chooses a narrower next action.
-- V1385 proves helper v285 can test a pre-poll corrected RC1 trigger before
-  the main sampler loop. V1386 must deploy/preflight v285 first; V1387 is the
-  first bounded live gate allowed to exercise the pre-poll path.
+- V1386 proves helper v285 is deployed and healthy. V1387 is the first
+  bounded live gate allowed to exercise the pre-poll path.
 - If V1359 only finds platform bind/probe or global PCI rescan, stop for a new
   design instead of binding or rescanning blindly.
 - If both pcie1 RC and PON parity are read-only-proven healthy yet MDM2AP still
