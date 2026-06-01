@@ -2913,3 +2913,22 @@ downstream. V1559 should compare the Android-good pre-endpoint/pre-IRQ sequence
 against the native provider-driven path: provider/esoc0 timing, GPIO135/AP2MDM,
 GPIO102/PERST, pcie1 refclk/pipe/GDSC, GPIO104/WAKE + IRQ252, GPIO142/MDM2AP +
 IRQ290, and only then first L0/PCI/MHI ordering if the evidence can prove it.
+
+## Latest native Wi-Fi state: V1559 (2026-06-02)
+
+V1559 adds
+`scripts/revalidation/native_wifi_android_pre_endpoint_order_classifier_v1559.py`
+and passes host-only with
+`v1559-ap2mdm-before-bdf-gap-endpoint-order-caveat`. It extracts earliest
+comparable timings from existing V1552, V1555, and V1557 evidence.
+
+The earliest currently ordered Android-good discriminator is
+GPIO135/AP2MDM: it appears after `esoc0` get and before BDF download. Native
+still proves AP-side pcie1 GDSC/refclk/pipe/PERST activity, but produces no
+GPIO135/AP2MDM, GPIO104/WAKE, GPIO142/MDM2AP, IRQ252, IRQ290, L0, MHI, WLFW,
+BDF, FW-ready, or `wlan0`. V1559 also clarifies that retained V1555 IRQ252,
+IRQ290, and L0 excerpts are late relative to the first retained `wlan0` lines;
+they prove Android can produce endpoint-positive signals, but they must not be
+used as first-L0 ordering proof. Next gate: V1560 should focus on the AP2MDM
+assertion/effective-level gap before BDF and explain why native provider/RC1
+does not assert GPIO135/AP2MDM despite AP-side pcie1 readiness.
