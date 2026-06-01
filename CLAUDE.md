@@ -9,7 +9,7 @@ Samsung Galaxy A90 5G (SM-A908N) — stock Android Linux kernel 4.14.190, custom
 - **Device**: SM-A908N, Android 12, Magisk 30.7, TWRP available
 - **Current native build**: `A90 Linux init 0.9.68 (v724)` — `stage3/boot_linux_v724.img`
 - **Known-good fallback**: `stage3/boot_linux_v48.img`
-- **Active research cycle**: V1466 provider AP2MDM branch classifier PASS (`v1466-ap2mdm-branch-divergence-needs-pil-parity-test-boot`). V1466 reconciles V1464/V1465 with V1318 and static provider research: the V1462 test boot proves PON/errfatal-side provider activity but no GPIO135/AP2MDM event, while V1318 proves an earlier native PM path emitted `fw=esoc0` PIL notifications and then GPIO135/AP2MDM high. The current PID1 tracepoint sampler only arms GPIO events, so the next safe gate is V1467 source/build-only: add `msm_pil_event:pil_notif` parity to the exact-provider GPIO tracepoint test boot before any new live mutation. Preserve hard exclusions: no credential use, Wi-Fi scan/connect/DHCP/external ping, Wi-Fi HAL start, PMIC/GPIO/GDSC direct write, blind eSoC notify/`BOOT_DONE` spoof, global PCI rescan, platform bind/unbind, flash outside an explicit test-boot/rollback gate, boot image write outside an explicit test-boot/rollback gate, or partition write.
+- **Active research cycle**: V1467 exact-provider PIL+GPIO tracepoint test boot source/build PASS (`v1467-wifi-test-boot-exact-provider-pil-gpio-tracepoint-source-build-pass`). V1467 adds an opt-in PID1 test-boot flag for `msm_pil_event:pil_notif` tracepoint sampling alongside existing GPIO tracepoints, builds rollbackable `A90 Linux init 0.9.87 (v1467-wifitest)`, and stages `tmp/wifi/v1467-wifi-test-boot-exact-provider-pil-gpio-tracepoint-sampler/boot_linux_v1467_wifi_test.img` (`sha256=e9fd747a483f9d5d22126ddda0f99c0a4b5b4b5343f20094d1d5d8cf3adb359e`). No device command or flash occurred. Next is V1468 local artifact sanity over the exact V1467 manifest before any rollbackable live handoff. Preserve hard exclusions: no credential use, Wi-Fi scan/connect/DHCP/external ping, Wi-Fi HAL start, PMIC/GPIO/GDSC direct write, blind eSoC notify/`BOOT_DONE` spoof, global PCI rescan, platform bind/unbind, flash outside an explicit test-boot/rollback gate, boot image write outside an explicit test-boot/rollback gate, or partition write.
 - **Versioning policy**: `docs/operations/VERSIONING_POLICY.md` — `vNNN` cycle ≠ device flash
 
 ## Versioning rules
@@ -1715,3 +1715,19 @@ Update after V1354/V1355:
   source/build-only and add PIL notification tracepoint sampling to the
   exact-provider GPIO tracepoint test boot before any new live mutation.
   Report: `docs/reports/NATIVE_INIT_V1466_PROVIDER_AP2MDM_BRANCH_CLASSIFIER_2026-06-01.md`.
+- V1467 source/build-only (`v1467-wifi-test-boot-exact-provider-pil-gpio-tracepoint-source-build-pass`)
+  adds `A90_WIFI_TEST_BOOT_PROVIDER_TRIGGER_PIL_TRACEPOINT_SAMPLER` to the
+  rollbackable PID1 test-boot path. The V1467 artifact keeps the exact provider
+  trigger, thread-state sampler, long endpoint window, and GPIO tracepoints,
+  then additionally arms `msm_pil_event:pil_notif` and samples `fw=esoc0`
+  trace lines under sampler marker
+  `read-only-v1467-exact-provider-pil-gpio-tracepoint`. Built boot image:
+  `tmp/wifi/v1467-wifi-test-boot-exact-provider-pil-gpio-tracepoint-sampler/boot_linux_v1467_wifi_test.img`
+  (`sha256=e9fd747a483f9d5d22126ddda0f99c0a4b5b4b5343f20094d1d5d8cf3adb359e`),
+  native init `0.9.87 (v1467-wifitest)`. Static init/helper verification,
+  ramdisk entry verification, boot marker verification, and forbidden
+  credential-like byte scan passed. V1467 issued no device command, flash,
+  reboot, Wi-Fi HAL, scan/connect, DHCP/routes, external ping, or partition
+  write. Report:
+  `docs/reports/NATIVE_INIT_V1467_WIFI_TEST_BOOT_EXACT_PROVIDER_PIL_GPIO_TRACEPOINT_SOURCE_BUILD_2026-06-01.md`.
+  V1468 should be local-only artifact sanity over the exact V1467 manifest.

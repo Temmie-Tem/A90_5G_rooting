@@ -7649,6 +7649,20 @@ Samsung bootloader
   lacks `msm_pil_event:pil_notif` parity, so V1467 should be source/build-only
   and add PIL notification tracepoint sampling to the exact-provider GPIO
   tracepoint test boot before any new live mutation.
+- V1467 source/build-only passes with
+  `v1467-wifi-test-boot-exact-provider-pil-gpio-tracepoint-source-build-pass`.
+  It adds `A90_WIFI_TEST_BOOT_PROVIDER_TRIGGER_PIL_TRACEPOINT_SAMPLER` to the
+  rollbackable PID1 test-boot path. The artifact keeps the exact provider
+  trigger, thread-state sampler, long endpoint window, and GPIO tracepoints,
+  then additionally arms `msm_pil_event:pil_notif` and samples `fw=esoc0`
+  trace lines under sampler marker
+  `read-only-v1467-exact-provider-pil-gpio-tracepoint`. Built boot image:
+  `tmp/wifi/v1467-wifi-test-boot-exact-provider-pil-gpio-tracepoint-sampler/boot_linux_v1467_wifi_test.img`
+  (`sha256=e9fd747a483f9d5d22126ddda0f99c0a4b5b4b5343f20094d1d5d8cf3adb359e`),
+  native init `0.9.87 (v1467-wifitest)`. Static init/helper verification,
+  ramdisk entry verification, boot marker verification, and forbidden
+  credential-like byte scan passed. V1468 should be local-only artifact sanity
+  over the exact V1467 manifest before any rollbackable live handoff.
 - If V1359 only finds platform bind/probe or global PCI rescan, stop for a new
   design instead of binding or rescanning blindly.
 - If both pcie1 RC and PON parity are read-only-proven healthy yet MDM2AP still

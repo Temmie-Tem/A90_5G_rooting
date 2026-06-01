@@ -115,6 +115,9 @@ static void selftest_boot_draw_frame(void *ctx) {
 #ifndef A90_WIFI_TEST_BOOT_PROVIDER_TRIGGER_TRACEPOINT_SAMPLER
 #define A90_WIFI_TEST_BOOT_PROVIDER_TRIGGER_TRACEPOINT_SAMPLER 0
 #endif
+#ifndef A90_WIFI_TEST_BOOT_PROVIDER_TRIGGER_PIL_TRACEPOINT_SAMPLER
+#define A90_WIFI_TEST_BOOT_PROVIDER_TRIGGER_PIL_TRACEPOINT_SAMPLER 0
+#endif
 #ifndef A90_WIFI_TEST_BOOT_RC1_RETRY_COUNT
 #define A90_WIFI_TEST_BOOT_RC1_RETRY_COUNT 0
 #endif
@@ -128,7 +131,9 @@ static void selftest_boot_draw_frame(void *ctx) {
 #define A90_V1393_WIFI_TEST_WATCHER_PID A90_WIFI_TEST_BOOT_WATCHER_PID
 #define A90_V1393_WIFI_TEST_RC1_WATCHER_RESULT A90_WIFI_TEST_BOOT_RC1_WATCHER_RESULT
 #define A90_V1393_WIFI_TEST_RC1_WINDOW_RESULT A90_WIFI_TEST_BOOT_RC1_WINDOW_RESULT
-#if A90_WIFI_TEST_BOOT_PROVIDER_TRIGGER_MICRO_ENDPOINT_SAMPLER && A90_WIFI_TEST_BOOT_PROVIDER_TRIGGER_EXACT_LINE && A90_WIFI_TEST_BOOT_PROVIDER_TRIGGER_LONG_WINDOW && A90_WIFI_TEST_BOOT_PROVIDER_TRIGGER_THREAD_STATE && A90_WIFI_TEST_BOOT_PROVIDER_TRIGGER_TRACEPOINT_SAMPLER
+#if A90_WIFI_TEST_BOOT_PROVIDER_TRIGGER_MICRO_ENDPOINT_SAMPLER && A90_WIFI_TEST_BOOT_PROVIDER_TRIGGER_EXACT_LINE && A90_WIFI_TEST_BOOT_PROVIDER_TRIGGER_LONG_WINDOW && A90_WIFI_TEST_BOOT_PROVIDER_TRIGGER_THREAD_STATE && A90_WIFI_TEST_BOOT_PROVIDER_TRIGGER_TRACEPOINT_SAMPLER && A90_WIFI_TEST_BOOT_PROVIDER_TRIGGER_PIL_TRACEPOINT_SAMPLER
+#define A90_V1393_WIFI_TEST_RC1_WINDOW_SAMPLER_NAME "read-only-v1467-exact-provider-pil-gpio-tracepoint"
+#elif A90_WIFI_TEST_BOOT_PROVIDER_TRIGGER_MICRO_ENDPOINT_SAMPLER && A90_WIFI_TEST_BOOT_PROVIDER_TRIGGER_EXACT_LINE && A90_WIFI_TEST_BOOT_PROVIDER_TRIGGER_LONG_WINDOW && A90_WIFI_TEST_BOOT_PROVIDER_TRIGGER_THREAD_STATE && A90_WIFI_TEST_BOOT_PROVIDER_TRIGGER_TRACEPOINT_SAMPLER
 #define A90_V1393_WIFI_TEST_RC1_WINDOW_SAMPLER_NAME "read-only-v1462-exact-provider-tracepoint"
 #elif A90_WIFI_TEST_BOOT_PROVIDER_TRIGGER_MICRO_ENDPOINT_SAMPLER && A90_WIFI_TEST_BOOT_PROVIDER_TRIGGER_EXACT_LINE && A90_WIFI_TEST_BOOT_PROVIDER_TRIGGER_LONG_WINDOW && A90_WIFI_TEST_BOOT_PROVIDER_TRIGGER_THREAD_STATE
 #define A90_V1393_WIFI_TEST_RC1_WINDOW_SAMPLER_NAME "read-only-v1458-exact-provider-thread-state"
@@ -1360,12 +1365,28 @@ static void v1393_provider_tracepoint_arm(void) {
     int gpio_value_rc;
     int gpio_direction_rc;
     int trace_on_rc;
+#if A90_WIFI_TEST_BOOT_PROVIDER_TRIGGER_PIL_TRACEPOINT_SAMPLER
+    int pil_notif_rc;
+#endif
 
     trace_off_rc = v1393_tracefs_write_string("/sys/kernel/debug/tracing/tracing_on", "0\n");
     clear_rc = v1393_tracefs_write_string("/sys/kernel/debug/tracing/trace", "\n");
     gpio_value_rc = v1393_tracefs_write_string("/sys/kernel/debug/tracing/events/gpio/gpio_value/enable", "1\n");
     gpio_direction_rc = v1393_tracefs_write_string("/sys/kernel/debug/tracing/events/gpio/gpio_direction/enable", "1\n");
+#if A90_WIFI_TEST_BOOT_PROVIDER_TRIGGER_PIL_TRACEPOINT_SAMPLER
+    pil_notif_rc = v1393_tracefs_write_string("/sys/kernel/debug/tracing/events/msm_pil_event/pil_notif/enable", "1\n");
+#endif
     trace_on_rc = v1393_tracefs_write_string("/sys/kernel/debug/tracing/tracing_on", "1\n");
+#if A90_WIFI_TEST_BOOT_PROVIDER_TRIGGER_PIL_TRACEPOINT_SAMPLER
+    (void)v1393_append_wifi_test_log(
+        "provider tracepoint arm trace_off_rc=%d clear_rc=%d gpio_value_rc=%d gpio_direction_rc=%d pil_notif_rc=%d trace_on_rc=%d\n",
+        trace_off_rc,
+        clear_rc,
+        gpio_value_rc,
+        gpio_direction_rc,
+        pil_notif_rc,
+        trace_on_rc);
+#else
     (void)v1393_append_wifi_test_log(
         "provider tracepoint arm trace_off_rc=%d clear_rc=%d gpio_value_rc=%d gpio_direction_rc=%d trace_on_rc=%d\n",
         trace_off_rc,
@@ -1373,21 +1394,37 @@ static void v1393_provider_tracepoint_arm(void) {
         gpio_value_rc,
         gpio_direction_rc,
         trace_on_rc);
+#endif
 }
 
 static void v1393_provider_tracepoint_disarm(void) {
     int trace_off_rc;
     int gpio_value_rc;
     int gpio_direction_rc;
+#if A90_WIFI_TEST_BOOT_PROVIDER_TRIGGER_PIL_TRACEPOINT_SAMPLER
+    int pil_notif_rc;
+#endif
 
     trace_off_rc = v1393_tracefs_write_string("/sys/kernel/debug/tracing/tracing_on", "0\n");
     gpio_value_rc = v1393_tracefs_write_string("/sys/kernel/debug/tracing/events/gpio/gpio_value/enable", "0\n");
     gpio_direction_rc = v1393_tracefs_write_string("/sys/kernel/debug/tracing/events/gpio/gpio_direction/enable", "0\n");
+#if A90_WIFI_TEST_BOOT_PROVIDER_TRIGGER_PIL_TRACEPOINT_SAMPLER
+    pil_notif_rc = v1393_tracefs_write_string("/sys/kernel/debug/tracing/events/msm_pil_event/pil_notif/enable", "0\n");
+#endif
+#if A90_WIFI_TEST_BOOT_PROVIDER_TRIGGER_PIL_TRACEPOINT_SAMPLER
+    (void)v1393_append_wifi_test_log(
+        "provider tracepoint disarm trace_off_rc=%d gpio_value_rc=%d gpio_direction_rc=%d pil_notif_rc=%d\n",
+        trace_off_rc,
+        gpio_value_rc,
+        gpio_direction_rc,
+        pil_notif_rc);
+#else
     (void)v1393_append_wifi_test_log(
         "provider tracepoint disarm trace_off_rc=%d gpio_value_rc=%d gpio_direction_rc=%d\n",
         trace_off_rc,
         gpio_value_rc,
         gpio_direction_rc);
+#endif
 }
 
 static void v1393_provider_tracepoint_sample(const char *sample,
@@ -1403,6 +1440,10 @@ static void v1393_provider_tracepoint_sample(const char *sample,
         "gpio_direction: 142",
         "gpio_value: 141",
         "gpio_direction: 141",
+#if A90_WIFI_TEST_BOOT_PROVIDER_TRIGGER_PIL_TRACEPOINT_SAMPLER
+        "pil_notif:",
+        "fw=esoc0",
+#endif
         NULL,
     };
     int out_fd;
@@ -1422,7 +1463,9 @@ static void v1393_provider_tracepoint_sample(const char *sample,
             now_ms >= trace_start_ms ? now_ms - trace_start_ms : -1);
     v1393_rc1_window_append_matching_lines(out_fd,
                                            sample,
-                                           "provider_gpio_trace",
+                                           A90_WIFI_TEST_BOOT_PROVIDER_TRIGGER_PIL_TRACEPOINT_SAMPLER
+                                               ? "provider_pil_gpio_trace"
+                                               : "provider_gpio_trace",
                                            "/sys/kernel/debug/tracing/trace",
                                            trace_needles);
     close(out_fd);
@@ -1726,13 +1769,14 @@ static void v1393_rc1_window_prepare(long start_ms, long detect_ms, const char *
 
     snprintf(header,
              sizeof(header),
-             "state=armed sampler=%s detect_elapsed_ms=%ld delay_ms=%d exact_provider_line=%d long_provider_window=%d tracepoint_sampler=%d line=%.*s\n",
+             "state=armed sampler=%s detect_elapsed_ms=%ld delay_ms=%d exact_provider_line=%d long_provider_window=%d tracepoint_sampler=%d pil_tracepoint_sampler=%d line=%.*s\n",
              A90_V1393_WIFI_TEST_RC1_WINDOW_SAMPLER_NAME,
              detect_ms >= start_ms ? detect_ms - start_ms : -1,
              A90_WIFI_TEST_BOOT_RC1_WATCHER_DELAY_MS,
              A90_WIFI_TEST_BOOT_PROVIDER_TRIGGER_EXACT_LINE,
              A90_WIFI_TEST_BOOT_PROVIDER_TRIGGER_LONG_WINDOW,
              A90_WIFI_TEST_BOOT_PROVIDER_TRIGGER_TRACEPOINT_SAMPLER,
+             A90_WIFI_TEST_BOOT_PROVIDER_TRIGGER_PIL_TRACEPOINT_SAMPLER,
              160,
              line != NULL ? line : "");
     flatten_inline_text(header);
@@ -2117,6 +2161,9 @@ static void v1393_write_wifi_test_summary(pid_t helper_pid, long spawn_ms) {
     dprintf(fd,
             "provider_trigger_tracepoint_sampler_requested=%d\n",
             A90_WIFI_TEST_BOOT_PROVIDER_TRIGGER_TRACEPOINT_SAMPLER);
+    dprintf(fd,
+            "provider_trigger_pil_tracepoint_sampler_requested=%d\n",
+            A90_WIFI_TEST_BOOT_PROVIDER_TRIGGER_PIL_TRACEPOINT_SAMPLER);
     dprintf(fd, "rc1_retry_count=%d\n", A90_WIFI_TEST_BOOT_RC1_RETRY_COUNT);
     dprintf(fd, "rc1_retry_delay_ms=%d\n", A90_WIFI_TEST_BOOT_RC1_RETRY_DELAY_MS);
 #if A90_WIFI_TEST_BOOT_RC1_WINDOW_SAMPLER

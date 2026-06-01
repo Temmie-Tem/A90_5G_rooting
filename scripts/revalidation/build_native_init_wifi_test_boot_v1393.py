@@ -174,6 +174,11 @@ def build_init(args: argparse.Namespace) -> None:
         if args.wifi_test_provider_trigger_tracepoint_sampler
         else []
     )
+    provider_trigger_pil_tracepoint_flags = (
+        ["-DA90_WIFI_TEST_BOOT_PROVIDER_TRIGGER_PIL_TRACEPOINT_SAMPLER=1"]
+        if args.wifi_test_provider_trigger_pil_tracepoint_sampler
+        else []
+    )
     rc1_retry_flags = []
     if args.wifi_test_rc1_retry_count > 0:
         rc1_retry_flags = [
@@ -213,6 +218,7 @@ def build_init(args: argparse.Namespace) -> None:
         *provider_trigger_long_window_flags,
         *provider_trigger_thread_state_flags,
         *provider_trigger_tracepoint_flags,
+        *provider_trigger_pil_tracepoint_flags,
         *rc1_retry_flags,
         "-o",
         args.init_binary,
@@ -352,6 +358,16 @@ def verify_markers(args: argparse.Namespace) -> None:
         ])
     if args.wifi_test_rc1_window_sampler:
         sampler_marker = (
+            "read-only-v1467-exact-provider-pil-gpio-tracepoint"
+            if (
+                args.wifi_test_provider_trigger_micro_endpoint_sampler
+                and args.wifi_test_provider_trigger_exact_line
+                and args.wifi_test_provider_trigger_long_window
+                and args.wifi_test_provider_trigger_thread_state
+                and args.wifi_test_provider_trigger_tracepoint_sampler
+                and args.wifi_test_provider_trigger_pil_tracepoint_sampler
+            )
+            else
             "read-only-v1462-exact-provider-tracepoint"
             if (
                 args.wifi_test_provider_trigger_micro_endpoint_sampler
@@ -484,6 +500,16 @@ def verify_markers(args: argparse.Namespace) -> None:
                 and args.wifi_test_provider_trigger_long_window
                 and args.wifi_test_provider_trigger_thread_state
                 and args.wifi_test_provider_trigger_tracepoint_sampler
+                and not args.wifi_test_provider_trigger_pil_tracepoint_sampler
+            )
+            else
+            "read-only-v1467-exact-provider-pil-gpio-tracepoint"
+            if (
+                args.wifi_test_provider_trigger_exact_line
+                and args.wifi_test_provider_trigger_long_window
+                and args.wifi_test_provider_trigger_thread_state
+                and args.wifi_test_provider_trigger_tracepoint_sampler
+                and args.wifi_test_provider_trigger_pil_tracepoint_sampler
             )
             else
             "read-only-v1458-exact-provider-thread-state"
@@ -516,12 +542,23 @@ def verify_markers(args: argparse.Namespace) -> None:
                 "provider tracepoint arm",
                 "provider tracepoint disarm",
                 "provider_tracepoint_sample label=%s",
-                "provider_gpio_trace",
                 "/sys/kernel/debug/tracing/events/gpio/gpio_value/enable",
                 "/sys/kernel/debug/tracing/events/gpio/gpio_direction/enable",
                 "gpio_value: 1270",
                 "gpio_direction: 135",
             ])
+            if args.wifi_test_provider_trigger_pil_tracepoint_sampler:
+                expected.extend([
+                    "provider_trigger_pil_tracepoint_sampler_requested",
+                    "pil_tracepoint_sampler=%d",
+                    "provider_pil_gpio_trace",
+                    "/sys/kernel/debug/tracing/events/msm_pil_event/pil_notif/enable",
+                    "pil_notif:",
+                    "fw=esoc0",
+                    "pil_notif_rc=%d",
+                ])
+            else:
+                expected.append("provider_gpio_trace")
     if args.wifi_test_rc1_retry_count > 0:
         expected.extend([
             "retry_count=%d",
@@ -581,6 +618,7 @@ def write_manifest(args: argparse.Namespace) -> None:
             "provider_trigger_long_window": args.wifi_test_provider_trigger_long_window,
             "provider_trigger_thread_state": args.wifi_test_provider_trigger_thread_state,
             "provider_trigger_tracepoint_sampler": args.wifi_test_provider_trigger_tracepoint_sampler,
+            "provider_trigger_pil_tracepoint_sampler": args.wifi_test_provider_trigger_pil_tracepoint_sampler,
             "rc1_retry_count": args.wifi_test_rc1_retry_count,
             "rc1_retry_delay_ms": args.wifi_test_rc1_retry_delay_ms,
         },
@@ -658,6 +696,7 @@ def parse_args(argv: Sequence[str] | None = None) -> argparse.Namespace:
     parser.add_argument("--wifi-test-provider-trigger-long-window", action="store_true")
     parser.add_argument("--wifi-test-provider-trigger-thread-state", action="store_true")
     parser.add_argument("--wifi-test-provider-trigger-tracepoint-sampler", action="store_true")
+    parser.add_argument("--wifi-test-provider-trigger-pil-tracepoint-sampler", action="store_true")
     parser.add_argument("--wifi-test-rc1-retry-count", type=int, default=0)
     parser.add_argument("--wifi-test-rc1-retry-delay-ms", type=int, default=0)
     parser.add_argument("--init-binary", type=Path)
