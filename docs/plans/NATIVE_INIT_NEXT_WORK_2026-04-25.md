@@ -8970,6 +8970,28 @@ Samsung bootloader
   DHCP/routes, external ping, blind eSoC notify/`BOOT_DONE`, global PCI rescan,
   or platform bind/unbind. Report:
   `docs/reports/NATIVE_INIT_V1568_SERVICE_WINDOW_SUBSYS_TRIGGER_RESULT_ARTIFACT_SANITY_2026-06-02.md`.
+- V1569 rollbackable live handoff of the V1568 result-output image completes
+  and rolls back cleanly to v724. The helper result artifact is successfully
+  preserved and collected from
+  `/cache/native-init-wifi-test-boot-v1393-helper.result` (`563961` bytes),
+  closing the V1567 evidence gap. The classified result is
+  `subsys-trigger-not-attempted-no-mdm-helper-esoc-fd`: the helper enters
+  `guarded-subsys-trigger-capture` and starts all 14 service-window actors, but
+  `mdm_helper_esoc0_fd_count=0`, `subsys_trigger_gate_open=0`,
+  `subsys_trigger_start_attempted=0`, `subsys_trigger_started=0`, and
+  `subsys_esoc0_open_attempted=0`. Focused dmesg still shows only generic
+  `cnss_diag`, `cnss-daemon`, and `wificond` activity, with no provider/RC1/
+  MHI/WLFW/BDF/FW-ready/`wlan0` marker. Current blocker for this route is before
+  RC1/LTSSM: native service-window userspace starts `mdm_helper`, but
+  `mdm_helper` never acquires `/dev/esoc-0`, so the scoped `/dev/subsys_esoc0`
+  trigger is correctly not attempted. Next gate: V1570 host-only or
+  source/build-only should compare Android-good `mdm_helper` launch contract
+  against native service-window launch and add a bounded mdm-helper fd
+  acquisition classifier if needed. Do not move to credentials/connect,
+  DHCP/routes, external ping, firmware/MHI deep dive, or RC1 retry until the
+  mdm-helper `/dev/esoc-0` fd predicate is satisfied or deliberately replaced by
+  a reviewed gate. Report:
+  `docs/reports/NATIVE_INIT_V1569_SERVICE_WINDOW_RESULT_HANDOFF_2026-06-02.md`.
 - If V1359 only finds platform bind/probe or global PCI rescan, stop for a new
   design instead of binding or rescanning blindly.
 - If both pcie1 RC and PON parity are read-only-proven healthy yet MDM2AP still

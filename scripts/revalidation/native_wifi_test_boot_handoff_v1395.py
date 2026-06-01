@@ -29,6 +29,7 @@ TEST_EXPECT_VERSION = "A90 Linux init 0.9.69 (v1393-wifitest)"
 ROLLBACK_EXPECT_VERSION = "A90 Linux init 0.9.68 (v724)"
 DEFAULT_TEST_LOG_PATH = "/cache/native-init-wifi-test-boot-v1393.log"
 DEFAULT_TEST_SUMMARY_PATH = "/cache/native-init-wifi-test-boot-v1393.summary"
+DEFAULT_TEST_HELPER_RESULT_PATH = ""
 DEFAULT_DMESG_PATTERN = "A90v1393|A90v1397|subsystem_get|PCIe RC1|LTSSM|GPIO142|wlfw|FW ready|BDF|wlan0|mhi|ks"
 
 
@@ -198,10 +199,12 @@ def first_state_line(text: str) -> str:
 def classify_wifi_progress(evidence_dir: Path) -> dict[str, Any]:
     dmesg = read_evidence_text(evidence_dir, "test-v1393-dmesg.stdout.txt")
     summary = read_evidence_text(evidence_dir, "test-v1393-summary.stdout.txt")
+    helper_result = read_evidence_text(evidence_dir, "test-v1393-helper-result.stdout.txt")
     rc1_watcher_result = read_evidence_text(evidence_dir, "test-v1393-rc1-watcher-result.stdout.txt")
     rc1_window_result = read_evidence_text(evidence_dir, "test-rc1-window-result.stdout.txt")
     wlan0_stdout = read_evidence_text(evidence_dir, "test-wlan0.stdout.txt")
     summary_fields = parse_key_value_lines(summary)
+    helper_result_fields = parse_key_value_lines(helper_result)
 
     rc1_markers = matching_markers(
         dmesg,
@@ -303,6 +306,18 @@ def classify_wifi_progress(evidence_dir: Path) -> dict[str, Any]:
         "helper_supervised": summary_fields.get("supervised"),
         "helper_exit_code": summary_fields.get("helper_exit_code"),
         "helper_timed_out": summary_fields.get("helper_timed_out"),
+        "helper_result_path": summary_fields.get("helper_result_path"),
+        "helper_result_size": summary_fields.get("helper_result_size"),
+        "helper_result_size_errno": summary_fields.get("helper_result_size_errno"),
+        "helper_result_file_seen": "A90_EXECNS_RESULT_FILE_BEGIN" in helper_result,
+        "helper_result_contract_seen": "android_wifi_service_window.begin=1" in helper_result,
+        "helper_result_mode": helper_result_fields.get("android_wifi_service_window.mode"),
+        "helper_result_subsys_open_attempted": helper_result_fields.get("android_wifi_service_window.subsys_esoc0_open_attempted"),
+        "helper_result_subsys_trigger_started": helper_result_fields.get("android_wifi_service_window.subsys_trigger_started"),
+        "helper_result_subsys_trigger_gate_open": helper_result_fields.get("android_wifi_service_window.subsys_trigger_gate_open"),
+        "helper_result_mdm_helper_esoc0_fd_count": helper_result_fields.get("android_wifi_service_window.mdm_helper_esoc0_fd_count"),
+        "helper_result_final_result": helper_result_fields.get("android_wifi_service_window.result"),
+        "helper_result_final_reason": helper_result_fields.get("android_wifi_service_window.reason"),
         "debugfs_mount_requested": summary_fields.get("debugfs_mount_requested"),
         "debugfs_mounted_by_pid1": summary_fields.get("debugfs_mounted_by_pid1"),
         "debugfs_pci_msm_case_present": summary_fields.get("debugfs_pci_msm_case_present"),
@@ -371,6 +386,13 @@ def collect_test_boot_evidence(args: argparse.Namespace,
             "/cache/bin/toybox",
             "cat",
             args.test_rc1_watcher_result_path,
+        ])
+    if args.test_helper_result_path:
+        commands["test-v1393-helper-result"] = a90ctl_command([
+            "run",
+            "/cache/bin/toybox",
+            "cat",
+            args.test_helper_result_path,
         ])
     if args.test_rc1_window_result_path:
         commands["test-rc1-window-result"] = a90ctl_command([
@@ -685,6 +707,15 @@ def render_report(result: dict[str, Any]) -> str:
             f"- `connect_ready`: `{progress['connect_ready']}`",
             f"- `debugfs_pci_msm_case_present`: `{progress.get('debugfs_pci_msm_case_present')}`",
             f"- `helper_timed_out`: `{progress.get('helper_timed_out')}`",
+            f"- `helper_result_file_seen`: `{progress.get('helper_result_file_seen')}`",
+            f"- `helper_result_contract_seen`: `{progress.get('helper_result_contract_seen')}`",
+            f"- `helper_result_size`: `{progress.get('helper_result_size')}`",
+            f"- `helper_result_subsys_open_attempted`: `{progress.get('helper_result_subsys_open_attempted')}`",
+            f"- `helper_result_subsys_trigger_started`: `{progress.get('helper_result_subsys_trigger_started')}`",
+            f"- `helper_result_subsys_trigger_gate_open`: `{progress.get('helper_result_subsys_trigger_gate_open')}`",
+            f"- `helper_result_mdm_helper_esoc0_fd_count`: `{progress.get('helper_result_mdm_helper_esoc0_fd_count')}`",
+            f"- `helper_result_final_result`: `{progress.get('helper_result_final_result')}`",
+            f"- `helper_result_final_reason`: `{progress.get('helper_result_final_reason')}`",
             f"- `pid1_rc1_watcher_requested`: `{progress.get('pid1_rc1_watcher_requested')}`",
             f"- `pid1_rc1_watcher_result_summary`: `{progress.get('pid1_rc1_watcher_result_summary')}`",
             f"- `pid1_rc1_watcher_result_file`: `{progress.get('pid1_rc1_watcher_result_file')}`",
@@ -745,6 +776,7 @@ def parse_args(argv: list[str] | None = None) -> argparse.Namespace:
     parser.add_argument("--expect-rollback-version", default=ROLLBACK_EXPECT_VERSION)
     parser.add_argument("--test-log-path", default=DEFAULT_TEST_LOG_PATH)
     parser.add_argument("--test-summary-path", default=DEFAULT_TEST_SUMMARY_PATH)
+    parser.add_argument("--test-helper-result-path", default=DEFAULT_TEST_HELPER_RESULT_PATH)
     parser.add_argument("--test-rc1-watcher-result-path", default="")
     parser.add_argument("--test-rc1-window-result-path", default="")
     parser.add_argument("--dmesg-grep-pattern", default=DEFAULT_DMESG_PATTERN)
@@ -795,6 +827,7 @@ def main(argv: list[str] | None = None) -> int:
                 "test-bootstatus",
                 "test-v1393-log",
                 "test-v1393-summary",
+                "test-v1393-helper-result",
                 "test-v1393-dmesg",
                 "test-wlan0",
             )

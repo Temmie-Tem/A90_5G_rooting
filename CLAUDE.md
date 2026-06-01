@@ -3170,3 +3170,36 @@ helper result file, then roll back to v724.  The primary target is not
 credentialed Wi-Fi connect yet; it is classifying whether `/dev/subsys_esoc0`
 was attempted, predicate-skipped, or attempted without RC1/MHI/WLFW/`wlan0`
 progress.
+
+## Latest native Wi-Fi state: V1569 (2026-06-02)
+
+V1569 performs the rollbackable live handoff of the V1568 result-output test
+boot and rolls back cleanly to v724.  Strict Wi-Fi progress is still blocked
+with `v1569-test-boot-no-downstream-wifi-progress-blocked`, but the new helper
+result file resolves the prior evidence gap.
+
+The helper result artifact is present and complete:
+`/cache/native-init-wifi-test-boot-v1393-helper.result` is collected at
+`563961` bytes and contains `A90_EXECNS_RESULT_FILE_BEGIN` plus
+`android_wifi_service_window.begin=1`.  The helper enters
+`guarded-subsys-trigger-capture`, starts all 14 planned service-window actors,
+and records final result
+`subsys-trigger-not-attempted-no-mdm-helper-esoc-fd` with reason
+`service-window-gate-did-not-see-dev-esoc-0`.
+
+The important classification is:
+`mdm_helper_esoc0_fd_count=0`, `subsys_trigger_gate_open=0`,
+`subsys_trigger_start_attempted=0`, `subsys_trigger_started=0`, and
+`subsys_esoc0_open_attempted=0`.  Focused dmesg still shows only generic
+`cnss_diag`, `cnss-daemon`, and `wificond` activity, with no provider/RC1/MHI/
+WLFW/BDF/FW-ready/`wlan0` marker.
+
+Current blocker for this route is therefore before RC1/LTSSM: native
+service-window userspace starts `mdm_helper`, but `mdm_helper` never acquires
+`/dev/esoc-0`, so the scoped `/dev/subsys_esoc0` trigger is correctly not
+attempted.  Next gate should be V1570 host-only or source/build-only:
+compare the Android-good `mdm_helper` launch contract against native
+service-window launch and add a bounded mdm-helper fd acquisition classifier if
+needed.  Do not move to credentials/connect, DHCP/routes, external ping,
+firmware/MHI deep dive, or RC1 retry until the mdm-helper `/dev/esoc-0` fd
+predicate is satisfied or deliberately replaced by a reviewed gate.
