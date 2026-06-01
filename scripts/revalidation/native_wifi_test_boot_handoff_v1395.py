@@ -175,6 +175,7 @@ def classify_wifi_progress(evidence_dir: Path) -> dict[str, Any]:
     dmesg = read_evidence_text(evidence_dir, "test-v1393-dmesg.stdout.txt")
     summary = read_evidence_text(evidence_dir, "test-v1393-summary.stdout.txt")
     rc1_watcher_result = read_evidence_text(evidence_dir, "test-v1393-rc1-watcher-result.stdout.txt")
+    rc1_window_result = read_evidence_text(evidence_dir, "test-rc1-window-result.stdout.txt")
     wlan0_stdout = read_evidence_text(evidence_dir, "test-wlan0.stdout.txt")
     summary_fields = parse_key_value_lines(summary)
 
@@ -284,6 +285,11 @@ def classify_wifi_progress(evidence_dir: Path) -> dict[str, Any]:
         "pid1_rc1_watcher_requested": summary_fields.get("pid1_rc1_watcher_requested"),
         "pid1_rc1_watcher_result_summary": summary_fields.get("pid1_rc1_watcher_result"),
         "pid1_rc1_watcher_result_file": first_state_line(rc1_watcher_result),
+        "pid1_rc1_window_sampler_requested": summary_fields.get("rc1_window_sampler_requested"),
+        "pid1_rc1_window_result_summary": summary_fields.get("rc1_window_result_head"),
+        "pid1_rc1_window_result_file": first_state_line(rc1_window_result),
+        "pid1_rc1_window_sample_count": rc1_window_result.count("rc1_window_sample label="),
+        "pid1_rc1_window_has_post_500ms": "post_rc1_500ms" in rc1_window_result,
     }
 
 
@@ -341,6 +347,13 @@ def collect_test_boot_evidence(args: argparse.Namespace,
             "/cache/bin/toybox",
             "cat",
             args.test_rc1_watcher_result_path,
+        ])
+    if args.test_rc1_window_result_path:
+        commands["test-rc1-window-result"] = a90ctl_command([
+            "run",
+            "/cache/bin/toybox",
+            "cat",
+            args.test_rc1_window_result_path,
         ])
     evidence: dict[str, Any] = {}
     for name, command in commands.items():
@@ -506,6 +519,11 @@ def render_report(result: dict[str, Any]) -> str:
             f"- `pid1_rc1_watcher_requested`: `{progress.get('pid1_rc1_watcher_requested')}`",
             f"- `pid1_rc1_watcher_result_summary`: `{progress.get('pid1_rc1_watcher_result_summary')}`",
             f"- `pid1_rc1_watcher_result_file`: `{progress.get('pid1_rc1_watcher_result_file')}`",
+            f"- `pid1_rc1_window_sampler_requested`: `{progress.get('pid1_rc1_window_sampler_requested')}`",
+            f"- `pid1_rc1_window_result_summary`: `{progress.get('pid1_rc1_window_result_summary')}`",
+            f"- `pid1_rc1_window_result_file`: `{progress.get('pid1_rc1_window_result_file')}`",
+            f"- `pid1_rc1_window_sample_count`: `{progress.get('pid1_rc1_window_sample_count')}`",
+            f"- `pid1_rc1_window_has_post_500ms`: `{progress.get('pid1_rc1_window_has_post_500ms')}`",
         ])
     lines.extend([
         "",
@@ -542,7 +560,7 @@ def render_report(result: dict[str, Any]) -> str:
     return "\n".join(lines)
 
 
-def parse_args() -> argparse.Namespace:
+def parse_args(argv: list[str] | None = None) -> argparse.Namespace:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--out-dir", type=Path, default=DEFAULT_OUT_DIR)
     parser.add_argument("--report-path", type=Path, default=DEFAULT_REPORT_PATH)
@@ -556,17 +574,18 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--test-log-path", default=DEFAULT_TEST_LOG_PATH)
     parser.add_argument("--test-summary-path", default=DEFAULT_TEST_SUMMARY_PATH)
     parser.add_argument("--test-rc1-watcher-result-path", default="")
+    parser.add_argument("--test-rc1-window-result-path", default="")
     parser.add_argument("--dmesg-grep-pattern", default=DEFAULT_DMESG_PATTERN)
     parser.add_argument("--flash-timeout-sec", type=float, default=720.0)
     parser.add_argument("--collect-timeout-sec", type=float, default=120.0)
     parser.add_argument("--classify-only", action="store_true")
     parser.add_argument("--classify-input-dir", type=Path)
     parser.add_argument("--strict-wifi-progress", action="store_true")
-    return parser.parse_args()
+    return parser.parse_args(argv)
 
 
-def main() -> int:
-    args = parse_args()
+def main(argv: list[str] | None = None) -> int:
+    args = parse_args(argv)
     store = EvidenceStore(args.out_dir)
     steps: list[dict[str, Any]] = []
     pre = preflight(args)
