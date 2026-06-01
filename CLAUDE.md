@@ -1904,3 +1904,19 @@ Update after V1354/V1355:
   Wi-Fi auto-start test boot; decide whether GPIO135 readback is misleading or
   a real native-only response failure. Report:
   `docs/reports/NATIVE_INIT_V1481_AP2MDM_PROVIDER_FEASIBILITY_2026-06-01.md`.
+- V1482 host-only classifier
+  (`v1482-android-gpio135-low-not-primary-gate-next-auto-boot-supervisor`)
+  reconciles the current GPIO/AP2MDM branch with Android-positive evidence.
+  V914 shows Android can reach service-notifier, WLFW, WLAN-PD, BDF, and
+  `wlan0` while post-boot lower diagnostics still show `subsys9=OFFLINING`,
+  GPIO142 IRQ total `0`, no current `ks`, and no current MHI pipe. V1291 shows
+  static GPIO parity between native and Android: GPIO135 `out 0 16mA no pull`
+  and GPIO142 `in 0 8mA no pull`. Therefore GPIO135/GPIO142 low readback is
+  not enough to justify another GPIO-hold cycle. Next gate: V1483
+  source/build-only design for a rollbackable, credential-free Wi-Fi readiness
+  test boot that automatically runs the Android-order provider/CNSS readiness
+  chain at boot. Primary checkpoints should be WLFW, ICNSS/QMI or WLFW service
+  progress, BDF, FW-ready, and `wlan0`; GPIO135/GPIO142/pcie1/MHI remain
+  diagnostics. Do not use credentials, scan/connect, DHCP/routes, or external
+  ping until `wlan0` exists. Report:
+  `docs/reports/NATIVE_INIT_V1482_ANDROID_AP2MDM_REFERENCE_CLASSIFIER_2026-06-01.md`.

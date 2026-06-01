@@ -7813,6 +7813,21 @@ Samsung bootloader
   high, or whether GPIO135 readback can be low even when SDX50M/Wi-Fi succeeds.
   Report:
   `docs/reports/NATIVE_INIT_V1481_AP2MDM_PROVIDER_FEASIBILITY_2026-06-01.md`.
+- V1482 host-only classifier passes with
+  `v1482-android-gpio135-low-not-primary-gate-next-auto-boot-supervisor`.
+  Existing Android-positive evidence already answers the V1481 question:
+  V914 shows Android reaches service-notifier, WLFW, WLAN-PD, BDF, and `wlan0`
+  while post-boot lower diagnostics can still show `subsys9=OFFLINING`, GPIO142
+  IRQ total `0`, no current `ks`, and no current MHI pipe. V1291 shows static
+  GPIO parity: Android and native both have GPIO135 `out 0 16mA no pull` and
+  GPIO142 `in 0 8mA no pull`. Therefore GPIO135/GPIO142 low readback is not
+  enough to drive another GPIO-hold cycle. The next test image direction is
+  valid, but it should be a credential-free automatic Wi-Fi readiness boot:
+  primary checkpoints are WLFW, ICNSS/QMI or WLFW service progress, BDF,
+  FW-ready, and `wlan0`; GPIO135/GPIO142/pcie1/MHI stay secondary diagnostics.
+  V1483 should be source/build-only design for that rollbackable test boot.
+  Report:
+  `docs/reports/NATIVE_INIT_V1482_ANDROID_AP2MDM_REFERENCE_CLASSIFIER_2026-06-01.md`.
 - If V1359 only finds platform bind/probe or global PCI rescan, stop for a new
   design instead of binding or rescanning blindly.
 - If both pcie1 RC and PON parity are read-only-proven healthy yet MDM2AP still
