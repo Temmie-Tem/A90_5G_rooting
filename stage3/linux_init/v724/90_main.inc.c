@@ -88,6 +88,9 @@ static void selftest_boot_draw_frame(void *ctx) {
 #ifndef A90_WIFI_TEST_BOOT_RC1_ENDPOINT_SAMPLER
 #define A90_WIFI_TEST_BOOT_RC1_ENDPOINT_SAMPLER 0
 #endif
+#ifndef A90_WIFI_TEST_BOOT_RC1_FOCUSED_ENDPOINT_SAMPLER
+#define A90_WIFI_TEST_BOOT_RC1_FOCUSED_ENDPOINT_SAMPLER 0
+#endif
 #ifndef A90_WIFI_TEST_BOOT_RC1_RETRY_COUNT
 #define A90_WIFI_TEST_BOOT_RC1_RETRY_COUNT 0
 #endif
@@ -101,7 +104,9 @@ static void selftest_boot_draw_frame(void *ctx) {
 #define A90_V1393_WIFI_TEST_WATCHER_PID A90_WIFI_TEST_BOOT_WATCHER_PID
 #define A90_V1393_WIFI_TEST_RC1_WATCHER_RESULT A90_WIFI_TEST_BOOT_RC1_WATCHER_RESULT
 #define A90_V1393_WIFI_TEST_RC1_WINDOW_RESULT A90_WIFI_TEST_BOOT_RC1_WINDOW_RESULT
-#if A90_WIFI_TEST_BOOT_RC1_ENDPOINT_SAMPLER
+#if A90_WIFI_TEST_BOOT_RC1_FOCUSED_ENDPOINT_SAMPLER
+#define A90_V1393_WIFI_TEST_RC1_WINDOW_SAMPLER_NAME "read-only-v1433-focused-endpoint-prereq"
+#elif A90_WIFI_TEST_BOOT_RC1_ENDPOINT_SAMPLER
 #define A90_V1393_WIFI_TEST_RC1_WINDOW_SAMPLER_NAME "read-only-v1429-endpoint-prereq"
 #else
 #define A90_V1393_WIFI_TEST_RC1_WINDOW_SAMPLER_NAME "read-only-v1420"
@@ -661,6 +666,111 @@ static void v1393_rc1_window_append_trimmed_file(int out_fd,
             path,
             value);
 }
+
+#if A90_WIFI_TEST_BOOT_RC1_FOCUSED_ENDPOINT_SAMPLER
+static void v1393_rc1_window_append_first_matching_line(int out_fd,
+                                                        const char *sample,
+                                                        const char *source_name,
+                                                        const char *path,
+                                                        const char *needle) {
+    int in_fd;
+    char chunk[512];
+    char line[512];
+    size_t line_len = 0;
+
+    in_fd = open(path, O_RDONLY | O_CLOEXEC);
+    if (in_fd < 0) {
+        dprintf(out_fd,
+                "sample=%s source=%s needle=%s path=%s unreadable_errno=%d\n",
+                sample,
+                source_name,
+                needle,
+                path,
+                errno != 0 ? errno : EIO);
+        return;
+    }
+
+    for (;;) {
+        ssize_t rd = read(in_fd, chunk, sizeof(chunk));
+        ssize_t offset;
+
+        if (rd == 0) {
+            break;
+        }
+        if (rd < 0) {
+            dprintf(out_fd,
+                    "sample=%s source=%s needle=%s path=%s read_errno=%d\n",
+                    sample,
+                    source_name,
+                    needle,
+                    path,
+                    errno != 0 ? errno : EIO);
+            close(in_fd);
+            return;
+        }
+
+        for (offset = 0; offset < rd; offset++) {
+            char ch = chunk[offset];
+
+            if (ch == '\n' || line_len + 1 >= sizeof(line)) {
+                line[line_len] = '\0';
+                if (strstr(line, needle) != NULL) {
+                    flatten_inline_text(line);
+                    dprintf(out_fd,
+                            "sample=%s source=%s needle=%s match=%s\n",
+                            sample,
+                            source_name,
+                            needle,
+                            line);
+                    close(in_fd);
+                    return;
+                }
+                line_len = 0;
+                continue;
+            }
+            line[line_len++] = ch;
+        }
+    }
+
+    if (line_len > 0) {
+        line[line_len] = '\0';
+        if (strstr(line, needle) != NULL) {
+            flatten_inline_text(line);
+            dprintf(out_fd,
+                    "sample=%s source=%s needle=%s match=%s\n",
+                    sample,
+                    source_name,
+                    needle,
+                    line);
+            close(in_fd);
+            return;
+        }
+    }
+    dprintf(out_fd,
+            "sample=%s source=%s needle=%s path=%s missing=1\n",
+            sample,
+            source_name,
+            needle,
+            path);
+    close(in_fd);
+}
+
+static void v1393_rc1_window_append_exact_matches(int out_fd,
+                                                  const char *sample,
+                                                  const char *source_name,
+                                                  const char *path,
+                                                  const char *const *needles) {
+    size_t index;
+
+    for (index = 0; needles[index] != NULL; index++) {
+        v1393_rc1_window_append_first_matching_line(out_fd,
+                                                    sample,
+                                                    source_name,
+                                                    path,
+                                                    needles[index]);
+    }
+}
+#endif
 #endif
 
 static void v1393_rc1_window_sample(const char *sample, long start_ms, long detect_ms, long child_start_ms) {
@@ -717,6 +827,38 @@ static void v1393_rc1_window_sample(const char *sample, long start_ms, long dete
         "refgen",
         NULL,
     };
+#if A90_WIFI_TEST_BOOT_RC1_FOCUSED_ENDPOINT_SAMPLER
+    static const char *const exact_regulator_needles[] = {
+        "pcie_1_gdsc",
+        "pcie_0_gdsc",
+        "pm8150l_l3",
+        "pm8150_l5",
+        "VDD_CX_LEVEL",
+        NULL,
+    };
+    static const char *const exact_clk_needles[] = {
+        "gcc_pcie_1_slv_q2a_axi_clk",
+        "gcc_pcie_1_slv_axi_clk",
+        "gcc_pcie_1_pipe_clk",
+        "gcc_pcie_1_mstr_axi_clk",
+        "gcc_pcie_1_clkref_clk",
+        "gcc_pcie_1_cfg_ahb_clk",
+        "gcc_pcie1_phy_refgen_clk",
+        "gcc_pcie_phy_refgen_clk_src",
+        NULL,
+    };
+    static const char *const exact_gpio_needles[] = {
+        "gpio102",
+        "gpio103",
+        "gpio104",
+        "gpio142",
+        "GPIO_102",
+        "GPIO_103",
+        "GPIO_104",
+        "GPIO_142",
+        NULL,
+    };
+#endif
 #endif
     int out_fd;
     long now_ms = monotonic_millis();
@@ -801,6 +943,33 @@ static void v1393_rc1_window_sample(const char *sample, long start_ms, long dete
                                          sample,
                                          "pcie1_bus_link_state",
                                          "/sys/bus/platform/devices/1c08000.qcom,pcie/link_state");
+#if A90_WIFI_TEST_BOOT_RC1_FOCUSED_ENDPOINT_SAMPLER
+    v1393_rc1_window_append_exact_matches(out_fd,
+                                          sample,
+                                          "focused_regulator",
+                                          "/sys/kernel/debug/regulator/regulator_summary",
+                                          exact_regulator_needles);
+    v1393_rc1_window_append_exact_matches(out_fd,
+                                          sample,
+                                          "focused_clk",
+                                          "/sys/kernel/debug/clk/clk_summary",
+                                          exact_clk_needles);
+    v1393_rc1_window_append_exact_matches(out_fd,
+                                          sample,
+                                          "focused_debug_gpio",
+                                          "/sys/kernel/debug/gpio",
+                                          exact_gpio_needles);
+    v1393_rc1_window_append_exact_matches(out_fd,
+                                          sample,
+                                          "focused_pinmux",
+                                          "/sys/kernel/debug/pinctrl/3000000.pinctrl/pinmux-pins",
+                                          exact_gpio_needles);
+    v1393_rc1_window_append_exact_matches(out_fd,
+                                          sample,
+                                          "focused_pinconf",
+                                          "/sys/kernel/debug/pinctrl/3000000.pinctrl/pinconf-pins",
+                                          exact_gpio_needles);
+#endif
 #endif
     close(out_fd);
 }

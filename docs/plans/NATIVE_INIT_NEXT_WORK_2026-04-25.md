@@ -7252,6 +7252,14 @@ Samsung bootloader
   only first: either refine native sampler output to avoid clock-summary
   truncation and emit exact pcie1 clock/GDSC/PERST/CLKREQ fields, or capture an
   Android-side pcie1 clock/GDSC/CLKREQ reference for the known-good L0 path.
+- V1433 source/build-only passes with
+  `v1433-wifi-test-boot-focused-endpoint-source-build-pass`. It generated
+  `tmp/wifi/v1433-wifi-test-boot-focused-endpoint-sampler/boot_linux_v1433_wifi_test.img`
+  with native init `0.9.79 (v1433-wifitest)`. The new focused endpoint sampler
+  preserves the V1429 broad sampler and adds exact one-line `focused_*` records
+  for pcie1 regulators, clocks, GPIO102/PERST, GPIO103/CLKREQ, GPIO104/WAKE,
+  GPIO142/MDM2AP, pinmux, and pinconf. V1434 should perform local-only artifact
+  sanity over this exact focused marker contract before any live handoff.
 - If V1359 only finds platform bind/probe or global PCI rescan, stop for a new
   design instead of binding or rescanning blindly.
 - If both pcie1 RC and PON parity are read-only-proven healthy yet MDM2AP still
