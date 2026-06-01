@@ -2079,3 +2079,16 @@ Update after V1354/V1355:
   results, focused dmesg, and `wlan0`, then rolling back to v724 and verifying
   selftest `fail=0`. Report:
   `docs/reports/NATIVE_INIT_V1494_WIFI_AUTO_READINESS_RC1_WINDOW_ARTIFACT_SANITY_2026-06-01.md`.
+- V1495 rollbackable live handoff
+  (`v1495-test-boot-version-missing`) flashed the exact V1493 RC1-window test
+  image and rolled back through the generic from-native route successfully.
+  Post-run validation confirmed v724 and selftest `fail=0`. The flash verifier
+  reached the expected V1493 boot marker immediately after reboot, but after the
+  100s hold all post-hold `cmdv1` evidence commands failed with missing END
+  marker or bridge connection reset, so no V1493 log/summary/RC1-window files
+  were collected. This is a communication-loss result, not Wi-Fi progress.
+  Next gate: V1496 should isolate whether the enabled RC1 watcher/window path
+  wedges the serial command loop, preferably with shorter/earlier collection or
+  a PID1-persisted sidecar before attempting another long post-hold capture.
+  Report:
+  `docs/reports/NATIVE_INIT_V1495_WIFI_AUTO_READINESS_RC1_WINDOW_HANDOFF_2026-06-01.md`.

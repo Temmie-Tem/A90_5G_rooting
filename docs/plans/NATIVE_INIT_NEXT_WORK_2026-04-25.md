@@ -7998,6 +7998,18 @@ Samsung bootloader
   watcher/window results, focused dmesg, and `wlan0` state, then rolling back
   to `stage3/boot_linux_v724.img` and verifying selftest `fail=0`. Report:
   `docs/reports/NATIVE_INIT_V1494_WIFI_AUTO_READINESS_RC1_WINDOW_ARTIFACT_SANITY_2026-06-01.md`.
+- V1495 rollbackable live handoff reached `v1495-test-boot-version-missing`.
+  The exact V1493 RC1-window test image was flashed and the generic
+  from-native rollback restored v724 successfully; post-run validation showed
+  selftest `fail=0`. The flash verifier saw the V1493 version marker
+  immediately after reboot, but after the 100s hold all post-hold `cmdv1`
+  evidence reads failed with missing END marker or bridge connection reset.
+  Therefore V1495 proves rollback safety for this image but not RC1/MHI
+  progress. Treat it as a communication-loss blocker. V1496 should isolate the
+  RC1 watcher/window side effect with shorter/earlier collection or a
+  PID1-persisted sidecar; keep credentials, scan/connect, DHCP/routes, and
+  external ping blocked until `wlan0` exists. Report:
+  `docs/reports/NATIVE_INIT_V1495_WIFI_AUTO_READINESS_RC1_WINDOW_HANDOFF_2026-06-01.md`.
 - If V1359 only finds platform bind/probe or global PCI rescan, stop for a new
   design instead of binding or rescanning blindly.
 - If both pcie1 RC and PON parity are read-only-proven healthy yet MDM2AP still
