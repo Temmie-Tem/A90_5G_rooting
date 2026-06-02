@@ -13075,3 +13075,43 @@ esoc0/RC1/pcie1/MDM2AP, do NOT investigate MSA until WLFW 69 appears.
 
   Report:
   `docs/reports/NATIVE_INIT_V1715_CNSS_PM_INIT_UPROBE_SOURCE_BUILD_2026-06-02.md`.
+
+- V1716 one-run rollbackable live handoff completed.
+
+  Result:
+
+  - decision: `v1716-pm-init-register-call-no-return-rollback-pass`;
+  - rollback: `from-native`, PASS;
+  - post-rollback version: `A90 Linux init 0.9.68 (v724)`;
+  - post-rollback selftest: `fail=0`;
+  - non-log label: `pm-init-register-call-no-return`;
+  - legacy output label: `cnss-output-still-invisible`;
+  - legacy firmware-serve label: `firmware-not-requested`;
+  - `wlfw_start@0xec00=1`, `wlfw_optional_pm_init1_call@0xec34=1`,
+    `wlfw_optional_pm_init1_return@0xec38=0`;
+  - `pm_init_entry@0xc39c=2`, `get_system_info@0xc444=1`,
+    `system_info_ok@0xc470=1`, null-loop entry `0xc58c=1`;
+  - `pm_client_register@0xc624=1`, return check `0xc628=0`;
+  - `pm_client_connect@0xc650=0`, return path `0xc554=0`;
+  - MHI pipe fd count / `ks` process count: `0` / `0`.
+
+  Interpretation:
+
+  - `cnss-daemon` really reaches `wlfw_start`, so previous dmesg/log absence is
+    a logging visibility gap;
+  - `pm_init(1, NULL)` is not blocked in `get_system_info`;
+  - the current live blocker is inside `pm_client_register`, before
+    `pm_client_connect`;
+  - adding PM/service-window actors remains forbidden until `pm_client_register`
+    is host-classified.
+
+  Next candidate:
+
+  - V1717 host-only static classifier for `pm_client_register@plt` target,
+    symbol owner, call graph, linked library, and likely syscall/Binder/socket
+    dependencies;
+  - V1718 source/build-only only if V1717 identifies narrow non-mutating
+    discriminators.
+
+  Report:
+  `docs/reports/NATIVE_INIT_V1716_CNSS_PM_INIT_UPROBE_HANDOFF_2026-06-02.md`.
