@@ -13323,10 +13323,68 @@ esoc0/RC1/pcie1/MDM2AP, do NOT investigate MSA until WLFW 69 appears.
   - V1716/V1719 non-log uprobe evidence proves `cnss-daemon` reaches `wlfw_start` and then blocks in the vendor Binder default service-manager path;
   - therefore missing native `wlfw_start` dmesg/log output is a measurement artifact, not a reason to add `boot_wlan`, PM trio, or service-window actors.
 
-  Next candidate:
+  Superseded next candidate:
 
-  - V1724 one-run service-manager-only VND Binder bootstrap proof using the V1722 helper v321 fallback (`/system/bin/servicemanager /dev/vndbinder`);
-  - still no PM trio, `vendor.qcom.PeripheralManager`, `boot_wlan`, `/dev/subsys_esoc0`, forced RC1, fake-ONLINE, Wi-Fi HAL, scan/connect, credentials, DHCP/routes, or external ping.
+  - the later cnss-daemon disassembly correction and V1724/V1725 supersede the
+    service-manager bootstrap next step for this gate;
+  - remain on the internal-modem output-visible route only, with no PM trio,
+    service-window actors, `vendor.qcom.PeripheralManager`, `boot_wlan`,
+    `/dev/subsys_esoc0`, forced RC1, fake-ONLINE, Wi-Fi HAL, scan/connect,
+    credentials, DHCP/routes, or external ping.
 
   Report:
   `docs/reports/NATIVE_INIT_V1723_CNSS_OUTPUT_VISIBILITY_RECLASSIFY_2026-06-03.md`.
+
+## V1724/V1725 corrected CNSS output-visible route (2026-06-03)
+
+- V1724 source/build and V1725 one-run live handoff completed.
+
+  Corrections:
+
+  - the QCACLD-register-as-WLFW-trigger premise remains retracted;
+  - helper v322 corrects the CNSS kmsg property contract from stale
+    `persist.vendor.cnss-daemon.kmsg_logging=4` to the actual expected value
+    `1`;
+  - the route deliberately does not add service-manager, PM trio,
+    `vendor.qcom.PeripheralManager`, `boot_wlan`, `/dev/subsys_esoc0`, forced
+    RC1, fake-ONLINE, Wi-Fi HAL, scan/connect, credentials, DHCP/routes, or
+    external ping.
+
+  V1724 source/build result:
+
+  - decision: `v1724-cnss-output-visible-route-source-build-pass`;
+  - helper: `a90_android_execns_probe v322`;
+  - helper SHA256:
+    `9d369ceed2e352114cd7e9e453f8bcddb84914a7e35a819f7094709e78b2e35c`;
+  - boot image:
+    `tmp/wifi/v1724-cnss-output-visible-route-test-boot/boot_linux_v1724_cnss_output_visible_route.img`;
+  - boot SHA256:
+    `44c12fd4320db430c1b3ee0f32230b76a2194bf7657218e26a1a9b513aa0aac5`.
+
+  V1725 live result:
+
+  - decision: `v1725-cnss-output-still-invisible-rollback-pass`;
+  - rollback: `from-native`, PASS;
+  - post-rollback selftest: `fail=0`;
+  - output label: `cnss-output-still-invisible`;
+  - property lookup all_match: `1`;
+  - kmsg/debug values: `1` / `4`;
+  - `wlfw_start_seen=0`, first failure slug `none`;
+  - cnss-daemon and tftp children remained running;
+  - tracefs unavailable in this run (`errno=2`), so non-log uprobes did not
+    supply a fresh discriminator.
+
+  Interpretation:
+
+  - the strict output path is still invisible even after the corrected kmsg
+    property contract is consumed;
+  - this is an output visibility result, not evidence that `boot_wlan`, PM trio,
+    service-window actors, eSoC/RC1, or Wi-Fi HAL should be added to this gate;
+  - if this branch continues, the next unit should inspect why
+    cnss-daemon's kmsg/stdout/stderr path remains silent or use a separately
+    bounded non-log trace setup with tracefs explicitly available.
+
+  Reports:
+
+  - `docs/reports/NATIVE_INIT_V1724_CNSS_OUTPUT_VISIBLE_ROUTE_SOURCE_BUILD_2026-06-03.md`;
+  - `docs/reports/NATIVE_INIT_V1725_CNSS_OUTPUT_VISIBLE_ROUTE_HANDOFF_2026-06-03.md`.

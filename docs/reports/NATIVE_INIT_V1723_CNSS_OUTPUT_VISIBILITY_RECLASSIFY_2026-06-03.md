@@ -52,6 +52,6 @@ This script performed host-only analysis only. It did not contact the device, fl
 
 ## Next Gate
 
-- Do not repeat output-visibility live variants; V1695 already set the output-only label and V1716/V1719 supplied the non-log discriminator.
-- V1722 remains the prepared source/build fix for the next bounded live step: service-manager-binary VND Binder bootstrap using `/system/bin/servicemanager /dev/vndbinder`.
-- The next live gate must be scoped as service-manager-only bootstrap, not PM trio, `vendor.qcom.PeripheralManager`, `boot_wlan`, `/dev/subsys_esoc0`, forced RC1, fake-ONLINE, Wi-Fi HAL, scan/connect, credentials, DHCP/routes, or external ping.
+- Superseded by the later cnss-daemon disassembly correction and V1724/V1725: do not proceed to service-manager/PM actor expansion from this gate.
+- The strict output-visibility branch must stay on the existing internal-modem firmware-serve route only: `qrtr-ns`, `pd-mapper`, `rmt_storage`, `tftp_server`, `/dev/subsys_modem` holder, `cnss_diag`, stock `cnss-daemon`.
+- The next live gate is the corrected no-service-manager/no-PM output-visible route, not `boot_wlan`, `/dev/subsys_esoc0`, forced RC1, fake-ONLINE, Wi-Fi HAL, scan/connect, credentials, DHCP/routes, or external ping.
