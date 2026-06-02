@@ -101,7 +101,7 @@
 #define SYSLOG_ACTION_READ_ALL 3
 #endif
 
-#define EXECNS_VERSION "a90_android_execns_probe v337"
+#define EXECNS_VERSION "a90_android_execns_probe v338"
 #define MAX_PATH_LEN 512
 #define MAX_CAPTURE_SIZE (1024 * 1024)
 #define MAX_LINKERCONFIG_SIZE (256 * 1024)
@@ -12094,11 +12094,11 @@ struct pm_service_uprobe_event_spec {
 };
 
 static const struct pm_service_uprobe_event_spec pm_service_uprobe_events[A90_PM_SERVICE_UPROBE_EVENT_COUNT] = {
-    { "pm_server_register_entry", "pm_server_register_entry", 0x6048ULL, NULL },
+    { "pm_server_register_entry", "pm_server_register_entry", 0x6048ULL, "peripheral=+0(%x1):string client=+0(%x2):string out_client=%x4 out_state=%x5" },
     { "pm_server_register_loop_node", "pm_server_register_loop_node", 0x6094ULL, NULL },
     { "pm_server_register_name_helper_call", "pm_server_register_name_helper_call", 0x609cULL, NULL },
     { "pm_server_register_name_helper_return", "pm_server_register_name_helper_return", 0x60a0ULL, NULL },
-    { "pm_server_register_strcmp_call", "pm_server_register_strcmp_call", 0x60acULL, NULL },
+    { "pm_server_register_strcmp_call", "pm_server_register_strcmp_call", 0x60acULL, "candidate=+0(%x0):string requested=+0(%x1):string" },
     { "pm_server_register_strcmp_result", "pm_server_register_strcmp_result", 0x60b0ULL, NULL },
     { "pm_server_register_loop_advance", "pm_server_register_loop_advance", 0x60b4ULL, NULL },
     { "pm_server_register_loop_compare", "pm_server_register_loop_compare", 0x60b8ULL, NULL },
@@ -12106,7 +12106,7 @@ static const struct pm_service_uprobe_event_spec pm_service_uprobe_events[A90_PM
     { "pm_server_register_permission_ok", "pm_server_register_permission_ok", 0x60e8ULL, NULL },
     { "pm_server_register_add_client_call", "pm_server_register_add_client_call", 0x611cULL, NULL },
     { "pm_server_register_success_return", "pm_server_register_success_return", 0x6140ULL, NULL },
-    { "pm_server_register_no_peripheral", "pm_server_register_no_peripheral", 0x6148ULL, NULL },
+    { "pm_server_register_no_peripheral", "pm_server_register_no_peripheral", 0x6148ULL, "peripheral=+0(%x26):string" },
     { "pm_service_main_supported_list_init", "pm_service_main_supported_list_init", 0x77bcULL, NULL },
     { "pm_service_init_helper_entry", "pm_service_init_helper_entry", 0x6b6cULL, NULL },
     { "pm_service_init_get_system_info_call", "pm_service_init_get_system_info_call", 0x6bc0ULL, NULL },

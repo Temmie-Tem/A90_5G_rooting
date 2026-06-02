@@ -16325,3 +16325,74 @@ esoc0/RC1/pcie1/MDM2AP, do NOT investigate MSA until WLFW 69 appears.
     or `pm-register-fetcharg-unavailable`;
   - do not start a devnode repair until V1792 proves the requested PM
     peripheral name.
+
+## V1792 PM register request string observer source build (2026-06-03)
+
+- V1792 built a source/build-only rollbackable test boot that keeps the V1790
+  PM-service devnode observer and adds PM-service register-path string
+  fetchargs.
+
+  Evidence:
+
+  - build script:
+    `scripts/revalidation/build_native_init_wifi_test_boot_v1792.py`;
+  - report:
+    `docs/reports/NATIVE_INIT_V1792_PM_REGISTER_REQUEST_STRING_OBSERVER_SOURCE_BUILD_2026-06-03.md`;
+  - manifest:
+    `tmp/wifi/v1792-pm-register-request-string-observer-test-boot/manifest.json`;
+  - boot image:
+    `tmp/wifi/v1792-pm-register-request-string-observer-test-boot/boot_linux_v1792_pm_register_request_string_observer.img`;
+  - decision:
+    `v1792-pm-register-request-string-observer-source-build-pass`;
+  - boot image SHA-256:
+    `97684b05bed3ab302751ae9347475d8345530077b5b67652844208fdefdfdb61`;
+  - helper marker/SHA-256:
+    `a90_android_execns_probe v338` /
+    `d1de658ad211a7de155ba48d83ddb2a3e928cb25f577ef88bf1bca05c5a61ddb`.
+
+  Added fetchargs:
+
+  - `pm_server_register_entry`:
+    `peripheral=+0(%x1):string client=+0(%x2):string out_client=%x4 out_state=%x5`;
+  - `pm_server_register_strcmp_call`:
+    `candidate=+0(%x0):string requested=+0(%x1):string`;
+  - `pm_server_register_no_peripheral`:
+    `peripheral=+0(%x26):string`.
+
+  Retained fetchargs:
+
+  - `pm_service_add_peripheral_entry`:
+    `record=%x1 name=+4(%x1):string devnode=+68(%x1):string`;
+  - `pm_service_add_peripheral_known_name`:
+    `record=%x25 name=+0(%x21):string devnode=+68(%x25):string`;
+  - `pm_service_add_peripheral_init_fail`:
+    `name=+0(%x21):string devnode=+0(%x25):string`.
+
+  Interpretation:
+
+  - V1791 proved PM-service discovers `SDX50M` but fails on
+    `/dev/subsys_esoc0` existence/access;
+  - V1792 does not repair that path. It only prepares the next live gate to
+    identify what peripheral name CNSS actually registers/votes for before any
+    private devnode repair;
+  - this avoids repairing the SDX50M discovery path if CNSS's PM request is
+    actually `modem` or another peripheral.
+
+  Safety:
+
+  - source/build-only. No live device command, flash, reboot, Wi-Fi HAL,
+    scan/connect, credentials, DHCP/routes, external ping, PM repair,
+    `/dev/subsys_esoc0` open, eSoC/RC1 action, restart-PD request, firmware
+    write, partition write, PMIC/GPIO/GDSC write, PCI rescan, platform
+    bind/unbind, BPF attach, or tracefs write.
+
+  Next candidate:
+
+  - V1793 should run one rollbackable live discriminator using the V1792 test
+    boot and capture the PM register requested peripheral string;
+  - fixed outcomes should stop after one label:
+    `pm-register-request-sdx50m`, `pm-register-request-modem-or-other`,
+    `pm-register-fetcharg-unavailable`, or
+    `pm-register-list-commit-progress`;
+  - do not repair private devnodes, chase WLAN-PD cascade, start Wi-Fi HAL,
+    scan/connect, configure DHCP/routes, or external ping in V1793.
