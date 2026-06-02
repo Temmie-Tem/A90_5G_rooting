@@ -101,7 +101,7 @@
 #define SYSLOG_ACTION_READ_ALL 3
 #endif
 
-#define EXECNS_VERSION "a90_android_execns_probe v297"
+#define EXECNS_VERSION "a90_android_execns_probe v298"
 #define MAX_PATH_LEN 512
 #define MAX_CAPTURE_SIZE (1024 * 1024)
 #define MAX_LINKERCONFIG_SIZE (256 * 1024)
@@ -281,6 +281,7 @@ struct config {
     bool allow_android_wifi_service_window_pm_first_route;
     bool allow_android_wifi_service_window_pm_first_late_per_proxy_route;
     bool allow_android_wifi_service_window_pph_modem_fd_gate;
+    bool allow_android_wifi_service_window_per_mgr_startup_trace;
     bool require_android_selinux_exec_match;
     bool pm_observer_zero_delay_per_mgr_probe;
     bool pm_observer_continue_after_provider;
@@ -1501,6 +1502,10 @@ static int parse_args(int argc, char **argv, struct config *cfg) {
         }
         if (strcmp(argv[i], "--allow-android-wifi-service-window-pph-modem-fd-gate") == 0) {
             cfg->allow_android_wifi_service_window_pph_modem_fd_gate = true;
+            continue;
+        }
+        if (strcmp(argv[i], "--allow-android-wifi-service-window-per-mgr-startup-trace") == 0) {
+            cfg->allow_android_wifi_service_window_per_mgr_startup_trace = true;
             continue;
         }
         if (strcmp(argv[i], "--require-android-selinux-exec-match") == 0) {
@@ -33103,6 +33108,287 @@ static int stop_property_service_shim(struct property_service_shim *shim,
     return 0;
 }
 
+struct per_mgr_startup_trace_summary {
+    int sample_count;
+    int alive_seen;
+    int first_alive_ms;
+    int last_alive_ms;
+    int first_gone_ms;
+    int first_child_done_ms;
+    int cmdline_seen;
+    int cwd_seen;
+    int wchan_seen;
+    int max_subsys_modem_fd;
+    int max_subsys_esoc0_fd;
+    int max_vndbinder_fd;
+    int max_hwbinder_fd;
+    int max_binder_fd;
+    int max_socket_fd;
+    int max_dev_socket_fd;
+};
+
+static void per_mgr_startup_trace_summary_init(struct per_mgr_startup_trace_summary *summary) {
+    memset(summary, 0, sizeof(*summary));
+    summary->first_alive_ms = -1;
+    summary->last_alive_ms = -1;
+    summary->first_gone_ms = -1;
+    summary->first_child_done_ms = -1;
+    summary->max_subsys_modem_fd = -1;
+    summary->max_subsys_esoc0_fd = -1;
+    summary->max_vndbinder_fd = -1;
+    summary->max_hwbinder_fd = -1;
+    summary->max_binder_fd = -1;
+    summary->max_socket_fd = -1;
+    summary->max_dev_socket_fd = -1;
+}
+
+static bool read_proc_link_target(pid_t pid, const char *entry, char *out, size_t out_size) {
+    char path[MAX_PATH_LEN];
+    ssize_t nread;
+
+    if (out_size == 0) {
+        return false;
+    }
+    out[0] = '\0';
+    proc_path(path, sizeof(path), pid, entry);
+    nread = readlink(path, out, out_size - 1);
+    if (nread < 0) {
+        return false;
+    }
+    out[nread] = '\0';
+    sanitize_one_line(out);
+    return true;
+}
+
+static bool read_proc_wchan_compact(pid_t pid, char *out, size_t out_size) {
+    char path[MAX_PATH_LEN];
+
+    if (out_size == 0) {
+        return false;
+    }
+    out[0] = '\0';
+    proc_path(path, sizeof(path), pid, "wchan");
+    if (!read_first_line_path(path, out, out_size)) {
+        return false;
+    }
+    sanitize_one_line(out);
+    return true;
+}
+
+static void per_mgr_startup_trace_update_max(int *dst, int value) {
+    if (value > *dst) {
+        *dst = value;
+    }
+}
+
+static int append_per_mgr_startup_trace_sample(struct buffer *buf,
+                                               const struct composite_child *per_mgr,
+                                               struct per_mgr_startup_trace_summary *summary,
+                                               int sample_index,
+                                               long elapsed_ms) {
+    const bool alive = per_mgr != NULL && per_mgr->pid > 0 && kill(per_mgr->pid, 0) == 0;
+    char comm[128] = "missing";
+    char cmdline[512] = "";
+    char cwd[MAX_PATH_LEN] = "";
+    char wchan[128] = "";
+    char state = '?';
+    bool cmdline_seen = false;
+    bool cwd_seen = false;
+    bool wchan_seen = false;
+    int subsys_modem_fd = -1;
+    int subsys_esoc0_fd = -1;
+    int vndbinder_fd = -1;
+    int hwbinder_fd = -1;
+    int binder_fd = -1;
+    int socket_fd = -1;
+    int dev_socket_fd = -1;
+
+    summary->sample_count++;
+    if (alive && per_mgr != NULL) {
+        summary->alive_seen = 1;
+        if (summary->first_alive_ms < 0) {
+            summary->first_alive_ms = (int)elapsed_ms;
+        }
+        summary->last_alive_ms = (int)elapsed_ms;
+        read_proc_comm(per_mgr->pid, comm, sizeof(comm));
+        state = read_proc_state(per_mgr->pid);
+        cmdline_seen = read_proc_cmdline_compact(per_mgr->pid, cmdline, sizeof(cmdline));
+        cwd_seen = read_proc_link_target(per_mgr->pid, "cwd", cwd, sizeof(cwd));
+        wchan_seen = read_proc_wchan_compact(per_mgr->pid, wchan, sizeof(wchan));
+        subsys_modem_fd = count_proc_fd_target_matches(per_mgr->pid, "/dev/subsys_modem");
+        subsys_esoc0_fd = count_proc_fd_target_matches(per_mgr->pid, "/dev/subsys_esoc0");
+        vndbinder_fd = count_proc_fd_target_matches(per_mgr->pid, "/dev/vndbinder");
+        hwbinder_fd = count_proc_fd_target_matches(per_mgr->pid, "/dev/hwbinder");
+        binder_fd = count_proc_fd_target_matches(per_mgr->pid, "/dev/binder");
+        socket_fd = count_proc_fd_target_matches(per_mgr->pid, "socket:");
+        dev_socket_fd = count_proc_fd_target_matches(per_mgr->pid, "/dev/socket");
+        if (cmdline_seen) {
+            summary->cmdline_seen = 1;
+        }
+        if (cwd_seen) {
+            summary->cwd_seen = 1;
+        }
+        if (wchan_seen) {
+            summary->wchan_seen = 1;
+        }
+        per_mgr_startup_trace_update_max(&summary->max_subsys_modem_fd, subsys_modem_fd);
+        per_mgr_startup_trace_update_max(&summary->max_subsys_esoc0_fd, subsys_esoc0_fd);
+        per_mgr_startup_trace_update_max(&summary->max_vndbinder_fd, vndbinder_fd);
+        per_mgr_startup_trace_update_max(&summary->max_hwbinder_fd, hwbinder_fd);
+        per_mgr_startup_trace_update_max(&summary->max_binder_fd, binder_fd);
+        per_mgr_startup_trace_update_max(&summary->max_socket_fd, socket_fd);
+        per_mgr_startup_trace_update_max(&summary->max_dev_socket_fd, dev_socket_fd);
+    } else if (summary->first_gone_ms < 0) {
+        summary->first_gone_ms = (int)elapsed_ms;
+    }
+    if (per_mgr != NULL && per_mgr->child_done && summary->first_child_done_ms < 0) {
+        summary->first_child_done_ms = (int)elapsed_ms;
+    }
+    return append_format(buf,
+                         "android_wifi_service_window.per_mgr_startup_trace.sample.%02d.elapsed_ms=%ld\n"
+                         "android_wifi_service_window.per_mgr_startup_trace.sample.%02d.alive=%d\n"
+                         "android_wifi_service_window.per_mgr_startup_trace.sample.%02d.child_done=%d\n"
+                         "android_wifi_service_window.per_mgr_startup_trace.sample.%02d.state=%c\n"
+                         "android_wifi_service_window.per_mgr_startup_trace.sample.%02d.comm=%s\n"
+                         "android_wifi_service_window.per_mgr_startup_trace.sample.%02d.cmdline_seen=%d\n"
+                         "android_wifi_service_window.per_mgr_startup_trace.sample.%02d.cmdline=%s\n"
+                         "android_wifi_service_window.per_mgr_startup_trace.sample.%02d.cwd_seen=%d\n"
+                         "android_wifi_service_window.per_mgr_startup_trace.sample.%02d.cwd=%s\n"
+                         "android_wifi_service_window.per_mgr_startup_trace.sample.%02d.wchan_seen=%d\n"
+                         "android_wifi_service_window.per_mgr_startup_trace.sample.%02d.wchan=%s\n"
+                         "android_wifi_service_window.per_mgr_startup_trace.sample.%02d.fd_subsys_modem=%d\n"
+                         "android_wifi_service_window.per_mgr_startup_trace.sample.%02d.fd_subsys_esoc0=%d\n"
+                         "android_wifi_service_window.per_mgr_startup_trace.sample.%02d.fd_vndbinder=%d\n"
+                         "android_wifi_service_window.per_mgr_startup_trace.sample.%02d.fd_hwbinder=%d\n"
+                         "android_wifi_service_window.per_mgr_startup_trace.sample.%02d.fd_binder=%d\n"
+                         "android_wifi_service_window.per_mgr_startup_trace.sample.%02d.fd_socket=%d\n"
+                         "android_wifi_service_window.per_mgr_startup_trace.sample.%02d.fd_dev_socket=%d\n",
+                         sample_index, elapsed_ms,
+                         sample_index, alive ? 1 : 0,
+                         sample_index, per_mgr != NULL && per_mgr->child_done ? 1 : 0,
+                         sample_index, state,
+                         sample_index, comm,
+                         sample_index, cmdline_seen ? 1 : 0,
+                         sample_index, cmdline_seen ? cmdline : "",
+                         sample_index, cwd_seen ? 1 : 0,
+                         sample_index, cwd_seen ? cwd : "",
+                         sample_index, wchan_seen ? 1 : 0,
+                         sample_index, wchan_seen ? wchan : "",
+                         sample_index, subsys_modem_fd,
+                         sample_index, subsys_esoc0_fd,
+                         sample_index, vndbinder_fd,
+                         sample_index, hwbinder_fd,
+                         sample_index, binder_fd,
+                         sample_index, socket_fd,
+                         sample_index, dev_socket_fd);
+}
+
+static int append_per_mgr_startup_trace(struct buffer *stdout_buf,
+                                        struct buffer *stderr_buf,
+                                        struct composite_child *per_mgr,
+                                        struct composite_child *pm_proxy_helper,
+                                        struct property_service_shim *property_shim) {
+    struct per_mgr_startup_trace_summary summary;
+    const int interval_ms = 20;
+    const int duration_ms = 1000;
+    const int max_samples = (duration_ms / interval_ms) + 1;
+    long start_ms = monotonic_ms();
+    long next_ms = start_ms;
+
+    per_mgr_startup_trace_summary_init(&summary);
+    if (append_format(stdout_buf,
+                      "android_wifi_service_window.per_mgr_startup_trace.begin=1\n"
+                      "android_wifi_service_window.per_mgr_startup_trace.interval_ms=%d\n"
+                      "android_wifi_service_window.per_mgr_startup_trace.duration_ms=%d\n"
+                      "android_wifi_service_window.per_mgr_startup_trace.pid=%ld\n",
+                      interval_ms,
+                      duration_ms,
+                      per_mgr != NULL ? (long)per_mgr->pid : -1L) < 0) {
+        return -1;
+    }
+    for (int sample = 0; sample < max_samples; sample++) {
+        long now = monotonic_ms();
+
+        if (append_per_mgr_startup_trace_sample(stdout_buf,
+                                                per_mgr,
+                                                &summary,
+                                                sample,
+                                                now >= start_ms ? now - start_ms : -1) < 0) {
+            return -1;
+        }
+        if (per_mgr != NULL &&
+            composite_child_drain_wait_once(per_mgr, stdout_buf, stderr_buf) < 0) {
+            return -1;
+        }
+        if (pm_proxy_helper != NULL &&
+            composite_child_drain_wait_once(pm_proxy_helper, stdout_buf, stderr_buf) < 0) {
+            return -1;
+        }
+        if (drain_property_service_shim_records(property_shim, stdout_buf) < 0) {
+            return -1;
+        }
+        if (per_mgr != NULL && per_mgr->child_done && summary.first_child_done_ms < 0) {
+            summary.first_child_done_ms = (int)(monotonic_ms() - start_ms);
+        }
+        if (sample + 1 >= max_samples) {
+            break;
+        }
+        next_ms += interval_ms;
+        while (monotonic_ms() < next_ms) {
+            usleep(2000);
+        }
+    }
+    if (per_mgr != NULL &&
+        composite_child_drain_wait_once(per_mgr, stdout_buf, stderr_buf) < 0) {
+        return -1;
+    }
+    if (pm_proxy_helper != NULL &&
+        composite_child_drain_wait_once(pm_proxy_helper, stdout_buf, stderr_buf) < 0) {
+        return -1;
+    }
+    if (drain_property_service_shim_records(property_shim, stdout_buf) < 0) {
+        return -1;
+    }
+    return append_format(stdout_buf,
+                         "android_wifi_service_window.per_mgr_startup_trace.sample_count=%d\n"
+                         "android_wifi_service_window.per_mgr_startup_trace.alive_seen=%d\n"
+                         "android_wifi_service_window.per_mgr_startup_trace.first_alive_ms=%d\n"
+                         "android_wifi_service_window.per_mgr_startup_trace.last_alive_ms=%d\n"
+                         "android_wifi_service_window.per_mgr_startup_trace.first_gone_ms=%d\n"
+                         "android_wifi_service_window.per_mgr_startup_trace.first_child_done_ms=%d\n"
+                         "android_wifi_service_window.per_mgr_startup_trace.exit_code=%d\n"
+                         "android_wifi_service_window.per_mgr_startup_trace.signal=%d\n"
+                         "android_wifi_service_window.per_mgr_startup_trace.cmdline_seen=%d\n"
+                         "android_wifi_service_window.per_mgr_startup_trace.cwd_seen=%d\n"
+                         "android_wifi_service_window.per_mgr_startup_trace.wchan_seen=%d\n"
+                         "android_wifi_service_window.per_mgr_startup_trace.max_subsys_modem_fd=%d\n"
+                         "android_wifi_service_window.per_mgr_startup_trace.max_subsys_esoc0_fd=%d\n"
+                         "android_wifi_service_window.per_mgr_startup_trace.max_vndbinder_fd=%d\n"
+                         "android_wifi_service_window.per_mgr_startup_trace.max_hwbinder_fd=%d\n"
+                         "android_wifi_service_window.per_mgr_startup_trace.max_binder_fd=%d\n"
+                         "android_wifi_service_window.per_mgr_startup_trace.max_socket_fd=%d\n"
+                         "android_wifi_service_window.per_mgr_startup_trace.max_dev_socket_fd=%d\n"
+                         "android_wifi_service_window.per_mgr_startup_trace.end=1\n",
+                         summary.sample_count,
+                         summary.alive_seen,
+                         summary.first_alive_ms,
+                         summary.last_alive_ms,
+                         summary.first_gone_ms,
+                         summary.first_child_done_ms,
+                         per_mgr != NULL ? per_mgr->exit_code : -1,
+                         per_mgr != NULL ? per_mgr->signal : 0,
+                         summary.cmdline_seen,
+                         summary.cwd_seen,
+                         summary.wchan_seen,
+                         summary.max_subsys_modem_fd,
+                         summary.max_subsys_esoc0_fd,
+                         summary.max_vndbinder_fd,
+                         summary.max_hwbinder_fd,
+                         summary.max_binder_fd,
+                         summary.max_socket_fd,
+                         summary.max_dev_socket_fd);
+}
+
 static int append_pm_service_trigger_observer_syscall_probe(struct buffer *buf,
                                                             const char *phase,
                                                             const struct composite_child *per_mgr);
@@ -39276,6 +39562,8 @@ static int run_wifi_companion_android_wifi_service_window_guarded(const struct c
     const bool pm_first_late_per_proxy_route =
         cfg->allow_android_wifi_service_window_pm_first_late_per_proxy_route;
     const bool pph_modem_fd_gate = cfg->allow_android_wifi_service_window_pph_modem_fd_gate;
+    const bool per_mgr_startup_trace =
+        cfg->allow_android_wifi_service_window_per_mgr_startup_trace;
     const bool stripped_no_hal_route = pm_first_route || pm_first_late_per_proxy_route;
     const bool direct_subsys_trigger =
         is_wifi_companion_android_wifi_service_window_subsys_trigger_capture_mode(cfg->mode) &&
@@ -39438,7 +39726,9 @@ static int run_wifi_companion_android_wifi_service_window_guarded(const struct c
                               ? (pm_proxy_contract
                                  ? (pm_first_late_per_proxy_route
                                     ? (pph_modem_fd_gate
-                                           ? "guarded-pm-proxy-contract-pm-first-late-per-proxy-pph-gate-lower-marker"
+                                           ? (per_mgr_startup_trace
+                                                  ? "guarded-pm-proxy-contract-pm-first-late-per-proxy-pph-gate-per-mgr-startup-trace-lower-marker"
+                                                  : "guarded-pm-proxy-contract-pm-first-late-per-proxy-pph-gate-lower-marker")
                                            : "guarded-pm-proxy-contract-pm-first-late-per-proxy-lower-marker")
                                     : (pm_first_route ? "guarded-pm-proxy-contract-pm-first-lower-marker"
                                                     : (late_per_proxy_only ? "guarded-pm-proxy-contract-late-per-proxy-lower-marker"
@@ -39450,7 +39740,9 @@ static int run_wifi_companion_android_wifi_service_window_guarded(const struct c
                       pm_proxy_contract
                           ? (pm_first_late_per_proxy_route
                                  ? (pph_modem_fd_gate
-                                        ? "servicemanager,hwservicemanager,vndservicemanager,pm_proxy_helper,pph-modem-fd-gate,per_mgr,cnss_daemon,mdm_helper,pm_proxy_late,pm-first-late-per-proxy-pph-gate-lower-marker-no-direct-trigger-no-wifi-hal"
+                                        ? (per_mgr_startup_trace
+                                               ? "servicemanager,hwservicemanager,vndservicemanager,pm_proxy_helper,pph-modem-fd-gate,per_mgr,per-mgr-startup-trace,cnss_daemon,mdm_helper,pm_proxy_late,pm-first-late-per-proxy-pph-gate-per-mgr-startup-trace-lower-marker-no-direct-trigger-no-wifi-hal"
+                                               : "servicemanager,hwservicemanager,vndservicemanager,pm_proxy_helper,pph-modem-fd-gate,per_mgr,cnss_daemon,mdm_helper,pm_proxy_late,pm-first-late-per-proxy-pph-gate-lower-marker-no-direct-trigger-no-wifi-hal")
                                         : "servicemanager,hwservicemanager,vndservicemanager,pm_proxy_helper,per_mgr,cnss_daemon,mdm_helper,pm_proxy_late,pm-first-late-per-proxy-lower-marker-no-direct-trigger-no-wifi-hal")
                                  : (pm_first_route
                                  ? "servicemanager,hwservicemanager,vndservicemanager,pm_proxy_helper,per_mgr,pm_proxy,mdm_helper,cnss_daemon,pm-first-lower-marker-no-direct-trigger-no-wifi-hal"
@@ -39484,6 +39776,9 @@ static int run_wifi_companion_android_wifi_service_window_guarded(const struct c
         append_format(stdout_buf,
                       "android_wifi_service_window.pph_modem_fd_gate=%d\n",
                       pph_modem_fd_gate ? 1 : 0) < 0 ||
+        append_format(stdout_buf,
+                      "android_wifi_service_window.per_mgr_startup_trace=%d\n",
+                      per_mgr_startup_trace ? 1 : 0) < 0 ||
         append_literal(stdout_buf, "android_wifi_service_window.mdm_helper_start_planned=1\n") < 0 ||
         append_literal(stdout_buf, "android_wifi_service_window.cnss_daemon_start_planned=1\n") < 0 ||
         append_literal(stdout_buf, "android_wifi_service_window.qcwlanstate_write=0\n") < 0 ||
@@ -39661,16 +39956,28 @@ static int run_wifi_companion_android_wifi_service_window_guarded(const struct c
         } else if (pm_proxy_contract && (int)i == per_mgr_index) {
             long settle_deadline = monotonic_ms() + 700L;
 
-            while (monotonic_ms() < settle_deadline) {
-                if (composite_child_drain_wait_once(&children[i], stdout_buf, stderr_buf) < 0 ||
-                    (pm_proxy_helper_index >= 0 &&
-                     composite_child_drain_wait_once(&children[pm_proxy_helper_index], stdout_buf, stderr_buf) < 0) ||
-                    drain_property_service_shim_records(&property_shim, stdout_buf) < 0) {
+            if (per_mgr_startup_trace) {
+                if (append_per_mgr_startup_trace(stdout_buf,
+                                                 stderr_buf,
+                                                 &children[i],
+                                                 pm_proxy_helper_index >= 0 ? &children[pm_proxy_helper_index] : NULL,
+                                                 &property_shim) < 0) {
                     composite_cleanup_children(children, i + 1U, stdout_buf, stderr_buf);
                     stop_property_service_shim(&property_shim, paths, stdout_buf);
                     return -1;
                 }
-                usleep(50000);
+            } else {
+                while (monotonic_ms() < settle_deadline) {
+                    if (composite_child_drain_wait_once(&children[i], stdout_buf, stderr_buf) < 0 ||
+                        (pm_proxy_helper_index >= 0 &&
+                         composite_child_drain_wait_once(&children[pm_proxy_helper_index], stdout_buf, stderr_buf) < 0) ||
+                        drain_property_service_shim_records(&property_shim, stdout_buf) < 0) {
+                        composite_cleanup_children(children, i + 1U, stdout_buf, stderr_buf);
+                        stop_property_service_shim(&property_shim, paths, stdout_buf);
+                        return -1;
+                    }
+                    usleep(50000);
+                }
             }
             composite_capture_observable_children(&children[i], 1, stdout_buf);
             if (append_proc_fd_target_match_scan(stdout_buf,

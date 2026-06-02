@@ -3857,3 +3857,45 @@ scan/connect/credential/DHCP/external-ping guardrails remain required.
 
 Report:
 `docs/reports/NATIVE_INIT_V1603_PM_SERVICE_EXIT_CLASSIFIER_2026-06-02.md`.
+
+## Latest native Wi-Fi state: V1604/V1605 (2026-06-02)
+
+V1604 adds the source/build-only next gate selected by V1603.  The helper is
+bumped to `a90_android_execns_probe v298` and the V1600 route is preserved with
+one added diagnostic flag:
+`--allow-android-wifi-service-window-per-mgr-startup-trace`.
+
+V1604 source build passes as
+`v1604-per-mgr-startup-trace-test-boot-source-build-pass`:
+
+- boot image:
+  `tmp/wifi/v1604-per-mgr-startup-trace-test-boot/boot_linux_v1604_wifi_test.img`
+- boot sha256:
+  `eb8d1dc11656a8380180b96239d9fe9c8ba160f55f1ca3ff34a8552a6438cca8`
+- init: `A90 Linux init 0.9.106 (v1604-per-mgr-startup-trace)`
+- helper marker: `a90_android_execns_probe v298`
+- helper sha256:
+  `6a56b15650fe5c7785a878e7f86ade8e9c323e33cfb8c049952388022592d898`
+
+The startup trace is bounded and read-only: after the proven PPH modem-fd gate,
+it samples `per_mgr` every `20ms` for `1s`, recording liveness, state, cmdline,
+cwd, wchan, exit timing, and fd counts for `/dev/subsys_modem`,
+`/dev/subsys_esoc0`, binder nodes, sockets, and `/dev/socket`.  It does not
+start Wi-Fi HAL/`wificond`, scan/connect, credentials, DHCP/routes, external
+ping, direct scoped `/dev/subsys_esoc0`, PMIC/GPIO/GDSC writes, blind eSoC
+notify/`BOOT_DONE`, global PCI rescan, or platform bind/unbind.
+
+V1605 artifact sanity passes as
+`v1605-per-mgr-startup-trace-artifact-sanity-pass`.  It verifies static
+init/helper binaries, ramdisk entries, boot/header/kernel parity, route
+contract, V1604 startup-trace markers, forbidden credential-like byte absence,
+and private modes.
+
+Next work: V1606 rollbackable live handoff of only the V1604 image.  Collect
+helper result/startup trace/lower markers/dmesg/`wlan0`, roll back to
+`stage3/boot_linux_v724.img`, and verify selftest `fail=0`.  The key result is
+whether `per_mgr_startup_trace` catches a very short-lived fd/open/binder
+surface before the clean exit.  Reports:
+`docs/reports/NATIVE_INIT_V1604_PER_MGR_STARTUP_TRACE_SOURCE_BUILD_2026-06-02.md`
+and
+`docs/reports/NATIVE_INIT_V1605_PER_MGR_STARTUP_TRACE_ARTIFACT_SANITY_2026-06-02.md`.

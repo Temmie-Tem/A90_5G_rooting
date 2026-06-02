@@ -9422,3 +9422,38 @@ Samsung bootloader
   direct writes, blind eSoC notify/`BOOT_DONE`, global PCI rescan, platform
   bind/unbind, or unbounded boot-image/partition writes.  Report:
   `docs/reports/NATIVE_INIT_V1603_PM_SERVICE_EXIT_CLASSIFIER_2026-06-02.md`.
+
+- V1604/V1605 source/build and local sanity loop is complete.  V1604 bumps
+  `a90_android_execns_probe` to v298 and builds a rollbackable test boot that
+  preserves the V1600 PM-first late-per-proxy PPH-gated lower-marker route, but
+  adds `--allow-android-wifi-service-window-per-mgr-startup-trace`.
+
+  The new bounded diagnostic samples `per_mgr` every `20ms` for `1s` after
+  spawn, immediately after the proven PPH `/dev/subsys_modem` fd gate.  It
+  records liveness, state, cmdline, cwd, wchan, exit timing, and fd counts for
+  `/dev/subsys_modem`, `/dev/subsys_esoc0`, binder nodes, sockets, and
+  `/dev/socket`.  This is intended to catch the clean early `pm-service` exit
+  boundary that V1602/V1603 identified.
+
+  V1604 source build passes as
+  `v1604-per-mgr-startup-trace-test-boot-source-build-pass`; boot image:
+  `tmp/wifi/v1604-per-mgr-startup-trace-test-boot/boot_linux_v1604_wifi_test.img`,
+  sha256 `eb8d1dc11656a8380180b96239d9fe9c8ba160f55f1ca3ff34a8552a6438cca8`.
+  Helper marker is `a90_android_execns_probe v298`, sha256
+  `6a56b15650fe5c7785a878e7f86ade8e9c323e33cfb8c049952388022592d898`.
+
+  V1605 artifact sanity passes as
+  `v1605-per-mgr-startup-trace-artifact-sanity-pass`; it verifies static
+  binaries, ramdisk entries, boot/header/kernel parity, V1604 route markers,
+  helper markers, init route, route contract, forbidden credential-like byte
+  absence, and private modes.
+
+  Next gate: V1606 rollbackable live handoff of only the V1604 image.  Collect
+  helper result/startup trace/lower markers/dmesg/`wlan0`, roll back to
+  `stage3/boot_linux_v724.img`, and verify native selftest `fail=0`.  Still no
+  credentials, scan/connect, DHCP/routes, external ping, PMIC/GPIO/GDSC direct
+  writes, blind eSoC notify/`BOOT_DONE`, global PCI rescan, platform
+  bind/unbind, or unbounded boot-image/partition writes.  Reports:
+  `docs/reports/NATIVE_INIT_V1604_PER_MGR_STARTUP_TRACE_SOURCE_BUILD_2026-06-02.md`
+  and
+  `docs/reports/NATIVE_INIT_V1605_PER_MGR_STARTUP_TRACE_ARTIFACT_SANITY_2026-06-02.md`.
