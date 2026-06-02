@@ -9690,3 +9690,25 @@ Samsung bootloader
   `pm_service_system_info_surface.*` evidence and roll back to
   `stage3/boot_linux_v724.img`.  Report:
   `docs/reports/NATIVE_INIT_V1617_PM_SERVICE_SYSTEM_INFO_SURFACE_SOURCE_BUILD_2026-06-02.md`.
+
+- V1618 local-only artifact sanity is complete and passes as
+  `v1618-pm-service-system-info-surface-artifact-sanity-pass`.
+
+  It verifies the V1617 boot artifact at
+  `tmp/wifi/v1617-pm-service-system-info-surface-test-boot/boot_linux_v1617_wifi_test.img`
+  with SHA256
+  `7d9b60862a8eab04e0a0fe35b929ace255f0de669412a0cbe6262f6f0495419d`.
+  The verifier confirms manifest decision, base boot existence, static
+  init/helper binaries, ramdisk entries, boot/helper/init route markers, route
+  contract, boot header/kernel parity, forbidden credential-like byte absence,
+  and private modes.
+
+  No live command, flash, reboot, boot partition write, partition write,
+  scan/connect, credential handling, DHCP/routes, external ping,
+  PMIC/GPIO/GDSC direct write, blind eSoC notify/`BOOT_DONE` spoof, global PCI
+  rescan, or platform bind/unbind was performed.
+
+  Next gate: V1619 rollbackable live handoff.  Flash only the V1617 image,
+  collect `pm_service_system_info_surface.*` evidence, roll back to
+  `stage3/boot_linux_v724.img`, and verify selftest `fail=0`.  Report:
+  `docs/reports/NATIVE_INIT_V1618_PM_SERVICE_SYSTEM_INFO_SURFACE_ARTIFACT_SANITY_2026-06-02.md`.

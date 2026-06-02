@@ -4208,3 +4208,32 @@ partition write.
 Next gate: V1618 local artifact sanity over the V1617 manifest, then V1619
 rollbackable live handoff if V1618 passes.  Report:
 `docs/reports/NATIVE_INIT_V1617_PM_SERVICE_SYSTEM_INFO_SURFACE_SOURCE_BUILD_2026-06-02.md`.
+
+## Latest native Wi-Fi state: V1618 (2026-06-02)
+
+V1618 is local-only artifact sanity and passes as
+`v1618-pm-service-system-info-surface-artifact-sanity-pass`.
+
+It verifies the V1617 manifest and boot artifact:
+
+- boot image:
+  `tmp/wifi/v1617-pm-service-system-info-surface-test-boot/boot_linux_v1617_wifi_test.img`
+- boot SHA256:
+  `7d9b60862a8eab04e0a0fe35b929ace255f0de669412a0cbe6262f6f0495419d`
+- helper marker: `a90_android_execns_probe v301`
+- helper SHA256:
+  `1b870e4244ba2794ee30bc113d6aa421f66dfea55a9c116139978b1b4b9e787e`
+
+Checks passed: manifest decision, base boot existence, static init/helper,
+ramdisk entries, boot/helper/init markers, route contract, header/kernel parity,
+forbidden credential-like byte scan, and private output modes.
+
+V1618 performed no live command, flash, reboot, boot partition write, partition
+write, scan/connect, credential handling, DHCP/routes, external ping,
+PMIC/GPIO/GDSC direct write, blind eSoC notify/`BOOT_DONE` spoof, global PCI
+rescan, or platform bind/unbind.
+
+Next gate: V1619 rollbackable live handoff to flash only the V1617 image,
+collect `pm_service_system_info_surface.*` evidence, roll back to
+`stage3/boot_linux_v724.img`, and verify selftest `fail=0`.  Report:
+`docs/reports/NATIVE_INIT_V1618_PM_SERVICE_SYSTEM_INFO_SURFACE_ARTIFACT_SANITY_2026-06-02.md`.
