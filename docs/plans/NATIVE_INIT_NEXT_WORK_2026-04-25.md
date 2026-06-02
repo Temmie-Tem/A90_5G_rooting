@@ -11406,3 +11406,60 @@ esoc0/RC1/pcie1/MDM2AP, do NOT investigate MSA until WLFW 69 appears.
 
   Report:
   `docs/reports/NATIVE_INIT_V1673_PCIE1_CLOCK_VOTE_DIRECT_RETRY_HANDOFF_2026-06-02.md`.
+
+## WLAN-PD Redirect Supersedes pcie1/eSoC Track (2026-06-02)
+
+- The pcie1/RC1/MDM2AP/subsys9/eSoC track is stopped for the `wlan0` goal.
+- Current `wlan0` target path is the internal modem WLAN-PD route:
+  `mss ONLINE -> tqftpserv/tftp_server serves wlanmdsp.mbn -> modem starts WLAN-PD -> WLFW service 69 -> ICNSS QMI/MSA -> fw_ready/BDF -> wlan0`.
+- Do not return to eSoC/subsys_esoc0, forced RC1, fake-ONLINE, PMIC/GPIO/GDSC writes, eSoC notify, or `BOOT_DONE` spoof for this WLAN-PD gate.
+
+## V1674/V1676 WLAN-PD Firmware-serve Gate Source Builds (2026-06-02)
+
+- V1674 produced the first read-only WLAN-PD firmware-serve test boot, but V1675 exposed a classifier timing bug.
+- V1675 raw label `tqftpserv-not-running` is invalid because tftp child state was summarized before observable-child capture.
+- V1676 rebuilt the same gate with helper `a90_android_execns_probe v305` so tftp state is sampled after observable-child capture.
+
+  Corrected artifact:
+
+  - init: `A90 Linux init 0.9.121 (v1676-wlan-pd-firmware-serve-gate-corrected)`;
+  - boot image:
+    `tmp/wifi/v1676-wlan-pd-firmware-serve-gate-corrected-test-boot/boot_linux_v1676_wlan_pd_firmware_serve_gate_corrected.img`;
+  - boot SHA256:
+    `e79f2217e770b09dd562f4862d22e4768b06008b7f0a7b9101acfb6260e427da`;
+  - helper SHA256:
+    `45769df9905d8beb8be11e69984a32ecfb3e3bdefe148a6fcf2d0fa7c7a2124a`.
+
+  Reports:
+
+  - `docs/reports/NATIVE_INIT_V1674_WLAN_PD_FIRMWARE_SERVE_GATE_SOURCE_BUILD_2026-06-02.md`;
+  - `docs/reports/NATIVE_INIT_V1676_WLAN_PD_FIRMWARE_SERVE_GATE_CORRECTED_SOURCE_BUILD_2026-06-02.md`.
+
+## V1677 WLAN-PD Firmware-serve Gate Corrected Handoff (2026-06-02)
+
+- V1677 completed the one contracted read-only WLAN-PD firmware-serve live gate and rolled back to v724 successfully.
+
+  Result:
+
+  - decision: `v1677-firmware-not-requested-rollback-pass`;
+  - label: `firmware-not-requested`;
+  - tftp server running: `1`;
+  - requested `wlanmdsp.mbn`: `0`;
+  - requested modem image: `0`;
+  - served `wlanmdsp.mbn` nonzero: `0`;
+  - served `modem.mdt` nonzero: `1`;
+  - served modem blob nonzero: `1`;
+  - WLFW service 69 seen: `0`;
+  - companion order: `qrtr_ns,pd_mapper,rmt_storage,tftp_server,cnss_diag,cnss_daemon`;
+  - rollback restored `stage3/boot_linux_v724.img`;
+  - native verification after rollback: `A90 Linux init 0.9.68 (v724)`, `selftest fail=0`.
+
+  Interpretation:
+
+  - tqftpserv/tftp_server was running, so companion startup is not the blocker for this gate;
+  - the internal modem did not request WLAN-PD firmware during the observed window;
+  - do not spin timing/window variants for this gate;
+  - next work is host-only analysis of why the modem never requests WLAN-PD firmware or what Android does to trigger WLAN-PD load, not MSA, WLFW/BDF, scan/connect, or eSoC/RC1.
+
+  Report:
+  `docs/reports/NATIVE_INIT_V1677_WLAN_PD_FIRMWARE_SERVE_GATE_CORRECTED_HANDOFF_2026-06-02.md`.

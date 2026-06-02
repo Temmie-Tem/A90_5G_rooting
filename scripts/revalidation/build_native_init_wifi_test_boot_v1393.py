@@ -47,8 +47,8 @@ DEFAULT_WIFI_TEST_WATCHER_PID = "/cache/native-init-wifi-test-boot-v1393-watcher
 DEFAULT_WIFI_TEST_WATCH_SEC = 35
 DEFAULT_WIFI_TEST_SUPERVISOR_TIMEOUT_SEC = 40
 DEFAULT_WIFI_TEST_HELPER_MODE = "post-pm-observer"
-EXPECTED_HELPER_MARKER = "a90_android_execns_probe v303"
-EXPECTED_HELPER_SHA256 = "d58f637ce53b12f16f7143b388b20007553fe8d47bd6ed06379bde96a69c8798"
+EXPECTED_HELPER_MARKER = "a90_android_execns_probe v305"
+EXPECTED_HELPER_SHA256 = "45769df9905d8beb8be11e69984a32ecfb3e3bdefe148a6fcf2d0fa7c7a2124a"
 REPRODUCIBLE_MTIME = 0
 
 FORBIDDEN_BYTES = (
@@ -92,6 +92,8 @@ def shell_define(name: str, value: str) -> str:
 
 
 def helper_runtime_mode(args: argparse.Namespace) -> str:
+    if args.wifi_test_helper_mode == "wlan-pd-firmware-serve-gate":
+        return "wifi-companion-wlan-pd-firmware-serve-gate-start-only"
     if args.wifi_test_helper_mode == "android-service-window-start-only":
         return "wifi-companion-android-wifi-service-window-start-only"
     if args.wifi_test_helper_mode == "android-service-window-subsys-trigger-capture":
@@ -131,6 +133,10 @@ def uses_android_service_window(args: argparse.Namespace) -> bool:
         "android-service-window-pm-proxy-contract-pm-first-late-per-proxy-pph-gate-per-mgr-nonstop-context-trace-lower-marker",
         "android-service-window-pm-proxy-contract-pm-first-late-per-proxy-pph-gate-per-mgr-system-info-surface-lower-marker",
     }
+
+
+def uses_wlan_pd_firmware_serve_gate(args: argparse.Namespace) -> bool:
+    return args.wifi_test_helper_mode == "wlan-pd-firmware-serve-gate"
 
 
 def build_helper(args: argparse.Namespace) -> None:
@@ -296,6 +302,8 @@ def build_init(args: argparse.Namespace) -> None:
         else []
     )
     service_window_flags: list[str] = []
+    if uses_wlan_pd_firmware_serve_gate(args):
+        service_window_flags.append("-DA90_WIFI_TEST_BOOT_WLAN_PD_FIRMWARE_SERVE_GATE=1")
     if uses_android_service_window(args):
         service_window_flags.append("-DA90_WIFI_TEST_BOOT_ANDROID_SERVICE_WINDOW=1")
     if args.wifi_test_helper_mode == "android-service-window-subsys-trigger-capture":
@@ -527,7 +535,30 @@ def verify_init_route_contract(args: argparse.Namespace) -> None:
         helper_runtime_mode(args),
     ]
     forbidden: list[str] = []
-    if uses_android_service_window(args):
+    if uses_wlan_pd_firmware_serve_gate(args):
+        expected.extend([
+            "--allow-wifi-companion-start-only",
+            "--allow-cnss-start-only",
+            "--allow-qrtr-ns-readback",
+            "--allow-servloc-domain-list-probe",
+            "--allow-service-notifier-listener-probe",
+        ])
+        forbidden.extend([
+            "--allow-android-wifi-service-window",
+            "--allow-android-wifi-service-window-subsys-trigger-capture",
+            "--allow-pm-service-trigger-observer",
+            "--allow-post-pm-mdm-helper-esoc-observer",
+            "--allow-post-pm-mdm-helper-lower-trace",
+            "--pm-observer-continue-after-provider",
+            "--pm-observer-start-cnss-after-provider",
+            "--pm-observer-start-mdm-helper-after-cnss",
+            "--pm-observer-start-mdm-helper-before-cnss",
+            "--pm-observer-early-powerup-corrected-rc1-enumerate",
+            "--pm-observer-trigger-pcie-enumerate",
+            "--pm-observer-private-cnss-daemon-sdx50m",
+            "--private-cnss-daemon-path",
+        ])
+    elif uses_android_service_window(args):
         expected.extend([
             "--allow-android-wifi-service-window",
         ])
@@ -666,7 +697,22 @@ def verify_markers(args: argparse.Namespace) -> None:
         "/bin/a90_android_execns_probe",
         helper_runtime_mode(args),
     ]
-    if uses_android_service_window(args):
+    if uses_wlan_pd_firmware_serve_gate(args):
+        expected.extend([
+            "--allow-wifi-companion-start-only",
+            "--allow-cnss-start-only",
+            "--allow-qrtr-ns-readback",
+            "--allow-servloc-domain-list-probe",
+            "--allow-service-notifier-listener-probe",
+            "wifi-companion-wlan-pd-firmware-serve-gate-start-only",
+            "wlan_pd_firmware_serve_gate.begin=1",
+            "wlan_pd_firmware_serve_gate.label=%s",
+            "wlan_pd_firmware_serve_gate.no_esoc0=1",
+            "wlan_pd_firmware_serve_gate.no_forced_rc1=1",
+            "wlan_pd_firmware_serve_gate.no_wifi_hal=1",
+            "wifi_companion_start.order=%s",
+        ])
+    elif uses_android_service_window(args):
         expected.append("--allow-android-wifi-service-window")
         if args.wifi_test_helper_mode == "android-service-window-subsys-trigger-capture":
             expected.append("--allow-android-wifi-service-window-subsys-trigger-capture")
@@ -1287,6 +1333,7 @@ def write_manifest(args: argparse.Namespace) -> None:
             "helper_mode": args.wifi_test_helper_mode,
             "helper_runtime_mode": helper_runtime_mode(args),
             "android_service_window": uses_android_service_window(args),
+            "wlan_pd_firmware_serve_gate": uses_wlan_pd_firmware_serve_gate(args),
             "scan_connect_credentials": False,
             "mount_debugfs": args.wifi_test_mount_debugfs,
             "firmware_mounts": args.wifi_test_firmware_mounts,
@@ -1390,6 +1437,43 @@ def resolve_args(args: argparse.Namespace) -> argparse.Namespace:
                 "Android service-window route must not combine RC1/provider/auto-readiness options: "
                 + ", ".join(enabled)
             )
+    if uses_wlan_pd_firmware_serve_gate(args):
+        incompatible = {
+            "wifi_test_mount_debugfs": args.wifi_test_mount_debugfs,
+            "wifi_test_pid1_rc1_watcher": args.wifi_test_pid1_rc1_watcher,
+            "wifi_test_rc1_window_sampler": args.wifi_test_rc1_window_sampler,
+            "wifi_test_rc1_endpoint_sampler": args.wifi_test_rc1_endpoint_sampler,
+            "wifi_test_rc1_focused_endpoint_sampler": args.wifi_test_rc1_focused_endpoint_sampler,
+            "wifi_test_rc1_immediate_endpoint_sampler": args.wifi_test_rc1_immediate_endpoint_sampler,
+            "wifi_test_rc1_micro_endpoint_sampler": args.wifi_test_rc1_micro_endpoint_sampler,
+            "wifi_test_rc1_micro_focused_endpoint_sampler": args.wifi_test_rc1_micro_focused_endpoint_sampler,
+            "wifi_test_rc1_micro_batched_focused_endpoint_sampler": args.wifi_test_rc1_micro_batched_focused_endpoint_sampler,
+            "wifi_test_rc1_micro_source_timestamped_sampler": args.wifi_test_rc1_micro_source_timestamped_sampler,
+            "wifi_test_rc1_micro_critical_fast_endpoint_sampler": args.wifi_test_rc1_micro_critical_fast_endpoint_sampler,
+            "wifi_test_rc1_case_aligned_micro_endpoint_sampler": args.wifi_test_rc1_case_aligned_micro_endpoint_sampler,
+            "wifi_test_rc1_sysfs_client_enumerate": args.wifi_test_rc1_sysfs_client_enumerate,
+            "wifi_test_provider_trigger_micro_endpoint_sampler": args.wifi_test_provider_trigger_micro_endpoint_sampler,
+            "wifi_test_provider_trigger_exact_line": args.wifi_test_provider_trigger_exact_line,
+            "wifi_test_provider_trigger_long_window": args.wifi_test_provider_trigger_long_window,
+            "wifi_test_provider_trigger_thread_state": args.wifi_test_provider_trigger_thread_state,
+            "wifi_test_provider_trigger_tracepoint_sampler": args.wifi_test_provider_trigger_tracepoint_sampler,
+            "wifi_test_provider_trigger_pil_tracepoint_sampler": args.wifi_test_provider_trigger_pil_tracepoint_sampler,
+            "wifi_test_provider_trigger_effective_level_sampler": args.wifi_test_provider_trigger_effective_level_sampler,
+            "wifi_test_provider_trigger_ap2mdm_hold": args.wifi_test_provider_trigger_ap2mdm_hold,
+            "wifi_test_natural_mdm2ap_irq_summary": args.wifi_test_natural_mdm2ap_irq_summary,
+            "wifi_test_natural_power_diff_snapshot": args.wifi_test_natural_power_diff_snapshot,
+            "wifi_test_pcie1_clock_vote_proof": args.wifi_test_pcie1_clock_vote_proof,
+            "wifi_test_auto_readiness_supervisor": args.wifi_test_auto_readiness_supervisor,
+            "wifi_test_rc1_retry_count": args.wifi_test_rc1_retry_count > 0,
+        }
+        enabled = [key for key, value in incompatible.items() if value]
+        if enabled:
+            raise RuntimeError(
+                "WLAN-PD firmware-serve gate must not combine RC1/eSoC/provider/power options: "
+                + ", ".join(enabled)
+            )
+        if not args.wifi_test_firmware_mounts:
+            raise RuntimeError("WLAN-PD firmware-serve gate requires --wifi-test-firmware-mounts")
     return args
 
 
@@ -1418,6 +1502,7 @@ def parse_args(argv: Sequence[str] | None = None) -> argparse.Namespace:
     parser.add_argument(
         "--wifi-test-helper-mode",
         choices=[
+            "wlan-pd-firmware-serve-gate",
             "post-pm-observer",
             "android-service-window-start-only",
             "android-service-window-subsys-trigger-capture",

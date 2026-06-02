@@ -101,7 +101,7 @@
 #define SYSLOG_ACTION_READ_ALL 3
 #endif
 
-#define EXECNS_VERSION "a90_android_execns_probe v303"
+#define EXECNS_VERSION "a90_android_execns_probe v305"
 #define MAX_PATH_LEN 512
 #define MAX_CAPTURE_SIZE (1024 * 1024)
 #define MAX_LINKERCONFIG_SIZE (256 * 1024)
@@ -533,7 +533,7 @@ static void usage(FILE *out) {
             "[--cnss-surface-mode full|compact] "
             "[--service-manager-order none|before-cnss|after-cnss|after-mdm-helper-esoc-fd|after-mdm-helper-esoc-fd-with-pm-proxy|after-mdm-helper-esoc-fd-with-pm-full-contract|after-mdm-helper-esoc-fd-with-pm-full-contract-with-modem-holder|after-mdm-helper-esoc-fd-with-wifi-surface|after-mdm-helper-esoc-fd-with-wifi-surface-subsys-window] "
             "[--subsys-trigger-gate observe-only|wlfw-precondition|post-provider-no-wlfw|post-upper-surface-no-wlfw] "
-            "--mode linker-list|identity-probe|sepolicy-inventory|sepolicy-compile-proof|sepolicy-load-proof|selinux-domain-proof|cnss-start-only|cnss-userspace-readiness|wifi-companion-start-only|wifi-companion-post-sysmon-observer-start-only|wifi-companion-android-order-post-sysmon-observer-start-only|wifi-companion-android-order-pre-cnss-provider-observe-only|wifi-companion-service-manager-start-only|wifi-companion-vnd-service-manager-start-only|wifi-companion-qrtr-first-vnd-service-manager-start-only|wifi-companion-cnss-first-delayed-vnd-service-manager-start-only|wifi-companion-service74-gated-vnd-service-manager-start-only|wifi-companion-service74-gated-vnd-service-manager-readiness-start-only|wifi-companion-service74-gated-vnd-service-manager-cnss-retry-start-only|wifi-companion-peripheral-manager-node-parity-start-only|wifi-companion-peripheral-manager-property-contract-start-only|wifi-companion-peripheral-manager-init-contract-start-only|wifi-companion-pm-service-trigger-observer|wifi-companion-post-pm-mdm-helper-esoc-observer|wifi-companion-esoc-control-preflight|wifi-companion-esoc-engine-register-preflight|wifi-companion-esoc-req-registered-subsys-hold-preflight|wifi-companion-esoc-conditional-response-preflight|wifi-companion-esoc-img-xfer-mhi-observe|wifi-companion-pmic-soft-reset-preflight|wifi-companion-pmic-power-surface-write-gate-preflight|wifi-companion-pmic-gpiochip-devnode-open-preflight|wifi-companion-pmic-gpiochip-line-info-preflight|wifi-companion-mdm-helper-ks-image-contract-preflight|wifi-companion-mdm-helper-only-deep-capture|wifi-companion-mdm-helper-runtime-contract-capture|wifi-companion-mdm-helper-runtime-subsys-trigger-capture|wifi-companion-mdm-helper-cnss-before-subsys-trigger-capture|wifi-companion-mdm-helper-cnss-service-manager-matrix|wifi-companion-android-wifi-service-window-start-only|wifi-companion-android-wifi-service-window-subsys-trigger-capture|wifi-companion-service74-gated-peripheral-manager-cnss-retry-start-only|wifi-companion-service74-gated-peripheral-manager-cnss-retry-registry-snapshot-start-only|wifi-companion-service74-gated-peripheral-manager-vndservice-query-start-only|wifi-companion-service74-gated-peripheral-manager-vndservice-query-cnss-retry-start-only|wifi-companion-service74-gated-peripheral-manager-vndservice-query-provider-first-cnss-start-only|wifi-companion-service74-gated-android-userspace-cnss-retry-start-only|wifi-companion-service74-gated-android-userspace-cnss-retry-registry-snapshot-start-only|wifi-companion-service74-gated-vnd-service-manager-registry-snapshot-start-only|wifi-companion-service74-gated-mdm-helper-start-only|wifi-companion-service180-gated-mdm-helper-start-only|wifi-companion-sysmon-gated-mdm-helper-start-only|wifi-companion-hal-order-start-only|wifi-companion-hal-wificond-order-start-only|wifi-companion-hal-wificond-lshal-wait-samsung|wifi-companion-hal-wificond-lshal-wait-iwifi|wifi-companion-dual-hal-wificond-lshal-wait-iwifi|wifi-companion-dual-hal-wificond-iwifi-start|wifi-companion-dual-hal-wificond-lshal-then-iwifi-start|rmt-storage-start-only|property-lookup|service-manager-start-only|private-selinux-proof|wifi-hal-lshal-vintf-status-list|wifi-hal-composite-start-only|wifi-hal-composite-lshal-list|wifi-hal-composite-lshal-binderized-list|wifi-hal-composite-lshal-wait-target|wifi-surface-composite-lshal-wait-iwifi|wifi-surface-composite-lshal-wait-samsung|wifi-surface-composite-lshal-wait-samsung-ptrace|wifi-hal-composite-lshal-status-list|wifi-hal-composite-lshal-binderized-status-list|wifi-surface-composite-start-only|wifi-dual-hal-lshal-wait-iwifi|wifi-dual-hal-iwifi-start-surface|wifi-iwifi-start-surface|wifi-active-session-surface|wifi-active-session-scan-only|wifi-active-session-connect-ping|wifi-connect-tool-surface|subsys-hold-open-proof|service-notifier-listener-only "
+            "--mode linker-list|identity-probe|sepolicy-inventory|sepolicy-compile-proof|sepolicy-load-proof|selinux-domain-proof|cnss-start-only|cnss-userspace-readiness|wifi-companion-start-only|wifi-companion-post-sysmon-observer-start-only|wifi-companion-android-order-post-sysmon-observer-start-only|wifi-companion-wlan-pd-firmware-serve-gate-start-only|wifi-companion-android-order-pre-cnss-provider-observe-only|wifi-companion-service-manager-start-only|wifi-companion-vnd-service-manager-start-only|wifi-companion-qrtr-first-vnd-service-manager-start-only|wifi-companion-cnss-first-delayed-vnd-service-manager-start-only|wifi-companion-service74-gated-vnd-service-manager-start-only|wifi-companion-service74-gated-vnd-service-manager-readiness-start-only|wifi-companion-service74-gated-vnd-service-manager-cnss-retry-start-only|wifi-companion-peripheral-manager-node-parity-start-only|wifi-companion-peripheral-manager-property-contract-start-only|wifi-companion-peripheral-manager-init-contract-start-only|wifi-companion-pm-service-trigger-observer|wifi-companion-post-pm-mdm-helper-esoc-observer|wifi-companion-esoc-control-preflight|wifi-companion-esoc-engine-register-preflight|wifi-companion-esoc-req-registered-subsys-hold-preflight|wifi-companion-esoc-conditional-response-preflight|wifi-companion-esoc-img-xfer-mhi-observe|wifi-companion-pmic-soft-reset-preflight|wifi-companion-pmic-power-surface-write-gate-preflight|wifi-companion-pmic-gpiochip-devnode-open-preflight|wifi-companion-pmic-gpiochip-line-info-preflight|wifi-companion-mdm-helper-ks-image-contract-preflight|wifi-companion-mdm-helper-only-deep-capture|wifi-companion-mdm-helper-runtime-contract-capture|wifi-companion-mdm-helper-runtime-subsys-trigger-capture|wifi-companion-mdm-helper-cnss-before-subsys-trigger-capture|wifi-companion-mdm-helper-cnss-service-manager-matrix|wifi-companion-android-wifi-service-window-start-only|wifi-companion-android-wifi-service-window-subsys-trigger-capture|wifi-companion-service74-gated-peripheral-manager-cnss-retry-start-only|wifi-companion-service74-gated-peripheral-manager-cnss-retry-registry-snapshot-start-only|wifi-companion-service74-gated-peripheral-manager-vndservice-query-start-only|wifi-companion-service74-gated-peripheral-manager-vndservice-query-cnss-retry-start-only|wifi-companion-service74-gated-peripheral-manager-vndservice-query-provider-first-cnss-start-only|wifi-companion-service74-gated-android-userspace-cnss-retry-start-only|wifi-companion-service74-gated-android-userspace-cnss-retry-registry-snapshot-start-only|wifi-companion-service74-gated-vnd-service-manager-registry-snapshot-start-only|wifi-companion-service74-gated-mdm-helper-start-only|wifi-companion-service180-gated-mdm-helper-start-only|wifi-companion-sysmon-gated-mdm-helper-start-only|wifi-companion-hal-order-start-only|wifi-companion-hal-wificond-order-start-only|wifi-companion-hal-wificond-lshal-wait-samsung|wifi-companion-hal-wificond-lshal-wait-iwifi|wifi-companion-dual-hal-wificond-lshal-wait-iwifi|wifi-companion-dual-hal-wificond-iwifi-start|wifi-companion-dual-hal-wificond-lshal-then-iwifi-start|rmt-storage-start-only|property-lookup|service-manager-start-only|private-selinux-proof|wifi-hal-lshal-vintf-status-list|wifi-hal-composite-start-only|wifi-hal-composite-lshal-list|wifi-hal-composite-lshal-binderized-list|wifi-hal-composite-lshal-wait-target|wifi-surface-composite-lshal-wait-iwifi|wifi-surface-composite-lshal-wait-samsung|wifi-surface-composite-lshal-wait-samsung-ptrace|wifi-hal-composite-lshal-status-list|wifi-hal-composite-lshal-binderized-status-list|wifi-surface-composite-start-only|wifi-dual-hal-lshal-wait-iwifi|wifi-dual-hal-iwifi-start-surface|wifi-iwifi-start-surface|wifi-active-session-surface|wifi-active-session-scan-only|wifi-active-session-connect-ping|wifi-connect-tool-surface|subsys-hold-open-proof|service-notifier-listener-only "
             "[v27 binderized query runs: /system/bin/lshal list --types=binderized --neat] "
             "[v28 target query runs: /system/bin/lshal wait <fqinstance>] "
             "[v29 status query runs: /system/bin/lshal list --types=binderized,vintf --neat -V -S -i -p -e -c] "
@@ -644,6 +644,10 @@ static bool is_wifi_companion_android_order_post_sysmon_observer_start_only_mode
 
 static bool is_wifi_companion_android_order_pre_cnss_provider_observe_only_mode(const char *mode) {
     return streq(mode, "wifi-companion-android-order-pre-cnss-provider-observe-only");
+}
+
+static bool is_wifi_companion_wlan_pd_firmware_serve_gate_mode(const char *mode) {
+    return streq(mode, "wifi-companion-wlan-pd-firmware-serve-gate-start-only");
 }
 
 static bool is_wifi_companion_service_manager_start_only_mode(const char *mode) {
@@ -886,6 +890,7 @@ static bool is_wifi_companion_any_start_only_mode(const char *mode) {
     return is_wifi_companion_start_only_mode(mode) ||
            is_wifi_companion_post_sysmon_observer_start_only_mode(mode) ||
            is_wifi_companion_android_order_post_sysmon_observer_start_only_mode(mode) ||
+           is_wifi_companion_wlan_pd_firmware_serve_gate_mode(mode) ||
            is_wifi_companion_android_wifi_service_window_any_mode(mode) ||
            is_wifi_companion_service74_gated_mdm_helper_start_only_mode(mode) ||
            is_wifi_companion_service180_gated_mdm_helper_start_only_mode(mode) ||
@@ -11283,6 +11288,303 @@ static int append_path_file_capture_named(struct buffer *buf,
                          label,
                          total,
                          truncated ? 1 : 0);
+}
+
+static int append_dir_capture_named(struct buffer *buf,
+                                    const char *path,
+                                    const char *label,
+                                    bool filter_interesting,
+                                    int max_entries,
+                                    bool *captured);
+
+static bool a90_buffer_contains_ci(const struct buffer *buf, const char *needle) {
+    if (buf == NULL || buf->data == NULL || needle == NULL || *needle == '\0') {
+        return false;
+    }
+    return strcasestr(buf->data, needle) != NULL;
+}
+
+static bool a90_buffer_key_has_nonzero_uint(const struct buffer *buf, const char *key) {
+    const char *cursor;
+    size_t key_len;
+
+    if (buf == NULL || buf->data == NULL || key == NULL || *key == '\0') {
+        return false;
+    }
+    key_len = strlen(key);
+    cursor = buf->data;
+    while ((cursor = strstr(cursor, key)) != NULL) {
+        const char *value = cursor + key_len;
+        unsigned long parsed = 0;
+
+        if (*value != '=') {
+            cursor += key_len;
+            continue;
+        }
+        value++;
+        while (*value == ' ' || *value == '\t') {
+            value++;
+        }
+        while (*value >= '0' && *value <= '9') {
+            parsed = (parsed * 10UL) + (unsigned long)(*value - '0');
+            value++;
+        }
+        if (parsed > 0UL) {
+            return true;
+        }
+        cursor += key_len;
+    }
+    return false;
+}
+
+struct wlan_pd_firmware_snapshot {
+    bool wlanmdsp_nonzero;
+    bool modem_mdt_nonzero;
+    bool modem_blob_nonzero;
+};
+
+static int append_wlan_pd_firmware_file_status(struct buffer *buf,
+                                               const char *prefix,
+                                               const char *base,
+                                               const char *subdir,
+                                               const char *name,
+                                               bool *nonzero_out) {
+    char dir_path[MAX_PATH_LEN];
+    char path[MAX_PATH_LEN];
+    char key_name[96];
+    struct stat st;
+    bool exists = false;
+    bool is_reg = false;
+    bool nonzero = false;
+    int saved_errno = 0;
+
+    *nonzero_out = false;
+    if (subdir != NULL && *subdir != '\0') {
+        if (append_path(dir_path, sizeof(dir_path), base, subdir) < 0 ||
+            append_path(path, sizeof(path), dir_path, name) < 0) {
+            return append_format(buf,
+                                 "%s.%s.status=path-too-long\n",
+                                 prefix,
+                                 name);
+        }
+    } else if (append_path(path, sizeof(path), base, name) < 0) {
+        return append_format(buf,
+                             "%s.%s.status=path-too-long\n",
+                             prefix,
+                             name);
+    }
+    snprintf(key_name, sizeof(key_name), "%s", name);
+    for (char *p = key_name; *p != '\0'; p++) {
+        if (*p == '.' || *p == '-' || *p == '/') {
+            *p = '_';
+        }
+    }
+    if (stat(path, &st) == 0) {
+        exists = true;
+        is_reg = S_ISREG(st.st_mode);
+        nonzero = is_reg && st.st_size > 0;
+        *nonzero_out = nonzero;
+    } else {
+        saved_errno = errno;
+    }
+    return append_format(buf,
+                         "%s.file.%s.path=%s\n"
+                         "%s.file.%s.exists=%d\n"
+                         "%s.file.%s.is_reg=%d\n"
+                         "%s.file.%s.size=%lld\n"
+                         "%s.file.%s.nonzero=%d\n"
+                         "%s.file.%s.errno=%d\n"
+                         "%s.file.%s.error=%s\n",
+                         prefix,
+                         key_name,
+                         path,
+                         prefix,
+                         key_name,
+                         exists ? 1 : 0,
+                         prefix,
+                         key_name,
+                         is_reg ? 1 : 0,
+                         prefix,
+                         key_name,
+                         exists ? (long long)st.st_size : 0LL,
+                         prefix,
+                         key_name,
+                         nonzero ? 1 : 0,
+                         prefix,
+                         key_name,
+                         saved_errno,
+                         prefix,
+                         key_name,
+                         saved_errno != 0 ? strerror(saved_errno) : "none");
+}
+
+static int append_wlan_pd_firmware_dir_snapshot(struct buffer *buf,
+                                                const char *prefix,
+                                                const char *base,
+                                                const char *subdir,
+                                                struct wlan_pd_firmware_snapshot *snapshot) {
+    char dir_path[MAX_PATH_LEN];
+    struct stat st;
+    bool captured = false;
+    bool wlanmdsp_nonzero = false;
+    bool modem_mdt_nonzero = false;
+    bool modem_b00_nonzero = false;
+    bool modem_mbn_nonzero = false;
+
+    if (subdir != NULL && *subdir != '\0') {
+        if (append_path(dir_path, sizeof(dir_path), base, subdir) < 0) {
+            return append_format(buf, "%s.dir.status=path-too-long\n", prefix);
+        }
+    } else {
+        strlcpy(dir_path, base, sizeof(dir_path));
+    }
+    if (append_format(buf,
+                      "%s.dir.path=%s\n"
+                      "%s.dir.exists=%d\n"
+                      "%s.dir.is_dir=%d\n",
+                      prefix,
+                      dir_path,
+                      prefix,
+                      stat(dir_path, &st) == 0 ? 1 : 0,
+                      prefix,
+                      (stat(dir_path, &st) == 0 && S_ISDIR(st.st_mode)) ? 1 : 0) < 0 ||
+        append_dir_capture_named(buf, dir_path, prefix, false, 48, &captured) < 0 ||
+        append_format(buf, "%s.dir.list_captured=%d\n", prefix, captured ? 1 : 0) < 0 ||
+        append_wlan_pd_firmware_file_status(buf,
+                                            prefix,
+                                            base,
+                                            subdir,
+                                            "wlanmdsp.mbn",
+                                            &wlanmdsp_nonzero) < 0 ||
+        append_wlan_pd_firmware_file_status(buf,
+                                            prefix,
+                                            base,
+                                            subdir,
+                                            "modem.mdt",
+                                            &modem_mdt_nonzero) < 0 ||
+        append_wlan_pd_firmware_file_status(buf,
+                                            prefix,
+                                            base,
+                                            subdir,
+                                            "modem.b00",
+                                            &modem_b00_nonzero) < 0 ||
+        append_wlan_pd_firmware_file_status(buf,
+                                            prefix,
+                                            base,
+                                            subdir,
+                                            "modem.mbn",
+                                            &modem_mbn_nonzero) < 0) {
+        return -1;
+    }
+    snapshot->wlanmdsp_nonzero = snapshot->wlanmdsp_nonzero || wlanmdsp_nonzero;
+    snapshot->modem_mdt_nonzero = snapshot->modem_mdt_nonzero || modem_mdt_nonzero;
+    snapshot->modem_blob_nonzero = snapshot->modem_blob_nonzero || modem_b00_nonzero || modem_mbn_nonzero;
+    return 0;
+}
+
+static int append_wlan_pd_firmware_serve_gate_summary(struct buffer *stdout_buf,
+                                                      const struct buffer *stderr_buf,
+                                                      const struct paths *paths,
+                                                      bool tftp_child_present,
+                                                      bool tftp_observable,
+                                                      bool tftp_running) {
+    struct wlan_pd_firmware_snapshot snapshot = {0};
+    bool requested_wlanmdsp;
+    bool requested_modem;
+    bool requested_any;
+    bool wlfw_service69_seen;
+    bool wlan_pd_uninit;
+    const char *label;
+
+    requested_wlanmdsp =
+        a90_buffer_contains_ci(stdout_buf, "wlanmdsp") ||
+        a90_buffer_contains_ci(stderr_buf, "wlanmdsp");
+    requested_modem =
+        a90_buffer_contains_ci(stdout_buf, "modem.mdt") ||
+        a90_buffer_contains_ci(stderr_buf, "modem.mdt") ||
+        a90_buffer_contains_ci(stdout_buf, "modem.b00") ||
+        a90_buffer_contains_ci(stderr_buf, "modem.b00") ||
+        a90_buffer_contains_ci(stdout_buf, "modem.mbn") ||
+        a90_buffer_contains_ci(stderr_buf, "modem.mbn");
+    requested_any = requested_wlanmdsp || requested_modem;
+    wlfw_service69_seen =
+        a90_buffer_key_has_nonzero_uint(stdout_buf, "wifi_companion_qrtr_readback.case_0.readback.service_events") ||
+        a90_buffer_key_has_nonzero_uint(stdout_buf, "wifi_companion_qrtr_readback.case_1.readback.service_events");
+    wlan_pd_uninit =
+        a90_buffer_contains_ci(stdout_buf, "wifi_companion_service_notifier_listener.response_curr_state_name=uninit") ||
+        a90_buffer_contains_ci(stdout_buf, "wifi_companion_service_notifier_listener.indication_curr_state_name=uninit");
+
+    if (append_literal(stdout_buf,
+                       "wlan_pd_firmware_serve_gate.begin=1\n"
+                       "wlan_pd_firmware_serve_gate.mode=read-only-internal-modem-firmware-serve\n"
+                       "wlan_pd_firmware_serve_gate.no_esoc0=1\n"
+                       "wlan_pd_firmware_serve_gate.no_forced_rc1=1\n"
+                       "wlan_pd_firmware_serve_gate.no_fake_online=1\n"
+                       "wlan_pd_firmware_serve_gate.no_wifi_hal=1\n"
+                       "wlan_pd_firmware_serve_gate.no_scan_connect=1\n"
+                       "wlan_pd_firmware_serve_gate.no_credentials=1\n"
+                       "wlan_pd_firmware_serve_gate.no_dhcp_routes=1\n"
+                       "wlan_pd_firmware_serve_gate.no_external_ping=1\n") < 0 ||
+        append_wlan_pd_firmware_dir_snapshot(stdout_buf,
+                                             "wlan_pd_firmware_serve_gate.snapshot.vendor_firmware_mnt_image",
+                                             paths->vendor_firmware_mnt,
+                                             "image",
+                                             &snapshot) < 0 ||
+        append_wlan_pd_firmware_dir_snapshot(stdout_buf,
+                                             "wlan_pd_firmware_serve_gate.snapshot.vendor_firmware_modem_image",
+                                             paths->vendor_firmware_modem,
+                                             "image",
+                                             &snapshot) < 0 ||
+        append_wlan_pd_firmware_dir_snapshot(stdout_buf,
+                                             "wlan_pd_firmware_serve_gate.snapshot.vendor_firmware_mnt_root",
+                                             paths->vendor_firmware_mnt,
+                                             "",
+                                             &snapshot) < 0 ||
+        append_wlan_pd_firmware_dir_snapshot(stdout_buf,
+                                             "wlan_pd_firmware_serve_gate.snapshot.vendor_firmware_modem_root",
+                                             paths->vendor_firmware_modem,
+                                             "",
+                                             &snapshot) < 0) {
+        return -1;
+    }
+
+    if (!tftp_running) {
+        label = "tqftpserv-not-running";
+    } else if (!requested_any) {
+        label = "firmware-not-requested";
+    } else if ((requested_wlanmdsp && !snapshot.wlanmdsp_nonzero) ||
+               (requested_modem && !snapshot.modem_mdt_nonzero && !snapshot.modem_blob_nonzero)) {
+        label = "firmware-requested-but-absent-at-served-path";
+    } else {
+        label = "firmware-served-pd-still-uninit";
+    }
+
+    return append_format(stdout_buf,
+                         "wlan_pd_firmware_serve_gate.tftp_child_present=%d\n"
+                         "wlan_pd_firmware_serve_gate.tftp_observable=%d\n"
+                         "wlan_pd_firmware_serve_gate.tftp_running=%d\n"
+                         "wlan_pd_firmware_serve_gate.requested_wlanmdsp=%d\n"
+                         "wlan_pd_firmware_serve_gate.requested_modem=%d\n"
+                         "wlan_pd_firmware_serve_gate.requested_any=%d\n"
+                         "wlan_pd_firmware_serve_gate.served_wlanmdsp_nonzero=%d\n"
+                         "wlan_pd_firmware_serve_gate.served_modem_mdt_nonzero=%d\n"
+                         "wlan_pd_firmware_serve_gate.served_modem_blob_nonzero=%d\n"
+                         "wlan_pd_firmware_serve_gate.wlfw_service69_seen=%d\n"
+                         "wlan_pd_firmware_serve_gate.wlan_pd_uninit=%d\n"
+                         "wlan_pd_firmware_serve_gate.label=%s\n"
+                         "wlan_pd_firmware_serve_gate.end=1\n",
+                         tftp_child_present ? 1 : 0,
+                         tftp_observable ? 1 : 0,
+                         tftp_running ? 1 : 0,
+                         requested_wlanmdsp ? 1 : 0,
+                         requested_modem ? 1 : 0,
+                         requested_any ? 1 : 0,
+                         snapshot.wlanmdsp_nonzero ? 1 : 0,
+                         snapshot.modem_mdt_nonzero ? 1 : 0,
+                         snapshot.modem_blob_nonzero ? 1 : 0,
+                         wlfw_service69_seen ? 1 : 0,
+                         wlan_pd_uninit ? 1 : 0,
+                         label);
 }
 
 static bool window_surface_entry_interesting(const char *name) {
@@ -31436,6 +31738,8 @@ static int run_wifi_companion_start_only_guarded(const struct config *cfg,
         is_wifi_companion_android_order_post_sysmon_observer_start_only_mode(cfg->mode);
     const bool android_order_post_sysmon_observer =
         is_wifi_companion_android_order_post_sysmon_observer_start_only_mode(cfg->mode);
+    const bool wlan_pd_firmware_serve_gate =
+        is_wifi_companion_wlan_pd_firmware_serve_gate_mode(cfg->mode);
     const bool android_order_pre_cnss_provider_observer =
         is_wifi_companion_android_order_pre_cnss_provider_observe_only_mode(cfg->mode);
     const bool with_service_manager =
@@ -31556,7 +31860,8 @@ static int run_wifi_companion_start_only_guarded(const struct config *cfg,
                              "qrtr_ns",
                              "/vendor/bin/qrtr-ns",
                              COMPOSITE_ID_QRTR_NS);
-        if (android_order_post_sysmon_observer) {
+        if (android_order_post_sysmon_observer ||
+            wlan_pd_firmware_serve_gate) {
             composite_child_init(&children[child_count++],
                                  "pd_mapper",
                                  "/vendor/bin/pd-mapper",
@@ -31695,6 +32000,8 @@ static int run_wifi_companion_start_only_guarded(const struct config *cfg,
     }
     if (android_order_pre_cnss_provider_observer) {
         order = "servicemanager,hwservicemanager,vndservicemanager,vndservice_ready_query,per_proxy_helper,qrtr_ns,rmt_storage,tftp_server,pd_mapper,per_mgr,vndservice_query,per_proxy,vndservice_query,mdm_helper,cnss_diag,cnss_daemon";
+    } else if (wlan_pd_firmware_serve_gate) {
+        order = "qrtr_ns,pd_mapper,rmt_storage,tftp_server,cnss_diag,cnss_daemon";
     } else if (post_sysmon_observer) {
         order = android_order_post_sysmon_observer
                     ? "qrtr_ns,pd_mapper,rmt_storage,tftp_server"
@@ -32391,6 +32698,31 @@ static int run_wifi_companion_start_only_guarded(const struct config *cfg,
         stop_property_service_shim(&property_shim, paths, stdout_buf);
         return -1;
     }
+    composite_capture_observable_children(children, active_child_count, stdout_buf);
+    if (wlan_pd_firmware_serve_gate) {
+        bool tftp_child_present = false;
+        bool tftp_observable = false;
+        bool tftp_running = false;
+
+        for (size_t i = 0; i < active_child_count; i++) {
+            if (children[i].identity != COMPOSITE_ID_TFTP_SERVER) {
+                continue;
+            }
+            tftp_child_present = true;
+            tftp_observable = children[i].observable;
+            tftp_running = !children[i].child_done;
+        }
+        if (append_wlan_pd_firmware_serve_gate_summary(stdout_buf,
+                                                       stderr_buf,
+                                                       paths,
+                                                       tftp_child_present,
+                                                       tftp_observable,
+                                                       tftp_running) < 0) {
+            composite_cleanup_children(children, active_child_count, stdout_buf, stderr_buf);
+            stop_property_service_shim(&property_shim, paths, stdout_buf);
+            return -1;
+        }
+    }
     {
         bool protocols_captured = false;
         bool netlink_captured = false;
@@ -32516,7 +32848,6 @@ static int run_wifi_companion_start_only_guarded(const struct config *cfg,
             return -1;
         }
     }
-    composite_capture_observable_children(children, active_child_count, stdout_buf);
     if (peripheral_manager_init_contract &&
         append_literal(stdout_buf,
                        "wifi_companion_start.peripheral_manager.shutdown_stop.vendor_per_proxy=1\n"

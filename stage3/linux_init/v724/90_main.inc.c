@@ -269,7 +269,12 @@ static int v641_prepare_firmware_mounts(void);
 #ifndef A90_WIFI_TEST_BOOT_ANDROID_SERVICE_WINDOW_PER_MGR_SYSTEM_INFO_SURFACE
 #define A90_WIFI_TEST_BOOT_ANDROID_SERVICE_WINDOW_PER_MGR_SYSTEM_INFO_SURFACE 0
 #endif
-#if A90_WIFI_TEST_BOOT_ANDROID_SERVICE_WINDOW_SUBSYS_TRIGGER_CAPTURE
+#ifndef A90_WIFI_TEST_BOOT_WLAN_PD_FIRMWARE_SERVE_GATE
+#define A90_WIFI_TEST_BOOT_WLAN_PD_FIRMWARE_SERVE_GATE 0
+#endif
+#if A90_WIFI_TEST_BOOT_WLAN_PD_FIRMWARE_SERVE_GATE
+#define A90_V1393_WIFI_TEST_MODE "wifi-companion-wlan-pd-firmware-serve-gate-start-only"
+#elif A90_WIFI_TEST_BOOT_ANDROID_SERVICE_WINDOW_SUBSYS_TRIGGER_CAPTURE
 #define A90_V1393_WIFI_TEST_MODE "wifi-companion-android-wifi-service-window-subsys-trigger-capture"
 #elif A90_WIFI_TEST_BOOT_ANDROID_SERVICE_WINDOW
 #define A90_V1393_WIFI_TEST_MODE "wifi-companion-android-wifi-service-window-start-only"
@@ -4189,7 +4194,15 @@ static int v1393_spawn_wifi_test_boot_helper(pid_t *pid_out) {
         A90_V1393_WIFI_TEST_REAL_APEX_LIBRARIES,
         "--vndk-apex-alias-mode",
         "v30-to-system-ext-v30",
-#if A90_WIFI_TEST_BOOT_ANDROID_SERVICE_WINDOW
+#if A90_WIFI_TEST_BOOT_WLAN_PD_FIRMWARE_SERVE_GATE
+        "--allow-wifi-companion-start-only",
+        "--allow-cnss-start-only",
+        "--allow-qrtr-ns-readback",
+        "--allow-servloc-domain-list-probe",
+        "--allow-service-notifier-listener-probe",
+        "--qrtr-readback-matrix",
+        "wlfw:69:0,1",
+#elif A90_WIFI_TEST_BOOT_ANDROID_SERVICE_WINDOW
         "--allow-android-wifi-service-window",
 #if A90_WIFI_TEST_BOOT_ANDROID_SERVICE_WINDOW_SUBSYS_TRIGGER_CAPTURE
         "--allow-android-wifi-service-window-subsys-trigger-capture",
