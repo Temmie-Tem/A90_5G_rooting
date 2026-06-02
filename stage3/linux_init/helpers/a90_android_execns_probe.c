@@ -101,7 +101,7 @@
 #define SYSLOG_ACTION_READ_ALL 3
 #endif
 
-#define EXECNS_VERSION "a90_android_execns_probe v331"
+#define EXECNS_VERSION "a90_android_execns_probe v332"
 #define MAX_PATH_LEN 512
 #define MAX_CAPTURE_SIZE (1024 * 1024)
 #define MAX_LINKERCONFIG_SIZE (256 * 1024)
@@ -34766,11 +34766,14 @@ static int run_wifi_companion_start_only_guarded(const struct config *cfg,
         is_wifi_companion_qrtr_first_vnd_service_manager_start_only_mode(cfg->mode);
     const bool cnss_first_delayed_service_manager =
         is_wifi_companion_cnss_first_delayed_vnd_service_manager_start_only_mode(cfg->mode);
+    const bool wlan_pd_service_object_visible_trigger =
+        is_wifi_companion_wlan_pd_service_object_visible_trigger_mode(cfg->mode);
     const bool peripheral_manager_init_contract =
         is_wifi_companion_peripheral_manager_init_contract_start_only_mode(cfg->mode);
     const bool peripheral_manager_property_contract =
         is_wifi_companion_peripheral_manager_property_contract_start_only_mode(cfg->mode) ||
-        peripheral_manager_init_contract;
+        peripheral_manager_init_contract ||
+        wlan_pd_service_object_visible_trigger;
     const bool peripheral_manager_node_parity =
         is_wifi_companion_peripheral_manager_node_materialization_mode(cfg->mode);
     const bool service74_gated_service_manager =
@@ -34839,8 +34842,6 @@ static int run_wifi_companion_start_only_guarded(const struct config *cfg,
         is_wifi_companion_wlan_pd_service_window_trigger_mode(cfg->mode);
     const bool wlan_pd_pm_service_window_trigger =
         is_wifi_companion_wlan_pd_pm_service_window_trigger_mode(cfg->mode);
-    const bool wlan_pd_service_object_visible_trigger =
-        is_wifi_companion_wlan_pd_service_object_visible_trigger_mode(cfg->mode);
     const bool wlan_pd_cnss_output_visibility =
         is_wifi_companion_wlan_pd_cnss_output_visibility_mode(cfg->mode);
     const bool wlan_pd_firmware_serve_gate =
@@ -36943,6 +36944,7 @@ static int start_property_service_shim(const struct config *cfg,
     if (shim->pid == 0) {
         bool allow_peripheral_shutdown_list =
             is_wifi_companion_peripheral_manager_property_contract_start_only_mode(cfg->mode) ||
+            is_wifi_companion_wlan_pd_service_object_visible_trigger_mode(cfg->mode) ||
             is_wifi_companion_pm_observer_any_mode(cfg->mode) ||
             is_wifi_companion_mdm_helper_runtime_any_mode(cfg->mode) ||
             (is_wifi_companion_android_wifi_service_window_any_mode(cfg->mode) &&

@@ -15394,3 +15394,48 @@ esoc0/RC1/pcie1/MDM2AP, do NOT investigate MSA until WLFW 69 appears.
     no DHCP/routes, and no external ping;
   - live validation remains a separate rollbackable gate after source/build
     sanity succeeds.
+
+## V1775 service-object property-contract source build (2026-06-03)
+
+- V1775 applies the V1774 source repair target and builds a rollbackable test
+  boot artifact.
+
+  Source/build:
+
+  - script:
+    `scripts/revalidation/build_native_init_wifi_test_boot_v1775.py`;
+  - report:
+    `docs/reports/NATIVE_INIT_V1775_SERVICE_OBJECT_PROPERTY_CONTRACT_SOURCE_BUILD_2026-06-03.md`;
+  - decision:
+    `v1775-service-object-property-contract-source-build-pass`;
+  - helper:
+    `a90_android_execns_probe v332`;
+  - helper SHA256:
+    `4bbdfe9ae104f9903efa3cd9e01f317a3af515f8f976103aa0480fd21c8cf1b2`;
+  - boot image:
+    `tmp/wifi/v1775-service-object-property-contract-test-boot/boot_linux_v1775_service_object_property_contract.img`;
+  - boot SHA256:
+    `32e36a1df1c7f65d6742bb62fff7ff1f6bbcd60b8d8634e6277891bcdc0ed99b`;
+  - init:
+    `A90 Linux init 0.9.141 (v1775-service-object-property-contract)`;
+  - evidence:
+    `tmp/wifi/v1775-service-object-property-contract-test-boot`.
+
+  Source repair:
+
+  - `wlan_pd_service_object_visible_trigger` now contributes to
+    `peripheral_manager_property_contract`;
+  - the property-service shim now allows
+    `vendor.peripheral.shutdown_critical_list` for the service-object route;
+  - no actor expansion was added: the route still excludes full `pm-proxy`,
+    `/dev/subsys_esoc0`, forced RC1, fake-ONLINE, Wi-Fi HAL, scan/connect,
+    credentials, DHCP/routes, and external ping.
+
+  Current next candidate:
+
+  - V1776 rollbackable live handoff using the V1775 image;
+  - fixed first discriminator: provider visible after `per_mgr` vs provider
+    still hidden with property contract present;
+  - if provider becomes visible, record CNSS milestones but stop after the
+    agreed label: `asInterface`, register-TX, `wlanmdsp` request, WLFW service
+    69, and `wlan0` remain evidence fields, not autonomous follow-up actions.
