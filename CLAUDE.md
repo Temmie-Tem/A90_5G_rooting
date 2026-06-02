@@ -3997,3 +3997,56 @@ rescan, or platform bind/unbind.  Reports:
 `docs/reports/NATIVE_INIT_V1608_PER_MGR_EARLY_EXIT_TRACE_SOURCE_BUILD_2026-06-02.md`
 and
 `docs/reports/NATIVE_INIT_V1609_PER_MGR_EARLY_EXIT_TRACE_ARTIFACT_SANITY_2026-06-02.md`.
+
+## Latest native Wi-Fi state: V1610/V1611 (2026-06-02)
+
+V1610 runs the rollbackable live handoff for the V1608 per-mgr early-exit trace
+image.  The handoff itself is safe and complete: V1608 boots, evidence is
+collected, rollback from native restores v724, and post-rollback selftest
+remains `fail=0`.  Strict Wi-Fi progress is still blocked as
+`v1610-test-boot-no-downstream-wifi-progress-blocked`.
+
+V1610 lower-state summary:
+
+- rollback: `from-native`, `ok=True`.
+- progress decision: `modem-trigger-no-downstream`.
+- `provider_trigger=False`, `rc1_progress=False`, `mhi_progress=False`,
+  `wlfw_progress=False`, `bdf_progress=False`, `fw_ready_progress=False`,
+  `wlan0_present=False`.
+- helper result file was captured, size `529757` bytes.
+- PPH modem fd gate remains closed: `pm_proxy_helper_subsys_modem_fd_count=1`.
+- `mdm_helper_esoc0_fd_count=1`, but `per_mgr_subsys_modem_fd_count=0`,
+  `pm_full_contract_seen=0`, and `subsys_esoc0_open_attempted=0`.
+
+V1611 classifies the new V1610 evidence and passes as
+`v1611-ptrace-lite-intrusive-stop-limit-no-exit-cause`.  This is the current
+blocker for the `pm-service` branch:
+
+- `per_mgr_early_exit_trace=1`, `child.per_mgr.traced=1`.
+- `pm-service` stayed in `ptrace_stop` for the full startup sampler window:
+  `last_alive_ms=1000`, `first_gone_ms=-1`, `first_child_done_ms=-1`.
+- The tracer recorded only one selected syscall:
+  `faccessat('/dev/urandom')`, `ret=0`.
+- The tracer hit the syscall stop limit:
+  `syscall_stop_count=128`, `syscall_trace_stop_limited=1`,
+  `trace_disable_reason=stop-limit`.
+- No PM contract fd appeared: max `/dev/subsys_modem` and
+  `/dev/subsys_esoc0` counts stayed `0`.
+
+Interpretation: V1608/V1610 ptrace-lite is intrusive for `/vendor/bin/pm-service`.
+It did not prove the natural V1607 early-exit cause; it changed the process
+behavior by holding the target stopped.  Do not infer lower SDX50M/eSoC/RC1
+state from this run.  The useful evidence is that syscall ptrace must be
+retired for this branch.
+
+Next work: V1612 should be source/build-only and replace ptrace-lite with
+non-stopping evidence for the same pre-contract `pm-service` blocker: stdout/
+stderr tails, service-manager/property/socket namespace snapshots, vendor
+init/env comparison, and host-only dependency/string analysis.  Still no
+`pm-service` syscall ptrace, `mdm_helper` ptrace, direct scoped
+`/dev/subsys_esoc0`, Wi-Fi HAL start, scan/connect, credentials, DHCP/routes,
+external ping, PMIC/GPIO/GDSC direct writes, blind eSoC notify/`BOOT_DONE`,
+global PCI rescan, or platform bind/unbind.  Reports:
+`docs/reports/NATIVE_INIT_V1610_PER_MGR_EARLY_EXIT_TRACE_HANDOFF_2026-06-02.md`
+and
+`docs/reports/NATIVE_INIT_V1611_PER_MGR_EARLY_EXIT_TRACE_CLASSIFIER_2026-06-02.md`.

@@ -9533,3 +9533,37 @@ Samsung bootloader
   `docs/reports/NATIVE_INIT_V1608_PER_MGR_EARLY_EXIT_TRACE_SOURCE_BUILD_2026-06-02.md`
   and
   `docs/reports/NATIVE_INIT_V1609_PER_MGR_EARLY_EXIT_TRACE_ARTIFACT_SANITY_2026-06-02.md`.
+
+- V1610/V1611 live handoff and host classifier loop is complete.  V1610 flashes
+  only the V1608 image, collects helper result/syscall trace/lower
+  markers/dmesg/`wlan0`, rolls back from native to v724, and verifies selftest
+  `fail=0`.  Strict Wi-Fi progress remains blocked as
+  `v1610-test-boot-no-downstream-wifi-progress-blocked`; progress decision is
+  `modem-trigger-no-downstream`.
+
+  The important result is not lower Wi-Fi progress.  V1611 passes as
+  `v1611-ptrace-lite-intrusive-stop-limit-no-exit-cause`: ptrace-lite changed
+  `/vendor/bin/pm-service` behavior.  The target stayed in `ptrace_stop` for
+  the full 1s startup sampler (`last_alive_ms=1000`, `first_gone_ms=-1`,
+  `first_child_done_ms=-1`), the tracer captured only
+  `faccessat('/dev/urandom')`, and then hit the syscall stop limit
+  (`syscall_stop_count=128`, `trace_disable_reason=stop-limit`).  No
+  `/dev/subsys_modem`, `/dev/subsys_esoc0`, PM full contract, RC1, MHI, WLFW,
+  BDF, FW-ready, or `wlan0` marker appeared.
+
+  Current branch correction: retire syscall ptrace for `pm-service`.  V1607's
+  natural early exit is still the relevant blocker, but V1608/V1610 cannot
+  explain it because the observer perturbs the process.  Do not use this run to
+  select a lower SDX50M/eSoC/RC1 retry.
+
+  Next gate: V1612 source/build-only non-stopping `pm-service` startup
+  classifier.  Replace ptrace-lite with stdout/stderr tails, bounded service-
+  manager/property/socket namespace snapshots, vendor init/env comparison, and
+  host-only dependency/string analysis.  Still no `pm-service` syscall ptrace,
+  `mdm_helper` ptrace, direct scoped `/dev/subsys_esoc0`, credentials,
+  scan/connect, DHCP/routes, external ping, PMIC/GPIO/GDSC direct writes,
+  blind eSoC notify/`BOOT_DONE`, global PCI rescan, platform bind/unbind, or
+  unbounded boot-image/partition writes.  Reports:
+  `docs/reports/NATIVE_INIT_V1610_PER_MGR_EARLY_EXIT_TRACE_HANDOFF_2026-06-02.md`
+  and
+  `docs/reports/NATIVE_INIT_V1611_PER_MGR_EARLY_EXIT_TRACE_CLASSIFIER_2026-06-02.md`.
