@@ -11169,3 +11169,39 @@ concrete rail/register owner (V1655). Rail inventory (V1641): SDX50M main rail
 
   Report:
   `docs/reports/NATIVE_INIT_V1667_PCIE1_CLOCK_VOTE_RETRY_HANDOFF_2026-06-02.md`.
+
+## V1668 pcie1 Clock Vote Wait Repair Source Build (2026-06-02)
+
+- V1668 source/build-only harness repair passed as
+  `v1668-pcie1-clock-vote-wait-repair-source-build-pass`.
+
+  Repair:
+
+  - keeps the V1666 separate result file design and extra-result collection path;
+  - increases the async clock-vote readiness window from `20000ms` to `45000ms`;
+  - keeps the successful-vote hold window at `30000ms`;
+  - keeps natural provider route observation and does not enable forced RC1
+    enumerate;
+  - keeps the same safety contract: no regulator/GDSC direct write, no pci-msm
+    `case` write, no PMIC/GPIO/PERST write, no eSoC notify/`BOOT_DONE`, no PCI
+    rescan, no platform bind/unbind, no Wi-Fi HAL, scan/connect, credentials,
+    DHCP/routes, or external ping.
+
+  Artifact:
+
+  - init: `A90 Linux init 0.9.118 (v1668-pcie1-clock-vote-wait)`;
+  - boot image:
+    `tmp/wifi/v1668-pcie1-clock-vote-wait-repair-test-boot/boot_linux_v1668_pcie1_clock_vote_wait.img`;
+  - boot SHA256:
+    `6397756237e98046d4c0559d27a21da1dbeeb8ab5b341fef6ef740f855c0ebc8`.
+
+  Next unit:
+
+  - V1669 one rollbackable live handoff with V1668 image;
+  - collect normal RC1 window plus
+    `/cache/native-init-wifi-test-boot-v1668-pcie1-clock-vote-wait.result`;
+  - restore `stage3/boot_linux_v724.img`;
+  - verify native `selftest fail=0`.
+
+  Report:
+  `docs/reports/NATIVE_INIT_V1668_PCIE1_CLOCK_VOTE_WAIT_REPAIR_SOURCE_BUILD_2026-06-02.md`.
