@@ -11916,3 +11916,43 @@ esoc0/RC1/pcie1/MDM2AP, do NOT investigate MSA until WLFW 69 appears.
 
   Report:
   `docs/reports/NATIVE_INIT_V1688_WLAN_PD_CNSS_OUTPUT_VISIBILITY_HANDOFF_2026-06-02.md`.
+
+## V1689 CNSS Property Visibility Gap Classifier (2026-06-02)
+
+- V1689 reframes the V1688 `cnss-output-still-invisible` label as a property
+  consumption gap, not as proof that `cnss-daemon` skipped `wlfw_start`.
+
+  Host-only checks:
+
+  - V1688 rollback and safety contract remain PASS;
+  - the V1687 private property root contains the two cnss logging property
+    names and V1688 verified `property_info` plus `vendor_default_prop` SHA;
+  - `a90_android_execns_probe.c` allowlists
+    `persist.vendor.cnss-daemon.kmsg_logging` and
+    `persist.vendor.cnss-daemon.debug_level`;
+  - V1688 helper output contains only `expected_property` lines for these
+    keys, not direct `getprop`, `property_lookup`, or property-consumption
+    proof.
+
+  Interpretation:
+
+  - the V1688 kmsg route was correctly bounded and had the right intended
+    values staged;
+  - it still did not prove that stock `cnss-daemon` actually read those values
+    from the private property area;
+  - therefore missing `wlfw_start: Starting` remains a measurement problem
+    until direct same-namespace property lookup is captured.
+
+  Next gate:
+
+  - V1690 source/build should add direct same-namespace lookup evidence for
+    `persist.vendor.cnss-daemon.kmsg_logging=1` and
+    `persist.vendor.cnss-daemon.debug_level=4` before starting
+    `cnss-daemon`, then one rollbackable live proof may re-run the V1680
+    internal-modem firmware-serve route;
+  - keep PM/service-window actors, `boot_wlan` as a WLFW trigger,
+    `/dev/subsys_esoc0`, forced RC1, fake-ONLINE, MSA/BDF expansion, Wi-Fi HAL,
+    scan/connect, credentials, DHCP/routes, and external ping disabled.
+
+  Report:
+  `docs/reports/NATIVE_INIT_V1689_CNSS_PROPERTY_VISIBILITY_GAP_2026-06-02.md`.
