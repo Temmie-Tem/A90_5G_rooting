@@ -10746,3 +10746,39 @@ above (rejected as inverted causality).
 
   Report:
   `docs/reports/NATIVE_INIT_V1657_NATURAL_PATH_MDM2AP_OBSERVATION_HANDOFF_2026-06-02.md`.
+
+## V1658 Post-MDM2AP Silence Next-Gate Selector (2026-06-02)
+
+- V1658 host-only next-gate selector passed as
+  `v1658-select-android-good-rail-reference-next`.
+
+  Inputs:
+
+  - V1657 clean natural-path label: `v1657-mdm2ap-silent-natural-path`;
+  - V1641 rail/control inventory: no safe live write target;
+  - V1642 SDX50M power owner classifier: suspected main-rail owner is outside
+    AP-native eSoC/provider source;
+  - V1656 XBL reconciliation: XBL is useful owner/context evidence but not a
+    direct native-vs-Android differential or write target;
+  - V1555 Android-good minimal trace reference: Android can reach BDF,
+    FW-ready, and `wlan0` under a lower-impact observer.
+
+  Gate decision:
+
+  - reject repeated natural-path timing/window variants;
+  - reject forced RC1 enumerate / pci-msm case writes;
+  - reject fake ONLINE / system-info spoof;
+  - reject direct PMIC/GPIO/GDSC writes for now because no named owner,
+    voltage/sequence constraint, or rollbackable AP-native write surface exists;
+  - select Android-good rail/reference capture as the next non-mutating gate.
+
+  V1659 should be source/build-only first: design a minimal Android-good
+  rollbackable reference handoff that preserves the good lower Wi-Fi path while
+  capturing read-only regulator/PMIC/GPIO/IRQ summaries around esoc0/provider
+  trigger and `wlan0` creation.  It must still avoid PMIC/GPIO/GDSC writes, PCI
+  rescan, platform bind/unbind, eSoC notify/`BOOT_DONE`, native Wi-Fi HAL,
+  scan/connect, credentials, DHCP/routes, and external ping.  Rollback must
+  restore `stage3/boot_linux_v724.img` and verify native selftest `fail=0`.
+
+  Report:
+  `docs/reports/NATIVE_INIT_V1658_POST_MDM2AP_SILENCE_NEXT_GATE_2026-06-02.md`.
