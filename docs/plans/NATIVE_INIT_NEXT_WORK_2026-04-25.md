@@ -14129,3 +14129,54 @@ esoc0/RC1/pcie1/MDM2AP, do NOT investigate MSA until WLFW 69 appears.
 
   Report:
   `docs/reports/NATIVE_INIT_V1746_WLAN_PD_PRIVATE_TRACEFS_REPAIR_ARTIFACT_SANITY_2026-06-03.md`.
+
+## V1747 WLAN-PD corrected CNSS output/tracefs handoff (2026-06-03)
+
+- V1747 one-run rollbackable live handoff completed with the corrected
+  `cnss-daemon` premise.
+
+  Result:
+
+  - decision: `v1747-cnss-output-still-invisible-rollback-pass`;
+  - corrected label: `cnss-output-still-invisible`;
+  - evidence:
+    `tmp/wifi/v1747-wlan-pd-private-tracefs-repair-handoff`;
+  - rollback: `from-native`, `ok=true`;
+  - post-rollback native: `stage3/boot_linux_v724.img` restored and
+    `selftest fail=0`.
+
+  Observed discriminator:
+
+  - output label: `cnss-output-still-invisible`;
+  - `wlfw_start` source: `none`;
+  - `wlfw_start` stdout/stderr/kmsg counts: `0` / `0` / `0`;
+  - first pre-WLFW init failure slug: `none`;
+  - legacy firmware-serve label: `firmware-not-requested`;
+  - property runtime was visible: `kmsg_logging=1`, `debug_level=4`;
+  - route safety was clean: no service-manager, PM trio, `boot_wlan`,
+    `/dev/subsys_esoc0`, forced RC1, fake-ONLINE, Wi-Fi HAL, scan/connect,
+    credentials, DHCP/routes, or external ping;
+  - private tracefs/uProbe path still did not arm:
+    `tracefs.available=0`, `tracefs.errno=2`, `uprobe_attempted=0`.
+
+  Interpretation:
+
+  - the latest `cnss-daemon` correction remains in force: missing dmesg/logcat
+    output alone is not proof that `wlfw_start` was not reached;
+  - this pure internal-modem route still cannot expose `cnss-daemon`'s own
+    output and still cannot arm the private tracefs uprobe observer;
+  - V1747 does not justify adding PM/service-window actors, `boot_wlan`,
+    eSoC/RC1, Wi-Fi HAL, scan/connect, DHCP/routes, or external ping.
+
+  Next candidate:
+
+  - V1748 should be host/source-only: diff the working V1702 tracefs target
+    path against the failing V1747 private tracefs materialization path;
+  - focus on why `tracefs.available=0 errno=2` persists after V1745 path
+    repair, or whether the pure route should reuse the V1702 non-log target
+    path directly;
+  - do not run another live handoff until the tracefs-target preflight explains
+    this delta.
+
+  Report:
+  `docs/reports/NATIVE_INIT_V1747_WLAN_PD_PRIVATE_TRACEFS_REPAIR_HANDOFF_2026-06-03.md`.
