@@ -47,8 +47,8 @@ DEFAULT_WIFI_TEST_WATCHER_PID = "/cache/native-init-wifi-test-boot-v1393-watcher
 DEFAULT_WIFI_TEST_WATCH_SEC = 35
 DEFAULT_WIFI_TEST_SUPERVISOR_TIMEOUT_SEC = 40
 DEFAULT_WIFI_TEST_HELPER_MODE = "post-pm-observer"
-EXPECTED_HELPER_MARKER = "a90_android_execns_probe v305"
-EXPECTED_HELPER_SHA256 = "45769df9905d8beb8be11e69984a32ecfb3e3bdefe148a6fcf2d0fa7c7a2124a"
+EXPECTED_HELPER_MARKER = "a90_android_execns_probe v306"
+EXPECTED_HELPER_SHA256 = "805d65929fe72ce0255c7bed7d84e4677dfb22816afb0fb475e81f760350d657"
 REPRODUCIBLE_MTIME = 0
 
 FORBIDDEN_BYTES = (
@@ -707,10 +707,14 @@ def verify_markers(args: argparse.Namespace) -> None:
             "wifi-companion-wlan-pd-firmware-serve-gate-start-only",
             "wlan_pd_firmware_serve_gate.begin=1",
             "wlan_pd_firmware_serve_gate.label=%s",
+            "wlan_pd_firmware_serve_gate.subsys_modem_holder_started=%d",
+            "wlan_pd_firmware_serve_gate.subsys_modem_holder_opened=%d",
             "wlan_pd_firmware_serve_gate.no_esoc0=1",
             "wlan_pd_firmware_serve_gate.no_forced_rc1=1",
             "wlan_pd_firmware_serve_gate.no_wifi_hal=1",
             "wifi_companion_start.order=%s",
+            "wlan_pd_modem_holder.subsys_modem_open_attempted=1",
+            "wlan_pd_modem_holder.subsys_esoc0_open_attempted=0",
         ])
     elif uses_android_service_window(args):
         expected.append("--allow-android-wifi-service-window")

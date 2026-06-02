@@ -1,25 +1,22 @@
-# Native Init V1677 WLAN-PD Firmware-serve Gate Handoff
-
-## Superseded Result
-
-- This report is retained as raw evidence only.
-- V1678 showed that V1677 did not open `/dev/subsys_modem`, so the required internal-modem mss/PIL trigger did not run.
-- Use V1679/V1680 for the corrected modem-holder gate and final firmware-serve label.
+# Native Init V1680 WLAN-PD Firmware-serve Gate Handoff
 
 ## Summary
 
-- Cycle: `V1677`
+- Cycle: `V1680`
 - Type: one-run rollbackable read-only WLAN-PD firmware-serve gate
-- Decision: `v1677-firmware-not-requested-rollback-pass`
+- Decision: `v1680-firmware-not-requested-rollback-pass`
 - Result: PASS
 - Reason: one read-only WLAN-PD firmware-serve gate run produced a fixed label and rollback verified
-- Evidence: `tmp/wifi/v1677-wlan-pd-firmware-serve-gate-corrected-handoff`
+- Evidence: `tmp/wifi/v1680-wlan-pd-firmware-serve-modem-holder-handoff`
 - Rollback attempt: `from-native`
 
 ## Gate Label
 
 - Label: `firmware-not-requested`
 - tftp running: `1`
+- subsys_modem holder started: `1`
+- subsys_modem holder opened: `1`
+- subsys_modem holder postflight safe: `1`
 - requested wlanmdsp: `0`
 - requested modem image: `0`
 - served wlanmdsp nonzero: `0`
@@ -28,7 +25,16 @@
 - WLFW service 69 seen: `0`
 - WLAN-PD uninit: `0`
 - service-notifier state: `None`
-- companion order: `qrtr_ns,pd_mapper,rmt_storage,tftp_server,cnss_diag,cnss_daemon`
+- companion order: `qrtr_ns,pd_mapper,rmt_storage,tftp_server,subsys_modem_holder,cnss_diag,cnss_daemon`
+
+## Internal Modem Trigger Proof
+
+- `/dev/subsys_modem` holder started: `1`
+- `/dev/subsys_modem` holder opened: `1`
+- dmesg recorded `4080000.qcom,mss: modem: loading`.
+- dmesg recorded `4080000.qcom,mss: modem: Brought out of reset`.
+- `rmt_storage` received modem EFS open requests for `/boot/modem_fs1`, `/boot/modem_fs2`, and `/boot/modem_fsg`.
+- No request for `wlanmdsp.mbn` or modem image was captured by tftp/tqftp during the observed window.
 
 ## Safety Scope
 

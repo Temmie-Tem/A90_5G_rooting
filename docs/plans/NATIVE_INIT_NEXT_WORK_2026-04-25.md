@@ -11463,3 +11463,80 @@ esoc0/RC1/pcie1/MDM2AP, do NOT investigate MSA until WLFW 69 appears.
 
   Report:
   `docs/reports/NATIVE_INIT_V1677_WLAN_PD_FIRMWARE_SERVE_GATE_CORRECTED_HANDOFF_2026-06-02.md`.
+
+## V1678 V1677 Contract Audit (2026-06-02)
+
+- V1678 host-only audit reclassified V1677 as trigger-incomplete.
+
+  Finding:
+
+  - V1677 companion stack and `tftp_server` were observed;
+  - V1677 did not include a `/dev/subsys_modem` holder marker;
+  - V1677 dmesg did not show `4080000.qcom,mss: modem: loading`;
+  - V1677 dmesg did not show `modem: Brought out of reset`;
+  - therefore V1677 label `firmware-not-requested` is retained as raw evidence only and is not the final firmware-serve discriminator.
+
+  Decision:
+
+  - `v1678-v1677-trigger-incomplete-modem-holder-missing`;
+  - next valid unit is a corrected WLAN-PD firmware-serve gate with a modem-only `/dev/subsys_modem` holder;
+  - eSoC/subsys_esoc0, forced RC1, fake-ONLINE, Wi-Fi HAL, scan/connect, credentials, DHCP/routes, and external ping remain forbidden.
+
+  Report:
+  `docs/reports/NATIVE_INIT_V1678_WLAN_PD_GATE_CONTRACT_AUDIT_2026-06-02.md`.
+
+## V1679 WLAN-PD Firmware-serve Modem-holder Source Build (2026-06-02)
+
+- V1679 source/build-only corrected test boot passed.
+
+  Artifact:
+
+  - init: `A90 Linux init 0.9.122 (v1679-wlan-pd-firmware-serve-modem-holder)`;
+  - helper: `a90_android_execns_probe v306`;
+  - boot image:
+    `tmp/wifi/v1679-wlan-pd-firmware-serve-modem-holder-test-boot/boot_linux_v1679_wlan_pd_firmware_serve_modem_holder.img`;
+  - boot SHA256:
+    `92019041bdee94ed5479fadeb750df81f5806c19ad35f792afd4e20467f8a709`;
+  - helper SHA256:
+    `805d65929fe72ce0255c7bed7d84e4677dfb22816afb0fb475e81f760350d657`.
+
+  Correction:
+
+  - keeps the internal-modem WLAN-PD firmware-serve route;
+  - starts companion stack, then inserts a modem-only `/dev/subsys_modem` holder;
+  - explicitly keeps `subsys_esoc0`, eSoC, forced RC1, fake-ONLINE, Wi-Fi HAL, scan/connect, credentials, DHCP/routes, and external ping disabled.
+
+  Report:
+  `docs/reports/NATIVE_INIT_V1679_WLAN_PD_FIRMWARE_SERVE_MODEM_HOLDER_SOURCE_BUILD_2026-06-02.md`.
+
+## V1680 Corrected WLAN-PD Firmware-serve Modem-holder Handoff (2026-06-02)
+
+- V1680 completed the corrected one-run live gate and rolled back to v724 successfully.
+
+  Result:
+
+  - decision: `v1680-firmware-not-requested-rollback-pass`;
+  - label: `firmware-not-requested`;
+  - `/dev/subsys_modem` holder started/opened/postflight-safe: `1/1/1`;
+  - dmesg showed `4080000.qcom,mss: modem: loading` and `modem: Brought out of reset`;
+  - `rmt_storage` received modem EFS open requests;
+  - `tftp_server` was running;
+  - requested `wlanmdsp.mbn`: `0`;
+  - requested modem image: `0`;
+  - served `modem.mdt` and modem blob were nonzero;
+  - served `wlanmdsp.mbn` was absent/nonzero `0` but not requested;
+  - WLFW service 69: `0`;
+  - `wlan0`: absent;
+  - rollback restored `stage3/boot_linux_v724.img`;
+  - native verification after rollback: `A90 Linux init 0.9.68 (v724)`, `selftest fail=0`.
+
+  Interpretation:
+
+  - the corrected internal-modem trigger is valid: mss/PIL starts and rmt_storage serves modem EFS;
+  - the blocker is now narrower: after mss reset/EFS, the modem still never asks tftp/tqftp for `wlanmdsp.mbn` or modem image in this native window;
+  - do not spin firmware-serve timing variants;
+  - next work should be host-only Android-good vs native comparison of the step that makes the internal modem request/start WLAN-PD, or a read-only classifier for missing Android-side trigger/QMI/property between `modem: Brought out of reset` and WLAN-PD/WLFW publication;
+  - do not investigate MSA, BDF, scan/connect, DHCP/routes, or external ping until WLFW service 69 appears.
+
+  Report:
+  `docs/reports/NATIVE_INIT_V1680_WLAN_PD_FIRMWARE_SERVE_MODEM_HOLDER_HANDOFF_2026-06-02.md`.

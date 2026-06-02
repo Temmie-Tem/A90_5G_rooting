@@ -95,6 +95,9 @@ def classify_gate(args: argparse.Namespace,
         "label": label,
         "label_ok": label_ok,
         "tftp_running": helper_fields.get("wlan_pd_firmware_serve_gate.tftp_running"),
+        "subsys_modem_holder_started": helper_fields.get("wlan_pd_firmware_serve_gate.subsys_modem_holder_started"),
+        "subsys_modem_holder_opened": helper_fields.get("wlan_pd_firmware_serve_gate.subsys_modem_holder_opened"),
+        "subsys_modem_holder_postflight_safe": helper_fields.get("wlan_pd_firmware_serve_gate.subsys_modem_holder_postflight_safe"),
         "requested_wlanmdsp": helper_fields.get("wlan_pd_firmware_serve_gate.requested_wlanmdsp"),
         "requested_modem": helper_fields.get("wlan_pd_firmware_serve_gate.requested_modem"),
         "served_wlanmdsp_nonzero": helper_fields.get("wlan_pd_firmware_serve_gate.served_wlanmdsp_nonzero"),
@@ -120,7 +123,7 @@ def classify_gate(args: argparse.Namespace,
         return (
             f"{args.cycle.lower()}-test-boot-version-missing",
             False,
-            "expected V1674 test boot version marker was not collected",
+            f"expected {args.cycle} test boot version marker was not collected",
             details,
         )
     if not rollback_ok:
@@ -141,7 +144,7 @@ def classify_gate(args: argparse.Namespace,
         return (
             f"{args.cycle.lower()}-firmware-serve-label-missing",
             False,
-            "helper result did not produce one of the fixed firmware-serve labels",
+            "helper result did not produce one of the fixed firmware-serve labels; trigger may be incomplete",
             details,
         )
     return (
@@ -172,6 +175,9 @@ def render_report(result: dict[str, Any]) -> str:
         "",
         f"- Label: `{gate.get('label')}`",
         f"- tftp running: `{gate.get('tftp_running')}`",
+        f"- subsys_modem holder started: `{gate.get('subsys_modem_holder_started')}`",
+        f"- subsys_modem holder opened: `{gate.get('subsys_modem_holder_opened')}`",
+        f"- subsys_modem holder postflight safe: `{gate.get('subsys_modem_holder_postflight_safe')}`",
         f"- requested wlanmdsp: `{gate.get('requested_wlanmdsp')}`",
         f"- requested modem image: `{gate.get('requested_modem')}`",
         f"- served wlanmdsp nonzero: `{gate.get('served_wlanmdsp_nonzero')}`",

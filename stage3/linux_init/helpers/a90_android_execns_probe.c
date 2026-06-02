@@ -101,7 +101,7 @@
 #define SYSLOG_ACTION_READ_ALL 3
 #endif
 
-#define EXECNS_VERSION "a90_android_execns_probe v305"
+#define EXECNS_VERSION "a90_android_execns_probe v306"
 #define MAX_PATH_LEN 512
 #define MAX_CAPTURE_SIZE (1024 * 1024)
 #define MAX_LINKERCONFIG_SIZE (256 * 1024)
@@ -11494,6 +11494,9 @@ static int append_wlan_pd_firmware_serve_gate_summary(struct buffer *stdout_buf,
     bool requested_any;
     bool wlfw_service69_seen;
     bool wlan_pd_uninit;
+    bool modem_holder_started;
+    bool modem_holder_opened;
+    bool modem_holder_postflight_safe;
     const char *label;
 
     requested_wlanmdsp =
@@ -11513,6 +11516,12 @@ static int append_wlan_pd_firmware_serve_gate_summary(struct buffer *stdout_buf,
     wlan_pd_uninit =
         a90_buffer_contains_ci(stdout_buf, "wifi_companion_service_notifier_listener.response_curr_state_name=uninit") ||
         a90_buffer_contains_ci(stdout_buf, "wifi_companion_service_notifier_listener.indication_curr_state_name=uninit");
+    modem_holder_started =
+        a90_buffer_contains_ci(stdout_buf, "wlan_pd_modem_holder.start_attempted=1");
+    modem_holder_opened =
+        a90_buffer_contains_ci(stdout_buf, "wlan_pd_modem_holder.opened=1");
+    modem_holder_postflight_safe =
+        a90_buffer_contains_ci(stdout_buf, "wlan_pd_modem_holder.postflight_safe=1");
 
     if (append_literal(stdout_buf,
                        "wlan_pd_firmware_serve_gate.begin=1\n"
@@ -11550,6 +11559,8 @@ static int append_wlan_pd_firmware_serve_gate_summary(struct buffer *stdout_buf,
 
     if (!tftp_running) {
         label = "tqftpserv-not-running";
+    } else if (!modem_holder_started || !modem_holder_opened) {
+        label = "trigger-incomplete-subsys-modem-holder";
     } else if (!requested_any) {
         label = "firmware-not-requested";
     } else if ((requested_wlanmdsp && !snapshot.wlanmdsp_nonzero) ||
@@ -11563,6 +11574,9 @@ static int append_wlan_pd_firmware_serve_gate_summary(struct buffer *stdout_buf,
                          "wlan_pd_firmware_serve_gate.tftp_child_present=%d\n"
                          "wlan_pd_firmware_serve_gate.tftp_observable=%d\n"
                          "wlan_pd_firmware_serve_gate.tftp_running=%d\n"
+                         "wlan_pd_firmware_serve_gate.subsys_modem_holder_started=%d\n"
+                         "wlan_pd_firmware_serve_gate.subsys_modem_holder_opened=%d\n"
+                         "wlan_pd_firmware_serve_gate.subsys_modem_holder_postflight_safe=%d\n"
                          "wlan_pd_firmware_serve_gate.requested_wlanmdsp=%d\n"
                          "wlan_pd_firmware_serve_gate.requested_modem=%d\n"
                          "wlan_pd_firmware_serve_gate.requested_any=%d\n"
@@ -11576,6 +11590,9 @@ static int append_wlan_pd_firmware_serve_gate_summary(struct buffer *stdout_buf,
                          tftp_child_present ? 1 : 0,
                          tftp_observable ? 1 : 0,
                          tftp_running ? 1 : 0,
+                         modem_holder_started ? 1 : 0,
+                         modem_holder_opened ? 1 : 0,
+                         modem_holder_postflight_safe ? 1 : 0,
                          requested_wlanmdsp ? 1 : 0,
                          requested_modem ? 1 : 0,
                          requested_any ? 1 : 0,
@@ -15458,6 +15475,315 @@ static int open_subsys_hold_child_node(int out_fd, const char *path, const char 
             label,
             fd);
     return fd;
+}
+
+struct wlan_pd_modem_holder {
+    pid_t pid;
+    pid_t pgid;
+    int pipe_fd;
+    bool pipe_open;
+    bool started;
+    bool term_sent;
+    bool kill_sent;
+    bool reaped;
+    int exit_code;
+    int signal;
+};
+
+static void wlan_pd_modem_holder_init(struct wlan_pd_modem_holder *holder) {
+    holder->pid = -1;
+    holder->pgid = -1;
+    holder->pipe_fd = -1;
+    holder->pipe_open = false;
+    holder->started = false;
+    holder->term_sent = false;
+    holder->kill_sent = false;
+    holder->reaped = false;
+    holder->exit_code = -1;
+    holder->signal = 0;
+}
+
+static int drain_wlan_pd_modem_holder(struct wlan_pd_modem_holder *holder,
+                                      struct buffer *stdout_buf,
+                                      long wait_ms) {
+    long deadline = monotonic_ms() + wait_ms;
+
+    while (holder->pipe_open &&
+           holder->pipe_fd >= 0 &&
+           (wait_ms <= 0 || monotonic_ms() < deadline)) {
+        bool pipe_open = holder->pipe_open;
+        if (drain_fd(holder->pipe_fd, stdout_buf, &pipe_open) < 0) {
+            return -1;
+        }
+        holder->pipe_open = pipe_open;
+        if (!holder->pipe_open || wait_ms <= 0) {
+            break;
+        }
+        usleep(50000);
+    }
+    if (holder->pipe_open && wait_ms <= 0 && holder->pipe_fd >= 0) {
+        bool pipe_open = holder->pipe_open;
+        if (drain_fd(holder->pipe_fd, stdout_buf, &pipe_open) < 0) {
+            return -1;
+        }
+        holder->pipe_open = pipe_open;
+    }
+    return 0;
+}
+
+static int start_wlan_pd_modem_holder(const struct paths *paths,
+                                      struct buffer *stdout_buf,
+                                      struct wlan_pd_modem_holder *holder) {
+    char modem_node[MAX_PATH_LEN];
+    int stdout_pipe[2] = {-1, -1};
+    long start_ms = monotonic_ms();
+
+    wlan_pd_modem_holder_init(holder);
+    if (append_literal(stdout_buf,
+                       "wlan_pd_modem_holder.begin=1\n"
+                       "wlan_pd_modem_holder.mode=modem-only-subsys-open\n"
+                       "wlan_pd_modem_holder.subsys_modem_open_attempted=1\n"
+                       "wlan_pd_modem_holder.subsys_esoc0_open_attempted=0\n"
+                       "wlan_pd_modem_holder.esoc_open_attempted=0\n"
+                       "wlan_pd_modem_holder.forced_rc1_attempted=0\n") < 0 ||
+        append_subsys_hold_snapshot(stdout_buf, "wlan_pd_modem_before") < 0) {
+        return -1;
+    }
+    if (append_path(modem_node, sizeof(modem_node), paths->dev, "subsys_modem") < 0) {
+        return append_literal(stdout_buf,
+                              "wlan_pd_modem_holder.start_attempted=0\n"
+                              "wlan_pd_modem_holder.result=setup-failed\n"
+                              "wlan_pd_modem_holder.reason=subsys-modem-node-path-too-long\n"
+                              "wlan_pd_modem_holder.end=1\n");
+    }
+    if (materialize_subsys_hold_node("/sys/class/subsys/subsys_modem/dev",
+                                     modem_node,
+                                     "wlan_pd_modem",
+                                     stdout_buf) < 0) {
+        return -1;
+    }
+    if (strstr(stdout_buf->data != NULL ? stdout_buf->data : "",
+               "wifi_companion_start.subsys_hold.wlan_pd_modem_node_ready=0\n") != NULL) {
+        unlink(modem_node);
+        return append_literal(stdout_buf,
+                              "wlan_pd_modem_holder.start_attempted=0\n"
+                              "wlan_pd_modem_holder.result=setup-failed\n"
+                              "wlan_pd_modem_holder.reason=subsys-modem-node-unavailable\n"
+                              "wlan_pd_modem_holder.end=1\n");
+    }
+    if (pipe2(stdout_pipe, O_CLOEXEC) < 0) {
+        unlink(modem_node);
+        return append_format(stdout_buf,
+                             "wlan_pd_modem_holder.start_attempted=0\n"
+                             "wlan_pd_modem_holder.result=setup-failed\n"
+                             "wlan_pd_modem_holder.reason=pipe-failed-%s\n"
+                             "wlan_pd_modem_holder.end=1\n",
+                             strerror(errno));
+    }
+    holder->pid = fork();
+    if (holder->pid < 0) {
+        int saved_errno = errno;
+        close(stdout_pipe[0]);
+        close(stdout_pipe[1]);
+        unlink(modem_node);
+        return append_format(stdout_buf,
+                             "wlan_pd_modem_holder.start_attempted=0\n"
+                             "wlan_pd_modem_holder.result=setup-failed\n"
+                             "wlan_pd_modem_holder.reason=fork-failed-%s\n"
+                             "wlan_pd_modem_holder.end=1\n",
+                             strerror(saved_errno));
+    }
+    if (holder->pid == 0) {
+        int modem_fd;
+        int nonblock_errno = 0;
+
+        close(stdout_pipe[0]);
+        if (setsid() < 0) {
+            dprintf(stdout_pipe[1],
+                    "wlan_pd_modem_holder.child_setsid_error=%s\n"
+                    "wlan_pd_modem_holder.opened=0\n",
+                    strerror(errno));
+            close(stdout_pipe[1]);
+            _exit(120);
+        }
+        if (chroot(paths->root) < 0) {
+            dprintf(stdout_pipe[1],
+                    "wlan_pd_modem_holder.child_chroot_error=%s\n"
+                    "wlan_pd_modem_holder.opened=0\n",
+                    strerror(errno));
+            close(stdout_pipe[1]);
+            _exit(121);
+        }
+        if (chdir("/") < 0) {
+            dprintf(stdout_pipe[1],
+                    "wlan_pd_modem_holder.child_chdir_error=%s\n"
+                    "wlan_pd_modem_holder.opened=0\n",
+                    strerror(errno));
+            close(stdout_pipe[1]);
+            _exit(122);
+        }
+        dprintf(stdout_pipe[1],
+                "wlan_pd_modem_holder.child_chroot=1\n"
+                "wlan_pd_modem_holder.path=/dev/subsys_modem\n");
+        modem_fd = open("/dev/subsys_modem", O_RDONLY | O_NONBLOCK | O_CLOEXEC);
+        if (modem_fd < 0) {
+            nonblock_errno = errno;
+            dprintf(stdout_pipe[1],
+                    "wlan_pd_modem_holder.nonblock_opened=0\n"
+                    "wlan_pd_modem_holder.nonblock_errno=%d\n"
+                    "wlan_pd_modem_holder.plain_retry=1\n",
+                    nonblock_errno);
+            modem_fd = open("/dev/subsys_modem", O_RDONLY | O_CLOEXEC);
+        } else {
+            dprintf(stdout_pipe[1],
+                    "wlan_pd_modem_holder.nonblock_opened=1\n"
+                    "wlan_pd_modem_holder.nonblock_errno=0\n"
+                    "wlan_pd_modem_holder.plain_retry=0\n");
+        }
+        if (modem_fd < 0) {
+            int saved_errno = errno;
+            dprintf(stdout_pipe[1],
+                    "wlan_pd_modem_holder.opened=0\n"
+                    "wlan_pd_modem_holder.open_errno=%d\n"
+                    "wlan_pd_modem_holder.open_error=%s\n"
+                    "wlan_pd_modem_holder.first_errno=%d\n",
+                    saved_errno,
+                    strerror(saved_errno),
+                    nonblock_errno);
+            close(stdout_pipe[1]);
+            _exit(31);
+        }
+        dprintf(stdout_pipe[1],
+                "wlan_pd_modem_holder.opened=1\n"
+                "wlan_pd_modem_holder.fd=%d\n"
+                "wlan_pd_modem_holder.first_errno=%d\n",
+                modem_fd,
+                nonblock_errno);
+        close(stdout_pipe[1]);
+        for (;;) {
+            pause();
+        }
+    }
+
+    close(stdout_pipe[1]);
+    holder->pipe_fd = stdout_pipe[0];
+    holder->pipe_open = true;
+    holder->started = true;
+    set_nonblock(holder->pipe_fd);
+    holder->pgid = wait_for_child_session_pgid(holder->pid, 1000);
+    if (append_format(stdout_buf,
+                      "wlan_pd_modem_holder.start_attempted=1\n"
+                      "wlan_pd_modem_holder.pid=%ld\n"
+                      "wlan_pd_modem_holder.pgid=%ld\n"
+                      "wlan_pd_modem_holder.start_elapsed_ms=%ld\n",
+                      (long)holder->pid,
+                      (long)holder->pgid,
+                      monotonic_ms() - start_ms) < 0 ||
+        drain_wlan_pd_modem_holder(holder, stdout_buf, 300) < 0 ||
+        append_subsys_hold_snapshot(stdout_buf, "wlan_pd_modem_after_start") < 0) {
+        return -1;
+    }
+    return 0;
+}
+
+static int stop_wlan_pd_modem_holder(const struct paths *paths,
+                                     struct buffer *stdout_buf,
+                                     struct wlan_pd_modem_holder *holder) {
+    char modem_node[MAX_PATH_LEN];
+    long deadline;
+
+    if (!holder->started) {
+        return 0;
+    }
+    if (drain_wlan_pd_modem_holder(holder, stdout_buf, 0) < 0) {
+        return -1;
+    }
+    if (!holder->reaped && holder->pid > 0) {
+        int status = 0;
+        pid_t wait_rc = waitpid(holder->pid, &status, WNOHANG);
+        if (wait_rc == holder->pid) {
+            holder->reaped = true;
+            if (WIFEXITED(status)) {
+                holder->exit_code = WEXITSTATUS(status);
+            } else if (WIFSIGNALED(status)) {
+                holder->signal = WTERMSIG(status);
+            }
+        }
+    }
+    if (!holder->reaped && holder->pid > 0) {
+        pid_t kill_target = holder->pgid > 0 ? -holder->pgid : holder->pid;
+        if (kill(kill_target, SIGTERM) == 0 || errno == ESRCH) {
+            holder->term_sent = true;
+        }
+        deadline = monotonic_ms() + 1000L;
+        while (!holder->reaped && monotonic_ms() < deadline) {
+            int status = 0;
+            pid_t wait_rc = waitpid(holder->pid, &status, WNOHANG);
+            if (wait_rc == holder->pid) {
+                holder->reaped = true;
+                if (WIFEXITED(status)) {
+                    holder->exit_code = WEXITSTATUS(status);
+                } else if (WIFSIGNALED(status)) {
+                    holder->signal = WTERMSIG(status);
+                }
+                break;
+            }
+            if (holder->pipe_open) {
+                drain_wlan_pd_modem_holder(holder, stdout_buf, 0);
+            }
+            usleep(50000);
+        }
+    }
+    if (!holder->reaped && holder->pid > 0) {
+        pid_t kill_target = holder->pgid > 0 ? -holder->pgid : holder->pid;
+        if (kill(kill_target, SIGKILL) == 0 || errno == ESRCH) {
+            holder->kill_sent = true;
+        }
+        deadline = monotonic_ms() + 1000L;
+        while (!holder->reaped && monotonic_ms() < deadline) {
+            int status = 0;
+            pid_t wait_rc = waitpid(holder->pid, &status, WNOHANG);
+            if (wait_rc == holder->pid) {
+                holder->reaped = true;
+                if (WIFEXITED(status)) {
+                    holder->exit_code = WEXITSTATUS(status);
+                } else if (WIFSIGNALED(status)) {
+                    holder->signal = WTERMSIG(status);
+                }
+                break;
+            }
+            if (holder->pipe_open) {
+                drain_wlan_pd_modem_holder(holder, stdout_buf, 0);
+            }
+            usleep(50000);
+        }
+    }
+    if (holder->pipe_open) {
+        drain_wlan_pd_modem_holder(holder, stdout_buf, 0);
+    }
+    if (holder->pipe_fd >= 0) {
+        close(holder->pipe_fd);
+        holder->pipe_fd = -1;
+    }
+    if (append_path(modem_node, sizeof(modem_node), paths->dev, "subsys_modem") == 0) {
+        unlink(modem_node);
+    }
+    holder->started = false;
+    return append_format(stdout_buf,
+                         "wlan_pd_modem_holder.stop_attempted=1\n"
+                         "wlan_pd_modem_holder.term_sent=%d\n"
+                         "wlan_pd_modem_holder.kill_sent=%d\n"
+                         "wlan_pd_modem_holder.reaped=%d\n"
+                         "wlan_pd_modem_holder.exit_code=%d\n"
+                         "wlan_pd_modem_holder.signal=%d\n"
+                         "wlan_pd_modem_holder.postflight_safe=%d\n"
+                         "wlan_pd_modem_holder.end=1\n",
+                         holder->term_sent ? 1 : 0,
+                         holder->kill_sent ? 1 : 0,
+                         holder->reaped ? 1 : 0,
+                         holder->exit_code,
+                         holder->signal,
+                         holder->reaped ? 1 : 0);
 }
 
 static int open_esoc_req_registered_subsys_child_node(int out_fd) {
@@ -31770,12 +32096,14 @@ static int run_wifi_companion_start_only_guarded(const struct config *cfg,
         service74_gated_peripheral_manager_provider_first_cnss ? 4 : 5;
     long deadline;
     struct service74_klog_state service74_gate_baseline;
+    struct wlan_pd_modem_holder wlan_pd_holder;
 
     *child_exit_code = -1;
     *child_signal = 0;
     *timed_out = false;
 
     memset(children, 0, sizeof(children));
+    wlan_pd_modem_holder_init(&wlan_pd_holder);
     if (android_order_pre_cnss_provider_observer) {
         composite_child_init(&children[child_count++],
                              "servicemanager",
@@ -32001,7 +32329,7 @@ static int run_wifi_companion_start_only_guarded(const struct config *cfg,
     if (android_order_pre_cnss_provider_observer) {
         order = "servicemanager,hwservicemanager,vndservicemanager,vndservice_ready_query,per_proxy_helper,qrtr_ns,rmt_storage,tftp_server,pd_mapper,per_mgr,vndservice_query,per_proxy,vndservice_query,mdm_helper,cnss_diag,cnss_daemon";
     } else if (wlan_pd_firmware_serve_gate) {
-        order = "qrtr_ns,pd_mapper,rmt_storage,tftp_server,cnss_diag,cnss_daemon";
+        order = "qrtr_ns,pd_mapper,rmt_storage,tftp_server,subsys_modem_holder,cnss_diag,cnss_daemon";
     } else if (post_sysmon_observer) {
         order = android_order_post_sysmon_observer
                     ? "qrtr_ns,pd_mapper,rmt_storage,tftp_server"
@@ -32103,6 +32431,8 @@ static int run_wifi_companion_start_only_guarded(const struct config *cfg,
                       "wifi_companion_start.peripheral_manager.shutdown_stop.sys.shutdown.requested=0\n"
                       "wifi_companion_start.android_userspace_order.enabled=%d\n"
                       "wifi_companion_start.android_pre_cnss_provider_observe_only=%d\n"
+                      "wifi_companion_start.wlan_pd_firmware_serve_gate.enabled=%d\n"
+                      "wifi_companion_start.wlan_pd_firmware_serve_gate.subsys_modem_holder_planned=%d\n"
                       "wifi_companion_start.subsys_esoc0_manual_open_attempted=0\n"
                       "wifi_companion_start.registry_snapshot.enabled=%d\n",
                       (service74_gated_vnd_readiness ||
@@ -32125,6 +32455,8 @@ static int run_wifi_companion_start_only_guarded(const struct config *cfg,
                       peripheral_manager_init_contract ? 1 : 0,
                       service74_gated_android_userspace_retry ? 1 : 0,
                       android_order_pre_cnss_provider_observer ? 1 : 0,
+                      wlan_pd_firmware_serve_gate ? 1 : 0,
+                      wlan_pd_firmware_serve_gate ? 1 : 0,
                       service74_gated_registry_capture ? 1 : 0) < 0 ||
         append_format(stdout_buf,
                       "wifi_companion_start.vndservice_query.enabled=%d\n",
@@ -32636,19 +32968,36 @@ static int run_wifi_companion_start_only_guarded(const struct config *cfg,
         stop_property_service_shim(&property_shim, paths, stdout_buf);
         return -1;
     }
+    if (wlan_pd_firmware_serve_gate &&
+        start_wlan_pd_modem_holder(paths, stdout_buf, &wlan_pd_holder) < 0) {
+        stop_wlan_pd_modem_holder(paths, stdout_buf, &wlan_pd_holder);
+        composite_cleanup_children(children, active_child_count, stdout_buf, stderr_buf);
+        stop_property_service_shim(&property_shim, paths, stdout_buf);
+        return -1;
+    }
     if (cfg->allow_service_notifier_listener_probe &&
         append_companion_service_notifier_listener_probe(stdout_buf, cfg) < 0) {
+        stop_wlan_pd_modem_holder(paths, stdout_buf, &wlan_pd_holder);
         composite_cleanup_children(children, active_child_count, stdout_buf, stderr_buf);
         stop_property_service_shim(&property_shim, paths, stdout_buf);
         return -1;
     }
     deadline = monotonic_ms() + cfg->timeout_sec * 1000L;
     if (composite_poll_children(children, active_child_count, stdout_buf, stderr_buf, deadline, timed_out) < 0) {
+        stop_wlan_pd_modem_holder(paths, stdout_buf, &wlan_pd_holder);
+        composite_cleanup_children(children, active_child_count, stdout_buf, stderr_buf);
+        stop_property_service_shim(&property_shim, paths, stdout_buf);
+        return -1;
+    }
+    if (wlan_pd_firmware_serve_gate &&
+        drain_wlan_pd_modem_holder(&wlan_pd_holder, stdout_buf, 0) < 0) {
+        stop_wlan_pd_modem_holder(paths, stdout_buf, &wlan_pd_holder);
         composite_cleanup_children(children, active_child_count, stdout_buf, stderr_buf);
         stop_property_service_shim(&property_shim, paths, stdout_buf);
         return -1;
     }
     if (append_qipcrtr_protocol_summary(stdout_buf, "wifi_companion_start.net_window") < 0) {
+        stop_wlan_pd_modem_holder(paths, stdout_buf, &wlan_pd_holder);
         composite_cleanup_children(children, active_child_count, stdout_buf, stderr_buf);
         stop_property_service_shim(&property_shim, paths, stdout_buf);
         return -1;
@@ -32662,6 +33011,7 @@ static int run_wifi_companion_start_only_guarded(const struct config *cfg,
                                                 "android_pre_cnss_provider_window",
                                                 &children[per_mgr_index],
                                                 &children[mdm_helper_index]) < 0) {
+        stop_wlan_pd_modem_holder(paths, stdout_buf, &wlan_pd_holder);
         composite_cleanup_children(children, active_child_count, stdout_buf, stderr_buf);
         stop_property_service_shim(&property_shim, paths, stdout_buf);
         return -1;
@@ -32673,27 +33023,38 @@ static int run_wifi_companion_start_only_guarded(const struct config *cfg,
                                               paths,
                                               children,
                                               active_child_count) < 0) {
+        stop_wlan_pd_modem_holder(paths, stdout_buf, &wlan_pd_holder);
         composite_cleanup_children(children, active_child_count, stdout_buf, stderr_buf);
         stop_property_service_shim(&property_shim, paths, stdout_buf);
         return -1;
     }
     if (append_wifi_window_surface_capture(stdout_buf, "window") < 0) {
+        stop_wlan_pd_modem_holder(paths, stdout_buf, &wlan_pd_holder);
         composite_cleanup_children(children, active_child_count, stdout_buf, stderr_buf);
         stop_property_service_shim(&property_shim, paths, stdout_buf);
         return -1;
     }
     if (append_wifi_cnss2_focus_capture(stdout_buf, "window") < 0) {
+        stop_wlan_pd_modem_holder(paths, stdout_buf, &wlan_pd_holder);
         composite_cleanup_children(children, active_child_count, stdout_buf, stderr_buf);
         stop_property_service_shim(&property_shim, paths, stdout_buf);
         return -1;
     }
     if (append_companion_qrtr_wlfw_readback(stdout_buf, cfg) < 0) {
+        stop_wlan_pd_modem_holder(paths, stdout_buf, &wlan_pd_holder);
         composite_cleanup_children(children, active_child_count, stdout_buf, stderr_buf);
         stop_property_service_shim(&property_shim, paths, stdout_buf);
         return -1;
     }
     if (cfg->allow_servloc_domain_list_probe &&
         append_companion_servloc_domain_list_probe(stdout_buf, cfg) < 0) {
+        stop_wlan_pd_modem_holder(paths, stdout_buf, &wlan_pd_holder);
+        composite_cleanup_children(children, active_child_count, stdout_buf, stderr_buf);
+        stop_property_service_shim(&property_shim, paths, stdout_buf);
+        return -1;
+    }
+    if (wlan_pd_firmware_serve_gate &&
+        stop_wlan_pd_modem_holder(paths, stdout_buf, &wlan_pd_holder) < 0) {
         composite_cleanup_children(children, active_child_count, stdout_buf, stderr_buf);
         stop_property_service_shim(&property_shim, paths, stdout_buf);
         return -1;
@@ -32718,6 +33079,7 @@ static int run_wifi_companion_start_only_guarded(const struct config *cfg,
                                                        tftp_child_present,
                                                        tftp_observable,
                                                        tftp_running) < 0) {
+            stop_wlan_pd_modem_holder(paths, stdout_buf, &wlan_pd_holder);
             composite_cleanup_children(children, active_child_count, stdout_buf, stderr_buf);
             stop_property_service_shim(&property_shim, paths, stdout_buf);
             return -1;
@@ -32843,6 +33205,7 @@ static int run_wifi_companion_start_only_guarded(const struct config *cfg,
                           raw6_captured ? 1 : 0,
                           sockstat_captured ? 1 : 0,
                           sockstat6_captured ? 1 : 0) < 0) {
+            stop_wlan_pd_modem_holder(paths, stdout_buf, &wlan_pd_holder);
             composite_cleanup_children(children, active_child_count, stdout_buf, stderr_buf);
             stop_property_service_shim(&property_shim, paths, stdout_buf);
             return -1;
@@ -32852,6 +33215,13 @@ static int run_wifi_companion_start_only_guarded(const struct config *cfg,
         append_literal(stdout_buf,
                        "wifi_companion_start.peripheral_manager.shutdown_stop.vendor_per_proxy=1\n"
                        "wifi_companion_start.peripheral_manager.shutdown_stop.cleanup_before_sys.shutdown.requested=1\n") < 0) {
+        stop_wlan_pd_modem_holder(paths, stdout_buf, &wlan_pd_holder);
+        composite_cleanup_children(children, active_child_count, stdout_buf, stderr_buf);
+        stop_property_service_shim(&property_shim, paths, stdout_buf);
+        return -1;
+    }
+    if (wlan_pd_firmware_serve_gate &&
+        stop_wlan_pd_modem_holder(paths, stdout_buf, &wlan_pd_holder) < 0) {
         composite_cleanup_children(children, active_child_count, stdout_buf, stderr_buf);
         stop_property_service_shim(&property_shim, paths, stdout_buf);
         return -1;

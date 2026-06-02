@@ -20,6 +20,7 @@
 - V1675 label `tqftpserv-not-running` is invalid because summary ran before `composite_capture_observable_children`.
 - V1676 moves observable-child capture before `wlan_pd_firmware_serve_gate.*` summary and treats a non-reaped tftp child as running.
 - The live gate must be repeated once as V1677; do not use V1675 for technical conclusions.
+- Later V1678/V1680 work superseded V1677 because this V1676 artifact still lacked the required `/dev/subsys_modem` holder trigger.
 
 ## Gate Contract
 
