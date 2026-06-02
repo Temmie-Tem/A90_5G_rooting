@@ -11802,3 +11802,61 @@ esoc0/RC1/pcie1/MDM2AP, do NOT investigate MSA until WLFW 69 appears.
 
   Report:
   `docs/reports/NATIVE_INIT_V1686_WLAN_PD_PM_TRIO_HANDOFF_2026-06-02.md`.
+
+## V1687 WLAN-PD cnss-daemon Output Visibility Source Build (2026-06-02)
+
+- The V1681-V1686 "missing `wlfw_start`" interpretation is superseded.
+
+  Correction:
+
+  - `cnss-daemon` logs through Android logging by default, so native dmesg can
+    miss its own `wlfw_start: Starting` message;
+  - `persist.vendor.cnss-daemon.kmsg_logging=1` is required for the daemon's
+    own kmsg path;
+  - adding more PM/service-window actors is stopped because V1683 and V1686
+    did not produce WLFW service 69 and PM Binder `-22` is a separate dead end;
+  - the QCACLD/register-driver premise is retracted: driver registration waits
+    for FW_READY and must not be used as a WLFW trigger.
+
+- V1687 source/build completed.
+
+  Result:
+
+  - decision: `v1687-wlan-pd-cnss-output-visibility-source-build-pass`;
+  - helper marker: `a90_android_execns_probe v309`;
+  - helper SHA256:
+    `8a1b5ade562c0da6bcd14734e00cf722fe10673a5889148eacbdf98a0914dabc`;
+  - boot artifact:
+    `tmp/wifi/v1687-wlan-pd-cnss-output-visibility-test-boot/boot_linux_v1687_wlan_pd_cnss_output_visibility.img`;
+  - boot SHA256:
+    `d0fba056e819c662270cab32823d81ef032c01ab3ad4a0052872bdf39b306d1c`;
+  - private property root:
+    `/mnt/sdext/a90/private-property-v317/v1687/dev/__properties__`;
+  - property overrides verified:
+    `persist.vendor.cnss-daemon.kmsg_logging=1` and
+    `persist.vendor.cnss-daemon.debug_level=4`.
+
+  Implemented route:
+
+  - preserves the internal-modem WLAN-PD firmware-serve route:
+    `qrtr-ns`, `pd-mapper`, `rmt_storage`, `tftp_server`,
+    `/dev/subsys_modem` holder, `cnss_diag`, stock `cnss-daemon`;
+  - captures visible cnss-daemon output through kmsg and classifies:
+    `wlfw-start-reached-downstream-block`,
+    `cnss-init-step-failed-<name>`, or `cnss-output-still-invisible`;
+  - keeps service-manager, PM trio, `/dev/subsys_esoc0`, forced RC1,
+    fake-ONLINE, Wi-Fi HAL, scan/connect, credentials, DHCP/routes, and
+    external ping disabled.
+
+  Next live gate:
+
+  - deploy the generated private property root to the documented remote path;
+  - flash the V1687 test boot and run one bounded observation window only;
+  - roll back to `stage3/boot_linux_v724.img`;
+  - verify post-rollback `selftest fail=0`;
+  - stop after one V1687 label and do not add PM/service actors, boot_wlan,
+    MSA/BDF, Wi-Fi HAL, scan/connect, credentials, DHCP/routes, or external
+    ping unless the label justifies a separately approved gate.
+
+  Report:
+  `docs/reports/NATIVE_INIT_V1687_WLAN_PD_CNSS_OUTPUT_VISIBILITY_SOURCE_BUILD_2026-06-02.md`.

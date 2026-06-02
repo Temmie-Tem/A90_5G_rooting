@@ -278,7 +278,12 @@ static int v641_prepare_firmware_mounts(void);
 #ifndef A90_WIFI_TEST_BOOT_WLAN_PD_PM_SERVICE_WINDOW_TRIGGER
 #define A90_WIFI_TEST_BOOT_WLAN_PD_PM_SERVICE_WINDOW_TRIGGER 0
 #endif
-#if A90_WIFI_TEST_BOOT_WLAN_PD_PM_SERVICE_WINDOW_TRIGGER
+#ifndef A90_WIFI_TEST_BOOT_WLAN_PD_CNSS_OUTPUT_VISIBILITY
+#define A90_WIFI_TEST_BOOT_WLAN_PD_CNSS_OUTPUT_VISIBILITY 0
+#endif
+#if A90_WIFI_TEST_BOOT_WLAN_PD_CNSS_OUTPUT_VISIBILITY
+#define A90_V1393_WIFI_TEST_MODE "wifi-companion-wlan-pd-cnss-output-visibility-start-only"
+#elif A90_WIFI_TEST_BOOT_WLAN_PD_PM_SERVICE_WINDOW_TRIGGER
 #define A90_V1393_WIFI_TEST_MODE "wifi-companion-wlan-pd-pm-service-window-trigger-start-only"
 #elif A90_WIFI_TEST_BOOT_WLAN_PD_SERVICE_WINDOW_TRIGGER
 #define A90_V1393_WIFI_TEST_MODE "wifi-companion-wlan-pd-service-window-trigger-start-only"
@@ -291,7 +296,9 @@ static int v641_prepare_firmware_mounts(void);
 #else
 #define A90_V1393_WIFI_TEST_MODE "wifi-companion-post-pm-mdm-helper-esoc-observer"
 #endif
+#ifndef A90_V1393_WIFI_TEST_PROPERTY_ROOT
 #define A90_V1393_WIFI_TEST_PROPERTY_ROOT "/mnt/sdext/a90/private-property-v317/v535/dev/__properties__"
+#endif
 #define A90_V1393_WIFI_TEST_REAL_LD_CONFIG "/cache/bin/a90_real_ld.config.txt"
 #define A90_V1393_WIFI_TEST_REAL_APEX_LIBRARIES "/cache/bin/a90_real_apex.libraries.config.txt"
 #define A90_V1393_WIFI_TEST_PRIVATE_CNSS "/cache/bin/cnss-daemon.sdx50m"
@@ -4204,7 +4211,16 @@ static int v1393_spawn_wifi_test_boot_helper(pid_t *pid_out) {
         A90_V1393_WIFI_TEST_REAL_APEX_LIBRARIES,
         "--vndk-apex-alias-mode",
         "v30-to-system-ext-v30",
-#if A90_WIFI_TEST_BOOT_WLAN_PD_PM_SERVICE_WINDOW_TRIGGER
+#if A90_WIFI_TEST_BOOT_WLAN_PD_CNSS_OUTPUT_VISIBILITY
+        "--allow-wifi-companion-start-only",
+        "--allow-cnss-start-only",
+        "--allow-wlan-pd-cnss-output-visibility",
+        "--allow-qrtr-ns-readback",
+        "--allow-servloc-domain-list-probe",
+        "--allow-service-notifier-listener-probe",
+        "--qrtr-readback-matrix",
+        "wlfw:69:0,1",
+#elif A90_WIFI_TEST_BOOT_WLAN_PD_PM_SERVICE_WINDOW_TRIGGER
         "--allow-wifi-companion-start-only",
         "--allow-cnss-start-only",
         "--allow-service-manager-start-only",

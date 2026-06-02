@@ -101,7 +101,7 @@
 #define SYSLOG_ACTION_READ_ALL 3
 #endif
 
-#define EXECNS_VERSION "a90_android_execns_probe v308"
+#define EXECNS_VERSION "a90_android_execns_probe v309"
 #define MAX_PATH_LEN 512
 #define MAX_CAPTURE_SIZE (1024 * 1024)
 #define MAX_LINKERCONFIG_SIZE (256 * 1024)
@@ -287,6 +287,7 @@ struct config {
     bool allow_android_wifi_service_window_per_mgr_system_info_surface; /* v301 */
     bool allow_wlan_pd_service_window_trigger; /* v307 */
     bool allow_wlan_pd_pm_service_window_trigger; /* v308 */
+    bool allow_wlan_pd_cnss_output_visibility; /* v309 */
     bool require_android_selinux_exec_match;
     bool pm_observer_zero_delay_per_mgr_probe;
     bool pm_observer_continue_after_provider;
@@ -507,6 +508,7 @@ static void usage(FILE *out) {
             "[--allow-android-wifi-service-window-pm-first-late-per-proxy-route] "
             "[--allow-android-wifi-service-window-pph-modem-fd-gate] "
             "[--allow-android-wifi-service-window-per-mgr-system-info-surface] "
+            "[--allow-wlan-pd-cnss-output-visibility] "
             "[--allow-wlan-pd-service-window-trigger] "
             "[--allow-wlan-pd-pm-service-window-trigger] "
             "[--result-output-path <path>] "
@@ -537,7 +539,7 @@ static void usage(FILE *out) {
             "[--cnss-surface-mode full|compact] "
             "[--service-manager-order none|before-cnss|after-cnss|after-mdm-helper-esoc-fd|after-mdm-helper-esoc-fd-with-pm-proxy|after-mdm-helper-esoc-fd-with-pm-full-contract|after-mdm-helper-esoc-fd-with-pm-full-contract-with-modem-holder|after-mdm-helper-esoc-fd-with-wifi-surface|after-mdm-helper-esoc-fd-with-wifi-surface-subsys-window] "
             "[--subsys-trigger-gate observe-only|wlfw-precondition|post-provider-no-wlfw|post-upper-surface-no-wlfw] "
-            "--mode linker-list|identity-probe|sepolicy-inventory|sepolicy-compile-proof|sepolicy-load-proof|selinux-domain-proof|cnss-start-only|cnss-userspace-readiness|wifi-companion-start-only|wifi-companion-post-sysmon-observer-start-only|wifi-companion-android-order-post-sysmon-observer-start-only|wifi-companion-wlan-pd-firmware-serve-gate-start-only|wifi-companion-wlan-pd-service-window-trigger-start-only|wifi-companion-wlan-pd-pm-service-window-trigger-start-only|wifi-companion-android-order-pre-cnss-provider-observe-only|wifi-companion-service-manager-start-only|wifi-companion-vnd-service-manager-start-only|wifi-companion-qrtr-first-vnd-service-manager-start-only|wifi-companion-cnss-first-delayed-vnd-service-manager-start-only|wifi-companion-service74-gated-vnd-service-manager-start-only|wifi-companion-service74-gated-vnd-service-manager-readiness-start-only|wifi-companion-service74-gated-vnd-service-manager-cnss-retry-start-only|wifi-companion-peripheral-manager-node-parity-start-only|wifi-companion-peripheral-manager-property-contract-start-only|wifi-companion-peripheral-manager-init-contract-start-only|wifi-companion-pm-service-trigger-observer|wifi-companion-post-pm-mdm-helper-esoc-observer|wifi-companion-esoc-control-preflight|wifi-companion-esoc-engine-register-preflight|wifi-companion-esoc-req-registered-subsys-hold-preflight|wifi-companion-esoc-conditional-response-preflight|wifi-companion-esoc-img-xfer-mhi-observe|wifi-companion-pmic-soft-reset-preflight|wifi-companion-pmic-power-surface-write-gate-preflight|wifi-companion-pmic-gpiochip-devnode-open-preflight|wifi-companion-pmic-gpiochip-line-info-preflight|wifi-companion-mdm-helper-ks-image-contract-preflight|wifi-companion-mdm-helper-only-deep-capture|wifi-companion-mdm-helper-runtime-contract-capture|wifi-companion-mdm-helper-runtime-subsys-trigger-capture|wifi-companion-mdm-helper-cnss-before-subsys-trigger-capture|wifi-companion-mdm-helper-cnss-service-manager-matrix|wifi-companion-android-wifi-service-window-start-only|wifi-companion-android-wifi-service-window-subsys-trigger-capture|wifi-companion-service74-gated-peripheral-manager-cnss-retry-start-only|wifi-companion-service74-gated-peripheral-manager-cnss-retry-registry-snapshot-start-only|wifi-companion-service74-gated-peripheral-manager-vndservice-query-start-only|wifi-companion-service74-gated-peripheral-manager-vndservice-query-cnss-retry-start-only|wifi-companion-service74-gated-peripheral-manager-vndservice-query-provider-first-cnss-start-only|wifi-companion-service74-gated-android-userspace-cnss-retry-start-only|wifi-companion-service74-gated-android-userspace-cnss-retry-registry-snapshot-start-only|wifi-companion-service74-gated-vnd-service-manager-registry-snapshot-start-only|wifi-companion-service74-gated-mdm-helper-start-only|wifi-companion-service180-gated-mdm-helper-start-only|wifi-companion-sysmon-gated-mdm-helper-start-only|wifi-companion-hal-order-start-only|wifi-companion-hal-wificond-order-start-only|wifi-companion-hal-wificond-lshal-wait-samsung|wifi-companion-hal-wificond-lshal-wait-iwifi|wifi-companion-dual-hal-wificond-lshal-wait-iwifi|wifi-companion-dual-hal-iwifi-start|wifi-companion-dual-hal-wificond-lshal-then-iwifi-start|rmt-storage-start-only|property-lookup|service-manager-start-only|private-selinux-proof|wifi-hal-lshal-vintf-status-list|wifi-hal-composite-start-only|wifi-hal-composite-lshal-list|wifi-hal-composite-lshal-binderized-list|wifi-hal-composite-lshal-wait-target|wifi-surface-composite-lshal-wait-iwifi|wifi-surface-composite-lshal-wait-samsung|wifi-surface-composite-lshal-wait-samsung-ptrace|wifi-hal-composite-lshal-status-list|wifi-hal-composite-lshal-binderized-status-list|wifi-surface-composite-start-only|wifi-dual-hal-lshal-wait-iwifi|wifi-dual-hal-iwifi-start-surface|wifi-iwifi-start-surface|wifi-active-session-surface|wifi-active-session-scan-only|wifi-active-session-connect-ping|wifi-connect-tool-surface|subsys-hold-open-proof|service-notifier-listener-only "
+            "--mode linker-list|identity-probe|sepolicy-inventory|sepolicy-compile-proof|sepolicy-load-proof|selinux-domain-proof|cnss-start-only|cnss-userspace-readiness|wifi-companion-start-only|wifi-companion-post-sysmon-observer-start-only|wifi-companion-android-order-post-sysmon-observer-start-only|wifi-companion-wlan-pd-firmware-serve-gate-start-only|wifi-companion-wlan-pd-cnss-output-visibility-start-only|wifi-companion-wlan-pd-service-window-trigger-start-only|wifi-companion-wlan-pd-pm-service-window-trigger-start-only|wifi-companion-android-order-pre-cnss-provider-observe-only|wifi-companion-service-manager-start-only|wifi-companion-vnd-service-manager-start-only|wifi-companion-qrtr-first-vnd-service-manager-start-only|wifi-companion-cnss-first-delayed-vnd-service-manager-start-only|wifi-companion-service74-gated-vnd-service-manager-start-only|wifi-companion-service74-gated-vnd-service-manager-readiness-start-only|wifi-companion-service74-gated-vnd-service-manager-cnss-retry-start-only|wifi-companion-peripheral-manager-node-parity-start-only|wifi-companion-peripheral-manager-property-contract-start-only|wifi-companion-peripheral-manager-init-contract-start-only|wifi-companion-pm-service-trigger-observer|wifi-companion-post-pm-mdm-helper-esoc-observer|wifi-companion-esoc-control-preflight|wifi-companion-esoc-engine-register-preflight|wifi-companion-esoc-req-registered-subsys-hold-preflight|wifi-companion-esoc-conditional-response-preflight|wifi-companion-esoc-img-xfer-mhi-observe|wifi-companion-pmic-soft-reset-preflight|wifi-companion-pmic-power-surface-write-gate-preflight|wifi-companion-pmic-gpiochip-devnode-open-preflight|wifi-companion-pmic-gpiochip-line-info-preflight|wifi-companion-mdm-helper-ks-image-contract-preflight|wifi-companion-mdm-helper-only-deep-capture|wifi-companion-mdm-helper-runtime-contract-capture|wifi-companion-mdm-helper-runtime-subsys-trigger-capture|wifi-companion-mdm-helper-cnss-before-subsys-trigger-capture|wifi-companion-mdm-helper-cnss-service-manager-matrix|wifi-companion-android-wifi-service-window-start-only|wifi-companion-android-wifi-service-window-subsys-trigger-capture|wifi-companion-service74-gated-peripheral-manager-cnss-retry-start-only|wifi-companion-service74-gated-peripheral-manager-cnss-retry-registry-snapshot-start-only|wifi-companion-service74-gated-peripheral-manager-vndservice-query-start-only|wifi-companion-service74-gated-peripheral-manager-vndservice-query-cnss-retry-start-only|wifi-companion-service74-gated-peripheral-manager-vndservice-query-provider-first-cnss-start-only|wifi-companion-service74-gated-android-userspace-cnss-retry-start-only|wifi-companion-service74-gated-android-userspace-cnss-retry-registry-snapshot-start-only|wifi-companion-service74-gated-vnd-service-manager-registry-snapshot-start-only|wifi-companion-service74-gated-mdm-helper-start-only|wifi-companion-service180-gated-mdm-helper-start-only|wifi-companion-sysmon-gated-mdm-helper-start-only|wifi-companion-hal-order-start-only|wifi-companion-hal-wificond-order-start-only|wifi-companion-hal-wificond-lshal-wait-samsung|wifi-companion-hal-wificond-lshal-wait-iwifi|wifi-companion-dual-hal-wificond-lshal-wait-iwifi|wifi-companion-dual-hal-iwifi-start|wifi-companion-dual-hal-wificond-lshal-then-iwifi-start|rmt-storage-start-only|property-lookup|service-manager-start-only|private-selinux-proof|wifi-hal-lshal-vintf-status-list|wifi-hal-composite-start-only|wifi-hal-composite-lshal-list|wifi-hal-composite-lshal-binderized-list|wifi-hal-composite-lshal-wait-target|wifi-surface-composite-lshal-wait-iwifi|wifi-surface-composite-lshal-wait-samsung|wifi-surface-composite-lshal-wait-samsung-ptrace|wifi-hal-composite-lshal-status-list|wifi-hal-composite-lshal-binderized-status-list|wifi-surface-composite-start-only|wifi-dual-hal-lshal-wait-iwifi|wifi-dual-hal-iwifi-start-surface|wifi-iwifi-start-surface|wifi-active-session-surface|wifi-active-session-scan-only|wifi-active-session-connect-ping|wifi-connect-tool-surface|subsys-hold-open-proof|service-notifier-listener-only "
             "[v27 binderized query runs: /system/bin/lshal list --types=binderized --neat] "
             "[v28 target query runs: /system/bin/lshal wait <fqinstance>] "
             "[v29 status query runs: /system/bin/lshal list --types=binderized,vintf --neat -V -S -i -p -e -c] "
@@ -652,6 +654,10 @@ static bool is_wifi_companion_android_order_pre_cnss_provider_observe_only_mode(
 
 static bool is_wifi_companion_wlan_pd_firmware_serve_gate_mode(const char *mode) {
     return streq(mode, "wifi-companion-wlan-pd-firmware-serve-gate-start-only");
+}
+
+static bool is_wifi_companion_wlan_pd_cnss_output_visibility_mode(const char *mode) {
+    return streq(mode, "wifi-companion-wlan-pd-cnss-output-visibility-start-only");
 }
 
 static bool is_wifi_companion_wlan_pd_service_window_trigger_mode(const char *mode) {
@@ -905,6 +911,7 @@ static bool is_wifi_companion_any_start_only_mode(const char *mode) {
            is_wifi_companion_post_sysmon_observer_start_only_mode(mode) ||
            is_wifi_companion_android_order_post_sysmon_observer_start_only_mode(mode) ||
            is_wifi_companion_wlan_pd_firmware_serve_gate_mode(mode) ||
+           is_wifi_companion_wlan_pd_cnss_output_visibility_mode(mode) ||
            is_wifi_companion_wlan_pd_service_window_trigger_mode(mode) ||
            is_wifi_companion_wlan_pd_pm_service_window_trigger_mode(mode) ||
            is_wifi_companion_android_wifi_service_window_any_mode(mode) ||
@@ -1551,6 +1558,10 @@ static int parse_args(int argc, char **argv, struct config *cfg) {
         }
         if (strcmp(argv[i], "--allow-wlan-pd-pm-service-window-trigger") == 0) {
             cfg->allow_wlan_pd_pm_service_window_trigger = true;
+            continue;
+        }
+        if (strcmp(argv[i], "--allow-wlan-pd-cnss-output-visibility") == 0) {
+            cfg->allow_wlan_pd_cnss_output_visibility = true;
             continue;
         }
         if (strcmp(argv[i], "--require-android-selinux-exec-match") == 0) {
@@ -2446,6 +2457,11 @@ static int parse_args(int argc, char **argv, struct config *cfg) {
         fprintf(stderr, "--allow-wlan-pd-pm-service-window-trigger is only valid with wifi-companion-wlan-pd-pm-service-window-trigger-start-only mode\n");
         return 2;
     }
+    if (cfg->allow_wlan_pd_cnss_output_visibility &&
+        !is_wifi_companion_wlan_pd_cnss_output_visibility_mode(cfg->mode)) {
+        fprintf(stderr, "--allow-wlan-pd-cnss-output-visibility is only valid with wifi-companion-wlan-pd-cnss-output-visibility-start-only mode\n");
+        return 2;
+    }
     if (!is_cnss_service_manager_matrix_order(cfg->service_manager_order)) {
         fprintf(stderr, "invalid --service-manager-order\n");
         return 2;
@@ -2962,6 +2978,11 @@ static int parse_args(int argc, char **argv, struct config *cfg) {
             fprintf(stderr, "wifi-companion-wlan-pd-pm-service-window-trigger-start-only requires --allow-wlan-pd-pm-service-window-trigger\n");
             return 2;
         }
+        if (is_wifi_companion_wlan_pd_cnss_output_visibility_mode(cfg->mode) &&
+            !cfg->allow_wlan_pd_cnss_output_visibility) {
+            fprintf(stderr, "wifi-companion-wlan-pd-cnss-output-visibility-start-only requires --allow-wlan-pd-cnss-output-visibility\n");
+            return 2;
+        }
         if (!is_wifi_companion_wlan_pd_service_window_trigger_mode(cfg->mode) &&
             cfg->allow_wlan_pd_service_window_trigger) {
             fprintf(stderr, "--allow-wlan-pd-service-window-trigger requires wifi-companion-wlan-pd-service-window-trigger-start-only mode\n");
@@ -2970,6 +2991,11 @@ static int parse_args(int argc, char **argv, struct config *cfg) {
         if (!is_wifi_companion_wlan_pd_pm_service_window_trigger_mode(cfg->mode) &&
             cfg->allow_wlan_pd_pm_service_window_trigger) {
             fprintf(stderr, "--allow-wlan-pd-pm-service-window-trigger requires wifi-companion-wlan-pd-pm-service-window-trigger-start-only mode\n");
+            return 2;
+        }
+        if (!is_wifi_companion_wlan_pd_cnss_output_visibility_mode(cfg->mode) &&
+            cfg->allow_wlan_pd_cnss_output_visibility) {
+            fprintf(stderr, "--allow-wlan-pd-cnss-output-visibility requires wifi-companion-wlan-pd-cnss-output-visibility-start-only mode\n");
             return 2;
         }
         if (peripheral_manager_node_parity && cfg->allow_cnss_start_only) {
@@ -11397,6 +11423,11 @@ struct wlan_pd_firmware_snapshot {
     bool modem_blob_nonzero;
 };
 
+static void append_sanitized_block_line(char *out,
+                                        size_t out_size,
+                                        size_t *used,
+                                        const char *line);
+
 static int append_wlan_pd_firmware_file_status(struct buffer *buf,
                                                const char *prefix,
                                                const char *base,
@@ -11656,6 +11687,215 @@ static int append_wlan_pd_firmware_serve_gate_summary(struct buffer *stdout_buf,
                          wlfw_service69_seen ? 1 : 0,
                          wlan_pd_uninit ? 1 : 0,
                          label);
+}
+
+struct cnss_output_failure_pattern {
+    const char *phrase;
+    const char *slug;
+};
+
+static const struct cnss_output_failure_pattern cnss_output_failure_patterns[] = {
+    { "Failed to init nl_loop", "nl-loop" },
+    { "Failed to init netlink common", "netlink-common" },
+    { "Failed to init interop issues ap", "interop-issues-ap" },
+    { "Failed to init hang issues ap", "hang-issues-ap" },
+    { "Failed to init gw update loop", "gw-update-loop" },
+    { "Failed to init user interface", "user-interface" },
+    { "Failed to start wlan service", "wlan-service" },
+    { "Failed to start wlan datapath service", "wlan-datapath-service" },
+};
+
+struct cnss_output_visibility_markers {
+    bool syslog_available;
+    int syslog_errno;
+    int lines_read;
+    int filtered_count;
+    int wlfw_start_count;
+    int failure_counts[8];
+    char first_failure_slug[64];
+    char block[2048];
+};
+
+static bool cnss_output_line_interesting(const char *line,
+                                         struct cnss_output_visibility_markers *markers) {
+    bool matched = false;
+
+    if (strstr(line, "wlfw_start: Starting") != NULL) {
+        markers->wlfw_start_count++;
+        matched = true;
+    }
+    for (size_t i = 0; i < sizeof(cnss_output_failure_patterns) / sizeof(cnss_output_failure_patterns[0]); i++) {
+        if (strstr(line, cnss_output_failure_patterns[i].phrase) != NULL) {
+            markers->failure_counts[i]++;
+            if (markers->first_failure_slug[0] == '\0') {
+                snprintf(markers->first_failure_slug,
+                         sizeof(markers->first_failure_slug),
+                         "%s",
+                         cnss_output_failure_patterns[i].slug);
+            }
+            matched = true;
+        }
+    }
+    return matched;
+}
+
+static int collect_cnss_output_visibility_markers(struct cnss_output_visibility_markers *markers) {
+#ifndef SYS_syslog
+    memset(markers, 0, sizeof(*markers));
+    markers->syslog_errno = ENOSYS;
+    markers->syslog_available = false;
+    return 0;
+#else
+    char *text;
+    char *line;
+    char *saveptr = NULL;
+    long nread;
+    size_t block_used = 0;
+    const size_t log_size = 256U * 1024U;
+
+    memset(markers, 0, sizeof(*markers));
+    text = malloc(log_size + 1U);
+    if (text == NULL) {
+        markers->syslog_errno = ENOMEM;
+        markers->syslog_available = false;
+        return 0;
+    }
+    nread = syscall(SYS_syslog, SYSLOG_ACTION_READ_ALL, text, (int)log_size);
+    if (nread < 0) {
+        markers->syslog_errno = errno;
+        markers->syslog_available = false;
+        free(text);
+        return 0;
+    }
+    text[nread] = '\0';
+    markers->syslog_available = true;
+    for (line = strtok_r(text, "\n", &saveptr);
+         line != NULL;
+         line = strtok_r(NULL, "\n", &saveptr)) {
+        markers->lines_read++;
+        if (cnss_output_line_interesting(line, markers)) {
+            markers->filtered_count++;
+            append_sanitized_block_line(markers->block,
+                                        sizeof(markers->block),
+                                        &block_used,
+                                        line);
+        }
+    }
+    free(text);
+    return 0;
+#endif
+}
+
+static const char *first_cnss_failure_slug_from_buffers(const struct buffer *stdout_buf,
+                                                        const struct buffer *stderr_buf,
+                                                        const struct cnss_output_visibility_markers *markers) {
+    if (markers->first_failure_slug[0] != '\0') {
+        return markers->first_failure_slug;
+    }
+    for (size_t i = 0; i < sizeof(cnss_output_failure_patterns) / sizeof(cnss_output_failure_patterns[0]); i++) {
+        if (a90_buffer_contains_ci(stdout_buf, cnss_output_failure_patterns[i].phrase) ||
+            a90_buffer_contains_ci(stderr_buf, cnss_output_failure_patterns[i].phrase)) {
+            return cnss_output_failure_patterns[i].slug;
+        }
+    }
+    return NULL;
+}
+
+static int append_wlan_pd_cnss_output_visibility_summary(struct buffer *stdout_buf,
+                                                        const struct buffer *stderr_buf,
+                                                        bool tftp_child_present,
+                                                        bool tftp_observable,
+                                                        bool tftp_running,
+                                                        bool cnss_daemon_present,
+                                                        bool cnss_daemon_observable,
+                                                        bool cnss_daemon_running) {
+    struct cnss_output_visibility_markers markers;
+    const char *failure_slug;
+    char label[96];
+    const bool wlfw_start_seen =
+        a90_buffer_contains_ci(stdout_buf, "wlfw_start: Starting") ||
+        a90_buffer_contains_ci(stderr_buf, "wlfw_start: Starting");
+
+    if (collect_cnss_output_visibility_markers(&markers) < 0) {
+        return -1;
+    }
+    failure_slug = first_cnss_failure_slug_from_buffers(stdout_buf, stderr_buf, &markers);
+    if (wlfw_start_seen || markers.wlfw_start_count > 0) {
+        snprintf(label, sizeof(label), "wlfw-start-reached-downstream-block");
+    } else if (failure_slug != NULL) {
+        snprintf(label, sizeof(label), "cnss-init-step-failed-%s", failure_slug);
+    } else {
+        snprintf(label, sizeof(label), "cnss-output-still-invisible");
+    }
+
+    if (append_literal(stdout_buf,
+                       "wlan_pd_cnss_output_visibility.begin=1\n"
+                       "wlan_pd_cnss_output_visibility.mode=internal-modem-firmware-serve-cnss-kmsg-visibility\n"
+                       "wlan_pd_cnss_output_visibility.no_service_manager=1\n"
+                       "wlan_pd_cnss_output_visibility.no_pm_trio=1\n"
+                       "wlan_pd_cnss_output_visibility.no_esoc0=1\n"
+                       "wlan_pd_cnss_output_visibility.no_forced_rc1=1\n"
+                       "wlan_pd_cnss_output_visibility.no_fake_online=1\n"
+                       "wlan_pd_cnss_output_visibility.no_wifi_hal=1\n"
+                       "wlan_pd_cnss_output_visibility.no_scan_connect=1\n"
+                       "wlan_pd_cnss_output_visibility.no_credentials=1\n"
+                       "wlan_pd_cnss_output_visibility.no_dhcp_routes=1\n"
+                       "wlan_pd_cnss_output_visibility.no_external_ping=1\n"
+                       "wlan_pd_cnss_output_visibility.expected_property.persist.vendor.cnss-daemon.kmsg_logging=1\n"
+                       "wlan_pd_cnss_output_visibility.expected_property.persist.vendor.cnss-daemon.debug_level=4\n") < 0 ||
+        append_format(stdout_buf,
+                      "wlan_pd_cnss_output_visibility.tftp_child_present=%d\n"
+                      "wlan_pd_cnss_output_visibility.tftp_observable=%d\n"
+                      "wlan_pd_cnss_output_visibility.tftp_running=%d\n"
+                      "wlan_pd_cnss_output_visibility.cnss_daemon_present=%d\n"
+                      "wlan_pd_cnss_output_visibility.cnss_daemon_observable=%d\n"
+                      "wlan_pd_cnss_output_visibility.cnss_daemon_running=%d\n"
+                      "wlan_pd_cnss_output_visibility.syslog_available=%d\n"
+                      "wlan_pd_cnss_output_visibility.syslog_errno=%d\n"
+                      "wlan_pd_cnss_output_visibility.syslog_lines_read=%d\n"
+                      "wlan_pd_cnss_output_visibility.syslog_filtered_count=%d\n"
+                      "wlan_pd_cnss_output_visibility.wlfw_start_seen=%d\n"
+                      "wlan_pd_cnss_output_visibility.failure.nl_loop=%d\n"
+                      "wlan_pd_cnss_output_visibility.failure.netlink_common=%d\n"
+                      "wlan_pd_cnss_output_visibility.failure.interop_issues_ap=%d\n"
+                      "wlan_pd_cnss_output_visibility.failure.hang_issues_ap=%d\n"
+                      "wlan_pd_cnss_output_visibility.failure.gw_update_loop=%d\n"
+                      "wlan_pd_cnss_output_visibility.failure.user_interface=%d\n"
+                      "wlan_pd_cnss_output_visibility.failure.wlan_service=%d\n"
+                      "wlan_pd_cnss_output_visibility.failure.wlan_datapath_service=%d\n"
+                      "wlan_pd_cnss_output_visibility.first_failure_slug=%s\n"
+                      "wlan_pd_cnss_output_visibility.label=%s\n",
+                      tftp_child_present ? 1 : 0,
+                      tftp_observable ? 1 : 0,
+                      tftp_running ? 1 : 0,
+                      cnss_daemon_present ? 1 : 0,
+                      cnss_daemon_observable ? 1 : 0,
+                      cnss_daemon_running ? 1 : 0,
+                      markers.syslog_available ? 1 : 0,
+                      markers.syslog_errno,
+                      markers.lines_read,
+                      markers.filtered_count,
+                      (wlfw_start_seen || markers.wlfw_start_count > 0) ? 1 : 0,
+                      markers.failure_counts[0],
+                      markers.failure_counts[1],
+                      markers.failure_counts[2],
+                      markers.failure_counts[3],
+                      markers.failure_counts[4],
+                      markers.failure_counts[5],
+                      markers.failure_counts[6],
+                      markers.failure_counts[7],
+                      failure_slug != NULL ? failure_slug : "none",
+                      label) < 0 ||
+        append_format(stdout_buf,
+                      "A90_EXECNS_CNSS_OUTPUT_VISIBILITY_KMSG_BEGIN\n"
+                      "%s"
+                      "A90_EXECNS_CNSS_OUTPUT_VISIBILITY_KMSG_END bytes=%zu\n"
+                      "wlan_pd_cnss_output_visibility.end=1\n",
+                      markers.block,
+                      strlen(markers.block)) < 0) {
+        return -1;
+    }
+    return 0;
 }
 
 static bool window_surface_entry_interesting(const char *name) {
@@ -32325,8 +32565,11 @@ static int run_wifi_companion_start_only_guarded(const struct config *cfg,
         is_wifi_companion_wlan_pd_service_window_trigger_mode(cfg->mode);
     const bool wlan_pd_pm_service_window_trigger =
         is_wifi_companion_wlan_pd_pm_service_window_trigger_mode(cfg->mode);
+    const bool wlan_pd_cnss_output_visibility =
+        is_wifi_companion_wlan_pd_cnss_output_visibility_mode(cfg->mode);
     const bool wlan_pd_firmware_serve_gate =
         is_wifi_companion_wlan_pd_firmware_serve_gate_mode(cfg->mode) ||
+        wlan_pd_cnss_output_visibility ||
         wlan_pd_service_window_trigger ||
         wlan_pd_pm_service_window_trigger;
     const bool android_order_pre_cnss_provider_observer =
@@ -32606,11 +32849,13 @@ static int run_wifi_companion_start_only_guarded(const struct config *cfg,
     if (android_order_pre_cnss_provider_observer) {
         order = "servicemanager,hwservicemanager,vndservicemanager,vndservice_ready_query,per_proxy_helper,qrtr_ns,rmt_storage,tftp_server,pd_mapper,per_mgr,vndservice_query,per_proxy,vndservice_query,mdm_helper,cnss_diag,cnss_daemon";
     } else if (wlan_pd_firmware_serve_gate) {
-        order = wlan_pd_pm_service_window_trigger
-                    ? "servicemanager,hwservicemanager,vndservicemanager,qrtr_ns,pd_mapper,rmt_storage,tftp_server,pm_proxy_helper,per_mgr,per_proxy,subsys_modem_holder,cnss_diag,cnss_daemon,pm-service-window-trigger-summary"
-                    : (wlan_pd_service_window_trigger
-                           ? "servicemanager,hwservicemanager,vndservicemanager,qrtr_ns,pd_mapper,rmt_storage,tftp_server,subsys_modem_holder,cnss_diag,cnss_daemon,service-window-trigger-summary"
-                           : "qrtr_ns,pd_mapper,rmt_storage,tftp_server,subsys_modem_holder,cnss_diag,cnss_daemon");
+        order = wlan_pd_cnss_output_visibility
+                    ? "qrtr_ns,pd_mapper,rmt_storage,tftp_server,subsys_modem_holder,cnss_diag,cnss_daemon,cnss-output-visibility-summary"
+                    : (wlan_pd_pm_service_window_trigger
+                           ? "servicemanager,hwservicemanager,vndservicemanager,qrtr_ns,pd_mapper,rmt_storage,tftp_server,pm_proxy_helper,per_mgr,per_proxy,subsys_modem_holder,cnss_diag,cnss_daemon,pm-service-window-trigger-summary"
+                           : (wlan_pd_service_window_trigger
+                                  ? "servicemanager,hwservicemanager,vndservicemanager,qrtr_ns,pd_mapper,rmt_storage,tftp_server,subsys_modem_holder,cnss_diag,cnss_daemon,service-window-trigger-summary"
+                                  : "qrtr_ns,pd_mapper,rmt_storage,tftp_server,subsys_modem_holder,cnss_diag,cnss_daemon"));
     } else if (post_sysmon_observer) {
         order = android_order_post_sysmon_observer
                     ? "qrtr_ns,pd_mapper,rmt_storage,tftp_server"
@@ -32714,6 +32959,7 @@ static int run_wifi_companion_start_only_guarded(const struct config *cfg,
                       "wifi_companion_start.android_pre_cnss_provider_observe_only=%d\n"
                       "wifi_companion_start.wlan_pd_firmware_serve_gate.enabled=%d\n"
                       "wifi_companion_start.wlan_pd_firmware_serve_gate.subsys_modem_holder_planned=%d\n"
+                      "wifi_companion_start.wlan_pd_cnss_output_visibility.enabled=%d\n"
                       "wifi_companion_start.subsys_esoc0_manual_open_attempted=0\n"
                       "wifi_companion_start.registry_snapshot.enabled=%d\n",
                       (service74_gated_vnd_readiness ||
@@ -32738,6 +32984,7 @@ static int run_wifi_companion_start_only_guarded(const struct config *cfg,
                       android_order_pre_cnss_provider_observer ? 1 : 0,
                       wlan_pd_firmware_serve_gate ? 1 : 0,
                       wlan_pd_firmware_serve_gate ? 1 : 0,
+                      wlan_pd_cnss_output_visibility ? 1 : 0,
                       service74_gated_registry_capture ? 1 : 0) < 0 ||
         append_format(stdout_buf,
                       "wifi_companion_start.vndservice_query.enabled=%d\n",
@@ -33424,6 +33671,20 @@ static int run_wifi_companion_start_only_guarded(const struct config *cfg,
                                                             per_proxy_present,
                                                             per_proxy_observable,
                                                             per_proxy_running) < 0) {
+            stop_wlan_pd_modem_holder(paths, stdout_buf, &wlan_pd_holder);
+            composite_cleanup_children(children, active_child_count, stdout_buf, stderr_buf);
+            stop_property_service_shim(&property_shim, paths, stdout_buf);
+            return -1;
+        }
+        if (wlan_pd_cnss_output_visibility &&
+            append_wlan_pd_cnss_output_visibility_summary(stdout_buf,
+                                                         stderr_buf,
+                                                         tftp_child_present,
+                                                         tftp_observable,
+                                                         tftp_running,
+                                                         cnss_daemon_present,
+                                                         cnss_daemon_observable,
+                                                         cnss_daemon_running) < 0) {
             stop_wlan_pd_modem_holder(paths, stdout_buf, &wlan_pd_holder);
             composite_cleanup_children(children, active_child_count, stdout_buf, stderr_buf);
             stop_property_service_shim(&property_shim, paths, stdout_buf);
@@ -42205,6 +42466,8 @@ int main(int argc, char **argv) {
            cfg.allow_wlan_pd_service_window_trigger ? 1 : 0);
     printf("allow_wlan_pd_pm_service_window_trigger=%d\n",
            cfg.allow_wlan_pd_pm_service_window_trigger ? 1 : 0);
+    printf("allow_wlan_pd_cnss_output_visibility=%d\n",
+           cfg.allow_wlan_pd_cnss_output_visibility ? 1 : 0);
     printf("connect_config=%s\n", cfg.connect_config != NULL ? cfg.connect_config : "<none>");
     printf("connect_iface=%s\n", cfg.connect_iface != NULL ? cfg.connect_iface : "<none>");
     printf("ping_target=%s\n", cfg.ping_target != NULL ? cfg.ping_target : "<none>");
