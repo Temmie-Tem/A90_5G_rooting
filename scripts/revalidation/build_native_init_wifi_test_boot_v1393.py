@@ -47,8 +47,8 @@ DEFAULT_WIFI_TEST_WATCHER_PID = "/cache/native-init-wifi-test-boot-v1393-watcher
 DEFAULT_WIFI_TEST_WATCH_SEC = 35
 DEFAULT_WIFI_TEST_SUPERVISOR_TIMEOUT_SEC = 40
 DEFAULT_WIFI_TEST_HELPER_MODE = "post-pm-observer"
-EXPECTED_HELPER_MARKER = "a90_android_execns_probe v312"
-EXPECTED_HELPER_SHA256 = "93e7d24ef99f0877cfe55e283359ddd056bbf89f22961341a9932056282c331a"
+EXPECTED_HELPER_MARKER = "a90_android_execns_probe v313"
+EXPECTED_HELPER_SHA256 = "33e9b907bbda162033b1cfab9bdccc407d8e57bb5dee5d911f9e9d56dc0c785d"
 REPRODUCIBLE_MTIME = 0
 
 FORBIDDEN_BYTES = (
@@ -1542,7 +1542,7 @@ def resolve_args(args: argparse.Namespace) -> argparse.Namespace:
             )
     if uses_wlan_pd_firmware_serve_gate(args):
         incompatible = {
-            "wifi_test_mount_debugfs": args.wifi_test_mount_debugfs,
+            "wifi_test_mount_debugfs": args.wifi_test_mount_debugfs and not uses_wlan_pd_cnss_output_visibility(args),
             "wifi_test_pid1_rc1_watcher": args.wifi_test_pid1_rc1_watcher,
             "wifi_test_rc1_window_sampler": args.wifi_test_rc1_window_sampler,
             "wifi_test_rc1_endpoint_sampler": args.wifi_test_rc1_endpoint_sampler,

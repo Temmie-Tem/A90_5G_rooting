@@ -101,7 +101,7 @@
 #define SYSLOG_ACTION_READ_ALL 3
 #endif
 
-#define EXECNS_VERSION "a90_android_execns_probe v312"
+#define EXECNS_VERSION "a90_android_execns_probe v313"
 #define MAX_PATH_LEN 512
 #define MAX_CAPTURE_SIZE (1024 * 1024)
 #define MAX_LINKERCONFIG_SIZE (256 * 1024)
@@ -11820,6 +11820,44 @@ struct cnss_nonlog_maps_summary {
     int line_count;
 };
 
+struct cnss_wlfw_uprobe_state {
+    bool arm_attempted;
+    bool tracefs_available;
+    bool stale_cleanup_attempted;
+    bool clear_trace_attempted;
+    bool register_attempted;
+    bool registered;
+    bool enable_attempted;
+    bool enabled;
+    bool tracing_on_attempted;
+    bool original_tracing_on_seen;
+    bool trace_read_attempted;
+    bool trace_read_ok;
+    bool cleanup_attempted;
+    bool cleanup_done;
+    int tracefs_errno;
+    int stale_cleanup_rc;
+    int clear_trace_rc;
+    int register_rc;
+    int enable_rc;
+    int tracing_on_rc;
+    int trace_read_errno;
+    int disable_rc;
+    int cleanup_rc;
+    int restore_tracing_on_rc;
+    int hit_count;
+    char tracefs_path[96];
+    char uprobe_events_path[MAX_PATH_LEN];
+    char trace_path[MAX_PATH_LEN];
+    char enable_path[MAX_PATH_LEN];
+    char tracing_on_path[MAX_PATH_LEN];
+    char original_tracing_on[16];
+    char first_hit_line[512];
+};
+
+static struct cnss_wlfw_uprobe_state g_cnss_wlfw_uprobe_state;
+static bool g_cnss_wlfw_uprobe_atexit_registered;
+
 static void cnss_nonlog_maps_summary_init(struct cnss_nonlog_maps_summary *summary) {
     memset(summary, 0, sizeof(*summary));
 }
@@ -11870,6 +11908,198 @@ static int collect_cnss_nonlog_maps_summary(pid_t pid, struct cnss_nonlog_maps_s
     return 0;
 }
 
+static int truncate_text_once_errno(const char *path) {
+    int fd = open(path, O_WRONLY | O_TRUNC | O_CLOEXEC);
+    int saved_errno;
+
+    if (fd < 0) {
+        return -errno;
+    }
+    if (close(fd) < 0) {
+        saved_errno = errno;
+        return -saved_errno;
+    }
+    return 0;
+}
+
+static bool tracefs_root_has_uprobes(const char *root) {
+    char path[MAX_PATH_LEN];
+
+    if (snprintf(path, sizeof(path), "%s/uprobe_events", root) >= (int)sizeof(path)) {
+        return false;
+    }
+    return access(path, F_OK) == 0;
+}
+
+static int cnss_wlfw_uprobe_find_tracefs(struct cnss_wlfw_uprobe_state *state) {
+    static const char *const roots[] = {
+        "/sys/kernel/debug/tracing",
+        "/sys/kernel/tracing",
+    };
+
+    for (size_t i = 0; i < sizeof(roots) / sizeof(roots[0]); i++) {
+        if (tracefs_root_has_uprobes(roots[i])) {
+            snprintf(state->tracefs_path, sizeof(state->tracefs_path), "%s", roots[i]);
+            return 0;
+        }
+    }
+    state->tracefs_errno = ENOENT;
+    return -1;
+}
+
+static int cnss_wlfw_uprobe_build_paths(struct cnss_wlfw_uprobe_state *state) {
+    int needed;
+
+    needed = snprintf(state->uprobe_events_path,
+                      sizeof(state->uprobe_events_path),
+                      "%s/uprobe_events",
+                      state->tracefs_path);
+    if (needed < 0 || needed >= (int)sizeof(state->uprobe_events_path)) {
+        errno = ENAMETOOLONG;
+        return -1;
+    }
+    needed = snprintf(state->trace_path,
+                      sizeof(state->trace_path),
+                      "%s/trace",
+                      state->tracefs_path);
+    if (needed < 0 || needed >= (int)sizeof(state->trace_path)) {
+        errno = ENAMETOOLONG;
+        return -1;
+    }
+    needed = snprintf(state->enable_path,
+                      sizeof(state->enable_path),
+                      "%s/events/a90cnss/wlfw_start/enable",
+                      state->tracefs_path);
+    if (needed < 0 || needed >= (int)sizeof(state->enable_path)) {
+        errno = ENAMETOOLONG;
+        return -1;
+    }
+    needed = snprintf(state->tracing_on_path,
+                      sizeof(state->tracing_on_path),
+                      "%s/tracing_on",
+                      state->tracefs_path);
+    if (needed < 0 || needed >= (int)sizeof(state->tracing_on_path)) {
+        errno = ENAMETOOLONG;
+        return -1;
+    }
+    return 0;
+}
+
+static void cnss_wlfw_uprobe_cleanup_state(struct cnss_wlfw_uprobe_state *state) {
+    if (!state->arm_attempted || state->cleanup_done) {
+        return;
+    }
+    state->cleanup_attempted = true;
+    if (state->enabled && state->enable_path[0] != '\0') {
+        state->disable_rc = write_text_once_errno(state->enable_path, "0\n");
+    }
+    if (state->registered && state->uprobe_events_path[0] != '\0') {
+        state->cleanup_rc = write_text_once_errno(state->uprobe_events_path, "-:a90cnss/wlfw_start\n");
+    }
+    if (state->original_tracing_on_seen && state->tracing_on_path[0] != '\0') {
+        char restore[32];
+
+        snprintf(restore, sizeof(restore), "%s\n", state->original_tracing_on);
+        state->restore_tracing_on_rc = write_text_once_errno(state->tracing_on_path, restore);
+    }
+    state->cleanup_done = true;
+}
+
+static void cnss_wlfw_uprobe_cleanup_atexit(void) {
+    cnss_wlfw_uprobe_cleanup_state(&g_cnss_wlfw_uprobe_state);
+}
+
+static void cnss_wlfw_uprobe_arm_global(void) {
+    struct cnss_wlfw_uprobe_state *state = &g_cnss_wlfw_uprobe_state;
+
+    memset(state, 0, sizeof(*state));
+    state->arm_attempted = true;
+    state->tracefs_errno = 0;
+    state->stale_cleanup_rc = 0;
+    state->clear_trace_rc = 0;
+    state->register_rc = 0;
+    state->enable_rc = 0;
+    state->tracing_on_rc = 0;
+    state->trace_read_errno = 0;
+    state->disable_rc = 0;
+    state->cleanup_rc = 0;
+    state->restore_tracing_on_rc = 0;
+
+    if (cnss_wlfw_uprobe_find_tracefs(state) < 0) {
+        return;
+    }
+    if (cnss_wlfw_uprobe_build_paths(state) < 0) {
+        state->tracefs_errno = errno;
+        return;
+    }
+    state->tracefs_available = true;
+    if (!g_cnss_wlfw_uprobe_atexit_registered) {
+        atexit(cnss_wlfw_uprobe_cleanup_atexit);
+        g_cnss_wlfw_uprobe_atexit_registered = true;
+    }
+
+    if (read_small_file_trim(state->tracing_on_path,
+                             state->original_tracing_on,
+                             sizeof(state->original_tracing_on)) == 0) {
+        state->original_tracing_on_seen = true;
+    }
+    state->clear_trace_attempted = true;
+    state->clear_trace_rc = truncate_text_once_errno(state->trace_path);
+    state->stale_cleanup_attempted = true;
+    state->stale_cleanup_rc = write_text_once_errno(state->uprobe_events_path, "-:a90cnss/wlfw_start\n");
+
+    state->register_attempted = true;
+    state->register_rc = write_text_once_errno(state->uprobe_events_path,
+                                               "p:a90cnss/wlfw_start /vendor/bin/cnss-daemon:0xec00\n");
+    if (state->register_rc != 0) {
+        return;
+    }
+    state->registered = true;
+
+    state->enable_attempted = true;
+    state->enable_rc = write_text_once_errno(state->enable_path, "1\n");
+    if (state->enable_rc != 0) {
+        return;
+    }
+    state->enabled = true;
+
+    state->tracing_on_attempted = true;
+    state->tracing_on_rc = write_text_once_errno(state->tracing_on_path, "1\n");
+}
+
+static void cnss_wlfw_uprobe_collect_trace(struct cnss_wlfw_uprobe_state *state) {
+    FILE *file;
+    char line[1024];
+    int lines = 0;
+
+    if (!state->arm_attempted || !state->tracefs_available || state->trace_path[0] == '\0') {
+        return;
+    }
+    state->trace_read_attempted = true;
+    file = fopen(state->trace_path, "re");
+    if (file == NULL) {
+        state->trace_read_errno = errno;
+        return;
+    }
+    state->trace_read_ok = true;
+    while (lines < 4096 && fgets(line, sizeof(line), file) != NULL) {
+        lines++;
+        if (strstr(line, "a90cnss:wlfw_start") == NULL &&
+            strstr(line, "wlfw_start") == NULL) {
+            continue;
+        }
+        state->hit_count++;
+        if (state->first_hit_line[0] == '\0') {
+            size_t copy_len = strnlen(line, sizeof(state->first_hit_line) - 1U);
+
+            memcpy(state->first_hit_line, line, copy_len);
+            state->first_hit_line[copy_len] = '\0';
+            sanitize_one_line(state->first_hit_line);
+        }
+    }
+    fclose(file);
+}
+
 static int append_wlan_pd_cnss_nonlog_control_flow_summary(struct buffer *stdout_buf,
                                                            pid_t cnss_daemon_pid,
                                                            bool cnss_daemon_present,
@@ -11882,8 +12112,11 @@ static int append_wlan_pd_cnss_nonlog_control_flow_summary(struct buffer *stdout
     int cnss_kmsg_fd_count = -1;
     int global_mhi_fd_count = count_all_proc_fd_target_matches("/dev/mhi_0305_01.01.00_pipe_10");
     int ks_process_count = count_process_cmdline_or_comm_matches("/vendor/bin/ks", "ks");
+    struct cnss_wlfw_uprobe_state *uprobe = &g_cnss_wlfw_uprobe_state;
     const char *label;
 
+    cnss_wlfw_uprobe_collect_trace(uprobe);
+    cnss_wlfw_uprobe_cleanup_state(uprobe);
     cnss_nonlog_maps_summary_init(&maps);
     if (cnss_daemon_pid > 0 && cnss_daemon_running) {
         collect_cnss_nonlog_maps_summary(cnss_daemon_pid, &maps);
@@ -11891,17 +12124,19 @@ static int append_wlan_pd_cnss_nonlog_control_flow_summary(struct buffer *stdout
         cnss_vndbinder_fd_count = count_proc_fd_target_matches(cnss_daemon_pid, "/dev/vndbinder");
         cnss_kmsg_fd_count = count_proc_fd_target_matches(cnss_daemon_pid, "/dev/kmsg");
     }
-    if (!cnss_daemon_present || !cnss_daemon_running) {
+    if (uprobe->hit_count > 0) {
+        label = "cnss-wlfw-entry-hit-downstream-wait";
+    } else if (!cnss_daemon_present || !cnss_daemon_running) {
         label = "cnss-process-exited-before-wlfw";
+    } else if (uprobe->arm_attempted && uprobe->registered && uprobe->enabled) {
+        label = "cnss-wlfw-entry-not-hit-init-stall";
     } else {
         label = "cnss-uprobe-unavailable-fallback-needed";
     }
 
     if (append_literal(stdout_buf,
                        "wlan_pd_cnss_nonlog_control_flow.begin=1\n"
-                       "wlan_pd_cnss_nonlog_control_flow.mode=read-only-proc-fallback\n"
-                       "wlan_pd_cnss_nonlog_control_flow.tracefs_write_attempted=0\n"
-                       "wlan_pd_cnss_nonlog_control_flow.uprobe_attempted=0\n"
+                       "wlan_pd_cnss_nonlog_control_flow.mode=tracefs-uprobe-or-proc-fallback\n"
                        "wlan_pd_cnss_nonlog_control_flow.service_manager=0\n"
                        "wlan_pd_cnss_nonlog_control_flow.pm_trio=0\n"
                        "wlan_pd_cnss_nonlog_control_flow.boot_wlan=0\n"
@@ -11931,6 +12166,35 @@ static int append_wlan_pd_cnss_nonlog_control_flow_summary(struct buffer *stdout
                       "wlan_pd_cnss_nonlog_control_flow.static.main_wlfw_start_call=0x9220\n"
                       "wlan_pd_cnss_nonlog_control_flow.static.main_wlfw_start_failure=0x9318\n"
                       "wlan_pd_cnss_nonlog_control_flow.runtime.wlfw_start_pc=0x%llx\n"
+                      "wlan_pd_cnss_nonlog_control_flow.tracefs_write_attempted=%d\n"
+                      "wlan_pd_cnss_nonlog_control_flow.uprobe_attempted=%d\n"
+                      "wlan_pd_cnss_nonlog_control_flow.tracefs.available=%d\n"
+                      "wlan_pd_cnss_nonlog_control_flow.tracefs.path=%s\n"
+                      "wlan_pd_cnss_nonlog_control_flow.tracefs.errno=%d\n"
+                      "wlan_pd_cnss_nonlog_control_flow.uprobe.stale_cleanup_attempted=%d\n"
+                      "wlan_pd_cnss_nonlog_control_flow.uprobe.stale_cleanup_rc=%d\n"
+                      "wlan_pd_cnss_nonlog_control_flow.uprobe.clear_trace_attempted=%d\n"
+                      "wlan_pd_cnss_nonlog_control_flow.uprobe.clear_trace_rc=%d\n"
+                      "wlan_pd_cnss_nonlog_control_flow.uprobe.register_attempted=%d\n"
+                      "wlan_pd_cnss_nonlog_control_flow.uprobe.register_rc=%d\n"
+                      "wlan_pd_cnss_nonlog_control_flow.uprobe.registered=%d\n"
+                      "wlan_pd_cnss_nonlog_control_flow.uprobe.enable_attempted=%d\n"
+                      "wlan_pd_cnss_nonlog_control_flow.uprobe.enable_rc=%d\n"
+                      "wlan_pd_cnss_nonlog_control_flow.uprobe.enabled=%d\n"
+                      "wlan_pd_cnss_nonlog_control_flow.uprobe.tracing_on_attempted=%d\n"
+                      "wlan_pd_cnss_nonlog_control_flow.uprobe.tracing_on_rc=%d\n"
+                      "wlan_pd_cnss_nonlog_control_flow.uprobe.original_tracing_on_seen=%d\n"
+                      "wlan_pd_cnss_nonlog_control_flow.uprobe.original_tracing_on=%s\n"
+                      "wlan_pd_cnss_nonlog_control_flow.uprobe.trace_read_attempted=%d\n"
+                      "wlan_pd_cnss_nonlog_control_flow.uprobe.trace_read_ok=%d\n"
+                      "wlan_pd_cnss_nonlog_control_flow.uprobe.trace_read_errno=%d\n"
+                      "wlan_pd_cnss_nonlog_control_flow.uprobe.hit_count=%d\n"
+                      "wlan_pd_cnss_nonlog_control_flow.uprobe.first_hit_line=%s\n"
+                      "wlan_pd_cnss_nonlog_control_flow.uprobe.cleanup_attempted=%d\n"
+                      "wlan_pd_cnss_nonlog_control_flow.uprobe.disable_rc=%d\n"
+                      "wlan_pd_cnss_nonlog_control_flow.uprobe.cleanup_rc=%d\n"
+                      "wlan_pd_cnss_nonlog_control_flow.uprobe.restore_tracing_on_rc=%d\n"
+                      "wlan_pd_cnss_nonlog_control_flow.uprobe.cleanup_done=%d\n"
                       "wlan_pd_cnss_nonlog_control_flow.fd.socket_count=%d\n"
                       "wlan_pd_cnss_nonlog_control_flow.fd.vndbinder_count=%d\n"
                       "wlan_pd_cnss_nonlog_control_flow.fd.kmsg_count=%d\n"
@@ -11951,6 +12215,35 @@ static int append_wlan_pd_cnss_nonlog_control_flow_summary(struct buffer *stdout
                       maps.text_end,
                       maps.text_offset,
                       maps.wlfw_start_runtime_pc,
+                      uprobe->arm_attempted ? 1 : 0,
+                      uprobe->register_attempted ? 1 : 0,
+                      uprobe->tracefs_available ? 1 : 0,
+                      uprobe->tracefs_path[0] != '\0' ? uprobe->tracefs_path : "none",
+                      uprobe->tracefs_errno,
+                      uprobe->stale_cleanup_attempted ? 1 : 0,
+                      uprobe->stale_cleanup_rc,
+                      uprobe->clear_trace_attempted ? 1 : 0,
+                      uprobe->clear_trace_rc,
+                      uprobe->register_attempted ? 1 : 0,
+                      uprobe->register_rc,
+                      uprobe->registered ? 1 : 0,
+                      uprobe->enable_attempted ? 1 : 0,
+                      uprobe->enable_rc,
+                      uprobe->enabled ? 1 : 0,
+                      uprobe->tracing_on_attempted ? 1 : 0,
+                      uprobe->tracing_on_rc,
+                      uprobe->original_tracing_on_seen ? 1 : 0,
+                      uprobe->original_tracing_on_seen ? uprobe->original_tracing_on : "none",
+                      uprobe->trace_read_attempted ? 1 : 0,
+                      uprobe->trace_read_ok ? 1 : 0,
+                      uprobe->trace_read_errno,
+                      uprobe->hit_count,
+                      uprobe->first_hit_line[0] != '\0' ? uprobe->first_hit_line : "none",
+                      uprobe->cleanup_attempted ? 1 : 0,
+                      uprobe->disable_rc,
+                      uprobe->cleanup_rc,
+                      uprobe->restore_tracing_on_rc,
+                      uprobe->cleanup_done ? 1 : 0,
                       cnss_socket_fd_count,
                       cnss_vndbinder_fd_count,
                       cnss_kmsg_fd_count,
@@ -33379,6 +33672,9 @@ static int run_wifi_companion_start_only_guarded(const struct config *cfg,
         append_wlan_pd_cnss_output_visibility_property_lookups(cfg, paths, stdout_buf) < 0) {
         stop_property_service_shim(&property_shim, paths, stdout_buf);
         return -1;
+    }
+    if (wlan_pd_cnss_output_visibility) {
+        cnss_wlfw_uprobe_arm_global();
     }
     for (size_t i = 0; i < child_count; i++) {
         if (service74_gate_required &&

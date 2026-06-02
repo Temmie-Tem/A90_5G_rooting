@@ -12362,3 +12362,53 @@ esoc0/RC1/pcie1/MDM2AP, do NOT investigate MSA until WLFW 69 appears.
 
   Report:
   `docs/reports/NATIVE_INIT_V1698_WLAN_PD_CNSS_KMSG4_HANDOFF_2026-06-02.md`.
+
+## V1699 WLAN-PD CNSS tracefs uprobe Source Build (2026-06-02)
+
+- V1699 source/build-only unit completed.
+
+  Result:
+
+  - decision: `v1699-wlan-pd-cnss-tracefs-uprobe-source-build-pass`;
+  - init: `A90 Linux init 0.9.127 (v1699-wlan-pd-cnss-tracefs-uprobe)`;
+  - helper: `a90_android_execns_probe v313`;
+  - helper SHA256:
+    `33e9b907bbda162033b1cfab9bdccc407d8e57bb5dee5d911f9e9d56dc0c785d`;
+  - boot image:
+    `tmp/wifi/v1699-wlan-pd-cnss-tracefs-uprobe-test-boot/boot_linux_v1699_wlan_pd_cnss_tracefs_uprobe.img`;
+  - boot SHA256:
+    `61aa7c3c94b4921b9b2bf9f8a97eadde19c6b96bace5280f06ecfe4414ceabd2`;
+  - private property runtime sets
+    `persist.vendor.cnss-daemon.kmsg_logging=4` and
+    `persist.vendor.cnss-daemon.debug_level=4`.
+
+  Scope:
+
+  - reuses the V1680 internal-modem firmware-serve route:
+    `qrtr-ns`, `pd-mapper`, `rmt_storage`, `tftp_server`,
+    `/dev/subsys_modem` holder, `cnss_diag`, stock `cnss-daemon`;
+  - arms one bounded tracefs uprobe for
+    `/vendor/bin/cnss-daemon:0xec00` (`wlfw_start`) before starting
+    stock `cnss-daemon`;
+  - records uprobe registration/enable/readback/cleanup status and falls back
+    to `/proc` PID/maps/fd/task-state evidence if tracefs or uprobes are not
+    available;
+  - keeps service-manager, PM/service-window actors, `boot_wlan`,
+    `/dev/subsys_esoc0`, forced RC1, fake-ONLINE, Wi-Fi HAL, scan/connect,
+    credentials, DHCP/routes, and external ping disabled.
+
+  Next gate:
+
+  - V1700 should run exactly one rollbackable live handoff with the V1699 test
+    boot;
+  - live labels:
+    `cnss-wlfw-entry-hit-downstream-wait`,
+    `cnss-wlfw-entry-not-hit-init-stall`,
+    `cnss-process-exited-before-wlfw`, or
+    `cnss-uprobe-unavailable-fallback-needed`;
+  - one run sets one label. Do not add PM/service-window actors, `boot_wlan`,
+    eSoC/RC1 paths, Wi-Fi HAL, scan/connect, credentials, DHCP/routes, or
+    external ping.
+
+  Report:
+  `docs/reports/NATIVE_INIT_V1699_WLAN_PD_CNSS_TRACEFS_UPROBE_SOURCE_BUILD_2026-06-02.md`.
