@@ -10783,41 +10783,40 @@ above (rejected as inverted causality).
   Report:
   `docs/reports/NATIVE_INIT_V1658_POST_MDM2AP_SILENCE_NEXT_GATE_2026-06-02.md`.
 
-## V1659 Android-good Rail Reference Plan (2026-06-02)
+## V1659 Android-good vs Native Power Diff Plan (2026-06-02)
 
 - V1659 source/build-only plan passed as
-  `v1659-android-good-rail-reference-plan-ready`.
+  `v1659-android-native-power-diff-plan-ready`.
 
   Rationale:
 
   - V1657 fixed the native lower blocker at clean natural-path
     `mdm2ap-silent-natural-path`;
-  - V1658 selected Android-good rail/reference capture as the next
-    non-mutating gate;
+  - the fixed contract now requires the same observables on both sides:
+    Android-good and native natural path;
   - V1555 proves Android can reach BDF, FW-ready, and `wlan0` under a
     lower-impact GPIO/IRQ observer;
-  - V1554 showed regulator/clk tracefs event capture was too intrusive or too
-    short for preserving the lower Wi-Fi path.
+  - V1514 proves broad `clk_summary` reads can overrun critical timing, so the
+    diff must use full `regulator_summary` snapshots plus targeted named clocks
+    only.
 
-  V1660 should implement the temporary Android-good read-only rail snapshot
-  handoff using the V1555 Android/Magisk/native-rollback engine.  Enable only
-  GPIO/IRQ tracefs events, and collect regulator/clock evidence as bounded
-  read-only snapshots from debugfs summaries.  Rejected in this gate:
-  regulator/clk tracefs events, PMIC/GPIO/GDSC writes, PCI rescan,
-  platform bind/unbind, eSoC notify/`BOOT_DONE`, credential handling,
-  explicit scan/connect, DHCP/routes, and external ping.
+  Execution split:
 
-  Success criteria:
+  - V1660: Android-good source/build-only then rollbackable handoff using the
+    V1521/V1555 Magisk post-fs-data engine, with full regulator snapshots and
+    targeted clock reads;
+  - V1661: native source/build-only then rollbackable natural-path handoff using
+    the V1657 PM-first route with the same observables;
+  - V1662: host-only diff classifier that emits exactly one fixed label:
+    `power-vote-gap`, `sequence-gap`, or `full-power-parity-hardware-wall`.
 
-  - Android reaches BDF/FW-ready/`wlan0` under the observer;
-  - at least one pre-esoc0 and one post-`wlan0` regulator/clk/gpio/IRQ snapshot
-    exists;
-  - GPIO142/MDM status positive response is captured or classified;
-  - rollback restores `stage3/boot_linux_v724.img` and selftest `fail=0`;
-  - tracked evidence contains no SSID/PSK/passphrase/raw credential values.
+  Hard stops remain unchanged: no PMIC/GPIO/GDSC writes, forced RC1/case write,
+  fake ONLINE/system-info spoof, eSoC notify/`BOOT_DONE`, PCI rescan, platform
+  bind/unbind, Wi-Fi HAL, scan/connect, credentials, DHCP/routes, or external
+  ping.  No autonomous write gate follows any label.
 
   Report:
-  `docs/reports/NATIVE_INIT_V1659_ANDROID_GOOD_RAIL_REFERENCE_PLAN_2026-06-02.md`.
+  `docs/reports/NATIVE_INIT_V1659_ANDROID_NATIVE_POWER_DIFF_PLAN_2026-06-02.md`.
 
 ---
 
