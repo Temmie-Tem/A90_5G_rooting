@@ -13720,3 +13720,52 @@ esoc0/RC1/pcie1/MDM2AP, do NOT investigate MSA until WLFW 69 appears.
 
   Report:
   `docs/reports/NATIVE_INIT_V1735_WLAN_PD_TIMESTAMPED_OBSERVER_SOURCE_BUILD_2026-06-03.md`.
+
+## V1736 WLAN-PD timestamped observer live handoff (2026-06-03)
+
+- V1736 one-run rollbackable read-only live gate completed.
+
+  Result:
+
+  - decision: `v1736-wlfw-start-reached-downstream-block-rollback-pass`;
+  - rollback: `from-native`, verified back to
+    `A90 Linux init 0.9.68 (v724)`;
+  - property runtime deploy: `22` files, `2759988` bytes,
+    `property_info` and `vendor_default_prop` SHA verified;
+  - timestamped observer field:
+    `wlan_pd_service_window_trigger.observer_monotonic_ms=50225`;
+  - service-window label: `wlfw-start-reached`;
+  - non-log label:
+    `wlfw-worker-thread-started-waiting-for-qmi-service`;
+  - `wlfw_start`, `wlfw_service_request`, and worker create success hit
+    counts: `1` / `1` / `1`;
+  - WLFW indication-register QMI and capability QMI hit counts: `0` / `0`;
+  - late service-notifier listener: `listener-response-success`,
+    current state `uninit`, indication seen `0`, hold `15015 ms`;
+  - WLFW service 69 seen: `0`;
+  - requested `wlanmdsp`: `0`;
+  - `wlan0`: absent.
+
+  Interpretation:
+
+  - cnss-daemon entry, `wlfw_start`, `wlfw_service_request`, and worker
+    creation are no longer blockers;
+  - the remaining blocker is downstream of cnss-daemon and upstream of WLFW
+    service 69: the internal modem never moves `msm/modem/wlan_pd` out of
+    `UNINIT` and never requests `wlanmdsp`;
+  - PM trio, `boot_wlan`, eSoC/RC1, fake-ONLINE, restart-PD request,
+    Wi-Fi HAL, scan/connect, credentials, DHCP/routes, and external ping remain
+    excluded from this branch.
+
+  Next candidate:
+
+  - V1737 host-only modem-side WLAN-PD start trigger classifier;
+  - compare Android-good evidence around `wlfw_service_request` →
+    WLAN-PD UP → WLFW service 69 against V1736 native evidence;
+  - identify whether the missing surface is a modem image/domain content gap,
+    a missing service-locator/servreg request/response, a tqftpserv path gap, or
+    an unobserved QMI request before planning any mutation;
+  - do not repeat V1736 timing/window variants.
+
+  Report:
+  `docs/reports/NATIVE_INIT_V1736_WLAN_PD_TIMESTAMPED_OBSERVER_HANDOFF_2026-06-03.md`.
