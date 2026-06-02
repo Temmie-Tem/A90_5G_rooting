@@ -12412,3 +12412,65 @@ esoc0/RC1/pcie1/MDM2AP, do NOT investigate MSA until WLFW 69 appears.
 
   Report:
   `docs/reports/NATIVE_INIT_V1699_WLAN_PD_CNSS_TRACEFS_UPROBE_SOURCE_BUILD_2026-06-02.md`.
+
+## V1700 WLAN-PD CNSS tracefs uprobe Handoff (2026-06-02)
+
+- V1700 one-run rollbackable live handoff completed with the V1699 tracefs
+  uprobe test boot.
+
+  Result:
+
+  - decision:
+    `v1700-cnss-uprobe-unavailable-fallback-needed-rollback-pass`;
+  - rollback: `from-native`, PASS;
+  - post-rollback version: `A90 Linux init 0.9.68 (v724)`;
+  - post-rollback selftest: `fail=0`;
+  - output label: `cnss-output-still-invisible`;
+  - non-log label: `cnss-uprobe-unavailable-fallback-needed`;
+  - property lookup:
+    `all_match=1`,
+    `persist.vendor.cnss-daemon.kmsg_logging=4`,
+    `persist.vendor.cnss-daemon.debug_level=4`;
+  - tracefs path: `/sys/kernel/debug/tracing`;
+  - tracefs available: `1`;
+  - uprobe register rc: `-2`;
+  - uprobe registered/enabled: `0` / `0`;
+  - uprobe hit count: `0`;
+  - cleanup done: `1`;
+  - stock `cnss-daemon` remained running, pid `560`;
+  - maps text seen: `1`;
+  - computed `wlfw_start` runtime PC: `0x556cc30c00`;
+  - socket/vndbinder/kmsg fd counts: `10` / `1` / `0`;
+  - MHI pipe fd count / ks process count: `0` / `0`;
+  - legacy firmware-serve label: `firmware-not-requested`.
+
+  Safety:
+
+  - no service-manager, PM/service-window actors, `boot_wlan`,
+    `/dev/subsys_esoc0`, forced RC1, fake-ONLINE, Wi-Fi HAL, scan/connect,
+    credentials, DHCP/routes, or external ping were used;
+  - no PMIC/GPIO/GDSC writes, eSoC notify/`BOOT_DONE`, PCI rescan, platform
+    bind/unbind, firmware write, or partition write beyond the test boot
+    handoff and rollback were used.
+
+  Interpretation:
+
+  - tracefs itself was available, but uprobe registration failed with `-2`
+    before `cnss-daemon` entry could be proven;
+  - therefore V1700 does not prove either `wlfw_start` entry or non-entry;
+  - it does prove the current tracefs target path/registration contract is
+    insufficient while `/proc` fallback still shows stock `cnss-daemon` alive,
+    mapped, socket-active, and not opening `/dev/kmsg`;
+  - do not add PM/service-window actors or `boot_wlan` from this label.
+
+  Next candidate:
+
+  - host/source-only first: classify why
+    `/vendor/bin/cnss-daemon:0xec00` uprobe registration returns `-2`
+    despite tracefs being mounted and the daemon later mapping the binary.
+    Candidate repairs are target-path binding/root lookup correction or a
+    bounded ptrace-lite PC proof. Do not run a second live variant until the
+    target contract is fixed.
+
+  Report:
+  `docs/reports/NATIVE_INIT_V1700_WLAN_PD_CNSS_TRACEFS_UPROBE_HANDOFF_2026-06-02.md`.

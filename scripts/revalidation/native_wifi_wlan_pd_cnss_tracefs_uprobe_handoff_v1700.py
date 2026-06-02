@@ -145,6 +145,15 @@ def classify_gate(args: argparse.Namespace,
 
 def render_report(result: dict[str, Any]) -> str:
     gate = result.get("gate", {})
+    base_text = ORIGINAL_RENDER_REPORT(result)
+    base_text = base_text.replace(
+        "# Native Init V1700 WLAN-PD cnss-daemon Output Visibility Handoff",
+        "# Native Init V1700 WLAN-PD cnss-daemon Tracefs Uprobe Handoff",
+    )
+    base_text = base_text.replace(
+        "- Type: one-run rollbackable WLAN-PD cnss-daemon output-visibility gate",
+        "- Type: one-run rollbackable WLAN-PD cnss-daemon tracefs uprobe/non-log gate",
+    )
     extra = "\n".join([
         "## Tracefs / Non-log Control Flow",
         "",
@@ -170,7 +179,7 @@ def render_report(result: dict[str, Any]) -> str:
         "- `cnss-uprobe-unavailable-fallback-needed` means this boot could not use tracefs/uprobe and only `/proc` fallback evidence is available.",
         "",
     ])
-    return ORIGINAL_RENDER_REPORT(result) + "\n" + extra
+    return base_text + "\n" + extra
 
 
 def main(argv: list[str] | None = None) -> int:
