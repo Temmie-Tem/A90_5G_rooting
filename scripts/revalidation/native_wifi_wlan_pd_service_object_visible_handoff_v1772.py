@@ -6,7 +6,7 @@ from __future__ import annotations
 from pathlib import Path
 from typing import Any
 
-import native_wifi_wlan_pd_timestamped_observer_handoff_v1736 as prev
+import native_wifi_wlan_pd_servnotif_late_endpoint_handoff_v1729 as prev
 
 
 REPO_ROOT = Path(__file__).resolve().parents[2]
@@ -29,28 +29,23 @@ def configure_base() -> None:
     prev.DEFAULT_OUT_DIR = DEFAULT_OUT_DIR
     prev.DEFAULT_REPORT_PATH = DEFAULT_REPORT_PATH
     prev.base.CYCLE = CYCLE
-    prev.base.V1728_OUT = V1771_OUT
+    prev.base.V1726_OUT = V1771_OUT
     prev.base.REMOTE_PROPERTY_ROOT = REMOTE_PROPERTY_ROOT
     prev.base.DEFAULT_OUT_DIR = DEFAULT_OUT_DIR
     prev.base.DEFAULT_REPORT_PATH = DEFAULT_REPORT_PATH
-    prev.base.base.CYCLE = CYCLE
-    prev.base.base.V1726_OUT = V1771_OUT
-    prev.base.base.REMOTE_PROPERTY_ROOT = REMOTE_PROPERTY_ROOT
-    prev.base.base.DEFAULT_OUT_DIR = DEFAULT_OUT_DIR
-    prev.base.base.DEFAULT_REPORT_PATH = DEFAULT_REPORT_PATH
-    prev.base.base.prev.CYCLE = CYCLE
-    prev.base.base.prev.V1687_OUT = V1771_OUT
-    prev.base.base.prev.DEFAULT_SOURCE_MANIFEST = V1771_OUT / "manifest.json"
-    prev.base.base.prev.DEFAULT_TEST_IMAGE = V1771_OUT / "boot_linux_v1771_wlan_pd_service_object_visible.img"
-    prev.base.base.prev.LOCAL_PROPERTY_ROOT = V1771_OUT / "property-runtime" / "layout" / "dev" / "__properties__"
-    prev.base.base.prev.REMOTE_PROPERTY_ROOT = REMOTE_PROPERTY_ROOT
-    prev.base.base.prev.DEFAULT_OUT_DIR = DEFAULT_OUT_DIR
-    prev.base.base.prev.DEFAULT_REPORT_PATH = DEFAULT_REPORT_PATH
-    prev.base.base.prev.TEST_EXPECT_VERSION = "A90 Linux init 0.9.140 (v1771-wlan-pd-service-object-visible)"
-    prev.base.base.prev.TEST_LOG_PATH = "/cache/native-init-wifi-test-boot-v1771.log"
-    prev.base.base.prev.TEST_SUMMARY_PATH = "/cache/native-init-wifi-test-boot-v1771.summary"
-    prev.base.base.prev.TEST_HELPER_RESULT_PATH = "/cache/native-init-wifi-test-boot-v1771-helper.result"
-    prev.base.base.prev.DMESG_PATTERN = (
+    prev.base.prev.CYCLE = CYCLE
+    prev.base.prev.V1687_OUT = V1771_OUT
+    prev.base.prev.DEFAULT_SOURCE_MANIFEST = V1771_OUT / "manifest.json"
+    prev.base.prev.DEFAULT_TEST_IMAGE = V1771_OUT / "boot_linux_v1771_wlan_pd_service_object_visible.img"
+    prev.base.prev.LOCAL_PROPERTY_ROOT = V1771_OUT / "property-runtime" / "layout" / "dev" / "__properties__"
+    prev.base.prev.REMOTE_PROPERTY_ROOT = REMOTE_PROPERTY_ROOT
+    prev.base.prev.DEFAULT_OUT_DIR = DEFAULT_OUT_DIR
+    prev.base.prev.DEFAULT_REPORT_PATH = DEFAULT_REPORT_PATH
+    prev.base.prev.TEST_EXPECT_VERSION = "A90 Linux init 0.9.140 (v1771-wlan-pd-service-object-visible)"
+    prev.base.prev.TEST_LOG_PATH = "/cache/native-init-wifi-test-boot-v1771.log"
+    prev.base.prev.TEST_SUMMARY_PATH = "/cache/native-init-wifi-test-boot-v1771.summary"
+    prev.base.prev.TEST_HELPER_RESULT_PATH = "/cache/native-init-wifi-test-boot-v1771-helper.result"
+    prev.base.prev.DMESG_PATTERN = (
         "A90v1771|wlan_pd_service_object_visible_trigger|wlan_pd_service_object_visible|"
         "wlan_pd_cnss_nonlog_control_flow|wifi_companion_service_notifier_late_probe|"
         "wifi_companion_service_notifier_late_listener|wlan_pd_firmware_serve_gate|"
@@ -76,8 +71,8 @@ def classify_gate(args: Any,
                   test_flash: dict[str, Any],
                   rollback_result: dict[str, Any],
                   evidence_dir: Path) -> tuple[str, bool, str, dict[str, Any]]:
-    test_version = prev.base.base.prev.fwbase.read_text(evidence_dir, "test-version.stdout.txt")
-    helper_fields = prev.base.base.prev.fwbase.parse_helper_fields(evidence_dir)
+    test_version = prev.base.prev.fwbase.read_text(evidence_dir, "test-version.stdout.txt")
+    helper_fields = prev.base.prev.fwbase.parse_helper_fields(evidence_dir)
     version_ok = args.expect_test_version in test_version
     rollback_ok = bool(rollback_result.get("ok"))
     helper_contract_seen = field_bool(helper_fields, "wlan_pd_service_object_visible_trigger.begin")
