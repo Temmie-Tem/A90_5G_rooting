@@ -15350,3 +15350,47 @@ esoc0/RC1/pcie1/MDM2AP, do NOT investigate MSA until WLFW 69 appears.
     semantics;
   - do not run another live PM gate until that diff identifies a specific
     route repair target and a new explicit approval opens it.
+
+## V1774 WLAN-PD service-object route diff (2026-06-03)
+
+- V1774 compares the failed V1772 service-object route with the
+  provider-positive V1092 PM observer route and checks the helper source.
+
+  Host-only classifier:
+
+  - script:
+    `scripts/revalidation/native_wifi_wlan_pd_service_object_route_diff_v1774.py`;
+  - report:
+    `docs/reports/NATIVE_INIT_V1774_WLAN_PD_SERVICE_OBJECT_ROUTE_DIFF_2026-06-03.md`;
+  - decision:
+    `v1774-service-object-route-lacks-pm-property-contract-host-pass`;
+  - label:
+    `service-object-route-lacks-pm-property-contract`;
+  - evidence:
+    `tmp/wifi/v1774-wlan-pd-service-object-route-diff`.
+
+  Diff result:
+
+  - V1772 service-object route had
+    `wifi_companion_start.peripheral_manager.property_contract=0`;
+  - V1772 property shim had
+    `allow_peripheral_shutdown_list=0` and no
+    `vendor.peripheral.shutdown_critical_list` allowlist entry;
+  - V1092 provider-positive route had
+    `allow_peripheral_shutdown_list=1`, allowed
+    `vendor.peripheral.shutdown_critical_list`, and observed values
+    `SDX50M` plus `SDX50M modem`;
+  - helper source confirms `wlan_pd_service_object_visible_trigger` is not in
+    the `peripheral_manager_property_contract` expression and is not in the
+    property-shim `allow_peripheral_shutdown_list` expression.
+
+  Current next candidate:
+
+  - V1775 source/build-only repair: include
+    `wlan_pd_service_object_visible_trigger` in the same bounded PM
+    property/shutdown-critical-list contract surface used by V1092;
+  - keep the route narrow: no full `per_proxy`, no `/dev/subsys_esoc0`, no
+    forced RC1, no fake-ONLINE, no Wi-Fi HAL, no scan/connect, no credentials,
+    no DHCP/routes, and no external ping;
+  - live validation remains a separate rollbackable gate after source/build
+    sanity succeeds.
