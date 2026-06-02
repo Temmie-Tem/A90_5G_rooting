@@ -15749,3 +15749,59 @@ esoc0/RC1/pcie1/MDM2AP, do NOT investigate MSA until WLFW 69 appears.
     explicitly scopes them;
   - still do not autonomously enter Wi-Fi HAL, scan/connect, credentials,
     DHCP/routes, external ping, restart-PD, eSoC/RC1, or PMIC/GPIO/GDSC writes.
+
+## V1783 PM server forwarding observer source/build (2026-06-03)
+
+- V1783 source/build-only artifact is complete.
+
+  Build artifacts:
+
+  - script:
+    `scripts/revalidation/build_native_init_wifi_test_boot_v1783.py`;
+  - report:
+    `docs/reports/NATIVE_INIT_V1783_PM_SERVER_FORWARDING_OBSERVER_SOURCE_BUILD_2026-06-03.md`;
+  - manifest:
+    `tmp/wifi/v1783-pm-server-forwarding-observer-test-boot/manifest.json`;
+  - boot image:
+    `tmp/wifi/v1783-pm-server-forwarding-observer-test-boot/boot_linux_v1783_pm_server_forwarding_observer.img`;
+  - boot SHA256:
+    `d6fed20d3c72bf68d2b7bba55ec40691e84ca437f6d8d07ad189c4fde3f42612`;
+  - helper:
+    `a90_android_execns_probe v335`, SHA256
+    `e906119056137401737bbe5741418f6a79505d134a8cffa92cbcfa6d12ea6c65`;
+  - init:
+    `A90 Linux init 0.9.144 (v1783-pm-server-forwarding-observer)`.
+
+  Change:
+
+  - helper v335 preserves the V1781 service-object-visible route;
+  - it adds `pm-service` server-side tracefs uprobes for register entry,
+    supported-peripheral loop/match, permission/add-client, success return,
+    and no-peripheral return;
+  - it reports `wlan_pd_cnss_nonlog_control_flow.pm_server_uprobe.*` keys and
+    a bounded label such as `pm-server-register-success-return`,
+    `pm-server-add-client-no-success`, `pm-server-match-no-permission`,
+    `pm-server-prematch-list-traversal`, or `pm-server-register-entry-only`.
+
+  Validation:
+
+  - helper and init are static aarch64 ELF binaries;
+  - artifact strings include `a90_android_execns_probe v335`, `A90 Linux init
+    0.9.144`, `A90v1783`, and PM server uprobe labels;
+  - `py_compile`, `git diff --check`, and changed-file secret-pattern scan
+    passed;
+  - no live command, flash, reboot, Wi-Fi HAL, scan/connect, credentials,
+    DHCP/routes, external ping, PMIC/GPIO/GDSC write, eSoC notify/BOOT_DONE,
+    PCI rescan, platform bind/unbind, firmware write, boot write, or partition
+    write was performed by this source/build unit.
+
+  Next gate:
+
+  - one rollbackable V1784 live discriminator can use the V1783 image to decide
+    whether the PM server path reaches success, stops before add-client, fails
+    permission/match traversal, or never receives the client register path;
+  - after live execution, rollback to `stage3/boot_linux_v724.img` and verify
+    selftest `fail=0`;
+  - do not chain into functional PM forwarding repair, WLAN-PD cascade,
+    Wi-Fi HAL, scan/connect, DHCP/routes, external ping, eSoC/RC1, or PMIC/GPIO
+    write without a separate scoped gate.
