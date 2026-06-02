@@ -10161,3 +10161,28 @@ above (rejected as inverted causality).
   `docs/reports/NATIVE_INIT_V1639_PON_HIGH_EVIDENCE_RECONCILIATION_2026-06-02.md`
   and
   `docs/reports/NATIVE_INIT_V1640_MODEM_RAIL_PMIC_GATE_PLAN_2026-06-02.md`.
+
+## V1641 Rail / Control Inventory (2026-06-02)
+
+- V1641 host-only inventory passed as
+  `v1641-no-safe-live-write-target-host-inventory-pass`.
+
+  Candidate classification:
+
+  - PM8150L GPIO9/PON: closed; reject direct userspace request/hold.
+  - GPIO135/AP2MDM: closed as eSoC-provider output; reject direct write.
+  - GPIO142/MDM2AP and GPIO141/errfatal: observe-only response inputs.
+  - pcie1 GDSC/clocks/refclk/PERST: diagnostic/AP-side prerequisite; reject
+    blind enable or pci-msm case write from this state.
+  - unknown SDX50M main rail / bootloader PMIC default: only remaining candidate,
+    but unowned and not writeable yet.
+
+  Bounded artifact scan found no binary-like bootloader/PMIC artifacts in the
+  limited `stage3` / `tmp/wifi` scope outside source/ramdisk subtrees.  Therefore
+  no safe live PMIC/GPIO/GDSC write target is currently justified.  V1642 should
+  stay host-only and classify bootloader/PMIC-owner artifacts and source
+  references for the unknown SDX50M main-rail prerequisite before any live write
+  preflight is designed.
+
+  Report:
+  `docs/reports/NATIVE_INIT_V1641_RAIL_CONTROL_INVENTORY_2026-06-02.md`.
