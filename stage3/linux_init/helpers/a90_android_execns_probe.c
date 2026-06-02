@@ -101,7 +101,7 @@
 #define SYSLOG_ACTION_READ_ALL 3
 #endif
 
-#define EXECNS_VERSION "a90_android_execns_probe v333"
+#define EXECNS_VERSION "a90_android_execns_probe v334"
 #define MAX_PATH_LEN 512
 #define MAX_CAPTURE_SIZE (1024 * 1024)
 #define MAX_LINKERCONFIG_SIZE (256 * 1024)
@@ -1681,7 +1681,7 @@ static int parse_args(int argc, char **argv, struct config *cfg) {
     } else if (streq(cfg->target_profile, "system-wificond")) {
         cfg->target = "/system/bin/wificond";
     } else if (streq(cfg->target_profile, "vendor-vndservicemanager")) {
-        cfg->target = "/system/bin/servicemanager";
+        cfg->target = "/vendor/bin/vndservicemanager";
     } else if (streq(cfg->target_profile, "vendor-wifi-hal-ext")) {
         cfg->target = "/vendor/bin/hw/vendor.samsung.hardware.wifi@2.0-service";
     } else if (streq(cfg->target_profile, "vendor-wifi-hal-legacy")) {
@@ -24707,10 +24707,7 @@ static void composite_child_init(struct composite_child *child,
                                  enum composite_identity identity) {
     memset(child, 0, sizeof(*child));
     child->name = name;
-    child->target = (identity == COMPOSITE_ID_VND_SERVICE_MANAGER &&
-                     streq(target, "/vendor/bin/vndservicemanager"))
-                        ? "/system/bin/servicemanager"
-                        : target;
+    child->target = target;
     child->identity = identity;
     child->pid = -1;
     child->pgid = -1;
@@ -30377,7 +30374,7 @@ static int run_wifi_companion_mdm_helper_cnss_before_subsys_trigger_capture_guar
                       "cnss_before_esoc.mdm_helper_argv=/vendor/bin/mdm_helper\n"
                       "cnss_before_esoc.servicemanager_argv=/system/bin/servicemanager\n"
                       "cnss_before_esoc.hwservicemanager_argv=/system/bin/hwservicemanager\n"
-                      "cnss_before_esoc.vndservicemanager_argv=/system/bin/servicemanager /dev/vndbinder\n"
+                      "cnss_before_esoc.vndservicemanager_argv=/vendor/bin/vndservicemanager /dev/vndbinder\n"
                       "cnss_before_esoc.wifi_hal_legacy_argv=/vendor/bin/hw/android.hardware.wifi@1.0-service\n"
                       "cnss_before_esoc.wifi_hal_ext_argv=/vendor/bin/hw/vendor.samsung.hardware.wifi@2.0-service\n"
                       "cnss_before_esoc.wificond_argv=/system/bin/wificond\n"
@@ -35224,7 +35221,7 @@ static int run_wifi_companion_start_only_guarded(const struct config *cfg,
                       order) < 0 ||
         append_literal(stdout_buf, "wifi_companion_start.servicemanager_argv=/system/bin/servicemanager\n") < 0 ||
         append_literal(stdout_buf, "wifi_companion_start.hwservicemanager_argv=/system/bin/hwservicemanager\n") < 0 ||
-        append_literal(stdout_buf, "wifi_companion_start.vndservicemanager_argv=/system/bin/servicemanager /dev/vndbinder\n") < 0 ||
+        append_literal(stdout_buf, "wifi_companion_start.vndservicemanager_argv=/vendor/bin/vndservicemanager /dev/vndbinder\n") < 0 ||
         append_literal(stdout_buf, "wifi_companion_start.qrtr_ns_argv=/vendor/bin/qrtr-ns -f\n") < 0 ||
         append_literal(stdout_buf, "wifi_companion_start.rmt_storage_argv=/vendor/bin/rmt_storage\n") < 0 ||
         append_literal(stdout_buf, "wifi_companion_start.tftp_server_argv=/vendor/bin/tftp_server\n") < 0 ||

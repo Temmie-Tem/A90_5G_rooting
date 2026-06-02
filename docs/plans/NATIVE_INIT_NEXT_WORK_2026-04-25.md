@@ -15577,3 +15577,123 @@ esoc0/RC1/pcie1/MDM2AP, do NOT investigate MSA until WLFW 69 appears.
     sockets, and process status against the V1092 provider-positive control;
   - only after a bounded lifetime fix should the same four-label service-object
     discriminator be rerun.
+
+## V1779/V1780/V1781 service-object VND-service parity discriminator (2026-06-03)
+
+- V1779 performs the host-only delta classification requested after V1778.
+
+  Host classifier:
+
+  - script:
+    `scripts/revalidation/native_wifi_pm_service_lifetime_delta_classifier_v1779.py`;
+  - report:
+    `docs/reports/NATIVE_INIT_V1779_PM_SERVICE_LIFETIME_DELTA_CLASSIFIER_2026-06-03.md`;
+  - decision:
+    `v1779-vndservicemanager-spawn-parity-gap-host-pass`;
+  - evidence:
+    `tmp/wifi/v1779-pm-service-lifetime-delta-classifier`.
+
+  Result:
+
+  - V1778 policy-load and `vendor_per_mgr` transition were no longer the missing
+    precondition;
+  - V1778 `pm-service` still exited as a zombie and did not publish
+    `vendor.qcom.PeripheralManager`;
+  - V1092 provider-positive control kept `pm-service` sleeping and published the
+    provider while using `/vendor/bin/vndservicemanager /dev/vndbinder`;
+  - V1778 used `/system/bin/servicemanager /dev/vndbinder` for the VND
+    service-manager role through the helper fallback.
+
+  Classification:
+
+  - the strongest host-side delta is VND service-manager executable parity;
+  - this is still before modem/WLAN-PD response and before PM forwarding;
+  - next source/build unit should restore vendor `vndservicemanager` spawning,
+    then rerun the same single-label service-object discriminator.
+
+- V1780 carries the V1779 repair into a rollbackable test boot artifact.
+
+  Source/build:
+
+  - script:
+    `scripts/revalidation/build_native_init_wifi_test_boot_v1780.py`;
+  - report:
+    `docs/reports/NATIVE_INIT_V1780_SERVICE_OBJECT_VNDSERVICE_PARITY_SOURCE_BUILD_2026-06-03.md`;
+  - decision:
+    `v1780-service-object-vndservice-parity-source-build-pass`;
+  - helper:
+    `a90_android_execns_probe v334`;
+  - helper SHA256:
+    `bc99790004cd82fceea33eb4e0db41adbf4ea663c2b5706d03ae1aaba03482cb`;
+  - boot image:
+    `tmp/wifi/v1780-service-object-vndservice-parity-test-boot/boot_linux_v1780_service_object_vndservice_parity.img`;
+  - boot SHA256:
+    `11b7778633423505ecb7756a25e79817cca05bebd2c1caf328ea624a02db51b5`;
+  - init:
+    `A90 Linux init 0.9.143 (v1780-service-object-vndservice-parity)`.
+
+  Source repair:
+
+  - the service-object route now keeps
+    `/vendor/bin/vndservicemanager /dev/vndbinder` instead of rewriting the VND
+    service-manager child to `/system/bin/servicemanager /dev/vndbinder`;
+  - V1092 policy-load and zombie-readiness guards remain in place;
+  - hard stops remain unchanged: no full `pm-proxy`, no `boot_wlan`, no
+    restart-PD request, no `/dev/subsys_esoc0`, no forced RC1, no fake-ONLINE,
+    no Wi-Fi HAL, no scan/connect, no credentials, no DHCP/routes, and no
+    external ping.
+
+- V1781 runs the one approved rollbackable live discriminator with the V1780
+  test boot image.
+
+  Live handoff:
+
+  - script:
+    `scripts/revalidation/native_wifi_wlan_pd_service_object_vndservice_parity_handoff_v1781.py`;
+  - report:
+    `docs/reports/NATIVE_INIT_V1781_SERVICE_OBJECT_VNDSERVICE_PARITY_HANDOFF_2026-06-03.md`;
+  - decision:
+    `v1781-service-object-nonnull-vote-sent-no-request-rollback-pass`;
+  - evidence:
+    `tmp/wifi/v1781-service-object-vndservice-parity-handoff`;
+  - rollback:
+    `from-native`, verified;
+  - post-rollback:
+    `A90 Linux init 0.9.68 (v724)`, `selftest fail=0`.
+
+  Result:
+
+  - policy-load completed:
+    `pm_service_trigger_observer.policy_load.result=policy-load-pass`;
+  - `pm-service` stayed alive:
+    `per_mgr.state=S`, `per_mgr.zombie=0`, `per_mgr_ready=1`;
+  - `vendor.qcom.PeripheralManager` became visible:
+    `provider_seen=1`;
+  - cnss-daemon reached the PM object path:
+    `asInterface=1`, register/vote TX `1`;
+  - the vote path did not trigger a modem firmware request:
+    `requested_wlanmdsp=0`, WLFW service 69 `0`, `wlan0` absent;
+  - late WLAN-PD listener still returned `uninit`;
+  - hard stops stayed intact:
+    no `/dev/subsys_esoc0`, no forced RC1, no fake-ONLINE, no full `pm-proxy`,
+    no Wi-Fi HAL, no scan/connect, no credentials, no DHCP/routes, and no
+    external ping.
+
+  Classification:
+
+  - V1781 is a real service-object discriminator, not a route failure;
+  - service object non-null plus register/vote TX is proven;
+  - `wlanmdsp` is still not requested, so the remaining blocker is that this
+    bounded service object does not forward the CNSS vote to the modem;
+  - the next gate is a separately scoped functional PM forwarding plan, not a
+    WLAN-PD cascade, Wi-Fi HAL, scan/connect, DHCP/routes, or external ping.
+
+  Current next candidate:
+
+  - host-only classify what V1781's synthetic/visible
+    `vendor.qcom.PeripheralManager` object does with the register/vote
+    transaction compared with Android-good PM forwarding;
+  - plan a bounded functional `pm-service` forwarding discriminator only after
+    that comparison;
+  - do not autonomously chain into PM forwarding live, WLAN-PD cascade, Wi-Fi
+    HAL, scan/connect, DHCP/routes, or external ping.
