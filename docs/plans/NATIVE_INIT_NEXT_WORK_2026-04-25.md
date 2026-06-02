@@ -11572,3 +11572,30 @@ esoc0/RC1/pcie1/MDM2AP, do NOT investigate MSA until WLFW 69 appears.
 
   Report:
   `docs/reports/NATIVE_INIT_V1681_WLAN_PD_WLFW_TRIGGER_DELTA_CLASSIFIER_2026-06-02.md`.
+
+## V1682 WLAN-PD Service-window Merge Plan (2026-06-02)
+
+- V1682 planning is fixed as source/build-only.
+
+  Rationale:
+
+  - V1564 service-window-only route started selected Android userspace actors but
+    had no corrected internal-modem firmware-serve holder;
+  - V1680 corrected the internal-modem holder and firmware-serve observation but
+    omitted the Android pre-CNSS trigger surface;
+  - V1681 selected the missing `cnss-daemon wlfw_start` trigger surface as the
+    next blocker.
+
+  Planned source/build unit:
+
+  - add a merged helper/test-boot route that preserves V1680
+    `/dev/subsys_modem` holder + firmware-serve snapshots;
+  - add the minimum Android service-window/provider surface needed to classify
+    `cnss-daemon wlfw_start` / `wlfw_service_request`;
+  - keep `/dev/subsys_esoc0`, forced RC1, fake-ONLINE, PMIC/GPIO/GDSC writes,
+    eSoC notify, BOOT_DONE spoof, scan/connect, credentials, DHCP/routes, and
+    external ping disabled;
+  - V1682 itself does not run live.
+
+  Plan:
+  `docs/plans/NATIVE_INIT_V1682_WLAN_PD_SERVICE_WINDOW_MERGE_PLAN_2026-06-02.md`.
