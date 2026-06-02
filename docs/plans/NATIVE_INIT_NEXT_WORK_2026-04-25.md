@@ -15805,3 +15805,59 @@ esoc0/RC1/pcie1/MDM2AP, do NOT investigate MSA until WLFW 69 appears.
   - do not chain into functional PM forwarding repair, WLAN-PD cascade,
     Wi-Fi HAL, scan/connect, DHCP/routes, external ping, eSoC/RC1, or PMIC/GPIO
     write without a separate scoped gate.
+
+## V1784 PM server forwarding observer handoff (2026-06-03)
+
+- V1784 ran the one approved rollbackable live discriminator with the V1783 PM
+  server forwarding observer image.
+
+  Evidence:
+
+  - runner:
+    `scripts/revalidation/native_wifi_wlan_pd_pm_server_forwarding_observer_handoff_v1784.py`;
+  - report:
+    `docs/reports/NATIVE_INIT_V1784_PM_SERVER_FORWARDING_OBSERVER_HANDOFF_2026-06-03.md`;
+  - evidence directory:
+    `tmp/wifi/v1784-pm-server-forwarding-observer-handoff`;
+  - test image:
+    `tmp/wifi/v1783-pm-server-forwarding-observer-test-boot/boot_linux_v1783_pm_server_forwarding_observer.img`;
+  - rollback:
+    `from-native`, restored `A90 Linux init 0.9.68 (v724)`;
+  - post-rollback selftest:
+    `pass=11 warn=1 fail=0`.
+
+  Corrected decision:
+
+  - `v1784-service-object-nonnull-vote-sent-no-request-rollback-pass`.
+
+  Key evidence:
+
+  - service object path is non-null enough to reach CNSS client-side PM flow:
+    `provider_seen=1`, `asInterface=1`, register/vote TX `1`;
+  - no cascade yet:
+    `requested_wlanmdsp=0`, WLFW service 69 `0`, `wlan0=0`, late WLAN-PD
+    listener `uninit`;
+  - PM server boundary is now fixed:
+    `pm-server-no-peripheral`, register entry hit `1`, no-peripheral return hit
+    `1`, add-client/success hits `0`;
+  - the runner's initial `service-object-still-null` label was corrected
+    host-side because `null_branch_hits=2` is an early branch artifact; the
+    fixed discriminator keys are `provider_seen`, `asInterface`, and register
+    TX.
+
+  Safety:
+
+  - no `/dev/subsys_esoc0`, forced RC1, fake-ONLINE, PMIC/GPIO/GDSC writes,
+    eSoC notify/BOOT_DONE, PCI rescan, platform bind/unbind, restart-PD,
+    full `pm-proxy`, `boot_wlan`, Wi-Fi HAL, scan/connect, credentials,
+    DHCP/routes, or external ping;
+  - mutation scope was private property staging, one test boot flash, and v724
+    rollback.
+
+  Next candidate:
+
+  - host-only classify why `pm-service` returns `no peripheral` for the CNSS
+    registration path under the bounded service-object route;
+  - the likely next live gate is not Wi-Fi HAL/scan/connect. It is a narrowly
+    scoped functional PM forwarding/peripheral-table fix only after the
+    server-side no-peripheral condition is understood.

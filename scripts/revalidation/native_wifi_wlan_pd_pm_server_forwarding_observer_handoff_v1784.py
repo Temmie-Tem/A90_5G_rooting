@@ -196,7 +196,7 @@ def classify_gate(args: Any,
             "service-object helper did not complete the SELinux policy-load precondition; stop for route/helper fix",
             details,
         )
-    if not provider_seen or null_branch_hits > 0 or as_interface_hits == 0:
+    if not provider_seen or as_interface_hits == 0:
         return (
             f"{args.cycle.lower()}-service-object-still-null-rollback-pass",
             True,
