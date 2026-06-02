@@ -101,7 +101,7 @@
 #define SYSLOG_ACTION_READ_ALL 3
 #endif
 
-#define EXECNS_VERSION "a90_android_execns_probe v336"
+#define EXECNS_VERSION "a90_android_execns_probe v337"
 #define MAX_PATH_LEN 512
 #define MAX_CAPTURE_SIZE (1024 * 1024)
 #define MAX_LINKERCONFIG_SIZE (256 * 1024)
@@ -12090,37 +12090,38 @@ struct pm_service_uprobe_event_spec {
     const char *name;
     const char *key;
     unsigned long long offset;
+    const char *fetch_args;
 };
 
 static const struct pm_service_uprobe_event_spec pm_service_uprobe_events[A90_PM_SERVICE_UPROBE_EVENT_COUNT] = {
-    { "pm_server_register_entry", "pm_server_register_entry", 0x6048ULL },
-    { "pm_server_register_loop_node", "pm_server_register_loop_node", 0x6094ULL },
-    { "pm_server_register_name_helper_call", "pm_server_register_name_helper_call", 0x609cULL },
-    { "pm_server_register_name_helper_return", "pm_server_register_name_helper_return", 0x60a0ULL },
-    { "pm_server_register_strcmp_call", "pm_server_register_strcmp_call", 0x60acULL },
-    { "pm_server_register_strcmp_result", "pm_server_register_strcmp_result", 0x60b0ULL },
-    { "pm_server_register_loop_advance", "pm_server_register_loop_advance", 0x60b4ULL },
-    { "pm_server_register_loop_compare", "pm_server_register_loop_compare", 0x60b8ULL },
-    { "pm_server_register_match", "pm_server_register_match", 0x60ccULL },
-    { "pm_server_register_permission_ok", "pm_server_register_permission_ok", 0x60e8ULL },
-    { "pm_server_register_add_client_call", "pm_server_register_add_client_call", 0x611cULL },
-    { "pm_server_register_success_return", "pm_server_register_success_return", 0x6140ULL },
-    { "pm_server_register_no_peripheral", "pm_server_register_no_peripheral", 0x6148ULL },
-    { "pm_service_main_supported_list_init", "pm_service_main_supported_list_init", 0x77bcULL },
-    { "pm_service_init_helper_entry", "pm_service_init_helper_entry", 0x6b6cULL },
-    { "pm_service_init_get_system_info_call", "pm_service_init_get_system_info_call", 0x6bc0ULL },
-    { "pm_service_init_get_system_info_fail", "pm_service_init_get_system_info_fail", 0x6bc8ULL },
-    { "pm_service_init_first_count_load", "pm_service_init_first_count_load", 0x6be8ULL },
-    { "pm_service_init_first_add_peripheral_call", "pm_service_init_first_add_peripheral_call", 0x6cb4ULL },
-    { "pm_service_init_first_add_peripheral_fail_log", "pm_service_init_first_add_peripheral_fail_log", 0x6cbcULL },
-    { "pm_service_init_second_count_load", "pm_service_init_second_count_load", 0x6cd4ULL },
-    { "pm_service_init_second_add_peripheral_call", "pm_service_init_second_add_peripheral_call", 0x6d9cULL },
-    { "pm_service_init_second_add_peripheral_fail_log", "pm_service_init_second_add_peripheral_fail_log", 0x6da4ULL },
-    { "pm_service_add_peripheral_entry", "pm_service_add_peripheral_entry", 0x65ecULL },
-    { "pm_service_add_peripheral_known_name", "pm_service_add_peripheral_known_name", 0x663cULL },
-    { "pm_service_add_peripheral_init_fail", "pm_service_add_peripheral_init_fail", 0x668cULL },
-    { "pm_service_add_peripheral_list_commit", "pm_service_add_peripheral_list_commit", 0x6758ULL },
-    { "pm_service_pre_binder_init_done", "pm_service_pre_binder_init_done", 0x78d4ULL },
+    { "pm_server_register_entry", "pm_server_register_entry", 0x6048ULL, NULL },
+    { "pm_server_register_loop_node", "pm_server_register_loop_node", 0x6094ULL, NULL },
+    { "pm_server_register_name_helper_call", "pm_server_register_name_helper_call", 0x609cULL, NULL },
+    { "pm_server_register_name_helper_return", "pm_server_register_name_helper_return", 0x60a0ULL, NULL },
+    { "pm_server_register_strcmp_call", "pm_server_register_strcmp_call", 0x60acULL, NULL },
+    { "pm_server_register_strcmp_result", "pm_server_register_strcmp_result", 0x60b0ULL, NULL },
+    { "pm_server_register_loop_advance", "pm_server_register_loop_advance", 0x60b4ULL, NULL },
+    { "pm_server_register_loop_compare", "pm_server_register_loop_compare", 0x60b8ULL, NULL },
+    { "pm_server_register_match", "pm_server_register_match", 0x60ccULL, NULL },
+    { "pm_server_register_permission_ok", "pm_server_register_permission_ok", 0x60e8ULL, NULL },
+    { "pm_server_register_add_client_call", "pm_server_register_add_client_call", 0x611cULL, NULL },
+    { "pm_server_register_success_return", "pm_server_register_success_return", 0x6140ULL, NULL },
+    { "pm_server_register_no_peripheral", "pm_server_register_no_peripheral", 0x6148ULL, NULL },
+    { "pm_service_main_supported_list_init", "pm_service_main_supported_list_init", 0x77bcULL, NULL },
+    { "pm_service_init_helper_entry", "pm_service_init_helper_entry", 0x6b6cULL, NULL },
+    { "pm_service_init_get_system_info_call", "pm_service_init_get_system_info_call", 0x6bc0ULL, NULL },
+    { "pm_service_init_get_system_info_fail", "pm_service_init_get_system_info_fail", 0x6bc8ULL, NULL },
+    { "pm_service_init_first_count_load", "pm_service_init_first_count_load", 0x6be8ULL, NULL },
+    { "pm_service_init_first_add_peripheral_call", "pm_service_init_first_add_peripheral_call", 0x6cb4ULL, NULL },
+    { "pm_service_init_first_add_peripheral_fail_log", "pm_service_init_first_add_peripheral_fail_log", 0x6cbcULL, NULL },
+    { "pm_service_init_second_count_load", "pm_service_init_second_count_load", 0x6cd4ULL, NULL },
+    { "pm_service_init_second_add_peripheral_call", "pm_service_init_second_add_peripheral_call", 0x6d9cULL, NULL },
+    { "pm_service_init_second_add_peripheral_fail_log", "pm_service_init_second_add_peripheral_fail_log", 0x6da4ULL, NULL },
+    { "pm_service_add_peripheral_entry", "pm_service_add_peripheral_entry", 0x65ecULL, "record=%x1 name=+4(%x1):string devnode=+68(%x1):string" },
+    { "pm_service_add_peripheral_known_name", "pm_service_add_peripheral_known_name", 0x663cULL, "record=%x25 name=+0(%x21):string devnode=+68(%x25):string" },
+    { "pm_service_add_peripheral_init_fail", "pm_service_add_peripheral_init_fail", 0x668cULL, "name=+0(%x21):string devnode=+0(%x25):string" },
+    { "pm_service_add_peripheral_list_commit", "pm_service_add_peripheral_list_commit", 0x6758ULL, NULL },
+    { "pm_service_pre_binder_init_done", "pm_service_pre_binder_init_done", 0x78d4ULL, NULL },
 };
 
 enum pm_service_uprobe_event_index {
@@ -12854,7 +12855,7 @@ static void pm_service_uprobe_arm_global(const struct paths *paths) {
     for (size_t i = 0; i < A90_PM_SERVICE_UPROBE_EVENT_COUNT; i++) {
         struct cnss_wlfw_uprobe_event_state *event = &state->events[i];
         char cleanup_line[96];
-        char register_line[256];
+        char register_line[512];
 
         event->stale_cleanup_attempted = true;
         snprintf(cleanup_line,
@@ -12866,12 +12867,23 @@ static void pm_service_uprobe_arm_global(const struct paths *paths) {
         state->stale_cleanup_rc = event->stale_cleanup_rc;
 
         event->register_attempted = true;
-        if (snprintf(register_line,
-                     sizeof(register_line),
-                     "p:a90pmsrv/%s %s:0x%llx\n",
-                     pm_service_uprobe_events[i].name,
-                     state->selected_target_path,
-                     pm_service_uprobe_events[i].offset) >= (int)sizeof(register_line)) {
+        if (pm_service_uprobe_events[i].fetch_args != NULL) {
+            if (snprintf(register_line,
+                         sizeof(register_line),
+                         "p:a90pmsrv/%s %s:0x%llx %s\n",
+                         pm_service_uprobe_events[i].name,
+                         state->selected_target_path,
+                         pm_service_uprobe_events[i].offset,
+                         pm_service_uprobe_events[i].fetch_args) >= (int)sizeof(register_line)) {
+                event->register_rc = -ENAMETOOLONG;
+                continue;
+            }
+        } else if (snprintf(register_line,
+                            sizeof(register_line),
+                            "p:a90pmsrv/%s %s:0x%llx\n",
+                            pm_service_uprobe_events[i].name,
+                            state->selected_target_path,
+                            pm_service_uprobe_events[i].offset) >= (int)sizeof(register_line)) {
             event->register_rc = -ENAMETOOLONG;
             continue;
         }
@@ -13727,6 +13739,7 @@ static int append_wlan_pd_cnss_nonlog_control_flow_summary(struct buffer *stdout
         if (append_format(stdout_buf,
                           "wlan_pd_cnss_nonlog_control_flow.pm_server_uprobe.%s.name=%s\n"
                           "wlan_pd_cnss_nonlog_control_flow.pm_server_uprobe.%s.offset=0x%llx\n"
+                          "wlan_pd_cnss_nonlog_control_flow.pm_server_uprobe.%s.fetch_args=%s\n"
                           "wlan_pd_cnss_nonlog_control_flow.pm_server_uprobe.%s.register_rc=%d\n"
                           "wlan_pd_cnss_nonlog_control_flow.pm_server_uprobe.%s.registered=%d\n"
                           "wlan_pd_cnss_nonlog_control_flow.pm_server_uprobe.%s.enable_rc=%d\n"
@@ -13739,6 +13752,8 @@ static int append_wlan_pd_cnss_nonlog_control_flow_summary(struct buffer *stdout
                           pm_service_uprobe_events[i].name,
                           pm_service_uprobe_events[i].key,
                           pm_service_uprobe_events[i].offset,
+                          pm_service_uprobe_events[i].key,
+                          pm_service_uprobe_events[i].fetch_args != NULL ? pm_service_uprobe_events[i].fetch_args : "none",
                           pm_service_uprobe_events[i].key,
                           event->register_rc,
                           pm_service_uprobe_events[i].key,

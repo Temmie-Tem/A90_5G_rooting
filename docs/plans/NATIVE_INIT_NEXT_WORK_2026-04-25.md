@@ -16182,3 +16182,73 @@ esoc0/RC1/pcie1/MDM2AP, do NOT investigate MSA until WLFW 69 appears.
   - any live repair must retain the existing hard stops and must not open
     `/dev/subsys_esoc0`, trigger forced RC1, spoof ONLINE, or start Wi-Fi
     scan/connect paths.
+
+## V1790 PM-service devnode string observer source build (2026-06-03)
+
+- V1790 completed the source/build-only test boot artifact that can capture the
+  exact discovered PM-service candidate names and `/dev/subsys_*` devnode
+  strings before any repair.
+
+  Evidence:
+
+  - helper source:
+    `stage3/linux_init/helpers/a90_android_execns_probe.c`
+    (`a90_android_execns_probe v337`);
+  - build script:
+    `scripts/revalidation/build_native_init_wifi_test_boot_v1790.py`;
+  - report:
+    `docs/reports/NATIVE_INIT_V1790_PM_SERVICE_DEVNODE_STRING_OBSERVER_SOURCE_BUILD_2026-06-03.md`;
+  - manifest:
+    `tmp/wifi/v1790-pm-service-devnode-string-observer-test-boot/manifest.json`;
+  - boot image:
+    `tmp/wifi/v1790-pm-service-devnode-string-observer-test-boot/boot_linux_v1790_pm_service_devnode_string_observer.img`;
+  - decision:
+    `v1790-pm-service-devnode-string-observer-source-build-pass`;
+  - helper SHA-256:
+    `b7b44dc64c1e48964ac59059142f84e3e771b9225d825ef19be12bddf2128c7e`;
+  - boot image SHA-256:
+    `01eab62010d3075b9d13b70d4dadb52d52b1c13ae226d20ae7a2440b63f4958c`.
+
+  Key changes:
+
+  - kept the V1787/V1788 bounded service-object route unchanged;
+  - added tracefs fetchargs to the PM-service add-peripheral entry,
+    known-name, and init-fail uprobes;
+  - the next live helper output will include the candidate record/name/devnode
+    strings inside each event `first_hit_line`;
+  - no live repair or new actor was added.
+
+  Fetchargs:
+
+  - `pm_service_add_peripheral_entry`:
+    `record=%x1 name=+4(%x1):string devnode=+68(%x1):string`;
+  - `pm_service_add_peripheral_known_name`:
+    `record=%x25 name=+0(%x21):string devnode=+68(%x25):string`;
+  - `pm_service_add_peripheral_init_fail`:
+    `name=+0(%x21):string devnode=+0(%x25):string`.
+
+  Validation:
+
+  - helper artifact is static AArch64 and contains no dynamic `INTERP` or
+    `NEEDED` entries;
+  - built manifest reports `pass=true` and init
+    `A90 Linux init 0.9.146 (v1790-pm-service-devnode-string-observer)`;
+  - build-time forbidden byte scan passed through the common V1393 builder.
+
+  Safety:
+
+  - source/build-only. No live device command, flash, reboot, Wi-Fi HAL,
+    scan/connect, credentials, DHCP/routes, external ping, PM repair,
+    eSoC/RC1 action, restart-PD request, firmware write, partition write,
+    PMIC/GPIO/GDSC write, PCI rescan, platform bind/unbind, BPF attach, or
+    tracefs write.
+
+  Next candidate:
+
+  - V1791 should run one rollbackable live discriminator using the V1790 test
+    boot and record the three add-peripheral `first_hit_line` values;
+  - fixed outcomes should stop after one label:
+    `pm-devnode-missing-subsys-modem`, `pm-devnode-missing-esoc-or-other`,
+    `pm-devnode-fetcharg-unavailable`, or `pm-devnode-list-commit-progress`;
+  - do not repair in the same run. If a missing private devnode is confirmed,
+    scope the repair as a separate V1792 unit.
