@@ -12005,3 +12005,45 @@ esoc0/RC1/pcie1/MDM2AP, do NOT investigate MSA until WLFW 69 appears.
 
   Report:
   `docs/reports/NATIVE_INIT_V1690_WLAN_PD_CNSS_PROPERTY_LOOKUP_SOURCE_BUILD_2026-06-02.md`.
+
+## V1691 WLAN-PD CNSS Property Lookup Handoff (2026-06-02)
+
+- V1691 one-run rollbackable live handoff completed.
+
+  Result:
+
+  - decision: `v1691-cnss-output-still-invisible-rollback-pass`;
+  - rollback: `from-native`, PASS;
+  - post-rollback version: `A90 Linux init 0.9.68 (v724)`;
+  - post-rollback selftest: `fail=0`;
+  - property lookup evidence: `all_match=1`;
+  - `persist.vendor.cnss-daemon.kmsg_logging`: value `1`, match `1`;
+  - `persist.vendor.cnss-daemon.debug_level`: value `4`, match `1`;
+  - emitted label: `cnss-output-still-invisible`;
+  - legacy firmware-serve label: `firmware-not-requested`.
+
+  Interpretation:
+
+  - the V1689 property-consumption gap is closed: the private property runtime
+    is readable from the same namespace and has the intended cnss logging
+    values;
+  - missing `wlfw_start: Starting` is therefore not explained by private
+    property lookup failure;
+  - stock `cnss-daemon` remains running, but no `wlfw_start`, pre-wlfw failure
+    string, firmware request, WLFW service 69, or wlan0 marker appears;
+  - do not add PM/service-window actors, `boot_wlan` as a WLFW trigger,
+    `/dev/subsys_esoc0`, forced RC1, fake-ONLINE, MSA/BDF expansion, Wi-Fi HAL,
+    scan/connect, credentials, DHCP/routes, or external ping.
+
+  Next candidate:
+
+  - classify stock `cnss-daemon` without relying on Android log output:
+    bounded non-log control-flow evidence, child/thread state, FD/socket
+    surface, exit/liveness state, and binary call-site mapping around the
+    `wlfw_start` entry path;
+  - keep the V1680 internal-modem firmware-serve route as the only live route
+    until a real `wlfw_start`, pre-wlfw failure, firmware request, or WLFW
+    service 69 marker appears.
+
+  Report:
+  `docs/reports/NATIVE_INIT_V1691_WLAN_PD_CNSS_PROPERTY_LOOKUP_HANDOFF_2026-06-02.md`.
