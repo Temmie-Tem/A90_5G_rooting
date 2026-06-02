@@ -4237,3 +4237,47 @@ Next gate: V1619 rollbackable live handoff to flash only the V1617 image,
 collect `pm_service_system_info_surface.*` evidence, roll back to
 `stage3/boot_linux_v724.img`, and verify selftest `fail=0`.  Report:
 `docs/reports/NATIVE_INIT_V1618_PM_SERVICE_SYSTEM_INFO_SURFACE_ARTIFACT_SANITY_2026-06-02.md`.
+
+## Latest native Wi-Fi state: V1619/V1620 (2026-06-02)
+
+V1619 rollbackable live handoff flashed the V1617 image, collected
+`pm_service_system_info_surface.*` evidence, rolled back from native, and
+verified v724/selftest after rollback.  Handoff/rollback pass is `True`, but
+strict Wi-Fi progress is `False`; the decision is
+`v1619-test-boot-no-downstream-wifi-progress-blocked`.
+
+V1620 host-only classification passes as
+`v1620-pm-service-offline-decision-despite-visible-esoc-surface`.
+
+New evidence:
+
+- private namespace has `/dev/subsys_modem`, `/dev/subsys_esoc0`,
+  `/dev/esoc-0`, binder nodes, `/dev/socket/property_service`,
+  `/sys/bus/msm_subsys`, `/sys/bus/esoc`, and `/sys/class/esoc-dev`.
+- system-info snapshot sees `subsys0=modem ONLINE`,
+  `subsys9=esoc0 OFFLINING`, and `esoc0=SDX50M PCIe 0305_01.01.00`.
+- `/vendor/bin/pm-service` still exits naturally with code `0`, signal `0`,
+  before opening binder, sockets, `/dev/subsys_modem`, or
+  `/dev/subsys_esoc0`.
+- property shim sees only:
+  `hwservicemanager.ready=true`,
+  `vendor.peripheral.SDX50M.state=OFFLINE`, and
+  `vendor.peripheral.modem.state=OFFLINE`.
+- `/dev/__properties__` is absent inside the private namespace, even though
+  `/mnt/sdext/a90/private-property-v317/v535/dev/__properties__` exists on the
+  device.
+
+Branch correction: missing core dev/sysfs nodes are no longer the likely
+reason for the `pm-service` OFFLINE-only decision.  The next direct fix is to
+make the android service-window mode materialize the existing private property
+root, then retest whether `libmdmdetect`/`get_system_info` still chooses the
+OFFLINE-only path.
+
+Next gate: V1621 source/build-only property-root materialization repair for
+`wifi-companion-android-wifi-service-window-*` modes.  Keep blocked: Wi-Fi HAL
+start, scan/connect, credentials, DHCP/routes, external ping, PMIC/GPIO/GDSC
+writes, blind eSoC notify/`BOOT_DONE`, global PCI rescan, platform
+bind/unbind, and direct scoped `/dev/subsys_esoc0` actor opens.  Reports:
+`docs/reports/NATIVE_INIT_V1619_PM_SERVICE_SYSTEM_INFO_SURFACE_HANDOFF_2026-06-02.md`
+and
+`docs/reports/NATIVE_INIT_V1620_PM_SERVICE_SYSTEM_INFO_SURFACE_CLASSIFIER_2026-06-02.md`.
