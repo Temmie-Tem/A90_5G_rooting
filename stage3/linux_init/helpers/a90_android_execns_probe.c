@@ -101,7 +101,7 @@
 #define SYSLOG_ACTION_READ_ALL 3
 #endif
 
-#define EXECNS_VERSION "a90_android_execns_probe v316"
+#define EXECNS_VERSION "a90_android_execns_probe v317"
 #define MAX_PATH_LEN 512
 #define MAX_CAPTURE_SIZE (1024 * 1024)
 #define MAX_LINKERCONFIG_SIZE (256 * 1024)
@@ -11821,7 +11821,7 @@ struct cnss_nonlog_maps_summary {
 };
 
 #define A90_CNSS_WLFW_UPROBE_TARGET_COUNT 3
-#define A90_CNSS_WLFW_UPROBE_EVENT_COUNT 14
+#define A90_CNSS_WLFW_UPROBE_EVENT_COUNT 22
 
 struct cnss_wlfw_uprobe_event_spec {
     const char *name;
@@ -11835,9 +11835,17 @@ static const struct cnss_wlfw_uprobe_event_spec cnss_wlfw_uprobe_events[A90_CNSS
     { "wlfw_ind_register_qmi", "wlfw_ind_register_qmi", 0xf32cULL },
     { "wlfw_cap_qmi", "wlfw_cap_qmi", 0xf460ULL },
     { "dms_service_request", "dms_service_request", 0xe808ULL },
+    { "wlfw_cal_mutex_call", "wlfw_cal_mutex_call", 0xec58ULL },
+    { "wlfw_cal_mutex_retcheck", "wlfw_cal_mutex_retcheck", 0xec5cULL },
     { "wlfw_cal_mutex_fail", "wlfw_cal_mutex_fail", 0xec60ULL },
+    { "wlfw_mutex_call", "wlfw_mutex_call", 0xec78ULL },
+    { "wlfw_mutex_retcheck", "wlfw_mutex_retcheck", 0xec7cULL },
     { "wlfw_mutex_fail", "wlfw_mutex_fail", 0xec80ULL },
+    { "wlfw_cond_call", "wlfw_cond_call", 0xec9cULL },
+    { "wlfw_cond_retcheck", "wlfw_cond_retcheck", 0xeca0ULL },
     { "wlfw_cond_fail", "wlfw_cond_fail", 0xeca4ULL },
+    { "wlfw_cond_rsp_call", "wlfw_cond_rsp_call", 0xecbcULL },
+    { "wlfw_cond_rsp_retcheck", "wlfw_cond_rsp_retcheck", 0xecc0ULL },
     { "wlfw_cond_rsp_fail", "wlfw_cond_rsp_fail", 0xecc4ULL },
     { "wlfw_dms_initialize_call", "wlfw_dms_initialize_call", 0xecd4ULL },
     { "wlfw_dms_initialize_retcheck", "wlfw_dms_initialize_retcheck", 0xecd8ULL },
@@ -11852,15 +11860,23 @@ enum cnss_wlfw_uprobe_event_index {
     CNSS_WLFW_UPROBE_WLFW_IND_REGISTER_QMI = 2,
     CNSS_WLFW_UPROBE_WLFW_CAP_QMI = 3,
     CNSS_WLFW_UPROBE_DMS_SERVICE_REQUEST = 4,
-    CNSS_WLFW_UPROBE_WLFW_CAL_MUTEX_FAIL = 5,
-    CNSS_WLFW_UPROBE_WLFW_MUTEX_FAIL = 6,
-    CNSS_WLFW_UPROBE_WLFW_COND_FAIL = 7,
-    CNSS_WLFW_UPROBE_WLFW_COND_RSP_FAIL = 8,
-    CNSS_WLFW_UPROBE_WLFW_DMS_INITIALIZE_CALL = 9,
-    CNSS_WLFW_UPROBE_WLFW_DMS_INITIALIZE_RETCHECK = 10,
-    CNSS_WLFW_UPROBE_WLFW_WORKER_PTHREAD_CREATE_CALL = 11,
-    CNSS_WLFW_UPROBE_WLFW_WORKER_PTHREAD_CREATE_FAILURE = 12,
-    CNSS_WLFW_UPROBE_WLFW_WORKER_PTHREAD_CREATE_SUCCESS = 13,
+    CNSS_WLFW_UPROBE_WLFW_CAL_MUTEX_CALL = 5,
+    CNSS_WLFW_UPROBE_WLFW_CAL_MUTEX_RETCHECK = 6,
+    CNSS_WLFW_UPROBE_WLFW_CAL_MUTEX_FAIL = 7,
+    CNSS_WLFW_UPROBE_WLFW_MUTEX_CALL = 8,
+    CNSS_WLFW_UPROBE_WLFW_MUTEX_RETCHECK = 9,
+    CNSS_WLFW_UPROBE_WLFW_MUTEX_FAIL = 10,
+    CNSS_WLFW_UPROBE_WLFW_COND_CALL = 11,
+    CNSS_WLFW_UPROBE_WLFW_COND_RETCHECK = 12,
+    CNSS_WLFW_UPROBE_WLFW_COND_FAIL = 13,
+    CNSS_WLFW_UPROBE_WLFW_COND_RSP_CALL = 14,
+    CNSS_WLFW_UPROBE_WLFW_COND_RSP_RETCHECK = 15,
+    CNSS_WLFW_UPROBE_WLFW_COND_RSP_FAIL = 16,
+    CNSS_WLFW_UPROBE_WLFW_DMS_INITIALIZE_CALL = 17,
+    CNSS_WLFW_UPROBE_WLFW_DMS_INITIALIZE_RETCHECK = 18,
+    CNSS_WLFW_UPROBE_WLFW_WORKER_PTHREAD_CREATE_CALL = 19,
+    CNSS_WLFW_UPROBE_WLFW_WORKER_PTHREAD_CREATE_FAILURE = 20,
+    CNSS_WLFW_UPROBE_WLFW_WORKER_PTHREAD_CREATE_SUCCESS = 21,
 };
 
 struct cnss_wlfw_uprobe_target_probe {
@@ -12366,6 +12382,22 @@ static int append_wlan_pd_cnss_nonlog_control_flow_summary(struct buffer *stdout
                uprobe->events[CNSS_WLFW_UPROBE_WLFW_COND_FAIL].hit_count > 0 ||
                uprobe->events[CNSS_WLFW_UPROBE_WLFW_COND_RSP_FAIL].hit_count > 0) {
         label = "wlfw-start-pre-dms-init-failed-before-worker";
+    } else if (uprobe->events[CNSS_WLFW_UPROBE_WLFW_COND_RSP_RETCHECK].hit_count > 0) {
+        label = "wlfw-start-cond-rsp-retcheck-no-dms";
+    } else if (uprobe->events[CNSS_WLFW_UPROBE_WLFW_COND_RSP_CALL].hit_count > 0) {
+        label = "wlfw-start-cond-rsp-call-no-return";
+    } else if (uprobe->events[CNSS_WLFW_UPROBE_WLFW_COND_RETCHECK].hit_count > 0) {
+        label = "wlfw-start-cond-retcheck-no-cond-rsp";
+    } else if (uprobe->events[CNSS_WLFW_UPROBE_WLFW_COND_CALL].hit_count > 0) {
+        label = "wlfw-start-cond-call-no-return";
+    } else if (uprobe->events[CNSS_WLFW_UPROBE_WLFW_MUTEX_RETCHECK].hit_count > 0) {
+        label = "wlfw-start-mutex-retcheck-no-cond";
+    } else if (uprobe->events[CNSS_WLFW_UPROBE_WLFW_MUTEX_CALL].hit_count > 0) {
+        label = "wlfw-start-mutex-call-no-return";
+    } else if (uprobe->events[CNSS_WLFW_UPROBE_WLFW_CAL_MUTEX_RETCHECK].hit_count > 0) {
+        label = "wlfw-start-cal-mutex-retcheck-no-mutex";
+    } else if (uprobe->events[CNSS_WLFW_UPROBE_WLFW_CAL_MUTEX_CALL].hit_count > 0) {
+        label = "wlfw-start-cal-mutex-call-no-return";
     } else if (uprobe->events[CNSS_WLFW_UPROBE_WLFW_START].hit_count > 0) {
         label = "wlfw-start-pthread-create-not-reached";
     } else {

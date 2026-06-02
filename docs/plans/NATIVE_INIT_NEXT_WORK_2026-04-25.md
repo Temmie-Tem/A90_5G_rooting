@@ -12812,3 +12812,72 @@ esoc0/RC1/pcie1/MDM2AP, do NOT investigate MSA until WLFW 69 appears.
 
   - `docs/reports/NATIVE_INIT_V1707_CNSS_WLFW_START_BRANCH_UPROBE_SOURCE_BUILD_2026-06-02.md`
   - `docs/reports/NATIVE_INIT_V1708_CNSS_WLFW_START_BRANCH_UPROBE_HANDOFF_2026-06-02.md`.
+
+## V1709/V1710 CNSS WLFW pre-DMS microtrace gate (2026-06-02)
+
+- V1709 source/build-only test boot artifact completed.
+
+  Result:
+
+  - decision: `v1709-cnss-wlfw-pre-dms-microtrace-source-build-pass`;
+  - init: `A90 Linux init 0.9.131 (v1709-cnss-wlfw-pre-dms-microtrace)`;
+  - helper: `a90_android_execns_probe v317`;
+  - helper SHA256: `7c6bb9dab761c7e7768b5c8a71cd58d016de5b534814643c55473d967bc0b63c`;
+  - boot image:
+    `tmp/wifi/v1709-cnss-wlfw-pre-dms-microtrace-test-boot/boot_linux_v1709_cnss_wlfw_pre_dms_microtrace.img`;
+  - boot SHA256:
+    `b794a0f49f0750e63ded778cec55f9c9117a8c4945dd591f04b66e4d0cf8cbbe`.
+
+- V1710 one-run rollbackable live handoff completed.
+
+  Result:
+
+  - decision: `v1710-wlfw-start-pthread-create-not-reached-rollback-pass`;
+  - rollback: `from-native`, PASS;
+  - post-rollback version: `A90 Linux init 0.9.68 (v724)`;
+  - post-rollback selftest: `fail=0`;
+  - non-log label: `wlfw-start-pthread-create-not-reached`;
+  - `wlfw_start@0xec00`: hit count `1`;
+  - first pre-DMS call `wlfw_cal_mutex_call@0xec58`: hit count `0`;
+  - all added pre-DMS call/retcheck targets at `0xec58`, `0xec5c`,
+    `0xec78`, `0xec7c`, `0xec9c`, `0xeca0`, `0xecbc`, `0xecc0`:
+    hit count `0`;
+  - DMS init, pthread_create, worker entry, QMI call targets: hit count `0`;
+  - legacy firmware-serve label: `firmware-not-requested`;
+  - MHI pipe fd count / `ks` process count: `0` / `0`.
+
+  Safety:
+
+  - no service-manager, PM/service-window actors, `boot_wlan`,
+    `/dev/subsys_esoc0`, forced RC1, fake-ONLINE, Wi-Fi HAL, scan/connect,
+    credentials, DHCP/routes, or external ping were used;
+  - no PMIC/GPIO/GDSC writes, eSoC notify/`BOOT_DONE`, PCI rescan, platform
+    bind/unbind, firmware write, or partition write beyond the rollbackable test
+    boot handoff were used.
+
+  Interpretation:
+
+  - V1710 confirms the earlier logging correction: log output is not reliable,
+    but tracefs sees `cnss-daemon+0xec00`;
+  - the traced function body does not reach even the first pre-DMS
+    `pthread_mutex_init` call target at `0xec58`;
+  - this means the remaining blocker is either in the very early `wlfw_start`
+    prologue/logging/setup sequence before `0xec58`, or the current static
+    offset-to-runtime interpretation needs one more adjacent-instruction
+    validation around `0xec00` through `0xec58`;
+  - do not expand to WLFW QMI, BDF, MSA, Wi-Fi HAL, scan/connect, credentials,
+    DHCP/routes, or external ping until the early `wlfw_start` body path is
+    proven past the first pthread init call.
+
+  Next candidate:
+
+  - V1711 host-only static micro-map of `wlfw_start@0xec00..0xec58`, including
+    every branch/call between entry and first `pthread_mutex_init`;
+  - V1712 bounded live uprobe only if the static map identifies safe adjacent
+    targets that can distinguish early return, logging-path block, or target
+    offset mismatch.
+
+  Reports:
+
+  - `docs/reports/NATIVE_INIT_V1709_CNSS_WLFW_PRE_DMS_MICROTRACE_SOURCE_BUILD_2026-06-02.md`
+  - `docs/reports/NATIVE_INIT_V1710_CNSS_WLFW_PRE_DMS_MICROTRACE_HANDOFF_2026-06-02.md`.
