@@ -3899,3 +3899,51 @@ surface before the clean exit.  Reports:
 `docs/reports/NATIVE_INIT_V1604_PER_MGR_STARTUP_TRACE_SOURCE_BUILD_2026-06-02.md`
 and
 `docs/reports/NATIVE_INIT_V1605_PER_MGR_STARTUP_TRACE_ARTIFACT_SANITY_2026-06-02.md`.
+
+## Latest native Wi-Fi state: V1606/V1607 (2026-06-02)
+
+V1606 runs the rollbackable live handoff for the V1604 per-mgr startup trace
+image.  The handoff/rollback path is clean: V1604 boots, evidence is collected,
+rollback from native restores v724, and post-rollback selftest remains
+`fail=0`.  Strict Wi-Fi progress is still blocked as
+`v1606-test-boot-no-downstream-wifi-progress-blocked`.
+
+The lower Wi-Fi state remains unchanged:
+
+- `modem_trigger=True`, `provider_trigger=False`.
+- `rc1_progress=False`, `mhi_progress=False`, `wlfw_progress=False`.
+- `bdf_progress=False`, `fw_ready_progress=False`, `wlan0_present=False`.
+- Helper result remains `pm-service-owned-powerup-missing`.
+
+V1607 classifies the new V1606 startup trace and passes as
+`v1607-per-mgr-exits-before-any-contract-fd`.  This is the current blocker:
+
+- PPH fd gate still passes: first seen at `301ms`, final count `1`, and
+  `pm_proxy_helper_subsys_modem_fd_count=1`.
+- `pm-service` sample count is `51` at `20ms` intervals.
+- `pm-service` is alive at `0ms`, last alive at `20ms`, child-done at `21ms`,
+  and gone by `41ms`.
+- It exits cleanly with `exit_code=0`, `signal=0`.
+- Max fd counts are all zero for `/dev/subsys_modem`, `/dev/subsys_esoc0`,
+  `/dev/vndbinder`, `/dev/hwbinder`, `/dev/binder`, sockets, and
+  `/dev/socket`.
+- First sample shows cmdline `/vendor/bin/pm-service`, cwd under the private
+  root, and wchan `wait_on_page_bit_killable`; the next sample is already a
+  zombie.
+
+Interpretation: `pm-service` is exiting before any PM contract fd, binder
+registration, or eSoC trigger surface is opened.  The active blocker is now a
+pre-contract startup/branch exit inside `/vendor/bin/pm-service`; retrying
+RC1/PERST/refclk, firmware/MHI/WLFW, or Wi-Fi HAL work is downstream and should
+remain parked.
+
+Next work: V1608 should be source/build-only and add a bounded pm-service
+early-exit cause tracer around only `/vendor/bin/pm-service`, preferably
+ptrace/exit or uprobe/openat/exit focused enough to capture the syscall/library
+branch that leads to `exit(0)`.  It must not ptrace `mdm_helper`, trigger
+eSoC/RC1, start Wi-Fi HAL, scan/connect, use credentials, configure
+DHCP/routes, external ping, write PMIC/GPIO/GDSC, spoof eSoC notify/`BOOT_DONE`,
+global PCI rescan, or platform bind/unbind.  Reports:
+`docs/reports/NATIVE_INIT_V1606_PER_MGR_STARTUP_TRACE_HANDOFF_2026-06-02.md`
+and
+`docs/reports/NATIVE_INIT_V1607_PER_MGR_STARTUP_TRACE_CLASSIFIER_2026-06-02.md`.

@@ -9457,3 +9457,36 @@ Samsung bootloader
   `docs/reports/NATIVE_INIT_V1604_PER_MGR_STARTUP_TRACE_SOURCE_BUILD_2026-06-02.md`
   and
   `docs/reports/NATIVE_INIT_V1605_PER_MGR_STARTUP_TRACE_ARTIFACT_SANITY_2026-06-02.md`.
+
+- V1606/V1607 live handoff and host classifier loop is complete.  V1606 flashes
+  only the V1604 image, collects helper result/startup trace/lower
+  markers/dmesg/`wlan0`, rolls back from native to v724, and verifies selftest
+  `fail=0`.  Strict Wi-Fi progress is blocked as
+  `v1606-test-boot-no-downstream-wifi-progress-blocked`; there is still no
+  provider trigger, RC1, MHI, WLFW, BDF, FW-ready, or `wlan0` marker.
+
+  V1607 passes as `v1607-per-mgr-exits-before-any-contract-fd`.  The PPH modem
+  fd gate remains proven (`pm_proxy_helper_subsys_modem_fd_count=1`), but
+  `/vendor/bin/pm-service` exits cleanly before any PM contract fd appears:
+  sample count `51`, alive at `0ms`, last alive at `20ms`, child-done at `21ms`,
+  gone by `41ms`, `exit_code=0`, `signal=0`, and max fd counts are `0` for
+  `/dev/subsys_modem`, `/dev/subsys_esoc0`, `/dev/vndbinder`, `/dev/hwbinder`,
+  `/dev/binder`, sockets, and `/dev/socket`.
+
+  Current blocker: a pre-contract startup/branch exit inside
+  `/vendor/bin/pm-service`.  Lower SDX50M/eSoC/RC1, firmware/MHI/WLFW, and
+  Wi-Fi HAL work remain downstream until `pm-service` stays alive long enough to
+  open or register the expected PM surfaces.
+
+  Next gate: V1608 source/build-only focused pm-service early-exit cause tracer.
+  Prefer bounded ptrace/exit or uprobe/openat/exit tracing around only
+  `/vendor/bin/pm-service`, enough to capture the syscall/library branch that
+  leads to `exit(0)` and whether properties, service state, vndservicemanager,
+  binder nodes, or peripheral state are checked before exit.  Do not ptrace
+  `mdm_helper` or any long-running eSoC path.  Still no credentials,
+  scan/connect, DHCP/routes, external ping, PMIC/GPIO/GDSC direct writes, blind
+  eSoC notify/`BOOT_DONE`, global PCI rescan, platform bind/unbind, or unbounded
+  boot-image/partition writes.  Reports:
+  `docs/reports/NATIVE_INIT_V1606_PER_MGR_STARTUP_TRACE_HANDOFF_2026-06-02.md`
+  and
+  `docs/reports/NATIVE_INIT_V1607_PER_MGR_STARTUP_TRACE_CLASSIFIER_2026-06-02.md`.
