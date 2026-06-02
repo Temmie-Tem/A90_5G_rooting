@@ -132,6 +132,11 @@ def bool_text(text: str, *needles: str) -> bool:
     return any(needle in text for needle in needles)
 
 
+def count_lines_matching(text: str, pattern: str) -> int:
+    matcher = re.compile(pattern)
+    return sum(1 for line in text.splitlines() if matcher.search(line))
+
+
 def classify_natural_path(out_dir: Path, handoff: dict[str, Any]) -> dict[str, Any]:
     dmesg = read_text(out_dir / "test-v1393-dmesg.stdout.txt")
     summary = read_text(out_dir / "test-v1393-summary.stdout.txt")
@@ -164,13 +169,22 @@ def classify_natural_path(out_dir: Path, handoff: dict[str, Any]) -> dict[str, A
     pon_low_seen = bool_text(window, "gpio_value: 1270 set 0")
     pon_high_seen = bool_text(window, "gpio_value: 1270 set 1")
     ap2mdm_seen = bool_text(window, "gpio_value: 135 set 1", "gpio_direction: 135 out")
-    gpio142_trace_seen = bool_text(
+    gpio142_trace_seen = bool(re.search(r"gpio_value:\s*142\s+(?:set|get)\s+1", window))
+    gpio142_trace_seen = gpio142_trace_seen or bool(re.search(r"gpio142\s+:\s+in\s+1\b", window))
+    mdm_status_zero_sample_count = count_lines_matching(
         window,
-        "gpio_value: 142 set 1",
-        "gpio_value: 142 get 1",
-        "mdm status",
-        "GPIO142",
-    ) or bool_text(dmesg, "GPIO142", "mdm status")
+        r"mdm status$",
+    )
+    errfatal_zero_sample_count = count_lines_matching(
+        window,
+        r"mdm errfatal$",
+    )
+    gpio142_low_sample_count = count_lines_matching(window, r"gpio142\s+:\s+in\s+0\b")
+    limited_silent_window_evidence = (
+        mdm_status_zero_sample_count > 0
+        and gpio142_low_sample_count > 0
+        and not gpio142_trace_seen
+    )
     forbidden_markers_seen = [marker for marker in FORBIDDEN_TEXT_MARKERS if marker in all_text]
 
     if not test_flash_ok or not rollback_ok:
@@ -202,6 +216,17 @@ def classify_natural_path(out_dir: Path, handoff: dict[str, Any]) -> dict[str, A
         label = "mdm2ap-silent-natural-path"
         pass_ok = True
         reason = "rollback verified, provider/PON/AP2MDM natural path was observed, and GPIO142/errfatal stayed silent"
+    elif (
+        pil_esoc_seen
+        and pon_low_seen
+        and pon_high_seen
+        and ap2mdm_seen
+        and limited_silent_window_evidence
+        and not timing_complete
+    ):
+        label = "natural-path-observation-incomplete"
+        pass_ok = False
+        reason = "natural provider/PON/AP2MDM path was observed and short-window samples stayed low, but the required mdm2ap_timing IRQ-delta contract evidence was not collected"
     else:
         label = "natural-path-observation-incomplete"
         pass_ok = False
@@ -222,6 +247,10 @@ def classify_natural_path(out_dir: Path, handoff: dict[str, Any]) -> dict[str, A
         "gpio142_trace_seen": gpio142_trace_seen,
         "gpio142_irq_delta": gpio142_irq_delta,
         "errfatal_irq_delta": errfatal_irq_delta,
+        "mdm_status_zero_sample_count": mdm_status_zero_sample_count,
+        "errfatal_zero_sample_count": errfatal_zero_sample_count,
+        "gpio142_low_sample_count": gpio142_low_sample_count,
+        "limited_silent_window_evidence": limited_silent_window_evidence,
         "timing_powerup_seen": timing_powerup_seen,
         "timing_complete": timing_complete,
         "sample_count": sample_count,
@@ -268,6 +297,10 @@ def render_report(result: dict[str, Any]) -> str:
         f"- `gpio142_trace_seen`: `{observation['gpio142_trace_seen']}`",
         f"- `gpio142_irq_delta`: `{observation['gpio142_irq_delta']}`",
         f"- `errfatal_irq_delta`: `{observation['errfatal_irq_delta']}`",
+        f"- `mdm_status_zero_sample_count`: `{observation['mdm_status_zero_sample_count']}`",
+        f"- `errfatal_zero_sample_count`: `{observation['errfatal_zero_sample_count']}`",
+        f"- `gpio142_low_sample_count`: `{observation['gpio142_low_sample_count']}`",
+        f"- `limited_silent_window_evidence`: `{observation['limited_silent_window_evidence']}`",
         f"- `timing_powerup_seen`: `{observation['timing_powerup_seen']}`",
         f"- `timing_complete`: `{observation['timing_complete']}`",
         f"- `sample_count`: `{observation['sample_count']}`",
@@ -355,13 +388,16 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--test-image", type=Path, default=DEFAULT_TEST_IMAGE)
     parser.add_argument("--post-boot-hold-sec", type=float, default=80.0)
     parser.add_argument("--collect-timeout-sec", type=float, default=160.0)
+    parser.add_argument("--classify-only", action="store_true", help="Reclassify existing V1632 evidence without flashing.")
     parser.add_argument("--assume-yes", action="store_true", help="Compatibility flag; this runner is non-interactive.")
     return parser.parse_args()
 
 
 def main() -> int:
     args = parse_args()
-    base_rc = base.main(build_base_argv(args))
+    base_rc = 0
+    if not args.classify_only:
+        base_rc = base.main(build_base_argv(args))
     manifest_path = args.out_dir / "manifest.json"
     handoff = read_json(manifest_path)
     if not handoff:
@@ -379,8 +415,8 @@ def main() -> int:
         "pass": bool(observation["pass"]),
         "reason": observation["reason"],
         "natural_path_observation": observation,
-        "base_handoff_decision": handoff.get("decision", ""),
-        "base_handoff_pass": handoff.get("pass", False),
+        "base_handoff_decision": handoff.get("base_handoff_decision", handoff.get("decision", "")),
+        "base_handoff_pass": handoff.get("base_handoff_pass", handoff.get("pass", False)),
         "contract": {
             "source": "docs/reports/ESOC_NATURAL_PATH_MDM2AP_OBSERVATION_CONTRACT_2026-06-02.md",
             "one_run_only": True,

@@ -9973,3 +9973,65 @@ SDX50M power up and answer MDM2AP/GPIO142 when native's correct PON lands.
 
 This supersedes the V1630 "fake ONLINE / pm-service property chasing" direction
 above (rejected as inverted causality).
+
+## V1630-V1632 Natural-path MDM2AP Observation Gate (2026-06-02)
+
+- V1630 source/build-only natural-path test boot is complete and passes as
+  `v1630-natural-path-mdm2ap-observation-source-build-pass`.
+
+  The artifact builds `A90 Linux init 0.9.112 (v1630-natural-mdm2ap)` with
+  `a90_android_execns_probe v303` and targets the fixed 2026-06-02 contract:
+  observe the natural `__subsystem_get(esoc0)` -> `mdm_subsys_powerup` route
+  with V1467-style exact provider PIL/GPIO tracing and no forced RC1 case write,
+  fake ONLINE, PMIC/GPIO/GDSC direct write, eSoC notify/`BOOT_DONE`, Wi-Fi HAL,
+  scan/connect, credentials, DHCP/routes, or external ping.
+
+- V1631 local artifact sanity passes as
+  `v1631-natural-path-mdm2ap-observation-artifact-sanity-pass`.
+
+  It verifies the V1630 boot image, helper/static linkage, ramdisk markers,
+  private modes, forbidden credential-like bytes, and absence of forced writer /
+  AP2MDM-hold markers in the test image artifact.
+
+- V1632 executed the one rollbackable natural-path live handoff and rolled back
+  successfully to `stage3/boot_linux_v724.img`; post-rollback device verification
+  showed `A90 Linux init 0.9.68 (v724)` and selftest `fail=0`.
+
+  Reclassification result: `v1632-natural-path-observation-incomplete`.
+
+  Evidence captured:
+
+  - natural provider trigger observed: `__subsystem_get(esoc0)` / provider thread
+    in `sdx50m_toggle_soft_reset`.
+  - esoc0 PIL notification observed: `fw=esoc0`.
+  - PM8150L GPIO9/PON pulse observed: GPIO1270 LOW then HIGH.
+  - AP2MDM observed: GPIO135 set high.
+  - short-window GPIO142/MDM2AP samples stayed low: mdm status IRQ count lines
+    stayed zero and debug GPIO reported `gpio142 : in 0`.
+  - errfatal sample stayed zero in the captured post-provider window.
+  - no forced RC1 `TEST: 11`, no LTSSM/RC1, no MHI, no WLFW, no BDF, no FW-ready,
+    and no `wlan0` marker appeared.
+
+  Important correction: the first V1632 wrapper version over-classified generic
+  `GPIO142` / `mdm status` text as `mdm2ap-responds`.  The classifier was fixed
+  host-only to require a real GPIO142 high sample or positive IRQ delta.  The
+  evidence does **not** prove `mdm2ap-responds`.
+
+  The run also failed to collect the required V1326-style `mdm2ap_timing.*`
+  IRQ-delta result because the helper result file was absent and the supervisor
+  timed out.  Therefore this is not the contract label
+  `mdm2ap-silent-natural-path`, even though the short-window evidence suggests
+  the endpoint remained silent.
+
+  Do not run another timing/window variant automatically.  The contract's
+  one-run rule was honored, the device is rolled back, and this should be handed
+  back for direction.  A future live gate, if approved separately, should first
+  repair evidence capture so the natural-path helper writes bounded
+  `mdm2ap_timing.gpio142_irq_delta` and `mdm2ap_timing.errfatal_irq_delta`
+  before any modem-rail/PMIC experiment.
+
+  Reports:
+  `docs/reports/NATIVE_INIT_V1630_NATURAL_PATH_MDM2AP_OBSERVATION_SOURCE_BUILD_2026-06-02.md`,
+  `docs/reports/NATIVE_INIT_V1631_NATURAL_PATH_MDM2AP_OBSERVATION_ARTIFACT_SANITY_2026-06-02.md`,
+  and
+  `docs/reports/NATIVE_INIT_V1632_NATURAL_PATH_MDM2AP_OBSERVATION_HANDOFF_2026-06-02.md`.

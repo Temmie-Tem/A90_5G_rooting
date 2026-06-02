@@ -4479,3 +4479,39 @@ Reject fake ONLINE system-info, pm-service property chasing, blind TEST:11
 retry, PMIC/GPIO/GDSC direct writes, eSoC notify/`BOOT_DONE` spoof, Wi-Fi HAL
 start, scan/connect, credentials, DHCP/routes, and external ping.  Report:
 `docs/reports/NATIVE_INIT_V1629_PM_SERVICE_CAUSALITY_RECONCILIATION_2026-06-02.md`.
+
+## Latest native Wi-Fi state: V1630-V1632 natural-path MDM2AP observation (2026-06-02)
+
+V1630/V1631 prepared and locally verified the fixed natural-path MDM2AP
+observation artifact.  The test boot is `A90 Linux init 0.9.112
+(v1630-natural-mdm2ap)` with `a90_android_execns_probe v303`; it is scoped to
+natural `__subsystem_get(esoc0)` -> `mdm_subsys_powerup` observation only.
+
+V1632 ran the one rollbackable live handoff and rolled back successfully to
+`stage3/boot_linux_v724.img`.  Post-rollback verification returned `A90 Linux
+init 0.9.68 (v724)` and selftest `fail=0`.
+
+Final corrected V1632 decision:
+`v1632-natural-path-observation-incomplete`.
+
+Captured evidence shows the natural provider path ran: esoc0 provider trigger,
+provider thread in `sdx50m_toggle_soft_reset`, `fw=esoc0`, GPIO1270/PON low then
+high, and GPIO135/AP2MDM set high.  Short-window samples kept GPIO142/MDM2AP low
+and mdm status IRQ counts at zero; errfatal also stayed zero in the captured
+window.  No forced RC1 `TEST: 11`, LTSSM/RC1, MHI, WLFW, BDF, FW-ready, or
+`wlan0` appeared.
+
+Important correction: the initial V1632 wrapper over-classified generic
+`GPIO142` / `mdm status` strings as `mdm2ap-responds`.  The classifier is now
+strict: `mdm2ap-responds` requires GPIO142 high or a positive IRQ delta.  The
+current evidence does not prove a response.
+
+The required V1326-style `mdm2ap_timing.*` IRQ-delta helper output was not
+collected because the helper result file was absent and the supervisor timed
+out.  Treat V1632 as incomplete evidence, not as `mdm2ap-silent-natural-path`.
+Do not auto-run another timing/window variant.  Next work requires explicit
+direction: either repair bounded natural-path evidence capture first, or define
+a separately approved modem-rail/PMIC gate.
+
+Report:
+`docs/reports/NATIVE_INIT_V1632_NATURAL_PATH_MDM2AP_OBSERVATION_HANDOFF_2026-06-02.md`.
