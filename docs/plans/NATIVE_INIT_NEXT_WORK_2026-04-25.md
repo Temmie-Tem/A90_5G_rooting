@@ -13947,3 +13947,25 @@ esoc0/RC1/pcie1/MDM2AP, do NOT investigate MSA until WLFW 69 appears.
 
   Report:
   `docs/reports/NATIVE_INIT_V1741_WLAN_PD_ROUTE_DELTA_CLASSIFIER_2026-06-03.md`.
+
+## V1742 WLAN-PD service-manager minimizer (2026-06-03)
+
+- V1742 host-only route minimization classifier completed.
+
+  Result:
+
+  - decision: `v1742-minimum-observed-service-manager-bootstrap-route-pass`;
+  - label: `minimum-observed-service-manager-bootstrap-route`;
+  - V1727 is the earliest verified route in the compared chain that reaches `wlfw_start`, `wlfw_service_request`, and WLFW worker creation;
+  - V1729/V1731/V1736 add late endpoint/listener/timestamped observation but do not change the downstream blocker;
+  - the current minimum is a service-manager bootstrap bundle, not an isolated single subcomponent;
+  - every service-manager route still ends with no WLAN-PD UP, no WLFW service 69, no `wlanmdsp` request, and no `wlan0`.
+
+  Next candidate:
+
+  - V1743 source/build-only pure-route non-log parity gate;
+  - keep service-manager disabled but make the same tracefs/uprobe observer available to close the V1740 measurement gap;
+  - forbidden: PM actor expansion, `boot_wlan`, restart-PD request, `/dev/subsys_esoc0`, forced RC1, fake-ONLINE, Wi-Fi HAL, scan/connect, credentials, DHCP/routes, external ping.
+
+  Report:
+  `docs/reports/NATIVE_INIT_V1742_WLAN_PD_SERVICE_MANAGER_MINIMIZER_2026-06-03.md`.
