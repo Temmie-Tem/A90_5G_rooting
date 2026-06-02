@@ -11744,3 +11744,61 @@ esoc0/RC1/pcie1/MDM2AP, do NOT investigate MSA until WLFW 69 appears.
 
   Report:
   `docs/reports/NATIVE_INIT_V1685_WLAN_PD_PM_TRIO_SOURCE_BUILD_2026-06-02.md`.
+
+## V1686 WLAN-PD PM-trio Handoff (2026-06-02)
+
+- V1686 one-run rollbackable live handoff completed.
+
+  Result:
+
+  - decision: `v1686-pm-trio-child-failed-rollback-pass`;
+  - rollback: `from-native`, PASS;
+  - post-rollback version: `A90 Linux init 0.9.68 (v724)`;
+  - post-rollback selftest: `fail=0`;
+  - emitted label: `pm-trio-child-failed`;
+  - legacy firmware-serve label: `firmware-not-requested`.
+
+  Gate evidence:
+
+  - `/dev/subsys_modem` holder opened: `1`;
+  - `pm_proxy_helper` present: `1`;
+  - `pm_proxy_helper` running in observation window: `0`;
+  - `pm_proxy_helper` exit code: `0`, signal `0`, reaped;
+  - `per_mgr` present/observable/running: `1/1/1` until cleanup;
+  - `per_proxy` present/observable/running: `1/1/1` until cleanup;
+  - `tftp_server` running: `1`;
+  - `cnss-daemon` started: `1`;
+  - `wlfw_start` seen: `0`;
+  - `wlfw_service_request` seen: `0`;
+  - WLFW service 69 seen: `0`;
+  - requested `wlanmdsp.mbn`: `0`;
+  - `wlan0`: absent;
+  - `pm-service` and `pm-proxy` repeatedly logged Binder transaction
+    failures: `transaction failed 29189/-22`.
+
+  Interpretation:
+
+  - `pm_proxy_helper` did not crash; it completed as a one-shot with exit code
+    `0`, consistent with the earlier Android init contract for
+    `vendor.per_proxy_helper`;
+  - the V1686 label is conservative because the helper summary treated
+    `pm_proxy_helper_running=0` as `pm-trio-child-failed`;
+  - the practical blocker is now the PM Binder/service interaction:
+    `pm-service`/`pm-proxy` run but their Binder transactions fail with `-22`;
+  - no lower-layer WLAN-PD progress occurred, so MSA/BDF/Wi-Fi HAL/scan/connect
+    remain out of scope.
+
+  Next work:
+
+  - source/build-only first: adjust the PM-trio classifier so
+    `pm_proxy_helper` one-shot exit `0` is acceptable;
+  - add narrow evidence keys for `pm_proxy_helper` exit code and PM Binder
+    `-22` counts;
+  - host-only/source-build classify what Android-good provides for
+    `pm-service`/`pm-proxy` Binder registration that native lacks;
+  - do not rerun the live gate or proceed to MSA/BDF, Wi-Fi HAL, scan/connect,
+    credentials, DHCP/routes, or external ping until that PM Binder gap is
+    classified.
+
+  Report:
+  `docs/reports/NATIVE_INIT_V1686_WLAN_PD_PM_TRIO_HANDOFF_2026-06-02.md`.
