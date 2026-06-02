@@ -10215,3 +10215,41 @@ above (rejected as inverted causality).
 
   Report:
   `docs/reports/NATIVE_INIT_V1642_SDX_POWER_OWNER_CLASSIFIER_2026-06-02.md`.
+
+## V1643 Bootloader / PMIC Artifact Acquisition Plan (2026-06-02)
+
+- V1643 host-only planning passed as
+  `v1643-read-only-bootloader-pmic-artifact-plan-ready`.
+
+  The natural-path MDM2AP observation has already been run once and V1642 found
+  no AP-native safe write target for the suspected SDX50M main-rail owner.
+  Therefore V1643 deliberately stays non-mutating: the next defensible step is
+  read-only bootloader / PMIC ownership evidence, not a PMIC/GPIO/GDSC live
+  write.
+
+  Acquisition policy:
+
+  - primary candidates: `xbl`, `xblbak`, `abl`, `ablbak`, `aop`, `aopbak`,
+    `devcfg`, `devcfgbak`, `tz`, `tzbak`, `hyp`, `hypbak`, `keymaster`,
+    `keymasterbak`, `cmnlib`, `cmnlibbak`, `cmnlib64`, `cmnlib64bak`,
+    `qupfw`, `qupfwbak`;
+  - context-only firmware candidates: `modem`, `NON-HLOS`, `bluetooth`, `dsp`;
+  - sensitive / identity-bearing exclusions: `userdata`, `metadata`, `persist`,
+    `efs`, `modemst1`, `modemst2`, `fsg`, `fsc`, `keystore`, `sec_efs`;
+  - do not commit raw proprietary bootloader, firmware, partition dumps, `.img`,
+    `.bin`, `.mbn`, `.elf`, `.tar`, `.lz4`, or `.md5` artifacts.
+
+  V1644, if selected, should be read-only live partition metadata/hash capture
+  only: partition map, resolved block paths, byte sizes, SHA256, and optionally
+  bounded token-filtered strings.  Any later full dump must be an explicit
+  separate private-evidence gate under ignored `tmp/` storage with `umask 077`;
+  it must not enter git.
+
+  Hard stops remain unchanged: no forced RC1 enumerate, pci-msm case write, fake
+  ONLINE/system-info spoof, PMIC/GPIO/GDSC/regulator write, eSoC
+  notify/`BOOT_DONE`, PCI rescan, platform bind/unbind, Wi-Fi HAL start,
+  scan/connect, credentials, DHCP/routes, external ping, boot image write, or
+  partition write.
+
+  Report:
+  `docs/reports/NATIVE_INIT_V1643_BOOTLOADER_PMIC_ARTIFACT_ACQUISITION_PLAN_2026-06-02.md`.
