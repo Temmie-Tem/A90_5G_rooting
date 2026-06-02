@@ -13269,3 +13269,23 @@ esoc0/RC1/pcie1/MDM2AP, do NOT investigate MSA until WLFW 69 appears.
 
   Report:
   `docs/reports/NATIVE_INIT_V1720_CNSS_OUTPUT_BINDER_RECONCILE_2026-06-02.md`.
+
+## V1721 Binder bootstrap materialization (2026-06-03)
+
+- V1721 read-only Binder bootstrap materialization completed.
+
+  Result:
+
+  - decision: `v1721-vndservicemanager-absent-servicemanager-vndbinder-fallback-required`;
+  - current mounted Android image has `/system/bin/servicemanager`, `/system/bin/hwservicemanager`, and `/system/lib64/libbinder.so`;
+  - no standalone `vndservicemanager` binary was found under `/mnt/system`, `/vendor`, or mounted vendor candidate paths;
+  - helper source still hardcodes `/vendor/bin/vndservicemanager /dev/vndbinder` for the vendor Binder manager child;
+  - V1719's `defaultServiceManager()` block should therefore be attacked by a service-manager-binary vendor-Binder mode, not by PM trio, `boot_wlan`, or Wi-Fi HAL.
+
+  Next candidate:
+
+  - V1722 source/build-only helper patch: run `/system/bin/servicemanager /dev/vndbinder` under `u:r:vndservicemanager:s0` for the VND Binder manager role when standalone `vndservicemanager` is absent;
+  - V1723 one-run live service-manager-only/CNSS bootstrap proof after source/build validation.
+
+  Report:
+  `docs/reports/NATIVE_INIT_V1721_BINDER_BOOTSTRAP_MATERIALIZATION_2026-06-03.md`.
