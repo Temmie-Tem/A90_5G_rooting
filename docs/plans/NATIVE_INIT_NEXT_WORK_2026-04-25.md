@@ -15984,3 +15984,66 @@ esoc0/RC1/pcie1/MDM2AP, do NOT investigate MSA until WLFW 69 appears.
   - keep the existing hard stops: no full PM trio, no `boot_wlan`, no
     restart-PD, no `/dev/subsys_esoc0`, no forced RC1/case writes, no Wi-Fi
     HAL/scan/connect, no credentials, no DHCP/routes, and no external ping.
+
+## V1787 PM-service init-discovery observer source build (2026-06-03)
+
+- V1787 completed the source/build-only PM-service init-discovery observer.
+
+  Evidence:
+
+  - helper:
+    `stage3/linux_init/helpers/a90_android_execns_probe.c`
+    (`a90_android_execns_probe v336`);
+  - build script:
+    `scripts/revalidation/build_native_init_wifi_test_boot_v1787.py`;
+  - report:
+    `docs/reports/NATIVE_INIT_V1787_PM_SERVICE_INIT_DISCOVERY_OBSERVER_SOURCE_BUILD_2026-06-03.md`;
+  - manifest:
+    `tmp/wifi/v1787-pm-service-init-discovery-observer-test-boot/manifest.json`;
+  - boot image:
+    `tmp/wifi/v1787-pm-service-init-discovery-observer-test-boot/boot_linux_v1787_pm_service_init_discovery_observer.img`;
+  - decision:
+    `v1787-pm-service-init-discovery-observer-source-build-pass`;
+  - helper SHA-256:
+    `de12704a608535b09b5118656d0eafe61eb76f03bc270f07b42653a6b62b805d`;
+  - boot image SHA-256:
+    `1265c8ee9e60d933aa4e8cfbb6fe40f7562d930b03688b2729785f3aa11a7a3c`.
+
+  Key changes:
+
+  - extended the V1783/V1784 PM server observer with `pm-service` init
+    discovery uprobes around list initialization, `get_system_info`, first and
+    second add-peripheral calls, add-peripheral list commit, and pre-Binder
+    init completion;
+  - kept the service-object route narrow: it preserves the V1736/SM-style route
+    and does not add the full PM trio, `boot_wlan`, restart-PD, eSoC, RC1, or
+    Wi-Fi HAL;
+  - added PM server labels for init-list population vs discovery/no-list-insert
+    so one live gate can distinguish server-side discovery failure from later
+    register/vote forwarding failure.
+
+  Validation:
+
+  - `python3 -m py_compile` passed for the V1787 and shared V1393 builders;
+  - `git diff --check` passed;
+  - changed-file secret byte-pattern scan passed;
+  - helper artifact is static AArch64 and contains no dynamic `INTERP` or
+    `NEEDED` entries;
+  - built manifest reports `pass=true` and init
+    `A90 Linux init 0.9.145 (v1787-pm-service-init-discovery-observer)`.
+
+  Next candidate:
+
+  - V1788 one rollbackable live discriminator using the V1787 test boot should
+    record PM-service discovery/list-population events plus the existing
+    service-object/register-vote/requested-wlanmdsp fields;
+  - fixed outcomes should stop after one label:
+    `pm-service-discovery-list-populated-register-no-peripheral`,
+    `pm-service-discovery-zero-list-commit`,
+    `pm-service-discovery-get-system-info-failed`,
+    or `pm-service-discovery-success-register-success`;
+  - retain hard stops: no full PM trio, no `boot_wlan`, no restart-PD,
+    no `/dev/subsys_esoc0`, no forced RC1/case writes, no fake-ONLINE,
+    no Wi-Fi HAL/scan/connect, no credentials, no DHCP/routes, no external
+    ping, no PMIC/GPIO/GDSC writes, no eSoC notify/BOOT_DONE, no PCI rescan,
+    and no platform bind/unbind.

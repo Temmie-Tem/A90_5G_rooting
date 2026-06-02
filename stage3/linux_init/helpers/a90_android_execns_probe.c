@@ -101,7 +101,7 @@
 #define SYSLOG_ACTION_READ_ALL 3
 #endif
 
-#define EXECNS_VERSION "a90_android_execns_probe v335"
+#define EXECNS_VERSION "a90_android_execns_probe v336"
 #define MAX_PATH_LEN 512
 #define MAX_CAPTURE_SIZE (1024 * 1024)
 #define MAX_LINKERCONFIG_SIZE (256 * 1024)
@@ -11944,7 +11944,7 @@ struct cnss_nonlog_maps_summary {
 #define A90_CNSS_PERIPHERAL_UPROBE_TARGET_COUNT 3
 #define A90_CNSS_PERIPHERAL_UPROBE_EVENT_COUNT 13
 #define A90_PM_SERVICE_UPROBE_TARGET_COUNT 3
-#define A90_PM_SERVICE_UPROBE_EVENT_COUNT 13
+#define A90_PM_SERVICE_UPROBE_EVENT_COUNT 28
 
 struct cnss_wlfw_uprobe_event_spec {
     const char *name;
@@ -12106,6 +12106,21 @@ static const struct pm_service_uprobe_event_spec pm_service_uprobe_events[A90_PM
     { "pm_server_register_add_client_call", "pm_server_register_add_client_call", 0x611cULL },
     { "pm_server_register_success_return", "pm_server_register_success_return", 0x6140ULL },
     { "pm_server_register_no_peripheral", "pm_server_register_no_peripheral", 0x6148ULL },
+    { "pm_service_main_supported_list_init", "pm_service_main_supported_list_init", 0x77bcULL },
+    { "pm_service_init_helper_entry", "pm_service_init_helper_entry", 0x6b6cULL },
+    { "pm_service_init_get_system_info_call", "pm_service_init_get_system_info_call", 0x6bc0ULL },
+    { "pm_service_init_get_system_info_fail", "pm_service_init_get_system_info_fail", 0x6bc8ULL },
+    { "pm_service_init_first_count_load", "pm_service_init_first_count_load", 0x6be8ULL },
+    { "pm_service_init_first_add_peripheral_call", "pm_service_init_first_add_peripheral_call", 0x6cb4ULL },
+    { "pm_service_init_first_add_peripheral_fail_log", "pm_service_init_first_add_peripheral_fail_log", 0x6cbcULL },
+    { "pm_service_init_second_count_load", "pm_service_init_second_count_load", 0x6cd4ULL },
+    { "pm_service_init_second_add_peripheral_call", "pm_service_init_second_add_peripheral_call", 0x6d9cULL },
+    { "pm_service_init_second_add_peripheral_fail_log", "pm_service_init_second_add_peripheral_fail_log", 0x6da4ULL },
+    { "pm_service_add_peripheral_entry", "pm_service_add_peripheral_entry", 0x65ecULL },
+    { "pm_service_add_peripheral_known_name", "pm_service_add_peripheral_known_name", 0x663cULL },
+    { "pm_service_add_peripheral_init_fail", "pm_service_add_peripheral_init_fail", 0x668cULL },
+    { "pm_service_add_peripheral_list_commit", "pm_service_add_peripheral_list_commit", 0x6758ULL },
+    { "pm_service_pre_binder_init_done", "pm_service_pre_binder_init_done", 0x78d4ULL },
 };
 
 enum pm_service_uprobe_event_index {
@@ -12122,6 +12137,21 @@ enum pm_service_uprobe_event_index {
     PM_SERVICE_UPROBE_REGISTER_ADD_CLIENT_CALL = 10,
     PM_SERVICE_UPROBE_REGISTER_SUCCESS_RETURN = 11,
     PM_SERVICE_UPROBE_REGISTER_NO_PERIPHERAL = 12,
+    PM_SERVICE_UPROBE_MAIN_SUPPORTED_LIST_INIT = 13,
+    PM_SERVICE_UPROBE_INIT_HELPER_ENTRY = 14,
+    PM_SERVICE_UPROBE_INIT_GET_SYSTEM_INFO_CALL = 15,
+    PM_SERVICE_UPROBE_INIT_GET_SYSTEM_INFO_FAIL = 16,
+    PM_SERVICE_UPROBE_INIT_FIRST_COUNT_LOAD = 17,
+    PM_SERVICE_UPROBE_INIT_FIRST_ADD_PERIPHERAL_CALL = 18,
+    PM_SERVICE_UPROBE_INIT_FIRST_ADD_PERIPHERAL_FAIL_LOG = 19,
+    PM_SERVICE_UPROBE_INIT_SECOND_COUNT_LOAD = 20,
+    PM_SERVICE_UPROBE_INIT_SECOND_ADD_PERIPHERAL_CALL = 21,
+    PM_SERVICE_UPROBE_INIT_SECOND_ADD_PERIPHERAL_FAIL_LOG = 22,
+    PM_SERVICE_UPROBE_ADD_PERIPHERAL_ENTRY = 23,
+    PM_SERVICE_UPROBE_ADD_PERIPHERAL_KNOWN_NAME = 24,
+    PM_SERVICE_UPROBE_ADD_PERIPHERAL_INIT_FAIL = 25,
+    PM_SERVICE_UPROBE_ADD_PERIPHERAL_LIST_COMMIT = 26,
+    PM_SERVICE_UPROBE_PRE_BINDER_INIT_DONE = 27,
 };
 
 struct cnss_wlfw_uprobe_target_probe {
@@ -13298,6 +13328,10 @@ static int append_wlan_pd_cnss_nonlog_control_flow_summary(struct buffer *stdout
         pm_server_label = "pm-server-prematch-list-traversal";
     } else if (pm_server->events[PM_SERVICE_UPROBE_REGISTER_ENTRY].hit_count > 0) {
         pm_server_label = "pm-server-register-entry-only";
+    } else if (pm_server->events[PM_SERVICE_UPROBE_ADD_PERIPHERAL_LIST_COMMIT].hit_count > 0) {
+        pm_server_label = "pm-service-init-list-populated-no-register";
+    } else if (pm_server->events[PM_SERVICE_UPROBE_INIT_GET_SYSTEM_INFO_CALL].hit_count > 0) {
+        pm_server_label = "pm-service-init-no-list-insert";
     } else if (pm_server->registered) {
         pm_server_label = "pm-server-registered-no-hit";
     } else {
