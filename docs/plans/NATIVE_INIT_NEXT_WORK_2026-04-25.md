@@ -11044,3 +11044,43 @@ concrete rail/register owner (V1655). Rail inventory (V1641): SDX50M main rail
 
   Report:
   `docs/reports/NATIVE_INIT_V1664_PCIE1_CLOCK_VOTE_SOURCE_BUILD_2026-06-02.md`.
+
+## V1665 pcie1 Clock Vote Handoff (2026-06-02)
+
+- V1665 rollbackable live handoff completed with rollback/selftest pass, but the
+  clock-vote surface proof itself classified as
+  `v1665-clock-vote-surface-failed`.
+
+  Result:
+
+  - V1664 test boot flashed and verified;
+  - evidence collection completed;
+  - rollback restored `stage3/boot_linux_v724.img`;
+  - native `selftest` returned `fail=0`;
+  - no Wi-Fi HAL, scan/connect, credentials, DHCP/routes, or external ping was
+    performed;
+  - no regulator/GDSC direct write, pci-msm `case` write, PMIC/GPIO/PERST write,
+    eSoC notify/`BOOT_DONE`, PCI rescan, or platform bind/unbind was performed.
+
+  Failure classification:
+
+  - `pcie1 clock vote begin rc=-5` appeared in the test log;
+  - all recorded target clock `enable_rc` values were `-2` (`ENOENT`);
+  - cleanup succeeded with zero cleanup failures because no clocks were enabled;
+  - the original begin block was not preserved in the window result because the
+    existing RC1 window preparation rewrote that file after provider detection;
+  - post-cleanup snapshots show the target clock read leaves exist later, so the
+    first implementation voted too early and stored begin evidence in the wrong
+    file.
+
+  Next unit:
+
+  - V1666 harness repair before any further interpretation;
+  - write `pcie1_clock_vote.*` to a separate result file not overwritten by the
+    RC1 window sampler;
+  - wait for target clock debugfs write leaves to exist before attempting the
+    bounded vote;
+  - keep the same hard stops and rollback/selftest contract.
+
+  Report:
+  `docs/reports/NATIVE_INIT_V1665_PCIE1_CLOCK_VOTE_HANDOFF_2026-06-02.md`.

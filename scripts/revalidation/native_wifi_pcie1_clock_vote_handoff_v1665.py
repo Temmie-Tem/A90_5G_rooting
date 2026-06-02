@@ -154,7 +154,8 @@ def classify_clock_vote(out_dir: Path, handoff: dict[str, Any]) -> dict[str, Any
         for token in (
             "scan/connect",
             "wpa_supplicant",
-            "dhcp",
+            "dhcpcd",
+            "udhcpc",
             "external ping",
             "BOOT_DONE spoof",
             "/sys/kernel/debug/pci-msm/case",
@@ -172,7 +173,13 @@ def classify_clock_vote(out_dir: Path, handoff: dict[str, Any]) -> dict[str, Any
     moved = bool(pcie1_gdsc_max_use > 0 or mdm2ap_delta > 0 or rc1_progress or mhi_progress or wlfw_progress or wlan0_present)
     if not evidence_ok:
         label = "clock-vote-surface-failed"
-        reason = "clock vote evidence, cleanup, safety, or rollback was incomplete"
+        if handoff_pass and fields.get("pcie1_clock_vote.cleanup_end") == "1" and success_count == 0:
+            reason = (
+                "rollback and cleanup succeeded, but no clock enable write succeeded; "
+                "recorded target enable paths returned ENOENT and the begin block was not preserved in the window result"
+            )
+        else:
+            reason = "clock vote evidence, cleanup, safety, or rollback was incomplete"
     elif moved:
         label = "clock-vote-surface-pass-gdsc-moved"
         reason = "targeted clock votes succeeded and pcie1/MDM2AP/downstream observables moved"
