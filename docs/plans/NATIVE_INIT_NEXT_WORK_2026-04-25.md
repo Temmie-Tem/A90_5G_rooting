@@ -12881,3 +12881,47 @@ esoc0/RC1/pcie1/MDM2AP, do NOT investigate MSA until WLFW 69 appears.
 
   - `docs/reports/NATIVE_INIT_V1709_CNSS_WLFW_PRE_DMS_MICROTRACE_SOURCE_BUILD_2026-06-02.md`
   - `docs/reports/NATIVE_INIT_V1710_CNSS_WLFW_PRE_DMS_MICROTRACE_HANDOFF_2026-06-02.md`.
+
+## V1711 CNSS WLFW start prologue static classifier (2026-06-02)
+
+- V1711 host-only static classifier completed.
+
+  Result:
+
+  - decision: `v1711-wlfw-start-prologue-static-map-pass`;
+  - basis: V1706 branch map PASS and V1710 live label
+    `wlfw-start-pthread-create-not-reached`;
+  - V1710 hit counts: `wlfw_start@0xec00=1`,
+    `wlfw_cal_mutex_call@0xec58=0`;
+  - binary SHA256 remains
+    `bced9853a77cfb02252571196584efa535be14f8f3fd9ce32712ddee224ba4bc`;
+  - all prologue patterns from `0xec00` through `0xec58` matched.
+
+  Prologue model:
+
+  - `0xec00..0xec20`: function prologue, argument save, log severity setup;
+  - `0xec24`: unconditional log wrapper call;
+  - `0xec28`: first proof that the log call returned;
+  - `0xec34` and `0xec44`: optional setup calls if `wlfw_start` argument is
+    zero;
+  - `0xec48..0xec54`: common state-base setup;
+  - `0xec58`: first `pthread_mutex_init` call, absent in V1710.
+
+  Interpretation:
+
+  - V1710 entry-only result now narrows the gap to the prologue/logging/setup
+    span before the first pthread init call;
+  - the next bounded live unit should trace adjacent prologue targets rather
+    than DMS, WLFW QMI, BDF, MSA, Wi-Fi HAL, scan/connect, credentials,
+    DHCP/routes, or external ping.
+
+  Next candidate:
+
+  - V1712 source/build-only helper expansion with adjacent prologue uprobe
+    targets: `0xec20`, `0xec24`, `0xec28`, `0xec34`, `0xec44`, `0xec48`,
+    `0xec50`, and `0xec58`;
+  - one rollbackable live run only, reusing the V1710 internal-modem
+    firmware-serve route and preserving all current hard stops.
+
+  Report:
+  `docs/reports/NATIVE_INIT_V1711_CNSS_WLFW_START_PROLOGUE_STATIC_2026-06-02.md`.
