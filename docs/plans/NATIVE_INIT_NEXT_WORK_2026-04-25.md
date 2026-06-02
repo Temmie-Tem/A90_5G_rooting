@@ -15490,3 +15490,90 @@ esoc0/RC1/pcie1/MDM2AP, do NOT investigate MSA until WLFW 69 appears.
     source fix;
   - do not autonomously enter PM forwarding, WLAN-PD cascade, Wi-Fi HAL,
     scan/connect, DHCP/routes, or external ping.
+
+## V1777/V1778 service-object policy-load retry (2026-06-03)
+
+- V1777 repairs the V1776 route-helper ambiguity and builds a new rollbackable
+  test boot artifact.
+
+  Source/build:
+
+  - script:
+    `scripts/revalidation/build_native_init_wifi_test_boot_v1777.py`;
+  - report:
+    `docs/reports/NATIVE_INIT_V1777_SERVICE_OBJECT_POLICY_LOAD_SOURCE_BUILD_2026-06-03.md`;
+  - decision:
+    `v1777-service-object-policy-load-source-build-pass`;
+  - helper:
+    `a90_android_execns_probe v333`;
+  - helper SHA256:
+    `527972344940f2ed2456b4a2186aab31c33d4d69e4cf1a30e1aa024ce2da346b`;
+  - boot image:
+    `tmp/wifi/v1777-service-object-policy-load-test-boot/boot_linux_v1777_service_object_policy_load.img`;
+  - boot SHA256:
+    `14cfe7f0ca1c672a21904b8554102aee9c0b506a9a92fb0b846a48d7d25f0a1d`;
+  - init:
+    `A90 Linux init 0.9.142 (v1777-service-object-policy-load)`.
+
+  Source repair:
+
+  - the service-object route now loads
+    `/vendor/etc/selinux/precompiled_sepolicy` before PM actors, matching the
+    V1092 provider-positive precondition;
+  - `pm-service` in zombie state is no longer treated as ready, and the helper
+    emits `wlan_pd_service_object_visible.per_mgr.state` plus
+    `wlan_pd_service_object_visible.per_mgr.zombie`.
+
+- V1778 runs the one approved rollbackable live discriminator with the V1777
+  test boot image.
+
+  Live handoff:
+
+  - script:
+    `scripts/revalidation/native_wifi_wlan_pd_service_object_policy_load_handoff_v1778.py`;
+  - report:
+    `docs/reports/NATIVE_INIT_V1778_SERVICE_OBJECT_POLICY_LOAD_HANDOFF_2026-06-03.md`;
+  - decision:
+    `v1778-service-object-still-null-rollback-pass`;
+  - evidence:
+    `tmp/wifi/v1778-service-object-policy-load-handoff`;
+  - rollback:
+    `from-native`, verified;
+  - post-rollback:
+    `A90 Linux init 0.9.68 (v724)`, `selftest fail=0`.
+
+  Result:
+
+  - policy-load completed:
+    `pm_service_trigger_observer.policy_load.result=policy-load-pass`;
+  - SELinux transition reached `u:r:vendor_per_mgr:s0`;
+  - `pm-service` still exited as a zombie:
+    `per_mgr.state=Z`, `per_mgr.zombie=1`, `per_mgr_ready=0`;
+  - `vendor.qcom.PeripheralManager` remained hidden/non-null proof failed:
+    `provider_seen=0`;
+  - CNSS did not reach `asInterface` or register/vote TX:
+    `asInterface=0`, register/vote TX `0`;
+  - `wlanmdsp` was not requested, WLFW service 69 did not appear, and `wlan0`
+    was absent;
+  - hard stops stayed intact:
+    no `/dev/subsys_esoc0`, no forced RC1, no fake-ONLINE, no full `pm-proxy`,
+    no Wi-Fi HAL, no scan/connect, no credentials, no DHCP/routes, and no
+    external ping.
+
+  Classification:
+
+  - the narrow service-object gate is still blocked before modem/WLAN-PD:
+    policy and domain are no longer the missing precondition;
+  - the concrete next blocker is `pm-service` lifetime/startup failure under
+    the bounded route, not PM forwarding and not WLAN-PD cascade;
+  - do not autonomously enter PM forwarding, WLAN-PD cascade, Wi-Fi HAL,
+    scan/connect, DHCP/routes, or external ping.
+
+  Current next candidate:
+
+  - host-only classify why `pm-service` exits as zombie after successful policy
+    load and `vendor_per_mgr` transition;
+  - compare V1778 `pm-service` stdout/stderr, property requests, vndbinder
+    sockets, and process status against the V1092 provider-positive control;
+  - only after a bounded lifetime fix should the same four-label service-object
+    discriminator be rerun.

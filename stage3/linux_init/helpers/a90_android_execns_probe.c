@@ -101,7 +101,7 @@
 #define SYSLOG_ACTION_READ_ALL 3
 #endif
 
-#define EXECNS_VERSION "a90_android_execns_probe v332"
+#define EXECNS_VERSION "a90_android_execns_probe v333"
 #define MAX_PATH_LEN 512
 #define MAX_CAPTURE_SIZE (1024 * 1024)
 #define MAX_LINKERCONFIG_SIZE (256 * 1024)
@@ -34754,6 +34754,9 @@ static int run_cnss_userspace_readiness_guarded(const struct config *cfg,
     return 0;
 }
 
+static int load_precompiled_policy_for_pm_observer(const struct paths *paths,
+                                                   struct buffer *stdout_buf);
+
 static int run_wifi_companion_start_only_guarded(const struct config *cfg,
                                                  const struct paths *paths,
                                                  struct buffer *stdout_buf,
@@ -35354,6 +35357,18 @@ static int run_wifi_companion_start_only_guarded(const struct config *cfg,
                        "wifi_companion_start.exec_attempted=1\n") < 0) {
         return -1;
     }
+    if (wlan_pd_service_object_visible_trigger) {
+        if (append_literal(stdout_buf,
+                           "wlan_pd_service_object_visible.policy_load_precondition.required=1\n"
+                           "wlan_pd_service_object_visible.policy_load_precondition.requested=1\n") < 0 ||
+            load_precompiled_policy_for_pm_observer(paths, stdout_buf) < 0) {
+            return -1;
+        }
+    } else if (append_literal(stdout_buf,
+                              "wlan_pd_service_object_visible.policy_load_precondition.required=0\n"
+                              "wlan_pd_service_object_visible.policy_load_precondition.requested=0\n") < 0) {
+        return -1;
+    }
     if ((peripheral_manager_node_parity ||
          android_order_pre_cnss_provider_observer) &&
         (append_private_android_node_status(stdout_buf, paths, "subsys_modem", "subsys_modem") < 0 ||
@@ -35585,17 +35600,27 @@ static int run_wifi_companion_start_only_guarded(const struct config *cfg,
                 break;
             }
         } else if (wlan_pd_service_object_visible_trigger && streq(children[i].name, "per_mgr")) {
+            char per_mgr_state;
+            bool per_mgr_zombie;
+
             usleep(1000000);
             composite_capture_observable_children(&children[i], 1, stdout_buf);
+            per_mgr_state = children[i].pid > 0 ? read_proc_state(children[i].pid) : '?';
+            per_mgr_zombie = per_mgr_state == 'Z';
             wlan_pd_service_object_per_mgr_ready = children[i].observable &&
                                                   !children[i].child_done &&
+                                                  !per_mgr_zombie &&
                                                   children[i].fd_summary_captured;
             if (append_format(stdout_buf,
                               "wlan_pd_service_object_visible.per_mgr.observable=%d\n"
                               "wlan_pd_service_object_visible.per_mgr.fd_summary_captured=%d\n"
+                              "wlan_pd_service_object_visible.per_mgr.state=%c\n"
+                              "wlan_pd_service_object_visible.per_mgr.zombie=%d\n"
                               "wlan_pd_service_object_visible.per_mgr.ready=%d\n",
                               children[i].observable ? 1 : 0,
                               children[i].fd_summary_captured ? 1 : 0,
+                              per_mgr_state,
+                              per_mgr_zombie ? 1 : 0,
                               wlan_pd_service_object_per_mgr_ready ? 1 : 0) < 0 ||
                 append_vndservice_query(stdout_buf,
                                         stderr_buf,
