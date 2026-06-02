@@ -101,7 +101,7 @@
 #define SYSLOG_ACTION_READ_ALL 3
 #endif
 
-#define EXECNS_VERSION "a90_android_execns_probe v320"
+#define EXECNS_VERSION "a90_android_execns_probe v321"
 #define MAX_PATH_LEN 512
 #define MAX_CAPTURE_SIZE (1024 * 1024)
 #define MAX_LINKERCONFIG_SIZE (256 * 1024)
@@ -1664,7 +1664,7 @@ static int parse_args(int argc, char **argv, struct config *cfg) {
     } else if (streq(cfg->target_profile, "system-wificond")) {
         cfg->target = "/system/bin/wificond";
     } else if (streq(cfg->target_profile, "vendor-vndservicemanager")) {
-        cfg->target = "/vendor/bin/vndservicemanager";
+        cfg->target = "/system/bin/servicemanager";
     } else if (streq(cfg->target_profile, "vendor-wifi-hal-ext")) {
         cfg->target = "/vendor/bin/hw/vendor.samsung.hardware.wifi@2.0-service";
     } else if (streq(cfg->target_profile, "vendor-wifi-hal-legacy")) {
@@ -5039,6 +5039,16 @@ static const char *android_default_selinux_context_for_target(const char *target
     return NULL;
 }
 
+static const char *android_default_selinux_context_for_request(const struct config *cfg,
+                                                              const char *prefix,
+                                                              const char *target) {
+    if ((cfg != NULL && streq(cfg->target_profile, "vendor-vndservicemanager")) ||
+        (prefix != NULL && strstr(prefix, ".vndservicemanager") != NULL)) {
+        return "u:r:vndservicemanager:s0";
+    }
+    return android_default_selinux_context_for_target(target);
+}
+
 static int apply_android_exec_selinux_context_if_requested(const struct config *cfg,
                                                           const char *prefix,
                                                           const char *target) {
@@ -5050,7 +5060,7 @@ static int apply_android_exec_selinux_context_if_requested(const struct config *
         printf("%s.selinux_exec.reason=context-mode-none\n", prefix);
         return 0;
     }
-    context = android_default_selinux_context_for_target(target);
+    context = android_default_selinux_context_for_request(cfg, prefix, target);
     if (context == NULL) {
         printf("%s.selinux_exec.skipped=1\n", prefix);
         printf("%s.selinux_exec.reason=no-default-context-for-target\n", prefix);
@@ -24364,7 +24374,10 @@ static void composite_child_init(struct composite_child *child,
                                  enum composite_identity identity) {
     memset(child, 0, sizeof(*child));
     child->name = name;
-    child->target = target;
+    child->target = (identity == COMPOSITE_ID_VND_SERVICE_MANAGER &&
+                     streq(target, "/vendor/bin/vndservicemanager"))
+                        ? "/system/bin/servicemanager"
+                        : target;
     child->identity = identity;
     child->pid = -1;
     child->pgid = -1;
@@ -25381,7 +25394,7 @@ static int composite_spawn_child(const struct config *cfg,
             NULL,
         };
         char *const vndservicemanager_argv[] = {
-            (char *)"/vendor/bin/vndservicemanager",
+            (char *)child->target,
             (char *)"/dev/vndbinder",
             NULL,
         };
@@ -30031,7 +30044,7 @@ static int run_wifi_companion_mdm_helper_cnss_before_subsys_trigger_capture_guar
                       "cnss_before_esoc.mdm_helper_argv=/vendor/bin/mdm_helper\n"
                       "cnss_before_esoc.servicemanager_argv=/system/bin/servicemanager\n"
                       "cnss_before_esoc.hwservicemanager_argv=/system/bin/hwservicemanager\n"
-                      "cnss_before_esoc.vndservicemanager_argv=/vendor/bin/vndservicemanager /dev/vndbinder\n"
+                      "cnss_before_esoc.vndservicemanager_argv=/system/bin/servicemanager /dev/vndbinder\n"
                       "cnss_before_esoc.wifi_hal_legacy_argv=/vendor/bin/hw/android.hardware.wifi@1.0-service\n"
                       "cnss_before_esoc.wifi_hal_ext_argv=/vendor/bin/hw/vendor.samsung.hardware.wifi@2.0-service\n"
                       "cnss_before_esoc.wificond_argv=/system/bin/wificond\n"
@@ -34388,7 +34401,7 @@ static int run_wifi_companion_start_only_guarded(const struct config *cfg,
                       order) < 0 ||
         append_literal(stdout_buf, "wifi_companion_start.servicemanager_argv=/system/bin/servicemanager\n") < 0 ||
         append_literal(stdout_buf, "wifi_companion_start.hwservicemanager_argv=/system/bin/hwservicemanager\n") < 0 ||
-        append_literal(stdout_buf, "wifi_companion_start.vndservicemanager_argv=/vendor/bin/vndservicemanager /dev/vndbinder\n") < 0 ||
+        append_literal(stdout_buf, "wifi_companion_start.vndservicemanager_argv=/system/bin/servicemanager /dev/vndbinder\n") < 0 ||
         append_literal(stdout_buf, "wifi_companion_start.qrtr_ns_argv=/vendor/bin/qrtr-ns -f\n") < 0 ||
         append_literal(stdout_buf, "wifi_companion_start.rmt_storage_argv=/vendor/bin/rmt_storage\n") < 0 ||
         append_literal(stdout_buf, "wifi_companion_start.tftp_server_argv=/vendor/bin/tftp_server\n") < 0 ||

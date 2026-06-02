@@ -13289,3 +13289,23 @@ esoc0/RC1/pcie1/MDM2AP, do NOT investigate MSA until WLFW 69 appears.
 
   Report:
   `docs/reports/NATIVE_INIT_V1721_BINDER_BOOTSTRAP_MATERIALIZATION_2026-06-03.md`.
+
+## V1722 VND servicemanager fallback source/build (2026-06-03)
+
+- V1722 source/build-only helper patch completed.
+
+  Result:
+
+  - decision: `v1722-vnd-servicemanager-fallback-source-build-pass`;
+  - helper: `tmp/wifi/v1722-vnd-servicemanager-fallback-source-build/a90_android_execns_probe_v321`;
+  - helper SHA256: `57aa9f95395480fe8b9fa28a424ae71c3c46572846796f78d73b06e10cac599e`;
+  - VND service-manager child now uses `/system/bin/servicemanager /dev/vndbinder` while preserving `u:r:vndservicemanager:s0`;
+  - common Wi-Fi test-boot helper expectations now require `a90_android_execns_probe v321`.
+
+  Next candidate:
+
+  - V1723 one-run live service-manager bootstrap proof with helper v321;
+  - no PM trio, `vendor.qcom.PeripheralManager`, `boot_wlan`, `/dev/subsys_esoc0`, forced RC1, fake-ONLINE, Wi-Fi HAL, scan/connect, credentials, DHCP/routes, or external ping.
+
+  Report:
+  `docs/reports/NATIVE_INIT_V1722_VND_SERVICEMANAGER_FALLBACK_SOURCE_BUILD_2026-06-03.md`.
