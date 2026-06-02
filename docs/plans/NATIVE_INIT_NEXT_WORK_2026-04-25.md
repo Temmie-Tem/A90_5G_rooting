@@ -14180,3 +14180,32 @@ esoc0/RC1/pcie1/MDM2AP, do NOT investigate MSA until WLFW 69 appears.
 
   Report:
   `docs/reports/NATIVE_INIT_V1747_WLAN_PD_PRIVATE_TRACEFS_REPAIR_HANDOFF_2026-06-03.md`.
+
+## V1748 WLAN-PD tracefs delta classifier (2026-06-03)
+
+- V1748 host/source-only classifier completed.
+
+  Result:
+
+  - decision: `v1748-tracefs-delta-debugfs-mount-flag-missing`;
+  - evidence: `tmp/wifi/v1748-wlan-pd-tracefs-delta-classifier`;
+  - V1702 tracefs available/path/hits: `1` / `/sys/kernel/debug/tracing` / `1`;
+  - V1747 tracefs available/path/errno: `0` / `none` / `2`.
+
+  Interpretation:
+
+  - V1701/V1702 worked because the test boot mounted debugfs/tracefs before
+    CNSS uprobe arming;
+  - V1745/V1747 omitted `--wifi-test-mount-debugfs`, so the private tracefs
+    path repair had no source tracefs to bind and failed before target probing;
+  - no PM/service-window actors, `boot_wlan`, eSoC/RC1, Wi-Fi HAL,
+    scan/connect, DHCP/routes, or external ping are justified by this delta.
+
+  Next candidate:
+
+  - V1749 source/build-only: rebuild the pure internal-modem V1745-style
+    artifact with the V1701 `--wifi-test-mount-debugfs` contract restored;
+  - then run local artifact sanity before any rollbackable live handoff.
+
+  Report:
+  `docs/reports/NATIVE_INIT_V1748_WLAN_PD_TRACEFS_DELTA_CLASSIFIER_2026-06-03.md`.
