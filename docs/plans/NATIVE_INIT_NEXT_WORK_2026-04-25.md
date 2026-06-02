@@ -13451,3 +13451,74 @@ esoc0/RC1/pcie1/MDM2AP, do NOT investigate MSA until WLFW 69 appears.
 
   - `docs/reports/NATIVE_INIT_V1726_WLAN_PD_SERVICE_MANAGER_BOOTSTRAP_SOURCE_BUILD_2026-06-03.md`;
   - `docs/reports/NATIVE_INIT_V1727_WLAN_PD_SERVICE_MANAGER_BOOTSTRAP_HANDOFF_2026-06-03.md`.
+
+## V1728/V1729 service-notifier late endpoint gate (2026-06-03)
+
+- V1728 source/build and V1729 one-run live handoff completed.
+
+  Rationale:
+
+  - V1727 proved `cnss-daemon` reaches `wlfw_start`, emits
+    `wlfw_service_request`, and starts the worker thread, but WLFW service 69
+    and `wlanmdsp` requests remain absent;
+  - V1727's early service-notifier listener probe returned no endpoint, so
+    V1728/V1729 added only a late endpoint lookup after the service-window
+    observation, before cleanup;
+  - this gate did not add PM trio, `vendor.qcom.PeripheralManager`,
+    `boot_wlan`, `/dev/subsys_esoc0`, forced RC1, fake-ONLINE, Wi-Fi HAL,
+    scan/connect, credentials, DHCP/routes, or external ping.
+
+  V1728 source/build result:
+
+  - decision:
+    `v1728-wlan-pd-servnotif-late-endpoint-source-build-pass`;
+  - helper: `a90_android_execns_probe v324`;
+  - helper SHA256:
+    `4b46166952a7842dd78b56e92434f9a136b847d4439d78d072b5da3fda3fb9a3`;
+  - boot image:
+    `tmp/wifi/v1728-wlan-pd-servnotif-late-endpoint-test-boot/boot_linux_v1728_wlan_pd_servnotif_late_endpoint.img`;
+  - boot SHA256:
+    `359a399ce1b087809f6b8d74d5d18e8835f6ee3248cbc04c1a3a2ea7023b20d2`.
+
+  V1729 live result:
+
+  - decision: `v1729-servnotif-late-endpoint-found-rollback-pass`;
+  - rollback: `from-native`, PASS;
+  - post-rollback selftest: `fail=0`;
+  - early listener result/status: `no-endpoint` / `not-found`;
+  - late service-notifier result: `endpoint-found`;
+  - late endpoint: node `0`, port `2`;
+  - service-window label: `wlfw-start-reached`;
+  - non-log label: `wlfw-worker-thread-started-waiting-for-qmi-service`;
+  - `wlfw_start`, `wlfw_service_request`, and worker-create-success hit
+    counts: `1` / `1` / `1`;
+  - WLFW indication-register/capability QMI hit counts: `0` / `0`;
+  - WLFW service 69 seen: `0`;
+  - requested `wlanmdsp`: `0`.
+
+  Interpretation:
+
+  - early service-notifier absence was a timing/window issue, not persistent
+    endpoint absence;
+  - the service-notifier endpoint appears late after the CNSS service window,
+    while `cnss-daemon` is already waiting for WLFW QMI;
+  - the next useful unit is a late/concurrent service-notifier listener re-arm
+    around the discovered endpoint window, still without new userspace actors
+    or Wi-Fi connection actions.
+
+  Next candidate:
+
+  - V1730 source/build-only: add a bounded late service-notifier listener
+    register after the endpoint is found, recording listener response and any
+    WLAN-PD state indication;
+  - V1731 one-run live: use the V1729 endpoint-found window to classify
+    `late-listener-response-success`, `late-listener-uninit-no-indication`, or
+    `late-listener-no-response`;
+  - keep PM trio, `vendor.qcom.PeripheralManager`, `boot_wlan`,
+    `/dev/subsys_esoc0`, forced RC1, fake-ONLINE, Wi-Fi HAL, scan/connect,
+    credentials, DHCP/routes, and external ping out of scope.
+
+  Reports:
+
+  - `docs/reports/NATIVE_INIT_V1728_WLAN_PD_SERVNOTIF_LATE_ENDPOINT_SOURCE_BUILD_2026-06-03.md`;
+  - `docs/reports/NATIVE_INIT_V1729_WLAN_PD_SERVNOTIF_LATE_ENDPOINT_HANDOFF_2026-06-03.md`.

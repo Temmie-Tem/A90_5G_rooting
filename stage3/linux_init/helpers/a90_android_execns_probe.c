@@ -101,7 +101,7 @@
 #define SYSLOG_ACTION_READ_ALL 3
 #endif
 
-#define EXECNS_VERSION "a90_android_execns_probe v323"
+#define EXECNS_VERSION "a90_android_execns_probe v324"
 #define MAX_PATH_LEN 512
 #define MAX_CAPTURE_SIZE (1024 * 1024)
 #define MAX_LINKERCONFIG_SIZE (256 * 1024)
@@ -33611,6 +33611,55 @@ static int append_companion_service_notifier_listener_probe(struct buffer *buf,
 	                         response_seen ? (response_success ? "listener-response-success" : "listener-response-error") : "no-response");
 }
 
+static int append_companion_service_notifier_late_endpoint_probe(struct buffer *buf,
+                                                                const struct config *cfg) {
+    struct qrtr_service_endpoint endpoint;
+
+    if (append_format(buf,
+                      "wifi_companion_service_notifier_late_probe.begin=1\n"
+                      "wifi_companion_service_notifier_late_probe.allowed=%d\n"
+                      "wifi_companion_service_notifier_late_probe.service=%u\n"
+                      "wifi_companion_service_notifier_late_probe.instance=%u\n"
+                      "wifi_companion_service_notifier_late_probe.service_name=%s\n"
+                      "wifi_companion_service_notifier_late_probe.phase=post-window-before-cleanup\n"
+                      "wifi_companion_service_notifier_late_probe.qmi_payload=0\n"
+                      "wifi_companion_service_notifier_late_probe.wifi_hal=0\n"
+                      "wifi_companion_service_notifier_late_probe.scan_connect_linkup=0\n"
+                      "wifi_companion_service_notifier_late_probe.credentials=0\n"
+                      "wifi_companion_service_notifier_late_probe.dhcp_routing=0\n"
+                      "wifi_companion_service_notifier_late_probe.external_ping=0\n",
+                      cfg->allow_service_notifier_listener_probe ? 1 : 0,
+                      A90_SERVNOTIF_SERVICE,
+                      A90_SERVNOTIF_INSTANCE_ENCODED,
+                      A90_WLAN_PD_SERVICE_NAME) < 0) {
+        return -1;
+    }
+    if (!cfg->allow_service_notifier_listener_probe) {
+        return append_literal(buf,
+                              "wifi_companion_service_notifier_late_probe.lookup_attempted=0\n"
+                              "wifi_companion_service_notifier_late_probe.result=blocked\n"
+                              "wifi_companion_service_notifier_late_probe.reason=missing-allow-service-notifier-listener-probe\n"
+                              "wifi_companion_service_notifier_late_probe.end=1\n");
+    }
+    if (servnotif_find_endpoint_with_retries(buf,
+                                             "wifi_companion_service_notifier_late_probe.endpoint",
+                                             &endpoint,
+                                             false) < 0) {
+        return -1;
+    }
+    return append_format(buf,
+                         "wifi_companion_service_notifier_late_probe.lookup_attempted=1\n"
+                         "wifi_companion_service_notifier_late_probe.endpoint.found=%d\n"
+                         "wifi_companion_service_notifier_late_probe.endpoint.node=%u\n"
+                         "wifi_companion_service_notifier_late_probe.endpoint.port=%u\n"
+                         "wifi_companion_service_notifier_late_probe.result=%s\n"
+                         "wifi_companion_service_notifier_late_probe.end=1\n",
+                         endpoint.found ? 1 : 0,
+                         endpoint.node,
+                         endpoint.port,
+                         endpoint.found ? "endpoint-found" : "no-endpoint");
+}
+
 struct service74_klog_state {
     unsigned int sysmon_qmi_count;
     unsigned int service180_count;
@@ -35085,6 +35134,14 @@ static int run_wifi_companion_start_only_guarded(const struct config *cfg,
     }
     if (cfg->allow_servloc_domain_list_probe &&
         append_companion_servloc_domain_list_probe(stdout_buf, cfg) < 0) {
+        stop_wlan_pd_modem_holder(paths, stdout_buf, &wlan_pd_holder);
+        composite_cleanup_children(children, active_child_count, stdout_buf, stderr_buf);
+        stop_property_service_shim(&property_shim, paths, stdout_buf);
+        return -1;
+    }
+    if (wlan_pd_service_window_trigger &&
+        cfg->allow_service_notifier_listener_probe &&
+        append_companion_service_notifier_late_endpoint_probe(stdout_buf, cfg) < 0) {
         stop_wlan_pd_modem_holder(paths, stdout_buf, &wlan_pd_holder);
         composite_cleanup_children(children, active_child_count, stdout_buf, stderr_buf);
         stop_property_service_shim(&property_shim, paths, stdout_buf);
