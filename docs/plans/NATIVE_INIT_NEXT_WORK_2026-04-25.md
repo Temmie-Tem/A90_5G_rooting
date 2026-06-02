@@ -10635,3 +10635,38 @@ above (rejected as inverted causality).
 
   Report:
   `docs/reports/NATIVE_INIT_V1654_XBL_CONTEXT_PROBE_LIVE_2026-06-02.md`.
+
+## V1655 XBL Context Interpretation (2026-06-02)
+
+- V1655 host-only interpretation passed as
+  `v1655-xbl-context-interpretation-pass`.
+
+  Input:
+
+  - `tmp/wifi/v1654-xbl-context-probe-live/manifest.json`;
+  - source decision: `v1654-xbl-context-probe-live-pass`;
+  - total redacted records: `326`;
+  - cross-slot duplicate digest groups: `96`.
+
+  Interpretation:
+
+  - XBL remains the highest-yield bootloader-side artifact for SDX50M power
+    context.  Both slots contain PMIC/PON/SDX/RPMh/AOP/PCIe-class records in
+    the V1652-approved windows.
+  - The early PON windows remain relevant because the redacted record set
+    includes SDX, PON, PS_HOLD, PMIC, and VDD token classes.
+  - Dense RPMh/AOP/PMIC/PCIe clusters are likely boot-resource vocabulary or
+    nearby boot code/data context, but V1655 still does not identify a concrete
+    register, GPIO, GDSC, rail, or PMIC write target.
+  - Slot-local deltas remain potentially useful, especially because xbl_b adds
+    GPIO-token records, but they are not causal without Android-good vs
+    native-fail linkage.
+
+  Decision: V1655 does not authorize direct PMIC/GPIO/GDSC/PCI/eSoC or upper
+  Wi-Fi actions.  V1656 should remain host-only and map the redacted hashes and
+  context classes against Android-good boot references or public OSRC-adjacent
+  metadata where possible.  Any bounded rail or PMIC mutation remains a separate
+  explicit gate with a concrete target and rollback contract.
+
+  Report:
+  `docs/reports/NATIVE_INIT_V1655_XBL_CONTEXT_INTERPRETATION_2026-06-02.md`.
