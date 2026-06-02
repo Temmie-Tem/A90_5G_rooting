@@ -14430,3 +14430,55 @@ esoc0/RC1/pcie1/MDM2AP, do NOT investigate MSA until WLFW 69 appears.
   - keep blocked: PM trio, `vendor.qcom.PeripheralManager` actor,
     `pm-service -22` debugging, `boot_wlan`, eSoC/RC1, restart-PD request,
     Wi-Fi HAL, scan/connect, credentials, DHCP/routes, and external ping.
+
+## V1753 WLAN-PD firmware-request Android-good diff (2026-06-03)
+
+- V1753 corrected the next gate away from route-minimization and toward the
+  downstream WLFW-worker blocker.
+
+  Android-good handoff:
+
+  - runner: `scripts/revalidation/android_wlan_pd_firmware_request_handoff_v1753.py`;
+  - decision: `v1753-android-good-firmware-request-observed-rollback-pass`;
+  - evidence: `tmp/wifi/v1753-android-good-wlan-pd-firmware-request`;
+  - rollback verified native v724 and post-rollback selftest stayed `fail=0`;
+  - temporary Magisk module captured `tftp_server` logcat/strace evidence for
+    `wlanmdsp.mbn` requests;
+  - observed Android-good served paths include
+    `/vendor/rfs/msm/mpss/readonly/vendor/firmware_mnt/image/wlanmdsp.mbn` and
+    `/vendor/rfs/msm/mpss/readonly/vendor/firmware/wlanmdsp.mbn`.
+
+  Native SM-route capture:
+
+  - a fresh V1753 native attempt was made with the V1736 SM-route runner, but it
+    was a transport non-result: `tcpctl did not become ready: timed out`;
+  - rollback still passed from native and current v724 selftest returned
+    `fail=0`;
+  - because this was not a classifier label, the diff uses the retained passing
+    V1736 SM-route baseline.
+
+  Host diff:
+
+  - script: `scripts/revalidation/native_wifi_wlan_pd_firmware_request_diff_v1753.py`;
+  - decision: `v1753-firmware-not-requested-android-good-diff-pass`;
+  - label: `firmware-not-requested`;
+  - evidence: `tmp/wifi/v1753-wlan-pd-firmware-request-diff`;
+  - report:
+    `docs/reports/NATIVE_INIT_V1753_WLAN_PD_FIRMWARE_REQUEST_DIFF_2026-06-03.md`.
+
+  Interpretation:
+
+  - Android-good proves the internal modem asks `tftp_server` for
+    `wlanmdsp.mbn` before WLAN-PD/WLFW completion;
+  - native V1736 already reaches `wlfw_service_request` and WLFW worker creation
+    with `tftp_server` running, but still never requests `wlanmdsp.mbn`;
+  - the active blocker is not served-path absence, not PM/QCACLD/eSoC/RC1, and
+    not Wi-Fi HAL/scan/connect.  The missing piece is the modem-side WLAN-PD
+    autoload/request trigger.
+
+  Stop condition:
+
+  - stop after this label and hand back;
+  - do not autonomously patch served paths, add PM/QCACLD/eSoC actors, issue
+    restart-PD, start Wi-Fi HAL, scan/connect, use credentials, configure
+    DHCP/routes, or external ping.
