@@ -9751,3 +9751,37 @@ Samsung bootloader
   `docs/reports/NATIVE_INIT_V1619_PM_SERVICE_SYSTEM_INFO_SURFACE_HANDOFF_2026-06-02.md`
   and
   `docs/reports/NATIVE_INIT_V1620_PM_SERVICE_SYSTEM_INFO_SURFACE_CLASSIFIER_2026-06-02.md`.
+
+- V1621 source/build-only property-root materialization repair is complete and
+  passes as `v1621-pm-service-property-root-test-boot-source-build-pass`.
+
+  The helper change is deliberately small: `a90_android_execns_probe` v302 now
+  treats `wifi-companion-android-wifi-service-window-*` plus
+  `--allow-android-wifi-service-window` plus `--property-root` as a valid
+  private property materialization path.  This should bind the existing remote
+  property root
+  `/mnt/sdext/a90/private-property-v317/v535/dev/__properties__` as
+  `/dev/__properties__` inside the helper private namespace.
+
+  V1622 local artifact sanity passes as
+  `v1622-pm-service-property-root-artifact-sanity-pass`.  It verifies
+  `tmp/wifi/v1621-pm-service-property-root-test-boot/boot_linux_v1621_wifi_test.img`
+  with SHA256
+  `52a56bc02787f2f72c44fad60aae6d8e4ca619135393798425e9d802f7d1c635`,
+  `A90 Linux init 0.9.110 (v1621-pm-service-property-root)`, and
+  `a90_android_execns_probe v302` SHA256
+  `09732d4469d963e3c14ecb50f6f01341e92adfd3370c614d2ce779a71510230c`.
+
+  V1622 remains local-only: no live command, flash, reboot, boot partition
+  write, partition write, scan/connect, credential handling, DHCP/routes,
+  external ping, PMIC/GPIO/GDSC direct write, blind eSoC notify/`BOOT_DONE`,
+  global PCI rescan, or platform bind/unbind.
+
+  Next gate: V1623 rollbackable live handoff.  Flash only the V1621 image,
+  confirm `/dev/__properties__` appears in `pm_service_system_info_surface.*`,
+  reclassify whether `pm-service` still exits through the OFFLINE-only path,
+  roll back to `stage3/boot_linux_v724.img`, and verify selftest `fail=0`.
+  Reports:
+  `docs/reports/NATIVE_INIT_V1621_PM_SERVICE_PROPERTY_ROOT_SOURCE_BUILD_2026-06-02.md`
+  and
+  `docs/reports/NATIVE_INIT_V1622_PM_SERVICE_PROPERTY_ROOT_ARTIFACT_SANITY_2026-06-02.md`.

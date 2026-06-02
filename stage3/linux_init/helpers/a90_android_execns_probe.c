@@ -101,7 +101,7 @@
 #define SYSLOG_ACTION_READ_ALL 3
 #endif
 
-#define EXECNS_VERSION "a90_android_execns_probe v301"
+#define EXECNS_VERSION "a90_android_execns_probe v302"
 #define MAX_PATH_LEN 512
 #define MAX_CAPTURE_SIZE (1024 * 1024)
 #define MAX_LINKERCONFIG_SIZE (256 * 1024)
@@ -3544,6 +3544,9 @@ static int materialize_private_properties(const struct config *cfg,
           is_wifi_companion_any_start_only_mode(cfg->mode) ||
           is_wifi_companion_hal_order_start_only_mode(cfg->mode)) &&
          cfg->allow_wifi_companion_start_only &&
+         cfg->property_root != NULL) ||
+        (is_wifi_companion_android_wifi_service_window_any_mode(cfg->mode) &&
+         cfg->allow_android_wifi_service_window &&
          cfg->property_root != NULL) ||
         (is_wifi_hal_composite_mode(cfg->mode) &&
          cfg->allow_service_manager_start_only &&

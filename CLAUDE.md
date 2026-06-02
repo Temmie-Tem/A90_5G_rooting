@@ -4281,3 +4281,46 @@ bind/unbind, and direct scoped `/dev/subsys_esoc0` actor opens.  Reports:
 `docs/reports/NATIVE_INIT_V1619_PM_SERVICE_SYSTEM_INFO_SURFACE_HANDOFF_2026-06-02.md`
 and
 `docs/reports/NATIVE_INIT_V1620_PM_SERVICE_SYSTEM_INFO_SURFACE_CLASSIFIER_2026-06-02.md`.
+
+## Latest native Wi-Fi state: V1621/V1622 (2026-06-02)
+
+V1621 source/build-only repairs private property-root materialization for
+android service-window modes and passes as
+`v1621-pm-service-property-root-test-boot-source-build-pass`.
+
+The helper change is minimal: `a90_android_execns_probe` v302 now treats
+`wifi-companion-android-wifi-service-window-*` plus
+`--allow-android-wifi-service-window` plus `--property-root` as a valid private
+property materialization path.  This should make the existing remote directory
+`/mnt/sdext/a90/private-property-v317/v535/dev/__properties__` visible as
+`/dev/__properties__` inside the helper private namespace.
+
+V1622 local artifact sanity passes as
+`v1622-pm-service-property-root-artifact-sanity-pass`.
+
+Artifact summary:
+
+- boot image:
+  `tmp/wifi/v1621-pm-service-property-root-test-boot/boot_linux_v1621_wifi_test.img`
+- boot SHA256:
+  `52a56bc02787f2f72c44fad60aae6d8e4ca619135393798425e9d802f7d1c635`
+- init: `A90 Linux init 0.9.110 (v1621-pm-service-property-root)`
+- init SHA256:
+  `0e951f5839fd450610cad6e6026bd243ab87c178fd9e4c339b7d1f1977afe700`
+- helper marker: `a90_android_execns_probe v302`
+- helper SHA256:
+  `09732d4469d963e3c14ecb50f6f01341e92adfd3370c614d2ce779a71510230c`
+
+V1622 verifies manifest decision, base boot existence, static init/helper,
+ramdisk entries, boot/helper/init route markers, route contract,
+header/kernel parity, forbidden credential-like byte absence, and private
+modes.
+
+Next gate: V1623 rollbackable live handoff.  It should flash only the V1621
+image, verify `/dev/__properties__` appears in
+`pm_service_system_info_surface.*`, reclassify whether `pm-service` still exits
+through the OFFLINE-only path, roll back to `stage3/boot_linux_v724.img`, and
+verify selftest `fail=0`.  Reports:
+`docs/reports/NATIVE_INIT_V1621_PM_SERVICE_PROPERTY_ROOT_SOURCE_BUILD_2026-06-02.md`
+and
+`docs/reports/NATIVE_INIT_V1622_PM_SERVICE_PROPERTY_ROOT_ARTIFACT_SANITY_2026-06-02.md`.
