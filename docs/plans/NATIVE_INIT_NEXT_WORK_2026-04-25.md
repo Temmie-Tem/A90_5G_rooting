@@ -9814,3 +9814,33 @@ Samsung bootloader
   `docs/reports/NATIVE_INIT_V1623_PM_SERVICE_PROPERTY_ROOT_HANDOFF_2026-06-02.md`
   and
   `docs/reports/NATIVE_INIT_V1624_PM_SERVICE_PROPERTY_ROOT_CLASSIFIER_2026-06-02.md`.
+
+- V1625 source/build-only shutdown-critical-list repair is complete and passes
+  as `v1625-pm-service-shutdown-list-test-boot-source-build-pass`.
+
+  The helper change is deliberately narrow: `a90_android_execns_probe` v303
+  enables the existing `vendor.peripheral.shutdown_critical_list` allowlist for
+  android service-window modes with `--allow-android-wifi-service-window`.
+  Accepted values remain only `SDX50M ` and `SDX50M modem `.
+
+  V1626 local artifact sanity passes as
+  `v1626-pm-service-shutdown-list-artifact-sanity-pass`.  It verifies
+  `tmp/wifi/v1625-pm-service-shutdown-list-test-boot/boot_linux_v1625_wifi_test.img`
+  with SHA256
+  `8a9370fe4ed60f30eed044bd7b6d79d428106033856934b7d27c9e102939757b`,
+  `A90 Linux init 0.9.111 (v1625-pm-service-shutdown-list)`, and
+  `a90_android_execns_probe v303` SHA256
+  `d58f637ce53b12f16f7143b388b20007553fe8d47bd6ed06379bde96a69c8798`.
+
+  V1626 remains local-only: no live command, flash, reboot, boot partition
+  write, partition write, scan/connect, credential handling, DHCP/routes,
+  external ping, PMIC/GPIO/GDSC direct write, blind eSoC notify/`BOOT_DONE`,
+  global PCI rescan, or platform bind/unbind.
+
+  Next gate: V1627 rollbackable live handoff.  Flash only the V1625 image,
+  verify shutdown-critical-list property requests are accepted, reclassify
+  whether `pm-service` advances to IPC or PM fd ownership, roll back to
+  `stage3/boot_linux_v724.img`, and verify selftest `fail=0`.  Reports:
+  `docs/reports/NATIVE_INIT_V1625_PM_SERVICE_SHUTDOWN_LIST_SOURCE_BUILD_2026-06-02.md`
+  and
+  `docs/reports/NATIVE_INIT_V1626_PM_SERVICE_SHUTDOWN_LIST_ARTIFACT_SANITY_2026-06-02.md`.

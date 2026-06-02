@@ -101,7 +101,7 @@
 #define SYSLOG_ACTION_READ_ALL 3
 #endif
 
-#define EXECNS_VERSION "a90_android_execns_probe v302"
+#define EXECNS_VERSION "a90_android_execns_probe v303"
 #define MAX_PATH_LEN 512
 #define MAX_CAPTURE_SIZE (1024 * 1024)
 #define MAX_LINKERCONFIG_SIZE (256 * 1024)
@@ -33186,7 +33186,9 @@ static int start_property_service_shim(const struct config *cfg,
         bool allow_peripheral_shutdown_list =
             is_wifi_companion_peripheral_manager_property_contract_start_only_mode(cfg->mode) ||
             is_wifi_companion_pm_observer_any_mode(cfg->mode) ||
-            is_wifi_companion_mdm_helper_runtime_any_mode(cfg->mode);
+            is_wifi_companion_mdm_helper_runtime_any_mode(cfg->mode) ||
+            (is_wifi_companion_android_wifi_service_window_any_mode(cfg->mode) &&
+             cfg->allow_android_wifi_service_window);
 
         close(pipe_fds[0]);
         property_service_shim_child(listen_fd,
