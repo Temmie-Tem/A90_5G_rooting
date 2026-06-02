@@ -13309,3 +13309,24 @@ esoc0/RC1/pcie1/MDM2AP, do NOT investigate MSA until WLFW 69 appears.
 
   Report:
   `docs/reports/NATIVE_INIT_V1722_VND_SERVICEMANAGER_FALLBACK_SOURCE_BUILD_2026-06-03.md`.
+
+## V1723 CNSS output visibility reclassification (2026-06-03)
+
+- V1723 host-only correction/reclassification completed.
+
+  Result:
+
+  - decision: `v1723-wlfw-start-reached-downstream-block-by-nonlog-pass`;
+  - strict contract label: `wlfw-start-reached-downstream-block`;
+  - refined blocker: `vendor-binder-default-service-manager-acquisition`;
+  - V1695 already ran the requested internal-modem CNSS output-visibility gate with kmsg/debug properties and no service-manager/PM actors;
+  - V1716/V1719 non-log uprobe evidence proves `cnss-daemon` reaches `wlfw_start` and then blocks in the vendor Binder default service-manager path;
+  - therefore missing native `wlfw_start` dmesg/log output is a measurement artifact, not a reason to add `boot_wlan`, PM trio, or service-window actors.
+
+  Next candidate:
+
+  - V1724 one-run service-manager-only VND Binder bootstrap proof using the V1722 helper v321 fallback (`/system/bin/servicemanager /dev/vndbinder`);
+  - still no PM trio, `vendor.qcom.PeripheralManager`, `boot_wlan`, `/dev/subsys_esoc0`, forced RC1, fake-ONLINE, Wi-Fi HAL, scan/connect, credentials, DHCP/routes, or external ping.
+
+  Report:
+  `docs/reports/NATIVE_INIT_V1723_CNSS_OUTPUT_VISIBILITY_RECLASSIFY_2026-06-03.md`.
