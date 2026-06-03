@@ -101,7 +101,7 @@
 #define SYSLOG_ACTION_READ_ALL 3
 #endif
 
-#define EXECNS_VERSION "a90_android_execns_probe v361"
+#define EXECNS_VERSION "a90_android_execns_probe v362"
 
 #ifndef A90_EXECNS_ENABLE_DELAYED_LOWER_RESPONSE_WINDOW
 #define A90_EXECNS_ENABLE_DELAYED_LOWER_RESPONSE_WINDOW 0
@@ -12047,7 +12047,7 @@ struct cnss_nonlog_maps_summary {
 #define A90_PM_SERVICE_UPROBE_TARGET_COUNT 3
 #define A90_PM_SERVICE_UPROBE_EVENT_COUNT 46
 #define A90_LIBQMI_CCI_UPROBE_TARGET_COUNT 4
-#define A90_LIBQMI_CCI_UPROBE_EVENT_COUNT 16
+#define A90_LIBQMI_CCI_UPROBE_EVENT_COUNT 21
 
 struct cnss_wlfw_uprobe_event_spec {
     const char *name;
@@ -12350,6 +12350,9 @@ enum pm_service_uprobe_event_index {
 };
 
 static const struct pm_service_uprobe_event_spec libqmi_cci_uprobe_events[A90_LIBQMI_CCI_UPROBE_EVENT_COUNT] = {
+    { "libqmi_get_service_list_entry", "libqmi_get_service_list_entry", 0x5e08ULL, "svc_obj=%x0 list=%x1 capacity=%x2 count=%x3" },
+    { "libqmi_get_service_list_lookup_call", "libqmi_get_service_list_lookup_call", 0x5eecULL, "xport=%x0 xport_id=%x1 svc_id=%x2 idl_version=%x3 capacity_ptr=%x4 list_ptr=%x5 lookup_fn=%x8" },
+    { "libqmi_get_service_list_lookup_ret", "libqmi_get_service_list_lookup_ret", 0x5ef0ULL, "found=%x0 list=%x21 capacity_ptr=%x20 count_ptr=%x19 offset=%x22 xport_index=%x26" },
     { "libqmi_client_init_instance_entry", "libqmi_client_init_instance_entry", 0x7824ULL, "svc=%x0 instance=%x1 ind_cb=%x2 ind_data=%x3 os_params=%x4 timeout=%x5 handle=%x6" },
     { "libqmi_initial_get_service_instance_ret", "libqmi_initial_get_service_instance_ret", 0x78a0ULL, "rc=%x0" },
     { "libqmi_initial_client_init_ret", "libqmi_initial_client_init_ret", 0x78c0ULL, "rc=%x0" },
@@ -12365,26 +12368,33 @@ static const struct pm_service_uprobe_event_spec libqmi_cci_uprobe_events[A90_LI
     { "libqmi_signal_wait_timedwait", "libqmi_signal_wait_timedwait", 0x7fb8ULL, NULL },
     { "libqmi_signal_wait_timeout_store", "libqmi_signal_wait_timeout_store", 0x7fc8ULL, NULL },
     { "libqmi_xport_new_server_entry", "libqmi_xport_new_server_entry", 0x48e8ULL, "xport=%x0" },
-    { "libqmi_xport_new_server_signal", "libqmi_xport_new_server_signal", 0x496cULL, NULL },
+    { "libqmi_xport_new_server_service", "libqmi_xport_new_server_service", 0x4910ULL, "xport=%x19 svc_id=+0(%x19):u32 state=+264(%x19):u32 addr=+64(%x19):u64 notifier=+296(%x19):u64" },
+    { "libqmi_xport_new_server_signal", "libqmi_xport_new_server_signal", 0x496cULL, "xport=%x19 svc_id=+0(%x19):u32 signal=%x0 waiter=%x22" },
+    { "libqmi_xport_new_server_callback_call", "libqmi_xport_new_server_callback_call", 0x499cULL, "svc_id=%x0 addr=%x1 event=%x2 version=%x3 cb=%x4" },
 };
 
 enum libqmi_cci_uprobe_event_index {
-    LIBQMI_CCI_UPROBE_CLIENT_INIT_INSTANCE_ENTRY = 0,
-    LIBQMI_CCI_UPROBE_INITIAL_GET_SERVICE_INSTANCE_RET = 1,
-    LIBQMI_CCI_UPROBE_INITIAL_CLIENT_INIT_RET = 2,
-    LIBQMI_CCI_UPROBE_NOTIFIER_INIT_CALL = 3,
-    LIBQMI_CCI_UPROBE_NOTIFIER_INIT_RET = 4,
-    LIBQMI_CCI_UPROBE_WAIT_CALL = 5,
-    LIBQMI_CCI_UPROBE_WAIT_RETURN = 6,
-    LIBQMI_CCI_UPROBE_LOOP_GET_SERVICE_INSTANCE_RET = 7,
-    LIBQMI_CCI_UPROBE_LOOP_CLIENT_INIT_RET = 8,
-    LIBQMI_CCI_UPROBE_INIT_TIMEOUT_PATH = 9,
-    LIBQMI_CCI_UPROBE_INIT_RETURN = 10,
-    LIBQMI_CCI_UPROBE_SIGNAL_WAIT_ENTRY = 11,
-    LIBQMI_CCI_UPROBE_SIGNAL_WAIT_TIMEDWAIT = 12,
-    LIBQMI_CCI_UPROBE_SIGNAL_WAIT_TIMEOUT_STORE = 13,
-    LIBQMI_CCI_UPROBE_XPORT_NEW_SERVER_ENTRY = 14,
-    LIBQMI_CCI_UPROBE_XPORT_NEW_SERVER_SIGNAL = 15,
+    LIBQMI_CCI_UPROBE_GET_SERVICE_LIST_ENTRY = 0,
+    LIBQMI_CCI_UPROBE_GET_SERVICE_LIST_LOOKUP_CALL = 1,
+    LIBQMI_CCI_UPROBE_GET_SERVICE_LIST_LOOKUP_RET = 2,
+    LIBQMI_CCI_UPROBE_CLIENT_INIT_INSTANCE_ENTRY = 3,
+    LIBQMI_CCI_UPROBE_INITIAL_GET_SERVICE_INSTANCE_RET = 4,
+    LIBQMI_CCI_UPROBE_INITIAL_CLIENT_INIT_RET = 5,
+    LIBQMI_CCI_UPROBE_NOTIFIER_INIT_CALL = 6,
+    LIBQMI_CCI_UPROBE_NOTIFIER_INIT_RET = 7,
+    LIBQMI_CCI_UPROBE_WAIT_CALL = 8,
+    LIBQMI_CCI_UPROBE_WAIT_RETURN = 9,
+    LIBQMI_CCI_UPROBE_LOOP_GET_SERVICE_INSTANCE_RET = 10,
+    LIBQMI_CCI_UPROBE_LOOP_CLIENT_INIT_RET = 11,
+    LIBQMI_CCI_UPROBE_INIT_TIMEOUT_PATH = 12,
+    LIBQMI_CCI_UPROBE_INIT_RETURN = 13,
+    LIBQMI_CCI_UPROBE_SIGNAL_WAIT_ENTRY = 14,
+    LIBQMI_CCI_UPROBE_SIGNAL_WAIT_TIMEDWAIT = 15,
+    LIBQMI_CCI_UPROBE_SIGNAL_WAIT_TIMEOUT_STORE = 16,
+    LIBQMI_CCI_UPROBE_XPORT_NEW_SERVER_ENTRY = 17,
+    LIBQMI_CCI_UPROBE_XPORT_NEW_SERVER_SERVICE = 18,
+    LIBQMI_CCI_UPROBE_XPORT_NEW_SERVER_SIGNAL = 19,
+    LIBQMI_CCI_UPROBE_XPORT_NEW_SERVER_CALLBACK_CALL = 20,
 };
 
 struct cnss_wlfw_uprobe_target_probe {
