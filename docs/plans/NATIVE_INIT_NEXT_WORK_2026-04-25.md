@@ -17737,6 +17737,79 @@ esoc0/RC1/pcie1/MDM2AP, do NOT investigate MSA until WLFW 69 appears.
   - do not continue into Wi-Fi HAL/scan/connect from V1819 unless WLFW service
     69 and `wlan0` appear and a separate connection gate is written.
 
+## V1819 publication text handoff (2026-06-03)
+
+- V1819 ran exactly one rollbackable live gate with the V1818 artifact and
+  classified whether service-locator/domain-QMI publication text appears in
+  native before service74/wlan_pd remains absent.
+
+  Evidence:
+
+  - runner:
+    `scripts/revalidation/native_wifi_publication_text_handoff_v1819.py`;
+  - source manifest:
+    `tmp/wifi/v1818-wlan-pd-publication-text-test-boot/manifest.json`;
+  - evidence:
+    `tmp/wifi/v1819-publication-text-handoff`;
+  - report:
+    `docs/reports/NATIVE_INIT_V1819_PUBLICATION_TEXT_HANDOFF_2026-06-03.md`;
+  - manifest:
+    `tmp/wifi/v1819-publication-text-handoff/manifest.json`;
+  - rollback:
+    `from-native`, `ok=True`;
+  - post-run native verification:
+    `A90 Linux init 0.9.68 (v724)`, selftest `pass=11 warn=1 fail=0`,
+    netservice disabled, `ncm0=absent`, `tcpctl=stopped`;
+  - decision:
+    `v1819-servloc-init-visible-domain-absent-rollback-pass`.
+
+  Key findings:
+
+  - publication text label:
+    `servloc-init-visible-domain-absent`;
+  - service74 raw label remains `service74-raw-absent`;
+  - PM-client label remains `pm-client-return-success`;
+  - lower handoff label remains `servnotif-klog-progress-still-uninit`;
+  - lower-state label remains `stable-mdm3-offlining`;
+  - generic service-locator text count is `2,2,2`;
+  - service-locator domain, wlan-fw, wlan-pd-domain, and qmi-server-connected
+    text counts are all `0,0,0`;
+  - last service-locator line is
+    `servloc: init_service_locator: Service locator initialized`;
+  - domain publication text positive is `False`;
+  - service180/service74/wlan_pd raw counts remain `1,1,1` / `0,0,0` /
+    `0,0,0`;
+  - lower precondition counts remain pd-mapper `0,0,0`, subsys `9,10,10`,
+    pil `5,5,5`, qmi `7,7,7`, and broad wlfw text `30,30,30`;
+  - service-notifier listener remains `uninit` with indications `0/0`;
+  - mdm3 remains `OFFLINING`, MHI absent, WLFW service 69 absent, and `wlan0`
+    absent;
+  - safety remained clean: no direct `/dev/subsys_esoc0` open, no fake-ONLINE,
+    no PMIC/GPIO/GDSC write, no Wi-Fi HAL, no scan/connect, no credentials,
+    no DHCP/routes, and no external ping.
+
+  Interpretation:
+
+  - generic kernel service locator initialization is not the missing blocker;
+  - native still lacks wlan-specific service-locator/domain-QMI publication
+    text, service74, wlan_pd, WLFW service 69, MHI, and `wlan0`;
+  - the next useful discriminator should move from broad klog text to a
+    bounded read-only QRTR/service-locator state view around wlan/fw and
+    wlan_pd publication without adding actors.
+
+  Next candidate:
+
+  - V1820 should be host-only first and compare V1819 against Android
+    service-locator/domain positive evidence to decide the next source/build
+    observer shape;
+  - likely source target after that: read-only QRTR/service-locator registry or
+    netlink/state snapshot for wlan/fw and wlan_pd services, not service
+    start/trigger actors;
+  - still do not add actors, `boot_wlan`, restart-PD, `/dev/subsys_esoc0`
+    open, fake-ONLINE, eSoC notify/BOOT_DONE, PCI rescan/bind, platform
+    unbind, PMIC/GPIO/GDSC writes, Wi-Fi HAL, scan/connect, credentials,
+    DHCP/routes, or external ping.
+
 ## V1817 lower-publication target classifier (2026-06-03)
 
 - V1817 stayed host-only and compared the V1816 native lower-publication gap
