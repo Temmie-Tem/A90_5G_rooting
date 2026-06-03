@@ -16836,3 +16836,60 @@ esoc0/RC1/pcie1/MDM2AP, do NOT investigate MSA until WLFW 69 appears.
     commit/progress vs new blocker;
   - do not open `/dev/subsys_esoc0`, start Wi-Fi HAL, scan/connect, configure
     DHCP/routes, or external ping from V1799 alone.
+
+## V1800 PM-service devnode projection source build (2026-06-03)
+
+- V1800 built a rollbackable service-object test boot that projects the two
+  V1799-proven absent PM-service candidate char nodes into the private Android
+  `/dev` tree before `pm-service` starts.
+
+  Evidence:
+
+  - build script:
+    `scripts/revalidation/build_native_init_wifi_test_boot_v1800.py`;
+  - report:
+    `docs/reports/NATIVE_INIT_V1800_PM_SERVICE_DEVNODE_PROJECTION_SOURCE_BUILD_2026-06-03.md`;
+  - manifest:
+    `tmp/wifi/v1800-pm-service-devnode-projection-test-boot/manifest.json`;
+  - boot image:
+    `tmp/wifi/v1800-pm-service-devnode-projection-test-boot/boot_linux_v1800_pm_service_devnode_projection.img`;
+  - decision:
+    `v1800-pm-service-devnode-projection-source-build-pass`;
+  - boot SHA256:
+    `d03323520529f437a6c5f9a5c1e22c4dff577ff3f5e75e0deffc10cb6ca05e95`;
+  - helper:
+    `a90_android_execns_probe v341` /
+    `61b85eb5134c89d91cc83a9c3d74e07cf12d89a7ca6e5826e510a07fae44fa6b`;
+  - init:
+    `A90 Linux init 0.9.150 (v1800-pm-service-devnode-projection)`.
+
+  New route:
+
+  - helper mode:
+    `wifi-companion-wlan-pd-service-object-devnode-projection-trigger-start-only`;
+  - setup reads `/sys/class/subsys/subsys_esoc0/dev` and
+    `/sys/class/subsys/subsys_modem/dev`, then creates private char nodes
+    `subsys_esoc0` and `subsys_modem`;
+  - node mode/owner is `0640` / `system:system`;
+  - the route does not project `esoc-0` and does not open `/dev/subsys_esoc0`;
+  - early `wifi_companion_start.private_node.subsys_esoc0.*` and
+    `wifi_companion_start.private_node.subsys_modem.*` fields record
+    pre-child private-dev status;
+  - final V1798 `wlan_pd_service_object_visible_trigger.devnode_access.*`
+    no-open observer remains present.
+
+  Safety:
+
+  - source/build-only. No live device command, flash, reboot, scan/connect,
+    credentials, DHCP/routes, external ping, `/dev/subsys_esoc0` open,
+    forced RC1, fake-ONLINE, PMIC/GPIO/GDSC write, eSoC notify, BOOT_DONE
+    spoof, PCI rescan, platform bind/unbind, restart-PD request, firmware
+    write, partition write, or BPF attach.
+
+  Next candidate:
+
+  - V1801 should run one rollbackable live gate with the V1800 artifact and
+    classify `list-commit-progress`, `projection-visible-still-fails`,
+    `projection-setup-failed`, or `safety-regression`;
+  - stop before restart-PD request, Wi-Fi HAL, scan/connect, DHCP/routes, or
+    external ping.

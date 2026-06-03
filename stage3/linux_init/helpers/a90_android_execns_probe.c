@@ -101,7 +101,7 @@
 #define SYSLOG_ACTION_READ_ALL 3
 #endif
 
-#define EXECNS_VERSION "a90_android_execns_probe v340"
+#define EXECNS_VERSION "a90_android_execns_probe v341"
 #define MAX_PATH_LEN 512
 #define MAX_CAPTURE_SIZE (1024 * 1024)
 #define MAX_LINKERCONFIG_SIZE (256 * 1024)
@@ -545,7 +545,7 @@ static void usage(FILE *out) {
             "[--cnss-surface-mode full|compact] "
             "[--service-manager-order none|before-cnss|after-cnss|after-mdm-helper-esoc-fd|after-mdm-helper-esoc-fd-with-pm-proxy|after-mdm-helper-esoc-fd-with-pm-full-contract|after-mdm-helper-esoc-fd-with-pm-full-contract-with-modem-holder|after-mdm-helper-esoc-fd-with-wifi-surface|after-mdm-helper-esoc-fd-with-wifi-surface-subsys-window] "
             "[--subsys-trigger-gate observe-only|wlfw-precondition|post-provider-no-wlfw|post-upper-surface-no-wlfw] "
-            "--mode linker-list|identity-probe|sepolicy-inventory|sepolicy-compile-proof|sepolicy-load-proof|selinux-domain-proof|cnss-start-only|cnss-userspace-readiness|wifi-companion-start-only|wifi-companion-post-sysmon-observer-start-only|wifi-companion-android-order-post-sysmon-observer-start-only|wifi-companion-wlan-pd-firmware-serve-gate-start-only|wifi-companion-wlan-pd-cnss-output-visibility-start-only|wifi-companion-wlan-pd-service-window-trigger-start-only|wifi-companion-wlan-pd-timestamped-observer-start-only|wifi-companion-wlan-pd-pm-service-window-trigger-start-only|wifi-companion-wlan-pd-service-object-visible-trigger-start-only|wifi-companion-android-order-pre-cnss-provider-observe-only|wifi-companion-service-manager-start-only|wifi-companion-vnd-service-manager-start-only|wifi-companion-qrtr-first-vnd-service-manager-start-only|wifi-companion-cnss-first-delayed-vnd-service-manager-start-only|wifi-companion-service74-gated-vnd-service-manager-start-only|wifi-companion-service74-gated-vnd-service-manager-readiness-start-only|wifi-companion-service74-gated-vnd-service-manager-cnss-retry-start-only|wifi-companion-peripheral-manager-node-parity-start-only|wifi-companion-peripheral-manager-property-contract-start-only|wifi-companion-peripheral-manager-init-contract-start-only|wifi-companion-pm-service-trigger-observer|wifi-companion-post-pm-mdm-helper-esoc-observer|wifi-companion-esoc-control-preflight|wifi-companion-esoc-engine-register-preflight|wifi-companion-esoc-req-registered-subsys-hold-preflight|wifi-companion-esoc-conditional-response-preflight|wifi-companion-esoc-img-xfer-mhi-observe|wifi-companion-pmic-soft-reset-preflight|wifi-companion-pmic-power-surface-write-gate-preflight|wifi-companion-pmic-gpiochip-devnode-open-preflight|wifi-companion-pmic-gpiochip-line-info-preflight|wifi-companion-mdm-helper-ks-image-contract-preflight|wifi-companion-mdm-helper-only-deep-capture|wifi-companion-mdm-helper-runtime-contract-capture|wifi-companion-mdm-helper-runtime-subsys-trigger-capture|wifi-companion-mdm-helper-cnss-before-subsys-trigger-capture|wifi-companion-mdm-helper-cnss-service-manager-matrix|wifi-companion-android-wifi-service-window-start-only|wifi-companion-android-wifi-service-window-subsys-trigger-capture|wifi-companion-service74-gated-peripheral-manager-cnss-retry-start-only|wifi-companion-service74-gated-peripheral-manager-cnss-retry-registry-snapshot-start-only|wifi-companion-service74-gated-peripheral-manager-vndservice-query-start-only|wifi-companion-service74-gated-peripheral-manager-vndservice-query-cnss-retry-start-only|wifi-companion-service74-gated-peripheral-manager-vndservice-query-provider-first-cnss-start-only|wifi-companion-service74-gated-android-userspace-cnss-retry-start-only|wifi-companion-service74-gated-android-userspace-cnss-retry-registry-snapshot-start-only|wifi-companion-service74-gated-vnd-service-manager-registry-snapshot-start-only|wifi-companion-service74-gated-mdm-helper-start-only|wifi-companion-service180-gated-mdm-helper-start-only|wifi-companion-sysmon-gated-mdm-helper-start-only|wifi-companion-hal-order-start-only|wifi-companion-hal-wificond-order-start-only|wifi-companion-hal-wificond-lshal-wait-samsung|wifi-companion-hal-wificond-lshal-wait-iwifi|wifi-companion-dual-hal-wificond-lshal-wait-iwifi|wifi-companion-dual-hal-iwifi-start|wifi-companion-dual-hal-wificond-lshal-then-iwifi-start|rmt-storage-start-only|property-lookup|service-manager-start-only|private-selinux-proof|wifi-hal-lshal-vintf-status-list|wifi-hal-composite-start-only|wifi-hal-composite-lshal-list|wifi-hal-composite-lshal-binderized-list|wifi-hal-composite-lshal-wait-target|wifi-surface-composite-lshal-wait-iwifi|wifi-surface-composite-lshal-wait-samsung|wifi-surface-composite-lshal-wait-samsung-ptrace|wifi-hal-composite-lshal-status-list|wifi-hal-composite-lshal-binderized-status-list|wifi-surface-composite-start-only|wifi-dual-hal-lshal-wait-iwifi|wifi-dual-hal-iwifi-start-surface|wifi-iwifi-start-surface|wifi-active-session-surface|wifi-active-session-scan-only|wifi-active-session-connect-ping|wifi-connect-tool-surface|subsys-hold-open-proof|service-notifier-listener-only "
+            "--mode linker-list|identity-probe|sepolicy-inventory|sepolicy-compile-proof|sepolicy-load-proof|selinux-domain-proof|cnss-start-only|cnss-userspace-readiness|wifi-companion-start-only|wifi-companion-post-sysmon-observer-start-only|wifi-companion-android-order-post-sysmon-observer-start-only|wifi-companion-wlan-pd-firmware-serve-gate-start-only|wifi-companion-wlan-pd-cnss-output-visibility-start-only|wifi-companion-wlan-pd-service-window-trigger-start-only|wifi-companion-wlan-pd-timestamped-observer-start-only|wifi-companion-wlan-pd-pm-service-window-trigger-start-only|wifi-companion-wlan-pd-service-object-visible-trigger-start-only|wifi-companion-wlan-pd-service-object-devnode-projection-trigger-start-only|wifi-companion-android-order-pre-cnss-provider-observe-only|wifi-companion-service-manager-start-only|wifi-companion-vnd-service-manager-start-only|wifi-companion-qrtr-first-vnd-service-manager-start-only|wifi-companion-cnss-first-delayed-vnd-service-manager-start-only|wifi-companion-service74-gated-vnd-service-manager-start-only|wifi-companion-service74-gated-vnd-service-manager-readiness-start-only|wifi-companion-service74-gated-vnd-service-manager-cnss-retry-start-only|wifi-companion-peripheral-manager-node-parity-start-only|wifi-companion-peripheral-manager-property-contract-start-only|wifi-companion-peripheral-manager-init-contract-start-only|wifi-companion-pm-service-trigger-observer|wifi-companion-post-pm-mdm-helper-esoc-observer|wifi-companion-esoc-control-preflight|wifi-companion-esoc-engine-register-preflight|wifi-companion-esoc-req-registered-subsys-hold-preflight|wifi-companion-esoc-conditional-response-preflight|wifi-companion-esoc-img-xfer-mhi-observe|wifi-companion-pmic-soft-reset-preflight|wifi-companion-pmic-power-surface-write-gate-preflight|wifi-companion-pmic-gpiochip-devnode-open-preflight|wifi-companion-pmic-gpiochip-line-info-preflight|wifi-companion-mdm-helper-ks-image-contract-preflight|wifi-companion-mdm-helper-only-deep-capture|wifi-companion-mdm-helper-runtime-contract-capture|wifi-companion-mdm-helper-runtime-subsys-trigger-capture|wifi-companion-mdm-helper-cnss-before-subsys-trigger-capture|wifi-companion-mdm-helper-cnss-service-manager-matrix|wifi-companion-android-wifi-service-window-start-only|wifi-companion-android-wifi-service-window-subsys-trigger-capture|wifi-companion-service74-gated-peripheral-manager-cnss-retry-start-only|wifi-companion-service74-gated-peripheral-manager-cnss-retry-registry-snapshot-start-only|wifi-companion-service74-gated-peripheral-manager-vndservice-query-start-only|wifi-companion-service74-gated-peripheral-manager-vndservice-query-cnss-retry-start-only|wifi-companion-service74-gated-peripheral-manager-vndservice-query-provider-first-cnss-start-only|wifi-companion-service74-gated-android-userspace-cnss-retry-start-only|wifi-companion-service74-gated-android-userspace-cnss-retry-registry-snapshot-start-only|wifi-companion-service74-gated-vnd-service-manager-registry-snapshot-start-only|wifi-companion-service74-gated-mdm-helper-start-only|wifi-companion-service180-gated-mdm-helper-start-only|wifi-companion-sysmon-gated-mdm-helper-start-only|wifi-companion-hal-order-start-only|wifi-companion-hal-wificond-order-start-only|wifi-companion-hal-wificond-lshal-wait-samsung|wifi-companion-hal-wificond-lshal-wait-iwifi|wifi-companion-dual-hal-wificond-lshal-wait-iwifi|wifi-companion-dual-hal-iwifi-start|wifi-companion-dual-hal-wificond-lshal-then-iwifi-start|rmt-storage-start-only|property-lookup|service-manager-start-only|private-selinux-proof|wifi-hal-lshal-vintf-status-list|wifi-hal-composite-start-only|wifi-hal-composite-lshal-list|wifi-hal-composite-lshal-binderized-list|wifi-hal-composite-lshal-wait-target|wifi-surface-composite-lshal-wait-iwifi|wifi-surface-composite-lshal-wait-samsung|wifi-surface-composite-lshal-wait-samsung-ptrace|wifi-hal-composite-lshal-status-list|wifi-hal-composite-lshal-binderized-status-list|wifi-surface-composite-start-only|wifi-dual-hal-lshal-wait-iwifi|wifi-dual-hal-iwifi-start-surface|wifi-iwifi-start-surface|wifi-active-session-surface|wifi-active-session-scan-only|wifi-active-session-connect-ping|wifi-connect-tool-surface|subsys-hold-open-proof|service-notifier-listener-only "
             "[v27 binderized query runs: /system/bin/lshal list --types=binderized --neat] "
             "[v28 target query runs: /system/bin/lshal wait <fqinstance>] "
             "[v29 status query runs: /system/bin/lshal list --types=binderized,vintf --neat -V -S -i -p -e -c] "
@@ -675,8 +675,13 @@ static bool is_wifi_companion_wlan_pd_pm_service_window_trigger_mode(const char 
     return streq(mode, "wifi-companion-wlan-pd-pm-service-window-trigger-start-only");
 }
 
+static bool is_wifi_companion_wlan_pd_service_object_devnode_projection_trigger_mode(const char *mode) {
+    return streq(mode, "wifi-companion-wlan-pd-service-object-devnode-projection-trigger-start-only");
+}
+
 static bool is_wifi_companion_wlan_pd_service_object_visible_trigger_mode(const char *mode) {
-    return streq(mode, "wifi-companion-wlan-pd-service-object-visible-trigger-start-only");
+    return streq(mode, "wifi-companion-wlan-pd-service-object-visible-trigger-start-only") ||
+           is_wifi_companion_wlan_pd_service_object_devnode_projection_trigger_mode(mode);
 }
 
 static bool is_wifi_companion_service_manager_start_only_mode(const char *mode) {
@@ -8972,6 +8977,59 @@ static int materialize_peripheral_manager_node_parity(const struct config *cfg,
                                                  1001,
                                                  major_no,
                                                  0,
+                                                 error_buf,
+                                                 error_size);
+}
+
+static int materialize_wlan_pd_service_object_devnode_projection(const struct config *cfg,
+                                                                 const struct paths *paths,
+                                                                 char *error_buf,
+                                                                 size_t error_size) {
+    char dev_text[64];
+    unsigned int major_no = 0;
+    unsigned int minor_no = 0;
+
+    if (!is_wifi_companion_wlan_pd_service_object_devnode_projection_trigger_mode(cfg->mode)) {
+        return 0;
+    }
+    if (mkdir_p(paths->dev, 0755) < 0) {
+        snprintf(error_buf, error_size, "mkdir dev for wlan-pd service-object projection: %s", strerror(errno));
+        return -1;
+    }
+    if (parse_dev_major_minor("/sys/class/subsys/subsys_esoc0/dev",
+                              &major_no,
+                              &minor_no,
+                              dev_text,
+                              sizeof(dev_text)) < 0) {
+        snprintf(error_buf, error_size, "parse subsys_esoc0 dev: %s", strerror(errno));
+        return -1;
+    }
+    if (materialize_private_android_char_node(paths->dev,
+                                              "subsys_esoc0",
+                                              0640,
+                                              A90_AID_SYSTEM,
+                                              A90_AID_SYSTEM,
+                                              major_no,
+                                              minor_no,
+                                              error_buf,
+                                              error_size) < 0) {
+        return -1;
+    }
+    if (parse_dev_major_minor("/sys/class/subsys/subsys_modem/dev",
+                              &major_no,
+                              &minor_no,
+                              dev_text,
+                              sizeof(dev_text)) < 0) {
+        snprintf(error_buf, error_size, "parse subsys_modem dev: %s", strerror(errno));
+        return -1;
+    }
+    return materialize_private_android_char_node(paths->dev,
+                                                 "subsys_modem",
+                                                 0640,
+                                                 A90_AID_SYSTEM,
+                                                 A90_AID_SYSTEM,
+                                                 major_no,
+                                                 minor_no,
                                                  error_buf,
                                                  error_size);
 }
@@ -35431,6 +35489,8 @@ static int run_wifi_companion_start_only_guarded(const struct config *cfg,
         is_wifi_companion_cnss_first_delayed_vnd_service_manager_start_only_mode(cfg->mode);
     const bool wlan_pd_service_object_visible_trigger =
         is_wifi_companion_wlan_pd_service_object_visible_trigger_mode(cfg->mode);
+    const bool wlan_pd_service_object_devnode_projection =
+        is_wifi_companion_wlan_pd_service_object_devnode_projection_trigger_mode(cfg->mode);
     const bool peripheral_manager_init_contract =
         is_wifi_companion_peripheral_manager_init_contract_start_only_mode(cfg->mode);
     const bool peripheral_manager_property_contract =
@@ -36030,10 +36090,12 @@ static int run_wifi_companion_start_only_guarded(const struct config *cfg,
         return -1;
     }
     if ((peripheral_manager_node_parity ||
+         wlan_pd_service_object_devnode_projection ||
          android_order_pre_cnss_provider_observer) &&
         (append_private_android_node_status(stdout_buf, paths, "subsys_modem", "subsys_modem") < 0 ||
          append_private_android_node_status(stdout_buf, paths, "subsys_esoc0", "subsys_esoc0") < 0 ||
-         append_private_android_node_status(stdout_buf, paths, "esoc-0", "esoc_0") < 0)) {
+         (!wlan_pd_service_object_devnode_projection &&
+          append_private_android_node_status(stdout_buf, paths, "esoc-0", "esoc_0") < 0))) {
         return -1;
     }
     if (append_qipcrtr_protocol_summary(stdout_buf, "wifi_companion_start.net_before") < 0) {
@@ -45289,6 +45351,9 @@ static int setup_namespace(const struct config *cfg,
         return -1;
     }
     if (materialize_peripheral_manager_node_parity(cfg, paths, error_buf, error_size) < 0) {
+        return -1;
+    }
+    if (materialize_wlan_pd_service_object_devnode_projection(cfg, paths, error_buf, error_size) < 0) {
         return -1;
     }
     if (materialize_pm_service_modem_detect_surface(cfg, paths, error_buf, error_size) < 0) {
