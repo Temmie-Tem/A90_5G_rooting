@@ -17745,6 +17745,80 @@ esoc0/RC1/pcie1/MDM2AP, do NOT investigate MSA until WLFW 69 appears.
   - do not continue into Wi-Fi HAL/scan/connect from V1822 unless WLFW service
     69 and `wlan0` appear and a separate connection gate is written.
 
+## V1822 QRTR registry handoff (2026-06-03)
+
+- V1822 ran exactly one rollbackable live gate with the V1821 artifact and
+  classified whether read-only QRTR/service-locator registry paths expose
+  wlan/fw or wlan_pd while service74/wlan_pd remain absent.
+
+  Evidence:
+
+  - runner:
+    `scripts/revalidation/native_wifi_qrtr_registry_handoff_v1822.py`;
+  - source manifest:
+    `tmp/wifi/v1821-qrtr-servloc-registry-test-boot/manifest.json`;
+  - evidence:
+    `tmp/wifi/v1822-qrtr-registry-handoff`;
+  - report:
+    `docs/reports/NATIVE_INIT_V1822_QRTR_REGISTRY_HANDOFF_2026-06-03.md`;
+  - manifest:
+    `tmp/wifi/v1822-qrtr-registry-handoff/manifest.json`;
+  - rollback:
+    `from-native`, `ok=True`;
+  - post-run native verification:
+    `A90 Linux init 0.9.68 (v724)`, selftest `pass=11 warn=1 fail=0`,
+    netservice disabled, `ncm0=absent`, `tcpctl=stopped`;
+  - decision:
+    `v1822-qrtr-registry-unreadable-with-qmi-context-rollback-pass`.
+
+  Key findings:
+
+  - QRTR registry label:
+    `qrtr-registry-unreadable-with-qmi-context`;
+  - read-only registry paths were not readable:
+    `/proc/net/qrtr`, `/sys/kernel/debug/qrtr/nodes`,
+    `/sys/kernel/debug/qrtr/services`, and
+    `/sys/kernel/debug/msm_ipc_router/dump` all returned open counts
+    `0,0,0`;
+  - the route explicitly reported `no_qrtr_lookup_send=True` and
+    `no_service_start=True`;
+  - generic service-locator klog text remains `2,2,2`, but service-locator
+    domain, wlan-fw, wlan-pd-domain, and qmi-server-connected text remain
+    `0,0,0`;
+  - service180/service74/wlan_pd raw counts remain `1,1,1` / `0,0,0` /
+    `0,0,0`;
+  - lower precondition counts remain pd-mapper `0,0,0`, subsys `9,10,10`,
+    pil `5,5,5`, qmi `7,7,7`, and broad wlfw text `30,30,30`;
+  - service-notifier listener remains `uninit` with indications `0/0`;
+  - mdm3 remains `OFFLINING`, MHI absent, WLFW service 69 absent, and `wlan0`
+    absent;
+  - safety remained clean: no QRTR lookup send, no extra service start, no
+    direct `/dev/subsys_esoc0` open, no fake-ONLINE, no PMIC/GPIO/GDSC write,
+    no Wi-Fi HAL, no scan/connect, no credentials, no DHCP/routes, and no
+    external ping.
+
+  Interpretation:
+
+  - native still reaches sysmon/QMI, service180, PM-client success, and generic
+    service-locator init, but there is no readable proc/debugfs QRTR registry
+    surface in this native boot;
+  - this falsifies `/proc/net/qrtr` or debugfs QRTR registry as the next
+    available read-only surface on native-init;
+  - the next discriminator should stay host-only first and decide whether a
+    passive AF_QIPCRTR socket/protocol-state observer is justified without
+    sending lookup packets.
+
+  Next candidate:
+
+  - V1823 should be host-only: classify V1822 alongside the existing
+    `wifi_companion_start.net_*` qipcrtr protocol summaries to decide whether
+    the next source/build target can be a passive socket/protocol-state
+    observer;
+  - still do not send QRTR lookup packets, add service start/trigger actors,
+    `boot_wlan`, restart-PD, `/dev/subsys_esoc0` open, fake-ONLINE, eSoC
+    notify/BOOT_DONE, PCI rescan/bind, platform unbind, PMIC/GPIO/GDSC writes,
+    Wi-Fi HAL, scan/connect, credentials, DHCP/routes, or external ping.
+
 ## V1820 servloc domain gap classifier (2026-06-03)
 
 - V1820 stayed host-only and compared the V1819 native
