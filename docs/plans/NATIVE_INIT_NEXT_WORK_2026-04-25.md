@@ -17135,3 +17135,70 @@ esoc0/RC1/pcie1/MDM2AP, do NOT investigate MSA until WLFW 69 appears.
     eSoC notify/BOOT_DONE, PCI rescan/bind, platform unbind, PMIC/GPIO/GDSC
     writes, `boot_wlan`, restart-PD, Wi-Fi HAL, scan/connect, DHCP/routes, and
     external ping from V1804 alone.
+
+## V1805 post-PM lower-state observer source build (2026-06-03)
+
+- V1805 built a rollbackable test boot that keeps the V1800 private-dev
+  PM-service projection route and adds a compact no-write lower-state sampler
+  after the PM vote boundary.
+
+  Evidence:
+
+  - build wrapper:
+    `scripts/revalidation/build_native_init_wifi_test_boot_v1805.py`;
+  - report:
+    `docs/reports/NATIVE_INIT_V1805_POST_PM_LOWER_STATE_OBSERVER_SOURCE_BUILD_2026-06-03.md`;
+  - manifest:
+    `tmp/wifi/v1805-post-pm-lower-state-observer-test-boot/manifest.json`;
+  - boot image:
+    `tmp/wifi/v1805-post-pm-lower-state-observer-test-boot/boot_linux_v1805_post_pm_lower_state_observer.img`;
+  - decision:
+    `v1805-post-pm-lower-state-observer-source-build-pass`;
+  - boot SHA256:
+    `27a70ec712913b8ade7b4b7fd683871c9ee276116207c52bc59ac8ad2a00b74d`;
+  - helper marker/SHA256:
+    `a90_android_execns_probe v342` /
+    `387a7df01f5dd93bf2fe3e1dfc10fe93c5c3c0900c530bc3eaaa5a4dd471a995`;
+  - init:
+    `A90 Linux init 0.9.151 (v1805-post-pm-lower-state-observer)`.
+
+  Key changes:
+
+  - added helper mode
+    `wifi-companion-wlan-pd-post-pm-lower-state-observer-start-only`;
+  - retained V1800 private Android `/dev` projection for only `subsys_esoc0`
+    and `subsys_modem`;
+  - added `wlan_pd_post_pm_lower_state_observer.after_holder_start.*` immediate
+    compact read-only sample;
+  - added `wlan_pd_post_pm_lower_state_observer.post_listener_window.*` with
+    `12` samples at `500 ms`;
+  - sampled only read-only state: mss/mdm3 state and crash counts, mdm
+    status/errfatal IRQ totals, PCI/MHI/rpmsg/msm_subsys counts, MHI pipe
+    presence, and `wlan0` presence;
+  - retained hard stops: no `esoc-0` projection, no `/dev/subsys_esoc0` open,
+    no fake-ONLINE, no eSoC notify/BOOT_DONE, no PCI rescan/bind, no platform
+    unbind, no PMIC/GPIO/GDSC writes, no Wi-Fi HAL, no scan/connect, no
+    DHCP/routes, no external ping.
+
+  Interpretation:
+
+  - V1805 is source/build-only; it does not prove lower-state progress yet;
+  - the artifact is ready for one rollbackable live discriminator that decides
+    whether post-PM lower-state sampling shows mdm3/IRQ/MHI/WLFW progress or a
+    stable `mdm3=OFFLINING` stall.
+
+  Safety:
+
+  - host-side source/build only. No live device command, flash, reboot,
+    property staging on device, `/dev/subsys_esoc0` open, `boot_wlan`,
+    restart-PD request, Wi-Fi HAL, scan/connect, credentials, DHCP/routes, or
+    external ping.
+
+  Next candidate:
+
+  - V1806 should run one rollbackable live gate with the V1805 artifact, then
+    roll back to `stage3/boot_linux_v724.img` and verify native v724 selftest
+    `fail=0`;
+  - stop at the first discriminator: lower progress, stable mdm3 OFFLINING, or
+    safety regression. Do not continue into Wi-Fi HAL/scan/connect from the
+    V1805 source-build result alone.

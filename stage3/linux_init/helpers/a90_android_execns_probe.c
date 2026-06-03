@@ -101,7 +101,7 @@
 #define SYSLOG_ACTION_READ_ALL 3
 #endif
 
-#define EXECNS_VERSION "a90_android_execns_probe v341"
+#define EXECNS_VERSION "a90_android_execns_probe v342"
 #define MAX_PATH_LEN 512
 #define MAX_CAPTURE_SIZE (1024 * 1024)
 #define MAX_LINKERCONFIG_SIZE (256 * 1024)
@@ -676,7 +676,12 @@ static bool is_wifi_companion_wlan_pd_pm_service_window_trigger_mode(const char 
 }
 
 static bool is_wifi_companion_wlan_pd_service_object_devnode_projection_trigger_mode(const char *mode) {
-    return streq(mode, "wifi-companion-wlan-pd-service-object-devnode-projection-trigger-start-only");
+    return streq(mode, "wifi-companion-wlan-pd-service-object-devnode-projection-trigger-start-only") ||
+           streq(mode, "wifi-companion-wlan-pd-post-pm-lower-state-observer-start-only");
+}
+
+static bool is_wifi_companion_wlan_pd_post_pm_lower_state_observer_mode(const char *mode) {
+    return streq(mode, "wifi-companion-wlan-pd-post-pm-lower-state-observer-start-only");
 }
 
 static bool is_wifi_companion_wlan_pd_service_object_visible_trigger_mode(const char *mode) {
@@ -15065,6 +15070,16 @@ static void read_state_or_error(const char *path, char *out, size_t out_size) {
     snprintf(out, out_size, "error:%s", strerror(saved_errno));
 }
 
+static int dir_count_or_minus_one(const char *path) {
+    int count = -1;
+    bool matched = false;
+
+    if (count_dir_entries_matching(path, NULL, &count, &matched) < 0) {
+        return -1;
+    }
+    return count;
+}
+
 struct mdm_status_irq_snapshot {
     bool present;
     bool parsed;
@@ -15172,6 +15187,142 @@ static struct mdm_status_irq_snapshot collect_mdm_status_irq_snapshot(void) {
 
 static struct mdm_status_irq_snapshot collect_mdm_errfatal_irq_snapshot(void) {
     return collect_mdm_irq_snapshot_by_name("mdm errfatal");
+}
+
+static int append_wlan_pd_post_pm_lower_state_sample(struct buffer *buf,
+                                                     const char *phase,
+                                                     int sample_index) {
+    char mss_state[64];
+    char mss_crash_count[64];
+    char mdm3_state[64];
+    char mdm3_crash_count[64];
+    char label[96];
+    struct mdm_status_irq_snapshot mdm_status = collect_mdm_status_irq_snapshot();
+    struct mdm_status_irq_snapshot mdm_errfatal = collect_mdm_errfatal_irq_snapshot();
+    int pci_devices = dir_count_or_minus_one("/sys/bus/pci/devices");
+    int mhi_devices = dir_count_or_minus_one("/sys/bus/mhi/devices");
+    int rpmsg_devices = dir_count_or_minus_one("/sys/bus/rpmsg/devices");
+    int msm_subsys_devices = dir_count_or_minus_one("/sys/bus/msm_subsys/devices");
+    int mhi_pipe_exists = access("/dev/mhi_0305_01.01.00_pipe_10", F_OK) == 0 ? 1 : 0;
+    int wlan0_exists = access("/sys/class/net/wlan0", F_OK) == 0 ? 1 : 0;
+
+    read_state_or_error("/sys/devices/platform/soc/4080000.qcom,mss/subsys0/state",
+                        mss_state,
+                        sizeof(mss_state));
+    read_state_or_error("/sys/devices/platform/soc/4080000.qcom,mss/subsys0/crash_count",
+                        mss_crash_count,
+                        sizeof(mss_crash_count));
+    read_state_or_error("/sys/devices/platform/soc/soc:qcom,mdm3/subsys9/state",
+                        mdm3_state,
+                        sizeof(mdm3_state));
+    read_state_or_error("/sys/devices/platform/soc/soc:qcom,mdm3/subsys9/crash_count",
+                        mdm3_crash_count,
+                        sizeof(mdm3_crash_count));
+    if (snprintf(label,
+                 sizeof(label),
+                 "%s.sample_%02d",
+                 phase,
+                 sample_index) >= (int)sizeof(label)) {
+        return append_format(buf,
+                             "wlan_pd_post_pm_lower_state_observer.%s.error=label-too-long\n",
+                             phase);
+    }
+    return append_format(buf,
+                         "wlan_pd_post_pm_lower_state_observer.%s.begin=1\n"
+                         "wlan_pd_post_pm_lower_state_observer.%s.monotonic_ms=%ld\n"
+                         "wlan_pd_post_pm_lower_state_observer.%s.mss_state=%s\n"
+                         "wlan_pd_post_pm_lower_state_observer.%s.mss_crash_count=%s\n"
+                         "wlan_pd_post_pm_lower_state_observer.%s.mdm3_state=%s\n"
+                         "wlan_pd_post_pm_lower_state_observer.%s.mdm3_crash_count=%s\n"
+                         "wlan_pd_post_pm_lower_state_observer.%s.mdm_status_irq_present=%d\n"
+                         "wlan_pd_post_pm_lower_state_observer.%s.mdm_status_irq_parsed=%d\n"
+                         "wlan_pd_post_pm_lower_state_observer.%s.mdm_status_irq_total=%lu\n"
+                         "wlan_pd_post_pm_lower_state_observer.%s.mdm_errfatal_irq_present=%d\n"
+                         "wlan_pd_post_pm_lower_state_observer.%s.mdm_errfatal_irq_parsed=%d\n"
+                         "wlan_pd_post_pm_lower_state_observer.%s.mdm_errfatal_irq_total=%lu\n"
+                         "wlan_pd_post_pm_lower_state_observer.%s.pci_device_count=%d\n"
+                         "wlan_pd_post_pm_lower_state_observer.%s.mhi_device_count=%d\n"
+                         "wlan_pd_post_pm_lower_state_observer.%s.rpmsg_device_count=%d\n"
+                         "wlan_pd_post_pm_lower_state_observer.%s.msm_subsys_device_count=%d\n"
+                         "wlan_pd_post_pm_lower_state_observer.%s.mhi_pipe_exists=%d\n"
+                         "wlan_pd_post_pm_lower_state_observer.%s.wlan0_exists=%d\n"
+                         "wlan_pd_post_pm_lower_state_observer.%s.no_esoc0_open=1\n"
+                         "wlan_pd_post_pm_lower_state_observer.%s.no_fake_online=1\n"
+                         "wlan_pd_post_pm_lower_state_observer.%s.no_pmic_gpio_gdsc_write=1\n"
+                         "wlan_pd_post_pm_lower_state_observer.%s.end=1\n",
+                         label,
+                         label,
+                         monotonic_ms(),
+                         label,
+                         mss_state,
+                         label,
+                         mss_crash_count,
+                         label,
+                         mdm3_state,
+                         label,
+                         mdm3_crash_count,
+                         label,
+                         mdm_status.present ? 1 : 0,
+                         label,
+                         mdm_status.parsed ? 1 : 0,
+                         label,
+                         mdm_status.count_total,
+                         label,
+                         mdm_errfatal.present ? 1 : 0,
+                         label,
+                         mdm_errfatal.parsed ? 1 : 0,
+                         label,
+                         mdm_errfatal.count_total,
+                         label,
+                         pci_devices,
+                         label,
+                         mhi_devices,
+                         label,
+                         rpmsg_devices,
+                         label,
+                         msm_subsys_devices,
+                         label,
+                         mhi_pipe_exists,
+                         label,
+                         wlan0_exists,
+                         label,
+                         label,
+                         label,
+                         label);
+}
+
+static int append_wlan_pd_post_pm_lower_state_observer(struct buffer *buf,
+                                                       const char *phase,
+                                                       int sample_count,
+                                                       int interval_ms) {
+    if (append_format(buf,
+                      "wlan_pd_post_pm_lower_state_observer.%s.begin=1\n"
+                      "wlan_pd_post_pm_lower_state_observer.%s.sample_count=%d\n"
+                      "wlan_pd_post_pm_lower_state_observer.%s.interval_ms=%d\n"
+                      "wlan_pd_post_pm_lower_state_observer.%s.no_esoc0_open=1\n"
+                      "wlan_pd_post_pm_lower_state_observer.%s.no_fake_online=1\n"
+                      "wlan_pd_post_pm_lower_state_observer.%s.no_pmic_gpio_gdsc_write=1\n",
+                      phase,
+                      phase,
+                      sample_count,
+                      phase,
+                      interval_ms,
+                      phase,
+                      phase,
+                      phase) < 0) {
+        return -1;
+    }
+    for (int i = 0; i < sample_count; i++) {
+        if (i > 0 && interval_ms > 0) {
+            usleep((useconds_t)interval_ms * 1000U);
+        }
+        if (append_wlan_pd_post_pm_lower_state_sample(buf, phase, i) < 0) {
+            return -1;
+        }
+    }
+    return append_format(buf,
+                         "wlan_pd_post_pm_lower_state_observer.%s.end=1\n",
+                         phase);
 }
 
 static bool line_contains_any(const char *line,
@@ -35491,6 +35642,8 @@ static int run_wifi_companion_start_only_guarded(const struct config *cfg,
         is_wifi_companion_wlan_pd_service_object_visible_trigger_mode(cfg->mode);
     const bool wlan_pd_service_object_devnode_projection =
         is_wifi_companion_wlan_pd_service_object_devnode_projection_trigger_mode(cfg->mode);
+    const bool wlan_pd_post_pm_lower_state_observer =
+        is_wifi_companion_wlan_pd_post_pm_lower_state_observer_mode(cfg->mode);
     const bool peripheral_manager_init_contract =
         is_wifi_companion_peripheral_manager_init_contract_start_only_mode(cfg->mode);
     const bool peripheral_manager_property_contract =
@@ -35983,6 +36136,7 @@ static int run_wifi_companion_start_only_guarded(const struct config *cfg,
                       "wifi_companion_start.android_pre_cnss_provider_observe_only=%d\n"
                       "wifi_companion_start.wlan_pd_firmware_serve_gate.enabled=%d\n"
                       "wifi_companion_start.wlan_pd_firmware_serve_gate.subsys_modem_holder_planned=%d\n"
+                      "wifi_companion_start.wlan_pd_post_pm_lower_state_observer.enabled=%d\n"
                       "wifi_companion_start.wlan_pd_cnss_output_visibility.enabled=%d\n"
                       "wifi_companion_start.subsys_esoc0_manual_open_attempted=0\n"
                       "wifi_companion_start.registry_snapshot.enabled=%d\n",
@@ -36010,6 +36164,7 @@ static int run_wifi_companion_start_only_guarded(const struct config *cfg,
                       android_order_pre_cnss_provider_observer ? 1 : 0,
                       wlan_pd_firmware_serve_gate ? 1 : 0,
                       wlan_pd_firmware_serve_gate ? 1 : 0,
+                      wlan_pd_post_pm_lower_state_observer ? 1 : 0,
                       wlan_pd_cnss_output_visibility ? 1 : 0,
                       service74_gated_registry_capture ? 1 : 0) < 0 ||
         append_format(stdout_buf,
@@ -36648,8 +36803,27 @@ static int run_wifi_companion_start_only_guarded(const struct config *cfg,
         stop_property_service_shim(&property_shim, paths, stdout_buf);
         return -1;
     }
+    if (wlan_pd_post_pm_lower_state_observer &&
+        append_wlan_pd_post_pm_lower_state_sample(stdout_buf,
+                                                  "after_holder_start",
+                                                  0) < 0) {
+        stop_wlan_pd_modem_holder(paths, stdout_buf, &wlan_pd_holder);
+        composite_cleanup_children(children, active_child_count, stdout_buf, stderr_buf);
+        stop_property_service_shim(&property_shim, paths, stdout_buf);
+        return -1;
+    }
     if (cfg->allow_service_notifier_listener_probe &&
         append_companion_service_notifier_listener_probe(stdout_buf, cfg) < 0) {
+        stop_wlan_pd_modem_holder(paths, stdout_buf, &wlan_pd_holder);
+        composite_cleanup_children(children, active_child_count, stdout_buf, stderr_buf);
+        stop_property_service_shim(&property_shim, paths, stdout_buf);
+        return -1;
+    }
+    if (wlan_pd_post_pm_lower_state_observer &&
+        append_wlan_pd_post_pm_lower_state_observer(stdout_buf,
+                                                    "post_listener_window",
+                                                    12,
+                                                    500) < 0) {
         stop_wlan_pd_modem_holder(paths, stdout_buf, &wlan_pd_holder);
         composite_cleanup_children(children, active_child_count, stdout_buf, stderr_buf);
         stop_property_service_shim(&property_shim, paths, stdout_buf);
