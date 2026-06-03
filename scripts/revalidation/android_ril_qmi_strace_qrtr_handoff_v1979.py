@@ -775,7 +775,7 @@ def analyze_pulled_evidence(store: v1934.EvidenceStore) -> dict[str, Any]:
     attribution_text = read_file(evidence_dir / "libqmi-strace-qrtr.txt")
     focus_text = read_file(evidence_dir / "process-census-live.txt")
     task_text = read_file(evidence_dir / "process-task-map-live.txt")
-    qrtr_text = read_file(evidence_dir / "qrtr-lookup-matrix.txt")
+    qrtr_text = read_file(evidence_dir / "qrtr-lookup-matrix.txt", limit=32_000_000)
     dmesg_unfiltered = read_file(evidence_dir / "dmesg-unfiltered.txt", limit=12_000_000)
     dmesg = analysis.get("dmesg") or {}
     wlan_pd_time = dmesg.get("wlan_pd_indication_time_s")
