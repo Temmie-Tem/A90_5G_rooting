@@ -18367,6 +18367,75 @@ esoc0/RC1/pcie1/MDM2AP, do NOT investigate MSA until WLFW 69 appears.
   - stop after the V1831 label and do not proceed to Wi-Fi HAL/scan/connect
     unless WLFW service 69 and `wlan0` appear.
 
+## V1831 QIPCRTR local-node bind handoff (2026-06-03)
+
+- V1831 ran exactly one rollbackable live gate with the V1830 artifact and
+  classified whether observed-local-node bind allocates a local QRTR endpoint
+  without lookup/control traffic.
+
+  Evidence:
+
+  - runner:
+    `scripts/revalidation/native_wifi_qipcrtr_local_node_bind_handoff_v1831.py`;
+  - source manifest:
+    `tmp/wifi/v1830-qipcrtr-local-node-bind-test-boot/manifest.json`;
+  - evidence:
+    `tmp/wifi/v1831-qipcrtr-local-node-bind-handoff`;
+  - report:
+    `docs/reports/NATIVE_INIT_V1831_QIPCRTR_LOCAL_NODE_BIND_HANDOFF_2026-06-03.md`;
+  - manifest:
+    `tmp/wifi/v1831-qipcrtr-local-node-bind-handoff/manifest.json`;
+  - rollback:
+    `from-native`, `ok=True`;
+  - post-run native verification:
+    `A90 Linux init 0.9.68 (v724)`, selftest `pass=11 warn=1 fail=0`;
+  - decision:
+    `v1831-qipcrtr-local-node-bind-gets-local-port-passive-rollback-pass`.
+
+  Key findings:
+
+  - QIPCRTR local-node bind label:
+    `qipcrtr-local-node-bind-gets-local-port-passive`;
+  - AF_QIPCRTR/SOCK_DGRAM open succeeded and pre-bind `getsockname` returned
+    node/port `1/0`;
+  - bind request family/node/port was `42/1/0`;
+  - bind succeeded with rc `0`;
+  - post-bind `getsockname` returned family/node/port `42/1/24246`;
+  - close rc was `0`;
+  - protocol socket counts still remained `0/0/0` before open, while bound,
+    and after close;
+  - explicit non-actions remained `no_connect=1`, `no_send=1`,
+    `no_qrtr_lookup_send=1`, `no_qrtr_control_payload=1`, and
+    `no_service_start=1`;
+  - QRTR registry files remained unreadable, service74/wlan_pd stayed absent,
+    mdm3 stayed `OFFLINING`, and WLFW service 69 plus `wlan0` stayed absent;
+  - safety remained clean: no connect, send, QRTR lookup/control packet,
+    service start, direct `/dev/subsys_esoc0` open, fake-ONLINE,
+    PMIC/GPIO/GDSC write, Wi-Fi HAL, scan/connect, credentials, DHCP/routes,
+    or external ping.
+
+  Interpretation:
+
+  - observed-local-node bind is the first successful native QRTR endpoint
+    allocation in this path;
+  - the endpoint allocation alone does not publish service74/wlan_pd and does
+    not make WLFW service 69 or `wlan0` appear;
+  - the next bounded question is whether a bound, no-send QRTR socket receives
+    any unsolicited service/control events during a short passive read window;
+  - Wi-Fi HAL, scan/connect, credentials, DHCP/routes, and external ping remain
+    invalid because WLFW service 69 and `wlan0` are absent.
+
+  Next candidate:
+
+  - V1832 should be host-only first: classify V1831 and decide whether the next
+    source/build target can add a passive bound-socket poll/recv observer with
+    no connect, no send, no service lookup, no service start, and no QRTR
+    control payload;
+  - if passive recv is not justified, stop QRTR socket work and choose another
+    lower publication surface;
+  - do not continue into Wi-Fi HAL/scan/connect from V1832 unless WLFW service
+    69 and `wlan0` appear and a separate connection gate is written.
+
 ## V1820 servloc domain gap classifier (2026-06-03)
 
 - V1820 stayed host-only and compared the V1819 native
