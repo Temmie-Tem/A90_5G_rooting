@@ -101,7 +101,7 @@
 #define SYSLOG_ACTION_READ_ALL 3
 #endif
 
-#define EXECNS_VERSION "a90_android_execns_probe v354"
+#define EXECNS_VERSION "a90_android_execns_probe v355"
 #define MAX_PATH_LEN 512
 #define MAX_CAPTURE_SIZE (1024 * 1024)
 #define MAX_LINKERCONFIG_SIZE (256 * 1024)
@@ -12007,7 +12007,7 @@ struct cnss_nonlog_maps_summary {
 #define A90_CNSS_PERIPHERAL_UPROBE_TARGET_COUNT 3
 #define A90_CNSS_PERIPHERAL_UPROBE_EVENT_COUNT 25
 #define A90_PM_SERVICE_UPROBE_TARGET_COUNT 3
-#define A90_PM_SERVICE_UPROBE_EVENT_COUNT 28
+#define A90_PM_SERVICE_UPROBE_EVENT_COUNT 40
 
 struct cnss_wlfw_uprobe_event_spec {
     const char *name;
@@ -12218,6 +12218,18 @@ static const struct pm_service_uprobe_event_spec pm_service_uprobe_events[A90_PM
     { "pm_service_add_peripheral_init_fail", "pm_service_add_peripheral_init_fail", 0x668cULL, "name=+0(%x21):string devnode=+0(%x25):string" },
     { "pm_service_add_peripheral_list_commit", "pm_service_add_peripheral_list_commit", 0x6758ULL, NULL },
     { "pm_service_pre_binder_init_done", "pm_service_pre_binder_init_done", 0x78d4ULL, NULL },
+    { "pm_service_ack_impl_entry", "pm_service_ack_impl_entry", 0x63f4ULL, "handle=%x1 state=%x2" },
+    { "pm_service_ack_impl_match_dispatch", "pm_service_ack_impl_match_dispatch", 0x6474ULL, "client=%x21 handle=%x19 state=%x20" },
+    { "pm_service_post_ack_action_entry", "pm_service_post_ack_action_entry", 0x8788ULL, "client=%x0 handle=%x1 state=%x2" },
+    { "pm_service_post_ack_client_state_store", "pm_service_post_ack_client_state_store", 0x882cULL, "client=%x22 state=%x21" },
+    { "pm_service_post_ack_vote_scan_done", "pm_service_post_ack_vote_scan_done", 0x8894ULL, NULL },
+    { "pm_service_post_ack_action_branch", "pm_service_post_ack_action_branch", 0x88a0ULL, "action_flags=%x8" },
+    { "pm_service_post_ack_timer_settime_call", "pm_service_post_ack_timer_settime_call", 0x88c0ULL, NULL },
+    { "pm_service_post_ack_power_state_load", "pm_service_post_ack_power_state_load", 0x88c8ULL, "power_state=%x8" },
+    { "pm_service_post_ack_qmi_restart_ind_call", "pm_service_post_ack_qmi_restart_ind_call", 0x8a48ULL, NULL },
+    { "pm_service_post_ack_power_on_open_call", "pm_service_post_ack_power_on_open_call", 0x8cccULL, "path=+0(%x0):string" },
+    { "pm_service_post_ack_power_on_open_ret", "pm_service_post_ack_power_on_open_ret", 0x8cd4ULL, "open_rc=%x0" },
+    { "pm_service_post_ack_unlock_return", "pm_service_post_ack_unlock_return", 0x8d1cULL, NULL },
 };
 
 enum pm_service_uprobe_event_index {
@@ -12249,6 +12261,18 @@ enum pm_service_uprobe_event_index {
     PM_SERVICE_UPROBE_ADD_PERIPHERAL_INIT_FAIL = 25,
     PM_SERVICE_UPROBE_ADD_PERIPHERAL_LIST_COMMIT = 26,
     PM_SERVICE_UPROBE_PRE_BINDER_INIT_DONE = 27,
+    PM_SERVICE_UPROBE_ACK_IMPL_ENTRY = 28,
+    PM_SERVICE_UPROBE_ACK_IMPL_MATCH_DISPATCH = 29,
+    PM_SERVICE_UPROBE_POST_ACK_ACTION_ENTRY = 30,
+    PM_SERVICE_UPROBE_POST_ACK_CLIENT_STATE_STORE = 31,
+    PM_SERVICE_UPROBE_POST_ACK_VOTE_SCAN_DONE = 32,
+    PM_SERVICE_UPROBE_POST_ACK_ACTION_BRANCH = 33,
+    PM_SERVICE_UPROBE_POST_ACK_TIMER_SETTIME_CALL = 34,
+    PM_SERVICE_UPROBE_POST_ACK_POWER_STATE_LOAD = 35,
+    PM_SERVICE_UPROBE_POST_ACK_QMI_RESTART_IND_CALL = 36,
+    PM_SERVICE_UPROBE_POST_ACK_POWER_ON_OPEN_CALL = 37,
+    PM_SERVICE_UPROBE_POST_ACK_POWER_ON_OPEN_RET = 38,
+    PM_SERVICE_UPROBE_POST_ACK_UNLOCK_RETURN = 39,
 };
 
 struct cnss_wlfw_uprobe_target_probe {
