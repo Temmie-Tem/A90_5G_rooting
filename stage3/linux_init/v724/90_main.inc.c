@@ -4255,6 +4255,11 @@ static int v1393_spawn_wifi_test_boot_helper(pid_t *pid_out) {
         "--allow-cnss-start-only",
         "--allow-service-manager-start-only",
         "--allow-wlan-pd-service-object-visible-trigger",
+#if A90_WIFI_TEST_BOOT_PRIVATE_CNSS_SDX50M
+        "--pm-observer-private-cnss-daemon-sdx50m",
+        "--private-cnss-daemon-path",
+        A90_V1393_WIFI_TEST_PRIVATE_CNSS,
+#endif
         "--allow-qrtr-ns-readback",
         "--allow-servloc-domain-list-probe",
         "--allow-service-notifier-listener-probe",

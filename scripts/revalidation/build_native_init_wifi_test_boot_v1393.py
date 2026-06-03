@@ -48,7 +48,7 @@ DEFAULT_WIFI_TEST_WATCH_SEC = 35
 DEFAULT_WIFI_TEST_SUPERVISOR_TIMEOUT_SEC = 40
 DEFAULT_WIFI_TEST_HELPER_MODE = "post-pm-observer"
 EXPECTED_HELPER_MARKER = "a90_android_execns_probe v356"
-EXPECTED_HELPER_SHA256 = "85c3a6f5378b68f92e40b3dad1f83f49e70a1f188fcaa69e9f664684a5966791"
+EXPECTED_HELPER_SHA256 = "b974950b5fa19b5bb7dcce1f5a1be47aec4dde650fcc0a565fe0594eb4cf0af5"
 REPRODUCIBLE_MTIME = 0
 
 FORBIDDEN_BYTES = (
@@ -203,6 +203,14 @@ def build_init(args: argparse.Namespace) -> None:
     args.out_dir.mkdir(parents=True, exist_ok=True)
     supervisor_flags = ["-DA90_WIFI_TEST_BOOT_SUPERVISE_HELPER=1"] if args.wifi_test_supervise_helper else []
     debugfs_flags = ["-DA90_WIFI_TEST_BOOT_MOUNT_DEBUGFS=1"] if args.wifi_test_mount_debugfs else []
+    private_cnss_flags = (
+        [
+            "-DA90_WIFI_TEST_BOOT_PRIVATE_CNSS_SDX50M=1",
+            shell_define("A90_V1393_WIFI_TEST_PRIVATE_CNSS", args.wifi_test_private_cnss_daemon_path),
+        ]
+        if args.wifi_test_private_cnss_daemon_sdx50m
+        else []
+    )
     rc1_watcher_flags = (
         [
             "-DA90_WIFI_TEST_BOOT_PID1_RC1_WATCHER=1",
@@ -500,6 +508,7 @@ def build_init(args: argparse.Namespace) -> None:
         *auto_readiness_flags,
         *firmware_mount_flags,
         *service_window_flags,
+        *private_cnss_flags,
         *rc1_retry_flags,
         "-o",
         args.init_binary,
@@ -627,6 +636,17 @@ def verify_init_route_contract(args: argparse.Namespace) -> None:
         if uses_wlan_pd_cnss_output_visibility(args):
             expected.append("--allow-wlan-pd-cnss-output-visibility")
             forbidden.append("--allow-service-manager-start-only")
+        private_cnss_markers = [
+            "--pm-observer-private-cnss-daemon-sdx50m",
+            "--private-cnss-daemon-path",
+            args.wifi_test_private_cnss_daemon_path,
+        ]
+        if args.wifi_test_private_cnss_daemon_sdx50m:
+            if args.wifi_test_helper_mode != "wlan-pd-post-pm-lower-state-observer":
+                raise RuntimeError("private CNSS SDX50M test flag is only supported for wlan-pd-post-pm-lower-state-observer")
+            expected.extend(private_cnss_markers)
+        else:
+            forbidden.extend(private_cnss_markers)
         forbidden.extend([
             "--allow-android-wifi-service-window",
             "--allow-android-wifi-service-window-subsys-trigger-capture",
@@ -639,8 +659,6 @@ def verify_init_route_contract(args: argparse.Namespace) -> None:
             "--pm-observer-start-mdm-helper-before-cnss",
             "--pm-observer-early-powerup-corrected-rc1-enumerate",
             "--pm-observer-trigger-pcie-enumerate",
-            "--pm-observer-private-cnss-daemon-sdx50m",
-            "--private-cnss-daemon-path",
         ])
     elif uses_android_service_window(args):
         expected.extend([
@@ -1518,6 +1536,8 @@ def write_manifest(args: argparse.Namespace) -> None:
             "android_service_window": uses_android_service_window(args),
             "wlan_pd_firmware_serve_gate": uses_wlan_pd_firmware_serve_gate(args),
             "wlan_pd_cnss_output_visibility": uses_wlan_pd_cnss_output_visibility(args),
+            "private_cnss_daemon_sdx50m": args.wifi_test_private_cnss_daemon_sdx50m,
+            "private_cnss_daemon_path": args.wifi_test_private_cnss_daemon_path,
             "scan_connect_credentials": False,
             "mount_debugfs": args.wifi_test_mount_debugfs,
             "firmware_mounts": args.wifi_test_firmware_mounts,
@@ -1719,6 +1739,8 @@ def parse_args(argv: Sequence[str] | None = None) -> argparse.Namespace:
     )
     parser.add_argument("--wifi-test-mount-debugfs", action="store_true")
     parser.add_argument("--wifi-test-firmware-mounts", action="store_true")
+    parser.add_argument("--wifi-test-private-cnss-daemon-sdx50m", action="store_true")
+    parser.add_argument("--wifi-test-private-cnss-daemon-path", default="/cache/bin/cnss-daemon.sdx50m")
     parser.add_argument("--wifi-test-pid1-rc1-watcher", action="store_true")
     parser.add_argument("--wifi-test-rc1-watcher-timeout-sec", type=int, default=45)
     parser.add_argument("--wifi-test-rc1-watcher-delay-ms", type=int, default=0)

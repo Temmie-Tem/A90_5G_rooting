@@ -2380,8 +2380,9 @@ static int parse_args(int argc, char **argv, struct config *cfg) {
         return 2;
     }
     if (cfg->pm_observer_private_cnss_daemon_sdx50m &&
-        !is_wifi_companion_pm_observer_any_mode(cfg->mode)) {
-        fprintf(stderr, "--pm-observer-private-cnss-daemon-sdx50m is only valid with Wi-Fi PM observer modes\n");
+        !(is_wifi_companion_pm_observer_any_mode(cfg->mode) ||
+          is_wifi_companion_wlan_pd_post_pm_lower_state_observer_mode(cfg->mode))) {
+        fprintf(stderr, "--pm-observer-private-cnss-daemon-sdx50m is only valid with Wi-Fi PM observer or WLAN-PD post-PM lower-state observer modes\n");
         return 2;
     }
     if (cfg->pm_observer_private_cnss_daemon_sdx50m &&
@@ -10194,8 +10195,9 @@ static int materialize_private_cnss_daemon_sdx50m(const struct config *cfg,
     if (!cfg->pm_observer_private_cnss_daemon_sdx50m) {
         return 0;
     }
-    if (!(is_wifi_companion_pm_observer_any_mode(cfg->mode) &&
-          cfg->allow_pm_service_trigger_observer)) {
+    if (!((is_wifi_companion_pm_observer_any_mode(cfg->mode) &&
+           cfg->allow_pm_service_trigger_observer) ||
+          is_wifi_companion_wlan_pd_post_pm_lower_state_observer_mode(cfg->mode))) {
         return 0;
     }
     if (cfg->private_cnss_daemon_path == NULL ||
