@@ -101,7 +101,7 @@
 #define SYSLOG_ACTION_READ_ALL 3
 #endif
 
-#define EXECNS_VERSION "a90_android_execns_probe v346"
+#define EXECNS_VERSION "a90_android_execns_probe v347"
 #define MAX_PATH_LEN 512
 #define MAX_CAPTURE_SIZE (1024 * 1024)
 #define MAX_LINKERCONFIG_SIZE (256 * 1024)
@@ -35304,6 +35304,11 @@ struct service74_klog_state {
     unsigned int raw_74_service_text_count;
     unsigned int raw_wlan_pd_text_count;
     unsigned int raw_pd_mapper_text_count;
+    unsigned int raw_service_locator_text_count;
+    unsigned int raw_servloc_domain_text_count;
+    unsigned int raw_wlan_fw_text_count;
+    unsigned int raw_wlan_pd_domain_text_count;
+    unsigned int raw_qmi_server_connected_text_count;
     unsigned int raw_subsys_text_count;
     unsigned int raw_pil_text_count;
     unsigned int raw_qmi_text_count;
@@ -35316,6 +35321,11 @@ struct service74_klog_state {
     char last_service_notifier_any[192];
     char last_wlan_pd[192];
     char last_pd_mapper[192];
+    char last_service_locator[192];
+    char last_servloc_domain[192];
+    char last_wlan_fw[192];
+    char last_wlan_pd_domain[192];
+    char last_qmi_server_connected[192];
     char last_subsys[192];
     char last_pil[192];
     char last_qmi[192];
@@ -35423,6 +35433,52 @@ static int read_service74_klog_state(struct service74_klog_state *state) {
                             sizeof(state->last_pd_mapper),
                             line);
         }
+        if (strstr(line, "service-locator") != NULL ||
+            strstr(line, "service locator") != NULL ||
+            strstr(line, "service_locator") != NULL ||
+            strstr(line, "servloc") != NULL ||
+            strstr(line, "Servloc") != NULL) {
+            state->raw_service_locator_text_count++;
+            copy_klog_value(state->last_service_locator,
+                            sizeof(state->last_service_locator),
+                            line);
+        }
+        if ((strstr(line, "domain") != NULL || strstr(line, "Domain") != NULL) &&
+            (strstr(line, "wlan") != NULL ||
+             strstr(line, "service-locator") != NULL ||
+             strstr(line, "service locator") != NULL ||
+             strstr(line, "service_locator") != NULL ||
+             strstr(line, "servloc") != NULL ||
+             strstr(line, "Servloc") != NULL)) {
+            state->raw_servloc_domain_text_count++;
+            copy_klog_value(state->last_servloc_domain,
+                            sizeof(state->last_servloc_domain),
+                            line);
+        }
+        if (strstr(line, "wlan/fw") != NULL ||
+            strstr(line, "wlan_fw") != NULL ||
+            strstr(line, "wlan fw") != NULL) {
+            state->raw_wlan_fw_text_count++;
+            copy_klog_value(state->last_wlan_fw,
+                            sizeof(state->last_wlan_fw),
+                            line);
+        }
+        if ((strstr(line, "wlan_pd") != NULL || strstr(line, "wlan-pd") != NULL) &&
+            (strstr(line, "domain") != NULL || strstr(line, "Domain") != NULL)) {
+            state->raw_wlan_pd_domain_text_count++;
+            copy_klog_value(state->last_wlan_pd_domain,
+                            sizeof(state->last_wlan_pd_domain),
+                            line);
+        }
+        if (strstr(line, "qmi_server_connected") != NULL ||
+            strstr(line, "qmi-server") != NULL ||
+            strstr(line, "QMI server connected") != NULL ||
+            strstr(line, "qmi server connected") != NULL) {
+            state->raw_qmi_server_connected_text_count++;
+            copy_klog_value(state->last_qmi_server_connected,
+                            sizeof(state->last_qmi_server_connected),
+                            line);
+        }
         if (strstr(line, "subsys") != NULL || strstr(line, "subsystem") != NULL) {
             state->raw_subsys_text_count++;
             copy_klog_value(state->last_subsys,
@@ -35481,6 +35537,11 @@ static int append_service74_gate_state(struct buffer *buf,
                          "wifi_companion_start.service74_gate.%s.raw_count_74_service_text=%u\n"
                          "wifi_companion_start.service74_gate.%s.raw_count_wlan_pd_text=%u\n"
                          "wifi_companion_start.service74_gate.%s.raw_count_pd_mapper_text=%u\n"
+                         "wifi_companion_start.service74_gate.%s.raw_count_service_locator_text=%u\n"
+                         "wifi_companion_start.service74_gate.%s.raw_count_servloc_domain_text=%u\n"
+                         "wifi_companion_start.service74_gate.%s.raw_count_wlan_fw_text=%u\n"
+                         "wifi_companion_start.service74_gate.%s.raw_count_wlan_pd_domain_text=%u\n"
+                         "wifi_companion_start.service74_gate.%s.raw_count_qmi_server_connected_text=%u\n"
                          "wifi_companion_start.service74_gate.%s.raw_count_subsys_text=%u\n"
                          "wifi_companion_start.service74_gate.%s.raw_count_pil_text=%u\n"
                          "wifi_companion_start.service74_gate.%s.raw_count_qmi_text=%u\n"
@@ -35512,6 +35573,16 @@ static int append_service74_gate_state(struct buffer *buf,
                          state->raw_wlan_pd_text_count,
                          phase,
                          state->raw_pd_mapper_text_count,
+                         phase,
+                         state->raw_service_locator_text_count,
+                         phase,
+                         state->raw_servloc_domain_text_count,
+                         phase,
+                         state->raw_wlan_fw_text_count,
+                         phase,
+                         state->raw_wlan_pd_domain_text_count,
+                         phase,
+                         state->raw_qmi_server_connected_text_count,
                          phase,
                          state->raw_subsys_text_count,
                          phase,
@@ -35547,6 +35618,11 @@ static int append_wlan_pd_post_pm_lower_handoff_klog_sample(struct buffer *buf,
                          "wlan_pd_post_pm_lower_handoff_klog.%s.raw_count_74_service_text=%u\n"
                          "wlan_pd_post_pm_lower_handoff_klog.%s.raw_count_wlan_pd_text=%u\n"
                          "wlan_pd_post_pm_lower_handoff_klog.%s.raw_count_pd_mapper_text=%u\n"
+                         "wlan_pd_post_pm_lower_handoff_klog.%s.raw_count_service_locator_text=%u\n"
+                         "wlan_pd_post_pm_lower_handoff_klog.%s.raw_count_servloc_domain_text=%u\n"
+                         "wlan_pd_post_pm_lower_handoff_klog.%s.raw_count_wlan_fw_text=%u\n"
+                         "wlan_pd_post_pm_lower_handoff_klog.%s.raw_count_wlan_pd_domain_text=%u\n"
+                         "wlan_pd_post_pm_lower_handoff_klog.%s.raw_count_qmi_server_connected_text=%u\n"
                          "wlan_pd_post_pm_lower_handoff_klog.%s.raw_count_subsys_text=%u\n"
                          "wlan_pd_post_pm_lower_handoff_klog.%s.raw_count_pil_text=%u\n"
                          "wlan_pd_post_pm_lower_handoff_klog.%s.raw_count_qmi_text=%u\n"
@@ -35556,6 +35632,11 @@ static int append_wlan_pd_post_pm_lower_handoff_klog_sample(struct buffer *buf,
                          "wlan_pd_post_pm_lower_handoff_klog.%s.last_74=%s\n"
                          "wlan_pd_post_pm_lower_handoff_klog.%s.last_wlan_pd=%s\n"
                          "wlan_pd_post_pm_lower_handoff_klog.%s.last_pd_mapper=%s\n"
+                         "wlan_pd_post_pm_lower_handoff_klog.%s.last_service_locator=%s\n"
+                         "wlan_pd_post_pm_lower_handoff_klog.%s.last_servloc_domain=%s\n"
+                         "wlan_pd_post_pm_lower_handoff_klog.%s.last_wlan_fw=%s\n"
+                         "wlan_pd_post_pm_lower_handoff_klog.%s.last_wlan_pd_domain=%s\n"
+                         "wlan_pd_post_pm_lower_handoff_klog.%s.last_qmi_server_connected=%s\n"
                          "wlan_pd_post_pm_lower_handoff_klog.%s.last_subsys=%s\n"
                          "wlan_pd_post_pm_lower_handoff_klog.%s.last_pil=%s\n"
                          "wlan_pd_post_pm_lower_handoff_klog.%s.last_qmi=%s\n"
@@ -35590,6 +35671,16 @@ static int append_wlan_pd_post_pm_lower_handoff_klog_sample(struct buffer *buf,
                          phase,
                          state.raw_pd_mapper_text_count,
                          phase,
+                         state.raw_service_locator_text_count,
+                         phase,
+                         state.raw_servloc_domain_text_count,
+                         phase,
+                         state.raw_wlan_fw_text_count,
+                         phase,
+                         state.raw_wlan_pd_domain_text_count,
+                         phase,
+                         state.raw_qmi_server_connected_text_count,
+                         phase,
                          state.raw_subsys_text_count,
                          phase,
                          state.raw_pil_text_count,
@@ -35607,6 +35698,16 @@ static int append_wlan_pd_post_pm_lower_handoff_klog_sample(struct buffer *buf,
                          state.last_wlan_pd[0] != '\0' ? state.last_wlan_pd : "missing",
                          phase,
                          state.last_pd_mapper[0] != '\0' ? state.last_pd_mapper : "missing",
+                         phase,
+                         state.last_service_locator[0] != '\0' ? state.last_service_locator : "missing",
+                         phase,
+                         state.last_servloc_domain[0] != '\0' ? state.last_servloc_domain : "missing",
+                         phase,
+                         state.last_wlan_fw[0] != '\0' ? state.last_wlan_fw : "missing",
+                         phase,
+                         state.last_wlan_pd_domain[0] != '\0' ? state.last_wlan_pd_domain : "missing",
+                         phase,
+                         state.last_qmi_server_connected[0] != '\0' ? state.last_qmi_server_connected : "missing",
                          phase,
                          state.last_subsys[0] != '\0' ? state.last_subsys : "missing",
                          phase,

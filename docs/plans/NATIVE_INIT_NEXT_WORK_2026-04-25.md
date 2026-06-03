@@ -17671,6 +17671,72 @@ esoc0/RC1/pcie1/MDM2AP, do NOT investigate MSA until WLFW 69 appears.
     unbind, PMIC/GPIO/GDSC writes, Wi-Fi HAL, scan/connect, credentials,
     DHCP/routes, or external ping.
 
+## V1818 WLAN-PD publication text source build (2026-06-03)
+
+- V1818 built a source/build-only rollbackable test-boot artifact that keeps
+  the V1815/V1816 lower observer and adds read-only service-locator/domain-QMI
+  publication text counters for the missing wlan_pd/service74 path.
+
+  Evidence:
+
+  - builder:
+    `scripts/revalidation/build_native_init_wifi_test_boot_v1818.py`;
+  - common builder update:
+    `scripts/revalidation/build_native_init_wifi_test_boot_v1393.py`;
+  - helper source:
+    `stage3/linux_init/helpers/a90_android_execns_probe.c`;
+  - report:
+    `docs/reports/NATIVE_INIT_V1818_WLAN_PD_PUBLICATION_TEXT_SOURCE_BUILD_2026-06-03.md`;
+  - manifest:
+    `tmp/wifi/v1818-wlan-pd-publication-text-test-boot/manifest.json`;
+  - boot image:
+    `tmp/wifi/v1818-wlan-pd-publication-text-test-boot/boot_linux_v1818_wlan_pd_publication_text.img`;
+  - boot SHA256:
+    `3111b96ef2424ca47a00d4d75693ff0fcf8c5e29336b805dce736ea7fe5e82c6`;
+  - init:
+    `A90 Linux init 0.9.156 (v1818-wlan-pd-publication-text)`;
+  - helper:
+    `a90_android_execns_probe v347`,
+    SHA256 `aa5d63de8a697082f0bf8cd5ffdc0117aab2d91046fe7822ff0de6b3a51c5c33`;
+  - decision:
+    `v1818-wlan-pd-publication-text-source-build-pass`.
+
+  Added observer fields:
+
+  - `raw_count_service_locator_text`;
+  - `raw_count_servloc_domain_text`;
+  - `raw_count_wlan_fw_text`;
+  - `raw_count_wlan_pd_domain_text`;
+  - `raw_count_qmi_server_connected_text`;
+  - `last_service_locator`, `last_servloc_domain`, `last_wlan_fw`,
+    `last_wlan_pd_domain`, and `last_qmi_server_connected`.
+
+  Interpretation:
+
+  - V1818 is source/build-only, so it does not change the live blocker verdict;
+  - it prepares a narrower V1819 discriminator for whether native has any
+    service-locator/domain-QMI publication text around the already-visible
+    sysmon/QMI, service180, subsys, and PIL context;
+  - the expected next label should distinguish true publication-text absence
+    from parser mismatch before any actor expansion.
+
+  Safety:
+
+  - host-only source/build. No live device command, flash, reboot, property
+    staging, `/dev/subsys_esoc0` open, fake-ONLINE, eSoC notify/BOOT_DONE, PCI
+    rescan/bind, platform unbind, PMIC/GPIO/GDSC writes, `boot_wlan`,
+    restart-PD request, Wi-Fi HAL, scan/connect, credentials, DHCP/routes, or
+    external ping was performed by V1818.
+
+  Next candidate:
+
+  - V1819 should run exactly one rollbackable live gate with the V1818 artifact
+    and classify `publication-text-absent-with-qmi-context`,
+    `publication-text-parser-gap`, `lower-publication-progress`, or
+    `safety-regression`;
+  - do not continue into Wi-Fi HAL/scan/connect from V1819 unless WLFW service
+    69 and `wlan0` appear and a separate connection gate is written.
+
 ## V1817 lower-publication target classifier (2026-06-03)
 
 - V1817 stayed host-only and compared the V1816 native lower-publication gap
