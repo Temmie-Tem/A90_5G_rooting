@@ -101,7 +101,7 @@
 #define SYSLOG_ACTION_READ_ALL 3
 #endif
 
-#define EXECNS_VERSION "a90_android_execns_probe v356"
+#define EXECNS_VERSION "a90_android_execns_probe v357"
 #define MAX_PATH_LEN 512
 #define MAX_CAPTURE_SIZE (1024 * 1024)
 #define MAX_LINKERCONFIG_SIZE (256 * 1024)
@@ -21884,6 +21884,97 @@ static int append_pm_esoc_pmic_gdsc_transition_sample(struct buffer *buf, const 
                          phase);
 }
 
+static int append_wlan_pd_lower_response_input_contract_sample(struct buffer *buf,
+                                                               const char *phase,
+                                                               int sample_index,
+                                                               int offset_ms) {
+    char label[128];
+
+    if (snprintf(label,
+                 sizeof(label),
+                 "%s.offset_%04d_ms",
+                 phase,
+                 offset_ms) >= (int)sizeof(label)) {
+        return append_format(buf,
+                             "wlan_pd_lower_response_input_contract.%s.error=label-too-long\n",
+                             phase);
+    }
+    if (append_format(buf,
+                      "wlan_pd_lower_response_input_contract.%s.begin=1\n"
+                      "wlan_pd_lower_response_input_contract.%s.sample_index=%d\n"
+                      "wlan_pd_lower_response_input_contract.%s.offset_ms=%d\n"
+                      "wlan_pd_lower_response_input_contract.%s.read_only=1\n"
+                      "wlan_pd_lower_response_input_contract.%s.no_esoc0_open=1\n"
+                      "wlan_pd_lower_response_input_contract.%s.no_rc_sel_case_write=1\n"
+                      "wlan_pd_lower_response_input_contract.%s.no_pci_rescan_or_bind=1\n"
+                      "wlan_pd_lower_response_input_contract.%s.no_wifi_hal_scan_connect=1\n",
+                      label,
+                      label,
+                      sample_index,
+                      label,
+                      offset_ms,
+                      label,
+                      label,
+                      label,
+                      label,
+                      label) < 0 ||
+        append_wlan_pd_post_pm_lower_state_sample(buf, label, sample_index) < 0 ||
+        append_pm_esoc_pmic_gdsc_transition_sample(buf, label) < 0) {
+        return -1;
+    }
+    return append_format(buf,
+                         "wlan_pd_lower_response_input_contract.%s.end=1\n",
+                         label);
+}
+
+static int append_wlan_pd_lower_response_input_contract_window(struct buffer *buf,
+                                                               const char *phase) {
+    static const int offsets_ms[] = {0, 1, 2, 5, 10, 20, 50, 100, 150, 250, 500, 1000};
+    const int sample_count = (int)(sizeof(offsets_ms) / sizeof(offsets_ms[0]));
+    int previous_offset_ms = 0;
+
+    if (append_format(buf,
+                      "wlan_pd_lower_response_input_contract.%s.begin=1\n"
+                      "wlan_pd_lower_response_input_contract.%s.sample_count=%d\n"
+                      "wlan_pd_lower_response_input_contract.%s.offsets_ms=0,1,2,5,10,20,50,100,150,250,500,1000\n"
+                      "wlan_pd_lower_response_input_contract.%s.source=existing-private-sdx50m-post-pm-route\n"
+                      "wlan_pd_lower_response_input_contract.%s.read_only=1\n"
+                      "wlan_pd_lower_response_input_contract.%s.no_esoc0_open=1\n"
+                      "wlan_pd_lower_response_input_contract.%s.no_rc_sel_case_write=1\n"
+                      "wlan_pd_lower_response_input_contract.%s.no_pci_rescan_or_bind=1\n"
+                      "wlan_pd_lower_response_input_contract.%s.no_wifi_hal_scan_connect=1\n",
+                      phase,
+                      phase,
+                      sample_count,
+                      phase,
+                      phase,
+                      phase,
+                      phase,
+                      phase,
+                      phase,
+                      phase) < 0) {
+        return -1;
+    }
+    for (int sample_index = 0; sample_index < sample_count; sample_index++) {
+        const int offset_ms = offsets_ms[sample_index];
+        const int sleep_ms = offset_ms - previous_offset_ms;
+
+        if (sleep_ms > 0) {
+            usleep((useconds_t)sleep_ms * 1000U);
+        }
+        if (append_wlan_pd_lower_response_input_contract_sample(buf,
+                                                                phase,
+                                                                sample_index,
+                                                                offset_ms) < 0) {
+            return -1;
+        }
+        previous_offset_ms = offset_ms;
+    }
+    return append_format(buf,
+                         "wlan_pd_lower_response_input_contract.%s.end=1\n",
+                         phase);
+}
+
 struct lower_sequence_summary {
     int sample_count;
     int powerup_seen;
@@ -38497,6 +38588,14 @@ static int run_wifi_companion_start_only_guarded(const struct config *cfg,
     if (wlan_pd_post_pm_lower_state_observer &&
         append_wlan_pd_qrtr_registry_snapshot(stdout_buf,
                                               "after_early_listener") < 0) {
+        stop_wlan_pd_modem_holder(paths, stdout_buf, &wlan_pd_holder);
+        composite_cleanup_children(children, active_child_count, stdout_buf, stderr_buf);
+        stop_property_service_shim(&property_shim, paths, stdout_buf);
+        return -1;
+    }
+    if (wlan_pd_post_pm_lower_state_observer &&
+        append_wlan_pd_lower_response_input_contract_window(stdout_buf,
+                                                            "post_powerup_dense") < 0) {
         stop_wlan_pd_modem_holder(paths, stdout_buf, &wlan_pd_holder);
         composite_cleanup_children(children, active_child_count, stdout_buf, stderr_buf);
         stop_property_service_shim(&property_shim, paths, stdout_buf);
