@@ -101,7 +101,7 @@
 #define SYSLOG_ACTION_READ_ALL 3
 #endif
 
-#define EXECNS_VERSION "a90_android_execns_probe v339"
+#define EXECNS_VERSION "a90_android_execns_probe v340"
 #define MAX_PATH_LEN 512
 #define MAX_CAPTURE_SIZE (1024 * 1024)
 #define MAX_LINKERCONFIG_SIZE (256 * 1024)
@@ -15871,8 +15871,147 @@ static int append_wlan_pd_pm_service_window_trigger_summary(struct buffer *stdou
                          label);
 }
 
+static int append_wlan_pd_service_object_devnode_status_one(struct buffer *buf,
+                                                            const struct paths *paths,
+                                                            const char *name,
+                                                            const char *label) {
+    char path[MAX_PATH_LEN];
+    struct stat st;
+    int lstat_ok = 0;
+    int lstat_errno = 0;
+    int access_ok = 0;
+    int access_errno = 0;
+    int char_device = 0;
+    unsigned int major_no = 0;
+    unsigned int minor_no = 0;
+    unsigned int mode = 0;
+    long uid = -1;
+    long gid = -1;
+
+    if (append_path(path, sizeof(path), paths->dev, name) < 0) {
+        return append_format(buf,
+                             "wlan_pd_service_object_visible_trigger.devnode.%s.name=%s\n"
+                             "wlan_pd_service_object_visible_trigger.devnode.%s.path=path-too-long\n"
+                             "wlan_pd_service_object_visible_trigger.devnode.%s.open_attempted=0\n"
+                             "wlan_pd_service_object_visible_trigger.devnode.%s.mknod_attempted=0\n"
+                             "wlan_pd_service_object_visible_trigger.devnode.%s.access_f_ok=0\n"
+                             "wlan_pd_service_object_visible_trigger.devnode.%s.access_errno=%d\n"
+                             "wlan_pd_service_object_visible_trigger.devnode.%s.lstat_ok=0\n"
+                             "wlan_pd_service_object_visible_trigger.devnode.%s.lstat_errno=%d\n"
+                             "wlan_pd_service_object_visible_trigger.devnode.%s.char_device=0\n"
+                             "wlan_pd_service_object_visible_trigger.devnode.%s.major=0\n"
+                             "wlan_pd_service_object_visible_trigger.devnode.%s.minor=0\n"
+                             "wlan_pd_service_object_visible_trigger.devnode.%s.mode=0000\n"
+                             "wlan_pd_service_object_visible_trigger.devnode.%s.uid=-1\n"
+                             "wlan_pd_service_object_visible_trigger.devnode.%s.gid=-1\n",
+                             label,
+                             name,
+                             label,
+                             label,
+                             label,
+                             label,
+                             ENAMETOOLONG,
+                             label,
+                             ENAMETOOLONG,
+                             label,
+                             label,
+                             label,
+                             label,
+                             label,
+                             label);
+    }
+
+    if (lstat(path, &st) == 0) {
+        lstat_ok = 1;
+        char_device = S_ISCHR(st.st_mode) ? 1 : 0;
+        if (char_device) {
+            major_no = major(st.st_rdev);
+            minor_no = minor(st.st_rdev);
+        }
+        mode = (unsigned int)(st.st_mode & 07777);
+        uid = (long)st.st_uid;
+        gid = (long)st.st_gid;
+    } else {
+        lstat_errno = errno;
+    }
+
+    if (access(path, F_OK) == 0) {
+        access_ok = 1;
+    } else {
+        access_errno = errno;
+    }
+
+    return append_format(buf,
+                         "wlan_pd_service_object_visible_trigger.devnode.%s.name=%s\n"
+                         "wlan_pd_service_object_visible_trigger.devnode.%s.path=%s\n"
+                         "wlan_pd_service_object_visible_trigger.devnode.%s.open_attempted=0\n"
+                         "wlan_pd_service_object_visible_trigger.devnode.%s.mknod_attempted=0\n"
+                         "wlan_pd_service_object_visible_trigger.devnode.%s.access_f_ok=%d\n"
+                         "wlan_pd_service_object_visible_trigger.devnode.%s.access_errno=%d\n"
+                         "wlan_pd_service_object_visible_trigger.devnode.%s.lstat_ok=%d\n"
+                         "wlan_pd_service_object_visible_trigger.devnode.%s.lstat_errno=%d\n"
+                         "wlan_pd_service_object_visible_trigger.devnode.%s.char_device=%d\n"
+                         "wlan_pd_service_object_visible_trigger.devnode.%s.major=%u\n"
+                         "wlan_pd_service_object_visible_trigger.devnode.%s.minor=%u\n"
+                         "wlan_pd_service_object_visible_trigger.devnode.%s.mode=%04o\n"
+                         "wlan_pd_service_object_visible_trigger.devnode.%s.uid=%ld\n"
+                         "wlan_pd_service_object_visible_trigger.devnode.%s.gid=%ld\n",
+                         label,
+                         name,
+                         label,
+                         path,
+                         label,
+                         label,
+                         label,
+                         access_ok,
+                         label,
+                         access_errno,
+                         label,
+                         lstat_ok,
+                         label,
+                         lstat_errno,
+                         label,
+                         char_device,
+                         label,
+                         major_no,
+                         label,
+                         minor_no,
+                         label,
+                         mode,
+                         label,
+                         uid,
+                         label,
+                         gid);
+}
+
+static int append_wlan_pd_service_object_devnode_access_status(struct buffer *stdout_buf,
+                                                               const struct paths *paths) {
+    if (append_literal(stdout_buf,
+                       "wlan_pd_service_object_visible_trigger.devnode_access.begin=1\n"
+                       "wlan_pd_service_object_visible_trigger.devnode_access.source=private-android-root\n"
+                       "wlan_pd_service_object_visible_trigger.devnode_access.open_attempted=0\n"
+                       "wlan_pd_service_object_visible_trigger.devnode_access.mknod_attempted=0\n") < 0) {
+        return -1;
+    }
+    if (append_wlan_pd_service_object_devnode_status_one(stdout_buf,
+                                                        paths,
+                                                        "subsys_esoc0",
+                                                        "sdx50m") < 0) {
+        return -1;
+    }
+    if (append_wlan_pd_service_object_devnode_status_one(stdout_buf,
+                                                        paths,
+                                                        "subsys_modem",
+                                                        "modem") < 0) {
+        return -1;
+    }
+    return append_literal(stdout_buf,
+                          "wlan_pd_service_object_visible_trigger.devnode_access.end=1\n");
+}
+
 static int append_wlan_pd_service_object_visible_trigger_summary(struct buffer *stdout_buf,
                                                                  const struct buffer *stderr_buf,
+                                                                 const struct paths *paths,
                                                                  bool tftp_child_present,
                                                                  bool tftp_observable,
                                                                  bool tftp_running,
@@ -15925,6 +16064,10 @@ static int append_wlan_pd_service_object_visible_trigger_summary(struct buffer *
         label = "provider-visible-still-no-request";
     } else {
         label = "provider-visible-wlfw-regressed";
+    }
+
+    if (append_wlan_pd_service_object_devnode_access_status(stdout_buf, paths) < 0) {
+        return -1;
     }
 
     return append_format(stdout_buf,
@@ -36651,6 +36794,7 @@ static int run_wifi_companion_start_only_guarded(const struct config *cfg,
         if (wlan_pd_service_object_visible_trigger &&
             append_wlan_pd_service_object_visible_trigger_summary(stdout_buf,
                                                                  stderr_buf,
+                                                                 paths,
                                                                  tftp_child_present,
                                                                  tftp_observable,
                                                                  tftp_running,

@@ -16709,3 +16709,67 @@ esoc0/RC1/pcie1/MDM2AP, do NOT investigate MSA until WLFW 69 appears.
     read-only access-parity discriminator for `SDX50M` and `modem`;
   - do not repair `/dev/subsys_esoc0`, synthesize PM records, start Wi-Fi HAL,
     scan/connect, configure DHCP/routes, or external ping from V1797 alone.
+
+## V1798 PM-service devnode access observer source build (2026-06-03)
+
+- V1798 built a rollbackable service-object test boot that adds a no-open,
+  no-mknod private-root devnode access/status observer for both PM-service
+  candidates before any PM repair or WLAN-PD escalation.
+
+  Evidence:
+
+  - build script:
+    `scripts/revalidation/build_native_init_wifi_test_boot_v1798.py`;
+  - report:
+    `docs/reports/NATIVE_INIT_V1798_PM_SERVICE_DEVNODE_ACCESS_OBSERVER_SOURCE_BUILD_2026-06-03.md`;
+  - manifest:
+    `tmp/wifi/v1798-pm-service-devnode-access-observer-test-boot/manifest.json`;
+  - boot image:
+    `tmp/wifi/v1798-pm-service-devnode-access-observer-test-boot/boot_linux_v1798_pm_service_devnode_access_observer.img`;
+  - decision:
+    `v1798-pm-service-devnode-access-observer-source-build-pass`;
+  - boot SHA256:
+    `367da5a0ba41d25c27dffa586138aa757da3fbf1f0ca03ce8ad0ddc20a3e46ca`;
+  - helper:
+    `a90_android_execns_probe v340` /
+    `207628058a80942b0775377f9bddb9453ad0dd416cab33de3dd7bf278b92f595`;
+  - init:
+    `A90 Linux init 0.9.149 (v1798-pm-service-devnode-access-observer)`.
+
+  New helper output:
+
+  - `wlan_pd_service_object_visible_trigger.devnode_access.*` records route
+    safety (`open_attempted=0`, `mknod_attempted=0`) and source
+    `private-android-root`;
+  - `wlan_pd_service_object_visible_trigger.devnode.sdx50m.*` probes
+    `subsys_esoc0`;
+  - `wlan_pd_service_object_visible_trigger.devnode.modem.*` probes
+    `subsys_modem`;
+  - each candidate emits `path`, `access_f_ok`, `access_errno`, `lstat_ok`,
+    `lstat_errno`, `char_device`, `major`, `minor`, `mode`, `uid`, and `gid`.
+
+  Interpretation:
+
+  - V1798 does not repair candidate records; it gives the next live gate enough
+    read-only evidence to distinguish absent private `/dev` projection from
+    non-character/mode mismatch or process-domain parity;
+  - the observer runs in the bounded service-object route while retaining the
+    V1795 PM-service count/sample and V1792 PM-register observers.
+
+  Safety:
+
+  - source/build-only. No live device command, flash, reboot, scan/connect,
+    credentials, DHCP/routes, external ping, PM repair, `/dev/subsys_esoc0`
+    open, eSoC/RC1 action, restart-PD request, firmware write, partition write,
+    PMIC/GPIO/GDSC write, PCI rescan, platform bind/unbind, or BPF attach.
+
+  Next candidate:
+
+  - V1799 should run one rollbackable live gate with the V1798 artifact and
+    classify one fixed label: `both-devnodes-absent`,
+    `modem-present-sdx50m-absent`, `nonchar-or-mode-mismatch`, or
+    `candidate-visible-but-pm-fails`;
+  - use the known-good V1796 serial property staging path if transport remains
+    unreliable;
+  - do not repair `/dev/subsys_esoc0`, synthesize PM records, start Wi-Fi HAL,
+    scan/connect, configure DHCP/routes, or external ping from V1798 alone.
