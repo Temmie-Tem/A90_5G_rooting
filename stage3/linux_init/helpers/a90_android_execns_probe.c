@@ -101,7 +101,7 @@
 #define SYSLOG_ACTION_READ_ALL 3
 #endif
 
-#define EXECNS_VERSION "a90_android_execns_probe v353"
+#define EXECNS_VERSION "a90_android_execns_probe v354"
 #define MAX_PATH_LEN 512
 #define MAX_CAPTURE_SIZE (1024 * 1024)
 #define MAX_LINKERCONFIG_SIZE (256 * 1024)
@@ -12005,7 +12005,7 @@ struct cnss_nonlog_maps_summary {
 #define A90_CNSS_WLFW_UPROBE_TARGET_COUNT 3
 #define A90_CNSS_WLFW_UPROBE_EVENT_COUNT 45
 #define A90_CNSS_PERIPHERAL_UPROBE_TARGET_COUNT 3
-#define A90_CNSS_PERIPHERAL_UPROBE_EVENT_COUNT 13
+#define A90_CNSS_PERIPHERAL_UPROBE_EVENT_COUNT 25
 #define A90_PM_SERVICE_UPROBE_TARGET_COUNT 3
 #define A90_PM_SERVICE_UPROBE_EVENT_COUNT 28
 
@@ -12140,6 +12140,18 @@ static const struct cnss_peripheral_uprobe_event_spec cnss_peripheral_uprobe_eve
     { "periph_success_path", "periph_success_path", 0x6538ULL },
     { "periph_pm_register_connect_return", "periph_pm_register_connect_return", 0x66dcULL },
     { "periph_pm_client_register_common_return", "periph_pm_client_register_common_return", 0x7184ULL },
+    { "periph_pm_callback_stub_entry", "periph_pm_callback_stub_entry", 0x8a5cULL },
+    { "periph_pm_callback_write_state", "periph_pm_callback_write_state", 0x8adcULL },
+    { "periph_pm_callback_remote_binder", "periph_pm_callback_remote_binder", 0x8ae4ULL },
+    { "periph_pm_callback_transact_call", "periph_pm_callback_transact_call", 0x8afcULL },
+    { "periph_pm_callback_transact_return", "periph_pm_callback_transact_return", 0x8b00ULL },
+    { "periph_pm_client_ack_entry", "periph_pm_client_ack_entry", 0x76f0ULL },
+    { "periph_pm_client_ack_match", "periph_pm_client_ack_match", 0x7754ULL },
+    { "periph_pm_client_ack_virtual_call", "periph_pm_client_ack_virtual_call", 0x7780ULL },
+    { "periph_pm_server_ontransact_entry", "periph_pm_server_ontransact_entry", 0x85bcULL },
+    { "periph_pm_server_ack_read_state", "periph_pm_server_ack_read_state", 0x8750ULL },
+    { "periph_pm_server_ack_impl_call", "periph_pm_server_ack_impl_call", 0x8760ULL },
+    { "periph_pm_server_ack_write_ret", "periph_pm_server_ack_write_ret", 0x8814ULL },
 };
 
 enum cnss_peripheral_uprobe_event_index {
@@ -12156,6 +12168,18 @@ enum cnss_peripheral_uprobe_event_index {
     CNSS_PERIPHERAL_UPROBE_SUCCESS_PATH = 10,
     CNSS_PERIPHERAL_UPROBE_PM_REGISTER_CONNECT_RETURN = 11,
     CNSS_PERIPHERAL_UPROBE_PM_CLIENT_REGISTER_COMMON_RETURN = 12,
+    CNSS_PERIPHERAL_UPROBE_PM_CALLBACK_STUB_ENTRY = 13,
+    CNSS_PERIPHERAL_UPROBE_PM_CALLBACK_WRITE_STATE = 14,
+    CNSS_PERIPHERAL_UPROBE_PM_CALLBACK_REMOTE_BINDER = 15,
+    CNSS_PERIPHERAL_UPROBE_PM_CALLBACK_TRANSACT_CALL = 16,
+    CNSS_PERIPHERAL_UPROBE_PM_CALLBACK_TRANSACT_RETURN = 17,
+    CNSS_PERIPHERAL_UPROBE_PM_CLIENT_ACK_ENTRY = 18,
+    CNSS_PERIPHERAL_UPROBE_PM_CLIENT_ACK_MATCH = 19,
+    CNSS_PERIPHERAL_UPROBE_PM_CLIENT_ACK_VIRTUAL_CALL = 20,
+    CNSS_PERIPHERAL_UPROBE_PM_SERVER_ONTRANSACT_ENTRY = 21,
+    CNSS_PERIPHERAL_UPROBE_PM_SERVER_ACK_READ_STATE = 22,
+    CNSS_PERIPHERAL_UPROBE_PM_SERVER_ACK_IMPL_CALL = 23,
+    CNSS_PERIPHERAL_UPROBE_PM_SERVER_ACK_WRITE_RET = 24,
 };
 
 struct pm_service_uprobe_event_spec {
