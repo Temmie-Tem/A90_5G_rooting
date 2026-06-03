@@ -101,7 +101,7 @@
 #define SYSLOG_ACTION_READ_ALL 3
 #endif
 
-#define EXECNS_VERSION "a90_android_execns_probe v352"
+#define EXECNS_VERSION "a90_android_execns_probe v353"
 #define MAX_PATH_LEN 512
 #define MAX_CAPTURE_SIZE (1024 * 1024)
 #define MAX_LINKERCONFIG_SIZE (256 * 1024)
@@ -38362,6 +38362,14 @@ static int run_wifi_companion_start_only_guarded(const struct config *cfg,
         return -1;
     }
     if (wlan_pd_post_pm_lower_state_observer &&
+        append_pm_esoc_pmic_gdsc_transition_sample(stdout_buf,
+                                                   "wlan_pd_after_holder_start") < 0) {
+        stop_wlan_pd_modem_holder(paths, stdout_buf, &wlan_pd_holder);
+        composite_cleanup_children(children, active_child_count, stdout_buf, stderr_buf);
+        stop_property_service_shim(&property_shim, paths, stdout_buf);
+        return -1;
+    }
+    if (wlan_pd_post_pm_lower_state_observer &&
         append_wlan_pd_post_pm_lower_handoff_klog_sample(stdout_buf,
                                                          "after_holder_start") < 0) {
         stop_wlan_pd_modem_holder(paths, stdout_buf, &wlan_pd_holder);
@@ -38413,6 +38421,14 @@ static int run_wifi_companion_start_only_guarded(const struct config *cfg,
     if (wlan_pd_post_pm_lower_state_observer &&
         append_wlan_pd_post_pm_lower_handoff_klog_sample(stdout_buf,
                                                          "after_post_listener_window") < 0) {
+        stop_wlan_pd_modem_holder(paths, stdout_buf, &wlan_pd_holder);
+        composite_cleanup_children(children, active_child_count, stdout_buf, stderr_buf);
+        stop_property_service_shim(&property_shim, paths, stdout_buf);
+        return -1;
+    }
+    if (wlan_pd_post_pm_lower_state_observer &&
+        append_pm_esoc_pmic_gdsc_transition_sample(stdout_buf,
+                                                   "wlan_pd_after_post_listener_window") < 0) {
         stop_wlan_pd_modem_holder(paths, stdout_buf, &wlan_pd_holder);
         composite_cleanup_children(children, active_child_count, stdout_buf, stderr_buf);
         stop_property_service_shim(&property_shim, paths, stdout_buf);
