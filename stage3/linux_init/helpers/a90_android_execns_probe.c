@@ -101,7 +101,7 @@
 #define SYSLOG_ACTION_READ_ALL 3
 #endif
 
-#define EXECNS_VERSION "a90_android_execns_probe v355"
+#define EXECNS_VERSION "a90_android_execns_probe v356"
 #define MAX_PATH_LEN 512
 #define MAX_CAPTURE_SIZE (1024 * 1024)
 #define MAX_LINKERCONFIG_SIZE (256 * 1024)
@@ -12007,7 +12007,7 @@ struct cnss_nonlog_maps_summary {
 #define A90_CNSS_PERIPHERAL_UPROBE_TARGET_COUNT 3
 #define A90_CNSS_PERIPHERAL_UPROBE_EVENT_COUNT 25
 #define A90_PM_SERVICE_UPROBE_TARGET_COUNT 3
-#define A90_PM_SERVICE_UPROBE_EVENT_COUNT 40
+#define A90_PM_SERVICE_UPROBE_EVENT_COUNT 46
 
 struct cnss_wlfw_uprobe_event_spec {
     const char *name;
@@ -12230,6 +12230,12 @@ static const struct pm_service_uprobe_event_spec pm_service_uprobe_events[A90_PM
     { "pm_service_post_ack_power_on_open_call", "pm_service_post_ack_power_on_open_call", 0x8cccULL, "path=+0(%x0):string" },
     { "pm_service_post_ack_power_on_open_ret", "pm_service_post_ack_power_on_open_ret", 0x8cd4ULL, "open_rc=%x0" },
     { "pm_service_post_ack_unlock_return", "pm_service_post_ack_unlock_return", 0x8d1cULL, NULL },
+    { "pm_service_post_ack_power_state_loaded", "pm_service_post_ack_power_state_loaded", 0x88ccULL, "power_state=%x8" },
+    { "pm_service_post_ack_open_context", "pm_service_post_ack_open_context", 0x8cc8ULL, "peripheral=%x20 name_ptr=+0(%x20):u64 devnode_ptr=+16(%x20):u64 state=+140(%x20):u32 fd=+144(%x20):s32 open_count=+160(%x20):u32 fail_count=+164(%x20):u32" },
+    { "pm_service_post_ack_open_path_loaded", "pm_service_post_ack_open_path_loaded", 0x8cccULL, "path=+0(%x0):string peripheral=%x20" },
+    { "pm_service_post_ack_open_fd_store", "pm_service_post_ack_open_fd_store", 0x8cd8ULL, "open_rc=%x21" },
+    { "pm_service_post_ack_open_fd_compare", "pm_service_post_ack_open_fd_compare", 0x8ce0ULL, "open_fd=%x21" },
+    { "pm_service_post_ack_open_success_counter", "pm_service_post_ack_open_success_counter", 0x8ce8ULL, NULL },
 };
 
 enum pm_service_uprobe_event_index {
@@ -12273,6 +12279,12 @@ enum pm_service_uprobe_event_index {
     PM_SERVICE_UPROBE_POST_ACK_POWER_ON_OPEN_CALL = 37,
     PM_SERVICE_UPROBE_POST_ACK_POWER_ON_OPEN_RET = 38,
     PM_SERVICE_UPROBE_POST_ACK_UNLOCK_RETURN = 39,
+    PM_SERVICE_UPROBE_POST_ACK_POWER_STATE_LOADED = 40,
+    PM_SERVICE_UPROBE_POST_ACK_OPEN_CONTEXT = 41,
+    PM_SERVICE_UPROBE_POST_ACK_OPEN_PATH_LOADED = 42,
+    PM_SERVICE_UPROBE_POST_ACK_OPEN_FD_STORE = 43,
+    PM_SERVICE_UPROBE_POST_ACK_OPEN_FD_COMPARE = 44,
+    PM_SERVICE_UPROBE_POST_ACK_OPEN_SUCCESS_COUNTER = 45,
 };
 
 struct cnss_wlfw_uprobe_target_probe {
