@@ -47,6 +47,12 @@ PM_RESTART_IND_RE = re.compile(
     r"restart indication to QMI client|going on-line because restart request|QMI service peripheral restart",
     re.IGNORECASE,
 )
+PM_MSG22_NOISE_RE = re.compile(
+    r"a90_v1897_pm_(?:edge|msg22)|SRC pm_edge_observer|"
+    r"trace_uprobe: Event .*pm_msg22.*doesn'?t exist|"
+    r"event\.pm_msg22|result=.*msg22|armed=|hit_count=|msg22_hit_count=",
+    re.IGNORECASE,
+)
 PM_VOTE_RE = re.compile(r"cnss-daemon voting for modem", re.IGNORECASE)
 WLFW_REQUEST_RE = re.compile(r"wlfw_service_request", re.IGNORECASE)
 WLAN_PD_RE = re.compile(r"service-notifier: .*msm/modem/wlan_pd", re.IGNORECASE)
@@ -164,12 +170,13 @@ def android_capture_summary(android_dir: Path) -> dict[str, Any]:
     dmesg_lines = read_text(android_dir / "dmesg-filtered.txt").splitlines()
     request_lines = read_text(android_dir / "request-lines.txt").splitlines()
     all_lines = logcat_lines + dmesg_lines + request_lines
+    signal_lines = [line for line in all_lines if not PM_MSG22_NOISE_RE.search(line)]
     wlan0_time = first_dmesg_time(dmesg_lines, WLAN0_RE)
     pcie_mhi_before_wlan0 = count_dmesg_before(dmesg_lines, PCIE_MHI_RE, wlan0_time)
     esoc_boot_failed_before_wlan0 = count_dmesg_before(dmesg_lines, ESOC_BOOT_FAILED_RE, wlan0_time)
-    pm_msg22_count = count_lines(all_lines, PM_MSG22_RE)
-    pm_qmi_client_count = count_lines(all_lines, PM_QMI_CLIENT_RE)
-    pm_restart_ind_count = count_lines(all_lines, PM_RESTART_IND_RE)
+    pm_msg22_count = count_lines(signal_lines, PM_MSG22_RE)
+    pm_qmi_client_count = count_lines(signal_lines, PM_QMI_CLIENT_RE)
+    pm_restart_ind_count = count_lines(signal_lines, PM_RESTART_IND_RE)
     return {
         "android_dir": rel(android_dir),
         "logcat_lines": len(logcat_lines),
@@ -188,11 +195,11 @@ def android_capture_summary(android_dir: Path) -> dict[str, Any]:
         "esoc_boot_failed_before_wlan0": esoc_boot_failed_before_wlan0,
         "degraded_257s_like": wlan0_time is not None and wlan0_time > 120.0,
         "pm_msg22_count": pm_msg22_count,
-        "pm_msg22_first_line": first_line(all_lines, PM_MSG22_RE),
+        "pm_msg22_first_line": first_line(signal_lines, PM_MSG22_RE),
         "pm_qmi_client_count": pm_qmi_client_count,
-        "pm_qmi_client_first_line": first_line(all_lines, PM_QMI_CLIENT_RE),
+        "pm_qmi_client_first_line": first_line(signal_lines, PM_QMI_CLIENT_RE),
         "pm_restart_ind_count": pm_restart_ind_count,
-        "pm_restart_ind_first_line": first_line(all_lines, PM_RESTART_IND_RE),
+        "pm_restart_ind_first_line": first_line(signal_lines, PM_RESTART_IND_RE),
         "pending_client_msg22_observed": pm_msg22_count > 0 or pm_restart_ind_count > 0,
     }
 
@@ -355,7 +362,8 @@ def render_report(result: dict[str, Any]) -> str:
             "",
             "## Next",
             "",
-            "- When normal Android ADB/root is available, run V1890 capture and then V1894/V1888 against the captured `android/` directory.",
+            "- From native v724, use the rollbackable V1753/V1897 Android handoff and then run V1894/V1888 against the captured `android/` directory.",
+            "- Use V1890 only when normal Android ADB/root is already booted; it is not a flash-handoff runner.",
             "- Promote only if pending-client/msg22 or another servreg/SSCTL trigger appears before the first `wlanmdsp.mbn` request.",
             "- Do not attempt Wi-Fi connect or ping until native init proves WLFW service 69 and `wlan0` are both present.",
         ]

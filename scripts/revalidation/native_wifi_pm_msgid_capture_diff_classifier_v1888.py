@@ -42,6 +42,12 @@ MSG22_RE = re.compile(
 )
 MSG20_RE = re.compile(r"QMI service system restart request|msg(?:_| |id)?0x20|pm_msg20", re.IGNORECASE)
 MSG21_RE = re.compile(r"QMI service system shutdown request|msg(?:_| |id)?0x21|pm_msg21", re.IGNORECASE)
+MSG22_NOISE_RE = re.compile(
+    r"a90_v1897_pm_(?:edge|msg22)|SRC pm_edge_observer|"
+    r"trace_uprobe: Event .*pm_msg22.*doesn'?t exist|"
+    r"event\.pm_msg22|result=.*msg22|armed=|hit_count=|msg22_hit_count=",
+    re.IGNORECASE,
+)
 
 
 def rel(path: Path) -> str:
@@ -126,6 +132,7 @@ def android_capture_summary(android_dir: Path) -> dict[str, Any]:
     dmesg_lines = read_text(android_dir / "dmesg-filtered.txt").splitlines()
     request_lines = read_text(android_dir / "request-lines.txt").splitlines()
     all_lines = logcat_lines + dmesg_lines + request_lines
+    signal_lines = [line for line in all_lines if not MSG22_NOISE_RE.search(line)]
     wlan0_time = first_dmesg_time(dmesg_lines, r"\bdev : wlan0\b|\bicnss .*wlan0")
     wlan_pd_time = first_dmesg_time(dmesg_lines, r"service-notifier: .*msm/modem/wlan_pd")
     pcie_mhi_before_wlan0 = count_dmesg_before(
@@ -155,10 +162,10 @@ def android_capture_summary(android_dir: Path) -> dict[str, Any]:
         "pcie_mhi_before_wlan0": pcie_mhi_before_wlan0,
         "esoc_boot_failed_before_wlan0": esoc_boot_failed_before_wlan0,
         "degraded_257s_like": wlan0_time is not None and wlan0_time > 120.0,
-        "pm_msg20_hits": count_lines(all_lines, MSG20_RE),
-        "pm_msg21_hits": count_lines(all_lines, MSG21_RE),
-        "pm_msg22_hits": count_lines(all_lines, MSG22_RE),
-        "pm_msg22_first_line": first_line(all_lines, MSG22_RE),
+        "pm_msg20_hits": count_lines(signal_lines, MSG20_RE),
+        "pm_msg21_hits": count_lines(signal_lines, MSG21_RE),
+        "pm_msg22_hits": count_lines(signal_lines, MSG22_RE),
+        "pm_msg22_first_line": first_line(signal_lines, MSG22_RE),
         "servnotif_first_line": first_line(dmesg_lines + request_lines, r"service-notifier: .*msm/modem/wlan_pd"),
         "wlanmdsp_first_line": first_line(logcat_lines, r"wlanmdsp\.mbn"),
     }
