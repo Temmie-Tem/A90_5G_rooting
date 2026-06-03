@@ -17958,6 +17958,75 @@ esoc0/RC1/pcie1/MDM2AP, do NOT investigate MSA until WLFW 69 appears.
   - do not continue into Wi-Fi HAL/scan/connect from V1825 unless WLFW service
     69 and `wlan0` appear and a separate connection gate is written.
 
+## V1825 QIPCRTR socket-state handoff (2026-06-03)
+
+- V1825 ran exactly one rollbackable live gate with the V1824 artifact and
+  classified whether a passive AF_QIPCRTR socket can be opened, locally named,
+  and closed without lookup/control traffic.
+
+  Evidence:
+
+  - runner:
+    `scripts/revalidation/native_wifi_qipcrtr_socket_state_handoff_v1825.py`;
+  - source manifest:
+    `tmp/wifi/v1824-qipcrtr-socket-state-test-boot/manifest.json`;
+  - evidence:
+    `tmp/wifi/v1825-qipcrtr-socket-state-handoff`;
+  - report:
+    `docs/reports/NATIVE_INIT_V1825_QIPCRTR_SOCKET_STATE_HANDOFF_2026-06-03.md`;
+  - manifest:
+    `tmp/wifi/v1825-qipcrtr-socket-state-handoff/manifest.json`;
+  - rollback:
+    `from-native`, `ok=True`;
+  - post-run native verification:
+    `A90 Linux init 0.9.68 (v724)`, selftest `pass=11 warn=1 fail=0`;
+  - decision:
+    `v1825-qipcrtr-socket-open-getname-close-passive-rollback-pass`.
+
+  Key findings:
+
+  - QIPCRTR socket label:
+    `qipcrtr-socket-open-getname-close-passive`;
+  - passive socket open/getsockname/close rc values are `0/0/0`;
+  - getsockname returned family/node/port `42/1/0`;
+  - QIPCRTR protocol table stayed present with size `1416`, but socket counts
+    remained `0/0/0` before open, while open, and after close;
+  - explicit socket non-actions remained `no_bind=1`, `no_connect=1`,
+    `no_send=1`, `no_qrtr_lookup_send=1`,
+    `no_qrtr_control_payload=1`, and `no_service_start=1`;
+  - QRTR registry files remained unreadable, with proc_net_qrtr open counts
+    `0,0,0`;
+  - service-locator generic text remains `2,2,2`, but domain/wlan-fw/
+    wlan-pd-domain/qmi-server text remains `0,0,0`;
+  - service180/service74/wlan_pd raw counts remain `1,1,1` / `0,0,0` /
+    `0,0,0`;
+  - mdm3 remains `OFFLINING`, MHI absent, WLFW service 69 absent, and `wlan0`
+    absent;
+  - safety remained clean: no bind, connect, send, QRTR lookup packet, QRTR
+    control payload, service start, direct `/dev/subsys_esoc0` open,
+    fake-ONLINE, PMIC/GPIO/GDSC write, Wi-Fi HAL, scan/connect, credentials,
+    DHCP/routes, or external ping.
+
+  Interpretation:
+
+  - native can create an unbound AF_QIPCRTR datagram socket, but the passive
+    open does not create a named QRTR endpoint or expose a socket count;
+  - the returned port `0` means this did not establish a service-locator
+    listener or client endpoint;
+  - service74/wlan_pd/WLFW/wlan0 remain absent, so Wi-Fi HAL, scan/connect,
+    credentials, DHCP/routes, and external ping are still invalid.
+
+  Next candidate:
+
+  - V1826 should be host-only first: classify V1825 and decide whether the next
+    source/build target can be a stricter passive bind-state observer using
+    AF_QIPCRTR/SOCK_DGRAM with local auto-bind only, still without connect,
+    send, service lookup, service start, or QRTR control payload;
+  - if the bind-state target is not justified, choose another read-only lower
+    publication surface before adding any actor;
+  - do not continue into Wi-Fi HAL/scan/connect from V1826 unless WLFW service
+    69 and `wlan0` appear and a separate connection gate is written.
+
 ## V1820 servloc domain gap classifier (2026-06-03)
 
 - V1820 stayed host-only and compared the V1819 native
