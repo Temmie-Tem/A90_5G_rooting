@@ -17071,3 +17071,67 @@ esoc0/RC1/pcie1/MDM2AP, do NOT investigate MSA until WLFW 69 appears.
     fake-ONLINE, eSoC notify/BOOT_DONE, PCI rescan/bind, platform unbind, PMIC,
     GPIO, GDSC writes, `boot_wlan`, restart-PD, Wi-Fi HAL, scan/connect,
     DHCP/routes, or external ping from V1803 alone.
+
+## V1804 post-PM-success lower-state host classifier (2026-06-03)
+
+- V1804 reclassified current V1801/V1803 evidence against retained
+  Android-positive lower-state evidence and fixed the active lower label as
+  `post-pm-success-mdm3-offlining-before-wlanpd-up`.
+
+  Evidence:
+
+  - classifier:
+    `scripts/revalidation/native_wifi_post_pm_success_lower_state_classifier_v1804.py`;
+  - report:
+    `docs/reports/NATIVE_INIT_V1804_POST_PM_SUCCESS_LOWER_STATE_CLASSIFIER_2026-06-03.md`;
+  - manifest:
+    `tmp/wifi/v1804-post-pm-success-lower-state-classifier/manifest.json`;
+  - current source evidence:
+    `tmp/wifi/v1801-pm-service-devnode-projection-handoff`;
+  - readiness source classifier:
+    `tmp/wifi/v1803-wlfw-qmi-readiness-classifier/manifest.json`;
+  - Android-positive baselines:
+    `tmp/wifi/v739-mdm3-wlanpd-delta/manifest.json`,
+    `tmp/wifi/v852-android-ext-mdm-provider-surface-handoff/v852-android-ext-mdm-provider-surface-run/manifest.json`;
+  - decision:
+    `v1804-post-pm-success-mdm3-offlining-before-wlanpd-up-host-pass`.
+
+  Key findings:
+
+  - V1801 now proves PM service-object/list commit, PM server register success,
+    PeripheralManager binder object visibility, `asInterface`, register TX
+    return, PM client register return, PM client connect return, and
+    `periph_success_path`;
+  - current native state after the holder window is still `mss=ONLINE` and
+    `mdm3=OFFLINING`;
+  - current native has rpmsg/IPCRTR visible, but MHI pipe fd count is `0`;
+  - current wlan_pd service-notifier remains `uninit` with no indication, WLFW
+    service 69 QRTR readback has `0` service events, `wlanmdsp.mbn` request is
+    absent, and `wlan0` is absent;
+  - Android-positive baselines reach `mss=ONLINE`, `mdm3=ONLINE`, wlan_pd
+    UP/ACK, WLFW/BDF, and `wlan0` on the same stock kernel.
+
+  Interpretation:
+
+  - the previous PM service-object/register/connect blocker is repaired enough
+    to treat PM client voting as reached;
+  - the current blocker is now below PM vote: safe mdm3/ext-sdx50m continuation
+    from `mdm3=OFFLINING` to wlan_pd UP/WLFW service 69, not Wi-Fi HAL,
+    credentials, DHCP, routes, or external ping;
+  - next evidence should classify PM-service-owned lower continuation around
+    modem vote to mdm3/ext-sdx50m state, not repeat PM-service candidate repair.
+
+  Safety:
+
+  - host-only. No live device command, flash, reboot, property staging,
+    `/dev/subsys_esoc0` open, `boot_wlan`, restart-PD request, Wi-Fi HAL,
+    scan/connect, credentials, DHCP/routes, or external ping.
+
+  Next candidate:
+
+  - V1805 should stay host-only/source-build-only: design a no-write observer
+    for the PM-service-owned modem-vote to mdm3/ext-sdx50m continuation surface;
+  - explicitly keep blocking direct `/dev/subsys_esoc0` open, fake-ONLINE,
+    eSoC notify/BOOT_DONE, PCI rescan/bind, platform unbind, PMIC/GPIO/GDSC
+    writes, `boot_wlan`, restart-PD, Wi-Fi HAL, scan/connect, DHCP/routes, and
+    external ping from V1804 alone.
