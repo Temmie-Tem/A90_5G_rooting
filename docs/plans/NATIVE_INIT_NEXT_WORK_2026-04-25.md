@@ -18027,6 +18027,71 @@ esoc0/RC1/pcie1/MDM2AP, do NOT investigate MSA until WLFW 69 appears.
   - do not continue into Wi-Fi HAL/scan/connect from V1826 unless WLFW service
     69 and `wlan0` appear and a separate connection gate is written.
 
+## V1826 QIPCRTR bind-target classifier (2026-06-03)
+
+- V1826 stayed host-only and classified V1825's passive socket evidence to
+  decide whether a local auto-bind state observer is justified.
+
+  Evidence:
+
+  - classifier:
+    `scripts/revalidation/native_wifi_qipcrtr_bind_target_classifier_v1826.py`;
+  - source manifest:
+    `tmp/wifi/v1825-qipcrtr-socket-state-handoff/manifest.json`;
+  - evidence:
+    `tmp/wifi/v1826-qipcrtr-bind-target-classifier`;
+  - report:
+    `docs/reports/NATIVE_INIT_V1826_QIPCRTR_BIND_TARGET_CLASSIFIER_2026-06-03.md`;
+  - manifest:
+    `tmp/wifi/v1826-qipcrtr-bind-target-classifier/manifest.json`;
+  - decision:
+    `v1826-passive-qipcrtr-autobind-state-target-host-pass`.
+
+  Key findings:
+
+  - V1825 is fixed as
+    `qipcrtr-socket-open-getname-close-passive`;
+  - unbound AF_QIPCRTR/SOCK_DGRAM open, `getsockname`, and close all returned
+    rc `0`;
+  - unbound `getsockname` returned family/node/port `42/1/0`;
+  - QIPCRTR socket counts remained `0/0/0` before open, while open, and after
+    close;
+  - V1825 retained no bind/connect/send/lookup/control/service-start fields as
+    `1/1/1/1/1/1`;
+  - QRTR registry files remained unreadable, service74/wlan_pd stayed absent,
+    mdm3 stayed `OFFLINING`, and WLFW service 69 plus `wlan0` stayed absent.
+
+  Interpretation:
+
+  - unbound open/getname/close is safe but not discriminating enough because it
+    does not allocate a local QRTR endpoint;
+  - the next source/build target can test local auto-bind state while still
+    avoiding connect, send, service lookup, service start, and QRTR control
+    payloads;
+  - Wi-Fi HAL, scan/connect, credentials, DHCP/routes, and external ping remain
+    invalid because WLFW service 69 and `wlan0` are absent.
+
+  Safety:
+
+  - host-only. No live device command, flash, reboot, property staging,
+    `/dev/subsys_esoc0` open, fake-ONLINE, eSoC notify/BOOT_DONE, PCI
+    rescan/bind, platform unbind, PMIC/GPIO/GDSC writes, `boot_wlan`,
+    restart-PD request, QRTR bind/connect/send, QRTR lookup/control packet,
+    service start, Wi-Fi HAL, scan/connect, credentials, DHCP/routes, or
+    external ping was performed by V1826.
+
+  Next candidate:
+
+  - V1827 should be source/build-only and add one local auto-bind socket-state
+    snapshot: open AF_QIPCRTR/SOCK_DGRAM, bind with kernel-assigned local QRTR
+    port, `getsockname`, close, and summarize protocol socket counts before,
+    while bound, and after close;
+  - V1827 must still keep `no_connect=1`, `no_send=1`,
+    `no_qrtr_lookup_send=1`, `no_qrtr_control_payload=1`, and
+    `no_service_start=1`;
+  - do not run a live gate from V1827 until the source/build artifact and
+    non-action fields are reviewed.
+
 ## V1820 servloc domain gap classifier (2026-06-03)
 
 - V1820 stayed host-only and compared the V1819 native
