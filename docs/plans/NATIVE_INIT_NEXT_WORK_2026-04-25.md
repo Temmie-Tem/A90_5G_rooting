@@ -16595,3 +16595,67 @@ esoc0/RC1/pcie1/MDM2AP, do NOT investigate MSA until WLFW 69 appears.
     `count-fetcharg-unavailable`, or `list-commit-progress`;
   - do not repair `/dev/subsys_esoc0`, synthesize PM records, start Wi-Fi HAL,
     scan/connect, configure DHCP/routes, or external ping in V1796.
+
+## V1796 PM-service count/sample live handoff (2026-06-03)
+
+- V1796 ran one rollbackable live gate with the V1795 count/sample observer and
+  stopped at the fixed `modem-devnode-access-fail` label.
+
+  Evidence:
+
+  - runner:
+    `scripts/revalidation/native_wifi_wlan_pd_pm_service_count_sample_handoff_v1796.py`;
+  - report:
+    `docs/reports/NATIVE_INIT_V1796_PM_SERVICE_COUNT_SAMPLE_HANDOFF_2026-06-03.md`;
+  - evidence directory:
+    `tmp/wifi/v1796-pm-service-count-sample-handoff`;
+  - decision:
+    `v1796-modem-devnode-access-fail-rollback-pass`;
+  - rollback:
+    `from-native`, verified back to `stage3/boot_linux_v724.img` with
+    selftest `fail=0`.
+
+  Key findings:
+
+  - `first_count=0x2` and `second_count=0x0`;
+  - first-loop add-peripheral call/fail hits were `2` / `2`;
+  - first-loop samples exposed both `SDX50M` and `modem`;
+  - add-peripheral entry/known-name/init-fail samples also exposed both
+    `SDX50M` and `modem`;
+  - list-commit hits stayed `0`;
+  - PM register still requested `modem` and took the no-peripheral branch, with
+    loop/match/success hits all `0`.
+
+  Property staging note:
+
+  - NCM/tcpctl was not reliable in this environment, so V1796 used serial
+    `appendfile` + `uudecode` + busybox `tar -xzf` staging;
+  - property runtime SHA verification passed for both `property_info` and
+    `u:object_r:vendor_default_prop:s0`.
+
+  Interpretation:
+
+  - V1794's primary-list model is now live-confirmed: primary discovery has two
+    candidates, `SDX50M` and `modem`, and both fail before supported-list
+    insertion;
+  - the immediate blocker is not missing source-list population, but PM-service
+    candidate device access/init failure before list commit;
+  - the next gate must choose a safe devnode/access-parity discriminator before
+    any PM repair or WLAN-PD cascade.
+
+  Safety:
+
+  - no PM-service devnode repair, no `/dev/subsys_esoc0` open by the runner, no
+    forced RC1, fake-ONLINE, PMIC/GPIO/GDSC write, eSoC notify, BOOT_DONE spoof,
+    PCI rescan, platform bind/unbind, restart-PD request, full `pm-proxy`,
+    `boot_wlan`, Wi-Fi HAL, scan/connect, credentials, DHCP/routes, or external
+    ping;
+  - mutation scope was serial private-property staging on `/mnt/sdext`, one test
+    boot flash, and rollback to `stage3/boot_linux_v724.img`.
+
+  Next candidate:
+
+  - V1797 should be a source/build-only or host-only discriminator for why
+    `SDX50M` and `modem` init fail before list commit;
+  - do not repair `/dev/subsys_esoc0` or synthesize PM records until that
+    discriminator identifies the minimal safe parity gap.
