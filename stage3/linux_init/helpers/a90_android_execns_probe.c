@@ -101,7 +101,7 @@
 #define SYSLOG_ACTION_READ_ALL 3
 #endif
 
-#define EXECNS_VERSION "a90_android_execns_probe v362"
+#define EXECNS_VERSION "a90_android_execns_probe v363"
 
 #ifndef A90_EXECNS_ENABLE_DELAYED_LOWER_RESPONSE_WINDOW
 #define A90_EXECNS_ENABLE_DELAYED_LOWER_RESPONSE_WINDOW 0
@@ -36816,6 +36816,410 @@ static int append_wlan_pd_qrtr_registry_snapshot(struct buffer *buf,
                          phase);
 }
 
+struct icnss_ipc_focus_counts {
+    unsigned int contexts;
+    unsigned int readable_logs;
+    unsigned int open_errors;
+    unsigned int lines;
+    unsigned int focus_lines;
+    bool get_service_location;
+    bool get_service_notify;
+    bool wlan_pd_domain;
+    bool pd_notification_registration;
+    bool wlfw_server_arrive;
+    bool service69_text;
+    char first_source[MAX_PATH_LEN];
+    char first_focus_line[192];
+};
+
+static bool icnss_ipc_line_focused(const char *line) {
+    return strcasestr(line, "icnss") != NULL ||
+           strcasestr(line, "wlfw") != NULL ||
+           strcasestr(line, "wlan_pd") != NULL ||
+           strcasestr(line, "wlan/fw") != NULL ||
+           strcasestr(line, "domain_name") != NULL ||
+           strcasestr(line, "service 69") != NULL;
+}
+
+static void update_icnss_ipc_focus_counts(struct icnss_ipc_focus_counts *counts,
+                                          const char *source,
+                                          const char *line) {
+    counts->lines++;
+    if (!icnss_ipc_line_focused(line)) {
+        return;
+    }
+    counts->focus_lines++;
+    if (counts->first_focus_line[0] == '\0') {
+        copy_klog_value(counts->first_focus_line,
+                        sizeof(counts->first_focus_line),
+                        line);
+        copy_klog_value(counts->first_source,
+                        sizeof(counts->first_source),
+                        source);
+    }
+    if (strcasestr(line, "Get service location") != NULL) {
+        counts->get_service_location = true;
+    }
+    if (strcasestr(line, "Get service notify") != NULL) {
+        counts->get_service_notify = true;
+    }
+    if (strcasestr(line, "msm/modem/wlan_pd") != NULL ||
+        strcasestr(line, "wlan_pd") != NULL) {
+        counts->wlan_pd_domain = true;
+    }
+    if (strcasestr(line, "PD notification registration happened") != NULL) {
+        counts->pd_notification_registration = true;
+    }
+    if (strcasestr(line, "WLFW server arrive") != NULL) {
+        counts->wlfw_server_arrive = true;
+    }
+    if (strcasestr(line, "service 69") != NULL ||
+        strcasestr(line, "svc_id=0x45") != NULL ||
+        strcasestr(line, "svc_id=69") != NULL) {
+        counts->service69_text = true;
+    }
+}
+
+static void scan_icnss_ipc_log_text(struct icnss_ipc_focus_counts *counts,
+                                    const char *source,
+                                    char *text) {
+    char *line;
+    char *saveptr = NULL;
+
+    for (line = strtok_r(text, "\n", &saveptr);
+         line != NULL;
+         line = strtok_r(NULL, "\n", &saveptr)) {
+        update_icnss_ipc_focus_counts(counts, source, line);
+    }
+}
+
+static void scan_icnss_ipc_log_file(struct icnss_ipc_focus_counts *counts,
+                                    const char *path) {
+    enum { ICNSS_IPC_CAPTURE_LIMIT = 32768 };
+    char *text;
+    ssize_t nread;
+    size_t total = 0;
+    int fd;
+
+    counts->contexts++;
+    fd = open(path, O_RDONLY | O_CLOEXEC);
+    if (fd < 0) {
+        counts->open_errors++;
+        return;
+    }
+    counts->readable_logs++;
+    text = calloc(1U, ICNSS_IPC_CAPTURE_LIMIT + 1U);
+    if (text == NULL) {
+        close(fd);
+        counts->open_errors++;
+        return;
+    }
+    while (total < ICNSS_IPC_CAPTURE_LIMIT) {
+        nread = read(fd, text + total, ICNSS_IPC_CAPTURE_LIMIT - total);
+        if (nread < 0) {
+            if (errno == EINTR) {
+                continue;
+            }
+            counts->open_errors++;
+            break;
+        }
+        if (nread == 0) {
+            break;
+        }
+        total += (size_t)nread;
+    }
+    close(fd);
+    text[total] = '\0';
+    scan_icnss_ipc_log_text(counts, path, text);
+    free(text);
+}
+
+static void scan_icnss_ipc_root(struct icnss_ipc_focus_counts *counts,
+                                const char *root) {
+    enum { ICNSS_IPC_CONTEXT_LIMIT = 128 };
+    DIR *dir;
+    struct dirent *entry;
+    struct stat st;
+    unsigned int context_count = 0;
+
+    dir = opendir(root);
+    if (dir == NULL) {
+        return;
+    }
+    while ((entry = readdir(dir)) != NULL && context_count < ICNSS_IPC_CONTEXT_LIMIT) {
+        char path[MAX_PATH_LEN];
+
+        if (entry->d_name[0] == '.') {
+            continue;
+        }
+        if (snprintf(path, sizeof(path), "%s/%s/log", root, entry->d_name) >= (int)sizeof(path)) {
+            continue;
+        }
+        if (lstat(path, &st) == 0 && S_ISREG(st.st_mode)) {
+            scan_icnss_ipc_log_file(counts, path);
+            context_count++;
+            continue;
+        }
+        if (snprintf(path, sizeof(path), "%s/%s", root, entry->d_name) >= (int)sizeof(path)) {
+            continue;
+        }
+        if (lstat(path, &st) == 0 && S_ISREG(st.st_mode)) {
+            scan_icnss_ipc_log_file(counts, path);
+            context_count++;
+        }
+    }
+    closedir(dir);
+}
+
+static int append_icnss_ipc_root_summary(struct buffer *buf,
+                                         const char *phase,
+                                         const char *label,
+                                         const char *root) {
+    struct stat st;
+    struct icnss_ipc_focus_counts counts;
+    bool root_exists = lstat(root, &st) == 0;
+
+    memset(&counts, 0, sizeof(counts));
+    if (root_exists && S_ISDIR(st.st_mode)) {
+        scan_icnss_ipc_root(&counts, root);
+    }
+    return append_format(buf,
+                         "wlan_pd_icnss_ipc_snapshot.%s.%s.root=%s\n"
+                         "wlan_pd_icnss_ipc_snapshot.%s.%s.root_exists=%d\n"
+                         "wlan_pd_icnss_ipc_snapshot.%s.%s.contexts=%u\n"
+                         "wlan_pd_icnss_ipc_snapshot.%s.%s.readable_logs=%u\n"
+                         "wlan_pd_icnss_ipc_snapshot.%s.%s.open_errors=%u\n"
+                         "wlan_pd_icnss_ipc_snapshot.%s.%s.lines=%u\n"
+                         "wlan_pd_icnss_ipc_snapshot.%s.%s.focus_lines=%u\n"
+                         "wlan_pd_icnss_ipc_snapshot.%s.%s.get_service_location=%d\n"
+                         "wlan_pd_icnss_ipc_snapshot.%s.%s.get_service_notify=%d\n"
+                         "wlan_pd_icnss_ipc_snapshot.%s.%s.wlan_pd_domain=%d\n"
+                         "wlan_pd_icnss_ipc_snapshot.%s.%s.pd_notification_registration=%d\n"
+                         "wlan_pd_icnss_ipc_snapshot.%s.%s.wlfw_server_arrive=%d\n"
+                         "wlan_pd_icnss_ipc_snapshot.%s.%s.service69_text=%d\n"
+                         "wlan_pd_icnss_ipc_snapshot.%s.%s.first_source=%s\n"
+                         "wlan_pd_icnss_ipc_snapshot.%s.%s.first_focus_line=%s\n",
+                         phase,
+                         label,
+                         root,
+                         phase,
+                         label,
+                         root_exists ? 1 : 0,
+                         phase,
+                         label,
+                         counts.contexts,
+                         phase,
+                         label,
+                         counts.readable_logs,
+                         phase,
+                         label,
+                         counts.open_errors,
+                         phase,
+                         label,
+                         counts.lines,
+                         phase,
+                         label,
+                         counts.focus_lines,
+                         phase,
+                         label,
+                         counts.get_service_location ? 1 : 0,
+                         phase,
+                         label,
+                         counts.get_service_notify ? 1 : 0,
+                         phase,
+                         label,
+                         counts.wlan_pd_domain ? 1 : 0,
+                         phase,
+                         label,
+                         counts.pd_notification_registration ? 1 : 0,
+                         phase,
+                         label,
+                         counts.wlfw_server_arrive ? 1 : 0,
+                         phase,
+                         label,
+                         counts.service69_text ? 1 : 0,
+                         phase,
+                         label,
+                         counts.first_source[0] != '\0' ? counts.first_source : "missing",
+                         phase,
+                         label,
+                         counts.first_focus_line[0] != '\0' ? counts.first_focus_line : "missing");
+}
+
+static int append_icnss_stats_summary(struct buffer *buf,
+                                      const char *phase) {
+    enum { ICNSS_STATS_CAPTURE_LIMIT = 16384 };
+    const char *path = "/sys/kernel/debug/icnss/stats";
+    char *text;
+    char *line;
+    char *saveptr = NULL;
+    ssize_t nread;
+    size_t total = 0;
+    unsigned int lines = 0;
+    bool ind_register_text = false;
+    bool cap_text = false;
+    bool msa_ready_text = false;
+    bool mode_text = false;
+    int saved_errno = 0;
+    int fd;
+
+    fd = open(path, O_RDONLY | O_CLOEXEC);
+    if (fd < 0) {
+        saved_errno = errno;
+        return append_format(buf,
+                             "wlan_pd_icnss_ipc_snapshot.%s.icnss_stats.path=%s\n"
+                             "wlan_pd_icnss_ipc_snapshot.%s.icnss_stats.open=0\n"
+                             "wlan_pd_icnss_ipc_snapshot.%s.icnss_stats.errno=%d\n"
+                             "wlan_pd_icnss_ipc_snapshot.%s.icnss_stats.error=%s\n",
+                             phase,
+                             path,
+                             phase,
+                             phase,
+                             saved_errno,
+                             phase,
+                             strerror(saved_errno));
+    }
+    text = calloc(1U, ICNSS_STATS_CAPTURE_LIMIT + 1U);
+    if (text == NULL) {
+        close(fd);
+        return append_format(buf,
+                             "wlan_pd_icnss_ipc_snapshot.%s.icnss_stats.path=%s\n"
+                             "wlan_pd_icnss_ipc_snapshot.%s.icnss_stats.open=1\n"
+                             "wlan_pd_icnss_ipc_snapshot.%s.icnss_stats.errno=%d\n"
+                             "wlan_pd_icnss_ipc_snapshot.%s.icnss_stats.error=%s\n",
+                             phase,
+                             path,
+                             phase,
+                             phase,
+                             ENOMEM,
+                             phase,
+                             strerror(ENOMEM));
+    }
+    while (total < ICNSS_STATS_CAPTURE_LIMIT) {
+        nread = read(fd, text + total, ICNSS_STATS_CAPTURE_LIMIT - total);
+        if (nread < 0) {
+            if (errno == EINTR) {
+                continue;
+            }
+            saved_errno = errno;
+            break;
+        }
+        if (nread == 0) {
+            break;
+        }
+        total += (size_t)nread;
+    }
+    close(fd);
+    text[total] = '\0';
+    for (line = strtok_r(text, "\n", &saveptr);
+         line != NULL;
+         line = strtok_r(NULL, "\n", &saveptr)) {
+        lines++;
+        if (strcasestr(line, "ind_register") != NULL) {
+            ind_register_text = true;
+        }
+        if (strcasestr(line, "cap_") != NULL || strcasestr(line, "cap ") != NULL) {
+            cap_text = true;
+        }
+        if (strcasestr(line, "msa_ready") != NULL) {
+            msa_ready_text = true;
+        }
+        if (strcasestr(line, "mode_") != NULL || strcasestr(line, "mode ") != NULL) {
+            mode_text = true;
+        }
+    }
+    free(text);
+    if (saved_errno != 0) {
+        return append_format(buf,
+                             "wlan_pd_icnss_ipc_snapshot.%s.icnss_stats.path=%s\n"
+                             "wlan_pd_icnss_ipc_snapshot.%s.icnss_stats.open=1\n"
+                             "wlan_pd_icnss_ipc_snapshot.%s.icnss_stats.errno=%d\n"
+                             "wlan_pd_icnss_ipc_snapshot.%s.icnss_stats.error=%s\n",
+                             phase,
+                             path,
+                             phase,
+                             phase,
+                             saved_errno,
+                             phase,
+                             strerror(saved_errno));
+    }
+    return append_format(buf,
+                         "wlan_pd_icnss_ipc_snapshot.%s.icnss_stats.path=%s\n"
+                         "wlan_pd_icnss_ipc_snapshot.%s.icnss_stats.open=1\n"
+                         "wlan_pd_icnss_ipc_snapshot.%s.icnss_stats.errno=0\n"
+                         "wlan_pd_icnss_ipc_snapshot.%s.icnss_stats.error=none\n"
+                         "wlan_pd_icnss_ipc_snapshot.%s.icnss_stats.bytes=%zu\n"
+                         "wlan_pd_icnss_ipc_snapshot.%s.icnss_stats.lines=%u\n"
+                         "wlan_pd_icnss_ipc_snapshot.%s.icnss_stats.ind_register_text=%d\n"
+                         "wlan_pd_icnss_ipc_snapshot.%s.icnss_stats.cap_text=%d\n"
+                         "wlan_pd_icnss_ipc_snapshot.%s.icnss_stats.msa_ready_text=%d\n"
+                         "wlan_pd_icnss_ipc_snapshot.%s.icnss_stats.mode_text=%d\n",
+                         phase,
+                         path,
+                         phase,
+                         phase,
+                         phase,
+                         phase,
+                         total,
+                         phase,
+                         lines,
+                         phase,
+                         ind_register_text ? 1 : 0,
+                         phase,
+                         cap_text ? 1 : 0,
+                         phase,
+                         msa_ready_text ? 1 : 0,
+                         phase,
+                         mode_text ? 1 : 0);
+}
+
+static int append_wlan_pd_icnss_ipc_snapshot(struct buffer *buf,
+                                             const char *phase) {
+    struct stat st;
+    int debugfs_ipc_exists = lstat("/sys/kernel/debug/ipc_logging", &st) == 0 ? 1 : 0;
+    int proc_ipc_exists = lstat("/proc/ipc_logging", &st) == 0 ? 1 : 0;
+    int debugfs_icnss_exists = lstat("/sys/kernel/debug/icnss", &st) == 0 ? 1 : 0;
+
+    if (append_format(buf,
+                      "wlan_pd_icnss_ipc_snapshot.%s.begin=1\n"
+                      "wlan_pd_icnss_ipc_snapshot.%s.mode=read-only-ipc-icnss-summary\n"
+                      "wlan_pd_icnss_ipc_snapshot.%s.debugfs_ipc_logging_exists=%d\n"
+                      "wlan_pd_icnss_ipc_snapshot.%s.proc_ipc_logging_exists=%d\n"
+                      "wlan_pd_icnss_ipc_snapshot.%s.debugfs_icnss_exists=%d\n",
+                      phase,
+                      phase,
+                      phase,
+                      debugfs_ipc_exists,
+                      phase,
+                      proc_ipc_exists,
+                      phase,
+                      debugfs_icnss_exists) < 0 ||
+        append_icnss_ipc_root_summary(buf,
+                                      phase,
+                                      "debugfs_ipc_logging",
+                                      "/sys/kernel/debug/ipc_logging") < 0 ||
+        append_icnss_ipc_root_summary(buf,
+                                      phase,
+                                      "proc_ipc_logging",
+                                      "/proc/ipc_logging") < 0 ||
+        append_icnss_stats_summary(buf, phase) < 0) {
+        return -1;
+    }
+    return append_format(buf,
+                         "wlan_pd_icnss_ipc_snapshot.%s.no_debugfs_write=1\n"
+                         "wlan_pd_icnss_ipc_snapshot.%s.no_tracefs_write=1\n"
+                         "wlan_pd_icnss_ipc_snapshot.%s.no_service_start=1\n"
+                         "wlan_pd_icnss_ipc_snapshot.%s.no_esoc0_open=1\n"
+                         "wlan_pd_icnss_ipc_snapshot.%s.no_wifi_hal=1\n"
+                         "wlan_pd_icnss_ipc_snapshot.%s.end=1\n",
+                         phase,
+                         phase,
+                         phase,
+                         phase,
+                         phase,
+                         phase);
+}
+
 static int append_wlan_pd_qipcrtr_socket_state_snapshot(struct buffer *buf,
                                                         const char *phase) {
     char prefix[160];
@@ -39215,6 +39619,14 @@ static int run_wifi_companion_start_only_guarded(const struct config *cfg,
         stop_property_service_shim(&property_shim, paths, stdout_buf);
         return -1;
     }
+    if (wlan_pd_post_pm_lower_state_observer &&
+        append_wlan_pd_icnss_ipc_snapshot(stdout_buf,
+                                          "after_holder_start") < 0) {
+        stop_wlan_pd_modem_holder(paths, stdout_buf, &wlan_pd_holder);
+        composite_cleanup_children(children, active_child_count, stdout_buf, stderr_buf);
+        stop_property_service_shim(&property_shim, paths, stdout_buf);
+        return -1;
+    }
     if (cfg->allow_service_notifier_listener_probe &&
         append_companion_service_notifier_listener_probe(stdout_buf, cfg) < 0) {
         stop_wlan_pd_modem_holder(paths, stdout_buf, &wlan_pd_holder);
@@ -39233,6 +39645,14 @@ static int run_wifi_companion_start_only_guarded(const struct config *cfg,
     if (wlan_pd_post_pm_lower_state_observer &&
         append_wlan_pd_qrtr_registry_snapshot(stdout_buf,
                                               "after_early_listener") < 0) {
+        stop_wlan_pd_modem_holder(paths, stdout_buf, &wlan_pd_holder);
+        composite_cleanup_children(children, active_child_count, stdout_buf, stderr_buf);
+        stop_property_service_shim(&property_shim, paths, stdout_buf);
+        return -1;
+    }
+    if (wlan_pd_post_pm_lower_state_observer &&
+        append_wlan_pd_icnss_ipc_snapshot(stdout_buf,
+                                          "after_early_listener") < 0) {
         stop_wlan_pd_modem_holder(paths, stdout_buf, &wlan_pd_holder);
         composite_cleanup_children(children, active_child_count, stdout_buf, stderr_buf);
         stop_property_service_shim(&property_shim, paths, stdout_buf);
@@ -39285,6 +39705,14 @@ static int run_wifi_companion_start_only_guarded(const struct config *cfg,
     if (wlan_pd_post_pm_lower_state_observer &&
         append_wlan_pd_qrtr_registry_snapshot(stdout_buf,
                                               "after_post_listener_window") < 0) {
+        stop_wlan_pd_modem_holder(paths, stdout_buf, &wlan_pd_holder);
+        composite_cleanup_children(children, active_child_count, stdout_buf, stderr_buf);
+        stop_property_service_shim(&property_shim, paths, stdout_buf);
+        return -1;
+    }
+    if (wlan_pd_post_pm_lower_state_observer &&
+        append_wlan_pd_icnss_ipc_snapshot(stdout_buf,
+                                          "after_post_listener_window") < 0) {
         stop_wlan_pd_modem_holder(paths, stdout_buf, &wlan_pd_holder);
         composite_cleanup_children(children, active_child_count, stdout_buf, stderr_buf);
         stop_property_service_shim(&property_shim, paths, stdout_buf);
