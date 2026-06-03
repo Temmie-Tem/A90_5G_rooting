@@ -18296,6 +18296,77 @@ esoc0/RC1/pcie1/MDM2AP, do NOT investigate MSA until WLFW 69 appears.
   - do not run a live gate from V1830 until the source/build artifact and
     non-action fields are reviewed.
 
+## V1830 QIPCRTR local-node bind source build (2026-06-03)
+
+- V1830 built a source/build-only rollbackable test-boot artifact that keeps
+  the bounded lower handoff observer, retains the unbound and node-zero bind
+  snapshots, and adds one observed-local-node AF_QIPCRTR bind-state snapshot at
+  `net_window`.
+
+  Evidence:
+
+  - builder:
+    `scripts/revalidation/build_native_init_wifi_test_boot_v1830.py`;
+  - common builder update:
+    `scripts/revalidation/build_native_init_wifi_test_boot_v1393.py`;
+  - helper source:
+    `stage3/linux_init/helpers/a90_android_execns_probe.c`;
+  - report:
+    `docs/reports/NATIVE_INIT_V1830_QIPCRTR_LOCAL_NODE_BIND_SOURCE_BUILD_2026-06-03.md`;
+  - manifest:
+    `tmp/wifi/v1830-qipcrtr-local-node-bind-test-boot/manifest.json`;
+  - boot image:
+    `tmp/wifi/v1830-qipcrtr-local-node-bind-test-boot/boot_linux_v1830_qipcrtr_local_node_bind.img`;
+  - boot SHA256:
+    `2763b697b96c76e21920e7af93ea04441255c492786cc1159042b5a17eaf6a33`;
+  - init:
+    `A90 Linux init 0.9.160 (v1830-qipcrtr-local-node-bind)`;
+  - helper:
+    `a90_android_execns_probe v351`,
+    SHA256 `07d6a372705631917f82223f9187d39b945c862b6b8aac7f4cb9f8fd7967c941`;
+  - decision:
+    `v1830-qipcrtr-local-node-bind-source-build-pass`.
+
+  Added observer fields:
+
+  - local-node bind prefix:
+    `wlan_pd_qipcrtr_local_node_bind_state.net_window.*`;
+  - observed-local-node bind sequence:
+    protocol summary before open, AF_QIPCRTR/SOCK_DGRAM open, pre-bind
+    `getsockname`, bind using the observed local node and port `0`, post-bind
+    `getsockname`, protocol summary while bound, close, and protocol summary
+    after close;
+  - explicit non-action fields:
+    `no_connect=1`, `no_send=1`, `no_qrtr_lookup_send=1`,
+    `no_qrtr_control_payload=1`, and `no_service_start=1`.
+
+  Interpretation:
+
+  - V1830 is source/build-only, so it does not change the live blocker
+    verdict;
+  - it prepares V1831 to decide whether observed-local-node bind allocates a
+    local QRTR endpoint without any connect/send/lookup/control payload;
+  - Wi-Fi HAL, scan/connect, credentials, DHCP/routes, and external ping remain
+    invalid until WLFW service 69 and `wlan0` exist.
+
+  Safety:
+
+  - host-only source/build. No live device command, flash, reboot, property
+    staging, `/dev/subsys_esoc0` open, fake-ONLINE, eSoC notify/BOOT_DONE, PCI
+    rescan/bind, platform unbind, PMIC/GPIO/GDSC writes, `boot_wlan`,
+    restart-PD request, QRTR connect/send, QRTR lookup/control packet, service
+    start, Wi-Fi HAL, scan/connect, credentials, DHCP/routes, or external ping
+    was performed by V1830.
+
+  Next candidate:
+
+  - V1831 should run exactly one rollbackable live gate with the V1830 artifact
+    and classify `qipcrtr-local-node-bind-gets-local-port-passive`,
+    `qipcrtr-local-node-bind-fails`, `lower-publication-progress`, or
+    `safety-regression`;
+  - stop after the V1831 label and do not proceed to Wi-Fi HAL/scan/connect
+    unless WLFW service 69 and `wlan0` appear.
+
 ## V1820 servloc domain gap classifier (2026-06-03)
 
 - V1820 stayed host-only and compared the V1819 native
