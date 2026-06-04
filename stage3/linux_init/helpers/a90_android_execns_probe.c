@@ -152,6 +152,10 @@
 #define A90_WIFI_TEST_BOOT_ICNSS_QCACLD_POST_BDF_FOCUSED_SUMMARY 0
 #endif
 
+#ifndef A90_WIFI_TEST_BOOT_MACLOADER_PRE_CNSS
+#define A90_WIFI_TEST_BOOT_MACLOADER_PRE_CNSS 0
+#endif
+
 #ifndef A90_WIFI_TEST_BOOT_DIAG_QUERY_ONLY_PROBE
 #define A90_WIFI_TEST_BOOT_DIAG_QUERY_ONLY_PROBE 0
 #endif
@@ -188,7 +192,9 @@
 #define A90_WIFI_TEST_BOOT_DIAG_REMOTE_DEV_POLL_PROBE 0
 #endif
 
-#if A90_WIFI_TEST_BOOT_ICNSS_QCACLD_POST_BDF_FOCUSED_SUMMARY && A90_WIFI_TEST_BOOT_WLFW_LATE_MSG21_FOCUSED_SUMMARY && A90_WIFI_TEST_BOOT_PERMGR_VOTE_FOCUSED_SUMMARY && A90_WIFI_TEST_BOOT_TFTP_READWRITE_TRANSITION_SAMPLER && A90_WIFI_TEST_BOOT_TFTP_READY_BEFORE_WLFW_VOTE && A90_WIFI_TEST_BOOT_TFTP_LOGDW_ORDER_TIMESTAMPS && A90_WIFI_TEST_BOOT_TFTP_PERSIST_RFS_TMPFS && A90_WIFI_TEST_BOOT_TFTP_MCFG_READBACK && A90_WIFI_TEST_BOOT_TFTP_LOGDW_SINK && !A90_RFS_BRIDGE_SERVE_FIRMWARE_MNT_PROBE
+#if A90_WIFI_TEST_BOOT_MACLOADER_PRE_CNSS && A90_WIFI_TEST_BOOT_ICNSS_QCACLD_POST_BDF_FOCUSED_SUMMARY && A90_WIFI_TEST_BOOT_WLFW_LATE_MSG21_FOCUSED_SUMMARY && A90_WIFI_TEST_BOOT_PERMGR_VOTE_FOCUSED_SUMMARY && A90_WIFI_TEST_BOOT_TFTP_READWRITE_TRANSITION_SAMPLER && A90_WIFI_TEST_BOOT_TFTP_READY_BEFORE_WLFW_VOTE && A90_WIFI_TEST_BOOT_TFTP_LOGDW_ORDER_TIMESTAMPS && A90_WIFI_TEST_BOOT_TFTP_PERSIST_RFS_TMPFS && A90_WIFI_TEST_BOOT_TFTP_MCFG_READBACK && A90_WIFI_TEST_BOOT_TFTP_LOGDW_SINK && !A90_RFS_BRIDGE_SERVE_FIRMWARE_MNT_PROBE
+#define EXECNS_VERSION "a90_android_execns_probe v405"
+#elif A90_WIFI_TEST_BOOT_ICNSS_QCACLD_POST_BDF_FOCUSED_SUMMARY && A90_WIFI_TEST_BOOT_WLFW_LATE_MSG21_FOCUSED_SUMMARY && A90_WIFI_TEST_BOOT_PERMGR_VOTE_FOCUSED_SUMMARY && A90_WIFI_TEST_BOOT_TFTP_READWRITE_TRANSITION_SAMPLER && A90_WIFI_TEST_BOOT_TFTP_READY_BEFORE_WLFW_VOTE && A90_WIFI_TEST_BOOT_TFTP_LOGDW_ORDER_TIMESTAMPS && A90_WIFI_TEST_BOOT_TFTP_PERSIST_RFS_TMPFS && A90_WIFI_TEST_BOOT_TFTP_MCFG_READBACK && A90_WIFI_TEST_BOOT_TFTP_LOGDW_SINK && !A90_RFS_BRIDGE_SERVE_FIRMWARE_MNT_PROBE
 #define EXECNS_VERSION "a90_android_execns_probe v404"
 #elif A90_WIFI_TEST_BOOT_WLFW_LATE_MSG21_FOCUSED_SUMMARY && A90_WIFI_TEST_BOOT_PERMGR_VOTE_FOCUSED_SUMMARY && A90_WIFI_TEST_BOOT_TFTP_READWRITE_TRANSITION_SAMPLER && A90_WIFI_TEST_BOOT_TFTP_READY_BEFORE_WLFW_VOTE && A90_WIFI_TEST_BOOT_TFTP_LOGDW_ORDER_TIMESTAMPS && A90_WIFI_TEST_BOOT_TFTP_PERSIST_RFS_TMPFS && A90_WIFI_TEST_BOOT_TFTP_MCFG_READBACK && A90_WIFI_TEST_BOOT_TFTP_LOGDW_SINK && !A90_RFS_BRIDGE_SERVE_FIRMWARE_MNT_PROBE
 #define EXECNS_VERSION "a90_android_execns_probe v403"
@@ -5489,6 +5495,9 @@ static const char *android_default_selinux_context_for_target(const char *target
         streq(target, "/vendor/bin/hw/android.hardware.wifi@1.0-service")) {
         return "u:r:hal_wifi_default:s0";
     }
+    if (streq(target, "/vendor/bin/hw/macloader")) {
+        return "u:r:macloader:s0";
+    }
     if (streq(target, "/vendor/bin/cnss-daemon") ||
         streq(target, "/vendor/bin/cnss_diag")) {
         return "u:r:vendor_wcnss_service:s0";
@@ -6129,6 +6138,21 @@ static int apply_mdm_helper_identity_contract(const char *prefix) {
                                              NULL,
                                              0,
                                              false);
+}
+
+static int apply_macloader_identity_contract(const char *prefix) {
+    gid_t groups[] = {A90_AID_WIFI, A90_AID_INET, A90_AID_NET_RAW, A90_AID_NET_ADMIN};
+    int caps[] = {CAP_NET_ADMIN, CAP_NET_RAW, CAP_SYS_MODULE};
+
+    return apply_companion_identity_contract(prefix,
+                                             "macloader",
+                                             A90_AID_WIFI,
+                                             A90_AID_WIFI,
+                                             groups,
+                                             sizeof(groups) / sizeof(groups[0]),
+                                             caps,
+                                             sizeof(caps) / sizeof(caps[0]),
+                                             true);
 }
 
 static int apply_peripheral_manager_identity_contract(const char *prefix) {
@@ -32859,6 +32883,7 @@ enum composite_identity {
     COMPOSITE_ID_PER_MGR,
     COMPOSITE_ID_PER_PROXY,
     COMPOSITE_ID_PER_PROXY_HELPER,
+    COMPOSITE_ID_MACLOADER,
     COMPOSITE_ID_WIFICOND,
 };
 
@@ -35146,6 +35171,12 @@ static int composite_spawn_child(const struct config *cfg,
             }
         } else if (child->identity == COMPOSITE_ID_MDM_HELPER) {
             if (apply_mdm_helper_identity_contract(prefix) < 0) {
+                printf("%s.end=1\n", prefix);
+                fflush(stdout);
+                _exit(126);
+            }
+        } else if (child->identity == COMPOSITE_ID_MACLOADER) {
+            if (apply_macloader_identity_contract(prefix) < 0) {
                 printf("%s.end=1\n", prefix);
                 fflush(stdout);
                 _exit(126);
@@ -47596,6 +47627,9 @@ static int run_wifi_companion_start_only_guarded(const struct config *cfg,
         wlan_pd_service_window_trigger ||
         wlan_pd_pm_service_window_trigger ||
         wlan_pd_service_object_visible_trigger;
+    const bool macloader_pre_cnss =
+        wlan_pd_firmware_serve_gate &&
+        A90_WIFI_TEST_BOOT_MACLOADER_PRE_CNSS;
     const bool android_order_pre_cnss_provider_observer =
         is_wifi_companion_android_order_pre_cnss_provider_observe_only_mode(cfg->mode);
     const bool with_service_manager =
@@ -47800,6 +47834,12 @@ static int run_wifi_companion_start_only_guarded(const struct config *cfg,
                                  "cnss_diag",
                                  "/vendor/bin/cnss_diag",
                                  COMPOSITE_ID_CNSS_DIAG);
+            if (macloader_pre_cnss) {
+                composite_child_init(&children[child_count++],
+                                     "macloader",
+                                     "/vendor/bin/hw/macloader",
+                                     COMPOSITE_ID_MACLOADER);
+            }
             if (!service74_gated_peripheral_manager_provider_first_cnss) {
                 cnss_initial_index = (int)child_count;
                 composite_child_init(&children[child_count++],
@@ -47902,7 +47942,9 @@ static int run_wifi_companion_start_only_guarded(const struct config *cfg,
                            ? "servicemanager,hwservicemanager,vndservicemanager,qrtr_ns,pd_mapper,rmt_storage,tftp_server,pm_proxy_helper,per_mgr,per_proxy,subsys_modem_holder,cnss_diag,cnss_daemon,pm-service-window-trigger-summary"
                            : (wlan_pd_service_window_trigger
                                   ? "servicemanager,hwservicemanager,vndservicemanager,qrtr_ns,pd_mapper,rmt_storage,tftp_server,subsys_modem_holder,cnss_diag,cnss_daemon,service-window-trigger-summary"
-                                  : "qrtr_ns,pd_mapper,rmt_storage,tftp_server,subsys_modem_holder,cnss_diag,cnss_daemon")));
+                                  : (macloader_pre_cnss
+                                         ? "qrtr_ns,pd_mapper,rmt_storage,tftp_server,subsys_modem_holder,cnss_diag,macloader,cnss_daemon"
+                                         : "qrtr_ns,pd_mapper,rmt_storage,tftp_server,subsys_modem_holder,cnss_diag,cnss_daemon"))));
     } else if (post_sysmon_observer) {
         order = android_order_post_sysmon_observer
                     ? "qrtr_ns,pd_mapper,rmt_storage,tftp_server"
@@ -47976,6 +48018,7 @@ static int run_wifi_companion_start_only_guarded(const struct config *cfg,
         append_literal(stdout_buf, "wifi_companion_start.per_mgr_argv=/vendor/bin/pm-service\n") < 0 ||
         append_literal(stdout_buf, "wifi_companion_start.per_proxy_argv=/vendor/bin/pm-proxy\n") < 0 ||
         append_literal(stdout_buf, "wifi_companion_start.mdm_helper_argv=/vendor/bin/mdm_helper\n") < 0 ||
+        append_literal(stdout_buf, "wifi_companion_start.macloader_argv=/vendor/bin/hw/macloader\n") < 0 ||
         append_literal(stdout_buf, "wifi_companion_start.cnss_diag_argv=/vendor/bin/cnss_diag -q -f -t HELIUM\n") < 0 ||
         append_literal(stdout_buf, "wifi_companion_start.cnss_daemon_argv=/vendor/bin/cnss-daemon -n -l\n") < 0 ||
         append_format(stdout_buf,
@@ -48004,6 +48047,10 @@ static int run_wifi_companion_start_only_guarded(const struct config *cfg,
                       "wifi_companion_start.peripheral_manager.shutdown_stop.sys.shutdown.requested=0\n"
                       "wifi_companion_start.android_userspace_order.enabled=%d\n"
                       "wifi_companion_start.android_pre_cnss_provider_observe_only=%d\n"
+                      "wifi_companion_start.macloader_pre_cnss.enabled=%d\n"
+                      "wifi_companion_start.macloader_pre_cnss.active_driver_start=1\n"
+                      "wifi_companion_start.macloader_pre_cnss.boot_wlan_write_expected=%d\n"
+                      "wifi_companion_start.macloader_pre_cnss.qcwlanstate_write=0\n"
                       "wifi_companion_start.wlan_pd_firmware_serve_gate.enabled=%d\n"
                       "wifi_companion_start.wlan_pd_firmware_serve_gate.subsys_modem_holder_planned=%d\n"
                       "wifi_companion_start.wlan_pd_post_pm_lower_state_observer.enabled=%d\n"
@@ -48043,6 +48090,8 @@ static int run_wifi_companion_start_only_guarded(const struct config *cfg,
                       peripheral_manager_init_contract ? 1 : 0,
                       service74_gated_android_userspace_retry ? 1 : 0,
                       android_order_pre_cnss_provider_observer ? 1 : 0,
+                      macloader_pre_cnss ? 1 : 0,
+                      macloader_pre_cnss ? 1 : 0,
                       wlan_pd_firmware_serve_gate ? 1 : 0,
                       wlan_pd_firmware_serve_gate ? 1 : 0,
                       wlan_pd_post_pm_lower_state_observer ? 1 : 0,
@@ -48423,6 +48472,25 @@ static int run_wifi_companion_start_only_guarded(const struct config *cfg,
                 return -1;
             }
             if (!wlan_pd_service_object_provider_seen) {
+                break;
+            }
+        } else if (children[i].identity == COMPOSITE_ID_MACLOADER) {
+            usleep(700000);
+            composite_capture_observable_children(&children[i], 1, stdout_buf);
+            if (append_format(stdout_buf,
+                              "wifi_companion_start.macloader_pre_cnss.observable=%d\n"
+                              "wifi_companion_start.macloader_pre_cnss.fd_summary_captured=%d\n"
+                              "wifi_companion_start.macloader_pre_cnss.ready=%d\n",
+                              children[i].observable ? 1 : 0,
+                              children[i].fd_summary_captured ? 1 : 0,
+                              (children[i].observable &&
+                               !children[i].child_done &&
+                               children[i].fd_summary_captured) ? 1 : 0) < 0) {
+                composite_cleanup_children(children, active_child_count, stdout_buf, stderr_buf);
+                stop_property_service_shim(&property_shim, paths, stdout_buf);
+                return -1;
+            }
+            if (!children[i].observable || children[i].child_done) {
                 break;
             }
         } else if (android_order_post_sysmon_observer) {
