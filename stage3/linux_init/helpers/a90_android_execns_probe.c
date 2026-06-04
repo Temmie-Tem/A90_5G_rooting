@@ -120,7 +120,13 @@
 #define A90_WIFI_TEST_BOOT_TFTP_PERSIST_RFS_TMPFS 0
 #endif
 
-#if A90_WIFI_TEST_BOOT_TFTP_PERSIST_RFS_TMPFS && A90_WIFI_TEST_BOOT_TFTP_MCFG_READBACK && A90_WIFI_TEST_BOOT_TFTP_LOGDW_SINK && A90_RFS_BRIDGE_SERVE_FIRMWARE_MNT_PROBE
+#ifndef A90_WIFI_TEST_BOOT_TFTP_OTA_FIREWALL_RULESET_TMPFS
+#define A90_WIFI_TEST_BOOT_TFTP_OTA_FIREWALL_RULESET_TMPFS 0
+#endif
+
+#if A90_WIFI_TEST_BOOT_TFTP_OTA_FIREWALL_RULESET_TMPFS && A90_WIFI_TEST_BOOT_TFTP_PERSIST_RFS_TMPFS && A90_WIFI_TEST_BOOT_TFTP_MCFG_READBACK && A90_WIFI_TEST_BOOT_TFTP_LOGDW_SINK && A90_RFS_BRIDGE_SERVE_FIRMWARE_MNT_PROBE
+#define EXECNS_VERSION "a90_android_execns_probe v387"
+#elif A90_WIFI_TEST_BOOT_TFTP_PERSIST_RFS_TMPFS && A90_WIFI_TEST_BOOT_TFTP_MCFG_READBACK && A90_WIFI_TEST_BOOT_TFTP_LOGDW_SINK && A90_RFS_BRIDGE_SERVE_FIRMWARE_MNT_PROBE
 #define EXECNS_VERSION "a90_android_execns_probe v386"
 #elif A90_WIFI_TEST_BOOT_TFTP_MCFG_READBACK && A90_WIFI_TEST_BOOT_TFTP_LOGDW_SINK && A90_RFS_BRIDGE_SERVE_FIRMWARE_MNT_PROBE
 #define EXECNS_VERSION "a90_android_execns_probe v385"
@@ -449,6 +455,10 @@ struct paths {
     char vendor_rfs_msm_mpss_readonly[MAX_PATH_LEN];
     char vendor_rfs_msm_mpss_readwrite[MAX_PATH_LEN];
     char vendor_rfs_mpss_server_check[MAX_PATH_LEN];
+#if A90_WIFI_TEST_BOOT_TFTP_OTA_FIREWALL_RULESET_TMPFS
+    char vendor_rfs_mpss_ota_firewall[MAX_PATH_LEN];
+    char vendor_rfs_mpss_ota_firewall_ruleset[MAX_PATH_LEN];
+#endif
 #if A90_WIFI_TEST_BOOT_TFTP_MCFG_READBACK
     char vendor_rfs_mpss_mcfg_tmp[MAX_PATH_LEN];
 #endif
@@ -3878,6 +3888,18 @@ static int init_paths(struct paths *paths) {
         append_path(paths->linkerconfig, sizeof(paths->linkerconfig), paths->root, "linkerconfig") < 0) {
         return -1;
     }
+#if A90_WIFI_TEST_BOOT_TFTP_OTA_FIREWALL_RULESET_TMPFS
+    if (append_path(paths->vendor_rfs_mpss_ota_firewall,
+                    sizeof(paths->vendor_rfs_mpss_ota_firewall),
+                    paths->vendor_rfs_msm_mpss_readwrite,
+                    "ota_firewall") < 0 ||
+        append_path(paths->vendor_rfs_mpss_ota_firewall_ruleset,
+                    sizeof(paths->vendor_rfs_mpss_ota_firewall_ruleset),
+                    paths->vendor_rfs_mpss_ota_firewall,
+                    "ruleset") < 0) {
+        return -1;
+    }
+#endif
 #if A90_WIFI_TEST_BOOT_TFTP_MCFG_READBACK
     if (append_path(paths->vendor_rfs_mpss_mcfg_tmp,
                     sizeof(paths->vendor_rfs_mpss_mcfg_tmp),
@@ -10096,6 +10118,39 @@ static int populate_rfs_readwrite_tmpfs_bridge(const char *readwrite_dir,
     return 0;
 }
 
+#if A90_WIFI_TEST_BOOT_TFTP_OTA_FIREWALL_RULESET_TMPFS
+static int populate_rfs_ota_firewall_ruleset_bridge(const char *readwrite_dir,
+                                                    char *error_buf,
+                                                    size_t error_size,
+                                                    const char *label) {
+    char ota_firewall[MAX_PATH_LEN];
+    char ruleset[MAX_PATH_LEN];
+
+    if (append_path(ota_firewall, sizeof(ota_firewall), readwrite_dir, "ota_firewall") < 0 ||
+        append_path(ruleset, sizeof(ruleset), ota_firewall, "ruleset") < 0) {
+        snprintf(error_buf, error_size, "rfs ota_firewall bridge path %s too long", label);
+        errno = ENAMETOOLONG;
+        return -1;
+    }
+    if (mkdir_p(ota_firewall, 0770) < 0) {
+        snprintf(error_buf, error_size, "mkdir rfs ota_firewall bridge %s: %s", label, strerror(errno));
+        return -1;
+    }
+    if (write_empty_private_file(ruleset, 0660) < 0) {
+        snprintf(error_buf, error_size, "create rfs ota_firewall ruleset bridge %s: %s", label, strerror(errno));
+        return -1;
+    }
+    if (chown(ota_firewall, 2903, 2903) < 0 ||
+        chmod(ota_firewall, 0770) < 0 ||
+        chown(ruleset, 2903, 2903) < 0 ||
+        chmod(ruleset, 0660) < 0) {
+        snprintf(error_buf, error_size, "own rfs ota_firewall bridge %s: %s", label, strerror(errno));
+        return -1;
+    }
+    return 0;
+}
+#endif
+
 #if A90_WIFI_TEST_BOOT_TFTP_PERSIST_RFS_TMPFS
 static int mount_tmpfs_dir(const char *target,
                            const char *options,
@@ -10184,6 +10239,14 @@ static int materialize_wifi_firmware_rfs_bridge(const struct paths *paths,
                                                 "readwrite-existing") < 0) {
             return -1;
         }
+#if A90_WIFI_TEST_BOOT_TFTP_OTA_FIREWALL_RULESET_TMPFS
+        if (populate_rfs_ota_firewall_ruleset_bridge(paths->vendor_rfs_msm_mpss_readwrite,
+                                                     error_buf,
+                                                     error_size,
+                                                     "readwrite-existing") < 0) {
+            return -1;
+        }
+#endif
 #if A90_WIFI_TEST_BOOT_TFTP_PERSIST_RFS_TMPFS
         if (populate_tftp_persist_rfs_tmpfs_bridge(paths,
                                                    paths->vendor_rfs_msm_mpss_readwrite,
@@ -10216,6 +10279,14 @@ static int materialize_wifi_firmware_rfs_bridge(const struct paths *paths,
                                                 "mpss") < 0) {
             return -1;
         }
+#if A90_WIFI_TEST_BOOT_TFTP_OTA_FIREWALL_RULESET_TMPFS
+        if (populate_rfs_ota_firewall_ruleset_bridge(paths->rfs_bridge_source_msm_mpss_readwrite,
+                                                     error_buf,
+                                                     error_size,
+                                                     "mpss") < 0) {
+            return -1;
+        }
+#endif
 #if A90_WIFI_TEST_BOOT_TFTP_PERSIST_RFS_TMPFS
         if (populate_tftp_persist_rfs_tmpfs_bridge(paths,
                                                    paths->rfs_bridge_source_msm_mpss_readwrite,
@@ -10248,6 +10319,14 @@ static int materialize_wifi_firmware_rfs_bridge(const struct paths *paths,
                                                 "rfs") < 0) {
             return -1;
         }
+#if A90_WIFI_TEST_BOOT_TFTP_OTA_FIREWALL_RULESET_TMPFS
+        if (populate_rfs_ota_firewall_ruleset_bridge(paths->rfs_bridge_source_msm_mpss_readwrite,
+                                                     error_buf,
+                                                     error_size,
+                                                     "rfs") < 0) {
+            return -1;
+        }
+#endif
 #if A90_WIFI_TEST_BOOT_TFTP_PERSIST_RFS_TMPFS
         if (populate_tftp_persist_rfs_tmpfs_bridge(paths,
                                                    paths->rfs_bridge_source_msm_mpss_readwrite,
@@ -10283,6 +10362,9 @@ static int append_wlan_pd_rfs_bridge_snapshot(struct buffer *buf,
     struct stat readonly_st;
     struct stat readwrite_st;
     struct stat server_check_st;
+#if A90_WIFI_TEST_BOOT_TFTP_OTA_FIREWALL_RULESET_TMPFS
+    struct stat ota_ruleset_st;
+#endif
     struct stat vendor_st;
 #if A90_WIFI_TEST_BOOT_TFTP_PERSIST_RFS_TMPFS
     struct stat persist_rfs_st;
@@ -10297,6 +10379,9 @@ static int append_wlan_pd_rfs_bridge_snapshot(struct buffer *buf,
     int readonly_errno = 0;
     int readwrite_errno = 0;
     int server_check_errno = 0;
+#if A90_WIFI_TEST_BOOT_TFTP_OTA_FIREWALL_RULESET_TMPFS
+    int ota_ruleset_errno = 0;
+#endif
     int vendor_errno = 0;
 #if A90_WIFI_TEST_BOOT_TFTP_PERSIST_RFS_TMPFS
     int persist_rfs_errno = 0;
@@ -10323,6 +10408,10 @@ static int append_wlan_pd_rfs_bridge_snapshot(struct buffer *buf,
     bool readwrite_is_symlink = false;
     bool server_check_exists = false;
     bool server_check_is_reg = false;
+#if A90_WIFI_TEST_BOOT_TFTP_OTA_FIREWALL_RULESET_TMPFS
+    bool ota_ruleset_exists = false;
+    bool ota_ruleset_is_reg = false;
+#endif
     bool vendor_exists = false;
     bool vendor_is_dir = false;
     bool vendor_is_symlink = false;
@@ -10359,6 +10448,15 @@ static int append_wlan_pd_rfs_bridge_snapshot(struct buffer *buf,
         server_check_errno = errno;
         memset(&server_check_st, 0, sizeof(server_check_st));
     }
+#if A90_WIFI_TEST_BOOT_TFTP_OTA_FIREWALL_RULESET_TMPFS
+    if (stat(paths->vendor_rfs_mpss_ota_firewall_ruleset, &ota_ruleset_st) == 0) {
+        ota_ruleset_exists = true;
+        ota_ruleset_is_reg = S_ISREG(ota_ruleset_st.st_mode);
+    } else {
+        ota_ruleset_errno = errno;
+        memset(&ota_ruleset_st, 0, sizeof(ota_ruleset_st));
+    }
+#endif
     nreadlink = readlink(paths->vendor_rfs_msm_mpss_readonly,
                          readlink_buf,
                          sizeof(readlink_buf) - 1);
@@ -10511,6 +10609,18 @@ static int append_wlan_pd_rfs_bridge_snapshot(struct buffer *buf,
                          "%s.server_check.size=%lld\n"
                          "%s.server_check.stat_errno=%d\n"
                          "%s.server_check.stat_error=%s\n"
+#if A90_WIFI_TEST_BOOT_TFTP_OTA_FIREWALL_RULESET_TMPFS
+                         "%s.ota_firewall.absolute=/vendor/rfs/msm/mpss/readwrite/ota_firewall/ruleset\n"
+                         "%s.ota_firewall.host_path=%s\n"
+                         "%s.ota_firewall.exists=%d\n"
+                         "%s.ota_firewall.is_reg=%d\n"
+                         "%s.ota_firewall.size=%lld\n"
+                         "%s.ota_firewall.mode=%04o\n"
+                         "%s.ota_firewall.uid=%lld\n"
+                         "%s.ota_firewall.gid=%lld\n"
+                         "%s.ota_firewall.stat_errno=%d\n"
+                         "%s.ota_firewall.stat_error=%s\n"
+#endif
                          "%s.readonly_vendor.exists=%d\n"
                          "%s.readonly_vendor.is_dir=%d\n"
                          "%s.readonly_vendor.is_symlink=%d\n"
@@ -10610,6 +10720,18 @@ static int append_wlan_pd_rfs_bridge_snapshot(struct buffer *buf,
                          prefix, server_check_exists ? (long long)server_check_st.st_size : 0LL,
                          prefix, server_check_errno,
                          prefix, server_check_errno != 0 ? strerror(server_check_errno) : "none",
+#if A90_WIFI_TEST_BOOT_TFTP_OTA_FIREWALL_RULESET_TMPFS
+                         prefix,
+                         prefix, paths->vendor_rfs_mpss_ota_firewall_ruleset,
+                         prefix, ota_ruleset_exists ? 1 : 0,
+                         prefix, ota_ruleset_is_reg ? 1 : 0,
+                         prefix, ota_ruleset_exists ? (long long)ota_ruleset_st.st_size : 0LL,
+                         prefix, ota_ruleset_exists ? (unsigned int)(ota_ruleset_st.st_mode & 07777) : 0U,
+                         prefix, ota_ruleset_exists ? (long long)ota_ruleset_st.st_uid : -1LL,
+                         prefix, ota_ruleset_exists ? (long long)ota_ruleset_st.st_gid : -1LL,
+                         prefix, ota_ruleset_errno,
+                         prefix, ota_ruleset_errno != 0 ? strerror(ota_ruleset_errno) : "none",
+#endif
                          prefix, vendor_exists ? 1 : 0,
                          prefix, vendor_is_dir ? 1 : 0,
                          prefix, vendor_is_symlink ? 1 : 0,
@@ -25446,6 +25568,7 @@ struct a90_tftp_logdw_sink {
     unsigned int truncated_record_count;
     unsigned int tftp_server_count;
     unsigned int server_check_count;
+    unsigned int ota_firewall_count;
     unsigned int wlanmdsp_count;
     unsigned int firmware_mnt_wlanmdsp_count;
     unsigned int fallback_wlanmdsp_count;
@@ -25690,6 +25813,9 @@ static int a90_tftp_logdw_sink_record(struct buffer *stdout_buf,
                                       size_t data_len) {
     bool token_tftp_server = a90_logdw_bytes_contains_token_ci(data, data_len, "tftp_server");
     bool token_server_check = a90_logdw_bytes_contains_token_ci(data, data_len, "server_check");
+    bool token_ota_firewall =
+        a90_logdw_bytes_contains_token_ci(data, data_len, "ota_firewall") ||
+        a90_logdw_bytes_contains_token_ci(data, data_len, "ruleset");
 #if A90_WIFI_TEST_BOOT_TFTP_MCFG_READBACK
     bool token_mcfg = a90_logdw_bytes_contains_token_ci(data, data_len, "mcfg.tmp");
     bool token_wrq_stats =
@@ -25718,6 +25844,7 @@ static int a90_tftp_logdw_sink_record(struct buffer *stdout_buf,
     bool relevant =
         token_tftp_server ||
         token_server_check ||
+        token_ota_firewall ||
         token_wlanmdsp ||
         token_firmware_mnt ||
         token_fallback ||
@@ -25730,6 +25857,7 @@ static int a90_tftp_logdw_sink_record(struct buffer *stdout_buf,
     g_tftp_logdw_sink.byte_count += (unsigned long long)data_len;
     if (token_tftp_server) g_tftp_logdw_sink.tftp_server_count++;
     if (token_server_check) g_tftp_logdw_sink.server_check_count++;
+    if (token_ota_firewall) g_tftp_logdw_sink.ota_firewall_count++;
 #if A90_WIFI_TEST_BOOT_TFTP_MCFG_READBACK
     if (token_mcfg) g_tftp_logdw_sink.mcfg_seen = true;
 #endif
@@ -25767,6 +25895,7 @@ static int a90_tftp_logdw_sink_record(struct buffer *stdout_buf,
                           "tftp_logdw_sink.record_%03u.payload_truncated=%d\n"
                           "tftp_logdw_sink.record_%03u.token.tftp_server=%d\n"
                           "tftp_logdw_sink.record_%03u.token.server_check=%d\n"
+                          "tftp_logdw_sink.record_%03u.token.ota_firewall=%d\n"
                           "tftp_logdw_sink.record_%03u.token.wlanmdsp=%d\n"
                           "tftp_logdw_sink.record_%03u.token.firmware_mnt_wlanmdsp=%d\n"
                           "tftp_logdw_sink.record_%03u.token.fallback_wlanmdsp=%d\n"
@@ -25786,6 +25915,8 @@ static int a90_tftp_logdw_sink_record(struct buffer *stdout_buf,
                           token_tftp_server ? 1 : 0,
                           record,
                           token_server_check ? 1 : 0,
+                          record,
+                          token_ota_firewall ? 1 : 0,
                           record,
                           token_wlanmdsp ? 1 : 0,
                           record,
@@ -25888,6 +26019,7 @@ static int a90_tftp_logdw_sink_stop(struct buffer *stdout_buf) {
                       "tftp_logdw_sink.summary.truncated_records=%u\n"
                       "tftp_logdw_sink.summary.tftp_server=%u\n"
                       "tftp_logdw_sink.summary.server_check=%u\n"
+                      "tftp_logdw_sink.summary.ota_firewall=%u\n"
                       "tftp_logdw_sink.summary.wlanmdsp=%u\n"
                       "tftp_logdw_sink.summary.firmware_mnt_wlanmdsp=%u\n"
                       "tftp_logdw_sink.summary.fallback_wlanmdsp=%u\n"
@@ -25906,6 +26038,7 @@ static int a90_tftp_logdw_sink_stop(struct buffer *stdout_buf) {
                       g_tftp_logdw_sink.truncated_record_count,
                       g_tftp_logdw_sink.tftp_server_count,
                       g_tftp_logdw_sink.server_check_count,
+                      g_tftp_logdw_sink.ota_firewall_count,
                       g_tftp_logdw_sink.wlanmdsp_count,
                       g_tftp_logdw_sink.firmware_mnt_wlanmdsp_count,
                       g_tftp_logdw_sink.fallback_wlanmdsp_count,
