@@ -101,7 +101,7 @@
 #define SYSLOG_ACTION_READ_ALL 3
 #endif
 
-#define EXECNS_VERSION "a90_android_execns_probe v366"
+#define EXECNS_VERSION "a90_android_execns_probe v367"
 
 #ifndef A90_EXECNS_ENABLE_DELAYED_LOWER_RESPONSE_WINDOW
 #define A90_EXECNS_ENABLE_DELAYED_LOWER_RESPONSE_WINDOW 0
@@ -112,6 +112,9 @@
 #define MAX_SEPOLICY_LOAD_SIZE (16 * 1024 * 1024)
 #define PM_SYSCALL_RECORD_LIMIT 64U
 #define PM_SYSCALL_STOP_LIMIT 128U
+#define PD_MAPPER_SYSCALL_RECORD_LIMIT 96U
+#define PD_MAPPER_SYSCALL_STOP_LIMIT 240U
+#define PD_MAPPER_QRTR_PAYLOAD_LIMIT 256U
 #define DEFAULT_QRTR_READBACK_MATRIX "wlfw:69:0,1"
 #define MAX_QRTR_READBACK_CASES 16
 #define MAX_QRTR_READBACK_LABEL 32
@@ -27034,6 +27037,22 @@ static const char *a90_syscall_name(long nr) {
     case SYS_write:
         return "write";
 #endif
+#ifdef SYS_sendmsg
+    case SYS_sendmsg:
+        return "sendmsg";
+#endif
+#ifdef SYS_recvmsg
+    case SYS_recvmsg:
+        return "recvmsg";
+#endif
+#ifdef SYS_sendto
+    case SYS_sendto:
+        return "sendto";
+#endif
+#ifdef SYS_recvfrom
+    case SYS_recvfrom:
+        return "recvfrom";
+#endif
 #ifdef SYS_close
     case SYS_close:
         return "close";
@@ -27131,6 +27150,22 @@ static bool a90_syscall_trace_selected(long nr) {
 #endif
 #ifdef SYS_write
     case SYS_write:
+        return true;
+#endif
+#ifdef SYS_sendmsg
+    case SYS_sendmsg:
+        return true;
+#endif
+#ifdef SYS_recvmsg
+    case SYS_recvmsg:
+        return true;
+#endif
+#ifdef SYS_sendto
+    case SYS_sendto:
+        return true;
+#endif
+#ifdef SYS_recvfrom
+    case SYS_recvfrom:
         return true;
 #endif
 #ifdef SYS_close
@@ -27334,8 +27369,290 @@ static int append_ptrace_sockaddr_field(struct buffer *buf,
     return 0;
 }
 
+static int append_ptrace_user_bytes_hex_field(struct buffer *buf,
+                                              pid_t pid,
+                                              const char *prefix,
+                                              const char *field,
+                                              unsigned long long addr,
+                                              size_t len,
+                                              size_t max_len) {
+    unsigned char bytes[PD_MAPPER_QRTR_PAYLOAD_LIMIT];
+    size_t want;
+    size_t bytes_read = 0;
+
+    if (max_len > sizeof(bytes)) {
+        max_len = sizeof(bytes);
+    }
+    want = len > max_len ? max_len : len;
+    if (append_format(buf,
+                      "%s.%s.addr=0x%016llx\n"
+                      "%s.%s.requested_len=%zu\n"
+                      "%s.%s.capture_len=%zu\n",
+                      prefix,
+                      field,
+                      addr,
+                      prefix,
+                      field,
+                      len,
+                      prefix,
+                      field,
+                      want) < 0) {
+        return -1;
+    }
+    if (want == 0) {
+        return append_format(buf, "%s.%s.hex=\n", prefix, field);
+    }
+    if (!plausible_user_ptr(addr)) {
+        return append_format(buf,
+                             "%s.%s.valid=0\n"
+                             "%s.%s.reason=not-plausible-user-pointer\n",
+                             prefix,
+                             field,
+                             prefix,
+                             field);
+    }
+    memset(bytes, 0, sizeof(bytes));
+    if (ptrace_read_bytes_best_effort(pid, addr, bytes, want, &bytes_read) < 0) {
+        return append_format(buf,
+                             "%s.%s.valid=0\n"
+                             "%s.%s.error=%s\n",
+                             prefix,
+                             field,
+                             prefix,
+                             field,
+                             strerror(errno));
+    }
+    if (append_format(buf,
+                      "%s.%s.valid=1\n"
+                      "%s.%s.bytes_read=%zu\n"
+                      "%s.%s.hex=",
+                      prefix,
+                      field,
+                      prefix,
+                      field,
+                      bytes_read,
+                      prefix,
+                      field) < 0) {
+        return -1;
+    }
+    for (size_t i = 0; i < bytes_read; i++) {
+        if (append_format(buf, "%02x", bytes[i]) < 0) {
+            return -1;
+        }
+    }
+    return append_literal(buf, "\n");
+}
+
+static int append_ptrace_iovec_payload_field(struct buffer *buf,
+                                             pid_t pid,
+                                             const char *prefix,
+                                             const char *field,
+                                             unsigned long long iov_addr,
+                                             unsigned long long iov_len,
+                                             unsigned int index) {
+    struct iovec item;
+    size_t bytes_read = 0;
+    char item_field[96];
+    unsigned long long item_addr;
+
+    if (iov_len == 0) {
+        return append_format(buf, "%s.%s_%u.absent=1\n", prefix, field, index);
+    }
+    if (!plausible_user_ptr(iov_addr)) {
+        return append_format(buf,
+                             "%s.%s_%u.valid=0\n"
+                             "%s.%s_%u.reason=not-plausible-iov-pointer\n",
+                             prefix,
+                             field,
+                             index,
+                             prefix,
+                             field,
+                             index);
+    }
+    item_addr = iov_addr + (unsigned long long)index * sizeof(item);
+    memset(&item, 0, sizeof(item));
+    if (ptrace_read_bytes_best_effort(pid,
+                                      item_addr,
+                                      (unsigned char *)&item,
+                                      sizeof(item),
+                                      &bytes_read) < 0 ||
+        bytes_read < sizeof(item)) {
+        return append_format(buf,
+                             "%s.%s_%u.valid=0\n"
+                             "%s.%s_%u.error=%s\n",
+                             prefix,
+                             field,
+                             index,
+                             prefix,
+                             field,
+                             index,
+                             strerror(errno));
+    }
+    if (append_format(buf,
+                      "%s.%s_%u.valid=1\n"
+                      "%s.%s_%u.iov_base=0x%016llx\n"
+                      "%s.%s_%u.iov_len=%zu\n",
+                      prefix,
+                      field,
+                      index,
+                      prefix,
+                      field,
+                      index,
+                      (unsigned long long)(uintptr_t)item.iov_base,
+                      prefix,
+                      field,
+                      index,
+                      item.iov_len) < 0) {
+        return -1;
+    }
+    if (snprintf(item_field, sizeof(item_field), "%s_%u.payload", field, index) >= (int)sizeof(item_field)) {
+        return -1;
+    }
+    return append_ptrace_user_bytes_hex_field(buf,
+                                             pid,
+                                             prefix,
+                                             item_field,
+                                             (unsigned long long)(uintptr_t)item.iov_base,
+                                             item.iov_len,
+                                             PD_MAPPER_QRTR_PAYLOAD_LIMIT);
+}
+
+static int append_ptrace_msghdr_payload_field(struct buffer *buf,
+                                              pid_t pid,
+                                              const char *prefix,
+                                              const char *field,
+                                              unsigned long long msg_addr) {
+    struct msghdr msg;
+    size_t bytes_read = 0;
+    unsigned long long iov_addr;
+    unsigned long long iov_len;
+    unsigned int capture_count;
+
+    if (!plausible_user_ptr(msg_addr)) {
+        return append_format(buf,
+                             "%s.%s.valid=0\n"
+                             "%s.%s.reason=not-plausible-msghdr-pointer\n",
+                             prefix,
+                             field,
+                             prefix,
+                             field);
+    }
+    memset(&msg, 0, sizeof(msg));
+    if (ptrace_read_bytes_best_effort(pid,
+                                      msg_addr,
+                                      (unsigned char *)&msg,
+                                      sizeof(msg),
+                                      &bytes_read) < 0 ||
+        bytes_read < sizeof(msg)) {
+        return append_format(buf,
+                             "%s.%s.valid=0\n"
+                             "%s.%s.error=%s\n",
+                             prefix,
+                             field,
+                             prefix,
+                             field,
+                             strerror(errno));
+    }
+    iov_addr = (unsigned long long)(uintptr_t)msg.msg_iov;
+    iov_len = (unsigned long long)msg.msg_iovlen;
+    capture_count = iov_len > 2ULL ? 2U : (unsigned int)iov_len;
+    if (append_format(buf,
+                      "%s.%s.valid=1\n"
+                      "%s.%s.addr=0x%016llx\n"
+                      "%s.%s.name=0x%016llx\n"
+                      "%s.%s.namelen=%u\n"
+                      "%s.%s.iov=0x%016llx\n"
+                      "%s.%s.iovlen=%llu\n"
+                      "%s.%s.control=0x%016llx\n"
+                      "%s.%s.controllen=%zu\n"
+                      "%s.%s.flags=0x%x\n"
+                      "%s.%s.capture_iov_count=%u\n",
+                      prefix,
+                      field,
+                      prefix,
+                      field,
+                      msg_addr,
+                      prefix,
+                      field,
+                      (unsigned long long)(uintptr_t)msg.msg_name,
+                      prefix,
+                      field,
+                      (unsigned int)msg.msg_namelen,
+                      prefix,
+                      field,
+                      iov_addr,
+                      prefix,
+                      field,
+                      iov_len,
+                      prefix,
+                      field,
+                      (unsigned long long)(uintptr_t)msg.msg_control,
+                      prefix,
+                      field,
+                      msg.msg_controllen,
+                      prefix,
+                      field,
+                      msg.msg_flags,
+                      prefix,
+                      field,
+                      capture_count) < 0) {
+        return -1;
+    }
+    if (msg.msg_name != NULL && msg.msg_namelen > 0) {
+        char sockaddr_field[96];
+
+        if (snprintf(sockaddr_field, sizeof(sockaddr_field), "%s_sockaddr", field) >= (int)sizeof(sockaddr_field)) {
+            return -1;
+        }
+        if (append_ptrace_sockaddr_field(buf,
+                                         pid,
+                                         prefix,
+                                         sockaddr_field,
+                                         (unsigned long long)(uintptr_t)msg.msg_name,
+                                         msg.msg_namelen) < 0) {
+            return -1;
+        }
+    }
+    for (unsigned int index = 0; index < capture_count; index++) {
+        if (append_ptrace_iovec_payload_field(buf, pid, prefix, field, iov_addr, iov_len, index) < 0) {
+            return -1;
+        }
+    }
+    return 0;
+}
+
 static bool a90_syscall_ret_is_error(long long ret) {
     return ret < 0 && ret >= -4095LL;
+}
+
+static unsigned int composite_syscall_record_limit(const struct composite_child *child) {
+    (void)child;
+#ifdef A90_WIFI_TEST_BOOT_WLAN_PD_PRODUCER_PD_MAPPER_TRACE
+    if (child != NULL && child->identity == COMPOSITE_ID_PD_MAPPER) {
+        return PD_MAPPER_SYSCALL_RECORD_LIMIT;
+    }
+#endif
+    return PM_SYSCALL_RECORD_LIMIT;
+}
+
+static unsigned int composite_syscall_stop_limit(const struct composite_child *child) {
+    (void)child;
+#ifdef A90_WIFI_TEST_BOOT_WLAN_PD_PRODUCER_PD_MAPPER_TRACE
+    if (child != NULL && child->identity == COMPOSITE_ID_PD_MAPPER) {
+        return PD_MAPPER_SYSCALL_STOP_LIMIT;
+    }
+#endif
+    return PM_SYSCALL_STOP_LIMIT;
+}
+
+static const char *composite_syscall_trace_root(const struct composite_child *child) {
+    (void)child;
+#ifdef A90_WIFI_TEST_BOOT_WLAN_PD_PRODUCER_PD_MAPPER_TRACE
+    if (child != NULL && child->identity == COMPOSITE_ID_PD_MAPPER) {
+        return "wlan_pd_pd_mapper_trace";
+    }
+#endif
+    return "pm_service_trigger_observer";
 }
 
 static int append_composite_pm_syscall_record(struct composite_child *child,
@@ -27345,6 +27662,7 @@ static int append_composite_pm_syscall_record(struct composite_child *child,
     char prefix[128];
     long nr = child->last_syscall_nr;
     const char *name = a90_syscall_name(nr);
+    const char *root = composite_syscall_trace_root(child);
     long long ret = (long long)ret_reg;
     bool is_error = a90_syscall_ret_is_error(ret);
     int error_no = is_error ? (int)-ret : 0;
@@ -27352,7 +27670,7 @@ static int append_composite_pm_syscall_record(struct composite_child *child,
     if (!a90_syscall_trace_selected(nr)) {
         return 0;
     }
-    if (child->syscall_record_count >= PM_SYSCALL_RECORD_LIMIT) {
+    if (child->syscall_record_count >= composite_syscall_record_limit(child)) {
         child->syscall_trace_truncated = true;
         return 0;
     }
@@ -27361,7 +27679,8 @@ static int append_composite_pm_syscall_record(struct composite_child *child,
     }
     if (snprintf(prefix,
                  sizeof(prefix),
-                 "pm_service_trigger_observer.syscall.%s.record_%03u",
+                 "%s.syscall.%s.record_%03u",
+                 root,
                  child->name,
                  child->syscall_record_count) >= (int)sizeof(prefix)) {
         return -1;
@@ -27487,6 +27806,60 @@ static int append_composite_pm_syscall_record(struct composite_child *child,
         return append_ptrace_fd_target_field(stdout_buf, pid, prefix, "fd", child->last_syscall_args[0]);
     }
 #endif
+#ifdef SYS_sendmsg
+    if (nr == SYS_sendmsg) {
+        if (append_ptrace_fd_target_field(stdout_buf, pid, prefix, "fd", child->last_syscall_args[0]) < 0) {
+            return -1;
+        }
+        return append_ptrace_msghdr_payload_field(stdout_buf, pid, prefix, "msghdr", child->last_syscall_args[1]);
+    }
+#endif
+#ifdef SYS_recvmsg
+    if (nr == SYS_recvmsg) {
+        if (append_ptrace_fd_target_field(stdout_buf, pid, prefix, "fd", child->last_syscall_args[0]) < 0) {
+            return -1;
+        }
+        return append_ptrace_msghdr_payload_field(stdout_buf, pid, prefix, "msghdr", child->last_syscall_args[1]);
+    }
+#endif
+#ifdef SYS_sendto
+    if (nr == SYS_sendto) {
+        if (append_ptrace_fd_target_field(stdout_buf, pid, prefix, "fd", child->last_syscall_args[0]) < 0 ||
+            append_ptrace_user_bytes_hex_field(stdout_buf,
+                                               pid,
+                                               prefix,
+                                               "payload",
+                                               child->last_syscall_args[1],
+                                               (size_t)child->last_syscall_args[2],
+                                               PD_MAPPER_QRTR_PAYLOAD_LIMIT) < 0) {
+            return -1;
+        }
+        if (child->last_syscall_args[4] != 0 && child->last_syscall_args[5] != 0) {
+            return append_ptrace_sockaddr_field(stdout_buf,
+                                               pid,
+                                               prefix,
+                                               "sockaddr",
+                                               child->last_syscall_args[4],
+                                               child->last_syscall_args[5]);
+        }
+        return 0;
+    }
+#endif
+#ifdef SYS_recvfrom
+    if (nr == SYS_recvfrom) {
+        if (append_ptrace_fd_target_field(stdout_buf, pid, prefix, "fd", child->last_syscall_args[0]) < 0 ||
+            append_ptrace_user_bytes_hex_field(stdout_buf,
+                                               pid,
+                                               prefix,
+                                               "payload",
+                                               child->last_syscall_args[1],
+                                               ret > 0 ? (size_t)ret : 0U,
+                                               PD_MAPPER_QRTR_PAYLOAD_LIMIT) < 0) {
+            return -1;
+        }
+        return 0;
+    }
+#endif
     return 0;
 }
 
@@ -27502,17 +27875,20 @@ static int composite_child_handle_syscall_stop(struct composite_child *child,
     child->syscall_stop_count++;
     if (ptrace(PTRACE_GETREGSET, child->pid, (void *)(long)NT_PRSTATUS, &iov) < 0) {
         return append_format(stdout_buf,
-                             "pm_service_trigger_observer.syscall.%s.getregs_error=%s\n",
+                             "%s.syscall.%s.getregs_error=%s\n",
+                             composite_syscall_trace_root(child),
                              child->name,
                              strerror(errno));
     }
     words = iov.iov_len / sizeof(regs[0]);
     if (words <= 8) {
         return append_format(stdout_buf,
-                             "pm_service_trigger_observer.syscall.%s.getregs_words=%zu\n"
-                             "pm_service_trigger_observer.syscall.%s.getregs_error=short-regset\n",
+                             "%s.syscall.%s.getregs_words=%zu\n"
+                             "%s.syscall.%s.getregs_error=short-regset\n",
+                             composite_syscall_trace_root(child),
                              child->name,
                              words,
+                             composite_syscall_trace_root(child),
                              child->name);
     }
     if (child->syscall_entry_next) {
@@ -27521,14 +27897,16 @@ static int composite_child_handle_syscall_stop(struct composite_child *child,
             child->last_syscall_args[i] = regs[i];
         }
         child->syscall_entry_next = false;
-        if (child->syscall_stop_count >= PM_SYSCALL_STOP_LIMIT) {
+        if (child->syscall_stop_count >= composite_syscall_stop_limit(child)) {
             child->syscall_trace_truncated = true;
             child->syscall_trace_stop_limited = true;
             child->trace_syscalls = false;
             return append_format(stdout_buf,
-                                 "pm_service_trigger_observer.syscall.%s.trace_disable=1\n"
-                                 "pm_service_trigger_observer.syscall.%s.trace_disable_reason=stop-limit\n",
+                                 "%s.syscall.%s.trace_disable=1\n"
+                                 "%s.syscall.%s.trace_disable_reason=stop-limit\n",
+                                 composite_syscall_trace_root(child),
                                  child->name,
+                                 composite_syscall_trace_root(child),
                                  child->name);
         }
         return 0;
@@ -27537,17 +27915,19 @@ static int composite_child_handle_syscall_stop(struct composite_child *child,
         return -1;
     }
     child->syscall_entry_next = true;
-    if (child->syscall_stop_count >= PM_SYSCALL_STOP_LIMIT ||
-        child->syscall_record_count >= PM_SYSCALL_RECORD_LIMIT) {
+    if (child->syscall_stop_count >= composite_syscall_stop_limit(child) ||
+        child->syscall_record_count >= composite_syscall_record_limit(child)) {
         child->syscall_trace_truncated = true;
-        child->syscall_trace_stop_limited = child->syscall_stop_count >= PM_SYSCALL_STOP_LIMIT;
+        child->syscall_trace_stop_limited = child->syscall_stop_count >= composite_syscall_stop_limit(child);
         child->trace_syscalls = false;
         return append_format(stdout_buf,
-                             "pm_service_trigger_observer.syscall.%s.trace_disable=1\n"
-                             "pm_service_trigger_observer.syscall.%s.trace_disable_reason=%s\n",
+                             "%s.syscall.%s.trace_disable=1\n"
+                             "%s.syscall.%s.trace_disable_reason=%s\n",
+                             composite_syscall_trace_root(child),
                              child->name,
+                             composite_syscall_trace_root(child),
                              child->name,
-                             child->syscall_stop_count >= PM_SYSCALL_STOP_LIMIT ? "stop-limit" : "record-limit");
+                             child->syscall_stop_count >= composite_syscall_stop_limit(child) ? "stop-limit" : "record-limit");
     }
     return 0;
 }
@@ -28030,12 +28410,12 @@ static int composite_spawn_child(const struct config *cfg,
         child->trace_minimal = true;
     }
     child->trace_syscalls =
-        child->trace_minimal &&
+        (child->trace_minimal &&
         (((!cfg->pm_observer_mdm_helper_only_syscall_trace ||
            cfg->allow_android_wifi_service_window_per_mgr_early_exit_trace) &&
           child->identity == COMPOSITE_ID_PER_MGR) ||
          (cfg->allow_post_pm_mdm_helper_lower_trace &&
-          child->identity == COMPOSITE_ID_MDM_HELPER));
+          child->identity == COMPOSITE_ID_MDM_HELPER)));
     child->syscall_trace_started = child->trace_syscalls;
     child->syscall_entry_next = true;
     set_nonblock(child->stdout_fd);
@@ -29574,6 +29954,329 @@ static int append_wlan_pd_producer_child_snapshots(struct buffer *buf,
                          snapshot_count,
                          phase);
 }
+
+#ifdef A90_WIFI_TEST_BOOT_WLAN_PD_PRODUCER_PD_MAPPER_TRACE
+static struct composite_child *find_composite_child_by_identity(struct composite_child *children,
+                                                                size_t child_count,
+                                                                enum composite_identity identity) {
+    for (size_t i = 0; i < child_count; i++) {
+        if (children[i].identity == identity) {
+            return &children[i];
+        }
+    }
+    return NULL;
+}
+
+static void restore_pd_mapper_trace_state(struct composite_child *child,
+                                          bool traced,
+                                          bool trace_minimal,
+                                          bool trace_initial_stop,
+                                          bool capture_exec,
+                                          bool trace_syscalls,
+                                          bool syscall_trace_started,
+                                          bool syscall_entry_next) {
+    child->traced = traced;
+    child->trace_minimal = trace_minimal;
+    child->trace_initial_stop = trace_initial_stop;
+    child->capture_exec = capture_exec;
+    child->trace_syscalls = trace_syscalls;
+    child->syscall_trace_started = syscall_trace_started;
+    child->syscall_entry_next = syscall_entry_next;
+}
+
+static int append_wlan_pd_pd_mapper_late_syscall_trace(struct buffer *stdout_buf,
+                                                       struct composite_child *children,
+                                                       size_t child_count,
+                                                       unsigned int timeout_ms) {
+    struct composite_child *child = find_composite_child_by_identity(children,
+                                                                     child_count,
+                                                                     COMPOSITE_ID_PD_MAPPER);
+    long start_ms = monotonic_ms();
+    long deadline = start_ms + (long)timeout_ms;
+    bool original_traced;
+    bool original_trace_minimal;
+    bool original_trace_initial_stop;
+    bool original_capture_exec;
+    bool original_trace_syscalls;
+    bool original_syscall_trace_started;
+    bool original_syscall_entry_next;
+    int attached = 0;
+    int initial_status = 0;
+
+    if (append_format(stdout_buf,
+                      "wlan_pd_pd_mapper_trace.late_attach.begin=1\n"
+                      "wlan_pd_pd_mapper_trace.late_attach.timeout_ms=%u\n"
+                      "wlan_pd_pd_mapper_trace.late_attach.no_qrtr_send=1\n"
+                      "wlan_pd_pd_mapper_trace.late_attach.no_qmi_payload_send=1\n",
+                      timeout_ms) < 0) {
+        return -1;
+    }
+    if (child == NULL || child->pid <= 0 || child->child_done) {
+        return append_format(stdout_buf,
+                             "wlan_pd_pd_mapper_trace.late_attach.available=0\n"
+                             "wlan_pd_pd_mapper_trace.late_attach.reason=%s\n"
+                             "wlan_pd_pd_mapper_trace.late_attach.end=1\n",
+                             child == NULL ? "pd-mapper-child-not-found" : "pd-mapper-not-running");
+    }
+    if (append_format(stdout_buf,
+                      "wlan_pd_pd_mapper_trace.late_attach.available=1\n"
+                      "wlan_pd_pd_mapper_trace.late_attach.pid=%ld\n",
+                      (long)child->pid) < 0) {
+        return -1;
+    }
+
+    original_traced = child->traced;
+    original_trace_minimal = child->trace_minimal;
+    original_trace_initial_stop = child->trace_initial_stop;
+    original_capture_exec = child->capture_exec;
+    original_trace_syscalls = child->trace_syscalls;
+    original_syscall_trace_started = child->syscall_trace_started;
+    original_syscall_entry_next = child->syscall_entry_next;
+
+    child->traced = true;
+    child->trace_minimal = true;
+    child->trace_initial_stop = true;
+    child->capture_exec = true;
+    child->trace_syscalls = true;
+    child->syscall_trace_started = true;
+    child->syscall_entry_next = true;
+    child->syscall_trace_stop_limited = false;
+    child->syscall_trace_truncated = false;
+    child->syscall_stop_count = 0;
+    child->syscall_record_count = 0;
+    child->syscall_error_count = 0;
+
+    if (ptrace(PTRACE_ATTACH, child->pid, NULL, NULL) < 0) {
+        int saved_errno = errno;
+
+        restore_pd_mapper_trace_state(child,
+                                      original_traced,
+                                      original_trace_minimal,
+                                      original_trace_initial_stop,
+                                      original_capture_exec,
+                                      original_trace_syscalls,
+                                      original_syscall_trace_started,
+                                      original_syscall_entry_next);
+        return append_format(stdout_buf,
+                             "wlan_pd_pd_mapper_trace.late_attach.attach_rc=-1\n"
+                             "wlan_pd_pd_mapper_trace.late_attach.attach_errno=%d\n"
+                             "wlan_pd_pd_mapper_trace.late_attach.attach_error=%s\n"
+                             "wlan_pd_pd_mapper_trace.late_attach.end=1\n",
+                             saved_errno,
+                             strerror(saved_errno));
+    }
+    attached = 1;
+    if (append_literal(stdout_buf, "wlan_pd_pd_mapper_trace.late_attach.attach_rc=0\n") < 0) {
+        return -1;
+    }
+    if (waitpid(child->pid, &initial_status, 0) != child->pid) {
+        int saved_errno = errno;
+
+        ptrace(PTRACE_DETACH, child->pid, NULL, NULL);
+        restore_pd_mapper_trace_state(child,
+                                      original_traced,
+                                      original_trace_minimal,
+                                      original_trace_initial_stop,
+                                      original_capture_exec,
+                                      original_trace_syscalls,
+                                      original_syscall_trace_started,
+                                      original_syscall_entry_next);
+        return append_format(stdout_buf,
+                             "wlan_pd_pd_mapper_trace.late_attach.initial_wait_rc=-1\n"
+                             "wlan_pd_pd_mapper_trace.late_attach.initial_wait_errno=%d\n"
+                             "wlan_pd_pd_mapper_trace.late_attach.initial_wait_error=%s\n"
+                             "wlan_pd_pd_mapper_trace.late_attach.end=1\n",
+                             saved_errno,
+                             strerror(saved_errno));
+    }
+    if (append_format(stdout_buf,
+                      "wlan_pd_pd_mapper_trace.late_attach.initial_wait_rc=0\n"
+                      "wlan_pd_pd_mapper_trace.late_attach.initial_status=0x%x\n",
+                      initial_status) < 0) {
+        return -1;
+    }
+    if (ptrace(PTRACE_SETOPTIONS,
+               child->pid,
+               NULL,
+               (void *)(long)PTRACE_O_TRACESYSGOOD) < 0) {
+        int saved_errno = errno;
+
+        ptrace(PTRACE_DETACH, child->pid, NULL, NULL);
+        restore_pd_mapper_trace_state(child,
+                                      original_traced,
+                                      original_trace_minimal,
+                                      original_trace_initial_stop,
+                                      original_capture_exec,
+                                      original_trace_syscalls,
+                                      original_syscall_trace_started,
+                                      original_syscall_entry_next);
+        return append_format(stdout_buf,
+                             "wlan_pd_pd_mapper_trace.late_attach.setoptions_rc=-1\n"
+                             "wlan_pd_pd_mapper_trace.late_attach.setoptions_errno=%d\n"
+                             "wlan_pd_pd_mapper_trace.late_attach.setoptions_error=%s\n"
+                             "wlan_pd_pd_mapper_trace.late_attach.end=1\n",
+                             saved_errno,
+                             strerror(saved_errno));
+    }
+    if (append_literal(stdout_buf, "wlan_pd_pd_mapper_trace.late_attach.setoptions_rc=0\n") < 0) {
+        return -1;
+    }
+    if (ptrace(PTRACE_SYSCALL, child->pid, NULL, NULL) < 0) {
+        int saved_errno = errno;
+
+        ptrace(PTRACE_DETACH, child->pid, NULL, NULL);
+        restore_pd_mapper_trace_state(child,
+                                      original_traced,
+                                      original_trace_minimal,
+                                      original_trace_initial_stop,
+                                      original_capture_exec,
+                                      original_trace_syscalls,
+                                      original_syscall_trace_started,
+                                      original_syscall_entry_next);
+        return append_format(stdout_buf,
+                             "wlan_pd_pd_mapper_trace.late_attach.first_continue_rc=-1\n"
+                             "wlan_pd_pd_mapper_trace.late_attach.first_continue_errno=%d\n"
+                             "wlan_pd_pd_mapper_trace.late_attach.first_continue_error=%s\n"
+                             "wlan_pd_pd_mapper_trace.late_attach.end=1\n",
+                             saved_errno,
+                             strerror(saved_errno));
+    }
+
+    while (monotonic_ms() < deadline && child->trace_syscalls) {
+        int status = 0;
+        pid_t wait_rc = waitpid(child->pid, &status, WNOHANG);
+
+        if (wait_rc == 0) {
+            usleep(20000);
+            continue;
+        }
+        if (wait_rc < 0) {
+            if (errno == EINTR) {
+                continue;
+            }
+            append_format(stdout_buf,
+                          "wlan_pd_pd_mapper_trace.late_attach.wait_error=%s\n",
+                          strerror(errno));
+            break;
+        }
+        if (wait_rc != child->pid) {
+            continue;
+        }
+        if (WIFEXITED(status)) {
+            child->child_done = true;
+            child->reaped = true;
+            child->exit_code = WEXITSTATUS(status);
+            attached = 0;
+            append_format(stdout_buf,
+                          "wlan_pd_pd_mapper_trace.late_attach.child_exited=1\n"
+                          "wlan_pd_pd_mapper_trace.late_attach.child_exit_code=%d\n",
+                          child->exit_code);
+            break;
+        }
+        if (WIFSIGNALED(status)) {
+            child->child_done = true;
+            child->reaped = true;
+            child->signal = WTERMSIG(status);
+            attached = 0;
+            append_format(stdout_buf,
+                          "wlan_pd_pd_mapper_trace.late_attach.child_signaled=1\n"
+                          "wlan_pd_pd_mapper_trace.late_attach.child_signal=%d\n",
+                          child->signal);
+            break;
+        }
+        if (WIFSTOPPED(status)) {
+            int sig = WSTOPSIG(status);
+            int deliver_sig = 0;
+
+            if (sig == (SIGTRAP | 0x80)) {
+                if (composite_child_handle_syscall_stop(child, stdout_buf) < 0) {
+                    ptrace(PTRACE_DETACH, child->pid, NULL, NULL);
+                    return -1;
+                }
+            } else if (sig != SIGTRAP && sig != SIGSTOP) {
+                deliver_sig = sig;
+            }
+            if (monotonic_ms() >= deadline ||
+                child->syscall_stop_count >= composite_syscall_stop_limit(child) ||
+                child->syscall_record_count >= composite_syscall_record_limit(child) ||
+                !child->trace_syscalls) {
+                break;
+            }
+            if (ptrace(PTRACE_SYSCALL, child->pid, NULL, (void *)(long)deliver_sig) < 0) {
+                append_format(stdout_buf,
+                              "wlan_pd_pd_mapper_trace.late_attach.continue_error=%s\n",
+                              strerror(errno));
+                break;
+            }
+        }
+    }
+    if (attached && !child->child_done) {
+        bool sent_detach_stop = false;
+
+        if (child->trace_syscalls) {
+            kill(child->pid, SIGSTOP);
+            sent_detach_stop = true;
+            for (int attempt = 0; attempt < 50; attempt++) {
+                int stop_status = 0;
+                pid_t stop_wait_rc = waitpid(child->pid, &stop_status, WNOHANG);
+
+                if (stop_wait_rc == child->pid) {
+                    break;
+                }
+                if (stop_wait_rc < 0 && errno != EINTR) {
+                    break;
+                }
+                usleep(20000);
+            }
+        }
+        if (ptrace(PTRACE_DETACH, child->pid, NULL, NULL) < 0) {
+            append_format(stdout_buf,
+                          "wlan_pd_pd_mapper_trace.late_attach.detach_rc=-1\n"
+                          "wlan_pd_pd_mapper_trace.late_attach.detach_errno=%d\n"
+                          "wlan_pd_pd_mapper_trace.late_attach.detach_error=%s\n",
+                          errno,
+                          strerror(errno));
+        } else {
+            append_literal(stdout_buf,
+                           "wlan_pd_pd_mapper_trace.late_attach.detach_rc=0\n");
+            if (sent_detach_stop && kill(child->pid, SIGCONT) == 0) {
+                append_literal(stdout_buf,
+                               "wlan_pd_pd_mapper_trace.late_attach.resume_sigcont=1\n");
+            } else if (sent_detach_stop) {
+                append_format(stdout_buf,
+                              "wlan_pd_pd_mapper_trace.late_attach.resume_sigcont=0\n"
+                              "wlan_pd_pd_mapper_trace.late_attach.resume_errno=%d\n"
+                              "wlan_pd_pd_mapper_trace.late_attach.resume_error=%s\n",
+                              errno,
+                              strerror(errno));
+            }
+        }
+    }
+    if (append_format(stdout_buf,
+                      "wlan_pd_pd_mapper_trace.late_attach.duration_ms=%ld\n"
+                      "wlan_pd_pd_mapper_trace.late_attach.syscall_stop_count=%u\n"
+                      "wlan_pd_pd_mapper_trace.late_attach.syscall_record_count=%u\n"
+                      "wlan_pd_pd_mapper_trace.late_attach.syscall_error_count=%u\n"
+                      "wlan_pd_pd_mapper_trace.late_attach.syscall_trace_truncated=%d\n"
+                      "wlan_pd_pd_mapper_trace.late_attach.end=1\n",
+                      monotonic_ms() - start_ms,
+                      child->syscall_stop_count,
+                      child->syscall_record_count,
+                      child->syscall_error_count,
+                      child->syscall_trace_truncated ? 1 : 0) < 0) {
+        return -1;
+    }
+    restore_pd_mapper_trace_state(child,
+                                  original_traced,
+                                  original_trace_minimal,
+                                  original_trace_initial_stop,
+                                  original_capture_exec,
+                                  original_trace_syscalls,
+                                  original_syscall_trace_started,
+                                  original_syscall_entry_next);
+    return 0;
+}
+#endif
 
 static int append_mdm_helper_queue_timing_child(struct buffer *buf,
                                                 const char *phase,
@@ -39403,6 +40106,11 @@ static int run_wifi_companion_start_only_guarded(const struct config *cfg,
                       "wifi_companion_start.wlan_pd_firmware_serve_gate.enabled=%d\n"
                       "wifi_companion_start.wlan_pd_firmware_serve_gate.subsys_modem_holder_planned=%d\n"
                       "wifi_companion_start.wlan_pd_post_pm_lower_state_observer.enabled=%d\n"
+                      "wifi_companion_start.wlan_pd_producer_pd_mapper_syscall_trace.compiled=%d\n"
+                      "wifi_companion_start.wlan_pd_producer_pd_mapper_syscall_trace.single_child=pd_mapper\n"
+                      "wifi_companion_start.wlan_pd_producer_pd_mapper_syscall_trace.late_attach=1\n"
+                      "wifi_companion_start.wlan_pd_producer_pd_mapper_syscall_trace.no_qrtr_send=1\n"
+                      "wifi_companion_start.wlan_pd_producer_pd_mapper_syscall_trace.no_qmi_payload_send=1\n"
                       "wifi_companion_start.wlan_pd_cnss_output_visibility.enabled=%d\n"
                       "wifi_companion_start.subsys_esoc0_manual_open_attempted=0\n"
                       "wifi_companion_start.registry_snapshot.enabled=%d\n",
@@ -39431,6 +40139,11 @@ static int run_wifi_companion_start_only_guarded(const struct config *cfg,
                       wlan_pd_firmware_serve_gate ? 1 : 0,
                       wlan_pd_firmware_serve_gate ? 1 : 0,
                       wlan_pd_post_pm_lower_state_observer ? 1 : 0,
+#ifdef A90_WIFI_TEST_BOOT_WLAN_PD_PRODUCER_PD_MAPPER_TRACE
+                      1,
+#else
+                      0,
+#endif
                       wlan_pd_cnss_output_visibility ? 1 : 0,
                       service74_gated_registry_capture ? 1 : 0) < 0 ||
         append_format(stdout_buf,
@@ -40161,6 +40874,18 @@ static int run_wifi_companion_start_only_guarded(const struct config *cfg,
         stop_property_service_shim(&property_shim, paths, stdout_buf);
         return -1;
     }
+#ifdef A90_WIFI_TEST_BOOT_WLAN_PD_PRODUCER_PD_MAPPER_TRACE
+    if (wlan_pd_post_pm_lower_state_observer &&
+        append_wlan_pd_pd_mapper_late_syscall_trace(stdout_buf,
+                                                    children,
+                                                    active_child_count,
+                                                    6000) < 0) {
+        stop_wlan_pd_modem_holder(paths, stdout_buf, &wlan_pd_holder);
+        composite_cleanup_children(children, active_child_count, stdout_buf, stderr_buf);
+        stop_property_service_shim(&property_shim, paths, stdout_buf);
+        return -1;
+    }
+#endif
 #if A90_EXECNS_ENABLE_DELAYED_LOWER_RESPONSE_WINDOW
     if (wlan_pd_post_pm_lower_state_observer &&
         append_wlan_pd_lower_response_delayed_contract_window(stdout_buf,

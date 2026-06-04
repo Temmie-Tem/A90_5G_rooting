@@ -187,7 +187,13 @@ def uses_wlan_pd_service_object_visible_trigger(args: argparse.Namespace) -> boo
 
 def build_helper(args: argparse.Namespace) -> None:
     args.out_dir.mkdir(parents=True, exist_ok=True)
-    run(["bash", HELPER_BUILD_SCRIPT, args.helper_binary])
+    helper_flags = []
+    if args.wifi_test_pd_mapper_syscall_trace:
+        helper_flags.append("-DA90_WIFI_TEST_BOOT_WLAN_PD_PRODUCER_PD_MAPPER_TRACE=1")
+    command: list[object] = ["bash", HELPER_BUILD_SCRIPT, args.helper_binary]
+    if helper_flags:
+        command = ["env", "A90_EXECNS_PROBE_CFLAGS=" + " ".join(helper_flags), *command]
+    run(command)
     args.helper_binary.chmod(0o600)
     helper_sha = sha256(args.helper_binary)
     if helper_sha != EXPECTED_HELPER_SHA256:
@@ -1594,6 +1600,7 @@ def write_manifest(args: argparse.Namespace) -> None:
             "rc1_retry_count": args.wifi_test_rc1_retry_count,
             "rc1_retry_delay_ms": args.wifi_test_rc1_retry_delay_ms,
             "light_firmware_trace": args.wifi_test_light_firmware_trace,
+            "pd_mapper_syscall_trace": args.wifi_test_pd_mapper_syscall_trace,
         },
         "init_binary": str(args.init_binary.relative_to(REPO_ROOT)),
         "init_sha256": sha256(args.init_binary),
@@ -1757,6 +1764,7 @@ def parse_args(argv: Sequence[str] | None = None) -> argparse.Namespace:
     parser.add_argument("--wifi-test-mount-debugfs", action="store_true")
     parser.add_argument("--wifi-test-firmware-mounts", action="store_true")
     parser.add_argument("--wifi-test-light-firmware-trace", action="store_true")
+    parser.add_argument("--wifi-test-pd-mapper-syscall-trace", action="store_true")
     parser.add_argument("--wifi-test-private-cnss-daemon-sdx50m", action="store_true")
     parser.add_argument("--wifi-test-private-cnss-daemon-path", default="/cache/bin/cnss-daemon.sdx50m")
     parser.add_argument("--wifi-test-pid1-rc1-watcher", action="store_true")

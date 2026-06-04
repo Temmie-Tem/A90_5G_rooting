@@ -6,6 +6,11 @@ SRC="${ROOT_DIR}/stage3/linux_init/helpers/a90_android_execns_probe.c"
 OUT="${1:-${ROOT_DIR}/stage3/linux_init/helpers/a90_android_execns_probe}"
 CHECK_FILE="$(mktemp)"
 trap 'rm -f "${CHECK_FILE}"' EXIT
+EXTRA_CFLAGS=()
+if [[ -n "${A90_EXECNS_PROBE_CFLAGS:-}" ]]; then
+  # shellcheck disable=SC2206
+  EXTRA_CFLAGS=(${A90_EXECNS_PROBE_CFLAGS})
+fi
 
 need_cmd() {
   if ! command -v "$1" >/dev/null 2>&1; then
@@ -25,6 +30,7 @@ aarch64-linux-gnu-gcc \
   -Os \
   -Wall \
   -Wextra \
+  "${EXTRA_CFLAGS[@]}" \
   -o "${OUT}" \
   "${SRC}"
 
