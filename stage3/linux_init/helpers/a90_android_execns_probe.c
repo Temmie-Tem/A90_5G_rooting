@@ -116,7 +116,13 @@
 #define A90_WIFI_TEST_BOOT_TFTP_MCFG_READBACK 0
 #endif
 
-#if A90_WIFI_TEST_BOOT_TFTP_MCFG_READBACK && A90_WIFI_TEST_BOOT_TFTP_LOGDW_SINK && A90_RFS_BRIDGE_SERVE_FIRMWARE_MNT_PROBE
+#ifndef A90_WIFI_TEST_BOOT_TFTP_PERSIST_RFS_TMPFS
+#define A90_WIFI_TEST_BOOT_TFTP_PERSIST_RFS_TMPFS 0
+#endif
+
+#if A90_WIFI_TEST_BOOT_TFTP_PERSIST_RFS_TMPFS && A90_WIFI_TEST_BOOT_TFTP_MCFG_READBACK && A90_WIFI_TEST_BOOT_TFTP_LOGDW_SINK && A90_RFS_BRIDGE_SERVE_FIRMWARE_MNT_PROBE
+#define EXECNS_VERSION "a90_android_execns_probe v386"
+#elif A90_WIFI_TEST_BOOT_TFTP_MCFG_READBACK && A90_WIFI_TEST_BOOT_TFTP_LOGDW_SINK && A90_RFS_BRIDGE_SERVE_FIRMWARE_MNT_PROBE
 #define EXECNS_VERSION "a90_android_execns_probe v385"
 #elif A90_WIFI_TEST_BOOT_TFTP_LOGDW_SINK && A90_RFS_BRIDGE_SERVE_FIRMWARE_MNT_PROBE
 #define EXECNS_VERSION "a90_android_execns_probe v384"
@@ -467,6 +473,13 @@ struct paths {
     char rfs_bridge_source_readonly_vendor_firmware_mnt_image_wlanmdsp[MAX_PATH_LEN];
     char rfs_bridge_source_readonly_vendor_firmware[MAX_PATH_LEN];
     char rfs_bridge_source_readonly_vendor_firmware_wlanmdsp[MAX_PATH_LEN];
+    char mnt[MAX_PATH_LEN];
+    char mnt_vendor[MAX_PATH_LEN];
+    char mnt_vendor_persist[MAX_PATH_LEN];
+    char mnt_vendor_persist_rfs[MAX_PATH_LEN];
+    char mnt_vendor_persist_hlos_rfs[MAX_PATH_LEN];
+    char mnt_vendor_persist_rfs_msm_mpss_readwrite[MAX_PATH_LEN];
+    char mnt_vendor_persist_hlos_rfs_msm_mpss_readwrite[MAX_PATH_LEN];
     char firmware_mnt_source[MAX_PATH_LEN];
     char firmware_modem_source[MAX_PATH_LEN];
     char dev[MAX_PATH_LEN];
@@ -3713,6 +3726,31 @@ static int init_paths(struct paths *paths) {
                     sizeof(paths->rfs_bridge_source_readonly_vendor_firmware_wlanmdsp),
                     paths->rfs_bridge_source_readonly_vendor_firmware,
                     "wlanmdsp.mbn") < 0 ||
+        append_path(paths->mnt, sizeof(paths->mnt), paths->root, "mnt") < 0 ||
+        append_path(paths->mnt_vendor,
+                    sizeof(paths->mnt_vendor),
+                    paths->mnt,
+                    "vendor") < 0 ||
+        append_path(paths->mnt_vendor_persist,
+                    sizeof(paths->mnt_vendor_persist),
+                    paths->mnt_vendor,
+                    "persist") < 0 ||
+        append_path(paths->mnt_vendor_persist_rfs,
+                    sizeof(paths->mnt_vendor_persist_rfs),
+                    paths->mnt_vendor_persist,
+                    "rfs") < 0 ||
+        append_path(paths->mnt_vendor_persist_hlos_rfs,
+                    sizeof(paths->mnt_vendor_persist_hlos_rfs),
+                    paths->mnt_vendor_persist,
+                    "hlos_rfs") < 0 ||
+        append_path(paths->mnt_vendor_persist_rfs_msm_mpss_readwrite,
+                    sizeof(paths->mnt_vendor_persist_rfs_msm_mpss_readwrite),
+                    paths->mnt_vendor_persist_rfs,
+                    "msm/mpss/readwrite") < 0 ||
+        append_path(paths->mnt_vendor_persist_hlos_rfs_msm_mpss_readwrite,
+                    sizeof(paths->mnt_vendor_persist_hlos_rfs_msm_mpss_readwrite),
+                    paths->mnt_vendor_persist_hlos_rfs,
+                    "msm/mpss/readwrite") < 0 ||
         append_path(paths->firmware_mnt_source,
                     sizeof(paths->firmware_mnt_source),
                     paths->base,
@@ -4619,6 +4657,12 @@ static void cleanup_paths(const struct paths *paths) {
         }
     }
     umount2(paths->proc, MNT_DETACH);
+#if A90_WIFI_TEST_BOOT_TFTP_PERSIST_RFS_TMPFS
+    umount2(paths->mnt_vendor_persist_hlos_rfs_msm_mpss_readwrite, MNT_DETACH);
+    umount2(paths->mnt_vendor_persist_rfs_msm_mpss_readwrite, MNT_DETACH);
+    umount2(paths->mnt_vendor_persist_hlos_rfs, MNT_DETACH);
+    umount2(paths->mnt_vendor_persist_rfs, MNT_DETACH);
+#endif
     umount2(paths->vendor_rfs_msm_mpss_readwrite, MNT_DETACH);
     umount2(paths->rfs_bridge_source_msm_mpss_readwrite, MNT_DETACH);
     umount2(paths->rfs_bridge_source_readwrite, MNT_DETACH);
@@ -10052,6 +10096,73 @@ static int populate_rfs_readwrite_tmpfs_bridge(const char *readwrite_dir,
     return 0;
 }
 
+#if A90_WIFI_TEST_BOOT_TFTP_PERSIST_RFS_TMPFS
+static int mount_tmpfs_dir(const char *target,
+                           const char *options,
+                           char *error_buf,
+                           size_t error_size,
+                           const char *label) {
+    if (mkdir_p(target, 0770) < 0) {
+        snprintf(error_buf, error_size, "mkdir tmpfs %s: %s", label, strerror(errno));
+        return -1;
+    }
+    if (mount("tmpfs", target, "tmpfs", MS_NOSUID | MS_NODEV, options) < 0) {
+        snprintf(error_buf, error_size, "mount tmpfs %s: %s", label, strerror(errno));
+        return -1;
+    }
+    return 0;
+}
+
+static int bind_readwrite_tmpfs_mirror(const char *readwrite_dir,
+                                       const char *target,
+                                       char *error_buf,
+                                       size_t error_size,
+                                       const char *label) {
+    if (mkdir_p(target, 0770) < 0) {
+        snprintf(error_buf, error_size, "mkdir persist readwrite mirror %s: %s", label, strerror(errno));
+        return -1;
+    }
+    if (mount(readwrite_dir, target, NULL, MS_BIND | MS_REC, NULL) < 0) {
+        snprintf(error_buf, error_size, "bind persist readwrite mirror %s: %s", label, strerror(errno));
+        return -1;
+    }
+    return 0;
+}
+
+static int populate_tftp_persist_rfs_tmpfs_bridge(const struct paths *paths,
+                                                  const char *readwrite_dir,
+                                                  char *error_buf,
+                                                  size_t error_size,
+                                                  const char *label) {
+    if (mount_tmpfs_dir(paths->mnt_vendor_persist_rfs,
+                        "size=1m,mode=0770,uid=2903,gid=2903",
+                        error_buf,
+                        error_size,
+                        "persist-rfs") < 0) {
+        return -1;
+    }
+    if (mount_tmpfs_dir(paths->mnt_vendor_persist_hlos_rfs,
+                        "size=1m,mode=0770,uid=2903,gid=2903",
+                        error_buf,
+                        error_size,
+                        "persist-hlos-rfs") < 0) {
+        return -1;
+    }
+    if (bind_readwrite_tmpfs_mirror(readwrite_dir,
+                                    paths->mnt_vendor_persist_rfs_msm_mpss_readwrite,
+                                    error_buf,
+                                    error_size,
+                                    label) < 0) {
+        return -1;
+    }
+    return bind_readwrite_tmpfs_mirror(readwrite_dir,
+                                       paths->mnt_vendor_persist_hlos_rfs_msm_mpss_readwrite,
+                                       error_buf,
+                                       error_size,
+                                       label);
+}
+#endif
+
 static int materialize_wifi_firmware_rfs_bridge(const struct paths *paths,
                                                 char *error_buf,
                                                 size_t error_size) {
@@ -10073,6 +10184,15 @@ static int materialize_wifi_firmware_rfs_bridge(const struct paths *paths,
                                                 "readwrite-existing") < 0) {
             return -1;
         }
+#if A90_WIFI_TEST_BOOT_TFTP_PERSIST_RFS_TMPFS
+        if (populate_tftp_persist_rfs_tmpfs_bridge(paths,
+                                                   paths->vendor_rfs_msm_mpss_readwrite,
+                                                   error_buf,
+                                                   error_size,
+                                                   "readwrite-existing") < 0) {
+            return -1;
+        }
+#endif
         return bind_rfs_bridge_source(paths->rfs_bridge_source_readonly,
                                       paths->vendor_rfs_msm_mpss_readonly,
                                       error_buf,
@@ -10096,6 +10216,15 @@ static int materialize_wifi_firmware_rfs_bridge(const struct paths *paths,
                                                 "mpss") < 0) {
             return -1;
         }
+#if A90_WIFI_TEST_BOOT_TFTP_PERSIST_RFS_TMPFS
+        if (populate_tftp_persist_rfs_tmpfs_bridge(paths,
+                                                   paths->rfs_bridge_source_msm_mpss_readwrite,
+                                                   error_buf,
+                                                   error_size,
+                                                   "mpss") < 0) {
+            return -1;
+        }
+#endif
         return bind_rfs_bridge_source(paths->rfs_bridge_source_msm_mpss,
                                       paths->vendor_rfs_msm_mpss,
                                       error_buf,
@@ -10119,6 +10248,15 @@ static int materialize_wifi_firmware_rfs_bridge(const struct paths *paths,
                                                 "rfs") < 0) {
             return -1;
         }
+#if A90_WIFI_TEST_BOOT_TFTP_PERSIST_RFS_TMPFS
+        if (populate_tftp_persist_rfs_tmpfs_bridge(paths,
+                                                   paths->rfs_bridge_source_msm_mpss_readwrite,
+                                                   error_buf,
+                                                   error_size,
+                                                   "rfs") < 0) {
+            return -1;
+        }
+#endif
         return bind_rfs_bridge_source(paths->rfs_bridge_source,
                                       paths->vendor_rfs,
                                       error_buf,
@@ -10146,6 +10284,12 @@ static int append_wlan_pd_rfs_bridge_snapshot(struct buffer *buf,
     struct stat readwrite_st;
     struct stat server_check_st;
     struct stat vendor_st;
+#if A90_WIFI_TEST_BOOT_TFTP_PERSIST_RFS_TMPFS
+    struct stat persist_rfs_st;
+    struct stat persist_hlos_rfs_st;
+    struct stat persist_rfs_rw_st;
+    struct stat persist_hlos_rw_st;
+#endif
     ssize_t nreadlink;
     ssize_t vendor_nreadlink;
     int saved_errno = 0;
@@ -10154,6 +10298,12 @@ static int append_wlan_pd_rfs_bridge_snapshot(struct buffer *buf,
     int readwrite_errno = 0;
     int server_check_errno = 0;
     int vendor_errno = 0;
+#if A90_WIFI_TEST_BOOT_TFTP_PERSIST_RFS_TMPFS
+    int persist_rfs_errno = 0;
+    int persist_hlos_rfs_errno = 0;
+    int persist_rfs_rw_errno = 0;
+    int persist_hlos_rw_errno = 0;
+#endif
     int open_rc;
     int open_errno = 0;
     int fallback_open_rc;
@@ -10179,6 +10329,12 @@ static int append_wlan_pd_rfs_bridge_snapshot(struct buffer *buf,
     bool vendor_asset_exists = false;
     bool vendor_asset_is_reg = false;
     bool vendor_asset_nonzero = false;
+#if A90_WIFI_TEST_BOOT_TFTP_PERSIST_RFS_TMPFS
+    bool persist_rfs_exists = false;
+    bool persist_hlos_rfs_exists = false;
+    bool persist_rfs_rw_exists = false;
+    bool persist_hlos_rw_exists = false;
+#endif
 
     if (lstat(paths->vendor_rfs_msm_mpss_readonly, &readonly_st) == 0) {
         readonly_exists = true;
@@ -10272,6 +10428,32 @@ static int append_wlan_pd_rfs_bridge_snapshot(struct buffer *buf,
         vendor_asset_is_reg = S_ISREG(asset_st.st_mode);
         vendor_asset_nonzero = vendor_asset_is_reg && asset_st.st_size > 0;
     }
+#if A90_WIFI_TEST_BOOT_TFTP_PERSIST_RFS_TMPFS
+    if (stat(paths->mnt_vendor_persist_rfs, &persist_rfs_st) == 0) {
+        persist_rfs_exists = true;
+    } else {
+        persist_rfs_errno = errno;
+        memset(&persist_rfs_st, 0, sizeof(persist_rfs_st));
+    }
+    if (stat(paths->mnt_vendor_persist_hlos_rfs, &persist_hlos_rfs_st) == 0) {
+        persist_hlos_rfs_exists = true;
+    } else {
+        persist_hlos_rfs_errno = errno;
+        memset(&persist_hlos_rfs_st, 0, sizeof(persist_hlos_rfs_st));
+    }
+    if (stat(paths->mnt_vendor_persist_rfs_msm_mpss_readwrite, &persist_rfs_rw_st) == 0) {
+        persist_rfs_rw_exists = true;
+    } else {
+        persist_rfs_rw_errno = errno;
+        memset(&persist_rfs_rw_st, 0, sizeof(persist_rfs_rw_st));
+    }
+    if (stat(paths->mnt_vendor_persist_hlos_rfs_msm_mpss_readwrite, &persist_hlos_rw_st) == 0) {
+        persist_hlos_rw_exists = true;
+    } else {
+        persist_hlos_rw_errno = errno;
+        memset(&persist_hlos_rw_st, 0, sizeof(persist_hlos_rw_st));
+    }
+#endif
     return append_format(buf,
                          "%s.begin=1\n"
                          "%s.root=/vendor/rfs/msm/mpss\n"
@@ -10295,6 +10477,33 @@ static int append_wlan_pd_rfs_bridge_snapshot(struct buffer *buf,
                          "%s.readwrite.gid=%lld\n"
                          "%s.readwrite.errno=%d\n"
                          "%s.readwrite.tmpfs_requested=1\n"
+#if A90_WIFI_TEST_BOOT_TFTP_PERSIST_RFS_TMPFS
+                         "%s.persist_rfs.tmpfs_requested=1\n"
+                         "%s.persist_rfs.path=/mnt/vendor/persist/rfs\n"
+                         "%s.persist_rfs.host_path=%s\n"
+                         "%s.persist_rfs.exists=%d\n"
+                         "%s.persist_rfs.is_dir=%d\n"
+                         "%s.persist_rfs.mode=%04o\n"
+                         "%s.persist_rfs.uid=%lld\n"
+                         "%s.persist_rfs.gid=%lld\n"
+                         "%s.persist_rfs.errno=%d\n"
+                         "%s.persist_hlos_rfs.path=/mnt/vendor/persist/hlos_rfs\n"
+                         "%s.persist_hlos_rfs.host_path=%s\n"
+                         "%s.persist_hlos_rfs.exists=%d\n"
+                         "%s.persist_hlos_rfs.is_dir=%d\n"
+                         "%s.persist_hlos_rfs.mode=%04o\n"
+                         "%s.persist_hlos_rfs.uid=%lld\n"
+                         "%s.persist_hlos_rfs.gid=%lld\n"
+                         "%s.persist_hlos_rfs.errno=%d\n"
+                         "%s.persist_rfs.readwrite.host_path=%s\n"
+                         "%s.persist_rfs.readwrite.exists=%d\n"
+                         "%s.persist_rfs.readwrite.is_dir=%d\n"
+                         "%s.persist_rfs.readwrite.errno=%d\n"
+                         "%s.persist_hlos_rfs.readwrite.host_path=%s\n"
+                         "%s.persist_hlos_rfs.readwrite.exists=%d\n"
+                         "%s.persist_hlos_rfs.readwrite.is_dir=%d\n"
+                         "%s.persist_hlos_rfs.readwrite.errno=%d\n"
+#endif
                          "%s.server_check.absolute=/vendor/rfs/msm/mpss/readwrite/server_check.txt\n"
                          "%s.server_check.host_path=%s\n"
                          "%s.server_check.exists=%d\n"
@@ -10367,6 +10576,33 @@ static int append_wlan_pd_rfs_bridge_snapshot(struct buffer *buf,
                          prefix, readwrite_exists ? (long long)readwrite_st.st_gid : -1LL,
                          prefix, readwrite_errno,
                          prefix,
+#if A90_WIFI_TEST_BOOT_TFTP_PERSIST_RFS_TMPFS
+                         prefix,
+                         prefix,
+                         prefix, paths->mnt_vendor_persist_rfs,
+                         prefix, persist_rfs_exists ? 1 : 0,
+                         prefix, persist_rfs_exists && S_ISDIR(persist_rfs_st.st_mode) ? 1 : 0,
+                         prefix, persist_rfs_exists ? (unsigned int)(persist_rfs_st.st_mode & 07777) : 0U,
+                         prefix, persist_rfs_exists ? (long long)persist_rfs_st.st_uid : -1LL,
+                         prefix, persist_rfs_exists ? (long long)persist_rfs_st.st_gid : -1LL,
+                         prefix, persist_rfs_errno,
+                         prefix,
+                         prefix, paths->mnt_vendor_persist_hlos_rfs,
+                         prefix, persist_hlos_rfs_exists ? 1 : 0,
+                         prefix, persist_hlos_rfs_exists && S_ISDIR(persist_hlos_rfs_st.st_mode) ? 1 : 0,
+                         prefix, persist_hlos_rfs_exists ? (unsigned int)(persist_hlos_rfs_st.st_mode & 07777) : 0U,
+                         prefix, persist_hlos_rfs_exists ? (long long)persist_hlos_rfs_st.st_uid : -1LL,
+                         prefix, persist_hlos_rfs_exists ? (long long)persist_hlos_rfs_st.st_gid : -1LL,
+                         prefix, persist_hlos_rfs_errno,
+                         prefix, paths->mnt_vendor_persist_rfs_msm_mpss_readwrite,
+                         prefix, persist_rfs_rw_exists ? 1 : 0,
+                         prefix, persist_rfs_rw_exists && S_ISDIR(persist_rfs_rw_st.st_mode) ? 1 : 0,
+                         prefix, persist_rfs_rw_errno,
+                         prefix, paths->mnt_vendor_persist_hlos_rfs_msm_mpss_readwrite,
+                         prefix, persist_hlos_rw_exists ? 1 : 0,
+                         prefix, persist_hlos_rw_exists && S_ISDIR(persist_hlos_rw_st.st_mode) ? 1 : 0,
+                         prefix, persist_hlos_rw_errno,
+#endif
                          prefix,
                          prefix, paths->vendor_rfs_mpss_server_check,
                          prefix, server_check_exists ? 1 : 0,
