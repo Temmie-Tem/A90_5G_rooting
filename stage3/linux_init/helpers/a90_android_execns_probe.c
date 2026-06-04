@@ -101,7 +101,7 @@
 #define SYSLOG_ACTION_READ_ALL 3
 #endif
 
-#define EXECNS_VERSION "a90_android_execns_probe v373"
+#define EXECNS_VERSION "a90_android_execns_probe v374"
 
 #ifndef A90_EXECNS_ENABLE_DELAYED_LOWER_RESPONSE_WINDOW
 #define A90_EXECNS_ENABLE_DELAYED_LOWER_RESPONSE_WINDOW 0
@@ -27638,6 +27638,81 @@ static int append_ptrace_sockaddr_field(struct buffer *buf,
     return 0;
 }
 
+static int append_ptrace_socklen_field(struct buffer *buf,
+                                       pid_t pid,
+                                       const char *prefix,
+                                       const char *field,
+                                       unsigned long long addr,
+                                       unsigned long long default_len,
+                                       unsigned long long *len_out) {
+    unsigned char bytes[sizeof(socklen_t)];
+    size_t bytes_read = 0;
+    socklen_t value = 0;
+
+    *len_out = default_len;
+    if (!plausible_user_ptr(addr)) {
+        return append_format(buf,
+                             "%s.%s.addr=0x%016llx\n"
+                             "%s.%s.valid=0\n"
+                             "%s.%s.reason=not-plausible-user-pointer\n"
+                             "%s.%s.effective_len=%llu\n",
+                             prefix,
+                             field,
+                             addr,
+                             prefix,
+                             field,
+                             prefix,
+                             field,
+                             prefix,
+                             field,
+                             *len_out);
+    }
+    memset(bytes, 0, sizeof(bytes));
+    if (ptrace_read_bytes_best_effort(pid, addr, bytes, sizeof(bytes), &bytes_read) < 0 ||
+        bytes_read < sizeof(value)) {
+        return append_format(buf,
+                             "%s.%s.addr=0x%016llx\n"
+                             "%s.%s.valid=0\n"
+                             "%s.%s.error=%s\n"
+                             "%s.%s.effective_len=%llu\n",
+                             prefix,
+                             field,
+                             addr,
+                             prefix,
+                             field,
+                             prefix,
+                             field,
+                             strerror(errno),
+                             prefix,
+                             field,
+                             *len_out);
+    }
+    memcpy(&value, bytes, sizeof(value));
+    if (value > 0) {
+        *len_out = (unsigned long long)value;
+    }
+    return append_format(buf,
+                         "%s.%s.addr=0x%016llx\n"
+                         "%s.%s.valid=1\n"
+                         "%s.%s.bytes=%zu\n"
+                         "%s.%s.value=%u\n"
+                         "%s.%s.effective_len=%llu\n",
+                         prefix,
+                         field,
+                         addr,
+                         prefix,
+                         field,
+                         prefix,
+                         field,
+                         bytes_read,
+                         prefix,
+                         field,
+                         (unsigned int)value,
+                         prefix,
+                         field,
+                         *len_out);
+}
+
 static int append_ptrace_user_bytes_hex_field(struct buffer *buf,
                                               pid_t pid,
                                               const char *prefix,
@@ -28140,6 +28215,25 @@ static int append_composite_pm_syscall_record(struct composite_child *child,
                                                ret > 0 ? (size_t)ret : 0U,
                                                PD_MAPPER_QRTR_PAYLOAD_LIMIT) < 0) {
             return -1;
+        }
+        if (child->last_syscall_args[4] != 0 && child->last_syscall_args[5] != 0) {
+            unsigned long long sockaddr_len = sizeof(struct sockaddr_storage);
+
+            if (append_ptrace_socklen_field(stdout_buf,
+                                            pid,
+                                            prefix,
+                                            "sockaddr_len",
+                                            child->last_syscall_args[5],
+                                            sizeof(struct sockaddr_storage),
+                                            &sockaddr_len) < 0 ||
+                append_ptrace_sockaddr_field(stdout_buf,
+                                             pid,
+                                             prefix,
+                                             "sockaddr",
+                                             child->last_syscall_args[4],
+                                             sockaddr_len) < 0) {
+                return -1;
+            }
         }
         return 0;
     }
