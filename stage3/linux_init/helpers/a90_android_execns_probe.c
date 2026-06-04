@@ -108,11 +108,21 @@
 #define A90_RFS_BRIDGE_SERVE_FIRMWARE_MNT_PROBE 0
 #endif
 
-#if A90_RFS_BRIDGE_SERVE_FIRMWARE_MNT_PROBE
+#ifndef A90_WIFI_TEST_BOOT_TFTP_LOGDW_SINK
+#define A90_WIFI_TEST_BOOT_TFTP_LOGDW_SINK 0
+#endif
+
+#if A90_WIFI_TEST_BOOT_TFTP_LOGDW_SINK
+#define EXECNS_VERSION "a90_android_execns_probe v383"
+#elif A90_RFS_BRIDGE_SERVE_FIRMWARE_MNT_PROBE
 #define EXECNS_VERSION "a90_android_execns_probe v382"
-#define A90_RFS_BRIDGE_ANDROID_PARITY_LINE "%s.android_parity=firmware_mnt_probe_present_firmware_fallback_present\n"
 #else
 #define EXECNS_VERSION "a90_android_execns_probe v381"
+#endif
+
+#if A90_RFS_BRIDGE_SERVE_FIRMWARE_MNT_PROBE
+#define A90_RFS_BRIDGE_ANDROID_PARITY_LINE "%s.android_parity=firmware_mnt_probe_present_firmware_fallback_present\n"
+#else
 #define A90_RFS_BRIDGE_ANDROID_PARITY_LINE "%s.android_parity=firmware_mnt_probe_absent_firmware_fallback_present\n"
 #endif
 
@@ -463,6 +473,7 @@ struct paths {
     char dev_properties[MAX_PATH_LEN];
     char dev_socket[MAX_PATH_LEN];
     char property_service_socket[MAX_PATH_LEN];
+    char logdw_socket[MAX_PATH_LEN];
     char sys[MAX_PATH_LEN];
     char sys_bus[MAX_PATH_LEN];
     char sys_bus_esoc[MAX_PATH_LEN];
@@ -3729,6 +3740,10 @@ static int init_paths(struct paths *paths) {
                     sizeof(paths->property_service_socket),
                     paths->dev_socket,
                     "property_service") < 0 ||
+        append_path(paths->logdw_socket,
+                    sizeof(paths->logdw_socket),
+                    paths->dev_socket,
+                    "logdw") < 0 ||
         append_path(paths->sys, sizeof(paths->sys), paths->root, "sys") < 0 ||
         append_path(paths->sys_bus, sizeof(paths->sys_bus), paths->sys, "bus") < 0 ||
         append_path(paths->sys_bus_esoc, sizeof(paths->sys_bus_esoc), paths->sys_bus, "esoc") < 0 ||
@@ -4651,6 +4666,9 @@ static void cleanup_paths(const struct paths *paths) {
     }
     if (paths->property_service_socket[0] != '\0') {
         unlink(paths->property_service_socket);
+    }
+    if (paths->logdw_socket[0] != '\0') {
+        unlink(paths->logdw_socket);
     }
     if (paths->dev_socket[0] != '\0') {
         rmdir(paths->dev_socket);
@@ -25144,6 +25162,379 @@ static int append_escaped_ascii(struct buffer *buf, const unsigned char *data, s
     return 0;
 }
 
+#if A90_WIFI_TEST_BOOT_TFTP_LOGDW_SINK
+#ifndef A90_TFTP_LOGDW_MAX_RECORDS
+#define A90_TFTP_LOGDW_MAX_RECORDS 96U
+#endif
+#ifndef A90_TFTP_LOGDW_MAX_RECORD_BYTES
+#define A90_TFTP_LOGDW_MAX_RECORD_BYTES 768U
+#endif
+
+struct a90_tftp_logdw_sink {
+    int fd;
+    char socket_path[MAX_PATH_LEN];
+    bool start_attempted;
+    bool active;
+    bool reported;
+    unsigned int datagram_count;
+    unsigned int stored_record_count;
+    unsigned int truncated_record_count;
+    unsigned int tftp_server_count;
+    unsigned int server_check_count;
+    unsigned int wlanmdsp_count;
+    unsigned int firmware_mnt_wlanmdsp_count;
+    unsigned int fallback_wlanmdsp_count;
+    unsigned int rrq_count;
+    unsigned int oack_count;
+    unsigned int data_count;
+    unsigned int ack_count;
+    unsigned int end_transfer_count;
+    unsigned int success_count;
+    unsigned int total_bytes_count;
+    unsigned int total_bytes_4251884_count;
+    unsigned int enoent_count;
+    unsigned long long byte_count;
+};
+
+static struct a90_tftp_logdw_sink g_tftp_logdw_sink = {
+    .fd = -1,
+};
+
+static bool a90_logdw_bytes_contains_token_ci(const unsigned char *data,
+                                              size_t data_len,
+                                              const char *token) {
+    size_t token_len = strlen(token);
+
+    if (token_len == 0 || data_len < token_len) {
+        return false;
+    }
+    for (size_t offset = 0; offset + token_len <= data_len; offset++) {
+        bool matched = true;
+
+        for (size_t index = 0; index < token_len; index++) {
+            unsigned char data_byte = data[offset + index];
+            unsigned char token_byte = (unsigned char)token[index];
+
+            if (data_byte >= 'A' && data_byte <= 'Z') {
+                data_byte = (unsigned char)(data_byte - 'A' + 'a');
+            }
+            if (token_byte >= 'A' && token_byte <= 'Z') {
+                token_byte = (unsigned char)(token_byte - 'A' + 'a');
+            }
+            if (data_byte != token_byte) {
+                matched = false;
+                break;
+            }
+        }
+        if (matched) {
+            return true;
+        }
+    }
+    return false;
+}
+
+static int a90_tftp_logdw_sink_start(const struct paths *paths,
+                                     struct buffer *stdout_buf) {
+    struct sockaddr_un addr;
+    size_t socket_len;
+    int rcvbuf = 1024 * 1024;
+
+    if (g_tftp_logdw_sink.active) {
+        return append_literal(stdout_buf,
+                              "tftp_logdw_sink.start.already_active=1\n");
+    }
+    if (g_tftp_logdw_sink.start_attempted) {
+        return append_literal(stdout_buf,
+                              "tftp_logdw_sink.start.retry_suppressed=1\n");
+    }
+    memset(&g_tftp_logdw_sink, 0, sizeof(g_tftp_logdw_sink));
+    g_tftp_logdw_sink.fd = -1;
+    g_tftp_logdw_sink.start_attempted = true;
+    snprintf(g_tftp_logdw_sink.socket_path,
+             sizeof(g_tftp_logdw_sink.socket_path),
+             "%s",
+             paths->logdw_socket);
+    if (append_format(stdout_buf,
+                      "tftp_logdw_sink.begin=1\n"
+                      "tftp_logdw_sink.mode=passive-private-dev-socket-dgram\n"
+                      "tftp_logdw_sink.ptraced=0\n"
+                      "tftp_logdw_sink.qmi_send=0\n"
+                      "tftp_logdw_sink.qrtr_send=0\n"
+                      "tftp_logdw_sink.socket=/dev/socket/logdw\n"
+                      "tftp_logdw_sink.host_socket=%s\n",
+                      g_tftp_logdw_sink.socket_path) < 0) {
+        return -1;
+    }
+    if (mkdir_p(paths->dev_socket, 0755) < 0) {
+        return append_format(stdout_buf,
+                             "tftp_logdw_sink.started=0\n"
+                             "tftp_logdw_sink.error=mkdir-%s\n",
+                             strerror(errno));
+    }
+    if (unlink(g_tftp_logdw_sink.socket_path) < 0 && errno != ENOENT) {
+        return append_format(stdout_buf,
+                             "tftp_logdw_sink.started=0\n"
+                             "tftp_logdw_sink.error=unlink-%s\n",
+                             strerror(errno));
+    }
+    g_tftp_logdw_sink.fd = socket(AF_UNIX, SOCK_DGRAM | SOCK_CLOEXEC, 0);
+    if (g_tftp_logdw_sink.fd < 0) {
+        return append_format(stdout_buf,
+                             "tftp_logdw_sink.started=0\n"
+                             "tftp_logdw_sink.error=socket-%s\n",
+                             strerror(errno));
+    }
+    setsockopt(g_tftp_logdw_sink.fd, SOL_SOCKET, SO_RCVBUF, &rcvbuf, sizeof(rcvbuf));
+    memset(&addr, 0, sizeof(addr));
+    addr.sun_family = AF_UNIX;
+    socket_len = strlen(g_tftp_logdw_sink.socket_path);
+    if (socket_len >= sizeof(addr.sun_path)) {
+        close(g_tftp_logdw_sink.fd);
+        g_tftp_logdw_sink.fd = -1;
+        return append_literal(stdout_buf,
+                              "tftp_logdw_sink.started=0\n"
+                              "tftp_logdw_sink.error=socket-path-too-long\n");
+    }
+    memcpy(addr.sun_path, g_tftp_logdw_sink.socket_path, socket_len + 1);
+    if (bind(g_tftp_logdw_sink.fd,
+             (struct sockaddr *)&addr,
+             (socklen_t)(offsetof(struct sockaddr_un, sun_path) + socket_len + 1)) < 0) {
+        int saved_errno = errno;
+
+        close(g_tftp_logdw_sink.fd);
+        g_tftp_logdw_sink.fd = -1;
+        errno = saved_errno;
+        return append_format(stdout_buf,
+                             "tftp_logdw_sink.started=0\n"
+                             "tftp_logdw_sink.error=bind-%s\n",
+                             strerror(errno));
+    }
+    chmod(g_tftp_logdw_sink.socket_path, 0666);
+    if (set_nonblock(g_tftp_logdw_sink.fd) < 0) {
+        int saved_errno = errno;
+
+        close(g_tftp_logdw_sink.fd);
+        unlink(g_tftp_logdw_sink.socket_path);
+        g_tftp_logdw_sink.fd = -1;
+        errno = saved_errno;
+        return append_format(stdout_buf,
+                             "tftp_logdw_sink.started=0\n"
+                             "tftp_logdw_sink.error=nonblock-%s\n",
+                             strerror(errno));
+    }
+    g_tftp_logdw_sink.active = true;
+    return append_literal(stdout_buf,
+                          "tftp_logdw_sink.started=1\n");
+}
+
+static int a90_tftp_logdw_sink_record(struct buffer *stdout_buf,
+                                      const unsigned char *data,
+                                      size_t data_len) {
+    bool token_tftp_server = a90_logdw_bytes_contains_token_ci(data, data_len, "tftp_server");
+    bool token_server_check = a90_logdw_bytes_contains_token_ci(data, data_len, "server_check");
+    bool token_wlanmdsp = a90_logdw_bytes_contains_token_ci(data, data_len, "wlanmdsp");
+    bool token_firmware_mnt =
+        a90_logdw_bytes_contains_token_ci(data, data_len, "firmware_mnt/image/wlanmdsp.mbn");
+    bool token_fallback =
+        a90_logdw_bytes_contains_token_ci(data, data_len, "readonly/vendor/firmware/wlanmdsp.mbn") ||
+        a90_logdw_bytes_contains_token_ci(data, data_len, "vendor/firmware/wlanmdsp.mbn");
+    bool token_rrq = a90_logdw_bytes_contains_token_ci(data, data_len, "RRQ");
+    bool token_oack = a90_logdw_bytes_contains_token_ci(data, data_len, "OACK");
+    bool token_data = a90_logdw_bytes_contains_token_ci(data, data_len, "DATA");
+    bool token_ack = a90_logdw_bytes_contains_token_ci(data, data_len, "ACK");
+    bool token_end_transfer = a90_logdw_bytes_contains_token_ci(data, data_len, "END OF TRANSFER");
+    bool token_success =
+        a90_logdw_bytes_contains_token_ci(data, data_len, "successfully processed") ||
+        a90_logdw_bytes_contains_token_ci(data, data_len, "processed successfully");
+    bool token_total_bytes = a90_logdw_bytes_contains_token_ci(data, data_len, "total-bytes");
+    bool token_total_bytes_4251884 = a90_logdw_bytes_contains_token_ci(data, data_len, "4251884");
+    bool token_enoent =
+        a90_logdw_bytes_contains_token_ci(data, data_len, "No such file") ||
+        a90_logdw_bytes_contains_token_ci(data, data_len, "ENOENT");
+    bool relevant =
+        token_tftp_server ||
+        token_server_check ||
+        token_wlanmdsp ||
+        token_firmware_mnt ||
+        token_fallback ||
+        token_end_transfer ||
+        token_success ||
+        token_total_bytes ||
+        token_enoent;
+
+    g_tftp_logdw_sink.datagram_count++;
+    g_tftp_logdw_sink.byte_count += (unsigned long long)data_len;
+    if (token_tftp_server) g_tftp_logdw_sink.tftp_server_count++;
+    if (token_server_check) g_tftp_logdw_sink.server_check_count++;
+    if (token_wlanmdsp) g_tftp_logdw_sink.wlanmdsp_count++;
+    if (token_firmware_mnt) g_tftp_logdw_sink.firmware_mnt_wlanmdsp_count++;
+    if (token_fallback) g_tftp_logdw_sink.fallback_wlanmdsp_count++;
+    if (token_rrq) g_tftp_logdw_sink.rrq_count++;
+    if (token_oack) g_tftp_logdw_sink.oack_count++;
+    if (token_data) g_tftp_logdw_sink.data_count++;
+    if (token_ack) g_tftp_logdw_sink.ack_count++;
+    if (token_end_transfer) g_tftp_logdw_sink.end_transfer_count++;
+    if (token_success) g_tftp_logdw_sink.success_count++;
+    if (token_total_bytes) g_tftp_logdw_sink.total_bytes_count++;
+    if (token_total_bytes_4251884) g_tftp_logdw_sink.total_bytes_4251884_count++;
+    if (token_enoent) g_tftp_logdw_sink.enoent_count++;
+    if (!relevant) {
+        return 0;
+    }
+    if (g_tftp_logdw_sink.stored_record_count >= A90_TFTP_LOGDW_MAX_RECORDS) {
+        g_tftp_logdw_sink.truncated_record_count++;
+        return 0;
+    }
+    {
+        unsigned int record = g_tftp_logdw_sink.stored_record_count++;
+        size_t stored_len = data_len;
+        bool payload_truncated = false;
+
+        if (stored_len > A90_TFTP_LOGDW_MAX_RECORD_BYTES) {
+            stored_len = A90_TFTP_LOGDW_MAX_RECORD_BYTES;
+            payload_truncated = true;
+        }
+        if (append_format(stdout_buf,
+                          "tftp_logdw_sink.record_%03u.bytes=%zu\n"
+                          "tftp_logdw_sink.record_%03u.stored_bytes=%zu\n"
+                          "tftp_logdw_sink.record_%03u.payload_truncated=%d\n"
+                          "tftp_logdw_sink.record_%03u.token.tftp_server=%d\n"
+                          "tftp_logdw_sink.record_%03u.token.server_check=%d\n"
+                          "tftp_logdw_sink.record_%03u.token.wlanmdsp=%d\n"
+                          "tftp_logdw_sink.record_%03u.token.firmware_mnt_wlanmdsp=%d\n"
+                          "tftp_logdw_sink.record_%03u.token.fallback_wlanmdsp=%d\n"
+                          "tftp_logdw_sink.record_%03u.token.end_transfer=%d\n"
+                          "tftp_logdw_sink.record_%03u.token.success=%d\n"
+                          "tftp_logdw_sink.record_%03u.token.total_bytes=%d\n"
+                          "tftp_logdw_sink.record_%03u.token.total_bytes_4251884=%d\n"
+                          "tftp_logdw_sink.record_%03u.token.enoent=%d\n"
+                          "tftp_logdw_sink.record_%03u.payload=",
+                          record,
+                          data_len,
+                          record,
+                          stored_len,
+                          record,
+                          payload_truncated ? 1 : 0,
+                          record,
+                          token_tftp_server ? 1 : 0,
+                          record,
+                          token_server_check ? 1 : 0,
+                          record,
+                          token_wlanmdsp ? 1 : 0,
+                          record,
+                          token_firmware_mnt ? 1 : 0,
+                          record,
+                          token_fallback ? 1 : 0,
+                          record,
+                          token_end_transfer ? 1 : 0,
+                          record,
+                          token_success ? 1 : 0,
+                          record,
+                          token_total_bytes ? 1 : 0,
+                          record,
+                          token_total_bytes_4251884 ? 1 : 0,
+                          record,
+                          token_enoent ? 1 : 0,
+                          record) < 0 ||
+            append_escaped_ascii(stdout_buf, data, stored_len) < 0 ||
+            append_literal(stdout_buf, "\n") < 0) {
+            return -1;
+        }
+    }
+    return 0;
+}
+
+static int a90_tftp_logdw_sink_drain(struct buffer *stdout_buf) {
+    unsigned char packet[4096];
+
+    if (!g_tftp_logdw_sink.active || g_tftp_logdw_sink.fd < 0) {
+        return 0;
+    }
+    for (;;) {
+        ssize_t nread = recv(g_tftp_logdw_sink.fd,
+                             packet,
+                             sizeof(packet),
+                             MSG_DONTWAIT);
+
+        if (nread > 0) {
+            if (a90_tftp_logdw_sink_record(stdout_buf, packet, (size_t)nread) < 0) {
+                return -1;
+            }
+            continue;
+        }
+        if (nread == 0) {
+            return 0;
+        }
+        if (errno == EINTR) {
+            continue;
+        }
+        if (errno == EAGAIN || errno == EWOULDBLOCK) {
+            return 0;
+        }
+        return append_format(stdout_buf,
+                             "tftp_logdw_sink.recv_error=%s\n",
+                             strerror(errno));
+    }
+}
+
+static int a90_tftp_logdw_sink_stop(struct buffer *stdout_buf) {
+    if (!g_tftp_logdw_sink.start_attempted || g_tftp_logdw_sink.reported) {
+        return 0;
+    }
+    if (a90_tftp_logdw_sink_drain(stdout_buf) < 0) {
+        return -1;
+    }
+    if (g_tftp_logdw_sink.fd >= 0) {
+        close(g_tftp_logdw_sink.fd);
+        g_tftp_logdw_sink.fd = -1;
+    }
+    if (g_tftp_logdw_sink.socket_path[0] != '\0') {
+        unlink(g_tftp_logdw_sink.socket_path);
+    }
+    g_tftp_logdw_sink.active = false;
+    g_tftp_logdw_sink.reported = true;
+    return append_format(stdout_buf,
+                         "tftp_logdw_sink.summary.datagrams=%u\n"
+                         "tftp_logdw_sink.summary.bytes=%llu\n"
+                         "tftp_logdw_sink.summary.stored_records=%u\n"
+                         "tftp_logdw_sink.summary.truncated_records=%u\n"
+                         "tftp_logdw_sink.summary.tftp_server=%u\n"
+                         "tftp_logdw_sink.summary.server_check=%u\n"
+                         "tftp_logdw_sink.summary.wlanmdsp=%u\n"
+                         "tftp_logdw_sink.summary.firmware_mnt_wlanmdsp=%u\n"
+                         "tftp_logdw_sink.summary.fallback_wlanmdsp=%u\n"
+                         "tftp_logdw_sink.summary.rrq=%u\n"
+                         "tftp_logdw_sink.summary.oack=%u\n"
+                         "tftp_logdw_sink.summary.data=%u\n"
+                         "tftp_logdw_sink.summary.ack=%u\n"
+                         "tftp_logdw_sink.summary.end_transfer=%u\n"
+                         "tftp_logdw_sink.summary.success=%u\n"
+                         "tftp_logdw_sink.summary.total_bytes=%u\n"
+                         "tftp_logdw_sink.summary.total_bytes_4251884=%u\n"
+                         "tftp_logdw_sink.summary.enoent=%u\n"
+                         "tftp_logdw_sink.stopped=1\n"
+                         "tftp_logdw_sink.end=1\n",
+                         g_tftp_logdw_sink.datagram_count,
+                         g_tftp_logdw_sink.byte_count,
+                         g_tftp_logdw_sink.stored_record_count,
+                         g_tftp_logdw_sink.truncated_record_count,
+                         g_tftp_logdw_sink.tftp_server_count,
+                         g_tftp_logdw_sink.server_check_count,
+                         g_tftp_logdw_sink.wlanmdsp_count,
+                         g_tftp_logdw_sink.firmware_mnt_wlanmdsp_count,
+                         g_tftp_logdw_sink.fallback_wlanmdsp_count,
+                         g_tftp_logdw_sink.rrq_count,
+                         g_tftp_logdw_sink.oack_count,
+                         g_tftp_logdw_sink.data_count,
+                         g_tftp_logdw_sink.ack_count,
+                         g_tftp_logdw_sink.end_transfer_count,
+                         g_tftp_logdw_sink.success_count,
+                         g_tftp_logdw_sink.total_bytes_count,
+                         g_tftp_logdw_sink.total_bytes_4251884_count,
+                         g_tftp_logdw_sink.enoent_count);
+}
+#endif
+
 static unsigned long long a90_untag_user_ptr(unsigned long long addr) {
     return addr & 0x00ffffffffffffffULL;
 }
@@ -29291,6 +29682,12 @@ static int composite_spawn_child(const struct config *cfg,
     int stdout_pipe[2] = {-1, -1};
     int stderr_pipe[2] = {-1, -1};
 
+#if A90_WIFI_TEST_BOOT_TFTP_LOGDW_SINK
+    if (child->identity == COMPOSITE_ID_TFTP_SERVER &&
+        a90_tftp_logdw_sink_start(paths, stdout_buf) < 0) {
+        return -1;
+    }
+#endif
     if (pipe2(stdout_pipe, O_CLOEXEC) < 0 || pipe2(stderr_pipe, O_CLOEXEC) < 0) {
         append_format(stdout_buf,
                       "wifi_hal_composite_start.child.%s.result=manual-review-required\n"
@@ -29676,6 +30073,11 @@ static int composite_poll_children(struct composite_child *children,
         int nfds = 0;
         bool all_done = true;
 
+#if A90_WIFI_TEST_BOOT_TFTP_LOGDW_SINK
+        if (a90_tftp_logdw_sink_drain(stdout_buf) < 0) {
+            return -1;
+        }
+#endif
         for (size_t i = 0; i < child_count; i++) {
             if (!children[i].child_done) {
                 all_done = false;
@@ -29706,6 +30108,11 @@ static int composite_poll_children(struct composite_child *children,
                     return -1;
                 }
             }
+#if A90_WIFI_TEST_BOOT_TFTP_LOGDW_SINK
+            if (a90_tftp_logdw_sink_drain(stdout_buf) < 0) {
+                return -1;
+            }
+#endif
             return 0;
         }
         if (nfds > 0) {
@@ -29763,6 +30170,11 @@ static int composite_poll_children(struct composite_child *children,
         }
     }
     *timed_out = true;
+#if A90_WIFI_TEST_BOOT_TFTP_LOGDW_SINK
+    if (a90_tftp_logdw_sink_drain(stdout_buf) < 0) {
+        return -1;
+    }
+#endif
     return 0;
 }
 
@@ -30966,6 +31378,9 @@ static void composite_cleanup_children(struct composite_child *children,
         }
         composite_close_child_fds(&children[i]);
     }
+#if A90_WIFI_TEST_BOOT_TFTP_LOGDW_SINK
+    a90_tftp_logdw_sink_stop(stdout_buf);
+#endif
 }
 
 static bool composite_child_postflight_safe(const struct composite_child *child) {
@@ -32824,6 +33239,11 @@ static int composite_child_drain_wait_once(struct composite_child *child,
     int status = 0;
     pid_t wait_rc;
 
+#if A90_WIFI_TEST_BOOT_TFTP_LOGDW_SINK
+    if (a90_tftp_logdw_sink_drain(stdout_buf) < 0) {
+        return -1;
+    }
+#endif
     if (child->stdout_open && child->stdout_fd >= 0 &&
         drain_fd(child->stdout_fd, stdout_buf, &child->stdout_open) < 0) {
         return -1;
