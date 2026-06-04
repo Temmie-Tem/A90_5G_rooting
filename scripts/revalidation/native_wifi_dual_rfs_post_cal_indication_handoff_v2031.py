@@ -282,9 +282,17 @@ def classify(handoff: dict[str, Any],
         label = "dual-rfs-post-cal-indication-none-from-modem"
         reason = "After cap/BDF/cal success, cnss-daemon received no WLFW QMI indication from the modem/WLAN PD"
         passed = True
+    elif (
+        hit(ind, "wlfw_qmi_ind_fw_mem_flag") > 0
+        and hit(ind, "wlfw_qmi_ind_queue_link") == 0
+        and hit(ind, "wlfw_worker_handle_ind_call") == 0
+    ):
+        label = "dual-rfs-post-cal-fwmem-only-no-fwready-indication"
+        reason = "Only the non-queued WLFW fw-mem indication arrived; no queueable FW-ready/status indication followed cap/BDF/cal"
+        passed = True
     elif hit(ind, "wlfw_qmi_ind_queue_link") == 0:
         label = "dual-rfs-post-cal-indication-callback-not-queued"
-        reason = "WLFW QMI indication callback ran, but no decoded indication was queued for the worker"
+        reason = "A WLFW QMI indication callback ran, but no decoded queueable indication was linked for the worker"
         passed = True
     elif hit(ind, "wlfw_worker_handle_ind_call") == 0:
         label = "dual-rfs-post-cal-indication-queued-not-drained"
@@ -366,8 +374,9 @@ def render_report(manifest: dict[str, Any]) -> str:
         "",
         "- V2031 keeps the V2029 dual RFS serve-path bridge and reruns the V2009 post-cal WLFW indication split without `tftp_server` ptrace.",
         "- Same-boot WLFW consumption is proven by successful cap/BDF/cal QMI returns; the live `wlanmdsp.mbn` filesystem serve was separately proven in V2029 on the exact dual-RFS path.",
+        "- `msg_id=0x2b` is the fw-mem flag/condition path and is not expected to queue a worker indication; a missing queue link is only decisive for queueable `0x28`/`0x2a`/`0x41` indications.",
         "- If `WLFW 69`/FW-ready appears, downstream is healthy and the next bounded gate can chase `wlan0` without Wi-Fi HAL/scan/connect.",
-        "- If cap/BDF/cal succeeds but no indication is delivered, the blocker is after successful firmware serving and before modem/WLAN-PD WLFW publish.",
+        "- If cap/BDF/cal succeeds but no queueable FW-ready/status indication is delivered, the blocker is after successful firmware serving and before modem/WLAN-PD FW-ready publication.",
         "",
         "## Steps",
         "",
