@@ -148,7 +148,13 @@
 #define A90_WIFI_TEST_BOOT_DIAG_QUERY_ONLY_PROBE 0
 #endif
 
-#if A90_WIFI_TEST_BOOT_DIAG_QUERY_ONLY_PROBE && A90_WIFI_TEST_BOOT_PERMGR_VOTE_FOCUSED_SUMMARY && A90_WIFI_TEST_BOOT_TFTP_READWRITE_TRANSITION_SAMPLER && A90_WIFI_TEST_BOOT_TFTP_READY_BEFORE_WLFW_VOTE && A90_WIFI_TEST_BOOT_TFTP_LOGDW_ORDER_TIMESTAMPS && A90_WIFI_TEST_BOOT_TFTP_PERSIST_RFS_TMPFS && A90_WIFI_TEST_BOOT_TFTP_MCFG_READBACK && A90_WIFI_TEST_BOOT_TFTP_LOGDW_SINK && !A90_RFS_BRIDGE_SERVE_FIRMWARE_MNT_PROBE
+#ifndef A90_WIFI_TEST_BOOT_DIAG_DCI_REGISTER_READ_PROBE
+#define A90_WIFI_TEST_BOOT_DIAG_DCI_REGISTER_READ_PROBE 0
+#endif
+
+#if A90_WIFI_TEST_BOOT_DIAG_DCI_REGISTER_READ_PROBE && A90_WIFI_TEST_BOOT_PERMGR_VOTE_FOCUSED_SUMMARY && A90_WIFI_TEST_BOOT_TFTP_READWRITE_TRANSITION_SAMPLER && A90_WIFI_TEST_BOOT_TFTP_READY_BEFORE_WLFW_VOTE && A90_WIFI_TEST_BOOT_TFTP_LOGDW_ORDER_TIMESTAMPS && A90_WIFI_TEST_BOOT_TFTP_PERSIST_RFS_TMPFS && A90_WIFI_TEST_BOOT_TFTP_MCFG_READBACK && A90_WIFI_TEST_BOOT_TFTP_LOGDW_SINK && !A90_RFS_BRIDGE_SERVE_FIRMWARE_MNT_PROBE
+#define EXECNS_VERSION "a90_android_execns_probe v395"
+#elif A90_WIFI_TEST_BOOT_DIAG_QUERY_ONLY_PROBE && A90_WIFI_TEST_BOOT_PERMGR_VOTE_FOCUSED_SUMMARY && A90_WIFI_TEST_BOOT_TFTP_READWRITE_TRANSITION_SAMPLER && A90_WIFI_TEST_BOOT_TFTP_READY_BEFORE_WLFW_VOTE && A90_WIFI_TEST_BOOT_TFTP_LOGDW_ORDER_TIMESTAMPS && A90_WIFI_TEST_BOOT_TFTP_PERSIST_RFS_TMPFS && A90_WIFI_TEST_BOOT_TFTP_MCFG_READBACK && A90_WIFI_TEST_BOOT_TFTP_LOGDW_SINK && !A90_RFS_BRIDGE_SERVE_FIRMWARE_MNT_PROBE
 #define EXECNS_VERSION "a90_android_execns_probe v394"
 #elif A90_WIFI_TEST_BOOT_PERMGR_VOTE_FOCUSED_SUMMARY && A90_WIFI_TEST_BOOT_TFTP_READWRITE_TRANSITION_SAMPLER && A90_WIFI_TEST_BOOT_TFTP_READY_BEFORE_WLFW_VOTE && A90_WIFI_TEST_BOOT_TFTP_LOGDW_ORDER_TIMESTAMPS && A90_WIFI_TEST_BOOT_TFTP_PERSIST_RFS_TMPFS && A90_WIFI_TEST_BOOT_TFTP_MCFG_READBACK && A90_WIFI_TEST_BOOT_TFTP_LOGDW_SINK && !A90_RFS_BRIDGE_SERVE_FIRMWARE_MNT_PROBE
 #define EXECNS_VERSION "a90_android_execns_probe v393"
@@ -531,7 +537,7 @@ struct paths {
     char dev[MAX_PATH_LEN];
     char dev_null[MAX_PATH_LEN];
     char dev_wlan[MAX_PATH_LEN];
-#if A90_WIFI_TEST_BOOT_PASSIVE_DIAG_SINK || A90_WIFI_TEST_BOOT_DIAG_QUERY_ONLY_PROBE
+#if A90_WIFI_TEST_BOOT_PASSIVE_DIAG_SINK || A90_WIFI_TEST_BOOT_DIAG_QUERY_ONLY_PROBE || A90_WIFI_TEST_BOOT_DIAG_DCI_REGISTER_READ_PROBE
     char dev_diag[MAX_PATH_LEN];
 #endif
     char dev_block[MAX_PATH_LEN];
@@ -3811,7 +3817,7 @@ static int init_paths(struct paths *paths) {
         append_path(paths->dev, sizeof(paths->dev), paths->root, "dev") < 0 ||
         append_path(paths->dev_null, sizeof(paths->dev_null), paths->dev, "null") < 0 ||
         append_path(paths->dev_wlan, sizeof(paths->dev_wlan), paths->dev, "wlan") < 0 ||
-#if A90_WIFI_TEST_BOOT_PASSIVE_DIAG_SINK || A90_WIFI_TEST_BOOT_DIAG_QUERY_ONLY_PROBE
+#if A90_WIFI_TEST_BOOT_PASSIVE_DIAG_SINK || A90_WIFI_TEST_BOOT_DIAG_QUERY_ONLY_PROBE || A90_WIFI_TEST_BOOT_DIAG_DCI_REGISTER_READ_PROBE
         append_path(paths->dev_diag, sizeof(paths->dev_diag), paths->dev, "diag") < 0 ||
 #endif
         append_path(paths->dev_block, sizeof(paths->dev_block), paths->dev, "block") < 0 ||
@@ -4801,7 +4807,7 @@ static void cleanup_paths(const struct paths *paths) {
     if (paths->dev_wlan[0] != '\0') {
         unlink(paths->dev_wlan);
     }
-#if A90_WIFI_TEST_BOOT_PASSIVE_DIAG_SINK || A90_WIFI_TEST_BOOT_DIAG_QUERY_ONLY_PROBE
+#if A90_WIFI_TEST_BOOT_PASSIVE_DIAG_SINK || A90_WIFI_TEST_BOOT_DIAG_QUERY_ONLY_PROBE || A90_WIFI_TEST_BOOT_DIAG_DCI_REGISTER_READ_PROBE
     if (paths->dev_diag[0] != '\0') {
         unlink(paths->dev_diag);
     }
@@ -27284,6 +27290,558 @@ static int a90_diag_query_only_probe_stop(struct buffer *stdout_buf) {
 }
 #endif
 
+#if A90_WIFI_TEST_BOOT_DIAG_DCI_REGISTER_READ_PROBE
+#ifndef A90_DIAG_DCI_IOCTL_REG
+#define A90_DIAG_DCI_IOCTL_REG 23
+#endif
+#ifndef A90_DIAG_DCI_IOCTL_DEINIT
+#define A90_DIAG_DCI_IOCTL_DEINIT 21
+#endif
+#ifndef A90_DIAG_DCI_IOCTL_SUPPORT
+#define A90_DIAG_DCI_IOCTL_SUPPORT 22
+#endif
+#ifndef A90_DIAG_DCI_IOCTL_SUCCESS
+#define A90_DIAG_DCI_IOCTL_SUCCESS 1001
+#endif
+#ifndef A90_DIAG_DCI_MAX_PROC
+#define A90_DIAG_DCI_MAX_PROC 8
+#endif
+#ifndef A90_DIAG_DCI_MAX_SAMPLES
+#define A90_DIAG_DCI_MAX_SAMPLES 16
+#endif
+#ifndef A90_DIAG_DCI_READ_SIZE
+#define A90_DIAG_DCI_READ_SIZE 4096
+#endif
+#ifndef A90_DIAG_DCI_MAX_DRAIN_READS
+#define A90_DIAG_DCI_MAX_DRAIN_READS 8
+#endif
+
+#define A90_DIAG_MSG_MASKS_TYPE 0x00000001U
+#define A90_DIAG_LOG_MASKS_TYPE 0x00000002U
+#define A90_DIAG_EVENT_MASKS_TYPE 0x00000004U
+#define A90_DIAG_PKT_TYPE 0x00000008U
+#define A90_DIAG_USER_SPACE_DATA_TYPE 0x00000020U
+#define A90_DIAG_DCI_DATA_TYPE 0x00000040U
+#define A90_DIAG_USER_SPACE_RAW_DATA_TYPE 0x00000080U
+#define A90_DIAG_DCI_LOG_MASKS_TYPE 0x00000100U
+#define A90_DIAG_DCI_EVENT_MASKS_TYPE 0x00000200U
+#define A90_DIAG_DCI_PKT_TYPE 0x00000400U
+
+struct a90_diag_dci_register_support_query {
+    int proc;
+    unsigned short support_mask;
+    unsigned short reserved;
+};
+
+struct a90_diag_dci_register_request {
+    int client_id;
+    unsigned short notification_list;
+    int signal_type;
+    int token;
+} __attribute__((packed));
+
+struct a90_diag_dci_register_read_probe {
+    int fd;
+    bool start_attempted;
+    bool reported;
+    bool node_created;
+    bool open_ok;
+    bool queried;
+    bool register_attempted;
+    bool registered;
+    bool deinit_attempted;
+    bool read_terminal_error;
+    unsigned int major_no;
+    unsigned int minor_no;
+    char sysfs_dev_text[64];
+    char node_path[MAX_PATH_LEN];
+    long start_ms;
+    int proc_rc[A90_DIAG_DCI_MAX_PROC];
+    int proc_errno[A90_DIAG_DCI_MAX_PROC];
+    unsigned int proc_mask[A90_DIAG_DCI_MAX_PROC];
+    unsigned int query_count;
+    unsigned int support_nonzero_count;
+    int selected_proc;
+    unsigned int selected_mask;
+    int register_rc;
+    int register_errno;
+    int client_id;
+    int deinit_rc;
+    int deinit_errno;
+    unsigned int read_calls;
+    unsigned int read_records;
+    unsigned long long read_bytes;
+    unsigned int read_eagain;
+    unsigned int read_eintr;
+    unsigned int read_errors;
+    unsigned int last_read_errno;
+    unsigned int mask_bootstrap_records;
+    unsigned int dci_data_records;
+    unsigned int dci_pkt_records;
+    unsigned int user_space_records;
+    unsigned int other_records;
+    unsigned int sample_count;
+};
+
+static struct a90_diag_dci_register_read_probe g_diag_dci_register_read_probe = {
+    .fd = -1,
+    .selected_proc = -1,
+    .client_id = -1,
+};
+
+static const char *a90_diag_dci_data_type_name(unsigned int data_type) {
+    switch (data_type) {
+    case A90_DIAG_MSG_MASKS_TYPE:
+        return "MSG_MASKS_TYPE";
+    case A90_DIAG_LOG_MASKS_TYPE:
+        return "LOG_MASKS_TYPE";
+    case A90_DIAG_EVENT_MASKS_TYPE:
+        return "EVENT_MASKS_TYPE";
+    case A90_DIAG_PKT_TYPE:
+        return "PKT_TYPE";
+    case A90_DIAG_USER_SPACE_DATA_TYPE:
+        return "USER_SPACE_DATA_TYPE";
+    case A90_DIAG_DCI_DATA_TYPE:
+        return "DCI_DATA_TYPE";
+    case A90_DIAG_USER_SPACE_RAW_DATA_TYPE:
+        return "USER_SPACE_RAW_DATA_TYPE";
+    case A90_DIAG_DCI_LOG_MASKS_TYPE:
+        return "DCI_LOG_MASKS_TYPE";
+    case A90_DIAG_DCI_EVENT_MASKS_TYPE:
+        return "DCI_EVENT_MASKS_TYPE";
+    case A90_DIAG_DCI_PKT_TYPE:
+        return "DCI_PKT_TYPE";
+    default:
+        return "OTHER";
+    }
+}
+
+static bool a90_diag_dci_is_mask_bootstrap(unsigned int data_type) {
+    return data_type == A90_DIAG_MSG_MASKS_TYPE ||
+           data_type == A90_DIAG_LOG_MASKS_TYPE ||
+           data_type == A90_DIAG_EVENT_MASKS_TYPE ||
+           data_type == A90_DIAG_DCI_LOG_MASKS_TYPE ||
+           data_type == A90_DIAG_DCI_EVENT_MASKS_TYPE;
+}
+
+static int a90_diag_dci_append_hex_prefix(struct buffer *stdout_buf,
+                                          const unsigned char *data,
+                                          size_t data_len) {
+    size_t prefix_len = data_len;
+
+    if (prefix_len > 32U) {
+        prefix_len = 32U;
+    }
+    for (size_t offset = 0; offset < prefix_len; offset++) {
+        if (append_format(stdout_buf, "%02x", data[offset]) < 0) {
+            return -1;
+        }
+    }
+    return 0;
+}
+
+static int a90_diag_dci_register_read_emit_proc(struct buffer *stdout_buf,
+                                                int proc) {
+    return append_format(stdout_buf,
+                         "diag_dci_register_read_probe.dci_support.proc_%d.rc=%d\n"
+                         "diag_dci_register_read_probe.dci_support.proc_%d.errno=%d\n"
+                         "diag_dci_register_read_probe.dci_support.proc_%d.support_mask=0x%x\n"
+                         "diag_dci_register_read_probe.dci_support.proc_%d.support_nonzero=%d\n",
+                         proc,
+                         g_diag_dci_register_read_probe.proc_rc[proc],
+                         proc,
+                         g_diag_dci_register_read_probe.proc_errno[proc],
+                         proc,
+                         g_diag_dci_register_read_probe.proc_mask[proc],
+                         proc,
+                         ((g_diag_dci_register_read_probe.proc_rc[proc] == 0 ||
+                           g_diag_dci_register_read_probe.proc_rc[proc] == A90_DIAG_DCI_IOCTL_SUCCESS) &&
+                          g_diag_dci_register_read_probe.proc_mask[proc] != 0U) ? 1 : 0);
+}
+
+static int a90_diag_dci_register_read_query_support(struct buffer *stdout_buf) {
+    if (!g_diag_dci_register_read_probe.open_ok ||
+        g_diag_dci_register_read_probe.fd < 0 ||
+        g_diag_dci_register_read_probe.queried) {
+        return 0;
+    }
+    g_diag_dci_register_read_probe.queried = true;
+    for (int proc = 0; proc < A90_DIAG_DCI_MAX_PROC; proc++) {
+        struct a90_diag_dci_register_support_query query;
+        int ioctl_rc;
+        int saved_errno;
+
+        memset(&query, 0, sizeof(query));
+        query.proc = proc;
+        errno = 0;
+        ioctl_rc = ioctl(g_diag_dci_register_read_probe.fd,
+                         A90_DIAG_DCI_IOCTL_SUPPORT,
+                         &query);
+        saved_errno = errno;
+        g_diag_dci_register_read_probe.query_count++;
+        g_diag_dci_register_read_probe.proc_rc[proc] = ioctl_rc;
+        g_diag_dci_register_read_probe.proc_errno[proc] = saved_errno;
+        g_diag_dci_register_read_probe.proc_mask[proc] = query.support_mask;
+        if ((ioctl_rc == 0 || ioctl_rc == A90_DIAG_DCI_IOCTL_SUCCESS) &&
+            query.support_mask != 0U) {
+            g_diag_dci_register_read_probe.support_nonzero_count++;
+            if (g_diag_dci_register_read_probe.selected_proc < 0) {
+                g_diag_dci_register_read_probe.selected_proc = proc;
+                g_diag_dci_register_read_probe.selected_mask = query.support_mask;
+            }
+        }
+        if (a90_diag_dci_register_read_emit_proc(stdout_buf, proc) < 0) {
+            return -1;
+        }
+    }
+    return 0;
+}
+
+static int a90_diag_dci_register_read_start(const struct paths *paths,
+                                            struct buffer *stdout_buf) {
+    char error_buf[256];
+
+    if (g_diag_dci_register_read_probe.start_attempted) {
+        return append_literal(stdout_buf,
+                              "diag_dci_register_read_probe.start.retry_suppressed=1\n");
+    }
+    memset(&g_diag_dci_register_read_probe, 0, sizeof(g_diag_dci_register_read_probe));
+    g_diag_dci_register_read_probe.fd = -1;
+    g_diag_dci_register_read_probe.selected_proc = -1;
+    g_diag_dci_register_read_probe.client_id = -1;
+    g_diag_dci_register_read_probe.start_attempted = true;
+    g_diag_dci_register_read_probe.start_ms = monotonic_ms();
+    snprintf(g_diag_dci_register_read_probe.node_path,
+             sizeof(g_diag_dci_register_read_probe.node_path),
+             "%s",
+             paths->dev_diag);
+    if (append_format(stdout_buf,
+                      "diag_dci_register_read_probe.begin=1\n"
+                      "diag_dci_register_read_probe.mode=private-node-rdwr-nonblock-dci-reg-read-no-stream-no-mask-no-write\n"
+                      "diag_dci_register_read_probe.rootfs_namespace_only=1\n"
+                      "diag_dci_register_read_probe.sda29_write=0\n"
+                      "diag_dci_register_read_probe.switch_logging_attempted=0\n"
+                      "diag_dci_register_read_probe.write_attempted=0\n"
+                      "diag_dci_register_read_probe.stream_config_attempted=0\n"
+                      "diag_dci_register_read_probe.log_mask_write=0\n"
+                      "diag_dci_register_read_probe.event_mask_write=0\n"
+                      "diag_dci_register_read_probe.qmi_send=0\n"
+                      "diag_dci_register_read_probe.ptraced=0\n"
+                      "diag_dci_register_read_probe.start_monotonic_ms=%ld\n"
+                      "diag_dci_register_read_probe.sysfs_dev_path=/sys/class/diag/diag/dev\n"
+                      "diag_dci_register_read_probe.node_path=%s\n",
+                      g_diag_dci_register_read_probe.start_ms,
+                      g_diag_dci_register_read_probe.node_path) < 0) {
+        return -1;
+    }
+    if (parse_dev_major_minor("/sys/class/diag/diag/dev",
+                              &g_diag_dci_register_read_probe.major_no,
+                              &g_diag_dci_register_read_probe.minor_no,
+                              g_diag_dci_register_read_probe.sysfs_dev_text,
+                              sizeof(g_diag_dci_register_read_probe.sysfs_dev_text)) < 0) {
+        return append_format(stdout_buf,
+                             "diag_dci_register_read_probe.started=0\n"
+                             "diag_dci_register_read_probe.reason=sysfs-dev-parse-failed\n"
+                             "diag_dci_register_read_probe.error=%s\n",
+                             strerror(errno));
+    }
+    if (append_format(stdout_buf,
+                      "diag_dci_register_read_probe.sysfs_dev=%s\n"
+                      "diag_dci_register_read_probe.major=%u\n"
+                      "diag_dci_register_read_probe.minor=%u\n",
+                      g_diag_dci_register_read_probe.sysfs_dev_text,
+                      g_diag_dci_register_read_probe.major_no,
+                      g_diag_dci_register_read_probe.minor_no) < 0) {
+        return -1;
+    }
+    if (mkdir_p(paths->dev, 0755) < 0) {
+        return append_format(stdout_buf,
+                             "diag_dci_register_read_probe.started=0\n"
+                             "diag_dci_register_read_probe.reason=mkdir-dev-failed\n"
+                             "diag_dci_register_read_probe.error=%s\n",
+                             strerror(errno));
+    }
+    memset(error_buf, 0, sizeof(error_buf));
+    if (materialize_private_android_char_node(paths->dev,
+                                              "diag",
+                                              0600,
+                                              0,
+                                              0,
+                                              g_diag_dci_register_read_probe.major_no,
+                                              g_diag_dci_register_read_probe.minor_no,
+                                              error_buf,
+                                              sizeof(error_buf)) < 0) {
+        return append_format(stdout_buf,
+                             "diag_dci_register_read_probe.started=0\n"
+                             "diag_dci_register_read_probe.reason=private-node-failed\n"
+                             "diag_dci_register_read_probe.error=%s\n",
+                             error_buf);
+    }
+    g_diag_dci_register_read_probe.node_created = true;
+    g_diag_dci_register_read_probe.fd = open(g_diag_dci_register_read_probe.node_path,
+                                             O_RDWR | O_NONBLOCK | O_CLOEXEC);
+    if (g_diag_dci_register_read_probe.fd < 0) {
+        return append_format(stdout_buf,
+                             "diag_dci_register_read_probe.started=0\n"
+                             "diag_dci_register_read_probe.reason=open-rdwr-failed\n"
+                             "diag_dci_register_read_probe.open_errno=%d\n"
+                             "diag_dci_register_read_probe.error=%s\n",
+                             errno,
+                             strerror(errno));
+    }
+    if (set_nonblock(g_diag_dci_register_read_probe.fd) < 0) {
+        int saved_errno = errno;
+
+        close(g_diag_dci_register_read_probe.fd);
+        g_diag_dci_register_read_probe.fd = -1;
+        errno = saved_errno;
+        return append_format(stdout_buf,
+                             "diag_dci_register_read_probe.started=0\n"
+                             "diag_dci_register_read_probe.reason=nonblock-failed\n"
+                             "diag_dci_register_read_probe.error=%s\n",
+                             strerror(errno));
+    }
+    g_diag_dci_register_read_probe.open_ok = true;
+    if (append_literal(stdout_buf,
+                       "diag_dci_register_read_probe.started=1\n") < 0 ||
+        a90_diag_dci_register_read_query_support(stdout_buf) < 0) {
+        return -1;
+    }
+    if (g_diag_dci_register_read_probe.selected_proc >= 0) {
+        struct a90_diag_dci_register_request request;
+
+        memset(&request, 0, sizeof(request));
+        request.client_id = 0;
+        request.notification_list = 0;
+        request.signal_type = 0;
+        request.token = g_diag_dci_register_read_probe.selected_proc;
+        g_diag_dci_register_read_probe.register_attempted = true;
+        errno = 0;
+        g_diag_dci_register_read_probe.register_rc =
+            ioctl(g_diag_dci_register_read_probe.fd,
+                  A90_DIAG_DCI_IOCTL_REG,
+                  &request);
+        g_diag_dci_register_read_probe.register_errno = errno;
+        if (request.client_id > 0) {
+            g_diag_dci_register_read_probe.client_id = request.client_id;
+        } else if (g_diag_dci_register_read_probe.register_rc > 0 &&
+                   g_diag_dci_register_read_probe.register_rc < A90_DIAG_DCI_IOCTL_SUCCESS) {
+            g_diag_dci_register_read_probe.client_id =
+                g_diag_dci_register_read_probe.register_rc;
+        } else {
+            g_diag_dci_register_read_probe.client_id = request.client_id;
+        }
+        g_diag_dci_register_read_probe.registered =
+            (g_diag_dci_register_read_probe.client_id > 0 ||
+             g_diag_dci_register_read_probe.register_rc == 0 ||
+             g_diag_dci_register_read_probe.register_rc == A90_DIAG_DCI_IOCTL_SUCCESS);
+    }
+    return append_format(stdout_buf,
+                         "diag_dci_register_read_probe.register_attempted=%d\n"
+                         "diag_dci_register_read_probe.register_proc=%d\n"
+                         "diag_dci_register_read_probe.register_mask=0x%x\n"
+                         "diag_dci_register_read_probe.register_rc=%d\n"
+                         "diag_dci_register_read_probe.register_errno=%d\n"
+                         "diag_dci_register_read_probe.client_id=%d\n"
+                         "diag_dci_register_read_probe.registered=%d\n",
+                         g_diag_dci_register_read_probe.register_attempted ? 1 : 0,
+                         g_diag_dci_register_read_probe.selected_proc,
+                         g_diag_dci_register_read_probe.selected_mask,
+                         g_diag_dci_register_read_probe.register_rc,
+                         g_diag_dci_register_read_probe.register_errno,
+                         g_diag_dci_register_read_probe.client_id,
+                         g_diag_dci_register_read_probe.registered ? 1 : 0);
+}
+
+static int a90_diag_dci_register_read_record(struct buffer *stdout_buf,
+                                             const unsigned char *data,
+                                             size_t data_len) {
+    unsigned int data_type = 0;
+    unsigned int sample_index;
+
+    if (data_len >= sizeof(data_type)) {
+        memcpy(&data_type, data, sizeof(data_type));
+    }
+    g_diag_dci_register_read_probe.read_records++;
+    if (a90_diag_dci_is_mask_bootstrap(data_type)) {
+        g_diag_dci_register_read_probe.mask_bootstrap_records++;
+    } else if (data_type == A90_DIAG_DCI_DATA_TYPE) {
+        g_diag_dci_register_read_probe.dci_data_records++;
+    } else if (data_type == A90_DIAG_DCI_PKT_TYPE) {
+        g_diag_dci_register_read_probe.dci_pkt_records++;
+    } else if (data_type == A90_DIAG_USER_SPACE_DATA_TYPE ||
+               data_type == A90_DIAG_USER_SPACE_RAW_DATA_TYPE) {
+        g_diag_dci_register_read_probe.user_space_records++;
+    } else {
+        g_diag_dci_register_read_probe.other_records++;
+    }
+    if (g_diag_dci_register_read_probe.sample_count >= A90_DIAG_DCI_MAX_SAMPLES) {
+        return 0;
+    }
+    sample_index = g_diag_dci_register_read_probe.sample_count++;
+    if (append_format(stdout_buf,
+                      "diag_dci_register_read_probe.sample_%02u.bytes=%zu\n"
+                      "diag_dci_register_read_probe.sample_%02u.data_type=0x%x\n"
+                      "diag_dci_register_read_probe.sample_%02u.data_type_name=%s\n"
+                      "diag_dci_register_read_probe.sample_%02u.prefix_hex=",
+                      sample_index,
+                      data_len,
+                      sample_index,
+                      data_type,
+                      sample_index,
+                      a90_diag_dci_data_type_name(data_type),
+                      sample_index) < 0 ||
+        a90_diag_dci_append_hex_prefix(stdout_buf, data, data_len) < 0 ||
+        append_literal(stdout_buf, "\n") < 0) {
+        return -1;
+    }
+    return 0;
+}
+
+static int a90_diag_dci_register_read_drain(struct buffer *stdout_buf) {
+    unsigned char packet[A90_DIAG_DCI_READ_SIZE];
+    unsigned int drain_reads = 0;
+
+    if (!g_diag_dci_register_read_probe.registered ||
+        g_diag_dci_register_read_probe.read_terminal_error ||
+        g_diag_dci_register_read_probe.fd < 0) {
+        return 0;
+    }
+    while (drain_reads < A90_DIAG_DCI_MAX_DRAIN_READS) {
+        ssize_t read_len = read(g_diag_dci_register_read_probe.fd,
+                                packet,
+                                sizeof(packet));
+
+        if (read_len > 0) {
+            drain_reads++;
+            g_diag_dci_register_read_probe.read_calls++;
+            g_diag_dci_register_read_probe.read_bytes += (unsigned long long)read_len;
+            if (a90_diag_dci_register_read_record(stdout_buf,
+                                                  packet,
+                                                  (size_t)read_len) < 0) {
+                return -1;
+            }
+            continue;
+        }
+        if (read_len == 0) {
+            return 0;
+        }
+        if (errno == EINTR) {
+            g_diag_dci_register_read_probe.read_eintr++;
+            continue;
+        }
+        if (errno == EAGAIN || errno == EWOULDBLOCK) {
+            g_diag_dci_register_read_probe.read_eagain++;
+            return 0;
+        }
+        g_diag_dci_register_read_probe.read_errors++;
+        g_diag_dci_register_read_probe.last_read_errno = (unsigned int)errno;
+        g_diag_dci_register_read_probe.read_terminal_error = true;
+        return append_format(stdout_buf,
+                             "diag_dci_register_read_probe.read_error=%s\n"
+                             "diag_dci_register_read_probe.read_terminal_error=1\n",
+                             strerror(errno));
+    }
+    return 0;
+}
+
+static int a90_diag_dci_register_read_stop(struct buffer *stdout_buf) {
+    if (!g_diag_dci_register_read_probe.start_attempted ||
+        g_diag_dci_register_read_probe.reported) {
+        return 0;
+    }
+    if (a90_diag_dci_register_read_drain(stdout_buf) < 0) {
+        return -1;
+    }
+    if (g_diag_dci_register_read_probe.registered &&
+        g_diag_dci_register_read_probe.client_id > 0 &&
+        g_diag_dci_register_read_probe.fd >= 0) {
+        int client_id = g_diag_dci_register_read_probe.client_id;
+
+        g_diag_dci_register_read_probe.deinit_attempted = true;
+        errno = 0;
+        g_diag_dci_register_read_probe.deinit_rc =
+            ioctl(g_diag_dci_register_read_probe.fd,
+                  A90_DIAG_DCI_IOCTL_DEINIT,
+                  &client_id);
+        g_diag_dci_register_read_probe.deinit_errno = errno;
+    }
+    if (g_diag_dci_register_read_probe.fd >= 0) {
+        close(g_diag_dci_register_read_probe.fd);
+        g_diag_dci_register_read_probe.fd = -1;
+    }
+    if (g_diag_dci_register_read_probe.node_created &&
+        g_diag_dci_register_read_probe.node_path[0] != '\0') {
+        unlink(g_diag_dci_register_read_probe.node_path);
+    }
+    g_diag_dci_register_read_probe.reported = true;
+    if (append_format(stdout_buf,
+                      "diag_dci_register_read_probe.summary.started=%d\n"
+                      "diag_dci_register_read_probe.summary.node_created=%d\n"
+                      "diag_dci_register_read_probe.summary.open_ok=%d\n"
+                      "diag_dci_register_read_probe.summary.query_count=%u\n"
+                      "diag_dci_register_read_probe.summary.support_nonzero_count=%u\n"
+                      "diag_dci_register_read_probe.summary.selected_proc=%d\n"
+                      "diag_dci_register_read_probe.summary.selected_mask=0x%x\n"
+                      "diag_dci_register_read_probe.summary.register_attempted=%d\n"
+                      "diag_dci_register_read_probe.summary.registered=%d\n"
+                      "diag_dci_register_read_probe.summary.register_rc=%d\n"
+                      "diag_dci_register_read_probe.summary.register_errno=%d\n"
+                      "diag_dci_register_read_probe.summary.client_id=%d\n"
+                      "diag_dci_register_read_probe.summary.read_calls=%u\n"
+                      "diag_dci_register_read_probe.summary.read_records=%u\n"
+                      "diag_dci_register_read_probe.summary.read_bytes=%llu\n"
+                      "diag_dci_register_read_probe.summary.read_eagain=%u\n"
+                      "diag_dci_register_read_probe.summary.read_eintr=%u\n"
+                      "diag_dci_register_read_probe.summary.read_errors=%u\n"
+                      "diag_dci_register_read_probe.summary.read_terminal_error=%d\n"
+                      "diag_dci_register_read_probe.summary.last_read_errno=%u\n"
+                      "diag_dci_register_read_probe.summary.mask_bootstrap_records=%u\n"
+                      "diag_dci_register_read_probe.summary.dci_data_records=%u\n"
+                      "diag_dci_register_read_probe.summary.dci_pkt_records=%u\n"
+                      "diag_dci_register_read_probe.summary.user_space_records=%u\n"
+                      "diag_dci_register_read_probe.summary.other_records=%u\n"
+                      "diag_dci_register_read_probe.summary.samples=%u\n"
+                      "diag_dci_register_read_probe.summary.deinit_attempted=%d\n"
+                      "diag_dci_register_read_probe.summary.deinit_rc=%d\n"
+                      "diag_dci_register_read_probe.summary.deinit_errno=%d\n",
+                      g_diag_dci_register_read_probe.open_ok ? 1 : 0,
+                      g_diag_dci_register_read_probe.node_created ? 1 : 0,
+                      g_diag_dci_register_read_probe.open_ok ? 1 : 0,
+                      g_diag_dci_register_read_probe.query_count,
+                      g_diag_dci_register_read_probe.support_nonzero_count,
+                      g_diag_dci_register_read_probe.selected_proc,
+                      g_diag_dci_register_read_probe.selected_mask,
+                      g_diag_dci_register_read_probe.register_attempted ? 1 : 0,
+                      g_diag_dci_register_read_probe.registered ? 1 : 0,
+                      g_diag_dci_register_read_probe.register_rc,
+                      g_diag_dci_register_read_probe.register_errno,
+                      g_diag_dci_register_read_probe.client_id,
+                      g_diag_dci_register_read_probe.read_calls,
+                      g_diag_dci_register_read_probe.read_records,
+                      g_diag_dci_register_read_probe.read_bytes,
+                      g_diag_dci_register_read_probe.read_eagain,
+                      g_diag_dci_register_read_probe.read_eintr,
+                      g_diag_dci_register_read_probe.read_errors,
+                      g_diag_dci_register_read_probe.read_terminal_error ? 1 : 0,
+                      g_diag_dci_register_read_probe.last_read_errno,
+                      g_diag_dci_register_read_probe.mask_bootstrap_records,
+                      g_diag_dci_register_read_probe.dci_data_records,
+                      g_diag_dci_register_read_probe.dci_pkt_records,
+                      g_diag_dci_register_read_probe.user_space_records,
+                      g_diag_dci_register_read_probe.other_records,
+                      g_diag_dci_register_read_probe.sample_count,
+                      g_diag_dci_register_read_probe.deinit_attempted ? 1 : 0,
+                      g_diag_dci_register_read_probe.deinit_rc,
+                      g_diag_dci_register_read_probe.deinit_errno) < 0) {
+        return -1;
+    }
+    return append_literal(stdout_buf,
+                          "diag_dci_register_read_probe.stopped=1\n"
+                          "diag_dci_register_read_probe.end=1\n");
+}
+#endif
+
 static unsigned long long a90_untag_user_ptr(unsigned long long addr) {
     return addr & 0x00ffffffffffffffULL;
 }
@@ -31449,6 +32007,12 @@ static int composite_spawn_child(const struct config *cfg,
         return -1;
     }
 #endif
+#if A90_WIFI_TEST_BOOT_DIAG_DCI_REGISTER_READ_PROBE
+    if (child->identity == COMPOSITE_ID_TFTP_SERVER &&
+        a90_diag_dci_register_read_start(paths, stdout_buf) < 0) {
+        return -1;
+    }
+#endif
     if (pipe2(stdout_pipe, O_CLOEXEC) < 0 || pipe2(stderr_pipe, O_CLOEXEC) < 0) {
         append_format(stdout_buf,
                       "wifi_hal_composite_start.child.%s.result=manual-review-required\n"
@@ -31849,6 +32413,11 @@ static int composite_poll_children(struct composite_child *children,
             return -1;
         }
 #endif
+#if A90_WIFI_TEST_BOOT_DIAG_DCI_REGISTER_READ_PROBE
+        if (a90_diag_dci_register_read_drain(stdout_buf) < 0) {
+            return -1;
+        }
+#endif
         for (size_t i = 0; i < child_count; i++) {
             if (!children[i].child_done) {
                 all_done = false;
@@ -31891,6 +32460,11 @@ static int composite_poll_children(struct composite_child *children,
 #endif
 #if A90_WIFI_TEST_BOOT_DIAG_QUERY_ONLY_PROBE
             if (a90_diag_query_only_probe_query(stdout_buf) < 0) {
+                return -1;
+            }
+#endif
+#if A90_WIFI_TEST_BOOT_DIAG_DCI_REGISTER_READ_PROBE
+            if (a90_diag_dci_register_read_drain(stdout_buf) < 0) {
                 return -1;
             }
 #endif
@@ -31963,6 +32537,11 @@ static int composite_poll_children(struct composite_child *children,
 #endif
 #if A90_WIFI_TEST_BOOT_DIAG_QUERY_ONLY_PROBE
     if (a90_diag_query_only_probe_query(stdout_buf) < 0) {
+        return -1;
+    }
+#endif
+#if A90_WIFI_TEST_BOOT_DIAG_DCI_REGISTER_READ_PROBE
+    if (a90_diag_dci_register_read_drain(stdout_buf) < 0) {
         return -1;
     }
 #endif
@@ -33282,6 +33861,9 @@ static void composite_cleanup_children(struct composite_child *children,
 #endif
 #if A90_WIFI_TEST_BOOT_DIAG_QUERY_ONLY_PROBE
     a90_diag_query_only_probe_stop(stdout_buf);
+#endif
+#if A90_WIFI_TEST_BOOT_DIAG_DCI_REGISTER_READ_PROBE
+    a90_diag_dci_register_read_stop(stdout_buf);
 #endif
 }
 
@@ -45301,6 +45883,14 @@ static int run_wifi_companion_start_only_guarded(const struct config *cfg,
         stop_property_service_shim(&property_shim, paths, stdout_buf);
         return -1;
     }
+#if A90_WIFI_TEST_BOOT_DIAG_DCI_REGISTER_READ_PROBE
+    if (a90_diag_dci_register_read_stop(stdout_buf) < 0) {
+        stop_wlan_pd_modem_holder(paths, stdout_buf, &wlan_pd_holder);
+        composite_cleanup_children(children, active_child_count, stdout_buf, stderr_buf);
+        stop_property_service_shim(&property_shim, paths, stdout_buf);
+        return -1;
+    }
+#endif
     if (wlan_pd_firmware_serve_gate &&
         wlan_pd_holder.pid > 0 &&
         drain_wlan_pd_modem_holder(&wlan_pd_holder, stdout_buf, 0) < 0) {
@@ -48248,6 +48838,11 @@ static int drain_pm_service_trigger_observer_children(struct composite_child *ch
             return -1;
         }
     }
+#if A90_WIFI_TEST_BOOT_DIAG_DCI_REGISTER_READ_PROBE
+    if (a90_diag_dci_register_read_drain(stdout_buf) < 0) {
+        return -1;
+    }
+#endif
     return drain_property_service_shim_records(property_shim, stdout_buf);
 }
 
