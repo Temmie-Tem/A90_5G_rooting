@@ -3,10 +3,10 @@
 ## Summary
 
 - Cycle: `V2029`
-- Decision: `v2029-dual-rfs-wlanmdsp-served-post-cal-no-fw-ready-rollback-pass`
-- Label: `dual-rfs-wlanmdsp-served-post-cal-no-fw-ready`
+- Decision: `v2029-dual-rfs-wlanmdsp-open-oack-only-post-cal-no-fw-ready-rollback-pass`
+- Label: `dual-rfs-wlanmdsp-open-oack-only-post-cal-no-fw-ready`
 - Pass: `True`
-- Reason: the native-requested wlanmdsp path opened successfully and cap/BDF/cal completed, but FW-ready/wlan0 did not follow
+- Reason: the native-requested wlanmdsp path opened and OACKs were observed, but no ACK/DATA payload transfer was captured before cap/BDF/cal completed without FW-ready/wlan0
 - Evidence: `tmp/wifi/v2029-dual-rfs-wlanmdsp-tftp-handoff`
 - Inner handoff: `tmp/wifi/v2029-dual-rfs-wlanmdsp-tftp-handoff/v2028-handoff/manifest.json`
 
@@ -14,7 +14,7 @@
 
 | area | value | detail |
 | --- | --- | --- |
-| label | dual-rfs-wlanmdsp-served-post-cal-no-fw-ready | the native-requested wlanmdsp path opened successfully and cap/BDF/cal completed, but FW-ready/wlan0 did not follow |
+| label | dual-rfs-wlanmdsp-open-oack-only-post-cal-no-fw-ready | the native-requested wlanmdsp path opened and OACKs were observed, but no ACK/DATA payload transfer was captured before cap/BDF/cal completed without FW-ready/wlan0 |
 | helper | True | a90_android_execns_probe v382 |
 | route | True | service74=True service180=True holder=True |
 | rfs_probe | True | path=/tmp/a90-v231-547/root/vendor/rfs/msm/mpss/readonly/vendor/firmware_mnt/image/wlanmdsp.mbn exists=1 size=4251884 open_rc=0 |
@@ -22,15 +22,17 @@
 | readwrite | True | server_check=1 tmpfs=1 |
 | cascade |  | wlan_pd=1 icnss_qmi=1 wlfw69=0 fw_ready=0 wlan0=0 hold=124.49414100000001 |
 | tftp_trace | True | compiled=1 attach_rc=0 detach_rc=0 records=63 packet=55 fs=8 stops=6831 ms=45015 truncated=0 |
+| packet_ops | {'RRQ': 29, 'OACK': 15, 'WRQ': 8, 'ERROR': 3} | ack=0 data=0 oack=15 error=3 |
 | packet_paths | True | paths={'/readonly/vendor/firmware_mnt/image/wlanmdsp.mbn': 13, '/readwrite/mcfg.tmp': 24} token={'server_check': 0, 'ota_firewall': 0, 'mcfg': 24, 'mbn_hw': 0, 'wlanmdsp': 13, 'modem': 0} |
 | fs_paths | 8 | success={'/vendor/rfs/msm/mpss/readonly/vendor/firmware_mnt/image/wlanmdsp.mbn': 2} errors={'/vendor/rfs/msm/mpss/readwrite/mcfg.tmp': 6} token={'server_check': 0, 'ota_firewall': 0, 'mcfg': 6, 'mbn_hw': 0, 'wlanmdsp': 2, 'modem': 0} |
-| wlanmdsp |  | summary=0 trace=True probe_success=True probe_error=False dmesg=15 pd_load=0 |
+| wlanmdsp |  | summary=0 trace=True probe_success=True payload_transfer=False probe_error=False dmesg=15 pd_load=0 |
 | cap_bdf_cal | True | cap=0x0 bdf=0x0 cal=0x0 worker_cal= |
 
 ## Interpretation
 
-- The exact native-requested `firmware_mnt/image/wlanmdsp.mbn` path was opened successfully.
-- Cap/BDF/cal returned success but FW-ready/`wlan0` did not follow; the next gate is after successful firmware serving and WLFW downstream sends.
+- The exact native-requested `firmware_mnt/image/wlanmdsp.mbn` path opened and OACKs were observed.
+- The trace did not capture any ACK/DATA payload packets, so this run proves request/open/OACK only, not completed `wlanmdsp.mbn` transfer.
+- Before escalating deeper into modem/WLAN-PD, close the transfer-completion discriminator on the Android-parity fallback path.
 
 ## First TFTP Packets
 

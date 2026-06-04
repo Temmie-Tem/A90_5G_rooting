@@ -79,9 +79,9 @@
 ## Interpretation
 
 - V2031 keeps the V2029 dual RFS serve-path bridge and reruns the V2009 post-cal WLFW indication split without `tftp_server` ptrace.
-- Same-boot WLFW consumption is proven by successful cap/BDF/cal QMI returns; the live `wlanmdsp.mbn` filesystem serve was separately proven in V2029 on the exact dual-RFS path.
+- Same-boot WLFW consumption is proven by successful cap/BDF/cal QMI returns; the live `wlanmdsp.mbn` request/open/OACK edge was observed in V2029 on the exact dual-RFS path, but completed ACK/DATA transfer was not.
 - If `WLFW 69`/FW-ready appears, downstream is healthy and the next bounded gate can chase `wlan0` without Wi-Fi HAL/scan/connect.
-- If cap/BDF/cal succeeds but no indication is delivered, the blocker is after successful firmware serving and before modem/WLAN-PD WLFW publish.
+- If cap/BDF/cal succeeds but no indication is delivered, the blocker is either unproven `wlanmdsp.mbn` payload transfer completion or the later modem/WLAN-PD WLFW publish edge.
 
 ## Steps
 
@@ -100,4 +100,3 @@
 - No rild/cnss/pm-service strace, boot-time QRTR matrix, service-locator probe, service-notifier listener, active QRTR readback, QMI payload send, or `tftp_server` ptrace was run.
 - No direct `/dev/subsys_esoc0` open/control, forced RC1/case, PMIC/GPIO/GDSC/regulator, PCI rescan, platform bind/unbind, fake ONLINE, or eSoC notify/BOOT_DONE action was used.
 - Mutation scope: `/cache` one-shot clean-DSP flag, V2030 test-boot flash-handoff, namespace-local RFS tmpfs/symlink bridges, and rollback to `stage3/boot_linux_v724.img` with selftest fail=0.
-

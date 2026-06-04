@@ -201,15 +201,36 @@ def classify(handoff: dict[str, Any],
     fs_success = tftp_trace.get("fs_success_counts") if isinstance(tftp_trace.get("fs_success_counts"), dict) else {}
     fs_errors = tftp_trace.get("fs_error_counts") if isinstance(tftp_trace.get("fs_error_counts"), dict) else {}
     packet_paths = tftp_trace.get("tftp_data_paths") if isinstance(tftp_trace.get("tftp_data_paths"), dict) else {}
+    packet_ops = tftp_trace.get("packet_op_counts") if isinstance(tftp_trace.get("packet_op_counts"), dict) else {}
     fallback_success = path_has(fs_success, "readonly/vendor/firmware/wlanmdsp.mbn")
     fallback_packet = path_has(packet_paths, "/readonly/vendor/firmware/wlanmdsp.mbn")
     probe_error = path_has(fs_errors, "readonly/vendor/firmware_mnt/image/wlanmdsp.mbn")
     probe_packet = path_has(packet_paths, "/readonly/vendor/firmware_mnt/image/wlanmdsp.mbn")
+    ack_packet_count = max(
+        intish(tftp_trace.get("tftp_ack_packet_count")),
+        intish(packet_ops.get("ACK")),
+    )
+    data_packet_count = max(
+        intish(tftp_trace.get("tftp_data_packet_count")),
+        intish(packet_ops.get("DATA")),
+    )
+    oack_packet_count = max(
+        intish(tftp_trace.get("tftp_oack_packet_count")),
+        intish(packet_ops.get("OACK")),
+    )
+    error_packet_count = max(
+        intish(tftp_trace.get("tftp_error_packet_count")),
+        intish(packet_ops.get("ERROR")),
+    )
     wlanmdsp_seen = (
         bool(trace.get("requested"))
         or bool(tftp_trace.get("wlanmdsp_seen"))
         or bool(tftp_trace.get("tftp_data_wlanmdsp"))
         or intish(tftp_summary.get("requested_wlanmdsp")) > 0
+    )
+    wlanmdsp_payload_transfer_seen = (
+        (fallback_success or fallback_packet)
+        and (ack_packet_count > 0 or data_packet_count > 0)
     )
     cap_bdf_cal_success = (
         hit(cap, "wlfw_cap_success_branch") > 0
@@ -245,9 +266,21 @@ def classify(handoff: dict[str, Any],
         label = "rfs-fallback-tftp-fw-ready-progress"
         reason = "Android-parity fallback plus full chain reached firmware-ready progress"
         passed = True
+    elif fallback_success and cap_bdf_cal_success and wlanmdsp_payload_transfer_seen:
+        label = "rfs-fallback-wlanmdsp-transfer-post-cal-no-fw-ready"
+        reason = "fallback wlanmdsp path opened and exchanged payload packets, and cap/BDF/cal completed, but FW-ready/wlan0 did not follow"
+        passed = True
+    elif fallback_success and cap_bdf_cal_success:
+        label = "rfs-fallback-wlanmdsp-open-oack-only-post-cal-no-fw-ready"
+        reason = "fallback wlanmdsp path opened and OACKs were observed, but no ACK/DATA payload transfer was captured before cap/BDF/cal completed without FW-ready/wlan0"
+        passed = True
+    elif fallback_success and wlanmdsp_payload_transfer_seen:
+        label = "rfs-fallback-wlanmdsp-transfer-no-fw-ready"
+        reason = "fallback wlanmdsp path opened and exchanged payload packets, but FW-ready/wlan0 did not follow"
+        passed = True
     elif fallback_success:
-        label = "rfs-fallback-wlanmdsp-served-post-cal-no-fw-ready"
-        reason = "fallback wlanmdsp path was opened successfully and cap/BDF/cal completed, but FW-ready/wlan0 did not follow"
+        label = "rfs-fallback-wlanmdsp-open-oack-only-no-fw-ready"
+        reason = "fallback wlanmdsp path opened and OACKs were observed, but no ACK/DATA payload transfer was captured before FW-ready/wlan0 stalled"
         passed = True
     elif wlanmdsp_seen or probe_packet or probe_error or fallback_packet:
         label = "rfs-fallback-wlanmdsp-request-serve-incomplete"
@@ -282,6 +315,11 @@ def classify(handoff: dict[str, Any],
         "fallback_packet": fallback_packet,
         "probe_error": probe_error,
         "probe_packet": probe_packet,
+        "wlanmdsp_payload_transfer_seen": wlanmdsp_payload_transfer_seen,
+        "tftp_ack_packet_count": ack_packet_count,
+        "tftp_data_packet_count": data_packet_count,
+        "tftp_oack_packet_count": oack_packet_count,
+        "tftp_error_packet_count": error_packet_count,
         "cap_bdf_cal_success": cap_bdf_cal_success,
     }
 
@@ -300,10 +338,16 @@ def render_report(manifest: dict[str, Any]) -> str:
     trace_summary = tftp_trace.get("summary", {})
     trace = details["wlanmdsp_trace"]
     bridge = trace["rfs_bridge"]
-    if classification["label"] == "rfs-fallback-wlanmdsp-served-post-cal-no-fw-ready":
+    if classification["label"] == "rfs-fallback-wlanmdsp-transfer-post-cal-no-fw-ready":
         interpretation_lines = [
-            "- The Android-parity fallback `readonly/vendor/firmware/wlanmdsp.mbn` path was opened successfully by stock `tftp_server`.",
-            "- Cap/BDF/cal still returned success but no FW-ready/`wlan0` followed; the next gate is after successful firmware serving and WLFW downstream sends.",
+            "- The Android-parity fallback `readonly/vendor/firmware/wlanmdsp.mbn` path opened and payload packet transfer was observed.",
+            "- Cap/BDF/cal still returned success but no FW-ready/`wlan0` followed; the next gate is after successful firmware transfer and WLFW downstream sends.",
+        ]
+    elif "open-oack-only" in classification["label"]:
+        interpretation_lines = [
+            "- The Android-parity fallback `readonly/vendor/firmware/wlanmdsp.mbn` path opened and OACKs were observed.",
+            "- The trace did not capture any ACK/DATA payload packets, so this run proves request/open/OACK only, not completed `wlanmdsp.mbn` transfer.",
+            "- Before escalating deeper into modem/WLAN-PD, close the transfer-completion discriminator with the least intrusive observer available.",
         ]
     elif "wlanmdsp-request" in classification["label"]:
         interpretation_lines = [
@@ -312,8 +356,8 @@ def render_report(manifest: dict[str, Any]) -> str:
         ]
     else:
         interpretation_lines = [
-            "- The route stayed rollbackable, but did not prove a successful fallback `wlanmdsp.mbn` serve.",
-            "- Do not return to AP-side RIL/cnss/pm-service captures; the discriminator remains the modem TFTP branch or post-serve firmware-ready edge.",
+            "- The route stayed rollbackable, but did not prove a completed fallback `wlanmdsp.mbn` transfer.",
+            "- Do not return to AP-side RIL/cnss/pm-service captures; the discriminator remains the modem TFTP branch or post-transfer firmware-ready edge.",
         ]
     matrix_rows = [
         ["label", classification["label"], classification["reason"]],
@@ -324,10 +368,11 @@ def render_report(manifest: dict[str, Any]) -> str:
         ["readwrite", classification.get("readwrite_bridge_ok"), f"server_check={details['readwrite_bridge']['server_check_exists']} tmpfs={details['readwrite_bridge']['readwrite_tmpfs_requested']}"],
         ["cascade", "", f"wlan_pd={cascade['wlan_pd_up']} icnss_qmi={cascade['icnss_qmi_connected']} wlfw69={cascade['wlfw69']} fw_ready={cascade['fw_ready']} wlan0={cascade['wlan0']} hold={cascade.get('post_up_hold_sec')}"],
         ["tftp_trace", classification.get("tftp_trace_active"), f"compiled={trace_summary.get('compiled')} attach_rc={trace_summary.get('late_attach_rc')} detach_rc={trace_summary.get('late_detach_rc')} records={tftp_trace.get('record_count')} packet={tftp_trace.get('packet_record_count')} fs={tftp_trace.get('fs_record_count')} stops={trace_summary.get('late_syscall_stop_count')} ms={trace_summary.get('late_duration_ms')} truncated={trace_summary.get('late_syscall_trace_truncated')}"],
+        ["packet_ops", tftp_trace.get("packet_op_counts"), f"ack={classification.get('tftp_ack_packet_count')} data={classification.get('tftp_data_packet_count')} oack={classification.get('tftp_oack_packet_count')} error={classification.get('tftp_error_packet_count')}"],
         ["packet_paths", tftp_trace.get("tftp_data_any_named_request"), f"paths={tftp_trace.get('tftp_data_paths')} token={tftp_trace.get('packet_token_hit_counts')}"],
         ["fs_paths", tftp_trace.get("fs_record_count"), f"success={tftp_trace.get('fs_success_counts')} errors={tftp_trace.get('fs_error_counts')} token={tftp_trace.get('fs_token_hit_counts')}"],
         ["initial_branch", "", f"server_check={tftp_trace.get('server_check_seen')} ota_firewall={tftp_trace.get('ota_firewall_seen')} mcfg={tftp_trace.get('mcfg_seen')} mbn_hw={tftp_trace.get('mbn_hw_seen')}"],
-        ["wlanmdsp", "", f"summary={tftp_summary.get('requested_wlanmdsp')} trace={tftp_trace.get('wlanmdsp_seen')} fallback_success={classification.get('fallback_success')} probe_error={classification.get('probe_error')} dmesg={cascade.get('wlanmdsp_tftp')} pd_load={cascade.get('pd_load')}"],
+        ["wlanmdsp", "", f"summary={tftp_summary.get('requested_wlanmdsp')} trace={tftp_trace.get('wlanmdsp_seen')} fallback_success={classification.get('fallback_success')} payload_transfer={classification.get('wlanmdsp_payload_transfer_seen')} probe_error={classification.get('probe_error')} dmesg={cascade.get('wlanmdsp_tftp')} pd_load={cascade.get('pd_load')}"],
         ["cap_bdf_cal", classification.get("cap_bdf_cal_success"), f"cap={post['cap_return_rc']} bdf={post['bdf_return_rc']} cal={post['cal_return_rc']} worker_cal={post['worker_cal_rc']}"],
     ]
     step_lines = [
