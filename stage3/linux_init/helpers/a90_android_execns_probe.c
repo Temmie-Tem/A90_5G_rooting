@@ -128,7 +128,13 @@
 #define A90_WIFI_TEST_BOOT_TFTP_LOGDW_ORDER_TIMESTAMPS 0
 #endif
 
-#if A90_WIFI_TEST_BOOT_TFTP_LOGDW_ORDER_TIMESTAMPS && A90_WIFI_TEST_BOOT_TFTP_PERSIST_RFS_TMPFS && A90_WIFI_TEST_BOOT_TFTP_MCFG_READBACK && A90_WIFI_TEST_BOOT_TFTP_LOGDW_SINK && !A90_RFS_BRIDGE_SERVE_FIRMWARE_MNT_PROBE
+#ifndef A90_WIFI_TEST_BOOT_PASSIVE_DIAG_SINK
+#define A90_WIFI_TEST_BOOT_PASSIVE_DIAG_SINK 0
+#endif
+
+#if A90_WIFI_TEST_BOOT_PASSIVE_DIAG_SINK && A90_WIFI_TEST_BOOT_TFTP_LOGDW_ORDER_TIMESTAMPS && A90_WIFI_TEST_BOOT_TFTP_PERSIST_RFS_TMPFS && A90_WIFI_TEST_BOOT_TFTP_MCFG_READBACK && A90_WIFI_TEST_BOOT_TFTP_LOGDW_SINK && !A90_RFS_BRIDGE_SERVE_FIRMWARE_MNT_PROBE
+#define EXECNS_VERSION "a90_android_execns_probe v390"
+#elif A90_WIFI_TEST_BOOT_TFTP_LOGDW_ORDER_TIMESTAMPS && A90_WIFI_TEST_BOOT_TFTP_PERSIST_RFS_TMPFS && A90_WIFI_TEST_BOOT_TFTP_MCFG_READBACK && A90_WIFI_TEST_BOOT_TFTP_LOGDW_SINK && !A90_RFS_BRIDGE_SERVE_FIRMWARE_MNT_PROBE
 #define EXECNS_VERSION "a90_android_execns_probe v389"
 #elif A90_WIFI_TEST_BOOT_TFTP_OTA_FIREWALL_RULESET_TMPFS && A90_WIFI_TEST_BOOT_TFTP_PERSIST_RFS_TMPFS && A90_WIFI_TEST_BOOT_TFTP_MCFG_READBACK && A90_WIFI_TEST_BOOT_TFTP_LOGDW_SINK && A90_RFS_BRIDGE_SERVE_FIRMWARE_MNT_PROBE
 #define EXECNS_VERSION "a90_android_execns_probe v387"
@@ -503,6 +509,9 @@ struct paths {
     char dev[MAX_PATH_LEN];
     char dev_null[MAX_PATH_LEN];
     char dev_wlan[MAX_PATH_LEN];
+#if A90_WIFI_TEST_BOOT_PASSIVE_DIAG_SINK
+    char dev_diag[MAX_PATH_LEN];
+#endif
     char dev_block[MAX_PATH_LEN];
     char dev_block_by_name[MAX_PATH_LEN];
     char dev_block_bootdevice[MAX_PATH_LEN];
@@ -3780,6 +3789,9 @@ static int init_paths(struct paths *paths) {
         append_path(paths->dev, sizeof(paths->dev), paths->root, "dev") < 0 ||
         append_path(paths->dev_null, sizeof(paths->dev_null), paths->dev, "null") < 0 ||
         append_path(paths->dev_wlan, sizeof(paths->dev_wlan), paths->dev, "wlan") < 0 ||
+#if A90_WIFI_TEST_BOOT_PASSIVE_DIAG_SINK
+        append_path(paths->dev_diag, sizeof(paths->dev_diag), paths->dev, "diag") < 0 ||
+#endif
         append_path(paths->dev_block, sizeof(paths->dev_block), paths->dev, "block") < 0 ||
         append_path(paths->dev_block_by_name,
                     sizeof(paths->dev_block_by_name),
@@ -4769,6 +4781,11 @@ static void cleanup_paths(const struct paths *paths) {
     if (paths->dev_wlan[0] != '\0') {
         unlink(paths->dev_wlan);
     }
+#if A90_WIFI_TEST_BOOT_PASSIVE_DIAG_SINK
+    if (paths->dev_diag[0] != '\0') {
+        unlink(paths->dev_diag);
+    }
+#endif
     if (paths->dev_uio0[0] != '\0') {
         unlink(paths->dev_uio0);
     }
@@ -26200,6 +26217,296 @@ static int a90_tftp_logdw_sink_stop(struct buffer *stdout_buf) {
 }
 #endif
 
+#if A90_WIFI_TEST_BOOT_PASSIVE_DIAG_SINK
+#ifndef A90_PASSIVE_DIAG_MAX_SAMPLES
+#define A90_PASSIVE_DIAG_MAX_SAMPLES 8U
+#endif
+#ifndef A90_PASSIVE_DIAG_SAMPLE_BYTES
+#define A90_PASSIVE_DIAG_SAMPLE_BYTES 96U
+#endif
+#ifndef A90_PASSIVE_DIAG_MAX_DRAIN_READS
+#define A90_PASSIVE_DIAG_MAX_DRAIN_READS 8U
+#endif
+
+struct a90_passive_diag_sink {
+    int fd;
+    bool start_attempted;
+    bool active;
+    bool reported;
+    bool node_created;
+    bool open_ok;
+    unsigned int major_no;
+    unsigned int minor_no;
+    char sysfs_dev_text[64];
+    char node_path[MAX_PATH_LEN];
+    long start_ms;
+    long first_read_ms;
+    unsigned int read_count;
+    unsigned int sample_count;
+    unsigned int eagain_count;
+    unsigned int eintr_count;
+    unsigned int eof_count;
+    unsigned int read_error_count;
+    int last_errno;
+    unsigned long long byte_count;
+};
+
+static struct a90_passive_diag_sink g_passive_diag_sink = {
+    .fd = -1,
+};
+
+static long a90_passive_diag_delta_ms(long now_ms) {
+    if (now_ms <= 0 || g_passive_diag_sink.start_ms <= 0) {
+        return 0;
+    }
+    return now_ms - g_passive_diag_sink.start_ms;
+}
+
+static int a90_passive_diag_sink_start(const struct paths *paths,
+                                       struct buffer *stdout_buf) {
+    char error_buf[256];
+
+    if (g_passive_diag_sink.active) {
+        return append_literal(stdout_buf,
+                              "passive_diag_sink.start.already_active=1\n");
+    }
+    if (g_passive_diag_sink.start_attempted) {
+        return append_literal(stdout_buf,
+                              "passive_diag_sink.start.retry_suppressed=1\n");
+    }
+    memset(&g_passive_diag_sink, 0, sizeof(g_passive_diag_sink));
+    g_passive_diag_sink.fd = -1;
+    g_passive_diag_sink.start_attempted = true;
+    g_passive_diag_sink.start_ms = monotonic_ms();
+    snprintf(g_passive_diag_sink.node_path,
+             sizeof(g_passive_diag_sink.node_path),
+             "%s",
+             paths->dev_diag);
+    if (append_format(stdout_buf,
+                      "passive_diag_sink.begin=1\n"
+                      "passive_diag_sink.mode=private-node-open-readonly-nonblock-no-ioctl-no-write\n"
+                      "passive_diag_sink.rootfs_namespace_only=1\n"
+                      "passive_diag_sink.sda29_write=0\n"
+                      "passive_diag_sink.ioctl_attempted=0\n"
+                      "passive_diag_sink.write_attempted=0\n"
+                      "passive_diag_sink.qmi_send=0\n"
+                      "passive_diag_sink.log_mask_write=0\n"
+                      "passive_diag_sink.ptraced=0\n"
+                      "passive_diag_sink.start_monotonic_ms=%ld\n"
+                      "passive_diag_sink.sysfs_dev_path=/sys/class/diag/diag/dev\n"
+                      "passive_diag_sink.node_path=%s\n",
+                      g_passive_diag_sink.start_ms,
+                      g_passive_diag_sink.node_path) < 0) {
+        return -1;
+    }
+    if (parse_dev_major_minor("/sys/class/diag/diag/dev",
+                              &g_passive_diag_sink.major_no,
+                              &g_passive_diag_sink.minor_no,
+                              g_passive_diag_sink.sysfs_dev_text,
+                              sizeof(g_passive_diag_sink.sysfs_dev_text)) < 0) {
+        return append_format(stdout_buf,
+                             "passive_diag_sink.started=0\n"
+                             "passive_diag_sink.reason=sysfs-dev-parse-failed\n"
+                             "passive_diag_sink.error=%s\n",
+                             strerror(errno));
+    }
+    if (append_format(stdout_buf,
+                      "passive_diag_sink.sysfs_dev=%s\n"
+                      "passive_diag_sink.major=%u\n"
+                      "passive_diag_sink.minor=%u\n",
+                      g_passive_diag_sink.sysfs_dev_text,
+                      g_passive_diag_sink.major_no,
+                      g_passive_diag_sink.minor_no) < 0) {
+        return -1;
+    }
+    if (mkdir_p(paths->dev, 0755) < 0) {
+        return append_format(stdout_buf,
+                             "passive_diag_sink.started=0\n"
+                             "passive_diag_sink.reason=mkdir-dev-failed\n"
+                             "passive_diag_sink.error=%s\n",
+                             strerror(errno));
+    }
+    memset(error_buf, 0, sizeof(error_buf));
+    if (materialize_private_android_char_node(paths->dev,
+                                              "diag",
+                                              0600,
+                                              0,
+                                              0,
+                                              g_passive_diag_sink.major_no,
+                                              g_passive_diag_sink.minor_no,
+                                              error_buf,
+                                              sizeof(error_buf)) < 0) {
+        return append_format(stdout_buf,
+                             "passive_diag_sink.started=0\n"
+                             "passive_diag_sink.reason=private-node-failed\n"
+                             "passive_diag_sink.error=%s\n",
+                             error_buf);
+    }
+    g_passive_diag_sink.node_created = true;
+    g_passive_diag_sink.fd = open(g_passive_diag_sink.node_path,
+                                  O_RDONLY | O_NONBLOCK | O_CLOEXEC);
+    if (g_passive_diag_sink.fd < 0) {
+        return append_format(stdout_buf,
+                             "passive_diag_sink.started=0\n"
+                             "passive_diag_sink.reason=open-readonly-failed\n"
+                             "passive_diag_sink.open_errno=%d\n"
+                             "passive_diag_sink.error=%s\n",
+                             errno,
+                             strerror(errno));
+    }
+    if (set_nonblock(g_passive_diag_sink.fd) < 0) {
+        int saved_errno = errno;
+
+        close(g_passive_diag_sink.fd);
+        g_passive_diag_sink.fd = -1;
+        errno = saved_errno;
+        return append_format(stdout_buf,
+                             "passive_diag_sink.started=0\n"
+                             "passive_diag_sink.reason=nonblock-failed\n"
+                             "passive_diag_sink.error=%s\n",
+                             strerror(errno));
+    }
+    g_passive_diag_sink.active = true;
+    g_passive_diag_sink.open_ok = true;
+    return append_literal(stdout_buf,
+                          "passive_diag_sink.started=1\n");
+}
+
+static int a90_passive_diag_sink_record(struct buffer *stdout_buf,
+                                        const unsigned char *data,
+                                        size_t data_len,
+                                        long now_ms) {
+    if (g_passive_diag_sink.first_read_ms <= 0) {
+        g_passive_diag_sink.first_read_ms = now_ms;
+    }
+    g_passive_diag_sink.read_count++;
+    g_passive_diag_sink.byte_count += (unsigned long long)data_len;
+    if (g_passive_diag_sink.sample_count < A90_PASSIVE_DIAG_MAX_SAMPLES) {
+        unsigned int sample = g_passive_diag_sink.sample_count++;
+        size_t stored_len = data_len;
+        bool payload_truncated = false;
+
+        if (stored_len > A90_PASSIVE_DIAG_SAMPLE_BYTES) {
+            stored_len = A90_PASSIVE_DIAG_SAMPLE_BYTES;
+            payload_truncated = true;
+        }
+        if (append_format(stdout_buf,
+                          "passive_diag_sink.sample_%03u.monotonic_ms=%ld\n"
+                          "passive_diag_sink.sample_%03u.delta_ms=%ld\n"
+                          "passive_diag_sink.sample_%03u.bytes=%zu\n"
+                          "passive_diag_sink.sample_%03u.stored_bytes=%zu\n"
+                          "passive_diag_sink.sample_%03u.payload_truncated=%d\n"
+                          "passive_diag_sink.sample_%03u.payload=",
+                          sample,
+                          now_ms,
+                          sample,
+                          a90_passive_diag_delta_ms(now_ms),
+                          sample,
+                          data_len,
+                          sample,
+                          stored_len,
+                          sample,
+                          payload_truncated ? 1 : 0,
+                          sample) < 0 ||
+            append_escaped_ascii(stdout_buf, data, stored_len) < 0 ||
+            append_literal(stdout_buf, "\n") < 0) {
+            return -1;
+        }
+    }
+    return 0;
+}
+
+static int a90_passive_diag_sink_drain(struct buffer *stdout_buf) {
+    unsigned char packet[4096];
+    unsigned int drain_reads = 0;
+
+    if (!g_passive_diag_sink.active || g_passive_diag_sink.fd < 0) {
+        return 0;
+    }
+    while (drain_reads < A90_PASSIVE_DIAG_MAX_DRAIN_READS) {
+        ssize_t nread = read(g_passive_diag_sink.fd, packet, sizeof(packet));
+        long now_ms;
+
+        if (nread > 0) {
+            drain_reads++;
+            now_ms = monotonic_ms();
+            if (a90_passive_diag_sink_record(stdout_buf, packet, (size_t)nread, now_ms) < 0) {
+                return -1;
+            }
+            continue;
+        }
+        if (nread == 0) {
+            g_passive_diag_sink.eof_count++;
+            return 0;
+        }
+        if (errno == EINTR) {
+            g_passive_diag_sink.eintr_count++;
+            continue;
+        }
+        if (errno == EAGAIN || errno == EWOULDBLOCK) {
+            g_passive_diag_sink.eagain_count++;
+            return 0;
+        }
+        g_passive_diag_sink.read_error_count++;
+        g_passive_diag_sink.last_errno = errno;
+        return append_format(stdout_buf,
+                             "passive_diag_sink.read_error=%s\n",
+                             strerror(errno));
+    }
+    return 0;
+}
+
+static int a90_passive_diag_sink_stop(struct buffer *stdout_buf) {
+    if (!g_passive_diag_sink.start_attempted || g_passive_diag_sink.reported) {
+        return 0;
+    }
+    if (a90_passive_diag_sink_drain(stdout_buf) < 0) {
+        return -1;
+    }
+    if (g_passive_diag_sink.fd >= 0) {
+        close(g_passive_diag_sink.fd);
+        g_passive_diag_sink.fd = -1;
+    }
+    if (g_passive_diag_sink.node_created && g_passive_diag_sink.node_path[0] != '\0') {
+        unlink(g_passive_diag_sink.node_path);
+    }
+    g_passive_diag_sink.active = false;
+    g_passive_diag_sink.reported = true;
+    if (append_format(stdout_buf,
+                      "passive_diag_sink.summary.started=%d\n"
+                      "passive_diag_sink.summary.node_created=%d\n"
+                      "passive_diag_sink.summary.reads=%u\n"
+                      "passive_diag_sink.summary.bytes=%llu\n"
+                      "passive_diag_sink.summary.samples=%u\n"
+                      "passive_diag_sink.summary.eagain=%u\n"
+                      "passive_diag_sink.summary.eintr=%u\n"
+                      "passive_diag_sink.summary.eof=%u\n"
+                      "passive_diag_sink.summary.read_errors=%u\n"
+                      "passive_diag_sink.summary.last_errno=%d\n"
+                      "passive_diag_sink.summary.start_monotonic_ms=%ld\n"
+                      "passive_diag_sink.summary.first_read_monotonic_ms=%ld\n"
+                      "passive_diag_sink.summary.first_read_delta_ms=%ld\n",
+                      g_passive_diag_sink.open_ok ? 1 : 0,
+                      g_passive_diag_sink.node_created ? 1 : 0,
+                      g_passive_diag_sink.read_count,
+                      g_passive_diag_sink.byte_count,
+                      g_passive_diag_sink.sample_count,
+                      g_passive_diag_sink.eagain_count,
+                      g_passive_diag_sink.eintr_count,
+                      g_passive_diag_sink.eof_count,
+                      g_passive_diag_sink.read_error_count,
+                      g_passive_diag_sink.last_errno,
+                      g_passive_diag_sink.start_ms,
+                      g_passive_diag_sink.first_read_ms,
+                      a90_passive_diag_delta_ms(g_passive_diag_sink.first_read_ms)) < 0) {
+        return -1;
+    }
+    return append_literal(stdout_buf,
+                          "passive_diag_sink.stopped=1\n"
+                          "passive_diag_sink.end=1\n");
+}
+#endif
+
 static unsigned long long a90_untag_user_ptr(unsigned long long addr) {
     return addr & 0x00ffffffffffffffULL;
 }
@@ -30353,6 +30660,12 @@ static int composite_spawn_child(const struct config *cfg,
         return -1;
     }
 #endif
+#if A90_WIFI_TEST_BOOT_PASSIVE_DIAG_SINK
+    if (child->identity == COMPOSITE_ID_TFTP_SERVER &&
+        a90_passive_diag_sink_start(paths, stdout_buf) < 0) {
+        return -1;
+    }
+#endif
     if (pipe2(stdout_pipe, O_CLOEXEC) < 0 || pipe2(stderr_pipe, O_CLOEXEC) < 0) {
         append_format(stdout_buf,
                       "wifi_hal_composite_start.child.%s.result=manual-review-required\n"
@@ -30743,6 +31056,11 @@ static int composite_poll_children(struct composite_child *children,
             return -1;
         }
 #endif
+#if A90_WIFI_TEST_BOOT_PASSIVE_DIAG_SINK
+        if (a90_passive_diag_sink_drain(stdout_buf) < 0) {
+            return -1;
+        }
+#endif
         for (size_t i = 0; i < child_count; i++) {
             if (!children[i].child_done) {
                 all_done = false;
@@ -30775,6 +31093,11 @@ static int composite_poll_children(struct composite_child *children,
             }
 #if A90_WIFI_TEST_BOOT_TFTP_LOGDW_SINK
             if (a90_tftp_logdw_sink_drain(stdout_buf) < 0) {
+                return -1;
+            }
+#endif
+#if A90_WIFI_TEST_BOOT_PASSIVE_DIAG_SINK
+            if (a90_passive_diag_sink_drain(stdout_buf) < 0) {
                 return -1;
             }
 #endif
@@ -30837,6 +31160,11 @@ static int composite_poll_children(struct composite_child *children,
     *timed_out = true;
 #if A90_WIFI_TEST_BOOT_TFTP_LOGDW_SINK
     if (a90_tftp_logdw_sink_drain(stdout_buf) < 0) {
+        return -1;
+    }
+#endif
+#if A90_WIFI_TEST_BOOT_PASSIVE_DIAG_SINK
+    if (a90_passive_diag_sink_drain(stdout_buf) < 0) {
         return -1;
     }
 #endif
@@ -32045,6 +32373,9 @@ static void composite_cleanup_children(struct composite_child *children,
     }
 #if A90_WIFI_TEST_BOOT_TFTP_LOGDW_SINK
     a90_tftp_logdw_sink_stop(stdout_buf);
+#endif
+#if A90_WIFI_TEST_BOOT_PASSIVE_DIAG_SINK
+    a90_passive_diag_sink_stop(stdout_buf);
 #endif
 }
 
