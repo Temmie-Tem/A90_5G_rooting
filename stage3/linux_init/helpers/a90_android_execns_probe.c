@@ -152,7 +152,13 @@
 #define A90_WIFI_TEST_BOOT_DIAG_DCI_REGISTER_READ_PROBE 0
 #endif
 
-#if A90_WIFI_TEST_BOOT_DIAG_DCI_REGISTER_READ_PROBE && A90_WIFI_TEST_BOOT_PERMGR_VOTE_FOCUSED_SUMMARY && A90_WIFI_TEST_BOOT_TFTP_READWRITE_TRANSITION_SAMPLER && A90_WIFI_TEST_BOOT_TFTP_READY_BEFORE_WLFW_VOTE && A90_WIFI_TEST_BOOT_TFTP_LOGDW_ORDER_TIMESTAMPS && A90_WIFI_TEST_BOOT_TFTP_PERSIST_RFS_TMPFS && A90_WIFI_TEST_BOOT_TFTP_MCFG_READBACK && A90_WIFI_TEST_BOOT_TFTP_LOGDW_SINK && !A90_RFS_BRIDGE_SERVE_FIRMWARE_MNT_PROBE
+#ifndef A90_WIFI_TEST_BOOT_DIAG_DCI_CANARY_MASK_PROBE
+#define A90_WIFI_TEST_BOOT_DIAG_DCI_CANARY_MASK_PROBE 0
+#endif
+
+#if A90_WIFI_TEST_BOOT_DIAG_DCI_CANARY_MASK_PROBE && A90_WIFI_TEST_BOOT_DIAG_DCI_REGISTER_READ_PROBE && A90_WIFI_TEST_BOOT_PERMGR_VOTE_FOCUSED_SUMMARY && A90_WIFI_TEST_BOOT_TFTP_READWRITE_TRANSITION_SAMPLER && A90_WIFI_TEST_BOOT_TFTP_READY_BEFORE_WLFW_VOTE && A90_WIFI_TEST_BOOT_TFTP_LOGDW_ORDER_TIMESTAMPS && A90_WIFI_TEST_BOOT_TFTP_PERSIST_RFS_TMPFS && A90_WIFI_TEST_BOOT_TFTP_MCFG_READBACK && A90_WIFI_TEST_BOOT_TFTP_LOGDW_SINK && !A90_RFS_BRIDGE_SERVE_FIRMWARE_MNT_PROBE
+#define EXECNS_VERSION "a90_android_execns_probe v396"
+#elif A90_WIFI_TEST_BOOT_DIAG_DCI_REGISTER_READ_PROBE && A90_WIFI_TEST_BOOT_PERMGR_VOTE_FOCUSED_SUMMARY && A90_WIFI_TEST_BOOT_TFTP_READWRITE_TRANSITION_SAMPLER && A90_WIFI_TEST_BOOT_TFTP_READY_BEFORE_WLFW_VOTE && A90_WIFI_TEST_BOOT_TFTP_LOGDW_ORDER_TIMESTAMPS && A90_WIFI_TEST_BOOT_TFTP_PERSIST_RFS_TMPFS && A90_WIFI_TEST_BOOT_TFTP_MCFG_READBACK && A90_WIFI_TEST_BOOT_TFTP_LOGDW_SINK && !A90_RFS_BRIDGE_SERVE_FIRMWARE_MNT_PROBE
 #define EXECNS_VERSION "a90_android_execns_probe v395"
 #elif A90_WIFI_TEST_BOOT_DIAG_QUERY_ONLY_PROBE && A90_WIFI_TEST_BOOT_PERMGR_VOTE_FOCUSED_SUMMARY && A90_WIFI_TEST_BOOT_TFTP_READWRITE_TRANSITION_SAMPLER && A90_WIFI_TEST_BOOT_TFTP_READY_BEFORE_WLFW_VOTE && A90_WIFI_TEST_BOOT_TFTP_LOGDW_ORDER_TIMESTAMPS && A90_WIFI_TEST_BOOT_TFTP_PERSIST_RFS_TMPFS && A90_WIFI_TEST_BOOT_TFTP_MCFG_READBACK && A90_WIFI_TEST_BOOT_TFTP_LOGDW_SINK && !A90_RFS_BRIDGE_SERVE_FIRMWARE_MNT_PROBE
 #define EXECNS_VERSION "a90_android_execns_probe v394"
@@ -27300,6 +27306,15 @@ static int a90_diag_query_only_probe_stop(struct buffer *stdout_buf) {
 #ifndef A90_DIAG_DCI_IOCTL_SUPPORT
 #define A90_DIAG_DCI_IOCTL_SUPPORT 22
 #endif
+#ifndef A90_DIAG_DCI_IOCTL_HEALTH_STATS
+#define A90_DIAG_DCI_IOCTL_HEALTH_STATS 25
+#endif
+#ifndef A90_DIAG_DCI_IOCTL_LOG_STATUS
+#define A90_DIAG_DCI_IOCTL_LOG_STATUS 26
+#endif
+#ifndef A90_DIAG_DCI_IOCTL_EVENT_STATUS
+#define A90_DIAG_DCI_IOCTL_EVENT_STATUS 27
+#endif
 #ifndef A90_DIAG_DCI_IOCTL_SUCCESS
 #define A90_DIAG_DCI_IOCTL_SUCCESS 1001
 #endif
@@ -27326,6 +27341,10 @@ static int a90_diag_query_only_probe_stop(struct buffer *stdout_buf) {
 #define A90_DIAG_DCI_LOG_MASKS_TYPE 0x00000100U
 #define A90_DIAG_DCI_EVENT_MASKS_TYPE 0x00000200U
 #define A90_DIAG_DCI_PKT_TYPE 0x00000400U
+#define A90_DIAG_DCI_CANARY_LOG_TYPE (-1)
+#define A90_DIAG_DCI_CANARY_EVENT_TYPE (-2)
+#define A90_DIAG_DCI_CANARY_LOG_CODE 0x0000U
+#define A90_DIAG_DCI_CANARY_EVENT_ID 0U
 
 struct a90_diag_dci_register_support_query {
     int proc;
@@ -27338,6 +27357,50 @@ struct a90_diag_dci_register_request {
     unsigned short notification_list;
     int signal_type;
     int token;
+} __attribute__((packed));
+
+struct a90_diag_dci_log_event_status {
+    int client_id;
+    unsigned short code;
+    int is_set;
+} __attribute__((packed));
+
+struct a90_diag_dci_health_stats {
+    int dropped_logs;
+    int dropped_events;
+    int received_logs;
+    int received_events;
+    int reset_status;
+};
+
+struct a90_diag_dci_health_stats_proc {
+    int client_id;
+    struct a90_diag_dci_health_stats health;
+    int proc;
+} __attribute__((packed));
+
+struct a90_diag_dci_canary_log_request {
+    int transaction_type;
+    int client_id;
+    int set_flag;
+    int count;
+    unsigned short log_code;
+} __attribute__((packed));
+
+struct a90_diag_dci_canary_event_request {
+    int transaction_type;
+    int client_id;
+    int set_flag;
+    int count;
+    int event_id;
+} __attribute__((packed));
+
+struct a90_diag_dci_write_frame {
+    int packet_type;
+    union {
+        struct a90_diag_dci_canary_log_request log_request;
+        struct a90_diag_dci_canary_event_request event_request;
+    } body;
 } __attribute__((packed));
 
 struct a90_diag_dci_register_read_probe {
@@ -27368,6 +27431,49 @@ struct a90_diag_dci_register_read_probe {
     int client_id;
     int deinit_rc;
     int deinit_errno;
+#if A90_WIFI_TEST_BOOT_DIAG_DCI_CANARY_MASK_PROBE
+    bool canary_attempted;
+    bool canary_completed;
+    unsigned int canary_log_code;
+    unsigned int canary_event_id;
+    int canary_log_status_pre_rc;
+    int canary_log_status_pre_errno;
+    int canary_log_status_pre_is_set;
+    int canary_event_status_pre_rc;
+    int canary_event_status_pre_errno;
+    int canary_event_status_pre_is_set;
+    int canary_log_set_write_rc;
+    int canary_log_set_write_errno;
+    int canary_event_set_write_rc;
+    int canary_event_set_write_errno;
+    int canary_log_status_set_rc;
+    int canary_log_status_set_errno;
+    int canary_log_status_set_is_set;
+    int canary_event_status_set_rc;
+    int canary_event_status_set_errno;
+    int canary_event_status_set_is_set;
+    int canary_log_clear_write_rc;
+    int canary_log_clear_write_errno;
+    int canary_event_clear_write_rc;
+    int canary_event_clear_write_errno;
+    int canary_log_status_clear_rc;
+    int canary_log_status_clear_errno;
+    int canary_log_status_clear_is_set;
+    int canary_event_status_clear_rc;
+    int canary_event_status_clear_errno;
+    int canary_event_status_clear_is_set;
+    int canary_health_pre_rc;
+    int canary_health_pre_errno;
+    int canary_health_pre_received_logs;
+    int canary_health_pre_received_events;
+    int canary_health_post_rc;
+    int canary_health_post_errno;
+    int canary_health_post_received_logs;
+    int canary_health_post_received_events;
+    unsigned int canary_write_attempts;
+    unsigned int canary_write_successes;
+    unsigned int canary_write_errors;
+#endif
     unsigned int read_calls;
     unsigned int read_records;
     unsigned long long read_bytes;
@@ -27497,6 +27603,288 @@ static int a90_diag_dci_register_read_query_support(struct buffer *stdout_buf) {
     return 0;
 }
 
+#if A90_WIFI_TEST_BOOT_DIAG_DCI_CANARY_MASK_PROBE
+static int a90_diag_dci_canary_query_log_status(unsigned int phase,
+                                                int *rc_out,
+                                                int *errno_out,
+                                                int *is_set_out,
+                                                struct buffer *stdout_buf) {
+    struct a90_diag_dci_log_event_status status;
+    int ioctl_rc;
+    int saved_errno;
+
+    memset(&status, 0, sizeof(status));
+    status.client_id = g_diag_dci_register_read_probe.client_id;
+    status.code = (unsigned short)A90_DIAG_DCI_CANARY_LOG_CODE;
+    errno = 0;
+    ioctl_rc = ioctl(g_diag_dci_register_read_probe.fd,
+                     A90_DIAG_DCI_IOCTL_LOG_STATUS,
+                     &status);
+    saved_errno = errno;
+    *rc_out = ioctl_rc;
+    *errno_out = saved_errno;
+    *is_set_out = status.is_set;
+    return append_format(stdout_buf,
+                         "diag_dci_canary_mask_probe.%s.log_status_rc=%d\n"
+                         "diag_dci_canary_mask_probe.%s.log_status_errno=%d\n"
+                         "diag_dci_canary_mask_probe.%s.log_status_is_set=%d\n",
+                         phase == 0U ? "pre" : (phase == 1U ? "set" : "clear"),
+                         ioctl_rc,
+                         phase == 0U ? "pre" : (phase == 1U ? "set" : "clear"),
+                         saved_errno,
+                         phase == 0U ? "pre" : (phase == 1U ? "set" : "clear"),
+                         status.is_set);
+}
+
+static int a90_diag_dci_canary_query_event_status(unsigned int phase,
+                                                  int *rc_out,
+                                                  int *errno_out,
+                                                  int *is_set_out,
+                                                  struct buffer *stdout_buf) {
+    struct a90_diag_dci_log_event_status status;
+    int ioctl_rc;
+    int saved_errno;
+
+    memset(&status, 0, sizeof(status));
+    status.client_id = g_diag_dci_register_read_probe.client_id;
+    status.code = (unsigned short)A90_DIAG_DCI_CANARY_EVENT_ID;
+    errno = 0;
+    ioctl_rc = ioctl(g_diag_dci_register_read_probe.fd,
+                     A90_DIAG_DCI_IOCTL_EVENT_STATUS,
+                     &status);
+    saved_errno = errno;
+    *rc_out = ioctl_rc;
+    *errno_out = saved_errno;
+    *is_set_out = status.is_set;
+    return append_format(stdout_buf,
+                         "diag_dci_canary_mask_probe.%s.event_status_rc=%d\n"
+                         "diag_dci_canary_mask_probe.%s.event_status_errno=%d\n"
+                         "diag_dci_canary_mask_probe.%s.event_status_is_set=%d\n",
+                         phase == 0U ? "pre" : (phase == 1U ? "set" : "clear"),
+                         ioctl_rc,
+                         phase == 0U ? "pre" : (phase == 1U ? "set" : "clear"),
+                         saved_errno,
+                         phase == 0U ? "pre" : (phase == 1U ? "set" : "clear"),
+                         status.is_set);
+}
+
+static int a90_diag_dci_canary_query_health(unsigned int phase,
+                                            int *rc_out,
+                                            int *errno_out,
+                                            int *received_logs_out,
+                                            int *received_events_out,
+                                            struct buffer *stdout_buf) {
+    struct a90_diag_dci_health_stats_proc stats;
+    int ioctl_rc;
+    int saved_errno;
+
+    memset(&stats, 0, sizeof(stats));
+    stats.client_id = g_diag_dci_register_read_probe.client_id;
+    stats.proc = g_diag_dci_register_read_probe.selected_proc;
+    errno = 0;
+    ioctl_rc = ioctl(g_diag_dci_register_read_probe.fd,
+                     A90_DIAG_DCI_IOCTL_HEALTH_STATS,
+                     &stats);
+    saved_errno = errno;
+    *rc_out = ioctl_rc;
+    *errno_out = saved_errno;
+    *received_logs_out = stats.health.received_logs;
+    *received_events_out = stats.health.received_events;
+    return append_format(stdout_buf,
+                         "diag_dci_canary_mask_probe.%s.health_rc=%d\n"
+                         "diag_dci_canary_mask_probe.%s.health_errno=%d\n"
+                         "diag_dci_canary_mask_probe.%s.health_received_logs=%d\n"
+                         "diag_dci_canary_mask_probe.%s.health_received_events=%d\n",
+                         phase == 0U ? "pre" : "post",
+                         ioctl_rc,
+                         phase == 0U ? "pre" : "post",
+                         saved_errno,
+                         phase == 0U ? "pre" : "post",
+                         stats.health.received_logs,
+                         phase == 0U ? "pre" : "post",
+                         stats.health.received_events);
+}
+
+static int a90_diag_dci_canary_write_log(int set_flag,
+                                         int *rc_out,
+                                         int *errno_out,
+                                         struct buffer *stdout_buf) {
+    struct a90_diag_dci_write_frame frame;
+    ssize_t write_rc;
+    int saved_errno;
+
+    memset(&frame, 0, sizeof(frame));
+    frame.packet_type = (int)A90_DIAG_DCI_DATA_TYPE;
+    frame.body.log_request.transaction_type = A90_DIAG_DCI_CANARY_LOG_TYPE;
+    frame.body.log_request.client_id = g_diag_dci_register_read_probe.client_id;
+    frame.body.log_request.set_flag = set_flag;
+    frame.body.log_request.count = 1;
+    frame.body.log_request.log_code = (unsigned short)A90_DIAG_DCI_CANARY_LOG_CODE;
+    g_diag_dci_register_read_probe.canary_write_attempts++;
+    errno = 0;
+    write_rc = write(g_diag_dci_register_read_probe.fd,
+                     &frame,
+                     sizeof(frame.packet_type) + sizeof(frame.body.log_request));
+    saved_errno = errno;
+    *rc_out = (int)write_rc;
+    *errno_out = saved_errno;
+    if (write_rc >= 0) {
+        g_diag_dci_register_read_probe.canary_write_successes++;
+    } else {
+        g_diag_dci_register_read_probe.canary_write_errors++;
+    }
+    return append_format(stdout_buf,
+                         "diag_dci_canary_mask_probe.%s.log_write_rc=%d\n"
+                         "diag_dci_canary_mask_probe.%s.log_write_errno=%d\n",
+                         set_flag ? "set" : "clear",
+                         (int)write_rc,
+                         set_flag ? "set" : "clear",
+                         saved_errno);
+}
+
+static int a90_diag_dci_canary_write_event(int set_flag,
+                                           int *rc_out,
+                                           int *errno_out,
+                                           struct buffer *stdout_buf) {
+    struct a90_diag_dci_write_frame frame;
+    ssize_t write_rc;
+    int saved_errno;
+
+    memset(&frame, 0, sizeof(frame));
+    frame.packet_type = (int)A90_DIAG_DCI_DATA_TYPE;
+    frame.body.event_request.transaction_type = A90_DIAG_DCI_CANARY_EVENT_TYPE;
+    frame.body.event_request.client_id = g_diag_dci_register_read_probe.client_id;
+    frame.body.event_request.set_flag = set_flag;
+    frame.body.event_request.count = 1;
+    frame.body.event_request.event_id = (int)A90_DIAG_DCI_CANARY_EVENT_ID;
+    g_diag_dci_register_read_probe.canary_write_attempts++;
+    errno = 0;
+    write_rc = write(g_diag_dci_register_read_probe.fd,
+                     &frame,
+                     sizeof(frame.packet_type) + sizeof(frame.body.event_request));
+    saved_errno = errno;
+    *rc_out = (int)write_rc;
+    *errno_out = saved_errno;
+    if (write_rc >= 0) {
+        g_diag_dci_register_read_probe.canary_write_successes++;
+    } else {
+        g_diag_dci_register_read_probe.canary_write_errors++;
+    }
+    return append_format(stdout_buf,
+                         "diag_dci_canary_mask_probe.%s.event_write_rc=%d\n"
+                         "diag_dci_canary_mask_probe.%s.event_write_errno=%d\n",
+                         set_flag ? "set" : "clear",
+                         (int)write_rc,
+                         set_flag ? "set" : "clear",
+                         saved_errno);
+}
+
+static int a90_diag_dci_canary_mask_run(struct buffer *stdout_buf) {
+    if (!g_diag_dci_register_read_probe.registered ||
+        g_diag_dci_register_read_probe.fd < 0 ||
+        g_diag_dci_register_read_probe.client_id <= 0 ||
+        g_diag_dci_register_read_probe.canary_attempted) {
+        return 0;
+    }
+    g_diag_dci_register_read_probe.canary_attempted = true;
+    g_diag_dci_register_read_probe.canary_log_code = A90_DIAG_DCI_CANARY_LOG_CODE;
+    g_diag_dci_register_read_probe.canary_event_id = A90_DIAG_DCI_CANARY_EVENT_ID;
+    if (append_format(stdout_buf,
+                      "diag_dci_canary_mask_probe.begin=1\n"
+                      "diag_dci_canary_mask_probe.mode=bounded-dci-data-write-one-log-one-event-status-clear-no-switch-logging\n"
+                      "diag_dci_canary_mask_probe.rootfs_namespace_only=1\n"
+                      "diag_dci_canary_mask_probe.sda29_write=0\n"
+                      "diag_dci_canary_mask_probe.switch_logging_attempted=0\n"
+                      "diag_dci_canary_mask_probe.diag_write_attempted=1\n"
+                      "diag_dci_canary_mask_probe.diag_write_scope=dci-data-only-one-log-one-event-set-clear\n"
+                      "diag_dci_canary_mask_probe.stream_config_attempted=0\n"
+                      "diag_dci_canary_mask_probe.qmi_send=0\n"
+                      "diag_dci_canary_mask_probe.ptraced=0\n"
+                      "diag_dci_canary_mask_probe.log_code=0x%x\n"
+                      "diag_dci_canary_mask_probe.event_id=%u\n",
+                      g_diag_dci_register_read_probe.canary_log_code,
+                      g_diag_dci_register_read_probe.canary_event_id) < 0) {
+        return -1;
+    }
+    if (a90_diag_dci_canary_query_log_status(
+            0U,
+            &g_diag_dci_register_read_probe.canary_log_status_pre_rc,
+            &g_diag_dci_register_read_probe.canary_log_status_pre_errno,
+            &g_diag_dci_register_read_probe.canary_log_status_pre_is_set,
+            stdout_buf) < 0 ||
+        a90_diag_dci_canary_query_event_status(
+            0U,
+            &g_diag_dci_register_read_probe.canary_event_status_pre_rc,
+            &g_diag_dci_register_read_probe.canary_event_status_pre_errno,
+            &g_diag_dci_register_read_probe.canary_event_status_pre_is_set,
+            stdout_buf) < 0 ||
+        a90_diag_dci_canary_query_health(
+            0U,
+            &g_diag_dci_register_read_probe.canary_health_pre_rc,
+            &g_diag_dci_register_read_probe.canary_health_pre_errno,
+            &g_diag_dci_register_read_probe.canary_health_pre_received_logs,
+            &g_diag_dci_register_read_probe.canary_health_pre_received_events,
+            stdout_buf) < 0 ||
+        a90_diag_dci_canary_write_log(
+            1,
+            &g_diag_dci_register_read_probe.canary_log_set_write_rc,
+            &g_diag_dci_register_read_probe.canary_log_set_write_errno,
+            stdout_buf) < 0 ||
+        a90_diag_dci_canary_write_event(
+            1,
+            &g_diag_dci_register_read_probe.canary_event_set_write_rc,
+            &g_diag_dci_register_read_probe.canary_event_set_write_errno,
+            stdout_buf) < 0 ||
+        a90_diag_dci_canary_query_log_status(
+            1U,
+            &g_diag_dci_register_read_probe.canary_log_status_set_rc,
+            &g_diag_dci_register_read_probe.canary_log_status_set_errno,
+            &g_diag_dci_register_read_probe.canary_log_status_set_is_set,
+            stdout_buf) < 0 ||
+        a90_diag_dci_canary_query_event_status(
+            1U,
+            &g_diag_dci_register_read_probe.canary_event_status_set_rc,
+            &g_diag_dci_register_read_probe.canary_event_status_set_errno,
+            &g_diag_dci_register_read_probe.canary_event_status_set_is_set,
+            stdout_buf) < 0 ||
+        a90_diag_dci_canary_write_log(
+            0,
+            &g_diag_dci_register_read_probe.canary_log_clear_write_rc,
+            &g_diag_dci_register_read_probe.canary_log_clear_write_errno,
+            stdout_buf) < 0 ||
+        a90_diag_dci_canary_write_event(
+            0,
+            &g_diag_dci_register_read_probe.canary_event_clear_write_rc,
+            &g_diag_dci_register_read_probe.canary_event_clear_write_errno,
+            stdout_buf) < 0 ||
+        a90_diag_dci_canary_query_log_status(
+            2U,
+            &g_diag_dci_register_read_probe.canary_log_status_clear_rc,
+            &g_diag_dci_register_read_probe.canary_log_status_clear_errno,
+            &g_diag_dci_register_read_probe.canary_log_status_clear_is_set,
+            stdout_buf) < 0 ||
+        a90_diag_dci_canary_query_event_status(
+            2U,
+            &g_diag_dci_register_read_probe.canary_event_status_clear_rc,
+            &g_diag_dci_register_read_probe.canary_event_status_clear_errno,
+            &g_diag_dci_register_read_probe.canary_event_status_clear_is_set,
+            stdout_buf) < 0 ||
+        a90_diag_dci_canary_query_health(
+            1U,
+            &g_diag_dci_register_read_probe.canary_health_post_rc,
+            &g_diag_dci_register_read_probe.canary_health_post_errno,
+            &g_diag_dci_register_read_probe.canary_health_post_received_logs,
+            &g_diag_dci_register_read_probe.canary_health_post_received_events,
+            stdout_buf) < 0) {
+        return -1;
+    }
+    g_diag_dci_register_read_probe.canary_completed = true;
+    return append_literal(stdout_buf,
+                          "diag_dci_canary_mask_probe.completed=1\n"
+                          "diag_dci_canary_mask_probe.end=1\n");
+}
+#endif
+
 static int a90_diag_dci_register_read_start(const struct paths *paths,
                                             struct buffer *stdout_buf) {
     char error_buf[256];
@@ -27517,14 +27905,28 @@ static int a90_diag_dci_register_read_start(const struct paths *paths,
              paths->dev_diag);
     if (append_format(stdout_buf,
                       "diag_dci_register_read_probe.begin=1\n"
+#if A90_WIFI_TEST_BOOT_DIAG_DCI_CANARY_MASK_PROBE
+                      "diag_dci_register_read_probe.mode=private-node-rdwr-nonblock-dci-reg-read-with-bounded-canary-mask-set-clear\n"
+#else
                       "diag_dci_register_read_probe.mode=private-node-rdwr-nonblock-dci-reg-read-no-stream-no-mask-no-write\n"
+#endif
                       "diag_dci_register_read_probe.rootfs_namespace_only=1\n"
                       "diag_dci_register_read_probe.sda29_write=0\n"
                       "diag_dci_register_read_probe.switch_logging_attempted=0\n"
+#if A90_WIFI_TEST_BOOT_DIAG_DCI_CANARY_MASK_PROBE
+                      "diag_dci_register_read_probe.write_attempted=1\n"
+                      "diag_dci_register_read_probe.write_scope=bounded-dci-data-canary-mask-set-clear\n"
+#else
                       "diag_dci_register_read_probe.write_attempted=0\n"
+#endif
                       "diag_dci_register_read_probe.stream_config_attempted=0\n"
+#if A90_WIFI_TEST_BOOT_DIAG_DCI_CANARY_MASK_PROBE
+                      "diag_dci_register_read_probe.log_mask_write=1\n"
+                      "diag_dci_register_read_probe.event_mask_write=1\n"
+#else
                       "diag_dci_register_read_probe.log_mask_write=0\n"
                       "diag_dci_register_read_probe.event_mask_write=0\n"
+#endif
                       "diag_dci_register_read_probe.qmi_send=0\n"
                       "diag_dci_register_read_probe.ptraced=0\n"
                       "diag_dci_register_read_probe.start_monotonic_ms=%ld\n"
@@ -27636,21 +28038,29 @@ static int a90_diag_dci_register_read_start(const struct paths *paths,
              g_diag_dci_register_read_probe.register_rc == 0 ||
              g_diag_dci_register_read_probe.register_rc == A90_DIAG_DCI_IOCTL_SUCCESS);
     }
-    return append_format(stdout_buf,
-                         "diag_dci_register_read_probe.register_attempted=%d\n"
-                         "diag_dci_register_read_probe.register_proc=%d\n"
-                         "diag_dci_register_read_probe.register_mask=0x%x\n"
-                         "diag_dci_register_read_probe.register_rc=%d\n"
-                         "diag_dci_register_read_probe.register_errno=%d\n"
-                         "diag_dci_register_read_probe.client_id=%d\n"
-                         "diag_dci_register_read_probe.registered=%d\n",
-                         g_diag_dci_register_read_probe.register_attempted ? 1 : 0,
-                         g_diag_dci_register_read_probe.selected_proc,
-                         g_diag_dci_register_read_probe.selected_mask,
-                         g_diag_dci_register_read_probe.register_rc,
-                         g_diag_dci_register_read_probe.register_errno,
-                         g_diag_dci_register_read_probe.client_id,
-                         g_diag_dci_register_read_probe.registered ? 1 : 0);
+    if (append_format(stdout_buf,
+                      "diag_dci_register_read_probe.register_attempted=%d\n"
+                      "diag_dci_register_read_probe.register_proc=%d\n"
+                      "diag_dci_register_read_probe.register_mask=0x%x\n"
+                      "diag_dci_register_read_probe.register_rc=%d\n"
+                      "diag_dci_register_read_probe.register_errno=%d\n"
+                      "diag_dci_register_read_probe.client_id=%d\n"
+                      "diag_dci_register_read_probe.registered=%d\n",
+                      g_diag_dci_register_read_probe.register_attempted ? 1 : 0,
+                      g_diag_dci_register_read_probe.selected_proc,
+                      g_diag_dci_register_read_probe.selected_mask,
+                      g_diag_dci_register_read_probe.register_rc,
+                      g_diag_dci_register_read_probe.register_errno,
+                      g_diag_dci_register_read_probe.client_id,
+                      g_diag_dci_register_read_probe.registered ? 1 : 0) < 0) {
+        return -1;
+    }
+#if A90_WIFI_TEST_BOOT_DIAG_DCI_CANARY_MASK_PROBE
+    if (a90_diag_dci_canary_mask_run(stdout_buf) < 0) {
+        return -1;
+    }
+#endif
+    return 0;
 }
 
 static int a90_diag_dci_register_read_record(struct buffer *stdout_buf,
@@ -27802,6 +28212,49 @@ static int a90_diag_dci_register_read_stop(struct buffer *stdout_buf) {
                       "diag_dci_register_read_probe.summary.user_space_records=%u\n"
                       "diag_dci_register_read_probe.summary.other_records=%u\n"
                       "diag_dci_register_read_probe.summary.samples=%u\n"
+#if A90_WIFI_TEST_BOOT_DIAG_DCI_CANARY_MASK_PROBE
+                      "diag_dci_canary_mask_probe.summary.attempted=%d\n"
+                      "diag_dci_canary_mask_probe.summary.completed=%d\n"
+                      "diag_dci_canary_mask_probe.summary.log_code=0x%x\n"
+                      "diag_dci_canary_mask_probe.summary.event_id=%u\n"
+                      "diag_dci_canary_mask_probe.summary.write_attempts=%u\n"
+                      "diag_dci_canary_mask_probe.summary.write_successes=%u\n"
+                      "diag_dci_canary_mask_probe.summary.write_errors=%u\n"
+                      "diag_dci_canary_mask_probe.summary.log_pre_rc=%d\n"
+                      "diag_dci_canary_mask_probe.summary.log_pre_errno=%d\n"
+                      "diag_dci_canary_mask_probe.summary.log_pre_is_set=%d\n"
+                      "diag_dci_canary_mask_probe.summary.event_pre_rc=%d\n"
+                      "diag_dci_canary_mask_probe.summary.event_pre_errno=%d\n"
+                      "diag_dci_canary_mask_probe.summary.event_pre_is_set=%d\n"
+                      "diag_dci_canary_mask_probe.summary.log_set_write_rc=%d\n"
+                      "diag_dci_canary_mask_probe.summary.log_set_write_errno=%d\n"
+                      "diag_dci_canary_mask_probe.summary.event_set_write_rc=%d\n"
+                      "diag_dci_canary_mask_probe.summary.event_set_write_errno=%d\n"
+                      "diag_dci_canary_mask_probe.summary.log_set_rc=%d\n"
+                      "diag_dci_canary_mask_probe.summary.log_set_errno=%d\n"
+                      "diag_dci_canary_mask_probe.summary.log_set_is_set=%d\n"
+                      "diag_dci_canary_mask_probe.summary.event_set_rc=%d\n"
+                      "diag_dci_canary_mask_probe.summary.event_set_errno=%d\n"
+                      "diag_dci_canary_mask_probe.summary.event_set_is_set=%d\n"
+                      "diag_dci_canary_mask_probe.summary.log_clear_write_rc=%d\n"
+                      "diag_dci_canary_mask_probe.summary.log_clear_write_errno=%d\n"
+                      "diag_dci_canary_mask_probe.summary.event_clear_write_rc=%d\n"
+                      "diag_dci_canary_mask_probe.summary.event_clear_write_errno=%d\n"
+                      "diag_dci_canary_mask_probe.summary.log_clear_rc=%d\n"
+                      "diag_dci_canary_mask_probe.summary.log_clear_errno=%d\n"
+                      "diag_dci_canary_mask_probe.summary.log_clear_is_set=%d\n"
+                      "diag_dci_canary_mask_probe.summary.event_clear_rc=%d\n"
+                      "diag_dci_canary_mask_probe.summary.event_clear_errno=%d\n"
+                      "diag_dci_canary_mask_probe.summary.event_clear_is_set=%d\n"
+                      "diag_dci_canary_mask_probe.summary.health_pre_rc=%d\n"
+                      "diag_dci_canary_mask_probe.summary.health_pre_errno=%d\n"
+                      "diag_dci_canary_mask_probe.summary.health_pre_received_logs=%d\n"
+                      "diag_dci_canary_mask_probe.summary.health_pre_received_events=%d\n"
+                      "diag_dci_canary_mask_probe.summary.health_post_rc=%d\n"
+                      "diag_dci_canary_mask_probe.summary.health_post_errno=%d\n"
+                      "diag_dci_canary_mask_probe.summary.health_post_received_logs=%d\n"
+                      "diag_dci_canary_mask_probe.summary.health_post_received_events=%d\n"
+#endif
                       "diag_dci_register_read_probe.summary.deinit_attempted=%d\n"
                       "diag_dci_register_read_probe.summary.deinit_rc=%d\n"
                       "diag_dci_register_read_probe.summary.deinit_errno=%d\n",
@@ -27831,6 +28284,49 @@ static int a90_diag_dci_register_read_stop(struct buffer *stdout_buf) {
                       g_diag_dci_register_read_probe.user_space_records,
                       g_diag_dci_register_read_probe.other_records,
                       g_diag_dci_register_read_probe.sample_count,
+#if A90_WIFI_TEST_BOOT_DIAG_DCI_CANARY_MASK_PROBE
+                      g_diag_dci_register_read_probe.canary_attempted ? 1 : 0,
+                      g_diag_dci_register_read_probe.canary_completed ? 1 : 0,
+                      g_diag_dci_register_read_probe.canary_log_code,
+                      g_diag_dci_register_read_probe.canary_event_id,
+                      g_diag_dci_register_read_probe.canary_write_attempts,
+                      g_diag_dci_register_read_probe.canary_write_successes,
+                      g_diag_dci_register_read_probe.canary_write_errors,
+                      g_diag_dci_register_read_probe.canary_log_status_pre_rc,
+                      g_diag_dci_register_read_probe.canary_log_status_pre_errno,
+                      g_diag_dci_register_read_probe.canary_log_status_pre_is_set,
+                      g_diag_dci_register_read_probe.canary_event_status_pre_rc,
+                      g_diag_dci_register_read_probe.canary_event_status_pre_errno,
+                      g_diag_dci_register_read_probe.canary_event_status_pre_is_set,
+                      g_diag_dci_register_read_probe.canary_log_set_write_rc,
+                      g_diag_dci_register_read_probe.canary_log_set_write_errno,
+                      g_diag_dci_register_read_probe.canary_event_set_write_rc,
+                      g_diag_dci_register_read_probe.canary_event_set_write_errno,
+                      g_diag_dci_register_read_probe.canary_log_status_set_rc,
+                      g_diag_dci_register_read_probe.canary_log_status_set_errno,
+                      g_diag_dci_register_read_probe.canary_log_status_set_is_set,
+                      g_diag_dci_register_read_probe.canary_event_status_set_rc,
+                      g_diag_dci_register_read_probe.canary_event_status_set_errno,
+                      g_diag_dci_register_read_probe.canary_event_status_set_is_set,
+                      g_diag_dci_register_read_probe.canary_log_clear_write_rc,
+                      g_diag_dci_register_read_probe.canary_log_clear_write_errno,
+                      g_diag_dci_register_read_probe.canary_event_clear_write_rc,
+                      g_diag_dci_register_read_probe.canary_event_clear_write_errno,
+                      g_diag_dci_register_read_probe.canary_log_status_clear_rc,
+                      g_diag_dci_register_read_probe.canary_log_status_clear_errno,
+                      g_diag_dci_register_read_probe.canary_log_status_clear_is_set,
+                      g_diag_dci_register_read_probe.canary_event_status_clear_rc,
+                      g_diag_dci_register_read_probe.canary_event_status_clear_errno,
+                      g_diag_dci_register_read_probe.canary_event_status_clear_is_set,
+                      g_diag_dci_register_read_probe.canary_health_pre_rc,
+                      g_diag_dci_register_read_probe.canary_health_pre_errno,
+                      g_diag_dci_register_read_probe.canary_health_pre_received_logs,
+                      g_diag_dci_register_read_probe.canary_health_pre_received_events,
+                      g_diag_dci_register_read_probe.canary_health_post_rc,
+                      g_diag_dci_register_read_probe.canary_health_post_errno,
+                      g_diag_dci_register_read_probe.canary_health_post_received_logs,
+                      g_diag_dci_register_read_probe.canary_health_post_received_events,
+#endif
                       g_diag_dci_register_read_probe.deinit_attempted ? 1 : 0,
                       g_diag_dci_register_read_probe.deinit_rc,
                       g_diag_dci_register_read_probe.deinit_errno) < 0) {
