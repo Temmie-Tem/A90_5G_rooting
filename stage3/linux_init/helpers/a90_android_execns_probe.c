@@ -104,7 +104,7 @@
 #define SYSLOG_ACTION_READ_ALL 3
 #endif
 
-#define EXECNS_VERSION "a90_android_execns_probe v379"
+#define EXECNS_VERSION "a90_android_execns_probe v380"
 
 #ifndef A90_EXECNS_ENABLE_DELAYED_LOWER_RESPONSE_WINDOW
 #define A90_EXECNS_ENABLE_DELAYED_LOWER_RESPONSE_WINDOW 0
@@ -41950,6 +41950,7 @@ static int run_wifi_companion_start_only_guarded(const struct config *cfg,
                       "wifi_companion_start.wlan_pd_producer_tftp_server_syscall_trace.compiled=%d\n"
                       "wifi_companion_start.wlan_pd_producer_tftp_server_syscall_trace.single_child=tftp_server\n"
                       "wifi_companion_start.wlan_pd_producer_tftp_server_syscall_trace.late_attach=1\n"
+                      "wifi_companion_start.wlan_pd_producer_tftp_server_syscall_trace.early_attach=%d\n"
                       "wifi_companion_start.wlan_pd_producer_tftp_server_syscall_trace.no_qrtr_send=1\n"
                       "wifi_companion_start.wlan_pd_producer_tftp_server_syscall_trace.no_qmi_payload_send=1\n"
                       "wifi_companion_start.wlan_pd_cnss_output_visibility.enabled=%d\n"
@@ -41986,6 +41987,11 @@ static int run_wifi_companion_start_only_guarded(const struct config *cfg,
                       0,
 #endif
 #ifdef A90_WIFI_TEST_BOOT_WLAN_PD_PRODUCER_TFTP_SERVER_TRACE
+                      1,
+#else
+                      0,
+#endif
+#ifdef A90_WIFI_TEST_BOOT_WLAN_PD_PRODUCER_TFTP_SERVER_TRACE_EARLY
                       1,
 #else
                       0,
@@ -42629,6 +42635,24 @@ static int run_wifi_companion_start_only_guarded(const struct config *cfg,
         stop_property_service_shim(&property_shim, paths, stdout_buf);
         return -1;
     }
+#if defined(A90_WIFI_TEST_BOOT_WLAN_PD_PRODUCER_TFTP_SERVER_TRACE) && \
+    defined(A90_WIFI_TEST_BOOT_WLAN_PD_PRODUCER_TFTP_SERVER_TRACE_EARLY)
+    if (wlan_pd_post_pm_lower_state_observer) {
+        if (append_literal(stdout_buf,
+                           "wlan_pd_tftp_server_trace.early_attach.requested=1\n") < 0 ||
+            append_wlan_pd_tftp_server_late_syscall_trace(stdout_buf,
+                                                          children,
+                                                          active_child_count,
+                                                          TFTP_SERVER_SYSCALL_TRACE_TIMEOUT_MS) < 0 ||
+            append_literal(stdout_buf,
+                           "wlan_pd_tftp_server_trace.early_attach.done=1\n") < 0) {
+            stop_wlan_pd_modem_holder(paths, stdout_buf, &wlan_pd_holder);
+            composite_cleanup_children(children, active_child_count, stdout_buf, stderr_buf);
+            stop_property_service_shim(&property_shim, paths, stdout_buf);
+            return -1;
+        }
+    }
+#endif
     if (wlan_pd_post_pm_lower_state_observer &&
         append_wlan_pd_post_pm_lower_state_sample(stdout_buf,
                                                   "after_holder_start",
@@ -42733,6 +42757,7 @@ static int run_wifi_companion_start_only_guarded(const struct config *cfg,
     }
 #endif
 #ifdef A90_WIFI_TEST_BOOT_WLAN_PD_PRODUCER_TFTP_SERVER_TRACE
+#ifndef A90_WIFI_TEST_BOOT_WLAN_PD_PRODUCER_TFTP_SERVER_TRACE_EARLY
     if (wlan_pd_post_pm_lower_state_observer &&
         append_wlan_pd_tftp_server_late_syscall_trace(stdout_buf,
                                                       children,
@@ -42743,6 +42768,7 @@ static int run_wifi_companion_start_only_guarded(const struct config *cfg,
         stop_property_service_shim(&property_shim, paths, stdout_buf);
         return -1;
     }
+#endif
 #endif
 #if A90_EXECNS_ENABLE_DELAYED_LOWER_RESPONSE_WINDOW
     if (wlan_pd_post_pm_lower_state_observer &&
