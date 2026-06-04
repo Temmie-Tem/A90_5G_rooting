@@ -129,6 +129,10 @@
 #define A90_WIFI_TEST_BOOT_TFTP_PERSIST_RFS_PARENT_TRAVERSE_PARITY 0
 #endif
 
+#ifndef A90_WIFI_TEST_BOOT_TFTP_PERSIST_RFS_LEAF_PRECREATE
+#define A90_WIFI_TEST_BOOT_TFTP_PERSIST_RFS_LEAF_PRECREATE 0
+#endif
+
 #ifndef A90_WIFI_TEST_BOOT_TFTP_PROCESS_NAMESPACE_AUDIT
 #define A90_WIFI_TEST_BOOT_TFTP_PROCESS_NAMESPACE_AUDIT 0
 #endif
@@ -225,7 +229,9 @@
 #define A90_WIFI_TEST_BOOT_DIAG_REMOTE_DEV_POLL_PROBE 0
 #endif
 
-#if A90_WIFI_TEST_BOOT_TFTP_PERSIST_RFS_PARENT_TRAVERSE_PARITY && A90_WIFI_TEST_BOOT_TFTP_PROCESS_NAMESPACE_AUDIT && A90_WIFI_TEST_BOOT_TFTP_PERSIST_RFS_AUTODIR_PARITY && A90_WIFI_TEST_BOOT_TFTP_TOMBSTONE_RFS_VENDOR_RFS_PERMS && A90_WIFI_TEST_BOOT_TFTP_TOMBSTONE_RFS_TMPFS && A90_WIFI_TEST_BOOT_ICNSS_QCACLD_POST_BDF_FOCUSED_SUMMARY && A90_WIFI_TEST_BOOT_WLFW_LATE_MSG21_FOCUSED_SUMMARY && A90_WIFI_TEST_BOOT_PERMGR_VOTE_FOCUSED_SUMMARY && A90_WIFI_TEST_BOOT_TFTP_READWRITE_TRANSITION_SAMPLER && A90_WIFI_TEST_BOOT_TFTP_READY_BEFORE_WLFW_VOTE && A90_WIFI_TEST_BOOT_TFTP_LOGDW_ORDER_TIMESTAMPS && A90_WIFI_TEST_BOOT_TFTP_PERSIST_RFS_TMPFS && A90_WIFI_TEST_BOOT_TFTP_MCFG_READBACK && A90_WIFI_TEST_BOOT_TFTP_LOGDW_SINK && !A90_RFS_BRIDGE_SERVE_FIRMWARE_MNT_PROBE
+#if A90_WIFI_TEST_BOOT_TFTP_PERSIST_RFS_LEAF_PRECREATE && A90_WIFI_TEST_BOOT_TFTP_PERSIST_RFS_PARENT_TRAVERSE_PARITY && A90_WIFI_TEST_BOOT_TFTP_PROCESS_NAMESPACE_AUDIT && A90_WIFI_TEST_BOOT_TFTP_PERSIST_RFS_AUTODIR_PARITY && A90_WIFI_TEST_BOOT_TFTP_TOMBSTONE_RFS_VENDOR_RFS_PERMS && A90_WIFI_TEST_BOOT_TFTP_TOMBSTONE_RFS_TMPFS && A90_WIFI_TEST_BOOT_ICNSS_QCACLD_POST_BDF_FOCUSED_SUMMARY && A90_WIFI_TEST_BOOT_WLFW_LATE_MSG21_FOCUSED_SUMMARY && A90_WIFI_TEST_BOOT_PERMGR_VOTE_FOCUSED_SUMMARY && A90_WIFI_TEST_BOOT_TFTP_READWRITE_TRANSITION_SAMPLER && A90_WIFI_TEST_BOOT_TFTP_READY_BEFORE_WLFW_VOTE && A90_WIFI_TEST_BOOT_TFTP_LOGDW_ORDER_TIMESTAMPS && A90_WIFI_TEST_BOOT_TFTP_PERSIST_RFS_TMPFS && A90_WIFI_TEST_BOOT_TFTP_MCFG_READBACK && A90_WIFI_TEST_BOOT_TFTP_LOGDW_SINK && !A90_RFS_BRIDGE_SERVE_FIRMWARE_MNT_PROBE
+#define EXECNS_VERSION "a90_android_execns_probe v414"
+#elif A90_WIFI_TEST_BOOT_TFTP_PERSIST_RFS_PARENT_TRAVERSE_PARITY && A90_WIFI_TEST_BOOT_TFTP_PROCESS_NAMESPACE_AUDIT && A90_WIFI_TEST_BOOT_TFTP_PERSIST_RFS_AUTODIR_PARITY && A90_WIFI_TEST_BOOT_TFTP_TOMBSTONE_RFS_VENDOR_RFS_PERMS && A90_WIFI_TEST_BOOT_TFTP_TOMBSTONE_RFS_TMPFS && A90_WIFI_TEST_BOOT_ICNSS_QCACLD_POST_BDF_FOCUSED_SUMMARY && A90_WIFI_TEST_BOOT_WLFW_LATE_MSG21_FOCUSED_SUMMARY && A90_WIFI_TEST_BOOT_PERMGR_VOTE_FOCUSED_SUMMARY && A90_WIFI_TEST_BOOT_TFTP_READWRITE_TRANSITION_SAMPLER && A90_WIFI_TEST_BOOT_TFTP_READY_BEFORE_WLFW_VOTE && A90_WIFI_TEST_BOOT_TFTP_LOGDW_ORDER_TIMESTAMPS && A90_WIFI_TEST_BOOT_TFTP_PERSIST_RFS_TMPFS && A90_WIFI_TEST_BOOT_TFTP_MCFG_READBACK && A90_WIFI_TEST_BOOT_TFTP_LOGDW_SINK && !A90_RFS_BRIDGE_SERVE_FIRMWARE_MNT_PROBE
 #define EXECNS_VERSION "a90_android_execns_probe v413"
 #elif A90_WIFI_TEST_BOOT_TFTP_PROCESS_NAMESPACE_AUDIT && A90_WIFI_TEST_BOOT_TFTP_PERSIST_RFS_AUTODIR_PARITY && A90_WIFI_TEST_BOOT_TFTP_TOMBSTONE_RFS_VENDOR_RFS_PERMS && A90_WIFI_TEST_BOOT_TFTP_TOMBSTONE_RFS_TMPFS && A90_WIFI_TEST_BOOT_ICNSS_QCACLD_POST_BDF_FOCUSED_SUMMARY && A90_WIFI_TEST_BOOT_WLFW_LATE_MSG21_FOCUSED_SUMMARY && A90_WIFI_TEST_BOOT_PERMGR_VOTE_FOCUSED_SUMMARY && A90_WIFI_TEST_BOOT_TFTP_READWRITE_TRANSITION_SAMPLER && A90_WIFI_TEST_BOOT_TFTP_READY_BEFORE_WLFW_VOTE && A90_WIFI_TEST_BOOT_TFTP_LOGDW_ORDER_TIMESTAMPS && A90_WIFI_TEST_BOOT_TFTP_PERSIST_RFS_TMPFS && A90_WIFI_TEST_BOOT_TFTP_MCFG_READBACK && A90_WIFI_TEST_BOOT_TFTP_LOGDW_SINK && !A90_RFS_BRIDGE_SERVE_FIRMWARE_MNT_PROBE
 #define EXECNS_VERSION "a90_android_execns_probe v412"
@@ -10652,6 +10658,20 @@ static int mkdir_owned_dir(const char *path,
 static int populate_tftp_persist_rfs_autodirs(const struct paths *paths,
                                               char *error_buf,
                                               size_t error_size) {
+    char mdm[MAX_PATH_LEN];
+    char mdm_mpss[MAX_PATH_LEN];
+    char apq[MAX_PATH_LEN];
+    char apq_gnss[MAX_PATH_LEN];
+
+    if (append_path(mdm, sizeof(mdm), paths->mnt_vendor_persist_rfs, "mdm") < 0 ||
+        append_path(mdm_mpss, sizeof(mdm_mpss), mdm, "mpss") < 0 ||
+        append_path(apq, sizeof(apq), paths->mnt_vendor_persist_rfs, "apq") < 0 ||
+        append_path(apq_gnss, sizeof(apq_gnss), apq, "gnss") < 0) {
+        snprintf(error_buf, error_size, "persist-rfs leaf path too long");
+        errno = ENAMETOOLONG;
+        return -1;
+    }
+
     if (mkdir_owned_dir(paths->mnt_vendor_persist_rfs_shared,
                         A90_AID_VENDOR_RFS,
                         A90_AID_VENDOR_RFS_SHARED,
@@ -10682,6 +10702,38 @@ static int populate_tftp_persist_rfs_autodirs(const struct paths *paths,
                         "persist-rfs-msm-adsp") < 0) {
         return -1;
     }
+#if A90_WIFI_TEST_BOOT_TFTP_PERSIST_RFS_LEAF_PRECREATE
+    if (mkdir_owned_dir(mdm,
+                        A90_AID_VENDOR_RFS,
+                        A90_AID_VENDOR_RFS,
+                        0770,
+                        error_buf,
+                        error_size,
+                        "persist-rfs-mdm") < 0 ||
+        mkdir_owned_dir(mdm_mpss,
+                        A90_AID_VENDOR_RFS,
+                        A90_AID_VENDOR_RFS,
+                        0770,
+                        error_buf,
+                        error_size,
+                        "persist-rfs-mdm-mpss") < 0 ||
+        mkdir_owned_dir(apq,
+                        A90_AID_VENDOR_RFS,
+                        A90_AID_VENDOR_RFS,
+                        0770,
+                        error_buf,
+                        error_size,
+                        "persist-rfs-apq") < 0 ||
+        mkdir_owned_dir(apq_gnss,
+                        A90_AID_VENDOR_RFS,
+                        A90_AID_VENDOR_RFS,
+                        0770,
+                        error_buf,
+                        error_size,
+                        "persist-rfs-apq-gnss") < 0) {
+        return -1;
+    }
+#endif
     return 0;
 }
 #endif
@@ -11129,6 +11181,8 @@ static int append_wlan_pd_rfs_bridge_snapshot(struct buffer *buf,
 #if A90_WIFI_TEST_BOOT_TFTP_PERSIST_RFS_TMPFS
                          "%s.persist_rfs.tmpfs_requested=1\n"
                          "%s.persist_rfs.autodir_parity=%d\n"
+                         "%s.persist_rfs.leaf_precreate=%d\n"
+                         "%s.persist_rfs.leaf_precreate_paths=/mnt/vendor/persist/rfs/mdm/mpss,/mnt/vendor/persist/rfs/apq/gnss\n"
                          "%s.persist_rfs.path=/mnt/vendor/persist/rfs\n"
                          "%s.persist_rfs.host_path=%s\n"
                          "%s.persist_rfs.exists=%d\n"
@@ -11242,6 +11296,9 @@ static int append_wlan_pd_rfs_bridge_snapshot(struct buffer *buf,
                          prefix,
                          prefix,
                          A90_WIFI_TEST_BOOT_TFTP_PERSIST_RFS_AUTODIR_PARITY ? 1 : 0,
+                         prefix,
+                         A90_WIFI_TEST_BOOT_TFTP_PERSIST_RFS_LEAF_PRECREATE ? 1 : 0,
+                         prefix,
                          prefix,
                          prefix, paths->mnt_vendor_persist_rfs,
                          prefix, persist_rfs_exists ? 1 : 0,
@@ -33945,6 +34002,8 @@ static int append_tftp_process_namespace_audit(struct buffer *buf,
         append_tftp_process_root_path_stat(buf, child->pid, prefix, "persist_rfs_msm", "/mnt/vendor/persist/rfs/msm") < 0 ||
         append_tftp_process_root_path_stat(buf, child->pid, prefix, "persist_rfs_msm_mpss", "/mnt/vendor/persist/rfs/msm/mpss") < 0 ||
         append_tftp_process_root_path_stat(buf, child->pid, prefix, "persist_rfs_msm_adsp", "/mnt/vendor/persist/rfs/msm/adsp") < 0 ||
+        append_tftp_process_root_path_stat(buf, child->pid, prefix, "persist_rfs_mdm_mpss", "/mnt/vendor/persist/rfs/mdm/mpss") < 0 ||
+        append_tftp_process_root_path_stat(buf, child->pid, prefix, "persist_rfs_apq_gnss", "/mnt/vendor/persist/rfs/apq/gnss") < 0 ||
         append_tftp_process_root_path_stat(buf, child->pid, prefix, "vendor_rfs_readwrite", "/vendor/rfs/msm/mpss/readwrite") < 0 ||
         append_tftp_process_root_path_stat(buf, child->pid, prefix, "data_tombstones_rfs", "/data/vendor/tombstones/rfs") < 0 ||
         append_proc_file_capture_named(buf, child->pid, "status", "tftp_process_namespace_status", 8192, &captured) < 0 ||
@@ -49546,6 +49605,10 @@ static int run_wifi_companion_start_only_guarded(const struct config *cfg,
                       "wifi_companion_start.tftp_persist_rfs_parent_traverse_parity.paths=/mnt,/mnt/vendor,/mnt/vendor/persist\n"
                       "wifi_companion_start.tftp_persist_rfs_parent_traverse_parity.owner=root:system\n"
                       "wifi_companion_start.tftp_persist_rfs_parent_traverse_parity.mode=0750\n"
+                      "wifi_companion_start.tftp_persist_rfs_leaf_precreate.enabled=%d\n"
+                      "wifi_companion_start.tftp_persist_rfs_leaf_precreate.paths=/mnt/vendor/persist/rfs/mdm/mpss,/mnt/vendor/persist/rfs/apq/gnss\n"
+                      "wifi_companion_start.tftp_persist_rfs_leaf_precreate.owner=vendor_rfs:vendor_rfs\n"
+                      "wifi_companion_start.tftp_persist_rfs_leaf_precreate.mode=0770\n"
                       "wifi_companion_start.tftp_process_namespace_audit.compiled=%d\n"
                       "wifi_companion_start.wlan_pd_firmware_serve_gate.enabled=%d\n"
                       "wifi_companion_start.wlan_pd_firmware_serve_gate.subsys_modem_holder_planned=%d\n"
@@ -49597,6 +49660,7 @@ static int run_wifi_companion_start_only_guarded(const struct config *cfg,
                       A90_WIFI_TEST_BOOT_TFTP_TOMBSTONE_RFS_TMPFS ? 1 : 0,
                       A90_WIFI_TEST_BOOT_TFTP_TOMBSTONE_RFS_VENDOR_RFS_PERMS ? 1 : 0,
                       A90_WIFI_TEST_BOOT_TFTP_PERSIST_RFS_PARENT_TRAVERSE_PARITY ? 1 : 0,
+                      A90_WIFI_TEST_BOOT_TFTP_PERSIST_RFS_LEAF_PRECREATE ? 1 : 0,
                       A90_WIFI_TEST_BOOT_TFTP_PROCESS_NAMESPACE_AUDIT ? 1 : 0,
                       wlan_pd_firmware_serve_gate ? 1 : 0,
                       wlan_pd_firmware_serve_gate ? 1 : 0,
