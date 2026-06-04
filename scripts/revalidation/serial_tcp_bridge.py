@@ -54,6 +54,7 @@ class Bridge:
         self.stop_requested = False
         self.next_serial_retry = 0.0
         self.next_serial_identity_check = 0.0
+        self.serial_tx_buffer = bytearray()
 
         if self.args.capture:
             capture_path = Path(self.args.capture)
@@ -191,6 +192,18 @@ class Bridge:
         self.selector.register(fd, selectors.EVENT_READ, "serial")
         self.log(f"serial connected: {device}")
 
+    def update_serial_events(self) -> None:
+        if self.serial_fd is None:
+            return
+
+        events = selectors.EVENT_READ
+        if self.serial_tx_buffer:
+            events |= selectors.EVENT_WRITE
+        try:
+            self.selector.modify(self.serial_fd, events, "serial")
+        except KeyError:
+            self.selector.register(self.serial_fd, events, "serial")
+
     def set_exclusive_tty(self, fd: int) -> None:
         try:
             fcntl.ioctl(fd, termios.TIOCEXCL)
@@ -214,6 +227,7 @@ class Bridge:
         self.serial_fd = None
         self.serial_device = None
         self.serial_stat = None
+        self.serial_tx_buffer.clear()
         self.next_serial_retry = time.monotonic() + self.args.retry_interval
         self.log("serial disconnected")
         self.close_client()
@@ -325,6 +339,27 @@ class Bridge:
                 self.log(f"client write failed: {exc}")
                 self.close_client()
 
+    def flush_serial_tx(self) -> None:
+        if self.serial_fd is None:
+            self.serial_tx_buffer.clear()
+            return
+
+        while self.serial_tx_buffer:
+            try:
+                written = os.write(self.serial_fd, self.serial_tx_buffer)
+            except OSError as exc:
+                if exc.errno in {errno.EAGAIN, errno.EWOULDBLOCK}:
+                    break
+                self.log(f"serial write failed: {exc}")
+                self.close_serial()
+                return
+
+            if written <= 0:
+                break
+            del self.serial_tx_buffer[:written]
+
+        self.update_serial_events()
+
     def forward_client(self) -> None:
         if self.client is None:
             return
@@ -347,11 +382,8 @@ class Bridge:
         if self.serial_fd is None:
             return
 
-        try:
-            os.write(self.serial_fd, data)
-        except OSError as exc:
-            self.log(f"serial write failed: {exc}")
-            self.close_serial()
+        self.serial_tx_buffer.extend(data)
+        self.flush_serial_tx()
 
     def tick(self) -> None:
         self.check_serial_identity()
@@ -362,12 +394,15 @@ class Bridge:
                 self.next_serial_retry = time.monotonic() + self.args.retry_interval
 
         events = self.selector.select(timeout=1.0)
-        for key, _ in events:
+        for key, mask in events:
             if key.data == "server":
                 self.accept_client()
             elif key.data == "serial":
                 if self.serial_fd is not None and key.fileobj == self.serial_fd:
-                    self.forward_serial()
+                    if mask & selectors.EVENT_READ:
+                        self.forward_serial()
+                    if mask & selectors.EVENT_WRITE:
+                        self.flush_serial_tx()
             elif key.data == "client":
                 if self.client is not None and key.fileobj is self.client:
                     self.forward_client()
