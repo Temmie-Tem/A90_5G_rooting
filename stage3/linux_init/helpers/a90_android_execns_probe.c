@@ -156,11 +156,17 @@
 #define A90_WIFI_TEST_BOOT_DIAG_DCI_CANARY_MASK_PROBE 0
 #endif
 
+#ifndef A90_WIFI_TEST_BOOT_DIAG_DCI_WLAN_TARGET_MASK_PROBE
+#define A90_WIFI_TEST_BOOT_DIAG_DCI_WLAN_TARGET_MASK_PROBE 0
+#endif
+
 #ifndef A90_WIFI_TEST_BOOT_DIAG_PD_QUERY_PROBE
 #define A90_WIFI_TEST_BOOT_DIAG_PD_QUERY_PROBE 0
 #endif
 
-#if A90_WIFI_TEST_BOOT_DIAG_PD_QUERY_PROBE && A90_WIFI_TEST_BOOT_PERMGR_VOTE_FOCUSED_SUMMARY && A90_WIFI_TEST_BOOT_TFTP_READWRITE_TRANSITION_SAMPLER && A90_WIFI_TEST_BOOT_TFTP_READY_BEFORE_WLFW_VOTE && A90_WIFI_TEST_BOOT_TFTP_LOGDW_ORDER_TIMESTAMPS && A90_WIFI_TEST_BOOT_TFTP_PERSIST_RFS_TMPFS && A90_WIFI_TEST_BOOT_TFTP_MCFG_READBACK && A90_WIFI_TEST_BOOT_TFTP_LOGDW_SINK && !A90_RFS_BRIDGE_SERVE_FIRMWARE_MNT_PROBE
+#if A90_WIFI_TEST_BOOT_DIAG_DCI_WLAN_TARGET_MASK_PROBE && A90_WIFI_TEST_BOOT_DIAG_DCI_REGISTER_READ_PROBE && A90_WIFI_TEST_BOOT_PERMGR_VOTE_FOCUSED_SUMMARY && A90_WIFI_TEST_BOOT_TFTP_READWRITE_TRANSITION_SAMPLER && A90_WIFI_TEST_BOOT_TFTP_READY_BEFORE_WLFW_VOTE && A90_WIFI_TEST_BOOT_TFTP_LOGDW_ORDER_TIMESTAMPS && A90_WIFI_TEST_BOOT_TFTP_PERSIST_RFS_TMPFS && A90_WIFI_TEST_BOOT_TFTP_MCFG_READBACK && A90_WIFI_TEST_BOOT_TFTP_LOGDW_SINK && !A90_RFS_BRIDGE_SERVE_FIRMWARE_MNT_PROBE
+#define EXECNS_VERSION "a90_android_execns_probe v398"
+#elif A90_WIFI_TEST_BOOT_DIAG_PD_QUERY_PROBE && A90_WIFI_TEST_BOOT_PERMGR_VOTE_FOCUSED_SUMMARY && A90_WIFI_TEST_BOOT_TFTP_READWRITE_TRANSITION_SAMPLER && A90_WIFI_TEST_BOOT_TFTP_READY_BEFORE_WLFW_VOTE && A90_WIFI_TEST_BOOT_TFTP_LOGDW_ORDER_TIMESTAMPS && A90_WIFI_TEST_BOOT_TFTP_PERSIST_RFS_TMPFS && A90_WIFI_TEST_BOOT_TFTP_MCFG_READBACK && A90_WIFI_TEST_BOOT_TFTP_LOGDW_SINK && !A90_RFS_BRIDGE_SERVE_FIRMWARE_MNT_PROBE
 #define EXECNS_VERSION "a90_android_execns_probe v397"
 #elif A90_WIFI_TEST_BOOT_DIAG_DCI_CANARY_MASK_PROBE && A90_WIFI_TEST_BOOT_DIAG_DCI_REGISTER_READ_PROBE && A90_WIFI_TEST_BOOT_PERMGR_VOTE_FOCUSED_SUMMARY && A90_WIFI_TEST_BOOT_TFTP_READWRITE_TRANSITION_SAMPLER && A90_WIFI_TEST_BOOT_TFTP_READY_BEFORE_WLFW_VOTE && A90_WIFI_TEST_BOOT_TFTP_LOGDW_ORDER_TIMESTAMPS && A90_WIFI_TEST_BOOT_TFTP_PERSIST_RFS_TMPFS && A90_WIFI_TEST_BOOT_TFTP_MCFG_READBACK && A90_WIFI_TEST_BOOT_TFTP_LOGDW_SINK && !A90_RFS_BRIDGE_SERVE_FIRMWARE_MNT_PROBE
 #define EXECNS_VERSION "a90_android_execns_probe v396"
@@ -27667,6 +27673,12 @@ static int a90_diag_pd_query_probe_stop(struct buffer *stdout_buf) {
 #define A90_DIAG_DCI_CANARY_EVENT_TYPE (-2)
 #define A90_DIAG_DCI_CANARY_LOG_CODE 0x0000U
 #define A90_DIAG_DCI_CANARY_EVENT_ID 0U
+#define A90_DIAG_DCI_WLAN_LOG_PKT_LOG_INFO 0x18e0U
+#define A90_DIAG_DCI_WLAN_LOG_COLD_BOOT_CAL_DATA 0x1a18U
+#define A90_DIAG_DCI_WLAN_LOG_DP_PROTO_PKT_INFO 0x1a1eU
+#define A90_DIAG_DCI_WLAN_EVENT_BRINGUP_STATUS 0x0680U
+#define A90_DIAG_DCI_WLAN_EVENT_LOG_COMPLETE 0x0aa7U
+#define A90_DIAG_DCI_WLAN_EVENT_STATUS_V2 0x0ab3U
 
 struct a90_diag_dci_register_support_query {
     int proc;
@@ -27724,6 +27736,61 @@ struct a90_diag_dci_write_frame {
         struct a90_diag_dci_canary_event_request event_request;
     } body;
 } __attribute__((packed));
+
+#if A90_WIFI_TEST_BOOT_DIAG_DCI_WLAN_TARGET_MASK_PROBE
+struct a90_diag_dci_wlan_log_target {
+    const char *name;
+    unsigned int code;
+};
+
+struct a90_diag_dci_wlan_event_target {
+    const char *name;
+    unsigned int event_id;
+};
+
+struct a90_diag_dci_wlan_target_mask_probe {
+    bool attempted;
+    bool armed;
+    bool clear_attempted;
+    bool completed;
+    int health_pre_rc;
+    int health_pre_errno;
+    int health_pre_received_logs;
+    int health_pre_received_events;
+    int health_post_rc;
+    int health_post_errno;
+    int health_post_received_logs;
+    int health_post_received_events;
+    unsigned int log_count;
+    unsigned int event_count;
+    unsigned int set_write_attempts;
+    unsigned int set_write_successes;
+    unsigned int set_write_errors;
+    unsigned int clear_write_attempts;
+    unsigned int clear_write_successes;
+    unsigned int clear_write_errors;
+    unsigned int log_pre_set_count;
+    unsigned int log_set_set_count;
+    unsigned int log_clear_set_count;
+    unsigned int event_pre_set_count;
+    unsigned int event_set_set_count;
+    unsigned int event_clear_set_count;
+};
+
+static struct a90_diag_dci_wlan_target_mask_probe g_diag_dci_wlan_target_mask_probe;
+
+static const struct a90_diag_dci_wlan_log_target a90_diag_dci_wlan_log_targets[] = {
+    {"LOG_WLAN_PKT_LOG_INFO_C", A90_DIAG_DCI_WLAN_LOG_PKT_LOG_INFO},
+    {"LOG_WLAN_COLD_BOOT_CAL_DATA_C", A90_DIAG_DCI_WLAN_LOG_COLD_BOOT_CAL_DATA},
+    {"LOG_WLAN_DP_PROTO_PKT_INFO_C", A90_DIAG_DCI_WLAN_LOG_DP_PROTO_PKT_INFO},
+};
+
+static const struct a90_diag_dci_wlan_event_target a90_diag_dci_wlan_event_targets[] = {
+    {"EVENT_WLAN_BRINGUP_STATUS", A90_DIAG_DCI_WLAN_EVENT_BRINGUP_STATUS},
+    {"EVENT_WLAN_LOG_COMPLETE", A90_DIAG_DCI_WLAN_EVENT_LOG_COMPLETE},
+    {"EVENT_WLAN_STATUS_V2", A90_DIAG_DCI_WLAN_EVENT_STATUS_V2},
+};
+#endif
 
 struct a90_diag_dci_register_read_probe {
     int fd;
@@ -28207,6 +28274,444 @@ static int a90_diag_dci_canary_mask_run(struct buffer *stdout_buf) {
 }
 #endif
 
+#if A90_WIFI_TEST_BOOT_DIAG_DCI_WLAN_TARGET_MASK_PROBE
+static int a90_diag_dci_wlan_target_query_health(const char *phase,
+                                                 int *rc_out,
+                                                 int *errno_out,
+                                                 int *received_logs_out,
+                                                 int *received_events_out,
+                                                 struct buffer *stdout_buf) {
+    struct a90_diag_dci_health_stats_proc stats;
+    int ioctl_rc;
+    int saved_errno;
+
+    memset(&stats, 0, sizeof(stats));
+    stats.client_id = g_diag_dci_register_read_probe.client_id;
+    stats.proc = g_diag_dci_register_read_probe.selected_proc;
+    errno = 0;
+    ioctl_rc = ioctl(g_diag_dci_register_read_probe.fd,
+                     A90_DIAG_DCI_IOCTL_HEALTH_STATS,
+                     &stats);
+    saved_errno = errno;
+    *rc_out = ioctl_rc;
+    *errno_out = saved_errno;
+    *received_logs_out = stats.health.received_logs;
+    *received_events_out = stats.health.received_events;
+    return append_format(stdout_buf,
+                         "diag_dci_wlan_target_mask_probe.%s.health_rc=%d\n"
+                         "diag_dci_wlan_target_mask_probe.%s.health_errno=%d\n"
+                         "diag_dci_wlan_target_mask_probe.%s.health_received_logs=%d\n"
+                         "diag_dci_wlan_target_mask_probe.%s.health_received_events=%d\n",
+                         phase,
+                         ioctl_rc,
+                         phase,
+                         saved_errno,
+                         phase,
+                         stats.health.received_logs,
+                         phase,
+                         stats.health.received_events);
+}
+
+static int a90_diag_dci_wlan_target_query_log_status(size_t index,
+                                                     unsigned int phase_index,
+                                                     const char *phase,
+                                                     const struct a90_diag_dci_wlan_log_target *target,
+                                                     struct buffer *stdout_buf) {
+    struct a90_diag_dci_log_event_status status;
+    int ioctl_rc;
+    int saved_errno;
+
+    memset(&status, 0, sizeof(status));
+    status.client_id = g_diag_dci_register_read_probe.client_id;
+    status.code = (unsigned short)target->code;
+    errno = 0;
+    ioctl_rc = ioctl(g_diag_dci_register_read_probe.fd,
+                     A90_DIAG_DCI_IOCTL_LOG_STATUS,
+                     &status);
+    saved_errno = errno;
+    if (status.is_set) {
+        if (phase_index == 0U) {
+            g_diag_dci_wlan_target_mask_probe.log_pre_set_count++;
+        } else if (phase_index == 1U) {
+            g_diag_dci_wlan_target_mask_probe.log_set_set_count++;
+        } else {
+            g_diag_dci_wlan_target_mask_probe.log_clear_set_count++;
+        }
+    }
+    return append_format(stdout_buf,
+                         "diag_dci_wlan_target_mask_probe.log_%02zu.%s.status_rc=%d\n"
+                         "diag_dci_wlan_target_mask_probe.log_%02zu.%s.status_errno=%d\n"
+                         "diag_dci_wlan_target_mask_probe.log_%02zu.%s.status_is_set=%d\n",
+                         index,
+                         phase,
+                         ioctl_rc,
+                         index,
+                         phase,
+                         saved_errno,
+                         index,
+                         phase,
+                         status.is_set);
+}
+
+static int a90_diag_dci_wlan_target_query_event_status(size_t index,
+                                                       unsigned int phase_index,
+                                                       const char *phase,
+                                                       const struct a90_diag_dci_wlan_event_target *target,
+                                                       struct buffer *stdout_buf) {
+    struct a90_diag_dci_log_event_status status;
+    int ioctl_rc;
+    int saved_errno;
+
+    memset(&status, 0, sizeof(status));
+    status.client_id = g_diag_dci_register_read_probe.client_id;
+    status.code = (unsigned short)target->event_id;
+    errno = 0;
+    ioctl_rc = ioctl(g_diag_dci_register_read_probe.fd,
+                     A90_DIAG_DCI_IOCTL_EVENT_STATUS,
+                     &status);
+    saved_errno = errno;
+    if (status.is_set) {
+        if (phase_index == 0U) {
+            g_diag_dci_wlan_target_mask_probe.event_pre_set_count++;
+        } else if (phase_index == 1U) {
+            g_diag_dci_wlan_target_mask_probe.event_set_set_count++;
+        } else {
+            g_diag_dci_wlan_target_mask_probe.event_clear_set_count++;
+        }
+    }
+    return append_format(stdout_buf,
+                         "diag_dci_wlan_target_mask_probe.event_%02zu.%s.status_rc=%d\n"
+                         "diag_dci_wlan_target_mask_probe.event_%02zu.%s.status_errno=%d\n"
+                         "diag_dci_wlan_target_mask_probe.event_%02zu.%s.status_is_set=%d\n",
+                         index,
+                         phase,
+                         ioctl_rc,
+                         index,
+                         phase,
+                         saved_errno,
+                         index,
+                         phase,
+                         status.is_set);
+}
+
+static int a90_diag_dci_wlan_target_write_log(size_t index,
+                                              const char *phase,
+                                              int set_flag,
+                                              const struct a90_diag_dci_wlan_log_target *target,
+                                              struct buffer *stdout_buf) {
+    struct a90_diag_dci_write_frame frame;
+    ssize_t write_rc;
+    int saved_errno;
+
+    memset(&frame, 0, sizeof(frame));
+    frame.packet_type = (int)A90_DIAG_DCI_DATA_TYPE;
+    frame.body.log_request.transaction_type = A90_DIAG_DCI_CANARY_LOG_TYPE;
+    frame.body.log_request.client_id = g_diag_dci_register_read_probe.client_id;
+    frame.body.log_request.set_flag = set_flag;
+    frame.body.log_request.count = 1;
+    frame.body.log_request.log_code = (unsigned short)target->code;
+    if (set_flag) {
+        g_diag_dci_wlan_target_mask_probe.set_write_attempts++;
+    } else {
+        g_diag_dci_wlan_target_mask_probe.clear_write_attempts++;
+    }
+    errno = 0;
+    write_rc = write(g_diag_dci_register_read_probe.fd,
+                     &frame,
+                     sizeof(frame.packet_type) + sizeof(frame.body.log_request));
+    saved_errno = errno;
+    if (write_rc >= 0) {
+        if (set_flag) {
+            g_diag_dci_wlan_target_mask_probe.set_write_successes++;
+        } else {
+            g_diag_dci_wlan_target_mask_probe.clear_write_successes++;
+        }
+    } else if (set_flag) {
+        g_diag_dci_wlan_target_mask_probe.set_write_errors++;
+    } else {
+        g_diag_dci_wlan_target_mask_probe.clear_write_errors++;
+    }
+    return append_format(stdout_buf,
+                         "diag_dci_wlan_target_mask_probe.log_%02zu.%s.write_rc=%d\n"
+                         "diag_dci_wlan_target_mask_probe.log_%02zu.%s.write_errno=%d\n",
+                         index,
+                         phase,
+                         (int)write_rc,
+                         index,
+                         phase,
+                         saved_errno);
+}
+
+static int a90_diag_dci_wlan_target_write_event(size_t index,
+                                                const char *phase,
+                                                int set_flag,
+                                                const struct a90_diag_dci_wlan_event_target *target,
+                                                struct buffer *stdout_buf) {
+    struct a90_diag_dci_write_frame frame;
+    ssize_t write_rc;
+    int saved_errno;
+
+    memset(&frame, 0, sizeof(frame));
+    frame.packet_type = (int)A90_DIAG_DCI_DATA_TYPE;
+    frame.body.event_request.transaction_type = A90_DIAG_DCI_CANARY_EVENT_TYPE;
+    frame.body.event_request.client_id = g_diag_dci_register_read_probe.client_id;
+    frame.body.event_request.set_flag = set_flag;
+    frame.body.event_request.count = 1;
+    frame.body.event_request.event_id = (int)target->event_id;
+    if (set_flag) {
+        g_diag_dci_wlan_target_mask_probe.set_write_attempts++;
+    } else {
+        g_diag_dci_wlan_target_mask_probe.clear_write_attempts++;
+    }
+    errno = 0;
+    write_rc = write(g_diag_dci_register_read_probe.fd,
+                     &frame,
+                     sizeof(frame.packet_type) + sizeof(frame.body.event_request));
+    saved_errno = errno;
+    if (write_rc >= 0) {
+        if (set_flag) {
+            g_diag_dci_wlan_target_mask_probe.set_write_successes++;
+        } else {
+            g_diag_dci_wlan_target_mask_probe.clear_write_successes++;
+        }
+    } else if (set_flag) {
+        g_diag_dci_wlan_target_mask_probe.set_write_errors++;
+    } else {
+        g_diag_dci_wlan_target_mask_probe.clear_write_errors++;
+    }
+    return append_format(stdout_buf,
+                         "diag_dci_wlan_target_mask_probe.event_%02zu.%s.write_rc=%d\n"
+                         "diag_dci_wlan_target_mask_probe.event_%02zu.%s.write_errno=%d\n",
+                         index,
+                         phase,
+                         (int)write_rc,
+                         index,
+                         phase,
+                         saved_errno);
+}
+
+static int a90_diag_dci_wlan_target_emit_summary(struct buffer *stdout_buf) {
+    return append_format(stdout_buf,
+                         "diag_dci_wlan_target_mask_probe.summary.attempted=%d\n"
+                         "diag_dci_wlan_target_mask_probe.summary.armed=%d\n"
+                         "diag_dci_wlan_target_mask_probe.summary.clear_attempted=%d\n"
+                         "diag_dci_wlan_target_mask_probe.summary.completed=%d\n"
+                         "diag_dci_wlan_target_mask_probe.summary.log_count=%u\n"
+                         "diag_dci_wlan_target_mask_probe.summary.event_count=%u\n"
+                         "diag_dci_wlan_target_mask_probe.summary.set_write_attempts=%u\n"
+                         "diag_dci_wlan_target_mask_probe.summary.set_write_successes=%u\n"
+                         "diag_dci_wlan_target_mask_probe.summary.set_write_errors=%u\n"
+                         "diag_dci_wlan_target_mask_probe.summary.clear_write_attempts=%u\n"
+                         "diag_dci_wlan_target_mask_probe.summary.clear_write_successes=%u\n"
+                         "diag_dci_wlan_target_mask_probe.summary.clear_write_errors=%u\n"
+                         "diag_dci_wlan_target_mask_probe.summary.log_pre_set_count=%u\n"
+                         "diag_dci_wlan_target_mask_probe.summary.log_set_set_count=%u\n"
+                         "diag_dci_wlan_target_mask_probe.summary.log_clear_set_count=%u\n"
+                         "diag_dci_wlan_target_mask_probe.summary.event_pre_set_count=%u\n"
+                         "diag_dci_wlan_target_mask_probe.summary.event_set_set_count=%u\n"
+                         "diag_dci_wlan_target_mask_probe.summary.event_clear_set_count=%u\n"
+                         "diag_dci_wlan_target_mask_probe.summary.health_pre_rc=%d\n"
+                         "diag_dci_wlan_target_mask_probe.summary.health_pre_errno=%d\n"
+                         "diag_dci_wlan_target_mask_probe.summary.health_pre_received_logs=%d\n"
+                         "diag_dci_wlan_target_mask_probe.summary.health_pre_received_events=%d\n"
+                         "diag_dci_wlan_target_mask_probe.summary.health_post_rc=%d\n"
+                         "diag_dci_wlan_target_mask_probe.summary.health_post_errno=%d\n"
+                         "diag_dci_wlan_target_mask_probe.summary.health_post_received_logs=%d\n"
+                         "diag_dci_wlan_target_mask_probe.summary.health_post_received_events=%d\n",
+                         g_diag_dci_wlan_target_mask_probe.attempted ? 1 : 0,
+                         g_diag_dci_wlan_target_mask_probe.armed ? 1 : 0,
+                         g_diag_dci_wlan_target_mask_probe.clear_attempted ? 1 : 0,
+                         g_diag_dci_wlan_target_mask_probe.completed ? 1 : 0,
+                         g_diag_dci_wlan_target_mask_probe.log_count,
+                         g_diag_dci_wlan_target_mask_probe.event_count,
+                         g_diag_dci_wlan_target_mask_probe.set_write_attempts,
+                         g_diag_dci_wlan_target_mask_probe.set_write_successes,
+                         g_diag_dci_wlan_target_mask_probe.set_write_errors,
+                         g_diag_dci_wlan_target_mask_probe.clear_write_attempts,
+                         g_diag_dci_wlan_target_mask_probe.clear_write_successes,
+                         g_diag_dci_wlan_target_mask_probe.clear_write_errors,
+                         g_diag_dci_wlan_target_mask_probe.log_pre_set_count,
+                         g_diag_dci_wlan_target_mask_probe.log_set_set_count,
+                         g_diag_dci_wlan_target_mask_probe.log_clear_set_count,
+                         g_diag_dci_wlan_target_mask_probe.event_pre_set_count,
+                         g_diag_dci_wlan_target_mask_probe.event_set_set_count,
+                         g_diag_dci_wlan_target_mask_probe.event_clear_set_count,
+                         g_diag_dci_wlan_target_mask_probe.health_pre_rc,
+                         g_diag_dci_wlan_target_mask_probe.health_pre_errno,
+                         g_diag_dci_wlan_target_mask_probe.health_pre_received_logs,
+                         g_diag_dci_wlan_target_mask_probe.health_pre_received_events,
+                         g_diag_dci_wlan_target_mask_probe.health_post_rc,
+                         g_diag_dci_wlan_target_mask_probe.health_post_errno,
+                         g_diag_dci_wlan_target_mask_probe.health_post_received_logs,
+                         g_diag_dci_wlan_target_mask_probe.health_post_received_events);
+}
+
+static int a90_diag_dci_wlan_target_mask_run(struct buffer *stdout_buf) {
+    if (!g_diag_dci_register_read_probe.registered ||
+        g_diag_dci_register_read_probe.fd < 0 ||
+        g_diag_dci_register_read_probe.client_id <= 0 ||
+        g_diag_dci_wlan_target_mask_probe.attempted) {
+        return 0;
+    }
+    memset(&g_diag_dci_wlan_target_mask_probe,
+           0,
+           sizeof(g_diag_dci_wlan_target_mask_probe));
+    g_diag_dci_wlan_target_mask_probe.attempted = true;
+    g_diag_dci_wlan_target_mask_probe.log_count =
+        (unsigned int)(sizeof(a90_diag_dci_wlan_log_targets) /
+                       sizeof(a90_diag_dci_wlan_log_targets[0]));
+    g_diag_dci_wlan_target_mask_probe.event_count =
+        (unsigned int)(sizeof(a90_diag_dci_wlan_event_targets) /
+                       sizeof(a90_diag_dci_wlan_event_targets[0]));
+    if (append_format(stdout_buf,
+                      "diag_dci_wlan_target_mask_probe.begin=1\n"
+                      "diag_dci_wlan_target_mask_probe.mode=bounded-dci-data-write-targeted-wlan-log-event-masks-hold-until-cleanup-no-switch-logging\n"
+                      "diag_dci_wlan_target_mask_probe.rootfs_namespace_only=1\n"
+                      "diag_dci_wlan_target_mask_probe.sda29_write=0\n"
+                      "diag_dci_wlan_target_mask_probe.switch_logging_attempted=0\n"
+                      "diag_dci_wlan_target_mask_probe.diag_write_attempted=1\n"
+                      "diag_dci_wlan_target_mask_probe.diag_write_scope=dci-data-only-three-wlan-logs-three-wlan-events-set-hold-clear\n"
+                      "diag_dci_wlan_target_mask_probe.stream_config_attempted=0\n"
+                      "diag_dci_wlan_target_mask_probe.qmi_send=0\n"
+                      "diag_dci_wlan_target_mask_probe.ptraced=0\n"
+                      "diag_dci_wlan_target_mask_probe.log_count=%u\n"
+                      "diag_dci_wlan_target_mask_probe.event_count=%u\n",
+                      g_diag_dci_wlan_target_mask_probe.log_count,
+                      g_diag_dci_wlan_target_mask_probe.event_count) < 0) {
+        return -1;
+    }
+    for (size_t i = 0; i < sizeof(a90_diag_dci_wlan_log_targets) / sizeof(a90_diag_dci_wlan_log_targets[0]); i++) {
+        if (append_format(stdout_buf,
+                          "diag_dci_wlan_target_mask_probe.log_%02zu.name=%s\n"
+                          "diag_dci_wlan_target_mask_probe.log_%02zu.code=0x%x\n",
+                          i,
+                          a90_diag_dci_wlan_log_targets[i].name,
+                          i,
+                          a90_diag_dci_wlan_log_targets[i].code) < 0 ||
+            a90_diag_dci_wlan_target_query_log_status(i,
+                                                       0U,
+                                                       "pre",
+                                                       &a90_diag_dci_wlan_log_targets[i],
+                                                       stdout_buf) < 0) {
+            return -1;
+        }
+    }
+    for (size_t i = 0; i < sizeof(a90_diag_dci_wlan_event_targets) / sizeof(a90_diag_dci_wlan_event_targets[0]); i++) {
+        if (append_format(stdout_buf,
+                          "diag_dci_wlan_target_mask_probe.event_%02zu.name=%s\n"
+                          "diag_dci_wlan_target_mask_probe.event_%02zu.event_id=0x%x\n",
+                          i,
+                          a90_diag_dci_wlan_event_targets[i].name,
+                          i,
+                          a90_diag_dci_wlan_event_targets[i].event_id) < 0 ||
+            a90_diag_dci_wlan_target_query_event_status(i,
+                                                         0U,
+                                                         "pre",
+                                                         &a90_diag_dci_wlan_event_targets[i],
+                                                         stdout_buf) < 0) {
+            return -1;
+        }
+    }
+    if (a90_diag_dci_wlan_target_query_health(
+            "pre",
+            &g_diag_dci_wlan_target_mask_probe.health_pre_rc,
+            &g_diag_dci_wlan_target_mask_probe.health_pre_errno,
+            &g_diag_dci_wlan_target_mask_probe.health_pre_received_logs,
+            &g_diag_dci_wlan_target_mask_probe.health_pre_received_events,
+            stdout_buf) < 0) {
+        return -1;
+    }
+    for (size_t i = 0; i < sizeof(a90_diag_dci_wlan_log_targets) / sizeof(a90_diag_dci_wlan_log_targets[0]); i++) {
+        if (a90_diag_dci_wlan_target_write_log(i,
+                                               "set",
+                                               1,
+                                               &a90_diag_dci_wlan_log_targets[i],
+                                               stdout_buf) < 0 ||
+            a90_diag_dci_wlan_target_query_log_status(i,
+                                                       1U,
+                                                       "set",
+                                                       &a90_diag_dci_wlan_log_targets[i],
+                                                       stdout_buf) < 0) {
+            return -1;
+        }
+    }
+    for (size_t i = 0; i < sizeof(a90_diag_dci_wlan_event_targets) / sizeof(a90_diag_dci_wlan_event_targets[0]); i++) {
+        if (a90_diag_dci_wlan_target_write_event(i,
+                                                 "set",
+                                                 1,
+                                                 &a90_diag_dci_wlan_event_targets[i],
+                                                 stdout_buf) < 0 ||
+            a90_diag_dci_wlan_target_query_event_status(i,
+                                                         1U,
+                                                         "set",
+                                                         &a90_diag_dci_wlan_event_targets[i],
+                                                         stdout_buf) < 0) {
+            return -1;
+        }
+    }
+    g_diag_dci_wlan_target_mask_probe.armed =
+        g_diag_dci_wlan_target_mask_probe.set_write_successes > 0U;
+    return append_format(stdout_buf,
+                         "diag_dci_wlan_target_mask_probe.armed=%d\n"
+                         "diag_dci_wlan_target_mask_probe.hold_until_cleanup=1\n",
+                         g_diag_dci_wlan_target_mask_probe.armed ? 1 : 0);
+}
+
+static int a90_diag_dci_wlan_target_mask_stop(struct buffer *stdout_buf) {
+    if (!g_diag_dci_wlan_target_mask_probe.attempted ||
+        g_diag_dci_wlan_target_mask_probe.clear_attempted ||
+        g_diag_dci_register_read_probe.fd < 0 ||
+        g_diag_dci_register_read_probe.client_id <= 0) {
+        return 0;
+    }
+    g_diag_dci_wlan_target_mask_probe.clear_attempted = true;
+    if (append_literal(stdout_buf,
+                       "diag_dci_wlan_target_mask_probe.cleanup.begin=1\n") < 0 ||
+        a90_diag_dci_wlan_target_query_health(
+            "post",
+            &g_diag_dci_wlan_target_mask_probe.health_post_rc,
+            &g_diag_dci_wlan_target_mask_probe.health_post_errno,
+            &g_diag_dci_wlan_target_mask_probe.health_post_received_logs,
+            &g_diag_dci_wlan_target_mask_probe.health_post_received_events,
+            stdout_buf) < 0) {
+        return -1;
+    }
+    for (size_t i = 0; i < sizeof(a90_diag_dci_wlan_log_targets) / sizeof(a90_diag_dci_wlan_log_targets[0]); i++) {
+        if (a90_diag_dci_wlan_target_write_log(i,
+                                               "clear",
+                                               0,
+                                               &a90_diag_dci_wlan_log_targets[i],
+                                               stdout_buf) < 0 ||
+            a90_diag_dci_wlan_target_query_log_status(i,
+                                                       2U,
+                                                       "clear",
+                                                       &a90_diag_dci_wlan_log_targets[i],
+                                                       stdout_buf) < 0) {
+            return -1;
+        }
+    }
+    for (size_t i = 0; i < sizeof(a90_diag_dci_wlan_event_targets) / sizeof(a90_diag_dci_wlan_event_targets[0]); i++) {
+        if (a90_diag_dci_wlan_target_write_event(i,
+                                                 "clear",
+                                                 0,
+                                                 &a90_diag_dci_wlan_event_targets[i],
+                                                 stdout_buf) < 0 ||
+            a90_diag_dci_wlan_target_query_event_status(i,
+                                                         2U,
+                                                         "clear",
+                                                         &a90_diag_dci_wlan_event_targets[i],
+                                                         stdout_buf) < 0) {
+            return -1;
+        }
+    }
+    g_diag_dci_wlan_target_mask_probe.completed = true;
+    return a90_diag_dci_wlan_target_emit_summary(stdout_buf) < 0 ? -1 :
+           append_literal(stdout_buf,
+                          "diag_dci_wlan_target_mask_probe.completed=1\n"
+                          "diag_dci_wlan_target_mask_probe.end=1\n");
+}
+#endif
+
 static int a90_diag_dci_register_read_start(const struct paths *paths,
                                             struct buffer *stdout_buf) {
     char error_buf[256];
@@ -28227,7 +28732,9 @@ static int a90_diag_dci_register_read_start(const struct paths *paths,
              paths->dev_diag);
     if (append_format(stdout_buf,
                       "diag_dci_register_read_probe.begin=1\n"
-#if A90_WIFI_TEST_BOOT_DIAG_DCI_CANARY_MASK_PROBE
+#if A90_WIFI_TEST_BOOT_DIAG_DCI_WLAN_TARGET_MASK_PROBE
+                      "diag_dci_register_read_probe.mode=private-node-rdwr-nonblock-dci-reg-read-with-bounded-wlan-target-mask-hold-clear\n"
+#elif A90_WIFI_TEST_BOOT_DIAG_DCI_CANARY_MASK_PROBE
                       "diag_dci_register_read_probe.mode=private-node-rdwr-nonblock-dci-reg-read-with-bounded-canary-mask-set-clear\n"
 #else
                       "diag_dci_register_read_probe.mode=private-node-rdwr-nonblock-dci-reg-read-no-stream-no-mask-no-write\n"
@@ -28235,14 +28742,17 @@ static int a90_diag_dci_register_read_start(const struct paths *paths,
                       "diag_dci_register_read_probe.rootfs_namespace_only=1\n"
                       "diag_dci_register_read_probe.sda29_write=0\n"
                       "diag_dci_register_read_probe.switch_logging_attempted=0\n"
-#if A90_WIFI_TEST_BOOT_DIAG_DCI_CANARY_MASK_PROBE
+#if A90_WIFI_TEST_BOOT_DIAG_DCI_WLAN_TARGET_MASK_PROBE
+                      "diag_dci_register_read_probe.write_attempted=1\n"
+                      "diag_dci_register_read_probe.write_scope=bounded-dci-data-wlan-target-mask-set-hold-clear\n"
+#elif A90_WIFI_TEST_BOOT_DIAG_DCI_CANARY_MASK_PROBE
                       "diag_dci_register_read_probe.write_attempted=1\n"
                       "diag_dci_register_read_probe.write_scope=bounded-dci-data-canary-mask-set-clear\n"
 #else
                       "diag_dci_register_read_probe.write_attempted=0\n"
 #endif
                       "diag_dci_register_read_probe.stream_config_attempted=0\n"
-#if A90_WIFI_TEST_BOOT_DIAG_DCI_CANARY_MASK_PROBE
+#if A90_WIFI_TEST_BOOT_DIAG_DCI_WLAN_TARGET_MASK_PROBE || A90_WIFI_TEST_BOOT_DIAG_DCI_CANARY_MASK_PROBE
                       "diag_dci_register_read_probe.log_mask_write=1\n"
                       "diag_dci_register_read_probe.event_mask_write=1\n"
 #else
@@ -28382,6 +28892,11 @@ static int a90_diag_dci_register_read_start(const struct paths *paths,
         return -1;
     }
 #endif
+#if A90_WIFI_TEST_BOOT_DIAG_DCI_WLAN_TARGET_MASK_PROBE
+    if (a90_diag_dci_wlan_target_mask_run(stdout_buf) < 0) {
+        return -1;
+    }
+#endif
     return 0;
 }
 
@@ -28485,6 +29000,14 @@ static int a90_diag_dci_register_read_stop(struct buffer *stdout_buf) {
     if (a90_diag_dci_register_read_drain(stdout_buf) < 0) {
         return -1;
     }
+#if A90_WIFI_TEST_BOOT_DIAG_DCI_WLAN_TARGET_MASK_PROBE
+    if (a90_diag_dci_wlan_target_mask_stop(stdout_buf) < 0) {
+        return -1;
+    }
+    if (a90_diag_dci_register_read_drain(stdout_buf) < 0) {
+        return -1;
+    }
+#endif
     if (g_diag_dci_register_read_probe.registered &&
         g_diag_dci_register_read_probe.client_id > 0 &&
         g_diag_dci_register_read_probe.fd >= 0) {
