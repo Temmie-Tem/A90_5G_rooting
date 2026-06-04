@@ -144,6 +144,10 @@
 #define A90_WIFI_TEST_BOOT_PERMGR_VOTE_FOCUSED_SUMMARY 0
 #endif
 
+#ifndef A90_WIFI_TEST_BOOT_WLFW_LATE_MSG21_FOCUSED_SUMMARY
+#define A90_WIFI_TEST_BOOT_WLFW_LATE_MSG21_FOCUSED_SUMMARY 0
+#endif
+
 #ifndef A90_WIFI_TEST_BOOT_DIAG_QUERY_ONLY_PROBE
 #define A90_WIFI_TEST_BOOT_DIAG_QUERY_ONLY_PROBE 0
 #endif
@@ -180,7 +184,9 @@
 #define A90_WIFI_TEST_BOOT_DIAG_REMOTE_DEV_POLL_PROBE 0
 #endif
 
-#if A90_WIFI_TEST_BOOT_DIAG_REMOTE_DEV_POLL_PROBE && A90_WIFI_TEST_BOOT_DIAG_WLAN_PD_MEMORY_SESSION_MASK_PROBE && A90_WIFI_TEST_BOOT_DIAG_WLAN_PD_MEMORY_DEVICE_PROBE && A90_WIFI_TEST_BOOT_DIAG_DCI_WLAN_TARGET_MASK_PROBE && A90_WIFI_TEST_BOOT_DIAG_DCI_REGISTER_READ_PROBE && A90_WIFI_TEST_BOOT_PERMGR_VOTE_FOCUSED_SUMMARY && A90_WIFI_TEST_BOOT_TFTP_READWRITE_TRANSITION_SAMPLER && A90_WIFI_TEST_BOOT_TFTP_READY_BEFORE_WLFW_VOTE && A90_WIFI_TEST_BOOT_TFTP_LOGDW_ORDER_TIMESTAMPS && A90_WIFI_TEST_BOOT_TFTP_PERSIST_RFS_TMPFS && A90_WIFI_TEST_BOOT_TFTP_MCFG_READBACK && A90_WIFI_TEST_BOOT_TFTP_LOGDW_SINK && !A90_RFS_BRIDGE_SERVE_FIRMWARE_MNT_PROBE
+#if A90_WIFI_TEST_BOOT_WLFW_LATE_MSG21_FOCUSED_SUMMARY && A90_WIFI_TEST_BOOT_PERMGR_VOTE_FOCUSED_SUMMARY && A90_WIFI_TEST_BOOT_TFTP_READWRITE_TRANSITION_SAMPLER && A90_WIFI_TEST_BOOT_TFTP_READY_BEFORE_WLFW_VOTE && A90_WIFI_TEST_BOOT_TFTP_LOGDW_ORDER_TIMESTAMPS && A90_WIFI_TEST_BOOT_TFTP_PERSIST_RFS_TMPFS && A90_WIFI_TEST_BOOT_TFTP_MCFG_READBACK && A90_WIFI_TEST_BOOT_TFTP_LOGDW_SINK && !A90_RFS_BRIDGE_SERVE_FIRMWARE_MNT_PROBE
+#define EXECNS_VERSION "a90_android_execns_probe v403"
+#elif A90_WIFI_TEST_BOOT_DIAG_REMOTE_DEV_POLL_PROBE && A90_WIFI_TEST_BOOT_DIAG_WLAN_PD_MEMORY_SESSION_MASK_PROBE && A90_WIFI_TEST_BOOT_DIAG_WLAN_PD_MEMORY_DEVICE_PROBE && A90_WIFI_TEST_BOOT_DIAG_DCI_WLAN_TARGET_MASK_PROBE && A90_WIFI_TEST_BOOT_DIAG_DCI_REGISTER_READ_PROBE && A90_WIFI_TEST_BOOT_PERMGR_VOTE_FOCUSED_SUMMARY && A90_WIFI_TEST_BOOT_TFTP_READWRITE_TRANSITION_SAMPLER && A90_WIFI_TEST_BOOT_TFTP_READY_BEFORE_WLFW_VOTE && A90_WIFI_TEST_BOOT_TFTP_LOGDW_ORDER_TIMESTAMPS && A90_WIFI_TEST_BOOT_TFTP_PERSIST_RFS_TMPFS && A90_WIFI_TEST_BOOT_TFTP_MCFG_READBACK && A90_WIFI_TEST_BOOT_TFTP_LOGDW_SINK && !A90_RFS_BRIDGE_SERVE_FIRMWARE_MNT_PROBE
 #define EXECNS_VERSION "a90_android_execns_probe v402"
 #elif A90_WIFI_TEST_BOOT_DIAG_REMOTE_DEV_QUERY_PROBE && A90_WIFI_TEST_BOOT_DIAG_WLAN_PD_MEMORY_SESSION_MASK_PROBE && A90_WIFI_TEST_BOOT_DIAG_WLAN_PD_MEMORY_DEVICE_PROBE && A90_WIFI_TEST_BOOT_DIAG_DCI_WLAN_TARGET_MASK_PROBE && A90_WIFI_TEST_BOOT_DIAG_DCI_REGISTER_READ_PROBE && A90_WIFI_TEST_BOOT_PERMGR_VOTE_FOCUSED_SUMMARY && A90_WIFI_TEST_BOOT_TFTP_READWRITE_TRANSITION_SAMPLER && A90_WIFI_TEST_BOOT_TFTP_READY_BEFORE_WLFW_VOTE && A90_WIFI_TEST_BOOT_TFTP_LOGDW_ORDER_TIMESTAMPS && A90_WIFI_TEST_BOOT_TFTP_PERSIST_RFS_TMPFS && A90_WIFI_TEST_BOOT_TFTP_MCFG_READBACK && A90_WIFI_TEST_BOOT_TFTP_LOGDW_SINK && !A90_RFS_BRIDGE_SERVE_FIRMWARE_MNT_PROBE
 #define EXECNS_VERSION "a90_android_execns_probe v401"
@@ -15330,11 +15336,105 @@ static void cnss_wlfw_uprobe_collect_trace(struct cnss_wlfw_uprobe_state *state)
                 event->first_hit_line[copy_len] = '\0';
                 sanitize_one_line(event->first_hit_line);
             }
+            if (event->sample_count < 4) {
+                size_t copy_len = strnlen(line, sizeof(event->sample_lines[event->sample_count]) - 1U);
+
+                memcpy(event->sample_lines[event->sample_count], line, copy_len);
+                event->sample_lines[event->sample_count][copy_len] = '\0';
+                sanitize_one_line(event->sample_lines[event->sample_count]);
+                event->sample_count++;
+            }
         }
     }
     fclose(file);
     cnss_wlfw_uprobe_sync_legacy_fields(state);
 }
+
+#if A90_WIFI_TEST_BOOT_WLFW_LATE_MSG21_FOCUSED_SUMMARY
+static int append_wlfw_late_msg21_focused_summary(
+    struct buffer *stdout_buf,
+    const struct cnss_wlfw_uprobe_state *uprobe) {
+    const struct cnss_wlfw_uprobe_event_state *qmi =
+        &uprobe->events[CNSS_WLFW_UPROBE_WLFW_QMI_IND_CB_ENTRY];
+    const struct cnss_wlfw_uprobe_event_state *queue =
+        &uprobe->events[CNSS_WLFW_UPROBE_WLFW_QMI_IND_QUEUE_LINK];
+    const struct cnss_wlfw_uprobe_event_state *cond =
+        &uprobe->events[CNSS_WLFW_UPROBE_WLFW_QMI_IND_COND_SIGNAL];
+    const struct cnss_wlfw_uprobe_event_state *fw_mem =
+        &uprobe->events[CNSS_WLFW_UPROBE_WLFW_QMI_IND_FW_MEM_FLAG];
+    const struct cnss_wlfw_uprobe_event_state *msa =
+        &uprobe->events[CNSS_WLFW_UPROBE_WLFW_QMI_IND_MSA_FLAG];
+    const struct cnss_wlfw_uprobe_event_state *handle =
+        &uprobe->events[CNSS_WLFW_UPROBE_WLFW_HANDLE_IND_ENTRY];
+    const struct cnss_wlfw_uprobe_event_state *status =
+        &uprobe->events[CNSS_WLFW_UPROBE_WLAN_SEND_STATUS_ENTRY];
+    const struct cnss_wlfw_uprobe_event_state *version =
+        &uprobe->events[CNSS_WLFW_UPROBE_WLAN_SEND_VERSION_ENTRY];
+    const struct cnss_wlfw_uprobe_event_state *cal =
+        &uprobe->events[CNSS_WLFW_UPROBE_WLFW_CAL_REPORT_RETURN];
+    const char *sample0 = qmi->sample_lines[0][0] != '\0' ? qmi->sample_lines[0] : "none";
+    const char *sample1 = qmi->sample_lines[1][0] != '\0' ? qmi->sample_lines[1] : "none";
+    const char *sample2 = qmi->sample_lines[2][0] != '\0' ? qmi->sample_lines[2] : "none";
+    const char *sample3 = qmi->sample_lines[3][0] != '\0' ? qmi->sample_lines[3] : "none";
+    const bool saw_msg21 =
+        strstr(sample0, "msg_id=0x21") != NULL ||
+        strstr(sample1, "msg_id=0x21") != NULL ||
+        strstr(sample2, "msg_id=0x21") != NULL ||
+        strstr(sample3, "msg_id=0x21") != NULL ||
+        strstr(qmi->first_hit_line, "msg_id=0x21") != NULL;
+    const bool saw_msg2b =
+        strstr(sample0, "msg_id=0x2b") != NULL ||
+        strstr(sample1, "msg_id=0x2b") != NULL ||
+        strstr(sample2, "msg_id=0x2b") != NULL ||
+        strstr(sample3, "msg_id=0x2b") != NULL ||
+        strstr(qmi->first_hit_line, "msg_id=0x2b") != NULL;
+
+    return append_format(stdout_buf,
+                         "wlfw_late_msg21_focused.begin=1\n"
+                         "wlfw_late_msg21_focused.mode=compact-post-cal-wlfw-ready-edge\n"
+                         "wlfw_late_msg21_focused.no_diag=1\n"
+                         "wlfw_late_msg21_focused.no_strace=1\n"
+                         "wlfw_late_msg21_focused.no_qrtr_matrix=1\n"
+                         "wlfw_late_msg21_focused.no_wifi_hal=1\n"
+                         "wlfw_late_msg21_focused.scan_connect=0\n"
+                         "wlfw_late_msg21_focused.credentials=0\n"
+                         "wlfw_late_msg21_focused.external_ping=0\n"
+                         "wlfw_late_msg21_focused.qmi_cb.hit_count=%d\n"
+                         "wlfw_late_msg21_focused.qmi_cb.sample_count=%d\n"
+                         "wlfw_late_msg21_focused.qmi_cb.saw_msg21=%d\n"
+                         "wlfw_late_msg21_focused.qmi_cb.saw_msg2b=%d\n"
+                         "wlfw_late_msg21_focused.qmi_cb.first=%s\n"
+                         "wlfw_late_msg21_focused.qmi_cb.sample_0=%s\n"
+                         "wlfw_late_msg21_focused.qmi_cb.sample_1=%s\n"
+                         "wlfw_late_msg21_focused.qmi_cb.sample_2=%s\n"
+                         "wlfw_late_msg21_focused.qmi_cb.sample_3=%s\n"
+                         "wlfw_late_msg21_focused.queue_link.hit_count=%d\n"
+                         "wlfw_late_msg21_focused.cond_signal.hit_count=%d\n"
+                         "wlfw_late_msg21_focused.fw_mem_flag.hit_count=%d\n"
+                         "wlfw_late_msg21_focused.msa_flag.hit_count=%d\n"
+                         "wlfw_late_msg21_focused.handle_ind.hit_count=%d\n"
+                         "wlfw_late_msg21_focused.wlan_status.hit_count=%d\n"
+                         "wlfw_late_msg21_focused.wlan_version.hit_count=%d\n"
+                         "wlfw_late_msg21_focused.cal_return.hit_count=%d\n",
+                         qmi->hit_count,
+                         qmi->sample_count,
+                         saw_msg21 ? 1 : 0,
+                         saw_msg2b ? 1 : 0,
+                         qmi->first_hit_line[0] != '\0' ? qmi->first_hit_line : "none",
+                         sample0,
+                         sample1,
+                         sample2,
+                         sample3,
+                         queue->hit_count,
+                         cond->hit_count,
+                         fw_mem->hit_count,
+                         msa->hit_count,
+                         handle->hit_count,
+                         status->hit_count,
+                         version->hit_count,
+                         cal->hit_count);
+}
+#endif
 
 static int append_wlan_pd_cnss_nonlog_control_flow_summary(struct buffer *stdout_buf,
                                                            pid_t cnss_daemon_pid,
@@ -15367,6 +15467,11 @@ static int append_wlan_pd_cnss_nonlog_control_flow_summary(struct buffer *stdout
     libqmi_cci_uprobe_cleanup_state(libqmi);
 #if A90_WIFI_TEST_BOOT_PERMGR_VOTE_FOCUSED_SUMMARY
     if (append_permgr_vote_focused_summary(stdout_buf, uprobe, peripheral, pm_server) < 0) {
+        return -1;
+    }
+#endif
+#if A90_WIFI_TEST_BOOT_WLFW_LATE_MSG21_FOCUSED_SUMMARY
+    if (append_wlfw_late_msg21_focused_summary(stdout_buf, uprobe) < 0) {
         return -1;
     }
 #endif
