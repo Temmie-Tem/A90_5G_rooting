@@ -356,6 +356,11 @@ def build_init(args: argparse.Namespace) -> None:
         if args.wifi_test_firmware_mounts
         else []
     )
+    light_firmware_trace_flags = (
+        ["-DA90_WIFI_TEST_BOOT_LIGHT_FIRMWARE_TRACE=1"]
+        if args.wifi_test_light_firmware_trace
+        else []
+    )
     service_window_flags: list[str] = []
     if uses_wlan_pd_cnss_output_visibility(args):
         service_window_flags.append("-DA90_WIFI_TEST_BOOT_WLAN_PD_CNSS_OUTPUT_VISIBILITY=1")
@@ -507,6 +512,7 @@ def build_init(args: argparse.Namespace) -> None:
         *pcie1_clock_vote_proof_flags,
         *auto_readiness_flags,
         *firmware_mount_flags,
+        *light_firmware_trace_flags,
         *service_window_flags,
         *private_cnss_flags,
         *rc1_retry_flags,
@@ -614,10 +620,17 @@ def verify_init_route_contract(args: argparse.Namespace) -> None:
         expected.extend([
             "--allow-wifi-companion-start-only",
             "--allow-cnss-start-only",
-            "--allow-qrtr-ns-readback",
+        ])
+        heavy_probe_markers = [
             "--allow-servloc-domain-list-probe",
             "--allow-service-notifier-listener-probe",
-        ])
+            "--qrtr-readback-matrix",
+            "wlfw:69:0,1",
+        ]
+        if args.wifi_test_light_firmware_trace:
+            forbidden.extend(heavy_probe_markers)
+        else:
+            expected.extend(heavy_probe_markers)
         if uses_wlan_pd_service_window_trigger(args):
             expected.extend([
                 "--allow-service-manager-start-only",
@@ -803,9 +816,6 @@ def verify_markers(args: argparse.Namespace) -> None:
         expected.extend([
             "--allow-wifi-companion-start-only",
             "--allow-cnss-start-only",
-            "--allow-qrtr-ns-readback",
-            "--allow-servloc-domain-list-probe",
-            "--allow-service-notifier-listener-probe",
             helper_runtime_mode(args),
             "wlan_pd_firmware_serve_gate.begin=1",
             "wlan_pd_firmware_serve_gate.label=%s",
@@ -819,6 +829,12 @@ def verify_markers(args: argparse.Namespace) -> None:
             "wlan_pd_modem_holder.subsys_modem_open_attempted=1",
             "wlan_pd_modem_holder.subsys_esoc0_open_attempted=0",
         ])
+        if not args.wifi_test_light_firmware_trace:
+            expected.extend([
+                "--allow-qrtr-ns-readback",
+                "--allow-servloc-domain-list-probe",
+                "--allow-service-notifier-listener-probe",
+            ])
         if uses_wlan_pd_cnss_output_visibility(args):
             expected.extend([
                 "--allow-wlan-pd-cnss-output-visibility",
@@ -1577,6 +1593,7 @@ def write_manifest(args: argparse.Namespace) -> None:
             "auto_readiness_supervisor": args.wifi_test_auto_readiness_supervisor,
             "rc1_retry_count": args.wifi_test_rc1_retry_count,
             "rc1_retry_delay_ms": args.wifi_test_rc1_retry_delay_ms,
+            "light_firmware_trace": args.wifi_test_light_firmware_trace,
         },
         "init_binary": str(args.init_binary.relative_to(REPO_ROOT)),
         "init_sha256": sha256(args.init_binary),
@@ -1739,6 +1756,7 @@ def parse_args(argv: Sequence[str] | None = None) -> argparse.Namespace:
     )
     parser.add_argument("--wifi-test-mount-debugfs", action="store_true")
     parser.add_argument("--wifi-test-firmware-mounts", action="store_true")
+    parser.add_argument("--wifi-test-light-firmware-trace", action="store_true")
     parser.add_argument("--wifi-test-private-cnss-daemon-sdx50m", action="store_true")
     parser.add_argument("--wifi-test-private-cnss-daemon-path", default="/cache/bin/cnss-daemon.sdx50m")
     parser.add_argument("--wifi-test-pid1-rc1-watcher", action="store_true")

@@ -293,6 +293,9 @@ static int v641_prepare_firmware_mounts(void);
 #ifndef A90_WIFI_TEST_BOOT_WLAN_PD_CNSS_OUTPUT_VISIBILITY
 #define A90_WIFI_TEST_BOOT_WLAN_PD_CNSS_OUTPUT_VISIBILITY 0
 #endif
+#ifndef A90_WIFI_TEST_BOOT_LIGHT_FIRMWARE_TRACE
+#define A90_WIFI_TEST_BOOT_LIGHT_FIRMWARE_TRACE 0
+#endif
 #if A90_WIFI_TEST_BOOT_WLAN_PD_CNSS_OUTPUT_VISIBILITY
 #define A90_V1393_WIFI_TEST_MODE "wifi-companion-wlan-pd-cnss-output-visibility-start-only"
 #elif A90_WIFI_TEST_BOOT_WLAN_PD_PM_SERVICE_WINDOW_TRIGGER
@@ -4235,21 +4238,25 @@ static int v1393_spawn_wifi_test_boot_helper(pid_t *pid_out) {
         "--allow-wifi-companion-start-only",
         "--allow-cnss-start-only",
         "--allow-wlan-pd-cnss-output-visibility",
+#if !A90_WIFI_TEST_BOOT_LIGHT_FIRMWARE_TRACE
         "--allow-qrtr-ns-readback",
         "--allow-servloc-domain-list-probe",
         "--allow-service-notifier-listener-probe",
         "--qrtr-readback-matrix",
         "wlfw:69:0,1",
+#endif
 #elif A90_WIFI_TEST_BOOT_WLAN_PD_PM_SERVICE_WINDOW_TRIGGER
         "--allow-wifi-companion-start-only",
         "--allow-cnss-start-only",
         "--allow-service-manager-start-only",
         "--allow-wlan-pd-pm-service-window-trigger",
+#if !A90_WIFI_TEST_BOOT_LIGHT_FIRMWARE_TRACE
         "--allow-qrtr-ns-readback",
         "--allow-servloc-domain-list-probe",
         "--allow-service-notifier-listener-probe",
         "--qrtr-readback-matrix",
         "wlfw:69:0,1",
+#endif
 #elif A90_WIFI_TEST_BOOT_WLAN_PD_SERVICE_OBJECT_VISIBLE_TRIGGER || A90_WIFI_TEST_BOOT_WLAN_PD_SERVICE_OBJECT_DEVNODE_PROJECTION_TRIGGER
         "--allow-wifi-companion-start-only",
         "--allow-cnss-start-only",
@@ -4260,21 +4267,25 @@ static int v1393_spawn_wifi_test_boot_helper(pid_t *pid_out) {
         "--private-cnss-daemon-path",
         A90_V1393_WIFI_TEST_PRIVATE_CNSS,
 #endif
+#if !A90_WIFI_TEST_BOOT_LIGHT_FIRMWARE_TRACE
         "--allow-qrtr-ns-readback",
         "--allow-servloc-domain-list-probe",
         "--allow-service-notifier-listener-probe",
         "--qrtr-readback-matrix",
         "wlfw:69:0,1",
+#endif
 #elif A90_WIFI_TEST_BOOT_WLAN_PD_TIMESTAMPED_OBSERVER || A90_WIFI_TEST_BOOT_WLAN_PD_SERVICE_WINDOW_TRIGGER
         "--allow-wifi-companion-start-only",
         "--allow-cnss-start-only",
         "--allow-service-manager-start-only",
         "--allow-wlan-pd-service-window-trigger",
+#if !A90_WIFI_TEST_BOOT_LIGHT_FIRMWARE_TRACE
         "--allow-qrtr-ns-readback",
         "--allow-servloc-domain-list-probe",
         "--allow-service-notifier-listener-probe",
         "--qrtr-readback-matrix",
         "wlfw:69:0,1",
+#endif
 #elif A90_WIFI_TEST_BOOT_WLAN_PD_FIRMWARE_SERVE_GATE
         "--allow-wifi-companion-start-only",
         "--allow-cnss-start-only",
@@ -4283,11 +4294,13 @@ static int v1393_spawn_wifi_test_boot_helper(pid_t *pid_out) {
         "--private-cnss-daemon-path",
         A90_V1393_WIFI_TEST_PRIVATE_CNSS,
 #endif
+#if !A90_WIFI_TEST_BOOT_LIGHT_FIRMWARE_TRACE
         "--allow-qrtr-ns-readback",
         "--allow-servloc-domain-list-probe",
         "--allow-service-notifier-listener-probe",
         "--qrtr-readback-matrix",
         "wlfw:69:0,1",
+#endif
 #elif A90_WIFI_TEST_BOOT_ANDROID_SERVICE_WINDOW
         "--allow-android-wifi-service-window",
 #if A90_WIFI_TEST_BOOT_ANDROID_SERVICE_WINDOW_SUBSYS_TRIGGER_CAPTURE
