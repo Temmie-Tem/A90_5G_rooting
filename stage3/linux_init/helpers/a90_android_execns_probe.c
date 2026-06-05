@@ -203,6 +203,10 @@
 #define A90_WIFI_TEST_BOOT_ICNSS_REGISTER_PROBE_STACK_SAMPLER 0
 #endif
 
+#ifndef A90_WIFI_TEST_BOOT_FIRMWARE_CLASS_FALLBACK_SAMPLER
+#define A90_WIFI_TEST_BOOT_FIRMWARE_CLASS_FALLBACK_SAMPLER 0
+#endif
+
 #ifndef A90_WIFI_TEST_BOOT_ICNSS_QCACLD_POST_BDF_FOCUSED_SUMMARY
 #define A90_WIFI_TEST_BOOT_ICNSS_QCACLD_POST_BDF_FOCUSED_SUMMARY 0
 #endif
@@ -271,7 +275,9 @@
 #define A90_WIFI_TEST_BOOT_ANDROID_TFTP_SERVER_IDENTITY A90_WIFI_TEST_BOOT_ANDROID_RMT_TFTP_IDENTITY
 #endif
 
-#if A90_WIFI_TEST_BOOT_ICNSS_REGISTER_PROBE_STACK_SAMPLER && A90_WIFI_TEST_BOOT_POST_FW_READY_BOOT_WLAN_TRIGGER && A90_WIFI_TEST_BOOT_ICNSS_STATS_EVENT_SUMMARY && A90_WIFI_TEST_BOOT_ICNSS_STATS_NUMERIC_SUMMARY && A90_WIFI_TEST_BOOT_WLFW_INDICATION_LABEL_FIX && A90_WIFI_TEST_BOOT_TFTP_SHARED_SERVER_INFO_TMPFS && !A90_WIFI_TEST_BOOT_ANDROID_RMT_STORAGE_IDENTITY && !A90_WIFI_TEST_BOOT_ANDROID_TFTP_SERVER_IDENTITY && A90_WIFI_TEST_BOOT_TFTP_PERSIST_RFS_LEAF_PRECREATE && A90_WIFI_TEST_BOOT_TFTP_PERSIST_RFS_PARENT_TRAVERSE_PARITY && A90_WIFI_TEST_BOOT_TFTP_PROCESS_NAMESPACE_AUDIT && A90_WIFI_TEST_BOOT_TFTP_PERSIST_RFS_AUTODIR_PARITY && A90_WIFI_TEST_BOOT_TFTP_TOMBSTONE_RFS_VENDOR_RFS_PERMS && A90_WIFI_TEST_BOOT_TFTP_TOMBSTONE_RFS_TMPFS && A90_WIFI_TEST_BOOT_ICNSS_QCACLD_POST_BDF_FOCUSED_SUMMARY && A90_WIFI_TEST_BOOT_WLFW_LATE_MSG21_FOCUSED_SUMMARY && A90_WIFI_TEST_BOOT_PERMGR_VOTE_FOCUSED_SUMMARY && A90_WIFI_TEST_BOOT_TFTP_READWRITE_TRANSITION_SAMPLER && A90_WIFI_TEST_BOOT_TFTP_READY_BEFORE_WLFW_VOTE && A90_WIFI_TEST_BOOT_TFTP_LOGDW_ORDER_TIMESTAMPS && A90_WIFI_TEST_BOOT_TFTP_PERSIST_RFS_TMPFS && A90_WIFI_TEST_BOOT_TFTP_MCFG_READBACK && A90_WIFI_TEST_BOOT_TFTP_LOGDW_SINK && A90_RFS_BRIDGE_SERVE_FIRMWARE_MNT_PROBE
+#if A90_WIFI_TEST_BOOT_FIRMWARE_CLASS_FALLBACK_SAMPLER && A90_WIFI_TEST_BOOT_ICNSS_REGISTER_PROBE_STACK_SAMPLER && A90_WIFI_TEST_BOOT_POST_FW_READY_BOOT_WLAN_TRIGGER && A90_WIFI_TEST_BOOT_ICNSS_STATS_EVENT_SUMMARY && A90_WIFI_TEST_BOOT_ICNSS_STATS_NUMERIC_SUMMARY && A90_WIFI_TEST_BOOT_WLFW_INDICATION_LABEL_FIX && A90_WIFI_TEST_BOOT_TFTP_SHARED_SERVER_INFO_TMPFS && !A90_WIFI_TEST_BOOT_ANDROID_RMT_STORAGE_IDENTITY && !A90_WIFI_TEST_BOOT_ANDROID_TFTP_SERVER_IDENTITY && A90_WIFI_TEST_BOOT_TFTP_PERSIST_RFS_LEAF_PRECREATE && A90_WIFI_TEST_BOOT_TFTP_PERSIST_RFS_PARENT_TRAVERSE_PARITY && A90_WIFI_TEST_BOOT_TFTP_PROCESS_NAMESPACE_AUDIT && A90_WIFI_TEST_BOOT_TFTP_PERSIST_RFS_AUTODIR_PARITY && A90_WIFI_TEST_BOOT_TFTP_TOMBSTONE_RFS_VENDOR_RFS_PERMS && A90_WIFI_TEST_BOOT_TFTP_TOMBSTONE_RFS_TMPFS && A90_WIFI_TEST_BOOT_ICNSS_QCACLD_POST_BDF_FOCUSED_SUMMARY && A90_WIFI_TEST_BOOT_WLFW_LATE_MSG21_FOCUSED_SUMMARY && A90_WIFI_TEST_BOOT_PERMGR_VOTE_FOCUSED_SUMMARY && A90_WIFI_TEST_BOOT_TFTP_READWRITE_TRANSITION_SAMPLER && A90_WIFI_TEST_BOOT_TFTP_READY_BEFORE_WLFW_VOTE && A90_WIFI_TEST_BOOT_TFTP_LOGDW_ORDER_TIMESTAMPS && A90_WIFI_TEST_BOOT_TFTP_PERSIST_RFS_TMPFS && A90_WIFI_TEST_BOOT_TFTP_MCFG_READBACK && A90_WIFI_TEST_BOOT_TFTP_LOGDW_SINK && A90_RFS_BRIDGE_SERVE_FIRMWARE_MNT_PROBE
+#define EXECNS_VERSION "a90_android_execns_probe v425"
+#elif A90_WIFI_TEST_BOOT_ICNSS_REGISTER_PROBE_STACK_SAMPLER && A90_WIFI_TEST_BOOT_POST_FW_READY_BOOT_WLAN_TRIGGER && A90_WIFI_TEST_BOOT_ICNSS_STATS_EVENT_SUMMARY && A90_WIFI_TEST_BOOT_ICNSS_STATS_NUMERIC_SUMMARY && A90_WIFI_TEST_BOOT_WLFW_INDICATION_LABEL_FIX && A90_WIFI_TEST_BOOT_TFTP_SHARED_SERVER_INFO_TMPFS && !A90_WIFI_TEST_BOOT_ANDROID_RMT_STORAGE_IDENTITY && !A90_WIFI_TEST_BOOT_ANDROID_TFTP_SERVER_IDENTITY && A90_WIFI_TEST_BOOT_TFTP_PERSIST_RFS_LEAF_PRECREATE && A90_WIFI_TEST_BOOT_TFTP_PERSIST_RFS_PARENT_TRAVERSE_PARITY && A90_WIFI_TEST_BOOT_TFTP_PROCESS_NAMESPACE_AUDIT && A90_WIFI_TEST_BOOT_TFTP_PERSIST_RFS_AUTODIR_PARITY && A90_WIFI_TEST_BOOT_TFTP_TOMBSTONE_RFS_VENDOR_RFS_PERMS && A90_WIFI_TEST_BOOT_TFTP_TOMBSTONE_RFS_TMPFS && A90_WIFI_TEST_BOOT_ICNSS_QCACLD_POST_BDF_FOCUSED_SUMMARY && A90_WIFI_TEST_BOOT_WLFW_LATE_MSG21_FOCUSED_SUMMARY && A90_WIFI_TEST_BOOT_PERMGR_VOTE_FOCUSED_SUMMARY && A90_WIFI_TEST_BOOT_TFTP_READWRITE_TRANSITION_SAMPLER && A90_WIFI_TEST_BOOT_TFTP_READY_BEFORE_WLFW_VOTE && A90_WIFI_TEST_BOOT_TFTP_LOGDW_ORDER_TIMESTAMPS && A90_WIFI_TEST_BOOT_TFTP_PERSIST_RFS_TMPFS && A90_WIFI_TEST_BOOT_TFTP_MCFG_READBACK && A90_WIFI_TEST_BOOT_TFTP_LOGDW_SINK && A90_RFS_BRIDGE_SERVE_FIRMWARE_MNT_PROBE
 #define EXECNS_VERSION "a90_android_execns_probe v424"
 #elif A90_WIFI_TEST_BOOT_POST_FW_READY_BOOT_WLAN_TRIGGER && A90_WIFI_TEST_BOOT_ICNSS_STATS_EVENT_SUMMARY && A90_WIFI_TEST_BOOT_ICNSS_STATS_NUMERIC_SUMMARY && A90_WIFI_TEST_BOOT_WLFW_INDICATION_LABEL_FIX && A90_WIFI_TEST_BOOT_TFTP_SHARED_SERVER_INFO_TMPFS && !A90_WIFI_TEST_BOOT_ANDROID_RMT_STORAGE_IDENTITY && !A90_WIFI_TEST_BOOT_ANDROID_TFTP_SERVER_IDENTITY && A90_WIFI_TEST_BOOT_TFTP_PERSIST_RFS_LEAF_PRECREATE && A90_WIFI_TEST_BOOT_TFTP_PERSIST_RFS_PARENT_TRAVERSE_PARITY && A90_WIFI_TEST_BOOT_TFTP_PROCESS_NAMESPACE_AUDIT && A90_WIFI_TEST_BOOT_TFTP_PERSIST_RFS_AUTODIR_PARITY && A90_WIFI_TEST_BOOT_TFTP_TOMBSTONE_RFS_VENDOR_RFS_PERMS && A90_WIFI_TEST_BOOT_TFTP_TOMBSTONE_RFS_TMPFS && A90_WIFI_TEST_BOOT_ICNSS_QCACLD_POST_BDF_FOCUSED_SUMMARY && A90_WIFI_TEST_BOOT_WLFW_LATE_MSG21_FOCUSED_SUMMARY && A90_WIFI_TEST_BOOT_PERMGR_VOTE_FOCUSED_SUMMARY && A90_WIFI_TEST_BOOT_TFTP_READWRITE_TRANSITION_SAMPLER && A90_WIFI_TEST_BOOT_TFTP_READY_BEFORE_WLFW_VOTE && A90_WIFI_TEST_BOOT_TFTP_LOGDW_ORDER_TIMESTAMPS && A90_WIFI_TEST_BOOT_TFTP_PERSIST_RFS_TMPFS && A90_WIFI_TEST_BOOT_TFTP_MCFG_READBACK && A90_WIFI_TEST_BOOT_TFTP_LOGDW_SINK && A90_RFS_BRIDGE_SERVE_FIRMWARE_MNT_PROBE
 #define EXECNS_VERSION "a90_android_execns_probe v423"
@@ -49004,6 +49010,405 @@ static int append_icnss_register_probe_stack_sampler(struct buffer *stdout_buf,
 }
 #endif
 
+#if A90_WIFI_TEST_BOOT_FIRMWARE_CLASS_FALLBACK_SAMPLER
+struct a90_fwclass_scan_state {
+    struct buffer *stdout_buf;
+    const char *prefix;
+    const char *phase;
+    int root_index;
+    int entry_count;
+    int interesting_count;
+    int emitted_count;
+    int max_entries;
+    bool truncated;
+};
+
+static const char *a90_path_basename(const char *path) {
+    const char *slash;
+
+    if (path == NULL) {
+        return "";
+    }
+    slash = strrchr(path, '/');
+    return slash == NULL ? path : slash + 1;
+}
+
+static bool a90_fwclass_text_is_interesting(const char *text) {
+    static const char * const needles[] = {
+        "WCNSS",
+        "wcnss",
+        "wlan",
+        "WLAN",
+        "qca",
+        "QCA",
+        "qdf",
+        "QDF",
+        "cfg",
+        "CFG",
+        "ini",
+        "INI",
+        "bdwlan",
+        "BDWLAN",
+        "regdb",
+        "REGDB",
+    };
+
+    if (text == NULL) {
+        return false;
+    }
+    for (size_t index = 0; index < sizeof(needles) / sizeof(needles[0]); index++) {
+        if (strstr(text, needles[index]) != NULL) {
+            return true;
+        }
+    }
+    return false;
+}
+
+static const char *a90_fwclass_mode_label(mode_t mode) {
+    if (S_ISDIR(mode)) {
+        return "dir";
+    }
+    if (S_ISREG(mode)) {
+        return "file";
+    }
+    if (S_ISLNK(mode)) {
+        return "symlink";
+    }
+    if (S_ISCHR(mode)) {
+        return "char";
+    }
+    if (S_ISBLK(mode)) {
+        return "block";
+    }
+    if (S_ISFIFO(mode)) {
+        return "fifo";
+    }
+    if (S_ISSOCK(mode)) {
+        return "socket";
+    }
+    return "other";
+}
+
+static int a90_fwclass_read_file_preview(const char *path,
+                                         const char *basename,
+                                         char *preview,
+                                         size_t preview_size,
+                                         int *read_errno_out) {
+    if (preview_size == 0) {
+        if (read_errno_out != NULL) {
+            *read_errno_out = EINVAL;
+        }
+        return -1;
+    }
+    preview[0] = '\0';
+    if (strcmp(basename, "data") == 0) {
+        if (read_errno_out != NULL) {
+            *read_errno_out = 0;
+        }
+        snprintf(preview, preview_size, "skipped-data-node");
+        return 1;
+    }
+    if (read_small_file_trim(path, preview, preview_size) < 0) {
+        if (read_errno_out != NULL) {
+            *read_errno_out = errno;
+        }
+        preview[0] = '\0';
+        return -1;
+    }
+    sanitize_one_line(preview);
+    if (read_errno_out != NULL) {
+        *read_errno_out = 0;
+    }
+    return 0;
+}
+
+static int a90_fwclass_emit_entry(struct a90_fwclass_scan_state *state,
+                                  const char *path,
+                                  const struct stat *st,
+                                  int depth) {
+    enum {
+        PREVIEW_SIZE = 256,
+        LINK_SIZE = 256,
+    };
+    const char *basename = a90_path_basename(path);
+    char link_target[LINK_SIZE];
+    char preview[PREVIEW_SIZE];
+    int read_rc = 0;
+    int read_errno_value = 0;
+    bool read_attempted = false;
+    bool interesting;
+
+    link_target[0] = '\0';
+    preview[0] = '\0';
+    if (S_ISLNK(st->st_mode)) {
+        ssize_t readlink_rc = readlink(path, link_target, sizeof(link_target) - 1U);
+
+        if (readlink_rc >= 0) {
+            link_target[readlink_rc] = '\0';
+            sanitize_one_line(link_target);
+        } else {
+            snprintf(link_target, sizeof(link_target), "<readlink-error:%d>", errno);
+        }
+    } else if (S_ISREG(st->st_mode)) {
+        read_attempted = true;
+        read_rc = a90_fwclass_read_file_preview(path,
+                                                basename,
+                                                preview,
+                                                sizeof(preview),
+                                                &read_errno_value);
+    }
+
+    interesting = a90_fwclass_text_is_interesting(basename) ||
+                  a90_fwclass_text_is_interesting(link_target) ||
+                  a90_fwclass_text_is_interesting(preview);
+    if (interesting) {
+        state->interesting_count++;
+    }
+
+    if (append_format(state->stdout_buf,
+                      "%s.%s.root_%d.entry_%02d.path=%s\n"
+                      "%s.%s.root_%d.entry_%02d.basename=%s\n"
+                      "%s.%s.root_%d.entry_%02d.depth=%d\n"
+                      "%s.%s.root_%d.entry_%02d.type=%s\n"
+                      "%s.%s.root_%d.entry_%02d.mode=%o\n"
+                      "%s.%s.root_%d.entry_%02d.interesting=%d\n",
+                      state->prefix, state->phase, state->root_index, state->emitted_count, path,
+                      state->prefix, state->phase, state->root_index, state->emitted_count, basename,
+                      state->prefix, state->phase, state->root_index, state->emitted_count, depth,
+                      state->prefix, state->phase, state->root_index, state->emitted_count, a90_fwclass_mode_label(st->st_mode),
+                      state->prefix, state->phase, state->root_index, state->emitted_count, st->st_mode & 07777,
+                      state->prefix, state->phase, state->root_index, state->emitted_count, interesting ? 1 : 0) < 0) {
+        return -1;
+    }
+    if (S_ISLNK(st->st_mode) &&
+        append_format(state->stdout_buf,
+                      "%s.%s.root_%d.entry_%02d.readlink=%s\n",
+                      state->prefix, state->phase, state->root_index, state->emitted_count,
+                      link_target[0] != '\0' ? link_target : "missing") < 0) {
+        return -1;
+    }
+    if (read_attempted &&
+        append_format(state->stdout_buf,
+                      "%s.%s.root_%d.entry_%02d.read.rc=%d\n"
+                      "%s.%s.root_%d.entry_%02d.read.errno=%d\n"
+                      "%s.%s.root_%d.entry_%02d.preview=%s\n",
+                      state->prefix, state->phase, state->root_index, state->emitted_count, read_rc,
+                      state->prefix, state->phase, state->root_index, state->emitted_count, read_errno_value,
+                      state->prefix, state->phase, state->root_index, state->emitted_count,
+                      preview[0] != '\0' ? preview : "empty") < 0) {
+        return -1;
+    }
+    state->emitted_count++;
+    return 0;
+}
+
+static int a90_fwclass_scan_dir(struct a90_fwclass_scan_state *state,
+                                const char *path,
+                                int depth,
+                                int max_depth) {
+    DIR *dir;
+    struct dirent *entry;
+    int open_errno_value = 0;
+
+    if (state->entry_count >= state->max_entries) {
+        state->truncated = true;
+        return 0;
+    }
+    dir = opendir(path);
+    if (dir == NULL) {
+        open_errno_value = errno;
+        return append_format(state->stdout_buf,
+                             "%s.%s.root_%d.open_dir_%02d.path=%s\n"
+                             "%s.%s.root_%d.open_dir_%02d.rc=-1\n"
+                             "%s.%s.root_%d.open_dir_%02d.errno=%d\n",
+                             state->prefix, state->phase, state->root_index, depth, path,
+                             state->prefix, state->phase, state->root_index, depth,
+                             state->prefix, state->phase, state->root_index, depth, open_errno_value);
+    }
+
+    if (append_format(state->stdout_buf,
+                      "%s.%s.root_%d.open_dir_%02d.path=%s\n"
+                      "%s.%s.root_%d.open_dir_%02d.rc=0\n",
+                      state->prefix, state->phase, state->root_index, depth, path,
+                      state->prefix, state->phase, state->root_index, depth) < 0) {
+        closedir(dir);
+        return -1;
+    }
+
+    while ((entry = readdir(dir)) != NULL) {
+        char child_path[PATH_MAX];
+        struct stat st;
+
+        if (strcmp(entry->d_name, ".") == 0 || strcmp(entry->d_name, "..") == 0) {
+            continue;
+        }
+        if (state->entry_count >= state->max_entries) {
+            state->truncated = true;
+            break;
+        }
+        if (snprintf(child_path,
+                     sizeof(child_path),
+                     "%s/%s",
+                     path,
+                     entry->d_name) >= (int)sizeof(child_path)) {
+            state->truncated = true;
+            continue;
+        }
+        if (lstat(child_path, &st) < 0) {
+            int saved_errno = errno;
+
+            if (append_format(state->stdout_buf,
+                              "%s.%s.root_%d.entry_%02d.path=%s\n"
+                              "%s.%s.root_%d.entry_%02d.lstat.rc=-1\n"
+                              "%s.%s.root_%d.entry_%02d.lstat.errno=%d\n",
+                              state->prefix, state->phase, state->root_index, state->emitted_count, child_path,
+                              state->prefix, state->phase, state->root_index, state->emitted_count,
+                              state->prefix, state->phase, state->root_index, state->emitted_count, saved_errno) < 0) {
+                closedir(dir);
+                return -1;
+            }
+            state->entry_count++;
+            state->emitted_count++;
+            continue;
+        }
+        state->entry_count++;
+        if (a90_fwclass_emit_entry(state, child_path, &st, depth) < 0) {
+            closedir(dir);
+            return -1;
+        }
+        if (S_ISDIR(st.st_mode) && depth < max_depth) {
+            if (a90_fwclass_scan_dir(state, child_path, depth + 1, max_depth) < 0) {
+                closedir(dir);
+                return -1;
+            }
+        }
+    }
+    closedir(dir);
+    return 0;
+}
+
+static int append_firmware_class_fallback_sampler(struct buffer *stdout_buf,
+                                                  const char *phase) {
+    static const char * const prefix = "firmware_class_fallback_sampler";
+    static const char * const roots[] = {
+        "/sys/class/firmware",
+        "/sys/devices/virtual/firmware",
+    };
+    char fwclass_path[256];
+    char timeout_value[64];
+    int fwclass_path_rc;
+    int fwclass_path_errno = 0;
+    int timeout_rc;
+    int timeout_errno = 0;
+    int total_entries = 0;
+    int total_interesting = 0;
+    int total_emitted = 0;
+
+    fwclass_path_rc = read_small_file_trim("/sys/module/firmware_class/parameters/path",
+                                           fwclass_path,
+                                           sizeof(fwclass_path));
+    if (fwclass_path_rc < 0) {
+        fwclass_path_errno = errno;
+        fwclass_path[0] = '\0';
+    }
+    sanitize_one_line(fwclass_path);
+    timeout_rc = read_small_file_trim("/sys/class/firmware/timeout",
+                                      timeout_value,
+                                      sizeof(timeout_value));
+    if (timeout_rc < 0) {
+        timeout_errno = errno;
+        timeout_value[0] = '\0';
+    }
+    sanitize_one_line(timeout_value);
+
+    if (append_format(stdout_buf,
+                      "%s.%s.begin=1\n"
+                      "%s.%s.mode=read-only-sysfs-firmware-fallback-sampler\n"
+                      "%s.%s.no_sysfs_write=1\n"
+                      "%s.%s.no_firmware_write=1\n"
+                      "%s.%s.no_partition_write=1\n"
+                      "%s.%s.no_tracefs_write=1\n"
+                      "%s.%s.no_wifi_hal=1\n"
+                      "%s.%s.scan_connect=0\n"
+                      "%s.%s.credentials=0\n"
+                      "%s.%s.dhcp_routing=0\n"
+                      "%s.%s.external_ping=0\n"
+                      "%s.%s.fwclass_path.rc=%d\n"
+                      "%s.%s.fwclass_path.errno=%d\n"
+                      "%s.%s.fwclass_path.value=%s\n"
+                      "%s.%s.timeout.rc=%d\n"
+                      "%s.%s.timeout.errno=%d\n"
+                      "%s.%s.timeout.value=%s\n",
+                      prefix, phase,
+                      prefix, phase,
+                      prefix, phase,
+                      prefix, phase,
+                      prefix, phase,
+                      prefix, phase,
+                      prefix, phase,
+                      prefix, phase,
+                      prefix, phase,
+                      prefix, phase,
+                      prefix, phase,
+                      prefix, phase,
+                      fwclass_path_rc,
+                      prefix, phase,
+                      fwclass_path_errno,
+                      prefix, phase,
+                      fwclass_path[0] != '\0' ? fwclass_path : "empty",
+                      prefix, phase,
+                      timeout_rc,
+                      prefix, phase,
+                      timeout_errno,
+                      prefix, phase,
+                      timeout_value[0] != '\0' ? timeout_value : "empty") < 0) {
+        return -1;
+    }
+
+    for (size_t root_index = 0; root_index < sizeof(roots) / sizeof(roots[0]); root_index++) {
+        struct a90_fwclass_scan_state state = {
+            .stdout_buf = stdout_buf,
+            .prefix = prefix,
+            .phase = phase,
+            .root_index = (int)root_index,
+            .entry_count = 0,
+            .interesting_count = 0,
+            .emitted_count = 0,
+            .max_entries = 80,
+            .truncated = false,
+        };
+        if (append_format(stdout_buf,
+                          "%s.%s.root_%zu.path=%s\n",
+                          prefix, phase, root_index, roots[root_index]) < 0 ||
+            a90_fwclass_scan_dir(&state, roots[root_index], 0, 3) < 0 ||
+            append_format(stdout_buf,
+                          "%s.%s.root_%zu.entries=%d\n"
+                          "%s.%s.root_%zu.emitted=%d\n"
+                          "%s.%s.root_%zu.interesting=%d\n"
+                          "%s.%s.root_%zu.truncated=%d\n",
+                          prefix, phase, root_index, state.entry_count,
+                          prefix, phase, root_index, state.emitted_count,
+                          prefix, phase, root_index, state.interesting_count,
+                          prefix, phase, root_index, state.truncated ? 1 : 0) < 0) {
+            return -1;
+        }
+        total_entries += state.entry_count;
+        total_emitted += state.emitted_count;
+        total_interesting += state.interesting_count;
+    }
+
+    return append_format(stdout_buf,
+                         "%s.%s.entries=%d\n"
+                         "%s.%s.emitted=%d\n"
+                         "%s.%s.interesting=%d\n"
+                         "%s.%s.end=1\n",
+                         prefix, phase, total_entries,
+                         prefix, phase, total_emitted,
+                         prefix, phase, total_interesting,
+                         prefix, phase);
+}
+#endif
+
 static int append_wlan_pd_icnss_ipc_snapshot(struct buffer *buf,
                                              const char *phase) {
     struct stat st;
@@ -51788,6 +52193,15 @@ static int run_wifi_companion_start_only_guarded(const struct config *cfg,
 	            return -1;
 	        }
 #endif
+#if A90_WIFI_TEST_BOOT_FIRMWARE_CLASS_FALLBACK_SAMPLER
+	        if (append_firmware_class_fallback_sampler(stdout_buf,
+	                                                   "after_boot_wlan_trigger") < 0) {
+	            stop_wlan_pd_modem_holder(paths, stdout_buf, &wlan_pd_holder);
+	            composite_cleanup_children(children, active_child_count, stdout_buf, stderr_buf);
+	            stop_property_service_shim(&property_shim, paths, stdout_buf);
+	            return -1;
+	        }
+#endif
 	    }
 #endif
 	    deadline = monotonic_ms() + cfg->timeout_sec * 1000L;
@@ -51805,6 +52219,16 @@ static int run_wifi_companion_start_only_guarded(const struct config *cfg,
 	                                           "after_boot_wlan_long_window") < 0 ||
 	         append_icnss_register_probe_stack_sampler(stdout_buf,
 	                                                   "after_boot_wlan_long_window") < 0)) {
+	        stop_wlan_pd_modem_holder(paths, stdout_buf, &wlan_pd_holder);
+	        composite_cleanup_children(children, active_child_count, stdout_buf, stderr_buf);
+	        stop_property_service_shim(&property_shim, paths, stdout_buf);
+	        return -1;
+	    }
+#endif
+#if A90_WIFI_TEST_BOOT_FIRMWARE_CLASS_FALLBACK_SAMPLER
+	    if (wlan_pd_post_pm_lower_state_observer &&
+	        append_firmware_class_fallback_sampler(stdout_buf,
+	                                               "after_boot_wlan_long_window") < 0) {
 	        stop_wlan_pd_modem_holder(paths, stdout_buf, &wlan_pd_holder);
 	        composite_cleanup_children(children, active_child_count, stdout_buf, stderr_buf);
 	        stop_property_service_shim(&property_shim, paths, stdout_buf);
