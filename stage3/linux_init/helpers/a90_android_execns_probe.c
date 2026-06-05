@@ -121,6 +121,10 @@
 #define A90_WIFI_TEST_BOOT_TFTP_PERSIST_RFS_TMPFS 0
 #endif
 
+#ifndef A90_WIFI_TEST_BOOT_TFTP_SHARED_SERVER_INFO_TMPFS
+#define A90_WIFI_TEST_BOOT_TFTP_SHARED_SERVER_INFO_TMPFS 0
+#endif
+
 #ifndef A90_WIFI_TEST_BOOT_TFTP_PERSIST_RFS_AUTODIR_PARITY
 #define A90_WIFI_TEST_BOOT_TFTP_PERSIST_RFS_AUTODIR_PARITY 0
 #endif
@@ -241,7 +245,9 @@
 #define A90_WIFI_TEST_BOOT_ANDROID_TFTP_SERVER_IDENTITY A90_WIFI_TEST_BOOT_ANDROID_RMT_TFTP_IDENTITY
 #endif
 
-#if A90_WIFI_TEST_BOOT_ANDROID_TFTP_SERVER_IDENTITY && !A90_WIFI_TEST_BOOT_ANDROID_RMT_STORAGE_IDENTITY && A90_WIFI_TEST_BOOT_TFTP_PERSIST_RFS_LEAF_PRECREATE && A90_WIFI_TEST_BOOT_TFTP_PERSIST_RFS_PARENT_TRAVERSE_PARITY && A90_WIFI_TEST_BOOT_TFTP_PROCESS_NAMESPACE_AUDIT && A90_WIFI_TEST_BOOT_TFTP_PERSIST_RFS_AUTODIR_PARITY && A90_WIFI_TEST_BOOT_TFTP_TOMBSTONE_RFS_VENDOR_RFS_PERMS && A90_WIFI_TEST_BOOT_TFTP_TOMBSTONE_RFS_TMPFS && A90_WIFI_TEST_BOOT_ICNSS_QCACLD_POST_BDF_FOCUSED_SUMMARY && A90_WIFI_TEST_BOOT_WLFW_LATE_MSG21_FOCUSED_SUMMARY && A90_WIFI_TEST_BOOT_PERMGR_VOTE_FOCUSED_SUMMARY && A90_WIFI_TEST_BOOT_TFTP_READWRITE_TRANSITION_SAMPLER && A90_WIFI_TEST_BOOT_TFTP_READY_BEFORE_WLFW_VOTE && A90_WIFI_TEST_BOOT_TFTP_LOGDW_ORDER_TIMESTAMPS && A90_WIFI_TEST_BOOT_TFTP_PERSIST_RFS_TMPFS && A90_WIFI_TEST_BOOT_TFTP_MCFG_READBACK && A90_WIFI_TEST_BOOT_TFTP_LOGDW_SINK && A90_RFS_BRIDGE_SERVE_FIRMWARE_MNT_PROBE
+#if A90_WIFI_TEST_BOOT_TFTP_SHARED_SERVER_INFO_TMPFS && !A90_WIFI_TEST_BOOT_ANDROID_RMT_STORAGE_IDENTITY && !A90_WIFI_TEST_BOOT_ANDROID_TFTP_SERVER_IDENTITY && A90_WIFI_TEST_BOOT_TFTP_PERSIST_RFS_LEAF_PRECREATE && A90_WIFI_TEST_BOOT_TFTP_PERSIST_RFS_PARENT_TRAVERSE_PARITY && A90_WIFI_TEST_BOOT_TFTP_PROCESS_NAMESPACE_AUDIT && A90_WIFI_TEST_BOOT_TFTP_PERSIST_RFS_AUTODIR_PARITY && A90_WIFI_TEST_BOOT_TFTP_TOMBSTONE_RFS_VENDOR_RFS_PERMS && A90_WIFI_TEST_BOOT_TFTP_TOMBSTONE_RFS_TMPFS && A90_WIFI_TEST_BOOT_ICNSS_QCACLD_POST_BDF_FOCUSED_SUMMARY && A90_WIFI_TEST_BOOT_WLFW_LATE_MSG21_FOCUSED_SUMMARY && A90_WIFI_TEST_BOOT_PERMGR_VOTE_FOCUSED_SUMMARY && A90_WIFI_TEST_BOOT_TFTP_READWRITE_TRANSITION_SAMPLER && A90_WIFI_TEST_BOOT_TFTP_READY_BEFORE_WLFW_VOTE && A90_WIFI_TEST_BOOT_TFTP_LOGDW_ORDER_TIMESTAMPS && A90_WIFI_TEST_BOOT_TFTP_PERSIST_RFS_TMPFS && A90_WIFI_TEST_BOOT_TFTP_MCFG_READBACK && A90_WIFI_TEST_BOOT_TFTP_LOGDW_SINK && A90_RFS_BRIDGE_SERVE_FIRMWARE_MNT_PROBE
+#define EXECNS_VERSION "a90_android_execns_probe v419"
+#elif A90_WIFI_TEST_BOOT_ANDROID_TFTP_SERVER_IDENTITY && !A90_WIFI_TEST_BOOT_ANDROID_RMT_STORAGE_IDENTITY && A90_WIFI_TEST_BOOT_TFTP_PERSIST_RFS_LEAF_PRECREATE && A90_WIFI_TEST_BOOT_TFTP_PERSIST_RFS_PARENT_TRAVERSE_PARITY && A90_WIFI_TEST_BOOT_TFTP_PROCESS_NAMESPACE_AUDIT && A90_WIFI_TEST_BOOT_TFTP_PERSIST_RFS_AUTODIR_PARITY && A90_WIFI_TEST_BOOT_TFTP_TOMBSTONE_RFS_VENDOR_RFS_PERMS && A90_WIFI_TEST_BOOT_TFTP_TOMBSTONE_RFS_TMPFS && A90_WIFI_TEST_BOOT_ICNSS_QCACLD_POST_BDF_FOCUSED_SUMMARY && A90_WIFI_TEST_BOOT_WLFW_LATE_MSG21_FOCUSED_SUMMARY && A90_WIFI_TEST_BOOT_PERMGR_VOTE_FOCUSED_SUMMARY && A90_WIFI_TEST_BOOT_TFTP_READWRITE_TRANSITION_SAMPLER && A90_WIFI_TEST_BOOT_TFTP_READY_BEFORE_WLFW_VOTE && A90_WIFI_TEST_BOOT_TFTP_LOGDW_ORDER_TIMESTAMPS && A90_WIFI_TEST_BOOT_TFTP_PERSIST_RFS_TMPFS && A90_WIFI_TEST_BOOT_TFTP_MCFG_READBACK && A90_WIFI_TEST_BOOT_TFTP_LOGDW_SINK && A90_RFS_BRIDGE_SERVE_FIRMWARE_MNT_PROBE
 #define EXECNS_VERSION "a90_android_execns_probe v418"
 #elif A90_WIFI_TEST_BOOT_ANDROID_RMT_STORAGE_IDENTITY && A90_WIFI_TEST_BOOT_ANDROID_TFTP_SERVER_IDENTITY && A90_WIFI_TEST_BOOT_TFTP_PERSIST_RFS_LEAF_PRECREATE && A90_WIFI_TEST_BOOT_TFTP_PERSIST_RFS_PARENT_TRAVERSE_PARITY && A90_WIFI_TEST_BOOT_TFTP_PROCESS_NAMESPACE_AUDIT && A90_WIFI_TEST_BOOT_TFTP_PERSIST_RFS_AUTODIR_PARITY && A90_WIFI_TEST_BOOT_TFTP_TOMBSTONE_RFS_VENDOR_RFS_PERMS && A90_WIFI_TEST_BOOT_TFTP_TOMBSTONE_RFS_TMPFS && A90_WIFI_TEST_BOOT_ICNSS_QCACLD_POST_BDF_FOCUSED_SUMMARY && A90_WIFI_TEST_BOOT_WLFW_LATE_MSG21_FOCUSED_SUMMARY && A90_WIFI_TEST_BOOT_PERMGR_VOTE_FOCUSED_SUMMARY && A90_WIFI_TEST_BOOT_TFTP_READWRITE_TRANSITION_SAMPLER && A90_WIFI_TEST_BOOT_TFTP_READY_BEFORE_WLFW_VOTE && A90_WIFI_TEST_BOOT_TFTP_LOGDW_ORDER_TIMESTAMPS && A90_WIFI_TEST_BOOT_TFTP_PERSIST_RFS_TMPFS && A90_WIFI_TEST_BOOT_TFTP_MCFG_READBACK && A90_WIFI_TEST_BOOT_TFTP_LOGDW_SINK && A90_RFS_BRIDGE_SERVE_FIRMWARE_MNT_PROBE
 #define EXECNS_VERSION "a90_android_execns_probe v417"
@@ -644,7 +650,9 @@ struct paths {
     char vendor_rfs_msm_mpss[MAX_PATH_LEN];
     char vendor_rfs_msm_mpss_readonly[MAX_PATH_LEN];
     char vendor_rfs_msm_mpss_readwrite[MAX_PATH_LEN];
+    char vendor_rfs_msm_mpss_shared[MAX_PATH_LEN];
     char vendor_rfs_mpss_server_check[MAX_PATH_LEN];
+    char vendor_rfs_mpss_server_info[MAX_PATH_LEN];
     char vendor_rfs_mpss_ota_firewall[MAX_PATH_LEN];
     char vendor_rfs_mpss_ota_firewall_ruleset[MAX_PATH_LEN];
 #if A90_WIFI_TEST_BOOT_TFTP_MCFG_READBACK || A90_WIFI_TEST_BOOT_TFTP_READWRITE_TRANSITION_SAMPLER
@@ -657,6 +665,7 @@ struct paths {
     char rfs_bridge_source_msm_mpss[MAX_PATH_LEN];
     char rfs_bridge_source_msm_mpss_readonly[MAX_PATH_LEN];
     char rfs_bridge_source_msm_mpss_readwrite[MAX_PATH_LEN];
+    char rfs_bridge_source_msm_mpss_shared[MAX_PATH_LEN];
     char rfs_bridge_source_msm_mpss_readonly_vendor[MAX_PATH_LEN];
     char rfs_bridge_source_msm_mpss_readonly_vendor_firmware_mnt[MAX_PATH_LEN];
     char rfs_bridge_source_msm_mpss_readonly_vendor_firmware_mnt_image[MAX_PATH_LEN];
@@ -3855,10 +3864,18 @@ static int init_paths(struct paths *paths) {
                     sizeof(paths->vendor_rfs_msm_mpss_readwrite),
                     paths->vendor_rfs_msm_mpss,
                     "readwrite") < 0 ||
+        append_path(paths->vendor_rfs_msm_mpss_shared,
+                    sizeof(paths->vendor_rfs_msm_mpss_shared),
+                    paths->vendor_rfs_msm_mpss,
+                    "shared") < 0 ||
         append_path(paths->vendor_rfs_mpss_server_check,
                     sizeof(paths->vendor_rfs_mpss_server_check),
                     paths->vendor_rfs_msm_mpss_readwrite,
                     "server_check.txt") < 0 ||
+        append_path(paths->vendor_rfs_mpss_server_info,
+                    sizeof(paths->vendor_rfs_mpss_server_info),
+                    paths->vendor_rfs_msm_mpss_shared,
+                    "server_info.txt") < 0 ||
         append_path(paths->vendor_rfs_mpss_wlanmdsp,
                     sizeof(paths->vendor_rfs_mpss_wlanmdsp),
                     paths->vendor_rfs_msm_mpss_readonly,
@@ -3887,6 +3904,10 @@ static int init_paths(struct paths *paths) {
                     sizeof(paths->rfs_bridge_source_msm_mpss_readwrite),
                     paths->rfs_bridge_source_msm_mpss,
                     "readwrite") < 0 ||
+        append_path(paths->rfs_bridge_source_msm_mpss_shared,
+                    sizeof(paths->rfs_bridge_source_msm_mpss_shared),
+                    paths->rfs_bridge_source_msm_mpss,
+                    "shared") < 0 ||
         append_path(paths->rfs_bridge_source_msm_mpss_readonly_vendor,
                     sizeof(paths->rfs_bridge_source_msm_mpss_readonly_vendor),
                     paths->rfs_bridge_source_msm_mpss_readonly,
@@ -5112,6 +5133,8 @@ static void cleanup_paths(const struct paths *paths) {
     umount2(paths->mnt_vendor_persist_hlos_rfs, MNT_DETACH);
     umount2(paths->mnt_vendor_persist_rfs, MNT_DETACH);
 #endif
+    umount2(paths->vendor_rfs_msm_mpss_shared, MNT_DETACH);
+    umount2(paths->rfs_bridge_source_msm_mpss_shared, MNT_DETACH);
     umount2(paths->vendor_rfs_msm_mpss_readwrite, MNT_DETACH);
     umount2(paths->rfs_bridge_source_msm_mpss_readwrite, MNT_DETACH);
     umount2(paths->rfs_bridge_source_readwrite, MNT_DETACH);
@@ -5345,6 +5368,7 @@ static void cleanup_paths(const struct paths *paths) {
     rmdir(paths->rfs_bridge_source_msm_mpss_readonly_vendor_firmware_mnt);
     rmdir(paths->rfs_bridge_source_msm_mpss_readonly_vendor);
     rmdir(paths->rfs_bridge_source_msm_mpss_readonly);
+    rmdir(paths->rfs_bridge_source_msm_mpss_shared);
     rmdir(paths->rfs_bridge_source_msm_mpss);
     rmdir(paths->rfs_bridge_source_msm);
     rmdir(paths->rfs_bridge_source);
@@ -10625,6 +10649,45 @@ static int populate_rfs_readwrite_tmpfs_bridge(const char *readwrite_dir,
     return 0;
 }
 
+#if A90_WIFI_TEST_BOOT_TFTP_SHARED_SERVER_INFO_TMPFS
+static int populate_rfs_shared_server_info_tmpfs_bridge(const char *shared_dir,
+                                                        char *error_buf,
+                                                        size_t error_size,
+                                                        const char *label) {
+    char server_info[MAX_PATH_LEN];
+
+    if (append_path(server_info, sizeof(server_info), shared_dir, "server_info.txt") < 0) {
+        snprintf(error_buf, error_size, "rfs shared server_info path %s too long", label);
+        errno = ENAMETOOLONG;
+        return -1;
+    }
+    if (mkdir_p(shared_dir, 0770) < 0) {
+        snprintf(error_buf, error_size, "mkdir rfs shared server_info bridge %s: %s", label, strerror(errno));
+        return -1;
+    }
+    if (mount("tmpfs",
+              shared_dir,
+              "tmpfs",
+              MS_NOSUID | MS_NODEV,
+              "size=64k,mode=0770,uid=2903,gid=2904") < 0) {
+        snprintf(error_buf, error_size, "mount rfs shared server_info tmpfs bridge %s: %s", label, strerror(errno));
+        return -1;
+    }
+    if (write_empty_private_file(server_info, 0660) < 0) {
+        snprintf(error_buf, error_size, "create rfs shared server_info bridge %s: %s", label, strerror(errno));
+        return -1;
+    }
+    if (chown(shared_dir, A90_AID_VENDOR_RFS, A90_AID_VENDOR_RFS_SHARED) < 0 ||
+        chmod(shared_dir, 0770) < 0 ||
+        chown(server_info, A90_AID_VENDOR_RFS, A90_AID_VENDOR_RFS_SHARED) < 0 ||
+        chmod(server_info, 0660) < 0) {
+        snprintf(error_buf, error_size, "own rfs shared server_info bridge %s: %s", label, strerror(errno));
+        return -1;
+    }
+    return 0;
+}
+#endif
+
 #if A90_WIFI_TEST_BOOT_TFTP_OTA_FIREWALL_RULESET_TMPFS
 static int populate_rfs_ota_firewall_ruleset_bridge(const char *readwrite_dir,
                                                     char *error_buf,
@@ -10897,6 +10960,14 @@ static int materialize_wifi_firmware_rfs_bridge(const struct paths *paths,
                                                 "readwrite-existing") < 0) {
             return -1;
         }
+#if A90_WIFI_TEST_BOOT_TFTP_SHARED_SERVER_INFO_TMPFS
+        if (populate_rfs_shared_server_info_tmpfs_bridge(paths->vendor_rfs_msm_mpss_shared,
+                                                         error_buf,
+                                                         error_size,
+                                                         "shared-existing") < 0) {
+            return -1;
+        }
+#endif
 #if A90_WIFI_TEST_BOOT_TFTP_OTA_FIREWALL_RULESET_TMPFS
         if (populate_rfs_ota_firewall_ruleset_bridge(paths->vendor_rfs_msm_mpss_readwrite,
                                                      error_buf,
@@ -10937,6 +11008,14 @@ static int materialize_wifi_firmware_rfs_bridge(const struct paths *paths,
                                                 "mpss") < 0) {
             return -1;
         }
+#if A90_WIFI_TEST_BOOT_TFTP_SHARED_SERVER_INFO_TMPFS
+        if (populate_rfs_shared_server_info_tmpfs_bridge(paths->rfs_bridge_source_msm_mpss_shared,
+                                                         error_buf,
+                                                         error_size,
+                                                         "mpss") < 0) {
+            return -1;
+        }
+#endif
 #if A90_WIFI_TEST_BOOT_TFTP_OTA_FIREWALL_RULESET_TMPFS
         if (populate_rfs_ota_firewall_ruleset_bridge(paths->rfs_bridge_source_msm_mpss_readwrite,
                                                      error_buf,
@@ -10977,6 +11056,14 @@ static int materialize_wifi_firmware_rfs_bridge(const struct paths *paths,
                                                 "rfs") < 0) {
             return -1;
         }
+#if A90_WIFI_TEST_BOOT_TFTP_SHARED_SERVER_INFO_TMPFS
+        if (populate_rfs_shared_server_info_tmpfs_bridge(paths->rfs_bridge_source_msm_mpss_shared,
+                                                         error_buf,
+                                                         error_size,
+                                                         "rfs") < 0) {
+            return -1;
+        }
+#endif
 #if A90_WIFI_TEST_BOOT_TFTP_OTA_FIREWALL_RULESET_TMPFS
         if (populate_rfs_ota_firewall_ruleset_bridge(paths->rfs_bridge_source_msm_mpss_readwrite,
                                                      error_buf,
@@ -11020,6 +11107,10 @@ static int append_wlan_pd_rfs_bridge_snapshot(struct buffer *buf,
     struct stat readonly_st;
     struct stat readwrite_st;
     struct stat server_check_st;
+#if A90_WIFI_TEST_BOOT_TFTP_SHARED_SERVER_INFO_TMPFS
+    struct stat shared_st;
+    struct stat server_info_st;
+#endif
 #if A90_WIFI_TEST_BOOT_TFTP_OTA_FIREWALL_RULESET_TMPFS
     struct stat ota_ruleset_st;
 #endif
@@ -11037,6 +11128,10 @@ static int append_wlan_pd_rfs_bridge_snapshot(struct buffer *buf,
     int readonly_errno = 0;
     int readwrite_errno = 0;
     int server_check_errno = 0;
+#if A90_WIFI_TEST_BOOT_TFTP_SHARED_SERVER_INFO_TMPFS
+    int shared_errno = 0;
+    int server_info_errno = 0;
+#endif
 #if A90_WIFI_TEST_BOOT_TFTP_OTA_FIREWALL_RULESET_TMPFS
     int ota_ruleset_errno = 0;
 #endif
@@ -11066,6 +11161,13 @@ static int append_wlan_pd_rfs_bridge_snapshot(struct buffer *buf,
     bool readwrite_is_symlink = false;
     bool server_check_exists = false;
     bool server_check_is_reg = false;
+#if A90_WIFI_TEST_BOOT_TFTP_SHARED_SERVER_INFO_TMPFS
+    bool shared_exists = false;
+    bool shared_is_dir = false;
+    bool shared_is_symlink = false;
+    bool server_info_exists = false;
+    bool server_info_is_reg = false;
+#endif
 #if A90_WIFI_TEST_BOOT_TFTP_OTA_FIREWALL_RULESET_TMPFS
     bool ota_ruleset_exists = false;
     bool ota_ruleset_is_reg = false;
@@ -11106,6 +11208,23 @@ static int append_wlan_pd_rfs_bridge_snapshot(struct buffer *buf,
         server_check_errno = errno;
         memset(&server_check_st, 0, sizeof(server_check_st));
     }
+#if A90_WIFI_TEST_BOOT_TFTP_SHARED_SERVER_INFO_TMPFS
+    if (lstat(paths->vendor_rfs_msm_mpss_shared, &shared_st) == 0) {
+        shared_exists = true;
+        shared_is_dir = S_ISDIR(shared_st.st_mode);
+        shared_is_symlink = S_ISLNK(shared_st.st_mode);
+    } else {
+        shared_errno = errno;
+        memset(&shared_st, 0, sizeof(shared_st));
+    }
+    if (stat(paths->vendor_rfs_mpss_server_info, &server_info_st) == 0) {
+        server_info_exists = true;
+        server_info_is_reg = S_ISREG(server_info_st.st_mode);
+    } else {
+        server_info_errno = errno;
+        memset(&server_info_st, 0, sizeof(server_info_st));
+    }
+#endif
 #if A90_WIFI_TEST_BOOT_TFTP_OTA_FIREWALL_RULESET_TMPFS
     if (stat(paths->vendor_rfs_mpss_ota_firewall_ruleset, &ota_ruleset_st) == 0) {
         ota_ruleset_exists = true;
@@ -11208,6 +11327,53 @@ static int append_wlan_pd_rfs_bridge_snapshot(struct buffer *buf,
     } else {
         persist_hlos_rw_errno = errno;
         memset(&persist_hlos_rw_st, 0, sizeof(persist_hlos_rw_st));
+    }
+#endif
+#if A90_WIFI_TEST_BOOT_TFTP_SHARED_SERVER_INFO_TMPFS
+    if (append_format(buf,
+                      "%s.shared_server_info.tmpfs_requested=1\n"
+                      "%s.shared_server_info.absolute=/vendor/rfs/msm/mpss/shared/server_info.txt\n"
+                      "%s.shared_server_info.dir_host_path=%s\n"
+                      "%s.shared_server_info.dir_exists=%d\n"
+                      "%s.shared_server_info.dir_is_dir=%d\n"
+                      "%s.shared_server_info.dir_is_symlink=%d\n"
+                      "%s.shared_server_info.dir_mode=%04o\n"
+                      "%s.shared_server_info.dir_uid=%lld\n"
+                      "%s.shared_server_info.dir_gid=%lld\n"
+                      "%s.shared_server_info.dir_errno=%d\n"
+                      "%s.shared_server_info.host_path=%s\n"
+                      "%s.shared_server_info.exists=%d\n"
+                      "%s.shared_server_info.is_reg=%d\n"
+                      "%s.shared_server_info.size=%lld\n"
+                      "%s.shared_server_info.mode=%04o\n"
+                      "%s.shared_server_info.uid=%lld\n"
+                      "%s.shared_server_info.gid=%lld\n"
+                      "%s.shared_server_info.stat_errno=%d\n"
+                      "%s.shared_server_info.stat_error=%s\n"
+                      "%s.shared_server_info.rootfs_namespace_only=1\n"
+                      "%s.shared_server_info.sda29_write=0\n",
+                      prefix,
+                      prefix,
+                      prefix, paths->vendor_rfs_msm_mpss_shared,
+                      prefix, shared_exists ? 1 : 0,
+                      prefix, shared_is_dir ? 1 : 0,
+                      prefix, shared_is_symlink ? 1 : 0,
+                      prefix, shared_exists ? (unsigned int)(shared_st.st_mode & 07777) : 0U,
+                      prefix, shared_exists ? (long long)shared_st.st_uid : -1LL,
+                      prefix, shared_exists ? (long long)shared_st.st_gid : -1LL,
+                      prefix, shared_errno,
+                      prefix, paths->vendor_rfs_mpss_server_info,
+                      prefix, server_info_exists ? 1 : 0,
+                      prefix, server_info_is_reg ? 1 : 0,
+                      prefix, server_info_exists ? (long long)server_info_st.st_size : 0LL,
+                      prefix, server_info_exists ? (unsigned int)(server_info_st.st_mode & 07777) : 0U,
+                      prefix, server_info_exists ? (long long)server_info_st.st_uid : -1LL,
+                      prefix, server_info_exists ? (long long)server_info_st.st_gid : -1LL,
+                      prefix, server_info_errno,
+                      prefix, server_info_errno != 0 ? strerror(server_info_errno) : "none",
+                      prefix,
+                      prefix) < 0) {
+        return -1;
     }
 #endif
     return append_format(buf,
@@ -34059,6 +34225,8 @@ static int append_tftp_process_namespace_audit(struct buffer *buf,
         append_tftp_process_root_path_stat(buf, child->pid, prefix, "persist_rfs_msm_adsp", "/mnt/vendor/persist/rfs/msm/adsp") < 0 ||
         append_tftp_process_root_path_stat(buf, child->pid, prefix, "persist_rfs_mdm_mpss", "/mnt/vendor/persist/rfs/mdm/mpss") < 0 ||
         append_tftp_process_root_path_stat(buf, child->pid, prefix, "persist_rfs_apq_gnss", "/mnt/vendor/persist/rfs/apq/gnss") < 0 ||
+        append_tftp_process_root_path_stat(buf, child->pid, prefix, "vendor_rfs_shared", "/vendor/rfs/msm/mpss/shared") < 0 ||
+        append_tftp_process_root_path_stat(buf, child->pid, prefix, "vendor_rfs_shared_server_info", "/vendor/rfs/msm/mpss/shared/server_info.txt") < 0 ||
         append_tftp_process_root_path_stat(buf, child->pid, prefix, "vendor_rfs_readwrite", "/vendor/rfs/msm/mpss/readwrite") < 0 ||
         append_tftp_process_root_path_stat(buf, child->pid, prefix, "data_tombstones_rfs", "/data/vendor/tombstones/rfs") < 0 ||
         append_proc_file_capture_named(buf, child->pid, "status", "tftp_process_namespace_status", 8192, &captured) < 0 ||
@@ -49651,6 +49819,10 @@ static int run_wifi_companion_start_only_guarded(const struct config *cfg,
                       "wifi_companion_start.macloader_syscall_trace.single_child=macloader\n"
                       "wifi_companion_start.macloader_syscall_trace.no_cnss_ptrace=1\n"
                       "wifi_companion_start.macloader_syscall_trace.raw_mac_payload=0\n"
+                      "wifi_companion_start.tftp_shared_server_info_tmpfs.enabled=%d\n"
+                      "wifi_companion_start.tftp_shared_server_info_tmpfs.path=/vendor/rfs/msm/mpss/shared/server_info.txt\n"
+                      "wifi_companion_start.tftp_shared_server_info_tmpfs.rootfs_namespace_only=1\n"
+                      "wifi_companion_start.tftp_shared_server_info_tmpfs.sda29_write=0\n"
                       "wifi_companion_start.tftp_tombstone_rfs_tmpfs.enabled=%d\n"
                       "wifi_companion_start.tftp_tombstone_rfs_tmpfs.rootfs_namespace_only=1\n"
                       "wifi_companion_start.tftp_tombstone_rfs_tmpfs.ota_ruleset_created=0\n"
@@ -49712,6 +49884,7 @@ static int run_wifi_companion_start_only_guarded(const struct config *cfg,
 #else
                       0,
 #endif
+                      A90_WIFI_TEST_BOOT_TFTP_SHARED_SERVER_INFO_TMPFS ? 1 : 0,
                       A90_WIFI_TEST_BOOT_TFTP_TOMBSTONE_RFS_TMPFS ? 1 : 0,
                       A90_WIFI_TEST_BOOT_TFTP_TOMBSTONE_RFS_VENDOR_RFS_PERMS ? 1 : 0,
                       A90_WIFI_TEST_BOOT_TFTP_PERSIST_RFS_PARENT_TRAVERSE_PARITY ? 1 : 0,
