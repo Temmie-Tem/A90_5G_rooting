@@ -1,0 +1,5 @@
+# ripgrep/fd search-exclusions (does NOT affect git tracking).
+# The archive holds frozen historical source provenance; excluding it keeps
+# `rg` focused on active source and avoids matching superseded/duplicate copies.
+# To search archive explicitly: `rg --no-ignore <pattern> workspace/public/archive`
+workspace/public/archive/
