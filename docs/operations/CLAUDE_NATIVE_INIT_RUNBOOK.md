@@ -340,7 +340,7 @@ strings workspace/public/archive/stage3/linux_init/init_v87 | rg 'A90 Linux init
 ```bash
 rm -rf /tmp/a90_boot_v87_unpack
 mkdir -p /tmp/a90_boot_v87_unpack
-python3 mkbootimg/unpack_bootimg.py \
+python3 workspace/public/src/third_party/mkbootimg/unpack_bootimg.py \
   --boot_img workspace/private/inputs/boot_images/boot_linux_v86.img \
   --out /tmp/a90_boot_v87_unpack \
   --format=mkbootimg \
@@ -377,7 +377,7 @@ for i, item in enumerate(args):
 else:
     raise SystemExit('missing --ramdisk')
 
-cmd = ['python3', 'mkbootimg/mkbootimg.py', *args, '--output', 'workspace/private/inputs/boot_images/boot_linux_v87.img']
+cmd = ['python3', 'workspace/public/src/third_party/mkbootimg/mkbootimg.py', *args, '--output', 'workspace/private/inputs/boot_images/boot_linux_v87.img']
 print(shlex.join(cmd))
 subprocess.run(cmd, check=True)
 PYBOOT

@@ -56,6 +56,8 @@ workspace/
       harness/
       scripts/
         revalidation/
+      third_party/
+        mkbootimg/
     archive/
       scripts/
       stage3/
@@ -155,6 +157,10 @@ images that become rollback or next-build inputs belong under
 
 Migrated harness defaults resolve these legacy local roots through
 `workspace/private/inputs/` first, then falls back to the old root when present:
+
+These legacy roots are not scaffolded anymore. Do not recreate them for new
+work; they are read-only compatibility fallbacks for old checkouts or old local
+scripts only.
 
 | Legacy root | Workspace root | Override env |
 | --- | --- | --- |

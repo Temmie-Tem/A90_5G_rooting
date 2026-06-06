@@ -7,13 +7,9 @@ toolchains
 toolchains/
 android-ndk-*.zip
 
-# Samsung 커널 소스 (9.5GB 빌드 결과 포함)
+# Samsung 커널 소스와 빌드 결과
 kernel_build/
 SM-A908N_KOR_12_Opensource.zip
-!kernel_build/
-kernel_build/*
-!kernel_build/.gitkeep
-!kernel_build/README.md
 
 # =================================
 # 백업 파일 (개인 데이터)
@@ -105,9 +101,7 @@ out/
 # 펌웨어 파일 (재배포 금지)
 # =================================
 
-firmware/**
-!firmware/
-!firmware/README.md
+firmware/
 
 wifi_firmware/
 extracted_firmware/

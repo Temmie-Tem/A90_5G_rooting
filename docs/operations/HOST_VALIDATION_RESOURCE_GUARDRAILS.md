@@ -33,9 +33,7 @@ Host validation must be scoped to the evidence question.
 
 - `.git/`
 - `tmp/`
-- `firmware/`
-- `backups/`
-- `workspace/private/inputs/boot_images/*.img`
+- `workspace/private/`
 - `*.tar`
 - `*.tar.md5`
 - `*.img`
@@ -164,7 +162,7 @@ rg --max-filesize 16M -n 'v665|secret-scan|OOM' ~/.codex/log/codex-tui.log
 
 1. 검증 질문이 무엇인지 한 문장으로 말할 수 있는가?
 2. 입력 파일 목록이 `git ls-files` 또는 명시 경로로 제한되는가?
-3. `firmware/`, `backups/`, `tmp/`, image/archive/log가 제외되는가?
+3. `workspace/private/`, `tmp/`, image/archive/log가 제외되는가?
 4. 단일 파일이 8 MiB를 넘으면 skip 또는 explicit target으로 처리하는가?
 5. content scan이 chunk 기반인가?
 6. 출력이 터미널/세션 로그를 폭증시키지 않는가?

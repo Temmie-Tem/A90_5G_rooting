@@ -73,6 +73,9 @@ Rules:
 
 - Work in `workspace/private/` first when data could be private, large,
   generated, proprietary, or device-specific.
+- Do not create new root-level payload directories such as `firmware/`,
+  `kernel_build/`, `toolchains/`, `external_tools/`, `backups/`, or `out/`.
+  Restore those inputs and outputs under `workspace/private/` instead.
 - Promote only redacted, small, reproducible, or metadata-only output to
   `workspace/public/`, `docs/artifacts/`, or `docs/reports/`.
 - Do not commit boot images, firmware, ramdisks, compiled init/helper binaries,

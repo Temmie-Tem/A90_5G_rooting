@@ -57,7 +57,7 @@ python3 scripts/revalidation/native_init_flash.py \
   stage3/boot_linux_vNNN.img --from-twrp
 ```
 
-Boot image packaging uses `mkbootimg/` tools. See `NATIVE_INIT_FLASH_AND_BRIDGE_GUIDE.md`.
+Boot image packaging uses `workspace/public/src/third_party/mkbootimg/` tools. See `NATIVE_INIT_FLASH_AND_BRIDGE_GUIDE.md`.
 
 ## Bridge and device control
 

@@ -11,7 +11,7 @@
 | detected_at | `2026-04-28T11:11:23.623133Z` |
 | committed_at | `2025-11-13 20:56:18 +0900` |
 | commit_hash | `54cf98250b310814cf09e2e1486e821d7deaf9a2` |
-| relevant_paths | `mkbootimg/gki/certify_bootimg.py` |
+| relevant_paths | `workspace/public/src/third_party/mkbootimg/gki/certify_bootimg.py` |
 | has_patch | `true` |
 
 ## CSV Description
@@ -49,7 +49,7 @@ In `certify_bootimg_archive()`, untrusted `--boot_img_archive` input is extracte
 - [x] Demonstrate symlink-following write behavior in `certify_bootimg()` copy flow (lines 254, 263) can modify external file.
 - [x] Attempt crash/valgrind/debugger-based validation paths before finalizing (crash + LLDB attempted; valgrind unavailable).
 ## Report
-I validated the finding with targeted dynamic PoCs against `mkbootimg/gki/certify_bootimg.py`.
+I validated the finding with targeted dynamic PoCs against `workspace/public/src/third_party/mkbootimg/gki/certify_bootimg.py`.
 
 Code points:
 - `certify_bootimg_archive()` extracts untrusted archives with no path checks: `shutil.unpack_archive(boot_img_archive, unpack_dir)` (line 270).
@@ -80,28 +80,28 @@ Required method attempts:
 Conclusion: the suspected vulnerability is valid. The commit contains exploitable archive extraction path traversal and symlink-following file operations enabling host file overwrite when processing attacker-controlled archives.
 
 # Evidence
-mkbootimg/gki/certify_bootimg.py (L253 to 255)
+workspace/public/src/third_party/mkbootimg/gki/certify_bootimg.py (L253 to 255)
   Note: copy2() reads from attacker-controlled path, following symlinks.
 ```
         boot_tmp = os.path.join(temp_dir, 'boot.tmp')
         shutil.copy2(boot_img, boot_tmp)
 ```
 
-mkbootimg/gki/certify_bootimg.py (L262 to 263)
+workspace/public/src/third_party/mkbootimg/gki/certify_bootimg.py (L262 to 263)
   Note: copy2() writes back to attacker-controlled output path; if symlinked, this can overwrite external host files.
 ```
         # We're done, copy the temp image to the final output.
         shutil.copy2(boot_tmp, output_img)
 ```
 
-mkbootimg/gki/certify_bootimg.py (L269 to 270)
+workspace/public/src/third_party/mkbootimg/gki/certify_bootimg.py (L269 to 270)
   Note: Untrusted archive is extracted directly with shutil.unpack_archive() and no safe extraction filter/path sanitization.
 ```
     with tempfile.TemporaryDirectory() as unpack_dir:
         shutil.unpack_archive(boot_img_archive, unpack_dir)
 ```
 
-mkbootimg/gki/certify_bootimg.py (L276 to 280)
+workspace/public/src/third_party/mkbootimg/gki/certify_bootimg.py (L276 to 280)
   Note: All extracted boot*.img paths are trusted and processed; symlink entries can be included here.
 ```
         for boot_img in glob.glob(os.path.join(unpack_dir, 'boot*.img')):
@@ -307,12 +307,12 @@ Attacker archive -> --boot_img_archive -> unpack_archive(no safety)
         -> boot*.img selection -> copy2(..., output_img=boot_img)
         -> symlink/traversal resolves outside temp -> host overwrite
 ## Path evidence
-- `mkbootimg/gki/certify_bootimg.py:204-207` - CLI exposes archive input (`--boot_img_archive`) as user-controlled entry point.
-- `mkbootimg/gki/certify_bootimg.py:269-270` - Untrusted archive extracted via `shutil.unpack_archive` without path/link safety checks.
-- `mkbootimg/gki/certify_bootimg.py:276-280` - All extracted `boot*.img` entries are trusted and re-used as output targets.
-- `mkbootimg/gki/certify_bootimg.py:254` - Reads from attacker-controlled path via `copy2` (follows symlinks by default).
-- `mkbootimg/gki/certify_bootimg.py:263` - Writes back via `copy2` to attacker-influenced output path; enables overwrite primitive.
-- `mkbootimg/Android.bp:64-76` - Defines `certify_bootimg` as a host binary, confirming operational scope.
+- `workspace/public/src/third_party/mkbootimg/gki/certify_bootimg.py:204-207` - CLI exposes archive input (`--boot_img_archive`) as user-controlled entry point.
+- `workspace/public/src/third_party/mkbootimg/gki/certify_bootimg.py:269-270` - Untrusted archive extracted via `shutil.unpack_archive` without path/link safety checks.
+- `workspace/public/src/third_party/mkbootimg/gki/certify_bootimg.py:276-280` - All extracted `boot*.img` entries are trusted and re-used as output targets.
+- `workspace/public/src/third_party/mkbootimg/gki/certify_bootimg.py:254` - Reads from attacker-controlled path via `copy2` (follows symlinks by default).
+- `workspace/public/src/third_party/mkbootimg/gki/certify_bootimg.py:263` - Writes back via `copy2` to attacker-influenced output path; enables overwrite primitive.
+- `workspace/public/src/third_party/mkbootimg/Android.bp:64-76` - Defines `certify_bootimg` as a host binary, confirming operational scope.
 ## Narrative
 The finding is valid and reachable in normal tool usage. The CLI accepts attacker-controlled archives (`--boot_img_archive`), extracts them without safety filtering, and then processes extracted `boot*.img` entries as both input and output. Because `copy2()` follows symlinks, a crafted archive can force writes outside the temp extraction directory. This was also dynamically validated with PoCs showing traversal file creation and external file modification. Given threat-model inclusion of untrusted boot image artifacts in host workflows, this is a real host-compromise primitive, not a false positive.
 ## Controls

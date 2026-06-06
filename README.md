@@ -156,12 +156,8 @@ v40–v116까지 완료된 native init 안정화 로드맵 체크리스트는 RE
   historical script and native-init provenance moved out of root paths
 - `workspace/private/`
   ignored private inputs, boot images, build outputs, raw logs, and secrets
-- `firmware/`
-  stock firmware, patched AP, TWRP 이미지
-- `mkbootimg/`
+- `workspace/public/src/third_party/mkbootimg/`
   boot/recovery/vendor_boot 분석과 repack에 쓰는 도구
-- `backups/`
-  known-good boot/recovery/vbmeta 등 복구 기준점
 
 ## Active Documents
 
@@ -195,6 +191,7 @@ v40–v116까지 완료된 native init 안정화 로드맵 체크리스트는 RE
 - 한 번에 하나의 boot/init 변수만 바꾼다.
 - 새 boot image는 version, source path, SHA256, 실기 관찰 결과를 기록한다.
 - boot image와 native-init 빌드 산출물은 `workspace/private/inputs/boot_images/`와 `workspace/private/builds/native-init/`에 보존하고, historical source provenance는 `workspace/public/archive/stage3/`에 둔다.
+- 루트 `firmware/`, `kernel_build/`, `toolchains/`, `external_tools/`, `backups/`, `out/`에는 신규 payload를 두지 않는다. 외부 입력과 결과물은 `workspace/private/` 아래에 둔다.
 - USB ACM serial bridge를 기준 제어 채널로 사용한다.
 - `/efs`, modem, RPMB, keymaster, keystore, bootloader 계열에는 쓰기 작업을 하지 않는다.
 - `/data` 암호화 영역은 명확한 목적과 복구 계획 없이는 건드리지 않는다.
@@ -214,5 +211,6 @@ v40–v116까지 완료된 native init 안정화 로드맵 체크리스트는 RE
 
 단, **Samsung 전용 펌웨어·커널 소스·patched AP/TWRP 이미지 등 proprietary 구성요소는
 MIT 적용 대상이 아니며**, 각자의 라이선스를 따르고 정당한 권한 없이 재배포하지 않는다
-(`LICENSE`의 NOTICE 절). `firmware/`, `backups/`, `workspace/private/inputs/boot_images/*.img` 등에 포함된
+(`LICENSE`의 NOTICE 절). `workspace/private/inputs/firmware/`,
+`workspace/private/backups/`, `workspace/private/inputs/boot_images/*.img` 등에 포함된
 벤더 바이너리는 저장소 소유자가 소유·관리하는 로컬 기기 복구/연구 용도로만 보관한다.
