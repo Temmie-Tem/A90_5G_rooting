@@ -405,6 +405,7 @@ static const struct controller_policy_case policy_cases[] = {
     { "menu block diag bundle", 2, { "diag", "bundle" }, false, false },
     { "menu block wifiinv refresh", 2, { "wifiinv", "refresh" }, false, false },
     { "menu block wififeas refresh", 2, { "wififeas", "refresh" }, false, false },
+    { "menu block wifi config prepare", 3, { "wifi", "config", "prepare" }, false, false },
     { "menu block wifi scan", 2, { "wifi", "scan" }, false, false },
     { "menu block userland test all", 3, { "userland", "test", "all" }, false, false },
     { "menu block busybox sh", 2, { "busybox", "sh" }, false, false },

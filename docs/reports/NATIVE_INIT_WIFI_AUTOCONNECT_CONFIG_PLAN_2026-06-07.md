@@ -3,8 +3,10 @@
 ## Summary
 
 - Type: design plan.
-- Target baseline: `v726-wifi-lifecycle`.
-- Status: planned; no autoconnect implementation is enabled by this document.
+- Target candidate: `v2170-wifi-config-prepare` on
+  `v2169-transport-contract`.
+- Status: Step 1/2 implemented and live-validated; no boot autoconnect is
+  enabled by this document.
 - Goal: persist known Wi-Fi profiles and optionally connect at boot without exposing credentials in logs, HUD, or uploaded artifacts.
 
 ## Current Baseline
@@ -78,6 +80,7 @@ Rules:
 Planned user-facing commands:
 
 - `wifi config status`: validate config roots, file modes, and profile presence without printing secrets.
+- `wifi config prepare [profile]`: generate `/cache/a90-wifi/wpa_supplicant.conf` from validated profile secrets without starting Wi-Fi.
 - `wifi profile add <name>`: create profile metadata and prompt/write secret files through a controlled path.
 - `wifi profile list`: show profile names, enabled state, band, priority, and secret presence only.
 - `wifi scan`: bring `wlan0` up and run a bounded scan without association.
@@ -87,7 +90,8 @@ Planned user-facing commands:
 
 ## Boot Autoconnect Flow
 
-1. Wait for V726 baseline readiness: `wlan0_present=1` and `baseline_ready=1`.
+1. Wait for native Wi-Fi baseline readiness: `wlan0_present=1` and
+   `baseline_ready=1`.
 2. Read `autoconnect.conf`; exit if absent or `autoconnect=0`.
 3. Validate default/enabled profile and secret file modes.
 4. Generate `/cache/a90-wifi/wpa_supplicant.conf` from profile secrets.
@@ -129,6 +133,16 @@ Label rules:
   - Validates config roots, autoconnect config, default profile metadata, secret-file presence, and owner-only modes.
   - Does not read, print, archive, or log SSID/PSK values; status prints `secret_values_logged=0`.
   - Boot autoconnect, scan, connect, DHCP, routes, and ping remain disabled until later steps.
+- 2026-06-07: Step 2 source scaffold added.
+  - Added `wifi config prepare [profile]` for explicit, non-boot supplicant config generation.
+  - Reads SSID/PSK only from owner-only secret files and writes `/cache/a90-wifi/wpa_supplicant.conf` as `1010:1010` mode `0600`, with `ctrl_interface` under `/cache/a90-wifi/sockets` and `GROUP=wifi`.
+  - Converts 8..63 byte passphrases to WPA-PSK 64hex via PBKDF2-HMAC-SHA1; existing 64hex PSK files are preserved as PSK material.
+  - Host PBKDF2 vector check passed for `passphrase=password`, `ssid=IEEE`.
+  - Added `v2170-wifi-config-prepare` as a source/build-only test boot candidate on top of `v2169-transport-contract`; it does not overwrite the promoted v2169 artifact.
+  - Does not launch supplicant, scan, associate, run DHCP, install routes, or ping.
+- 2026-06-08: Step 2 live validation passed.
+  - Flashed `v2170-wifi-config-prepare`, generated a synthetic redacted supplicant config, verified `secret_values_logged=0`, cleaned up runtime config residue, and rolled back to `v2169-transport-contract` with `selftest fail=0`.
+  - Live report: `docs/reports/NATIVE_INIT_V2170_WIFI_CONFIG_PREPARE_LIVE_VALIDATION_2026-06-08.md`.
 
 ## Implementation Order
 
@@ -143,9 +157,11 @@ Label rules:
 
 - Config status passes with `secret_values_logged=0`.
 - One explicit connect updates HUD/runtime state and preserves artifact redaction.
-- Boot with `autoconnect=0` remains identical to current V726 baseline.
+- Boot with `autoconnect=0` remains equivalent to the current
+  `v2169-transport-contract` baseline except for explicit operator-only config
+  commands.
 - Boot with `autoconnect=1` connects to the selected profile and records carrier/DHCP state.
-- Rollback to the current V726 image remains valid.
+- Rollback to the current `v2169-transport-contract` image remains valid.
 
 ## Open Decisions
 

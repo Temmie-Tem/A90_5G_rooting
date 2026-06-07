@@ -19,6 +19,8 @@ Current migrated entrypoints:
 - `build_native_init_boot_v725_fasttransport.py`
 - `build_native_init_wifi_test_boot_v2168.py`
 - `build_native_init_boot_v726_wifi_lifecycle.py`
+- `build_native_init_boot_v2169_transport_contract.py`
+- `build_native_init_boot_v2170_wifi_config_prepare.py`
 - `native_wifi_connect_dhcp_google_ping_handoff_v2167.py`
 - `a90_v725_fasttransport_baseline_validation.py`
 - cleanup and inventory utilities in this directory

@@ -43,12 +43,28 @@ Exit criteria:
 
 Goal: turn "wlan0 can scan/connect" into a repeatable baseline feature.
 
+Completed first units:
+
+- `wifi config status` exists as a read-only config/secret validator.
+- `wifi config prepare [profile]` exists as an explicit, non-boot supplicant
+  config generator.
+- `v2170-wifi-config-prepare` source build passed on top of
+  `v2169-transport-contract`.
+- `v2170-wifi-config-prepare` live validation passed:
+  - flashed test boot;
+  - generated a synthetic redacted supplicant config;
+  - preserved `secret_values_logged=0`;
+  - cleaned up runtime config residue;
+  - rolled back to `v2169-transport-contract`;
+  - final rollback `selftest fail=0`.
+
 Open tasks:
 
-- Finish native Wi-Fi config/autoconnect design:
+- Finish remaining native Wi-Fi config/autoconnect design:
   - credential source under `workspace/private/secrets/`;
-  - generated on-device config under a safe runtime path;
-  - no raw PSK or generated supplicant config in public git.
+  - profile creation/listing operator commands;
+  - no raw PSK or generated supplicant config in public git;
+  - explicit boot-autoconnect gate.
 - Add boot-time or operator-triggered autoconnect option.
 - Verify both target bands:
   - `temmie2.4G`;
@@ -101,6 +117,8 @@ Completed first units:
   `docs/operations/NATIVE_INIT_BOOT_TRANSPORT_CONTRACT.md`.
 - Transport selector has bounded host NCM link-local auto-repair for the
   Samsung `04e8` + `cdc_ncm` present/no-`fe80::` state.
+- Current `v2169-transport-contract` baseline emits device-side
+  `transport.contract=1`.
 
 Open tasks:
 
@@ -114,8 +132,6 @@ Open tasks:
   - `selector_contract=1`;
   - `selected=serial|ncm|tcpctl`;
   - `fallback_reason=<label-or-null>`.
-- Add device-side `transport.contract=1` fields in the next boot image; current
-  `v726` remains a legacy device-status baseline.
 - Migrate one runner at a time:
   - NCM smoke first;
   - Wi-Fi lifecycle runner next;
@@ -296,10 +312,12 @@ Exit criteria:
 
 ## Suggested Next Sequence
 
-1. Review and commit the current TODO/bridge/transport documentation unit.
-2. Review Wi-Fi config/autoconnect source changes as a separate unit.
-3. Add selector schema version to `a90_transport.py`.
-4. Migrate the Wi-Fi lifecycle runner to `a90_transport.py`.
+1. Review and commit the current `v2170-wifi-config-prepare` source, builder,
+   and validation reports as one focused unit.
+2. Add explicit `wifi scan` and `wifi connect <profile>` commands on top of the
+   prepared config path.
+3. Migrate the Wi-Fi lifecycle runner to `a90_transport.py`.
+4. Add phase timers to Wi-Fi live runners.
 5. Generate a script inventory and classify active/module/archive/delete-review.
 6. Run N>=3 Wi-Fi lifecycle stability checks.
 7. Decide whether to promote the next boot/init baseline.

@@ -8,6 +8,7 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+#include <stdint.h>
 #include <sys/stat.h>
 #include <unistd.h>
 
@@ -31,10 +32,23 @@
 #define WIFICFG_CACHE_AUTOCONNECT WIFICFG_CACHE_ROOT "/autoconnect.conf"
 #define WIFICFG_CACHE_PROFILES WIFICFG_CACHE_ROOT "/profiles"
 #define WIFICFG_RUNTIME_ROOT "/cache/a90-wifi"
+#define WIFICFG_SUPPLICANT_TMP "/cache/a90-wifi/wpa_supplicant.conf.tmp"
+#define WIFICFG_SUPPLICANT_CTRL_DIR "/cache/a90-wifi/sockets"
+#define WIFICFG_WIFI_UID 1010
+#define WIFICFG_WIFI_GID 1010
 
 #define WIFICFG_MAX_TEXT 8192
 #define WIFICFG_MAX_VALUE 192
 #define WIFICFG_MAX_PATH 384
+#define WIFICFG_SECRET_MAX_TEXT 256
+#define WIFICFG_PSK_HEX_LEN 64
+
+struct wificfg_sha1_ctx {
+    uint32_t state[5];
+    uint64_t bit_count;
+    unsigned char buffer[64];
+    size_t buffer_len;
+};
 
 struct wificfg_file_info {
     bool exists;
@@ -44,6 +58,7 @@ struct wificfg_file_info {
     bool mode_owner_only;
     bool openable;
     mode_t mode;
+    off_t size;
 };
 
 struct wificfg_global_config {
@@ -95,6 +110,252 @@ struct wificfg_profile_config {
     char key_mgmt[WIFICFG_MAX_VALUE];
 };
 
+static uint32_t wificfg_sha1_rotl(uint32_t value, unsigned int shift) {
+    return (value << shift) | (value >> (32U - shift));
+}
+
+static uint32_t wificfg_sha1_load32(const unsigned char *data) {
+    return ((uint32_t)data[0] << 24) |
+           ((uint32_t)data[1] << 16) |
+           ((uint32_t)data[2] << 8) |
+           (uint32_t)data[3];
+}
+
+static void wificfg_sha1_store32(unsigned char *out, uint32_t value) {
+    out[0] = (unsigned char)(value >> 24);
+    out[1] = (unsigned char)(value >> 16);
+    out[2] = (unsigned char)(value >> 8);
+    out[3] = (unsigned char)value;
+}
+
+static void wificfg_sha1_transform(struct wificfg_sha1_ctx *ctx,
+                                   const unsigned char block[64]) {
+    uint32_t words[80];
+    uint32_t state_a = ctx->state[0];
+    uint32_t state_b = ctx->state[1];
+    uint32_t state_c = ctx->state[2];
+    uint32_t state_d = ctx->state[3];
+    uint32_t state_e = ctx->state[4];
+    size_t index;
+
+    for (index = 0; index < 16; ++index) {
+        words[index] = wificfg_sha1_load32(block + index * 4);
+    }
+    for (index = 16; index < 80; ++index) {
+        words[index] = wificfg_sha1_rotl(words[index - 3] ^
+                                         words[index - 8] ^
+                                         words[index - 14] ^
+                                         words[index - 16],
+                                         1);
+    }
+
+    for (index = 0; index < 80; ++index) {
+        uint32_t function_value;
+        uint32_t constant;
+        uint32_t temp;
+
+        if (index < 20) {
+            function_value = (state_b & state_c) | ((~state_b) & state_d);
+            constant = 0x5a827999U;
+        } else if (index < 40) {
+            function_value = state_b ^ state_c ^ state_d;
+            constant = 0x6ed9eba1U;
+        } else if (index < 60) {
+            function_value = (state_b & state_c) | (state_b & state_d) | (state_c & state_d);
+            constant = 0x8f1bbcdcU;
+        } else {
+            function_value = state_b ^ state_c ^ state_d;
+            constant = 0xca62c1d6U;
+        }
+
+        temp = wificfg_sha1_rotl(state_a, 5) + function_value + state_e + constant + words[index];
+        state_e = state_d;
+        state_d = state_c;
+        state_c = wificfg_sha1_rotl(state_b, 30);
+        state_b = state_a;
+        state_a = temp;
+    }
+
+    ctx->state[0] += state_a;
+    ctx->state[1] += state_b;
+    ctx->state[2] += state_c;
+    ctx->state[3] += state_d;
+    ctx->state[4] += state_e;
+}
+
+static void wificfg_sha1_init(struct wificfg_sha1_ctx *ctx) {
+    ctx->state[0] = 0x67452301U;
+    ctx->state[1] = 0xefcdab89U;
+    ctx->state[2] = 0x98badcfeU;
+    ctx->state[3] = 0x10325476U;
+    ctx->state[4] = 0xc3d2e1f0U;
+    ctx->bit_count = 0;
+    ctx->buffer_len = 0;
+}
+
+static void wificfg_sha1_update(struct wificfg_sha1_ctx *ctx,
+                                const unsigned char *data,
+                                size_t len) {
+    ctx->bit_count += (uint64_t)len * 8U;
+    while (len > 0) {
+        size_t available = sizeof(ctx->buffer) - ctx->buffer_len;
+        size_t copy_len = len < available ? len : available;
+
+        memcpy(ctx->buffer + ctx->buffer_len, data, copy_len);
+        ctx->buffer_len += copy_len;
+        data += copy_len;
+        len -= copy_len;
+        if (ctx->buffer_len == sizeof(ctx->buffer)) {
+            wificfg_sha1_transform(ctx, ctx->buffer);
+            ctx->buffer_len = 0;
+        }
+    }
+}
+
+static void wificfg_sha1_final(struct wificfg_sha1_ctx *ctx,
+                               unsigned char digest[20]) {
+    unsigned char length_block[8];
+    size_t index;
+
+    for (index = 0; index < 8; ++index) {
+        length_block[7 - index] = (unsigned char)(ctx->bit_count >> (index * 8));
+    }
+
+    ctx->buffer[ctx->buffer_len++] = 0x80;
+    if (ctx->buffer_len > 56) {
+        while (ctx->buffer_len < sizeof(ctx->buffer)) {
+            ctx->buffer[ctx->buffer_len++] = 0;
+        }
+        wificfg_sha1_transform(ctx, ctx->buffer);
+        ctx->buffer_len = 0;
+    }
+    while (ctx->buffer_len < 56) {
+        ctx->buffer[ctx->buffer_len++] = 0;
+    }
+    memcpy(ctx->buffer + 56, length_block, sizeof(length_block));
+    wificfg_sha1_transform(ctx, ctx->buffer);
+
+    for (index = 0; index < 5; ++index) {
+        wificfg_sha1_store32(digest + index * 4, ctx->state[index]);
+    }
+}
+
+static void wificfg_hmac_sha1(const unsigned char *key,
+                              size_t key_len,
+                              const unsigned char *data_a,
+                              size_t data_a_len,
+                              const unsigned char *data_b,
+                              size_t data_b_len,
+                              unsigned char digest[20]) {
+    unsigned char normalized_key[64];
+    unsigned char key_hash[20];
+    unsigned char ipad[64];
+    unsigned char opad[64];
+    unsigned char inner_digest[20];
+    struct wificfg_sha1_ctx ctx;
+    size_t index;
+
+    memset(normalized_key, 0, sizeof(normalized_key));
+    if (key_len > sizeof(normalized_key)) {
+        wificfg_sha1_init(&ctx);
+        wificfg_sha1_update(&ctx, key, key_len);
+        wificfg_sha1_final(&ctx, key_hash);
+        memcpy(normalized_key, key_hash, sizeof(key_hash));
+    } else if (key_len > 0) {
+        memcpy(normalized_key, key, key_len);
+    }
+
+    for (index = 0; index < sizeof(normalized_key); ++index) {
+        ipad[index] = normalized_key[index] ^ 0x36U;
+        opad[index] = normalized_key[index] ^ 0x5cU;
+    }
+
+    wificfg_sha1_init(&ctx);
+    wificfg_sha1_update(&ctx, ipad, sizeof(ipad));
+    if (data_a != NULL && data_a_len > 0) {
+        wificfg_sha1_update(&ctx, data_a, data_a_len);
+    }
+    if (data_b != NULL && data_b_len > 0) {
+        wificfg_sha1_update(&ctx, data_b, data_b_len);
+    }
+    wificfg_sha1_final(&ctx, inner_digest);
+
+    wificfg_sha1_init(&ctx);
+    wificfg_sha1_update(&ctx, opad, sizeof(opad));
+    wificfg_sha1_update(&ctx, inner_digest, sizeof(inner_digest));
+    wificfg_sha1_final(&ctx, digest);
+}
+
+static void wificfg_pbkdf2_sha1(const unsigned char *passphrase,
+                                size_t passphrase_len,
+                                const unsigned char *ssid,
+                                size_t ssid_len,
+                                unsigned char out[32]) {
+    unsigned char block_index_bytes[4];
+    unsigned char digest[20];
+    unsigned char xor_digest[20];
+    size_t block_index;
+    size_t output_offset = 0;
+
+    for (block_index = 1; output_offset < 32; ++block_index) {
+        size_t digest_index;
+        unsigned int iteration;
+        size_t copy_len;
+
+        block_index_bytes[0] = (unsigned char)(block_index >> 24);
+        block_index_bytes[1] = (unsigned char)(block_index >> 16);
+        block_index_bytes[2] = (unsigned char)(block_index >> 8);
+        block_index_bytes[3] = (unsigned char)block_index;
+
+        wificfg_hmac_sha1(passphrase,
+                          passphrase_len,
+                          ssid,
+                          ssid_len,
+                          block_index_bytes,
+                          sizeof(block_index_bytes),
+                          digest);
+        memcpy(xor_digest, digest, sizeof(xor_digest));
+
+        for (iteration = 1; iteration < 4096; ++iteration) {
+            wificfg_hmac_sha1(passphrase,
+                              passphrase_len,
+                              digest,
+                              sizeof(digest),
+                              NULL,
+                              0,
+                              digest);
+            for (digest_index = 0; digest_index < sizeof(xor_digest); ++digest_index) {
+                xor_digest[digest_index] ^= digest[digest_index];
+            }
+        }
+
+        copy_len = (32 - output_offset) < sizeof(xor_digest) ? (32 - output_offset) : sizeof(xor_digest);
+        memcpy(out + output_offset, xor_digest, copy_len);
+        output_offset += copy_len;
+    }
+}
+
+static void wificfg_hex_encode(const unsigned char *data,
+                               size_t data_len,
+                               char *out,
+                               size_t out_size) {
+    static const char hex_chars[] = "0123456789abcdef";
+    size_t index;
+
+    if (out_size == 0) {
+        return;
+    }
+    out[0] = '\0';
+    if (out_size < data_len * 2 + 1) {
+        return;
+    }
+    for (index = 0; index < data_len; ++index) {
+        out[index * 2] = hex_chars[(data[index] >> 4) & 0x0fU];
+        out[index * 2 + 1] = hex_chars[data[index] & 0x0fU];
+    }
+    out[data_len * 2] = '\0';
+}
+
 static void wificfg_defaults(struct wificfg_global_config *config) {
     memset(config, 0, sizeof(*config));
     config->version = 1;
@@ -125,6 +386,7 @@ static void wificfg_stat_path(const char *path, struct wificfg_file_info *info) 
 
     info->exists = true;
     info->mode = statbuf.st_mode & 07777;
+    info->size = statbuf.st_size;
     info->is_regular = S_ISREG(statbuf.st_mode);
     info->is_dir = S_ISDIR(statbuf.st_mode);
     info->is_symlink = S_ISLNK(statbuf.st_mode);
@@ -491,19 +753,18 @@ static int wificfg_load_global(struct wificfg_global_config *config) {
     return -ENOENT;
 }
 
-static int wificfg_load_profile(const struct wificfg_global_config *config,
-                                struct wificfg_profile_config *profile,
-                                char *profile_path,
-                                size_t profile_path_size) {
+static int wificfg_load_profile_by_name(const char *profile_name,
+                                        struct wificfg_profile_config *profile,
+                                        char *profile_path,
+                                        size_t profile_path_size) {
     char text[WIFICFG_MAX_TEXT];
 
     wificfg_profile_defaults(profile);
-    if (!config->default_profile_set ||
-        !wificfg_profile_name_valid(config->default_profile)) {
+    if (!wificfg_profile_name_valid(profile_name)) {
         return -EINVAL;
     }
 
-    wificfg_join_profile_path(profile_path, profile_path_size, WIFICFG_PRIMARY_PROFILES, config->default_profile);
+    wificfg_join_profile_path(profile_path, profile_path_size, WIFICFG_PRIMARY_PROFILES, profile_name);
     if (wificfg_read_regular_text(profile_path, text, sizeof(text)) == 0) {
         profile->exists = true;
         profile->from_primary = true;
@@ -512,7 +773,7 @@ static int wificfg_load_profile(const struct wificfg_global_config *config,
         return 0;
     }
 
-    wificfg_join_profile_path(profile_path, profile_path_size, WIFICFG_CACHE_PROFILES, config->default_profile);
+    wificfg_join_profile_path(profile_path, profile_path_size, WIFICFG_CACHE_PROFILES, profile_name);
     if (wificfg_read_regular_text(profile_path, text, sizeof(text)) == 0) {
         profile->exists = true;
         profile->from_cache = true;
@@ -522,6 +783,17 @@ static int wificfg_load_profile(const struct wificfg_global_config *config,
     }
 
     return -ENOENT;
+}
+
+static int wificfg_load_profile(const struct wificfg_global_config *config,
+                                struct wificfg_profile_config *profile,
+                                char *profile_path,
+                                size_t profile_path_size) {
+    wificfg_profile_defaults(profile);
+    if (!config->default_profile_set) {
+        return -EINVAL;
+    }
+    return wificfg_load_profile_by_name(config->default_profile, profile, profile_path, profile_path_size);
 }
 
 static const char *wificfg_source_name(const struct wificfg_global_config *config) {
@@ -604,6 +876,280 @@ static bool wificfg_secret_status(const char *label, const char *path, bool conf
     }
     a90_console_printf("%s.mode_ok=%d\r\n", label, usable ? 1 : 0);
     return usable;
+}
+
+static void wificfg_secure_zero(void *data, size_t data_size) {
+    volatile unsigned char *cursor = (volatile unsigned char *)data;
+
+    while (data_size > 0) {
+        *cursor++ = 0;
+        --data_size;
+    }
+}
+
+static bool wificfg_hex_string(const char *text) {
+    size_t index;
+
+    if (text == NULL || strlen(text) != WIFICFG_PSK_HEX_LEN) {
+        return false;
+    }
+    for (index = 0; text[index] != '\0'; ++index) {
+        if (!isxdigit((unsigned char)text[index])) {
+            return false;
+        }
+    }
+    return true;
+}
+
+static int wificfg_read_secret_value(const char *path, char *out, size_t out_size) {
+    struct wificfg_file_info info;
+
+    if (!wificfg_secret_path_safe(path)) {
+        return -EINVAL;
+    }
+    wificfg_stat_path(path, &info);
+    if (!info.exists || !info.is_regular || info.is_symlink || !info.mode_owner_only) {
+        return -EACCES;
+    }
+    if (info.size <= 0 || info.size >= (off_t)out_size) {
+        return -EFBIG;
+    }
+    if (wificfg_read_regular_text(path, out, out_size) < 0) {
+        return negative_errno_or(EIO);
+    }
+    trim_newline(out);
+    if (out[0] == '\0') {
+        return -EINVAL;
+    }
+    return 0;
+}
+
+static bool wificfg_validate_profile_for_prepare(const struct wificfg_profile_config *profile,
+                                                 int profile_rc,
+                                                 int *reason_errno) {
+    if (profile_rc < 0) {
+        *reason_errno = -profile_rc;
+        return false;
+    }
+    if (!profile->parsed) {
+        *reason_errno = EINVAL;
+        return false;
+    }
+    if (profile->enabled == 0 || profile->inline_secret_key_seen) {
+        *reason_errno = EACCES;
+        return false;
+    }
+    if (!profile->ssid_file_set || !profile->psk_file_set) {
+        *reason_errno = ENOENT;
+        return false;
+    }
+    if (strcmp(profile->key_mgmt, "WPA-PSK") != 0) {
+        *reason_errno = EOPNOTSUPP;
+        return false;
+    }
+    *reason_errno = 0;
+    return true;
+}
+
+static int wificfg_build_psk_hex(const char *ssid,
+                                 const char *psk_text,
+                                 char *psk_hex,
+                                 size_t psk_hex_size,
+                                 const char **format_out) {
+    unsigned char derived[32];
+    size_t ssid_len = strlen(ssid);
+    size_t psk_len = strlen(psk_text);
+
+    if (ssid_len == 0 || ssid_len > 32) {
+        return -EINVAL;
+    }
+    if (wificfg_hex_string(psk_text)) {
+        if (!wificfg_copy_value(psk_hex, psk_hex_size, psk_text)) {
+            return -ENOSPC;
+        }
+        *format_out = "psk256-hex";
+        return 0;
+    }
+    if (psk_len < 8 || psk_len > 63) {
+        return -EINVAL;
+    }
+    wificfg_pbkdf2_sha1((const unsigned char *)psk_text,
+                        psk_len,
+                        (const unsigned char *)ssid,
+                        ssid_len,
+                        derived);
+    wificfg_hex_encode(derived, sizeof(derived), psk_hex, psk_hex_size);
+    wificfg_secure_zero(derived, sizeof(derived));
+    if (psk_hex[0] == '\0') {
+        return -ENOSPC;
+    }
+    *format_out = "passphrase-pbkdf2-sha1";
+    return 0;
+}
+
+static int wificfg_write_supplicant_text(const char *ssid_hex,
+                                         const char *psk_hex,
+                                         const char *key_mgmt,
+                                         size_t *bytes_out) {
+    char text[1024];
+    int text_len;
+    int fd;
+
+    if (ensure_dir(WIFICFG_RUNTIME_ROOT, 0700) < 0 ||
+        ensure_dir(WIFICFG_SUPPLICANT_CTRL_DIR, 0770) < 0) {
+        return negative_errno_or(EIO);
+    }
+    if (chown(WIFICFG_RUNTIME_ROOT, WIFICFG_WIFI_UID, WIFICFG_WIFI_GID) < 0 ||
+        chown(WIFICFG_SUPPLICANT_CTRL_DIR, WIFICFG_WIFI_UID, WIFICFG_WIFI_GID) < 0 ||
+        chmod(WIFICFG_SUPPLICANT_CTRL_DIR, 0770) < 0) {
+        return negative_errno_or(EIO);
+    }
+
+    text_len = snprintf(text,
+                        sizeof(text),
+                        "ctrl_interface=DIR=%s GROUP=wifi\n"
+                        "update_config=0\n"
+                        "ap_scan=1\n"
+                        "network={\n"
+                        "    ssid=%s\n"
+                        "    disabled=0\n"
+                        "    scan_ssid=1\n"
+                        "    key_mgmt=%s\n"
+                        "    psk=%s\n"
+                        "}\n",
+                        WIFICFG_SUPPLICANT_CTRL_DIR,
+                        ssid_hex,
+                        key_mgmt,
+                        psk_hex);
+    if (text_len < 0 || (size_t)text_len >= sizeof(text)) {
+        return -ENOSPC;
+    }
+
+    (void)unlink(WIFICFG_SUPPLICANT_TMP);
+    fd = open(WIFICFG_SUPPLICANT_TMP,
+              O_WRONLY | O_CREAT | O_EXCL | O_TRUNC | O_CLOEXEC | O_NOFOLLOW,
+              0600);
+    if (fd < 0) {
+        return negative_errno_or(EIO);
+    }
+    if (write_all_checked(fd, text, (size_t)text_len) < 0) {
+        int saved_errno = errno;
+
+        close(fd);
+        (void)unlink(WIFICFG_SUPPLICANT_TMP);
+        errno = saved_errno;
+        return negative_errno_or(EIO);
+    }
+    if (fchown(fd, WIFICFG_WIFI_UID, WIFICFG_WIFI_GID) < 0 ||
+        fchmod(fd, 0600) < 0) {
+        int saved_errno = errno;
+
+        close(fd);
+        (void)unlink(WIFICFG_SUPPLICANT_TMP);
+        errno = saved_errno;
+        return negative_errno_or(EIO);
+    }
+    (void)fsync(fd);
+    if (close(fd) < 0) {
+        (void)unlink(WIFICFG_SUPPLICANT_TMP);
+        return negative_errno_or(EIO);
+    }
+    if (rename(WIFICFG_SUPPLICANT_TMP, A90_WIFICFG_SUPPLICANT_CONF) < 0) {
+        (void)unlink(WIFICFG_SUPPLICANT_TMP);
+        return negative_errno_or(EIO);
+    }
+    (void)chmod(A90_WIFICFG_SUPPLICANT_CONF, 0600);
+    if (bytes_out != NULL) {
+        *bytes_out = (size_t)text_len;
+    }
+    wificfg_secure_zero(text, sizeof(text));
+    return 0;
+}
+
+int a90_wificfg_prepare_supplicant_config(const char *profile_name,
+                                          char *out_path,
+                                          size_t out_path_size) {
+    struct wificfg_global_config global_config;
+    struct wificfg_profile_config profile;
+    char profile_path[WIFICFG_MAX_PATH] = "";
+    char selected_profile[WIFICFG_MAX_VALUE] = "";
+    char ssid[WIFICFG_SECRET_MAX_TEXT];
+    char psk_text[WIFICFG_SECRET_MAX_TEXT];
+    char ssid_hex[WIFICFG_SECRET_MAX_TEXT * 2];
+    char psk_hex[WIFICFG_PSK_HEX_LEN + 1];
+    const char *psk_format = "";
+    int profile_rc;
+    int reason_errno = 0;
+    int ssid_rc;
+    int psk_rc;
+    int psk_build_rc;
+    int write_rc;
+    size_t generated_bytes = 0;
+
+    memset(ssid, 0, sizeof(ssid));
+    memset(psk_text, 0, sizeof(psk_text));
+    memset(ssid_hex, 0, sizeof(ssid_hex));
+    memset(psk_hex, 0, sizeof(psk_hex));
+    (void)wificfg_load_global(&global_config);
+
+    if (profile_name != NULL && profile_name[0] != '\0') {
+        if (!wificfg_profile_name_valid(profile_name) ||
+            !wificfg_copy_value(selected_profile, sizeof(selected_profile), profile_name)) {
+            return -EINVAL;
+        }
+    } else if (global_config.default_profile_set) {
+        if (!wificfg_copy_value(selected_profile, sizeof(selected_profile), global_config.default_profile)) {
+            return -EINVAL;
+        }
+    } else {
+        return -ENOENT;
+    }
+
+    profile_rc = wificfg_load_profile_by_name(selected_profile, &profile, profile_path, sizeof(profile_path));
+    if (!wificfg_validate_profile_for_prepare(&profile, profile_rc, &reason_errno)) {
+        return -reason_errno;
+    }
+
+    ssid_rc = wificfg_read_secret_value(profile.ssid_file, ssid, sizeof(ssid));
+    psk_rc = wificfg_read_secret_value(profile.psk_file, psk_text, sizeof(psk_text));
+    if (ssid_rc < 0 || psk_rc < 0) {
+        wificfg_secure_zero(ssid, sizeof(ssid));
+        wificfg_secure_zero(psk_text, sizeof(psk_text));
+        return ssid_rc < 0 ? ssid_rc : psk_rc;
+    }
+
+    wificfg_hex_encode((const unsigned char *)ssid, strlen(ssid), ssid_hex, sizeof(ssid_hex));
+    if (ssid_hex[0] == '\0') {
+        wificfg_secure_zero(ssid, sizeof(ssid));
+        wificfg_secure_zero(psk_text, sizeof(psk_text));
+        return -EINVAL;
+    }
+    psk_build_rc = wificfg_build_psk_hex(ssid, psk_text, psk_hex, sizeof(psk_hex), &psk_format);
+    if (psk_build_rc < 0) {
+        wificfg_secure_zero(ssid, sizeof(ssid));
+        wificfg_secure_zero(psk_text, sizeof(psk_text));
+        wificfg_secure_zero(psk_hex, sizeof(psk_hex));
+        return psk_build_rc;
+    }
+
+    write_rc = wificfg_write_supplicant_text(ssid_hex, psk_hex, profile.key_mgmt, &generated_bytes);
+    wificfg_secure_zero(ssid, sizeof(ssid));
+    wificfg_secure_zero(psk_text, sizeof(psk_text));
+    wificfg_secure_zero(psk_hex, sizeof(psk_hex));
+    if (write_rc < 0) {
+        return write_rc;
+    }
+
+    if (out_path != NULL && out_path_size > 0) {
+        snprintf(out_path, out_path_size, "%s", A90_WIFICFG_SUPPLICANT_CONF);
+    }
+    a90_logf("wificfg",
+             "prepare profile=%s source=%s bytes=%ld psk_format=%s secret_values_logged=0",
+             selected_profile,
+             wificfg_profile_source_name(&profile),
+             (long)generated_bytes,
+             psk_format);
+    return 0;
 }
 
 static const char *wificfg_decision(const struct wificfg_global_config *config,
@@ -721,6 +1267,37 @@ int a90_wificfg_print_status(void) {
     return 0;
 }
 
+static int a90_wificfg_print_prepare(const char *profile_name) {
+    char out_path[WIFICFG_MAX_PATH] = "";
+    struct wificfg_file_info info;
+    int rc;
+
+    rc = a90_wificfg_prepare_supplicant_config(profile_name, out_path, sizeof(out_path));
+    a90_console_printf("[wifi config prepare]\r\n");
+    a90_console_printf("profile=%s\r\n",
+                       profile_name != NULL && profile_name[0] != '\0' ? profile_name : "default");
+    a90_console_printf("supplicant_config.path=%s\r\n", A90_WIFICFG_SUPPLICANT_CONF);
+    a90_console_printf("prepare_rc=%d\r\n", rc);
+    if (rc == 0) {
+        wificfg_stat_path(A90_WIFICFG_SUPPLICANT_CONF, &info);
+        a90_console_printf("supplicant_config.present=%d\r\n", info.exists ? 1 : 0);
+        if (info.exists) {
+            a90_console_printf("supplicant_config.kind=%s\r\n", wificfg_path_kind(&info));
+            a90_console_printf("supplicant_config.mode=0%03o\r\n", (unsigned int)info.mode);
+            a90_console_printf("supplicant_config.owner_only=%d\r\n", info.mode_owner_only ? 1 : 0);
+        }
+        a90_console_printf("ctrl_interface.dir=%s\r\n", WIFICFG_SUPPLICANT_CTRL_DIR);
+        a90_console_printf("secret_values_logged=0\r\n");
+        a90_console_printf("decision=wifi-config-supplicant-prepared\r\n");
+        return 0;
+    }
+
+    a90_console_printf("supplicant_config.present=0\r\n");
+    a90_console_printf("secret_values_logged=0\r\n");
+    a90_console_printf("decision=wifi-config-supplicant-prepare-failed\r\n");
+    return rc;
+}
+
 int a90_wificfg_cmd(char **argv, int argc) {
     if (argc == 3 &&
         argv != NULL &&
@@ -730,7 +1307,15 @@ int a90_wificfg_cmd(char **argv, int argc) {
         strcmp(argv[2], "status") == 0) {
         return a90_wificfg_print_status();
     }
+    if ((argc == 3 || argc == 4) &&
+        argv != NULL &&
+        argv[1] != NULL &&
+        argv[2] != NULL &&
+        strcmp(argv[1], "config") == 0 &&
+        strcmp(argv[2], "prepare") == 0) {
+        return a90_wificfg_print_prepare(argc == 4 ? argv[3] : NULL);
+    }
 
-    a90_console_printf("usage: wifi config status\r\n");
+    a90_console_printf("usage: wifi config [status|prepare [profile]]\r\n");
     return -EINVAL;
 }
