@@ -12,86 +12,31 @@ import hashlib
 import json
 import os
 import shlex
-import subprocess
+import sys
 import time
 from pathlib import Path
 from typing import Any
+
+sys.dont_write_bytecode = True
 
 from _workspace_bootstrap import add_legacy_revalidation_path, repo_root
 
 add_legacy_revalidation_path(repo_root())
 
 import a90_ncm_transport as ncm
+import a90_transport as transport
 from a90harness.evidence import EvidenceStore, safe_artifact_label, wifi_artifact_dir
 
 
-REPO_ROOT = next(parent for parent in Path(__file__).resolve().parents if (parent / ".git").exists())
-
-
 def run_command(command: list[object], *, timeout: float) -> dict[str, Any]:
-    started = ncm.now_iso()
-    try:
-        completed = subprocess.run(
-            [str(item) for item in command],
-            cwd=str(REPO_ROOT),
-            text=True,
-            stdout=subprocess.PIPE,
-            stderr=subprocess.PIPE,
-            timeout=timeout,
-            check=False,
-        )
-        return {
-            "command": [str(item) for item in command],
-            "started": started,
-            "ended": ncm.now_iso(),
-            "timeout": False,
-            "rc": completed.returncode,
-            "ok": completed.returncode == 0,
-            "stdout": completed.stdout,
-            "stderr": completed.stderr,
-        }
-    except subprocess.TimeoutExpired as exc:
-        return {
-            "command": [str(item) for item in command],
-            "started": started,
-            "ended": ncm.now_iso(),
-            "timeout": True,
-            "rc": None,
-            "ok": False,
-            "stdout": exc.stdout or "",
-            "stderr": exc.stderr or "",
-        }
+    return transport.run_host_command(command, timeout=timeout)
 
 
 def write_step(store: EvidenceStore,
                steps: list[dict[str, Any]],
                name: str,
                result: dict[str, Any]) -> None:
-    stdout_file = f"{name}.stdout.txt"
-    stderr_file = f"{name}.stderr.txt"
-    stdout_path = store.write_log("host", stdout_file, str(result.get("stdout") or ""))
-    stderr_path = store.write_log("host", stderr_file, str(result.get("stderr") or ""))
-    stdout_file = str(stdout_path.relative_to(store.run_dir))
-    stderr_file = str(stderr_path.relative_to(store.run_dir))
-    steps.append({
-        "name": name,
-        "command": result["command"],
-        "started": result["started"],
-        "ended": result["ended"],
-        "timeout": result["timeout"],
-        "rc": result["rc"],
-        "ok": result["ok"],
-        "stdout_file": stdout_file,
-        "stderr_file": stderr_file,
-    })
-
-
-def a90ctl_command(command: list[str], *, timeout: float | None = None) -> list[object]:
-    base: list[object] = ["python3", "workspace/public/src/scripts/revalidation/a90ctl.py"]
-    if timeout is not None:
-        base.extend(["--timeout", str(timeout)])
-    base.extend(command)
-    return base
+    transport.write_step(store, steps, name, result)
 
 
 def run_step(store: EvidenceStore,
@@ -101,14 +46,14 @@ def run_step(store: EvidenceStore,
     *,
     timeout: float = 60.0,
     bridge_timeout: float = 45.0) -> dict[str, Any]:
-    result = run_command(a90ctl_command(command, timeout=bridge_timeout), timeout=timeout)
-    output = "\n".join([str(result.get("stdout") or ""), str(result.get("stderr") or "")])
-    if "[busy]" in output:
-        hide = run_command(a90ctl_command(["hide"], timeout=20), timeout=30.0)
-        write_step(store, steps, f"{name}-hide-on-busy", hide)
-        result = run_command(a90ctl_command(command, timeout=bridge_timeout), timeout=timeout)
-    write_step(store, steps, name, result)
-    return result
+    return transport.run_serial_step(
+        store,
+        steps,
+        name,
+        command,
+        timeout=timeout,
+        bridge_timeout=bridge_timeout,
+    )
 
 
 def write_pattern_file(path: Path, size_bytes: int) -> str:
@@ -230,6 +175,8 @@ def main() -> int:
     parser.add_argument("--keep-remote", action="store_true")
     parser.add_argument("--download-retries", type=int, default=1, help="bounded retries after a failed host-to-device transfer")
     parser.add_argument("--retry-sleep-sec", type=float, default=2.0)
+    parser.add_argument("--bridge-device", default=transport.DEFAULT_BRIDGE_DEVICE)
+    parser.add_argument("--no-bridge-ensure", action="store_true")
     args = parser.parse_args()
 
     safe_label = safe_artifact_label(args.label)
@@ -237,6 +184,13 @@ def main() -> int:
     store = EvidenceStore(out_dir)
     steps: list[dict[str, Any]] = []
     sizes = parse_sizes(args.sizes_mib)
+    transport_selection = transport.select_transport(
+        store,
+        steps,
+        bridge_device=args.bridge_device,
+        ensure=not args.no_bridge_ensure,
+        prefer_fast=True,
+    )
 
     run_step(store, steps, "pre-smoke-hide", ["hide"], timeout=15, bridge_timeout=8)
 
@@ -307,6 +261,7 @@ def main() -> int:
         "force_nm_repair": args.force_nm_repair,
         "download_retries": args.download_retries,
         "retry_sleep_sec": args.retry_sleep_sec,
+        "transport": transport_selection,
         "host_ifname": transfer.ifname,
         "host_link_local": transfer.host_link_local,
         "reason": transfer.reason,
@@ -322,6 +277,8 @@ def main() -> int:
         "out_dir": str(out_dir),
         "host_ifname": transfer.ifname,
         "host_link_local": transfer.host_link_local,
+        "transport_selected": transport_selection.get("selected"),
+        "transport_ncm_host": transport_selection.get("ncm_host"),
         "tests": [
             {
                 "size_mib": test["size_mib"],

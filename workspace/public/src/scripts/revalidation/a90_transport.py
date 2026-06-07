@@ -1,0 +1,399 @@
+#!/usr/bin/env python3
+"""Shared bridge and transport selection helpers for A90 revalidation scripts."""
+
+from __future__ import annotations
+
+import datetime as dt
+import json
+import os
+import subprocess
+import sys
+from pathlib import Path
+from typing import Any
+
+sys.dont_write_bytecode = True
+
+from _workspace_bootstrap import repo_root
+
+import a90ctl
+import a90_ncm_transport as ncm
+
+
+DEFAULT_HOST = a90ctl.DEFAULT_HOST
+DEFAULT_PORT = a90ctl.DEFAULT_PORT
+DEFAULT_BRIDGE_DEVICE = os.environ.get("A90_BRIDGE_DEVICE", "auto")
+DEFAULT_BRIDGE_DEVICE_GLOB = "/dev/serial/by-id/usb-SAMSUNG_SAMSUNG_Android_*"
+BRIDGE_SCRIPT_REL = "workspace/public/src/scripts/revalidation/a90_bridge.py"
+TRANSPORT_SELECTOR_CONTRACT = 1
+
+
+def now_iso() -> str:
+    return dt.datetime.now(dt.timezone.utc).isoformat()
+
+
+def run_host_command(command: list[object], *, timeout: float = 30.0) -> dict[str, Any]:
+    started = now_iso()
+    try:
+        completed = subprocess.run(
+            [str(item) for item in command],
+            cwd=str(repo_root()),
+            check=False,
+            text=True,
+            stdout=subprocess.PIPE,
+            stderr=subprocess.PIPE,
+            timeout=timeout,
+        )
+        return {
+            "command": [str(item) for item in command],
+            "started": started,
+            "ended": now_iso(),
+            "timeout": False,
+            "rc": completed.returncode,
+            "ok": completed.returncode == 0,
+            "stdout": completed.stdout,
+            "stderr": completed.stderr,
+        }
+    except subprocess.TimeoutExpired as exc:
+        return {
+            "command": [str(item) for item in command],
+            "started": started,
+            "ended": now_iso(),
+            "timeout": True,
+            "rc": None,
+            "ok": False,
+            "stdout": exc.stdout or "",
+            "stderr": exc.stderr or "",
+        }
+
+
+def write_step(store: Any,
+               steps: list[dict[str, Any]],
+               name: str,
+               result: dict[str, Any]) -> None:
+    stdout_file = f"{name}.stdout.txt"
+    stderr_file = f"{name}.stderr.txt"
+    if hasattr(store, "write_log"):
+        stdout_path = store.write_log("host", stdout_file, str(result.get("stdout") or ""))
+        stderr_path = store.write_log("host", stderr_file, str(result.get("stderr") or ""))
+        stdout_file = str(stdout_path.relative_to(store.run_dir))
+        stderr_file = str(stderr_path.relative_to(store.run_dir))
+    else:
+        store.write_text(f"logs/host/{stdout_file}", str(result.get("stdout") or ""))
+        store.write_text(f"logs/host/{stderr_file}", str(result.get("stderr") or ""))
+        stdout_file = f"logs/host/{stdout_file}"
+        stderr_file = f"logs/host/{stderr_file}"
+    steps.append({
+        "name": name,
+        "command": [str(item) for item in result.get("command", [])],
+        "started": result.get("started", now_iso()),
+        "ended": result.get("ended", now_iso()),
+        "timeout": bool(result.get("timeout")),
+        "rc": result.get("rc"),
+        "ok": bool(result.get("ok")),
+        "stdout_file": stdout_file,
+        "stderr_file": stderr_file,
+    })
+
+
+def parse_json_stdout(result: dict[str, Any]) -> dict[str, Any]:
+    try:
+        payload = json.loads(str(result.get("stdout") or "{}"))
+    except json.JSONDecodeError:
+        return {}
+    return payload if isinstance(payload, dict) else {}
+
+
+def bridge_command(subcommand: str,
+                   *,
+                   host: str = DEFAULT_HOST,
+                   port: int = DEFAULT_PORT,
+                   device: str = DEFAULT_BRIDGE_DEVICE,
+                   device_glob: str = DEFAULT_BRIDGE_DEVICE_GLOB,
+                   no_client_probe: bool = True,
+                   extra: list[object] | None = None) -> list[object]:
+    command: list[object] = [
+        "python3",
+        BRIDGE_SCRIPT_REL,
+        subcommand,
+        "--host",
+        host,
+        "--port",
+        port,
+        "--device",
+        device,
+        "--device-glob",
+        device_glob,
+        "--json",
+    ]
+    if no_client_probe:
+        command.append("--no-client-probe")
+    if extra:
+        command.extend(extra)
+    return command
+
+
+def ensure_bridge(*,
+                  host: str = DEFAULT_HOST,
+                  port: int = DEFAULT_PORT,
+                  device: str = DEFAULT_BRIDGE_DEVICE,
+                  device_glob: str = DEFAULT_BRIDGE_DEVICE_GLOB,
+                  no_client_probe: bool = True,
+                  timeout: float = 10.0) -> dict[str, Any]:
+    result = run_host_command(
+        bridge_command(
+            "ensure",
+            host=host,
+            port=port,
+            device=device,
+            device_glob=device_glob,
+            no_client_probe=no_client_probe,
+        ),
+        timeout=timeout,
+    )
+    result["json"] = parse_json_stdout(result)
+    return result
+
+
+def bridge_status(*,
+                  host: str = DEFAULT_HOST,
+                  port: int = DEFAULT_PORT,
+                  device: str = DEFAULT_BRIDGE_DEVICE,
+                  device_glob: str = DEFAULT_BRIDGE_DEVICE_GLOB,
+                  no_client_probe: bool = True,
+                  timeout: float = 10.0) -> dict[str, Any]:
+    result = run_host_command(
+        bridge_command(
+            "status",
+            host=host,
+            port=port,
+            device=device,
+            device_glob=device_glob,
+            no_client_probe=no_client_probe,
+        ),
+        timeout=timeout,
+    )
+    result["json"] = parse_json_stdout(result)
+    return result
+
+
+def protocol_result_to_command_result(command: list[str],
+                                      started: str,
+                                      result: a90ctl.ProtocolResult) -> dict[str, Any]:
+    return {
+        "command": ["cmdv1", *command],
+        "started": started,
+        "ended": now_iso(),
+        "timeout": False,
+        "rc": result.rc,
+        "ok": result.rc == 0,
+        "stdout": result.text,
+        "stderr": "",
+        "protocol": {
+            "begin": result.begin,
+            "end": result.end,
+            "status": result.status,
+        },
+    }
+
+
+def run_serial_command(command: list[str],
+                       *,
+                       host: str = DEFAULT_HOST,
+                       port: int = DEFAULT_PORT,
+                       timeout: float = 20.0,
+                       retry_unsafe: bool = False) -> dict[str, Any]:
+    started = now_iso()
+    try:
+        result = a90ctl.run_cmdv1_command(
+            host,
+            port,
+            timeout,
+            command,
+            retry_unsafe=retry_unsafe,
+        )
+        return protocol_result_to_command_result(command, started, result)
+    except Exception as exc:  # noqa: BLE001 - transport evidence must preserve exact failure
+        return {
+            "command": ["cmdv1", *command],
+            "started": started,
+            "ended": now_iso(),
+            "timeout": False,
+            "rc": None,
+            "ok": False,
+            "stdout": "",
+            "stderr": repr(exc),
+        }
+
+
+def run_serial_step(store: Any,
+                    steps: list[dict[str, Any]],
+                    name: str,
+                    command: list[str],
+                    *,
+                    timeout: float = 60.0,
+                    bridge_timeout: float = 45.0,
+                    host: str = DEFAULT_HOST,
+                    port: int = DEFAULT_PORT,
+                    hide_on_busy: bool = True,
+                    retry_unsafe: bool = False) -> dict[str, Any]:
+    del timeout
+    result = run_serial_command(
+        command,
+        host=host,
+        port=port,
+        timeout=bridge_timeout,
+        retry_unsafe=retry_unsafe,
+    )
+    output = "\n".join([str(result.get("stdout") or ""), str(result.get("stderr") or "")])
+    if hide_on_busy and "[busy]" in output:
+        hide = run_serial_command(["hide"], host=host, port=port, timeout=20.0)
+        write_step(store, steps, f"{name}-hide-on-busy", hide)
+        result = run_serial_command(
+            command,
+            host=host,
+            port=port,
+            timeout=bridge_timeout,
+            retry_unsafe=retry_unsafe,
+        )
+    write_step(store, steps, name, result)
+    return result
+
+
+def parse_key_values(text: str) -> dict[str, str]:
+    values: dict[str, str] = {}
+    for raw_line in text.splitlines():
+        line = raw_line.strip()
+        if not line or line.startswith("[") or "=" not in line:
+            continue
+        key, value = line.split("=", 1)
+        values[key.strip()] = value.strip()
+    return values
+
+
+def summarize_host_ncm() -> dict[str, Any]:
+    snapshot = ncm.host_netdev_snapshot()
+    ready = ncm.host_ncm_candidates(snapshot, require_link_local=True)
+    present = ncm.host_ncm_candidates(snapshot, require_link_local=False)
+    if ready:
+        state = "ready"
+    elif present:
+        state = "present-no-link-local"
+    else:
+        state = "not-ready"
+    return {
+        "state": state,
+        "ready_candidates": ready,
+        "present_candidates": present,
+        "snapshot": snapshot,
+    }
+
+
+def select_transport(store: Any | None = None,
+                     steps: list[dict[str, Any]] | None = None,
+                     *,
+                     host: str = DEFAULT_HOST,
+                     port: int = DEFAULT_PORT,
+                     bridge_device: str = DEFAULT_BRIDGE_DEVICE,
+                     ensure: bool = True,
+                     no_client_probe: bool = True,
+                     prefer_fast: bool = True) -> dict[str, Any]:
+    bridge_result = ensure_bridge(
+        host=host,
+        port=port,
+        device=bridge_device,
+        no_client_probe=no_client_probe,
+    ) if ensure else bridge_status(
+        host=host,
+        port=port,
+        device=bridge_device,
+        no_client_probe=no_client_probe,
+    )
+    if store is not None and steps is not None:
+        write_step(store, steps, "transport-bridge-ensure" if ensure else "transport-bridge-status", bridge_result)
+
+    version_result = run_serial_command(["version"], host=host, port=port, timeout=10.0)
+    if store is not None and steps is not None:
+        write_step(store, steps, "transport-version", version_result)
+
+    status_result = run_serial_command(["status"], host=host, port=port, timeout=20.0)
+    if store is not None and steps is not None:
+        write_step(store, steps, "transport-status", status_result)
+
+    host_ncm = summarize_host_ncm()
+    if store is not None and steps is not None:
+        write_step(
+            store,
+            steps,
+            "transport-host-ncm-snapshot",
+            {
+                "command": ["host", "detect-a90-ncm"],
+                "started": now_iso(),
+                "ended": now_iso(),
+                "timeout": False,
+                "rc": 0,
+                "ok": True,
+                "stdout": json.dumps(host_ncm, ensure_ascii=False, sort_keys=True) + "\n",
+                "stderr": "",
+            },
+        )
+
+    status_fields = parse_key_values(str(status_result.get("stdout") or ""))
+    contract_raw = status_fields.get("transport.contract", "0")
+    try:
+        contract = int(contract_raw, 0)
+    except ValueError:
+        contract = 0
+
+    bridge_json = bridge_result.get("json") if isinstance(bridge_result.get("json"), dict) else {}
+    serial_bridge = "ready" if bridge_result.get("ok") and bridge_json.get("bridge_process") == "running" else "not-ready"
+    device_status = "ready" if status_result.get("ok") else "not-ready"
+    tcpctl = status_fields.get("transport.tcpctl", "not-tested")
+    if contract and tcpctl == "ready" and prefer_fast:
+        selected = "tcpctl"
+        fallback_reason = None
+    elif prefer_fast and host_ncm["state"] == "ready":
+        selected = "ncm"
+        fallback_reason = None
+    else:
+        selected = "serial"
+        fallback_reason = None if serial_bridge == "ready" else "bridge-not-ready"
+        if prefer_fast and host_ncm["state"] != "ready":
+            fallback_reason = f"host-ncm-{host_ncm['state']}"
+
+    selection = {
+        "selector_contract": TRANSPORT_SELECTOR_CONTRACT,
+        "transport_contract": contract,
+        "bridge_wrapper_contract": bridge_json.get("wrapper_contract", 0),
+        "bridge_device": bridge_device,
+        "serial_bridge": serial_bridge,
+        "device_status": device_status,
+        "ncm_host": host_ncm["state"],
+        "tcpctl": tcpctl,
+        "selected": selected,
+        "fallback_reason": fallback_reason,
+        "bridge": bridge_json,
+        "status_fields": status_fields,
+        "version_ok": bool(version_result.get("ok")),
+        "status_ok": bool(status_result.get("ok")),
+        "host_ncm": {
+            "ready_candidates": host_ncm["ready_candidates"],
+            "present_candidates": host_ncm["present_candidates"],
+        },
+    }
+    if store is not None and steps is not None:
+        write_step(
+            store,
+            steps,
+            "transport-selection",
+            {
+                "command": ["host", "select-transport"],
+                "started": now_iso(),
+                "ended": now_iso(),
+                "timeout": False,
+                "rc": 0 if serial_bridge == "ready" else 1,
+                "ok": serial_bridge == "ready",
+                "stdout": json.dumps(selection, ensure_ascii=False, sort_keys=True) + "\n",
+                "stderr": "",
+            },
+        )
+    return selection

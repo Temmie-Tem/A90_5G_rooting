@@ -152,18 +152,31 @@ v49 주의:
 
 ## 2. Bridge 사용법
 
-브릿지는 사용자가 보통 sudo로 실행한다.
+브릿지는 `a90_bridge.py` wrapper로 실행한다. `dialout` 권한이 있으면 sudo 없이 실행하고, 권한 오류가 날 때만 같은 명령을 `sudo`로 재실행한다.
 
 ```bash
-sudo python3 workspace/public/src/scripts/revalidation/serial_tcp_bridge.py --port 54321
+python3 workspace/public/src/scripts/revalidation/a90_bridge.py preflight
+python3 workspace/public/src/scripts/revalidation/a90_bridge.py ensure --device /dev/ttyACM0
 ```
 
-에이전트가 sudo를 직접 못 쓰는 환경이면 사용자에게 재시작을 요청한다.
+기존 수동 bridge나 stale process가 있으면 먼저 상태와 doctor 진단을 확인한다.
 
 ```bash
-sudo pkill -f serial_tcp_bridge.py
-sudo python3 workspace/public/src/scripts/revalidation/serial_tcp_bridge.py --port 54321
+python3 workspace/public/src/scripts/revalidation/a90_bridge.py status
+python3 workspace/public/src/scripts/revalidation/a90_bridge.py doctor
+python3 workspace/public/src/scripts/revalidation/a90_bridge.py restart --discovered --device /dev/ttyACM0
 ```
+
+`doctor`가 `private_log_dir` 또는 `private_run_dir` writable 경고를 내면,
+root로 생성된 private bridge 상태가 남은 것이다. 이때는 아래 명령으로
+고정 private 디렉터리만 현재 사용자 소유로 되돌린다.
+
+```bash
+sudo python3 workspace/public/src/scripts/revalidation/a90_bridge.py repair-dirs --user "$USER"
+python3 workspace/public/src/scripts/revalidation/a90_bridge.py doctor
+```
+
+에이전트가 sudo를 직접 못 쓰는 환경이면 사용자에게 위 wrapper 명령 재시작을 요청한다.
 
 기본 확인:
 

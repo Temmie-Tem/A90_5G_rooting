@@ -7,6 +7,11 @@ revalidation scripts, boot artifacts, reports, or workspace layout. Detailed
 policy remains in `docs/operations/VERSIONING_POLICY.md` and
 `docs/operations/WORKSPACE_STRUCTURE_AND_BOOTSTRAP.md`.
 
+The current active TODO map is
+`docs/plans/NATIVE_INIT_CURRENT_TODO_2026-06-08.md`.
+The standing boot/bridge/communication contract is
+`docs/operations/NATIVE_INIT_BOOT_TRANSPORT_CONTRACT.md`.
+
 ## 1. Version Axes
 
 Keep these axes separate.
