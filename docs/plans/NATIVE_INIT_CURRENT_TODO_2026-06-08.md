@@ -8,7 +8,11 @@ than the long-term roadmap.
 
 Current baseline:
 
-- Device baseline: `A90 Linux init 0.9.247 (v2169-transport-contract)`.
+- Device baseline: `A90 Linux init 0.9.251 (v2174-wifi-urandom-connect)`.
+- Promotion run: `V2175`; boot SHA256
+  `cda957e4302d66e407fc97a95932501f0ef2ac655ee264c94519111fece0b3ba`.
+- Immediate rollback image:
+  `workspace/private/inputs/boot_images/boot_linux_v2169_transport_contract.img`.
 - Active control path: USB ACM serial bridge managed by
   `workspace/public/src/scripts/revalidation/a90_bridge.py`.
 - Active fast path: USB NCM link-local plus bounded FastUpload-style transfers.
@@ -63,6 +67,14 @@ Completed first units:
     `dhcp_routing=0`, and `external_ping=0`;
   - rolled back to `v2169-transport-contract`;
   - final rollback `selftest fail=0`.
+- `v2174-wifi-urandom-connect` was promoted as the current baseline by V2175:
+  - flashed the same V2174 boot image as the persistent baseline;
+  - verified device-visible version
+    `A90 Linux init 0.9.251 (v2174-wifi-urandom-connect)`;
+  - verified boot partition readback SHA
+    `cda957e4302d66e407fc97a95932501f0ef2ac655ee264c94519111fece0b3ba`;
+  - verified `transport.contract=1`, NCM/tcpctl readiness, and
+    `selftest fail=0`.
 - `v2172-wifi-status-scan` live validation passed:
   - corrected the test boot to reuse verified V726 private-property snapshot;
   - flashed test boot;
@@ -84,10 +96,10 @@ Completed first units:
 
 Open tasks:
 
-- Promote or rebase the next Wi-Fi test unit on V2174:
+- Rebase the next Wi-Fi test unit on the promoted V2174 baseline:
   - use `workspace/public/src/scripts/revalidation/native_wifi_connect_carrier_handoff_v2174.py` as the carrier-level safety baseline;
   - keep DHCP/routes/ping out of carrier validation;
-  - preserve rollback to `v2169-transport-contract` until a new baseline is explicitly promoted.
+  - use `v2169-transport-contract` only as the immediate rollback image.
 - Finish remaining native Wi-Fi config/autoconnect design:
   - credential source under `workspace/private/secrets/`;
   - profile creation/listing operator commands;
@@ -153,8 +165,8 @@ Completed first units:
   `docs/operations/NATIVE_INIT_BOOT_TRANSPORT_CONTRACT.md`.
 - Transport selector has bounded host NCM link-local auto-repair for the
   Samsung `04e8` + `cdc_ncm` present/no-`fe80::` state.
-- Current `v2169-transport-contract` baseline emits device-side
-  `transport.contract=1`.
+- Current `v2174-wifi-urandom-connect` baseline preserves the device-side
+  `transport.contract=1` contract from V2169.
 
 Open tasks:
 
@@ -244,7 +256,7 @@ Goal: avoid mixing run IDs, helper versions, and boot baseline tags.
 
 Open tasks:
 
-- Keep current baseline fixed as `v2169-transport-contract` until a newer boot
+- Keep current baseline fixed as `v2174-wifi-urandom-connect` until a newer boot
   image is intentionally promoted.
 - If a new boot/init image is promoted, use the next global run/build identity,
   not helper numbering.
@@ -348,11 +360,10 @@ Exit criteria:
 
 ## Suggested Next Sequence
 
-1. Decide whether to promote V2174 as the next Wi-Fi-capable test baseline.
-2. Add the separate DHCP/route/ping-scoped command or runner only after
+1. Add the separate DHCP/route/ping-scoped command or runner only after
    carrier-level connect passes.
-3. Migrate the Wi-Fi lifecycle runner to `a90_transport.py`.
-4. Add phase timers to Wi-Fi live runners.
-5. Generate a script inventory and classify active/module/archive/delete-review.
-6. Run N>=3 Wi-Fi lifecycle stability checks.
-7. Decide whether to promote the next boot/init baseline.
+2. Migrate the Wi-Fi lifecycle runner to `a90_transport.py`.
+3. Add phase timers to Wi-Fi live runners.
+4. Generate a script inventory and classify active/module/archive/delete-review.
+5. Run N>=3 Wi-Fi lifecycle stability checks.
+6. Decide whether to promote the next boot/init baseline.

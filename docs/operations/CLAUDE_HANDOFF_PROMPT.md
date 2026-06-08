@@ -16,13 +16,13 @@ Date: `2026-04-29`
 
 현재 기준:
 
-- latest verified build: A90 Linux init 0.9.247 (v2169-transport-contract)
-- latest verified source: workspace/public/src/native-init/init_v724.c + 모듈 workspace/public/src/native-init/v724/90_main.inc.c + 헬퍼 workspace/public/src/native-init/helpers/ + 빌더 workspace/public/src/scripts/revalidation/build_native_init_boot_v2169_transport_contract.py
-- latest verified boot image: workspace/private/inputs/boot_images/boot_linux_v2169_transport_contract.img
-- latest verified boot image SHA256: 190b93d0741a6eeba17913c940f3bb398fed765f38532d5e0009840112166d6d
-- 현재 기준 사이클: v2169-transport-contract transport-contract baseline (native Wi-Fi bring-up rollback/test 기준)
-- version axes: v2169-transport-contract는 boot/init baseline tag, a90_android_execns_probe helper-v427은 포함된 helper marker, V2169는 검증 run/report 번호다. 전체 규칙은 docs/operations/VERSIONING_POLICY.md를 따른다.
-- previous verified boot image: workspace/private/inputs/boot_images/boot_linux_v726_wifi_lifecycle.img (A90 Linux init 0.9.246 (v726-wifi-lifecycle))
+- latest verified build: A90 Linux init 0.9.251 (v2174-wifi-urandom-connect)
+- latest verified source: workspace/public/src/native-init/ + 빌더 workspace/public/src/scripts/revalidation/build_native_init_boot_v2174_wifi_urandom_connect.py
+- latest verified boot image: workspace/private/inputs/boot_images/boot_linux_v2174_wifi_urandom_connect.img
+- latest verified boot image SHA256: cda957e4302d66e407fc97a95932501f0ef2ac655ee264c94519111fece0b3ba
+- 현재 기준 사이클: v2174-wifi-urandom-connect Wi-Fi carrier-capable baseline (V2175 promotion)
+- version axes: v2174-wifi-urandom-connect는 boot/init baseline tag, a90_android_execns_probe helper-v427은 포함된 helper marker, V2175는 baseline-promotion run/report 번호다. 전체 규칙은 docs/operations/VERSIONING_POLICY.md를 따른다.
+- previous verified boot image: workspace/private/inputs/boot_images/boot_linux_v2169_transport_contract.img (A90 Linux init 0.9.247 (v2169-transport-contract))
 - known-good fallback native init: A90 Linux init v48
 - known-good fallback source: workspace/public/archive/stage3/linux_init/init_v48.c
 - known-good fallback boot image: workspace/private/inputs/boot_images/boot_linux_v48.img

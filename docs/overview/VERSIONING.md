@@ -9,17 +9,18 @@ This is the short reader-facing summary. The normative policy is
 
 | Axis | Format | Meaning | Example |
 | --- | --- | --- | --- |
-| Run ID | `VNNNN` | project run/report/validation/promotion number | `V2169` |
-| Native init version | `MAJOR.MINOR.PATCH` | device-visible native init build | `0.9.247` |
-| Build tag | `vNNNN-purpose` | flashed boot/init baseline role | `v2169-wifi-lifecycle-baseline` |
+| Run ID | `VNNNN` | project run/report/validation/promotion number | `V2175` |
+| Native init version | `MAJOR.MINOR.PATCH` | device-visible native init build | `0.9.251` |
+| Build tag | `vNNNN-purpose` | flashed boot/init baseline role | `v2174-wifi-urandom-connect` |
 | Helper version | `helper-vNNN` | helper binary marker stream | `a90_android_execns_probe helper-v427` |
 | Artifact hash | `sha256:<hex>` | exact binary/evidence identity | boot image SHA256 |
 
 ## Rules
 
-- Run IDs (`V2167`, `V2168`, `V2169`) are global project execution numbers.
-- Native init versions (`0.9.246`, `0.9.247`) change only when the boot artifact
-  that can be flashed changes.
+- Run IDs (`V2167`, `V2168`, `V2169`, `V2175`) are global project execution
+  numbers.
+- Native init versions (`0.9.246`, `0.9.247`, `0.9.251`) change only when the
+  boot artifact that can be flashed changes.
 - Build tags name the boot/init baseline and should not be confused with helper
   markers.
 - Helper versions must be written with the `helper-` prefix in summaries:
@@ -30,25 +31,26 @@ This is the short reader-facing summary. The normative policy is
 ## Current Verified Example
 
 ```text
-Native init: A90 Linux init 0.9.246 (v726-wifi-lifecycle)
-Build tag: v726-wifi-lifecycle
+Run ID: V2175
+Native init: A90 Linux init 0.9.251 (v2174-wifi-urandom-connect)
+Build tag: v2174-wifi-urandom-connect
 Helper: a90_android_execns_probe helper-v427
-Boot image: stage3/boot_linux_v726_wifi_lifecycle.img
-Boot SHA256: 6b34aac93d4fa6d5b40355b9e13b2c1ae847c24a3685d84b0d1cd78751351d40
-Evidence: V2167, V2168, and v726 baseline source/build/promotion reports
+Boot image: workspace/private/inputs/boot_images/boot_linux_v2174_wifi_urandom_connect.img
+Boot SHA256: cda957e4302d66e407fc97a95932501f0ef2ac655ee264c94519111fece0b3ba
+Evidence: V2174 source/build and live validation reports plus V2175 promotion
+report
 ```
 
 ## Next Baseline Naming
 
-The next promoted baseline after the `V2168` run stream should use a new global
-run/build identity, not an unrelated helper number and not a recycled validation
-run:
+The next promoted baseline after V2175 should use a new global run/build
+identity, not an unrelated helper number and not a recycled validation run:
 
 ```text
-Run ID: V2169
-Native init: A90 Linux init 0.9.247
-Build tag: v2169-wifi-lifecycle-baseline
-Boot image: stage3/boot_linux_v2169_wifi_lifecycle_baseline.img
+Run ID: V2176
+Native init: A90 Linux init 0.9.252
+Build tag: v2176-<purpose>
+Boot image: workspace/private/inputs/boot_images/boot_linux_v2176_<purpose>.img
 Helper: a90_android_execns_probe helper-v427
 ```
 
@@ -63,7 +65,8 @@ Use the table above for current work.
 
 - Keep current verified baseline artifacts, previous rollback artifacts, and
   known-good fallback artifacts.
-- Current cleanup defaults preserve `v48`, `v724`, `v725`, and `v726`.
+- Current cleanup defaults should preserve `v48`, `v724`, `v725`, `v726`,
+  `v2169`, and `v2174`.
 - Cleanup tools are dry-run first:
 
 ```bash

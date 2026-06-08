@@ -26,6 +26,8 @@ Examples:
 - `V2167` connect/DHCP/ping validation
 - `V2168` QCACLD firmware_class validation route
 - `V2169` next baseline-promotion run after `V2168`
+- `V2175` baseline-promotion run for the `v2174-wifi-urandom-connect`
+  artifact
 
 Rules:
 
@@ -43,6 +45,7 @@ Examples:
 
 - `A90 Linux init 0.9.246`
 - `A90 Linux init 0.9.247`
+- `A90 Linux init 0.9.251`
 
 Increase this version when the flashed boot artifact changes:
 
@@ -121,8 +124,8 @@ Host commit: <git-sha-or-uncommitted>
 For host-only or unchanged-image validation:
 
 ```text
-Run ID: V2170
-Native init: A90 Linux init 0.9.247 (v2169-transport-contract)
+Run ID: V2176
+Native init: A90 Linux init 0.9.251 (v2174-wifi-urandom-connect)
 Build tag: unchanged
 Helper: unchanged
 Device flash: no
@@ -134,24 +137,26 @@ Host commit: <git-sha-or-uncommitted>
 Read versions in this order:
 
 ```text
-V2169  = what project/test/promotion run was executed
-0.9.247 = what native init build is visible on the phone
-v2169-transport-contract = what boot/init baseline role was flashed
+V2175  = what project/test/promotion run was executed
+0.9.251 = what native init build is visible on the phone
+v2174-wifi-urandom-connect = what boot/init baseline role was flashed
 helper-v427 = which helper binary marker is embedded or deployed
 sha256 = exact binary/evidence artifact identity
 ```
 
 ## Current Example
 
-Current verified transport-contract baseline evidence is based on:
+Current verified Wi-Fi connect baseline evidence is based on:
 
 ```text
-Native init: A90 Linux init 0.9.247 (v2169-transport-contract)
-Build tag: v2169-transport-contract
+Run ID: V2175
+Native init: A90 Linux init 0.9.251 (v2174-wifi-urandom-connect)
+Build tag: v2174-wifi-urandom-connect
 Helper: a90_android_execns_probe helper-v427
-Boot image: workspace/private/inputs/boot_images/boot_linux_v2169_transport_contract.img
-Boot SHA256: 190b93d0741a6eeba17913c940f3bb398fed765f38532d5e0009840112166d6d
-Evidence: V2169 source/build and live validation reports
+Boot image: workspace/private/inputs/boot_images/boot_linux_v2174_wifi_urandom_connect.img
+Boot SHA256: cda957e4302d66e407fc97a95932501f0ef2ac655ee264c94519111fece0b3ba
+Evidence: V2174 source/build plus live validation reports and V2175 baseline
+promotion report
 ```
 
 If this artifact is reproduced unchanged, keep the build tag and record the
@@ -159,9 +164,9 @@ same artifact SHA. If a future boot image changes, promote it under a new
 run/build identity such as:
 
 ```text
-Run ID: V2170
-Native init: A90 Linux init 0.9.248
-Build tag: v2170-<purpose>
-Boot image: workspace/private/inputs/boot_images/boot_linux_v2170_<purpose>.img
+Run ID: V2176
+Native init: A90 Linux init 0.9.252
+Build tag: v2176-<purpose>
+Boot image: workspace/private/inputs/boot_images/boot_linux_v2176_<purpose>.img
 Helper: a90_android_execns_probe helper-v427
 ```

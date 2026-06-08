@@ -199,14 +199,16 @@ rebuild in dependency order:
 python3 workspace/public/src/scripts/revalidation/build_native_init_boot_v724.py
 python3 workspace/public/src/scripts/revalidation/build_native_init_boot_v725_fasttransport.py
 python3 workspace/public/src/scripts/revalidation/build_native_init_boot_v726_wifi_lifecycle.py
-sha256sum workspace/private/inputs/boot_images/boot_linux_v726_wifi_lifecycle.img
+python3 workspace/public/src/scripts/revalidation/build_native_init_boot_v2169_transport_contract.py
+python3 workspace/public/src/scripts/revalidation/build_native_init_boot_v2174_wifi_urandom_connect.py
+sha256sum workspace/private/inputs/boot_images/boot_linux_v2174_wifi_urandom_connect.img
 ```
 
 The active builders write ramdisk/init/helper intermediates under
 `workspace/private/builds/native-init/` and final baseline boot images under
-`workspace/private/inputs/boot_images/`. The V726 baseline SHA is recorded in
-the baseline/source-build reports. Verify SHA before using an image for any
-flash/handoff cycle.
+`workspace/private/inputs/boot_images/`. The current V2174 baseline SHA is
+recorded in the source-build, live-validation, and V2175 promotion reports.
+Verify SHA before using an image for any flash/handoff cycle.
 
 ### 5. Create Private Wi-Fi Test Env Only When Needed
 

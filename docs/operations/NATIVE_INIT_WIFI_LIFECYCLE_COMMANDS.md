@@ -148,8 +148,11 @@ python3 workspace/public/src/scripts/revalidation/native_wifi_connect_carrier_ha
 ```
 
 The runner flashes the V2174 test boot, runs only the carrier-level connect
-window, rolls back to `v2169-transport-contract`, and verifies rollback
-`selftest fail=0`.
+window, rolls back to the previous `v2169-transport-contract` baseline, and
+verifies rollback `selftest fail=0`. After V2175 promotion, this runner remains
+the carrier-level evidence runner; new Wi-Fi lifecycle work should treat
+`v2174-wifi-urandom-connect` as the current baseline unless explicitly testing
+rollback behavior.
 
 ## Next Command
 
@@ -176,8 +179,9 @@ These risks must be blocked before implementing or live-running
    - use a bounded timeout and emit a precondition label if `wlan0` is absent;
    - do not start supplicant against a missing interface.
 2. Wi-Fi bring-up property root:
-   - keep V2172-style Wi-Fi test boots on the verified V726 property snapshot
-     unless a new snapshot is explicitly provisioned;
+   - keep Wi-Fi test boots on the verified V726-derived property snapshot used
+     by the promoted V2174 baseline unless a new snapshot is explicitly
+     provisioned;
    - do not point helpers at non-existent per-run roots such as
      `/mnt/sdext/a90/private-property-v317/v2172/dev/__properties__`.
 3. Secret hygiene:

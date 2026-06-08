@@ -8,19 +8,17 @@
 
 상단 `docs/`는 이제 다음 흐름에 필요한 문서를 유지합니다.
 
-1. native init 0.9.246 / v726-wifi-lifecycle verified Wi-Fi lifecycle baseline 고정
+1. native init 0.9.251 / v2174-wifi-urandom-connect Wi-Fi carrier-capable baseline 고정
 2. shell/HUD/log/menu 운영 안정화
 3. 필요한 하드웨어/커널 경로만 역추적
 4. BusyBox/network/SSH 같은 서버형 확장 가능성 검토
 
 ## 최신 Wi-Fi bring-up 조사 기준
 
-> 현재 기준은 `A90 Linux init 0.9.246 (v726-wifi-lifecycle)` verified Wi-Fi
-> lifecycle baseline이다. 번호 체계는 `docs/operations/VERSIONING_POLICY.md`를
-> 따른다: `V2167`/`V2168`은 검증 run/report, `v726-wifi-lifecycle`은 현재
-> boot/init baseline tag, `a90_android_execns_probe helper-v427`은 helper marker다.
-> 다음 baseline 승격은 `V2169` run ID / `0.9.247` native init /
-> `v2169-wifi-lifecycle-baseline` build tag로 분리한다.
+> 현재 기준은 `A90 Linux init 0.9.251 (v2174-wifi-urandom-connect)` Wi-Fi
+> carrier-capable baseline이다. 번호 체계는 `docs/operations/VERSIONING_POLICY.md`를
+> 따른다: `V2175`는 baseline-promotion run/report, `v2174-wifi-urandom-connect`는
+> 현재 boot/init baseline tag, `a90_android_execns_probe helper-v427`은 helper marker다.
 > 작업 위치와 커밋 경계는 `docs/operations/WORKING_RULES.md`를 우선 확인한다.
 
 아래 초기 PM/CNSS 목록은 과거 스냅샷으로 보존한다. 현재 baseline 작업은 외부
@@ -153,16 +151,16 @@ hygiene를 기준으로 한다.
 - 빌드: `A908NKSU5EWA3`
 - kernel: Samsung stock Android kernel `Linux 4.14.190`
 - recovery: TWRP 사용 가능
-- latest verified build: `A90 Linux init 0.9.246 (v726-wifi-lifecycle)`
-- official version: `0.9.246`
-- build tag: `v726-wifi-lifecycle`
-- 현재 기준 사이클: `v726-wifi-lifecycle` Wi-Fi lifecycle baseline (native Wi-Fi bring-up rollback/test 기준)
-- version axes: `v726`은 boot/init baseline tag, `a90_android_execns_probe helper-v427`은 포함된 helper marker, `V2167`/`V2168` 등은 검증 run/report 번호다. 전체 규칙은 `docs/operations/VERSIONING_POLICY.md`를 따른다.
+- latest verified build: `A90 Linux init 0.9.251 (v2174-wifi-urandom-connect)`
+- official version: `0.9.251`
+- build tag: `v2174-wifi-urandom-connect`
+- 현재 기준 사이클: `v2174-wifi-urandom-connect` Wi-Fi carrier-capable baseline (V2175 promotion)
+- version axes: `v2174-wifi-urandom-connect`는 boot/init baseline tag, `a90_android_execns_probe helper-v427`은 포함된 helper marker, `V2175`는 baseline-promotion run/report 번호다. 전체 규칙은 `docs/operations/VERSIONING_POLICY.md`를 따른다.
 - creator: `made by temmie0214`
-- latest verified source: `workspace/public/src/native-init/init_v724.c` + 모듈 `workspace/public/src/native-init/v724/90_main.inc.c` + 헬퍼 `workspace/public/src/native-init/helpers/` + 빌더 `workspace/public/src/scripts/revalidation/build_native_init_boot_v726_wifi_lifecycle.py`
-- latest verified boot image: `workspace/private/inputs/boot_images/boot_linux_v726_wifi_lifecycle.img`
-- latest verified boot image SHA256: `6b34aac93d4fa6d5b40355b9e13b2c1ae847c24a3685d84b0d1cd78751351d40`
-- previous verified boot image: `workspace/private/inputs/boot_images/boot_linux_v725_fasttransport.img` (`0.9.244 (v725-fasttransport)`)
+- latest verified source: `workspace/public/src/native-init/` + 빌더 `workspace/public/src/scripts/revalidation/build_native_init_boot_v2174_wifi_urandom_connect.py`
+- latest verified boot image: `workspace/private/inputs/boot_images/boot_linux_v2174_wifi_urandom_connect.img`
+- latest verified boot image SHA256: `cda957e4302d66e407fc97a95932501f0ef2ac655ee264c94519111fece0b3ba`
+- previous verified boot image: `workspace/private/inputs/boot_images/boot_linux_v2169_transport_contract.img` (`0.9.247 (v2169-transport-contract)`)
 - older verified boot image: `workspace/private/inputs/boot_images/boot_linux_v261.img` (`0.9.60 (v261)`)
 - known-good fallback: `workspace/private/inputs/boot_images/boot_linux_v48.img`
 - control channel: USB CDC ACM serial bridge
@@ -684,6 +682,9 @@ hygiene를 기준으로 한다.
 ### 4. Current Native Init Reports
 
 - `operations/WORKSPACE_STRUCTURE_AND_BOOTSTRAP.md` – 새 GitHub clone/new workspace에서 tracked source, ignored local inputs, structured `tmp` layout, boot image rebuild order, private Wi-Fi env, host NCM setup, seal check를 복구하는 기준
+- `reports/NATIVE_INIT_V2175_V2174_WIFI_URANDOM_CONNECT_BASELINE_PROMOTION_2026-06-08.md` – `0.9.251 (v2174-wifi-urandom-connect)`/SHA `cda957e...`를 현재 baseline으로 승격하고, 현재 부팅 `version`/`status`/`selftest fail=0`, `transport.contract=1`, NCM/tcpctl readiness를 확인한 결과
+- `reports/NATIVE_INIT_V2174_WIFI_URANDOM_CONNECT_LIVE_VALIDATION_2026-06-08.md` – V2174 test boot가 carrier-level `wifi connect`에서 `wpa_state=COMPLETED`/`carrier=1`에 도달하고 V2169 rollback/selftest를 통과한 결과
+- `reports/NATIVE_INIT_V2174_WIFI_URANDOM_CONNECT_SOURCE_BUILD_2026-06-08.md` – V2174 source/build 결과 native-init `wifi connect [profile]`와 `/dev/random`/`/dev/urandom` bootstrap을 결합한 `0.9.251 (v2174-wifi-urandom-connect)` 이미지 생성 결과
 - `reports/NATIVE_INIT_WIFI_AUTOCONNECT_CONFIG_PLAN_2026-06-07.md` – V726 이후 Wi-Fi SSID/PSK 저장, 명시적 autoconnect 옵션, generated supplicant config, HUD/runtime summary 연동, artifact hygiene를 정리한 계획
 - `reports/NATIVE_INIT_ARTIFACT_LAYOUT_CLEANUP_POLICY_2026-06-07.md` – `tmp/wifi`를 `runs/builds/cache/bench/scratch/archive`로 구조화하고 `docs/artifacts`에는 공개 가능한 redacted summary만 추적하는 cleanup/migration 기준
 - `reports/NATIVE_INIT_V726_WIFI_LIFECYCLE_BASELINE_PROMOTION_2026-06-07.md` – `0.9.246 (v726-wifi-lifecycle)`/SHA `6b34aac...`를 현재 baseline으로 승격하고, 현재 부팅 `status`/`selftest fail=0`, persistent `baseline_ready=1`, final SHA 60초 connect smoke를 묶은 결과

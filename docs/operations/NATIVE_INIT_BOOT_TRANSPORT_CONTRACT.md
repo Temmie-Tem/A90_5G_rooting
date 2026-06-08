@@ -20,15 +20,16 @@ Current verified baseline:
 
 | Field | Value |
 | --- | --- |
-| Device-visible version | `A90 Linux init 0.9.247` |
-| Build tag | `v2169-transport-contract` |
-| Boot image | `workspace/private/inputs/boot_images/boot_linux_v2169_transport_contract.img` |
-| Boot SHA256 | `190b93d0741a6eeba17913c940f3bb398fed765f38532d5e0009840112166d6d` |
+| Device-visible version | `A90 Linux init 0.9.251` |
+| Build tag | `v2174-wifi-urandom-connect` |
+| Boot image | `workspace/private/inputs/boot_images/boot_linux_v2174_wifi_urandom_connect.img` |
+| Boot SHA256 | `cda957e4302d66e407fc97a95932501f0ef2ac655ee264c94519111fece0b3ba` |
 | Source root | `workspace/public/src/native-init/` |
-| Builder | `workspace/public/src/scripts/revalidation/build_native_init_boot_v2169_transport_contract.py` |
-| Source/build report | `docs/reports/NATIVE_INIT_V2169_TRANSPORT_CONTRACT_SOURCE_BUILD_2026-06-08.md` |
-| Live validation report | `docs/reports/NATIVE_INIT_V2169_TRANSPORT_CONTRACT_LIVE_VALIDATION_2026-06-08.md` |
-| Previous rollback | `workspace/private/inputs/boot_images/boot_linux_v726_wifi_lifecycle.img` |
+| Builder | `workspace/public/src/scripts/revalidation/build_native_init_boot_v2174_wifi_urandom_connect.py` |
+| Source/build report | `docs/reports/NATIVE_INIT_V2174_WIFI_URANDOM_CONNECT_SOURCE_BUILD_2026-06-08.md` |
+| Live validation report | `docs/reports/NATIVE_INIT_V2174_WIFI_URANDOM_CONNECT_LIVE_VALIDATION_2026-06-08.md` |
+| Promotion report | `docs/reports/NATIVE_INIT_V2175_V2174_WIFI_URANDOM_CONNECT_BASELINE_PROMOTION_2026-06-08.md` |
+| Previous rollback | `workspace/private/inputs/boot_images/boot_linux_v2169_transport_contract.img` |
 | Known-good fallback | `workspace/private/inputs/boot_images/boot_linux_v48.img` |
 
 The boot image must provide:
@@ -47,15 +48,16 @@ Previous baseline:
 
 | Field | Value |
 | --- | --- |
-| Build tag | `v726-wifi-lifecycle` |
-| Device-visible version | `A90 Linux init 0.9.246` |
-| Boot image | `workspace/private/inputs/boot_images/boot_linux_v726_wifi_lifecycle.img` |
-| Boot SHA256 | `6b34aac93d4fa6d5b40355b9e13b2c1ae847c24a3685d84b0d1cd78751351d40` |
+| Build tag | `v2169-transport-contract` |
+| Device-visible version | `A90 Linux init 0.9.247` |
+| Boot image | `workspace/private/inputs/boot_images/boot_linux_v2169_transport_contract.img` |
+| Boot SHA256 | `190b93d0741a6eeba17913c940f3bb398fed765f38532d5e0009840112166d6d` |
 | Current role | Immediate rollback image |
 
-`v2169-transport-contract` is promoted as the current baseline. It keeps the
-V726 Wi-Fi lifecycle route and adds the device-side `transport.contract=1`
-status fields.
+`v2174-wifi-urandom-connect` is promoted as the current baseline by V2175. It
+keeps the V2169 transport contract, adds native-init `wifi connect [profile]`,
+and creates `/dev/random` plus `/dev/urandom` so WPA key negotiation can
+complete.
 
 ## 2. Boot-Image Transport Contract
 
@@ -211,7 +213,7 @@ Selector output contract:
 }
 ```
 
-For current `v2169-transport-contract`, `transport_contract=1` is expected.
+For current `v2174-wifi-urandom-connect`, `transport_contract=1` is expected.
 Older images may still report `transport_contract=0`; that is not a selector
 failure if host bridge, version/status, and host NCM are ready.
 
@@ -302,10 +304,10 @@ As of `2026-06-08`:
 - Host bridge wrapper contract exists: `wrapper_contract=1`.
 - Host transport selector contract exists: `selector_contract=1`.
 - NCM smoke runner records transport selection in its manifest.
-- Current boot image is `v2169-transport-contract`.
+- Current boot image is `v2174-wifi-urandom-connect`.
 - Device-side `transport.contract=1` is a current baseline guarantee.
-- Previous rollback image is `v726-wifi-lifecycle`; known-good fallback remains
-  `v48`.
+- Previous rollback image is `v2169-transport-contract`; known-good fallback
+  remains `v48`.
 
 The next boot-image promotion should preserve the device-side `transport.*`
 status lines and validate old parser compatibility.

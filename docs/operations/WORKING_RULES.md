@@ -30,8 +30,8 @@ Rules:
   baseline tag, not a `V2169` run ID.
 - Do not use helper numbers as run IDs, boot filenames, or native-init build
   tags.
-- The current promoted baseline uses `V2169`, `0.9.247`, and
-  `v2169-transport-contract`.
+- The current promoted baseline uses promotion run `V2175`, native init
+  `0.9.251`, and build tag `v2174-wifi-urandom-connect`.
 - If an existing artifact is only reproduced or documented, keep its build tag
   and record it as `Baseline tag`, not `Cycle`.
 - If the boot image SHA changes and that image becomes a rollback/test
@@ -113,11 +113,11 @@ should state the relevant axes explicitly.
 For a new artifact:
 
 ```text
-Run ID: V2170
-Native init: A90 Linux init 0.9.248
-Build tag: v2170-<purpose>
+Run ID: V2176
+Native init: A90 Linux init 0.9.252
+Build tag: v2176-<purpose>
 Helper: a90_android_execns_probe helper-v427
-Boot image: workspace/private/inputs/boot_images/boot_linux_v2170_<purpose>.img
+Boot image: workspace/private/inputs/boot_images/boot_linux_v2176_<purpose>.img
 Boot SHA256: <sha256>
 Device flash: yes|no
 Host commit: <git-sha-or-uncommitted>
@@ -127,9 +127,9 @@ For an unchanged existing artifact:
 
 ```text
 Run ID: <current validation run>
-Native init: A90 Linux init 0.9.247 (v2169-transport-contract)
+Native init: A90 Linux init 0.9.251 (v2174-wifi-urandom-connect)
 Build tag: unchanged
-Baseline tag: v2169-transport-contract
+Baseline tag: v2174-wifi-urandom-connect
 Helper: unchanged
 Device flash: no
 Host commit: <git-sha-or-uncommitted>
