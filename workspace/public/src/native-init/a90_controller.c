@@ -415,6 +415,8 @@ static const struct controller_policy_case policy_cases[] = {
     { "menu block wifi config prepare", 3, { "wifi", "config", "prepare" }, false, false },
     { "menu block wifi scan", 2, { "wifi", "scan" }, false, false },
     { "menu block wifi connect", 2, { "wifi", "connect" }, false, false },
+    { "menu block wifi dhcp", 2, { "wifi", "dhcp" }, false, false },
+    { "menu block wifi cleanup", 2, { "wifi", "cleanup" }, false, false },
     { "menu block userland test all", 3, { "userland", "test", "all" }, false, false },
     { "menu block busybox sh", 2, { "busybox", "sh" }, false, false },
     { "menu block toybox sh", 2, { "toybox", "sh" }, false, false },

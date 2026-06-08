@@ -12,6 +12,8 @@ Current baseline:
 - Promotion run: `V2175`; boot SHA256
   `cda957e4302d66e407fc97a95932501f0ef2ac655ee264c94519111fece0b3ba`.
 - Immediate rollback image:
+  `workspace/private/inputs/boot_images/boot_linux_v2174_wifi_urandom_connect.img`.
+- Emergency rollback image:
   `workspace/private/inputs/boot_images/boot_linux_v2169_transport_contract.img`.
 - Active control path: USB ACM serial bridge managed by
   `workspace/public/src/scripts/revalidation/a90_bridge.py`.
@@ -57,6 +59,19 @@ Completed first units:
   primitive.
 - `wifi connect [profile]` exists at source level as a bounded
   association/carrier primitive.
+- `wifi dhcp [profile]` exists at source level as a bounded DHCP/temporary
+  route-DNS primitive that requires carrier first.
+- `wifi cleanup` exists at source level for repeated connectivity tests.
+- V2176 source/build and live validation entrypoints exist:
+  - `workspace/public/src/scripts/revalidation/build_native_init_boot_v2176_wifi_dhcp.py`;
+  - `workspace/public/src/scripts/revalidation/native_wifi_dhcp_ping_handoff_v2176.py`.
+- `v2176-wifi-dhcp` live validation passed:
+  - flashed V2176 test boot on top of V2174 baseline;
+  - ran carrier connect, DHCP, one bounded external ping, cleanup, and rollback;
+  - reached `wifi-connect-carrier-up`, `wifi-dhcp-pass`, and ping rc `0`;
+  - verified cleanup removed test DHCP/DNS residue;
+  - rolled back to `v2174-wifi-urandom-connect`;
+  - final rollback `selftest fail=0`.
 - `v2174-wifi-urandom-connect` live validation passed:
   - prior V2173 no-carrier evidence isolated the connect blocker to missing
     `/dev/urandom` during WPA SNonce generation;
@@ -96,10 +111,6 @@ Completed first units:
 
 Open tasks:
 
-- Rebase the next Wi-Fi test unit on the promoted V2174 baseline:
-  - use `workspace/public/src/scripts/revalidation/native_wifi_connect_carrier_handoff_v2174.py` as the carrier-level safety baseline;
-  - keep DHCP/routes/ping out of carrier validation;
-  - use `v2169-transport-contract` only as the immediate rollback image.
 - Finish remaining native Wi-Fi config/autoconnect design:
   - credential source under `workspace/private/secrets/`;
   - profile creation/listing operator commands;
@@ -360,10 +371,8 @@ Exit criteria:
 
 ## Suggested Next Sequence
 
-1. Add the separate DHCP/route/ping-scoped command or runner only after
-   carrier-level connect passes.
-2. Migrate the Wi-Fi lifecycle runner to `a90_transport.py`.
-3. Add phase timers to Wi-Fi live runners.
-4. Generate a script inventory and classify active/module/archive/delete-review.
-5. Run N>=3 Wi-Fi lifecycle stability checks.
-6. Decide whether to promote the next boot/init baseline.
+1. Migrate the remaining Wi-Fi lifecycle runner code paths to `a90_transport.py`.
+2. Generate a script inventory and classify active/module/archive/delete-review.
+3. Run N>=3 Wi-Fi lifecycle stability checks on the V2176 route.
+4. Design profile persistence and explicit boot-autoconnect controls.
+5. Decide whether to promote the next boot/init baseline.

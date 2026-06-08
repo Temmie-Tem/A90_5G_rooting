@@ -57,14 +57,41 @@
 #define A90_WIFI_CTRL_DIR "/cache/a90-wifi/sockets"
 #define A90_WIFI_CTRL_SOCKET "/cache/a90-wifi/sockets/wlan0"
 #define A90_WIFI_SUPPLICANT_LOG "/cache/a90-wifi/wpa_supplicant-connect.log"
+#define A90_WIFI_UDHCPC_SCRIPT "/cache/a90-wifi/udhcpc-wlan0.script"
+#define A90_WIFI_UDHCPC_LOG "/cache/a90-wifi/udhcpc-wlan0.log"
+#define A90_WIFI_UDHCPC_PID "/cache/a90-wifi/udhcpc-wlan0.pid"
+#define A90_WIFI_RESOLV_CONF "/cache/a90-wifi/resolv.conf"
 #define A90_WIFI_SCAN_RECV_SIZE 65536
 #define A90_WIFI_SCAN_VERSION "a90-native-wifi-scan-v1"
 #define A90_WIFI_CONNECT_VERSION "a90-native-wifi-connect-v1"
+#define A90_WIFI_DHCP_VERSION "a90-native-wifi-dhcp-v1"
 #define A90_WIFI_UID 1010
 #define A90_WIFI_GID 1010
 #define A90_WIFI_CONNECT_WLAN0_WAIT_MS 180000
 #define A90_WIFI_CONNECT_CTRL_WAIT_MS 15000
 #define A90_WIFI_CONNECT_CARRIER_WAIT_MS 35000
+#define A90_WIFI_DHCP_TIMEOUT_MS 30000
+
+static int wifi_write_text_file(const char *path, const char *text, mode_t mode) {
+    int fd;
+    int rc;
+
+    if (path == NULL || text == NULL) {
+        return -EINVAL;
+    }
+    fd = open(path, O_WRONLY | O_CREAT | O_TRUNC | O_CLOEXEC | O_NOFOLLOW, mode);
+    if (fd < 0) {
+        return -errno;
+    }
+    rc = write_all_checked(fd, text, strlen(text));
+    if (rc == 0 && fchmod(fd, mode) < 0) {
+        rc = -errno;
+    }
+    if (close(fd) < 0 && rc == 0) {
+        rc = -errno;
+    }
+    return rc;
+}
 
 static void wifi_read_attr(const char *path, const char *name, char *out, size_t out_size) {
     char attr_path[256];
@@ -591,6 +618,334 @@ static bool wifi_carrier_up(void) {
         return false;
     }
     return strcmp(carrier, "1") == 0;
+}
+
+static int wifi_count_resolv_nameservers(void) {
+    char text[1024];
+    char *cursor;
+    int count = 0;
+
+    if (read_text_file(A90_WIFI_RESOLV_CONF, text, sizeof(text)) < 0) {
+        return -errno;
+    }
+    cursor = text;
+    while (cursor != NULL && *cursor != '\0') {
+        char *line_end = strchr(cursor, '\n');
+
+        if (line_end != NULL) {
+            *line_end = '\0';
+        }
+        if (strncmp(cursor, "nameserver ", 11) == 0) {
+            ++count;
+        }
+        cursor = line_end == NULL ? NULL : line_end + 1;
+    }
+    return count;
+}
+
+static bool wifi_default_route_present(void) {
+    char text[4096];
+    char *cursor;
+    bool first = true;
+
+    if (read_text_file("/proc/net/route", text, sizeof(text)) < 0) {
+        return false;
+    }
+    cursor = text;
+    while (cursor != NULL && *cursor != '\0') {
+        char *line_end = strchr(cursor, '\n');
+        char iface[32] = "";
+        char destination[32] = "";
+        char gateway[32] = "";
+
+        if (line_end != NULL) {
+            *line_end = '\0';
+        }
+        if (first) {
+            first = false;
+            cursor = line_end == NULL ? NULL : line_end + 1;
+            continue;
+        }
+        if (sscanf(cursor, "%31s %31s %31s", iface, destination, gateway) == 3 &&
+            strcmp(iface, A90_WIFI_IFACE) == 0 &&
+            strcmp(destination, "00000000") == 0 &&
+            strcmp(gateway, "00000000") != 0) {
+            return true;
+        }
+        cursor = line_end == NULL ? NULL : line_end + 1;
+    }
+    return false;
+}
+
+static int wifi_run_wait(char *const argv[],
+                         const char *tag,
+                         const char *log_path,
+                         int timeout_ms,
+                         struct a90_run_result *result) {
+    struct a90_run_config config = {
+        .tag = tag,
+        .argv = argv,
+        .envp = NULL,
+        .stdio_mode = A90_RUN_STDIO_LOG_APPEND,
+        .log_path = log_path,
+        .setsid = true,
+        .ignore_hup_pipe = true,
+        .kill_process_group = true,
+        .cancelable = false,
+        .timeout_ms = timeout_ms,
+        .stop_timeout_ms = 3000,
+    };
+    pid_t pid = -1;
+    int spawn_rc;
+
+    spawn_rc = a90_run_spawn(&config, &pid);
+    if (spawn_rc < 0) {
+        if (result != NULL) {
+            memset(result, 0, sizeof(*result));
+            result->pid = -1;
+            result->rc = spawn_rc;
+            result->saved_errno = -spawn_rc;
+        }
+        return spawn_rc;
+    }
+    return a90_run_wait(pid, &config, result);
+}
+
+static int wifi_write_runtime_summary(const char *decision) {
+    char operstate[80];
+    char carrier[32];
+    char mac[80];
+    char ipv4[64];
+    char text[1024];
+    int ipv4_rc;
+
+    wifi_read_attr("/sys/class/net/" A90_WIFI_IFACE, "operstate", operstate, sizeof(operstate));
+    wifi_read_attr("/sys/class/net/" A90_WIFI_IFACE, "carrier", carrier, sizeof(carrier));
+    wifi_read_attr("/sys/class/net/" A90_WIFI_IFACE, "address", mac, sizeof(mac));
+    ipv4_rc = wifi_ipv4_addr(A90_WIFI_IFACE, ipv4, sizeof(ipv4));
+    snprintf(text,
+             sizeof(text),
+             "wlan0_present=%d\n"
+             "operstate=%s\n"
+             "carrier=%s\n"
+             "mac_label=%s\n"
+             "mac=%s\n"
+             "ssid_label=%s\n"
+             "ipv4=%s\n"
+             "ip4_label=%s\n"
+             "dhcp_ready=%d\n"
+             "route_default=%d\n"
+             "decision=%s\n",
+             wifi_iface_present() ? 1 : 0,
+             operstate,
+             carrier,
+             mac,
+             mac,
+             wifi_carrier_up() ? "connected" : "",
+             ipv4_rc == 0 ? ipv4 : "-",
+             ipv4_rc == 0 ? ipv4 : "none",
+             ipv4_rc == 0 ? 1 : 0,
+             wifi_default_route_present() ? 1 : 0,
+             decision != NULL ? decision : "-");
+    return wifi_write_text_file(A90_WIFI_RUNTIME_SUMMARY, text, 0600);
+}
+
+static int wifi_write_udhcpc_script(void) {
+    static const char script[] =
+        "#!/cache/bin/busybox sh\n"
+        "BB=/cache/bin/busybox\n"
+        "IFACE=\"${interface:-wlan0}\"\n"
+        "ROOT=/cache/a90-wifi\n"
+        "RES=\"$ROOT/resolv.conf\"\n"
+        "case \"$1\" in\n"
+        "deconfig)\n"
+        "  $BB ifconfig \"$IFACE\" 0.0.0.0 >/dev/null 2>&1 || true\n"
+        "  ;;\n"
+        "bound|renew)\n"
+        "  $BB ifconfig \"$IFACE\" \"$ip\" netmask \"${subnet:-255.255.255.0}\" >/dev/null 2>&1 || exit 1\n"
+        "  $BB route del default dev \"$IFACE\" >/dev/null 2>&1 || true\n"
+        "  for router_item in $router; do\n"
+        "    $BB route add default gw \"$router_item\" dev \"$IFACE\" >/dev/null 2>&1 || exit 1\n"
+        "    break\n"
+        "  done\n"
+        "  echo \"# a90-wifi-temporary\" > \"$RES\"\n"
+        "  for dns_item in $dns; do\n"
+        "    echo \"nameserver $dns_item\" >> \"$RES\"\n"
+        "  done\n"
+        "  $BB mkdir -p /etc >/dev/null 2>&1 || true\n"
+        "  if [ -d /etc ]; then $BB cp \"$RES\" /etc/resolv.conf >/dev/null 2>&1 || true; fi\n"
+        "  ;;\n"
+        "esac\n"
+        "exit 0\n";
+    int rc;
+
+    rc = wifi_prepare_runtime_dirs();
+    if (rc < 0) {
+        return rc;
+    }
+    rc = wifi_write_text_file(A90_WIFI_UDHCPC_SCRIPT, script, 0700);
+    if (rc < 0) {
+        return rc;
+    }
+    return chmod(A90_WIFI_UDHCPC_SCRIPT, 0700) < 0 ? -errno : 0;
+}
+
+static int wifi_run_dhcp_client(struct a90_run_result *result) {
+    char *const argv[] = {
+        (char *)"/cache/bin/busybox",
+        (char *)"udhcpc",
+        (char *)"-i",
+        (char *)A90_WIFI_IFACE,
+        (char *)"-n",
+        (char *)"-q",
+        (char *)"-t",
+        (char *)"5",
+        (char *)"-T",
+        (char *)"3",
+        (char *)"-p",
+        (char *)A90_WIFI_UDHCPC_PID,
+        (char *)"-s",
+        (char *)A90_WIFI_UDHCPC_SCRIPT,
+        NULL,
+    };
+
+    return wifi_run_wait(argv, "wifi-dhcp", A90_WIFI_UDHCPC_LOG, A90_WIFI_DHCP_TIMEOUT_MS, result);
+}
+
+int a90_wifi_dhcp_profile(const char *profile_name) {
+    struct a90_run_result dhcp_result;
+    struct stat resolv_stat;
+    char ipv4[64];
+    int script_rc;
+    int dhcp_wait_rc;
+    int dhcp_rc;
+    int ipv4_rc;
+    int nameservers = -1;
+    bool route_default;
+
+    memset(&dhcp_result, 0, sizeof(dhcp_result));
+    a90_console_printf("[wifi dhcp]\r\n");
+    a90_console_printf("version=%s\r\n", A90_WIFI_DHCP_VERSION);
+    a90_console_printf("iface=%s\r\n", A90_WIFI_IFACE);
+    a90_console_printf("profile=%s\r\n",
+                       profile_name != NULL && profile_name[0] != '\0' ? profile_name : "default");
+    a90_console_printf("credentials=private\r\n");
+    a90_console_printf("credentials_logged=0\r\n");
+    a90_console_printf("connect_required=1\r\n");
+    a90_console_printf("dhcp_executed=0\r\n");
+    a90_console_printf("external_ping=0\r\n");
+    a90_console_printf("udhcpc.path=/cache/bin/busybox\r\n");
+    a90_console_printf("udhcpc.script=%s\r\n", A90_WIFI_UDHCPC_SCRIPT);
+    a90_console_printf("udhcpc.log=%s\r\n", A90_WIFI_UDHCPC_LOG);
+    a90_console_printf("udhcpc.timeout_ms=%d\r\n", A90_WIFI_DHCP_TIMEOUT_MS);
+
+    if (!wifi_iface_present()) {
+        a90_console_printf("wlan0_present=0\r\n");
+        a90_console_printf("secret_values_logged=0\r\n");
+        a90_console_printf("decision=wifi-dhcp-wlan0-missing\r\n");
+        return -ENODEV;
+    }
+    a90_console_printf("wlan0_present=1\r\n");
+    a90_console_printf("carrier_up=%d\r\n", wifi_carrier_up() ? 1 : 0);
+    if (!wifi_carrier_up()) {
+        a90_console_printf("secret_values_logged=0\r\n");
+        a90_console_printf("decision=wifi-dhcp-no-carrier\r\n");
+        return -ENOTCONN;
+    }
+
+    if (access("/cache/bin/busybox", X_OK) < 0) {
+        int saved_errno = errno;
+
+        a90_console_printf("busybox_executable=0\r\n");
+        a90_console_printf("busybox_errno=%d\r\n", saved_errno);
+        a90_console_printf("secret_values_logged=0\r\n");
+        a90_console_printf("decision=wifi-dhcp-busybox-missing\r\n");
+        return -saved_errno;
+    }
+    a90_console_printf("busybox_executable=1\r\n");
+
+    script_rc = wifi_write_udhcpc_script();
+    a90_console_printf("script_prepare_rc=%d\r\n", script_rc);
+    if (script_rc < 0) {
+        a90_console_printf("secret_values_logged=0\r\n");
+        a90_console_printf("decision=wifi-dhcp-script-prepare-failed\r\n");
+        return script_rc;
+    }
+
+    (void)unlink(A90_WIFI_UDHCPC_LOG);
+    a90_console_printf("dhcp_executed=1\r\n");
+    dhcp_wait_rc = wifi_run_dhcp_client(&dhcp_result);
+    dhcp_rc = dhcp_result.rc;
+    a90_console_printf("dhcp_wait_rc=%d\r\n", dhcp_wait_rc);
+    a90_console_printf("dhcp_rc=%d\r\n", dhcp_rc);
+    a90_console_printf("dhcp_status=%d\r\n", dhcp_result.status);
+    a90_console_printf("dhcp_duration_ms=%ld\r\n", dhcp_result.duration_ms);
+    a90_console_printf("dhcp_timed_out=%d\r\n", dhcp_result.timed_out ? 1 : 0);
+
+    ipv4_rc = wifi_ipv4_addr(A90_WIFI_IFACE, ipv4, sizeof(ipv4));
+    route_default = wifi_default_route_present();
+    nameservers = wifi_count_resolv_nameservers();
+    a90_console_printf("ipv4_assigned=%d\r\n", ipv4_rc == 0 ? 1 : 0);
+    a90_console_printf("ipv4_rc=%d\r\n", ipv4_rc);
+    a90_console_printf("ipv4=%s\r\n", ipv4_rc == 0 ? ipv4 : "-");
+    a90_console_printf("route_default_present=%d\r\n", route_default ? 1 : 0);
+    a90_console_printf("resolv_conf.path=%s\r\n", A90_WIFI_RESOLV_CONF);
+    a90_console_printf("resolv_conf.present=%d\r\n", stat(A90_WIFI_RESOLV_CONF, &resolv_stat) == 0 ? 1 : 0);
+    a90_console_printf("resolv_conf.size=%ld\r\n",
+                       stat(A90_WIFI_RESOLV_CONF, &resolv_stat) == 0 ? (long)resolv_stat.st_size : -1L);
+    a90_console_printf("resolv_conf.nameserver_count=%d\r\n", nameservers >= 0 ? nameservers : 0);
+    a90_console_printf("credentials_logged=0\r\n");
+    a90_console_printf("external_ping=0\r\n");
+    a90_console_printf("secret_values_logged=0\r\n");
+
+    if (dhcp_wait_rc == 0 && dhcp_rc == 0 && ipv4_rc == 0 && route_default) {
+        (void)wifi_write_runtime_summary("wifi-dhcp-pass");
+        a90_logf("wifi", "dhcp profile=%s ipv4=1 route=1 secret_values_logged=0",
+                 profile_name != NULL && profile_name[0] != '\0' ? profile_name : "default");
+        a90_console_printf("decision=wifi-dhcp-pass\r\n");
+        return 0;
+    }
+    (void)wifi_write_runtime_summary("wifi-dhcp-failed");
+    a90_logf("wifi", "dhcp profile=%s rc=%d ipv4_rc=%d route=%d secret_values_logged=0",
+             profile_name != NULL && profile_name[0] != '\0' ? profile_name : "default",
+             dhcp_rc,
+             ipv4_rc,
+             route_default ? 1 : 0);
+    a90_console_printf("decision=wifi-dhcp-failed\r\n");
+    return dhcp_wait_rc < 0 ? dhcp_wait_rc : (dhcp_rc != 0 ? -EIO : -ENETUNREACH);
+}
+
+int a90_wifi_cleanup(void) {
+    char *const cleanup_argv[] = {
+        (char *)"/cache/bin/busybox",
+        (char *)"sh",
+        (char *)"-c",
+        (char *)"BB=/cache/bin/busybox; "
+                "if [ -s /cache/a90-wifi/udhcpc-wlan0.pid ]; then $BB kill $($BB cat /cache/a90-wifi/udhcpc-wlan0.pid) 2>/dev/null || true; fi; "
+                "$BB route del default dev wlan0 >/dev/null 2>&1 || true; "
+                "$BB ifconfig wlan0 0.0.0.0 >/dev/null 2>&1 || true; "
+                "if [ -f /etc/resolv.conf ] && $BB grep -q '^# a90-wifi-temporary' /etc/resolv.conf 2>/dev/null; then $BB rm -f /etc/resolv.conf; fi; "
+                "$BB rm -f /cache/a90-wifi/udhcpc-wlan0.pid /cache/a90-wifi/resolv.conf 2>/dev/null || true",
+        NULL,
+    };
+    struct a90_run_result cleanup_result;
+    int ctrl_rc;
+    int run_rc;
+
+    memset(&cleanup_result, 0, sizeof(cleanup_result));
+    a90_console_printf("[wifi cleanup]\r\n");
+    a90_console_printf("credentials_logged=0\r\n");
+    a90_console_printf("secret_values_logged=0\r\n");
+    ctrl_rc = wifi_print_ctrl_result("ctrl.terminate", "TERMINATE");
+    a90_console_printf("cleanup.terminate_attempted=1\r\n");
+    a90_console_printf("cleanup.terminate_rc=%d\r\n", ctrl_rc);
+    run_rc = wifi_run_wait(cleanup_argv, "wifi-cleanup", A90_WIFI_UDHCPC_LOG, 10000, &cleanup_result);
+    a90_console_printf("cleanup.run_wait_rc=%d\r\n", run_rc);
+    a90_console_printf("cleanup.run_rc=%d\r\n", cleanup_result.rc);
+    a90_console_printf("cleanup.duration_ms=%ld\r\n", cleanup_result.duration_ms);
+    (void)wifi_write_runtime_summary("wifi-cleanup");
+    a90_console_printf("decision=wifi-cleanup-done\r\n");
+    return 0;
 }
 
 static int wifi_wait_carrier(int timeout_ms, int *elapsed_ms_out) {
@@ -1404,10 +1759,22 @@ int a90_wifi_cmd(char **argv, int argc) {
         strcmp(argv[1], "connect") == 0) {
         return a90_wifi_connect_profile(argc == 3 ? argv[2] : NULL);
     }
+    if ((argc == 2 || argc == 3) &&
+        argv != NULL &&
+        argv[1] != NULL &&
+        strcmp(argv[1], "dhcp") == 0) {
+        return a90_wifi_dhcp_profile(argc == 3 ? argv[2] : NULL);
+    }
+    if (argc == 2 &&
+        argv != NULL &&
+        argv[1] != NULL &&
+        strcmp(argv[1], "cleanup") == 0) {
+        return a90_wifi_cleanup();
+    }
     if (argc >= 2 && argv != NULL && argv[1] != NULL && strcmp(argv[1], "config") == 0) {
         return a90_wificfg_cmd(argv, argc);
     }
 
-    a90_console_printf("usage: wifi [status|scan [delay_ms]|connect [profile]|config [status|prepare [profile]]]\r\n");
+    a90_console_printf("usage: wifi [status|scan [delay_ms]|connect [profile]|dhcp [profile]|cleanup|config [status|prepare [profile]]]\r\n");
     return -EINVAL;
 }

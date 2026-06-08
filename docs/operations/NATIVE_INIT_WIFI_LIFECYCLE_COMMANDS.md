@@ -13,6 +13,8 @@ wifi
 wifi status
 wifi scan [delay_ms]
 wifi connect [profile]
+wifi dhcp [profile]
+wifi cleanup
 wifi config status
 wifi config prepare [profile]
 ```
@@ -154,15 +156,63 @@ the carrier-level evidence runner; new Wi-Fi lifecycle work should treat
 `v2174-wifi-urandom-connect` as the current baseline unless explicitly testing
 rollback behavior.
 
-## Next Command
+## `wifi dhcp [profile]`
 
-The next native-init command after association should be explicitly separate:
+`wifi dhcp [profile]` is the bounded DHCP/temporary-route primitive after
+carrier-level association. It is not an association command and it is not a
+general connectivity soak.
+
+It:
+
+- requires `wlan0` to exist;
+- requires `/sys/class/net/wlan0/carrier` to be `1`;
+- writes a generated DHCP script under `/cache/a90-wifi/`;
+- runs bounded BusyBox `udhcpc` against `wlan0`;
+- installs temporary wlan0 route/DNS from DHCP;
+- updates `/cache/native-init-wifi-runtime.summary` for the HUD/status surface;
+- prints only high-level DHCP state.
+
+It does not:
+
+- start Wi-Fi association if carrier is absent;
+- run external ping;
+- persist credentials;
+- create boot autoconnect state;
+- print raw SSID, PSK, BSSID, DHCP lease transcript, gateway, DNS server, or
+  ping transcript in public reports.
+
+Expected decision labels:
+
+| Label | Meaning |
+| --- | --- |
+| `wifi-dhcp-pass` | DHCP succeeded and IPv4/default route are present. |
+| `wifi-dhcp-wlan0-missing` | `wlan0` was absent. |
+| `wifi-dhcp-no-carrier` | Carrier was absent; run `wifi connect` first. |
+| `wifi-dhcp-busybox-missing` | BusyBox was not executable. |
+| `wifi-dhcp-script-prepare-failed` | Runtime directory/script setup failed. |
+| `wifi-dhcp-failed` | DHCP ran but did not produce the required state. |
+
+## `wifi cleanup`
+
+`wifi cleanup` removes Wi-Fi connectivity residue for repeated tests:
+
+- sends `TERMINATE` to the private supplicant control socket when present;
+- stops stale `udhcpc` by pidfile;
+- removes temporary wlan0 default route/address and generated resolver files;
+- refreshes the runtime summary.
+
+It is intentionally separate from `wifi dhcp` so stability runs can choose
+whether to keep the link up for hold/idle validation.
+
+## Connectivity Runner
+
+The first DHCP/route/ping-scoped runner is:
 
 ```text
-wifi dhcp [profile]
+python3 workspace/public/src/scripts/revalidation/native_wifi_dhcp_ping_handoff_v2176.py
 ```
 
-Minimum contract before implementation:
+Minimum contract:
 
 - require `wifi connect`/carrier as precondition;
 - run DHCP with bounded timeout;
