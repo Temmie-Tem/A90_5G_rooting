@@ -28,6 +28,8 @@ Examples:
 - `V2169` next baseline-promotion run after `V2168`
 - `V2175` baseline-promotion run for the `v2174-wifi-urandom-connect`
   artifact
+- `V2179` baseline-promotion run for the `v2178-wifi-profile-autoconnect`
+  artifact
 
 Rules:
 
@@ -46,6 +48,7 @@ Examples:
 - `A90 Linux init 0.9.246`
 - `A90 Linux init 0.9.247`
 - `A90 Linux init 0.9.251`
+- `A90 Linux init 0.9.253`
 
 Increase this version when the flashed boot artifact changes:
 
@@ -125,7 +128,7 @@ For host-only or unchanged-image validation:
 
 ```text
 Run ID: V2176
-Native init: A90 Linux init 0.9.251 (v2174-wifi-urandom-connect)
+Native init: A90 Linux init 0.9.253 (v2178-wifi-profile-autoconnect)
 Build tag: unchanged
 Helper: unchanged
 Device flash: no
@@ -137,25 +140,25 @@ Host commit: <git-sha-or-uncommitted>
 Read versions in this order:
 
 ```text
-V2175  = what project/test/promotion run was executed
-0.9.251 = what native init build is visible on the phone
-v2174-wifi-urandom-connect = what boot/init baseline role was flashed
+V2179  = what project/test/promotion run was executed
+0.9.253 = what native init build is visible on the phone
+v2178-wifi-profile-autoconnect = what boot/init baseline role was flashed
 helper-v427 = which helper binary marker is embedded or deployed
 sha256 = exact binary/evidence artifact identity
 ```
 
 ## Current Example
 
-Current verified Wi-Fi connect baseline evidence is based on:
+Current verified Wi-Fi profile/autoconnect baseline evidence is based on:
 
 ```text
-Run ID: V2175
-Native init: A90 Linux init 0.9.251 (v2174-wifi-urandom-connect)
-Build tag: v2174-wifi-urandom-connect
+Run ID: V2179
+Native init: A90 Linux init 0.9.253 (v2178-wifi-profile-autoconnect)
+Build tag: v2178-wifi-profile-autoconnect
 Helper: a90_android_execns_probe helper-v427
-Boot image: workspace/private/inputs/boot_images/boot_linux_v2174_wifi_urandom_connect.img
-Boot SHA256: cda957e4302d66e407fc97a95932501f0ef2ac655ee264c94519111fece0b3ba
-Evidence: V2174 source/build plus live validation reports and V2175 baseline
+Boot image: workspace/private/inputs/boot_images/boot_linux_v2178_wifi_profile_autoconnect.img
+Boot SHA256: 8ea6f468f997446e9fa3e80606db107ca27d067f3ee023ff45c2ecf159341047
+Evidence: V2178 source/build plus live validation reports and V2179 baseline
 promotion report
 ```
 

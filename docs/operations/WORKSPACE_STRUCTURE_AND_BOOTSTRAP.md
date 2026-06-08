@@ -206,8 +206,8 @@ sha256sum workspace/private/inputs/boot_images/boot_linux_v2174_wifi_urandom_con
 
 The active builders write ramdisk/init/helper intermediates under
 `workspace/private/builds/native-init/` and final baseline boot images under
-`workspace/private/inputs/boot_images/`. The current V2174 baseline SHA is
-recorded in the source-build, live-validation, and V2175 promotion reports.
+`workspace/private/inputs/boot_images/`. The current V2178 baseline SHA is
+recorded in the source-build, live-validation, and V2179 promotion reports.
 Verify SHA before using an image for any flash/handoff cycle.
 
 ### 5. Create Private Wi-Fi Test Env Only When Needed

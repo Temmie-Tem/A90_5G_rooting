@@ -89,6 +89,7 @@ static void hud_read_wifi_line(char *out, size_t out_size, uint32_t *color_out) 
     char rssi_dbm[24] = "";
     char linkspeed_mbps[24] = "";
     char ip4_label[32] = "";
+    char decision[64] = "";
     char rx_mbps[24] = "";
     char tx_mbps[24] = "";
     char baseline_ready[16] = "0";
@@ -146,6 +147,10 @@ static void hud_read_wifi_line(char *out, size_t out_size, uint32_t *color_out) 
                                       "ip4_label=",
                                       ip4_label,
                                       sizeof(ip4_label));
+        (void)hud_read_key_value_file(runtime_path,
+                                      "decision=",
+                                      decision,
+                                      sizeof(decision));
         (void)hud_read_key_value_file(runtime_path,
                                       "rx_mbps=",
                                       rx_mbps,
@@ -215,12 +220,20 @@ static void hud_read_wifi_line(char *out, size_t out_size, uint32_t *color_out) 
             *color_out = 0x88ee88;
         }
     } else if (ready) {
-        snprintf(out, out_size, "WIFI READY wlan0 %s %.17s", operstate, mac);
+        snprintf(out,
+                 out_size,
+                 "WIFI READY wlan0 %s %.32s",
+                 operstate,
+                 decision[0] != '\0' ? decision : mac);
         if (color_out != NULL) {
             *color_out = 0x88ee88;
         }
     } else {
-        snprintf(out, out_size, "WIFI IFACE wlan0 %s %.17s", operstate, mac);
+        snprintf(out,
+                 out_size,
+                 "WIFI IFACE wlan0 %s %.32s",
+                 operstate,
+                 decision[0] != '\0' ? decision : mac);
         if (color_out != NULL) {
             *color_out = 0xffcc33;
         }

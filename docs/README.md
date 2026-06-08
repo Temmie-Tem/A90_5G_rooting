@@ -8,16 +8,16 @@
 
 상단 `docs/`는 이제 다음 흐름에 필요한 문서를 유지합니다.
 
-1. native init 0.9.251 / v2174-wifi-urandom-connect Wi-Fi carrier-capable baseline 고정
+1. native init 0.9.253 / v2178-wifi-profile-autoconnect Wi-Fi profile/autoconnect baseline 고정
 2. shell/HUD/log/menu 운영 안정화
 3. 필요한 하드웨어/커널 경로만 역추적
 4. BusyBox/network/SSH 같은 서버형 확장 가능성 검토
 
 ## 최신 Wi-Fi bring-up 조사 기준
 
-> 현재 기준은 `A90 Linux init 0.9.251 (v2174-wifi-urandom-connect)` Wi-Fi
-> carrier-capable baseline이다. 번호 체계는 `docs/operations/VERSIONING_POLICY.md`를
-> 따른다: `V2175`는 baseline-promotion run/report, `v2174-wifi-urandom-connect`는
+> 현재 기준은 `A90 Linux init 0.9.253 (v2178-wifi-profile-autoconnect)` Wi-Fi
+> profile/autoconnect baseline이다. 번호 체계는 `docs/operations/VERSIONING_POLICY.md`를
+> 따른다: `V2179`는 baseline-promotion run/report, `v2178-wifi-profile-autoconnect`는
 > 현재 boot/init baseline tag, `a90_android_execns_probe helper-v427`은 helper marker다.
 > 작업 위치와 커밋 경계는 `docs/operations/WORKING_RULES.md`를 우선 확인한다.
 
@@ -151,16 +151,16 @@ hygiene를 기준으로 한다.
 - 빌드: `A908NKSU5EWA3`
 - kernel: Samsung stock Android kernel `Linux 4.14.190`
 - recovery: TWRP 사용 가능
-- latest verified build: `A90 Linux init 0.9.251 (v2174-wifi-urandom-connect)`
-- official version: `0.9.251`
-- build tag: `v2174-wifi-urandom-connect`
-- 현재 기준 사이클: `v2174-wifi-urandom-connect` Wi-Fi carrier-capable baseline (V2175 promotion)
-- version axes: `v2174-wifi-urandom-connect`는 boot/init baseline tag, `a90_android_execns_probe helper-v427`은 포함된 helper marker, `V2175`는 baseline-promotion run/report 번호다. 전체 규칙은 `docs/operations/VERSIONING_POLICY.md`를 따른다.
+- latest verified build: `A90 Linux init 0.9.253 (v2178-wifi-profile-autoconnect)`
+- official version: `0.9.253`
+- build tag: `v2178-wifi-profile-autoconnect`
+- 현재 기준 사이클: `v2178-wifi-profile-autoconnect` Wi-Fi profile/autoconnect baseline (V2179 promotion)
+- version axes: `v2178-wifi-profile-autoconnect`는 boot/init baseline tag, `a90_android_execns_probe helper-v427`은 포함된 helper marker, `V2179`는 baseline-promotion run/report 번호다. 전체 규칙은 `docs/operations/VERSIONING_POLICY.md`를 따른다.
 - creator: `made by temmie0214`
-- latest verified source: `workspace/public/src/native-init/` + 빌더 `workspace/public/src/scripts/revalidation/build_native_init_boot_v2174_wifi_urandom_connect.py`
-- latest verified boot image: `workspace/private/inputs/boot_images/boot_linux_v2174_wifi_urandom_connect.img`
-- latest verified boot image SHA256: `cda957e4302d66e407fc97a95932501f0ef2ac655ee264c94519111fece0b3ba`
-- previous verified boot image: `workspace/private/inputs/boot_images/boot_linux_v2169_transport_contract.img` (`0.9.247 (v2169-transport-contract)`)
+- latest verified source: `workspace/public/src/native-init/` + 빌더 `workspace/public/src/scripts/revalidation/build_native_init_boot_v2178_wifi_profile_autoconnect.py`
+- latest verified boot image: `workspace/private/inputs/boot_images/boot_linux_v2178_wifi_profile_autoconnect.img`
+- latest verified boot image SHA256: `8ea6f468f997446e9fa3e80606db107ca27d067f3ee023ff45c2ecf159341047`
+- previous verified boot image: `workspace/private/inputs/boot_images/boot_linux_v2174_wifi_urandom_connect.img` (`0.9.251 (v2174-wifi-urandom-connect)`)
 - older verified boot image: `workspace/private/inputs/boot_images/boot_linux_v261.img` (`0.9.60 (v261)`)
 - known-good fallback: `workspace/private/inputs/boot_images/boot_linux_v48.img`
 - control channel: USB CDC ACM serial bridge
@@ -684,6 +684,7 @@ hygiene를 기준으로 한다.
 - `operations/WORKSPACE_STRUCTURE_AND_BOOTSTRAP.md` – 새 GitHub clone/new workspace에서 tracked source, ignored local inputs, structured `tmp` layout, boot image rebuild order, private Wi-Fi env, host NCM setup, seal check를 복구하는 기준
 - `plans/NATIVE_INIT_CURRENT_TODO_2026-06-08.md` – 현재 baseline hardening TODO, Wi-Fi lifecycle/bridge/script inventory/versioning/workspace/QA/safety 우선순위 기준
 - `plans/NATIVE_INIT_V2178_WIFI_PROFILE_AUTOCONNECT_PLAN_2026-06-09.md` – V2178 profile inventory, secret-safe staging, explicit autoconnect command surface, boot-background autoconnect worker, validation/promotion gates 설계
+- `reports/NATIVE_INIT_V2179_V2178_WIFI_PROFILE_AUTOCONNECT_BASELINE_PROMOTION_2026-06-09.md` – P0 stale-result/profile-list/UI status fixes, V2178 boot autoconnect N=3, private 2.4/5 GHz once checks, V2174 rollback/selftest를 묶어 `0.9.253 (v2178-wifi-profile-autoconnect)` baseline promotion 근거로 기록
 - `reports/NATIVE_INIT_V2178_WIFI_PROFILE_AUTOCONNECT_LIVE_VALIDATION_2026-06-09.md` – V2178 profile staging, explicit autoconnect once, boot-background autoconnect, cleanup, V2174 rollback/selftest live PASS 결과
 - `reports/NATIVE_INIT_V2178_WIFI_PROFILE_AUTOCONNECT_SOURCE_BUILD_2026-06-09.md` – V2178 profile/autoconnect test boot source build, manifest/hash, included route, safety scope 결과
 - `reports/NATIVE_INIT_V2177_WIFI_HOLD_RECONNECT_LIVE_VALIDATION_2026-06-09.md` – V2176 test boot에서 connect→DHCP→180초 hold→ping→cleanup→reconnect→DHCP→ping→cleanup을 통과하고 V2174 rollback/selftest를 검증한 결과

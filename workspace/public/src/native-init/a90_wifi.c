@@ -127,6 +127,24 @@ static void wifi_append_text_file(const char *path, const char *format, ...) {
     (void)close(fd);
 }
 
+static void wifi_reset_autoconnect_log(const char *profile, bool boot_background) {
+    char text[256];
+    int len;
+
+    len = snprintf(text,
+                   sizeof(text),
+                   "version=a90-native-wifi-autoconnect-log-v1\n"
+                   "profile=%s\n"
+                   "boot_background=%d\n"
+                   "secret_values_logged=0\n",
+                   profile != NULL && profile[0] != '\0' ? profile : "default",
+                   boot_background ? 1 : 0);
+    if (len < 0 || (size_t)len >= sizeof(text)) {
+        return;
+    }
+    (void)wifi_write_text_file(A90_WIFI_AUTOCONNECT_LOG, text, 0600);
+}
+
 static void wifi_read_attr(const char *path, const char *name, char *out, size_t out_size) {
     char attr_path[256];
 
@@ -1001,7 +1019,7 @@ static int wifi_wait_carrier(int timeout_ms, int *elapsed_ms_out) {
     return -ETIMEDOUT;
 }
 
-static void wifi_runtime_value(const char *key, char *out, size_t out_size) {
+static void wifi_key_value_file_value(const char *path, const char *key, char *out, size_t out_size) {
     char text[1024];
     char *cursor;
     size_t key_len;
@@ -1010,7 +1028,7 @@ static void wifi_runtime_value(const char *key, char *out, size_t out_size) {
         return;
     }
     snprintf(out, out_size, "-");
-    if (read_text_file(A90_WIFI_RUNTIME_SUMMARY, text, sizeof(text)) < 0) {
+    if (read_text_file(path, text, sizeof(text)) < 0) {
         return;
     }
     key_len = strlen(key);
@@ -1030,6 +1048,10 @@ static void wifi_runtime_value(const char *key, char *out, size_t out_size) {
     }
 }
 
+static void wifi_runtime_value(const char *key, char *out, size_t out_size) {
+    wifi_key_value_file_value(A90_WIFI_RUNTIME_SUMMARY, key, out, out_size);
+}
+
 int a90_wifi_print_status(void) {
     char iface_path[128];
     char address[80];
@@ -1046,6 +1068,12 @@ int a90_wifi_print_status(void) {
     char runtime_ssid_label[96];
     char runtime_rssi[32];
     char runtime_linkspeed[32];
+    char runtime_decision[80];
+    char autoconnect_profile[96];
+    char autoconnect_decision[96];
+    char autoconnect_final_rc[32];
+    char autoconnect_carrier_up[32];
+    char autoconnect_nameserver_count[32];
     int supplicant_process_count;
     int ipv4_rc;
     bool wlan0_present;
@@ -1066,6 +1094,27 @@ int a90_wifi_print_status(void) {
     wifi_runtime_value("ssid_label=", runtime_ssid_label, sizeof(runtime_ssid_label));
     wifi_runtime_value("rssi_dbm=", runtime_rssi, sizeof(runtime_rssi));
     wifi_runtime_value("linkspeed_mbps=", runtime_linkspeed, sizeof(runtime_linkspeed));
+    wifi_runtime_value("decision=", runtime_decision, sizeof(runtime_decision));
+    wifi_key_value_file_value(A90_WIFI_AUTOCONNECT_RESULT,
+                              "profile=",
+                              autoconnect_profile,
+                              sizeof(autoconnect_profile));
+    wifi_key_value_file_value(A90_WIFI_AUTOCONNECT_RESULT,
+                              "decision=",
+                              autoconnect_decision,
+                              sizeof(autoconnect_decision));
+    wifi_key_value_file_value(A90_WIFI_AUTOCONNECT_RESULT,
+                              "final_rc=",
+                              autoconnect_final_rc,
+                              sizeof(autoconnect_final_rc));
+    wifi_key_value_file_value(A90_WIFI_AUTOCONNECT_RESULT,
+                              "carrier_up=",
+                              autoconnect_carrier_up,
+                              sizeof(autoconnect_carrier_up));
+    wifi_key_value_file_value(A90_WIFI_AUTOCONNECT_RESULT,
+                              "nameserver_count=",
+                              autoconnect_nameserver_count,
+                              sizeof(autoconnect_nameserver_count));
 
     a90_console_printf("[wifi status]\r\n");
     a90_console_printf("version=%s\r\n", A90_WIFI_SCAN_VERSION);
@@ -1089,6 +1138,15 @@ int a90_wifi_print_status(void) {
     a90_console_printf("runtime.ssid_label=%s\r\n", runtime_ssid_label);
     a90_console_printf("runtime.rssi_dbm=%s\r\n", runtime_rssi);
     a90_console_printf("runtime.linkspeed_mbps=%s\r\n", runtime_linkspeed);
+    a90_console_printf("runtime.decision=%s\r\n", runtime_decision);
+    a90_console_printf("autoconnect_result.path=%s\r\n", A90_WIFI_AUTOCONNECT_RESULT);
+    a90_console_printf("autoconnect_result.present=%d\r\n",
+                       access(A90_WIFI_AUTOCONNECT_RESULT, R_OK) == 0 ? 1 : 0);
+    a90_console_printf("autoconnect.profile=%s\r\n", autoconnect_profile);
+    a90_console_printf("autoconnect.decision=%s\r\n", autoconnect_decision);
+    a90_console_printf("autoconnect.final_rc=%s\r\n", autoconnect_final_rc);
+    a90_console_printf("autoconnect.carrier_up=%s\r\n", autoconnect_carrier_up);
+    a90_console_printf("autoconnect.nameserver_count=%s\r\n", autoconnect_nameserver_count);
     a90_console_printf("supplicant.provider=standalone\r\n");
     a90_console_printf("supplicant.path=%s\r\n", A90_WIFI_STANDALONE_SUPPLICANT);
     a90_console_printf("supplicant.kind=%s\r\n",
@@ -1795,6 +1853,19 @@ static int wifi_write_autoconnect_result(const char *decision,
     return wifi_write_text_file(A90_WIFI_AUTOCONNECT_RESULT, text, 0600);
 }
 
+static void wifi_write_autoconnect_inactive_state(const char *decision,
+                                                  const char *profile,
+                                                  bool boot_background,
+                                                  int final_rc) {
+    const char *selected_decision = decision != NULL && decision[0] != '\0' ?
+        decision : "wifi-autoconnect-disabled";
+
+    (void)wifi_prepare_runtime_dirs();
+    wifi_reset_autoconnect_log(profile, boot_background);
+    (void)wifi_write_autoconnect_result(selected_decision, profile, 0, 0, final_rc);
+    (void)wifi_write_runtime_summary(selected_decision);
+}
+
 static int wifi_run_autoconnect_sequence(const char *profile_name, bool boot_background) {
     struct a90_wificfg_autoconnect config;
     int config_rc;
@@ -1813,6 +1884,7 @@ static int wifi_run_autoconnect_sequence(const char *profile_name, bool boot_bac
     attempts = config.retry_count > 0 ? config.retry_count + 1 : 1;
     carrier_wait_timeout_ms = config.connect_timeout_sec > 0 ?
         config.connect_timeout_sec * 1000 : A90_WIFI_CONNECT_CARRIER_WAIT_MS;
+    wifi_reset_autoconnect_log(selected_profile, boot_background);
     if (!boot_background) {
         a90_console_printf("[wifi autoconnect once]\r\n");
         a90_console_printf("profile=%s\r\n",
@@ -1828,6 +1900,7 @@ static int wifi_run_autoconnect_sequence(const char *profile_name, bool boot_bac
     }
     if (config_rc < 0) {
         (void)wifi_write_autoconnect_result(config.decision, selected_profile, config_rc, 0, config_rc);
+        (void)wifi_write_runtime_summary(config.decision);
         if (!boot_background) {
             a90_console_printf("decision=%s\r\n", config.decision);
         }
@@ -1839,12 +1912,19 @@ static int wifi_run_autoconnect_sequence(const char *profile_name, bool boot_bac
                                             -EACCES,
                                             0,
                                             -EACCES);
+        (void)wifi_write_runtime_summary("wifi-autoconnect-external-ping-blocked");
         if (!boot_background) {
             a90_console_printf("decision=wifi-autoconnect-external-ping-blocked\r\n");
         }
         return -EACCES;
     }
 
+    (void)wifi_write_autoconnect_result("wifi-autoconnect-running",
+                                        selected_profile,
+                                        -EINPROGRESS,
+                                        0,
+                                        -EINPROGRESS);
+    (void)wifi_write_runtime_summary("wifi-autoconnect-running");
     wifi_append_text_file(A90_WIFI_AUTOCONNECT_LOG,
                           "event=start profile=%s attempts=%d boot_background=%d secret_values_logged=0\n",
                           selected_profile != NULL && selected_profile[0] != '\0' ? selected_profile : "default",
@@ -1862,6 +1942,7 @@ static int wifi_run_autoconnect_sequence(const char *profile_name, bool boot_bac
                                                 -ETIMEDOUT,
                                                 0,
                                                 -ETIMEDOUT);
+            (void)wifi_write_runtime_summary("wifi-autoconnect-wlan0-timeout");
             if (!boot_background) {
                 a90_console_printf("autoconnect.wlan0_wait_timeout_ms=%d\r\n",
                                    A90_WIFI_CONNECT_WLAN0_WAIT_MS);
@@ -1905,6 +1986,7 @@ static int wifi_run_autoconnect_sequence(const char *profile_name, bool boot_bac
                                                     scan_rc,
                                                     0,
                                                     scan_rc);
+                (void)wifi_write_runtime_summary("wifi-autoconnect-scan-failed");
                 if (!boot_background) {
                     a90_console_printf("decision=wifi-autoconnect-scan-failed\r\n");
                 }
@@ -1930,6 +2012,7 @@ static int wifi_run_autoconnect_sequence(const char *profile_name, bool boot_bac
                                             connect_rc,
                                             0,
                                             connect_rc);
+        (void)wifi_write_runtime_summary("wifi-autoconnect-connect-failed");
         if (!boot_background) {
             a90_console_printf("decision=wifi-autoconnect-connect-failed\r\n");
         }
@@ -1945,6 +2028,7 @@ static int wifi_run_autoconnect_sequence(const char *profile_name, bool boot_bac
                                         connect_rc,
                                         dhcp_rc,
                                         final_rc);
+    (void)wifi_write_runtime_summary(final_rc == 0 ? "wifi-autoconnect-pass" : "wifi-autoconnect-dhcp-failed");
     if (!boot_background) {
         a90_console_printf("autoconnect.connect_rc=%d\r\n", connect_rc);
         a90_console_printf("autoconnect.dhcp_rc=%d\r\n", dhcp_rc);
@@ -1979,6 +2063,12 @@ static int wifi_print_autoconnect_set_result(bool enabled, const char *profile_n
     a90_console_printf("set_rc=%d\r\n", rc);
     a90_console_printf("secret_values_logged=0\r\n");
     if (rc == 0) {
+        if (!enabled) {
+            wifi_write_autoconnect_inactive_state("wifi-autoconnect-disabled",
+                                                  profile_name,
+                                                  false,
+                                                  0);
+        }
         a90_console_printf("decision=%s\r\n",
                            enabled ? "wifi-autoconnect-enabled" : "wifi-autoconnect-disabled");
         return 0;
@@ -1996,18 +2086,19 @@ int a90_wifi_start_boot_autoconnect_once(void) {
 
     config_rc = a90_wificfg_get_autoconnect(&config, NULL);
     if (config_rc < 0) {
-        if (config.enabled) {
-            (void)wifi_prepare_runtime_dirs();
-            (void)wifi_write_autoconnect_result(config.decision,
-                                                config.profile,
-                                                config_rc,
-                                                0,
-                                                config_rc);
-            a90_logf("wifi", "boot autoconnect blocked decision=%s", config.decision);
-        }
+        wifi_write_autoconnect_inactive_state(config.decision,
+                                              config.profile,
+                                              true,
+                                              strcmp(config.decision, "wifi-autoconnect-no-config") == 0 ||
+                                              strcmp(config.decision, "wifi-autoconnect-disabled") == 0 ? 0 : config_rc);
+        a90_logf("wifi", "boot autoconnect inactive decision=%s", config.decision);
         return 0;
     }
     if (!config.enabled) {
+        wifi_write_autoconnect_inactive_state("wifi-autoconnect-disabled",
+                                              config.profile,
+                                              true,
+                                              0);
         return 0;
     }
 

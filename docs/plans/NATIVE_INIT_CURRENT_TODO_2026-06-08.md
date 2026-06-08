@@ -1,6 +1,6 @@
 # Native Init Current TODO
 
-Date: `2026-06-08`
+Date: `2026-06-09`
 
 This is the active TODO map for the current native-init baseline hardening
 cycle. It is intentionally higher-level than per-run reports and lower-level
@@ -8,9 +8,9 @@ than the long-term roadmap.
 
 Current baseline:
 
-- Device baseline: `A90 Linux init 0.9.251 (v2174-wifi-urandom-connect)`.
-- Promotion run: `V2175`; boot SHA256
-  `cda957e4302d66e407fc97a95932501f0ef2ac655ee264c94519111fece0b3ba`.
+- Device baseline: `A90 Linux init 0.9.253 (v2178-wifi-profile-autoconnect)`.
+- Promotion run: `V2179`; boot SHA256
+  `8ea6f468f997446e9fa3e80606db107ca27d067f3ee023ff45c2ecf159341047`.
 - Immediate rollback image:
   `workspace/private/inputs/boot_images/boot_linux_v2174_wifi_urandom_connect.img`.
 - Emergency rollback image:
@@ -109,6 +109,23 @@ Completed first units:
     `cda957e4302d66e407fc97a95932501f0ef2ac655ee264c94519111fece0b3ba`;
   - verified `transport.contract=1`, NCM/tcpctl readiness, and
     `selftest fail=0`.
+- `v2178-wifi-profile-autoconnect` was promoted as the current baseline by V2179:
+  - fixed stale autoconnect result/log state, profile-list duplicate display,
+    and Wi-Fi status/HUD decision surfacing;
+  - flashed patched V2178 boot image SHA
+    `8ea6f468f997446e9fa3e80606db107ca27d067f3ee023ff45c2ecf159341047`;
+  - verified disabled boot reports `wifi-autoconnect-disabled` without stale
+    `wifi-autoconnect-pass`;
+  - verified boot autoconnect N=3, all `wifi-autoconnect-pass`, carrier `1`,
+    DHCP final rc `0`, no external ping;
+  - verified private 2.4 GHz and 5 GHz profiles with `wifi autoconnect once`,
+    carrier plus DHCP pass, and `secret_values_logged=0`;
+  - rolled back to V2174 during validation and verified rollback
+    `selftest fail=0`;
+  - flashed V2178 again as the current baseline with autoconnect disabled and
+    final `selftest fail=0`;
+  - promotion report:
+    `docs/reports/NATIVE_INIT_V2179_V2178_WIFI_PROFILE_AUTOCONNECT_BASELINE_PROMOTION_2026-06-09.md`.
 - `v2172-wifi-status-scan` live validation passed:
   - corrected the test boot to reuse verified V726 private-property snapshot;
   - flashed test boot;
@@ -130,49 +147,36 @@ Completed first units:
 
 Open tasks:
 
-- Finish remaining native Wi-Fi config/autoconnect design:
-  - credential source under `workspace/private/secrets/`;
-  - profile creation/listing operator commands;
-  - no raw PSK or generated supplicant config in public git;
-  - explicit boot-autoconnect gate.
-- V2178 profile/autoconnect design is recorded in
-  `docs/plans/NATIVE_INIT_V2178_WIFI_PROFILE_AUTOCONNECT_PLAN_2026-06-09.md`.
-- V2178 profile/autoconnect live validation passed after fixing the pre-scan
-  `wlan0` wait:
-  `docs/reports/NATIVE_INIT_V2178_WIFI_PROFILE_AUTOCONNECT_LIVE_VALIDATION_2026-06-09.md`.
-- Add boot-time or operator-triggered autoconnect option.
-- V2171 supplicant dependency probe completed:
-  `supplicant-dependency-standalone-only-ctrl-ready`. Native `wifi connect`
-  should keep the staged standalone `wpa_supplicant` route; vendor supplicant
-  paths were absent in the native namespace.
-- V2172 source build completed:
-  `v2172-wifi-status-scan-source-build-pass`.
-- Verify both target bands:
-  - private 2.4 GHz test SSID from
-    `workspace/private/secrets/a90-wifi-test.env`;
-  - private 5 GHz test SSID from
-    `workspace/private/secrets/a90-wifi-test.env`;
-  - same password source, no duplicated secret storage.
-- Run longer or repeated stability checks only if promoting V2176 or a newer
-  boot image as a persistent Wi-Fi baseline.
-- Add UI status surface:
-  - Wi-Fi enabled/disabled;
-  - SSID redacted or configured display mode;
-  - RSSI/link quality;
-  - MAC/IP redacted or local-only;
-  - scan/connect state;
-  - error label.
+- Treat V2178 as the profile/autoconnect baseline and V2174 as immediate
+  rollback.
+- Keep private Wi-Fi profile/secret files out of public git; use
+  `workspace/public/src/scripts/revalidation/a90_wifi_profile_stage.py` for
+  staging and keep raw SSID/PSK under ignored private roots.
+- Improve boot-autoconnect latency observability:
+  - firmware/helper window dominates and can take roughly three minutes;
+  - status runners must poll `autoconnect.decision=wifi-autoconnect-running`
+    until a terminal result.
+- Harden serial bridge retry behavior against intermittent `AT` noise:
+  - V2179 proved bridge restart/retry is sufficient for live validation;
+  - shared runner helpers should keep this behavior instead of failing the full
+    run on one malformed cmdv1 exchange.
+- Continue UI polish beyond the P3 minimum:
+  - optional redacted SSID display mode;
+  - RSSI/link quality when available from supplicant status;
+  - clearer disabled/running/pass/fail labels on the HUD.
+- Continue script consolidation separately:
+  - migrate one live runner at a time to shared transport/phase-timer helpers;
+  - keep legacy reports as evidence, not active entrypoints.
 - Keep secondary interface noise out of the main gate:
   - `swlan0` MAC generation failure is not a primary `wlan0` blocker;
   - `set_features(-11)` remains non-blocking unless reproduced as persistent.
 
 Exit criteria:
 
-- N>=3 repeated connect/DHCP/ping cycles without cleanup-dependent success is
-  complete for the V2176 route.
-- 180 second hold/idle plus cleanup/reconnect validation is complete for the
-  V2176 route.
-- `selftest fail=0` after the run.
+- V2178 profile/autoconnect baseline promotion is complete by V2179.
+- Boot autoconnect N=3 passed with carrier and DHCP, no external ping.
+- Private 2.4 GHz and 5 GHz profile checks passed with redacted evidence.
+- `selftest fail=0` after rollback/promotion validation.
 - Secret scan reports no leaked PSK.
 - Public report contains redacted Wi-Fi evidence only.
 
@@ -199,8 +203,8 @@ Completed first units:
   `docs/operations/NATIVE_INIT_BOOT_TRANSPORT_CONTRACT.md`.
 - Transport selector has bounded host NCM link-local auto-repair for the
   Samsung `04e8` + `cdc_ncm` present/no-`fe80::` state.
-- Current `v2174-wifi-urandom-connect` baseline preserves the device-side
-  `transport.contract=1` contract from V2169.
+- Current `v2178-wifi-profile-autoconnect` baseline preserves the device-side
+  `transport.contract=1` contract from V2174/V2169.
 - Active Wi-Fi lifecycle runners use the shared transport selector/serial step:
   - `native_wifi_connect_carrier_handoff_v2174.py` uses
     `a90_transport.select_transport()` for preflight and
@@ -304,7 +308,7 @@ Goal: avoid mixing run IDs, helper versions, and boot baseline tags.
 
 Open tasks:
 
-- Keep current baseline fixed as `v2174-wifi-urandom-connect` until a newer boot
+- Keep current baseline fixed as `v2178-wifi-profile-autoconnect` until a newer boot
   image is intentionally promoted.
 - If a new boot/init image is promoted, use the next global run/build identity,
   not helper numbering.

@@ -44,6 +44,7 @@
 #define WIFICFG_MAX_TEXT 8192
 #define WIFICFG_MAX_VALUE 192
 #define WIFICFG_MAX_PATH 384
+#define WIFICFG_PROFILE_LIST_MAX 64
 #define WIFICFG_SECRET_MAX_TEXT 256
 #define WIFICFG_PSK_HEX_LEN 64
 
@@ -1400,9 +1401,38 @@ static void wificfg_print_profile_entry(const char *source,
     (*index_inout)++;
 }
 
+static bool wificfg_profile_list_record_seen(char seen_names[][WIFICFG_MAX_VALUE],
+                                             int *seen_count,
+                                             int *duplicate_count,
+                                             int *overflow_count,
+                                             const char *profile_name) {
+    int seen_index;
+
+    for (seen_index = 0; seen_index < *seen_count; seen_index++) {
+        if (strcmp(seen_names[seen_index], profile_name) == 0) {
+            (*duplicate_count)++;
+            return false;
+        }
+    }
+    if (*seen_count >= WIFICFG_PROFILE_LIST_MAX) {
+        (*overflow_count)++;
+        return false;
+    }
+    if (!wificfg_copy_value(seen_names[*seen_count], WIFICFG_MAX_VALUE, profile_name)) {
+        (*overflow_count)++;
+        return false;
+    }
+    (*seen_count)++;
+    return true;
+}
+
 static void wificfg_scan_profile_dir(const char *source,
                                      const char *dir_path,
-                                     int *index_inout) {
+                                     int *index_inout,
+                                     char seen_names[][WIFICFG_MAX_VALUE],
+                                     int *seen_count,
+                                     int *duplicate_count,
+                                     int *overflow_count) {
     DIR *dir;
     struct dirent *entry;
 
@@ -1425,21 +1455,47 @@ static void wificfg_scan_profile_dir(const char *source,
         if (!wificfg_profile_name_valid(profile_name)) {
             continue;
         }
+        if (!wificfg_profile_list_record_seen(seen_names,
+                                              seen_count,
+                                              duplicate_count,
+                                              overflow_count,
+                                              profile_name)) {
+            continue;
+        }
         wificfg_print_profile_entry(source, profile_name, index_inout);
     }
     closedir(dir);
 }
 
 int a90_wificfg_print_profile_list(void) {
+    char seen_names[WIFICFG_PROFILE_LIST_MAX][WIFICFG_MAX_VALUE];
     int count = 0;
+    int seen_count = 0;
+    int duplicate_count = 0;
+    int overflow_count = 0;
 
+    memset(seen_names, 0, sizeof(seen_names));
     a90_console_printf("[wifi profile list]\r\n");
     a90_console_printf("primary_profiles.path=%s\r\n", WIFICFG_PRIMARY_PROFILES);
     a90_console_printf("cache_profiles.path=%s\r\n", WIFICFG_CACHE_PROFILES);
     a90_console_printf("secret_values_logged=0\r\n");
-    wificfg_scan_profile_dir("primary", WIFICFG_PRIMARY_PROFILES, &count);
-    wificfg_scan_profile_dir("cache", WIFICFG_CACHE_PROFILES, &count);
+    wificfg_scan_profile_dir("primary",
+                             WIFICFG_PRIMARY_PROFILES,
+                             &count,
+                             seen_names,
+                             &seen_count,
+                             &duplicate_count,
+                             &overflow_count);
+    wificfg_scan_profile_dir("cache",
+                             WIFICFG_CACHE_PROFILES,
+                             &count,
+                             seen_names,
+                             &seen_count,
+                             &duplicate_count,
+                             &overflow_count);
     a90_console_printf("profile_count=%d\r\n", count);
+    a90_console_printf("profile_duplicates_skipped=%d\r\n", duplicate_count);
+    a90_console_printf("profile_overflow_skipped=%d\r\n", overflow_count);
     a90_console_printf("decision=%s\r\n", count > 0 ? "wifi-profile-list-ready" : "wifi-profile-list-empty");
     return 0;
 }

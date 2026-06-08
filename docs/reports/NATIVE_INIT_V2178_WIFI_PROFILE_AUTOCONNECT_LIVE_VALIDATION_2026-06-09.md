@@ -4,8 +4,8 @@
 
 - Candidate tag: `v2178-wifi-profile-autoconnect`
 - Init: `A90 Linux init 0.9.253 (v2178-wifi-profile-autoconnect)`
-- Patched boot SHA256: `e9b491581f944c1fbf5b563a7d407d75b19aba85457255a8dd219b198d7cfd02`
-- Result: PASS after one implementation fix.
+- Latest patched boot SHA256: `8ea6f468f997446e9fa3e80606db107ca27d067f3ee023ff45c2ecf159341047`
+- Result: PASS; superseded by V2179 P0/P1 promotion validation for final baseline SHA.
 - Rollback baseline: `A90 Linux init 0.9.251 (v2174-wifi-urandom-connect)`
 - Final rollback selftest: `fail=0`
 
@@ -110,6 +110,6 @@ Generated image/build artifacts:
 
 ## Residual Risks
 
-- `autoconnect.log` is append-only for now, so one cache file can contain older pre-fix failures and later successes together. The machine-readable `autoconnect.result` is authoritative.
-- `wifi profile list` can show duplicate profile names when the same profile exists in primary and cache roots. `wifi profile status <name>` resolves the active primary profile correctly.
-- One early polling attempt hit a malformed serial command while boot/autoconnect/menu state was settling. The bridge recovered immediately, and final cmdv1/tcpctl status was normal.
+- V2179 fixed the append-only autoconnect log, stale result, and profile-list duplicate issues found here.
+- Boot autoconnect can take roughly three minutes because the firmware/helper path dominates; status automation must poll `autoconnect.decision` until a terminal result.
+- Serial `AT` noise can still corrupt an individual cmdv1 exchange. V2179 mitigated this at the runner layer with bridge restart/retry, not in the device command parser.

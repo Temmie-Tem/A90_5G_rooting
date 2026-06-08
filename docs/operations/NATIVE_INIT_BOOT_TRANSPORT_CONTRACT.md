@@ -1,6 +1,6 @@
 # Native Init Boot And Transport Contract
 
-Updated: `2026-06-08`
+Updated: `2026-06-09`
 
 This document defines the standing contract between:
 
@@ -20,16 +20,16 @@ Current verified baseline:
 
 | Field | Value |
 | --- | --- |
-| Device-visible version | `A90 Linux init 0.9.251` |
-| Build tag | `v2174-wifi-urandom-connect` |
-| Boot image | `workspace/private/inputs/boot_images/boot_linux_v2174_wifi_urandom_connect.img` |
-| Boot SHA256 | `cda957e4302d66e407fc97a95932501f0ef2ac655ee264c94519111fece0b3ba` |
+| Device-visible version | `A90 Linux init 0.9.253` |
+| Build tag | `v2178-wifi-profile-autoconnect` |
+| Boot image | `workspace/private/inputs/boot_images/boot_linux_v2178_wifi_profile_autoconnect.img` |
+| Boot SHA256 | `8ea6f468f997446e9fa3e80606db107ca27d067f3ee023ff45c2ecf159341047` |
 | Source root | `workspace/public/src/native-init/` |
-| Builder | `workspace/public/src/scripts/revalidation/build_native_init_boot_v2174_wifi_urandom_connect.py` |
-| Source/build report | `docs/reports/NATIVE_INIT_V2174_WIFI_URANDOM_CONNECT_SOURCE_BUILD_2026-06-08.md` |
-| Live validation report | `docs/reports/NATIVE_INIT_V2174_WIFI_URANDOM_CONNECT_LIVE_VALIDATION_2026-06-08.md` |
-| Promotion report | `docs/reports/NATIVE_INIT_V2175_V2174_WIFI_URANDOM_CONNECT_BASELINE_PROMOTION_2026-06-08.md` |
-| Previous rollback | `workspace/private/inputs/boot_images/boot_linux_v2169_transport_contract.img` |
+| Builder | `workspace/public/src/scripts/revalidation/build_native_init_boot_v2178_wifi_profile_autoconnect.py` |
+| Source/build report | `docs/reports/NATIVE_INIT_V2178_WIFI_PROFILE_AUTOCONNECT_SOURCE_BUILD_2026-06-09.md` |
+| Live validation report | `docs/reports/NATIVE_INIT_V2178_WIFI_PROFILE_AUTOCONNECT_LIVE_VALIDATION_2026-06-09.md` |
+| Promotion report | `docs/reports/NATIVE_INIT_V2179_V2178_WIFI_PROFILE_AUTOCONNECT_BASELINE_PROMOTION_2026-06-09.md` |
+| Previous rollback | `workspace/private/inputs/boot_images/boot_linux_v2174_wifi_urandom_connect.img` |
 | Known-good fallback | `workspace/private/inputs/boot_images/boot_linux_v48.img` |
 
 The boot image must provide:
@@ -48,16 +48,16 @@ Previous baseline:
 
 | Field | Value |
 | --- | --- |
-| Build tag | `v2169-transport-contract` |
-| Device-visible version | `A90 Linux init 0.9.247` |
-| Boot image | `workspace/private/inputs/boot_images/boot_linux_v2169_transport_contract.img` |
-| Boot SHA256 | `190b93d0741a6eeba17913c940f3bb398fed765f38532d5e0009840112166d6d` |
+| Build tag | `v2174-wifi-urandom-connect` |
+| Device-visible version | `A90 Linux init 0.9.251` |
+| Boot image | `workspace/private/inputs/boot_images/boot_linux_v2174_wifi_urandom_connect.img` |
+| Boot SHA256 | `cda957e4302d66e407fc97a95932501f0ef2ac655ee264c94519111fece0b3ba` |
 | Current role | Immediate rollback image |
 
-`v2174-wifi-urandom-connect` is promoted as the current baseline by V2175. It
-keeps the V2169 transport contract, adds native-init `wifi connect [profile]`,
-and creates `/dev/random` plus `/dev/urandom` so WPA key negotiation can
-complete.
+`v2178-wifi-profile-autoconnect` is promoted as the current baseline by V2179.
+It keeps the V2174 carrier path and adds persistent Wi-Fi profiles, explicit
+boot autoconnect, DHCP-backed autoconnect results, profile-list dedupe, and
+redacted Wi-Fi status/HUD fields.
 
 ## 2. Boot-Image Transport Contract
 
@@ -299,14 +299,14 @@ Blocked by default:
 
 ## 8. Current State Summary
 
-As of `2026-06-08`:
+As of `2026-06-09`:
 
 - Host bridge wrapper contract exists: `wrapper_contract=1`.
 - Host transport selector contract exists: `selector_contract=1`.
 - NCM smoke runner records transport selection in its manifest.
-- Current boot image is `v2174-wifi-urandom-connect`.
+- Current boot image is `v2178-wifi-profile-autoconnect`.
 - Device-side `transport.contract=1` is a current baseline guarantee.
-- Previous rollback image is `v2169-transport-contract`; known-good fallback
+- Previous rollback image is `v2174-wifi-urandom-connect`; known-good fallback
   remains `v48`.
 
 The next boot-image promotion should preserve the device-side `transport.*`

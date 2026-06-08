@@ -1,6 +1,6 @@
 # A90 Working Rules
 
-Updated: `2026-06-07`
+Updated: `2026-06-09`
 
 This is the first document to check before changing native-init source,
 revalidation scripts, boot artifacts, reports, or workspace layout. Detailed
@@ -30,8 +30,8 @@ Rules:
   baseline tag, not a `V2169` run ID.
 - Do not use helper numbers as run IDs, boot filenames, or native-init build
   tags.
-- The current promoted baseline uses promotion run `V2175`, native init
-  `0.9.251`, and build tag `v2174-wifi-urandom-connect`.
+- The current promoted baseline uses promotion run `V2179`, native init
+  `0.9.253`, and build tag `v2178-wifi-profile-autoconnect`.
 - If an existing artifact is only reproduced or documented, keep its build tag
   and record it as `Baseline tag`, not `Cycle`.
 - If the boot image SHA changes and that image becomes a rollback/test
@@ -127,9 +127,9 @@ For an unchanged existing artifact:
 
 ```text
 Run ID: <current validation run>
-Native init: A90 Linux init 0.9.251 (v2174-wifi-urandom-connect)
+Native init: A90 Linux init 0.9.253 (v2178-wifi-profile-autoconnect)
 Build tag: unchanged
-Baseline tag: v2174-wifi-urandom-connect
+Baseline tag: v2178-wifi-profile-autoconnect
 Helper: unchanged
 Device flash: no
 Host commit: <git-sha-or-uncommitted>

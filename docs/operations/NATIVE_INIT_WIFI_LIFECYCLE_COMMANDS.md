@@ -1,6 +1,6 @@
 # Native Init Wi-Fi Lifecycle Commands
 
-Date: `2026-06-08`
+Date: `2026-06-09`
 
 This is the operator-facing command contract for native-init Wi-Fi lifecycle
 work. It keeps diagnostic/status commands separate from scan/connect/autoconnect
@@ -36,7 +36,11 @@ It reports:
 - `rx_bytes`, `tx_bytes`;
 - current IPv4 address if one exists;
 - redacted runtime summary fields from
-  `/cache/native-init-wifi-runtime.summary`;
+  `/cache/native-init-wifi-runtime.summary`, including `runtime.decision`;
+- machine-readable autoconnect result fields from
+  `/cache/a90-wifi/autoconnect.result`:
+  `autoconnect.profile`, `autoconnect.decision`, `autoconnect.final_rc`,
+  `autoconnect.carrier_up`, and `autoconnect.nameserver_count`;
 - standalone supplicant path, executable bit, process count, and control socket
   presence;
 - `secret_values_logged=0`.
@@ -122,7 +126,11 @@ autoconnect:
 
 Boot autoconnect is disabled by default and is started in the background only
 when staged config says `autoconnect=1`. Boot autoconnect never runs external
-ping.
+ping. A valid run writes `wifi-autoconnect-running` immediately, then replaces
+it with a terminal result such as `wifi-autoconnect-pass`,
+`wifi-autoconnect-connect-failed`, or `wifi-autoconnect-wlan0-timeout`.
+Disabled/no-config boot paths write authoritative inactive result files so
+older success state is not reused by status/UI polling.
 
 ## `wifi connect [profile]`
 
