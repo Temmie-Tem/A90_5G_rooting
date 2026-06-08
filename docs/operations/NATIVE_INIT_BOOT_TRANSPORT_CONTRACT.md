@@ -259,6 +259,12 @@ Active revalidation runners should:
 5. keep raw artifacts under private/ignored paths;
 6. redact secrets before writing public reports.
 
+Commonization design:
+
+- `docs/plans/NATIVE_INIT_TRANSPORT_COMMONIZATION_DESIGN_2026-06-09.md`
+  defines the shared phase timer contract, serial recovery evidence shape, and
+  active runner migration order.
+
 New active runners should not:
 
 - directly start `serial_tcp_bridge.py`;

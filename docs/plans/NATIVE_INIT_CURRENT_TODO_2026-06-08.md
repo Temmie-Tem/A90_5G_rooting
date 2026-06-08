@@ -20,6 +20,8 @@ Current baseline:
 - Active fast path: USB NCM link-local plus bounded FastUpload-style transfers.
 - Standing boot/bridge/communication contract:
   `docs/operations/NATIVE_INIT_BOOT_TRANSPORT_CONTRACT.md`.
+- Transport commonization design:
+  `docs/plans/NATIVE_INIT_TRANSPORT_COMMONIZATION_DESIGN_2026-06-09.md`.
 - Active source root: `workspace/public/src/native-init/`.
 - Active script root: `workspace/public/src/scripts/revalidation/`.
 - Private/generated payload root: `workspace/private/` and structured `tmp/`.
@@ -222,6 +224,9 @@ Open tasks:
   - `artifact_upload`;
   - `rollback`;
   - `selftest`.
+- Use the shared design in
+  `docs/plans/NATIVE_INIT_TRANSPORT_COMMONIZATION_DESIGN_2026-06-09.md`
+  instead of adding more local runner-only timer/retry helpers.
 - Stabilize `a90_transport.py` as the import target for active runners:
   - bridge ensure/status;
   - `cmdv1` version/status;
