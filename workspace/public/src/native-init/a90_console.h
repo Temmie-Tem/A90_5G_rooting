@@ -16,6 +16,7 @@ int a90_console_attach(void);
 int a90_console_reattach(const char *reason, bool announce);
 void a90_console_printf(const char *fmt, ...);
 int a90_console_write(const void *buf, size_t len);
+void a90_console_silence_child(void);
 void a90_console_drain_input(unsigned int quiet_ms, unsigned int max_ms);
 ssize_t a90_console_readline(char *buf, size_t size);
 int a90_console_dup_stdio(void);

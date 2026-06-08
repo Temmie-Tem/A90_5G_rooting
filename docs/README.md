@@ -683,6 +683,9 @@ hygiene를 기준으로 한다.
 
 - `operations/WORKSPACE_STRUCTURE_AND_BOOTSTRAP.md` – 새 GitHub clone/new workspace에서 tracked source, ignored local inputs, structured `tmp` layout, boot image rebuild order, private Wi-Fi env, host NCM setup, seal check를 복구하는 기준
 - `plans/NATIVE_INIT_CURRENT_TODO_2026-06-08.md` – 현재 baseline hardening TODO, Wi-Fi lifecycle/bridge/script inventory/versioning/workspace/QA/safety 우선순위 기준
+- `plans/NATIVE_INIT_V2178_WIFI_PROFILE_AUTOCONNECT_PLAN_2026-06-09.md` – V2178 profile inventory, secret-safe staging, explicit autoconnect command surface, boot-background autoconnect worker, validation/promotion gates 설계
+- `reports/NATIVE_INIT_V2178_WIFI_PROFILE_AUTOCONNECT_LIVE_VALIDATION_2026-06-09.md` – V2178 profile staging, explicit autoconnect once, boot-background autoconnect, cleanup, V2174 rollback/selftest live PASS 결과
+- `reports/NATIVE_INIT_V2178_WIFI_PROFILE_AUTOCONNECT_SOURCE_BUILD_2026-06-09.md` – V2178 profile/autoconnect test boot source build, manifest/hash, included route, safety scope 결과
 - `reports/NATIVE_INIT_V2177_WIFI_HOLD_RECONNECT_LIVE_VALIDATION_2026-06-09.md` – V2176 test boot에서 connect→DHCP→180초 hold→ping→cleanup→reconnect→DHCP→ping→cleanup을 통과하고 V2174 rollback/selftest를 검증한 결과
 - `reports/NATIVE_INIT_V2176_WIFI_DHCP_STABILITY_N3_2026-06-08.md` – V2176 final-code N=3 connect→DHCP→bounded ping→cleanup→V2174 rollback 안정성 검증 결과
 - `reports/NATIVE_INIT_V2176_WIFI_DHCP_PING_LIVE_VALIDATION_2026-06-08.md` – V2176 test boot가 carrier connect, DHCP, one bounded external ping, cleanup, V2174 rollback/selftest를 통과한 결과

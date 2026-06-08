@@ -77,6 +77,13 @@ int a90_console_write(const void *buf, size_t len) {
     return write_all_checked(console_fd, (const char *)buf, len);
 }
 
+void a90_console_silence_child(void) {
+    if (console_fd >= 0) {
+        close(console_fd);
+        console_fd = -1;
+    }
+}
+
 static void consume_escape_sequence(void) {
     int index;
 

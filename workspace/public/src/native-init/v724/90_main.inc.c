@@ -6454,6 +6454,7 @@ int main(void) {
         } else {
             a90_logf("boot", "rshell disabled");
         }
+        (void)a90_wifi_start_boot_autoconnect_once();
         a90_logf("boot", "entering shell");
         a90_timeline_record(0, 0, "shell", "interactive shell ready");
         shell_loop();

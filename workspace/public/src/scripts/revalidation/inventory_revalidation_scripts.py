@@ -24,6 +24,7 @@ ACTIVE = {
     "a90_bridge.py": "bridge lifecycle wrapper",
     "serial_tcp_bridge.py": "bridge implementation",
     "a90_ncm_transport_smoke.py": "active NCM transport smoke",
+    "a90_wifi_profile_stage.py": "active Wi-Fi profile staging helper",
     "native_init_flash.py": "active flash/rollback helper",
     "native_wifi_connect_carrier_handoff_v2174.py": "active Wi-Fi carrier validation",
     "native_wifi_dhcp_ping_handoff_v2176.py": "active Wi-Fi DHCP/ping validation",
@@ -39,6 +40,7 @@ ACTIVE = {
     "build_native_init_boot_v2172_wifi_status_scan.py": "Wi-Fi status/scan boot builder",
     "build_native_init_boot_v2174_wifi_urandom_connect.py": "Wi-Fi carrier boot builder",
     "build_native_init_boot_v2176_wifi_dhcp.py": "Wi-Fi DHCP boot builder",
+    "build_native_init_boot_v2178_wifi_profile_autoconnect.py": "Wi-Fi profile/autoconnect boot builder",
 }
 MODULES = {
     "_workspace_bootstrap.py": "workspace path bootstrap",

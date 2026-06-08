@@ -17,6 +17,22 @@
       "type": "file"
     },
     {
+      "executable": true,
+      "has_phase_timer": false,
+      "has_secret_redaction": false,
+      "imports_a90_transport": false,
+      "label": "delete-review",
+      "live_device_required": false,
+      "mentions_a90_bridge": false,
+      "mentions_a90ctl_subprocess": false,
+      "mentions_serial_tcp_bridge": false,
+      "name": "__pycache__",
+      "path": "workspace/public/src/scripts/revalidation/__pycache__",
+      "reason": "generated Python bytecode cache",
+      "repo_reference_count": 3,
+      "type": "dir"
+    },
+    {
       "executable": false,
       "has_phase_timer": false,
       "has_secret_redaction": false,
@@ -161,6 +177,22 @@
       "type": "file"
     },
     {
+      "executable": false,
+      "has_phase_timer": false,
+      "has_secret_redaction": true,
+      "imports_a90_transport": false,
+      "label": "active",
+      "live_device_required": true,
+      "mentions_a90_bridge": false,
+      "mentions_a90ctl_subprocess": false,
+      "mentions_serial_tcp_bridge": false,
+      "name": "a90_wifi_profile_stage.py",
+      "path": "workspace/public/src/scripts/revalidation/a90_wifi_profile_stage.py",
+      "reason": "active Wi-Fi profile staging helper",
+      "repo_reference_count": 6,
+      "type": "file"
+    },
+    {
       "executable": true,
       "has_phase_timer": false,
       "has_secret_redaction": false,
@@ -253,6 +285,22 @@
       "name": "build_native_init_boot_v2176_wifi_dhcp.py",
       "path": "workspace/public/src/scripts/revalidation/build_native_init_boot_v2176_wifi_dhcp.py",
       "reason": "Wi-Fi DHCP boot builder",
+      "repo_reference_count": 5,
+      "type": "file"
+    },
+    {
+      "executable": false,
+      "has_phase_timer": false,
+      "has_secret_redaction": true,
+      "imports_a90_transport": false,
+      "label": "active",
+      "live_device_required": true,
+      "mentions_a90_bridge": false,
+      "mentions_a90ctl_subprocess": false,
+      "mentions_serial_tcp_bridge": false,
+      "name": "build_native_init_boot_v2178_wifi_profile_autoconnect.py",
+      "path": "workspace/public/src/scripts/revalidation/build_native_init_boot_v2178_wifi_profile_autoconnect.py",
+      "reason": "Wi-Fi profile/autoconnect boot builder",
       "repo_reference_count": 5,
       "type": "file"
     },
@@ -641,10 +689,11 @@
       "type": "file"
     }
   ],
-  "generated_at": "2026-06-08T15:55:35.770132+00:00",
+  "generated_at": "2026-06-08T16:18:21.930885+00:00",
   "root": "workspace/public/src/scripts/revalidation",
   "summary": {
-    "active": 34,
+    "active": 36,
+    "delete-review": 1,
     "module": 6
   }
 }

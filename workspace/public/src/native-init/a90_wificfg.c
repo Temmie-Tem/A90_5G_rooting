@@ -1,6 +1,7 @@
 #include "a90_wificfg.h"
 
 #include <ctype.h>
+#include <dirent.h>
 #include <errno.h>
 #include <fcntl.h>
 #include <stdbool.h>
@@ -28,6 +29,9 @@
 #define WIFICFG_PRIMARY_AUTOCONNECT WIFICFG_PRIMARY_ROOT "/autoconnect.conf"
 #define WIFICFG_PRIMARY_PROFILES WIFICFG_PRIMARY_ROOT "/profiles"
 #define WIFICFG_PRIMARY_SECRET_ROOT "/mnt/sdext/a90/secrets/wifi"
+#define WIFICFG_PRIMARY_A90_ROOT "/mnt/sdext/a90"
+#define WIFICFG_PRIMARY_CONFIG_ROOT "/mnt/sdext/a90/config"
+#define WIFICFG_PRIMARY_SECRET_PARENT "/mnt/sdext/a90/secrets"
 #define WIFICFG_CACHE_ROOT "/cache/a90-wifi/config"
 #define WIFICFG_CACHE_AUTOCONNECT WIFICFG_CACHE_ROOT "/autoconnect.conf"
 #define WIFICFG_CACHE_PROFILES WIFICFG_CACHE_ROOT "/profiles"
@@ -878,6 +882,63 @@ static bool wificfg_secret_status(const char *label, const char *path, bool conf
     return usable;
 }
 
+static void wificfg_print_profile_fields(const char *label_prefix,
+                                         const struct wificfg_profile_config *profile,
+                                         const char *profile_path,
+                                         bool include_secret_status,
+                                         bool *ssid_usable_out,
+                                         bool *psk_usable_out) {
+    bool ssid_usable = false;
+    bool psk_usable = false;
+
+    a90_console_printf("%s_source=%s\r\n", label_prefix, wificfg_profile_source_name(profile));
+    a90_console_printf("%s_present=%d\r\n", label_prefix, profile->exists ? 1 : 0);
+    a90_console_printf("%s_valid=%d\r\n", label_prefix, profile->exists && profile->parsed ? 1 : 0);
+    if (profile->exists) {
+        wificfg_print_path_info("profile_file", profile_path, false);
+        a90_console_printf("%s_enabled=%d%s\r\n",
+                           label_prefix,
+                           profile->enabled,
+                           profile->enabled_set ? "" : " default");
+        a90_console_printf("%s_band=%s%s\r\n",
+                           label_prefix,
+                           profile->band,
+                           profile->band_set ? "" : " default");
+        a90_console_printf("%s_priority=%d%s\r\n",
+                           label_prefix,
+                           profile->priority,
+                           profile->priority_set ? "" : " default");
+        a90_console_printf("%s_key_mgmt=%s%s\r\n",
+                           label_prefix,
+                           profile->key_mgmt,
+                           profile->key_mgmt_set ? "" : " default");
+        a90_console_printf("%s_inline_secret_key_seen=%d\r\n",
+                           label_prefix,
+                           profile->inline_secret_key_seen ? 1 : 0);
+        a90_console_printf("%s_invalid_lines=%d\r\n", label_prefix, profile->invalid_lines);
+        a90_console_printf("%s_unknown_keys=%d\r\n", label_prefix, profile->unknown_keys);
+        if (include_secret_status) {
+            ssid_usable = wificfg_secret_status("ssid_file", profile->ssid_file, profile->ssid_file_set);
+            psk_usable = wificfg_secret_status("psk_file", profile->psk_file, profile->psk_file_set);
+        }
+    } else {
+        a90_console_printf("%s_enabled=0\r\n", label_prefix);
+        a90_console_printf("%s_inline_secret_key_seen=0\r\n", label_prefix);
+        if (include_secret_status) {
+            a90_console_printf("ssid_file.configured=0\r\n");
+            a90_console_printf("ssid_file.present=0\r\n");
+            a90_console_printf("psk_file.configured=0\r\n");
+            a90_console_printf("psk_file.present=0\r\n");
+        }
+    }
+    if (ssid_usable_out != NULL) {
+        *ssid_usable_out = ssid_usable;
+    }
+    if (psk_usable_out != NULL) {
+        *psk_usable_out = psk_usable;
+    }
+}
+
 static void wificfg_secure_zero(void *data, size_t data_size) {
     volatile unsigned char *cursor = (volatile unsigned char *)data;
 
@@ -1265,6 +1326,382 @@ int a90_wificfg_print_status(void) {
              profile.exists ? 1 : 0,
              wificfg_decision(&config, &profile, profile_rc == 0, ssid_usable, psk_usable));
     return 0;
+}
+
+static const char *wificfg_profile_decision(const struct wificfg_profile_config *profile,
+                                            int profile_rc,
+                                            bool ssid_usable,
+                                            bool psk_usable) {
+    if (profile_rc < 0) {
+        return "wifi-profile-missing";
+    }
+    if (!profile->parsed) {
+        return "wifi-profile-invalid";
+    }
+    if (profile->inline_secret_key_seen) {
+        return "wifi-profile-inline-secret-blocked";
+    }
+    if (profile->enabled == 0) {
+        return "wifi-profile-disabled";
+    }
+    if (!ssid_usable || !psk_usable) {
+        return "wifi-profile-secret-not-ready";
+    }
+    if (strcmp(profile->key_mgmt, "WPA-PSK") != 0) {
+        return "wifi-profile-key-mgmt-unsupported";
+    }
+    return "wifi-profile-ready";
+}
+
+static bool wificfg_secret_usable_silent(const char *path, bool configured) {
+    struct wificfg_file_info info;
+
+    if (!configured || !wificfg_secret_path_safe(path)) {
+        return false;
+    }
+    wificfg_stat_path(path, &info);
+    return info.exists && info.is_regular && !info.is_symlink && info.mode_owner_only;
+}
+
+static void wificfg_print_profile_entry(const char *source,
+                                        const char *profile_name,
+                                        int *index_inout) {
+    struct wificfg_profile_config profile;
+    char profile_path[WIFICFG_MAX_PATH] = "";
+    int profile_rc;
+
+    profile_rc = wificfg_load_profile_by_name(profile_name, &profile, profile_path, sizeof(profile_path));
+    a90_console_printf("profile.%d.name=%s\r\n", *index_inout, profile_name);
+    a90_console_printf("profile.%d.source_hint=%s\r\n", *index_inout, source);
+    a90_console_printf("profile.%d.load_rc=%d\r\n", *index_inout, profile_rc);
+    a90_console_printf("profile.%d.source=%s\r\n", *index_inout, wificfg_profile_source_name(&profile));
+    a90_console_printf("profile.%d.enabled=%d%s\r\n",
+                       *index_inout,
+                       profile.enabled,
+                       profile.enabled_set ? "" : " default");
+    a90_console_printf("profile.%d.band=%s%s\r\n",
+                       *index_inout,
+                       profile.band,
+                       profile.band_set ? "" : " default");
+    a90_console_printf("profile.%d.priority=%d%s\r\n",
+                       *index_inout,
+                       profile.priority,
+                       profile.priority_set ? "" : " default");
+    a90_console_printf("profile.%d.key_mgmt=%s%s\r\n",
+                       *index_inout,
+                       profile.key_mgmt,
+                       profile.key_mgmt_set ? "" : " default");
+    a90_console_printf("profile.%d.ssid_file_configured=%d\r\n",
+                       *index_inout,
+                       profile.ssid_file_set ? 1 : 0);
+    a90_console_printf("profile.%d.psk_file_configured=%d\r\n",
+                       *index_inout,
+                       profile.psk_file_set ? 1 : 0);
+    (*index_inout)++;
+}
+
+static void wificfg_scan_profile_dir(const char *source,
+                                     const char *dir_path,
+                                     int *index_inout) {
+    DIR *dir;
+    struct dirent *entry;
+
+    dir = opendir(dir_path);
+    if (dir == NULL) {
+        return;
+    }
+    while ((entry = readdir(dir)) != NULL) {
+        size_t len = strlen(entry->d_name);
+        char profile_name[WIFICFG_MAX_VALUE];
+
+        if (len <= 5 || strcmp(entry->d_name + len - 5, ".conf") != 0) {
+            continue;
+        }
+        if (len - 5 >= sizeof(profile_name)) {
+            continue;
+        }
+        memcpy(profile_name, entry->d_name, len - 5);
+        profile_name[len - 5] = '\0';
+        if (!wificfg_profile_name_valid(profile_name)) {
+            continue;
+        }
+        wificfg_print_profile_entry(source, profile_name, index_inout);
+    }
+    closedir(dir);
+}
+
+int a90_wificfg_print_profile_list(void) {
+    int count = 0;
+
+    a90_console_printf("[wifi profile list]\r\n");
+    a90_console_printf("primary_profiles.path=%s\r\n", WIFICFG_PRIMARY_PROFILES);
+    a90_console_printf("cache_profiles.path=%s\r\n", WIFICFG_CACHE_PROFILES);
+    a90_console_printf("secret_values_logged=0\r\n");
+    wificfg_scan_profile_dir("primary", WIFICFG_PRIMARY_PROFILES, &count);
+    wificfg_scan_profile_dir("cache", WIFICFG_CACHE_PROFILES, &count);
+    a90_console_printf("profile_count=%d\r\n", count);
+    a90_console_printf("decision=%s\r\n", count > 0 ? "wifi-profile-list-ready" : "wifi-profile-list-empty");
+    return 0;
+}
+
+int a90_wificfg_print_profile_status(const char *profile_name) {
+    struct wificfg_global_config config;
+    struct wificfg_profile_config profile;
+    char selected_profile[WIFICFG_MAX_VALUE] = "";
+    char profile_path[WIFICFG_MAX_PATH] = "";
+    bool ssid_usable = false;
+    bool psk_usable = false;
+    int profile_rc;
+
+    (void)wificfg_load_global(&config);
+    wificfg_profile_defaults(&profile);
+    if (profile_name != NULL && profile_name[0] != '\0') {
+        if (!wificfg_profile_name_valid(profile_name) ||
+            !wificfg_copy_value(selected_profile, sizeof(selected_profile), profile_name)) {
+            a90_console_printf("[wifi profile status]\r\n");
+            a90_console_printf("profile=invalid\r\n");
+            a90_console_printf("secret_values_logged=0\r\n");
+            a90_console_printf("decision=wifi-profile-name-invalid\r\n");
+            return -EINVAL;
+        }
+    } else if (config.default_profile_set) {
+        if (!wificfg_copy_value(selected_profile, sizeof(selected_profile), config.default_profile)) {
+            return -EINVAL;
+        }
+    } else {
+        selected_profile[0] = '\0';
+    }
+
+    profile_rc = selected_profile[0] != '\0' ?
+        wificfg_load_profile_by_name(selected_profile, &profile, profile_path, sizeof(profile_path)) :
+        -ENOENT;
+
+    a90_console_printf("[wifi profile status]\r\n");
+    a90_console_printf("profile=%s\r\n", selected_profile[0] != '\0' ? selected_profile : "default");
+    a90_console_printf("profile_rc=%d\r\n", profile_rc);
+    wificfg_print_profile_fields("profile", &profile, profile_path, true, &ssid_usable, &psk_usable);
+    a90_console_printf("secret_values_logged=0\r\n");
+    a90_console_printf("decision=%s\r\n",
+                       wificfg_profile_decision(&profile, profile_rc, ssid_usable, psk_usable));
+    return strcmp(wificfg_profile_decision(&profile, profile_rc, ssid_usable, psk_usable),
+                  "wifi-profile-ready") == 0 ? 0 : -EINVAL;
+}
+
+int a90_wificfg_get_autoconnect(struct a90_wificfg_autoconnect *out,
+                                const char *profile_override) {
+    struct wificfg_global_config config;
+    struct wificfg_profile_config profile;
+    char selected_profile[WIFICFG_MAX_VALUE] = "";
+    char profile_path[WIFICFG_MAX_PATH] = "";
+    bool ssid_usable = false;
+    bool psk_usable = false;
+    int config_rc;
+    int profile_rc = -ENOENT;
+    const char *decision;
+    bool has_profile_override = profile_override != NULL && profile_override[0] != '\0';
+
+    if (out == NULL) {
+        return -EINVAL;
+    }
+    memset(out, 0, sizeof(*out));
+    wificfg_profile_defaults(&profile);
+    config_rc = wificfg_load_global(&config);
+    out->config_present = config.exists;
+    out->config_valid = config.exists && config.parsed;
+    out->enabled = config.autoconnect != 0;
+    out->connect_timeout_sec = config.connect_timeout_sec;
+    out->dhcp = config.dhcp;
+    out->external_ping = config.external_ping;
+    out->scan_before_connect = config.scan_before_connect;
+    out->retry_count = config.retry_count;
+    if (has_profile_override && !config.exists) {
+        out->dhcp = 1;
+        out->scan_before_connect = 1;
+        out->retry_count = 1;
+        out->connect_timeout_sec = 35;
+    }
+
+    if (has_profile_override) {
+        if (!wificfg_profile_name_valid(profile_override) ||
+            !wificfg_copy_value(selected_profile, sizeof(selected_profile), profile_override)) {
+            snprintf(out->decision, sizeof(out->decision), "%s", "wifi-autoconnect-profile-name-invalid");
+            return -EINVAL;
+        }
+    } else if (config.default_profile_set) {
+        if (!wificfg_copy_value(selected_profile, sizeof(selected_profile), config.default_profile)) {
+            snprintf(out->decision, sizeof(out->decision), "%s", "wifi-autoconnect-profile-name-invalid");
+            return -EINVAL;
+        }
+    }
+
+    if (selected_profile[0] != '\0') {
+        if (!wificfg_copy_value(out->profile, sizeof(out->profile), selected_profile)) {
+            snprintf(out->decision, sizeof(out->decision), "%s", "wifi-autoconnect-profile-name-invalid");
+            return -EINVAL;
+        }
+        profile_rc = wificfg_load_profile_by_name(selected_profile, &profile, profile_path, sizeof(profile_path));
+        if (profile_rc == 0 && profile.parsed && !profile.inline_secret_key_seen) {
+            ssid_usable = wificfg_secret_usable_silent(profile.ssid_file, profile.ssid_file_set);
+            psk_usable = wificfg_secret_usable_silent(profile.psk_file, profile.psk_file_set);
+        }
+    }
+    out->profile_valid = profile_rc == 0 &&
+        strcmp(wificfg_profile_decision(&profile, profile_rc, ssid_usable, psk_usable),
+               "wifi-profile-ready") == 0;
+
+    if ((config_rc < 0 || !config.exists) && !has_profile_override) {
+        decision = "wifi-autoconnect-no-config";
+    } else if (config.exists && !config.parsed) {
+        decision = "wifi-autoconnect-invalid-config";
+    } else if (config.autoconnect == 0 && !has_profile_override) {
+        decision = "wifi-autoconnect-disabled";
+    } else if (config.external_ping != 0) {
+        decision = "wifi-autoconnect-external-ping-blocked";
+    } else if (selected_profile[0] == '\0') {
+        decision = "wifi-autoconnect-no-profile";
+    } else if (!out->profile_valid) {
+        decision = "wifi-autoconnect-profile-not-ready";
+    } else {
+        decision = "wifi-autoconnect-ready";
+    }
+    snprintf(out->decision, sizeof(out->decision), "%s", decision);
+    return strcmp(decision, "wifi-autoconnect-ready") == 0 ? 0 : -EINVAL;
+}
+
+int a90_wificfg_print_autoconnect_status(void) {
+    struct a90_wificfg_autoconnect config;
+    (void)a90_wificfg_get_autoconnect(&config, NULL);
+
+    a90_console_printf("[wifi autoconnect status]\r\n");
+    a90_console_printf("config_present=%d\r\n", config.config_present ? 1 : 0);
+    a90_console_printf("config_valid=%d\r\n", config.config_valid ? 1 : 0);
+    a90_console_printf("autoconnect=%d\r\n", config.enabled ? 1 : 0);
+    a90_console_printf("default_profile=%s\r\n", config.profile[0] != '\0' ? config.profile : "none");
+    a90_console_printf("profile_valid=%d\r\n", config.profile_valid ? 1 : 0);
+    a90_console_printf("connect_timeout_sec=%d\r\n", config.connect_timeout_sec);
+    a90_console_printf("dhcp=%d\r\n", config.dhcp);
+    a90_console_printf("external_ping=%d\r\n", config.external_ping);
+    a90_console_printf("scan_before_connect=%d\r\n", config.scan_before_connect);
+    a90_console_printf("retry_count=%d\r\n", config.retry_count);
+    a90_console_printf("secret_values_logged=0\r\n");
+    a90_console_printf("decision=%s\r\n", config.decision);
+    return 0;
+}
+
+static int wificfg_ensure_primary_tree(void) {
+    if (ensure_dir(WIFICFG_PRIMARY_A90_ROOT, 0700) < 0 ||
+        ensure_dir(WIFICFG_PRIMARY_CONFIG_ROOT, 0700) < 0 ||
+        ensure_dir(WIFICFG_PRIMARY_ROOT, 0700) < 0 ||
+        ensure_dir(WIFICFG_PRIMARY_PROFILES, 0700) < 0 ||
+        ensure_dir(WIFICFG_PRIMARY_SECRET_PARENT, 0700) < 0 ||
+        ensure_dir(WIFICFG_PRIMARY_SECRET_ROOT, 0700) < 0) {
+        return negative_errno_or(EIO);
+    }
+    (void)chmod(WIFICFG_PRIMARY_ROOT, 0700);
+    (void)chmod(WIFICFG_PRIMARY_PROFILES, 0700);
+    (void)chmod(WIFICFG_PRIMARY_SECRET_ROOT, 0700);
+    return 0;
+}
+
+static int wificfg_write_autoconnect_file(const struct wificfg_global_config *config,
+                                          const char *profile_name,
+                                          bool enabled) {
+    char tmp_path[WIFICFG_MAX_PATH];
+    char text[1024];
+    int text_len;
+    int fd;
+    int dhcp_value = config->dhcp_set ? config->dhcp : 1;
+
+    text_len = snprintf(text,
+                        sizeof(text),
+                        "version=1\n"
+                        "autoconnect=%d\n"
+                        "%s%s%s"
+                        "connect_timeout_sec=%d\n"
+                        "dhcp=%d\n"
+                        "external_ping=0\n"
+                        "scan_before_connect=%d\n"
+                        "retry_count=%d\n",
+                        enabled ? 1 : 0,
+                        profile_name != NULL && profile_name[0] != '\0' ? "default_profile=" : "",
+                        profile_name != NULL && profile_name[0] != '\0' ? profile_name : "",
+                        profile_name != NULL && profile_name[0] != '\0' ? "\n" : "",
+                        config->connect_timeout_sec,
+                        dhcp_value,
+                        config->scan_before_connect,
+                        config->retry_count);
+    if (text_len < 0 || (size_t)text_len >= sizeof(text)) {
+        return -ENOSPC;
+    }
+
+    snprintf(tmp_path, sizeof(tmp_path), "%s.tmp", WIFICFG_PRIMARY_AUTOCONNECT);
+    (void)unlink(tmp_path);
+    fd = open(tmp_path, O_WRONLY | O_CREAT | O_EXCL | O_TRUNC | O_CLOEXEC | O_NOFOLLOW, 0600);
+    if (fd < 0) {
+        return negative_errno_or(EIO);
+    }
+    if (write_all_checked(fd, text, (size_t)text_len) < 0 ||
+        fchmod(fd, 0600) < 0 ||
+        fsync(fd) < 0) {
+        int saved_errno = errno;
+
+        close(fd);
+        (void)unlink(tmp_path);
+        errno = saved_errno;
+        return negative_errno_or(EIO);
+    }
+    if (close(fd) < 0) {
+        (void)unlink(tmp_path);
+        return negative_errno_or(EIO);
+    }
+    if (rename(tmp_path, WIFICFG_PRIMARY_AUTOCONNECT) < 0) {
+        (void)unlink(tmp_path);
+        return negative_errno_or(EIO);
+    }
+    (void)chmod(WIFICFG_PRIMARY_AUTOCONNECT, 0600);
+    return 0;
+}
+
+int a90_wificfg_set_autoconnect(bool enabled, const char *profile_name) {
+    struct wificfg_global_config config;
+    struct a90_wificfg_autoconnect selected;
+    char selected_profile[WIFICFG_MAX_VALUE] = "";
+    int tree_rc;
+    int write_rc;
+
+    (void)wificfg_load_global(&config);
+    if (enabled) {
+        if (profile_name != NULL && profile_name[0] != '\0') {
+            if (!wificfg_profile_name_valid(profile_name) ||
+                !wificfg_copy_value(selected_profile, sizeof(selected_profile), profile_name)) {
+                return -EINVAL;
+            }
+        } else if (config.default_profile_set) {
+            if (!wificfg_copy_value(selected_profile, sizeof(selected_profile), config.default_profile)) {
+                return -EINVAL;
+            }
+        } else {
+            return -ENOENT;
+        }
+        if (a90_wificfg_get_autoconnect(&selected, selected_profile) < 0) {
+            return -EINVAL;
+        }
+    } else if (config.default_profile_set) {
+        (void)wificfg_copy_value(selected_profile, sizeof(selected_profile), config.default_profile);
+    }
+
+    tree_rc = wificfg_ensure_primary_tree();
+    if (tree_rc < 0) {
+        return tree_rc;
+    }
+    write_rc = wificfg_write_autoconnect_file(&config, selected_profile, enabled);
+    if (write_rc == 0) {
+        a90_logf("wificfg",
+                 "autoconnect set enabled=%d profile=%s secret_values_logged=0",
+                 enabled ? 1 : 0,
+                 selected_profile[0] != '\0' ? selected_profile : "none");
+    }
+    return write_rc;
 }
 
 static int a90_wificfg_print_prepare(const char *profile_name) {

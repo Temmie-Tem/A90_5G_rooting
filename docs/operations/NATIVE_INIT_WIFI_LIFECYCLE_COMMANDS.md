@@ -15,6 +15,12 @@ wifi scan [delay_ms]
 wifi connect [profile]
 wifi dhcp [profile]
 wifi cleanup
+wifi profile list
+wifi profile status [profile]
+wifi autoconnect status
+wifi autoconnect enable [profile]
+wifi autoconnect disable
+wifi autoconnect once [profile]
 wifi config status
 wifi config prepare [profile]
 ```
@@ -90,6 +96,33 @@ existing Wi-Fi config module.
 - `prepare` is explicit and writes only runtime config under `/cache/a90-wifi/`.
 - Public git must never contain raw PSK, generated supplicant config, DHCP
   leases, or connect artifacts.
+
+## `wifi profile ...`
+
+`wifi profile list` and `wifi profile status [profile]` expose only redacted
+profile inventory:
+
+- profile name, enabled state, band, priority, key management;
+- config/secret presence and mode booleans;
+- no raw SSID, PSK, BSSID, MAC, DHCP lease, or generated supplicant config.
+
+Profile files are staged by the host-side helper
+`workspace/public/src/scripts/revalidation/a90_wifi_profile_stage.py`. Native
+commands intentionally do not accept raw PSK argv.
+
+## `wifi autoconnect ...`
+
+`wifi autoconnect status|enable|disable|once` controls explicit profile-backed
+autoconnect:
+
+- `status` is read-only.
+- `enable [profile]` validates the profile and writes `autoconnect=1`.
+- `disable` writes `autoconnect=0` and does not tear down an active link.
+- `once [profile]` runs the same bounded connect/DHCP sequence on demand.
+
+Boot autoconnect is disabled by default and is started in the background only
+when staged config says `autoconnect=1`. Boot autoconnect never runs external
+ping.
 
 ## `wifi connect [profile]`
 

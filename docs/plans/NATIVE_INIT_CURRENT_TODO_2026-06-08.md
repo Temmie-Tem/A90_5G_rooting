@@ -135,6 +135,11 @@ Open tasks:
   - profile creation/listing operator commands;
   - no raw PSK or generated supplicant config in public git;
   - explicit boot-autoconnect gate.
+- V2178 profile/autoconnect design is recorded in
+  `docs/plans/NATIVE_INIT_V2178_WIFI_PROFILE_AUTOCONNECT_PLAN_2026-06-09.md`.
+- V2178 profile/autoconnect live validation passed after fixing the pre-scan
+  `wlan0` wait:
+  `docs/reports/NATIVE_INIT_V2178_WIFI_PROFILE_AUTOCONNECT_LIVE_VALIDATION_2026-06-09.md`.
 - Add boot-time or operator-triggered autoconnect option.
 - V2171 supplicant dependency probe completed:
   `supplicant-dependency-standalone-only-ctrl-ready`. Native `wifi connect`
@@ -404,8 +409,10 @@ Exit criteria:
 
 ## Suggested Next Sequence
 
-1. Design profile persistence and explicit boot-autoconnect controls.
-2. Add the remaining Wi-Fi UI/status fields.
-3. Decide whether to promote V2176 or a newer boot/init baseline.
+1. Review and commit the V2178 profile/autoconnect implementation plus live
+   validation report.
+2. Decide whether V2178 becomes the next promoted Wi-Fi baseline, or whether
+   log/profile-list polish should land first.
+3. Add the remaining Wi-Fi UI/status fields.
 4. Run longer-duration Wi-Fi soak only if the promotion decision needs it.
 5. Continue lower-priority tmp/archive cleanup separately.
