@@ -138,6 +138,33 @@ Completed first units:
     `8e3e16f68d019ef5f56d2246ddcc7dbf14aa5ae08b40a0b983688812d792f839`;
   - verified `statushud`, `screenmenu`, `watchhud`, rollback to V2178, and final
     selftest `fail=0`.
+- Network UI P0/P1 source work is in place:
+  - `NETWORK > WIFI STATUS` renders the read-only `wifi status` state surface;
+  - `NETWORK > WIFI PROFILES` renders redacted profile/autoconnect inventory;
+  - `NETWORK > WIFI SCAN` runs one bounded foreground nl80211 scan and keeps
+    SSID/frequency/RSSI/security on screen only;
+  - no profile connect, DHCP, route/DNS, credentials display, or external ping
+    is initiated from these screens.
+- `v2184-network-ui-p0-p1` live smoke validation passed:
+  - flashed `workspace/private/inputs/boot_images/boot_linux_v2184_network_ui_p0_p1.img`;
+  - verified boot partition prefix SHA matched local image SHA
+    `d4d274a4e2b5b27a8136d45d4f176ed6b4adc1a3eb1c0195fa1361f0005d83f5`;
+  - verified device-visible version
+    `A90 Linux init 0.9.256 (v2184-network-ui-p0-p1)`;
+  - verified `status`, `selftest fail=0`, `wifi status`, `wifi profile list`,
+    bounded `wifi scan 1500`, and `screenmenu`;
+  - report:
+    `docs/reports/NATIVE_INIT_V2184_NETWORK_UI_P0_P1_LIVE_VALIDATION_2026-06-09.md`.
+- `v2184-network-ui-p0-p1` manual private 5 GHz profile connect validation passed:
+  - ran `wifi cleanup`, private-profile `wifi connect`, private-profile
+    `wifi dhcp`, `wifi status`, and `selftest`;
+  - reached `wifi-connect-carrier-up` and `wifi-dhcp-pass`;
+  - acquired a private IPv4 address, redacted in public docs, with
+    `operstate=up` and `carrier=1`;
+  - preserved `credentials_logged=0` and `secret_values_logged=0`;
+  - no external ping was run;
+  - report:
+    `docs/reports/NATIVE_INIT_V2184_WIFI_MANUAL_CONNECT_2026-06-09.md`.
 - `v2172-wifi-status-scan` live validation passed:
   - corrected the test boot to reuse verified V726 private-property snapshot;
   - flashed test boot;
@@ -168,6 +195,10 @@ Open tasks:
 
 - Keep V2178 as the profile/autoconnect baseline and V2174 as immediate
   rollback until a newer boot image is intentionally promoted.
+- Treat V2178 as the verified rollback image until V2184 is promoted or the
+  original V2182 private boot image is restored externally; the local private
+  `boot_linux_v2182_hud_menu_cleanup.img` was regenerated during V2184 work and
+  no longer matches the V2183 promotion SHA.
 - Keep private Wi-Fi profile/secret files out of public git; use
   `workspace/public/src/scripts/revalidation/a90_wifi_profile_stage.py` for
   staging and keep raw SSID/PSK under ignored private roots.
@@ -176,7 +207,9 @@ Open tasks:
   - status runners must poll `autoconnect.decision=wifi-autoconnect-running`
     until a terminal result.
 - Continue UI polish beyond the P3 minimum:
-  - optional redacted SSID display mode;
+  - inspect P0/P1 network menu screens physically or add a framebuffer capture
+    helper for automated visual validation;
+  - optional redacted SSID display mode toggle for scan results;
   - RSSI/link quality when available from supplicant status;
   - clearer disabled/running/pass/fail labels on the HUD.
 - Keep secondary interface noise out of the main gate:

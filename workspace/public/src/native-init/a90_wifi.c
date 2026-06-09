@@ -1052,119 +1052,119 @@ static void wifi_runtime_value(const char *key, char *out, size_t out_size) {
     wifi_key_value_file_value(A90_WIFI_RUNTIME_SUMMARY, key, out, out_size);
 }
 
-int a90_wifi_print_status(void) {
+int a90_wifi_status_snapshot(struct a90_wifi_status_snapshot *out) {
     char iface_path[128];
-    char address[80];
-    char operstate[80];
-    char carrier[32];
-    char flags[32];
-    char rx_bytes[64];
-    char tx_bytes[64];
-    char ipv4[64];
     char kind[32];
-    char runtime_wlan0[32];
-    char runtime_mac[80];
-    char runtime_ip[80];
-    char runtime_ssid_label[96];
-    char runtime_rssi[32];
-    char runtime_linkspeed[32];
-    char runtime_decision[80];
-    char autoconnect_profile[96];
-    char autoconnect_decision[96];
-    char autoconnect_final_rc[32];
-    char autoconnect_carrier_up[32];
-    char autoconnect_nameserver_count[32];
-    int supplicant_process_count;
-    int ipv4_rc;
-    bool wlan0_present;
 
+    if (out == NULL) {
+        return -EINVAL;
+    }
+    memset(out, 0, sizeof(*out));
+    snprintf(out->iface, sizeof(out->iface), "%s", A90_WIFI_IFACE);
     snprintf(iface_path, sizeof(iface_path), "/sys/class/net/%s", A90_WIFI_IFACE);
-    wlan0_present = access(iface_path, F_OK) == 0;
-    wifi_read_attr(iface_path, "address", address, sizeof(address));
-    wifi_read_attr(iface_path, "operstate", operstate, sizeof(operstate));
-    wifi_read_attr(iface_path, "carrier", carrier, sizeof(carrier));
-    wifi_read_attr(iface_path, "flags", flags, sizeof(flags));
-    wifi_read_attr(iface_path, "statistics/rx_bytes", rx_bytes, sizeof(rx_bytes));
-    wifi_read_attr(iface_path, "statistics/tx_bytes", tx_bytes, sizeof(tx_bytes));
-    ipv4_rc = wifi_ipv4_addr(A90_WIFI_IFACE, ipv4, sizeof(ipv4));
-    supplicant_process_count = wifi_count_processes_with_token("wpa_supplicant");
-    wifi_runtime_value("wlan0_present=", runtime_wlan0, sizeof(runtime_wlan0));
-    wifi_runtime_value("mac=", runtime_mac, sizeof(runtime_mac));
-    wifi_runtime_value("ipv4=", runtime_ip, sizeof(runtime_ip));
-    wifi_runtime_value("ssid_label=", runtime_ssid_label, sizeof(runtime_ssid_label));
-    wifi_runtime_value("rssi_dbm=", runtime_rssi, sizeof(runtime_rssi));
-    wifi_runtime_value("linkspeed_mbps=", runtime_linkspeed, sizeof(runtime_linkspeed));
-    wifi_runtime_value("decision=", runtime_decision, sizeof(runtime_decision));
+    out->wlan0_present = access(iface_path, F_OK) == 0;
+    wifi_read_attr(iface_path, "address", out->mac, sizeof(out->mac));
+    wifi_read_attr(iface_path, "operstate", out->operstate, sizeof(out->operstate));
+    wifi_read_attr(iface_path, "carrier", out->carrier, sizeof(out->carrier));
+    wifi_read_attr(iface_path, "flags", out->flags, sizeof(out->flags));
+    wifi_read_attr(iface_path, "statistics/rx_bytes", out->rx_bytes, sizeof(out->rx_bytes));
+    wifi_read_attr(iface_path, "statistics/tx_bytes", out->tx_bytes, sizeof(out->tx_bytes));
+    out->ipv4_rc = wifi_ipv4_addr(A90_WIFI_IFACE, out->ipv4, sizeof(out->ipv4));
+    if (out->ipv4_rc < 0) {
+        snprintf(out->ipv4, sizeof(out->ipv4), "%s", "-");
+    }
+    out->supplicant_process_count = wifi_count_processes_with_token("wpa_supplicant");
+    wifi_runtime_value("wlan0_present=", out->runtime_wlan0, sizeof(out->runtime_wlan0));
+    wifi_runtime_value("mac=", out->runtime_mac, sizeof(out->runtime_mac));
+    wifi_runtime_value("ipv4=", out->runtime_ip, sizeof(out->runtime_ip));
+    wifi_runtime_value("ssid_label=", out->runtime_ssid_label, sizeof(out->runtime_ssid_label));
+    wifi_runtime_value("rssi_dbm=", out->runtime_rssi, sizeof(out->runtime_rssi));
+    wifi_runtime_value("linkspeed_mbps=", out->runtime_linkspeed, sizeof(out->runtime_linkspeed));
+    wifi_runtime_value("decision=", out->runtime_decision, sizeof(out->runtime_decision));
     wifi_key_value_file_value(A90_WIFI_AUTOCONNECT_RESULT,
                               "profile=",
-                              autoconnect_profile,
-                              sizeof(autoconnect_profile));
+                              out->autoconnect_profile,
+                              sizeof(out->autoconnect_profile));
     wifi_key_value_file_value(A90_WIFI_AUTOCONNECT_RESULT,
                               "decision=",
-                              autoconnect_decision,
-                              sizeof(autoconnect_decision));
+                              out->autoconnect_decision,
+                              sizeof(out->autoconnect_decision));
     wifi_key_value_file_value(A90_WIFI_AUTOCONNECT_RESULT,
                               "final_rc=",
-                              autoconnect_final_rc,
-                              sizeof(autoconnect_final_rc));
+                              out->autoconnect_final_rc,
+                              sizeof(out->autoconnect_final_rc));
     wifi_key_value_file_value(A90_WIFI_AUTOCONNECT_RESULT,
                               "carrier_up=",
-                              autoconnect_carrier_up,
-                              sizeof(autoconnect_carrier_up));
+                              out->autoconnect_carrier_up,
+                              sizeof(out->autoconnect_carrier_up));
     wifi_key_value_file_value(A90_WIFI_AUTOCONNECT_RESULT,
                               "nameserver_count=",
-                              autoconnect_nameserver_count,
-                              sizeof(autoconnect_nameserver_count));
+                              out->autoconnect_nameserver_count,
+                              sizeof(out->autoconnect_nameserver_count));
+    out->runtime_summary_present = access(A90_WIFI_RUNTIME_SUMMARY, R_OK) == 0;
+    out->runtime_input_present = access(A90_WIFI_RUNTIME_INPUT, R_OK) == 0;
+    out->autoconnect_result_present = access(A90_WIFI_AUTOCONNECT_RESULT, R_OK) == 0;
+    out->supplicant_executable = access(A90_WIFI_STANDALONE_SUPPLICANT, X_OK) == 0;
+    snprintf(kind, sizeof(kind), "%s", "missing");
+    (void)wifi_path_kind(A90_WIFI_CTRL_SOCKET, false, kind, sizeof(kind));
+    snprintf(out->ctrl_socket_kind, sizeof(out->ctrl_socket_kind), "%s", kind);
+    return 0;
+}
+
+int a90_wifi_print_status(void) {
+    char kind[32];
+    struct a90_wifi_status_snapshot status;
+
+    (void)a90_wifi_status_snapshot(&status);
 
     a90_console_printf("[wifi status]\r\n");
     a90_console_printf("version=%s\r\n", A90_WIFI_SCAN_VERSION);
-    a90_console_printf("iface=%s\r\n", A90_WIFI_IFACE);
-    a90_console_printf("wlan0_present=%d\r\n", wlan0_present ? 1 : 0);
-    a90_console_printf("mac=%s\r\n", address);
-    a90_console_printf("operstate=%s\r\n", operstate);
-    a90_console_printf("carrier=%s\r\n", carrier);
-    a90_console_printf("flags=%s\r\n", flags);
-    a90_console_printf("rx_bytes=%s\r\n", rx_bytes);
-    a90_console_printf("tx_bytes=%s\r\n", tx_bytes);
-    a90_console_printf("ipv4=%s\r\n", ipv4_rc == 0 ? ipv4 : "-");
-    a90_console_printf("ipv4_rc=%d\r\n", ipv4_rc);
+    a90_console_printf("iface=%s\r\n", status.iface);
+    a90_console_printf("wlan0_present=%d\r\n", status.wlan0_present ? 1 : 0);
+    a90_console_printf("mac=%s\r\n", status.mac);
+    a90_console_printf("operstate=%s\r\n", status.operstate);
+    a90_console_printf("carrier=%s\r\n", status.carrier);
+    a90_console_printf("flags=%s\r\n", status.flags);
+    a90_console_printf("rx_bytes=%s\r\n", status.rx_bytes);
+    a90_console_printf("tx_bytes=%s\r\n", status.tx_bytes);
+    a90_console_printf("ipv4=%s\r\n", status.ipv4);
+    a90_console_printf("ipv4_rc=%d\r\n", status.ipv4_rc);
     a90_console_printf("runtime_summary.path=%s\r\n", A90_WIFI_RUNTIME_SUMMARY);
-    a90_console_printf("runtime_summary.present=%d\r\n", access(A90_WIFI_RUNTIME_SUMMARY, R_OK) == 0 ? 1 : 0);
+    a90_console_printf("runtime_summary.present=%d\r\n", status.runtime_summary_present ? 1 : 0);
     a90_console_printf("runtime_input.path=%s\r\n", A90_WIFI_RUNTIME_INPUT);
-    a90_console_printf("runtime_input.present=%d\r\n", access(A90_WIFI_RUNTIME_INPUT, R_OK) == 0 ? 1 : 0);
-    a90_console_printf("runtime.wlan0_present=%s\r\n", runtime_wlan0);
-    a90_console_printf("runtime.mac=%s\r\n", runtime_mac);
-    a90_console_printf("runtime.ipv4=%s\r\n", runtime_ip);
-    a90_console_printf("runtime.ssid_label=%s\r\n", runtime_ssid_label);
-    a90_console_printf("runtime.rssi_dbm=%s\r\n", runtime_rssi);
-    a90_console_printf("runtime.linkspeed_mbps=%s\r\n", runtime_linkspeed);
-    a90_console_printf("runtime.decision=%s\r\n", runtime_decision);
+    a90_console_printf("runtime_input.present=%d\r\n", status.runtime_input_present ? 1 : 0);
+    a90_console_printf("runtime.wlan0_present=%s\r\n", status.runtime_wlan0);
+    a90_console_printf("runtime.mac=%s\r\n", status.runtime_mac);
+    a90_console_printf("runtime.ipv4=%s\r\n", status.runtime_ip);
+    a90_console_printf("runtime.ssid_label=%s\r\n", status.runtime_ssid_label);
+    a90_console_printf("runtime.rssi_dbm=%s\r\n", status.runtime_rssi);
+    a90_console_printf("runtime.linkspeed_mbps=%s\r\n", status.runtime_linkspeed);
+    a90_console_printf("runtime.decision=%s\r\n", status.runtime_decision);
     a90_console_printf("autoconnect_result.path=%s\r\n", A90_WIFI_AUTOCONNECT_RESULT);
-    a90_console_printf("autoconnect_result.present=%d\r\n",
-                       access(A90_WIFI_AUTOCONNECT_RESULT, R_OK) == 0 ? 1 : 0);
-    a90_console_printf("autoconnect.profile=%s\r\n", autoconnect_profile);
-    a90_console_printf("autoconnect.decision=%s\r\n", autoconnect_decision);
-    a90_console_printf("autoconnect.final_rc=%s\r\n", autoconnect_final_rc);
-    a90_console_printf("autoconnect.carrier_up=%s\r\n", autoconnect_carrier_up);
-    a90_console_printf("autoconnect.nameserver_count=%s\r\n", autoconnect_nameserver_count);
+    a90_console_printf("autoconnect_result.present=%d\r\n", status.autoconnect_result_present ? 1 : 0);
+    a90_console_printf("autoconnect.profile=%s\r\n", status.autoconnect_profile);
+    a90_console_printf("autoconnect.decision=%s\r\n", status.autoconnect_decision);
+    a90_console_printf("autoconnect.final_rc=%s\r\n", status.autoconnect_final_rc);
+    a90_console_printf("autoconnect.carrier_up=%s\r\n", status.autoconnect_carrier_up);
+    a90_console_printf("autoconnect.nameserver_count=%s\r\n", status.autoconnect_nameserver_count);
     a90_console_printf("supplicant.provider=standalone\r\n");
     a90_console_printf("supplicant.path=%s\r\n", A90_WIFI_STANDALONE_SUPPLICANT);
     a90_console_printf("supplicant.kind=%s\r\n",
                        wifi_path_kind(A90_WIFI_STANDALONE_SUPPLICANT, false, kind, sizeof(kind)) == 0 ? kind : kind);
-    a90_console_printf("supplicant.executable=%d\r\n", access(A90_WIFI_STANDALONE_SUPPLICANT, X_OK) == 0 ? 1 : 0);
-    a90_console_printf("supplicant.process_count=%d\r\n", supplicant_process_count);
+    a90_console_printf("supplicant.executable=%d\r\n", status.supplicant_executable ? 1 : 0);
+    a90_console_printf("supplicant.process_count=%d\r\n", status.supplicant_process_count);
     a90_console_printf("ctrl_socket.path=%s\r\n", A90_WIFI_CTRL_SOCKET);
-    a90_console_printf("ctrl_socket.kind=%s\r\n",
-                       wifi_path_kind(A90_WIFI_CTRL_SOCKET, false, kind, sizeof(kind)) == 0 ? kind : kind);
+    a90_console_printf("ctrl_socket.kind=%s\r\n", status.ctrl_socket_kind);
     a90_console_printf("supplicant_config.path=%s\r\n", A90_WIFICFG_SUPPLICANT_CONF);
     a90_console_printf("supplicant_config.present=%d\r\n", access(A90_WIFICFG_SUPPLICANT_CONF, R_OK) == 0 ? 1 : 0);
     a90_console_printf("secret_values_logged=0\r\n");
-    a90_console_printf("decision=%s\r\n", wlan0_present ? "wifi-status-wlan0-present" : "wifi-status-wlan0-missing");
+    a90_console_printf("decision=%s\r\n",
+                       status.wlan0_present ? "wifi-status-wlan0-present" : "wifi-status-wlan0-missing");
     a90_logf("wifi", "status wlan0=%d operstate=%s carrier=%s supplicant_count=%d",
-             wlan0_present ? 1 : 0,
-             operstate,
-             carrier,
-             supplicant_process_count);
+             status.wlan0_present ? 1 : 0,
+             status.operstate,
+             status.carrier,
+             status.supplicant_process_count);
     return 0;
 }
 
@@ -1422,12 +1422,171 @@ static int wifi_trigger_scan(int socket_fd, int family_id, uint32_t ifindex) {
     return wifi_recv_ack(socket_fd, seq);
 }
 
-static int wifi_dump_scan_count(int socket_fd, int family_id, uint32_t ifindex, int *scan_count) {
+static int wifi_attr_payload_len(const struct nlattr *attr) {
+    if (attr == NULL || attr->nla_len < NLA_HDRLEN) {
+        return 0;
+    }
+    return (int)attr->nla_len - NLA_HDRLEN;
+}
+
+static bool wifi_ie_is_hidden_ssid(const unsigned char *ssid, size_t ssid_len) {
+    size_t index;
+
+    if (ssid_len == 0) {
+        return true;
+    }
+    for (index = 0; index < ssid_len; ++index) {
+        if (ssid[index] != 0) {
+            return false;
+        }
+    }
+    return true;
+}
+
+static void wifi_scan_copy_ssid(const unsigned char *ssid,
+                                size_t ssid_len,
+                                char *out,
+                                size_t out_size,
+                                bool *hidden_out) {
+    size_t index;
+    size_t limit;
+    bool hidden = wifi_ie_is_hidden_ssid(ssid, ssid_len);
+
+    if (out == NULL || out_size == 0) {
+        return;
+    }
+    if (hidden) {
+        snprintf(out, out_size, "%s", "<hidden>");
+        if (hidden_out != NULL) {
+            *hidden_out = true;
+        }
+        return;
+    }
+    limit = ssid_len;
+    if (limit > out_size - 1) {
+        limit = out_size - 1;
+    }
+    for (index = 0; index < limit; ++index) {
+        unsigned char value = ssid[index];
+
+        out[index] = value >= 32 && value < 127 ? (char)value : '?';
+    }
+    out[limit] = '\0';
+    if (hidden_out != NULL) {
+        *hidden_out = false;
+    }
+}
+
+static void wifi_scan_parse_ies(const unsigned char *ies,
+                                size_t ies_len,
+                                struct a90_wifi_scan_result *result,
+                                bool privacy_capable) {
+    bool has_rsn = false;
+    bool has_wpa = false;
+    size_t offset = 0;
+
+    while (offset + 2 <= ies_len) {
+        unsigned char element_id = ies[offset];
+        unsigned char element_len = ies[offset + 1];
+        const unsigned char *payload = ies + offset + 2;
+
+        if (offset + 2 + (size_t)element_len > ies_len) {
+            break;
+        }
+        if (element_id == 0) {
+            result->ssid_present = true;
+            wifi_scan_copy_ssid(payload,
+                                element_len,
+                                result->ssid,
+                                sizeof(result->ssid),
+                                &result->hidden);
+        } else if (element_id == 48) {
+            has_rsn = true;
+        } else if (element_id == 221 &&
+                   element_len >= 4 &&
+                   payload[0] == 0x00 &&
+                   payload[1] == 0x50 &&
+                   payload[2] == 0xf2 &&
+                   payload[3] == 0x01) {
+            has_wpa = true;
+        }
+        offset += 2 + (size_t)element_len;
+    }
+
+    if (has_rsn) {
+        snprintf(result->security, sizeof(result->security), "%s", "WPA2/RSN");
+    } else if (has_wpa) {
+        snprintf(result->security, sizeof(result->security), "%s", "WPA");
+    } else if (privacy_capable) {
+        snprintf(result->security, sizeof(result->security), "%s", "PRIVACY");
+    } else {
+        snprintf(result->security, sizeof(result->security), "%s", "OPEN");
+    }
+    if (!result->ssid_present) {
+        snprintf(result->ssid, sizeof(result->ssid), "%s", "<unknown>");
+    }
+}
+
+static void wifi_scan_parse_bss(struct nlattr *bss_attr,
+                                struct a90_wifi_scan_result *result) {
+    struct nlattr *bss_attrs[NL80211_BSS_MAX + 1];
+    int bss_len;
+    bool privacy_capable = false;
+
+    memset(result, 0, sizeof(*result));
+    result->freq_mhz = 0;
+    result->signal_dbm = 0;
+    snprintf(result->ssid, sizeof(result->ssid), "%s", "<unknown>");
+    snprintf(result->security, sizeof(result->security), "%s", "UNKNOWN");
+
+    if (bss_attr == NULL) {
+        return;
+    }
+    bss_len = wifi_attr_payload_len(bss_attr);
+    wifi_parse_attrs(bss_attrs,
+                     NL80211_BSS_MAX,
+                     (struct nlattr *)wifi_nla_data(bss_attr),
+                     bss_len);
+    if (bss_attrs[NL80211_BSS_FREQUENCY] != NULL &&
+        wifi_attr_payload_len(bss_attrs[NL80211_BSS_FREQUENCY]) >= (int)sizeof(uint32_t)) {
+        result->freq_mhz = (int)*(uint32_t *)wifi_nla_data(bss_attrs[NL80211_BSS_FREQUENCY]);
+    }
+    if (bss_attrs[NL80211_BSS_SIGNAL_MBM] != NULL &&
+        wifi_attr_payload_len(bss_attrs[NL80211_BSS_SIGNAL_MBM]) >= (int)sizeof(int32_t)) {
+        int32_t signal_mbm = *(int32_t *)wifi_nla_data(bss_attrs[NL80211_BSS_SIGNAL_MBM]);
+
+        result->signal_dbm = signal_mbm / 100;
+        result->signal_valid = true;
+    }
+    if (bss_attrs[NL80211_BSS_CAPABILITY] != NULL &&
+        wifi_attr_payload_len(bss_attrs[NL80211_BSS_CAPABILITY]) >= (int)sizeof(uint16_t)) {
+        uint16_t capability = *(uint16_t *)wifi_nla_data(bss_attrs[NL80211_BSS_CAPABILITY]);
+
+        privacy_capable = (capability & 0x0010U) != 0;
+    }
+    if (bss_attrs[NL80211_BSS_INFORMATION_ELEMENTS] != NULL) {
+        wifi_scan_parse_ies((const unsigned char *)wifi_nla_data(
+                                bss_attrs[NL80211_BSS_INFORMATION_ELEMENTS]),
+                            (size_t)wifi_attr_payload_len(
+                                bss_attrs[NL80211_BSS_INFORMATION_ELEMENTS]),
+                            result,
+                            privacy_capable);
+    } else {
+        snprintf(result->security, sizeof(result->security),
+                 "%s", privacy_capable ? "PRIVACY" : "OPEN");
+    }
+}
+
+static int wifi_dump_scan_results(int socket_fd,
+                                  int family_id,
+                                  uint32_t ifindex,
+                                  struct a90_wifi_scan_snapshot *snapshot) {
     char buffer[A90_WIFI_SCAN_RECV_SIZE];
-    const uint32_t seq = 3;
+    const uint32_t seq = 4;
     bool done = false;
 
-    *scan_count = 0;
+    snapshot->scan_result_count = 0;
+    snapshot->stored_count = 0;
     if (wifi_send_genl(socket_fd,
                        (uint16_t)family_id,
                        NL80211_CMD_GET_SCAN,
@@ -1481,7 +1640,14 @@ static int wifi_dump_scan_count(int socket_fd, int family_id, uint32_t ifindex, 
                              (struct nlattr *)((char *)genlh + GENL_HDRLEN),
                              attr_len);
             if (attrs[NL80211_ATTR_BSS] != NULL) {
-                ++(*scan_count);
+                int stored_index = snapshot->stored_count;
+
+                ++snapshot->scan_result_count;
+                if (stored_index < A90_WIFI_UI_MAX_SCAN_RESULTS) {
+                    wifi_scan_parse_bss(attrs[NL80211_ATTR_BSS],
+                                        &snapshot->results[stored_index]);
+                    snapshot->stored_count++;
+                }
             }
         }
     }
@@ -1518,20 +1684,96 @@ static int wifi_link_set_up(const char *ifname, int *saved_errno) {
     return (flags & IFF_UP) != 0 ? 1 : 0;
 }
 
-int a90_wifi_scan_once(int delay_ms) {
+int a90_wifi_scan_collect(int delay_ms, struct a90_wifi_scan_snapshot *out) {
     unsigned int ifindex;
     int socket_fd;
     int family_id;
-    int scan_count = 0;
-    int saved_errno = 0;
-    int link_up_rc;
 
+    if (out == NULL) {
+        return -EINVAL;
+    }
+    memset(out, 0, sizeof(*out));
     if (delay_ms < 0) {
         delay_ms = 0;
     }
     if (delay_ms > 30000) {
         delay_ms = 30000;
     }
+    out->delay_ms = delay_ms;
+    out->family_id = -1;
+    out->trigger_rc = -1;
+    snprintf(out->decision, sizeof(out->decision), "%s", "wifi-scan-not-run");
+
+    out->link_up_rc = wifi_link_set_up(A90_WIFI_IFACE, &out->link_up_errno);
+    if (out->link_up_rc < 0) {
+        out->saved_errno = out->link_up_errno;
+        out->rc = -out->saved_errno;
+        snprintf(out->decision, sizeof(out->decision), "%s", "wifi-scan-link-up-failed");
+        return out->rc;
+    }
+
+    ifindex = if_nametoindex(A90_WIFI_IFACE);
+    if (ifindex == 0) {
+        out->saved_errno = errno;
+        out->rc = -out->saved_errno;
+        snprintf(out->decision, sizeof(out->decision), "%s", "wifi-scan-interface-missing");
+        return out->rc;
+    }
+    out->ifindex = ifindex;
+
+    socket_fd = wifi_open_genl_socket();
+    if (socket_fd < 0) {
+        out->saved_errno = errno;
+        out->rc = -out->saved_errno;
+        snprintf(out->decision, sizeof(out->decision), "%s", "wifi-scan-nl80211-unavailable");
+        return out->rc;
+    }
+    out->netlink_open = 1;
+
+    family_id = wifi_get_family_id(socket_fd, "nl80211");
+    if (family_id < 0) {
+        out->saved_errno = errno;
+        close(socket_fd);
+        out->rc = -out->saved_errno;
+        snprintf(out->decision, sizeof(out->decision), "%s", "wifi-scan-family-missing");
+        return out->rc;
+    }
+    out->family_id = family_id;
+
+    if (wifi_trigger_scan(socket_fd, family_id, ifindex) < 0) {
+        out->trigger_errno = errno;
+        if (out->trigger_errno != EBUSY) {
+            out->saved_errno = out->trigger_errno;
+            close(socket_fd);
+            out->rc = -out->saved_errno;
+            snprintf(out->decision, sizeof(out->decision), "%s", "wifi-scan-trigger-failed");
+            return out->rc;
+        }
+    } else {
+        out->trigger_rc = 0;
+    }
+
+    usleep((useconds_t)delay_ms * 1000U);
+
+    if (wifi_dump_scan_results(socket_fd, family_id, ifindex, out) < 0) {
+        out->saved_errno = errno;
+        close(socket_fd);
+        out->rc = -out->saved_errno;
+        snprintf(out->decision, sizeof(out->decision), "%s", "wifi-scan-dump-failed");
+        return out->rc;
+    }
+    close(socket_fd);
+    out->rc = 0;
+    snprintf(out->decision,
+             sizeof(out->decision),
+             "%s",
+             out->scan_result_count > 0 ? "wifi-scan-pass" : "wifi-scan-zero-bss");
+    return 0;
+}
+
+int a90_wifi_scan_once(int delay_ms) {
+    struct a90_wifi_scan_snapshot snapshot;
+    int rc;
 
     a90_console_printf("[wifi scan]\r\n");
     a90_console_printf("version=%s\r\n", A90_WIFI_SCAN_VERSION);
@@ -1543,76 +1785,56 @@ int a90_wifi_scan_once(int delay_ms) {
     a90_console_printf("raw_results_redacted=1\r\n");
     a90_console_printf("link_up_attempted=1\r\n");
 
-    link_up_rc = wifi_link_set_up(A90_WIFI_IFACE, &saved_errno);
-    a90_console_printf("link_up_rc=%d\r\n", link_up_rc);
-    a90_console_printf("link_up_errno=%d\r\n", saved_errno);
-    if (link_up_rc < 0) {
-        a90_console_printf("decision=wifi-scan-link-up-failed\r\n");
-        return -saved_errno;
+    rc = a90_wifi_scan_collect(delay_ms, &snapshot);
+    a90_console_printf("link_up_rc=%d\r\n", snapshot.link_up_rc);
+    a90_console_printf("link_up_errno=%d\r\n", snapshot.link_up_errno);
+    if (strcmp(snapshot.decision, "wifi-scan-link-up-failed") == 0) {
+        a90_console_printf("decision=%s\r\n", snapshot.decision);
+        return rc;
     }
-
-    ifindex = if_nametoindex(A90_WIFI_IFACE);
-    if (ifindex == 0) {
-        saved_errno = errno;
+    if (snapshot.ifindex == 0) {
         a90_console_printf("ifindex=0\r\n");
-        a90_console_printf("errno=%d\r\n", saved_errno);
-        a90_console_printf("decision=wifi-scan-interface-missing\r\n");
-        return -saved_errno;
-    }
-    a90_console_printf("ifindex=%u\r\n", ifindex);
-
-    socket_fd = wifi_open_genl_socket();
-    if (socket_fd < 0) {
-        saved_errno = errno;
-        a90_console_printf("netlink_open=0\r\n");
-        a90_console_printf("errno=%d\r\n", saved_errno);
-        a90_console_printf("decision=wifi-scan-nl80211-unavailable\r\n");
-        return -saved_errno;
-    }
-    a90_console_printf("netlink_open=1\r\n");
-
-    family_id = wifi_get_family_id(socket_fd, "nl80211");
-    if (family_id < 0) {
-        saved_errno = errno;
-        close(socket_fd);
-        a90_console_printf("family_id=0\r\n");
-        a90_console_printf("errno=%d\r\n", saved_errno);
-        a90_console_printf("decision=wifi-scan-family-missing\r\n");
-        return -saved_errno;
-    }
-    a90_console_printf("family_id=%d\r\n", family_id);
-    a90_console_printf("trigger_attempted=1\r\n");
-
-    if (wifi_trigger_scan(socket_fd, family_id, ifindex) < 0) {
-        saved_errno = errno;
-        a90_console_printf("trigger_rc=-1\r\n");
-        a90_console_printf("trigger_errno=%d\r\n", saved_errno);
-        if (saved_errno != EBUSY) {
-            close(socket_fd);
-            a90_console_printf("decision=wifi-scan-trigger-failed\r\n");
-            return -saved_errno;
+        if (strcmp(snapshot.decision, "wifi-scan-interface-missing") == 0) {
+            a90_console_printf("errno=%d\r\n", snapshot.saved_errno);
+            a90_console_printf("decision=%s\r\n", snapshot.decision);
+            return rc;
         }
-        a90_console_printf("trigger_busy_continue=1\r\n");
     } else {
-        a90_console_printf("trigger_rc=0\r\n");
-        a90_console_printf("trigger_errno=0\r\n");
+        a90_console_printf("ifindex=%u\r\n", snapshot.ifindex);
     }
-    a90_console_printf("delay_ms=%d\r\n", delay_ms);
-    usleep((useconds_t)delay_ms * 1000U);
-
-    if (wifi_dump_scan_count(socket_fd, family_id, ifindex, &scan_count) < 0) {
-        saved_errno = errno;
-        close(socket_fd);
+    a90_console_printf("netlink_open=%d\r\n", snapshot.netlink_open);
+    if (strcmp(snapshot.decision, "wifi-scan-nl80211-unavailable") == 0) {
+        a90_console_printf("errno=%d\r\n", snapshot.saved_errno);
+        a90_console_printf("decision=%s\r\n", snapshot.decision);
+        return rc;
+    }
+    a90_console_printf("family_id=%d\r\n", snapshot.family_id < 0 ? 0 : snapshot.family_id);
+    if (strcmp(snapshot.decision, "wifi-scan-family-missing") == 0) {
+        a90_console_printf("errno=%d\r\n", snapshot.saved_errno);
+        a90_console_printf("decision=%s\r\n", snapshot.decision);
+        return rc;
+    }
+    a90_console_printf("trigger_attempted=1\r\n");
+    a90_console_printf("trigger_rc=%d\r\n", snapshot.trigger_rc);
+    a90_console_printf("trigger_errno=%d\r\n", snapshot.trigger_errno);
+    if (snapshot.trigger_rc < 0 && snapshot.trigger_errno == EBUSY) {
+        a90_console_printf("trigger_busy_continue=1\r\n");
+    }
+    if (strcmp(snapshot.decision, "wifi-scan-trigger-failed") == 0) {
+        a90_console_printf("decision=%s\r\n", snapshot.decision);
+        return rc;
+    }
+    a90_console_printf("delay_ms=%d\r\n", snapshot.delay_ms);
+    if (rc < 0) {
         a90_console_printf("scan_result_count=0\r\n");
-        a90_console_printf("errno=%d\r\n", saved_errno);
-        a90_console_printf("decision=wifi-scan-dump-failed\r\n");
-        return -saved_errno;
+        a90_console_printf("errno=%d\r\n", snapshot.saved_errno);
+        a90_console_printf("decision=%s\r\n", snapshot.decision);
+        return rc;
     }
-    close(socket_fd);
-    a90_console_printf("scan_result_count=%d\r\n", scan_count);
-    a90_console_printf("decision=%s\r\n", scan_count > 0 ? "wifi-scan-pass" : "wifi-scan-zero-bss");
-    a90_logf("wifi", "scan count=%d delay_ms=%d", scan_count, delay_ms);
-    return scan_count > 0 ? 0 : -ENODATA;
+    a90_console_printf("scan_result_count=%d\r\n", snapshot.scan_result_count);
+    a90_console_printf("decision=%s\r\n", snapshot.decision);
+    a90_logf("wifi", "scan count=%d delay_ms=%d", snapshot.scan_result_count, snapshot.delay_ms);
+    return snapshot.scan_result_count > 0 ? 0 : -ENODATA;
 }
 
 static int wifi_connect_profile_with_carrier_timeout(const char *profile_name, int carrier_wait_timeout_ms) {

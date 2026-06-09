@@ -114,6 +114,7 @@ static void auto_hud_enter_app(struct auto_hud_state *state,
                                enum screen_app_id app_id) {
     state->active_app = app_id;
     state->menu_active = false;
+    a90_app_wifi_reset(app_id);
     auto_hud_reset_hold_timer(state);
     auto_hud_update_controller_state(state);
 }
@@ -236,6 +237,12 @@ static void auto_hud_draw_current_screen(struct auto_hud_state *state) {
         a90_app_log_draw_summary();
     } else if (state->active_app == SCREEN_APP_NETWORK) {
         a90_app_network_draw_summary();
+    } else if (state->active_app == SCREEN_APP_WIFI_STATUS) {
+        a90_app_wifi_draw_status();
+    } else if (state->active_app == SCREEN_APP_WIFI_PROFILES) {
+        a90_app_wifi_draw_profiles();
+    } else if (state->active_app == SCREEN_APP_WIFI_SCAN) {
+        a90_app_wifi_draw_scan();
     } else if (state->active_app == SCREEN_APP_INPUT_MONITOR) {
         draw_screen_input_monitor_app();
     } else if (state->active_app == SCREEN_APP_DISPLAY_TEST) {
@@ -406,13 +413,15 @@ static bool auto_hud_handle_menu_key(struct auto_hud_state *state,
             return true;
         }
 
-        if (a90_menu_action_opens_app(item->action, &state->active_app)) {
-            state->about_changelog_index = 0;
-            state->about_page_index = 0;
-            state->menu_active = false;
-            auto_hud_reset_hold_timer(state);
-            auto_hud_update_controller_state(state);
-            return true;
+        {
+            enum screen_app_id opened_app = SCREEN_APP_NONE;
+
+            if (a90_menu_action_opens_app(item->action, &opened_app)) {
+                state->about_changelog_index = 0;
+                state->about_page_index = 0;
+                auto_hud_enter_app(state, opened_app);
+                return true;
+            }
         }
 
         switch (item->action) {

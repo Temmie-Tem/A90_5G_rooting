@@ -49,6 +49,13 @@ Missing `wlan0` is reported as `decision=wifi-status-wlan0-missing` but does not
 make the status command fail. This keeps status usable as a pollable UI and
 automation primitive.
 
+On-device UI:
+
+- `NETWORK > WIFI STATUS` renders the same read-only state surface on screen:
+  `wlan0`, carrier, IPv4, MAC, redacted runtime SSID label, RSSI/link speed
+  when available, autoconnect decision, and private supplicant control state.
+- The screen does not start scan, association, DHCP, routing, DNS, or ping.
+
 ## `wifi scan [delay_ms]`
 
 `wifi scan` is a bounded, credential-free nl80211 scan primitive.
@@ -82,14 +89,25 @@ Expected decision labels:
 | --- | --- |
 | `wifi-scan-pass` | At least one BSS entry was returned. |
 | `wifi-scan-zero-bss` | Scan completed but no BSS entry was returned. |
-| `wifi-scan-iface-missing` | `wlan0` is absent. |
-| `wifi-scan-iface-up-failed` | `SIOCSIFFLAGS` failed. |
-| `wifi-scan-nl80211-open-failed` | Generic netlink socket/family setup failed. |
+| `wifi-scan-interface-missing` | `wlan0` is absent. |
+| `wifi-scan-link-up-failed` | `SIOCSIFFLAGS` failed. |
+| `wifi-scan-nl80211-unavailable` | Generic netlink socket setup failed. |
+| `wifi-scan-family-missing` | The `nl80211` generic-netlink family was unavailable. |
 | `wifi-scan-trigger-failed` | `NL80211_CMD_TRIGGER_SCAN` failed. |
 | `wifi-scan-dump-failed` | `NL80211_CMD_GET_SCAN` failed. |
 
 `wifi scan` remains blocked while the native-init menu/power-busy gate is
 active. Hide the menu first when deliberately running scan.
+
+On-device UI:
+
+- `NETWORK > WIFI SCAN` runs one bounded nl80211 scan from the foreground app
+  and keeps the result on screen.
+- The scan UI may display SSID/frequency/RSSI/security on the device screen,
+  but it does not write raw BSSID/SSID scan results to serial output, logs, or
+  public artifacts.
+- It keeps the same scope as `wifi scan`: no association, credentials, DHCP,
+  route installation, DNS, or ping.
 
 ## `wifi config ...`
 
@@ -113,6 +131,13 @@ profile inventory:
 Profile files are staged by the host-side helper
 `workspace/public/src/scripts/revalidation/a90_wifi_profile_stage.py`. Native
 commands intentionally do not accept raw PSK argv.
+
+On-device UI:
+
+- `NETWORK > WIFI PROFILES` renders profile name, enabled state, band, priority,
+  and readiness decision only.
+- It does not display raw SSID, PSK, generated supplicant config, BSSID, DHCP
+  lease data, or external connectivity results.
 
 ## `wifi autoconnect ...`
 

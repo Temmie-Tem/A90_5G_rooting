@@ -1364,6 +1364,44 @@ static bool wificfg_secret_usable_silent(const char *path, bool configured) {
     return info.exists && info.is_regular && !info.is_symlink && info.mode_owner_only;
 }
 
+static void wificfg_collect_profile_entry(const char *source,
+                                          const char *profile_name,
+                                          struct a90_wificfg_profile_summary *out) {
+    struct wificfg_profile_config profile;
+    char profile_path[WIFICFG_MAX_PATH] = "";
+    bool ssid_usable = false;
+    bool psk_usable = false;
+    int profile_rc;
+    const char *decision;
+
+    memset(out, 0, sizeof(*out));
+    if (!wificfg_copy_value(out->name, sizeof(out->name), profile_name)) {
+        snprintf(out->name, sizeof(out->name), "%s", "invalid");
+    }
+    snprintf(out->source_hint, sizeof(out->source_hint), "%s", source);
+    profile_rc = wificfg_load_profile_by_name(profile_name,
+                                              &profile,
+                                              profile_path,
+                                              sizeof(profile_path));
+    ssid_usable = wificfg_secret_usable_silent(profile.ssid_file, profile.ssid_file_set);
+    psk_usable = wificfg_secret_usable_silent(profile.psk_file, profile.psk_file_set);
+    decision = wificfg_profile_decision(&profile, profile_rc, ssid_usable, psk_usable);
+
+    out->exists = profile.exists;
+    out->parsed = profile.parsed;
+    out->ssid_file_configured = profile.ssid_file_set;
+    out->psk_file_configured = profile.psk_file_set;
+    out->ssid_usable = ssid_usable;
+    out->psk_usable = psk_usable;
+    out->load_rc = profile_rc;
+    out->enabled = profile.enabled;
+    out->priority = profile.priority;
+    snprintf(out->source, sizeof(out->source), "%s", wificfg_profile_source_name(&profile));
+    snprintf(out->band, sizeof(out->band), "%s", profile.band);
+    snprintf(out->key_mgmt, sizeof(out->key_mgmt), "%s", profile.key_mgmt);
+    snprintf(out->decision, sizeof(out->decision), "%s", decision);
+}
+
 static void wificfg_print_profile_entry(const char *source,
                                         const char *profile_name,
                                         int *index_inout) {
@@ -1399,6 +1437,82 @@ static void wificfg_print_profile_entry(const char *source,
                        *index_inout,
                        profile.psk_file_set ? 1 : 0);
     (*index_inout)++;
+}
+
+static bool wificfg_profile_list_record_seen(char seen_names[][WIFICFG_MAX_VALUE],
+                                             int *seen_count,
+                                             int *duplicate_count,
+                                             int *overflow_count,
+                                             const char *profile_name);
+
+static void wificfg_collect_profile_dir(const char *source,
+                                        const char *dir_path,
+                                        struct a90_wificfg_profile_list *out,
+                                        char seen_names[][WIFICFG_MAX_VALUE],
+                                        int *seen_count) {
+    DIR *dir;
+    struct dirent *entry;
+
+    dir = opendir(dir_path);
+    if (dir == NULL) {
+        return;
+    }
+    while ((entry = readdir(dir)) != NULL) {
+        size_t len = strlen(entry->d_name);
+        char profile_name[WIFICFG_MAX_VALUE];
+        bool recorded;
+
+        if (len <= 5 || strcmp(entry->d_name + len - 5, ".conf") != 0) {
+            continue;
+        }
+        if (len - 5 >= sizeof(profile_name)) {
+            continue;
+        }
+        memcpy(profile_name, entry->d_name, len - 5);
+        profile_name[len - 5] = '\0';
+        if (!wificfg_profile_name_valid(profile_name)) {
+            continue;
+        }
+        recorded = wificfg_profile_list_record_seen(seen_names,
+                                                    seen_count,
+                                                    &out->duplicate_count,
+                                                    &out->overflow_count,
+                                                    profile_name);
+        if (!recorded) {
+            continue;
+        }
+        if (out->stored_count < A90_WIFICFG_UI_MAX_PROFILES) {
+            wificfg_collect_profile_entry(source,
+                                          profile_name,
+                                          &out->profiles[out->stored_count]);
+            out->stored_count++;
+        }
+        out->profile_count++;
+    }
+    closedir(dir);
+}
+
+int a90_wificfg_collect_profile_list(struct a90_wificfg_profile_list *out) {
+    char seen_names[WIFICFG_PROFILE_LIST_MAX][WIFICFG_MAX_VALUE];
+    int seen_count = 0;
+
+    if (out == NULL) {
+        return -EINVAL;
+    }
+    memset(out, 0, sizeof(*out));
+    memset(seen_names, 0, sizeof(seen_names));
+    (void)a90_wificfg_get_autoconnect(&out->autoconnect, NULL);
+    wificfg_collect_profile_dir("primary",
+                                WIFICFG_PRIMARY_PROFILES,
+                                out,
+                                seen_names,
+                                &seen_count);
+    wificfg_collect_profile_dir("cache",
+                                WIFICFG_CACHE_PROFILES,
+                                out,
+                                seen_names,
+                                &seen_count);
+    return 0;
 }
 
 static bool wificfg_profile_list_record_seen(char seen_names[][WIFICFG_MAX_VALUE],
