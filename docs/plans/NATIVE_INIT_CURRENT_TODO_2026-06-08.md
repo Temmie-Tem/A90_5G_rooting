@@ -165,6 +165,13 @@ Completed first units:
   - no external ping was run;
   - report:
     `docs/reports/NATIVE_INIT_V2184_WIFI_MANUAL_CONNECT_2026-06-09.md`.
+- `v2184-network-ui-p0-p1` phone Wi-Fi data-path validation passed:
+  - used the Termux-compatible A90 phone Wi-Fi lab server;
+  - verified same-LAN phone server HTTP download and raw TCP upload;
+  - completed `512MiB` and `1GiB` bidirectional SHA256 integrity checks;
+  - preserved `wlan0` carrier after transfer and final `selftest fail=0`;
+  - report:
+    `docs/reports/NATIVE_INIT_V2184_PHONE_WIFI_LARGE_TRANSFER_2026-06-10.md`.
 - `v2172-wifi-status-scan` live validation passed:
   - corrected the test boot to reuse verified V726 private-property snapshot;
   - flashed test boot;
@@ -202,6 +209,9 @@ Open tasks:
 - Keep private Wi-Fi profile/secret files out of public git; use
   `workspace/public/src/scripts/revalidation/a90_wifi_profile_stage.py` for
   staging and keep raw SSID/PSK under ignored private roots.
+- Keep phone Wi-Fi transfer raw evidence private; public reports should include
+  sizes, timings, and SHA match state only, not private IPs or raw LAN
+  identifiers.
 - Improve boot-autoconnect latency observability:
   - firmware/helper window dominates and can take roughly three minutes;
   - status runners must poll `autoconnect.decision=wifi-autoconnect-running`
@@ -480,6 +490,8 @@ Exit criteria:
 | --- | --- | --- |
 | Boot autoconnect latency | Wi-Fi success can take roughly three minutes. | Poll `autoconnect.decision` until a terminal result; shared phase timers are live-validated for bounded current-baseline runners, but boot/reboot latency still needs separate timing if retested. |
 | Serial `AT` noise | A single cmdv1 exchange can be malformed. | Shared recovery is implemented for safe commands; V2180 did not naturally fire the path, so live-fired evidence remains opportunistic. |
+| V2184 baseline promotion drift | V2184 has scan, connect, DHCP, and large-transfer evidence, but the documented current baseline is still V2182 until promotion is intentional. | Promote only with a focused baseline report, exact boot SHA, rollback verification, and runbook/TODO update. |
+| Large-transfer soak depth | V2184 passed 512MiB and 1GiB single-run bidirectional SHA checks, but not repeated N-run or multi-hour soak. | Treat as strong data-path evidence; run `cleanup -> reconnect -> 512MiB` or N-run soak only if promotion criteria require it. |
 | UI completeness | Baseline works, but operator-facing status is still sparse. | Add redacted SSID, RSSI/link quality, and clearer state labels. |
 | Script sprawl | Older one-off runners still duplicate transport/artifact logic. | Keep inventory current; migrate one active runner at a time. |
 | Private data leakage | Wi-Fi profiles and raw run artifacts are intentionally private. | Keep secrets under ignored private roots; public reports stay redacted. |
