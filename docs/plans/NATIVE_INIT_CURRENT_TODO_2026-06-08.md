@@ -34,8 +34,8 @@ Status: complete for the current `v2187-screenapp-ui-validation` baseline.
 
 Completed audit:
 
-- Latest focused commit:
-  `abccad6b Promote V2186 Wi-Fi UI polish baseline`.
+- Latest focused committed unit before this TODO cleanup:
+  `53ee87ca Add QA metadata contracts to active runners`.
 - Post-commit workspace audit found no uncommitted tracked changes.
 - `git diff --check` passed on the clean baseline.
 - Generated logs, boot images, firmware, credentials, and raw captures remain out
@@ -60,462 +60,146 @@ Exit criteria:
 
 ## Priority 1: Wi-Fi Lifecycle
 
-Goal: turn "wlan0 can scan/connect" into a repeatable baseline feature.
+Goal: keep the proven `wlan0` lifecycle as repeatable baseline behavior.
 
-Completed first units:
+Status: complete for the current `v2187-screenapp-ui-validation` baseline.
 
-- `wifi config status` exists as a read-only config/secret validator.
-- `wifi config prepare [profile]` exists as an explicit, non-boot supplicant
-  config generator.
-- `wifi status` exists as a read-only native-init status/UI primitive.
-- `wifi scan [delay_ms]` exists as a bounded credential-free nl80211 scan
-  primitive.
-- `wifi connect [profile]` exists at source level as a bounded
-  association/carrier primitive.
-- `wifi dhcp [profile]` exists at source level as a bounded DHCP/temporary
-  route-DNS primitive that requires carrier first.
-- `wifi cleanup` exists at source level for repeated connectivity tests.
-- V2176 source/build and live validation entrypoints exist:
-  - `workspace/public/src/scripts/revalidation/build_native_init_boot_v2176_wifi_dhcp.py`;
-  - `workspace/public/src/scripts/revalidation/native_wifi_dhcp_ping_handoff_v2176.py`.
-- `v2176-wifi-dhcp` live validation passed:
-  - flashed V2176 test boot on top of V2174 baseline;
-  - ran carrier connect, DHCP, one bounded external ping, cleanup, and rollback;
-  - reached `wifi-connect-carrier-up`, `wifi-dhcp-pass`, and ping rc `0`;
-  - verified cleanup removed test DHCP/DNS residue;
-  - rolled back to `v2174-wifi-urandom-connect`;
-  - final rollback `selftest fail=0`.
-- `v2176-wifi-dhcp` final-code N=3 stability validation passed:
-  - all three runs selected `tcpctl`;
-  - all three reached carrier, DHCP, bounded ping rc `0`, cleanup success, and
-    rollback selftest success;
-  - aggregate report:
-    `docs/reports/NATIVE_INIT_V2176_WIFI_DHCP_STABILITY_N3_2026-06-08.md`.
-- `v2177-wifi-hold-reconnect` live validation passed:
-  - flashed V2176 test boot on top of the V2174 baseline;
-  - ran carrier connect, DHCP, 180 second hold/idle sampling, one bounded
-    external ping, cleanup, reconnect, DHCP, one bounded external ping, final
-    cleanup, and rollback;
-  - held carrier/route/resolv through all six hold samples and final ping rc
-    `0`;
-  - reconnected after cleanup with `wpa_state=COMPLETED`, carrier `1`, DHCP
-    pass, and ping rc `0`;
-  - rolled back to `v2174-wifi-urandom-connect`;
-  - final rollback `selftest fail=0`;
-  - report:
-    `docs/reports/NATIVE_INIT_V2177_WIFI_HOLD_RECONNECT_LIVE_VALIDATION_2026-06-09.md`.
-- `v2174-wifi-urandom-connect` live validation passed:
-  - prior V2173 no-carrier evidence isolated the connect blocker to missing
-    `/dev/urandom` during WPA SNonce generation;
-  - native `/dev` bootstrap now creates `/dev/random` and `/dev/urandom`;
-  - flashed V2174 test boot;
-  - reached `wpa_state=COMPLETED` and `carrier=1`;
-  - preserved `credentials_logged=0`, `secret_values_logged=0`,
-    `dhcp_routing=0`, and `external_ping=0`;
-  - rolled back to `v2169-transport-contract`;
-  - final rollback `selftest fail=0`.
-- `v2174-wifi-urandom-connect` was previously promoted by V2175:
-  - flashed the same V2174 boot image as the persistent baseline;
-  - verified device-visible version
-    `A90 Linux init 0.9.251 (v2174-wifi-urandom-connect)`;
-  - verified boot partition readback SHA
-    `cda957e4302d66e407fc97a95932501f0ef2ac655ee264c94519111fece0b3ba`;
-  - verified `transport.contract=1`, NCM/tcpctl readiness, and
-    `selftest fail=0`.
-- `v2178-wifi-profile-autoconnect` was previously promoted by V2179:
-  - fixed stale autoconnect result/log state, profile-list duplicate display,
-    and Wi-Fi status/HUD decision surfacing;
-  - flashed patched V2178 boot image SHA
-    `8ea6f468f997446e9fa3e80606db107ca27d067f3ee023ff45c2ecf159341047`;
-  - verified disabled boot reports `wifi-autoconnect-disabled` without stale
-    `wifi-autoconnect-pass`;
-  - verified boot autoconnect N=3, all `wifi-autoconnect-pass`, carrier `1`,
-    DHCP final rc `0`, no external ping;
-  - verified private 2.4 GHz and 5 GHz profiles with `wifi autoconnect once`,
-    carrier plus DHCP pass, and `secret_values_logged=0`;
-  - rolled back to V2174 during validation and verified rollback
-    `selftest fail=0`;
-  - flashed V2178 again as the then-current baseline with autoconnect disabled and
-    final `selftest fail=0`;
-  - promotion report:
-    `docs/reports/NATIVE_INIT_V2179_V2178_WIFI_PROFILE_AUTOCONNECT_BASELINE_PROMOTION_2026-06-09.md`.
-- `v2182-hud-menu-cleanup` was promoted as the then-current baseline by V2183:
-  - added HUD storage free/free-percent/read-write-rate and Wi-Fi profile/status
-    glance fields;
-  - fixed the six-row HUD/menu/log/preview layout overlap with shared geometry;
-  - removed duplicate STATUS/LIVE STATUS menu entries and clarified USB NET
-    STATUS naming;
-  - flashed V2182 boot image SHA
-    `8e3e16f68d019ef5f56d2246ddcc7dbf14aa5ae08b40a0b983688812d792f839`;
-  - verified `statushud`, `screenmenu`, `watchhud`, rollback to V2178, and final
-    selftest `fail=0`.
-- Network UI P0/P1 source work is in place:
-  - `NETWORK > WIFI STATUS` renders the read-only `wifi status` state surface;
-  - `NETWORK > WIFI PROFILES` renders redacted profile/autoconnect inventory;
-  - `NETWORK > WIFI SCAN` runs one bounded foreground nl80211 scan and keeps
-    SSID/frequency/RSSI/security on screen only;
-  - no profile connect, DHCP, route/DNS, credentials display, or external ping
-    is initiated from these screens.
-- `v2184-network-ui-p0-p1` live smoke validation passed:
-  - flashed `workspace/private/inputs/boot_images/boot_linux_v2184_network_ui_p0_p1.img`;
-  - verified boot partition prefix SHA matched local image SHA
-    `d4d274a4e2b5b27a8136d45d4f176ed6b4adc1a3eb1c0195fa1361f0005d83f5`;
-  - verified device-visible version
-    `A90 Linux init 0.9.256 (v2184-network-ui-p0-p1)`;
-  - verified `status`, `selftest fail=0`, `wifi status`, `wifi profile list`,
-    bounded `wifi scan 1500`, and `screenmenu`;
-  - report:
-    `docs/reports/NATIVE_INIT_V2184_NETWORK_UI_P0_P1_LIVE_VALIDATION_2026-06-09.md`.
-- `v2184-network-ui-p0-p1` manual private 5 GHz profile connect validation passed:
-  - ran `wifi cleanup`, private-profile `wifi connect`, private-profile
-    `wifi dhcp`, `wifi status`, and `selftest`;
-  - reached `wifi-connect-carrier-up` and `wifi-dhcp-pass`;
-  - acquired a private IPv4 address, redacted in public docs, with
-    `operstate=up` and `carrier=1`;
-  - preserved `credentials_logged=0` and `secret_values_logged=0`;
-  - no external ping was run;
-  - report:
-    `docs/reports/NATIVE_INIT_V2184_WIFI_MANUAL_CONNECT_2026-06-09.md`.
-- `v2184-network-ui-p0-p1` phone Wi-Fi data-path validation passed:
-  - used the Termux-compatible A90 phone Wi-Fi lab server;
-  - verified same-LAN phone server HTTP download and raw TCP upload;
-  - completed `512MiB` and `1GiB` bidirectional SHA256 integrity checks;
-  - preserved `wlan0` carrier after transfer and final `selftest fail=0`;
-  - report:
-    `docs/reports/NATIVE_INIT_V2184_PHONE_WIFI_LARGE_TRANSFER_2026-06-10.md`.
-- `v2185-network-ping-test` source work is in place:
-  - adds `wifi ping [gateway|internet|all]` as an explicit bounded diagnostic;
-  - adds `NETWORK > PING TEST` for one-shot gateway plus `1.1.1.1` ping;
-  - keeps ping out of status/HUD/profile/scan automatic paths;
-  - gateway target is redacted in structured command output.
-- `v2185-network-ping-test` source build passed:
-  - built `workspace/private/inputs/boot_images/boot_linux_v2185_network_ping_test.img`;
-  - boot SHA256:
-    `3ab13707c4ad93cb0b23c26174407be9a0ca30460fce879131ba6bea0df253b7`;
-  - report:
-    `docs/reports/NATIVE_INIT_V2185_NETWORK_PING_TEST_SOURCE_BUILD_2026-06-10.md`.
-- `v2185-network-ping-test` live validation passed:
-  - flashed `workspace/private/inputs/boot_images/boot_linux_v2185_network_ping_test.img`;
-  - verified device-visible version
-    `A90 Linux init 0.9.257 (v2185-network-ping-test)`;
-  - verified boot partition prefix SHA matched the local image SHA
-    `3ab13707c4ad93cb0b23c26174407be9a0ca30460fce879131ba6bea0df253b7`;
-  - ran the split connect path: `wifi connect`, `wifi dhcp`, and
-    `wifi ping all`;
-  - reached `wifi-connect-carrier-up`, `wifi-dhcp-pass`, and
-    `wifi-ping-pass`;
-  - gateway and fixed external IP ping both returned `3/3` packets with
-    `0%` loss;
-  - verified `screenmenu` accepts the updated network menu and final
-    `selftest fail=0`;
-  - report:
-    `docs/reports/NATIVE_INIT_V2185_NETWORK_PING_TEST_LIVE_VALIDATION_2026-06-10.md`.
-- `v2185-network-ping-test` was promoted as the then-current baseline and rollback
-  point:
-  - device remains flashed with the V2185 boot image after live validation;
-  - future rollback should target
-    `workspace/private/inputs/boot_images/boot_linux_v2185_network_ping_test.img`
-    unless testing explicitly requires an older fallback;
-  - promotion report:
-    `docs/reports/NATIVE_INIT_V2185_NETWORK_PING_BASELINE_PROMOTION_2026-06-10.md`.
-- `v2186-wifi-ui-polish` source work is in place:
-  - keeps V2185 as the parent baseline and V2186 as the promoted rollback
-    target;
-  - adds redacted runtime WPA state, RSSI, link speed, and frequency fields to
-    `wifi status`;
-  - updates `NETWORK > WIFI STATUS` with clearer PASS/RUN/OFF/FAIL labels and a
-    dedicated RF line;
-  - does not expose raw SSID, BSSID, PSK, gateway, or private LAN details.
-- `v2186-wifi-ui-polish` source build passed:
-  - built `workspace/private/inputs/boot_images/boot_linux_v2186_wifi_ui_polish.img`;
-  - boot SHA256:
-    `7a0db3bb76232f778869d3bf0788268f3a1942b230b094158dddf7a7d500fd32`;
-  - report:
-    `docs/reports/NATIVE_INIT_V2186_WIFI_UI_POLISH_SOURCE_BUILD_2026-06-10.md`.
-- `v2186-wifi-ui-polish` live validation passed and rolled back:
-  - flashed `workspace/private/inputs/boot_images/boot_linux_v2186_wifi_ui_polish.img`;
-  - verified device-visible version
-    `A90 Linux init 0.9.258 (v2186-wifi-ui-polish)`;
-  - ran cleanup, `wifi connect`, `wifi dhcp`, `wifi status`, bounded
-    `wifi ping gateway`, `screenmenu`, and `selftest`;
-  - reached `wifi-connect-carrier-up`, `wifi-dhcp-pass`, and
-    `wifi-ping-gateway-pass`;
-  - verified `runtime.wpa_state=COMPLETED`, populated RSSI/link speed/frequency,
-    and `secret_values_logged=0`;
-  - rolled back to V2185 and verified
-    `A90 Linux init 0.9.257 (v2185-network-ping-test)`;
-  - report:
-    `docs/reports/NATIVE_INIT_V2186_WIFI_UI_POLISH_LIVE_VALIDATION_2026-06-10.md`.
-- `v2186-wifi-ui-polish` was promoted as the then-current baseline and rollback
-  point:
-  - device is flashed back to V2186 after the live validation and V2185 rollback
-    proof;
-  - future rollback should target
-    `workspace/private/inputs/boot_images/boot_linux_v2186_wifi_ui_polish.img`
-    unless testing explicitly requires an older fallback;
-  - promotion report:
-    `docs/reports/NATIVE_INIT_V2186_WIFI_UI_POLISH_BASELINE_PROMOTION_2026-06-10.md`.
-- `v2187-screenapp-ui-validation` source work is in place:
-  - keeps V2186 as the parent baseline and older conservative fallback;
-  - adds `screenapp [network|wifi-status|wifi-profiles|wifi-scan|wifi-ping]`
-    as a direct display validation command for the same native draw functions
-    used by the `NETWORK` menu apps;
-  - V2187 is now the promoted current baseline.
-- `v2187-screenapp-ui-validation` source build passed:
-  - built
-    `workspace/private/inputs/boot_images/boot_linux_v2187_screenapp_ui_validation.img`;
-  - boot SHA256:
-    `0422f854b3e78d36e225012fd89a53016067155e200291d067ff7d71f32091ca`;
-  - report:
-    `docs/reports/NATIVE_INIT_V2187_SCREENAPP_UI_VALIDATION_SOURCE_BUILD_2026-06-10.md`.
-- `v2187-screenapp-ui-validation` live validation passed and rolled back:
-  - flashed
-    `workspace/private/inputs/boot_images/boot_linux_v2187_screenapp_ui_validation.img`;
-  - verified device-visible version
-    `A90 Linux init 0.9.259 (v2187-screenapp-ui-validation)`;
-  - ran `stophud`, `screenapp wifi-status`, and `screenapp wifi-ping`;
-  - verified framebuffer presentation for `WIFI STATUS` and
-    `WIFI PING RESULTS`;
-  - rolled back to V2186 and verified
-    `A90 Linux init 0.9.258 (v2186-wifi-ui-polish)` plus selftest `fail=0`;
-  - report:
-    `docs/reports/NATIVE_INIT_V2187_SCREENAPP_UI_VALIDATION_LIVE_2026-06-10.md`.
-- `v2187-screenapp-ui-validation` is promoted as the current baseline and
-  rollback point:
-  - device is flashed back to V2187 after the live validation and V2186 rollback
-    proof;
-  - future rollback should target
-    `workspace/private/inputs/boot_images/boot_linux_v2187_screenapp_ui_validation.img`
-    unless testing explicitly requires an older fallback;
-  - promotion report:
-    `docs/reports/NATIVE_INIT_V2187_SCREENAPP_UI_VALIDATION_BASELINE_PROMOTION_2026-06-10.md`.
-- `v2172-wifi-status-scan` live validation passed:
-  - corrected the test boot to reuse verified V726 private-property snapshot;
-  - flashed test boot;
-  - verified `wlan0_present=1`;
-  - ran bounded direct nl80211 scan with `scan_result_count=12`;
-  - preserved `credentials=0`, `connect=0`, `dhcp_routing=0`,
-    `external_ping=0`;
-  - rolled back to `v2169-transport-contract`;
-  - final rollback `selftest fail=0`.
-- `v2170-wifi-config-prepare` source build passed on top of
-  `v2169-transport-contract`.
-- `v2170-wifi-config-prepare` live validation passed:
-  - flashed test boot;
-  - generated a synthetic redacted supplicant config;
-  - preserved `secret_values_logged=0`;
-  - cleaned up runtime config residue;
-  - rolled back to `v2169-transport-contract`;
-  - final rollback `selftest fail=0`.
-- Serial bridge retry behavior is now shared transport behavior:
-  - `a90_transport.run_serial_command_recovered()` records
-    `serial_recovery_contract=1`;
-  - protocol-noise recovery can restart the managed bridge once and retry safe
-    commands once;
-  - V2180 did not naturally fire the `AT`/protocol-noise path, so live-fired
-    evidence remains opportunistic.
+Completed baseline capabilities:
 
-Open tasks:
+- Native commands are in place for:
+  - `wifi config status`;
+  - `wifi config prepare [profile]`;
+  - `wifi status`;
+  - `wifi scan [delay_ms]`;
+  - `wifi connect [profile]`;
+  - `wifi dhcp [profile]`;
+  - `wifi ping [gateway|internet|all]`;
+  - `wifi cleanup`;
+  - `screenapp [network|wifi-status|wifi-profiles|wifi-scan|wifi-ping]`.
+- Connectivity and stability evidence is complete for the promoted line:
+  - V2174 fixed `/dev/urandom` and reached carrier;
+  - V2176 passed connect, DHCP, bounded ping, cleanup, rollback, and N=3;
+  - V2177 passed 180 second hold/idle, cleanup, reconnect, DHCP, ping, and
+    rollback;
+  - V2178 passed profile/autoconnect, private 2.4 GHz and 5 GHz checks, and
+    boot autoconnect N=3;
+  - V2184 passed network UI P0/P1, manual private 5 GHz connect, and 512MiB plus
+    1GiB phone Wi-Fi transfer SHA checks;
+  - V2185 passed bounded gateway plus fixed-IP ping and became a prior rollback
+    baseline;
+  - V2186 passed Wi-Fi status/RF UI polish and became a prior rollback baseline;
+  - V2187 passed `screenapp` framebuffer validation and is now the promoted
+    rollback baseline.
+- Primary evidence reports:
+  - `docs/reports/NATIVE_INIT_V2176_WIFI_DHCP_STABILITY_N3_2026-06-08.md`;
+  - `docs/reports/NATIVE_INIT_V2177_WIFI_HOLD_RECONNECT_LIVE_VALIDATION_2026-06-09.md`;
+  - `docs/reports/NATIVE_INIT_V2179_V2178_WIFI_PROFILE_AUTOCONNECT_BASELINE_PROMOTION_2026-06-09.md`;
+  - `docs/reports/NATIVE_INIT_V2184_PHONE_WIFI_LARGE_TRANSFER_2026-06-10.md`;
+  - `docs/reports/NATIVE_INIT_V2185_NETWORK_PING_BASELINE_PROMOTION_2026-06-10.md`;
+  - `docs/reports/NATIVE_INIT_V2186_WIFI_UI_POLISH_BASELINE_PROMOTION_2026-06-10.md`;
+  - `docs/reports/NATIVE_INIT_V2187_SCREENAPP_UI_VALIDATION_BASELINE_PROMOTION_2026-06-10.md`.
+
+Standing rules:
 
 - Keep V2187 as the current baseline and rollback image until a newer boot image
   is intentionally promoted.
-- Keep V2186 Wi-Fi UI polish, V2185 network-ping, V2178 profile/autoconnect, and V2169
-  transport-contract images as older conservative fallbacks only; they are no
-  longer the default rollback point.
-- Keep private Wi-Fi profile/secret files out of public git; use
-  `workspace/public/src/scripts/revalidation/a90_wifi_profile_stage.py` for
-  staging and keep raw SSID/PSK under ignored private roots.
-- Keep phone Wi-Fi transfer raw evidence private; public reports should include
-  sizes, timings, and SHA match state only, not private IPs or raw LAN
-  identifiers.
-- Improve boot-autoconnect latency observability:
-  - firmware/helper window dominates and can take roughly three minutes;
-  - status runners must poll `autoconnect.decision=wifi-autoconnect-running`
-    until a terminal result.
-- Continue UI polish beyond the P3 minimum:
-  - V2187 provides automated command-level framebuffer presentation evidence for
-    `WIFI STATUS` and `WIFI PING RESULTS`;
-  - optional redacted SSID display mode toggle for scan results.
-- Optional physical/OCR UI validation remains open:
-  - live CLI validation passed, including gateway plus fixed-IP ping;
-  - `screenmenu` smoke and V2187 `screenapp` framebuffer presentation were
-    verified, but physical button selection of `NETWORK > PING TEST` was not
-    required for baseline promotion.
-- Keep secondary interface noise out of the main gate:
+- Keep V2186, V2185, V2178, and V2169 as older conservative fallbacks only.
+- Keep Wi-Fi profiles, SSID, PSK, raw phone-transfer evidence, private IPs, and
+  raw LAN identifiers under ignored private roots.
+- Keep secondary-interface noise out of the main gate unless it becomes a
+  persistent primary `wlan0` failure:
   - `swlan0` MAC generation failure is not a primary `wlan0` blocker;
-  - `set_features(-11)` remains non-blocking unless reproduced as persistent.
+  - `set_features(-11)` remains non-blocking unless persistent.
 
-Exit criteria:
+Deferred polish:
 
-- V2186 Wi-Fi UI polish baseline promotion is complete.
-- Boot autoconnect N=3 passed with carrier and DHCP, no external ping.
-- Private 2.4 GHz and 5 GHz profile checks passed with redacted evidence.
-- `selftest fail=0` after promotion validation.
-- Secret scan reports no leaked PSK.
-- Public report contains redacted Wi-Fi evidence only.
+- Improve boot-autoconnect latency observability only when retesting boot
+  autoconnect; runners must poll `autoconnect.decision=wifi-autoconnect-running`
+  until a terminal result.
+- Optional redacted SSID display toggle for scan results.
+- Optional physical button/OCR validation for `NETWORK > PING TEST`; V2187
+  already has command-level framebuffer evidence for the same draw path.
 
 ## Priority 2: Bridge And Transport
 
-Goal: make every runner use the same bridge/NCM/tcpctl decision path.
+Goal: keep every active runner on the shared bridge/NCM/tcpctl path.
 
-Completed first units:
+Status: complete for the normal path; one opportunistic live edge remains.
 
-- `a90_bridge.py` wrapper exists for bridge lifecycle:
-  - `preflight`;
-  - `status`;
-  - `ensure`;
-  - `start`;
-  - `stop`;
-  - `restart`;
-  - `doctor`;
-  - `repair-dirs`.
-- `a90_transport.py` exists as the first shared selector module.
-- `a90_ncm_transport_smoke.py` records transport selection into its manifest.
-- Selector manifest includes `selector_contract=1`.
-- Bridge status includes `wrapper_contract=1`.
-- Boot/bridge/communication contract is documented in
-  `docs/operations/NATIVE_INIT_BOOT_TRANSPORT_CONTRACT.md`.
-- Transport selector has bounded host NCM link-local auto-repair for the
-  Samsung `04e8` + `cdc_ncm` present/no-`fe80::` state.
-- Current `v2187-screenapp-ui-validation` baseline preserves the device-side
-  `transport.contract=1` contract from V2178/V2174/V2169.
-- Active Wi-Fi lifecycle runners use the shared transport selector/serial step:
-  - `native_wifi_connect_carrier_handoff_v2174.py` uses
-    `a90_transport.select_transport()` for preflight and
-    `a90_transport.run_serial_step()` for cmdv1 commands;
-  - `native_wifi_dhcp_ping_handoff_v2176.py` inherits the V2174 command path
-    and already records `transport_selection`.
-- Baseline validation runner transport migration is complete:
-  - `a90_v725_fasttransport_baseline_validation.py` now uses
-    `a90_transport.select_transport()` and recovered serial cmdv1 probes.
-- Transport commonization implementation is in place:
-  - `a90_transport.phase()` records `phase_timer_contract=1` and
-    `phase_timers[]` using a monotonic elapsed clock;
-  - `a90_transport.run_serial_command_recovered()` records
-    `serial_recovery_contract=1` and structured recovery evidence;
-  - protocol-noise recovery can restart the managed bridge once and retry safe
-    commands once;
-  - V2174 carrier, V2176 DHCP/ping, V2177 hold/reconnect, and V725 transport
-    baseline runners now use the shared phase timer contract.
-- Transport commonization live validation passed by V2180:
-  - `a90_ncm_transport_smoke.py` recorded `phase_timer_contract=1`, selected
-    `ncm`, and passed 1 MiB download plus upload;
-  - `native_wifi_v2178_autoconnect_phase_validation.py` recorded
-    `phase_timer_contract=1`, ran current-baseline `wifi autoconnect once`,
-    cleaned up, restored autoconnect disabled, and ended with `selftest fail=0`;
-  - report:
-    `docs/reports/NATIVE_INIT_V2180_TRANSPORT_COMMONIZATION_LIVE_VALIDATION_2026-06-09.md`.
-- Stable selector fields are now the runner contract for migrated entrypoints:
+Completed:
+
+- `a90_bridge.py` manages bridge lifecycle:
+  `preflight`, `status`, `ensure`, `start`, `stop`, `restart`, `doctor`, and
+  `repair-dirs`.
+- `a90_transport.py` is the shared selector/recovery/phase module.
+- Active migrated runners record:
   - `selector_contract=1`;
   - `selected=serial|ncm|tcpctl`;
-  - `fallback_reason=<label-or-null>`.
+  - `fallback_reason=<label-or-null>`;
+  - `phase_timer_contract=1`;
+  - `serial_recovery_contract=1` where recovered serial commands are used.
+- Transport selector has bounded host NCM link-local auto-repair for Samsung
+  `04e8` + `cdc_ncm` present/no-`fe80::` state.
+- V2180 live validation passed for NCM smoke plus current-baseline Wi-Fi
+  autoconnect phase validation:
+  `docs/reports/NATIVE_INIT_V2180_TRANSPORT_COMMONIZATION_LIVE_VALIDATION_2026-06-09.md`.
+- Bridge artifacts land under `workspace/private/logs/bridge/`, and active
+  runners should not directly start `serial_tcp_bridge.py` unless testing the
+  bridge implementation itself.
 
-Open tasks:
+Open edge:
 
-- Live-validate serial `AT` noise recovery when it naturally fires:
-  - recovery must appear in the relevant step metadata;
-  - unsafe commands must still not replay unless explicitly scoped.
+- Live-validate serial `AT`/protocol-noise recovery only when it naturally fires:
+  recovery metadata must appear, and unsafe commands must not replay unless
+  explicitly scoped.
 - Keep bridge warnings actionable:
-  - `private_log_dir` / `private_run_dir` writable must be pass;
+  - `private_log_dir` and `private_run_dir` writable must pass;
   - `port_pid_resolution=cmdline-fallback` is acceptable when bridge is already
     running and process ownership blocks `/proc/*/fd` inspection.
 
-Exit criteria:
-
-- Active smoke runner works with NCM ready.
-- Same runner records explicit serial fallback when NCM is absent.
-- No runner directly starts `serial_tcp_bridge.py` unless testing the bridge
-  implementation itself.
-- Bridge artifacts land under `workspace/private/logs/bridge/`.
-- Active migrated runners use `a90_transport.py` for transport selection,
-  serial steps, phase timers, and recovery evidence.
-
 ## Priority 3: Test Script Inventory And Consolidation
 
-Goal: stop accumulating one-off scripts that duplicate transport and artifact
-logic.
+Goal: prevent new one-off script sprawl.
 
-Inventory labels:
+Status: current source-root is clean.
 
-| Label | Meaning | Action |
-| --- | --- | --- |
-| `active` | Current entrypoint used by baseline/live work | Keep in `workspace/public/src/scripts/revalidation/` |
-| `module` | Shared import-only helper | Keep in current script tree or move to harness |
-| `archive` | Historical/provenance script still referenced by docs/reports | Move or keep under `workspace/public/archive/scripts/` |
-| `delete-review` | Generated, broken, duplicate, or unreferenced one-off | Review before deleting |
+Completed:
 
-Open tasks:
-
-- Keep the inventory current when active entrypoints move; V2187 refreshed the
-  current report after adding the screenapp/UI validation entrypoints.
-- For each script, continue to record:
-  - purpose;
-  - last known baseline/run;
-  - import dependencies;
-  - docs/reports references;
-  - live-device requirement;
-  - secret/log handling.
-- Identify duplicated logic:
-  - bridge command construction;
-  - `a90ctl.py` subprocess wrappers;
-  - NCM readiness;
-  - FastUpload/archive handling;
-  - phase timing;
-  - manifest writing;
-  - redaction/secret scan.
-- Move only after classification:
-  - active scripts stay stable;
-  - V2167 historical runner moved to
-    `workspace/public/archive/scripts/revalidation/native_wifi_connect_dhcp_google_ping_handoff_v2167.py`;
-  - archive tree is provenance-only; do not directly execute old runners from
-    `workspace/public/archive/scripts/revalidation/` without a focused
-    migration/review;
-  - delete-review items require a focused cleanup commit.
-
-Exit criteria:
-
-- A generated inventory report exists under `docs/reports/` or `workspace/public`
-  as redacted metadata.
 - Current inventory report:
   `docs/reports/REVALIDATION_SCRIPT_INVENTORY_2026-06-10.md`.
-- Source-root cleanup state: `43 active`, `6 module`, `0 archive`,
-  `0 delete-review` entries in
-  `workspace/public/src/scripts/revalidation/`.
-- Report-style live runners that were missing phase metadata now record
-  `phase_timer_contract=1` and `residual_state_contract=1`:
-  - `a90_wifi_profile_stage.py`;
-  - `cpu_mem_thermal_stability.py`;
-  - `kselftest_feasibility.py`;
-  - `native_wifi_supplicant_dependency_probe.py`;
-  - `storage_iotest.py`;
-  - `usb_recovery_validate.py`.
-- `ncm_host_setup.py` and `netservice_reconnect_soak.py` remain
-  phase-timer-exempt interactive utilities because they do not emit runner
-  manifests.
-- Current inventory consolidation signals:
-  - active live scripts without phase timer markers: `0`;
-  - active live scripts without residual-state metadata: `0`;
+- Current source-root state:
+  - `43 active`;
+  - `6 module`;
+  - `0 archive`;
+  - `0 delete-review`.
+- Active live metadata gaps are closed:
+  - phase timer markers: `0`;
+  - residual-state metadata: `0`;
   - phase-timer-exempt live utilities: `2`;
   - residual-state-exempt live utilities/helpers: `3`.
-- V2167 is no longer a current entrypoint; it is archived under
-  `workspace/public/archive/scripts/revalidation/`.
-- Active entrypoints list in `workspace/public/src/scripts/revalidation/README.md`
-  matches the actual current set.
-- New scripts use shared modules instead of reimplementing bridge/NCM logic.
-- Archive-wide dedupe remains a separate provenance cleanup task; it is not a
-  blocker for current source-root baseline work.
+- V2167 historical runner is archived under
+  `workspace/public/archive/scripts/revalidation/native_wifi_connect_dhcp_google_ping_handoff_v2167.py`.
+- `workspace/public/archive/scripts/revalidation/` is provenance-only and must
+  not be used as the start point for new active work.
+
+Standing rules:
+
+- Refresh inventory after each active entrypoint migration.
+- Keep classifying scripts by purpose, last run, deps, docs references,
+  live-device requirement, and secret/log handling.
+- Migrate/delete only after classification; archive-wide dedupe remains a
+  separate provenance cleanup task.
 
 ## Priority 4: Baseline And Versioning
 
 Goal: avoid mixing run IDs, helper versions, and boot baseline tags.
 
-Open tasks:
+Status: standing rule.
 
-- Keep current baseline fixed as `v2187-screenapp-ui-validation` until a newer boot
-  image is intentionally promoted.
-- If a new boot/init image is promoted, use the next global run/build identity,
-  not helper numbering.
-- Record all axes in reports:
+When promoting a new boot image:
+
+- Use the next global run/build identity, not helper numbering.
+- Record:
   - run ID;
   - native init semantic version;
   - build tag;
@@ -523,25 +207,20 @@ Open tasks:
   - boot image path;
   - boot SHA256;
   - host commit.
-- Keep rollback image path and SHA current in the runbook.
-
-Exit criteria:
-
-- New baseline report names the exact artifact and SHA.
-- Current baseline boot/readback/selftest is verified; older fallback images
-  remain documented.
-- README and runbook agree on latest verified baseline.
+- Update rollback image path and SHA in the runbook.
+- Keep V2187 fixed as current baseline until that promotion happens.
 
 ## Priority 5: Workspace Structure
 
-Goal: make a fresh clone usable while keeping private/generated payloads out of
-git.
+Goal: keep a fresh clone usable while private/generated payloads stay out of git.
 
-Open tasks:
+Status: ongoing workspace discipline.
+
+Standing rules:
 
 - Keep public source, scripts, redacted reports, templates, and inventories in
   `workspace/public/` and `docs/`.
-- Keep private/generated artifacts in:
+- Keep private/generated artifacts under:
   - `workspace/private/inputs/`;
   - `workspace/private/builds/`;
   - `workspace/private/logs/`;
@@ -551,82 +230,66 @@ Open tasks:
   - `tmp/wifi/bench/` for transport smoke;
   - `tmp/logs/` for cross-run logs.
 - Avoid new root-level payload folders.
+
+Deferred cleanup:
+
 - Decide later whether old `tmp/` evidence should be archived, compressed, or
-  deleted; do not mix that cleanup into Wi-Fi or transport commits.
-
-Exit criteria:
-
-- New runner outputs use structured paths.
-- A fresh clone plus private inputs can rebuild/test the current workflow.
-- No new unstructured root payload directories appear.
+  deleted. Do not mix that cleanup into Wi-Fi, transport, or baseline commits.
 
 ## Priority 6: QA And Stability
 
-Goal: define when a feature is strong enough to become baseline behavior.
+Goal: define when behavior is strong enough to become baseline.
 
-Open tasks:
+Status: current baseline QA is sufficient; future promotions must follow the QA
+policy.
 
-- Add or reuse smoke checks for:
+Completed:
+
+- QA/stability policy exists:
+  `docs/operations/NATIVE_INIT_QA_STABILITY_POLICY.md`.
+- V2176 route has N>=3 basic stability evidence.
+- V2177 route has 180 second hold/idle plus cleanup/reconnect evidence.
+- Active live runner metadata now records phase timers and residual-state where
+  applicable.
+
+Before the next baseline promotion:
+
+- Reuse or run the relevant smoke checks for:
   - bridge;
   - NCM;
   - transport selector;
   - Wi-Fi connect;
   - cleanup;
   - rollback selftest.
-- Add repeated-run evidence:
-  - N>=3 for basic stability is complete for the V2176 route;
-  - 180 second hold/idle plus cleanup/reconnect is complete for the V2176
-    route.
-- For new or changed active runners, keep capturing residual state:
-  - bridge process;
-  - NCM interface;
-  - supplicant process;
-  - generated configs;
-  - runtime logs.
-- Treat cleanup failure as a real baseline risk if it affects the next run.
-- Use `docs/operations/NATIVE_INIT_QA_STABILITY_POLICY.md` as the baseline
-  promotion and repeated-live-QA checklist.
-
-Exit criteria:
-
-- Repeated runs do not rely on stale state.
-- Cleanup is either successful or explicitly harmless.
-- Phase timers identify where wall time is spent.
+- Treat cleanup failure as a baseline risk unless residual-state evidence proves
+  the leftover state is harmless for the next run.
 
 ## Priority 7: Security And Safety Scope
 
 Goal: keep the lab workflow powerful but bounded.
 
-Open tasks:
+Status: standing rule.
 
-- Keep bridge bound to localhost.
-- Do not add authentication bypasses or external exposure for convenience.
-- Keep Wi-Fi credentials private and environment/file based.
-- Keep raw captures private unless redacted.
-- Preserve blocked operations unless explicitly scoped:
+Keep:
+
+- bridge bound to localhost;
+- no authentication bypasses or external exposure for convenience;
+- Wi-Fi credentials private and environment/file based;
+- raw captures private unless redacted;
+- blocked operations blocked unless explicitly scoped:
   - PMIC/GPIO/GDSC/regulator writes;
   - eSoC notify/BOOT_DONE;
   - PCI rescan;
   - platform bind/unbind;
-  - unbounded external network tests.
-- Avoid automatic retry of unsafe root commands.
-
-Exit criteria:
-
-- Public docs do not contain secrets or raw private identifiers.
-- Runners fail closed on secret leakage.
-- Safety scope is stated in live reports.
+  - unbounded external network tests;
+- no automatic retry of unsafe root commands.
 
 ## Suggested Next Sequence
 
-1. If serial `AT` noise fires, confirm the shared recovery evidence is present;
-   otherwise keep it as a ready-but-not-live-fired path.
-2. Keep V2187 `screenapp` as the promoted baseline dev-display command;
-   physical/OCR UI evidence can remain a later polish item.
-3. Refresh the script inventory after each active runner migration and continue
-   deleting or archiving only classified one-off scripts.
-4. Run a longer Wi-Fi soak only after runner timing/retry instrumentation is in
-   place, or when a new baseline promotion needs additional stability evidence.
+1. No immediate source-root cleanup is required.
+2. If a new boot image is promoted, follow the versioning and QA policies above.
+3. If serial `AT` noise naturally fires, confirm shared recovery evidence.
+4. Run longer Wi-Fi/data-path soak only when new promotion criteria require it.
 
 ## Current Risk Register
 
