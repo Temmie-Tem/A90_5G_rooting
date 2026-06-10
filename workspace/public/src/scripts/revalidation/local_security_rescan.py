@@ -392,6 +392,13 @@ def parse_args() -> argparse.Namespace:
     return parser.parse_args()
 
 
+def display_path(path: Path) -> str:
+    try:
+        return str(path.resolve().relative_to(REPO_ROOT))
+    except ValueError:
+        return str(path)
+
+
 def main() -> int:
     args = parse_args()
     checks = run_checks()
@@ -399,7 +406,7 @@ def main() -> int:
     out_path = args.out if args.out.is_absolute() else REPO_ROOT / args.out
     out_path.parent.mkdir(parents=True, exist_ok=True)
     out_path.write_text(report, encoding="utf-8")
-    print(out_path.relative_to(REPO_ROOT))
+    print(display_path(out_path))
     return 1 if any(check.status == "FAIL" for check in checks) else 0
 
 
