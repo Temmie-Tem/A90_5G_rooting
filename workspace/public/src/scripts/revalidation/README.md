@@ -28,6 +28,7 @@ Current migrated entrypoints:
 - `build_native_init_boot_v2182_hud_menu_cleanup.py`
 - `build_native_init_boot_v2184_network_ui_p0_p1.py`
 - `build_native_init_boot_v2185_network_ping_test.py`
+- `build_native_init_boot_v2186_wifi_ui_polish.py`
 - `a90_wifi_profile_stage.py`
 - `native_wifi_connect_carrier_handoff_v2174.py`
 - `native_wifi_dhcp_ping_handoff_v2176.py`

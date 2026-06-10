@@ -37,7 +37,9 @@ It reports:
 - `rx_bytes`, `tx_bytes`;
 - current IPv4 address if one exists;
 - redacted runtime summary fields from
-  `/cache/native-init-wifi-runtime.summary`, including `runtime.decision`;
+  `/cache/native-init-wifi-runtime.summary`, including `runtime.decision`,
+  `runtime.wpa_state`, `runtime.rssi_dbm`, `runtime.linkspeed_mbps`, and
+  `runtime.freq_mhz`;
 - machine-readable autoconnect result fields from
   `/cache/a90-wifi/autoconnect.result`:
   `autoconnect.profile`, `autoconnect.decision`, `autoconnect.final_rc`,
@@ -53,8 +55,9 @@ automation primitive.
 On-device UI:
 
 - `NETWORK > WIFI STATUS` renders the same read-only state surface on screen:
-  `wlan0`, carrier, IPv4, MAC, redacted runtime SSID label, RSSI/link speed
-  when available, autoconnect decision, and private supplicant control state.
+  `wlan0`, carrier, IPv4, MAC, redacted runtime connection label, WPA state,
+  RSSI/link speed/frequency when available, autoconnect PASS/RUN/OFF/FAIL
+  label, runtime decision label, and private supplicant control state.
 - The screen does not start scan, association, DHCP, routing, DNS, or ping.
 
 ## `wifi scan [delay_ms]`
@@ -243,9 +246,9 @@ python3 workspace/public/src/scripts/revalidation/native_wifi_connect_carrier_ha
 ```
 
 The runner flashes the V2174 test boot, runs only the carrier-level connect
-window, and verifies rollback `selftest fail=0`. After the V2183 promotion, this
+window, and verifies rollback `selftest fail=0`. After the V2186 promotion, this
 runner remains carrier-level evidence only; new Wi-Fi lifecycle work should
-treat `v2182-hud-menu-cleanup` as the current baseline and use older images only
+treat `v2186-wifi-ui-polish` as the current baseline and use older images only
 for explicit rollback/regression testing.
 
 ## `wifi dhcp [profile]`

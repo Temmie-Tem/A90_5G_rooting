@@ -62,8 +62,10 @@ struct a90_wifi_status_snapshot {
     char runtime_mac[80];
     char runtime_ip[80];
     char runtime_ssid_label[96];
+    char runtime_wpa_state[32];
     char runtime_rssi[32];
     char runtime_linkspeed[32];
+    char runtime_freq_mhz[32];
     char runtime_decision[80];
     char autoconnect_profile[96];
     char autoconnect_decision[96];

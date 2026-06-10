@@ -588,17 +588,10 @@ static bool wifi_status_field_allowed(const char *key) {
            strcmp(key, "id") == 0;
 }
 
+static char wifi_safe_metric_char(char value);
+
 static char wifi_status_value_char(char value) {
-    if ((value >= 'A' && value <= 'Z') ||
-        (value >= 'a' && value <= 'z') ||
-        (value >= '0' && value <= '9') ||
-        value == '_' ||
-        value == '-' ||
-        value == '.' ||
-        value == '/') {
-        return value;
-    }
-    return '_';
+    return wifi_safe_metric_char(value);
 }
 
 static void wifi_print_status_fields(const char *label, const char *reply) {
@@ -819,18 +812,149 @@ static int wifi_run_wait(char *const argv[],
     return a90_run_wait(pid, &config, result);
 }
 
+struct wifi_ctrl_link_info {
+    int status_rc;
+    int status_errno;
+    int signal_rc;
+    int signal_errno;
+    char ssid_label[32];
+    char wpa_state[32];
+    char rssi_dbm[32];
+    char linkspeed_mbps[32];
+    char freq_mhz[32];
+};
+
+static char wifi_safe_metric_char(char value) {
+    if ((value >= 'A' && value <= 'Z') ||
+        (value >= 'a' && value <= 'z') ||
+        (value >= '0' && value <= '9') ||
+        value == '_' ||
+        value == '-' ||
+        value == '.' ||
+        value == '/') {
+        return value;
+    }
+    return '_';
+}
+
+static bool wifi_value_missing(const char *value) {
+    return value == NULL || value[0] == '\0' || strcmp(value, "-") == 0;
+}
+
+static bool wifi_ctrl_reply_value(const char *reply, const char *key, char *out, size_t out_size) {
+    const char *cursor = reply;
+    size_t key_len;
+
+    if (out == NULL || out_size == 0) {
+        return false;
+    }
+    out[0] = '\0';
+    if (reply == NULL || key == NULL || key[0] == '\0') {
+        return false;
+    }
+    key_len = strlen(key);
+    while (*cursor != '\0') {
+        const char *line_end = strchr(cursor, '\n');
+        size_t line_len = line_end != NULL ? (size_t)(line_end - cursor) : strlen(cursor);
+
+        if (line_len > key_len &&
+            strncmp(cursor, key, key_len) == 0 &&
+            cursor[key_len] == '=') {
+            const char *raw_value = cursor + key_len + 1;
+            size_t value_len = line_len - key_len - 1;
+            size_t index;
+
+            if (value_len >= out_size) {
+                value_len = out_size - 1;
+            }
+            for (index = 0; index < value_len; ++index) {
+                out[index] = wifi_safe_metric_char(raw_value[index]);
+            }
+            out[value_len] = '\0';
+            return true;
+        }
+        if (line_end == NULL) {
+            break;
+        }
+        cursor = line_end + 1;
+    }
+    return false;
+}
+
+static bool wifi_ctrl_reply_has_key(const char *reply, const char *key) {
+    char value[8];
+
+    return wifi_ctrl_reply_value(reply, key, value, sizeof(value));
+}
+
+static void wifi_collect_ctrl_link_info(struct wifi_ctrl_link_info *info) {
+    char category[32];
+    char reply[4096];
+    long reply_len = 0;
+
+    if (info == NULL) {
+        return;
+    }
+    memset(info, 0, sizeof(*info));
+    info->status_rc = -ENOENT;
+    info->signal_rc = -ENOENT;
+    if (access(A90_WIFI_CTRL_SOCKET, F_OK) != 0) {
+        info->status_errno = ENOENT;
+        info->signal_errno = ENOENT;
+        return;
+    }
+
+    info->status_rc = wifi_ctrl_request("STATUS",
+                                        category,
+                                        sizeof(category),
+                                        &reply_len,
+                                        &info->status_errno,
+                                        reply,
+                                        sizeof(reply));
+    (void)reply_len;
+    if (info->status_rc == 0) {
+        (void)wifi_ctrl_reply_value(reply, "wpa_state", info->wpa_state, sizeof(info->wpa_state));
+        (void)wifi_ctrl_reply_value(reply, "freq", info->freq_mhz, sizeof(info->freq_mhz));
+        if (wifi_ctrl_reply_has_key(reply, "ssid") &&
+            strcmp(info->wpa_state, "COMPLETED") == 0) {
+            snprintf(info->ssid_label, sizeof(info->ssid_label), "%s", "connected");
+        }
+    }
+
+    info->signal_rc = wifi_ctrl_request("SIGNAL_POLL",
+                                        category,
+                                        sizeof(category),
+                                        &reply_len,
+                                        &info->signal_errno,
+                                        reply,
+                                        sizeof(reply));
+    (void)reply_len;
+    if (info->signal_rc == 0) {
+        (void)wifi_ctrl_reply_value(reply, "RSSI", info->rssi_dbm, sizeof(info->rssi_dbm));
+        (void)wifi_ctrl_reply_value(reply, "LINKSPEED", info->linkspeed_mbps, sizeof(info->linkspeed_mbps));
+        if (wifi_value_missing(info->freq_mhz)) {
+            (void)wifi_ctrl_reply_value(reply, "FREQUENCY", info->freq_mhz, sizeof(info->freq_mhz));
+        }
+    }
+}
+
 static int wifi_write_runtime_summary(const char *decision) {
+    struct wifi_ctrl_link_info link_info;
     char operstate[80];
     char carrier[32];
     char mac[80];
     char ipv4[64];
-    char text[1024];
+    char text[1600];
+    const char *ssid_label;
     int ipv4_rc;
 
+    wifi_collect_ctrl_link_info(&link_info);
     wifi_read_attr("/sys/class/net/" A90_WIFI_IFACE, "operstate", operstate, sizeof(operstate));
     wifi_read_attr("/sys/class/net/" A90_WIFI_IFACE, "carrier", carrier, sizeof(carrier));
     wifi_read_attr("/sys/class/net/" A90_WIFI_IFACE, "address", mac, sizeof(mac));
     ipv4_rc = wifi_ipv4_addr(A90_WIFI_IFACE, ipv4, sizeof(ipv4));
+    ssid_label = link_info.ssid_label[0] != '\0' ?
+        link_info.ssid_label : (wifi_carrier_up() ? "connected" : "");
     snprintf(text,
              sizeof(text),
              "wlan0_present=%d\n"
@@ -839,21 +963,37 @@ static int wifi_write_runtime_summary(const char *decision) {
              "mac_label=%s\n"
              "mac=%s\n"
              "ssid_label=%s\n"
+             "wpa_state=%s\n"
+             "rssi_dbm=%s\n"
+             "linkspeed_mbps=%s\n"
+             "freq_mhz=%s\n"
              "ipv4=%s\n"
              "ip4_label=%s\n"
              "dhcp_ready=%d\n"
              "route_default=%d\n"
+             "ctrl_status_rc=%d\n"
+             "ctrl_status_errno=%d\n"
+             "ctrl_signal_rc=%d\n"
+             "ctrl_signal_errno=%d\n"
              "decision=%s\n",
              wifi_iface_present() ? 1 : 0,
              operstate,
              carrier,
              mac,
              mac,
-             wifi_carrier_up() ? "connected" : "",
+             ssid_label,
+             link_info.wpa_state,
+             link_info.rssi_dbm,
+             link_info.linkspeed_mbps,
+             link_info.freq_mhz,
              ipv4_rc == 0 ? ipv4 : "-",
              ipv4_rc == 0 ? ipv4 : "none",
              ipv4_rc == 0 ? 1 : 0,
              wifi_default_route_present() ? 1 : 0,
+             link_info.status_rc,
+             link_info.status_errno,
+             link_info.signal_rc,
+             link_info.signal_errno,
              decision != NULL ? decision : "-");
     return wifi_write_text_file(A90_WIFI_RUNTIME_SUMMARY, text, 0600);
 }
@@ -1400,9 +1540,35 @@ int a90_wifi_status_snapshot(struct a90_wifi_status_snapshot *out) {
     wifi_runtime_value("mac=", out->runtime_mac, sizeof(out->runtime_mac));
     wifi_runtime_value("ipv4=", out->runtime_ip, sizeof(out->runtime_ip));
     wifi_runtime_value("ssid_label=", out->runtime_ssid_label, sizeof(out->runtime_ssid_label));
+    wifi_runtime_value("wpa_state=", out->runtime_wpa_state, sizeof(out->runtime_wpa_state));
     wifi_runtime_value("rssi_dbm=", out->runtime_rssi, sizeof(out->runtime_rssi));
     wifi_runtime_value("linkspeed_mbps=", out->runtime_linkspeed, sizeof(out->runtime_linkspeed));
+    wifi_runtime_value("freq_mhz=", out->runtime_freq_mhz, sizeof(out->runtime_freq_mhz));
     wifi_runtime_value("decision=", out->runtime_decision, sizeof(out->runtime_decision));
+    if (access(A90_WIFI_CTRL_SOCKET, F_OK) == 0 &&
+        (wifi_value_missing(out->runtime_wpa_state) ||
+         wifi_value_missing(out->runtime_rssi) ||
+         wifi_value_missing(out->runtime_linkspeed) ||
+         wifi_value_missing(out->runtime_freq_mhz))) {
+        struct wifi_ctrl_link_info link_info;
+
+        wifi_collect_ctrl_link_info(&link_info);
+        if (wifi_value_missing(out->runtime_ssid_label) && link_info.ssid_label[0] != '\0') {
+            snprintf(out->runtime_ssid_label, sizeof(out->runtime_ssid_label), "%s", link_info.ssid_label);
+        }
+        if (wifi_value_missing(out->runtime_wpa_state) && link_info.wpa_state[0] != '\0') {
+            snprintf(out->runtime_wpa_state, sizeof(out->runtime_wpa_state), "%s", link_info.wpa_state);
+        }
+        if (wifi_value_missing(out->runtime_rssi) && link_info.rssi_dbm[0] != '\0') {
+            snprintf(out->runtime_rssi, sizeof(out->runtime_rssi), "%s", link_info.rssi_dbm);
+        }
+        if (wifi_value_missing(out->runtime_linkspeed) && link_info.linkspeed_mbps[0] != '\0') {
+            snprintf(out->runtime_linkspeed, sizeof(out->runtime_linkspeed), "%s", link_info.linkspeed_mbps);
+        }
+        if (wifi_value_missing(out->runtime_freq_mhz) && link_info.freq_mhz[0] != '\0') {
+            snprintf(out->runtime_freq_mhz, sizeof(out->runtime_freq_mhz), "%s", link_info.freq_mhz);
+        }
+    }
     wifi_key_value_file_value(A90_WIFI_AUTOCONNECT_RESULT,
                               "profile=",
                               out->autoconnect_profile,
@@ -1459,8 +1625,10 @@ int a90_wifi_print_status(void) {
     a90_console_printf("runtime.mac=%s\r\n", status.runtime_mac);
     a90_console_printf("runtime.ipv4=%s\r\n", status.runtime_ip);
     a90_console_printf("runtime.ssid_label=%s\r\n", status.runtime_ssid_label);
+    a90_console_printf("runtime.wpa_state=%s\r\n", status.runtime_wpa_state);
     a90_console_printf("runtime.rssi_dbm=%s\r\n", status.runtime_rssi);
     a90_console_printf("runtime.linkspeed_mbps=%s\r\n", status.runtime_linkspeed);
+    a90_console_printf("runtime.freq_mhz=%s\r\n", status.runtime_freq_mhz);
     a90_console_printf("runtime.decision=%s\r\n", status.runtime_decision);
     a90_console_printf("autoconnect_result.path=%s\r\n", A90_WIFI_AUTOCONNECT_RESULT);
     a90_console_printf("autoconnect_result.present=%d\r\n", status.autoconnect_result_present ? 1 : 0);

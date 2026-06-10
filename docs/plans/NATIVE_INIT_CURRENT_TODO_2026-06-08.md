@@ -8,11 +8,11 @@ than the long-term roadmap.
 
 Current baseline:
 
-- Device baseline: `A90 Linux init 0.9.257 (v2185-network-ping-test)`.
-- Promotion run: `V2185`; boot SHA256
-  `3ab13707c4ad93cb0b23c26174407be9a0ca30460fce879131ba6bea0df253b7`.
+- Device baseline: `A90 Linux init 0.9.258 (v2186-wifi-ui-polish)`.
+- Promotion run: `V2186`; boot SHA256
+  `7a0db3bb76232f778869d3bf0788268f3a1942b230b094158dddf7a7d500fd32`.
 - Immediate rollback image:
-  `workspace/private/inputs/boot_images/boot_linux_v2185_network_ping_test.img`.
+  `workspace/private/inputs/boot_images/boot_linux_v2186_wifi_ui_polish.img`.
 - Emergency rollback image:
   `workspace/private/inputs/boot_images/boot_linux_v2169_transport_contract.img`.
 - Active control path: USB ACM serial bridge managed by
@@ -199,7 +199,7 @@ Completed first units:
     `selftest fail=0`;
   - report:
     `docs/reports/NATIVE_INIT_V2185_NETWORK_PING_TEST_LIVE_VALIDATION_2026-06-10.md`.
-- `v2185-network-ping-test` is promoted as the current baseline and rollback
+- `v2185-network-ping-test` was promoted as the then-current baseline and rollback
   point:
   - device remains flashed with the V2185 boot image after live validation;
   - future rollback should target
@@ -207,6 +207,43 @@ Completed first units:
     unless testing explicitly requires an older fallback;
   - promotion report:
     `docs/reports/NATIVE_INIT_V2185_NETWORK_PING_BASELINE_PROMOTION_2026-06-10.md`.
+- `v2186-wifi-ui-polish` source work is in place:
+  - keeps V2185 as the parent baseline and V2186 as the promoted rollback
+    target;
+  - adds redacted runtime WPA state, RSSI, link speed, and frequency fields to
+    `wifi status`;
+  - updates `NETWORK > WIFI STATUS` with clearer PASS/RUN/OFF/FAIL labels and a
+    dedicated RF line;
+  - does not expose raw SSID, BSSID, PSK, gateway, or private LAN details.
+- `v2186-wifi-ui-polish` source build passed:
+  - built `workspace/private/inputs/boot_images/boot_linux_v2186_wifi_ui_polish.img`;
+  - boot SHA256:
+    `7a0db3bb76232f778869d3bf0788268f3a1942b230b094158dddf7a7d500fd32`;
+  - report:
+    `docs/reports/NATIVE_INIT_V2186_WIFI_UI_POLISH_SOURCE_BUILD_2026-06-10.md`.
+- `v2186-wifi-ui-polish` live validation passed and rolled back:
+  - flashed `workspace/private/inputs/boot_images/boot_linux_v2186_wifi_ui_polish.img`;
+  - verified device-visible version
+    `A90 Linux init 0.9.258 (v2186-wifi-ui-polish)`;
+  - ran cleanup, `wifi connect`, `wifi dhcp`, `wifi status`, bounded
+    `wifi ping gateway`, `screenmenu`, and `selftest`;
+  - reached `wifi-connect-carrier-up`, `wifi-dhcp-pass`, and
+    `wifi-ping-gateway-pass`;
+  - verified `runtime.wpa_state=COMPLETED`, populated RSSI/link speed/frequency,
+    and `secret_values_logged=0`;
+  - rolled back to V2185 and verified
+    `A90 Linux init 0.9.257 (v2185-network-ping-test)`;
+  - report:
+    `docs/reports/NATIVE_INIT_V2186_WIFI_UI_POLISH_LIVE_VALIDATION_2026-06-10.md`.
+- `v2186-wifi-ui-polish` is promoted as the current baseline and rollback
+  point:
+  - device is flashed back to V2186 after the live validation and V2185 rollback
+    proof;
+  - future rollback should target
+    `workspace/private/inputs/boot_images/boot_linux_v2186_wifi_ui_polish.img`
+    unless testing explicitly requires an older fallback;
+  - promotion report:
+    `docs/reports/NATIVE_INIT_V2186_WIFI_UI_POLISH_BASELINE_PROMOTION_2026-06-10.md`.
 - `v2172-wifi-status-scan` live validation passed:
   - corrected the test boot to reuse verified V726 private-property snapshot;
   - flashed test boot;
@@ -235,10 +272,11 @@ Completed first units:
 
 Open tasks:
 
-- Keep V2185 as the current baseline and rollback image until a newer boot image
+- Keep V2186 as the current baseline and rollback image until a newer boot image
   is intentionally promoted.
-- Keep V2178 profile/autoconnect and V2169 transport-contract images as older
-  conservative fallbacks only; they are no longer the default rollback point.
+- Keep V2185 network-ping, V2178 profile/autoconnect, and V2169
+  transport-contract images as older conservative fallbacks only; they are no
+  longer the default rollback point.
 - Keep private Wi-Fi profile/secret files out of public git; use
   `workspace/public/src/scripts/revalidation/a90_wifi_profile_stage.py` for
   staging and keep raw SSID/PSK under ignored private roots.
@@ -252,9 +290,7 @@ Open tasks:
 - Continue UI polish beyond the P3 minimum:
   - inspect P0/P1 network menu screens physically or add a framebuffer capture
     helper for automated visual validation;
-  - optional redacted SSID display mode toggle for scan results;
-  - RSSI/link quality when available from supplicant status;
-  - clearer disabled/running/pass/fail labels on the HUD.
+  - optional redacted SSID display mode toggle for scan results.
 - Optional physical UI validation remains open:
   - live CLI validation passed, including gateway plus fixed-IP ping;
   - `screenmenu` smoke was verified, but physical selection of
@@ -265,7 +301,7 @@ Open tasks:
 
 Exit criteria:
 
-- V2185 network-ping baseline promotion is complete.
+- V2186 Wi-Fi UI polish baseline promotion is complete.
 - Boot autoconnect N=3 passed with carrier and DHCP, no external ping.
 - Private 2.4 GHz and 5 GHz profile checks passed with redacted evidence.
 - `selftest fail=0` after promotion validation.
@@ -295,7 +331,7 @@ Completed first units:
   `docs/operations/NATIVE_INIT_BOOT_TRANSPORT_CONTRACT.md`.
 - Transport selector has bounded host NCM link-local auto-repair for the
   Samsung `04e8` + `cdc_ncm` present/no-`fe80::` state.
-- Current `v2185-network-ping-test` baseline preserves the device-side
+- Current `v2186-wifi-ui-polish` baseline preserves the device-side
   `transport.contract=1` contract from V2178/V2174/V2169.
 - Active Wi-Fi lifecycle runners use the shared transport selector/serial step:
   - `native_wifi_connect_carrier_handoff_v2174.py` uses
@@ -406,7 +442,7 @@ Goal: avoid mixing run IDs, helper versions, and boot baseline tags.
 
 Open tasks:
 
-- Keep current baseline fixed as `v2185-network-ping-test` until a newer boot
+- Keep current baseline fixed as `v2186-wifi-ui-polish` until a newer boot
   image is intentionally promoted.
 - If a new boot/init image is promoted, use the next global run/build identity,
   not helper numbering.
@@ -514,9 +550,8 @@ Exit criteria:
 
 1. If serial `AT` noise fires, confirm the shared recovery evidence is present;
    otherwise keep it as a ready-but-not-live-fired path.
-2. Polish Wi-Fi status/HUD output on top of the promoted V2185 baseline:
-   redacted SSID display, RSSI/link quality, and clearer
-   disabled/running/pass/fail labels.
+2. Add physical or framebuffer UI evidence for the promoted V2186 network
+   screens, especially `NETWORK > WIFI STATUS` and `NETWORK > PING TEST`.
 3. Refresh the script inventory after each active runner migration and continue
    deleting or archiving only classified one-off scripts.
 4. Run a longer Wi-Fi soak only after runner timing/retry instrumentation is in
@@ -528,8 +563,8 @@ Exit criteria:
 | --- | --- | --- |
 | Boot autoconnect latency | Wi-Fi success can take roughly three minutes. | Poll `autoconnect.decision` until a terminal result; shared phase timers are live-validated for bounded current-baseline runners, but boot/reboot latency still needs separate timing if retested. |
 | Serial `AT` noise | A single cmdv1 exchange can be malformed. | Shared recovery is implemented for safe commands; V2180 did not naturally fire the path, so live-fired evidence remains opportunistic. |
-| Physical network-menu ping selection | V2185 has CLI ping validation and `screenmenu` smoke, but not a button-driven `NETWORK > PING TEST` selection capture. | Treat as UI polish, not a baseline blocker; validate physically or with framebuffer capture when doing the next UI pass. |
+| Physical network-menu ping selection | V2186 has CLI ping/status validation and `screenmenu` smoke, but not button-driven `NETWORK > WIFI STATUS` or `NETWORK > PING TEST` capture. | Treat as UI polish, not a baseline blocker; validate physically or with framebuffer capture when doing the next UI pass. |
 | Large-transfer soak depth | V2184 passed 512MiB and 1GiB single-run bidirectional SHA checks, but not repeated N-run or multi-hour soak. | Treat as strong data-path evidence; run `cleanup -> reconnect -> 512MiB` or N-run soak only if promotion criteria require it. |
-| UI completeness | Baseline works, but operator-facing status is still sparse. | Add redacted SSID, RSSI/link quality, and clearer state labels. |
+| UI completeness | V2186 is the current baseline and passed `wifi status`, connected metrics, gateway ping, rollback, and `screenmenu`; physical button selection is still uncaptured. | Keep as baseline; improve visual capture/physical navigation evidence in the next UI pass. |
 | Script sprawl | Older one-off runners still duplicate transport/artifact logic. | Keep inventory current; migrate one active runner at a time. |
 | Private data leakage | Wi-Fi profiles and raw run artifacts are intentionally private. | Keep secrets under ignored private roots; public reports stay redacted. |

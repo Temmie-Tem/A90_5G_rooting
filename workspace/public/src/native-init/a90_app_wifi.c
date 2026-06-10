@@ -106,6 +106,33 @@ static const char *app_wifi_text_or_dash(const char *text) {
     return text != NULL && text[0] != '\0' ? text : "-";
 }
 
+static const char *app_wifi_decision_badge(const char *decision) {
+    if (decision == NULL || decision[0] == '\0' || strcmp(decision, "-") == 0) {
+        return "INFO";
+    }
+    if (strstr(decision, "disabled") != NULL) {
+        return "OFF";
+    }
+    if (strstr(decision, "running") != NULL || strstr(decision, "in-progress") != NULL) {
+        return "RUN";
+    }
+    if (strstr(decision, "pass") != NULL ||
+        strstr(decision, "carrier-up") != NULL ||
+        strstr(decision, "wlan0-present") != NULL) {
+        return "PASS";
+    }
+    if (strstr(decision, "failed") != NULL ||
+        strstr(decision, "timeout") != NULL ||
+        strstr(decision, "missing") != NULL ||
+        strstr(decision, "blocked") != NULL) {
+        return "FAIL";
+    }
+    if (strstr(decision, "no-config") != NULL) {
+        return "NO_CFG";
+    }
+    return "INFO";
+}
+
 void a90_app_wifi_reset(enum screen_app_id app_id) {
     if (app_id == SCREEN_APP_WIFI_SCAN) {
         memset(&app_wifi_scan_snapshot, 0, sizeof(app_wifi_scan_snapshot));
@@ -127,8 +154,12 @@ int a90_app_wifi_draw_status(void) {
     char line6[256];
     char line7[256];
     const char *lines[A90_APP_WIFI_LINE_COUNT];
+    const char *runtime_badge;
+    const char *auto_badge;
 
     (void)a90_wifi_status_snapshot(&status);
+    runtime_badge = app_wifi_decision_badge(status.runtime_decision);
+    auto_badge = app_wifi_decision_badge(status.autoconnect_decision);
     snprintf(line0, sizeof(line0), "IF %s %s OPER %s CARRIER %s",
              status.iface,
              status.wlan0_present ? "PRESENT" : "MISSING",
@@ -137,20 +168,22 @@ int a90_app_wifi_draw_status(void) {
     snprintf(line1, sizeof(line1), "IP %s  MAC %s",
              app_wifi_text_or_dash(status.ipv4),
              app_wifi_text_or_dash(status.mac));
-    snprintf(line2, sizeof(line2), "SSID %s  RSSI %s dBm  LINK %s Mbps",
+    snprintf(line2, sizeof(line2), "CONN %s  WPA %s",
              app_wifi_text_or_dash(status.runtime_ssid_label),
+             app_wifi_text_or_dash(status.runtime_wpa_state));
+    snprintf(line3, sizeof(line3), "RF RSSI %s dBm  LINK %s Mbps  FREQ %s",
              app_wifi_text_or_dash(status.runtime_rssi),
-             app_wifi_text_or_dash(status.runtime_linkspeed));
-    snprintf(line3, sizeof(line3), "RX %s  TX %s",
-             app_wifi_text_or_dash(status.rx_bytes),
-             app_wifi_text_or_dash(status.tx_bytes));
-    snprintf(line4, sizeof(line4), "AUTO PROFILE %s  CARRIER %s  NS %s",
+             app_wifi_text_or_dash(status.runtime_linkspeed),
+             app_wifi_text_or_dash(status.runtime_freq_mhz));
+    snprintf(line4, sizeof(line4), "AUTO %s PROFILE %s CARRIER %s NS %s",
+             auto_badge,
              app_wifi_text_or_dash(status.autoconnect_profile),
              app_wifi_text_or_dash(status.autoconnect_carrier_up),
              app_wifi_text_or_dash(status.autoconnect_nameserver_count));
     snprintf(line5, sizeof(line5), "AUTO DECISION %s",
              app_wifi_text_or_dash(status.autoconnect_decision));
-    snprintf(line6, sizeof(line6), "RUNTIME %s",
+    snprintf(line6, sizeof(line6), "RUNTIME %s %s",
+             runtime_badge,
              app_wifi_text_or_dash(status.runtime_decision));
     snprintf(line7, sizeof(line7), "SUPP PID %d  CTRL %s",
              status.supplicant_process_count,
