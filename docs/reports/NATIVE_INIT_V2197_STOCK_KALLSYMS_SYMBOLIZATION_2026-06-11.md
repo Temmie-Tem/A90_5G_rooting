@@ -220,3 +220,10 @@ Recommended next unit:
    metrics enabled.
 4. For WLAN object-chain work, keep writes blocked and use source offset + structure
    invariants as planned in V2194.
+
+Follow-up:
+
+- `docs/reports/NATIVE_INIT_V2198_JOPP_ROPP_TIMER_SEMANTIC_CLASSIFIER_2026-06-11.md`
+  implements the JOPP/ROPP classifier. It refutes magic-only slide solving and keeps
+  `exact_symbolization=false` because timer semantics and the existing V2195 stack do
+  not uniquely select one slide.
