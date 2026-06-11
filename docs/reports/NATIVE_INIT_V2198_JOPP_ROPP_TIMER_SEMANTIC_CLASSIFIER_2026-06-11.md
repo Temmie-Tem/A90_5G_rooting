@@ -218,3 +218,10 @@ Recommended next unit:
    an offline inference. Do not execute write helpers.
 4. Keep downstream WLAN/cfg80211 symbolization gated on `stack_slide_unique=true` or on a
    report that explicitly labels every symbol as provisional.
+
+Follow-up:
+
+- `docs/reports/NATIVE_INIT_V2199_TIMER_XREF_SLIDE_SCORER_2026-06-11.md` implements
+  source xref scoring. It moves the leading semantic target from broad-whitelist
+  `key_gc_timer_func` to the RCU no-CB `do_nocb_deferred_wakeup_timer` path, but keeps
+  `exact_symbolization=false` because the `+0/+4` slide pair remains unresolved.
