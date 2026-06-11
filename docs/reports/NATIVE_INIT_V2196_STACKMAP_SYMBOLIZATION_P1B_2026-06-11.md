@@ -32,6 +32,14 @@ decision: v2196-p1b-symbolization-blocked-no-matching-stock-map
 **artifact gap**이다. BPF 쪽 raw IP/anchor 회수는 동작하고, 남은 조건은 현재
 stock kernel과 일치하는 `System.map`/unstripped `vmlinux`/stock kallsyms 복구다.
 
+보정: V2195에서 세운 “slide anchor + static build면 후처리” 프레이밍은
+**bit-exact map이 있을 때만** 성립한다. 같은 소스 재빌드라도 toolchain,
+post-link RKP/CFP 변환, vendor patch layout 차이 때문에 함수 상대 배치가
+비균일하게 어긋날 수 있다. 따라서 runtime pointer 하나로 단일 slide를 잡아도
+candidate `System.map`이 live kernel과 SHA/레이아웃으로 검증되지 않으면 정확
+심볼화를 주장하면 안 된다. V2196에서 “그럴듯한 slide 후보”를 버린 것이
+의도한 안전장치다.
+
 ---
 
 ## 2. 산출물
@@ -199,6 +207,12 @@ generated `System.map`으로 slide 후보를 만들면 `__schedule`, `perf_trace
 특히 여러 slide 후보가 stack 일부를 그럴듯하게 맞추므로, 현재 단계에서 “symbolized”로
 승격하면 과적합이다.
 
+이 과적합 위험은 실제 output에서 확인됐다. candidate map 기준으로는 stack 6/6,
+timer 415/415를 동시에 만족하는 slide 후보가 여러 개 나오지만, 일부 후보는
+`build_sched_domains`, `copy_siginfo_from_user32`, cfg80211 trace output 같은
+문맥상 sched_switch stack과 맞지 않는 이름을 낸다. 이는 “matching map 없이
+점수만으로 이름을 붙이면 거짓 symbolization이 가능하다”는 직접 증거다.
+
 ---
 
 ## 7. Stock Kallsyms Recovery 상태
@@ -224,13 +238,32 @@ tmp/wifi/v1915-stock-kernel-service74-static-xref/stock/kernel
 RuntimeError: no token_table
 ```
 
+추가 확인:
+
+- `tmp/wifi/v1331-esoc-disasm/vmlinux.raw`는 ELF/vmlinux가 아니라 kernel
+  `.config` 텍스트다. symbol authority로 사용할 수 없다.
+- `bootunpack/kernel`과 `Image.decompressed`는 같은 SHA의 `UNCOMPRESSED_IMG`
+  wrapper blob이다.
+- 과거 성공 evidence는 wrapper를 제거한 raw arm64 Image 경로(`Image.stripped` /
+  `Image.for-kallsyms`)에서 kallsyms를 찾았다고 기록한다. 이 raw Image는 wrapper
+  blob과 SHA가 다른 것이 정상이다.
+- 과거 `DISASM_FINDING.md`는 `token_table @ 0x167b6c8`, `token_index @ 0x167b9bf`,
+  `relative_base 0xffffff8008080000`, `num_syms = 131833`, `names @ 0x1619310`,
+  “Decode is PERFECT”를 기록한다.
+- 같은 legacy tree에는 다른 실패 로그(`token_table@0x1948bf0`,
+  `num_syms/names anchor not found`)도 공존한다. 즉 데이터가 없다는 뜻이 아니라,
+  parser 입력 정규화와 layout 탐색 로직이 drift된 상태다.
+
 따라서 exact P1b의 남은 경로는 둘 중 하나다.
 
 1. stock kernel image의 kallsyms parser를 복구·재검증해 stock `System.map`을 생성한다.
+   우선순위는 `UNCOMPRESSED_IMG` wrapper 제거 → raw arm64 Image kallsyms table
+   탐색 → 131833개 record decode 재현 → `System.map` 출력이다.
 2. vendor/OEM matching `System.map` 또는 unstripped `vmlinux`를 확보한다.
 
 대안으로 BPF/tracefs `%pS` 경로를 쓰는 방법도 가능하지만, trace buffer 출력/formatting
-경로를 건드리는 별도 관측 설계가 필요하므로 이번 P1b에는 포함하지 않았다.
+경로를 건드리는 별도 관측 설계가 필요하므로 이번 P1b에는 포함하지 않았다. 이 경로는
+빠른 교차검증 후보이지, stock map 복구를 대체하는 영구 artifact는 아니다.
 
 ---
 
@@ -257,7 +290,9 @@ P1b exact를 닫으려면 **stock System.map 복구**가 우선이다.
 권장 순서:
 
 1. `a90_kernel_stack_symbolize.py`는 유지한다. exact map이 생기면 즉시 재사용 가능하다.
-2. stock `UNCOMPRESSED_IMG`/raw Image kallsyms parser를 별도 host-only unit으로 복구한다.
-3. parser가 `trace_call_bpf`, `bpf_get_stackid`, `__schedule`, `timer` callback symbols를
+2. stock `UNCOMPRESSED_IMG` wrapper를 raw arm64 Image로 정규화하는 단계를 먼저 고정한다.
+3. raw Image kallsyms parser를 별도 host-only unit으로 복구한다.
+4. parser가 `trace_call_bpf`, `bpf_get_stackid`, `__schedule`, `timer` callback symbols를
    포함하는 stock map을 만들면 V2196 symbolization을 재실행한다.
-4. 그 다음에 WLAN/cfg80211 tracepoint stack/object-chain에 적용한다.
+5. 후보 map 검증은 V2195 stack IP와 V2196 timer function anchors 둘 다로 한다.
+6. 그 다음에 WLAN/cfg80211 tracepoint stack/object-chain에 적용한다.

@@ -166,7 +166,9 @@ P1b 상태:
   stock kernel SHA와 새 `Image` SHA가 달라 정확 심볼화 authority로는 사용할 수 없었다.
 - V2196에서 `timer:timer_start`의 `function` field raw pointer anchor는 live로
   회수했다.
-- 따라서 남은 blocker는 BPF capability가 아니라 **matching stock symbol map**이다.
+- 따라서 남은 blocker는 BPF capability가 아니라 **bit-exact matching stock symbol
+  map**이다. 단일 slide anchor는 그 map이 live kernel과 같은 layout이라는 전제가
+  있을 때만 충분하다.
 
 다음 exact gate:
 
