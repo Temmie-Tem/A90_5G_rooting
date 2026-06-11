@@ -488,6 +488,11 @@ def parse_args() -> argparse.Namespace:
     )
     parser.add_argument("--out-dir", default="", help="Output directory under repo root or absolute path.")
     parser.add_argument("--label", default="v2220-helper-summary-trace-parser")
+    parser.add_argument(
+        "--allow-nohit",
+        action="store_true",
+        help="Return success when inputs parse cleanly but contain no hits.",
+    )
     return parser.parse_args()
 
 
@@ -515,12 +520,16 @@ def main() -> int:
             errors.append({"path": rel(path), "error": str(exc)})
 
     aggregate_summary = aggregate(events)
-    decision = (
-        "v2220-helper-summary-parser-validated-existing-hit-current-nohit"
-        if aggregate_summary["hit_event_total"] > 0
-        else "v2220-helper-summary-parser-no-hit-evidence-found"
-    )
-    pass_value = aggregate_summary["hit_event_total"] > 0 and not errors
+    if aggregate_summary["hit_event_total"] > 0:
+        decision = "v2220-helper-summary-parser-validated-existing-hit-current-nohit"
+    elif args.allow_nohit and aggregate_summary["event_total"] > 0:
+        decision = "v2220-helper-summary-parser-nohit-allowed"
+    else:
+        decision = "v2220-helper-summary-parser-no-hit-evidence-found"
+    pass_value = (
+        aggregate_summary["hit_event_total"] > 0
+        or (args.allow_nohit and aggregate_summary["event_total"] > 0)
+    ) and not errors
     summary = {
         "label": args.label,
         "decision": decision,
