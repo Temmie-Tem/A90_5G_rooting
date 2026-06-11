@@ -216,6 +216,10 @@
 #define A90_WIFI_TEST_BOOT_QCACLD_FIRMWARE_CLASS_FALLBACK_FEEDER 0
 #endif
 
+#ifndef A90_WIFI_TEST_BOOT_SERVICE_OBJECT_POST_FW_READY_FWCLASS_BRIDGE
+#define A90_WIFI_TEST_BOOT_SERVICE_OBJECT_POST_FW_READY_FWCLASS_BRIDGE 0
+#endif
+
 #ifndef A90_WIFI_TEST_BOOT_ICNSS_QCACLD_POST_BDF_FOCUSED_SUMMARY
 #define A90_WIFI_TEST_BOOT_ICNSS_QCACLD_POST_BDF_FOCUSED_SUMMARY 0
 #endif
@@ -57440,6 +57444,10 @@ static int run_wifi_companion_start_only_guarded(const struct config *cfg,
         is_wifi_companion_wlan_pd_service_object_devnode_projection_trigger_mode(cfg->mode);
     const bool wlan_pd_post_pm_lower_state_observer =
         is_wifi_companion_wlan_pd_post_pm_lower_state_observer_mode(cfg->mode);
+    const bool wlan_pd_post_fw_ready_fwclass_bridge =
+        wlan_pd_post_pm_lower_state_observer ||
+        (wlan_pd_service_object_visible_trigger &&
+         A90_WIFI_TEST_BOOT_SERVICE_OBJECT_POST_FW_READY_FWCLASS_BRIDGE);
     const bool peripheral_manager_init_contract =
         is_wifi_companion_peripheral_manager_init_contract_start_only_mode(cfg->mode);
     const bool peripheral_manager_property_contract =
@@ -58940,7 +58948,7 @@ static int run_wifi_companion_start_only_guarded(const struct config *cfg,
         return -1;
     }
 #if A90_WIFI_TEST_BOOT_POST_FW_READY_BOOT_WLAN_TRIGGER
-    if (wlan_pd_post_pm_lower_state_observer) {
+    if (wlan_pd_post_fw_ready_fwclass_bridge) {
         if (append_post_fw_ready_boot_wlan_trigger(stdout_buf) < 0) {
             stop_wlan_pd_modem_holder(paths, stdout_buf, &wlan_pd_holder);
             composite_cleanup_children(children, active_child_count, stdout_buf, stderr_buf);
@@ -59000,7 +59008,7 @@ static int run_wifi_companion_start_only_guarded(const struct config *cfg,
 	        return -1;
 	    }
 #if A90_WIFI_TEST_BOOT_ICNSS_REGISTER_PROBE_STACK_SAMPLER
-	    if (wlan_pd_post_pm_lower_state_observer &&
+	    if (wlan_pd_post_fw_ready_fwclass_bridge &&
 	        (append_wlan_pd_post_pm_lower_handoff_klog_sample(stdout_buf,
 	                                                         "after_boot_wlan_long_window") < 0 ||
 	         append_wlan_pd_icnss_ipc_snapshot(stdout_buf,
@@ -59014,7 +59022,7 @@ static int run_wifi_companion_start_only_guarded(const struct config *cfg,
 	    }
 #endif
 #if A90_WIFI_TEST_BOOT_FIRMWARE_CLASS_FALLBACK_SAMPLER
-	    if (wlan_pd_post_pm_lower_state_observer &&
+	    if (wlan_pd_post_fw_ready_fwclass_bridge &&
 	        append_firmware_class_fallback_sampler(stdout_buf,
 	                                               "after_boot_wlan_long_window") < 0) {
 	        stop_wlan_pd_modem_holder(paths, stdout_buf, &wlan_pd_holder);
