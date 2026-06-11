@@ -160,11 +160,19 @@ V2195의 의미는 “콜스택 symbolization 완료”가 아니라,
 
 ## 5. 다음 단계
 
-P1b: symbol map 확보.
+P1b 상태:
 
-- 현재 boot와 일치하는 `System.map` 또는 unstripped `vmlinux` 를 찾거나 생성한다.
-- stack IP를 `symbol + offset` 으로 변환한다.
-- 이 단계는 관측 후처리이며 live device mutation은 필요 없다.
+- V2196에서 OSRC kernel build로 `vmlinux`/`System.map`은 생성했지만, live boot의
+  stock kernel SHA와 새 `Image` SHA가 달라 정확 심볼화 authority로는 사용할 수 없었다.
+- V2196에서 `timer:timer_start`의 `function` field raw pointer anchor는 live로
+  회수했다.
+- 따라서 남은 blocker는 BPF capability가 아니라 **matching stock symbol map**이다.
+
+다음 exact gate:
+
+- stock `UNCOMPRESSED_IMG`/raw Image kallsyms parser를 복구해 현재 boot와 같은
+  `System.map`을 생성한다.
+- 그 map으로 V2195 stack IP와 V2196 timer function anchors를 다시 symbolization 한다.
 
 P2: WLAN/cfg80211 object-chain read.
 
