@@ -185,3 +185,24 @@ attractive in V2199. The function-name lead remains useful, but `0x1bcebc` / `0x
 are not exact slide authorities. Keep `exact_symbolization=false` and label downstream
 symbols as provisional until V2201 or another independent discriminator resolves the
 owner/cadence mismatch.
+
+---
+
+## 8. V2201 Follow-Up
+
+V2201 added a live read-only `struct timer_list` object read-chain for the same dominant
+`timer_start.function=0xffffff80083108fc`. The object capture succeeded with
+`obj_read_errors=0`, `obj_function_match=1396/1396`, and `obj_expires_match=1396/1396`.
+
+The decisive new discriminator is:
+
+```text
+last_timer = 0xffffff8012513c58
+obj_data   = 0xffffff8012513c48
+obj_data - timer = -0x10
+expires - now = 18000
+```
+
+This object invariant refutes the V2199 RCU no-CB `do_nocb_deferred_wakeup_timer` lead as
+an exact slide authority. RCU no-CB expected `data=(unsigned long)rdp`, not `timer - 0x10`,
+and V2200 had already contradicted its `jiffies + 1` cadence. Keep `exact_symbolization=false`.

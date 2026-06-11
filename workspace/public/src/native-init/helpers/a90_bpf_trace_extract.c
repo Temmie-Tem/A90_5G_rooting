@@ -555,9 +555,29 @@ static void usage(FILE *o) {
         "  --field-raw OFF:SIZE    scalar field, explicit ctx offset/size\n"
         "  --deref CTXOFF:o1,..:SZ pointer chase via bpf_probe_read\n"
         "modes: --mode sample|freq|stream     (default sample)\n"
-        "opts:  --duration-sec N (0..120)  --top N (freq)  --allow-attach  --verbose  --check-only\n"
+        "opts:  --duration-sec N (0..120)  --top N (freq)  --allow-attach  --busy-observe  --verbose  --check-only\n"
         "safety: read-only; no tracefs writes, no Wi-Fi/network action; attach gated by --allow-attach\n",
         A90_VERSION);
+}
+
+static void busy_observe_seconds(int duration_sec) {
+    struct timespec start;
+    struct timespec now;
+    volatile unsigned long spin = 0;
+    clock_gettime(CLOCK_MONOTONIC, &start);
+    for (;;) {
+        spin++;
+        clock_gettime(CLOCK_MONOTONIC, &now);
+        time_t sec = now.tv_sec - start.tv_sec;
+        long nsec = now.tv_nsec - start.tv_nsec;
+        if (nsec < 0) {
+            sec--;
+            nsec += 1000000000L;
+        }
+        if (sec > duration_sec || (sec == duration_sec && nsec >= 0))
+            break;
+    }
+    (void)spin;
 }
 
 int main(int argc, char **argv) {
@@ -570,7 +590,7 @@ int main(int argc, char **argv) {
     enum out_mode mode = MODE_SAMPLE;
     int duration_sec = 2;
     int top = 32;
-    int allow_attach = 0, check_only = 0, verbose = 0;
+    int allow_attach = 0, check_only = 0, verbose = 0, busy_observe = 0;
 
     for (int i = 1; i < argc; i++) {
         if (!strcmp(argv[i], "--event") && i + 1 < argc) {
@@ -601,6 +621,8 @@ int main(int argc, char **argv) {
             if (top < 1 || top > 4096) top = 32;
         } else if (!strcmp(argv[i], "--allow-attach")) {
             allow_attach = 1;
+        } else if (!strcmp(argv[i], "--busy-observe")) {
+            busy_observe = 1;
         } else if (!strcmp(argv[i], "--check-only")) {
             check_only = 1;
         } else if (!strcmp(argv[i], "--verbose")) {
@@ -637,8 +659,8 @@ int main(int argc, char **argv) {
         printf("read=scalar off=%d size=%d%s%s\n", rs.ctx_off, rs.size,
                field_name[0] ? " field=" : "", field_name);
     }
-    printf("mode=%s duration_sec=%d\n",
-           mode == MODE_SAMPLE ? "sample" : mode == MODE_FREQ ? "freq" : "stream", duration_sec);
+    printf("mode=%s duration_sec=%d busy_observe=%d\n",
+           mode == MODE_SAMPLE ? "sample" : mode == MODE_FREQ ? "freq" : "stream", duration_sec, busy_observe);
 
     if (check_only || !allow_attach) {
         printf("result=check-only\n");
@@ -681,6 +703,8 @@ int main(int argc, char **argv) {
     int rc = 0;
     if (mode == MODE_STREAM) {
         rc = stream_loop(map_fd, ncpu, duration_sec);
+    } else if (busy_observe) {
+        busy_observe_seconds(duration_sec);
     } else {
         sleep((unsigned int)duration_sec);
     }
