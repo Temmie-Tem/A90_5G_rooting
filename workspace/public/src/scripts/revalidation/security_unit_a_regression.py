@@ -70,6 +70,30 @@ class UnitASecurityRegression(unittest.TestCase):
         self.assertEqual(ncm.host_ncm_candidates([wrong_product], require_link_local=True), [])
         self.assertEqual(ncm.host_ncm_candidates([right_product], require_link_local=True), [right_product])
 
+    def test_ncm_host_setup_auto_selects_verified_a90_interface(self) -> None:
+        setup = importlib.import_module("ncm_host_setup")
+
+        class Args:
+            interface = None
+            allow_auto_interface = False
+            interface_timeout = 0.1
+
+        status = setup.UsbnetStatus(
+            ifname="ncm0",
+            dev_addr="8e:4c:db:fc:73:22",
+            host_addr="4a:99:e7:58:b5:08",
+            raw="",
+        )
+        original_find = setup.find_interface_by_mac
+        original_verify = setup.host_interface_is_verified_a90_ncm
+        try:
+            setup.find_interface_by_mac = lambda mac: "enx4a99e758b508"
+            setup.host_interface_is_verified_a90_ncm = lambda interface: True
+            self.assertEqual(setup.select_host_interface(Args(), status), "enx4a99e758b508")
+        finally:
+            setup.find_interface_by_mac = original_find
+            setup.host_interface_is_verified_a90_ncm = original_verify
+
     def test_ncm_host_repair_is_opt_in(self) -> None:
         ncm = importlib.import_module("a90_ncm_transport")
         old_env = os.environ.pop(ncm.NCM_REPAIR_HOST_NET_ENV, None)

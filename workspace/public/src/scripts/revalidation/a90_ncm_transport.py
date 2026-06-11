@@ -27,6 +27,7 @@ DEFAULT_DEVICE_IFNAME = "ncm0"
 DEFAULT_DEVICE_IP = "192.168.7.2"
 DEFAULT_DEVICE_NETMASK = "255.255.255.0"
 DEFAULT_NM_PROFILE = "a90-v725-ncm-bench"
+HOST_LINKLOCAL_SETTLE_SEC = 5.0
 NM_REPAIR_COMMAND_TAIL_CHARS = 1000
 NCM_REPAIR_HOST_NET_ENV = "A90_NCM_REPAIR_HOST_NET"
 SECRET_SCAN_CHUNK_BYTES = 1024 * 1024
@@ -739,6 +740,43 @@ class FastTransferSession:
         )
         return ready_after
 
+    def wait_for_host_linklocal(self, *, reason: str, timeout_sec: float = HOST_LINKLOCAL_SETTLE_SEC) -> bool:
+        deadline = time.monotonic() + max(0.0, timeout_sec)
+        snapshot: list[dict[str, Any]] = []
+        while time.monotonic() <= deadline:
+            snapshot = host_netdev_snapshot()
+            if self.select_ready_candidate(snapshot, reason=reason):
+                write_compact_step(
+                    self.store,
+                    self.steps,
+                    "fast-transfer-host-net-linklocal-settled",
+                    command=["host", "detect-a90-ncm-link-local", "settle"],
+                    ok=True,
+                    rc=0,
+                    stdout=json.dumps({
+                        "ifname": self.ifname,
+                        "host_link_local": self.host_link_local,
+                        "settle_timeout_sec": timeout_sec,
+                        "snapshot": snapshot,
+                    }, ensure_ascii=False, sort_keys=True) + "\n",
+                )
+                return True
+            time.sleep(0.5)
+        write_compact_step(
+            self.store,
+            self.steps,
+            "fast-transfer-host-net-linklocal-settled",
+            command=["host", "detect-a90-ncm-link-local", "settle"],
+            ok=False,
+            rc=1,
+            stdout=json.dumps({
+                "reason": f"{reason}-not-settled",
+                "settle_timeout_sec": timeout_sec,
+                "snapshot": snapshot,
+            }, ensure_ascii=False, sort_keys=True) + "\n",
+        )
+        return False
+
     def ensure_ready(self) -> bool:
         if not self.enabled:
             self.reason = "disabled"
@@ -773,6 +811,8 @@ class FastTransferSession:
             )
             return True
         if host_ncm_candidates(before, require_link_local=False):
+            if self.wait_for_host_linklocal(reason="existing-a90-ncm-link-local-after-settle"):
+                return True
             if self.repair_host_net and self.repair_host_linklocal(reason="a90-ncm-present-without-host-fe80"):
                 return True
             if not self.repair_host_net:

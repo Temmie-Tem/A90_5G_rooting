@@ -4,6 +4,7 @@ import argparse
 import ipaddress
 import os
 import re
+import shutil
 import shlex
 import socket
 import subprocess
@@ -11,16 +12,18 @@ import sys
 import time
 from dataclasses import dataclass
 
+import a90_ncm_transport as shared_ncm
 from a90ctl import ProtocolResult, run_cmdv1_command, shell_command_to_argv
 
 
 DEFAULT_BRIDGE_HOST = "127.0.0.1"
 DEFAULT_BRIDGE_PORT = 54321
 DEFAULT_DEVICE_HELPER = "/cache/bin/a90_usbnet"
-DEFAULT_TOYBOX = "/cache/bin/toybox"
+DEFAULT_TOYBOX = "/bin/busybox"
 DEFAULT_DEVICE_IP = "192.168.7.2"
 DEFAULT_HOST_IP = "192.168.7.1"
 DEFAULT_PREFIX = 24
+DEFAULT_NM_PROFILE = shared_ncm.DEFAULT_NM_PROFILE
 
 HOST_ADDR_RE = re.compile(r"^ncm\.host_addr:\s*([0-9a-fA-F:]{17})\s*$", re.MULTILINE)
 DEV_ADDR_RE = re.compile(r"^ncm\.dev_addr:\s*([0-9a-fA-F:]{17})\s*$", re.MULTILINE)
@@ -205,6 +208,24 @@ def find_interface_by_mac(mac: str) -> str | None:
     return None
 
 
+def host_snapshot_for_interface(interface: str) -> dict[str, object] | None:
+    try:
+        snapshot = shared_ncm.host_netdev_snapshot()
+    except Exception:
+        return None
+    for item in snapshot:
+        if item.get("ifname") == interface:
+            return item
+    return None
+
+
+def host_interface_is_verified_a90_ncm(interface: str) -> bool:
+    item = host_snapshot_for_interface(interface)
+    if item is None:
+        return False
+    return shared_ncm.is_a90_ncm_netdev(item)
+
+
 def wait_for_interface_by_mac(mac: str, timeout_sec: float) -> str:
     deadline = time.monotonic() + timeout_sec
     while time.monotonic() < deadline:
@@ -233,9 +254,15 @@ def select_host_interface(args: argparse.Namespace, status: UsbnetStatus) -> str
             )
         return args.interface
 
+    if status.host_addr:
+        interface = find_interface_by_mac(status.host_addr)
+        if interface and host_interface_is_verified_a90_ncm(interface):
+            log(f"auto-selected verified A90 NCM host interface {interface}")
+            return interface
+
     if not args.allow_auto_interface:
         raise RuntimeError(
-            "refusing sudo host NIC configuration from device-reported MAC; "
+            "no verified A90 NCM host interface was auto-detected; "
             "pass --interface <ifname> or opt in with --allow-auto-interface"
         )
 
@@ -262,6 +289,18 @@ def run_host_command(args: argparse.Namespace,
         raise RuntimeError(f"host command failed rc={result.returncode}: {shlex.join(full_command)}")
 
 
+def run_host_command_result(command: list[str], *, timeout: float = 20.0) -> subprocess.CompletedProcess[str]:
+    print("+ " + shlex.join(command), flush=True)
+    return subprocess.run(
+        command,
+        text=True,
+        stdout=subprocess.PIPE,
+        stderr=subprocess.PIPE,
+        timeout=timeout,
+        check=False,
+    )
+
+
 def interface_has_addr(interface: str, cidr: str) -> bool:
     result = subprocess.run(
         ["ip", "-4", "-o", "addr", "show", "dev", interface],
@@ -270,6 +309,16 @@ def interface_has_addr(interface: str, cidr: str) -> bool:
         check=False,
     )
     return cidr in result.stdout
+
+
+def interface_has_ipv6_link_local(interface: str) -> bool:
+    result = subprocess.run(
+        ["ip", "-6", "-o", "addr", "show", "dev", interface, "scope", "link"],
+        text=True,
+        capture_output=True,
+        check=False,
+    )
+    return " inet6 fe80:" in result.stdout
 
 
 def wait_for_host_addr(interface: str, cidr: str, timeout_sec: float) -> None:
@@ -284,14 +333,73 @@ def wait_for_host_addr(interface: str, cidr: str, timeout_sec: float) -> None:
 
 def print_required_host_commands(interface: str, cidr: str) -> None:
     print("\nHost IP setup required:", file=sys.stderr)
+    print(f"  nmcli connection delete {DEFAULT_NM_PROFILE} 2>/dev/null || true", file=sys.stderr)
+    print(
+        "  nmcli connection add type ethernet "
+        f"con-name {DEFAULT_NM_PROFILE} ifname {interface} "
+        f"ipv4.method manual ipv4.addresses {cidr} "
+        "ipv6.method link-local ipv6.addr-gen-mode stable-privacy "
+        "connection.autoconnect no",
+        file=sys.stderr,
+    )
+    print(f"  nmcli connection up {DEFAULT_NM_PROFILE}", file=sys.stderr)
+    print("or:", file=sys.stderr)
     print(f"  sudo ip addr replace {cidr} dev {interface}", file=sys.stderr)
     print(f"  sudo ip link set {interface} up", file=sys.stderr)
+
+
+def configure_host_interface_nmcli(interface: str, cidr: str) -> bool:
+    if shutil.which("nmcli") is None:
+        return False
+
+    commands = [
+        ["nmcli", "connection", "delete", DEFAULT_NM_PROFILE],
+        [
+            "nmcli",
+            "connection",
+            "add",
+            "type",
+            "ethernet",
+            "con-name",
+            DEFAULT_NM_PROFILE,
+            "ifname",
+            interface,
+            "ipv4.method",
+            "manual",
+            "ipv4.addresses",
+            cidr,
+            "ipv6.method",
+            "link-local",
+            "ipv6.addr-gen-mode",
+            "stable-privacy",
+            "connection.autoconnect",
+            "no",
+        ],
+        ["nmcli", "connection", "up", DEFAULT_NM_PROFILE],
+    ]
+    for index, command in enumerate(commands):
+        result = run_host_command_result(command, timeout=25.0)
+        if result.returncode != 0 and index != 0:
+            if result.stdout:
+                print(result.stdout, end="" if result.stdout.endswith("\n") else "\n")
+            if result.stderr:
+                print(result.stderr, end="" if result.stderr.endswith("\n") else "\n", file=sys.stderr)
+            return False
+    try:
+        wait_for_host_addr(interface, cidr, 10.0)
+    except RuntimeError:
+        return False
+    return True
 
 
 def configure_host_interface(args: argparse.Namespace, interface: str) -> None:
     cidr = f"{args.host_ip}/{args.prefix}"
     if interface_has_addr(interface, cidr):
         log(f"host {interface} already has {cidr}")
+        return
+
+    if configure_host_interface_nmcli(interface, cidr):
+        log(f"host {interface} configured via NetworkManager profile {DEFAULT_NM_PROFILE}")
         return
 
     for command in (
@@ -365,6 +473,13 @@ def command_status(args: argparse.Namespace) -> int:
         interface = find_interface_by_mac(status.host_addr)
         if interface:
             log(f"host interface: {interface} ({status.host_addr})")
+            cidr = f"{args.host_ip}/{args.prefix}"
+            log(
+                "host readiness: "
+                f"a90_ncm={host_interface_is_verified_a90_ncm(interface)} "
+                f"ipv4_{cidr}={interface_has_addr(interface, cidr)} "
+                f"ipv6_link_local={interface_has_ipv6_link_local(interface)}"
+            )
         else:
             log(f"host interface not found for MAC {status.host_addr}")
     else:
