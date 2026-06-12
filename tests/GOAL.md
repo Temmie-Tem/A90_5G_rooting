@@ -111,7 +111,11 @@ functions.
 - [x] `workspace/public/src/scripts/revalidation/native_kernel_perf_regs_frame_sample_ring_v2214.py`
       — perf-regs sample-ring stdout parsing, address classification,
       stock-map symbolization helpers, convergence metrics, report rendering.
-- [ ] (append more as discovered: v2215+ analyzers.)
+- [x] `workspace/public/src/scripts/revalidation/a90_kernel_v2215_perf_regs_ropp_jopp_classifier.py`
+      — scalar/System.map/raw helpers, function ranges, slide intervals,
+      BL callsite maps, slide/no-slide classifiers, ROPP decode audit,
+      report rendering.
+- [ ] (append more as discovered: v2216+ analyzers.)
 
 ## Progress log
 
@@ -222,4 +226,11 @@ functions.
   parse_int, parse_helper_stdout, classify_addr, load_text_symbols,
   nearest_symbol, symbolize_counter, analyze_probe, render_report —
   7 cases — green.
+- 2026-06-13 — `a90_kernel_v2215_perf_regs_ropp_jopp_classifier.py` —
+  parse_int, hex64, hex_signed, parse_system_map, build_symbol_index,
+  nearest_symbol, load_kernel_raw, load_synthetic_base, read_u32, is_bl,
+  decode_bl_target, build_function_ranges, function_lookup, union_intervals,
+  top_slide_intervals, build_callsite_map, candidate_slides_from_intervals,
+  score_slide, classify_no_slide, classify_under_slide, ropp_decode_audit,
+  render_report — 7 cases — green.
 - (append: date — target — functions covered — test count — any `KNOWN-DIVERGENCE`.)
