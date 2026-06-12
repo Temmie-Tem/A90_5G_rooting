@@ -9,19 +9,40 @@ safety invariants and flash gates are binding and override any sub-goal.**
 > obey the flash gates in `AGENTS.md` (rollback precondition, post-flash health check,
 > auto-rollback, no cascading bad flashes). When in doubt, STOP and report — never guess.
 
-## North star
+## North star — priority-ordered tracks (T1 → T2 → T3)
 
-Advance the project's **current** frontier as recorded in the living state docs — it is
-deliberately not hardcoded here. Each iteration re-reads state and picks the next best step.
+Pursue the **highest tier that still has a meaningful, safely-actionable next step**.
+Drop to the next tier only when the current one is *impossible* or *meaningless* (criteria
+below). Re-evaluate the tier each iteration; you may climb back up if new evidence reopens
+a higher tier.
 
-Read at the START of every iteration:
+**T1 (primary) — kernel observation.** Extend what is *observable* on the locked RKP
+kernel via sanctioned read paths: the V2192–V2221 line — BPF/perf read probes, the slide
+solver / exact symbolization (resume at the V2214 perf-event register-frame sampler:
+raw `ctx->pc` kernel-text anchor to collapse the V2197 four-candidate slide ambiguity),
+uprobe/tracepoint observation, and mapping the observe/control envelope. Mostly read-only
+(`/cache/bin` helper + bounded attach) — usually **no flash needed**, lower risk.
+
+**T2 (fallback) — WLAN native-init.** Advance the WLAN bring-up / boot baseline (latest
+promoted = **V2236 strict Wi-Fi connect**): e.g. the terminate-race fold-down, connect
+robustness, network detail surface. Device/flash steps obey the `AGENTS.md` flash gates.
+
+**T3 (fallback) — self-directed.** When T1 and T2 are both exhausted/meaningless, pick the
+next best step anywhere on the current frontier from the state docs.
+
+**Drop-tier criteria** — leave a tier when the next step would need a kernel-write
+primitive / RKP bypass / exploit (out of scope), needs hardware/data not available, is
+blocked with no new independent oracle after exhausting non-conflicting evidence, or only
+re-confirms already-established facts (diminishing returns). **When you change tier, record
+the trigger** (what made the higher tier impossible/meaningless) in that iteration's report
+before proceeding.
+
+Read at the START of every iteration (then apply the tier policy above):
 - `CLAUDE.md` (current state + safety),
 - `docs/overview/PROJECT_STATUS.md`,
-- the newest `docs/reports/NATIVE_INIT_V*.md` (a few),
+- the newest `docs/reports/NATIVE_INIT_V*.md` (a few; include the latest kernel-track
+  V21xx reports when on T1),
 - `git log --oneline -15`.
-
-Frontier at setup time (confirm from the docs, do not assume): native-init WLAN bring-up /
-boot baseline; latest promoted baseline = **V2236 strict Wi-Fi connect**.
 
 ## The cycle (repeat)
 
@@ -54,9 +75,20 @@ boot baseline; latest promoted baseline = **V2236 strict Wi-Fi connect**.
 
 ## Sub-goal seeds (optional; the loop may pick others from state)
 
+**T1 — kernel observation (try first):**
+- Resume the slide solver: build/run the **V2214 perf-event register-frame sampler** —
+  per-CPU `PERF_COUNT_SW_CPU_CLOCK`, read raw `ctx->pc` (off 256) + `ctx->regs[30]` live
+  LR (off 240) as un-ROPP'd kernel-text anchors; `exclude_user=1 exclude_idle=1`,
+  ~1 ms period. Harvest the kernel `ctx->pc` set and solve the unique KASLR slide
+  (collapse the V2197 four-candidate ambiguity). Read-only BPF; no flash.
+- After the slide is pinned: read-only WLAN/cfg80211/QRTR tracepoint object-chain reads
+  with ambiguity metrics; extend the observe/control envelope map.
+
+**T2 — WLAN native-init (if T1 blocked):**
 - **V2236 strict-connect terminate-race**: replace the blind 500 ms post-`TERMINATE`
   sleep with a bounded poll until the old supplicant is gone + SIGKILL escalation
-  (see the connect path in `workspace/public/src/native-init/a90_wifi.c`).
-- Network detail UI + remaining test-script cleanup (per CLAUDE.md "Active work").
-- **Host-only regression harness** — `tests/GOAL.md`. No device; ideal safe filler
-  between device iterations.
+  (connect path in `workspace/public/src/native-init/a90_wifi.c`).
+- Network detail surface + remaining test-script cleanup (CLAUDE.md "Active work").
+
+**Any tier — safe filler (no device):**
+- **Host-only regression harness** — `tests/GOAL.md`. Ideal between device iterations.
