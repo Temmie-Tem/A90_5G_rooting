@@ -221,18 +221,15 @@ Completed:
   - residual-state metadata missing: `0`;
   - phase-timer-exempt live utilities: `2`;
   - residual-state-exempt live utilities/helpers: `3`.
-- V2274 implemented the new T1 oracle candidate as a source/build-only combined
-  test boot: `boot_linux_v2274_workqueue_codeword_combined.img`
-  (`A90 Linux init 0.9.274`, helper `a90_android_execns_probe v432`, boot SHA256
-  `c389a7c423c752e02af4a73fa8d6f3365de53042e71763b16b7c2b011c59bb2f`). It
-  packages both `/bin/a90_bpf_workqueue_func_sample_ring` and
-  `/bin/a90_bpf_perf_regs_codeword_sample_ring`, starts both before the
-  post-FWREADY `boot_wlan`/firmware_class feeder window, and writes
-  `/cache/native-init-v2274-workqueue-fwclass.log` plus
-  `/cache/native-init-v2274-tail-perf-regs-codeword.log`. The selector still
-  returns `frontier-selector-actionable-unit-present` with `selected_track=T1`.
-  Next bounded unit is V2275 live flash/capture/rollback plus same-boot
-  function-pointer classification.
+- V2275 ran the V2274 combined workqueue/codeword oracle rollbackably. The
+  workqueue sampler completed and captured `12511` total events (`2048` stored),
+  but the paired same-boot codeword sampler did not satisfy the existing V2216
+  acceptance policy despite a strong best slide `0xccef4` (`pc_match=712/715`,
+  `lr_prev=709/709`, `lr=709/709`). Final rollback to V2237 was manually
+  completed after a host parser crash and ended with `version`/`status`/`selftest
+  fail=0`. Next bounded unit is host-only V2276 postprocess of the V2275
+  codeword log to decide whether the three PC mismatches are known runtime-patch
+  sites and whether an LR-exact/PC-patch-aware acceptance rule is justified.
 - V2272 defined the underlying T1 oracle candidate:
   `t1-workqueue-fwclass-function-pointer-oracle`, stored in
   `docs/artifacts/native-init-frontier-candidates.json`.
@@ -411,16 +408,15 @@ Keep:
 
 1. Run `native_init_frontier_select.py --json` after the normal state read.
    Current expected result is `frontier-selector-actionable-unit-present` with
-   `selected_track=T1` because V2274 built the combined workqueue/codeword
-   observer and the live V2275 run is pending.
-2. Run the V2275 live validation of the V2274 image: flash
-   `boot_linux_v2274_workqueue_codeword_combined.img`, collect
-   `/cache/native-init-v2274-workqueue-fwclass.log`,
-   `/cache/native-init-v2274-tail-perf-regs-codeword.log`, helper result,
-   summary, kmsg/dmesg anchors, then roll back and verify selftest `FAIL=0`.
-3. Classify captured `workqueue:workqueue_queue_work` and
-   `workqueue:workqueue_execute_start` function pointers with same-boot
-   exact-slide/codeword evidence; do not retune generic CPU-clock sampling.
+   `selected_track=T1` because V2275 left a concrete same-boot codeword
+   acceptance question on fresh live evidence.
+2. Run host-only V2276 postprocess on
+   `workspace/private/runs/kernel/v2275-workqueue-codeword-live-20260612-172723`:
+   identify the three PC mismatches behind the best slide `0xccef4`, compare
+   them to runtime-patch/codeword exception patterns, and decide whether the
+   LR-exact slide can be accepted for workqueue function-pointer classification.
+3. Only after that policy is settled, classify the V2275 workqueue functions or
+   build a narrower follow-up sampler; do not rerun generic CPU-clock sampling.
 4. Start new WLAN live validation from V2254 only when a concrete criterion
    exists, unless a test explicitly validates an older rollback image.
 5. Defer architecture source cleanup unless a cleanup patch is kept separate and
@@ -437,6 +433,6 @@ Keep:
 | Physical network-menu ping selection | V2189 inherits V2187 command-level framebuffer presentation evidence for `WIFI STATUS` and `WIFI PING RESULTS`, but not button-driven physical capture. | Treat as UI polish, not a baseline blocker; validate physically or with OCR only if visual-navigation evidence is required. |
 | Large-transfer soak depth | V2184 passed 512MiB and 1GiB single-run bidirectional SHA checks, but not repeated N-run or multi-hour soak. | Treat as strong data-path evidence; run `cleanup -> reconnect -> 512MiB` or N-run soak only if promotion criteria require it. |
 | UI completeness | V2254 is the current baseline and preserves V2237 native `wlan0` bring-up/strict connect cleanup while adding the read-only Wi-Fi detail surface. | Keep V2254 as baseline; physical button/OCR validation remains optional. |
-| T1 oracle execution | V2274 built the combined workqueue queue/execute function-pointer observer plus same-boot perf-regs/codeword sampler into a rollbackable test boot, but the live V2275 capture has not run yet. | Flash V2274 as V2275, collect `/cache/native-init-v2274-workqueue-fwclass.log` and `/cache/native-init-v2274-tail-perf-regs-codeword.log` plus helper/kmsg/selftest evidence, roll back, and classify with same-boot exact-slide/codeword evidence. |
+| T1 oracle execution | V2275 captured the combined workqueue/codeword logs, but codeword acceptance stayed false (`pc_match=712/715`, LR exact) and the first runner needed manual rollback after a host parser crash. | Do host-only V2276 postprocess of the V2275 codeword mismatches before another live workqueue run; final device state is V2237 selftest `fail=0`. |
 | Script sprawl | Current source-root inventory has no delete-review rows and no active live phase/residual gaps. Remaining direct `a90ctl.py` references are review-only: `direct_a90ctl_reference_count=14`, `direct_a90ctl_actionable_now_count=0`, `direct_a90ctl_review_only_count=14`, top group `flash_capable_kernel_handoff_runners`. | Do not select direct-ref migration solely from historical references; use `consolidation_signals.direct_a90ctl_next_actionable_group` and migrate a runner only if it is revived or changed for a bounded run. |
 | Private data leakage | Wi-Fi profiles and raw run artifacts are intentionally private. | Keep secrets under ignored private roots; public reports stay redacted. |

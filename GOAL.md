@@ -94,28 +94,23 @@ per-item metadata/inventory/cleanup sweeps that each succeed and justify the nex
 ## Sub-goal seeds (optional; the loop may pick others from state)
 
 **T1 — kernel observation (try first):**
-- After V2274 source/build: the T1 workqueue firmware_class oracle is now
-  implemented as a rollbackable combined test boot image with same-boot
-  codeword evidence packaged into the same boot. V2273 built the workqueue-only
-  sampler, but that left the exact-slide/codeword oracle implicit; V2274 fixes
-  that by packaging both samplers. `build_native_init_boot_v2274_workqueue_codeword_combined.py`
-  produced `workspace/private/inputs/boot_images/boot_linux_v2274_workqueue_codeword_combined.img`
-  (`A90 Linux init 0.9.274`, helper `a90_android_execns_probe v432`,
-  helper SHA256 `5709432f1f065de969cf0d54f6ae78369557faa37993bb5d5a3dce7d77dee39a`,
-  boot SHA256 `c389a7c423c752e02af4a73fa8d6f3365de53042e71763b16b7c2b011c59bb2f`).
-  It keeps the V2237 Wi-Fi route and packages the read-only
-  `/bin/a90_bpf_workqueue_func_sample_ring` sampler (SHA256
-  `4f3250d996de5156bb43bcc2844e5cb429b8478cc1aaf32244281d58e8f6f524`) plus
-  `/bin/a90_bpf_perf_regs_codeword_sample_ring` (SHA256
-  `3a16efc217eafeacbcc95a5e6005d0abce02e89ab52ed537df1fc2b193ca3dd7`) in
-  ramdisk. The helper starts both before post-FWREADY `boot_wlan` and waits for
-  them after the firmware_class feeder, writing
-  `/cache/native-init-v2274-workqueue-fwclass.log` and
-  `/cache/native-init-v2274-tail-perf-regs-codeword.log`. Next bounded live
-  unit: flash this image as V2275, collect both sampler logs/helper result/kmsg
-  anchors, roll back, verify selftest `FAIL=0`, then classify function pointers
-  with same-boot exact-slide/codeword evidence. This is code-path observation
-  only; no Wi-Fi scan/connect/DHCP/ping or credentials.
+- After V2275 live: the V2274 combined workqueue/codeword oracle was run
+  rollbackably. V2274 booted as `A90 Linux init 0.9.274
+  (v2274-workqueue-codeword-combined)`, reached `wlan0-ready`, collected both
+  sampler logs, and the final manual rollback to V2237 ended with
+  `version`/`status`/`selftest fail=0`. The workqueue sampler itself worked:
+  `total=12511`, `stored=2048`, `queue_work=6254`, `execute_start=6257`,
+  `overflow=10463`, result `v2273-workqueue-func-sample-ring-complete`.
+  The paired codeword sampler produced `715/715` printed/occupied samples and a
+  strong best slide `0xccef4` (`pc_match=712/715`, `lr_prev=709/709`,
+  `lr=709/709`) but did not meet the existing V2216 exact/near acceptance policy
+  (`accepted_symbolization_slide=false`, reason `not_accepted`). Therefore V2275
+  is a live evidence success but an oracle-classification FAIL/inconclusive:
+  same-boot workqueue function-pointer classification is not yet trusted. Next
+  bounded T1 unit: host-only V2276 postprocess of the V2275 codeword log to
+  decide whether the three PC mismatches are known runtime-patch sites and
+  whether an LR-exact/PC-patch-aware acceptance rule is justified; do not rerun
+  another live workqueue capture until that acceptance policy is resolved.
 - After V2253 live: the V2252 boundary-stack observer passed with rollback.
   V2252 flashed and booted as `A90 Linux init 0.9.271
   (v2252-fwclass-boundary-stack)`, health checks passed, helper result was
