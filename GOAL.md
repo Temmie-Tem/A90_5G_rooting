@@ -77,6 +77,21 @@ Read at the START of every iteration (then apply the tier policy above):
 ## Sub-goal seeds (optional; the loop may pick others from state)
 
 **T1 — kernel observation (try first):**
+- After V2249: source/build-only test boot
+  `workspace/private/inputs/boot_images/boot_linux_v2249_tail_perf_sampler_hook.img`
+  exists for the post-FWREADY tail capture. It keeps V2237 behavior, bumps init
+  to `A90 Linux init 0.9.269 (v2249-tail-perf-sampler-hook)`, uses helper
+  `a90_android_execns_probe v428`, and adds only the compile-gated
+  `A90_WIFI_TEST_BOOT_TAIL_PERF_REGS_CODEWORD_SAMPLER=1` hook. The ramdisk
+  contains `/bin/a90_bpf_perf_regs_codeword_sample_ring` SHA-256
+  `3a16efc217eafeacbcc95a5e6005d0abce02e89ab52ed537df1fc2b193ca3dd7`.
+  Next live unit: flash via `native_init_flash.py`, collect
+  `/cache/native-init-wifi-test-boot-v2249-helper.result` and
+  `/cache/native-init-v2249-tail-perf-regs-codeword.log`, confirm the helper
+  emitted `tail_perf_regs_codeword_sampler.started=1` and
+  `finish.after_fwclass_feeder.output_exists=1`, then parse/score the log with
+  the V2216 parser path and `a90_kernel_v2247_tail_pc_lr_scorer.py`. Roll back
+  to V2237 unless explicitly promoting.
 - After V2248: do not try to run the V2216 perf regs/codeword sampler only
   after native boot if the goal is the post-FWREADY qcacld/HDD tail. The source
   route calls `append_post_fw_ready_boot_wlan_trigger(stdout_buf)`, holds 8 s,
