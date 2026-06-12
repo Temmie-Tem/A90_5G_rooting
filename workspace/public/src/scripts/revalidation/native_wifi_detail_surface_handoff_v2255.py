@@ -12,6 +12,7 @@ from __future__ import annotations
 import argparse
 import hashlib
 import json
+import os
 import shlex
 import subprocess
 import time
@@ -145,29 +146,6 @@ def write_step(store: EvidenceStore,
     return step
 
 
-def a90ctl_command(args: argparse.Namespace,
-                   command: list[str],
-                   *,
-                   allow_error: bool = False) -> list[object]:
-    rendered: list[object] = [
-        "python3",
-        "workspace/public/src/scripts/revalidation/a90ctl.py",
-        "--host",
-        args.bridge_host,
-        "--port",
-        str(args.bridge_port),
-        "--timeout",
-        str(args.timeout),
-        "--input-mode",
-        "slow",
-        "--hide-on-busy",
-    ]
-    if allow_error:
-        rendered.append("--allow-error")
-    rendered.extend(command)
-    return rendered
-
-
 def run_a90ctl_step(store: EvidenceStore,
                     steps: list[dict[str, Any]],
                     name: str,
@@ -178,10 +156,29 @@ def run_a90ctl_step(store: EvidenceStore,
                     timeout: float = 90.0,
                     attempts: int = 3,
                     delay_sec: float = 4.0) -> dict[str, Any]:
+    del allow_error
     last_result: dict[str, Any] | None = None
     for attempt in range(1, max(1, attempts) + 1):
-        result = run_command(a90ctl_command(args, command, allow_error=allow_error), timeout=timeout)
-        write_step(store, steps, f"{name}-attempt-{attempt}", result)
+        previous_input_mode = os.environ.get("A90CTL_INPUT_MODE")
+        os.environ["A90CTL_INPUT_MODE"] = "slow"
+        try:
+            result = transport.run_serial_step(
+                store,
+                steps,
+                f"{name}-attempt-{attempt}",
+                command,
+                timeout=timeout,
+                bridge_timeout=timeout,
+                host=args.bridge_host,
+                port=args.bridge_port,
+                hide_on_busy=True,
+                retry_unsafe=False,
+            )
+        finally:
+            if previous_input_mode is None:
+                os.environ.pop("A90CTL_INPUT_MODE", None)
+            else:
+                os.environ["A90CTL_INPUT_MODE"] = previous_input_mode
         if result.get("ok"):
             result = dict(result)
             result["attempt"] = attempt
@@ -336,14 +333,14 @@ def dry_run_commands(preflight_result: dict[str, Any]) -> dict[str, Any]:
         ],
         "flash_test_boot": flash_command(TEST_IMAGE, TEST_EXPECT_VERSION, test_sha, from_native=True),
         "test_observations": [
-            ["python3", "workspace/public/src/scripts/revalidation/a90ctl.py", "wifi", "status"],
-            ["python3", "workspace/public/src/scripts/revalidation/a90ctl.py", "screenapp", "wifi-status"],
+            ["cmdv1", "wifi", "status"],
+            ["cmdv1", "screenapp", "wifi-status"],
         ],
         "rollback": flash_command(ROLLBACK_IMAGE, ROLLBACK_EXPECT_VERSION, rollback_sha, from_native=True),
         "post_rollback": [
-            ["python3", "workspace/public/src/scripts/revalidation/a90ctl.py", "version"],
-            ["python3", "workspace/public/src/scripts/revalidation/a90ctl.py", "status"],
-            ["python3", "workspace/public/src/scripts/revalidation/a90ctl.py", "selftest"],
+            ["cmdv1", "version"],
+            ["cmdv1", "status"],
+            ["cmdv1", "selftest"],
         ],
     }, default=str))
 
@@ -680,6 +677,11 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--flash-timeout", type=float, default=900.0)
     parser.add_argument("--execute", action="store_true", help="perform the live flash/status/rollback sequence")
     parser.add_argument("--confirm", default="", help=f"required for --execute: {REQUIRED_CONFIRM}")
+    parser.add_argument(
+        "--write-public-report",
+        action="store_true",
+        help="write the historical public V2255 report path even in dry-run mode",
+    )
     return parser.parse_args()
 
 
@@ -696,8 +698,11 @@ def main() -> int:
         "started_at": now_iso(),
         "out_dir": rel(run_dir),
         "execute": bool(args.execute),
+        "public_report_path": rel(REPORT_PATH),
+        "public_report_written": False,
         "preflight": preflight_result,
         "steps": steps,
+        "serial_command_transport": "a90_transport.run_serial_step",
         "phase_timer_contract": transport.PHASE_TIMER_CONTRACT,
         "phase_timers": [],
         "safety": {
@@ -766,7 +771,10 @@ def main() -> int:
     artifact_started = time.monotonic()
     report_text = render_report(manifest)
     store.write_json("manifest.json", manifest)
-    write_public_text(REPORT_PATH, report_text)
+    store.write_text("report.md", report_text)
+    if args.execute or args.write_public_report:
+        write_public_text(REPORT_PATH, report_text)
+        manifest["public_report_written"] = True
     transport.add_total_phase(manifest, "artifact_write", artifact_started, ok=True)
     store.write_json("manifest.json", manifest)
     print(json.dumps({

@@ -3,16 +3,6 @@
     "active_live_phase_residual_backlog_closed": true,
     "direct_a90ctl_candidate_groups": [
       {
-        "count": 1,
-        "group": "current_baseline_wifi_surface",
-        "impact_score": 90,
-        "names": [
-          "native_wifi_detail_surface_handoff_v2255.py"
-        ],
-        "reason": "current V2254 baseline live-surface validator",
-        "recommended_action": "migrate direct a90ctl command lists if this current-baseline runner is changed again"
-      },
-      {
         "count": 6,
         "group": "flash_capable_kernel_handoff_runners",
         "impact_score": 80,
@@ -54,7 +44,7 @@
         "recommended_action": "review-only unless the old anchor runner is reactivated"
       }
     ],
-    "direct_a90ctl_reference_count": 15,
+    "direct_a90ctl_reference_count": 14,
     "direct_a90ctl_reference_names": [
       "native_kernel_a90_boot_window_handoff_v2225.py",
       "native_kernel_a90_boot_window_handoff_v2227.py",
@@ -69,18 +59,22 @@
       "native_kernel_timer_object_context_v2201.py",
       "native_kernel_timer_object_histogram_v2202.py",
       "native_kernel_timer_start_context_v2200.py",
-      "native_kernel_wlan_tracepoint_catalog_v2218.py",
-      "native_wifi_detail_surface_handoff_v2255.py"
+      "native_kernel_wlan_tracepoint_catalog_v2218.py"
     ],
     "direct_a90ctl_top_group": {
-      "count": 1,
-      "group": "current_baseline_wifi_surface",
-      "impact_score": 90,
+      "count": 6,
+      "group": "flash_capable_kernel_handoff_runners",
+      "impact_score": 80,
       "names": [
-        "native_wifi_detail_surface_handoff_v2255.py"
+        "native_kernel_a90_boot_window_handoff_v2225.py",
+        "native_kernel_a90_boot_window_handoff_v2227.py",
+        "native_kernel_a90_post_bdf_hold_handoff_v2231.py",
+        "native_kernel_a90_service_object_fwclass_bridge_handoff_v2233.py",
+        "native_kernel_a90_service_object_visible_handoff_v2229.py",
+        "native_kernel_fwclass_boundary_stack_handoff_v2253.py"
       ],
-      "reason": "current V2254 baseline live-surface validator",
-      "recommended_action": "migrate direct a90ctl command lists if this current-baseline runner is changed again"
+      "reason": "rollbackable flash-capable historical kernel/WLAN observer",
+      "recommended_action": "migrate only if reviving or modifying this flash-capable observer family"
     },
     "live_phase_timer_exempt_count": 2,
     "live_phase_timer_exempt_names": [
@@ -1349,7 +1343,7 @@
       "name": "inventory_revalidation_scripts.py",
       "path": "workspace/public/src/scripts/revalidation/inventory_revalidation_scripts.py",
       "reason": "operator utility or inventory/cleanup utility",
-      "repo_reference_count": 17,
+      "repo_reference_count": 18,
       "type": "file"
     },
     {
@@ -1820,12 +1814,12 @@
       "label": "active",
       "live_device_required": true,
       "mentions_a90_bridge": false,
-      "mentions_a90ctl_subprocess": true,
+      "mentions_a90ctl_subprocess": false,
       "mentions_serial_tcp_bridge": false,
       "name": "native_wifi_detail_surface_handoff_v2255.py",
       "path": "workspace/public/src/scripts/revalidation/native_wifi_detail_surface_handoff_v2255.py",
       "reason": "scripted live-device workflow",
-      "repo_reference_count": 6,
+      "repo_reference_count": 7,
       "type": "file"
     },
     {
@@ -2050,7 +2044,7 @@
       "type": "file"
     }
   ],
-  "generated_at": "2026-06-12T06:53:27.304425+00:00",
+  "generated_at": "2026-06-12T07:01:01.755750+00:00",
   "root": "workspace/public/src/scripts/revalidation",
   "summary": {
     "active": 107,

@@ -213,6 +213,15 @@ Read at the START of every iteration (then apply the tier policy above):
   live-register sampling for code-path identity.
 
 **T2 — WLAN native-init (if T1 blocked):**
+- After V2269 current-baseline Wi-Fi detail runner transport migration:
+  `native_wifi_detail_surface_handoff_v2255.py` now uses
+  `a90_transport.run_serial_step` for device cmdv1 steps instead of direct
+  `a90ctl.py` subprocess command lists. Inventory confirms that runner is now
+  `Transport=shared` with no `a90ctl-subprocess`, reducing
+  `direct_a90ctl_reference_count` from `15` to `14`. The new top direct-ref
+  group is `flash_capable_kernel_handoff_runners=6`, which remains review-only
+  unless that historical handoff family is revived. Validation was host-only
+  (`--help`, dry-run, inventory); no device action was taken.
 - After V2268 direct-a90ctl consolidation grouping: `consolidation_signals` now
   includes `direct_a90ctl_candidate_groups` and `direct_a90ctl_top_group`. The
   current top group is `current_baseline_wifi_surface` with
