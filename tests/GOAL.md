@@ -53,7 +53,7 @@ functions.
 - [x] `workspace/public/src/scripts/revalidation/a90_kernel_v2220_helper_summary_trace_parser.py`
       — as_int, extract_ts, flatten_json, event_group, parse_legacy_nonlog_key,
       split_group_event, group_to_surface, aggregate.
-- [ ] `workspace/public/src/scripts/revalidation/a90_kernel_v2198_jopp_ropp_classifier.py`
+- [x] `workspace/public/src/scripts/revalidation/a90_kernel_v2198_jopp_ropp_classifier.py`
       — pure parse/scoring helpers (discover the deterministic ones).
 - [ ] `workspace/public/src/scripts/revalidation/a90_stock_kallsyms_extract.py`
       — token/offset decode + layout-validation helpers (pure parts only).
@@ -79,4 +79,10 @@ functions.
 - 2026-06-13 — `a90_kernel_v2220_helper_summary_trace_parser.py` — as_int,
   extract_ts, flatten_json, event_group, parse_legacy_nonlog_key,
   split_group_event, group_to_surface, aggregate — 7 cases — green.
+- 2026-06-13 — `a90_kernel_v2198_jopp_ropp_classifier.py` — parse_int,
+  format_signed_hex, nearest_symbol, build_symbol_index, read_u32,
+  find_magic_addresses, is_bl/is_blr/decode_bl_target, classify_function_entry,
+  parse_stack_logs, parse_timer_logs, extract_timer_callback_candidates,
+  callback_confidence, timer_magic_candidate_slides, score_timer_slide,
+  score_stack_slide — 9 cases — green.
 - (append: date — target — functions covered — test count — any `KNOWN-DIVERGENCE`.)
