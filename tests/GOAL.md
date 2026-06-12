@@ -96,7 +96,10 @@ functions.
 - [x] `workspace/public/src/scripts/revalidation/a90_kernel_v2209_fops_clone_semantic_mapper.py`
       — scalar/System.map/raw helpers, RELA/source initializer parsing,
       file_operations offset derivation, semantic map analysis, report rendering.
-- [ ] (append more as discovered: v2210 analyzers.)
+- [x] `workspace/public/src/scripts/revalidation/a90_kernel_v2210_generic_fops_rela_inventory.py`
+      — scalar/System.map/source/raw helpers, RELA discovery/clone-base scoring,
+      generic fops inventory analysis, report rendering.
+- [ ] (append more as discovered: v2211+ analyzers.)
 
 ## Progress log
 
@@ -184,4 +187,11 @@ functions.
   resolve_alias, parse_fops_initializers, parse_elf_rela_dyn, read_u32,
   landing_profile, live_value, object_bases_from_v2208, analyze, render_table,
   semantic_targets_for_runtime, render_markdown — 9 cases — green.
+- 2026-06-13 — `a90_kernel_v2210_generic_fops_rela_inventory.py` —
+  parse_int, hex64, hex_signed, parse_system_map, build_symbol_index,
+  parse_config_symbols, strip_inactive_config_blocks, parse_macros,
+  resolve_alias, parse_file_operations_offsets, parse_fops_initializers,
+  load_kernel_raw, load_synthetic_base, looks_like_kernel_va,
+  is_stock_rela_record, discover_stock_rela, parse_elf_rela_dyn,
+  find_clone_base, analyze, render_table, render_markdown — 9 cases — green.
 - (append: date — target — functions covered — test count — any `KNOWN-DIVERGENCE`.)
