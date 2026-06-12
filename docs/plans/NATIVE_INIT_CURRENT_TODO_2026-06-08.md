@@ -221,6 +221,18 @@ Completed:
   - residual-state metadata missing: `0`;
   - phase-timer-exempt live utilities: `2`;
   - residual-state-exempt live utilities/helpers: `3`.
+- V2279 built the higher-coverage workqueue `execute_start` oracle as
+  `boot_linux_v2279_workqueue_exec_wide.img` (`A90 Linux init 0.9.276`,
+  helper `a90_android_execns_probe v434`, boot SHA256
+  `bfe6d2bb4f2e60e83b4b5ff104e153825bd10aa012afc1f5b4ee75909e57d541`).
+  This was source/build-only; no device flash or live validation was performed.
+  V2279 raises the workqueue scalar sample map/print limit to `8192` while
+  bounding stack-IP print output to the first `512` samples. Next live unit is
+  V2280: flash V2279 rollbackably, collect helper result plus
+  `/cache/native-init-v2279-workqueue-exec-wide.log` and
+  `/cache/native-init-v2279-tail-perf-regs-codeword.log`, rollback, verify
+  selftest `fail=0`, then classify the expanded function-pointer window and
+  bounded stack prefix.
 - V2278 ran the V2277 workqueue execute-start stack/codeword oracle
   rollbackably. V2277 booted, reached `wlan0-ready`, collected both sampler
   logs, and rolled back to V2237 with `version`/`status`/`selftest fail=0`.
@@ -430,13 +442,12 @@ Keep:
 
 1. Run `native_init_frontier_select.py --json` after the normal state read.
    Current expected result is `frontier-selector-actionable-unit-present` with
-   `selected_track=T1` when the V2279 coverage/filter follow-up is encoded in
+   `selected_track=T1` when the V2280 live-validation contract is encoded in
    `docs/artifacts/native-init-frontier-candidates.json`.
-2. Build the next workqueue execute-start coverage oracle. V2278 proved the
-   live route and rollback are good, but the `512` printed samples covered only
-   part of the `6237` events. The next unit should increase capacity/print
-   coverage or add source-backed filtering so target events are not lost to
-   overflow.
+2. Run V2280 live validation for the already-built V2279 workqueue
+   `execute_start` wide oracle. It should flash only the V2279 boot artifact
+   through the checked helper, collect both sampler logs, rollback, selftest,
+   then classify the widened function-pointer window.
 3. Do not rerun generic CPU-clock sampling or the same combined
    workqueue/codeword capture for this question.
 4. Start new WLAN live validation from V2254 only when a concrete criterion
@@ -455,6 +466,6 @@ Keep:
 | Physical network-menu ping selection | V2189 inherits V2187 command-level framebuffer presentation evidence for `WIFI STATUS` and `WIFI PING RESULTS`, but not button-driven physical capture. | Treat as UI polish, not a baseline blocker; validate physically or with OCR only if visual-navigation evidence is required. |
 | Large-transfer soak depth | V2184 passed 512MiB and 1GiB single-run bidirectional SHA checks, but not repeated N-run or multi-hour soak. | Treat as strong data-path evidence; run `cleanup -> reconnect -> 512MiB` or N-run soak only if promotion criteria require it. |
 | UI completeness | V2254 is the current baseline and preserves V2237 native `wlan0` bring-up/strict connect cleanup while adding the read-only Wi-Fi detail surface. | Keep V2254 as baseline; physical button/OCR validation remains optional. |
-| T1 oracle execution | V2278 live validation passed and rolled back cleanly, but the workqueue execute-start log printed only `512/1024` stored samples and overflowed `5213` events. Printed-window target hit count was `0`. | Do not rerun the same V2277 image. Next T1 should raise capacity/print coverage or filter target-relevant workqueue events before overflow. |
+| T1 oracle execution | V2279 built a higher-coverage workqueue execute-start image after V2278's printed-window negative exposed `5213` overflowed events. | Do not rerun the same V2277 image. Next T1 is V2280 live validation of the V2279 boot image, followed by rollback and selftest before classifying the widened function-pointer window. |
 | Script sprawl | Current source-root inventory has no delete-review rows and no active live phase/residual gaps. Remaining direct `a90ctl.py` references are review-only: `direct_a90ctl_reference_count=14`, `direct_a90ctl_actionable_now_count=0`, `direct_a90ctl_review_only_count=14`, top group `flash_capable_kernel_handoff_runners`. | Do not select direct-ref migration solely from historical references; use `consolidation_signals.direct_a90ctl_next_actionable_group` and migrate a runner only if it is revived or changed for a bounded run. |
 | Private data leakage | Wi-Fi profiles and raw run artifacts are intentionally private. | Keep secrets under ignored private roots; public reports stay redacted. |

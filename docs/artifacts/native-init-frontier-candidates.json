@@ -2,68 +2,69 @@
   "candidates": [
     {
       "expected_discriminator": {
-        "inconclusive": "The new oracle still overflows before covering the target window, codeword slide is not acceptable, or rollback/selftest fails.",
-        "negative": "The expanded/filtered capture covers the post-FWREADY execute_start window without overflow hiding target candidates and still reports zero target hits.",
-        "positive": "A higher-coverage or filtered execute_start capture finds at least one firmware_class/qcacld-HDD target function or stack/callsite hit."
+        "inconclusive": "V2279 still overflows before covering the target window, codeword slide is not acceptable, collection is truncated, or rollback/selftest fails.",
+        "negative": "The widened capture covers the observed execute_start volume without overflow hiding target candidates and still reports zero target hits.",
+        "positive": "At least one widened execute_start function pointer or bounded stack frame intersects the firmware_class/qcacld-HDD target list."
       },
-      "id": "t1-workqueue-execute-start-coverage-or-filter-oracle",
+      "id": "t1-workqueue-execute-start-wide-live",
       "next_runner_contract": [
-        "Do not rerun workspace/private/inputs/boot_images/boot_linux_v2277_workqueue_exec_stack.img for the same question.",
-        "Build a new V2279 source artifact that changes coverage: larger sample map/print limit, bounded full-print transfer, or source-backed in-BPF/userland filtering for target-relevant execute_start records.",
-        "Keep the same V2276 same-boot codeword acceptance policy and collect a paired codeword log.",
-        "If live validation is needed after the build, use only native_init_flash.py, rollback to V2237 or the selected baseline, and verify selftest fail=0.",
-        "Do not run Wi-Fi scan/connect/DHCP/ping; the embedded boot_wlan path is sufficient for this oracle.",
-        "Publish only redacted counts, target-hit summaries, and coverage metrics; keep raw stack/IP logs private."
+        "Before live work, reread GOAL.md and reconfirm rollback image plus recovery/TWRP availability per AGENTS.md.",
+        "Flash only workspace/private/inputs/boot_images/boot_linux_v2279_workqueue_exec_wide.img through workspace/public/src/scripts/revalidation/native_init_flash.py.",
+        "After boot, run serial-bridge health checks: a90ctl version, status, and selftest.",
+        "Collect helper result plus /cache/native-init-v2279-workqueue-exec-wide.log and /cache/native-init-v2279-tail-perf-regs-codeword.log as private artifacts.",
+        "Rollback to the selected baseline, then verify version/status/selftest fail=0 before analysis.",
+        "Classify the expanded workqueue execute_start function-pointer window and bounded stack prefix against the same-boot codeword evidence.",
+        "Do not run Wi-Fi scan/connect/DHCP/ping; this oracle only needs the boot_wlan route already embedded in the helper.",
+        "Publish only redacted metadata, coverage counts, target-hit summaries, and overflow status; keep raw stack/IP/log samples private."
       ],
       "safe_actionable_now": true,
-      "status": "ready_for_next_v_iteration",
-      "summary": "V2278 proved the V2277 live route and rollback, but the target-negative result only covers the printed workqueue window because 5213 execute_start events overflowed. The next unit should build a higher-coverage or filtered execute_start oracle, not rerun V2277.",
-      "track": "T1",
-      "v2278_result": {
-        "codeword_acceptance_reason": "exact_pc_lr_codeword_match",
-        "codeword_slide_hex": "0x124ef4",
-        "cycle": "V2278",
-        "decision": "v2278-workqueue-exec-stack-live-pass-workqueue-exec-stack-no-target-hit-partial-coverage",
-        "function_target_hit_count_printed": 0,
-        "private_run_dir": "workspace/private/runs/kernel/v2278-workqueue-exec-stack-live-20260612-181524",
-        "report": "docs/reports/NATIVE_INIT_V2278_WORKQUEUE_EXEC_STACK_LIVE_2026-06-12.md",
-        "rollback_selftest_fail0": true,
-        "rollback_version": "A90 Linux init 0.9.268 (v2237-supplicant-terminate-poll)",
-        "stack_target_hit_count_printed": 0,
-        "target_hit_count_printed": 0,
-        "test_image": "workspace/private/inputs/boot_images/boot_linux_v2277_workqueue_exec_stack.img",
-        "test_version": "A90 Linux init 0.9.275 (v2277-workqueue-exec-stack)",
-        "workqueue_overflow": 5213,
-        "workqueue_printed": 512,
-        "workqueue_stored": 1024,
-        "workqueue_total": 6237
+      "source_build": {
+        "boot_image": "workspace/private/inputs/boot_images/boot_linux_v2279_workqueue_exec_wide.img",
+        "boot_sha256": "bfe6d2bb4f2e60e83b4b5ff104e153825bd10aa012afc1f5b4ee75909e57d541",
+        "codeword_helper": "/bin/a90_bpf_perf_regs_codeword_sample_ring",
+        "codeword_helper_sha256": "3a16efc217eafeacbcc95a5e6005d0abce02e89ab52ed537df1fc2b193ca3dd7",
+        "cycle": "V2279",
+        "decision": "v2279-workqueue-exec-wide-source-build-pass",
+        "helper_marker": "a90_android_execns_probe v434",
+        "helper_sha256": "9c2719cebb2625c9f56a4389e32906695f67d2aec939c580eafbe05b87e566de",
+        "init_build": "v2279-workqueue-exec-wide",
+        "init_version": "0.9.276",
+        "manifest": "workspace/private/builds/native-init/v2279-workqueue-exec-wide/manifest.json",
+        "report": "docs/reports/NATIVE_INIT_V2279_WORKQUEUE_EXEC_WIDE_SOURCE_BUILD_2026-06-12.md",
+        "workqueue_print_limit": 8192,
+        "workqueue_sample_capacity": 8192,
+        "workqueue_stack_print_limit": 512,
+        "workqueue_wide_helper": "/bin/a90_bpf_workqueue_exec_wide_sample_ring",
+        "workqueue_wide_helper_sha256": "02ee8071a02b867bb25e422b1ae835c8f627816ec05b818a5fd1dd2093bc0a91"
       },
+      "status": "ready_for_next_v_iteration",
+      "summary": "V2279 built a higher-coverage workqueue execute_start oracle image; the next substantive T1 unit is V2280 rollbackable live validation and same-boot classification of the widened function-pointer window.",
+      "track": "T1",
       "why_independent": [
-        "It does not repeat the V2277 image or the V2278 printed-window capture.",
-        "It addresses the actual V2278 limitation: 512 printed samples versus 6237 total events and 5213 overflowed events.",
-        "It remains on the same T1 question but changes the observable coverage boundary, so a target hit cannot be hidden behind print/storage overflow."
+        "It does not rerun the V2277 image or repeat the V2278 printed-window boundary.",
+        "It raises the workqueue scalar sample map/print limit to 8192, above the 6237 total events seen in V2278.",
+        "It keeps stack-IP output bounded to avoid serial-log blow-up while still preserving a stack prefix for context."
       ]
     }
   ],
   "checks": {
     "anti_churn_guard_respected": true,
-    "next_t1_requires_coverage_or_filter_change": true,
     "same_v2277_rerun_forbidden": true,
-    "v2278_codeword_exact_slide_accepted": true,
-    "v2278_live_validation_complete": true,
-    "v2278_printed_window_target_hit_count_zero": true,
-    "v2278_rollback_selftest_fail0": true,
-    "v2278_workqueue_overflow_present": true
+    "v2278_overflow_limitation_addressed_by_design": true,
+    "v2279_boot_image_built": true,
+    "v2279_helper_marker_embedded": true,
+    "v2279_live_validation_pending": true,
+    "v2279_source_build_complete": true
   },
-  "decision": "v2278-workqueue-exec-stack-printed-window-negative-next-coverage-oracle-ready",
-  "generated_at": "2026-06-12T09:26:00.305317+00:00",
+  "decision": "v2279-workqueue-exec-wide-built-next-live-ready",
+  "generated_at": "2026-06-12T09:37:31.162715+00:00",
   "source_paths": {
     "goal": "GOAL.md",
     "todo": "docs/plans/NATIVE_INIT_CURRENT_TODO_2026-06-08.md",
-    "v2277_report": "docs/reports/NATIVE_INIT_V2277_WORKQUEUE_EXEC_STACK_SOURCE_BUILD_2026-06-12.md",
     "v2278_report": "docs/reports/NATIVE_INIT_V2278_WORKQUEUE_EXEC_STACK_LIVE_2026-06-12.md",
-    "v2278_runner": "workspace/public/src/scripts/revalidation/native_kernel_workqueue_exec_stack_handoff_v2278.py",
-    "workqueue_stack_helper_source": "workspace/public/src/native-init/helpers/a90_bpf_workqueue_exec_stack_sample_ring.c",
-    "workqueue_trace": "tmp/wifi/v766-icnss-qcacld-patch-apply-build/source/include/trace/events/workqueue.h"
+    "v2279_build_script": "workspace/public/src/scripts/revalidation/build_native_init_boot_v2279_workqueue_exec_wide.py",
+    "v2279_report": "docs/reports/NATIVE_INIT_V2279_WORKQUEUE_EXEC_WIDE_SOURCE_BUILD_2026-06-12.md",
+    "workqueue_trace": "tmp/wifi/v766-icnss-qcacld-patch-apply-build/source/include/trace/events/workqueue.h",
+    "workqueue_wide_helper_source": "workspace/public/src/native-init/helpers/a90_bpf_workqueue_exec_wide_sample_ring.c"
   }
 }

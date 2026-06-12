@@ -94,6 +94,22 @@ per-item metadata/inventory/cleanup sweeps that each succeed and justify the nex
 ## Sub-goal seeds (optional; the loop may pick others from state)
 
 **T1 — kernel observation (try first):**
+- After V2279 source/build-only: the higher-coverage workqueue
+  `execute_start` oracle is packaged as
+  `boot_linux_v2279_workqueue_exec_wide.img` (`A90 Linux init 0.9.276`,
+  helper `a90_android_execns_probe v434`, boot SHA256
+  `bfe6d2bb4f2e60e83b4b5ff104e153825bd10aa012afc1f5b4ee75909e57d541`,
+  workqueue-wide helper SHA256
+  `02ee8071a02b867bb25e422b1ae835c8f627816ec05b818a5fd1dd2093bc0a91`,
+  codeword helper SHA256
+  `3a16efc217eafeacbcc95a5e6005d0abce02e89ab52ed537df1fc2b193ca3dd7`).
+  It keeps the V2237 route, raises workqueue scalar sample capacity/print
+  limit to `8192`, and bounds stack-IP printing to the first `512` samples to
+  avoid repeating V2278's `512`-printed / `5213`-overflow limitation. Next
+  bounded live unit: V2280 should flash V2279 rollbackably, collect helper
+  result and both logs, roll back to the selected baseline, verify
+  `selftest fail=0`, and classify the expanded function-pointer window plus
+  bounded stack prefix against same-boot codeword evidence.
 - After V2278 live: the V2277 workqueue execute-start stack/codeword oracle
   ran rollbackably. V2277 booted as `A90 Linux init 0.9.275
   (v2277-workqueue-exec-stack)`, reached `wlan0-ready`, collected both sampler
