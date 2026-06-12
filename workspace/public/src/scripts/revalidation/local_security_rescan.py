@@ -11,10 +11,15 @@ from __future__ import annotations
 
 import argparse
 import datetime as dt
+import json
 import re
 import subprocess
+import time
 from dataclasses import dataclass
 from pathlib import Path
+from typing import Any
+
+import a90_transport as transport
 
 
 REPO_ROOT = next(parent for parent in Path(__file__).resolve().parents if (parent / ".git").exists())
@@ -321,7 +326,50 @@ def run_checks() -> list[Check]:
     return checks
 
 
-def render_report(checks: list[Check], *, baseline: str, title: str) -> str:
+def local_scan_pass(checks: list[Check]) -> bool:
+    return not any(check.status == "FAIL" for check in checks)
+
+
+def residual_state(checks: list[Check]) -> dict[str, Any]:
+    fail_count = sum(1 for check in checks if check.status == "FAIL")
+    warn_count = sum(1 for check in checks if check.status == "WARN")
+    return {
+        "device_touched": False,
+        "flash_reboot": False,
+        "rollback_required": False,
+        "rollback_ok": True,
+        "selftest_ok": fail_count == 0,
+        "local_security_scan_pass": fail_count == 0,
+        "local_security_fail_count": fail_count,
+        "local_security_warn_count": warn_count,
+        "cleanup_required": False,
+        "wifi_scan_connect": False,
+        "credentials_used": False,
+        "dhcp_routes_ping": False,
+        "tracefs_control_write": False,
+        "bpf_attach": False,
+        "probe_write_user_executed": False,
+        "partition_write": False,
+        "raw_log_capture": False,
+        "residual_risk": "local-security-failures" if fail_count else "none",
+    }
+
+
+def render_run_metadata(metadata: dict[str, Any]) -> str:
+    public_metadata = {
+        "phase_timer_contract": metadata.get("phase_timer_contract"),
+        "phase_timers": metadata.get("phase_timers", []),
+        "residual_state_contract": metadata.get("residual_state_contract"),
+        "residual_state": metadata.get("residual_state", {}),
+    }
+    return json.dumps(public_metadata, ensure_ascii=False, indent=2, sort_keys=True)
+
+
+def render_report(checks: list[Check],
+                  *,
+                  baseline: str,
+                  title: str,
+                  metadata: dict[str, Any] | None = None) -> str:
     counts = {"PASS": 0, "WARN": 0, "FAIL": 0}
     for check in checks:
         counts[check.status] = counts.get(check.status, 0) + 1
@@ -381,6 +429,15 @@ def render_report(checks: list[Check], *, baseline: str, title: str) -> str:
         "```",
         "",
     ])
+    if metadata is not None:
+        lines.extend([
+            "## Run Metadata",
+            "",
+            "```json",
+            render_run_metadata(metadata),
+            "```",
+            "",
+        ])
     return "\n".join(lines)
 
 
@@ -400,14 +457,26 @@ def display_path(path: Path) -> str:
 
 
 def main() -> int:
+    started_monotonic = time.monotonic()
+    metadata: dict[str, Any] = {
+        "phase_timer_contract": transport.PHASE_TIMER_CONTRACT,
+        "phase_timers": [],
+    }
     args = parse_args()
-    checks = run_checks()
-    report = render_report(checks, baseline=args.baseline, title=args.title)
+    with transport.phase(metadata, "host_security_scan"):
+        checks = run_checks()
+    transport.set_residual_state(metadata, residual_state(checks))
+    with transport.phase(metadata, "render_report"):
+        report = render_report(checks, baseline=args.baseline, title=args.title, metadata=metadata)
     out_path = args.out if args.out.is_absolute() else REPO_ROOT / args.out
-    out_path.parent.mkdir(parents=True, exist_ok=True)
+    with transport.phase(metadata, "artifact_write"):
+        out_path.parent.mkdir(parents=True, exist_ok=True)
+        out_path.write_text(report, encoding="utf-8")
+    transport.add_total_phase(metadata, "local_security_rescan_total", started_monotonic, ok=local_scan_pass(checks))
+    report = render_report(checks, baseline=args.baseline, title=args.title, metadata=metadata)
     out_path.write_text(report, encoding="utf-8")
     print(display_path(out_path))
-    return 1 if any(check.status == "FAIL" for check in checks) else 0
+    return 0 if local_scan_pass(checks) else 1
 
 
 if __name__ == "__main__":

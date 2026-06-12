@@ -213,6 +213,15 @@ Read at the START of every iteration (then apply the tier policy above):
   live-register sampling for code-path identity.
 
 **T2 — WLAN native-init (if T1 blocked):**
+- After V2266 local security rescan metadata cleanup: `local_security_rescan.py`
+  now uses shared `a90_transport` phase/residual metadata while preserving its
+  host-only targeted-scan behavior. Inventory confirms it is no longer in the
+  live metadata gap list (`Phase=yes`, `Residual=yes`), reducing active live
+  scripts without phase markers and residual-state metadata from `1` to `0`
+  each. No device action was taken beyond `--help`/inventory validation. Next
+  T2 cleanup unit: active live runner phase/residual backlog is closed;
+  re-evaluate T1 for a new meaningful kernel-observation question, otherwise
+  choose the next T2 surface/consolidation item from the TODO.
 - After V2265 kernel-observation runner metadata cleanup: the remaining
   kernel-observation gap entries V2218/V2238/V2253 now use shared
   `a90_transport` phase/residual metadata. Inventory confirms

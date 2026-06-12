@@ -204,25 +204,26 @@ Open edge:
 Goal: prevent new one-off script sprawl.
 
 Status: refreshed for the V2254 baseline; source-root has no `delete-review`
-entries, and V2265 closed the remaining kernel-observation runner metadata
-gaps. The only remaining active live metadata gap is `local_security_rescan.py`,
-which should be either migrated to the shared contract or classified separately
-as security tooling.
+entries, and V2266 closed the last active live phase/residual metadata gap.
+The active live runner phase/residual backlog is currently complete.
 
 Completed:
 
 - Current inventory report:
   `docs/reports/REVALIDATION_SCRIPT_INVENTORY_2026-06-10.md`.
-- Current source-root state after V2265 inventory refresh:
+- Current source-root state after V2266 inventory refresh:
   - `107 active`;
   - `6 module`;
   - `0 archive`;
   - `0 delete-review`.
 - Active live metadata gaps:
-  - phase timer markers missing: `1`;
-  - residual-state metadata missing: `1`;
+  - phase timer markers missing: `0`;
+  - residual-state metadata missing: `0`;
   - phase-timer-exempt live utilities: `2`;
   - residual-state-exempt live utilities/helpers: `3`.
+- V2266 migrated `local_security_rescan.py` to shared `a90_transport` phase
+  timing plus residual-state metadata while preserving host-only targeted-scan
+  behavior.
 - V2265 migrated the remaining kernel-observation gap entries to shared
   `a90_transport` phase timing plus residual-state metadata:
   `native_kernel_wlan_tracepoint_catalog_v2218.py`,

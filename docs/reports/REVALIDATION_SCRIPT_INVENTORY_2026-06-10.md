@@ -1,6 +1,6 @@
 # Revalidation Script Inventory
 
-- Generated at: `2026-06-12T06:35:42.035105+00:00`
+- Generated at: `2026-06-12T06:41:57.402790+00:00`
 - Root: `workspace/public/src/scripts/revalidation`
 - Scope: public metadata only; no private run logs, credentials, boot images, or raw captures.
 - Action: inventory only. No scripts were moved or deleted by this report.
@@ -90,7 +90,7 @@
 | `inventory_revalidation_scripts.py` | `active` | `none` | no | no | no | no | 14 | operator utility or inventory/cleanup utility |
 | `inventory_tmp_artifacts.py` | `active` | `none` | no | no | no | no | 6 | operator utility or inventory/cleanup utility |
 | `kselftest_feasibility.py` | `active` | `shared` | yes | yes | yes | no | 10 | operator utility or inventory/cleanup utility |
-| `local_security_rescan.py` | `active` | `bridge-wrapper,bridge-impl` | yes | no | no | yes | 51 | scripted live-device workflow |
+| `local_security_rescan.py` | `active` | `shared,bridge-wrapper,bridge-impl` | yes | yes | yes | yes | 51 | scripted live-device workflow |
 | `native_init_flash.py` | `active` | `none` | yes | yes | no | no | 215 | active flash/rollback helper |
 | `native_kernel_a90_boot_window_handoff_v2225.py` | `active` | `shared,a90ctl-subprocess` | yes | yes | yes | no | 4 | kernel-observation runner or postprocessor |
 | `native_kernel_a90_boot_window_handoff_v2227.py` | `active` | `shared,a90ctl-subprocess` | yes | yes | yes | no | 4 | kernel-observation runner or postprocessor |
@@ -144,8 +144,8 @@
 
 - Direct `a90ctl.py` subprocess references outside the client are review-only candidates; migrate only when changing the script for another reason.
 - Direct `a90ctl.py` reference count: `15` (`native_kernel_a90_boot_window_handoff_v2225.py, native_kernel_a90_boot_window_handoff_v2227.py, native_kernel_a90_boot_window_preflight_v2222.py, native_kernel_a90_post_bdf_hold_handoff_v2231.py, native_kernel_a90_service_object_fwclass_bridge_handoff_v2233.py, native_kernel_a90_service_object_visible_handoff_v2229.py, native_kernel_a90_uprobe_trace_buffer_collector_v2219.py, native_kernel_file_ops_anchor_v2204.py`...).
-- Active live scripts without explicit phase timer markers: `1` (`local_security_rescan.py`).
+- Active live scripts without explicit phase timer markers: `0`.
 - Phase-timer-exempt live utilities: `2` (`ncm_host_setup.py, netservice_reconnect_soak.py`).
-- Active live scripts without residual-state metadata: `1` (`local_security_rescan.py`).
+- Active live scripts without residual-state metadata: `0`.
 - Residual-state-exempt live utilities/helpers: `3` (`native_init_flash.py, ncm_host_setup.py, netservice_reconnect_soak.py`).
 - Scripts with explicit redaction/secret handling: `24` (`a90_wifi_profile_stage.py, build_native_init_boot_v2169_transport_contract.py, build_native_init_boot_v2170_wifi_config_prepare.py, build_native_init_boot_v2174_wifi_urandom_connect.py, build_native_init_boot_v2176_wifi_dhcp.py, build_native_init_boot_v2178_wifi_profile_autoconnect.py, build_native_init_boot_v2182_hud_menu_cleanup.py, build_native_init_boot_v2184_network_ui_p0_p1.py`...).

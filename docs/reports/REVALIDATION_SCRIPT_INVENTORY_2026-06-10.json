@@ -1260,10 +1260,10 @@
     },
     {
       "executable": true,
-      "has_phase_timer": false,
-      "has_residual_state": false,
+      "has_phase_timer": true,
+      "has_residual_state": true,
       "has_secret_redaction": true,
-      "imports_a90_transport": false,
+      "imports_a90_transport": true,
       "label": "active",
       "live_device_required": true,
       "mentions_a90_bridge": true,
@@ -1922,7 +1922,7 @@
       "type": "file"
     }
   ],
-  "generated_at": "2026-06-12T06:35:42.035105+00:00",
+  "generated_at": "2026-06-12T06:41:57.402790+00:00",
   "root": "workspace/public/src/scripts/revalidation",
   "summary": {
     "active": 107,
