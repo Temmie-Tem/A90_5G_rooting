@@ -284,6 +284,9 @@ functions.
 - [x] `workspace/public/src/scripts/revalidation/a90ctl.py`
       — cmdv1/cmdv1x argument encoding, wire-input modes, A90P1 protocol
       parsing/validation, retry policy, JSON result rendering.
+- [x] `workspace/public/src/harness/a90harness/scheduler.py`
+      — resource-lock derivation, default workload selection, seeded schedule
+      construction, document/result serialization, mixed-soak event accounting.
 - [ ] (append more as discovered: v2231+ analyzers.)
 
 ## Progress log
@@ -597,4 +600,8 @@ functions.
   double_input_line, encode_wire_line, has_prompt_after_last_end,
   parse_protocol_output, validate_protocol_command, command_allows_retry,
   should_retry_cmdv1_exchange, result_to_json, run_cmdv1_command — 14 cases — green.
+- 2026-06-13 — `a90harness/scheduler.py` — locks_for_module,
+  default_workloads, build_schedule, schedule_document, WorkloadEvent.to_dict,
+  MixedSoakResult.to_dict, run_mixed_soak_schedule pass/blocked/external-client
+  paths — 9 cases — green.
 - (append: date — target — functions covered — test count — any `KNOWN-DIVERGENCE`.)
