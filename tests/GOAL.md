@@ -179,6 +179,10 @@ functions.
 - [x] `workspace/public/src/scripts/revalidation/build_native_init_boot_v2237_supplicant_terminate_poll.py`
       — helper bridge flag deduplication/propagation, V2230 wrapper argument
       rewrites, supplicant terminate-poll report rendering.
+- [x] `workspace/public/src/scripts/revalidation/native_kernel_static_tracepoint_object_chain_audit_v2238.py`
+      — cmdv1 cleanup, macro argument parsing, trace block extraction, pointer
+      parameter/source/live format parsing, object-chain feasibility classification,
+      residual state.
 - [ ] (append more as discovered: v2231+ analyzers.)
 
 ## Progress log
@@ -381,4 +385,8 @@ functions.
 - 2026-06-13 — `build_native_init_boot_v2237_supplicant_terminate_poll.py` —
   with_bridge_flag, configure_helper_flags via configure_base,
   configure_base, render_report — 3 cases — green.
+- 2026-06-13 — `native_kernel_static_tracepoint_object_chain_audit_v2238.py` —
+  clean_cmdv1_text, split_top_level_args, extract_macro_call,
+  pointer_params, source_fields, parse_live_format, event_source_summary,
+  classify_event, residual_state — 8 cases — green.
 - (append: date — target — functions covered — test count — any `KNOWN-DIVERGENCE`.)
