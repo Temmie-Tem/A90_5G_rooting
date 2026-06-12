@@ -226,6 +226,9 @@ functions.
 - [x] `workspace/public/src/scripts/revalidation/build_native_init_boot_v2252_fwclass_boundary_stack.py`
       — boundary-stack flag propagation, V2237 wrapper argument rewrites,
       report contract, manifest/promotion metadata.
+- [x] `workspace/public/src/scripts/revalidation/native_kernel_fwclass_boundary_stack_handoff_v2253.py`
+      — key-value parsing, phase/boundary classification, dry-run command
+      rendering, manifest classification, report/residual-state rendering.
 - [ ] (append more as discovered: v2231+ analyzers.)
 
 ## Progress log
@@ -475,4 +478,8 @@ functions.
 - 2026-06-13 — `build_native_init_boot_v2252_fwclass_boundary_stack.py` —
   with_boundary_stack_flag, configure_base, render_report, main
   manifest/promotion metadata — 4 cases — green.
+- 2026-06-13 — `native_kernel_fwclass_boundary_stack_handoff_v2253.py` —
+  parse_key_values, summarize_phase, classify_boundary_artifacts,
+  dry_run_commands, classify_manifest, render_report, residual_state —
+  8 cases — green.
 - (append: date — target — functions covered — test count — any `KNOWN-DIVERGENCE`.)
