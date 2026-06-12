@@ -214,6 +214,9 @@ functions.
 - [x] `workspace/public/src/scripts/revalidation/a90_kernel_v2248_tail_capture_insertion_audit.py`
       — source-line matching, helper/build/sampler anchor extraction,
       tail-capture contract rendering, pass/fail summary output.
+- [x] `workspace/public/src/scripts/revalidation/build_native_init_boot_v2249_tail_perf_sampler_hook.py`
+      — tail sampler flag deduplication/propagation, V2237 wrapper argument
+      rewrites, ramdisk helper injection, report rendering, manifest metadata.
 - [ ] (append more as discovered: v2231+ analyzers.)
 
 ## Progress log
@@ -451,4 +454,7 @@ functions.
 - 2026-06-13 — `a90_kernel_v2248_tail_capture_insertion_audit.py` —
   line_matches, require_matches, first_line, helper_tail_anchors,
   build_anchors, v2216_sampler_anchors, build_summary — 8 cases — green.
+- 2026-06-13 — `build_native_init_boot_v2249_tail_perf_sampler_hook.py` —
+  sha256, with_tail_flags, configure_base, patch_ramdisk_helpers,
+  render_report, main manifest/promotion metadata — 6 cases — green.
 - (append: date — target — functions covered — test count — any `KNOWN-DIVERGENCE`.)
