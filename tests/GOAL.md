@@ -81,7 +81,10 @@ functions.
       finalize_bundle manifest/index writes.
 - [x] `workspace/public/src/scripts/revalidation/a90_kernel_v2203_timer_row_source_matcher.py`
       — timer row signature/scoring, source xref extraction, minimal analyze fixture.
-- [ ] (append more as discovered: v2204 / v2205 / v2207 / v2208 /
+- [x] `workspace/public/src/scripts/revalidation/native_kernel_file_ops_anchor_v2204.py`
+      — StepResult/sha256 helpers, probe/System.map parsing,
+      file_operations slide analysis, residual/report rendering.
+- [ ] (append more as discovered: v2205 / v2207 / v2208 /
       v2209 / v2210 analyzers.)
 
 ## Progress log
@@ -140,4 +143,8 @@ functions.
   row_signature, fast_extract_timer_xrefs, score_row_mapping,
   candidate_source_roots, render_markdown, analyze minimal source-backed
   fixture — 8 cases — green.
+- 2026-06-13 — `native_kernel_file_ops_anchor_v2204.py` — StepResult,
+  sha256_file, format_signed_hex, parse_key_values, parse_int,
+  parse_probe_stdout, parse_system_map, analyze_fops, residual_state,
+  render_report — 10 cases — green.
 - (append: date — target — functions covered — test count — any `KNOWN-DIVERGENCE`.)
