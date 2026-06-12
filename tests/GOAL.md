@@ -105,7 +105,10 @@ functions.
 - [x] `workspace/public/src/scripts/revalidation/native_kernel_raw_frame_slots_v2212.py`
       — helper stdout parsing, address classification, probe analysis,
       live report rendering.
-- [ ] (append more as discovered: v2213+ analyzers.)
+- [x] `workspace/public/src/scripts/revalidation/native_kernel_raw_frame_sample_ring_v2213.py`
+      — sample-ring stdout parsing, address classification, convergence metrics,
+      probe analysis, live report rendering.
+- [ ] (append more as discovered: v2214+ analyzers.)
 
 ## Progress log
 
@@ -207,6 +210,9 @@ functions.
   stack_rows_for_slide, solve_joint_keys, source_evidence, analyze,
   render_table, render_markdown — 9 cases — green.
 - 2026-06-13 — `native_kernel_raw_frame_slots_v2212.py` —
+  parse_int, parse_helper_stdout, classify_addr, analyze_probe,
+  render_report — 7 cases — green.
+- 2026-06-13 — `native_kernel_raw_frame_sample_ring_v2213.py` —
   parse_int, parse_helper_stdout, classify_addr, analyze_probe,
   render_report — 7 cases — green.
 - (append: date — target — functions covered — test count — any `KNOWN-DIVERGENCE`.)
