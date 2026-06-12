@@ -221,6 +221,13 @@ Completed:
   - residual-state metadata missing: `0`;
   - phase-timer-exempt live utilities: `2`;
   - residual-state-exempt live utilities/helpers: `3`.
+- V2270 added direct `a90ctl.py` actionability gates to inventory
+  `consolidation_signals`. Remaining direct references are now explicitly
+  review-only:
+  - `direct_a90ctl_reference_count=14`;
+  - `direct_a90ctl_actionable_now_count=0`;
+  - `direct_a90ctl_review_only_count=14`;
+  - `direct_a90ctl_next_actionable_group={}`.
 - V2269 migrated the current-baseline Wi-Fi detail surface runner
   `native_wifi_detail_surface_handoff_v2255.py` from direct `a90ctl.py`
   subprocess command lists to shared `a90_transport.run_serial_step`; direct
@@ -399,5 +406,5 @@ Keep:
 | Physical network-menu ping selection | V2189 inherits V2187 command-level framebuffer presentation evidence for `WIFI STATUS` and `WIFI PING RESULTS`, but not button-driven physical capture. | Treat as UI polish, not a baseline blocker; validate physically or with OCR only if visual-navigation evidence is required. |
 | Large-transfer soak depth | V2184 passed 512MiB and 1GiB single-run bidirectional SHA checks, but not repeated N-run or multi-hour soak. | Treat as strong data-path evidence; run `cleanup -> reconnect -> 512MiB` or N-run soak only if promotion criteria require it. |
 | UI completeness | V2254 is the current baseline and preserves V2237 native `wlan0` bring-up/strict connect cleanup while adding the read-only Wi-Fi detail surface. | Keep V2254 as baseline; physical button/OCR validation remains optional. |
-| Script sprawl | Current source-root inventory has no delete-review rows and no active live phase/residual gaps. Remaining consolidation is review-only: `direct_a90ctl_reference_count=14`, top group `flash_capable_kernel_handoff_runners`, plus readonly/legacy kernel-runner groups. | Use inventory `consolidation_signals.direct_a90ctl_candidate_groups` to pick migrations by impact; migrate historical flash-capable runners only if they are revived for a bounded run; do not run historical one-off scripts without focused review. |
+| Script sprawl | Current source-root inventory has no delete-review rows and no active live phase/residual gaps. Remaining direct `a90ctl.py` references are review-only: `direct_a90ctl_reference_count=14`, `direct_a90ctl_actionable_now_count=0`, `direct_a90ctl_review_only_count=14`, top group `flash_capable_kernel_handoff_runners`. | Do not select direct-ref migration solely from historical references; use `consolidation_signals.direct_a90ctl_next_actionable_group` and migrate a runner only if it is revived or changed for a bounded run. |
 | Private data leakage | Wi-Fi profiles and raw run artifacts are intentionally private. | Keep secrets under ignored private roots; public reports stay redacted. |

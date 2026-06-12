@@ -216,6 +216,8 @@ def direct_a90ctl_group(name: str) -> dict[str, Any]:
         return {
             "group": "current_baseline_wifi_surface",
             "impact_score": 90,
+            "actionable_now": True,
+            "migration_gate": "changed-current-baseline-runner",
             "reason": "current V2254 baseline live-surface validator",
             "recommended_action": "migrate direct a90ctl command lists if this current-baseline runner is changed again",
         }
@@ -230,6 +232,8 @@ def direct_a90ctl_group(name: str) -> dict[str, Any]:
         return {
             "group": "flash_capable_kernel_handoff_runners",
             "impact_score": 80,
+            "actionable_now": False,
+            "migration_gate": "revive-for-bounded-live-run",
             "reason": "rollbackable flash-capable historical kernel/WLAN observer",
             "recommended_action": "migrate only if reviving or modifying this flash-capable observer family",
         }
@@ -242,6 +246,8 @@ def direct_a90ctl_group(name: str) -> dict[str, Any]:
         return {
             "group": "live_readonly_kernel_catalog_runners",
             "impact_score": 60,
+            "actionable_now": False,
+            "migration_gate": "revive-or-modify-observer",
             "reason": "read-only live observer/catalog runner with direct a90ctl subprocess helper",
             "recommended_action": "prefer shared transport serial helpers when next changing this observer",
         }
@@ -254,12 +260,16 @@ def direct_a90ctl_group(name: str) -> dict[str, Any]:
         return {
             "group": "legacy_bpf_anchor_runners",
             "impact_score": 40,
+            "actionable_now": False,
+            "migration_gate": "reactivate-legacy-anchor",
             "reason": "older BPF/perf anchor runner retained for provenance",
             "recommended_action": "review-only unless the old anchor runner is reactivated",
         }
     return {
         "group": "ungrouped_direct_a90ctl_reference",
         "impact_score": 10,
+        "actionable_now": False,
+        "migration_gate": "manual-review",
         "reason": "direct a90ctl reference not matched by current grouping rules",
         "recommended_action": "inspect manually before migration",
     }
@@ -272,12 +282,15 @@ def direct_a90ctl_candidate_groups(names: list[str]) -> list[dict[str, Any]]:
         group = groups.setdefault(detail["group"], {
             "group": detail["group"],
             "impact_score": detail["impact_score"],
+            "actionable_now": detail["actionable_now"],
+            "migration_gate": detail["migration_gate"],
             "reason": detail["reason"],
             "recommended_action": detail["recommended_action"],
             "count": 0,
             "names": [],
         })
         group["impact_score"] = max(group["impact_score"], detail["impact_score"])
+        group["actionable_now"] = bool(group["actionable_now"] or detail["actionable_now"])
         group["count"] += 1
         group["names"].append(name)
     return sorted(
@@ -332,11 +345,28 @@ def consolidation_signals(entries: list[dict[str, Any]]) -> dict[str, Any]:
         if entry["label"] == "delete-review"
     ]
     candidate_groups = direct_a90ctl_candidate_groups(direct_a90ctl)
+    actionable_groups = [group for group in candidate_groups if group["actionable_now"]]
+    review_only_groups = [group for group in candidate_groups if not group["actionable_now"]]
+    actionable_names = [
+        name
+        for group in actionable_groups
+        for name in group["names"]
+    ]
+    review_only_names = [
+        name
+        for group in review_only_groups
+        for name in group["names"]
+    ]
     return {
         "direct_a90ctl_reference_count": len(direct_a90ctl),
         "direct_a90ctl_reference_names": direct_a90ctl,
         "direct_a90ctl_candidate_groups": candidate_groups,
         "direct_a90ctl_top_group": candidate_groups[0] if candidate_groups else {},
+        "direct_a90ctl_actionable_now_count": len(actionable_names),
+        "direct_a90ctl_actionable_now_names": actionable_names,
+        "direct_a90ctl_review_only_count": len(review_only_names),
+        "direct_a90ctl_review_only_names": review_only_names,
+        "direct_a90ctl_next_actionable_group": actionable_groups[0] if actionable_groups else {},
         "live_without_phase_timer_count": len(live_without_phase),
         "live_without_phase_timer_names": live_without_phase,
         "live_phase_timer_exempt_count": len(live_phase_exempt),
@@ -425,6 +455,8 @@ def render_markdown(data: dict[str, Any]) -> str:
     cleanup_lines.append("- Active live workflow scripts should use `a90_transport.py`; `a90ctl.py` itself remains the cmdv1 client.")
 
     direct_a90ctl = signals["direct_a90ctl_reference_names"]
+    direct_a90ctl_actionable = signals["direct_a90ctl_actionable_now_names"]
+    direct_a90ctl_review_only = signals["direct_a90ctl_review_only_names"]
     live_without_phase = signals["live_without_phase_timer_names"]
     live_phase_exempt = signals["live_phase_timer_exempt_names"]
     live_residual_exempt = signals["live_residual_state_exempt_names"]
@@ -435,9 +467,15 @@ def render_markdown(data: dict[str, Any]) -> str:
         "- Direct `a90ctl.py` subprocess references outside the client are review-only candidates; migrate only when changing the script for another reason.",
         f"- Direct `a90ctl.py` reference count: `{len(direct_a90ctl)}`"
         + (f" (`{', '.join(direct_a90ctl[:8])}`{'...' if len(direct_a90ctl) > 8 else ''})." if direct_a90ctl else "."),
+        f"- Direct `a90ctl.py` actionable-now count: `{len(direct_a90ctl_actionable)}`"
+        + (f" (`{', '.join(direct_a90ctl_actionable[:8])}`{'...' if len(direct_a90ctl_actionable) > 8 else ''})." if direct_a90ctl_actionable else "."),
+        f"- Direct `a90ctl.py` review-only count: `{len(direct_a90ctl_review_only)}`"
+        + (f" (`{', '.join(direct_a90ctl_review_only[:8])}`{'...' if len(direct_a90ctl_review_only) > 8 else ''})." if direct_a90ctl_review_only else "."),
         "- Direct `a90ctl.py` candidate groups: "
         + ", ".join(
-            f"`{group['group']}`={group['count']}"
+            f"`{group['group']}`={group['count']}/"
+            f"{'actionable' if group['actionable_now'] else 'review-only'}"
+            f"/gate:{group['migration_gate']}"
             for group in signals["direct_a90ctl_candidate_groups"]
         )
         + ".",

@@ -213,6 +213,16 @@ Read at the START of every iteration (then apply the tier policy above):
   live-register sampling for code-path identity.
 
 **T2 — WLAN native-init (if T1 blocked):**
+- After V2270 direct-a90ctl actionability gates: inventory
+  `consolidation_signals` now separates direct `a90ctl.py` references into
+  `actionable_now` and review-only groups. Current state is
+  `direct_a90ctl_reference_count=14`, `direct_a90ctl_actionable_now_count=0`,
+  `direct_a90ctl_review_only_count=14`, and
+  `direct_a90ctl_next_actionable_group={}`. Do not select another direct-ref
+  migration just because the historical references exist; revive or modify a
+  bounded runner first, then migrate that runner through the shared transport
+  path as part of that scoped work. Validation was host-only (`py_compile`,
+  inventory regeneration, signal assertions); no device action was taken.
 - After V2269 current-baseline Wi-Fi detail runner transport migration:
   `native_wifi_detail_surface_handoff_v2255.py` now uses
   `a90_transport.run_serial_step` for device cmdv1 steps instead of direct

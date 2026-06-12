@@ -1,6 +1,6 @@
 # Revalidation Script Inventory
 
-- Generated at: `2026-06-12T07:01:01.755750+00:00`
+- Generated at: `2026-06-12T07:07:42.011914+00:00`
 - Root: `workspace/public/src/scripts/revalidation`
 - Scope: public metadata only; no private run logs, credentials, boot images, or raw captures.
 - Action: inventory only. No scripts were moved or deleted by this report.
@@ -52,7 +52,7 @@
 | `a90_transport.py` | `module` | `bridge-wrapper` | yes | yes | yes | no | 10 | shared bridge/transport selector |
 | `a90_v725_fasttransport_baseline_validation.py` | `active` | `shared` | yes | yes | yes | no | 8 | fast transport baseline validator |
 | `a90_wifi_profile_stage.py` | `active` | `shared` | yes | yes | yes | yes | 12 | active Wi-Fi profile staging helper |
-| `a90ctl.py` | `active` | `a90ctl-subprocess` | yes | no | no | no | 376 | cmdv1 operator/client entrypoint |
+| `a90ctl.py` | `active` | `a90ctl-subprocess` | yes | no | no | no | 377 | cmdv1 operator/client entrypoint |
 | `build_native_init_boot_v2169_transport_contract.py` | `active` | `none` | no | no | no | yes | 8 | transport contract boot builder |
 | `build_native_init_boot_v2170_wifi_config_prepare.py` | `active` | `none` | no | no | no | yes | 6 | Wi-Fi config prepare boot builder |
 | `build_native_init_boot_v2172_wifi_status_scan.py` | `active` | `none` | no | no | no | no | 6 | Wi-Fi status/scan boot builder |
@@ -87,7 +87,7 @@
 | `cleanup_tmp_classified_artifacts.py` | `active` | `none` | no | no | no | no | 6 | operator utility or inventory/cleanup utility |
 | `cleanup_tmp_wifi_artifacts.py` | `active` | `none` | no | no | no | no | 7 | operator utility or inventory/cleanup utility |
 | `cpu_mem_thermal_stability.py` | `active` | `shared` | yes | yes | yes | no | 24 | operator utility or inventory/cleanup utility |
-| `inventory_revalidation_scripts.py` | `active` | `none` | no | no | no | no | 18 | operator utility or inventory/cleanup utility |
+| `inventory_revalidation_scripts.py` | `active` | `none` | no | no | no | no | 19 | operator utility or inventory/cleanup utility |
 | `inventory_tmp_artifacts.py` | `active` | `none` | no | no | no | no | 6 | operator utility or inventory/cleanup utility |
 | `kselftest_feasibility.py` | `active` | `shared` | yes | yes | yes | no | 10 | operator utility or inventory/cleanup utility |
 | `local_security_rescan.py` | `active` | `shared,bridge-wrapper,bridge-impl` | yes | yes | yes | yes | 52 | scripted live-device workflow |
@@ -145,7 +145,9 @@
 - Machine-readable copy: JSON field `consolidation_signals`.
 - Direct `a90ctl.py` subprocess references outside the client are review-only candidates; migrate only when changing the script for another reason.
 - Direct `a90ctl.py` reference count: `14` (`native_kernel_a90_boot_window_handoff_v2225.py, native_kernel_a90_boot_window_handoff_v2227.py, native_kernel_a90_boot_window_preflight_v2222.py, native_kernel_a90_post_bdf_hold_handoff_v2231.py, native_kernel_a90_service_object_fwclass_bridge_handoff_v2233.py, native_kernel_a90_service_object_visible_handoff_v2229.py, native_kernel_a90_uprobe_trace_buffer_collector_v2219.py, native_kernel_file_ops_anchor_v2204.py`...).
-- Direct `a90ctl.py` candidate groups: `flash_capable_kernel_handoff_runners`=6, `live_readonly_kernel_catalog_runners`=4, `legacy_bpf_anchor_runners`=4.
+- Direct `a90ctl.py` actionable-now count: `0`.
+- Direct `a90ctl.py` review-only count: `14` (`native_kernel_a90_boot_window_handoff_v2225.py, native_kernel_a90_boot_window_handoff_v2227.py, native_kernel_a90_post_bdf_hold_handoff_v2231.py, native_kernel_a90_service_object_fwclass_bridge_handoff_v2233.py, native_kernel_a90_service_object_visible_handoff_v2229.py, native_kernel_fwclass_boundary_stack_handoff_v2253.py, native_kernel_a90_boot_window_preflight_v2222.py, native_kernel_a90_uprobe_trace_buffer_collector_v2219.py`...).
+- Direct `a90ctl.py` candidate groups: `flash_capable_kernel_handoff_runners`=6/review-only/gate:revive-for-bounded-live-run, `live_readonly_kernel_catalog_runners`=4/review-only/gate:revive-or-modify-observer, `legacy_bpf_anchor_runners`=4/review-only/gate:reactivate-legacy-anchor.
 - Active live scripts without explicit phase timer markers: `0`.
 - Phase-timer-exempt live utilities: `2` (`ncm_host_setup.py, netservice_reconnect_soak.py`).
 - Active live scripts without residual-state metadata: `0`.

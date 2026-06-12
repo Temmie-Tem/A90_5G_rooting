@@ -1,11 +1,15 @@
 {
   "consolidation_signals": {
     "active_live_phase_residual_backlog_closed": true,
+    "direct_a90ctl_actionable_now_count": 0,
+    "direct_a90ctl_actionable_now_names": [],
     "direct_a90ctl_candidate_groups": [
       {
+        "actionable_now": false,
         "count": 6,
         "group": "flash_capable_kernel_handoff_runners",
         "impact_score": 80,
+        "migration_gate": "revive-for-bounded-live-run",
         "names": [
           "native_kernel_a90_boot_window_handoff_v2225.py",
           "native_kernel_a90_boot_window_handoff_v2227.py",
@@ -18,9 +22,11 @@
         "recommended_action": "migrate only if reviving or modifying this flash-capable observer family"
       },
       {
+        "actionable_now": false,
         "count": 4,
         "group": "live_readonly_kernel_catalog_runners",
         "impact_score": 60,
+        "migration_gate": "revive-or-modify-observer",
         "names": [
           "native_kernel_a90_boot_window_preflight_v2222.py",
           "native_kernel_a90_uprobe_trace_buffer_collector_v2219.py",
@@ -31,9 +37,11 @@
         "recommended_action": "prefer shared transport serial helpers when next changing this observer"
       },
       {
+        "actionable_now": false,
         "count": 4,
         "group": "legacy_bpf_anchor_runners",
         "impact_score": 40,
+        "migration_gate": "reactivate-legacy-anchor",
         "names": [
           "native_kernel_file_ops_anchor_v2204.py",
           "native_kernel_timer_object_context_v2201.py",
@@ -44,6 +52,7 @@
         "recommended_action": "review-only unless the old anchor runner is reactivated"
       }
     ],
+    "direct_a90ctl_next_actionable_group": {},
     "direct_a90ctl_reference_count": 14,
     "direct_a90ctl_reference_names": [
       "native_kernel_a90_boot_window_handoff_v2225.py",
@@ -61,10 +70,29 @@
       "native_kernel_timer_start_context_v2200.py",
       "native_kernel_wlan_tracepoint_catalog_v2218.py"
     ],
+    "direct_a90ctl_review_only_count": 14,
+    "direct_a90ctl_review_only_names": [
+      "native_kernel_a90_boot_window_handoff_v2225.py",
+      "native_kernel_a90_boot_window_handoff_v2227.py",
+      "native_kernel_a90_post_bdf_hold_handoff_v2231.py",
+      "native_kernel_a90_service_object_fwclass_bridge_handoff_v2233.py",
+      "native_kernel_a90_service_object_visible_handoff_v2229.py",
+      "native_kernel_fwclass_boundary_stack_handoff_v2253.py",
+      "native_kernel_a90_boot_window_preflight_v2222.py",
+      "native_kernel_a90_uprobe_trace_buffer_collector_v2219.py",
+      "native_kernel_static_tracepoint_object_chain_audit_v2238.py",
+      "native_kernel_wlan_tracepoint_catalog_v2218.py",
+      "native_kernel_file_ops_anchor_v2204.py",
+      "native_kernel_timer_object_context_v2201.py",
+      "native_kernel_timer_object_histogram_v2202.py",
+      "native_kernel_timer_start_context_v2200.py"
+    ],
     "direct_a90ctl_top_group": {
+      "actionable_now": false,
       "count": 6,
       "group": "flash_capable_kernel_handoff_runners",
       "impact_score": 80,
+      "migration_gate": "revive-for-bounded-live-run",
       "names": [
         "native_kernel_a90_boot_window_handoff_v2225.py",
         "native_kernel_a90_boot_window_handoff_v2227.py",
@@ -748,7 +776,7 @@
       "name": "a90ctl.py",
       "path": "workspace/public/src/scripts/revalidation/a90ctl.py",
       "reason": "cmdv1 operator/client entrypoint",
-      "repo_reference_count": 376,
+      "repo_reference_count": 377,
       "type": "file"
     },
     {
@@ -1343,7 +1371,7 @@
       "name": "inventory_revalidation_scripts.py",
       "path": "workspace/public/src/scripts/revalidation/inventory_revalidation_scripts.py",
       "reason": "operator utility or inventory/cleanup utility",
-      "repo_reference_count": 18,
+      "repo_reference_count": 19,
       "type": "file"
     },
     {
@@ -2044,7 +2072,7 @@
       "type": "file"
     }
   ],
-  "generated_at": "2026-06-12T07:01:01.755750+00:00",
+  "generated_at": "2026-06-12T07:07:42.011914+00:00",
   "root": "workspace/public/src/scripts/revalidation",
   "summary": {
     "active": 107,
