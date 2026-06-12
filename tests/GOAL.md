@@ -102,7 +102,10 @@ functions.
 - [x] `workspace/public/src/scripts/revalidation/a90_kernel_v2211_ropp_stack_recovery_audit.py`
       — scalar/System.map/raw helpers, BL/callsite decoding, stack slide rows,
       joint-key solving, source evidence, report rendering.
-- [ ] (append more as discovered: v2212+ analyzers.)
+- [x] `workspace/public/src/scripts/revalidation/native_kernel_raw_frame_slots_v2212.py`
+      — helper stdout parsing, address classification, probe analysis,
+      live report rendering.
+- [ ] (append more as discovered: v2213+ analyzers.)
 
 ## Progress log
 
@@ -203,4 +206,7 @@ functions.
   read_u32, is_bl, decode_bl_target, build_callsite_map, candidate_slides,
   stack_rows_for_slide, solve_joint_keys, source_evidence, analyze,
   render_table, render_markdown — 9 cases — green.
+- 2026-06-13 — `native_kernel_raw_frame_slots_v2212.py` —
+  parse_int, parse_helper_stdout, classify_addr, analyze_probe,
+  render_report — 7 cases — green.
 - (append: date — target — functions covered — test count — any `KNOWN-DIVERGENCE`.)
