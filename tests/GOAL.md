@@ -65,8 +65,11 @@ functions.
       serialization and failure rollups.
 - [x] `workspace/public/src/harness/a90harness/gate.py` — GateOptions,
       GateResult, evaluate_gate.
-- [ ] (append more as discovered: a90harness evidence.py / failure.py,
-      and v2203 / v2204 / v2205 / v2207 / v2208 / v2209 / v2210 analyzers.)
+- [x] `workspace/public/src/harness/a90harness/evidence.py` — safe artifact
+      labels/paths, bounded readers, private/public writers, EvidenceStore.
+- [ ] (append more as discovered: a90harness failure.py / module.py /
+      observer.py / runner.py / bundle.py, and v2203 / v2204 / v2205 /
+      v2207 / v2208 / v2209 / v2210 analyzers.)
 
 ## Progress log
 
@@ -102,4 +105,7 @@ functions.
 - 2026-06-13 — `a90harness/gate.py` — GateOptions, GateResult,
   evaluate_gate allow/block decisions, required flags, metadata serialization —
   4 cases — green.
+- 2026-06-13 — `a90harness/evidence.py` — safe_artifact_label, path
+  builders, workspace private roots, private/public writers, bounded readers,
+  EvidenceStore — 10 cases — green.
 - (append: date — target — functions covered — test count — any `KNOWN-DIVERGENCE`.)
