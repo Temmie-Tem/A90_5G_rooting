@@ -232,6 +232,10 @@ functions.
 - [x] `workspace/public/src/scripts/revalidation/build_native_init_boot_v2254_wifi_detail_surface.py`
       — V2237 wrapper argument rewrites, T2/read-only surface report contract,
       manifest/promotion metadata.
+- [x] `workspace/public/src/scripts/revalidation/native_wifi_detail_surface_handoff_v2255.py`
+      — Wi-Fi status/screenapp parsing, read-only action detection,
+      dry-run command rendering, manifest classification, report/residual-state
+      rendering.
 - [ ] (append more as discovered: v2231+ analyzers.)
 
 ## Progress log
@@ -488,4 +492,8 @@ functions.
 - 2026-06-13 — `build_native_init_boot_v2254_wifi_detail_surface.py` —
   configure_base, render_report, main manifest/promotion metadata —
   3 cases — green.
+- 2026-06-13 — `native_wifi_detail_surface_handoff_v2255.py` —
+  parse_key_values, last_value, sanitize_field_value, classify_wifi_status,
+  classify_screenapp, flash_command, dry_run_commands, classify_test_health,
+  classify_manifest, render_report, residual_state — 13 cases — green.
 - (append: date — target — functions covered — test count — any `KNOWN-DIVERGENCE`.)
