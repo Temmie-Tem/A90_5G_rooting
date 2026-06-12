@@ -77,20 +77,20 @@ Read at the START of every iteration (then apply the tier policy above):
 ## Sub-goal seeds (optional; the loop may pick others from state)
 
 **T1 — kernel observation (try first):**
-- After V2250 source/build: test boot
-  `workspace/private/inputs/boot_images/boot_linux_v2250_tail_perf_sampler_full_print.img`
-  exists and is the immediate live candidate to remove V2249's output loss. It
-  keeps the V2237 route and V2249 sampler hook placement, bumps init to
-  `A90 Linux init 0.9.270 (v2250-tail-perf-sampler-full-print)`, uses helper
-  `a90_android_execns_probe v429`, writes
-  `/cache/native-init-v2250-tail-perf-regs-codeword.log`, and sets the sampler
-  `print_limit=1024`. Boot SHA-256 is
-  `f74347f8cb23f9d182327683d385406dc11983d6417275883df891c64175a73a`; helper
-  SHA-256 is `4b42d50ec94033745866dcef2b0cbf6981a9d7c90752a0478b1db1edfea967a5`.
-  Next live unit: flash V2250 via `native_init_flash.py`, collect the helper
-  result and tail log, require `samples printed == samples occupied` or explain
-  any remaining loss, run the V2216 parser and V2247 scorer, then roll back to
-  V2237 unless explicitly promoting.
+- After V2250 live: the helper-started full-print tail sampler completed its
+  contract and removed V2249's output-loss blocker. V2250 reached `wlan0-ready`,
+  emitted `tail_perf_regs_codeword_sampler.started=1`, finished the
+  `after_fwclass_feeder` phase with `output_exists=1`, and printed every
+  occupied sample (`835/835`, capacity `1024`). The V2216 parser found usable
+  per-boot slide `0x1dcef4`: strict exact stayed false due one inspected PC
+  runtime-patch mismatch, but LR and LR-4 were exact (`830/830` each), so
+  `accepted_symbolization_slide=true` with reason
+  `lr_exact_single_pc_mismatch`. The V2247 scorer then returned `0/835` hits
+  for the V2246 firmware_class/qcacld-HDD whitelist. Do not rerun generic
+  CPU-clock duration tweaks. Next T1 unit: build a target-specific post-FWREADY
+  observable around firmware_class/qcacld-HDD entry points or an adjacent
+  helper-owned boundary marker to distinguish `function not executed` from
+  `function executed but too narrow for generic CPU-clock sampling`.
 - After V2249 live: the helper-started tail sampler hook works, but V2249 is
   not a baseline promotion candidate. The rollbackable test boot reached
   `wlan0-ready`, emitted `tail_perf_regs_codeword_sampler.started=1`, finished

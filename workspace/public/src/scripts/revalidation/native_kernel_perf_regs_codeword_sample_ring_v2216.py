@@ -348,6 +348,17 @@ def codeword_match_analysis(samples: list[dict[str, Any]]) -> dict[str, Any]:
     runner_up = rows[1] if len(rows) > 1 else None
     accepted = bool(best and best["pc_readable"] and best["pc_match"] == best["pc_readable"])
     unique = bool(best and (runner_up is None or best["weighted_score"] > runner_up["weighted_score"]))
+    near_exact = bool(
+        best
+        and unique
+        and best["pc_readable"]
+        and best["pc_readable"] - best["pc_match"] <= 1
+        and best["lr_prev_readable"]
+        and best["lr_prev_match"] == best["lr_prev_readable"]
+        and best["lr_readable"]
+        and best["lr_match"] == best["lr_readable"]
+    )
+    exact_or_near = bool((accepted or near_exact) and unique)
     return {
         "available": True,
         "stock_raw": str(STOCK_RAW_PATH.relative_to(REPO_ROOT)),
@@ -356,6 +367,15 @@ def codeword_match_analysis(samples: list[dict[str, Any]]) -> dict[str, Any]:
         "generated_candidate_count": len(generated),
         "candidate_count": len(rows),
         "accepted_exact_codeword_slide": accepted and unique,
+        "accepted_near_exact_codeword_slide": near_exact and not (accepted and unique),
+        "accepted_symbolization_slide": exact_or_near,
+        "acceptance_reason": (
+            "exact_pc_lr_codeword_match"
+            if accepted and unique else
+            "lr_exact_single_pc_mismatch"
+            if near_exact else
+            "not_accepted"
+        ),
         "best": best,
         "runner_up": runner_up,
         "top_candidates": rows[:16],

@@ -52,9 +52,14 @@ def load_exact_slide(sample_summary: dict[str, Any]) -> dict[str, Any]:
     best = codeword.get("best") or {}
     slide = parse_int(best.get("slide"))
     accepted = bool(codeword.get("accepted_exact_codeword_slide"))
+    accepted_near = bool(codeword.get("accepted_near_exact_codeword_slide"))
+    accepted_symbolization = bool(codeword.get("accepted_symbolization_slide") or accepted)
     return {
         "available": slide is not None,
         "accepted_exact_codeword_slide": accepted,
+        "accepted_near_exact_codeword_slide": accepted_near,
+        "accepted_symbolization_slide": accepted_symbolization,
+        "acceptance_reason": codeword.get("acceptance_reason"),
         "slide": slide,
         "slide_hex": best.get("slide_hex"),
         "pc_match": best.get("pc_match"),
@@ -173,8 +178,8 @@ def build_summary(args: argparse.Namespace, out_dir: Path) -> dict[str, Any]:
         "scoring": scoring,
     }, indent=2, sort_keys=True) + "\n", encoding="utf-8")
     decision = "v2247-tail-pc-lr-scorer-pass"
-    if not exact_slide["accepted_exact_codeword_slide"]:
-        decision = "v2247-tail-pc-lr-scorer-no-exact-slide"
+    if not exact_slide["accepted_symbolization_slide"]:
+        decision = "v2247-tail-pc-lr-scorer-no-usable-slide"
     elif not targets:
         decision = "v2247-tail-pc-lr-scorer-no-targets"
     return {
