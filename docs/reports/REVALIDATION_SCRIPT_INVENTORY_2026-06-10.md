@@ -1,6 +1,6 @@
 # Revalidation Script Inventory
 
-- Generated at: `2026-06-12T07:07:42.011914+00:00`
+- Generated at: `2026-06-12T07:15:37.803012+00:00`
 - Root: `workspace/public/src/scripts/revalidation`
 - Scope: public metadata only; no private run logs, credentials, boot images, or raw captures.
 - Action: inventory only. No scripts were moved or deleted by this report.
@@ -9,7 +9,7 @@
 
 | Label | Count |
 | --- | ---: |
-| `active` | 107 |
+| `active` | 108 |
 | `module` | 6 |
 
 ## Entries
@@ -87,11 +87,12 @@
 | `cleanup_tmp_classified_artifacts.py` | `active` | `none` | no | no | no | no | 6 | operator utility or inventory/cleanup utility |
 | `cleanup_tmp_wifi_artifacts.py` | `active` | `none` | no | no | no | no | 7 | operator utility or inventory/cleanup utility |
 | `cpu_mem_thermal_stability.py` | `active` | `shared` | yes | yes | yes | no | 24 | operator utility or inventory/cleanup utility |
-| `inventory_revalidation_scripts.py` | `active` | `none` | no | no | no | no | 19 | operator utility or inventory/cleanup utility |
+| `inventory_revalidation_scripts.py` | `active` | `none` | no | no | no | no | 20 | operator utility or inventory/cleanup utility |
 | `inventory_tmp_artifacts.py` | `active` | `none` | no | no | no | no | 6 | operator utility or inventory/cleanup utility |
 | `kselftest_feasibility.py` | `active` | `shared` | yes | yes | yes | no | 10 | operator utility or inventory/cleanup utility |
 | `local_security_rescan.py` | `active` | `shared,bridge-wrapper,bridge-impl` | yes | yes | yes | yes | 52 | scripted live-device workflow |
 | `native_init_flash.py` | `active` | `none` | yes | yes | no | no | 215 | active flash/rollback helper |
+| `native_init_frontier_select.py` | `active` | `none` | no | no | no | no | 5 | native-init frontier selector/audit utility |
 | `native_kernel_a90_boot_window_handoff_v2225.py` | `active` | `shared,a90ctl-subprocess` | yes | yes | yes | no | 5 | kernel-observation runner or postprocessor |
 | `native_kernel_a90_boot_window_handoff_v2227.py` | `active` | `shared,a90ctl-subprocess` | yes | yes | yes | no | 5 | kernel-observation runner or postprocessor |
 | `native_kernel_a90_boot_window_plan_v2223.py` | `active` | `shared` | yes | yes | yes | no | 5 | kernel-observation runner or postprocessor |

@@ -211,8 +211,8 @@ Completed:
 
 - Current inventory report:
   `docs/reports/REVALIDATION_SCRIPT_INVENTORY_2026-06-10.md`.
-- Current source-root state after V2266 inventory refresh:
-  - `107 active`;
+- Current source-root state after V2271 inventory refresh:
+  - `108 active`;
   - `6 module`;
   - `0 archive`;
   - `0 delete-review`.
@@ -221,6 +221,10 @@ Completed:
   - residual-state metadata missing: `0`;
   - phase-timer-exempt live utilities: `2`;
   - residual-state-exempt live utilities/helpers: `3`.
+- V2271 added `native_init_frontier_select.py`, a host-only selector/audit
+  utility. Current decision is `frontier-selector-no-automatic-safe-unit`:
+  no new T1 oracle, no concrete V2254 live-validation/promotion criterion, and
+  no active T3 cleanup backlog are present in public state.
 - V2270 added direct `a90ctl.py` actionability gates to inventory
   `consolidation_signals`. Remaining direct references are now explicitly
   review-only:
@@ -390,12 +394,16 @@ Keep:
 
 ## Suggested Next Sequence
 
-1. Start new live validation from V2254 unless a test explicitly validates an
-   older rollback image.
-2. Defer architecture source cleanup unless a cleanup patch is kept separate and
+1. Run `native_init_frontier_select.py --json` after the normal state read; if
+   it still returns `frontier-selector-no-automatic-safe-unit`, define a new
+   T1 oracle, a concrete V2254 live-validation/promotion criterion, or a
+   revived historical runner before selecting a live/migration unit.
+2. Start new live validation from V2254 only when that concrete criterion
+   exists, unless a test explicitly validates an older rollback image.
+3. Defer architecture source cleanup unless a cleanup patch is kept separate and
    validation-neutral.
-3. If serial `AT` noise naturally fires, confirm shared recovery evidence.
-4. Run longer Wi-Fi/data-path soak only when new promotion criteria require it.
+4. If serial `AT` noise naturally fires, confirm shared recovery evidence.
+5. Run longer Wi-Fi/data-path soak only when new promotion criteria require it.
 
 ## Current Risk Register
 
@@ -406,5 +414,5 @@ Keep:
 | Physical network-menu ping selection | V2189 inherits V2187 command-level framebuffer presentation evidence for `WIFI STATUS` and `WIFI PING RESULTS`, but not button-driven physical capture. | Treat as UI polish, not a baseline blocker; validate physically or with OCR only if visual-navigation evidence is required. |
 | Large-transfer soak depth | V2184 passed 512MiB and 1GiB single-run bidirectional SHA checks, but not repeated N-run or multi-hour soak. | Treat as strong data-path evidence; run `cleanup -> reconnect -> 512MiB` or N-run soak only if promotion criteria require it. |
 | UI completeness | V2254 is the current baseline and preserves V2237 native `wlan0` bring-up/strict connect cleanup while adding the read-only Wi-Fi detail surface. | Keep V2254 as baseline; physical button/OCR validation remains optional. |
-| Script sprawl | Current source-root inventory has no delete-review rows and no active live phase/residual gaps. Remaining direct `a90ctl.py` references are review-only: `direct_a90ctl_reference_count=14`, `direct_a90ctl_actionable_now_count=0`, `direct_a90ctl_review_only_count=14`, top group `flash_capable_kernel_handoff_runners`. | Do not select direct-ref migration solely from historical references; use `consolidation_signals.direct_a90ctl_next_actionable_group` and migrate a runner only if it is revived or changed for a bounded run. |
+| Script sprawl | Current source-root inventory has no delete-review rows and no active live phase/residual gaps. Remaining direct `a90ctl.py` references are review-only: `direct_a90ctl_reference_count=14`, `direct_a90ctl_actionable_now_count=0`, `direct_a90ctl_review_only_count=14`, top group `flash_capable_kernel_handoff_runners`. `native_init_frontier_select.py` reports no automatic safe unit. | Do not select direct-ref migration solely from historical references; use `consolidation_signals.direct_a90ctl_next_actionable_group` and migrate a runner only if it is revived or changed for a bounded run. If the selector still reports no automatic safe unit, first define a new oracle, live criterion, or revived runner. |
 | Private data leakage | Wi-Fi profiles and raw run artifacts are intentionally private. | Keep secrets under ignored private roots; public reports stay redacted. |

@@ -1371,7 +1371,7 @@
       "name": "inventory_revalidation_scripts.py",
       "path": "workspace/public/src/scripts/revalidation/inventory_revalidation_scripts.py",
       "reason": "operator utility or inventory/cleanup utility",
-      "repo_reference_count": 19,
+      "repo_reference_count": 20,
       "type": "file"
     },
     {
@@ -1440,6 +1440,23 @@
       "path": "workspace/public/src/scripts/revalidation/native_init_flash.py",
       "reason": "active flash/rollback helper",
       "repo_reference_count": 215,
+      "type": "file"
+    },
+    {
+      "executable": false,
+      "has_phase_timer": false,
+      "has_residual_state": false,
+      "has_secret_redaction": false,
+      "imports_a90_transport": false,
+      "label": "active",
+      "live_device_required": false,
+      "mentions_a90_bridge": false,
+      "mentions_a90ctl_subprocess": false,
+      "mentions_serial_tcp_bridge": false,
+      "name": "native_init_frontier_select.py",
+      "path": "workspace/public/src/scripts/revalidation/native_init_frontier_select.py",
+      "reason": "native-init frontier selector/audit utility",
+      "repo_reference_count": 5,
       "type": "file"
     },
     {
@@ -2072,10 +2089,10 @@
       "type": "file"
     }
   ],
-  "generated_at": "2026-06-12T07:07:42.011914+00:00",
+  "generated_at": "2026-06-12T07:15:37.803012+00:00",
   "root": "workspace/public/src/scripts/revalidation",
   "summary": {
-    "active": 107,
+    "active": 108,
     "module": 6
   }
 }

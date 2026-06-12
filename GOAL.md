@@ -213,6 +213,18 @@ Read at the START of every iteration (then apply the tier policy above):
   live-register sampling for code-path identity.
 
 **T2 — WLAN native-init (if T1 blocked):**
+- After V2271 frontier selector/audit utility: T1/T2/T3 selection now has a
+  host-only machine-readable check in
+  `native_init_frontier_select.py`. Current output is
+  `frontier-selector-no-automatic-safe-unit`: T1 is deferred until a new
+  independent kernel-observation oracle exists, T2 is deferred until a concrete
+  V2254 live-validation/promotion criterion exists, and T3 has no active
+  cleanup backlog (`direct_a90ctl_actionable_now_count=0`,
+  `source_delete_review_count=0`, phase/residual backlog closed). Do not turn
+  this into a hardware-wall or success conclusion; it is a loop-selection guard.
+  Next loop must define a new oracle/criterion/revived runner before selecting
+  a live or migration unit. Validation was host-only (`py_compile`, selector
+  assertions, inventory regeneration); no device action was taken.
 - After V2270 direct-a90ctl actionability gates: inventory
   `consolidation_signals` now separates direct `a90ctl.py` references into
   `actionable_now` and review-only groups. Current state is
