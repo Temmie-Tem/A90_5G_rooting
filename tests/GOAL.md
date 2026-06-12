@@ -274,6 +274,9 @@ functions.
 - [x] `workspace/public/src/scripts/revalidation/native_wifi_v2254_hold_reconnect_handoff_v2282.py`
       — credential-gated V2254 hold/reconnect preflight, dry-run command
       rendering, manifest decisions, secret redaction, report rendering.
+- [x] `workspace/public/src/scripts/revalidation/a90_transport.py`
+      — phase timers, residual state, bridge command rendering, serial recovery
+      classification, NCM readiness/repair compaction, transport selection.
 - [ ] (append more as discovered: v2231+ analyzers.)
 
 ## Progress log
@@ -571,4 +574,9 @@ functions.
 - 2026-06-13 — `native_wifi_v2254_hold_reconnect_handoff_v2282.py` —
   preflight, dry_run_commands, classify, redacted_secret_status,
   redacted_env_load, render_report — 8 cases — green.
+- 2026-06-13 — `a90_transport.py` — phase, add_total_phase,
+  set_residual_state, parse_json_stdout, bridge_command,
+  protocol_result_to_command_result, serial recovery helpers, parse_key_values,
+  summarize_host_ncm, auto_repair_enabled, maybe_repair_host_ncm,
+  compact_ncm_repair, select_transport — 13 cases — green.
 - (append: date — target — functions covered — test count — any `KNOWN-DIVERGENCE`.)
