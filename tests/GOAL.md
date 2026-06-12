@@ -205,6 +205,9 @@ functions.
 - [x] `workspace/public/src/scripts/revalidation/a90_kernel_v2245_post_fwready_tail_inventory.py`
       — helper key-value parsing, tail-key counts, target-stack extraction,
       post-FWREADY stage classification, run comparison, inventory summary output.
+- [x] `workspace/public/src/scripts/revalidation/a90_kernel_v2246_post_fwready_tail_symbol_source_map.py`
+      — hex/System.map/source helpers, target-stack extraction, row mapping,
+      pass/review summary output.
 - [ ] (append more as discovered: v2231+ analyzers.)
 
 ## Progress log
@@ -433,4 +436,7 @@ functions.
 - 2026-06-13 — `a90_kernel_v2245_post_fwready_tail_inventory.py` —
   read_key_values, as_int, count_tail_keys, collect_target_stacks,
   classify_stage, summarize_run, compare_runs, build_summary — 10 cases — green.
+- 2026-06-13 — `a90_kernel_v2246_post_fwready_tail_symbol_source_map.py` —
+  parse_int_hex, load_text_symbols, symbol_index, extract_observed_stack,
+  find_source_definition, build_rows, build_summary — 9 cases — green.
 - (append: date — target — functions covered — test count — any `KNOWN-DIVERGENCE`.)
