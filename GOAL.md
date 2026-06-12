@@ -77,6 +77,12 @@ Read at the START of every iteration (then apply the tier policy above):
 ## Sub-goal seeds (optional; the loop may pick others from state)
 
 **T1 — kernel observation (try first):**
+- After V2244: V2229/V2231/V2233 have identical semantic WLFW/QMI edge sets:
+  nine edges per run, four strong and five marker edges, with no weak/missing
+  semantic rows. Do not spend another T1 iteration re-proving WLFW/QMI order
+  unless new evidence contradicts this. If live code-path identity is needed,
+  target the downstream post-FWREADY `boot_wlan` / firmware-class / qcacld-HDD
+  tail with exact-slide kernel PC/LR sampling or another non-mutating read path.
 - After V2243: helper-owned `a90*` event interpretation now has a public
   semantic layer. Use
   `workspace/private/runs/kernel/v2243-user-uprobe-semantic-classifier-20260612-113113/summary.json`
