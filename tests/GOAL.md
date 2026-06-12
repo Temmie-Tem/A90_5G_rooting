@@ -193,6 +193,9 @@ functions.
       — helper-source uprobe spec parsing, runtime probe extraction,
       load-bias observation/missing/alias classification, ELF metadata fallback,
       offset/base-map summary rendering.
+- [x] `workspace/public/src/scripts/revalidation/a90_kernel_v2242_user_elf_offset_context.py`
+      — LOAD segment modeling, observed spec filtering, offset context issue
+      classification, private context writer metadata, user-ELF context summary.
 - [ ] (append more as discovered: v2231+ analyzers.)
 
 ## Progress log
@@ -408,4 +411,8 @@ functions.
 - 2026-06-13 — `a90_kernel_v2241_user_uprobe_offset_base_map.py` —
   parse_uprobe_specs, extract_runtime_probes, build_bias_observations,
   summarize_biases, elf_metadata, build_summary — 8 cases — green.
+- 2026-06-13 — `a90_kernel_v2242_user_elf_offset_context.py` —
+  LoadSegment helpers, parse_load_segments missing-file path, object_for_spec,
+  observed_spec_keys, build_offset_contexts, write_private_context,
+  build_summary — 9 cases — green.
 - (append: date — target — functions covered — test count — any `KNOWN-DIVERGENCE`.)
