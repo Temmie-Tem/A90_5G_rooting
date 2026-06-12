@@ -30,6 +30,9 @@ def load_script(rel_path: str) -> ModuleType:
     path = (REPO_ROOT / rel_path).resolve()
     if not path.is_file():
         raise FileNotFoundError(f"script not found: {path}")
+    harness_str = str(HARNESS_DIR)
+    if harness_str not in sys.path:
+        sys.path.insert(0, harness_str)
     script_dir = str(path.parent)
     if script_dir not in sys.path:
         sys.path.insert(0, script_dir)

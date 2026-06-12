@@ -142,7 +142,10 @@ functions.
 - [x] `workspace/public/src/scripts/revalidation/build_native_init_boot_v2224_a90_boot_window_observer.py`
       — V2189 wrapper argument rewrites, report rendering, manifest version-axis
       normalization.
-- [ ] (append more as discovered: v2225+ analyzers.)
+- [x] `workspace/public/src/scripts/revalidation/native_kernel_a90_boot_window_handoff_v2225.py`
+      — SHA/build-manifest helpers, a90ctl/flash command rendering, dry-run plan,
+      artifact diagnosis, result classification, report rendering, residual state.
+- [ ] (append more as discovered: v2226+ analyzers.)
 
 ## Progress log
 
@@ -295,4 +298,10 @@ functions.
 - 2026-06-13 — `build_native_init_boot_v2224_a90_boot_window_observer.py` —
   configure_base, render_report, normalize_manifest_axes — 3 cases —
   green.
+- 2026-06-13 — `native_kernel_a90_boot_window_handoff_v2225.py` —
+  sha256, load_build_manifest, a90ctl_command, flash_command,
+  dry_run_commands, diagnose_artifacts, classify, render_report,
+  residual_state — 11 cases — green. Also extended `tests/_loader.py`
+  so `load_revalidation()` exposes `a90harness` for standalone scripts
+  that import shared harness modules.
 - (append: date — target — functions covered — test count — any `KNOWN-DIVERGENCE`.)
