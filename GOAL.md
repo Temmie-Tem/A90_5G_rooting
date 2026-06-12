@@ -77,11 +77,12 @@ Read at the START of every iteration (then apply the tier policy above):
 ## Sub-goal seeds (optional; the loop may pick others from state)
 
 **T1 — kernel observation (try first):**
-- Resume the slide solver: build/run the **V2214 perf-event register-frame sampler** —
-  per-CPU `PERF_COUNT_SW_CPU_CLOCK`, read raw `ctx->pc` (off 256) + `ctx->regs[30]` live
-  LR (off 240) as un-ROPP'd kernel-text anchors; `exclude_user=1 exclude_idle=1`,
-  ~1 ms period. Harvest the kernel `ctx->pc` set and solve the unique KASLR slide
-  (collapse the V2197 four-candidate ambiguity). Read-only BPF; no flash.
+- After V2240: V2216/V2217 exact-slide symbolization is valid for kernel canonical
+  PC/LR samples and kernel function-pointer anchors only. Do not apply the kernel slide
+  to `a90cnss`/`a90libqmi`/`a90pmsrv` user-space trace-uprobe `__probe_ip`; use event
+  names plus stable relative user-space offset signatures instead. If finer `a90*`
+  names are needed, build a user-ELF ASLR/base mapper rather than extending the kernel
+  System.map slide solver.
 - After V2239: use `docs/reports/NATIVE_INIT_V2239_SCALAR_UPROBE_TIMELINE_CONTRACT_2026-06-12.md`
   as the merge contract before new boot-window observers. Do not retry
   cfg80211/PIL/QRTR static-tracepoint object-chain dereference from trace records; those
