@@ -55,7 +55,7 @@ functions.
       split_group_event, group_to_surface, aggregate.
 - [x] `workspace/public/src/scripts/revalidation/a90_kernel_v2198_jopp_ropp_classifier.py`
       — pure parse/scoring helpers (discover the deterministic ones).
-- [ ] `workspace/public/src/scripts/revalidation/a90_stock_kallsyms_extract.py`
+- [x] `workspace/public/src/scripts/revalidation/a90_stock_kallsyms_extract.py`
       — token/offset decode + layout-validation helpers (pure parts only).
 - [ ] `workspace/public/src/scripts/revalidation/a90_kernel_stack_symbolize.py`
       — slide / scoring helpers (pure parts only).
@@ -85,4 +85,8 @@ functions.
   parse_stack_logs, parse_timer_logs, extract_timer_callback_candidates,
   callback_confidence, timer_magic_candidate_slides, score_timer_slide,
   score_stack_slide — 9 cases — green.
+- 2026-06-13 — `a90_stock_kallsyms_extract.py` — sha256_bytes, u16/u32/u64,
+  unwrap_kernel, printable_token, parse_token_run, token_table_at,
+  marker_candidate, parse_record_offsets, decode_names, find_num_syms_position,
+  find_address_table, render_system_map — 12 cases — green.
 - (append: date — target — functions covered — test count — any `KNOWN-DIVERGENCE`.)
