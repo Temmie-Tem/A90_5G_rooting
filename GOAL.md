@@ -77,6 +77,22 @@ Read at the START of every iteration (then apply the tier policy above):
 ## Sub-goal seeds (optional; the loop may pick others from state)
 
 **T1 — kernel observation (try first):**
+- After V2253 live: the V2252 boundary-stack observer passed with rollback.
+  V2252 flashed and booted as `A90 Linux init 0.9.271
+  (v2252-fwclass-boundary-stack)`, health checks passed, helper result was
+  `wlan0-ready`, and rollback to V2237 ended with `version`/`status`/`selftest
+  fail=0`. The boundary classifier saw the full V2246 whitelist stack
+  (`_request_firmware`, `request_firmware`, `qdf_file_read`, `qdf_ini_parse`,
+  `cfg_parse`, `hdd_context_create`, `wlan_hdd_pld_probe`) before the
+  `WCNSS_qcom_cfg.ini` firmware_class feed; after-feed the sampled worker had
+  moved to a later wait state and no longer contained those seven symbols.
+  `bdwlan.bin` and `regdb.bin` did not appear as userspace fallback requests in
+  the captured boot. This closes the V2250 CPU-clock ambiguity as a sampler miss,
+  not function absence. Do not spend more T1 work on generic CPU-clock tuning or
+  this firmware_class boundary unless a new independent oracle is identified.
+  Next loop: re-evaluate T1 for a new meaningful kernel-observation question;
+  if none is actionable, record that trigger in the next report and proceed to
+  T2 WLAN surface/cleanup work.
 - After V2252: source/build-only deterministic firmware_class boundary stack
   observer exists as `boot_linux_v2252_fwclass_boundary_stack.img`
   (`A90 Linux init 0.9.271`, helper `a90_android_execns_probe v430`,
