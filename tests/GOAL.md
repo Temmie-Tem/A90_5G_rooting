@@ -189,6 +189,10 @@ functions.
 - [x] `workspace/public/src/scripts/revalidation/a90_kernel_v2240_codepath_identity_boundary.py`
       — address-domain classification, a90 uprobe sample extraction, low12 and
       relative-offset signatures, kernel/user identity-boundary summary rendering.
+- [x] `workspace/public/src/scripts/revalidation/a90_kernel_v2241_user_uprobe_offset_base_map.py`
+      — helper-source uprobe spec parsing, runtime probe extraction,
+      load-bias observation/missing/alias classification, ELF metadata fallback,
+      offset/base-map summary rendering.
 - [ ] (append more as discovered: v2231+ analyzers.)
 
 ## Progress log
@@ -401,4 +405,7 @@ functions.
 - 2026-06-13 — `a90_kernel_v2240_codepath_identity_boundary.py` —
   classify_domain, extract_samples, build_a90cnss_relative_signature,
   summarize_low12_by_event, build_summary — 8 cases — green.
+- 2026-06-13 — `a90_kernel_v2241_user_uprobe_offset_base_map.py` —
+  parse_uprobe_specs, extract_runtime_probes, build_bias_observations,
+  summarize_biases, elf_metadata, build_summary — 8 cases — green.
 - (append: date — target — functions covered — test count — any `KNOWN-DIVERGENCE`.)
