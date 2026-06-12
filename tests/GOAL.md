@@ -159,7 +159,10 @@ functions.
       — SHA/build-manifest helpers, command rendering, artifact diagnosis,
       service-object snapshot extraction, current-window preflight classifiers,
       result classification, report rendering, residual state.
-- [ ] (append more as discovered: v2230+ analyzers.)
+- [x] `workspace/public/src/scripts/revalidation/build_native_init_boot_v2230_service_object_visible_post_bdf_hold.py`
+      — V2189 wrapper argument rewrites, long post-BDF hold window,
+      report rendering, manifest version-axis normalization.
+- [ ] (append more as discovered: v2231+ analyzers.)
 
 ## Progress log
 
@@ -336,4 +339,7 @@ functions.
   is_current_window_a90_absent_preflight,
   is_current_window_collector_busy_preflight, classify, render_report,
   residual_state — 9 cases — green.
+- 2026-06-13 — `build_native_init_boot_v2230_service_object_visible_post_bdf_hold.py` —
+  configure_base, render_report, normalize_manifest_axes — 3 cases —
+  green.
 - (append: date — target — functions covered — test count — any `KNOWN-DIVERGENCE`.)
