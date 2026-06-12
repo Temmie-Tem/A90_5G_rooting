@@ -1221,7 +1221,7 @@
       "name": "inventory_revalidation_scripts.py",
       "path": "workspace/public/src/scripts/revalidation/inventory_revalidation_scripts.py",
       "reason": "operator utility or inventory/cleanup utility",
-      "repo_reference_count": 11,
+      "repo_reference_count": 12,
       "type": "file"
     },
     {
@@ -1362,10 +1362,10 @@
     },
     {
       "executable": false,
-      "has_phase_timer": false,
-      "has_residual_state": false,
+      "has_phase_timer": true,
+      "has_residual_state": true,
       "has_secret_redaction": false,
-      "imports_a90_transport": false,
+      "imports_a90_transport": true,
       "label": "active",
       "live_device_required": true,
       "mentions_a90_bridge": false,
@@ -1374,15 +1374,15 @@
       "name": "native_kernel_a90_post_bdf_hold_handoff_v2231.py",
       "path": "workspace/public/src/scripts/revalidation/native_kernel_a90_post_bdf_hold_handoff_v2231.py",
       "reason": "kernel-observation runner or postprocessor",
-      "repo_reference_count": 2,
+      "repo_reference_count": 4,
       "type": "file"
     },
     {
       "executable": false,
-      "has_phase_timer": false,
-      "has_residual_state": false,
+      "has_phase_timer": true,
+      "has_residual_state": true,
       "has_secret_redaction": false,
-      "imports_a90_transport": false,
+      "imports_a90_transport": true,
       "label": "active",
       "live_device_required": true,
       "mentions_a90_bridge": false,
@@ -1391,15 +1391,15 @@
       "name": "native_kernel_a90_service_object_fwclass_bridge_handoff_v2233.py",
       "path": "workspace/public/src/scripts/revalidation/native_kernel_a90_service_object_fwclass_bridge_handoff_v2233.py",
       "reason": "kernel-observation runner or postprocessor",
-      "repo_reference_count": 2,
+      "repo_reference_count": 4,
       "type": "file"
     },
     {
       "executable": false,
-      "has_phase_timer": false,
-      "has_residual_state": false,
+      "has_phase_timer": true,
+      "has_residual_state": true,
       "has_secret_redaction": false,
-      "imports_a90_transport": false,
+      "imports_a90_transport": true,
       "label": "active",
       "live_device_required": true,
       "mentions_a90_bridge": false,
@@ -1408,7 +1408,7 @@
       "name": "native_kernel_a90_service_object_visible_handoff_v2229.py",
       "path": "workspace/public/src/scripts/revalidation/native_kernel_a90_service_object_visible_handoff_v2229.py",
       "reason": "kernel-observation runner or postprocessor",
-      "repo_reference_count": 2,
+      "repo_reference_count": 4,
       "type": "file"
     },
     {
@@ -1922,7 +1922,7 @@
       "type": "file"
     }
   ],
-  "generated_at": "2026-06-12T06:04:53.855492+00:00",
+  "generated_at": "2026-06-12T06:14:49.274142+00:00",
   "root": "workspace/public/src/scripts/revalidation",
   "summary": {
     "active": 107,
