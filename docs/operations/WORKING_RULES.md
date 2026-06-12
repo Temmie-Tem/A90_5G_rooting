@@ -1,6 +1,6 @@
 # A90 Working Rules
 
-Updated: `2026-06-10`
+Updated: `2026-06-12`
 
 This is the first document to check before changing native-init source,
 revalidation scripts, boot artifacts, reports, or workspace layout. Detailed
@@ -33,8 +33,8 @@ Rules:
 - Do not use helper numbers as run IDs, boot filenames, or native-init build
   tags.
 - The current promoted baseline uses build tag
-  `v2189-security-p0-stage-fix`. Keep this as the rollback/test baseline until
-  a newer boot image is intentionally promoted.
+  `v2232-service-object-fwclass-bridge`. Keep this as the rollback/test
+  baseline until a newer boot image is intentionally promoted.
 - If an existing artifact is only reproduced or documented, keep its build tag
   and record it as `Baseline tag`, not `Cycle`.
 - If the boot image SHA changes and that image becomes a rollback/test

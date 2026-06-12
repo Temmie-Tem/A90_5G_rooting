@@ -277,10 +277,10 @@ python3 workspace/public/src/scripts/revalidation/native_wifi_connect_carrier_ha
 ```
 
 The runner flashes the V2174 test boot, runs only the carrier-level connect
-window, and verifies rollback `selftest fail=0`. After the V2190 promotion, this
+window, and verifies rollback `selftest fail=0`. After the V2234 promotion, this
 runner remains carrier-level evidence only; new Wi-Fi lifecycle work should
-treat `v2189-security-p0-stage-fix` as the current baseline and use older
-images only for explicit rollback/regression testing.
+treat `v2232-service-object-fwclass-bridge` as the current baseline and use
+older images only for explicit rollback/regression testing.
 
 ## `wifi dhcp [profile]`
 

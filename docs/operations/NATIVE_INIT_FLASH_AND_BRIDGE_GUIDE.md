@@ -1,6 +1,6 @@
 # Native Init Flash / Bridge Operator Guide
 
-Date: `2026-06-10`
+Date: `2026-06-12`
 
 이 문서는 사람이 직접 따라 하기 위한 짧은 운영 절차서다.
 목표는 **TWRP에서 native init boot image를 안전하게 flash하고,
@@ -17,12 +17,12 @@ Date: `2026-06-10`
 - known-good fallback source: `workspace/public/archive/stage3/linux_init/init_v48.c`
 - known-good fallback boot image: `workspace/private/inputs/boot_images/boot_linux_v48.img`
 - known-good fallback boot image SHA256: `1c87fa59712395027c5c2e489b15c4f6ddefabc3c50f78d3c235c4508a63e042`
-- latest verified build: `A90 Linux init 0.9.261 (v2189-security-p0-stage-fix)`
-- latest verified source: `workspace/public/src/native-init/` + 빌더 `workspace/public/src/scripts/revalidation/build_native_init_boot_v2189_security_p0_stage_fix.py`
-- latest verified boot image: `workspace/private/inputs/boot_images/boot_linux_v2189_security_p0_stage_fix.img`
-- latest verified boot image SHA256: `a7332612199cfd275f2dfc6fdb25843af401a1ecef2fa54ac0f52afe705f1ffe`
-- version axes: `v2189-security-p0-stage-fix`는 boot/init baseline tag, `a90_android_execns_probe helper-v427`은 포함된 helper marker, `V2190`은 baseline-promotion run/report 번호다. 전체 규칙은 `docs/operations/VERSIONING_POLICY.md`를 따른다.
-- previous verified boot image: `workspace/private/inputs/boot_images/boot_linux_v2187_screenapp_ui_validation.img` (`A90 Linux init 0.9.259 (v2187-screenapp-ui-validation)`)
+- latest verified build: `A90 Linux init 0.9.266 (v2232-service-object-fwclass-bridge)`
+- latest verified source: `workspace/public/src/native-init/` + 빌더 `workspace/public/src/scripts/revalidation/build_native_init_boot_v2232_service_object_fwclass_bridge.py`
+- latest verified boot image: `workspace/private/inputs/boot_images/boot_linux_v2232_service_object_fwclass_bridge.img`
+- latest verified boot image SHA256: `dd56aa2dd8c0d9b2bafd1c12e23a3db6ba7095bea5e632ab03c5785fac69786c`
+- version axes: `v2232-service-object-fwclass-bridge`는 boot/init baseline tag, `a90_android_execns_probe helper-v427`은 포함된 helper marker, `V2234`는 baseline-promotion run/report 번호다. 전체 규칙은 `docs/operations/VERSIONING_POLICY.md`를 따른다.
+- previous verified boot image: `workspace/private/inputs/boot_images/boot_linux_v2189_security_p0_stage_fix.img` (`A90 Linux init 0.9.261 (v2189-security-p0-stage-fix)`)
 - control channel: USB CDC ACM serial bridge
 - bridge endpoint: `127.0.0.1:54321`
 - bridge script: `workspace/public/src/scripts/revalidation/serial_tcp_bridge.py`

@@ -1,6 +1,6 @@
 # Native Init Boot And Transport Contract
 
-Updated: `2026-06-10`
+Updated: `2026-06-12`
 
 This document defines the standing contract between:
 
@@ -20,16 +20,16 @@ Current verified baseline:
 
 | Field | Value |
 | --- | --- |
-| Device-visible version | `A90 Linux init 0.9.261` |
-| Build tag | `v2189-security-p0-stage-fix` |
-| Boot image | `workspace/private/inputs/boot_images/boot_linux_v2189_security_p0_stage_fix.img` |
-| Boot SHA256 | `a7332612199cfd275f2dfc6fdb25843af401a1ecef2fa54ac0f52afe705f1ffe` |
+| Device-visible version | `A90 Linux init 0.9.266` |
+| Build tag | `v2232-service-object-fwclass-bridge` |
+| Boot image | `workspace/private/inputs/boot_images/boot_linux_v2232_service_object_fwclass_bridge.img` |
+| Boot SHA256 | `dd56aa2dd8c0d9b2bafd1c12e23a3db6ba7095bea5e632ab03c5785fac69786c` |
 | Source root | `workspace/public/src/native-init/` |
-| Builder | `workspace/public/src/scripts/revalidation/build_native_init_boot_v2189_security_p0_stage_fix.py` |
-| Source/build report | `docs/reports/NATIVE_INIT_V2189_SECURITY_P0_STAGE_FIX_SOURCE_BUILD_2026-06-10.md` |
-| Live validation report | `docs/reports/NATIVE_INIT_V2189_SECURITY_P0_STAGE_FIX_LIVE_VALIDATION_2026-06-10.md` |
-| Promotion report | `docs/reports/NATIVE_INIT_V2190_V2189_SECURITY_P0_STAGE_FIX_BASELINE_PROMOTION_2026-06-10.md` |
-| Previous rollback | `workspace/private/inputs/boot_images/boot_linux_v2187_screenapp_ui_validation.img` |
+| Builder | `workspace/public/src/scripts/revalidation/build_native_init_boot_v2232_service_object_fwclass_bridge.py` |
+| Source/build report | `docs/reports/NATIVE_INIT_V2232_SERVICE_OBJECT_FWCLASS_BRIDGE_SOURCE_BUILD_2026-06-12.md` |
+| Live validation report | `docs/reports/NATIVE_INIT_V2233_SERVICE_OBJECT_FWCLASS_BRIDGE_HANDOFF_RUNNER_2026-06-12.md` |
+| Promotion report | `docs/reports/NATIVE_INIT_V2234_V2232_SERVICE_OBJECT_FWCLASS_BRIDGE_BASELINE_PROMOTION_2026-06-12.md` |
+| Previous rollback | `workspace/private/inputs/boot_images/boot_linux_v2189_security_p0_stage_fix.img` |
 | Known-good fallback | `workspace/private/inputs/boot_images/boot_linux_v48.img` |
 
 The boot image must provide:
@@ -48,15 +48,16 @@ Previous baseline:
 
 | Field | Value |
 | --- | --- |
-| Build tag | `v2187-screenapp-ui-validation` |
-| Device-visible version | `A90 Linux init 0.9.259` |
-| Boot image | `workspace/private/inputs/boot_images/boot_linux_v2187_screenapp_ui_validation.img` |
-| Boot SHA256 | `0422f854b3e78d36e225012fd89a53016067155e200291d067ff7d71f32091ca` |
-| Current role | Older conservative fallback |
+| Build tag | `v2189-security-p0-stage-fix` |
+| Device-visible version | `A90 Linux init 0.9.261` |
+| Boot image | `workspace/private/inputs/boot_images/boot_linux_v2189_security_p0_stage_fix.img` |
+| Boot SHA256 | `f54becb2b720ad198413c2a0089912626ca295c79a96f13e0921cf4f05b39f51` |
+| Current role | Previous conservative fallback |
 
-`v2189-security-p0-stage-fix` is promoted as the current baseline by V2190. It
-keeps the V2187 screenapp/UI validation baseline and adds the V2188/V2189
-security P0 flash identity and Wi-Fi staged-artifact hardening.
+`v2232-service-object-fwclass-bridge` is promoted as the current baseline by
+V2234. It keeps the V2189 security P0 stage-fix baseline and adds the
+service-object-visible PM route plus the post-FW_READY `boot_wlan`/firmware_class
+tail that produced real native `wlan0` in V2233/V2234.
 
 ## 2. Boot-Image Transport Contract
 
@@ -306,15 +307,15 @@ Blocked by default:
 
 ## 8. Current State Summary
 
-As of `2026-06-10`:
+As of `2026-06-12`:
 
 - Host bridge wrapper contract exists: `wrapper_contract=1`.
 - Host transport selector contract exists: `selector_contract=1`.
 - NCM smoke runner records transport selection in its manifest.
-- Current boot image is `v2189-security-p0-stage-fix`.
+- Current boot image is `v2232-service-object-fwclass-bridge`.
 - Device-side `transport.contract=1` is a current baseline guarantee.
-- Previous rollback image is `v2187-screenapp-ui-validation`; known-good fallback
+- Previous rollback image is `v2189-security-p0-stage-fix`; known-good fallback
   remains `v48`.
 
 The next boot-image promotion should preserve the device-side `transport.*`
-status lines and validate old parser compatibility.
+status lines, the V2232 WLAN startup route, and old parser compatibility.

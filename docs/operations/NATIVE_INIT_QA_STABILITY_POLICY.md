@@ -1,6 +1,6 @@
 # Native Init QA And Stability Policy
 
-Updated: `2026-06-10`
+Updated: `2026-06-12`
 
 This document defines what must be proven before a native-init behavior is
 treated as baseline quality. It separates required baseline checks from optional
@@ -57,7 +57,7 @@ polish so that revalidation work does not drift into unrelated live tests.
 
 ## Current Baseline Notes
 
-- Current promoted baseline: `v2189-security-p0-stage-fix`.
+- Current promoted baseline: `v2232-service-object-fwclass-bridge`.
 - Current source-root revalidation inventory:
   `docs/reports/REVALIDATION_SCRIPT_INVENTORY_2026-06-10.md`.
 - Current inventory state:

@@ -1,6 +1,6 @@
 # A90 Native Init Versioning Policy
 
-Date: `2026-05-11` (refreshed `2026-06-10`)
+Date: `2026-05-11` (refreshed `2026-06-12`)
 
 This project uses separate version axes. Do not collapse them into one `vNNN`
 number.
@@ -35,6 +35,8 @@ Examples:
   artifact
 - `V2190` baseline-promotion run for the `v2189-security-p0-stage-fix`
   artifact
+- `V2234` baseline-promotion run for the `v2232-service-object-fwclass-bridge`
+  artifact
 
 Rules:
 
@@ -56,6 +58,7 @@ Examples:
 - `A90 Linux init 0.9.253`
 - `A90 Linux init 0.9.255`
 - `A90 Linux init 0.9.261`
+- `A90 Linux init 0.9.266`
 
 Increase this version when the flashed boot artifact changes:
 
@@ -79,6 +82,7 @@ Examples:
 - `v2169-transport-contract`
 - `v2182-hud-menu-cleanup`
 - `v2189-security-p0-stage-fix`
+- `v2232-service-object-fwclass-bridge`
 
 Rules:
 
@@ -158,16 +162,16 @@ sha256 = exact binary/evidence artifact identity
 
 ## Current Example
 
-Current verified security P0 stage-fix baseline evidence is based on:
+Current verified service-object FWClass bridge baseline evidence is based on:
 
 ```text
-Run ID: V2190
-Native init: A90 Linux init 0.9.261 (v2189-security-p0-stage-fix)
-Build tag: v2189-security-p0-stage-fix
-Helper: a90_android_execns_probe helper-v427
-Boot image: workspace/private/inputs/boot_images/boot_linux_v2189_security_p0_stage_fix.img
-Boot SHA256: a7332612199cfd275f2dfc6fdb25843af401a1ecef2fa54ac0f52afe705f1ffe
-Evidence: V2189 source/build, V2189 live validation, V2189 security precheck, and V2190 baseline promotion report
+Run ID: V2234
+Native init: A90 Linux init 0.9.266 (v2232-service-object-fwclass-bridge)
+Build tag: v2232-service-object-fwclass-bridge
+Helper: a90_android_execns_probe helper-v427 marker, SHA256 062c7a491bee66bcb7112850f4581e53e58d923719d85dbbe651d9df285ee910
+Boot image: workspace/private/inputs/boot_images/boot_linux_v2232_service_object_fwclass_bridge.img
+Boot SHA256: dd56aa2dd8c0d9b2bafd1c12e23a3db6ba7095bea5e632ab03c5785fac69786c
+Evidence: V2232 source/build, V2233 rollbackable WLAN handoff, and V2234 baseline promotion report
 ```
 
 If this artifact is reproduced unchanged, keep the build tag and record the
