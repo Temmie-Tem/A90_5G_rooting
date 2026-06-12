@@ -47,7 +47,7 @@ functions.
       normalize_device_path, require_path_under, require_run_child, require_safe_raw_arg.
       Cover accepted inputs AND reject cases (traversal `..`, relative, `//`, trailing
       `/`, whitespace, shell metachars, control/NUL) that must raise RuntimeError.
-- [ ] `workspace/public/src/scripts/revalidation/a90_kernel_v2199_timer_xref_scorer.py`
+- [x] `workspace/public/src/scripts/revalidation/a90_kernel_v2199_timer_xref_scorer.py`
       — format_signed_hex, clean_expr, timer_leaf, interval_class, interval_score,
       score_xref, score_candidate.
 - [ ] `workspace/public/src/scripts/revalidation/a90_kernel_v2220_helper_summary_trace_parser.py`
@@ -71,4 +71,9 @@ functions.
   normalize_device_path, require_path_under, require_run_child, require_safe_raw_arg),
   accept + reject paths — 19 cases — green. Note: `normalize_device_path("/")` raises
   (bare root splits to an empty segment); pinned as current behavior, not a divergence.
+- 2026-06-13 — `a90_kernel_v2199_timer_xref_scorer.py` — format_signed_hex,
+  clean_expr, timer_leaf, interval_class, interval_score, score_xref,
+  score_candidate — 9 cases — green. Also fixed `tests/_loader.py` to register
+  standalone scripts in `sys.modules` before exec so dataclass-based analyzers
+  import correctly.
 - (append: date — target — functions covered — test count — any `KNOWN-DIVERGENCE`.)

@@ -34,6 +34,7 @@ def load_script(rel_path: str) -> ModuleType:
     if spec is None or spec.loader is None:
         raise ImportError(f"cannot build import spec for {path}")
     module = importlib.util.module_from_spec(spec)
+    sys.modules[spec.name] = module
     spec.loader.exec_module(module)
     return module
 
