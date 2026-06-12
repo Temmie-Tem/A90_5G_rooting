@@ -293,6 +293,9 @@ functions.
 - [x] `workspace/public/src/scripts/revalidation/a90_serial_lock.py`
       — explicit/default lock path selection, env timeout parsing, metadata
       write/clear behavior, busy timeout handling, exit no-op safety.
+- [x] `workspace/public/src/scripts/revalidation/native_init_frontier_select.py`
+      — read_text/read_json, marker helpers, T1 readiness filtering,
+      track evaluation branches, select_frontier path/decision handling.
 - [ ] (append more as discovered: v2231+ analyzers.)
 
 ## Progress log
@@ -616,4 +619,7 @@ functions.
 - 2026-06-13 — `a90_serial_lock.py` — lock_path, default_timeout,
   SerialBridgeLock metadata write/clear, busy timeout close behavior,
   never-entered __exit__ no-op — 5 cases — green.
+- 2026-06-13 — `native_init_frontier_select.py` — read_text/read_json,
+  marker_present, all_markers_present, ready_t1_candidates, track_evaluations,
+  select_frontier missing/present frontier candidate branches — 7 cases — green.
 - (append: date — target — functions covered — test count — any `KNOWN-DIVERGENCE`.)
