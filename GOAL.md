@@ -42,7 +42,7 @@ and this file**. One target per commit, so any unit is easy to revert.
 Priority: safety-critical shared library first, then analyzers with clear pure
 functions.
 
-- [ ] `workspace/public/src/harness/a90harness/path_safety.py` — require_safe_component,
+- [x] `workspace/public/src/harness/a90harness/path_safety.py` — require_safe_component,
       normalize_device_path, require_path_under, require_run_child, require_safe_raw_arg.
       Cover accepted inputs AND reject cases (traversal `..`, relative, `//`, trailing
       `/`, whitespace, shell metachars, control/NUL) that must raise RuntimeError.
@@ -66,4 +66,8 @@ functions.
 
 ## Progress log
 
+- 2026-06-12 — `a90harness/path_safety.py` — all 5 validators (require_safe_component,
+  normalize_device_path, require_path_under, require_run_child, require_safe_raw_arg),
+  accept + reject paths — 19 cases — green. Note: `normalize_device_path("/")` raises
+  (bare root splits to an empty segment); pinned as current behavior, not a divergence.
 - (append: date — target — functions covered — test count — any `KNOWN-DIVERGENCE`.)
