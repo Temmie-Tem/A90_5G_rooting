@@ -750,4 +750,7 @@ functions.
   quoting/parsing, DHCP-fail skip-ping and DHCP-pass ping paths, cleanup residue
   gates, hold sampling loop, render_report redacted hold scope — 8 cases —
   green.
+- 2026-06-13 — `build_native_init_boot_v2184_network_ui_p0_p1.py` —
+  configure_base V2184 axis rewrites, network UI P0/P1 render_report safety
+  scope, normalize_manifest_axes version metadata — 3 cases — green.
 - (append: date — target — functions covered — test count — any `KNOWN-DIVERGENCE`.)
