@@ -16,11 +16,14 @@ COMMIT → REPEAT) is defined in `GOAL.md`.
 2. **Flash only via the checked helper:** `workspace/public/src/scripts/revalidation/native_init_flash.py`.
    Never `dd`/`fastboot`/raw-write a partition. Never invent a new flash path.
 3. **Rollback precondition:** before ANY flash, confirm the known-good rollback image
+   `workspace/private/inputs/boot_images/boot_linux_v2321_usb_clean_identity_rodata.img`
+   (SHA256 `ca978551aabe4b39563abaf529ccf2522054952d8b2ad852e632d26da88168cb`, the resident
+   clean USB-identity checkpoint) exists, plus the deeper Wi-Fi-proven fallback
    `workspace/private/inputs/boot_images/boot_linux_v2237_supplicant_terminate_poll.img`
-   (SHA256 `b2ea2d26d160b7702ce7d4438b84367788eea26c6a5bbe4ed93f3d270292ac7f`, the resident
-   checkpoint) exists, plus the deeper fallback `boot_linux_v48.img`, AND recovery/TWRP is
-   available. v2237 is the auto-rollback target. If you cannot confirm both, DO NOT flash —
-   stop and report.
+   (SHA256 `b2ea2d26d160b7702ce7d4438b84367788eea26c6a5bbe4ed93f3d270292ac7f`) and the
+   final fallback `boot_linux_v48.img`, AND recovery/TWRP is available. v2321 is the
+   auto-rollback target; v2237/v48 are deeper fallbacks. If you cannot confirm these,
+   DO NOT flash — stop and report.
 4. **No cascading bad flashes:** never flash a new experimental image onto a device that
    failed its last boot/health check. Recover first (invariant 8), then stop.
 5. **Wi-Fi is gated, and creds are currently ABSENT:** run scan/connect/dhcp/ping ONLY

@@ -21,7 +21,8 @@ below). Re-evaluate each iteration; you may climb back up if new work appears.
 
 ### Active epic — USB gadget runtime control (layer ①)
 
-**Prior epic (WLAN events) is CLOSED** at V2312 (`0.9.276`; `v2237` still the rollback target).
+**Prior epic (WLAN events) is CLOSED** at V2312 (`0.9.276`; `v2321` is the rollback target;
+`v2237` remains the deeper Wi-Fi-proven fallback).
 **Active epic: a native-init `usb` gadget control surface.** Layer ① is now closed:
 U1 is closed at V2313 (`0.9.277`), U2 is closed at V2314 (`0.9.278`), and U3 is
 closed at V2315 (`0.9.279`, current validated test baseline). `usb mass-storage expose`
@@ -57,7 +58,7 @@ Staged units, one V-iteration each:
 **Validation:** U1 = serial bridge + `selftest fail=0`; U2 = serial control return after add/remove
 plus topology proof that NCM+ACM remain present; U3 = serial control return plus host-side read-only
 mass-storage enumeration. Every device step: boot-only flash, pinned SHA, post-boot health check,
-auto-rollback to `v2237` on any failure. Bump init beyond the current validated test artifact;
+auto-rollback to `v2321` on any failure (`v2237`/`v48` remain deeper fallbacks). Bump init beyond the current validated test artifact;
 `vNNNN-purpose` tag.
 
 **T1 (now SATURATED) — analyzer / harness regression test suite (host-only, NO flash).**

@@ -16,13 +16,13 @@ Date: `2026-06-12`
 
 현재 기준:
 
-- latest verified build: A90 Linux init 0.9.272 (v2254-wifi-detail-surface)
-- latest verified source: workspace/public/src/native-init/ + 빌더 workspace/public/src/scripts/revalidation/build_native_init_boot_v2254_wifi_detail_surface.py
-- latest verified boot image: workspace/private/inputs/boot_images/boot_linux_v2254_wifi_detail_surface.img
-- latest verified boot image SHA256: c668e9cd9a3621c955fa369c5d106271a96a949dcaec3774a5719d24b8ba19e9
-- 현재 기준 사이클: v2254-wifi-detail-surface Wi-Fi command surface baseline with read-only route/default-DNS detail fields (V2256 promotion)
-- version axes: v2254-wifi-detail-surface는 boot/init baseline tag, a90_android_execns_probe helper-v427은 포함된 helper marker, V2256은 baseline-promotion run/report 번호다. 전체 규칙은 docs/operations/VERSIONING_POLICY.md를 따른다.
-- previous verified boot image: workspace/private/inputs/boot_images/boot_linux_v2237_supplicant_terminate_poll.img (A90 Linux init 0.9.268 (v2237-supplicant-terminate-poll))
+- latest verified build / rollback checkpoint: A90 Linux init 0.9.285 (v2321-usb-clean-identity-rodata)
+- latest verified source: workspace/public/src/native-init/ + 빌더 workspace/public/src/scripts/revalidation/build_native_init_boot_v2321_usb_clean_identity_rodata.py
+- latest verified boot image: workspace/private/inputs/boot_images/boot_linux_v2321_usb_clean_identity_rodata.img
+- latest verified boot image SHA256: ca978551aabe4b39563abaf529ccf2522054952d8b2ad852e632d26da88168cb
+- 현재 기준 사이클: v2321-usb-clean-identity-rodata clean USB identity baseline / rollback checkpoint (V2321 promotion)
+- version axes: v2321-usb-clean-identity-rodata는 boot/init baseline tag, a90_android_execns_probe helper-v427은 포함된 helper marker, V2321은 baseline-promotion run/report 번호다. 전체 규칙은 docs/operations/VERSIONING_POLICY.md를 따른다.
+- deeper Wi-Fi-proven fallback boot image: workspace/private/inputs/boot_images/boot_linux_v2237_supplicant_terminate_poll.img (A90 Linux init 0.9.268 (v2237-supplicant-terminate-poll))
 - known-good fallback native init: A90 Linux init v48
 - known-good fallback source: workspace/public/archive/stage3/linux_init/init_v48.c
 - known-good fallback boot image: workspace/private/inputs/boot_images/boot_linux_v48.img
