@@ -658,4 +658,9 @@ functions.
   device_command cmdv1/raw/busy branches, configure_host_interface_nmcli,
   configure_host_interface fallback/manual paths, command_setup orchestration —
   13 cases — green.
+- 2026-06-13 — `a90_wifi_profile_stage.py` — root_paths,
+  write_private_file, build_stage_files valid/invalid secret-status paths,
+  compact_stage, finalize_manifest residual-state wiring, run preflight-fail
+  and successful tcpctl transfer/verify branches with secret transfer flags —
+  8 cases — green.
 - (append: date — target — functions covered — test count — any `KNOWN-DIVERGENCE`.)
