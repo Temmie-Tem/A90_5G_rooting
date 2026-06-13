@@ -22,10 +22,11 @@ below). Re-evaluate each iteration; you may climb back up if new work appears.
 ### Active epic — USB gadget runtime control (layer ①)
 
 **Prior epic (WLAN events) is CLOSED** at V2312 (`0.9.276`; `v2237` still the rollback target).
-**Active epic: a native-init `usb` gadget control surface.** U1 is now closed at V2313
-(`0.9.277`, current validated test baseline): `usb status` maps the live gadget topology
-read-only and confirms the live config already has both control functions (`ncm.usb0` and
-`acm.usb0`) on UDC `a600000.dwc3`. **Next unit is U2 only.**
+**Active epic: a native-init `usb` gadget control surface.** U1 is closed at V2313
+(`0.9.277`), and U2 is now closed at V2314 (`0.9.278`, current validated test baseline):
+`usb mass-storage add/remove` performs the guarded unbind -> reconfigure -> rebind cycle,
+returns serial control, and preserves both control functions (`ncm.usb0` and `acm.usb0`)
+on UDC `a600000.dwc3`. **Next unit is U3 only.**
 Full design — read it before starting — is
 `docs/plans/NATIVE_INIT_USB_GADGET_CONTROL_EPIC_PLAN_2026-06-13.md`. Grounded in the TWRP gadget
 recipe (`docs/reports/TWRP_RECOVERY_TEARDOWN_DEVICE_REFERENCE_2026-06-13.md` §1) and the kernel
@@ -46,14 +47,18 @@ Staged units, one V-iteration each:
   `/sys/class/udc/*`; report UDC + bind state, configs, the function list **and which are the control
   functions**, VID/PID, strings. Serial-self-validatable; **required first** so the exact control
   topology is known before any reconfigure.
-- **U2 — atomic auxiliary-function add/remove — NEXT** (start `mass_storage.0`) via unbind→reconfigure→
-  rebind with watchdog + restore; keep NCM+ACM in every config; validate the control channel returns.
-- **U3 — first persona end-to-end** (`mass_storage` recommended, or HID). Host-side validation.
+- **U2 — atomic auxiliary-function add/remove — DONE at V2314.** `mass_storage.0` add/remove uses
+  unbind→reconfigure→rebind with watchdog + restore, keeps NCM+ACM in every config, and validates
+  that the serial control channel returns. Host-side enumeration remains parked for U3.
+- **U3 — first persona end-to-end — NEXT** (`mass_storage` recommended, or HID). Host-side
+  validation required.
 
-**Validation:** U1 = serial bridge + `selftest fail=0`. **U2/U3 need host-side validation** (plug
-into a PC; confirm the function enumerates AND control returns) — a new modality vs serial-only;
-record operator host steps in the report. Every device step: boot-only flash, pinned SHA, post-boot
-health check, auto-rollback to `v2237` on any failure. Bump init beyond `0.9.276`; `vNNNN-purpose` tag.
+**Validation:** U1 = serial bridge + `selftest fail=0`; U2 = serial control return after add/remove
+plus topology proof that NCM+ACM remain present. **U3 needs host-side validation** (plug into a PC;
+confirm the persona enumerates AND control returns) — a new modality vs serial-only; record operator
+host steps in the report. Every device step: boot-only flash, pinned SHA, post-boot health check,
+auto-rollback to `v2237` on any failure. Bump init beyond the current validated test artifact;
+`vNNNN-purpose` tag.
 
 **T1 (now SATURATED) — analyzer / harness regression test suite (host-only, NO flash).**
 As of 2026-06-13 the 12 `workspace/public/src/harness/a90harness/` modules and all 124 revalidation

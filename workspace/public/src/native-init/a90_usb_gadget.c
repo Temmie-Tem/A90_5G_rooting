@@ -8,21 +8,31 @@
 #include <dirent.h>
 #include <errno.h>
 #include <fcntl.h>
+#include <signal.h>
 #include <stdbool.h>
 #include <stdio.h>
 #include <string.h>
 #include <sys/mount.h>
 #include <sys/stat.h>
+#include <sys/types.h>
 #include <unistd.h>
 
 #define A90_USB_GADGET_ROOT "/config/usb_gadget/g1"
 #define A90_USB_GADGET_CONFIG A90_USB_GADGET_ROOT "/configs/b.1"
 #define A90_USB_GADGET_ACM_FUNCTION A90_USB_GADGET_ROOT "/functions/acm.usb0"
+#define A90_USB_GADGET_NCM_FUNCTION A90_USB_GADGET_ROOT "/functions/ncm.usb0"
+#define A90_USB_GADGET_MASS_STORAGE_FUNCTION A90_USB_GADGET_ROOT "/functions/mass_storage.0"
 #define A90_USB_GADGET_ACM_LINK A90_USB_GADGET_CONFIG "/f1"
+#define A90_USB_GADGET_NCM_LINK A90_USB_GADGET_CONFIG "/f2"
+#define A90_USB_GADGET_MASS_STORAGE_LINK A90_USB_GADGET_CONFIG "/f3"
 #define A90_USB_GADGET_ADB_LINK A90_USB_GADGET_CONFIG "/f2"
 #define A90_USB_GADGET_UDC_PATH A90_USB_GADGET_ROOT "/UDC"
 #define A90_USB_GADGET_DEFAULT_UDC "a600000.dwc3"
 #define A90_USB_STATUS_VERSION "a90-native-usb-status-v1"
+#define A90_USB_RECONFIG_LOG_PATH "/cache/a90-usb-reconfigure.log"
+#define A90_USB_RECONFIG_WATCHDOG_SEC 8
+#define A90_USB_RECONFIG_DETACH_DELAY_USEC 1000000
+#define A90_USB_RECONFIG_SETTLE_USEC 350000
 #define A90_USB_MAX_FUNCTIONS 32
 #define A90_USB_MAX_CONFIGS 8
 #define A90_USB_MAX_CONFIG_LINKS 32
@@ -97,11 +107,46 @@ static int write_file(const char *path, const char *value) {
     return 0;
 }
 
+static void usb_log_line(const char *line) {
+    int fd;
+
+    if (line == NULL) {
+        return;
+    }
+    fd = open(A90_USB_RECONFIG_LOG_PATH, O_WRONLY | O_CREAT | O_APPEND | O_CLOEXEC, 0600);
+    if (fd < 0) {
+        return;
+    }
+    (void)write_all_checked(fd, line, strlen(line));
+    (void)write_all_checked(fd, "\n", 1);
+    close(fd);
+}
+
 static int create_symlink_checked(const char *target, const char *linkpath) {
     if (symlink(target, linkpath) == 0 || errno == EEXIST) {
         return 0;
     }
     return -1;
+}
+
+static int usb_create_or_replace_symlink(const char *target, const char *linkpath) {
+    char current[256];
+    ssize_t current_len;
+
+    current_len = readlink(linkpath, current, sizeof(current) - 1);
+    if (current_len >= 0) {
+        current[current_len] = '\0';
+        if (strcmp(current, target) == 0) {
+            return 0;
+        }
+        if (unlink(linkpath) < 0) {
+            return -1;
+        }
+    } else if (errno != ENOENT) {
+        return -1;
+    }
+
+    return symlink(target, linkpath);
 }
 
 static bool path_exists(const char *path) {
@@ -226,6 +271,28 @@ static void usb_read_gadget_value(const char *leaf, char *out, size_t out_size) 
 
     usb_join_path(path, sizeof(path), A90_USB_GADGET_ROOT, leaf);
     usb_read_value(path, out, out_size);
+}
+
+static bool usb_link_points_to(const char *linkpath, const char *target_basename) {
+    char target[256];
+    const char *basename;
+    ssize_t target_len;
+
+    if (linkpath == NULL || target_basename == NULL) {
+        return false;
+    }
+    target_len = readlink(linkpath, target, sizeof(target) - 1);
+    if (target_len < 0) {
+        return false;
+    }
+    target[target_len] = '\0';
+    basename = strrchr(target, '/');
+    if (basename != NULL) {
+        ++basename;
+    } else {
+        basename = target;
+    }
+    return strcmp(basename, target_basename) == 0;
 }
 
 static void usb_copy_basename(const char *path, char *out, size_t out_size) {
@@ -602,6 +669,288 @@ static void usb_print_inventory(const struct usb_inventory *inventory) {
                        inventory->udc_count);
 }
 
+static void usb_redirect_stdio_to_null(void) {
+    int fd = open("/dev/null", O_RDWR | O_CLOEXEC);
+
+    a90_console_silence_child();
+    if (fd < 0) {
+        return;
+    }
+    dup2(fd, STDIN_FILENO);
+    dup2(fd, STDOUT_FILENO);
+    dup2(fd, STDERR_FILENO);
+    if (fd > STDERR_FILENO) {
+        close(fd);
+    }
+}
+
+static void usb_reconfig_marker_path(char *out, size_t out_size) {
+    if (out == NULL || out_size == 0) {
+        return;
+    }
+    snprintf(out, out_size, "/cache/a90-usb-reconfig-%ld.done", (long)getpid());
+}
+
+static void usb_current_or_default_udc(char *out, size_t out_size) {
+    if (out == NULL || out_size == 0) {
+        return;
+    }
+    if (read_trimmed_text_file(A90_USB_GADGET_UDC_PATH, out, out_size) < 0 || out[0] == '\0') {
+        snprintf(out, out_size, "%s", A90_USB_GADGET_DEFAULT_UDC);
+    }
+}
+
+static void usb_write_best_effort(const char *path, const char *value) {
+    int saved_errno;
+
+    if (write_file(path, value) == 0) {
+        return;
+    }
+    saved_errno = errno;
+    a90_logf("usb", "best-effort write failed path=%s errno=%d", path, saved_errno);
+    errno = saved_errno;
+}
+
+static int usb_ensure_control_base_unbound(void) {
+    if (ensure_configfs() < 0) {
+        return negative_errno_or(EIO);
+    }
+    if (ensure_dir("/config/usb_gadget", 0770) < 0 ||
+        ensure_dir(A90_USB_GADGET_ROOT, 0770) < 0 ||
+        ensure_dir(A90_USB_GADGET_ROOT "/strings", 0770) < 0 ||
+        ensure_dir(A90_USB_GADGET_ROOT "/strings/0x409", 0770) < 0 ||
+        ensure_dir(A90_USB_GADGET_ROOT "/configs", 0770) < 0 ||
+        ensure_dir(A90_USB_GADGET_CONFIG, 0770) < 0 ||
+        ensure_dir(A90_USB_GADGET_CONFIG "/strings", 0770) < 0 ||
+        ensure_dir(A90_USB_GADGET_CONFIG "/strings/0x409", 0770) < 0 ||
+        ensure_dir(A90_USB_GADGET_ROOT "/functions", 0770) < 0 ||
+        ensure_dir(A90_USB_GADGET_ACM_FUNCTION, 0770) < 0 ||
+        ensure_dir(A90_USB_GADGET_NCM_FUNCTION, 0770) < 0) {
+        return negative_errno_or(EIO);
+    }
+
+    usb_write_best_effort(A90_USB_GADGET_ROOT "/idVendor", "0x04e8");
+    usb_write_best_effort(A90_USB_GADGET_ROOT "/idProduct", "0x6861");
+    usb_write_best_effort(A90_USB_GADGET_ROOT "/bcdDevice", "0x0100");
+    usb_write_best_effort(A90_USB_GADGET_ROOT "/strings/0x409/manufacturer", "samsung");
+    usb_write_best_effort(A90_USB_GADGET_ROOT "/strings/0x409/product", "SM8150-ACM");
+    usb_write_best_effort(A90_USB_GADGET_CONFIG "/strings/0x409/configuration", "serial");
+    usb_write_best_effort(A90_USB_GADGET_CONFIG "/MaxPower", "900");
+
+    usb_write_best_effort(A90_USB_GADGET_NCM_FUNCTION "/dev_addr", "02:11:22:33:44:56");
+    usb_write_best_effort(A90_USB_GADGET_NCM_FUNCTION "/host_addr", "02:11:22:33:44:55");
+    usb_write_best_effort(A90_USB_GADGET_NCM_FUNCTION "/qmult", "5");
+
+    if (usb_create_or_replace_symlink(A90_USB_GADGET_ACM_FUNCTION, A90_USB_GADGET_ACM_LINK) < 0 ||
+        usb_create_or_replace_symlink(A90_USB_GADGET_NCM_FUNCTION, A90_USB_GADGET_NCM_LINK) < 0) {
+        return negative_errno_or(EIO);
+    }
+    return 0;
+}
+
+static int usb_prepare_mass_storage_function(void) {
+    if (ensure_dir(A90_USB_GADGET_MASS_STORAGE_FUNCTION, 0770) < 0) {
+        return negative_errno_or(EIO);
+    }
+    if (!path_is_dir(A90_USB_GADGET_MASS_STORAGE_FUNCTION "/lun.0")) {
+        errno = ENOENT;
+        return -ENOENT;
+    }
+
+    usb_write_best_effort(A90_USB_GADGET_MASS_STORAGE_FUNCTION "/stall", "1");
+    usb_write_best_effort(A90_USB_GADGET_MASS_STORAGE_FUNCTION "/lun.0/removable", "1");
+    usb_write_best_effort(A90_USB_GADGET_MASS_STORAGE_FUNCTION "/lun.0/ro", "1");
+    usb_write_best_effort(A90_USB_GADGET_MASS_STORAGE_FUNCTION "/lun.0/cdrom", "0");
+    usb_write_best_effort(A90_USB_GADGET_MASS_STORAGE_FUNCTION "/lun.0/nofua", "1");
+    return 0;
+}
+
+static int usb_restore_known_good_control(const char *udc) {
+    const char *target_udc = (udc != NULL && udc[0] != '\0') ? udc : A90_USB_GADGET_DEFAULT_UDC;
+    int rc;
+
+    usb_log_line("restore: begin");
+    (void)a90_usb_gadget_unbind();
+    usleep(A90_USB_RECONFIG_SETTLE_USEC);
+    (void)unlink(A90_USB_GADGET_MASS_STORAGE_LINK);
+    rc = usb_ensure_control_base_unbound();
+    if (rc < 0) {
+        a90_logf("usb", "restore control base failed rc=%d", rc);
+        return rc;
+    }
+    if (write_file(A90_USB_GADGET_UDC_PATH, target_udc) < 0) {
+        rc = negative_errno_or(EIO);
+        a90_logf("usb", "restore bind failed rc=%d", rc);
+        return rc;
+    }
+    usb_log_line("restore: rebound control-only");
+    return 0;
+}
+
+static pid_t usb_spawn_reconfig_watchdog(const char *done_path, const char *udc) {
+    pid_t pid = fork();
+
+    if (pid < 0) {
+        return -1;
+    }
+    if (pid == 0) {
+        char saved_udc[64];
+
+        signal(SIGHUP, SIG_IGN);
+        signal(SIGPIPE, SIG_IGN);
+        setsid();
+        usb_redirect_stdio_to_null();
+        snprintf(saved_udc, sizeof(saved_udc), "%s", udc != NULL && udc[0] != '\0' ? udc : A90_USB_GADGET_DEFAULT_UDC);
+        sleep(A90_USB_RECONFIG_WATCHDOG_SEC);
+        if (done_path != NULL && path_exists(done_path)) {
+            _exit(0);
+        }
+        usb_log_line("watchdog: marker missing, restoring known-good control gadget");
+        (void)usb_restore_known_good_control(saved_udc);
+        _exit(0);
+    }
+    return pid;
+}
+
+static void usb_mark_reconfig_done(const char *done_path) {
+    int fd;
+
+    if (done_path == NULL) {
+        return;
+    }
+    fd = open(done_path, O_WRONLY | O_CREAT | O_TRUNC | O_CLOEXEC, 0600);
+    if (fd < 0) {
+        return;
+    }
+    (void)write_all_checked(fd, "done\n", 5);
+    close(fd);
+}
+
+static bool usb_inventory_control_ok(void) {
+    struct usb_inventory inventory;
+
+    if (usb_collect_inventory(&inventory) < 0) {
+        return false;
+    }
+    return inventory.base.udc_bound &&
+           inventory.acm_control_present &&
+           inventory.ncm_control_present &&
+           usb_link_points_to(A90_USB_GADGET_ACM_LINK, "acm.usb0") &&
+           usb_link_points_to(A90_USB_GADGET_NCM_LINK, "ncm.usb0");
+}
+
+static int usb_run_mass_storage_reconfigure(bool add_mass_storage) {
+    char udc[64];
+    char done_path[128];
+    pid_t watchdog;
+    int rc;
+
+    usb_current_or_default_udc(udc, sizeof(udc));
+    usb_reconfig_marker_path(done_path, sizeof(done_path));
+    (void)unlink(done_path);
+
+    if (add_mass_storage) {
+        rc = usb_prepare_mass_storage_function();
+        if (rc < 0) {
+            a90_logf("usb", "mass_storage prepare failed rc=%d", rc);
+            return rc;
+        }
+    }
+
+    watchdog = usb_spawn_reconfig_watchdog(done_path, udc);
+    if (watchdog < 0) {
+        return negative_errno_or(EIO);
+    }
+
+    usb_log_line(add_mass_storage ? "worker: add mass_storage begin" :
+                                    "worker: remove mass_storage begin");
+    rc = a90_usb_gadget_unbind();
+    if (rc < 0) {
+        (void)usb_restore_known_good_control(udc);
+        usb_mark_reconfig_done(done_path);
+        return rc;
+    }
+    usleep(A90_USB_RECONFIG_SETTLE_USEC);
+
+    if (add_mass_storage) {
+        rc = usb_ensure_control_base_unbound();
+        if (rc == 0) {
+            rc = usb_create_or_replace_symlink(A90_USB_GADGET_MASS_STORAGE_FUNCTION,
+                                               A90_USB_GADGET_MASS_STORAGE_LINK) == 0 ?
+                         0 :
+                         negative_errno_or(EIO);
+        }
+    } else {
+        (void)unlink(A90_USB_GADGET_MASS_STORAGE_LINK);
+        rc = usb_ensure_control_base_unbound();
+    }
+
+    if (rc < 0) {
+        (void)usb_restore_known_good_control(udc);
+        usb_mark_reconfig_done(done_path);
+        return rc;
+    }
+
+    if (write_file(A90_USB_GADGET_UDC_PATH, udc) < 0) {
+        rc = negative_errno_or(EIO);
+        (void)usb_restore_known_good_control(udc);
+        usb_mark_reconfig_done(done_path);
+        return rc;
+    }
+    usleep(A90_USB_RECONFIG_SETTLE_USEC);
+
+    if (!usb_inventory_control_ok()) {
+        (void)usb_restore_known_good_control(udc);
+        usb_mark_reconfig_done(done_path);
+        return -EIO;
+    }
+    if (add_mass_storage && !usb_link_points_to(A90_USB_GADGET_MASS_STORAGE_LINK, "mass_storage.0")) {
+        (void)usb_restore_known_good_control(udc);
+        usb_mark_reconfig_done(done_path);
+        return -EIO;
+    }
+
+    usb_log_line(add_mass_storage ? "worker: add mass_storage rebound" :
+                                    "worker: remove mass_storage rebound");
+    usb_mark_reconfig_done(done_path);
+    return 0;
+}
+
+static int usb_start_mass_storage_reconfigure(bool add_mass_storage) {
+    pid_t pid;
+
+    if (!usb_inventory_control_ok()) {
+        a90_console_printf("usb.mass_storage.decision=preflight-control-incomplete\r\n");
+        a90_console_printf("usb.mass_storage.mutation_attempted=0\r\n");
+        return -EIO;
+    }
+
+    pid = fork();
+    if (pid < 0) {
+        return negative_errno_or(EAGAIN);
+    }
+    if (pid == 0) {
+        int rc;
+
+        signal(SIGHUP, SIG_IGN);
+        signal(SIGPIPE, SIG_IGN);
+        setsid();
+        usb_redirect_stdio_to_null();
+        usleep(A90_USB_RECONFIG_DETACH_DELAY_USEC);
+        rc = usb_run_mass_storage_reconfigure(add_mass_storage);
+        _exit(rc == 0 ? 0 : 1);
+    }
+
+    a90_console_printf("usb.mass_storage.action=%s\r\n", add_mass_storage ? "add" : "remove");
+    a90_console_printf("usb.mass_storage.detached_pid=%ld\r\n", (long)pid);
+    a90_console_printf("usb.mass_storage.expected_usb_disconnect=1\r\n");
+    a90_console_printf("usb.mass_storage.control_required=NCM+ACM\r\n");
+    a90_console_printf("usb.mass_storage.watchdog_sec=%d\r\n", A90_USB_RECONFIG_WATCHDOG_SEC);
+    a90_console_printf("usb.mass_storage.host_enumeration_required=parked\r\n");
+    a90_console_printf("usb.mass_storage.decision=scheduled\r\n");
+    return 0;
+}
+
 int a90_usb_gadget_unbind(void) {
     if (write_file(A90_USB_GADGET_UDC_PATH, "") < 0) {
         if (errno == EBUSY) {
@@ -708,6 +1057,15 @@ int a90_usb_gadget_cmd(char **argv, int argc) {
     if (argc == 1 || (argc == 2 && argv[1] != NULL && strcmp(argv[1], "status") == 0)) {
         return a90_usb_gadget_print_status();
     }
-    a90_console_printf("usage: usb [status]\r\n");
+    if (argc == 3 && argv[1] != NULL && argv[2] != NULL &&
+        strcmp(argv[1], "mass-storage") == 0) {
+        if (strcmp(argv[2], "add") == 0) {
+            return usb_start_mass_storage_reconfigure(true);
+        }
+        if (strcmp(argv[2], "remove") == 0) {
+            return usb_start_mass_storage_reconfigure(false);
+        }
+    }
+    a90_console_printf("usage: usb [status|mass-storage add|mass-storage remove]\r\n");
     return -EINVAL;
 }
