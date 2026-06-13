@@ -753,4 +753,7 @@ functions.
 - 2026-06-13 — `build_native_init_boot_v2184_network_ui_p0_p1.py` —
   configure_base V2184 axis rewrites, network UI P0/P1 render_report safety
   scope, normalize_manifest_axes version metadata — 3 cases — green.
+- 2026-06-13 — `build_native_init_boot_v2185_network_ping_test.py` —
+  configure_base V2185 axis rewrites, network ping render_report safety scope,
+  normalize_manifest_axes promoted-baseline metadata — 3 cases — green.
 - (append: date — target — functions covered — test count — any `KNOWN-DIVERGENCE`.)
