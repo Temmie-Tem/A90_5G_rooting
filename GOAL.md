@@ -22,11 +22,12 @@ below). Re-evaluate each iteration; you may climb back up if new work appears.
 ### Active epic — USB gadget runtime control (layer ①)
 
 **Prior epic (WLAN events) is CLOSED** at V2312 (`0.9.276`; `v2237` still the rollback target).
-**Active epic: a native-init `usb` gadget control surface.** U1 is closed at V2313
-(`0.9.277`), and U2 is now closed at V2314 (`0.9.278`, current validated test baseline):
-`usb mass-storage add/remove` performs the guarded unbind -> reconfigure -> rebind cycle,
+**Active epic: a native-init `usb` gadget control surface.** Layer ① is now closed:
+U1 is closed at V2313 (`0.9.277`), U2 is closed at V2314 (`0.9.278`), and U3 is
+closed at V2315 (`0.9.279`, current validated test baseline). `usb mass-storage expose`
+creates a bounded read-only 8 MiB backing image, exposes it as `SAMSUNG File-Stor Gadget`,
 returns serial control, and preserves both control functions (`ncm.usb0` and `acm.usb0`)
-on UDC `a600000.dwc3`. **Next unit is U3 only.**
+on UDC `a600000.dwc3`. **Do not start layer ②/③ without a new explicit goal.**
 Full design — read it before starting — is
 `docs/plans/NATIVE_INIT_USB_GADGET_CONTROL_EPIC_PLAN_2026-06-13.md`. Grounded in the TWRP gadget
 recipe (`docs/reports/TWRP_RECOVERY_TEARDOWN_DEVICE_REFERENCE_2026-06-13.md` §1) and the kernel
@@ -50,13 +51,12 @@ Staged units, one V-iteration each:
 - **U2 — atomic auxiliary-function add/remove — DONE at V2314.** `mass_storage.0` add/remove uses
   unbind→reconfigure→rebind with watchdog + restore, keeps NCM+ACM in every config, and validates
   that the serial control channel returns. Host-side enumeration remains parked for U3.
-- **U3 — first persona end-to-end — NEXT** (`mass_storage` recommended, or HID). Host-side
-  validation required.
+- **U3 — first persona end-to-end — DONE at V2315.** `usb mass-storage expose` validates a
+  read-only mass-storage persona with serial control return and host-side `lsblk` enumeration.
 
 **Validation:** U1 = serial bridge + `selftest fail=0`; U2 = serial control return after add/remove
-plus topology proof that NCM+ACM remain present. **U3 needs host-side validation** (plug into a PC;
-confirm the persona enumerates AND control returns) — a new modality vs serial-only; record operator
-host steps in the report. Every device step: boot-only flash, pinned SHA, post-boot health check,
+plus topology proof that NCM+ACM remain present; U3 = serial control return plus host-side read-only
+mass-storage enumeration. Every device step: boot-only flash, pinned SHA, post-boot health check,
 auto-rollback to `v2237` on any failure. Bump init beyond the current validated test artifact;
 `vNNNN-purpose` tag.
 

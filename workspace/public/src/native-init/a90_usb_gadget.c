@@ -33,6 +33,8 @@
 #define A90_USB_RECONFIG_WATCHDOG_SEC 8
 #define A90_USB_RECONFIG_DETACH_DELAY_USEC 1000000
 #define A90_USB_RECONFIG_SETTLE_USEC 350000
+#define A90_USB_MASS_STORAGE_BACKING_PATH "/cache/a90-usb-mass-storage-v2315.img"
+#define A90_USB_MASS_STORAGE_BACKING_BYTES (8LL * 1024LL * 1024LL)
 #define A90_USB_MAX_FUNCTIONS 32
 #define A90_USB_MAX_CONFIGS 8
 #define A90_USB_MAX_CONFIG_LINKS 32
@@ -650,6 +652,42 @@ static void usb_print_inventory(const struct usb_inventory *inventory) {
         a90_console_printf("function.%d.control_role=%s\r\n",
                            function_index,
                            dash_if_empty(function->control_role));
+        if (strcmp(function->name, "mass_storage.0") == 0) {
+            char file[256];
+            char ro[32];
+            char removable[32];
+            char cdrom[32];
+            bool file_present;
+
+            usb_read_value(A90_USB_GADGET_MASS_STORAGE_FUNCTION "/lun.0/file",
+                           file,
+                           sizeof(file));
+            usb_read_value(A90_USB_GADGET_MASS_STORAGE_FUNCTION "/lun.0/ro",
+                           ro,
+                           sizeof(ro));
+            usb_read_value(A90_USB_GADGET_MASS_STORAGE_FUNCTION "/lun.0/removable",
+                           removable,
+                           sizeof(removable));
+            usb_read_value(A90_USB_GADGET_MASS_STORAGE_FUNCTION "/lun.0/cdrom",
+                           cdrom,
+                           sizeof(cdrom));
+            file_present = file[0] != '\0' && strcmp(file, "-") != 0;
+            a90_console_printf("function.%d.mass_storage.file.present=%d\r\n",
+                               function_index,
+                               file_present ? 1 : 0);
+            a90_console_printf("function.%d.mass_storage.file.path=%s\r\n",
+                               function_index,
+                               file_present ? file : "-");
+            a90_console_printf("function.%d.mass_storage.ro=%s\r\n",
+                               function_index,
+                               dash_if_empty(ro));
+            a90_console_printf("function.%d.mass_storage.removable=%s\r\n",
+                               function_index,
+                               dash_if_empty(removable));
+            a90_console_printf("function.%d.mass_storage.cdrom=%s\r\n",
+                               function_index,
+                               dash_if_empty(cdrom));
+        }
     }
     a90_console_printf("control.acm.present=%d\r\n", inventory->acm_control_present ? 1 : 0);
     a90_console_printf("control.ncm.present=%d\r\n", inventory->ncm_control_present ? 1 : 0);
@@ -748,7 +786,7 @@ static int usb_ensure_control_base_unbound(void) {
     return 0;
 }
 
-static int usb_prepare_mass_storage_function(void) {
+static int usb_ensure_mass_storage_function_ready(void) {
     if (ensure_dir(A90_USB_GADGET_MASS_STORAGE_FUNCTION, 0770) < 0) {
         return negative_errno_or(EIO);
     }
@@ -756,12 +794,68 @@ static int usb_prepare_mass_storage_function(void) {
         errno = ENOENT;
         return -ENOENT;
     }
+    return 0;
+}
 
+static int usb_clear_mass_storage_medium(void) {
+    if (!path_is_dir(A90_USB_GADGET_MASS_STORAGE_FUNCTION "/lun.0")) {
+        return 0;
+    }
+    if (write_file(A90_USB_GADGET_MASS_STORAGE_FUNCTION "/lun.0/file", "\n") < 0) {
+        return negative_errno_or(EIO);
+    }
+    return 0;
+}
+
+static int usb_configure_mass_storage_function(const char *backing_path) {
+    int rc = usb_ensure_mass_storage_function_ready();
+
+    if (rc < 0) {
+        return rc;
+    }
+    rc = usb_clear_mass_storage_medium();
+    if (rc < 0) {
+        return rc;
+    }
     usb_write_best_effort(A90_USB_GADGET_MASS_STORAGE_FUNCTION "/stall", "1");
     usb_write_best_effort(A90_USB_GADGET_MASS_STORAGE_FUNCTION "/lun.0/removable", "1");
     usb_write_best_effort(A90_USB_GADGET_MASS_STORAGE_FUNCTION "/lun.0/ro", "1");
     usb_write_best_effort(A90_USB_GADGET_MASS_STORAGE_FUNCTION "/lun.0/cdrom", "0");
     usb_write_best_effort(A90_USB_GADGET_MASS_STORAGE_FUNCTION "/lun.0/nofua", "1");
+    if (backing_path != NULL && backing_path[0] != '\0') {
+        if (write_file(A90_USB_GADGET_MASS_STORAGE_FUNCTION "/lun.0/file", backing_path) < 0) {
+            return negative_errno_or(EIO);
+        }
+    }
+    return 0;
+}
+
+static int usb_create_mass_storage_backing_file(void) {
+    static const char marker[] =
+        "A90_NATIVE_INIT_USB_MASS_STORAGE_V2315\n"
+        "mode=readonly\n"
+        "bytes=8388608\n";
+    int fd;
+    int saved_errno;
+
+    fd = open(A90_USB_MASS_STORAGE_BACKING_PATH,
+              O_RDWR | O_CREAT | O_TRUNC | O_CLOEXEC,
+              0600);
+    if (fd < 0) {
+        return negative_errno_or(EIO);
+    }
+    if (write_all_checked(fd, marker, strlen(marker)) < 0 ||
+        ftruncate(fd, (off_t)A90_USB_MASS_STORAGE_BACKING_BYTES) < 0 ||
+        fsync(fd) < 0) {
+        saved_errno = errno;
+        close(fd);
+        errno = saved_errno;
+        return negative_errno_or(EIO);
+    }
+    if (close(fd) < 0) {
+        return negative_errno_or(EIO);
+    }
+    (void)chmod(A90_USB_MASS_STORAGE_BACKING_PATH, 0600);
     return 0;
 }
 
@@ -773,6 +867,7 @@ static int usb_restore_known_good_control(const char *udc) {
     (void)a90_usb_gadget_unbind();
     usleep(A90_USB_RECONFIG_SETTLE_USEC);
     (void)unlink(A90_USB_GADGET_MASS_STORAGE_LINK);
+    (void)usb_clear_mass_storage_medium();
     rc = usb_ensure_control_base_unbound();
     if (rc < 0) {
         a90_logf("usb", "restore control base failed rc=%d", rc);
@@ -839,7 +934,7 @@ static bool usb_inventory_control_ok(void) {
            usb_link_points_to(A90_USB_GADGET_NCM_LINK, "ncm.usb0");
 }
 
-static int usb_run_mass_storage_reconfigure(bool add_mass_storage) {
+static int usb_run_mass_storage_reconfigure(bool add_mass_storage, bool expose_backing) {
     char udc[64];
     char done_path[128];
     pid_t watchdog;
@@ -850,10 +945,17 @@ static int usb_run_mass_storage_reconfigure(bool add_mass_storage) {
     (void)unlink(done_path);
 
     if (add_mass_storage) {
-        rc = usb_prepare_mass_storage_function();
+        rc = usb_ensure_mass_storage_function_ready();
         if (rc < 0) {
             a90_logf("usb", "mass_storage prepare failed rc=%d", rc);
             return rc;
+        }
+        if (expose_backing) {
+            rc = usb_create_mass_storage_backing_file();
+            if (rc < 0) {
+                a90_logf("usb", "mass_storage backing create failed rc=%d", rc);
+                return rc;
+            }
         }
     }
 
@@ -862,7 +964,8 @@ static int usb_run_mass_storage_reconfigure(bool add_mass_storage) {
         return negative_errno_or(EIO);
     }
 
-    usb_log_line(add_mass_storage ? "worker: add mass_storage begin" :
+    usb_log_line(add_mass_storage ? (expose_backing ? "worker: expose mass_storage begin" :
+                                                      "worker: add mass_storage begin") :
                                     "worker: remove mass_storage begin");
     rc = a90_usb_gadget_unbind();
     if (rc < 0) {
@@ -873,7 +976,12 @@ static int usb_run_mass_storage_reconfigure(bool add_mass_storage) {
     usleep(A90_USB_RECONFIG_SETTLE_USEC);
 
     if (add_mass_storage) {
-        rc = usb_ensure_control_base_unbound();
+        rc = usb_configure_mass_storage_function(expose_backing ?
+                                                     A90_USB_MASS_STORAGE_BACKING_PATH :
+                                                     NULL);
+        if (rc == 0) {
+            rc = usb_ensure_control_base_unbound();
+        }
         if (rc == 0) {
             rc = usb_create_or_replace_symlink(A90_USB_GADGET_MASS_STORAGE_FUNCTION,
                                                A90_USB_GADGET_MASS_STORAGE_LINK) == 0 ?
@@ -882,6 +990,7 @@ static int usb_run_mass_storage_reconfigure(bool add_mass_storage) {
         }
     } else {
         (void)unlink(A90_USB_GADGET_MASS_STORAGE_LINK);
+        (void)usb_clear_mass_storage_medium();
         rc = usb_ensure_control_base_unbound();
     }
 
@@ -910,13 +1019,15 @@ static int usb_run_mass_storage_reconfigure(bool add_mass_storage) {
         return -EIO;
     }
 
-    usb_log_line(add_mass_storage ? "worker: add mass_storage rebound" :
+    usb_log_line(add_mass_storage ? (expose_backing ? "worker: expose mass_storage rebound" :
+                                                      "worker: add mass_storage rebound") :
                                     "worker: remove mass_storage rebound");
     usb_mark_reconfig_done(done_path);
     return 0;
 }
 
-static int usb_start_mass_storage_reconfigure(bool add_mass_storage) {
+static int usb_start_mass_storage_reconfigure(bool add_mass_storage, bool expose_backing) {
+    const char *action = add_mass_storage ? (expose_backing ? "expose" : "add") : "remove";
     pid_t pid;
 
     if (!usb_inventory_control_ok()) {
@@ -937,16 +1048,23 @@ static int usb_start_mass_storage_reconfigure(bool add_mass_storage) {
         setsid();
         usb_redirect_stdio_to_null();
         usleep(A90_USB_RECONFIG_DETACH_DELAY_USEC);
-        rc = usb_run_mass_storage_reconfigure(add_mass_storage);
+        rc = usb_run_mass_storage_reconfigure(add_mass_storage, expose_backing);
         _exit(rc == 0 ? 0 : 1);
     }
 
-    a90_console_printf("usb.mass_storage.action=%s\r\n", add_mass_storage ? "add" : "remove");
+    a90_console_printf("usb.mass_storage.action=%s\r\n", action);
     a90_console_printf("usb.mass_storage.detached_pid=%ld\r\n", (long)pid);
     a90_console_printf("usb.mass_storage.expected_usb_disconnect=1\r\n");
     a90_console_printf("usb.mass_storage.control_required=NCM+ACM\r\n");
     a90_console_printf("usb.mass_storage.watchdog_sec=%d\r\n", A90_USB_RECONFIG_WATCHDOG_SEC);
     a90_console_printf("usb.mass_storage.host_enumeration_required=parked\r\n");
+    if (expose_backing) {
+        a90_console_printf("usb.mass_storage.persona=readonly-backing\r\n");
+        a90_console_printf("usb.mass_storage.backing_file=%s\r\n", A90_USB_MASS_STORAGE_BACKING_PATH);
+        a90_console_printf("usb.mass_storage.backing_bytes=%lld\r\n",
+                           (long long)A90_USB_MASS_STORAGE_BACKING_BYTES);
+        a90_console_printf("usb.mass_storage.read_only=1\r\n");
+    }
     a90_console_printf("usb.mass_storage.decision=scheduled\r\n");
     return 0;
 }
@@ -1060,12 +1178,15 @@ int a90_usb_gadget_cmd(char **argv, int argc) {
     if (argc == 3 && argv[1] != NULL && argv[2] != NULL &&
         strcmp(argv[1], "mass-storage") == 0) {
         if (strcmp(argv[2], "add") == 0) {
-            return usb_start_mass_storage_reconfigure(true);
+            return usb_start_mass_storage_reconfigure(true, false);
+        }
+        if (strcmp(argv[2], "expose") == 0) {
+            return usb_start_mass_storage_reconfigure(true, true);
         }
         if (strcmp(argv[2], "remove") == 0) {
-            return usb_start_mass_storage_reconfigure(false);
+            return usb_start_mass_storage_reconfigure(false, false);
         }
     }
-    a90_console_printf("usage: usb [status|mass-storage add|mass-storage remove]\r\n");
+    a90_console_printf("usage: usb [status|mass-storage add|mass-storage expose|mass-storage remove]\r\n");
     return -EINVAL;
 }
