@@ -703,4 +703,8 @@ functions.
 - 2026-06-13 — `a90harness/modules/cpu_mem_thermal.py` — smoke/quick run
   command construction and nonzero rc branches, verify missing/pass and
   failed/missing controlled-zombie check branches — 5 cases — green.
+- 2026-06-13 — `a90harness/modules/usb_recovery.py` — metadata USB rebind
+  and operator gate contract, smoke/quick run command and nonzero rc branches,
+  verify missing/pass and failed/missing final-health check branches — 6 cases
+  — green.
 - (append: date — target — functions covered — test count — any `KNOWN-DIVERGENCE`.)
