@@ -19,22 +19,28 @@ Pursue the **highest tier that still has a meaningful, safely-actionable next st
 Drop to the next tier only when the current one is *saturated* or *meaningless* (criteria
 below). Re-evaluate each iteration; you may climb back up if new work appears.
 
-### Active epic — USB gadget runtime control (layer ①)
+### Active epic — Named multi-LUN mass-storage identity
 
-**Prior epic (WLAN events) is CLOSED** at V2312 (`0.9.276`; `v2321` is the rollback target;
-`v2237` remains the deeper Wi-Fi-proven fallback).
-**Active epic: a native-init `usb` gadget control surface.** Layer ① is now closed:
-U1 is closed at V2313 (`0.9.277`), U2 is closed at V2314 (`0.9.278`), and U3 is
-closed at V2315 (`0.9.279`, current validated test baseline). `usb mass-storage expose`
-creates a bounded read-only 8 MiB backing image, exposes it as `SAMSUNG File-Stor Gadget`,
-returns serial control, and preserves both control functions (`ncm.usb0` and `acm.usb0`)
-on UDC `a600000.dwc3`. **Do not start layer ②/③ without a new explicit goal.**
-Full design — read it before starting — is
-`docs/plans/NATIVE_INIT_USB_GADGET_CONTROL_EPIC_PLAN_2026-06-13.md`. Grounded in the TWRP gadget
-recipe (`docs/reports/TWRP_RECOVERY_TEARDOWN_DEVICE_REFERENCE_2026-06-13.md` §1) and the kernel
-capability inventory (`USB_F_HID`/`USB_F_MASS_STORAGE`/`USB_F_FS` all compiled in). This is layer ①
-(runtime gadget control); ② adb-over-ffs reconnecting channel and ③ HID/BadUSB are **separate
-follow-on epics — do not start them here**.
+**Prior epics CLOSED:** WLAN events at V2312; USB gadget control **layer ①** at V2315
+(U1 `usb status` / U2 atomic auxiliary add-remove / U3 read-only mass-storage persona); USB
+**device identity** at V2316–V2321 (real serial redacted to `A90NATIVE001`; host-visible
+descriptor set to `A90-LNX` / `A90 Linux ARM64` via fixed-length kernel **rodata** patches).
+Rollback target `v2321` (`0.9.285`); `v2237`/`v48` remain deeper fallbacks. U-A of this
+epic is closed at V2322 (`0.9.286`) as a validated test artifact, not yet the rollback target.
+
+**Active epic: make a USB-mounted disk show a dedicated name on the host** by giving the
+mass-storage function named, multi-LUN identity. Keep **three independent naming layers** separate:
+(1) **parent USB descriptor** name `A90 Linux ARM64` = already done at V2321, **do NOT touch**;
+(2) **per-LUN SCSI INQUIRY model** via configfs `mass_storage.0/lun.N/inquiry_string` — kernel
+`f_mass_storage.c:1426` honors per-LUN `curlun->inquiry_string` *above* the Samsung composite
+fallback, so this is **userspace-controllable (NO rodata patch)**; but Samsung surprised us on the
+device descriptor, so **test it live first** before assuming it reaches the wire; (3) **FAT volume
+label** via a labeled backing filesystem (what the file manager shows as the drive name).
+Standards: INQUIRY = vendor **8** + product **16** + revision **4** = 28 bytes ASCII, left-aligned,
+space-padded; FAT label **≤ 11** chars uppercase, no `* ? / \ | , ; : + = < > [ ] "`;
+`FSG_MAX_LUNS = 8`. The mass-storage configure path lives in `a90_usb_gadget.c` (compiled into
+init, rebuilt by the normal build — **no prebuilt-helper recompile needed**, unlike the boot gadget
+identity). **② adb-over-ffs and ③ HID/BadUSB remain separate follow-on epics — do not start here.**
 
 > **THE hard constraint:** the control channel (USB **ACM serial bridge** + **NCM**) lives on the
 > **same UDC** as everything else, and Linux cannot modify a *bound* gadget — reconfiguring requires
@@ -43,23 +49,27 @@ follow-on epics — do not start them here**.
 > rebind with an auto-rebind watchdog + known-good restore; boot must always bring up a controllable
 > gadget. Never ship a path that can leave the device with no control channel.**
 
-Staged units, one V-iteration each:
+Staged units, one V-iteration each. **All backing storage is file-backed read-only** — never
+expose real `/data`, internal partitions, the SD raw block, or any forbidden partition:
 
-- **U1 — `usb status` inventory (read-only) — DONE at V2313.** Read `/config/usb_gadget/*` and
-  `/sys/class/udc/*`; report UDC + bind state, configs, the function list **and which are the control
-  functions**, VID/PID, strings. Serial-self-validatable; **required first** so the exact control
-  topology is known before any reconfigure.
-- **U2 — atomic auxiliary-function add/remove — DONE at V2314.** `mass_storage.0` add/remove uses
-  unbind→reconfigure→rebind with watchdog + restore, keeps NCM+ACM in every config, and validates
-  that the serial control channel returns. Host-side enumeration remains parked for U3.
-- **U3 — first persona end-to-end — DONE at V2315.** `usb mass-storage expose` validates a
-  read-only mass-storage persona with serial control return and host-side `lsblk` enumeration.
+- **U-A — single named LUN — DONE at V2322.** The existing persona's `lun.0` now has a named
+  identity: `lun.0/inquiry_string` = vendor `A90-LNX` + product `A90-INTERNAL` + revision `0001`
+  (exact 28-byte string `A90-LNX A90-INTERNAL    0001`), and a read-only file-backed **FAT16**
+  image labeled `A90INTERNAL` (11 chars). Live host validation passed: `lsblk -S` showed SCSI
+  model `A90-INTERNAL`, and the block view showed label `A90INTERNAL`, filesystem `vfat`, size
+  `8M`, read-only `1`.
+- **U-B — multi-LUN.** Add `lun.1` (model `A90-SD`, label `A90SD`, file-backed RO) so the host sees
+  two named disks; confirm both names on the host. (`FSG_MAX_LUNS = 8`.)
+- **U-C — real SD / internal read-only exposure with a mount-conflict gate — DEFERRED.** Do NOT start
+  without a new explicit goal.
 
-**Validation:** U1 = serial bridge + `selftest fail=0`; U2 = serial control return after add/remove
-plus topology proof that NCM+ACM remain present; U3 = serial control return plus host-side read-only
-mass-storage enumeration. Every device step: boot-only flash, pinned SHA, post-boot health check,
-auto-rollback to `v2321` on any failure (`v2237`/`v48` remain deeper fallbacks). Bump init beyond the current validated test artifact;
-`vNNNN-purpose` tag.
+**Validation:** U-A/U-B need **host-side** confirmation of **both** identity layers (SCSI model via
+`lsblk -S`/`udevadm`, and the mounted FAT volume label) — record the operator host steps and treat
+them as a parked checkpoint when unavailable in the automated run. On-device every iteration:
+`selftest fail=0` and the serial control channel returns after each reconfigure (NCM+ACM preserved).
+Every device step: boot-only flash, pinned SHA, post-boot health check, auto-rollback to `v2321` on
+any failure (`v2237`/`v48` remain deeper fallbacks). Bump init beyond the current validated test
+artifact; `vNNNN-purpose` tag.
 
 **T1 (now SATURATED) — analyzer / harness regression test suite (host-only, NO flash).**
 As of 2026-06-13 the 12 `workspace/public/src/harness/a90harness/` modules and all 124 revalidation

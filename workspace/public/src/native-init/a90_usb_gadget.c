@@ -33,8 +33,23 @@
 #define A90_USB_RECONFIG_WATCHDOG_SEC 8
 #define A90_USB_RECONFIG_DETACH_DELAY_USEC 1000000
 #define A90_USB_RECONFIG_SETTLE_USEC 350000
-#define A90_USB_MASS_STORAGE_BACKING_PATH "/cache/a90-usb-mass-storage-v2315.img"
+#define A90_USB_MASS_STORAGE_BACKING_PATH "/cache/a90-usb-mass-storage-v2322-internal.img"
 #define A90_USB_MASS_STORAGE_BACKING_BYTES (8LL * 1024LL * 1024LL)
+#define A90_USB_MASS_STORAGE_INQUIRY_STRING "A90-LNX A90-INTERNAL    0001"
+#define A90_USB_MASS_STORAGE_INQUIRY_VENDOR "A90-LNX"
+#define A90_USB_MASS_STORAGE_INQUIRY_PRODUCT "A90-INTERNAL"
+#define A90_USB_MASS_STORAGE_INQUIRY_REVISION "0001"
+#define A90_USB_MASS_STORAGE_VOLUME_LABEL "A90INTERNAL"
+#define A90_USB_FAT_BYTES_PER_SECTOR 512
+#define A90_USB_FAT_TOTAL_SECTORS ((unsigned int)(A90_USB_MASS_STORAGE_BACKING_BYTES / A90_USB_FAT_BYTES_PER_SECTOR))
+#define A90_USB_FAT_RESERVED_SECTORS 1
+#define A90_USB_FAT_COUNT 2
+#define A90_USB_FAT_ROOT_ENTRIES 512
+#define A90_USB_FAT_ROOT_DIR_SECTORS 32
+#define A90_USB_FAT_SECTORS_PER_FAT 64
+#define A90_USB_FAT_SECTORS_PER_CLUSTER 1
+#define A90_USB_FAT_ROOT_DIR_SECTOR \
+    (A90_USB_FAT_RESERVED_SECTORS + (A90_USB_FAT_COUNT * A90_USB_FAT_SECTORS_PER_FAT))
 #define A90_USB_MAX_FUNCTIONS 32
 #define A90_USB_MAX_CONFIGS 8
 #define A90_USB_MAX_CONFIG_LINKS 32
@@ -107,6 +122,25 @@ static int write_file(const char *path, const char *value) {
         return -1;
     }
     return 0;
+}
+
+static void usb_put_le16(unsigned char *buffer, size_t offset, unsigned int value) {
+    buffer[offset] = (unsigned char)(value & 0xffU);
+    buffer[offset + 1] = (unsigned char)((value >> 8) & 0xffU);
+}
+
+static void usb_put_le32(unsigned char *buffer, size_t offset, unsigned int value) {
+    buffer[offset] = (unsigned char)(value & 0xffU);
+    buffer[offset + 1] = (unsigned char)((value >> 8) & 0xffU);
+    buffer[offset + 2] = (unsigned char)((value >> 16) & 0xffU);
+    buffer[offset + 3] = (unsigned char)((value >> 24) & 0xffU);
+}
+
+static int usb_write_block_at(int fd, off_t offset, const unsigned char *buffer, size_t length) {
+    if (lseek(fd, offset, SEEK_SET) < 0) {
+        return -1;
+    }
+    return write_all_checked(fd, (const char *)buffer, length);
 }
 
 static void usb_log_line(const char *line) {
@@ -657,6 +691,7 @@ static void usb_print_inventory(const struct usb_inventory *inventory) {
             char ro[32];
             char removable[32];
             char cdrom[32];
+            char inquiry_string[64];
             bool file_present;
 
             usb_read_value(A90_USB_GADGET_MASS_STORAGE_FUNCTION "/lun.0/file",
@@ -671,6 +706,9 @@ static void usb_print_inventory(const struct usb_inventory *inventory) {
             usb_read_value(A90_USB_GADGET_MASS_STORAGE_FUNCTION "/lun.0/cdrom",
                            cdrom,
                            sizeof(cdrom));
+            usb_read_value(A90_USB_GADGET_MASS_STORAGE_FUNCTION "/lun.0/inquiry_string",
+                           inquiry_string,
+                           sizeof(inquiry_string));
             file_present = file[0] != '\0' && strcmp(file, "-") != 0;
             a90_console_printf("function.%d.mass_storage.file.present=%d\r\n",
                                function_index,
@@ -687,6 +725,21 @@ static void usb_print_inventory(const struct usb_inventory *inventory) {
             a90_console_printf("function.%d.mass_storage.cdrom=%s\r\n",
                                function_index,
                                dash_if_empty(cdrom));
+            a90_console_printf("function.%d.mass_storage.inquiry_string=%s\r\n",
+                               function_index,
+                               dash_if_empty(inquiry_string));
+            a90_console_printf("function.%d.mass_storage.inquiry.vendor=%s\r\n",
+                               function_index,
+                               A90_USB_MASS_STORAGE_INQUIRY_VENDOR);
+            a90_console_printf("function.%d.mass_storage.inquiry.product=%s\r\n",
+                               function_index,
+                               A90_USB_MASS_STORAGE_INQUIRY_PRODUCT);
+            a90_console_printf("function.%d.mass_storage.inquiry.revision=%s\r\n",
+                               function_index,
+                               A90_USB_MASS_STORAGE_INQUIRY_REVISION);
+            a90_console_printf("function.%d.mass_storage.volume_label=%s\r\n",
+                               function_index,
+                               A90_USB_MASS_STORAGE_VOLUME_LABEL);
         }
     }
     a90_console_printf("control.acm.present=%d\r\n", inventory->acm_control_present ? 1 : 0);
@@ -822,6 +875,10 @@ static int usb_configure_mass_storage_function(const char *backing_path) {
     usb_write_best_effort(A90_USB_GADGET_MASS_STORAGE_FUNCTION "/lun.0/ro", "1");
     usb_write_best_effort(A90_USB_GADGET_MASS_STORAGE_FUNCTION "/lun.0/cdrom", "0");
     usb_write_best_effort(A90_USB_GADGET_MASS_STORAGE_FUNCTION "/lun.0/nofua", "1");
+    if (write_file(A90_USB_GADGET_MASS_STORAGE_FUNCTION "/lun.0/inquiry_string",
+                   A90_USB_MASS_STORAGE_INQUIRY_STRING) < 0) {
+        return negative_errno_or(EIO);
+    }
     if (backing_path != NULL && backing_path[0] != '\0') {
         if (write_file(A90_USB_GADGET_MASS_STORAGE_FUNCTION "/lun.0/file", backing_path) < 0) {
             return negative_errno_or(EIO);
@@ -830,11 +887,54 @@ static int usb_configure_mass_storage_function(const char *backing_path) {
     return 0;
 }
 
+static void usb_prepare_fat_boot_sector(unsigned char *sector) {
+    memset(sector, 0, A90_USB_FAT_BYTES_PER_SECTOR);
+    sector[0] = 0xeb;
+    sector[1] = 0x3c;
+    sector[2] = 0x90;
+    memcpy(sector + 3, "MSDOS5.0", 8);
+    usb_put_le16(sector, 11, A90_USB_FAT_BYTES_PER_SECTOR);
+    sector[13] = A90_USB_FAT_SECTORS_PER_CLUSTER;
+    usb_put_le16(sector, 14, A90_USB_FAT_RESERVED_SECTORS);
+    sector[16] = A90_USB_FAT_COUNT;
+    usb_put_le16(sector, 17, A90_USB_FAT_ROOT_ENTRIES);
+    usb_put_le16(sector, 19, A90_USB_FAT_TOTAL_SECTORS);
+    sector[21] = 0xf8;
+    usb_put_le16(sector, 22, A90_USB_FAT_SECTORS_PER_FAT);
+    usb_put_le16(sector, 24, 63);
+    usb_put_le16(sector, 26, 255);
+    usb_put_le32(sector, 28, 0);
+    usb_put_le32(sector, 32, 0);
+    sector[36] = 0x80;
+    sector[38] = 0x29;
+    usb_put_le32(sector, 39, 0xA902322U);
+    memcpy(sector + 43, A90_USB_MASS_STORAGE_VOLUME_LABEL, 11);
+    memcpy(sector + 54, "FAT16   ", 8);
+    sector[510] = 0x55;
+    sector[511] = 0xaa;
+}
+
+static void usb_prepare_fat_sector_zero(unsigned char *sector) {
+    memset(sector, 0, A90_USB_FAT_BYTES_PER_SECTOR);
+    sector[0] = 0xf8;
+    sector[1] = 0xff;
+    sector[2] = 0xff;
+    sector[3] = 0xff;
+}
+
+static void usb_prepare_fat_root_dir(unsigned char *sector) {
+    memset(sector, 0, A90_USB_FAT_BYTES_PER_SECTOR);
+    memcpy(sector, A90_USB_MASS_STORAGE_VOLUME_LABEL, 11);
+    sector[11] = 0x08;
+}
+
 static int usb_create_mass_storage_backing_file(void) {
-    static const char marker[] =
-        "A90_NATIVE_INIT_USB_MASS_STORAGE_V2315\n"
-        "mode=readonly\n"
-        "bytes=8388608\n";
+    unsigned char sector[A90_USB_FAT_BYTES_PER_SECTOR];
+    off_t fat_primary_offset = A90_USB_FAT_RESERVED_SECTORS * A90_USB_FAT_BYTES_PER_SECTOR;
+    off_t fat_secondary_offset =
+        (A90_USB_FAT_RESERVED_SECTORS + A90_USB_FAT_SECTORS_PER_FAT) *
+        A90_USB_FAT_BYTES_PER_SECTOR;
+    off_t root_dir_offset = A90_USB_FAT_ROOT_DIR_SECTOR * A90_USB_FAT_BYTES_PER_SECTOR;
     int fd;
     int saved_errno;
 
@@ -844,8 +944,30 @@ static int usb_create_mass_storage_backing_file(void) {
     if (fd < 0) {
         return negative_errno_or(EIO);
     }
-    if (write_all_checked(fd, marker, strlen(marker)) < 0 ||
-        ftruncate(fd, (off_t)A90_USB_MASS_STORAGE_BACKING_BYTES) < 0 ||
+    if (ftruncate(fd, (off_t)A90_USB_MASS_STORAGE_BACKING_BYTES) < 0) {
+        saved_errno = errno;
+        close(fd);
+        errno = saved_errno;
+        return negative_errno_or(EIO);
+    }
+
+    usb_prepare_fat_boot_sector(sector);
+    if (usb_write_block_at(fd, 0, sector, sizeof(sector)) < 0) {
+        saved_errno = errno;
+        close(fd);
+        errno = saved_errno;
+        return negative_errno_or(EIO);
+    }
+    usb_prepare_fat_sector_zero(sector);
+    if (usb_write_block_at(fd, fat_primary_offset, sector, sizeof(sector)) < 0 ||
+        usb_write_block_at(fd, fat_secondary_offset, sector, sizeof(sector)) < 0) {
+        saved_errno = errno;
+        close(fd);
+        errno = saved_errno;
+        return negative_errno_or(EIO);
+    }
+    usb_prepare_fat_root_dir(sector);
+    if (usb_write_block_at(fd, root_dir_offset, sector, sizeof(sector)) < 0 ||
         fsync(fd) < 0) {
         saved_errno = errno;
         close(fd);
