@@ -833,4 +833,8 @@ functions.
   out/root ELF/bridge-log action planning, skip already-compressed logs,
   remove/compress execution, symlink escape refusal, execute manifest rewrite
   path — 5 cases — green.
+- 2026-06-13 — `local_security_rescan.py` — PASS/WARN/FAIL residual-state
+  counting, redacted run-metadata rendering, report blocker text/metadata,
+  repo-root scoped file/boot-SHA helpers, Wi-Fi test-boot define detection,
+  main report write/phase-timer flow — 6 cases — green.
 - (append: date — target — functions covered — test count — any `KNOWN-DIVERGENCE`.)
