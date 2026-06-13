@@ -814,4 +814,8 @@ functions.
   lifecycle route/safety render_report text, manifest cycle/baseline axis
   normalization including non-V726 preservation, main helper patch and success
   only normalization orchestration — 5 cases — green.
+- 2026-06-13 — `native_init_flash.py` — ADB device list parsing,
+  SHA256/path validation, chunk-boundary marker search, local boot image
+  regular/aligned/marker/hash safety checks, sealed local image copy
+  mutation checks, cmdv1 result rejection branches — 8 cases — green.
 - (append: date — target — functions covered — test count — any `KNOWN-DIVERGENCE`.)
