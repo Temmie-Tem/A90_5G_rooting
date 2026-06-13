@@ -697,4 +697,7 @@ functions.
   skip/success branches, run skip/smoke/quick command construction, cleanup
   skip/clean command, verify skip/missing/pass/empty-result branches — 7 cases
   — green.
+- 2026-06-13 — `a90harness/modules/kselftest_feasibility.py` — run command
+  contract, timeout floor/scale and nonzero rc branches, verify missing/pass
+  and mutation/safe-candidate/blocked reject branches — 5 cases — green.
 - (append: date — target — functions covered — test count — any `KNOWN-DIVERGENCE`.)
