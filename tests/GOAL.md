@@ -663,4 +663,8 @@ functions.
   compact_stage, finalize_manifest residual-state wiring, run preflight-fail
   and successful tcpctl transfer/verify branches with secret transfer flags —
   8 cases — green.
+- 2026-06-13 — `a90_v725_fasttransport_baseline_validation.py` —
+  run_command, status_summary, candidate_brief, write_step,
+  run_json_subprocess, run_transport_smoke, run_idempotent_netservice,
+  run_nm_repair_probe, wait_for_status — 9 cases — green.
 - (append: date — target — functions covered — test count — any `KNOWN-DIVERGENCE`.)
