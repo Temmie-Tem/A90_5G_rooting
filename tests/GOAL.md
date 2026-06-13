@@ -763,4 +763,8 @@ functions.
   configure_base V2187 axis rewrites, screenapp UI validation render_report
   safety scope, normalize_manifest_axes promoted-baseline metadata — 3 cases —
   green.
+- 2026-06-13 — `build_native_init_boot_v2188_security_p0_hardening.py` —
+  configure_base V2188 axis rewrites, security P0 hardening render_report
+  no-runtime-Wi-Fi safety scope, normalize_manifest_axes unpromoted-candidate
+  metadata — 3 cases — green.
 - (append: date — target — functions covered — test count — any `KNOWN-DIVERGENCE`.)
