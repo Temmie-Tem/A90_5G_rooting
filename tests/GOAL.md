@@ -681,4 +681,7 @@ functions.
   listen_sockets, selected_device_info, collect_status, print_status_text,
   build_bridge_command, effective_expect_realpath, write_metadata,
   path_detail, stat_info — 13 cases — green.
+- 2026-06-13 — `serial_tcp_bridge.py` — Bridge.resolve_device,
+  serial_realpath_allowed, accept_client, close_client, forward_client,
+  forward_serial, flush_serial_tx — 11 cases — green.
 - (append: date — target — functions covered — test count — any `KNOWN-DIVERGENCE`.)
