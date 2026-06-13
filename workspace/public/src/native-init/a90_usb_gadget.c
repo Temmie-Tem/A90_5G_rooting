@@ -1111,7 +1111,7 @@ int a90_usb_gadget_setup_acm(void) {
     write_file(A90_USB_GADGET_ROOT "/idProduct", "0x6861");
     write_file(A90_USB_GADGET_ROOT "/bcdUSB", "0x0200");
     write_file(A90_USB_GADGET_ROOT "/bcdDevice", "0x0100");
-    write_file(A90_USB_GADGET_ROOT "/strings/0x409/serialnumber", "RFCM90CFWXA");
+    write_file(A90_USB_GADGET_ROOT "/strings/0x409/serialnumber", "A90NATIVE001");
     write_file(A90_USB_GADGET_ROOT "/strings/0x409/manufacturer", "samsung");
     write_file(A90_USB_GADGET_ROOT "/strings/0x409/product", "SM8150-ACM");
     write_file(A90_USB_GADGET_CONFIG "/strings/0x409/configuration", "serial");
