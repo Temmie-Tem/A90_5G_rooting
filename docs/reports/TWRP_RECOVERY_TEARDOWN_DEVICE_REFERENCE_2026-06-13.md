@@ -98,7 +98,35 @@ mapping. Native init has no `ueventd`, so this is the reference for what to
   `sgdisk`, `e2fsck`, `resize2fs`, `fsck.f2fs`, `fsck.exfat`, `fsck.ntfs`,
   `mkfs.fat`, `mkfs.ntfs`, `dd`.
 
-## 5. Vein status / next dig
+## 5. Shell / control channel (adbd over ffs.adb)
+
+TWRP uses **no custom shell** — all standard components. This is a reference for
+exposing a standard control channel from a minimal, non-Android-framework
+environment (exactly native-init's situation).
+
+- **Shell:** `mksh` (`/system/bin/sh`, 307 KB; confirmed via `${ENV:-/system/etc/mkshrc}`).
+  Also bundles real **GNU bash** (`/system/bin/bash`, `/sbin/bash` symlink).
+  Commands via **toybox** (494 KB, primary multicall) + **toolbox** (122 KB, legacy).
+- **Access:** standard **adbd** (`/system/bin/adbd`, 2.1 MB) over the USB functionfs
+  **`ffs.adb`** gadget function (§1), started by `start adbd` once `sys.usb.config`
+  includes `adb`.
+- **Auth posture:** `ro.secure=0` + `ro.debuggable=1` (eng build `twrp_r3q-eng`) →
+  `adb shell` drops straight into a **root shell with no adb-key handshake**.
+- TWRP's `twrp`/`recovery` binary is the on-screen GUI, separate from the shell.
+
+**Native-init relevance:** two proven-on-this-device paths to a richer control
+channel beyond the custom serial + `a90ctl` protocol: (a) bring up `adbd` over
+`ffs.adb` for a standard `adb shell` (medium effort — adbd expects functionfs
+descriptors and normally the property system; write the ffs descriptors directly
+and run no-auth); (b) bundle `toybox`/`mksh`/`bash` for a real local command set
+behind the existing channel (cheap; toybox/busybox already under
+`workspace/private/inputs/external_tools/`). **Security note:** unauth-root-adb
+over USB means anyone with a cable gets root (SELinux permissive) — gate it
+(adb-key / on-demand) if adopted. Decide per the project rule: build the channel
+core ourselves where it's the point, borrow the standard shell/commands where
+reinventing has no research value.
+
+## 6. Vein status / next dig
 
 The **recovery ramdisk is fully mined.** Peripheral-specific configs (audio
 `mixer_paths*`, sensor reg maps, haptics calibration, thermal-engine config) are
