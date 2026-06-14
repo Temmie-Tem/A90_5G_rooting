@@ -79,7 +79,7 @@ ADSP subsystem-restart is recoverable, but forbidden-partition rules remain abso
   fresh operator go: load the speaker route via `tinymix`/`mixer_paths.xml` and push a test PCM with
   `tinyplay`. First actual sound test.
 
-**Latest audio route-delta planning state (V2362):** V2362 selected Android route-delta
+**Latest audio route-delta planning state (V2362, replay-confirmed at V2363):** V2362 selected Android route-delta
 capture as the next speaker-route measurement and designed it host-only. The measurement should boot
 normal Android, use Android framework `AudioTrack` playback through AudioFlinger/vendor HAL, capture
 `tinymix -D 0 --all-values` before/during/after, then roll back to V2321 and diff `SEC_TDM_RX_0` /
@@ -90,7 +90,10 @@ only `native_init_flash.py`; that helper currently verifies native serial after 
 explicit Android-target mode or checked wrapper before any Android route-delta live run. Do not
 attempt internal speaker playback, native `tinymix set`, PCM playback open/write, `tinyplay`, or
 Android route-delta live capture until that helper gap is closed and a fresh exact route-delta gate is
-provided.
+provided. V2363 repeated the already-passed AUD-3C read-only tinyalsa inventory at operator request:
+V2334 again materialized `/dev/snd` (`61` nodes), `tinymix`/`tinypcminfo` read-only queries returned
+`rc=0`, and rollback to V2321 ended with `selftest fail=0`; this was a reproducibility replay and did
+not change the next frontier.
 
 **Validation:** AUD-0/AUD-1 are host-only — `py_compile`/unittest for any harness code, no flash,
 no device. AUD-2/AUD-3 (if gated-in) every iteration: boot-only flash, pinned SHA, post-boot health
