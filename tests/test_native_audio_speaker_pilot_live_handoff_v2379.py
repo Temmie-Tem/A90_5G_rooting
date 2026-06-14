@@ -123,6 +123,15 @@ class NativeSpeakerPilotLiveHandoff(unittest.TestCase):
         with tempfile.TemporaryDirectory() as temp_dir, self.assertRaisesRegex(ValueError, "amplitude"):
             v2379.generate_pilot_wav(Path(temp_dir) / "bad.wav", duration_ms=1000, amplitude=0.2)
 
+    def test_speaker_pilot_blocked_carries_independent_partial_result(self) -> None:
+        partial = {"route_apply": [{"name": "apply-1", "ok": True}], "playback_attempted": True}
+        exc = v2379.SpeakerPilotBlocked("playback failed", partial)
+        partial["route_apply"].append({"name": "mutated", "ok": False})
+
+        self.assertEqual(str(exc), "playback failed")
+        self.assertEqual(exc.partial_result["route_apply"], [{"name": "apply-1", "ok": True}])
+        self.assertTrue(exc.partial_result["playback_attempted"])
+
     def test_remote_tool_output_classifies_tcpctl_and_tinyplay_failures(self) -> None:
         bad_tinymix = "\n".join(
             [

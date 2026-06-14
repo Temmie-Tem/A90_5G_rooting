@@ -374,6 +374,14 @@ def annotate_tool_step(step: dict[str, Any], *, failure_markers: tuple[str, ...]
     return step
 
 
+class SpeakerPilotBlocked(RuntimeError):
+    """Carries partial speaker-pilot evidence when a bounded live step blocks."""
+
+    def __init__(self, message: str, partial_result: dict[str, Any]) -> None:
+        super().__init__(message)
+        self.partial_result = copy.deepcopy(partial_result)
+
+
 def run_tool_command(
     args: argparse.Namespace,
     out_dir: Path,
@@ -463,40 +471,67 @@ def run_speaker_pilot(args: argparse.Namespace, out_dir: Path, steps: list[dict[
     result["playback_transport"] = install["selected_transport"]
     baseline_step: dict[str, Any] | None = None
     post_reset_step: dict[str, Any] | None = None
+    deferred_error: Exception | None = None
     try:
-        baseline_step = run_tool_command(
-            args,
-            out_dir,
-            steps,
-            "tinymix-all-values-before-apply",
-            [REMOTE_TINYMIX, "-D", str(args.card), "--all-values"],
-            use_tcpctl=snapshot_use_tcpctl,
-            timeout=args.mixer_timeout,
-        )
-        for command in plan["route_apply_commands"]:
-            step = run_tool_command(
+        try:
+            baseline_step = run_tool_command(
                 args,
                 out_dir,
                 steps,
-                command["name"],
-                [str(part) for part in command["argv"]],
-                use_tcpctl=route_use_tcpctl,
+                "tinymix-all-values-before-apply",
+                [REMOTE_TINYMIX, "-D", str(args.card), "--all-values"],
+                use_tcpctl=snapshot_use_tcpctl,
                 timeout=args.mixer_timeout,
-                failure_markers=("Invalid mixer control",),
+                allow_error=True,
             )
-            result["route_apply"].append({"name": command["name"], "ok": bool(step.get("ok")), "stdout_path": step.get("stdout_path")})
-        result["playback_attempted"] = True
-        playback_step = run_tool_command(
-            args,
-            out_dir,
-            steps,
-            "tinyplay-low-amplitude-speaker-pilot",
-            [str(part) for part in plan["playback"]["argv"]],
-            use_tcpctl=playback_use_tcpctl,
-            timeout=args.playback_timeout,
-            failure_markers=("Error playing sample",),
-        )
-        result["playback"] = {"ok": bool(playback_step.get("ok")), "stdout_path": playback_step.get("stdout_path")}
+            result["baseline_snapshot"] = {
+                "ok": bool(baseline_step.get("ok")),
+                "stdout_path": baseline_step.get("stdout_path"),
+                "remote_tool_result": baseline_step.get("remote_tool_result"),
+            }
+            if not baseline_step.get("ok"):
+                raise RuntimeError(f"baseline tinymix snapshot failed: {baseline_step.get('remote_tool_result')}")
+            for command in plan["route_apply_commands"]:
+                step = run_tool_command(
+                    args,
+                    out_dir,
+                    steps,
+                    command["name"],
+                    [str(part) for part in command["argv"]],
+                    use_tcpctl=route_use_tcpctl,
+                    timeout=args.mixer_timeout,
+                    allow_error=True,
+                    failure_markers=("Invalid mixer control",),
+                )
+                result["route_apply"].append({
+                    "name": command["name"],
+                    "ok": bool(step.get("ok")),
+                    "stdout_path": step.get("stdout_path"),
+                    "remote_tool_result": step.get("remote_tool_result"),
+                })
+                if not step.get("ok"):
+                    raise RuntimeError(f"route apply failed: {command['name']}: {step.get('remote_tool_result')}")
+            result["playback_attempted"] = True
+            playback_step = run_tool_command(
+                args,
+                out_dir,
+                steps,
+                "tinyplay-low-amplitude-speaker-pilot",
+                [str(part) for part in plan["playback"]["argv"]],
+                use_tcpctl=playback_use_tcpctl,
+                timeout=args.playback_timeout,
+                allow_error=True,
+                failure_markers=("Error playing sample",),
+            )
+            result["playback"] = {
+                "ok": bool(playback_step.get("ok")),
+                "stdout_path": playback_step.get("stdout_path"),
+                "remote_tool_result": playback_step.get("remote_tool_result"),
+            }
+            if not playback_step.get("ok"):
+                raise RuntimeError(f"playback failed: {playback_step.get('remote_tool_result')}")
+        except Exception as exc:  # noqa: BLE001 - preserve partial evidence, then reset route.
+            deferred_error = exc
     finally:
         for command in plan["route_reset_commands"]:
             step = run_tool_command(
@@ -510,7 +545,12 @@ def run_speaker_pilot(args: argparse.Namespace, out_dir: Path, steps: list[dict[
                 allow_error=True,
                 failure_markers=("Invalid mixer control",),
             )
-            result["route_reset"].append({"name": command["name"], "ok": bool(step.get("ok")), "stdout_path": step.get("stdout_path")})
+            result["route_reset"].append({
+                "name": command["name"],
+                "ok": bool(step.get("ok")),
+                "stdout_path": step.get("stdout_path"),
+                "remote_tool_result": step.get("remote_tool_result"),
+            })
         post_reset_step = run_tool_command(
             args,
             out_dir,
@@ -521,16 +561,27 @@ def run_speaker_pilot(args: argparse.Namespace, out_dir: Path, steps: list[dict[
             timeout=args.mixer_timeout,
             allow_error=True,
         )
-    if baseline_step and post_reset_step and post_reset_step.get("ok"):
+        result["post_reset_snapshot"] = {
+            "ok": bool(post_reset_step.get("ok")),
+            "stdout_path": post_reset_step.get("stdout_path"),
+            "remote_tool_result": post_reset_step.get("remote_tool_result"),
+        }
+    if baseline_step and baseline_step.get("ok") and post_reset_step and post_reset_step.get("ok"):
         result["route_reset_verification"] = route_reset_verification(
             step_text(baseline_step),
             step_text(post_reset_step),
             plan["route_reset_commands"],
         )
-        if not result["route_reset_verification"].get("ok"):
-            raise RuntimeError("route reset verification failed")
-    if not all(item.get("ok") for item in result["route_reset"]):
-        raise RuntimeError("one or more route reset commands failed")
+        if not result["route_reset_verification"].get("ok") and deferred_error is None:
+            deferred_error = RuntimeError("route reset verification failed")
+    elif post_reset_step is not None and not post_reset_step.get("ok") and deferred_error is None:
+        deferred_error = RuntimeError(f"post-reset tinymix snapshot failed: {post_reset_step.get('remote_tool_result')}")
+    if not all(item.get("ok") for item in result["route_reset"]) and deferred_error is None:
+        deferred_error = RuntimeError("one or more route reset commands failed")
+    if deferred_error is not None:
+        result["blocked_error_type"] = type(deferred_error).__name__
+        result["blocked_error"] = str(deferred_error)
+        raise SpeakerPilotBlocked(str(deferred_error), result) from deferred_error
     return result
 
 
@@ -595,7 +646,11 @@ def live_run(args: argparse.Namespace, state: dict[str, Any]) -> dict[str, Any]:
         if not (after["has_dev_snd_control"] and after["has_dev_snd_pcm"]):
             raise RuntimeError("materialization did not produce control+pcm /dev/snd nodes")
 
-        result["speaker_pilot"] = run_speaker_pilot(args, out_dir, steps, state)
+        try:
+            result["speaker_pilot"] = run_speaker_pilot(args, out_dir, steps, state)
+        except SpeakerPilotBlocked as exc:
+            result["speaker_pilot"] = exc.partial_result
+            raise
         final_candidate_selftest = snd.run_a90ctl_observation(args, out_dir, steps, "candidate-selftest-after-speaker-pilot", ["selftest", "verbose"], timeout=120.0)
         if not snd.selftest_ok(stdout_of(final_candidate_selftest)):
             raise RuntimeError("candidate final selftest did not report fail=0")
