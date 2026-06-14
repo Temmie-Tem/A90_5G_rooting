@@ -12,6 +12,7 @@
 #include <string.h>
 #include <strings.h>
 #include <sys/stat.h>
+#include <sys/sysmacros.h>
 #include <unistd.h>
 
 #ifndef O_CLOEXEC
@@ -22,7 +23,11 @@
 #define AUDIO_FWCLASS_PATH "/sys/module/firmware_class/parameters/path"
 #define AUDIO_BOOT_ATTR "/sys/kernel/boot_adsp/boot"
 #define AUDIO_ADSP_BOOT_ONCE_TOKEN "AUD2_ONE_SHOT_ADSP_BOOT"
+#define AUDIO_SND_MATERIALIZE_TOKEN "AUD3_DEV_SND_MATERIALIZE_ONLY"
+#define AUDIO_SOUND_CLASS_DIR "/sys/class/sound"
+#define AUDIO_DEV_SND_DIR "/dev/snd"
 #define AUDIO_MAX_LISTED 8
+#define AUDIO_SND_MAX_LISTED 64
 #define AUDIO_MISSING_LIST_SIZE 192
 #define AUDIO_ADSP_SEGMENT_MODEL "stock-sparse-b00-b11-b13-b16"
 
@@ -52,6 +57,19 @@ struct adsp_firmware_status {
     bool adspua_jsn_present;
     int present_segments;
     char missing_segments[AUDIO_MISSING_LIST_SIZE];
+};
+
+struct audio_snd_scan_stats {
+    int entries;
+    int allowed;
+    int with_dev;
+    int listed;
+    int created;
+    int already_ok;
+    int missing;
+    int invalid;
+    int refused;
+    int failed;
 };
 
 static const char *yesno(bool value) {
@@ -135,6 +153,141 @@ static bool make_child_path(char *out, size_t out_size, const char *base, const 
     out[base_len] = '/';
     memcpy(out + base_len + 1, leaf, leaf_len + 1);
     return true;
+}
+
+static bool starts_with(const char *value, const char *prefix) {
+    return strncmp(value, prefix, strlen(prefix)) == 0;
+}
+
+static bool decimal_tail_nonempty(const char *value) {
+    size_t index;
+
+    if (value == NULL || value[0] == '\0') {
+        return false;
+    }
+    for (index = 0; value[index] != '\0'; ++index) {
+        if (value[index] < '0' || value[index] > '9') {
+            return false;
+        }
+    }
+    return true;
+}
+
+static bool allowed_control_name(const char *name) {
+    return starts_with(name, "controlC") && decimal_tail_nonempty(name + strlen("controlC"));
+}
+
+static bool allowed_pcm_name(const char *name) {
+    const char *cursor;
+
+    if (!starts_with(name, "pcmC")) {
+        return false;
+    }
+    cursor = name + strlen("pcmC");
+    if (*cursor < '0' || *cursor > '9') {
+        return false;
+    }
+    while (*cursor >= '0' && *cursor <= '9') {
+        ++cursor;
+    }
+    if (*cursor != 'D') {
+        return false;
+    }
+    ++cursor;
+    if (*cursor < '0' || *cursor > '9') {
+        return false;
+    }
+    while (*cursor >= '0' && *cursor <= '9') {
+        ++cursor;
+    }
+    if ((*cursor != 'p' && *cursor != 'c') || cursor[1] != '\0') {
+        return false;
+    }
+    return true;
+}
+
+static bool allowed_sound_node_name(const char *name) {
+    if (name == NULL || name[0] == '\0' ||
+        strcmp(name, ".") == 0 || strcmp(name, "..") == 0 ||
+        strchr(name, '/') != NULL) {
+        return false;
+    }
+    return allowed_control_name(name) ||
+           allowed_pcm_name(name) ||
+           strcmp(name, "timer") == 0 ||
+           strcmp(name, "seq") == 0;
+}
+
+static int parse_dev_numbers(const char *dev_info,
+                             unsigned int *major_num,
+                             unsigned int *minor_num) {
+    char extra;
+
+    if (sscanf(dev_info, "%u:%u%c", major_num, minor_num, &extra) != 2) {
+        errno = EINVAL;
+        return -1;
+    }
+    return 0;
+}
+
+static int sound_node_paths(const char *name,
+                            char *sysfs_dev_path,
+                            size_t sysfs_dev_path_size,
+                            char *dev_node_path,
+                            size_t dev_node_path_size) {
+    char sysfs_entry_path[PATH_MAX];
+
+    if (!allowed_sound_node_name(name)) {
+        errno = EINVAL;
+        return -1;
+    }
+    if (!make_child_path(sysfs_entry_path, sizeof(sysfs_entry_path), AUDIO_SOUND_CLASS_DIR, name) ||
+        !make_child_path(sysfs_dev_path, sysfs_dev_path_size, sysfs_entry_path, "dev") ||
+        !make_child_path(dev_node_path, dev_node_path_size, AUDIO_DEV_SND_DIR, name)) {
+        errno = ENAMETOOLONG;
+        return -1;
+    }
+    return 0;
+}
+
+static int read_sound_node_numbers(const char *name,
+                                   char *sysfs_dev_path,
+                                   size_t sysfs_dev_path_size,
+                                   char *dev_node_path,
+                                   size_t dev_node_path_size,
+                                   unsigned int *major_num,
+                                   unsigned int *minor_num,
+                                   char *dev_info,
+                                   size_t dev_info_size) {
+    if (sound_node_paths(name, sysfs_dev_path, sysfs_dev_path_size,
+                         dev_node_path, dev_node_path_size) < 0) {
+        return -1;
+    }
+    if (read_trimmed_text_file(sysfs_dev_path, dev_info, dev_info_size) < 0) {
+        return -1;
+    }
+    if (parse_dev_numbers(dev_info, major_num, minor_num) < 0) {
+        return -1;
+    }
+    return 0;
+}
+
+static const char *sound_devnode_state(const char *path, dev_t wanted) {
+    struct stat st;
+
+    if (lstat(path, &st) < 0) {
+        if (errno == ENOENT) {
+            return "missing";
+        }
+        return "stat-failed";
+    }
+    if (!S_ISCHR(st.st_mode)) {
+        return "not-char";
+    }
+    if (st.st_rdev != wanted) {
+        return "mismatch";
+    }
+    return "ok";
 }
 
 static int count_dir_entries_matching(const char *path, const char *needle) {
@@ -382,7 +535,180 @@ static void print_proc_asound(void) {
     }
 }
 
+static int audio_scan_snd_nodes(bool materialize, struct audio_snd_scan_stats *stats) {
+    DIR *dir;
+    struct dirent *entry;
+
+    memset(stats, 0, sizeof(*stats));
+    dir = opendir(AUDIO_SOUND_CLASS_DIR);
+    if (dir == NULL) {
+        a90_console_printf("audio.snd.sysfs_open_errno=%d\r\n", errno);
+        return negative_errno_or(ENOENT);
+    }
+
+    while ((entry = readdir(dir)) != NULL) {
+        char sysfs_dev_path[PATH_MAX];
+        char dev_node_path[PATH_MAX];
+        char dev_info[64];
+        unsigned int major_num = 0;
+        unsigned int minor_num = 0;
+        dev_t wanted;
+        const char *node_state;
+
+        if (strcmp(entry->d_name, ".") == 0 || strcmp(entry->d_name, "..") == 0) {
+            continue;
+        }
+        ++stats->entries;
+        if (!allowed_sound_node_name(entry->d_name)) {
+            ++stats->refused;
+            continue;
+        }
+        ++stats->allowed;
+        if (read_sound_node_numbers(entry->d_name,
+                                    sysfs_dev_path,
+                                    sizeof(sysfs_dev_path),
+                                    dev_node_path,
+                                    sizeof(dev_node_path),
+                                    &major_num,
+                                    &minor_num,
+                                    dev_info,
+                                    sizeof(dev_info)) < 0) {
+            ++stats->invalid;
+            if (stats->listed < AUDIO_SND_MAX_LISTED) {
+                a90_console_printf("audio.snd.%d.name=%s dev=invalid errno=%d action=skip\r\n",
+                                   stats->listed,
+                                   entry->d_name,
+                                   errno);
+                ++stats->listed;
+            }
+            continue;
+        }
+        ++stats->with_dev;
+        wanted = makedev(major_num, minor_num);
+        node_state = sound_devnode_state(dev_node_path, wanted);
+        if (strcmp(node_state, "ok") == 0) {
+            ++stats->already_ok;
+        } else if (strcmp(node_state, "missing") == 0) {
+            ++stats->missing;
+        } else {
+            ++stats->invalid;
+        }
+
+        if (stats->listed < AUDIO_SND_MAX_LISTED) {
+            a90_console_printf("audio.snd.%d.name=%s sysfs_dev=%u:%u devnode=%s state=%s\r\n",
+                               stats->listed,
+                               entry->d_name,
+                               major_num,
+                               minor_num,
+                               dev_node_path,
+                               node_state);
+            ++stats->listed;
+        }
+
+        if (!materialize) {
+            continue;
+        }
+        if (strcmp(node_state, "ok") == 0) {
+            continue;
+        }
+        if (strcmp(node_state, "missing") != 0) {
+            a90_console_printf("audio.snd.materialize.refused=%s state=%s\r\n",
+                               entry->d_name,
+                               node_state);
+            continue;
+        }
+        if (mknod(dev_node_path, S_IFCHR | 0600, wanted) < 0) {
+            if (errno == EEXIST && strcmp(sound_devnode_state(dev_node_path, wanted), "ok") == 0) {
+                ++stats->already_ok;
+                continue;
+            }
+            a90_console_printf("audio.snd.materialize.failed=%s errno=%d\r\n",
+                               entry->d_name,
+                               errno);
+            ++stats->failed;
+            continue;
+        }
+        ++stats->created;
+        a90_console_printf("audio.snd.materialize.created=%s major=%u minor=%u\r\n",
+                           entry->d_name,
+                           major_num,
+                           minor_num);
+    }
+    closedir(dir);
+    return 0;
+}
+
+static void audio_print_snd_scan_summary(const char *prefix, const struct audio_snd_scan_stats *stats) {
+    a90_console_printf("%s.entries=%d allowed=%d with_dev=%d listed=%d missing=%d already_ok=%d invalid=%d refused=%d created=%d failed=%d\r\n",
+                       prefix,
+                       stats->entries,
+                       stats->allowed,
+                       stats->with_dev,
+                       stats->listed,
+                       stats->missing,
+                       stats->already_ok,
+                       stats->invalid,
+                       stats->refused,
+                       stats->created,
+                       stats->failed);
+}
+
+static int audio_print_snd_status(void) {
+    struct audio_snd_scan_stats stats;
+    int rc;
+
+    a90_console_printf("audio.snd_status.version=1\r\n");
+    a90_console_printf("audio.snd_status.read_only=1\r\n");
+    print_class_counts();
+    print_proc_asound();
+    rc = audio_scan_snd_nodes(false, &stats);
+    audio_print_snd_scan_summary("audio.snd_status", &stats);
+    a90_console_printf("audio.status.audio_playback_attempted=0\r\n");
+    return rc;
+}
+
+static int audio_snd_materialize_once(char **argv, int argc) {
+    struct audio_snd_scan_stats stats;
+    int rc;
+
+    a90_console_printf("audio.snd_materialize.version=1\r\n");
+    a90_console_printf("audio.snd_materialize.scope=AUD-3-preflight-node-materialization-only\r\n");
+    a90_console_printf("audio.status.audio_playback_attempted=0\r\n");
+
+    if (argc != 3 || argv == NULL || argv[2] == NULL ||
+        strcmp(argv[2], AUDIO_SND_MATERIALIZE_TOKEN) != 0) {
+        a90_console_printf("audio.snd_materialize.refused=missing-token\r\n");
+        a90_console_printf("usage: audio snd-materialize-once %s\r\n", AUDIO_SND_MATERIALIZE_TOKEN);
+        return -EPERM;
+    }
+    if (count_dir_entries_matching(AUDIO_SOUND_CLASS_DIR, "control") <= 0) {
+        a90_console_printf("audio.snd_materialize.refused=no-control-sysfs\r\n");
+        return -ENOENT;
+    }
+    if (ensure_dir(AUDIO_DEV_SND_DIR, 0755) < 0) {
+        a90_console_printf("audio.snd_materialize.refused=dev-snd-dir errno=%d\r\n", errno);
+        return negative_errno_or(EIO);
+    }
+
+    rc = audio_scan_snd_nodes(true, &stats);
+    audio_print_snd_scan_summary("audio.snd_materialize", &stats);
+    a90_console_printf("audio.snd_materialize.open_attempted=0\r\n");
+    a90_console_printf("audio.snd_materialize.ioctl_attempted=0\r\n");
+    a90_console_printf("audio.snd_materialize.playback_attempted=0\r\n");
+    if (rc < 0) {
+        return rc;
+    }
+    if (stats.failed > 0 || stats.invalid > 0) {
+        return -EIO;
+    }
+    if (stats.created == 0 && stats.already_ok == 0) {
+        return -ENOENT;
+    }
+    return 0;
+}
+
 static int audio_print_adsp_status(void) {
+    struct audio_snd_scan_stats snd_stats;
     a90_console_printf("audio.status.version=1\r\n");
     a90_console_printf("audio.status.read_only=1\r\n");
     print_trimmed_or_missing("firmware_class_path", AUDIO_FWCLASS_PATH);
@@ -391,6 +717,9 @@ static int audio_print_adsp_status(void) {
     print_remoteproc_status();
     print_class_counts();
     print_proc_asound();
+    if (audio_scan_snd_nodes(false, &snd_stats) == 0) {
+        audio_print_snd_scan_summary("audio.snd_status", &snd_stats);
+    }
     print_mode_line("dev_subsys_adsp", "/dev/subsys_adsp");
     print_mode_line("dev_adsprpc_smd", "/dev/adsprpc-smd");
     a90_console_printf("audio.status.activation_write_attempted=0\r\n");
@@ -506,6 +835,12 @@ int a90_audio_cmd(char **argv, int argc) {
     if (argc >= 2 && argv != NULL && argv[1] != NULL && strcmp(argv[1], "adsp-boot-once") == 0) {
         return audio_adsp_boot_once(argv, argc);
     }
-    a90_console_printf("usage: audio [adsp-status|status|adsp-boot-once]\r\n");
+    if (argc == 2 && argv != NULL && argv[1] != NULL && strcmp(argv[1], "snd-status") == 0) {
+        return audio_print_snd_status();
+    }
+    if (argc >= 2 && argv != NULL && argv[1] != NULL && strcmp(argv[1], "snd-materialize-once") == 0) {
+        return audio_snd_materialize_once(argv, argc);
+    }
+    a90_console_printf("usage: audio [adsp-status|status|snd-status|adsp-boot-once|snd-materialize-once]\r\n");
     return -EINVAL;
 }

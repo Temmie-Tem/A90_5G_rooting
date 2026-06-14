@@ -259,7 +259,8 @@ static bool command_allowed_during_menu_ex(const char *name, int argc, char **ar
     }
     if (strcmp(name, "audio") == 0) {
         return subcmd_absent_or_one_of(argc, argv, status_only, sizeof(status_only) / sizeof(status_only[0])) ||
-               (argc == 2 && argv != NULL && argv[1] != NULL && strcmp(argv[1], "adsp-status") == 0);
+               (argc == 2 && argv != NULL && argv[1] != NULL &&
+                (strcmp(argv[1], "adsp-status") == 0 || strcmp(argv[1], "snd-status") == 0));
     }
     if (strcmp(name, "wifi") == 0) {
         return wifi_read_only(argc, argv);
@@ -395,6 +396,7 @@ static const struct controller_policy_case policy_cases[] = {
     { "menu allow wififeas gate", 2, { "wififeas", "gate" }, false, true },
     { "menu allow audio", 1, { "audio" }, false, true },
     { "menu allow audio adsp-status", 2, { "audio", "adsp-status" }, false, true },
+    { "menu allow audio snd-status", 2, { "audio", "snd-status" }, false, true },
     { "menu allow audio status", 2, { "audio", "status" }, false, true },
     { "menu allow wifi status", 2, { "wifi", "status" }, false, true },
     { "menu allow wifi events", 2, { "wifi", "events" }, false, true },
@@ -429,6 +431,8 @@ static const struct controller_policy_case policy_cases[] = {
     { "menu block wififeas refresh", 2, { "wififeas", "refresh" }, false, false },
     { "menu block audio boot", 2, { "audio", "adsp-boot-once" }, false, false },
     { "menu block audio boot token", 3, { "audio", "adsp-boot-once", "AUD2_ONE_SHOT_ADSP_BOOT" }, false, false },
+    { "menu block audio snd materialize", 2, { "audio", "snd-materialize-once" }, false, false },
+    { "menu block audio snd materialize token", 3, { "audio", "snd-materialize-once", "AUD3_DEV_SND_MATERIALIZE_ONLY" }, false, false },
     { "menu block wifi config prepare", 3, { "wifi", "config", "prepare" }, false, false },
     { "menu block wifi scan", 2, { "wifi", "scan" }, false, false },
     { "menu block wifi connect", 2, { "wifi", "connect" }, false, false },
@@ -462,6 +466,7 @@ static const struct controller_policy_case policy_cases[] = {
     { "power block rshell start", 2, { "rshell", "start" }, true, false },
     { "power block service start tcpctl", 3, { "service", "start", "tcpctl" }, true, false },
     { "power block audio boot token", 3, { "audio", "adsp-boot-once", "AUD2_ONE_SHOT_ADSP_BOOT" }, true, false },
+    { "power block audio snd materialize token", 3, { "audio", "snd-materialize-once", "AUD3_DEV_SND_MATERIALIZE_ONLY" }, true, false },
     { "power block writefile", 4, { "writefile", "/tmp/x", "y" }, true, false },
     { "power block run", 3, { "run", "/bin/a90sleep", "1" }, true, false },
     { "power block reboot", 1, { "reboot" }, true, false },
