@@ -60,6 +60,7 @@ DEFAULT_SAMPLE_RATE = 48000
 DEFAULT_AMPLITUDE = 0.05
 DEFAULT_ACTIVE_DELAY_SEC = 0.75
 DEFAULT_POST_DELAY_SEC = 1.0
+LOGCAT_BUFFERS = ("main", "system", "crash", "events")
 WATCH_CONTROLS = (
     "SEC_TDM_RX_0",
     "WSA_CDC_DMA_RX_0",
@@ -198,6 +199,21 @@ def adb_base(args: argparse.Namespace) -> list[str]:
     if args.serial:
         command.extend(["-s", args.serial])
     return command
+
+
+def logcat_buffer_args() -> list[str]:
+    command: list[str] = []
+    for buffer in LOGCAT_BUFFERS:
+        command.extend(["-b", buffer])
+    return command
+
+
+def logcat_clear_command(args: argparse.Namespace) -> list[str]:
+    return adb_base(args) + ["logcat", *logcat_buffer_args(), "-c"]
+
+
+def logcat_capture_command(args: argparse.Namespace) -> list[str]:
+    return adb_base(args) + ["logcat", "-v", "threadtime", *logcat_buffer_args()]
 
 
 def flash_android_command(args: argparse.Namespace, boot_image_for_helper: str) -> list[str]:
@@ -373,6 +389,13 @@ def dry_run_payload(args: argparse.Namespace) -> dict[str, Any]:
             "baseline_snapshots": snapshot_plan("baseline", args),
             "playback": playback_command(args),
             "playback_start_background": playback_start_command(args),
+            "stimulus_logcat": {
+                "clear_before_stimulus": logcat_clear_command(args),
+                "capture_during_stimulus": logcat_capture_command(args),
+                "buffers": LOGCAT_BUFFERS,
+                "stdout": "<private-run-dir>/stimulus-logcat.stdout.txt",
+                "stderr": "<private-run-dir>/stimulus-logcat.stderr.txt",
+            },
             "playback_result": stimulus_result_commands(args),
             "active_snapshots": snapshot_plan("active", args),
             "post_snapshots": snapshot_plan("post", args),
@@ -454,6 +477,78 @@ def run_step(name: str,
     return record
 
 
+def start_logcat_capture(args: argparse.Namespace, out_dir: Path) -> dict[str, Any]:
+    command = logcat_capture_command(args)
+    stdout_path = out_dir / "stimulus-logcat.stdout.txt"
+    stderr_path = out_dir / "stimulus-logcat.stderr.txt"
+    stdout_fp = stdout_path.open("w")
+    stderr_fp = stderr_path.open("w")
+    started = time.monotonic()
+    record: dict[str, Any] = {
+        "name": "stimulus-logcat-capture",
+        "command": command,
+        "started_at": datetime.now(timezone.utc).astimezone().isoformat(),
+        "stdout": rel(stdout_path),
+        "stderr": rel(stderr_path),
+        "buffers": LOGCAT_BUFFERS,
+        "ok": None,
+    }
+    try:
+        proc = subprocess.Popen(
+            command,
+            cwd=ROOT,
+            text=True,
+            stdout=stdout_fp,
+            stderr=stderr_fp,
+        )
+    except Exception:
+        stdout_fp.close()
+        stderr_fp.close()
+        raise
+    record["pid"] = proc.pid
+    return {
+        "proc": proc,
+        "record": record,
+        "stdout_fp": stdout_fp,
+        "stderr_fp": stderr_fp,
+        "started": started,
+    }
+
+
+def stop_logcat_capture(capture: dict[str, Any] | None, *, timeout_sec: float = 5.0) -> None:
+    if capture is None:
+        return
+    proc: subprocess.Popen[str] = capture["proc"]
+    record: dict[str, Any] = capture["record"]
+    terminated = False
+    killed = False
+    try:
+        if proc.poll() is None:
+            terminated = True
+            proc.terminate()
+            try:
+                proc.wait(timeout=timeout_sec)
+            except subprocess.TimeoutExpired:
+                killed = True
+                proc.kill()
+                proc.wait(timeout=timeout_sec)
+        else:
+            proc.wait(timeout=0)
+    except Exception as error:  # pragma: no cover - defensive artifact finalization
+        record["stop_error"] = str(error)
+    finally:
+        capture["stdout_fp"].close()
+        capture["stderr_fp"].close()
+        record.update({
+            "finished_at": datetime.now(timezone.utc).astimezone().isoformat(),
+            "elapsed_sec": round(time.monotonic() - capture["started"], 3),
+            "rc": proc.returncode,
+            "terminated": terminated,
+            "killed": killed,
+            "ok": bool(terminated or proc.returncode == 0),
+        })
+
+
 def copy_sealed_android_boot(selected: dict[str, Any], out_dir: Path) -> dict[str, Any]:
     source = ROOT / selected["path"]
     destination = out_dir / "android_boot_0600.img"
@@ -512,6 +607,7 @@ def run_live(args: argparse.Namespace) -> dict[str, Any]:
     write_json(out_dir / "result.json", result)
 
     rollback_needed = False
+    logcat_capture: dict[str, Any] | None = None
     try:
         rollback_needed = True
         steps.append(run_step(
@@ -525,6 +621,15 @@ def run_live(args: argparse.Namespace) -> dict[str, Any]:
             steps.append(run_step(f"stage-{index}", command, out_dir, timeout_sec=args.adb_command_timeout))
 
         capture_snapshots("baseline", out_dir, args, steps)
+        steps.append(run_step(
+            "logcat-clear-before-stimulus",
+            logcat_clear_command(args),
+            out_dir,
+            timeout_sec=args.adb_command_timeout,
+            check=False,
+        ))
+        logcat_capture = start_logcat_capture(args, out_dir)
+        steps.append(logcat_capture["record"])
         steps.append(run_step(
             "playback-start-background",
             playback_start_command(args),
@@ -544,6 +649,7 @@ def run_live(args: argparse.Namespace) -> dict[str, Any]:
         result["ok"] = True
         return result
     finally:
+        stop_logcat_capture(logcat_capture)
         if rollback_needed:
             try:
                 steps.append(run_step(

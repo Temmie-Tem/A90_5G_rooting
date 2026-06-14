@@ -62,6 +62,21 @@ class AndroidRouteDeltaPlanner(unittest.TestCase):
         self.assertIn("app_process", flat)
         self.assertIn("A90AudioRouteStimulus", flat)
         self.assertIn("playback_start_background", payload["commands"])
+        self.assertIn("stimulus_logcat", payload["commands"])
+
+    def test_dry_run_includes_stimulus_logcat_observability_window(self) -> None:
+        payload = v2365.dry_run_payload(args())
+        logcat = payload["commands"]["stimulus_logcat"]
+
+        self.assertEqual(logcat["clear_before_stimulus"][:2], ["adb", "logcat"])
+        self.assertEqual(logcat["capture_during_stimulus"][:3], ["adb", "logcat", "-v"])
+        self.assertIn("threadtime", logcat["capture_during_stimulus"])
+        for buffer in ("main", "system", "crash", "events"):
+            self.assertIn(buffer, logcat["buffers"])
+            self.assertIn(buffer, logcat["clear_before_stimulus"])
+            self.assertIn(buffer, logcat["capture_during_stimulus"])
+        self.assertIn("stimulus-logcat.stdout.txt", logcat["stdout"])
+        self.assertIn("stimulus-logcat.stderr.txt", logcat["stderr"])
 
     def test_android_boot_candidate_requires_sealed_copy_due_archive_mode(self) -> None:
         payload = v2365.dry_run_payload(args())
@@ -100,6 +115,8 @@ class AndroidRouteDeltaPlanner(unittest.TestCase):
         self.assertIn("A90ADB01", payload["commands"]["flash_android"])
         self.assertEqual(payload["commands"]["stage"][0][:3], ["/opt/android/adb", "-s", "A90ADB01"])
         self.assertEqual(payload["commands"]["baseline_snapshots"][0]["command"][:3], ["/opt/android/adb", "-s", "A90ADB01"])
+        self.assertEqual(payload["commands"]["stimulus_logcat"]["clear_before_stimulus"][:3], ["/opt/android/adb", "-s", "A90ADB01"])
+        self.assertEqual(payload["commands"]["stimulus_logcat"]["capture_during_stimulus"][:3], ["/opt/android/adb", "-s", "A90ADB01"])
         self.assertEqual(payload["commands"]["android_reboot_recovery_for_rollback"], ["/opt/android/adb", "-s", "A90ADB01", "reboot", "recovery"])
         self.assertIn("--adb", payload["commands"]["rollback_v2321"])
         self.assertIn("/opt/android/adb", payload["commands"]["rollback_v2321"])

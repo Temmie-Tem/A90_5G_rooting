@@ -105,8 +105,11 @@ so a multi-device host cannot silently target the wrong ADB device. V2371 used t
 gate for the first live Android route-delta attempt: Android boot/staging/snapshots/cleanup/rollback
 all completed and final V2321 selftest was `fail=0`, but the raw `app_process` AudioTrack stimulus
 was killed with rc `137`, no AudioFlinger active track survived into the active snapshot, and parsed
-`tinymix --all-values` showed `0` changed controls across baseline/active/post. The frontier is now
-Android stimulus execution/observability (logcat or APK-style stimulus), not a native speaker route.
+`tinymix --all-values` showed `0` changed controls across baseline/active/post. V2372 adds
+host-only logcat observability to the route-delta runner: future exact-gated live runs clear and
+capture Android `main`/`system`/`crash`/`events` logs around the stimulus window so the rc `137`
+kill can be classified before changing stimulus strategy. The frontier is now Android stimulus
+execution/observability (logcat or APK-style stimulus), not a native speaker route.
 Do not attempt internal speaker playback,
 native `tinymix set`, PCM playback open/write, `tinyplay`, or Android route-delta live capture until
 a fresh exact route-delta gate is provided. V2363 and V2367 repeated the already-passed
