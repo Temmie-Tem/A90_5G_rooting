@@ -139,12 +139,21 @@ added implied dangerous permissions. V2376 fixed the manifest with `minSdkVersio
 `fef87886bd1fb5f3dd07b857bbe3c4c00f9046f797ba9c84d48b89dc1d2d13f3`, mode `0600`), verified
 `apksigner`, confirmed `aapt dump badging` reports `sdkVersion:'23'` and `targetSdkVersion:'31'`
 with no implied dangerous permissions, and the route-delta runner dry-run is again
-`live_ready=True`. Next unit: rerun the same preauthorized route-delta path with this modern-target
-APK. Magisk-module stimulus delivery is a valid follow-on only if the modern-target APK still cannot
-launch; do not jump to Magisk before testing this fix. The frontier remains Android stimulus
-execution/observability, not a native speaker route.
+`live_ready=True`. V2377 reran the same preauthorized Android route-delta handoff with that rebuilt
+APK: the Activity launched directly (no `REVIEW_PERMISSIONS`), `A90_AUDIO_STIMULUS_BEGIN/END/FINISH`
+markers appeared with `rc=0`, AudioFlinger observed a `USAGE_MEDIA` `AudioTrack` delivering 96000
+frames at 48 kHz, the active device was speaker, and `tinymix --all-values` produced a concrete route
+delta. The route-relevant active controls include `SLIMBUS_0_RX Audio Mixer MultiMedia1=On Off`,
+`SLIM RX0 MUX=AIF1_PB`, `RX INT7_1 MIX1 INP0=RX0`, `COMP7 Switch=On`, `AIF4_VI Mixer SPKR_VI_1/2=On`,
+`SpkrLeft COMP/BOOST/VISENSE=On`, and `SpkrLeft SWR DAC_Port Switch=On`; most route switches reset
+after playback, while `Audio Stream 0 App Type Cfg=69941 15 48000 2 ...` persisted as stream config.
+V2377 rolled back to V2321 with final `selftest fail=0`. Magisk-module stimulus delivery is no
+longer needed for this route-delta purpose; keep it only as a future fallback if a new Android
+handoff delivery wall appears. Next frontier: host-only native playback recipe design from the
+observed Android route, including exact control order, reset sequence, low-amplitude PCM plan, and
+abort conditions before any native `tinymix set`/`tinyplay`.
 Do not attempt internal speaker playback, native `tinymix set`, PCM playback open/write, or
-`tinyplay` until Android route-delta evidence identifies a speaker route. Android route-delta live
+`tinyplay` until that V2377-derived route recipe and safety plan is written. Android route-delta live
 capture itself is covered by the overnight pre-authorization above, but must use the checked-helper
 Android handoff, bounded low-amplitude framework playback, V2321 rollback, and the current
 V2372/V2375 observability/stimulus path. V2363 and V2367 repeated the already-passed
