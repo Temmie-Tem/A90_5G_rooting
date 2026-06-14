@@ -21,6 +21,7 @@ DEFAULT_HOST = "127.0.0.1"
 DEFAULT_PORT = 54321
 DEFAULT_REMOTE_IMAGE = "/tmp/native_init_boot.img"
 BOOT_READBACK_BLOCK_SIZE = 4096
+ANDROID_BOOT_MAGIC = b"ANDROID!"
 INPUT_MODE_ENV = "A90CTL_INPUT_MODE"
 INPUT_CHAR_DELAY_ENV = "A90CTL_INPUT_CHAR_DELAY_SEC"
 
@@ -188,6 +189,13 @@ def inspect_local_image(args: argparse.Namespace) -> tuple[Path, str, int]:
             f"boot image size is not {BOOT_READBACK_BLOCK_SIZE}-byte aligned: "
             f"{image_size}"
         )
+
+    if getattr(args, "expect_android_magic", False):
+        with image_path.open("rb") as fp:
+            magic = fp.read(len(ANDROID_BOOT_MAGIC))
+        if magic != ANDROID_BOOT_MAGIC:
+            raise RuntimeError("local image does not start with Android boot magic")
+        log("local image starts with Android boot magic")
 
     if args.expect_version:
         needle = args.expect_version.encode()
@@ -501,6 +509,67 @@ def verify_native_init_cmdv1(args: argparse.Namespace) -> str:
     return version_result.text + status_result.text
 
 
+def adb_shell_text(adb: str,
+                   serial: str | None,
+                   shell_command: str,
+                   *,
+                   check: bool = False) -> str:
+    result = run_command(
+        adb_base(adb, serial) + ["shell", shell_command],
+        check=check,
+        capture=True,
+    )
+    return (result.stdout + result.stderr).strip()
+
+
+def verify_android_adb(args: argparse.Namespace) -> str:
+    serial, state = wait_for_adb_state(
+        args.adb,
+        args.serial,
+        {"device"},
+        args.android_timeout,
+    )
+    if state != "device":
+        raise RuntimeError(f"expected Android device ADB state, got {state}")
+
+    deadline = time.monotonic() + args.android_timeout
+    last_props = ""
+    while time.monotonic() < deadline:
+        sys_boot_completed = adb_shell_text(args.adb, serial, "getprop sys.boot_completed")
+        dev_bootcomplete = adb_shell_text(args.adb, serial, "getprop dev.bootcomplete")
+        last_props = (
+            f"sys.boot_completed={sys_boot_completed!r} "
+            f"dev.bootcomplete={dev_bootcomplete!r}"
+        )
+        if sys_boot_completed == "1" or dev_bootcomplete == "1":
+            log(f"Android boot-complete observed: {last_props}")
+            break
+        time.sleep(2.0)
+    else:
+        raise RuntimeError(f"Android boot-complete timeout: {last_props}")
+
+    root_text = ""
+    if args.android_root_check:
+        root_text = adb_shell_text(args.adb, serial, "su -c id", check=False)
+        if "uid=0" not in root_text:
+            raise RuntimeError(f"Android root check failed: {root_text!r}")
+        log("Android root check passed: su -c id contains uid=0")
+
+    summary = f"android_adb serial={serial} {last_props}"
+    if root_text:
+        summary += f" root={root_text}"
+    print(summary)
+    return summary
+
+
+def verify_post_flash_target(args: argparse.Namespace) -> str:
+    if args.post_flash_target == "native-init":
+        return verify_native_init(args)
+    if args.post_flash_target == "android-adb":
+        return verify_android_adb(args)
+    raise RuntimeError(f"unknown post-flash target: {args.post_flash_target}")
+
+
 def parse_args() -> argparse.Namespace:
     parser = argparse.ArgumentParser(
         description="Flash a native init boot image from TWRP and verify it through the serial bridge."
@@ -539,7 +608,29 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument(
         "--verify-only",
         action="store_true",
-        help="only verify the running native init through the bridge",
+        help="only verify the selected --post-flash-target without flashing",
+    )
+    parser.add_argument(
+        "--post-flash-target",
+        choices=("native-init", "android-adb"),
+        default="native-init",
+        help="post-reboot verification target; native-init keeps the historical serial bridge check",
+    )
+    parser.add_argument(
+        "--android-timeout",
+        type=float,
+        default=300.0,
+        help="timeout for Android ADB device and boot-complete checks when --post-flash-target=android-adb",
+    )
+    parser.add_argument(
+        "--android-root-check",
+        action="store_true",
+        help="after Android boot-complete, require 'adb shell su -c id' to report uid=0",
+    )
+    parser.add_argument(
+        "--expect-android-magic",
+        action="store_true",
+        help="require the local image to start with the Android boot image magic before flashing",
     )
     return parser.parse_args()
 
@@ -554,8 +645,8 @@ def main() -> int:
 
     with phase_timer("total"):
         if args.verify_only:
-            with phase_timer("verify_native_init"):
-                verify_native_init(args)
+            with phase_timer(f"verify_{args.post_flash_target.replace('-', '_')}"):
+                verify_post_flash_target(args)
             return 0
 
         if not args.boot_image:
@@ -582,8 +673,8 @@ def main() -> int:
                 flash_boot_image(args, serial, sealed_image_path, local_hash, image_size)
         with phase_timer("reboot_twrp_to_system"):
             reboot_twrp_to_system(args, serial)
-        with phase_timer("verify_native_init"):
-            verify_native_init(args)
+        with phase_timer(f"verify_{args.post_flash_target.replace('-', '_')}"):
+            verify_post_flash_target(args)
         return 0
 
 

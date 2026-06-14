@@ -79,17 +79,19 @@ ADSP subsystem-restart is recoverable, but forbidden-partition rules remain abso
   fresh operator go: load the speaker route via `tinymix`/`mixer_paths.xml` and push a test PCM with
   `tinyplay`. First actual sound test.
 
-**Latest audio route-delta planning state (V2362, replay-confirmed at V2363):** V2362 selected Android route-delta
+**Latest audio route-delta planning state (V2364):** V2362 selected Android route-delta
 capture as the next speaker-route measurement and designed it host-only. The measurement should boot
 normal Android, use Android framework `AudioTrack` playback through AudioFlinger/vendor HAL, capture
 `tinymix -D 0 --all-values` before/during/after, then roll back to V2321 and diff `SEC_TDM_RX_0` /
 `WSA_CDC_DMA_RX_0` / `RX INT7` / `COMP7` / `Spkr` controls offline. This is the clean path to learn
-Android's actual speaker route without guessing native smart-amp writes. But live route-delta is not
-ready yet: historical Android handoffs used direct recovery `dd`, while current `AGENTS.md` allows
-only `native_init_flash.py`; that helper currently verifies native serial after reboot, so it needs an
-explicit Android-target mode or checked wrapper before any Android route-delta live run. Do not
+Android's actual speaker route without guessing native smart-amp writes. V2364 closed the checked
+flash-helper gap by adding `native_init_flash.py --post-flash-target android-adb`, Android
+boot-complete polling, optional Magisk root check, and `--expect-android-magic` while preserving the
+default native-init serial verification path. Live route-delta is still not ready until a bounded
+runner uses that helper mode, captures Android mixer before/during/after playback, and rolls back to
+V2321 under a fresh exact route-delta gate. Do not
 attempt internal speaker playback, native `tinymix set`, PCM playback open/write, `tinyplay`, or
-Android route-delta live capture until that helper gap is closed and a fresh exact route-delta gate is
+Android route-delta live capture until that runner exists and a fresh exact route-delta gate is
 provided. V2363 repeated the already-passed AUD-3C read-only tinyalsa inventory at operator request:
 V2334 again materialized `/dev/snd` (`61` nodes), `tinymix`/`tinypcminfo` read-only queries returned
 `rc=0`, and rollback to V2321 ended with `selftest fail=0`; this was a reproducibility replay and did

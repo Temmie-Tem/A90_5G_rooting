@@ -6,6 +6,7 @@ import tempfile
 import types
 import unittest
 from pathlib import Path
+from unittest import mock
 
 from _loader import load_revalidation
 
@@ -76,6 +77,40 @@ recovery-serial recovery
         self.assertEqual(digest, expected_hash)
         self.assertEqual(size, flash.BOOT_READBACK_BLOCK_SIZE)
 
+    def test_inspect_local_image_can_require_android_boot_magic(self) -> None:
+        with tempfile.TemporaryDirectory() as temp_dir:
+            root = Path(temp_dir)
+            image = root / "android.img"
+            image.write_bytes(flash.ANDROID_BOOT_MAGIC + b"\0" * (
+                flash.BOOT_READBACK_BLOCK_SIZE - len(flash.ANDROID_BOOT_MAGIC)
+            ))
+            image.chmod(0o600)
+            expected_hash = flash.local_sha256(image)
+
+            path, digest, _size = flash.inspect_local_image(
+                types.SimpleNamespace(
+                    boot_image=str(image),
+                    expect_version=None,
+                    expect_sha256=expected_hash,
+                    expect_android_magic=True,
+                )
+            )
+            self.assertEqual(path, image)
+            self.assertEqual(digest, expected_hash)
+
+            bad = root / "bad.img"
+            bad.write_bytes(b"NOTBOOT!" + b"\0" * (flash.BOOT_READBACK_BLOCK_SIZE - 8))
+            bad.chmod(0o600)
+            with self.assertRaisesRegex(RuntimeError, "Android boot magic"):
+                flash.inspect_local_image(
+                    types.SimpleNamespace(
+                        boot_image=str(bad),
+                        expect_version=None,
+                        expect_sha256=flash.local_sha256(bad),
+                        expect_android_magic=True,
+                    )
+                )
+
     def test_inspect_local_image_rejects_unsafe_or_unpinned_images(self) -> None:
         with tempfile.TemporaryDirectory() as temp_dir:
             root = Path(temp_dir)
@@ -140,6 +175,80 @@ recovery-serial recovery
         ):
             with self.assertRaisesRegex(RuntimeError, "cmdv1 version failed"):
                 flash.verify_cmdv1_result(result, "version")
+
+    def test_verify_android_adb_waits_for_boot_complete_and_optional_root(self) -> None:
+        args = types.SimpleNamespace(
+            adb="adb",
+            serial=None,
+            android_timeout=10.0,
+            android_root_check=True,
+        )
+
+        with mock.patch.object(flash, "wait_for_adb_state", return_value=("SERIAL", "device")) as wait_mock, \
+                mock.patch.object(
+                    flash,
+                    "adb_shell_text",
+                    side_effect=["", "0", "1", "", "uid=0(root) gid=0(root)"],
+                ) as shell_mock, \
+                mock.patch.object(flash.time, "sleep"):
+            summary = flash.verify_android_adb(args)
+
+        wait_mock.assert_called_once_with("adb", None, {"device"}, 10.0)
+        self.assertIn("android_adb serial=SERIAL", summary)
+        self.assertIn("sys.boot_completed='1'", summary)
+        self.assertIn("uid=0", summary)
+        self.assertEqual(shell_mock.call_args_list[-1].args, ("adb", "SERIAL", "su -c id"))
+
+    def test_verify_android_adb_rejects_failed_root_check(self) -> None:
+        args = types.SimpleNamespace(
+            adb="adb",
+            serial="SERIAL",
+            android_timeout=10.0,
+            android_root_check=True,
+        )
+
+        with mock.patch.object(flash, "wait_for_adb_state", return_value=("SERIAL", "device")), \
+                mock.patch.object(
+                    flash,
+                    "adb_shell_text",
+                    side_effect=["1", "", "uid=2000(shell)"],
+                ):
+            with self.assertRaisesRegex(RuntimeError, "Android root check failed"):
+                flash.verify_android_adb(args)
+
+    def test_verify_post_flash_target_dispatches_by_target(self) -> None:
+        native_args = types.SimpleNamespace(post_flash_target="native-init")
+        android_args = types.SimpleNamespace(post_flash_target="android-adb")
+
+        with mock.patch.object(flash, "verify_native_init", return_value="native") as native_mock, \
+                mock.patch.object(flash, "verify_android_adb", return_value="android") as android_mock:
+            self.assertEqual(flash.verify_post_flash_target(native_args), "native")
+            self.assertEqual(flash.verify_post_flash_target(android_args), "android")
+
+        native_mock.assert_called_once_with(native_args)
+        android_mock.assert_called_once_with(android_args)
+
+    def test_parse_args_exposes_android_target_options(self) -> None:
+        with mock.patch(
+            "sys.argv",
+            [
+                "native_init_flash.py",
+                "android-boot.img",
+                "--post-flash-target",
+                "android-adb",
+                "--android-timeout",
+                "42",
+                "--android-root-check",
+                "--expect-android-magic",
+            ],
+        ):
+            args = flash.parse_args()
+
+        self.assertEqual(args.boot_image, "android-boot.img")
+        self.assertEqual(args.post_flash_target, "android-adb")
+        self.assertEqual(args.android_timeout, 42.0)
+        self.assertTrue(args.android_root_check)
+        self.assertTrue(args.expect_android_magic)
 
 
 if __name__ == "__main__":
