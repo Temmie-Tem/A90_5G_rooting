@@ -190,6 +190,8 @@ def a90ctl_command(args: argparse.Namespace, native_command: list[str], *, hide_
         str(args.bridge_port),
         "--timeout",
         str(timeout if timeout is not None else args.command_timeout),
+        "--input-mode",
+        "slow",
     ]
     if hide_on_busy:
         command.append("--hide-on-busy")
@@ -208,23 +210,23 @@ def dry_run_plan(state: dict[str, Any]) -> dict[str, Any]:
         + ["--verify-only"],
         "flash_candidate": flash_command(CANDIDATE_IMAGE, CANDIDATE_VERSION, CANDIDATE_SHA256, from_native=True),
         "candidate_health": [
-            a90ctl_command(placeholder, ["version"]),
-            a90ctl_command(placeholder, ["status"]),
-            a90ctl_command(placeholder, ["selftest", "verbose"], timeout=120.0),
+            a90ctl_command(placeholder, ["version"], hide_on_busy=True),
+            a90ctl_command(placeholder, ["status"], hide_on_busy=True),
+            a90ctl_command(placeholder, ["selftest", "verbose"], hide_on_busy=True, timeout=120.0),
         ],
         "audio_window": [
-            a90ctl_command(placeholder, ["audio", "adsp-status"], timeout=90.0),
+            a90ctl_command(placeholder, ["audio", "adsp-status"], hide_on_busy=True, timeout=90.0),
             a90ctl_command(placeholder, ["audio", "adsp-boot-once", ADSP_TOKEN], hide_on_busy=True, timeout=90.0),
             "poll audio adsp-status / audio snd-status until ALSA card and sound sysfs device entries appear",
-            a90ctl_command(placeholder, ["audio", "snd-status"], timeout=90.0),
+            a90ctl_command(placeholder, ["audio", "snd-status"], hide_on_busy=True, timeout=90.0),
             a90ctl_command(placeholder, ["audio", "snd-materialize-once", SND_TOKEN], timeout=90.0),
-            a90ctl_command(placeholder, ["audio", "snd-status"], timeout=90.0),
+            a90ctl_command(placeholder, ["audio", "snd-status"], hide_on_busy=True, timeout=90.0),
         ],
         "rollback": flash_command(ROLLBACK_IMAGE, ROLLBACK_VERSION, ROLLBACK_SHA256, from_native=True),
         "post_rollback_health": [
-            a90ctl_command(placeholder, ["version"]),
-            a90ctl_command(placeholder, ["status"]),
-            a90ctl_command(placeholder, ["selftest", "verbose"], timeout=120.0),
+            a90ctl_command(placeholder, ["version"], hide_on_busy=True),
+            a90ctl_command(placeholder, ["status"], hide_on_busy=True),
+            a90ctl_command(placeholder, ["selftest", "verbose"], hide_on_busy=True, timeout=120.0),
         ],
     }
 
@@ -282,6 +284,46 @@ def run_step(out_dir: Path, steps: list[dict[str, Any]], name: str, command: lis
     return record
 
 
+
+def run_a90ctl_observation(args: argparse.Namespace,
+                           out_dir: Path,
+                           steps: list[dict[str, Any]],
+                           name: str,
+                           native_command: list[str],
+                           *,
+                           timeout: float = 120.0,
+                           attempts: int = 3,
+                           delay_sec: float = 2.0) -> dict[str, Any]:
+    """Run a read-only native command with bounded serial-contention recovery.
+
+    The audio command family is not in a90ctl.py's built-in SAFE_RETRY_COMMANDS,
+    so protocol desynchronization during live handoffs must be handled by the
+    runner for observation-only commands.  This helper is intentionally not used
+    for token-gated mutation commands.
+    """
+
+    last_error: Exception | None = None
+    for attempt in range(1, max(1, attempts) + 1):
+        try:
+            return run_step(
+                out_dir,
+                steps,
+                f"{name}-attempt-{attempt}",
+                a90ctl_command(
+                    args,
+                    native_command,
+                    hide_on_busy=True,
+                    timeout=timeout,
+                ),
+                timeout=timeout + 30.0,
+            )
+        except RuntimeError as exc:
+            last_error = exc
+            if attempt >= attempts:
+                break
+            time.sleep(delay_sec)
+    raise RuntimeError(f"observation command failed after {attempts} attempts: {name}: {last_error}")
+
 def stdout_of(step: dict[str, Any]) -> str:
     path_value = step.get("stdout_path")
     if not path_value:
@@ -322,21 +364,11 @@ def wait_for_audio_card(args: argparse.Namespace, out_dir: Path, steps: list[dic
     last: dict[str, Any] | None = None
     while time.monotonic() <= deadline:
         attempt += 1
-        adsp = run_step(
-            out_dir,
-            steps,
-            f"poll-adsp-status-{attempt}",
-            a90ctl_command(args, ["audio", "adsp-status"], timeout=90.0, allow_error=True),
-            timeout=120.0,
-            allow_error=True,
+        adsp = run_a90ctl_observation(
+            args, out_dir, steps, f"poll-adsp-status-{attempt}", ["audio", "adsp-status"], timeout=90.0
         )
-        snd = run_step(
-            out_dir,
-            steps,
-            f"poll-snd-status-{attempt}",
-            a90ctl_command(args, ["audio", "snd-status"], timeout=90.0, allow_error=True),
-            timeout=120.0,
-            allow_error=True,
+        snd = run_a90ctl_observation(
+            args, out_dir, steps, f"poll-snd-status-{attempt}", ["audio", "snd-status"], timeout=90.0
         )
         combined = stdout_of(adsp) + "\n" + stdout_of(snd)
         classification = classify_audio_status(combined)
@@ -381,12 +413,8 @@ def live_run(args: argparse.Namespace, state: dict[str, Any]) -> dict[str, Any]:
             flash_command(ROLLBACK_IMAGE, ROLLBACK_VERSION, ROLLBACK_SHA256, from_native=False) + ["--verify-only"],
             timeout=args.flash_timeout,
         )
-        current_selftest = run_step(
-            out_dir,
-            steps,
-            "preflight-current-selftest",
-            a90ctl_command(args, ["selftest", "verbose"], timeout=120.0),
-            timeout=150.0,
+        current_selftest = run_a90ctl_observation(
+            args, out_dir, steps, "preflight-current-selftest", ["selftest", "verbose"], timeout=120.0
         )
         if not selftest_ok(stdout_of(current_selftest)):
             raise RuntimeError("resident preflight selftest did not report fail=0")
@@ -400,35 +428,21 @@ def live_run(args: argparse.Namespace, state: dict[str, Any]) -> dict[str, Any]:
         )
         candidate_flashed = True
 
-        version = run_step(out_dir, steps, "candidate-version", a90ctl_command(args, ["version"]), timeout=90.0)
+        version = run_a90ctl_observation(args, out_dir, steps, "candidate-version", ["version"], timeout=90.0)
         if CANDIDATE_VERSION not in stdout_of(version):
             raise RuntimeError("candidate version output did not contain expected version")
-        run_step(out_dir, steps, "candidate-status", a90ctl_command(args, ["status"]), timeout=90.0)
-        candidate_selftest = run_step(
-            out_dir,
-            steps,
-            "candidate-selftest",
-            a90ctl_command(args, ["selftest", "verbose"], timeout=120.0),
-            timeout=150.0,
+        run_a90ctl_observation(args, out_dir, steps, "candidate-status", ["status"], timeout=90.0)
+        candidate_selftest = run_a90ctl_observation(
+            args, out_dir, steps, "candidate-selftest", ["selftest", "verbose"], timeout=120.0
         )
         if not selftest_ok(stdout_of(candidate_selftest)):
             raise RuntimeError("candidate selftest did not report fail=0")
 
-        pre_adsp = run_step(
-            out_dir,
-            steps,
-            "candidate-audio-adsp-status-before",
-            a90ctl_command(args, ["audio", "adsp-status"], timeout=90.0, allow_error=True),
-            timeout=120.0,
-            allow_error=True,
+        pre_adsp = run_a90ctl_observation(
+            args, out_dir, steps, "candidate-audio-adsp-status-before", ["audio", "adsp-status"], timeout=90.0
         )
-        pre_snd = run_step(
-            out_dir,
-            steps,
-            "candidate-audio-snd-status-before",
-            a90ctl_command(args, ["audio", "snd-status"], timeout=90.0, allow_error=True),
-            timeout=120.0,
-            allow_error=True,
+        pre_snd = run_a90ctl_observation(
+            args, out_dir, steps, "candidate-audio-snd-status-before", ["audio", "snd-status"], timeout=90.0
         )
         initial_audio = classify_audio_status(stdout_of(pre_adsp) + "\n" + stdout_of(pre_snd))
         result["initial_audio"] = initial_audio
@@ -450,12 +464,8 @@ def live_run(args: argparse.Namespace, state: dict[str, Any]) -> dict[str, Any]:
 
         result["card_wait"] = wait_for_audio_card(args, out_dir, steps)
 
-        before_materialize = run_step(
-            out_dir,
-            steps,
-            "snd-status-before-materialize",
-            a90ctl_command(args, ["audio", "snd-status"], timeout=90.0),
-            timeout=120.0,
+        before_materialize = run_a90ctl_observation(
+            args, out_dir, steps, "snd-status-before-materialize", ["audio", "snd-status"], timeout=90.0
         )
         result["before_materialize"] = classify_audio_status(stdout_of(before_materialize))
 
@@ -468,24 +478,16 @@ def live_run(args: argparse.Namespace, state: dict[str, Any]) -> dict[str, Any]:
         )
         result["materialize_tail"] = stdout_of(materialize)[-4000:]
 
-        after_materialize = run_step(
-            out_dir,
-            steps,
-            "snd-status-after-materialize",
-            a90ctl_command(args, ["audio", "snd-status"], timeout=90.0),
-            timeout=120.0,
+        after_materialize = run_a90ctl_observation(
+            args, out_dir, steps, "snd-status-after-materialize", ["audio", "snd-status"], timeout=90.0
         )
         after = classify_audio_status(stdout_of(after_materialize))
         result["after_materialize"] = after
         if not after["has_dev_snd_control"]:
             raise RuntimeError("materialization did not produce a /dev/snd control node")
 
-        final_candidate_selftest = run_step(
-            out_dir,
-            steps,
-            "candidate-selftest-after-materialize",
-            a90ctl_command(args, ["selftest", "verbose"], timeout=120.0),
-            timeout=150.0,
+        final_candidate_selftest = run_a90ctl_observation(
+            args, out_dir, steps, "candidate-selftest-after-materialize", ["selftest", "verbose"], timeout=120.0
         )
         if not selftest_ok(stdout_of(final_candidate_selftest)):
             raise RuntimeError("candidate final selftest did not report fail=0")
@@ -502,14 +504,9 @@ def live_run(args: argparse.Namespace, state: dict[str, Any]) -> dict[str, Any]:
             )
             result["rolled_back"] = bool(rollback_record.get("ok"))
             try:
-                rollback_version = run_step(out_dir, steps, "rollback-version", a90ctl_command(args, ["version"]), timeout=90.0, allow_error=True)
-                rollback_selftest = run_step(
-                    out_dir,
-                    steps,
-                    "rollback-selftest",
-                    a90ctl_command(args, ["selftest", "verbose"], timeout=120.0, allow_error=True),
-                    timeout=150.0,
-                    allow_error=True,
+                rollback_version = run_a90ctl_observation(args, out_dir, steps, "rollback-version", ["version"], timeout=90.0)
+                rollback_selftest = run_a90ctl_observation(
+                    args, out_dir, steps, "rollback-selftest", ["selftest", "verbose"], timeout=120.0
                 )
                 result["rollback_version_ok"] = ROLLBACK_VERSION in stdout_of(rollback_version)
                 result["rollback_selftest_fail0"] = selftest_ok(stdout_of(rollback_selftest))
