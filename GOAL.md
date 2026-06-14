@@ -125,14 +125,18 @@ was killed with rc `137`, no AudioFlinger active track survived into the active 
 host-only logcat observability to the route-delta runner: future exact-gated live runs clear and
 capture Android `main`/`system`/`crash`/`events` logs around the stimulus window so the rc `137`
 kill can be classified before changing stimulus strategy. V2373 adds a host-only APK-style
-AudioTrack stimulus source and private-output builder; the signed private APK builds and verifies,
-but is not yet integrated into the live runner or executed. The frontier is now Android stimulus
-execution/observability (logcat or APK-style stimulus), not a native speaker route.
+AudioTrack stimulus source and private-output builder; the signed private APK builds and verifies.
+V2374 integrates that private APK into the route-delta runner as `--stimulus-mode apk`, planning
+`adb install -r`, Activity launch via `am start`, package/result probes, and uninstall cleanup while
+preserving explicit ADB targeting and V2372 logcat capture. Magisk-module stimulus delivery is a
+valid follow-on only if normal APK install/launch is blocked; use APK mode first because it avoids a
+persistent module and second Android boot. The frontier is now a preauthorized Android route-delta
+live run with APK-mode stimulus and logcat observability, not a native speaker route.
 Do not attempt internal speaker playback, native `tinymix set`, PCM playback open/write, or
 `tinyplay` until Android route-delta evidence identifies a speaker route. Android route-delta live
 capture itself is covered by the overnight pre-authorization above, but must use the checked-helper
 Android handoff, bounded low-amplitude framework playback, V2321 rollback, and the current
-V2372/V2373 observability/stimulus path. V2363 and V2367 repeated the already-passed
+V2372/V2374 observability/stimulus path. V2363 and V2367 repeated the already-passed
 AUD-3C read-only tinyalsa inventory at operator request: V2334 again materialized `/dev/snd`
 (`61` nodes), `tinymix`/`tinypcminfo` read-only queries returned `rc=0`, and rollback to
 V2321 ended with `selftest fail=0`; V2367 private evidence is

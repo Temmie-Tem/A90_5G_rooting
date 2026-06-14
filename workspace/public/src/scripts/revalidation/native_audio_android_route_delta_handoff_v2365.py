@@ -3,8 +3,8 @@
 
 The default mode is still host-only dry-run.  Live mode is guarded by the exact
 AUD-3D2 approval phrase and uses only Android framework AudioTrack playback
-through app_process.  It does not run native tinyalsa playback, tinymix set, or
-direct /dev/snd access.
+through the selected DEX/app_process or APK Activity stimulus.  It does not run
+native tinyalsa playback, tinymix set, or direct /dev/snd access.
 
 The planner converts the V2362 route-delta design into a checked-helper command
 plan and exposes live blockers explicitly:
@@ -12,7 +12,8 @@ plan and exposes live blockers explicitly:
 * the private Android boot image must be sealed into a 0600 run-local copy
   before passing it to native_init_flash.py, because the archived candidates are
   group-writable;
-* an Android framework playback stimulus dex is required.
+* an Android framework playback stimulus is required: either the legacy private
+  DEX for app_process mode or the private APK for Activity mode.
 """
 
 from __future__ import annotations
@@ -50,6 +51,9 @@ REMOTE_TINYMIX = f"{REMOTE_DIR}/tinymix"
 REMOTE_STIMULUS = f"{REMOTE_DIR}/A90AudioRouteStimulus.dex"
 REMOTE_STIMULUS_LOG = f"{REMOTE_DIR}/stimulus.log"
 REMOTE_STIMULUS_RC = f"{REMOTE_DIR}/stimulus.rc"
+APK_PACKAGE = "com.a90.nativeinit.audio"
+APK_ACTIVITY = "com.a90.nativeinit.audio.A90AudioRouteStimulusActivity"
+APK_ACTION = "com.a90.nativeinit.audio.PLAY_ROUTE_STIMULUS"
 APPROVAL_PHRASE = (
     "AUD-3D2-android-route-delta go: rollbackable Android AudioTrack speaker route-delta "
     "capture, checked-helper boot handoff only, low-amplitude framework playback, "
@@ -175,6 +179,28 @@ def stimulus_state(path: Path | None) -> dict[str, Any]:
     return state
 
 
+def stimulus_apk_state(path: Path | None) -> dict[str, Any]:
+    if path is None:
+        return {
+            "path": None,
+            "exists": False,
+            "ok": False,
+            "reason": "no --stimulus-apk supplied for APK stimulus mode",
+        }
+    state = file_state(path)
+    zip_magic = bool(state["exists"] and path.read_bytes()[:4] == b"PK\x03\x04")
+    state["zip_magic"] = zip_magic
+    state["ok"] = bool(
+        state["exists"]
+        and state["size"] > 0
+        and not state["group_or_world_writable"]
+        and zip_magic
+    )
+    if not state["ok"]:
+        state["reason"] = "stimulus APK must exist, be non-empty, start with ZIP/APK magic, and not be group/world writable"
+    return state
+
+
 def tinymix_state() -> dict[str, Any]:
     manifest = tinyalsa.verify_manifest(tinyalsa.MANIFEST)
     tool = manifest.get("tools", {}).get("tinymix", {})
@@ -268,6 +294,35 @@ def adb_push_command(args: argparse.Namespace, source: str, destination: str) ->
     return adb_base(args) + ["push", source, destination]
 
 
+def adb_install_command(args: argparse.Namespace, source: str) -> list[str]:
+    return adb_base(args) + ["install", "-r", source]
+
+
+def adb_uninstall_command(args: argparse.Namespace, package: str = APK_PACKAGE) -> list[str]:
+    return adb_base(args) + ["uninstall", package]
+
+
+def stage_commands(args: argparse.Namespace, tiny: dict[str, Any]) -> list[list[str]]:
+    commands = [
+        android_shell(args, f"rm -rf {REMOTE_DIR} && mkdir -p {REMOTE_DIR} && chmod 700 {REMOTE_DIR}"),
+        adb_push_command(args, tiny.get("path") or "<tinymix>", REMOTE_TINYMIX),
+        android_shell(args, f"chmod 700 {REMOTE_TINYMIX}"),
+    ]
+    if args.stimulus_mode == "dex":
+        commands.insert(2, adb_push_command(args, rel(args.stimulus_dex) if args.stimulus_dex else "<stimulus-dex>", REMOTE_STIMULUS))
+        commands[3] = android_shell(args, f"chmod 700 {REMOTE_TINYMIX} {REMOTE_STIMULUS}")
+    else:
+        commands.append(adb_install_command(args, rel(args.stimulus_apk) if args.stimulus_apk else "<stimulus-apk>"))
+    return commands
+
+
+def cleanup_commands(args: argparse.Namespace) -> list[list[str]]:
+    commands = [android_shell(args, f"rm -rf {REMOTE_DIR}")]
+    if args.stimulus_mode == "apk":
+        commands.append(adb_uninstall_command(args))
+    return commands
+
+
 def snapshot_plan(label: str, args: argparse.Namespace) -> list[dict[str, Any]]:
     return [
         {
@@ -298,7 +353,21 @@ def snapshot_plan(label: str, args: argparse.Namespace) -> list[dict[str, Any]]:
     ]
 
 
+def apk_start_shell_command(args: argparse.Namespace) -> str:
+    return (
+        "am start -W "
+        f"-n {APK_PACKAGE}/.{APK_ACTIVITY.rsplit('.', 1)[-1]} "
+        f"-a {APK_ACTION} "
+        f"--ei duration_ms {int(args.duration_ms)} "
+        f"--ei sample_rate {int(args.sample_rate)} "
+        f"--ef amplitude {float(args.amplitude)} "
+        "--ez speaker true"
+    )
+
+
 def playback_command(args: argparse.Namespace) -> list[str]:
+    if args.stimulus_mode == "apk":
+        return android_shell(args, apk_start_shell_command(args))
     return android_shell(
         args,
         "CLASSPATH={stimulus} app_process /system/bin A90AudioRouteStimulus "
@@ -312,6 +381,8 @@ def playback_command(args: argparse.Namespace) -> list[str]:
 
 
 def playback_start_command(args: argparse.Namespace) -> list[str]:
+    if args.stimulus_mode == "apk":
+        return android_shell(args, apk_start_shell_command(args))
     command = (
         f"cd {shlex.quote(REMOTE_DIR)} && "
         f"rm -f {shlex.quote(REMOTE_STIMULUS_LOG)} {shlex.quote(REMOTE_STIMULUS_RC)} && "
@@ -329,6 +400,11 @@ def playback_start_command(args: argparse.Namespace) -> list[str]:
 
 
 def stimulus_result_commands(args: argparse.Namespace) -> list[list[str]]:
+    if args.stimulus_mode == "apk":
+        return [
+            android_shell(args, f"pidof {APK_PACKAGE} 2>/dev/null || true"),
+            android_shell(args, f"cmd package path {APK_PACKAGE} 2>/dev/null || true"),
+        ]
     return [
         android_shell(args, f"cat {shlex.quote(REMOTE_STIMULUS_LOG)} 2>/dev/null || true"),
         android_shell(args, f"cat {shlex.quote(REMOTE_STIMULUS_RC)} 2>/dev/null || true"),
@@ -353,7 +429,7 @@ def command_safety(plan: dict[str, Any]) -> dict[str, Any]:
     return {
         "ok": not findings,
         "findings": findings,
-        "allowed_playback_path": "Android framework AudioTrack via app_process stimulus only",
+        "allowed_playback_path": "Android framework AudioTrack via selected stimulus mode",
         "forbidden": sorted(forbidden),
     }
 
@@ -362,6 +438,8 @@ def dry_run_payload(args: argparse.Namespace) -> dict[str, Any]:
     boot = select_android_boot_candidate()
     tiny = tinymix_state()
     stimulus = stimulus_state(args.stimulus_dex)
+    stimulus_apk = stimulus_apk_state(args.stimulus_apk)
+    selected_stimulus = stimulus if args.stimulus_mode == "dex" else stimulus_apk
     tools = host_tool_state()
     selected = boot.get("selected") or {}
     sealed_boot = "<private-run-dir>/android_boot_0600.img"
@@ -375,17 +453,15 @@ def dry_run_payload(args: argparse.Namespace) -> dict[str, Any]:
         "rollback": file_state(ROLLBACK_IMAGE, expected_sha256=ROLLBACK_SHA256),
         "tinymix": tiny,
         "host_audio_stimulus_toolchain": tools,
+        "stimulus_mode": args.stimulus_mode,
         "stimulus_dex": stimulus,
-        "live_ready": bool(boot.get("ok") and tiny.get("ok") and stimulus.get("ok")),
+        "stimulus_apk": stimulus_apk,
+        "selected_stimulus": selected_stimulus,
+        "live_ready": bool(boot.get("ok") and tiny.get("ok") and selected_stimulus.get("ok")),
         "live_blockers": [],
         "commands": {
             "flash_android": flash_android_command(args, sealed_boot),
-            "stage": [
-                android_shell(args, f"rm -rf {REMOTE_DIR} && mkdir -p {REMOTE_DIR} && chmod 700 {REMOTE_DIR}"),
-                adb_push_command(args, tiny.get("path") or "<tinymix>", REMOTE_TINYMIX),
-                adb_push_command(args, rel(args.stimulus_dex) if args.stimulus_dex else "<stimulus-dex>", REMOTE_STIMULUS),
-                android_shell(args, f"chmod 700 {REMOTE_TINYMIX} {REMOTE_STIMULUS}"),
-            ],
+            "stage": stage_commands(args, tiny),
             "baseline_snapshots": snapshot_plan("baseline", args),
             "playback": playback_command(args),
             "playback_start_background": playback_start_command(args),
@@ -399,7 +475,7 @@ def dry_run_payload(args: argparse.Namespace) -> dict[str, Any]:
             "playback_result": stimulus_result_commands(args),
             "active_snapshots": snapshot_plan("active", args),
             "post_snapshots": snapshot_plan("post", args),
-            "cleanup": [android_shell(args, f"rm -rf {REMOTE_DIR}")],
+            "cleanup": cleanup_commands(args),
             "android_reboot_recovery_for_rollback": android_reboot_recovery_command(args),
             "rollback_v2321": rollback_command(args),
         },
@@ -413,8 +489,8 @@ def dry_run_payload(args: argparse.Namespace) -> dict[str, Any]:
             "rollback to V2321 after capture",
         ],
     }
-    if not stimulus.get("ok"):
-        plan["live_blockers"].append(stimulus.get("reason", "stimulus dex unavailable"))
+    if not selected_stimulus.get("ok"):
+        plan["live_blockers"].append(selected_stimulus.get("reason", "stimulus unavailable"))
     safety = command_safety(plan)
     plan["command_safety"] = safety
     plan["ok"] = bool(boot.get("ok") and tiny.get("ok") and safety.get("ok"))
@@ -689,7 +765,9 @@ def parse_args() -> argparse.Namespace:
     mode = parser.add_mutually_exclusive_group()
     mode.add_argument("--dry-run", action="store_true", help="emit the route-delta plan; no device action")
     mode.add_argument("--run-live", action="store_true", help="run the exact-gated Android route-delta capture")
-    parser.add_argument("--stimulus-dex", type=Path, help="private AudioTrack stimulus dex for future live use")
+    parser.add_argument("--stimulus-dex", type=Path, help="private app_process AudioTrack stimulus dex for future live use")
+    parser.add_argument("--stimulus-apk", type=Path, help="private APK-style AudioTrack stimulus for future live use")
+    parser.add_argument("--stimulus-mode", choices=("dex", "apk"), default="dex")
     parser.add_argument("--adb", default="adb", help="adb executable to use for Android handoff commands")
     parser.add_argument("--serial", help="ADB serial to target for Android handoff commands")
     parser.add_argument("--approval", help="exact AUD-3D2 approval phrase required by --run-live")

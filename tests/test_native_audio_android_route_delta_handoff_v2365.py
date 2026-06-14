@@ -17,6 +17,8 @@ v2365 = load_revalidation("native_audio_android_route_delta_handoff_v2365")
 def args(**overrides: object) -> argparse.Namespace:
     defaults: dict[str, object] = {
         "stimulus_dex": None,
+        "stimulus_apk": None,
+        "stimulus_mode": "dex",
         "adb": "adb",
         "serial": None,
         "android_timeout": 420.0,
@@ -97,6 +99,45 @@ class AndroidRouteDeltaPlanner(unittest.TestCase):
         self.assertTrue(payload["stimulus_dex"]["ok"])
         self.assertTrue(payload["live_ready"])
         self.assertEqual(payload["commands"]["stage"][2][-1], v2365.REMOTE_STIMULUS)
+
+    def test_supplied_private_stimulus_apk_can_make_apk_mode_live_ready(self) -> None:
+        with tempfile.TemporaryDirectory() as temp_dir:
+            stimulus = Path(temp_dir) / "A90AudioRouteStimulus.apk"
+            stimulus.write_bytes(b"PK\x03\x04placeholder")
+            stimulus.chmod(0o600)
+            payload = v2365.dry_run_payload(args(stimulus_mode="apk", stimulus_apk=stimulus))
+
+        flat = json.dumps(payload["commands"], sort_keys=True)
+        self.assertEqual(payload["stimulus_mode"], "apk")
+        self.assertTrue(payload["stimulus_apk"]["ok"])
+        self.assertTrue(payload["selected_stimulus"]["ok"])
+        self.assertTrue(payload["live_ready"])
+        self.assertIn("install", payload["commands"]["stage"][-1])
+        self.assertIn("uninstall", payload["commands"]["cleanup"][-1])
+        self.assertIn(v2365.APK_PACKAGE, flat)
+        self.assertIn(v2365.APK_ACTION, flat)
+        self.assertNotIn("CLASSPATH=", flat)
+        self.assertNotIn("app_process", flat)
+
+    def test_apk_mode_propagates_adb_target_to_install_playback_and_uninstall(self) -> None:
+        with tempfile.TemporaryDirectory() as temp_dir:
+            stimulus = Path(temp_dir) / "A90AudioRouteStimulus.apk"
+            stimulus.write_bytes(b"PK\x03\x04placeholder")
+            stimulus.chmod(0o600)
+            payload = v2365.dry_run_payload(args(
+                stimulus_mode="apk",
+                stimulus_apk=stimulus,
+                adb="/opt/android/adb",
+                serial="A90ADB01",
+            ))
+
+        adb_target = ["/opt/android/adb", "-s", "A90ADB01"]
+        self.assertEqual(payload["commands"]["stage"][-1][:3], adb_target)
+        self.assertEqual(payload["commands"]["playback_start_background"][:3], adb_target)
+        self.assertEqual(payload["commands"]["playback_result"][0][:3], adb_target)
+        self.assertEqual(payload["commands"]["cleanup"][-1][:3], adb_target)
+        self.assertIn("install", payload["commands"]["stage"][-1])
+        self.assertIn("uninstall", payload["commands"]["cleanup"][-1])
 
     def test_rollback_from_android_does_not_claim_native_bridge_origin(self) -> None:
         payload = v2365.dry_run_payload(args())
