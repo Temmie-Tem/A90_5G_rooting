@@ -1,0 +1,22 @@
+<manifest xmlns:android="http://schemas.android.com/apk/res/android"
+    package="com.a90.nativeinit.audio">
+    <uses-permission android:name="android.permission.MODIFY_AUDIO_SETTINGS" />
+
+    <application
+        android:allowBackup="false"
+        android:debuggable="true"
+        android:hasCode="true"
+        android:label="A90 Route Stimulus"
+        android:theme="@style/A90StimulusTheme">
+        <activity
+            android:name="com.a90.nativeinit.audio.A90AudioRouteStimulusActivity"
+            android:exported="true"
+            android:excludeFromRecents="true"
+            android:finishOnTaskLaunch="true">
+            <intent-filter>
+                <action android:name="com.a90.nativeinit.audio.PLAY_ROUTE_STIMULUS" />
+                <category android:name="android.intent.category.DEFAULT" />
+            </intent-filter>
+        </activity>
+    </application>
+</manifest>

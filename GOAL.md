@@ -108,7 +108,9 @@ was killed with rc `137`, no AudioFlinger active track survived into the active 
 `tinymix --all-values` showed `0` changed controls across baseline/active/post. V2372 adds
 host-only logcat observability to the route-delta runner: future exact-gated live runs clear and
 capture Android `main`/`system`/`crash`/`events` logs around the stimulus window so the rc `137`
-kill can be classified before changing stimulus strategy. The frontier is now Android stimulus
+kill can be classified before changing stimulus strategy. V2373 adds a host-only APK-style
+AudioTrack stimulus source and private-output builder; the signed private APK builds and verifies,
+but is not yet integrated into the live runner or executed. The frontier is now Android stimulus
 execution/observability (logcat or APK-style stimulus), not a native speaker route.
 Do not attempt internal speaker playback,
 native `tinymix set`, PCM playback open/write, `tinyplay`, or Android route-delta live capture until
