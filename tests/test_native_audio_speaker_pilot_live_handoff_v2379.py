@@ -137,6 +137,35 @@ class NativeSpeakerPilotLiveHandoff(unittest.TestCase):
         self.assertEqual(exc.partial_result["route_apply"], [{"name": "apply-1", "ok": True}])
         self.assertTrue(exc.partial_result["playback_attempted"])
 
+    def test_adsp_boot_classifier_accepts_lost_end_marker_after_accepted_write(self) -> None:
+        step = {
+            "stdout_tail": (
+                "RuntimeError('A90P1 END marker not found\n\r\n"
+                "cmdv1 audi doot-once AUD2_ONE_SHAaudio.adsp_boot_once.version=1\r\n"
+                "audio.adsp_boot_once.retry=forbidden\r\n[done] audio (21ms)\r\n')"
+            ),
+            "stdout_path": "",
+        }
+
+        classified = v2379.classify_adsp_boot_once_step(step)
+
+        self.assertTrue(classified["accepted"])
+        self.assertEqual(classified["decision"], "accepted-protocol-marker-lost")
+        self.assertFalse(classified["end_marker"])
+        self.assertEqual(classified["failure_markers"], [])
+
+    def test_adsp_boot_classifier_rejects_refused_or_failed_write(self) -> None:
+        step = {
+            "stdout_tail": "audio.adsp_boot_once.refused=missing-token\r\naudio.status.activation_write_attempted=0",
+            "stdout_path": "",
+        }
+
+        classified = v2379.classify_adsp_boot_once_step(step)
+
+        self.assertFalse(classified["accepted"])
+        self.assertEqual(classified["decision"], "rejected-or-write-failed")
+        self.assertEqual(classified["failure_markers"], ["audio.adsp_boot_once.refused="])
+
     def test_remote_tool_output_classifies_tcpctl_and_tinyplay_failures(self) -> None:
         bad_tinymix = "\n".join(
             [

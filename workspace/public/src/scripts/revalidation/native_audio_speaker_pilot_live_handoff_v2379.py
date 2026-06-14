@@ -448,6 +448,43 @@ def classify_remote_tool_output(text: str, failure_markers: tuple[str, ...] = ()
     }
 
 
+ADSP_ACCEPTED_MARKER = "audio.adsp_boot_once.retry=forbidden"
+ADSP_END_MARKER = "A90P1 END seq="
+ADSP_FAILURE_MARKERS = (
+    "audio.adsp_boot_once.refused=",
+    "audio.adsp_boot_once.write=open_failed",
+    "audio.adsp_boot_once.write=failed",
+    "audio.adsp_boot_once.write=close_failed",
+)
+
+
+def classify_adsp_boot_once_step(step: dict[str, Any]) -> dict[str, Any]:
+    text = step_text(step)
+    failure_markers = [marker for marker in ADSP_FAILURE_MARKERS if marker in text]
+    accepted_marker = ADSP_ACCEPTED_MARKER in text
+    end_marker = ADSP_END_MARKER in text
+    protocol_ok = end_marker and "status=ok" in text
+    accepted = accepted_marker and not failure_markers
+    if protocol_ok and accepted:
+        decision = "accepted-protocol-ok"
+    elif accepted:
+        decision = "accepted-protocol-marker-lost"
+    elif failure_markers:
+        decision = "rejected-or-write-failed"
+    else:
+        decision = "unknown-no-accepted-marker"
+    return {
+        "decision": decision,
+        "accepted": accepted,
+        "accepted_marker": accepted_marker,
+        "end_marker": end_marker,
+        "protocol_ok": protocol_ok,
+        "failure_markers": failure_markers,
+        "stdout_path": step.get("stdout_path"),
+        "stdout_tail": str(step.get("stdout_tail") or "")[-1000:],
+    }
+
+
 def annotate_tool_step(step: dict[str, Any], *, failure_markers: tuple[str, ...] = ()) -> dict[str, Any]:
     remote = classify_remote_tool_output(step_text(step), failure_markers)
     step["remote_tool_result"] = remote
@@ -716,7 +753,19 @@ def live_run(args: argparse.Namespace, state: dict[str, Any]) -> dict[str, Any]:
         result["initial_audio"] = snd.classify_audio_status(stdout_of(pre_adsp) + "\n" + stdout_of(pre_snd))
         if not (result["initial_audio"]["has_audio_card"] and result["initial_audio"]["has_sound_class_control"]):
             snd.run_menu_settle_step(out_dir, steps, "settle-before-adsp-boot-once", args)
-            snd.run_serial_transport_step(out_dir, steps, "candidate-adsp-boot-once", args, ["audio", "adsp-boot-once", snd.ADSP_TOKEN], timeout=90.0, retry_observation=False)
+            adsp_boot_step = snd.run_serial_transport_step(
+                out_dir,
+                steps,
+                "candidate-adsp-boot-once",
+                args,
+                ["audio", "adsp-boot-once", snd.ADSP_TOKEN],
+                timeout=90.0,
+                retry_observation=False,
+                allow_error=True,
+            )
+            result["adsp_boot_once"] = classify_adsp_boot_once_step(adsp_boot_step)
+            if not result["adsp_boot_once"].get("accepted"):
+                raise RuntimeError(f"candidate ADSP boot-once did not show accepted marker: {result['adsp_boot_once']}")
         result["card_wait"] = snd.wait_for_audio_card(args, out_dir, steps)
         before_materialize = snd.run_a90ctl_observation(args, out_dir, steps, "snd-status-before-materialize", ["audio", "snd-status"], timeout=90.0)
         result["before_materialize"] = snd.classify_audio_status(stdout_of(before_materialize))
