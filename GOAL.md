@@ -79,7 +79,7 @@ ADSP subsystem-restart is recoverable, but forbidden-partition rules remain abso
   fresh operator go: load the speaker route via `tinymix`/`mixer_paths.xml` and push a test PCM with
   `tinyplay`. First actual sound test.
 
-**Latest audio route-delta planning state (V2365):** V2362 selected Android route-delta
+**Latest audio route-delta planning state (V2366):** V2362 selected Android route-delta
 capture as the next speaker-route measurement and designed it host-only. The measurement should boot
 normal Android, use Android framework `AudioTrack` playback through AudioFlinger/vendor HAL, capture
 `tinymix -D 0 --all-values` before/during/after, then roll back to V2321 and diff `SEC_TDM_RX_0` /
@@ -91,7 +91,9 @@ default native-init serial verification path. V2365 added a host-only dry-run pl
 route-delta runner: it verifies the pinned Android boot candidates and V2345 `tinymix`, emits the
 checked-helper Android flash/stage/snapshot/playback/rollback command plan, and confirms the archived
 Android boot image must be sealed to a private `0600` copy before helper use. Live route-delta is
-still not ready because the Android framework `AudioTrack` stimulus DEX is not built/staged yet. Do not
+still not ready because the Android framework `AudioTrack` stimulus DEX is not built/staged yet.
+V2366 added `A90AudioRouteStimulus.java` and a private-output builder for that DEX, but the current
+host lacks `javac`, `d8`/`dx`, and `android.jar`, so no DEX was produced. Do not
 attempt internal speaker playback, native `tinymix set`, PCM playback open/write, `tinyplay`, or
 Android route-delta live capture until that stimulus artifact exists, the runner is live-capable, and
 a fresh exact route-delta gate is
