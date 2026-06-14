@@ -128,15 +128,23 @@ kill can be classified before changing stimulus strategy. V2373 adds a host-only
 AudioTrack stimulus source and private-output builder; the signed private APK builds and verifies.
 V2374 integrates that private APK into the route-delta runner as `--stimulus-mode apk`, planning
 `adb install -r`, Activity launch via `am start`, package/result probes, and uninstall cleanup while
-preserving explicit ADB targeting and V2372 logcat capture. Magisk-module stimulus delivery is a
-valid follow-on only if normal APK install/launch is blocked; use APK mode first because it avoids a
-persistent module and second Android boot. The frontier is now a preauthorized Android route-delta
-live run with APK-mode stimulus and logcat observability, not a native speaker route.
+preserving explicit ADB targeting and V2372 logcat capture. V2375 executed that preauthorized
+APK-mode Android route-delta handoff and rolled back to V2321 with `selftest fail=0`; APK install
+succeeded, but `am start` was redirected to PermissionController `REVIEW_PERMISSIONS`, no
+`A90_AUDIO_STIMULUS_*` marker ran, AudioFlinger saw no package activity, and baseline/active/post
+`tinymix --all-values` were byte-identical. Host `aapt dump badging` identifies the concrete cause:
+the APK manifest lacks explicit `uses-sdk`, so Android treats it as `targetSdkVersion < 4` and adds
+implied dangerous permissions (`WRITE_EXTERNAL_STORAGE`, `READ_PHONE_STATE`, `READ_EXTERNAL_STORAGE`),
+triggering first-launch permission review. Next unit: add a modern explicit `uses-sdk`/target SDK to
+the APK manifest, rebuild the private APK, then rerun the same preauthorized route-delta path.
+Magisk-module stimulus delivery is a valid follow-on only if the modern-target APK still cannot
+launch; do not jump to Magisk before fixing this manifest issue. The frontier remains Android
+stimulus execution/observability, not a native speaker route.
 Do not attempt internal speaker playback, native `tinymix set`, PCM playback open/write, or
 `tinyplay` until Android route-delta evidence identifies a speaker route. Android route-delta live
 capture itself is covered by the overnight pre-authorization above, but must use the checked-helper
 Android handoff, bounded low-amplitude framework playback, V2321 rollback, and the current
-V2372/V2374 observability/stimulus path. V2363 and V2367 repeated the already-passed
+V2372/V2375 observability/stimulus path. V2363 and V2367 repeated the already-passed
 AUD-3C read-only tinyalsa inventory at operator request: V2334 again materialized `/dev/snd`
 (`61` nodes), `tinymix`/`tinypcminfo` read-only queries returned `rc=0`, and rollback to
 V2321 ended with `selftest fail=0`; V2367 private evidence is
