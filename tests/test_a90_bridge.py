@@ -94,6 +94,23 @@ class ProcessAndSocketParsing(unittest.TestCase):
 
 
 class StatusAndSelectionHelpers(unittest.TestCase):
+    def test_serial_candidates_accepts_ordered_multi_glob(self) -> None:
+        def fake_glob(pattern: str) -> list[str]:
+            return {
+                "/dev/serial/by-id/usb-A90-LNX_*": ["/dev/serial/by-id/usb-A90-LNX_A90_Linux_ARM64_A90NATIVE001-if00"],
+                "/dev/serial/by-id/usb-SAMSUNG_*": ["/dev/serial/by-id/usb-SAMSUNG_SAMSUNG_Android_123-if00"],
+            }.get(pattern, [])
+
+        with mock.patch.object(bridge.glob, "glob", side_effect=fake_glob), \
+                mock.patch.object(bridge.os.path, "realpath", side_effect=lambda path: path.replace("/by-id/", "/real/")), \
+                mock.patch.object(bridge.Path, "exists", return_value=True):
+            candidates = bridge.serial_candidates("/dev/serial/by-id/usb-A90-LNX_*,/dev/serial/by-id/usb-SAMSUNG_*")
+
+        self.assertEqual([candidate.path for candidate in candidates], [
+            "/dev/serial/by-id/usb-A90-LNX_A90_Linux_ARM64_A90NATIVE001-if00",
+            "/dev/serial/by-id/usb-SAMSUNG_SAMSUNG_Android_123-if00",
+        ])
+
     def test_selected_device_info_tracks_explicit_single_and_ambiguous_auto_candidates(self) -> None:
         candidates = [
             bridge.SerialCandidate("/dev/a", "/real/a", True),

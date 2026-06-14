@@ -24,7 +24,11 @@ import a90_ncm_transport as ncm
 DEFAULT_HOST = a90ctl.DEFAULT_HOST
 DEFAULT_PORT = a90ctl.DEFAULT_PORT
 DEFAULT_BRIDGE_DEVICE = os.environ.get("A90_BRIDGE_DEVICE", "auto")
-DEFAULT_BRIDGE_DEVICE_GLOB = "/dev/serial/by-id/usb-SAMSUNG_SAMSUNG_Android_*"
+DEFAULT_BRIDGE_DEVICE_GLOBS = (
+    "/dev/serial/by-id/usb-A90-LNX_A90_Linux_ARM64_A90NATIVE001-if00",
+    "/dev/serial/by-id/usb-SAMSUNG_SAMSUNG_Android_*",
+)
+DEFAULT_BRIDGE_DEVICE_GLOB = ",".join(DEFAULT_BRIDGE_DEVICE_GLOBS)
 BRIDGE_SCRIPT_REL = "workspace/public/src/scripts/revalidation/a90_bridge.py"
 TRANSPORT_SELECTOR_CONTRACT = 1
 PHASE_TIMER_CONTRACT = 1

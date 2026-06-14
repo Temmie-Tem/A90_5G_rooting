@@ -29,7 +29,11 @@ from a90_serial_lock import SerialBridgeLock, SerialBridgeLockBusy
 DEFAULT_HOST = "127.0.0.1"
 DEFAULT_PORT = 54321
 DEFAULT_DEVICE = "auto"
-DEFAULT_DEVICE_GLOB = "/dev/serial/by-id/usb-SAMSUNG_SAMSUNG_Android_*"
+DEFAULT_DEVICE_GLOBS = (
+    "/dev/serial/by-id/usb-A90-LNX_A90_Linux_ARM64_A90NATIVE001-if00",
+    "/dev/serial/by-id/usb-SAMSUNG_SAMSUNG_Android_*",
+)
+DEFAULT_DEVICE_GLOB = ",".join(DEFAULT_DEVICE_GLOBS)
 BRIDGE_WRAPPER_CONTRACT = 1
 TCP_LISTEN_STATE = "0A"
 BRIDGE_SCRIPT_REL = "workspace/public/src/scripts/revalidation/serial_tcp_bridge.py"
@@ -318,17 +322,26 @@ def probe_bridge_client(host: str, port: int) -> str:
         return "busy-serial-lock"
 
 
+def expand_device_globs(device_glob: str) -> list[str]:
+    return [item.strip() for item in device_glob.split(",") if item.strip()]
+
+
 def serial_candidates(device_glob: str) -> list[SerialCandidate]:
     candidates: list[SerialCandidate] = []
-    for path_text in sorted(glob.glob(device_glob)):
-        path = Path(path_text)
-        candidates.append(
-            SerialCandidate(
-                path=path_text,
-                realpath=os.path.realpath(path_text),
-                exists=path.exists(),
+    seen: set[str] = set()
+    for pattern in expand_device_globs(device_glob):
+        for path_text in sorted(glob.glob(pattern)):
+            if path_text in seen:
+                continue
+            seen.add(path_text)
+            path = Path(path_text)
+            candidates.append(
+                SerialCandidate(
+                    path=path_text,
+                    realpath=os.path.realpath(path_text),
+                    exists=path.exists(),
+                )
             )
-        )
     return candidates
 
 
@@ -899,7 +912,7 @@ def command_start(args: argparse.Namespace, root: Path) -> int:
     stderr_path = Path(args.stderr_log).resolve() if args.stderr_log else default_stderr_path(root)
     status = collect_status(args, root)
     if status["ambiguous"] and not args.allow_multiple_auto_matches:
-        log("refusing start: ambiguous Samsung ACM candidates")
+        log("refusing start: ambiguous A90/Samsung ACM candidates")
         print_status_text(status)
         return 2
     if status["port_listening"]:

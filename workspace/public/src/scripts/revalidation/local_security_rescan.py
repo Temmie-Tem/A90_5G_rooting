@@ -160,23 +160,26 @@ def run_checks() -> list[Check]:
 
     checks.append(Check(
         "S003",
-        "host serial bridge wrapper is localhost-default and pins Samsung ACM identity",
+        "host serial bridge wrapper is localhost-default and pins known A90 ACM identity",
         status_from(
             has_all(bridge, [
                 'DEFAULT_HOST = "127.0.0.1"',
-                'DEFAULT_DEVICE_GLOB = "/dev/serial/by-id/usb-SAMSUNG_SAMSUNG_Android_*"',
+                '"/dev/serial/by-id/usb-A90-LNX_A90_Linux_ARM64_A90NATIVE001-if00"',
+                '"/dev/serial/by-id/usb-SAMSUNG_SAMSUNG_Android_*"',
                 "allow_multiple_auto_matches",
-                "refusing start: ambiguous Samsung ACM candidates",
+                "refusing start: ambiguous A90/Samsung ACM candidates",
             ])
             and has_all(serial_bridge, [
                 'DEFAULT_HOST = "127.0.0.1"',
                 "DEFAULT_DEVICE_GLOB",
+                '"/dev/serial/by-id/usb-A90-LNX_A90_Linux_ARM64_A90NATIVE001-if00"',
+                '"/dev/serial/by-id/usb-SAMSUNG_SAMSUNG_Android_*"',
                 "expected_serial_realpath",
                 "pinned_serial_realpath",
                 "refusing ambiguous auto serial match",
             ])
         ),
-        "`a90_bridge.py` and `serial_tcp_bridge.py` default to localhost and require/pin the Samsung serial identity unless explicitly overridden.",
+        "`a90_bridge.py` and `serial_tcp_bridge.py` default to localhost and require/pin the current A90-LNX or legacy Samsung serial identity unless explicitly overridden.",
         "F021/F030 remain accepted trusted-lab boundaries; this check prevents accidental LAN exposure as the default.",
     ))
 

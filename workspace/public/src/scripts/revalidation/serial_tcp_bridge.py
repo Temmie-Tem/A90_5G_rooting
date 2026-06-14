@@ -15,7 +15,11 @@ import time
 from pathlib import Path
 
 
-DEFAULT_DEVICE_GLOB = "/dev/serial/by-id/usb-SAMSUNG_SAMSUNG_Android_*"
+DEFAULT_DEVICE_GLOBS = (
+    "/dev/serial/by-id/usb-A90-LNX_A90_Linux_ARM64_A90NATIVE001-if00",
+    "/dev/serial/by-id/usb-SAMSUNG_SAMSUNG_Android_*",
+)
+DEFAULT_DEVICE_GLOB = ",".join(DEFAULT_DEVICE_GLOBS)
 DEFAULT_HOST = "127.0.0.1"
 DEFAULT_PORT = 54321
 DEFAULT_BAUD = 115200
@@ -93,7 +97,7 @@ class Bridge:
         if self.args.device != "auto":
             return self.args.device
 
-        matches = sorted(glob.glob(self.args.device_glob))
+        matches = self.resolve_device_glob_matches(self.args.device_glob)
         if not matches:
             return None
         if len(matches) > 1 and not self.args.allow_multiple_auto_matches:
@@ -105,6 +109,22 @@ class Bridge:
                 self.log(f"  match: {match} -> {os.path.realpath(match)}")
             return None
         return matches[0]
+
+    @staticmethod
+    def expand_device_globs(device_glob: str) -> list[str]:
+        return [item.strip() for item in device_glob.split(",") if item.strip()]
+
+    @classmethod
+    def resolve_device_glob_matches(cls, device_glob: str) -> list[str]:
+        matches: list[str] = []
+        seen: set[str] = set()
+        for pattern in cls.expand_device_globs(device_glob):
+            for match in sorted(glob.glob(pattern)):
+                if match in seen:
+                    continue
+                seen.add(match)
+                matches.append(match)
+        return matches
 
     def serial_realpath_allowed(self, device: str) -> bool:
         realpath = os.path.realpath(device)
@@ -445,7 +465,7 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument(
         "--device",
         default="auto",
-        help="serial device path, or 'auto' to use the Samsung by-id symlink",
+        help="serial device path, or 'auto' to use the known A90/Samsung by-id symlink",
     )
     parser.add_argument(
         "--device-glob",
@@ -469,7 +489,7 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument(
         "--allow-multiple-auto-matches",
         action="store_true",
-        help="allow --device=auto when the Samsung by-id glob matches multiple devices",
+        help="allow --device=auto when the known A90/Samsung by-id globs match multiple devices",
     )
     parser.add_argument("--host", default=DEFAULT_HOST, help="listen host")
     parser.add_argument(

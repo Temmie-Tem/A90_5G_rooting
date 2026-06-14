@@ -119,6 +119,23 @@ class DeviceSelectionAndPinning(unittest.TestCase):
         with mock.patch.object(serial_bridge.glob, "glob", return_value=["/dev/b", "/dev/a"]):
             self.assertEqual(bridge.resolve_device(), "/dev/a")
 
+    def test_resolve_device_accepts_ordered_multi_glob_for_current_and_legacy_identity(self) -> None:
+        bridge = make_bridge(arg_overrides={
+            "device_glob": "/dev/serial/by-id/usb-A90-LNX_*,/dev/serial/by-id/usb-SAMSUNG_*",
+        })
+
+        def fake_glob(pattern: str) -> list[str]:
+            return {
+                "/dev/serial/by-id/usb-A90-LNX_*": ["/dev/serial/by-id/usb-A90-LNX_A90_Linux_ARM64_A90NATIVE001-if00"],
+                "/dev/serial/by-id/usb-SAMSUNG_*": [],
+            }.get(pattern, [])
+
+        with mock.patch.object(serial_bridge.glob, "glob", side_effect=fake_glob):
+            self.assertEqual(
+                bridge.resolve_device(),
+                "/dev/serial/by-id/usb-A90-LNX_A90_Linux_ARM64_A90NATIVE001-if00",
+            )
+
     def test_serial_realpath_allowed_pins_expected_refuses_or_allows_change(self) -> None:
         bridge = make_bridge()
         with mock.patch.object(serial_bridge.os.path, "realpath", return_value="/real/one"):
