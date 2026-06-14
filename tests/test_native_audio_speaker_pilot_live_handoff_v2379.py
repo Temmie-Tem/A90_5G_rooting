@@ -70,6 +70,9 @@ class NativeSpeakerPilotLiveHandoff(unittest.TestCase):
         self.assertEqual(runtime["playback_transport"], "auto-selected transfer transport")
         self.assertEqual(len(runtime["route_apply_commands"]), 13)
         self.assertEqual(len(runtime["route_reset_commands"]), 12)
+        self.assertEqual(runtime["playback_failure_dmesg_capture"]["step"], "dmesg-after-playback-failure-before-reset")
+        self.assertTrue(runtime["playback_failure_dmesg_capture"]["read_only"])
+        self.assertEqual(runtime["playback_failure_dmesg_capture"]["argv"], [v2379.DEFAULT_DEVICE_TOOLBOX, "dmesg"])
         self.assertEqual(
             runtime["playback"]["argv"],
             [

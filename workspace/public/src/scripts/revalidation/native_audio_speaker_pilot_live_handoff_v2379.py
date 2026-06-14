@@ -41,6 +41,7 @@ REMOTE_TINYPLAY = f"{REMOTE_DIR}/tinyplay"
 REMOTE_PCM_PROBE = f"{REMOTE_DIR}/a90_pcm_write_probe_v2386"
 REMOTE_PCM = f"{REMOTE_DIR}/pilot_48k_s16le_stereo_0p02_1s.wav"
 DEFAULT_DEVICE_TOOLBOX = tiny_live.DEFAULT_DEVICE_TOOLBOX
+PLAYBACK_FAILURE_DMESG_STEP = "dmesg-after-playback-failure-before-reset"
 SAMPLE_RATE = 48_000
 CHANNELS = 2
 SAMPLE_WIDTH_BYTES = 2
@@ -391,6 +392,12 @@ def dry_run_payload(args: argparse.Namespace) -> dict[str, Any]:
             "snapshot_before_apply": [REMOTE_TINYMIX, "-D", str(args.card), "--all-values"],
             "route_apply_commands": plan["route_apply_commands"],
             "playback": plan["playback"],
+            "playback_failure_dmesg_capture": {
+                "when": "only after a playback-attempt failure and before route reset",
+                "argv": [args.device_toolbox, "dmesg"],
+                "step": PLAYBACK_FAILURE_DMESG_STEP,
+                "read_only": True,
+            },
             "route_reset_commands": plan["route_reset_commands"],
             "snapshot_after_reset": [REMOTE_TINYMIX, "-D", str(args.card), "--all-values"],
         },
@@ -652,6 +659,23 @@ def run_speaker_pilot(args: argparse.Namespace, out_dir: Path, steps: list[dict[
                 raise RuntimeError(f"playback failed: {playback_step.get('remote_tool_result')}")
         except Exception as exc:  # noqa: BLE001 - preserve partial evidence, then reset route.
             deferred_error = exc
+            if result.get("playback_attempted"):
+                dmesg_step = run_tool_command(
+                    args,
+                    out_dir,
+                    steps,
+                    PLAYBACK_FAILURE_DMESG_STEP,
+                    [args.device_toolbox, "dmesg"],
+                    use_tcpctl=snapshot_use_tcpctl,
+                    timeout=args.mixer_timeout,
+                    allow_error=True,
+                )
+                result["playback_failure_dmesg"] = {
+                    "ok": bool(dmesg_step.get("ok")),
+                    "stdout_path": dmesg_step.get("stdout_path"),
+                    "remote_tool_result": dmesg_step.get("remote_tool_result"),
+                    "capture_point": "after playback failure before route reset",
+                }
     finally:
         for command in plan["route_reset_commands"]:
             step = run_tool_command(
