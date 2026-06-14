@@ -19,56 +19,72 @@ Pursue the **highest tier that still has a meaningful, safely-actionable next st
 Drop to the next tier only when the current one is *saturated* or *meaningless* (criteria
 below). Re-evaluate each iteration; you may climb back up if new work appears.
 
-### Active epic — Named multi-LUN mass-storage identity
+### Active epic — Internal audio (ADSP/Q6) feasibility research
 
-**Prior epics CLOSED:** WLAN events at V2312; USB gadget control **layer ①** at V2315
-(U1 `usb status` / U2 atomic auxiliary add-remove / U3 read-only mass-storage persona); USB
+**Prior epics CLOSED:** WLAN events at V2312; USB gadget control **layer ①** at V2315; USB
 **device identity** at V2316–V2321 (real serial redacted to `A90NATIVE001`; host-visible
-descriptor set to `A90-LNX` / `A90 Linux ARM64` via fixed-length kernel **rodata** patches).
-Rollback target `v2321` (`0.9.285`); `v2237`/`v48` remain deeper fallbacks. U-A is
-closed at V2322 (`0.9.286`), and U-B is closed at V2323 (`0.9.287`) as a validated test artifact; neither is the rollback target until explicitly promoted.
+descriptor `A90-LNX` / `A90 Linux ARM64` via fixed-length kernel **rodata** patches); **USB
+named multi-LUN mass-storage identity** at V2322 (`0.9.286`, U-A single named LUN) and V2323
+(`0.9.287`, U-B `lun.0`+`lun.1` → host SCSI models `A90-INTERNAL`/`A90-SD`, FAT labels
+`A90INTERNAL`/`A90SD`). Rollback target `v2321` (`0.9.285`); `v2237`/`v48` remain deeper
+fallbacks. USB U-C (real SD / internal read-only exposure) stays **DEFERRED**. ②adb-over-ffs and
+③HID/BadUSB remain separate follow-on USB epics — **do not start them here.**
 
-**Active epic: make a USB-mounted disk show a dedicated name on the host** by giving the
-mass-storage function named, multi-LUN identity. Keep **three independent naming layers** separate:
-(1) **parent USB descriptor** name `A90 Linux ARM64` = already done at V2321, **do NOT touch**;
-(2) **per-LUN SCSI INQUIRY model** via configfs `mass_storage.0/lun.N/inquiry_string` — kernel
-`f_mass_storage.c:1426` honors per-LUN `curlun->inquiry_string` *above* the Samsung composite
-fallback, so this is **userspace-controllable (NO rodata patch)**; but Samsung surprised us on the
-device descriptor, so **test it live first** before assuming it reaches the wire; (3) **FAT volume
-label** via a labeled backing filesystem (what the file manager shows as the drive name).
-Standards: INQUIRY = vendor **8** + product **16** + revision **4** = 28 bytes ASCII, left-aligned,
-space-padded; FAT label **≤ 11** chars uppercase, no `* ? / \ | , ; : + = < > [ ] "`;
-`FSG_MAX_LUNS = 8`. The mass-storage configure path lives in `a90_usb_gadget.c` (compiled into
-init, rebuilt by the normal build — **no prebuilt-helper recompile needed**, unlike the boot gadget
-identity). **② adb-over-ffs and ③ HID/BadUSB remain separate follow-on epics — do not start here.**
+**Active epic: determine whether the internal speaker/headphone audio path can be driven under
+native init, and — only if a safe path exists — produce sound.** This is a *research / feasibility*
+epic: like the kernel-security recon phase, **"NON-VIABLE under native init" is an acceptable,
+valuable outcome** if that is where the evidence lands. Do not force a result.
 
-> **THE hard constraint:** the control channel (USB **ACM serial bridge** + **NCM**) lives on the
-> **same UDC** as everything else, and Linux cannot modify a *bound* gadget — reconfiguring requires
-> `UDC->"none"` (unbind, which drops the channel the command arrived on) → reconfigure → rebind. So:
-> **never produce a config without NCM+control-ACM; every reconfigure is atomic unbind→reconfigure→
-> rebind with an auto-rebind watchdog + known-good restore; boot must always bring up a controllable
-> gadget. Never ship a path that can leave the device with no control channel.**
+**Grounded starting facts (from the 2026-06-14 session research; re-verify, do not trust blindly):**
+- **HW:** codec `wcd934x`/`wcd9360` on **SLIMbus** + **4× `wsa881x`** smart amps on **SoundWire**;
+  *all* audio routes through the **ADSP (Q6 DSP)** — you cannot poke the speaker directly.
+- **Two Linux audio architectures:** (a) **downstream techpack** (proprietary `msm-pcm-q6`/APRv2 +
+  ACDB + Qualcomm audio HAL — what *this* device actually uses); (b) **mainline** `q6afe`/`q6asm`/
+  `q6routing` + mainline `wcd934x`/`wsa881x` (postmarketOS). **(b) needs a mainline kernel we do
+  NOT run → swapping the kernel is out of scope + brick-risky → (b) is REJECTED up front.**
+- **Our stock 4.14 kernel (verified):** the ADSP **PIL/remoteproc node is present** in DTS
+  (`qcom,firmware-name = "adsp"`, `sm8150.dtsi:1718`), but `sound/`, `techpack/audio`, the APR bus,
+  and all q6 ASoC drivers are **stripped from the open-source drop**. We boot the **stock kernel
+  image unchanged**, so its built-in/vendor audio drivers + ADSP firmware + ACDB are **ABI-matched**
+  → the only realistic path is **(a): reuse stock vendor blobs**, not a rebuild.
+- **The two real walls:** ① does native init ever **bring the ADSP up** (stock Android init does the
+  PIL load; we do not)? ② **Qualcomm audio HAL + ACDB calibration**. Lighter hope to test:
+  **tinyalsa + tinymix(`mixer_paths*.xml`) direct** on the ASoC card, *bypassing* the full HAL.
+- **Out of scope inside this epic:** modem/**call** audio and the `q6voice` daemon (separate, harder,
+  and touches the CP/modem boundary) — **speaker/headphone *playback only*.**
 
-Staged units, one V-iteration each. **All backing storage is file-backed read-only** — never
-expose real `/data`, internal partitions, the SD raw block, or any forbidden partition:
+Staged units, one V-iteration each. **AUD-0 and AUD-1 are host-only and loop-safe.** **AUD-2 and
+beyond touch the ADSP / device audio — a NEW device-risk domain — so they are HARD operator-gated:
+the loop must STOP and request explicit operator go before any on-device ADSP activation or audio
+write.** Even when gated-in, device steps stay inside the boot-partition-only + recoverable envelope;
+ADSP subsystem-restart is recoverable, but forbidden-partition rules remain absolute.
 
-- **U-A — single named LUN — DONE at V2322.** The existing persona's `lun.0` now has a named
-  identity: `lun.0/inquiry_string` = vendor `A90-LNX` + product `A90-INTERNAL` + revision `0001`
-  (exact 28-byte string `A90-LNX A90-INTERNAL    0001`), and a read-only file-backed **FAT16**
-  image labeled `A90INTERNAL` (11 chars). Live host validation passed: `lsblk -S` showed SCSI
-  model `A90-INTERNAL`, and the block view showed label `A90INTERNAL`, filesystem `vfat`, size
-  `8M`, read-only `1`.
-- **U-B — multi-LUN — DONE at V2323.** `lun.1` was added with model `A90-SD`, label `A90SD`, and a read-only file-backed FAT16 image. Live host validation passed: `lsblk -S` showed two USB disks with SCSI models `A90-INTERNAL` and `A90-SD`, and the block view showed labels `A90INTERNAL` and `A90SD`, filesystem `vfat`, size `8M`, read-only `1`. (`FSG_MAX_LUNS = 8`.)
-- **U-C — real SD / internal read-only exposure with a mount-conflict gate — DEFERRED.** Do NOT start
-  without a new explicit goal.
+- **AUD-0 — host-only inventory & decision basis.** From the stock AP/`vendor` image (extract
+  host-side; treat as proprietary, keep under `workspace/private/`, never commit), enumerate: audio
+  `.ko` modules, the **`adsp` firmware** image, **ACDB** `.acdb` files, `mixer_paths*.xml`,
+  `audio_platform_info*.xml`, and the audio-HAL libs. Decide: are the audio drivers **built into the
+  boot kernel image** we already flash, or separate vendor `.ko`? Map the exact bring-up chain.
+  **Deliverable:** a feasibility report answering *"is a tinyalsa-direct (no full HAL) path plausible,
+  or is the full Qualcomm HAL+binder stack mandatory?"* If mandatory → recommend **CLOSE as
+  NON-VIABLE** (document, like the kernel-security recon close) and stop the epic.
+- **AUD-1 — host-only ADSP/remoteproc path analysis.** Confirm the remoteproc/PIL node, the firmware
+  search path, the minimal driver load order, and *how* (in principle) a PID-1 native init would
+  trigger the ADSP load via sysfs `remoteproc` state. No device action. **Deliverable:** the precise,
+  reviewable device-step plan that AUD-2 would run.
+- **AUD-2 — DEVICE, OPERATOR-GATED — ADSP liveness probe (no audio yet).** Only after explicit
+  operator go: under native init, read `remoteproc` state, attempt the (recoverable) ADSP subsystem
+  load, and observe whether an ALSA card / `/dev/snd` materializes. Success = "DSP comes up + card
+  appears," nothing more.
+- **AUD-3 — DEVICE, OPERATOR-GATED — first tinyalsa playback attempt.** Only after AUD-2 passes and a
+  fresh operator go: load the speaker route via `tinymix`/`mixer_paths.xml` and push a test PCM with
+  `tinyplay`. First actual sound test.
 
-**Validation:** U-A/U-B need **host-side** confirmation of **both** identity layers (SCSI model via
-`lsblk -S`/`udevadm`, and the mounted FAT volume label) — record the operator host steps and treat
-them as a parked checkpoint when unavailable in the automated run. On-device every iteration:
-`selftest fail=0` and the serial control channel returns after each reconfigure (NCM+ACM preserved).
-Every device step: boot-only flash, pinned SHA, post-boot health check, auto-rollback to `v2321` on
-any failure (`v2237`/`v48` remain deeper fallbacks). Bump init beyond the current validated test
-artifact; `vNNNN-purpose` tag.
+**Validation:** AUD-0/AUD-1 are host-only — `py_compile`/unittest for any harness code, no flash,
+no device. AUD-2/AUD-3 (if gated-in) every iteration: boot-only flash, pinned SHA, post-boot health
+check (`version`/`status`/`selftest fail=0`), USB control channel returns, auto-rollback to `v2321`
+on any failure (`v2237`/`v48` deeper fallbacks). Bump init beyond the current validated artifact;
+`vNNNN-purpose` tag. **If AUD-0 lands on "full HAL mandatory," close the epic with the evidence
+rather than grinding.**
 
 **T1 (now SATURATED) — analyzer / harness regression test suite (host-only, NO flash).**
 As of 2026-06-13 the 12 `workspace/public/src/harness/a90harness/` modules and all 124 revalidation
