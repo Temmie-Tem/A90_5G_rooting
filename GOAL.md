@@ -4,14 +4,27 @@ Drive the A90 native-init project forward one **bounded V-iteration at a time** 
 the proven cycle below. This file says WHAT to pursue; **`AGENTS.md` says HOW — its
 safety invariants and flash gates are binding and override any sub-goal.**
 
-> Running mode note: this loop is intended to run unattended (incl. Codex bypass).
-> Because it can flash a real device with no human in the loop, every device step MUST
-> obey the flash gates in `AGENTS.md` (rollback precondition, post-flash health check,
-> auto-rollback, no cascading bad flashes). The operator accepts that a boot failure may
-> need a manual TWRP/download-mode recovery in the morning — **but that acceptance covers
-> the boot partition ONLY.** Forbidden partitions (efs/sec_efs/modem/RPMB/keymaster/
-> vbmeta/bootloader) are NOT TWRP-recoverable = permanent brick, and remain absolutely
-> off-limits regardless. When in doubt, STOP and report — never guess.
+> Running mode note: this loop runs unattended (incl. Codex bypass) and is **OVERNIGHT
+> OPERATOR-PRE-AUTHORIZED (2026-06-15)**. The operator has **pre-granted every device step
+> that is boot-partition-only and recoverable** — native-init flashes, ADSP activation,
+> `tinymix` mixer writes, `tinyplay`, booting a pinned stock-Android image for route-delta
+> capture, and rollback. **The loop MAY self-authorize these and MUST NOT stop merely to
+> ask for human approval — proceed through them.** This relaxes the *human-approval* gates
+> only; it does **not** relax the flash-safety machinery. Every device step still MUST obey
+> the `AGENTS.md` flash gates (rollback precondition, pinned + readback SHA, post-flash
+> health check, **auto-rollback to `v2321`**, no cascading bad flashes) — these stay ON
+> precisely because they are what makes unattended progress safe (a bad boot self-recovers
+> and the loop keeps going; a disabled rollback would instead strand the device until
+> morning). The operator accepts that a boot failure may need a manual TWRP/download-mode
+> recovery in the morning — **but that acceptance covers the boot partition ONLY.**
+> Forbidden partitions (efs/sec_efs/modem/RPMB/keymaster/vbmeta/bootloader/dsp/keydata) are
+> NOT TWRP-recoverable = permanent brick, and remain **absolutely off-limits** — never
+> write them, never use raw `dd`/fastboot to any non-boot partition. ADSP/mixer/`tinyplay`
+> writes are runtime state (reboot-recoverable); keep to **observed/known-good routes and
+> bounded/low amplitude — do not blind-poke smart-amp gain/boost**. The "fails twice →
+> stop" and anti-churn guards stay in force. If a step would touch a forbidden partition,
+> leave the recoverable envelope, or you cannot keep a known-good rollback image present,
+> STOP and report — never guess.
 
 ## North star — priority-ordered tracks (T1 → T2 → T3)
 
@@ -53,11 +66,13 @@ valuable outcome** if that is where the evidence lands. Do not force a result.
 - **Out of scope inside this epic:** modem/**call** audio and the `q6voice` daemon (separate, harder,
   and touches the CP/modem boundary) — **speaker/headphone *playback only*.**
 
-Staged units, one V-iteration each. **AUD-0 and AUD-1 are host-only and loop-safe.** **AUD-2 and
-beyond touch the ADSP / device audio — a NEW device-risk domain — so they are HARD operator-gated:
-the loop must STOP and request explicit operator go before any on-device ADSP activation or audio
-write.** Even when gated-in, device steps stay inside the boot-partition-only + recoverable envelope;
-ADSP subsystem-restart is recoverable, but forbidden-partition rules remain absolute.
+Staged units, one V-iteration each. **AUD-0 and AUD-1 are host-only.** **AUD-2 and beyond touch the
+ADSP / device audio and (for route-delta) a stock-Android boot. Per the overnight operator
+pre-authorization above, the loop MAY self-authorize these device steps and must NOT stop to ask for
+human approval — proceed.** All such steps stay inside the boot-partition-only + recoverable envelope:
+ADSP subsystem-restart and `tinymix`/PCM/`tinyplay` writes are reboot-recoverable, and a bad boot
+auto-rolls-back to `v2321`. Forbidden-partition rules remain absolute. Keep audio writes to
+observed/known-good routes and bounded amplitude (no blind smart-amp gain/boost poking).
 
 - **AUD-0 — host-only inventory & decision basis.** From the stock AP/`vendor` image (extract
   host-side; treat as proprietary, keep under `workspace/private/`, never commit), enumerate: audio
@@ -71,13 +86,14 @@ ADSP subsystem-restart is recoverable, but forbidden-partition rules remain abso
   search path, the minimal driver load order, and *how* (in principle) a PID-1 native init would
   trigger the ADSP load via sysfs `remoteproc` state. No device action. **Deliverable:** the precise,
   reviewable device-step plan that AUD-2 would run.
-- **AUD-2 — DEVICE, OPERATOR-GATED — ADSP liveness probe (no audio yet).** Only after explicit
-  operator go: under native init, read `remoteproc` state, attempt the (recoverable) ADSP subsystem
-  load, and observe whether an ALSA card / `/dev/snd` materializes. Success = "DSP comes up + card
-  appears," nothing more.
-- **AUD-3 — DEVICE, OPERATOR-GATED — first tinyalsa playback attempt.** Only after AUD-2 passes and a
-  fresh operator go: load the speaker route via `tinymix`/`mixer_paths.xml` and push a test PCM with
-  `tinyplay`. First actual sound test.
+- **AUD-2 — DEVICE (overnight pre-authorized) — ADSP liveness probe.** [DONE — passed V2332/V2348,
+  reconfirmed V2359.] Under native init, read `remoteproc` state, attempt the (recoverable) ADSP
+  subsystem load, observe whether an ALSA card / `/dev/snd` materializes. Proceed within the
+  recoverable envelope; no human-approval stop required.
+- **AUD-3 — DEVICE (overnight pre-authorized) — speaker route + first tinyalsa playback.** Resolve the
+  speaker route (route-delta capture from stock Android is the current method), then load it via
+  `tinymix` and push a bounded-amplitude test PCM with `tinyplay`. First actual sound test. Proceed
+  within the recoverable envelope; no human-approval stop required.
 
 **Latest audio route-delta planning state (V2371):** V2362 selected Android route-delta
 capture as the next speaker-route measurement and designed it host-only. The measurement should boot
@@ -122,11 +138,13 @@ V2321 ended with `selftest fail=0`; V2367 private evidence is
 reproducibility replays and did not change the next frontier.
 
 **Validation:** AUD-0/AUD-1 are host-only — `py_compile`/unittest for any harness code, no flash,
-no device. AUD-2/AUD-3 (if gated-in) every iteration: boot-only flash, pinned SHA, post-boot health
-check (`version`/`status`/`selftest fail=0`), USB control channel returns, auto-rollback to `v2321`
-on any failure (`v2237`/`v48` deeper fallbacks). Bump init beyond the current validated artifact;
-`vNNNN-purpose` tag. **If AUD-0 lands on "full HAL mandatory," close the epic with the evidence
-rather than grinding.**
+no device. Every AUD-2/AUD-3 device step (now overnight pre-authorized — no human-approval stop, but
+the flash-safety machinery below is **unconditional and stays ON**): boot-only flash via the checked
+helper, pinned + readback SHA, post-boot health check (`version`/`status`/`selftest fail=0`), USB
+control channel returns, **auto-rollback to `v2321` on any failure** (`v2237`/`v48` deeper fallbacks),
+no cascading bad flashes, known-good rollback image must be present before flashing. Bump init beyond
+the current validated artifact; `vNNNN-purpose` tag. **If the evidence lands on "full HAL mandatory,"
+close the epic with that evidence rather than grinding.**
 
 **T1 (now SATURATED) — analyzer / harness regression test suite (host-only, NO flash).**
 As of 2026-06-13 the 12 `workspace/public/src/harness/a90harness/` modules and all 124 revalidation
