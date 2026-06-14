@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import argparse
+import tempfile
 import unittest
 from pathlib import Path
 from unittest import mock
@@ -19,6 +20,7 @@ def args(**overrides: object) -> argparse.Namespace:
         "android_home": None,
         "android_jar": None,
         "javac": None,
+        "java_home": None,
         "d8": None,
         "dx": None,
     }
@@ -38,15 +40,22 @@ class AndroidAudioRouteStimulusBuilder(unittest.TestCase):
 
     def test_can_build_when_javac_d8_and_android_jar_exist(self) -> None:
         fake_jar = Path(__file__)
-        result = v2366.discover_state(args(
-            dry_run=True,
-            javac="/tool/javac",
-            d8="/tool/d8",
-            android_jar=fake_jar,
-        ))
+        with tempfile.TemporaryDirectory() as temp_dir:
+            java_home = Path(temp_dir) / "jdk"
+            (java_home / "bin").mkdir(parents=True)
+            (java_home / "bin/java").write_text("#!/bin/sh\n")
+            (java_home / "bin/javac").write_text("#!/bin/sh\n")
+            result = v2366.discover_state(args(
+                dry_run=True,
+                java_home=java_home,
+                d8="/tool/d8",
+                android_jar=fake_jar,
+            ))
 
         self.assertTrue(result["source_exists"])
         self.assertTrue(result["android_jar_exists"])
+        self.assertEqual(result["javac"], str(java_home / "bin/javac"))
+        self.assertEqual(result["java"], str(java_home / "bin/java"))
         self.assertTrue(result["can_build"])
 
     def test_source_uses_audiotrack_and_bounded_defaults(self) -> None:

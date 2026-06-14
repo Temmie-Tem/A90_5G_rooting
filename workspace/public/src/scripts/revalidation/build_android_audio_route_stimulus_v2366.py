@@ -52,26 +52,41 @@ def discover_android_jars(android_home: Path | None) -> list[Path]:
 
 def discover_state(args: argparse.Namespace) -> dict[str, Any]:
     android_home = args.android_home
+    java_home = args.java_home
     android_jars = discover_android_jars(android_home)
     selected_android_jar = args.android_jar or (android_jars[-1] if android_jars else None)
     d8 = args.d8 or shutil.which("d8")
     dx = args.dx or shutil.which("dx")
-    javac = args.javac or shutil.which("javac")
+    javac = args.javac or (str(java_home / "bin/javac") if java_home and (java_home / "bin/javac").exists() else None) or shutil.which("javac")
+    java = (str(java_home / "bin/java") if java_home and (java_home / "bin/java").exists() else None) or shutil.which("java")
+    dexer = d8 or dx
     return {
         "source": rel(SOURCE),
         "source_exists": SOURCE.exists(),
         "javac": javac,
+        "java": java,
+        "java_home": str(java_home) if java_home else None,
         "d8": d8,
         "dx": dx,
         "android_home": str(android_home) if android_home else None,
         "android_jar": str(selected_android_jar) if selected_android_jar else None,
         "android_jar_exists": bool(selected_android_jar and selected_android_jar.exists()),
-        "can_build": bool(SOURCE.exists() and javac and (d8 or dx) and selected_android_jar and selected_android_jar.exists()),
+        "can_build": bool(SOURCE.exists() and javac and java and dexer and selected_android_jar and selected_android_jar.exists()),
     }
 
 
-def run(command: list[str]) -> None:
-    subprocess.run(command, check=True)
+def command_env(state: dict[str, Any]) -> dict[str, str] | None:
+    java_home = state.get("java_home")
+    if not java_home:
+        return None
+    env = __import__("os").environ.copy()
+    env["JAVA_HOME"] = java_home
+    env["PATH"] = f"{java_home}/bin:" + env.get("PATH", "")
+    return env
+
+
+def run(command: list[str], *, env: dict[str, str] | None = None) -> None:
+    subprocess.run(command, check=True, env=env)
 
 
 def build(args: argparse.Namespace) -> dict[str, Any]:
@@ -90,6 +105,8 @@ def build(args: argparse.Namespace) -> dict[str, Any]:
         ]
         if not (state.get("d8") or state.get("dx")):
             result["missing"].append("d8_or_dx")
+        if not state.get("java"):
+            result["missing"].append("java")
         return result
 
     classes_dir = OUT_DIR / "classes"
@@ -100,6 +117,7 @@ def build(args: argparse.Namespace) -> dict[str, Any]:
     classes_dir.mkdir(parents=True)
     dex_dir.mkdir(parents=True)
 
+    env = command_env(state)
     run([
         state["javac"],
         "-source", "1.8",
@@ -107,12 +125,12 @@ def build(args: argparse.Namespace) -> dict[str, Any]:
         "-classpath", state["android_jar"],
         "-d", str(classes_dir),
         str(SOURCE),
-    ])
+    ], env=env)
     if state.get("d8"):
-        run([state["d8"], "--output", str(dex_dir), str(classes_dir / f"{CLASS_NAME}.class")])
+        run([state["d8"], "--output", str(dex_dir), str(classes_dir / f"{CLASS_NAME}.class")], env=env)
         produced = dex_dir / "classes.dex"
     else:
-        run([state["dx"], "--dex", f"--output={dex_dir / 'classes.dex'}", str(classes_dir)])
+        run([state["dx"], "--dex", f"--output={dex_dir / 'classes.dex'}", str(classes_dir)], env=env)
         produced = dex_dir / "classes.dex"
     shutil.copy2(produced, dex_path)
     dex_path.chmod(0o600)
@@ -133,6 +151,7 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--android-home", type=Path)
     parser.add_argument("--android-jar", type=Path)
     parser.add_argument("--javac")
+    parser.add_argument("--java-home", type=Path)
     parser.add_argument("--d8")
     parser.add_argument("--dx")
     return parser.parse_args()
