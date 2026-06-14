@@ -186,6 +186,20 @@ def tinymix_state() -> dict[str, Any]:
     }
 
 
+def add_adb_target(command: list[str], args: argparse.Namespace) -> list[str]:
+    command.extend(["--adb", args.adb])
+    if args.serial:
+        command.extend(["--serial", args.serial])
+    return command
+
+
+def adb_base(args: argparse.Namespace) -> list[str]:
+    command = [args.adb]
+    if args.serial:
+        command.extend(["-s", args.serial])
+    return command
+
+
 def flash_android_command(args: argparse.Namespace, boot_image_for_helper: str) -> list[str]:
     command = [
         "python3",
@@ -202,6 +216,7 @@ def flash_android_command(args: argparse.Namespace, boot_image_for_helper: str) 
         "--android-timeout",
         str(args.android_timeout),
     ]
+    add_adb_target(command, args)
     if args.from_native:
         command.append("--from-native")
     return command
@@ -219,55 +234,57 @@ def rollback_command(args: argparse.Namespace, *, from_native: bool = False) -> 
         "--verify-protocol",
         "selftest",
     ]
+    add_adb_target(command, args)
     if from_native:
         command.append("--from-native")
     return command
 
 
 def android_reboot_recovery_command(args: argparse.Namespace) -> list[str]:
-    return [
-        "adb",
-        "reboot",
-        "recovery",
-    ]
+    return adb_base(args) + ["reboot", "recovery"]
 
 
-def android_shell(command: str) -> list[str]:
-    return ["adb", "shell", "su", "-c", command]
+def android_shell(args: argparse.Namespace, command: str) -> list[str]:
+    return adb_base(args) + ["shell", "su", "-c", command]
 
 
-def snapshot_plan(label: str) -> list[dict[str, Any]]:
+def adb_push_command(args: argparse.Namespace, source: str, destination: str) -> list[str]:
+    return adb_base(args) + ["push", source, destination]
+
+
+def snapshot_plan(label: str, args: argparse.Namespace) -> list[dict[str, Any]]:
     return [
         {
             "name": f"{label}-tinymix-all-values",
             "kind": "mixer-read",
-            "command": android_shell(f"{REMOTE_TINYMIX} -D 0 --all-values"),
+            "command": android_shell(args, f"{REMOTE_TINYMIX} -D 0 --all-values"),
         },
         {
             "name": f"{label}-dumpsys-audio",
             "kind": "framework-read",
-            "command": android_shell("dumpsys audio"),
+            "command": android_shell(args, "dumpsys audio"),
         },
         {
             "name": f"{label}-dumpsys-audioflinger",
             "kind": "framework-read",
-            "command": android_shell("dumpsys media.audio_flinger"),
+            "command": android_shell(args, "dumpsys media.audio_flinger"),
         },
         {
             "name": f"{label}-dumpsys-audiopolicy",
             "kind": "framework-read",
-            "command": android_shell("dumpsys media.audio_policy"),
+            "command": android_shell(args, "dumpsys media.audio_policy"),
         },
         {
             "name": f"{label}-proc-asound",
             "kind": "kernel-read",
-            "command": android_shell("cat /proc/asound/cards /proc/asound/pcm"),
+            "command": android_shell(args, "cat /proc/asound/cards /proc/asound/pcm"),
         },
     ]
 
 
 def playback_command(args: argparse.Namespace) -> list[str]:
     return android_shell(
+        args,
         "CLASSPATH={stimulus} app_process /system/bin A90AudioRouteStimulus "
         "--speaker --duration-ms {duration} --sample-rate {rate} --amplitude {amplitude}".format(
             stimulus=REMOTE_STIMULUS,
@@ -292,13 +309,13 @@ def playback_start_command(args: argparse.Namespace) -> list[str]:
         f"echo $? > {shlex.quote(REMOTE_STIMULUS_RC)}"
         ") &"
     )
-    return android_shell(command)
+    return android_shell(args, command)
 
 
-def stimulus_result_commands() -> list[list[str]]:
+def stimulus_result_commands(args: argparse.Namespace) -> list[list[str]]:
     return [
-        android_shell(f"cat {shlex.quote(REMOTE_STIMULUS_LOG)} 2>/dev/null || true"),
-        android_shell(f"cat {shlex.quote(REMOTE_STIMULUS_RC)} 2>/dev/null || true"),
+        android_shell(args, f"cat {shlex.quote(REMOTE_STIMULUS_LOG)} 2>/dev/null || true"),
+        android_shell(args, f"cat {shlex.quote(REMOTE_STIMULUS_RC)} 2>/dev/null || true"),
     ]
 
 
@@ -348,18 +365,18 @@ def dry_run_payload(args: argparse.Namespace) -> dict[str, Any]:
         "commands": {
             "flash_android": flash_android_command(args, sealed_boot),
             "stage": [
-                ["adb", "shell", "su", "-c", f"rm -rf {REMOTE_DIR} && mkdir -p {REMOTE_DIR} && chmod 700 {REMOTE_DIR}"],
-                ["adb", "push", tiny.get("path") or "<tinymix>", REMOTE_TINYMIX],
-                ["adb", "push", rel(args.stimulus_dex) if args.stimulus_dex else "<stimulus-dex>", REMOTE_STIMULUS],
-                ["adb", "shell", "su", "-c", f"chmod 700 {REMOTE_TINYMIX} {REMOTE_STIMULUS}"],
+                android_shell(args, f"rm -rf {REMOTE_DIR} && mkdir -p {REMOTE_DIR} && chmod 700 {REMOTE_DIR}"),
+                adb_push_command(args, tiny.get("path") or "<tinymix>", REMOTE_TINYMIX),
+                adb_push_command(args, rel(args.stimulus_dex) if args.stimulus_dex else "<stimulus-dex>", REMOTE_STIMULUS),
+                android_shell(args, f"chmod 700 {REMOTE_TINYMIX} {REMOTE_STIMULUS}"),
             ],
-            "baseline_snapshots": snapshot_plan("baseline"),
+            "baseline_snapshots": snapshot_plan("baseline", args),
             "playback": playback_command(args),
             "playback_start_background": playback_start_command(args),
-            "playback_result": stimulus_result_commands(),
-            "active_snapshots": snapshot_plan("active"),
-            "post_snapshots": snapshot_plan("post"),
-            "cleanup": [["adb", "shell", "su", "-c", f"rm -rf {REMOTE_DIR}"]],
+            "playback_result": stimulus_result_commands(args),
+            "active_snapshots": snapshot_plan("active", args),
+            "post_snapshots": snapshot_plan("post", args),
+            "cleanup": [android_shell(args, f"rm -rf {REMOTE_DIR}")],
             "android_reboot_recovery_for_rollback": android_reboot_recovery_command(args),
             "rollback_v2321": rollback_command(args),
         },
@@ -449,7 +466,7 @@ def copy_sealed_android_boot(selected: dict[str, Any], out_dir: Path) -> dict[st
 
 
 def capture_snapshots(label: str, out_dir: Path, args: argparse.Namespace, steps: list[dict[str, Any]]) -> None:
-    for item in snapshot_plan(label):
+    for item in snapshot_plan(label, args):
         steps.append(run_step(
             item["name"],
             item["command"],
@@ -518,7 +535,7 @@ def run_live(args: argparse.Namespace) -> dict[str, Any]:
         capture_snapshots("active", out_dir, args, steps)
         remaining = max(0.0, (args.duration_ms / 1000.0) - args.active_delay_sec + args.post_delay_sec)
         time.sleep(remaining)
-        for index, command in enumerate(stimulus_result_commands()):
+        for index, command in enumerate(stimulus_result_commands(args)):
             steps.append(run_step(f"playback-result-{index}", command, out_dir, timeout_sec=args.adb_command_timeout, check=False))
         capture_snapshots("post", out_dir, args, steps)
         for index, command in enumerate(payload["commands"]["cleanup"]):
@@ -567,6 +584,8 @@ def parse_args() -> argparse.Namespace:
     mode.add_argument("--dry-run", action="store_true", help="emit the route-delta plan; no device action")
     mode.add_argument("--run-live", action="store_true", help="run the exact-gated Android route-delta capture")
     parser.add_argument("--stimulus-dex", type=Path, help="private AudioTrack stimulus dex for future live use")
+    parser.add_argument("--adb", default="adb", help="adb executable to use for Android handoff commands")
+    parser.add_argument("--serial", help="ADB serial to target for Android handoff commands")
     parser.add_argument("--approval", help="exact AUD-3D2 approval phrase required by --run-live")
     parser.add_argument("--out-dir", type=Path, help="private live output directory")
     parser.add_argument("--android-timeout", type=float, default=420.0)

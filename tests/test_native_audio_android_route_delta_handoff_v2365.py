@@ -17,6 +17,8 @@ v2365 = load_revalidation("native_audio_android_route_delta_handoff_v2365")
 def args(**overrides: object) -> argparse.Namespace:
     defaults: dict[str, object] = {
         "stimulus_dex": None,
+        "adb": "adb",
+        "serial": None,
         "android_timeout": 420.0,
         "duration_ms": 2000,
         "sample_rate": 48000,
@@ -88,6 +90,21 @@ class AndroidRouteDeltaPlanner(unittest.TestCase):
         rollback = payload["commands"]["rollback_v2321"]
         self.assertIn("native_init_flash.py", " ".join(rollback))
         self.assertNotIn("--from-native", rollback)
+
+    def test_adb_target_is_propagated_to_flash_stage_snapshot_and_rollback(self) -> None:
+        payload = v2365.dry_run_payload(args(adb="/opt/android/adb", serial="A90ADB01"))
+
+        self.assertIn("--adb", payload["commands"]["flash_android"])
+        self.assertIn("/opt/android/adb", payload["commands"]["flash_android"])
+        self.assertIn("--serial", payload["commands"]["flash_android"])
+        self.assertIn("A90ADB01", payload["commands"]["flash_android"])
+        self.assertEqual(payload["commands"]["stage"][0][:3], ["/opt/android/adb", "-s", "A90ADB01"])
+        self.assertEqual(payload["commands"]["baseline_snapshots"][0]["command"][:3], ["/opt/android/adb", "-s", "A90ADB01"])
+        self.assertEqual(payload["commands"]["android_reboot_recovery_for_rollback"], ["/opt/android/adb", "-s", "A90ADB01", "reboot", "recovery"])
+        self.assertIn("--adb", payload["commands"]["rollback_v2321"])
+        self.assertIn("/opt/android/adb", payload["commands"]["rollback_v2321"])
+        self.assertIn("--serial", payload["commands"]["rollback_v2321"])
+        self.assertIn("A90ADB01", payload["commands"]["rollback_v2321"])
 
     def test_run_live_requires_exact_approval_phrase(self) -> None:
         namespace = args(
