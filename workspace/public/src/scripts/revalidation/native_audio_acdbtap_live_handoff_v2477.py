@@ -166,6 +166,8 @@ def summarize_acdbtap_artifacts(out_dir: Path) -> dict[str, Any]:
         classification = "captured-acdbtap-full-outbuf-set-with-4916"
     else:
         classification = "captured-acdbtap-full-outbuf-set-no-4916"
+    partial_success = classification == "captured-acdbtap-full-outbuf-set-no-4916"
+    full_success = classification == "captured-acdbtap-full-outbuf-set-with-4916"
     return {
         "event_file_count": len(event_files),
         "event_count": len(rows),
@@ -179,6 +181,10 @@ def summarize_acdbtap_artifacts(out_dir: Path) -> dict[str, Any]:
         "size_query_events": size_query[:16],
         "all_events_preview": rows[:16],
         "classification": classification,
+        "full_success": full_success,
+        "partial_success": partial_success,
+        "operator_valuable": bool(full_success or partial_success),
+        "counts_toward_fails_twice": not bool(full_success or partial_success),
     }
 
 
@@ -344,7 +350,10 @@ def run_live(args: argparse.Namespace) -> dict[str, Any]:
         summary = summarize_acdbtap_artifacts(out_dir)
         result["acdbtap_summary"] = summary
         result["decision"] = f"{decision_slug()}-{summary['classification']}-before-rollback"
-        result["ok"] = bool(summary["raw_complete"] and summary["target_4916_count"] > 0)
+        result["ok"] = bool(summary.get("operator_valuable"))
+        result["partial_success"] = bool(summary.get("partial_success"))
+        result["target_4916_success"] = bool(summary.get("full_success"))
+        result["counts_toward_fails_twice"] = bool(summary.get("counts_toward_fails_twice", True))
 
         steps.append(route.run_step("acdbtap-cleanup", cleanup_command(args), out_dir, timeout_sec=args.adb_command_timeout, check=False))
         cleanup_done = True

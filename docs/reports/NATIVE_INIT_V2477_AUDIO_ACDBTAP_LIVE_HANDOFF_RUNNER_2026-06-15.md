@@ -91,8 +91,10 @@ V2477 treats the live unit as accepted only if the pulled capture contains:
 If records exist but raw bytes are missing, the result is classified as
 `acdbtap-metadata-with-missing-raw`, not accepted. If records exist but no
 `4916` record appears, the result is classified as
-`captured-acdbtap-full-outbuf-set-no-4916`: useful evidence, but not the target
-capture.
+`captured-acdbtap-full-outbuf-set-no-4916`: a **partial success** because the
+ordered per-device ACDB out-buffer set is still operator-valuable evidence.
+That partial-success result must be preserved and does **not** count as a
+fails-twice dead run; it is simply not the topology-target full success.
 
 The live runner parses `acdbtap-events.jsonl` privately and publishes only:
 
@@ -150,8 +152,10 @@ envelope. Expected first outcomes are:
   record set captured; operator can map size/order to cal types and assemble the
   replay manifest.
 - `preload-not-confirmed`: stop before playback; inspect linker/SELinux output.
-- `captured-acdbtap-full-outbuf-set-no-4916`: preload path works, but the HAL did
-  not hit the topology call in the observed window.
+- `captured-acdbtap-full-outbuf-set-no-4916`: partial success; preload path works
+  and the ordered per-device out-buffer set is preserved, but the HAL did not
+  hit the topology call in the observed window. Do not count this as a dead
+  run for fails-twice accounting.
 - `acdbtap-metadata-with-missing-raw`: metadata arrived, but the private raw
   payload set is incomplete; do not use it for native replay.
 - `no-acdbtap-events`: preload path works or is ambiguous, but no captured

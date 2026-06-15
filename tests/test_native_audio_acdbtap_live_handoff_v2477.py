@@ -89,8 +89,42 @@ class V2477AcdbTapLiveHandoffTests(unittest.TestCase):
             self.assertEqual(summary["event_count"], 2)
             self.assertEqual(summary["raw_file_count"], 2)
             self.assertTrue(summary["raw_complete"])
+            self.assertTrue(summary["full_success"])
+            self.assertFalse(summary["partial_success"])
+            self.assertTrue(summary["operator_valuable"])
+            self.assertFalse(summary["counts_toward_fails_twice"])
             self.assertEqual([event["cmd"] for event in summary["ordered_events"]], ["0x00012abc", "0x00004567"])
             self.assertNotIn("raw_path", summary["target_events"][0])
+            self.assertNotIn("raw_path", summary["ordered_events"][0])
+
+    def test_summarize_acdbtap_artifacts_treats_no_4916_as_partial_success(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            out = Path(tmp)
+            cap = out / "acdbtap-device-artifacts"
+            cap.mkdir()
+            (cap / "acdbtap-events.jsonl").write_text(
+                json.dumps({
+                    "seq": "0x00000001",
+                    "cmd": "0x0000afe0",
+                    "in_len": "0x00000020",
+                    "out_len": "0x00000080",
+                    "ret": "0x00000000",
+                    "sha256": "c" * 64,
+                    "raw_written": True,
+                    "is_target_4916": False,
+                    "is_size_query_4": False,
+                    "raw_path": "/data/local/tmp/a90-acdb-tap/acdbtap.bin",
+                }) + "\n"
+            )
+            (cap / "acdbtap-00000001-cmd-0000afe0-len-00000080.bin").write_bytes(b"z")
+            summary = v2477.summarize_acdbtap_artifacts(out)
+            self.assertEqual(summary["classification"], "captured-acdbtap-full-outbuf-set-no-4916")
+            self.assertEqual(summary["target_4916_count"], 0)
+            self.assertTrue(summary["raw_complete"])
+            self.assertFalse(summary["full_success"])
+            self.assertTrue(summary["partial_success"])
+            self.assertTrue(summary["operator_valuable"])
+            self.assertFalse(summary["counts_toward_fails_twice"])
             self.assertNotIn("raw_path", summary["ordered_events"][0])
 
     def test_summarize_acdbtap_artifacts_does_not_accept_metadata_without_raw_bytes(self) -> None:
@@ -114,6 +148,8 @@ class V2477AcdbTapLiveHandoffTests(unittest.TestCase):
             summary = v2477.summarize_acdbtap_artifacts(out)
             self.assertEqual(summary["classification"], "acdbtap-metadata-with-missing-raw")
             self.assertFalse(summary["raw_complete"])
+            self.assertFalse(summary["operator_valuable"])
+            self.assertTrue(summary["counts_toward_fails_twice"])
 
 
 if __name__ == "__main__":
