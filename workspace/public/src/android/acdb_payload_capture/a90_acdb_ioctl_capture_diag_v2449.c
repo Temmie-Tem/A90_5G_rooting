@@ -32,8 +32,16 @@
 #ifndef __NR_mmap
 #define __NR_mmap 222
 #endif
+#ifndef __NR_read
+#define __NR_read 63
+#endif
+#ifndef __NR_pread64
+#define __NR_pread64 67
+#endif
 
 #define A90_COMPAT_ARM_NR_IOCTL 54UL
+#define A90_COMPAT_ARM_NR_READ 3UL
+#define A90_COMPAT_ARM_NR_PREAD64 180UL
 #define A90_COMPAT_ARM_NR_MMAP2 192UL
 #define A90_COMPAT_ARM_GPR_COUNT 18U
 #define A90_COMPAT_ARM_GPR_BYTES (A90_COMPAT_ARM_GPR_COUNT * sizeof(uint32_t))
@@ -97,6 +105,21 @@ struct pending_mmap {
     int dup_errno;
 };
 
+struct pending_source_read {
+    int active;
+    int seq;
+    const char *abi;
+    const char *kind;
+    unsigned long syscall_nr;
+    size_t regset_len;
+    long fd;
+    unsigned long buffer;
+    unsigned long count;
+    unsigned long long offset;
+    char fd_target[512];
+    int readlink_errno;
+};
+
 struct syscall_frame {
     const char *abi;
     unsigned long syscall_nr;
@@ -116,6 +139,7 @@ struct traced_task {
     int options_set;
     struct pending_ioctl pending;
     struct pending_mmap pending_mmap;
+    struct pending_source_read pending_source_read;
 };
 
 struct decoded_cal_header {
@@ -142,6 +166,8 @@ struct capture_stats {
     int mmap_success_count;
     int mmap_error_count;
     int mmap_record_count;
+    int source_buffer_capture_count;
+    int source_buffer_error_count;
 };
 
 struct mmap_record {
@@ -418,6 +444,37 @@ static int is_mmap_syscall(const struct syscall_frame *frame) {
     return 0;
 }
 
+static int is_source_read_syscall(const struct syscall_frame *frame) {
+    if (!frame || !frame->abi) return 0;
+    if (!strcmp(frame->abi, "aarch64")) {
+        return frame->syscall_nr == __NR_read || frame->syscall_nr == __NR_pread64;
+    }
+    if (!strcmp(frame->abi, "aarch32")) {
+        return frame->syscall_nr == A90_COMPAT_ARM_NR_READ ||
+               frame->syscall_nr == A90_COMPAT_ARM_NR_PREAD64;
+    }
+    return 0;
+}
+
+static const char *source_read_kind(const struct syscall_frame *frame) {
+    if (!frame || !frame->abi) return "unknown";
+    if (!strcmp(frame->abi, "aarch64") && frame->syscall_nr == __NR_pread64) return "pread64";
+    if (!strcmp(frame->abi, "aarch32") && frame->syscall_nr == A90_COMPAT_ARM_NR_PREAD64) return "pread64";
+    return "read";
+}
+
+static unsigned long long source_read_offset_arg(const struct syscall_frame *frame) {
+    if (!frame || !frame->abi) return 0;
+    if (!strcmp(source_read_kind(frame), "pread64")) {
+        if (!strcmp(frame->abi, "aarch32")) {
+            return ((unsigned long long)((uint32_t)frame->args[4]) << 32) |
+                   (unsigned long long)((uint32_t)frame->args[3]);
+        }
+        return (unsigned long long)frame->args[3];
+    }
+    return 0;
+}
+
 static long mmap_fd_arg(const struct syscall_frame *frame) {
     if (!frame || !frame->abi) return -1;
     if (!strcmp(frame->abi, "aarch32")) return (int32_t)((uint32_t)frame->args[4]);
@@ -427,6 +484,22 @@ static long mmap_fd_arg(const struct syscall_frame *frame) {
         return (long)raw;
     }
     return (long)frame->args[4];
+}
+
+static unsigned long long mmap_offset_bytes(const struct pending_mmap *pending) {
+    if (!pending || !pending->abi) return 0;
+    if (!strcmp(pending->abi, "aarch32")) return (unsigned long long)pending->offset << 12;
+    return (unsigned long long)pending->offset;
+}
+
+static int is_acdb_source_target(const char *target) {
+    if (!target || !target[0]) return 0;
+    if (strstr(target, "/vendor/lib/") || strstr(target, "/system/lib/")) return 0;
+    if (strstr(target, "/vendor/etc/acdbdata")) return 1;
+    if (strstr(target, "/vendor/etc/audconf")) return 1;
+    if (strstr(target, "/acdbdata/")) return 1;
+    if (strstr(target, ".acdb")) return 1;
+    return 0;
 }
 
 static int syscall_return_is_error(const struct syscall_frame *frame) {
@@ -553,6 +626,32 @@ static void write_dmabuf_capture_event(FILE *fp, int seq, pid_t tid, pid_t fd_pi
     fflush(fp);
 }
 
+static void write_source_buffer_event(FILE *fp, int seq, pid_t tid, pid_t fd_pid,
+                                      const char *kind, long fd, const char *fd_target,
+                                      unsigned long buffer, unsigned long count,
+                                      unsigned long long offset, size_t capture_len,
+                                      ssize_t written_len, int read_errno, int write_errno,
+                                      const char *status, const char *path) {
+    fprintf(fp,
+            "{\"event\":\"source_buffer_capture\",\"ts_ms\":%lld,\"wall_ms\":%lld,"
+            "\"seq\":%d,\"tid\":%ld,\"fd_pid\":%ld,\"kind\":\"",
+            now_ms(), wall_ms(), seq, (long)tid, (long)fd_pid);
+    json_escape(fp, kind ? kind : "");
+    fprintf(fp,
+            "\",\"fd\":%ld,\"fd_target\":\"", fd);
+    json_escape(fp, fd_target ? fd_target : "");
+    fprintf(fp,
+            "\",\"buffer\":\"0x%lx\",\"count\":%lu,\"offset\":%llu,"
+            "\"capture_len\":%zu,\"written_len\":%zd,\"read_errno\":%d,"
+            "\"write_errno\":%d,\"status\":\"",
+            buffer, count, offset, capture_len, written_len, read_errno, write_errno);
+    json_escape(fp, status ? status : "");
+    fprintf(fp, "\",\"path\":\"");
+    if (path) json_escape(fp, path);
+    fprintf(fp, "\"}\n");
+    fflush(fp);
+}
+
 static void close_mmap_record(struct mmap_record *record) {
     if (!record || !record->valid) return;
     if (record->dup_fd >= 0) close(record->dup_fd);
@@ -636,6 +735,166 @@ static ssize_t write_all(int fd, const unsigned char *buf, size_t len) {
         total += (size_t)rc;
     }
     return (ssize_t)total;
+}
+
+static void capture_source_bytes_from_memory(FILE *fp, const struct options *opts,
+                                             const struct pending_source_read *pending,
+                                             pid_t tid, long ret, struct capture_stats *stats) {
+    if (!opts->dmabuf_out_dir || !pending || !pending->active) return;
+    if (ret <= 0) {
+        if (stats) stats->source_buffer_error_count++;
+        write_source_buffer_event(fp, pending->seq, tid, opts->fd_pid, pending->kind, pending->fd,
+                                  pending->fd_target, pending->buffer, pending->count,
+                                  pending->offset, 0, -1, ret < 0 ? (int)-ret : 0, 0,
+                                  "source-read-empty-or-error", "");
+        return;
+    }
+
+    if (mkdir(opts->dmabuf_out_dir, 0700) != 0 && errno != EEXIST) {
+        if (stats) stats->source_buffer_error_count++;
+        write_source_buffer_event(fp, pending->seq, tid, opts->fd_pid, pending->kind, pending->fd,
+                                  pending->fd_target, pending->buffer, pending->count,
+                                  pending->offset, 0, -1, errno, 0, "source-mkdir-failed", "");
+        return;
+    }
+
+    size_t capture_len = (size_t)ret;
+    if (capture_len > opts->max_dmabuf_bytes) capture_len = opts->max_dmabuf_bytes;
+    unsigned char *buf = calloc(1, capture_len);
+    if (!buf) {
+        if (stats) stats->source_buffer_error_count++;
+        write_source_buffer_event(fp, pending->seq, tid, opts->fd_pid, pending->kind, pending->fd,
+                                  pending->fd_target, pending->buffer, pending->count,
+                                  pending->offset, capture_len, -1, errno, 0,
+                                  "source-calloc-failed", "");
+        return;
+    }
+
+    errno = 0;
+    ssize_t read_len = read_remote(tid, pending->buffer, buf, capture_len);
+    int read_errno = read_len < 0 ? errno : 0;
+    if (read_len <= 0) {
+        free(buf);
+        if (stats) stats->source_buffer_error_count++;
+        write_source_buffer_event(fp, pending->seq, tid, opts->fd_pid, pending->kind, pending->fd,
+                                  pending->fd_target, pending->buffer, pending->count,
+                                  pending->offset, capture_len, -1, read_errno, 0,
+                                  "source-remote-read-failed", "");
+        return;
+    }
+
+    char out_path[512];
+    snprintf(out_path, sizeof(out_path), "%s/sourcebuf-seq%04d-%s-fd%ld.bin",
+             opts->dmabuf_out_dir, pending->seq, pending->kind ? pending->kind : "read", pending->fd);
+    int out_fd = open(out_path, O_WRONLY | O_CREAT | O_TRUNC | O_CLOEXEC, 0600);
+    if (out_fd < 0) {
+        int write_errno = errno;
+        free(buf);
+        if (stats) stats->source_buffer_error_count++;
+        write_source_buffer_event(fp, pending->seq, tid, opts->fd_pid, pending->kind, pending->fd,
+                                  pending->fd_target, pending->buffer, pending->count,
+                                  pending->offset, capture_len, -1, 0, write_errno,
+                                  "source-output-open-failed", out_path);
+        return;
+    }
+    ssize_t written = write_all(out_fd, buf, (size_t)read_len);
+    int complete = read_len == (ssize_t)capture_len && written == read_len;
+    int write_errno = written == read_len ? 0 : errno;
+    close(out_fd);
+    free(buf);
+    if (stats) {
+        if (complete) stats->source_buffer_capture_count++;
+        else stats->source_buffer_error_count++;
+    }
+    write_source_buffer_event(fp, pending->seq, tid, opts->fd_pid, pending->kind, pending->fd,
+                              pending->fd_target, pending->buffer, pending->count,
+                              pending->offset, capture_len, written, 0, write_errno,
+                              complete ? "ok-source-read" : "source-read-or-write-short",
+                              out_path);
+}
+
+static void capture_source_bytes_from_fd(FILE *fp, const struct options *opts, int seq, pid_t tid,
+                                         const struct pending_mmap *pending,
+                                         struct capture_stats *stats) {
+    if (!opts->dmabuf_out_dir || !pending || !is_acdb_source_target(pending->fd_target)) return;
+    if (pending->length == 0) return;
+    if (mkdir(opts->dmabuf_out_dir, 0700) != 0 && errno != EEXIST) {
+        if (stats) stats->source_buffer_error_count++;
+        write_source_buffer_event(fp, seq, tid, opts->fd_pid, "mmap", pending->fd,
+                                  pending->fd_target, 0, pending->length,
+                                  mmap_offset_bytes(pending), 0, -1, errno, 0,
+                                  "source-mkdir-failed", "");
+        return;
+    }
+
+    char proc_fd_path[128];
+    snprintf(proc_fd_path, sizeof(proc_fd_path), "/proc/%ld/fd/%ld", (long)opts->fd_pid, pending->fd);
+    int source_fd = open(proc_fd_path, O_RDONLY | O_CLOEXEC);
+    if (source_fd < 0) {
+        if (stats) stats->source_buffer_error_count++;
+        write_source_buffer_event(fp, seq, tid, opts->fd_pid, "mmap", pending->fd,
+                                  pending->fd_target, 0, pending->length,
+                                  mmap_offset_bytes(pending), 0, -1, errno, 0,
+                                  "source-proc-fd-open-failed", "");
+        return;
+    }
+
+    size_t capture_len = pending->length;
+    if (capture_len > opts->max_dmabuf_bytes) capture_len = opts->max_dmabuf_bytes;
+    unsigned char *buf = calloc(1, capture_len);
+    if (!buf) {
+        int saved_errno = errno;
+        close(source_fd);
+        if (stats) stats->source_buffer_error_count++;
+        write_source_buffer_event(fp, seq, tid, opts->fd_pid, "mmap", pending->fd,
+                                  pending->fd_target, 0, pending->length,
+                                  mmap_offset_bytes(pending), capture_len, -1, saved_errno, 0,
+                                  "source-calloc-failed", "");
+        return;
+    }
+
+    unsigned long long offset = mmap_offset_bytes(pending);
+    errno = 0;
+    ssize_t read_len = pread(source_fd, buf, capture_len, (off_t)offset);
+    int read_errno = read_len < 0 ? errno : 0;
+    close(source_fd);
+    if (read_len <= 0) {
+        free(buf);
+        if (stats) stats->source_buffer_error_count++;
+        write_source_buffer_event(fp, seq, tid, opts->fd_pid, "mmap", pending->fd,
+                                  pending->fd_target, 0, pending->length, offset,
+                                  capture_len, -1, read_errno, 0, "source-file-read-failed", "");
+        return;
+    }
+
+    char out_path[512];
+    snprintf(out_path, sizeof(out_path), "%s/sourcebuf-seq%04d-mmap-fd%ld.bin",
+             opts->dmabuf_out_dir, seq, pending->fd);
+    int out_fd = open(out_path, O_WRONLY | O_CREAT | O_TRUNC | O_CLOEXEC, 0600);
+    if (out_fd < 0) {
+        int write_errno = errno;
+        free(buf);
+        if (stats) stats->source_buffer_error_count++;
+        write_source_buffer_event(fp, seq, tid, opts->fd_pid, "mmap", pending->fd,
+                                  pending->fd_target, 0, pending->length, offset,
+                                  capture_len, -1, 0, write_errno,
+                                  "source-output-open-failed", out_path);
+        return;
+    }
+    ssize_t written = write_all(out_fd, buf, (size_t)read_len);
+    int complete = read_len == (ssize_t)capture_len && written == read_len;
+    int write_errno = written == read_len ? 0 : errno;
+    close(out_fd);
+    free(buf);
+    if (stats) {
+        if (complete) stats->source_buffer_capture_count++;
+        else stats->source_buffer_error_count++;
+    }
+    write_source_buffer_event(fp, seq, tid, opts->fd_pid, "mmap", pending->fd,
+                              pending->fd_target, 0, pending->length, offset,
+                              capture_len, written, 0, write_errno,
+                              complete ? "ok-source-mmap" : "source-read-or-write-short",
+                              out_path);
 }
 
 static void capture_dmabuf_from_fd(FILE *fp, const struct options *opts, int seq, pid_t tid,
@@ -805,7 +1064,8 @@ static void handle_mmap_entry(FILE *out, const struct options *opts, struct trac
     write_mmap_event(out, "mmap_entry", task->tid, &task->pending_mmap, 0, 0, "entry");
 }
 
-static void handle_mmap_exit(FILE *out, struct traced_task *task, const struct syscall_frame *frame,
+static void handle_mmap_exit(FILE *out, const struct options *opts, struct traced_task *task,
+                             const struct syscall_frame *frame, int *source_sequence,
                              struct mmap_records *mmap_records, struct capture_stats *stats) {
     if (!task->pending_mmap.active) return;
     if (syscall_return_is_error(frame)) {
@@ -816,6 +1076,11 @@ static void handle_mmap_exit(FILE *out, struct traced_task *task, const struct s
         stats->mmap_success_count++;
         write_mmap_event(out, "mmap_exit", task->tid, &task->pending_mmap,
                          frame->raw_ret, frame->ret, "ok");
+        if (is_acdb_source_target(task->pending_mmap.fd_target)) {
+            (*source_sequence)++;
+            capture_source_bytes_from_fd(out, opts, *source_sequence, task->tid,
+                                         &task->pending_mmap, stats);
+        }
         remember_mmap_record(mmap_records, &task->pending_mmap, frame->raw_ret, stats);
     }
     close_pending_mmap(&task->pending_mmap);
@@ -968,7 +1233,7 @@ static void stop_and_detach_all(struct traced_task *tasks, int task_count, FILE 
 }
 
 static void handle_syscall_stop(FILE *out, const struct options *opts, struct traced_task *task,
-                                int *sequence, int *events, int *mmap_sequence,
+                                int *sequence, int *events, int *mmap_sequence, int *source_sequence,
                                 struct capture_stats *stats, struct mmap_records *mmap_records) {
     struct syscall_frame frame;
     stats->syscall_stop_count++;
@@ -980,6 +1245,39 @@ static void handle_syscall_stop(FILE *out, const struct options *opts, struct tr
     if (task->entering_syscall) {
         stats->syscall_entry_count++;
         handle_mmap_entry(out, opts, task, &frame, mmap_sequence, stats);
+        if (is_source_read_syscall(&frame)) {
+            long fd = frame.fd;
+            unsigned long count = frame.args[2];
+            char target[512];
+            target[0] = '\0';
+            int readlink_errno = 0;
+            int target_ok = 0;
+            if (fd >= 0 && count > 0) {
+                errno = 0;
+                if (fd_resolve_target(opts->fd_pid, fd, target, sizeof(target)) == 0) {
+                    target_ok = 1;
+                } else {
+                    readlink_errno = errno;
+                }
+            }
+            if (target_ok && is_acdb_source_target(target)) {
+                (*source_sequence)++;
+                memset(&task->pending_source_read, 0, sizeof(task->pending_source_read));
+                task->pending_source_read.active = 1;
+                task->pending_source_read.seq = *source_sequence;
+                task->pending_source_read.abi = frame.abi;
+                task->pending_source_read.kind = source_read_kind(&frame);
+                task->pending_source_read.syscall_nr = frame.syscall_nr;
+                task->pending_source_read.regset_len = frame.regset_len;
+                task->pending_source_read.fd = fd;
+                task->pending_source_read.buffer = frame.args[1];
+                task->pending_source_read.count = count;
+                task->pending_source_read.offset = source_read_offset_arg(&frame);
+                task->pending_source_read.readlink_errno = readlink_errno;
+                snprintf(task->pending_source_read.fd_target,
+                         sizeof(task->pending_source_read.fd_target), "%s", target);
+            }
+        }
         if ((frame.abi && !strcmp(frame.abi, "aarch64") && frame.syscall_nr == __NR_ioctl) ||
             (frame.abi && !strcmp(frame.abi, "aarch32") && frame.syscall_nr == A90_COMPAT_ARM_NR_IOCTL)) {
             stats->ioctl_any_entry_count++;
@@ -1024,7 +1322,12 @@ static void handle_syscall_stop(FILE *out, const struct options *opts, struct tr
             }
         }
     } else {
-        handle_mmap_exit(out, task, &frame, mmap_records, stats);
+        handle_mmap_exit(out, opts, task, &frame, source_sequence, mmap_records, stats);
+        if (task->pending_source_read.active) {
+            capture_source_bytes_from_memory(out, opts, &task->pending_source_read,
+                                             task->tid, frame.ret, stats);
+            memset(&task->pending_source_read, 0, sizeof(task->pending_source_read));
+        }
         if (task->pending.active) {
             write_exit(out, task->tid, &task->pending, frame.ret);
             memset(&task->pending, 0, sizeof(task->pending));
@@ -1176,6 +1479,7 @@ int main(int argc, char **argv) {
 
     int sequence = 0;
     int mmap_sequence = 0;
+    int source_sequence = 0;
     int events = 0;
     int timed_out = 0;
     struct capture_stats stats;
@@ -1202,6 +1506,7 @@ int main(int argc, char **argv) {
             fprintf(out, "{\"event\":\"target-exit\",\"tid\":%ld,\"status\":%d}\n", (long)stopped_tid, status);
             fflush(out);
             close_pending_mmap(&task->pending_mmap);
+            memset(&task->pending_source_read, 0, sizeof(task->pending_source_read));
             task->alive = 0;
             continue;
         }
@@ -1227,7 +1532,8 @@ int main(int argc, char **argv) {
         }
 
         if (stop_signal == (SIGTRAP | 0x80)) {
-            handle_syscall_stop(out, &opts, task, &sequence, &events, &mmap_sequence, &stats, &mmap_records);
+            handle_syscall_stop(out, &opts, task, &sequence, &events, &mmap_sequence,
+                                &source_sequence, &stats, &mmap_records);
             resume_syscall(task, 0, out);
             continue;
         }
@@ -1250,13 +1556,15 @@ int main(int argc, char **argv) {
             "\"ioctl_fd_miss_count\":%d,\"fd_readlink_error_count\":%d,"
             "\"unmatched_samples\":%d,\"mmap_entry_count\":%d,"
             "\"mmap_success_count\":%d,\"mmap_error_count\":%d,"
-            "\"mmap_record_count\":%d}\n",
+            "\"mmap_record_count\":%d,\"source_buffer_capture_count\":%d,"
+            "\"source_buffer_error_count\":%d}\n",
             now_ms(), wall_ms(), events, task_count, timed_out ? "true" : "false",
             stats.syscall_stop_count, stats.syscall_entry_count, stats.ioctl_any_entry_count,
             stats.ioctl_fd_match_count, stats.ioctl_fd_miss_count,
             stats.fd_readlink_error_count, stats.unmatched_samples,
             stats.mmap_entry_count, stats.mmap_success_count,
-            stats.mmap_error_count, stats.mmap_record_count);
+            stats.mmap_error_count, stats.mmap_record_count,
+            stats.source_buffer_capture_count, stats.source_buffer_error_count);
     fflush(out);
     for (int index = 0; index < task_count; index++) close_pending_mmap(&tasks[index].pending_mmap);
     close_mmap_records(&mmap_records);

@@ -276,6 +276,39 @@ class AcdbM1HybridLateObserverLiveHandoffV2451(unittest.TestCase):
         self.assertFalse(summary["late_observer"]["raw_dmabuf_in_summary"])
         self.assertNotIn("ABCD", encoded)
 
+    def test_hybrid_summary_hashes_private_source_buffers_without_raw_bytes(self) -> None:
+        with tempfile.TemporaryDirectory() as temp_dir:
+            out_dir = Path(temp_dir)
+            artifact_dir = out_dir / "device-artifacts"
+            source_dir = artifact_dir / "dmabuf-late"
+            source_dir.mkdir(parents=True)
+            (artifact_dir / "late-observer.log").write_text(
+                "A90_M1_LATE_DIAG_HELPER_START tgid=222 helper_pid=333\n"
+                "A90_M1_LATE_DIAG_END status=complete\n"
+            )
+            (artifact_dir / "msm-audio-cal-diag-threadset-p222-late.jsonl").write_text(
+                '{"event":"source_buffer_capture","seq":5,"kind":"pread64","status":"ok-source-read",'
+                '"fd":11,"fd_target":"/vendor/etc/acdbdata/adsp_avs_config.acdb",'
+                '"count":4916,"offset":64,"capture_len":4,"written_len":4,'
+                '"read_errno":0,"write_errno":0}\n'
+                '{"event":"stop","syscall_stop_count":4,"ioctl_any_entry_count":0,'
+                '"ioctl_fd_match_count":0,"ioctl_fd_miss_count":0,"fd_readlink_error_count":0,'
+                '"source_buffer_capture_count":1,"source_buffer_error_count":0}\n'
+            )
+            (source_dir / "sourcebuf-seq0005-pread64-fd11.bin").write_bytes(b"WXYZ")
+
+            summary = v2451.summarize_hybrid_capture_artifacts(out_dir)
+
+        encoded = json.dumps(summary, sort_keys=True)
+        self.assertEqual(summary["classification"], "late-msm-audio-cal-source-buffer-candidate-captured")
+        self.assertEqual(summary["late_observer"]["classification"], "late-msm-audio-cal-source-buffer-candidate-captured")
+        self.assertEqual(summary["late_observer"]["source_buffer_count"], 1)
+        self.assertEqual(summary["late_observer"]["source_buffer_hashes"][0]["size"], 4)
+        self.assertEqual(summary["late_observer"]["source_buffer_capture_count"], 1)
+        self.assertEqual(summary["late_observer"]["source_buffer_events"][0]["status"], "ok-source-read")
+        self.assertFalse(summary["late_observer"]["raw_source_buffer_in_summary"])
+        self.assertNotIn("WXYZ", encoded)
+
     def test_wrong_live_approval_exits_before_device_action(self) -> None:
         script = Path("workspace/public/src/scripts/revalidation/native_audio_acdb_m1_hybrid_late_observer_live_handoff_v2451.py")
         completed = subprocess.run(

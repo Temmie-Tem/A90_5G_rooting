@@ -396,6 +396,23 @@ def summarize_dmabuf_payload_files(artifact_root: Path) -> list[dict[str, Any]]:
     return payloads
 
 
+def summarize_source_buffer_files(artifact_root: Path) -> list[dict[str, Any]]:
+    if not artifact_root.exists():
+        return []
+    payloads: list[dict[str, Any]] = []
+    for path in sorted(artifact_root.rglob("sourcebuf*.bin")):
+        if not path.is_file():
+            continue
+        payloads.append(
+            {
+                "file": rel(path),
+                "size": path.stat().st_size,
+                "sha256": v2396.sha256(path),
+            }
+        )
+    return payloads
+
+
 def summarize_diag_capture_artifacts(out_dir: Path) -> dict[str, Any]:
     artifact_root = out_dir / "device-artifacts"
     service_logs = sorted(artifact_root.rglob("service.log")) if artifact_root.exists() else []
@@ -424,14 +441,19 @@ def summarize_diag_capture_artifacts(out_dir: Path) -> dict[str, Any]:
         "mmap_success_count": 0,
         "mmap_error_count": 0,
         "mmap_record_count": 0,
+        "source_buffer_capture_count": 0,
+        "source_buffer_error_count": 0,
         "mmap_events": [],
+        "source_buffer_events": [],
         "unmatched_samples": [],
         "requests": {},
         "payload_hashes": [],
         "dmabuf_payload_hashes": [],
+        "source_buffer_hashes": [],
         "dmabuf_capture_events": [],
         "raw_payload_in_summary": False,
         "raw_dmabuf_in_summary": False,
+        "raw_source_buffer_in_summary": False,
         "missing_stop_files": [],
         "wait_markers": [],
     }
@@ -511,6 +533,24 @@ def summarize_diag_capture_artifacts(out_dir: Path) -> dict[str, Any]:
                             "write_errno": event.get("write_errno"),
                         }
                     )
+            elif kind == "source_buffer_capture":
+                if len(summary["source_buffer_events"]) < 24:
+                    summary["source_buffer_events"].append(
+                        {
+                            "file": rel(path),
+                            "seq": event.get("seq"),
+                            "kind": event.get("kind"),
+                            "status": event.get("status"),
+                            "fd": event.get("fd"),
+                            "fd_target": event.get("fd_target"),
+                            "count": event.get("count"),
+                            "offset": event.get("offset"),
+                            "capture_len": event.get("capture_len"),
+                            "written_len": event.get("written_len"),
+                            "read_errno": event.get("read_errno"),
+                            "write_errno": event.get("write_errno"),
+                        }
+                    )
             elif kind in {"mmap_entry", "mmap_exit"}:
                 if len(summary["mmap_events"]) < 24:
                     summary["mmap_events"].append(
@@ -538,6 +578,8 @@ def summarize_diag_capture_artifacts(out_dir: Path) -> dict[str, Any]:
                     "mmap_success_count",
                     "mmap_error_count",
                     "mmap_record_count",
+                    "source_buffer_capture_count",
+                    "source_buffer_error_count",
                     "unmatched_samples",
                 ):
                     value = event.get(key)
@@ -553,11 +595,15 @@ def summarize_diag_capture_artifacts(out_dir: Path) -> dict[str, Any]:
     summary["payload_hashes"] = summary["payload_hashes"][:64]
     summary["dmabuf_payload_hashes"] = summarize_dmabuf_payload_files(artifact_root)[:64]
     summary["dmabuf_payload_count"] = len(summary["dmabuf_payload_hashes"])
+    summary["source_buffer_hashes"] = summarize_source_buffer_files(artifact_root)[:64]
+    summary["source_buffer_count"] = len(summary["source_buffer_hashes"])
     summary["wait_marker_count"] = len(summary["wait_markers"])
     if not summary["artifact_root_exists"]:
         classification = "artifact-pull-missing"
     elif summary["dmabuf_payload_hashes"]:
         classification = "msm-audio-cal-dmabuf-payload-captured"
+    elif summary["source_buffer_hashes"]:
+        classification = "msm-audio-cal-source-buffer-candidate-captured"
     elif summary["ioctl_entries"] > 0:
         classification = "msm-audio-cal-payload-captured"
     elif summary["missing_stop_files"]:
