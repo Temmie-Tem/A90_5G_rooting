@@ -541,6 +541,21 @@ counters and first-N unmatched ioctl samples, classify missing terminal `stop` a
 `partial-helper-still-running`, and make the runner wait for helper completion before
 collecting artifacts. Do not rerun M1 unchanged and do not attempt native ACDB replay.
 
+V2449 completed that host-only diagnostic observer revision. It adds
+`a90_acdb_ioctl_capture_diag_v2449.c` and
+`native_audio_acdb_m1_diag_observer_planner_v2449.py`: the helper now emits monotonic/wall
+timestamps, syscall-stop/syscall-entry counters, pre-filter `ioctl` counts,
+`/dev/msm_audio_cal` fd-match/fd-miss/readlink-error counters, bounded metadata-only
+`ioctl_unmatched` samples, and terminal `stop` counters. The temporary M1 service module
+now passes `--max-unmatched-samples`, logs `A90_M1_DIAG_*` service/helper markers, waits for
+helper completion, and the future collection contract requires terminal JSONL `stop`
+records or the `partial-helper-still-running` classification. Materialized dry-run reports
+`future_live_ready=true`, command safety clean, private helper SHA256
+`9520e9f297ba4cb52ce2730d8166876409162a70f64998b7c2ac16ca21f165f8`, and private module zip
+SHA256 `ef98419a2a63f610115238eebf934391e8d1799a3c3b9329d9426c4618428bd0`. Next meaningful
+unit is **V2450/AUD-5K live diagnostic rerun** with the exact phrase
+`AUD-5K-acdb-m1-diagnostic-observer go: rollbackable Android AudioTrack speaker msm_audio_cal diagnostic ioctl capture with temporary Magisk service module, helper-completion wait, no native calibration ioctl, no native speaker write, rollback to V2321`.
+
 ## Read at the START of every iteration
 
 - **this `GOAL.md`** — re-read it every iteration; the contract may be updated mid-run,
