@@ -1515,7 +1515,7 @@ def parse_args(argv: list[str] | None = None) -> argparse.Namespace:
     parser.add_argument("--out-dir", type=Path)
     parser.add_argument("--adb", default="adb")
     parser.add_argument("--serial")
-    parser.add_argument("--from-native", action="store_true")
+    parser.add_argument("--from-native", action=argparse.BooleanOptionalAction, default=True)
     parser.add_argument("--android-timeout", type=float, default=240.0)
     parser.add_argument("--flash-timeout", type=float, default=420.0)
     parser.add_argument("--adb-command-timeout", type=float, default=90.0)

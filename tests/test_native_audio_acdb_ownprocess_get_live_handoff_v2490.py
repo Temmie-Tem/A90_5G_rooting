@@ -34,7 +34,7 @@ def args(**overrides: object) -> Namespace:
         "out_dir": root / "run",
         "adb": "adb",
         "serial": None,
-        "from_native": False,
+        "from_native": True,
         "android_timeout": 240.0,
         "flash_timeout": 420.0,
         "adb_command_timeout": 90.0,
@@ -148,6 +148,7 @@ class NativeAudioAcdbOwnprocessGetV2490(unittest.TestCase):
         self.assertIn("chown shell:shell /data/local/tmp/a90-acdb-ownget", flat_commands)
         self.assertIn("find . -maxdepth 1 -type f -exec chmod 644", flat_commands)
         self.assertIn("logcat -c", flat_commands)
+        self.assertIn("--from-native", payload["commands"]["flash_android"])
         self.assertIn("logcat-acdb-loader.txt", flat_commands)
         self.assertIn("logcat-avc-acdb-filter.txt", flat_commands)
         self.assertIn("dmesg-avc-acdb-filter.txt", flat_commands)
