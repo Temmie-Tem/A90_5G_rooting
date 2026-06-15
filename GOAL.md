@@ -560,15 +560,21 @@ helper can trace Android audio processes (`syscall_stop_count=257929`,
 `ioctl_any_entry_count=2619`) and rollback to V2321 cleanly, but captured no
 `/dev/msm_audio_cal` payload (`ioctl_fd_match_count=0`, only binder/hwbinder fd misses) and
 classified as `partial-helper-still-running` because five JSONL files lacked terminal `stop`.
-The decisive new timing fact is that the temporary Magisk service starts at Android boot and
-can age out before host-triggered AudioTrack playback after a long post-module ADB settle
-(observed about `207s`). Magisk remains the right Wi-Fi-style Android-good measurement capsule,
-but not as a native runtime dependency. Next meaningful unit is **V2451 host-only hybrid M1
-late-observer design/implementation**: keep the boot service as optional early observer, then
-after post-module ADB/root settle and before playback launch a host-coordinated late diagnostic
-observer from the staged module helper, wait for terminal `stop`, collect, cleanup, and roll
-back. Do not attempt native ACDB replay before payload order, decoded headers, hashes,
-mem-handle policy, and cleanup policy are pinned.
+The decisive timing fact is that the temporary Magisk service starts at Android boot and can
+age out before host-triggered AudioTrack playback after a long post-module ADB settle
+(observed about `207s`). V2451 completed the host-only hybrid M1 late-observer
+implementation: the boot service remains an optional early observer, while a host-coordinated
+late supervisor starts the staged `a90_acdb_ioctl_capture_diag_v2449` helper after
+post-module ADB/root settle and before playback, waits for terminal `stop`, and classifies late
+artifacts separately so old boot-service partials do not dominate the result. Materialized
+dry-run reports `future_live_ready=true` and command safety clean. Magisk remains the right
+Wi-Fi-style Android-good measurement capsule, but not a native runtime dependency. Next
+meaningful unit is a **V2452 exact-gated live AUD-5L hybrid late-observer run** using:
+`AUD-5L-acdb-m1-hybrid-late-observer go: rollbackable Android AudioTrack speaker msm_audio_cal
+diagnostic ioctl capture with temporary Magisk service module plus host-coordinated late
+observer, helper-completion wait, no native calibration ioctl, no native speaker write,
+rollback to V2321`. Do not attempt native ACDB replay before payload order, decoded headers,
+hashes, mem-handle policy, and cleanup policy are pinned.
 
 ## Read at the START of every iteration
 
