@@ -272,6 +272,19 @@ it needs hardware/data not available (e.g. creds for full Wi-Fi validation), it 
 with no safe next step, or it would only re-confirm established facts (diminishing returns).
 **When you change tier, record the trigger** in that iteration's report.
 
+## Current audio frontier update (V2418)
+
+V2418 reran the exact-gated Android/Magisk-root M0 `msm_audio_cal` payload capture
+with V2417's thread-complete observer and rolled back to V2321 with `selftest fail=0`.
+Android logcat again proved the speaker ACDB edge, including `send_audio_cal`
+for `acdb_id=15`, `AUDIO_SET_AUDPROC_CAL`, and `AUDIO_SET_AFE_CAL`, but the edge ran
+on audio HAL TID `4278`, which was not present in the pre-playback `/proc/<pid>/task/*`
+snapshot. The result is therefore **not** a true early-payload miss and does **not**
+justify an M1 temporary Magisk boot module yet. Next meaningful unit: V2419 host-only
+dynamic M0 task watcher support, polling for newly-created audio HAL/audioserver TIDs
+during the capture window and enforcing bounded helper stop reporting. Only if dynamic
+M0 still misses a logcat-proven edge should M1 Magisk-module measurement be designed.
+
 ## Read at the START of every iteration
 
 - **this `GOAL.md`** — re-read it every iteration; the contract may be updated mid-run,
