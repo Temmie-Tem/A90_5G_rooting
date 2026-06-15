@@ -272,7 +272,7 @@ it needs hardware/data not available (e.g. creds for full Wi-Fi validation), it 
 with no safe next step, or it would only re-confirm established facts (diminishing returns).
 **When you change tier, record the trigger** in that iteration's report.
 
-## Current audio frontier update (V2431)
+## Current audio frontier update (V2432)
 
 V2428 completed the fixed Android/Magisk M0 rerun and justified M1: the helper resumed the
 same worker TID that logcat showed running the speaker/ACDB path with `/dev/msm_audio_cal`
@@ -288,24 +288,33 @@ under `/data/adb/modules/a90_audio_acdb_m1_v2429` failed with `Permission denied
 `stage-6`, before the Android reboot that would start Magisk `service.sh`. No M1
 `msm_audio_cal` ioctl artifact was captured.
 
-M1 remains Android-good **measurement/packaging** only. It does not open `/dev/msm_audio_cal`,
-issue calibration ioctls, replay native audio, write native speaker/mixer/PCM state, or
-become a native-init dependency. Native replay remains blocked until raw ioctl command order,
-decoded headers, private payload hashes, mem-handle policy, and cleanup behavior are pinned.
-
 V2431 completed the host-only Magisk staging redesign. Official Magisk docs confirm
 `/data/adb/modules` and `/data/adb/modules_update` are Magisk-managed secure paths,
 `service.sh` is the correct non-blocking late_start module hook, `su -mm` /
 `--mount-master` exists for the global mount namespace, and `magisk --install-module ZIP`
 is the official installer interface. Because V2430 failed before cleanup of a real module
-could be proven, do **not** jump directly to install-module.
+could be proven, install-module remains deferred.
 
-Next meaningful unit is **V2432 read-only Android/Magisk access probe**: checked Android
-handoff, root settle, read-only `magisk -c/-v/--path/--list`, `ls -ldZ`/mount probes for
-`/data/adb`, and the same probes through `su -mm -c`, then artifact pull and rollback to
-V2321. No writes under `/data/adb`, no module install, no playback, no calibration ioctl.
-Only if V2432 shows a viable namespace/context should a later V2433 attempt a bounded
-create/remove probe; only after that should M1 module activation be retried.
+V2432 completed the checked Android read-only Magisk access probe and rolled back to V2321
+with final native `selftest fail=0`. A pre-commit self-audit found the first private V2432
+run had malformed `adb shell su -c` quoting, so its `su` probes ran as `shell`; the runner
+was fixed before commit. The corrected live run proved `su -c` and `su -mm -c` execute as
+`uid=0(root)` / `u:r:magisk:s0`, and both can read `/data/adb`, `/data/adb/modules`, and
+`/data/adb/service.d` with no root permission-denied lines. `/data/adb/modules_update` was
+absent, not permission-denied. This re-opens the Magisk module path as a viable
+Android-good measurement/packaging mechanism: V2430's direct-staging failure is now
+suspect as command construction/quoting, not proof that the module namespace is blocked.
+
+M1 remains Android-good **measurement/packaging** only. It does not open `/dev/msm_audio_cal`,
+issue calibration ioctls, replay native audio, write native speaker/mixer/PCM state, or
+become a native-init dependency. Native replay remains blocked until raw ioctl command order,
+decoded headers, private payload hashes, mem-handle policy, and cleanup behavior are pinned.
+
+Next meaningful unit is **V2433 host-only Magisk module staging cleanup design** using the
+corrected `adb shell "su -c '<script>'"` pattern. It should define a bounded exact-gated
+create/remove probe for a unique inert test directory under the Magisk module namespace,
+prove targeted cleanup/no residue, and only then allow an M1 temporary-module activation
+retry. Keep `magisk --install-module` deferred unless direct targeted staging/cleanup fails.
 
 ## Read at the START of every iteration
 
