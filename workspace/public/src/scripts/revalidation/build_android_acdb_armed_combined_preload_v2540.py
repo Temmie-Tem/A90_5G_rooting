@@ -27,7 +27,7 @@ DEFAULT_MANIFEST = DEFAULT_BUILD_ROOT / "manifest.json"
 ARTIFACT_NAME = "liba90_acdb_armed_combined_preload_v2540.so"
 TARGET = base.TARGET
 CFLAGS = base.CFLAGS
-TAP_EXTRA_CFLAGS = ("-DA90_ACDBTAP_ARMED_CAPTURE=1",)
+TAP_EXTRA_CFLAGS = ("-DA90_ACDBTAP_ARMED_CAPTURE=1", "-DA90_ACDBTAP_LOG_ENTER=1")
 LDFLAGS = (
     "-shared",
     "--allow-shlib-undefined",

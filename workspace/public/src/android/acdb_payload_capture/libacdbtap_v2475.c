@@ -3,9 +3,10 @@
  *
  * Built as a freestanding 32-bit shared object for LD_PRELOAD into the stock
  * Android audio HAL process.  It interposes acdb_ioctl(), calls the real symbol
- * via dlsym(RTLD_NEXT, ...), and writes bounded metadata/raw output buffers to
- * /data/local/tmp/a90-acdb-tap/.  No libc, liblog, pthread, malloc, or Android
- * headers are required; file writes use raw ARM EABI syscalls.
+ * from libaudcal.so (falling back to dlsym(RTLD_NEXT, ...)), and writes bounded
+ * metadata/raw output buffers to /data/local/tmp/a90-acdb-tap/.  No libc,
+ * liblog, pthread, malloc, or Android headers are required; file writes use raw
+ * ARM EABI syscalls.
  */
 
 typedef signed int int32_t;
@@ -15,13 +16,17 @@ typedef unsigned long size_t;
 typedef unsigned long long uint64_t;
 
 extern void *dlsym(void *handle, const char *symbol);
+extern void *dlopen(const char *filename, int flags);
 
 #define A90_RTLD_NEXT ((void *)-1L)
+#define A90_RTLD_NOW 2
 #define A90_CAPTURE_DIR "/data/local/tmp/a90-acdb-tap"
 #define A90_EVENTS_PATH "/data/local/tmp/a90-acdb-tap/acdbtap-events.jsonl"
 #define A90_RAW_PREFIX "/data/local/tmp/a90-acdb-tap/acdbtap-"
 #define A90_TARGET_OUT_LEN 4916U
 #define A90_SIZE_QUERY_OUT_LEN 4U
+#define A90_CMD_INITIALIZE_V2 0x0001138cU
+#define A90_CMD_CUSTOM_TOPO_INFO_V3 0x00013296U
 #define A90_MAX_CAPTURE_LEN 65536U
 #ifndef A90_ACDBTAP_LOG_ENTER
 #define A90_ACDBTAP_LOG_ENTER 0
@@ -52,6 +57,21 @@ static a90_real_acdb_ioctl_fn a90_real_acdb_ioctl;
 static volatile uint32_t a90_sequence;
 static volatile int a90_in_hook;
 static volatile int a90_armed;
+
+static void a90_resolve_real_acdb_ioctl(void)
+{
+    void *handle;
+
+    if (a90_real_acdb_ioctl)
+        return;
+
+    handle = dlopen("libaudcal.so", A90_RTLD_NOW);
+    if (handle)
+        a90_real_acdb_ioctl = (a90_real_acdb_ioctl_fn)dlsym(handle, "acdb_ioctl");
+
+    if (!a90_real_acdb_ioctl)
+        a90_real_acdb_ioctl = (a90_real_acdb_ioctl_fn)dlsym(A90_RTLD_NEXT, "acdb_ioctl");
+}
 
 struct a90_sha256 {
     uint32_t h[8];
@@ -335,6 +355,14 @@ static char *a90_append_hex_field(char *p, const char *name, uint32_t value)
     return p;
 }
 
+static uint32_t a90_load_le32(const uint8_t *p)
+{
+    return ((uint32_t)p[0]) |
+           (((uint32_t)p[1]) << 8) |
+           (((uint32_t)p[2]) << 16) |
+           (((uint32_t)p[3]) << 24);
+}
+
 static void a90_build_raw_path(char *path, uint32_t seq, uint32_t cmd, uint32_t out_len)
 {
     char *p = path;
@@ -356,12 +384,17 @@ static void a90_build_raw_path(char *path, uint32_t seq, uint32_t cmd, uint32_t 
     *p = 0;
 }
 
-static void a90_log_call_phase(uint32_t seq, uint32_t cmd, uint32_t in_len, uint32_t out_len,
-                               const char *phase)
+static void a90_log_call_phase(uint32_t seq, uint32_t cmd, const uint8_t *in, uint32_t in_len,
+                               const uint8_t *out, uint32_t out_len, const char *phase)
 {
-    char line[320];
+    char line[1024];
     char *p;
     int event_fd;
+    uint32_t i;
+    uint32_t sample_words = in_len / 4U;
+
+    if (sample_words > 4U)
+        sample_words = 4U;
 
     event_fd = a90_open_append(A90_EVENTS_PATH);
     if (event_fd < 0)
@@ -381,6 +414,16 @@ static void a90_log_call_phase(uint32_t seq, uint32_t cmd, uint32_t in_len, uint
     *p++ = ',';
     p = a90_append_hex_field(p, "out_len", out_len);
     *p++ = ',';
+    p = a90_append_hex_field(p, "in_ptr", (uint32_t)(unsigned long)in);
+    *p++ = ',';
+    p = a90_append_hex_field(p, "out_ptr", (uint32_t)(unsigned long)out);
+    *p++ = ',';
+    for (i = 0; in && i < sample_words; i++) {
+        char key[] = "in_word0";
+        key[7] = (char)('0' + i);
+        p = a90_append_hex_field(p, key, a90_load_le32(in + (i * 4U)));
+        *p++ = ',';
+    }
     p = a90_append_str(p, "\"phase\":\"");
     p = a90_append_str(p, phase);
     *p++ = '\"';
@@ -394,7 +437,7 @@ static void a90_log_call_phase(uint32_t seq, uint32_t cmd, uint32_t in_len, uint
 __attribute__((visibility("default"))) void a90_arm_capture(void)
 {
     a90_armed = 1;
-    a90_log_call_phase(a90_sequence++, 0, 0, 0, "armed");
+    a90_log_call_phase(a90_sequence++, 0, 0, 0, 0, 0, "armed");
 }
 
 static int a90_is_all_zero(const uint8_t *buf, uint32_t len)
@@ -495,8 +538,7 @@ acdb_ioctl(uint32_t cmd, const uint8_t *in, uint32_t in_len, uint8_t *out, uint3
     int32_t ret;
     uint32_t seq;
 
-    if (!a90_real_acdb_ioctl)
-        a90_real_acdb_ioctl = (a90_real_acdb_ioctl_fn)dlsym(A90_RTLD_NEXT, "acdb_ioctl");
+    a90_resolve_real_acdb_ioctl();
     if (!a90_real_acdb_ioctl)
         return -1;
 
@@ -504,28 +546,41 @@ acdb_ioctl(uint32_t cmd, const uint8_t *in, uint32_t in_len, uint8_t *out, uint3
         return a90_real_acdb_ioctl(cmd, in, in_len, out, out_len);
 
 #if A90_ACDBTAP_ARMED_CAPTURE
-    if (!a90_armed)
-        return a90_real_acdb_ioctl(cmd, in, in_len, out, out_len);
+    if (!a90_armed) {
+        ret = a90_real_acdb_ioctl(cmd, in, in_len, out, out_len);
+        if (ret == 0 && cmd == A90_CMD_INITIALIZE_V2)
+            a90_armed = 1;
+        return ret;
+    }
 #endif
 
     seq = a90_sequence++;
 #if A90_ACDBTAP_LOG_ENTER
-    a90_log_call_phase(seq, cmd, in_len, out_len, "enter");
+    a90_log_call_phase(seq, cmd, in, in_len, out, out_len, "enter");
 #endif
 
     a90_in_hook = 1;
     if (!a90_real_acdb_ioctl) {
 #if A90_ACDBTAP_LOG_ENTER
-        a90_log_call_phase(seq, cmd, in_len, out_len, "resolve_failed");
+        a90_log_call_phase(seq, cmd, in, in_len, out, out_len, "resolve_failed");
 #endif
         a90_in_hook = 0;
         return -1;
     }
 
 #if A90_ACDBTAP_LOG_ENTER
-    a90_log_call_phase(seq, cmd, in_len, out_len, "before_real");
+    a90_log_call_phase(seq, cmd, in, in_len, out, out_len, "before_real");
 #endif
     ret = a90_real_acdb_ioctl(cmd, in, in_len, out, out_len);
+    if (ret == 0 && cmd == A90_CMD_CUSTOM_TOPO_INFO_V3 && in && in_len >= 8U) {
+        uint32_t indirect_len = a90_load_le32(in);
+        const uint8_t *indirect_out = (const uint8_t *)(unsigned long)a90_load_le32(in + 4U);
+
+        if (indirect_out && indirect_len && indirect_len <= A90_MAX_CAPTURE_LEN) {
+            if (a90_log_capture(seq, cmd, in_len, indirect_len, ret, indirect_out))
+                a90_exit_group(0);
+        }
+    }
     if (a90_log_capture(seq, cmd, in_len, out_len, ret, out))
         a90_exit_group(0);
     a90_in_hook = 0;
