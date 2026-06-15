@@ -9,19 +9,17 @@ For full history, read `docs/reports/`, `docs/overview/PROJECT_STATUS.md`, and
 - Device: Samsung Galaxy A90 5G `SM-A908N`, build `A908NKSU5EWA3`.
 - Kernel: Samsung stock Android Linux `4.14.190`.
 - Runtime goal: custom static `/init` as PID 1 on the stock Android kernel.
-- Audio ACDB payload frontier: V2432 completed the checked Android read-only Magisk access
-  probe after V2430 direct M1 module staging failed under `/data/adb/modules/...` and V2431
-  redesigned the staging strategy. A pre-commit self-audit found the first private V2432
-  `su` probe used malformed `adb shell su -c` quoting and therefore ran as `shell`; the
-  committed runner fixes this by passing a single remote-shell command string. The corrected
-  live run proved `su -c` and `su -mm -c` both execute as `uid=0(root)` / `u:r:magisk:s0`
-  and can read `/data/adb`, `/data/adb/modules`, and `/data/adb/service.d` with no root
-  permission-denied lines; `/data/adb/modules_update` was absent, not denied. Magisk module
-  delivery is therefore viable again as Android-good measurement/packaging, similar to the
-  earlier Wi-Fi handoff style, but remains non-native-runtime and measurement-only. Next
-  unit: V2433 host-only design for a bounded exact-gated create/remove cleanup probe using
-  the corrected `adb shell "su -c '<script>'"` pattern; only after targeted cleanup/no-residue
-  is proven should M1 temporary-module activation be retried. Keep `magisk --install-module`
+- Audio ACDB payload frontier: V2433 completed the host-only Magisk module cleanup-probe
+  design after V2432 proved corrected `adb shell "su -c '<script>'"` and `su -mm -c` probes
+  run as `uid=0(root)` / `u:r:magisk:s0` and can read `/data/adb/modules` with no root
+  permission-denied lines. Magisk module delivery is viable again as Android-good
+  measurement/packaging, similar to the earlier Wi-Fi handoff style, but remains
+  non-native-runtime and measurement-only. The next live write must be a bounded cleanup
+  proof only: create and remove one inert unique directory under
+  `/data/adb/modules/.a90_v2433_cleanup_probe_<run_stamp>` with no `module.prop`, no
+  `service.sh`, no boot-script files, no reboot before cleanup proof, and checked rollback
+  to V2321. Next unit: V2434 source/test-only exact-gated cleanup-probe runner. Do not run
+  M1 activation until targeted cleanup/no-residue is proven; keep `magisk --install-module`
   deferred unless direct targeted staging/cleanup fails.
 - **Resident validated image / rollback checkpoint (V2321): `A90 Linux init 0.9.285 (v2321-usb-clean-identity-rodata)`** — image `workspace/private/inputs/boot_images/boot_linux_v2321_usb_clean_identity_rodata.img`, SHA256 `ca978551aabe4b39563abaf529ccf2522054952d8b2ad852e632d26da88168cb`. Carries the full V2313–V2315 USB control surface, V2316 serial redaction/userspace configfs identity, V2318 manufacturer rodata patch (`SAMSUNG` → `A90-LNX`), and the V2321 fixed-length clean product rodata patch (`SAMSUNG_Android\0` → `A90 Linux ARM64\0`) with no product-slot overrun; adjacent USB configfs `KERN_ERR` log-prefix bytes `0x01 0x33` are retained. Live validation: pinned boot-only flash/readback PASS, `version/status/selftest fail=0`, `usb status control.ok=1`, host descriptor now `iManufacturer=A90-LNX`, `iProduct=A90 Linux ARM64`, `iSerial=A90NATIVE001`, and `usb mass-storage expose`/`remove` smoke passed with NCM+ACM control returning. Known manufacturer collateral retained: the merged kernel rodata suffix `Gamepad for SAMSUNG` becomes `Gamepad for A90-LNX`; accepted for this fixed-string line. **`A90 Linux init 0.9.268 (v2237-supplicant-terminate-poll)`** (image `workspace/private/inputs/boot_images/boot_linux_v2237_supplicant_terminate_poll.img`, SHA256 `b2ea2d26d160b7702ce7d4438b84367788eea26c6a5bbe4ed93f3d270292ac7f`) remains the deeper fully-Wi-Fi-proven fallback, with `boot_linux_v48.img` as final fallback.
 - **Current validated test artifact (V2323): `A90 Linux init 0.9.287 (v2323-usb-multi-lun-identity)`** — image `workspace/private/inputs/boot_images/boot_linux_v2323_usb_multi_lun_identity.img`, SHA256 `c0d5d73ecf66fa26dd8efb1535e6ed61f3e37123ffd175663a5f8709aaf7eccb`. Closes named multi-LUN mass-storage U-B: parent USB descriptor remains V2321; `mass_storage.0/lun.0/inquiry_string` is `A90-LNX A90-INTERNAL    0001` with FAT label `A90INTERNAL`, and `mass_storage.0/lun.1/inquiry_string` is `A90-LNX A90-SD          0001` with FAT label `A90SD`. Both LUNs are `/cache` file-backed read-only FAT16 images, 8 MiB each. Host validation passed: `lsblk -S` sees two USB SCSI disks with models `A90-INTERNAL` and `A90-SD`, and the block view sees labels `A90INTERNAL` and `A90SD`, filesystem `vfat`, read-only `1`. `usb mass-storage remove` returns to NCM+ACM-only control with `selftest fail=0`. V2321 remains the rollback target until an explicit promotion decision. Previous U-A artifact: V2322 `0.9.286`, SHA256 `81355888b6b19407c76463ee8d5ca045fd0f17294c3329ceda0afc1ab2a36f53`.
