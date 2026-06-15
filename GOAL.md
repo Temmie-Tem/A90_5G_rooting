@@ -528,6 +528,19 @@ future helper timestamps or switch capture method only if that analysis justifie
 ACDB replay remains blocked until command sequence, decoded headers, payload hashes, and
 cleanup policy are pinned.
 
+V2448 completed that host-only analysis. Source review confirms the V2423 helper records
+only fd-matched `/dev/msm_audio_cal` `ioctl_entry`/`ioctl_exit` events; it does not record
+total syscall stops, total ioctl attempts before fd filtering, fd readlink misses, unmatched
+fd targets, entry/exit parity state, or timestamps. V2447 artifacts also show the relevant
+p8795/p8796 helper JSONL files were pulled before helper completion: both lack terminal
+`stop` events, and p8795 ends immediately after `tracee-add`/`clone-child-resumed` for
+TID `12004`. Therefore the V2447 zero-ioctl classification is a partial/opaque observer
+result, not a clean negative. Next meaningful unit is **V2449 host-only diagnostic M1
+observer/runner revision**: add service/helper timestamps, public-safe syscall/ioctl/fd
+counters and first-N unmatched ioctl samples, classify missing terminal `stop` as
+`partial-helper-still-running`, and make the runner wait for helper completion before
+collecting artifacts. Do not rerun M1 unchanged and do not attempt native ACDB replay.
+
 ## Read at the START of every iteration
 
 - **this `GOAL.md`** — re-read it every iteration; the contract may be updated mid-run,
