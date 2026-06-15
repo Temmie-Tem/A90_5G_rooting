@@ -37,6 +37,8 @@ class BuildAndroidAcdbOwnprocessGetV2489(unittest.TestCase):
         self.assertTrue(state["required_ok"], state["required"])
         self.assertTrue(state["prohibited_ok"], state["prohibited"])
         self.assertTrue(state["required"]["uses_absolute_vendor_paths"])
+        self.assertTrue(state["required"]["uses_soname_vendor_paths"])
+        self.assertTrue(state["required"]["uses_arm32_rtld_default"])
         self.assertTrue(state["required"]["uses_rtld_now_only"])
         self.assertTrue(state["required"]["uses_libdl_api_resolution"])
         self.assertTrue(state["required"]["uses_android_dlopen_ext"])
@@ -71,6 +73,14 @@ class BuildAndroidAcdbOwnprocessGetV2489(unittest.TestCase):
         self.assertTrue(payload["boundaries"]["no_forbidden_set_ioctl"])
         self.assertTrue(payload["boundaries"]["live_execution_blocked_in_this_unit"])
         self.assertEqual(payload["capture_contract"]["namespace_probe_order"], ["sphal", "vendor", "default", "vndk"])
+        self.assertEqual(
+            payload["capture_contract"]["library_load_candidates"]["libaudcal"],
+            ["libaudcal.so", "/vendor/lib/libaudcal.so"],
+        )
+        self.assertEqual(
+            payload["capture_contract"]["library_load_candidates"]["libacdbloader"],
+            ["libacdbloader.so", "/vendor/lib/libacdbloader.so"],
+        )
         self.assertIn("default:__loader_android_get_exported_namespace", payload["capture_contract"]["symbol_probe_candidates"])
         self.assertIn("default:__loader_android_dlopen_ext", payload["capture_contract"]["symbol_probe_candidates"])
         self.assertIn("symbol_probe", payload["capture_contract"]["namespace_events"])
