@@ -487,6 +487,21 @@ clamp; focused tests pass (`12`), full unittest discovery passes (`1214`), and
 the V2444 runner. First success criterion is helper JSONL startup/trace telemetry, not yet
 native replay.
 
+V2445 ran that exact-gated live rerun with the V2444 runner. Android handoff, staging,
+APK install, incoming SHA validation, and final module install all passed (`A90_M1_INSTALL_OK`),
+including the duration-clamped `service.sh` SHA `f94ed1949b7d738dc0f9a2ca12456bbec8913fef516899e102cbd97f45a409f7`.
+The run did not reach logcat/playback/artifact pull because the post-module
+`adb wait-for-device` step timed out after `120s`; cleanup immediately entered its finally
+path, waited another `86.292s`, reacquired ADB, uninstalled the APK, removed both
+`/data/adb/modules/a90_audio_acdb_m1_v2429` and `/data/local/tmp/a90-audio-acdb-m1-v2429`,
+then checked V2321 rollback passed. Independent post-run health is V2321 with
+`selftest fail=0`. The measured Android ADB return time was about `206.359s` after the
+module-activation reboot, so the new wall is a post-module wait-budget/classification gap,
+not staging, cleanup, rollback, or helper argument handling. Next meaningful unit is
+**V2446 host-only post-module wait-budget hardening**: extend or split the post-module ADB
+wait above the observed return time, add focused tests, and keep the M1 Android-good
+measurement boundary unchanged. Do not blind-rerun live before that host-only fix.
+
 ## Read at the START of every iteration
 
 - **this `GOAL.md`** — re-read it every iteration; the contract may be updated mid-run,
