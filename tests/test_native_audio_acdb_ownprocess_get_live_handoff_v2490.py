@@ -94,6 +94,8 @@ class NativeAudioAcdbOwnprocessGetV2490(unittest.TestCase):
         self.assertTrue(payload["android_settle_adb_retry"]["enabled"])
         self.assertEqual(payload["android_settle_adb_retry"]["attempts"], v2490.DEFAULT_SETTLE_ADB_RETRY_ATTEMPTS)
         self.assertIn("error: closed", payload["android_settle_adb_retry"]["retry_markers"])
+        self.assertIn("ownget-setup", payload["android_settle_adb_retry"]["early_staging_scope"])
+        self.assertFalse(payload["android_settle_adb_retry"]["helper_execution_retry"])
         self.assertTrue(payload["acdb_dependencies"]["ok"], payload["acdb_dependencies"])
         dep_names = [item["name"] for item in payload["acdb_dependencies"]["libs"]]
         self.assertIn("libaudcal.so", dep_names)
@@ -147,6 +149,83 @@ class NativeAudioAcdbOwnprocessGetV2490(unittest.TestCase):
         step = {"ok": False, "stdout": str(stdout), "stderr": str(root / "missing.stderr.txt")}
 
         self.assertFalse(v2490.step_has_transient_settle_adb_failure(step))
+
+    def test_early_staging_retry_recovers_after_transport_closed(self) -> None:
+        out_dir = Path(tempfile.mkdtemp(prefix="a90-v2490-staging-retry-"))
+        steps: list[dict[str, object]] = []
+        calls: list[str] = []
+        original_run_step = v2490.route.run_step
+        original_settle = v2490.v2396.android_post_handoff_settle_commands
+
+        def fake_run_step(name: str, command: list[str], out_dir_arg: Path, timeout_sec: float, check: bool = True) -> dict[str, object]:
+            calls.append(name)
+            stdout = out_dir / f"{name}.stdout.txt"
+            stderr = out_dir / f"{name}.stderr.txt"
+            if name == "ownget-setup":
+                stdout.write_text("")
+                stderr.write_text("error: closed\n")
+                return {"name": name, "ok": False, "rc": 1, "stdout": str(stdout), "stderr": str(stderr)}
+            stdout.write_text("ok\n")
+            stderr.write_text("")
+            return {"name": name, "ok": True, "rc": 0, "stdout": str(stdout), "stderr": str(stderr)}
+
+        try:
+            v2490.route.run_step = fake_run_step
+            v2490.v2396.android_post_handoff_settle_commands = lambda _args: [
+                ["adb", "wait-for-device"],
+                ["adb", "shell", "boot-complete-check"],
+                ["adb", "shell", "su", "-c", "id"],
+            ]
+
+            record = v2490.run_early_staging_command_with_transport_retry(
+                args(android_settle_adb_retry_attempts=2, android_settle_adb_retry_sleep_sec=0.0),
+                name="ownget-setup",
+                command=["adb", "shell", "setup"],
+                out_dir=out_dir,
+                steps=steps,  # type: ignore[arg-type]
+                timeout_sec=1.0,
+            )
+        finally:
+            v2490.route.run_step = original_run_step
+            v2490.v2396.android_post_handoff_settle_commands = original_settle
+
+        self.assertTrue(record["ok"])
+        self.assertTrue(record["early_staging_retry_recovered"])
+        self.assertIn("ownget-setup", calls)
+        self.assertIn("ownget-setup-retry-2-resettle-wait-for-device", calls)
+        self.assertIn("ownget-setup-retry-2-resettle-boot-complete", calls)
+        self.assertIn("ownget-setup-retry-2-resettle-root-id", calls)
+        self.assertIn("ownget-setup-retry-2", calls)
+
+    def test_early_staging_retry_fails_closed_for_semantic_error(self) -> None:
+        out_dir = Path(tempfile.mkdtemp(prefix="a90-v2490-staging-retry-"))
+        steps: list[dict[str, object]] = []
+        calls: list[str] = []
+        original_run_step = v2490.route.run_step
+
+        def fake_run_step(name: str, command: list[str], out_dir_arg: Path, timeout_sec: float, check: bool = True) -> dict[str, object]:
+            calls.append(name)
+            stdout = out_dir / f"{name}.stdout.txt"
+            stderr = out_dir / f"{name}.stderr.txt"
+            stdout.write_text("")
+            stderr.write_text("permission denied\n")
+            return {"name": name, "ok": False, "rc": 1, "stdout": str(stdout), "stderr": str(stderr)}
+
+        try:
+            v2490.route.run_step = fake_run_step
+            with self.assertRaisesRegex(RuntimeError, "ownget-setup failed"):
+                v2490.run_early_staging_command_with_transport_retry(
+                    args(android_settle_adb_retry_attempts=3, android_settle_adb_retry_sleep_sec=0.0),
+                    name="ownget-setup",
+                    command=["adb", "shell", "setup"],
+                    out_dir=out_dir,
+                    steps=steps,  # type: ignore[arg-type]
+                    timeout_sec=1.0,
+                )
+        finally:
+            v2490.route.run_step = original_run_step
+
+        self.assertEqual(calls, ["ownget-setup"])
 
     def test_command_safety_rejects_inhal_and_native_calibration_paths(self) -> None:
         payload = {

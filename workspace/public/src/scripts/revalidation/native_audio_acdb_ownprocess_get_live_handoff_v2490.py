@@ -446,7 +446,11 @@ def step_has_transient_settle_adb_failure(step: dict[str, Any]) -> bool:
     return any(marker.lower() in lower_text for marker in TRANSIENT_SETTLE_ADB_FAILURE_MARKERS)
 
 
-def settle_failure_message(name: str, step: dict[str, Any]) -> str:
+def step_has_transient_staging_adb_failure(step: dict[str, Any]) -> bool:
+    return step_has_transient_settle_adb_failure(step)
+
+
+def step_failure_message(name: str, step: dict[str, Any]) -> str:
     return f"{name} failed rc={step.get('rc')}; see {step.get('stdout')} {step.get('stderr')}"
 
 
@@ -480,7 +484,7 @@ def run_settle_command_with_transport_retry(
                 step["settle_retry_attempt"] = attempt
             return step
         if not step_has_transient_settle_adb_failure(step):
-            raise RuntimeError(settle_failure_message(name, step))
+            raise RuntimeError(step_failure_message(name, step))
         step["settle_retry_reason"] = "transient-adb-transport"
         if attempt < attempts:
             time.sleep(sleep_sec)
@@ -524,6 +528,69 @@ def run_android_post_handoff_settle_with_transport_retry(
         if last_record is not None:
             v2396.validate_android_root_recheck(last_record)
         raise RuntimeError("android root recheck did not run")
+
+
+def append_android_staging_resettle_steps(
+    args: argparse.Namespace,
+    *,
+    label: str,
+    attempt: int,
+    out_dir: Path,
+    steps: list[dict[str, Any]],
+) -> None:
+    settle_commands = v2396.android_post_handoff_settle_commands(args)
+    probes = (
+        ("wait-for-device", adb_base(args) + ["wait-for-device"]),
+        ("boot-complete", settle_commands[1]),
+        ("root-id", settle_commands[2]),
+    )
+    for suffix, command in probes:
+        record = route.run_step(
+            f"{label}-retry-{attempt}-resettle-{suffix}",
+            command,
+            out_dir,
+            timeout_sec=args.adb_command_timeout,
+            check=False,
+        )
+        record["staging_retry_resettle"] = True
+        record["staging_retry_attempt"] = attempt
+        steps.append(record)
+
+
+def run_early_staging_command_with_transport_retry(
+    args: argparse.Namespace,
+    *,
+    name: str,
+    command: list[str],
+    out_dir: Path,
+    steps: list[dict[str, Any]],
+    timeout_sec: float,
+) -> dict[str, Any]:
+    attempts = settle_adb_retry_attempts(args)
+    sleep_sec = settle_adb_retry_sleep_sec(args)
+    last_step: dict[str, Any] | None = None
+    for attempt in range(1, attempts + 1):
+        if attempt > 1:
+            append_android_staging_resettle_steps(args, label=name, attempt=attempt, out_dir=out_dir, steps=steps)
+        step_name = name if attempt == 1 else f"{name}-retry-{attempt}"
+        step = route.run_step(step_name, command, out_dir, timeout_sec=timeout_sec, check=False)
+        step["early_staging_retry_attempt"] = attempt
+        steps.append(step)
+        last_step = step
+        if step.get("ok"):
+            if attempt > 1:
+                step["early_staging_retry_recovered"] = True
+            return step
+        if not step_has_transient_staging_adb_failure(step):
+            raise RuntimeError(step_failure_message(step_name, step))
+        step["early_staging_retry_reason"] = "transient-adb-transport"
+        if attempt < attempts:
+            time.sleep(sleep_sec)
+    assert last_step is not None
+    raise RuntimeError(
+        f"{name} transient ADB transport failure persisted after {attempts} attempts; "
+        f"see {last_step.get('stdout')} {last_step.get('stderr')}"
+    )
 
 
 def parse_ownget_artifacts(path: Path) -> dict[str, Any]:
@@ -834,10 +901,24 @@ def dry_run_payload(args: argparse.Namespace) -> dict[str, Any]:
             "enabled": settle_adb_retry_attempts(args) > 1,
             "attempts": settle_adb_retry_attempts(args),
             "sleep_sec": settle_adb_retry_sleep_sec(args),
-            "scope": "android-post-handoff-settle-0/1 transport-only failures before helper staging",
+            "scope": (
+                "android-post-handoff-settle-0/1 plus early staging transport-only failures "
+                "before helper execution"
+            ),
             "retry_markers": list(TRANSIENT_SETTLE_ADB_FAILURE_MARKERS),
             "semantic_failures_fail_closed": True,
+            "early_staging_scope": [
+                "ownget-setup",
+                "ownget-push-helper",
+                "ownget-push-ioctl-trace-preload",
+                "ownget-push-<acdb-dependency>",
+                "ownget-chmod-helper",
+                "ownget-probe-execution-context",
+                "ownget-logcat-clear",
+            ],
+            "helper_execution_retry": False,
             "v2515_gap": "android-post-handoff-settle-1 failed with adb 'error: closed' before helper staging",
+            "v2532_gap": "ownget-setup failed with adb 'error: closed' after root settle and before helper staging",
         },
         "ioctl_trace_policy": {
             "enabled": bool(ioctl_trace.get("enabled")),
@@ -925,28 +1006,67 @@ def run_live(args: argparse.Namespace) -> dict[str, Any]:
             timeout_sec=args.flash_timeout,
         ))
         run_android_post_handoff_settle_with_transport_retry(args, out_dir, steps)
-        steps.append(route.run_step("ownget-setup", setup_command(args), out_dir, timeout_sec=args.adb_command_timeout))
+        run_early_staging_command_with_transport_retry(
+            args,
+            name="ownget-setup",
+            command=setup_command(args),
+            out_dir=out_dir,
+            steps=steps,
+            timeout_sec=args.adb_command_timeout,
+        )
         helper_path = ROOT / payload["helper"]["path"]
-        steps.append(route.run_step("ownget-push-helper", adb_push(args, rel(helper_path), REMOTE_HELPER), out_dir, timeout_sec=args.adb_command_timeout))
+        run_early_staging_command_with_transport_retry(
+            args,
+            name="ownget-push-helper",
+            command=adb_push(args, rel(helper_path), REMOTE_HELPER),
+            out_dir=out_dir,
+            steps=steps,
+            timeout_sec=args.adb_command_timeout,
+        )
         if payload["ioctl_trace_preload"].get("enabled"):
             trace_path = ROOT / payload["ioctl_trace_preload"]["path"]
-            steps.append(route.run_step(
-                "ownget-push-ioctl-trace-preload",
-                adb_push(args, rel(trace_path), REMOTE_IOCTL_TRACE_SO),
-                out_dir,
+            run_early_staging_command_with_transport_retry(
+                args,
+                name="ownget-push-ioctl-trace-preload",
+                command=adb_push(args, rel(trace_path), REMOTE_IOCTL_TRACE_SO),
+                out_dir=out_dir,
+                steps=steps,
                 timeout_sec=args.adb_command_timeout,
-            ))
+            )
         for dep in payload["acdb_dependencies"]["libs"]:
             dep_path = ROOT / dep["path"]
-            steps.append(route.run_step(
-                f"ownget-push-{dep['name']}",
-                adb_push(args, rel(dep_path), dep["remote_path"]),
-                out_dir,
+            run_early_staging_command_with_transport_retry(
+                args,
+                name=f"ownget-push-{dep['name']}",
+                command=adb_push(args, rel(dep_path), dep["remote_path"]),
+                out_dir=out_dir,
+                steps=steps,
                 timeout_sec=args.adb_command_timeout,
-            ))
-        steps.append(route.run_step("ownget-chmod-helper", chmod_helper_command(args), out_dir, timeout_sec=args.adb_command_timeout))
-        steps.append(route.run_step("ownget-probe-execution-context", execution_context_probe_command(args), out_dir, timeout_sec=args.adb_command_timeout, check=False))
-        steps.append(route.run_step("ownget-logcat-clear", clear_logcat_command(args), out_dir, timeout_sec=args.adb_command_timeout, check=False))
+            )
+        run_early_staging_command_with_transport_retry(
+            args,
+            name="ownget-chmod-helper",
+            command=chmod_helper_command(args),
+            out_dir=out_dir,
+            steps=steps,
+            timeout_sec=args.adb_command_timeout,
+        )
+        run_early_staging_command_with_transport_retry(
+            args,
+            name="ownget-probe-execution-context",
+            command=execution_context_probe_command(args),
+            out_dir=out_dir,
+            steps=steps,
+            timeout_sec=args.adb_command_timeout,
+        )
+        run_early_staging_command_with_transport_retry(
+            args,
+            name="ownget-logcat-clear",
+            command=clear_logcat_command(args),
+            out_dir=out_dir,
+            steps=steps,
+            timeout_sec=args.adb_command_timeout,
+        )
         helper_timeout = False
         try:
             steps.append(route.run_step("ownget-run-helper", run_helper_command(args), out_dir, timeout_sec=args.helper_timeout, check=False))
