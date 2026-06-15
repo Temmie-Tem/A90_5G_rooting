@@ -12,6 +12,7 @@ from pathlib import Path
 from _loader import load_revalidation
 
 v2490 = load_revalidation("native_audio_acdb_ownprocess_get_live_handoff_v2490")
+v_combined = load_revalidation("build_android_acdb_combined_preload_v2538")
 v_acdbtap = load_revalidation("build_android_acdbtap_v2475")
 v_helper = load_revalidation("build_android_acdb_ownprocess_get_exec_linked_v2512")
 v_ioctltrace = load_revalidation("build_android_ioctl_trace_preload_v2531")
@@ -23,8 +24,10 @@ def args(**overrides: object) -> Namespace:
         "dry_run": True,
         "run_live": False,
         "build_helper": False,
+        "build_combined_preload": False,
         "build_acdbtap": False,
         "build_ioctl_trace": False,
+        "use_combined_preload": False,
         "enable_acdbtap_preload": False,
         "disable_ioctl_trace": False,
         "fake_audio_cal_allocate": False,
@@ -45,6 +48,10 @@ def args(**overrides: object) -> Namespace:
         "helper_sha256": None,
         "helper_build_root": v_helper.DEFAULT_BUILD_ROOT,
         "helper_manifest_path": v_helper.DEFAULT_MANIFEST,
+        "combined_preload_so": None,
+        "combined_preload_sha256": None,
+        "combined_preload_build_root": v_combined.DEFAULT_BUILD_ROOT,
+        "combined_preload_manifest_path": v_combined.DEFAULT_MANIFEST,
         "acdbtap_so": None,
         "acdbtap_sha256": None,
         "acdbtap_build_root": v_acdbtap.DEFAULT_BUILD_ROOT,
@@ -74,9 +81,15 @@ def fake_helper_args(**overrides: object) -> Namespace:
     acdbtap.parent.mkdir(parents=True)
     acdbtap.write_bytes(b"fake-arm32-acdbtap-preload-for-dry-run")
     acdbtap_digest = hashlib.sha256(acdbtap.read_bytes()).hexdigest()
+    combined = root / "v2538-acdb-combined-preload-host-only" / "bin" / v_combined.ARTIFACT_NAME
+    combined.parent.mkdir(parents=True)
+    combined.write_bytes(b"fake-arm32-combined-preload-for-dry-run")
+    combined_digest = hashlib.sha256(combined.read_bytes()).hexdigest()
     defaults = {
         "helper_path": helper,
         "helper_sha256": digest,
+        "combined_preload_so": combined,
+        "combined_preload_sha256": combined_digest,
         "acdbtap_so": acdbtap,
         "acdbtap_sha256": acdbtap_digest,
         "ioctl_trace_so": trace,
@@ -180,6 +193,26 @@ class NativeAudioAcdbOwnprocessGetV2490(unittest.TestCase):
         self.assertNotIn("libacdbtap.so:/data/local/tmp/a90-acdb-ownget/liba90_ioctl_trace_v2531.so", flat_commands)
         self.assertIn("A90_ACDBTAP_DIR=/data/local/tmp/a90-acdb-tap", flat_commands)
         self.assertIn("acdbtap/acdbtap-events.jsonl", json.dumps(payload["acdbtap_policy"], sort_keys=True))
+        self.assertNotIn("0xc00461cb", flat_commands.lower())
+
+    def test_dry_run_can_use_single_combined_preload(self) -> None:
+        payload = v2490.dry_run_payload(fake_helper_args(
+            use_combined_preload=True,
+            fake_audio_cal_allocate=True,
+        ))
+
+        self.assertTrue(payload["live_ready"], payload.get("live_blockers"))
+        self.assertTrue(payload["combined_preload"]["ok"], payload["combined_preload"])
+        self.assertTrue(payload["combined_preload"]["enabled"], payload["combined_preload"])
+        self.assertFalse(payload["acdbtap_preload"]["enabled"])
+        self.assertFalse(payload["ioctl_trace_preload"]["enabled"])
+        self.assertTrue(payload["combined_preload_policy"]["enabled"])
+        flat_commands = json.dumps(payload["commands"], sort_keys=True)
+        self.assertIn("/data/local/tmp/a90-acdb-ownget/liba90_acdb_combined_preload_v2538.so", flat_commands)
+        self.assertIn("ownget-push-combined-preload", payload["android_settle_adb_retry"]["early_staging_scope"])
+        self.assertIn("LD_PRELOAD=/data/local/tmp/a90-acdb-ownget/liba90_acdb_combined_preload_v2538.so", flat_commands)
+        self.assertNotIn("libacdbtap.so /data/local/tmp/a90-acdb-ownget/liba90_ioctl_trace_v2531.so", flat_commands)
+        self.assertIn("A90_ACDB_FAKE_ALLOCATE=1", flat_commands)
         self.assertNotIn("0xc00461cb", flat_commands.lower())
 
     def test_step_has_transient_settle_adb_failure_for_error_closed(self) -> None:

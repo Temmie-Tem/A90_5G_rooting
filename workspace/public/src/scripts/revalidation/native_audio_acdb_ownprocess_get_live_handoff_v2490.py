@@ -21,6 +21,7 @@ from typing import Any
 
 import build_android_acdb_ownprocess_get_v2489 as v2489
 import build_android_acdb_ownprocess_get_exec_linked_v2512 as v_helper
+import build_android_acdb_combined_preload_v2538 as v_combined
 import build_android_acdbtap_v2475 as v_acdbtap
 import build_android_ioctl_trace_preload_v2531 as v_ioctltrace
 import native_audio_acdb_android_measurement_planner_v2396 as v2396
@@ -33,6 +34,7 @@ DEFAULT_OUT_BASE = ROOT / "workspace/private/runs/audio"
 REMOTE_DIR = "/data/local/tmp/a90-acdb-ownget"
 REMOTE_ACDBTAP_DIR = "/data/local/tmp/a90-acdb-tap"
 REMOTE_HELPER = f"{REMOTE_DIR}/{v_helper.ARTIFACT_NAME}"
+REMOTE_COMBINED_PRELOAD_SO = f"{REMOTE_DIR}/{v_combined.ARTIFACT_NAME}"
 REMOTE_ACDBTAP_SO = f"{REMOTE_DIR}/{v_acdbtap.SO_NAME}"
 REMOTE_IOCTL_TRACE_SO = f"{REMOTE_DIR}/{v_ioctltrace.ARTIFACT_NAME}"
 REMOTE_EVENTS = f"{REMOTE_DIR}/acdb-ownget-events.jsonl"
@@ -209,6 +211,19 @@ def build_acdbtap(args: argparse.Namespace) -> dict[str, Any]:
     return v_acdbtap.manifest(build_args)
 
 
+def build_combined_preload(args: argparse.Namespace) -> dict[str, Any]:
+    build_args = argparse.Namespace(
+        build=True,
+        build_root=args.combined_preload_build_root,
+        manifest_path=args.combined_preload_manifest_path,
+        clang=None,
+        lld=v_combined.TOOLCHAIN_ROOT / "bin/ld.lld",
+        readelf=args.readelf,
+        file=args.file,
+    )
+    return v_combined.manifest(build_args)
+
+
 def selected_helper_state(args: argparse.Namespace) -> dict[str, Any]:
     if args.helper_path:
         return helper_artifact_state(args.helper_path, expected_sha256=args.helper_sha256)
@@ -229,7 +244,7 @@ def selected_helper_state(args: argparse.Namespace) -> dict[str, Any]:
 
 
 def selected_ioctl_trace_state(args: argparse.Namespace) -> dict[str, Any]:
-    if getattr(args, "disable_ioctl_trace", False):
+    if combined_preload_enabled(args) or getattr(args, "disable_ioctl_trace", False):
         return {"enabled": False, "ok": True, "path": None}
     if args.ioctl_trace_so:
         state = helper_artifact_state(args.ioctl_trace_so, expected_sha256=args.ioctl_trace_sha256)
@@ -255,7 +270,7 @@ def selected_ioctl_trace_state(args: argparse.Namespace) -> dict[str, Any]:
 
 
 def selected_acdbtap_state(args: argparse.Namespace) -> dict[str, Any]:
-    if not getattr(args, "enable_acdbtap_preload", False):
+    if combined_preload_enabled(args) or not getattr(args, "enable_acdbtap_preload", False):
         return {"enabled": False, "ok": True, "path": None}
     if args.acdbtap_so:
         state = helper_artifact_state(args.acdbtap_so, expected_sha256=args.acdbtap_sha256)
@@ -280,9 +295,41 @@ def selected_acdbtap_state(args: argparse.Namespace) -> dict[str, Any]:
     return state
 
 
+def selected_combined_preload_state(args: argparse.Namespace) -> dict[str, Any]:
+    if not combined_preload_enabled(args):
+        return {"enabled": False, "ok": True, "path": None}
+    if args.combined_preload_so:
+        state = helper_artifact_state(args.combined_preload_so, expected_sha256=args.combined_preload_sha256)
+        state["enabled"] = True
+        return state
+    manifest_path = args.combined_preload_manifest_path
+    if manifest_path.exists():
+        try:
+            manifest = json.loads(manifest_path.read_text(encoding="utf-8"))
+            binary = manifest.get("build", {}).get("binary", {})
+            path = ROOT / binary.get("path", "")
+            expected = binary.get("sha256")
+            state = helper_artifact_state(path, expected_sha256=expected)
+            state["manifest"] = rel(manifest_path)
+            state["enabled"] = True
+            return state
+        except Exception as error:
+            return {"enabled": True, "path": None, "exists": False, "ok": False, "error": str(error)}
+    default_path = args.combined_preload_build_root / "bin" / v_combined.ARTIFACT_NAME
+    state = helper_artifact_state(default_path)
+    state["enabled"] = True
+    return state
+
+
+def combined_preload_enabled(args: argparse.Namespace) -> bool:
+    return bool(getattr(args, "use_combined_preload", False))
+
+
 
 def fake_audio_cal_allocate_enabled(args: argparse.Namespace) -> bool:
-    return bool(getattr(args, "fake_audio_cal_allocate", False)) and not getattr(args, "disable_ioctl_trace", False)
+    return bool(getattr(args, "fake_audio_cal_allocate", False)) and (
+        combined_preload_enabled(args) or not getattr(args, "disable_ioctl_trace", False)
+    )
 
 def acdb_dependency_source() -> tuple[str, Path, tuple[str, ...]]:
     if all((ACDB_DEP_CLOSURE_DIR / name).exists() for name in ACDB_DEP_LIBS):
@@ -339,14 +386,17 @@ def chmod_helper_command(args: argparse.Namespace) -> list[str]:
     script = f"""
 set -eu
 chmod 700 {shlex.quote(REMOTE_HELPER)}
+chmod 600 {shlex.quote(REMOTE_COMBINED_PRELOAD_SO)} 2>/dev/null || true
 chmod 600 {shlex.quote(REMOTE_ACDBTAP_SO)} 2>/dev/null || true
 chmod 600 {shlex.quote(REMOTE_IOCTL_TRACE_SO)} 2>/dev/null || true
 chmod 600 {shlex.quote(REMOTE_DIR)}/*.so 2>/dev/null || true
 sha256sum {shlex.quote(REMOTE_HELPER)} 2>/dev/null || toybox sha256sum {shlex.quote(REMOTE_HELPER)}
+sha256sum {shlex.quote(REMOTE_COMBINED_PRELOAD_SO)} 2>/dev/null || true
 sha256sum {shlex.quote(REMOTE_ACDBTAP_SO)} 2>/dev/null || true
 sha256sum {shlex.quote(REMOTE_IOCTL_TRACE_SO)} 2>/dev/null || true
 ls -l {shlex.quote(REMOTE_DIR)}/*.so 2>/dev/null || true
 file {shlex.quote(REMOTE_HELPER)} 2>/dev/null || true
+file {shlex.quote(REMOTE_COMBINED_PRELOAD_SO)} 2>/dev/null || true
 file {shlex.quote(REMOTE_ACDBTAP_SO)} 2>/dev/null || true
 file {shlex.quote(REMOTE_IOCTL_TRACE_SO)} 2>/dev/null || true
 """.strip()
@@ -383,14 +433,17 @@ exit 0
 
 def run_helper_command(args: argparse.Namespace) -> list[str]:
     ld_library_path = ":".join([REMOTE_DIR, "/vendor/lib", "/system/lib", "/system_ext/lib", "/product/lib"])
+    combined_enabled = combined_preload_enabled(args)
     trace_enabled = not getattr(args, "disable_ioctl_trace", False)
     tap_enabled = bool(getattr(args, "enable_acdbtap_preload", False))
     fake_allocate = fake_audio_cal_allocate_enabled(args)
     fake_allocate_prefix = "A90_ACDB_FAKE_ALLOCATE=1 " if fake_allocate else ""
     preloads = []
-    if tap_enabled:
+    if combined_enabled:
+        preloads.append(REMOTE_COMBINED_PRELOAD_SO)
+    elif tap_enabled:
         preloads.append(REMOTE_ACDBTAP_SO)
-    if trace_enabled:
+    if not combined_enabled and trace_enabled:
         preloads.append(REMOTE_IOCTL_TRACE_SO)
     preload_value = " ".join(preloads)
     preload_prefix = f"LD_PRELOAD={shlex.quote(preload_value)} " if preload_value else ""
@@ -405,7 +458,7 @@ rm -f {shlex.quote(REMOTE_ACDBTAP_DIR)}/* 2>/dev/null || true
   id -Z 2>&1 || true
   echo '### run-env'
   echo 'LD_PRELOAD={preload_value}'
-  echo 'A90_ACDBTAP_DIR={REMOTE_ACDBTAP_DIR if tap_enabled else ""}'
+  echo 'A90_ACDBTAP_DIR={REMOTE_ACDBTAP_DIR if (tap_enabled or combined_enabled) else ""}'
   echo 'A90_ACDB_FAKE_ALLOCATE={"1" if fake_allocate else ""}'
   echo 'LD_LIBRARY_PATH={ld_library_path}'
   echo '### run-proc-self-status'
@@ -1104,6 +1157,7 @@ def dry_run_payload(args: argparse.Namespace) -> dict[str, Any]:
     android_boot = route.select_android_boot_candidate()
     rollback = route.file_state(route.ROLLBACK_IMAGE, expected_sha256=route.ROLLBACK_SHA256)
     helper = selected_helper_state(args)
+    combined_preload = selected_combined_preload_state(args)
     acdbtap = selected_acdbtap_state(args)
     ioctl_trace = selected_ioctl_trace_state(args)
     deps = acdb_dependency_states()
@@ -1114,6 +1168,11 @@ def dry_run_payload(args: argparse.Namespace) -> dict[str, Any]:
         "post_handoff_settle": ["adb wait-for-device + boot-complete + su id with bounded retries"],
         "setup": setup_command(args),
         "push_helper": adb_push(args, helper.get("path") or "<helper>", helper_remote),
+        "push_combined_preload": (
+            adb_push(args, combined_preload.get("path") or "<combined-preload-so>", REMOTE_COMBINED_PRELOAD_SO)
+            if combined_preload.get("enabled")
+            else ["disabled"]
+        ),
         "push_acdbtap_preload": (
             adb_push(args, acdbtap.get("path") or "<acdbtap-so>", REMOTE_ACDBTAP_SO)
             if acdbtap.get("enabled")
@@ -1148,6 +1207,7 @@ def dry_run_payload(args: argparse.Namespace) -> dict[str, Any]:
         "android_boot": android_boot,
         "rollback": rollback,
         "helper": helper,
+        "combined_preload": combined_preload,
         "acdbtap_preload": acdbtap,
         "ioctl_trace_preload": ioctl_trace,
         "acdb_dependencies": deps,
@@ -1166,6 +1226,7 @@ def dry_run_payload(args: argparse.Namespace) -> dict[str, Any]:
             "early_staging_scope": [
                 "ownget-setup",
                 "ownget-push-helper",
+                "ownget-push-combined-preload",
                 "ownget-push-acdbtap-preload",
                 "ownget-push-ioctl-trace-preload",
                 "ownget-push-<acdb-dependency>",
@@ -1195,9 +1256,17 @@ def dry_run_payload(args: argparse.Namespace) -> dict[str, Any]:
             "required_evidence": ["acdbtap/acdbtap-events.jsonl", "acdbtap/acdbtap-*.bin"],
             "success_requires": "ret==0 and non-zero raw output buffer; requested out_len alone is not success",
         },
+        "combined_preload_policy": {
+            "enabled": bool(combined_preload.get("enabled")),
+            "mechanism": "single own-process LD_PRELOAD exporting both acdb_ioctl and ioctl",
+            "replaces": "V2536/V2537 failed separate two-library preload attempts",
+            "capture_dir": REMOTE_ACDBTAP_DIR,
+            "success_requires": "ret==0 and non-zero raw output buffer; requested out_len alone is not success",
+        },
         "partial_success_policy": "captured-ownprocess-outbuf-set-no-4916 is preserved as operator-valuable partial evidence; ACDB tap no-4916 policy remains non-dead-run",
         "hard_boundary": [
             "own-process helper only; no in-HAL LD_PRELOAD/injection",
+            "single combined own-process preload when --use-combined-preload is set",
             "own-process LD_PRELOAD acdb_ioctl tap observes existing libacdbloader calls when enabled",
             "own-process LD_PRELOAD ioctl trace observes existing calls by default",
             "if --fake-audio-cal-allocate is set, AUDIO_ALLOCATE/DEALLOCATE/SET are no-op success in-process only",
@@ -1214,6 +1283,7 @@ def dry_run_payload(args: argparse.Namespace) -> dict[str, Any]:
             android_boot.get("ok")
             and rollback.get("ok")
             and helper.get("ok")
+            and combined_preload.get("ok")
             and acdbtap.get("ok")
             and ioctl_trace.get("ok")
             and deps.get("ok")
@@ -1226,6 +1296,8 @@ def dry_run_payload(args: argparse.Namespace) -> dict[str, Any]:
         payload["live_blockers"].append("V2321 rollback image missing or invalid")
     if not helper.get("ok"):
         payload["live_blockers"].append("V2489 helper artifact missing or invalid; run V2489 builder first")
+    if not combined_preload.get("ok"):
+        payload["live_blockers"].append("V2538 combined preload missing or invalid; run V2538 builder first")
     if not acdbtap.get("ok"):
         payload["live_blockers"].append("V2475 acdbtap preload missing or invalid; run V2475 builder first")
     if not ioctl_trace.get("ok"):
@@ -1242,6 +1314,8 @@ def dry_run_payload(args: argparse.Namespace) -> dict[str, Any]:
 def run_live(args: argparse.Namespace) -> dict[str, Any]:
     if args.build_helper:
         build_helper(args)
+    if args.build_combined_preload and combined_preload_enabled(args):
+        build_combined_preload(args)
     if args.build_acdbtap and args.enable_acdbtap_preload:
         build_acdbtap(args)
     if args.build_ioctl_trace and not args.disable_ioctl_trace:
@@ -1299,6 +1373,16 @@ def run_live(args: argparse.Namespace) -> dict[str, Any]:
             steps=steps,
             timeout_sec=args.adb_command_timeout,
         )
+        if payload["combined_preload"].get("enabled"):
+            combined_path = ROOT / payload["combined_preload"]["path"]
+            run_early_staging_command_with_transport_retry(
+                args,
+                name="ownget-push-combined-preload",
+                command=adb_push(args, rel(combined_path), REMOTE_COMBINED_PRELOAD_SO),
+                out_dir=out_dir,
+                steps=steps,
+                timeout_sec=args.adb_command_timeout,
+            )
         if payload["acdbtap_preload"].get("enabled"):
             acdbtap_path = ROOT / payload["acdbtap_preload"]["path"]
             run_early_staging_command_with_transport_retry(
@@ -1399,8 +1483,10 @@ def parse_args(argv: list[str] | None = None) -> argparse.Namespace:
     parser.add_argument("--dry-run", action="store_true")
     parser.add_argument("--run-live", action="store_true")
     parser.add_argument("--build-helper", action="store_true", help="Build the V2489 helper before planning/running")
+    parser.add_argument("--build-combined-preload", action="store_true", help="Build the V2538 combined acdb_ioctl+ioctl preload before planning/running")
     parser.add_argument("--build-acdbtap", action="store_true", help="Build the V2475 acdbtap preload before planning/running")
     parser.add_argument("--build-ioctl-trace", action="store_true", help="Build the V2531 ioctl trace preload before planning/running")
+    parser.add_argument("--use-combined-preload", action="store_true", help="Use one combined V2538 preload instead of separate acdbtap/ioctl trace preloads")
     parser.add_argument("--enable-acdbtap-preload", action="store_true", help="Stack the V2475 acdb_ioctl interposer before the V2531 ioctl trace preload")
     parser.add_argument("--disable-ioctl-trace", action="store_true", help="Run without the V2531 ioctl trace preload")
     parser.add_argument(
@@ -1425,6 +1511,10 @@ def parse_args(argv: list[str] | None = None) -> argparse.Namespace:
     parser.add_argument("--helper-sha256")
     parser.add_argument("--helper-build-root", type=Path, default=v_helper.DEFAULT_BUILD_ROOT)
     parser.add_argument("--helper-manifest-path", type=Path, default=v_helper.DEFAULT_MANIFEST)
+    parser.add_argument("--combined-preload-so", type=Path)
+    parser.add_argument("--combined-preload-sha256")
+    parser.add_argument("--combined-preload-build-root", type=Path, default=v_combined.DEFAULT_BUILD_ROOT)
+    parser.add_argument("--combined-preload-manifest-path", type=Path, default=v_combined.DEFAULT_MANIFEST)
     parser.add_argument("--acdbtap-so", type=Path)
     parser.add_argument("--acdbtap-sha256")
     parser.add_argument("--acdbtap-build-root", type=Path, default=v_acdbtap.DEFAULT_BUILD_ROOT)
@@ -1442,6 +1532,8 @@ def main(argv: list[str] | None = None) -> int:
     args = parse_args(argv)
     if args.build_helper and not args.run_live:
         build_helper(args)
+    if args.build_combined_preload and args.use_combined_preload and not args.run_live:
+        build_combined_preload(args)
     if args.build_acdbtap and args.enable_acdbtap_preload and not args.run_live:
         build_acdbtap(args)
     if args.build_ioctl_trace and not args.run_live:
