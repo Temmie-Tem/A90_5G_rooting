@@ -26,6 +26,9 @@ extern void *dlsym(void *handle, const char *symbol);
 #ifndef A90_ACDBTAP_LOG_ENTER
 #define A90_ACDBTAP_LOG_ENTER 0
 #endif
+#ifndef A90_ACDBTAP_ARMED_CAPTURE
+#define A90_ACDBTAP_ARMED_CAPTURE 0
+#endif
 
 #define A90_AT_FDCWD (-100)
 #define A90_O_WRONLY 00000001
@@ -38,6 +41,7 @@ extern void *dlsym(void *handle, const char *symbol);
 #define A90_NR_CLOSE 6
 #define A90_NR_GETPID 20
 #define A90_NR_GETTID 224
+#define A90_NR_EXIT_GROUP 248
 #define A90_NR_OPENAT 322
 
 typedef int32_t (*a90_real_acdb_ioctl_fn)(uint32_t cmd, const uint8_t *in,
@@ -47,6 +51,7 @@ typedef int32_t (*a90_real_acdb_ioctl_fn)(uint32_t cmd, const uint8_t *in,
 static a90_real_acdb_ioctl_fn a90_real_acdb_ioctl;
 static volatile uint32_t a90_sequence;
 static volatile int a90_in_hook;
+static volatile int a90_armed;
 
 struct a90_sha256 {
     uint32_t h[8];
@@ -110,6 +115,13 @@ static void a90_close(int fd)
 {
     if (fd >= 0)
         (void)a90_syscall1(A90_NR_CLOSE, fd);
+}
+
+static void a90_exit_group(int code)
+{
+    (void)a90_syscall1(A90_NR_EXIT_GROUP, code);
+    for (;;) {
+    }
 }
 
 static uint32_t a90_getpid(void)
@@ -379,8 +391,26 @@ static void a90_log_call_phase(uint32_t seq, uint32_t cmd, uint32_t in_len, uint
     a90_close(event_fd);
 }
 
-static void a90_log_capture(uint32_t seq, uint32_t cmd, uint32_t in_len, uint32_t out_len,
-                            int32_t ret, const uint8_t *out)
+__attribute__((visibility("default"))) void a90_arm_capture(void)
+{
+    a90_armed = 1;
+    a90_log_call_phase(a90_sequence++, 0, 0, 0, "armed");
+}
+
+static int a90_is_all_zero(const uint8_t *buf, uint32_t len)
+{
+    uint32_t i;
+    if (!buf)
+        return 1;
+    for (i = 0; i < len; i++) {
+        if (buf[i] != 0)
+            return 0;
+    }
+    return 1;
+}
+
+static int a90_log_capture(uint32_t seq, uint32_t cmd, uint32_t in_len, uint32_t out_len,
+                           int32_t ret, const uint8_t *out)
 {
     uint8_t digest[32];
     char digest_hex[64];
@@ -392,10 +422,12 @@ static void a90_log_capture(uint32_t seq, uint32_t cmd, uint32_t in_len, uint32_
     uint32_t i;
     struct a90_sha256 sha;
     int captured_raw = 0;
+    int all_zero;
 
     if (!out || out_len == 0 || out_len > A90_MAX_CAPTURE_LEN)
-        return;
+        return 0;
 
+    all_zero = a90_is_all_zero(out, out_len);
     a90_sha256_init(&sha);
     a90_sha256_update(&sha, out, out_len);
     a90_sha256_final(&sha, digest);
@@ -411,7 +443,7 @@ static void a90_log_capture(uint32_t seq, uint32_t cmd, uint32_t in_len, uint32_
 
     event_fd = a90_open_append(A90_EVENTS_PATH);
     if (event_fd < 0)
-        return;
+        return 0;
 
     p = line;
     *p++ = '{';
@@ -446,11 +478,15 @@ static void a90_log_capture(uint32_t seq, uint32_t cmd, uint32_t in_len, uint32_
     *p++ = ',';
     p = a90_append_str(p, "\"is_size_query_4\":");
     p = a90_append_str(p, out_len == A90_SIZE_QUERY_OUT_LEN ? "true" : "false");
+    *p++ = ',';
+    p = a90_append_str(p, "\"all_zero\":");
+    p = a90_append_str(p, all_zero ? "true" : "false");
     *p++ = '}';
     *p++ = '\n';
 
     a90_write_all(event_fd, line, (size_t)(p - line));
     a90_close(event_fd);
+    return ret == 0 && out_len == A90_TARGET_OUT_LEN && !all_zero;
 }
 
 __attribute__((visibility("default"))) int32_t
@@ -459,11 +495,18 @@ acdb_ioctl(uint32_t cmd, const uint8_t *in, uint32_t in_len, uint8_t *out, uint3
     int32_t ret;
     uint32_t seq;
 
-    if (a90_in_hook) {
-        if (!a90_real_acdb_ioctl)
-            return -1;
+    if (!a90_real_acdb_ioctl)
+        a90_real_acdb_ioctl = (a90_real_acdb_ioctl_fn)dlsym(A90_RTLD_NEXT, "acdb_ioctl");
+    if (!a90_real_acdb_ioctl)
+        return -1;
+
+    if (a90_in_hook)
         return a90_real_acdb_ioctl(cmd, in, in_len, out, out_len);
-    }
+
+#if A90_ACDBTAP_ARMED_CAPTURE
+    if (!a90_armed)
+        return a90_real_acdb_ioctl(cmd, in, in_len, out, out_len);
+#endif
 
     seq = a90_sequence++;
 #if A90_ACDBTAP_LOG_ENTER
@@ -471,8 +514,6 @@ acdb_ioctl(uint32_t cmd, const uint8_t *in, uint32_t in_len, uint8_t *out, uint3
 #endif
 
     a90_in_hook = 1;
-    if (!a90_real_acdb_ioctl)
-        a90_real_acdb_ioctl = (a90_real_acdb_ioctl_fn)dlsym(A90_RTLD_NEXT, "acdb_ioctl");
     if (!a90_real_acdb_ioctl) {
 #if A90_ACDBTAP_LOG_ENTER
         a90_log_call_phase(seq, cmd, in_len, out_len, "resolve_failed");
@@ -485,7 +526,8 @@ acdb_ioctl(uint32_t cmd, const uint8_t *in, uint32_t in_len, uint8_t *out, uint3
     a90_log_call_phase(seq, cmd, in_len, out_len, "before_real");
 #endif
     ret = a90_real_acdb_ioctl(cmd, in, in_len, out, out_len);
-    a90_log_capture(seq, cmd, in_len, out_len, ret, out);
+    if (a90_log_capture(seq, cmd, in_len, out_len, ret, out))
+        a90_exit_group(0);
     a90_in_hook = 0;
     return ret;
 }
