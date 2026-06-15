@@ -324,6 +324,22 @@ def cleanup_command(args: argparse.Namespace) -> list[str]:
     return adb_su(args, f"rm -rf {shlex.quote(REMOTE_DIR)}")
 
 
+def timeout_step_record(name: str, command: list[str], out_dir: Path, timeout_sec: float, error: Exception) -> dict[str, Any]:
+    stdout_path = out_dir / f"{name}.stdout.txt"
+    stderr_path = out_dir / f"{name}.stderr.txt"
+    return {
+        "name": name,
+        "command": command,
+        "timeout_sec": timeout_sec,
+        "timeout": True,
+        "ok": False,
+        "stdout": rel(stdout_path),
+        "stderr": rel(stderr_path),
+        "error": str(error),
+        "finished_at": now_iso(),
+    }
+
+
 def command_safety(payload: dict[str, Any]) -> dict[str, Any]:
     flat = json.dumps(payload.get("commands", payload), sort_keys=True)
     forbidden = {
@@ -506,6 +522,13 @@ def parse_ownget_artifacts(path: Path) -> dict[str, Any]:
         local = path / Path(str(raw_path)).name
         if not local.exists():
             missing_raw.append(row.get("seq"))
+    context_only = bool(
+        exec_context.exists()
+        or run_context.exists()
+        or acdb_log.exists()
+        or filtered_log.exists()
+        or dmesg_log.exists()
+    )
     if target and not missing_raw:
         classification = "acdb-get-success-4916"
     elif rows and not missing_raw:
@@ -537,6 +560,8 @@ def parse_ownget_artifacts(path: Path) -> dict[str, Any]:
             classification = f"ownprocess-error-{stage}"
     elif malformed:
         classification = "ownprocess-events-malformed"
+    elif context_only:
+        classification = "ownprocess-context-only-no-events"
     else:
         classification = "ownprocess-no-events"
     partial_success = classification == "acdb-get-full-outbuf-set-no-4916"
@@ -576,7 +601,7 @@ def parse_ownget_artifacts(path: Path) -> dict[str, Any]:
         "missing_raw_seq": missing_raw,
         "full_success": full_success,
         "partial_success": partial_success,
-        "operator_valuable": bool(full_success or partial_success or rows or errors),
+        "operator_valuable": bool(full_success or partial_success or rows or errors or context_only),
         "counts_toward_fails_twice": not bool(full_success or partial_success),
     }
 
@@ -719,14 +744,26 @@ def run_live(args: argparse.Namespace) -> dict[str, Any]:
         steps.append(route.run_step("ownget-chmod-helper", chmod_helper_command(args), out_dir, timeout_sec=args.adb_command_timeout))
         steps.append(route.run_step("ownget-probe-execution-context", execution_context_probe_command(args), out_dir, timeout_sec=args.adb_command_timeout, check=False))
         steps.append(route.run_step("ownget-logcat-clear", clear_logcat_command(args), out_dir, timeout_sec=args.adb_command_timeout, check=False))
-        steps.append(route.run_step("ownget-run-helper", run_helper_command(args), out_dir, timeout_sec=args.helper_timeout, check=False))
+        helper_timeout = False
+        try:
+            steps.append(route.run_step("ownget-run-helper", run_helper_command(args), out_dir, timeout_sec=args.helper_timeout, check=False))
+        except RuntimeError as helper_error:
+            helper_timeout = "timed out" in str(helper_error).lower()
+            if not helper_timeout:
+                raise
+            steps.append(timeout_step_record("ownget-run-helper", run_helper_command(args), out_dir, args.helper_timeout, helper_error))
+            result["helper_timeout_error"] = str(helper_error)
+            result["decision"] = "v2490-ownget-run-helper-timeout-before-salvage"
         steps.append(route.run_step("ownget-logcat-capture", capture_logcat_command(args), out_dir, timeout_sec=args.adb_command_timeout, check=False))
         steps.append(route.run_step("ownget-collect-prepare", collect_prepare_command(args), out_dir, timeout_sec=args.adb_command_timeout, check=False))
         local_artifacts = out_dir / "ownget-device-artifacts"
         steps.append(route.run_step("ownget-pull-artifacts", pull_artifacts_command(args, str(local_artifacts)), out_dir, timeout_sec=args.adb_pull_timeout, check=False))
         summary = parse_ownget_artifacts(select_pulled_artifact_dir(local_artifacts))
         result["ownget_summary"] = summary
-        result["decision"] = f"v2490-{summary['classification']}-before-rollback"
+        if helper_timeout:
+            result["decision"] = f"v2490-helper-timeout-{summary['classification']}-before-rollback"
+        else:
+            result["decision"] = f"v2490-{summary['classification']}-before-rollback"
         result["partial_success"] = bool(summary.get("partial_success"))
         result["target_4916_success"] = bool(summary.get("full_success"))
         result["counts_toward_fails_twice"] = bool(summary.get("counts_toward_fails_twice", True))

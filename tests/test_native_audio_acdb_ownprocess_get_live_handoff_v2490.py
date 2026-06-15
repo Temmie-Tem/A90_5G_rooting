@@ -301,6 +301,33 @@ class NativeAudioAcdbOwnprocessGetV2490(unittest.TestCase):
         self.assertEqual(summary["classification"], "init-v3-block-vendor-audio-prop-denied")
         self.assertTrue(summary["diagnostics"]["has_vendor_audio_prop_denied"])
 
+    def test_parse_ownget_artifacts_keeps_context_only_timeout_evidence(self) -> None:
+        root = Path(tempfile.mkdtemp(prefix="a90-v2490-artifacts-"))
+        (root / "ownget-exec-context.txt").write_text("uid=0(root) context=u:r:magisk:s0\n")
+        (root / "ownget-run-context.txt").write_text("uid=0(root) context=u:r:magisk:s0\n")
+        (root / "logcat-avc-acdb-filter.txt").write_text("")
+
+        summary = v2490.parse_ownget_artifacts(root)
+
+        self.assertEqual(summary["classification"], "ownprocess-context-only-no-events")
+        self.assertTrue(summary["operator_valuable"])
+        self.assertTrue(summary["counts_toward_fails_twice"])
+        self.assertEqual(summary["diagnostics"]["exec_context_line_count"], 1)
+        self.assertEqual(summary["diagnostics"]["run_context_line_count"], 1)
+
+    def test_timeout_step_record_points_to_step_outputs(self) -> None:
+        root = Path(tempfile.mkdtemp(prefix="a90-v2490-timeout-"))
+        command = ["adb", "shell", "su -c true"]
+
+        record = v2490.timeout_step_record("ownget-run-helper", command, root, 60.0, RuntimeError("timed out"))
+
+        self.assertEqual(record["name"], "ownget-run-helper")
+        self.assertTrue(record["timeout"])
+        self.assertFalse(record["ok"])
+        self.assertEqual(record["command"], command)
+        self.assertIn("ownget-run-helper.stdout.txt", record["stdout"])
+        self.assertIn("timed out", record["error"])
+
     def test_select_pulled_artifact_dir_accepts_flat_adb_pull_layout(self) -> None:
         root = Path(tempfile.mkdtemp(prefix="a90-v2490-pull-"))
         (root / "acdb-ownget-events.jsonl").write_text("{}\n")
