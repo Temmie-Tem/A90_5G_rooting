@@ -78,6 +78,37 @@ def ensure_live_approval(args: argparse.Namespace) -> None:
         raise RuntimeError("exact AUD-5F thread-set clone-follow ACDB payload capture approval phrase is required for --run-live")
 
 
+def adb_subcommand(command: list[str]) -> str | None:
+    if not command or command[0] != "adb":
+        return None
+    index = 1
+    if len(command) > 3 and command[index] == "-s":
+        index += 2
+    if index >= len(command):
+        return None
+    return command[index]
+
+
+def needs_stage_adb_wait(command: list[str]) -> bool:
+    return adb_subcommand(command) in {"push", "install"}
+
+
+def stage_wait_command(args: argparse.Namespace) -> list[str]:
+    return v2423.adb_base(args) + ["wait-for-device"]
+
+
+def stage_wait_plan(args: argparse.Namespace, stage_commands: list[list[str]]) -> list[dict[str, Any]]:
+    return [
+        {
+            "before_stage_index": index,
+            "reason": f"stabilize ADB before adb {adb_subcommand(command)}",
+            "command": stage_wait_command(args),
+        }
+        for index, command in enumerate(stage_commands)
+        if needs_stage_adb_wait(command)
+    ]
+
+
 def payload_sha256(bytes_hex: str) -> str | None:
     if not bytes_hex:
         return None
@@ -247,6 +278,15 @@ def run_live(args: argparse.Namespace) -> dict[str, Any]:
         v2396.run_android_post_handoff_settle(args, out_dir, steps)
 
         for index, command in enumerate(plan["commands"]["stage_threadset_clone_follow_helper_and_stimulus"]):
+            if needs_stage_adb_wait(command):
+                subcommand = adb_subcommand(command) or "unknown"
+                steps.append(route.run_step(
+                    f"stage-{index}-adb-wait-before-{subcommand}",
+                    stage_wait_command(args),
+                    out_dir,
+                    timeout_sec=args.adb_command_timeout,
+                    check=False,
+                ))
             steps.append(route.run_step(f"stage-{index}", command, out_dir, timeout_sec=args.adb_command_timeout))
 
         steps.append(route.run_step("baseline-process-inventory", plan["commands"]["baseline_process_inventory"], out_dir, timeout_sec=args.adb_command_timeout, check=False))
@@ -312,6 +352,7 @@ def dry_run(args: argparse.Namespace) -> dict[str, Any]:
     namespace = args_for_v2423(args)
     namespace.materialize_capture_helper = args.materialize_capture_helper
     payload = v2423.dry_run_payload(namespace)
+    stage_commands = payload["commands"].get("stage_threadset_clone_follow_helper_and_stimulus", [])
     payload.update({
         "run_id": RUN_ID,
         "build_tag": BUILD_TAG,
@@ -320,6 +361,7 @@ def dry_run(args: argparse.Namespace) -> dict[str, Any]:
         "device_action": "none",
         "live_runner": rel(ROOT / "workspace/public/src/scripts/revalidation/native_audio_acdb_threadset_clone_follow_live_handoff_v2424.py"),
         "approval_phrase_required_for_live": APPROVAL_PHRASE,
+        "stage_adb_waits": stage_wait_plan(args, stage_commands),
     })
     return payload
 

@@ -56,6 +56,7 @@ class AcdbThreadsetCloneFollowLiveHandoff(unittest.TestCase):
         self.assertEqual(payload["approval_phrase_required_for_live"], v2424.APPROVAL_PHRASE)
         self.assertEqual(payload["capture_contract"]["watcher"]["mode"], "threadset-attach-plus-PTRACE_O_TRACECLONE")
         self.assertIn("native_audio_acdb_threadset_clone_follow_live_handoff_v2424.py", payload["live_runner"])
+        self.assertIn("stage_adb_waits", payload)
 
     def test_materialized_dry_run_uses_threadset_stage_and_pull_permission_fix(self) -> None:
         with tempfile.TemporaryDirectory() as temp_dir:
@@ -71,6 +72,16 @@ class AcdbThreadsetCloneFollowLiveHandoff(unittest.TestCase):
         self.assertIn("prepare_private_artifacts_for_pull", commands)
         self.assertIn("chmod 644", " ".join(commands["prepare_private_artifacts_for_pull"]))
         self.assertIn("rollback_v2321", commands)
+        waits = payload["stage_adb_waits"]
+        self.assertEqual([item["before_stage_index"] for item in waits], [1, 2, 3])
+        for item in waits:
+            self.assertEqual(item["command"], ["adb", "wait-for-device"])
+
+    def test_stage_wait_classifier_handles_serialized_adb_commands(self) -> None:
+        self.assertTrue(v2424.needs_stage_adb_wait(["adb", "push", "local", "remote"]))
+        self.assertTrue(v2424.needs_stage_adb_wait(["adb", "-s", "SERIAL", "install", "-r", "app.apk"]))
+        self.assertFalse(v2424.needs_stage_adb_wait(["adb", "shell", "true"]))
+        self.assertFalse(v2424.needs_stage_adb_wait(["python3", "native_init_flash.py"]))
 
     def test_wrong_live_approval_exits_before_device_action(self) -> None:
         script = Path("workspace/public/src/scripts/revalidation/native_audio_acdb_threadset_clone_follow_live_handoff_v2424.py")

@@ -272,29 +272,27 @@ it needs hardware/data not available (e.g. creds for full Wi-Fi validation), it 
 with no safe next step, or it would only re-confirm established facts (diminishing returns).
 **When you change tier, record the trigger** in that iteration's report.
 
-## Current audio frontier update (V2424)
+## Current audio frontier update (V2425)
 
 V2424 added the exact-gated Android live runner for the V2423 hybrid thread-set
 clone-following observer and executed the first preauthorized live attempt. The recoverable
-envelope held: Android boot flash passed, post-handoff boot-complete and Magisk `su -c id`
-passed, the first remote staging command passed, rollback to V2321 passed, and final native
-`selftest fail=0`.
+envelope held and rollback to V2321 ended with final native `selftest fail=0`, but the run
+failed before capture: `stage-1`, the first `adb push` of the private observer binary,
+returned `adb: error: failed to get feature set: no devices/emulators found`.
 
-The run did **not** reach the observer or ACDB payload window. It failed at `stage-1`, the
-first `adb push` of the private observer binary, with `adb: error: failed to get feature
-set: no devices/emulators found`. This is an Android ADB stage-transfer stability gap after
-Android/root readiness, not an ACDB-negative result and not a reason to escalate to M1.
+V2425 closes that specific host-side gap without changing capture semantics. The V2424
+runner now inserts `adb wait-for-device` before every staging `adb push` / `adb install`.
+Dry-run exposes `stage_adb_waits` before stage indices `1`, `2`, and `3`; materialized
+dry-run remains `future_live_ready=true` and `command_safety.ok=true`.
 
 Magisk remains an Android-good **measurement/packaging** layer, not a native-init runtime
 dependency. M0 is still first because the hybrid observer has not actually run live yet.
 M1 temporary Magisk module is justified only if a staged, running hybrid M0 still misses a
 logcat-proven ACDB edge because the observer must be active before the audio HAL process or
 worker pool exists. If M1 is used later, it must package the same hybrid observer and only
-change delivery timing. Next meaningful unit is V2425 host-only runner hardening: insert
-`adb wait-for-device` before each staging `adb push` / `adb install`, preserve the V2423
-observer semantics, then rerun the exact-gated V2424-style live capture. Native replay
-remains blocked until raw ioctl command order, decoded headers, private payload hashes, and
-cleanup policy are pinned.
+change delivery timing. Next meaningful unit is a fresh exact-gated Android live rerun with
+the hardened V2424 runner. Native replay remains blocked until raw ioctl command order,
+decoded headers, private payload hashes, and cleanup policy are pinned.
 
 ## Read at the START of every iteration
 
