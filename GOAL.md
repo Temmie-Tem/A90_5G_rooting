@@ -272,7 +272,7 @@ it needs hardware/data not available (e.g. creds for full Wi-Fi validation), it 
 with no safe next step, or it would only re-confirm established facts (diminishing returns).
 **When you change tier, record the trigger** in that iteration's report.
 
-## Current audio frontier update (V2439)
+## Current audio frontier update (V2440)
 
 V2428 completed the fixed Android/Magisk M0 rerun and justified M1: the helper resumed the
 same worker TID that logcat showed running the speaker/ACDB path with `/dev/msm_audio_cal`
@@ -411,6 +411,22 @@ V2438 staging/install path unchanged, but replace the single post-reboot `su -c 
 with a bounded ADB reacquire + Magisk-root retry loop that records failed attempts as
 metadata and proceeds only after `uid=0`. Do not alter observer payload, module semantics,
 playback stimulus, native audio boundaries, cleanup, or rollback behavior.
+
+V2440 completed that host-only hardening as a new runner. It preserves V2438 incoming
+transfer, exact SHA validation, final module install path, observer payload, playback
+stimulus, cleanup, rollback, and native-audio boundaries. Only the post-module-reboot
+settle path changed: after `adb wait-for-device` and boot-complete recheck, the runner now
+performs up to eight bounded `adb wait-for-device` + `su -c id` root-check attempts with
+three seconds between attempts, records each root-check step as
+`root_ready=true|false` plus `settle_decision`, and proceeds only after stdout contains
+`uid=0`. Materialized dry-run is `future_live_ready=true` with command safety clean; focused
+tests prove a transient first root-check failure is tolerated and a later `uid=0` result
+continues.
+
+Next meaningful unit is **V2441 exact-gated live rerun** with the V2440 runner. It should
+keep the same M1 boundary as V2439: Android-good measurement only, temporary Magisk
+`service.sh` module, no native speaker/mixer/PCM writes, no native `/dev/msm_audio_cal`
+ioctl, no native ACDB replay, and exact cleanup before checked V2321 rollback.
 
 ## Read at the START of every iteration
 
