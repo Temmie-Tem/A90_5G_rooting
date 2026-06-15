@@ -668,9 +668,13 @@ unit is a host-only Android-good dmabuf-payload capture design/implementation fo
 ptrace observer now recognizes the custom-topology set-cal header, duplicates the target process
 `mem_handle` fd via `/proc/<tgid>/fd/<fd>`, mmaps at most the declared calibration length into a
 private binary artifact, and records only metadata in JSONL; host summaries hash those private
-dmabuf files without embedding raw bytes. Next meaningful unit is a bounded Android-good live rerun
-of the already validated hybrid late-observer path with this V2463 helper to capture the missing
-4916-byte topology dmabuf. Do **not** issue native calibration ioctls yet.
+dmabuf files without embedding raw bytes. V2464 attempted the bounded Android-good live rerun with
+that helper, but failed closed at `stage-2` with ADB `error: closed` after Android flash,
+boot-complete, Magisk root, and two read-only Magisk probes had passed; no module files, observer,
+playback, ioctl capture, or dmabuf capture ran. Cleanup completed, rollback to V2321 passed, and
+final native `selftest fail=0`. Next meaningful unit is host-only stage-command retry hardening for
+transient ADB transport closures, then a fresh dmabuf live rerun. Do **not** issue native calibration
+ioctls yet.
 
 ## Read at the START of every iteration
 
