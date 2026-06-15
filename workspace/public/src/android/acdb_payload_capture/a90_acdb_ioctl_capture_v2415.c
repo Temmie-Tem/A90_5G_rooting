@@ -30,6 +30,7 @@
 #define DEFAULT_MAX_BYTES 512U
 #define DEFAULT_DURATION_SEC 8
 #define DEFAULT_MAX_EVENTS 64
+#define WAIT_POLL_USEC 10000
 
 struct options {
     pid_t pid;
@@ -227,6 +228,36 @@ static void write_exit(FILE *fp, const struct pending_ioctl *pending, long ret) 
     fflush(fp);
 }
 
+static int wait_for_trace_stop(pid_t pid, int *status, long long deadline, FILE *out, const char *where) {
+    for (;;) {
+        pid_t rc = waitpid(pid, status, WNOHANG);
+        if (rc == pid) return 0;
+        if (rc < 0) {
+            if (errno == EINTR) continue;
+            write_error(out, where, errno);
+            return -1;
+        }
+        if (now_ms() >= deadline) {
+            fprintf(out, "{\"event\":\"timeout\",\"where\":\"");
+            json_escape(out, where);
+            fprintf(out, "\"}\n");
+            fflush(out);
+            return 1;
+        }
+        usleep(WAIT_POLL_USEC);
+    }
+}
+
+static int stop_for_detach(pid_t pid, FILE *out) {
+    if (kill(pid, SIGSTOP) != 0) {
+        write_error(out, "kill-sigstop-for-detach", errno);
+        return -1;
+    }
+    int status = 0;
+    long long deadline = now_ms() + 1000LL;
+    return wait_for_trace_stop(pid, &status, deadline, out, "waitpid-detach-stop");
+}
+
 int main(int argc, char **argv) {
     struct options opts;
     if (parse_options(argc, argv, &opts)) {
@@ -248,21 +279,24 @@ int main(int argc, char **argv) {
         return 3;
     }
 
+    long long deadline = now_ms() + (long long)opts.duration_sec * 1000LL;
     int status = 0;
-    if (waitpid(opts.pid, &status, 0) < 0) {
-        write_error(out, "waitpid-attach", errno);
+    int tracee_stopped = 0;
+    int wait_rc = wait_for_trace_stop(opts.pid, &status, deadline, out, "waitpid-attach");
+    if (wait_rc != 0) {
         ptrace(PTRACE_DETACH, opts.pid, NULL, NULL);
         fclose(out);
         return 3;
     }
+    tracee_stopped = 1;
     if (ptrace(PTRACE_SETOPTIONS, opts.pid, NULL, (void *)(uintptr_t)PTRACE_O_TRACESYSGOOD) != 0) {
         write_error(out, "PTRACE_SETOPTIONS", errno);
     }
 
-    long long deadline = now_ms() + (long long)opts.duration_sec * 1000LL;
     int entering = 1;
     int seq = 0;
     int events = 0;
+    int timed_out = 0;
     int signal_to_deliver = 0;
     struct pending_ioctl pending;
     memset(&pending, 0, sizeof(pending));
@@ -272,11 +306,14 @@ int main(int argc, char **argv) {
             write_error(out, "PTRACE_SYSCALL", errno);
             break;
         }
+        tracee_stopped = 0;
         signal_to_deliver = 0;
-        if (waitpid(opts.pid, &status, 0) < 0) {
-            write_error(out, "waitpid-loop", errno);
+        wait_rc = wait_for_trace_stop(opts.pid, &status, deadline, out, "waitpid-loop");
+        if (wait_rc != 0) {
+            timed_out = (wait_rc > 0);
             break;
         }
+        tracee_stopped = 1;
         if (WIFEXITED(status) || WIFSIGNALED(status)) {
             fprintf(out, "{\"event\":\"target-exit\",\"status\":%d}\n", status);
             break;
@@ -332,8 +369,12 @@ int main(int argc, char **argv) {
         entering = !entering;
     }
 
-    fprintf(out, "{\"event\":\"stop\",\"captured_entries\":%d}\n", events);
+    fprintf(out, "{\"event\":\"stop\",\"captured_entries\":%d,\"timed_out\":%s}\n",
+            events, timed_out ? "true" : "false");
     fflush(out);
+    if (!tracee_stopped) {
+        stop_for_detach(opts.pid, out);
+    }
     ptrace(PTRACE_DETACH, opts.pid, NULL, NULL);
     fclose(out);
     return 0;

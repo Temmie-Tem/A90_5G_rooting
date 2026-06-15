@@ -272,18 +272,20 @@ it needs hardware/data not available (e.g. creds for full Wi-Fi validation), it 
 with no safe next step, or it would only re-confirm established facts (diminishing returns).
 **When you change tier, record the trigger** in that iteration's report.
 
-## Current audio frontier update (V2418)
+## Current audio frontier update (V2419)
 
-V2418 reran the exact-gated Android/Magisk-root M0 `msm_audio_cal` payload capture
-with V2417's thread-complete observer and rolled back to V2321 with `selftest fail=0`.
-Android logcat again proved the speaker ACDB edge, including `send_audio_cal`
-for `acdb_id=15`, `AUDIO_SET_AUDPROC_CAL`, and `AUDIO_SET_AFE_CAL`, but the edge ran
-on audio HAL TID `4278`, which was not present in the pre-playback `/proc/<pid>/task/*`
-snapshot. The result is therefore **not** a true early-payload miss and does **not**
-justify an M1 temporary Magisk boot module yet. Next meaningful unit: V2419 host-only
-dynamic M0 task watcher support, polling for newly-created audio HAL/audioserver TIDs
-during the capture window and enforcing bounded helper stop reporting. Only if dynamic
-M0 still misses a logcat-proven edge should M1 Magisk-module measurement be designed.
+V2419 completed host-only dynamic M0 task watcher support for the Android/Magisk-root
+`msm_audio_cal` payload capture. This directly addresses V2418: Android logcat proved
+the speaker ACDB edge on audio HAL TID `4278`, but that TID was created after the
+pre-playback task snapshot. The V2415 controller now polls `/proc/<pid>/task/*` during
+the capture window, attaches helpers to newly-created audio HAL/audioserver TIDs, records
+helper starts in `helper-pids.txt` / `capture-controller.log`, and the C ptrace helper now
+uses bounded `waitpid(..., WNOHANG)` polling with `timeout` and `stop/timed_out` JSONL
+events. M1 temporary Magisk boot-module capture is still **not** justified; next meaningful
+unit is a rollbackable Android live rerun using this dynamic M0 observer. Keep the Wi-Fi
+precedent: Magisk is an Android-good **measurement/packaging** layer, not a native-init
+runtime dependency. Only if dynamic M0 still misses a logcat-proven edge should M1
+temporary Magisk-module measurement be designed as a separate exact-gated V-iteration.
 
 ## Read at the START of every iteration
 

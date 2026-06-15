@@ -142,27 +142,78 @@ OUT="${{A90_V2415_OUT:-{REMOTE_ARTIFACT_DIR}}}"
 HELPER="${{A90_V2415_HELPER:-{REMOTE_HELPER}}}"
 DURATION="${{A90_V2415_DURATION:-{duration_sec}}}"
 MAX_BYTES="${{A90_V2415_MAX_BYTES:-{max_bytes}}}"
+TASK_POLL_SEC="${{A90_V2415_TASK_POLL_SEC:-0.1}}"
 mkdir -p "$OUT"
 chmod 700 "$OUT" 2>/dev/null || true
-echo "A90_V2415_CAPTURE_BEGIN duration=$DURATION max_bytes=$MAX_BYTES" > "$OUT/capture-controller.log"
+START_TS="$(date +%s)"
+END_TS="$((START_TS + DURATION))"
+echo "A90_V2415_CAPTURE_BEGIN duration=$DURATION max_bytes=$MAX_BYTES task_poll_sec=$TASK_POLL_SEC" > "$OUT/capture-controller.log"
 (ps -A 2>/dev/null || ps 2>/dev/null || true) > "$OUT/ps-before.txt"
-(pidof android.hardware.audio.service 2>/dev/null || true) > "$OUT/audio-hal-pids.txt"
-(pidof audioserver 2>/dev/null || true) > "$OUT/audioserver-pids.txt"
 HELPER_PIDS=""
+SEEN_TIDS="$OUT/seen-tids.txt"
+: > "$SEEN_TIDS"
+: > "$OUT/helper-pids.txt"
+
+start_helper_for_tid() {{
+  pid="$1"
+  tid="$2"
+  [ -n "$pid" ] || return 0
+  [ -n "$tid" ] || return 0
+  key="p${{pid}}-t${{tid}}"
+  if grep -qx "$key" "$SEEN_TIDS" 2>/dev/null; then
+    return 0
+  fi
+  now_ts="$(date +%s)"
+  remaining="$((END_TS - now_ts))"
+  [ "$remaining" -gt 0 ] || return 0
+  echo "$key" >> "$SEEN_TIDS"
+  if [ ! -e "$OUT/proc-$pid-maps.txt" ] && [ -r "/proc/$pid/maps" ]; then
+    cat "/proc/$pid/maps" > "$OUT/proc-$pid-maps.txt" || true
+  fi
+  if [ ! -e "$OUT/proc-$pid-fd.txt" ] && [ -d "/proc/$pid/fd" ]; then
+    ls -l "/proc/$pid/fd" > "$OUT/proc-$pid-fd.txt" 2>&1 || true
+  fi
+  task_dir="/proc/$pid/task/$tid"
+  if [ -r "$task_dir/comm" ]; then
+    cat "$task_dir/comm" > "$OUT/proc-$pid-task-$tid-comm.txt" 2>/dev/null || true
+  fi
+  echo "A90_V2415_HELPER_START pid=$pid tid=$tid remaining=$remaining" >> "$OUT/capture-controller.log"
+  "$HELPER" --pid "$tid" --fd-pid "$pid" --out "$OUT/msm-audio-cal-ioctl-p${{pid}}-t${{tid}}.jsonl" --duration-sec "$remaining" --max-bytes "$MAX_BYTES" >> "$OUT/capture-controller.log" 2>&1 &
+  helper_pid="$!"
+  echo "$helper_pid $pid $tid" >> "$OUT/helper-pids.txt"
+  HELPER_PIDS="$HELPER_PIDS $helper_pid"
+}}
+
+while [ "$(date +%s)" -lt "$END_TS" ]; do
+  (pidof android.hardware.audio.service 2>/dev/null || true) > "$OUT/audio-hal-pids.txt"
+  (pidof audioserver 2>/dev/null || true) > "$OUT/audioserver-pids.txt"
+  for pid in $(cat "$OUT/audio-hal-pids.txt" "$OUT/audioserver-pids.txt" 2>/dev/null | tr ' ' '\n' | sort -u); do
+    [ -n "$pid" ] || continue
+    [ -d "/proc/$pid/task" ] || continue
+    {{
+      echo "snapshot_ts=$(date +%s) pid=$pid"
+      ls -1 "/proc/$pid/task" 2>&1 || true
+    }} >> "$OUT/proc-$pid-tasks-snapshots.txt"
+    ls -1 "/proc/$pid/task" > "$OUT/proc-$pid-tasks.txt" 2>&1 || true
+    for task_dir in /proc/$pid/task/*; do
+      [ -d "$task_dir" ] || continue
+      tid="${{task_dir##*/}}"
+      start_helper_for_tid "$pid" "$tid"
+    done
+  done
+  sleep "$TASK_POLL_SEC" 2>/dev/null || sleep 1
+done
+
 for pid in $(cat "$OUT/audio-hal-pids.txt" "$OUT/audioserver-pids.txt" 2>/dev/null | tr ' ' '\n' | sort -u); do
   [ -n "$pid" ] || continue
-  [ -r "/proc/$pid/maps" ] && cat "/proc/$pid/maps" > "$OUT/proc-$pid-maps.txt" || true
-  [ -r "/proc/$pid/fd" ] && ls -l "/proc/$pid/fd" > "$OUT/proc-$pid-fd.txt" 2>&1 || true
-  [ -d "/proc/$pid/task" ] && ls -1 "/proc/$pid/task" > "$OUT/proc-$pid-tasks.txt" 2>&1 || true
+  [ -d "/proc/$pid/task" ] || continue
   for task_dir in /proc/$pid/task/*; do
     [ -d "$task_dir" ] || continue
     tid="${{task_dir##*/}}"
-    [ -n "$tid" ] || continue
-    [ -r "$task_dir/comm" ] && cat "$task_dir/comm" > "$OUT/proc-$pid-task-$tid-comm.txt" 2>/dev/null || true
-    "$HELPER" --pid "$tid" --fd-pid "$pid" --out "$OUT/msm-audio-cal-ioctl-p${{pid}}-t${{tid}}.jsonl" --duration-sec "$DURATION" --max-bytes "$MAX_BYTES" >> "$OUT/capture-controller.log" 2>&1 &
-    HELPER_PIDS="$HELPER_PIDS $!"
+    start_helper_for_tid "$pid" "$tid"
   done
 done
+
 for helper_pid in $HELPER_PIDS; do
   wait "$helper_pid" || true
 done
@@ -342,8 +393,9 @@ def magisk_strategy() -> dict[str, Any]:
                     "ioctl return codes",
                     "private request-buffer raw hex for offline decoding",
                     "public-safe payload length/hash metadata",
+                    "dynamically-created audio HAL/audioserver TIDs during the capture window",
                 ],
-                "current_unit": "V2416 should use this first",
+                "current_unit": "V2419 keeps M0 transient but adds dynamic TID polling before any M1 escalation",
             },
             {
                 "tier": "M1-temporary-boot-module",
@@ -409,6 +461,13 @@ def dry_run_payload(args: argparse.Namespace) -> dict[str, Any]:
             "target_processes": ["android.hardware.audio.service", "audioserver"],
             "max_bytes_per_ioctl": args.max_bytes,
             "duration_sec": args.capture_duration_sec,
+            "task_watcher": {
+                "mode": "dynamic-polling",
+                "poll_env": "A90_V2415_TASK_POLL_SEC",
+                "default_poll_sec": 0.1,
+                "dedupe_file": "seen-tids.txt",
+                "helper_lifetime": "remaining capture window per newly observed TID",
+            },
             "raw_payload_storage": "workspace/private only",
             "public_report_allowed": ["command numbers", "return codes", "decoded headers", "payload lengths", "payload sha256"],
             "public_report_forbidden": ["raw bytes", "unredacted private Android logs"],

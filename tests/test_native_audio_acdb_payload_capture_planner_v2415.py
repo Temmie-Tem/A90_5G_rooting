@@ -65,6 +65,9 @@ class AcdbPayloadCapturePlanner(unittest.TestCase):
         self.assertIn("__NR_ioctl", text)
         self.assertIn("--fd-pid", text)
         self.assertIn("fd_pid", text)
+        self.assertIn("WNOHANG", text)
+        self.assertIn('\\"event\\":\\"timeout\\"', text)
+        self.assertIn('\\"timed_out\\":%s', text)
         self.assertNotIn("AUDIO_SET_CALIBRATION", text)
         self.assertNotIn("AUDIO_ALLOCATE_CALIBRATION", text)
         self.assertFalse(state["opens_msm_audio_cal"])
@@ -86,10 +89,22 @@ class AcdbPayloadCapturePlanner(unittest.TestCase):
 
         self.assertIn("/proc/$pid/task", script)
         self.assertIn("proc-$pid-tasks.txt", script)
+        self.assertIn("proc-$pid-tasks-snapshots.txt", script)
         self.assertIn('tid="${task_dir##*/}"', script)
         self.assertIn('--pid "$tid" --fd-pid "$pid"', script)
         self.assertIn("msm-audio-cal-ioctl-p${pid}-t${tid}.jsonl", script)
         self.assertNotIn("magisk --install-module", script)
+
+    def test_capture_controller_polls_for_new_tids_during_capture_window(self) -> None:
+        script = v2415.capture_shell_script(duration_sec=8, max_bytes=512)
+
+        self.assertIn('TASK_POLL_SEC="${A90_V2415_TASK_POLL_SEC:-0.1}"', script)
+        self.assertIn('while [ "$(date +%s)" -lt "$END_TS" ]; do', script)
+        self.assertIn('SEEN_TIDS="$OUT/seen-tids.txt"', script)
+        self.assertIn('grep -qx "$key" "$SEEN_TIDS"', script)
+        self.assertIn("A90_V2415_HELPER_START pid=$pid tid=$tid remaining=$remaining", script)
+        self.assertIn('--duration-sec "$remaining"', script)
+        self.assertIn('echo "$helper_pid $pid $tid" >> "$OUT/helper-pids.txt"', script)
 
     def test_command_plan_uses_checked_android_handoff_and_v2321_rollback(self) -> None:
         payload = v2415.dry_run_payload(args(adb="/opt/android/adb", serial="A90ADB01"))
@@ -115,6 +130,9 @@ class AcdbPayloadCapturePlanner(unittest.TestCase):
         self.assertEqual(contract["target_device"], "/dev/msm_audio_cal")
         self.assertIn("android.hardware.audio.service", contract["target_processes"])
         self.assertEqual(contract["max_bytes_per_ioctl"], 512)
+        self.assertEqual(contract["task_watcher"]["mode"], "dynamic-polling")
+        self.assertEqual(contract["task_watcher"]["default_poll_sec"], 0.1)
+        self.assertIn("seen-tids.txt", contract["task_watcher"]["dedupe_file"])
         self.assertEqual(contract["raw_payload_storage"], "workspace/private only")
         self.assertIn("raw bytes", contract["public_report_forbidden"])
         self.assertFalse(contract["native_replay_allowed"])
