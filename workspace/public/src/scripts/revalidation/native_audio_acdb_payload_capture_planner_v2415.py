@@ -153,8 +153,15 @@ for pid in $(cat "$OUT/audio-hal-pids.txt" "$OUT/audioserver-pids.txt" 2>/dev/nu
   [ -n "$pid" ] || continue
   [ -r "/proc/$pid/maps" ] && cat "/proc/$pid/maps" > "$OUT/proc-$pid-maps.txt" || true
   [ -r "/proc/$pid/fd" ] && ls -l "/proc/$pid/fd" > "$OUT/proc-$pid-fd.txt" 2>&1 || true
-  "$HELPER" --pid "$pid" --out "$OUT/msm-audio-cal-ioctl-$pid.jsonl" --duration-sec "$DURATION" --max-bytes "$MAX_BYTES" >> "$OUT/capture-controller.log" 2>&1 &
-  HELPER_PIDS="$HELPER_PIDS $!"
+  [ -d "/proc/$pid/task" ] && ls -1 "/proc/$pid/task" > "$OUT/proc-$pid-tasks.txt" 2>&1 || true
+  for task_dir in /proc/$pid/task/*; do
+    [ -d "$task_dir" ] || continue
+    tid="${{task_dir##*/}}"
+    [ -n "$tid" ] || continue
+    [ -r "$task_dir/comm" ] && cat "$task_dir/comm" > "$OUT/proc-$pid-task-$tid-comm.txt" 2>/dev/null || true
+    "$HELPER" --pid "$tid" --fd-pid "$pid" --out "$OUT/msm-audio-cal-ioctl-p${{pid}}-t${{tid}}.jsonl" --duration-sec "$DURATION" --max-bytes "$MAX_BYTES" >> "$OUT/capture-controller.log" 2>&1 &
+    HELPER_PIDS="$HELPER_PIDS $!"
+  done
 done
 for helper_pid in $HELPER_PIDS; do
   wait "$helper_pid" || true

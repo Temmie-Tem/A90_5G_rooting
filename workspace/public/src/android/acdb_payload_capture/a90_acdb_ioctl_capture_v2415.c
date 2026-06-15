@@ -33,6 +33,7 @@
 
 struct options {
     pid_t pid;
+    pid_t fd_pid;
     const char *out_path;
     const char *device_substr;
     size_t max_bytes;
@@ -50,7 +51,7 @@ struct pending_ioctl {
 
 static void usage(const char *argv0) {
     fprintf(stderr,
-            "usage: %s --pid PID --out PATH [--device-substr /dev/msm_audio_cal] "
+            "usage: %s --pid PID --out PATH [--fd-pid TGID] [--device-substr /dev/msm_audio_cal] "
             "[--max-bytes 512] [--duration-sec 8] [--max-events 64]\n",
             argv0);
 }
@@ -68,6 +69,7 @@ static int parse_int_arg(const char *text, long min_value, long max_value, long 
 
 static int parse_options(int argc, char **argv, struct options *opts) {
     opts->pid = -1;
+    opts->fd_pid = -1;
     opts->out_path = NULL;
     opts->device_substr = "/dev/msm_audio_cal";
     opts->max_bytes = DEFAULT_MAX_BYTES;
@@ -79,6 +81,10 @@ static int parse_options(int argc, char **argv, struct options *opts) {
             long value = 0;
             if (parse_int_arg(argv[++i], 1, 4194304, &value)) return -1;
             opts->pid = (pid_t)value;
+        } else if (!strcmp(argv[i], "--fd-pid") && i + 1 < argc) {
+            long value = 0;
+            if (parse_int_arg(argv[++i], 1, 4194304, &value)) return -1;
+            opts->fd_pid = (pid_t)value;
         } else if (!strcmp(argv[i], "--out") && i + 1 < argc) {
             opts->out_path = argv[++i];
         } else if (!strcmp(argv[i], "--device-substr") && i + 1 < argc) {
@@ -99,6 +105,7 @@ static int parse_options(int argc, char **argv, struct options *opts) {
             return -1;
         }
     }
+    if (opts->fd_pid <= 0) opts->fd_pid = opts->pid;
     return (opts->pid > 0 && opts->out_path != NULL) ? 0 : -1;
 }
 
@@ -180,9 +187,9 @@ static void write_hex(FILE *fp, const unsigned char *buf, ssize_t len) {
 
 static void write_header(FILE *fp, const struct options *opts) {
     fprintf(fp,
-            "{\"event\":\"start\",\"pid\":%ld,\"duration_sec\":%d,"
+            "{\"event\":\"start\",\"pid\":%ld,\"fd_pid\":%ld,\"duration_sec\":%d,"
             "\"max_bytes\":%zu,\"device_substr\":\"",
-            (long)opts->pid, opts->duration_sec, opts->max_bytes);
+            (long)opts->pid, (long)opts->fd_pid, opts->duration_sec, opts->max_bytes);
     json_escape(fp, opts->device_substr);
     fprintf(fp, "\",\"note\":\"private raw hex; do not commit\"}\n");
     fflush(fp);
@@ -197,13 +204,13 @@ static void write_error(FILE *fp, const char *where, int errnum) {
     fflush(fp);
 }
 
-static void write_entry(FILE *fp, int seq, pid_t pid, const char *fd_target,
+static void write_entry(FILE *fp, int seq, pid_t pid, pid_t fd_pid, const char *fd_target,
                         unsigned long request, unsigned long argp,
                         const unsigned char *buf, ssize_t read_len, int read_errno) {
     fprintf(fp,
-            "{\"event\":\"ioctl_entry\",\"seq\":%d,\"pid\":%ld,"
+            "{\"event\":\"ioctl_entry\",\"seq\":%d,\"pid\":%ld,\"fd_pid\":%ld,"
             "\"request\":\"0x%lx\",\"argp\":\"0x%lx\",\"fd_target\":\"",
-            seq, (long)pid, request, argp);
+            seq, (long)pid, (long)fd_pid, request, argp);
     json_escape(fp, fd_target);
     fprintf(fp, "\",\"read_len\":%zd,\"read_errno\":%d,\"bytes_hex\":\"",
             read_len > 0 ? read_len : 0, read_errno);
@@ -295,7 +302,7 @@ int main(int argc, char **argv) {
                 unsigned long argp = regs.regs[2];
                 char target[512];
                 target[0] = '\0';
-                if (fd_matches_device(opts.pid, fd, opts.device_substr, target, sizeof(target))) {
+                if (fd_matches_device(opts.fd_pid, fd, opts.device_substr, target, sizeof(target))) {
                     unsigned char *buf = calloc(1, opts.max_bytes);
                     if (!buf) {
                         write_error(out, "calloc", errno);
@@ -309,7 +316,7 @@ int main(int argc, char **argv) {
                         pending.fd = fd;
                         pending.request = request;
                         pending.argp = argp;
-                        write_entry(out, seq, opts.pid, target, request, argp, buf, n, read_errno);
+                        write_entry(out, seq, opts.pid, opts.fd_pid, target, request, argp, buf, n, read_errno);
                         free(buf);
                         events++;
                     }

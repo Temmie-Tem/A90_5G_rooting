@@ -63,6 +63,8 @@ class AcdbPayloadCapturePlanner(unittest.TestCase):
         self.assertIn("PTRACE_ATTACH", text)
         self.assertIn("process_vm_readv", text)
         self.assertIn("__NR_ioctl", text)
+        self.assertIn("--fd-pid", text)
+        self.assertIn("fd_pid", text)
         self.assertNotIn("AUDIO_SET_CALIBRATION", text)
         self.assertNotIn("AUDIO_ALLOCATE_CALIBRATION", text)
         self.assertFalse(state["opens_msm_audio_cal"])
@@ -78,6 +80,16 @@ class AcdbPayloadCapturePlanner(unittest.TestCase):
             self.assertEqual(payload["future_live_blockers"], [])
             self.assertTrue((Path(temp_dir) / "a90_acdb_ioctl_capture_v2415").exists())
             self.assertTrue((Path(temp_dir) / "a90_acdb_payload_capture.sh").exists())
+
+    def test_capture_controller_enumerates_threads_before_magisk_module_escalation(self) -> None:
+        script = v2415.capture_shell_script(duration_sec=8, max_bytes=512)
+
+        self.assertIn("/proc/$pid/task", script)
+        self.assertIn("proc-$pid-tasks.txt", script)
+        self.assertIn('tid="${task_dir##*/}"', script)
+        self.assertIn('--pid "$tid" --fd-pid "$pid"', script)
+        self.assertIn("msm-audio-cal-ioctl-p${pid}-t${tid}.jsonl", script)
+        self.assertNotIn("magisk --install-module", script)
 
     def test_command_plan_uses_checked_android_handoff_and_v2321_rollback(self) -> None:
         payload = v2415.dry_run_payload(args(adb="/opt/android/adb", serial="A90ADB01"))
