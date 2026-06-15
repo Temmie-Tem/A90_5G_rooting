@@ -56,9 +56,11 @@ int32_t acdb_ioctl(uint32_t command_id,    // r0
   (`ACDB_CMD_GET_AVCS_CUSTOM_TOPO_INFO_SIZE`, `out_len==4` returning 4916), then fetches the
   payload (`out_len==4916`), then `allocate_cal_block` (ION/dma-buf) + `AUDIO_SET_CALIBRATION`.
   The first two are the `acdb_ioctl` calls we interpose.
-- `acdb_loader_init_v4` (`libacdbloader.so` `0x808c`) takes `arg0`=acdb-file-list struct ptr,
-  `arg1`==4; allocates ~5824B of stack. Replicating it standalone is expensive — **the HAL
-  does this for us**, which is why interposition beats an own-process `dlopen` helper.
+- `acdb_loader_init_v4` (`libacdbloader.so` `0x808c`) takes `arg0`=init-info struct ptr,
+  `arg1`==4; allocates ~5824B of stack. **SUPERSEDED by the RE UPDATE 2026-06-16 below:** the
+  arg0 struct is now fully pinned (16 bytes), `acdb_loader_init_v3` is a clean 3-arg entry that
+  builds it, and the `.acdb` files are discovered by directory scan — so an own-process
+  `dlopen` helper is no longer expensive and is now a co-primary path, not just a fallback.
 
 ## Helper to build
 
@@ -113,9 +115,15 @@ V2416/V2458). Constraints/contract:
 1. Boot stock Android via the checked handoff; stage the transient capsule + `libacdbtap.so`.
 2. Establish the preload into the audio HAL; restart the HAL.
 3. Run the existing AudioTrack speaker stimulus (reuse the V2377/V2407 path).
-4. The wrapper records `acdb_ioctl` calls. **Acceptance = at least one call with
-   `out_len == 4916` captured**, its raw bytes saved privately and SHA-256 recorded; ideally
-   also the paired `out_len==4` size query returning 4916.
+4. The wrapper records **every** `acdb_ioctl` call with `out_len > 0`.
+   **Full success = at least one call with `out_len == 4916` captured**, its raw
+   bytes saved privately and SHA-256 recorded; ideally also the paired
+   `out_len==4` size query returning 4916.
+   **Partial success = a complete ordered out-buffer set with no 4916-byte
+   record** (`captured-acdbtap-full-outbuf-set-no-4916`): preserve the run and
+   hand it to the operator because the per-device AFE/ASM/ADM/VOL payloads are
+   still valuable for size/order mapping. Do **not** count this outcome as a
+   fails-twice dead run.
 5. Pull artifacts privately, clean up the capsule + any sepolicy change, reboot to recovery,
    checked rollback to **v2321**, final `selftest fail=0`.
 
@@ -125,13 +133,65 @@ unblocked: allocate an ION/dma-buf of 4916, fill with these bytes, run the
 `ALLOC`/`SET`/`DEALLOC` sequence on `/dev/msm_audio_cal`, keep fds open across the bounded PCM
 probe.
 
-## Fallback (only if in-HAL preload is truly blocked)
+## RE UPDATE 2026-06-16 — own-process path is now UNBLOCKED (gate removed)
 
-Own-process ARM32 helper that `dlopen`s `libacdbloader.so` and calls
-`acdb_loader_init_v4` + `acdb_loader_send_common_custom_topology` with `acdb_ioctl`
-interposed in *our* process. This removes the SELinux-on-HAL risk but requires RE of the
-`acdb_loader_init_v4` arg0 struct (acdb file list) — **ping the operator for that RE before
-taking this path**; do not guess the struct.
+Host RE of `acdb_loader_init_v4`/`init_v3`/`init_v2`/`send_common_custom_topology`
+(libacdbloader.so, V2324 dump, llvm-objdump thumbv7) pinned everything the former
+fallback was missing. **The "ping the operator for init_v4 RE" gate is removed.**
+
+- **`init_v4(arg0, version)` validates** `arg0 != NULL` (else returns `-22`) and
+  `version == 4` (else returns `-22`). `arg0+12` is read as a status-byte out-pointer
+  guarded by `cmp #0; strbne`, so NULL is allowed.
+- **`arg0` is a 16-byte struct** (proved by the thin wrappers `init_v3`/`init_v2`, which
+  build it on-stack inside a `sub sp,#24`/`#48` frame and tail-call `init_v4` with `r1=4`,
+  touching only `+0..+12`):
+
+  ```c
+  struct acdb_init_v4 {          // 16 bytes
+      char    *delta_file_path;  // +0   writable delta dir (a temp dir is fine)
+      char    *acdb_files_path;  // +4   "/vendor/etc/acdbdata"
+      uint32_t meta_info_type;   // +8   0
+      uint8_t *status_out;       // +12  NULL ok
+  };
+  ```
+
+- **No struct construction needed:** call the clean 3-arg wrapper instead —
+  `acdb_loader_init_v3(acdb_files_path /*r0->+4*/, delta_file_path /*r1->+0*/,
+  meta_info_type /*r2->+8*/)`, i.e.
+  `acdb_loader_init_v3("/vendor/etc/acdbdata", "<writable_dir>", 0)`.
+- **No file list needed:** `init_v4` discovers `.acdb` files by `opendir()`-scanning the
+  `acdb_files_path` directory (≤20 files; rodata: `Maximum number of ACDB files hit, %d!`,
+  `No .acdb files found in %s!`). The `.acdb` files already exist on the live device.
+- **Topology fetch command IDs** (passed in `r0` to `acdb_ioctl`, arg layout
+  `r0=cmd, r1=in_buf(sp+56), r2=in_len, r3=out_buf(sp+88), out_len=[sp]`):
+  `0x11394`, `0x12E01`, `0x130DA`, `0x130DC` (=`0x130DA+2`). The 4916-byte one is
+  identified empirically by `out_len==4916`. **`0xC00461CB` is the direct
+  `/dev/msm_audio_cal` SET ioctl** — a pure-read capture must NOT issue it.
+
+## Fallback → now a CO-PRIMARY path: own-process ARM32 helper
+
+Own-process ARM32 helper that `dlopen`s `libacdbloader.so` (+ on-device deps
+`libaudcal.so`, `libacdb-fts.so`, `libacdbrtac.so`, `libadiertac.so`), then:
+
+1. `acdb_loader_init_v3("/vendor/etc/acdbdata", "<writable_dir>", 0)`;
+2. pure-read capture of the 4916-byte topology, either by
+   (a) `dlsym(acdb_ioctl)` and calling the GET command(s) above directly (size cmd →
+   alloc → data cmd → dump; **no SET, no `0xC00461CB`**), or
+   (b) interposing `acdb_ioctl` in *our* process and calling
+   `acdb_loader_send_common_custom_topology` but capturing only the `out_len==4916` GET
+   (note this variant also triggers the `0xC00461CB` SET, so prefer (a) for pure read).
+
+This sidesteps the live-HAL blockers entirely: AudioFlinger only talks to the
+init-managed HAL PID (so a second/manual HAL copy is useless — V2483), the in-HAL
+SELinux domain risk, and the linker-namespace/wrapper-exec injection problem
+(V2479–V2487). Remaining risk is only VNDK namespace loadability of `/vendor/lib`
+deps from a standalone binary — far more tractable than HAL injection (run from a
+vendor path, use the linker namespace API, or run as `su`).
+
+Tradeoff vs in-HAL interpose: the own-process direct-GET reliably captures the
+**topology** (the V2462 blocker) but not the full per-device set. In-HAL interpose
+during real playback captures topology **+** AFE/ASM/ADM/VOL naturally. They are
+complementary; capturing the topology unblocks the V2462 boundary regardless.
 
 ## Boundaries (unchanged)
 
