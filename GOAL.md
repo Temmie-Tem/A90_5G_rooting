@@ -458,6 +458,22 @@ unittest discovery passes (`1206`), and `git diff --check` passes. Next meaningf
 **V2443 exact-gated live rerun** using the V2442 runner, with the same M1 Android-good
 measurement boundary and no native ACDB replay.
 
+
+V2443 ran that exact-gated live rerun and rolled back to V2321 with final native
+`selftest fail=0`. The V2442 wiring fix worked: after `android-reboot-for-magisk-service`,
+the run executed `android-post-module-reboot-root-check-1` with `root_ready=true` before
+logcat/playback. The Android stimulus ran and logcat again showed the speaker ACDB edge
+(`send_app_type_cfg_for_device PLAYBACK app_type 69941`, `ACDB -> send_audio_cal acdb_id
+15`, `AUDIO_SET_AUDPROC_CAL cal_type[11]`, `AUDIO_SET_AFE_CAL cal_type[16]`). However,
+payload capture still produced zero JSONL entries. The module service found target pids
+`795` and `918` and launched helper processes, but both helper logs contain only usage
+text. Source inspection shows why: the helper accepts `--duration-sec` only up to `120`,
+while the generated `service.sh` passed the default remaining duration `180`. Classification:
+`helper-started-but-rejected-duration-arg`. Next meaningful unit is **V2444 host-only
+service duration clamp**: keep the V2442 live wiring and boundaries unchanged, clamp each
+helper invocation's `--duration-sec` to the helper-supported maximum, add tests, and only
+then rerun live.
+
 ## Read at the START of every iteration
 
 - **this `GOAL.md`** — re-read it every iteration; the contract may be updated mid-run,
