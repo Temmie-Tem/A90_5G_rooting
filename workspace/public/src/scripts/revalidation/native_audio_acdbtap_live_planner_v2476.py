@@ -181,7 +181,9 @@ def live_command_plan(args: argparse.Namespace) -> dict[str, Any]:
 set -eu
 rm -rf {REMOTE_STAGE_DIR} {REMOTE_CAPTURE_DIR}
 mkdir -p {REMOTE_STAGE_DIR}/incoming {REMOTE_STAGE_DIR}/lib {REMOTE_CAPTURE_DIR}
-chmod 700 {REMOTE_STAGE_DIR} {REMOTE_STAGE_DIR}/incoming {REMOTE_STAGE_DIR}/lib
+chmod 755 {REMOTE_STAGE_DIR}
+chmod 777 {REMOTE_STAGE_DIR}/incoming
+chmod 700 {REMOTE_STAGE_DIR}/lib
 chmod 777 {REMOTE_CAPTURE_DIR}
 echo A90_ACDBTAP_SETUP_OK
 """.strip()
