@@ -1,4 +1,4 @@
-"""Host-only tests for the V2426 hardened ACDB live rerun wrapper."""
+"""Host-only tests for the V2428 fixed-clone-child ACDB live rerun wrapper."""
 
 from __future__ import annotations
 
@@ -11,11 +11,11 @@ from pathlib import Path
 
 from _loader import load_revalidation
 
-v2426 = load_revalidation("native_audio_acdb_threadset_clone_follow_live_handoff_v2426")
+v2428 = load_revalidation("native_audio_acdb_threadset_clone_follow_live_handoff_v2428")
 
 
 def args(**overrides: object) -> argparse.Namespace:
-    base = v2426.base
+    base = v2428.base
     values: dict[str, object] = {
         "dry_run": True,
         "run_live": False,
@@ -45,27 +45,28 @@ def args(**overrides: object) -> argparse.Namespace:
     return argparse.Namespace(**values)
 
 
-class AcdbThreadsetCloneFollowV2426Wrapper(unittest.TestCase):
-    def test_dry_run_relabels_runner_identity_and_keeps_stage_waits(self) -> None:
-        payload = v2426.dry_run(args())
+class AcdbThreadsetCloneFollowV2428Wrapper(unittest.TestCase):
+    def test_dry_run_relabels_runner_identity_and_keeps_inherited_fixes(self) -> None:
+        payload = v2428.dry_run(args())
 
-        self.assertEqual(payload["run_id"], "V2426")
-        self.assertEqual(payload["build_tag"], "v2426-audio-acdb-threadset-clone-follow-live-rerun")
-        self.assertEqual(payload["decision"], "v2426-acdb-threadset-clone-follow-capture-live-dry-run")
+        self.assertEqual(payload["run_id"], "V2428")
+        self.assertEqual(payload["build_tag"], "v2428-audio-acdb-threadset-clone-child-resume-live-rerun")
+        self.assertEqual(payload["decision"], "v2428-acdb-threadset-clone-follow-capture-live-dry-run")
         self.assertTrue(payload["inherits_v2425_stage_adb_waits"])
-        self.assertIn("native_audio_acdb_threadset_clone_follow_live_handoff_v2426.py", payload["live_runner"])
+        self.assertTrue(payload["inherits_v2427_clone_child_resume"])
+        self.assertIn("native_audio_acdb_threadset_clone_follow_live_handoff_v2428.py", payload["live_runner"])
         self.assertIn("native_audio_acdb_threadset_clone_follow_live_handoff_v2424.py", payload["base_runner"])
         self.assertEqual([item["before_stage_index"] for item in payload["stage_adb_waits"]], [1, 2, 3])
 
     def test_default_live_out_dir_uses_current_run_id(self) -> None:
-        out_dir = v2426.default_live_out_dir()
-        self.assertIn("v2426-acdb-threadset-clone-follow-capture-", str(out_dir))
+        out_dir = v2428.default_live_out_dir()
+        self.assertIn("v2428-acdb-threadset-clone-follow-capture-", str(out_dir))
 
     def test_wrong_live_approval_exits_before_device_action(self) -> None:
-        script = Path("workspace/public/src/scripts/revalidation/native_audio_acdb_threadset_clone_follow_live_handoff_v2426.py")
+        script = Path("workspace/public/src/scripts/revalidation/native_audio_acdb_threadset_clone_follow_live_handoff_v2428.py")
         completed = subprocess.run(
             [sys.executable, str(script), "--run-live", "--approval", "continue"],
-            cwd=v2426.base.ROOT,
+            cwd=v2428.base.ROOT,
             check=False,
             text=True,
             stdout=subprocess.PIPE,
@@ -75,8 +76,8 @@ class AcdbThreadsetCloneFollowV2426Wrapper(unittest.TestCase):
 
         self.assertNotEqual(completed.returncode, 0)
         payload = json.loads(completed.stdout)
-        self.assertEqual(payload["run_id"], "V2426")
-        self.assertEqual(payload["decision"], "v2426-acdb-threadset-clone-follow-capture-live-refused")
+        self.assertEqual(payload["run_id"], "V2428")
+        self.assertEqual(payload["decision"], "v2428-acdb-threadset-clone-follow-capture-live-refused")
         self.assertFalse(payload["rolled_back"])
 
 

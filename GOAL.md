@@ -272,28 +272,30 @@ it needs hardware/data not available (e.g. creds for full Wi-Fi validation), it 
 with no safe next step, or it would only re-confirm established facts (diminishing returns).
 **When you change tier, record the trigger** in that iteration's report.
 
-## Current audio frontier update (V2427)
+## Current audio frontier update (V2428)
 
-V2427 closes the host-only M0 clone-child resume gap found after V2426. V2426 had a clean
-Android/Magisk handoff, staging, stimulus, artifact pull, cleanup, checked rollback to
-V2321, and final native `selftest fail=0`; logcat proved the ACDB edge on worker TID
-`4578`, and fd snapshots showed `/dev/msm_audio_cal` open, but the helper captured `0`
-ioctls. Source inspection showed the clone branch recorded child TID `4578` but resumed
-only the parent tracee immediately.
+V2428 completed the exact-gated Android/Magisk M0 rerun after V2427 clone-child resume
+hardening. The Android handoff, ADB/root settle, staging, playback Activity launch, artifact
+pull, cleanup, checked rollback to V2321, and final native `selftest fail=0` all passed. The
+fixed helper observed and resumed cloned child TID `4619` (`clone-child-resumed` in private
+JSONL), and logcat proved the same TID later ran the Android-good speaker/ACDB path
+(`select_devices` to speaker `acdb 15`, ACDB loader topology/table/calibration calls,
+`AUDIO_SET_AUDPROC_CAL`, and `AUDIO_SET_AFE_CAL`). The target process also had fd
+`13 -> /dev/msm_audio_cal`.
 
-The helper now initializes cloned children: after `PTRACE_EVENT_CLONE`, it waits briefly for
-the child stop, applies `PTRACE_O_TRACESYSGOOD | PTRACE_O_TRACECLONE`, resumes the child
-with `PTRACE_SYSCALL`, and emits `clone-child-resumed` in the private JSONL. This preserves
-the same M0 transient Android/Magisk-root delivery and does not open `/dev/msm_audio_cal` or
-issue calibration ioctls.
+Despite that, the fixed staged/running M0 observer still captured `0` `/dev/msm_audio_cal`
+ioctl entries. This closes the prior M0 implementation-gap explanations: staging/root,
+main-thread-only tracing, and clone-child resume were all addressed. The remaining practical
+discriminator is Android-side placement/timing.
 
 Magisk remains an Android-good **measurement/packaging** layer, not a native-init runtime
-dependency. M1 temporary Magisk module remains reserved and Wi-Fi-style: use it only if the
-fixed staged/running M0 observer still misses a logcat-proven `/dev/msm_audio_cal` edge; if
-used later, package the same observer earlier and change delivery timing only. Next
-meaningful unit is one fresh exact-gated Android live rerun with the fixed M0 helper. Native
-replay remains blocked until raw ioctl command order, decoded headers, private payload
-hashes, and cleanup policy are pinned.
+dependency. M1 is now justified as the next **host-only design/planner** unit, but only in the
+Wi-Fi-style sense: a temporary Android-side Magisk module/service may package the same
+observer earlier in boot/service lifetime, changing delivery timing only. It must not open
+`/dev/msm_audio_cal`, issue calibration ioctls, replay native audio, become persistent, or
+ship as a native-init dependency. Native replay remains blocked until raw ioctl command
+order, decoded headers, private payload hashes, mem-handle policy, and cleanup behavior are
+pinned.
 
 ## Read at the START of every iteration
 
