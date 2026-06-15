@@ -596,6 +596,13 @@ the hard gate before late observer/playback. Materialized dry-run reports
 Android-good measurement capsule only, not a native-init runtime dependency. Next meaningful unit
 is a **fresh V2456 exact-gated AUD-5L live rerun**. Do not attempt native ACDB replay before
 payload order, decoded headers, hashes, mem-handle policy, and cleanup policy are pinned.
+V2456 preflight is now complete without flash/playback: bridge is reachable, V2321
+`version/status/selftest verbose` passed with `fail=0`, checked V2321 `--verify-only` passed,
+V2321/V2237/V48 rollback inputs are present, and the materialized V2451/V2455 dry-run reports
+`future_live_ready=true`, `command_safety_ok=true`, `stage_wait_count=10`,
+`boot_complete_soft_gate=true`, and `root_check_hard_gate=true`. The exact AUD-5L phrase is
+still required before the live Android handoff/flash/playback rerun; absent that phrase, stop at
+preflight.
 
 ## Read at the START of every iteration
 
