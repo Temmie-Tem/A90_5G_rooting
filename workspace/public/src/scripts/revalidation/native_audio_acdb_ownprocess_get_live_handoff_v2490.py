@@ -205,6 +205,7 @@ def setup_command(args: argparse.Namespace) -> list[str]:
 set -eu
 rm -rf {shlex.quote(REMOTE_DIR)}
 mkdir -p {shlex.quote(REMOTE_DIR)} {shlex.quote(REMOTE_DIR + '/delta')}
+chown shell:shell {shlex.quote(REMOTE_DIR)} {shlex.quote(REMOTE_DIR + '/delta')} 2>/dev/null || true
 chmod 700 {shlex.quote(REMOTE_DIR)} {shlex.quote(REMOTE_DIR + '/delta')}
 ls -ld {shlex.quote(REMOTE_DIR)} {shlex.quote(REMOTE_DIR + '/delta')}
 ls -l /vendor/etc/acdbdata 2>/dev/null || true
@@ -307,6 +308,9 @@ cd {shlex.quote(REMOTE_DIR)} || exit 0
 ls -la > listing.txt 2>&1
 [ -f {shlex.quote(REMOTE_EVENTS)} ] && cat {shlex.quote(REMOTE_EVENTS)} > events.copy.jsonl 2>/dev/null
 find . -maxdepth 1 -type f -name 'acdb-ownget-*.bin' -exec sha256sum {{}} \\; > raw-sha256s.txt 2>/dev/null
+chmod 755 . 2>/dev/null || true
+find . -maxdepth 1 -type f -exec chmod 644 {{}} \\; 2>/dev/null || true
+chmod 755 ./delta 2>/dev/null || true
 exit 0
 """.strip()
     return adb_su(args, script)

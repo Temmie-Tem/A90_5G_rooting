@@ -82,6 +82,8 @@ class NativeAudioAcdbOwnprocessGetV2490(unittest.TestCase):
         self.assertIn("/vendor/etc/audconf/OPEN", flat_commands)
         self.assertIn("find /vendor/etc/audconf", flat_commands)
         self.assertIn("-exec ls -l", flat_commands)
+        self.assertIn("chown shell:shell /data/local/tmp/a90-acdb-ownget", flat_commands)
+        self.assertIn("find . -maxdepth 1 -type f -exec chmod 644", flat_commands)
         self.assertIn("logcat -c", flat_commands)
         self.assertIn("logcat-acdb-loader.txt", flat_commands)
         self.assertIn("logcat-avc-acdb-filter.txt", flat_commands)
