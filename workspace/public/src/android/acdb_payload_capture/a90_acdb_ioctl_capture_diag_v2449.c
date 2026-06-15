@@ -421,6 +421,11 @@ static int is_mmap_syscall(const struct syscall_frame *frame) {
 static long mmap_fd_arg(const struct syscall_frame *frame) {
     if (!frame || !frame->abi) return -1;
     if (!strcmp(frame->abi, "aarch32")) return (int32_t)((uint32_t)frame->args[4]);
+    if (!strcmp(frame->abi, "aarch64")) {
+        unsigned long raw = frame->args[4];
+        if (raw == 0xffffffffUL || raw == (unsigned long)-1L) return -1;
+        return (long)raw;
+    }
     return (long)frame->args[4];
 }
 

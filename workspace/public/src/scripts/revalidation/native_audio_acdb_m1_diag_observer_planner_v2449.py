@@ -105,6 +105,7 @@ def source_state() -> dict[str, Any]:
             "contains_dmabuf_capture": "--dmabuf-out-dir" in text and "dmabuf_capture" in text and "mmap(" in text,
             "contains_mmap_lifecycle_capture": "mmap_entry" in text and "mmap_exit" in text and "A90_COMPAT_ARM_NR_MMAP2" in text,
             "contains_signed_mmap_fd_filter": "mmap_fd_arg" in text and "(int32_t)((uint32_t)frame->args[4])" in text,
+            "contains_aarch64_anonymous_mmap_fd_filter": "raw == 0xffffffffUL" in text and "raw == (unsigned long)-1L" in text,
             "contains_early_dmabuf_fd_duplication": "dup_mmap_fd_if_dmabuf" in text and "ok-early-dup" in text,
             "contains_remote_mmap_fallback": "ok-remote-mmap" in text and "find_recent_mmap_record" in text,
             "contains_targeted_set_cal_constants_without_forbidden_symbol": "A90_CAL_CMD_SET_COMPAT" in text and "A90_CORE_CUSTOM_TOPOLOGIES_CAL_TYPE" in text,
