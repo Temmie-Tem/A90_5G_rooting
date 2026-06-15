@@ -69,7 +69,7 @@ def rel(path: Path) -> str:
 
 def serial_shell_command(args: argparse.Namespace, name: str, script: str, *, timeout: float | None = None) -> dict[str, Any]:
     timeout_value = args.command_timeout if timeout is None else timeout
-    argv = ["/bin/sh", "-c", script]
+    argv = ["/bin/busybox", "sh", "-c", script]
     return {
         "name": name,
         "transport": "serial-cmdv1x",
