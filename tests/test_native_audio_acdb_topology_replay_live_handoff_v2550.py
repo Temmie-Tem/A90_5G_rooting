@@ -87,6 +87,10 @@ class AcdbTopologyReplayLiveHandoffV2550(unittest.TestCase):
         self.assertIn("reverse route reset", joined)
         self.assertIn("rollback to V2321", joined)
         self.assertIn("AUDIO_DEALLOCATE_CALIBRATION", payload["helper_cleanup_capture_script"])
+        self.assertEqual(payload["app_type_command"]["argv"][0], v2550.REMOTE_TINYMIX)
+        self.assertEqual(payload["route_apply_commands"][0]["argv"][0], v2550.REMOTE_TINYMIX)
+        self.assertEqual(payload["route_reset_commands"][0]["argv"][0], v2550.REMOTE_TINYMIX)
+        self.assertNotIn("SECONDS", payload["replay_wait_script"])
 
     def test_safety_rejects_forbidden_plan_tokens(self) -> None:
         payload = v2550.plan(args())

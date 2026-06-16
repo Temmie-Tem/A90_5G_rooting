@@ -154,6 +154,15 @@ def speaker_wrapper_args(args: argparse.Namespace) -> argparse.Namespace:
     )
 
 
+
+def rewrite_v2550_remote_argv(argv: list[Any]) -> list[str]:
+    mapping = {
+        speaker.REMOTE_TINYMIX: REMOTE_TINYMIX,
+        speaker.REMOTE_PCM_PROBE: REMOTE_PCM_PROBE,
+        speaker.REMOTE_PCM: REMOTE_PCM,
+    }
+    return [mapping.get(str(part), str(part)) for part in argv]
+
 def remote_replay_script(hold_sec: int) -> str:
     return "\n".join(
         [
@@ -166,10 +175,11 @@ def remote_replay_script(hold_sec: int) -> str:
             "if [ ! -e /dev/msm_audio_cal ]; then mknod /dev/msm_audio_cal c 10 \"$minor\"; chmod 0600 /dev/msm_audio_cal || true; fi",
             f"{REMOTE_HELPER} --execute --payload {REMOTE_PAYLOAD} --hold-sec {hold_sec} >{REMOTE_HELPER_STDOUT} 2>{REMOTE_HELPER_STDERR} &",
             "helper_pid=$!",
-            "deadline=$((SECONDS+20))",
-            "while [ $SECONDS -lt $deadline ]; do",
+            "i=0",
+            "while [ $i -lt 20 ]; do",
             f"  if grep -q 'AUDIO_SET_CALIBRATION ok' {REMOTE_HELPER_STDERR} 2>/dev/null; then echo A90_ACDB_REPLAY_SET_OK pid=$helper_pid; exit 0; fi",
             "  if ! kill -0 $helper_pid 2>/dev/null; then echo A90_ACDB_REPLAY_HELPER_EXITED_BEFORE_SET; cat " + REMOTE_HELPER_STDERR + " 2>/dev/null || true; exit 31; fi",
+            "  i=$((i+1))",
             "  sleep 1",
             "done",
             "echo A90_ACDB_REPLAY_SET_TIMEOUT; cat " + REMOTE_HELPER_STDERR + " 2>/dev/null || true; exit 32",
@@ -203,7 +213,11 @@ def plan(args: argparse.Namespace) -> dict[str, Any]:
     route_reset = speaker_plan.get("route_reset_commands", [])
     app_type = speaker_plan.get("app_type_command")
     playback = speaker_plan.get("playback", {})
-    playback_remote = [REMOTE_PCM_PROBE if part == speaker.REMOTE_PCM_PROBE else REMOTE_PCM if part == speaker.REMOTE_PCM else part for part in playback.get("argv", [])]
+    for command in route_apply + route_reset:
+        command["argv"] = rewrite_v2550_remote_argv(command.get("argv", []))
+    if app_type:
+        app_type["argv"] = rewrite_v2550_remote_argv(app_type.get("argv", []))
+    playback_remote = rewrite_v2550_remote_argv(playback.get("argv", []))
     plan_payload: dict[str, Any] = {
         "decision": "v2550-acdb-topology-replay-live-wrapper-plan-host-only",
         "run_id": RUN_ID,
