@@ -44,6 +44,15 @@ extern void *dlopen(const char *filename, int flags);
 #ifndef A90_ACDBTAP_CUSTOM_TOPOLOGY_ONLY
 #define A90_ACDBTAP_CUSTOM_TOPOLOGY_ONLY 0
 #endif
+#ifndef A90_ACDBTAP_CAPTURE_INBUF
+#define A90_ACDBTAP_CAPTURE_INBUF 0
+#endif
+#ifndef A90_ACDBTAP_CAPTURE_INDIRECT_CANDIDATES
+#define A90_ACDBTAP_CAPTURE_INDIRECT_CANDIDATES 0
+#endif
+#ifndef A90_ACDBTAP_INDIRECT_SCAN_WORDS
+#define A90_ACDBTAP_INDIRECT_SCAN_WORDS 16U
+#endif
 
 #define A90_AT_FDCWD (-100)
 #define A90_O_WRONLY 00000001
@@ -373,7 +382,8 @@ static uint32_t a90_load_le32(const uint8_t *p)
            (((uint32_t)p[3]) << 24);
 }
 
-static void a90_build_raw_path(char *path, uint32_t seq, uint32_t cmd, uint32_t out_len)
+static void a90_build_raw_path_kind(char *path, uint32_t seq, uint32_t cmd, uint32_t len,
+                                    const char *kind)
 {
     char *p = path;
     char hex[8];
@@ -386,12 +396,21 @@ static void a90_build_raw_path(char *path, uint32_t seq, uint32_t cmd, uint32_t 
     a90_hex32(hex, cmd);
     for (i = 0; i < 8; i++)
         *p++ = hex[i];
+    if (!(kind[0] == 'o' && kind[1] == 'u' && kind[2] == 't' && kind[3] == 0)) {
+        p = a90_append_str(p, "-");
+        p = a90_append_str(p, kind);
+    }
     p = a90_append_str(p, "-len-");
-    a90_hex32(hex, out_len);
+    a90_hex32(hex, len);
     for (i = 0; i < 8; i++)
         *p++ = hex[i];
     p = a90_append_str(p, ".bin");
     *p = 0;
+}
+
+static void a90_build_raw_path(char *path, uint32_t seq, uint32_t cmd, uint32_t out_len)
+{
+    a90_build_raw_path_kind(path, seq, cmd, out_len, "out");
 }
 
 static void a90_log_call_phase(uint32_t seq, uint32_t cmd, const uint8_t *in, uint32_t in_len,
@@ -473,13 +492,14 @@ static int a90_should_capture_cmd(uint32_t cmd)
 #endif
 }
 
-static int a90_log_capture(uint32_t seq, uint32_t cmd, uint32_t in_len, uint32_t out_len,
-                           int32_t ret, const uint8_t *out)
+static int a90_log_capture_kind(uint32_t seq, uint32_t cmd, uint32_t in_len, uint32_t buf_len,
+                                int32_t ret, const uint8_t *buf, const char *kind,
+                                int primary_out)
 {
     uint8_t digest[32];
     char digest_hex[64];
-    char raw_path[160];
-    char line[640];
+    char raw_path[176];
+    char line[768];
     char *p;
     int event_fd;
     int raw_fd = -1;
@@ -488,19 +508,19 @@ static int a90_log_capture(uint32_t seq, uint32_t cmd, uint32_t in_len, uint32_t
     int captured_raw = 0;
     int all_zero;
 
-    if (!out || out_len == 0 || out_len > A90_MAX_CAPTURE_LEN)
+    if (!buf || buf_len == 0 || buf_len > A90_MAX_CAPTURE_LEN)
         return 0;
 
-    all_zero = a90_is_all_zero(out, out_len);
+    all_zero = a90_is_all_zero(buf, buf_len);
     a90_sha256_init(&sha);
-    a90_sha256_update(&sha, out, out_len);
+    a90_sha256_update(&sha, buf, buf_len);
     a90_sha256_final(&sha, digest);
     a90_sha_hex(digest_hex, digest);
-    a90_build_raw_path(raw_path, seq, cmd, out_len);
+    a90_build_raw_path_kind(raw_path, seq, cmd, buf_len, kind);
 
     raw_fd = a90_open_new(raw_path);
     if (raw_fd >= 0) {
-        a90_write_all(raw_fd, out, out_len);
+        a90_write_all(raw_fd, buf, buf_len);
         a90_close(raw_fd);
         captured_raw = 1;
     }
@@ -521,9 +541,13 @@ static int a90_log_capture(uint32_t seq, uint32_t cmd, uint32_t in_len, uint32_t
     *p++ = ',';
     p = a90_append_hex_field(p, "in_len", in_len);
     *p++ = ',';
-    p = a90_append_hex_field(p, "out_len", out_len);
+    p = a90_append_hex_field(p, "out_len", buf_len);
     *p++ = ',';
     p = a90_append_hex_field(p, "ret", (uint32_t)ret);
+    *p++ = ',';
+    p = a90_append_str(p, "\"buffer\":\"");
+    p = a90_append_str(p, kind);
+    *p++ = '"';
     *p++ = ',';
     p = a90_append_str(p, "\"sha256\":\"");
     for (i = 0; i < 64; i++)
@@ -538,10 +562,10 @@ static int a90_log_capture(uint32_t seq, uint32_t cmd, uint32_t in_len, uint32_t
     p = a90_append_str(p, captured_raw ? "true" : "false");
     *p++ = ',';
     p = a90_append_str(p, "\"is_target_4916\":");
-    p = a90_append_str(p, out_len == A90_TARGET_OUT_LEN ? "true" : "false");
+    p = a90_append_str(p, buf_len == A90_TARGET_OUT_LEN ? "true" : "false");
     *p++ = ',';
     p = a90_append_str(p, "\"is_size_query_4\":");
-    p = a90_append_str(p, out_len == A90_SIZE_QUERY_OUT_LEN ? "true" : "false");
+    p = a90_append_str(p, buf_len == A90_SIZE_QUERY_OUT_LEN ? "true" : "false");
     *p++ = ',';
     p = a90_append_str(p, "\"all_zero\":");
     p = a90_append_str(p, all_zero ? "true" : "false");
@@ -550,7 +574,57 @@ static int a90_log_capture(uint32_t seq, uint32_t cmd, uint32_t in_len, uint32_t
 
     a90_write_all(event_fd, line, (size_t)(p - line));
     a90_close(event_fd);
-    return ret == 0 && out_len == A90_TARGET_OUT_LEN && !all_zero;
+    return primary_out && ret == 0 && buf_len == A90_TARGET_OUT_LEN && !all_zero;
+}
+
+static int a90_log_capture(uint32_t seq, uint32_t cmd, uint32_t in_len, uint32_t out_len,
+                           int32_t ret, const uint8_t *out)
+{
+    return a90_log_capture_kind(seq, cmd, in_len, out_len, ret, out, "out", 1);
+}
+
+static int a90_is_probable_user_read_ptr(const uint8_t *buf, uint32_t len)
+{
+    uint32_t addr = (uint32_t)(unsigned long)buf;
+
+    if (!buf || len == 0 || len > A90_MAX_CAPTURE_LEN)
+        return 0;
+    if (addr < 0x10000000U || addr >= 0xc0000000U)
+        return 0;
+    if (addr + len < addr)
+        return 0;
+    return 1;
+}
+
+static int a90_log_indirect_candidate_captures(uint32_t seq, uint32_t cmd, uint32_t in_len,
+                                               int32_t ret, const uint8_t *in)
+{
+    uint32_t words;
+    uint32_t index;
+    uint32_t captured = 0;
+
+    if (ret != 0 || !in || in_len < 8U)
+        return 0;
+
+    words = in_len / 4U;
+    if (words > A90_ACDBTAP_INDIRECT_SCAN_WORDS)
+        words = A90_ACDBTAP_INDIRECT_SCAN_WORDS;
+
+    for (index = 0; index + 1U < words && captured < 10U; index++) {
+        uint32_t candidate_len = a90_load_le32(in + (index * 4U));
+        const uint8_t *candidate_ptr =
+            (const uint8_t *)(unsigned long)a90_load_le32(in + ((index + 1U) * 4U));
+        char kind[] = "indirect0";
+
+        if (!a90_is_probable_user_read_ptr(candidate_ptr, candidate_len))
+            continue;
+
+        kind[8] = (char)('0' + captured);
+        if (a90_log_capture_kind(seq, cmd, in_len, candidate_len, ret, candidate_ptr, kind, 1))
+            return 1;
+        captured++;
+    }
+    return 0;
 }
 
 __attribute__((visibility("default"))) int32_t
@@ -597,12 +671,15 @@ acdb_ioctl(uint32_t cmd, const uint8_t *in, uint32_t in_len, uint8_t *out, uint3
 #if A90_ACDBTAP_LOG_ENTER
     a90_log_call_phase(seq, cmd, in, in_len, out, out_len, "before_real");
 #endif
+#if A90_ACDBTAP_CAPTURE_INBUF
+    (void)a90_log_capture_kind(seq, cmd, in_len, in_len, 0, in, "in", 0);
+#endif
     ret = a90_real_acdb_ioctl(cmd, in, in_len, out, out_len);
     if (ret == 0 && cmd == A90_CMD_CUSTOM_TOPO_INFO_V3 && in && in_len >= 8U) {
         uint32_t indirect_len = a90_load_le32(in);
         const uint8_t *indirect_out = (const uint8_t *)(unsigned long)a90_load_le32(in + 4U);
 
-        if (indirect_out && indirect_len && indirect_len <= A90_MAX_CAPTURE_LEN) {
+        if (a90_is_probable_user_read_ptr(indirect_out, indirect_len)) {
 #if A90_ACDBTAP_EXIT_ON_TARGET
             if (a90_log_capture(seq, cmd, in_len, indirect_len, ret, indirect_out))
                 a90_exit_group(0);
@@ -611,6 +688,14 @@ acdb_ioctl(uint32_t cmd, const uint8_t *in, uint32_t in_len, uint8_t *out, uint3
 #endif
         }
     }
+#if A90_ACDBTAP_CAPTURE_INDIRECT_CANDIDATES
+#if A90_ACDBTAP_EXIT_ON_TARGET
+    if (a90_log_indirect_candidate_captures(seq, cmd, in_len, ret, in))
+        a90_exit_group(0);
+#else
+    (void)a90_log_indirect_candidate_captures(seq, cmd, in_len, ret, in);
+#endif
+#endif
 #if A90_ACDBTAP_EXIT_ON_TARGET
     if (a90_log_capture(seq, cmd, in_len, out_len, ret, out))
         a90_exit_group(0);
