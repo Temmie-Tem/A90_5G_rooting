@@ -91,6 +91,9 @@ class AcdbTopologyReplayLiveHandoffV2550(unittest.TestCase):
         self.assertEqual(payload["route_apply_commands"][0]["argv"][0], v2550.REMOTE_TINYMIX)
         self.assertEqual(payload["route_reset_commands"][0]["argv"][0], v2550.REMOTE_TINYMIX)
         self.assertNotIn("SECONDS", payload["replay_wait_script"])
+        self.assertIn('awk \'$2=="ion"', payload["replay_wait_script"])
+        self.assertIn("mknod /dev/ion c 10", payload["replay_wait_script"])
+        self.assertIn("A90_ACDB_REPLAY_NO_ION_MISC", payload["replay_wait_script"])
 
     def test_safety_rejects_forbidden_plan_tokens(self) -> None:
         payload = v2550.plan(args())
