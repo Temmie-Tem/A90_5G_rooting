@@ -24,7 +24,9 @@ extern void a90_arm_capture(void) __attribute__((weak, visibility("default")));
 #define A90_LOADER_INIT_FLAG_OFF 0x00018a9cUL
 
 #define A90_SPEAKER_ACDB_ID 15
+#ifndef A90_SPEAKER_RX_PATH
 #define A90_SPEAKER_RX_PATH 0
+#endif
 #define A90_APP_TYPE_MEDIA 0x11135
 #define A90_SAMPLE_RATE_48K 48000
 #define A90_AFE_SAMPLE_RATE_48K 48000
