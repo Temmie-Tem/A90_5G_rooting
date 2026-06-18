@@ -40,6 +40,31 @@
 #define AUDIO_PROFILE_FORBIDDEN_CAL_COUNT 3
 #define AUDIO_PROFILE_OBSERVER_COUNT 8
 #define AUDIO_APP_TYPE_CFG_MAX_VALUES 128
+#define AUDIO_ROUTE_APPLY_COUNT 13
+#define AUDIO_ROUTE_RESET_COUNT 12
+
+enum audio_route_value_kind {
+    AUDIO_ROUTE_VALUE_INTS = 1,
+    AUDIO_ROUTE_VALUE_ENUM = 2,
+};
+
+struct audio_route_value {
+    enum audio_route_value_kind kind;
+    const char *enum_value;
+    int ints[4];
+    int int_count;
+    int zero_fill;
+};
+
+struct audio_route_control {
+    const char *name;
+    const char *role;
+    int order;
+    bool resettable;
+    bool smart_amp_boost;
+    struct audio_route_value apply;
+    struct audio_route_value reset;
+};
 
 static const char *const AUDIO_ADSP_SEGMENTS[] = {
     "adsp.b00",
@@ -144,6 +169,114 @@ static const struct audio_speaker_profile AUDIO_SPEAKER_PROFILES[] = {
         .listen_duration_ms = 8000,
         .amplitude_cap_milli = 200,
         .duration_cap_ms = 10000,
+    },
+};
+
+static const struct audio_route_control AUDIO_INTERNAL_SPEAKER_ROUTE[] = {
+    {
+        .name = "Audio Stream 0 App Type Cfg",
+        .role = "stream_cfg",
+        .order = 10,
+        .resettable = false,
+        .apply = {.kind = AUDIO_ROUTE_VALUE_INTS, .ints = {69941, 15, 48000, 2}, .int_count = 4, .zero_fill = 124},
+        .reset = {.kind = AUDIO_ROUTE_VALUE_INTS, .int_count = 0, .zero_fill = 0},
+    },
+    {
+        .name = "Playback Channel Map0",
+        .role = "stream_cfg",
+        .order = 20,
+        .resettable = true,
+        .apply = {.kind = AUDIO_ROUTE_VALUE_INTS, .ints = {1, 2}, .int_count = 2, .zero_fill = 30},
+        .reset = {.kind = AUDIO_ROUTE_VALUE_INTS, .int_count = 0, .zero_fill = 32},
+    },
+    {
+        .name = "SLIMBUS_0_RX Audio Mixer MultiMedia1",
+        .role = "route",
+        .order = 30,
+        .resettable = true,
+        .apply = {.kind = AUDIO_ROUTE_VALUE_INTS, .ints = {1, 0}, .int_count = 2, .zero_fill = 0},
+        .reset = {.kind = AUDIO_ROUTE_VALUE_INTS, .ints = {0, 0}, .int_count = 2, .zero_fill = 0},
+    },
+    {
+        .name = "SLIM RX0 MUX",
+        .role = "route",
+        .order = 40,
+        .resettable = true,
+        .apply = {.kind = AUDIO_ROUTE_VALUE_ENUM, .enum_value = "AIF1_PB"},
+        .reset = {.kind = AUDIO_ROUTE_VALUE_ENUM, .enum_value = "ZERO"},
+    },
+    {
+        .name = "RX INT7_1 MIX1 INP0",
+        .role = "route",
+        .order = 50,
+        .resettable = true,
+        .apply = {.kind = AUDIO_ROUTE_VALUE_ENUM, .enum_value = "RX0"},
+        .reset = {.kind = AUDIO_ROUTE_VALUE_ENUM, .enum_value = "ZERO"},
+    },
+    {
+        .name = "COMP7 Switch",
+        .role = "route",
+        .order = 60,
+        .resettable = true,
+        .apply = {.kind = AUDIO_ROUTE_VALUE_INTS, .ints = {1}, .int_count = 1, .zero_fill = 0},
+        .reset = {.kind = AUDIO_ROUTE_VALUE_INTS, .ints = {0}, .int_count = 1, .zero_fill = 0},
+    },
+    {
+        .name = "AIF4_VI Mixer SPKR_VI_1",
+        .role = "speaker_feedback",
+        .order = 70,
+        .resettable = true,
+        .apply = {.kind = AUDIO_ROUTE_VALUE_INTS, .ints = {1}, .int_count = 1, .zero_fill = 0},
+        .reset = {.kind = AUDIO_ROUTE_VALUE_INTS, .ints = {0}, .int_count = 1, .zero_fill = 0},
+    },
+    {
+        .name = "AIF4_VI Mixer SPKR_VI_2",
+        .role = "speaker_feedback",
+        .order = 80,
+        .resettable = true,
+        .apply = {.kind = AUDIO_ROUTE_VALUE_INTS, .ints = {1}, .int_count = 1, .zero_fill = 0},
+        .reset = {.kind = AUDIO_ROUTE_VALUE_INTS, .ints = {0}, .int_count = 1, .zero_fill = 0},
+    },
+    {
+        .name = "SLIM_4_TX Format",
+        .role = "speaker_feedback",
+        .order = 90,
+        .resettable = true,
+        .apply = {.kind = AUDIO_ROUTE_VALUE_ENUM, .enum_value = "PACKED_16B"},
+        .reset = {.kind = AUDIO_ROUTE_VALUE_ENUM, .enum_value = "UNPACKED"},
+    },
+    {
+        .name = "SpkrLeft VISENSE Switch",
+        .role = "speaker_endpoint",
+        .order = 100,
+        .resettable = true,
+        .apply = {.kind = AUDIO_ROUTE_VALUE_INTS, .ints = {1}, .int_count = 1, .zero_fill = 0},
+        .reset = {.kind = AUDIO_ROUTE_VALUE_INTS, .ints = {0}, .int_count = 1, .zero_fill = 0},
+    },
+    {
+        .name = "SpkrLeft COMP Switch",
+        .role = "speaker_endpoint",
+        .order = 110,
+        .resettable = true,
+        .apply = {.kind = AUDIO_ROUTE_VALUE_INTS, .ints = {1}, .int_count = 1, .zero_fill = 0},
+        .reset = {.kind = AUDIO_ROUTE_VALUE_INTS, .ints = {0}, .int_count = 1, .zero_fill = 0},
+    },
+    {
+        .name = "SpkrLeft BOOST Switch",
+        .role = "speaker_endpoint",
+        .order = 120,
+        .resettable = true,
+        .smart_amp_boost = true,
+        .apply = {.kind = AUDIO_ROUTE_VALUE_INTS, .ints = {1}, .int_count = 1, .zero_fill = 0},
+        .reset = {.kind = AUDIO_ROUTE_VALUE_INTS, .ints = {0}, .int_count = 1, .zero_fill = 0},
+    },
+    {
+        .name = "SpkrLeft SWR DAC_Port Switch",
+        .role = "speaker_endpoint",
+        .order = 130,
+        .resettable = true,
+        .apply = {.kind = AUDIO_ROUTE_VALUE_INTS, .ints = {1}, .int_count = 1, .zero_fill = 0},
+        .reset = {.kind = AUDIO_ROUTE_VALUE_INTS, .ints = {0}, .int_count = 1, .zero_fill = 0},
     },
 };
 
@@ -422,6 +555,188 @@ static int audio_app_type_cmd(char **argv, int argc) {
         return negative_errno_or(EIO);
     }
     a90_console_printf("audio.app_type.write_ok=1\r\n");
+    return 0;
+}
+
+static int audio_route_control_count(void) {
+    return (int)(sizeof(AUDIO_INTERNAL_SPEAKER_ROUTE) / sizeof(AUDIO_INTERNAL_SPEAKER_ROUTE[0]));
+}
+
+static int audio_route_reset_count(void) {
+    int count = 0;
+    int index;
+
+    for (index = 0; index < audio_route_control_count(); ++index) {
+        if (AUDIO_INTERNAL_SPEAKER_ROUTE[index].resettable) {
+            ++count;
+        }
+    }
+    return count;
+}
+
+static int audio_route_value_total_count(const struct audio_route_value *value) {
+    if (value == NULL) {
+        return 0;
+    }
+    return value->int_count + value->zero_fill;
+}
+
+static const char *audio_route_value_kind_name(const struct audio_route_value *value) {
+    if (value == NULL) {
+        return "unknown";
+    }
+    if (value->kind == AUDIO_ROUTE_VALUE_ENUM) {
+        return "enum";
+    }
+    if (value->kind == AUDIO_ROUTE_VALUE_INTS) {
+        return "ints";
+    }
+    return "unknown";
+}
+
+static bool audio_route_has_smart_amp_boost(void) {
+    int index;
+
+    for (index = 0; index < audio_route_control_count(); ++index) {
+        if (AUDIO_INTERNAL_SPEAKER_ROUTE[index].smart_amp_boost) {
+            return true;
+        }
+    }
+    return false;
+}
+
+static void audio_route_print_value(const char *prefix, const struct audio_route_value *value) {
+    int index;
+
+    a90_console_printf("%s.kind=%s\r\n", prefix, audio_route_value_kind_name(value));
+    if (value == NULL) {
+        return;
+    }
+    if (value->kind == AUDIO_ROUTE_VALUE_ENUM) {
+        a90_console_printf("%s.enum=%s\r\n", prefix, value->enum_value == NULL ? "" : value->enum_value);
+        return;
+    }
+    a90_console_printf("%s.ints=", prefix);
+    for (index = 0; index < value->int_count; ++index) {
+        a90_console_printf("%s%d", index == 0 ? "" : ",", value->ints[index]);
+    }
+    a90_console_printf("\r\n");
+    a90_console_printf("%s.zero_fill=%d\r\n", prefix, value->zero_fill);
+    a90_console_printf("%s.total_count=%d\r\n", prefix, audio_route_value_total_count(value));
+}
+
+static void audio_route_print_control(const char *prefix,
+                                      const struct audio_route_control *control,
+                                      const struct audio_route_value *value) {
+    char value_prefix[96];
+
+    a90_console_printf("%s.name=%s\r\n", prefix, control->name);
+    a90_console_printf("%s.role=%s\r\n", prefix, control->role);
+    a90_console_printf("%s.order=%d\r\n", prefix, control->order);
+    a90_console_printf("%s.resettable=%d\r\n", prefix, control->resettable ? 1 : 0);
+    a90_console_printf("%s.smart_amp_boost=%d\r\n", prefix, control->smart_amp_boost ? 1 : 0);
+    snprintf(value_prefix, sizeof(value_prefix), "%s.value", prefix);
+    audio_route_print_value(value_prefix, value);
+}
+
+static void audio_route_print_controls(bool reset_mode) {
+    int index;
+    int output_index = 0;
+    char prefix[64];
+
+    if (reset_mode) {
+        for (index = audio_route_control_count() - 1; index >= 0; --index) {
+            if (!AUDIO_INTERNAL_SPEAKER_ROUTE[index].resettable) {
+                continue;
+            }
+            snprintf(prefix, sizeof(prefix), "audio.route.reset.%d", output_index);
+            audio_route_print_control(prefix,
+                                      &AUDIO_INTERNAL_SPEAKER_ROUTE[index],
+                                      &AUDIO_INTERNAL_SPEAKER_ROUTE[index].reset);
+            ++output_index;
+        }
+        return;
+    }
+
+    for (index = 0; index < audio_route_control_count(); ++index) {
+        snprintf(prefix, sizeof(prefix), "audio.route.apply.%d", output_index);
+        audio_route_print_control(prefix,
+                                  &AUDIO_INTERNAL_SPEAKER_ROUTE[index],
+                                  &AUDIO_INTERNAL_SPEAKER_ROUTE[index].apply);
+        ++output_index;
+    }
+}
+
+static int audio_route_cmd(char **argv, int argc) {
+    const char *profile_id = AUDIO_DEFAULT_PROFILE_ID;
+    const struct audio_speaker_profile *profile;
+    bool seen_profile = false;
+    bool apply_mode = false;
+    bool reset_mode = false;
+    bool write_mode;
+    int argi;
+
+    for (argi = 2; argi < argc; ++argi) {
+        if (argv == NULL || argv[argi] == NULL) {
+            a90_console_printf("usage: audio route [profile] [--dry-run|--apply|--reset]\r\n");
+            return -EINVAL;
+        }
+        if (strcmp(argv[argi], "--dry-run") == 0) {
+            apply_mode = false;
+            reset_mode = false;
+        } else if (strcmp(argv[argi], "--apply") == 0) {
+            apply_mode = true;
+            reset_mode = false;
+        } else if (strcmp(argv[argi], "--reset") == 0) {
+            apply_mode = false;
+            reset_mode = true;
+        } else if (!seen_profile) {
+            profile_id = argv[argi];
+            seen_profile = true;
+        } else {
+            a90_console_printf("usage: audio route [profile] [--dry-run|--apply|--reset]\r\n");
+            return -EINVAL;
+        }
+    }
+
+    profile = audio_find_profile(profile_id);
+    write_mode = apply_mode || reset_mode;
+    a90_console_printf("audio.route.version=1\r\n");
+    a90_console_printf("audio.route.profile=%s\r\n", profile_id);
+    a90_console_printf("audio.route.mode=%s\r\n", reset_mode ? "reset" : (apply_mode ? "apply" : "dry-run"));
+    a90_console_printf("audio.route.write_attempted=0\r\n");
+    if (profile == NULL) {
+        a90_console_printf("audio.route.error=unknown-profile\r\n");
+        return -ENOENT;
+    }
+    if (audio_route_control_count() != AUDIO_ROUTE_APPLY_COUNT ||
+        audio_route_reset_count() != AUDIO_ROUTE_RESET_COUNT) {
+        a90_console_printf("audio.route.error=route-count-mismatch apply=%d/%d reset=%d/%d\r\n",
+                           audio_route_control_count(),
+                           AUDIO_ROUTE_APPLY_COUNT,
+                           audio_route_reset_count(),
+                           AUDIO_ROUTE_RESET_COUNT);
+        return -EINVAL;
+    }
+
+    a90_console_printf("audio.route.endpoint=%s\r\n", profile->endpoint);
+    a90_console_printf("audio.route.card=%d\r\n", profile->card);
+    a90_console_printf("audio.route.pcm_device=%d\r\n", profile->pcm_device);
+    a90_console_printf("audio.route.apply.count=%d\r\n", AUDIO_ROUTE_APPLY_COUNT);
+    a90_console_printf("audio.route.reset.count=%d\r\n", AUDIO_ROUTE_RESET_COUNT);
+    a90_console_printf("audio.route.requires_global_app_type=1\r\n");
+    a90_console_printf("audio.route.global_app_type_primitive=audio app-type %s --write\r\n", profile->id);
+    a90_console_printf("audio.route.smart_amp_boost_blocked=%d\r\n",
+                       audio_route_has_smart_amp_boost() ? 1 : 0);
+    a90_console_printf("audio.route.blocked_control=SpkrLeft BOOST Switch\r\n");
+    audio_route_print_controls(reset_mode);
+
+    if (write_mode) {
+        a90_console_printf("audio.route.refused=write-mode-blocked-smart-amp-boost-review\r\n");
+        a90_console_printf("audio.route.write_attempted=0\r\n");
+        return -EPERM;
+    }
+    a90_console_printf("audio.route.dry_run_ok=1\r\n");
     return 0;
 }
 
@@ -1191,6 +1506,9 @@ int a90_audio_cmd(char **argv, int argc) {
     if (argc >= 2 && argv != NULL && argv[1] != NULL && strcmp(argv[1], "app-type") == 0) {
         return audio_app_type_cmd(argv, argc);
     }
+    if (argc >= 2 && argv != NULL && argv[1] != NULL && strcmp(argv[1], "route") == 0) {
+        return audio_route_cmd(argv, argc);
+    }
     if (argc >= 2 && argv != NULL && argv[1] != NULL && strcmp(argv[1], "adsp-boot-once") == 0) {
         return audio_adsp_boot_once(argv, argc);
     }
@@ -1200,6 +1518,6 @@ int a90_audio_cmd(char **argv, int argc) {
     if (argc >= 2 && argv != NULL && argv[1] != NULL && strcmp(argv[1], "snd-materialize-once") == 0) {
         return audio_snd_materialize_once(argv, argc);
     }
-    a90_console_printf("usage: audio [adsp-status|status|profiles|profile [id]|app-type [profile] [--dry-run|--write]|snd-status|adsp-boot-once|snd-materialize-once]\r\n");
+    a90_console_printf("usage: audio [adsp-status|status|profiles|profile [id]|app-type [profile] [--dry-run|--write]|route [profile] [--dry-run|--apply|--reset]|snd-status|adsp-boot-once|snd-materialize-once]\r\n");
     return -EINVAL;
 }
