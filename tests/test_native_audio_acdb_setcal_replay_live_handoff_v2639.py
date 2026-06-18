@@ -261,6 +261,7 @@ class NativeAudioAcdbSetcalReplayLiveHandoffV2639(unittest.TestCase):
         self.assertEqual(listen["duration_ms"], 8000)
         self.assertEqual(listen["max_amplitude"], 0.20)
         self.assertEqual(listen["max_duration_ms"], 10000)
+        self.assertEqual(listen["host_countdown_sec"], 5)
         self.assertIn("A90_LISTEN_WINDOW_BEGIN", listen["markers"])
         self.assertIn("A90_LISTEN_WINDOW_END", listen["markers"])
         self.assertIn("listen_window", state["remote_scripts"])
@@ -286,6 +287,16 @@ class NativeAudioAcdbSetcalReplayLiveHandoffV2639(unittest.TestCase):
                 "--listen-test",
                 "--duration-ms",
                 "10001",
+                "--v2636-manifest",
+                str(fake_deploy(root)),
+            ]))
+
+        with self.assertRaises(ValueError):
+            v2639.dry_run_payload(v2639.parse_args([
+                "--dry-run",
+                "--listen-test",
+                "--listen-countdown-sec",
+                "11",
                 "--v2636-manifest",
                 str(fake_deploy(root)),
             ]))

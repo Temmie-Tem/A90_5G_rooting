@@ -14,6 +14,7 @@ import copy
 import json
 import math
 import shlex
+import time
 import wave
 from datetime import datetime, timezone
 from pathlib import Path
@@ -52,6 +53,8 @@ LISTEN_TEST_DEFAULT_AMPLITUDE = 0.15
 LISTEN_TEST_MAX_AMPLITUDE = 0.20
 LISTEN_TEST_DEFAULT_DURATION_MS = 8000
 LISTEN_TEST_MAX_DURATION_MS = 10000
+LISTEN_TEST_DEFAULT_COUNTDOWN_SEC = 5
+LISTEN_TEST_MAX_COUNTDOWN_SEC = 10
 OUTPUT_OBSERVER_DIRECT_CONTROLS = (
     "COMP7 Switch",
     "SLIMBUS_0_RX Audio Mixer MultiMedia1",
@@ -430,6 +433,7 @@ def generate_acdb_pilot_wav(path: Path, *, duration_ms: int, amplitude: float) -
 
 def listening_test_plan(args: argparse.Namespace) -> dict[str, Any]:
     params = effective_audio_params(args)
+    countdown_sec = effective_listen_countdown_sec(args)
     return {
         "enabled": bool(getattr(args, "listen_test", False)),
         "name": "v2743-human-audible-listen-window",
@@ -438,9 +442,32 @@ def listening_test_plan(args: argparse.Namespace) -> dict[str, Any]:
         "duration_ms": params["duration_ms"],
         "max_amplitude": params["max_amplitude"],
         "max_duration_ms": params["max_duration_ms"],
+        "host_countdown_sec": countdown_sec,
         "markers": ["A90_LISTEN_WINDOW_BEGIN", "A90_LISTEN_WINDOW_END"],
         "safety": "moderate short playback, no WSA gain/boost writes beyond observed route controls",
     }
+
+
+def effective_listen_countdown_sec(args: argparse.Namespace) -> int:
+    countdown_sec = int(getattr(args, "listen_countdown_sec", LISTEN_TEST_DEFAULT_COUNTDOWN_SEC))
+    if countdown_sec < 0 or countdown_sec > LISTEN_TEST_MAX_COUNTDOWN_SEC:
+        raise ValueError(f"listen_countdown_sec out of bound: {countdown_sec}")
+    return countdown_sec
+
+
+def run_listen_countdown(args: argparse.Namespace, *, out_dir: Path) -> None:
+    if not bool(getattr(args, "listen_test", False)):
+        return
+    countdown_sec = effective_listen_countdown_sec(args)
+    marker = {
+        "event": "A90_HOST_LISTEN_WINDOW_COUNTDOWN",
+        "countdown_sec": countdown_sec,
+        "run_dir": rel(out_dir),
+    }
+    print(json.dumps(marker, sort_keys=True), flush=True)
+    if countdown_sec:
+        time.sleep(countdown_sec)
+    print(json.dumps({"event": "A90_HOST_LISTEN_WINDOW_STARTING_NOW", "run_dir": rel(out_dir)}, sort_keys=True), flush=True)
 
 
 def listen_window_script(args: argparse.Namespace) -> str:
@@ -763,6 +790,7 @@ def run_setcal_replay_and_pcm(args: argparse.Namespace,
             result["playback_attempted"] = True
             playback = route.get("playback") or {}
             if bool(getattr(args, "listen_test", False)):
+                run_listen_countdown(args, out_dir=out_dir)
                 playback_script = install["scripts"]["listen_window"]["remote_path"]
                 playback_step = speaker.run_tool_command(
                     args,
@@ -1136,6 +1164,7 @@ def parse_args(argv: list[str] | None = None) -> argparse.Namespace:
     parser.add_argument("--duration-ms", type=int, default=speaker.DEFAULT_DURATION_MS)
     parser.add_argument("--amplitude", type=float, default=speaker.DEFAULT_AMPLITUDE)
     parser.add_argument("--listen-test", action="store_true")
+    parser.add_argument("--listen-countdown-sec", type=int, default=LISTEN_TEST_DEFAULT_COUNTDOWN_SEC)
     parser.add_argument("--output-observer", action=argparse.BooleanOptionalAction, default=True)
     parser.add_argument("--output-observer-samples", type=int, default=12)
     parser.add_argument("--output-observer-sleep", default="0.10")
