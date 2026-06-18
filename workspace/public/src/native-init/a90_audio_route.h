@@ -12,6 +12,14 @@
 #define AUDIO_ROUTE_LAYER_ENDPOINT "endpoint"
 #define AUDIO_ROUTE_LAYER_BLOCKED "blocked"
 
+struct audio_speaker_map_entry {
+    const char *id;
+    const char *role;
+    const char *channel;
+    const char *hardware;
+    const char *safety;
+};
+
 int a90_audio_route_control_count(void);
 int a90_audio_route_reset_count(void);
 int a90_audio_route_value_total_count(const struct audio_route_value *value);
@@ -27,6 +35,7 @@ int a90_audio_route_count_for_speaker(const char *speaker);
 int a90_audio_route_layer_count_for_speaker(const char *speaker, const char *layer);
 int a90_audio_route_boost_count_for_speaker(const char *speaker);
 int a90_audio_speaker_map_count(void);
+const struct audio_speaker_map_entry *a90_audio_speaker_map_entry(int index);
 const char *a90_audio_speaker_map_id(int index);
 
 #endif

@@ -2255,11 +2255,16 @@ static int audio_app_type_cmd(char **argv, int argc) {
 
 static void audio_speaker_map_print_speaker(const struct audio_speaker_profile *profile,
                                             int output_index,
-                                            const char *speaker) {
+                                            const struct audio_speaker_map_entry *entry) {
     char prefix[64];
+    const char *speaker = entry == NULL ? NULL : entry->id;
 
     snprintf(prefix, sizeof(prefix), "audio.speaker_map.speaker.%d", output_index);
     a90_console_printf("%s.id=%s\r\n", prefix, speaker == NULL ? "" : speaker);
+    a90_console_printf("%s.role=%s\r\n", prefix, entry == NULL ? "" : entry->role);
+    a90_console_printf("%s.channel=%s\r\n", prefix, entry == NULL ? "" : entry->channel);
+    a90_console_printf("%s.hardware=%s\r\n", prefix, entry == NULL ? "" : entry->hardware);
+    a90_console_printf("%s.safety=%s\r\n", prefix, entry == NULL ? "" : entry->safety);
     a90_console_printf("%s.route_controls=%d\r\n", prefix, a90_audio_route_count_for_speaker(speaker));
     a90_console_printf("%s.route_core_controls=%d\r\n", prefix,
                        a90_audio_route_layer_count_for_speaker(speaker, AUDIO_ROUTE_LAYER_CORE));
@@ -2306,7 +2311,7 @@ static int audio_speaker_map_cmd(char **argv, int argc) {
     a90_console_printf("audio.speaker_map.safety.smart_amp_boost_blocked=%d\r\n",
                        a90_audio_route_has_smart_amp_boost() ? 1 : 0);
     for (index = 0; index < a90_audio_speaker_map_count(); ++index) {
-        audio_speaker_map_print_speaker(profile, index, a90_audio_speaker_map_id(index));
+        audio_speaker_map_print_speaker(profile, index, a90_audio_speaker_map_entry(index));
     }
     return 0;
 }

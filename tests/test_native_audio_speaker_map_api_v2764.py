@@ -43,8 +43,12 @@ class NativeAudioSpeakerMapApiV2764(unittest.TestCase):
         ]:
             with self.subTest(speaker=speaker):
                 self.assertIn(speaker, text)
-        self.assertIn("AUDIO_SPEAKER_MAP_IDS", text)
+        self.assertIn("AUDIO_SPEAKER_MAP_ENTRIES", text)
         self.assertIn("audio.speaker_map.speaker.%d", text)
+        self.assertIn("%s.role=%s", text)
+        self.assertIn("%s.channel=%s", text)
+        self.assertIn("%s.hardware=%s", text)
+        self.assertIn("%s.safety=%s", text)
 
     def test_speaker_map_summarizes_route_observer_and_policy_counts(self) -> None:
         text = source_text()

@@ -25,6 +25,7 @@ class NativeAudioRouteApiV2783(unittest.TestCase):
             "a90_audio_route_layer_write_allowed",
             "a90_audio_route_count_for_speaker",
             "a90_audio_speaker_map_id",
+            "a90_audio_speaker_map_entry",
         ]:
             with self.subTest(symbol=symbol):
                 self.assertIn(symbol, header)
@@ -41,8 +42,9 @@ class NativeAudioRouteApiV2783(unittest.TestCase):
         for speaker in ["shared", "SPKR_VI_1", "SPKR_VI_2", "SPKR_VI", "SpkrLeft", "SpkrRight"]:
             with self.subTest(speaker=speaker):
                 self.assertIn(f'"{speaker}"', source)
-        self.assertIn("a90_audio_speaker_map_id(index)", audio)
-        self.assertNotIn("AUDIO_SPEAKER_MAP_IDS[]", audio)
+        self.assertIn("a90_audio_speaker_map_entry(index)", audio)
+        self.assertIn("a90_audio_speaker_map_id", source)
+        self.assertNotIn("AUDIO_SPEAKER_MAP_IDS[]", audio + source)
 
     def test_route_api_keeps_profile_data_separate_from_route_logic(self) -> None:
         profile = PROFILE_H.read_text(encoding="utf-8")

@@ -3,13 +3,49 @@
 #include <stddef.h>
 #include <string.h>
 
-static const char *const AUDIO_SPEAKER_MAP_IDS[] = {
-    "shared",
-    "SPKR_VI_1",
-    "SPKR_VI_2",
-    "SPKR_VI",
-    "SpkrLeft",
-    "SpkrRight",
+static const struct audio_speaker_map_entry AUDIO_SPEAKER_MAP_ENTRIES[] = {
+    {
+        .id = "shared",
+        .role = "stream-route",
+        .channel = "both",
+        .hardware = "SLIMBUS_0_RX shared speaker path",
+        .safety = "safe-observed-core",
+    },
+    {
+        .id = "SPKR_VI_1",
+        .role = "feedback",
+        .channel = "left",
+        .hardware = "AIF4_VI speaker feedback input 1",
+        .safety = "speaker-protection-observed",
+    },
+    {
+        .id = "SPKR_VI_2",
+        .role = "feedback",
+        .channel = "right",
+        .hardware = "AIF4_VI speaker feedback input 2",
+        .safety = "speaker-protection-observed",
+    },
+    {
+        .id = "SPKR_VI",
+        .role = "feedback-format",
+        .channel = "both",
+        .hardware = "SLIM_4_TX VI feedback format",
+        .safety = "speaker-protection-observed",
+    },
+    {
+        .id = "SpkrLeft",
+        .role = "endpoint",
+        .channel = "left",
+        .hardware = "left WSA881x speaker endpoint",
+        .safety = "boost-write-blocked",
+    },
+    {
+        .id = "SpkrRight",
+        .role = "endpoint",
+        .channel = "right",
+        .hardware = "right WSA881x speaker endpoint",
+        .safety = "boost-write-blocked",
+    },
 };
 
 
@@ -182,12 +218,21 @@ int a90_audio_route_boost_count_for_speaker(const char *speaker) {
 }
 
 int a90_audio_speaker_map_count(void) {
-    return (int)(sizeof(AUDIO_SPEAKER_MAP_IDS) / sizeof(AUDIO_SPEAKER_MAP_IDS[0]));
+    return (int)(sizeof(AUDIO_SPEAKER_MAP_ENTRIES) / sizeof(AUDIO_SPEAKER_MAP_ENTRIES[0]));
 }
 
-const char *a90_audio_speaker_map_id(int index) {
+const struct audio_speaker_map_entry *a90_audio_speaker_map_entry(int index) {
     if (index < 0 || index >= a90_audio_speaker_map_count()) {
         return NULL;
     }
-    return AUDIO_SPEAKER_MAP_IDS[index];
+    return &AUDIO_SPEAKER_MAP_ENTRIES[index];
+}
+
+const char *a90_audio_speaker_map_id(int index) {
+    const struct audio_speaker_map_entry *entry = a90_audio_speaker_map_entry(index);
+
+    if (entry == NULL) {
+        return NULL;
+    }
+    return entry->id;
 }
