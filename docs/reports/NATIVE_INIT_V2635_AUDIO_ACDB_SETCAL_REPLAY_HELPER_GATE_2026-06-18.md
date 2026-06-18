@@ -27,14 +27,15 @@ payload publication occurred.
 - source: `workspace/public/src/native-init/helpers/a90_acdb_setcal_replay_scaffold_v2635.c`
 - built: `True`
 - private_tool: `workspace/private/builds/audio/v2635-audio-acdb-setcal-replay-helper-gate/bin/a90_acdb_setcal_replay_execute_v2635`
-- private_tool_sha256: `438cc0a118b2c09f1e6da58394ef7f142d389862dccda09db343c598ae045ad7`
-- private_tool_file: `workspace/private/builds/audio/v2635-audio-acdb-setcal-replay-helper-gate/bin/a90_acdb_setcal_replay_execute_v2635: ELF 64-bit LSB executable, ARM aarch64, version 1 (GNU/Linux), statically linked, BuildID[sha1]=198980791bd26ddddb2e8a024d14f8e922824841, for GNU/Linux 3.7.0, stripped`
+- private_tool_sha256: `376f93488514467a40b7af4c3842004d553cf73fade90a2aef1aaa8e29e4da05`
+- private_tool_file: `workspace/private/builds/audio/v2635-audio-acdb-setcal-replay-helper-gate/bin/a90_acdb_setcal_replay_execute_v2635: ELF 64-bit LSB executable, ARM aarch64, version 1 (GNU/Linux), statically linked, BuildID[sha1]=2c2466ad4dc7757ad50c558bc0242a667db066d0, for GNU/Linux 3.7.0, stripped`
 
 ## Contract
 
 - `--basic-payload CAL_TYPE:BUFFER:PAYLOAD` supports the operator-verified topology payload.
 - `--exact-set ARG` replays header-only SET records exactly.
 - Header-only exact SET records preserve captured non-zero `cal_size` fields without requiring a separate dma-buf payload.
+- Header-only exact SET records with `cal_size==0` neutralize stale positive captured `mem_handle` values to `-1`.
 - `--exact-set ARG:PAYLOAD` allocates a fresh ION dmabuf, copies the payload, patches `mem_handle`, then sends the captured SET arg.
 - Payload-backed records are deallocated in reverse order; header-only records are not deallocated.
 - The helper keeps `/dev/msm_audio_cal` and all payload fds open across the future bounded PCM probe window.

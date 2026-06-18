@@ -131,6 +131,7 @@ static void print_describe_json(void)
     printf("  \"exact_set_arg_replay\": true,\n");
     printf("  \"header_only_set_arg_replay\": true,\n");
     printf("  \"header_only_exact_arg_preserves_nonzero_cal_size\": true,\n");
+    printf("  \"header_only_zero_cal_size_neutralizes_positive_mem_handle\": true,\n");
     printf("  \"fresh_dmabuf_handle_patch_offset\": %u,\n", A90_OFF_MEM_HANDLE);
     printf("  \"cal_size_patch_offset\": %u,\n", A90_OFF_CAL_SIZE);
     printf("  \"sequence\": [\"prepare_payloads\", \"set_each\", \"hold\", \"deallocate_payload_entries_reverse\"],\n");
@@ -471,10 +472,19 @@ static int prepare_state(struct a90_replay_state *state,
         return -1;
     memcpy(state->set_arg, state->arg, state->arg_len);
     if (!state->entry.has_payload) {
+        int32_t cal_size = read_le_i32(state->set_arg, state->arg_len, A90_OFF_CAL_SIZE);
+        int32_t mem_handle = read_le_i32(state->set_arg, state->arg_len, A90_OFF_MEM_HANDLE);
+        if (cal_size == 0 && mem_handle >= 0) {
+            write_le_i32(state->set_arg, state->arg_len, A90_OFF_MEM_HANDLE, -1);
+            fprintf(stderr,
+                    "A90_ACDB_SETCAL_HEADER_MEM_HANDLE_NEUTRALIZED cal_type=%d buffer=%d original_mem_handle=%d arg_len=%zu\n",
+                    state->entry.cal_type, state->entry.buffer_number, mem_handle,
+                    state->arg_len);
+        }
         fprintf(stderr,
                 "A90_ACDB_SETCAL_HEADER_ONLY_EXACT_ARG cal_type=%d buffer=%d cal_size=%d arg_len=%zu\n",
                 state->entry.cal_type, state->entry.buffer_number,
-                read_le_i32(state->arg, state->arg_len, A90_OFF_CAL_SIZE),
+                read_le_i32(state->set_arg, state->arg_len, A90_OFF_CAL_SIZE),
                 state->arg_len);
         return 0;
     }
