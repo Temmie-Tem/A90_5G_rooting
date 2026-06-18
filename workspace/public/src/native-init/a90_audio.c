@@ -30,6 +30,11 @@
 #define AUDIO_SND_MAX_LISTED 64
 #define AUDIO_MISSING_LIST_SIZE 192
 #define AUDIO_ADSP_SEGMENT_MODEL "stock-sparse-b00-b11-b13-b16"
+#define AUDIO_PROFILE_VERSION 1
+#define AUDIO_DEFAULT_PROFILE_ID "internal-speaker-safe"
+#define AUDIO_PROFILE_ACDB_SET_COUNT 11
+#define AUDIO_PROFILE_FORBIDDEN_CAL_COUNT 3
+#define AUDIO_PROFILE_OBSERVER_COUNT 8
 
 static const char *const AUDIO_ADSP_SEGMENTS[] = {
     "adsp.b00",
@@ -72,8 +77,176 @@ struct audio_snd_scan_stats {
     int failed;
 };
 
+struct audio_speaker_profile {
+    const char *id;
+    const char *endpoint;
+    const char *speaker_map;
+    int card;
+    int pcm_device;
+    int channels;
+    int sample_rate;
+    int bit_width;
+    int app_type;
+    int acdb_id;
+    int stream_control_width;
+    const char *global_app_type_config;
+    const char *stream_app_type_config;
+    const int acdb_set_order[AUDIO_PROFILE_ACDB_SET_COUNT];
+    const int forbidden_cal_types[AUDIO_PROFILE_FORBIDDEN_CAL_COUNT];
+    const char *const *observer_controls;
+    int observer_control_count;
+    int probe_amplitude_milli;
+    int probe_duration_ms;
+    int listen_amplitude_milli;
+    int listen_duration_ms;
+    int amplitude_cap_milli;
+    int duration_cap_ms;
+};
+
+static const char *const AUDIO_INTERNAL_SPEAKER_OBSERVER_CONTROLS[] = {
+    "SpkrLeft COMP Switch",
+    "SpkrRight COMP Switch",
+    "SpkrLeft BOOST Switch",
+    "SpkrRight BOOST Switch",
+    "SpkrLeft VISENSE Switch",
+    "SpkrRight VISENSE Switch",
+    "Get RMS",
+    "App Type Config",
+};
+
+static const struct audio_speaker_profile AUDIO_SPEAKER_PROFILES[] = {
+    {
+        .id = AUDIO_DEFAULT_PROFILE_ID,
+        .endpoint = "internal-speaker",
+        .speaker_map = "SpkrLeft/SpkrRight WSA881x via WSA_CDC_DMA_RX",
+        .card = 0,
+        .pcm_device = 0,
+        .channels = 2,
+        .sample_rate = 48000,
+        .bit_width = 16,
+        .app_type = 69941,
+        .acdb_id = 15,
+        .stream_control_width = 2,
+        .global_app_type_config = "1 69941 48000 16",
+        .stream_app_type_config = "69941 15 48000 2",
+        .acdb_set_order = {39, 20, 20, 13, 9, 11, 12, 15, 23, 16, 21},
+        .forbidden_cal_types = {10, 14, 24},
+        .observer_controls = AUDIO_INTERNAL_SPEAKER_OBSERVER_CONTROLS,
+        .observer_control_count = AUDIO_PROFILE_OBSERVER_COUNT,
+        .probe_amplitude_milli = 20,
+        .probe_duration_ms = 1000,
+        .listen_amplitude_milli = 150,
+        .listen_duration_ms = 8000,
+        .amplitude_cap_milli = 200,
+        .duration_cap_ms = 10000,
+    },
+};
+
 static const char *yesno(bool value) {
     return value ? "yes" : "no";
+}
+
+static int audio_profile_count(void) {
+    return (int)(sizeof(AUDIO_SPEAKER_PROFILES) / sizeof(AUDIO_SPEAKER_PROFILES[0]));
+}
+
+static const struct audio_speaker_profile *audio_find_profile(const char *id) {
+    int index;
+
+    if (id == NULL || id[0] == '\0') {
+        id = AUDIO_DEFAULT_PROFILE_ID;
+    }
+    for (index = 0; index < audio_profile_count(); ++index) {
+        if (strcmp(AUDIO_SPEAKER_PROFILES[index].id, id) == 0) {
+            return &AUDIO_SPEAKER_PROFILES[index];
+        }
+    }
+    return NULL;
+}
+
+static void print_int_list(const char *prefix, const int *values, int count) {
+    int index;
+
+    a90_console_printf("%s=", prefix);
+    for (index = 0; index < count; ++index) {
+        a90_console_printf("%s%d", index == 0 ? "" : ",", values[index]);
+    }
+    a90_console_printf("\r\n");
+}
+
+static void print_str_list(const char *prefix, const char *const *values, int count) {
+    int index;
+
+    a90_console_printf("%s=", prefix);
+    for (index = 0; index < count; ++index) {
+        a90_console_printf("%s%s", index == 0 ? "" : "|", values[index]);
+    }
+    a90_console_printf("\r\n");
+}
+
+static int audio_print_profiles(void) {
+    int index;
+
+    a90_console_printf("audio.profiles.version=%d\r\n", AUDIO_PROFILE_VERSION);
+    a90_console_printf("audio.profiles.count=%d\r\n", audio_profile_count());
+    a90_console_printf("audio.profiles.default=%s\r\n", AUDIO_DEFAULT_PROFILE_ID);
+    for (index = 0; index < audio_profile_count(); ++index) {
+        a90_console_printf("audio.profiles.%d.id=%s endpoint=%s card=%d pcm=%d\r\n",
+                           index,
+                           AUDIO_SPEAKER_PROFILES[index].id,
+                           AUDIO_SPEAKER_PROFILES[index].endpoint,
+                           AUDIO_SPEAKER_PROFILES[index].card,
+                           AUDIO_SPEAKER_PROFILES[index].pcm_device);
+    }
+    return 0;
+}
+
+static int audio_print_profile(char **argv, int argc) {
+    const struct audio_speaker_profile *profile;
+    const char *id = AUDIO_DEFAULT_PROFILE_ID;
+
+    if (argc > 3) {
+        a90_console_printf("usage: audio profile [%s]\r\n", AUDIO_DEFAULT_PROFILE_ID);
+        return -EINVAL;
+    }
+    if (argc == 3 && argv != NULL && argv[2] != NULL) {
+        id = argv[2];
+    }
+    profile = audio_find_profile(id);
+    if (profile == NULL) {
+        a90_console_printf("audio.profile.error=unknown-profile id=%s\r\n", id);
+        return -ENOENT;
+    }
+
+    a90_console_printf("audio.profile.version=%d\r\n", AUDIO_PROFILE_VERSION);
+    a90_console_printf("audio.profile.id=%s\r\n", profile->id);
+    a90_console_printf("audio.profile.endpoint=%s\r\n", profile->endpoint);
+    a90_console_printf("audio.profile.speaker_map=%s\r\n", profile->speaker_map);
+    a90_console_printf("audio.profile.card=%d\r\n", profile->card);
+    a90_console_printf("audio.profile.pcm_device=%d\r\n", profile->pcm_device);
+    a90_console_printf("audio.profile.channels=%d\r\n", profile->channels);
+    a90_console_printf("audio.profile.sample_rate=%d\r\n", profile->sample_rate);
+    a90_console_printf("audio.profile.bit_width=%d\r\n", profile->bit_width);
+    a90_console_printf("audio.profile.app_type=%d\r\n", profile->app_type);
+    a90_console_printf("audio.profile.acdb_id=%d\r\n", profile->acdb_id);
+    a90_console_printf("audio.profile.stream_control_width=%d\r\n", profile->stream_control_width);
+    a90_console_printf("audio.profile.global_app_type_config=%s\r\n", profile->global_app_type_config);
+    a90_console_printf("audio.profile.stream_app_type_config=%s\r\n", profile->stream_app_type_config);
+    print_int_list("audio.profile.acdb_set_order", profile->acdb_set_order, AUDIO_PROFILE_ACDB_SET_COUNT);
+    print_int_list("audio.profile.forbidden_cal_types", profile->forbidden_cal_types, AUDIO_PROFILE_FORBIDDEN_CAL_COUNT);
+    print_str_list("audio.profile.observer_controls", profile->observer_controls, profile->observer_control_count);
+    a90_console_printf("audio.profile.probe_defaults.amplitude_milli=%d duration_ms=%d\r\n",
+                       profile->probe_amplitude_milli,
+                       profile->probe_duration_ms);
+    a90_console_printf("audio.profile.listen_defaults.amplitude_milli=%d duration_ms=%d\r\n",
+                       profile->listen_amplitude_milli,
+                       profile->listen_duration_ms);
+    a90_console_printf("audio.profile.safety.amplitude_cap_milli=%d duration_cap_ms=%d\r\n",
+                       profile->amplitude_cap_milli,
+                       profile->duration_cap_ms);
+    a90_console_printf("audio.profile.safety.no_smart_amp_gain_boost_changes=1\r\n");
+    a90_console_printf("audio.profile.read_only=1\r\n");
+    return 0;
 }
 
 static bool path_lstat(const char *path, struct stat *st) {
@@ -711,6 +884,7 @@ static int audio_print_adsp_status(void) {
     struct audio_snd_scan_stats snd_stats;
     a90_console_printf("audio.status.version=1\r\n");
     a90_console_printf("audio.status.read_only=1\r\n");
+    a90_console_printf("audio.status.default_profile=%s\r\n", AUDIO_DEFAULT_PROFILE_ID);
     print_trimmed_or_missing("firmware_class_path", AUDIO_FWCLASS_PATH);
     print_mode_line("boot_adsp_boot", AUDIO_BOOT_ATTR);
     print_firmware_status();
@@ -832,6 +1006,12 @@ int a90_audio_cmd(char **argv, int argc) {
         (argc == 2 && (strcmp(argv[1], "adsp-status") == 0 || strcmp(argv[1], "status") == 0))) {
         return audio_print_adsp_status();
     }
+    if (argc == 2 && argv != NULL && argv[1] != NULL && strcmp(argv[1], "profiles") == 0) {
+        return audio_print_profiles();
+    }
+    if (argc >= 2 && argv != NULL && argv[1] != NULL && strcmp(argv[1], "profile") == 0) {
+        return audio_print_profile(argv, argc);
+    }
     if (argc >= 2 && argv != NULL && argv[1] != NULL && strcmp(argv[1], "adsp-boot-once") == 0) {
         return audio_adsp_boot_once(argv, argc);
     }
@@ -841,6 +1021,6 @@ int a90_audio_cmd(char **argv, int argc) {
     if (argc >= 2 && argv != NULL && argv[1] != NULL && strcmp(argv[1], "snd-materialize-once") == 0) {
         return audio_snd_materialize_once(argv, argc);
     }
-    a90_console_printf("usage: audio [adsp-status|status|snd-status|adsp-boot-once|snd-materialize-once]\r\n");
+    a90_console_printf("usage: audio [adsp-status|status|profiles|profile [id]|snd-status|adsp-boot-once|snd-materialize-once]\r\n");
     return -EINVAL;
 }
