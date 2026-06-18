@@ -498,6 +498,19 @@ static const struct audio_stage_contract AUDIO_STAGE_CONTRACTS[] = {
         .rollback_boundary = false,
     },
     {
+        .id = "plan-audio-stop-cleanup",
+        .owner = "native-init",
+        .phase = "cleanup",
+        .command_template = "audio stop %s --dry-run",
+        .speaker_scope = "internal-speaker",
+        .note = "plans PCM stop, reverse ACDB deallocation, and core route reset without touching ALSA or calibration ioctls",
+        .order = 78,
+        .uses_profile = true,
+        .native_implemented = true,
+        .writes_runtime_state = false,
+        .rollback_boundary = false,
+    },
+    {
         .id = "reset-core-speaker-route",
         .owner = "native-init",
         .phase = "cleanup",
@@ -1483,6 +1496,63 @@ static int audio_play_cmd(char **argv, int argc) {
         return -EPERM;
     }
     a90_console_printf("audio.play.dry_run_ok=1\r\n");
+    return 0;
+}
+
+static int audio_stop_cmd(char **argv, int argc) {
+    const char *profile_id = AUDIO_DEFAULT_PROFILE_ID;
+    const struct audio_speaker_profile *profile;
+    bool seen_profile = false;
+    bool execute_mode = false;
+    int reverse_order[AUDIO_PROFILE_ACDB_SET_COUNT];
+    int argi;
+    int index;
+
+    for (argi = 2; argi < argc; ++argi) {
+        if (argv == NULL || argv[argi] == NULL) {
+            a90_console_printf("usage: audio stop [profile] [--dry-run|--execute]\r\n");
+            return -EINVAL;
+        }
+        if (strcmp(argv[argi], "--dry-run") == 0) {
+            execute_mode = false;
+        } else if (strcmp(argv[argi], "--execute") == 0) {
+            execute_mode = true;
+        } else if (!seen_profile) {
+            profile_id = argv[argi];
+            seen_profile = true;
+        } else {
+            a90_console_printf("usage: audio stop [profile] [--dry-run|--execute]\r\n");
+            return -EINVAL;
+        }
+    }
+
+    profile = audio_find_profile(profile_id);
+    a90_console_printf("audio.stop.version=1\r\n");
+    a90_console_printf("audio.stop.profile=%s\r\n", profile_id);
+    a90_console_printf("audio.stop.execute_requested=%d\r\n", execute_mode ? 1 : 0);
+    a90_console_printf("audio.stop.execute_supported=0\r\n");
+    a90_console_printf("audio.stop.playback_stop_attempted=0\r\n");
+    a90_console_printf("audio.stop.setcal_deallocate_attempted=0\r\n");
+    a90_console_printf("audio.stop.route_write_attempted=0\r\n");
+    a90_console_printf("audio.stop.ioctl_attempted=0\r\n");
+    if (profile == NULL) {
+        a90_console_printf("audio.stop.error=unknown-profile\r\n");
+        return -ENOENT;
+    }
+    for (index = 0; index < AUDIO_PROFILE_ACDB_SET_COUNT; ++index) {
+        reverse_order[index] = profile->acdb_set_order[AUDIO_PROFILE_ACDB_SET_COUNT - 1 - index];
+    }
+    a90_console_printf("audio.stop.endpoint=%s\r\n", profile->endpoint);
+    a90_console_printf("audio.stop.requires.pcm_stop=1\r\n");
+    a90_console_printf("audio.stop.requires.setcal_deallocate_reverse=1\r\n");
+    a90_console_printf("audio.stop.requires.route_reset_core=1\r\n");
+    a90_console_printf("audio.stop.route_reset_command=audio route %s --reset --layer core\r\n", profile->id);
+    print_int_list("audio.stop.setcal_deallocate_order", reverse_order, AUDIO_PROFILE_ACDB_SET_COUNT);
+    if (execute_mode) {
+        a90_console_printf("audio.stop.refused=execute-not-implemented-native-cleanup\r\n");
+        return -EPERM;
+    }
+    a90_console_printf("audio.stop.dry_run_ok=1\r\n");
     return 0;
 }
 
@@ -2906,6 +2976,9 @@ int a90_audio_cmd(char **argv, int argc) {
     if (argc >= 2 && argv != NULL && argv[1] != NULL && strcmp(argv[1], "play") == 0) {
         return audio_play_cmd(argv, argc);
     }
+    if (argc >= 2 && argv != NULL && argv[1] != NULL && strcmp(argv[1], "stop") == 0) {
+        return audio_stop_cmd(argv, argc);
+    }
     if (argc >= 2 && argv != NULL && argv[1] != NULL && strcmp(argv[1], "route") == 0) {
         return audio_route_cmd(argv, argc);
     }
@@ -2918,6 +2991,6 @@ int a90_audio_cmd(char **argv, int argc) {
     if (argc >= 2 && argv != NULL && argv[1] != NULL && strcmp(argv[1], "snd-materialize-once") == 0) {
         return audio_snd_materialize_once(argv, argc);
     }
-    a90_console_printf("usage: audio [adsp-status|status|profiles|profile [id]|stages [id]|app-type [profile] [--dry-run|--write]|setcal [profile] [--dry-run|--execute] [--manifest PATH --verify|--prepare|--load]|play [profile] [--mode probe|listen] [--amplitude-milli N] [--duration-ms N] [--dry-run|--execute]|route [profile] [--dry-run|--apply|--reset] [--layer all|core|feedback|endpoint|blocked]|snd-status|adsp-boot-once|snd-materialize-once]\r\n");
+    a90_console_printf("usage: audio [adsp-status|status|profiles|profile [id]|stages [id]|app-type [profile] [--dry-run|--write]|setcal [profile] [--dry-run|--execute] [--manifest PATH --verify|--prepare|--load]|play [profile] [--mode probe|listen] [--amplitude-milli N] [--duration-ms N] [--dry-run|--execute]|stop [profile] [--dry-run|--execute]|route [profile] [--dry-run|--apply|--reset] [--layer all|core|feedback|endpoint|blocked]|snd-status|adsp-boot-once|snd-materialize-once]\r\n");
     return -EINVAL;
 }

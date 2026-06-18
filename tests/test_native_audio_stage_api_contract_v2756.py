@@ -31,6 +31,7 @@ class NativeAudioStageApiContractV2756(unittest.TestCase):
         self.assertIn("replay-acdb-setcal-sequence", stage_ids)
         self.assertIn("plan-bounded-pcm-playback", stage_ids)
         self.assertIn("bounded-pcm-playback", stage_ids)
+        self.assertIn("plan-audio-stop-cleanup", stage_ids)
         self.assertEqual(stage_ids[-1], "rollback-v2321")
         self.assertEqual(len(stage_ids), len(stages))
         self.assertEqual([stage["order"] for stage in stages], sorted(stage["order"] for stage in stages))
@@ -114,6 +115,12 @@ class NativeAudioStageApiContractV2756(unittest.TestCase):
             ["audio", "play", "internal-speaker-safe", "--mode", "probe", "--execute"],
         )
         self.assertEqual(stages["bounded-pcm-playback"]["speaker_scope"], "internal-speaker")
+        self.assertEqual(
+            stages["plan-audio-stop-cleanup"]["command"],
+            ["audio", "stop", "internal-speaker-safe", "--dry-run"],
+        )
+        self.assertTrue(stages["plan-audio-stop-cleanup"]["native_implemented"])
+        self.assertFalse(stages["plan-audio-stop-cleanup"]["writes_runtime_state"])
 
     def test_profile_manifest_includes_stage_api_without_private_paths(self) -> None:
         manifest = profiles.profile_manifest()
@@ -149,6 +156,7 @@ class NativeAudioStageApiContractV2756(unittest.TestCase):
             "apply-core-speaker-route",
             "plan-bounded-pcm-playback",
             "bounded-pcm-playback",
+            "plan-audio-stop-cleanup",
             "reset-core-speaker-route",
             "rollback-v2321",
         ]
@@ -173,6 +181,10 @@ class NativeAudioStageApiContractV2756(unittest.TestCase):
         )
         self.assertRegex(
             text,
+            re.compile(r'\.id = "plan-audio-stop-cleanup".*?\.native_implemented = true', re.DOTALL),
+        )
+        self.assertRegex(
+            text,
             re.compile(r'\.id = "apply-core-speaker-route".*?\.native_implemented = true', re.DOTALL),
         )
         self.assertIn('.command_template = "audio route %s --apply --layer core"', text)
@@ -181,12 +193,14 @@ class NativeAudioStageApiContractV2756(unittest.TestCase):
         self.assertIn('prepare-acdb-payload-bundle', text)
         self.assertIn('load-acdb-payload-files', text)
         self.assertIn('plan-bounded-pcm-playback', text)
+        self.assertIn('plan-audio-stop-cleanup', text)
         self.assertIn('--manifest " AUDIO_SETCAL_DEFAULT_MANIFEST_PATH " --verify --dry-run"', text)
         self.assertIn('--manifest " AUDIO_SETCAL_DEFAULT_MANIFEST_PATH " --prepare --dry-run"', text)
         self.assertIn('--manifest " AUDIO_SETCAL_DEFAULT_MANIFEST_PATH " --load --dry-run"', text)
         self.assertIn('--manifest " AUDIO_SETCAL_DEFAULT_MANIFEST_PATH " --execute"', text)
         self.assertIn('.command_template = "audio play %s --mode probe --dry-run"', text)
         self.assertIn('.command_template = "audio play %s --mode probe --execute"', text)
+        self.assertIn('.command_template = "audio stop %s --dry-run"', text)
 
 
 if __name__ == "__main__":

@@ -423,6 +423,18 @@ AUDIO_FEATURE_STAGES = (
         note="planned bounded tone API; amplitude stays capped by the profile",
     ),
     AudioFeatureStage(
+        stage_id="plan-audio-stop-cleanup",
+        order=78,
+        owner="native-init",
+        phase="cleanup",
+        command_template=("audio", "stop", "{profile}", "--dry-run"),
+        native_implemented=True,
+        writes_runtime_state=False,
+        rollback_boundary=False,
+        speaker_scope="internal-speaker",
+        note="plans PCM stop, reverse ACDB deallocation, and core route reset without touching ALSA or calibration ioctls",
+    ),
+    AudioFeatureStage(
         stage_id="reset-core-speaker-route",
         order=80,
         owner="native-init",
