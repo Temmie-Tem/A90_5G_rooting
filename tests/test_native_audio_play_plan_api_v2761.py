@@ -27,6 +27,7 @@ class NativeAudioPlayPlanApiV2761(unittest.TestCase):
         self.assertIn("usage: audio play [profile] [--mode probe|listen]", text)
         self.assertIn("audio.play.version=1", text)
         self.assertIn("audio.play.execute_supported=0", text)
+        self.assertIn("audio.play.execute_plan_supported", text)
 
     def test_play_plan_exports_profile_pcm_defaults_and_safety_caps(self) -> None:
         text = source_text()

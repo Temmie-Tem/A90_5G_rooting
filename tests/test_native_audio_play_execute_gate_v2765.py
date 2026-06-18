@@ -1,0 +1,73 @@
+"""Tests for the V2765 native audio PCM play execute-gate API."""
+
+from __future__ import annotations
+
+import re
+import unittest
+from pathlib import Path
+
+REPO = Path(__file__).resolve().parents[1]
+AUDIO_C = REPO / "workspace/public/src/native-init/a90_audio.c"
+
+
+def source_text() -> str:
+    return AUDIO_C.read_text(encoding="utf-8")
+
+
+class NativeAudioPlayExecuteGateV2765(unittest.TestCase):
+    def test_play_execute_gate_pins_pcm_geometry(self) -> None:
+        text = source_text()
+
+        for marker in [
+            "#define AUDIO_PCM_PERIOD_SIZE 1024",
+            "#define AUDIO_PCM_PERIOD_COUNT 4",
+            "audio_play_frame_bytes",
+            "audio_play_data_bytes",
+            "audio.play.execute.plan.period_size",
+            "audio.play.execute.plan.period_count",
+            "audio.play.execute.plan.frame_bytes",
+            "audio.play.execute.plan.period_bytes",
+            "audio.play.execute.plan.data_bytes",
+            "audio.play.execute.plan.chunks",
+        ]:
+            with self.subTest(marker=marker):
+                self.assertIn(marker, text)
+
+    def test_play_execute_plan_reports_pcm_path_and_waveform_without_opening(self) -> None:
+        text = source_text()
+        plan_start = text.index("static void audio_play_print_execute_plan")
+        plan_end = text.index("static int audio_play_cmd")
+        plan_block = text[plan_start:plan_end]
+
+        for marker in [
+            "/dev/snd/pcmC%dD%dp",
+            "audio.play.execute.plan.pcm_path",
+            "audio.play.execute.plan.waveform=s16le-stereo-bounded-tone",
+            "audio.play.execute.plan.sequence=open_pcm,configure_hw_params,write_bounded_tone,drain,close_pcm",
+            "audio.play.execute.plan.alsa_open_attempted=0",
+            "audio.play.execute.plan.ioctl_attempted=0",
+            "audio.play.execute.plan.pcm_write_attempted=0",
+        ]:
+            with self.subTest(marker=marker):
+                self.assertIn(marker, text)
+        self.assertNotIn("open(", plan_block)
+        self.assertNotIn("ioctl(", plan_block)
+        self.assertNotIn("write(", plan_block)
+
+    def test_play_execute_refuses_after_cap_checks_and_plan(self) -> None:
+        text = source_text()
+
+        cap_check = text.index("audio.play.refused=safety-cap-exceeded")
+        plan_call = text.index("audio_play_print_execute_plan(profile, mode, amplitude_milli, duration_ms)")
+        refusal = text.index("audio.play.refused=execute-not-implemented-native-pcm")
+
+        self.assertLess(cap_check, plan_call)
+        self.assertLess(plan_call, refusal)
+        self.assertRegex(
+            text,
+            re.compile(r'if \(execute_mode\).*?audio_play_print_execute_plan.*?execute-not-implemented-native-pcm.*?return -EPERM;', re.DOTALL),
+        )
+
+
+if __name__ == "__main__":
+    unittest.main()

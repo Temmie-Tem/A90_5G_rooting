@@ -52,6 +52,8 @@
 #define AUDIO_SETCAL_IOCTL_ALLOCATE_CALIBRATION 0xC00461C8u
 #define AUDIO_SETCAL_IOCTL_DEALLOCATE_CALIBRATION 0xC00461C9u
 #define AUDIO_SETCAL_IOCTL_SET_CALIBRATION 0xC00461CBu
+#define AUDIO_PCM_PERIOD_SIZE 1024
+#define AUDIO_PCM_PERIOD_COUNT 4
 
 enum audio_route_value_kind {
     AUDIO_ROUTE_VALUE_INTS = 1,
@@ -1444,6 +1446,56 @@ static bool audio_play_mode_defaults(const struct audio_speaker_profile *profile
     return false;
 }
 
+static long long audio_play_frame_bytes(const struct audio_speaker_profile *profile) {
+    if (profile == NULL || profile->channels <= 0 || profile->bit_width <= 0 ||
+        (profile->bit_width % 8) != 0) {
+        return 0;
+    }
+    return (long long)profile->channels * (long long)(profile->bit_width / 8);
+}
+
+static long long audio_play_data_bytes(const struct audio_speaker_profile *profile, int duration_ms) {
+    long long frame_bytes = audio_play_frame_bytes(profile);
+
+    if (profile == NULL || duration_ms <= 0 || frame_bytes <= 0 || profile->sample_rate <= 0) {
+        return 0;
+    }
+    return ((long long)profile->sample_rate * (long long)duration_ms * frame_bytes) / 1000LL;
+}
+
+static void audio_play_print_execute_plan(const struct audio_speaker_profile *profile,
+                                          const char *mode,
+                                          int amplitude_milli,
+                                          int duration_ms) {
+    long long frame_bytes = audio_play_frame_bytes(profile);
+    long long data_bytes = audio_play_data_bytes(profile, duration_ms);
+    long long period_bytes = frame_bytes * AUDIO_PCM_PERIOD_SIZE;
+    long long chunks = period_bytes > 0 ? (data_bytes + period_bytes - 1) / period_bytes : 0;
+    char pcm_path[64];
+
+    if (profile == NULL) {
+        return;
+    }
+    snprintf(pcm_path, sizeof(pcm_path), "/dev/snd/pcmC%dD%dp", profile->card, profile->pcm_device);
+    a90_console_printf("audio.play.execute.plan.version=1\r\n");
+    a90_console_printf("audio.play.execute.plan.profile=%s\r\n", profile->id);
+    a90_console_printf("audio.play.execute.plan.mode=%s\r\n", mode);
+    a90_console_printf("audio.play.execute.plan.pcm_path=%s\r\n", pcm_path);
+    a90_console_printf("audio.play.execute.plan.period_size=%d\r\n", AUDIO_PCM_PERIOD_SIZE);
+    a90_console_printf("audio.play.execute.plan.period_count=%d\r\n", AUDIO_PCM_PERIOD_COUNT);
+    a90_console_printf("audio.play.execute.plan.frame_bytes=%lld\r\n", frame_bytes);
+    a90_console_printf("audio.play.execute.plan.period_bytes=%lld\r\n", period_bytes);
+    a90_console_printf("audio.play.execute.plan.data_bytes=%lld\r\n", data_bytes);
+    a90_console_printf("audio.play.execute.plan.chunks=%lld\r\n", chunks);
+    a90_console_printf("audio.play.execute.plan.amplitude_milli=%d\r\n", amplitude_milli);
+    a90_console_printf("audio.play.execute.plan.duration_ms=%d\r\n", duration_ms);
+    a90_console_printf("audio.play.execute.plan.waveform=s16le-stereo-bounded-tone\r\n");
+    a90_console_printf("audio.play.execute.plan.sequence=open_pcm,configure_hw_params,write_bounded_tone,drain,close_pcm\r\n");
+    a90_console_printf("audio.play.execute.plan.alsa_open_attempted=0\r\n");
+    a90_console_printf("audio.play.execute.plan.ioctl_attempted=0\r\n");
+    a90_console_printf("audio.play.execute.plan.pcm_write_attempted=0\r\n");
+}
+
 static int audio_play_cmd(char **argv, int argc) {
     const char *profile_id = AUDIO_DEFAULT_PROFILE_ID;
     const char *mode = "probe";
@@ -1502,6 +1554,7 @@ static int audio_play_cmd(char **argv, int argc) {
     a90_console_printf("audio.play.mode=%s\r\n", mode);
     a90_console_printf("audio.play.execute_requested=%d\r\n", execute_mode ? 1 : 0);
     a90_console_printf("audio.play.execute_supported=0\r\n");
+    a90_console_printf("audio.play.execute_plan_supported=%d\r\n", execute_mode ? 1 : 0);
     a90_console_printf("audio.play.playback_attempted=0\r\n");
     if (profile == NULL) {
         a90_console_printf("audio.play.error=unknown-profile\r\n");
@@ -1545,6 +1598,7 @@ static int audio_play_cmd(char **argv, int argc) {
         return -EPERM;
     }
     if (execute_mode) {
+        audio_play_print_execute_plan(profile, mode, amplitude_milli, duration_ms);
         a90_console_printf("audio.play.refused=execute-not-implemented-native-pcm\r\n");
         a90_console_printf("audio.play.playback_attempted=0\r\n");
         return -EPERM;
