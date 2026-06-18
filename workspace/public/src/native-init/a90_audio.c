@@ -9,11 +9,15 @@
 #include <limits.h>
 #include <stdbool.h>
 #include <stdio.h>
+#include <stdlib.h>
 #include <string.h>
 #include <strings.h>
 #include <sys/stat.h>
 #include <sys/sysmacros.h>
+#include <sys/ioctl.h>
 #include <unistd.h>
+
+#include <sound/asound.h>
 
 #ifndef O_CLOEXEC
 #define O_CLOEXEC 0
@@ -35,6 +39,7 @@
 #define AUDIO_PROFILE_ACDB_SET_COUNT 11
 #define AUDIO_PROFILE_FORBIDDEN_CAL_COUNT 3
 #define AUDIO_PROFILE_OBSERVER_COUNT 8
+#define AUDIO_APP_TYPE_CFG_MAX_VALUES 128
 
 static const char *const AUDIO_ADSP_SEGMENTS[] = {
     "adsp.b00",
@@ -246,6 +251,177 @@ static int audio_print_profile(char **argv, int argc) {
                        profile->duration_cap_ms);
     a90_console_printf("audio.profile.safety.no_smart_amp_gain_boost_changes=1\r\n");
     a90_console_printf("audio.profile.read_only=1\r\n");
+    return 0;
+}
+
+static int audio_open_control_device(int card) {
+    char path[64];
+    int fd;
+
+    snprintf(path, sizeof(path), "/dev/snd/controlC%d", card);
+    fd = open(path, O_RDWR | O_CLOEXEC);
+    if (fd < 0) {
+        a90_console_printf("audio.app_type.open_failed path=%s errno=%d\r\n", path, errno);
+    }
+    return fd;
+}
+
+static int audio_resolve_control_by_name(int fd, const char *name, struct snd_ctl_elem_id *id) {
+    struct snd_ctl_elem_list list;
+    struct snd_ctl_elem_id *ids;
+    unsigned int count;
+    unsigned int index;
+
+    memset(&list, 0, sizeof(list));
+    if (ioctl(fd, SNDRV_CTL_IOCTL_ELEM_LIST, &list) < 0) {
+        a90_console_printf("audio.app_type.list_count_failed errno=%d\r\n", errno);
+        return -1;
+    }
+    count = list.count;
+    if (count == 0 || count > 8192) {
+        a90_console_printf("audio.app_type.list_bad_count count=%u\r\n", list.count);
+        errno = ERANGE;
+        return -1;
+    }
+    ids = calloc(count, sizeof(*ids));
+    if (ids == NULL) {
+        a90_console_printf("audio.app_type.alloc_failed count=%u errno=%d\r\n", count, errno);
+        return -1;
+    }
+    memset(&list, 0, sizeof(list));
+    list.space = count;
+    list.pids = ids;
+    if (ioctl(fd, SNDRV_CTL_IOCTL_ELEM_LIST, &list) < 0) {
+        a90_console_printf("audio.app_type.list_ids_failed errno=%d\r\n", errno);
+        free(ids);
+        return -1;
+    }
+    for (index = 0; index < list.used; ++index) {
+        if (strncmp((const char *)ids[index].name, name, sizeof(ids[index].name)) == 0) {
+            *id = ids[index];
+            free(ids);
+            return 0;
+        }
+    }
+    a90_console_printf("audio.app_type.resolve_failed name=%s used=%u\r\n", name, list.used);
+    free(ids);
+    errno = ENOENT;
+    return -1;
+}
+
+static int audio_validate_app_type_control(int fd,
+                                           struct snd_ctl_elem_id *id,
+                                           struct snd_ctl_elem_info *info) {
+    memset(info, 0, sizeof(*info));
+    info->id = *id;
+    if (ioctl(fd, SNDRV_CTL_IOCTL_ELEM_INFO, info) < 0) {
+        a90_console_printf("audio.app_type.info_failed errno=%d numid=%u\r\n", errno, id->numid);
+        return -1;
+    }
+    *id = info->id;
+    if (info->type != SNDRV_CTL_ELEM_TYPE_INTEGER) {
+        a90_console_printf("audio.app_type.bad_type type=%u\r\n", info->type);
+        errno = EINVAL;
+        return -1;
+    }
+    if (info->count < AUDIO_APP_TYPE_CFG_MAX_VALUES) {
+        a90_console_printf("audio.app_type.bad_count count=%u required=%d\r\n",
+                           info->count,
+                           AUDIO_APP_TYPE_CFG_MAX_VALUES);
+        errno = EINVAL;
+        return -1;
+    }
+    return 0;
+}
+
+static void audio_fill_app_type_value(struct snd_ctl_elem_value *value,
+                                      const struct snd_ctl_elem_id *id,
+                                      const struct audio_speaker_profile *profile) {
+    memset(value, 0, sizeof(*value));
+    value->id = *id;
+    value->value.integer.value[0] = 1;
+    value->value.integer.value[1] = profile->app_type;
+    value->value.integer.value[2] = profile->sample_rate;
+    value->value.integer.value[3] = profile->bit_width;
+}
+
+static int audio_app_type_cmd(char **argv, int argc) {
+    const char *profile_id = AUDIO_DEFAULT_PROFILE_ID;
+    const struct audio_speaker_profile *profile;
+    struct snd_ctl_elem_id id;
+    struct snd_ctl_elem_info info;
+    struct snd_ctl_elem_value value;
+    bool seen_profile = false;
+    bool write_mode = false;
+    int fd;
+    int argi;
+
+    for (argi = 2; argi < argc; ++argi) {
+        if (argv == NULL || argv[argi] == NULL) {
+            a90_console_printf("usage: audio app-type [profile] [--dry-run|--write]\r\n");
+            return -EINVAL;
+        }
+        if (strcmp(argv[argi], "--dry-run") == 0) {
+            write_mode = false;
+        } else if (strcmp(argv[argi], "--write") == 0) {
+            write_mode = true;
+        } else if (!seen_profile) {
+            profile_id = argv[argi];
+            seen_profile = true;
+        } else {
+            a90_console_printf("usage: audio app-type [profile] [--dry-run|--write]\r\n");
+            return -EINVAL;
+        }
+    }
+
+    profile = audio_find_profile(profile_id);
+    a90_console_printf("audio.app_type.version=1\r\n");
+    a90_console_printf("audio.app_type.profile=%s\r\n", profile_id);
+    a90_console_printf("audio.app_type.mode=%s\r\n", write_mode ? "write" : "dry-run");
+    if (profile == NULL) {
+        a90_console_printf("audio.app_type.error=unknown-profile\r\n");
+        return -ENOENT;
+    }
+    a90_console_printf("audio.app_type.control=App Type Config\r\n");
+    a90_console_printf("audio.app_type.payload=%s\r\n", profile->global_app_type_config);
+    a90_console_printf("audio.app_type.card=%d\r\n", profile->card);
+    a90_console_printf("audio.app_type.write_attempted=0\r\n");
+
+    fd = audio_open_control_device(profile->card);
+    if (fd < 0) {
+        return negative_errno_or(EIO);
+    }
+    memset(&id, 0, sizeof(id));
+    if (audio_resolve_control_by_name(fd, "App Type Config", &id) < 0) {
+        close(fd);
+        return negative_errno_or(ENOENT);
+    }
+    if (audio_validate_app_type_control(fd, &id, &info) < 0) {
+        close(fd);
+        return negative_errno_or(EINVAL);
+    }
+    a90_console_printf("audio.app_type.numid=%u count=%u name=%s\r\n",
+                       id.numid,
+                       info.count,
+                       (const char *)id.name);
+    audio_fill_app_type_value(&value, &id, profile);
+    if (!write_mode) {
+        close(fd);
+        a90_console_printf("audio.app_type.dry_run_ok=1\r\n");
+        return 0;
+    }
+
+    a90_console_printf("audio.app_type.write_attempted=1\r\n");
+    if (ioctl(fd, SNDRV_CTL_IOCTL_ELEM_WRITE, &value) < 0) {
+        a90_console_printf("audio.app_type.write_failed errno=%d\r\n", errno);
+        close(fd);
+        return negative_errno_or(EIO);
+    }
+    if (close(fd) < 0) {
+        a90_console_printf("audio.app_type.close_failed errno=%d\r\n", errno);
+        return negative_errno_or(EIO);
+    }
+    a90_console_printf("audio.app_type.write_ok=1\r\n");
     return 0;
 }
 
@@ -1012,6 +1188,9 @@ int a90_audio_cmd(char **argv, int argc) {
     if (argc >= 2 && argv != NULL && argv[1] != NULL && strcmp(argv[1], "profile") == 0) {
         return audio_print_profile(argv, argc);
     }
+    if (argc >= 2 && argv != NULL && argv[1] != NULL && strcmp(argv[1], "app-type") == 0) {
+        return audio_app_type_cmd(argv, argc);
+    }
     if (argc >= 2 && argv != NULL && argv[1] != NULL && strcmp(argv[1], "adsp-boot-once") == 0) {
         return audio_adsp_boot_once(argv, argc);
     }
@@ -1021,6 +1200,6 @@ int a90_audio_cmd(char **argv, int argc) {
     if (argc >= 2 && argv != NULL && argv[1] != NULL && strcmp(argv[1], "snd-materialize-once") == 0) {
         return audio_snd_materialize_once(argv, argc);
     }
-    a90_console_printf("usage: audio [adsp-status|status|profiles|profile [id]|snd-status|adsp-boot-once|snd-materialize-once]\r\n");
+    a90_console_printf("usage: audio [adsp-status|status|profiles|profile [id]|app-type [profile] [--dry-run|--write]|snd-status|adsp-boot-once|snd-materialize-once]\r\n");
     return -EINVAL;
 }
