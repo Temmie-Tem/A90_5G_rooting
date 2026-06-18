@@ -556,6 +556,15 @@ static const struct audio_setcal_entry AUDIO_INTERNAL_SPEAKER_SETCAL_PLAN[] = {
     {.cal_type = 21, .role = "SPEAKER_VI_HEADER", .dmabuf_expected = false},
 };
 
+static const char *const AUDIO_SPEAKER_MAP_IDS[] = {
+    "shared",
+    "SPKR_VI_1",
+    "SPKR_VI_2",
+    "SPKR_VI",
+    "SpkrLeft",
+    "SpkrRight",
+};
+
 static const char *yesno(bool value) {
     return value ? "yes" : "no";
 }
@@ -1874,6 +1883,134 @@ static bool audio_route_layer_write_allowed(const char *layer) {
     return layer != NULL && strcmp(layer, "core") == 0;
 }
 
+static bool audio_string_starts_with(const char *text, const char *prefix) {
+    size_t prefix_len;
+
+    if (text == NULL || prefix == NULL) {
+        return false;
+    }
+    prefix_len = strlen(prefix);
+    return strncmp(text, prefix, prefix_len) == 0;
+}
+
+static int audio_observer_count_for_prefix(const struct audio_speaker_profile *profile,
+                                           const char *prefix) {
+    int index;
+    int count = 0;
+
+    if (profile == NULL || prefix == NULL) {
+        return 0;
+    }
+    for (index = 0; index < profile->observer_control_count; ++index) {
+        if (audio_string_starts_with(profile->observer_controls[index], prefix)) {
+            ++count;
+        }
+    }
+    return count;
+}
+
+static int audio_route_count_for_speaker(const char *speaker) {
+    int index;
+    int count = 0;
+
+    for (index = 0; index < audio_route_control_count(); ++index) {
+        if (speaker != NULL && strcmp(AUDIO_INTERNAL_SPEAKER_ROUTE[index].speaker, speaker) == 0) {
+            ++count;
+        }
+    }
+    return count;
+}
+
+static int audio_route_layer_count_for_speaker(const char *speaker, const char *layer) {
+    int index;
+    int count = 0;
+
+    for (index = 0; index < audio_route_control_count(); ++index) {
+        if (speaker != NULL && layer != NULL &&
+            strcmp(AUDIO_INTERNAL_SPEAKER_ROUTE[index].speaker, speaker) == 0 &&
+            strcmp(AUDIO_INTERNAL_SPEAKER_ROUTE[index].layer, layer) == 0) {
+            ++count;
+        }
+    }
+    return count;
+}
+
+static int audio_route_boost_count_for_speaker(const char *speaker) {
+    int index;
+    int count = 0;
+
+    for (index = 0; index < audio_route_control_count(); ++index) {
+        if (speaker != NULL &&
+            strcmp(AUDIO_INTERNAL_SPEAKER_ROUTE[index].speaker, speaker) == 0 &&
+            AUDIO_INTERNAL_SPEAKER_ROUTE[index].smart_amp_boost) {
+            ++count;
+        }
+    }
+    return count;
+}
+
+static int audio_speaker_map_count(void) {
+    return (int)(sizeof(AUDIO_SPEAKER_MAP_IDS) / sizeof(AUDIO_SPEAKER_MAP_IDS[0]));
+}
+
+static void audio_speaker_map_print_speaker(const struct audio_speaker_profile *profile,
+                                            int output_index,
+                                            const char *speaker) {
+    char prefix[64];
+
+    snprintf(prefix, sizeof(prefix), "audio.speaker_map.speaker.%d", output_index);
+    a90_console_printf("%s.id=%s\r\n", prefix, speaker);
+    a90_console_printf("%s.route_controls=%d\r\n", prefix, audio_route_count_for_speaker(speaker));
+    a90_console_printf("%s.route_core_controls=%d\r\n", prefix,
+                       audio_route_layer_count_for_speaker(speaker, "core"));
+    a90_console_printf("%s.route_feedback_controls=%d\r\n", prefix,
+                       audio_route_layer_count_for_speaker(speaker, "feedback"));
+    a90_console_printf("%s.route_endpoint_controls=%d\r\n", prefix,
+                       audio_route_layer_count_for_speaker(speaker, "endpoint"));
+    a90_console_printf("%s.route_blocked_boost_controls=%d\r\n", prefix,
+                       audio_route_boost_count_for_speaker(speaker));
+    a90_console_printf("%s.observer_controls=%d\r\n", prefix,
+                       audio_observer_count_for_prefix(profile, speaker));
+}
+
+static int audio_speaker_map_cmd(char **argv, int argc) {
+    const struct audio_speaker_profile *profile;
+    const char *id = AUDIO_DEFAULT_PROFILE_ID;
+    int index;
+
+    if (argc > 3) {
+        a90_console_printf("usage: audio speaker-map [%s]\r\n", AUDIO_DEFAULT_PROFILE_ID);
+        return -EINVAL;
+    }
+    if (argc == 3 && argv != NULL && argv[2] != NULL) {
+        id = argv[2];
+    }
+    profile = audio_find_profile(id);
+    a90_console_printf("audio.speaker_map.version=1\r\n");
+    a90_console_printf("audio.speaker_map.profile=%s\r\n", id);
+    a90_console_printf("audio.speaker_map.read_only=1\r\n");
+    a90_console_printf("audio.speaker_map.route_write_attempted=0\r\n");
+    a90_console_printf("audio.speaker_map.playback_attempted=0\r\n");
+    if (profile == NULL) {
+        a90_console_printf("audio.speaker_map.error=unknown-profile\r\n");
+        return -ENOENT;
+    }
+    a90_console_printf("audio.speaker_map.endpoint=%s\r\n", profile->endpoint);
+    a90_console_printf("audio.speaker_map.hardware=%s\r\n", profile->speaker_map);
+    a90_console_printf("audio.speaker_map.route_path=SLIMBUS_0_RX_to_WSA_CDC_DMA_RX\r\n");
+    a90_console_printf("audio.speaker_map.route_control.count=%d\r\n", audio_route_control_count());
+    a90_console_printf("audio.speaker_map.observer_control.count=%d\r\n", profile->observer_control_count);
+    a90_console_printf("audio.speaker_map.speaker.count=%d\r\n", audio_speaker_map_count());
+    a90_console_printf("audio.speaker_map.safety.amplitude_cap_milli=%d\r\n", profile->amplitude_cap_milli);
+    a90_console_printf("audio.speaker_map.safety.smart_amp_boost_write_allowed=0\r\n");
+    a90_console_printf("audio.speaker_map.safety.smart_amp_boost_blocked=%d\r\n",
+                       audio_route_has_smart_amp_boost() ? 1 : 0);
+    for (index = 0; index < audio_speaker_map_count(); ++index) {
+        audio_speaker_map_print_speaker(profile, index, AUDIO_SPEAKER_MAP_IDS[index]);
+    }
+    return 0;
+}
+
 static void audio_route_print_value(const char *prefix, const struct audio_route_value *value) {
     int index;
 
@@ -3009,6 +3146,9 @@ int a90_audio_cmd(char **argv, int argc) {
     if (argc >= 2 && argv != NULL && argv[1] != NULL && strcmp(argv[1], "profile") == 0) {
         return audio_print_profile(argv, argc);
     }
+    if (argc >= 2 && argv != NULL && argv[1] != NULL && strcmp(argv[1], "speaker-map") == 0) {
+        return audio_speaker_map_cmd(argv, argc);
+    }
     if (argc >= 2 && argv != NULL && argv[1] != NULL && strcmp(argv[1], "stages") == 0) {
         return audio_print_stages(argv, argc);
     }
@@ -3036,6 +3176,6 @@ int a90_audio_cmd(char **argv, int argc) {
     if (argc >= 2 && argv != NULL && argv[1] != NULL && strcmp(argv[1], "snd-materialize-once") == 0) {
         return audio_snd_materialize_once(argv, argc);
     }
-    a90_console_printf("usage: audio [adsp-status|status|profiles|profile [id]|stages [id]|app-type [profile] [--dry-run|--write]|setcal [profile] [--dry-run|--execute] [--manifest PATH --verify|--prepare|--load]|play [profile] [--mode probe|listen] [--amplitude-milli N] [--duration-ms N] [--dry-run|--execute]|stop [profile] [--dry-run|--execute]|route [profile] [--dry-run|--apply|--reset] [--layer all|core|feedback|endpoint|blocked]|snd-status|adsp-boot-once|snd-materialize-once]\r\n");
+    a90_console_printf("usage: audio [adsp-status|status|profiles|profile [id]|speaker-map [id]|stages [id]|app-type [profile] [--dry-run|--write]|setcal [profile] [--dry-run|--execute] [--manifest PATH --verify|--prepare|--load]|play [profile] [--mode probe|listen] [--amplitude-milli N] [--duration-ms N] [--dry-run|--execute]|stop [profile] [--dry-run|--execute]|route [profile] [--dry-run|--apply|--reset] [--layer all|core|feedback|endpoint|blocked]|snd-status|adsp-boot-once|snd-materialize-once]\r\n");
     return -EINVAL;
 }
