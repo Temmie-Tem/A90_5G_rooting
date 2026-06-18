@@ -54,6 +54,7 @@ class FileAndSafetyHelpers(unittest.TestCase):
     def test_validate_install_target_accepts_only_runtime_helper_roots(self) -> None:
         for path in [
             "/cache/bin/a90_tcpctl",
+            "/cache/a90-acdb-setcal-replay-v2636/a90_acdb_setcal_replay_execute_v2635",
             "/cache/a90-runtime/bin/a90_tcpctl",
             "/mnt/sdext/a90/bin/a90_tcpctl",
         ]:
