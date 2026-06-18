@@ -332,7 +332,8 @@ def build_manifest(args: argparse.Namespace) -> dict[str, Any]:
         raise RuntimeError(f"V2636 deploy manifest is not ready: {rel(args.v2636_manifest)}")
     remote_dir = str(args.remote_dir)
     build_root = Path(args.build_root)
-    helper = v2707.helper_state(Path(args.helper), expected_sha256=v2707.EXPECTED_HELPER_SHA256)
+    expected_helper_sha256 = getattr(args, "expected_helper_sha256", v2707.EXPECTED_HELPER_SHA256)
+    helper = v2707.helper_state(Path(args.helper), expected_sha256=expected_helper_sha256)
     helper_file = deploy_file(
         "helper",
         {
@@ -411,7 +412,7 @@ def build_manifest(args: argparse.Namespace) -> dict[str, Any]:
         "helper_contract": {
             "helper_ok": helper.get("ok"),
             "helper_sha256": helper.get("sha256"),
-            "expected_helper_sha256": v2707.EXPECTED_HELPER_SHA256,
+            "expected_helper_sha256": expected_helper_sha256,
             "max_replay_entries": v2707.EXPECTED_HELPER_MAX_REPLAY_ENTRIES,
             "declared_replay_entries": len(replay_entries),
             "entry_count_fits": entry_count_fits,
@@ -523,6 +524,7 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--v2636-manifest", type=Path, default=DEFAULT_V2636_MANIFEST)
     parser.add_argument("--v2669-run", type=Path, default=DEFAULT_V2669_RUN)
     parser.add_argument("--helper", type=Path, default=DEFAULT_HELPER)
+    parser.add_argument("--expected-helper-sha256", default=v2707.EXPECTED_HELPER_SHA256)
     parser.add_argument("--real-hal-run", default=DEFAULT_REAL_HAL_RUN)
     parser.add_argument("--build-root", type=Path, default=DEFAULT_BUILD_ROOT)
     parser.add_argument("--manifest-path", type=Path, default=DEFAULT_PRIVATE_MANIFEST)

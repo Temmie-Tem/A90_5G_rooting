@@ -18,6 +18,7 @@ def args(**overrides: object) -> argparse.Namespace:
         "v2636_manifest": v2721.DEFAULT_V2636_MANIFEST,
         "v2669_run": v2721.DEFAULT_V2669_RUN,
         "helper": v2721.DEFAULT_HELPER,
+        "expected_helper_sha256": v2721.v2707.EXPECTED_HELPER_SHA256,
         "real_hal_run": v2721.DEFAULT_REAL_HAL_RUN,
         "build_root": root / "build",
         "manifest_path": root / "deploy-plan.json",
