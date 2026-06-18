@@ -11,23 +11,23 @@ runs, no speaker write occurs, and raw pointer-target bytes remain private.
 
 ## Result
 
-- decision: `v2693-acdb-lower-ptrtarget-capture-live-runner-dry-run`
+- decision: `v2693-ptrtarget-status-only-rollback-pass`
 - ok: `True`
-- rolled_back: `None`
-- counts_toward_fails_twice: `None`
-- operator_valuable: `None`
-- partial_success: `None`
-- success: `None`
-- out_dir: `None`
-- rollback_health: `not verified`
-- classification: `None`
-- ptrtarget_status_count: `None`
-- ptrtarget_dump_count: `None`
-- ptrtarget_maps_verified_cal_types: `None`
-- ptrtarget_dumped_cal_types: `None`
-- missing_target_cal_types: `None`
-- block_snapshot_count: `None`
-- block_snapshot_cal_types: `None`
+- rolled_back: `True`
+- counts_toward_fails_twice: `False`
+- operator_valuable: `True`
+- partial_success: `True`
+- success: `False`
+- out_dir: `workspace/private/runs/audio/v2693-acdb-lower-ptrtarget-capture-20260618-171518`
+- rollback_health: `v2321 version verified; selftest fail=0`
+- classification: `v2693-ptrtarget-status-only`
+- ptrtarget_status_count: `3`
+- ptrtarget_dump_count: `0`
+- ptrtarget_maps_verified_cal_types: `[]`
+- ptrtarget_dumped_cal_types: `[]`
+- missing_target_cal_types: `[10, 14, 24]`
+- block_snapshot_count: `3`
+- block_snapshot_cal_types: `[10, 14, 24]`
 
 ## Pointer Target Records (metadata only)
 
@@ -36,6 +36,22 @@ runs, no speaker write occurs, and raw pointer-target bytes remain private.
 | - | - | - | - | - | - | - | - | - |
 
 Raw `ptrtarget-pre` bytes are not committed. Public output records only length, status, and SHA-256.
+
+## Pointer Target Status
+
+V2692 block snapshots fired for all target lower custom-topology cal types. Each block
+reported a `get_arg1` candidate pointer, but the in-process `/proc/self/maps` check rejected
+all three candidates before any raw copy was attempted.
+
+| cal_type | cmd | requested_len | mem_handle | ptrtarget_status | raw_dump |
+| ---: | --- | ---: | ---: | --- | --- |
+| 24 | `0x000130da` | 4096 | 35 | `ptrtarget_unmapped` | no |
+| 10 | `0x00011394` | 4096 | 36 | `ptrtarget_unmapped` | no |
+| 14 | `0x00012e01` | 4096 | 37 | `ptrtarget_unmapped` | no |
+
+This is a partial-success / operator-valuable run: the lower-node block snapshot path is
+confirmed for cal types 10/14/24, but the specific pointer target is not a valid same-process
+mapping at the capture point.
 
 ## Artifact Selection
 
