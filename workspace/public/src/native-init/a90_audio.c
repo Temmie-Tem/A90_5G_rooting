@@ -51,6 +51,7 @@
 #define AUDIO_SETCAL_LEGACY_REPLAY_PREFIX "/cache/a90-acdb-setcal-replay-"
 #define AUDIO_SETCAL_DEV_MSM_AUDIO_CAL "/dev/msm_audio_cal"
 #define AUDIO_SETCAL_DEV_ION "/dev/ion"
+#define AUDIO_SETCAL_SYSFS_ION_DEV "/sys/class/misc/ion/dev"
 #define AUDIO_SETCAL_IOCTL_ALLOCATE_CALIBRATION 0xC00461C8u
 #define AUDIO_SETCAL_IOCTL_DEALLOCATE_CALIBRATION 0xC00461C9u
 #define AUDIO_SETCAL_IOCTL_SET_CALIBRATION 0xC00461CBu
@@ -105,6 +106,8 @@ static const char *const AUDIO_ADSP_SEGMENTS[] = {
     "adsp.b15",
     "adsp.b16",
 };
+
+static int audio_materialize_ion_devnode_once(void);
 
 struct adsp_firmware_status {
     bool dir_exists;
@@ -1213,6 +1216,9 @@ static int audio_setcal_ion_alloc_dmabuf(size_t len,
                            cal_type,
                            (unsigned long long)len);
         return -EINVAL;
+    }
+    if (audio_materialize_ion_devnode_once() < 0) {
+        return negative_errno_or(ENOENT);
     }
     ion_fd = open(AUDIO_SETCAL_DEV_ION, O_RDONLY | O_CLOEXEC);
     if (ion_fd < 0) {
@@ -3534,6 +3540,69 @@ static const char *sound_devnode_state(const char *path, dev_t wanted) {
         return "mismatch";
     }
     return "ok";
+}
+
+static int audio_materialize_ion_devnode_once(void) {
+    char dev_info[64];
+    unsigned int major_num = 0;
+    unsigned int minor_num = 0;
+    dev_t wanted;
+    struct stat st;
+
+    a90_console_printf("audio.ion_materialize.version=1\r\n");
+    a90_console_printf("audio.ion_materialize.sysfs=%s\r\n", AUDIO_SETCAL_SYSFS_ION_DEV);
+    a90_console_printf("audio.ion_materialize.devnode=%s\r\n", AUDIO_SETCAL_DEV_ION);
+    if (read_trimmed_text_file(AUDIO_SETCAL_SYSFS_ION_DEV, dev_info, sizeof(dev_info)) < 0) {
+        int saved_errno = errno;
+
+        a90_console_printf("audio.ion_materialize.sysfs_read_ok=0 errno=%d\r\n", saved_errno);
+        return -saved_errno;
+    }
+    if (parse_dev_numbers(dev_info, &major_num, &minor_num) < 0) {
+        int saved_errno = errno;
+
+        a90_console_printf("audio.ion_materialize.dev_parse_ok=0 errno=%d value=%s\r\n",
+                           saved_errno,
+                           dev_info);
+        return -saved_errno;
+    }
+    wanted = makedev(major_num, minor_num);
+    a90_console_printf("audio.ion_materialize.sysfs_read_ok=1 value=%s major=%u minor=%u\r\n",
+                       dev_info,
+                       major_num,
+                       minor_num);
+    if (lstat(AUDIO_SETCAL_DEV_ION, &st) == 0) {
+        if (S_ISCHR(st.st_mode) && st.st_rdev == wanted) {
+            a90_console_printf("audio.ion_materialize.already_ok=1\r\n");
+            return 0;
+        }
+        a90_console_printf("audio.ion_materialize.refused=existing-node-mismatch mode=0%o\r\n",
+                           (unsigned int)st.st_mode);
+        return -EINVAL;
+    }
+    if (errno != ENOENT) {
+        int saved_errno = errno;
+
+        a90_console_printf("audio.ion_materialize.stat_ok=0 errno=%d\r\n", saved_errno);
+        return -saved_errno;
+    }
+    if (mknod(AUDIO_SETCAL_DEV_ION, S_IFCHR | 0600, wanted) < 0) {
+        int saved_errno = errno;
+
+        if (saved_errno == EEXIST &&
+            lstat(AUDIO_SETCAL_DEV_ION, &st) == 0 &&
+            S_ISCHR(st.st_mode) &&
+            st.st_rdev == wanted) {
+            a90_console_printf("audio.ion_materialize.already_ok=1\r\n");
+            return 0;
+        }
+        a90_console_printf("audio.ion_materialize.created=0 errno=%d\r\n", saved_errno);
+        return -saved_errno;
+    }
+    a90_console_printf("audio.ion_materialize.created=1 major=%u minor=%u\r\n",
+                       major_num,
+                       minor_num);
+    return 0;
 }
 
 static int count_dir_entries_matching(const char *path, const char *needle) {
