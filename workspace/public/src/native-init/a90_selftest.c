@@ -417,11 +417,12 @@ static void selftest_audio(void) {
     const struct audio_speaker_profile *profile = a90_audio_find_profile(AUDIO_DEFAULT_PROFILE_ID);
     int route_count = a90_audio_route_control_count();
     int speaker_count = a90_audio_speaker_map_count();
-    bool boost_blocked = !a90_audio_route_has_smart_amp_boost();
+    bool boost_write_blocked = !a90_audio_route_has_smart_amp_boost() ||
+                               !a90_audio_route_layer_write_allowed(AUDIO_ROUTE_LAYER_BLOCKED);
     bool ok = profile != NULL &&
               route_count == AUDIO_ROUTE_APPLY_COUNT &&
               speaker_count > 0 &&
-              boost_blocked &&
+              boost_write_blocked &&
               profile->amplitude_cap_milli <= 200 &&
               profile->listen_duration_ms <= profile->duration_cap_ms;
     char detail[128];
@@ -434,7 +435,7 @@ static void selftest_audio(void) {
              route_count,
              speaker_count,
              profile != NULL ? profile->amplitude_cap_milli : -1,
-             boost_blocked ? "blocked" : "allowed");
+             boost_write_blocked ? "blocked" : "allowed");
     selftest_record_elapsed("audio",
                             ok ? A90_SELFTEST_PASS : A90_SELFTEST_WARN,
                             ok ? 0 : -ENODEV,

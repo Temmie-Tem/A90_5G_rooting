@@ -34,6 +34,7 @@ class NativeAudioSelftestStatusV2817(unittest.TestCase):
             'a90_audio_route_control_count()',
             'a90_audio_speaker_map_count()',
             'a90_audio_route_has_smart_amp_boost()',
+            'a90_audio_route_layer_write_allowed(AUDIO_ROUTE_LAYER_BLOCKED)',
             'AUDIO_CORE_PROMOTION_VERSION',
             'selftest_record_elapsed("audio"',
             'sp=unverified',
