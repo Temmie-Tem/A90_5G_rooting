@@ -2293,6 +2293,7 @@ static void audio_play_print_execute_plan(const struct audio_speaker_profile *pr
     a90_console_printf("audio.play.execute.plan.duration_ms=%d\r\n", duration_ms);
     a90_console_printf("audio.play.execute.plan.waveform=s16le-stereo-bounded-tone\r\n");
     a90_console_printf("audio.play.execute.plan.sequence=open_pcm,configure_hw_params,write_bounded_tone,drain,close_pcm\r\n");
+    a90_console_printf("audio.play.execute.plan.foreground_prime_adsp=1\r\n");
     a90_console_printf("audio.play.execute.plan.alsa_open_attempted=0\r\n");
     a90_console_printf("audio.play.execute.plan.ioctl_attempted=0\r\n");
     a90_console_printf("audio.play.execute.plan.pcm_write_attempted=0\r\n");
@@ -2730,8 +2731,17 @@ static int audio_play_cmd(char **argv, int argc) {
         return -EPERM;
     }
     if (execute_mode) {
+        int prime_rc;
+
         audio_play_print_execute_plan(profile, mode, amplitude_milli, duration_ms);
         a90_console_printf("audio.play.initial_pcm_node_ready=%d\r\n", pcm_node_ready ? 1 : 0);
+        a90_console_printf("audio.play.execute.foreground_prime_adsp=1\r\n");
+        prime_rc = audio_play_run_adsp_stage(profile);
+        a90_console_printf("audio.play.execute.foreground_prime_adsp.rc=%d\r\n", prime_rc);
+        if (prime_rc < 0) {
+            a90_console_printf("audio.play.execute.foreground_prime_adsp.failed=1\r\n");
+            return prime_rc;
+        }
         a90_console_printf("audio.play.execute.async_worker=1\r\n");
         return audio_play_start_worker(profile, mode, amplitude_milli, duration_ms, manifest_path);
     }
