@@ -210,12 +210,12 @@ Safety rollback net: v2321 remains the flash-gate rollback target until AGENTS.m
 Current post-promotion audio observability candidate evidence is based on:
 
 ```text
-Run ID: V2836
+Run ID: V2837
 Native init: A90 Linux init 0.10.9 (v2835-audio-help-surface)
 Build tag: v2835-audio-help-surface
 Boot image: workspace/private/inputs/boot_images/boot_linux_v2835_audio_help_surface.img
 Boot SHA256: 53ef5d1155b7833dcb05d6ecc6d9dfabfd336b9c66f695b1aa789eb9e5ba6aca
-Evidence: V2828 source/build, V2829 audio status/selftest/screenapp route-map live validation, V2830 read-only audio profile/stage/speaker-map API live validation, V2831 source/build, V2832 screenapp audio-profile live validation, V2833 source/build, V2834 screenapp audio-stages live validation, V2835 source/build, and V2836 help/cmdmeta live validation
+Evidence: V2828 source/build, V2829 audio status/selftest/screenapp route-map live validation, V2830 read-only audio profile/stage/speaker-map API live validation, V2831 source/build, V2832 screenapp audio-profile live validation, V2833 source/build, V2834 screenapp audio-stages live validation, V2835 source/build, V2836 help/cmdmeta live validation, and V2837 same-candidate audio-play regression validation
 Safety rollback net: v2321 remains the flash-gate rollback target until AGENTS.md is deliberately updated
 ```
 

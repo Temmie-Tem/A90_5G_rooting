@@ -28,6 +28,7 @@ BUILD_MANIFEST = ROOT / "workspace/private/builds/native-init/v2807-audio-late-m
 CANDIDATE_IMAGE = ROOT / "workspace/private/inputs/boot_images/boot_linux_v2807_audio_late_manifest_wait.img"
 CANDIDATE_VERSION = "0.9.315"
 CANDIDATE_TAG = "v2807-audio-late-manifest-wait"
+REPORT_TRACK = "audio core closure gate."
 OLD_REMOTE_ROOT = "/cache/a90-acdb-setcal-replay-v2725"
 DEFAULT_REMOTE_ROOT = "/cache/a90-runtime/pkg/audio/setcal/internal-speaker-safe"
 DEFAULT_REMOTE_MANIFEST = "/cache/a90-runtime/pkg/manifests/audio-setcal-internal-speaker-safe.manifest"
@@ -117,7 +118,7 @@ def preflight_state() -> dict[str, Any]:
     state["default_remote_root"] = DEFAULT_REMOTE_ROOT
     state["live_scope"] = [
         "boot partition only via native_init_flash.py",
-        "flash V2807 late-manifest-wait candidate only; no new boot artifact",
+        f"flash {CANDIDATE_TAG} candidate only; no new boot artifact",
         "start native audio play before private ACDB bundle staging",
         "poll read-only audio status until sound card/control publication",
         "stage ACDB artifacts only after card publication into /cache/a90-runtime",
@@ -408,7 +409,7 @@ def live_run(args: argparse.Namespace, state: dict[str, Any]) -> dict[str, Any]:
         base.run_step(
             out_dir,
             steps,
-            "flash-v2807-candidate",
+            "flash-candidate",
             base.flash_command(base.CANDIDATE_IMAGE, base.CANDIDATE_VERSION, candidate_sha, from_native=True),
             timeout=args.flash_timeout,
         )
@@ -494,7 +495,7 @@ def render_report(result: dict[str, Any]) -> str:
         "## Summary",
         "",
         f"- Cycle: `{CYCLE}`",
-        "- Track: audio core closure gate.",
+        f"- Track: {REPORT_TRACK}",
         f"- Decision: `{result.get('decision')}`",
         f"- Result directory: `{result.get('out_dir')}`",
         f"- Candidate tag/version: `{base.CANDIDATE_TAG}` / `{base.CANDIDATE_VERSION}`",

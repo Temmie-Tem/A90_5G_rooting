@@ -11,6 +11,7 @@ WRAPPER = SCRIPT_DIR / "native_audio_late_manifest_wait_live_handoff_v2810.py"
 WRAPPER_V2811 = SCRIPT_DIR / "native_audio_late_manifest_wait_live_handoff_v2811.py"
 PROMOTION_WRAPPER_V2813 = SCRIPT_DIR / "native_audio_core_promotion_candidate_live_handoff_v2813.py"
 PROMOTION_WRAPPER_V2814 = SCRIPT_DIR / "native_audio_core_promotion_candidate_live_handoff_v2814.py"
+HELP_SURFACE_PLAY_WRAPPER_V2837 = SCRIPT_DIR / "native_audio_help_surface_play_live_handoff_v2837.py"
 
 
 class NativeAudioLateManifestWaitLiveV2808Test(unittest.TestCase):
@@ -135,6 +136,15 @@ class NativeAudioLateManifestWaitLiveV2808Test(unittest.TestCase):
         self.assertIn('runner.CANDIDATE_TAG = "v2812-audio-core-promotion-candidate"', text)
         self.assertIn("boot_linux_v2812_audio_core_promotion_candidate.img", text)
         self.assertIn("NATIVE_INIT_V2814_AUDIO_CORE_PROMOTION_CANDIDATE_MARKER_LOSS_TOLERANT_LIVE_2026-06-19.md", text)
+
+    def test_v2837_wrapper_targets_0109_help_surface_candidate(self) -> None:
+        text = HELP_SURFACE_PLAY_WRAPPER_V2837.read_text(encoding="utf-8")
+        self.assertIn('runner.CYCLE = "V2837"', text)
+        self.assertIn('runner.CANDIDATE_VERSION = "0.10.9"', text)
+        self.assertIn('runner.CANDIDATE_TAG = "v2835-audio-help-surface"', text)
+        self.assertIn("boot_linux_v2835_audio_help_surface.img", text)
+        self.assertIn("NATIVE_INIT_V2837_AUDIO_HELP_SURFACE_PLAY_LIVE_2026-06-19.md", text)
+        self.assertIn("runner.configure_base_for_v2808()", text)
 
 
 if __name__ == "__main__":
