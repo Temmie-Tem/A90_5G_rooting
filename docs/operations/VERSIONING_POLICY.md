@@ -222,12 +222,12 @@ Safety rollback net: v2321 remains the flash-gate rollback target until AGENTS.m
 Current post-promotion audio productization candidate evidence is based on:
 
 ```text
-Run ID: V2852
-Native init: A90 Linux init 0.10.16 (v2851-audio-changelog-productization)
-Build tag: v2851-audio-changelog-productization
-Boot image: workspace/private/inputs/boot_images/boot_linux_v2851_audio_changelog_productization.img
-Boot SHA256: 4626d5022bcc5859a23580e3423f6637588df3ae46d933dffd19b0ca9cf87eed
-Evidence: V2845/V2846 source+live validation of PID1 boot-started `audio chime`, V2847/V2848 source+live validation of bounded `audio stop --execute`, V2849/V2850 source+live validation of read-only productization markers, and V2851/V2852 source+live validation of latest 0.10.x changelog entries plus direct `screenapp about-changelog`/`screenapp about-version` display markers; V2852 also revalidated `audio status` 30/30, `selftest verbose` audio 8/8, and rollback to v2321 selftest fail=0
+Run ID: V2854
+Native init: A90 Linux init 0.10.17 (v2853-audio-productization-marker-refresh)
+Build tag: v2853-audio-productization-marker-refresh
+Boot image: workspace/private/inputs/boot_images/boot_linux_v2853_audio_productization_marker_refresh.img
+Boot SHA256: 780078e8932a98a87c6077c8622842511b65f3866cd226f5c3d1bd01ab93cc16
+Evidence: V2845/V2846 source+live validation of PID1 boot-started `audio chime`, V2847/V2848 source+live validation of bounded `audio stop --execute`, V2849/V2850 source+live validation of read-only productization markers, V2851/V2852 source+live validation of latest 0.10.x changelog entries plus direct ABOUT display markers, and V2853/V2854 source+live validation of refreshed `audio.status.productization.*`/`audio.status.feature.changelog.*` markers; V2854 validated `audio status` 33/33, `selftest verbose` audio 8/8, `screenapp audio-status` 6/6, `screenapp about-changelog` 6/6, and rollback to v2321 selftest fail=0
 Adoption state: device-validated post-promotion candidate
 Safety rollback net: v2321 remains the flash-gate rollback target until AGENTS.md is deliberately updated
 ```
