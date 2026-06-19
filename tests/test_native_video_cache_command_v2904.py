@@ -20,6 +20,7 @@ class NativeVideoCacheCommandTests(unittest.TestCase):
             '#define VIDEO_STREAM_CACHE_DIR_PREFIX "sha256-"',
             'video.status.next_cache=video cache [status|verify|play] SHA256 [--trust-cache]',
             'video cache preset badapple-scale play [--trust-cache]',
+            'video.status.next_demo=video demo badapple-scale [status|verify|play] [--trust-cache]',
             'video.cache.version=1',
             'video.cache.stream_size_match=%d',
             'video.cache.verify.sha256_match=%d',
@@ -29,6 +30,8 @@ class NativeVideoCacheCommandTests(unittest.TestCase):
             'video.cache.preset=%s',
             'video.cache.preset.asset_id=%s',
             'video.cache.preset.sha256=%s',
+            'video.demo.storage=sd-sha-cache',
+            'video.demo.boot_asset_policy=boot-image-carries-player-not-frames',
         ]
         for marker in expected:
             with self.subTest(marker=marker):
@@ -90,9 +93,20 @@ class NativeVideoCacheCommandTests(unittest.TestCase):
         self.assertIn('video.cache.preset.error=unknown', preset_branch)
         self.assertIn('return -EINVAL;', preset_branch)
 
+    def test_demo_badapple_scale_wraps_cache_preset(self):
+        self.assertIn('static int cmd_video_demo', self.status)
+        demo_block = self.status[self.status.index('static int cmd_video_demo'):self.status.index('static int cmd_video_stream')]
+        self.assertIn('strcmp(argv[2], VIDEO_CACHE_PRESET_BADAPPLE_SCALE_NAME) == 0', demo_block)
+        self.assertIn('cache_argv[cache_argc++] = "cache";', demo_block)
+        self.assertIn('cache_argv[cache_argc++] = "preset";', demo_block)
+        self.assertIn('cache_argv[cache_argc++] = argc >= 4 ? argv[3] : "status";', demo_block)
+        self.assertIn('return cmd_video_cache(cache_argv, cache_argc);', demo_block)
+        self.assertIn('return cmd_video_frame(argv, argc);', demo_block)
+
     def test_help_and_cmdmeta_include_cache_surface(self):
-        self.assertIn('video [status|frame|anim|blitbench|stream --manifest PATH --video-only|cache [status|verify|play] SHA256 [--trust-cache]|cache preset badapple-scale [status|verify|play]]', self.help)
-        self.assertIn('video [status|frame|anim|blitbench|flipprobe|stream|cache]', self.help)
+        self.assertIn('video [status|frame|demo badapple-scale|anim|blitbench|stream --manifest PATH --video-only|cache [status|verify|play] SHA256 [--trust-cache]|cache preset badapple-scale [status|verify|play]]', self.help)
+        self.assertIn('video [status|frame|demo|anim|blitbench|flipprobe|stream|cache]', self.help)
+        self.assertIn('demo [badapple-scale|frame-pattern]', self.dispatch)
         self.assertIn('|cache [status|verify|play] SHA256 [--trust-cache]|cache preset badapple-scale [status|verify|play]]', self.dispatch)
 
 
