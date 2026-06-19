@@ -32,16 +32,19 @@ class NativeAudioForegroundAdspPrimeV2803(unittest.TestCase):
 
         self.assertIn("audio.play.execute.plan.foreground_prime_adsp=1", text)
         self.assertIn("audio.play.execute.foreground_prime_adsp=1", text)
-        self.assertIn("prime_rc = audio_play_run_adsp_stage(profile);", text)
+        self.assertIn("audio.play.execute.plan.foreground_prime_adsp_wait=0", text)
+        self.assertIn("audio.play.execute.foreground_prime_adsp.wait=0", text)
+        self.assertIn("prime_rc = audio_play_kick_adsp_stage_no_wait(profile);", text)
         self.assertIn("audio.play.execute.foreground_prime_adsp.rc=%d", text)
         self.assertIn("audio.play.execute.foreground_prime_adsp.failed=1", text)
+        self.assertIn("audio.play.integrated.adsp.boot_skipped=1 reason=foreground_prime_no_wait", text)
         self.assertLess(
-            text.index("prime_rc = audio_play_run_adsp_stage(profile);"),
+            text.index("prime_rc = audio_play_kick_adsp_stage_no_wait(profile);"),
             text.index('a90_console_printf("audio.play.execute.async_worker=1\\r\\n");'),
         )
         self.assertLess(
             text.index('a90_console_printf("audio.play.execute.async_worker=1\\r\\n");'),
-            text.index("return audio_play_start_worker(profile, mode, amplitude_milli, duration_ms, manifest_path);"),
+            text.index("return audio_play_start_worker(profile, mode, amplitude_milli, duration_ms, manifest_path, true);"),
         )
 
     def test_worker_stage_remains_idempotent_after_foreground_prime(self) -> None:
@@ -50,6 +53,8 @@ class NativeAudioForegroundAdspPrimeV2803(unittest.TestCase):
         self.assertIn("audio.play.integrated.adsp.already_ready=1", text)
         self.assertIn("rc = audio_adsp_boot_once(adsp_argv, 3);", text)
         self.assertIn("if (rc == -EALREADY)", text)
+        self.assertIn("audio.play.integrated.adsp.boot_allowed=%d", text)
+        self.assertIn("audio.play.integrated.adsp_prebooted=%d", text)
         self.assertIn(
             'audio_wait_for_audio_condition("sound_control", 70000, 250, audio_condition_sound_control_ready, profile)',
             text,

@@ -2294,6 +2294,7 @@ static void audio_play_print_execute_plan(const struct audio_speaker_profile *pr
     a90_console_printf("audio.play.execute.plan.waveform=s16le-stereo-bounded-tone\r\n");
     a90_console_printf("audio.play.execute.plan.sequence=open_pcm,configure_hw_params,write_bounded_tone,drain,close_pcm\r\n");
     a90_console_printf("audio.play.execute.plan.foreground_prime_adsp=1\r\n");
+    a90_console_printf("audio.play.execute.plan.foreground_prime_adsp_wait=0\r\n");
     a90_console_printf("audio.play.execute.plan.alsa_open_attempted=0\r\n");
     a90_console_printf("audio.play.execute.plan.ioctl_attempted=0\r\n");
     a90_console_printf("audio.play.execute.plan.pcm_write_attempted=0\r\n");
@@ -2415,25 +2416,46 @@ static bool audio_condition_pcm_ready(const struct audio_speaker_profile *profil
     return ready;
 }
 
-static int audio_play_run_adsp_stage(const struct audio_speaker_profile *profile) {
+static int audio_play_run_adsp_stage(const struct audio_speaker_profile *profile, bool boot_allowed) {
     char *adsp_argv[] = {"audio", "adsp-boot-once", AUDIO_ADSP_BOOT_ONCE_TOKEN};
-    int rc;
+    int rc = 0;
 
     (void)profile;
     a90_console_printf("audio.play.integrated.stage=adsp\r\n");
-    rc = audio_adsp_boot_once(adsp_argv, 3);
-    a90_console_printf("audio.play.integrated.adsp.rc=%d\r\n", rc);
-    if (rc == -EALREADY) {
-        a90_console_printf("audio.play.integrated.adsp.already_ready=1\r\n");
-        rc = 0;
-    }
-    if (rc < 0) {
-        return rc;
+    a90_console_printf("audio.play.integrated.adsp.boot_allowed=%d\r\n", boot_allowed ? 1 : 0);
+    if (boot_allowed) {
+        rc = audio_adsp_boot_once(adsp_argv, 3);
+        a90_console_printf("audio.play.integrated.adsp.rc=%d\r\n", rc);
+        if (rc == -EALREADY) {
+            a90_console_printf("audio.play.integrated.adsp.already_ready=1\r\n");
+            rc = 0;
+        }
+        if (rc < 0) {
+            return rc;
+        }
+    } else {
+        a90_console_printf("audio.play.integrated.adsp.boot_skipped=1 reason=foreground_prime_no_wait\r\n");
     }
     if (!audio_wait_for_audio_condition("sound_control", 70000, 250, audio_condition_sound_control_ready, profile)) {
         return -ETIMEDOUT;
     }
     return 0;
+}
+
+static int audio_play_kick_adsp_stage_no_wait(const struct audio_speaker_profile *profile) {
+    char *adsp_argv[] = {"audio", "adsp-boot-once", AUDIO_ADSP_BOOT_ONCE_TOKEN};
+    int rc;
+
+    (void)profile;
+    a90_console_printf("audio.play.execute.foreground_prime_adsp=1\r\n");
+    a90_console_printf("audio.play.execute.foreground_prime_adsp.wait=0\r\n");
+    rc = audio_adsp_boot_once(adsp_argv, 3);
+    a90_console_printf("audio.play.execute.foreground_prime_adsp.rc=%d\r\n", rc);
+    if (rc == -EALREADY) {
+        a90_console_printf("audio.play.execute.foreground_prime_adsp.already_ready=1\r\n");
+        rc = 0;
+    }
+    return rc;
 }
 
 static int audio_play_run_snd_stage(const struct audio_speaker_profile *profile) {
@@ -2510,7 +2532,8 @@ static int audio_play_execute_integrated(const struct audio_speaker_profile *pro
                                          const char *mode,
                                          int amplitude_milli,
                                          int duration_ms,
-                                         const char *manifest_path) {
+                                         const char *manifest_path,
+                                         bool adsp_prebooted) {
     struct audio_setcal_execute_session setcal_session;
     bool setcal_started = false;
     bool route_apply_attempted = false;
@@ -2525,8 +2548,9 @@ static int audio_play_execute_integrated(const struct audio_speaker_profile *pro
     a90_console_printf("audio.play.integrated.version=1\r\n");
     a90_console_printf("audio.play.integrated.profile=%s\r\n", profile != NULL ? profile->id : "-");
     a90_console_printf("audio.play.integrated.manifest=%s\r\n", manifest_path);
+    a90_console_printf("audio.play.integrated.adsp_prebooted=%d\r\n", adsp_prebooted ? 1 : 0);
     a90_console_printf("audio.play.integrated.sequence=adsp,snd,app_type,setcal_hold,route_core,pcm,route_core_reset,setcal_deallocate\r\n");
-    rc = audio_play_run_adsp_stage(profile);
+    rc = audio_play_run_adsp_stage(profile, !adsp_prebooted);
     if (rc < 0) {
         goto done;
     }
@@ -2572,13 +2596,15 @@ static int audio_play_start_worker(const struct audio_speaker_profile *profile,
                                    const char *mode,
                                    int amplitude_milli,
                                    int duration_ms,
-                                   const char *manifest_path) {
+                                   const char *manifest_path,
+                                   bool adsp_prebooted) {
     pid_t pid;
 
     if (manifest_path == NULL || manifest_path[0] == '\0') {
         manifest_path = AUDIO_SETCAL_DEFAULT_MANIFEST_PATH;
     }
     audio_play_async_reset_status(profile, mode, amplitude_milli, duration_ms, manifest_path);
+    audio_play_async_statusf("audio.play.worker.adsp_prebooted=%d\n", adsp_prebooted ? 1 : 0);
     pid = fork();
     if (pid < 0) {
         a90_console_printf("audio.play.worker.spawn_failed errno=%d\r\n", errno);
@@ -2597,7 +2623,7 @@ static int audio_play_start_worker(const struct audio_speaker_profile *profile,
         }
         audio_play_async_statusf("audio.play.worker.child_started=1 pid=%ld\n", (long)getpid());
         audio_play_async_statusf("audio.play.worker.log_path=%s\n", AUDIO_PLAY_ASYNC_LOG_PATH);
-        rc = audio_play_execute_integrated(profile, mode, amplitude_milli, duration_ms, manifest_path);
+        rc = audio_play_execute_integrated(profile, mode, amplitude_milli, duration_ms, manifest_path, adsp_prebooted);
         audio_play_async_statusf("audio.play.worker.done=1 rc=%d\n", rc);
         audio_play_async_statusf("audio.play.worker.exit_code=%d\n", rc == 0 ? 0 : 1);
         _exit(rc == 0 ? 0 : 1);
@@ -2606,6 +2632,7 @@ static int audio_play_start_worker(const struct audio_speaker_profile *profile,
     a90_console_printf("audio.play.worker.version=1\r\n");
     a90_console_printf("audio.play.worker.started=1\r\n");
     a90_console_printf("audio.play.worker.pid=%ld\r\n", (long)pid);
+    a90_console_printf("audio.play.worker.adsp_prebooted=%d\r\n", adsp_prebooted ? 1 : 0);
     a90_console_printf("audio.play.worker.status_path=%s\r\n", AUDIO_PLAY_ASYNC_STATUS_PATH);
     a90_console_printf("audio.play.worker.log_path=%s\r\n", AUDIO_PLAY_ASYNC_LOG_PATH);
     a90_console_printf("audio.play.worker.parent_returns=1\r\n");
@@ -2735,15 +2762,13 @@ static int audio_play_cmd(char **argv, int argc) {
 
         audio_play_print_execute_plan(profile, mode, amplitude_milli, duration_ms);
         a90_console_printf("audio.play.initial_pcm_node_ready=%d\r\n", pcm_node_ready ? 1 : 0);
-        a90_console_printf("audio.play.execute.foreground_prime_adsp=1\r\n");
-        prime_rc = audio_play_run_adsp_stage(profile);
-        a90_console_printf("audio.play.execute.foreground_prime_adsp.rc=%d\r\n", prime_rc);
+        prime_rc = audio_play_kick_adsp_stage_no_wait(profile);
         if (prime_rc < 0) {
             a90_console_printf("audio.play.execute.foreground_prime_adsp.failed=1\r\n");
             return prime_rc;
         }
         a90_console_printf("audio.play.execute.async_worker=1\r\n");
-        return audio_play_start_worker(profile, mode, amplitude_milli, duration_ms, manifest_path);
+        return audio_play_start_worker(profile, mode, amplitude_milli, duration_ms, manifest_path, true);
     }
     a90_console_printf("audio.play.dry_run_ok=1\r\n");
     return 0;
