@@ -5,6 +5,7 @@
 
 #include <errno.h>
 #include <fcntl.h>
+#include <poll.h>
 #include <stdbool.h>
 #include <stdint.h>
 #include <stdio.h>
@@ -14,6 +15,7 @@
 #include <sys/mman.h>
 #include <sys/stat.h>
 #include <sys/sysmacros.h>
+#include <time.h>
 #include <unistd.h>
 #include <drm/drm.h>
 #include <drm/drm_fourcc.h>
@@ -441,6 +443,15 @@ static uint32_t kms_pack_rgb_for_xbgr8888(uint32_t color) {
     return ((uint32_t)blue << 16) | ((uint32_t)green << 8) | red;
 }
 
+static uint64_t kms_monotonic_ms(void) {
+    struct timespec ts;
+
+    if (clock_gettime(CLOCK_MONOTONIC, &ts) < 0) {
+        return 0;
+    }
+    return ((uint64_t)ts.tv_sec * 1000ULL) + ((uint64_t)ts.tv_nsec / 1000000ULL);
+}
+
 static void kms_fill_color(uint32_t color) {
     size_t y;
     uint32_t pixel = kms_pack_rgb_for_xbgr8888(color);
@@ -629,6 +640,108 @@ int a90_kms_present(const char *label, bool verbose) {
                 label, kms_state.width, kms_state.height, kms_state.crtc_id);
     }
     return 0;
+}
+
+static int kms_wait_pageflip_event(const char *label,
+                                   int timeout_ms,
+                                   struct a90_kms_flip_result *result) {
+    uint8_t event_buffer[256];
+    uint64_t deadline_ms;
+
+    if (result != NULL) {
+        memset(result, 0, sizeof(*result));
+    }
+    if (timeout_ms <= 0) {
+        timeout_ms = 1000;
+    }
+    deadline_ms = kms_monotonic_ms() + (uint64_t)timeout_ms;
+
+    for (;;) {
+        struct pollfd pfd;
+        uint64_t now_ms = kms_monotonic_ms();
+        int remaining_ms;
+        ssize_t bytes_read;
+        size_t offset;
+
+        if (now_ms >= deadline_ms) {
+            errno = ETIMEDOUT;
+            a90_console_printf("%s: PAGE_FLIP event timeout\r\n", label);
+            return -1;
+        }
+        remaining_ms = (int)(deadline_ms - now_ms);
+        if (remaining_ms <= 0) {
+            remaining_ms = 1;
+        }
+
+        memset(&pfd, 0, sizeof(pfd));
+        pfd.fd = kms_state.fd;
+        pfd.events = POLLIN;
+        if (poll(&pfd, 1, remaining_ms) < 0) {
+            if (errno == EINTR) {
+                continue;
+            }
+            a90_console_printf("%s: PAGE_FLIP poll failed: %s\r\n", label, strerror(errno));
+            return -1;
+        }
+        if ((pfd.revents & POLLIN) == 0) {
+            continue;
+        }
+
+        bytes_read = read(kms_state.fd, event_buffer, sizeof(event_buffer));
+        if (bytes_read < 0) {
+            if (errno == EINTR || errno == EAGAIN) {
+                continue;
+            }
+            a90_console_printf("%s: PAGE_FLIP event read failed: %s\r\n", label, strerror(errno));
+            return -1;
+        }
+        offset = 0;
+        while (offset + sizeof(struct drm_event) <= (size_t)bytes_read) {
+            struct drm_event *event = (struct drm_event *)(void *)(event_buffer + offset);
+
+            if (event->length < sizeof(struct drm_event) ||
+                offset + event->length > (size_t)bytes_read) {
+                break;
+            }
+            if (event->type == DRM_EVENT_FLIP_COMPLETE &&
+                event->length >= sizeof(struct drm_event_vblank)) {
+                struct drm_event_vblank *vblank =
+                    (struct drm_event_vblank *)(void *)event;
+
+                if (result != NULL) {
+                    result->event_received = true;
+                    result->sequence = vblank->sequence;
+                    result->crtc_id = vblank->crtc_id;
+                    result->timestamp_us = ((uint64_t)vblank->tv_sec * 1000000ULL) +
+                                           (uint64_t)vblank->tv_usec;
+                }
+                return 0;
+            }
+            offset += event->length;
+        }
+    }
+}
+
+int a90_kms_present_pageflip(const char *label, int timeout_ms, struct a90_kms_flip_result *result) {
+    struct drm_mode_crtc_page_flip flip;
+
+    if (kms_state.fd < 0 ||
+        kms_state.map[kms_state.current_buffer] == MAP_FAILED) {
+        errno = ENODEV;
+        return -1;
+    }
+
+    memset(&flip, 0, sizeof(flip));
+    flip.crtc_id = kms_state.crtc_id;
+    flip.fb_id = kms_state.fb_id[kms_state.current_buffer];
+    flip.flags = DRM_MODE_PAGE_FLIP_EVENT;
+    flip.user_data = (uint64_t)kms_state.current_buffer;
+
+    if (drm_ioctl_retry(kms_state.fd, DRM_IOCTL_MODE_PAGE_FLIP, &flip) < 0) {
+        a90_console_printf("%s: PAGE_FLIP failed: %s\r\n", label, strerror(errno));
+        return -1;
+    }
+    return kms_wait_pageflip_event(label, timeout_ms, result);
 }
 
 struct a90_fb *a90_kms_framebuffer(void) {

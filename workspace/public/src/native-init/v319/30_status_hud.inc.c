@@ -80,7 +80,7 @@ static int cmd_video_status(void) {
     struct a90_kms_info info;
 
     a90_kms_info(&info);
-    a90_console_printf("video.status.version=1\r\n");
+    a90_console_printf("video.status.version=4\r\n");
     a90_console_printf("video.status.path=kms-dumb-buffer\r\n");
     a90_console_printf("video.status.venus=not-used\r\n");
     a90_console_printf("video.status.kgsl=not-used\r\n");
@@ -107,6 +107,7 @@ static int cmd_video_status(void) {
     a90_console_printf("video.status.next_anim=video anim [bars|checker|pulse] [frames<=240] [delay_ms<=1000]\r\n");
     a90_console_printf("video.status.next_blitbench=video blitbench [frames<=240]\r\n");
     a90_console_printf("video.status.next_stream=video stream --manifest PATH --video-only [--frames N]\r\n");
+    a90_console_printf("video.status.next_flipprobe=video flipprobe [frames<=120]\r\n");
     return 0;
 }
 
@@ -444,6 +445,123 @@ static int cmd_video_blitbench(char **argv, int argc) {
     a90_console_printf("video.blitbench.frame_bytes=%zu\r\n", frame_bytes);
     a90_console_printf("video.blitbench.pixel_format=xbgr8888\r\n");
     a90_console_printf("video.blitbench.path=kms-dumb-buffer\r\n");
+    return 0;
+}
+
+static int cmd_video_flipprobe(char **argv, int argc) {
+    uint32_t frames = 30;
+    uint32_t frame_index;
+    struct a90_fb *fb;
+    uint32_t *source = NULL;
+    size_t frame_bytes;
+    size_t row_bytes;
+    uint64_t started_ns;
+    uint64_t finished_ns;
+    uint64_t elapsed_ns;
+    uint64_t total_bytes;
+    uint64_t fps_milli;
+    uint64_t mbps_milli;
+    uint32_t flip_events = 0;
+    struct a90_kms_flip_result last_flip;
+    int result = 0;
+
+    if (argc > 3) {
+        a90_console_printf("usage: video flipprobe [frames<=120]\r\n");
+        return -EINVAL;
+    }
+    if (argc >= 3 && !parse_u32_arg(argv[2], 1, 120, &frames)) {
+        a90_console_printf("usage: video flipprobe [frames<=120]\r\n");
+        return -EINVAL;
+    }
+
+    memset(&last_flip, 0, sizeof(last_flip));
+    if (a90_kms_begin_frame(0x000000) < 0) {
+        return negative_errno_or(ENODEV);
+    }
+    fb = a90_kms_framebuffer();
+    if (fb == NULL || fb->width == 0 || fb->height == 0) {
+        return -ENODEV;
+    }
+
+    row_bytes = (size_t)fb->width * sizeof(uint32_t);
+    frame_bytes = row_bytes * fb->height;
+    if (fb->stride < row_bytes || frame_bytes == 0 || frame_bytes > (64U * 1024U * 1024U)) {
+        a90_console_printf("video.flipprobe.error=invalid-frame-geometry\r\n");
+        return -EINVAL;
+    }
+
+    source = (uint32_t *)malloc(frame_bytes);
+    if (source == NULL) {
+        a90_console_printf("video.flipprobe.error=alloc-failed\r\n");
+        return -ENOMEM;
+    }
+    video_blitbench_fill_source(source, fb->width, fb->height);
+
+    if (a90_kms_present("videoflipprime", false) < 0) {
+        free(source);
+        return negative_errno_or(EIO);
+    }
+
+    started_ns = video_monotonic_ns();
+    for (frame_index = 0; frame_index < frames; ++frame_index) {
+        enum a90_cancel_kind cancel;
+        struct a90_kms_flip_result flip;
+
+        if (a90_kms_begin_frame_no_clear() < 0) {
+            result = negative_errno_or(ENODEV);
+            break;
+        }
+        fb = a90_kms_framebuffer();
+        result = video_blitbench_copy_frame(fb, source);
+        if (result < 0) {
+            break;
+        }
+        if (a90_kms_present_pageflip("videoflipprobe", 1000, &flip) < 0) {
+            result = negative_errno_or(EIO);
+            break;
+        }
+        if (flip.event_received) {
+            last_flip = flip;
+            ++flip_events;
+        }
+
+        cancel = a90_console_poll_cancel(0);
+        if (cancel != CANCEL_NONE) {
+            a90_console_printf("video.flipprobe.presented=%u\r\n", frame_index + 1);
+            free(source);
+            return a90_console_cancelled("videoflipprobe", cancel);
+        }
+    }
+    finished_ns = video_monotonic_ns();
+
+    free(source);
+    if (result < 0) {
+        return result;
+    }
+
+    elapsed_ns = finished_ns > started_ns ? finished_ns - started_ns : 1;
+    total_bytes = (uint64_t)frame_bytes * frames;
+    fps_milli = ((uint64_t)frames * 1000000000000ULL) / elapsed_ns;
+    mbps_milli = (total_bytes * 1000000ULL) / elapsed_ns;
+
+    a90_console_printf("video.flipprobe.presented=%u\r\n", frames);
+    a90_console_printf("video.flipprobe.frames=%u\r\n", frames);
+    a90_console_printf("video.flipprobe.bytes=%llu\r\n", (unsigned long long)total_bytes);
+    a90_console_printf("video.flipprobe.elapsed_ns=%llu\r\n", (unsigned long long)elapsed_ns);
+    a90_console_printf("video.flipprobe.fps_milli=%llu\r\n", (unsigned long long)fps_milli);
+    a90_console_printf("video.flipprobe.mbps_milli=%llu\r\n", (unsigned long long)mbps_milli);
+    a90_console_printf("video.flipprobe.flip_events=%u\r\n", flip_events);
+    a90_console_printf("video.flipprobe.last_sequence=%u\r\n", last_flip.sequence);
+    a90_console_printf("video.flipprobe.last_crtc=%u\r\n", last_flip.crtc_id);
+    a90_console_printf("video.flipprobe.last_timestamp_us=%llu\r\n",
+                       (unsigned long long)last_flip.timestamp_us);
+    a90_console_printf("video.flipprobe.ioctl=DRM_IOCTL_MODE_PAGE_FLIP\r\n");
+    a90_console_printf("video.flipprobe.width=%u\r\n", fb->width);
+    a90_console_printf("video.flipprobe.height=%u\r\n", fb->height);
+    a90_console_printf("video.flipprobe.stride=%u\r\n", fb->stride);
+    a90_console_printf("video.flipprobe.frame_bytes=%zu\r\n", frame_bytes);
+    a90_console_printf("video.flipprobe.pixel_format=xbgr8888\r\n");
+    a90_console_printf("video.flipprobe.path=kms-dumb-buffer-pageflip\r\n");
     return 0;
 }
 
@@ -1098,7 +1216,7 @@ static int handle_video(char **argv, int argc) {
 
     if (strcmp(subcommand, "status") == 0) {
         if (argc != 1 && argc != 2) {
-            a90_console_printf("usage: video [status|frame [bars|checker|mono|0xRRGGBB]|anim [bars|checker|pulse] [frames] [delay_ms]|blitbench [frames]|stream --manifest PATH --video-only [--frames N]]\r\n");
+            a90_console_printf("usage: video [status|frame [bars|checker|mono|0xRRGGBB]|anim [bars|checker|pulse] [frames] [delay_ms]|blitbench [frames]|flipprobe [frames]|stream --manifest PATH --video-only [--frames N]]\r\n");
             return -EINVAL;
         }
         return cmd_video_status();
@@ -1112,11 +1230,14 @@ static int handle_video(char **argv, int argc) {
     if (strcmp(subcommand, "blitbench") == 0) {
         return cmd_video_blitbench(argv, argc);
     }
+    if (strcmp(subcommand, "flipprobe") == 0) {
+        return cmd_video_flipprobe(argv, argc);
+    }
     if (strcmp(subcommand, "stream") == 0) {
         return cmd_video_stream(argv, argc);
     }
 
-    a90_console_printf("usage: video [status|frame [bars|checker|mono|0xRRGGBB]|anim [bars|checker|pulse] [frames] [delay_ms]|blitbench [frames]|stream --manifest PATH --video-only [--frames N]]\r\n");
+    a90_console_printf("usage: video [status|frame [bars|checker|mono|0xRRGGBB]|anim [bars|checker|pulse] [frames] [delay_ms]|blitbench [frames]|flipprobe [frames]|stream --manifest PATH --video-only [--frames N]]\r\n");
     return -EINVAL;
 }
 

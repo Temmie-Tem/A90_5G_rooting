@@ -59,6 +59,7 @@ static void cmd_help(void) {
     a90_console_printf("kmsprobe\r\n");
     a90_console_printf("kmssolid [color]\r\n");
     a90_console_printf("kmsframe\r\n");
+    a90_console_printf("video [status|frame|anim|blitbench|flipprobe|stream]\r\n");
     a90_console_printf("statusscreen\r\n");
     a90_console_printf("statushud\r\n");
     a90_console_printf("watchhud [sec] [count]\r\n");
