@@ -207,6 +207,18 @@ Evidence: V2812 source/build, V2814 audio play live validation, and V2815 promot
 Safety rollback net: v2321 remains the flash-gate rollback target until AGENTS.md is deliberately updated
 ```
 
+Current post-promotion audio observability candidate evidence is based on:
+
+```text
+Run ID: V2821
+Native init: A90 Linux init 0.10.2 (v2820-audio-selftest-policy)
+Build tag: v2820-audio-selftest-policy
+Boot image: workspace/private/inputs/boot_images/boot_linux_v2820_audio_selftest_policy.img
+Boot SHA256: 73094ccf1288fa142ae8520d3b47ac6bb31a5c4be90e920e1e27714acbbbea41
+Evidence: V2820 source/build and V2821 audio status/selftest live validation
+Safety rollback net: v2321 remains the flash-gate rollback target until AGENTS.md is deliberately updated
+```
+
 Historical Wi-Fi detail surface promotion evidence remains:
 
 ```text
