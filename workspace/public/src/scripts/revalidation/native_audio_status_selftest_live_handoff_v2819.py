@@ -54,6 +54,8 @@ REQUIRED_SELFTEST_MARKERS = [
     "boost=blocked",
     "sp=unverified",
 ]
+SCREENAPP_COMMAND: list[str] | None = None
+REQUIRED_SCREENAPP_MARKERS: list[str] = []
 
 
 def rel(path: Path) -> str:
@@ -91,8 +93,9 @@ def preflight_state() -> dict[str, Any]:
         "rollback_expect_version": ROLLBACK_VERSION,
         "live_scope": [
             "boot partition only",
-            "flash V2818 through native_init_flash.py",
+            f"flash {CANDIDATE_TAG} through native_init_flash.py",
             "run read-only version/status/selftest/audio status",
+            "optionally run display-only screenapp validation when configured",
             "do not run ADSP boot, route apply/reset, ACDB SET, PCM open, mixer write, or playback",
             "rollback to v2321",
         ],
@@ -123,6 +126,7 @@ def markers_present(text: str, markers: list[str]) -> dict[str, Any]:
 def render_report(result: dict[str, Any]) -> str:
     audio = result.get("audio_status_markers", {})
     selftest = result.get("selftest_markers", {})
+    screenapp = result.get("screenapp_markers", {})
     return "\n".join([
         "# Native Init V2819 Audio Status/Selftest Live Validation",
         "",
@@ -137,6 +141,7 @@ def render_report(result: dict[str, Any]) -> str:
         f"- Candidate version/tag observed: `{int(bool(result.get('candidate_version_ok')))}`",
         f"- `audio status` marker pass: `{int(bool(audio.get('ok')))}` ({audio.get('count', 0)}/{audio.get('required', 0)})",
         f"- `selftest verbose` audio marker pass: `{int(bool(selftest.get('ok')))}` ({selftest.get('count', 0)}/{selftest.get('required', 0)})",
+        f"- `screenapp` marker pass: `{int(bool(screenapp.get('ok', not REQUIRED_SCREENAPP_MARKERS)))}` ({screenapp.get('count', 0)}/{screenapp.get('required', 0)})",
         f"- Rollback attempted: `{int(bool(result.get('rollback_attempted')))}`",
         f"- Rollback recovery fallback used: `{int(bool(result.get('rollback_recovery_fallback_used')))}`",
         f"- Rollback health: version_ok=`{int(bool(result.get('rollback_version_ok')))}` selftest_fail0=`{int(bool(result.get('rollback_selftest_fail0')))}`",
@@ -151,6 +156,7 @@ def render_report(result: dict[str, Any]) -> str:
         "",
         f"- `audio status`: `{audio.get('missing', [])}`",
         f"- `selftest verbose`: `{selftest.get('missing', [])}`",
+        f"- `screenapp`: `{screenapp.get('missing', [])}`",
         "",
         "## Safety",
         "",
@@ -242,7 +248,29 @@ def live_run(args: argparse.Namespace, state: dict[str, Any]) -> dict[str, Any]:
             retry_unsafe=True,
         )
         result["audio_status_markers"] = markers_present(text_of(audio_status), REQUIRED_AUDIO_STATUS_MARKERS)
-        if result["audio_status_markers"].get("ok") and result["selftest_markers"].get("ok"):
+        if SCREENAPP_COMMAND is not None:
+            screenapp_status = base.run_serial_step(
+                out_dir,
+                steps,
+                "candidate-screenapp-status",
+                list(SCREENAPP_COMMAND),
+                timeout=120.0,
+                retry_unsafe=True,
+            )
+            result["screenapp_markers"] = markers_present(text_of(screenapp_status), REQUIRED_SCREENAPP_MARKERS)
+        else:
+            result["screenapp_markers"] = {
+                "ok": True,
+                "missing": [],
+                "count": 0,
+                "required": 0,
+            }
+
+        if (
+            result["audio_status_markers"].get("ok")
+            and result["selftest_markers"].get("ok")
+            and result["screenapp_markers"].get("ok")
+        ):
             result["decision"] = f"{decision_prefix()}-audio-status-selftest-device-pass"
         else:
             result["decision"] = f"{decision_prefix()}-audio-status-selftest-marker-missing-before-rollback"
@@ -272,7 +300,13 @@ def dry_run(state: dict[str, Any]) -> dict[str, Any]:
         "commands": {
             "verify_current": base.flash_command(ROLLBACK_IMAGE, ROLLBACK_VERSION, ROLLBACK_SHA256, from_native=False) + ["--verify-only"],
             "flash_candidate": base.flash_command(CANDIDATE_IMAGE, CANDIDATE_VERSION, candidate_sha, from_native=True),
-            "checks": [["version"], ["status"], ["selftest", "verbose"], ["audio", "status"]],
+            "checks": [
+                ["version"],
+                ["status"],
+                ["selftest", "verbose"],
+                ["audio", "status"],
+                *(list(SCREENAPP_COMMAND) for _ in [0] if SCREENAPP_COMMAND is not None),
+            ],
             "rollback": base.flash_command(ROLLBACK_IMAGE, ROLLBACK_VERSION, ROLLBACK_SHA256, from_native=True),
         },
     }
