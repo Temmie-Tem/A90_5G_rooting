@@ -9,6 +9,7 @@ from __future__ import annotations
 
 import argparse
 import json
+import time
 from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any
@@ -249,6 +250,16 @@ def live_run(args: argparse.Namespace, state: dict[str, Any]) -> dict[str, Any]:
         )
         result["audio_status_markers"] = markers_present(text_of(audio_status), REQUIRED_AUDIO_STATUS_MARKERS)
         if SCREENAPP_COMMAND is not None:
+            base.run_serial_step(
+                out_dir,
+                steps,
+                "candidate-screenapp-prehide",
+                ["hide"],
+                timeout=30.0,
+                retry_unsafe=True,
+                allow_error=True,
+            )
+            time.sleep(1.0)
             screenapp_status = base.run_serial_step(
                 out_dir,
                 steps,
@@ -305,6 +316,7 @@ def dry_run(state: dict[str, Any]) -> dict[str, Any]:
                 ["status"],
                 ["selftest", "verbose"],
                 ["audio", "status"],
+                *([["hide"]] if SCREENAPP_COMMAND is not None else []),
                 *(list(SCREENAPP_COMMAND) for _ in [0] if SCREENAPP_COMMAND is not None),
             ],
             "rollback": base.flash_command(ROLLBACK_IMAGE, ROLLBACK_VERSION, ROLLBACK_SHA256, from_native=True),
