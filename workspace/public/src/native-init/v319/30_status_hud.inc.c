@@ -59,6 +59,148 @@ static int cmd_kmsprobe(void) {
     return a90_kms_probe(true);
 }
 
+static int cmd_video_status(void) {
+    struct a90_kms_info info;
+
+    a90_kms_info(&info);
+    a90_console_printf("video.status.version=1\r\n");
+    a90_console_printf("video.status.path=kms-dumb-buffer\r\n");
+    a90_console_printf("video.status.venus=not-used\r\n");
+    a90_console_printf("video.status.kgsl=not-used\r\n");
+    a90_console_printf("video.status.raw_dsi=blocked\r\n");
+    a90_console_printf("video.status.power_writes=blocked\r\n");
+    a90_console_printf("video.status.kms.initialized=%d\r\n", info.initialized ? 1 : 0);
+    if (info.initialized) {
+        a90_console_printf("video.status.kms.size=%ux%u\r\n", info.width, info.height);
+        a90_console_printf("video.status.kms.connector=%u\r\n", info.connector_id);
+        a90_console_printf("video.status.kms.encoder=%u\r\n", info.encoder_id);
+        a90_console_printf("video.status.kms.crtc=%u\r\n", info.crtc_id);
+        a90_console_printf("video.status.kms.fb=%u\r\n", info.fb_id);
+        a90_console_printf("video.status.kms.current_buffer=%u\r\n", info.current_buffer);
+    } else {
+        a90_console_printf("video.status.kms.size=0x0\r\n");
+    }
+    a90_console_printf("video.status.next=video frame [bars|checker|mono|0xRRGGBB]\r\n");
+    return 0;
+}
+
+static void video_draw_bars(struct a90_fb *fb) {
+    static const uint32_t colors[] = {
+        0xffffff, 0xffff00, 0x00ffff, 0x00ff00,
+        0xff00ff, 0xff0000, 0x0000ff, 0x202020,
+    };
+    uint32_t index;
+    uint32_t bar_width;
+
+    if (fb == NULL || fb->width == 0) {
+        return;
+    }
+    bar_width = fb->width / (uint32_t)(sizeof(colors) / sizeof(colors[0]));
+    if (bar_width == 0) {
+        bar_width = 1;
+    }
+    for (index = 0; index < sizeof(colors) / sizeof(colors[0]); ++index) {
+        uint32_t x = index * bar_width;
+        uint32_t width = (index + 1 == sizeof(colors) / sizeof(colors[0])) ?
+                         (fb->width > x ? fb->width - x : 0) :
+                         bar_width;
+        a90_draw_rect(fb, x, 0, width, fb->height, colors[index]);
+    }
+}
+
+static void video_draw_checker(struct a90_fb *fb) {
+    uint32_t tile;
+    uint32_t y;
+
+    if (fb == NULL) {
+        return;
+    }
+    tile = fb->width / 12;
+    if (tile < 32) {
+        tile = 32;
+    }
+    for (y = 0; y < fb->height; y += tile) {
+        uint32_t x;
+
+        for (x = 0; x < fb->width; x += tile) {
+            uint32_t color = (((x / tile) + (y / tile)) & 1U) ? 0x101820 : 0xd8e8ff;
+            a90_draw_rect(fb, x, y, tile, tile, color);
+        }
+    }
+}
+
+static int cmd_video_frame(char **argv, int argc) {
+    const char *pattern = argc >= 3 ? argv[2] : "bars";
+    struct a90_fb *fb;
+    uint32_t color = 0x05070c;
+    bool solid = false;
+    uint32_t scale;
+
+    if (argc > 3) {
+        a90_console_printf("usage: video frame [bars|checker|mono|0xRRGGBB]\r\n");
+        return -EINVAL;
+    }
+    if (strcmp(pattern, "bars") != 0 &&
+        strcmp(pattern, "checker") != 0 &&
+        strcmp(pattern, "mono") != 0) {
+        if (!parse_color_arg(pattern, &color)) {
+            a90_console_printf("usage: video frame [bars|checker|mono|0xRRGGBB]\r\n");
+            return -EINVAL;
+        }
+        solid = true;
+    }
+
+    if (a90_kms_begin_frame(color) < 0) {
+        return negative_errno_or(ENODEV);
+    }
+    fb = a90_kms_framebuffer();
+    if (fb == NULL) {
+        return -ENODEV;
+    }
+
+    if (strcmp(pattern, "bars") == 0) {
+        video_draw_bars(fb);
+    } else if (strcmp(pattern, "checker") == 0) {
+        video_draw_checker(fb);
+    } else if (strcmp(pattern, "mono") == 0 || solid) {
+        a90_draw_clear(fb, color);
+    }
+
+    scale = fb->width >= 1080 ? 4 : 2;
+    a90_draw_rect(fb, 24, 24, fb->width > 48 ? fb->width - 48 : fb->width, scale * 18, 0x06101c);
+    a90_draw_rect_outline(fb, 24, 24, fb->width > 48 ? fb->width - 48 : fb->width,
+                          scale * 18, scale > 2 ? 2 : 1, 0x66ddff);
+    a90_draw_text(fb, 24 + scale * 3, 24 + scale * 4, "A90 VIDEO FRAME", 0x66ddff, scale);
+    a90_draw_text(fb, 24 + scale * 3, 24 + scale * 11, pattern, 0xffffff, scale > 2 ? 2 : 1);
+
+    if (a90_kms_present("videoframe", true) < 0) {
+        return negative_errno_or(EIO);
+    }
+    a90_console_printf("video.frame.presented=1\r\n");
+    a90_console_printf("video.frame.pattern=%s\r\n", pattern);
+    a90_console_printf("video.frame.size=%ux%u\r\n", fb->width, fb->height);
+    a90_console_printf("video.frame.path=kms-dumb-buffer\r\n");
+    return 0;
+}
+
+static int handle_video(char **argv, int argc) {
+    const char *subcommand = argc > 1 ? argv[1] : "status";
+
+    if (strcmp(subcommand, "status") == 0) {
+        if (argc != 1 && argc != 2) {
+            a90_console_printf("usage: video [status|frame [bars|checker|mono|0xRRGGBB]]\r\n");
+            return -EINVAL;
+        }
+        return cmd_video_status();
+    }
+    if (strcmp(subcommand, "frame") == 0 || strcmp(subcommand, "demo") == 0) {
+        return cmd_video_frame(argv, argc);
+    }
+
+    a90_console_printf("usage: video [status|frame [bars|checker|mono|0xRRGGBB]]\r\n");
+    return -EINVAL;
+}
+
 static int cmd_kmssolid(char **argv, int argc) {
     uint32_t color = 0x000000;
 

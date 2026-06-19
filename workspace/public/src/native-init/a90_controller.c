@@ -262,6 +262,9 @@ static bool command_allowed_during_menu_ex(const char *name, int argc, char **ar
                (argc == 2 && argv != NULL && argv[1] != NULL &&
                 (strcmp(argv[1], "adsp-status") == 0 || strcmp(argv[1], "snd-status") == 0));
     }
+    if (strcmp(name, "video") == 0) {
+        return subcmd_absent_or_one_of(argc, argv, status_only, sizeof(status_only) / sizeof(status_only[0]));
+    }
     if (strcmp(name, "wifi") == 0) {
         return wifi_read_only(argc, argv);
     }
