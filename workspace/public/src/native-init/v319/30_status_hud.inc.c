@@ -55,6 +55,23 @@ static bool parse_color_arg(const char *arg, uint32_t *color_out) {
     return false;
 }
 
+static bool parse_u32_arg(const char *arg, uint32_t min_value, uint32_t max_value,
+                          uint32_t *value_out) {
+    char *end = NULL;
+    unsigned long value;
+
+    if (arg == NULL || value_out == NULL || arg[0] == '\0') {
+        return false;
+    }
+    errno = 0;
+    value = strtoul(arg, &end, 10);
+    if (errno != 0 || end == NULL || *end != '\0' || value < min_value || value > max_value) {
+        return false;
+    }
+    *value_out = (uint32_t)value;
+    return true;
+}
+
 static int cmd_kmsprobe(void) {
     return a90_kms_probe(true);
 }
@@ -81,10 +98,11 @@ static int cmd_video_status(void) {
         a90_console_printf("video.status.kms.size=0x0\r\n");
     }
     a90_console_printf("video.status.next=video frame [bars|checker|mono|0xRRGGBB]\r\n");
+    a90_console_printf("video.status.next_anim=video anim [bars|checker|pulse] [frames<=240] [delay_ms<=1000]\r\n");
     return 0;
 }
 
-static void video_draw_bars(struct a90_fb *fb) {
+static void video_draw_bars_phase(struct a90_fb *fb, uint32_t phase) {
     static const uint32_t colors[] = {
         0xffffff, 0xffff00, 0x00ffff, 0x00ff00,
         0xff00ff, 0xff0000, 0x0000ff, 0x202020,
@@ -104,11 +122,16 @@ static void video_draw_bars(struct a90_fb *fb) {
         uint32_t width = (index + 1 == sizeof(colors) / sizeof(colors[0])) ?
                          (fb->width > x ? fb->width - x : 0) :
                          bar_width;
-        a90_draw_rect(fb, x, 0, width, fb->height, colors[index]);
+        a90_draw_rect(fb, x, 0, width, fb->height,
+                      colors[(index + phase) % (sizeof(colors) / sizeof(colors[0]))]);
     }
 }
 
-static void video_draw_checker(struct a90_fb *fb) {
+static void video_draw_bars(struct a90_fb *fb) {
+    video_draw_bars_phase(fb, 0);
+}
+
+static void video_draw_checker_phase(struct a90_fb *fb, uint32_t phase) {
     uint32_t tile;
     uint32_t y;
 
@@ -123,10 +146,28 @@ static void video_draw_checker(struct a90_fb *fb) {
         uint32_t x;
 
         for (x = 0; x < fb->width; x += tile) {
-            uint32_t color = (((x / tile) + (y / tile)) & 1U) ? 0x101820 : 0xd8e8ff;
+            uint32_t color = (((x / tile) + (y / tile) + phase) & 1U) ? 0x101820 : 0xd8e8ff;
             a90_draw_rect(fb, x, y, tile, tile, color);
         }
     }
+}
+
+static void video_draw_checker(struct a90_fb *fb) {
+    video_draw_checker_phase(fb, 0);
+}
+
+static void video_draw_label(struct a90_fb *fb, const char *title, const char *subtitle) {
+    uint32_t scale;
+
+    if (fb == NULL) {
+        return;
+    }
+    scale = fb->width >= 1080 ? 4 : 2;
+    a90_draw_rect(fb, 24, 24, fb->width > 48 ? fb->width - 48 : fb->width, scale * 18, 0x06101c);
+    a90_draw_rect_outline(fb, 24, 24, fb->width > 48 ? fb->width - 48 : fb->width,
+                          scale * 18, scale > 2 ? 2 : 1, 0x66ddff);
+    a90_draw_text(fb, 24 + scale * 3, 24 + scale * 4, title, 0x66ddff, scale);
+    a90_draw_text(fb, 24 + scale * 3, 24 + scale * 11, subtitle, 0xffffff, scale > 2 ? 2 : 1);
 }
 
 static int cmd_video_frame(char **argv, int argc) {
@@ -134,7 +175,6 @@ static int cmd_video_frame(char **argv, int argc) {
     struct a90_fb *fb;
     uint32_t color = 0x05070c;
     bool solid = false;
-    uint32_t scale;
 
     if (argc > 3) {
         a90_console_printf("usage: video frame [bars|checker|mono|0xRRGGBB]\r\n");
@@ -166,12 +206,7 @@ static int cmd_video_frame(char **argv, int argc) {
         a90_draw_clear(fb, color);
     }
 
-    scale = fb->width >= 1080 ? 4 : 2;
-    a90_draw_rect(fb, 24, 24, fb->width > 48 ? fb->width - 48 : fb->width, scale * 18, 0x06101c);
-    a90_draw_rect_outline(fb, 24, 24, fb->width > 48 ? fb->width - 48 : fb->width,
-                          scale * 18, scale > 2 ? 2 : 1, 0x66ddff);
-    a90_draw_text(fb, 24 + scale * 3, 24 + scale * 4, "A90 VIDEO FRAME", 0x66ddff, scale);
-    a90_draw_text(fb, 24 + scale * 3, 24 + scale * 11, pattern, 0xffffff, scale > 2 ? 2 : 1);
+    video_draw_label(fb, "A90 VIDEO FRAME", pattern);
 
     if (a90_kms_present("videoframe", true) < 0) {
         return negative_errno_or(EIO);
@@ -183,12 +218,83 @@ static int cmd_video_frame(char **argv, int argc) {
     return 0;
 }
 
+static uint32_t video_pulse_color(uint32_t frame_index, uint32_t frame_count) {
+    uint32_t denom = frame_count > 1 ? frame_count - 1 : 1;
+    uint32_t level = (frame_index * 255U) / denom;
+    uint32_t inverse = 255U - level;
+
+    return ((level & 0xffU) << 16) | ((inverse & 0xffU) << 8) | 0x40U;
+}
+
+static int cmd_video_anim(char **argv, int argc) {
+    const char *pattern = argc >= 3 ? argv[2] : "bars";
+    uint32_t frames = 30;
+    uint32_t delay_ms = 33;
+    uint32_t frame_index;
+
+    if (argc > 5 ||
+        (strcmp(pattern, "bars") != 0 && strcmp(pattern, "checker") != 0 && strcmp(pattern, "pulse") != 0)) {
+        a90_console_printf("usage: video anim [bars|checker|pulse] [frames<=240] [delay_ms<=1000]\r\n");
+        return -EINVAL;
+    }
+    if (argc >= 4 && !parse_u32_arg(argv[3], 1, 240, &frames)) {
+        a90_console_printf("usage: video anim [bars|checker|pulse] [frames<=240] [delay_ms<=1000]\r\n");
+        return -EINVAL;
+    }
+    if (argc >= 5 && !parse_u32_arg(argv[4], 0, 1000, &delay_ms)) {
+        a90_console_printf("usage: video anim [bars|checker|pulse] [frames<=240] [delay_ms<=1000]\r\n");
+        return -EINVAL;
+    }
+
+    for (frame_index = 0; frame_index < frames; ++frame_index) {
+        struct a90_fb *fb;
+        char subtitle[64];
+        uint32_t color = strcmp(pattern, "pulse") == 0 ? video_pulse_color(frame_index, frames) : 0x000000;
+
+        if (a90_kms_begin_frame(color) < 0) {
+            return negative_errno_or(ENODEV);
+        }
+        fb = a90_kms_framebuffer();
+        if (fb == NULL) {
+            return -ENODEV;
+        }
+
+        if (strcmp(pattern, "bars") == 0) {
+            video_draw_bars_phase(fb, frame_index);
+        } else if (strcmp(pattern, "checker") == 0) {
+            video_draw_checker_phase(fb, frame_index);
+        } else {
+            a90_draw_clear(fb, color);
+        }
+        snprintf(subtitle, sizeof(subtitle), "%s %u/%u", pattern, frame_index + 1, frames);
+        video_draw_label(fb, "A90 VIDEO ANIM", subtitle);
+
+        if (a90_kms_present("videoanim", true) < 0) {
+            return negative_errno_or(EIO);
+        }
+        if (frame_index + 1 < frames && delay_ms > 0) {
+            enum a90_cancel_kind cancel = a90_console_poll_cancel((int)delay_ms);
+
+            if (cancel != CANCEL_NONE) {
+                a90_console_printf("video.anim.presented=%u\r\n", frame_index + 1);
+                return a90_console_cancelled("videoanim", cancel);
+            }
+        }
+    }
+
+    a90_console_printf("video.anim.presented=%u\r\n", frames);
+    a90_console_printf("video.anim.pattern=%s\r\n", pattern);
+    a90_console_printf("video.anim.delay_ms=%u\r\n", delay_ms);
+    a90_console_printf("video.anim.path=kms-dumb-buffer\r\n");
+    return 0;
+}
+
 static int handle_video(char **argv, int argc) {
     const char *subcommand = argc > 1 ? argv[1] : "status";
 
     if (strcmp(subcommand, "status") == 0) {
         if (argc != 1 && argc != 2) {
-            a90_console_printf("usage: video [status|frame [bars|checker|mono|0xRRGGBB]]\r\n");
+            a90_console_printf("usage: video [status|frame [bars|checker|mono|0xRRGGBB]|anim [bars|checker|pulse] [frames] [delay_ms]]\r\n");
             return -EINVAL;
         }
         return cmd_video_status();
@@ -196,8 +302,11 @@ static int handle_video(char **argv, int argc) {
     if (strcmp(subcommand, "frame") == 0 || strcmp(subcommand, "demo") == 0) {
         return cmd_video_frame(argv, argc);
     }
+    if (strcmp(subcommand, "anim") == 0) {
+        return cmd_video_anim(argv, argc);
+    }
 
-    a90_console_printf("usage: video [status|frame [bars|checker|mono|0xRRGGBB]]\r\n");
+    a90_console_printf("usage: video [status|frame [bars|checker|mono|0xRRGGBB]|anim [bars|checker|pulse] [frames] [delay_ms]]\r\n");
     return -EINVAL;
 }
 
