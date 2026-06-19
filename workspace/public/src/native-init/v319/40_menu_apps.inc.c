@@ -487,6 +487,7 @@ static bool auto_hud_handle_menu_key(struct auto_hud_state *state,
                 "--layout", "player-hud",
                 "--sync-audio-status", "/cache/a90-audio-play/status.txt",
                 "--sync-wait-ms", "10000",
+                "--sync-start-offset-ms", "450",
             };
             int audio_rc;
             int rc;
@@ -497,6 +498,7 @@ static bool auto_hud_handle_menu_key(struct auto_hud_state *state,
             a90_console_printf("menu.demo.badapple.audio_amplitude_milli=150\r\n");
             a90_console_printf("menu.demo.badapple.audio_pcm=/cache/a90-runtime/pkg/av/v2920/audio/badapple.s16le\r\n");
             a90_console_printf("menu.demo.badapple.audio_sync_status=/cache/a90-audio-play/status.txt\r\n");
+            a90_console_printf("menu.demo.badapple.audio_sync_start_offset_ms=450\r\n");
             a90_console_printf("menu.demo.badapple.restore=menu\r\n");
             state->menu_active = false;
             a90_controller_set_menu_active(false);

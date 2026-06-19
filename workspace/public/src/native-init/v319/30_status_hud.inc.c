@@ -579,6 +579,7 @@ static int cmd_video_flipprobe(char **argv, int argc) {
 #define VIDEO_STREAM_AUDIO_STATUS_PATH "/cache/a90-audio-play/status.txt"
 #define VIDEO_STREAM_AUDIO_SYNC_DEFAULT_WAIT_MS 90000U
 #define VIDEO_STREAM_AUDIO_SYNC_POLL_MS 20U
+#define VIDEO_STREAM_AUDIO_SYNC_MAX_START_OFFSET_MS 5000U
 #define VIDEO_STREAM_CACHE_ROOT "/mnt/sdext/a90/runtime/video/cache"
 #define VIDEO_STREAM_CACHE_DIR_PREFIX "sha256-"
 #define VIDEO_CACHE_PRESET_BADAPPLE_SCALE_NAME "badapple-scale"
@@ -640,11 +641,13 @@ struct video_audio_sync_state {
     bool ready;
     char status_path[PATH_MAX];
     uint32_t wait_ms;
+    uint32_t start_offset_ms;
     uint32_t sample_rate;
     uint32_t frame_bytes;
     uint32_t total_frames;
     uint64_t expected_duration_ns;
     uint64_t listen_begin_ns;
+    uint64_t corrected_anchor_ns;
     uint64_t ready_elapsed_ms;
     uint64_t anchor_age_ns;
 };
@@ -1218,9 +1221,9 @@ static int video_render_player_hud(struct a90_fb *fb,
              (uint64_t)manifest->fps_num;
     total_ms = ((uint64_t)total_frames * 1000ULL * (uint64_t)manifest->fps_den) /
                (uint64_t)manifest->fps_num;
-    if (audio_sync != NULL && audio_sync->ready && audio_sync->listen_begin_ns > 0 &&
-        frame_deadline_ns >= audio_sync->listen_begin_ns) {
-        audio_ms = (frame_deadline_ns - audio_sync->listen_begin_ns) / 1000000ULL;
+    if (audio_sync != NULL && audio_sync->ready && audio_sync->corrected_anchor_ns > 0 &&
+        frame_deadline_ns >= audio_sync->corrected_anchor_ns) {
+        audio_ms = (frame_deadline_ns - audio_sync->corrected_anchor_ns) / 1000000ULL;
         delta_ms = (int64_t)audio_ms - (int64_t)pos_ms;
         delta_valid = true;
     }
@@ -1602,6 +1605,8 @@ static int video_audio_sync_wait_ready(struct video_audio_sync_state *sync) {
         if (video_audio_sync_read_status(sync)) {
             sync->ready = true;
             sync->ready_elapsed_ms = elapsed_ms;
+            sync->corrected_anchor_ns = sync->listen_begin_ns +
+                                        ((uint64_t)sync->start_offset_ms * 1000000ULL);
             now_ns = video_monotonic_ns();
             sync->anchor_age_ns = now_ns > sync->listen_begin_ns ? now_ns - sync->listen_begin_ns : 0;
             a90_console_printf("video.stream.audio_sync.ready=1 elapsed_ms=%llu\r\n",
@@ -1610,6 +1615,10 @@ static int video_audio_sync_wait_ready(struct video_audio_sync_state *sync) {
                                (unsigned long long)sync->listen_begin_ns);
             a90_console_printf("video.stream.audio_sync.anchor_age_ns=%llu\r\n",
                                (unsigned long long)sync->anchor_age_ns);
+            a90_console_printf("video.stream.audio_sync.start_offset_ms=%u\r\n",
+                               sync->start_offset_ms);
+            a90_console_printf("video.stream.audio_sync.corrected_anchor_ns=%llu\r\n",
+                               (unsigned long long)sync->corrected_anchor_ns);
             a90_console_printf("video.stream.audio_sync.sample_rate=%u\r\n", sync->sample_rate);
             a90_console_printf("video.stream.audio_sync.frame_bytes=%u\r\n", sync->frame_bytes);
             a90_console_printf("video.stream.audio_sync.total_frames=%u\r\n", sync->total_frames);
@@ -1739,7 +1748,8 @@ static int video_stream_play(const struct video_stream_manifest *manifest,
             close(fd);
             return rc;
         }
-        started_ns = audio_sync->listen_begin_ns;
+        started_ns = audio_sync->corrected_anchor_ns > 0 ?
+                     audio_sync->corrected_anchor_ns : audio_sync->listen_begin_ns;
         drop_late_frames = audio_sync->ready && present_mode == VIDEO_STREAM_PRESENT_PAGEFLIP;
     } else {
         a90_console_printf("video.stream.audio_sync.enabled=0\r\n");
@@ -1747,6 +1757,10 @@ static int video_stream_play(const struct video_stream_manifest *manifest,
     }
     a90_console_printf("video.stream.audio_sync.drop_policy=%s\r\n",
                        drop_late_frames ? "late-frame-skip" : "none");
+    if (drop_late_frames) {
+        a90_console_printf("video.stream.audio_sync.drop_threshold_ns=%llu\r\n",
+                           (unsigned long long)interval_ns);
+    }
     for (frame_index = 0; frame_index < limit_frames; ++frame_index) {
         struct video_stream_frame_record_v1 record;
         struct a90_fb *fb;
@@ -1795,7 +1809,7 @@ static int video_stream_play(const struct video_stream_manifest *manifest,
         if (drop_late_frames && frame_index + 1U < limit_frames && before_wait_ns > deadline_ns) {
             uint64_t late_ns = before_wait_ns - deadline_ns;
 
-            if (late_ns > interval_ns / 2U) {
+            if (late_ns > interval_ns) {
                 if (dropped_frames == 0) {
                     initial_drop_late_ns = late_ns;
                 }
@@ -1907,6 +1921,10 @@ static int video_stream_play(const struct video_stream_manifest *manifest,
                                (unsigned long long)audio_sync->anchor_age_ns);
             a90_console_printf("video.stream.audio_sync.listen_begin_ns=%llu\r\n",
                                (unsigned long long)audio_sync->listen_begin_ns);
+            a90_console_printf("video.stream.audio_sync.start_offset_ms=%u\r\n",
+                               audio_sync->start_offset_ms);
+            a90_console_printf("video.stream.audio_sync.corrected_anchor_ns=%llu\r\n",
+                               (unsigned long long)audio_sync->corrected_anchor_ns);
             a90_console_printf("video.stream.audio_sync.sample_rate=%u\r\n", audio_sync->sample_rate);
             a90_console_printf("video.stream.audio_sync.frame_bytes=%u\r\n", audio_sync->frame_bytes);
             a90_console_printf("video.stream.audio_sync.total_frames=%u\r\n", audio_sync->total_frames);
@@ -1976,7 +1994,7 @@ static enum video_stream_layout video_cache_preset_default_layout(const char *pr
 static int cmd_video_cache(char **argv, int argc);
 
 static int cmd_video_demo(char **argv, int argc) {
-    const char *usage = "usage: video demo [bars|checker|mono|0xRRGGBB|badapple|badapple-scale [status|verify|play] [--trust-cache] [--frames N] [--present setcrtc|pageflip] [--layout full|player-hud] [--sync-audio-status /cache/a90-audio-play/status.txt] [--sync-wait-ms N]]\r\n";
+    const char *usage = "usage: video demo [bars|checker|mono|0xRRGGBB|badapple|badapple-scale [status|verify|play] [--trust-cache] [--frames N] [--present setcrtc|pageflip] [--layout full|player-hud] [--sync-audio-status /cache/a90-audio-play/status.txt] [--sync-wait-ms N] [--sync-start-offset-ms N]]\r\n";
     char *cache_argv[CMDV1X_MAX_ARGS];
     int cache_argc = 0;
     int index;
@@ -2007,13 +2025,14 @@ static int cmd_video_demo(char **argv, int argc) {
 }
 
 static int cmd_video_stream(char **argv, int argc) {
-    const char *usage = "usage: video stream --manifest PATH --video-only [--frames N] [--present setcrtc|pageflip] [--layout full|player-hud] [--sync-audio-status /cache/a90-audio-play/status.txt] [--sync-wait-ms N]\r\n";
+    const char *usage = "usage: video stream --manifest PATH --video-only [--frames N] [--present setcrtc|pageflip] [--layout full|player-hud] [--sync-audio-status /cache/a90-audio-play/status.txt] [--sync-wait-ms N] [--sync-start-offset-ms N]\r\n";
     const char *manifest_path;
     struct video_stream_manifest manifest;
     struct video_audio_sync_state audio_sync;
     char actual_sha256[65];
     uint32_t requested_frames = 0;
     uint32_t sync_wait_ms = VIDEO_STREAM_AUDIO_SYNC_DEFAULT_WAIT_MS;
+    uint32_t sync_start_offset_ms = 0;
     enum video_stream_present_mode present_mode = VIDEO_STREAM_PRESENT_SETCRTC;
     enum video_stream_layout layout = VIDEO_STREAM_LAYOUT_FULL;
     bool present_seen = false;
@@ -2095,10 +2114,22 @@ static int cmd_video_stream(char **argv, int argc) {
             index += 2;
             continue;
         }
+        if (strcmp(argv[index], "--sync-start-offset-ms") == 0) {
+            if (index + 1 >= argc ||
+                !parse_u32_arg(argv[index + 1], 0,
+                               VIDEO_STREAM_AUDIO_SYNC_MAX_START_OFFSET_MS,
+                               &sync_start_offset_ms)) {
+                a90_console_printf("%s", usage);
+                return -EINVAL;
+            }
+            index += 2;
+            continue;
+        }
         a90_console_printf("%s", usage);
         return -EINVAL;
     }
     audio_sync.wait_ms = sync_wait_ms;
+    audio_sync.start_offset_ms = sync_start_offset_ms;
     manifest_path = argv[3];
     rc = video_parse_manifest(manifest_path, &manifest);
     if (rc < 0) {
@@ -2122,12 +2153,14 @@ static int cmd_video_stream(char **argv, int argc) {
     if (audio_sync.enabled) {
         a90_console_printf("video.stream.requested_audio_sync_status=%s\r\n", audio_sync.status_path);
         a90_console_printf("video.stream.requested_audio_sync_wait_ms=%u\r\n", audio_sync.wait_ms);
+        a90_console_printf("video.stream.requested_audio_sync_start_offset_ms=%u\r\n",
+                           audio_sync.start_offset_ms);
     }
     return video_stream_play(&manifest, requested_frames, present_mode, layout, &audio_sync);
 }
 
 static int cmd_video_cache(char **argv, int argc) {
-    const char *usage = "usage: video cache [status|verify|play] SHA256 [--trust-cache] [--frames N] [--present setcrtc|pageflip] [--layout full|player-hud] [--sync-audio-status /cache/a90-audio-play/status.txt] [--sync-wait-ms N] | video cache preset [badapple|badapple-scale] [status|verify|play] [options]\r\n";
+    const char *usage = "usage: video cache [status|verify|play] SHA256 [--trust-cache] [--frames N] [--present setcrtc|pageflip] [--layout full|player-hud] [--sync-audio-status /cache/a90-audio-play/status.txt] [--sync-wait-ms N] [--sync-start-offset-ms N] | video cache preset [badapple|badapple-scale] [status|verify|play] [options]\r\n";
     const char *action;
     const char *sha256;
     const char *preset_name = NULL;
@@ -2138,6 +2171,7 @@ static int cmd_video_cache(char **argv, int argc) {
     struct video_audio_sync_state audio_sync;
     uint32_t requested_frames = 0;
     uint32_t sync_wait_ms = VIDEO_STREAM_AUDIO_SYNC_DEFAULT_WAIT_MS;
+    uint32_t sync_start_offset_ms = 0;
     enum video_stream_present_mode present_mode = VIDEO_STREAM_PRESENT_SETCRTC;
     enum video_stream_layout layout = VIDEO_STREAM_LAYOUT_FULL;
     bool present_seen = false;
@@ -2281,10 +2315,22 @@ static int cmd_video_cache(char **argv, int argc) {
             index += 2;
             continue;
         }
+        if (strcmp(argv[index], "--sync-start-offset-ms") == 0) {
+            if (index + 1 >= argc ||
+                !parse_u32_arg(argv[index + 1], 0,
+                               VIDEO_STREAM_AUDIO_SYNC_MAX_START_OFFSET_MS,
+                               &sync_start_offset_ms)) {
+                a90_console_printf("%s", usage);
+                return -EINVAL;
+            }
+            index += 2;
+            continue;
+        }
         a90_console_printf("%s", usage);
         return -EINVAL;
     }
     audio_sync.wait_ms = sync_wait_ms;
+    audio_sync.start_offset_ms = sync_start_offset_ms;
     video_cache_print_status(sha256, manifest_path, &manifest);
     rc = video_cache_stat_stream(&manifest, &stream_exists, &stream_size, &stream_size_match);
     if (rc < 0) {
@@ -2315,6 +2361,10 @@ static int cmd_video_cache(char **argv, int argc) {
     a90_console_printf("video.cache.play.requested_present=%s\r\n", video_stream_present_mode_name(present_mode));
     a90_console_printf("video.cache.play.requested_layout=%s\r\n", video_stream_layout_name(layout));
     a90_console_printf("video.cache.play.requested_audio_sync=%d\r\n", audio_sync.enabled ? 1 : 0);
+    if (audio_sync.enabled) {
+        a90_console_printf("video.cache.play.requested_audio_sync_start_offset_ms=%u\r\n",
+                           audio_sync.start_offset_ms);
+    }
     return video_stream_play(&manifest, requested_frames, present_mode, layout, &audio_sync);
 }
 
