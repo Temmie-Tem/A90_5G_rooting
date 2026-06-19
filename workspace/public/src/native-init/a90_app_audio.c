@@ -163,6 +163,10 @@ int a90_app_audio_draw_map(void) {
     int feedback_count = a90_audio_route_selected_count(AUDIO_ROUTE_LAYER_FEEDBACK, false);
     int endpoint_count = a90_audio_route_selected_count(AUDIO_ROUTE_LAYER_ENDPOINT, false);
     int blocked_count = a90_audio_route_selected_count(AUDIO_ROUTE_LAYER_BLOCKED, false);
+    int left_route_count = a90_audio_route_count_for_speaker("SpkrLeft");
+    int right_route_count = a90_audio_route_count_for_speaker("SpkrRight");
+    int left_observer_count = a90_audio_observer_count_for_prefix(profile, "SpkrLeft");
+    int right_observer_count = a90_audio_observer_count_for_prefix(profile, "SpkrRight");
     char line0[160];
     char line1[160];
     char line2[160];
@@ -180,17 +184,19 @@ int a90_app_audio_draw_map(void) {
     snprintf(line1, sizeof(line1), "PATH SLIMBUS_0_RX -> WSA_CDC_DMA_RX");
     snprintf(line2, sizeof(line2), "CORE %d  FEEDBACK %d  ENDPOINT %d",
              core_count, feedback_count, endpoint_count);
-    snprintf(line3, sizeof(line3), "BLOCKED BOOST WRITES %d",
+    snprintf(line3, sizeof(line3), "BOOST WRITE BLOCKED %d  SP UNVERIFIED",
              blocked_count);
-    snprintf(line4, sizeof(line4), "LEFT %s routes=%d boost=%d",
+    snprintf(line4, sizeof(line4), "LEFT %s route=%d obs=%d boost=%d",
              app_audio_text_or_dash(left),
-             a90_audio_route_count_for_speaker("SpkrLeft"),
+             left_route_count,
+             left_observer_count,
              a90_audio_route_boost_count_for_speaker("SpkrLeft"));
-    snprintf(line5, sizeof(line5), "RIGHT %s routes=%d boost=%d",
+    snprintf(line5, sizeof(line5), "RIGHT %s route=%d obs=%d boost=%d",
              app_audio_text_or_dash(right),
-             a90_audio_route_count_for_speaker("SpkrRight"),
+             right_route_count,
+             right_observer_count,
              a90_audio_route_boost_count_for_speaker("SpkrRight"));
-    snprintf(line6, sizeof(line6), "VI SPKR_VI_1/SPKR_VI_2 observed");
+    snprintf(line6, sizeof(line6), "VI SPKR_VI_1/SPKR_VI_2 OBSERVED ONLY");
     snprintf(line7, sizeof(line7), "APPTYPE 69941 ACDB 15 SETS %d",
              AUDIO_PROFILE_ACDB_SET_COUNT);
 
