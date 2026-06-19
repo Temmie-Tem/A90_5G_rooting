@@ -1,15 +1,44 @@
 # Samsung Galaxy A90 5G - 현재 상태
 
-> 2026-06-12 native-init track update: the current verified native baseline is
-> `A90 Linux init 0.9.272 (v2254-wifi-detail-surface)`, boot image
-> `workspace/private/inputs/boot_images/boot_linux_v2254_wifi_detail_surface.img`,
-> SHA256 `c668e9cd9a3621c955fa369c5d106271a96a949dcaec3774a5719d24b8ba19e9`.
-> V2254 preserves the V2237 native `wlan0` route and adds read-only
-> route/default-DNS fields to `wifi status` and `screenapp wifi-status`.
-> V2255 validated that surface rollbackably with no scan/connect/DHCP/ping,
-> and V2256 promoted it as the current rollback/test baseline.
-> The sections below are older Android/boot-chain context unless a newer
-> native-init report explicitly references them.
+> 2026-06-19 native-init track update: the promoted audio-core candidate is
+> `A90 Linux init 0.10.0 (v2812-audio-core-promotion-candidate)`, boot image
+> `workspace/private/inputs/boot_images/boot_linux_v2812_audio_core_promotion_candidate.img`,
+> SHA256 `9cf680ae7dce1dac53b58a72e98668f5f6347bc14d6a64428f06ce2af830cdd0`.
+> V2814 validated `audio play --mode listen --execute` on-device with SET-cal, route,
+> PCM write/drain, cleanup, and rollback to `v2321` selftest `fail=0`. The current
+> safety rollback net remains `v2321` (`0.9.285`, SHA256
+> `ca978551aabe4b39563abaf529ccf2522054952d8b2ad852e632d26da88168cb`) with deeper
+> fallbacks `v2237` and `v48` until the flash-gate contract is deliberately updated.
+> The internal-speaker audio feasibility epic is closed; remaining audio work is
+> post-promotion productization/observability. The sections below "기준점 A" are older
+> Android/boot-chain context unless a newer native-init report references them.
+
+## 프로젝트 여정 (7-페이즈 arc, 첫 커밋 → 현재)
+
+**관통 주제:** native init = 휴면 vendor 하드웨어를 클린 환경에서 *한 서브시스템씩*
+깨우는 "스타팅 모터". 각 에픽 = Tier-A 부품 하나 bring-up. 닫힌 에픽들은 공통적으로
+"잘못된 레이어를 한참 추격 → 진짜 게이트 발견 → 안전 체크포인트 남기고 닫음" 패턴을 반복.
+
+1. **Phase 0 — 네이티브 부팅 연구** (`54cf9825` 첫 커밋~): stock A90 커널 위 정적
+   `/init` PID1 가능성 확립. TWRP/다운로드모드 복구선, boot 이미지 pack/unpack.
+2. **Native init 기반:** stock `4.14.190` 위 정적 `/init` PID1 부팅, serial bridge 제어,
+   `selftest`. baseline lineage 시작(`boot_linux_v48` →).
+3. **WLAN 에픽 (CLOSED):** 내부 `wlan0` bring-up. 긴 우회 = 외부 SDX50M/eSoC/PCIe/MHI
+   추격 → 실제론 **wlan0 = 내부 모뎀(ICNSS)**, `boot_wlan`+`firmware_class` feeder로 도달.
+   종착 = 양밴드 end-to-end(associate→DHCP→ping) + native-init wifi 명령군. (외부 경로
+   재오픈 금지)
+4. **커널 관측 (CLOSED):** KASLR slide 정확 해결(V2216). ROPP 전체 심볼화는 read-only 범위 밖.
+5. **커널 보안 recon (CLOSED 2026-06-13):** FastRPC(도달불가)/Binder(취약X)/KGSL(환경게이트)
+   n-day 트리아지, 메모리 손상 0. "비파괴 n-day로 EL1 = 불가", "fix-marker ≠ exploitable" ×3.
+6. **USB 가젯 런타임 제어 (V2313-2323, layer ① CLOSED):** `usb status`, mass-storage
+   expose/remove, identity rodata 패치(SAMSUNG→A90-LNX), multi-LUN. **v2321 롤백 체크포인트 승격.**
+7. **오디오/ADSP 에픽 (V2324-V2815, CORE CLOSED):** 내부 스피커 재생 경로를 닫음.
+   stock HAL/ACDB 관측 → ACDB SET replay → App Type Config `1 69941 48000 16` → route →
+   bounded PCM 순서가 native `audio play --execute`에 통합됐고, V2814가 `0.10.0`
+   후보에서 SET-cal/route/PCM/cleanup/rollback을 검증했다. 남은 작업은 스피커별
+   route map, 상태 UI, 부트차임 같은 post-promotion productization.
+
+> 갱신 규율: 새 롤백 체크포인트가 승격되면 위 note의 baseline/SHA와 7번 항목 현황을 함께 갱신.
 
 ## 기준점 A
 

@@ -43,7 +43,60 @@ Pursue the **highest tier that still has a meaningful, safely-actionable next st
 Drop to the next tier only when the current one is *saturated* or *meaningless* (criteria
 below). Re-evaluate each iteration; you may climb back up if new work appears.
 
-### Active epic — Internal audio (ADSP/Q6) feasibility research
+### Audio (ADSP/Q6) speaker — feasibility PROVEN ✅ (2026-06-19) → ACTIVE EPIC = productize it (A→B→C)
+
+> **🎉 FOUNDATION (proven, do not re-litigate): native init PID1 produced real, human-audible internal-speaker sound.**
+> Live run `workspace/private/runs/audio/v2639-acdb-setcal-replay-20260619-002937` played the 8 s
+> 48 kHz stereo S16LE 0.15-amplitude pilot end-to-end (`A90_APP_TYPE_CFG_WRITE_OK` →
+> `A90_SETCAL_REPLAY_ALL_SET_OK final_index=10` → `A90_PCM_PROBE_DONE chunks=94 bytes=1536000`) and the
+> **operator/user physically heard it**; the device then rolled back to `v2321` with `selftest fail=0`.
+> Closed loop: **observe stock-Android HAL/ACDB calibration → capture SET payloads → replay natively into
+> `/dev/msm_audio_cal` → DSP accepts → `pcm_prepare` → sound.** Decisive unlock = the missing global
+> `App Type Config` mixer write (numid 3122/3123 → kernel `app_type_cfg[]`) that had left `adm_open: bit_width:0`;
+> writing `1 69941 48000 16` flipped it to `bit_width:16` and opened the path (V2730–V2735); V2743–V274x confirmed audibility.
+> The investigation history below (operator steering + AUD-0…AUD-5x ledger) is **HISTORICAL RECORD ONLY** — the proven path, not a to-do list.
+>
+> **⚡ ACTIVE EPIC (operator-chartered 2026-06-19): turn the one-shot research proof into a clean, modular, legible AUDIO FEATURE.** Three tiers, staged A→B→C, one bounded V-iteration per unit:
+>
+> **Tier A — CONSOLIDATE / MODULARIZE (host-first).** The proven path is smeared across
+> `native_audio_speaker_pilot_live_handoff_v2379.py`, `..._runner_plan_v2638.py`, `..._setcal_replay_live_handoff_v2639.py`,
+> `..._live_gate_v2637.py`, `..._topology_replay_..._v2552.py`, `..._snd_nodes_preflight_v2335.py`, the V2725 deploy
+> manifest, and the `a90_acdb_setcal_replay_scaffold_v2635.c` helper — ~260 iterations of accretion. Goal: **one clean
+> "audio speaker profile" module + one entrypoint** with an explicit staged contract
+> (`boot→adsp→/dev/snd→app_type_cfg→acdb_setcal→route→pcm→cleanup→rollback`), shared logic extracted, dead V-branches
+> removed, focused tests added. Pin the canonical artifacts (deploy manifest, scaffold, app-type tuple `69941 15 48000 16`,
+> route recipe, SET order `[39,20,20,13,9,11,12,15,23,16,21]`) into one versioned profile so it reproduces without archaeology.
+> A unit counts only if it **changes tested behavior** (refactor + passing tests, or a re-proven device run) — NOT rename-only.
+>
+> **Tier B — NATIVE-INIT `audio` COMMAND SURFACE (device; the real feature).** Promote the capability into the
+> native-init image as first-class subcommands, like `wifi`/`usb`: `audio status` (read-only: ADSP up? card? `/dev/snd`?
+> route? app_type?), `audio route <profile>` (apply the known speaker route), `audio play <tone|builtin>` (bounded amplitude,
+> bounded duration), `audio stop` (reverse-deallocate + route reset). Bake the App-Type-Config + ACDB-SET-replay + bounded
+> PCM logic into native-init helper(s) in the image instead of host-pushed scaffold at runtime. New promoted **test** image
+> (`vNNNN-audio-cmd` tag); rollback target stays `v2321` until an explicit promotion decision. Each device
+> step recoverable, auto-rollback to `v2321`. **Version roll (per `VERSIONING_POLICY.md` §2.1, adopted 2026-06-19):** when
+> the native `audio` command is device-proven AND its image is adopted as a promoted/kept baseline, roll the init version
+> **`0.9.x` → `0.10.0`** (MINOR bump for the audio epic landing; reset PATCH to 0). Until that promotion, keep bumping PATCH
+> on the `0.9.x` line as usual. `1.0` is reserved for a full distro/userspace release — not this command-surface milestone.
+>
+> **Tier C — READABLE OPERATION + SPEAKER/ROUTE MAP (observability).** Clear staged markers, a named speaker/route map
+> (`SpkrLeft`/`SpkrRight` WSA881x; SLIMBUS/`WSA_CDC_DMA_RX` route + `COMP`/`BOOST`/`VISENSE` switches), a legible `audio`
+> selftest/status entry, and tidy logs. **Naming + observability ONLY** — see safety.
+>
+> **Safety boundaries for this epic (hard):** amplitude stays **capped ≤0.2** until WSA881x speaker-protection (VI-sense)
+> is proven up; **NO WSA smart-amp gain/boost writes, NO SP bypass**; boot-partition-only recoverable flashes; rollback
+> `v2321`; forbidden partitions absolute. **Anti-churn:** every unit must add tested behavior or a device-validated
+> capability — modularization/naming/log-tidy with no new assertions or no device proof is churn; batch trivia, never
+> one-V-per-rename. Residual `q6asm ADSP_ENEEDMORE` (audstrm cal_type 15) is source-confirmed NON-FATAL — do NOT treat it
+> as a blocker; audstrm-cal PP quality + WSA SP bring-up are **optional later sub-targets**, pursue only if a tier needs them.
+>
+> **⚡ STEERING (operator, 2026-06-19) — STOP piling on host-only API/plan/gate units; the next unit MUST be a DEVICE validation milestone.** V2750→V2768 are **18 consecutive host-only "Add … API/plan/gate" iterations with ZERO device validation**, and `a90_audio.c` is now ~3700 lines that **has never been compiled into a boot image or run on hardware.** This trips the anti-churn guard (3+ host-only / no-device → force substantive device work) and risks building a deep speculative API that diverges from on-device ADSP/DSP/serial reality. **Next unit: build the current `a90_audio.c` into a `vNNNN-audio-cmd` test image, flash via `native_init_flash.py`, and prove the native command path on-device — start read-only (`audio status`), then re-prove sound through the NATIVE `audio play` command (not the host v2639 orchestration), then rollback to `v2321`.** Do NOT add more setcal/play/route plan/gate APIs until the native `audio` command is device-proven; let the live result drive what the remaining API actually needs.
+>
+> **⚡ STEERING (operator, 2026-06-19b) — the audio-epic CLOSURE gate is `native audio play makes SOUND on-device`; converge on it.** Status check found: the supporting stages are all individually device-validated (V2776 prereq, V2778 profile, V2782 stage, V2784 route, V2786 route-apply, V2788 descriptor — all `device-pass`), BUT **native `audio play` has only ever run in dry-run/probe/boundary mode — it has produced NO actual sound through the native command** (no full-PCM playback run exists). **That integrated live playback is the keystone and the gate to the Video epic.** Next priority: wire the already-validated prereq stages into ONE integrated on-device `audio play` (ADSP boot → `/dev/snd` → app-type → ACDB SET replay → route → bounded PCM, amplitude ≤0.2, one-shot, rollback to `v2321`) and PROVE sound through the native command — not more sub-module splitting/validation. **Then promote → roll init version `0.9.x → 0.10.0` (per `VERSIONING_POLICY.md` §2.1).**
+>
+> **Sequencing (operator + loop aligned 2026-06-19): the `0.10.0` roll happens at the SOUND/core-function proof, NOT after Tier C.** The audio *core* closes the moment native `audio play --execute` makes sound on-device (with cleanup + rollback + report); that single milestone is the promotion trigger. The promotion procedure is then: commit the live result → designate the promoted baseline candidate → roll `0.9.x → 0.10.0` → update docs/status. **Tier C (per-speaker cleanup, route map, UI/status display) is POST-promotion productization — it does NOT gate the `0.10.0` roll and does NOT gate Video eligibility.** After `0.10.0` (sound-core proven + promoted), the Video epic becomes eligible (still operator-gated; see Video section = reference-only), and remaining audio Tier-C polish may continue later / in the background without blocking it.
+>
+> **✅ CORE PROMOTION RECORD (V2812/V2814/V2815, 2026-06-19): audio core is promoted as `0.10.0`.** Artifact `workspace/private/inputs/boot_images/boot_linux_v2812_audio_core_promotion_candidate.img` (SHA256 `9cf680ae7dce1dac53b58a72e98668f5f6347bc14d6a64428f06ce2af830cdd0`, tag `v2812-audio-core-promotion-candidate`) embeds native init `0.10.0`. V2814 validated the candidate on-device with `audio play --mode listen --execute`: ADSP/card/control came up after late deploy, manifest wait succeeded, ACDB SET replay held and deallocated, route apply/reset succeeded, PCM write/drain completed, amplitude/duration caps held, and rollback to `v2321` ended with `selftest fail=0`. This closes the native `audio play` core-function gate. **Current safety rollback target remains `v2321` until AGENTS/flash-gate policy is deliberately updated; the 0.10.0 image is the promoted audio-core candidate, not an automatic replacement for the recovery net.**
 
 **Prior epics CLOSED:** WLAN events at V2312; USB gadget control **layer ①** at V2315; USB
 **device identity** at V2316–V2321 (real serial redacted to `A90NATIVE001`; host-visible
@@ -54,10 +107,11 @@ named multi-LUN mass-storage identity** at V2322 (`0.9.286`, U-A single named LU
 fallbacks. USB U-C (real SD / internal read-only exposure) stays **DEFERRED**. ②adb-over-ffs and
 ③HID/BadUSB remain separate follow-on USB epics — **do not start them here.**
 
-**Active epic: determine whether the internal speaker/headphone audio path can be driven under
-native init, and — only if a safe path exists — produce sound.** This is a *research / feasibility*
-epic: like the kernel-security recon phase, **"NON-VIABLE under native init" is an acceptable,
-valuable outcome** if that is where the evidence lands. Do not force a result.
+**Epic question (ANSWERED 2026-06-19): can the internal speaker/headphone audio path be driven under
+native init and produce sound? → YES. Sound was produced and heard.** What follows is the historical
+record of how that answer was reached; it is no longer an open feasibility question and is not a to-do
+list. (The original framing allowed "NON-VIABLE" as an acceptable close; the evidence landed on
+"VIABLE — proven.")
 
 **Grounded starting facts (from the 2026-06-14 session research; re-verify, do not trust blindly):**
 - **HW:** codec `wcd934x`/`wcd9360` on **SLIMbus** + **4× `wsa881x`** smart amps on **SoundWire**;
@@ -85,38 +139,110 @@ ADSP subsystem-restart and `tinymix`/PCM/`tinyplay` writes are reboot-recoverabl
 auto-rolls-back to `v2321`. Forbidden-partition rules remain absolute. Keep audio writes to
 observed/known-good routes and bounded amplitude (no blind smart-amp gain/boost poking).
 
-> **⚡ OPERATOR NUDGE (2026-06-15) — supersedes the trailing "Next meaningful unit" in the ledger.**
-> The cross-process dmabuf/source-buffer capture line (V2463–V2473) has hit a *genuine* wall, not a
-> flake: the 4916-byte `CORE_CUSTOM_TOPOLOGIES` payload lives in a dma-buf that is **opaque to
-> cross-process inspection** (procfs fd reopen → `ENXIO`, owner-VA read → `EIO`, early-dup → `ENXIO`).
-> **Do not keep iterating cross-process capture variants** (file-read source-buffer included). The
-> V2473 file-read rerun may run **at most once** as a cheap correlation check; if it does not yield the
-> `cal_type=39 cal_size=4916` bytes, **stop that theme** — it is being handled host-side by the operator.
+> **⛔ HISTORICAL — the audio epic is ACHIEVED & CLOSED (2026-06-19; see banner above). Everything in this steering block and the AUD-* ledger below is the CLOSED investigation record, NOT an active directive. Do not act on any "next gate / next unit / next meaningful unit" line here.**
 >
-> **Host-side handling (operator track, runs in parallel — do NOT duplicate it):** the payload is
-> produced by `libacdbloader.so` export `acdb_loader_send_common_custom_topology`, fetched from the
-> `.acdb` DB via internal `ACDB_CMD_GET_AVCS_CUSTOM_TOPO_INFO` (engine-assembled, *not* a verbatim file
-> slice). Host RE confirmed the clean capture point: `acdb_ioctl` (imported by `libacdbloader.so`
-> from `libaudcal.so`, signature pinned) is **`LD_PRELOAD`-interposable inside the audio HAL process**,
-> and the topology bytes pass through it (`out_len==4916`) **before** the dma-buf copy — bypassing
-> dmabuf opacity, `.acdb` format RE, `acdb_loader_init_v4` RE, and audioserver ptrace. **Build the
-> interposition helper per the operator spec:
-> `docs/OPERATOR_ACDB_IOCTL_INTERPOSE_CAPTURE_SPEC_2026-06-15.md`** (32-bit `armeabi-v7a` `acdb_ioctl`
-> wrapper → dump `out_buf` when `out_len==4916`, inject into `android.hardware.audio.service`, restart
-> HAL then play). Capture is measurement-only; raw bytes private; native ioctls still blocked.
+> **⚡ OPERATOR STEERING (updated 2026-06-18) — supersedes the 2026-06-16 capture-frontier steering and the trailing "Next meaningful unit" in the ledger.**
+> The cross-process dmabuf line (V2463–V2473) AND the in-HAL `LD_PRELOAD` line (V2474–V2488) are both
+> closed dead-ends — do not reopen. Capture runs as a **rooted own-process ACDB helper on Android-good**
+> (loads the vendor ACDB libs, fakes the allocate/SET ioctls, reads the in-memory DB / SET args + dma-buf).
 >
-> **Your parallel substantive track NOW = payload-independent native ACDB replay scaffolding** (per the
-> V2462 design): ION/dma-buf allocation of the captured length, the `AUDIO_ALLOCATE`/`DEALLOCATE`/`SET`
-> ioctl-sequence runner, keep `/dev/msm_audio_cal` + dmabuf fds open across the bounded PCM probe, and
-> explicit `AUDIO_DEALLOCATE` + fd-close cleanup. Build/test host-only against a **placeholder payload**;
-> drop in the real bytes once the operator RE track delivers them. **Native calibration ioctls remain
-> BLOCKED live** until the real payload bytes/length/SHA-256/mem-handle/cleanup policy are pinned
-> (V2462/V2414 boundary unchanged).
+> **Authoritative operator RE lives in `docs/OPERATOR_ACDB_IOCTL_INTERPOSE_CAPTURE_SPEC_2026-06-15.md`.
+> Consult it BEFORE designing any new capture/replay variant.** It pins the `acdb_loader_init_v3` entry,
+> the fake-`AUDIO_ALLOCATE_CALIBRATION` bypass (EINVAL = kernel state conflict, NOT SELinux), and the
+> **zero-buffer false-positive discriminator** (a capture counts only if `ret==0` AND the buffer is not
+> `SHA256(N×0x00)`).
 >
-> **Also stage for host cross-validation** (host-only copies under `workspace/private/`, never commit):
-> the `.acdb` data files from the device `/vendor/etc/acdbdata`, and the ACDB dep libs `libaudcal.so`,
-> `libacdb-fts.so`, `libacdbrtac.so`, `libadiertac.so`. Recoverable envelope, checked rollback to
-> `v2321`, and anti-churn/fails-twice guards all stay in force.
+> **State (CAPTURE DONE):** the SET-layer own-process capture SUCCEEDED at **V2632** — the full **8-record
+> ordered SET manifest** was captured exactly as the real HAL `send_audio_cal_v5` emits it (cal_types
+> `13, 9, 11, 12, 15, 16, 21, 23`). **Operator Gate-2 = ACCEPT** (operator-verified, do NOT re-block on it):
+> payload cals **11/15/16** are real + integrity-checked (on-disk SHA == event SHA, non-zero) + **byte-deterministic**
+> vs the independent GET-era captures; the AFE-topology header records **9 and 23 ARE present** (the old
+> "missing 8/9" worry is resolved — `afe_get_cal_topology_id` checks 8 **or** 9, and the working HAL provides
+> 9, not 8, so cal_type 8's absence is faithful HAL behavior, NOT a capture gap); zero real kernel SET
+> pass-through; rollback to `v2321` with `selftest fail=0`. The native replay MECHANISM is already PROVEN
+> (V2552: ALLOCATE/SET/DEALLOCATE of a real payload through `/dev/ion` + `/dev/msm_audio_cal` in native init).
+>
+> **⚡ POLICY CHANGE (operator, 2026-06-18) — native ACDB SET replay is PRE-AUTHORIZED under the recoverable
+> envelope. Do NOT gate it behind an exact approval phrase or a manual Gate-2-acceptance flag.** A
+> `/dev/msm_audio_cal` SET is a **runtime DSP-state ioctl** (volatile, fully reset by reboot), writes **no
+> partition**, and rolls back to `v2321` — it plainly meets the recoverable-envelope test at the top of this
+> file, exactly like the already-autonomous ADSP-boot / `/dev/snd` / `tinyplay` writes. **Relax the V2637
+> live-gate and the V2639 runner** so SET-cal native replay self-authorizes like every other recoverable
+> device step; the `AUD-5Q…` exact phrase + `operator_gate2_accepted` manifest flag are no longer required.
+> **Keep the operational invariants** (these are the real safety, not the phrase): one-shot; replay the captured
+> SET sequence **in order** with the **exact captured arg bytes + dma-buf payloads**; **NO smart-amp (WSA) gain
+> changes**; **bounded low-amplitude** PCM probe; **reverse-deallocate cleanup**; **dmesg-instrument** every
+> attempt; **rollback to `v2321`**; never touch the bright-line partitions.
+>
+> **Gate-4 ROOT CAUSE — CORRECTED 2026-06-18 (V2716 evidence + operator analysis; SUPERSEDES the earlier "missing per-subsystem 10/14/24" framing in the spec's OPERATOR RE 2026-06-18 section).**
+> The per-subsystem custom-topology chase (cal_type 10 ADM_CUST / 14 ASM_CUST / 24 AFE_CUST) is a **RED HERRING — stop it.**
+> **V2716's reparse of the real-HAL `/dev/msm_audio_cal` ptrace traces proves the stock HAL SETs ONLY cal_type `20`
+> (AFE_FB_SPKR_PROT) and `39` (CORE_CUSTOM_TOPOLOGIES) — it NEVER SETs per-subsystem 10/14/24.** ADM `0x10004000`,
+> ASM `0x10005000`, AFE `0x1001025d` are ALL registered via the **CORE path** (cal_type 39 → `q6core_send_custom_topologies`
+> → `AVCS_CMD_REGISTER_TOPOLOGIES`), not per-subsystem `*_CMD_ADD_TOPOLOGIES`.
+> The V2648/V2708 `send_asm_custom_topology ADSP_EBADPARAM` is **SELF-INFLICTED**: our replay SET stale cal 10/14 (which the
+> real HAL never sets), so the kernel's per-subsystem senders pushed a bad `*_CMD_ADD_TOPOLOGIES`. The cal 10/14 GET returning
+> `-12`/stale is expected — those records are not this device's real path.
+> **cal_39 payload is ALREADY correct and ALREADY replayed (operator byte-check 2026-06-18):** the V2669 byte-exact cal_39 SET
+> dump and the V2547 GET blob are **byte-identical** (both 4916 B, SHA `7c5d45ef…`), and **both contain all three topology IDs
+> `0x10004000` + `0x10005000` + `0x1001025d`** (once each). So swapping GET→SET is a no-op and the CORE payload is not the problem.
+> cal_type 20 SET is also real (V2652).
+> **Native-replay dmesg (V2639 runs) confirms the gating error is SELF-INFLICTED:** `q6asm_callback cmd=0x10dbe error=0x2` →
+> `send_asm_custom_topology: ADSP_EBADPARAM` (cmd `0x10dbe` = `ASM_CMD_ADD_CUSTOM_TOPOLOGIES`) → `msm_pcm_open: Could not allocate
+> memory` → `can't open platform … -12` → `failed to start FE -12`. The per-subsystem ASM ADD only runs because our replay SET a
+> stale cal 14; the real HAL never sets it (V2716).
+> **Next meaningful unit (drop per-subsystem 10/14/24):** native replay = the per-device `{9,11,12,13,15,16,21,23}` + cal_39 (the
+> existing correct CORE payload) + cal_20, with **NO cal_type 10/14/24** in the manifest, so `send_adm/asm/afe_custom_topology`
+> find no block and skip → the `0x10dbe ADSP_EBADPARAM` / pcm_open `-12` cascade should vanish. Then read dmesg: (a) if `adm_open
+> 0x10004000` / pcm_open now PROCEED, the CORE cal_39 registration covered the topologies — advance to PCM write; (b) if instead a
+> "topology not found"-class error appears, the gap is the kernel→DSP CORE registration trigger (q6core `set_custom_topology` flag /
+> `AVCS_CMD_REGISTER_TOPOLOGIES` not firing under native init) — RE that next; (c) the `afe_get_sp_rx_tmax_xmax … -110` /
+> `wsa881x_get_temp out of range` SP-feedback lines are downstream of the failed stream open — re-evaluate only after the ASM
+> cascade is cleared, and remember WSA881x smart-amp speaker-protection may itself be a later gate. Raw bytes private; anti-churn /
+> fails-twice stay in force.
+>
+> **⚡ V2726 RESULT + NEW OPERATOR LEAD (2026-06-18) — the redirect WORKED; next gate is `app_type_cfg[]`, NOT (yet) vi-feedback capture.**
+> Dropping 10/14/24 cleared the self-inflicted `0x10dbe` ASM cascade exactly as predicted (case "drop per-subsystem" above). The
+> corrected SET order `[39,20,20,13,9,11,12,15,23,16,21]` now lands all ioctls `rc=0`, and the failure MOVED downstream to
+> `pcm_prepare`. The V2726 post-failure dmesg shows the real frontier and a **decisive new clue**:
+> `msm_pcm_routing_get_app_type_idx: App type not available, fallback to default` → then `adm_open: … bit_width:0 app_type:0x11135
+> acdb_id:15` → `adm_open: DSP returned error[ADSP_EFAILED]` (plus AFE `0x100ef EBADPARAM`, ASM `0x10da1 ENEEDMORE`).
+> **Operator root-cause lead (cheap, NO new capture): the replay populates the WRONG app-type table.** There are two distinct kernel
+> controls: `Audio Stream 0 App Type Cfg` (numid 3345 → fills `fe_dai_app_type_cfg[]`) — which the V2638 runner already sets to
+> `69941 15 48000 2` — versus the global `App Type Config` (numid 3122 → fills `app_type_cfg[]`). **`msm_pcm_routing_get_app_type_idx`
+> reads `app_type_cfg[]`, NOT `fe_dai_app_type_cfg[]`**, and `adm_open` consumes `app_type_cfg[idx].bit_width` + `.sample_rate`
+> (kernel-source-confirmed). The replay never writes numid 3122, so `app_type_cfg[]` stays empty → lookup of `0x11135` fails →
+> fallback to idx 0 → `app_type_cfg[0].bit_width = 0` → that is exactly the `bit_width:0` we see → invalid params → DSP `EFAILED`/`EBADPARAM`.
+> **Why invisible:** `App Type Config` (3122) is write-only/transient — it reads back all-zero even in the Android-good ACTIVE snapshot
+> (operator-verified V2397 baseline/active/post all `0`), so we never saw the HAL's value; it is set by the HAL at `start_output_stream`
+> and consumed immediately.
+> **NEXT UNIT (do this BEFORE more vi-feedback capture — it needs zero new bytes, just a mixer write):** in the replay runner, before
+> route apply / SET replay / pcm_prepare, write the global `App Type Config` (numid 3122) with the speaker entry. QC techpack put format
+> is `[num_app_types, (app_type, sample_rate, bit_width) × num_app_types]` → speaker = `1 69941 48000 16`. Use serial `cmdv1x` (not
+> tcpctl — space-split bug). Then re-probe and read dmesg: **(a)** if `adm_open: bit_width:` flips `0→16` and `App type not available`
+> disappears and adm_open PROCEEDS → advance to PCM write; **(b)** if bit_width is now 16 but adm_open still `EFAILED` on topo
+> `0x10004000` → the remaining gap IS the q6core CORE registration (cal_39 → `AVCS_CMD_REGISTER_TOPOLOGIES`) under native init — RE that
+> next (and fix the dmesg capture: bounded `tail -260` truncates q6core lines, switch to `dmesg | grep -iE
+> 'q6core|register_topolog|map_memory|avcs|adsp.*ready|adm_open|app type|bit_width'`); **(c)** if AFE/ASM clear but only ADM remains →
+> narrow to the ADM COPP topology specifically.
+> **Reframes the loop's vi-feedback direction:** the HAL routes app-type cfg for BOTH speaker (`acdb 15 / app 69941`) and vi-feedback
+> (`acdb 102 / app 69938`) through this SAME `App Type Config` control. So the vi-feedback instinct is partly right, but the FIRST fix is
+> the `app_type_cfg[]` table write (free), not capturing vi-feedback ACDB bytes. If AFE still `EBADPARAM` after the speaker entry, add a
+> second entry (`num=2 … 69938 8000 16`) before pursuing a vi-feedback `cal_type 17` byte capture. Field order is from QC techpack source
+> memory (file too large to web-confirm the put callback this session) — the `bit_width 0→16` dmesg flip is the unambiguous on-device
+> confirmation of correct layout.
+>
+> **⚡ V2735 UNLOCK CONFIRMED + NEW STATE (operator, 2026-06-18): the App Type Config fix WORKED — there is NO remaining fatal software blocker for basic speaker audibility. The frontier is now ACOUSTIC CONFIRMATION, not another cal.**
+> V2734/V2735/V2740 live: `adm_open: bit_width:16 app_type:0x11135 acdb_id:15` (EFAILED gone), AFE EBADPARAM gone, **PCM probe writes all 192000 bytes `rc=0`** and drains. The only residual dmesg error is `q6asm_send_cal: audio audstrm cal send failed` / `ADSP_ENEEDMORE` (cal_type 15 audstrm).
+> **Operator source-confirmed NON-FATAL (local techpack now found at `tmp/wifi/v766-icnss-qcacld-patch-apply-build/source/techpack/audio/`):** `msm-pcm-q6-v2.c` calls `q6asm_send_cal()` and on failure does **only `pr_debug("Send cal failed")` — it does NOT return/abort**; prepare proceeds to `msm_pcm_routing_reg_phy_stream`. The audstrm cal is post-processing enhancement (`cal_type 15`, 28-byte payload), NOT a mute gate. So **do NOT treat ENEEDMORE as the wall** and do not block on capturing/fixing it for basic sound — at most it affects PP quality, chase it only AFTER audibility is proven.
+> **Next meaningful unit = prove/observe actual output, two complementary paths:** (1) **objective hardware signal** — bring up / read WSA881x VI-sense feedback (`Get RMS`, `SpkrLeft VISENSE`, `wsa881x_get_temp`, `afe_get_sp_rx_tmax_xmax`); these currently read `-1`/out-of-range/`-110`, so the WSA speaker-protection feedback path may not be initialized under native init — RE whether it can be, since it doubles as the safety telemetry; (2) **human listening test** — operator/user has the physical device; the current `amplitude=0.02 / 1s` pilot is near-inaudible, so a listening test needs a MODERATE amplitude bump + longer/looped playback **with a clear playback-window marker**. **SAFETY:** because WSA SP (VI-sense over-excursion/thermal protection) is NOT confirmed active, keep any audibility bump MODERATE and SHORT — do not drive the speaker near full-scale without working SP. **Observer must be lightweight** (V2740 lesson: a full `tinymix --all-values` per sample is too slow for sub-second correlation — snapshot numids once, then poll only the speaker/WSA/RMS/VISENSE numids).
+>
+> **⚡ NEXT UNIT — operator-directed (user chose the listening test, 2026-06-18): build a HUMAN-AUDIBLE listening-test variant of the V2639 replay run.** Everything stays identical to the V2735 success path (V2334 boot → ADSP/`/dev/snd` → atomic `App Type Config` write `1 69941 48000 16` → corrected SET replay `[39,20,20,13,9,11,12,15,23,16,21]` → route apply → reverse-deallocate cleanup → rollback to `v2321`), but change the PCM pilot so a person can hear it and know exactly when to listen:
+> - **Amplitude: MODERATE, CAPPED — `amplitude=0.15` (do NOT exceed ~0.2; never full-scale).** WSA SP (VI-sense over-excursion/thermal protection) is NOT confirmed active, so a few seconds at 0.15 is the safe ceiling; no WSA gain/boost writes beyond the already-observed route controls.
+> - **Duration/window: extend the audible window to ~8–10 s** (loop/repeat the 1 s 48 kHz S16LE stereo pilot ~8×, or generate a single ~8 s tone). A 1 s 0.02 pilot is inaudible; this needs a catchable window.
+> - **Clear serial-visible markers bracketing the audible window** so the human listener (watching the bridge/commits) knows the moment: print `A90_LISTEN_WINDOW_BEGIN` immediately before the first PCM write and `A90_LISTEN_WINDOW_END` after drain, and keep the route up for the whole window.
+> - Keep dmesg split + rollback proof as usual. This unit's success criterion is a HUMAN "yes I heard it" — not a dmesg marker; the `ADSP_ENEEDMORE` audstrm-cal line is expected and non-fatal (source-confirmed) and must not be treated as a failure.
+> - **Coordination:** this is the one unit that needs the user physically next to the device during playback. Make the window long + clearly marked so it is catchable; the user is watching commit cadence to be present when it fires.
 
 - **AUD-0 — host-only inventory & decision basis.** From the stock AP/`vendor` image (extract
   host-side; treat as proprietary, keep under `workspace/private/`, never commit), enumerate: audio
@@ -223,13 +349,15 @@ no cascading bad flashes, known-good rollback image must be present before flash
 the current validated artifact; `vNNNN-purpose` tag. **If the evidence lands on "full HAL mandatory,"
 close the epic with that evidence rather than grinding.**
 
-### Next epic (QUEUED — start only after the audio epic reaches closure) — Video (Venus decode / display) feasibility *recon*
+### Candidate next epic (NOT chartered — REFERENCE ONLY) — Video (Venus decode / display) feasibility *recon*
 
-**Do NOT start this while the audio epic is open.** Begin only once audio is closed — either
-internal-speaker playback is proven (a `tinyplay` made sound) **or** it is closed as "full HAL
-mandatory / non-viable." One frontier at a time; finish audio first. Like audio, this is a
-*research / feasibility* epic and a **"NON-VIABLE under native init" close is an acceptable outcome**.
-Start **host-only** (recon/observation), exactly parallel to AUD-0/AUD-1, before any device step.
+> **⛔ DO NOT START. The audio epic is now closed, but that does NOT auto-promote this.** The operator
+> explicitly decided (2026-06-19) to choose the next goal manually after organizing the audio close.
+> **Do not begin VID-0 or any video recon/device step** until this section is rewritten as the active
+> epic by the operator. This block is kept only as a candidate-direction reference. One frontier at a
+> time; right now there is **no** active frontier — see the closed audio banner at the top and the Stop
+> conditions. Like audio, if/when chartered this is a *research / feasibility* epic where a "NON-VIABLE"
+> close is acceptable; it would start **host-only** (recon), parallel to AUD-0/AUD-1, before any device step.
 
 **Grounded starting facts (2026-06-14/15 session research; re-verify, do not trust blindly):**
 - **Venus (HW video decode)** = the natural successor: `CONFIG_MSM_VIDC_V4L2=y` is in the stock kernel,
@@ -273,21 +401,28 @@ prerequisites are actually proven. Until then this block is **orientation only**
 video recon to **optimize for a drawable display framebuffer (the demos need it), not Venus** (the
 demos need no hardware video decode). Do not let it pull the loop off the one active frontier.
 
-Dependency-ordered (prereq in parens):
-1. **Boot chime = sound check** (prereq: AUD-4 sound) — PID-1 init plays a bundled bounded-amplitude
-   chime at boot, **best-effort / non-fatal — never block boot on audio**. Minimal "audio integrated
-   into the system" proof.
-2. **Display framebuffer** (prereq: none — this *is* the video recon's display sub-target) — a
-   drawable inherited **cont-splash** surface (`/dev/dri/card0` or `/dev/fb0`) + region blit; **no
-   from-scratch DSI panel init, no backlight/PMIC/regulator writes (brick-caution); if the splash
-   surface is already torn down, STOP and report rather than re-lighting the panel**.
-3. **Bad Apple demo** (prereq: audio + display framebuffer) — pre-decoded raw frames + raw PCM + a
-   sync loop (no codec, no Venus). The AV-integration demo.
-4. **Touch bring-up** (prereq: none; parallel-able) — read the touch panel via evdev
-   `/dev/input/event*` (driver likely auto-probes; may need a firmware_class feed). The input track.
-5. **DOOM = capstone** (prereq: display + input [touch *or* USB-keyboard fallback]; audio SFX
-   optional) — `doomgeneric`: `DG_DrawFrame` → framebuffer region, `DG_GetKey` → touch evdev.
-   Combines display + input + audio.
+**Demo target ladder (operator direction, 2026-06-19): ① Bad Apple → ② Nyan Cat → ③ DOOM** —
+increasing difficulty. Each builds on the same enablers (display framebuffer, audio, then input).
+
+Enablers + demos, dependency-ordered (prereq in parens):
+- **Boot chime = sound check** (prereq: audio — DONE) — PID-1 init plays a bundled bounded-amplitude
+  chime at boot, **best-effort / non-fatal — never block boot on audio**. Minimal "audio integrated
+  into the system" proof; a natural first use of the Tier-B `audio` command.
+- **Display framebuffer** (prereq: none — this *is* the video recon's display sub-target) — a
+  drawable inherited **cont-splash** surface (`/dev/dri/card0` or `/dev/fb0`) + region blit; **no
+  from-scratch DSI panel init, no backlight/PMIC/regulator writes (brick-caution); if the splash
+  surface is already torn down, STOP and report rather than re-lighting the panel**. This is the
+  make-or-break probe for the whole demo ladder.
+- **① Bad Apple** (prereq: audio [DONE] + display framebuffer) — B&W silhouette anim: pre-decoded raw
+  frames + raw PCM + a sync loop (no codec, no Venus). The first AV-integration demo; audio half is
+  already proven, so this is the strongest first target once the framebuffer lands.
+- **② Nyan Cat** (prereq: same as Bad Apple) — color + looping animation + looping music. A difficulty
+  step up from B&W (color blit + loop), still framebuffer-blit, still no Venus.
+- **Touch bring-up** (prereq: none; parallel-able) — read the touch panel via evdev
+  `/dev/input/event*` (driver likely auto-probes; may need a firmware_class feed). The input track for DOOM.
+- **③ DOOM = capstone** (prereq: display + input [touch *or* USB-keyboard fallback]; audio SFX
+  optional) — `doomgeneric`: `DG_DrawFrame` → framebuffer region, `DG_GetKey` → touch evdev. Combines
+  display + input + audio; biggest jump (real-time render loop + interactive input).
 
 **Venus (HW video decode) is NOT on this demo path** — it stays an optional, separate track for
 real-video / headless-media, only if explicitly chartered later.
@@ -746,6 +881,12 @@ ioctls yet. V2465 completed that host-only hardening: staged ADB `shell`/`push`/
 
 ## Stop conditions
 
+- **ACTIVE EPIC (as of 2026-06-19) = audio productization A→B→C** (see the banner at the top:
+  modularize → native-init `audio` command surface → readable ops). The internal-audio *feasibility*
+  question is closed (sound proven); the chartered work now is turning it into a clean feature. Select
+  units from tiers A→B→C, staged. **Do NOT start the Video epic or any other new epic** — it stays
+  reference-only until the operator charters it. The audio feasibility *investigation* (operator
+  steering + AUD-* ledger) is closed history — do not reopen it as new replay experiments.
 - Device unreachable after an auto-rollback → STOP, leave an incident report.
 - The same sub-goal fails twice → STOP or shelve it and move on; do NOT retry-loop.
 - No sub-goal is safely actionable without the operator → STOP with a note (but T1 is

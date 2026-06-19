@@ -79,6 +79,27 @@ Increase this version when the flashed boot artifact changes:
 Do not increase this version for host-only tooling, reports, plans, or validation
 runs against an unchanged device image.
 
+### 2.1 Which field moves (`MAJOR` / `MINOR` / `PATCH`) — adopted 2026-06-19
+
+The three fields carry distinct meaning. Historically only `PATCH` ever moved
+(`0.9.68` → `0.9.293`); going forward:
+
+- **`PATCH` (the `z` in `0.9.z`)** — bump per flashed boot artifact change, exactly as
+  the rules above describe. This is the default and the common case.
+- **`MINOR` (the `y` in `0.y.z`)** — bump when a **chartered major-feature epic reaches
+  device-proven promotion** (the capability works on-device *and* its image is adopted as a
+  kept/promoted baseline), e.g. audio → `0.10.0`, then video → `0.11.0`. **Reset `PATCH` to
+  `0`** on a `MINOR` roll (`0.10.0`, `0.10.1`, …); absolute build history is preserved by the
+  monotonic run ID `VNNNN` and build tag `vNNNN`, so the reset loses nothing. **Epic-level
+  only** — do not roll `MINOR` for sub-features, mid-epic progress, or host-only work. Do
+  **not** retroactively renumber already-closed epics (WLAN / USB gadget / kernel recon all
+  landed during `0.9.x`); the convention starts prospectively with audio → `0.10.0`.
+- **`MAJOR` (the `x` in `x.y.z`) → `1.0.0`** — reserved for a **full distribution / userspace
+  release**: a real init/service manager bringing up a usable userland (shell + networking +
+  the feature set) as a releasable image. This is deliberately distinct from the current
+  single static-`/init` PID 1 with a command/menu surface — that line stays `0.y.z`. Do not
+  reach `1.0` until that distro-userspace bar is actually met.
+
 ## 3. Build Tag: `vNNNN-purpose`
 
 The build tag is embedded into the native init banner and usually appears in the
@@ -173,7 +194,20 @@ sha256 = exact binary/evidence artifact identity
 
 ## Current Example
 
-Current verified Wi-Fi detail surface baseline evidence is based on:
+Current promoted audio-core candidate evidence is based on:
+
+```text
+Run ID: V2815
+Native init: A90 Linux init 0.10.0 (v2812-audio-core-promotion-candidate)
+Build tag: v2812-audio-core-promotion-candidate
+Helper: native init embedded audio command surface; helper marker unchanged unless a report states otherwise
+Boot image: workspace/private/inputs/boot_images/boot_linux_v2812_audio_core_promotion_candidate.img
+Boot SHA256: 9cf680ae7dce1dac53b58a72e98668f5f6347bc14d6a64428f06ce2af830cdd0
+Evidence: V2812 source/build, V2814 audio play live validation, and V2815 promotion report
+Safety rollback net: v2321 remains the flash-gate rollback target until AGENTS.md is deliberately updated
+```
+
+Historical Wi-Fi detail surface promotion evidence remains:
 
 ```text
 Run ID: V2256
