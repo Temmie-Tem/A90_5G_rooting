@@ -7,6 +7,7 @@
 
 #include "a90_console.h"
 #include "a90_helper.h"
+#include "a90_log.h"
 #include "a90_util.h"
 
 #include <dirent.h>
@@ -53,6 +54,9 @@
 #endif
 #ifndef AUDIO_SETCAL_BUNDLED_PREFIX
 #define AUDIO_SETCAL_BUNDLED_PREFIX "/a90/audio"
+#endif
+#ifndef AUDIO_CHIME_BOOT_LAUNCH_LOG_PATH
+#define AUDIO_CHIME_BOOT_LAUNCH_LOG_PATH "/cache/a90-audio-play/boot-chime-launch.log"
 #endif
 #define AUDIO_SETCAL_LEGACY_REPLAY_PREFIX "/cache/a90-acdb-setcal-replay-"
 #define AUDIO_SETCAL_DEV_MSM_AUDIO_CAL "/dev/msm_audio_cal"
@@ -2877,7 +2881,7 @@ static int audio_chime_cmd(char **argv, int argc) {
     a90_console_printf("audio.chime.amplitude_milli=%d\r\n", amplitude_milli);
     a90_console_printf("audio.chime.duration_ms=%d\r\n", duration_ms);
     a90_console_printf("audio.chime.manifest=%s\r\n", manifest_path != NULL ? manifest_path : "-");
-    a90_console_printf("audio.chime.boot_autoplay_default=0\r\n");
+    a90_console_printf("audio.chime.boot_autoplay_default=%d\r\n", AUDIO_CHIME_BOOT_AUTOPLAY_DEFAULT);
     a90_console_printf("audio.chime.best_effort=1\r\n");
     a90_console_printf("audio.chime.blocks_boot=0\r\n");
     a90_console_printf("audio.chime.delegates=audio-play\r\n");
@@ -2896,6 +2900,75 @@ static int audio_chime_cmd(char **argv, int argc) {
     play_argv[play_argc++] = execute_mode ? "--execute" : "--dry-run";
     play_argv[play_argc] = NULL;
     return audio_play_cmd(play_argv, play_argc);
+}
+
+int a90_audio_boot_chime_start_once(void) {
+#if AUDIO_CHIME_BOOT_AUTOPLAY_DEFAULT
+    pid_t pid;
+
+    pid = fork();
+    if (pid < 0) {
+        int saved_errno = errno;
+
+        a90_console_printf("audio.boot_chime.version=1\r\n");
+        a90_console_printf("audio.boot_chime.enabled=1\r\n");
+        a90_console_printf("audio.boot_chime.started=0 errno=%d\r\n", saved_errno);
+        a90_console_printf("audio.boot_chime.best_effort=1\r\n");
+        a90_console_printf("audio.boot_chime.blocks_boot=0\r\n");
+        a90_logf("audio", "boot chime fork failed errno=%d error=%s",
+                 saved_errno, strerror(saved_errno));
+        return -saved_errno;
+    }
+    if (pid == 0) {
+        int rc;
+        char amplitude_text[16];
+        char duration_text[16];
+        char *argv[9];
+        int argc = 0;
+
+        signal(SIGHUP, SIG_IGN);
+        signal(SIGPIPE, SIG_IGN);
+        setsid();
+        if (a90_console_redirect_child_to_file(AUDIO_CHIME_BOOT_LAUNCH_LOG_PATH) < 0) {
+            a90_console_silence_child();
+        }
+        snprintf(amplitude_text, sizeof(amplitude_text), "%d", AUDIO_CHIME_DEFAULT_AMPLITUDE_MILLI);
+        snprintf(duration_text, sizeof(duration_text), "%d", AUDIO_CHIME_DEFAULT_DURATION_MS);
+        argv[argc++] = "audio";
+        argv[argc++] = "chime";
+        argv[argc++] = "--duration-ms";
+        argv[argc++] = duration_text;
+        argv[argc++] = "--amplitude-milli";
+        argv[argc++] = amplitude_text;
+        argv[argc++] = "--execute";
+        argv[argc] = NULL;
+        a90_console_printf("audio.boot_chime.child_started=1\r\n");
+        a90_console_printf("audio.boot_chime.best_effort=1\r\n");
+        a90_console_printf("audio.boot_chime.blocks_boot=0\r\n");
+        rc = audio_chime_cmd(argv, argc);
+        a90_console_printf("audio.boot_chime.child_done=1 rc=%d\r\n", rc);
+        _exit(rc == 0 ? 0 : 1);
+    }
+
+    a90_console_printf("audio.boot_chime.version=1\r\n");
+    a90_console_printf("audio.boot_chime.enabled=1\r\n");
+    a90_console_printf("audio.boot_chime.started=1\r\n");
+    a90_console_printf("audio.boot_chime.pid=%ld\r\n", (long)pid);
+    a90_console_printf("audio.boot_chime.amplitude_milli=%d\r\n", AUDIO_CHIME_DEFAULT_AMPLITUDE_MILLI);
+    a90_console_printf("audio.boot_chime.duration_ms=%d\r\n", AUDIO_CHIME_DEFAULT_DURATION_MS);
+    a90_console_printf("audio.boot_chime.manifest=%s\r\n", AUDIO_SETCAL_DEFAULT_MANIFEST_PATH);
+    a90_console_printf("audio.boot_chime.log_path=%s\r\n", AUDIO_CHIME_BOOT_LAUNCH_LOG_PATH);
+    a90_console_printf("audio.boot_chime.best_effort=1\r\n");
+    a90_console_printf("audio.boot_chime.blocks_boot=0\r\n");
+    a90_logf("audio", "boot chime launched pid=%ld amplitude=%d duration=%d manifest=%s",
+             (long)pid,
+             AUDIO_CHIME_DEFAULT_AMPLITUDE_MILLI,
+             AUDIO_CHIME_DEFAULT_DURATION_MS,
+             AUDIO_SETCAL_DEFAULT_MANIFEST_PATH);
+    return 0;
+#else
+    return 0;
+#endif
 }
 
 static int audio_stop_cmd(char **argv, int argc) {
