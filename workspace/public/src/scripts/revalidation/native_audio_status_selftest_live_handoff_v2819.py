@@ -45,7 +45,7 @@ REQUIRED_AUDIO_STATUS_MARKERS = [
     "audio.status.safety.wsa_speaker_protection_verified=0",
 ]
 REQUIRED_SELFTEST_MARKERS = [
-    "selftest audio:",
+    "PASS      audio",
     "core=0.10.0",
     "profile=internal-speaker-safe",
     "route=13",
@@ -66,6 +66,10 @@ def now_slug() -> str:
 
 def write_json(path: Path, payload: Any) -> None:
     base.write_json(path, payload)
+
+
+def decision_prefix() -> str:
+    return CYCLE.lower()
 
 
 def preflight_state() -> dict[str, Any]:
@@ -163,12 +167,12 @@ def live_run(args: argparse.Namespace, state: dict[str, Any]) -> dict[str, Any]:
         raise SystemExit("refusing live run: preflight failed")
 
     candidate_sha = str(state["candidate"]["sha256"])
-    out_dir = ROOT / f"workspace/private/runs/audio/v2819-audio-status-selftest-live-{now_slug()}"
+    out_dir = ROOT / f"workspace/private/runs/audio/{decision_prefix()}-audio-status-selftest-live-{now_slug()}"
     out_dir.mkdir(parents=True, exist_ok=False)
     write_json(out_dir / "preflight.json", state)
     steps: list[dict[str, Any]] = []
     result: dict[str, Any] = {
-        "decision": "v2819-audio-status-selftest-live-started",
+        "decision": f"{decision_prefix()}-audio-status-selftest-live-started",
         "out_dir": rel(out_dir),
         "candidate_sha256": candidate_sha,
         "steps": steps,
@@ -239,9 +243,9 @@ def live_run(args: argparse.Namespace, state: dict[str, Any]) -> dict[str, Any]:
         )
         result["audio_status_markers"] = markers_present(text_of(audio_status), REQUIRED_AUDIO_STATUS_MARKERS)
         if result["audio_status_markers"].get("ok") and result["selftest_markers"].get("ok"):
-            result["decision"] = "v2819-audio-status-selftest-device-pass"
+            result["decision"] = f"{decision_prefix()}-audio-status-selftest-device-pass"
         else:
-            result["decision"] = "v2819-audio-status-selftest-marker-missing-before-rollback"
+            result["decision"] = f"{decision_prefix()}-audio-status-selftest-marker-missing-before-rollback"
     finally:
         if candidate_flash_attempted:
             result["rollback_attempted"] = True
@@ -262,7 +266,7 @@ def live_run(args: argparse.Namespace, state: dict[str, Any]) -> dict[str, Any]:
 def dry_run(state: dict[str, Any]) -> dict[str, Any]:
     candidate_sha = str(state["candidate"].get("sha256") or "")
     return {
-        "decision": "v2819-audio-status-selftest-live-dry-run",
+        "decision": f"{decision_prefix()}-audio-status-selftest-live-dry-run",
         "preflight_ok": preflight_ok(state),
         "preflight": state,
         "commands": {
@@ -295,7 +299,7 @@ def main() -> int:
         "rollback_selftest_fail0": result.get("rollback_selftest_fail0"),
     }, ensure_ascii=False, indent=2, sort_keys=True))
     return 0 if (
-        result.get("decision") == "v2819-audio-status-selftest-device-pass"
+        result.get("decision") == f"{decision_prefix()}-audio-status-selftest-device-pass"
         and result.get("rollback_version_ok")
         and result.get("rollback_selftest_fail0")
     ) else 1

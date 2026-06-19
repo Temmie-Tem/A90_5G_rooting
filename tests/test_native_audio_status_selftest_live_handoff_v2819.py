@@ -37,7 +37,7 @@ class NativeAudioStatusSelftestLiveV2819Test(unittest.TestCase):
 
     def test_selftest_markers_cover_audio_row(self) -> None:
         markers = "\n".join(v2819.REQUIRED_SELFTEST_MARKERS)
-        for required in ["selftest audio:", "core=0.10.0", "route=13", "speakers=6", "boost=blocked", "sp=unverified"]:
+        for required in ["PASS      audio", "core=0.10.0", "route=13", "speakers=6", "boost=blocked", "sp=unverified"]:
             self.assertIn(required, markers)
 
     def test_dry_run_is_read_only_after_flash(self) -> None:
