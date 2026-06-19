@@ -78,6 +78,8 @@
 #define AUDIO_PCM_PERIOD_COUNT 4
 #define AUDIO_PCM_MAX_CHANNELS 8
 #define AUDIO_PCM_TONE_HZ 440
+#define AUDIO_CHIME_DEFAULT_AMPLITUDE_MILLI 80
+#define AUDIO_CHIME_DEFAULT_DURATION_MS 1200
 #define AUDIO_PLAY_ASYNC_DIR "/cache/a90-audio-play"
 #define AUDIO_PLAY_ASYNC_STATUS_PATH AUDIO_PLAY_ASYNC_DIR "/status.txt"
 #define AUDIO_PLAY_ASYNC_LOG_PATH AUDIO_PLAY_ASYNC_DIR "/worker.log"
@@ -2814,6 +2816,82 @@ static int audio_play_cmd(char **argv, int argc) {
     return 0;
 }
 
+static int audio_chime_cmd(char **argv, int argc) {
+    const char *profile_id = AUDIO_DEFAULT_PROFILE_ID;
+    const char *manifest_path = AUDIO_SETCAL_DEFAULT_MANIFEST_PATH;
+    bool execute_mode = false;
+    int amplitude_milli = AUDIO_CHIME_DEFAULT_AMPLITUDE_MILLI;
+    int duration_ms = AUDIO_CHIME_DEFAULT_DURATION_MS;
+    char amplitude_text[16];
+    char duration_text[16];
+    char *play_argv[13];
+    int play_argc = 0;
+    int argi;
+
+    for (argi = 2; argi < argc; ++argi) {
+        if (argv == NULL || argv[argi] == NULL) {
+            a90_console_printf("usage: audio chime [--dry-run|--execute] [--amplitude-milli N] [--duration-ms N] [--manifest PATH]\r\n");
+            return -EINVAL;
+        }
+        if (strcmp(argv[argi], "--dry-run") == 0) {
+            execute_mode = false;
+        } else if (strcmp(argv[argi], "--execute") == 0) {
+            execute_mode = true;
+        } else if (strcmp(argv[argi], "--amplitude-milli") == 0) {
+            if (argi + 1 >= argc || !audio_parse_nonnegative_int(argv[argi + 1], &amplitude_milli)) {
+                a90_console_printf("usage: audio chime [--dry-run|--execute] [--amplitude-milli N] [--duration-ms N] [--manifest PATH]\r\n");
+                return -EINVAL;
+            }
+            ++argi;
+        } else if (strcmp(argv[argi], "--duration-ms") == 0) {
+            if (argi + 1 >= argc || !audio_parse_nonnegative_int(argv[argi + 1], &duration_ms)) {
+                a90_console_printf("usage: audio chime [--dry-run|--execute] [--amplitude-milli N] [--duration-ms N] [--manifest PATH]\r\n");
+                return -EINVAL;
+            }
+            ++argi;
+        } else if (strcmp(argv[argi], "--manifest") == 0) {
+            if (argi + 1 >= argc || argv[argi + 1] == NULL) {
+                a90_console_printf("usage: audio chime [--dry-run|--execute] [--amplitude-milli N] [--duration-ms N] [--manifest PATH]\r\n");
+                return -EINVAL;
+            }
+            manifest_path = argv[++argi];
+        } else {
+            a90_console_printf("usage: audio chime [--dry-run|--execute] [--amplitude-milli N] [--duration-ms N] [--manifest PATH]\r\n");
+            return -EINVAL;
+        }
+    }
+
+    snprintf(amplitude_text, sizeof(amplitude_text), "%d", amplitude_milli);
+    snprintf(duration_text, sizeof(duration_text), "%d", duration_ms);
+
+    a90_console_printf("audio.chime.version=1\r\n");
+    a90_console_printf("audio.chime.profile=%s\r\n", profile_id);
+    a90_console_printf("audio.chime.mode=listen\r\n");
+    a90_console_printf("audio.chime.execute_requested=%d\r\n", execute_mode ? 1 : 0);
+    a90_console_printf("audio.chime.amplitude_milli=%d\r\n", amplitude_milli);
+    a90_console_printf("audio.chime.duration_ms=%d\r\n", duration_ms);
+    a90_console_printf("audio.chime.manifest=%s\r\n", manifest_path != NULL ? manifest_path : "-");
+    a90_console_printf("audio.chime.boot_autoplay_default=0\r\n");
+    a90_console_printf("audio.chime.best_effort=1\r\n");
+    a90_console_printf("audio.chime.blocks_boot=0\r\n");
+    a90_console_printf("audio.chime.delegates=audio-play\r\n");
+
+    play_argv[play_argc++] = "audio";
+    play_argv[play_argc++] = "play";
+    play_argv[play_argc++] = (char *)profile_id;
+    play_argv[play_argc++] = "--mode";
+    play_argv[play_argc++] = "listen";
+    play_argv[play_argc++] = "--amplitude-milli";
+    play_argv[play_argc++] = amplitude_text;
+    play_argv[play_argc++] = "--duration-ms";
+    play_argv[play_argc++] = duration_text;
+    play_argv[play_argc++] = "--manifest";
+    play_argv[play_argc++] = (char *)manifest_path;
+    play_argv[play_argc++] = execute_mode ? "--execute" : "--dry-run";
+    play_argv[play_argc] = NULL;
+    return audio_play_cmd(play_argv, play_argc);
+}
+
 static int audio_stop_cmd(char **argv, int argc) {
     const char *profile_id = AUDIO_DEFAULT_PROFILE_ID;
     const struct audio_speaker_profile *profile;
@@ -4391,6 +4469,9 @@ int a90_audio_cmd(char **argv, int argc) {
     if (argc >= 2 && argv != NULL && argv[1] != NULL && strcmp(argv[1], "play") == 0) {
         return audio_play_cmd(argv, argc);
     }
+    if (argc >= 2 && argv != NULL && argv[1] != NULL && strcmp(argv[1], "chime") == 0) {
+        return audio_chime_cmd(argv, argc);
+    }
     if (argc == 2 && argv != NULL && argv[1] != NULL && strcmp(argv[1], "play-status") == 0) {
         return audio_play_status_cmd();
     }
@@ -4409,6 +4490,6 @@ int a90_audio_cmd(char **argv, int argc) {
     if (argc >= 2 && argv != NULL && argv[1] != NULL && strcmp(argv[1], "snd-materialize-once") == 0) {
         return audio_snd_materialize_once(argv, argc);
     }
-    a90_console_printf("usage: audio [adsp-status|status|profiles|profile [id]|speaker-map [id]|stages [id]|prereq [id]|app-type [profile] [--dry-run|--write]|setcal [profile] [--dry-run|--execute] [--manifest PATH --verify|--prepare|--load]|play [profile] [--mode probe|listen] [--amplitude-milli N] [--duration-ms N] [--manifest PATH] [--dry-run|--execute]|play-status|stop [profile] [--dry-run|--execute]|route [profile] [--dry-run|--apply|--reset] [--layer all|core|feedback|endpoint|blocked]|snd-status|adsp-boot-once|snd-materialize-once]\r\n");
+    a90_console_printf("usage: audio [adsp-status|status|profiles|profile [id]|speaker-map [id]|stages [id]|prereq [id]|app-type [profile] [--dry-run|--write]|setcal [profile] [--dry-run|--execute] [--manifest PATH --verify|--prepare|--load]|play [profile] [--mode probe|listen] [--amplitude-milli N] [--duration-ms N] [--manifest PATH] [--dry-run|--execute]|chime [--dry-run|--execute] [--amplitude-milli N] [--duration-ms N] [--manifest PATH]|play-status|stop [profile] [--dry-run|--execute]|route [profile] [--dry-run|--apply|--reset] [--layer all|core|feedback|endpoint|blocked]|snd-status|adsp-boot-once|snd-materialize-once]\r\n");
     return -EINVAL;
 }

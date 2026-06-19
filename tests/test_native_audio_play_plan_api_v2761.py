@@ -85,6 +85,24 @@ class NativeAudioPlayPlanApiV2761(unittest.TestCase):
             re.compile(r'audio.play.refused=safety-cap-exceeded.*?return -EPERM;.*?if \(execute_mode\)', re.DOTALL),
         )
 
+    def test_chime_subcommand_is_safe_preset_over_audio_play(self) -> None:
+        text = source_text()
+        chime_start = text.index("static int audio_chime_cmd")
+        chime_end = text.index("static int audio_stop_cmd")
+        chime_block = text[chime_start:chime_end]
+
+        self.assertIn('strcmp(argv[1], "chime") == 0', text)
+        self.assertIn("return audio_chime_cmd(argv, argc);", text)
+        self.assertIn("AUDIO_CHIME_DEFAULT_AMPLITUDE_MILLI 80", text)
+        self.assertIn("AUDIO_CHIME_DEFAULT_DURATION_MS 1200", text)
+        self.assertIn("audio.chime.boot_autoplay_default=0", chime_block)
+        self.assertIn("audio.chime.best_effort=1", chime_block)
+        self.assertIn("audio.chime.blocks_boot=0", chime_block)
+        self.assertIn("audio.chime.delegates=audio-play", chime_block)
+        self.assertIn('play_argv[play_argc++] = "play"', chime_block)
+        self.assertIn('play_argv[play_argc++] = "listen"', chime_block)
+        self.assertIn("execute_mode ? \"--execute\" : \"--dry-run\"", chime_block)
+
     def test_stage_api_has_native_play_plan_before_blocked_execute(self) -> None:
         stages = {stage["stage_id"]: stage for stage in profiles.stage_manifests()}
 

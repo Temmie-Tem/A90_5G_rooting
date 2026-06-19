@@ -219,6 +219,19 @@ Evidence: V2828 source/build, V2829 audio status/selftest/screenapp route-map li
 Safety rollback net: v2321 remains the flash-gate rollback target until AGENTS.md is deliberately updated
 ```
 
+Current post-promotion audio productization build candidate evidence is based on:
+
+```text
+Run ID: V2838
+Native init: A90 Linux init 0.10.10 (v2838-audio-chime-preset)
+Build tag: v2838-audio-chime-preset
+Boot image: workspace/private/inputs/boot_images/boot_linux_v2838_audio_chime_preset.img
+Boot SHA256: 0772ef64e24ab863e50a646f710f5c4eb4059056c1ba9528dc38be870cc8bd86
+Evidence: V2838 source/build report for a manual audio chime preset over the proven audio play path
+Adoption state: pending live validation
+Safety rollback net: v2321 remains the flash-gate rollback target until AGENTS.md is deliberately updated
+```
+
 Historical Wi-Fi detail surface promotion evidence remains:
 
 ```text
