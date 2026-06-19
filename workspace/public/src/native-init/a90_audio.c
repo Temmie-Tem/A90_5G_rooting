@@ -2979,6 +2979,8 @@ static int audio_stop_cmd(char **argv, int argc) {
     int reverse_order[AUDIO_PROFILE_ACDB_SET_COUNT];
     int argi;
     int index;
+    int route_rc;
+    char *route_argv[7];
 
     for (argi = 2; argi < argc; ++argi) {
         if (argv == NULL || argv[argi] == NULL) {
@@ -3002,11 +3004,7 @@ static int audio_stop_cmd(char **argv, int argc) {
     a90_console_printf("audio.stop.version=1\r\n");
     a90_console_printf("audio.stop.profile=%s\r\n", profile_id);
     a90_console_printf("audio.stop.execute_requested=%d\r\n", execute_mode ? 1 : 0);
-    a90_console_printf("audio.stop.execute_supported=0\r\n");
-    a90_console_printf("audio.stop.playback_stop_attempted=0\r\n");
-    a90_console_printf("audio.stop.setcal_deallocate_attempted=0\r\n");
-    a90_console_printf("audio.stop.route_write_attempted=0\r\n");
-    a90_console_printf("audio.stop.ioctl_attempted=0\r\n");
+    a90_console_printf("audio.stop.execute_supported=1\r\n");
     if (profile == NULL) {
         a90_console_printf("audio.stop.error=unknown-profile\r\n");
         return -ENOENT;
@@ -3020,12 +3018,32 @@ static int audio_stop_cmd(char **argv, int argc) {
     a90_console_printf("audio.stop.requires.route_reset_core=1\r\n");
     a90_console_printf("audio.stop.route_reset_command=audio route %s --reset --layer core\r\n", profile->id);
     print_int_list("audio.stop.setcal_deallocate_order", reverse_order, AUDIO_PROFILE_ACDB_SET_COUNT);
-    if (execute_mode) {
-        a90_console_printf("audio.stop.refused=execute-not-implemented-native-cleanup\r\n");
-        return -EPERM;
+    if (!execute_mode) {
+        a90_console_printf("audio.stop.playback_stop_attempted=0\r\n");
+        a90_console_printf("audio.stop.setcal_deallocate_attempted=0\r\n");
+        a90_console_printf("audio.stop.route_write_attempted=0\r\n");
+        a90_console_printf("audio.stop.ioctl_attempted=0\r\n");
+        a90_console_printf("audio.stop.dry_run_ok=1\r\n");
+        return 0;
     }
-    a90_console_printf("audio.stop.dry_run_ok=1\r\n");
-    return 0;
+
+    a90_console_printf("audio.stop.playback_stop_attempted=0\r\n");
+    a90_console_printf("audio.stop.playback_stop_reason=no-active-pcm-handle\r\n");
+    a90_console_printf("audio.stop.setcal_deallocate_attempted=0\r\n");
+    a90_console_printf("audio.stop.setcal_deallocate_reason=no-active-setcal-session\r\n");
+    a90_console_printf("audio.stop.route_write_attempted=1\r\n");
+    a90_console_printf("audio.stop.ioctl_attempted=1\r\n");
+    route_argv[0] = "audio";
+    route_argv[1] = "route";
+    route_argv[2] = (char *)profile->id;
+    route_argv[3] = "--reset";
+    route_argv[4] = "--layer";
+    route_argv[5] = "core";
+    route_argv[6] = NULL;
+    route_rc = audio_route_cmd(route_argv, 6);
+    a90_console_printf("audio.stop.route_reset_rc=%d\r\n", route_rc);
+    a90_console_printf("audio.stop.done=%d rc=%d\r\n", route_rc == 0 ? 1 : 0, route_rc);
+    return route_rc;
 }
 
 static int audio_open_control_device(int card) {

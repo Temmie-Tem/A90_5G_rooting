@@ -15,7 +15,7 @@ class NativeAudioHelpSurfaceV2835Test(unittest.TestCase):
     def test_top_level_help_lists_current_audio_subcommands(self) -> None:
         expected = (
             "audio [status|profiles|profile|speaker-map|stages|prereq|app-type|"
-            "setcal|route|play|play-status|stop|adsp-status|snd-status]"
+            "setcal|route|play|chime|play-status|stop|adsp-status|snd-status]"
         )
         stale = "audio [adsp-status|status|snd-status|adsp-boot-once|snd-materialize-once]"
         for path in [DISPATCH, BASIC]:
