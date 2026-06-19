@@ -411,6 +411,8 @@ def install_fixture(args: argparse.Namespace,
         "control_channel": "serial",
         "cache_source": "disabled",
         "cache_hit": False,
+        "cache_required": bool(getattr(args, "require_cache_hit", False)),
+        "cache_required_hit_ok": False,
         "cache_adopted": False,
         "cache_uploaded": False,
         "installed": [],
@@ -431,6 +433,7 @@ def install_fixture(args: argparse.Namespace,
         if manifest_probe["ok"] and stream_probe["ok"]:
             result["cache_source"] = "hit"
             result["cache_hit"] = True
+            result["cache_required_hit_ok"] = bool(getattr(args, "require_cache_hit", False))
             return result
         if getattr(args, "require_cache_hit", False):
             result["cache_source"] = "required-hit-missing"
@@ -651,6 +654,9 @@ def render_report(result: dict[str, Any]) -> str:
         )
     if not installed_lines:
         installed_lines = ["- none"]
+    cache_policy_lines = [
+        "- Cache policy: `required-hit`; a miss fails before upload/stream."
+    ] if install.get("cache_required") else []
     return "\n".join([
         f"# {REPORT_TITLE}",
         "",
@@ -682,6 +688,7 @@ def render_report(result: dict[str, Any]) -> str:
         f"- Selected transport: `{install.get('selected_transport')}`",
         f"- Control channel: `{install.get('control_channel')}`",
         f"- Cache source: `{install.get('cache_source')}` hit=`{int(bool(install.get('cache_hit')))}` adopted=`{int(bool(install.get('cache_adopted')))}` uploaded=`{int(bool(install.get('cache_uploaded')))}`",
+        *cache_policy_lines,
         f"- Remote manifest used: `{install.get('remote_manifest')}`",
         f"- Remote stream used: `{install.get('remote_stream')}`",
         *installed_lines,
