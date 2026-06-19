@@ -109,7 +109,7 @@ static int cmd_video_status(void) {
     a90_console_printf("video.status.next_stream=video stream --manifest PATH --video-only [--frames N]\r\n");
     a90_console_printf("video.status.next_stream_pageflip=video stream --manifest PATH --video-only [--frames N] --present pageflip\r\n");
     a90_console_printf("video.status.next_stream_sync=video stream --manifest PATH --video-only [--frames N] --present pageflip --sync-audio-status /cache/a90-audio-play/status.txt\r\n");
-    a90_console_printf("video.status.next_cache=video cache [status|verify|play] SHA256 [--trust-cache] [--present pageflip]\r\n");
+    a90_console_printf("video.status.next_cache=video cache [status|verify|play] SHA256 [--trust-cache] [--present pageflip] | video cache preset badapple-scale play [--trust-cache]\r\n");
     a90_console_printf("video.status.next_flipprobe=video flipprobe [frames<=120]\r\n");
     return 0;
 }
@@ -580,6 +580,9 @@ static int cmd_video_flipprobe(char **argv, int argc) {
 #define VIDEO_STREAM_AUDIO_SYNC_POLL_MS 20U
 #define VIDEO_STREAM_CACHE_ROOT "/mnt/sdext/a90/runtime/video/cache"
 #define VIDEO_STREAM_CACHE_DIR_PREFIX "sha256-"
+#define VIDEO_CACHE_PRESET_BADAPPLE_SCALE_NAME "badapple-scale"
+#define VIDEO_CACHE_PRESET_BADAPPLE_SCALE_ASSET_ID "v2874-synthetic-mono1-checker-6501f"
+#define VIDEO_CACHE_PRESET_BADAPPLE_SCALE_SHA256 "878dd867d63141eb6c9ce45a936d0454778ac91031e929b8da1c873c1c901890"
 
 enum video_stream_present_mode {
     VIDEO_STREAM_PRESENT_SETCRTC = 0,
@@ -1706,6 +1709,22 @@ static int video_stream_play(const struct video_stream_manifest *manifest,
     return 0;
 }
 
+static const char *video_cache_preset_sha256(const char *preset_name) {
+    if (preset_name != NULL &&
+        strcmp(preset_name, VIDEO_CACHE_PRESET_BADAPPLE_SCALE_NAME) == 0) {
+        return VIDEO_CACHE_PRESET_BADAPPLE_SCALE_SHA256;
+    }
+    return NULL;
+}
+
+static const char *video_cache_preset_asset_id(const char *preset_name) {
+    if (preset_name != NULL &&
+        strcmp(preset_name, VIDEO_CACHE_PRESET_BADAPPLE_SCALE_NAME) == 0) {
+        return VIDEO_CACHE_PRESET_BADAPPLE_SCALE_ASSET_ID;
+    }
+    return "unknown";
+}
+
 static int cmd_video_stream(char **argv, int argc) {
     const char *usage = "usage: video stream --manifest PATH --video-only [--frames N] [--present setcrtc|pageflip] [--sync-audio-status /cache/a90-audio-play/status.txt] [--sync-wait-ms N]\r\n";
     const char *manifest_path;
@@ -1807,9 +1826,11 @@ static int cmd_video_stream(char **argv, int argc) {
 }
 
 static int cmd_video_cache(char **argv, int argc) {
-    const char *usage = "usage: video cache [status|verify|play] SHA256 [--trust-cache] [--frames N] [--present setcrtc|pageflip] [--sync-audio-status /cache/a90-audio-play/status.txt] [--sync-wait-ms N]\r\n";
+    const char *usage = "usage: video cache [status|verify|play] SHA256 [--trust-cache] [--frames N] [--present setcrtc|pageflip] [--sync-audio-status /cache/a90-audio-play/status.txt] [--sync-wait-ms N] | video cache preset badapple-scale [status|verify|play] [options]\r\n";
     const char *action;
     const char *sha256;
+    const char *preset_name = NULL;
+    const char *preset_sha256 = NULL;
     char manifest_path[PATH_MAX];
     char actual_sha256[65];
     struct video_stream_manifest manifest;
@@ -1822,6 +1843,7 @@ static int cmd_video_cache(char **argv, int argc) {
     bool stream_exists = false;
     bool stream_size_match = false;
     uint64_t stream_size = 0;
+    int option_start = 4;
     int index;
     int rc;
 
@@ -1830,8 +1852,28 @@ static int cmd_video_cache(char **argv, int argc) {
         a90_console_printf("%s", usage);
         return -EINVAL;
     }
-    action = argv[2];
-    sha256 = argv[3];
+    if (strcmp(argv[2], "preset") == 0) {
+        if (argc < 5) {
+            a90_console_printf("%s", usage);
+            return -EINVAL;
+        }
+        preset_name = argv[3];
+        preset_sha256 = video_cache_preset_sha256(preset_name);
+        if (preset_sha256 == NULL) {
+            a90_console_printf("video.cache.preset=%s\r\n", preset_name);
+            a90_console_printf("video.cache.preset.error=unknown\r\n");
+            return -EINVAL;
+        }
+        action = argv[4];
+        sha256 = preset_sha256;
+        option_start = 5;
+        a90_console_printf("video.cache.preset=%s\r\n", preset_name);
+        a90_console_printf("video.cache.preset.asset_id=%s\r\n", video_cache_preset_asset_id(preset_name));
+        a90_console_printf("video.cache.preset.sha256=%s\r\n", preset_sha256);
+    } else {
+        action = argv[2];
+        sha256 = argv[3];
+    }
     if (strcmp(action, "status") != 0 &&
         strcmp(action, "verify") != 0 &&
         strcmp(action, "play") != 0) {
@@ -1843,7 +1885,7 @@ static int cmd_video_cache(char **argv, int argc) {
         return rc;
     }
     if (strcmp(action, "status") == 0) {
-        if (argc != 4) {
+        if (argc != option_start) {
             a90_console_printf("%s", usage);
             return -EINVAL;
         }
@@ -1851,7 +1893,7 @@ static int cmd_video_cache(char **argv, int argc) {
         return 0;
     }
     if (strcmp(action, "verify") == 0) {
-        if (argc != 4) {
+        if (argc != option_start) {
             a90_console_printf("%s", usage);
             return -EINVAL;
         }
@@ -1859,7 +1901,7 @@ static int cmd_video_cache(char **argv, int argc) {
         return video_cache_verify_hash(&manifest, actual_sha256, sizeof(actual_sha256));
     }
 
-    index = 4;
+    index = option_start;
     while (index < argc) {
         if (strcmp(argv[index], "--trust-cache") == 0) {
             if (trust_cache) {
@@ -1960,7 +2002,7 @@ static int handle_video(char **argv, int argc) {
 
     if (strcmp(subcommand, "status") == 0) {
         if (argc != 1 && argc != 2) {
-            a90_console_printf("usage: video [status|frame [bars|checker|mono|0xRRGGBB]|anim [bars|checker|pulse] [frames] [delay_ms]|blitbench [frames]|flipprobe [frames]|stream --manifest PATH --video-only [--frames N] [--present setcrtc|pageflip] [--sync-audio-status PATH]|cache [status|verify|play] SHA256 [--trust-cache]]\r\n");
+            a90_console_printf("usage: video [status|frame [bars|checker|mono|0xRRGGBB]|anim [bars|checker|pulse] [frames] [delay_ms]|blitbench [frames]|flipprobe [frames]|stream --manifest PATH --video-only [--frames N] [--present setcrtc|pageflip] [--sync-audio-status PATH]|cache [status|verify|play] SHA256 [--trust-cache]|cache preset badapple-scale [status|verify|play]]\r\n");
             return -EINVAL;
         }
         return cmd_video_status();
@@ -1984,7 +2026,7 @@ static int handle_video(char **argv, int argc) {
         return cmd_video_cache(argv, argc);
     }
 
-    a90_console_printf("usage: video [status|frame [bars|checker|mono|0xRRGGBB]|anim [bars|checker|pulse] [frames] [delay_ms]|blitbench [frames]|flipprobe [frames]|stream --manifest PATH --video-only [--frames N] [--present setcrtc|pageflip] [--sync-audio-status PATH]|cache [status|verify|play] SHA256 [--trust-cache]]\r\n");
+    a90_console_printf("usage: video [status|frame [bars|checker|mono|0xRRGGBB]|anim [bars|checker|pulse] [frames] [delay_ms]|blitbench [frames]|flipprobe [frames]|stream --manifest PATH --video-only [--frames N] [--present setcrtc|pageflip] [--sync-audio-status PATH]|cache [status|verify|play] SHA256 [--trust-cache]|cache preset badapple-scale [status|verify|play]]\r\n");
     return -EINVAL;
 }
 

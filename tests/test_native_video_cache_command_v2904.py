@@ -19,12 +19,16 @@ class NativeVideoCacheCommandTests(unittest.TestCase):
             '#define VIDEO_STREAM_CACHE_ROOT "/mnt/sdext/a90/runtime/video/cache"',
             '#define VIDEO_STREAM_CACHE_DIR_PREFIX "sha256-"',
             'video.status.next_cache=video cache [status|verify|play] SHA256 [--trust-cache]',
+            'video cache preset badapple-scale play [--trust-cache]',
             'video.cache.version=1',
             'video.cache.stream_size_match=%d',
             'video.cache.verify.sha256_match=%d',
             'video.cache.play.trust_cache=1',
             'video.cache.play.trust_cache=0',
             'video.cache.play.requested_present=%s',
+            'video.cache.preset=%s',
+            'video.cache.preset.asset_id=%s',
+            'video.cache.preset.sha256=%s',
         ]
         for marker in expected:
             with self.subTest(marker=marker):
@@ -72,10 +76,24 @@ class NativeVideoCacheCommandTests(unittest.TestCase):
         self.assertIn('!stream_exists || !stream_size_match', ready_block)
         self.assertIn('return -EINVAL;', ready_block)
 
+    def test_badapple_scale_preset_maps_to_sd_cache_sha(self):
+        expected_sha = '878dd867d63141eb6c9ce45a936d0454778ac91031e929b8da1c873c1c901890'
+        self.assertIn('#define VIDEO_CACHE_PRESET_BADAPPLE_SCALE_NAME "badapple-scale"', self.status)
+        self.assertIn('#define VIDEO_CACHE_PRESET_BADAPPLE_SCALE_ASSET_ID "v2874-synthetic-mono1-checker-6501f"', self.status)
+        self.assertIn(f'#define VIDEO_CACHE_PRESET_BADAPPLE_SCALE_SHA256 "{expected_sha}"', self.status)
+        self.assertIn('video_cache_preset_sha256', self.status)
+        self.assertIn('preset_sha256 = video_cache_preset_sha256(preset_name);', self.status)
+        self.assertIn('sha256 = preset_sha256;', self.status)
+
+    def test_unknown_preset_is_rejected_before_cache_lookup(self):
+        preset_branch = self.status[self.status.index('if (strcmp(argv[2], "preset") == 0) {'):self.status.index('} else {', self.status.index('if (strcmp(argv[2], "preset") == 0) {'))]
+        self.assertIn('video.cache.preset.error=unknown', preset_branch)
+        self.assertIn('return -EINVAL;', preset_branch)
+
     def test_help_and_cmdmeta_include_cache_surface(self):
-        self.assertIn('video [status|frame|anim|blitbench|stream --manifest PATH --video-only|cache [status|verify|play] SHA256 [--trust-cache]]', self.help)
+        self.assertIn('video [status|frame|anim|blitbench|stream --manifest PATH --video-only|cache [status|verify|play] SHA256 [--trust-cache]|cache preset badapple-scale [status|verify|play]]', self.help)
         self.assertIn('video [status|frame|anim|blitbench|flipprobe|stream|cache]', self.help)
-        self.assertIn('|cache [status|verify|play] SHA256 [--trust-cache]]', self.dispatch)
+        self.assertIn('|cache [status|verify|play] SHA256 [--trust-cache]|cache preset badapple-scale [status|verify|play]]', self.dispatch)
 
 
 if __name__ == "__main__":
