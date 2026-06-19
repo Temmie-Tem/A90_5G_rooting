@@ -190,6 +190,7 @@ def preflight_state(args: argparse.Namespace) -> dict[str, Any]:
         "remote_manifest": REMOTE_MANIFEST,
         "remote_stream": REMOTE_STREAM,
         "cache_enabled": not args.disable_cache,
+        "require_cache_hit": bool(getattr(args, "require_cache_hit", False)),
         "adopt_legacy_cache": bool(args.adopt_legacy_cache),
         "fixture_frames": args.frames,
         "cadence_target": f"{args.fps_num}/{args.fps_den}fps full-resolution {args.stream_format} page-flip stream",
@@ -299,6 +300,11 @@ def install_fixture(args: argparse.Namespace,
         if manifest_probe["ok"] and stream_probe["ok"]:
             result["cache_source"] = "hit"
             result["cache_hit"] = True
+            return result
+        if getattr(args, "require_cache_hit", False):
+            result["cache_source"] = "required-hit-missing"
+            result["cache_required"] = True
+            result["cache_required_hit_ok"] = False
             return result
         if args.adopt_legacy_cache:
             for index, legacy_dir in enumerate(LEGACY_REMOTE_DIRS):
@@ -604,6 +610,9 @@ def run_live(args: argparse.Namespace, out_dir: Path, state: dict[str, Any]) -> 
             result["decision"] = f"{DECISION_PREFIX}-candidate-health-failed-before-stream"
             raise RuntimeError("candidate health/video status did not pass")
         result["runtime_install"] = install_fixture(args, out_dir, steps, fixture)
+        if getattr(args, "require_cache_hit", False) and not result["runtime_install"].get("cache_hit"):
+            result["decision"] = f"{DECISION_PREFIX}-required-cache-hit-missing-before-stream"
+            raise RuntimeError("required SHA-addressed video cache hit was missing")
         stream_manifest = str(result["runtime_install"].get("remote_manifest") or REMOTE_MANIFEST)
         stream = base.run_serial_step(
             out_dir,
@@ -683,6 +692,7 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--stream-format", choices=("raw", "gray8", "mono1"), default="gray8")
     parser.add_argument("--disable-cache", action="store_true", help="stage this run under the per-run remote directory instead of the SHA-addressed SD cache")
     parser.add_argument("--adopt-legacy-cache", action=argparse.BooleanOptionalAction, default=True, help="copy a matching legacy V2890 remote fixture into the SHA cache before uploading")
+    parser.add_argument("--require-cache-hit", action="store_true", help="fail instead of uploading if the SHA-addressed SD video cache is missing")
     return parser.parse_args()
 
 
