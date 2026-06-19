@@ -1,6 +1,8 @@
 #include "a90_selftest.h"
 
 #include "a90_config.h"
+#include "a90_audio_profile.h"
+#include "a90_audio_route.h"
 #include "a90_helper.h"
 #include "a90_kms.h"
 #include "a90_log.h"
@@ -410,6 +412,37 @@ static void selftest_service(void) {
                             detail);
 }
 
+static void selftest_audio(void) {
+    long started_ms = monotonic_millis();
+    const struct audio_speaker_profile *profile = a90_audio_find_profile(AUDIO_DEFAULT_PROFILE_ID);
+    int route_count = a90_audio_route_control_count();
+    int speaker_count = a90_audio_speaker_map_count();
+    bool boost_blocked = !a90_audio_route_has_smart_amp_boost();
+    bool ok = profile != NULL &&
+              route_count == AUDIO_ROUTE_APPLY_COUNT &&
+              speaker_count > 0 &&
+              boost_blocked &&
+              profile->amplitude_cap_milli <= 200 &&
+              profile->listen_duration_ms <= profile->duration_cap_ms;
+    char detail[128];
+
+    snprintf(detail,
+             sizeof(detail),
+             "core=%s profile=%s route=%d speakers=%d cap=%d boost=%s sp=unverified",
+             AUDIO_CORE_PROMOTION_VERSION,
+             profile != NULL ? profile->id : "missing",
+             route_count,
+             speaker_count,
+             profile != NULL ? profile->amplitude_cap_milli : -1,
+             boost_blocked ? "blocked" : "allowed");
+    selftest_record_elapsed("audio",
+                            ok ? A90_SELFTEST_PASS : A90_SELFTEST_WARN,
+                            ok ? 0 : -ENODEV,
+                            ok ? 0 : ENODEV,
+                            started_ms,
+                            detail);
+}
+
 static void selftest_longsoak(void) {
     long started_ms = monotonic_millis();
     struct a90_longsoak_status status;
@@ -496,6 +529,7 @@ static int selftest_run(const struct a90_selftest_boot_hooks *hooks, void *ctx, 
     selftest_kms();
     selftest_input();
     selftest_service();
+    selftest_audio();
     selftest_longsoak();
     selftest_usb();
 

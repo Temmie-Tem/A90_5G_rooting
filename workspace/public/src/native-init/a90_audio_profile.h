@@ -4,6 +4,10 @@
 #include <stdbool.h>
 
 #define AUDIO_PROFILE_VERSION 1
+#define AUDIO_CORE_PROMOTION_RUN "V2815"
+#define AUDIO_CORE_PROMOTION_VERSION "0.10.0"
+#define AUDIO_CORE_PROMOTION_TAG "v2812-audio-core-promotion-candidate"
+#define AUDIO_CORE_VALIDATION_RUN "V2814"
 #define AUDIO_DEFAULT_PROFILE_ID "internal-speaker-safe"
 #define AUDIO_SPEAKER_PROFILE_COUNT 1
 #define AUDIO_PROFILE_ACDB_SET_COUNT 11
