@@ -106,6 +106,7 @@ static int cmd_video_status(void) {
     a90_console_printf("video.status.next=video frame [bars|checker|mono|0xRRGGBB]\r\n");
     a90_console_printf("video.status.next_anim=video anim [bars|checker|pulse] [frames<=240] [delay_ms<=1000]\r\n");
     a90_console_printf("video.status.next_blitbench=video blitbench [frames<=240]\r\n");
+    a90_console_printf("video.status.next_stream=video stream --manifest PATH --video-only [--frames N]\r\n");
     return 0;
 }
 
@@ -446,12 +447,658 @@ static int cmd_video_blitbench(char **argv, int argc) {
     return 0;
 }
 
+#define VIDEO_STREAM_MANIFEST_MAX_BYTES (64U * 1024U)
+#define VIDEO_STREAM_OBJECT_MAX_BYTES (8U * 1024U)
+#define VIDEO_STREAM_MAX_FRAMES 600U
+#define VIDEO_STREAM_MAX_FRAME_BYTES (64U * 1024U * 1024U)
+#define VIDEO_STREAM_PIXEL_FORMAT_XBGR8888_RAW_STRIDE 1U
+
+struct video_stream_manifest {
+    char video_path[PATH_MAX];
+    char stream_path[PATH_MAX];
+    char format[64];
+    char sha256[65];
+    uint32_t width;
+    uint32_t height;
+    uint32_t stride;
+    uint32_t frame_bytes;
+    uint32_t visible_row_bytes;
+    uint32_t fps_num;
+    uint32_t fps_den;
+    uint32_t frame_count;
+};
+
+struct video_stream_header_v1 {
+    char magic[8];
+    uint32_t version;
+    uint32_t width;
+    uint32_t height;
+    uint32_t stride;
+    uint32_t pixel_format;
+    uint32_t fps_num;
+    uint32_t fps_den;
+    uint32_t frame_count;
+    uint32_t frame_bytes;
+    uint8_t reserved[32];
+};
+
+struct video_stream_frame_record_v1 {
+    uint32_t index;
+    uint32_t payload_bytes;
+    uint64_t pts_ns;
+};
+
+static bool video_json_space(char ch) {
+    return ch == ' ' || ch == '\n' || ch == '\r' || ch == '\t';
+}
+
+static const char *video_json_skip_space(const char *cursor) {
+    while (*cursor != '\0' && video_json_space(*cursor)) {
+        ++cursor;
+    }
+    return cursor;
+}
+
+static const char *video_json_find_key(const char *json, const char *key) {
+    char pattern[96];
+    size_t key_len;
+    const char *cursor;
+
+    if (json == NULL || key == NULL) {
+        return NULL;
+    }
+    key_len = strlen(key);
+    if (key_len == 0 || key_len + 3 > sizeof(pattern)) {
+        return NULL;
+    }
+    snprintf(pattern, sizeof(pattern), "\"%s\"", key);
+    cursor = json;
+    while ((cursor = strstr(cursor, pattern)) != NULL) {
+        const char *after = video_json_skip_space(cursor + strlen(pattern));
+
+        if (*after == ':') {
+            return video_json_skip_space(after + 1);
+        }
+        ++cursor;
+    }
+    return NULL;
+}
+
+static bool video_json_extract_string(const char *json, const char *key, char *out, size_t out_size) {
+    const char *cursor;
+    size_t used = 0;
+
+    if (out == NULL || out_size == 0) {
+        return false;
+    }
+    out[0] = '\0';
+    cursor = video_json_find_key(json, key);
+    if (cursor == NULL || *cursor != '"') {
+        return false;
+    }
+    ++cursor;
+    while (*cursor != '\0' && *cursor != '"') {
+        unsigned char ch = (unsigned char)*cursor;
+
+        if (*cursor == '\\' || ch < 0x20U || used + 1 >= out_size) {
+            return false;
+        }
+        out[used++] = *cursor++;
+    }
+    if (*cursor != '"') {
+        return false;
+    }
+    out[used] = '\0';
+    return used > 0;
+}
+
+static bool video_json_extract_u32(const char *json, const char *key,
+                                   uint32_t min_value, uint32_t max_value,
+                                   uint32_t *out) {
+    const char *cursor;
+    char *end = NULL;
+    unsigned long value;
+
+    if (out == NULL) {
+        return false;
+    }
+    cursor = video_json_find_key(json, key);
+    if (cursor == NULL) {
+        return false;
+    }
+    errno = 0;
+    value = strtoul(cursor, &end, 10);
+    if (errno != 0 || end == NULL || end == cursor || value < min_value || value > max_value) {
+        return false;
+    }
+    *out = (uint32_t)value;
+    return true;
+}
+
+static bool video_path_is_safe_relative(const char *path) {
+    const char *cursor;
+    const char *segment;
+
+    if (path == NULL || path[0] == '\0' || path[0] == '/') {
+        return false;
+    }
+    for (cursor = path; *cursor != '\0'; ++cursor) {
+        if (*cursor == '\\') {
+            return false;
+        }
+    }
+    segment = path;
+    for (;;) {
+        const char *slash = strchr(segment, '/');
+        size_t len = slash != NULL ? (size_t)(slash - segment) : strlen(segment);
+
+        if (len == 0 || (len == 1 && segment[0] == '.') ||
+            (len == 2 && segment[0] == '.' && segment[1] == '.')) {
+            return false;
+        }
+        if (slash == NULL) {
+            break;
+        }
+        segment = slash + 1;
+    }
+    return true;
+}
+
+static char video_ascii_lower_hex(char ch) {
+    if (ch >= 'A' && ch <= 'F') {
+        return (char)(ch - 'A' + 'a');
+    }
+    return ch;
+}
+
+static bool video_text_is_sha256(const char *text) {
+    size_t index;
+
+    if (text == NULL || strlen(text) != 64) {
+        return false;
+    }
+    for (index = 0; index < 64; ++index) {
+        char ch = text[index];
+
+        if (!((ch >= '0' && ch <= '9') ||
+              (ch >= 'a' && ch <= 'f') ||
+              (ch >= 'A' && ch <= 'F'))) {
+            return false;
+        }
+    }
+    return true;
+}
+
+static bool video_find_json_object(const char *json, const char *key,
+                                   const char **object_start, const char **object_end) {
+    const char *cursor = video_json_find_key(json, key);
+    unsigned int depth = 0;
+    bool in_string = false;
+    bool escaped = false;
+
+    if (cursor == NULL || *cursor != '{') {
+        return false;
+    }
+    *object_start = cursor;
+    for (; *cursor != '\0'; ++cursor) {
+        char ch = *cursor;
+
+        if (in_string) {
+            if (escaped) {
+                escaped = false;
+            } else if (ch == '\\') {
+                escaped = true;
+            } else if (ch == '"') {
+                in_string = false;
+            }
+            continue;
+        }
+        if (ch == '"') {
+            in_string = true;
+            continue;
+        }
+        if (ch == '{') {
+            ++depth;
+        } else if (ch == '}') {
+            if (depth == 0) {
+                return false;
+            }
+            --depth;
+            if (depth == 0) {
+                *object_end = cursor + 1;
+                return true;
+            }
+        }
+    }
+    return false;
+}
+
+static bool video_manifest_dirname(const char *manifest_path, char *out, size_t out_size) {
+    const char *slash;
+    size_t len;
+
+    if (manifest_path == NULL || manifest_path[0] == '\0' || out == NULL || out_size == 0) {
+        return false;
+    }
+    slash = strrchr(manifest_path, '/');
+    if (slash == NULL) {
+        return snprintf(out, out_size, ".") < (int)out_size;
+    }
+    len = (size_t)(slash - manifest_path);
+    if (len == 0) {
+        len = 1;
+    }
+    if (len >= out_size) {
+        return false;
+    }
+    memcpy(out, manifest_path, len);
+    out[len] = '\0';
+    return true;
+}
+
+static bool video_join_manifest_path(const char *manifest_path, const char *relative,
+                                     char *out, size_t out_size) {
+    char dir[PATH_MAX];
+
+    if (!video_path_is_safe_relative(relative) ||
+        !video_manifest_dirname(manifest_path, dir, sizeof(dir))) {
+        return false;
+    }
+    if (strcmp(dir, ".") == 0) {
+        return snprintf(out, out_size, "%s", relative) < (int)out_size;
+    }
+    return snprintf(out, out_size, "%s/%s", dir, relative) < (int)out_size;
+}
+
+static int video_read_manifest_file(const char *path, char **out_text) {
+    struct stat st;
+    char *text;
+    int fd;
+    size_t done = 0;
+
+    if (path == NULL || out_text == NULL) {
+        return -EINVAL;
+    }
+    *out_text = NULL;
+    fd = open(path, O_RDONLY | O_CLOEXEC | O_NOFOLLOW);
+    if (fd < 0) {
+        return negative_errno_or(ENOENT);
+    }
+    if (fstat(fd, &st) < 0 || !S_ISREG(st.st_mode) || st.st_size <= 0 ||
+        st.st_size > (off_t)VIDEO_STREAM_MANIFEST_MAX_BYTES) {
+        close(fd);
+        return -EINVAL;
+    }
+    text = (char *)malloc((size_t)st.st_size + 1U);
+    if (text == NULL) {
+        close(fd);
+        return -ENOMEM;
+    }
+    while (done < (size_t)st.st_size) {
+        ssize_t rd = read(fd, text + done, (size_t)st.st_size - done);
+
+        if (rd < 0) {
+            if (errno == EINTR) {
+                continue;
+            }
+            free(text);
+            close(fd);
+            return negative_errno_or(EIO);
+        }
+        if (rd == 0) {
+            free(text);
+            close(fd);
+            return -EIO;
+        }
+        done += (size_t)rd;
+    }
+    close(fd);
+    text[st.st_size] = '\0';
+    *out_text = text;
+    return 0;
+}
+
+static int video_parse_manifest(const char *manifest_path, struct video_stream_manifest *manifest) {
+    char *text = NULL;
+    char video_object[VIDEO_STREAM_OBJECT_MAX_BYTES];
+    const char *object_start;
+    const char *object_end;
+    size_t object_len;
+    uint64_t expected_frame_bytes;
+    int rc;
+
+    memset(manifest, 0, sizeof(*manifest));
+    rc = video_read_manifest_file(manifest_path, &text);
+    if (rc < 0) {
+        a90_console_printf("video.stream.error=manifest-read-failed rc=%d\r\n", rc);
+        return rc;
+    }
+    if (!video_find_json_object(text, "video", &object_start, &object_end)) {
+        free(text);
+        a90_console_printf("video.stream.error=manifest-video-object-missing\r\n");
+        return -EINVAL;
+    }
+    object_len = (size_t)(object_end - object_start);
+    if (object_len == 0 || object_len >= sizeof(video_object)) {
+        free(text);
+        a90_console_printf("video.stream.error=manifest-video-object-too-large\r\n");
+        return -EINVAL;
+    }
+    memcpy(video_object, object_start, object_len);
+    video_object[object_len] = '\0';
+
+    if (!video_json_extract_string(video_object, "path", manifest->video_path, sizeof(manifest->video_path)) ||
+        !video_json_extract_string(video_object, "format", manifest->format, sizeof(manifest->format)) ||
+        !video_json_extract_string(video_object, "sha256", manifest->sha256, sizeof(manifest->sha256)) ||
+        !video_json_extract_u32(video_object, "width", 1, 8192, &manifest->width) ||
+        !video_json_extract_u32(video_object, "height", 1, 8192, &manifest->height) ||
+        !video_json_extract_u32(video_object, "stride", 4, VIDEO_STREAM_MAX_FRAME_BYTES, &manifest->stride) ||
+        !video_json_extract_u32(video_object, "frame_bytes", 4, VIDEO_STREAM_MAX_FRAME_BYTES, &manifest->frame_bytes) ||
+        !video_json_extract_u32(video_object, "visible_row_bytes", 4, VIDEO_STREAM_MAX_FRAME_BYTES, &manifest->visible_row_bytes) ||
+        !video_json_extract_u32(video_object, "fps_num", 1, 240, &manifest->fps_num) ||
+        !video_json_extract_u32(video_object, "fps_den", 1, 1000000, &manifest->fps_den) ||
+        !video_json_extract_u32(video_object, "frame_count", 1, VIDEO_STREAM_MAX_FRAMES, &manifest->frame_count)) {
+        free(text);
+        a90_console_printf("video.stream.error=manifest-field-invalid\r\n");
+        return -EINVAL;
+    }
+    free(text);
+
+    if (strcmp(manifest->format, "xbgr8888-raw-stride") != 0 ||
+        !video_text_is_sha256(manifest->sha256) ||
+        !video_join_manifest_path(manifest_path, manifest->video_path,
+                                  manifest->stream_path, sizeof(manifest->stream_path))) {
+        a90_console_printf("video.stream.error=manifest-policy-reject\r\n");
+        return -EINVAL;
+    }
+    expected_frame_bytes = (uint64_t)manifest->stride * manifest->height;
+    if ((uint64_t)manifest->width * 4ULL != manifest->visible_row_bytes ||
+        manifest->stride < manifest->visible_row_bytes ||
+        expected_frame_bytes != manifest->frame_bytes) {
+        a90_console_printf("video.stream.error=manifest-geometry-invalid\r\n");
+        return -EINVAL;
+    }
+    return 0;
+}
+
+static int video_read_exact_fd(int fd, void *buffer, size_t bytes) {
+    size_t done = 0;
+
+    while (done < bytes) {
+        ssize_t rd = read(fd, (char *)buffer + done, bytes - done);
+
+        if (rd < 0) {
+            if (errno == EINTR) {
+                continue;
+            }
+            return negative_errno_or(EIO);
+        }
+        if (rd == 0) {
+            return -EIO;
+        }
+        done += (size_t)rd;
+    }
+    return 0;
+}
+
+static int video_validate_stream_header(const struct video_stream_manifest *manifest,
+                                        const struct video_stream_header_v1 *header) {
+    if (memcmp(header->magic, "A90VSTR1", 8) != 0 ||
+        header->version != 1 ||
+        header->pixel_format != VIDEO_STREAM_PIXEL_FORMAT_XBGR8888_RAW_STRIDE ||
+        header->width != manifest->width ||
+        header->height != manifest->height ||
+        header->stride != manifest->stride ||
+        header->fps_num != manifest->fps_num ||
+        header->fps_den != manifest->fps_den ||
+        header->frame_count != manifest->frame_count ||
+        header->frame_bytes != manifest->frame_bytes) {
+        return -EINVAL;
+    }
+    return 0;
+}
+
+static bool video_sha256_equal_fold(const char *actual, const char *expected) {
+    size_t index;
+
+    if (actual == NULL || expected == NULL) {
+        return false;
+    }
+    for (index = 0; index < 64; ++index) {
+        if (video_ascii_lower_hex(actual[index]) != video_ascii_lower_hex(expected[index])) {
+            return false;
+        }
+    }
+    return actual[64] == '\0' && expected[64] == '\0';
+}
+
+static int video_stream_verify_hash(const struct video_stream_manifest *manifest, char *actual_out,
+                                    size_t actual_out_size) {
+    if (a90_helper_sha256_file(manifest->stream_path, actual_out, actual_out_size) < 0) {
+        return negative_errno_or(EIO);
+    }
+    if (!video_sha256_equal_fold(actual_out, manifest->sha256)) {
+        a90_console_printf("video.stream.expected_sha256=%s\r\n", manifest->sha256);
+        a90_console_printf("video.stream.actual_sha256=%s\r\n", actual_out);
+        a90_console_printf("video.stream.sha256_match=0\r\n");
+        return -EINVAL;
+    }
+    return 0;
+}
+
+static int video_wait_until_ns(uint64_t deadline_ns) {
+    for (;;) {
+        uint64_t now_ns = video_monotonic_ns();
+        uint64_t remaining_ns;
+        int wait_ms;
+        enum a90_cancel_kind cancel;
+
+        if (now_ns == 0 || now_ns >= deadline_ns) {
+            return 0;
+        }
+        remaining_ns = deadline_ns - now_ns;
+        wait_ms = (int)(remaining_ns / 1000000ULL);
+        if (wait_ms <= 0) {
+            wait_ms = 1;
+        } else if (wait_ms > 100) {
+            wait_ms = 100;
+        }
+        cancel = a90_console_poll_cancel(wait_ms);
+        if (cancel != CANCEL_NONE) {
+            return a90_console_cancelled("videostream", cancel);
+        }
+    }
+}
+
+static uint64_t video_frame_interval_ns(uint32_t fps_num, uint32_t fps_den) {
+    uint64_t numerator = (uint64_t)fps_den * 1000000000ULL;
+
+    if (fps_num == 0) {
+        return 0;
+    }
+    return numerator / fps_num;
+}
+
+static int video_stream_play(const struct video_stream_manifest *manifest, uint32_t requested_frames) {
+    struct video_stream_header_v1 header;
+    uint32_t limit_frames = requested_frames > 0 && requested_frames < manifest->frame_count ?
+                            requested_frames : manifest->frame_count;
+    uint64_t interval_ns = video_frame_interval_ns(manifest->fps_num, manifest->fps_den);
+    uint64_t started_ns;
+    uint64_t finished_ns;
+    uint64_t total_bytes = 0;
+    uint64_t late_frames = 0;
+    uint64_t max_late_ns = 0;
+    uint32_t frame_index;
+    int fd;
+    int rc;
+
+    if (interval_ns == 0) {
+        return -EINVAL;
+    }
+    fd = open(manifest->stream_path, O_RDONLY | O_CLOEXEC | O_NOFOLLOW);
+    if (fd < 0) {
+        a90_console_printf("video.stream.error=stream-open-failed\r\n");
+        return negative_errno_or(ENOENT);
+    }
+    rc = video_read_exact_fd(fd, &header, sizeof(header));
+    if (rc < 0 || video_validate_stream_header(manifest, &header) < 0) {
+        close(fd);
+        a90_console_printf("video.stream.error=stream-header-invalid\r\n");
+        return rc < 0 ? rc : -EINVAL;
+    }
+
+    if (a90_kms_begin_frame_no_clear() < 0) {
+        close(fd);
+        return negative_errno_or(ENODEV);
+    }
+    {
+        struct a90_fb *fb = a90_kms_framebuffer();
+
+        if (fb == NULL || fb->pixels == NULL || fb->width != manifest->width ||
+            fb->height != manifest->height || fb->stride != manifest->stride ||
+            fb->size < manifest->frame_bytes) {
+            close(fd);
+            a90_console_printf("video.stream.error=kms-geometry-mismatch\r\n");
+            return -EINVAL;
+        }
+    }
+
+    started_ns = video_monotonic_ns();
+    for (frame_index = 0; frame_index < limit_frames; ++frame_index) {
+        struct video_stream_frame_record_v1 record;
+        struct a90_fb *fb;
+        uint64_t deadline_ns = started_ns + ((uint64_t)frame_index * interval_ns);
+        uint64_t after_present_ns;
+        enum a90_cancel_kind cancel;
+
+        rc = video_read_exact_fd(fd, &record, sizeof(record));
+        if (rc < 0) {
+            break;
+        }
+        if (record.index != frame_index || record.payload_bytes != manifest->frame_bytes) {
+            a90_console_printf("video.stream.error=frame-record-invalid index=%u payload=%u\r\n",
+                               record.index, record.payload_bytes);
+            rc = -EINVAL;
+            break;
+        }
+        if (a90_kms_begin_frame_no_clear() < 0) {
+            rc = negative_errno_or(ENODEV);
+            break;
+        }
+        fb = a90_kms_framebuffer();
+        if (fb == NULL || fb->pixels == NULL || fb->size < record.payload_bytes) {
+            rc = -EINVAL;
+            break;
+        }
+        rc = video_read_exact_fd(fd, fb->pixels, record.payload_bytes);
+        if (rc < 0) {
+            break;
+        }
+        rc = video_wait_until_ns(deadline_ns);
+        if (rc < 0) {
+            close(fd);
+            a90_console_printf("video.stream.presented=%u\r\n", frame_index);
+            return rc;
+        }
+        if (a90_kms_present("videostream", false) < 0) {
+            rc = negative_errno_or(EIO);
+            break;
+        }
+        total_bytes += record.payload_bytes;
+        after_present_ns = video_monotonic_ns();
+        if (after_present_ns > deadline_ns) {
+            uint64_t late_ns = after_present_ns - deadline_ns;
+
+            ++late_frames;
+            if (late_ns > max_late_ns) {
+                max_late_ns = late_ns;
+            }
+        }
+        cancel = a90_console_poll_cancel(0);
+        if (cancel != CANCEL_NONE) {
+            close(fd);
+            a90_console_printf("video.stream.presented=%u\r\n", frame_index + 1);
+            return a90_console_cancelled("videostream", cancel);
+        }
+    }
+    finished_ns = video_monotonic_ns();
+    close(fd);
+    if (rc < 0) {
+        return rc;
+    }
+
+    {
+        uint64_t elapsed_ns = finished_ns > started_ns ? finished_ns - started_ns : 1;
+        uint64_t fps_milli = ((uint64_t)limit_frames * 1000000000000ULL) / elapsed_ns;
+        uint64_t mbps_milli = (total_bytes * 1000000ULL) / elapsed_ns;
+
+        a90_console_printf("video.stream.presented=%u\r\n", limit_frames);
+        a90_console_printf("video.stream.frames_requested=%u\r\n", requested_frames);
+        a90_console_printf("video.stream.frames_total=%u\r\n", manifest->frame_count);
+        a90_console_printf("video.stream.bytes=%llu\r\n", (unsigned long long)total_bytes);
+        a90_console_printf("video.stream.elapsed_ns=%llu\r\n", (unsigned long long)elapsed_ns);
+        a90_console_printf("video.stream.fps_milli=%llu\r\n", (unsigned long long)fps_milli);
+        a90_console_printf("video.stream.mbps_milli=%llu\r\n", (unsigned long long)mbps_milli);
+        a90_console_printf("video.stream.late_frames=%llu\r\n", (unsigned long long)late_frames);
+        a90_console_printf("video.stream.max_late_ns=%llu\r\n", (unsigned long long)max_late_ns);
+        a90_console_printf("video.stream.width=%u\r\n", manifest->width);
+        a90_console_printf("video.stream.height=%u\r\n", manifest->height);
+        a90_console_printf("video.stream.stride=%u\r\n", manifest->stride);
+        a90_console_printf("video.stream.frame_bytes=%u\r\n", manifest->frame_bytes);
+        a90_console_printf("video.stream.pixel_format=xbgr8888\r\n");
+        a90_console_printf("video.stream.path=kms-dumb-buffer\r\n");
+    }
+    return 0;
+}
+
+static int cmd_video_stream(char **argv, int argc) {
+    const char *manifest_path;
+    struct video_stream_manifest manifest;
+    char actual_sha256[65];
+    uint32_t requested_frames = 0;
+    int rc;
+
+    if (!((argc == 5 || argc == 7) &&
+          strcmp(argv[2], "--manifest") == 0 &&
+          strcmp(argv[4], "--video-only") == 0)) {
+        a90_console_printf("usage: video stream --manifest PATH --video-only [--frames N]\r\n");
+        return -EINVAL;
+    }
+    if (argc == 7) {
+        if (strcmp(argv[5], "--frames") != 0 ||
+            !parse_u32_arg(argv[6], 1, VIDEO_STREAM_MAX_FRAMES, &requested_frames)) {
+            a90_console_printf("usage: video stream --manifest PATH --video-only [--frames N]\r\n");
+            return -EINVAL;
+        }
+    }
+    manifest_path = argv[3];
+    rc = video_parse_manifest(manifest_path, &manifest);
+    if (rc < 0) {
+        return rc;
+    }
+    rc = video_stream_verify_hash(&manifest, actual_sha256, sizeof(actual_sha256));
+    a90_console_printf("video.stream.expected_sha256=%s\r\n", manifest.sha256);
+    a90_console_printf("video.stream.actual_sha256=%s\r\n", rc == 0 ? actual_sha256 : "hash-error");
+    a90_console_printf("video.stream.sha256_checked=1\r\n");
+    a90_console_printf("video.stream.sha256_match=%d\r\n", rc == 0 ? 1 : 0);
+    if (rc < 0) {
+        return rc;
+    }
+    a90_console_printf("video.stream.manifest=%s\r\n", manifest_path);
+    a90_console_printf("video.stream.file=%s\r\n", manifest.stream_path);
+    a90_console_printf("video.stream.format=%s\r\n", manifest.format);
+    a90_console_printf("video.stream.fps=%u/%u\r\n", manifest.fps_num, manifest.fps_den);
+    return video_stream_play(&manifest, requested_frames);
+}
+
+
 static int handle_video(char **argv, int argc) {
     const char *subcommand = argc > 1 ? argv[1] : "status";
 
     if (strcmp(subcommand, "status") == 0) {
         if (argc != 1 && argc != 2) {
-            a90_console_printf("usage: video [status|frame [bars|checker|mono|0xRRGGBB]|anim [bars|checker|pulse] [frames] [delay_ms]|blitbench [frames]]\r\n");
+            a90_console_printf("usage: video [status|frame [bars|checker|mono|0xRRGGBB]|anim [bars|checker|pulse] [frames] [delay_ms]|blitbench [frames]|stream --manifest PATH --video-only [--frames N]]\r\n");
             return -EINVAL;
         }
         return cmd_video_status();
@@ -465,8 +1112,11 @@ static int handle_video(char **argv, int argc) {
     if (strcmp(subcommand, "blitbench") == 0) {
         return cmd_video_blitbench(argv, argc);
     }
+    if (strcmp(subcommand, "stream") == 0) {
+        return cmd_video_stream(argv, argc);
+    }
 
-    a90_console_printf("usage: video [status|frame [bars|checker|mono|0xRRGGBB]|anim [bars|checker|pulse] [frames] [delay_ms]|blitbench [frames]]\r\n");
+    a90_console_printf("usage: video [status|frame [bars|checker|mono|0xRRGGBB]|anim [bars|checker|pulse] [frames] [delay_ms]|blitbench [frames]|stream --manifest PATH --video-only [--frames N]]\r\n");
     return -EINVAL;
 }
 
