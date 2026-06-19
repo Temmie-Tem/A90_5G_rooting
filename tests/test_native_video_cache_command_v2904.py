@@ -18,10 +18,12 @@ class NativeVideoCacheCommandTests(unittest.TestCase):
         expected = [
             '#define VIDEO_STREAM_CACHE_ROOT "/mnt/sdext/a90/runtime/video/cache"',
             '#define VIDEO_STREAM_CACHE_DIR_PREFIX "sha256-"',
-            'video.status.next_cache=video cache [status|verify|play] SHA256',
+            'video.status.next_cache=video cache [status|verify|play] SHA256 [--trust-cache]',
             'video.cache.version=1',
             'video.cache.stream_size_match=%d',
             'video.cache.verify.sha256_match=%d',
+            'video.cache.play.trust_cache=1',
+            'video.cache.play.trust_cache=0',
             'video.cache.play.requested_present=%s',
         ]
         for marker in expected:
@@ -43,17 +45,37 @@ class NativeVideoCacheCommandTests(unittest.TestCase):
         self.assertIn('manifest->frame_count', self.status)
         self.assertIn('manifest->frame_bytes', self.status)
 
-    def test_cache_play_verifies_sha_then_reuses_stream_player(self):
+    def test_cache_play_default_verifies_sha_then_reuses_stream_player(self):
         verify_index = self.status.index('rc = video_cache_verify_hash(&manifest')
-        play_index = self.status.index('return video_stream_play(&manifest, requested_frames, present_mode, &audio_sync);', verify_index)
+        trust_zero_index = self.status.index('video.cache.play.trust_cache=0', verify_index)
+        play_index = self.status.index('return video_stream_play(&manifest, requested_frames, present_mode, &audio_sync);', trust_zero_index)
         self.assertLess(verify_index, play_index)
         self.assertIn('strcmp(subcommand, "cache") == 0', self.status)
         self.assertIn('return cmd_video_cache(argv, argc);', self.status)
 
+    def test_cache_play_trust_cache_is_explicit_and_skips_full_sha(self):
+        self.assertIn('strcmp(argv[index], "--trust-cache") == 0', self.status)
+        trust_index = self.status.index('video.cache.play.trust_cache=1')
+        else_index = self.status.index('} else {', trust_index)
+        trusted_block = self.status[trust_index:else_index]
+        self.assertIn('video.cache.play.trust_cache=1', trusted_block)
+        self.assertIn('video.cache.verify.actual_sha256=trust-cache-not-checked', trusted_block)
+        self.assertIn('video.cache.verify.sha256_checked=0', trusted_block)
+        self.assertIn('video.cache.verify.sha256_match=0', trusted_block)
+        self.assertNotIn('video_cache_verify_hash(&manifest', trusted_block)
+
+    def test_cache_play_trust_cache_still_requires_ready_stream(self):
+        stat_index = self.status.index('rc = video_cache_stat_stream(&manifest, &stream_exists, &stream_size, &stream_size_match);')
+        trust_index = self.status.index('if (trust_cache) {', stat_index)
+        ready_block = self.status[stat_index:trust_index]
+        self.assertIn('video.cache.play.error=stream-not-ready', ready_block)
+        self.assertIn('!stream_exists || !stream_size_match', ready_block)
+        self.assertIn('return -EINVAL;', ready_block)
+
     def test_help_and_cmdmeta_include_cache_surface(self):
-        self.assertIn('video [status|frame|anim|blitbench|stream --manifest PATH --video-only|cache [status|verify|play] SHA256]', self.help)
+        self.assertIn('video [status|frame|anim|blitbench|stream --manifest PATH --video-only|cache [status|verify|play] SHA256 [--trust-cache]]', self.help)
         self.assertIn('video [status|frame|anim|blitbench|flipprobe|stream|cache]', self.help)
-        self.assertIn('|cache [status|verify|play] SHA256]', self.dispatch)
+        self.assertIn('|cache [status|verify|play] SHA256 [--trust-cache]]', self.dispatch)
 
 
 if __name__ == "__main__":
