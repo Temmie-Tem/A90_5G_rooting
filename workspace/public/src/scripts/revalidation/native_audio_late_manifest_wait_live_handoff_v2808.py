@@ -33,6 +33,14 @@ DEFAULT_REMOTE_ROOT = "/cache/a90-runtime/pkg/audio/setcal/internal-speaker-safe
 DEFAULT_REMOTE_MANIFEST = "/cache/a90-runtime/pkg/manifests/audio-setcal-internal-speaker-safe.manifest"
 
 
+def cycle_slug() -> str:
+    return CYCLE.lower()
+
+
+def decision(suffix: str) -> str:
+    return f"{cycle_slug()}-{suffix}"
+
+
 def configure_base_for_v2808() -> None:
     base.BUILD_MANIFEST = BUILD_MANIFEST
     base.CANDIDATE_IMAGE = CANDIDATE_IMAGE
@@ -320,7 +328,7 @@ def live_run(args: argparse.Namespace, state: dict[str, Any]) -> dict[str, Any]:
         raise SystemExit("refusing live run: preflight failed")
     deploy_plan = remap_deploy_plan_to_default_runtime(read_json(base.DEPLOY_PLAN))
     candidate_sha = str(state["candidate"]["sha256"])
-    out_dir = ROOT / f"workspace/private/runs/audio/v2808-audio-late-manifest-wait-{now_slug()}"
+    out_dir = ROOT / f"workspace/private/runs/audio/{cycle_slug()}-audio-late-manifest-wait-{now_slug()}"
     out_dir.mkdir(parents=True, exist_ok=False)
     native_manifest_path = base.materialize_native_manifest(out_dir, deploy_plan)
     write_json(out_dir / "preflight.json", state)
@@ -333,7 +341,7 @@ def live_run(args: argparse.Namespace, state: dict[str, Any]) -> dict[str, Any]:
     steps: list[dict[str, Any]] = []
     result: dict[str, Any] = {
         "cycle": CYCLE,
-        "decision": "v2808-audio-late-manifest-wait-live-started",
+        "decision": decision("audio-late-manifest-wait-live-started"),
         "out_dir": rel(out_dir),
         "candidate_sha256": candidate_sha,
         "candidate_tag": base.CANDIDATE_TAG,
@@ -402,16 +410,16 @@ def live_run(args: argparse.Namespace, state: dict[str, Any]) -> dict[str, Any]:
         play_result = run_play_sequence(args, out_dir, steps, deploy_plan, native_manifest_path)
         result.update(play_result)
         if play_result.get("play_start_failed"):
-            result["decision"] = "v2808-late-manifest-play-start-failed-before-rollback"
+            result["decision"] = decision("late-manifest-play-start-failed-before-rollback")
             raise RuntimeError("native audio play did not start worker")
         if play_result.get("card_not_ready_after_play_start"):
-            result["decision"] = "v2808-late-manifest-play-no-card-before-rollback"
+            result["decision"] = decision("late-manifest-play-no-card-before-rollback")
             raise RuntimeError("native audio play did not publish sound card/control before late deploy")
         if play_result.get("deploy_lost_card"):
-            result["decision"] = "v2808-late-manifest-deploy-lost-card-before-rollback"
+            result["decision"] = decision("late-manifest-deploy-lost-card-before-rollback")
             raise RuntimeError("late runtime artifact deploy lost sound card/control")
         if not result.get("play_output_pass"):
-            result["decision"] = "v2808-late-manifest-play-failed-before-rollback"
+            result["decision"] = decision("late-manifest-play-failed-before-rollback")
             raise RuntimeError("native audio play did not emit all required pass markers")
 
         candidate_selftest_after = base.run_serial_step(
@@ -425,10 +433,10 @@ def live_run(args: argparse.Namespace, state: dict[str, Any]) -> dict[str, Any]:
         result["candidate_selftest_after_play_fail0"] = base.selftest_step_ok(candidate_selftest_after)
         if not result["candidate_selftest_after_play_fail0"]:
             raise RuntimeError("candidate post-play selftest did not report fail=0")
-        result["decision"] = "v2808-late-manifest-play-pass-before-rollback"
+        result["decision"] = decision("late-manifest-play-pass-before-rollback")
     except Exception as exc:
-        if result["decision"] == "v2808-audio-late-manifest-wait-live-started":
-            result["decision"] = "v2808-late-manifest-live-blocked"
+        if result["decision"] == decision("audio-late-manifest-wait-live-started"):
+            result["decision"] = decision("late-manifest-live-blocked")
         result["error_type"] = type(exc).__name__
         result["error"] = str(exc)
         raise
@@ -456,7 +464,7 @@ def render_report(result: dict[str, Any]) -> str:
     installed = result.get("runtime_artifacts", {}).get("installed", []) if isinstance(result.get("runtime_artifacts"), dict) else []
     installed_lines = [f"- `{item.get('kind')}` `{item.get('remote')}`" for item in installed] or ["- No runtime artifact installs recorded."]
     return "\n".join([
-        "# Native Init V2808 Audio Late Manifest Wait Live Handoff",
+        f"# Native Init {CYCLE} Audio Late Manifest Wait Live Handoff",
         "",
         "## Summary",
         "",
@@ -514,7 +522,7 @@ def render_report(result: dict[str, Any]) -> str:
 
 def dry_run_payload(args: argparse.Namespace, state: dict[str, Any]) -> dict[str, Any]:
     return {
-        "decision": "v2808-late-manifest-play-live-dry-run",
+        "decision": decision("late-manifest-play-live-dry-run"),
         "preflight_ok": preflight_ok(state),
         "preflight": state,
         "commands": {

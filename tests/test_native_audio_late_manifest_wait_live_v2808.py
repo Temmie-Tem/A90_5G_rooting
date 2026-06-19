@@ -7,6 +7,7 @@ import unittest
 ROOT = Path(__file__).resolve().parents[1]
 SCRIPT_DIR = ROOT / "workspace/public/src/scripts/revalidation"
 SCRIPT = SCRIPT_DIR / "native_audio_late_manifest_wait_live_handoff_v2808.py"
+WRAPPER = SCRIPT_DIR / "native_audio_late_manifest_wait_live_handoff_v2810.py"
 
 
 class NativeAudioLateManifestWaitLiveV2808Test(unittest.TestCase):
@@ -74,6 +75,18 @@ class NativeAudioLateManifestWaitLiveV2808Test(unittest.TestCase):
         self.assertIn("manifest_ready", text)
         self.assertIn("audio.play.worker.manifest_wait_started=1", text)
         self.assertIn("audio.play.worker.manifest_ready=1", text)
+
+    def test_runner_decisions_and_output_dir_are_cycle_relative(self) -> None:
+        text = SCRIPT.read_text(encoding="utf-8")
+        self.assertIn("def decision(suffix: str)", text)
+        self.assertIn("workspace/private/runs/audio/{cycle_slug()}-audio-late-manifest-wait", text)
+        self.assertNotIn("v2808-audio-late-manifest-wait-{now_slug()}", text)
+
+    def test_v2810_wrapper_reuses_runner_with_fresh_identity(self) -> None:
+        text = WRAPPER.read_text(encoding="utf-8")
+        self.assertIn('runner.CYCLE = "V2810"', text)
+        self.assertIn("NATIVE_INIT_V2810_AUDIO_LATE_MANIFEST_WAIT_RETRY_LIVE_2026-06-19.md", text)
+        self.assertIn("native_audio_late_manifest_wait_live_handoff_v2808", text)
 
 
 if __name__ == "__main__":
