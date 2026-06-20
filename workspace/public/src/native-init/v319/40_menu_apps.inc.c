@@ -1376,6 +1376,12 @@ static const char *readinput_event_role_name(unsigned int type, unsigned int cod
         case KEY_LEFTSHIFT:
         case KEY_RIGHTSHIFT:
             return "doom_run";
+        case KEY_VOLUMEUP:
+            return "doom_button_forward";
+        case KEY_VOLUMEDOWN:
+            return "doom_button_back";
+        case KEY_POWER:
+            return "doom_button_fire";
         default:
             return "key_other";
         }
@@ -1475,6 +1481,15 @@ static void doominput_apply_key(struct doominput_state *state,
     case KEY_LEFTSHIFT:
     case KEY_RIGHTSHIFT:
         state->run = down;
+        break;
+    case KEY_VOLUMEUP:
+        state->forward = down;
+        break;
+    case KEY_VOLUMEDOWN:
+        state->back = down;
+        break;
+    case KEY_POWER:
+        state->fire = down;
         break;
     case BTN_TOUCH:
         state->touch_contact = down;
