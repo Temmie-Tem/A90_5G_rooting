@@ -23,6 +23,9 @@ CURRENT_DOOM_FRONTIER_REPORT = (
 CURRENT_DOOM_FLASH_GATE_REPORT = (
     REPO_ROOT / "docs" / "reports" / "NATIVE_INIT_V3010_DOOM_INPUT_FLASH_GATE_ASSETS_2026-06-20.md"
 )
+CURRENT_DOOM_LIVE_PRECONDITION_REPORT = (
+    REPO_ROOT / "docs" / "reports" / "NATIVE_INIT_V3012_DOOM_INPUT_LIVE_PRECONDITION_CURRENT_2026-06-20.md"
+)
 
 
 def parse_args() -> argparse.Namespace:
@@ -92,9 +95,58 @@ def current_doom_flash_gate_evidence(report_text: str | None) -> dict[str, Any]:
     }
 
 
+def current_doom_live_precondition_evidence(report_text: str | None) -> dict[str, Any]:
+    if not report_text:
+        return {
+            "v3012_live_precondition_report_present": False,
+            "v3012_resident_health_ok": False,
+            "v3012_gate_assets_ready": False,
+            "v3012_external_gate_retained": False,
+            "v3012_a90_otg_keyboard_evidence": False,
+            "v3012_v3004_live_actionable_now": None,
+            "v3012_host_only_gate_audit_stop": False,
+            "v3012_live_precondition_decision": None,
+        }
+    decision_wait = "v3012-doom-input-live-precondition-current-hardware-wait" in report_text
+    decision_ready = "v3012-doom-input-live-precondition-live-ready" in report_text
+    resident_health_ok = marker_present(report_text, "Bridge/control path ready: `1`") and marker_present(
+        report_text, "Resident selftest fail=0: `1`"
+    )
+    gate_assets_ready = marker_present(report_text, "V3010 flash-gate assets ready: `1`")
+    external_gate_retained = marker_present(report_text, "V3011 selector external gate retained: `1`")
+    a90_otg_keyboard_evidence = marker_present(report_text, "A90 OTG keyboard evdev evidence: `1`")
+    live_actionable = marker_present(report_text, "V3004 live actionable now: `1`")
+    return {
+        "v3012_live_precondition_report_present": True,
+        "v3012_resident_health_ok": bool(resident_health_ok),
+        "v3012_gate_assets_ready": bool(gate_assets_ready),
+        "v3012_external_gate_retained": bool(external_gate_retained),
+        "v3012_a90_otg_keyboard_evidence": bool(a90_otg_keyboard_evidence),
+        "v3012_v3004_live_actionable_now": bool(live_actionable),
+        "v3012_host_only_gate_audit_stop": bool(
+            decision_wait
+            and resident_health_ok
+            and gate_assets_ready
+            and external_gate_retained
+            and not a90_otg_keyboard_evidence
+            and not live_actionable
+        ),
+        "v3012_live_precondition_decision": (
+            "v3012-doom-input-live-precondition-live-ready"
+            if decision_ready
+            else (
+                "v3012-doom-input-live-precondition-current-hardware-wait"
+                if decision_wait
+                else "v3012-doom-input-live-precondition-current-blocked"
+            )
+        ),
+    }
+
+
 def current_doom_input_evaluation(
     report_text: str | None,
     flash_gate_report_text: str | None = None,
+    live_precondition_report_text: str | None = None,
 ) -> dict[str, Any] | None:
     if not report_text:
         return None
@@ -104,6 +156,8 @@ def current_doom_input_evaluation(
     keyboard_gate = marker_present(report_text, "USB keyboard live gate staged: `1`")
     current_actionable = marker_present(report_text, "Current V3007 gate actionable now: `1`")
     flash_gate = current_doom_flash_gate_evidence(flash_gate_report_text)
+    live_precondition = current_doom_live_precondition_evidence(live_precondition_report_text)
+    safe_actionable_now = bool(current_actionable or live_precondition["v3012_v3004_live_actionable_now"])
     drop_trigger = (
         "V3008 reconciles V2984..V3007: touch capability is proven but touch/button liveness "
         "is not, V3004 USB keyboard/OTG is staged, and current evidence lacks an A90 OTG "
@@ -111,11 +165,18 @@ def current_doom_input_evaluation(
     )
     if flash_gate["v3010_flash_gate_assets_ready"]:
         drop_trigger += " V3010 confirms the live-gate flash assets are present and checksum-clean."
+    if live_precondition["v3012_host_only_gate_audit_stop"]:
+        drop_trigger += (
+            " V3012 confirms the resident bridge/health and assets are clean, but A90-side "
+            "OTG keyboard evidence is still absent; further host-only gate audits are churn."
+        )
+    elif live_precondition["v3012_v3004_live_actionable_now"]:
+        drop_trigger += " V3012 reports the V3004 live gate is actionable now."
     return {
         "track": "VIDEO",
         "name": "doom-input",
-        "safe_actionable_now": bool(current_actionable),
-        "status": "keyboard-otg-live-ready" if current_actionable else "external-hardware-stimulus-required",
+        "safe_actionable_now": safe_actionable_now,
+        "status": "keyboard-otg-live-ready" if safe_actionable_now else "external-hardware-stimulus-required",
         "drop_trigger": drop_trigger,
         "evidence": {
             "v3008_reconciliation_present": True,
@@ -123,6 +184,7 @@ def current_doom_input_evaluation(
             "keyboard_gate_staged": keyboard_gate,
             "current_v3007_gate_actionable": current_actionable,
             **flash_gate,
+            **live_precondition,
             "next_live_command": (
                 "PYTHONPATH=workspace/public/src/scripts/revalidation:workspace/public/src/harness "
                 "python3 workspace/public/src/scripts/revalidation/"
@@ -139,10 +201,15 @@ def track_evaluations(
     frontier_candidates: dict[str, Any],
     current_doom_report_text: str | None = None,
     current_doom_flash_gate_report_text: str | None = None,
+    current_doom_live_precondition_report_text: str | None = None,
 ) -> list[dict[str, Any]]:
     signals = inventory["consolidation_signals"]
     t1_candidates = ready_t1_candidates(frontier_candidates)
-    current_video = current_doom_input_evaluation(current_doom_report_text, current_doom_flash_gate_report_text)
+    current_video = current_doom_input_evaluation(
+        current_doom_report_text,
+        current_doom_flash_gate_report_text,
+        current_doom_live_precondition_report_text,
+    )
     t1_closed_boundary = all_markers_present(
         goal_text,
         (
@@ -235,6 +302,7 @@ def select_frontier() -> dict[str, Any]:
     frontier_candidates = read_json(FRONTIER_CANDIDATES_JSON) if FRONTIER_CANDIDATES_JSON.exists() else {"candidates": []}
     current_doom_report_text = read_optional_text(CURRENT_DOOM_FRONTIER_REPORT)
     current_doom_flash_gate_report_text = read_optional_text(CURRENT_DOOM_FLASH_GATE_REPORT)
+    current_doom_live_precondition_report_text = read_optional_text(CURRENT_DOOM_LIVE_PRECONDITION_REPORT)
     evaluations = track_evaluations(
         goal_text,
         todo_text,
@@ -242,20 +310,33 @@ def select_frontier() -> dict[str, Any]:
         frontier_candidates,
         current_doom_report_text,
         current_doom_flash_gate_report_text,
+        current_doom_live_precondition_report_text,
     )
     actionable = [evaluation for evaluation in evaluations if evaluation["safe_actionable_now"]]
-    current_video = current_doom_input_evaluation(current_doom_report_text, current_doom_flash_gate_report_text)
+    current_video = current_doom_input_evaluation(
+        current_doom_report_text,
+        current_doom_flash_gate_report_text,
+        current_doom_live_precondition_report_text,
+    )
     if current_video and not current_video["safe_actionable_now"]:
-        attach_clause = (
-            "Flash-gate assets are ready; attach"
-            if current_video["evidence"].get("v3010_flash_gate_assets_ready")
-            else "Attach"
-        )
-        next_operator_decision = (
-            f"{attach_clause} USB keyboard/OTG to the A90 and provide operator DOOM key presses, "
-            "then run the V3004 keyboard live gate; otherwise use T3 host-only tooling only, "
-            "not repeat touch/button live flashes."
-        )
+        evidence = current_video["evidence"]
+        if evidence.get("v3012_host_only_gate_audit_stop"):
+            next_operator_decision = (
+                "V3012 confirms bridge/resident health and live-gate assets are clean, but A90-side "
+                "USB keyboard/OTG evidence is still absent; stop DOOM input host-only gate audits "
+                "until hardware plus operator key presses are available, then run the V3004 keyboard live gate."
+            )
+        else:
+            attach_clause = (
+                "Flash-gate assets are ready; attach"
+                if evidence.get("v3010_flash_gate_assets_ready")
+                else "Attach"
+            )
+            next_operator_decision = (
+                f"{attach_clause} USB keyboard/OTG to the A90 and provide operator DOOM key presses, "
+                "then run the V3004 keyboard live gate; otherwise use T3 host-only tooling only, "
+                "not repeat touch/button live flashes."
+            )
     elif not actionable:
         next_operator_decision = (
             "Define a new T1 oracle, set a concrete V2254 live-validation criterion beyond V2282, "
@@ -277,6 +358,7 @@ def select_frontier() -> dict[str, Any]:
             "frontier_candidates": str(FRONTIER_CANDIDATES_JSON.relative_to(REPO_ROOT)),
             "current_doom_frontier_report": str(CURRENT_DOOM_FRONTIER_REPORT.relative_to(REPO_ROOT)),
             "current_doom_flash_gate_report": str(CURRENT_DOOM_FLASH_GATE_REPORT.relative_to(REPO_ROOT)),
+            "current_doom_live_precondition_report": str(CURRENT_DOOM_LIVE_PRECONDITION_REPORT.relative_to(REPO_ROOT)),
         },
     }
 
