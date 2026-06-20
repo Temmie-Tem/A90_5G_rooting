@@ -570,6 +570,22 @@ static bool auto_hud_handle_menu_key(struct auto_hud_state *state,
             auto_hud_show_menu(state, false);
             break;
         }
+        case SCREEN_MENU_DEMO_DOOM: {
+            char *demo_argv[] = { "video", "demo", "doom", "status" };
+            int rc;
+
+            a90_console_printf("menu.demo.doom.action=status-only\r\n");
+            a90_console_printf("menu.demo.doom.status=blocked-input-prerequisite\r\n");
+            a90_console_printf("menu.demo.doom.input=not-proven\r\n");
+            a90_console_printf("menu.demo.doom.input.live_handoff=v2999-doominput-mux-live\r\n");
+            a90_console_printf("menu.demo.doom.input.command=doominputmux event3,event0 24 45000\r\n");
+            a90_console_printf("menu.demo.doom.restore=menu\r\n");
+            rc = cmd_video_demo(demo_argv,
+                                (int)(sizeof(demo_argv) / sizeof(demo_argv[0])));
+            a90_console_printf("menu.demo.doom.rc=%d\r\n", rc);
+            auto_hud_show_menu(state, false);
+            break;
+        }
         case SCREEN_MENU_CPU_STRESS_5:
         case SCREEN_MENU_CPU_STRESS_10:
         case SCREEN_MENU_CPU_STRESS_30:

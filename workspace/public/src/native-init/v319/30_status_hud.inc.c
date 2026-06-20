@@ -88,6 +88,8 @@ static int cmd_video_status(void) {
     a90_console_printf("video.status.player_hud_fastpath=1\r\n");
     a90_console_printf("video.status.player_hud_incremental_panel=1\r\n");
     a90_console_printf("video.status.nyan_pal8_rle=1\r\n");
+    a90_console_printf("video.status.doom_stub=1\r\n");
+    a90_console_printf("video.status.doom_input=not-proven\r\n");
     a90_console_printf("video.status.venus=not-used\r\n");
     a90_console_printf("video.status.kgsl=not-used\r\n");
     a90_console_printf("video.status.raw_dsi=blocked\r\n");
@@ -116,7 +118,7 @@ static int cmd_video_status(void) {
     a90_console_printf("video.status.next_stream_pageflip=video stream --manifest PATH --video-only [--frames N] --present pageflip\r\n");
     a90_console_printf("video.status.next_stream_sync=video stream --manifest PATH --video-only [--frames N] --present pageflip --sync-audio-status /cache/a90-audio-play/status.txt\r\n");
     a90_console_printf("video.status.next_cache=video cache [status|verify|play] SHA256 [--trust-cache] [--present pageflip] [--layout full|player-hud] | video cache preset [badapple|badapple-scale|nyan] play [--trust-cache]\r\n");
-    a90_console_printf("video.status.next_demo=video demo [badapple|badapple-scale|nyan] [status|verify|play] [--trust-cache]\r\n");
+    a90_console_printf("video.status.next_demo=video demo [badapple|badapple-scale|nyan|doom] [status|verify|play] [--trust-cache]\r\n");
     a90_console_printf("video.status.next_flipprobe=video flipprobe [frames<=120]\r\n");
     return 0;
 }
@@ -2493,11 +2495,43 @@ static enum video_stream_layout video_cache_preset_default_layout(const char *pr
 
 static int cmd_video_cache(char **argv, int argc);
 
+static int video_demo_doom_status(const char *action) {
+    a90_console_printf("video.demo.preset=doom\r\n");
+    a90_console_printf("video.demo.asset_id=doomgeneric-pending\r\n");
+    a90_console_printf("video.demo.status=blocked-input-prerequisite\r\n");
+    a90_console_printf("video.demo.display=ready-kms-player-path\r\n");
+    a90_console_printf("video.demo.audio=optional-ready\r\n");
+    a90_console_printf("video.demo.input=not-proven\r\n");
+    a90_console_printf("video.demo.input.touch=event6,event8-zero-events\r\n");
+    a90_console_printf("video.demo.input.button_mux=v2999-doominput-mux-live\r\n");
+    a90_console_printf("video.demo.input.next=doominputmux event3,event0 24 45000\r\n");
+    a90_console_printf("video.demo.boot_asset_policy=boot-image-carries-status-not-doom\r\n");
+    if (strcmp(action, "status") == 0) {
+        a90_console_printf("video.demo.doom.status_rc=0\r\n");
+        return 0;
+    }
+    a90_console_printf("video.demo.doom.%s=blocked-input-not-proven\r\n", action);
+    return -EAGAIN;
+}
+
 static int cmd_video_demo(char **argv, int argc) {
-    const char *usage = "usage: video demo [bars|checker|mono|0xRRGGBB|badapple|badapple-scale|nyan [status|verify|play] [--trust-cache] [--frames N] [--present setcrtc|pageflip] [--layout full|player-hud] [--sync-audio-status /cache/a90-audio-play/status.txt] [--sync-wait-ms N] [--sync-start-offset-ms N]]\r\n";
+    const char *usage = "usage: video demo [bars|checker|mono|0xRRGGBB|badapple|badapple-scale|nyan|doom [status|verify|play] [--trust-cache] [--frames N] [--present setcrtc|pageflip] [--layout full|player-hud] [--sync-audio-status /cache/a90-audio-play/status.txt] [--sync-wait-ms N] [--sync-start-offset-ms N]]\r\n";
     char *cache_argv[CMDV1X_MAX_ARGS];
     int cache_argc = 0;
     int index;
+
+    if (argc >= 3 && strcmp(argv[2], "doom") == 0) {
+        const char *action = argc >= 4 ? argv[3] : "status";
+
+        if (argc > 4 ||
+            (strcmp(action, "status") != 0 &&
+             strcmp(action, "verify") != 0 &&
+             strcmp(action, "play") != 0)) {
+            a90_console_printf("%s", usage);
+            return -EINVAL;
+        }
+        return video_demo_doom_status(action);
+    }
 
     if (argc >= 3 &&
         (strcmp(argv[2], VIDEO_CACHE_PRESET_BADAPPLE_NAME) == 0 ||
