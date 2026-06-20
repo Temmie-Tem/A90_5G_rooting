@@ -1249,6 +1249,170 @@ static int cmd_inputcaps(char **argv, int argc) {
     return 0;
 }
 
+static const char *readinput_event_type_name(unsigned int type) {
+    switch (type) {
+    case EV_SYN:
+        return "EV_SYN";
+    case EV_KEY:
+        return "EV_KEY";
+    case EV_ABS:
+        return "EV_ABS";
+    default:
+        return "EV_OTHER";
+    }
+}
+
+static const char *readinput_event_code_name(unsigned int type, unsigned int code) {
+    if (type == EV_SYN) {
+        switch (code) {
+        case SYN_REPORT:
+            return "SYN_REPORT";
+        default:
+            return "SYN_OTHER";
+        }
+    }
+
+    if (type == EV_KEY) {
+        switch (code) {
+        case BTN_TOUCH:
+            return "BTN_TOUCH";
+        case KEY_W:
+            return "KEY_W";
+        case KEY_A:
+            return "KEY_A";
+        case KEY_S:
+            return "KEY_S";
+        case KEY_D:
+            return "KEY_D";
+        case KEY_UP:
+            return "KEY_UP";
+        case KEY_DOWN:
+            return "KEY_DOWN";
+        case KEY_LEFT:
+            return "KEY_LEFT";
+        case KEY_RIGHT:
+            return "KEY_RIGHT";
+        case KEY_ENTER:
+            return "KEY_ENTER";
+        case KEY_SPACE:
+            return "KEY_SPACE";
+        case KEY_ESC:
+            return "KEY_ESC";
+        case KEY_LEFTCTRL:
+            return "KEY_LEFTCTRL";
+        case KEY_RIGHTCTRL:
+            return "KEY_RIGHTCTRL";
+        case KEY_LEFTSHIFT:
+            return "KEY_LEFTSHIFT";
+        case KEY_RIGHTSHIFT:
+            return "KEY_RIGHTSHIFT";
+        case KEY_POWER:
+            return "KEY_POWER";
+        case KEY_VOLUMEUP:
+            return "KEY_VOLUMEUP";
+        case KEY_VOLUMEDOWN:
+            return "KEY_VOLUMEDOWN";
+        default:
+            return "KEY_OTHER";
+        }
+    }
+
+    if (type == EV_ABS) {
+        switch (code) {
+        case ABS_X:
+            return "ABS_X";
+        case ABS_Y:
+            return "ABS_Y";
+        case ABS_PRESSURE:
+            return "ABS_PRESSURE";
+        case ABS_MT_SLOT:
+            return "ABS_MT_SLOT";
+        case ABS_MT_TOUCH_MAJOR:
+            return "ABS_MT_TOUCH_MAJOR";
+        case ABS_MT_POSITION_X:
+            return "ABS_MT_POSITION_X";
+        case ABS_MT_POSITION_Y:
+            return "ABS_MT_POSITION_Y";
+        case ABS_MT_TRACKING_ID:
+            return "ABS_MT_TRACKING_ID";
+        case ABS_MT_PRESSURE:
+            return "ABS_MT_PRESSURE";
+        default:
+            return "ABS_OTHER";
+        }
+    }
+
+    return "CODE_OTHER";
+}
+
+static const char *readinput_event_role_name(unsigned int type, unsigned int code) {
+    if (type == EV_SYN && code == SYN_REPORT) {
+        return "frame";
+    }
+    if (type == EV_KEY) {
+        switch (code) {
+        case BTN_TOUCH:
+            return "touch_contact";
+        case KEY_W:
+        case KEY_UP:
+            return "doom_forward";
+        case KEY_S:
+        case KEY_DOWN:
+            return "doom_back";
+        case KEY_A:
+        case KEY_LEFT:
+            return "doom_left";
+        case KEY_D:
+        case KEY_RIGHT:
+            return "doom_right";
+        case KEY_ENTER:
+        case KEY_SPACE:
+            return "doom_use";
+        case KEY_ESC:
+            return "doom_menu";
+        case KEY_LEFTCTRL:
+        case KEY_RIGHTCTRL:
+            return "doom_fire";
+        case KEY_LEFTSHIFT:
+        case KEY_RIGHTSHIFT:
+            return "doom_run";
+        default:
+            return "key_other";
+        }
+    }
+    if (type == EV_ABS) {
+        switch (code) {
+        case ABS_X:
+        case ABS_MT_POSITION_X:
+            return "touch_x";
+        case ABS_Y:
+        case ABS_MT_POSITION_Y:
+            return "touch_y";
+        case ABS_PRESSURE:
+        case ABS_MT_PRESSURE:
+            return "touch_pressure";
+        case ABS_MT_SLOT:
+            return "touch_slot";
+        case ABS_MT_TOUCH_MAJOR:
+            return "touch_major";
+        case ABS_MT_TRACKING_ID:
+            return "touch_tracking";
+        default:
+            return "abs_other";
+        }
+    }
+    return "other";
+}
+
+static void readinput_print_decoded_event(int index, const struct input_event *event) {
+    a90_console_printf("event.decode %d: type=%s code=%s role=%s value=%d\r\n",
+            index,
+            readinput_event_type_name(event->type),
+            readinput_event_code_name(event->type, event->code),
+            readinput_event_role_name(event->type, event->code),
+            event->value);
+}
+
 static int cmd_readinput(char **argv, int argc) {
     char event_name[32];
     char dev_path[PATH_MAX];
@@ -1381,6 +1545,7 @@ static int cmd_readinput(char **argv, int argc) {
                     event.type,
                     event.code,
                     event.value);
+            readinput_print_decoded_event(index, &event);
             ++index;
         }
         if ((fds[0].revents & (POLLERR | POLLHUP | POLLNVAL)) != 0) {
