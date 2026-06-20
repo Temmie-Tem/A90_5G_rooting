@@ -20,6 +20,9 @@ FRONTIER_CANDIDATES_JSON = REPO_ROOT / "docs" / "artifacts" / "native-init-front
 CURRENT_DOOM_FRONTIER_REPORT = (
     REPO_ROOT / "docs" / "reports" / "NATIVE_INIT_V3008_DOOM_INPUT_FRONTIER_RECONCILIATION_2026-06-20.md"
 )
+CURRENT_DOOM_FLASH_GATE_REPORT = (
+    REPO_ROOT / "docs" / "reports" / "NATIVE_INIT_V3010_DOOM_INPUT_FLASH_GATE_ASSETS_2026-06-20.md"
+)
 
 
 def parse_args() -> argparse.Namespace:
@@ -58,7 +61,41 @@ def ready_t1_candidates(frontier_candidates: dict[str, Any]) -> list[dict[str, A
     ]
 
 
-def current_doom_input_evaluation(report_text: str | None) -> dict[str, Any] | None:
+def current_doom_flash_gate_evidence(report_text: str | None) -> dict[str, Any]:
+    if not report_text:
+        return {
+            "v3010_flash_gate_report_present": False,
+            "v3010_flash_gate_assets_ready": False,
+            "v3010_flash_gate_reports_ok": False,
+            "v3010_external_hardware_wait_retained": False,
+            "v3010_v3004_live_actionable_now": None,
+            "v3010_flash_gate_decision": None,
+        }
+    decision_ready = "v3010-doom-input-flash-gate-assets-ready-hardware-wait" in report_text
+    assets_ready = marker_present(report_text, "Required assets present: `1`") and marker_present(
+        report_text, "Expected SHA256 checks pass: `1`"
+    )
+    reports_ok = marker_present(report_text, "Current gate reports pass: `1`")
+    external_wait = marker_present(report_text, "External hardware wait retained: `1`")
+    live_actionable = marker_present(report_text, "V3004 live actionable now: `1`")
+    return {
+        "v3010_flash_gate_report_present": True,
+        "v3010_flash_gate_assets_ready": bool(decision_ready and assets_ready),
+        "v3010_flash_gate_reports_ok": bool(reports_ok),
+        "v3010_external_hardware_wait_retained": bool(external_wait),
+        "v3010_v3004_live_actionable_now": bool(live_actionable),
+        "v3010_flash_gate_decision": (
+            "v3010-doom-input-flash-gate-assets-ready-hardware-wait"
+            if decision_ready
+            else "v3010-doom-input-flash-gate-assets-not-ready"
+        ),
+    }
+
+
+def current_doom_input_evaluation(
+    report_text: str | None,
+    flash_gate_report_text: str | None = None,
+) -> dict[str, Any] | None:
     if not report_text:
         return None
     if "v3008-doom-input-frontier-keyboard-gate-still-external-stimulus" not in report_text:
@@ -66,21 +103,26 @@ def current_doom_input_evaluation(report_text: str | None) -> dict[str, Any] | N
     saturated = marker_present(report_text, "Active tier saturated without external stimulus: `1`")
     keyboard_gate = marker_present(report_text, "USB keyboard live gate staged: `1`")
     current_actionable = marker_present(report_text, "Current V3007 gate actionable now: `1`")
+    flash_gate = current_doom_flash_gate_evidence(flash_gate_report_text)
+    drop_trigger = (
+        "V3008 reconciles V2984..V3007: touch capability is proven but touch/button liveness "
+        "is not, V3004 USB keyboard/OTG is staged, and current evidence lacks an A90 OTG "
+        "keyboard evdev node plus operator DOOM key presses."
+    )
+    if flash_gate["v3010_flash_gate_assets_ready"]:
+        drop_trigger += " V3010 confirms the live-gate flash assets are present and checksum-clean."
     return {
         "track": "VIDEO",
         "name": "doom-input",
         "safe_actionable_now": bool(current_actionable),
         "status": "keyboard-otg-live-ready" if current_actionable else "external-hardware-stimulus-required",
-        "drop_trigger": (
-            "V3008 reconciles V2984..V3007: touch capability is proven but touch/button liveness "
-            "is not, V3004 USB keyboard/OTG is staged, and current evidence lacks an A90 OTG "
-            "keyboard evdev node plus operator DOOM key presses."
-        ),
+        "drop_trigger": drop_trigger,
         "evidence": {
             "v3008_reconciliation_present": True,
             "active_tier_saturated_without_external_stimulus": saturated,
             "keyboard_gate_staged": keyboard_gate,
             "current_v3007_gate_actionable": current_actionable,
+            **flash_gate,
             "next_live_command": (
                 "PYTHONPATH=workspace/public/src/scripts/revalidation:workspace/public/src/harness "
                 "python3 workspace/public/src/scripts/revalidation/"
@@ -96,10 +138,11 @@ def track_evaluations(
     inventory: dict[str, Any],
     frontier_candidates: dict[str, Any],
     current_doom_report_text: str | None = None,
+    current_doom_flash_gate_report_text: str | None = None,
 ) -> list[dict[str, Any]]:
     signals = inventory["consolidation_signals"]
     t1_candidates = ready_t1_candidates(frontier_candidates)
-    current_video = current_doom_input_evaluation(current_doom_report_text)
+    current_video = current_doom_input_evaluation(current_doom_report_text, current_doom_flash_gate_report_text)
     t1_closed_boundary = all_markers_present(
         goal_text,
         (
@@ -191,14 +234,27 @@ def select_frontier() -> dict[str, Any]:
     inventory = read_json(INVENTORY_JSON)
     frontier_candidates = read_json(FRONTIER_CANDIDATES_JSON) if FRONTIER_CANDIDATES_JSON.exists() else {"candidates": []}
     current_doom_report_text = read_optional_text(CURRENT_DOOM_FRONTIER_REPORT)
-    evaluations = track_evaluations(goal_text, todo_text, inventory, frontier_candidates, current_doom_report_text)
+    current_doom_flash_gate_report_text = read_optional_text(CURRENT_DOOM_FLASH_GATE_REPORT)
+    evaluations = track_evaluations(
+        goal_text,
+        todo_text,
+        inventory,
+        frontier_candidates,
+        current_doom_report_text,
+        current_doom_flash_gate_report_text,
+    )
     actionable = [evaluation for evaluation in evaluations if evaluation["safe_actionable_now"]]
-    current_video = current_doom_input_evaluation(current_doom_report_text)
+    current_video = current_doom_input_evaluation(current_doom_report_text, current_doom_flash_gate_report_text)
     if current_video and not current_video["safe_actionable_now"]:
+        attach_clause = (
+            "Flash-gate assets are ready; attach"
+            if current_video["evidence"].get("v3010_flash_gate_assets_ready")
+            else "Attach"
+        )
         next_operator_decision = (
-            "Attach USB keyboard/OTG to the A90 and provide operator DOOM key presses, then run "
-            "the V3004 keyboard live gate; otherwise use T3 host-only tooling only, not repeat "
-            "touch/button live flashes."
+            f"{attach_clause} USB keyboard/OTG to the A90 and provide operator DOOM key presses, "
+            "then run the V3004 keyboard live gate; otherwise use T3 host-only tooling only, "
+            "not repeat touch/button live flashes."
         )
     elif not actionable:
         next_operator_decision = (
@@ -220,6 +276,7 @@ def select_frontier() -> dict[str, Any]:
             "inventory": str(INVENTORY_JSON.relative_to(REPO_ROOT)),
             "frontier_candidates": str(FRONTIER_CANDIDATES_JSON.relative_to(REPO_ROOT)),
             "current_doom_frontier_report": str(CURRENT_DOOM_FRONTIER_REPORT.relative_to(REPO_ROOT)),
+            "current_doom_flash_gate_report": str(CURRENT_DOOM_FLASH_GATE_REPORT.relative_to(REPO_ROOT)),
         },
     }
 

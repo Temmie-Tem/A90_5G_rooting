@@ -121,7 +121,45 @@ class NativeInitFrontierSelectTests(unittest.TestCase):
         self.assertFalse(evaluation["safe_actionable_now"])
         self.assertEqual(evaluation["status"], "external-hardware-stimulus-required")
         self.assertTrue(evaluation["evidence"]["active_tier_saturated_without_external_stimulus"])
+        self.assertFalse(evaluation["evidence"]["v3010_flash_gate_report_present"])
         self.assertIn("native_doominput_keyboard_live_gate_v3004.py --live", evaluation["evidence"]["next_live_command"])
+
+    def test_current_doom_input_evaluation_includes_v3010_flash_gate_readiness(self) -> None:
+        report = "\n".join([
+            "v3008-doom-input-frontier-keyboard-gate-still-external-stimulus",
+            "Active tier saturated without external stimulus: `1`",
+            "USB keyboard live gate staged: `1`",
+            "Current V3007 gate actionable now: `0`",
+        ])
+        flash_gate_report = "\n".join([
+            "v3010-doom-input-flash-gate-assets-ready-hardware-wait",
+            "Required assets present: `1`",
+            "Expected SHA256 checks pass: `1`",
+            "Current gate reports pass: `1`",
+            "External hardware wait retained: `1`",
+            "V3004 live actionable now: `0`",
+        ])
+
+        evaluation = frontier.current_doom_input_evaluation(report, flash_gate_report)
+
+        self.assertIsNotNone(evaluation)
+        assert evaluation is not None
+        evidence = evaluation["evidence"]
+        self.assertFalse(evaluation["safe_actionable_now"])
+        self.assertTrue(evidence["v3010_flash_gate_report_present"])
+        self.assertTrue(evidence["v3010_flash_gate_assets_ready"])
+        self.assertTrue(evidence["v3010_flash_gate_reports_ok"])
+        self.assertTrue(evidence["v3010_external_hardware_wait_retained"])
+        self.assertFalse(evidence["v3010_v3004_live_actionable_now"])
+        self.assertIn("V3010 confirms", evaluation["drop_trigger"])
+
+    def test_current_doom_flash_gate_evidence_rejects_incomplete_report(self) -> None:
+        evidence = frontier.current_doom_flash_gate_evidence("Required assets present: `1`")
+
+        self.assertTrue(evidence["v3010_flash_gate_report_present"])
+        self.assertFalse(evidence["v3010_flash_gate_assets_ready"])
+        self.assertFalse(evidence["v3010_flash_gate_reports_ok"])
+        self.assertEqual(evidence["v3010_flash_gate_decision"], "v3010-doom-input-flash-gate-assets-not-ready")
 
     def test_track_evaluations_prioritizes_current_video_doom_gate(self) -> None:
         inventory = {
@@ -165,6 +203,7 @@ class NativeInitFrontierSelectTests(unittest.TestCase):
         self.assertEqual(result["source_paths"]["goal"], "GOAL.md")
         self.assertEqual(result["source_paths"]["frontier_candidates"], "docs/artifacts/native-init-frontier-candidates.json")
         self.assertEqual(result["source_paths"]["current_doom_frontier_report"], "docs/reports/NATIVE_INIT_V3008_DOOM_INPUT_FRONTIER_RECONCILIATION_2026-06-20.md")
+        self.assertEqual(result["source_paths"]["current_doom_flash_gate_report"], "docs/reports/NATIVE_INIT_V3010_DOOM_INPUT_FLASH_GATE_ASSETS_2026-06-20.md")
 
     def test_select_frontier_selects_first_actionable_track(self) -> None:
         with self._fake_repo(
@@ -214,12 +253,46 @@ class NativeInitFrontierSelectTests(unittest.TestCase):
         self.assertEqual(result["track_evaluations"][0]["status"], "external-hardware-stimulus-required")
         self.assertIn("Attach USB keyboard/OTG", result["next_operator_decision"])
 
+    def test_select_frontier_reports_v3010_flash_gate_assets_ready(self) -> None:
+        with self._fake_repo(
+            inventory_signals={
+                "direct_a90ctl_actionable_now_count": 0,
+                "direct_a90ctl_review_only_count": 0,
+                "direct_a90ctl_next_actionable_group": None,
+                "source_delete_review_count": 0,
+                "active_live_phase_residual_backlog_closed": True,
+            },
+            frontier_candidates=None,
+            current_doom_report="\n".join([
+                "v3008-doom-input-frontier-keyboard-gate-still-external-stimulus",
+                "Active tier saturated without external stimulus: `1`",
+                "USB keyboard live gate staged: `1`",
+                "Current V3007 gate actionable now: `0`",
+            ]),
+            current_doom_flash_gate_report="\n".join([
+                "v3010-doom-input-flash-gate-assets-ready-hardware-wait",
+                "Required assets present: `1`",
+                "Expected SHA256 checks pass: `1`",
+                "Current gate reports pass: `1`",
+                "External hardware wait retained: `1`",
+                "V3004 live actionable now: `0`",
+            ]),
+        ) as paths:
+            with self._patch_paths(paths):
+                result = frontier.select_frontier()
+
+        self.assertEqual(result["decision"], "frontier-selector-no-automatic-safe-unit")
+        evidence = result["track_evaluations"][0]["evidence"]
+        self.assertTrue(evidence["v3010_flash_gate_assets_ready"])
+        self.assertIn("Flash-gate assets are ready", result["next_operator_decision"])
+
     @staticmethod
     def _fake_repo(
         *,
         inventory_signals: dict[str, object],
         frontier_candidates: dict[str, object] | None,
         current_doom_report: str | None = None,
+        current_doom_flash_gate_report: str | None = None,
     ):
         class RepoContext:
             def __enter__(self):
@@ -243,6 +316,10 @@ class NativeInitFrontierSelectTests(unittest.TestCase):
                     (root / "docs" / "reports" / "NATIVE_INIT_V3008_DOOM_INPUT_FRONTIER_RECONCILIATION_2026-06-20.md").write_text(
                         current_doom_report, encoding="utf-8"
                     )
+                if current_doom_flash_gate_report is not None:
+                    (root / "docs" / "reports" / "NATIVE_INIT_V3010_DOOM_INPUT_FLASH_GATE_ASSETS_2026-06-20.md").write_text(
+                        current_doom_flash_gate_report, encoding="utf-8"
+                    )
                 self.root = root
                 return {
                     "root": root,
@@ -251,6 +328,7 @@ class NativeInitFrontierSelectTests(unittest.TestCase):
                     "inventory": root / "docs" / "reports" / "REVALIDATION_SCRIPT_INVENTORY_2026-06-10.json",
                     "frontier": root / "docs" / "artifacts" / "native-init-frontier-candidates.json",
                     "current_doom": root / "docs" / "reports" / "NATIVE_INIT_V3008_DOOM_INPUT_FRONTIER_RECONCILIATION_2026-06-20.md",
+                    "current_doom_flash_gate": root / "docs" / "reports" / "NATIVE_INIT_V3010_DOOM_INPUT_FLASH_GATE_ASSETS_2026-06-20.md",
                 }
 
             def __exit__(self, exc_type, exc, tb):
@@ -269,6 +347,7 @@ class NativeInitFrontierSelectTests(unittest.TestCase):
             INVENTORY_JSON=paths["inventory"],
             FRONTIER_CANDIDATES_JSON=paths["frontier"],
             CURRENT_DOOM_FRONTIER_REPORT=paths["current_doom"],
+            CURRENT_DOOM_FLASH_GATE_REPORT=paths["current_doom_flash_gate"],
         )
 
 
