@@ -16,8 +16,8 @@ class NativeVideoNyanPal8RleDecoderV2971(unittest.TestCase):
         self.assertIn("#define VIDEO_STREAM_VERSION_A90VSTR2 2U", self.text)
         self.assertIn("#define VIDEO_STREAM_PAL8_RAW_MODE 1U", self.text)
         self.assertIn("#define VIDEO_STREAM_PAL8_RLE_MODE 2U", self.text)
-        self.assertIn("struct video_stream_header_v2", self.text)
-        self.assertIn("struct video_stream_frame_record_v2", self.text)
+        self.assertIn("struct __attribute__((packed)) video_stream_header_v2", self.text)
+        self.assertIn("struct __attribute__((packed)) video_stream_frame_record_v2", self.text)
         self.assertIn('memcmp(header->magic, "A90VSTR2", 8)', self.text)
 
     def test_manifest_parser_accepts_pal8_rle_without_v1_stride_fields(self) -> None:
@@ -49,6 +49,11 @@ class NativeVideoNyanPal8RleDecoderV2971(unittest.TestCase):
         self.assertIn('beat_enabled ? A90_BADAPPLE_BEAT_SOURCE_ID : "none"', self.text)
         self.assertIn("manifest->stream_version == VIDEO_STREAM_VERSION_A90VSTR2", self.text)
         self.assertIn("return 0;", self.text)
+
+    def test_v2_cache_readiness_accepts_variable_size_streams(self) -> None:
+        self.assertIn("if (manifest->stream_version == VIDEO_STREAM_VERSION_A90VSTR2)", self.text)
+        self.assertIn("*size_match_out = st.st_size > 0;", self.text)
+        self.assertIn("(uint64_t)st.st_size == expected", self.text)
 
 
 if __name__ == "__main__":

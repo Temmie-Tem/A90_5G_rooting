@@ -82,11 +82,12 @@ static int cmd_video_status(void) {
     struct a90_kms_info info;
 
     a90_kms_info(&info);
-    a90_console_printf("video.status.version=7\r\n");
+    a90_console_printf("video.status.version=8\r\n");
     a90_console_printf("video.status.path=kms-dumb-buffer\r\n");
     a90_console_printf("video.status.display_owner=1\r\n");
     a90_console_printf("video.status.player_hud_fastpath=1\r\n");
     a90_console_printf("video.status.player_hud_incremental_panel=1\r\n");
+    a90_console_printf("video.status.nyan_pal8_rle=1\r\n");
     a90_console_printf("video.status.venus=not-used\r\n");
     a90_console_printf("video.status.kgsl=not-used\r\n");
     a90_console_printf("video.status.raw_dsi=blocked\r\n");
@@ -650,7 +651,7 @@ struct video_stream_frame_record_v1 {
     uint64_t pts_ns;
 };
 
-struct video_stream_header_v2 {
+struct __attribute__((packed)) video_stream_header_v2 {
     char magic[8];
     uint32_t version;
     uint32_t width;
@@ -664,7 +665,7 @@ struct video_stream_header_v2 {
     uint8_t reserved[32];
 };
 
-struct video_stream_frame_record_v2 {
+struct __attribute__((packed)) video_stream_frame_record_v2 {
     uint32_t index;
     uint32_t mode;
     uint32_t payload_bytes;
@@ -1802,7 +1803,11 @@ static int video_cache_stat_stream(const struct video_stream_manifest *manifest,
         *size_out = st.st_size > 0 ? (uint64_t)st.st_size : 0;
     }
     if (size_match_out != NULL) {
-        *size_match_out = st.st_size >= 0 && (uint64_t)st.st_size == expected;
+        if (manifest->stream_version == VIDEO_STREAM_VERSION_A90VSTR2) {
+            *size_match_out = st.st_size > 0;
+        } else {
+            *size_match_out = st.st_size >= 0 && (uint64_t)st.st_size == expected;
+        }
     }
     return 0;
 }
