@@ -71,6 +71,7 @@ static void cmd_help(void) {
     a90_console_printf("inputscan [eventX]\r\n");
     a90_console_printf("inputcaps <eventX>\r\n");
     a90_console_printf("readinput <eventX> [count] [timeout_ms]\r\n");
+    a90_console_printf("doominput <eventX> [count] [timeout_ms]\r\n");
     a90_console_printf("waitkey [count]\r\n");
     a90_console_printf("inputlayout\r\n");
     a90_console_printf("waitgesture [count]\r\n");

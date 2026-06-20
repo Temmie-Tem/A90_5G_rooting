@@ -1413,6 +1413,158 @@ static void readinput_print_decoded_event(int index, const struct input_event *e
             event->value);
 }
 
+struct doominput_state {
+    bool forward;
+    bool back;
+    bool left;
+    bool right;
+    bool fire;
+    bool use;
+    bool menu;
+    bool run;
+    bool touch_contact;
+    bool has_touch_x;
+    bool has_touch_y;
+    bool has_touch_pressure;
+    int touch_x;
+    int touch_y;
+    int touch_slot;
+    int touch_tracking_id;
+    int touch_pressure;
+    unsigned int frame;
+};
+
+static void doominput_reset_state(struct doominput_state *state) {
+    memset(state, 0, sizeof(*state));
+    state->touch_tracking_id = -1;
+}
+
+static void doominput_apply_key(struct doominput_state *state,
+                                unsigned int code,
+                                int value) {
+    bool down = value != 0;
+
+    switch (code) {
+    case KEY_W:
+    case KEY_UP:
+        state->forward = down;
+        break;
+    case KEY_S:
+    case KEY_DOWN:
+        state->back = down;
+        break;
+    case KEY_A:
+    case KEY_LEFT:
+        state->left = down;
+        break;
+    case KEY_D:
+    case KEY_RIGHT:
+        state->right = down;
+        break;
+    case KEY_ENTER:
+    case KEY_SPACE:
+        state->use = down;
+        break;
+    case KEY_ESC:
+        state->menu = down;
+        break;
+    case KEY_LEFTCTRL:
+    case KEY_RIGHTCTRL:
+        state->fire = down;
+        break;
+    case KEY_LEFTSHIFT:
+    case KEY_RIGHTSHIFT:
+        state->run = down;
+        break;
+    case BTN_TOUCH:
+        state->touch_contact = down;
+        break;
+    default:
+        break;
+    }
+}
+
+static void doominput_apply_abs(struct doominput_state *state,
+                                unsigned int code,
+                                int value) {
+    switch (code) {
+    case ABS_X:
+    case ABS_MT_POSITION_X:
+        state->touch_x = value;
+        state->has_touch_x = true;
+        break;
+    case ABS_Y:
+    case ABS_MT_POSITION_Y:
+        state->touch_y = value;
+        state->has_touch_y = true;
+        break;
+    case ABS_PRESSURE:
+    case ABS_MT_PRESSURE:
+        state->touch_pressure = value;
+        state->has_touch_pressure = true;
+        break;
+    case ABS_MT_SLOT:
+        state->touch_slot = value;
+        break;
+    case ABS_MT_TRACKING_ID:
+        state->touch_tracking_id = value;
+        state->touch_contact = value >= 0;
+        break;
+    default:
+        break;
+    }
+}
+
+static void doominput_apply_event(struct doominput_state *state,
+                                  const struct input_event *event) {
+    if (event->type == EV_KEY) {
+        doominput_apply_key(state, event->code, event->value);
+    } else if (event->type == EV_ABS) {
+        doominput_apply_abs(state, event->code, event->value);
+    } else if (event->type == EV_SYN && event->code == SYN_REPORT) {
+        ++state->frame;
+    }
+}
+
+static bool doominput_state_active(const struct doominput_state *state) {
+    return state->forward || state->back || state->left || state->right ||
+        state->fire || state->use || state->menu || state->run ||
+        state->touch_contact;
+}
+
+static void doominput_print_event(int index, const struct input_event *event) {
+    a90_console_printf("doominput.event %d: type=%s code=%s role=%s value=%d\r\n",
+            index,
+            readinput_event_type_name(event->type),
+            readinput_event_code_name(event->type, event->code),
+            readinput_event_role_name(event->type, event->code),
+            event->value);
+}
+
+static void doominput_print_state(int index, const struct doominput_state *state) {
+    a90_console_printf("doominput.state %d: forward=%d back=%d left=%d right=%d fire=%d use=%d menu=%d run=%d touch=%d x=%d y=%d has_x=%d has_y=%d tracking=%d slot=%d pressure=%d has_pressure=%d active=%d frame=%u\r\n",
+            index,
+            state->forward ? 1 : 0,
+            state->back ? 1 : 0,
+            state->left ? 1 : 0,
+            state->right ? 1 : 0,
+            state->fire ? 1 : 0,
+            state->use ? 1 : 0,
+            state->menu ? 1 : 0,
+            state->run ? 1 : 0,
+            state->touch_contact ? 1 : 0,
+            state->touch_x,
+            state->touch_y,
+            state->has_touch_x ? 1 : 0,
+            state->has_touch_y ? 1 : 0,
+            state->touch_tracking_id,
+            state->touch_slot,
+            state->touch_pressure,
+            state->has_touch_pressure ? 1 : 0,
+            doominput_state_active(state) ? 1 : 0,
+            state->frame);
+}
+
 static int cmd_readinput(char **argv, int argc) {
     char event_name[32];
     char dev_path[PATH_MAX];
@@ -1550,6 +1702,151 @@ static int cmd_readinput(char **argv, int argc) {
         }
         if ((fds[0].revents & (POLLERR | POLLHUP | POLLNVAL)) != 0) {
             a90_console_printf("readinput: poll error revents=0x%x\r\n", fds[0].revents);
+            close(fd);
+            return -EIO;
+        }
+    }
+
+    close(fd);
+    return 0;
+}
+
+static int cmd_doominput(char **argv, int argc) {
+    char event_name[32];
+    char dev_path[PATH_MAX];
+    int count = 32;
+    int timeout_ms = -1;
+    int fd;
+    int index;
+    long deadline_ms = 0;
+    struct doominput_state state;
+
+    if (argc < 2) {
+        a90_console_printf("usage: doominput <eventX> [count] [timeout_ms]\r\n");
+        return -EINVAL;
+    }
+
+    if (normalize_event_name(argv[1], event_name, sizeof(event_name)) < 0) {
+        a90_console_printf("doominput: invalid event name\r\n");
+        return -EINVAL;
+    }
+
+    if (argc >= 3 && sscanf(argv[2], "%d", &count) != 1) {
+        a90_console_printf("doominput: invalid count\r\n");
+        return -EINVAL;
+    }
+    if (count <= 0) {
+        count = 1;
+    }
+    if (argc >= 4 && sscanf(argv[3], "%d", &timeout_ms) != 1) {
+        a90_console_printf("doominput: invalid timeout_ms\r\n");
+        return -EINVAL;
+    }
+    if (timeout_ms < 0) {
+        timeout_ms = -1;
+    }
+
+    if (get_input_event_path(event_name, dev_path, sizeof(dev_path)) < 0) {
+        a90_console_printf("doominput: %s: %s\r\n", event_name, strerror(errno));
+        return negative_errno_or(ENOENT);
+    }
+
+    fd = open(dev_path, O_RDONLY | O_NONBLOCK);
+    if (fd < 0) {
+        a90_console_printf("doominput: open %s: %s\r\n", dev_path, strerror(errno));
+        return negative_errno_or(ENOENT);
+    }
+
+    doominput_reset_state(&state);
+    a90_console_printf("doominput: waiting on %s (%d events), q/Ctrl-C cancels\r\n",
+            dev_path, count);
+    if (timeout_ms >= 0) {
+        deadline_ms = monotonic_millis() + timeout_ms;
+        a90_console_printf("doominput: timeout_ms=%d\r\n", timeout_ms);
+    }
+
+    index = 0;
+    while (index < count) {
+        struct pollfd fds[2];
+        int poll_rc;
+        int poll_timeout = -1;
+
+        fds[0].fd = fd;
+        fds[0].events = POLLIN;
+        fds[0].revents = 0;
+        fds[1].fd = STDIN_FILENO;
+        fds[1].events = POLLIN;
+        fds[1].revents = 0;
+
+        if (timeout_ms >= 0) {
+            long remaining_ms = deadline_ms - monotonic_millis();
+            if (remaining_ms <= 0) {
+                a90_console_printf("doominput: timeout after %dms captured=%d/%d\r\n",
+                        timeout_ms,
+                        index,
+                        count);
+                close(fd);
+                return -ETIMEDOUT;
+            }
+            poll_timeout = remaining_ms > 2147483647L ? 2147483647 : (int)remaining_ms;
+        }
+
+        poll_rc = poll(fds, 2, poll_timeout);
+        if (poll_rc < 0) {
+            if (errno == EINTR) {
+                continue;
+            }
+            a90_console_printf("doominput: poll: %s\r\n", strerror(errno));
+            close(fd);
+            return negative_errno_or(EIO);
+        }
+        if (poll_rc == 0) {
+            a90_console_printf("doominput: timeout after %dms captured=%d/%d\r\n",
+                    timeout_ms,
+                    index,
+                    count);
+            close(fd);
+            return -ETIMEDOUT;
+        }
+
+        if ((fds[1].revents & POLLIN) != 0) {
+            enum a90_cancel_kind cancel = a90_console_read_cancel_event();
+
+            if (cancel != CANCEL_NONE) {
+                close(fd);
+                return a90_console_cancelled("doominput", cancel);
+            }
+        }
+
+        if ((fds[0].revents & POLLIN) == 0) {
+            continue;
+        }
+
+        while (index < count) {
+            struct input_event event;
+            ssize_t rd = read(fd, &event, sizeof(event));
+
+            if (rd < 0) {
+                if (errno == EAGAIN || errno == EWOULDBLOCK) {
+                    break;
+                }
+                a90_console_printf("doominput: read: %s\r\n", strerror(errno));
+                close(fd);
+                return negative_errno_or(EIO);
+            }
+            if (rd != (ssize_t)sizeof(event)) {
+                a90_console_printf("doominput: short read %ld\r\n", (long)rd);
+                close(fd);
+                return -EIO;
+            }
+
+            doominput_print_event(index, &event);
+            doominput_apply_event(&state, &event);
+            doominput_print_state(index, &state);
+            ++index;
+        }
+        if ((fds[0].revents & (POLLERR | POLLHUP | POLLNVAL)) != 0) {
+            a90_console_printf("doominput: poll error revents=0x%x\r\n", fds[0].revents);
             close(fd);
             return -EIO;
         }
