@@ -141,9 +141,13 @@ only, never a native-init runtime dependency. Full history (AUD-0 → AUD-5, V23
 >   future command, cleanup after smoke, no public/ramdisk/boot WAD bytes) and confirmed public WAD count `0`.
 >   Exactly one private IWAD/WAD candidate is now present and valid: `4196020` bytes, magic `IWAD`, SHA256
 >   `1d7d43be501e67d927e415e0b8f3e29c3bf33075e859721816f652a526cac771`.
-> - **NEXT CHECKPOINT: V3028 host-only WAD-backed doomgeneric command implementation** — wire bounded
->   runtime-private WAD verify/play command handling around the selected private WAD hash. This is not immediate
->   live gameplay and must still keep WAD bytes out of public, ramdisk, and boot image.
+> - **DOOM SD runtime WAD stage DONE (V3028)** — the selected V3027 WAD is now staged on the device SD runtime
+>   path `/mnt/sdext/a90/runtime/doom/v3028/DOOM1.WAD` with device-side SHA256
+>   `1d7d43be501e67d927e415e0b8f3e29c3bf33075e859721816f652a526cac771`, size `4196020`, mode `0600`,
+>   and post-stage `selftest fail=0`. No flash, boot image, ramdisk, public WAD, or forbidden partition path was touched.
+> - **NEXT CHECKPOINT: V3029 host-only WAD-backed doomgeneric command implementation** — wire bounded
+>   SD-staged WAD verify/play command handling around the selected private WAD hash. This is not immediate live
+>   gameplay and must still keep WAD bytes out of public, ramdisk, and boot image.
 > - Parallel optional polish: dashboard formatting, fonts/ASCII charset, beat-flash tuning.
 
 **Historical recon framing (Venus HW-decode / cont-splash feasibility, VID-0/1/2):** SUPERSEDED — the display is
