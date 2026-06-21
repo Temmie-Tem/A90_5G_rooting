@@ -308,6 +308,30 @@ class NativeInitFrontierSelectTests(unittest.TestCase):
         self.assertTrue(evaluation["evidence"]["v3023_policy_ready"])
         self.assertIn("V3024 private-source", evaluation["evidence"]["next_host_only_unit"])
 
+    def test_current_doomgeneric_private_build_evidence_reads_v3024_pass(self) -> None:
+        report = "\n".join([
+            "v3024-doomgeneric-private-full-engine-link-pass",
+            "Private engine source files compiled: `80`",
+            "AArch64 static engine linked: `1`",
+            "Marker check pass: `1`",
+            "Public WAD files committed/present: `0`",
+            "Engine-only object total within V3023 2 MiB cap: `1`",
+            "Boot-image delta: `not-produced`",
+            "Run ID: `V3025`",
+        ])
+
+        evidence = frontier.current_doomgeneric_private_build_evidence(report)
+
+        self.assertTrue(evidence["v3024_private_build_report_present"])
+        self.assertTrue(evidence["v3024_private_build_ready"])
+        self.assertTrue(evidence["v3024_private_source_compiled"])
+        self.assertTrue(evidence["v3024_aarch64_static_engine_linked"])
+        self.assertTrue(evidence["v3024_marker_check_pass"])
+        self.assertTrue(evidence["v3024_no_public_wad"])
+        self.assertTrue(evidence["v3024_boot_image_not_produced"])
+        self.assertTrue(evidence["v3024_size_cap_pass"])
+        self.assertEqual(evidence["v3024_next_run_id"], "V3025")
+
     def test_current_demo_checkpoint_evaluation_reads_v3021_source_ready(self) -> None:
         goal = "\n".join([
             'PATCH-level kept "demo checkpoint"',
@@ -385,6 +409,7 @@ class NativeInitFrontierSelectTests(unittest.TestCase):
         self.assertEqual(result["source_paths"]["current_demo_checkpoint_source_report"], "docs/reports/NATIVE_INIT_V3021_DEMO_CHECKPOINT_BADAPPLE_NYAN_SOURCE_BUILD_2026-06-21.md")
         self.assertEqual(result["source_paths"]["current_demo_checkpoint_live_report"], "docs/reports/NATIVE_INIT_V3022_DEMO_CHECKPOINT_BADAPPLE_NYAN_LIVE_2026-06-21.md")
         self.assertEqual(result["source_paths"]["current_doomgeneric_policy_report"], "docs/reports/NATIVE_INIT_V3023_DOOMGENERIC_INTEGRATION_POLICY_2026-06-21.md")
+        self.assertEqual(result["source_paths"]["current_doomgeneric_private_build_report"], "docs/reports/NATIVE_INIT_V3024_DOOMGENERIC_PRIVATE_INTEGRATION_BUILD_2026-06-21.md")
 
     def test_select_frontier_selects_first_actionable_track(self) -> None:
         with self._fake_repo(
@@ -706,6 +731,75 @@ class NativeInitFrontierSelectTests(unittest.TestCase):
         self.assertTrue(result["track_evaluations"][1]["evidence"]["v3023_policy_ready"])
         self.assertIn("V3024 host-only private-source", result["next_operator_decision"])
 
+    def test_select_frontier_uses_v3024_private_build_for_v3025_boot_candidate(self) -> None:
+        with self._fake_repo(
+            goal_text="\n".join([
+                'PATCH-level kept "demo checkpoint"',
+                "**Bad Apple + Nyan** demos",
+                "**0.11.0 (MINOR) is RESERVED",
+            ]),
+            inventory_signals={
+                "direct_a90ctl_actionable_now_count": 0,
+                "direct_a90ctl_review_only_count": 0,
+                "direct_a90ctl_next_actionable_group": None,
+                "source_delete_review_count": 0,
+                "active_live_phase_residual_backlog_closed": True,
+            },
+            frontier_candidates=None,
+            current_doom_gameplay_loop_report="\n".join([
+                "v3017-doompad-gameplay-loop-state-consumed-pass-before-rollback",
+                "`video demo doom play 8` rc: `0` markers_ok=`1`",
+                "Player movement parsed: `1` moved_forward=`1`",
+                "Rollback health: version_ok=`1` selftest_fail0=`1`",
+                "not a WAD-backed `doomgeneric` engine",
+            ]),
+            current_demo_checkpoint_source_report="\n".join([
+                "v3021-demo-checkpoint-badapple-nyan-source-build-pass",
+                "Boot SHA256: `c860d604e3c906abf61fdd2c9bd9cd12d1aef2c88c05be57677b472ad36ef0f7`",
+                "Bad Apple asset ID: `badapple-480x360-full-v2903`",
+                "menu.demo.badapple.action=play-av-fullsong",
+                "menu.demo.badapple.frames=6962",
+                "Nyan asset ID: `nyancat-v2973-pal8-rle-preview`",
+                "menu.demo.nyan.action=play-av-preview",
+                "pal8-rle",
+                "pending-badapple-nyan-same-image-live-validation",
+            ]),
+            current_demo_checkpoint_live_report="\n".join([
+                "v3022-demo-checkpoint-badapple-nyan-same-image-live-pass-before-rollback",
+                "Same-image validation: Bad Apple pass=`1` Nyan pass=`1`",
+                "Rollback health: version_ok=`1` selftest_fail0=`1`",
+            ]),
+            current_doomgeneric_policy_report="\n".join([
+                "v3023-doomgeneric-private-integration-policy-ready",
+                "Private doomgeneric source pinned: `1`",
+                "Private source clean: `1`",
+                "V3020 port probe pass: `1`",
+                "V3022 checkpoint live pass retained: `1`",
+                "Public WAD files committed/present: `0`",
+                "Safe next host-only unit: `1`",
+                "Run ID: `V3024`",
+            ]),
+            current_doomgeneric_private_build_report="\n".join([
+                "v3024-doomgeneric-private-full-engine-link-pass",
+                "Private engine source files compiled: `80`",
+                "AArch64 static engine linked: `1`",
+                "Marker check pass: `1`",
+                "Public WAD files committed/present: `0`",
+                "Engine-only object total within V3023 2 MiB cap: `1`",
+                "Boot-image delta: `not-produced`",
+                "Run ID: `V3025`",
+            ]),
+        ) as paths:
+            with self._patch_paths(paths):
+                result = frontier.select_frontier()
+
+        self.assertEqual(result["decision"], "frontier-selector-actionable-unit-present")
+        self.assertEqual(result["selected_track"], "VIDEO")
+        self.assertEqual(result["selected_reason"], "doomgeneric-native-command-boot-integration-ready")
+        self.assertEqual(result["track_evaluations"][1]["name"], "doom-capstone")
+        self.assertTrue(result["track_evaluations"][1]["evidence"]["v3024_private_build_ready"])
+        self.assertIn("V3025 host-only native-init", result["next_operator_decision"])
+
     @staticmethod
     def _fake_repo(
         *,
@@ -718,6 +812,7 @@ class NativeInitFrontierSelectTests(unittest.TestCase):
         current_demo_checkpoint_source_report: str | None = None,
         current_demo_checkpoint_live_report: str | None = None,
         current_doomgeneric_policy_report: str | None = None,
+        current_doomgeneric_private_build_report: str | None = None,
         goal_text: str = "goal text\n",
     ):
         class RepoContext:
@@ -781,6 +876,13 @@ class NativeInitFrontierSelectTests(unittest.TestCase):
                         / "reports"
                         / "NATIVE_INIT_V3023_DOOMGENERIC_INTEGRATION_POLICY_2026-06-21.md"
                     ).write_text(current_doomgeneric_policy_report, encoding="utf-8")
+                if current_doomgeneric_private_build_report is not None:
+                    (
+                        root
+                        / "docs"
+                        / "reports"
+                        / "NATIVE_INIT_V3024_DOOMGENERIC_PRIVATE_INTEGRATION_BUILD_2026-06-21.md"
+                    ).write_text(current_doomgeneric_private_build_report, encoding="utf-8")
                 self.root = root
                 return {
                     "root": root,
@@ -820,6 +922,12 @@ class NativeInitFrontierSelectTests(unittest.TestCase):
                         / "reports"
                         / "NATIVE_INIT_V3023_DOOMGENERIC_INTEGRATION_POLICY_2026-06-21.md"
                     ),
+                    "current_doomgeneric_private_build": (
+                        root
+                        / "docs"
+                        / "reports"
+                        / "NATIVE_INIT_V3024_DOOMGENERIC_PRIVATE_INTEGRATION_BUILD_2026-06-21.md"
+                    ),
                 }
 
             def __exit__(self, exc_type, exc, tb):
@@ -844,6 +952,7 @@ class NativeInitFrontierSelectTests(unittest.TestCase):
             CURRENT_DEMO_CHECKPOINT_SOURCE_REPORT=paths["current_demo_checkpoint_source"],
             CURRENT_DEMO_CHECKPOINT_LIVE_REPORT=paths["current_demo_checkpoint_live"],
             CURRENT_DOOMGENERIC_POLICY_REPORT=paths["current_doomgeneric_policy"],
+            CURRENT_DOOMGENERIC_PRIVATE_BUILD_REPORT=paths["current_doomgeneric_private_build"],
         )
 
 

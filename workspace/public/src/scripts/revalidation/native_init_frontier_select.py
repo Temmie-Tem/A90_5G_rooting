@@ -47,6 +47,12 @@ CURRENT_DOOMGENERIC_POLICY_REPORT = (
     / "reports"
     / "NATIVE_INIT_V3023_DOOMGENERIC_INTEGRATION_POLICY_2026-06-21.md"
 )
+CURRENT_DOOMGENERIC_PRIVATE_BUILD_REPORT = (
+    REPO_ROOT
+    / "docs"
+    / "reports"
+    / "NATIVE_INIT_V3024_DOOMGENERIC_PRIVATE_INTEGRATION_BUILD_2026-06-21.md"
+)
 
 
 def parse_args() -> argparse.Namespace:
@@ -375,16 +381,85 @@ def current_doomgeneric_policy_evidence(report_text: str | None) -> dict[str, An
     }
 
 
+def current_doomgeneric_private_build_evidence(report_text: str | None) -> dict[str, Any]:
+    if not report_text:
+        return {
+            "v3024_private_build_report_present": False,
+            "v3024_private_build_ready": False,
+            "v3024_private_source_compiled": False,
+            "v3024_aarch64_static_engine_linked": False,
+            "v3024_marker_check_pass": False,
+            "v3024_no_public_wad": False,
+            "v3024_boot_image_not_produced": False,
+            "v3024_size_cap_pass": False,
+            "v3024_next_run_id": None,
+        }
+    decision_ready = "v3024-doomgeneric-private-full-engine-link-pass" in report_text
+    private_source_compiled = "Private engine source files compiled: `80`" in report_text
+    static_engine = "AArch64 static engine linked: `1`" in report_text
+    marker_pass = "Marker check pass: `1`" in report_text
+    no_public_wad = "Public WAD files committed/present: `0`" in report_text
+    boot_not_produced = "Boot-image delta: `not-produced`" in report_text
+    size_cap = "Engine-only object total within V3023 2 MiB cap: `1`" in report_text
+    next_run_id = "V3025" if "Run ID: `V3025`" in report_text else None
+    return {
+        "v3024_private_build_report_present": True,
+        "v3024_private_build_ready": bool(
+            decision_ready
+            and private_source_compiled
+            and static_engine
+            and marker_pass
+            and no_public_wad
+            and boot_not_produced
+            and size_cap
+        ),
+        "v3024_private_source_compiled": bool(private_source_compiled),
+        "v3024_aarch64_static_engine_linked": bool(static_engine),
+        "v3024_marker_check_pass": bool(marker_pass),
+        "v3024_no_public_wad": bool(no_public_wad),
+        "v3024_boot_image_not_produced": bool(boot_not_produced),
+        "v3024_size_cap_pass": bool(size_cap),
+        "v3024_next_run_id": next_run_id,
+    }
+
+
 def current_doom_input_evaluation(
     report_text: str | None,
     flash_gate_report_text: str | None = None,
     live_precondition_report_text: str | None = None,
     gameplay_loop_report_text: str | None = None,
     doomgeneric_policy_report_text: str | None = None,
+    doomgeneric_private_build_report_text: str | None = None,
 ) -> dict[str, Any] | None:
     gameplay_loop = current_doom_gameplay_loop_evidence(gameplay_loop_report_text)
     if gameplay_loop["v3017_state_consumed"] and gameplay_loop["v3017_rollback_health_ok"]:
         doomgeneric_policy = current_doomgeneric_policy_evidence(doomgeneric_policy_report_text)
+        doomgeneric_private_build = current_doomgeneric_private_build_evidence(
+            doomgeneric_private_build_report_text
+        )
+        if doomgeneric_private_build["v3024_private_build_ready"]:
+            return {
+                "track": "VIDEO",
+                "name": "doom-capstone",
+                "safe_actionable_now": True,
+                "status": "doomgeneric-native-command-boot-integration-ready",
+                "drop_trigger": (
+                    "V3024 linked the full pinned private doomgeneric engine with the A90 serial-doompad/"
+                    "runtime-WAD bridge as an AArch64 static ELF, without public WAD files or a boot image. "
+                    "The next bounded unit is a native-init command/boot candidate that still keeps WAD bytes "
+                    "out of public, ramdisk, and boot image."
+                ),
+                "evidence": {
+                    **gameplay_loop,
+                    **doomgeneric_policy,
+                    **doomgeneric_private_build,
+                    "next_host_only_unit": (
+                        "V3025 native-init command/boot integration candidate using the V3024 private "
+                        "engine link; no WAD data in public tree, ramdisk, or boot image"
+                    ),
+                    "next_live_command": None,
+                },
+            }
         if doomgeneric_policy["v3023_policy_ready"]:
             return {
                 "track": "VIDEO",
@@ -401,6 +476,7 @@ def current_doom_input_evaluation(
                 "evidence": {
                     **gameplay_loop,
                     **doomgeneric_policy,
+                    **doomgeneric_private_build,
                     "next_host_only_unit": (
                         "V3024 private-source doomgeneric native-init integration build; no WAD data "
                         "in public tree, ramdisk, or boot image"
@@ -422,6 +498,7 @@ def current_doom_input_evaluation(
             "evidence": {
                 **gameplay_loop,
                 **doomgeneric_policy,
+                **doomgeneric_private_build,
                 "next_host_only_unit": "doomgeneric/WAD feasibility and asset-policy source audit",
                 "next_live_command": None,
             },
@@ -485,6 +562,7 @@ def track_evaluations(
     current_demo_checkpoint_source_report_text: str | None = None,
     current_demo_checkpoint_live_report_text: str | None = None,
     current_doomgeneric_policy_report_text: str | None = None,
+    current_doomgeneric_private_build_report_text: str | None = None,
 ) -> list[dict[str, Any]]:
     signals = inventory["consolidation_signals"]
     t1_candidates = ready_t1_candidates(frontier_candidates)
@@ -494,6 +572,7 @@ def track_evaluations(
         current_doom_live_precondition_report_text,
         current_doom_gameplay_loop_report_text,
         current_doomgeneric_policy_report_text,
+        current_doomgeneric_private_build_report_text,
     )
     current_demo_checkpoint = current_demo_checkpoint_evaluation(
         goal_text,
@@ -601,6 +680,7 @@ def select_frontier() -> dict[str, Any]:
     current_demo_checkpoint_source_report_text = read_optional_text(CURRENT_DEMO_CHECKPOINT_SOURCE_REPORT)
     current_demo_checkpoint_live_report_text = read_optional_text(CURRENT_DEMO_CHECKPOINT_LIVE_REPORT)
     current_doomgeneric_policy_report_text = read_optional_text(CURRENT_DOOMGENERIC_POLICY_REPORT)
+    current_doomgeneric_private_build_report_text = read_optional_text(CURRENT_DOOMGENERIC_PRIVATE_BUILD_REPORT)
     evaluations = track_evaluations(
         goal_text,
         todo_text,
@@ -613,6 +693,7 @@ def select_frontier() -> dict[str, Any]:
         current_demo_checkpoint_source_report_text,
         current_demo_checkpoint_live_report_text,
         current_doomgeneric_policy_report_text,
+        current_doomgeneric_private_build_report_text,
     )
     actionable = [evaluation for evaluation in evaluations if evaluation["safe_actionable_now"]]
     current_video = current_doom_input_evaluation(
@@ -621,6 +702,7 @@ def select_frontier() -> dict[str, Any]:
         current_doom_live_precondition_report_text,
         current_doom_gameplay_loop_report_text,
         current_doomgeneric_policy_report_text,
+        current_doomgeneric_private_build_report_text,
     )
     current_demo_checkpoint = current_demo_checkpoint_evaluation(
         goal_text,
@@ -648,6 +730,11 @@ def select_frontier() -> dict[str, Any]:
             "Run the V3024 host-only private-source doomgeneric native-init integration build. Keep WAD "
             "data out of the public tree, ramdisk, and boot image; report binary/boot deltas before any "
             "rollback-gated live validation."
+        )
+    elif current_video and current_video["status"] == "doomgeneric-native-command-boot-integration-ready":
+        next_operator_decision = (
+            "Run the V3025 host-only native-init command/boot integration candidate using the V3024 "
+            "private engine link. Still keep WAD data out of public, ramdisk, and boot image."
         )
     elif current_video and not current_video["safe_actionable_now"]:
         evidence = current_video["evidence"]
@@ -694,6 +781,7 @@ def select_frontier() -> dict[str, Any]:
             "current_demo_checkpoint_source_report": str(CURRENT_DEMO_CHECKPOINT_SOURCE_REPORT.relative_to(REPO_ROOT)),
             "current_demo_checkpoint_live_report": str(CURRENT_DEMO_CHECKPOINT_LIVE_REPORT.relative_to(REPO_ROOT)),
             "current_doomgeneric_policy_report": str(CURRENT_DOOMGENERIC_POLICY_REPORT.relative_to(REPO_ROOT)),
+            "current_doomgeneric_private_build_report": str(CURRENT_DOOMGENERIC_PRIVATE_BUILD_REPORT.relative_to(REPO_ROOT)),
         },
     }
 

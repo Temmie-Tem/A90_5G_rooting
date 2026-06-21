@@ -124,9 +124,11 @@ only, never a native-init runtime dependency. Full history (AUD-0 → AUD-5, V23
 > - **DOOM host-only policy gate DONE (V3023)** — the WAD-backed `doomgeneric` frontier resumed after the V3020 host
 >   probe; source provenance, WAD/runtime-private policy, boot-size caps, bounded command surface, and rollback-gated
 >   live-validation requirements are now pinned without flashing or staging WAD data.
-> - **NEXT UNIT: V3024 private-source native-init integration build** — integrate the pinned private `doomgeneric` source
->   into native-init as a build-only unit, keep WAD bytes out of the public tree/ramdisk/boot image, and report native-init
->   binary plus boot-image deltas before any live validation.
+> - **DOOM private-source full-engine link DONE (V3024)** — the pinned private `doomgeneric` source now compiles 80
+>   engine C files plus the A90 serial-doompad/runtime-WAD bridge into an AArch64 static private artifact; no WAD data,
+>   ramdisk, boot image, or device action was produced.
+> - **NEXT UNIT: V3025 native-init command/boot integration candidate** — wire the V3024 private engine link into a
+>   native-init candidate command surface while still keeping WAD bytes out of the public tree/ramdisk/boot image.
 > - Parallel optional polish: dashboard formatting, fonts/ASCII charset, beat-flash tuning.
 
 **Historical recon framing (Venus HW-decode / cont-splash feasibility, VID-0/1/2):** SUPERSEDED — the display is
