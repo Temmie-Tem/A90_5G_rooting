@@ -1034,6 +1034,136 @@ class NativeInitFrontierSelectTests(unittest.TestCase):
         self.assertTrue(result["track_evaluations"][1]["evidence"]["v3026_command_bridge_live_pass"])
         self.assertIn("V3027 host-only runtime-private WAD staging preflight", result["next_operator_decision"])
 
+    def test_current_doomgeneric_runtime_wad_preflight_evidence_reads_asset_needed(self) -> None:
+        report = "\n".join([
+            "v3027-doomgeneric-runtime-wad-staging-preflight-asset-needed",
+            "Preflight OK: `1`",
+            "Live asset ready: `0`",
+            "Public WAD files committed/present: `0`",
+            "Private WAD/IWAD candidate count: `0`",
+            "Next requires command implementation: `1`",
+            "Public output records no WAD bytes and no private WAD filename.",
+        ])
+
+        evidence = frontier.current_doomgeneric_runtime_wad_preflight_evidence(report)
+
+        self.assertTrue(evidence["v3027_runtime_wad_preflight_report_present"])
+        self.assertFalse(evidence["v3027_runtime_wad_contract_ready"])
+        self.assertTrue(evidence["v3027_runtime_wad_asset_needed"])
+        self.assertTrue(evidence["v3027_preflight_ok"])
+        self.assertFalse(evidence["v3027_live_asset_ready"])
+        self.assertTrue(evidence["v3027_public_wad_zero"])
+        self.assertTrue(evidence["v3027_private_candidate_count_zero"])
+        self.assertTrue(evidence["v3027_no_private_filename_public"])
+        self.assertTrue(evidence["v3027_next_requires_command_implementation"])
+
+    def test_select_frontier_stops_on_v3027_asset_needed(self) -> None:
+        with self._fake_repo(
+            goal_text="\n".join([
+                'PATCH-level kept "demo checkpoint"',
+                "**Bad Apple + Nyan** demos",
+                "**0.11.0 (MINOR) is RESERVED",
+            ]),
+            inventory_signals={
+                "direct_a90ctl_actionable_now_count": 0,
+                "direct_a90ctl_review_only_count": 0,
+                "direct_a90ctl_next_actionable_group": None,
+                "source_delete_review_count": 0,
+                "active_live_phase_residual_backlog_closed": True,
+            },
+            frontier_candidates=None,
+            current_doom_gameplay_loop_report="\n".join([
+                "v3017-doompad-gameplay-loop-state-consumed-pass-before-rollback",
+                "`video demo doom play 8` rc: `0` markers_ok=`1`",
+                "Player movement parsed: `1` moved_forward=`1`",
+                "Rollback health: version_ok=`1` selftest_fail0=`1`",
+                "not a WAD-backed `doomgeneric` engine",
+            ]),
+            current_demo_checkpoint_source_report="\n".join([
+                "v3021-demo-checkpoint-badapple-nyan-source-build-pass",
+                "Boot SHA256: `c860d604e3c906abf61fdd2c9bd9cd12d1aef2c88c05be57677b472ad36ef0f7`",
+                "Bad Apple asset ID: `badapple-480x360-full-v2903`",
+                "menu.demo.badapple.action=play-av-fullsong",
+                "menu.demo.badapple.frames=6962",
+                "Nyan asset ID: `nyancat-v2973-pal8-rle-preview`",
+                "menu.demo.nyan.action=play-av-preview",
+                "pal8-rle",
+                "pending-badapple-nyan-same-image-live-validation",
+            ]),
+            current_demo_checkpoint_live_report="\n".join([
+                "v3022-demo-checkpoint-badapple-nyan-same-image-live-pass-before-rollback",
+                "Same-image validation: Bad Apple pass=`1` Nyan pass=`1`",
+                "Rollback health: version_ok=`1` selftest_fail0=`1`",
+            ]),
+            current_doomgeneric_policy_report="\n".join([
+                "v3023-doomgeneric-private-integration-policy-ready",
+                "Private doomgeneric source pinned: `1`",
+                "Private source clean: `1`",
+                "V3020 port probe pass: `1`",
+                "V3022 checkpoint live pass retained: `1`",
+                "Public WAD files committed/present: `0`",
+                "Safe next host-only unit: `1`",
+                "Run ID: `V3024`",
+            ]),
+            current_doomgeneric_private_build_report="\n".join([
+                "v3024-doomgeneric-private-full-engine-link-pass",
+                "Private engine source files compiled: `80`",
+                "AArch64 static engine linked: `1`",
+                "Marker check pass: `1`",
+                "Public WAD files committed/present: `0`",
+                "Engine-only object total within V3023 2 MiB cap: `1`",
+                "Boot-image delta: `not-produced`",
+                "Run ID: `V3025`",
+            ]),
+            current_doomgeneric_command_bridge_report="\n".join([
+                "v3025-doomgeneric-command-bridge-source-build-pass",
+                "Boot SHA256: `boot-sha`",
+                "V3024 engine SHA256: `8b6630498b7ff217e6ad9b27593f89644ba73eb7cbbf11361838972f15581735`",
+                "Helper bundled in ramdisk: `1`",
+                "WAD files in ramdisk: `0`",
+                "video demo doom engine-probe",
+                "serial-doompad-to-DG_GetKey",
+                "video.demo.input.otg_required=0",
+                "Run ID: `V3026`",
+            ]),
+            current_doomgeneric_command_bridge_live_report="\n".join([
+                "v3026-doomgeneric-command-bridge-live-pass-before-rollback",
+                "Candidate post-flash version rc/status: `0` / `ok`",
+                "Candidate post-flash status rc/status: `0` / `ok`",
+                "Candidate post-flash selftest fail=0: `1`",
+                "`video demo doom status` rc/status: `0` / `ok`",
+                "video.demo.engine.bridge=v3025-doomgeneric-command-bridge",
+                "video.demo.engine.helper.present=1",
+                "video.demo.engine.helper.executable=1",
+                "`video demo doom engine-probe` rc/status: `0` / `ok`",
+                "video.demo.doom.engine_probe.rc=0",
+                "video.demo.doom.engine_probe.timed_out=0",
+                "Rollback health: version_ok=`1` selftest_fail0=`1`",
+                "video.demo.input.otg_required=0",
+                "video.demo.asset.wad.embedded_in_boot=0",
+                "No WAD/IWAD bytes were staged",
+                "Run ID: `V3027`",
+            ]),
+            current_doomgeneric_runtime_wad_preflight_report="\n".join([
+                "v3027-doomgeneric-runtime-wad-staging-preflight-asset-needed",
+                "Preflight OK: `1`",
+                "Live asset ready: `0`",
+                "Public WAD files committed/present: `0`",
+                "Private WAD/IWAD candidate count: `0`",
+                "Next requires command implementation: `1`",
+                "Public output records no WAD bytes and no private WAD filename.",
+            ]),
+        ) as paths:
+            with self._patch_paths(paths):
+                result = frontier.select_frontier()
+
+        self.assertEqual(result["decision"], "frontier-selector-no-automatic-safe-unit")
+        self.assertIsNone(result["selected_track"])
+        self.assertIsNone(result["selected_reason"])
+        self.assertEqual(result["track_evaluations"][1]["status"], "doomgeneric-runtime-wad-private-asset-needed")
+        self.assertFalse(result["track_evaluations"][1]["safe_actionable_now"])
+        self.assertIn("Stage exactly one private IWAD/WAD", result["next_operator_decision"])
+
     @staticmethod
     def _fake_repo(
         *,
@@ -1049,6 +1179,7 @@ class NativeInitFrontierSelectTests(unittest.TestCase):
         current_doomgeneric_private_build_report: str | None = None,
         current_doomgeneric_command_bridge_report: str | None = None,
         current_doomgeneric_command_bridge_live_report: str | None = None,
+        current_doomgeneric_runtime_wad_preflight_report: str | None = None,
         goal_text: str = "goal text\n",
     ):
         class RepoContext:
@@ -1133,6 +1264,13 @@ class NativeInitFrontierSelectTests(unittest.TestCase):
                         / "reports"
                         / "NATIVE_INIT_V3026_DOOMGENERIC_COMMAND_BRIDGE_LIVE_2026-06-21.md"
                     ).write_text(current_doomgeneric_command_bridge_live_report, encoding="utf-8")
+                if current_doomgeneric_runtime_wad_preflight_report is not None:
+                    (
+                        root
+                        / "docs"
+                        / "reports"
+                        / "NATIVE_INIT_V3027_DOOMGENERIC_RUNTIME_WAD_PREFLIGHT_2026-06-21.md"
+                    ).write_text(current_doomgeneric_runtime_wad_preflight_report, encoding="utf-8")
                 self.root = root
                 return {
                     "root": root,
@@ -1190,6 +1328,12 @@ class NativeInitFrontierSelectTests(unittest.TestCase):
                         / "reports"
                         / "NATIVE_INIT_V3026_DOOMGENERIC_COMMAND_BRIDGE_LIVE_2026-06-21.md"
                     ),
+                    "current_doomgeneric_runtime_wad_preflight": (
+                        root
+                        / "docs"
+                        / "reports"
+                        / "NATIVE_INIT_V3027_DOOMGENERIC_RUNTIME_WAD_PREFLIGHT_2026-06-21.md"
+                    ),
                 }
 
             def __exit__(self, exc_type, exc, tb):
@@ -1217,6 +1361,7 @@ class NativeInitFrontierSelectTests(unittest.TestCase):
             CURRENT_DOOMGENERIC_PRIVATE_BUILD_REPORT=paths["current_doomgeneric_private_build"],
             CURRENT_DOOMGENERIC_COMMAND_BRIDGE_REPORT=paths["current_doomgeneric_command_bridge"],
             CURRENT_DOOMGENERIC_COMMAND_BRIDGE_LIVE_REPORT=paths["current_doomgeneric_command_bridge_live"],
+            CURRENT_DOOMGENERIC_RUNTIME_WAD_PREFLIGHT_REPORT=paths["current_doomgeneric_runtime_wad_preflight"],
         )
 
 

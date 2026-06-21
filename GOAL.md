@@ -136,9 +136,14 @@ only, never a native-init runtime dependency. Full history (AUD-0 → AUD-5, V23
 >   confirmed `version`/`status`/`selftest`, validated `video demo doom status` and `video demo doom engine-probe`
 >   (`engine_probe.rc=0`, `timed_out=0`), then rolled back to V2321 with `selftest fail=0`. This proves the internal
 >   serial-doompad-to-`DG_GetKey` bridge on-device; OTG keyboard is not required for this proof path.
-> - **NEXT UNIT: V3027 runtime-private WAD staging preflight** — host-only inspect the private WAD root and pin exact
->   size/hash/staging policy for a later bounded WAD-backed DOOM smoke. Keep WAD/IWAD bytes out of public, ramdisk,
->   and boot image.
+> - **DOOM runtime-private WAD staging preflight DONE / ASSET NEEDED (V3027)** — host-only preflight pinned the runtime
+>   staging contract (`/cache/a90-runtime/pkg/doom/v3024/DOOM1.WAD`, max `67108864` bytes, SHA verify before future
+>   command, cleanup after smoke, no public/ramdisk/boot WAD bytes) and confirmed public WAD count `0`. The private
+>   WAD root currently has `0` candidates, so WAD-backed DOOM is now blocked on exactly one private IWAD/WAD staged
+>   under `workspace/private/demo-assets/doom/wads/`.
+> - **NEXT CHECKPOINT: private WAD asset needed** — once exactly one private WAD/IWAD exists and passes size/magic
+>   checks, rerun V3027; the next code unit after that is host-only WAD-backed command implementation, not immediate
+>   live gameplay.
 > - Parallel optional polish: dashboard formatting, fonts/ASCII charset, beat-flash tuning.
 
 **Historical recon framing (Venus HW-decode / cont-splash feasibility, VID-0/1/2):** SUPERSEDED — the display is
