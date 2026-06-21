@@ -251,6 +251,35 @@ class NativeInitFrontierSelectTests(unittest.TestCase):
         self.assertTrue(evaluation["evidence"]["v3017_state_consumed"])
         self.assertIn("V3017 supersedes", evaluation["drop_trigger"])
 
+    def test_current_demo_checkpoint_evaluation_reads_v3021_source_ready(self) -> None:
+        goal = "\n".join([
+            'PATCH-level kept "demo checkpoint"',
+            "**Bad Apple + Nyan** demos",
+            "**0.11.0 (MINOR) is RESERVED",
+        ])
+        source_report = "\n".join([
+            "v3021-demo-checkpoint-badapple-nyan-source-build-pass",
+            "Boot SHA256: `c860d604e3c906abf61fdd2c9bd9cd12d1aef2c88c05be57677b472ad36ef0f7`",
+            "Bad Apple asset ID: `badapple-480x360-full-v2903`",
+            "menu.demo.badapple.action=play-av-fullsong",
+            "menu.demo.badapple.frames=6962",
+            "Nyan asset ID: `nyancat-v2973-pal8-rle-preview`",
+            "menu.demo.nyan.action=play-av-preview",
+            "pal8-rle",
+            "pending-badapple-nyan-same-image-live-validation",
+        ])
+
+        evaluation = frontier.current_demo_checkpoint_evaluation(goal, source_report)
+
+        self.assertIsNotNone(evaluation)
+        assert evaluation is not None
+        self.assertEqual(evaluation["track"], "VIDEO")
+        self.assertEqual(evaluation["name"], "demo-checkpoint")
+        self.assertTrue(evaluation["safe_actionable_now"])
+        self.assertEqual(evaluation["status"], "demo-checkpoint-live-validation-ready")
+        self.assertTrue(evaluation["evidence"]["v3021_source_build_pass"])
+        self.assertIn("same resident image", evaluation["evidence"]["next_live_scope"])
+
     def test_track_evaluations_prioritizes_current_video_doom_gate(self) -> None:
         inventory = {
             "consolidation_signals": {
@@ -296,6 +325,7 @@ class NativeInitFrontierSelectTests(unittest.TestCase):
         self.assertEqual(result["source_paths"]["current_doom_flash_gate_report"], "docs/reports/NATIVE_INIT_V3010_DOOM_INPUT_FLASH_GATE_ASSETS_2026-06-20.md")
         self.assertEqual(result["source_paths"]["current_doom_live_precondition_report"], "docs/reports/NATIVE_INIT_V3012_DOOM_INPUT_LIVE_PRECONDITION_CURRENT_2026-06-20.md")
         self.assertEqual(result["source_paths"]["current_doom_gameplay_loop_report"], "docs/reports/NATIVE_INIT_V3017_DOOMPAD_GAMEPLAY_LOOP_LIVE_2026-06-21.md")
+        self.assertEqual(result["source_paths"]["current_demo_checkpoint_source_report"], "docs/reports/NATIVE_INIT_V3021_DEMO_CHECKPOINT_BADAPPLE_NYAN_SOURCE_BUILD_2026-06-21.md")
 
     def test_select_frontier_selects_first_actionable_track(self) -> None:
         with self._fake_repo(
@@ -462,6 +492,50 @@ class NativeInitFrontierSelectTests(unittest.TestCase):
         self.assertEqual(result["track_evaluations"][0]["name"], "doom-capstone")
         self.assertIn("doomgeneric/WAD feasibility", result["next_operator_decision"])
 
+    def test_select_frontier_prioritizes_v3021_demo_checkpoint_live_gate(self) -> None:
+        with self._fake_repo(
+            goal_text="\n".join([
+                'PATCH-level kept "demo checkpoint"',
+                "**Bad Apple + Nyan** demos",
+                "**0.11.0 (MINOR) is RESERVED",
+            ]),
+            inventory_signals={
+                "direct_a90ctl_actionable_now_count": 0,
+                "direct_a90ctl_review_only_count": 0,
+                "direct_a90ctl_next_actionable_group": None,
+                "source_delete_review_count": 0,
+                "active_live_phase_residual_backlog_closed": True,
+            },
+            frontier_candidates=None,
+            current_doom_gameplay_loop_report="\n".join([
+                "v3017-doompad-gameplay-loop-state-consumed-pass-before-rollback",
+                "`video demo doom play 8` rc: `0` markers_ok=`1`",
+                "Player movement parsed: `1` moved_forward=`1`",
+                "Rollback health: version_ok=`1` selftest_fail0=`1`",
+                "not a WAD-backed `doomgeneric` engine",
+            ]),
+            current_demo_checkpoint_source_report="\n".join([
+                "v3021-demo-checkpoint-badapple-nyan-source-build-pass",
+                "Boot SHA256: `c860d604e3c906abf61fdd2c9bd9cd12d1aef2c88c05be57677b472ad36ef0f7`",
+                "Bad Apple asset ID: `badapple-480x360-full-v2903`",
+                "menu.demo.badapple.action=play-av-fullsong",
+                "menu.demo.badapple.frames=6962",
+                "Nyan asset ID: `nyancat-v2973-pal8-rle-preview`",
+                "menu.demo.nyan.action=play-av-preview",
+                "pal8-rle",
+                "pending-badapple-nyan-same-image-live-validation",
+            ]),
+        ) as paths:
+            with self._patch_paths(paths):
+                result = frontier.select_frontier()
+
+        self.assertEqual(result["decision"], "frontier-selector-actionable-unit-present")
+        self.assertEqual(result["selected_track"], "VIDEO")
+        self.assertEqual(result["selected_reason"], "demo-checkpoint-live-validation-ready")
+        self.assertEqual(result["track_evaluations"][0]["name"], "demo-checkpoint")
+        self.assertEqual(result["track_evaluations"][1]["name"], "doom-capstone")
+        self.assertIn("V3022 same-image live checkpoint", result["next_operator_decision"])
+
     @staticmethod
     def _fake_repo(
         *,
@@ -471,6 +545,8 @@ class NativeInitFrontierSelectTests(unittest.TestCase):
         current_doom_flash_gate_report: str | None = None,
         current_doom_live_precondition_report: str | None = None,
         current_doom_gameplay_loop_report: str | None = None,
+        current_demo_checkpoint_source_report: str | None = None,
+        goal_text: str = "goal text\n",
     ):
         class RepoContext:
             def __enter__(self):
@@ -479,7 +555,7 @@ class NativeInitFrontierSelectTests(unittest.TestCase):
                 (root / "docs" / "plans").mkdir(parents=True)
                 (root / "docs" / "reports").mkdir(parents=True)
                 (root / "docs" / "artifacts").mkdir(parents=True)
-                (root / "GOAL.md").write_text("goal text\n", encoding="utf-8")
+                (root / "GOAL.md").write_text(goal_text, encoding="utf-8")
                 (root / "docs" / "plans" / "NATIVE_INIT_CURRENT_TODO_2026-06-08.md").write_text(
                     "todo text\n", encoding="utf-8"
                 )
@@ -512,6 +588,13 @@ class NativeInitFrontierSelectTests(unittest.TestCase):
                         / "reports"
                         / "NATIVE_INIT_V3017_DOOMPAD_GAMEPLAY_LOOP_LIVE_2026-06-21.md"
                     ).write_text(current_doom_gameplay_loop_report, encoding="utf-8")
+                if current_demo_checkpoint_source_report is not None:
+                    (
+                        root
+                        / "docs"
+                        / "reports"
+                        / "NATIVE_INIT_V3021_DEMO_CHECKPOINT_BADAPPLE_NYAN_SOURCE_BUILD_2026-06-21.md"
+                    ).write_text(current_demo_checkpoint_source_report, encoding="utf-8")
                 self.root = root
                 return {
                     "root": root,
@@ -532,6 +615,12 @@ class NativeInitFrontierSelectTests(unittest.TestCase):
                         / "docs"
                         / "reports"
                         / "NATIVE_INIT_V3017_DOOMPAD_GAMEPLAY_LOOP_LIVE_2026-06-21.md"
+                    ),
+                    "current_demo_checkpoint_source": (
+                        root
+                        / "docs"
+                        / "reports"
+                        / "NATIVE_INIT_V3021_DEMO_CHECKPOINT_BADAPPLE_NYAN_SOURCE_BUILD_2026-06-21.md"
                     ),
                 }
 
@@ -554,6 +643,7 @@ class NativeInitFrontierSelectTests(unittest.TestCase):
             CURRENT_DOOM_FLASH_GATE_REPORT=paths["current_doom_flash_gate"],
             CURRENT_DOOM_LIVE_PRECONDITION_REPORT=paths["current_doom_live_precondition"],
             CURRENT_DOOM_GAMEPLAY_LOOP_REPORT=paths["current_doom_gameplay_loop"],
+            CURRENT_DEMO_CHECKPOINT_SOURCE_REPORT=paths["current_demo_checkpoint_source"],
         )
 
 

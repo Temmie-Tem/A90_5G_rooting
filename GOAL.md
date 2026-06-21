@@ -107,7 +107,18 @@ only, never a native-init runtime dependency. Full history (AUD-0 → AUD-5, V23
 > - **Video cache** command + trusted cache + AV-sync + preset (V2904–V2912) ✅ — frames cached on SD for playback.
 > - **Bad Apple asset** prepared host-side (V2903 wrapper) → seeded to SD cache → wired as `DEMO > Bad Apple` Player HUD.
 > - **🎬 Bad Apple demo DONE ✅ (V2947 full-song / V2964 smooth)** — full 232 s / 6962 frames, **0 dropped**, even ~30 fps cadence, audio audible + A/V synced (operator-confirmed), BEAT FLASH + read-only dashboard live, `selftest fail=0`, init `0.10.49`. **All five Definition-of-Done criteria met** (see demo-targets). The journey validated the smooth-playback standards: uneven 16/50 ms pageflip cadence + full-HUD-repaint cost = visible stutter even at 0 drops → fixed via setcrtc default (V2960) + **incremental HUD repaint** (V2963/V2964).
-> **Next (chartered 2026-06-20): 🎯 Nyan Cat** — the next demo rung, with **format-efficiency Tier-1 folded in as its enabler** (color content forces a compact on-device-decodable format; design it from Nyan's real needs, not as a standalone format epic — see demo-targets). Optional/parallel polish: dashboard formatting, fonts/ASCII charset, beat-flash tuning. Bad Apple core demo is complete and non-blocking.
+> **🎬 Nyan Cat demo DONE ✅ (V2975/V2976, `A90VSTR2 pal8-rle` ~35× compression, 30 fps).** DOOM is now in progress
+> (input solved via **serial doompad** over the command bridge — V3014/V3015 — no OTG keyboard / no touch needed; built-in
+> touch is a concluded dead-end, see Touch block). **DOOM render scaffold (`doomgeneric`) is the active work.**
+>
+> **📌 Versioning / checkpoint plan (operator, 2026-06-21):**
+> - **NEXT UNIT = a PATCH-level kept "demo checkpoint"** — build ONE image bundling the validated video pipeline +
+>   **Bad Apple + Nyan** demos, **live-validate BOTH in that single image** (each plays, `selftest fail=0`, rollback to
+>   v2321), then pin **version + SHA256 + a promotion-style report** as a *kept* milestone. This is NOT a MINOR roll and
+>   does NOT replace the v2321 rollback net — it just locks in the known-good demo state before DOOM work can regress it.
+> - **0.11.0 (MINOR) is RESERVED for video-epic close at DOOM completion** — i.e. the full demo ladder
+>   (Bad Apple + Nyan + DOOM) device-proven. Do not roll MINOR before DOOM lands; DOOM continues on the 0.10.x line until then.
+> - Parallel optional polish: dashboard formatting, fonts/ASCII charset, beat-flash tuning.
 
 **Historical recon framing (Venus HW-decode / cont-splash feasibility, VID-0/1/2):** SUPERSEDED — the display is
 proven (see the re-scope + STATUS above) and Venus is **not** needed (demos use pre-rendered frames). The

@@ -29,6 +29,12 @@ CURRENT_DOOM_LIVE_PRECONDITION_REPORT = (
 CURRENT_DOOM_GAMEPLAY_LOOP_REPORT = (
     REPO_ROOT / "docs" / "reports" / "NATIVE_INIT_V3017_DOOMPAD_GAMEPLAY_LOOP_LIVE_2026-06-21.md"
 )
+CURRENT_DEMO_CHECKPOINT_SOURCE_REPORT = (
+    REPO_ROOT
+    / "docs"
+    / "reports"
+    / "NATIVE_INIT_V3021_DEMO_CHECKPOINT_BADAPPLE_NYAN_SOURCE_BUILD_2026-06-21.md"
+)
 
 
 def parse_args() -> argparse.Namespace:
@@ -180,6 +186,100 @@ def current_doom_gameplay_loop_evidence(report_text: str | None) -> dict[str, An
     }
 
 
+def current_demo_checkpoint_source_evidence(report_text: str | None) -> dict[str, Any]:
+    if not report_text:
+        return {
+            "v3021_source_report_present": False,
+            "v3021_source_build_pass": False,
+            "v3021_boot_sha_present": False,
+            "v3021_badapple_contract_present": False,
+            "v3021_nyan_contract_present": False,
+            "v3021_adoption_pending_live": False,
+        }
+    source_build_pass = "v3021-demo-checkpoint-badapple-nyan-source-build-pass" in report_text
+    boot_sha_present = marker_present(report_text, "Boot SHA256: `c860d604e3c906abf61fdd2c9bd9cd12d1aef2c88c05be57677b472ad36ef0f7`")
+    badapple_contract = all_markers_present(
+        report_text,
+        (
+            "Bad Apple asset ID: `badapple-480x360-full-v2903`",
+            "menu.demo.badapple.action=play-av-fullsong",
+            "menu.demo.badapple.frames=6962",
+        ),
+    )
+    nyan_contract = all_markers_present(
+        report_text,
+        (
+            "Nyan asset ID: `nyancat-v2973-pal8-rle-preview`",
+            "menu.demo.nyan.action=play-av-preview",
+            "pal8-rle",
+        ),
+    )
+    adoption_pending = "pending-badapple-nyan-same-image-live-validation" in report_text
+    return {
+        "v3021_source_report_present": True,
+        "v3021_source_build_pass": bool(source_build_pass),
+        "v3021_boot_sha_present": bool(boot_sha_present),
+        "v3021_badapple_contract_present": bool(badapple_contract),
+        "v3021_nyan_contract_present": bool(nyan_contract),
+        "v3021_adoption_pending_live": bool(adoption_pending),
+    }
+
+
+def current_demo_checkpoint_evaluation(
+    goal_text: str,
+    source_report_text: str | None = None,
+) -> dict[str, Any] | None:
+    checkpoint_chartered = all_markers_present(
+        goal_text,
+        (
+            'PATCH-level kept "demo checkpoint"',
+            "**Bad Apple + Nyan** demos",
+            "**0.11.0 (MINOR) is RESERVED",
+        ),
+    )
+    if not checkpoint_chartered:
+        return None
+    source = current_demo_checkpoint_source_evidence(source_report_text)
+    source_ready = bool(
+        source["v3021_source_build_pass"]
+        and source["v3021_boot_sha_present"]
+        and source["v3021_badapple_contract_present"]
+        and source["v3021_nyan_contract_present"]
+        and source["v3021_adoption_pending_live"]
+    )
+    return {
+        "track": "VIDEO",
+        "name": "demo-checkpoint",
+        "safe_actionable_now": True,
+        "status": (
+            "demo-checkpoint-live-validation-ready"
+            if source_ready
+            else "demo-checkpoint-source-build-ready"
+        ),
+        "drop_trigger": (
+            "GOAL.md now requires a patch-level kept Bad Apple + Nyan checkpoint before further "
+            "WAD-backed DOOM integration. V3021 has produced the exact source-built image, so the "
+            "next bounded unit is same-image live validation and rollback."
+            if source_ready
+            else "GOAL.md now requires a patch-level kept Bad Apple + Nyan checkpoint before further "
+            "WAD-backed DOOM integration; build the checkpoint image first."
+        ),
+        "evidence": {
+            "goal_checkpoint_chartered": True,
+            **source,
+            "next_source_command": (
+                "PYTHONPATH=workspace/public/src/scripts/revalidation:workspace/public/src/harness "
+                "python3 workspace/public/src/scripts/revalidation/"
+                "build_native_init_boot_v3021_demo_checkpoint_badapple_nyan.py"
+            ),
+            "next_live_scope": (
+                "Flash boot_linux_v3021_demo_checkpoint_badapple_nyan.img, validate Bad Apple and "
+                "Nyan in the same resident image, health-check, then rollback to V2321."
+            ),
+        },
+    }
+
+
 def current_doom_input_evaluation(
     report_text: str | None,
     flash_gate_report_text: str | None = None,
@@ -261,6 +361,7 @@ def track_evaluations(
     current_doom_flash_gate_report_text: str | None = None,
     current_doom_live_precondition_report_text: str | None = None,
     current_doom_gameplay_loop_report_text: str | None = None,
+    current_demo_checkpoint_source_report_text: str | None = None,
 ) -> list[dict[str, Any]]:
     signals = inventory["consolidation_signals"]
     t1_candidates = ready_t1_candidates(frontier_candidates)
@@ -269,6 +370,10 @@ def track_evaluations(
         current_doom_flash_gate_report_text,
         current_doom_live_precondition_report_text,
         current_doom_gameplay_loop_report_text,
+    )
+    current_demo_checkpoint = current_demo_checkpoint_evaluation(
+        goal_text,
+        current_demo_checkpoint_source_report_text,
     )
     t1_closed_boundary = all_markers_present(
         goal_text,
@@ -350,6 +455,10 @@ def track_evaluations(
             },
         },
     ]
+    if current_demo_checkpoint is not None:
+        if current_video is not None:
+            return [current_demo_checkpoint, current_video, *evaluations]
+        return [current_demo_checkpoint, *evaluations]
     if current_video is not None:
         return [current_video, *evaluations]
     return evaluations
@@ -364,6 +473,7 @@ def select_frontier() -> dict[str, Any]:
     current_doom_flash_gate_report_text = read_optional_text(CURRENT_DOOM_FLASH_GATE_REPORT)
     current_doom_live_precondition_report_text = read_optional_text(CURRENT_DOOM_LIVE_PRECONDITION_REPORT)
     current_doom_gameplay_loop_report_text = read_optional_text(CURRENT_DOOM_GAMEPLAY_LOOP_REPORT)
+    current_demo_checkpoint_source_report_text = read_optional_text(CURRENT_DEMO_CHECKPOINT_SOURCE_REPORT)
     evaluations = track_evaluations(
         goal_text,
         todo_text,
@@ -373,6 +483,7 @@ def select_frontier() -> dict[str, Any]:
         current_doom_flash_gate_report_text,
         current_doom_live_precondition_report_text,
         current_doom_gameplay_loop_report_text,
+        current_demo_checkpoint_source_report_text,
     )
     actionable = [evaluation for evaluation in evaluations if evaluation["safe_actionable_now"]]
     current_video = current_doom_input_evaluation(
@@ -381,7 +492,21 @@ def select_frontier() -> dict[str, Any]:
         current_doom_live_precondition_report_text,
         current_doom_gameplay_loop_report_text,
     )
-    if current_video and current_video["status"] == "doomgeneric-wad-feasibility-host-ready":
+    current_demo_checkpoint = current_demo_checkpoint_evaluation(
+        goal_text,
+        current_demo_checkpoint_source_report_text,
+    )
+    if current_demo_checkpoint and current_demo_checkpoint["status"] == "demo-checkpoint-live-validation-ready":
+        next_operator_decision = (
+            "Run the V3022 same-image live checkpoint: flash the exact V3021 image, validate "
+            "Bad Apple and Nyan, health-check, then rollback to V2321 before resuming WAD-backed DOOM."
+        )
+    elif current_demo_checkpoint and current_demo_checkpoint["status"] == "demo-checkpoint-source-build-ready":
+        next_operator_decision = (
+            "Build the V3021 patch-level Bad Apple + Nyan checkpoint image before further "
+            "WAD-backed DOOM integration."
+        )
+    elif current_video and current_video["status"] == "doomgeneric-wad-feasibility-host-ready":
         next_operator_decision = (
             "Run a host-only doomgeneric/WAD feasibility and asset-policy unit next. Do not flash "
             "a WAD-backed engine until source provenance, boot-size impact, bounded runtime controls, "
@@ -429,6 +554,7 @@ def select_frontier() -> dict[str, Any]:
             "current_doom_flash_gate_report": str(CURRENT_DOOM_FLASH_GATE_REPORT.relative_to(REPO_ROOT)),
             "current_doom_live_precondition_report": str(CURRENT_DOOM_LIVE_PRECONDITION_REPORT.relative_to(REPO_ROOT)),
             "current_doom_gameplay_loop_report": str(CURRENT_DOOM_GAMEPLAY_LOOP_REPORT.relative_to(REPO_ROOT)),
+            "current_demo_checkpoint_source_report": str(CURRENT_DEMO_CHECKPOINT_SOURCE_REPORT.relative_to(REPO_ROOT)),
         },
     }
 
