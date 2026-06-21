@@ -1630,6 +1630,16 @@ static struct doominput_state doompad_state;
 static bool doompad_state_ready;
 static unsigned int doompad_seq;
 
+#define DOOMPAD_MASK_FORWARD (1U << 0)
+#define DOOMPAD_MASK_BACK    (1U << 1)
+#define DOOMPAD_MASK_LEFT    (1U << 2)
+#define DOOMPAD_MASK_RIGHT   (1U << 3)
+#define DOOMPAD_MASK_FIRE    (1U << 4)
+#define DOOMPAD_MASK_USE     (1U << 5)
+#define DOOMPAD_MASK_MENU    (1U << 6)
+#define DOOMPAD_MASK_RUN     (1U << 7)
+#define DOOMPAD_MASK_ALL     0xffU
+
 struct doompad_snapshot {
     bool forward;
     bool back;
@@ -1739,9 +1749,32 @@ static int doompad_parse_value(const char *value, int *down) {
     return -EINVAL;
 }
 
+static int doompad_parse_uint(const char *text,
+                              unsigned long max_value,
+                              unsigned int *out) {
+    char *end = NULL;
+    unsigned long value;
+
+    if (text == NULL || text[0] == '\0' || out == NULL) {
+        return -EINVAL;
+    }
+    errno = 0;
+    value = strtoul(text, &end, 0);
+    if (errno != 0 || end == text || *end != '\0' || value > max_value) {
+        return -EINVAL;
+    }
+    *out = (unsigned int)value;
+    return 0;
+}
+
+static unsigned int doompad_current_mask(void);
+
 static void doompad_print_state(void) {
     a90_console_printf("doompad.version=1\r\n");
     a90_console_printf("doompad.source=serial-control\r\n");
+    a90_console_printf("doompad.batch=state-mask-v3047\r\n");
+    a90_console_printf("doompad.mask.bits=forward:0 back:1 left:2 right:3 fire:4 use:5 menu:6 run:7\r\n");
+    a90_console_printf("doompad.mask=0x%02x\r\n", doompad_current_mask());
     a90_console_printf("doompad.seq=%u\r\n", doompad_seq);
     a90_console_printf("doompad.state seq=%u forward=%d back=%d left=%d right=%d fire=%d use=%d menu=%d run=%d active=%d\r\n",
             doompad_seq,
@@ -1789,6 +1822,64 @@ static int doompad_mirror_bridge_input_state(void) {
     input.active = doominput_state_active(&doompad_state);
     input.seq = doompad_seq;
     return a90_doomgeneric_bridge_write_input_state(&input);
+}
+
+static unsigned int doompad_current_mask(void) {
+    unsigned int mask = 0U;
+
+    doompad_init_once();
+    if (doompad_state.forward) {
+        mask |= DOOMPAD_MASK_FORWARD;
+    }
+    if (doompad_state.back) {
+        mask |= DOOMPAD_MASK_BACK;
+    }
+    if (doompad_state.left) {
+        mask |= DOOMPAD_MASK_LEFT;
+    }
+    if (doompad_state.right) {
+        mask |= DOOMPAD_MASK_RIGHT;
+    }
+    if (doompad_state.fire) {
+        mask |= DOOMPAD_MASK_FIRE;
+    }
+    if (doompad_state.use) {
+        mask |= DOOMPAD_MASK_USE;
+    }
+    if (doompad_state.menu) {
+        mask |= DOOMPAD_MASK_MENU;
+    }
+    if (doompad_state.run) {
+        mask |= DOOMPAD_MASK_RUN;
+    }
+    return mask;
+}
+
+static void doompad_apply_serial_mask(unsigned int seq, unsigned int mask) {
+    struct a90_doomgeneric_bridge_status doomgeneric;
+    int mirror_rc;
+
+    doominput_reset_state(&doompad_state);
+    doompad_state.forward = (mask & DOOMPAD_MASK_FORWARD) != 0U;
+    doompad_state.back = (mask & DOOMPAD_MASK_BACK) != 0U;
+    doompad_state.left = (mask & DOOMPAD_MASK_LEFT) != 0U;
+    doompad_state.right = (mask & DOOMPAD_MASK_RIGHT) != 0U;
+    doompad_state.fire = (mask & DOOMPAD_MASK_FIRE) != 0U;
+    doompad_state.use = (mask & DOOMPAD_MASK_USE) != 0U;
+    doompad_state.menu = (mask & DOOMPAD_MASK_MENU) != 0U;
+    doompad_state.run = (mask & DOOMPAD_MASK_RUN) != 0U;
+    ++doompad_state.frame;
+    doompad_seq = seq;
+    mirror_rc = doompad_mirror_bridge_input_state();
+    a90_doomgeneric_bridge_get_status(&doomgeneric);
+    a90_console_printf("doompad.state_batch seq=%u mask=0x%02x active=%d\r\n",
+            doompad_seq,
+            mask,
+            doominput_state_active(&doompad_state) ? 1 : 0);
+    a90_console_printf("doompad.input_state.path=%s\r\n", doomgeneric.input_state_path);
+    a90_console_printf("doompad.input_state.updated=%d\r\n", mirror_rc == 0 ? 1 : 0);
+    a90_console_printf("doompad.input_state.rc=%d\r\n", mirror_rc);
+    doompad_print_state();
 }
 
 static void doompad_apply_serial_role(unsigned int key_code,
@@ -1841,6 +1932,28 @@ static int cmd_doompad(char **argv, int argc) {
         return 0;
     }
 
+    if (strcmp(argv[1], "state") == 0) {
+        unsigned int seq;
+        unsigned int mask;
+
+        if (argc < 4) {
+            a90_console_printf("usage: doompad state <seq> <mask>\r\n");
+            return -EINVAL;
+        }
+        rc = doompad_parse_uint(argv[2], 0xffffffffUL, &seq);
+        if (rc < 0) {
+            a90_console_printf("doompad: invalid seq %s\r\n", argv[2]);
+            return rc;
+        }
+        rc = doompad_parse_uint(argv[3], DOOMPAD_MASK_ALL, &mask);
+        if (rc < 0) {
+            a90_console_printf("doompad: invalid mask %s\r\n", argv[3]);
+            return rc;
+        }
+        doompad_apply_serial_mask(seq, mask);
+        return 0;
+    }
+
     if (strcmp(argv[1], "key") == 0) {
         if (argc < 4) {
             a90_console_printf("usage: doompad key <role> <0|1|down|up>\r\n");
@@ -1875,7 +1988,7 @@ static int cmd_doompad(char **argv, int argc) {
         return 0;
     }
 
-    a90_console_printf("usage: doompad [status|reset|key <role> <0|1>|tap <role>]\r\n");
+    a90_console_printf("usage: doompad [status|reset|state <seq> <mask>|key <role> <0|1>|tap <role>]\r\n");
     return -EINVAL;
 }
 

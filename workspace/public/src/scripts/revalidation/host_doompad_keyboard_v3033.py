@@ -1,8 +1,8 @@
 #!/usr/bin/env python3
 """Drive the A90 serial doompad from a host terminal keyboard.
 
-This intentionally uses the existing `a90ctl.py doompad key <role> <0|1>`
-command path. It does not use OTG, evdev, uinput, or host USB HID injection.
+This intentionally uses the existing serial doompad command path. It does not
+use OTG, evdev, uinput, or host USB HID injection.
 """
 
 from __future__ import annotations
@@ -21,13 +21,14 @@ import a90ctl
 
 
 EXPECTED_WAD_SHA256 = "1d7d43be501e67d927e415e0b8f3e29c3bf33075e859721816f652a526cac771"
-DEFAULT_HOLD_MS = 180
-DEFAULT_POLL_MS = 30
+DEFAULT_HOLD_MS = 110
+DEFAULT_POLL_MS = 10
 DEFAULT_LOOP_FRAMES = 0
 DEFAULT_LOOP_FRAME_MS = 33
 DEFAULT_LOOP_RESTART_GRACE_MS = 500
 DEFAULT_CONTINUOUS_CHECK_MS = 5000
 ALL_ROLES = ("forward", "back", "left", "right", "fire", "use", "menu", "run")
+ROLE_BITS = {role: 1 << index for index, role in enumerate(ALL_ROLES)}
 LOOP_STATUS_COMMAND = ["video", "demo", "doom", "loop-status"]
 LOOP_STATUS_ACTIVE_KEY = "video.demo.doom.loop_status.active"
 LOOP_STATUS_CONTINUOUS_KEY = "video.demo.doom.loop_status.continuous"
@@ -76,6 +77,24 @@ def doompad_command(role: str, down: bool) -> list[str]:
     return ["doompad", "key", role, "1" if down else "0"]
 
 
+def doompad_mask_for_roles(roles: Iterable[str]) -> int:
+    mask = 0
+    for role in roles:
+        bit = ROLE_BITS.get(role)
+        if bit is None:
+            raise ValueError(f"unknown doompad role: {role}")
+        mask |= bit
+    return mask
+
+
+def doompad_state_command(seq: int, mask: int) -> list[str]:
+    if seq < 0:
+        raise ValueError("doompad seq must be non-negative")
+    if mask < 0 or mask > 0xff:
+        raise ValueError("doompad mask must be between 0x00 and 0xff")
+    return ["doompad", "state", str(seq), f"0x{mask:02x}"]
+
+
 def loop_start_command(frames: int, sha256: str) -> list[str]:
     return [
         "video",
@@ -92,6 +111,14 @@ def loop_start_command(frames: int, sha256: str) -> list[str]:
 
 def is_doompad_key_command(command: list[str]) -> bool:
     return len(command) == 4 and command[0] == "doompad" and command[1] == "key"
+
+
+def is_doompad_state_command(command: list[str]) -> bool:
+    return len(command) == 4 and command[0] == "doompad" and command[1] == "state"
+
+
+def is_doompad_input_command(command: list[str]) -> bool:
+    return is_doompad_key_command(command) or is_doompad_state_command(command)
 
 
 def parse_key_value_lines(text: str) -> dict[str, str]:
@@ -124,7 +151,7 @@ class CommandSender:
                 end={"rc": "0", "status": "print-only"},
                 text="",
             )
-        use_fast_path = fast or is_doompad_key_command(command)
+        use_fast_path = fast or is_doompad_input_command(command)
         result = a90ctl.run_cmdv1_command(
             self.host,
             self.port,
@@ -211,29 +238,51 @@ class DoomLoopKeeper:
 
 
 class DoompadKeyboardSession:
-    def __init__(self, sender: CommandSender, hold_ms: int) -> None:
+    def __init__(self, sender: CommandSender, hold_ms: int, *, use_state_batch: bool = True) -> None:
         self.sender = sender
         self.hold_sec = hold_ms / 1000.0
+        self.use_state_batch = use_state_batch
         self.active_until: dict[str, float] = {}
+        self.state_seq = 0
+
+    def active_mask(self) -> int:
+        return doompad_mask_for_roles(self.active_until.keys())
+
+    def send_state(self) -> None:
+        self.state_seq += 1
+        self.sender.send(doompad_state_command(self.state_seq, self.active_mask()))
 
     def press(self, role: str, now: float | None = None) -> None:
         timestamp = time.monotonic() if now is None else now
         if role not in self.active_until:
-            self.sender.send(doompad_command(role, True))
+            self.active_until[role] = timestamp + self.hold_sec
+            if self.use_state_batch:
+                self.send_state()
+            else:
+                self.sender.send(doompad_command(role, True))
+            return
         self.active_until[role] = timestamp + self.hold_sec
 
     def release_expired(self, now: float | None = None) -> None:
         timestamp = time.monotonic() if now is None else now
         expired = [role for role, deadline in self.active_until.items() if deadline <= timestamp]
         for role in expired:
-            self.sender.send(doompad_command(role, False))
             self.active_until.pop(role, None)
+        if expired:
+            if self.use_state_batch:
+                self.send_state()
+            else:
+                for role in expired:
+                    self.sender.send(doompad_command(role, False))
 
     def release_all(self, roles: Iterable[str] = ALL_ROLES) -> None:
         for role in roles:
             if role in self.active_until:
                 self.active_until.pop(role, None)
-            self.sender.send(doompad_command(role, False))
+            if not self.use_state_batch:
+                self.sender.send(doompad_command(role, False))
+        if self.use_state_batch:
+            self.send_state()
 
     def handle_token(self, token: str, now: float | None = None) -> bool:
         if token in EXIT_TOKENS:
@@ -284,6 +333,7 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--no-loop-start", action="store_true")
     parser.add_argument("--no-loop-stop", action="store_true")
     parser.add_argument("--no-auto-restart", action="store_true")
+    parser.add_argument("--legacy-key-events", action="store_true")
     parser.add_argument("--print-only", action="store_true")
     return parser.parse_args()
 
@@ -291,7 +341,7 @@ def parse_args() -> argparse.Namespace:
 def main() -> int:
     args = parse_args()
     sender = CommandSender(args.host, args.port, args.timeout, print_only=args.print_only)
-    session = DoompadKeyboardSession(sender, args.hold_ms)
+    session = DoompadKeyboardSession(sender, args.hold_ms, use_state_batch=not args.legacy_key_events)
     loop_keeper = DoomLoopKeeper(
         sender,
         args.loop_frames,

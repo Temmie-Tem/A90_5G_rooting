@@ -92,6 +92,8 @@ class NativeDoomgenericVisibleLoopSourceV3033Tests(unittest.TestCase):
         self.assertIn("WAD PLAYABLE LOOP", menu)
 
     def test_host_keyboard_bridge_maps_keys_and_cleans_up(self) -> None:
+        self.assertEqual(keyboard.DEFAULT_HOLD_MS, 110)
+        self.assertEqual(keyboard.DEFAULT_POLL_MS, 10)
         self.assertEqual(keyboard.DEFAULT_LOOP_FRAMES, 0)
         self.assertEqual(keyboard.DEFAULT_LOOP_FRAME_MS, 33)
         self.assertEqual(keyboard.role_for_key_token("w"), "forward")
@@ -100,6 +102,8 @@ class NativeDoomgenericVisibleLoopSourceV3033Tests(unittest.TestCase):
         self.assertEqual(keyboard.role_for_key_token("\r"), "use")
         self.assertEqual(keyboard.role_for_key_token("r"), "run")
         self.assertEqual(keyboard.doompad_command("fire", True), ["doompad", "key", "fire", "1"])
+        self.assertEqual(keyboard.doompad_mask_for_roles(("forward", "fire")), 0x11)
+        self.assertEqual(keyboard.doompad_state_command(7, 0x11), ["doompad", "state", "7", "0x11"])
         self.assertEqual(
             keyboard.loop_start_command(8, "a" * 64),
             [
@@ -128,9 +132,23 @@ class NativeDoomgenericVisibleLoopSourceV3033Tests(unittest.TestCase):
         self.assertTrue(session.handle_token("w", now=1.0))
         session.release_expired(now=1.02)
         session.release_all()
-        self.assertIn(["doompad", "key", "forward", "1"], sender.sent)
-        self.assertIn(["doompad", "key", "forward", "0"], sender.sent)
-        self.assertIn(["doompad", "key", "run", "0"], sender.sent)
+        self.assertEqual(
+            sender.sent,
+            [
+                ["doompad", "state", "1", "0x01"],
+                ["doompad", "state", "2", "0x00"],
+                ["doompad", "state", "3", "0x00"],
+            ],
+        )
+
+        legacy_sender = FakeSender()
+        legacy = keyboard.DoompadKeyboardSession(legacy_sender, hold_ms=10, use_state_batch=False)
+        legacy.press("forward", now=2.0)
+        legacy.release_expired(now=2.02)
+        legacy.release_all()
+        self.assertIn(["doompad", "key", "forward", "1"], legacy_sender.sent)
+        self.assertIn(["doompad", "key", "forward", "0"], legacy_sender.sent)
+        self.assertIn(["doompad", "key", "run", "0"], legacy_sender.sent)
 
     def test_host_keyboard_loop_keeper_restarts_inactive_visible_loop(self) -> None:
         class FakeSender:

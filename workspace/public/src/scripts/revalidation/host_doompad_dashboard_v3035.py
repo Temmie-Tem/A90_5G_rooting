@@ -2,7 +2,7 @@
 """Host-side DOOM input dashboard for the V3033 visible loop candidate.
 
 The dashboard keeps the existing serial doompad path:
-`a90ctl.py doompad key <role> <0|1>`. It adds live visibility for host
+`a90ctl.py doompad state <seq> <mask>`. It adds live visibility for host
 keyboard input, serial command results, DOOM loop lifetime, and device status.
 It does not use OTG, evdev, uinput, or host USB HID injection.
 """
@@ -25,8 +25,8 @@ import host_doompad_keyboard_v3033 as keyboard
 EXPECTED_WAD_SHA256 = keyboard.EXPECTED_WAD_SHA256
 DEFAULT_LOOP_FRAMES = keyboard.DEFAULT_LOOP_FRAMES
 DEFAULT_LOOP_FRAME_MS = keyboard.DEFAULT_LOOP_FRAME_MS
-DEFAULT_HOLD_MS = 250
-DEFAULT_POLL_MS = 30
+DEFAULT_HOLD_MS = keyboard.DEFAULT_HOLD_MS
+DEFAULT_POLL_MS = keyboard.DEFAULT_POLL_MS
 DEFAULT_STATUS_INTERVAL_SEC = 1.0
 DEFAULT_SYSTEM_STATUS_INTERVAL_SEC = 10.0
 DEFAULT_SYSTEM_STATUS_IDLE_SEC = 2.0
@@ -127,7 +127,7 @@ class DashboardCommandSender:
                 text="",
             )
         try:
-            use_fast_path = keyboard.is_doompad_key_command(command) or is_dashboard_fast_read_command(command)
+            use_fast_path = keyboard.is_doompad_input_command(command) or is_dashboard_fast_read_command(command)
             result = a90ctl.run_cmdv1_command(
                 self.host,
                 self.port,
@@ -554,7 +554,7 @@ def run_curses(stdscr: curses.window, args: argparse.Namespace) -> int:
         args.timeout,
         print_only=args.print_only,
     )
-    session = keyboard.DoompadKeyboardSession(sender, args.hold_ms)
+    session = keyboard.DoompadKeyboardSession(sender, args.hold_ms, use_state_batch=not args.legacy_key_events)
     poll_sec = max(args.poll_ms, 1) / 1000.0
     last_light_refresh = 0.0
     last_system_refresh = 0.0
@@ -621,6 +621,7 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--no-loop-start", action="store_true")
     parser.add_argument("--no-loop-stop", action="store_true")
     parser.add_argument("--no-auto-restart", action="store_true")
+    parser.add_argument("--legacy-key-events", action="store_true")
     parser.add_argument("--print-only", action="store_true")
     parser.add_argument("--once", action="store_true", help="print one non-curses snapshot and exit")
     return parser.parse_args()

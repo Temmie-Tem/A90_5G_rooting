@@ -11,7 +11,7 @@ dashboard = load_script("workspace/public/src/scripts/revalidation/host_doompad_
 
 
 class HostDoompadFastPathV3042Tests(unittest.TestCase):
-    def test_keyboard_sender_uses_fast_path_only_for_doompad_key(self) -> None:
+    def test_keyboard_sender_uses_fast_path_for_doompad_input_commands(self) -> None:
         calls: list[tuple[list[str], bool, float]] = []
 
         def fake_run(host, port, timeout, command, *, retry_unsafe, require_prompt_after_end, post_marker_drain_sec):
@@ -21,12 +21,14 @@ class HostDoompadFastPathV3042Tests(unittest.TestCase):
         sender = keyboard.CommandSender("127.0.0.1", 54321, 0.1)
         with mock.patch.object(keyboard.a90ctl, "run_cmdv1_command", side_effect=fake_run):
             self.assertEqual(sender.send(["doompad", "key", "fire", "1"]), 0)
+            self.assertEqual(sender.send(["doompad", "state", "1", "0x11"]), 0)
             self.assertEqual(sender.send(["doompad", "status"]), 0)
 
         self.assertEqual(
             calls,
             [
                 (["doompad", "key", "fire", "1"], False, 0.0),
+                (["doompad", "state", "1", "0x11"], False, 0.0),
                 (["doompad", "status"], True, 0.15),
             ],
         )
@@ -42,6 +44,7 @@ class HostDoompadFastPathV3042Tests(unittest.TestCase):
         sender = dashboard.DashboardCommandSender(state, "127.0.0.1", 54321, 0.1)
         with mock.patch.object(dashboard.a90ctl, "run_cmdv1_command", side_effect=fake_run):
             self.assertEqual(sender.send(["doompad", "key", "left", "1"]), 0)
+            self.assertEqual(sender.send(["doompad", "state", "2", "0x04"]), 0)
             self.assertEqual(sender.send(["video", "demo", "doom", "status"]), 0)
             self.assertEqual(sender.send(["status"]), 0)
 
@@ -49,6 +52,7 @@ class HostDoompadFastPathV3042Tests(unittest.TestCase):
             calls,
             [
                 (["doompad", "key", "left", "1"], False, 0.0),
+                (["doompad", "state", "2", "0x04"], False, 0.0),
                 (["video", "demo", "doom", "status"], False, 0.0),
                 (["status"], False, 0.0),
             ],

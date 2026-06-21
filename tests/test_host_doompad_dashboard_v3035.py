@@ -16,7 +16,8 @@ class HostDoompadDashboardV3035Tests(unittest.TestCase):
         self.assertEqual(dashboard.DEFAULT_LOOP_FRAMES, keyboard.DEFAULT_LOOP_FRAMES)
         self.assertEqual(dashboard.DEFAULT_LOOP_FRAMES, 0)
         self.assertEqual(dashboard.DEFAULT_LOOP_FRAME_MS, 33)
-        self.assertEqual(dashboard.DEFAULT_HOLD_MS, 250)
+        self.assertEqual(dashboard.DEFAULT_HOLD_MS, 110)
+        self.assertEqual(dashboard.DEFAULT_POLL_MS, 10)
         self.assertEqual(dashboard.DEFAULT_SYSTEM_STATUS_INTERVAL_SEC, 10.0)
         self.assertEqual(dashboard.DEFAULT_SYSTEM_STATUS_IDLE_SEC, 2.0)
         self.assertEqual(
