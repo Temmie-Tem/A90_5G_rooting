@@ -154,10 +154,15 @@ only, never a native-init runtime dependency. Full history (AUD-0 → AUD-5, V23
 >   WAD path `/mnt/sdext/a90/runtime/doom/v3028/DOOM1.WAD`; the V3029 helper SHA256 is
 >   `435dc0bda50dff6c27410ed727d4d513c02bfba89e876ff654a045cf00d26b44`. WAD files in ramdisk are
 >   `0`, public WAD count remains `0`, and WAD bytes are not embedded in the boot image.
-> - **NEXT CHECKPOINT: V3030 rollback-gated SD-WAD command live validation** — flash only the exact V3029
->   candidate through `native_init_flash.py`, confirm `version`/`status`/`selftest`, run the SD-WAD
->   `verify` command and a short bounded `play` smoke command against the pinned SHA, then rollback to V2321
->   and health-check. Do not proceed unless rollback images/recovery are confirmed first.
+> - **DOOM SD-WAD command live validation DONE (V3030)** — rollback-gated live validation flashed the exact
+>   V3029 candidate (`9b45abb847ac64c9032f0e873038a3abf577e27f2dabc2ceccad8cd8e95cf804`) through
+>   `native_init_flash.py`, confirmed candidate `version`/`status`/`selftest fail=0`, validated
+>   `video demo doom verify --wad runtime-private --sha256 EXPECTED` (`sha256_match=1`, `magic=IWAD`,
+>   `ok=1`) and bounded `video demo doom play 4 --wad runtime-private --sha256 EXPECTED` (`rc=0`,
+>   `timed_out=0`), then rolled back to V2321 with final `selftest fail=0`.
+> - **NEXT CHECKPOINT: V3031 host-only WAD-backed visible DOOM frame/menu integration** — decide and implement
+>   the bounded source path that carries doomgeneric frames from the WAD-backed helper/engine into the native
+>   KMS/menu presentation flow, without embedding WAD bytes or widening the flash surface.
 > - Parallel optional polish: dashboard formatting, fonts/ASCII charset, beat-flash tuning.
 
 **Historical recon framing (Venus HW-decode / cont-splash feasibility, VID-0/1/2):** SUPERSEDED — the display is

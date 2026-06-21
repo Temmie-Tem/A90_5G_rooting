@@ -83,6 +83,12 @@ CURRENT_DOOMGENERIC_SD_WAD_COMMAND_REPORT = (
     / "reports"
     / "NATIVE_INIT_V3029_DOOMGENERIC_SD_WAD_COMMAND_SOURCE_BUILD_2026-06-22.md"
 )
+CURRENT_DOOMGENERIC_SD_WAD_COMMAND_LIVE_REPORT = (
+    REPO_ROOT
+    / "docs"
+    / "reports"
+    / "NATIVE_INIT_V3030_DOOMGENERIC_SD_WAD_COMMAND_LIVE_2026-06-22.md"
+)
 
 
 def parse_args() -> argparse.Namespace:
@@ -713,6 +719,77 @@ def current_doomgeneric_sd_wad_command_evidence(report_text: str | None) -> dict
     }
 
 
+def current_doomgeneric_sd_wad_command_live_evidence(report_text: str | None) -> dict[str, Any]:
+    if not report_text:
+        return {
+            "v3030_sd_wad_command_live_report_present": False,
+            "v3030_sd_wad_command_live_pass": False,
+            "v3030_candidate_flash_ok": False,
+            "v3030_candidate_health_ok": False,
+            "v3030_status_command_ok": False,
+            "v3030_verify_command_ok": False,
+            "v3030_verify_sha_match": False,
+            "v3030_play_smoke_ok": False,
+            "v3030_play_not_timed_out": False,
+            "v3030_rollback_health_ok": False,
+            "v3030_next_run_id": None,
+        }
+    decision_pass = "v3030-doomgeneric-sd-wad-command-live-pass-before-rollback" in report_text
+    candidate_flash = (
+        "Candidate flashed through checked helper: `1`" in report_text
+        and "Candidate remote SHA256 matched local: `1`" in report_text
+        and "Candidate boot readback SHA256 matched expected: `1`" in report_text
+    )
+    candidate_health = (
+        "Candidate post-flash version rc/status: `0` / `ok`" in report_text
+        and "Candidate post-flash status rc/status: `0` / `ok`" in report_text
+        and "Candidate post-flash selftest fail=0: `1`" in report_text
+    )
+    status_command = "`video demo doom status` rc/status: `0` / `ok`" in report_text
+    verify_command = "`video demo doom verify --wad runtime-private --sha256 EXPECTED` rc/status: `0` / `ok`" in report_text
+    verify_sha = (
+        "video.demo.doom.verify.sha256_match=1" in report_text
+        and "video.demo.doom.verify.magic=IWAD" in report_text
+        and "video.demo.doom.verify.ok=1" in report_text
+    )
+    play_smoke = (
+        "`video demo doom play 4 --wad runtime-private --sha256 EXPECTED` rc/status: `0` / `ok`"
+        in report_text
+        and "video.demo.doom.play.rc=0" in report_text
+    )
+    play_not_timed_out = "video.demo.doom.play.timed_out=0" in report_text
+    rollback_health = (
+        "Rollback health: version_ok=`1` selftest_fail0=`1`" in report_text
+        and "Rollback boot readback SHA256 matched expected: `1`" in report_text
+        and "Final rollback selftest fail=0 re-check: `1`" in report_text
+    )
+    next_run_id = "V3031" if "Run ID: `V3031`" in report_text else None
+    return {
+        "v3030_sd_wad_command_live_report_present": True,
+        "v3030_sd_wad_command_live_pass": bool(
+            decision_pass
+            and candidate_flash
+            and candidate_health
+            and status_command
+            and verify_command
+            and verify_sha
+            and play_smoke
+            and play_not_timed_out
+            and rollback_health
+            and next_run_id == "V3031"
+        ),
+        "v3030_candidate_flash_ok": bool(candidate_flash),
+        "v3030_candidate_health_ok": bool(candidate_health),
+        "v3030_status_command_ok": bool(status_command),
+        "v3030_verify_command_ok": bool(verify_command),
+        "v3030_verify_sha_match": bool(verify_sha),
+        "v3030_play_smoke_ok": bool(play_smoke),
+        "v3030_play_not_timed_out": bool(play_not_timed_out),
+        "v3030_rollback_health_ok": bool(rollback_health),
+        "v3030_next_run_id": next_run_id,
+    }
+
+
 def current_doom_input_evaluation(
     report_text: str | None,
     flash_gate_report_text: str | None = None,
@@ -725,6 +802,7 @@ def current_doom_input_evaluation(
     doomgeneric_runtime_wad_preflight_report_text: str | None = None,
     doomgeneric_sd_wad_stage_report_text: str | None = None,
     doomgeneric_sd_wad_command_report_text: str | None = None,
+    doomgeneric_sd_wad_command_live_report_text: str | None = None,
 ) -> dict[str, Any] | None:
     gameplay_loop = current_doom_gameplay_loop_evidence(gameplay_loop_report_text)
     if gameplay_loop["v3017_state_consumed"] and gameplay_loop["v3017_rollback_health_ok"]:
@@ -747,6 +825,35 @@ def current_doom_input_evaluation(
         doomgeneric_sd_wad_command = current_doomgeneric_sd_wad_command_evidence(
             doomgeneric_sd_wad_command_report_text
         )
+        doomgeneric_sd_wad_command_live = current_doomgeneric_sd_wad_command_live_evidence(
+            doomgeneric_sd_wad_command_live_report_text
+        )
+        if doomgeneric_sd_wad_command_live["v3030_sd_wad_command_live_pass"]:
+            return {
+                "track": "VIDEO",
+                "name": "doom-capstone",
+                "safe_actionable_now": True,
+                "status": "doomgeneric-visible-frame-integration-ready",
+                "drop_trigger": (
+                    "V3030 rollbackably validated the SD-WAD-backed verify and bounded play-smoke "
+                    "commands on-device. The next host-only unit is visible DOOM frame/menu integration."
+                ),
+                "evidence": {
+                    **gameplay_loop,
+                    **doomgeneric_policy,
+                    **doomgeneric_private_build,
+                    **doomgeneric_command_bridge,
+                    **doomgeneric_command_bridge_live,
+                    **doomgeneric_runtime_wad_preflight,
+                    **doomgeneric_sd_wad_stage,
+                    **doomgeneric_sd_wad_command,
+                    **doomgeneric_sd_wad_command_live,
+                    "next_host_only_unit": (
+                        "V3031 host-only WAD-backed visible DOOM frame/menu integration without "
+                        "embedding WAD bytes or widening the flash surface"
+                    ),
+                },
+            }
         if doomgeneric_sd_wad_command["v3029_sd_wad_command_ready"]:
             return {
                 "track": "VIDEO",
@@ -1038,6 +1145,7 @@ def track_evaluations(
     current_doomgeneric_runtime_wad_preflight_report_text: str | None = None,
     current_doomgeneric_sd_wad_stage_report_text: str | None = None,
     current_doomgeneric_sd_wad_command_report_text: str | None = None,
+    current_doomgeneric_sd_wad_command_live_report_text: str | None = None,
 ) -> list[dict[str, Any]]:
     signals = inventory["consolidation_signals"]
     t1_candidates = ready_t1_candidates(frontier_candidates)
@@ -1053,6 +1161,7 @@ def track_evaluations(
         current_doomgeneric_runtime_wad_preflight_report_text,
         current_doomgeneric_sd_wad_stage_report_text,
         current_doomgeneric_sd_wad_command_report_text,
+        current_doomgeneric_sd_wad_command_live_report_text,
     )
     current_demo_checkpoint = current_demo_checkpoint_evaluation(
         goal_text,
@@ -1168,6 +1277,9 @@ def select_frontier() -> dict[str, Any]:
     )
     current_doomgeneric_sd_wad_stage_report_text = read_optional_text(CURRENT_DOOMGENERIC_SD_WAD_STAGE_REPORT)
     current_doomgeneric_sd_wad_command_report_text = read_optional_text(CURRENT_DOOMGENERIC_SD_WAD_COMMAND_REPORT)
+    current_doomgeneric_sd_wad_command_live_report_text = read_optional_text(
+        CURRENT_DOOMGENERIC_SD_WAD_COMMAND_LIVE_REPORT
+    )
     evaluations = track_evaluations(
         goal_text,
         todo_text,
@@ -1186,6 +1298,7 @@ def select_frontier() -> dict[str, Any]:
         current_doomgeneric_runtime_wad_preflight_report_text,
         current_doomgeneric_sd_wad_stage_report_text,
         current_doomgeneric_sd_wad_command_report_text,
+        current_doomgeneric_sd_wad_command_live_report_text,
     )
     actionable = [evaluation for evaluation in evaluations if evaluation["safe_actionable_now"]]
     current_video = current_doom_input_evaluation(
@@ -1200,6 +1313,7 @@ def select_frontier() -> dict[str, Any]:
         current_doomgeneric_runtime_wad_preflight_report_text,
         current_doomgeneric_sd_wad_stage_report_text,
         current_doomgeneric_sd_wad_command_report_text,
+        current_doomgeneric_sd_wad_command_live_report_text,
     )
     current_demo_checkpoint = current_demo_checkpoint_evaluation(
         goal_text,
@@ -1260,6 +1374,12 @@ def select_frontier() -> dict[str, Any]:
             "rollback assets/recovery first, flash only via native_init_flash.py, health-check, run the "
             "SD-WAD `verify` command and a short bounded `play` smoke command, then rollback to V2321."
         )
+    elif current_video and current_video["status"] == "doomgeneric-visible-frame-integration-ready":
+        next_operator_decision = (
+            "Run the V3031 host-only WAD-backed visible DOOM frame/menu integration unit next. Keep WAD "
+            "bytes on the runtime SD path only and do not flash again until a new source-build report "
+            "pins the exact candidate and rollback gate."
+        )
     elif current_video and current_video["status"] == "doomgeneric-runtime-wad-private-asset-needed":
         next_operator_decision = (
             "Stage exactly one private IWAD/WAD under workspace/private/demo-assets/doom/wads/ and rerun "
@@ -1316,6 +1436,7 @@ def select_frontier() -> dict[str, Any]:
             "current_doomgeneric_runtime_wad_preflight_report": str(CURRENT_DOOMGENERIC_RUNTIME_WAD_PREFLIGHT_REPORT.relative_to(REPO_ROOT)),
             "current_doomgeneric_sd_wad_stage_report": str(CURRENT_DOOMGENERIC_SD_WAD_STAGE_REPORT.relative_to(REPO_ROOT)),
             "current_doomgeneric_sd_wad_command_report": str(CURRENT_DOOMGENERIC_SD_WAD_COMMAND_REPORT.relative_to(REPO_ROOT)),
+            "current_doomgeneric_sd_wad_command_live_report": str(CURRENT_DOOMGENERIC_SD_WAD_COMMAND_LIVE_REPORT.relative_to(REPO_ROOT)),
         },
     }
 
