@@ -2531,6 +2531,9 @@ static int cmd_doomplay(char **argv, int argc);
 #ifndef A90_DOOMGENERIC_NATIVE_DASHBOARD
 #define A90_DOOMGENERIC_NATIVE_DASHBOARD 0
 #endif
+#ifndef A90_DOOMGENERIC_NATIVE_DASHBOARD_LARGE_FRAME
+#define A90_DOOMGENERIC_NATIVE_DASHBOARD_LARGE_FRAME 0
+#endif
 
 static pid_t video_demo_doom_loop_pid = -1;
 
@@ -2581,6 +2584,11 @@ static void video_demo_doom_bridge_status(void) {
     a90_console_printf("video.demo.doom.dashboard.native=1\r\n");
     a90_console_printf("video.demo.doom.dashboard.layout=top-frame-metrics-logs-input\r\n");
     a90_console_printf("video.demo.doom.dashboard.display=demo-visible-native-kms\r\n");
+#if A90_DOOMGENERIC_NATIVE_DASHBOARD_LARGE_FRAME
+    a90_console_printf("video.demo.doom.dashboard.large_frame=1\r\n");
+    a90_console_printf("video.demo.doom.dashboard.frame_mode=large-overlay-title\r\n");
+    a90_console_printf("video.demo.doom.dashboard.frame_scale=3:2\r\n");
+#endif
 #else
     a90_console_printf("video.demo.doom.dashboard.native=0\r\n");
 #endif
@@ -2675,6 +2683,7 @@ static void video_demo_doom_print_frame_render(
     a90_console_printf("%s.ok=%d\r\n", prefix, render->ok ? 1 : 0);
 }
 
+#if !A90_DOOMGENERIC_NATIVE_DASHBOARD || !A90_DOOMGENERIC_NATIVE_DASHBOARD_LARGE_FRAME
 static int video_demo_doom_blit_raw_frame(struct a90_fb *fb,
                                           const uint32_t *source,
                                           const struct a90_doomgeneric_frame_render *render,
@@ -2696,6 +2705,44 @@ static int video_demo_doom_blit_raw_frame(struct a90_fb *fb,
     }
     return 0;
 }
+#endif
+
+#if A90_DOOMGENERIC_NATIVE_DASHBOARD && A90_DOOMGENERIC_NATIVE_DASHBOARD_LARGE_FRAME
+static int video_demo_doom_blit_raw_frame_scaled(struct a90_fb *fb,
+                                                 const uint32_t *source,
+                                                 const struct a90_doomgeneric_frame_render *render,
+                                                 uint32_t dst_x,
+                                                 uint32_t dst_y,
+                                                 uint32_t dst_width,
+                                                 uint32_t dst_height) {
+    uint32_t dst_row;
+
+    if (fb == NULL || fb->pixels == NULL || source == NULL || render == NULL ||
+        dst_width == 0U || dst_height == 0U ||
+        dst_x > fb->width || dst_y > fb->height ||
+        dst_width > fb->width - dst_x ||
+        dst_height > fb->height - dst_y ||
+        render->width == 0U || render->height == 0U ||
+        render->stride < (uint64_t)render->width * sizeof(uint32_t)) {
+        return -EINVAL;
+    }
+    for (dst_row = 0; dst_row < dst_height; ++dst_row) {
+        uint32_t src_y = (uint32_t)(((uint64_t)dst_row * render->height) / dst_height);
+        const uint32_t *src_pixels = (const uint32_t *)((const char *)source +
+            ((uint64_t)src_y * render->stride));
+        uint32_t *dst_pixels = (uint32_t *)((char *)fb->pixels +
+            ((uint64_t)(dst_y + dst_row) * fb->stride) +
+            ((uint64_t)dst_x * sizeof(uint32_t)));
+        uint32_t dst_col;
+
+        for (dst_col = 0; dst_col < dst_width; ++dst_col) {
+            uint32_t src_x = (uint32_t)(((uint64_t)dst_col * render->width) / dst_width);
+            dst_pixels[dst_col] = src_pixels[src_x];
+        }
+    }
+    return 0;
+}
+#endif
 
 #if A90_DOOMGENERIC_NATIVE_DASHBOARD
 struct video_demo_doom_dashboard_log {
@@ -2882,6 +2929,10 @@ static int video_demo_doom_draw_native_dashboard(
     uint32_t margin = 40U;
     uint32_t frame_x;
     uint32_t frame_y = 64U;
+    uint32_t frame_w;
+    uint32_t frame_h;
+    uint32_t frame_gap = 30U;
+    uint32_t title_y = 18U;
     uint32_t panel_y;
     uint32_t panel_w;
     uint32_t col_w;
@@ -2894,12 +2945,24 @@ static int video_demo_doom_draw_native_dashboard(
     uint32_t dashboard_scale = 3U;
     uint32_t title_scale = 4U;
     int input_rc;
+    int blit_rc;
     char roles[64];
     char line[192];
 
     if (fb == NULL || fb->pixels == NULL || source == NULL || render == NULL ||
-        fb->width < render->width || fb->height < render->height + 700U ||
         fb->stride < (uint64_t)fb->width * 4ULL) {
+        return -EINVAL;
+    }
+    frame_w = render->width;
+    frame_h = render->height;
+#if A90_DOOMGENERIC_NATIVE_DASHBOARD_LARGE_FRAME
+    frame_w = (render->width * 3U) / 2U;
+    frame_h = (render->height * 3U) / 2U;
+    frame_y = 48U;
+    frame_gap = 48U;
+    title_y = 24U;
+#endif
+    if (fb->width < frame_w || fb->height < frame_h + 700U) {
         return -EINVAL;
     }
     ++video_demo_doom_dashboard_present_seq;
@@ -2912,31 +2975,51 @@ static int video_demo_doom_draw_native_dashboard(
     fps_tenths = status.loop_frame_ms > 0U ?
         (10000U + status.loop_frame_ms / 2U) / status.loop_frame_ms : 0U;
 
-    frame_x = (fb->width - render->width) / 2U;
-    panel_y = frame_y + render->height + 30U;
+    frame_x = (fb->width - frame_w) / 2U;
+    panel_y = frame_y + frame_h + frame_gap;
     panel_w = fb->width - margin * 2U;
     col_w = (panel_w - 24U) / 2U;
     left_x = margin + 18U;
     right_x = margin + col_w + 42U;
 
     a90_draw_rect(fb, 0, 0, fb->width, fb->height, 0x05070c);
-    a90_draw_text_fit(fb, margin, 18U,
+#if !A90_DOOMGENERIC_NATIVE_DASHBOARD_LARGE_FRAME
+    a90_draw_text_fit(fb, margin, title_y,
                       "DOOM LIVE DASHBOARD", 0xffcc66, title_scale, panel_w);
     snprintf(line, sizeof(line),
              "A90 native-init %s  no OTG  serial doompad input",
              INIT_VERSION);
     a90_draw_text_fit(fb, margin, 18U + title_scale * 10U,
                       line, 0xbbbbbb, dashboard_scale, panel_w);
+#endif
 
-    if (video_demo_doom_blit_raw_frame(fb, source, render, frame_x, frame_y) < 0) {
+#if A90_DOOMGENERIC_NATIVE_DASHBOARD_LARGE_FRAME
+    blit_rc = video_demo_doom_blit_raw_frame_scaled(fb, source, render,
+                                                    frame_x, frame_y,
+                                                    frame_w, frame_h);
+#else
+    blit_rc = video_demo_doom_blit_raw_frame(fb, source, render, frame_x, frame_y);
+#endif
+    if (blit_rc < 0) {
         return -EINVAL;
     }
     a90_draw_rect_outline(fb, frame_x > 4U ? frame_x - 4U : frame_x,
                           frame_y > 4U ? frame_y - 4U : frame_y,
-                          render->width + 8U,
-                          render->height + 8U,
+                          frame_w + 8U,
+                          frame_h + 8U,
                           2U,
                           0xd0a060);
+#if A90_DOOMGENERIC_NATIVE_DASHBOARD_LARGE_FRAME
+    a90_draw_rect(fb, margin, title_y > 8U ? title_y - 8U : 0U,
+                  panel_w, title_scale * 10U + 12U, 0x05070c);
+    a90_draw_text_fit(fb, margin, title_y,
+                      "DOOM LIVE DASHBOARD", 0xffcc66, title_scale, panel_w);
+    snprintf(line, sizeof(line),
+             "A90 native-init %s  no OTG  serial doompad input  frame 640x400 -> 960x600",
+             INIT_VERSION);
+    a90_draw_text_fit(fb, margin, frame_y + frame_h + 10U,
+                      line, 0xbbbbbb, dashboard_scale, panel_w);
+#endif
 
     a90_draw_rect(fb, margin, panel_y, panel_w, 430U, 0x11131a);
     a90_draw_rect_outline(fb, margin, panel_y, panel_w, 430U, 2U, 0x3d6f8f);
@@ -2976,8 +3059,8 @@ static int video_demo_doom_draw_native_dashboard(
                                         line, 0xffffff, dashboard_scale);
     snprintf(line, sizeof(line), "HELPER executable=%d frame=%ux%u",
              status.helper_executable ? 1 : 0,
-             render->width,
-             render->height);
+             frame_w,
+             frame_h);
     video_demo_doom_dashboard_draw_line(fb, right_x, &row_y, col_w - 24U,
                                         line, 0xffffff, dashboard_scale);
     snprintf(line, sizeof(line), "FRAME file %s", status.frame_path);
@@ -3036,6 +3119,11 @@ static int video_demo_doom_draw_native_dashboard(
     if (verbose) {
         a90_console_printf("video.demo.doom.dashboard.native=1\r\n");
         a90_console_printf("video.demo.doom.dashboard.layout=top-frame-metrics-logs-input\r\n");
+#if A90_DOOMGENERIC_NATIVE_DASHBOARD_LARGE_FRAME
+        a90_console_printf("video.demo.doom.dashboard.large_frame=1\r\n");
+        a90_console_printf("video.demo.doom.dashboard.frame_mode=large-overlay-title\r\n");
+        a90_console_printf("video.demo.doom.dashboard.frame_scale=3:2\r\n");
+#endif
         a90_console_printf("video.demo.doom.dashboard.present_seq=%u\r\n",
                            video_demo_doom_dashboard_present_seq);
         a90_console_printf("video.demo.doom.dashboard.input_seq=%u\r\n", input.seq);
