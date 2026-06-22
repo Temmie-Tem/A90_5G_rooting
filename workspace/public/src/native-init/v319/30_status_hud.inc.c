@@ -2,6 +2,9 @@
 
 #include "a90_badapple_beat_table.h"
 
+#include <sys/socket.h>
+#include <sys/un.h>
+
 static struct a90_hud_storage_status current_hud_storage_status(void) {
     static struct a90_storage_status snapshot;
     static struct a90_runtime_status runtime;
@@ -2555,6 +2558,19 @@ static int cmd_doomplay(char **argv, int argc);
 #ifndef VIDEO_DEMO_DOOMGENERIC_PAGEFLIP_TIMEOUT_MS
 #define VIDEO_DEMO_DOOMGENERIC_PAGEFLIP_TIMEOUT_MS 1000
 #endif
+#ifndef VIDEO_DEMO_DOOMGENERIC_PAGEFLIP_MIN_SUBMIT_INTERVAL_MS
+#define VIDEO_DEMO_DOOMGENERIC_PAGEFLIP_MIN_SUBMIT_INTERVAL_MS 0
+#endif
+
+#define VIDEO_DEMO_DOOMGENERIC_PACE_PACKET_MAGIC 0x41395043U
+#define VIDEO_DEMO_DOOMGENERIC_PACE_PACKET_VERSION 1U
+
+#ifndef SOCK_CLOEXEC
+#define SOCK_CLOEXEC 0
+#endif
+#ifndef MSG_NOSIGNAL
+#define MSG_NOSIGNAL 0
+#endif
 
 #ifndef A90_DOOMGENERIC_NATIVE_DASHBOARD
 #define A90_DOOMGENERIC_NATIVE_DASHBOARD 0
@@ -2621,6 +2637,8 @@ static void video_demo_doom_bridge_status(void) {
     a90_console_printf("video.demo.input.state_path=%s\r\n", status.input_state_path);
     a90_console_printf("video.demo.input.socket_path=%s\r\n", status.input_socket_path);
     a90_console_printf("video.demo.input.udp_port=%u\r\n", status.input_udp_port);
+    a90_console_printf("video.demo.doom.presenter.pace_socket_path=%s\r\n",
+                       status.pace_socket_path != NULL ? status.pace_socket_path : "");
     a90_console_printf("video.demo.input.otg_required=0\r\n");
     a90_console_printf("video.demo.input.host_keyboard_bridge=host_doompad_keyboard_v3033.py\r\n");
     a90_console_printf("video.demo.input.host_dashboard=host_doompad_dashboard_v3035.py\r\n");
@@ -2635,7 +2653,11 @@ static void video_demo_doom_bridge_status(void) {
                        A90_DOOMGENERIC_AUDIO_CORUN_AMPLITUDE_MILLI);
     a90_console_printf("video.demo.doom.loop.visible=%d\r\n", status.visible_loop ? 1 : 0);
     a90_console_printf("video.demo.doom.loop.frame_ms=%u\r\n", status.loop_frame_ms);
-    a90_console_printf("video.demo.doom.presenter.pacing=helper-frame-mtime\r\n");
+    if (status.pace_socket_path != NULL && status.pace_socket_path[0] != '\0') {
+        a90_console_printf("video.demo.doom.presenter.pacing=presenter-pageflip-pace-socket\r\n");
+    } else {
+        a90_console_printf("video.demo.doom.presenter.pacing=helper-frame-mtime\r\n");
+    }
     a90_console_printf("video.demo.doom.presenter.poll_ms=%d\r\n",
                        VIDEO_DEMO_DOOMGENERIC_PRESENTER_POLL_MS);
 #if VIDEO_DEMO_DOOMGENERIC_PRESENT_PAGEFLIP
@@ -2643,6 +2665,8 @@ static void video_demo_doom_bridge_status(void) {
     a90_console_printf("video.demo.doom.presenter.present_path=kms-dumb-buffer-pageflip\r\n");
     a90_console_printf("video.demo.doom.presenter.pageflip_timeout_ms=%d\r\n",
                        VIDEO_DEMO_DOOMGENERIC_PAGEFLIP_TIMEOUT_MS);
+    a90_console_printf("video.demo.doom.presenter.pageflip_min_submit_interval_ms=%d\r\n",
+                       VIDEO_DEMO_DOOMGENERIC_PAGEFLIP_MIN_SUBMIT_INTERVAL_MS);
 #else
     a90_console_printf("video.demo.doom.presenter.present_mode=setcrtc\r\n");
     a90_console_printf("video.demo.doom.presenter.present_path=kms-dumb-buffer-setcrtc\r\n");
@@ -3481,6 +3505,20 @@ struct video_demo_doom_flip_stats {
     struct a90_kms_flip_result last_flip;
 };
 
+struct video_demo_doom_pace_packet {
+    uint32_t magic;
+    uint32_t version;
+    uint32_t seq;
+};
+
+struct video_demo_doom_pace_sender {
+    int fd;
+    const char *path;
+    uint32_t seq;
+    uint32_t sent;
+    uint32_t failures;
+};
+
 static const char *video_demo_doom_present_mode_name(void) {
 #if VIDEO_DEMO_DOOMGENERIC_PRESENT_PAGEFLIP
     return "pageflip";
@@ -3495,6 +3533,109 @@ static const char *video_demo_doom_present_path_name(void) {
 #else
     return "kms-dumb-buffer-setcrtc";
 #endif
+}
+
+static void video_demo_doom_pace_sender_init(
+        struct video_demo_doom_pace_sender *sender,
+        const char *path) {
+    if (sender == NULL) {
+        return;
+    }
+    memset(sender, 0, sizeof(*sender));
+    sender->fd = -1;
+    sender->path = (path != NULL && path[0] != '\0') ? path : NULL;
+    if (sender->path == NULL) {
+        return;
+    }
+    sender->fd = socket(AF_UNIX, SOCK_DGRAM | SOCK_CLOEXEC, 0);
+    if (sender->fd < 0 && errno == EINVAL) {
+        sender->fd = socket(AF_UNIX, SOCK_DGRAM, 0);
+        if (sender->fd >= 0) {
+            (void)fcntl(sender->fd, F_SETFD, FD_CLOEXEC);
+        }
+    }
+}
+
+static void video_demo_doom_pace_sender_cleanup(struct video_demo_doom_pace_sender *sender) {
+    if (sender == NULL) {
+        return;
+    }
+    if (sender->fd >= 0) {
+        close(sender->fd);
+    }
+    sender->fd = -1;
+}
+
+static bool video_demo_doom_pace_sender_active(
+        const struct video_demo_doom_pace_sender *sender) {
+    return sender != NULL && sender->fd >= 0 && sender->path != NULL;
+}
+
+static int video_demo_doom_wait_for_pace_socket(const char *path, uint32_t timeout_ms) {
+    uint64_t deadline_ns;
+
+    if (path == NULL || path[0] == '\0') {
+        return 0;
+    }
+    deadline_ns = video_monotonic_ns() + ((uint64_t)timeout_ms * 1000000ULL);
+    for (;;) {
+        struct stat st;
+        uint64_t now_ns = video_monotonic_ns();
+
+        if (lstat(path, &st) == 0 && S_ISSOCK(st.st_mode)) {
+            return 0;
+        }
+        if (now_ns == 0 || now_ns >= deadline_ns) {
+            return -ETIMEDOUT;
+        }
+        usleep(10000);
+    }
+}
+
+static int video_demo_doom_send_pace_token(struct video_demo_doom_pace_sender *sender) {
+    struct video_demo_doom_pace_packet packet;
+    struct sockaddr_un addr;
+    ssize_t sent;
+
+    if (!video_demo_doom_pace_sender_active(sender)) {
+        return 0;
+    }
+    memset(&addr, 0, sizeof(addr));
+    addr.sun_family = AF_UNIX;
+    if (snprintf(addr.sun_path, sizeof(addr.sun_path), "%s", sender->path) >=
+        (int)sizeof(addr.sun_path)) {
+        ++sender->failures;
+        return -ENAMETOOLONG;
+    }
+    packet.magic = VIDEO_DEMO_DOOMGENERIC_PACE_PACKET_MAGIC;
+    packet.version = VIDEO_DEMO_DOOMGENERIC_PACE_PACKET_VERSION;
+    packet.seq = ++sender->seq;
+    sent = sendto(sender->fd,
+                  &packet,
+                  sizeof(packet),
+                  MSG_NOSIGNAL,
+                  (const struct sockaddr *)&addr,
+                  sizeof(addr));
+    if (sent != (ssize_t)sizeof(packet)) {
+        ++sender->failures;
+        return negative_errno_or(EIO);
+    }
+    ++sender->sent;
+    return 0;
+}
+
+static void video_demo_doom_pace_sender_print(
+        const char *prefix,
+        const struct video_demo_doom_pace_sender *sender) {
+    if (prefix == NULL || sender == NULL) {
+        return;
+    }
+    a90_console_printf("%s.pace_socket.active=%d\r\n", prefix,
+                       video_demo_doom_pace_sender_active(sender) ? 1 : 0);
+    a90_console_printf("%s.pace_socket.path=%s\r\n", prefix,
+                       sender->path != NULL ? sender->path : "");
+    a90_console_printf("%s.pace_socket.tokens_sent=%u\r\n", prefix, sender->sent);
+    a90_console_printf("%s.pace_socket.failures=%u\r\n", prefix, sender->failures);
 }
 
 static void video_demo_doom_flip_stats_init(struct video_demo_doom_flip_stats *stats) {
@@ -3668,6 +3809,7 @@ static int video_demo_doom_present_frame_file_ex(
         uint32_t poll_count,
         struct video_demo_doom_frame_reader *reader,
         struct video_demo_doom_present_timing *timing,
+        uint64_t present_not_before_ns,
         struct a90_kms_flip_result *flip) {
     uint32_t *source;
     struct a90_fb *fb;
@@ -3770,6 +3912,12 @@ static int video_demo_doom_present_frame_file_ex(
     if (rc < 0) {
         return rc;
     }
+    if (present_not_before_ns > 0ULL) {
+        rc = video_wait_until_ns(present_not_before_ns);
+        if (rc < 0) {
+            return rc;
+        }
+    }
     if (video_demo_doom_present_kms_frame("doomdash", false, flip) < 0) {
 #if VIDEO_DEMO_DOOMGENERIC_FRAME_TIMING_PROBE
         t_after_present = video_monotonic_ns();
@@ -3841,7 +3989,7 @@ static int video_demo_doom_present_frame_file_ex(
 
 static int video_demo_doom_present_frame_file(
         const struct a90_doomgeneric_frame_render *render) {
-    return video_demo_doom_present_frame_file_ex(render, true, 1U, 1U, 0U, NULL, NULL, NULL);
+    return video_demo_doom_present_frame_file_ex(render, true, 1U, 1U, 0U, NULL, NULL, 0ULL, NULL);
 }
 
 static void video_demo_doom_loop_reap(void) {
@@ -3981,19 +4129,26 @@ static int video_demo_doom_run_visible_loop(uint32_t frames,
     int helper_rc;
     int present_rc = -EIO;
     struct video_demo_doom_frame_reader frame_reader;
+    struct a90_doomgeneric_bridge_status bridge_status;
     uint32_t presented = 0;
     uint32_t poll_count = 0;
     uint64_t last_presented_frame_id = 0ULL;
     bool continuous = frames == 0U;
     uint32_t max_polls = continuous ? 0U : frames * 4U + 20U;
     struct video_demo_doom_flip_stats flip_stats;
+    struct video_demo_doom_pace_sender pace_sender;
+    uint64_t present_not_before_ns = 0ULL;
+    uint32_t pace_wait_timeouts = 0U;
 #if VIDEO_DEMO_DOOMGENERIC_FRAME_TIMING_PROBE
     struct video_demo_doom_timing_stats timing_stats;
 #endif
 
     memset(&check, 0, sizeof(check));
+    memset(&bridge_status, 0, sizeof(bridge_status));
+    a90_doomgeneric_bridge_get_status(&bridge_status);
     video_demo_doom_frame_reader_init(&frame_reader);
     video_demo_doom_flip_stats_init(&flip_stats);
+    video_demo_doom_pace_sender_init(&pace_sender, NULL);
 #if VIDEO_DEMO_DOOMGENERIC_FRAME_TIMING_PROBE
     memset(&timing_stats, 0, sizeof(timing_stats));
 #endif
@@ -4009,7 +4164,12 @@ static int video_demo_doom_run_visible_loop(uint32_t frames,
         a90_console_printf("video.demo.doom.loop.continuous=%d\r\n", continuous ? 1 : 0);
         a90_console_printf("video.demo.doom.loop.frame_ms=%d\r\n",
                            VIDEO_DEMO_DOOMGENERIC_LOOP_FRAME_MS);
-        a90_console_printf("video.demo.doom.loop.presenter.pacing=helper-frame-mtime\r\n");
+        if (bridge_status.pace_socket_path != NULL &&
+            bridge_status.pace_socket_path[0] != '\0') {
+            a90_console_printf("video.demo.doom.loop.presenter.pacing=presenter-pageflip-pace-socket\r\n");
+        } else {
+            a90_console_printf("video.demo.doom.loop.presenter.pacing=helper-frame-mtime\r\n");
+        }
         a90_console_printf("video.demo.doom.loop.presenter.poll_ms=%d\r\n",
                            VIDEO_DEMO_DOOMGENERIC_PRESENTER_POLL_MS);
         a90_console_printf("video.demo.doom.loop.present_mode=%s\r\n",
@@ -4042,6 +4202,18 @@ static int video_demo_doom_run_visible_loop(uint32_t frames,
         video_demo_doom_frame_reader_cleanup(&frame_reader);
         return helper_rc;
     }
+    video_demo_doom_pace_sender_init(&pace_sender, bridge_status.pace_socket_path);
+    if (bridge_status.pace_socket_path != NULL &&
+        bridge_status.pace_socket_path[0] != '\0' &&
+        !video_demo_doom_pace_sender_active(&pace_sender)) {
+        (void)a90_run_stop_pid_ex(helper_pid,
+                                  "doomgeneric-loop-helper",
+                                  1000,
+                                  false,
+                                  &helper_status);
+        video_demo_doom_frame_reader_cleanup(&frame_reader);
+        return -EIO;
+    }
     present_rc = video_demo_doom_prime_pageflip_presenter();
     if (present_rc < 0) {
         (void)a90_run_stop_pid_ex(helper_pid,
@@ -4049,8 +4221,34 @@ static int video_demo_doom_run_visible_loop(uint32_t frames,
                                   1000,
                                   false,
                                   &helper_status);
+        video_demo_doom_pace_sender_cleanup(&pace_sender);
         video_demo_doom_frame_reader_cleanup(&frame_reader);
         return present_rc;
+    }
+    if (video_demo_doom_pace_sender_active(&pace_sender)) {
+        present_rc = video_demo_doom_wait_for_pace_socket(pace_sender.path, 1000U);
+        if (present_rc < 0) {
+            ++pace_wait_timeouts;
+            (void)a90_run_stop_pid_ex(helper_pid,
+                                      "doomgeneric-loop-helper",
+                                      1000,
+                                      false,
+                                      &helper_status);
+            video_demo_doom_pace_sender_cleanup(&pace_sender);
+            video_demo_doom_frame_reader_cleanup(&frame_reader);
+            return present_rc;
+        }
+        present_rc = video_demo_doom_send_pace_token(&pace_sender);
+        if (present_rc < 0) {
+            (void)a90_run_stop_pid_ex(helper_pid,
+                                      "doomgeneric-loop-helper",
+                                      1000,
+                                      false,
+                                      &helper_status);
+            video_demo_doom_pace_sender_cleanup(&pace_sender);
+            video_demo_doom_frame_reader_cleanup(&frame_reader);
+            return present_rc;
+        }
     }
 
     while ((continuous || presented < frames) && (continuous || poll_count < max_polls)) {
@@ -4075,12 +4273,25 @@ static int video_demo_doom_run_visible_loop(uint32_t frames,
                                                                poll_count,
                                                                &frame_reader,
                                                                timing_out,
+                                                               present_not_before_ns,
                                                                &flip
                                                                );
             if (present_rc == 0) {
                 last_presented_frame_id = render.frame_id;
                 ++presented;
                 video_demo_doom_flip_stats_add(&flip_stats, &flip);
+                if (VIDEO_DEMO_DOOMGENERIC_PAGEFLIP_MIN_SUBMIT_INTERVAL_MS > 0) {
+                    present_not_before_ns = video_monotonic_ns() +
+                        ((uint64_t)VIDEO_DEMO_DOOMGENERIC_PAGEFLIP_MIN_SUBMIT_INTERVAL_MS * 1000000ULL);
+                }
+                if (continuous || presented < frames) {
+                    int pace_rc = video_demo_doom_send_pace_token(&pace_sender);
+
+                    if (pace_rc < 0) {
+                        present_rc = pace_rc;
+                        break;
+                    }
+                }
 #if VIDEO_DEMO_DOOMGENERIC_FRAME_TIMING_PROBE
                 video_demo_doom_timing_stats_add(&timing_stats, &timing);
 #endif
@@ -4103,6 +4314,7 @@ static int video_demo_doom_run_visible_loop(uint32_t frames,
                                       1000,
                                       false,
                                       NULL);
+            video_demo_doom_pace_sender_cleanup(&pace_sender);
             video_demo_doom_frame_reader_cleanup(&frame_reader);
             return a90_console_cancelled("doomgeneric-loop", cancel);
         }
@@ -4133,7 +4345,11 @@ static int video_demo_doom_run_visible_loop(uint32_t frames,
 #endif
         a90_console_printf("video.demo.doom.loop.flip_telemetry=pageflip-event-delta-us\r\n");
         video_demo_doom_flip_stats_print("video.demo.doom.loop", &flip_stats);
+        video_demo_doom_pace_sender_print("video.demo.doom.loop", &pace_sender);
+        a90_console_printf("video.demo.doom.loop.pace_socket.wait_timeouts=%u\r\n",
+                           pace_wait_timeouts);
     }
+    video_demo_doom_pace_sender_cleanup(&pace_sender);
     video_demo_doom_frame_reader_cleanup(&frame_reader);
     return (presented > 0 && present_rc == 0) ? 0 : present_rc;
 }

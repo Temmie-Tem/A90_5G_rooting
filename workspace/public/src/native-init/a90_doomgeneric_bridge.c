@@ -59,6 +59,10 @@
 #define A90_DOOMGENERIC_BRIDGE_INPUT_SOCKET_PATH ""
 #endif
 
+#ifndef A90_DOOMGENERIC_BRIDGE_PACE_SOCKET_PATH
+#define A90_DOOMGENERIC_BRIDGE_PACE_SOCKET_PATH ""
+#endif
+
 #ifndef A90_DOOMGENERIC_BRIDGE_INPUT_UDP_PORT
 #define A90_DOOMGENERIC_BRIDGE_INPUT_UDP_PORT 0U
 #endif
@@ -184,6 +188,7 @@ void a90_doomgeneric_bridge_get_status(struct a90_doomgeneric_bridge_status *sta
     status->frame_path = A90_DOOMGENERIC_BRIDGE_FRAME_PATH;
     status->input_state_path = A90_DOOMGENERIC_BRIDGE_INPUT_STATE_PATH;
     status->input_socket_path = A90_DOOMGENERIC_BRIDGE_INPUT_SOCKET_PATH;
+    status->pace_socket_path = A90_DOOMGENERIC_BRIDGE_PACE_SOCKET_PATH;
     status->input_path = A90_DOOMGENERIC_BRIDGE_INPUT;
     status->sound_mode = A90_DOOMGENERIC_BRIDGE_SOUND;
     status->runtime_wad_max_bytes = A90_DOOMGENERIC_BRIDGE_MAX_WAD_BYTES;
@@ -656,7 +661,7 @@ int a90_doomgeneric_bridge_start_frame_loop_helper(int frames,
     char frames_arg[16];
     char frame_ms_arg[16];
     char udp_port_arg[16];
-    char *argv[18];
+    char *argv[20];
     size_t arg_index = 0U;
     int rc;
 
@@ -692,6 +697,11 @@ int a90_doomgeneric_bridge_start_frame_loop_helper(int frames,
     if (status.input_socket_path != NULL && status.input_socket_path[0] != '\0') {
         argv[arg_index++] = (char *)"--input-socket";
         argv[arg_index++] = (char *)status.input_socket_path;
+    }
+    if (status.pace_socket_path != NULL && status.pace_socket_path[0] != '\0') {
+        (void)unlink(status.pace_socket_path);
+        argv[arg_index++] = (char *)"--pace-socket";
+        argv[arg_index++] = (char *)status.pace_socket_path;
     }
     if (status.input_udp_port > 0U && status.input_udp_port <= 65535U) {
         snprintf(udp_port_arg, sizeof(udp_port_arg), "%u", status.input_udp_port);

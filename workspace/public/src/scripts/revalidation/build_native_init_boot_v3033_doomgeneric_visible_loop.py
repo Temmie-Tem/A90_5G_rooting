@@ -65,6 +65,7 @@ INPUT_STATE_PATH = "/tmp/a90-doomgeneric-v3033-input.state"
 INPUT_SOCKET_PATH = ""
 INPUT_PATH = "serial-doompad-to-DG_GetKey"
 INPUT_UDP_PORT = 0
+PACE_SOCKET_PATH = ""
 FRAME_WIDTH = v3031.FRAME_WIDTH
 FRAME_HEIGHT = v3031.FRAME_HEIGHT
 FRAME_STRIDE = v3031.FRAME_STRIDE
@@ -76,6 +77,7 @@ NATIVE_DOOM_PRESENT_PAGEFLIP = 0
 REUSE_FRAME_BUFFER = 0
 DASHBOARD_METRICS_INTERVAL_FRAMES = 1
 FRAME_TIMING_PROBE = 0
+PAGEFLIP_MIN_SUBMIT_INTERVAL_MS = 0
 SOUND_MODE = "disabled-nosound-nomusic"
 AUDIO_CORUN = 0
 AUDIO_CORUN_MODE = "disabled"
@@ -427,10 +429,23 @@ def patch_ramdisk_with_doomgeneric_helper() -> None:
                 *doomgeneric_flags,
                 numeric_define("VIDEO_DEMO_DOOMGENERIC_PRESENT_PAGEFLIP", 1),
             )
+        if PAGEFLIP_MIN_SUBMIT_INTERVAL_MS > 0:
+            doomgeneric_flags = (
+                *doomgeneric_flags,
+                numeric_define(
+                    "VIDEO_DEMO_DOOMGENERIC_PAGEFLIP_MIN_SUBMIT_INTERVAL_MS",
+                    PAGEFLIP_MIN_SUBMIT_INTERVAL_MS,
+                ),
+            )
         if INPUT_SOCKET_PATH:
             doomgeneric_flags = (
                 *doomgeneric_flags,
                 shell_define("A90_DOOMGENERIC_BRIDGE_INPUT_SOCKET_PATH", INPUT_SOCKET_PATH),
+            )
+        if PACE_SOCKET_PATH:
+            doomgeneric_flags = (
+                *doomgeneric_flags,
+                shell_define("A90_DOOMGENERIC_BRIDGE_PACE_SOCKET_PATH", PACE_SOCKET_PATH),
             )
         if INPUT_UDP_PORT:
             doomgeneric_flags = (

@@ -17,6 +17,7 @@ struct a90_doomgeneric_bridge_status {
     const char *frame_path;
     const char *input_state_path;
     const char *input_socket_path;
+    const char *pace_socket_path;
     const char *input_path;
     const char *sound_mode;
     long long runtime_wad_max_bytes;
