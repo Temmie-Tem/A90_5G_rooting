@@ -2534,6 +2534,10 @@ static int cmd_doomplay(char **argv, int argc);
 #endif
 #endif
 
+#ifndef VIDEO_DEMO_DOOMGENERIC_PRESENTER_POLL_MS
+#define VIDEO_DEMO_DOOMGENERIC_PRESENTER_POLL_MS 4
+#endif
+
 #ifndef A90_DOOMGENERIC_NATIVE_DASHBOARD
 #define A90_DOOMGENERIC_NATIVE_DASHBOARD 0
 #endif
@@ -2610,6 +2614,9 @@ static void video_demo_doom_bridge_status(void) {
                        A90_DOOMGENERIC_AUDIO_CORUN_AMPLITUDE_MILLI);
     a90_console_printf("video.demo.doom.loop.visible=%d\r\n", status.visible_loop ? 1 : 0);
     a90_console_printf("video.demo.doom.loop.frame_ms=%u\r\n", status.loop_frame_ms);
+    a90_console_printf("video.demo.doom.presenter.pacing=helper-frame-mtime\r\n");
+    a90_console_printf("video.demo.doom.presenter.poll_ms=%d\r\n",
+                       VIDEO_DEMO_DOOMGENERIC_PRESENTER_POLL_MS);
 #if A90_DOOMGENERIC_NATIVE_DASHBOARD
     a90_console_printf("video.demo.doom.dashboard.native=1\r\n");
     a90_console_printf("video.demo.doom.dashboard.layout=top-frame-metrics-logs-input\r\n");
@@ -3427,6 +3434,7 @@ static int video_demo_doom_run_visible_loop(uint32_t frames,
     int present_rc = -EIO;
     uint32_t presented = 0;
     uint32_t poll_count = 0;
+    uint64_t last_presented_frame_id = 0ULL;
     bool continuous = frames == 0U;
     uint32_t max_polls = continuous ? 0U : frames * 4U + 20U;
 
@@ -3443,6 +3451,9 @@ static int video_demo_doom_run_visible_loop(uint32_t frames,
         a90_console_printf("video.demo.doom.loop.continuous=%d\r\n", continuous ? 1 : 0);
         a90_console_printf("video.demo.doom.loop.frame_ms=%d\r\n",
                            VIDEO_DEMO_DOOMGENERIC_LOOP_FRAME_MS);
+        a90_console_printf("video.demo.doom.loop.presenter.pacing=helper-frame-mtime\r\n");
+        a90_console_printf("video.demo.doom.loop.presenter.poll_ms=%d\r\n",
+                           VIDEO_DEMO_DOOMGENERIC_PRESENTER_POLL_MS);
         a90_console_printf("video.demo.doom.loop.input=serial-doompad-unix-dgram-with-state-file-fallback\r\n");
         a90_console_printf("video.demo.doom.loop.host_keyboard_bridge=host_doompad_keyboard_v3033.py\r\n");
         video_demo_doom_print_wad_check("video.demo.doom.loop.verify", &check);
@@ -3462,13 +3473,14 @@ static int video_demo_doom_run_visible_loop(uint32_t frames,
 
         memset(&render, 0, sizeof(render));
         read_rc = a90_doomgeneric_bridge_read_frame_render(&render);
-        if (read_rc == 0 && render.ok) {
+        if (read_rc == 0 && render.ok && render.frame_id != last_presented_frame_id) {
             present_rc = video_demo_doom_present_frame_file_ex(&render,
                                                                !background_child,
                                                                presented + 1U,
                                                                frames,
                                                                poll_count);
             if (present_rc == 0) {
+                last_presented_frame_id = render.frame_id;
                 ++presented;
             } else {
                 break;
@@ -3491,7 +3503,7 @@ static int video_demo_doom_run_visible_loop(uint32_t frames,
                                       NULL);
             return a90_console_cancelled("doomgeneric-loop", cancel);
         }
-        usleep((useconds_t)VIDEO_DEMO_DOOMGENERIC_LOOP_FRAME_MS * 1000U);
+        usleep((useconds_t)VIDEO_DEMO_DOOMGENERIC_PRESENTER_POLL_MS * 1000U);
         ++poll_count;
     }
 

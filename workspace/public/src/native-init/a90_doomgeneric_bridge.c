@@ -359,6 +359,11 @@ static void doomgeneric_fill_frame_render(struct a90_doomgeneric_frame_render *r
     render->present = true;
     render->regular = S_ISREG(st.st_mode);
     render->bytes = (long long)st.st_size;
+    render->mtime_ns = ((uint64_t)st.st_mtim.tv_sec * 1000000000ULL) +
+        (uint64_t)st.st_mtim.tv_nsec;
+    render->frame_id = render->mtime_ns ^
+        (((uint64_t)st.st_ino) << 32U) ^
+        (uint64_t)st.st_size;
     render->size_ok = render->regular && st.st_size == (off_t)render->expected_bytes;
     render->ok = render->geometry_ok && render->size_ok;
 }

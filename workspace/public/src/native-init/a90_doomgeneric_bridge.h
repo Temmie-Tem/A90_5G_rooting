@@ -72,6 +72,8 @@ struct a90_doomgeneric_frame_render {
     uint32_t height;
     uint32_t stride;
     uint32_t expected_bytes;
+    uint64_t frame_id;
+    uint64_t mtime_ns;
     long long bytes;
     int stat_errno;
     bool present;
