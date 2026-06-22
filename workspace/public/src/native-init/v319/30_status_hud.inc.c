@@ -2549,6 +2549,12 @@ static int cmd_doomplay(char **argv, int argc);
 #ifndef VIDEO_DEMO_DOOMGENERIC_FRAME_TIMING_PROBE
 #define VIDEO_DEMO_DOOMGENERIC_FRAME_TIMING_PROBE 0
 #endif
+#ifndef VIDEO_DEMO_DOOMGENERIC_PRESENT_PAGEFLIP
+#define VIDEO_DEMO_DOOMGENERIC_PRESENT_PAGEFLIP 0
+#endif
+#ifndef VIDEO_DEMO_DOOMGENERIC_PAGEFLIP_TIMEOUT_MS
+#define VIDEO_DEMO_DOOMGENERIC_PAGEFLIP_TIMEOUT_MS 1000
+#endif
 
 #ifndef A90_DOOMGENERIC_NATIVE_DASHBOARD
 #define A90_DOOMGENERIC_NATIVE_DASHBOARD 0
@@ -2632,6 +2638,15 @@ static void video_demo_doom_bridge_status(void) {
     a90_console_printf("video.demo.doom.presenter.pacing=helper-frame-mtime\r\n");
     a90_console_printf("video.demo.doom.presenter.poll_ms=%d\r\n",
                        VIDEO_DEMO_DOOMGENERIC_PRESENTER_POLL_MS);
+#if VIDEO_DEMO_DOOMGENERIC_PRESENT_PAGEFLIP
+    a90_console_printf("video.demo.doom.presenter.present_mode=pageflip\r\n");
+    a90_console_printf("video.demo.doom.presenter.present_path=kms-dumb-buffer-pageflip\r\n");
+    a90_console_printf("video.demo.doom.presenter.pageflip_timeout_ms=%d\r\n",
+                       VIDEO_DEMO_DOOMGENERIC_PAGEFLIP_TIMEOUT_MS);
+#else
+    a90_console_printf("video.demo.doom.presenter.present_mode=setcrtc\r\n");
+    a90_console_printf("video.demo.doom.presenter.present_path=kms-dumb-buffer-setcrtc\r\n");
+#endif
 #if VIDEO_DEMO_DOOMGENERIC_FRAME_TIMING_PROBE
     a90_console_printf("video.demo.doom.loop.timing_probe=1\r\n");
     a90_console_printf("video.demo.doom.loop.timing=frame-ipc-kms-stage-us\r\n");
@@ -3456,6 +3471,125 @@ static void video_demo_doom_timing_stats_print(
 }
 #endif
 
+struct video_demo_doom_flip_stats {
+    uint32_t flip_events;
+    uint32_t flip_delta_count;
+    uint64_t previous_flip_timestamp_us;
+    uint64_t flip_delta_min_us;
+    uint64_t flip_delta_max_us;
+    uint64_t flip_delta_sum_us;
+    struct a90_kms_flip_result last_flip;
+};
+
+static const char *video_demo_doom_present_mode_name(void) {
+#if VIDEO_DEMO_DOOMGENERIC_PRESENT_PAGEFLIP
+    return "pageflip";
+#else
+    return "setcrtc";
+#endif
+}
+
+static const char *video_demo_doom_present_path_name(void) {
+#if VIDEO_DEMO_DOOMGENERIC_PRESENT_PAGEFLIP
+    return "kms-dumb-buffer-pageflip";
+#else
+    return "kms-dumb-buffer-setcrtc";
+#endif
+}
+
+static void video_demo_doom_flip_stats_init(struct video_demo_doom_flip_stats *stats) {
+    if (stats == NULL) {
+        return;
+    }
+    memset(stats, 0, sizeof(*stats));
+    stats->flip_delta_min_us = UINT64_MAX;
+}
+
+static void video_demo_doom_flip_stats_add(
+        struct video_demo_doom_flip_stats *stats,
+        const struct a90_kms_flip_result *flip) {
+    if (stats == NULL || flip == NULL || !flip->event_received) {
+        return;
+    }
+    if (stats->previous_flip_timestamp_us > 0 &&
+        flip->timestamp_us >= stats->previous_flip_timestamp_us) {
+        uint64_t delta_us = flip->timestamp_us - stats->previous_flip_timestamp_us;
+
+        if (delta_us < stats->flip_delta_min_us) {
+            stats->flip_delta_min_us = delta_us;
+        }
+        if (delta_us > stats->flip_delta_max_us) {
+            stats->flip_delta_max_us = delta_us;
+        }
+        stats->flip_delta_sum_us += delta_us;
+        ++stats->flip_delta_count;
+    }
+    stats->previous_flip_timestamp_us = flip->timestamp_us;
+    stats->last_flip = *flip;
+    ++stats->flip_events;
+}
+
+static void video_demo_doom_flip_stats_print(
+        const char *prefix,
+        const struct video_demo_doom_flip_stats *stats) {
+    uint64_t avg_delta_us;
+
+    if (prefix == NULL || stats == NULL) {
+        return;
+    }
+    avg_delta_us = stats->flip_delta_count > 0U ?
+        stats->flip_delta_sum_us / stats->flip_delta_count : 0ULL;
+    a90_console_printf("%s.present_mode=%s\r\n", prefix,
+                       video_demo_doom_present_mode_name());
+    a90_console_printf("%s.present_path=%s\r\n", prefix,
+                       video_demo_doom_present_path_name());
+    a90_console_printf("%s.flip_events=%u\r\n", prefix, stats->flip_events);
+    a90_console_printf("%s.flip_delta_count=%u\r\n", prefix, stats->flip_delta_count);
+    a90_console_printf("%s.flip_delta_min_us=%llu\r\n", prefix,
+                       (unsigned long long)(stats->flip_delta_count > 0U ?
+                                            stats->flip_delta_min_us : 0ULL));
+    a90_console_printf("%s.flip_delta_max_us=%llu\r\n", prefix,
+                       (unsigned long long)stats->flip_delta_max_us);
+    a90_console_printf("%s.flip_delta_avg_us=%llu\r\n", prefix,
+                       (unsigned long long)avg_delta_us);
+    a90_console_printf("%s.pageflip_timeout_ms=%d\r\n", prefix,
+                       VIDEO_DEMO_DOOMGENERIC_PAGEFLIP_TIMEOUT_MS);
+    a90_console_printf("%s.last_sequence=%u\r\n", prefix, stats->last_flip.sequence);
+    a90_console_printf("%s.last_crtc=%u\r\n", prefix, stats->last_flip.crtc_id);
+    a90_console_printf("%s.last_timestamp_us=%llu\r\n", prefix,
+                       (unsigned long long)stats->last_flip.timestamp_us);
+}
+
+static int video_demo_doom_present_kms_frame(
+        const char *label,
+        bool verbose,
+        struct a90_kms_flip_result *flip) {
+    if (flip != NULL) {
+        memset(flip, 0, sizeof(*flip));
+    }
+#if VIDEO_DEMO_DOOMGENERIC_PRESENT_PAGEFLIP
+    (void)verbose;
+    return a90_kms_present_pageflip(label,
+                                    VIDEO_DEMO_DOOMGENERIC_PAGEFLIP_TIMEOUT_MS,
+                                    flip);
+#else
+    (void)flip;
+    return a90_kms_present(label, verbose);
+#endif
+}
+
+static int video_demo_doom_prime_pageflip_presenter(void) {
+#if VIDEO_DEMO_DOOMGENERIC_PRESENT_PAGEFLIP
+    if (a90_kms_begin_frame(0x000000) < 0) {
+        return negative_errno_or(ENODEV);
+    }
+    if (a90_kms_present("doomdashprime", false) < 0) {
+        return negative_errno_or(EIO);
+    }
+#endif
+    return 0;
+}
+
 static void video_demo_doom_frame_reader_init(struct video_demo_doom_frame_reader *reader) {
     if (reader == NULL) {
         return;
@@ -3533,7 +3667,8 @@ static int video_demo_doom_present_frame_file_ex(
         uint32_t total_frames,
         uint32_t poll_count,
         struct video_demo_doom_frame_reader *reader,
-        struct video_demo_doom_present_timing *timing) {
+        struct video_demo_doom_present_timing *timing,
+        struct a90_kms_flip_result *flip) {
     uint32_t *source;
     struct a90_fb *fb;
     int fd;
@@ -3635,7 +3770,7 @@ static int video_demo_doom_present_frame_file_ex(
     if (rc < 0) {
         return rc;
     }
-    if (a90_kms_present("doomdash", false) < 0) {
+    if (video_demo_doom_present_kms_frame("doomdash", false, flip) < 0) {
 #if VIDEO_DEMO_DOOMGENERIC_FRAME_TIMING_PROBE
         t_after_present = video_monotonic_ns();
 #endif
@@ -3675,7 +3810,7 @@ static int video_demo_doom_present_frame_file_ex(
 #if VIDEO_DEMO_DOOMGENERIC_FRAME_TIMING_PROBE
         t_after_draw = video_monotonic_ns();
 #endif
-        if (a90_kms_present("doomframe", true) < 0) {
+        if (video_demo_doom_present_kms_frame("doomframe", true, flip) < 0) {
 #if VIDEO_DEMO_DOOMGENERIC_FRAME_TIMING_PROBE
             t_after_present = video_monotonic_ns();
 #endif
@@ -3706,7 +3841,7 @@ static int video_demo_doom_present_frame_file_ex(
 
 static int video_demo_doom_present_frame_file(
         const struct a90_doomgeneric_frame_render *render) {
-    return video_demo_doom_present_frame_file_ex(render, true, 1U, 1U, 0U, NULL, NULL);
+    return video_demo_doom_present_frame_file_ex(render, true, 1U, 1U, 0U, NULL, NULL, NULL);
 }
 
 static void video_demo_doom_loop_reap(void) {
@@ -3851,12 +3986,14 @@ static int video_demo_doom_run_visible_loop(uint32_t frames,
     uint64_t last_presented_frame_id = 0ULL;
     bool continuous = frames == 0U;
     uint32_t max_polls = continuous ? 0U : frames * 4U + 20U;
+    struct video_demo_doom_flip_stats flip_stats;
 #if VIDEO_DEMO_DOOMGENERIC_FRAME_TIMING_PROBE
     struct video_demo_doom_timing_stats timing_stats;
 #endif
 
     memset(&check, 0, sizeof(check));
     video_demo_doom_frame_reader_init(&frame_reader);
+    video_demo_doom_flip_stats_init(&flip_stats);
 #if VIDEO_DEMO_DOOMGENERIC_FRAME_TIMING_PROBE
     memset(&timing_stats, 0, sizeof(timing_stats));
 #endif
@@ -3875,6 +4012,10 @@ static int video_demo_doom_run_visible_loop(uint32_t frames,
         a90_console_printf("video.demo.doom.loop.presenter.pacing=helper-frame-mtime\r\n");
         a90_console_printf("video.demo.doom.loop.presenter.poll_ms=%d\r\n",
                            VIDEO_DEMO_DOOMGENERIC_PRESENTER_POLL_MS);
+        a90_console_printf("video.demo.doom.loop.present_mode=%s\r\n",
+                           video_demo_doom_present_mode_name());
+        a90_console_printf("video.demo.doom.loop.present_path=%s\r\n",
+                           video_demo_doom_present_path_name());
 #if VIDEO_DEMO_DOOMGENERIC_FRAME_TIMING_PROBE
         a90_console_printf("video.demo.doom.loop.timing_probe=1\r\n");
         a90_console_printf("video.demo.doom.loop.timing=frame-ipc-kms-stage-us\r\n");
@@ -3901,15 +4042,30 @@ static int video_demo_doom_run_visible_loop(uint32_t frames,
         video_demo_doom_frame_reader_cleanup(&frame_reader);
         return helper_rc;
     }
+    present_rc = video_demo_doom_prime_pageflip_presenter();
+    if (present_rc < 0) {
+        (void)a90_run_stop_pid_ex(helper_pid,
+                                  "doomgeneric-loop-helper",
+                                  1000,
+                                  false,
+                                  &helper_status);
+        video_demo_doom_frame_reader_cleanup(&frame_reader);
+        return present_rc;
+    }
 
     while ((continuous || presented < frames) && (continuous || poll_count < max_polls)) {
         enum a90_cancel_kind cancel;
         int read_rc;
+        struct a90_kms_flip_result flip;
 #if VIDEO_DEMO_DOOMGENERIC_FRAME_TIMING_PROBE
         struct video_demo_doom_present_timing timing;
+        struct video_demo_doom_present_timing *timing_out = &timing;
+#else
+        struct video_demo_doom_present_timing *timing_out = NULL;
 #endif
 
         memset(&render, 0, sizeof(render));
+        memset(&flip, 0, sizeof(flip));
         read_rc = a90_doomgeneric_bridge_read_frame_render(&render);
         if (read_rc == 0 && render.ok && render.frame_id != last_presented_frame_id) {
             present_rc = video_demo_doom_present_frame_file_ex(&render,
@@ -3918,15 +4074,13 @@ static int video_demo_doom_run_visible_loop(uint32_t frames,
                                                                frames,
                                                                poll_count,
                                                                &frame_reader,
-#if VIDEO_DEMO_DOOMGENERIC_FRAME_TIMING_PROBE
-                                                               &timing
-#else
-                                                               NULL
-#endif
+                                                               timing_out,
+                                                               &flip
                                                                );
             if (present_rc == 0) {
                 last_presented_frame_id = render.frame_id;
                 ++presented;
+                video_demo_doom_flip_stats_add(&flip_stats, &flip);
 #if VIDEO_DEMO_DOOMGENERIC_FRAME_TIMING_PROBE
                 video_demo_doom_timing_stats_add(&timing_stats, &timing);
 #endif
@@ -3977,6 +4131,8 @@ static int video_demo_doom_run_visible_loop(uint32_t frames,
 #if VIDEO_DEMO_DOOMGENERIC_FRAME_TIMING_PROBE
         video_demo_doom_timing_stats_print("video.demo.doom.loop", &timing_stats);
 #endif
+        a90_console_printf("video.demo.doom.loop.flip_telemetry=pageflip-event-delta-us\r\n");
+        video_demo_doom_flip_stats_print("video.demo.doom.loop", &flip_stats);
     }
     video_demo_doom_frame_reader_cleanup(&frame_reader);
     return (presented > 0 && present_rc == 0) ? 0 : present_rc;
