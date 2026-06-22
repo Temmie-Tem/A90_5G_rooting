@@ -70,6 +70,7 @@ FRAME_HEIGHT = v3031.FRAME_HEIGHT
 FRAME_STRIDE = v3031.FRAME_STRIDE
 FRAME_BYTES = v3031.FRAME_BYTES
 NATIVE_DASHBOARD = 0
+NATIVE_DASHBOARD_MINIMAL = 0
 NATIVE_DASHBOARD_LARGE_FRAME = 0
 REUSE_FRAME_BUFFER = 0
 DASHBOARD_METRICS_INTERVAL_FRAMES = 1
@@ -409,6 +410,11 @@ def patch_ramdisk_with_doomgeneric_helper() -> None:
             doomgeneric_flags = (
                 *doomgeneric_flags,
                 numeric_define("A90_DOOMGENERIC_NATIVE_DASHBOARD", 1),
+            )
+        if NATIVE_DASHBOARD_MINIMAL:
+            doomgeneric_flags = (
+                *doomgeneric_flags,
+                numeric_define("A90_DOOMGENERIC_NATIVE_DASHBOARD_MINIMAL", 1),
             )
         if NATIVE_DASHBOARD_LARGE_FRAME:
             doomgeneric_flags = (
