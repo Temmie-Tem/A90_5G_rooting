@@ -2538,6 +2538,10 @@ static int cmd_doomplay(char **argv, int argc);
 #define VIDEO_DEMO_DOOMGENERIC_PRESENTER_POLL_MS 4
 #endif
 
+#ifndef VIDEO_DEMO_DOOMGENERIC_REUSE_FRAME_BUFFER
+#define VIDEO_DEMO_DOOMGENERIC_REUSE_FRAME_BUFFER 0
+#endif
+
 #ifndef A90_DOOMGENERIC_NATIVE_DASHBOARD
 #define A90_DOOMGENERIC_NATIVE_DASHBOARD 0
 #endif
@@ -2617,6 +2621,13 @@ static void video_demo_doom_bridge_status(void) {
     a90_console_printf("video.demo.doom.presenter.pacing=helper-frame-mtime\r\n");
     a90_console_printf("video.demo.doom.presenter.poll_ms=%d\r\n",
                        VIDEO_DEMO_DOOMGENERIC_PRESENTER_POLL_MS);
+#if VIDEO_DEMO_DOOMGENERIC_REUSE_FRAME_BUFFER
+    a90_console_printf("video.demo.doom.presenter.reader=reused-loop-buffer\r\n");
+    a90_console_printf("video.demo.doom.presenter.buffer_reuse=1\r\n");
+#else
+    a90_console_printf("video.demo.doom.presenter.reader=per-frame-alloc\r\n");
+    a90_console_printf("video.demo.doom.presenter.buffer_reuse=0\r\n");
+#endif
 #if A90_DOOMGENERIC_NATIVE_DASHBOARD
     a90_console_printf("video.demo.doom.dashboard.native=1\r\n");
     a90_console_printf("video.demo.doom.dashboard.layout=top-frame-metrics-logs-input\r\n");
@@ -3179,12 +3190,89 @@ static int video_demo_doom_draw_native_dashboard(
 }
 #endif
 
+struct video_demo_doom_frame_reader {
+    uint32_t *pixels;
+    uint32_t capacity_bytes;
+    uint32_t allocations;
+};
+
+static void video_demo_doom_frame_reader_init(struct video_demo_doom_frame_reader *reader) {
+    if (reader == NULL) {
+        return;
+    }
+    memset(reader, 0, sizeof(*reader));
+}
+
+static void video_demo_doom_frame_reader_cleanup(struct video_demo_doom_frame_reader *reader) {
+    if (reader == NULL) {
+        return;
+    }
+    free(reader->pixels);
+    reader->pixels = NULL;
+    reader->capacity_bytes = 0U;
+}
+
+static int video_demo_doom_frame_reader_source(
+        struct video_demo_doom_frame_reader *reader,
+        const struct a90_doomgeneric_frame_render *render,
+        uint32_t **source_out) {
+    uint32_t *source;
+
+    if (render == NULL || source_out == NULL || render->expected_bytes == 0U) {
+        return -EINVAL;
+    }
+    *source_out = NULL;
+
+#if VIDEO_DEMO_DOOMGENERIC_REUSE_FRAME_BUFFER
+    if (reader != NULL) {
+        if (reader->pixels == NULL || reader->capacity_bytes < render->expected_bytes) {
+            source = (uint32_t *)malloc(render->expected_bytes);
+            if (source == NULL) {
+                return -ENOMEM;
+            }
+            free(reader->pixels);
+            reader->pixels = source;
+            reader->capacity_bytes = render->expected_bytes;
+            ++reader->allocations;
+        }
+        *source_out = reader->pixels;
+        return 0;
+    }
+#else
+    (void)reader;
+#endif
+
+    source = (uint32_t *)malloc(render->expected_bytes);
+    if (source == NULL) {
+        return -ENOMEM;
+    }
+    *source_out = source;
+    return 0;
+}
+
+static void video_demo_doom_frame_reader_release(
+        struct video_demo_doom_frame_reader *reader,
+        uint32_t *source) {
+    if (source == NULL) {
+        return;
+    }
+#if VIDEO_DEMO_DOOMGENERIC_REUSE_FRAME_BUFFER
+    if (reader != NULL && source == reader->pixels) {
+        return;
+    }
+#else
+    (void)reader;
+#endif
+    free(source);
+}
+
 static int video_demo_doom_present_frame_file_ex(
         const struct a90_doomgeneric_frame_render *render,
         bool verbose,
         uint32_t frame_index,
         uint32_t total_frames,
-        uint32_t poll_count) {
+        uint32_t poll_count,
+        struct video_demo_doom_frame_reader *reader) {
     uint32_t *source;
     struct a90_fb *fb;
     int fd;
@@ -3203,17 +3291,17 @@ static int video_demo_doom_present_frame_file_ex(
         }
         return -EINVAL;
     }
-    source = (uint32_t *)malloc(render->expected_bytes);
-    if (source == NULL) {
+    rc = video_demo_doom_frame_reader_source(reader, render, &source);
+    if (rc < 0 || source == NULL) {
         if (verbose) {
             a90_console_printf("video.demo.doom.frame.display.error=alloc-failed\r\n");
         }
-        return -ENOMEM;
+        return rc < 0 ? rc : -ENOMEM;
     }
     fd = open(render->path, O_RDONLY | O_CLOEXEC | O_NOFOLLOW);
     if (fd < 0) {
         rc = negative_errno_or(EIO);
-        free(source);
+        video_demo_doom_frame_reader_release(reader, source);
         if (verbose) {
             a90_console_printf("video.demo.doom.frame.display.error=open-failed\r\n");
         }
@@ -3222,21 +3310,21 @@ static int video_demo_doom_present_frame_file_ex(
     rc = video_read_exact_fd(fd, source, render->expected_bytes);
     close(fd);
     if (rc < 0) {
-        free(source);
+        video_demo_doom_frame_reader_release(reader, source);
         if (verbose) {
             a90_console_printf("video.demo.doom.frame.display.error=read-failed\r\n");
         }
         return rc;
     }
     if (a90_kms_begin_frame(0x05070c) < 0) {
-        free(source);
+        video_demo_doom_frame_reader_release(reader, source);
         return negative_errno_or(ENODEV);
     }
     fb = a90_kms_framebuffer();
     if (fb == NULL || fb->pixels == NULL ||
         fb->width < render->width || fb->height < render->height ||
         fb->stride < (uint64_t)fb->width * 4ULL) {
-        free(source);
+        video_demo_doom_frame_reader_release(reader, source);
         if (verbose) {
             a90_console_printf("video.demo.doom.frame.display.error=kms-geometry-mismatch\r\n");
         }
@@ -3251,7 +3339,7 @@ static int video_demo_doom_present_frame_file_ex(
                                                frame_index,
                                                total_frames,
                                                poll_count);
-    free(source);
+    video_demo_doom_frame_reader_release(reader, source);
     if (rc < 0) {
         return rc;
     }
@@ -3271,7 +3359,7 @@ static int video_demo_doom_present_frame_file_ex(
             ((fb->height - render->height - 240U) / 2U) :
             ((fb->height - render->height) / 2U);
         rc = video_demo_doom_blit_raw_frame(fb, source, render, dst_x, dst_y);
-        free(source);
+        video_demo_doom_frame_reader_release(reader, source);
         if (rc < 0) {
             return rc;
         }
@@ -3301,7 +3389,7 @@ static int video_demo_doom_present_frame_file_ex(
 
 static int video_demo_doom_present_frame_file(
         const struct a90_doomgeneric_frame_render *render) {
-    return video_demo_doom_present_frame_file_ex(render, true, 1U, 1U, 0U);
+    return video_demo_doom_present_frame_file_ex(render, true, 1U, 1U, 0U, NULL);
 }
 
 static void video_demo_doom_loop_reap(void) {
@@ -3440,6 +3528,7 @@ static int video_demo_doom_run_visible_loop(uint32_t frames,
     int helper_done = 0;
     int helper_rc;
     int present_rc = -EIO;
+    struct video_demo_doom_frame_reader frame_reader;
     uint32_t presented = 0;
     uint32_t poll_count = 0;
     uint64_t last_presented_frame_id = 0ULL;
@@ -3447,6 +3536,7 @@ static int video_demo_doom_run_visible_loop(uint32_t frames,
     uint32_t max_polls = continuous ? 0U : frames * 4U + 20U;
 
     memset(&check, 0, sizeof(check));
+    video_demo_doom_frame_reader_init(&frame_reader);
 
     helper_rc = a90_doomgeneric_bridge_start_frame_loop_helper((int)frames,
                                                                expected_sha256,
@@ -3462,6 +3552,13 @@ static int video_demo_doom_run_visible_loop(uint32_t frames,
         a90_console_printf("video.demo.doom.loop.presenter.pacing=helper-frame-mtime\r\n");
         a90_console_printf("video.demo.doom.loop.presenter.poll_ms=%d\r\n",
                            VIDEO_DEMO_DOOMGENERIC_PRESENTER_POLL_MS);
+#if VIDEO_DEMO_DOOMGENERIC_REUSE_FRAME_BUFFER
+        a90_console_printf("video.demo.doom.loop.presenter.reader=reused-loop-buffer\r\n");
+        a90_console_printf("video.demo.doom.loop.presenter.buffer_reuse=1\r\n");
+#else
+        a90_console_printf("video.demo.doom.loop.presenter.reader=per-frame-alloc\r\n");
+        a90_console_printf("video.demo.doom.loop.presenter.buffer_reuse=0\r\n");
+#endif
         a90_console_printf("video.demo.doom.loop.input=serial-doompad-unix-dgram-with-state-file-fallback\r\n");
         a90_console_printf("video.demo.doom.loop.host_keyboard_bridge=host_doompad_keyboard_v3033.py\r\n");
         video_demo_doom_print_wad_check("video.demo.doom.loop.verify", &check);
@@ -3472,6 +3569,7 @@ static int video_demo_doom_run_visible_loop(uint32_t frames,
         a90_console_printf("video.demo.doom.loop.helper_pid=%ld\r\n", (long)helper_pid);
     }
     if (helper_rc < 0) {
+        video_demo_doom_frame_reader_cleanup(&frame_reader);
         return helper_rc;
     }
 
@@ -3486,7 +3584,8 @@ static int video_demo_doom_run_visible_loop(uint32_t frames,
                                                                !background_child,
                                                                presented + 1U,
                                                                frames,
-                                                               poll_count);
+                                                               poll_count,
+                                                               &frame_reader);
             if (present_rc == 0) {
                 last_presented_frame_id = render.frame_id;
                 ++presented;
@@ -3509,6 +3608,7 @@ static int video_demo_doom_run_visible_loop(uint32_t frames,
                                       1000,
                                       false,
                                       NULL);
+            video_demo_doom_frame_reader_cleanup(&frame_reader);
             return a90_console_cancelled("doomgeneric-loop", cancel);
         }
         usleep((useconds_t)VIDEO_DEMO_DOOMGENERIC_PRESENTER_POLL_MS * 1000U);
@@ -3529,7 +3629,12 @@ static int video_demo_doom_run_visible_loop(uint32_t frames,
         a90_console_printf("video.demo.doom.loop.display.rc=%d\r\n", present_rc);
         a90_console_printf("video.demo.doom.loop.rc=%d\r\n",
                            (presented > 0 && present_rc == 0) ? 0 : present_rc);
+#if VIDEO_DEMO_DOOMGENERIC_REUSE_FRAME_BUFFER
+        a90_console_printf("video.demo.doom.loop.presenter.buffer_allocations=%u\r\n",
+                           frame_reader.allocations);
+#endif
     }
+    video_demo_doom_frame_reader_cleanup(&frame_reader);
     return (presented > 0 && present_rc == 0) ? 0 : present_rc;
 }
 

@@ -71,6 +71,7 @@ FRAME_STRIDE = v3031.FRAME_STRIDE
 FRAME_BYTES = v3031.FRAME_BYTES
 NATIVE_DASHBOARD = 0
 NATIVE_DASHBOARD_LARGE_FRAME = 0
+REUSE_FRAME_BUFFER = 0
 SOUND_MODE = "disabled-nosound-nomusic"
 AUDIO_CORUN = 0
 AUDIO_CORUN_MODE = "disabled"
@@ -384,6 +385,11 @@ def patch_ramdisk_with_doomgeneric_helper() -> None:
             numeric_define("A90_DOOMGENERIC_AUDIO_CORUN_DURATION_MS", AUDIO_CORUN_DURATION_MS),
             numeric_define("A90_DOOMGENERIC_AUDIO_CORUN_AMPLITUDE_MILLI", AUDIO_CORUN_AMPLITUDE_MILLI),
         )
+        if REUSE_FRAME_BUFFER:
+            doomgeneric_flags = (
+                *doomgeneric_flags,
+                numeric_define("VIDEO_DEMO_DOOMGENERIC_REUSE_FRAME_BUFFER", 1),
+            )
         if NATIVE_DASHBOARD:
             doomgeneric_flags = (
                 *doomgeneric_flags,
