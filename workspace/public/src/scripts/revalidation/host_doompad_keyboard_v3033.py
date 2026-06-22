@@ -42,6 +42,7 @@ ROLE_BITS = {role: 1 << index for index, role in enumerate(ALL_ROLES)}
 LOOP_STATUS_COMMAND = ["video", "demo", "doom", "loop-status"]
 LOOP_STATUS_ACTIVE_KEY = "video.demo.doom.loop_status.active"
 LOOP_STATUS_CONTINUOUS_KEY = "video.demo.doom.loop_status.continuous"
+LOOP_START_ACTIVE_KEY = "video.demo.doom.loop_start.active"
 
 KEY_TOKEN_TO_ROLE = {
     "w": "forward",
@@ -293,6 +294,16 @@ def parse_key_value_lines(text: str) -> dict[str, str]:
     return values
 
 
+def loop_start_result_is_already_active(result: a90ctl.ProtocolResult) -> bool:
+    if result.rc != -16:
+        return False
+    values = parse_key_value_lines(result.text)
+    return (
+        values.get(LOOP_START_ACTIVE_KEY) == "1"
+        or values.get(LOOP_STATUS_ACTIVE_KEY) == "1"
+    )
+
+
 @dataclass
 class CommandSender:
     host: str
@@ -364,7 +375,11 @@ class DoomLoopKeeper:
         result = self.sender.send_result(loop_start_command(self.loop_frames, self.sha256), fast=True)
         if result.rc == 0:
             self.mark_started(now)
-        elif result.status == "busy" or "status=busy" in result.text:
+            return 0
+        if loop_start_result_is_already_active(result):
+            self.mark_started(now)
+            return 0
+        if result.status == "busy" or "status=busy" in result.text:
             timestamp = time.monotonic() if now is None else now
             self.next_check_at = timestamp + 0.5
         return result.rc
@@ -501,6 +516,7 @@ def run_tty_loop(args: argparse.Namespace,
     if not args.no_loop_start:
         rc = loop_keeper.start()
         if rc != 0:
+            print(f"failed to start DOOM loop before TTY input: rc={rc}", file=sys.stderr)
             return rc
 
     try:
@@ -538,6 +554,7 @@ def run_evdev_loop(args: argparse.Namespace,
     if not args.no_loop_start:
         rc = loop_keeper.start()
         if rc != 0:
+            print(f"failed to start DOOM loop before evdev input: rc={rc}", file=sys.stderr)
             return rc
 
     fds: dict[int, str] = {}

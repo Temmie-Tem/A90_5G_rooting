@@ -73,6 +73,40 @@ B: EV=17
             ],
         )
 
+    def test_loop_keeper_treats_active_loop_start_busy_as_success(self) -> None:
+        class FakeSender:
+            def __init__(self) -> None:
+                self.sent: list[tuple[list[str], bool]] = []
+
+            def send_result(self, command: list[str], *, fast: bool = False):
+                self.sent.append((list(command), fast))
+                return keyboard.a90ctl.ProtocolResult(
+                    {},
+                    {"rc": "-16", "status": "error", "cmd": "video"},
+                    "\n".join(
+                        [
+                            "video.demo.doom.loop_start.active=1",
+                            "video.demo.doom.loop_start.pid=3599",
+                            "video.demo.doom.loop_start.rc=-16",
+                        ]
+                    ),
+                )
+
+        sender = FakeSender()
+        keeper = keyboard.DoomLoopKeeper(
+            sender,
+            loop_frames=0,
+            frame_ms=33,
+            sha256="a" * 64,
+            restart_grace_ms=500,
+        )
+
+        rc = keeper.start(now=10.0)
+
+        self.assertEqual(rc, 0)
+        self.assertEqual(sender.sent, [(keyboard.loop_start_command(0, "a" * 64), True)])
+        self.assertEqual(keeper.loop_started_at, 10.0)
+
 
 if __name__ == "__main__":
     unittest.main()
