@@ -16,6 +16,7 @@ struct a90_doomgeneric_bridge_status {
     const char *expected_wad_sha256;
     const char *frame_path;
     const char *input_state_path;
+    const char *input_socket_path;
     const char *input_path;
     const char *sound_mode;
     long long runtime_wad_max_bytes;
@@ -96,6 +97,7 @@ int a90_doomgeneric_bridge_render_frame(int frames,
                                         struct a90_run_result *result);
 int a90_doomgeneric_bridge_read_frame_render(struct a90_doomgeneric_frame_render *render);
 int a90_doomgeneric_bridge_write_input_state(const struct a90_doomgeneric_input_state *input);
+int a90_doomgeneric_bridge_send_input_socket(const struct a90_doomgeneric_input_state *input);
 int a90_doomgeneric_bridge_start_frame_loop_helper(int frames,
                                                    const char *expected_sha256,
                                                    int frame_ms,

@@ -61,6 +61,8 @@ MAX_LOOP_FRAMES = v3029.MAX_SMOKE_FRAMES
 LOOP_FRAME_MS = 50
 FRAME_PATH = "/tmp/a90-doomgeneric-v3033-loop-frame.xbgr8888"
 INPUT_STATE_PATH = "/tmp/a90-doomgeneric-v3033-input.state"
+INPUT_SOCKET_PATH = ""
+INPUT_PATH = "serial-doompad-to-DG_GetKey"
 FRAME_WIDTH = v3031.FRAME_WIDTH
 FRAME_HEIGHT = v3031.FRAME_HEIGHT
 FRAME_STRIDE = v3031.FRAME_STRIDE
@@ -365,6 +367,7 @@ def patch_ramdisk_with_doomgeneric_helper() -> None:
             shell_define("A90_DOOMGENERIC_BRIDGE_EXPECTED_WAD_SHA256", EXPECTED_WAD_SHA256),
             shell_define("A90_DOOMGENERIC_BRIDGE_FRAME_PATH", FRAME_PATH),
             shell_define("A90_DOOMGENERIC_BRIDGE_INPUT_STATE_PATH", INPUT_STATE_PATH),
+            shell_define("A90_DOOMGENERIC_BRIDGE_INPUT", INPUT_PATH),
             shell_define("A90_DOOMGENERIC_BRIDGE_SOUND", SOUND_MODE),
             shell_define("A90_DOOMGENERIC_AUDIO_CORUN_MODE", AUDIO_CORUN_MODE),
             numeric_define("A90_DOOMGENERIC_BRIDGE_MAX_WAD_BYTES", RUNTIME_WAD_MAX_BYTES),
@@ -387,6 +390,11 @@ def patch_ramdisk_with_doomgeneric_helper() -> None:
             doomgeneric_flags = (
                 *doomgeneric_flags,
                 numeric_define("A90_DOOMGENERIC_NATIVE_DASHBOARD_LARGE_FRAME", 1),
+            )
+        if INPUT_SOCKET_PATH:
+            doomgeneric_flags = (
+                *doomgeneric_flags,
+                shell_define("A90_DOOMGENERIC_BRIDGE_INPUT_SOCKET_PATH", INPUT_SOCKET_PATH),
             )
         base.EXTRA_INIT_FLAGS = (*inherited_flags, *(flag for flag in doomgeneric_flags if flag not in inherited_flags))
 

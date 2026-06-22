@@ -10,6 +10,8 @@
 #include <string.h>
 #include <strings.h>
 #include <sys/stat.h>
+#include <sys/socket.h>
+#include <sys/un.h>
 #include <unistd.h>
 
 #ifndef O_CLOEXEC
@@ -52,6 +54,10 @@
 #define A90_DOOMGENERIC_BRIDGE_INPUT_STATE_PATH "/tmp/a90-doomgeneric-input.state"
 #endif
 
+#ifndef A90_DOOMGENERIC_BRIDGE_INPUT_SOCKET_PATH
+#define A90_DOOMGENERIC_BRIDGE_INPUT_SOCKET_PATH ""
+#endif
+
 #ifndef A90_DOOMGENERIC_BRIDGE_MAX_WAD_BYTES
 #define A90_DOOMGENERIC_BRIDGE_MAX_WAD_BYTES 67108864LL
 #endif
@@ -79,6 +85,17 @@
 #ifndef A90_DOOMGENERIC_BRIDGE_INPUT
 #define A90_DOOMGENERIC_BRIDGE_INPUT "serial-doompad-to-DG_GetKey"
 #endif
+
+#define A90_DOOMGENERIC_INPUT_PACKET_MAGIC 0x41394450U
+#define A90_DOOMGENERIC_INPUT_PACKET_VERSION 1U
+
+struct a90_doomgeneric_input_packet {
+    uint32_t magic;
+    uint32_t version;
+    uint32_t seq;
+    uint32_t mask;
+    uint32_t active;
+};
 
 #ifndef A90_DOOMGENERIC_BRIDGE_LOOP_FRAME_MS
 #define A90_DOOMGENERIC_BRIDGE_LOOP_FRAME_MS 50U
@@ -161,6 +178,7 @@ void a90_doomgeneric_bridge_get_status(struct a90_doomgeneric_bridge_status *sta
     status->expected_wad_sha256 = A90_DOOMGENERIC_BRIDGE_EXPECTED_WAD_SHA256;
     status->frame_path = A90_DOOMGENERIC_BRIDGE_FRAME_PATH;
     status->input_state_path = A90_DOOMGENERIC_BRIDGE_INPUT_STATE_PATH;
+    status->input_socket_path = A90_DOOMGENERIC_BRIDGE_INPUT_SOCKET_PATH;
     status->input_path = A90_DOOMGENERIC_BRIDGE_INPUT;
     status->sound_mode = A90_DOOMGENERIC_BRIDGE_SOUND;
     status->runtime_wad_max_bytes = A90_DOOMGENERIC_BRIDGE_MAX_WAD_BYTES;
@@ -390,6 +408,88 @@ int a90_doomgeneric_bridge_write_input_state(const struct a90_doomgeneric_input_
     return rc < 0 ? -EIO : 0;
 }
 
+static uint32_t doomgeneric_input_mask(const struct a90_doomgeneric_input_state *input) {
+    uint32_t mask = 0U;
+
+    if (input == NULL) {
+        return 0U;
+    }
+    if (input->forward) {
+        mask |= 1U << 0;
+    }
+    if (input->back) {
+        mask |= 1U << 1;
+    }
+    if (input->left) {
+        mask |= 1U << 2;
+    }
+    if (input->right) {
+        mask |= 1U << 3;
+    }
+    if (input->fire) {
+        mask |= 1U << 4;
+    }
+    if (input->use) {
+        mask |= 1U << 5;
+    }
+    if (input->menu) {
+        mask |= 1U << 6;
+    }
+    if (input->run) {
+        mask |= 1U << 7;
+    }
+    return mask;
+}
+
+int a90_doomgeneric_bridge_send_input_socket(const struct a90_doomgeneric_input_state *input) {
+    struct a90_doomgeneric_bridge_status status;
+    struct sockaddr_un addr;
+    struct a90_doomgeneric_input_packet packet;
+    int fd;
+    int saved_errno;
+    size_t path_len;
+    ssize_t sent;
+
+    if (input == NULL) {
+        return -EINVAL;
+    }
+    a90_doomgeneric_bridge_get_status(&status);
+    if (status.input_socket_path == NULL || status.input_socket_path[0] == '\0') {
+        return -ENOENT;
+    }
+    path_len = strlen(status.input_socket_path);
+    if (path_len == 0U || path_len >= sizeof(addr.sun_path)) {
+        return -ENAMETOOLONG;
+    }
+    fd = socket(AF_UNIX, SOCK_DGRAM, 0);
+    if (fd < 0) {
+        return -errno;
+    }
+    memset(&addr, 0, sizeof(addr));
+    addr.sun_family = AF_UNIX;
+    snprintf(addr.sun_path, sizeof(addr.sun_path), "%s", status.input_socket_path);
+
+    memset(&packet, 0, sizeof(packet));
+    packet.magic = A90_DOOMGENERIC_INPUT_PACKET_MAGIC;
+    packet.version = A90_DOOMGENERIC_INPUT_PACKET_VERSION;
+    packet.seq = input->seq;
+    packet.mask = doomgeneric_input_mask(input);
+    packet.active = input->active ? 1U : 0U;
+
+    sent = sendto(fd,
+                  &packet,
+                  sizeof(packet),
+                  MSG_DONTWAIT,
+                  (const struct sockaddr *)&addr,
+                  sizeof(addr));
+    saved_errno = errno;
+    close(fd);
+    if (sent != (ssize_t)sizeof(packet)) {
+        return sent < 0 ? -saved_errno : -EIO;
+    }
+    return 0;
+}
+
 int a90_doomgeneric_bridge_render_frame(int frames,
                                         const char *expected_sha256,
                                         int timeout_ms,
@@ -544,20 +644,8 @@ int a90_doomgeneric_bridge_start_frame_loop_helper(int frames,
     struct a90_run_config config;
     char frames_arg[16];
     char frame_ms_arg[16];
-    char *const argv[] = {
-        (char *)A90_DOOMGENERIC_BRIDGE_HELPER_PATH,
-        (char *)"--wad-frame-loop",
-        (char *)A90_DOOMGENERIC_BRIDGE_RUNTIME_WAD_PATH,
-        (char *)"--frames",
-        frames_arg,
-        (char *)"--output",
-        (char *)A90_DOOMGENERIC_BRIDGE_FRAME_PATH,
-        (char *)"--input-state",
-        (char *)A90_DOOMGENERIC_BRIDGE_INPUT_STATE_PATH,
-        (char *)"--frame-ms",
-        frame_ms_arg,
-        NULL,
-    };
+    char *argv[14];
+    size_t arg_index = 0U;
     int rc;
 
     if (pid_out == NULL || frames < 0 || frames > A90_DOOMGENERIC_BRIDGE_MAX_PLAY_FRAMES) {
@@ -577,6 +665,23 @@ int a90_doomgeneric_bridge_start_frame_loop_helper(int frames,
     snprintf(frames_arg, sizeof(frames_arg), "%d", frames);
     snprintf(frame_ms_arg, sizeof(frame_ms_arg), "%d", frame_ms);
     (void)unlink(status.frame_path);
+
+    argv[arg_index++] = (char *)status.helper_path;
+    argv[arg_index++] = (char *)"--wad-frame-loop";
+    argv[arg_index++] = (char *)status.runtime_wad_path;
+    argv[arg_index++] = (char *)"--frames";
+    argv[arg_index++] = frames_arg;
+    argv[arg_index++] = (char *)"--output";
+    argv[arg_index++] = (char *)status.frame_path;
+    argv[arg_index++] = (char *)"--input-state";
+    argv[arg_index++] = (char *)status.input_state_path;
+    argv[arg_index++] = (char *)"--frame-ms";
+    argv[arg_index++] = frame_ms_arg;
+    if (status.input_socket_path != NULL && status.input_socket_path[0] != '\0') {
+        argv[arg_index++] = (char *)"--input-socket";
+        argv[arg_index++] = (char *)status.input_socket_path;
+    }
+    argv[arg_index] = NULL;
 
     memset(&config, 0, sizeof(config));
     config.tag = "doomgeneric-sd-wad-frame-loop";

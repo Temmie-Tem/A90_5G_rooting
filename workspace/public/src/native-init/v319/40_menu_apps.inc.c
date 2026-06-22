@@ -1769,6 +1769,11 @@ static int doompad_parse_uint(const char *text,
 
 static unsigned int doompad_current_mask(void);
 
+struct doompad_mirror_result {
+    int file_rc;
+    int socket_rc;
+};
+
 static void doompad_print_state(void) {
     a90_console_printf("doompad.version=1\r\n");
     a90_console_printf("doompad.source=serial-control\r\n");
@@ -1806,11 +1811,13 @@ static void doompad_get_snapshot(struct doompad_snapshot *snapshot) {
     snapshot->seq = doompad_seq;
 }
 
-static int doompad_mirror_bridge_input_state(void) {
+static struct doompad_mirror_result doompad_mirror_bridge_input_state(void) {
     struct a90_doomgeneric_input_state input;
+    struct doompad_mirror_result result;
 
     doompad_init_once();
     memset(&input, 0, sizeof(input));
+    memset(&result, 0, sizeof(result));
     input.forward = doompad_state.forward;
     input.back = doompad_state.back;
     input.left = doompad_state.left;
@@ -1821,7 +1828,23 @@ static int doompad_mirror_bridge_input_state(void) {
     input.run = doompad_state.run;
     input.active = doominput_state_active(&doompad_state);
     input.seq = doompad_seq;
-    return a90_doomgeneric_bridge_write_input_state(&input);
+    result.file_rc = a90_doomgeneric_bridge_write_input_state(&input);
+    result.socket_rc = a90_doomgeneric_bridge_send_input_socket(&input);
+    return result;
+}
+
+static void doompad_print_mirror_result(
+        const struct a90_doomgeneric_bridge_status *doomgeneric,
+        const struct doompad_mirror_result *mirror) {
+    if (doomgeneric == NULL || mirror == NULL) {
+        return;
+    }
+    a90_console_printf("doompad.input_state.path=%s\r\n", doomgeneric->input_state_path);
+    a90_console_printf("doompad.input_state.updated=%d\r\n", mirror->file_rc == 0 ? 1 : 0);
+    a90_console_printf("doompad.input_state.rc=%d\r\n", mirror->file_rc);
+    a90_console_printf("doompad.input_socket.path=%s\r\n", doomgeneric->input_socket_path);
+    a90_console_printf("doompad.input_socket.sent=%d\r\n", mirror->socket_rc == 0 ? 1 : 0);
+    a90_console_printf("doompad.input_socket.rc=%d\r\n", mirror->socket_rc);
 }
 
 static unsigned int doompad_current_mask(void) {
@@ -1857,7 +1880,7 @@ static unsigned int doompad_current_mask(void) {
 
 static void doompad_apply_serial_mask(unsigned int seq, unsigned int mask) {
     struct a90_doomgeneric_bridge_status doomgeneric;
-    int mirror_rc;
+    struct doompad_mirror_result mirror;
 
     doominput_reset_state(&doompad_state);
     doompad_state.forward = (mask & DOOMPAD_MASK_FORWARD) != 0U;
@@ -1870,15 +1893,13 @@ static void doompad_apply_serial_mask(unsigned int seq, unsigned int mask) {
     doompad_state.run = (mask & DOOMPAD_MASK_RUN) != 0U;
     ++doompad_state.frame;
     doompad_seq = seq;
-    mirror_rc = doompad_mirror_bridge_input_state();
+    mirror = doompad_mirror_bridge_input_state();
     a90_doomgeneric_bridge_get_status(&doomgeneric);
     a90_console_printf("doompad.state_batch seq=%u mask=0x%02x active=%d\r\n",
             doompad_seq,
             mask,
             doominput_state_active(&doompad_state) ? 1 : 0);
-    a90_console_printf("doompad.input_state.path=%s\r\n", doomgeneric.input_state_path);
-    a90_console_printf("doompad.input_state.updated=%d\r\n", mirror_rc == 0 ? 1 : 0);
-    a90_console_printf("doompad.input_state.rc=%d\r\n", mirror_rc);
+    doompad_print_mirror_result(&doomgeneric, &mirror);
     doompad_print_state();
 }
 
@@ -1886,20 +1907,18 @@ static void doompad_apply_serial_role(unsigned int key_code,
                                       const char *canonical,
                                       int down) {
     struct a90_doomgeneric_bridge_status doomgeneric;
-    int mirror_rc;
+    struct doompad_mirror_result mirror;
 
     doominput_apply_key(&doompad_state, key_code, down);
     ++doompad_state.frame;
     ++doompad_seq;
-    mirror_rc = doompad_mirror_bridge_input_state();
+    mirror = doompad_mirror_bridge_input_state();
     a90_doomgeneric_bridge_get_status(&doomgeneric);
     a90_console_printf("doompad.event seq=%u role=%s value=%d\r\n",
             doompad_seq,
             canonical,
             down ? 1 : 0);
-    a90_console_printf("doompad.input_state.path=%s\r\n", doomgeneric.input_state_path);
-    a90_console_printf("doompad.input_state.updated=%d\r\n", mirror_rc == 0 ? 1 : 0);
-    a90_console_printf("doompad.input_state.rc=%d\r\n", mirror_rc);
+    doompad_print_mirror_result(&doomgeneric, &mirror);
     doompad_print_state();
 }
 
@@ -1918,16 +1937,14 @@ static int cmd_doompad(char **argv, int argc) {
 
     if (strcmp(argv[1], "reset") == 0) {
         struct a90_doomgeneric_bridge_status doomgeneric;
-        int mirror_rc;
+        struct doompad_mirror_result mirror;
 
         doominput_reset_state(&doompad_state);
         ++doompad_seq;
-        mirror_rc = doompad_mirror_bridge_input_state();
+        mirror = doompad_mirror_bridge_input_state();
         a90_doomgeneric_bridge_get_status(&doomgeneric);
         a90_console_printf("doompad.reset seq=%u\r\n", doompad_seq);
-        a90_console_printf("doompad.input_state.path=%s\r\n", doomgeneric.input_state_path);
-        a90_console_printf("doompad.input_state.updated=%d\r\n", mirror_rc == 0 ? 1 : 0);
-        a90_console_printf("doompad.input_state.rc=%d\r\n", mirror_rc);
+        doompad_print_mirror_result(&doomgeneric, &mirror);
         doompad_print_state();
         return 0;
     }

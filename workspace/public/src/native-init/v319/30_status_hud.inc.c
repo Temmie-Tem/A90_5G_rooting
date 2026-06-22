@@ -2594,6 +2594,7 @@ static void video_demo_doom_bridge_status(void) {
     a90_console_printf("video.demo.doom.frame.format=xbgr8888-raw\r\n");
     a90_console_printf("video.demo.input.active=%s\r\n", status.input_path);
     a90_console_printf("video.demo.input.state_path=%s\r\n", status.input_state_path);
+    a90_console_printf("video.demo.input.socket_path=%s\r\n", status.input_socket_path);
     a90_console_printf("video.demo.input.otg_required=0\r\n");
     a90_console_printf("video.demo.input.host_keyboard_bridge=host_doompad_keyboard_v3033.py\r\n");
     a90_console_printf("video.demo.input.host_dashboard=host_doompad_dashboard_v3035.py\r\n");
@@ -3044,7 +3045,7 @@ static int video_demo_doom_draw_native_dashboard(
     a90_draw_text_fit(fb, margin, title_y,
                       "DOOM LIVE DASHBOARD", 0xffcc66, title_scale, panel_w);
     snprintf(line, sizeof(line),
-             "A90 native-init %s  no OTG  serial doompad input  frame 640x400 -> 960x600",
+             "A90 native-init %s  no OTG  serial doompad dgram  frame 640x400 -> 960x600",
              INIT_VERSION);
     a90_draw_text_fit(fb, margin, frame_y + frame_h + 10U,
                       line, 0xbbbbbb, dashboard_scale, panel_w);
@@ -3441,7 +3442,7 @@ static int video_demo_doom_run_visible_loop(uint32_t frames,
         a90_console_printf("video.demo.doom.loop.continuous=%d\r\n", continuous ? 1 : 0);
         a90_console_printf("video.demo.doom.loop.frame_ms=%d\r\n",
                            VIDEO_DEMO_DOOMGENERIC_LOOP_FRAME_MS);
-        a90_console_printf("video.demo.doom.loop.input=serial-doompad-state-file\r\n");
+        a90_console_printf("video.demo.doom.loop.input=serial-doompad-unix-dgram-with-state-file-fallback\r\n");
         a90_console_printf("video.demo.doom.loop.host_keyboard_bridge=host_doompad_keyboard_v3033.py\r\n");
         video_demo_doom_print_wad_check("video.demo.doom.loop.verify", &check);
         a90_console_printf("video.demo.doom.loop.verify.sha256_match=%d\r\n",
@@ -3542,7 +3543,7 @@ static int video_demo_doom_loop_start(uint32_t frames, const char *expected_sha2
     a90_console_printf("video.demo.doom.loop_start.frames=%u\r\n", frames);
     a90_console_printf("video.demo.doom.loop_start.continuous=%d\r\n",
                        frames == 0U ? 1 : 0);
-    a90_console_printf("video.demo.doom.loop_start.input=serial-doompad-state-file\r\n");
+    a90_console_printf("video.demo.doom.loop_start.input=serial-doompad-unix-dgram-with-state-file-fallback\r\n");
     a90_console_printf("video.demo.doom.loop_start.host_keyboard_bridge=host_doompad_keyboard_v3033.py\r\n");
     audio_rc = video_demo_doom_audio_corun_start();
     a90_console_printf("video.demo.doom.loop_start.audio_rc=%d\r\n", audio_rc);
