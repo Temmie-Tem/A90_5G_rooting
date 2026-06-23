@@ -2583,6 +2583,12 @@ static int cmd_doomplay(char **argv, int argc);
 #ifndef VIDEO_DEMO_DOOMGENERIC_TICK_PACE_INTERVAL_US
 #define VIDEO_DEMO_DOOMGENERIC_TICK_PACE_INTERVAL_US 16667U
 #endif
+#ifndef VIDEO_DEMO_DOOMGENERIC_TICK_TELEMETRY_SUMMARY
+#define VIDEO_DEMO_DOOMGENERIC_TICK_TELEMETRY_SUMMARY 0
+#endif
+#ifndef A90_DOOMGENERIC_BRIDGE_TICK_TELEMETRY_PATH
+#define A90_DOOMGENERIC_BRIDGE_TICK_TELEMETRY_PATH ""
+#endif
 
 #define VIDEO_DEMO_DOOMGENERIC_PACE_PACKET_MAGIC 0x41395043U
 #define VIDEO_DEMO_DOOMGENERIC_PACE_PACKET_VERSION 1U
@@ -4098,6 +4104,91 @@ static void video_demo_doom_pace_sender_print(
     a90_console_printf("%s.pace_socket.failures=%u\r\n", prefix, sender->failures);
 }
 
+#if VIDEO_DEMO_DOOMGENERIC_TICK_TELEMETRY_SUMMARY
+static bool video_demo_doom_tick_telemetry_line_allowed(const char *line) {
+    static const char *const prefixes[] = {
+        "marker=",
+        "frames_requested=",
+        "loop_iterations=",
+        "loop_rc=",
+        "presented_frames=",
+        "fake_time_model=",
+        "paced_time_marker=",
+        "paced_time_model=",
+        "smooth_demo_mode=",
+        "paced_time.quantum_us=",
+        "paced_time.advance_calls=",
+        "paced_time.advance_us_total=",
+        "loop_tick.samples=",
+        "loop_tick.gametic_changed=",
+        "loop_tick.gametic_repeated=",
+        "loop_tick.gametic_max_delta=",
+        "draw_gametic.changed_transitions=",
+        "draw_gametic.repeated_transitions=",
+        "draw_gametic.max_same_run=",
+        "dump_gametic.changed_transitions=",
+        "dump_gametic.repeated_transitions=",
+        "dump_gametic.max_same_run=",
+        "dump_gametic.max_delta=",
+    };
+    size_t index;
+
+    if (line == NULL || line[0] == '\0') {
+        return false;
+    }
+    for (index = 0U; index < sizeof(prefixes) / sizeof(prefixes[0]); ++index) {
+        size_t prefix_len = strlen(prefixes[index]);
+
+        if (strncmp(line, prefixes[index], prefix_len) == 0) {
+            return true;
+        }
+    }
+    return false;
+}
+
+static void video_demo_doom_tick_telemetry_summary_print(const char *prefix) {
+    const char *path = A90_DOOMGENERIC_BRIDGE_TICK_TELEMETRY_PATH;
+    unsigned int emitted = 0U;
+    FILE *fp;
+    char line[192];
+    int saved_errno;
+
+    if (prefix == NULL) {
+        return;
+    }
+    a90_console_printf("%s.tick_telemetry.summary=1\r\n", prefix);
+    a90_console_printf("%s.tick_telemetry.path=%s\r\n", prefix, path);
+    if (path[0] == '\0') {
+        a90_console_printf("%s.tick_telemetry.open_rc=%d\r\n", prefix, -ENOENT);
+        return;
+    }
+    fp = fopen(path, "r");
+    saved_errno = errno;
+    if (fp == NULL) {
+        a90_console_printf("%s.tick_telemetry.open_rc=%d\r\n", prefix, -saved_errno);
+        return;
+    }
+    a90_console_printf("%s.tick_telemetry.open_rc=0\r\n", prefix);
+    while (fgets(line, sizeof(line), fp) != NULL && emitted < 32U) {
+        size_t len = strlen(line);
+
+        while (len > 0U && (line[len - 1U] == '\n' || line[len - 1U] == '\r')) {
+            line[--len] = '\0';
+        }
+        if (video_demo_doom_tick_telemetry_line_allowed(line)) {
+            a90_console_printf("%s.tick_telemetry.%s\r\n", prefix, line);
+            ++emitted;
+        }
+    }
+    if (fclose(fp) < 0) {
+        a90_console_printf("%s.tick_telemetry.close_rc=%d\r\n", prefix, -errno);
+    } else {
+        a90_console_printf("%s.tick_telemetry.close_rc=0\r\n", prefix);
+    }
+    a90_console_printf("%s.tick_telemetry.lines=%u\r\n", prefix, emitted);
+}
+#endif
+
 static void video_demo_doom_flip_stats_init(struct video_demo_doom_flip_stats *stats) {
     if (stats == NULL) {
         return;
@@ -5152,6 +5243,9 @@ static int video_demo_doom_run_visible_loop(uint32_t frames,
                            idle_pace_tokens);
         a90_console_printf("video.demo.doom.loop.pace_socket.wait_timeouts=%u\r\n",
                            pace_wait_timeouts);
+#if VIDEO_DEMO_DOOMGENERIC_TICK_TELEMETRY_SUMMARY
+        video_demo_doom_tick_telemetry_summary_print("video.demo.doom.loop");
+#endif
     }
     video_demo_doom_pace_sender_cleanup(&pace_sender);
     video_demo_doom_frame_reader_cleanup(&frame_reader);

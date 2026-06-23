@@ -67,6 +67,8 @@ INPUT_SOCKET_PATH = ""
 INPUT_PATH = "serial-doompad-to-DG_GetKey"
 INPUT_UDP_PORT = 0
 PACE_SOCKET_PATH = ""
+TICK_TELEMETRY_PATH = ""
+TICK_TELEMETRY_SUMMARY = 0
 FRAME_WIDTH = v3031.FRAME_WIDTH
 FRAME_HEIGHT = v3031.FRAME_HEIGHT
 FRAME_STRIDE = v3031.FRAME_STRIDE
@@ -500,6 +502,16 @@ def patch_ramdisk_with_doomgeneric_helper() -> None:
             doomgeneric_flags = (
                 *doomgeneric_flags,
                 shell_define("A90_DOOMGENERIC_BRIDGE_PACE_SOCKET_PATH", PACE_SOCKET_PATH),
+            )
+        if TICK_TELEMETRY_PATH:
+            doomgeneric_flags = (
+                *doomgeneric_flags,
+                shell_define("A90_DOOMGENERIC_BRIDGE_TICK_TELEMETRY_PATH", TICK_TELEMETRY_PATH),
+            )
+        if TICK_TELEMETRY_SUMMARY:
+            doomgeneric_flags = (
+                *doomgeneric_flags,
+                numeric_define("VIDEO_DEMO_DOOMGENERIC_TICK_TELEMETRY_SUMMARY", 1),
             )
         if INPUT_UDP_PORT:
             doomgeneric_flags = (
