@@ -2551,6 +2551,9 @@ static int cmd_doomplay(char **argv, int argc);
 #ifndef VIDEO_DEMO_DOOMGENERIC_REUSE_FRAME_BUFFER
 #define VIDEO_DEMO_DOOMGENERIC_REUSE_FRAME_BUFFER 0
 #endif
+#ifndef VIDEO_DEMO_DOOMGENERIC_DIRECT_SHARED_BLIT
+#define VIDEO_DEMO_DOOMGENERIC_DIRECT_SHARED_BLIT 0
+#endif
 
 #ifndef VIDEO_DEMO_DOOMGENERIC_DASHBOARD_METRICS_INTERVAL_FRAMES
 #define VIDEO_DEMO_DOOMGENERIC_DASHBOARD_METRICS_INTERVAL_FRAMES 1U
@@ -2717,7 +2720,11 @@ static void video_demo_doom_bridge_status(void) {
 #endif
 #if VIDEO_DEMO_DOOMGENERIC_REUSE_FRAME_BUFFER
     if (status.shared_frame_path != NULL && status.shared_frame_path[0] != '\0') {
+#if VIDEO_DEMO_DOOMGENERIC_DIRECT_SHARED_BLIT
+        a90_console_printf("video.demo.doom.presenter.reader=shared-mmap-direct-blit\r\n");
+#else
         a90_console_printf("video.demo.doom.presenter.reader=shared-mmap-copy\r\n");
+#endif
     } else {
         a90_console_printf("video.demo.doom.presenter.reader=reused-loop-buffer\r\n");
     }
@@ -4260,6 +4267,16 @@ static void video_demo_doom_frame_reader_release(
     if (source == NULL) {
         return;
     }
+#if VIDEO_DEMO_DOOMGENERIC_DIRECT_SHARED_BLIT
+    if (reader != NULL &&
+        reader->shared_map != NULL &&
+        reader->shared_map != MAP_FAILED &&
+        reader->shared_map_size > A90_DOOMGENERIC_SHARED_FRAME_HEADER_BYTES &&
+        source == (uint32_t *)((uint8_t *)reader->shared_map +
+                               A90_DOOMGENERIC_SHARED_FRAME_HEADER_BYTES)) {
+        return;
+    }
+#endif
 #if VIDEO_DEMO_DOOMGENERIC_REUSE_FRAME_BUFFER
     if (reader != NULL && source == reader->pixels) {
         return;
@@ -4330,6 +4347,7 @@ static int video_demo_doom_frame_reader_map_shared(
     return 0;
 }
 
+#if !VIDEO_DEMO_DOOMGENERIC_DIRECT_SHARED_BLIT
 static int video_demo_doom_frame_reader_copy_shared(
         struct video_demo_doom_frame_reader *reader,
         const struct a90_doomgeneric_frame_render *render,
@@ -4374,6 +4392,53 @@ static int video_demo_doom_frame_reader_copy_shared(
     }
     return -EAGAIN;
 }
+#endif
+
+#if VIDEO_DEMO_DOOMGENERIC_DIRECT_SHARED_BLIT
+static int video_demo_doom_frame_reader_direct_shared_source(
+        struct video_demo_doom_frame_reader *reader,
+        const struct a90_doomgeneric_frame_render *render,
+        uint32_t **source_out) {
+    volatile const struct a90_doomgeneric_shared_frame_header *header;
+    uint32_t attempt;
+    int rc;
+
+    if (reader == NULL || render == NULL || source_out == NULL || !render->shared_frame) {
+        return -EINVAL;
+    }
+    *source_out = NULL;
+    rc = video_demo_doom_frame_reader_map_shared(reader, render);
+    if (rc < 0) {
+        return rc;
+    }
+    header = (volatile const struct a90_doomgeneric_shared_frame_header *)reader->shared_map;
+    for (attempt = 0U; attempt < 4U; ++attempt) {
+        struct a90_doomgeneric_shared_frame_header snapshot;
+        uint32_t sequence_before;
+        uint32_t sequence_after;
+
+        sequence_before = header->sequence;
+        __sync_synchronize();
+        if (sequence_before == 0U || (sequence_before & 1U) != 0U) {
+            usleep(1000);
+            continue;
+        }
+        memcpy(&snapshot, (const void *)header, sizeof(snapshot));
+        if (!video_demo_doom_shared_header_valid(&snapshot, render)) {
+            return -EINVAL;
+        }
+        __sync_synchronize();
+        sequence_after = header->sequence;
+        if (sequence_before == sequence_after && (sequence_after & 1U) == 0U) {
+            *source_out = (uint32_t *)((uint8_t *)reader->shared_map +
+                                      A90_DOOMGENERIC_SHARED_FRAME_HEADER_BYTES);
+            return 0;
+        }
+        usleep(1000);
+    }
+    return -EAGAIN;
+}
+#endif
 
 static int video_demo_doom_present_frame_file_ex(
         const struct a90_doomgeneric_frame_render *render,
@@ -4389,6 +4454,7 @@ static int video_demo_doom_present_frame_file_ex(
     struct a90_fb *fb;
     int fd = -1;
     int rc;
+    bool source_deferred = false;
 #if VIDEO_DEMO_DOOMGENERIC_FRAME_TIMING_PROBE
     uint64_t t_start;
     uint64_t t_after_alloc;
@@ -4419,24 +4485,37 @@ static int video_demo_doom_present_frame_file_ex(
 #else
     (void)timing;
 #endif
+#if VIDEO_DEMO_DOOMGENERIC_DIRECT_SHARED_BLIT
+    source_deferred = render->shared_frame;
+    if (source_deferred) {
+        rc = 0;
+    } else {
+        rc = video_demo_doom_frame_reader_source(reader, render, &source);
+    }
+#else
     rc = video_demo_doom_frame_reader_source(reader, render, &source);
+#endif
 #if VIDEO_DEMO_DOOMGENERIC_FRAME_TIMING_PROBE
     t_after_alloc = video_monotonic_ns();
 #endif
-    if (rc < 0 || source == NULL) {
+    if (rc < 0 || (!source_deferred && source == NULL)) {
         if (verbose) {
             a90_console_printf("video.demo.doom.frame.display.error=alloc-failed\r\n");
         }
         return rc < 0 ? rc : -ENOMEM;
     }
     if (render->shared_frame) {
+#if VIDEO_DEMO_DOOMGENERIC_DIRECT_SHARED_BLIT
+        rc = video_demo_doom_frame_reader_direct_shared_source(reader, render, &source);
+#else
         rc = video_demo_doom_frame_reader_copy_shared(reader, render, source);
-        if (rc < 0) {
+#endif
+        if (rc < 0 || source == NULL) {
             video_demo_doom_frame_reader_release(reader, source);
             if (verbose) {
                 a90_console_printf("video.demo.doom.frame.display.error=shared-copy-failed\r\n");
             }
-            return rc;
+            return rc < 0 ? rc : -EIO;
         }
     } else {
         fd = open(render->path, O_RDONLY | O_CLOEXEC | O_NOFOLLOW);
@@ -4794,7 +4873,11 @@ static int video_demo_doom_run_visible_loop(uint32_t frames,
 #endif
 #if VIDEO_DEMO_DOOMGENERIC_REUSE_FRAME_BUFFER
         if (bridge_status.shared_frame_path != NULL && bridge_status.shared_frame_path[0] != '\0') {
+#if VIDEO_DEMO_DOOMGENERIC_DIRECT_SHARED_BLIT
+            a90_console_printf("video.demo.doom.loop.presenter.reader=shared-mmap-direct-blit\r\n");
+#else
             a90_console_printf("video.demo.doom.loop.presenter.reader=shared-mmap-copy\r\n");
+#endif
         } else {
             a90_console_printf("video.demo.doom.loop.presenter.reader=reused-loop-buffer\r\n");
         }
