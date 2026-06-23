@@ -40,13 +40,34 @@ struct a90_kms_scaled_plane_result {
     uint32_t plane_id;
     uint32_t fb_id;
     uint32_t crtc_id;
+    uint32_t plane_count;
+    uint32_t compatible_count;
+    uint32_t idle_xbgr_count;
+    int stage;
+    int universal_cap_rc;
+    int atomic_cap_rc;
     int rc;
 };
+
+#define A90_KMS_SCALED_PLANE_STAGE_NONE 0
+#define A90_KMS_SCALED_PLANE_STAGE_INPUT 1
+#define A90_KMS_SCALED_PLANE_STAGE_CLIENT_CAPS 2
+#define A90_KMS_SCALED_PLANE_STAGE_FETCH_RESOURCES 3
+#define A90_KMS_SCALED_PLANE_STAGE_FIND_CRTC 4
+#define A90_KMS_SCALED_PLANE_STAGE_FETCH_PLANES 5
+#define A90_KMS_SCALED_PLANE_STAGE_SCAN_PLANES 6
+#define A90_KMS_SCALED_PLANE_STAGE_CREATE_DUMB 7
+#define A90_KMS_SCALED_PLANE_STAGE_ADDFB2 8
+#define A90_KMS_SCALED_PLANE_STAGE_MAP_DUMB 9
+#define A90_KMS_SCALED_PLANE_STAGE_MMAP 10
+#define A90_KMS_SCALED_PLANE_STAGE_SETPLANE 11
+#define A90_KMS_SCALED_PLANE_STAGE_PRESENTED 12
 
 int a90_kms_begin_frame(uint32_t color);
 int a90_kms_begin_frame_no_clear(void);
 int a90_kms_present(const char *label, bool verbose);
 int a90_kms_present_pageflip(const char *label, int timeout_ms, struct a90_kms_flip_result *result);
+const char *a90_kms_scaled_plane_stage_name(int stage);
 int a90_kms_present_scaled_plane_xbgr8888(const uint32_t *source,
                                           uint32_t source_width,
                                           uint32_t source_height,

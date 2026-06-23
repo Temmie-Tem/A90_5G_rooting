@@ -54,6 +54,15 @@ struct a90_kms_scaled_plane_state {
     bool enabled;
 };
 
+struct a90_kms_plane_select_result {
+    int stage;
+    int universal_cap_rc;
+    int atomic_cap_rc;
+    uint32_t plane_count;
+    uint32_t compatible_count;
+    uint32_t idle_xbgr_count;
+};
+
 static struct a90_kms_state kms_state = {
     .fd = -1,
     .map = { MAP_FAILED, MAP_FAILED },
@@ -503,7 +512,48 @@ static bool drm_plane_has_format(const uint32_t *formats, uint32_t count, uint32
     return false;
 }
 
-static int kms_select_unused_scaled_plane(uint32_t *plane_id_out) {
+static int drm_set_client_cap_result(int fd, uint64_t capability, uint64_t value) {
+    if (drm_set_client_cap_value(fd, capability, value) < 0) {
+        return negative_errno_or(EIO);
+    }
+    return 0;
+}
+
+const char *a90_kms_scaled_plane_stage_name(int stage) {
+    switch (stage) {
+    case A90_KMS_SCALED_PLANE_STAGE_NONE:
+        return "none";
+    case A90_KMS_SCALED_PLANE_STAGE_INPUT:
+        return "input";
+    case A90_KMS_SCALED_PLANE_STAGE_CLIENT_CAPS:
+        return "client-caps";
+    case A90_KMS_SCALED_PLANE_STAGE_FETCH_RESOURCES:
+        return "fetch-resources";
+    case A90_KMS_SCALED_PLANE_STAGE_FIND_CRTC:
+        return "find-crtc";
+    case A90_KMS_SCALED_PLANE_STAGE_FETCH_PLANES:
+        return "fetch-planes";
+    case A90_KMS_SCALED_PLANE_STAGE_SCAN_PLANES:
+        return "scan-planes";
+    case A90_KMS_SCALED_PLANE_STAGE_CREATE_DUMB:
+        return "create-dumb";
+    case A90_KMS_SCALED_PLANE_STAGE_ADDFB2:
+        return "addfb2";
+    case A90_KMS_SCALED_PLANE_STAGE_MAP_DUMB:
+        return "map-dumb";
+    case A90_KMS_SCALED_PLANE_STAGE_MMAP:
+        return "mmap";
+    case A90_KMS_SCALED_PLANE_STAGE_SETPLANE:
+        return "setplane";
+    case A90_KMS_SCALED_PLANE_STAGE_PRESENTED:
+        return "presented";
+    default:
+        return "unknown";
+    }
+}
+
+static int kms_select_unused_scaled_plane(uint32_t *plane_id_out,
+                                          struct a90_kms_plane_select_result *select) {
     struct drm_mode_card_res res;
     uint32_t *crtcs = NULL;
     uint32_t *connectors = NULL;
@@ -514,20 +564,49 @@ static int kms_select_unused_scaled_plane(uint32_t *plane_id_out) {
     int crtc_index;
     int rc = -1;
 
+    if (select != NULL) {
+        memset(select, 0, sizeof(*select));
+        select->stage = A90_KMS_SCALED_PLANE_STAGE_INPUT;
+        select->universal_cap_rc = -ENODEV;
+        select->atomic_cap_rc = -ENODEV;
+    }
     if (kms_state.fd < 0 || plane_id_out == NULL) {
         errno = ENODEV;
         return -1;
     }
-    (void)drm_set_client_cap_value(kms_state.fd, DRM_CLIENT_CAP_UNIVERSAL_PLANES, 1);
+    if (select != NULL) {
+        select->stage = A90_KMS_SCALED_PLANE_STAGE_CLIENT_CAPS;
+        select->universal_cap_rc = drm_set_client_cap_result(
+            kms_state.fd, DRM_CLIENT_CAP_UNIVERSAL_PLANES, 1);
+        select->atomic_cap_rc = drm_set_client_cap_result(
+            kms_state.fd, DRM_CLIENT_CAP_ATOMIC, 1);
+    } else {
+        (void)drm_set_client_cap_value(kms_state.fd, DRM_CLIENT_CAP_UNIVERSAL_PLANES, 1);
+        (void)drm_set_client_cap_value(kms_state.fd, DRM_CLIENT_CAP_ATOMIC, 1);
+    }
+    if (select != NULL) {
+        select->stage = A90_KMS_SCALED_PLANE_STAGE_FETCH_RESOURCES;
+    }
     if (drm_fetch_resources(kms_state.fd, &res, &crtcs, &connectors, &encoders) < 0) {
         return -1;
     }
+    if (select != NULL) {
+        select->stage = A90_KMS_SCALED_PLANE_STAGE_FIND_CRTC;
+    }
     crtc_index = drm_find_crtc_index(crtcs, res.count_crtcs, kms_state.crtc_id);
     if (crtc_index < 0) {
+        errno = ENODEV;
         goto out;
+    }
+    if (select != NULL) {
+        select->stage = A90_KMS_SCALED_PLANE_STAGE_FETCH_PLANES;
     }
     if (drm_fetch_plane_ids(kms_state.fd, &plane_ids, &plane_count) < 0) {
         goto out;
+    }
+    if (select != NULL) {
+        select->stage = A90_KMS_SCALED_PLANE_STAGE_SCAN_PLANES;
+        select->plane_count = plane_count;
     }
     for (index = 0; index < plane_count; ++index) {
         struct drm_mode_get_plane plane;
@@ -543,6 +622,12 @@ static int kms_select_unused_scaled_plane(uint32_t *plane_id_out) {
         compatible = (plane.possible_crtcs & (1U << (unsigned int)crtc_index)) != 0U;
         idle = plane.crtc_id == 0 && plane.fb_id == 0;
         xbgr = drm_plane_has_format(formats, plane.count_format_types, DRM_FORMAT_XBGR8888);
+        if (select != NULL && compatible) {
+            select->compatible_count++;
+            if (idle && xbgr) {
+                select->idle_xbgr_count++;
+            }
+        }
         free(formats);
         if (compatible && idle && xbgr) {
             *plane_id_out = plane.plane_id;
@@ -550,7 +635,7 @@ static int kms_select_unused_scaled_plane(uint32_t *plane_id_out) {
             break;
         }
     }
-    if (rc < 0 && errno == 0) {
+    if (rc < 0) {
         errno = ENODEV;
     }
 
@@ -939,7 +1024,22 @@ static void kms_scaled_plane_destroy_buffers(void) {
     kms_scaled_plane.current_buffer = 0U;
 }
 
-static int kms_scaled_plane_create_buffers(uint32_t width, uint32_t height) {
+static void kms_scaled_plane_copy_select_result(struct a90_kms_scaled_plane_result *result,
+                                                const struct a90_kms_plane_select_result *select) {
+    if (result == NULL || select == NULL) {
+        return;
+    }
+    result->stage = select->stage;
+    result->universal_cap_rc = select->universal_cap_rc;
+    result->atomic_cap_rc = select->atomic_cap_rc;
+    result->plane_count = select->plane_count;
+    result->compatible_count = select->compatible_count;
+    result->idle_xbgr_count = select->idle_xbgr_count;
+}
+
+static int kms_scaled_plane_create_buffers(uint32_t width,
+                                           uint32_t height,
+                                           struct a90_kms_scaled_plane_result *result) {
     uint32_t index;
 
     if (kms_state.fd < 0 || width == 0U || height == 0U) {
@@ -957,7 +1057,13 @@ static int kms_scaled_plane_create_buffers(uint32_t width, uint32_t height) {
         create.width = width;
         create.height = height;
         create.bpp = 32;
+        if (result != NULL) {
+            result->stage = A90_KMS_SCALED_PLANE_STAGE_CREATE_DUMB;
+        }
         if (drm_ioctl_retry(kms_state.fd, DRM_IOCTL_MODE_CREATE_DUMB, &create) < 0) {
+            if (result != NULL) {
+                result->rc = negative_errno_or(EIO);
+            }
             kms_scaled_plane_destroy_buffers();
             return -1;
         }
@@ -968,9 +1074,15 @@ static int kms_scaled_plane_create_buffers(uint32_t width, uint32_t height) {
         addfb2.handles[0] = create.handle;
         addfb2.pitches[0] = create.pitch;
         addfb2.offsets[0] = 0;
+        if (result != NULL) {
+            result->stage = A90_KMS_SCALED_PLANE_STAGE_ADDFB2;
+        }
         if (drm_ioctl_retry(kms_state.fd, DRM_IOCTL_MODE_ADDFB2, &addfb2) < 0) {
             struct drm_mode_destroy_dumb destroy;
 
+            if (result != NULL) {
+                result->rc = negative_errno_or(EIO);
+            }
             memset(&destroy, 0, sizeof(destroy));
             destroy.handle = create.handle;
             (void)drm_ioctl_retry(kms_state.fd, DRM_IOCTL_MODE_DESTROY_DUMB, &destroy);
@@ -979,10 +1091,16 @@ static int kms_scaled_plane_create_buffers(uint32_t width, uint32_t height) {
         }
         memset(&map_dumb, 0, sizeof(map_dumb));
         map_dumb.handle = create.handle;
+        if (result != NULL) {
+            result->stage = A90_KMS_SCALED_PLANE_STAGE_MAP_DUMB;
+        }
         if (drm_ioctl_retry(kms_state.fd, DRM_IOCTL_MODE_MAP_DUMB, &map_dumb) < 0) {
             uint32_t fb_id = addfb2.fb_id;
             struct drm_mode_destroy_dumb destroy;
 
+            if (result != NULL) {
+                result->rc = negative_errno_or(EIO);
+            }
             (void)drm_ioctl_retry(kms_state.fd, DRM_IOCTL_MODE_RMFB, &fb_id);
             memset(&destroy, 0, sizeof(destroy));
             destroy.handle = create.handle;
@@ -990,12 +1108,18 @@ static int kms_scaled_plane_create_buffers(uint32_t width, uint32_t height) {
             kms_scaled_plane_destroy_buffers();
             return -1;
         }
+        if (result != NULL) {
+            result->stage = A90_KMS_SCALED_PLANE_STAGE_MMAP;
+        }
         map = mmap(NULL, create.size, PROT_READ | PROT_WRITE, MAP_SHARED,
                    kms_state.fd, (off_t)map_dumb.offset);
         if (map == MAP_FAILED) {
             uint32_t fb_id = addfb2.fb_id;
             struct drm_mode_destroy_dumb destroy;
 
+            if (result != NULL) {
+                result->rc = negative_errno_or(EIO);
+            }
             (void)drm_ioctl_retry(kms_state.fd, DRM_IOCTL_MODE_RMFB, &fb_id);
             memset(&destroy, 0, sizeof(destroy));
             destroy.handle = create.handle;
@@ -1015,14 +1139,37 @@ static int kms_scaled_plane_create_buffers(uint32_t width, uint32_t height) {
     return 0;
 }
 
-static int kms_scaled_plane_ensure(uint32_t width, uint32_t height) {
+static int kms_scaled_plane_ensure(uint32_t width,
+                                   uint32_t height,
+                                   struct a90_kms_scaled_plane_result *result) {
+    struct a90_kms_plane_select_result select;
+    bool selected_this_call = false;
+
     if (kms_state.fd < 0) {
         errno = ENODEV;
+        if (result != NULL) {
+            result->stage = A90_KMS_SCALED_PLANE_STAGE_INPUT;
+            result->rc = negative_errno_or(ENODEV);
+        }
         return -1;
     }
-    if (kms_scaled_plane.plane_id == 0U &&
-        kms_select_unused_scaled_plane(&kms_scaled_plane.plane_id) < 0) {
-        return -1;
+    if (kms_scaled_plane.plane_id == 0U) {
+        if (kms_select_unused_scaled_plane(&kms_scaled_plane.plane_id, &select) < 0) {
+            kms_scaled_plane_copy_select_result(result, &select);
+            if (result != NULL) {
+                result->rc = negative_errno_or(ENODEV);
+            }
+            return -1;
+        }
+        selected_this_call = true;
+    }
+    if (selected_this_call) {
+        kms_scaled_plane_copy_select_result(result, &select);
+    }
+    if (kms_scaled_plane.plane_id != 0U) {
+        if (result != NULL && result->plane_id == 0U) {
+            result->plane_id = kms_scaled_plane.plane_id;
+        }
     }
     if (kms_scaled_plane.map[0] != MAP_FAILED &&
         kms_scaled_plane.map[1] != MAP_FAILED &&
@@ -1030,7 +1177,7 @@ static int kms_scaled_plane_ensure(uint32_t width, uint32_t height) {
         kms_scaled_plane.height == height) {
         return 0;
     }
-    return kms_scaled_plane_create_buffers(width, height);
+    return kms_scaled_plane_create_buffers(width, height, result);
 }
 
 int a90_kms_present_scaled_plane_xbgr8888(const uint32_t *source,
@@ -1048,6 +1195,9 @@ int a90_kms_present_scaled_plane_xbgr8888(const uint32_t *source,
 
     if (result != NULL) {
         memset(result, 0, sizeof(*result));
+        result->stage = A90_KMS_SCALED_PLANE_STAGE_NONE;
+        result->universal_cap_rc = -ENODEV;
+        result->atomic_cap_rc = -ENODEV;
         result->rc = -EINVAL;
     }
     if (source == NULL || source_width == 0U || source_height == 0U ||
@@ -1058,12 +1208,18 @@ int a90_kms_present_scaled_plane_xbgr8888(const uint32_t *source,
         dst_width > kms_state.width - dst_x ||
         dst_height > kms_state.height - dst_y) {
         errno = EINVAL;
+        if (result != NULL) {
+            result->stage = A90_KMS_SCALED_PLANE_STAGE_INPUT;
+            result->rc = -EINVAL;
+        }
         return -1;
     }
-    if (kms_scaled_plane_ensure(source_width, source_height) < 0) {
+    if (kms_scaled_plane_ensure(source_width, source_height, result) < 0) {
         if (result != NULL) {
             result->attempted = false;
-            result->rc = negative_errno_or(ENODEV);
+            if (result->rc == 0) {
+                result->rc = negative_errno_or(ENODEV);
+            }
         }
         return -1;
     }
@@ -1093,6 +1249,7 @@ int a90_kms_present_scaled_plane_xbgr8888(const uint32_t *source,
         result->plane_id = kms_scaled_plane.plane_id;
         result->fb_id = kms_scaled_plane.fb_id[next_buffer];
         result->crtc_id = kms_state.crtc_id;
+        result->stage = A90_KMS_SCALED_PLANE_STAGE_SETPLANE;
     }
     if (drm_ioctl_retry(kms_state.fd, DRM_IOCTL_MODE_SETPLANE, &setplane) < 0) {
         if (result != NULL) {
@@ -1104,6 +1261,7 @@ int a90_kms_present_scaled_plane_xbgr8888(const uint32_t *source,
     kms_scaled_plane.enabled = true;
     if (result != NULL) {
         result->presented = true;
+        result->stage = A90_KMS_SCALED_PLANE_STAGE_PRESENTED;
         result->rc = 0;
     }
     return 0;
