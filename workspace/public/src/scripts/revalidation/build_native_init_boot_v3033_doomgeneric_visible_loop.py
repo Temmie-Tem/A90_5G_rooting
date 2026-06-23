@@ -78,6 +78,7 @@ HW_PLANE_SCALE = 0
 PRE_SCALED_LARGE_FRAME = 0
 NATIVE_DOOM_PRESENT_PAGEFLIP = 0
 REUSE_FRAME_BUFFER = 0
+NO_FULL_CLEAR = 0
 DASHBOARD_METRICS_INTERVAL_FRAMES = 1
 FRAME_TIMING_PROBE = 0
 SEQ_TELEMETRY = 0
@@ -444,6 +445,11 @@ def patch_ramdisk_with_doomgeneric_helper() -> None:
             doomgeneric_flags = (
                 *doomgeneric_flags,
                 numeric_define("VIDEO_DEMO_DOOMGENERIC_PRE_SCALED_LARGE_FRAME", 1),
+            )
+        if NO_FULL_CLEAR:
+            doomgeneric_flags = (
+                *doomgeneric_flags,
+                numeric_define("VIDEO_DEMO_DOOMGENERIC_NO_FULL_CLEAR", 1),
             )
         if NATIVE_DOOM_PRESENT_PAGEFLIP:
             doomgeneric_flags = (

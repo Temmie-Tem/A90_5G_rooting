@@ -3262,6 +3262,37 @@ static void video_demo_doom_dashboard_draw_line(struct a90_fb *fb,
     *y += scale * 10U;
 }
 
+#if VIDEO_DEMO_DOOMGENERIC_NO_FULL_CLEAR
+static void video_demo_doom_clear_minimal_dashboard_regions(
+        struct a90_fb *fb,
+        uint32_t frame_x,
+        uint32_t frame_y,
+        uint32_t frame_w,
+        uint32_t frame_h) {
+    const uint32_t bg = 0x05070c;
+    uint32_t frame_bottom;
+    uint32_t frame_right;
+
+    if (fb == NULL || fb->pixels == NULL) {
+        return;
+    }
+    frame_bottom = frame_y + frame_h;
+    frame_right = frame_x + frame_w;
+    if (frame_y > 0U) {
+        a90_draw_rect(fb, 0, 0, fb->width, frame_y, bg);
+    }
+    if (frame_x > 0U) {
+        a90_draw_rect(fb, 0, frame_y, frame_x, frame_h, bg);
+    }
+    if (frame_right < fb->width) {
+        a90_draw_rect(fb, frame_right, frame_y, fb->width - frame_right, frame_h, bg);
+    }
+    if (frame_bottom < fb->height) {
+        a90_draw_rect(fb, 0, frame_bottom, fb->width, fb->height - frame_bottom, bg);
+    }
+}
+#endif
+
 #if A90_DOOMGENERIC_NATIVE_DASHBOARD_MINIMAL
 static int video_demo_doom_draw_minimal_dashboard(
         struct a90_fb *fb,
@@ -3316,6 +3347,10 @@ static int video_demo_doom_draw_minimal_dashboard(
 
     panel_w = fb->width > margin * 2U ? fb->width - margin * 2U : fb->width;
     frame_x = (fb->width - frame_w) / 2U;
+
+#if VIDEO_DEMO_DOOMGENERIC_NO_FULL_CLEAR
+    video_demo_doom_clear_minimal_dashboard_regions(fb, frame_x, frame_y, frame_w, frame_h);
+#endif
 
     a90_draw_text_fit(fb, margin, 18U,
                       "DOOM LIVE", 0xffcc66, title_scale, panel_w);
@@ -3392,6 +3427,13 @@ static int video_demo_doom_draw_minimal_dashboard(
 #endif
         a90_console_printf("video.demo.doom.dashboard.metrics_interval_frames=0\r\n");
         a90_console_printf("video.demo.doom.dashboard.metrics_pacing=disabled-minimal\r\n");
+#if VIDEO_DEMO_DOOMGENERIC_NO_FULL_CLEAR
+        a90_console_printf("video.demo.doom.dashboard.full_clear=0\r\n");
+        a90_console_printf("video.demo.doom.dashboard.clear_path=dirty-dashboard-regions\r\n");
+#else
+        a90_console_printf("video.demo.doom.dashboard.full_clear=1\r\n");
+        a90_console_printf("video.demo.doom.dashboard.clear_path=full-frame-fill\r\n");
+#endif
         a90_console_printf("video.demo.doom.dashboard.present_seq=%u\r\n",
                            video_demo_doom_dashboard_present_seq);
         a90_console_printf("video.demo.doom.dashboard.input_seq=%u\r\n", input.seq);
@@ -4419,7 +4461,11 @@ static int video_demo_doom_present_frame_file_ex(
         }
         return rc;
     }
+#if A90_DOOMGENERIC_NATIVE_DASHBOARD && VIDEO_DEMO_DOOMGENERIC_NO_FULL_CLEAR
+    if (a90_kms_begin_frame_no_clear() < 0) {
+#else
     if (a90_kms_begin_frame(0x05070c) < 0) {
+#endif
 #if VIDEO_DEMO_DOOMGENERIC_FRAME_TIMING_PROBE
         t_after_begin = video_monotonic_ns();
 #endif
