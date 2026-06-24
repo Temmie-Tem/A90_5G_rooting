@@ -967,6 +967,14 @@ struct gpu_g2_gpuobj_probe_result {
     int create_errno;
     int alloc_rc;
     int alloc_errno;
+    int mmap_attempted;
+    int mmap_rc;
+    int mmap_errno;
+    int mmap_nonnull;
+    int mmap_access_attempted;
+    int munmap_attempted;
+    int munmap_rc;
+    int munmap_errno;
     int free_attempted;
     int free_rc;
     int free_errno;
@@ -985,9 +993,13 @@ struct gpu_g2_gpuobj_probe_result {
     uint64_t alloc_flags_out;
     uint64_t alloc_va_len;
     uint64_t alloc_mmapsize;
+    uint64_t mmap_len;
+    uint64_t mmap_offset;
     long open_elapsed_ms;
     long create_elapsed_ms;
     long alloc_elapsed_ms;
+    long mmap_elapsed_ms;
+    long munmap_elapsed_ms;
     long free_elapsed_ms;
     long destroy_elapsed_ms;
     long total_elapsed_ms;
@@ -1026,6 +1038,7 @@ struct gpu_g2_gpuobj_probe_result {
      (GPU_KGSL_CONTEXT_TYPE_GL << GPU_KGSL_CONTEXT_TYPE_SHIFT))
 #define GPU_G2_GPUOBJ_ALLOC_SIZE 4096ULL
 #define GPU_G2_GPUOBJ_ALLOC_FLAGS 0ULL
+#define GPU_G2_MMAP_PAGE_SIZE 4096ULL
 
 struct gpu_kgsl_drawctxt_create {
     unsigned int flags;
@@ -1773,7 +1786,7 @@ static int gpu_g1_context_probe(int timeout_ms, bool materialize_devnode) {
     return timed_out ? -ETIMEDOUT : 0;
 }
 
-static int gpu_g2_gpuobj_probe_child(int write_fd) {
+static int gpu_g2_gpuobj_probe_child(int write_fd, bool do_mmap) {
     struct gpu_g2_gpuobj_probe_result result;
     struct gpu_kgsl_drawctxt_create create_arg;
     long total_started_ms = monotonic_millis();
@@ -1786,6 +1799,8 @@ static int gpu_g2_gpuobj_probe_child(int write_fd) {
     result.close_rc = -1;
     result.create_rc = -1;
     result.alloc_rc = -1;
+    result.mmap_rc = -1;
+    result.munmap_rc = -1;
     result.free_rc = -1;
     result.destroy_rc = -1;
     result.flags_in = GPU_G1_CONTEXT_FLAGS;
@@ -1845,6 +1860,52 @@ static int gpu_g2_gpuobj_probe_child(int write_fd) {
             result.alloc_va_len = alloc_arg.va_len;
             result.alloc_mmapsize = alloc_arg.mmapsize;
 
+            if (do_mmap) {
+                void *map;
+
+                result.mmap_attempted = 1;
+                result.mmap_access_attempted = 0;
+                result.mmap_len = alloc_arg.mmapsize;
+                result.mmap_offset = (uint64_t)alloc_arg.id * GPU_G2_MMAP_PAGE_SIZE;
+                if (alloc_arg.mmapsize == 0 ||
+                    result.mmap_offset / GPU_G2_MMAP_PAGE_SIZE != (uint64_t)alloc_arg.id) {
+                    result.mmap_rc = -1;
+                    result.mmap_errno = EINVAL;
+                } else {
+                    errno = 0;
+                    stage_started_ms = monotonic_millis();
+                    map = mmap(NULL,
+                               (size_t)alloc_arg.mmapsize,
+                               PROT_READ | PROT_WRITE,
+                               MAP_SHARED,
+                               fd,
+                               (off_t)result.mmap_offset);
+                    result.mmap_elapsed_ms = monotonic_millis() - stage_started_ms;
+                    if (map == MAP_FAILED) {
+                        result.mmap_rc = -1;
+                        result.mmap_errno = errno;
+                    } else {
+                        result.mmap_rc = 0;
+                        result.mmap_errno = 0;
+                        result.mmap_nonnull = map != NULL ? 1 : 0;
+                        result.munmap_attempted = 1;
+                        errno = 0;
+                        stage_started_ms = monotonic_millis();
+                        if (munmap(map, (size_t)alloc_arg.mmapsize) < 0) {
+                            result.munmap_rc = -1;
+                            result.munmap_errno = errno;
+                        } else {
+                            result.munmap_rc = 0;
+                            result.munmap_errno = 0;
+                        }
+                        result.munmap_elapsed_ms = monotonic_millis() - stage_started_ms;
+                    }
+                }
+            } else {
+                result.mmap_attempted = 0;
+                result.mmap_access_attempted = 0;
+            }
+
             memset(&free_arg, 0, sizeof(free_arg));
             free_arg.id = alloc_arg.id;
             result.free_attempted = 1;
@@ -1893,7 +1954,7 @@ static int gpu_g2_gpuobj_probe_child(int write_fd) {
     _exit(0);
 }
 
-static int gpu_g2_gpuobj_probe(int timeout_ms, bool materialize_devnode) {
+static int gpu_g2_gpuobj_probe(int timeout_ms, bool materialize_devnode, bool do_mmap) {
     int pipefd[2];
     pid_t pid;
     long deadline_ms;
@@ -1914,7 +1975,9 @@ static int gpu_g2_gpuobj_probe(int timeout_ms, bool materialize_devnode) {
         return -EINVAL;
     }
     a90_console_printf("gpu.g2.gpuobj.version=1\r\n");
-    a90_console_printf("gpu.g2.gpuobj.scope=kgsl-gpuobj-alloc-free-probe\r\n");
+    a90_console_printf("gpu.g2.gpuobj.scope=%s\r\n",
+                       do_mmap ? "kgsl-gpuobj-mmap-munmap-probe" :
+                                 "kgsl-gpuobj-alloc-free-probe");
     a90_console_printf("gpu.g2.gpuobj.path=%s\r\n", GPU_G0_DEVNODE);
     a90_console_printf("gpu.g2.gpuobj.flags=O_RDWR\r\n");
     a90_console_printf("gpu.g2.gpuobj.timeout_ms=%d\r\n", timeout_ms);
@@ -1925,7 +1988,9 @@ static int gpu_g2_gpuobj_probe(int timeout_ms, bool materialize_devnode) {
                        (unsigned long long)GPU_G2_GPUOBJ_ALLOC_SIZE);
     a90_console_printf("gpu.g2.gpuobj.alloc_flags=0x%llx\r\n",
                        (unsigned long long)GPU_G2_GPUOBJ_ALLOC_FLAGS);
-    a90_console_printf("gpu.g2.gpuobj.mmap_attempted=0\r\n");
+    a90_console_printf("gpu.g2.gpuobj.mmap_attempted=%d\r\n", do_mmap ? 1 : 0);
+    a90_console_printf("gpu.g2.gpuobj.mmap_offset_rule=id_times_4096\r\n");
+    a90_console_printf("gpu.g2.gpuobj.mmap_access_attempted=0\r\n");
     a90_console_printf("gpu.g2.gpuobj.submit_attempted=0\r\n");
     a90_console_printf("gpu.g2.gpuobj.power_write_attempted=0\r\n");
     if (materialize_devnode) {
@@ -1954,7 +2019,7 @@ static int gpu_g2_gpuobj_probe(int timeout_ms, bool materialize_devnode) {
     }
     if (pid == 0) {
         close(pipefd[0]);
-        return gpu_g2_gpuobj_probe_child(pipefd[1]);
+        return gpu_g2_gpuobj_probe_child(pipefd[1], do_mmap);
     }
     close(pipefd[1]);
     deadline_ms = monotonic_millis() + timeout_ms;
@@ -2004,8 +2069,12 @@ static int gpu_g2_gpuobj_probe(int timeout_ms, bool materialize_devnode) {
     close(pipefd[0]);
 
     a90_console_printf("gpu.g2.gpuobj.result=%s\r\n",
-                       got_result ? ((result.alloc_rc == 0 && result.free_rc == 0) ?
-                                     "allocated-freed" : "returned-error") :
+                       got_result ? (do_mmap ?
+                                     ((result.mmap_rc == 0 && result.munmap_rc == 0 &&
+                                       result.free_rc == 0) ?
+                                      "mapped-unmapped" : "returned-error") :
+                                     ((result.alloc_rc == 0 && result.free_rc == 0) ?
+                                      "allocated-freed" : "returned-error")) :
                        (timed_out ? "timeout" : "no-result"));
     a90_console_printf("gpu.g2.gpuobj.timed_out=%d\r\n", timed_out ? 1 : 0);
     a90_console_printf("gpu.g2.gpuobj.child_killed=%d\r\n", child_killed ? 1 : 0);
@@ -2037,6 +2106,21 @@ static int gpu_g2_gpuobj_probe(int timeout_ms, bool materialize_devnode) {
         a90_console_printf("gpu.g2.gpuobj.alloc_mmapsize=%llu\r\n",
                            (unsigned long long)result.alloc_mmapsize);
         a90_console_printf("gpu.g2.gpuobj.gpuobj_id=%u\r\n", result.gpuobj_id);
+        a90_console_printf("gpu.g2.gpuobj.mmap_attempted=%d\r\n", result.mmap_attempted);
+        a90_console_printf("gpu.g2.gpuobj.mmap_len=%llu\r\n",
+                           (unsigned long long)result.mmap_len);
+        a90_console_printf("gpu.g2.gpuobj.mmap_offset=%llu\r\n",
+                           (unsigned long long)result.mmap_offset);
+        a90_console_printf("gpu.g2.gpuobj.mmap_elapsed_ms=%ld\r\n", result.mmap_elapsed_ms);
+        a90_console_printf("gpu.g2.gpuobj.mmap_rc=%d\r\n", result.mmap_rc);
+        a90_console_printf("gpu.g2.gpuobj.mmap_errno=%d\r\n", result.mmap_errno);
+        a90_console_printf("gpu.g2.gpuobj.mmap_nonnull=%d\r\n", result.mmap_nonnull);
+        a90_console_printf("gpu.g2.gpuobj.mmap_access_attempted=%d\r\n",
+                           result.mmap_access_attempted);
+        a90_console_printf("gpu.g2.gpuobj.munmap_attempted=%d\r\n", result.munmap_attempted);
+        a90_console_printf("gpu.g2.gpuobj.munmap_elapsed_ms=%ld\r\n", result.munmap_elapsed_ms);
+        a90_console_printf("gpu.g2.gpuobj.munmap_rc=%d\r\n", result.munmap_rc);
+        a90_console_printf("gpu.g2.gpuobj.munmap_errno=%d\r\n", result.munmap_errno);
         a90_console_printf("gpu.g2.gpuobj.free_attempted=%d\r\n", result.free_attempted);
         a90_console_printf("gpu.g2.gpuobj.free_elapsed_ms=%ld\r\n", result.free_elapsed_ms);
         a90_console_printf("gpu.g2.gpuobj.free_rc=%d\r\n", result.free_rc);
@@ -2093,7 +2177,12 @@ static int handle_gpu(char **argv, int argc) {
         return gpu_g1_context_probe(timeout_ms, materialize_devnode);
     }
     if (strcmp(subcommand, "g2-gpuobj-probe") == 0 ||
-        strcmp(subcommand, "gpuobj-probe") == 0) {
+        strcmp(subcommand, "gpuobj-probe") == 0 ||
+        strcmp(subcommand, "g2-mmap-probe") == 0 ||
+        strcmp(subcommand, "mmap-probe") == 0) {
+        bool do_mmap = (strcmp(subcommand, "g2-mmap-probe") == 0 ||
+                        strcmp(subcommand, "mmap-probe") == 0);
+
         for (index = 2; index < argc; ++index) {
             if (strcmp(argv[index], "--timeout-ms") == 0) {
                 if (index + 1 >= argc || !gpu_g0_parse_int(argv[index + 1], &timeout_ms)) {
@@ -2104,14 +2193,14 @@ static int handle_gpu(char **argv, int argc) {
             } else if (strcmp(argv[index], "--materialize-devnode") == 0) {
                 materialize_devnode = true;
             } else {
-                a90_console_printf("usage: gpu g2-gpuobj-probe [--timeout-ms N] [--materialize-devnode]\r\n");
+                a90_console_printf("usage: gpu [g2-gpuobj-probe|g2-mmap-probe] [--timeout-ms N] [--materialize-devnode]\r\n");
                 return -EINVAL;
             }
         }
-        return gpu_g2_gpuobj_probe(timeout_ms, materialize_devnode);
+        return gpu_g2_gpuobj_probe(timeout_ms, materialize_devnode, do_mmap);
     }
     if (strcmp(subcommand, "g0-open-probe") != 0) {
-        a90_console_printf("usage: gpu [g0-status|g0-fwclass-prepare|g0-open-probe [--timeout-ms N] [--rdwr] [--materialize-devnode]|g1-context-probe [--timeout-ms N] [--materialize-devnode]|g2-gpuobj-probe [--timeout-ms N] [--materialize-devnode]]\r\n");
+        a90_console_printf("usage: gpu [g0-status|g0-fwclass-prepare|g0-open-probe [--timeout-ms N] [--rdwr] [--materialize-devnode]|g1-context-probe [--timeout-ms N] [--materialize-devnode]|g2-gpuobj-probe [--timeout-ms N] [--materialize-devnode]|g2-mmap-probe [--timeout-ms N] [--materialize-devnode]]\r\n");
         return -EINVAL;
     }
     for (index = 2; index < argc; ++index) {

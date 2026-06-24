@@ -15,6 +15,7 @@
 #include <linux/reboot.h>
 #include <poll.h>
 #include <sys/ioctl.h>
+#include <sys/mman.h>
 #include <sys/mount.h>
 #include <sys/reboot.h>
 #include <sys/syscall.h>
