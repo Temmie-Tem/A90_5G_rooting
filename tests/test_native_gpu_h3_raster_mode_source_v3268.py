@@ -45,9 +45,11 @@ class NativeGpuH3RasterModeSourceV3268Tests(unittest.TestCase):
         self.assertIn("#define GPU_H3_REG_PC_DGEN_RAST_CNTL 0x9981U", source)
         self.assertIn("#define GPU_H3_VPC_RAST_CNTL GPU_H3_A6XX_POLYMODE6_TRIANGLES", source)
         self.assertIn("#define GPU_H3_PC_DGEN_RAST_CNTL GPU_H3_A6XX_POLYMODE6_TRIANGLES", source)
-        self.assertIn(
-            '"gpu.h3.draw.scope=first-triangle-h3-raster-mode-cp-set-mode-window-offset-visibility-packets-vpc-so-override-off-sysmem-bin-control-sp-update-cntl-compiler-vs-instrlen-cache-invalidate-rb-render-cntl-r0-output-shader',
-            source,
+        self.assertTrue(
+            '"gpu.h3.draw.scope=first-triangle-h3-raster-mode-cp-set-mode-window-offset-visibility-packets-vpc-so-override-off-sysmem-bin-control-sp-update-cntl-compiler-vs-instrlen-cache-invalidate-rb-render-cntl-r0-output-shader'
+            in source
+            or '"gpu.h3.draw.scope=first-triangle-h3-sp-const-fs-output-cntl-raster-mode-cp-set-mode-window-offset-visibility-packets-vpc-so-override-off-sysmem-bin-control-sp-update-cntl-compiler-vs-instrlen-cache-invalidate-rb-render-cntl-r0-output-shader'
+            in source
         )
         self.assertLess(
             state_emit.index("GPU_H3_REG_VPC_UNKNOWN_9210"),

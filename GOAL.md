@@ -797,6 +797,24 @@ post-probe health still clean. Readback remained unchanged (`readback_changed_co
 primary no-pixel root cause. Next bounded unit should keep using a real Mesa command-stream/source diff and avoid
 re-testing the ruled-out CCU/bin/component/CP_SET_MODE/window-offset/visibility/raster-mode hypotheses.
 
+V3270/V3271 source-audited the round-4 HLSQ/output hypothesis before changing H3. The old `HLSQ_CONTROL_*` /
+`HLSQ_*_CNTL` register block is not present in the local A6xx XML/fd6 program path being mirrored here; A6xx shader
+payload binding stays through the existing `CP_LOAD_STATE6` preload packets, so the live unit did not blindly write
+legacy HLSQ offsets. The source delta instead added the fd6/A640-confirmed program/output defaults that were missing
+from H3: `SP_VS_CONST_CONFIG=0x100`, `SP_PS_CONST_CONFIG=0x100`, and `SP_PS_OUTPUT_CNTL=0xfcfcfc00` for invalid
+depth/sampmask/stencil regids in a color-only FS. V3270 built `0.11.61
+(v3270-gpu-h3-sp-const-fs-output-probe)` with SHA256
+`dec8c8f956f75e0d035ec21919e5b2fd2d0fb16a81f191eb1b033d59a0138325`, flashed through
+`native_init_flash.py`, and passed post-flash health after one managed bridge restart cleared serial fragment noise
+(`selftest pass=12 warn=1 fail=0`). V3271 live telemetry confirmed `sp_vs_const_config=0x100`,
+`sp_ps_const_config=0x100`, `sp_ps_output_cntl=0xfcfcfc00`, `pm4_dwords=270`, and `state_reg_writes=100`; two H3 runs
+submitted and retired cleanly (`submit_rc=0`, `wait_rc=0`, `retired_timestamp=1`, warm `total_elapsed_ms=12`), with no
+focused KGSL/GPU/GMU/A640 fault, hang, snapshot, or timeout signature and post-probe health still clean. Readback
+remained unchanged (`readback_changed_count=0`, `readback0=0x20202020`, `readback_center=0x20202020`), so H4 is still
+not reached. This removes missing SP const enable and missing invalid FS depth/sampmask/stencil output regids as the
+primary no-pixel root cause. Next bounded unit should fall back to the real fd6 sysmem single-triangle `.rd`/cffdump
+register-packet diff against H3 instead of continuing isolated downstream register sweeps.
+
 **GPU backlog AFTER the triangle (do NOT pre-build; pull only when reached):**
 - **2nd capability = a VISIBLE compute demo (e.g. Mandelbrot/particle → KMS).** Reuses the shader path minus the
   rasterizer; gives GPU compute a *screen consumer*. **Matrix/GPGPU math is absorbed here, NOT a standalone goal** —
