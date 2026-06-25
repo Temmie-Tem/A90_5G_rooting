@@ -834,6 +834,24 @@ should continue the real fd6 `.rd`/cffdump diff and focus on direct-sysmem-compa
 clip/guardband/SU group (`GRAS_CL_CNTL=0xc0`, `GRAS_CL_GUARDBAND_CLIP_ADJ=0x0007fdff`, `GRAS_SU_CNTL=0x814`) before
 any broader GMEM/UBWC flag-buffer architecture change.
 
+V3274/V3275 then tested that direct-sysmem-compatible clip/guardband/SU group and re-audited the repeated round-4 HLSQ
+claim before live flash. The local A6xx XML/fd6 draw path still does not expose the legacy `HLSQ_CONTROL_*` /
+`HLSQ_*_CNTL` block as a safe A6xx register-packet target; V3274 therefore did not guess HLSQ offsets, and instead made
+the fd6-confirmed output routing explicit (`RB_PS_OUTPUT_CNTL=0`, `RB_PS_MRT_CNTL=1`, `SP_PS_OUTPUT_CNTL=0xfcfcfc00`,
+`SP_PS_MRT_CNTL=1`) while adding `GRAS_CL_CNTL=0xc0`, `GRAS_CL_GUARDBAND_CLIP_ADJ=0x0007fdff`,
+`GRAS_SU_CNTL=0x814`, `GRAS_SU_POINT_MINMAX=0xffc00001`, `GRAS_SU_POINT_SIZE=0x10`, and zero
+`GRAS_SU_POLY_OFFSET_*` companions. V3274 built `0.11.63 (v3274-gpu-h3-clip-guardband-su-probe)` with SHA256
+`b9f85b95fda81edd77f2bc121c940275c4122f5842ba929400c7f49b43bdb313`, flashed through `native_init_flash.py`, and
+passed post-flash health (`selftest pass=12 warn=1 fail=0`; one serial prompt-fragment selftest attempt was retried after
+`version` re-synchronized the bridge). V3275 live telemetry confirmed `pm4_dwords=292`, `state_reg_writes=111`, the
+new HLSQ audit/output routing telemetry, and the CL/SU values above; two H3 runs submitted and retired cleanly
+(`submit_rc=0`, `wait_rc=0`, `retired_timestamp=1`, warm `total_elapsed_ms=12`) and post-probe selftest stayed clean.
+Readback remained unchanged (`readback_changed_count=0`, `readback0=0x20202020`, `readback_center=0x20202020`) with no
+focused KGSL/GPU/GMU/A640 page-fault, hang, snapshot, or timeout signature, so H4 is still not reached. This removes the
+clip/guardband/SU rasterizer-state gap and the rechecked legacy-HLSQ/output-routing gap as primary no-pixel causes. Next
+bounded unit should stop isolated register sweeps and mine or capture a real fd6 sysmem single-triangle `.rd`/cffdump
+diff against H3, admitting only direct-sysmem-compatible missing packet groups.
+
 **GPU backlog AFTER the triangle (do NOT pre-build; pull only when reached):**
 - **2nd capability = a VISIBLE compute demo (e.g. Mandelbrot/particle → KMS).** Reuses the shader path minus the
   rasterizer; gives GPU compute a *screen consumer*. **Matrix/GPGPU math is absorbed here, NOT a standalone goal** —

@@ -1799,12 +1799,22 @@ struct gpu_g4_solid_fill_child_run {
     (GPU_H3_SP_XS_CNTL_0_FULLREGFOOTPRINT(GPU_H3_SP_FULLREGFOOTPRINT) | \
      GPU_H3_SP_PS_CNTL_0_INOUTREGOVERLAP | \
      GPU_H3_SP_PS_CNTL_0_MERGEDREGS)
+#define GPU_H3_GRAS_CL_CNTL 0x000000c0U
 #define GPU_H3_GRAS_CL_INTERP_CNTL 0x00000000U
+#define GPU_H3_GRAS_CL_GUARDBAND_CLIP_ADJ 0x0007fdffU
+#define GPU_H3_GRAS_SU_CNTL 0x00000814U
+#define GPU_H3_GRAS_SU_POINT_MINMAX 0xffc00001U
+#define GPU_H3_GRAS_SU_POINT_SIZE 0x00000010U
+#define GPU_H3_GRAS_SU_POLY_OFFSET_SCALE 0x00000000U
+#define GPU_H3_GRAS_SU_POLY_OFFSET_OFFSET 0x00000000U
+#define GPU_H3_GRAS_SU_POLY_OFFSET_OFFSET_CLAMP 0x00000000U
 #define GPU_H3_GRAS_LRZ_PS_INPUT_CNTL 0x00000000U
 #define GPU_H3_GRAS_LRZ_PS_SAMPLEFREQ_CNTL 0x00000000U
 #define GPU_H3_RB_INTERP_CNTL 0x00000000U
 #define GPU_H3_RB_PS_INPUT_CNTL 0x00000000U
 #define GPU_H3_RB_PS_SAMPLEFREQ_CNTL 0x00000000U
+#define GPU_H3_RB_PS_OUTPUT_CNTL 0x00000000U
+#define GPU_H3_RB_PS_MRT_CNTL 0x00000001U
 #define GPU_H3_GRAS_SC_MSAA_SAMPLE_POS_CNTL 0x00000000U
 #define GPU_H3_RB_MSAA_SAMPLE_POS_CNTL 0x00000000U
 #define GPU_H3_RB_RENDER_CNTL 0x00000010U
@@ -1840,6 +1850,7 @@ struct gpu_g4_solid_fill_child_run {
     ((GPU_H3_SP_INVALID_REG << 8) | \
      (GPU_H3_SP_INVALID_REG << 16) | \
      (GPU_H3_SP_INVALID_REG << 24))
+#define GPU_H3_SP_PS_MRT_CNTL 0x00000001U
 #define GPU_H3_SP_REG_PROG_ID_0 \
     ((GPU_H3_SP_INVALID_REG << 0) | \
      (GPU_H3_SP_INVALID_REG << 8) | \
@@ -1884,6 +1895,11 @@ struct gpu_g4_solid_fill_child_run {
 #define GPU_H2_REG_GRAS_CL_VIEWPORT 0x8010U
 #define GPU_H2_REG_GRAS_CL_GUARDBAND_CLIP_ADJ 0x8006U
 #define GPU_H2_REG_GRAS_SU_CNTL 0x8090U
+#define GPU_H3_REG_GRAS_SU_POINT_MINMAX 0x8091U
+#define GPU_H3_REG_GRAS_SU_POINT_SIZE 0x8092U
+#define GPU_H3_REG_GRAS_SU_POLY_OFFSET_SCALE 0x8095U
+#define GPU_H3_REG_GRAS_SU_POLY_OFFSET_OFFSET 0x8096U
+#define GPU_H3_REG_GRAS_SU_POLY_OFFSET_OFFSET_CLAMP 0x8097U
 #define GPU_H3_REG_GRAS_SU_CONSERVATIVE_RAS_CNTL 0x8099U
 #define GPU_H2_REG_GRAS_SU_VS_SIV_CNTL 0x809bU
 #define GPU_H2_REG_GRAS_SC_CNTL 0x80a0U
@@ -2476,13 +2492,27 @@ static bool gpu_h2_append_3d_state_pm4(uint32_t *words,
         return false;
     }
     reg_writes += 6;
-    if (!gpu_g4_pm4_emit_reg1(words, dwords, GPU_H2_REG_GRAS_CL_CNTL, 0) ||
+    if (!gpu_g4_pm4_emit_reg1(words, dwords, GPU_H2_REG_GRAS_CL_CNTL,
+                              GPU_H3_GRAS_CL_CNTL) ||
         !gpu_g4_pm4_emit_reg1(words, dwords, GPU_H2_REG_GRAS_CL_VS_CLIP_CULL_DISTANCE,
                               GPU_H3_GRAS_CL_VS_CLIP_CULL_DISTANCE) ||
         !gpu_g4_pm4_emit_reg1(words, dwords, GPU_H2_REG_GRAS_CL_INTERP_CNTL,
                               GPU_H3_GRAS_CL_INTERP_CNTL) ||
-        !gpu_g4_pm4_emit_reg1(words, dwords, GPU_H2_REG_GRAS_CL_GUARDBAND_CLIP_ADJ, 0) ||
-        !gpu_g4_pm4_emit_reg1(words, dwords, GPU_H2_REG_GRAS_SU_CNTL, 0) ||
+        !gpu_g4_pm4_emit_reg1(words, dwords, GPU_H2_REG_GRAS_CL_GUARDBAND_CLIP_ADJ,
+                              GPU_H3_GRAS_CL_GUARDBAND_CLIP_ADJ) ||
+        !gpu_g4_pm4_emit_reg1(words, dwords, GPU_H2_REG_GRAS_SU_CNTL,
+                              GPU_H3_GRAS_SU_CNTL) ||
+        !gpu_g4_pm4_emit_reg1(words, dwords, GPU_H3_REG_GRAS_SU_POINT_MINMAX,
+                              GPU_H3_GRAS_SU_POINT_MINMAX) ||
+        !gpu_g4_pm4_emit_reg1(words, dwords, GPU_H3_REG_GRAS_SU_POINT_SIZE,
+                              GPU_H3_GRAS_SU_POINT_SIZE) ||
+        !gpu_g4_pm4_emit_reg1(words, dwords, GPU_H3_REG_GRAS_SU_POLY_OFFSET_SCALE,
+                              GPU_H3_GRAS_SU_POLY_OFFSET_SCALE) ||
+        !gpu_g4_pm4_emit_reg1(words, dwords, GPU_H3_REG_GRAS_SU_POLY_OFFSET_OFFSET,
+                              GPU_H3_GRAS_SU_POLY_OFFSET_OFFSET) ||
+        !gpu_g4_pm4_emit_reg1(words, dwords,
+                              GPU_H3_REG_GRAS_SU_POLY_OFFSET_OFFSET_CLAMP,
+                              GPU_H3_GRAS_SU_POLY_OFFSET_OFFSET_CLAMP) ||
         !gpu_g4_pm4_emit_reg1(words, dwords, GPU_H3_REG_GRAS_SU_CONSERVATIVE_RAS_CNTL,
                               GPU_H3_GRAS_SU_CONSERVATIVE_RAS_CNTL) ||
         !gpu_g4_pm4_emit_reg1(words, dwords, GPU_H2_REG_GRAS_SU_VS_SIV_CNTL,
@@ -2504,7 +2534,7 @@ static bool gpu_h2_append_3d_state_pm4(uint32_t *words,
         !gpu_g4_pm4_emit_reg1(words, dwords, GPU_H2_REG_GRAS_MODE_CNTL, 2)) {
         return false;
     }
-    reg_writes += 17;
+    reg_writes += 22;
     if (!gpu_g4_pm4_emit_reg2(words, dwords, GPU_H2_REG_GRAS_SC_SCREEN_SCISSOR_TL,
                               screen_tl, screen_br) ||
         !gpu_g4_pm4_emit_reg2(words, dwords, GPU_H2_REG_GRAS_SC_VIEWPORT_SCISSOR_TL,
@@ -2526,8 +2556,10 @@ static bool gpu_h2_append_3d_state_pm4(uint32_t *words,
                               GPU_H3_RB_INTERP_CNTL) ||
         !gpu_g4_pm4_emit_reg1(words, dwords, GPU_H2_REG_RB_PS_INPUT_CNTL,
                               GPU_H3_RB_PS_INPUT_CNTL) ||
-        !gpu_g4_pm4_emit_reg1(words, dwords, GPU_H2_REG_RB_PS_OUTPUT_CNTL, 0) ||
-        !gpu_g4_pm4_emit_reg1(words, dwords, GPU_H2_REG_RB_PS_MRT_CNTL, 1) ||
+        !gpu_g4_pm4_emit_reg1(words, dwords, GPU_H2_REG_RB_PS_OUTPUT_CNTL,
+                              GPU_H3_RB_PS_OUTPUT_CNTL) ||
+        !gpu_g4_pm4_emit_reg1(words, dwords, GPU_H2_REG_RB_PS_MRT_CNTL,
+                              GPU_H3_RB_PS_MRT_CNTL) ||
         !gpu_g4_pm4_emit_reg1(words, dwords, GPU_H2_REG_RB_PS_OUTPUT_MASK,
                               color_output_mask) ||
         !gpu_g4_pm4_emit_reg1(words, dwords, GPU_H2_REG_RB_SRGB_CNTL, 0) ||
@@ -2612,7 +2644,8 @@ static bool gpu_h2_append_3d_state_pm4(uint32_t *words,
                               color_output_mask) ||
         !gpu_g4_pm4_emit_reg1(words, dwords, GPU_H2_REG_SP_PS_OUTPUT_CNTL,
                               GPU_H3_SP_PS_OUTPUT_CNTL) ||
-        !gpu_g4_pm4_emit_reg1(words, dwords, GPU_H2_REG_SP_PS_MRT_CNTL, 1) ||
+        !gpu_g4_pm4_emit_reg1(words, dwords, GPU_H2_REG_SP_PS_MRT_CNTL,
+                              GPU_H3_SP_PS_MRT_CNTL) ||
         !gpu_g4_pm4_emit_reg1(words, dwords, GPU_H2_REG_SP_PS_OUTPUT_REG0,
                               sp_ps_output_reg0) ||
         !gpu_g4_pm4_emit_reg1(words, dwords, GPU_H2_REG_SP_PS_MRT_REG0, sp_ps_mrt) ||
@@ -7587,7 +7620,7 @@ static int gpu_h3_draw_envelope_probe(int timeout_ms, bool materialize_devnode) 
         return -EINVAL;
     }
     a90_console_printf("gpu.h3.draw.version=1\r\n");
-    a90_console_printf("gpu.h3.draw.scope=first-triangle-h3-sp-frontend-prog-id-state-sp-const-fs-output-cntl-raster-mode-cp-set-mode-window-offset-visibility-packets-vpc-so-override-off-sysmem-bin-control-sp-update-cntl-compiler-vs-instrlen-cache-invalidate-rb-render-cntl-r0-output-shader\r\n");
+    a90_console_printf("gpu.h3.draw.scope=first-triangle-h3-clip-guardband-su-rasterizer-a6xx-hlsq-negative-audit-output-routing-sp-frontend-prog-id-state-sp-const-fs-output-cntl-raster-mode-cp-set-mode-window-offset-visibility-packets-vpc-so-override-off-sysmem-bin-control-sp-update-cntl-compiler-vs-instrlen-cache-invalidate-rb-render-cntl-r0-output-shader\r\n");
     a90_console_printf("gpu.h3.draw.path=%s\r\n", GPU_G0_DEVNODE);
     a90_console_printf("gpu.h3.draw.timeout_ms=%d\r\n", timeout_ms);
     a90_console_printf("gpu.h3.draw.wait_timeout_ms=%u\r\n", GPU_H3_WAIT_TIMEOUT_MS);
@@ -7620,8 +7653,25 @@ static int gpu_h3_draw_envelope_probe(int timeout_ms, bool materialize_devnode) 
     a90_console_printf("gpu.h3.draw.sp_mode_cntl=0x%x\r\n", GPU_H3_SP_MODE_CNTL);
     a90_console_printf("gpu.h3.draw.tpl1_mode_cntl=0x%x\r\n", GPU_H3_TPL1_MODE_CNTL);
     a90_console_printf("gpu.h3.draw.fragment_input_state_source=mesa-freedreno-a6xx-emit-fs-inputs-default-zero\r\n");
+    a90_console_printf("gpu.h3.draw.clip_guardband_su_source=mesa-freedreno-a6xx-fd6-rasterizer-plus-guardband-state\r\n");
+    a90_console_printf("gpu.h3.draw.gras_cl_cntl=0x%x\r\n",
+                       GPU_H3_GRAS_CL_CNTL);
     a90_console_printf("gpu.h3.draw.gras_cl_interp_cntl=0x%x\r\n",
                        GPU_H3_GRAS_CL_INTERP_CNTL);
+    a90_console_printf("gpu.h3.draw.gras_cl_guardband_clip_adj=0x%x\r\n",
+                       GPU_H3_GRAS_CL_GUARDBAND_CLIP_ADJ);
+    a90_console_printf("gpu.h3.draw.gras_su_cntl=0x%x\r\n",
+                       GPU_H3_GRAS_SU_CNTL);
+    a90_console_printf("gpu.h3.draw.gras_su_point_minmax=0x%x\r\n",
+                       GPU_H3_GRAS_SU_POINT_MINMAX);
+    a90_console_printf("gpu.h3.draw.gras_su_point_size=0x%x\r\n",
+                       GPU_H3_GRAS_SU_POINT_SIZE);
+    a90_console_printf("gpu.h3.draw.gras_su_poly_offset_scale=0x%x\r\n",
+                       GPU_H3_GRAS_SU_POLY_OFFSET_SCALE);
+    a90_console_printf("gpu.h3.draw.gras_su_poly_offset_offset=0x%x\r\n",
+                       GPU_H3_GRAS_SU_POLY_OFFSET_OFFSET);
+    a90_console_printf("gpu.h3.draw.gras_su_poly_offset_offset_clamp=0x%x\r\n",
+                       GPU_H3_GRAS_SU_POLY_OFFSET_OFFSET_CLAMP);
     a90_console_printf("gpu.h3.draw.rb_interp_cntl=0x%x\r\n",
                        GPU_H3_RB_INTERP_CNTL);
     a90_console_printf("gpu.h3.draw.rb_ps_input_cntl=0x%x\r\n",
@@ -7684,9 +7734,16 @@ static int gpu_h3_draw_envelope_probe(int timeout_ms, bool materialize_devnode) 
                        GPU_H3_CP_SET_MODE_RESTORE_VALUE);
     a90_console_printf("gpu.h3.draw.rb_render_cntl_source=mesa-freedreno-a6xx-fd6-gmem-update-render-cntl-ccu-single-cacheline\r\n");
     a90_console_printf("gpu.h3.draw.rb_render_cntl=0x%x\r\n", GPU_H3_RB_RENDER_CNTL);
-    a90_console_printf("gpu.h3.draw.fs_output_cntl_source=mesa-freedreno-a6xx-fd6-program-invalid-depth-sampmask-stencil-regids\r\n");
+    a90_console_printf("gpu.h3.draw.hlsq_round4_audit=local-a6xx-fd6-uses-sp-program-config-not-legacy-hlsq-control-regs\r\n");
+    a90_console_printf("gpu.h3.draw.fs_output_cntl_source=mesa-freedreno-a6xx-fd6-program-invalid-depth-sampmask-stencil-regids-and-rb-sp-mrt-count-one\r\n");
+    a90_console_printf("gpu.h3.draw.rb_ps_output_cntl=0x%x\r\n",
+                       GPU_H3_RB_PS_OUTPUT_CNTL);
+    a90_console_printf("gpu.h3.draw.rb_ps_mrt_cntl=0x%x\r\n",
+                       GPU_H3_RB_PS_MRT_CNTL);
     a90_console_printf("gpu.h3.draw.sp_ps_output_cntl=0x%x\r\n",
                        GPU_H3_SP_PS_OUTPUT_CNTL);
+    a90_console_printf("gpu.h3.draw.sp_ps_mrt_cntl=0x%x\r\n",
+                       GPU_H3_SP_PS_MRT_CNTL);
     a90_console_printf("gpu.h3.draw.sp_frontend_prog_id_source=mesa-freedreno-a6xx-fd6-program-emit-fs-inputs-current-constant-fs-no-varyings\r\n");
     a90_console_printf("gpu.h3.draw.sp_ps_initial_tex_load_cntl=0x%x\r\n",
                        GPU_H3_SP_PS_INITIAL_TEX_LOAD_CNTL);
