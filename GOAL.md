@@ -573,6 +573,17 @@ not reached. This removes the V3234 timeout as a shader-footprint objection unde
 precondition, and exposes a validation hazard: H3/H4 probes must either run G0 fwclass prep during materialization or
 require it as a preflight before KGSL open. Next bounded unit should close that preflight hole, then continue remaining
 Mesa first-draw packet deltas around RB/CCU/FS-output or shader-output linkage before claiming H4.
+V3238/V3239 then closed that preflight hole by moving `gpu g0-fwclass-prepare` into `gpu_g0_materialize_devnode()`.
+The image flashed as `0.11.46 (v3238-gpu-g0-fwclass-materialize-prep-probe)` and passed health. Fresh-boot `gpu
+g0-status` intentionally showed the old hazard (`firmware_class.path=/vendor/firmware_mnt/image`, `/dev/kgsl-3d0`
+missing, SQE/GMU present only in `/cache/a90-runtime/pkg/gpu-g0-fw`). Without running manual prepare, the H3
+`--materialize-devnode` path then emitted `gpu.g0.materialize.fwclass_prepare_attempted=1`,
+`gpu.g0.fwclass_prepare.result=ok`, `gpu.g0.materialize.fwclass_prepare_rc=0`, created `/dev/kgsl-3d0`, and the draw
+retired (`submit_rc=0`, `wait_rc=0`, `retired_timestamp=1`, `fence_poll_rc=1`, `total_elapsed_ms=31`) with no GPU
+SQE timeout/fault/hang signature. Readback still stayed unchanged (`readback_changed_count=0`,
+`readback0=0x20202020`, `readback_center=0x20202020`), so H4 is still not reached. This removes firmware-path false
+timeouts from future H3/H4 work; next bounded unit should return to the remaining first-triangle packet/linkage gap,
+likely RB/CCU/FS-output or shader-output contract, before claiming H4.
 
 **GPU backlog AFTER the triangle (do NOT pre-build; pull only when reached):**
 - **2nd capability = a VISIBLE compute demo (e.g. Mandelbrot/particle → KMS).** Reuses the shader path minus the

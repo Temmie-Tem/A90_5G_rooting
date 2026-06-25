@@ -2899,7 +2899,15 @@ static int gpu_g0_read_sysfs_dev(unsigned int *major_num, unsigned int *minor_nu
 static int gpu_g0_materialize_devnode(void) {
     unsigned int major_num = 0;
     unsigned int minor_num = 0;
+    int prep_rc;
     int rc;
+
+    a90_console_printf("gpu.g0.materialize.fwclass_prepare_attempted=1\r\n");
+    prep_rc = gpu_g0_fwclass_prepare();
+    a90_console_printf("gpu.g0.materialize.fwclass_prepare_rc=%d\r\n", prep_rc);
+    if (prep_rc < 0) {
+        return prep_rc;
+    }
 
     rc = gpu_g0_read_sysfs_dev(&major_num, &minor_num);
     a90_console_printf("gpu.g0.materialize.sysfs_dev_rc=%d\r\n", rc);
@@ -7400,7 +7408,7 @@ static int gpu_h3_draw_envelope_probe(int timeout_ms, bool materialize_devnode) 
         return -EINVAL;
     }
     a90_console_printf("gpu.h3.draw.version=1\r\n");
-    a90_console_printf("gpu.h3.draw.scope=first-triangle-h3-shader-footprint-r1-footprint2-mov-f32-shader\r\n");
+    a90_console_printf("gpu.h3.draw.scope=first-triangle-h3-fwclass-materialize-r1-footprint2-mov-f32-shader\r\n");
     a90_console_printf("gpu.h3.draw.path=%s\r\n", GPU_G0_DEVNODE);
     a90_console_printf("gpu.h3.draw.timeout_ms=%d\r\n", timeout_ms);
     a90_console_printf("gpu.h3.draw.wait_timeout_ms=%u\r\n", GPU_H3_WAIT_TIMEOUT_MS);
