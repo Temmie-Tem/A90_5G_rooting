@@ -721,6 +721,21 @@ signature, but readback remained unchanged (`readback_changed_count=0`, `readbac
 packet delta should continue from `fd6_emit_sysmem_prep()` rather than broad register sweeping: Mesa emits
 `CP_SKIP_IB2_ENABLE_GLOBAL=0`, `CP_SKIP_IB2_ENABLE_LOCAL=1`, and `CP_SET_VISIBILITY_OVERRIDE=1` before the large
 draw-state CRB, and current H3 does not emit those packets.
+V3259/V3260 then tested that exact Mesa sysmem-prep packet trio. V3259 added
+`CP_SKIP_IB2_ENABLE_GLOBAL=0`, `CP_SKIP_IB2_ENABLE_LOCAL=1`, and `CP_SET_VISIBILITY_OVERRIDE=1` immediately after the
+direct-render marker and before H3 3D state, built as `0.11.56 (v3259-gpu-h3-visibility-packets-probe)` with SHA256
+`48854bdd6d11d658254c364456f55e794c247484cb0b8f199065a9354f95f02a`, flashed through `native_init_flash.py`, and
+passed post-flash health after one host-side serial bridge framing issue was cleared by restarting the managed bridge
+and retrying health checks sequentially (`selftest pass=12 warn=1 fail=0`). Live telemetry confirmed
+`cp_skip_ib2_enable_global=0x1d` value `0x0`, `cp_skip_ib2_enable_local=0x23` value `0x1`,
+`cp_set_visibility_override=0x64` value `0x1`, `pm4_dwords=252`, and `state_reg_writes=94`. Two H3 runs submitted
+and retired cleanly (`submit_rc=0`, `wait_rc=0`, `retired_timestamp=1`, warm `total_elapsed_ms=11`), with no focused
+KGSL/GPU/GMU/A640 fault, hang, snapshot, or timeout signature, but readback remained unchanged
+(`readback_changed_count=0`, `readback0=0x20202020`, `readback_center=0x20202020`). This removes the missing
+visibility/IB2 sysmem-prep packet trio as the primary no-pixel root cause. Next bounded unit should stop isolated
+packet guessing and capture/diff a real Mesa fd6 sysmem single-triangle command stream against H3; if that capture is
+not immediately available, the remaining concrete sysmem-prep gap to test is exact window-offset/order state around
+`RB_WINDOW_OFFSET`, `RB_RESOLVE_WINDOW_OFFSET`, `SP_WINDOW_OFFSET`, and `TPL1_WINDOW_OFFSET`.
 
 **GPU backlog AFTER the triangle (do NOT pre-build; pull only when reached):**
 - **2nd capability = a VISIBLE compute demo (e.g. Mandelbrot/particle → KMS).** Reuses the shader path minus the

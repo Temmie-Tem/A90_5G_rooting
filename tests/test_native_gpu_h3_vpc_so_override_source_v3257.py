@@ -43,9 +43,11 @@ class NativeGpuH3VpcSoOverrideSourceV3257Tests(unittest.TestCase):
 
         self.assertIn("#define GPU_H3_REG_VPC_SO_OVERRIDE 0x9306U", source)
         self.assertIn("#define GPU_H3_VPC_SO_OVERRIDE 0x00000000U", source)
-        self.assertIn(
-            '"gpu.h3.draw.scope=first-triangle-h3-vpc-so-override-off-sysmem-bin-control-sp-update-cntl-compiler-vs-instrlen-cache-invalidate-rb-render-cntl-r0-output-shader',
-            source,
+        self.assertTrue(
+            '"gpu.h3.draw.scope=first-triangle-h3-vpc-so-override-off-sysmem-bin-control-sp-update-cntl-compiler-vs-instrlen-cache-invalidate-rb-render-cntl-r0-output-shader'
+            in source
+            or '"gpu.h3.draw.scope=first-triangle-h3-visibility-packets-vpc-so-override-off-sysmem-bin-control-sp-update-cntl-compiler-vs-instrlen-cache-invalidate-rb-render-cntl-r0-output-shader'
+            in source
         )
         self.assertIn(
             '"gpu.h3.draw.vpc_so_override_source=mesa-freedreno-a6xx-fd6-sysmem-prep-enable-streamout-false',

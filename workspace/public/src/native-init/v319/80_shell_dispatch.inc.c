@@ -1701,6 +1701,9 @@ struct gpu_g4_solid_fill_child_run {
 #define GPU_G4_PM4_CP_BLIT 0x2cU
 #define GPU_G4_PM4_CP_EVENT_WRITE 0x46U
 #define GPU_G4_PM4_CP_SET_MARKER 0x65U
+#define GPU_H3_PM4_CP_SKIP_IB2_ENABLE_GLOBAL 0x1dU
+#define GPU_H3_PM4_CP_SKIP_IB2_ENABLE_LOCAL 0x23U
+#define GPU_H3_PM4_CP_SET_VISIBILITY_OVERRIDE 0x64U
 #define GPU_G4_EVENT_CACHE_FLUSH_TS 0x04U
 #define GPU_G4_EVENT_PC_CCU_INVALIDATE_DEPTH 0x18U
 #define GPU_G4_EVENT_PC_CCU_INVALIDATE_COLOR 0x19U
@@ -1774,6 +1777,9 @@ struct gpu_g4_solid_fill_child_run {
 #define GPU_H3_SP_VS_OUTPUT_REG0 \
     ((GPU_H3_VS_OUTPUT_REGID & 0xffU) | (0xfU << 8))
 #define GPU_H3_PM4_CP_DRAW_INDX_OFFSET 0x38U
+#define GPU_H3_CP_SKIP_IB2_ENABLE_GLOBAL_VALUE 0x00000000U
+#define GPU_H3_CP_SKIP_IB2_ENABLE_LOCAL_VALUE 0x00000001U
+#define GPU_H3_CP_SET_VISIBILITY_OVERRIDE_VALUE 0x00000001U
 #define GPU_H3_DI_PT_TRILIST 4U
 #define GPU_H3_DI_SRC_SEL_AUTO_INDEX 2U
 #define GPU_H3_IGNORE_VISIBILITY 0U
@@ -2393,6 +2399,20 @@ static bool gpu_h2_append_3d_state_pm4(uint32_t *words,
     if (!gpu_g4_pm4_emit_pkt7(words, dwords, (uint8_t)GPU_G4_PM4_CP_SET_MARKER, 1) ||
         !gpu_g4_pm4_push(words, dwords,
                          GPU_H3_A6XX_CP_SET_MARKER_RM6_DIRECT_RENDER)) {
+        return false;
+    }
+    if (!gpu_g4_pm4_emit_pkt7(words, dwords,
+                              (uint8_t)GPU_H3_PM4_CP_SKIP_IB2_ENABLE_GLOBAL, 1) ||
+        !gpu_g4_pm4_push(words, dwords,
+                         GPU_H3_CP_SKIP_IB2_ENABLE_GLOBAL_VALUE) ||
+        !gpu_g4_pm4_emit_pkt7(words, dwords,
+                              (uint8_t)GPU_H3_PM4_CP_SKIP_IB2_ENABLE_LOCAL, 1) ||
+        !gpu_g4_pm4_push(words, dwords,
+                         GPU_H3_CP_SKIP_IB2_ENABLE_LOCAL_VALUE) ||
+        !gpu_g4_pm4_emit_pkt7(words, dwords,
+                              (uint8_t)GPU_H3_PM4_CP_SET_VISIBILITY_OVERRIDE, 1) ||
+        !gpu_g4_pm4_push(words, dwords,
+                         GPU_H3_CP_SET_VISIBILITY_OVERRIDE_VALUE)) {
         return false;
     }
     if (!gpu_g4_pm4_emit_reg1(words, dwords, GPU_H3_REG_RB_CCU_CNTL,
@@ -7496,7 +7516,7 @@ static int gpu_h3_draw_envelope_probe(int timeout_ms, bool materialize_devnode) 
         return -EINVAL;
     }
     a90_console_printf("gpu.h3.draw.version=1\r\n");
-    a90_console_printf("gpu.h3.draw.scope=first-triangle-h3-vpc-so-override-off-sysmem-bin-control-sp-update-cntl-compiler-vs-instrlen-cache-invalidate-rb-render-cntl-r0-output-shader\r\n");
+    a90_console_printf("gpu.h3.draw.scope=first-triangle-h3-visibility-packets-vpc-so-override-off-sysmem-bin-control-sp-update-cntl-compiler-vs-instrlen-cache-invalidate-rb-render-cntl-r0-output-shader\r\n");
     a90_console_printf("gpu.h3.draw.path=%s\r\n", GPU_G0_DEVNODE);
     a90_console_printf("gpu.h3.draw.timeout_ms=%d\r\n", timeout_ms);
     a90_console_printf("gpu.h3.draw.wait_timeout_ms=%u\r\n", GPU_H3_WAIT_TIMEOUT_MS);
@@ -7553,6 +7573,19 @@ static int gpu_h3_draw_envelope_probe(int timeout_ms, bool materialize_devnode) 
     a90_console_printf("gpu.h3.draw.render_marker_source=mesa-freedreno-a6xx-fd6-set-render-mode-rm6-direct-render\r\n");
     a90_console_printf("gpu.h3.draw.cp_set_marker=0x%x\r\n",
                        GPU_H3_A6XX_CP_SET_MARKER_RM6_DIRECT_RENDER);
+    a90_console_printf("gpu.h3.draw.visibility_packet_source=mesa-freedreno-a6xx-fd6-sysmem-prep-visibility-override\r\n");
+    a90_console_printf("gpu.h3.draw.cp_skip_ib2_enable_global=0x%x\r\n",
+                       GPU_H3_PM4_CP_SKIP_IB2_ENABLE_GLOBAL);
+    a90_console_printf("gpu.h3.draw.cp_skip_ib2_enable_local=0x%x\r\n",
+                       GPU_H3_PM4_CP_SKIP_IB2_ENABLE_LOCAL);
+    a90_console_printf("gpu.h3.draw.cp_set_visibility_override=0x%x\r\n",
+                       GPU_H3_PM4_CP_SET_VISIBILITY_OVERRIDE);
+    a90_console_printf("gpu.h3.draw.cp_skip_ib2_enable_global_value=0x%x\r\n",
+                       GPU_H3_CP_SKIP_IB2_ENABLE_GLOBAL_VALUE);
+    a90_console_printf("gpu.h3.draw.cp_skip_ib2_enable_local_value=0x%x\r\n",
+                       GPU_H3_CP_SKIP_IB2_ENABLE_LOCAL_VALUE);
+    a90_console_printf("gpu.h3.draw.cp_set_visibility_override_value=0x%x\r\n",
+                       GPU_H3_CP_SET_VISIBILITY_OVERRIDE_VALUE);
     a90_console_printf("gpu.h3.draw.cache_invalidate_source=mesa-freedreno-a6xx-fd6-emit-restore-fd6-cache-inv\r\n");
     a90_console_printf("gpu.h3.draw.pre_draw_cache_invalidate=ccu-color,ccu-depth,cache\r\n");
     a90_console_printf("gpu.h3.draw.pre_draw_cache_invalidate_events=0x%x,0x%x,0x%x\r\n",
