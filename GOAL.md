@@ -485,6 +485,16 @@ ir3 `stib`/`ldib` buffer ops.
   operator visually confirms the fractal on the panel = compute-demo close. **Matrix/GPGPU math is ABSORBED here** (no
   standalone matmul, no blob/BLAS). Modularization stays an extraction (rule-of-three) after the chain's consumers exist.
 
+**STATUS (2026-06-26) — C0 host-only recon landed as V3299; C1 is gated on CS shader bytes.**
+`native_gpu_compute_c0_reference_v3299.py` encodes and validates the staged A640 compute dispatch envelope against
+`/tmp/a90-mesa-gpu-src/`: CS program regs, `CP_LOAD_STATE6` shader/constant/UAV state, `RM6_COMPUTE`, NDRANGE,
+`CP_EXEC_CS`, and WFI/readback ordering all match the Mesa computerator/fd6 references; `kern_invocationid.asm` is fixed
+to a 32-lane `buf[i] == i` proof. No boot artifact was built and no flash was run. Remaining gate: materialize
+`kern_invocationid.asm` into real CS shader words and verify them with `ir3-disasm` before any C1 live flash. Current
+host build state explains the gate: `computerator` is a build target but no executable exists, and the local
+`/tmp/a90-mesa-h3-build-ir3/src/compiler/nir/libnir.a` is `nir_stub.c.o` only, so assembler targets cannot resolve full
+NIR symbols.
+
 **(historical, first-triangle ladder — DONE record)** Threshold from fixed-function plumbing to *real GPU
 graphics*: vertex buffer → vertex shader → rasterizer → fragment shader → a shaded triangle, readback-verified, blitted
 to KMS. Reuses the proven G0-G3 core (context/buffer/submit/fence/readback) + G5 blit; swaps the 2D fill for a 3D draw.
