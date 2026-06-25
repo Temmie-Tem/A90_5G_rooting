@@ -1491,13 +1491,6 @@ static bool gpu_g4_pm4_emit_pkt7(uint32_t *words,
     return gpu_g4_pm4_push(words, dwords, gpu_g3_pm4_pkt7_hdr(opcode, count));
 }
 
-static bool gpu_g4_pm4_emit_event(uint32_t *words,
-                                  unsigned int *dwords,
-                                  uint32_t event) {
-    return gpu_g4_pm4_emit_pkt7(words, dwords, (uint8_t)GPU_G4_PM4_CP_EVENT_WRITE, 1) &&
-           gpu_g4_pm4_push(words, dwords, event);
-}
-
 static bool gpu_g4_pm4_emit_pkt4(uint32_t *words,
                                  unsigned int *dwords,
                                  uint32_t reg,
@@ -1584,12 +1577,8 @@ static bool gpu_g4_build_solid_fill_pm4(uint32_t *words,
         !gpu_g4_pm4_emit_reg2(words, dwords, GPU_G4_REG_GRAS_A2D_DEST_TL, 0, dest_br)) {
         return false;
     }
-    if (!gpu_g4_pm4_emit_event(words, dwords, GPU_G4_EVENT_DEBUG_LABEL) ||
-        !gpu_g4_pm4_emit_pkt7(words, dwords, (uint8_t)GPU_G4_PM4_CP_BLIT, 1) ||
+    if (!gpu_g4_pm4_emit_pkt7(words, dwords, (uint8_t)GPU_G4_PM4_CP_BLIT, 1) ||
         !gpu_g4_pm4_push(words, dwords, GPU_G4_A6XX_CP_BLIT_OP_SCALE) ||
-        !gpu_g4_pm4_emit_event(words, dwords, GPU_G4_EVENT_PC_CCU_FLUSH_COLOR_TS) ||
-        !gpu_g4_pm4_emit_event(words, dwords, GPU_G4_EVENT_CACHE_FLUSH_TS) ||
-        !gpu_g4_pm4_emit_event(words, dwords, GPU_G4_EVENT_CACHE_INVALIDATE) ||
         !gpu_g4_pm4_emit_pkt7(words, dwords, (uint8_t)GPU_G4_PM4_CP_WAIT_FOR_IDLE, 0)) {
         return false;
     }
@@ -3861,7 +3850,7 @@ static int gpu_g4_solid_fill_probe(int timeout_ms, bool materialize_devnode) {
     a90_console_printf("gpu.g4.fill.parent_enters_open=0\r\n");
     a90_console_printf("gpu.g4.fill.parent_enters_ioctl=0\r\n");
     a90_console_printf("gpu.g4.fill.ioctl_allowlist=drawctxt_create,gpuobj_alloc,gpuobj_info,gpuobj_sync,gpu_command,timestamp_event,waittimestamp,readtimestamp,gpuobj_free,drawctxt_destroy\r\n");
-    a90_console_printf("gpu.g4.fill.pm4_source=mesa-freedreno-a6xx-fd6-clear-buffer-cp-blit-a2d\r\n");
+    a90_console_printf("gpu.g4.fill.pm4_source=mesa-freedreno-a6xx-fd6-clear-buffer-cp-blit-a2d-no-event-write-tail\r\n");
     a90_console_printf("gpu.g4.fill.pm4_cp_type4=0x%x\r\n", GPU_G3_PM4_CP_TYPE4_PKT);
     a90_console_printf("gpu.g4.fill.pm4_cp_type7=0x%x\r\n", GPU_G3_PM4_CP_TYPE7_PKT);
     a90_console_printf("gpu.g4.fill.fmt6_32_uint=0x%x\r\n", GPU_G4_A6XX_FMT6_32_UINT);
