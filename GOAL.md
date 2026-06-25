@@ -485,7 +485,7 @@ ir3 `stib`/`ldib` buffer ops.
   operator visually confirms the fractal on the panel = compute-demo close. **Matrix/GPGPU math is ABSORBED here** (no
   standalone matmul, no blob/BLAS). Modularization stays an extraction (rule-of-three) after the chain's consumers exist.
 
-**STATUS (2026-06-26) — C0 host-only recon landed as V3299; C1 shader-byte gate landed as V3300; C1 native-init source/build landed as V3301 pending live flash.**
+**STATUS (2026-06-26) — C0 host-only recon landed as V3299; C1 shader-byte gate landed as V3300; C1 native-init source/build + live UAV readback proof landed as V3301.**
 `native_gpu_compute_c0_reference_v3299.py` encodes and validates the staged A640 compute dispatch envelope against
 `/tmp/a90-mesa-gpu-src/`: CS program regs, `CP_LOAD_STATE6` shader/constant/UAV state, `RM6_COMPUTE`, NDRANGE,
 `CP_EXEC_CS`, and WFI/readback ordering all match the Mesa computerator/fd6 references; `kern_invocationid.asm` is fixed
@@ -500,7 +500,12 @@ shader/constants/UAV, `RM6_COMPUTE`, and `CP_EXEC_CS`, then gates success on WFI
 V3301 source/build validation produced
 `workspace/private/inputs/boot_images/boot_linux_v3301_gpu_compute_c1_invocationid_probe.img`
 (`sha256=c4128f367a17f2481866142d79942d958ea19fa34528937dece6edf3d04e7dfa`, size 66052096 bytes);
-next C1 work is the flash-gated live probe and post-probe health check.
+flash/readback verified the exact artifact, booted `0.11.75`, and the live
+`gpu c1-compute-invocationid-probe --timeout-ms 5000 --materialize-devnode` run passed:
+`readback0=0`, `readback1=1`, `readback31=31`, `expected_match_count=32`, `mismatch_count=0`, `pass=1`,
+`total_elapsed_ms=28`. Post-probe selftest stayed `fail=0`, and the bridge capture fault filter found no GPU
+fault/hang/page-fault match. C1 is closed; next compute rung is **C2**: turn the compute output into a visible
+buffer pattern suitable for the proven H5 KMS present path.
 
 **(historical, first-triangle ladder — DONE record)** Threshold from fixed-function plumbing to *real GPU
 graphics*: vertex buffer → vertex shader → rasterizer → fragment shader → a shaded triangle, readback-verified, blitted
