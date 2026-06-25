@@ -512,6 +512,14 @@ signature, but readback still stayed unchanged (`readback_changed_count=0`, `rea
 `readback_center=0x20202020`) and post-probe selftest stayed `fail=0`. That removes the tested RT0 component-mask gap
 as the primary blocker. The next bounded unit should generate a Mesa-equivalent first-draw packet diff, then test the
 smallest resulting RB/CCU/FS-output or shader-output linkage delta before claiming H4.
+V3226/V3227 then tested a concrete shader-mode gap from Mesa `fd6_program.cc::emit_shader_regs()` by adding
+`SP_MODE_CNTL=0x00000005` and `TPL1_MODE_CNTL=0x000000a2` before the VS/FS program registers. Live result again retired
+cleanly (`submit_rc=0`, `wait_rc=0`, `retired_timestamp=1`, `fence_poll_rc=1`, `pm4_dwords=186`,
+`total_elapsed_ms=30`) with no GPU fault/hang signature, but readback still stayed unchanged
+(`readback_changed_count=0`, `readback0=0x20202020`, `readback_center=0x20202020`) and post-probe selftest stayed
+`fail=0`. That removes this tested shader-mode setup gap as the primary blocker. Next bounded unit should continue the
+Mesa-equivalent first-draw packet diff and test a small, draw-relevant missing static/init state group such as
+`RB_INTERP_CNTL`/`RB_PS_INPUT_CNTL`/sample-position or the minimal `VPC_VARYING_LM_TRANSFER_CNTL`/SIV path.
 
 **GPU backlog AFTER the triangle (do NOT pre-build; pull only when reached):**
 - **2nd capability = a VISIBLE compute demo (e.g. Mandelbrot/particle → KMS).** Reuses the shader path minus the
