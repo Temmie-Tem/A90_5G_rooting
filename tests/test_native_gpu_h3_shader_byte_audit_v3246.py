@@ -29,42 +29,56 @@ class NativeGpuH3ShaderByteAuditV3246Tests(unittest.TestCase):
         self.assertEqual(
             [entry["word"] for entry in result["decoded"]["vs_shader"]],
             [
-                "204cc002_3f800000",
-                "204cc003_3f800000",
+                "20044008_00000000",
+                "20044009_00000001",
+                "204cc00a_00000000",
+                "204cc00b_3f800000",
+                "20444002_00000000",
+                "20444003_3f800000",
                 "03000000_00000000",
-            ] + ["00000000_00000000"] * 13,
+            ] + ["00000000_00000000"] * 9,
         )
         self.assertEqual(
             [entry["word"] for entry in result["decoded"]["fs_shader"]],
             [
-                "20444000_3f800000",
+                "47300002_00002000",
+                "47300003_00002001",
+                "47300004_00002002",
+                "47308005_00002003",
                 "03000000_00000000",
-            ] + ["00000000_00000000"] * 14,
+            ] + ["00000000_00000000"] * 11,
         )
 
     def test_half_precision_and_vpc_position_checks_are_closed(self) -> None:
         result = audit.run_audit(ir3_disasm="/missing/ir3-disasm")
         checks = result["checks"]
 
-        self.assertTrue(checks["fs_writes_full_f32_r0x"])
-        self.assertTrue(checks["vs_uses_mesa_reference_u32_z_w_instrlen1"])
+        self.assertTrue(checks["fs_uses_cffdump_bary_outputs"])
+        self.assertTrue(checks["vs_routes_position_to_r2_and_varying_r0"])
         self.assertEqual(checks["vs_shader_instrlen"], 1)
         self.assertEqual(checks["fs_shader_instrlen"], 1)
         self.assertEqual(checks["ir3_instr_align"], 16)
         self.assertFalse(checks["sp_ps_output_reg0_half_precision"])
         self.assertTrue(checks["fs_full_precision_matches_ps_output"])
-        self.assertEqual(checks["sp_ps_output_reg0_regid"], 0)
+        self.assertEqual(checks["sp_ps_output_reg0_regid"], 2)
         self.assertEqual(checks["sp_ps_mrt_reg0_color_format"], 0x4A)
         self.assertFalse(checks["sp_ps_mrt_reg0_color_uint"])
         self.assertTrue(checks["sp_ps_mrt_reg0_has_no_half_precision_field"])
 
-        self.assertEqual(checks["sp_vs_output_reg0_regid"], 0)
-        self.assertEqual(checks["sp_vs_output_reg0_compmask"], 0xF)
+        self.assertEqual(checks["sp_vs_output_reg0_a_regid"], 8)
+        self.assertEqual(checks["sp_vs_output_reg0_a_compmask"], 0xF)
+        self.assertEqual(checks["sp_vs_output_reg0_b_regid"], 0)
+        self.assertEqual(checks["sp_vs_output_reg0_b_compmask"], 0xF)
         self.assertEqual(checks["sp_vs_vpc_dest_reg0_outloc0"], 0)
-        self.assertEqual(checks["vpc_vs_cntl_stride_in_vpc"], 4)
-        self.assertEqual(checks["vpc_vs_cntl_positionloc"], 0)
+        self.assertEqual(checks["sp_vs_vpc_dest_reg0_outloc1"], 4)
+        self.assertEqual(checks["vpc_vs_cntl_stride_in_vpc"], 8)
+        self.assertEqual(checks["vpc_vs_cntl_positionloc"], 4)
         self.assertEqual(checks["vpc_vs_cntl_psizeloc"], 0xFF)
-        self.assertTrue(checks["position_is_vpc_vs_cntl_not_siv"])
+        self.assertEqual(checks["vpc_ps_cntl_numnonposvar"], 4)
+        self.assertEqual(checks["vpc_ps_cntl_primidloc"], 0xFF)
+        self.assertTrue(checks["vpc_ps_cntl_varying"])
+        self.assertEqual(checks["vpc_ps_cntl_viewidloc"], 0xFF)
+        self.assertTrue(checks["position_is_vpc_loc4_not_siv"])
         self.assertEqual(checks["vpc_vs_siv_cntl_layerloc"], 0xFF)
         self.assertEqual(checks["vpc_vs_siv_cntl_viewloc"], 0xFF)
 

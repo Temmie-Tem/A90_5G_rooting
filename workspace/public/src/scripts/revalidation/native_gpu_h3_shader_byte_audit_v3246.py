@@ -24,15 +24,22 @@ DEFAULT_TMP_IR3_DISASM = Path("/tmp/a90-mesa-h3-build-ir3/src/freedreno/isa/ir3-
 DEFAULT_CHIP_ID = "06040000"
 
 EXPECTED_VS = [
-    "mov.u32u32 r0.z, 0x3f800000",
-    "mov.u32u32 r0.w, 0x3f800000",
+    "mov.f32f32 r2.x, r0.x",
+    "mov.f32f32 r2.y, r0.y",
+    "mov.u32u32 r2.z, 0",
+    "mov.u32u32 r2.w, 0x3f800000",
+    "mov.f32f32 r0.z, (0.0)",
+    "mov.f32f32 r0.w, (1.0)",
     "end",
-    *["nop"] * 13,
+    *["nop"] * 9,
 ]
 EXPECTED_FS = [
-    "mov.f32f32 r0.x, (1.0)",
+    "bary.f r0.z, 0, r0.x",
+    "bary.f r0.w, 1, r0.x",
+    "bary.f r1.x, 2, r0.x",
+    "bary.f (ei)r1.y, 3, r0.x",
     "end",
-    *["nop"] * 14,
+    *["nop"] * 11,
 ]
 
 
@@ -235,7 +242,7 @@ def decode_current_ir3_word(word: InstructionWord) -> dict[str, Any]:
         if dst_type == 3 and src_type == 3:
             dst_name = _reg_name(dst)
             if src_is_immediate:
-                src = f"0x{word.lo:08x}"
+                src = "0" if word.lo == 0 else f"0x{word.lo:08x}"
             else:
                 src = _reg_name(word.lo & 0xFF)
             return common | {
@@ -254,6 +261,15 @@ def decode_current_ir3_word(word: InstructionWord) -> dict[str, Any]:
             "dst_half": half_dst,
             "disasm": "cat1-mov-unexpected-type",
         }
+    exact_bary = {
+        (0x00002000, 0x47300002): "bary.f r0.z, 0, r0.x",
+        (0x00002001, 0x47300003): "bary.f r0.w, 1, r0.x",
+        (0x00002002, 0x47300004): "bary.f r1.x, 2, r0.x",
+        (0x00002003, 0x47308005): "bary.f (ei)r1.y, 3, r0.x",
+    }
+    bary_disasm = exact_bary.get((word.lo, word.hi))
+    if bary_disasm is not None:
+        return common | {"mnemonic": "bary.f", "disasm": bary_disasm}
     return common | {"mnemonic": "unknown", "disasm": "unknown"}
 
 
@@ -330,24 +346,24 @@ def run_audit(
 
     ps_output_reg0 = macros.resolve("GPU_H3_PS_OUTPUT_REGID")
     sp_vs_output_reg0 = macros.resolve("GPU_H3_SP_VS_OUTPUT_REG0")
+    sp_vs_vpc_dest_reg0 = macros.resolve("GPU_H3_SP_VS_VPC_DEST_REG0")
     vpc_vs_cntl = macros.resolve("GPU_H3_VPC_VS_CNTL")
+    vpc_ps_cntl = macros.resolve("GPU_H3_VPC_PS_CNTL")
     vpc_vs_siv_cntl = macros.resolve("GPU_H3_VPC_VS_SIV_CNTL")
     vpc_vs_siv_cntl_v2 = macros.resolve("GPU_H3_VPC_VS_SIV_CNTL_V2")
     sp_ps_mrt_reg0 = macros.resolve("GPU_H3_COLOR_FORMAT")
-    fs_first = decoded["fs_shader"][0]
     checks = {
         "all_shader_words_match_expected": not mismatches,
         "external_ir3_disasm_used": disasm_path is not None,
         "ir3_disasm_path": str(disasm_path) if disasm_path else None,
-        "fs_writes_full_f32_r0x": fs_first.get("disasm") == "mov.f32f32 r0.x, (1.0)"
-        or fs_first.get("mesa_ir3_disasm") == "mov.f32f32 r0.x, (1.0)",
-        "vs_uses_mesa_reference_u32_z_w_instrlen1": (
-            decoded["vs_shader"][0].get("disasm") == "mov.u32u32 r0.z, 0x3f800000"
-            or decoded["vs_shader"][0].get("mesa_ir3_disasm") == "mov.u32u32 r0.z, 0x3f800000"
-        ) and (
-            decoded["vs_shader"][1].get("disasm") == "mov.u32u32 r0.w, 0x3f800000"
-            or decoded["vs_shader"][1].get("mesa_ir3_disasm") == "mov.u32u32 r0.w, 0x3f800000"
-        ),
+        "fs_uses_cffdump_bary_outputs": [
+            entry.get("mesa_ir3_disasm") or entry.get("disasm")
+            for entry in decoded["fs_shader"][:4]
+        ] == EXPECTED_FS[:4],
+        "vs_routes_position_to_r2_and_varying_r0": [
+            entry.get("mesa_ir3_disasm") or entry.get("disasm")
+            for entry in decoded["vs_shader"][:6]
+        ] == EXPECTED_VS[:6],
         "vs_shader_instrlen": macros.resolve("GPU_H3_VS_SHADER_INSTRLEN"),
         "fs_shader_instrlen": macros.resolve("GPU_H3_FS_SHADER_INSTRLEN"),
         "ir3_instr_align": macros.resolve("GPU_H3_IR3_INSTR_ALIGN"),
@@ -357,36 +373,51 @@ def run_audit(
         "sp_ps_mrt_reg0_color_format": sp_ps_mrt_reg0 & 0xFF,
         "sp_ps_mrt_reg0_color_uint": bool(sp_ps_mrt_reg0 & (1 << 9)),
         "sp_ps_mrt_reg0_has_no_half_precision_field": True,
-        "sp_vs_output_reg0_regid": sp_vs_output_reg0 & 0xFF,
-        "sp_vs_output_reg0_compmask": (sp_vs_output_reg0 >> 8) & 0xF,
-        "sp_vs_vpc_dest_reg0_outloc0": 0,
+        "sp_vs_output_reg0_a_regid": sp_vs_output_reg0 & 0xFF,
+        "sp_vs_output_reg0_a_compmask": (sp_vs_output_reg0 >> 8) & 0xF,
+        "sp_vs_output_reg0_b_regid": (sp_vs_output_reg0 >> 16) & 0xFF,
+        "sp_vs_output_reg0_b_compmask": (sp_vs_output_reg0 >> 24) & 0xF,
+        "sp_vs_vpc_dest_reg0_outloc0": sp_vs_vpc_dest_reg0 & 0xFF,
+        "sp_vs_vpc_dest_reg0_outloc1": (sp_vs_vpc_dest_reg0 >> 8) & 0xFF,
         "vpc_vs_cntl_stride_in_vpc": vpc_vs_cntl & 0xFF,
         "vpc_vs_cntl_positionloc": (vpc_vs_cntl >> 8) & 0xFF,
         "vpc_vs_cntl_psizeloc": (vpc_vs_cntl >> 16) & 0xFF,
+        "vpc_ps_cntl_numnonposvar": vpc_ps_cntl & 0xFF,
+        "vpc_ps_cntl_primidloc": (vpc_ps_cntl >> 8) & 0xFF,
+        "vpc_ps_cntl_varying": bool(vpc_ps_cntl & (1 << 16)),
+        "vpc_ps_cntl_viewidloc": (vpc_ps_cntl >> 24) & 0xFF,
         "vpc_vs_siv_cntl_layerloc": vpc_vs_siv_cntl & 0xFF,
         "vpc_vs_siv_cntl_viewloc": (vpc_vs_siv_cntl >> 8) & 0xFF,
         "vpc_vs_siv_cntl_v2_layerloc": vpc_vs_siv_cntl_v2 & 0xFF,
         "vpc_vs_siv_cntl_v2_viewloc": (vpc_vs_siv_cntl_v2 >> 8) & 0xFF,
-        "position_is_vpc_vs_cntl_not_siv": ((vpc_vs_cntl >> 8) & 0xFF) == 0,
+        "position_is_vpc_loc4_not_siv": ((vpc_vs_cntl >> 8) & 0xFF) == 4,
     }
     passed = (
         checks["all_shader_words_match_expected"]
-        and checks["fs_writes_full_f32_r0x"]
-        and checks["vs_uses_mesa_reference_u32_z_w_instrlen1"]
+        and checks["fs_uses_cffdump_bary_outputs"]
+        and checks["vs_routes_position_to_r2_and_varying_r0"]
         and checks["vs_shader_instrlen"] == 1
         and checks["fs_shader_instrlen"] == 1
         and checks["ir3_instr_align"] == 16
         and checks["fs_full_precision_matches_ps_output"]
-        and checks["sp_vs_output_reg0_regid"] == 0
-        and checks["sp_vs_output_reg0_compmask"] == 0xF
+        and checks["sp_ps_output_reg0_regid"] == 2
+        and checks["sp_vs_output_reg0_a_regid"] == 8
+        and checks["sp_vs_output_reg0_a_compmask"] == 0xF
+        and checks["sp_vs_output_reg0_b_regid"] == 0
+        and checks["sp_vs_output_reg0_b_compmask"] == 0xF
         and checks["sp_vs_vpc_dest_reg0_outloc0"] == 0
-        and checks["vpc_vs_cntl_stride_in_vpc"] == 4
-        and checks["vpc_vs_cntl_positionloc"] == 0
+        and checks["sp_vs_vpc_dest_reg0_outloc1"] == 4
+        and checks["vpc_vs_cntl_stride_in_vpc"] == 8
+        and checks["vpc_vs_cntl_positionloc"] == 4
         and checks["vpc_vs_cntl_psizeloc"] == 0xFF
+        and checks["vpc_ps_cntl_numnonposvar"] == 4
+        and checks["vpc_ps_cntl_primidloc"] == 0xFF
+        and checks["vpc_ps_cntl_varying"]
+        and checks["vpc_ps_cntl_viewidloc"] == 0xFF
     )
     return {
-        "cycle": "V3246",
-        "scope": "gpu-h3-shader-byte-audit",
+        "cycle": "V3276",
+        "scope": "gpu-h3-varying-ij-shader-byte-audit",
         "dispatch": str(dispatch.relative_to(REPO_ROOT)),
         "chip_id": chip_id,
         "passed": passed,

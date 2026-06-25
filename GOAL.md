@@ -852,6 +852,27 @@ clip/guardband/SU rasterizer-state gap and the rechecked legacy-HLSQ/output-rout
 bounded unit should stop isolated register sweeps and mine or capture a real fd6 sysmem single-triangle `.rd`/cffdump
 diff against H3, admitting only direct-sysmem-compatible missing packet groups.
 
+V3276/V3277 then used that diff direction for a larger, coherent cffdump-inspired varying/IJ linkage unit rather than a
+single-register toggle. V3276 changed H3 so the VS writes clip-space position to regid `8` (`r2`), preserves a four-
+component varying stream from regid `0`, and the FS uses verified cffdump `bary.f` instructions with MRT0 color output
+from FS regid `2`. It also updated `SP_VS_OUTPUT_CNTL=2`, `SP_VS_OUTPUT_REG0=0x0f000f08`,
+`SP_VS_VPC_DEST_REG0=0x400`, `VPC_VS_CNTL=0x00ff0408`, `VPC_PS_CNTL=0xff01ff04`, varying-aware
+`SP_PS_INITIAL_TEX_LOAD_CNTL=0x7fc0`, `SP_PS_WAVE_CNTL=3`, `SP_REG_PROG_ID_1=0xfcfcfc00`,
+`PC_MODE_CNTL=0x1f`, `PC_VS_CNTL=8`, and invalid VFD sideband regids. V3276 built `0.11.64
+(v3276-gpu-h3-varying-ij-probe)` with SHA256
+`1cfada71599befc2cd47c5ffb53f1eab4673d5200bbe92c77f8137ed0e86471e`, flashed through
+`native_init_flash.py`, and passed post-flash health (`selftest pass=12 warn=1 fail=0`; one normal-input
+post-flash selftest attempt lost the serial END marker and passed when rerun with slow input). V3277 live telemetry
+confirmed `pm4_dwords=306`, `state_reg_writes=118`, `vfd_reg_writes=14`, `sp_vs_cntl0=0x80100180`,
+`sp_ps_cntl0=0x81500100`, `vpc_vs_cntl=0xff0408`, `vpc_ps_cntl=0xff01ff04`, and the cffdump bary shader markers.
+Two H3 runs submitted and retired cleanly (`submit_rc=0`, `wait_rc=0`, `retired_timestamp=1`, warm
+`total_elapsed_ms=12`) and post-probe selftest stayed clean. Readback remained unchanged
+(`readback_changed_count=0`, `readback0=0x20202020`, `readback_center=0x20202020`) with no focused KGSL/GPU/GMU/A640
+fault, hang, snapshot, timeout, CP opcode, or hardware-error signature, so H4 is still not reached. This removes the
+cffdump varying/IJ/VPC/VFD linkage group as the primary no-pixel cause. Next bounded unit should stop adding isolated
+HLSQ/output/raster guesses and compare a real fd6 sysmem single-triangle `.rd`/cffdump packet stream against H3, then
+admit only direct-sysmem-compatible missing packet groups.
+
 **GPU backlog AFTER the triangle (do NOT pre-build; pull only when reached):**
 - **2nd capability = a VISIBLE compute demo (e.g. Mandelbrot/particle → KMS).** Reuses the shader path minus the
   rasterizer; gives GPU compute a *screen consumer*. **Matrix/GPGPU math is absorbed here, NOT a standalone goal** —
