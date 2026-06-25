@@ -11,19 +11,19 @@ DISPATCH = ROOT / "workspace/public/src/native-init/v319/80_shell_dispatch.inc.c
 BASIC = ROOT / "workspace/public/src/native-init/v319/60_shell_basic_commands.inc.c"
 
 runner = load_script(
-    "workspace/public/src/scripts/revalidation/build_native_init_boot_v3198_gpu_g4_solid_fill_noevent_probe.py"
+    "workspace/public/src/scripts/revalidation/build_native_init_boot_v3200_gpu_g4_solid_fill_ccu_flush_probe.py"
 )
 
 
-class NativeGpuG4SolidFillProbeSourceV3198Tests(unittest.TestCase):
-    def test_v3198_identity_and_required_markers(self) -> None:
-        self.assertEqual(runner.CYCLE, "V3198")
-        self.assertEqual(runner.INIT_VERSION, "0.11.27")
-        self.assertEqual(runner.INIT_BUILD, "v3198-gpu-g4-solid-fill-noevent-probe")
+class NativeGpuG4SolidFillProbeSourceV3200Tests(unittest.TestCase):
+    def test_v3200_identity_and_required_markers(self) -> None:
+        self.assertEqual(runner.CYCLE, "V3200")
+        self.assertEqual(runner.INIT_VERSION, "0.11.28")
+        self.assertEqual(runner.INIT_BUILD, "v3200-gpu-g4-solid-fill-ccu-flush-probe")
 
         required = b"\n".join(runner.REQUIRED_STRINGS)
-        self.assertIn(b"0.11.27", required)
-        self.assertIn(b"v3198-gpu-g4-solid-fill-noevent-probe", required)
+        self.assertIn(b"0.11.28", required)
+        self.assertIn(b"v3200-gpu-g4-solid-fill-ccu-flush-probe", required)
         self.assertIn(b"gpu.g0.fwclass_prepare.result=ok", required)
         self.assertIn(b"gpu.g1.context.version=1", required)
         self.assertIn(b"g2-mmap-probe", required)
@@ -41,7 +41,12 @@ class NativeGpuG4SolidFillProbeSourceV3198Tests(unittest.TestCase):
             required,
         )
         self.assertIn(
-            b"gpu.g4.fill.pm4_source=mesa-freedreno-a6xx-fd6-clear-buffer-cp-blit-a2d-no-event-write-tail",
+            b"gpu.g4.fill.pm4_source=mesa-freedreno-a6xx-fd6-clear-buffer-cp-blit-a2d-ccu-color-flush",
+            required,
+        )
+        self.assertIn(b"gpu.g4.fill.post_blit_event=pc_ccu_flush_color_ts", required)
+        self.assertIn(
+            b"gpu.g4.fill.cache_invalidate_event=excluded-after-v3197-incident",
             required,
         )
         self.assertIn(b"gpu.g4.fill.fmt6_32_uint=0x%x", required)
@@ -68,11 +73,26 @@ class NativeGpuG4SolidFillProbeSourceV3198Tests(unittest.TestCase):
         self.assertIn("GPU_KGSL_GPUMEM_CACHE_FROM_GPU", source)
         self.assertIn("gpu_g4_pm4_pkt4_hdr", source)
         self.assertIn("gpu_g4_build_solid_fill_pm4", source)
+        self.assertIn("gpu_g4_pm4_emit_event_raw", source)
+        build_start = source.index("static bool gpu_g4_build_solid_fill_pm4")
+        build_end = source.index("static void gpu_g0_print_read_attr", build_start)
+        build_source = source[build_start:build_end]
+        self.assertIn("GPU_G4_PM4_CP_BLIT", build_source)
+        self.assertIn("GPU_G4_PM4_CP_WAIT_FOR_IDLE", build_source)
+        self.assertIn("gpu_g4_pm4_emit_event_raw", build_source)
+        self.assertEqual(build_source.count("gpu_g4_pm4_emit_event_raw"), 1)
+        self.assertIn("GPU_G4_EVENT_PC_CCU_FLUSH_COLOR_TS", build_source)
+        self.assertNotIn("GPU_G4_EVENT_CACHE_FLUSH_TS", build_source)
+        self.assertNotIn("GPU_G4_EVENT_CACHE_INVALIDATE", build_source)
+        self.assertNotIn("GPU_G4_EVENT_DEBUG_LABEL", build_source)
         self.assertIn("GPU_G4_FILL_PATTERN 0xa5c3f00dU", source)
         self.assertIn("GPU_G4_SENTINEL_PATTERN 0x11111111U", source)
         self.assertIn("readback_mismatch_count", source)
         self.assertIn('"gpu.g4.fill.parent_enters_open=0', source)
         self.assertIn('"gpu.g4.fill.parent_enters_ioctl=0', source)
+        self.assertIn('"gpu.g4.fill.pm4_source=mesa-freedreno-a6xx-fd6-clear-buffer-cp-blit-a2d-ccu-color-flush', source)
+        self.assertIn('"gpu.g4.fill.post_blit_event=pc_ccu_flush_color_ts', source)
+        self.assertIn('"gpu.g4.fill.cache_invalidate_event=excluded-after-v3197-incident', source)
         self.assertIn('"gpu.g4.fill.render_attempted=1', source)
         self.assertIn('"gpu.g4.fill.triangle_attempted=0', source)
         self.assertIn('"gpu.g4.fill.kms_blit_attempted=0', source)
@@ -142,10 +162,14 @@ class NativeGpuG4SolidFillProbeSourceV3198Tests(unittest.TestCase):
         self.assertIn('"IOCTL_KGSL_GPUOBJ_SYNC"', source)
         self.assertIn('"parent_enters_ioctl": False', source)
         self.assertIn(
-            '"pm4_source": "Mesa freedreno A6xx fd6_clear_buffer CP_BLIT A2D solid color path without post-blit event-write tail"',
+            '"pm4_source": "Mesa freedreno A6xx fd6_clear_buffer CP_BLIT A2D solid color path with post-blit PC_CCU_FLUSH_COLOR_TS only"',
             source,
         )
-        self.assertIn('"cp_event_write_tail": "removed-after-v3197-incident"', source)
+        self.assertIn('"cp_event_write_tail": "minimal-pc-ccu-flush-color-ts-only"', source)
+        self.assertIn('"post_blit_events": [', source)
+        self.assertIn('"PC_CCU_FLUSH_COLOR_TS"', source)
+        self.assertIn('"excluded_post_blit_events": [', source)
+        self.assertIn('"CACHE_INVALIDATE"', source)
         self.assertIn('"type4": "0x40000000"', source)
         self.assertIn('"type7": "0x70000000"', source)
         self.assertIn('"cp_blit": "0x2c"', source)
@@ -158,6 +182,7 @@ class NativeGpuG4SolidFillProbeSourceV3198Tests(unittest.TestCase):
         self.assertIn('"proprietary-adreno-blob"', source)
         self.assertIn("NATIVE_INIT_V3195_GPU_G3_NOOP_SUBMIT_PROBE_LIVE_2026-06-25.md", source)
         self.assertIn("NATIVE_INIT_V3197_GPU_G4_SOLID_FILL_PROBE_LIVE_INCIDENT_2026-06-25.md", source)
+        self.assertIn("NATIVE_INIT_V3199_GPU_G4_SOLID_FILL_NOEVENT_LIVE_2026-06-25.md", source)
 
 
 if __name__ == "__main__":
