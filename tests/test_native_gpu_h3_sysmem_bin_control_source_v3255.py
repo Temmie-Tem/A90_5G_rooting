@@ -55,9 +55,11 @@ class NativeGpuH3SysmemBinControlSourceV3255Tests(unittest.TestCase):
             source.index("GPU_H3_REG_RB_CNTL,\n                              GPU_H3_RB_CNTL"),
             source.index("GPU_H2_REG_RB_RENDER_CNTL,\n                              GPU_H3_RB_RENDER_CNTL"),
         )
-        self.assertIn(
-            '"gpu.h3.draw.scope=first-triangle-h3-sysmem-bin-control-sp-update-cntl-compiler-vs-instrlen-cache-invalidate-rb-render-cntl-r0-output-shader',
-            source,
+        self.assertTrue(
+            '"gpu.h3.draw.scope=first-triangle-h3-sysmem-bin-control-sp-update-cntl-compiler-vs-instrlen-cache-invalidate-rb-render-cntl-r0-output-shader'
+            in source
+            or '"gpu.h3.draw.scope=first-triangle-h3-vpc-so-override-off-sysmem-bin-control-sp-update-cntl-compiler-vs-instrlen-cache-invalidate-rb-render-cntl-r0-output-shader'
+            in source
         )
         self.assertIn(
             '"gpu.h3.draw.bin_control_source=mesa-freedreno-a6xx-fd6-sysmem-prep-set-bin-size',

@@ -1817,7 +1817,7 @@ struct gpu_g4_solid_fill_child_run {
 #define GPU_H3_GRAS_SU_VS_SIV_CNTL 0x00000000U
 #define GPU_H3_GRAS_SU_CONSERVATIVE_RAS_CNTL 0x00000000U
 #define GPU_H3_VPC_RAST_STREAM_CNTL 0x00000000U
-#define GPU_H3_VPC_SO_OVERRIDE 0x00000001U
+#define GPU_H3_VPC_SO_OVERRIDE 0x00000000U
 #define GPU_H3_PC_STEREO_RENDERING_CNTL 0x00000000U
 #define GPU_H3_TPL1_PS_SWIZZLE_CNTL 0x00000000U
 #define GPU_H3_VPC_UNKNOWN_9210 0x00000000U
@@ -7496,7 +7496,7 @@ static int gpu_h3_draw_envelope_probe(int timeout_ms, bool materialize_devnode) 
         return -EINVAL;
     }
     a90_console_printf("gpu.h3.draw.version=1\r\n");
-    a90_console_printf("gpu.h3.draw.scope=first-triangle-h3-sysmem-bin-control-sp-update-cntl-compiler-vs-instrlen-cache-invalidate-rb-render-cntl-r0-output-shader\r\n");
+    a90_console_printf("gpu.h3.draw.scope=first-triangle-h3-vpc-so-override-off-sysmem-bin-control-sp-update-cntl-compiler-vs-instrlen-cache-invalidate-rb-render-cntl-r0-output-shader\r\n");
     a90_console_printf("gpu.h3.draw.path=%s\r\n", GPU_G0_DEVNODE);
     a90_console_printf("gpu.h3.draw.timeout_ms=%d\r\n", timeout_ms);
     a90_console_printf("gpu.h3.draw.wait_timeout_ms=%u\r\n", GPU_H3_WAIT_TIMEOUT_MS);
@@ -7600,6 +7600,7 @@ static int gpu_h3_draw_envelope_probe(int timeout_ms, bool materialize_devnode) 
                        GPU_H3_GRAS_SU_CONSERVATIVE_RAS_CNTL);
     a90_console_printf("gpu.h3.draw.vpc_unknown_9210=0x%x\r\n",
                        GPU_H3_VPC_UNKNOWN_9210);
+    a90_console_printf("gpu.h3.draw.vpc_so_override_source=mesa-freedreno-a6xx-fd6-sysmem-prep-enable-streamout-false\r\n");
     a90_console_printf("gpu.h3.draw.vpc_so_override=0x%x\r\n",
                        GPU_H3_VPC_SO_OVERRIDE);
     a90_console_printf("gpu.h3.draw.vpc_rast_stream_cntl=0x%x\r\n",

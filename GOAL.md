@@ -708,6 +708,19 @@ KGSL/GPU/GMU/A640 fault, hang, snapshot, or timeout signature, but readback rema
 `GRAS_SC_BIN_CNTL/RB_CNTL` as the primary no-pixel root cause. Next bounded unit should avoid broad register sweeping
 and diff against fd6 sysmem prep/draw ordering; one concrete remaining mismatch already visible is Mesa
 `VPC_SO_OVERRIDE(false)` while current H3 still reports `vpc_so_override=0x1`.
+V3257/V3258 then tested that mismatch directly by changing `VPC_SO_OVERRIDE` at register `0x9306` from `0x1` to
+Mesa sysmem prep's `0x0` (`VPC_SO_OVERRIDE(false)`). The image built as
+`0.11.55 (v3257-gpu-h3-vpc-so-override-probe)` with SHA256
+`c308eee87756e5417b6b356a83c4c9c3721b056b4b9f37797b2a3269596db7e1`, flashed through `native_init_flash.py`, and
+passed post-flash health after one host-side bridge connection reset was cleared by a short wait and sequential retry
+(`selftest pass=12 warn=1 fail=0`). Live telemetry confirmed `vpc_so_override=0x0`, `pm4_dwords=246`, and
+`state_reg_writes=94`. Two H3 runs submitted and retired cleanly (`submit_rc=0`, `wait_rc=0`,
+`retired_timestamp=1`, warm `total_elapsed_ms=12`), with no focused KGSL/GPU/GMU/A640 fault, hang, snapshot, or timeout
+signature, but readback remained unchanged (`readback_changed_count=0`, `readback0=0x20202020`,
+`readback_center=0x20202020`). This removes `VPC_SO_OVERRIDE=0x1` as the primary no-pixel root cause. Next bounded
+packet delta should continue from `fd6_emit_sysmem_prep()` rather than broad register sweeping: Mesa emits
+`CP_SKIP_IB2_ENABLE_GLOBAL=0`, `CP_SKIP_IB2_ENABLE_LOCAL=1`, and `CP_SET_VISIBILITY_OVERRIDE=1` before the large
+draw-state CRB, and current H3 does not emit those packets.
 
 **GPU backlog AFTER the triangle (do NOT pre-build; pull only when reached):**
 - **2nd capability = a VISIBLE compute demo (e.g. Mandelbrot/particle → KMS).** Reuses the shader path minus the

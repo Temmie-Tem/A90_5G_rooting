@@ -144,7 +144,7 @@ class NativeGpuH3ShaderFootprintSourceV3236Tests(unittest.TestCase):
         self.assertIn("#define GPU_H3_VPC_VS_SIV_CNTL_V2 0x0000ffffU", source)
         self.assertIn("#define GPU_H3_GRAS_SU_VS_SIV_CNTL 0x00000000U", source)
         self.assertIn("#define GPU_H3_GRAS_SU_CONSERVATIVE_RAS_CNTL 0x00000000U", source)
-        self.assertIn("#define GPU_H3_VPC_SO_OVERRIDE 0x00000001U", source)
+        self.assertIn("#define GPU_H3_VPC_SO_OVERRIDE 0x00000000U", source)
         self.assertIn("#define GPU_H3_SP_INVALID_REG 0xfcU", source)
         self.assertIn("#define GPU_H3_SP_REG_PROG_ID_3", source)
         self.assertIn("GPU_H3_REG_SP_MODE_CNTL,\n                              GPU_H3_SP_MODE_CNTL", source)
