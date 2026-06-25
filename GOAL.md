@@ -560,6 +560,19 @@ match, but a follow-up `gpu g3-noop-submit-probe` also timed out, so the failed 
 reboot. This removes r1 output split with the old `FULLREGFOOTPRINT=1` as a valid standalone fix. Next bounded unit
 should keep the V3234 r1 split but bump VS/PS full register footprint to `2`; if that still times out, revert the r1
 split and move to another Mesa packet delta before claiming H4.
+V3236/V3237 then kept that r1 shader-output split and raised VS/PS `FULLREGFOOTPRINT` to `2`, producing
+`SP_VS_CNTL_0=0x00100100` and `SP_PS_CNTL_0=0x81000100`. The image flashed as `0.11.45
+(v3236-gpu-h3-shader-footprint-probe)` and passed post-flash health (`selftest pass=12 warn=1 fail=0`). The first H3
+attempt timed out, but focused dmesg showed the actual blocker was fresh-boot firmware visibility:
+`request_firmware(a630_sqe.fw) failed` while `firmware_class.path` pointed at `/vendor/firmware_mnt/image`; `gpu
+g0-status` showed the SQE/GMU firmware present in `/cache/a90-runtime/pkg/gpu-g0-fw`. After `gpu g0-fwclass-prepare`,
+G0 open returned in `26ms`, G3 noop retired in `9ms`, and the same H3 draw retired (`submit_rc=0`, `wait_rc=0`,
+`retired_timestamp=1`, `fence_poll_rc=1`, `total_elapsed_ms=12`) with no GPU fault/hang signature. Readback still
+stayed unchanged (`readback_changed_count=0`, `readback0=0x20202020`, `readback_center=0x20202020`), so H4 is still
+not reached. This removes the V3234 timeout as a shader-footprint objection under the correct G0 firmware prep
+precondition, and exposes a validation hazard: H3/H4 probes must either run G0 fwclass prep during materialization or
+require it as a preflight before KGSL open. Next bounded unit should close that preflight hole, then continue remaining
+Mesa first-draw packet deltas around RB/CCU/FS-output or shader-output linkage before claiming H4.
 
 **GPU backlog AFTER the triangle (do NOT pre-build; pull only when reached):**
 - **2nd capability = a VISIBLE compute demo (e.g. Mandelbrot/particle → KMS).** Reuses the shader path minus the

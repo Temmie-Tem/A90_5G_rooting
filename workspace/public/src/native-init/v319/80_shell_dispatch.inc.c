@@ -1755,14 +1755,16 @@ struct gpu_g4_solid_fill_child_run {
 #define GPU_H3_DI_SRC_SEL_AUTO_INDEX 2U
 #define GPU_H3_IGNORE_VISIBILITY 0U
 #define GPU_H3_INDEX_SIZE_IGN 0U
+#define GPU_H3_SP_FULLREGFOOTPRINT 2U
 #define GPU_H3_SP_XS_CNTL_0_FULLREGFOOTPRINT(n) (((n) & 0x3fU) << 7)
 #define GPU_H3_SP_VS_CNTL_0_MERGEDREGS (1U << 20)
 #define GPU_H3_SP_PS_CNTL_0_INOUTREGOVERLAP (1U << 24)
 #define GPU_H3_SP_PS_CNTL_0_MERGEDREGS (1U << 31)
 #define GPU_H3_SP_VS_CNTL_0 \
-    (GPU_H3_SP_XS_CNTL_0_FULLREGFOOTPRINT(1U) | GPU_H3_SP_VS_CNTL_0_MERGEDREGS)
+    (GPU_H3_SP_XS_CNTL_0_FULLREGFOOTPRINT(GPU_H3_SP_FULLREGFOOTPRINT) | \
+     GPU_H3_SP_VS_CNTL_0_MERGEDREGS)
 #define GPU_H3_SP_PS_CNTL_0 \
-    (GPU_H3_SP_XS_CNTL_0_FULLREGFOOTPRINT(1U) | \
+    (GPU_H3_SP_XS_CNTL_0_FULLREGFOOTPRINT(GPU_H3_SP_FULLREGFOOTPRINT) | \
      GPU_H3_SP_PS_CNTL_0_INOUTREGOVERLAP | \
      GPU_H3_SP_PS_CNTL_0_MERGEDREGS)
 #define GPU_H3_GRAS_CL_INTERP_CNTL 0x00000000U
@@ -7398,7 +7400,7 @@ static int gpu_h3_draw_envelope_probe(int timeout_ms, bool materialize_devnode) 
         return -EINVAL;
     }
     a90_console_printf("gpu.h3.draw.version=1\r\n");
-    a90_console_printf("gpu.h3.draw.scope=first-triangle-h3-shader-output-r1-mov-f32-shader\r\n");
+    a90_console_printf("gpu.h3.draw.scope=first-triangle-h3-shader-footprint-r1-footprint2-mov-f32-shader\r\n");
     a90_console_printf("gpu.h3.draw.path=%s\r\n", GPU_G0_DEVNODE);
     a90_console_printf("gpu.h3.draw.timeout_ms=%d\r\n", timeout_ms);
     a90_console_printf("gpu.h3.draw.wait_timeout_ms=%u\r\n", GPU_H3_WAIT_TIMEOUT_MS);
@@ -7413,6 +7415,7 @@ static int gpu_h3_draw_envelope_probe(int timeout_ms, bool materialize_devnode) 
     a90_console_printf("gpu.h3.draw.ps_output_regid=0x%x\r\n", GPU_H3_PS_OUTPUT_REGID);
     a90_console_printf("gpu.h3.draw.sp_vs_output_reg0=0x%x\r\n", GPU_H3_SP_VS_OUTPUT_REG0);
     a90_console_printf("gpu.h3.draw.shader_mode_source=mesa-freedreno-a6xx-fd6-emit-shader-regs-sp-tpl1-mode\r\n");
+    a90_console_printf("gpu.h3.draw.sp_fullregfootprint=%u\r\n", GPU_H3_SP_FULLREGFOOTPRINT);
     a90_console_printf("gpu.h3.draw.sp_mode_cntl=0x%x\r\n", GPU_H3_SP_MODE_CNTL);
     a90_console_printf("gpu.h3.draw.tpl1_mode_cntl=0x%x\r\n", GPU_H3_TPL1_MODE_CNTL);
     a90_console_printf("gpu.h3.draw.fragment_input_state_source=mesa-freedreno-a6xx-emit-fs-inputs-default-zero\r\n");
