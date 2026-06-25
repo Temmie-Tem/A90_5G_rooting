@@ -529,6 +529,15 @@ again retired cleanly (`submit_rc=0`, `wait_rc=0`, `retired_timestamp=1`, `fence
 `fail=0`. That removes this tested fragment-input zero-state group as the primary blocker. Next bounded unit should
 continue the Mesa-equivalent first-draw packet diff and test the minimal `VPC_VARYING_LM_TRANSFER_CNTL`/SIV path or
 sample-position/static state group before claiming H4.
+V3230/V3231 then tested the minimal VPC LM/SIV path from Mesa `fd6_program.cc::emit_vpc()` for the current
+position-only linkage by adding `VPC_VARYING_LM_TRANSFER_CNTL[0..3]={0xfffffff0,0xffffffff,0xffffffff,0xffffffff}`,
+`VPC_VS_SIV_CNTL=0x0000ffff`, `VPC_VS_SIV_CNTL_V2=0x0000ffff`, and `GRAS_SU_VS_SIV_CNTL=0`. Live result again retired
+cleanly (`submit_rc=0`, `wait_rc=0`, `retired_timestamp=1`, `fence_poll_rc=1`, `pm4_dwords=209`,
+`state_reg_writes=81`, `total_elapsed_ms=31`) with no GPU fault/hang signature, but readback still stayed unchanged
+(`readback_changed_count=0`, `readback0=0x20202020`, `readback_center=0x20202020`) and post-probe selftest stayed
+`fail=0`. That removes this tested VPC LM/SIV group as the primary blocker. Next bounded unit should continue the
+Mesa-equivalent first-draw packet diff and test a small sample-position/static state group or revisit the hand-assembled
+shader output contract before claiming H4.
 
 **GPU backlog AFTER the triangle (do NOT pre-build; pull only when reached):**
 - **2nd capability = a VISIBLE compute demo (e.g. Mandelbrot/particle → KMS).** Reuses the shader path minus the
