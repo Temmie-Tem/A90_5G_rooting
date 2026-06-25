@@ -584,6 +584,18 @@ SQE timeout/fault/hang signature. Readback still stayed unchanged (`readback_cha
 `readback0=0x20202020`, `readback_center=0x20202020`), so H4 is still not reached. This removes firmware-path false
 timeouts from future H3/H4 work; next bounded unit should return to the remaining first-triangle packet/linkage gap,
 likely RB/CCU/FS-output or shader-output contract, before claiming H4.
+V3240/V3241 then tested the Mesa A6xx `sample_locations_disable_stateobj` gap by adding
+`GRAS_SC_MSAA_SAMPLE_POS_CNTL=0`, `RB_MSAA_SAMPLE_POS_CNTL=0`, and `TPL1_MSAA_SAMPLE_POS_CNTL=0` to H3. The image
+flashed as `0.11.47 (v3240-gpu-h3-sample-location-probe)` with SHA256
+`9fc11231bc8267174a8ecc20bb7ba7aac77604ea5fdff8eba7fd406eb4b7501b` and passed post-flash health (`selftest
+pass=12 warn=1 fail=0`). Fresh-boot `gpu g0-status` again showed the expected pre-materialization hazard, and the H3
+`--materialize-devnode` path automatically ran fwclass prep (`gpu.g0.materialize.fwclass_prepare_attempted=1`,
+`gpu.g0.fwclass_prepare.result=ok`, `gpu.g0.materialize.fwclass_prepare_rc=0`). The draw retired cleanly with the new
+state counts (`submit_rc=0`, `wait_rc=0`, `retired_timestamp=1`, `fence_poll_rc=1`, `pm4_dwords=229`,
+`state_reg_writes=91`, `total_elapsed_ms=31`) and no focused dmesg timeout/fault/hang/snapshot signature, but readback
+still stayed unchanged (`readback_changed_count=0`, `readback0=0x20202020`, `readback_center=0x20202020`). This removes
+the tested sample-location disable-state group as the primary blocker; next bounded unit should continue the remaining
+Mesa first-draw packet/linkage diff around RB/CCU/FS-output or the shader-output contract before claiming H4.
 
 **GPU backlog AFTER the triangle (do NOT pre-build; pull only when reached):**
 - **2nd capability = a VISIBLE compute demo (e.g. Mandelbrot/particle → KMS).** Reuses the shader path minus the
