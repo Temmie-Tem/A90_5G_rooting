@@ -56,10 +56,16 @@ class NativeGpuH3Rgba8MrtSourceV3278Tests(unittest.TestCase):
         )
         self.assertIn("#define GPU_H3_SP_PS_MRT_REG0 GPU_H3_COLOR_FORMAT", source)
         self.assertIn("#define GPU_H3_RB_MRT0_BUF_INFO \\", source)
-        self.assertIn("gpu.h3.draw.color_format_source=mesa-freedreno-a640-cffdump-rgba8-mrt0", source)
+        self.assertTrue(
+            "gpu.h3.draw.color_format_source=mesa-freedreno-a640-cffdump-rgba8-mrt0" in source
+            or "gpu.h3.draw.color_format_source=mesa-freedreno-a640-cffdump-rgba8-tile6-3-flag-mrt0" in source
+        )
         self.assertIn("gpu.h3.draw.sp_ps_mrt_reg0=0x%x", source)
         self.assertIn("gpu.h3.draw.rb_mrt0_buf_info=0x%x", source)
-        self.assertIn("gpu.h3.draw.offscreen=rgba8-linear-128x128", source)
+        self.assertTrue(
+            "gpu.h3.draw.offscreen=rgba8-linear-128x128" in source
+            or "gpu.h3.draw.offscreen=rgba8-tile6-3-flag-mrt0-128x128" in source
+        )
         self.assertIn(
             "gpu.h3.draw.hlsq_round4_audit=local-a6xx-fd6-uses-sp-program-config-not-legacy-hlsq-control-regs",
             source,
@@ -71,8 +77,11 @@ class NativeGpuH3Rgba8MrtSourceV3278Tests(unittest.TestCase):
         checks = result["checks"]
 
         self.assertTrue(result["passed"])
-        self.assertEqual(result["cycle"], "V3278")
-        self.assertEqual(result["scope"], "gpu-h3-rgba8-mrt-shader-byte-audit")
+        self.assertIn(result["cycle"], {"V3278", "V3280"})
+        self.assertIn(
+            result["scope"],
+            {"gpu-h3-rgba8-mrt-shader-byte-audit", "gpu-h3-flag-mrt-shader-byte-audit"},
+        )
         self.assertEqual(checks["sp_ps_mrt_reg0_color_format"], 0x30)
         self.assertEqual(checks["rb_mrt0_buf_info_color_format"], 0x30)
         self.assertTrue(checks["sp_ps_mrt_reg0_matches_a640_cffdump_rgba8"])
