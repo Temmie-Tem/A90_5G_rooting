@@ -15,6 +15,7 @@ import os
 import select
 import socket
 import struct
+import subprocess
 import sys
 import termios
 import time
@@ -314,6 +315,34 @@ def parse_key_value_lines(text: str) -> dict[str, str]:
         if key:
             values[key] = value.strip()
     return values
+
+
+def udp_route_preflight_error(host: str) -> str | None:
+    try:
+        result = subprocess.run(
+            ["ip", "route", "get", host],
+            check=False,
+            capture_output=True,
+            text=True,
+            timeout=1.0,
+        )
+    except (FileNotFoundError, subprocess.SubprocessError):
+        return None
+    route = " ".join((result.stdout or result.stderr).split())
+    if result.returncode != 0:
+        return f"failed to resolve UDP route to {host}: {route}"
+    if f" {host} " not in f" {route} ":
+        return None
+    if " via " not in f" {route} ":
+        return None
+    return (
+        f"UDP route to {host} is not USB-NCM/direct: {route}\n"
+        "Configure the host USB-NCM interface before using --input-transport udp, for example:\n"
+        "  sudo ip addr replace 192.168.7.1/24 dev <usb-ncm-iface>\n"
+        "  sudo ip link set <usb-ncm-iface> up\n"
+        f"Then verify: ip route get {host}\n"
+        f"Expected shape: {host} dev <usb-ncm-iface> src 192.168.7.1"
+    )
 
 
 def loop_start_result_is_already_active(result: a90ctl.ProtocolResult) -> bool:
@@ -678,6 +707,11 @@ def main() -> int:
     if args.input_transport == "udp" and (args.udp_port <= 0 or args.udp_port > 65535):
         print("--udp-port must be between 1 and 65535", file=sys.stderr)
         return 2
+    if args.input_transport == "udp" and not args.print_only:
+        route_error = udp_route_preflight_error(args.udp_host)
+        if route_error is not None:
+            print(route_error, file=sys.stderr)
+            return 2
     serial_sender = CommandSender(args.host, args.port, args.timeout, print_only=args.print_only)
     input_sender = (
         UdpInputSender(args.udp_host, args.udp_port, print_only=args.print_only)

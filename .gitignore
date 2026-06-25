@@ -186,3 +186,8 @@ archive/
 !scripts/archive/**
 !workspace/public/archive/
 !workspace/public/archive/**
+
+# operator: tool/cache junk (re-ignore after the archive un-ignore above)
+.ai-bridge/
+workspace/public/archive/**/__pycache__/
+workspace/public/archive/**/*.py[cod]

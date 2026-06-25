@@ -66,6 +66,9 @@ COMMON_CFLAGS = (
 )
 THIRD_PARTY_CFLAGS = COMMON_CFLAGS + ("-Wall", "-Wextra")
 ADAPTER_CFLAGS = COMMON_CFLAGS + ("-Wall", "-Wextra", "-Werror")
+EXTRA_THIRD_PARTY_CFLAGS: tuple[str, ...] = ()
+EXTRA_ADAPTER_CFLAGS: tuple[str, ...] = ()
+EXTRA_ENGINE_SOURCES: tuple[Path, ...] = ()
 LINK_FLAGS = ("-static", "-Wl,--gc-sections")
 RUNTIME_WAD_PATH = "/cache/a90-runtime/pkg/doom/v3024/DOOM1.WAD"
 RUNTIME_WAD_ROOT = "/cache/a90-runtime/pkg/doom/v3024/"
@@ -437,13 +440,21 @@ def compile_private_engine() -> dict[str, Any]:
 
     objects: list[Path] = []
     compile_results = []
+    third_party_cflags = THIRD_PARTY_CFLAGS + EXTRA_THIRD_PARTY_CFLAGS
+    adapter_cflags = ADAPTER_CFLAGS + EXTRA_ADAPTER_CFLAGS
     for source_name in parse_soso_sources():
         source = SOURCE_DIR / source_name
         output = OBJ_DIR / f"{source.stem}.o"
-        compile_results.append(compile_source(source, output, THIRD_PARTY_CFLAGS))
+        compile_results.append(compile_source(source, output, third_party_cflags))
         objects.append(output)
 
-    adapter_result = compile_source(ADAPTER_SOURCE, ADAPTER_OBJECT, ADAPTER_CFLAGS)
+    extra_compile_results = []
+    for source in EXTRA_ENGINE_SOURCES:
+        output = OBJ_DIR / f"{source.stem}.o"
+        extra_compile_results.append(compile_source(source, output, third_party_cflags))
+        objects.append(output)
+
+    adapter_result = compile_source(ADAPTER_SOURCE, ADAPTER_OBJECT, adapter_cflags)
     objects.append(ADAPTER_OBJECT)
     link_command = [
         CROSS_CC,
@@ -477,8 +488,12 @@ def compile_private_engine() -> dict[str, Any]:
         "engine_object_count": len(objects),
         "engine_object_total_bytes": object_total,
         "third_party_source_compile_count": len(compile_results),
+        "extra_engine_source_compile_count": len(extra_compile_results),
+        "extra_engine_sources": [rel(item) for item in EXTRA_ENGINE_SOURCES],
         "adapter_compile": adapter_result,
-        "compile_stdout_nonempty_count": sum(1 for item in compile_results if item["stdout_nonempty"]),
+        "compile_stdout_nonempty_count": sum(
+            1 for item in (*compile_results, *extra_compile_results) if item["stdout_nonempty"]
+        ),
         "file_output": file_output,
         "size_output": size_output,
         "aarch64_static_elf": "ELF 64-bit LSB executable, ARM aarch64" in file_output and "statically linked" in file_output,
@@ -487,8 +502,8 @@ def compile_private_engine() -> dict[str, Any]:
         "link_stdout_nonempty": bool(link_stdout.strip()),
         "strip_stdout_nonempty": bool(strip_stdout.strip()),
         "commands": {
-            "compile_common": f"{CROSS_CC} {' '.join(THIRD_PARTY_CFLAGS)} -I{SOURCE_DIR} -c SOURCE -o OBJECT",
-            "compile_adapter": f"{CROSS_CC} {' '.join(ADAPTER_CFLAGS)} -I{SOURCE_DIR} -c {ADAPTER_SOURCE} -o {ADAPTER_OBJECT}",
+            "compile_common": f"{CROSS_CC} {' '.join(third_party_cflags)} -I{SOURCE_DIR} -c SOURCE -o OBJECT",
+            "compile_adapter": f"{CROSS_CC} {' '.join(adapter_cflags)} -I{SOURCE_DIR} -c {ADAPTER_SOURCE} -o {ADAPTER_OBJECT}",
             "link": " ".join(link_command),
             "strip": f"{CROSS_STRIP} {ENGINE_BINARY}",
             "file": f"file {ENGINE_BINARY}",

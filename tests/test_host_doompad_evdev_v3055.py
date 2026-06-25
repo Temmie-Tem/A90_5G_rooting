@@ -4,6 +4,7 @@ import contextlib
 import io
 import struct
 import unittest
+from unittest import mock
 
 from _loader import load_script
 
@@ -98,6 +99,35 @@ B: EV=17
         self.assertIn("udp 192.168.7.2:30570 seq=7 mask=0x11 bytes=20", stdout.getvalue())
         with self.assertRaises(ValueError):
             sender.send(["doompad", "key", "forward", "1"])
+
+    def test_udp_route_preflight_rejects_default_gateway_route(self) -> None:
+        completed = keyboard.subprocess.CompletedProcess(
+            ["ip", "route", "get", "192.168.7.2"],
+            0,
+            stdout="192.168.7.2 via 192.168.0.1 dev enx000 src 192.168.0.8 uid 1000\n",
+            stderr="",
+        )
+
+        with mock.patch.object(keyboard.subprocess, "run", return_value=completed):
+            error = keyboard.udp_route_preflight_error("192.168.7.2")
+
+        self.assertIsNotNone(error)
+        assert error is not None
+        self.assertIn("not USB-NCM/direct", error)
+        self.assertIn("sudo ip addr replace 192.168.7.1/24", error)
+
+    def test_udp_route_preflight_accepts_direct_ncm_route(self) -> None:
+        completed = keyboard.subprocess.CompletedProcess(
+            ["ip", "route", "get", "192.168.7.2"],
+            0,
+            stdout="192.168.7.2 dev enxc6b35f34bffb src 192.168.7.1 uid 1000\n",
+            stderr="",
+        )
+
+        with mock.patch.object(keyboard.subprocess, "run", return_value=completed):
+            error = keyboard.udp_route_preflight_error("192.168.7.2")
+
+        self.assertIsNone(error)
 
     def test_loop_keeper_treats_active_loop_start_busy_as_success(self) -> None:
         class FakeSender:
