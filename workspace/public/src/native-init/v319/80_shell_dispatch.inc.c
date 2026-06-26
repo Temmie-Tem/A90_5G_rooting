@@ -1675,6 +1675,30 @@ struct gpu_h3_draw_envelope_probe_result {
     uint32_t texture_first_mismatch_value;
     uint32_t texture_bbox_first_mismatch_expected;
     uint32_t texture_bbox_first_mismatch_value;
+    int realframe_manifest_rc;
+    int realframe_open_rc;
+    int realframe_open_errno;
+    int realframe_header_rc;
+    int realframe_record_rc;
+    int realframe_read_rc;
+    int realframe_close_rc;
+    int realframe_close_errno;
+    unsigned int realframe_requested_frame_index;
+    unsigned int realframe_record_index;
+    unsigned int realframe_payload_bytes;
+    unsigned int realframe_width;
+    unsigned int realframe_height;
+    unsigned int realframe_stride;
+    unsigned int realframe_frame_bytes;
+    unsigned int realframe_source_dark_count;
+    unsigned int realframe_source_light_count;
+    unsigned int realframe_source_other_count;
+    unsigned int realframe_bbox_sample_count;
+    unsigned int realframe_bbox_sample_match_count;
+    unsigned int realframe_bbox_sample_mismatch_count;
+    unsigned int realframe_bbox_first_mismatch_index;
+    uint32_t realframe_bbox_first_mismatch_expected;
+    uint32_t realframe_bbox_first_mismatch_value;
     unsigned int cp_draw_packet;
     unsigned int draw_initiator;
     unsigned int num_instances;
@@ -2353,6 +2377,14 @@ struct gpu_c2_compute_pattern_probe_result {
 #define GPU_D1_CHECKER_LIGHT_RGB 0xd0d0d0U
 #define GPU_D1_CHECKER_DARK_WORD 0xff303030U
 #define GPU_D1_CHECKER_LIGHT_WORD 0xffd0d0d0U
+#define GPU_D2_REALFRAME_DEFAULT_FRAME_INDEX 515U
+#define GPU_D2_REALFRAME_MAX_TEXTURE_BYTES (4ULL * 1024ULL * 1024ULL)
+#define GPU_D2_REALFRAME_DARK_RGB 0x000000U
+#define GPU_D2_REALFRAME_LIGHT_RGB 0xffffffU
+#define GPU_D2_REALFRAME_DARK_WORD 0xff000000U
+#define GPU_D2_REALFRAME_LIGHT_WORD 0xffffffffU
+#define GPU_D2_REALFRAME_BADAPPLE_MANIFEST_PATH \
+    VIDEO_STREAM_CACHE_ROOT "/" VIDEO_STREAM_CACHE_DIR_PREFIX VIDEO_CACHE_PRESET_BADAPPLE_SHA256 "/manifest.json"
 #define GPU_H3_A6XX_FMT6_32_32_FLOAT 0x67U
 #define GPU_H3_A6XX_FMT6_32_32_32_32_FLOAT 0x82U
 #define GPU_H3_A6XX_FMT6_32_SINT 0x4cU
@@ -3753,6 +3785,24 @@ static void gpu_c2_write_uav_descriptor(uint32_t *desc, uint64_t uav_gpuaddr) {
     desc[5] = (uint32_t)(uav_base >> 32);
 }
 
+enum gpu_d1_texture_source_kind {
+    GPU_D1_TEXTURE_SOURCE_CHECKERBOARD = 0,
+    GPU_D1_TEXTURE_SOURCE_REALFRAME_MONO1 = 1,
+};
+
+struct gpu_d1_texture_source_config {
+    enum gpu_d1_texture_source_kind kind;
+    const char *manifest_path;
+    uint32_t frame_index;
+};
+
+static uint64_t gpu_d1_round_up_u64(uint64_t value, uint64_t alignment) {
+    if (alignment == 0U) {
+        return value;
+    }
+    return ((value + alignment - 1ULL) / alignment) * alignment;
+}
+
 static uint32_t gpu_d1_checker_word(unsigned int x, unsigned int y) {
     return (((x / GPU_D1_CHECKER_BLOCK) ^ (y / GPU_D1_CHECKER_BLOCK)) & 1U) != 0U ?
         GPU_D1_CHECKER_LIGHT_WORD : GPU_D1_CHECKER_DARK_WORD;
@@ -3779,6 +3829,192 @@ static void gpu_d1_write_checker_texture(uint32_t *texture_words) {
     }
 }
 
+static bool gpu_d2_mono1_bit(const uint8_t *frame,
+                             const struct video_stream_manifest *manifest,
+                             uint32_t x,
+                             uint32_t y) {
+    const uint8_t *row;
+    uint8_t byte;
+
+    if (frame == NULL || manifest == NULL ||
+        x >= manifest->width || y >= manifest->height ||
+        manifest->stride < (manifest->width + 7U) / 8U) {
+        return false;
+    }
+    row = frame + ((size_t)y * manifest->stride);
+    byte = row[x / 8U];
+    return ((byte >> (7U - (x % 8U))) & 1U) != 0U;
+}
+
+static uint32_t gpu_d2_realframe_expected_rgb(const uint8_t *frame,
+                                              const struct video_stream_manifest *manifest,
+                                              uint32_t x,
+                                              uint32_t y) {
+    return gpu_d2_mono1_bit(frame, manifest, x, y) ?
+        GPU_D2_REALFRAME_LIGHT_RGB : GPU_D2_REALFRAME_DARK_RGB;
+}
+
+static int gpu_d2_parse_realframe_manifest(const struct gpu_d1_texture_source_config *config,
+                                           struct video_stream_manifest *manifest,
+                                           struct gpu_h3_draw_envelope_probe_result *result) {
+    uint64_t texture_bytes;
+    int rc;
+
+    if (config == NULL || config->manifest_path == NULL ||
+        manifest == NULL || result == NULL) {
+        return -EINVAL;
+    }
+    rc = video_parse_manifest(config->manifest_path, manifest);
+    result->realframe_manifest_rc = rc;
+    if (rc < 0) {
+        return rc;
+    }
+    if (manifest->stream_version != VIDEO_STREAM_VERSION_A90VSTR1 ||
+        manifest->pixel_format != VIDEO_STREAM_PIXEL_FORMAT_MONO1 ||
+        manifest->width == 0U || manifest->height == 0U ||
+        manifest->width > 4096U || manifest->height > 4096U ||
+        manifest->stride < (manifest->width + 7U) / 8U ||
+        config->frame_index >= manifest->frame_count) {
+        result->realframe_manifest_rc = -EINVAL;
+        return -EINVAL;
+    }
+    texture_bytes = (uint64_t)manifest->width * (uint64_t)manifest->height *
+                    GPU_D1_TEXTURE_BPP;
+    if (texture_bytes == 0U || texture_bytes > GPU_D2_REALFRAME_MAX_TEXTURE_BYTES ||
+        texture_bytes / GPU_D1_TEXTURE_BPP / manifest->height != manifest->width) {
+        result->realframe_manifest_rc = -EFBIG;
+        return -EFBIG;
+    }
+    result->realframe_requested_frame_index = config->frame_index;
+    result->realframe_width = manifest->width;
+    result->realframe_height = manifest->height;
+    result->realframe_stride = manifest->stride;
+    result->realframe_frame_bytes = manifest->frame_bytes;
+    result->texture_width = manifest->width;
+    result->texture_height = manifest->height;
+    result->texture_stride = manifest->width * GPU_D1_TEXTURE_BPP;
+    result->texture_bytes = (unsigned int)texture_bytes;
+    return 0;
+}
+
+static int gpu_d2_read_realframe_mono1(const struct video_stream_manifest *manifest,
+                                       uint32_t frame_index,
+                                       uint8_t **frame_out,
+                                       struct gpu_h3_draw_envelope_probe_result *result) {
+    struct video_stream_header_v1 header;
+    uint8_t *frame = NULL;
+    int fd = -1;
+    uint32_t index;
+    int rc;
+
+    if (manifest == NULL || frame_out == NULL || result == NULL ||
+        frame_index >= manifest->frame_count) {
+        return -EINVAL;
+    }
+    *frame_out = NULL;
+    frame = (uint8_t *)malloc(manifest->frame_bytes);
+    if (frame == NULL) {
+        result->realframe_read_rc = -ENOMEM;
+        return -ENOMEM;
+    }
+    errno = 0;
+    fd = open(manifest->stream_path, O_RDONLY | O_CLOEXEC);
+    if (fd < 0) {
+        result->realframe_open_rc = -1;
+        result->realframe_open_errno = errno;
+        free(frame);
+        return negative_errno_or(EIO);
+    }
+    result->realframe_open_rc = 0;
+    rc = video_read_exact_fd(fd, &header, sizeof(header));
+    if (rc < 0) {
+        result->realframe_header_rc = rc;
+        goto out;
+    }
+    rc = video_validate_stream_header(manifest, &header);
+    result->realframe_header_rc = rc;
+    if (rc < 0) {
+        goto out;
+    }
+    for (index = 0; index <= frame_index; ++index) {
+        struct video_stream_frame_record_v1 record;
+
+        rc = video_read_exact_fd(fd, &record, sizeof(record));
+        if (rc < 0) {
+            result->realframe_record_rc = rc;
+            goto out;
+        }
+        if (record.index != index || record.payload_bytes != manifest->frame_bytes) {
+            result->realframe_record_rc = -EINVAL;
+            rc = -EINVAL;
+            goto out;
+        }
+        if (index == frame_index) {
+            rc = video_read_exact_fd(fd, frame, manifest->frame_bytes);
+            result->realframe_read_rc = rc;
+            if (rc < 0) {
+                goto out;
+            }
+            result->realframe_record_rc = 0;
+            result->realframe_record_index = record.index;
+            result->realframe_payload_bytes = record.payload_bytes;
+            *frame_out = frame;
+            frame = NULL;
+            rc = 0;
+            goto out;
+        }
+        rc = video_skip_exact_fd(fd, record.payload_bytes);
+        if (rc < 0) {
+            result->realframe_read_rc = rc;
+            goto out;
+        }
+    }
+    rc = -EINVAL;
+    result->realframe_record_rc = -EINVAL;
+
+out:
+    if (fd >= 0) {
+        errno = 0;
+        if (close(fd) < 0) {
+            result->realframe_close_rc = -1;
+            result->realframe_close_errno = errno;
+            if (rc == 0) {
+                rc = negative_errno_or(EIO);
+            }
+        } else {
+            result->realframe_close_rc = 0;
+            result->realframe_close_errno = 0;
+        }
+    }
+    free(frame);
+    return rc;
+}
+
+static void gpu_d2_write_realframe_texture(uint32_t *texture_words,
+                                           const uint8_t *frame,
+                                           const struct video_stream_manifest *manifest,
+                                           struct gpu_h3_draw_envelope_probe_result *result) {
+    uint32_t y;
+
+    if (texture_words == NULL || frame == NULL || manifest == NULL || result == NULL) {
+        return;
+    }
+    for (y = 0; y < manifest->height; ++y) {
+        uint32_t x;
+
+        for (x = 0; x < manifest->width; ++x) {
+            bool bit = gpu_d2_mono1_bit(frame, manifest, x, y);
+            texture_words[((size_t)y * manifest->width) + x] =
+                bit ? GPU_D2_REALFRAME_LIGHT_WORD : GPU_D2_REALFRAME_DARK_WORD;
+            if (bit) {
+                result->realframe_source_light_count += 1U;
+            } else {
+                result->realframe_source_dark_count += 1U;
+            }
+        }
+    }
+}
+
 static void gpu_d1_write_sampler_descriptor(uint32_t *desc) {
     unsigned int index;
 
@@ -3792,7 +4028,12 @@ static void gpu_d1_write_sampler_descriptor(uint32_t *desc) {
     desc[1] = (1U << 4) | (1U << 6);
 }
 
-static void gpu_d1_write_texture_descriptor(uint32_t *desc, uint64_t texture_gpuaddr) {
+static void gpu_d1_write_texture_descriptor_ex(uint32_t *desc,
+                                               uint64_t texture_gpuaddr,
+                                               uint32_t texture_width,
+                                               uint32_t texture_height,
+                                               uint32_t texture_stride,
+                                               uint64_t texture_bytes) {
     uint64_t texture_base = texture_gpuaddr & ~0x3fULL;
     unsigned int index;
 
@@ -3809,9 +4050,9 @@ static void gpu_d1_write_texture_descriptor(uint32_t *desc, uint64_t texture_gpu
         (1U << 7) |
         (2U << 10) |
         (3U << 13);
-    desc[1] = GPU_D1_TEXTURE_WIDTH | (GPU_D1_TEXTURE_HEIGHT << 15);
-    desc[2] = (GPU_D1_TEXTURE_STRIDE << 7) | (1U << 29);
-    desc[3] = (uint32_t)(GPU_D1_TEXTURE_BYTES >> 12);
+    desc[1] = texture_width | (texture_height << 15);
+    desc[2] = (texture_stride << 7) | (1U << 29);
+    desc[3] = (uint32_t)((texture_bytes + 4095ULL) >> 12);
     desc[4] = (uint32_t)(texture_base & 0xffffffffULL);
     desc[5] = (uint32_t)(texture_base >> 32) | (1U << 17);
     desc[6] = 0;
@@ -11510,7 +11751,43 @@ static bool gpu_d1_texture_checkerboard_result_passed(
            result->texture_light_count > 0U;
 }
 
-static int gpu_d1_texture_checkerboard_probe_child(int write_fd) {
+static bool gpu_d2_realframe_texture_result_passed(
+    const struct gpu_h3_draw_envelope_probe_result *result) {
+    return result != NULL &&
+           result->realframe_manifest_rc == 0 &&
+           result->realframe_open_rc == 0 &&
+           result->realframe_header_rc == 0 &&
+           result->realframe_record_rc == 0 &&
+           result->realframe_read_rc == 0 &&
+           result->realframe_close_rc == 0 &&
+           result->color_init_rc == 0 &&
+           result->shader_write_rc == 0 &&
+           result->vertex_write_rc == 0 &&
+           result->texture_write_rc == 0 &&
+           result->texture_desc_write_rc == 0 &&
+           result->cmd_write_rc == 0 &&
+           result->sync_rc == 0 &&
+           result->submit_rc == 0 &&
+           result->wait_rc == 0 &&
+           result->readtimestamp_rc == 0 &&
+           result->readback_sync_rc == 0 &&
+           result->retired_timestamp >= result->submit_timestamp &&
+           result->linear_readback_changed_count > 0U &&
+           result->linear_readback_bbox_found == 1U &&
+           result->texture_bbox_sample_count == GPU_D1_CHECKER_SAMPLE_COUNT &&
+           result->texture_bbox_sample_match_count == GPU_D1_CHECKER_SAMPLE_COUNT &&
+           result->texture_bbox_sample_mismatch_count == 0U &&
+           result->realframe_bbox_sample_count == GPU_D1_CHECKER_SAMPLE_COUNT &&
+           result->realframe_bbox_sample_match_count == GPU_D1_CHECKER_SAMPLE_COUNT &&
+           result->realframe_bbox_sample_mismatch_count == 0U &&
+           result->realframe_source_dark_count > 0U &&
+           result->realframe_source_light_count > 0U &&
+           result->texture_dark_count > 0U &&
+           result->texture_light_count > 0U;
+}
+
+static int gpu_d1_texture_probe_child(int write_fd,
+                                      const struct gpu_d1_texture_source_config *config) {
     static const uint32_t vs_shader[GPU_H3_VS_SHADER_DWORDS] = {
         GPU_H3_IR3_MOV_F32F32_R2X_R1X_LO, GPU_H3_IR3_MOV_F32F32_R2X_R1X_HI,
         GPU_H3_IR3_MOV_F32F32_R2Y_R1Y_LO, GPU_H3_IR3_MOV_F32F32_R2Y_R1Y_HI,
@@ -11557,11 +11834,21 @@ static int gpu_d1_texture_checkerboard_probe_child(int write_fd) {
     void *sampler_map = MAP_FAILED;
     void *texmem_map = MAP_FAILED;
     void *texture_map = MAP_FAILED;
+    struct video_stream_manifest realframe_manifest;
+    uint8_t *realframe_frame = NULL;
+    bool realframe_mode = config != NULL &&
+        config->kind == GPU_D1_TEXTURE_SOURCE_REALFRAME_MONO1;
+    uint32_t texture_width = GPU_D1_TEXTURE_WIDTH;
+    uint32_t texture_height = GPU_D1_TEXTURE_HEIGHT;
+    uint32_t texture_stride = GPU_D1_TEXTURE_STRIDE;
+    uint64_t texture_bytes = GPU_D1_TEXTURE_BYTES;
+    uint64_t texture_alloc_size = GPU_D1_TEXTURE_ALLOC_SIZE;
     int fd = -1;
     int fence_fd = -1;
 
     memset(&result, 0, sizeof(result));
     memset(&create_arg, 0, sizeof(create_arg));
+    memset(&realframe_manifest, 0, sizeof(realframe_manifest));
     result.version = 1;
     result.close_rc = -1;
     result.create_rc = -1;
@@ -11602,6 +11889,12 @@ static int gpu_d1_texture_checkerboard_probe_child(int write_fd) {
     result.vertex_write_rc = -1;
     result.texture_write_rc = -1;
     result.texture_desc_write_rc = -1;
+    result.realframe_manifest_rc = realframe_mode ? -1 : 0;
+    result.realframe_open_rc = realframe_mode ? -1 : 0;
+    result.realframe_header_rc = realframe_mode ? -1 : 0;
+    result.realframe_record_rc = realframe_mode ? -1 : 0;
+    result.realframe_read_rc = realframe_mode ? -1 : 0;
+    result.realframe_close_rc = realframe_mode ? -1 : 0;
     result.cmd_write_rc = -1;
     result.sync_rc = -1;
     result.submit_rc = -1;
@@ -11655,6 +11948,7 @@ static int gpu_d1_texture_checkerboard_probe_child(int write_fd) {
     result.texture_sample_count = GPU_D1_CHECKER_SAMPLE_COUNT;
     result.texture_first_mismatch_index = UINT_MAX;
     result.texture_bbox_first_mismatch_index = UINT_MAX;
+    result.realframe_bbox_first_mismatch_index = UINT_MAX;
     result.linear_readback_bbox_min_x = UINT_MAX;
     result.linear_readback_bbox_min_y = UINT_MAX;
     result.linear_readback_bbox_max_x = 0U;
@@ -11668,6 +11962,26 @@ static int gpu_d1_texture_checkerboard_probe_child(int write_fd) {
     result.kms_blit_attempted = 0;
     result.linear_blit_attempted = 1U;
     result.fence_fd = -1;
+
+    if (realframe_mode) {
+        int rc = gpu_d2_parse_realframe_manifest(config, &realframe_manifest, &result);
+
+        if (rc < 0) {
+            goto out;
+        }
+        rc = gpu_d2_read_realframe_mono1(&realframe_manifest,
+                                         config->frame_index,
+                                         &realframe_frame,
+                                         &result);
+        if (rc < 0) {
+            goto out;
+        }
+        texture_width = realframe_manifest.width;
+        texture_height = realframe_manifest.height;
+        texture_stride = texture_width * GPU_D1_TEXTURE_BPP;
+        texture_bytes = (uint64_t)texture_stride * texture_height;
+        texture_alloc_size = gpu_d1_round_up_u64(texture_bytes, 4096ULL);
+    }
 
     errno = 0;
     fd = open(GPU_G0_DEVNODE, O_RDWR | O_CLOEXEC);
@@ -11780,8 +12094,7 @@ static int gpu_d1_texture_checkerboard_probe_child(int write_fd) {
                                GPU_D1_SAMPLER_DESC_DWORDS * 4ULL);
         GPU_D1_ALLOC_INFO_MMAP(texmem, GPU_D1_DESCRIPTOR_ALLOC_SIZE,
                                GPU_D1_TEXMEMOBJ_DESC_DWORDS * 4ULL);
-        GPU_D1_ALLOC_INFO_MMAP(texture, GPU_D1_TEXTURE_ALLOC_SIZE,
-                               GPU_D1_TEXTURE_BYTES);
+        GPU_D1_ALLOC_INFO_MMAP(texture, texture_alloc_size, texture_bytes);
 #undef GPU_D1_ALLOC_INFO_MMAP
 
         memset(&event_alloc_arg, 0, sizeof(event_alloc_arg));
@@ -11824,9 +12137,21 @@ static int gpu_d1_texture_checkerboard_probe_child(int write_fd) {
             result.color_init_rc = 0;
         }
 
-        gpu_d1_write_checker_texture((uint32_t *)texture_map);
+        if (realframe_mode) {
+            gpu_d2_write_realframe_texture((uint32_t *)texture_map,
+                                           realframe_frame,
+                                           &realframe_manifest,
+                                           &result);
+        } else {
+            gpu_d1_write_checker_texture((uint32_t *)texture_map);
+        }
         gpu_d1_write_sampler_descriptor((uint32_t *)sampler_map);
-        gpu_d1_write_texture_descriptor((uint32_t *)texmem_map, texture_info_arg.gpuaddr);
+        gpu_d1_write_texture_descriptor_ex((uint32_t *)texmem_map,
+                                           texture_info_arg.gpuaddr,
+                                           texture_width,
+                                           texture_height,
+                                           texture_stride,
+                                           texture_bytes);
         __sync_synchronize();
         result.texture_write_rc = 0;
         result.texture_desc_write_rc = 0;
@@ -11907,7 +12232,7 @@ static int gpu_d1_texture_checkerboard_probe_child(int write_fd) {
             sync_objs[9].length = GPU_D1_TEXMEMOBJ_DESC_DWORDS * 4ULL;
             sync_objs[9].op = GPU_KGSL_GPUMEM_CACHE_TO_GPU | GPU_KGSL_GPUMEM_CACHE_RANGE;
             sync_objs[10].id = texture_alloc_arg.id;
-            sync_objs[10].length = GPU_D1_TEXTURE_BYTES;
+            sync_objs[10].length = texture_bytes;
             sync_objs[10].op = GPU_KGSL_GPUMEM_CACHE_TO_GPU | GPU_KGSL_GPUMEM_CACHE_RANGE;
             result.cmd_sync_length = sync_objs[0].length;
             result.color_sync_length = sync_objs[1].length;
@@ -12130,12 +12455,22 @@ static int gpu_d1_texture_checkerboard_probe_child(int write_fd) {
                             }
                         }
                     }
-                    if (rgb == GPU_D1_CHECKER_DARK_RGB) {
-                        result.texture_dark_count += 1U;
-                    } else if (rgb == GPU_D1_CHECKER_LIGHT_RGB) {
-                        result.texture_light_count += 1U;
+                    if (realframe_mode) {
+                        if (rgb == GPU_D2_REALFRAME_DARK_RGB) {
+                            result.texture_dark_count += 1U;
+                        } else if (rgb == GPU_D2_REALFRAME_LIGHT_RGB) {
+                            result.texture_light_count += 1U;
+                        } else {
+                            result.texture_other_count += 1U;
+                        }
                     } else {
-                        result.texture_other_count += 1U;
+                        if (rgb == GPU_D1_CHECKER_DARK_RGB) {
+                            result.texture_dark_count += 1U;
+                        } else if (rgb == GPU_D1_CHECKER_LIGHT_RGB) {
+                            result.texture_light_count += 1U;
+                        } else {
+                            result.texture_other_count += 1U;
+                        }
                     }
                 }
                 result.color_flag0 = color_flag_words[0];
@@ -12159,23 +12494,25 @@ static int gpu_d1_texture_checkerboard_probe_child(int write_fd) {
                          GPU_H5_LINEAR_CLEAR_PATTERN &&
                      linear_words[(GPU_H2_COLOR_HEIGHT * GPU_H2_COLOR_WIDTH) - 1U] !=
                          GPU_H5_LINEAR_CLEAR_PATTERN) ? 1U : 0U;
-                for (index = 0; index < GPU_D1_CHECKER_SAMPLE_COUNT; ++index) {
-                    unsigned int sx = index % GPU_D1_CHECKER_SAMPLE_GRID;
-                    unsigned int sy = index / GPU_D1_CHECKER_SAMPLE_GRID;
-                    unsigned int x = (sx * GPU_D1_CHECKER_BLOCK) + (GPU_D1_CHECKER_BLOCK / 2U);
-                    unsigned int y = (sy * GPU_D1_CHECKER_BLOCK) + (GPU_D1_CHECKER_BLOCK / 2U);
-                    uint32_t expected = gpu_d1_checker_expected_rgb(x, y);
-                    uint32_t value = linear_words[(y * GPU_D1_TEXTURE_WIDTH) + x] & 0x00ffffffU;
+                if (!realframe_mode) {
+                    for (index = 0; index < GPU_D1_CHECKER_SAMPLE_COUNT; ++index) {
+                        unsigned int sx = index % GPU_D1_CHECKER_SAMPLE_GRID;
+                        unsigned int sy = index / GPU_D1_CHECKER_SAMPLE_GRID;
+                        unsigned int x = (sx * GPU_D1_CHECKER_BLOCK) + (GPU_D1_CHECKER_BLOCK / 2U);
+                        unsigned int y = (sy * GPU_D1_CHECKER_BLOCK) + (GPU_D1_CHECKER_BLOCK / 2U);
+                        uint32_t expected = gpu_d1_checker_expected_rgb(x, y);
+                        uint32_t value = linear_words[(y * GPU_D1_TEXTURE_WIDTH) + x] & 0x00ffffffU;
 
-                    if (value == expected) {
-                        result.texture_sample_match_count += 1U;
-                    } else {
-                        if (result.texture_sample_mismatch_count == 0U) {
-                            result.texture_first_mismatch_index = index;
-                            result.texture_first_mismatch_expected = expected;
-                            result.texture_first_mismatch_value = value;
+                        if (value == expected) {
+                            result.texture_sample_match_count += 1U;
+                        } else {
+                            if (result.texture_sample_mismatch_count == 0U) {
+                                result.texture_first_mismatch_index = index;
+                                result.texture_first_mismatch_expected = expected;
+                                result.texture_first_mismatch_value = value;
+                            }
+                            result.texture_sample_mismatch_count += 1U;
                         }
-                        result.texture_sample_mismatch_count += 1U;
                     }
                 }
                 if (result.linear_readback_bbox_found == 1U &&
@@ -12211,23 +12548,34 @@ static int gpu_d1_texture_checkerboard_probe_child(int write_fd) {
                         x = result.linear_readback_bbox_min_x + x_offset;
                         y = result.linear_readback_bbox_min_y + y_offset;
                         tex_x = (unsigned int)(
-                            (((uint64_t)x_offset) * GPU_D1_TEXTURE_WIDTH +
+                            (((uint64_t)x_offset) * texture_width +
                              (bbox_width / 2U)) / bbox_width);
                         tex_y = (unsigned int)(
-                            (((uint64_t)y_offset) * GPU_D1_TEXTURE_HEIGHT +
+                            (((uint64_t)y_offset) * texture_height +
                              (bbox_height / 2U)) / bbox_height);
-                        if (tex_x >= GPU_D1_TEXTURE_WIDTH) {
-                            tex_x = GPU_D1_TEXTURE_WIDTH - 1U;
+                        if (tex_x >= texture_width) {
+                            tex_x = texture_width - 1U;
                         }
-                        if (tex_y >= GPU_D1_TEXTURE_HEIGHT) {
-                            tex_y = GPU_D1_TEXTURE_HEIGHT - 1U;
+                        if (tex_y >= texture_height) {
+                            tex_y = texture_height - 1U;
                         }
-                        expected = gpu_d1_checker_expected_rgb(tex_x, tex_y);
+                        expected = realframe_mode ?
+                            gpu_d2_realframe_expected_rgb(realframe_frame,
+                                                          &realframe_manifest,
+                                                          tex_x,
+                                                          tex_y) :
+                            gpu_d1_checker_expected_rgb(tex_x, tex_y);
                         value = linear_words[(y * GPU_H2_COLOR_WIDTH) + x] & 0x00ffffffU;
 
                         result.texture_bbox_sample_count += 1U;
+                        if (realframe_mode) {
+                            result.realframe_bbox_sample_count += 1U;
+                        }
                         if (value == expected) {
                             result.texture_bbox_sample_match_count += 1U;
+                            if (realframe_mode) {
+                                result.realframe_bbox_sample_match_count += 1U;
+                            }
                         } else {
                             if (result.texture_bbox_sample_mismatch_count == 0U) {
                                 result.texture_bbox_first_mismatch_index = index;
@@ -12235,6 +12583,14 @@ static int gpu_d1_texture_checkerboard_probe_child(int write_fd) {
                                 result.texture_bbox_first_mismatch_value = value;
                             }
                             result.texture_bbox_sample_mismatch_count += 1U;
+                            if (realframe_mode) {
+                                if (result.realframe_bbox_sample_mismatch_count == 0U) {
+                                    result.realframe_bbox_first_mismatch_index = index;
+                                    result.realframe_bbox_first_mismatch_expected = expected;
+                                    result.realframe_bbox_first_mismatch_value = value;
+                                }
+                                result.realframe_bbox_sample_mismatch_count += 1U;
+                            }
                         }
                     }
                 }
@@ -12363,6 +12719,7 @@ out:
             result.close_errno = 0;
         }
     }
+    free(realframe_frame);
     result.total_elapsed_ms = monotonic_millis() - total_started_ms;
     (void)write_all_checked(write_fd, (const char *)&result, sizeof(result));
     close(write_fd);
@@ -12453,8 +12810,14 @@ static int gpu_d1_texture_checkerboard_probe(int timeout_ms, bool materialize_de
         return -saved_errno;
     }
     if (pid == 0) {
+        const struct gpu_d1_texture_source_config config = {
+            GPU_D1_TEXTURE_SOURCE_CHECKERBOARD,
+            NULL,
+            0U,
+        };
+
         close(pipefd[0]);
-        return gpu_d1_texture_checkerboard_probe_child(pipefd[1]);
+        return gpu_d1_texture_probe_child(pipefd[1], &config);
     }
     close(pipefd[1]);
     deadline_ms = monotonic_millis() + timeout_ms;
@@ -12608,6 +12971,259 @@ static int gpu_d1_texture_checkerboard_probe(int timeout_ms, bool materialize_de
         return -ETIMEDOUT;
     }
     return got_result && gpu_d1_texture_checkerboard_result_passed(&result) ? 0 : -EIO;
+}
+
+static int gpu_d2_realframe_texture_probe(int timeout_ms,
+                                          bool materialize_devnode,
+                                          const char *manifest_path,
+                                          uint32_t frame_index) {
+    int pipefd[2];
+    pid_t pid;
+    long deadline_ms;
+    bool got_result = false;
+    bool timed_out = false;
+    bool child_killed = false;
+    bool child_reaped = false;
+    int child_status = 0;
+    struct gpu_h3_draw_envelope_probe_result result;
+    const char *effective_manifest =
+        manifest_path != NULL ? manifest_path : GPU_D2_REALFRAME_BADAPPLE_MANIFEST_PATH;
+    struct gpu_d1_texture_source_config config = {
+        GPU_D1_TEXTURE_SOURCE_REALFRAME_MONO1,
+        effective_manifest,
+        frame_index,
+    };
+
+    memset(&result, 0, sizeof(result));
+    if (timeout_ms <= 0) {
+        timeout_ms = GPU_G0_DEFAULT_TIMEOUT_MS;
+    }
+    if (timeout_ms > GPU_G0_MAX_TIMEOUT_MS) {
+        a90_console_printf("gpu.d2.realframe.error=timeout-too-large max_ms=%d\r\n",
+                           GPU_G0_MAX_TIMEOUT_MS);
+        return -EINVAL;
+    }
+    a90_console_printf("gpu.d2.realframe.version=1\r\n");
+    a90_console_printf("gpu.d2.realframe.scope=gpu-2d-d2-realframe-sd-cache-texture-readback\r\n");
+    a90_console_printf("gpu.d2.realframe.label=GPU REALFRAME BADAPPLE\r\n");
+    a90_console_printf("gpu.d2.realframe.path=%s\r\n", GPU_G0_DEVNODE);
+    a90_console_printf("gpu.d2.realframe.timeout_ms=%d\r\n", timeout_ms);
+    a90_console_printf("gpu.d2.realframe.wait_timeout_ms=%u\r\n", GPU_H3_WAIT_TIMEOUT_MS);
+    a90_console_printf("gpu.d2.realframe.source=sd-cache-badapple-mono1-v2903-frame-to-rgba8-texture\r\n");
+    a90_console_printf("gpu.d2.realframe.shader_sha256=%s\r\n", GPU_D1_TEXTURED_FS_SHA256);
+    a90_console_printf("gpu.d2.realframe.command=gpu d2-realframe-texture-probe --preset badapple --frame-index %u --timeout-ms 5000 --materialize-devnode\r\n",
+                       frame_index);
+    a90_console_printf("gpu.d2.realframe.preset=badapple\r\n");
+    a90_console_printf("gpu.d2.realframe.manifest=%s\r\n", effective_manifest);
+    a90_console_printf("gpu.d2.realframe.frame_index=%u\r\n", frame_index);
+    a90_console_printf("gpu.d2.realframe.output_size=%ux%u\r\n",
+                       GPU_H2_COLOR_WIDTH, GPU_H2_COLOR_HEIGHT);
+    a90_console_printf("gpu.d2.realframe.sampler_desc_dwords=%u\r\n",
+                       GPU_D1_SAMPLER_DESC_DWORDS);
+    a90_console_printf("gpu.d2.realframe.texmem_desc_dwords=%u\r\n",
+                       GPU_D1_TEXMEMOBJ_DESC_DWORDS);
+    a90_console_printf("gpu.d2.realframe.sp_ps_config=0x%x\r\n",
+                       GPU_D1_SP_PS_CONFIG_TEXTURED);
+    a90_console_printf("gpu.d2.realframe.sp_ps_cntl0=0x%x\r\n",
+                       GPU_D1_SP_PS_CNTL_0);
+    a90_console_printf("gpu.d2.realframe.viewport_scale_mode=inherited-default-clip-space-bbox\r\n");
+    a90_console_printf("gpu.d2.realframe.load_state6_sampler=frag-st6-shader-sb6-fs-tex-indirect\r\n");
+    a90_console_printf("gpu.d2.realframe.load_state6_texmem=frag-st6-constants-sb6-fs-tex-indirect\r\n");
+    a90_console_printf("gpu.d2.realframe.draw=clip-space-quad-6-auto-indexed-vertices\r\n");
+    a90_console_printf("gpu.d2.realframe.readback_gate=linearized-bbox-local-64-realframe-samples\r\n");
+    a90_console_printf("gpu.d2.realframe.kms_blit_attempted=0\r\n");
+    a90_console_printf("gpu.d2.realframe.power_write_attempted=0\r\n");
+    a90_console_printf("gpu.d2.realframe.proprietary_blob_attempted=0\r\n");
+    if (materialize_devnode) {
+        int mat_rc = gpu_g0_materialize_devnode();
+
+        a90_console_printf("gpu.d2.realframe.materialize_requested=1\r\n");
+        a90_console_printf("gpu.d2.realframe.materialize_rc=%d\r\n", mat_rc);
+        if (mat_rc < 0) {
+            return mat_rc;
+        }
+    } else {
+        a90_console_printf("gpu.d2.realframe.materialize_requested=0\r\n");
+    }
+    if (pipe(pipefd) < 0) {
+        int saved_errno = errno;
+        a90_console_printf("gpu.d2.realframe.pipe_rc=-1 errno=%d\r\n", saved_errno);
+        return -saved_errno;
+    }
+    pid = fork();
+    if (pid < 0) {
+        int saved_errno = errno;
+        close(pipefd[0]);
+        close(pipefd[1]);
+        a90_console_printf("gpu.d2.realframe.fork_rc=-1 errno=%d\r\n", saved_errno);
+        return -saved_errno;
+    }
+    if (pid == 0) {
+        close(pipefd[0]);
+        return gpu_d1_texture_probe_child(pipefd[1], &config);
+    }
+    close(pipefd[1]);
+    deadline_ms = monotonic_millis() + timeout_ms;
+    a90_console_printf("gpu.d2.realframe.child_pid=%ld\r\n", (long)pid);
+
+    while (monotonic_millis() <= deadline_ms) {
+        struct pollfd pfd;
+        long now_ms = monotonic_millis();
+        int remaining_ms = (int)(deadline_ms > now_ms ? deadline_ms - now_ms : 0);
+        int poll_ms = remaining_ms > 50 ? 50 : remaining_ms;
+        ssize_t rd;
+        pid_t wait_rc;
+
+        if (poll_ms < 0) {
+            poll_ms = 0;
+        }
+        pfd.fd = pipefd[0];
+        pfd.events = POLLIN | POLLHUP;
+        pfd.revents = 0;
+        if (poll(&pfd, 1, poll_ms) > 0 && (pfd.revents & (POLLIN | POLLHUP)) != 0) {
+            rd = read(pipefd[0], &result, sizeof(result));
+            if (rd == (ssize_t)sizeof(result)) {
+                got_result = true;
+            }
+            break;
+        }
+        wait_rc = waitpid(pid, &child_status, WNOHANG);
+        if (wait_rc == pid) {
+            child_reaped = true;
+            break;
+        }
+    }
+
+    if (!got_result && !child_reaped) {
+        timed_out = true;
+        if (kill(pid, SIGKILL) == 0) {
+            child_killed = true;
+        }
+        if (waitpid(pid, &child_status, 0) == pid) {
+            child_reaped = true;
+        }
+    } else if (!child_reaped) {
+        if (waitpid(pid, &child_status, 0) == pid) {
+            child_reaped = true;
+        }
+    }
+    close(pipefd[0]);
+
+    a90_console_printf("gpu.d2.realframe.result=%s\r\n",
+                       got_result ? (gpu_d2_realframe_texture_result_passed(&result) ?
+                                     "realframe-texture-readback-pass" :
+                                     "realframe-texture-readback-failed") :
+                       (timed_out ? "timeout" : "no-result"));
+    a90_console_printf("gpu.d2.realframe.timed_out=%d\r\n", timed_out ? 1 : 0);
+    a90_console_printf("gpu.d2.realframe.child_killed=%d\r\n", child_killed ? 1 : 0);
+    a90_console_printf("gpu.d2.realframe.child_reaped=%d\r\n", child_reaped ? 1 : 0);
+    a90_console_printf("gpu.d2.realframe.child_status=0x%x\r\n", child_status);
+    if (got_result) {
+        a90_console_printf("gpu.d2.realframe.manifest_rc=%d\r\n",
+                           result.realframe_manifest_rc);
+        a90_console_printf("gpu.d2.realframe.open_stream_rc=%d errno=%d\r\n",
+                           result.realframe_open_rc,
+                           result.realframe_open_errno);
+        a90_console_printf("gpu.d2.realframe.header_rc=%d\r\n",
+                           result.realframe_header_rc);
+        a90_console_printf("gpu.d2.realframe.record_rc=%d\r\n",
+                           result.realframe_record_rc);
+        a90_console_printf("gpu.d2.realframe.read_rc=%d\r\n",
+                           result.realframe_read_rc);
+        a90_console_printf("gpu.d2.realframe.close_stream_rc=%d errno=%d\r\n",
+                           result.realframe_close_rc,
+                           result.realframe_close_errno);
+        a90_console_printf("gpu.d2.realframe.requested_frame_index=%u\r\n",
+                           result.realframe_requested_frame_index);
+        a90_console_printf("gpu.d2.realframe.record_index=%u\r\n",
+                           result.realframe_record_index);
+        a90_console_printf("gpu.d2.realframe.payload_bytes=%u\r\n",
+                           result.realframe_payload_bytes);
+        a90_console_printf("gpu.d2.realframe.source_size=%ux%u\r\n",
+                           result.realframe_width,
+                           result.realframe_height);
+        a90_console_printf("gpu.d2.realframe.source_stride=%u\r\n",
+                           result.realframe_stride);
+        a90_console_printf("gpu.d2.realframe.source_frame_bytes=%u\r\n",
+                           result.realframe_frame_bytes);
+        a90_console_printf("gpu.d2.realframe.source_dark_count=%u\r\n",
+                           result.realframe_source_dark_count);
+        a90_console_printf("gpu.d2.realframe.source_light_count=%u\r\n",
+                           result.realframe_source_light_count);
+        a90_console_printf("gpu.d2.realframe.source_other_count=%u\r\n",
+                           result.realframe_source_other_count);
+        a90_console_printf("gpu.d2.realframe.open_rc=%d\r\n", result.open_rc);
+        a90_console_printf("gpu.d2.realframe.create_rc=%d\r\n", result.create_rc);
+        a90_console_printf("gpu.d2.realframe.texture_alloc_rc=%d\r\n",
+                           result.texture_alloc_rc);
+        a90_console_printf("gpu.d2.realframe.texture_size=%ux%u\r\n",
+                           result.texture_width,
+                           result.texture_height);
+        a90_console_printf("gpu.d2.realframe.texture_stride=%u\r\n",
+                           result.texture_stride);
+        a90_console_printf("gpu.d2.realframe.texture_bytes=%u\r\n",
+                           result.texture_bytes);
+        a90_console_printf("gpu.d2.realframe.texture_write_rc=%d\r\n",
+                           result.texture_write_rc);
+        a90_console_printf("gpu.d2.realframe.texture_desc_write_rc=%d\r\n",
+                           result.texture_desc_write_rc);
+        a90_console_printf("gpu.d2.realframe.cmd_write_rc=%d\r\n",
+                           result.cmd_write_rc);
+        a90_console_printf("gpu.d2.realframe.pm4_dwords=%u\r\n", result.pm4_dwords);
+        a90_console_printf("gpu.d2.realframe.sync_rc=%d\r\n", result.sync_rc);
+        a90_console_printf("gpu.d2.realframe.submit_rc=%d\r\n", result.submit_rc);
+        a90_console_printf("gpu.d2.realframe.submit_errno=%d\r\n",
+                           result.submit_errno);
+        a90_console_printf("gpu.d2.realframe.submit_timestamp=%u\r\n",
+                           result.submit_timestamp);
+        a90_console_printf("gpu.d2.realframe.wait_rc=%d\r\n", result.wait_rc);
+        a90_console_printf("gpu.d2.realframe.wait_errno=%d\r\n", result.wait_errno);
+        a90_console_printf("gpu.d2.realframe.retired_timestamp=%u\r\n",
+                           result.retired_timestamp);
+        a90_console_printf("gpu.d2.realframe.readback_sync_rc=%d\r\n",
+                           result.readback_sync_rc);
+        a90_console_printf("gpu.d2.realframe.linear_readback_changed_count=%u\r\n",
+                           result.linear_readback_changed_count);
+        a90_console_printf("gpu.d2.realframe.linear_readback_bbox_found=%u\r\n",
+                           result.linear_readback_bbox_found);
+        a90_console_printf("gpu.d2.realframe.linear_readback_bbox=%u,%u,%u,%u\r\n",
+                           result.linear_readback_bbox_min_x,
+                           result.linear_readback_bbox_min_y,
+                           result.linear_readback_bbox_max_x,
+                           result.linear_readback_bbox_max_y);
+        a90_console_printf("gpu.d2.realframe.output_dark_count=%u\r\n",
+                           result.texture_dark_count);
+        a90_console_printf("gpu.d2.realframe.output_light_count=%u\r\n",
+                           result.texture_light_count);
+        a90_console_printf("gpu.d2.realframe.output_other_count=%u\r\n",
+                           result.texture_other_count);
+        a90_console_printf("gpu.d2.realframe.texture_bbox_sample_count=%u\r\n",
+                           result.texture_bbox_sample_count);
+        a90_console_printf("gpu.d2.realframe.texture_bbox_sample_match_count=%u\r\n",
+                           result.texture_bbox_sample_match_count);
+        a90_console_printf("gpu.d2.realframe.texture_bbox_sample_mismatch_count=%u\r\n",
+                           result.texture_bbox_sample_mismatch_count);
+        a90_console_printf("gpu.d2.realframe.realframe_bbox_sample_count=%u\r\n",
+                           result.realframe_bbox_sample_count);
+        a90_console_printf("gpu.d2.realframe.realframe_bbox_sample_match_count=%u\r\n",
+                           result.realframe_bbox_sample_match_count);
+        a90_console_printf("gpu.d2.realframe.realframe_bbox_sample_mismatch_count=%u\r\n",
+                           result.realframe_bbox_sample_mismatch_count);
+        a90_console_printf("gpu.d2.realframe.realframe_bbox_first_mismatch_index=%u\r\n",
+                           result.realframe_bbox_first_mismatch_index);
+        a90_console_printf("gpu.d2.realframe.realframe_bbox_first_mismatch_expected=0x%x\r\n",
+                           result.realframe_bbox_first_mismatch_expected);
+        a90_console_printf("gpu.d2.realframe.realframe_bbox_first_mismatch_value=0x%x\r\n",
+                           result.realframe_bbox_first_mismatch_value);
+        a90_console_printf("gpu.d2.realframe.destroy_rc=%d\r\n", result.destroy_rc);
+        a90_console_printf("gpu.d2.realframe.close_rc=%d\r\n", result.close_rc);
+        a90_console_printf("gpu.d2.realframe.total_elapsed_ms=%ld\r\n",
+                           result.total_elapsed_ms);
+    }
+    if (timed_out) {
+        return -ETIMEDOUT;
+    }
+    return got_result && gpu_d2_realframe_texture_result_passed(&result) ? 0 : -EIO;
 }
 
 static uint32_t gpu_h5_pack_rgb_for_xbgr8888(uint32_t color) {
@@ -13846,6 +14462,53 @@ static int handle_gpu(char **argv, int argc) {
         }
         return gpu_d1_texture_checkerboard_probe(timeout_ms, materialize_devnode);
     }
+    if (strcmp(subcommand, "d2-realframe-texture-probe") == 0 ||
+        strcmp(subcommand, "realframe-texture-probe") == 0) {
+        const char *manifest_path = NULL;
+        uint32_t frame_index = GPU_D2_REALFRAME_DEFAULT_FRAME_INDEX;
+
+        for (index = 2; index < argc; ++index) {
+            if (strcmp(argv[index], "--timeout-ms") == 0) {
+                if (index + 1 >= argc || !gpu_g0_parse_int(argv[index + 1], &timeout_ms)) {
+                    a90_console_printf("gpu.d2.realframe.error=bad-timeout\r\n");
+                    return -EINVAL;
+                }
+                ++index;
+            } else if (strcmp(argv[index], "--frame-index") == 0) {
+                if (index + 1 >= argc ||
+                    !parse_u32_arg(argv[index + 1], 0, VIDEO_STREAM_MAX_FRAMES - 1U,
+                                   &frame_index)) {
+                    a90_console_printf("gpu.d2.realframe.error=bad-frame-index\r\n");
+                    return -EINVAL;
+                }
+                ++index;
+            } else if (strcmp(argv[index], "--preset") == 0) {
+                if (index + 1 >= argc ||
+                    strcmp(argv[index + 1], VIDEO_CACHE_PRESET_BADAPPLE_NAME) != 0) {
+                    a90_console_printf("gpu.d2.realframe.error=unsupported-preset\r\n");
+                    return -EINVAL;
+                }
+                manifest_path = GPU_D2_REALFRAME_BADAPPLE_MANIFEST_PATH;
+                ++index;
+            } else if (strcmp(argv[index], "--manifest") == 0) {
+                if (index + 1 >= argc || argv[index + 1][0] != '/') {
+                    a90_console_printf("gpu.d2.realframe.error=bad-manifest\r\n");
+                    return -EINVAL;
+                }
+                manifest_path = argv[index + 1];
+                ++index;
+            } else if (strcmp(argv[index], "--materialize-devnode") == 0) {
+                materialize_devnode = true;
+            } else {
+                a90_console_printf("usage: gpu d2-realframe-texture-probe [--preset badapple|--manifest PATH] [--frame-index N] [--timeout-ms N] [--materialize-devnode]\r\n");
+                return -EINVAL;
+            }
+        }
+        return gpu_d2_realframe_texture_probe(timeout_ms,
+                                              materialize_devnode,
+                                              manifest_path,
+                                              frame_index);
+    }
     if (strcmp(subcommand, "g4-solid-fill-probe") == 0 ||
         strcmp(subcommand, "solid-fill-probe") == 0) {
         for (index = 2; index < argc; ++index) {
@@ -13907,7 +14570,7 @@ static int handle_gpu(char **argv, int argc) {
         return gpu_h5_triangle_kms_probe(timeout_ms, materialize_devnode, hold_ms);
     }
     if (strcmp(subcommand, "g0-open-probe") != 0) {
-        a90_console_printf("usage: gpu [g0-status|g0-fwclass-prepare|g0-open-probe [--timeout-ms N] [--rdwr] [--materialize-devnode]|g1-context-probe [--timeout-ms N] [--materialize-devnode]|g2-gpuobj-probe [--timeout-ms N] [--materialize-devnode]|g2-mmap-probe [--timeout-ms N] [--materialize-devnode]|g3-noop-submit-probe [--timeout-ms N] [--materialize-devnode]|h1-shader-state-probe [--timeout-ms N] [--materialize-devnode]|h2-3d-state-probe [--timeout-ms N] [--materialize-devnode]|h3-draw-envelope-probe [--timeout-ms N] [--materialize-devnode]|c1-compute-invocationid-probe [--timeout-ms N] [--materialize-devnode]|c2-compute-pattern-probe [--timeout-ms N] [--materialize-devnode]|c3-compute-kms-probe [--timeout-ms N] [--hold-ms N] [--materialize-devnode]|d1-texture-checkerboard-probe [--timeout-ms N] [--materialize-devnode]|g4-solid-fill-probe [--timeout-ms N] [--materialize-devnode]|g5-kms-blit-probe [--timeout-ms N] [--materialize-devnode]|h5-triangle-kms-probe [--timeout-ms N] [--hold-ms N] [--materialize-devnode]]\r\n");
+        a90_console_printf("usage: gpu [g0-status|g0-fwclass-prepare|g0-open-probe [--timeout-ms N] [--rdwr] [--materialize-devnode]|g1-context-probe [--timeout-ms N] [--materialize-devnode]|g2-gpuobj-probe [--timeout-ms N] [--materialize-devnode]|g2-mmap-probe [--timeout-ms N] [--materialize-devnode]|g3-noop-submit-probe [--timeout-ms N] [--materialize-devnode]|h1-shader-state-probe [--timeout-ms N] [--materialize-devnode]|h2-3d-state-probe [--timeout-ms N] [--materialize-devnode]|h3-draw-envelope-probe [--timeout-ms N] [--materialize-devnode]|c1-compute-invocationid-probe [--timeout-ms N] [--materialize-devnode]|c2-compute-pattern-probe [--timeout-ms N] [--materialize-devnode]|c3-compute-kms-probe [--timeout-ms N] [--hold-ms N] [--materialize-devnode]|d1-texture-checkerboard-probe [--timeout-ms N] [--materialize-devnode]|d2-realframe-texture-probe [--preset badapple|--manifest PATH] [--frame-index N] [--timeout-ms N] [--materialize-devnode]|g4-solid-fill-probe [--timeout-ms N] [--materialize-devnode]|g5-kms-blit-probe [--timeout-ms N] [--materialize-devnode]|h5-triangle-kms-probe [--timeout-ms N] [--hold-ms N] [--materialize-devnode]]\r\n");
         return -EINVAL;
     }
     for (index = 2; index < argc; ++index) {

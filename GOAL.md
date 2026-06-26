@@ -507,7 +507,7 @@ warm and does not repeat a stall; carry the execution-proof bisect + register-di
   measure (fps / CPU freed); operator confirms the demo still renders correctly via the GPU blit = ② close. This makes
   the GPU a real CONSUMER of existing work and is the third call site for the ③ rule-of-three extraction.
 
-**STATUS (2026-06-26) — C0 host-only recon landed as V3299; C1 shader-byte gate landed as V3300; C1 native-init source/build + live UAV readback proof landed as V3301; C2 128x128 compute pattern source/build + live readback proof landed as V3302; C3 source/build + device-presented-held proof landed as V3303 and is now operator eye-confirmed; D0 texture reference recon landed as V3304; D1 textured FS shader-byte gate landed as V3305.**
+**STATUS (2026-06-26) — C0 host-only recon landed as V3299; C1 shader-byte gate landed as V3300; C1 native-init source/build + live UAV readback proof landed as V3301; C2 128x128 compute pattern source/build + live readback proof landed as V3302; C3 source/build + device-presented-held proof landed as V3303 and is now operator eye-confirmed; D0 texture reference recon landed as V3304; D1 textured FS shader-byte gate landed as V3305 and closed live as V3310; D2 real SD-cache Bad Apple frame texture readback closed live as V3311. NEXT = D3 wire GPU textured-quad blit into the demo player's present path, present, and measure.**
 `native_gpu_compute_c0_reference_v3299.py` encodes and validates the staged A640 compute dispatch envelope against
 `/tmp/a90-mesa-gpu-src/`: CS program regs, `CP_LOAD_STATE6` shader/constant/UAV state, `RM6_COMPUTE`, NDRANGE,
 `CP_EXEC_CS`, and WFI/readback ordering all match the Mesa computerator/fd6 references; `kern_invocationid.asm` is fixed
@@ -571,10 +571,14 @@ cat5 `sam` contract exposes `s#0/t#0`. V3305 then added
 The shader is 32 dwords / 128 bytes, `instrlen=1`, `constlen=0`, `max_reg=1`, `max_half_reg=-1`,
 `num_samp=1`, `num_tex=1`, `sha256=4e8ad0a934d236149af999619a1fe99690e7b732d2e4ca69a2b345100d8d04a3`, and its
 sample output register `r0.z` maps to scalar regid 2, matching the existing H3 color-output contract
-(`GPU_H3_PS_OUTPUT_REGID=2`, fullregfootprint covers the payload, RGBA8 MRT contract present). The next D1 unit is now
-the native-init source/build static checkerboard texture probe: embed the verified FS words, load one sampler and one
-TEXMEMOBJ descriptor with `NTEX=1/NSAMP=1`, draw a fullscreen textured quad, and require readback to contain the sampled
-checkerboard pattern.
+(`GPU_H3_PS_OUTPUT_REGID=2`, fullregfootprint covers the payload, RGBA8 MRT contract present). V3310 then closed D1 with
+`gpu d1-texture-checkerboard-probe`: a 128x128 static checkerboard sampled through the textured FS, linearized, and
+verified with a full 128x128 changed readback plus 64/64 bbox-local checker samples. V3311 then closed D2 with
+`gpu d2-realframe-texture-probe --preset badapple --frame-index 515`: the device read the SD-cache Bad Apple mono1
+A90VSTR1 stream, expanded frame 515 into a 480x360 RGBA8 texture, rendered it into the 128x128 target, and matched all
+64 bbox-local source-frame samples (`source_dark_count=86381`, `source_light_count=86419`, output dark/light positive,
+`output_other_count=0`). D3 is now next: wire this GPU textured-quad blit into the demo player's present path and measure
+fps/CPU impact.
 
 **(historical, first-triangle ladder — DONE record)** Threshold from fixed-function plumbing to *real GPU
 graphics*: vertex buffer → vertex shader → rasterizer → fragment shader → a shaded triangle, readback-verified, blitted
