@@ -552,6 +552,16 @@ live validation. Probe telemetry reported `cpu.count=8`, `cluster.count=3`, `his
 `Adreno640v2`, framebuffer `1080x2400` stride `4352`, `kgsl_submit_attempted=0`, `kms_present_attempted=1`,
 `present_rc=0`, `hold_elapsed_ms=5000`, and `result=dashboard-presented`; post-probe selftest stayed
 `pass=12 warn=1 fail=0`. M1 is DONE. NEXT = M2 GPU-accelerated live graphs via the 2D textured-quad/blit path.**
+
+**STATUS (2026-06-27 M2 live) — V3319 implemented `gpu m2-monitor-live-graph-probe`, built
+`boot_linux_v3319_gpu_m2_monitor_live_graphs.img` (SHA256
+`4b78660fa1721006ec57f1295a02e65f32546638823f2c537a01dddc30b99fee`), flashed through `native_init_flash.py`, and passed
+live validation. Probe telemetry reported the live monitor mono1 graph source (`480x360` stride `60`) scaled through the
+proven D3 KGSL textured-quad path to a `960x720` target, `kgsl_submit_attempted=1`, `kms_present_attempted=1`,
+`presented=12`, `present_rc=0`, `graph_points=13`, `graph_pixels_set=2724`, `cpu.count=8`, `cluster.count=3`, KGSL model
+`Adreno640v2`, `pm4_dwords=409`, `semantic.sample_count=64`, `semantic.match_count=64`, `semantic.mismatch_count=0`,
+`semantic.output_other_count=0`, and `result=monitor-live-graph-pass`; post-probe selftest stayed
+`pass=12 warn=1 fail=0`. M2 is DONE. NEXT = M3 polish + shared KGSL submit/fence/buffer/texture/present extraction.**
 `native_gpu_compute_c0_reference_v3299.py` encodes and validates the staged A640 compute dispatch envelope against
 `/tmp/a90-mesa-gpu-src/`: CS program regs, `CP_LOAD_STATE6` shader/constant/UAV state, `RM6_COMPUTE`, NDRANGE,
 `CP_EXEC_CS`, and WFI/readback ordering all match the Mesa computerator/fd6 references; `kern_invocationid.asm` is fixed

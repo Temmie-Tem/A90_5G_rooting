@@ -784,6 +784,241 @@ static unsigned int monitor_capacity_readable_count(const struct a90_monitor_sta
     return count;
 }
 
+static long monitor_graph_clamp_pct(long value) {
+    if (value < 0) {
+        return 0;
+    }
+    if (value > 100) {
+        return 100;
+    }
+    return value;
+}
+
+static unsigned int monitor_graph_set_pixel(uint8_t *frame,
+                                            uint32_t width,
+                                            uint32_t height,
+                                            uint32_t stride,
+                                            int x,
+                                            int y) {
+    uint8_t *byte;
+    uint8_t mask;
+
+    if (frame == NULL || x < 0 || y < 0 ||
+        (uint32_t)x >= width || (uint32_t)y >= height ||
+        stride < (width + 7U) / 8U) {
+        return 0;
+    }
+    byte = frame + ((uint32_t)y * stride) + ((uint32_t)x / 8U);
+    mask = (uint8_t)(1U << (7U - ((uint32_t)x % 8U)));
+    if ((*byte & mask) != 0U) {
+        return 0;
+    }
+    *byte |= mask;
+    return 1;
+}
+
+static unsigned int monitor_graph_draw_line(uint8_t *frame,
+                                            uint32_t width,
+                                            uint32_t height,
+                                            uint32_t stride,
+                                            int x0,
+                                            int y0,
+                                            int x1,
+                                            int y1) {
+    int dx = x1 > x0 ? x1 - x0 : x0 - x1;
+    int sx = x0 < x1 ? 1 : -1;
+    int dy = y1 > y0 ? y0 - y1 : y1 - y0;
+    int sy = y0 < y1 ? 1 : -1;
+    int err = dx + dy;
+    unsigned int changed = 0;
+
+    for (;;) {
+        int e2;
+
+        changed += monitor_graph_set_pixel(frame, width, height, stride, x0, y0);
+        if (x0 == x1 && y0 == y1) {
+            break;
+        }
+        e2 = 2 * err;
+        if (e2 >= dy) {
+            err += dy;
+            x0 += sx;
+        }
+        if (e2 <= dx) {
+            err += dx;
+            y0 += sy;
+        }
+    }
+    return changed;
+}
+
+static unsigned int monitor_graph_draw_lane(const struct a90_monitor_graph_series *series,
+                                            uint8_t *frame,
+                                            uint32_t width,
+                                            uint32_t height,
+                                            uint32_t stride,
+                                            unsigned int lane,
+                                            unsigned int value_index) {
+    uint32_t lane_top = (height * lane) / 4U;
+    uint32_t lane_bottom = ((height * (lane + 1U)) / 4U) - 8U;
+    uint32_t graph_top = lane_top + 12U;
+    uint32_t graph_bottom = lane_bottom > graph_top ? lane_bottom : graph_top + 1U;
+    uint32_t graph_left = 28U;
+    uint32_t graph_right = width > 12U ? width - 12U : width - 1U;
+    unsigned int changed = 0;
+    unsigned int index;
+    int prev_x = -1;
+    int prev_y = -1;
+
+    if (series == NULL || frame == NULL || width < 64U || height < 64U ||
+        lane >= 4U || value_index >= 4U) {
+        return 0;
+    }
+
+    changed += monitor_graph_draw_line(frame, width, height, stride,
+                                       (int)graph_left, (int)graph_bottom,
+                                       (int)graph_right, (int)graph_bottom);
+    changed += monitor_graph_draw_line(frame, width, height, stride,
+                                       (int)graph_left, (int)graph_top,
+                                       (int)graph_left, (int)graph_bottom);
+    for (index = 1; index < 4U; ++index) {
+        uint32_t gy = graph_top + ((graph_bottom - graph_top) * index) / 4U;
+
+        changed += monitor_graph_draw_line(frame, width, height, stride,
+                                           (int)graph_left, (int)gy,
+                                           (int)(graph_left + 8U), (int)gy);
+    }
+
+    for (index = 0; index < series->count; ++index) {
+        unsigned int point_index =
+            (series->head + A90_MONITOR_GRAPH_MAX_POINTS - series->count + index) %
+            A90_MONITOR_GRAPH_MAX_POINTS;
+        const struct a90_monitor_graph_point *point = &series->points[point_index];
+        long values[4];
+        long pct;
+        int x;
+        int y;
+
+        values[0] = point->cpu_pct;
+        values[1] = point->gpu_pct;
+        values[2] = point->mem_pct;
+        values[3] = point->temp_pct;
+        pct = monitor_graph_clamp_pct(values[value_index]);
+        x = (int)(graph_left +
+                  ((graph_right - graph_left) * index) /
+                  (A90_MONITOR_GRAPH_MAX_POINTS - 1U));
+        y = (int)(graph_bottom -
+                  ((graph_bottom - graph_top) * (uint32_t)pct) / 100U);
+        if (prev_x >= 0) {
+            changed += monitor_graph_draw_line(frame, width, height, stride,
+                                               prev_x, prev_y, x, y);
+        }
+        changed += monitor_graph_set_pixel(frame, width, height, stride, x, y - 1);
+        changed += monitor_graph_set_pixel(frame, width, height, stride, x, y);
+        changed += monitor_graph_set_pixel(frame, width, height, stride, x, y + 1);
+        prev_x = x;
+        prev_y = y;
+    }
+    return changed;
+}
+
+void a90_monitor_graph_reset(struct a90_monitor_graph_series *series) {
+    if (series != NULL) {
+        memset(series, 0, sizeof(*series));
+        series->last_cpu_pct = A90_MONITOR_INVALID_LONG;
+        series->last_gpu_pct = A90_MONITOR_INVALID_LONG;
+        series->last_mem_pct = A90_MONITOR_INVALID_LONG;
+        series->last_temp_pct = A90_MONITOR_INVALID_LONG;
+    }
+}
+
+int a90_monitor_graph_sample(struct a90_monitor_graph_series *series) {
+    static struct a90_monitor_state state;
+    static bool state_ready;
+    struct a90_monitor_sample sample;
+    struct a90_monitor_graph_point point;
+    long cpu_sum = 0;
+    long cpu_count = 0;
+    unsigned int index;
+
+    if (series == NULL) {
+        return -EINVAL;
+    }
+    if (!state_ready) {
+        int rc = monitor_discover_topology(&state);
+
+        if (rc < 0) {
+            return rc;
+        }
+        state_ready = true;
+    }
+    memset(&sample, 0, sizeof(sample));
+    (void)monitor_take_sample(&state, &sample);
+
+    for (index = 0; index < state.cpu_count; ++index) {
+        if (sample.cpu_usage_pct[index] >= 0) {
+            cpu_sum += sample.cpu_usage_pct[index];
+            ++cpu_count;
+        }
+    }
+    point.cpu_pct = cpu_count > 0 ? cpu_sum / cpu_count : 0;
+    point.gpu_pct = sample.gpu_busy_pct >= 0 ? sample.gpu_busy_pct : 0;
+    if (sample.mem_total_kb > 0 && sample.mem_available_kb >= 0 &&
+        sample.mem_available_kb <= sample.mem_total_kb) {
+        point.mem_pct =
+            ((sample.mem_total_kb - sample.mem_available_kb) * 100L) /
+            sample.mem_total_kb;
+    } else {
+        point.mem_pct = 0;
+    }
+    if (sample.sensor_summary.max_temp_millic > -100000L) {
+        point.temp_pct = sample.sensor_summary.max_temp_millic / 1000L;
+    } else if (sample.gpu_temp_millic > -100000L) {
+        point.temp_pct = sample.gpu_temp_millic / 1000L;
+    } else {
+        point.temp_pct = 0;
+    }
+    point.cpu_pct = monitor_graph_clamp_pct(point.cpu_pct);
+    point.gpu_pct = monitor_graph_clamp_pct(point.gpu_pct);
+    point.mem_pct = monitor_graph_clamp_pct(point.mem_pct);
+    point.temp_pct = monitor_graph_clamp_pct(point.temp_pct);
+
+    series->points[series->head] = point;
+    series->head = (series->head + 1U) % A90_MONITOR_GRAPH_MAX_POINTS;
+    if (series->count < A90_MONITOR_GRAPH_MAX_POINTS) {
+        series->count += 1U;
+    }
+    series->cpu_count = state.cpu_count;
+    series->cluster_count = state.cluster_count;
+    snprintf(series->gpu_model, sizeof(series->gpu_model), "%s",
+             state.gpu_model[0] != '\0' ? state.gpu_model : "?");
+    series->last_cpu_pct = point.cpu_pct;
+    series->last_gpu_pct = point.gpu_pct;
+    series->last_mem_pct = point.mem_pct;
+    series->last_temp_pct = point.temp_pct;
+    return 0;
+}
+
+unsigned int a90_monitor_graph_render_mono1(const struct a90_monitor_graph_series *series,
+                                            uint8_t *frame,
+                                            uint32_t width,
+                                            uint32_t height,
+                                            uint32_t stride) {
+    unsigned int changed = 0;
+    unsigned int lane;
+
+    if (series == NULL || frame == NULL || width == 0U || height == 0U ||
+        stride < (width + 7U) / 8U) {
+        return 0;
+    }
+    memset(frame, 0, (size_t)height * stride);
+    for (lane = 0; lane < 4U; ++lane) {
+        changed += monitor_graph_draw_lane(series, frame, width, height, stride,
+                                           lane, lane);
+    }
+    return changed;
+}
+
 static void monitor_format_freq(char *out, size_t out_size, long khz) {
     if (khz < 0) {
         snprintf(out, out_size, "?");

@@ -2398,6 +2398,18 @@ struct gpu_c2_compute_pattern_probe_result {
 #define GPU_D3_VIDEO_SEMANTIC_EDGE_RADIUS 1U
 #define GPU_D3_VIDEO_LABEL "GPU D3 VIDEO TEXTURE"
 #define GPU_D3_VIDEO_SCOPE "gpu-2d-d3-demo-player-texture-blit-present"
+#define GPU_M2_GRAPH_SOURCE_WIDTH 480U
+#define GPU_M2_GRAPH_SOURCE_HEIGHT 360U
+#define GPU_M2_GRAPH_SOURCE_STRIDE ((GPU_M2_GRAPH_SOURCE_WIDTH + 7U) / 8U)
+#define GPU_M2_GRAPH_SOURCE_BYTES \
+    ((uint64_t)GPU_M2_GRAPH_SOURCE_STRIDE * GPU_M2_GRAPH_SOURCE_HEIGHT)
+#define GPU_M2_GRAPH_DEFAULT_FRAMES 12U
+#define GPU_M2_GRAPH_MAX_FRAMES 60U
+#define GPU_M2_GRAPH_DEFAULT_INTERVAL_MS 200U
+#define GPU_M2_GRAPH_MAX_INTERVAL_MS 1000U
+#define GPU_M2_GRAPH_DEFAULT_HOLD_MS 5000
+#define GPU_M2_GRAPH_MAX_TIMEOUT_MS 60000
+#define GPU_M2_GRAPH_SCOPE "gpu-m2-live-monitor-graphs-textured-2d"
 #define GPU_H3_A6XX_FMT6_32_32_FLOAT 0x67U
 #define GPU_H3_A6XX_FMT6_32_32_32_32_FLOAT 0x82U
 #define GPU_H3_A6XX_FMT6_32_SINT 0x4cU
@@ -3976,6 +3988,63 @@ struct gpu_d3_video_summary {
     uint32_t semantic_source_light_count;
     uint32_t semantic_output_dark_count;
     uint32_t semantic_output_light_count;
+    uint32_t semantic_output_other_count;
+};
+
+struct gpu_m2_monitor_graph_summary {
+    int result_rc;
+    int gpu_create_rc;
+    int kms_begin_rc;
+    int present_rc;
+    int close_rc;
+    int close_errno;
+    uint32_t requested_frames;
+    uint32_t presented_frames;
+    uint32_t failed_frame;
+    uint32_t graph_points;
+    uint32_t graph_pixels_set;
+    uint32_t source_width;
+    uint32_t source_height;
+    uint32_t source_stride;
+    uint32_t source_frame_bytes;
+    uint32_t target_width;
+    uint32_t target_height;
+    uint32_t target_stride;
+    uint32_t target_bytes;
+    uint32_t pm4_dwords;
+    uint32_t cpu_count;
+    uint32_t cluster_count;
+    char gpu_model[64];
+    long last_cpu_pct;
+    long last_gpu_pct;
+    long last_mem_pct;
+    long last_temp_pct;
+    uint64_t elapsed_ns;
+    uint64_t fps_milli;
+    uint64_t sample_avg_us;
+    uint64_t sample_max_us;
+    uint64_t graph_avg_us;
+    uint64_t graph_max_us;
+    uint64_t texture_avg_us;
+    uint64_t texture_max_us;
+    uint64_t gpu_wait_avg_us;
+    uint64_t gpu_wait_max_us;
+    uint64_t readback_avg_us;
+    uint64_t readback_max_us;
+    uint64_t copy_avg_us;
+    uint64_t copy_max_us;
+    uint64_t present_avg_us;
+    uint64_t present_max_us;
+    uint64_t total_avg_us;
+    uint64_t total_max_us;
+    uint64_t changed_total;
+    uint32_t last_first_word;
+    uint32_t last_center_word;
+    uint32_t semantic_sample_count;
+    uint32_t semantic_sample_match_count;
+    uint32_t semantic_exact_match_count;
+    uint32_t semantic_edge_tolerant_match_count;
+    uint32_t semantic_sample_mismatch_count;
     uint32_t semantic_output_other_count;
 };
 
@@ -14800,6 +14869,535 @@ static int gpu_d3_video_texture_present_probe(int timeout_ms,
         0 : -EIO;
 }
 
+static void gpu_m2_fill_graph_manifest(struct video_stream_manifest *manifest,
+                                       uint32_t frames,
+                                       uint32_t interval_ms) {
+    if (manifest == NULL) {
+        return;
+    }
+    memset(manifest, 0, sizeof(*manifest));
+    snprintf(manifest->format, sizeof(manifest->format), "mono1-monitor-graph");
+    manifest->width = GPU_M2_GRAPH_SOURCE_WIDTH;
+    manifest->height = GPU_M2_GRAPH_SOURCE_HEIGHT;
+    manifest->stride = GPU_M2_GRAPH_SOURCE_STRIDE;
+    manifest->frame_bytes = (uint32_t)GPU_M2_GRAPH_SOURCE_BYTES;
+    manifest->visible_row_bytes = GPU_M2_GRAPH_SOURCE_STRIDE;
+    manifest->fps_num = 1000U;
+    manifest->fps_den = interval_ms > 0U ? interval_ms : 1U;
+    manifest->frame_count = frames;
+    manifest->pixel_format = VIDEO_STREAM_PIXEL_FORMAT_MONO1;
+    manifest->stream_version = VIDEO_STREAM_VERSION_A90VSTR1;
+}
+
+static bool gpu_m2_monitor_graph_summary_passed(const struct gpu_m2_monitor_graph_summary *summary) {
+    return summary != NULL &&
+           summary->result_rc == 0 &&
+           summary->presented_frames == summary->requested_frames &&
+           summary->presented_frames > 0U &&
+           summary->graph_points > 0U &&
+           summary->graph_pixels_set > 0U &&
+           summary->changed_total > 0ULL &&
+           summary->semantic_sample_count == GPU_D1_CHECKER_SAMPLE_COUNT &&
+           summary->semantic_sample_match_count == GPU_D1_CHECKER_SAMPLE_COUNT &&
+           summary->semantic_sample_match_count ==
+               summary->semantic_exact_match_count +
+               summary->semantic_edge_tolerant_match_count &&
+           summary->semantic_sample_mismatch_count == 0U &&
+           summary->semantic_output_other_count == 0U &&
+           summary->present_rc == 0;
+}
+
+static int gpu_m2_monitor_live_graph_child(int write_fd,
+                                           uint32_t requested_frames,
+                                           uint32_t interval_ms,
+                                           int hold_ms) {
+    struct gpu_m2_monitor_graph_summary summary;
+    struct gpu_d3_video_summary d3_summary;
+    struct video_stream_manifest manifest;
+    struct gpu_d3_session session;
+    struct a90_monitor_graph_series series;
+    struct a90_fb *fb;
+    uint8_t *frame = NULL;
+    uint64_t interval_ns = (uint64_t)interval_ms * 1000000ULL;
+    uint64_t started_ns;
+    uint64_t finished_ns;
+    uint64_t sample_sum_us = 0;
+    uint64_t graph_sum_us = 0;
+    uint64_t texture_sum_us = 0;
+    uint64_t gpu_wait_sum_us = 0;
+    uint64_t readback_sum_us = 0;
+    uint64_t copy_sum_us = 0;
+    uint64_t present_sum_us = 0;
+    uint64_t total_sum_us = 0;
+    uint32_t display_index;
+    uint32_t dst_x = 0U;
+    uint32_t dst_y = 96U;
+    int rc = 0;
+
+    memset(&summary, 0, sizeof(summary));
+    memset(&d3_summary, 0, sizeof(d3_summary));
+    gpu_d3_session_init(&session);
+    a90_monitor_graph_reset(&series);
+    gpu_m2_fill_graph_manifest(&manifest, requested_frames, interval_ms);
+    summary.result_rc = -EIO;
+    summary.gpu_create_rc = -1;
+    summary.kms_begin_rc = -1;
+    summary.present_rc = -1;
+    summary.close_rc = -1;
+    summary.requested_frames = requested_frames;
+    summary.failed_frame = UINT_MAX;
+    summary.source_width = manifest.width;
+    summary.source_height = manifest.height;
+    summary.source_stride = manifest.stride;
+    summary.source_frame_bytes = manifest.frame_bytes;
+    summary.target_width = GPU_D3_VIDEO_TARGET_WIDTH;
+    summary.target_height = GPU_D3_VIDEO_TARGET_HEIGHT;
+    summary.target_stride = GPU_D3_VIDEO_TARGET_STRIDE;
+    summary.target_bytes = (uint32_t)GPU_D3_VIDEO_TARGET_BYTES;
+
+    frame = (uint8_t *)malloc((size_t)GPU_M2_GRAPH_SOURCE_BYTES);
+    if (frame == NULL) {
+        rc = -ENOMEM;
+        goto out;
+    }
+    rc = gpu_d3_create_session(&session, &manifest, &d3_summary);
+    if (rc < 0) {
+        summary.gpu_create_rc = rc;
+        goto out;
+    }
+    summary.gpu_create_rc = d3_summary.gpu_create_rc;
+    summary.pm4_dwords = d3_summary.pm4_dwords;
+    summary.target_width = d3_summary.target_width;
+    summary.target_height = d3_summary.target_height;
+    summary.target_stride = d3_summary.target_stride;
+    summary.target_bytes = d3_summary.target_bytes;
+    if (interval_ms > 0U) {
+        (void)a90_monitor_graph_sample(&series);
+        usleep((useconds_t)interval_ms * 1000U);
+    }
+
+    stop_auto_hud(false);
+    started_ns = video_monotonic_ns();
+    for (display_index = 0; display_index < requested_frames; ++display_index) {
+        struct gpu_d3_video_frame_stats stats;
+        uint64_t frame_start_ns = video_monotonic_ns();
+        uint64_t before_sample_ns;
+        uint64_t after_sample_ns;
+        uint64_t before_graph_ns;
+        uint64_t after_graph_ns;
+        uint64_t before_present_ns;
+        uint64_t after_present_ns;
+        uint64_t deadline_ns = started_ns + ((uint64_t)display_index * interval_ns);
+        char line[128];
+
+        before_sample_ns = video_monotonic_ns();
+        rc = a90_monitor_graph_sample(&series);
+        after_sample_ns = video_monotonic_ns();
+        gpu_d3_add_us((after_sample_ns - before_sample_ns) / 1000ULL,
+                      &sample_sum_us,
+                      &summary.sample_max_us);
+        if (rc < 0) {
+            summary.failed_frame = display_index;
+            goto out;
+        }
+
+        before_graph_ns = video_monotonic_ns();
+        summary.graph_pixels_set =
+            a90_monitor_graph_render_mono1(&series,
+                                           frame,
+                                           manifest.width,
+                                           manifest.height,
+                                           manifest.stride);
+        after_graph_ns = video_monotonic_ns();
+        gpu_d3_add_us((after_graph_ns - before_graph_ns) / 1000ULL,
+                      &graph_sum_us,
+                      &summary.graph_max_us);
+        summary.graph_points = series.count;
+        summary.cpu_count = series.cpu_count;
+        summary.cluster_count = series.cluster_count;
+        snprintf(summary.gpu_model, sizeof(summary.gpu_model), "%s",
+                 series.gpu_model[0] != '\0' ? series.gpu_model : "?");
+        summary.last_cpu_pct = series.last_cpu_pct;
+        summary.last_gpu_pct = series.last_gpu_pct;
+        summary.last_mem_pct = series.last_mem_pct;
+        summary.last_temp_pct = series.last_temp_pct;
+
+        summary.kms_begin_rc = a90_kms_begin_frame(0x05070c);
+        if (summary.kms_begin_rc < 0) {
+            rc = negative_errno_or(ENODEV);
+            summary.failed_frame = display_index;
+            goto out;
+        }
+        fb = a90_kms_framebuffer();
+        if (fb == NULL || fb->pixels == NULL) {
+            rc = -ENODEV;
+            summary.failed_frame = display_index;
+            goto out;
+        }
+        dst_x = fb->width > session.target_width ?
+            (fb->width - session.target_width) / 2U : 0U;
+        dst_y = 120U;
+        rc = gpu_d3_render_frame_to_kms(&session, &manifest, frame, fb, dst_x, dst_y, &stats);
+        if (rc < 0) {
+            summary.failed_frame = display_index;
+            goto out;
+        }
+        gpu_d3_add_us(stats.texture_write_us, &texture_sum_us, &summary.texture_max_us);
+        gpu_d3_add_us(stats.gpu_wait_us, &gpu_wait_sum_us, &summary.gpu_wait_max_us);
+        gpu_d3_add_us(stats.readback_sync_us, &readback_sum_us, &summary.readback_max_us);
+        gpu_d3_add_us(stats.kms_copy_us, &copy_sum_us, &summary.copy_max_us);
+        summary.changed_total += stats.changed_count;
+        summary.last_first_word = stats.first_word;
+        summary.last_center_word = stats.center_word;
+        summary.semantic_sample_count = stats.semantic_sample_count;
+        summary.semantic_sample_match_count = stats.semantic_sample_match_count;
+        summary.semantic_exact_match_count = stats.semantic_exact_match_count;
+        summary.semantic_edge_tolerant_match_count =
+            stats.semantic_edge_tolerant_match_count;
+        summary.semantic_sample_mismatch_count = stats.semantic_sample_mismatch_count;
+        summary.semantic_output_other_count = stats.semantic_output_other_count;
+
+        a90_draw_rect(fb, 0, 0, fb->width, 108U, 0x05070c);
+        a90_draw_text(fb, 48U, 20U, "M2 LIVE MONITOR GRAPHS", 0x66ddff, 3U);
+        snprintf(line,
+                 sizeof(line),
+                 "CPU %ld%%  GPU %ld%%  MEM %ld%%  TEMP %ldC",
+                 series.last_cpu_pct,
+                 series.last_gpu_pct,
+                 series.last_mem_pct,
+                 series.last_temp_pct);
+        a90_draw_text(fb, 48U, 60U, line, 0xffffff, 2U);
+        a90_draw_text(fb, 48U, dst_y + 26U, "CPU", 0x66ddff, 2U);
+        a90_draw_text(fb, 48U, dst_y + 206U, "GPU", 0x66ddff, 2U);
+        a90_draw_text(fb, 48U, dst_y + 386U, "MEM", 0x66ddff, 2U);
+        a90_draw_text(fb, 48U, dst_y + 566U, "TMP", 0x66ddff, 2U);
+        snprintf(line,
+                 sizeof(line),
+                 "POINTS %u/%u  FRAME %u/%u  GPU TEXTURED 2D",
+                 series.count,
+                 A90_MONITOR_GRAPH_MAX_POINTS,
+                 display_index + 1U,
+                 requested_frames);
+        a90_draw_text(fb, 48U, dst_y + session.target_height + 28U,
+                      line, 0xbbbbbb, 2U);
+
+        rc = video_wait_until_ns(deadline_ns);
+        if (rc < 0) {
+            summary.failed_frame = display_index;
+            goto out;
+        }
+        before_present_ns = video_monotonic_ns();
+        summary.present_rc = a90_kms_present("gpu-m2-monitor-graph", false);
+        after_present_ns = video_monotonic_ns();
+        gpu_d3_add_us((after_present_ns - before_present_ns) / 1000ULL,
+                      &present_sum_us,
+                      &summary.present_max_us);
+        gpu_d3_add_us((after_present_ns - frame_start_ns) / 1000ULL,
+                      &total_sum_us,
+                      &summary.total_max_us);
+        if (summary.present_rc < 0) {
+            rc = negative_errno_or(EIO);
+            summary.failed_frame = display_index;
+            goto out;
+        }
+        summary.presented_frames += 1U;
+        if (a90_console_poll_cancel(0) != CANCEL_NONE) {
+            rc = 0;
+            break;
+        }
+    }
+    finished_ns = video_monotonic_ns();
+    summary.elapsed_ns = finished_ns > started_ns ? finished_ns - started_ns : 1ULL;
+    summary.result_rc = rc;
+    if (summary.presented_frames > 0U) {
+        summary.fps_milli =
+            ((uint64_t)summary.presented_frames * 1000000000000ULL) /
+            summary.elapsed_ns;
+        summary.sample_avg_us = sample_sum_us / summary.presented_frames;
+        summary.graph_avg_us = graph_sum_us / summary.presented_frames;
+        summary.texture_avg_us = texture_sum_us / summary.presented_frames;
+        summary.gpu_wait_avg_us = gpu_wait_sum_us / summary.presented_frames;
+        summary.readback_avg_us = readback_sum_us / summary.presented_frames;
+        summary.copy_avg_us = copy_sum_us / summary.presented_frames;
+        summary.present_avg_us = present_sum_us / summary.presented_frames;
+        summary.total_avg_us = total_sum_us / summary.presented_frames;
+    }
+    if (hold_ms > 0 && summary.presented_frames > 0U) {
+        usleep((useconds_t)hold_ms * 1000U);
+    }
+
+out:
+    if (summary.elapsed_ns == 0U) {
+        summary.elapsed_ns = 1U;
+    }
+    free(frame);
+    gpu_d3_destroy_session(&session);
+    summary.close_rc = 0;
+    summary.close_errno = 0;
+    if (summary.result_rc == 0 && rc < 0) {
+        summary.result_rc = rc;
+    } else if (summary.result_rc == -EIO && rc == 0 && summary.presented_frames > 0U) {
+        summary.result_rc = 0;
+    }
+    if (write_fd >= 0) {
+        ssize_t written = write(write_fd, &summary, sizeof(summary));
+
+        (void)written;
+        (void)close(write_fd);
+    }
+    return summary.result_rc;
+}
+
+static int gpu_m2_monitor_live_graph_probe(int timeout_ms,
+                                           bool materialize_devnode,
+                                           uint32_t requested_frames,
+                                           uint32_t interval_ms,
+                                           int hold_ms) {
+    int pipefd[2];
+    pid_t pid;
+    long deadline_ms;
+    bool got_result = false;
+    bool timed_out = false;
+    bool child_killed = false;
+    bool child_reaped = false;
+    int child_status = 0;
+    struct gpu_m2_monitor_graph_summary summary;
+
+    memset(&summary, 0, sizeof(summary));
+    if (timeout_ms <= 0) {
+        timeout_ms = GPU_M2_GRAPH_MAX_TIMEOUT_MS;
+    }
+    if (timeout_ms > GPU_M2_GRAPH_MAX_TIMEOUT_MS) {
+        a90_console_printf("gpu.m2.graph.error=timeout-too-large max_ms=%d\r\n",
+                           GPU_M2_GRAPH_MAX_TIMEOUT_MS);
+        return -EINVAL;
+    }
+    if (requested_frames == 0U) {
+        requested_frames = GPU_M2_GRAPH_DEFAULT_FRAMES;
+    }
+    if (requested_frames > GPU_M2_GRAPH_MAX_FRAMES) {
+        a90_console_printf("gpu.m2.graph.error=frames-too-large max=%u\r\n",
+                           GPU_M2_GRAPH_MAX_FRAMES);
+        return -EINVAL;
+    }
+    if (interval_ms == 0U) {
+        interval_ms = GPU_M2_GRAPH_DEFAULT_INTERVAL_MS;
+    }
+    if (interval_ms > GPU_M2_GRAPH_MAX_INTERVAL_MS) {
+        a90_console_printf("gpu.m2.graph.error=interval-too-large max_ms=%u\r\n",
+                           GPU_M2_GRAPH_MAX_INTERVAL_MS);
+        return -EINVAL;
+    }
+    if (hold_ms < 0 || hold_ms > GPU_H5_VISUAL_HOLD_MAX_MS) {
+        a90_console_printf("gpu.m2.graph.error=bad-hold max_ms=%d\r\n",
+                           GPU_H5_VISUAL_HOLD_MAX_MS);
+        return -EINVAL;
+    }
+
+    a90_console_printf("gpu.m2.graph.version=1\r\n");
+    a90_console_printf("gpu.m2.graph.scope=" GPU_M2_GRAPH_SCOPE "\r\n");
+    a90_console_printf("gpu.m2.graph.command=gpu m2-monitor-live-graph-probe --frames %u --interval-ms %u --timeout-ms %d --hold-ms %d --materialize-devnode\r\n",
+                       requested_frames, interval_ms, timeout_ms, hold_ms);
+    a90_console_printf("gpu.m2.graph.kgsl_path=%s\r\n", GPU_G0_DEVNODE);
+    a90_console_printf("gpu.m2.graph.drm_path=/dev/dri/card0\r\n");
+    a90_console_printf("gpu.m2.graph.texture_source=live-monitor-mono1-graph-cpu-gpu-mem-temp\r\n");
+    a90_console_printf("gpu.m2.graph.blit_mode=kgsl-textured-quad-scale-to-960x720-linear-readback-kms-copy\r\n");
+    a90_console_printf("gpu.m2.graph.frames_requested=%u\r\n", requested_frames);
+    a90_console_printf("gpu.m2.graph.interval_ms=%u\r\n", interval_ms);
+    a90_console_printf("gpu.m2.graph.timeout_ms=%d\r\n", timeout_ms);
+    a90_console_printf("gpu.m2.graph.hold_ms=%d\r\n", hold_ms);
+    a90_console_printf("gpu.m2.graph.source=%ux%u mono1 stride=%u\r\n",
+                       GPU_M2_GRAPH_SOURCE_WIDTH,
+                       GPU_M2_GRAPH_SOURCE_HEIGHT,
+                       GPU_M2_GRAPH_SOURCE_STRIDE);
+    a90_console_printf("gpu.m2.graph.target=%ux%u stride=%u\r\n",
+                       GPU_D3_VIDEO_TARGET_WIDTH,
+                       GPU_D3_VIDEO_TARGET_HEIGHT,
+                       GPU_D3_VIDEO_TARGET_STRIDE);
+    a90_console_printf("gpu.m2.graph.shader_sha256=%s\r\n", GPU_D1_TEXTURED_FS_SHA256);
+    a90_console_printf("gpu.m2.graph.power_write_attempted=0\r\n");
+    a90_console_printf("gpu.m2.graph.proprietary_blob_attempted=0\r\n");
+    a90_console_printf("gpu.m2.graph.kgsl_submit_attempted=1\r\n");
+    a90_console_printf("gpu.m2.graph.kms_present_attempted=1\r\n");
+    if (materialize_devnode) {
+        int mat_rc = gpu_g0_materialize_devnode();
+
+        a90_console_printf("gpu.m2.graph.materialize_requested=1\r\n");
+        a90_console_printf("gpu.m2.graph.materialize_rc=%d\r\n", mat_rc);
+        if (mat_rc < 0) {
+            return mat_rc;
+        }
+    } else {
+        a90_console_printf("gpu.m2.graph.materialize_requested=0\r\n");
+    }
+    if (pipe(pipefd) < 0) {
+        int saved_errno = errno;
+        a90_console_printf("gpu.m2.graph.pipe_rc=-1 errno=%d\r\n", saved_errno);
+        return -saved_errno;
+    }
+    pid = fork();
+    if (pid < 0) {
+        int saved_errno = errno;
+        close(pipefd[0]);
+        close(pipefd[1]);
+        a90_console_printf("gpu.m2.graph.fork_rc=-1 errno=%d\r\n", saved_errno);
+        return -saved_errno;
+    }
+    if (pid == 0) {
+        int child_rc;
+
+        close(pipefd[0]);
+        child_rc = gpu_m2_monitor_live_graph_child(pipefd[1],
+                                                   requested_frames,
+                                                   interval_ms,
+                                                   hold_ms);
+        _exit(child_rc == 0 ? 0 : 1);
+    }
+    close(pipefd[1]);
+    deadline_ms = monotonic_millis() + timeout_ms;
+    a90_console_printf("gpu.m2.graph.child_pid=%ld\r\n", (long)pid);
+
+    while (monotonic_millis() <= deadline_ms) {
+        struct pollfd pfd;
+        long now_ms = monotonic_millis();
+        int remaining_ms = (int)(deadline_ms > now_ms ? deadline_ms - now_ms : 0);
+        int poll_ms = remaining_ms > 50 ? 50 : remaining_ms;
+        ssize_t rd;
+        pid_t wait_rc;
+
+        if (poll_ms < 0) {
+            poll_ms = 0;
+        }
+        pfd.fd = pipefd[0];
+        pfd.events = POLLIN | POLLHUP;
+        pfd.revents = 0;
+        if (poll(&pfd, 1, poll_ms) > 0 && (pfd.revents & (POLLIN | POLLHUP)) != 0) {
+            rd = read(pipefd[0], &summary, sizeof(summary));
+            if (rd == (ssize_t)sizeof(summary)) {
+                got_result = true;
+            }
+            break;
+        }
+        wait_rc = waitpid(pid, &child_status, WNOHANG);
+        if (wait_rc == pid) {
+            child_reaped = true;
+            break;
+        }
+    }
+    if (!got_result && !child_reaped) {
+        timed_out = true;
+        if (kill(pid, SIGKILL) == 0) {
+            child_killed = true;
+        }
+        if (waitpid(pid, &child_status, 0) == pid) {
+            child_reaped = true;
+        }
+    } else if (!child_reaped) {
+        if (waitpid(pid, &child_status, 0) == pid) {
+            child_reaped = true;
+        }
+    }
+    close(pipefd[0]);
+
+    a90_console_printf("gpu.m2.graph.result=%s\r\n",
+                       got_result && gpu_m2_monitor_graph_summary_passed(&summary) ?
+                           "monitor-live-graph-pass" :
+                       (timed_out ? "timeout" : "monitor-live-graph-failed"));
+    a90_console_printf("gpu.m2.graph.timed_out=%d\r\n", timed_out ? 1 : 0);
+    a90_console_printf("gpu.m2.graph.child_killed=%d\r\n", child_killed ? 1 : 0);
+    a90_console_printf("gpu.m2.graph.child_reaped=%d\r\n", child_reaped ? 1 : 0);
+    a90_console_printf("gpu.m2.graph.child_status=0x%x\r\n", child_status);
+    if (got_result) {
+        a90_console_printf("gpu.m2.graph.result_rc=%d\r\n", summary.result_rc);
+        a90_console_printf("gpu.m2.graph.gpu_create_rc=%d\r\n", summary.gpu_create_rc);
+        a90_console_printf("gpu.m2.graph.kms_begin_rc=%d\r\n", summary.kms_begin_rc);
+        a90_console_printf("gpu.m2.graph.present_rc=%d\r\n", summary.present_rc);
+        a90_console_printf("gpu.m2.graph.presented=%u\r\n", summary.presented_frames);
+        a90_console_printf("gpu.m2.graph.failed_frame=%u\r\n", summary.failed_frame);
+        a90_console_printf("gpu.m2.graph.graph_points=%u\r\n", summary.graph_points);
+        a90_console_printf("gpu.m2.graph.graph_pixels_set=%u\r\n", summary.graph_pixels_set);
+        a90_console_printf("gpu.m2.graph.cpu.count=%u\r\n", summary.cpu_count);
+        a90_console_printf("gpu.m2.graph.cluster.count=%u\r\n", summary.cluster_count);
+        a90_console_printf("gpu.m2.graph.gpu.model=%s\r\n", summary.gpu_model);
+        a90_console_printf("gpu.m2.graph.last.cpu_pct=%ld\r\n", summary.last_cpu_pct);
+        a90_console_printf("gpu.m2.graph.last.gpu_pct=%ld\r\n", summary.last_gpu_pct);
+        a90_console_printf("gpu.m2.graph.last.mem_pct=%ld\r\n", summary.last_mem_pct);
+        a90_console_printf("gpu.m2.graph.last.temp_pct=%ld\r\n", summary.last_temp_pct);
+        a90_console_printf("gpu.m2.graph.source_size=%ux%u\r\n",
+                           summary.source_width, summary.source_height);
+        a90_console_printf("gpu.m2.graph.source_stride=%u\r\n", summary.source_stride);
+        a90_console_printf("gpu.m2.graph.source_frame_bytes=%u\r\n",
+                           summary.source_frame_bytes);
+        a90_console_printf("gpu.m2.graph.target_size=%ux%u\r\n",
+                           summary.target_width, summary.target_height);
+        a90_console_printf("gpu.m2.graph.target_stride=%u\r\n", summary.target_stride);
+        a90_console_printf("gpu.m2.graph.target_bytes=%u\r\n", summary.target_bytes);
+        a90_console_printf("gpu.m2.graph.pm4_dwords=%u\r\n", summary.pm4_dwords);
+        a90_console_printf("gpu.m2.graph.elapsed_ns=%llu\r\n",
+                           (unsigned long long)summary.elapsed_ns);
+        a90_console_printf("gpu.m2.graph.fps_milli=%llu\r\n",
+                           (unsigned long long)summary.fps_milli);
+        a90_console_printf("gpu.m2.graph.timing.unit=us\r\n");
+        a90_console_printf("gpu.m2.graph.timing.sample.avg_us=%llu\r\n",
+                           (unsigned long long)summary.sample_avg_us);
+        a90_console_printf("gpu.m2.graph.timing.sample.max_us=%llu\r\n",
+                           (unsigned long long)summary.sample_max_us);
+        a90_console_printf("gpu.m2.graph.timing.graph.avg_us=%llu\r\n",
+                           (unsigned long long)summary.graph_avg_us);
+        a90_console_printf("gpu.m2.graph.timing.graph.max_us=%llu\r\n",
+                           (unsigned long long)summary.graph_max_us);
+        a90_console_printf("gpu.m2.graph.timing.texture.avg_us=%llu\r\n",
+                           (unsigned long long)summary.texture_avg_us);
+        a90_console_printf("gpu.m2.graph.timing.texture.max_us=%llu\r\n",
+                           (unsigned long long)summary.texture_max_us);
+        a90_console_printf("gpu.m2.graph.timing.gpu_wait.avg_us=%llu\r\n",
+                           (unsigned long long)summary.gpu_wait_avg_us);
+        a90_console_printf("gpu.m2.graph.timing.gpu_wait.max_us=%llu\r\n",
+                           (unsigned long long)summary.gpu_wait_max_us);
+        a90_console_printf("gpu.m2.graph.timing.readback.avg_us=%llu\r\n",
+                           (unsigned long long)summary.readback_avg_us);
+        a90_console_printf("gpu.m2.graph.timing.readback.max_us=%llu\r\n",
+                           (unsigned long long)summary.readback_max_us);
+        a90_console_printf("gpu.m2.graph.timing.copy.avg_us=%llu\r\n",
+                           (unsigned long long)summary.copy_avg_us);
+        a90_console_printf("gpu.m2.graph.timing.copy.max_us=%llu\r\n",
+                           (unsigned long long)summary.copy_max_us);
+        a90_console_printf("gpu.m2.graph.timing.present.avg_us=%llu\r\n",
+                           (unsigned long long)summary.present_avg_us);
+        a90_console_printf("gpu.m2.graph.timing.present.max_us=%llu\r\n",
+                           (unsigned long long)summary.present_max_us);
+        a90_console_printf("gpu.m2.graph.timing.total.avg_us=%llu\r\n",
+                           (unsigned long long)summary.total_avg_us);
+        a90_console_printf("gpu.m2.graph.timing.total.max_us=%llu\r\n",
+                           (unsigned long long)summary.total_max_us);
+        a90_console_printf("gpu.m2.graph.changed_total=%llu\r\n",
+                           (unsigned long long)summary.changed_total);
+        a90_console_printf("gpu.m2.graph.last_first_word=0x%x\r\n",
+                           summary.last_first_word);
+        a90_console_printf("gpu.m2.graph.last_center_word=0x%x\r\n",
+                           summary.last_center_word);
+        a90_console_printf("gpu.m2.graph.semantic.sample_count=%u\r\n",
+                           summary.semantic_sample_count);
+        a90_console_printf("gpu.m2.graph.semantic.match_count=%u\r\n",
+                           summary.semantic_sample_match_count);
+        a90_console_printf("gpu.m2.graph.semantic.exact_match_count=%u\r\n",
+                           summary.semantic_exact_match_count);
+        a90_console_printf("gpu.m2.graph.semantic.edge_tolerant_match_count=%u\r\n",
+                           summary.semantic_edge_tolerant_match_count);
+        a90_console_printf("gpu.m2.graph.semantic.mismatch_count=%u\r\n",
+                           summary.semantic_sample_mismatch_count);
+        a90_console_printf("gpu.m2.graph.semantic.output_other_count=%u\r\n",
+                           summary.semantic_output_other_count);
+        a90_console_printf("gpu.m2.graph.close_rc=%d errno=%d\r\n",
+                           summary.close_rc, summary.close_errno);
+    }
+    if (timed_out) {
+        return -ETIMEDOUT;
+    }
+    return got_result && gpu_m2_monitor_graph_summary_passed(&summary) ?
+        0 : -EIO;
+}
+
 static uint32_t gpu_h5_pack_rgb_for_xbgr8888(uint32_t color) {
     uint32_t red = (color >> 16) & 0xffU;
     uint32_t green = (color >> 8) & 0xffU;
@@ -16215,6 +16813,68 @@ static int handle_gpu(char **argv, int argc) {
         }
         return a90_monitor_m1_dashboard_probe(samples, interval_ms, hold_ms);
     }
+    if (strcmp(subcommand, "m2-monitor-live-graph-probe") == 0 ||
+        strcmp(subcommand, "monitor-live-graph-probe") == 0) {
+        uint32_t requested_frames = GPU_M2_GRAPH_DEFAULT_FRAMES;
+        uint32_t interval_ms = GPU_M2_GRAPH_DEFAULT_INTERVAL_MS;
+        uint32_t timeout_ms = GPU_M2_GRAPH_MAX_TIMEOUT_MS;
+        uint32_t hold_ms = GPU_M2_GRAPH_DEFAULT_HOLD_MS;
+        bool materialize_devnode = false;
+
+        for (index = 2; index < argc; ++index) {
+            if (strcmp(argv[index], "--frames") == 0) {
+                if (index + 1 >= argc ||
+                    !parse_u32_arg(argv[index + 1],
+                                   1,
+                                   GPU_M2_GRAPH_MAX_FRAMES,
+                                   &requested_frames)) {
+                    a90_console_printf("gpu.m2.graph.error=bad-frames\r\n");
+                    return -EINVAL;
+                }
+                ++index;
+            } else if (strcmp(argv[index], "--interval-ms") == 0) {
+                if (index + 1 >= argc ||
+                    !parse_u32_arg(argv[index + 1],
+                                   1,
+                                   GPU_M2_GRAPH_MAX_INTERVAL_MS,
+                                   &interval_ms)) {
+                    a90_console_printf("gpu.m2.graph.error=bad-interval\r\n");
+                    return -EINVAL;
+                }
+                ++index;
+            } else if (strcmp(argv[index], "--timeout-ms") == 0) {
+                if (index + 1 >= argc ||
+                    !parse_u32_arg(argv[index + 1],
+                                   1,
+                                   GPU_M2_GRAPH_MAX_TIMEOUT_MS,
+                                   &timeout_ms)) {
+                    a90_console_printf("gpu.m2.graph.error=bad-timeout\r\n");
+                    return -EINVAL;
+                }
+                ++index;
+            } else if (strcmp(argv[index], "--hold-ms") == 0) {
+                if (index + 1 >= argc ||
+                    !parse_u32_arg(argv[index + 1],
+                                   0,
+                                   GPU_H5_VISUAL_HOLD_MAX_MS,
+                                   &hold_ms)) {
+                    a90_console_printf("gpu.m2.graph.error=bad-hold\r\n");
+                    return -EINVAL;
+                }
+                ++index;
+            } else if (strcmp(argv[index], "--materialize-devnode") == 0) {
+                materialize_devnode = true;
+            } else {
+                a90_console_printf("usage: gpu m2-monitor-live-graph-probe [--frames N] [--interval-ms N] [--timeout-ms N] [--hold-ms N] [--materialize-devnode]\r\n");
+                return -EINVAL;
+            }
+        }
+        return gpu_m2_monitor_live_graph_probe((int)timeout_ms,
+                                               materialize_devnode,
+                                               requested_frames,
+                                               interval_ms,
+                                               (int)hold_ms);
+    }
     if (strcmp(subcommand, "g4-solid-fill-probe") == 0 ||
         strcmp(subcommand, "solid-fill-probe") == 0) {
         for (index = 2; index < argc; ++index) {
@@ -16276,7 +16936,7 @@ static int handle_gpu(char **argv, int argc) {
         return gpu_h5_triangle_kms_probe(timeout_ms, materialize_devnode, hold_ms);
     }
     if (strcmp(subcommand, "g0-open-probe") != 0) {
-        a90_console_printf("usage: gpu [g0-status|g0-fwclass-prepare|g0-open-probe [--timeout-ms N] [--rdwr] [--materialize-devnode]|g1-context-probe [--timeout-ms N] [--materialize-devnode]|g2-gpuobj-probe [--timeout-ms N] [--materialize-devnode]|g2-mmap-probe [--timeout-ms N] [--materialize-devnode]|g3-noop-submit-probe [--timeout-ms N] [--materialize-devnode]|h1-shader-state-probe [--timeout-ms N] [--materialize-devnode]|h2-3d-state-probe [--timeout-ms N] [--materialize-devnode]|h3-draw-envelope-probe [--timeout-ms N] [--materialize-devnode]|c1-compute-invocationid-probe [--timeout-ms N] [--materialize-devnode]|c2-compute-pattern-probe [--timeout-ms N] [--materialize-devnode]|c3-compute-kms-probe [--timeout-ms N] [--hold-ms N] [--materialize-devnode]|d1-texture-checkerboard-probe [--timeout-ms N] [--materialize-devnode]|d2-realframe-texture-probe [--preset badapple|--manifest PATH] [--frame-index N] [--timeout-ms N] [--materialize-devnode]|d3-video-texture-present-probe [--preset badapple] [--start-frame N] [--frames N] [--timeout-ms N] [--hold-ms N] [--materialize-devnode]|m0-monitor-sampler-probe [--samples N] [--interval-ms N]|m1-monitor-dashboard-probe [--samples N] [--interval-ms N] [--hold-ms N]|g4-solid-fill-probe [--timeout-ms N] [--materialize-devnode]|g5-kms-blit-probe [--timeout-ms N] [--materialize-devnode]|h5-triangle-kms-probe [--timeout-ms N] [--hold-ms N] [--materialize-devnode]]\r\n");
+        a90_console_printf("usage: gpu [g0-status|g0-fwclass-prepare|g0-open-probe [--timeout-ms N] [--rdwr] [--materialize-devnode]|g1-context-probe [--timeout-ms N] [--materialize-devnode]|g2-gpuobj-probe [--timeout-ms N] [--materialize-devnode]|g2-mmap-probe [--timeout-ms N] [--materialize-devnode]|g3-noop-submit-probe [--timeout-ms N] [--materialize-devnode]|h1-shader-state-probe [--timeout-ms N] [--materialize-devnode]|h2-3d-state-probe [--timeout-ms N] [--materialize-devnode]|h3-draw-envelope-probe [--timeout-ms N] [--materialize-devnode]|c1-compute-invocationid-probe [--timeout-ms N] [--materialize-devnode]|c2-compute-pattern-probe [--timeout-ms N] [--materialize-devnode]|c3-compute-kms-probe [--timeout-ms N] [--hold-ms N] [--materialize-devnode]|d1-texture-checkerboard-probe [--timeout-ms N] [--materialize-devnode]|d2-realframe-texture-probe [--preset badapple|--manifest PATH] [--frame-index N] [--timeout-ms N] [--materialize-devnode]|d3-video-texture-present-probe [--preset badapple] [--start-frame N] [--frames N] [--timeout-ms N] [--hold-ms N] [--materialize-devnode]|m0-monitor-sampler-probe [--samples N] [--interval-ms N]|m1-monitor-dashboard-probe [--samples N] [--interval-ms N] [--hold-ms N]|m2-monitor-live-graph-probe [--frames N] [--interval-ms N] [--timeout-ms N] [--hold-ms N] [--materialize-devnode]|g4-solid-fill-probe [--timeout-ms N] [--materialize-devnode]|g5-kms-blit-probe [--timeout-ms N] [--materialize-devnode]|h5-triangle-kms-probe [--timeout-ms N] [--hold-ms N] [--materialize-devnode]]\r\n");
         return -EINVAL;
     }
     for (index = 2; index < argc; ++index) {
@@ -16371,7 +17031,7 @@ static const struct shell_command command_table[] = {
     { "pstore", handle_pstore, "pstore [summary|full|paths]", CMD_NONE, A90_CMD_GROUP_CORE },
     { "watchdoginv", handle_watchdoginv, "watchdoginv [summary|full|paths]", CMD_NONE, A90_CMD_GROUP_CORE },
     { "tracefs", handle_tracefs, "tracefs [summary|full|paths]", CMD_NONE, A90_CMD_GROUP_CORE },
-    { "gpu", handle_gpu, "gpu [g0-status|g0-fwclass-prepare|g0-open-probe [--timeout-ms N] [--rdwr] [--materialize-devnode]|g1-context-probe [--timeout-ms N] [--materialize-devnode]|g2-gpuobj-probe [--timeout-ms N] [--materialize-devnode]|g2-mmap-probe [--timeout-ms N] [--materialize-devnode]|g3-noop-submit-probe [--timeout-ms N] [--materialize-devnode]|h1-shader-state-probe [--timeout-ms N] [--materialize-devnode]|h2-3d-state-probe [--timeout-ms N] [--materialize-devnode]|h3-draw-envelope-probe [--timeout-ms N] [--materialize-devnode]|c1-compute-invocationid-probe [--timeout-ms N] [--materialize-devnode]|c2-compute-pattern-probe [--timeout-ms N] [--materialize-devnode]|c3-compute-kms-probe [--timeout-ms N] [--hold-ms N] [--materialize-devnode]|d1-texture-checkerboard-probe [--timeout-ms N] [--materialize-devnode]|d2-realframe-texture-probe [--preset badapple|--manifest PATH] [--frame-index N] [--timeout-ms N] [--materialize-devnode]|d3-video-texture-present-probe [--preset badapple] [--start-frame N] [--frames N] [--timeout-ms N] [--hold-ms N] [--materialize-devnode]|m0-monitor-sampler-probe [--samples N] [--interval-ms N]|m1-monitor-dashboard-probe [--samples N] [--interval-ms N] [--hold-ms N]|g4-solid-fill-probe [--timeout-ms N] [--materialize-devnode]|g5-kms-blit-probe [--timeout-ms N] [--materialize-devnode]|h5-triangle-kms-probe [--timeout-ms N] [--hold-ms N] [--materialize-devnode]]", CMD_NONE, A90_CMD_GROUP_CORE },
+    { "gpu", handle_gpu, "gpu [g0-status|g0-fwclass-prepare|g0-open-probe [--timeout-ms N] [--rdwr] [--materialize-devnode]|g1-context-probe [--timeout-ms N] [--materialize-devnode]|g2-gpuobj-probe [--timeout-ms N] [--materialize-devnode]|g2-mmap-probe [--timeout-ms N] [--materialize-devnode]|g3-noop-submit-probe [--timeout-ms N] [--materialize-devnode]|h1-shader-state-probe [--timeout-ms N] [--materialize-devnode]|h2-3d-state-probe [--timeout-ms N] [--materialize-devnode]|h3-draw-envelope-probe [--timeout-ms N] [--materialize-devnode]|c1-compute-invocationid-probe [--timeout-ms N] [--materialize-devnode]|c2-compute-pattern-probe [--timeout-ms N] [--materialize-devnode]|c3-compute-kms-probe [--timeout-ms N] [--hold-ms N] [--materialize-devnode]|d1-texture-checkerboard-probe [--timeout-ms N] [--materialize-devnode]|d2-realframe-texture-probe [--preset badapple|--manifest PATH] [--frame-index N] [--timeout-ms N] [--materialize-devnode]|d3-video-texture-present-probe [--preset badapple] [--start-frame N] [--frames N] [--timeout-ms N] [--hold-ms N] [--materialize-devnode]|m0-monitor-sampler-probe [--samples N] [--interval-ms N]|m1-monitor-dashboard-probe [--samples N] [--interval-ms N] [--hold-ms N]|m2-monitor-live-graph-probe [--frames N] [--interval-ms N] [--timeout-ms N] [--hold-ms N] [--materialize-devnode]|g4-solid-fill-probe [--timeout-ms N] [--materialize-devnode]|g5-kms-blit-probe [--timeout-ms N] [--materialize-devnode]|h5-triangle-kms-probe [--timeout-ms N] [--hold-ms N] [--materialize-devnode]]", CMD_NONE, A90_CMD_GROUP_CORE },
     { "audio", handle_audio, "audio [status|profiles|profile|speaker-map|stages|prereq|app-type|setcal|route|play|chime|play-status|stop|adsp-status|snd-status]", CMD_NONE, A90_CMD_GROUP_ANDROID },
     { "video", handle_video, "video [status|frame [bars|checker|mono|0xRRGGBB]|demo [badapple|badapple-scale|nyan|doom [status|verify|play|frame|engine-probe] [frames] [--wad runtime-private --sha256 EXPECTED]|frame-pattern]|anim [bars|checker|pulse] [frames] [delay_ms]|blitbench [frames]|flipprobe [frames]|stream --manifest PATH --video-only [--frames N] [--present setcrtc|pageflip] [--layout full|player-hud] [--sync-audio-status PATH]|cache [status|verify|play] SHA256 [--trust-cache] [--layout full|player-hud]|cache preset [badapple|badapple-scale|nyan] [status|verify|play]]", CMD_DISPLAY, A90_CMD_GROUP_DISPLAY },
     { "wifi", handle_wifi, "wifi [status|scan [delay_ms]|connect [profile]|dhcp [profile]|ping [gateway|internet|all]|cleanup|config [status|prepare [profile]]]", CMD_NONE, A90_CMD_GROUP_NETWORK },
