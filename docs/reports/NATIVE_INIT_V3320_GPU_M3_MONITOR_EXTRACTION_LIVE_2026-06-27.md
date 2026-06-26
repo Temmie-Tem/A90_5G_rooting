@@ -64,6 +64,14 @@ Key telemetry:
 - Post-probe selftest stayed `pass=12 warn=1 fail=0`.
 - A non-gating `hide` request printed `menu: hide requested` but returned without an `A90P1 END` marker; it did not affect the M3/D3 validation commands.
 
+## Held Monitor Replay
+
+- A first no-flash replay with `--hold-ms 60000` displayed the M3 monitor but intentionally collided with the internal `--timeout-ms 60000`; the child was killed at the timeout and the follow-up selftest stayed `pass=12 warn=1 fail=0`.
+- A second no-flash replay used `--hold-ms 45000` and completed cleanly in `47454ms`.
+- Replay telemetry again reported `gpu.m3.extract.layer=gpu_2d_present_v1`, M2 delegate `result=monitor-live-graph-pass`, `presented=12`, `graph_pixels_set=2732`, `cpu.count=8`, `cluster.count=3`, `semantic.match_count=64`, `semantic.mismatch_count=0`, `semantic.output_other_count=0`, and `gpu.m3.extract.result=shared-2d-present-monitor-pass`.
+- Post-replay selftest stayed `pass=12 warn=1 fail=0`.
+- Operator eye-confirmation of the held live monitor panel is pending.
+
 ## Status
 
-M3 extraction telemetry and the focused D3 Bad Apple regression passed. The remaining human-facing close item for the full ③ monitor rung is an explicit operator eye-confirmation of the held live monitor panel, if required before promoting the rung from telemetry-pass to eye-confirmed.
+M3 extraction telemetry, the focused D3 Bad Apple regression, and a 45-second held monitor replay passed. The remaining human-facing close item for the full ③ monitor rung is an explicit operator eye-confirmation of the held live monitor panel before promoting the rung from telemetry-pass to eye-confirmed.
