@@ -428,7 +428,7 @@ the Audio section above). Full detail: `CLAUDE.md` + `docs/reports/`. No active 
    report; never `-A`. Message per project convention; end with the Co-Authored-By line.
 9. **REPEAT** → back to STATE.
 
-## 🟢 GPU epic — first-light G0→G5 ✅, first triangle H0→H5 ✅ eye-confirmed, compute demo C0→C3 ✅ eye-confirmed, GPU-accelerated 2D D0→D3 ✅ eye-confirmed, next = ③ modularization/extraction
+## 🟢 GPU epic — first-light G0→G5 ✅, first triangle H0→H5 ✅, compute C0→C3 ✅, GPU-accel 2D D0→D3 ✅ (all eye-confirmed), active rung = ③ on-panel system monitor M0→M3 (delivers the extraction)
 
 **Persistent HARD FRAMING (inherited by every GPU rung, do not deviate):**
 - **freedreno / Mesa / KGSL-direct ONLY.** The proprietary Adreno blob path (libGLESv2/EGL/OpenCL via Bionic/Android
@@ -506,6 +506,27 @@ warm and does not repeat a stall; carry the execution-proof bisect + register-di
 - **D3** wire the GPU textured-quad blit into the demo player's present path (replace the CPU `memcpy` blit); present +
   measure (fps / CPU freed); operator confirms the demo still renders correctly via the GPU blit = ② close. This makes
   the GPU a real CONSUMER of existing work and is the third call site for the ③ rule-of-three extraction.
+
+**ACTIVE NOW = ③ on-panel GPU-accelerated SYSTEM MONITOR (M0→M3) — the visible/useful consumer that DELIVERS the
+rule-of-three extraction.** Rather than a bare refactor, build a glanceable on-panel system dashboard (per-core/cluster
+CPU, freq, thermals, GPU, battery) as a 4th real GPU consumer; building it forces a clean reuse of the G0-G3 KGSL core +
+H draw + ②D texture/blit, so the ③ extraction falls out organically (GOAL discipline: formalize the API only after the
+call sites reveal its shape). Useful for the server/appliance endgame, eye-confirmable, and **bright-line-trivially safe
+— ALL reads (`/proc`,`/sys`) + KMS present, NO power writes.** Same HARD FRAMING.
+- **M0** (data layer, host+device, read-only): build the sampler + history ring buffers from real sysfs/proc — per-core
+  `/proc/stat`; **cluster auto-detect** (`cpufreq/related_cpus` + `cpuinfo_max_freq` + `cpu_capacity` + `/proc/cpuinfo`
+  MIDR `0xd0b`=A76 / `0xd05`=A55) to label cores Prime/Gold/Silver (SD855 = 1×A76@2.84 + 3×A76@2.42 + 4×A55@1.78);
+  `/sys/class/thermal/*` zones; KGSL `/sys/class/kgsl/kgsl-3d0/{gpu_busy_percentage,devfreq/cur_freq,temp}`; battery
+  `power_supply/battery/{current_now,voltage_now,capacity,temp}` (device-total power; per-core power NOT cleanly
+  available — model-estimate only, label as such). Enumerate the actual nodes on-device first; do not hardcode.
+- **M1** render a static dashboard with the EXISTING draw primitives (text + filled rects from the G4/HUD path): per-core
+  usage bars labeled by cluster, freq/temp/GPU/battery readouts. Eye-confirm the layout is correct.
+- **M2** GPU-accelerated LIVE graphs: scrolling history line/area graphs via the ②D textured-quad/blit path, smooth
+  real-time redraw (the continuous-repaint workload that genuinely exercises the GPU 2D path = the 4th consumer).
+- **M3** polish + the **③ EXTRACTION**: with H-draw + compute + ②D-blit + monitor all pulling on the same core, extract
+  the shared KGSL submit/fence/buffer/texture/present layer into a clean internal helper (bounded refactor; demos +
+  monitor both call it); selftest stays green, all consumers still work. Operator eye-confirm the live monitor = ③ close.
+  Then ④ zero-copy, or pivot to the server-endgame (SoftAP).
 
 **STATUS (2026-06-27) — C0 host-only recon landed as V3299; C1 shader-byte gate landed as V3300; C1 native-init source/build + live UAV readback proof landed as V3301; C2 128x128 compute pattern source/build + live readback proof landed as V3302; C3 source/build + device-presented-held proof landed as V3303 and is now operator eye-confirmed; D0 texture reference recon landed as V3304; D1 textured FS shader-byte gate landed as V3305 and closed live as V3310; D2 real SD-cache Bad Apple frame texture readback closed live as V3311; D3 source/build first landed as V3312, live exposed a fork/protocol bug, and fork-fixed V3313 passed telemetry live validation plus a no-flash 60 s eye-confirm replay hold. V3314 added high-contrast `--start-frame 515` plus a stricter final-frame semantic gate; live presentation, hold, KMS, and health were clean, but exact source-pixel validation missed one scaled-edge sample (`semantic_match_count=63`, `semantic_mismatch_count=1`). V3315 fixed that validation-design gap with a bounded 3x3 source-neighborhood tolerance and passed live: `semantic_sample_count=64`, `match_count=64`, `exact_match_count=63`, `edge_tolerant_match_count=1`, `mismatch_count=0`, `output_other_count=0`, post-probe `selftest fail=0`, no GPU fault-filter match. The operator then visually confirmed the held GPU-blit output: "배드애플 보였다 프레임은 정상적으로 나오는거 같았다". Rung ② is DONE + EYE-CONFIRMED. NEXT = ③ modularization/extraction backlog.**
 `native_gpu_compute_c0_reference_v3299.py` encodes and validates the staged A640 compute dispatch envelope against
@@ -1301,14 +1322,16 @@ wall), so every kernel/shader is hand-assembled ir3 and this never becomes a gen
   content, not a standalone format epic.**
   Recoverable boot-partition flashes only, rollback `v2321`. **Bright lines:** no backlight/PMIC/PWM/regulator/GDSC
   writes; no from-scratch panel re-init; forbidden partitions absolute. Venus HW decode NOT needed (pre-rendered frames).
-- **ACTIVE EPIC = ③ MODULARIZATION / EXTRACTION backlog.** Three GPU rungs are CLOSED + EYE-CONFIRMED: the
-  first-triangle ladder H0→H5 (operator saw a GREEN RIGHT-TRIANGLE; strict proof `V3295/V3296`, init `0.11.73`), the
-  visible COMPUTE demo C0→C3 (operator saw the rainbow gradient / square-grid pattern; `V3303` C3 KMS present + 60 s
-  hold, init `0.11.77`, `selftest fail=0`, no GPU fault), and GPU-accelerated 2D D0→D3 (operator saw the held Bad
-  Apple GPU-blit frame; `V3315` semantic edge-tolerant D3 present + 60 s hold, init `0.11.87`, `selftest fail=0`, no
-  GPU fault). The loop now moves to **③ modularization = extraction**: pull the common KGSL submit/fence/buffer layer
-  only from the three proven consumers, without designing a broad API upfront. Bluetooth / sensors / haptics / Wi-Fi
-  SoftAP remain reference-only until separately chartered (attended daytime quick-wins).
+- **ACTIVE EPIC = ③ on-panel GPU-accelerated SYSTEM MONITOR (M0→M3), which DELIVERS the rule-of-three extraction.**
+  Three GPU rungs are CLOSED + EYE-CONFIRMED: first-triangle H0→H5 (GREEN RIGHT-TRIANGLE; `V3295/V3296`, `0.11.73`),
+  COMPUTE demo C0→C3 (rainbow/grid pattern; `V3303`, `0.11.77`), and GPU-accel 2D D0→D3 (held Bad Apple GPU-blit frame;
+  `V3315`, `0.11.87`, `selftest fail=0`, no GPU fault). Per the operator decision, instead of a bare refactor the loop
+  builds a glanceable on-panel system dashboard (per-core/cluster CPU + freq + thermals + GPU + battery, with live
+  GPU-drawn graphs) as a 4th real consumer; **building it forces clean reuse of the G0-G3 core + H draw + ②D blit, so
+  the ③ extraction (shared KGSL submit/fence/buffer/texture/present helper) falls out organically.** See the "🟢 GPU
+  epic" block for the M0→M3 ladder. ALL reads + KMS present, NO power writes (bright-line-trivially safe). Then ④
+  zero-copy or the SoftAP server-endgame pivot. Bluetooth / sensors / haptics / Wi-Fi SoftAP remain reference-only
+  until separately chartered (attended daytime quick-wins).
 - Device unreachable after an auto-rollback → STOP, leave an incident report.
 - The same sub-goal fails twice → STOP or shelve it and move on; do NOT retry-loop.
 - No sub-goal is safely actionable without the operator → STOP with a note (but T1 is
