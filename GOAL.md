@@ -529,6 +529,13 @@ call sites reveal its shape). Useful for the server/appliance endgame, eye-confi
   Then ④ zero-copy, or pivot to the server-endgame (SoftAP).
 
 **STATUS (2026-06-27) — C0 host-only recon landed as V3299; C1 shader-byte gate landed as V3300; C1 native-init source/build + live UAV readback proof landed as V3301; C2 128x128 compute pattern source/build + live readback proof landed as V3302; C3 source/build + device-presented-held proof landed as V3303 and is now operator eye-confirmed; D0 texture reference recon landed as V3304; D1 textured FS shader-byte gate landed as V3305 and closed live as V3310; D2 real SD-cache Bad Apple frame texture readback closed live as V3311; D3 source/build first landed as V3312, live exposed a fork/protocol bug, and fork-fixed V3313 passed telemetry live validation plus a no-flash 60 s eye-confirm replay hold. V3314 added high-contrast `--start-frame 515` plus a stricter final-frame semantic gate; live presentation, hold, KMS, and health were clean, but exact source-pixel validation missed one scaled-edge sample (`semantic_match_count=63`, `semantic_mismatch_count=1`). V3315 fixed that validation-design gap with a bounded 3x3 source-neighborhood tolerance and passed live: `semantic_sample_count=64`, `match_count=64`, `exact_match_count=63`, `edge_tolerant_match_count=1`, `mismatch_count=0`, `output_other_count=0`, post-probe `selftest fail=0`, no GPU fault-filter match. The operator then visually confirmed the held GPU-blit output: "배드애플 보였다 프레임은 정상적으로 나오는거 같았다". Rung ② is DONE + EYE-CONFIRMED. NEXT = ③ modularization/extraction backlog.**
+
+**STATUS (2026-06-27 M0 kickoff) — V3316 completed the required read-only node enumeration for the on-panel system
+monitor. The device exposes CPU topology/frequency, `/proc/stat`, memory/load, KGSL GPU busy/frequency/temp, thermal
+zones, and battery/power-supply nodes without writes. SD855 clusters are discoverable from `cpufreq/related_cpus` plus
+max frequency as Silver `0-3` @ 1.7856 GHz, Gold `4-6` @ 2.4192 GHz, and Prime `7` @ 2.8416 GHz; implementation must derive
+those labels dynamically and tolerate absent/empty thermal nodes. No boot artifact was built and no flash was run. NEXT =
+M0 sampler + history ring probe telemetry (`gpu.m0.monitor.*`).**
 `native_gpu_compute_c0_reference_v3299.py` encodes and validates the staged A640 compute dispatch envelope against
 `/tmp/a90-mesa-gpu-src/`: CS program regs, `CP_LOAD_STATE6` shader/constant/UAV state, `RM6_COMPUTE`, NDRANGE,
 `CP_EXEC_CS`, and WFI/readback ordering all match the Mesa computerator/fd6 references; `kern_invocationid.asm` is fixed
