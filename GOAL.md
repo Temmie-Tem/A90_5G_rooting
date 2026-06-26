@@ -507,7 +507,7 @@ warm and does not repeat a stall; carry the execution-proof bisect + register-di
   measure (fps / CPU freed); operator confirms the demo still renders correctly via the GPU blit = ② close. This makes
   the GPU a real CONSUMER of existing work and is the third call site for the ③ rule-of-three extraction.
 
-**STATUS (2026-06-26) — C0 host-only recon landed as V3299; C1 shader-byte gate landed as V3300; C1 native-init source/build + live UAV readback proof landed as V3301; C2 128x128 compute pattern source/build + live readback proof landed as V3302; C3 source/build + device-presented-held proof landed as V3303 and is now operator eye-confirmed; D0 texture reference recon landed as V3304; D1 textured FS shader-byte gate landed as V3305 and closed live as V3310; D2 real SD-cache Bad Apple frame texture readback closed live as V3311. NEXT = D3 wire GPU textured-quad blit into the demo player's present path, present, and measure.**
+**STATUS (2026-06-27) — C0 host-only recon landed as V3299; C1 shader-byte gate landed as V3300; C1 native-init source/build + live UAV readback proof landed as V3301; C2 128x128 compute pattern source/build + live readback proof landed as V3302; C3 source/build + device-presented-held proof landed as V3303 and is now operator eye-confirmed; D0 texture reference recon landed as V3304; D1 textured FS shader-byte gate landed as V3305 and closed live as V3310; D2 real SD-cache Bad Apple frame texture readback closed live as V3311; D3 source/build first landed as V3312, live exposed a fork/protocol bug, and fork-fixed V3313 passed telemetry live validation. NEXT = operator visual confirmation of the held D3 Bad Apple GPU-blit frame, then close rung ② / start extraction backlog.**
 `native_gpu_compute_c0_reference_v3299.py` encodes and validates the staged A640 compute dispatch envelope against
 `/tmp/a90-mesa-gpu-src/`: CS program regs, `CP_LOAD_STATE6` shader/constant/UAV state, `RM6_COMPUTE`, NDRANGE,
 `CP_EXEC_CS`, and WFI/readback ordering all match the Mesa computerator/fd6 references; `kern_invocationid.asm` is fixed
@@ -577,8 +577,15 @@ verified with a full 128x128 changed readback plus 64/64 bbox-local checker samp
 `gpu d2-realframe-texture-probe --preset badapple --frame-index 515`: the device read the SD-cache Bad Apple mono1
 A90VSTR1 stream, expanded frame 515 into a 480x360 RGBA8 texture, rendered it into the 128x128 target, and matched all
 64 bbox-local source-frame samples (`source_dark_count=86381`, `source_light_count=86419`, output dark/light positive,
-`output_other_count=0`). D3 is now next: wire this GPU textured-quad blit into the demo player's present path and measure
-fps/CPU impact.
+`output_other_count=0`). V3312 then implemented D3 video-present plumbing but live validation found two host-visible
+contract bugs: the command rejected the report's `--timeout-ms 120000` because the probe still used the 10 s G0 ceiling,
+and the forked child returned through the shell/A90P1 completion path before the parent could print summary telemetry.
+V3313 fixed both issues (`GPU_D3_VIDEO_MAX_TIMEOUT_MS=120000`, child writes the summary pipe and `_exit()`s) and passed
+the D3 live telemetry gate: 60 Bad Apple frames uploaded as textures, rendered to a 960x720 target, A2D-linearized,
+copied into KMS, and presented with `gpu.d3.video.result=video-texture-present-pass`, `presented=60`,
+`fps_milli=29969`, `changed_total=41472000`, `copy.avg_us=16653`, `present.avg_us=13924`, post-probe
+`selftest fail=0`, and no GPU fault-filter match. This proves the D3 telemetry path; final rung-② close still needs
+operator visual confirmation that the held GPU-blit demo frame looked correct on the panel.
 
 **(historical, first-triangle ladder — DONE record)** Threshold from fixed-function plumbing to *real GPU
 graphics*: vertex buffer → vertex shader → rasterizer → fragment shader → a shaded triangle, readback-verified, blitted
@@ -1279,10 +1286,10 @@ wall), so every kernel/shader is hand-assembled ir3 and this never becomes a gen
   hold, init `0.11.77`, `selftest fail=0`, no GPU fault). Per the operator "쭉쭉/full-steam" decision, the loop now
   continues the GPU chain to **② GPU-accelerated 2D = texturing + frame blit/scale** (D0→D3, see the "🟢 GPU epic"
   block) — bring up the A6xx texture pipe so the GPU samples/scales/composites real demo frames (CPU `memcpy` blit
-  today), the real acceleration payoff and the third rule-of-three consumer for ③ extraction. Apply the proven method:
-  pre-stage the texture reference (fd6_texture/tex-const + TPL1 regs) so D0 starts warm; flow rung→rung, do NOT halt
-  between D-rungs. Bluetooth / sensors / haptics / Wi-Fi SoftAP remain reference-only until separately chartered
-  (attended daytime quick-wins).
+  today), the real acceleration payoff and the third rule-of-three consumer for ③ extraction. V3313 now proves the D3
+  telemetry gate (`video-texture-present-pass`, 60 presented frames, ~29.97 fps, `selftest fail=0`); final ② close is
+  operator visual confirmation of the held Bad Apple GPU-blit frame. Bluetooth / sensors / haptics / Wi-Fi SoftAP remain
+  reference-only until separately chartered (attended daytime quick-wins).
 - Device unreachable after an auto-rollback → STOP, leave an incident report.
 - The same sub-goal fails twice → STOP or shelve it and move on; do NOT retry-loop.
 - No sub-goal is safely actionable without the operator → STOP with a note (but T1 is
