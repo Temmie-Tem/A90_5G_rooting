@@ -585,8 +585,10 @@ remained `pass=12 warn=1 fail=0`. A second replay with `--hold-ms 45000` complet
 `gpu.m3.extract.layer=gpu_2d_present_v1`, M2 delegate `result=monitor-live-graph-pass`, `presented=12`,
 `graph_pixels_set=2732`, `cpu.count=8`, `cluster.count=3`, `semantic.match_count=64`, `semantic.mismatch_count=0`,
 `semantic.output_other_count=0`, and `result=shared-2d-present-monitor-pass`; post-replay selftest again stayed
-`pass=12 warn=1 fail=0`. Operator eye-confirmation of the held live monitor panel is still pending before marking
-the ③ monitor rung eye-confirmed/closed.**
+`pass=12 warn=1 fail=0`. A third replay with `--hold-ms 50000` also completed cleanly in `53661ms` with
+`presented=12`, `graph_pixels_set=2722`, `semantic.match_count=64`, `semantic.output_other_count=0`, and post-replay
+selftest `pass=12 warn=1 fail=0`. Operator eye-confirmation of the held live monitor panel is still pending before
+marking the ③ monitor rung eye-confirmed/closed.**
 `native_gpu_compute_c0_reference_v3299.py` encodes and validates the staged A640 compute dispatch envelope against
 `/tmp/a90-mesa-gpu-src/`: CS program regs, `CP_LOAD_STATE6` shader/constant/UAV state, `RM6_COMPUTE`, NDRANGE,
 `CP_EXEC_CS`, and WFI/readback ordering all match the Mesa computerator/fd6 references; `kern_invocationid.asm` is fixed

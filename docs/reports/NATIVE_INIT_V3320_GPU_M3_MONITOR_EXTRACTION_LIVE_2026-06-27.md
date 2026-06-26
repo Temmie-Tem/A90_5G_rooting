@@ -69,9 +69,11 @@ Key telemetry:
 - A first no-flash replay with `--hold-ms 60000` displayed the M3 monitor but intentionally collided with the internal `--timeout-ms 60000`; the child was killed at the timeout and the follow-up selftest stayed `pass=12 warn=1 fail=0`.
 - A second no-flash replay used `--hold-ms 45000` and completed cleanly in `47454ms`.
 - Replay telemetry again reported `gpu.m3.extract.layer=gpu_2d_present_v1`, M2 delegate `result=monitor-live-graph-pass`, `presented=12`, `graph_pixels_set=2732`, `cpu.count=8`, `cluster.count=3`, `semantic.match_count=64`, `semantic.mismatch_count=0`, `semantic.output_other_count=0`, and `gpu.m3.extract.result=shared-2d-present-monitor-pass`.
-- Post-replay selftest stayed `pass=12 warn=1 fail=0`.
+- A third no-flash replay used `--hold-ms 50000` and completed cleanly in `53661ms`.
+- The 50-second replay telemetry reported `gpu.m3.extract.layer=gpu_2d_present_v1`, M2 delegate `result=monitor-live-graph-pass`, `presented=12`, `graph_pixels_set=2722`, `cpu.count=8`, `cluster.count=3`, `semantic.match_count=64`, `semantic.mismatch_count=0`, `semantic.output_other_count=0`, and `gpu.m3.extract.result=shared-2d-present-monitor-pass`.
+- Post-replay selftest stayed `pass=12 warn=1 fail=0` after both clean held replays.
 - Operator eye-confirmation of the held live monitor panel is pending.
 
 ## Status
 
-M3 extraction telemetry, the focused D3 Bad Apple regression, and a 45-second held monitor replay passed. The remaining human-facing close item for the full ③ monitor rung is an explicit operator eye-confirmation of the held live monitor panel before promoting the rung from telemetry-pass to eye-confirmed.
+M3 extraction telemetry, the focused D3 Bad Apple regression, and 45-second plus 50-second held monitor replays passed. The remaining human-facing close item for the full ③ monitor rung is an explicit operator eye-confirmation of the held live monitor panel before promoting the rung from telemetry-pass to eye-confirmed.
