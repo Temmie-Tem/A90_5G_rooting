@@ -1617,6 +1617,10 @@ void a90_kms_info(struct a90_kms_info *info) {
     info->current_buffer = kms_state.current_buffer;
 }
 
+int a90_kms_drm_fd(void) {
+    return kms_state.fd;
+}
+
 int a90_kms_probe(bool verbose) {
     char node_path[4096];
     int fd;

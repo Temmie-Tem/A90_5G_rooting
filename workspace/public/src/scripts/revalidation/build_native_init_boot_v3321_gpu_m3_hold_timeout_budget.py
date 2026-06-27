@@ -359,6 +359,15 @@ def _overlay_preserved_v3321_ramdisk() -> dict[str, Any]:
             "a90_doomgeneric_private_engine_v3318",
             "a90_doomgeneric_private_engine_v3319",
             "a90_doomgeneric_private_engine_v3320",
+            "a90_doomgeneric_private_engine_v3321",
+            "a90_doomgeneric_private_engine_v3325",
+            "a90_doomgeneric_private_engine_v3326",
+            "a90_doomgeneric_private_engine_v3327",
+            "a90_doomgeneric_private_engine_v3328",
+            "a90_doomgeneric_private_engine_v3329",
+            "a90_doomgeneric_private_engine_v3330",
+            "a90_doomgeneric_private_engine_v3331",
+            "a90_doomgeneric_private_engine_v3332",
         ):
             (bin_dir / old_engine).unlink(missing_ok=True)
         engine_dest = bin_dir / ENGINE_RAMDISK_PATH.split("/", 1)[1]
@@ -452,6 +461,11 @@ def _overlay_preserved_v3321_ramdisk() -> dict[str, Any]:
             "bin/a90_doomgeneric_private_engine_v3318",
             "bin/a90_doomgeneric_private_engine_v3319",
             "bin/a90_doomgeneric_private_engine_v3320",
+            "bin/a90_doomgeneric_private_engine_v3321",
+            "bin/a90_doomgeneric_private_engine_v3325",
+            "bin/a90_doomgeneric_private_engine_v3326",
+            "bin/a90_doomgeneric_private_engine_v3327",
+            "bin/a90_doomgeneric_private_engine_v3328",
         ],
     }
 

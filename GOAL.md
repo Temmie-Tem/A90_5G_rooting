@@ -1539,6 +1539,17 @@ wall), so every kernel/shader is hand-assembled ir3 and this never becomes a gen
   present + GPU only, NO power writes (bright-line-trivially safe). Closing ④ closes the GPU epic; **NEXT = pivot to the
   SoftAP server-endgame** (highest-ROI feature toward the headless-server-distro). Bluetooth / sensors / haptics remain
   reference-only until separately chartered (attended daytime quick-wins).
+  **Z-ladder status (2026-06-27):** Z2 is closed: V3326 rendered the monitor graph directly into a DRM msm scanout GEM
+  exported as PRIME/imported into KGSL, with `kms_copy_attempted=0`, `kms_present_attempted=0`, `changed_count=691200`,
+  semantic exact match `64/64`, and post-probe `selftest fail=0`. Z3 overlay-plane scanout is not closed. V3327 fixed
+  the imported render-target shape but hit non-master-fd `EACCES`; V3328 reused the KMS master fd and moved the failure
+  to `EINVAL`; V3329 added atomic plane commit; V3330 switched the target to a KMS dumb scanout buffer; V3331 filtered
+  for an idle overlay plane (`plane_id=90`, `selected_type=0`); V3332 added `zpos/alpha/rotation`; V3333 proved the
+  selected overlay has no `IN_FORMATS` blob and is treated LINEAR-capable while lacking `pixel blend mode`; V3334 proved
+  `DRM_MODE_ATOMIC_ALLOW_MODESET` does not change the result (`atomic_flags=0x400`, still `atomic_commit_rc=-22`).
+  Throughout, GPU render/import/readback stayed good and health stayed clean. Stop extending overlay guesses for now;
+  the next bounded zero-copy unit should render into a full-screen KMS dumb buffer imported into KGSL and try the
+  primary pageflip/primary-plane path, restoring the existing KMS framebuffer afterward.
 - Device unreachable after an auto-rollback → STOP, leave an incident report.
 - The same sub-goal fails twice → STOP or shelve it and move on; do NOT retry-loop.
 - No sub-goal is safely actionable without the operator → STOP with a note (but T1 is

@@ -91,6 +91,7 @@ int a90_kms_present_scaled_plane_xbgr8888(const uint32_t *source,
 int a90_kms_disable_scaled_plane(void);
 struct a90_fb *a90_kms_framebuffer(void);
 void a90_kms_info(struct a90_kms_info *info);
+int a90_kms_drm_fd(void);
 int a90_kms_probe(bool verbose);
 
 #endif

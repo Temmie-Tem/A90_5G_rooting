@@ -5,6 +5,28 @@
 #include <drm/drm_mode.h>
 #include <drm/msm_drm.h>
 
+#ifndef DRM_FORMAT_MOD_VENDOR_QCOM
+#define DRM_FORMAT_MOD_VENDOR_QCOM 0x05
+#endif
+
+#ifndef fourcc_mod_code
+#define fourcc_mod_code(vendor, val) \
+    ((((uint64_t)DRM_FORMAT_MOD_VENDOR_##vendor) << 56) | \
+     ((val) & 0x00ffffffffffffffULL))
+#endif
+
+#ifndef DRM_FORMAT_MOD_QCOM_COMPRESSED
+#define DRM_FORMAT_MOD_QCOM_COMPRESSED fourcc_mod_code(QCOM, 1)
+#endif
+
+#ifndef DRM_FORMAT_MOD_QCOM_TILED2
+#define DRM_FORMAT_MOD_QCOM_TILED2 fourcc_mod_code(QCOM, 2)
+#endif
+
+#ifndef DRM_FORMAT_MOD_QCOM_TILED3
+#define DRM_FORMAT_MOD_QCOM_TILED3 fourcc_mod_code(QCOM, 3)
+#endif
+
 #ifndef DRM_CLOEXEC
 #define DRM_CLOEXEC O_CLOEXEC
 #endif
@@ -4080,13 +4102,27 @@ struct gpu_z2_imported_target_summary {
     int drm_open_rc;
     int drm_msm_gem_new_rc;
     int drm_msm_gem_info_offset_rc;
+    int drm_dumb_create_rc;
+    int drm_dumb_map_offset_rc;
     int drm_prime_export_rc;
     int drm_addfb2_rc;
     int kgsl_import_rc;
     int kgsl_info_rc;
     int gpu_create_rc;
     int render_rc;
+    int kms_begin_rc;
+    int kms_base_present_rc;
+    int kms_info_initialized;
+    int kms_client_cap_universal_rc;
+    int kms_client_cap_atomic_rc;
+    int kms_plane_select_rc;
+    int kms_atomic_props_rc;
+    int kms_atomic_commit_rc;
+    int kms_atomic_optional_count;
+    int kms_present_rc;
+    int kms_disable_plane_rc;
     int rmfb_rc;
+    int drm_dumb_destroy_rc;
     int close_drm_handle_rc;
     int close_prime_rc;
     int close_drm_fd_rc;
@@ -4101,7 +4137,41 @@ struct gpu_z2_imported_target_summary {
     uint32_t pm4_dwords;
     uint32_t drm_handle;
     uint32_t drm_fb_id;
+    uint32_t drm_buffer_kind;
+    uint32_t drm_dumb_pitch;
+    uint32_t kms_crtc_id;
+    int kms_crtc_index;
+    uint32_t kms_screen_width;
+    uint32_t kms_screen_height;
+    uint32_t kms_plane_id;
+    uint32_t kms_plane_count;
+    uint32_t kms_plane_compatible_count;
+    uint32_t kms_plane_idle_xbgr_count;
+    uint32_t kms_plane_overlay_count;
+    uint32_t kms_plane_selected_type;
+    uint32_t kms_plane_idle_xbgr_linear_count;
+    uint32_t kms_plane_selected_xbgr_linear;
+    uint32_t kms_plane_selected_xbgr_tiled2;
+    uint32_t kms_plane_selected_xbgr_tiled3;
+    uint32_t kms_plane_selected_xbgr_compressed;
+    int kms_plane_in_formats_rc;
+    uint32_t kms_plane_in_formats_prop;
+    uint32_t kms_plane_in_formats_blob;
+    uint32_t kms_plane_in_formats_modifiers;
+    uint32_t kms_atomic_prop_count;
+    uint32_t kms_atomic_zpos_prop;
+    uint32_t kms_atomic_alpha_prop;
+    uint32_t kms_atomic_rotation_prop;
+    uint32_t kms_atomic_pixel_blend_mode_prop;
+    uint32_t kms_atomic_flags;
+    uint32_t kms_dst_x;
+    uint32_t kms_dst_y;
+    uint32_t kms_dst_width;
+    uint32_t kms_dst_height;
+    uint32_t hold_ms;
     uint64_t drm_mmap_offset;
+    uint64_t drm_dumb_size;
+    uint64_t drm_dumb_map_offset;
     uint32_t kgsl_id;
     uint64_t kgsl_gpuaddr;
     uint64_t kgsl_size;
@@ -4112,6 +4182,7 @@ struct gpu_z2_imported_target_summary {
     uint64_t gpu_wait_us;
     uint64_t readback_sync_us;
     uint64_t sample_us;
+    uint64_t present_us;
     uint64_t changed_count;
     uint32_t graph_pixels_set;
     uint32_t graph_points;
@@ -4124,6 +4195,13 @@ struct gpu_z2_imported_target_summary {
     uint32_t semantic_sample_mismatch_count;
     uint32_t semantic_output_other_count;
 };
+
+#define GPU_Z3_BUFFER_KIND_MSM_GEM 0U
+#define GPU_Z3_BUFFER_KIND_KMS_DUMB 1U
+#define GPU_Z3_DRM_PLANE_TYPE_OVERLAY 0U
+#define GPU_Z3_DRM_PLANE_TYPE_PRIMARY 1U
+#define GPU_Z3_DRM_PLANE_TYPE_CURSOR 2U
+#define GPU_Z3_DRM_PLANE_TYPE_UNKNOWN 0xffffffffU
 
 static uint64_t gpu_d1_round_up_u64(uint64_t value, uint64_t alignment) {
     if (alignment == 0U) {
@@ -15818,6 +15896,759 @@ static int gpu_z2_close_drm_gem_handle(int fd, uint32_t handle) {
     return 0;
 }
 
+static int gpu_z3_set_client_cap_result(int fd, uint64_t capability, uint64_t value) {
+    struct drm_set_client_cap cap;
+
+    if (fd < 0) {
+        return -EINVAL;
+    }
+    memset(&cap, 0, sizeof(cap));
+    cap.capability = capability;
+    cap.value = value;
+    errno = 0;
+    if (gpu_z2_ioctl_retry(fd, DRM_IOCTL_SET_CLIENT_CAP, &cap) < 0) {
+        return negative_errno_or(EIO);
+    }
+    return 0;
+}
+
+static bool gpu_z3_plane_has_format(const uint32_t *formats,
+                                    uint32_t count,
+                                    uint32_t wanted) {
+    uint32_t index;
+
+    for (index = 0; index < count; ++index) {
+        if (formats[index] == wanted) {
+            return true;
+        }
+    }
+    return false;
+}
+
+static int gpu_z3_fetch_plane(int fd,
+                              uint32_t plane_id,
+                              struct drm_mode_get_plane *plane,
+                              uint32_t **formats_out) {
+    uint32_t *formats = NULL;
+
+    if (fd < 0 || plane_id == 0U || plane == NULL || formats_out == NULL) {
+        return -EINVAL;
+    }
+    memset(plane, 0, sizeof(*plane));
+    plane->plane_id = plane_id;
+    errno = 0;
+    if (gpu_z2_ioctl_retry(fd, DRM_IOCTL_MODE_GETPLANE, plane) < 0) {
+        return negative_errno_or(EIO);
+    }
+    if (plane->count_format_types > 0U) {
+        formats = (uint32_t *)calloc(plane->count_format_types, sizeof(*formats));
+        if (formats == NULL) {
+            return -ENOMEM;
+        }
+        plane->format_type_ptr = (uintptr_t)formats;
+    }
+    errno = 0;
+    if (gpu_z2_ioctl_retry(fd, DRM_IOCTL_MODE_GETPLANE, plane) < 0) {
+        int rc = negative_errno_or(EIO);
+
+        free(formats);
+        return rc;
+    }
+    *formats_out = formats;
+    return 0;
+}
+
+static int gpu_z3_fetch_plane_type(int fd,
+                                   uint32_t plane_id,
+                                   uint32_t *type_out) {
+    struct drm_mode_obj_get_properties obj_props;
+    uint32_t *prop_ids = NULL;
+    uint64_t *prop_values = NULL;
+    uint32_t index;
+    int rc = -ENODEV;
+
+    if (fd < 0 || plane_id == 0U || type_out == NULL) {
+        return -EINVAL;
+    }
+    *type_out = GPU_Z3_DRM_PLANE_TYPE_UNKNOWN;
+    memset(&obj_props, 0, sizeof(obj_props));
+    obj_props.obj_id = plane_id;
+    obj_props.obj_type = DRM_MODE_OBJECT_PLANE;
+    errno = 0;
+    if (gpu_z2_ioctl_retry(fd, DRM_IOCTL_MODE_OBJ_GETPROPERTIES, &obj_props) < 0) {
+        return negative_errno_or(EIO);
+    }
+    if (obj_props.count_props == 0U) {
+        return -ENODEV;
+    }
+    prop_ids = (uint32_t *)calloc(obj_props.count_props, sizeof(*prop_ids));
+    prop_values = (uint64_t *)calloc(obj_props.count_props, sizeof(*prop_values));
+    if (prop_ids == NULL || prop_values == NULL) {
+        free(prop_ids);
+        free(prop_values);
+        return -ENOMEM;
+    }
+    obj_props.props_ptr = (uintptr_t)prop_ids;
+    obj_props.prop_values_ptr = (uintptr_t)prop_values;
+    errno = 0;
+    if (gpu_z2_ioctl_retry(fd, DRM_IOCTL_MODE_OBJ_GETPROPERTIES, &obj_props) < 0) {
+        rc = negative_errno_or(EIO);
+        free(prop_ids);
+        free(prop_values);
+        return rc;
+    }
+    for (index = 0; index < obj_props.count_props; ++index) {
+        struct drm_mode_get_property prop;
+
+        memset(&prop, 0, sizeof(prop));
+        prop.prop_id = prop_ids[index];
+        errno = 0;
+        if (gpu_z2_ioctl_retry(fd, DRM_IOCTL_MODE_GETPROPERTY, &prop) == 0 &&
+            (strcmp(prop.name, "type") == 0 || strcmp(prop.name, "TYPE") == 0)) {
+            *type_out = (uint32_t)prop_values[index];
+            rc = 0;
+            break;
+        }
+    }
+    free(prop_ids);
+    free(prop_values);
+    return rc;
+}
+
+struct gpu_z3_plane_modifier_summary {
+    bool has_in_formats;
+    bool xbgr_linear;
+    bool xbgr_tiled2;
+    bool xbgr_tiled3;
+    bool xbgr_compressed;
+    int rc;
+    uint32_t in_formats_prop;
+    uint32_t in_formats_blob_id;
+    uint32_t modifier_count;
+};
+
+static bool gpu_z3_blob_modifier_applies_to_format(
+    const struct drm_format_modifier *modifier,
+    uint32_t format_index) {
+    uint32_t bit;
+
+    if (modifier == NULL || format_index < modifier->offset) {
+        return false;
+    }
+    bit = format_index - modifier->offset;
+    if (bit >= 64U) {
+        return false;
+    }
+    return (modifier->formats & (1ULL << bit)) != 0ULL;
+}
+
+static void gpu_z3_note_xbgr_modifier(
+    struct gpu_z3_plane_modifier_summary *summary,
+    uint64_t modifier) {
+    if (summary == NULL) {
+        return;
+    }
+    if (modifier == DRM_FORMAT_MOD_LINEAR) {
+        summary->xbgr_linear = true;
+    } else if (modifier == DRM_FORMAT_MOD_QCOM_TILED2) {
+        summary->xbgr_tiled2 = true;
+    } else if (modifier == DRM_FORMAT_MOD_QCOM_TILED3) {
+        summary->xbgr_tiled3 = true;
+    } else if (modifier == DRM_FORMAT_MOD_QCOM_COMPRESSED) {
+        summary->xbgr_compressed = true;
+    }
+}
+
+static int gpu_z3_fetch_property_blob(int fd,
+                                      uint32_t blob_id,
+                                      void **data_out,
+                                      uint32_t *length_out) {
+    struct drm_mode_get_blob blob;
+    void *data;
+
+    if (fd < 0 || blob_id == 0U || data_out == NULL || length_out == NULL) {
+        return -EINVAL;
+    }
+    memset(&blob, 0, sizeof(blob));
+    blob.blob_id = blob_id;
+    errno = 0;
+    if (gpu_z2_ioctl_retry(fd, DRM_IOCTL_MODE_GETPROPBLOB, &blob) < 0) {
+        return negative_errno_or(EIO);
+    }
+    if (blob.length == 0U) {
+        return -ENODATA;
+    }
+    data = calloc(1, blob.length);
+    if (data == NULL) {
+        return -ENOMEM;
+    }
+    blob.data = (uintptr_t)data;
+    errno = 0;
+    if (gpu_z2_ioctl_retry(fd, DRM_IOCTL_MODE_GETPROPBLOB, &blob) < 0) {
+        int rc = negative_errno_or(EIO);
+
+        free(data);
+        return rc;
+    }
+    *data_out = data;
+    *length_out = blob.length;
+    return 0;
+}
+
+static int gpu_z3_parse_in_formats_blob(
+    int fd,
+    struct gpu_z3_plane_modifier_summary *summary) {
+    void *blob_data = NULL;
+    uint32_t blob_length = 0U;
+    const struct drm_format_modifier_blob *blob;
+    const uint32_t *formats;
+    const struct drm_format_modifier *modifiers;
+    uint32_t format_index;
+    uint32_t modifier_index;
+    int rc;
+
+    if (fd < 0 || summary == NULL || summary->in_formats_blob_id == 0U) {
+        return -EINVAL;
+    }
+    rc = gpu_z3_fetch_property_blob(fd,
+                                    summary->in_formats_blob_id,
+                                    &blob_data,
+                                    &blob_length);
+    if (rc < 0) {
+        return rc;
+    }
+    if (blob_length < sizeof(*blob)) {
+        free(blob_data);
+        return -EINVAL;
+    }
+    blob = (const struct drm_format_modifier_blob *)blob_data;
+    if (blob->formats_offset > blob_length ||
+        blob->modifiers_offset > blob_length ||
+        (uint64_t)blob->formats_offset +
+            (uint64_t)blob->count_formats * sizeof(uint32_t) > blob_length ||
+        (uint64_t)blob->modifiers_offset +
+            (uint64_t)blob->count_modifiers * sizeof(struct drm_format_modifier) >
+            blob_length) {
+        free(blob_data);
+        return -EINVAL;
+    }
+    summary->modifier_count = blob->count_modifiers;
+    formats = (const uint32_t *)((const char *)blob_data + blob->formats_offset);
+    modifiers = (const struct drm_format_modifier *)
+        ((const char *)blob_data + blob->modifiers_offset);
+    for (format_index = 0; format_index < blob->count_formats; ++format_index) {
+        if (formats[format_index] != DRM_FORMAT_XBGR8888) {
+            continue;
+        }
+        for (modifier_index = 0;
+             modifier_index < blob->count_modifiers;
+             ++modifier_index) {
+            if (gpu_z3_blob_modifier_applies_to_format(&modifiers[modifier_index],
+                                                       format_index)) {
+                gpu_z3_note_xbgr_modifier(summary,
+                                          modifiers[modifier_index].modifier);
+            }
+        }
+    }
+    free(blob_data);
+    return 0;
+}
+
+static int gpu_z3_fetch_plane_modifier_summary(
+    int fd,
+    uint32_t plane_id,
+    struct gpu_z3_plane_modifier_summary *summary) {
+    struct drm_mode_obj_get_properties obj_props;
+    uint32_t *prop_ids = NULL;
+    uint64_t *prop_values = NULL;
+    uint32_t index;
+    int rc = -ENODEV;
+
+    if (fd < 0 || plane_id == 0U || summary == NULL) {
+        return -EINVAL;
+    }
+    memset(summary, 0, sizeof(*summary));
+    summary->rc = -ENODEV;
+    memset(&obj_props, 0, sizeof(obj_props));
+    obj_props.obj_id = plane_id;
+    obj_props.obj_type = DRM_MODE_OBJECT_PLANE;
+    errno = 0;
+    if (gpu_z2_ioctl_retry(fd, DRM_IOCTL_MODE_OBJ_GETPROPERTIES, &obj_props) < 0) {
+        rc = negative_errno_or(EIO);
+        summary->rc = rc;
+        return rc;
+    }
+    if (obj_props.count_props == 0U) {
+        summary->rc = -ENODEV;
+        return -ENODEV;
+    }
+    prop_ids = (uint32_t *)calloc(obj_props.count_props, sizeof(*prop_ids));
+    prop_values = (uint64_t *)calloc(obj_props.count_props, sizeof(*prop_values));
+    if (prop_ids == NULL || prop_values == NULL) {
+        free(prop_ids);
+        free(prop_values);
+        summary->rc = -ENOMEM;
+        return -ENOMEM;
+    }
+    obj_props.props_ptr = (uintptr_t)prop_ids;
+    obj_props.prop_values_ptr = (uintptr_t)prop_values;
+    errno = 0;
+    if (gpu_z2_ioctl_retry(fd, DRM_IOCTL_MODE_OBJ_GETPROPERTIES, &obj_props) < 0) {
+        rc = negative_errno_or(EIO);
+        summary->rc = rc;
+        free(prop_ids);
+        free(prop_values);
+        return rc;
+    }
+    for (index = 0; index < obj_props.count_props; ++index) {
+        struct drm_mode_get_property prop;
+
+        memset(&prop, 0, sizeof(prop));
+        prop.prop_id = prop_ids[index];
+        errno = 0;
+        if (gpu_z2_ioctl_retry(fd, DRM_IOCTL_MODE_GETPROPERTY, &prop) == 0 &&
+            strcmp(prop.name, "IN_FORMATS") == 0) {
+            summary->has_in_formats = true;
+            summary->in_formats_prop = prop_ids[index];
+            summary->in_formats_blob_id = (uint32_t)prop_values[index];
+            break;
+        }
+    }
+    free(prop_ids);
+    free(prop_values);
+    if (!summary->has_in_formats) {
+        summary->rc = -ENODATA;
+        return -ENODATA;
+    }
+    rc = gpu_z3_parse_in_formats_blob(fd, summary);
+    summary->rc = rc;
+    return rc;
+}
+
+static int gpu_z3_select_idle_xbgr_plane(int fd,
+                                         int crtc_index,
+                                         struct gpu_z2_imported_target_summary *summary) {
+    struct drm_mode_get_plane_res plane_res;
+    uint32_t *plane_ids = NULL;
+    uint32_t index;
+    int rc = -ENODEV;
+
+    if (fd < 0 || crtc_index < 0 || crtc_index > 31 || summary == NULL) {
+        return -EINVAL;
+    }
+    summary->kms_client_cap_universal_rc =
+        gpu_z3_set_client_cap_result(fd, DRM_CLIENT_CAP_UNIVERSAL_PLANES, 1);
+    summary->kms_client_cap_atomic_rc =
+        gpu_z3_set_client_cap_result(fd, DRM_CLIENT_CAP_ATOMIC, 1);
+    memset(&plane_res, 0, sizeof(plane_res));
+    errno = 0;
+    if (gpu_z2_ioctl_retry(fd, DRM_IOCTL_MODE_GETPLANERESOURCES, &plane_res) < 0) {
+        rc = negative_errno_or(EIO);
+        summary->kms_plane_select_rc = rc;
+        return rc;
+    }
+    summary->kms_plane_count = plane_res.count_planes;
+    if (plane_res.count_planes == 0U) {
+        summary->kms_plane_select_rc = -ENODEV;
+        return -ENODEV;
+    }
+    plane_ids = (uint32_t *)calloc(plane_res.count_planes, sizeof(*plane_ids));
+    if (plane_ids == NULL) {
+        summary->kms_plane_select_rc = -ENOMEM;
+        return -ENOMEM;
+    }
+    plane_res.plane_id_ptr = (uintptr_t)plane_ids;
+    errno = 0;
+    if (gpu_z2_ioctl_retry(fd, DRM_IOCTL_MODE_GETPLANERESOURCES, &plane_res) < 0) {
+        rc = negative_errno_or(EIO);
+        summary->kms_plane_select_rc = rc;
+        free(plane_ids);
+        return rc;
+    }
+    summary->kms_plane_count = plane_res.count_planes;
+    for (index = 0; index < plane_res.count_planes; ++index) {
+        struct drm_mode_get_plane plane;
+        uint32_t *formats = NULL;
+        uint32_t plane_type = GPU_Z3_DRM_PLANE_TYPE_UNKNOWN;
+        struct gpu_z3_plane_modifier_summary modifiers;
+        bool compatible;
+        bool idle;
+        bool xbgr;
+        bool overlay;
+        bool xbgr_linear;
+        int modifier_rc;
+
+        if (gpu_z3_fetch_plane(fd, plane_ids[index], &plane, &formats) < 0) {
+            free(formats);
+            continue;
+        }
+        (void)gpu_z3_fetch_plane_type(fd, plane_ids[index], &plane_type);
+        modifier_rc = gpu_z3_fetch_plane_modifier_summary(fd,
+                                                          plane_ids[index],
+                                                          &modifiers);
+        compatible = (plane.possible_crtcs & (1U << crtc_index)) != 0U;
+        idle = plane.crtc_id == 0U && plane.fb_id == 0U;
+        xbgr = gpu_z3_plane_has_format(formats,
+                                       plane.count_format_types,
+                                       DRM_FORMAT_XBGR8888);
+        overlay = plane_type == GPU_Z3_DRM_PLANE_TYPE_OVERLAY;
+        xbgr_linear = xbgr &&
+                      (!modifiers.has_in_formats || modifiers.xbgr_linear);
+        if (compatible) {
+            summary->kms_plane_compatible_count += 1U;
+            if (overlay) {
+                summary->kms_plane_overlay_count += 1U;
+            }
+            if (idle && xbgr && overlay) {
+                summary->kms_plane_idle_xbgr_count += 1U;
+                if (xbgr_linear) {
+                    summary->kms_plane_idle_xbgr_linear_count += 1U;
+                }
+            }
+            if (idle && xbgr_linear && overlay) {
+                summary->kms_plane_id = plane.plane_id;
+                summary->kms_plane_selected_type = plane_type;
+                summary->kms_plane_selected_xbgr_linear =
+                    modifiers.has_in_formats ? (modifiers.xbgr_linear ? 1U : 0U) :
+                                               1U;
+                summary->kms_plane_selected_xbgr_tiled2 =
+                    modifiers.xbgr_tiled2 ? 1U : 0U;
+                summary->kms_plane_selected_xbgr_tiled3 =
+                    modifiers.xbgr_tiled3 ? 1U : 0U;
+                summary->kms_plane_selected_xbgr_compressed =
+                    modifiers.xbgr_compressed ? 1U : 0U;
+                summary->kms_plane_in_formats_rc = modifier_rc;
+                summary->kms_plane_in_formats_prop = modifiers.in_formats_prop;
+                summary->kms_plane_in_formats_blob = modifiers.in_formats_blob_id;
+                summary->kms_plane_in_formats_modifiers = modifiers.modifier_count;
+                rc = 0;
+                free(formats);
+                break;
+            }
+        }
+        free(formats);
+    }
+    free(plane_ids);
+    summary->kms_plane_select_rc = rc;
+    return rc;
+}
+
+struct gpu_z3_atomic_plane_props {
+    bool ready;
+    uint32_t count;
+    uint32_t fb_id;
+    uint32_t crtc_id;
+    uint32_t crtc_x;
+    uint32_t crtc_y;
+    uint32_t crtc_w;
+    uint32_t crtc_h;
+    uint32_t src_x;
+    uint32_t src_y;
+    uint32_t src_w;
+    uint32_t src_h;
+    uint32_t zpos;
+    uint32_t alpha;
+    uint32_t rotation;
+    uint32_t pixel_blend_mode;
+    int rc;
+};
+
+static void gpu_z3_note_atomic_plane_prop(struct gpu_z3_atomic_plane_props *props,
+                                          uint32_t prop_id,
+                                          const char *name) {
+    if (props == NULL || name == NULL) {
+        return;
+    }
+    if (strcmp(name, "FB_ID") == 0) {
+        props->fb_id = prop_id;
+    } else if (strcmp(name, "CRTC_ID") == 0) {
+        props->crtc_id = prop_id;
+    } else if (strcmp(name, "CRTC_X") == 0) {
+        props->crtc_x = prop_id;
+    } else if (strcmp(name, "CRTC_Y") == 0) {
+        props->crtc_y = prop_id;
+    } else if (strcmp(name, "CRTC_W") == 0) {
+        props->crtc_w = prop_id;
+    } else if (strcmp(name, "CRTC_H") == 0) {
+        props->crtc_h = prop_id;
+    } else if (strcmp(name, "SRC_X") == 0) {
+        props->src_x = prop_id;
+    } else if (strcmp(name, "SRC_Y") == 0) {
+        props->src_y = prop_id;
+    } else if (strcmp(name, "SRC_W") == 0) {
+        props->src_w = prop_id;
+    } else if (strcmp(name, "SRC_H") == 0) {
+        props->src_h = prop_id;
+    } else if (strcmp(name, "zpos") == 0 || strcmp(name, "ZPOS") == 0) {
+        props->zpos = prop_id;
+    } else if (strcmp(name, "alpha") == 0 || strcmp(name, "ALPHA") == 0) {
+        props->alpha = prop_id;
+    } else if (strcmp(name, "rotation") == 0 ||
+               strcmp(name, "ROTATION") == 0) {
+        props->rotation = prop_id;
+    } else if (strcmp(name, "pixel blend mode") == 0 ||
+               strcmp(name, "PIXEL_BLEND_MODE") == 0) {
+        props->pixel_blend_mode = prop_id;
+    }
+}
+
+static bool gpu_z3_atomic_plane_props_ready(
+    const struct gpu_z3_atomic_plane_props *props) {
+    return props != NULL &&
+           props->fb_id != 0U &&
+           props->crtc_id != 0U &&
+           props->crtc_x != 0U &&
+           props->crtc_y != 0U &&
+           props->crtc_w != 0U &&
+           props->crtc_h != 0U &&
+           props->src_x != 0U &&
+           props->src_y != 0U &&
+           props->src_w != 0U &&
+           props->src_h != 0U;
+}
+
+static int gpu_z3_fetch_atomic_plane_props(
+    int fd,
+    uint32_t plane_id,
+    struct gpu_z3_atomic_plane_props *props) {
+    struct drm_mode_obj_get_properties obj_props;
+    uint32_t *prop_ids = NULL;
+    uint64_t *prop_values = NULL;
+    uint32_t index;
+    int rc = -ENODEV;
+
+    if (fd < 0 || plane_id == 0U || props == NULL) {
+        return -EINVAL;
+    }
+    memset(props, 0, sizeof(*props));
+    props->rc = -ENODEV;
+    memset(&obj_props, 0, sizeof(obj_props));
+    obj_props.obj_id = plane_id;
+    obj_props.obj_type = DRM_MODE_OBJECT_PLANE;
+    errno = 0;
+    if (gpu_z2_ioctl_retry(fd, DRM_IOCTL_MODE_OBJ_GETPROPERTIES, &obj_props) < 0) {
+        rc = negative_errno_or(EIO);
+        props->rc = rc;
+        return rc;
+    }
+    props->count = obj_props.count_props;
+    if (obj_props.count_props == 0U) {
+        props->rc = -ENODEV;
+        return -ENODEV;
+    }
+    prop_ids = (uint32_t *)calloc(obj_props.count_props, sizeof(*prop_ids));
+    prop_values = (uint64_t *)calloc(obj_props.count_props, sizeof(*prop_values));
+    if (prop_ids == NULL || prop_values == NULL) {
+        free(prop_ids);
+        free(prop_values);
+        props->rc = -ENOMEM;
+        return -ENOMEM;
+    }
+    obj_props.props_ptr = (uintptr_t)prop_ids;
+    obj_props.prop_values_ptr = (uintptr_t)prop_values;
+    errno = 0;
+    if (gpu_z2_ioctl_retry(fd, DRM_IOCTL_MODE_OBJ_GETPROPERTIES, &obj_props) < 0) {
+        rc = negative_errno_or(EIO);
+        props->rc = rc;
+        free(prop_ids);
+        free(prop_values);
+        return rc;
+    }
+    for (index = 0; index < obj_props.count_props; ++index) {
+        struct drm_mode_get_property prop;
+
+        memset(&prop, 0, sizeof(prop));
+        prop.prop_id = prop_ids[index];
+        errno = 0;
+        if (gpu_z2_ioctl_retry(fd, DRM_IOCTL_MODE_GETPROPERTY, &prop) == 0) {
+            gpu_z3_note_atomic_plane_prop(props, prop_ids[index], prop.name);
+        }
+    }
+    free(prop_ids);
+    free(prop_values);
+    props->ready = gpu_z3_atomic_plane_props_ready(props);
+    props->rc = props->ready ? 0 : -ENODEV;
+    return props->rc;
+}
+
+static int gpu_z3_atomic_commit_imported_fb_on_plane(
+    int fd,
+    uint32_t fb_id,
+    uint32_t source_width,
+    uint32_t source_height,
+    const struct gpu_z3_atomic_plane_props *props,
+    struct gpu_z2_imported_target_summary *summary) {
+    uint32_t objs[1];
+    uint32_t count_props[1];
+    uint32_t prop_ids[14];
+    uint64_t prop_values[14];
+    struct drm_mode_atomic atomic;
+    uint32_t index = 0U;
+
+    if (fd < 0 || fb_id == 0U || source_width == 0U ||
+        source_height == 0U || props == NULL || !props->ready ||
+        summary == NULL || summary->kms_plane_id == 0U ||
+        summary->kms_crtc_id == 0U) {
+        return -EINVAL;
+    }
+    prop_ids[index] = props->fb_id;
+    prop_values[index++] = fb_id;
+    prop_ids[index] = props->crtc_id;
+    prop_values[index++] = summary->kms_crtc_id;
+    prop_ids[index] = props->crtc_x;
+    prop_values[index++] = summary->kms_dst_x;
+    prop_ids[index] = props->crtc_y;
+    prop_values[index++] = summary->kms_dst_y;
+    prop_ids[index] = props->crtc_w;
+    prop_values[index++] = summary->kms_dst_width;
+    prop_ids[index] = props->crtc_h;
+    prop_values[index++] = summary->kms_dst_height;
+    prop_ids[index] = props->src_x;
+    prop_values[index++] = 0U;
+    prop_ids[index] = props->src_y;
+    prop_values[index++] = 0U;
+    prop_ids[index] = props->src_w;
+    prop_values[index++] = (uint64_t)source_width << 16U;
+    prop_ids[index] = props->src_h;
+    prop_values[index++] = (uint64_t)source_height << 16U;
+    if (props->zpos != 0U) {
+        prop_ids[index] = props->zpos;
+        prop_values[index++] = 1U;
+        summary->kms_atomic_optional_count += 1;
+    }
+    if (props->alpha != 0U) {
+        prop_ids[index] = props->alpha;
+        prop_values[index++] = 0xffffU;
+        summary->kms_atomic_optional_count += 1;
+    }
+    if (props->rotation != 0U) {
+        prop_ids[index] = props->rotation;
+        prop_values[index++] = 1U;
+        summary->kms_atomic_optional_count += 1;
+    }
+    if (props->pixel_blend_mode != 0U) {
+        prop_ids[index] = props->pixel_blend_mode;
+        prop_values[index++] = 0U;
+        summary->kms_atomic_optional_count += 1;
+    }
+    summary->kms_atomic_zpos_prop = props->zpos;
+    summary->kms_atomic_alpha_prop = props->alpha;
+    summary->kms_atomic_rotation_prop = props->rotation;
+    summary->kms_atomic_pixel_blend_mode_prop = props->pixel_blend_mode;
+
+    objs[0] = summary->kms_plane_id;
+    count_props[0] = index;
+    memset(&atomic, 0, sizeof(atomic));
+    atomic.count_objs = 1U;
+    atomic.objs_ptr = (uintptr_t)objs;
+    atomic.count_props_ptr = (uintptr_t)count_props;
+    atomic.props_ptr = (uintptr_t)prop_ids;
+    atomic.prop_values_ptr = (uintptr_t)prop_values;
+    atomic.flags = DRM_MODE_ATOMIC_ALLOW_MODESET;
+    summary->kms_atomic_flags = atomic.flags;
+    errno = 0;
+    if (gpu_z2_ioctl_retry(fd, DRM_IOCTL_MODE_ATOMIC, &atomic) < 0) {
+        return negative_errno_or(EIO);
+    }
+    return 0;
+}
+
+static int gpu_z3_present_imported_fb_on_plane(
+    int fd,
+    uint32_t fb_id,
+    uint32_t source_width,
+    uint32_t source_height,
+    struct gpu_z2_imported_target_summary *summary) {
+    struct gpu_z3_atomic_plane_props atomic_props;
+    struct drm_mode_set_plane setplane;
+    uint64_t started_ns;
+    uint64_t finished_ns;
+    int rc;
+
+    if (fd < 0 || fb_id == 0U || source_width == 0U ||
+        source_height == 0U || summary == NULL ||
+        summary->kms_crtc_id == 0U || summary->kms_plane_id == 0U) {
+        return -EINVAL;
+    }
+    summary->kms_dst_width = source_width;
+    summary->kms_dst_height = source_height;
+    summary->kms_dst_x =
+        summary->kms_screen_width <= source_width ? 0U :
+        (summary->kms_screen_width - source_width) / 2U;
+    summary->kms_dst_y =
+        summary->kms_screen_height <= source_height ? 0U :
+        (summary->kms_screen_height - source_height) / 2U;
+
+    memset(&atomic_props, 0, sizeof(atomic_props));
+    summary->kms_atomic_props_rc =
+        gpu_z3_fetch_atomic_plane_props(fd, summary->kms_plane_id, &atomic_props);
+    summary->kms_atomic_prop_count = atomic_props.count;
+    if (summary->kms_atomic_props_rc == 0) {
+        started_ns = video_monotonic_ns();
+        rc = gpu_z3_atomic_commit_imported_fb_on_plane(fd,
+                                                       fb_id,
+                                                       source_width,
+                                                       source_height,
+                                                       &atomic_props,
+                                                       summary);
+        finished_ns = video_monotonic_ns();
+        summary->kms_atomic_commit_rc = rc;
+        if (rc == 0) {
+            summary->present_us =
+                finished_ns > started_ns ? (finished_ns - started_ns) / 1000ULL : 0ULL;
+            summary->kms_present_rc = 0;
+            return 0;
+        }
+    } else {
+        summary->kms_atomic_commit_rc = -ENODEV;
+    }
+
+    memset(&setplane, 0, sizeof(setplane));
+    setplane.plane_id = summary->kms_plane_id;
+    setplane.crtc_id = summary->kms_crtc_id;
+    setplane.fb_id = fb_id;
+    setplane.crtc_x = (int32_t)summary->kms_dst_x;
+    setplane.crtc_y = (int32_t)summary->kms_dst_y;
+    setplane.crtc_w = summary->kms_dst_width;
+    setplane.crtc_h = summary->kms_dst_height;
+    setplane.src_x = 0U;
+    setplane.src_y = 0U;
+    setplane.src_w = source_width << 16U;
+    setplane.src_h = source_height << 16U;
+    started_ns = video_monotonic_ns();
+    errno = 0;
+    if (gpu_z2_ioctl_retry(fd, DRM_IOCTL_MODE_SETPLANE, &setplane) < 0) {
+        rc = negative_errno_or(EIO);
+        summary->kms_present_rc = rc;
+        return rc;
+    }
+    finished_ns = video_monotonic_ns();
+    summary->present_us =
+        finished_ns > started_ns ? (finished_ns - started_ns) / 1000ULL : 0ULL;
+    summary->kms_present_rc = 0;
+    return 0;
+}
+
+static int gpu_z3_disable_present_plane(
+    int fd,
+    struct gpu_z2_imported_target_summary *summary) {
+    struct drm_mode_set_plane setplane;
+
+    if (summary == NULL || summary->kms_plane_id == 0U) {
+        return 0;
+    }
+    if (fd < 0) {
+        return -EINVAL;
+    }
+    memset(&setplane, 0, sizeof(setplane));
+    setplane.plane_id = summary->kms_plane_id;
+    errno = 0;
+    if (gpu_z2_ioctl_retry(fd, DRM_IOCTL_MODE_SETPLANE, &setplane) < 0) {
+        return negative_errno_or(EIO);
+    }
+    return 0;
+}
+
 static bool gpu_z2_imported_target_summary_passed(
     const struct gpu_z2_imported_target_summary *summary) {
     return summary != NULL &&
@@ -15844,7 +16675,64 @@ static bool gpu_z2_imported_target_summary_passed(
            summary->close_drm_handle_rc == 0;
 }
 
-static int gpu_z2_imported_scanout_target_child(int write_fd) {
+static bool gpu_z3_kms_dumb_imported_target_summary_passed(
+    const struct gpu_z2_imported_target_summary *summary) {
+    return summary != NULL &&
+           summary->drm_open_rc == 0 &&
+           summary->drm_buffer_kind == GPU_Z3_BUFFER_KIND_KMS_DUMB &&
+           summary->drm_dumb_create_rc == 0 &&
+           summary->drm_dumb_map_offset_rc == 0 &&
+           summary->drm_dumb_pitch == GPU_D3_VIDEO_TARGET_STRIDE &&
+           summary->drm_dumb_size >= GPU_D3_VIDEO_TARGET_BYTES &&
+           summary->drm_prime_export_rc == 0 &&
+           summary->drm_addfb2_rc == 0 &&
+           summary->kgsl_import_rc == 0 &&
+           summary->kgsl_info_rc == 0 &&
+           summary->gpu_create_rc == 0 &&
+           summary->render_rc == 0 &&
+           summary->kgsl_gpuaddr != 0ULL &&
+           summary->kgsl_size >= GPU_D3_VIDEO_TARGET_BYTES &&
+           summary->changed_count > 0ULL &&
+           summary->semantic_sample_count == GPU_D1_CHECKER_SAMPLE_COUNT &&
+           summary->semantic_sample_match_count == GPU_D1_CHECKER_SAMPLE_COUNT &&
+           summary->semantic_sample_match_count ==
+               summary->semantic_exact_match_count +
+               summary->semantic_edge_tolerant_match_count &&
+           summary->semantic_sample_mismatch_count == 0U &&
+           summary->semantic_output_other_count == 0U &&
+           summary->rmfb_rc == 0 &&
+           summary->drm_dumb_destroy_rc == 0;
+}
+
+static bool gpu_z3_imported_scanout_present_summary_passed(
+    const struct gpu_z2_imported_target_summary *summary) {
+    return (gpu_z2_imported_target_summary_passed(summary) ||
+            gpu_z3_kms_dumb_imported_target_summary_passed(summary)) &&
+           summary->kms_begin_rc == 0 &&
+           summary->kms_base_present_rc == 0 &&
+           summary->kms_info_initialized == 1 &&
+           summary->kms_crtc_id != 0U &&
+           summary->kms_crtc_index >= 0 &&
+           summary->kms_screen_width >= summary->target_width &&
+           summary->kms_screen_height >= summary->target_height &&
+           summary->kms_plane_select_rc == 0 &&
+           summary->kms_plane_id != 0U &&
+           summary->kms_plane_compatible_count > 0U &&
+           summary->kms_plane_overlay_count > 0U &&
+           summary->kms_plane_selected_type == GPU_Z3_DRM_PLANE_TYPE_OVERLAY &&
+           summary->kms_plane_idle_xbgr_count > 0U &&
+           summary->kms_plane_idle_xbgr_linear_count > 0U &&
+           summary->kms_plane_selected_xbgr_linear != 0U &&
+           summary->kms_atomic_props_rc == 0 &&
+           summary->kms_atomic_commit_rc == 0 &&
+           summary->kms_present_rc == 0 &&
+           summary->hold_ms > 0U &&
+           summary->kms_disable_plane_rc == 0;
+}
+
+static int gpu_z2_imported_scanout_target_child(int write_fd,
+                                                bool present_external,
+                                                int hold_ms) {
     struct gpu_z2_imported_target_summary summary;
     struct gpu_d3_video_summary d3_summary;
     struct gpu_z2_linear_import_metrics import_metrics;
@@ -15852,10 +16740,13 @@ static int gpu_z2_imported_scanout_target_child(int write_fd) {
     struct gpu_d3_session session;
     struct a90_monitor_graph_series series;
     struct drm_msm_gem_new gem;
+    struct drm_mode_create_dumb dumb;
+    struct drm_mode_map_dumb dumb_map;
     struct drm_prime_handle prime_arg;
     struct drm_mode_fb_cmd2 addfb2;
     uint8_t *frame = NULL;
     void *map = MAP_FAILED;
+    size_t map_size = (size_t)GPU_D3_VIDEO_TARGET_BYTES;
     int drm_fd = -1;
     int prime_fd = -1;
     uint64_t started_ns;
@@ -15864,6 +16755,8 @@ static int gpu_z2_imported_scanout_target_child(int write_fd) {
     uint32_t drm_handle = 0U;
     uint32_t fb_id = 0U;
     bool session_owns_map = false;
+    bool drm_fd_owned = true;
+    bool use_kms_dumb_target = present_external;
     int rc = -EIO;
 
     memset(&summary, 0, sizeof(summary));
@@ -15877,16 +16770,31 @@ static int gpu_z2_imported_scanout_target_child(int write_fd) {
     summary.drm_open_rc = -ENOSYS;
     summary.drm_msm_gem_new_rc = -ENOSYS;
     summary.drm_msm_gem_info_offset_rc = -ENOSYS;
+    summary.drm_dumb_create_rc = -ENOSYS;
+    summary.drm_dumb_map_offset_rc = -ENOSYS;
     summary.drm_prime_export_rc = -ENOSYS;
     summary.drm_addfb2_rc = -ENOSYS;
     summary.kgsl_import_rc = -ENOSYS;
     summary.kgsl_info_rc = -ENOSYS;
     summary.gpu_create_rc = -ENOSYS;
     summary.render_rc = -ENOSYS;
+    summary.kms_begin_rc = present_external ? -ENOSYS : 0;
+    summary.kms_base_present_rc = present_external ? -ENOSYS : 0;
+    summary.kms_info_initialized = 0;
+    summary.kms_client_cap_universal_rc = present_external ? -ENOSYS : 0;
+    summary.kms_client_cap_atomic_rc = present_external ? -ENOSYS : 0;
+    summary.kms_plane_select_rc = present_external ? -ENOSYS : 0;
+    summary.kms_plane_in_formats_rc = present_external ? -ENOSYS : 0;
+    summary.kms_atomic_props_rc = present_external ? -ENOSYS : 0;
+    summary.kms_atomic_commit_rc = present_external ? -ENOSYS : 0;
+    summary.kms_present_rc = present_external ? -ENOSYS : 0;
+    summary.kms_disable_plane_rc = 0;
     summary.rmfb_rc = 0;
+    summary.drm_dumb_destroy_rc = 0;
     summary.close_drm_handle_rc = 0;
     summary.close_prime_rc = 0;
     summary.close_drm_fd_rc = 0;
+    summary.kms_crtc_index = -1;
     summary.source_width = manifest.width;
     summary.source_height = manifest.height;
     summary.source_stride = manifest.stride;
@@ -15895,46 +16803,128 @@ static int gpu_z2_imported_scanout_target_child(int write_fd) {
     summary.target_height = GPU_D3_VIDEO_TARGET_HEIGHT;
     summary.target_stride = GPU_D3_VIDEO_TARGET_STRIDE;
     summary.target_bytes = (uint32_t)GPU_D3_VIDEO_TARGET_BYTES;
+    summary.hold_ms = present_external && hold_ms > 0 ? (uint32_t)hold_ms : 0U;
+    summary.drm_buffer_kind =
+        use_kms_dumb_target ? GPU_Z3_BUFFER_KIND_KMS_DUMB :
+                              GPU_Z3_BUFFER_KIND_MSM_GEM;
 
     rc = gpu_z2_materialize_drm_card0();
     if (rc < 0) {
         summary.drm_open_rc = rc;
         goto out;
     }
-    errno = 0;
-    drm_fd = open("/dev/dri/card0", O_RDWR | O_CLOEXEC);
-    if (drm_fd < 0) {
-        rc = negative_errno_or(EIO);
-        summary.drm_open_rc = rc;
-        goto out;
-    }
-    summary.drm_open_rc = 0;
+    if (present_external) {
+        struct a90_kms_info kms_info;
 
-    memset(&gem, 0, sizeof(gem));
-    gem.size = GPU_D3_VIDEO_TARGET_BYTES;
-    gem.flags = MSM_BO_SCANOUT | MSM_BO_WC;
-    errno = 0;
-    if (gpu_z2_ioctl_retry(drm_fd, DRM_IOCTL_MSM_GEM_NEW, &gem) < 0) {
-        rc = negative_errno_or(EIO);
-        summary.drm_msm_gem_new_rc = rc;
-        goto out;
+        memset(&kms_info, 0, sizeof(kms_info));
+        summary.kms_begin_rc = a90_kms_begin_frame(0x000000U);
+        if (summary.kms_begin_rc < 0) {
+            rc = negative_errno_or(EIO);
+            summary.kms_begin_rc = rc;
+            summary.drm_open_rc = rc;
+            goto out;
+        }
+        summary.kms_base_present_rc =
+            a90_kms_present("gpu-z3-imported-scanout-base", false);
+        if (summary.kms_base_present_rc < 0) {
+            rc = negative_errno_or(EIO);
+            summary.kms_base_present_rc = rc;
+            summary.drm_open_rc = rc;
+            goto out;
+        }
+        a90_kms_info(&kms_info);
+        summary.kms_info_initialized = kms_info.initialized ? 1 : 0;
+        summary.kms_crtc_id = kms_info.crtc_id;
+        summary.kms_crtc_index = kms_info.crtc_index;
+        summary.kms_screen_width = kms_info.width;
+        summary.kms_screen_height = kms_info.height;
+        if (!kms_info.initialized || kms_info.crtc_id == 0U ||
+            kms_info.crtc_index < 0 || kms_info.width == 0U ||
+            kms_info.height == 0U) {
+            rc = -ENODEV;
+            summary.drm_open_rc = rc;
+            goto out;
+        }
+        drm_fd = a90_kms_drm_fd();
+        drm_fd_owned = false;
+        if (drm_fd < 0) {
+            rc = -ENODEV;
+            summary.drm_open_rc = rc;
+            goto out;
+        }
+        summary.drm_open_rc = 0;
+    } else {
+        errno = 0;
+        drm_fd = open("/dev/dri/card0", O_RDWR | O_CLOEXEC);
+        if (drm_fd < 0) {
+            rc = negative_errno_or(EIO);
+            summary.drm_open_rc = rc;
+            goto out;
+        }
+        summary.drm_open_rc = 0;
     }
-    drm_handle = gem.handle;
-    summary.drm_handle = drm_handle;
-    summary.drm_msm_gem_new_rc = 0;
 
-    rc = gpu_z2_msm_gem_info_u64(drm_fd,
-                                  drm_handle,
-                                  MSM_INFO_GET_OFFSET,
-                                  &offset);
-    summary.drm_msm_gem_info_offset_rc = rc;
-    summary.drm_mmap_offset = offset;
-    if (rc < 0) {
-        goto out;
+    if (use_kms_dumb_target) {
+        memset(&dumb, 0, sizeof(dumb));
+        dumb.width = GPU_D3_VIDEO_TARGET_WIDTH;
+        dumb.height = GPU_D3_VIDEO_TARGET_HEIGHT;
+        dumb.bpp = 32U;
+        errno = 0;
+        if (gpu_z2_ioctl_retry(drm_fd, DRM_IOCTL_MODE_CREATE_DUMB, &dumb) < 0) {
+            rc = negative_errno_or(EIO);
+            summary.drm_dumb_create_rc = rc;
+            goto out;
+        }
+        drm_handle = dumb.handle;
+        map_size = (size_t)dumb.size;
+        summary.drm_handle = drm_handle;
+        summary.drm_dumb_create_rc = 0;
+        summary.drm_dumb_pitch = dumb.pitch;
+        summary.drm_dumb_size = dumb.size;
+        if (dumb.pitch != GPU_D3_VIDEO_TARGET_STRIDE ||
+            dumb.size < GPU_D3_VIDEO_TARGET_BYTES) {
+            rc = -EINVAL;
+            goto out;
+        }
+        memset(&dumb_map, 0, sizeof(dumb_map));
+        dumb_map.handle = drm_handle;
+        errno = 0;
+        if (gpu_z2_ioctl_retry(drm_fd, DRM_IOCTL_MODE_MAP_DUMB, &dumb_map) < 0) {
+            rc = negative_errno_or(EIO);
+            summary.drm_dumb_map_offset_rc = rc;
+            goto out;
+        }
+        offset = dumb_map.offset;
+        summary.drm_dumb_map_offset_rc = 0;
+        summary.drm_dumb_map_offset = offset;
+        summary.drm_mmap_offset = offset;
+    } else {
+        memset(&gem, 0, sizeof(gem));
+        gem.size = GPU_D3_VIDEO_TARGET_BYTES;
+        gem.flags = MSM_BO_SCANOUT | MSM_BO_WC;
+        errno = 0;
+        if (gpu_z2_ioctl_retry(drm_fd, DRM_IOCTL_MSM_GEM_NEW, &gem) < 0) {
+            rc = negative_errno_or(EIO);
+            summary.drm_msm_gem_new_rc = rc;
+            goto out;
+        }
+        drm_handle = gem.handle;
+        summary.drm_handle = drm_handle;
+        summary.drm_msm_gem_new_rc = 0;
+
+        rc = gpu_z2_msm_gem_info_u64(drm_fd,
+                                      drm_handle,
+                                      MSM_INFO_GET_OFFSET,
+                                      &offset);
+        summary.drm_msm_gem_info_offset_rc = rc;
+        summary.drm_mmap_offset = offset;
+        if (rc < 0) {
+            goto out;
+        }
     }
     errno = 0;
     map = mmap(NULL,
-               (size_t)GPU_D3_VIDEO_TARGET_BYTES,
+               map_size,
                PROT_READ | PROT_WRITE,
                MAP_SHARED,
                drm_fd,
@@ -15943,7 +16933,7 @@ static int gpu_z2_imported_scanout_target_child(int write_fd) {
         rc = negative_errno_or(EIO);
         goto out;
     }
-    memset(map, 0, (size_t)GPU_D3_VIDEO_TARGET_BYTES);
+    memset(map, 0, map_size);
 
     memset(&prime_arg, 0, sizeof(prime_arg));
     prime_arg.handle = drm_handle;
@@ -16042,11 +17032,37 @@ static int gpu_z2_imported_scanout_target_child(int write_fd) {
         }
     }
 
+    if (present_external) {
+        rc = gpu_z3_select_idle_xbgr_plane(drm_fd,
+                                           summary.kms_crtc_index,
+                                           &summary);
+        if (rc < 0) {
+            goto out;
+        }
+        rc = gpu_z3_present_imported_fb_on_plane(drm_fd,
+                                                 fb_id,
+                                                 GPU_D3_VIDEO_TARGET_WIDTH,
+                                                 GPU_D3_VIDEO_TARGET_HEIGHT,
+                                                 &summary);
+        if (rc < 0) {
+            goto out;
+        }
+        if (hold_ms > 0) {
+            usleep((useconds_t)hold_ms * 1000U);
+        }
+    }
+
     summary.result_rc =
-        gpu_z2_imported_target_summary_passed(&summary) ? 0 : -EIO;
+        present_external ?
+            (gpu_z3_imported_scanout_present_summary_passed(&summary) ? 0 : -EIO) :
+            (gpu_z2_imported_target_summary_passed(&summary) ? 0 : -EIO);
     rc = summary.result_rc;
 
 out:
+    if (present_external && drm_fd >= 0) {
+        summary.kms_disable_plane_rc =
+            gpu_z3_disable_present_plane(drm_fd, &summary);
+    }
     gpu_d3_destroy_session(&session);
     if (session_owns_map) {
         map = MAP_FAILED;
@@ -16060,7 +17076,7 @@ out:
         }
     }
     if (map != MAP_FAILED) {
-        (void)munmap(map, (size_t)GPU_D3_VIDEO_TARGET_BYTES);
+        (void)munmap(map, map_size);
         map = MAP_FAILED;
     }
     if (prime_fd >= 0) {
@@ -16071,14 +17087,28 @@ out:
         prime_fd = -1;
     }
     if (drm_handle != 0U && drm_fd >= 0) {
-        summary.close_drm_handle_rc = gpu_z2_close_drm_gem_handle(drm_fd, drm_handle);
+        if (use_kms_dumb_target) {
+            struct drm_mode_destroy_dumb destroy;
+
+            memset(&destroy, 0, sizeof(destroy));
+            destroy.handle = drm_handle;
+            errno = 0;
+            if (gpu_z2_ioctl_retry(drm_fd, DRM_IOCTL_MODE_DESTROY_DUMB, &destroy) < 0) {
+                summary.drm_dumb_destroy_rc = negative_errno_or(EIO);
+            }
+        } else {
+            summary.close_drm_handle_rc =
+                gpu_z2_close_drm_gem_handle(drm_fd, drm_handle);
+        }
     }
-    if (drm_fd >= 0) {
+    if (drm_fd >= 0 && drm_fd_owned) {
         errno = 0;
         if (close(drm_fd) < 0) {
             summary.close_drm_fd_rc = negative_errno_or(EIO);
         }
         drm_fd = -1;
+    } else {
+        summary.close_drm_fd_rc = 0;
     }
     free(frame);
     if (summary.result_rc != 0) {
@@ -16173,7 +17203,7 @@ static int gpu_z2_imported_scanout_target_probe(int timeout_ms,
         int child_rc;
 
         close(pipefd[0]);
-        child_rc = gpu_z2_imported_scanout_target_child(pipefd[1]);
+        child_rc = gpu_z2_imported_scanout_target_child(pipefd[1], false, 0);
         _exit(child_rc == 0 ? 0 : 1);
     }
     close(pipefd[1]);
@@ -16300,6 +17330,269 @@ static int gpu_z2_imported_scanout_target_probe(int timeout_ms,
         return -ETIMEDOUT;
     }
     return got_result && gpu_z2_imported_target_summary_passed(&summary) ?
+        0 : -EIO;
+}
+
+static int gpu_z3_imported_scanout_plane_probe(int timeout_ms,
+                                               int hold_ms,
+                                               bool materialize_devnode) {
+    int pipefd[2];
+    pid_t pid;
+    long deadline_ms;
+    bool got_result = false;
+    bool timed_out = false;
+    bool child_killed = false;
+    bool child_reaped = false;
+    int child_status = 0;
+    struct gpu_z2_imported_target_summary summary;
+
+    memset(&summary, 0, sizeof(summary));
+    if (timeout_ms <= 0) {
+        timeout_ms = GPU_G0_DEFAULT_TIMEOUT_MS;
+    }
+    if (timeout_ms > GPU_M2_GRAPH_MAX_TIMEOUT_MS) {
+        a90_console_printf("gpu.z3.scanout.error=timeout-too-large max_ms=%d\r\n",
+                           GPU_M2_GRAPH_MAX_TIMEOUT_MS);
+        return -EINVAL;
+    }
+    if (hold_ms <= 0) {
+        hold_ms = 12000;
+    }
+    if (hold_ms > timeout_ms - 1000) {
+        a90_console_printf("gpu.z3.scanout.error=hold-too-large timeout_ms=%d hold_ms=%d\r\n",
+                           timeout_ms, hold_ms);
+        return -EINVAL;
+    }
+
+    a90_console_printf("gpu.z3.scanout.version=1\r\n");
+    a90_console_printf("gpu.z3.scanout.scope=gpu-z3-imported-scanout-plane-present\r\n");
+    a90_console_printf("gpu.z3.scanout.command=gpu z3-imported-scanout-plane-probe --timeout-ms %d --hold-ms %d --materialize-devnode\r\n",
+                       timeout_ms, hold_ms);
+    a90_console_printf("gpu.z3.scanout.kgsl_path=%s\r\n", GPU_G0_DEVNODE);
+    a90_console_printf("gpu.z3.scanout.drm_path=/dev/dri/card0\r\n");
+    a90_console_printf("gpu.z3.scanout.buffer=kms-dumb-scanout-gem-prime-fd-kgsl-dmabuf-import\r\n");
+    a90_console_printf("gpu.z3.scanout.target=%ux%u stride=%u bytes=%llu format=XBGR8888\r\n",
+                       GPU_D3_VIDEO_TARGET_WIDTH,
+                       GPU_D3_VIDEO_TARGET_HEIGHT,
+                       GPU_D3_VIDEO_TARGET_STRIDE,
+                       (unsigned long long)GPU_D3_VIDEO_TARGET_BYTES);
+    a90_console_printf("gpu.z3.scanout.present_mode=legacy-overlay-plane-setplane\r\n");
+    a90_console_printf("gpu.z3.scanout.present_order=atomic-overlay-plane-first-legacy-setplane-fallback\r\n");
+    a90_console_printf("gpu.z3.scanout.kgsl_submit_attempted=1\r\n");
+    a90_console_printf("gpu.z3.scanout.kms_adfb2_attempted=1\r\n");
+    a90_console_printf("gpu.z3.scanout.kms_copy_attempted=0\r\n");
+    a90_console_printf("gpu.z3.scanout.kms_present_attempted=1\r\n");
+    a90_console_printf("gpu.z3.scanout.primary_pageflip_attempted=0\r\n");
+    a90_console_printf("gpu.z3.scanout.power_write_attempted=0\r\n");
+    a90_console_printf("gpu.z3.scanout.proprietary_blob_attempted=0\r\n");
+    if (materialize_devnode) {
+        int kgsl_rc = gpu_g0_materialize_devnode();
+        int drm_rc = gpu_z2_materialize_drm_card0();
+
+        a90_console_printf("gpu.z3.scanout.materialize_requested=1\r\n");
+        a90_console_printf("gpu.z3.scanout.materialize_kgsl_rc=%d\r\n", kgsl_rc);
+        a90_console_printf("gpu.z3.scanout.materialize_drm_rc=%d\r\n", drm_rc);
+        if (kgsl_rc < 0) {
+            return kgsl_rc;
+        }
+        if (drm_rc < 0) {
+            return drm_rc;
+        }
+    } else {
+        a90_console_printf("gpu.z3.scanout.materialize_requested=0\r\n");
+    }
+    if (pipe(pipefd) < 0) {
+        int saved_errno = errno;
+        a90_console_printf("gpu.z3.scanout.pipe_rc=-1 errno=%d\r\n", saved_errno);
+        return -saved_errno;
+    }
+    pid = fork();
+    if (pid < 0) {
+        int saved_errno = errno;
+        close(pipefd[0]);
+        close(pipefd[1]);
+        a90_console_printf("gpu.z3.scanout.fork_rc=-1 errno=%d\r\n", saved_errno);
+        return -saved_errno;
+    }
+    if (pid == 0) {
+        int child_rc;
+
+        close(pipefd[0]);
+        child_rc = gpu_z2_imported_scanout_target_child(pipefd[1], true, hold_ms);
+        _exit(child_rc == 0 ? 0 : 1);
+    }
+    close(pipefd[1]);
+    deadline_ms = monotonic_millis() + timeout_ms;
+    a90_console_printf("gpu.z3.scanout.child_pid=%ld\r\n", (long)pid);
+
+    while (monotonic_millis() <= deadline_ms) {
+        struct pollfd pfd;
+        long now_ms = monotonic_millis();
+        int remaining_ms = (int)(deadline_ms > now_ms ? deadline_ms - now_ms : 0);
+        int poll_ms = remaining_ms > 50 ? 50 : remaining_ms;
+        ssize_t rd;
+        pid_t wait_rc;
+
+        if (poll_ms < 0) {
+            poll_ms = 0;
+        }
+        pfd.fd = pipefd[0];
+        pfd.events = POLLIN | POLLHUP;
+        pfd.revents = 0;
+        if (poll(&pfd, 1, poll_ms) > 0 && (pfd.revents & (POLLIN | POLLHUP)) != 0) {
+            rd = read(pipefd[0], &summary, sizeof(summary));
+            if (rd == (ssize_t)sizeof(summary)) {
+                got_result = true;
+            }
+            break;
+        }
+        wait_rc = waitpid(pid, &child_status, WNOHANG);
+        if (wait_rc == pid) {
+            child_reaped = true;
+            break;
+        }
+    }
+    if (!got_result && !child_reaped) {
+        timed_out = true;
+        if (kill(pid, SIGKILL) == 0) {
+            child_killed = true;
+        }
+        if (waitpid(pid, &child_status, 0) == pid) {
+            child_reaped = true;
+        }
+    } else if (!child_reaped) {
+        if (waitpid(pid, &child_status, 0) == pid) {
+            child_reaped = true;
+        }
+    }
+    close(pipefd[0]);
+
+    a90_console_printf("gpu.z3.scanout.result=%s\r\n",
+                       got_result && gpu_z3_imported_scanout_present_summary_passed(&summary) ?
+                           "z3-imported-scanout-plane-present-pass" :
+                       (timed_out ? "timeout" :
+                                    "z3-imported-scanout-plane-present-failed"));
+    a90_console_printf("gpu.z3.scanout.timed_out=%d\r\n", timed_out ? 1 : 0);
+    a90_console_printf("gpu.z3.scanout.child_killed=%d\r\n", child_killed ? 1 : 0);
+    a90_console_printf("gpu.z3.scanout.child_reaped=%d\r\n", child_reaped ? 1 : 0);
+    a90_console_printf("gpu.z3.scanout.child_status=0x%x\r\n", child_status);
+    if (got_result) {
+        a90_console_printf("gpu.z3.scanout.result_rc=%d\r\n", summary.result_rc);
+        a90_console_printf("gpu.z3.scanout.drm.open_rc=%d\r\n", summary.drm_open_rc);
+        a90_console_printf("gpu.z3.scanout.drm.buffer_kind=%u\r\n",
+                           summary.drm_buffer_kind);
+        a90_console_printf("gpu.z3.scanout.drm.msm_gem_new_rc=%d handle=%u\r\n",
+                           summary.drm_msm_gem_new_rc, summary.drm_handle);
+        a90_console_printf("gpu.z3.scanout.drm.offset_rc=%d offset=0x%llx\r\n",
+                           summary.drm_msm_gem_info_offset_rc,
+                           (unsigned long long)summary.drm_mmap_offset);
+        a90_console_printf("gpu.z3.scanout.drm.dumb_create_rc=%d pitch=%u size=%llu\r\n",
+                           summary.drm_dumb_create_rc,
+                           summary.drm_dumb_pitch,
+                           (unsigned long long)summary.drm_dumb_size);
+        a90_console_printf("gpu.z3.scanout.drm.dumb_map_offset_rc=%d offset=0x%llx\r\n",
+                           summary.drm_dumb_map_offset_rc,
+                           (unsigned long long)summary.drm_dumb_map_offset);
+        a90_console_printf("gpu.z3.scanout.drm.prime_export_rc=%d\r\n",
+                           summary.drm_prime_export_rc);
+        a90_console_printf("gpu.z3.scanout.drm.addfb2_rc=%d fb_id=%u\r\n",
+                           summary.drm_addfb2_rc, summary.drm_fb_id);
+        a90_console_printf("gpu.z3.scanout.kgsl.import_rc=%d id=%u\r\n",
+                           summary.kgsl_import_rc, summary.kgsl_id);
+        a90_console_printf("gpu.z3.scanout.kgsl.info_rc=%d gpuaddr=0x%llx size=%llu flags=0x%llx va_len=%llu\r\n",
+                           summary.kgsl_info_rc,
+                           (unsigned long long)summary.kgsl_gpuaddr,
+                           (unsigned long long)summary.kgsl_size,
+                           (unsigned long long)summary.kgsl_flags,
+                           (unsigned long long)summary.kgsl_va_len);
+        a90_console_printf("gpu.z3.scanout.gpu_create_rc=%d render_rc=%d\r\n",
+                           summary.gpu_create_rc, summary.render_rc);
+        a90_console_printf("gpu.z3.scanout.pm4_dwords=%u\r\n", summary.pm4_dwords);
+        a90_console_printf("gpu.z3.scanout.graph_pixels_set=%u graph_points=%u\r\n",
+                           summary.graph_pixels_set, summary.graph_points);
+        a90_console_printf("gpu.z3.scanout.changed_count=%llu\r\n",
+                           (unsigned long long)summary.changed_count);
+        a90_console_printf("gpu.z3.scanout.semantic.sample_count=%u\r\n",
+                           summary.semantic_sample_count);
+        a90_console_printf("gpu.z3.scanout.semantic.match_count=%u\r\n",
+                           summary.semantic_sample_match_count);
+        a90_console_printf("gpu.z3.scanout.semantic.exact_match_count=%u\r\n",
+                           summary.semantic_exact_match_count);
+        a90_console_printf("gpu.z3.scanout.semantic.mismatch_count=%u\r\n",
+                           summary.semantic_sample_mismatch_count);
+        a90_console_printf("gpu.z3.scanout.semantic.output_other_count=%u\r\n",
+                           summary.semantic_output_other_count);
+        a90_console_printf("gpu.z3.scanout.kms.begin_rc=%d base_present_rc=%d info_initialized=%d\r\n",
+                           summary.kms_begin_rc,
+                           summary.kms_base_present_rc,
+                           summary.kms_info_initialized);
+        a90_console_printf("gpu.z3.scanout.kms.screen=%ux%u crtc=%u crtc_index=%d\r\n",
+                           summary.kms_screen_width,
+                           summary.kms_screen_height,
+                           summary.kms_crtc_id,
+                           summary.kms_crtc_index);
+        a90_console_printf("gpu.z3.scanout.kms.client_cap.universal_rc=%d atomic_rc=%d\r\n",
+                           summary.kms_client_cap_universal_rc,
+                           summary.kms_client_cap_atomic_rc);
+        a90_console_printf("gpu.z3.scanout.kms.plane_select_rc=%d plane_id=%u plane_count=%u compatible=%u overlay=%u idle_xbgr=%u idle_xbgr_linear=%u selected_type=%u\r\n",
+                           summary.kms_plane_select_rc,
+                           summary.kms_plane_id,
+                           summary.kms_plane_count,
+                           summary.kms_plane_compatible_count,
+                           summary.kms_plane_overlay_count,
+                           summary.kms_plane_idle_xbgr_count,
+                           summary.kms_plane_idle_xbgr_linear_count,
+                           summary.kms_plane_selected_type);
+        a90_console_printf("gpu.z3.scanout.kms.plane_modifier selected_linear=%u selected_tiled2=%u selected_tiled3=%u selected_compressed=%u in_formats_rc=%d prop=%u blob=%u modifiers=%u\r\n",
+                           summary.kms_plane_selected_xbgr_linear,
+                           summary.kms_plane_selected_xbgr_tiled2,
+                           summary.kms_plane_selected_xbgr_tiled3,
+                           summary.kms_plane_selected_xbgr_compressed,
+                           summary.kms_plane_in_formats_rc,
+                           summary.kms_plane_in_formats_prop,
+                           summary.kms_plane_in_formats_blob,
+                           summary.kms_plane_in_formats_modifiers);
+        a90_console_printf("gpu.z3.scanout.kms.atomic_props_rc=%d\r\n",
+                           summary.kms_atomic_props_rc);
+        a90_console_printf("gpu.z3.scanout.kms.atomic_commit_rc=%d\r\n",
+                           summary.kms_atomic_commit_rc);
+        a90_console_printf("gpu.z3.scanout.kms.atomic_prop_count=%u\r\n",
+                           summary.kms_atomic_prop_count);
+        a90_console_printf("gpu.z3.scanout.kms.atomic_flags=0x%x\r\n",
+                           summary.kms_atomic_flags);
+        a90_console_printf("gpu.z3.scanout.kms.atomic_optional_count=%d zpos_prop=%u alpha_prop=%u rotation_prop=%u pixel_blend_prop=%u\r\n",
+                           summary.kms_atomic_optional_count,
+                           summary.kms_atomic_zpos_prop,
+                           summary.kms_atomic_alpha_prop,
+                           summary.kms_atomic_rotation_prop,
+                           summary.kms_atomic_pixel_blend_mode_prop);
+        a90_console_printf("gpu.z3.scanout.kms.dst=%u,%u %ux%u\r\n",
+                           summary.kms_dst_x,
+                           summary.kms_dst_y,
+                           summary.kms_dst_width,
+                           summary.kms_dst_height);
+        a90_console_printf("gpu.z3.scanout.kms.present_rc=%d present_us=%llu hold_ms=%u disable_plane_rc=%d\r\n",
+                           summary.kms_present_rc,
+                           (unsigned long long)summary.present_us,
+                           summary.hold_ms,
+                           summary.kms_disable_plane_rc);
+        a90_console_printf("gpu.z3.scanout.timing.texture_us=%llu gpu_wait_us=%llu readback_us=%llu sample_us=%llu present_us=%llu\r\n",
+                           (unsigned long long)summary.texture_write_us,
+                           (unsigned long long)summary.gpu_wait_us,
+                           (unsigned long long)summary.readback_sync_us,
+                           (unsigned long long)summary.sample_us,
+                           (unsigned long long)summary.present_us);
+        a90_console_printf("gpu.z3.scanout.cleanup.rmfb_rc=%d dumb_destroy_rc=%d close_drm_handle_rc=%d close_prime_rc=%d close_drm_fd_rc=%d\r\n",
+                           summary.rmfb_rc,
+                           summary.drm_dumb_destroy_rc,
+                           summary.close_drm_handle_rc,
+                           summary.close_prime_rc,
+                           summary.close_drm_fd_rc);
+    }
+    if (timed_out) {
+        return -ETIMEDOUT;
+    }
+    return got_result && gpu_z3_imported_scanout_present_summary_passed(&summary) ?
         0 : -EIO;
 }
 
@@ -17863,6 +19156,36 @@ static int handle_gpu(char **argv, int argc) {
         }
         return gpu_z2_imported_scanout_target_probe(timeout_ms, materialize_devnode);
     }
+    if (strcmp(subcommand, "z3-imported-scanout-plane-probe") == 0 ||
+        strcmp(subcommand, "imported-scanout-plane-probe") == 0) {
+        bool materialize_devnode = false;
+        int hold_ms = 12000;
+
+        timeout_ms = GPU_G0_DEFAULT_TIMEOUT_MS;
+        for (index = 2; index < argc; ++index) {
+            if (strcmp(argv[index], "--timeout-ms") == 0) {
+                if (index + 1 >= argc || !gpu_g0_parse_int(argv[index + 1], &timeout_ms)) {
+                    a90_console_printf("gpu.z3.scanout.error=bad-timeout\r\n");
+                    return -EINVAL;
+                }
+                ++index;
+            } else if (strcmp(argv[index], "--hold-ms") == 0) {
+                if (index + 1 >= argc || !gpu_g0_parse_int(argv[index + 1], &hold_ms)) {
+                    a90_console_printf("gpu.z3.scanout.error=bad-hold\r\n");
+                    return -EINVAL;
+                }
+                ++index;
+            } else if (strcmp(argv[index], "--materialize-devnode") == 0) {
+                materialize_devnode = true;
+            } else {
+                a90_console_printf("usage: gpu z3-imported-scanout-plane-probe [--timeout-ms N] [--hold-ms N] [--materialize-devnode]\r\n");
+                return -EINVAL;
+            }
+        }
+        return gpu_z3_imported_scanout_plane_probe(timeout_ms,
+                                                   hold_ms,
+                                                   materialize_devnode);
+    }
     if (strcmp(subcommand, "g4-solid-fill-probe") == 0 ||
         strcmp(subcommand, "solid-fill-probe") == 0) {
         for (index = 2; index < argc; ++index) {
@@ -17924,7 +19247,7 @@ static int handle_gpu(char **argv, int argc) {
         return gpu_h5_triangle_kms_probe(timeout_ms, materialize_devnode, hold_ms);
     }
     if (strcmp(subcommand, "g0-open-probe") != 0) {
-        a90_console_printf("usage: gpu [g0-status|g0-fwclass-prepare|g0-open-probe [--timeout-ms N] [--rdwr] [--materialize-devnode]|g1-context-probe [--timeout-ms N] [--materialize-devnode]|g2-gpuobj-probe [--timeout-ms N] [--materialize-devnode]|g2-mmap-probe [--timeout-ms N] [--materialize-devnode]|g3-noop-submit-probe [--timeout-ms N] [--materialize-devnode]|h1-shader-state-probe [--timeout-ms N] [--materialize-devnode]|h2-3d-state-probe [--timeout-ms N] [--materialize-devnode]|h3-draw-envelope-probe [--timeout-ms N] [--materialize-devnode]|c1-compute-invocationid-probe [--timeout-ms N] [--materialize-devnode]|c2-compute-pattern-probe [--timeout-ms N] [--materialize-devnode]|c3-compute-kms-probe [--timeout-ms N] [--hold-ms N] [--materialize-devnode]|d1-texture-checkerboard-probe [--timeout-ms N] [--materialize-devnode]|d2-realframe-texture-probe [--preset badapple|--manifest PATH] [--frame-index N] [--timeout-ms N] [--materialize-devnode]|d3-video-texture-present-probe [--preset badapple] [--start-frame N] [--frames N] [--timeout-ms N] [--hold-ms N] [--materialize-devnode]|m0-monitor-sampler-probe [--samples N] [--interval-ms N]|m1-monitor-dashboard-probe [--samples N] [--interval-ms N] [--hold-ms N]|m2-monitor-live-graph-probe [--frames N] [--interval-ms N] [--timeout-ms N] [--hold-ms N] [--materialize-devnode]|m3-monitor-extraction-probe [--frames N] [--interval-ms N] [--timeout-ms N] [--hold-ms N] [--materialize-devnode]|z2-imported-scanout-target-probe [--timeout-ms N] [--materialize-devnode]|g4-solid-fill-probe [--timeout-ms N] [--materialize-devnode]|g5-kms-blit-probe [--timeout-ms N] [--materialize-devnode]|h5-triangle-kms-probe [--timeout-ms N] [--hold-ms N] [--materialize-devnode]]\r\n");
+        a90_console_printf("usage: gpu [g0-status|g0-fwclass-prepare|g0-open-probe [--timeout-ms N] [--rdwr] [--materialize-devnode]|g1-context-probe [--timeout-ms N] [--materialize-devnode]|g2-gpuobj-probe [--timeout-ms N] [--materialize-devnode]|g2-mmap-probe [--timeout-ms N] [--materialize-devnode]|g3-noop-submit-probe [--timeout-ms N] [--materialize-devnode]|h1-shader-state-probe [--timeout-ms N] [--materialize-devnode]|h2-3d-state-probe [--timeout-ms N] [--materialize-devnode]|h3-draw-envelope-probe [--timeout-ms N] [--materialize-devnode]|c1-compute-invocationid-probe [--timeout-ms N] [--materialize-devnode]|c2-compute-pattern-probe [--timeout-ms N] [--materialize-devnode]|c3-compute-kms-probe [--timeout-ms N] [--hold-ms N] [--materialize-devnode]|d1-texture-checkerboard-probe [--timeout-ms N] [--materialize-devnode]|d2-realframe-texture-probe [--preset badapple|--manifest PATH] [--frame-index N] [--timeout-ms N] [--materialize-devnode]|d3-video-texture-present-probe [--preset badapple] [--start-frame N] [--frames N] [--timeout-ms N] [--hold-ms N] [--materialize-devnode]|m0-monitor-sampler-probe [--samples N] [--interval-ms N]|m1-monitor-dashboard-probe [--samples N] [--interval-ms N] [--hold-ms N]|m2-monitor-live-graph-probe [--frames N] [--interval-ms N] [--timeout-ms N] [--hold-ms N] [--materialize-devnode]|m3-monitor-extraction-probe [--frames N] [--interval-ms N] [--timeout-ms N] [--hold-ms N] [--materialize-devnode]|z2-imported-scanout-target-probe [--timeout-ms N] [--materialize-devnode]|z3-imported-scanout-plane-probe [--timeout-ms N] [--hold-ms N] [--materialize-devnode]|g4-solid-fill-probe [--timeout-ms N] [--materialize-devnode]|g5-kms-blit-probe [--timeout-ms N] [--materialize-devnode]|h5-triangle-kms-probe [--timeout-ms N] [--hold-ms N] [--materialize-devnode]]\r\n");
         return -EINVAL;
     }
     for (index = 2; index < argc; ++index) {
@@ -18019,7 +19342,7 @@ static const struct shell_command command_table[] = {
     { "pstore", handle_pstore, "pstore [summary|full|paths]", CMD_NONE, A90_CMD_GROUP_CORE },
     { "watchdoginv", handle_watchdoginv, "watchdoginv [summary|full|paths]", CMD_NONE, A90_CMD_GROUP_CORE },
     { "tracefs", handle_tracefs, "tracefs [summary|full|paths]", CMD_NONE, A90_CMD_GROUP_CORE },
-    { "gpu", handle_gpu, "gpu [g0-status|g0-fwclass-prepare|g0-open-probe [--timeout-ms N] [--rdwr] [--materialize-devnode]|g1-context-probe [--timeout-ms N] [--materialize-devnode]|g2-gpuobj-probe [--timeout-ms N] [--materialize-devnode]|g2-mmap-probe [--timeout-ms N] [--materialize-devnode]|g3-noop-submit-probe [--timeout-ms N] [--materialize-devnode]|h1-shader-state-probe [--timeout-ms N] [--materialize-devnode]|h2-3d-state-probe [--timeout-ms N] [--materialize-devnode]|h3-draw-envelope-probe [--timeout-ms N] [--materialize-devnode]|c1-compute-invocationid-probe [--timeout-ms N] [--materialize-devnode]|c2-compute-pattern-probe [--timeout-ms N] [--materialize-devnode]|c3-compute-kms-probe [--timeout-ms N] [--hold-ms N] [--materialize-devnode]|d1-texture-checkerboard-probe [--timeout-ms N] [--materialize-devnode]|d2-realframe-texture-probe [--preset badapple|--manifest PATH] [--frame-index N] [--timeout-ms N] [--materialize-devnode]|d3-video-texture-present-probe [--preset badapple] [--start-frame N] [--frames N] [--timeout-ms N] [--hold-ms N] [--materialize-devnode]|m0-monitor-sampler-probe [--samples N] [--interval-ms N]|m1-monitor-dashboard-probe [--samples N] [--interval-ms N] [--hold-ms N]|m2-monitor-live-graph-probe [--frames N] [--interval-ms N] [--timeout-ms N] [--hold-ms N] [--materialize-devnode]|m3-monitor-extraction-probe [--frames N] [--interval-ms N] [--timeout-ms N] [--hold-ms N] [--materialize-devnode]|z2-imported-scanout-target-probe [--timeout-ms N] [--materialize-devnode]|g4-solid-fill-probe [--timeout-ms N] [--materialize-devnode]|g5-kms-blit-probe [--timeout-ms N] [--materialize-devnode]|h5-triangle-kms-probe [--timeout-ms N] [--hold-ms N] [--materialize-devnode]]", CMD_NONE, A90_CMD_GROUP_CORE },
+    { "gpu", handle_gpu, "gpu [g0-status|g0-fwclass-prepare|g0-open-probe [--timeout-ms N] [--rdwr] [--materialize-devnode]|g1-context-probe [--timeout-ms N] [--materialize-devnode]|g2-gpuobj-probe [--timeout-ms N] [--materialize-devnode]|g2-mmap-probe [--timeout-ms N] [--materialize-devnode]|g3-noop-submit-probe [--timeout-ms N] [--materialize-devnode]|h1-shader-state-probe [--timeout-ms N] [--materialize-devnode]|h2-3d-state-probe [--timeout-ms N] [--materialize-devnode]|h3-draw-envelope-probe [--timeout-ms N] [--materialize-devnode]|c1-compute-invocationid-probe [--timeout-ms N] [--materialize-devnode]|c2-compute-pattern-probe [--timeout-ms N] [--materialize-devnode]|c3-compute-kms-probe [--timeout-ms N] [--hold-ms N] [--materialize-devnode]|d1-texture-checkerboard-probe [--timeout-ms N] [--materialize-devnode]|d2-realframe-texture-probe [--preset badapple|--manifest PATH] [--frame-index N] [--timeout-ms N] [--materialize-devnode]|d3-video-texture-present-probe [--preset badapple] [--start-frame N] [--frames N] [--timeout-ms N] [--hold-ms N] [--materialize-devnode]|m0-monitor-sampler-probe [--samples N] [--interval-ms N]|m1-monitor-dashboard-probe [--samples N] [--interval-ms N] [--hold-ms N]|m2-monitor-live-graph-probe [--frames N] [--interval-ms N] [--timeout-ms N] [--hold-ms N] [--materialize-devnode]|m3-monitor-extraction-probe [--frames N] [--interval-ms N] [--timeout-ms N] [--hold-ms N] [--materialize-devnode]|z2-imported-scanout-target-probe [--timeout-ms N] [--materialize-devnode]|z3-imported-scanout-plane-probe [--timeout-ms N] [--hold-ms N] [--materialize-devnode]|g4-solid-fill-probe [--timeout-ms N] [--materialize-devnode]|g5-kms-blit-probe [--timeout-ms N] [--materialize-devnode]|h5-triangle-kms-probe [--timeout-ms N] [--hold-ms N] [--materialize-devnode]]", CMD_NONE, A90_CMD_GROUP_CORE },
     { "audio", handle_audio, "audio [status|profiles|profile|speaker-map|stages|prereq|app-type|setcal|route|play|chime|play-status|stop|adsp-status|snd-status]", CMD_NONE, A90_CMD_GROUP_ANDROID },
     { "video", handle_video, "video [status|frame [bars|checker|mono|0xRRGGBB]|demo [badapple|badapple-scale|nyan|doom [status|verify|play|frame|engine-probe] [frames] [--wad runtime-private --sha256 EXPECTED]|frame-pattern]|anim [bars|checker|pulse] [frames] [delay_ms]|blitbench [frames]|flipprobe [frames]|stream --manifest PATH --video-only [--frames N] [--present setcrtc|pageflip] [--layout full|player-hud] [--sync-audio-status PATH]|cache [status|verify|play] SHA256 [--trust-cache] [--layout full|player-hud]|cache preset [badapple|badapple-scale|nyan] [status|verify|play]]", CMD_DISPLAY, A90_CMD_GROUP_DISPLAY },
     { "wifi", handle_wifi, "wifi [status|scan [delay_ms]|connect [profile]|dhcp [profile]|ping [gateway|internet|all]|cleanup|config [status|prepare [profile]]]", CMD_NONE, A90_CMD_GROUP_NETWORK },
