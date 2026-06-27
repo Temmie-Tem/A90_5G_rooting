@@ -661,6 +661,21 @@ directly target that memory**. Active next: find/prove a KGSL dma-buf/import-or-
 GEM, or pivot the zero-copy source unit to DRM `msm` submit; do not remove the current KGSL→KMS CPU
 copy fallback until a shared GPU target is proven. Report:
 `docs/reports/NATIVE_INIT_V3323_GPU_Z1_SHARED_LINEAR_PREFLIGHT_2026-06-27.md`.**
+
+**STATUS (2026-06-27 Z2 KGSL dma-buf import preflight) — V3324 proved the shared buffer reaches
+both KMS and KGSL.** Helper `a90_kgsl_dmabuf_import_probe_z2` was built static
+(`sha256=02ab83482f3f86231e65015a8cfe963b4fc7deebd5e12d888d7ab209da719d15`), installed temporarily
+via NCM/bridge-nc, and ran no-flash/no-present/no-submit on resident `0.11.92` with pre/post
+`selftest fail=0`. Live result: DRM msm `MSM_BO_SCANOUT | MSM_BO_WC` GEM for `960x720`, stride
+`3840`, bytes `2764800` created and mmap-sampled; PRIME export succeeded; `ADDFB2` accepted it as an
+`XBGR8888` KMS framebuffer; KGSL opened `/dev/kgsl-3d0`; `IOCTL_KGSL_GPUOBJ_IMPORT` with
+`KGSL_USER_MEM_TYPE_DMABUF` imported the same PRIME fd (`id=1`, flags `0x140080`); `GPUOBJ_INFO`
+returned `gpuaddr=0x500000000`, `size=2764800`, `va_len=2764800`; KGSL free, `RMFB`, and DRM handle
+close all succeeded. This proves the allocator/import bridge needed for zero-copy. Active next:
+source/build a guarded one-frame path that replaces the current `session->linear` KGSL allocation with
+the imported scanout GEM for the final render target, then page-flips it only after readback/telemetry
+proves the imported BO was written correctly; keep CPU-copy fallback. Report:
+`docs/reports/NATIVE_INIT_V3324_GPU_Z2_KGSL_DMABUF_IMPORT_PREFLIGHT_2026-06-27.md`.**
 `native_gpu_compute_c0_reference_v3299.py` encodes and validates the staged A640 compute dispatch envelope against
 `/tmp/a90-mesa-gpu-src/`: CS program regs, `CP_LOAD_STATE6` shader/constant/UAV state, `RM6_COMPUTE`, NDRANGE,
 `CP_EXEC_CS`, and WFI/readback ordering all match the Mesa computerator/fd6 references; `kern_invocationid.asm` is fixed
