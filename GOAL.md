@@ -608,14 +608,12 @@ the second run stopped auto-HUD with `stophud` first and again passed (`presente
 duration `63588ms`, follow-up selftest `pass=12 warn=1 fail=0`). The operator confirmed: "보인다 유지되는거 같다".
 The ③ monitor rung is DONE + EYE-CONFIRMED.**
 
-**ACTIVE NOW = ④ zero-copy KMS/dmabuf scanout (Z0→Z3) — the final GPU rung; closing it closes the GPU epic, then
-pivot to the SoftAP server-endgame.** Today the GPU renders into a buffer and the present path CPU-`memcpy`/blits into
-the KMS scanout buffer (G5 is CPU-copy). The ④ goal is to make the GPU-rendered buffer the scanout buffer directly —
-no CPU copy on the present path — and measure the win (fps / CPU cycles freed / present latency). The crux is the
-A6xx tiling/UBWC layout ↔ DRM display modifier match (the GPU writes tiled/compressed; the display controller must
-scan that exact layout, or the buffer must be a linear/known modifier both sides agree on). Use the V3320/M3-extracted
-shared KGSL submit/fence/buffer/present helper as the single edit site. Bright lines unchanged: KMS present + GPU only,
-NO backlight/PMIC/PWM/regulator/GDSC writes, NO panel re-init, recoverable boot-partition flash, rollback `v2321`.
+**CLOSED RUNG HISTORY = ④ zero-copy KMS/dmabuf scanout (Z0→Z3).** This rung made the GPU-rendered
+buffer the scanout buffer directly, with no CPU copy on the present path. The final solution is V3335:
+full-panel KMS dumb scanout buffer imported into KGSL, rendered by the GPU, presented through primary
+`SETCRTC`, then restored to the previous base framebuffer. Bright lines stayed unchanged: KMS present +
+GPU only, NO backlight/PMIC/PWM/regulator/GDSC writes, NO panel re-init, recoverable boot-partition
+flash, rollback `v2321`.
 - **Z0 (host-only recon).** From the staged Mesa/freedreno sources in `/tmp/a90-mesa-gpu-src/` (fd6_gmem/resolve, the
   `fdl6_*` layout helpers, `a6xx.xml` RB/scanout regs) + the existing `a90_kms.c` modeset path, pin: what tiling/UBWC
   modifier the GPU writes for the demo/monitor color buffer, what DRM format-modifier the A90 display plane accepts on
@@ -756,6 +754,36 @@ operator then confirmed the held primary SETCRTC graph was visible and remained 
 epic is DONE.** Reports:
 `docs/reports/NATIVE_INIT_V3335_GPU_Z3_PRIMARY_SETCRTC_SOURCE_BUILD_2026-06-27.md` and
 `docs/reports/NATIVE_INIT_V3335_GPU_Z3_PRIMARY_SETCRTC_LIVE_2026-06-27.md`.**
+
+## 🟢 ACTIVE NOW — SoftAP server-endgame (S0→S4), after GPU epic close
+
+**STATUS (2026-06-27 S0 charter/recon) — V3336 pivots the loop from GPU to SoftAP and freezes the
+target shape before any AP-mode mutation.** The goal is not the existing phone/router lab where A90 is
+a Wi-Fi client. The endgame is A90 as the self-contained lab appliance: A90 brings up a WPA2 SoftAP,
+serves a bounded local transfer endpoint, accepts a client connection, proves download/upload SHA
+integrity, cleans up, and leaves `selftest fail=0`. Existing `wifi status/scan/connect/dhcp/ping`,
+profile, autoconnect, `wifiinv`, and `wififeas` are useful prerequisites but are client-mode surfaces;
+`docs/operations/A90_PHONE_WIFI_TRANSFER_SERVER.md` remains a client-mode data-path harness, not the
+SoftAP target. Current public allowlist policy has `allow_server_exposure=false`, so the next unit must
+make AP/server exposure explicit, bounded, private, and cleanup-backed before any daemon start. Report:
+`docs/reports/NATIVE_INIT_V3336_SOFTAP_SERVER_ENDGAME_CHARTER_2026-06-27.md`.
+
+- **S0 (host-only charter/recon) = DONE.** Inventory current command/docs/source surface, distinguish
+  client-mode Wi-Fi from SoftAP/server mode, and write the bounded ladder + safety recipe.
+- **S1 (read-only live AP/server inventory).** On current resident, run only bridge health + `version`,
+  `status`, `selftest`, `wifi status`, `wifiinv summary/full`, and `wififeas gate/full`; optionally
+  read-only applet/binary presence for `hostapd`, `busybox` server applets, and candidate transfer
+  helpers. No scan/connect/DHCP/ping, no hostapd start, no interface mode change.
+- **S2 (source contract + config materialization).** Add an explicit `wifi softap` command surface with
+  `status`, `plan`, and dry-run config materialization under `/cache/a90-softap/`; generated SSID/PSK
+  remain private-only, public output reports hashes/booleans only.
+- **S3 (bounded AP bring-up).** Start AP mode only after S1/S2 pass: stop conflicting client supplicant,
+  configure a private local AP subnet, start hostapd and a bounded DHCP service, expose no WAN/NAT by
+  default, and provide `softap cleanup` that kills workers and removes address/route residue.
+- **S4 (server-endgame proof).** Start the local transfer server on the AP, have a client join, prove
+  HTTP download and raw upload SHA integrity, stop the server/AP, and confirm follow-up
+  `selftest fail=0`. Public artifacts must redact SSID/PSK/client identifiers and concrete network
+  addresses.
 
 `native_gpu_compute_c0_reference_v3299.py` encodes and validates the staged A640 compute dispatch envelope against
 `/tmp/a90-mesa-gpu-src/`: CS program regs, `CP_LOAD_STATE6` shader/constant/UAV state, `RM6_COMPUTE`, NDRANGE,
