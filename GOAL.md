@@ -671,11 +671,53 @@ via NCM/bridge-nc, and ran no-flash/no-present/no-submit on resident `0.11.92` w
 `XBGR8888` KMS framebuffer; KGSL opened `/dev/kgsl-3d0`; `IOCTL_KGSL_GPUOBJ_IMPORT` with
 `KGSL_USER_MEM_TYPE_DMABUF` imported the same PRIME fd (`id=1`, flags `0x140080`); `GPUOBJ_INFO`
 returned `gpuaddr=0x500000000`, `size=2764800`, `va_len=2764800`; KGSL free, `RMFB`, and DRM handle
-close all succeeded. This proves the allocator/import bridge needed for zero-copy. Active next:
-source/build a guarded one-frame path that replaces the current `session->linear` KGSL allocation with
-the imported scanout GEM for the final render target, then page-flips it only after readback/telemetry
-proves the imported BO was written correctly; keep CPU-copy fallback. Report:
+close all succeeded. This proves the allocator/import bridge needed for zero-copy. Next source unit:
+replace the current `session->linear` KGSL allocation with the imported scanout GEM for the guarded
+render target, then page-flip it only after readback/telemetry proves the imported BO was written
+correctly; keep CPU-copy fallback. Report:
 `docs/reports/NATIVE_INIT_V3324_GPU_Z2_KGSL_DMABUF_IMPORT_PREFLIGHT_2026-06-27.md`.**
+
+**STATUS (2026-06-27 Z2 imported scanout render-target source build) — V3325 built the first guarded
+native-init path that renders into a KMS-acceptable scanout GEM imported into KGSL.** Source adds
+`gpu z2-imported-scanout-target-probe [--timeout-ms N] [--materialize-devnode]`. The child probe
+creates a DRM msm `MSM_BO_SCANOUT | MSM_BO_WC` `960x720`/stride `3840` linear GEM, mmap-clears it,
+exports PRIME, attaches it as an `XBGR8888` framebuffer with `ADDFB2`, imports the same fd through
+KGSL `GPUOBJ_IMPORT` with `KGSL_USER_MEM_TYPE_DMABUF`, replaces the M3 shared `session->linear`
+target with that imported object, submits the existing textured monitor graph PM4 into the imported
+target, then validates readback semantics without a KMS copy or present. Static validation passed:
+`py_compile`, focused V3325 unittest, V3321 M3 regression unittest, `git diff --check`, AArch64
+compile smoke, and full boot build. Boot artifact:
+`workspace/private/inputs/boot_images/boot_linux_v3325_gpu_z2_imported_scanout_target.img`
+(`sha256=3c0d2180627c6fd35f8997e5a720931bb44c3793e83929a5ad66f8b6dd341112`, size `63778816`
+bytes). Live flash/health passed on `0.11.93`; the first run was correctly blocked by a busy menu
+(`rc=-16`) until `hide`, then the probe showed the functional proof: `drm.open_rc=0`,
+`drm.msm_gem_new_rc=0`, `drm.prime_export_rc=0`, `drm.addfb2_rc=0`, KGSL import/info `0`,
+`gpuaddr=0x500300000`, `render_rc=0`, `pm4_dwords=409`, `changed_count=691200`, semantic exact match
+`64/64`, output-other `0`, no KMS copy/present, cleanup `0`, and post-probe `selftest fail=0`.
+The only failing field was the pass-gate self-reference (`summary.result_rc` checked before the child
+assigned final `result_rc`), so V3325 is a live functional PASS with a reportable gate false negative.
+Reports: `docs/reports/NATIVE_INIT_V3325_GPU_Z2_IMPORTED_SCANOUT_TARGET_SOURCE_BUILD_2026-06-27.md`
+and `docs/reports/NATIVE_INIT_V3325_GPU_Z2_IMPORTED_SCANOUT_TARGET_LIVE_FALSE_NEGATIVE_2026-06-27.md`.**
+
+**STATUS (2026-06-27 Z2 imported scanout render-target pass gate live) — V3326 fixed the
+V3325 pass predicate and closed the shared GPU target proof.** Source removes the premature
+`summary.result_rc == 0` predicate from `gpu_z2_imported_target_summary_passed()` while leaving the
+render path unchanged. Static validation passed (`py_compile`, V3326 focused unittest, V3325 source
+contract, V3321 M3 regression, `git diff --check`, full boot build). Boot artifact:
+`workspace/private/inputs/boot_images/boot_linux_v3326_gpu_z2_imported_scanout_pass_gate.img`
+(`sha256=9a63d1f1c8c2ad8aac6cdf63232d71466b2bcf97b5bec5ad7fb62f45601d39d4`, size `64978944`
+bytes). Rollback images were re-confirmed, flash used only `native_init_flash.py`, and live health
+passed on `A90 Linux init 0.11.94 (v3326-gpu-z2-imported-scanout-pass-gate)` with `selftest fail=0`.
+Live command `gpu z2-imported-scanout-target-probe --timeout-ms 60000 --materialize-devnode` returned
+`gpu.z2.import.result=z2-imported-scanout-render-target-pass`, `result_rc=0`, DRM msm scanout GEM
+create/export/`ADDFB2` all `0`, KGSL dma-buf import/info `0`, `gpuaddr=0x500300000`,
+`render_rc=0`, `pm4_dwords=409`, `graph_pixels_set=2178`, `changed_count=691200`, semantic exact
+match `64/64`, output-other `0`, `kms_copy_attempted=0`, `kms_present_attempted=0`, elapsed
+`39525781ns`, and post-probe `selftest fail=0`. **Z2 shared scanout-linear GPU target is proven.**
+Active next: Z3 page-flip/present the same imported FB directly, hold it for operator eye-confirm,
+and record the CPU-copy removal/latency delta before closing the GPU epic. Reports:
+`docs/reports/NATIVE_INIT_V3326_GPU_Z2_IMPORTED_SCANOUT_PASS_GATE_SOURCE_BUILD_2026-06-27.md` and
+`docs/reports/NATIVE_INIT_V3326_GPU_Z2_IMPORTED_SCANOUT_PASS_GATE_LIVE_2026-06-27.md`.**
 `native_gpu_compute_c0_reference_v3299.py` encodes and validates the staged A640 compute dispatch envelope against
 `/tmp/a90-mesa-gpu-src/`: CS program regs, `CP_LOAD_STATE6` shader/constant/UAV state, `RM6_COMPUTE`, NDRANGE,
 `CP_EXEC_CS`, and WFI/readback ordering all match the Mesa computerator/fd6 references; `kern_invocationid.asm` is fixed

@@ -1,5 +1,14 @@
 /* Included by the current native-init translation unit. Do not compile standalone. */
 
+#include <drm/drm.h>
+#include <drm/drm_fourcc.h>
+#include <drm/drm_mode.h>
+#include <drm/msm_drm.h>
+
+#ifndef DRM_CLOEXEC
+#define DRM_CLOEXEC O_CLOEXEC
+#endif
+
 static void print_shell_intro(void) {
     a90_console_printf("# Type 'help' for commands. Serial input was flushed at attach.\r\n");
 }
@@ -2771,6 +2780,7 @@ struct gpu_h3_draw_snapshot_child_run {
 #define GPU_KGSL_TIMESTAMP_EVENT_FENCE 2
 #define GPU_KGSL_GPUOBJ_FREE_ON_EVENT 1ULL
 #define GPU_KGSL_GPU_EVENT_TIMESTAMP 1U
+#define GPU_KGSL_USER_MEM_TYPE_DMABUF 0x00000003U
 
 struct gpu_kgsl_drawctxt_create {
     unsigned int flags;
@@ -2806,6 +2816,18 @@ struct gpu_kgsl_gpuobj_info {
     uint64_t va_len;
     uint64_t va_addr;
     unsigned int id;
+};
+
+struct gpu_kgsl_gpuobj_import {
+    uint64_t priv;
+    uint64_t priv_len;
+    uint64_t flags;
+    unsigned int type;
+    unsigned int id;
+};
+
+struct gpu_kgsl_gpuobj_import_dma_buf {
+    int fd;
 };
 
 struct gpu_kgsl_gpuobj_sync_obj {
@@ -2883,6 +2905,8 @@ struct gpu_kgsl_gpu_event_timestamp {
     _IOW(GPU_KGSL_IOC_TYPE, 0x46, struct gpu_kgsl_gpuobj_free)
 #define GPU_IOCTL_KGSL_GPUOBJ_INFO \
     _IOWR(GPU_KGSL_IOC_TYPE, 0x47, struct gpu_kgsl_gpuobj_info)
+#define GPU_IOCTL_KGSL_GPUOBJ_IMPORT \
+    _IOWR(GPU_KGSL_IOC_TYPE, 0x48, struct gpu_kgsl_gpuobj_import)
 #define GPU_IOCTL_KGSL_GPUOBJ_SYNC \
     _IOW(GPU_KGSL_IOC_TYPE, 0x49, struct gpu_kgsl_gpuobj_sync)
 #define GPU_IOCTL_KGSL_GPU_COMMAND \
@@ -4041,6 +4065,56 @@ struct gpu_m2_monitor_graph_summary {
     uint64_t total_avg_us;
     uint64_t total_max_us;
     uint64_t changed_total;
+    uint32_t last_first_word;
+    uint32_t last_center_word;
+    uint32_t semantic_sample_count;
+    uint32_t semantic_sample_match_count;
+    uint32_t semantic_exact_match_count;
+    uint32_t semantic_edge_tolerant_match_count;
+    uint32_t semantic_sample_mismatch_count;
+    uint32_t semantic_output_other_count;
+};
+
+struct gpu_z2_imported_target_summary {
+    int result_rc;
+    int drm_open_rc;
+    int drm_msm_gem_new_rc;
+    int drm_msm_gem_info_offset_rc;
+    int drm_prime_export_rc;
+    int drm_addfb2_rc;
+    int kgsl_import_rc;
+    int kgsl_info_rc;
+    int gpu_create_rc;
+    int render_rc;
+    int rmfb_rc;
+    int close_drm_handle_rc;
+    int close_prime_rc;
+    int close_drm_fd_rc;
+    uint32_t source_width;
+    uint32_t source_height;
+    uint32_t source_stride;
+    uint32_t source_frame_bytes;
+    uint32_t target_width;
+    uint32_t target_height;
+    uint32_t target_stride;
+    uint32_t target_bytes;
+    uint32_t pm4_dwords;
+    uint32_t drm_handle;
+    uint32_t drm_fb_id;
+    uint64_t drm_mmap_offset;
+    uint32_t kgsl_id;
+    uint64_t kgsl_gpuaddr;
+    uint64_t kgsl_size;
+    uint64_t kgsl_flags;
+    uint64_t kgsl_va_len;
+    uint64_t elapsed_ns;
+    uint64_t texture_write_us;
+    uint64_t gpu_wait_us;
+    uint64_t readback_sync_us;
+    uint64_t sample_us;
+    uint64_t changed_count;
+    uint32_t graph_pixels_set;
+    uint32_t graph_points;
     uint32_t last_first_word;
     uint32_t last_center_word;
     uint32_t semantic_sample_count;
@@ -13595,6 +13669,17 @@ struct gpu_d3_bo {
     void *map;
 };
 
+struct gpu_z2_linear_import_metrics {
+    int import_rc;
+    int info_rc;
+    unsigned int kgsl_id;
+    uint64_t gpuaddr;
+    uint64_t size;
+    uint64_t flags;
+    uint64_t va_len;
+    uint64_t va_addr;
+};
+
 struct gpu_d3_session {
     int fd;
     unsigned int context_id;
@@ -13688,6 +13773,84 @@ static int gpu_2d_present_alloc_map_bo(int fd,
     return 0;
 }
 
+static int gpu_2d_present_import_dmabuf_bo(int fd,
+                                           struct gpu_d3_bo *bo,
+                                           int dmabuf_fd,
+                                           void *map,
+                                           uint64_t size,
+                                           uint64_t min_size,
+                                           struct gpu_z2_linear_import_metrics *metrics) {
+    struct gpu_kgsl_gpuobj_import_dma_buf import_dmabuf;
+    struct gpu_kgsl_gpuobj_import import_arg;
+
+    if (metrics != NULL) {
+        memset(metrics, 0, sizeof(*metrics));
+        metrics->import_rc = -ENOSYS;
+        metrics->info_rc = -ENOSYS;
+    }
+    if (fd < 0 || bo == NULL || dmabuf_fd < 0 ||
+        map == NULL || map == MAP_FAILED || size == 0U || min_size == 0U) {
+        if (metrics != NULL) {
+            metrics->import_rc = -EINVAL;
+        }
+        return -EINVAL;
+    }
+    gpu_d3_bo_init(bo);
+    memset(&import_dmabuf, 0, sizeof(import_dmabuf));
+    import_dmabuf.fd = dmabuf_fd;
+    memset(&import_arg, 0, sizeof(import_arg));
+    import_arg.priv = (uint64_t)(uintptr_t)&import_dmabuf;
+    import_arg.priv_len = sizeof(import_dmabuf);
+    import_arg.type = GPU_KGSL_USER_MEM_TYPE_DMABUF;
+    errno = 0;
+    if (ioctl(fd, GPU_IOCTL_KGSL_GPUOBJ_IMPORT, &import_arg) < 0) {
+        int rc = negative_errno_or(EIO);
+
+        if (metrics != NULL) {
+            metrics->import_rc = rc;
+        }
+        return rc;
+    }
+    bo->alloc.id = import_arg.id;
+    bo->alloc.size = size;
+    bo->alloc.mmapsize = size;
+    bo->alloc.va_len = size;
+    bo->alloc.flags = import_arg.flags;
+    if (metrics != NULL) {
+        metrics->import_rc = 0;
+        metrics->kgsl_id = import_arg.id;
+    }
+
+    memset(&bo->info, 0, sizeof(bo->info));
+    bo->info.id = bo->alloc.id;
+    errno = 0;
+    if (ioctl(fd, GPU_IOCTL_KGSL_GPUOBJ_INFO, &bo->info) < 0) {
+        int rc = negative_errno_or(EIO);
+
+        if (metrics != NULL) {
+            metrics->info_rc = rc;
+        }
+        return rc;
+    }
+    if (bo->info.gpuaddr == 0U || bo->info.size < min_size) {
+        if (metrics != NULL) {
+            metrics->info_rc = -EINVAL;
+        }
+        return -EINVAL;
+    }
+    bo->map = map;
+    if (metrics != NULL) {
+        metrics->info_rc = 0;
+        metrics->kgsl_id = bo->info.id;
+        metrics->gpuaddr = bo->info.gpuaddr;
+        metrics->size = bo->info.size;
+        metrics->flags = bo->info.flags;
+        metrics->va_len = bo->info.va_len;
+        metrics->va_addr = bo->info.va_addr;
+    }
+    return 0;
+}
+
 static void gpu_2d_present_unmap_free_bo(int fd, struct gpu_d3_bo *bo) {
     if (bo == NULL) {
         return;
@@ -13735,9 +13898,13 @@ static void gpu_d3_destroy_session(struct gpu_d3_session *session) {
     }
 }
 
-static int gpu_2d_present_create_session(struct gpu_d3_session *session,
-                                         const struct video_stream_manifest *manifest,
-                                         struct gpu_d3_video_summary *summary) {
+static int gpu_2d_present_create_session_internal(
+    struct gpu_d3_session *session,
+    const struct video_stream_manifest *manifest,
+    struct gpu_d3_video_summary *summary,
+    int imported_linear_dmabuf_fd,
+    void *imported_linear_map,
+    struct gpu_z2_linear_import_metrics *import_metrics) {
     static const uint32_t vs_shader[GPU_H3_VS_SHADER_DWORDS] = {
         GPU_H3_IR3_MOV_F32F32_R2X_R1X_LO, GPU_H3_IR3_MOV_F32F32_R2X_R1X_HI,
         GPU_H3_IR3_MOV_F32F32_R2Y_R1Y_LO, GPU_H3_IR3_MOV_F32F32_R2Y_R1Y_HI,
@@ -13825,8 +13992,18 @@ static int gpu_2d_present_create_session(struct gpu_d3_session *session,
                                      GPU_D3_VIDEO_COLOR_FLAG_ALLOC_SIZE,
                                      GPU_D3_VIDEO_COLOR_FLAG_ALLOC_SIZE);
     if (rc < 0) return rc;
-    rc = gpu_2d_present_alloc_map_bo(session->fd, &session->linear,
-                                     session->target_bytes, session->target_bytes);
+    if (imported_linear_dmabuf_fd >= 0) {
+        rc = gpu_2d_present_import_dmabuf_bo(session->fd,
+                                             &session->linear,
+                                             imported_linear_dmabuf_fd,
+                                             imported_linear_map,
+                                             session->target_bytes,
+                                             session->target_bytes,
+                                             import_metrics);
+    } else {
+        rc = gpu_2d_present_alloc_map_bo(session->fd, &session->linear,
+                                         session->target_bytes, session->target_bytes);
+    }
     if (rc < 0) return rc;
     rc = gpu_2d_present_alloc_map_bo(session->fd, &session->event,
                                      GPU_H3_EVENT_ALLOC_SIZE, GPU_H3_EVENT_ALLOC_SIZE);
@@ -13895,6 +14072,17 @@ static int gpu_2d_present_create_session(struct gpu_d3_session *session,
     summary->target_bytes = (uint32_t)session->target_bytes;
     __sync_synchronize();
     return 0;
+}
+
+static int gpu_2d_present_create_session(struct gpu_d3_session *session,
+                                         const struct video_stream_manifest *manifest,
+                                         struct gpu_d3_video_summary *summary) {
+    return gpu_2d_present_create_session_internal(session,
+                                                  manifest,
+                                                  summary,
+                                                  -1,
+                                                  MAP_FAILED,
+                                                  NULL);
 }
 
 static int gpu_d3_create_session(struct gpu_d3_session *session,
@@ -14084,6 +14272,43 @@ static int gpu_2d_present_submit_wait(struct gpu_d3_session *session,
     return 0;
 }
 
+static int gpu_2d_present_sample_linear(struct gpu_d3_session *session,
+                                        struct gpu_d3_video_frame_stats *stats) {
+    const uint32_t *words;
+    uint32_t center;
+    uint64_t count;
+    uint64_t index;
+
+    if (session == NULL || stats == NULL ||
+        session->linear.map == NULL || session->linear.map == MAP_FAILED ||
+        session->target_width == 0U || session->target_height == 0U) {
+        return -EINVAL;
+    }
+    words = (const uint32_t *)session->linear.map;
+    center = (session->target_height / 2U) * session->target_width +
+        (session->target_width / 2U);
+    count = (uint64_t)session->target_width * session->target_height;
+
+    stats->first_word = words[0];
+    stats->center_word = words[center];
+    for (index = 0; index < count; ++index) {
+        uint32_t rgb = words[index] & 0x00ffffffU;
+
+        if (words[index] != GPU_H5_LINEAR_CLEAR_PATTERN) {
+            stats->changed_count += 1U;
+        }
+        if (rgb == GPU_D2_REALFRAME_DARK_RGB) {
+            stats->semantic_output_dark_count += 1U;
+        } else if (rgb == GPU_D2_REALFRAME_LIGHT_RGB) {
+            stats->semantic_output_light_count += 1U;
+        } else {
+            stats->semantic_output_other_count += 1U;
+        }
+    }
+    __sync_synchronize();
+    return 0;
+}
+
 static int gpu_2d_present_copy_linear_to_kms(struct gpu_d3_session *session,
                                              struct a90_fb *fb,
                                              uint32_t dst_x,
@@ -14091,6 +14316,7 @@ static int gpu_2d_present_copy_linear_to_kms(struct gpu_d3_session *session,
                                              struct gpu_d3_video_frame_stats *stats) {
     const uint8_t *src;
     uint32_t y;
+    int rc;
 
     if (session == NULL || fb == NULL || fb->pixels == NULL ||
         fb->pixels == MAP_FAILED || stats == NULL ||
@@ -14109,30 +14335,9 @@ static int gpu_2d_present_copy_linear_to_kms(struct gpu_d3_session *session,
         memcpy(dst, src + ((uint64_t)y * session->target_stride),
                (size_t)session->target_width * sizeof(uint32_t));
     }
-    {
-        const uint32_t *words = (const uint32_t *)session->linear.map;
-        uint32_t center =
-            (session->target_height / 2U) * session->target_width +
-            (session->target_width / 2U);
-        uint64_t count = (uint64_t)session->target_width * session->target_height;
-        uint64_t index;
-
-        stats->first_word = words[0];
-        stats->center_word = words[center];
-        for (index = 0; index < count; ++index) {
-            uint32_t rgb = words[index] & 0x00ffffffU;
-
-            if (words[index] != GPU_H5_LINEAR_CLEAR_PATTERN) {
-                stats->changed_count += 1U;
-            }
-            if (rgb == GPU_D2_REALFRAME_DARK_RGB) {
-                stats->semantic_output_dark_count += 1U;
-            } else if (rgb == GPU_D2_REALFRAME_LIGHT_RGB) {
-                stats->semantic_output_light_count += 1U;
-            } else {
-                stats->semantic_output_other_count += 1U;
-            }
-        }
+    rc = gpu_2d_present_sample_linear(session, stats);
+    if (rc < 0) {
+        return rc;
     }
     __sync_synchronize();
     return 0;
@@ -14245,6 +14450,73 @@ static void gpu_d3_validate_linear_semantics(const struct gpu_d3_session *sessio
             stats->semantic_sample_mismatch_count += 1U;
         }
     }
+}
+
+static int gpu_2d_present_render_frame_to_linear(
+    struct gpu_d3_session *session,
+    const struct video_stream_manifest *manifest,
+    const uint8_t *frame,
+    struct gpu_d3_video_frame_stats *stats) {
+    uint64_t started_ns;
+    uint64_t after_texture_ns;
+    uint64_t before_wait_ns;
+    uint64_t after_wait_ns;
+    uint64_t before_readback_ns;
+    uint64_t after_readback_ns;
+    uint64_t before_sample_ns;
+    uint64_t after_sample_ns;
+    int rc;
+
+    if (session == NULL || manifest == NULL || frame == NULL || stats == NULL) {
+        return -EINVAL;
+    }
+    memset(stats, 0, sizeof(*stats));
+    stats->rc = -EIO;
+    memset(session->color.map, 0, (size_t)session->target_bytes);
+    memset(session->color_flag.map, 0, (size_t)GPU_D3_VIDEO_COLOR_FLAG_ALLOC_SIZE);
+    memset(session->linear.map, 0, (size_t)session->target_bytes);
+    started_ns = video_monotonic_ns();
+    stats->semantic_first_mismatch_index = UINT_MAX;
+    gpu_d3_write_mono1_texture((uint32_t *)session->texture.map, frame, manifest, stats);
+    __sync_synchronize();
+    after_texture_ns = video_monotonic_ns();
+    stats->texture_write_us = (after_texture_ns - started_ns) / 1000ULL;
+
+    rc = gpu_2d_present_sync_to_gpu(session);
+    stats->sync_rc = rc;
+    if (rc < 0) {
+        stats->rc = rc;
+        return rc;
+    }
+    before_wait_ns = video_monotonic_ns();
+    rc = gpu_2d_present_submit_wait(session, stats);
+    after_wait_ns = video_monotonic_ns();
+    stats->gpu_wait_us = (after_wait_ns - before_wait_ns) / 1000ULL;
+    if (rc < 0) {
+        stats->rc = rc;
+        return rc;
+    }
+
+    before_readback_ns = video_monotonic_ns();
+    rc = gpu_2d_present_sync_linear_from_gpu(session);
+    after_readback_ns = video_monotonic_ns();
+    stats->readback_sync_us = (after_readback_ns - before_readback_ns) / 1000ULL;
+    stats->readback_sync_rc = rc;
+    if (rc < 0) {
+        stats->rc = rc;
+        return rc;
+    }
+
+    before_sample_ns = video_monotonic_ns();
+    rc = gpu_2d_present_sample_linear(session, stats);
+    after_sample_ns = video_monotonic_ns();
+    stats->kms_copy_us = (after_sample_ns - before_sample_ns) / 1000ULL;
+    stats->copy_rc = 0;
+    if (rc == 0) {
+        gpu_d3_validate_linear_semantics(session, manifest, frame, stats);
+    }
+    stats->rc = rc;
+    return rc;
 }
 
 static int gpu_2d_present_render_frame_to_kms(struct gpu_d3_session *session,
@@ -15474,6 +15746,561 @@ static int gpu_m3_monitor_extraction_probe(int timeout_ms,
                        rc == 0 ? "shared-2d-present-monitor-pass" :
                                  "shared-2d-present-monitor-failed");
     return rc;
+}
+
+static int gpu_z2_ioctl_retry(int fd, unsigned long request, void *arg) {
+    int rc;
+
+    do {
+        rc = ioctl(fd, request, arg);
+    } while (rc < 0 && errno == EINTR);
+    return rc;
+}
+
+static int gpu_z2_materialize_drm_card0(void) {
+    char dev_text[64];
+    unsigned int major_num = 0;
+    unsigned int minor_num = 0;
+
+    if (read_trimmed_text_file("/sys/class/drm/card0/dev",
+                               dev_text,
+                               sizeof(dev_text)) < 0) {
+        return negative_errno_or(ENOENT);
+    }
+    if (sscanf(dev_text, "%u:%u", &major_num, &minor_num) != 2) {
+        return -EINVAL;
+    }
+    if (mkdir("/dev/dri", 0755) < 0 && errno != EEXIST) {
+        return negative_errno_or(EIO);
+    }
+    errno = 0;
+    if (ensure_char_node("/dev/dri/card0", major_num, minor_num) < 0) {
+        return negative_errno_or(EIO);
+    }
+    return 0;
+}
+
+static int gpu_z2_msm_gem_info_u64(int fd,
+                                   uint32_t handle,
+                                   uint32_t info,
+                                   uint64_t *value) {
+    struct drm_msm_gem_info arg;
+
+    if (fd < 0 || handle == 0U || value == NULL) {
+        return -EINVAL;
+    }
+    memset(&arg, 0, sizeof(arg));
+    arg.handle = handle;
+    arg.info = info;
+    errno = 0;
+    if (gpu_z2_ioctl_retry(fd, DRM_IOCTL_MSM_GEM_INFO, &arg) < 0) {
+        return negative_errno_or(EIO);
+    }
+    *value = arg.value;
+    return 0;
+}
+
+static int gpu_z2_close_drm_gem_handle(int fd, uint32_t handle) {
+    struct drm_gem_close close_arg;
+
+    if (handle == 0U) {
+        return 0;
+    }
+    if (fd < 0) {
+        return -EINVAL;
+    }
+    memset(&close_arg, 0, sizeof(close_arg));
+    close_arg.handle = handle;
+    errno = 0;
+    if (gpu_z2_ioctl_retry(fd, DRM_IOCTL_GEM_CLOSE, &close_arg) < 0) {
+        return negative_errno_or(EIO);
+    }
+    return 0;
+}
+
+static bool gpu_z2_imported_target_summary_passed(
+    const struct gpu_z2_imported_target_summary *summary) {
+    return summary != NULL &&
+           summary->drm_open_rc == 0 &&
+           summary->drm_msm_gem_new_rc == 0 &&
+           summary->drm_msm_gem_info_offset_rc == 0 &&
+           summary->drm_prime_export_rc == 0 &&
+           summary->drm_addfb2_rc == 0 &&
+           summary->kgsl_import_rc == 0 &&
+           summary->kgsl_info_rc == 0 &&
+           summary->gpu_create_rc == 0 &&
+           summary->render_rc == 0 &&
+           summary->kgsl_gpuaddr != 0ULL &&
+           summary->kgsl_size >= GPU_D3_VIDEO_TARGET_BYTES &&
+           summary->changed_count > 0ULL &&
+           summary->semantic_sample_count == GPU_D1_CHECKER_SAMPLE_COUNT &&
+           summary->semantic_sample_match_count == GPU_D1_CHECKER_SAMPLE_COUNT &&
+           summary->semantic_sample_match_count ==
+               summary->semantic_exact_match_count +
+               summary->semantic_edge_tolerant_match_count &&
+           summary->semantic_sample_mismatch_count == 0U &&
+           summary->semantic_output_other_count == 0U &&
+           summary->rmfb_rc == 0 &&
+           summary->close_drm_handle_rc == 0;
+}
+
+static int gpu_z2_imported_scanout_target_child(int write_fd) {
+    struct gpu_z2_imported_target_summary summary;
+    struct gpu_d3_video_summary d3_summary;
+    struct gpu_z2_linear_import_metrics import_metrics;
+    struct video_stream_manifest manifest;
+    struct gpu_d3_session session;
+    struct a90_monitor_graph_series series;
+    struct drm_msm_gem_new gem;
+    struct drm_prime_handle prime_arg;
+    struct drm_mode_fb_cmd2 addfb2;
+    uint8_t *frame = NULL;
+    void *map = MAP_FAILED;
+    int drm_fd = -1;
+    int prime_fd = -1;
+    uint64_t started_ns;
+    uint64_t finished_ns;
+    uint64_t offset = 0;
+    uint32_t drm_handle = 0U;
+    uint32_t fb_id = 0U;
+    bool session_owns_map = false;
+    int rc = -EIO;
+
+    memset(&summary, 0, sizeof(summary));
+    memset(&d3_summary, 0, sizeof(d3_summary));
+    memset(&import_metrics, 0, sizeof(import_metrics));
+    memset(&manifest, 0, sizeof(manifest));
+    gpu_d3_session_init(&session);
+    a90_monitor_graph_reset(&series);
+    gpu_m2_fill_graph_manifest(&manifest, 1U, 1U);
+    summary.result_rc = -EIO;
+    summary.drm_open_rc = -ENOSYS;
+    summary.drm_msm_gem_new_rc = -ENOSYS;
+    summary.drm_msm_gem_info_offset_rc = -ENOSYS;
+    summary.drm_prime_export_rc = -ENOSYS;
+    summary.drm_addfb2_rc = -ENOSYS;
+    summary.kgsl_import_rc = -ENOSYS;
+    summary.kgsl_info_rc = -ENOSYS;
+    summary.gpu_create_rc = -ENOSYS;
+    summary.render_rc = -ENOSYS;
+    summary.rmfb_rc = 0;
+    summary.close_drm_handle_rc = 0;
+    summary.close_prime_rc = 0;
+    summary.close_drm_fd_rc = 0;
+    summary.source_width = manifest.width;
+    summary.source_height = manifest.height;
+    summary.source_stride = manifest.stride;
+    summary.source_frame_bytes = manifest.frame_bytes;
+    summary.target_width = GPU_D3_VIDEO_TARGET_WIDTH;
+    summary.target_height = GPU_D3_VIDEO_TARGET_HEIGHT;
+    summary.target_stride = GPU_D3_VIDEO_TARGET_STRIDE;
+    summary.target_bytes = (uint32_t)GPU_D3_VIDEO_TARGET_BYTES;
+
+    rc = gpu_z2_materialize_drm_card0();
+    if (rc < 0) {
+        summary.drm_open_rc = rc;
+        goto out;
+    }
+    errno = 0;
+    drm_fd = open("/dev/dri/card0", O_RDWR | O_CLOEXEC);
+    if (drm_fd < 0) {
+        rc = negative_errno_or(EIO);
+        summary.drm_open_rc = rc;
+        goto out;
+    }
+    summary.drm_open_rc = 0;
+
+    memset(&gem, 0, sizeof(gem));
+    gem.size = GPU_D3_VIDEO_TARGET_BYTES;
+    gem.flags = MSM_BO_SCANOUT | MSM_BO_WC;
+    errno = 0;
+    if (gpu_z2_ioctl_retry(drm_fd, DRM_IOCTL_MSM_GEM_NEW, &gem) < 0) {
+        rc = negative_errno_or(EIO);
+        summary.drm_msm_gem_new_rc = rc;
+        goto out;
+    }
+    drm_handle = gem.handle;
+    summary.drm_handle = drm_handle;
+    summary.drm_msm_gem_new_rc = 0;
+
+    rc = gpu_z2_msm_gem_info_u64(drm_fd,
+                                  drm_handle,
+                                  MSM_INFO_GET_OFFSET,
+                                  &offset);
+    summary.drm_msm_gem_info_offset_rc = rc;
+    summary.drm_mmap_offset = offset;
+    if (rc < 0) {
+        goto out;
+    }
+    errno = 0;
+    map = mmap(NULL,
+               (size_t)GPU_D3_VIDEO_TARGET_BYTES,
+               PROT_READ | PROT_WRITE,
+               MAP_SHARED,
+               drm_fd,
+               (off_t)offset);
+    if (map == MAP_FAILED) {
+        rc = negative_errno_or(EIO);
+        goto out;
+    }
+    memset(map, 0, (size_t)GPU_D3_VIDEO_TARGET_BYTES);
+
+    memset(&prime_arg, 0, sizeof(prime_arg));
+    prime_arg.handle = drm_handle;
+    prime_arg.flags = DRM_CLOEXEC;
+    errno = 0;
+    if (gpu_z2_ioctl_retry(drm_fd, DRM_IOCTL_PRIME_HANDLE_TO_FD, &prime_arg) < 0) {
+        rc = negative_errno_or(EIO);
+        summary.drm_prime_export_rc = rc;
+        goto out;
+    }
+    prime_fd = prime_arg.fd;
+    summary.drm_prime_export_rc = 0;
+
+    memset(&addfb2, 0, sizeof(addfb2));
+    addfb2.width = GPU_D3_VIDEO_TARGET_WIDTH;
+    addfb2.height = GPU_D3_VIDEO_TARGET_HEIGHT;
+    addfb2.pixel_format = DRM_FORMAT_XBGR8888;
+    addfb2.handles[0] = drm_handle;
+    addfb2.pitches[0] = GPU_D3_VIDEO_TARGET_STRIDE;
+    errno = 0;
+    if (gpu_z2_ioctl_retry(drm_fd, DRM_IOCTL_MODE_ADDFB2, &addfb2) < 0) {
+        rc = negative_errno_or(EIO);
+        summary.drm_addfb2_rc = rc;
+        goto out;
+    }
+    fb_id = addfb2.fb_id;
+    summary.drm_fb_id = fb_id;
+    summary.drm_addfb2_rc = 0;
+
+    frame = (uint8_t *)malloc((size_t)GPU_M2_GRAPH_SOURCE_BYTES);
+    if (frame == NULL) {
+        rc = -ENOMEM;
+        goto out;
+    }
+    (void)a90_monitor_graph_sample(&series);
+    usleep(10000U);
+    (void)a90_monitor_graph_sample(&series);
+    summary.graph_pixels_set =
+        a90_monitor_graph_render_mono1(&series,
+                                       frame,
+                                       manifest.width,
+                                       manifest.height,
+                                       manifest.stride);
+    summary.graph_points = series.count;
+
+    rc = gpu_2d_present_create_session_internal(&session,
+                                                &manifest,
+                                                &d3_summary,
+                                                prime_fd,
+                                                map,
+                                                &import_metrics);
+    if (session.linear.map == map) {
+        session_owns_map = true;
+        map = MAP_FAILED;
+    }
+    summary.gpu_create_rc = rc;
+    summary.kgsl_import_rc = import_metrics.import_rc;
+    summary.kgsl_info_rc = import_metrics.info_rc;
+    summary.kgsl_id = import_metrics.kgsl_id;
+    summary.kgsl_gpuaddr = import_metrics.gpuaddr;
+    summary.kgsl_size = import_metrics.size;
+    summary.kgsl_flags = import_metrics.flags;
+    summary.kgsl_va_len = import_metrics.va_len;
+    summary.pm4_dwords = d3_summary.pm4_dwords;
+    if (rc < 0) {
+        goto out;
+    }
+
+    {
+        struct gpu_d3_video_frame_stats stats;
+
+        started_ns = video_monotonic_ns();
+        rc = gpu_2d_present_render_frame_to_linear(&session,
+                                                   &manifest,
+                                                   frame,
+                                                   &stats);
+        finished_ns = video_monotonic_ns();
+        summary.elapsed_ns = finished_ns > started_ns ? finished_ns - started_ns : 1ULL;
+        summary.render_rc = rc;
+        summary.texture_write_us = stats.texture_write_us;
+        summary.gpu_wait_us = stats.gpu_wait_us;
+        summary.readback_sync_us = stats.readback_sync_us;
+        summary.sample_us = stats.kms_copy_us;
+        summary.changed_count = stats.changed_count;
+        summary.last_first_word = stats.first_word;
+        summary.last_center_word = stats.center_word;
+        summary.semantic_sample_count = stats.semantic_sample_count;
+        summary.semantic_sample_match_count = stats.semantic_sample_match_count;
+        summary.semantic_exact_match_count = stats.semantic_exact_match_count;
+        summary.semantic_edge_tolerant_match_count =
+            stats.semantic_edge_tolerant_match_count;
+        summary.semantic_sample_mismatch_count = stats.semantic_sample_mismatch_count;
+        summary.semantic_output_other_count = stats.semantic_output_other_count;
+        if (rc < 0) {
+            goto out;
+        }
+    }
+
+    summary.result_rc =
+        gpu_z2_imported_target_summary_passed(&summary) ? 0 : -EIO;
+    rc = summary.result_rc;
+
+out:
+    gpu_d3_destroy_session(&session);
+    if (session_owns_map) {
+        map = MAP_FAILED;
+    }
+    if (fb_id != 0U && drm_fd >= 0) {
+        uint32_t rmfb_id = fb_id;
+
+        errno = 0;
+        if (gpu_z2_ioctl_retry(drm_fd, DRM_IOCTL_MODE_RMFB, &rmfb_id) < 0) {
+            summary.rmfb_rc = negative_errno_or(EIO);
+        }
+    }
+    if (map != MAP_FAILED) {
+        (void)munmap(map, (size_t)GPU_D3_VIDEO_TARGET_BYTES);
+        map = MAP_FAILED;
+    }
+    if (prime_fd >= 0) {
+        errno = 0;
+        if (close(prime_fd) < 0) {
+            summary.close_prime_rc = negative_errno_or(EIO);
+        }
+        prime_fd = -1;
+    }
+    if (drm_handle != 0U && drm_fd >= 0) {
+        summary.close_drm_handle_rc = gpu_z2_close_drm_gem_handle(drm_fd, drm_handle);
+    }
+    if (drm_fd >= 0) {
+        errno = 0;
+        if (close(drm_fd) < 0) {
+            summary.close_drm_fd_rc = negative_errno_or(EIO);
+        }
+        drm_fd = -1;
+    }
+    free(frame);
+    if (summary.result_rc != 0) {
+        if (rc < 0) {
+            summary.result_rc = rc;
+        } else if (summary.render_rc < 0) {
+            summary.result_rc = summary.render_rc;
+        } else {
+            summary.result_rc = -EIO;
+        }
+    }
+    if (write_fd >= 0) {
+        ssize_t written = write(write_fd, &summary, sizeof(summary));
+
+        (void)written;
+        (void)close(write_fd);
+    }
+    return summary.result_rc;
+}
+
+static int gpu_z2_imported_scanout_target_probe(int timeout_ms,
+                                                bool materialize_devnode) {
+    int pipefd[2];
+    pid_t pid;
+    long deadline_ms;
+    bool got_result = false;
+    bool timed_out = false;
+    bool child_killed = false;
+    bool child_reaped = false;
+    int child_status = 0;
+    struct gpu_z2_imported_target_summary summary;
+
+    memset(&summary, 0, sizeof(summary));
+    if (timeout_ms <= 0) {
+        timeout_ms = GPU_G0_DEFAULT_TIMEOUT_MS;
+    }
+    if (timeout_ms > GPU_M2_GRAPH_MAX_TIMEOUT_MS) {
+        a90_console_printf("gpu.z2.import.error=timeout-too-large max_ms=%d\r\n",
+                           GPU_M2_GRAPH_MAX_TIMEOUT_MS);
+        return -EINVAL;
+    }
+
+    a90_console_printf("gpu.z2.import.version=1\r\n");
+    a90_console_printf("gpu.z2.import.scope=gpu-z2-imported-scanout-render-target\r\n");
+    a90_console_printf("gpu.z2.import.command=gpu z2-imported-scanout-target-probe --timeout-ms %d --materialize-devnode\r\n",
+                       timeout_ms);
+    a90_console_printf("gpu.z2.import.kgsl_path=%s\r\n", GPU_G0_DEVNODE);
+    a90_console_printf("gpu.z2.import.drm_path=/dev/dri/card0\r\n");
+    a90_console_printf("gpu.z2.import.buffer=drm-msm-scanout-gem-prime-fd-kgsl-dmabuf-import\r\n");
+    a90_console_printf("gpu.z2.import.target=%ux%u stride=%u bytes=%llu format=XBGR8888\r\n",
+                       GPU_D3_VIDEO_TARGET_WIDTH,
+                       GPU_D3_VIDEO_TARGET_HEIGHT,
+                       GPU_D3_VIDEO_TARGET_STRIDE,
+                       (unsigned long long)GPU_D3_VIDEO_TARGET_BYTES);
+    a90_console_printf("gpu.z2.import.blit_mode=kgsl-textured-quad-scale-to-imported-scanout-linear\r\n");
+    a90_console_printf("gpu.z2.import.kgsl_submit_attempted=1\r\n");
+    a90_console_printf("gpu.z2.import.kms_adfb2_attempted=1\r\n");
+    a90_console_printf("gpu.z2.import.kms_copy_attempted=0\r\n");
+    a90_console_printf("gpu.z2.import.kms_present_attempted=0\r\n");
+    a90_console_printf("gpu.z2.import.power_write_attempted=0\r\n");
+    a90_console_printf("gpu.z2.import.proprietary_blob_attempted=0\r\n");
+    if (materialize_devnode) {
+        int kgsl_rc = gpu_g0_materialize_devnode();
+        int drm_rc = gpu_z2_materialize_drm_card0();
+
+        a90_console_printf("gpu.z2.import.materialize_requested=1\r\n");
+        a90_console_printf("gpu.z2.import.materialize_kgsl_rc=%d\r\n", kgsl_rc);
+        a90_console_printf("gpu.z2.import.materialize_drm_rc=%d\r\n", drm_rc);
+        if (kgsl_rc < 0) {
+            return kgsl_rc;
+        }
+        if (drm_rc < 0) {
+            return drm_rc;
+        }
+    } else {
+        a90_console_printf("gpu.z2.import.materialize_requested=0\r\n");
+    }
+    if (pipe(pipefd) < 0) {
+        int saved_errno = errno;
+        a90_console_printf("gpu.z2.import.pipe_rc=-1 errno=%d\r\n", saved_errno);
+        return -saved_errno;
+    }
+    pid = fork();
+    if (pid < 0) {
+        int saved_errno = errno;
+        close(pipefd[0]);
+        close(pipefd[1]);
+        a90_console_printf("gpu.z2.import.fork_rc=-1 errno=%d\r\n", saved_errno);
+        return -saved_errno;
+    }
+    if (pid == 0) {
+        int child_rc;
+
+        close(pipefd[0]);
+        child_rc = gpu_z2_imported_scanout_target_child(pipefd[1]);
+        _exit(child_rc == 0 ? 0 : 1);
+    }
+    close(pipefd[1]);
+    deadline_ms = monotonic_millis() + timeout_ms;
+    a90_console_printf("gpu.z2.import.child_pid=%ld\r\n", (long)pid);
+
+    while (monotonic_millis() <= deadline_ms) {
+        struct pollfd pfd;
+        long now_ms = monotonic_millis();
+        int remaining_ms = (int)(deadline_ms > now_ms ? deadline_ms - now_ms : 0);
+        int poll_ms = remaining_ms > 50 ? 50 : remaining_ms;
+        ssize_t rd;
+        pid_t wait_rc;
+
+        if (poll_ms < 0) {
+            poll_ms = 0;
+        }
+        pfd.fd = pipefd[0];
+        pfd.events = POLLIN | POLLHUP;
+        pfd.revents = 0;
+        if (poll(&pfd, 1, poll_ms) > 0 && (pfd.revents & (POLLIN | POLLHUP)) != 0) {
+            rd = read(pipefd[0], &summary, sizeof(summary));
+            if (rd == (ssize_t)sizeof(summary)) {
+                got_result = true;
+            }
+            break;
+        }
+        wait_rc = waitpid(pid, &child_status, WNOHANG);
+        if (wait_rc == pid) {
+            child_reaped = true;
+            break;
+        }
+    }
+    if (!got_result && !child_reaped) {
+        timed_out = true;
+        if (kill(pid, SIGKILL) == 0) {
+            child_killed = true;
+        }
+        if (waitpid(pid, &child_status, 0) == pid) {
+            child_reaped = true;
+        }
+    } else if (!child_reaped) {
+        if (waitpid(pid, &child_status, 0) == pid) {
+            child_reaped = true;
+        }
+    }
+    close(pipefd[0]);
+
+    a90_console_printf("gpu.z2.import.result=%s\r\n",
+                       got_result && gpu_z2_imported_target_summary_passed(&summary) ?
+                           "z2-imported-scanout-render-target-pass" :
+                       (timed_out ? "timeout" :
+                                    "z2-imported-scanout-render-target-failed"));
+    a90_console_printf("gpu.z2.import.timed_out=%d\r\n", timed_out ? 1 : 0);
+    a90_console_printf("gpu.z2.import.child_killed=%d\r\n", child_killed ? 1 : 0);
+    a90_console_printf("gpu.z2.import.child_reaped=%d\r\n", child_reaped ? 1 : 0);
+    a90_console_printf("gpu.z2.import.child_status=0x%x\r\n", child_status);
+    if (got_result) {
+        a90_console_printf("gpu.z2.import.result_rc=%d\r\n", summary.result_rc);
+        a90_console_printf("gpu.z2.import.drm.open_rc=%d\r\n", summary.drm_open_rc);
+        a90_console_printf("gpu.z2.import.drm.msm_gem_new_rc=%d handle=%u\r\n",
+                           summary.drm_msm_gem_new_rc, summary.drm_handle);
+        a90_console_printf("gpu.z2.import.drm.offset_rc=%d offset=0x%llx\r\n",
+                           summary.drm_msm_gem_info_offset_rc,
+                           (unsigned long long)summary.drm_mmap_offset);
+        a90_console_printf("gpu.z2.import.drm.prime_export_rc=%d\r\n",
+                           summary.drm_prime_export_rc);
+        a90_console_printf("gpu.z2.import.drm.addfb2_rc=%d fb_id=%u\r\n",
+                           summary.drm_addfb2_rc, summary.drm_fb_id);
+        a90_console_printf("gpu.z2.import.kgsl.import_rc=%d id=%u\r\n",
+                           summary.kgsl_import_rc, summary.kgsl_id);
+        a90_console_printf("gpu.z2.import.kgsl.info_rc=%d gpuaddr=0x%llx size=%llu flags=0x%llx va_len=%llu\r\n",
+                           summary.kgsl_info_rc,
+                           (unsigned long long)summary.kgsl_gpuaddr,
+                           (unsigned long long)summary.kgsl_size,
+                           (unsigned long long)summary.kgsl_flags,
+                           (unsigned long long)summary.kgsl_va_len);
+        a90_console_printf("gpu.z2.import.gpu_create_rc=%d render_rc=%d\r\n",
+                           summary.gpu_create_rc, summary.render_rc);
+        a90_console_printf("gpu.z2.import.source_size=%ux%u stride=%u frame_bytes=%u\r\n",
+                           summary.source_width,
+                           summary.source_height,
+                           summary.source_stride,
+                           summary.source_frame_bytes);
+        a90_console_printf("gpu.z2.import.target_size=%ux%u stride=%u bytes=%u\r\n",
+                           summary.target_width,
+                           summary.target_height,
+                           summary.target_stride,
+                           summary.target_bytes);
+        a90_console_printf("gpu.z2.import.pm4_dwords=%u\r\n", summary.pm4_dwords);
+        a90_console_printf("gpu.z2.import.graph_pixels_set=%u graph_points=%u\r\n",
+                           summary.graph_pixels_set, summary.graph_points);
+        a90_console_printf("gpu.z2.import.timing.unit=us\r\n");
+        a90_console_printf("gpu.z2.import.timing.texture_us=%llu gpu_wait_us=%llu readback_us=%llu sample_us=%llu\r\n",
+                           (unsigned long long)summary.texture_write_us,
+                           (unsigned long long)summary.gpu_wait_us,
+                           (unsigned long long)summary.readback_sync_us,
+                           (unsigned long long)summary.sample_us);
+        a90_console_printf("gpu.z2.import.elapsed_ns=%llu\r\n",
+                           (unsigned long long)summary.elapsed_ns);
+        a90_console_printf("gpu.z2.import.changed_count=%llu\r\n",
+                           (unsigned long long)summary.changed_count);
+        a90_console_printf("gpu.z2.import.first_word=0x%x center_word=0x%x\r\n",
+                           summary.last_first_word, summary.last_center_word);
+        a90_console_printf("gpu.z2.import.semantic.sample_count=%u\r\n",
+                           summary.semantic_sample_count);
+        a90_console_printf("gpu.z2.import.semantic.match_count=%u\r\n",
+                           summary.semantic_sample_match_count);
+        a90_console_printf("gpu.z2.import.semantic.exact_match_count=%u\r\n",
+                           summary.semantic_exact_match_count);
+        a90_console_printf("gpu.z2.import.semantic.edge_tolerant_match_count=%u\r\n",
+                           summary.semantic_edge_tolerant_match_count);
+        a90_console_printf("gpu.z2.import.semantic.mismatch_count=%u\r\n",
+                           summary.semantic_sample_mismatch_count);
+        a90_console_printf("gpu.z2.import.semantic.output_other_count=%u\r\n",
+                           summary.semantic_output_other_count);
+        a90_console_printf("gpu.z2.import.cleanup.rmfb_rc=%d close_drm_handle_rc=%d close_prime_rc=%d close_drm_fd_rc=%d\r\n",
+                           summary.rmfb_rc,
+                           summary.close_drm_handle_rc,
+                           summary.close_prime_rc,
+                           summary.close_drm_fd_rc);
+    }
+    if (timed_out) {
+        return -ETIMEDOUT;
+    }
+    return got_result && gpu_z2_imported_target_summary_passed(&summary) ?
+        0 : -EIO;
 }
 
 static uint32_t gpu_h5_pack_rgb_for_xbgr8888(uint32_t color) {
@@ -17015,6 +17842,27 @@ static int handle_gpu(char **argv, int argc) {
                                                interval_ms,
                                                (int)hold_ms);
     }
+    if (strcmp(subcommand, "z2-imported-scanout-target-probe") == 0 ||
+        strcmp(subcommand, "imported-scanout-target-probe") == 0) {
+        bool materialize_devnode = false;
+
+        timeout_ms = GPU_G0_DEFAULT_TIMEOUT_MS;
+        for (index = 2; index < argc; ++index) {
+            if (strcmp(argv[index], "--timeout-ms") == 0) {
+                if (index + 1 >= argc || !gpu_g0_parse_int(argv[index + 1], &timeout_ms)) {
+                    a90_console_printf("gpu.z2.import.error=bad-timeout\r\n");
+                    return -EINVAL;
+                }
+                ++index;
+            } else if (strcmp(argv[index], "--materialize-devnode") == 0) {
+                materialize_devnode = true;
+            } else {
+                a90_console_printf("usage: gpu z2-imported-scanout-target-probe [--timeout-ms N] [--materialize-devnode]\r\n");
+                return -EINVAL;
+            }
+        }
+        return gpu_z2_imported_scanout_target_probe(timeout_ms, materialize_devnode);
+    }
     if (strcmp(subcommand, "g4-solid-fill-probe") == 0 ||
         strcmp(subcommand, "solid-fill-probe") == 0) {
         for (index = 2; index < argc; ++index) {
@@ -17076,7 +17924,7 @@ static int handle_gpu(char **argv, int argc) {
         return gpu_h5_triangle_kms_probe(timeout_ms, materialize_devnode, hold_ms);
     }
     if (strcmp(subcommand, "g0-open-probe") != 0) {
-        a90_console_printf("usage: gpu [g0-status|g0-fwclass-prepare|g0-open-probe [--timeout-ms N] [--rdwr] [--materialize-devnode]|g1-context-probe [--timeout-ms N] [--materialize-devnode]|g2-gpuobj-probe [--timeout-ms N] [--materialize-devnode]|g2-mmap-probe [--timeout-ms N] [--materialize-devnode]|g3-noop-submit-probe [--timeout-ms N] [--materialize-devnode]|h1-shader-state-probe [--timeout-ms N] [--materialize-devnode]|h2-3d-state-probe [--timeout-ms N] [--materialize-devnode]|h3-draw-envelope-probe [--timeout-ms N] [--materialize-devnode]|c1-compute-invocationid-probe [--timeout-ms N] [--materialize-devnode]|c2-compute-pattern-probe [--timeout-ms N] [--materialize-devnode]|c3-compute-kms-probe [--timeout-ms N] [--hold-ms N] [--materialize-devnode]|d1-texture-checkerboard-probe [--timeout-ms N] [--materialize-devnode]|d2-realframe-texture-probe [--preset badapple|--manifest PATH] [--frame-index N] [--timeout-ms N] [--materialize-devnode]|d3-video-texture-present-probe [--preset badapple] [--start-frame N] [--frames N] [--timeout-ms N] [--hold-ms N] [--materialize-devnode]|m0-monitor-sampler-probe [--samples N] [--interval-ms N]|m1-monitor-dashboard-probe [--samples N] [--interval-ms N] [--hold-ms N]|m2-monitor-live-graph-probe [--frames N] [--interval-ms N] [--timeout-ms N] [--hold-ms N] [--materialize-devnode]|m3-monitor-extraction-probe [--frames N] [--interval-ms N] [--timeout-ms N] [--hold-ms N] [--materialize-devnode]|g4-solid-fill-probe [--timeout-ms N] [--materialize-devnode]|g5-kms-blit-probe [--timeout-ms N] [--materialize-devnode]|h5-triangle-kms-probe [--timeout-ms N] [--hold-ms N] [--materialize-devnode]]\r\n");
+        a90_console_printf("usage: gpu [g0-status|g0-fwclass-prepare|g0-open-probe [--timeout-ms N] [--rdwr] [--materialize-devnode]|g1-context-probe [--timeout-ms N] [--materialize-devnode]|g2-gpuobj-probe [--timeout-ms N] [--materialize-devnode]|g2-mmap-probe [--timeout-ms N] [--materialize-devnode]|g3-noop-submit-probe [--timeout-ms N] [--materialize-devnode]|h1-shader-state-probe [--timeout-ms N] [--materialize-devnode]|h2-3d-state-probe [--timeout-ms N] [--materialize-devnode]|h3-draw-envelope-probe [--timeout-ms N] [--materialize-devnode]|c1-compute-invocationid-probe [--timeout-ms N] [--materialize-devnode]|c2-compute-pattern-probe [--timeout-ms N] [--materialize-devnode]|c3-compute-kms-probe [--timeout-ms N] [--hold-ms N] [--materialize-devnode]|d1-texture-checkerboard-probe [--timeout-ms N] [--materialize-devnode]|d2-realframe-texture-probe [--preset badapple|--manifest PATH] [--frame-index N] [--timeout-ms N] [--materialize-devnode]|d3-video-texture-present-probe [--preset badapple] [--start-frame N] [--frames N] [--timeout-ms N] [--hold-ms N] [--materialize-devnode]|m0-monitor-sampler-probe [--samples N] [--interval-ms N]|m1-monitor-dashboard-probe [--samples N] [--interval-ms N] [--hold-ms N]|m2-monitor-live-graph-probe [--frames N] [--interval-ms N] [--timeout-ms N] [--hold-ms N] [--materialize-devnode]|m3-monitor-extraction-probe [--frames N] [--interval-ms N] [--timeout-ms N] [--hold-ms N] [--materialize-devnode]|z2-imported-scanout-target-probe [--timeout-ms N] [--materialize-devnode]|g4-solid-fill-probe [--timeout-ms N] [--materialize-devnode]|g5-kms-blit-probe [--timeout-ms N] [--materialize-devnode]|h5-triangle-kms-probe [--timeout-ms N] [--hold-ms N] [--materialize-devnode]]\r\n");
         return -EINVAL;
     }
     for (index = 2; index < argc; ++index) {
@@ -17171,7 +18019,7 @@ static const struct shell_command command_table[] = {
     { "pstore", handle_pstore, "pstore [summary|full|paths]", CMD_NONE, A90_CMD_GROUP_CORE },
     { "watchdoginv", handle_watchdoginv, "watchdoginv [summary|full|paths]", CMD_NONE, A90_CMD_GROUP_CORE },
     { "tracefs", handle_tracefs, "tracefs [summary|full|paths]", CMD_NONE, A90_CMD_GROUP_CORE },
-    { "gpu", handle_gpu, "gpu [g0-status|g0-fwclass-prepare|g0-open-probe [--timeout-ms N] [--rdwr] [--materialize-devnode]|g1-context-probe [--timeout-ms N] [--materialize-devnode]|g2-gpuobj-probe [--timeout-ms N] [--materialize-devnode]|g2-mmap-probe [--timeout-ms N] [--materialize-devnode]|g3-noop-submit-probe [--timeout-ms N] [--materialize-devnode]|h1-shader-state-probe [--timeout-ms N] [--materialize-devnode]|h2-3d-state-probe [--timeout-ms N] [--materialize-devnode]|h3-draw-envelope-probe [--timeout-ms N] [--materialize-devnode]|c1-compute-invocationid-probe [--timeout-ms N] [--materialize-devnode]|c2-compute-pattern-probe [--timeout-ms N] [--materialize-devnode]|c3-compute-kms-probe [--timeout-ms N] [--hold-ms N] [--materialize-devnode]|d1-texture-checkerboard-probe [--timeout-ms N] [--materialize-devnode]|d2-realframe-texture-probe [--preset badapple|--manifest PATH] [--frame-index N] [--timeout-ms N] [--materialize-devnode]|d3-video-texture-present-probe [--preset badapple] [--start-frame N] [--frames N] [--timeout-ms N] [--hold-ms N] [--materialize-devnode]|m0-monitor-sampler-probe [--samples N] [--interval-ms N]|m1-monitor-dashboard-probe [--samples N] [--interval-ms N] [--hold-ms N]|m2-monitor-live-graph-probe [--frames N] [--interval-ms N] [--timeout-ms N] [--hold-ms N] [--materialize-devnode]|m3-monitor-extraction-probe [--frames N] [--interval-ms N] [--timeout-ms N] [--hold-ms N] [--materialize-devnode]|g4-solid-fill-probe [--timeout-ms N] [--materialize-devnode]|g5-kms-blit-probe [--timeout-ms N] [--materialize-devnode]|h5-triangle-kms-probe [--timeout-ms N] [--hold-ms N] [--materialize-devnode]]", CMD_NONE, A90_CMD_GROUP_CORE },
+    { "gpu", handle_gpu, "gpu [g0-status|g0-fwclass-prepare|g0-open-probe [--timeout-ms N] [--rdwr] [--materialize-devnode]|g1-context-probe [--timeout-ms N] [--materialize-devnode]|g2-gpuobj-probe [--timeout-ms N] [--materialize-devnode]|g2-mmap-probe [--timeout-ms N] [--materialize-devnode]|g3-noop-submit-probe [--timeout-ms N] [--materialize-devnode]|h1-shader-state-probe [--timeout-ms N] [--materialize-devnode]|h2-3d-state-probe [--timeout-ms N] [--materialize-devnode]|h3-draw-envelope-probe [--timeout-ms N] [--materialize-devnode]|c1-compute-invocationid-probe [--timeout-ms N] [--materialize-devnode]|c2-compute-pattern-probe [--timeout-ms N] [--materialize-devnode]|c3-compute-kms-probe [--timeout-ms N] [--hold-ms N] [--materialize-devnode]|d1-texture-checkerboard-probe [--timeout-ms N] [--materialize-devnode]|d2-realframe-texture-probe [--preset badapple|--manifest PATH] [--frame-index N] [--timeout-ms N] [--materialize-devnode]|d3-video-texture-present-probe [--preset badapple] [--start-frame N] [--frames N] [--timeout-ms N] [--hold-ms N] [--materialize-devnode]|m0-monitor-sampler-probe [--samples N] [--interval-ms N]|m1-monitor-dashboard-probe [--samples N] [--interval-ms N] [--hold-ms N]|m2-monitor-live-graph-probe [--frames N] [--interval-ms N] [--timeout-ms N] [--hold-ms N] [--materialize-devnode]|m3-monitor-extraction-probe [--frames N] [--interval-ms N] [--timeout-ms N] [--hold-ms N] [--materialize-devnode]|z2-imported-scanout-target-probe [--timeout-ms N] [--materialize-devnode]|g4-solid-fill-probe [--timeout-ms N] [--materialize-devnode]|g5-kms-blit-probe [--timeout-ms N] [--materialize-devnode]|h5-triangle-kms-probe [--timeout-ms N] [--hold-ms N] [--materialize-devnode]]", CMD_NONE, A90_CMD_GROUP_CORE },
     { "audio", handle_audio, "audio [status|profiles|profile|speaker-map|stages|prereq|app-type|setcal|route|play|chime|play-status|stop|adsp-status|snd-status]", CMD_NONE, A90_CMD_GROUP_ANDROID },
     { "video", handle_video, "video [status|frame [bars|checker|mono|0xRRGGBB]|demo [badapple|badapple-scale|nyan|doom [status|verify|play|frame|engine-probe] [frames] [--wad runtime-private --sha256 EXPECTED]|frame-pattern]|anim [bars|checker|pulse] [frames] [delay_ms]|blitbench [frames]|flipprobe [frames]|stream --manifest PATH --video-only [--frames N] [--present setcrtc|pageflip] [--layout full|player-hud] [--sync-audio-status PATH]|cache [status|verify|play] SHA256 [--trust-cache] [--layout full|player-hud]|cache preset [badapple|badapple-scale|nyan] [status|verify|play]]", CMD_DISPLAY, A90_CMD_GROUP_DISPLAY },
     { "wifi", handle_wifi, "wifi [status|scan [delay_ms]|connect [profile]|dhcp [profile]|ping [gateway|internet|all]|cleanup|config [status|prepare [profile]]]", CMD_NONE, A90_CMD_GROUP_NETWORK },
