@@ -19,6 +19,7 @@ wifi cleanup
 wifi softap status
 wifi softap plan
 wifi softap prepare [profile]
+wifi softap iftype-probe [timeout_ms]
 wifi softap cleanup
 wifi profile list
 wifi profile status [profile]
@@ -341,11 +342,11 @@ whether to keep the link up for hold/idle validation.
 
 ## `wifi softap ...`
 
-`wifi softap status|plan|prepare|cleanup` is the SoftAP server-endgame command
-surface. In the current S2 contract it is intentionally read-only/reporting
-only: there is no AP daemon start, no DHCP-server start, no listener exposure,
-no interface mode change, no address assignment, and no config write while the
-S1 feasibility gate remains `no-go`.
+`wifi softap status|plan|prepare|iftype-probe|cleanup` is the SoftAP
+server-endgame command surface. The status/plan/prepare path is intentionally
+read-only/reporting only: there is no AP daemon start, no DHCP-server start, no
+listener exposure, no interface mode change, no address assignment, and no
+config write while the S1/S3 feasibility gates remain blocked.
 
 Current commands:
 
@@ -356,8 +357,23 @@ Current commands:
 - `wifi softap prepare [profile]`: dry-run only while blocked; it evaluates
   readiness and reports `softap-prepare-blocked-wlan-gate` when the WLAN/AP
   lower surface is absent. It does not write SSID/PSK config or start services.
+- `wifi softap iftype-probe [timeout_ms]`: S3 lower-gate probe. It waits
+  boundedly for `wlan0`, brings `wlan0` administratively up, stops a stale
+  station `wpa_supplicant` if one is running, sends nl80211
+  `NL80211_CMD_NEW_INTERFACE` to create a temporary AP-type interface
+  `a90ap0`, then sends `NL80211_CMD_DEL_INTERFACE` to delete it. PASS is
+  `decision=softap-iftype-probe-pass` with `ap_iftype_add_rc=0`,
+  `ap_iftype_iface_created=1`, and `ap_iftype_cleanup_ok=1`.
 - `wifi softap cleanup`: reporting/no-op in S2; real cleanup becomes mandatory
   before any later AP start command can be accepted.
+
+`iftype-probe` is the only SoftAP subcommand in this stage that intentionally
+changes interface state, and only for the transient add/delete proof. It still
+prints `config_write_attempted=0`, `wpa_supplicant_mode2_start_attempted=0`,
+`dhcp_server_start_attempted=0`, `listener_start_attempted=0`,
+`address_assign_attempted=0`, and `server_exposure_attempted=0`. It must not
+create SSID/PSK config, run `wpa_supplicant mode=2`, start `udhcpd`, assign an
+AP address, install routes/NAT, or expose a transfer listener.
 
 The command surface is separate from client-mode `wifi connect` and
 autoconnect. Public output must keep `ssid_psk_logged=0` and must not print raw

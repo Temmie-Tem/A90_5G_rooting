@@ -851,6 +851,25 @@ specific: port the V2237 WLAN bring-up route into the current SoftAP baseline an
 nl80211 AP-iftype probe or stage a minimal private `iw` equivalent, before any `mode=2` AP start.**
 Report: `docs/reports/NATIVE_INIT_V3340_SOFTAP_S3_LOWER_WLAN_SPLIT_LIVE_2026-06-28.md`.
 
+**STATUS (2026-06-28 S3 iftype-probe source/build + live miss) — V3341 added the bounded
+`wifi softap iftype-probe [timeout_ms]` AP-iftype add/delete proof, but live validation stopped before
+AP-iftype because `wlan0` still did not surface.** Built
+`boot_linux_v3341_softap_s3_iftype_probe.img`
+(`sha256=a0fe07b1f347a2212d375067c442b163b7e6cd68cb7a605ab5dce4c87082c7af`), flashed it through
+`native_init_flash.py`, booted `A90 Linux init 0.11.105 (v3341-softap-s3-iftype-probe)`, and kept
+health clean (`selftest pass=12 warn=1 fail=0`). The probe preserved the no-start contract
+(`config_write_attempted=0`, `wpa_supplicant_mode2_start_attempted=0`, `dhcp_server_start_attempted=0`,
+`listener_start_attempted=0`, `address_assign_attempted=0`, `server_exposure_attempted=0`) but timed
+out at `wlan0_wait_rc=-110`, `wlan0_present=0`, so `ap_iftype_add_attempted=0`. Helper evidence showed
+the post-FW_READY `boot_wlan` trigger succeeded and the kernel requested
+`wlan/qca_cld/WCNSS_qcom_cfg.ini`, but the QCACLD firmware_class feeder repeatedly returned
+`source_errno=2` and `fed=0`; the remaining blocker is now the read-only Android vendor firmware source
+visibility/feed path, not the AP-iftype command itself. **Next bounded unit = V3342: restore a safe
+read-only source route for `/vendor/firmware/wlan/qca_cld/*`, then rerun the same iftype probe before
+any `wpa_supplicant mode=2` AP start.** Reports:
+`docs/reports/NATIVE_INIT_V3341_SOFTAP_S3_IFTYPE_PROBE_SOURCE_BUILD_2026-06-28.md` and
+`docs/reports/NATIVE_INIT_V3341_SOFTAP_S3_IFTYPE_PROBE_LIVE_2026-06-28.md`.
+
 - **S0 (host-only charter/recon) = DONE.** Inventory current command/docs/source surface, distinguish
   client-mode Wi-Fi from SoftAP/server mode, and write the bounded ladder + safety recipe.
 - **S1 (read-only live AP/server inventory) = DONE / NO-GO BELOW WLAN.** Current resident has no
@@ -860,9 +879,9 @@ Report: `docs/reports/NATIVE_INIT_V3340_SOFTAP_S3_LOWER_WLAN_SPLIT_LIVE_2026-06-
   `status`, `plan`, and dry-run config materialization under `/cache/a90-softap/`; generated SSID/PSK
   remain private-only, public output reports hashes/booleans only. While S1 remains no-go, S2 must stop
   at status/plan/prepare and must not start hostapd/AP mode.
-- **S3 (bounded AP bring-up) = BLOCKED BY AP-IFTYPE GATE AFTER WLAN LINEAGE SPLIT.** Start AP mode only
-  after a future read-only unit proves the V2237-style WLAN surface in the current SoftAP baseline and
-  proves AP iftype add/delete with cleanup: stop conflicting client supplicant,
+- **S3 (bounded AP bring-up) = BLOCKED BEFORE AP-IFTYPE BY QCACLD FIRMWARE SOURCE VISIBILITY.** Start AP mode only
+  after a future unit restores the V2237-style WLAN firmware feed/source route in the current SoftAP baseline,
+  proves `wlan0` present, and proves AP iftype add/delete with cleanup: stop conflicting client supplicant,
   configure a private local AP subnet, start `wpa_supplicant mode=2` and a bounded DHCP service, expose no WAN/NAT by
   default, and provide `softap cleanup` that kills workers and removes address/route residue.
 - **OPERATOR RECON (2026-06-27, host-verified — answers the S3 "lower WLAN/AP gate" + corrects the daemon

@@ -13,11 +13,11 @@ class NativeSoftapS2SourceV3338Tests(unittest.TestCase):
     def test_softap_command_surface_is_registered(self) -> None:
         source = WIFI_C.read_text(encoding="utf-8")
 
-        self.assertIn('#define A90_WIFI_SOFTAP_VERSION "a90-native-wifi-softap-v1"', source)
+        self.assertIn('#define A90_WIFI_SOFTAP_VERSION "a90-native-wifi-softap-v2"', source)
         self.assertIn('#define A90_WIFI_SOFTAP_ROOT "/cache/a90-softap"', source)
         self.assertIn("static int wifi_softap_cmd", source)
         self.assertIn('strcmp(argv[1], "softap") == 0', source)
-        self.assertIn("wifi softap [status|plan|prepare [profile]|cleanup]", source)
+        self.assertIn("wifi softap [status|plan|prepare [profile]|iftype-probe [timeout_ms]|cleanup]", source)
 
     def test_softap_surface_uses_readonly_feasibility_gate(self) -> None:
         source = WIFI_C.read_text(encoding="utf-8")
@@ -34,6 +34,7 @@ class NativeSoftapS2SourceV3338Tests(unittest.TestCase):
 
         self.assertIn("config_write_attempted=0", source)
         self.assertIn("hostapd_start_attempted=0", source)
+        self.assertIn("wpa_supplicant_mode2_start_attempted=0", source)
         self.assertIn("dhcp_server_start_attempted=0", source)
         self.assertIn("listener_start_attempted=0", source)
         self.assertIn("interface_mode_change_attempted=0", source)
@@ -46,7 +47,7 @@ class NativeSoftapS2SourceV3338Tests(unittest.TestCase):
         source = WIFI_C.read_text(encoding="utf-8")
 
         self.assertIn("plan.s2=status-plan-prepare-no-start", source)
-        self.assertIn("plan.s3=blocked-until-wlan-ap-prereq-visible", source)
+        self.assertIn("plan.s3=blocked-until-iftype-probe-pass", source)
         self.assertIn("plan.s4=blocked-until-ap-and-server-start-pass", source)
 
     def test_wifi_lifecycle_doc_mentions_softap_surface(self) -> None:
@@ -55,6 +56,7 @@ class NativeSoftapS2SourceV3338Tests(unittest.TestCase):
         self.assertIn("wifi softap status", doc)
         self.assertIn("wifi softap plan", doc)
         self.assertIn("wifi softap prepare [profile]", doc)
+        self.assertIn("wifi softap iftype-probe [timeout_ms]", doc)
         self.assertIn("no AP daemon start", doc)
 
 
