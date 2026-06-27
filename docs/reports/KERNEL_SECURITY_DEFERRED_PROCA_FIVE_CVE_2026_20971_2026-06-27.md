@@ -47,14 +47,18 @@ Date: 2026-06-27 (operator host-side, web-research only; no device action).
    **wrong**: it is compiled in, `CONFIG_FIVE=y`, inits at boot, and the vulnerable
    `/proc/<pid>/integrity/{value,label,reset_file}` nodes are live for every process.
    "Alive" gates *reachability of a tool*, not *risk* — and the tool is reachable.
-3. **Still an IF-chain, but lighter than on the devices LucidBit tested.** reachable
-   (confirmed) → triggerable UAF (race + controlled realloc) → usable primitive → and
-   **RKP/EL2** (KNOX hypervisor) still sits above EL1 (the RKP per-boot-key wall that
-   closed ROPP symbolization). **Key delta: our kernel is 4.14 with NO kernel CFI**
-   (1 cfi symbol in `System.map`), so the **arbitrary-call primitive that KCFI blocked
-   on the S21/S24/A54 (5.x) that LucidBit tested is likely NOT blocked here.** That
-   removes the single mitigation LucidBit called out, making this the strongest EL0→EL1
-   lead the project has found (vs the 3 closed-phase n-days: FastRPC unreachable, Binder
+3. **Still a long IF-chain, and NOT as light as first thought (CORRECTED 2026-06-27).**
+   reachable (confirmed) → triggerable UAF (race + controlled realloc) → usable primitive
+   → control-flow hijack → and **RKP/EL2** (KNOX hypervisor) above EL1 (the RKP per-boot-key
+   wall that closed ROPP symbolization). **Correction:** the kernel has no *Clang KCFI*
+   (1 cfi symbol), but it DOES have Samsung's **RKP_CFP** control-flow protection enabled
+   (`CONFIG_RKP_CFP=y`, `RKP_CFP_JOPP=y` indirect-branch magic `0x00be7bad`, `RKP_CFP_ROPP=y`
+   per-boot return-address encryption) plus `RKP_KDP=y`/`RKP_DMAP_PROT=y`. So the
+   arbitrary-call mitigation LucidBit hit (KCFI) **has a Samsung-RKP analog here, not an
+   absence** — an earlier draft's "no-CFI → arbitrary-call easier" was wrong. It is still
+   a notable lead (reachable + no-Clang-KCFI), but exploitation faces dedicated cache +
+   RKP_CFP + RKP_KDP, i.e. harder than the first write-up implied (vs the 3 closed-phase
+   n-days: FastRPC unreachable, Binder
    not-vulnerable, KGSL runtime-open-blocked). It is still real exploit-dev, and
    `reachable ≠ exploitable` remains the discipline.
 4. **Nothing on the current roadmap needs EL1.** GPU ④ zero-copy (KGSL/DRM), SoftAP
@@ -79,13 +83,19 @@ native-init probe (no exploit, no write, no flash) while the autonomous loop was
   directories exist — i.e. `task_integrity` is allocated per task for every process.
   Kernel config confirms `CONFIG_FIVE=y`, `CONFIG_INTEGRITY=y` (legacy Samsung FIVE,
   not GKI). **Reachability = YES.**
-- **No kernel CFI.** `System.map` has 1 cfi symbol → the 4.14 kernel is not built with
-  kernel CFI, so the arbitrary-call mitigation LucidBit hit on newer Galaxies is absent.
-- **RKP/EL2 present** (119 hyp/rkp/knox symbols; prior project work already proved RKP is
-  active) → still a wall for EL1 cred/page-table persistence, not for EL1 code-exec itself.
+- **No Clang KCFI, but RKP_CFP IS present (CORRECTED 2026-06-27).** `System.map` has 1 cfi
+  symbol (no Clang KCFI), but device config shows `CONFIG_RKP_CFP=y` + `RKP_CFP_JOPP=y`
+  (indirect-branch magic `0x00be7bad`) + `RKP_CFP_ROPP=y` (per-boot return-address
+  encryption). So control-flow protection is NOT absent — it is Samsung's RKP_CFP flavor.
+  An earlier draft saying "no CFI → arbitrary-call easier" was wrong.
+- **RKP/EL2 deeply enabled** (`RKP_KDP=y` cred protection, `RKP_NS_PROT=y`, `RKP_DMAP_PROT=y`
+  double-map protection; on Snapdragon RKP lives in QHEE/EL2) → wall for EL1 cred/page-table
+  persistence AND the reason a KASAN/custom kernel is hard to boot (DMAP guards the exact
+  memory-layout change KASAN makes).
 
-Net: this moved from "probably dead for us" to **"reachable, mitigation-light EL0→EL1
-candidate"** — but it stays DEFERRED. We are already EL0 root, there is no named roadmap
+Net: this moved from "probably dead for us" to **"reachable, but exploitation-hard EL0→EL1
+candidate"** (reachable + no-Clang-KCFI, but dedicated cache + RKP_CFP + RKP_KDP) — and it
+stays DEFERRED. We are already EL0 root, there is no named roadmap
 wall that needs EL1, and turning the UAF into reliable code exec is still exploit-dev under
 RKP. The read-only reopen step is now DONE (positive); what remains gated is the decision
 to spend exploit-dev effort, which needs a concrete EL1-only wall to justify it.
@@ -139,13 +149,15 @@ carry `value=0`, `label=NULL` (handler prints `-1`), `reset_cause=no-cert`,
 
 **Static exploitability verdict.** The UAF is reachable and the primitive surface is real
 (refcount UAF; spinlock write at 0xc; `label`/`reset_file` pointer derefs → leak/arb-read),
-and the 4.14 kernel has **no kernel CFI**, so the arbitrary-call mitigation LucidBit hit on
-5.x Galaxies is absent here. BUT two hard obstacles remain: (1) **dedicated
+and the kernel has **no Clang KCFI** — BUT it DOES have Samsung **RKP_CFP** (JOPP indirect-branch
+magic + ROPP return-address encryption), so control-flow hijack is mitigated here, just in the
+RKP flavor rather than KCFI. Three hard obstacles remain: (1) **dedicated
 `task_integrity_cache`** blocks the easy spray — reclaiming the freed slot with
 attacker-controlled bytes needs same-type reclaim (kernel-initialized content, hard to
-weaponize) or a **cross-cache attack** (advanced, unreliable); (2) **RKP/EL2** still guards
-cred/page-tables above EL1. Verdict: *plausible for the bug class, but a hard exploit-dev
-project with a real chance of failing — not a "keep poking and it falls out."*
+weaponize) or a **cross-cache attack** (advanced, unreliable); (2) **RKP_CFP** (JOPP/ROPP)
+mitigates the control-flow-hijack step; (3) **RKP_KDP/EL2** still guards cred/page-tables
+above EL1. Verdict: *plausible for the bug class, but a hard exploit-dev project with a real
+chance of failing — not a "keep poking and it falls out."*
 
 **Device blocker (why ③ live-trigger is not on this device).** `CONFIG_KASAN` not set +
 `CONFIG_PANIC_ON_OOPS=y` → no instrumented UAF detection and any bad deref oops → immediate
