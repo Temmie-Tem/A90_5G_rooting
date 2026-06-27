@@ -1,7 +1,9 @@
-# Tier-2 capability test: static kernel `.text` patch boots under RKP — VIABLE (2026-06-28)
+# Tier-2 capability test: static kernel `.text` patch boots AND takes effect under RKP — VIABLE (2026-06-28)
 
 **Result: a kernel `.text`-modified boot image booted cleanly under Samsung RKP with
-`selftest fail=0`. Static `.text` patching of the stock kernel is VIABLE on this device.**
+`selftest fail=0` (Stage A), and a patched constant in a real function changed its
+runtime-observable output 5→99→5 (Stage B). Static `.text` patching of the stock kernel is
+VIABLE on this device.**
 This unlocks the Tier-2 class (one-site KASAN-lite instrumentation, functional kernel
 behavior patches) that was previously unproven. Attended, rolled back to clean v2321.
 
@@ -37,14 +39,32 @@ flash + readback verify → system). The patched-kernel image **booted**:
 fail=0`**. RKP did not reject the modified `.text`. Rolled back to clean v2321
 (readback `ca978551…` ok, `selftest fail=0`). No autonomous-loop collision.
 
+## Stage B — observable runtime effect CONFIRMED (2026-06-28)
+Stage A proved boot-survival with a no-op. Stage B proves the patched `.text` actually
+**executes with its new behavior** at runtime. Target: `kgsl_pwrctrl_num_pwrlevels_show`
+(readable at `/sys/class/kgsl/kgsl-3d0/num_pwrlevels`, reachable under native-init since the
+GPU is up). Its display value is computed by `sub w3, w8, #1` (`51000503`, vaddr
+`0xffffff8008926320`). Patched that one instruction → `mov w3, #99` (`52800c63`) so the
+handler always prints 99; recomputed boot id (24-byte total diff). This function carries a
+ROPP epilogue (`eor x30, x16, x17 ; ret`) but the patched `sub` is a plain data instruction,
+not a `ret`/indirect-branch (CFP-safe). Result, all on the same boot cycle:
+- clean v2321: `num_pwrlevels` = **5**
+- patched kernel: booted `fail=0`, `num_pwrlevels` = **99**
+- rolled back to clean v2321: `num_pwrlevels` = **5** again
+The patched code path executed with its modified constant — **RKP does not restore/revert
+patched `.text` at runtime**, and a patch inside a real ROPP-protected function body works.
+
 ## What this proves / does not prove
 - **Proves:** RKP permits static `.text` modification at boot (no boot-time text
-  hash-verify); a `.text`-patched stock kernel boots and runs healthy. Tier-2 is viable.
-- **Does NOT yet prove:** that patching a **CFP-protected control-flow site** (a ROPP
-  `ret` or a JOPP indirect branch) survives at runtime, or that **code injection with new
-  calls/branches** (e.g. logging that calls `printk`) satisfies RKP_CFP. Those are the next
-  questions (Stage B observable-effect patch, then a CFP-site patch). The boot-survival gate
-  — the 90% question — is open.
+  hash-verify) AND the patched code executes with new behavior at runtime (Stage B,
+  num_pwrlevels 5→99→5). Tier-2 patching of **non-CFP instructions in real functions** is
+  fully viable, including functions that have ROPP epilogues (as long as the patched
+  instruction is not the `ret`/indirect-branch itself).
+- **Does NOT yet prove:** that patching a **CFP control-flow instruction itself** (a ROPP
+  `ret` or a JOPP indirect branch) survives, or that **code injection with new
+  calls/branches** (e.g. logging that calls `printk`) satisfies RKP_CFP. Those remain the
+  only open Tier-2 questions; the core capability (observable data/constant/behavior patches)
+  is proven.
 
 ## Implication for the PROCA/FIVE work
 The Tier-2 path that was listed as "unproven .text-patch under RKP" in the UAF warm-start
