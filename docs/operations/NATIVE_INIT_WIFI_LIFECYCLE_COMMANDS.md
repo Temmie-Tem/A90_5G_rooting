@@ -20,6 +20,7 @@ wifi softap status
 wifi softap plan
 wifi softap prepare [profile]
 wifi softap iftype-probe [timeout_ms]
+wifi softap start [channel]
 wifi softap cleanup
 wifi profile list
 wifi profile status [profile]
@@ -342,11 +343,11 @@ whether to keep the link up for hold/idle validation.
 
 ## `wifi softap ...`
 
-`wifi softap status|plan|prepare|iftype-probe|cleanup` is the SoftAP
+`wifi softap status|plan|prepare|iftype-probe|start|cleanup` is the SoftAP
 server-endgame command surface. The status/plan/prepare path is intentionally
-read-only/reporting only: there is no AP daemon start, no DHCP-server start, no
+status/reporting only: there is no AP daemon start, no DHCP-server start, no
 listener exposure, no interface mode change, no address assignment, and no
-config write while the S1/S3 feasibility gates remain blocked.
+config write. `start` is the explicit S3 mutation command.
 
 Current commands:
 
@@ -364,16 +365,27 @@ Current commands:
   `a90ap0`, then sends `NL80211_CMD_DEL_INTERFACE` to delete it. PASS is
   `decision=softap-iftype-probe-pass` with `ap_iftype_add_rc=0`,
   `ap_iftype_iface_created=1`, and `ap_iftype_cleanup_ok=1`.
-- `wifi softap cleanup`: reporting/no-op in S2; real cleanup becomes mandatory
-  before any later AP start command can be accepted.
+- `wifi softap start [channel]`: S3 AP bring-up. It accepts only 2.4GHz
+  non-DFS channels `1`, `6`, or `11` and defaults to `6`. It generates private
+  runtime credentials under `/cache/a90-softap/`, creates `a90ap0` as AP
+  iftype, starts `wpa_supplicant mode=2`, starts BusyBox `udhcpd`, and reports
+  `decision=softap-start-pass` only after the AP control socket is ready and
+  the DHCP daemon is still alive.
+- `wifi softap cleanup`: real cleanup. It terminates the AP supplicant and
+  `udhcpd`, deletes `a90ap0`, removes private runtime config, and reports
+  `decision=softap-cleanup-pass` when no AP workers or AP interface remain.
 
-`iftype-probe` is the only SoftAP subcommand in this stage that intentionally
-changes interface state, and only for the transient add/delete proof. It still
-prints `config_write_attempted=0`, `wpa_supplicant_mode2_start_attempted=0`,
-`dhcp_server_start_attempted=0`, `listener_start_attempted=0`,
-`address_assign_attempted=0`, and `server_exposure_attempted=0`. It must not
-create SSID/PSK config, run `wpa_supplicant mode=2`, start `udhcpd`, assign an
-AP address, install routes/NAT, or expose a transfer listener.
+`iftype-probe` intentionally changes interface state only for the transient
+add/delete proof. It still prints `config_write_attempted=0`,
+`wpa_supplicant_mode2_start_attempted=0`, `dhcp_server_start_attempted=0`,
+`listener_start_attempted=0`, `address_assign_attempted=0`, and
+`server_exposure_attempted=0`.
+
+`start` writes private runtime files and starts AP/DHCP workers, but S4/server
+behavior stays disabled: `hostapd_start_attempted=0`,
+`listener_start_attempted=0`, `server_exposure_attempted=0`,
+`wan_nat_attempted=0`, `nat_attempted=0`, `default_route_export_attempted=0`,
+`dhcp_router_option_exported=0`, and `ssid_psk_logged=0`.
 
 The command surface is separate from client-mode `wifi connect` and
 autoconnect. Public output must keep `ssid_psk_logged=0` and must not print raw

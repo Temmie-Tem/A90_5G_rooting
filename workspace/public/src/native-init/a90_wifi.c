@@ -95,6 +95,21 @@
 #define A90_WIFI_SOFTAP_VERSION "a90-native-wifi-softap-v2"
 #define A90_WIFI_SOFTAP_ROOT "/cache/a90-softap"
 #define A90_WIFI_SOFTAP_PROBE_IFACE "a90ap0"
+#define A90_WIFI_SOFTAP_CTRL_DIR "/cache/a90-softap/sockets"
+#define A90_WIFI_SOFTAP_CTRL_SOCKET "/cache/a90-softap/sockets/a90ap0"
+#define A90_WIFI_SOFTAP_SUPPLICANT_CONF "/cache/a90-softap/wpa_supplicant-softap.conf"
+#define A90_WIFI_SOFTAP_SUPPLICANT_LOG "/cache/a90-softap/wpa_supplicant-softap.log"
+#define A90_WIFI_SOFTAP_SUPPLICANT_PID "/cache/a90-softap/wpa_supplicant-softap.pid"
+#define A90_WIFI_SOFTAP_UDHCPD_CONF "/cache/a90-softap/udhcpd.conf"
+#define A90_WIFI_SOFTAP_UDHCPD_LOG "/cache/a90-softap/udhcpd.log"
+#define A90_WIFI_SOFTAP_UDHCPD_PID "/cache/a90-softap/udhcpd.pid"
+#define A90_WIFI_SOFTAP_UDHCPD_LEASES "/cache/a90-softap/udhcpd.leases"
+#define A90_WIFI_SOFTAP_PRIVATE_CREDENTIALS "/cache/a90-softap/credentials.private"
+#define A90_WIFI_SOFTAP_CTRL_WAIT_MS 20000
+#define A90_WIFI_SOFTAP_DHCP_SETTLE_MS 1200
+#define A90_WIFI_SOFTAP_NET_A 10
+#define A90_WIFI_SOFTAP_NET_B 47
+#define A90_WIFI_SOFTAP_NET_C 43
 #define A90_WIFI_SOFTAP_WLAN0_WAIT_MS 220000
 #define A90_WIFI_SOFTAP_IFTYPE_PROBE_MAX_WAIT_MS 240000
 
@@ -599,13 +614,14 @@ static int wifi_ctrl_connect_remote(int socket_fd, const char *remote_path) {
                    (socklen_t)(offsetof(struct sockaddr_un, sun_path) + remote_len + 1));
 }
 
-static int wifi_ctrl_request(const char *command,
-                             char *category,
-                             size_t category_size,
-                             long *reply_len_out,
-                             int *saved_errno_out,
-                             char *reply_out,
-                             size_t reply_out_size) {
+static int wifi_ctrl_request_at(const char *remote_path,
+                                const char *command,
+                                char *category,
+                                size_t category_size,
+                                long *reply_len_out,
+                                int *saved_errno_out,
+                                char *reply_out,
+                                size_t reply_out_size) {
     char reply[4096];
     struct pollfd poll_fd;
     ssize_t received;
@@ -624,7 +640,8 @@ static int wifi_ctrl_request(const char *command,
     if (reply_out != NULL && reply_out_size > 0) {
         reply_out[0] = '\0';
     }
-    if (command == NULL || command[0] == '\0') {
+    if (remote_path == NULL || remote_path[0] == '\0' ||
+        command == NULL || command[0] == '\0') {
         if (saved_errno_out != NULL) {
             *saved_errno_out = EINVAL;
         }
@@ -641,7 +658,7 @@ static int wifi_ctrl_request(const char *command,
         return -saved_errno;
     }
     if (wifi_ctrl_bind_local_abstract(socket_fd) < 0 ||
-        wifi_ctrl_connect_remote(socket_fd, A90_WIFI_CTRL_SOCKET) < 0) {
+        wifi_ctrl_connect_remote(socket_fd, remote_path) < 0) {
         int saved_errno = errno;
 
         close(socket_fd);
@@ -702,6 +719,23 @@ static int wifi_ctrl_request(const char *command,
     return 0;
 }
 
+static int wifi_ctrl_request(const char *command,
+                             char *category,
+                             size_t category_size,
+                             long *reply_len_out,
+                             int *saved_errno_out,
+                             char *reply_out,
+                             size_t reply_out_size) {
+    return wifi_ctrl_request_at(A90_WIFI_CTRL_SOCKET,
+                                command,
+                                category,
+                                category_size,
+                                reply_len_out,
+                                saved_errno_out,
+                                reply_out,
+                                reply_out_size);
+}
+
 static bool wifi_process_alive(pid_t pid) {
     return pid > 0 && (kill(pid, 0) == 0 || errno == EPERM);
 }
@@ -753,13 +787,14 @@ static int wifi_start_supplicant(pid_t *pid_out) {
     return a90_run_spawn(&config, pid_out);
 }
 
-static int wifi_wait_ctrl_ready(pid_t pid,
-                                bool spawned,
-                                int timeout_ms,
-                                int *elapsed_ms_out,
-                                char *category,
-                                size_t category_size,
-                                int *ctrl_errno_out) {
+static int wifi_wait_ctrl_ready_at(const char *remote_path,
+                                   pid_t pid,
+                                   bool spawned,
+                                   int timeout_ms,
+                                   int *elapsed_ms_out,
+                                   char *category,
+                                   size_t category_size,
+                                   int *ctrl_errno_out) {
     long started_ms = monotonic_millis();
     long deadline_ms = started_ms + timeout_ms;
 
@@ -783,14 +818,15 @@ static int wifi_wait_ctrl_ready(pid_t pid,
             }
             return -ESRCH;
         }
-        if (access(A90_WIFI_CTRL_SOCKET, F_OK) == 0) {
-            rc = wifi_ctrl_request("PING",
-                                   category,
-                                   category_size,
-                                   &reply_len,
-                                   &saved_errno,
-                                   NULL,
-                                   0);
+        if (remote_path != NULL && access(remote_path, F_OK) == 0) {
+            rc = wifi_ctrl_request_at(remote_path,
+                                      "PING",
+                                      category,
+                                      category_size,
+                                      &reply_len,
+                                      &saved_errno,
+                                      NULL,
+                                      0);
             (void)reply_len;
             if (ctrl_errno_out != NULL) {
                 *ctrl_errno_out = saved_errno;
@@ -811,6 +847,23 @@ static int wifi_wait_ctrl_ready(pid_t pid,
         *ctrl_errno_out = ETIMEDOUT;
     }
     return -ETIMEDOUT;
+}
+
+static int wifi_wait_ctrl_ready(pid_t pid,
+                                bool spawned,
+                                int timeout_ms,
+                                int *elapsed_ms_out,
+                                char *category,
+                                size_t category_size,
+                                int *ctrl_errno_out) {
+    return wifi_wait_ctrl_ready_at(A90_WIFI_CTRL_SOCKET,
+                                   pid,
+                                   spawned,
+                                   timeout_ms,
+                                   elapsed_ms_out,
+                                   category,
+                                   category_size,
+                                   ctrl_errno_out);
 }
 
 static bool wifi_status_field_allowed(const char *key) {
@@ -872,20 +925,21 @@ static void wifi_print_status_fields(const char *label, const char *reply) {
     }
 }
 
-static int wifi_print_ctrl_result(const char *label, const char *command) {
+static int wifi_print_ctrl_result_at(const char *label, const char *remote_path, const char *command) {
     char category[32];
     char reply[4096];
     long reply_len = 0;
     int saved_errno = 0;
     int rc;
 
-    rc = wifi_ctrl_request(command,
-                           category,
-                           sizeof(category),
-                           &reply_len,
-                           &saved_errno,
-                           reply,
-                           sizeof(reply));
+    rc = wifi_ctrl_request_at(remote_path,
+                              command,
+                              category,
+                              sizeof(category),
+                              &reply_len,
+                              &saved_errno,
+                              reply,
+                              sizeof(reply));
     a90_console_printf("%s.rc=%d\r\n", label, rc);
     a90_console_printf("%s.errno=%d\r\n", label, saved_errno);
     a90_console_printf("%s.reply_category=%s\r\n", label, rc == 0 ? category : "error");
@@ -894,6 +948,10 @@ static int wifi_print_ctrl_result(const char *label, const char *command) {
         wifi_print_status_fields(label, reply);
     }
     return rc;
+}
+
+static int wifi_print_ctrl_result(const char *label, const char *command) {
+    return wifi_print_ctrl_result_at(label, A90_WIFI_CTRL_SOCKET, command);
 }
 
 static bool wifi_carrier_up(void) {
@@ -3323,6 +3381,873 @@ static int wifi_parse_delay_ms(const char *text, int *delay_ms) {
     return wifi_parse_delay_ms_max(text, delay_ms, 30000);
 }
 
+static int wifi_softap_channel_to_freq(int channel) {
+    if (channel == 1) {
+        return 2412;
+    }
+    if (channel == 6) {
+        return 2437;
+    }
+    if (channel == 11) {
+        return 2462;
+    }
+    return -EINVAL;
+}
+
+static int wifi_softap_parse_channel(const char *text, int *channel_out, int *freq_out) {
+    char *endptr = NULL;
+    long channel;
+    int freq;
+
+    if (channel_out == NULL || freq_out == NULL) {
+        return -EINVAL;
+    }
+    if (text == NULL || text[0] == '\0') {
+        *channel_out = 6;
+        *freq_out = wifi_softap_channel_to_freq(*channel_out);
+        return 0;
+    }
+    errno = 0;
+    channel = strtol(text, &endptr, 10);
+    if (errno != 0 || endptr == text || *endptr != '\0' ||
+        channel < 1 || channel > 11) {
+        return -EINVAL;
+    }
+    freq = wifi_softap_channel_to_freq((int)channel);
+    if (freq < 0) {
+        return freq;
+    }
+    *channel_out = (int)channel;
+    *freq_out = freq;
+    return 0;
+}
+
+static int wifi_softap_format_ipv4(int host, char *out, size_t out_size) {
+    int len;
+
+    if (out == NULL || out_size == 0 || host < 1 || host > 254) {
+        return -EINVAL;
+    }
+    len = snprintf(out,
+                   out_size,
+                   "%d.%d.%d.%d",
+                   A90_WIFI_SOFTAP_NET_A,
+                   A90_WIFI_SOFTAP_NET_B,
+                   A90_WIFI_SOFTAP_NET_C,
+                   host);
+    if (len < 0 || (size_t)len >= out_size) {
+        return -ENAMETOOLONG;
+    }
+    return 0;
+}
+
+static int wifi_random_bytes(unsigned char *buffer, size_t buffer_size) {
+    size_t offset = 0;
+    int fd;
+
+    if (buffer == NULL || buffer_size == 0) {
+        return -EINVAL;
+    }
+    fd = open("/dev/urandom", O_RDONLY | O_CLOEXEC);
+    if (fd < 0) {
+        return -errno;
+    }
+    while (offset < buffer_size) {
+        ssize_t got = read(fd, buffer + offset, buffer_size - offset);
+
+        if (got < 0) {
+            int saved_errno = errno;
+
+            close(fd);
+            return -saved_errno;
+        }
+        if (got == 0) {
+            close(fd);
+            return -EIO;
+        }
+        offset += (size_t)got;
+    }
+    close(fd);
+    return 0;
+}
+
+static int wifi_hex_encode(const unsigned char *input,
+                           size_t input_size,
+                           char *out,
+                           size_t out_size) {
+    static const char hex[] = "0123456789abcdef";
+    size_t index;
+
+    if (input == NULL || out == NULL || out_size < input_size * 2U + 1U) {
+        return -EINVAL;
+    }
+    for (index = 0; index < input_size; ++index) {
+        out[index * 2U] = hex[(input[index] >> 4) & 0x0fU];
+        out[index * 2U + 1U] = hex[input[index] & 0x0fU];
+    }
+    out[input_size * 2U] = '\0';
+    return 0;
+}
+
+static int wifi_write_pid_file(const char *path, pid_t pid) {
+    char text[32];
+    int len;
+
+    if (path == NULL || pid <= 0) {
+        return -EINVAL;
+    }
+    len = snprintf(text, sizeof(text), "%ld\n", (long)pid);
+    if (len < 0 || (size_t)len >= sizeof(text)) {
+        return -ENAMETOOLONG;
+    }
+    return wifi_write_text_file(path, text, 0600);
+}
+
+static int wifi_read_pid_file(const char *path, pid_t *pid_out) {
+    char text[64];
+    char *endptr = NULL;
+    long value;
+
+    if (path == NULL || pid_out == NULL) {
+        return -EINVAL;
+    }
+    if (read_trimmed_text_file(path, text, sizeof(text)) < 0) {
+        return -errno;
+    }
+    errno = 0;
+    value = strtol(text, &endptr, 10);
+    if (errno != 0 || endptr == text || *endptr != '\0' || value <= 1) {
+        return -EINVAL;
+    }
+    *pid_out = (pid_t)value;
+    return 0;
+}
+
+static int wifi_stop_pid_file(const char *path, const char *label, bool kill_process_group) {
+    pid_t pid = -1;
+    int read_rc;
+    int stop_rc = 0;
+    int status = 0;
+
+    read_rc = wifi_read_pid_file(path, &pid);
+    a90_console_printf("%s.pid_read_rc=%d\r\n", label, read_rc);
+    a90_console_printf("%s.pid=%ld\r\n", label, read_rc == 0 ? (long)pid : -1L);
+    if (read_rc == 0) {
+        stop_rc = a90_run_stop_pid_ex(pid, label, 3000, kill_process_group, &status);
+        a90_console_printf("%s.stop_attempted=1\r\n", label);
+        a90_console_printf("%s.stop_rc=%d\r\n", label, stop_rc);
+        a90_console_printf("%s.stop_status=%d\r\n", label, status);
+    } else {
+        a90_console_printf("%s.stop_attempted=0\r\n", label);
+        a90_console_printf("%s.stop_rc=0\r\n", label);
+        a90_console_printf("%s.stop_status=0\r\n", label);
+    }
+    (void)unlink(path);
+    return read_rc == -ENOENT ? 0 : (stop_rc < 0 ? stop_rc : 0);
+}
+
+static int wifi_stop_process_token(const char *token, const char *label) {
+    int before_count = wifi_count_processes_with_token(token);
+    int term_rc = 0;
+    int term_wait_rc = 0;
+    int term_wait_elapsed_ms = 0;
+    int kill_rc = 0;
+    int kill_wait_rc = 0;
+    int kill_wait_elapsed_ms = 0;
+    int final_count;
+
+    a90_console_printf("%s.token_process_count_before=%d\r\n", label, before_count);
+    if (before_count <= 0) {
+        a90_console_printf("%s.token_term_attempted=0\r\n", label);
+        a90_console_printf("%s.token_kill_attempted=0\r\n", label);
+        a90_console_printf("%s.token_process_count_final=%d\r\n",
+                           label,
+                           before_count < 0 ? before_count : 0);
+        return before_count < 0 ? before_count : 0;
+    }
+
+    term_rc = wifi_signal_processes_with_token(token, SIGTERM);
+    term_wait_rc = wifi_wait_processes_gone(token, 3000, &term_wait_elapsed_ms);
+    a90_console_printf("%s.token_term_attempted=1\r\n", label);
+    a90_console_printf("%s.token_term_rc=%d\r\n", label, term_rc);
+    a90_console_printf("%s.token_term_wait_rc=%d\r\n", label, term_wait_rc);
+    a90_console_printf("%s.token_term_wait_elapsed_ms=%d\r\n", label, term_wait_elapsed_ms);
+    if (term_wait_rc < 0) {
+        kill_rc = wifi_signal_processes_with_token(token, SIGKILL);
+        kill_wait_rc = wifi_wait_processes_gone(token, 1500, &kill_wait_elapsed_ms);
+        a90_console_printf("%s.token_kill_attempted=1\r\n", label);
+        a90_console_printf("%s.token_kill_rc=%d\r\n", label, kill_rc);
+        a90_console_printf("%s.token_kill_wait_rc=%d\r\n", label, kill_wait_rc);
+        a90_console_printf("%s.token_kill_wait_elapsed_ms=%d\r\n", label, kill_wait_elapsed_ms);
+    } else {
+        a90_console_printf("%s.token_kill_attempted=0\r\n", label);
+        a90_console_printf("%s.token_kill_rc=0\r\n", label);
+        a90_console_printf("%s.token_kill_wait_rc=0\r\n", label);
+    }
+    final_count = wifi_count_processes_with_token(token);
+    a90_console_printf("%s.token_process_count_final=%d\r\n", label, final_count);
+    if (final_count != 0) {
+        return -EBUSY;
+    }
+    if (term_rc < 0) {
+        return term_rc;
+    }
+    if (kill_rc < 0) {
+        return kill_rc;
+    }
+    if (kill_wait_rc < 0) {
+        return kill_wait_rc;
+    }
+    return 0;
+}
+
+static int wifi_softap_prepare_dirs(void) {
+    int rc;
+
+    rc = wifi_prepare_dir_owned(A90_WIFI_SOFTAP_ROOT, 0700, 0, 0);
+    if (rc < 0) {
+        return rc;
+    }
+    return wifi_prepare_dir_owned(A90_WIFI_SOFTAP_CTRL_DIR, 0770, A90_WIFI_UID, A90_WIFI_GID);
+}
+
+static int wifi_softap_write_private_config(int channel, int freq_mhz) {
+    unsigned char random[32];
+    char psk_hex[65];
+    char ssid_tail[13];
+    char ssid[32];
+    char ap_ip[32];
+    char lease_start[32];
+    char lease_end[32];
+    char supplicant_conf[1024];
+    char credentials[256];
+    char udhcpd_conf[512];
+    int len;
+    int rc;
+
+    rc = wifi_random_bytes(random, sizeof(random));
+    if (rc < 0) {
+        return rc;
+    }
+    rc = wifi_hex_encode(random, sizeof(random), psk_hex, sizeof(psk_hex));
+    if (rc < 0) {
+        return rc;
+    }
+    rc = wifi_hex_encode(random, 6, ssid_tail, sizeof(ssid_tail));
+    if (rc < 0) {
+        return rc;
+    }
+    len = snprintf(ssid, sizeof(ssid), "A90_%s", ssid_tail);
+    if (len < 0 || (size_t)len >= sizeof(ssid)) {
+        return -ENAMETOOLONG;
+    }
+    rc = wifi_softap_format_ipv4(1, ap_ip, sizeof(ap_ip));
+    if (rc < 0) {
+        return rc;
+    }
+    rc = wifi_softap_format_ipv4(20, lease_start, sizeof(lease_start));
+    if (rc < 0) {
+        return rc;
+    }
+    rc = wifi_softap_format_ipv4(40, lease_end, sizeof(lease_end));
+    if (rc < 0) {
+        return rc;
+    }
+
+    len = snprintf(supplicant_conf,
+                   sizeof(supplicant_conf),
+                   "ctrl_interface=%s\n"
+                   "update_config=0\n"
+                   "ap_scan=2\n"
+                   "network={\n"
+                   "\tssid=\"%s\"\n"
+                   "\tmode=2\n"
+                   "\tfrequency=%d\n"
+                   "\tkey_mgmt=WPA-PSK\n"
+                   "\tproto=RSN\n"
+                   "\tpairwise=CCMP\n"
+                   "\tgroup=CCMP\n"
+                   "\tpsk=%s\n"
+                   "}\n",
+                   A90_WIFI_SOFTAP_CTRL_DIR,
+                   ssid,
+                   freq_mhz,
+                   psk_hex);
+    if (len < 0 || (size_t)len >= sizeof(supplicant_conf)) {
+        return -ENAMETOOLONG;
+    }
+
+    len = snprintf(credentials,
+                   sizeof(credentials),
+                   "version=a90-native-wifi-softap-private-credentials-v1\n"
+                   "private_runtime_file=1\n"
+                   "public_output_secret_values_logged=0\n"
+                   "ssid=%s\n"
+                   "psk=%s\n"
+                   "channel=%d\n"
+                   "frequency_mhz=%d\n",
+                   ssid,
+                   psk_hex,
+                   channel,
+                   freq_mhz);
+    if (len < 0 || (size_t)len >= sizeof(credentials)) {
+        return -ENAMETOOLONG;
+    }
+
+    len = snprintf(udhcpd_conf,
+                   sizeof(udhcpd_conf),
+                   "start %s\n"
+                   "end %s\n"
+                   "interface %s\n"
+                   "max_leases 20\n"
+                   "lease_file %s\n"
+                   "pidfile %s\n"
+                   "option subnet 255.255.255.0\n",
+                   lease_start,
+                   lease_end,
+                   A90_WIFI_SOFTAP_PROBE_IFACE,
+                   A90_WIFI_SOFTAP_UDHCPD_LEASES,
+                   A90_WIFI_SOFTAP_UDHCPD_PID);
+    if (len < 0 || (size_t)len >= sizeof(udhcpd_conf)) {
+        return -ENAMETOOLONG;
+    }
+
+    rc = wifi_write_text_file(A90_WIFI_SOFTAP_SUPPLICANT_CONF, supplicant_conf, 0600);
+    if (rc < 0) {
+        return rc;
+    }
+    rc = wifi_write_text_file(A90_WIFI_SOFTAP_PRIVATE_CREDENTIALS, credentials, 0600);
+    if (rc < 0) {
+        return rc;
+    }
+    rc = wifi_write_text_file(A90_WIFI_SOFTAP_UDHCPD_CONF, udhcpd_conf, 0600);
+    if (rc < 0) {
+        return rc;
+    }
+    return wifi_write_text_file(A90_WIFI_SOFTAP_UDHCPD_LEASES, "", 0600);
+}
+
+static int wifi_set_ipv4_address(const char *ifname,
+                                 const char *ipv4,
+                                 const char *netmask,
+                                 int *saved_errno) {
+    struct ifreq request;
+    struct sockaddr_in *addr;
+    int socket_fd;
+    short flags;
+
+    if (saved_errno != NULL) {
+        *saved_errno = 0;
+    }
+    if (ifname == NULL || ipv4 == NULL || netmask == NULL) {
+        if (saved_errno != NULL) {
+            *saved_errno = EINVAL;
+        }
+        return -1;
+    }
+    socket_fd = socket(AF_INET, SOCK_DGRAM | SOCK_CLOEXEC, 0);
+    if (socket_fd < 0) {
+        if (saved_errno != NULL) {
+            *saved_errno = errno;
+        }
+        return -1;
+    }
+
+    memset(&request, 0, sizeof(request));
+    snprintf(request.ifr_name, sizeof(request.ifr_name), "%s", ifname);
+    addr = (struct sockaddr_in *)&request.ifr_addr;
+    addr->sin_family = AF_INET;
+    if (inet_pton(AF_INET, ipv4, &addr->sin_addr) != 1 ||
+        ioctl(socket_fd, SIOCSIFADDR, &request) < 0) {
+        if (saved_errno != NULL) {
+            *saved_errno = errno == 0 ? EINVAL : errno;
+        }
+        close(socket_fd);
+        return -1;
+    }
+
+    memset(&request, 0, sizeof(request));
+    snprintf(request.ifr_name, sizeof(request.ifr_name), "%s", ifname);
+    addr = (struct sockaddr_in *)&request.ifr_netmask;
+    addr->sin_family = AF_INET;
+    if (inet_pton(AF_INET, netmask, &addr->sin_addr) != 1 ||
+        ioctl(socket_fd, SIOCSIFNETMASK, &request) < 0) {
+        if (saved_errno != NULL) {
+            *saved_errno = errno == 0 ? EINVAL : errno;
+        }
+        close(socket_fd);
+        return -1;
+    }
+
+    memset(&request, 0, sizeof(request));
+    snprintf(request.ifr_name, sizeof(request.ifr_name), "%s", ifname);
+    if (ioctl(socket_fd, SIOCGIFFLAGS, &request) < 0) {
+        if (saved_errno != NULL) {
+            *saved_errno = errno;
+        }
+        close(socket_fd);
+        return -1;
+    }
+    flags = request.ifr_flags;
+    request.ifr_flags = (short)(request.ifr_flags | IFF_UP);
+    if (ioctl(socket_fd, SIOCSIFFLAGS, &request) < 0) {
+        if (saved_errno != NULL) {
+            *saved_errno = errno;
+        }
+        close(socket_fd);
+        return -1;
+    }
+    close(socket_fd);
+    return (flags & IFF_UP) != 0 ? 1 : 0;
+}
+
+static int wifi_start_softap_supplicant(pid_t *pid_out) {
+    char *const argv[] = {
+        (char *)A90_WIFI_STANDALONE_SUPPLICANT,
+        (char *)"-dd",
+        (char *)"-i",
+        (char *)A90_WIFI_SOFTAP_PROBE_IFACE,
+        (char *)"-D",
+        (char *)"nl80211",
+        (char *)"-c",
+        (char *)A90_WIFI_SOFTAP_SUPPLICANT_CONF,
+        (char *)"-O",
+        (char *)A90_WIFI_SOFTAP_CTRL_DIR,
+        (char *)"-t",
+        NULL,
+    };
+    struct a90_run_config config = {
+        .tag = "wifi-softap-supplicant",
+        .argv = argv,
+        .envp = NULL,
+        .stdio_mode = A90_RUN_STDIO_LOG_APPEND,
+        .log_path = A90_WIFI_SOFTAP_SUPPLICANT_LOG,
+        .setsid = true,
+        .ignore_hup_pipe = true,
+        .kill_process_group = true,
+        .cancelable = false,
+        .timeout_ms = 0,
+        .stop_timeout_ms = 3000,
+    };
+    int verify_rc;
+
+    verify_rc = wifi_verify_root_exec_file(A90_WIFI_STANDALONE_SUPPLICANT, true);
+    if (verify_rc < 0) {
+        return verify_rc;
+    }
+    return a90_run_spawn(&config, pid_out);
+}
+
+static int wifi_start_softap_udhcpd(pid_t *pid_out) {
+    char *const argv[] = {
+        (char *)"/cache/bin/busybox",
+        (char *)"udhcpd",
+        (char *)"-f",
+        (char *)A90_WIFI_SOFTAP_UDHCPD_CONF,
+        NULL,
+    };
+    struct a90_run_config config = {
+        .tag = "wifi-softap-udhcpd",
+        .argv = argv,
+        .envp = NULL,
+        .stdio_mode = A90_RUN_STDIO_LOG_APPEND,
+        .log_path = A90_WIFI_SOFTAP_UDHCPD_LOG,
+        .setsid = true,
+        .ignore_hup_pipe = true,
+        .kill_process_group = true,
+        .cancelable = false,
+        .timeout_ms = 0,
+        .stop_timeout_ms = 3000,
+    };
+
+    if (access("/cache/bin/busybox", X_OK) < 0) {
+        return -errno;
+    }
+    return a90_run_spawn(&config, pid_out);
+}
+
+static int wifi_softap_delete_iface(const char *label) {
+    unsigned int ifindex = if_nametoindex(A90_WIFI_SOFTAP_PROBE_IFACE);
+    int socket_fd;
+    int family_id;
+    int delete_rc = 0;
+    int delete_errno = 0;
+
+    a90_console_printf("%s.iface_present_before=%d\r\n", label, ifindex != 0 ? 1 : 0);
+    if (ifindex == 0) {
+        a90_console_printf("%s.delete_attempted=0\r\n", label);
+        a90_console_printf("%s.delete_rc=0\r\n", label);
+        a90_console_printf("%s.delete_errno=0\r\n", label);
+        a90_console_printf("%s.iface_present_after=0\r\n", label);
+        return 0;
+    }
+
+    socket_fd = wifi_open_genl_socket();
+    if (socket_fd < 0) {
+        delete_errno = errno;
+        a90_console_printf("%s.netlink_open=0\r\n", label);
+        a90_console_printf("%s.delete_attempted=0\r\n", label);
+        a90_console_printf("%s.delete_rc=-1\r\n", label);
+        a90_console_printf("%s.delete_errno=%d\r\n", label, delete_errno);
+        a90_console_printf("%s.iface_present_after=1\r\n", label);
+        return -delete_errno;
+    }
+    a90_console_printf("%s.netlink_open=1\r\n", label);
+    family_id = wifi_get_family_id(socket_fd, "nl80211");
+    a90_console_printf("%s.family_id=%d\r\n", label, family_id < 0 ? 0 : family_id);
+    if (family_id < 0) {
+        delete_errno = errno;
+        close(socket_fd);
+        a90_console_printf("%s.delete_attempted=0\r\n", label);
+        a90_console_printf("%s.delete_rc=-1\r\n", label);
+        a90_console_printf("%s.delete_errno=%d\r\n", label, delete_errno);
+        a90_console_printf("%s.iface_present_after=1\r\n", label);
+        return -delete_errno;
+    }
+    delete_rc = wifi_send_nl80211_if_delete(socket_fd, family_id, 20, ifindex);
+    if (delete_rc < 0) {
+        delete_errno = errno;
+    }
+    close(socket_fd);
+    a90_console_printf("%s.delete_attempted=1\r\n", label);
+    a90_console_printf("%s.delete_rc=%d\r\n", label, delete_rc);
+    a90_console_printf("%s.delete_errno=%d\r\n", label, delete_errno);
+    a90_console_printf("%s.iface_present_after=%d\r\n",
+                       label,
+                       if_nametoindex(A90_WIFI_SOFTAP_PROBE_IFACE) != 0 ? 1 : 0);
+    return delete_rc < 0 ? -delete_errno : 0;
+}
+
+static int wifi_softap_cleanup_internal(const char *prefix) {
+    char label[80];
+    int supp_pid_stop_rc;
+    int supp_token_stop_rc;
+    int dhcp_pid_stop_rc;
+    int dhcp_token_stop_rc;
+    int delete_rc;
+    int final_supp_count;
+    int final_dhcp_count;
+    int final_iface_present;
+
+    if (prefix == NULL || prefix[0] == '\0') {
+        prefix = "softap_cleanup";
+    }
+    if (access(A90_WIFI_SOFTAP_CTRL_SOCKET, F_OK) == 0) {
+        snprintf(label, sizeof(label), "%s.ctrl_terminate", prefix);
+        (void)wifi_print_ctrl_result_at(label, A90_WIFI_SOFTAP_CTRL_SOCKET, "TERMINATE");
+        a90_console_printf("%s.ctrl_terminate_attempted=1\r\n", prefix);
+    } else {
+        a90_console_printf("%s.ctrl_terminate_attempted=0\r\n", prefix);
+        a90_console_printf("%s.ctrl_terminate_rc=0\r\n", prefix);
+    }
+
+    snprintf(label, sizeof(label), "%s.supplicant_pid", prefix);
+    supp_pid_stop_rc = wifi_stop_pid_file(A90_WIFI_SOFTAP_SUPPLICANT_PID, label, true);
+    snprintf(label, sizeof(label), "%s.supplicant_token", prefix);
+    supp_token_stop_rc = wifi_stop_process_token(A90_WIFI_SOFTAP_SUPPLICANT_CONF, label);
+    snprintf(label, sizeof(label), "%s.udhcpd_pid", prefix);
+    dhcp_pid_stop_rc = wifi_stop_pid_file(A90_WIFI_SOFTAP_UDHCPD_PID, label, true);
+    snprintf(label, sizeof(label), "%s.udhcpd_token", prefix);
+    dhcp_token_stop_rc = wifi_stop_process_token(A90_WIFI_SOFTAP_UDHCPD_CONF, label);
+    snprintf(label, sizeof(label), "%s.ap_iface", prefix);
+    delete_rc = wifi_softap_delete_iface(label);
+
+    (void)unlink(A90_WIFI_SOFTAP_CTRL_SOCKET);
+    (void)unlink(A90_WIFI_SOFTAP_SUPPLICANT_CONF);
+    (void)unlink(A90_WIFI_SOFTAP_PRIVATE_CREDENTIALS);
+    (void)unlink(A90_WIFI_SOFTAP_UDHCPD_CONF);
+    (void)unlink(A90_WIFI_SOFTAP_UDHCPD_LEASES);
+    final_supp_count = wifi_count_processes_with_token(A90_WIFI_SOFTAP_SUPPLICANT_CONF);
+    final_dhcp_count = wifi_count_processes_with_token(A90_WIFI_SOFTAP_UDHCPD_CONF);
+    final_iface_present = if_nametoindex(A90_WIFI_SOFTAP_PROBE_IFACE) != 0 ? 1 : 0;
+    a90_console_printf("%s.private_config_removed=1\r\n", prefix);
+    a90_console_printf("%s.final_supplicant_count=%d\r\n", prefix, final_supp_count);
+    a90_console_printf("%s.final_udhcpd_count=%d\r\n", prefix, final_dhcp_count);
+    a90_console_printf("%s.final_iface_present=%d\r\n", prefix, final_iface_present);
+    if (supp_pid_stop_rc < 0 || supp_token_stop_rc < 0 ||
+        dhcp_pid_stop_rc < 0 || dhcp_token_stop_rc < 0 ||
+        delete_rc < 0 || final_iface_present != 0 ||
+        final_supp_count != 0 || final_dhcp_count != 0) {
+        return -EBUSY;
+    }
+    return 0;
+}
+
+static int wifi_softap_cleanup_command(void) {
+    int cleanup_rc;
+
+    a90_console_printf("[wifi softap cleanup]\r\n");
+    a90_console_printf("version=%s\r\n", A90_WIFI_SOFTAP_VERSION);
+    a90_console_printf("scope=s3-mode2-ap-cleanup\r\n");
+    a90_console_printf("credentials_logged=0\r\n");
+    a90_console_printf("secret_values_logged=0\r\n");
+    a90_console_printf("hostapd_start_attempted=0\r\n");
+    a90_console_printf("server_exposure_attempted=0\r\n");
+    a90_console_printf("wan_nat_attempted=0\r\n");
+    a90_console_printf("default_route_export_attempted=0\r\n");
+    cleanup_rc = wifi_softap_cleanup_internal("cleanup");
+    a90_console_printf("cleanup.rc=%d\r\n", cleanup_rc);
+    a90_console_printf("decision=%s\r\n",
+                       cleanup_rc == 0 ? "softap-cleanup-pass" : "softap-cleanup-incomplete");
+    return cleanup_rc;
+}
+
+static int wifi_softap_stop_sta_supplicant_if_needed(void);
+
+static int wifi_softap_start(int channel, int freq_mhz) {
+    int wlan0_wait_elapsed_ms = 0;
+    int wlan0_wait_rc;
+    int link_up_errno = 0;
+    int link_up_rc;
+    int supplicant_stop_rc;
+    int precleanup_rc;
+    int prepare_rc;
+    int config_rc;
+    int socket_fd;
+    int family_id;
+    unsigned int parent_ifindex;
+    unsigned int ap_ifindex = 0;
+    int add_rc = -1;
+    int add_errno = 0;
+    char ap_ip[32];
+    int address_errno = 0;
+    int address_rc;
+    int ap_link_errno = 0;
+    int ap_link_rc;
+    pid_t supplicant_pid = -1;
+    int supplicant_spawn_rc;
+    int supplicant_pid_write_rc = 0;
+    int ctrl_wait_elapsed_ms = 0;
+    char ctrl_category[32];
+    int ctrl_errno = 0;
+    int ctrl_wait_rc;
+    pid_t dhcp_pid = -1;
+    int dhcp_spawn_rc;
+    int dhcp_pid_write_rc = 0;
+    int dhcp_alive;
+
+    a90_console_printf("[wifi softap start]\r\n");
+    a90_console_printf("version=%s\r\n", A90_WIFI_SOFTAP_VERSION);
+    a90_console_printf("scope=s3-mode2-ap-bringup-dhcp-no-server\r\n");
+    a90_console_printf("iface=%s\r\n", A90_WIFI_IFACE);
+    a90_console_printf("ap_iface=%s\r\n", A90_WIFI_SOFTAP_PROBE_IFACE);
+    a90_console_printf("channel=%d\r\n", channel);
+    a90_console_printf("frequency_mhz=%d\r\n", freq_mhz);
+    a90_console_printf("credentials=private-generated\r\n");
+    a90_console_printf("credential_file_private=1\r\n");
+    a90_console_printf("ssid_psk_logged=0\r\n");
+    a90_console_printf("hostapd_start_attempted=0\r\n");
+    a90_console_printf("listener_start_attempted=0\r\n");
+    a90_console_printf("server_exposure_attempted=0\r\n");
+    a90_console_printf("wan_nat_attempted=0\r\n");
+    a90_console_printf("ip_forward_write_attempted=0\r\n");
+    a90_console_printf("nat_attempted=0\r\n");
+    a90_console_printf("default_route_export_attempted=0\r\n");
+    a90_console_printf("dhcp_router_option_exported=0\r\n");
+    a90_console_printf("dhcp_dns_option_exported=0\r\n");
+    a90_console_printf("start_supported=1\r\n");
+    a90_console_printf("start_allowed=1\r\n");
+
+    precleanup_rc = wifi_softap_cleanup_internal("precleanup");
+    a90_console_printf("precleanup.rc=%d\r\n", precleanup_rc);
+    if (precleanup_rc < 0) {
+        a90_console_printf("decision=softap-start-precleanup-failed\r\n");
+        return precleanup_rc;
+    }
+
+    a90_console_printf("wlan0_wait_timeout_ms=%d\r\n", A90_WIFI_SOFTAP_WLAN0_WAIT_MS);
+    wlan0_wait_rc = wifi_wait_wlan0(A90_WIFI_SOFTAP_WLAN0_WAIT_MS, &wlan0_wait_elapsed_ms);
+    a90_console_printf("wlan0_wait_rc=%d\r\n", wlan0_wait_rc);
+    a90_console_printf("wlan0_wait_elapsed_ms=%d\r\n", wlan0_wait_elapsed_ms);
+    a90_console_printf("wlan0_present=%d\r\n", wlan0_wait_rc == 0 ? 1 : 0);
+    if (wlan0_wait_rc < 0) {
+        a90_console_printf("decision=softap-start-wlan0-timeout\r\n");
+        return wlan0_wait_rc;
+    }
+
+    link_up_rc = wifi_link_set_up(A90_WIFI_IFACE, &link_up_errno);
+    a90_console_printf("parent_link_up_attempted=1\r\n");
+    a90_console_printf("parent_link_up_rc=%d\r\n", link_up_rc);
+    a90_console_printf("parent_link_up_errno=%d\r\n", link_up_errno);
+    if (link_up_rc < 0) {
+        a90_console_printf("decision=softap-start-parent-link-up-failed\r\n");
+        return -link_up_errno;
+    }
+
+    supplicant_stop_rc = wifi_softap_stop_sta_supplicant_if_needed();
+    a90_console_printf("sta_supplicant.stop_rc=%d\r\n", supplicant_stop_rc);
+    if (supplicant_stop_rc < 0) {
+        a90_console_printf("decision=softap-start-sta-supplicant-busy\r\n");
+        return supplicant_stop_rc;
+    }
+
+    prepare_rc = wifi_softap_prepare_dirs();
+    a90_console_printf("runtime_prepare_rc=%d\r\n", prepare_rc);
+    if (prepare_rc < 0) {
+        a90_console_printf("decision=softap-start-runtime-prepare-failed\r\n");
+        return prepare_rc;
+    }
+    config_rc = wifi_softap_write_private_config(channel, freq_mhz);
+    a90_console_printf("config_write_attempted=1\r\n");
+    a90_console_printf("config_write_rc=%d\r\n", config_rc);
+    if (config_rc < 0) {
+        (void)wifi_softap_cleanup_internal("rollback_cleanup");
+        a90_console_printf("decision=softap-start-config-write-failed\r\n");
+        return config_rc;
+    }
+
+    parent_ifindex = if_nametoindex(A90_WIFI_IFACE);
+    a90_console_printf("parent_ifindex=%u\r\n", parent_ifindex);
+    if (parent_ifindex == 0) {
+        (void)wifi_softap_cleanup_internal("rollback_cleanup");
+        a90_console_printf("decision=softap-start-parent-interface-missing\r\n");
+        return -ENODEV;
+    }
+
+    socket_fd = wifi_open_genl_socket();
+    if (socket_fd < 0) {
+        int saved_errno = errno;
+
+        (void)wifi_softap_cleanup_internal("rollback_cleanup");
+        a90_console_printf("netlink_open=0\r\n");
+        a90_console_printf("netlink_errno=%d\r\n", saved_errno);
+        a90_console_printf("decision=softap-start-nl80211-unavailable\r\n");
+        return -saved_errno;
+    }
+    a90_console_printf("netlink_open=1\r\n");
+    family_id = wifi_get_family_id(socket_fd, "nl80211");
+    a90_console_printf("family_id=%d\r\n", family_id < 0 ? 0 : family_id);
+    if (family_id < 0) {
+        int saved_errno = errno;
+
+        close(socket_fd);
+        (void)wifi_softap_cleanup_internal("rollback_cleanup");
+        a90_console_printf("family_errno=%d\r\n", saved_errno);
+        a90_console_printf("decision=softap-start-family-missing\r\n");
+        return -saved_errno;
+    }
+
+    a90_console_printf("ap_iftype_add_attempted=1\r\n");
+    add_rc = wifi_send_nl80211_iftype_new(socket_fd,
+                                          family_id,
+                                          21,
+                                          parent_ifindex,
+                                          A90_WIFI_SOFTAP_PROBE_IFACE,
+                                          (uint32_t)NL80211_IFTYPE_AP);
+    if (add_rc < 0) {
+        add_errno = errno;
+    }
+    ap_ifindex = if_nametoindex(A90_WIFI_SOFTAP_PROBE_IFACE);
+    close(socket_fd);
+    a90_console_printf("ap_iftype_add_rc=%d\r\n", add_rc);
+    a90_console_printf("ap_iftype_add_errno=%d\r\n", add_errno);
+    a90_console_printf("ap_iftype_iface_created=%d\r\n", ap_ifindex != 0 ? 1 : 0);
+    a90_console_printf("ap_ifindex=%u\r\n", ap_ifindex);
+    if (add_rc < 0 || ap_ifindex == 0) {
+        (void)wifi_softap_cleanup_internal("rollback_cleanup");
+        a90_console_printf("decision=softap-start-ap-iftype-add-failed\r\n");
+        return add_rc < 0 ? -add_errno : -ENODEV;
+    }
+
+    if (wifi_softap_format_ipv4(1, ap_ip, sizeof(ap_ip)) < 0) {
+        (void)wifi_softap_cleanup_internal("rollback_cleanup");
+        a90_console_printf("decision=softap-start-address-format-failed\r\n");
+        return -EINVAL;
+    }
+    address_rc = wifi_set_ipv4_address(A90_WIFI_SOFTAP_PROBE_IFACE,
+                                       ap_ip,
+                                       "255.255.255.0",
+                                       &address_errno);
+    a90_console_printf("address_assign_attempted=1\r\n");
+    a90_console_printf("address_assign_rc=%d\r\n", address_rc);
+    a90_console_printf("address_assign_errno=%d\r\n", address_errno);
+    a90_console_printf("address_value_logged=0\r\n");
+    a90_console_printf("ap_local_subnet_private=1\r\n");
+    if (address_rc < 0) {
+        (void)wifi_softap_cleanup_internal("rollback_cleanup");
+        a90_console_printf("decision=softap-start-address-assign-failed\r\n");
+        return -address_errno;
+    }
+
+    ap_link_rc = wifi_link_set_up(A90_WIFI_SOFTAP_PROBE_IFACE, &ap_link_errno);
+    a90_console_printf("ap_link_up_attempted=1\r\n");
+    a90_console_printf("ap_link_up_rc=%d\r\n", ap_link_rc);
+    a90_console_printf("ap_link_up_errno=%d\r\n", ap_link_errno);
+    if (ap_link_rc < 0) {
+        (void)wifi_softap_cleanup_internal("rollback_cleanup");
+        a90_console_printf("decision=softap-start-ap-link-up-failed\r\n");
+        return -ap_link_errno;
+    }
+
+    a90_console_printf("wpa_supplicant_mode2_start_attempted=1\r\n");
+    supplicant_spawn_rc = wifi_start_softap_supplicant(&supplicant_pid);
+    a90_console_printf("wpa_supplicant_mode2_spawn_rc=%d\r\n", supplicant_spawn_rc);
+    a90_console_printf("wpa_supplicant_mode2_pid=%ld\r\n",
+                       supplicant_spawn_rc == 0 ? (long)supplicant_pid : -1L);
+    if (supplicant_spawn_rc == 0) {
+        supplicant_pid_write_rc = wifi_write_pid_file(A90_WIFI_SOFTAP_SUPPLICANT_PID,
+                                                      supplicant_pid);
+    }
+    a90_console_printf("wpa_supplicant_mode2_pid_write_rc=%d\r\n", supplicant_pid_write_rc);
+    if (supplicant_spawn_rc < 0 || supplicant_pid_write_rc < 0) {
+        (void)wifi_softap_cleanup_internal("rollback_cleanup");
+        a90_console_printf("decision=softap-start-supplicant-spawn-failed\r\n");
+        return supplicant_spawn_rc < 0 ? supplicant_spawn_rc : supplicant_pid_write_rc;
+    }
+
+    ctrl_wait_rc = wifi_wait_ctrl_ready_at(A90_WIFI_SOFTAP_CTRL_SOCKET,
+                                           supplicant_pid,
+                                           true,
+                                           A90_WIFI_SOFTAP_CTRL_WAIT_MS,
+                                           &ctrl_wait_elapsed_ms,
+                                           ctrl_category,
+                                           sizeof(ctrl_category),
+                                           &ctrl_errno);
+    a90_console_printf("softap_ctrl_wait_timeout_ms=%d\r\n", A90_WIFI_SOFTAP_CTRL_WAIT_MS);
+    a90_console_printf("softap_ctrl_wait_rc=%d\r\n", ctrl_wait_rc);
+    a90_console_printf("softap_ctrl_wait_elapsed_ms=%d\r\n", ctrl_wait_elapsed_ms);
+    a90_console_printf("softap_ctrl_errno=%d\r\n", ctrl_errno);
+    a90_console_printf("softap_ctrl_reply_category=%s\r\n",
+                       ctrl_wait_rc == 0 ? ctrl_category : "error");
+    if (ctrl_wait_rc < 0) {
+        (void)wifi_softap_cleanup_internal("rollback_cleanup");
+        a90_console_printf("decision=softap-start-supplicant-ctrl-timeout\r\n");
+        return ctrl_wait_rc;
+    }
+    (void)wifi_print_ctrl_result_at("softap.ctrl_status", A90_WIFI_SOFTAP_CTRL_SOCKET, "STATUS");
+
+    a90_console_printf("dhcp_server_start_attempted=1\r\n");
+    dhcp_spawn_rc = wifi_start_softap_udhcpd(&dhcp_pid);
+    a90_console_printf("dhcp_server_spawn_rc=%d\r\n", dhcp_spawn_rc);
+    a90_console_printf("dhcp_server_pid=%ld\r\n", dhcp_spawn_rc == 0 ? (long)dhcp_pid : -1L);
+    if (dhcp_spawn_rc == 0) {
+        dhcp_pid_write_rc = wifi_write_pid_file(A90_WIFI_SOFTAP_UDHCPD_PID, dhcp_pid);
+    }
+    a90_console_printf("dhcp_server_pid_write_rc=%d\r\n", dhcp_pid_write_rc);
+    if (dhcp_spawn_rc < 0 || dhcp_pid_write_rc < 0) {
+        (void)wifi_softap_cleanup_internal("rollback_cleanup");
+        a90_console_printf("decision=softap-start-dhcp-spawn-failed\r\n");
+        return dhcp_spawn_rc < 0 ? dhcp_spawn_rc : dhcp_pid_write_rc;
+    }
+    usleep((useconds_t)A90_WIFI_SOFTAP_DHCP_SETTLE_MS * 1000U);
+    dhcp_alive = wifi_process_alive(dhcp_pid) ? 1 : 0;
+    a90_console_printf("dhcp_server_settle_ms=%d\r\n", A90_WIFI_SOFTAP_DHCP_SETTLE_MS);
+    a90_console_printf("dhcp_server_alive=%d\r\n", dhcp_alive);
+    if (!dhcp_alive) {
+        (void)wifi_softap_cleanup_internal("rollback_cleanup");
+        a90_console_printf("decision=softap-start-dhcp-exited\r\n");
+        return -ECHILD;
+    }
+
+    a90_logf("wifi-softap",
+             "mode2 start pass iface=%s channel=%d freq=%d",
+             A90_WIFI_SOFTAP_PROBE_IFACE,
+             channel,
+             freq_mhz);
+    a90_console_printf("decision=softap-start-pass\r\n");
+    return 0;
+}
+
 static int wifi_softap_stop_sta_supplicant_if_needed(void) {
     int before_count = wifi_count_processes_with_token("wpa_supplicant");
     int terminate_wait_rc = 0;
@@ -3581,8 +4506,8 @@ static const char *wifi_softap_decision_for(const char *subcommand,
     }
     if (decision == A90_WIFI_FEAS_GO_READ_ONLY_ONLY) {
         return prepare ?
-               "softap-prepare-start-not-implemented" :
-               "softap-status-prereq-visible-start-not-implemented";
+               "softap-prepare-start-supported" :
+               "softap-status-start-supported";
     }
     return prepare ?
            "softap-prepare-blocked-wlan-gate" :
@@ -3606,7 +4531,7 @@ static int wifi_softap_print_surface(const char *subcommand) {
 
     a90_console_printf("[wifi softap %s]\r\n", subcommand != NULL ? subcommand : "status");
     a90_console_printf("version=%s\r\n", A90_WIFI_SOFTAP_VERSION);
-    a90_console_printf("scope=read-only-status-plan-no-ap-start\r\n");
+    a90_console_printf("scope=status-plan-start-supported-no-ap-start\r\n");
     a90_console_printf("runtime_root=%s\r\n", A90_WIFI_SOFTAP_ROOT);
     a90_console_printf("ssid_psk_logged=0\r\n");
     a90_console_printf("config_write_attempted=0\r\n");
@@ -3617,8 +4542,11 @@ static int wifi_softap_print_surface(const char *subcommand) {
     a90_console_printf("interface_mode_change_attempted=0\r\n");
     a90_console_printf("address_assign_attempted=0\r\n");
     a90_console_printf("server_exposure_attempted=0\r\n");
-    a90_console_printf("start_supported=0\r\n");
-    a90_console_printf("start_allowed=0\r\n");
+    a90_console_printf("wan_nat_attempted=0\r\n");
+    a90_console_printf("default_route_export_attempted=0\r\n");
+    a90_console_printf("start_supported=1\r\n");
+    a90_console_printf("start_allowed=%d\r\n",
+                       feasibility.decision == A90_WIFI_FEAS_GO_READ_ONLY_ONLY ? 1 : 0);
     a90_console_printf("prepare_dry_run=%d\r\n", prepare ? 1 : 0);
     a90_console_printf("busybox.kind=%s\r\n", busybox_kind[0] != '\0' ? busybox_kind : "unknown");
     a90_console_printf("busybox.executable=%d\r\n", busybox_rc == 0 ? 1 : 0);
@@ -3639,7 +4567,7 @@ static int wifi_softap_print_surface(const char *subcommand) {
         a90_console_printf("plan.s0=charter-done\r\n");
         a90_console_printf("plan.s1=readonly-inventory-done\r\n");
         a90_console_printf("plan.s2=status-plan-prepare-no-start\r\n");
-        a90_console_printf("plan.s3=blocked-until-iftype-probe-pass\r\n");
+        a90_console_printf("plan.s3=mode2-ap-start-and-dhcp-next\r\n");
         a90_console_printf("plan.s4=blocked-until-ap-and-server-start-pass\r\n");
     }
     a90_console_printf("decision=%s\r\n",
@@ -3659,7 +4587,7 @@ static int wifi_softap_cmd(char **argv, int argc) {
     const char *subcommand = argc > 2 ? argv[2] : "status";
 
     if (argc < 2 || argc > 4) {
-        a90_console_printf("usage: wifi softap [status|plan|prepare [profile]|iftype-probe [timeout_ms]|cleanup]\r\n");
+        a90_console_printf("usage: wifi softap [status|plan|prepare [profile]|iftype-probe [timeout_ms]|start [channel]|cleanup]\r\n");
         return -EINVAL;
     }
     if (strcmp(subcommand, "status") == 0 && (argc == 2 || argc == 3)) {
@@ -3684,11 +4612,21 @@ static int wifi_softap_cmd(char **argv, int argc) {
         }
         return wifi_softap_iftype_probe(timeout_ms);
     }
+    if (strcmp(subcommand, "start") == 0 && (argc == 3 || argc == 4)) {
+        int channel = 6;
+        int freq_mhz = 2437;
+
+        if (wifi_softap_parse_channel(argc == 4 ? argv[3] : NULL, &channel, &freq_mhz) < 0) {
+            a90_console_printf("usage: wifi softap start [1|6|11]\r\n");
+            return -EINVAL;
+        }
+        return wifi_softap_start(channel, freq_mhz);
+    }
     if (strcmp(subcommand, "cleanup") == 0 && argc == 3) {
-        return wifi_softap_print_surface("cleanup");
+        return wifi_softap_cleanup_command();
     }
 
-    a90_console_printf("usage: wifi softap [status|plan|prepare [profile]|iftype-probe [timeout_ms]|cleanup]\r\n");
+    a90_console_printf("usage: wifi softap [status|plan|prepare [profile]|iftype-probe [timeout_ms]|start [channel]|cleanup]\r\n");
     return -EINVAL;
 }
 
@@ -3806,6 +4744,6 @@ int a90_wifi_cmd(char **argv, int argc) {
         return a90_wificfg_cmd(argv, argc);
     }
 
-    a90_console_printf("usage: wifi [status|scan [delay_ms]|events [timeout_ms]|netevents [timeout_ms]|connect [profile]|dhcp [profile]|ping [gateway|internet|all]|cleanup|softap [status|plan|prepare [profile]|iftype-probe [timeout_ms]|cleanup]|profile [list|status [profile]]|autoconnect [status|enable [profile]|disable|once [profile]]|config [status|prepare [profile]]]\r\n");
+    a90_console_printf("usage: wifi [status|scan [delay_ms]|events [timeout_ms]|netevents [timeout_ms]|connect [profile]|dhcp [profile]|ping [gateway|internet|all]|cleanup|softap [status|plan|prepare [profile]|iftype-probe [timeout_ms]|start [channel]|cleanup]|profile [list|status [profile]]|autoconnect [status|enable [profile]|disable|once [profile]]|config [status|prepare [profile]]]\r\n");
     return -EINVAL;
 }

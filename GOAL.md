@@ -64,8 +64,8 @@ only, never a native-init runtime dependency. Full history (AUD-0 → AUD-5, V23
 > `## 🟢 ACTIVE NOW — SoftAP server-endgame (S0→S4)` further down this file.** Bad Apple full-song
 > demo, GPU first-light/triangle/compute/accel-2D/monitor/zero-copy rungs, and DOOM are all DONE and
 > eye-confirmed; the loop pivoted GPU→SoftAP at V3336. Do NOT resume Video/Nyan/GPU work — go to the
-> SoftAP ACTIVE NOW block (next bounded unit = S3 read-only lower WLAN/AP gate, then bounded AP
-> bring-up via `wpa_supplicant mode=2`). The text below is retained as reference history only.
+> SoftAP ACTIVE NOW block (next bounded unit = S4 local transfer server proof after V3343 AP
+> bring-up/cleanup passed). The text below is retained as reference history only.
 
 > **(history)** Audio CORE is device-proven + promoted (`0.10.0`); its Tier-C polish is optional background.
 >
@@ -888,6 +888,26 @@ export, then run `softap cleanup` and keep `selftest fail=0`.** Reports:
 `docs/reports/NATIVE_INIT_V3342_SOFTAP_S3_FWSOURCE_IFTYPE_PROBE_SOURCE_BUILD_2026-06-28.md` and
 `docs/reports/NATIVE_INIT_V3342_SOFTAP_S3_FWSOURCE_IFTYPE_PROBE_LIVE_2026-06-28.md`.
 
+**STATUS (2026-06-28 S3 mode=2 AP bring-up + cleanup pass) — V3343 started and cleaned up the first
+bounded SoftAP service.** Built `boot_linux_v3343_softap_s3_mode2_bringup.img`
+(`sha256=601e27287a1b695c326a99e27522e36bb5afde629da5b30b024f7f59ec5068e7`), flashed it through
+`native_init_flash.py`, booted `A90 Linux init 0.11.107 (v3343-softap-s3-mode2-bringup)`, and kept
+health clean (`selftest pass=12 warn=1 fail=0`). The final `wifi softap start 6` passed with
+`wlan0_wait_rc=0`, `wlan0_present=1`, `sta_supplicant.stoppable=1`, `ap_iftype_add_rc=0`,
+`ap_iftype_iface_created=1`, `softap_ctrl_reply_category=pong`, `softap.ctrl_status.field.mode=AP`,
+`softap.ctrl_status.field.wpa_state=COMPLETED`, `wpa_supplicant_mode2_start_attempted=1`,
+`dhcp_server_start_attempted=1`, `dhcp_server_alive=1`, and `decision=softap-start-pass`.
+Safety fields stayed closed (`hostapd_start_attempted=0`, `listener_start_attempted=0`,
+`server_exposure_attempted=0`, `wan_nat_attempted=0`, `nat_attempted=0`,
+`default_route_export_attempted=0`, `dhcp_router_option_exported=0`, `ssid_psk_logged=0`). The final
+`wifi softap cleanup` passed (`cleanup.rc=0`, `final_supplicant_count=0`, `final_udhcpd_count=0`,
+`final_iface_present=0`, `decision=softap-cleanup-pass`) and post-cleanup selftest stayed
+`pass=12 warn=1 fail=0`. **Next bounded unit = S4: start the local transfer server on the private AP,
+have a client join, prove HTTP download/raw upload SHA integrity, stop server/AP, and keep public output
+redacted.** Reports:
+`docs/reports/NATIVE_INIT_V3343_SOFTAP_S3_MODE2_BRINGUP_SOURCE_BUILD_2026-06-28.md` and
+`docs/reports/NATIVE_INIT_V3343_SOFTAP_S3_MODE2_BRINGUP_LIVE_2026-06-28.md`.
+
 - **S0 (host-only charter/recon) = DONE.** Inventory current command/docs/source surface, distinguish
   client-mode Wi-Fi from SoftAP/server mode, and write the bounded ladder + safety recipe.
 - **S1 (read-only live AP/server inventory) = DONE / NO-GO BELOW WLAN.** Current resident has no
@@ -897,11 +917,10 @@ export, then run `softap cleanup` and keep `selftest fail=0`.** Reports:
   `status`, `plan`, and dry-run config materialization under `/cache/a90-softap/`; generated SSID/PSK
   remain private-only, public output reports hashes/booleans only. While S1 remains no-go, S2 must stop
   at status/plan/prepare and must not start hostapd/AP mode.
-- **S3 (bounded AP bring-up) = LOWER WLAN/AP GATE PROVEN; AP START NEXT.** V3342 proved `wlan0`
-  present, STA supplicant stoppable, and AP iftype add/delete with cleanup. The next unit may start AP mode,
-  but only by configuring a private local AP subnet, starting `wpa_supplicant mode=2` and a bounded DHCP service,
-  exposing no WAN/NAT/default route by default, pinning 2.4GHz ch 1/6/11, and providing `softap cleanup` that
-  kills workers and removes address/route residue.
+- **S3 (bounded AP bring-up) = DONE / LIVE VALIDATED.** V3342 proved `wlan0` present, STA supplicant
+  stoppable, and AP iftype add/delete with cleanup. V3343 then configured a private local AP subnet, started
+  `wpa_supplicant mode=2` on a 2.4GHz non-DFS channel, started bounded BusyBox `udhcpd`, exposed no
+  WAN/NAT/default route/server listener by default, and validated `softap cleanup` worker/interface removal.
 - **OPERATOR RECON (2026-06-27, host-verified — answers the S3 "lower WLAN/AP gate" + corrects the daemon
   choice).** SoftAP is NOT non-viable; all three layers already exist on this device (verified host-only
   from the stock `System.map` + staged userland, no device action):
