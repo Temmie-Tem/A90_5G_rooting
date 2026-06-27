@@ -908,6 +908,28 @@ redacted.** Reports:
 `docs/reports/NATIVE_INIT_V3343_SOFTAP_S3_MODE2_BRINGUP_SOURCE_BUILD_2026-06-28.md` and
 `docs/reports/NATIVE_INIT_V3343_SOFTAP_S3_MODE2_BRINGUP_LIVE_2026-06-28.md`.
 
+**STATUS (2026-06-28 S4 private transfer server proof) — V3344 closed the SoftAP server-endgame
+with a client transfer integrity proof.** Built `boot_linux_v3344_softap_s4_transfer_server.img`
+(`sha256=d24fe3fded67d83a1bd87b13f3459bdaec6d588cb947a5231cc08d6c397515a8`), flashed it through
+`native_init_flash.py`, booted `A90 Linux init 0.11.108 (v3344-softap-s4-transfer-server)`, and kept
+health clean (`selftest pass=12 warn=1 fail=0`). The final `wifi softap transfer-start 6` passed
+with `wlan0_present=1`, `sta_supplicant.stoppable=1`, `ap_iftype_add_rc=0`,
+`softap.ctrl_status.field.mode=AP`, `softap.ctrl_status.field.wpa_state=COMPLETED`,
+`dhcp_server_alive=1`, `httpd_alive=1`, `upload_receiver_alive=1`,
+`download_payload_bytes=1048576`, `server_bind_private_ap_only=1`, and
+`decision=softap-transfer-start-pass`. A host client joined the private AP using private runtime
+credentials; public artifacts do not record SSID/PSK/client identifiers/concrete network addresses.
+HTTP download matched SHA256 `0fb3f6622678efe11f84f3bf032031802a8745d9c8a1f834aece10fe6d1bbd62`.
+Raw upload matched SHA256 `3cd6eccfa373a28f7a411ef5cbdc3c407ada3eaf2263ef5879531989d9dc4348`
+on both host and device, with `upload_result=pass`, `upload_result.bytes=1048576`, and
+`upload_result.truncated=0`. `wifi softap cleanup` passed with `cleanup.final_httpd_count=0`,
+`cleanup.final_supplicant_count=0`, `cleanup.final_udhcpd_count=0`, `cleanup.final_iface_present=0`,
+and post-cleanup selftest stayed `pass=12 warn=1 fail=0`. **S0→S4 is DONE. Next bounded unit =
+post-endgame hardening/reporting cleanup only: decide whether to promote a reusable host-side S4
+validation helper and remove stale S2/S3 wording from narrow tests/docs.** Reports:
+`docs/reports/NATIVE_INIT_V3344_SOFTAP_S4_TRANSFER_SERVER_SOURCE_BUILD_2026-06-28.md` and
+`docs/reports/NATIVE_INIT_V3344_SOFTAP_S4_TRANSFER_SERVER_LIVE_2026-06-28.md`.
+
 - **S0 (host-only charter/recon) = DONE.** Inventory current command/docs/source surface, distinguish
   client-mode Wi-Fi from SoftAP/server mode, and write the bounded ladder + safety recipe.
 - **S1 (read-only live AP/server inventory) = DONE / NO-GO BELOW WLAN.** Current resident has no
@@ -938,10 +960,10 @@ redacted.** Reports:
      radar-CAC delay/complexity that will stall first proof. No WAN/NAT (`allow_server_exposure=false` stays
      frozen). So the S3 "lower gate" read-only unit just needs to confirm wlan0 present + AP iftype settable +
      supplicant stoppable; the driver capability question is already answered YES here.
-- **S4 (server-endgame proof).** Start the local transfer server on the AP, have a client join, prove
-  HTTP download and raw upload SHA integrity, stop the server/AP, and confirm follow-up
-  `selftest fail=0`. Public artifacts must redact SSID/PSK/client identifiers and concrete network
-  addresses.
+- **S4 (server-endgame proof) = DONE / LIVE VALIDATED.** V3344 started the local transfer server on
+  the AP, had a host client join, proved HTTP download and raw upload SHA integrity, stopped the
+  server/AP, and confirmed follow-up `selftest fail=0` while public artifacts redacted SSID/PSK,
+  client identifiers, and concrete network addresses.
 
 `native_gpu_compute_c0_reference_v3299.py` encodes and validates the staged A640 compute dispatch envelope against
 `/tmp/a90-mesa-gpu-src/`: CS program regs, `CP_LOAD_STATE6` shader/constant/UAV state, `RM6_COMPUTE`, NDRANGE,

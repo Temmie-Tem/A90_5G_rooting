@@ -17,7 +17,10 @@ class NativeSoftapS2SourceV3338Tests(unittest.TestCase):
         self.assertIn('#define A90_WIFI_SOFTAP_ROOT "/cache/a90-softap"', source)
         self.assertIn("static int wifi_softap_cmd", source)
         self.assertIn('strcmp(argv[1], "softap") == 0', source)
-        self.assertIn("wifi softap [status|plan|prepare [profile]|iftype-probe [timeout_ms]|cleanup]", source)
+        self.assertIn(
+            "wifi softap [status|plan|prepare [profile]|iftype-probe [timeout_ms]|start [channel]|transfer-start [channel]|transfer-status|cleanup]",
+            source,
+        )
 
     def test_softap_surface_uses_readonly_feasibility_gate(self) -> None:
         source = WIFI_C.read_text(encoding="utf-8")
@@ -40,15 +43,15 @@ class NativeSoftapS2SourceV3338Tests(unittest.TestCase):
         self.assertIn("interface_mode_change_attempted=0", source)
         self.assertIn("address_assign_attempted=0", source)
         self.assertIn("server_exposure_attempted=0", source)
-        self.assertIn("start_supported=0", source)
-        self.assertIn("start_allowed=0", source)
+        self.assertIn("prepare_dry_run=%d", source)
+        self.assertIn("start_allowed=%d", source)
 
     def test_softap_plan_keeps_later_rungs_blocked(self) -> None:
         source = WIFI_C.read_text(encoding="utf-8")
 
         self.assertIn("plan.s2=status-plan-prepare-no-start", source)
-        self.assertIn("plan.s3=blocked-until-iftype-probe-pass", source)
-        self.assertIn("plan.s4=blocked-until-ap-and-server-start-pass", source)
+        self.assertIn("plan.s3=mode2-ap-start-and-dhcp-done", source)
+        self.assertIn("plan.s4=transfer-start-status-cleanup-next", source)
 
     def test_wifi_lifecycle_doc_mentions_softap_surface(self) -> None:
         doc = WIFI_DOC.read_text(encoding="utf-8")

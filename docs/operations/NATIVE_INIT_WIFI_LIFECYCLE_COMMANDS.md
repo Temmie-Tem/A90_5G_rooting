@@ -343,11 +343,12 @@ whether to keep the link up for hold/idle validation.
 
 ## `wifi softap ...`
 
-`wifi softap status|plan|prepare|iftype-probe|start|cleanup` is the SoftAP
+`wifi softap status|plan|prepare|iftype-probe|start|transfer-start|transfer-status|cleanup` is the SoftAP
 server-endgame command surface. The status/plan/prepare path is intentionally
 status/reporting only: there is no AP daemon start, no DHCP-server start, no
 listener exposure, no interface mode change, no address assignment, and no
-config write. `start` is the explicit S3 mutation command.
+config write. `start` is the explicit S3 AP/DHCP mutation command.
+`transfer-start` is the explicit S4 private server mutation command.
 
 Current commands:
 
@@ -371,9 +372,23 @@ Current commands:
   iftype, starts `wpa_supplicant mode=2`, starts BusyBox `udhcpd`, and reports
   `decision=softap-start-pass` only after the AP control socket is ready and
   the DHCP daemon is still alive.
+- `wifi softap transfer-start [channel]`: S4 local transfer server bring-up. It
+  runs the S3 AP/DHCP start, writes a bounded deterministic download payload,
+  starts BusyBox `httpd` bound only to the private AP address, and starts a
+  native bounded raw upload receiver bound only to the private AP address.
+  Public output prints ports, byte counts, SHA256 values, and redaction fields;
+  it does not print SSID, PSK, client identity, peer address, concrete local
+  address, DHCP leases, or payload bytes. PASS is
+  `decision=softap-transfer-start-pass`.
+- `wifi softap transfer-status`: S4 metadata status. It reports HTTP/upload
+  worker state plus `download_file.*`, `upload_result.*`, and `upload_file.*`
+  SHA/size fields for host-side integrity comparison without printing private
+  credentials or peer identifiers.
 - `wifi softap cleanup`: real cleanup. It terminates the AP supplicant and
-  `udhcpd`, deletes `a90ap0`, removes private runtime config, and reports
-  `decision=softap-cleanup-pass` when no AP workers or AP interface remain.
+  `udhcpd`, stops S4 transfer workers if present, deletes `a90ap0`, removes
+  private runtime config and transfer files, and reports
+  `decision=softap-cleanup-pass` when no AP/server workers or AP interface
+  remain.
 
 `iftype-probe` intentionally changes interface state only for the transient
 add/delete proof. It still prints `config_write_attempted=0`,
@@ -382,10 +397,16 @@ add/delete proof. It still prints `config_write_attempted=0`,
 `server_exposure_attempted=0`.
 
 `start` writes private runtime files and starts AP/DHCP workers, but S4/server
-behavior stays disabled: `hostapd_start_attempted=0`,
+behavior stays disabled until `transfer-start`: `hostapd_start_attempted=0`,
 `listener_start_attempted=0`, `server_exposure_attempted=0`,
 `wan_nat_attempted=0`, `nat_attempted=0`, `default_route_export_attempted=0`,
 `dhcp_router_option_exported=0`, and `ssid_psk_logged=0`.
+
+`transfer-start` is still private/local only: `server_bind_private_ap_only=1`,
+`wan_nat_attempted=0`, `nat_attempted=0`,
+`default_route_export_attempted=0`, `dhcp_router_option_exported=0`,
+`ssid_psk_logged=0`, `client_identity_logged=0`, `peer_address_logged=0`, and
+`address_value_logged=0`.
 
 The command surface is separate from client-mode `wifi connect` and
 autoconnect. Public output must keep `ssid_psk_logged=0` and must not print raw

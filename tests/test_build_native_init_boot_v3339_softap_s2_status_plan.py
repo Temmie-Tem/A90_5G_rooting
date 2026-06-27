@@ -78,7 +78,7 @@ class BuildNativeInitBootV3339SoftapS2StatusPlanTests(unittest.TestCase):
         self.assertIn("wifi_softap_cmd", source)
         self.assertIn("a90_wififeas_evaluate(&feasibility)", source)
         self.assertIn("hostapd_start_attempted=0", source)
-        self.assertIn("start_allowed=0", source)
+        self.assertIn("start_allowed=%d", source)
 
 
 if __name__ == "__main__":
