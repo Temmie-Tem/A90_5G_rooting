@@ -61,13 +61,13 @@ only, never a native-init runtime dependency. Full history (AUD-0 → AUD-5, V23
 ### ✅ SUPERSEDED — Video PLAYBACK / Bad Apple / GPU demo ladder — DONE (kept below for history)
 
 > **POINTER (operator, 2026-06-28): Video/GPU AND SoftAP are both CLOSED. The single active epic is now
-> `## 🟣 ACTIVE NOW — DELEGATED: Tier-2 Runtime Kernel REPL (v1-repl → v2-bulk)` further down this file.**
+> `## 🟣 ACTIVE NOW — DELEGATED: Tier-2 Runtime Kernel REPL (v1-repl → v2a)` further down this file.**
 > Bad Apple full-song demo, GPU first-light/triangle/compute/accel-2D/monitor/zero-copy rungs, and DOOM
 > are all DONE and eye-confirmed; the loop pivoted GPU→SoftAP at V3336; SoftAP S0→S4 is DONE at V3344.
 > Do NOT resume Video/Nyan/GPU/SoftAP work — go to the **Runtime Kernel REPL** delegated block (next
-> bounded unit = **v2-bulk**: `show`-buf output + kmalloc-bootstrap scratch for arbitrary-length
-> `peek`; v1-slide and v1-repl slide/peek/poke/call are already LIVE-PROVEN). The text below is
-> retained as reference history only.
+> bounded unit = **v2a2**: store-landed `poke` round-trip via `__kmalloc`/`kfree`; v1-slide, v1-repl
+> slide/peek/poke/call, the kallsyms extractor (v2a0), and the named host driver (v2a1) are all
+> LIVE-PROVEN). The text below is retained as reference history only.
 
 > **(history)** Audio CORE is device-proven + promoted (`0.10.0`); its Tier-C polish is optional background.
 >
@@ -764,7 +764,7 @@ epic is DONE.** Reports:
 `docs/reports/NATIVE_INIT_V3335_GPU_Z3_PRIMARY_SETCRTC_SOURCE_BUILD_2026-06-27.md` and
 `docs/reports/NATIVE_INIT_V3335_GPU_Z3_PRIMARY_SETCRTC_LIVE_2026-06-27.md`.**
 
-## 🟣 ACTIVE NOW — DELEGATED: Tier-2 Runtime Kernel REPL (v1-repl → v2-bulk)
+## 🟣 ACTIVE NOW — DELEGATED: Tier-2 Runtime Kernel REPL (v1-repl → v2a)
 
 **Operator-chartered 2026-06-28. This is the single active epic.** Build a **flash-once runtime kernel
 REPL** so future EL1/kernel experiments need NO reflash per step: after one flash, drive runtime kernel
@@ -803,12 +803,25 @@ re-Gate-2'd (all 48 instrs) + live-validated all four ops + rolled back V2321 `f
 `A90Rcafe1234` and captured return `0xc`, `op2` NULL-poke faulted (store path executes). Report:
 `docs/reports/KERNEL_SECURITY_TIER2_RUNTIME_KERNEL_REPL_V1_REPL_2026-06-28.md`.
 
-**Next bounded unit = v2-bulk:** add `show`-buf output (write result bytes into the `force_no_nap_show`
-handler's `buf` and return a length so `cat` reads them) + a `kmalloc`-bootstrap scratch (use `op3 call`
-to `__kmalloc` once, host remembers the pointer) for **arbitrary-length `peek`** beyond the current
-one-qword printk path, plus a store-landed `poke`→`peek` round-trip. Also FIX the in-image kallsyms
-extractor (`a90_stock_kallsyms_extract.py` fails "marker table not found") so named symbols resolve for
-`call kallsyms_lookup_name(...)`. Same guardrails below.
+**v2a0 = ✅ DONE (kallsyms extractor FIXED, commit ab480fea).** Root cause of the old "garbage map"
+(and the original brick-target confusion) was a missing **ULEB128 compressed-name length** decode in
+`a90_stock_kallsyms_extract.py` → names drifted off addresses mid-table. Fixed + operator-disasm-verified
+(two independent anchors agree: `printk @ 0xffffff800813d8cc`, `force_no_nap_store @ 0xffffff80089273b4`).
+Semantic locators are now cross-checks, not overrides.
+
+**v2a1 = ✅ DONE / LIVE-PROVEN (`a90_repl.py` + `tests/test_a90_repl.py`).** Host driver that drives the
+**existing** v1-repl image (no new flash) **by symbol name**: `runtime(sym) = link(System.map) + slide`.
+Live selftest PASS (then rolled back V2321 `fail=0`): named `peek` of `force_no_nap_store` and `__kmalloc`
+== static-image qwords; named `call printk(format, sentinel)` echoed the sentinel. Transport lessons pinned:
+USB-ACM bridge is not the console UART (printk only via the ring); busybox `dmesg` is read-and-CLEAR so the
+driver writes + reads `A90R` in ONE `run` shell bounded by `tail -n N`; **`call kallsyms_lookup_name` is
+unsafe** (faulted/rebooted live, recoverable) → the call proof uses the v1-repl-proven `printk` target.
+Report: `docs/reports/KERNEL_SECURITY_TIER2_RUNTIME_KERNEL_REPL_V2A1_NAMED_DRIVER_2026-06-29.md`.
+
+**Next bounded unit = v2a2:** store-landed `poke` round-trip with a real allocator — `op3 call __kmalloc(sz,
+GFP_KERNEL)` (host remembers the pointer) → `op2 poke` → `op1 peek`(==val) → `op3 call kfree`. Then v2b
+(`show`-buf bulk `peek` for arbitrary length) remains BLOCKED until a safe fixed scratch anchor + cleanup
+protocol are proven; the printk-loop stays the shipping default. Same guardrails below.
 
 **Guardrails (hard, RECON / exploit-free):** NO RKP bypass, NO write to RKP-protected memory
 (`.text`/rodata/page-tables/cred), NO RWX, NO `ret`/`blr`/CFP-site patch, NO grooming/UAF/spray,
@@ -819,9 +832,10 @@ with pinned + readback SHA; rollback target v2321
 preserved) BEFORE flashing. Keep raw runtime pointers / the per-boot slide OUT of committed reports.
 Fails-twice → STOP and report; anti-churn in force. Report each unit to `docs/reports/`.
 
-**Operator/loop split:** the operator (Claude) already did the corrected `poke` agent, `slide`, and this
-design; the loop now owns **v1-repl → v2-bulk**. The operator will NOT run parallel device/coding on
-this thread (collision-avoidance, V2631 lesson) unless explicitly re-engaged.
+**Operator/loop split:** the operator (Claude) did the corrected `poke` agent, `slide`, v1-repl Gate-2,
+the v2a0 kallsyms fix, and the v2a1 named host driver (all live-validated, since only the operator can
+reach the device bridge + commit). Codex builds host-only/RE units; the operator runs all live flash/
+validate + commits. v2a1 was operator-direct (small + protocol-tight). Next = **v2a2**.
 
 ## 🟣 DONE — DELEGATED OPERATOR SIDE-QUEST — Tier-2 Stage C: confirm a patched-in direct `bl` executes under RKP_CFP
 

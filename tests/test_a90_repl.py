@@ -1,0 +1,273 @@
+"""Host-only tests for the Tier-2 runtime kernel REPL driver (a90_repl.py).
+
+Covers the pure command-buffer / parsing helpers, System.map resolution, the
+static-image cross-check math, and the live-op math (slide/peek/call) with a
+faked serial transport. Touches no device.
+"""
+
+from __future__ import annotations
+
+import struct
+import unittest
+from pathlib import Path
+
+from _loader import load_script
+
+
+repl = load_script("workspace/public/src/scripts/revalidation/a90_repl.py")
+
+REPO_ROOT = Path(__file__).resolve().parents[1]
+MAP_PATH = REPO_ROOT / "workspace/private/runs/kernel/v2a1-repl-driver/System.map"
+IMAGE_PATH = REPO_ROOT / "workspace/private/inputs/boot_images/boot_linux_tier2_repl_v1_repl.img"
+
+
+def decode_printf_octal(text: str) -> bytes:
+    out = bytearray()
+    i = 0
+    while i < len(text):
+        if text[i] != "\\":
+            raise AssertionError(f"unexpected char at {i}: {text[i]!r}")
+        out.append(int(text[i + 1 : i + 4], 8))
+        i += 4
+    return bytes(out)
+
+
+class CommandBufferTests(unittest.TestCase):
+    def test_buffer_layout(self) -> None:
+        buf = repl.build_cmd_buffer(repl.OP_CALL, (0xAABB, 0x11, 0x22, 0x33))
+        self.assertEqual(len(buf), repl.CMD_BUF_LEN)
+        self.assertEqual(struct.unpack_from("<Q", buf, 0x00)[0], repl.REPL_MAGIC)
+        self.assertEqual(buf[0x08], repl.OP_CALL)
+        self.assertEqual(struct.unpack_from("<Q", buf, 0x10)[0], 0xAABB)  # target
+        self.assertEqual(struct.unpack_from("<Q", buf, 0x18)[0], 0x11)    # x0
+        self.assertEqual(struct.unpack_from("<Q", buf, 0x20)[0], 0x22)    # x1
+        self.assertEqual(struct.unpack_from("<Q", buf, 0x28)[0], 0x33)    # x2
+
+    def test_buffer_truncates_to_64bit(self) -> None:
+        buf = repl.build_cmd_buffer(repl.OP_PEEK, ((1 << 70) | 0xDEAD, 8))
+        self.assertEqual(struct.unpack_from("<Q", buf, 0x10)[0], 0xDEAD & repl.MASK64)
+
+    def test_too_many_args_rejected(self) -> None:
+        with self.assertRaises(ValueError):
+            repl.build_cmd_buffer(repl.OP_CALL, tuple(range(10)))
+
+    def test_printf_octal_roundtrips(self) -> None:
+        buf = repl.build_cmd_buffer(repl.OP_SLIDE, ())
+        self.assertEqual(decode_printf_octal(repl.printf_octal(buf)), buf)
+
+    def test_write_node_sh_uses_node_and_redirect(self) -> None:
+        sh = repl.write_node_sh(b"\x00\xff")
+        self.assertIn(repl.NODE, sh)
+        self.assertIn("> ", sh)
+        self.assertTrue(sh.startswith("printf '"))
+
+    def test_parse_a90r_values(self) -> None:
+        text = "junk\nA90R108000\nmore\nA90Rcafe1234\n"
+        self.assertEqual(repl.parse_a90r_values(text), [0x108000, 0xCAFE1234])
+        self.assertEqual(repl.parse_a90r_values("nothing here"), [])
+
+
+class ConstantTests(unittest.TestCase):
+    def test_entry_and_slide_anchors(self) -> None:
+        # Pinned against the v1-repl build + live validation report.
+        self.assertEqual(repl.ENTRY_VADDR, 0xFFFFFF80089273B4)
+        self.assertEqual(repl.ADR_SELF_LINK_VADDR, 0xFFFFFF80089273F0)
+        self.assertEqual(repl.REPL_MAGIC, 0xA90C0DE5DEADBEEF)
+        self.assertEqual(repl.JOPP_MAGIC, 0x00BE7BAD)
+
+
+class FakeTransport:
+    """Records sh strings sent and returns scripted dmesg output."""
+
+    def __init__(self, responses):
+        self.responses = list(responses)
+        self.sent: list[str] = []
+
+    def run_serial_command(self, argv, *, host, port, timeout):
+        # argv == ["run", busybox, "sh", "-c", sh_str]
+        sh_str = argv[-1]
+        self.sent.append(sh_str)
+        # An op invocation writes the node and reads A90R back in one shell.
+        if "grep -a A90R" in sh_str:
+            out = self.responses.pop(0) if self.responses else ""
+            return {"ok": True, "rc": 0, "stdout": out, "stderr": ""}
+        # write-only / panic_on_oops / echo: no captured output
+        return {"ok": True, "rc": 0, "stdout": "", "stderr": ""}
+
+
+class LiveMathTests(unittest.TestCase):
+    def _session(self, responses):
+        fake = FakeTransport(responses)
+        session = repl.ReplSession(repl.ReplConfig(settle_sec=0.0))
+        session_transport = repl.transport
+        self._orig = session_transport.run_serial_command
+        session_transport.run_serial_command = fake.run_serial_command
+        self.addCleanup(self._restore, session_transport)
+        return session, fake
+
+    def _restore(self, t):
+        t.run_serial_command = self._orig
+
+    def test_slide_math(self) -> None:
+        # runtime pc = adr_self_link + slide; pick a page-granular slide.
+        slide = 0x108000
+        runtime_pc = repl.ADR_SELF_LINK_VADDR + slide
+        session, _ = self._session([f"A90R{runtime_pc:x}\n"])
+        self.assertEqual(session.slide(), slide)
+
+    def test_peek_emits_addr_and_returns_qword(self) -> None:
+        session, fake = self._session(["A90Rdeadbeef\n"])
+        got = session.peek_runtime(0xFFFFFF8008080000, 8)
+        self.assertEqual(got, 0xDEADBEEF)
+        # the write before the dmesg read must encode op=1 + the addr
+        write_sh = fake.sent[0]
+        buf = decode_printf_octal(write_sh[len("printf '") : write_sh.index("'", len("printf '"))])
+        self.assertEqual(buf[0x08], repl.OP_PEEK)
+        self.assertEqual(struct.unpack_from("<Q", buf, 0x10)[0], 0xFFFFFF8008080000)
+        self.assertEqual(struct.unpack_from("<Q", buf, 0x18)[0], 8)
+
+    def test_peek_len_bounds(self) -> None:
+        session, _ = self._session([])
+        with self.assertRaises(ValueError):
+            session.peek_runtime(0x1000, 9)
+
+    def test_call_encodes_target_and_args(self) -> None:
+        session, fake = self._session(["A90Rc\n"])
+        ret = session.call_runtime(0xFFFFFF800813D8CC, (0x1234, 0x5678))
+        self.assertEqual(ret, 0xC)
+        write_sh = fake.sent[0]
+        buf = decode_printf_octal(write_sh[len("printf '") : write_sh.index("'", len("printf '"))])
+        self.assertEqual(buf[0x08], repl.OP_CALL)
+        self.assertEqual(struct.unpack_from("<Q", buf, 0x10)[0], 0xFFFFFF800813D8CC)  # target
+        self.assertEqual(struct.unpack_from("<Q", buf, 0x18)[0], 0x1234)  # x0
+        self.assertEqual(struct.unpack_from("<Q", buf, 0x20)[0], 0x5678)  # x1
+
+    def test_no_output_raises(self) -> None:
+        session, _ = self._session([""])
+        with self.assertRaises(repl.ReplError):
+            session.slide()
+
+
+@unittest.skipUnless(MAP_PATH.is_file(), "v2a1 System.map not generated")
+class SystemMapTests(unittest.TestCase):
+    def setUp(self) -> None:
+        self.symbols = repl.load_system_map(MAP_PATH)
+
+    def test_known_symbols_resolve(self) -> None:
+        self.assertEqual(repl.resolve_link(self.symbols, "printk"), 0xFFFFFF800813D8CC)
+        self.assertEqual(
+            repl.resolve_link(self.symbols, "kgsl_pwrctrl_force_no_nap_store"),
+            0xFFFFFF80089273B4,
+        )
+        self.assertEqual(repl.resolve_link(self.symbols, "__kmalloc"), 0xFFFFFF80082724BC)
+
+    def test_missing_symbol_raises(self) -> None:
+        with self.assertRaises(RuntimeError):
+            repl.resolve_link(self.symbols, "this_symbol_does_not_exist_zzz")
+
+
+@unittest.skipUnless(
+    MAP_PATH.is_file() and IMAGE_PATH.is_file(),
+    "v1-repl image and/or System.map not present",
+)
+class StaticImageCrossCheckTests(unittest.TestCase):
+    def setUp(self) -> None:
+        self.symbols = repl.load_system_map(MAP_PATH)
+        self.image = repl.load_static_image(IMAGE_PATH)
+
+    def test_force_no_nap_store_first_qword_is_live_proven_value(self) -> None:
+        link = repl.resolve_link(self.symbols, "kgsl_pwrctrl_force_no_nap_store")
+        # This is exactly what v1-repl live validation peeked (A90Ra9be47f0ca1103d0).
+        self.assertEqual(self.image.u64_at_vaddr(link), 0xA9BE47F0CA1103D0)
+
+    def test_call_targets_are_jopp_entries(self) -> None:
+        for name in ("kallsyms_lookup_name", "printk", "__kmalloc", "kfree"):
+            link = repl.resolve_link(self.symbols, name)
+            repl.assert_jopp_entry(self.image, link, name)  # raises on failure
+
+    def test_assert_jopp_entry_rejects_non_entry(self) -> None:
+        link = repl.resolve_link(self.symbols, "printk")
+        with self.assertRaises(repl.ReplError):
+            repl.assert_jopp_entry(self.image, link + 8, "printk+8")
+
+    def test_symbol_strings_are_nul_bounded(self) -> None:
+        for name in ("printk", "__kmalloc", "kallsyms_lookup_name"):
+            vaddr = self.image.find_symbol_string_vaddr(name)
+            off = self.image.kernel_off + (vaddr - repl.stage_c.KERNEL_FILE_VADDR_BASE)
+            data = self.image.data
+            self.assertEqual(data[off : off + len(name)], name.encode("ascii"))
+            self.assertEqual(data[off + len(name)], 0)  # trailing NUL
+
+
+def _buf_from_op_sh(sh_str: str) -> bytes:
+    octal = sh_str[len("printf '") : sh_str.index("'", len("printf '"))]
+    return decode_printf_octal(octal)
+
+
+class FaithfulFakeTransport:
+    """Simulates the live REPL: decodes the op buffer the driver writes and
+    returns the exact A90R line(s) the real stub would print, for a chosen
+    slide, the real System.map, and the real v1-repl image."""
+
+    def __init__(self, slide, symbols, image):
+        self.slide = slide
+        self.symbols = symbols
+        self.image = image
+
+    def run_serial_command(self, argv, *, host, port, timeout):
+        sh_str = argv[-1]
+        if "grep -a A90R" not in sh_str:
+            return {"ok": True, "rc": 0, "stdout": "", "stderr": ""}
+        buf = _buf_from_op_sh(sh_str)
+        op = buf[8]
+        import struct as _s
+        arg0 = _s.unpack_from("<Q", buf, 0x10)[0]
+        lines = []
+        if op == repl.OP_SLIDE:
+            lines.append(f"A90R{(repl.ADR_SELF_LINK_VADDR + self.slide):x}")
+        elif op == repl.OP_PEEK:
+            link = arg0 - self.slide
+            lines.append(f"A90R{self.image.u64_at_vaddr(link):x}")
+        elif op == repl.OP_CALL:
+            sentinel = _s.unpack_from("<Q", buf, 0x20)[0]  # arg2 == x1
+            lines.append(f"A90R{sentinel:x}")   # called printk echoes the sentinel
+            lines.append("A90Rb")               # stub prints printk's return value
+        return {"ok": True, "rc": 0, "stdout": "\n".join(lines) + "\n", "stderr": ""}
+
+
+@unittest.skipUnless(
+    MAP_PATH.is_file() and IMAGE_PATH.is_file(),
+    "v1-repl image and/or System.map not present",
+)
+class SelftestIntegrationTests(unittest.TestCase):
+    def setUp(self) -> None:
+        self.symbols = repl.load_system_map(MAP_PATH)
+        self.image = repl.load_static_image(IMAGE_PATH)
+
+    def _run(self, slide):
+        fake = FaithfulFakeTransport(slide, self.symbols, self.image)
+        orig = repl.transport.run_serial_command
+        repl.transport.run_serial_command = fake.run_serial_command
+        self.addCleanup(lambda: setattr(repl.transport, "run_serial_command", orig))
+        session = repl.ReplSession(repl.ReplConfig(settle_sec=0.0))
+        return repl.run_selftest(
+            session, self.symbols, self.image,
+            peek_symbols=("kgsl_pwrctrl_force_no_nap_store", "__kmalloc"),
+            call_symbol="printk",
+        )
+
+    def test_selftest_passes_with_faithful_stub(self) -> None:
+        summary = self._run(0x130000)
+        self.assertTrue(summary["ok"], summary)
+        self.assertEqual(summary["decision"], "a90-repl-v2a1-selftest-pass")
+        kinds = {c["check"] for c in summary["checks"]}
+        self.assertEqual(kinds, {"named-peek", "named-call-printk"})
+        self.assertTrue(all(c["ok"] for c in summary["checks"]))
+
+    def test_selftest_rejects_non_page_aligned_slide(self) -> None:
+        with self.assertRaises(repl.ReplError):
+            self._run(0x130123)
+
+
+if __name__ == "__main__":
+    unittest.main()
