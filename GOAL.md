@@ -1107,6 +1107,20 @@ host-only unit unless it explicitly needs a live check. Report each to `docs/rep
   `docs/reports/KERNEL_SECURITY_TIER2_RUNTIME_KERNEL_REPL_V2C_C2_MAP_AUDIT_2026-06-29.md`.
   **Next C2 step:** fix the kallsyms decoder root cause or explicitly fence trusted map regions; do not treat
   this System.map as globally trustworthy.
+
+  **STATUS (2026-06-29 v2c C2C host pass) — C2A audit oracle corrected/fenced.**
+  `a90_repl.py map-audit` now defaults to a high-confidence anchor oracle instead of the broad C2A
+  string-ref heuristic. It validates the operator-required anchors: `printk` is `map-match`
+  (`truth==map==0xffffff800813d8cc`) via the Stage-C plain-`printk` semantic signature plus C1
+  `resolve_verified(...)`; `__kmalloc` is `map-mismatch` (`truth=0xffffff800826ae34`,
+  map `0xffffff80082724bc`) with a single JOPP/no-`x0`-deref/high-xref export candidate and independent
+  map refutation (`0` direct `bl` xrefs plus pre-call `x0` deref); `kfree` is `map-mismatch`
+  (`truth=0xffffff800826b354`, map `0xffffff800827276c`) with the same evidence shape. The old whole-map
+  scanner remains only as `run_string_ref_map_audit(...)` and must not drive a decoder rewrite. Validation:
+  `py_compile` pass, `tests.test_a90_repl` + `tests.test_a90_stock_kallsyms_extract` **56/56 PASS**. Report:
+  `docs/reports/KERNEL_SECURITY_TIER2_RUNTIME_KERNEL_REPL_V2C_C2C_HIGH_CONFIDENCE_MAP_AUDIT_2026-06-29.md`.
+  Remaining C2 work: a real `__ksymtab`/`__ksymtab_strings` section parse, or equivalent grounded oracle,
+  before claiming any broad drift count or changing `a90_stock_kallsyms_extract.py`.
 - **S1 — transport stability.** Harden the live op path against the observed serial-fragment noise
   (`ATAT` / missing `A90P1 END`): per-op bounded re-read/realign retry, robust ring read (busybox `dmesg`
   is read-and-clear; keep the single-shell `op_sh` + `tail -n N`), and clear classification of

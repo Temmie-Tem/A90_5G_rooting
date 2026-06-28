@@ -326,23 +326,37 @@ class StaticImageCrossCheckTests(unittest.TestCase):
         self.assertEqual(resolution.method, "System.map-read-only-unverified")
         self.assertEqual(resolution.link_vaddr, 0xFFFFFF80089273B4)
 
-    def test_map_audit_quantifies_export_drift(self) -> None:
+    def test_map_audit_uses_high_confidence_anchor_oracle(self) -> None:
         audit = repl.run_map_audit(self.symbols, self.image, row_limit=8)
 
         self.assertTrue(audit["ok"], audit)
-        self.assertEqual(audit["decision"], "a90-repl-v2c-c2-map-audit-host-pass")
-        self.assertEqual(audit["export_symbol_count"], 12628)
-        self.assertGreater(audit["recovered_candidate_symbol_count"], 12000)
-        self.assertGreater(audit["counts"]["map_mismatch"], 12000)
-        self.assertEqual(audit["counts"]["map_match"], 0)
+        self.assertEqual(
+            audit["decision"],
+            "a90-repl-v2c-c2c-high-confidence-map-audit-host-pass",
+        )
+        self.assertEqual(audit["audited_symbol_count"], 3)
+        self.assertEqual(audit["counts"]["map_match"], 1)
+        self.assertEqual(audit["counts"]["map_mismatch"], 2)
+        self.assertEqual(audit["counts"]["unknown"], 0)
 
         focus = audit["focus_rows"]
+        self.assertEqual(focus["printk"]["status"], "map-match")
+        self.assertEqual(focus["printk"]["truth_link_vaddr"], "0xffffff800813d8cc")
+        self.assertEqual(focus["printk"]["map_link_vaddr"], "0xffffff800813d8cc")
+        self.assertFalse(focus["printk"]["string_ref_candidates_promoted"])
+        self.assertIn("0xffffff800813adfc", focus["printk"]["string_ref_candidate_link_vaddrs"])
+        self.assertIn("noisy-string-ref-candidates-not-promoted", focus["printk"]["high_confidence_reasons"])
         self.assertEqual(focus["__kmalloc"]["status"], "map-mismatch")
-        self.assertEqual(focus["__kmalloc"]["selected_link_vaddr"], "0xffffff800826ae34")
+        self.assertEqual(focus["__kmalloc"]["truth_link_vaddr"], "0xffffff800826ae34")
+        self.assertEqual(focus["__kmalloc"]["map_link_vaddr"], "0xffffff80082724bc")
+        self.assertEqual(focus["__kmalloc"]["passing_candidate_count"], 1)
+        self.assertEqual(focus["__kmalloc"]["map_direct_bl_xref_count"], 0)
+        self.assertIn("map-address-independently-refuted", focus["__kmalloc"]["high_confidence_reasons"])
         self.assertEqual(focus["kfree"]["status"], "map-mismatch")
-        self.assertEqual(focus["kfree"]["selected_link_vaddr"], "0xffffff800826b354")
-        self.assertEqual(focus["printk"]["status"], "ambiguous")
-        self.assertIn("0xffffff800813adfc", focus["printk"]["candidate_link_vaddrs"])
+        self.assertEqual(focus["kfree"]["truth_link_vaddr"], "0xffffff800826b354")
+        self.assertEqual(focus["kfree"]["map_link_vaddr"], "0xffffff800827276c")
+        self.assertEqual(focus["kfree"]["passing_candidate_count"], 1)
+        self.assertEqual(focus["kfree"]["map_direct_bl_xref_count"], 0)
 
     def test_assert_jopp_entry_rejects_non_entry(self) -> None:
         link = repl.resolve_link(self.symbols, "printk")

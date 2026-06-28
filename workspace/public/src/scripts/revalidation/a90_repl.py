@@ -109,6 +109,8 @@ KNOWN_UNSAFE_CALL_TARGETS = {
 EXPORT_NAME_RE = re.compile(rb"[A-Za-z_][A-Za-z0-9_\.]{0,127}\x00")
 EXPORT_RECORD_NAME_DELTA = 24
 FUNCTION_SYMBOL_KINDS = frozenset("TtWw")
+MAP_AUDIT_ANCHORS = ("printk", "__kmalloc", "kfree")
+PRINTK_LIVE_PROOF = "v2a1 named call printk(format,sentinel) echoed the sentinel"
 
 A64_BL_MASK = 0xFC000000
 A64_BL = 0x94000000
@@ -652,11 +654,18 @@ def _audit_export_candidates_for_name(raw: bytes,
     return candidates
 
 
-def run_map_audit(symbols: dict[str, Symbol],
-                  image: StaticImage,
-                  *,
-                  row_limit: int = 80,
-                  focus_symbols: tuple[str, ...] = ("__kmalloc", "kfree", "printk")) -> dict[str, object]:
+def run_string_ref_map_audit(symbols: dict[str, Symbol],
+                             image: StaticImage,
+                             *,
+                             row_limit: int = 80,
+                             focus_symbols: tuple[str, ...] = ("__kmalloc", "kfree", "printk")) -> dict[str, object]:
+    """Historical C2A audit.
+
+    This is intentionally retained as a noisy diagnostic, not as an oracle:
+    string-reference scanning can find unrelated qword tables that happen to
+    mention an exported name. The high-confidence `run_map_audit` below is the
+    default C2 oracle.
+    """
     raw = cached_static_raw_image(image)
     names = exported_symbol_names(symbols)
     refs = _build_export_name_ref_index(raw, names)
@@ -744,6 +753,271 @@ def run_map_audit(symbols: dict[str, Symbol],
         "next_required": (
             "use the drift report to fix or fence the kallsyms decoder; "
             "do not treat System.map as globally trustworthy"
+        ),
+    }
+
+
+def _kernel_image_with_wrapper(image: StaticImage) -> bytes:
+    layout = stage_c.parse_boot_layout(image.data)
+    return image.data[layout.kernel_off : layout.kernel_off + layout.kernel_size]
+
+
+def _stage_c_printk_link_vaddr(image: StaticImage) -> int:
+    _magic_off, entry_off, _helper_off, _emit_off = (
+        stage_c.locate_printk_variadic_wrapper(_kernel_image_with_wrapper(image))
+    )
+    return stage_c.kernel_vaddr(entry_off)
+
+
+def _format_precall_x0_deref(deref: object) -> str | None:
+    if not isinstance(deref, dict):
+        return None
+    return (
+        f"+0x{int(deref['offset']):x}/imm=0x{int(deref['imm']):x}/"
+        f"word=0x{int(deref['word']):08x}"
+    )
+
+
+def _map_function_evidence(symbols: dict[str, Symbol],
+                           image: StaticImage,
+                           raw: bytes,
+                           link_vaddr: int) -> dict[str, object]:
+    magic = image.u32_at_vaddr(link_vaddr - 4)
+    bl_count, sample_sites = _count_direct_bl_xrefs_cached(raw, link_vaddr)
+    shape = _scan_function_shape(symbols, image, link_vaddr)
+    return {
+        "entry_minus_4": f"0x{magic:08x}",
+        "jopp_entry": magic == JOPP_MAGIC,
+        "direct_bl_xref_count": bl_count,
+        "direct_bl_xref_sample_sites": sample_sites,
+        "shape": shape,
+        "precall_x0_deref": shape["precall_x0_deref"],
+    }
+
+
+def _allocator_map_audit_row(symbols: dict[str, Symbol],
+                             image: StaticImage,
+                             raw: bytes,
+                             name: str) -> dict[str, object]:
+    map_symbol = symbols.get(name)
+    map_link = map_symbol.vaddr if map_symbol else None
+    candidates = _recover_export_candidates_cached(raw, name)
+    min_xrefs = MIN_ALLOCATOR_EXPORT_BL_XREFS[name]
+    passing = [
+        candidate for candidate in candidates
+        if (
+            candidate.get("jopp_entry")
+            and candidate.get("precall_x0_deref") is None
+            and int(candidate["direct_bl_xref_count"]) >= min_xrefs
+        )
+    ]
+    row: dict[str, object] = {
+        "symbol": name,
+        "status": "unknown",
+        "truth_link_vaddr": None,
+        "map_link_vaddr": f"0x{map_link:x}" if map_link is not None else None,
+        "method": "high-confidence-export-candidate-plus-map-shape",
+        "candidate_count": len(candidates),
+        "passing_candidate_count": len(passing),
+        "candidate_link_vaddrs": [candidate["link_vaddr"] for candidate in candidates[:8]],
+        "high_confidence_reasons": [],
+        "blocked_reasons": [],
+    }
+    high_confidence = row["high_confidence_reasons"]
+    blocked = row["blocked_reasons"]
+    assert isinstance(high_confidence, list)
+    assert isinstance(blocked, list)
+
+    if map_link is None:
+        blocked.append("missing-map-symbol")
+        return row
+    if len(passing) != 1:
+        blocked.append(f"expected-one-high-confidence-export-candidate:{len(passing)}")
+        return row
+
+    selected = passing[0]
+    selected_link = int(str(selected["link_vaddr"]), 16)
+    row["truth_link_vaddr"] = f"0x{selected_link:x}"
+    row["selected_direct_bl_xref_count"] = selected["direct_bl_xref_count"]
+    row["selected_precall_x0_deref"] = selected["precall_x0_deref"]
+    high_confidence.extend([
+        "single-passing-export-candidate",
+        "candidate-is-jopp-entry",
+        "candidate-has-no-precall-x0-deref",
+        f"candidate-direct-bl-xrefs>={min_xrefs}",
+    ])
+
+    map_evidence = _map_function_evidence(symbols, image, raw, map_link)
+    row.update({
+        "map_jopp_entry": map_evidence["jopp_entry"],
+        "map_entry_minus_4": map_evidence["entry_minus_4"],
+        "map_direct_bl_xref_count": map_evidence["direct_bl_xref_count"],
+        "map_precall_x0_deref": map_evidence["precall_x0_deref"],
+        "map_precall_x0_deref_summary": _format_precall_x0_deref(map_evidence["precall_x0_deref"]),
+    })
+
+    if selected_link == map_link:
+        row["status"] = "map-match"
+        high_confidence.append("map-agrees-with-high-confidence-candidate")
+        return row
+
+    map_reject_reasons: list[str] = []
+    if int(map_evidence["direct_bl_xref_count"]) < min_xrefs:
+        map_reject_reasons.append(
+            f"map-target-low-direct-bl-xrefs:{map_evidence['direct_bl_xref_count']}<{min_xrefs}"
+        )
+    if map_evidence["precall_x0_deref"] is not None:
+        map_reject_reasons.append(
+            "map-target-precall-x0-deref:"
+            f"{_format_precall_x0_deref(map_evidence['precall_x0_deref'])}"
+        )
+    if not map_reject_reasons:
+        blocked.append("map-disagrees-but-map-address-not-independently-refuted")
+        return row
+
+    row["status"] = "map-mismatch"
+    row["map_wrong_evidence"] = map_reject_reasons
+    row["map_minus_truth"] = map_link - selected_link
+    high_confidence.append("map-address-independently-refuted")
+    return row
+
+
+def _printk_map_audit_row(symbols: dict[str, Symbol],
+                          image: StaticImage,
+                          raw: bytes) -> dict[str, object]:
+    name = "printk"
+    map_symbol = symbols.get(name)
+    map_link = map_symbol.vaddr if map_symbol else None
+    signature_link = _stage_c_printk_link_vaddr(image)
+    resolution = resolve_verified(symbols, image, name, purpose="call")
+    noisy_candidates = _recover_export_candidates_cached(raw, name)
+    row: dict[str, object] = {
+        "symbol": name,
+        "status": "unknown",
+        "truth_link_vaddr": f"0x{signature_link:x}",
+        "map_link_vaddr": f"0x{map_link:x}" if map_link is not None else None,
+        "method": "stage-c-printk-signature+disasm-signature+xref+map",
+        "live_proof": PRINTK_LIVE_PROOF,
+        "string_ref_candidate_count": len(noisy_candidates),
+        "string_ref_candidate_link_vaddrs": [
+            candidate["link_vaddr"] for candidate in noisy_candidates[:8]
+        ],
+        "string_ref_candidates_promoted": False,
+        "resolution": resolution.public_dict(),
+        "high_confidence_reasons": [],
+        "blocked_reasons": [],
+    }
+    high_confidence = row["high_confidence_reasons"]
+    blocked = row["blocked_reasons"]
+    assert isinstance(high_confidence, list)
+    assert isinstance(blocked, list)
+
+    if map_link is None:
+        blocked.append("missing-map-symbol")
+        return row
+    if signature_link != map_link:
+        row["status"] = "map-mismatch"
+        row["map_wrong_evidence"] = ["stage-c-printk-signature-disagrees-with-map"]
+        return row
+    if not resolution.verified or resolution.link_vaddr != map_link:
+        blocked.append("map-printk-failed-resolve_verified")
+        return row
+
+    map_evidence = _map_function_evidence(symbols, image, raw, map_link)
+    row.update({
+        "map_jopp_entry": map_evidence["jopp_entry"],
+        "map_entry_minus_4": map_evidence["entry_minus_4"],
+        "map_direct_bl_xref_count": map_evidence["direct_bl_xref_count"],
+        "map_precall_x0_deref": map_evidence["precall_x0_deref"],
+    })
+    row["status"] = "map-match"
+    high_confidence.extend([
+        "stage-c-printk-signature-matches-map",
+        "resolve_verified-accepts-map-target",
+        "v2a1-live-call-proof",
+        "noisy-string-ref-candidates-not-promoted",
+    ])
+    return row
+
+
+def run_map_audit(symbols: dict[str, Symbol],
+                  image: StaticImage,
+                  *,
+                  row_limit: int = 80,
+                  focus_symbols: tuple[str, ...] = MAP_AUDIT_ANCHORS) -> dict[str, object]:
+    """Sound C2 audit over high-confidence anchors.
+
+    This deliberately does not claim a whole-map drift count from the C2A
+    string-ref heuristic. A row becomes `map-mismatch` only when there is a
+    single high-confidence alternative and the map address is independently
+    refuted, or `map-match` when an independent semantic locator agrees with the
+    map.
+    """
+    raw = cached_static_raw_image(image)
+    rows: dict[str, dict[str, object]] = {}
+    for name in focus_symbols:
+        if name == "printk":
+            rows[name] = _printk_map_audit_row(symbols, image, raw)
+        elif name in ALLOCATOR_EXPORT_REQUIRED:
+            rows[name] = _allocator_map_audit_row(symbols, image, raw, name)
+        else:
+            resolution = resolve_verified(symbols, image, name, purpose="call")
+            status = "map-match" if resolution.verified else "unknown"
+            rows[name] = {
+                "symbol": name,
+                "status": status,
+                "truth_link_vaddr": (
+                    f"0x{resolution.link_vaddr:x}" if resolution.link_vaddr is not None else None
+                ),
+                "map_link_vaddr": (
+                    f"0x{symbols[name].vaddr:x}" if name in symbols else None
+                ),
+                "method": resolution.method,
+                "resolution": resolution.public_dict(),
+                "blocked_reasons": [] if resolution.verified else ["no-high-confidence-audit-rule"],
+            }
+
+    counts = {
+        "map_match": sum(1 for row in rows.values() if row["status"] == "map-match"),
+        "map_mismatch": sum(1 for row in rows.values() if row["status"] == "map-mismatch"),
+        "unknown": sum(1 for row in rows.values() if row["status"] == "unknown"),
+    }
+    expected = {
+        "printk": "map-match",
+        "__kmalloc": "map-mismatch",
+        "kfree": "map-mismatch",
+    }
+    anchor_failures = [
+        f"{name}:{rows.get(name, {}).get('status')}!=expected:{status}"
+        for name, status in expected.items()
+        if name in rows and rows[name].get("status") != status
+    ]
+    ordered_rows = [rows[name] for name in focus_symbols if name in rows]
+    return {
+        "decision": (
+            "a90-repl-v2c-c2c-high-confidence-map-audit-host-pass"
+            if not anchor_failures else
+            "a90-repl-v2c-c2c-high-confidence-map-audit-host-fail"
+        ),
+        "ok": not anchor_failures,
+        "raw_runtime_values_redacted": True,
+        "scope": "high-confidence anchors only; no whole-map drift count claimed",
+        "method": (
+            "semantic printk signature plus C1 resolve verification; allocator rows require "
+            "a single JOPP/no-x0-deref/high-xref export candidate and independent map refutation"
+        ),
+        "audited_symbol_count": len(rows),
+        "counts": counts,
+        "focus_rows": rows,
+        "sample_rows": ordered_rows[:row_limit],
+        "anchor_failures": anchor_failures,
+        "c2a_status": (
+            "string-ref whole-map audit is retained as run_string_ref_map_audit() but is noisy "
+            "and not a decoder-rewrite oracle"
+        ),
+        "next_required": (
+            "locate the real __ksymtab/__ksymtab_strings section bounds for any broad drift map; "
+            "until then, trust only verified call/poke resolutions and high-confidence rows"
         ),
     }
 
@@ -1719,7 +1993,7 @@ def main(argv: list[str] | None = None) -> int:
 
     p_map_audit = sub.add_parser(
         "map-audit",
-        help="host-only v2c C2 audit of System.map against recovered export records",
+        help="host-only v2c C2 high-confidence audit of System.map trust anchors",
     )
     add_common(p_map_audit)
     p_map_audit.add_argument("--row-limit", type=int, default=80)
