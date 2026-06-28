@@ -1033,6 +1033,37 @@ is the v2c productization epic below.
 
 ### ▶ ACTIVE NEXT EPIC = v2c — Tier-2 Kernel REPL PRODUCTIZATION (correctness + stability + usability)
 
+> ### 🛑 OPERATOR GATE-2 CORRECTION (2026-06-29) — the C2A "map-audit" is UNSOUND; do NOT rewrite the kallsyms decoder off it
+>
+> Operator independently checked the C2A audit (commit 62047499). **Its "`map_match=0`, `12479` mismatches"
+> is a TOOL ARTIFACT, not evidence the map is broadly wrong.** The audit treats `export-recovery` as ground
+> truth, but recovery is a **noisy heuristic** (it scans for any qword ref to a `"<name>\0"` string), so it
+> produces FALSE candidates:
+> - **`printk`**: the map address `0xffffff800813d8cc` is CORRECT (operator-verified 3 ways: two independent
+>   extractor anchors, `stage_c.locate_printk_variadic_wrapper`, and a LIVE `call printk(fmt,sentinel)` in
+>   v2a1 that printed the sentinel — a wrong address could not have). But recovery returns **two candidates,
+>   `0x813adfc` and `0x81b8eac`, NEITHER equal to the real printk**, and buckets it "ambiguous". So
+>   `map≠recovery` here means **recovery is wrong, not the map**.
+> - Recovery happened to be right for `__kmalloc`/`kfree` (single clean candidate, operator-verified by xref
+>   + signature), so those map entries ARE wrong — but that does NOT generalize. **The map is verified-CORRECT
+>   for printk and the kgsl region, and verified-WRONG only for the mm/slab allocator region.**
+>
+> **Steer:**
+> - **Do NOT rewrite/`root-fix` `a90_stock_kallsyms_extract.py` based on the current audit** (there is an
+>   uncommitted extractor edit in flight — drop or gate it). A decoder rewrite driven by a buggy "whole map is
+>   drifted" signal can break the regions that are currently correct.
+> - **C2 must FIX THE AUDIT (make the oracle sound) BEFORE drawing any map conclusion.** Ground truth must
+>   come from a *real* `__ksymtab` parse (locate the actual `__ksymtab`/`__ksymtab_strings` section bounds and
+>   walk its entries), not heuristic string-ref scanning; and/or only flag a symbol "map-wrong" when the
+>   recovered candidate is HIGH-CONFIDENCE (single, JOPP entry, plausible `bl`-xref count, signature-sane) AND
+>   the map address is *independently* shown wrong (e.g. its own xref count is implausibly low / signature
+>   mismatched). **Validate the fixed audit against known anchors: `printk` MUST come out `map-match`
+>   (truth==map==`0x813d8cc`); `__kmalloc`/`kfree` MUST come out `map-mismatch` with the recovered address as
+>   truth.** Only after the audit reproduces those three is its drift count trustworthy.
+> - **We are not in danger:** C1 fail-closed already protects `call`/`poke` (a wrong map address cannot be
+>   dispatched). So C2 is about *restoring general trust + a correct drift map*, with no safety pressure — take
+>   the time to make the oracle correct rather than chase a 12k-mismatch artifact.
+
 **Operator-chartered 2026-06-29 after a maturity review.** v2a proved the capability (flash-once
 `slide`/`peek`/`poke`/`call`, named/recovered-address resolution, owned-buffer round-trip), but it is an
 operator-driven proof, not yet a *trustworthy, stable, usable tool*. v2c hardens it into one. **No new boot
