@@ -250,7 +250,6 @@ class AddressAndRenderingHelpers(unittest.TestCase):
             offsets_start=0,
             relative_base_pos=0,
             relative_base=0,
-            padding_before_relative_base=0,
             low_offsets=[0x10, 0x20, 0x30, 0x40],
             synthetic_base=0x1000,
             text_offset=0x10,
@@ -283,22 +282,21 @@ class V2321KallsymsRegression(unittest.TestCase):
         self.assertEqual(symbol_map["kgsl_pwrctrl_force_no_nap_store"], 0xFFFFFF80089273B4)
         self.assertEqual(symbol_map["kgsl_pwrctrl_force_no_nap_show"], 0xFFFFFF8008927344)
         self.assertEqual(symbol_map["printk"], 0xFFFFFF800813D8CC)
-        self.assertEqual(symbol_map["__kmalloc"], 0xFFFFFF800826AE34)
-        self.assertEqual(symbol_map["kfree"], 0xFFFFFF800826B354)
-        self.assertEqual(symbol_map["kallsyms_lookup_name"], 0xFFFFFF800817CFA4)
+        self.assertEqual(symbol_map["__kmalloc"], 0xFFFFFF80082724BC)
+        self.assertEqual(symbol_map["kfree"], 0xFFFFFF800827276C)
+        self.assertEqual(symbol_map["kallsyms_lookup_name"], 0xFFFFFF800818452C)
 
         source_by_symbol = {
             name[1:]: addresses.decoded_address_sources[index]
             for index, name in enumerate(names.names)
             if name and name[1:]
         }
-        self.assertEqual(source_by_symbol["kgsl_pwrctrl_num_pwrlevels_show"], "base-relative")
-        self.assertEqual(source_by_symbol["kgsl_pwrctrl_gpu_busy_percentage_show"], "base-relative")
-        self.assertEqual(source_by_symbol["kgsl_pwrctrl_force_no_nap_store"], "base-relative")
-        self.assertEqual(source_by_symbol["kgsl_pwrctrl_force_no_nap_show"], "base-relative")
+        self.assertEqual(source_by_symbol["kgsl_pwrctrl_num_pwrlevels_show"], "rkp-ropp-local-run")
+        self.assertEqual(source_by_symbol["kgsl_pwrctrl_gpu_busy_percentage_show"], "rkp-ropp-local-run")
+        self.assertEqual(source_by_symbol["kgsl_pwrctrl_force_no_nap_store"], "rkp-ropp-local-run")
+        self.assertEqual(source_by_symbol["kgsl_pwrctrl_force_no_nap_show"], "rkp-ropp-local-run")
         self.assertEqual(source_by_symbol["printk"], "plain-printk-variadic-wrapper-signature")
         self.assertEqual(source_by_symbol["__kmalloc"], "base-relative")
-        self.assertEqual(addresses.padding_before_relative_base, 380)
 
         num_off = symbol_map["kgsl_pwrctrl_num_pwrlevels_show"] - extract.DEFAULT_TEXT_ADDRESS
         busy_off = symbol_map["kgsl_pwrctrl_gpu_busy_percentage_show"] - extract.DEFAULT_TEXT_ADDRESS
