@@ -89,6 +89,10 @@ DEFAULT_GFP_HEADER = (
     / "workspace/private/inputs/kernel_source/SM-A908N_KOR_12_Opensource"
     / "Kernel/include/linux/gfp.h"
 )
+DEFAULT_KERNEL_SOURCE_ROOT = (
+    REPO_ROOT
+    / "workspace/private/inputs/kernel_source/SM-A908N_KOR_12_Opensource/Kernel"
+)
 
 KMALLOC_ROUNDTRIP_SIZE = 0x1000
 POKE_SENTINEL_A = 0xA90F00D1CAFE0001
@@ -134,6 +138,51 @@ CALL_SAFETY_CONTEXT_CALL_PATTERNS = (
     "_irqsave",
     "_irqrestore",
 )
+CALL_SAFETY_SWEEP_FAMILIES = {
+    "allocator": {
+        "symbols": (
+            "__kmalloc",
+            "__kmalloc_node",
+            "kfree",
+            "ksize",
+            "kmem_cache_alloc",
+            "kmem_cache_free",
+            "kmem_cache_alloc_trace",
+            "kmem_cache_alloc_node",
+            "kmem_cache_free_bulk",
+            "kmem_cache_alloc_bulk",
+        ),
+        "prefixes": ("kmalloc_", "kfree_", "kmem_cache_"),
+    },
+    "string": {
+        "symbols": (
+            "strlen",
+            "strnlen",
+            "strcmp",
+            "strncmp",
+            "strscpy",
+            "strlcpy",
+            "memcpy",
+            "memset",
+            "memmove",
+            "memcmp",
+        ),
+        "prefixes": ("str", "mem"),
+    },
+    "read-io": {
+        "symbols": ("kernel_read", "kernel_write", "filp_open", "filp_close"),
+        "prefixes": ("kernel_read", "kernel_write", "filp_", "vfs_"),
+    },
+    "refcount": {
+        "symbols": (),
+        "prefixes": ("refcount_", "kref_", "get_", "put_"),
+    },
+    "sysfs-show": {
+        "symbols": (),
+        "prefixes": (),
+        "regexes": (r"_show$",),
+    },
+}
 CALL_SAFETY_SEEDS = {
     "printk": {
         "tier": CALL_SAFETY_SAFE_WITH_VALID_PTR,
@@ -2664,6 +2713,708 @@ def run_call_safety_classify(symbols: dict[str, Symbol],
     }
 
 
+_SOURCE_SIGNATURE_CACHE: dict[tuple[str, str], dict[str, object]] = {}
+_SOURCE_CANDIDATE_FILE_CACHE: dict[tuple[str, str], tuple[Path, ...]] = {}
+
+
+def _public_repo_path(path: Path) -> str:
+    try:
+        return str(path.resolve().relative_to(REPO_ROOT))
+    except ValueError:
+        return str(path)
+
+
+def _strip_c_comments_preserve_newlines(text: str) -> str:
+    def block_repl(match: re.Match[str]) -> str:
+        return "\n" * match.group(0).count("\n")
+
+    text = re.sub(r"/\*.*?\*/", block_repl, text, flags=re.S)
+    return re.sub(r"//[^\n]*", "", text)
+
+
+def _split_c_args(args_text: str) -> list[str]:
+    args: list[str] = []
+    start = 0
+    depth = 0
+    for index, ch in enumerate(args_text):
+        if ch in "([<":
+            depth += 1
+        elif ch in ")]>" and depth:
+            depth -= 1
+        elif ch == "," and depth == 0:
+            args.append(args_text[start:index].strip())
+            start = index + 1
+    tail = args_text[start:].strip()
+    if tail:
+        args.append(tail)
+    return args
+
+
+_SOURCE_ARG_TYPE_WORDS = frozenset((
+    "bool",
+    "char",
+    "const",
+    "enum",
+    "gfp_t",
+    "int",
+    "loff_t",
+    "long",
+    "mode_t",
+    "pid_t",
+    "short",
+    "signed",
+    "size_t",
+    "ssize_t",
+    "struct",
+    "u8",
+    "u16",
+    "u32",
+    "u64",
+    "uint8_t",
+    "uint16_t",
+    "uint32_t",
+    "uint64_t",
+    "union",
+    "unsigned",
+    "void",
+))
+_SOURCE_NON_SIGNATURE_PREFIXES = (
+    "#",
+    "case ",
+    "default:",
+    "do ",
+    "else ",
+    "for ",
+    "if ",
+    "return ",
+    "sizeof",
+    "switch ",
+    "while ",
+)
+
+
+def _source_argument_looks_typed(arg: str) -> bool:
+    arg = arg.strip()
+    if not arg or arg == "...":
+        return True
+    if arg == "void":
+        return True
+    if "*" in arg or "[" in arg or "__user" in arg:
+        return True
+    words = re.findall(r"[A-Za-z_][A-Za-z0-9_]*", arg)
+    if any(word in _SOURCE_ARG_TYPE_WORDS for word in words):
+        return True
+    if any(word.endswith("_t") for word in words):
+        return True
+    return False
+
+
+def _source_prefix_looks_like_function_decl(prefix: str) -> bool:
+    if any(ch in prefix for ch in "{}:"):
+        return False
+    if re.search(r"\b(if|while|for|return|switch|case|goto)\b", prefix):
+        return False
+    words = re.findall(r"[A-Za-z_][A-Za-z0-9_]*", prefix)
+    if any(word in _SOURCE_ARG_TYPE_WORDS for word in words):
+        return True
+    if any(word.endswith("_t") for word in words):
+        return True
+    return "*" in prefix
+
+
+def _source_signature_annotation_flags(signature: str, args: list[str]) -> list[str]:
+    haystack = " ".join([signature, *args])
+    flags: list[str] = []
+    if "__user" in haystack:
+        flags.append("source-__user-pointer")
+    if "__must_hold" in haystack:
+        flags.append("source-__must_hold-annotation")
+    if "might_sleep" in haystack:
+        flags.append("source-might_sleep")
+    if re.search(r"\b(raw_spin|spin_lock|mutex_lock|rcu_|lockdep_assert|preempt_)", haystack):
+        flags.append("source-locking-or-rcu-annotation")
+    return flags
+
+
+def _parse_source_signature_statement(root: Path,
+                                      file_path: Path,
+                                      statement: str,
+                                      start_line: int,
+                                      symbol: str) -> dict[str, object] | None:
+    stripped = statement.lstrip()
+    if stripped.startswith(_SOURCE_NON_SIGNATURE_PREFIXES):
+        return None
+    if re.search(r"\btypedef\b", statement):
+        return None
+    flat = re.sub(r"\s+", " ", statement).strip()
+    if symbol not in flat:
+        return None
+
+    pattern = re.compile(r"\b" + re.escape(symbol) + r"\s*\((?P<args>[^;{}]*)\)")
+    for match in pattern.finditer(flat):
+        prefix = flat[:match.start()].strip()
+        if not prefix or prefix.endswith(_SOURCE_NON_SIGNATURE_PREFIXES):
+            continue
+        prefix_tail = prefix[-180:]
+        if re.search(r"\b(return|if|while|for|switch|sizeof)\s*$", prefix_tail):
+            continue
+        if not _source_prefix_looks_like_function_decl(prefix_tail):
+            continue
+        if "=" in prefix_tail and prefix_tail.rfind("=") > prefix_tail.rfind(";"):
+            continue
+        args_text = match.group("args").strip()
+        args = [] if not args_text else _split_c_args(args_text)
+        if args == ["void"]:
+            args = []
+        if not all(_source_argument_looks_typed(arg) for arg in args):
+            continue
+        suffix = flat[match.end():]
+        suffix = re.split(r"[;{]", suffix, maxsplit=1)[0].strip()
+        signature = " ".join(part for part in (prefix_tail, f"{symbol}({args_text})", suffix) if part)
+        parsed_args: list[dict[str, object]] = []
+        pointer_indices: list[int] = []
+        user_pointer_indices: list[int] = []
+        variadic = False
+        for index, arg in enumerate(args):
+            arg_clean = arg.strip()
+            is_variadic = arg_clean == "..."
+            variadic = variadic or is_variadic
+            is_pointer = (
+                "*" in arg_clean
+                or "[" in arg_clean
+                or "__user" in arg_clean
+                or "(*" in arg_clean
+            )
+            if is_pointer:
+                pointer_indices.append(index)
+            if "__user" in arg_clean:
+                user_pointer_indices.append(index)
+            parsed_args.append({
+                "index": index,
+                "text": arg_clean,
+                "is_pointer": is_pointer,
+                "is_user_pointer": "__user" in arg_clean,
+                "is_variadic": is_variadic,
+            })
+        return {
+            "path": _public_repo_path(file_path),
+            "line": start_line,
+            "signature": signature,
+            "arg_count": len(args),
+            "args": parsed_args,
+            "pointer_arg_indices": pointer_indices,
+            "user_pointer_arg_indices": user_pointer_indices,
+            "variadic": variadic,
+            "annotation_flags": _source_signature_annotation_flags(signature, args),
+        }
+    return None
+
+
+def _source_candidate_files(root: Path, symbol: str) -> tuple[Path, ...]:
+    key = (str(root.resolve()), symbol)
+    cached = _SOURCE_CANDIDATE_FILE_CACHE.get(key)
+    if cached is not None:
+        return cached
+
+    candidates: list[Path] = []
+    rg = shutil.which("rg")
+    if rg:
+        try:
+            proc = subprocess.run(
+                [
+                    rg,
+                    "--fixed-strings",
+                    "--files-with-matches",
+                    "--glob",
+                    "*.c",
+                    "--glob",
+                    "*.h",
+                    symbol,
+                    str(root),
+                ],
+                text=True,
+                stdout=subprocess.PIPE,
+                stderr=subprocess.PIPE,
+                timeout=15,
+                check=False,
+            )
+            if proc.returncode in (0, 1):
+                candidates = [Path(line) for line in proc.stdout.splitlines() if line.strip()]
+        except (OSError, subprocess.TimeoutExpired):
+            candidates = []
+
+    if not candidates:
+        for suffix in ("*.h", "*.c"):
+            for path in root.rglob(suffix):
+                try:
+                    if symbol in path.read_text(errors="ignore"):
+                        candidates.append(path)
+                except OSError:
+                    continue
+
+    result = tuple(sorted(set(candidates), key=lambda path: str(path)))
+    _SOURCE_CANDIDATE_FILE_CACHE[key] = result
+    return result
+
+
+def _extract_source_signatures_from_file(root: Path,
+                                         file_path: Path,
+                                         symbol: str) -> list[dict[str, object]]:
+    try:
+        original = file_path.read_text(errors="ignore")
+    except OSError:
+        return []
+    text = _strip_c_comments_preserve_newlines(original)
+    matches: list[dict[str, object]] = []
+    statement_lines: list[str] = []
+    statement_start = 1
+    paren_depth = 0
+    for lineno, line in enumerate(text.splitlines(), start=1):
+        if paren_depth == 0 and not line.strip():
+            statement_lines = []
+            continue
+        if paren_depth == 0 and line.lstrip().startswith("#"):
+            statement_lines = []
+            continue
+        if not statement_lines:
+            statement_start = lineno
+        statement_lines.append(line)
+        paren_depth += line.count("(") - line.count(")")
+        too_long = sum(len(part) for part in statement_lines) > 5000
+        terminates = (";" in line or "{" in line) and paren_depth <= 0
+        if terminates or too_long:
+            statement = "\n".join(statement_lines)
+            if symbol in statement:
+                parsed = _parse_source_signature_statement(root, file_path, statement, statement_start, symbol)
+                if parsed is not None:
+                    matches.append(parsed)
+            statement_lines = []
+            paren_depth = 0
+    return matches
+
+
+def _source_match_sort_key(row: dict[str, object]) -> tuple[int, int, str]:
+    path = str(row.get("path", ""))
+    if "/include/linux/" in f"/{path}":
+        bucket = 0
+    elif "/arch/arm64/" in f"/{path}":
+        bucket = 1
+    elif "/fs/" in f"/{path}":
+        bucket = 2
+    elif "/drivers/" in f"/{path}":
+        bucket = 3
+    else:
+        bucket = 4
+    signature = str(row.get("signature", ""))
+    if signature.startswith("extern "):
+        bucket -= 1
+    return (bucket, int(row.get("line", 0) or 0), path)
+
+
+def lookup_source_signature(symbol: str,
+                            *,
+                            source_root: Path = DEFAULT_KERNEL_SOURCE_ROOT) -> dict[str, object]:
+    root = source_root.resolve()
+    key = (str(root), symbol)
+    cached = _SOURCE_SIGNATURE_CACHE.get(key)
+    if cached is not None:
+        return cached
+
+    if not root.is_dir():
+        result = {
+            "symbol": symbol,
+            "status": "missing",
+            "reason": "source-root-missing",
+            "source_root": str(source_root),
+            "match_count": 0,
+            "selected": None,
+            "matches_sample": [],
+        }
+        _SOURCE_SIGNATURE_CACHE[key] = result
+        return result
+
+    matches: list[dict[str, object]] = []
+    for path in _source_candidate_files(root, symbol):
+        if path.suffix not in (".c", ".h"):
+            continue
+        matches.extend(_extract_source_signatures_from_file(root, path, symbol))
+
+    deduped: dict[tuple[str, int], dict[str, object]] = {}
+    for row in matches:
+        deduped[(str(row.get("signature")), int(row.get("line", 0) or 0))] = row
+    matches = sorted(deduped.values(), key=_source_match_sort_key)
+
+    if not matches:
+        result = {
+            "symbol": symbol,
+            "status": "missing",
+            "reason": "signature-not-found-in-source",
+            "source_root": _public_repo_path(root),
+            "match_count": 0,
+            "selected": None,
+            "matches_sample": [],
+        }
+        _SOURCE_SIGNATURE_CACHE[key] = result
+        return result
+
+    shapes = {
+        (
+            int(row.get("arg_count", 0) or 0),
+            tuple(row.get("pointer_arg_indices", [])),
+            tuple(row.get("user_pointer_arg_indices", [])),
+            bool(row.get("variadic")),
+        )
+        for row in matches
+    }
+    if len(shapes) > 1:
+        result = {
+            "symbol": symbol,
+            "status": "ambiguous",
+            "reason": "source-signatures-have-incompatible-arg-shapes",
+            "source_root": _public_repo_path(root),
+            "match_count": len(matches),
+            "selected": None,
+            "matches_sample": matches[:8],
+        }
+        _SOURCE_SIGNATURE_CACHE[key] = result
+        return result
+
+    result = {
+        "symbol": symbol,
+        "status": "found",
+        "reason": "source-signature-found",
+        "source_root": _public_repo_path(root),
+        "match_count": len(matches),
+        "selected": matches[0],
+        "matches_sample": matches[:8],
+    }
+    _SOURCE_SIGNATURE_CACHE[key] = result
+    return result
+
+
+def _source_pointer_arg_indices(source: dict[str, object]) -> set[int]:
+    selected = source.get("selected")
+    if not isinstance(selected, dict):
+        return set()
+    return {
+        int(index)
+        for index in selected.get("pointer_arg_indices", [])
+    }
+
+
+def _source_pointer_arg_requirements(source: dict[str, object]) -> dict[str, str]:
+    selected = source.get("selected")
+    if not isinstance(selected, dict):
+        return {}
+    req: dict[str, str] = {}
+    for arg in selected.get("args", []):
+        if not isinstance(arg, dict) or not arg.get("is_pointer"):
+            continue
+        req[str(arg["index"])] = str(arg.get("text", "source-pointer-arg"))
+    return req
+
+
+def _arg_source_index_from_text(text: str) -> int | None:
+    match = re.fullmatch(r"x([0-7])", text.strip())
+    return int(match.group(1)) if match else None
+
+
+def _signal_arg_memory_source_indices(signals: dict[str, object]) -> set[int]:
+    indices: set[int] = set()
+    for row in signals.get("arg_pointer_derefs_before_first_bl_or_ret", []) or []:
+        if isinstance(row, dict):
+            arg = _arg_source_index_from_text(str(row.get("arg", "")))
+            if arg is not None:
+                indices.add(arg)
+    taint_flow = signals.get("arg_taint_flow", {})
+    if isinstance(taint_flow, dict):
+        for row in taint_flow.get("arg_memory_base_uses", []) or []:
+            if not isinstance(row, dict):
+                continue
+            for source_arg in row.get("source_args", []) or []:
+                arg = _arg_source_index_from_text(str(source_arg))
+                if arg is not None:
+                    indices.add(arg)
+    return indices
+
+
+def _name_is_behavior_changing(name: str) -> bool:
+    return name.startswith((
+        "commit_creds",
+        "prepare_kernel_cred",
+        "set_memory_",
+        "call_usermodehelper",
+    ))
+
+
+def _call_safety_advisory_from_source(row: dict[str, object],
+                                      source: dict[str, object]) -> dict[str, object]:
+    symbol = str(row.get("symbol"))
+    signals = row.get("signals", {})
+    if not isinstance(signals, dict):
+        signals = {}
+    resolution = row.get("resolution", {})
+    verified = bool(isinstance(resolution, dict) and resolution.get("verified"))
+    pointer_args = _source_pointer_arg_indices(source)
+    memory_source_args = _signal_arg_memory_source_indices(signals)
+    taint_flow = signals.get("arg_taint_flow", {})
+    taint_available = isinstance(taint_flow, dict) and bool(taint_flow.get("available"))
+
+    danger_flags: list[str] = []
+    reasons: list[str] = []
+    advisory_tier = CALL_SAFETY_DENY
+
+    if not verified:
+        danger_flags.append("identity-not-c1-verified")
+        reasons.append("C1 identity verification failed or is unavailable")
+    if symbol in KNOWN_UNSAFE_CALL_TARGETS:
+        danger_flags.append("known-unsafe-live-call")
+        reasons.append("known unsafe live-call target")
+    if _name_is_behavior_changing(symbol):
+        danger_flags.append("behavior-changing-name-family")
+        reasons.append("behavior-changing name family")
+
+    source_status = str(source.get("status"))
+    if source_status == "missing":
+        danger_flags.append("source-missing")
+        reasons.append("source signature missing; fail-closed downgrade")
+    elif source_status == "ambiguous":
+        danger_flags.append("source-ambiguous")
+        reasons.append("source signatures ambiguous; fail-closed downgrade")
+    elif source_status != "found":
+        danger_flags.append(f"source-{source_status}")
+        reasons.append("source signature not usable")
+
+    selected = source.get("selected")
+    annotation_flags: list[str] = []
+    if isinstance(selected, dict):
+        annotation_flags = [str(flag) for flag in selected.get("annotation_flags", [])]
+    for flag in annotation_flags:
+        danger_flags.append(flag)
+    if any(flag.startswith("source-__user") for flag in annotation_flags):
+        reasons.append("__user pointer in source signature")
+    if any(flag in annotation_flags for flag in (
+        "source-__must_hold-annotation",
+        "source-might_sleep",
+        "source-locking-or-rcu-annotation",
+    )):
+        reasons.append("source context annotation requires manual gate")
+
+    context_count = int(signals.get("context_call_count", 0) or 0)
+    if context_count:
+        danger_flags.append("context-sensitive-disasm-call")
+        reasons.append("disasm reaches lock/sleep/preempt/irq-sensitive call")
+    if signals.get("variadic_prologue_matches_printk") and symbol != "printk":
+        danger_flags.append("variadic-prologue-printk-twin")
+        reasons.append("printk-like variadic prologue shape")
+
+    if source_status == "found" and pointer_args and row.get("tier") == CALL_SAFETY_SAFE_SCALAR:
+        danger_flags.append("source-overrides-safe-scalar-pointer-arg")
+        reasons.append("source declares pointer args; never SAFE-SCALAR")
+
+    uncovered = sorted(memory_source_args - pointer_args)
+    context_blocked = bool(annotation_flags or context_count)
+    if source_status == "found":
+        if pointer_args:
+            if uncovered:
+                danger_flags.append("arg-memory-base-flow-uncovered-by-source-pointer-args")
+                reasons.append(
+                    "taint flow uses non-pointer source args as memory-base contributors:"
+                    + ",".join(f"x{arg}" for arg in uncovered)
+                )
+            elif verified and context_blocked:
+                advisory_tier = CALL_SAFETY_CONTEXT_SENSITIVE
+                reasons.append("source pointer args covered, but context danger requires manual gate")
+            elif verified:
+                advisory_tier = CALL_SAFETY_SAFE_WITH_VALID_PTR
+                reasons.append("source pointer args cover observed arg-derived memory bases")
+        else:
+            if memory_source_args:
+                danger_flags.append("arg-memory-base-flow-without-source-pointer-args")
+                reasons.append("source says scalar-only but disasm uses arg-derived memory base")
+            elif not taint_available:
+                danger_flags.append("arg-taint-flow-unavailable")
+                reasons.append("missing positive taint proof for scalar-only candidate")
+            elif verified and context_blocked:
+                advisory_tier = CALL_SAFETY_CONTEXT_SENSITIVE
+                reasons.append("source scalar-only signature, but context danger requires manual gate")
+            elif verified and taint_flow.get("safe_scalar_positive_no_arg_memory_base_flow"):
+                advisory_tier = CALL_SAFETY_SAFE_SCALAR
+                reasons.append("source scalar-only signature plus clean arg-taint memory-base proof")
+
+    blocking_flags = [
+        flag for flag in danger_flags
+        if flag not in ("source-overrides-safe-scalar-pointer-arg",)
+    ]
+    candidate_safe = advisory_tier in CALL_SAFETY_SAFE_TIERS and not blocking_flags
+    if candidate_safe:
+        reasons.append("advisory candidate only; does not alter call gate")
+
+    return {
+        "tier": advisory_tier,
+        "safe_group": advisory_tier in CALL_SAFETY_SAFE_TIERS,
+        "candidate_safe": candidate_safe,
+        "candidate_tag": "advisory-not-auto-callable" if candidate_safe else None,
+        "required_valid_pointer_args_from_source": _source_pointer_arg_requirements(source),
+        "source_pointer_arg_indices": sorted(pointer_args),
+        "arg_memory_source_indices": sorted(memory_source_args),
+        "danger_flags": sorted(set(danger_flags)),
+        "blocking_danger_flags": sorted(set(blocking_flags)),
+        "reasons": reasons,
+    }
+
+
+def _select_call_safety_sweep_symbols(symbols: dict[str, Symbol],
+                                      *,
+                                      families: tuple[str, ...],
+                                      prefixes: tuple[str, ...],
+                                      regexes: tuple[str, ...],
+                                      explicit_symbols: tuple[str, ...],
+                                      limit: int) -> tuple[str, ...]:
+    selected: set[str] = set(explicit_symbols)
+    function_names = sorted(
+        name for name, symbol in symbols.items()
+        if _map_kind_is_function(symbol.kind)
+    )
+
+    family_prefixes: list[str] = []
+    family_regexes: list[str] = []
+    for family in families:
+        spec = CALL_SAFETY_SWEEP_FAMILIES.get(family)
+        if spec is None:
+            raise ReplError(f"unknown call-safety sweep family: {family}")
+        for name in spec.get("symbols", ()):
+            if name in symbols:
+                selected.add(str(name))
+        family_prefixes.extend(str(prefix) for prefix in spec.get("prefixes", ()))
+        family_regexes.extend(str(regex) for regex in spec.get("regexes", ()))
+
+    all_prefixes = tuple(prefixes) + tuple(family_prefixes)
+    for prefix in all_prefixes:
+        selected.update(name for name in function_names if name.startswith(prefix))
+
+    compiled_regexes = [re.compile(pattern) for pattern in tuple(regexes) + tuple(family_regexes)]
+    for regex in compiled_regexes:
+        selected.update(name for name in function_names if regex.search(name))
+
+    ordered = tuple(sorted(selected))
+    if limit > 0:
+        ordered = ordered[:limit]
+    return ordered
+
+
+def run_call_safety_sweep(symbols: dict[str, Symbol],
+                          image: StaticImage,
+                          *,
+                          families: tuple[str, ...] = (),
+                          prefixes: tuple[str, ...] = (),
+                          regexes: tuple[str, ...] = (),
+                          explicit_symbols: tuple[str, ...] = (),
+                          limit: int = 60,
+                          source_root: Path = DEFAULT_KERNEL_SOURCE_ROOT,
+                          include_objdump: bool = False) -> dict[str, object]:
+    if not (families or prefixes or regexes or explicit_symbols):
+        families = ("allocator", "string", "read-io")
+
+    names = _select_call_safety_sweep_symbols(
+        symbols,
+        families=families,
+        prefixes=prefixes,
+        regexes=regexes,
+        explicit_symbols=explicit_symbols,
+        limit=limit,
+    )
+
+    rows: list[dict[str, object]] = []
+    gate_counts: dict[str, int] = {}
+    advisory_counts: dict[str, int] = {}
+    danger_counts: dict[str, int] = {}
+    for name in names:
+        gate_row = classify_call_safety(
+            symbols,
+            image,
+            name,
+            include_objdump=include_objdump,
+        )
+        source = lookup_source_signature(name, source_root=source_root)
+        advisory = _call_safety_advisory_from_source(gate_row, source)
+        gate_tier = str(gate_row.get("tier"))
+        advisory_tier = str(advisory.get("tier"))
+        gate_counts[gate_tier] = gate_counts.get(gate_tier, 0) + 1
+        advisory_counts[advisory_tier] = advisory_counts.get(advisory_tier, 0) + 1
+        for flag in advisory.get("danger_flags", []) or []:
+            danger_counts[str(flag)] = danger_counts.get(str(flag), 0) + 1
+        rows.append({
+            "symbol": name,
+            "gate_tier": gate_tier,
+            "gate_auto_call_allowed": bool(gate_row.get("auto_call_allowed")),
+            "gate_seeded": bool(gate_row.get("seeded")),
+            "gate_required_valid_pointer_args": gate_row.get("required_valid_pointer_args", {}),
+            "advisory": advisory,
+            "source": source,
+            "resolution": gate_row.get("resolution", {}),
+            "signals": gate_row.get("signals", {}),
+            "gate_reasons": gate_row.get("reasons", []),
+            "gate_warnings": gate_row.get("warnings", []),
+        })
+
+    tier_order = {
+        CALL_SAFETY_SAFE_SCALAR: 0,
+        CALL_SAFETY_SAFE_WITH_VALID_PTR: 1,
+        CALL_SAFETY_CONTEXT_SENSITIVE: 2,
+        CALL_SAFETY_BEHAVIOR_CHANGING: 3,
+        CALL_SAFETY_DENY: 4,
+    }
+    candidates = [
+        {
+            "symbol": row["symbol"],
+            "advisory_tier": row["advisory"]["tier"],
+            "candidate_tag": row["advisory"]["candidate_tag"],
+            "required_valid_pointer_args_from_source": row["advisory"][
+                "required_valid_pointer_args_from_source"
+            ],
+            "source": row["source"].get("selected"),
+            "gate_seeded": row["gate_seeded"],
+            "gate_auto_call_allowed": row["gate_auto_call_allowed"],
+            "note": "advisory candidate; not inserted into CALL_SAFETY_SEEDS",
+        }
+        for row in rows
+        if row["advisory"].get("candidate_safe")
+    ]
+    candidates.sort(
+        key=lambda row: (
+            bool(row["gate_seeded"]),
+            tier_order.get(str(row["advisory_tier"]), 99),
+            str(row["symbol"]),
+        )
+    )
+
+    return {
+        "decision": "a90-repl-u3-call-safety-sweep-host-pass",
+        "ok": True,
+        "host_only": True,
+        "device_action": False,
+        "boot_image_changed": False,
+        "network_dependency": False,
+        "offline_source_oracle": True,
+        "source_root": _public_repo_path(source_root),
+        "families": list(families),
+        "prefixes": list(prefixes),
+        "regexes": list(regexes),
+        "explicit_symbols": list(explicit_symbols),
+        "limit": limit,
+        "seed_whitelist_count": len(CALL_SAFETY_SEEDS),
+        "auto_call_firewall": "sweep-results-do-not-mutate-CALL_SAFETY_SEEDS-or-call-gate",
+        "swept_symbol_count": len(rows),
+        "gate_counts": gate_counts,
+        "advisory_counts": advisory_counts,
+        "danger_counts": dict(sorted(danger_counts.items())),
+        "candidate_safe_count": len(candidates),
+        "candidate_safe_ranked": candidates,
+        "rows": rows,
+    }
+
+
 def _call_arg_is_verified_pointer_token(arg: int | str) -> bool:
     return isinstance(arg, str) and arg.startswith("@") and len(arg) > 1
 
@@ -3502,6 +4253,25 @@ def cmd_call_safety_classify(args: argparse.Namespace) -> int:
     return 0 if summary["ok"] else 1
 
 
+def cmd_call_safety_sweep(args: argparse.Namespace) -> int:
+    symbols = load_system_map(args.map)
+    image = load_static_image(args.image)
+    summary = run_call_safety_sweep(
+        symbols,
+        image,
+        families=tuple(args.family),
+        prefixes=tuple(args.prefix),
+        regexes=tuple(args.regex),
+        explicit_symbols=tuple(args.symbols),
+        limit=args.limit,
+        source_root=args.source_root,
+        include_objdump=not args.no_objdump,
+    )
+    write_evidence(args, summary)
+    print(json.dumps(summary, indent=2, sort_keys=True))
+    return 0 if summary["ok"] else 1
+
+
 def cmd_poke(args: argparse.Namespace) -> int:
     symbols = load_system_map(args.map)
     image = load_static_image(args.image)
@@ -3690,6 +4460,32 @@ def main(argv: list[str] | None = None) -> int:
     p_call_safety.add_argument("symbols", nargs="*",
                                help="symbols to classify; defaults to the vetted seed inventory")
     p_call_safety.set_defaults(func=cmd_call_safety_classify)
+
+    p_call_safety_sweep = sub.add_parser(
+        "call-safety-sweep",
+        help="host-only U3 advisory source+disasm call-safety family sweep",
+    )
+    p_call_safety_sweep.add_argument("--map", type=Path, required=True)
+    p_call_safety_sweep.add_argument("--image", type=Path, default=REPO_ROOT / DEFAULT_IMAGE,
+                                     help="static boot image matching the verified map")
+    p_call_safety_sweep.add_argument("--source-root", type=Path, default=DEFAULT_KERNEL_SOURCE_ROOT,
+                                     help="offline kernel source tree for signature xref")
+    p_call_safety_sweep.add_argument("--evidence-dir", type=Path, default=None,
+                                     help="private dir for raw evidence (kept out of git)")
+    p_call_safety_sweep.add_argument("--family", action="append", default=[],
+                                     choices=sorted(CALL_SAFETY_SWEEP_FAMILIES),
+                                     help="bounded built-in family selector")
+    p_call_safety_sweep.add_argument("--prefix", action="append", default=[],
+                                     help="add function-name prefix selector")
+    p_call_safety_sweep.add_argument("--regex", action="append", default=[],
+                                     help="add function-name regex selector")
+    p_call_safety_sweep.add_argument("--limit", type=int, default=60,
+                                     help="cap swept symbol count after stable sorting; 0 means no cap")
+    p_call_safety_sweep.add_argument("--no-objdump", action="store_true",
+                                     help="omit full objdump excerpts from output")
+    p_call_safety_sweep.add_argument("symbols", nargs="*",
+                                     help="explicit symbols to include in the advisory sweep")
+    p_call_safety_sweep.set_defaults(func=cmd_call_safety_sweep)
 
     p_poke = sub.add_parser(
         "poke",

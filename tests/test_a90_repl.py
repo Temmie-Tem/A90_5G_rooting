@@ -23,6 +23,9 @@ IMAGE_PATH = REPO_ROOT / "workspace/private/inputs/boot_images/boot_linux_tier2_
 C2B_PADDING_MAP_PATH = (
     REPO_ROOT / "workspace/private/runs/kernel/v2c-c2b-kallsyms-padding-fix/System.map"
 )
+KERNEL_SOURCE_ROOT = (
+    REPO_ROOT / "workspace/private/inputs/kernel_source/SM-A908N_KOR_12_Opensource/Kernel"
+)
 
 
 def decode_printf_octal(text: str) -> bytes:
@@ -627,6 +630,74 @@ class CallSafetyClassificationTests(unittest.TestCase):
         )
         self.assertEqual(row["tier"], repl.CALL_SAFETY_BEHAVIOR_CHANGING)
         self.assertTrue(row["override_used"])
+
+    def test_source_signature_oracle_distinguishes_scalar_and_pointer_args(self) -> None:
+        if not KERNEL_SOURCE_ROOT.is_dir():
+            self.skipTest("kernel source tree not present")
+
+        kmalloc = repl.lookup_source_signature("__kmalloc", source_root=KERNEL_SOURCE_ROOT)
+        self.assertEqual(kmalloc["status"], "found", kmalloc)
+        self.assertEqual(kmalloc["selected"]["pointer_arg_indices"], [])
+        self.assertIn("size_t size", kmalloc["selected"]["signature"])
+
+        kfree = repl.lookup_source_signature("kfree", source_root=KERNEL_SOURCE_ROOT)
+        self.assertEqual(kfree["status"], "found", kfree)
+        self.assertEqual(kfree["selected"]["pointer_arg_indices"], [0])
+        self.assertIn("const void *", kfree["selected"]["signature"])
+
+        strlcpy = repl.lookup_source_signature("strlcpy", source_root=KERNEL_SOURCE_ROOT)
+        self.assertEqual(strlcpy["status"], "found", strlcpy)
+        self.assertEqual(strlcpy["selected"]["pointer_arg_indices"], [0, 1])
+
+    def test_call_safety_sweep_is_advisory_and_does_not_promote_gate(self) -> None:
+        if not KERNEL_SOURCE_ROOT.is_dir():
+            self.skipTest("kernel source tree not present")
+
+        seed_snapshot = repr(repl.CALL_SAFETY_SEEDS)
+        summary = repl.run_call_safety_sweep(
+            self.symbols,
+            self.image,
+            explicit_symbols=("__kmalloc", "kfree", "strlcpy", "kgsl_pwrctrl_force_no_nap_store"),
+            limit=0,
+            source_root=KERNEL_SOURCE_ROOT,
+            include_objdump=False,
+        )
+        self.assertTrue(summary["ok"], summary)
+        self.assertTrue(summary["host_only"])
+        self.assertFalse(summary["device_action"])
+        self.assertFalse(summary["network_dependency"])
+        self.assertEqual(repr(repl.CALL_SAFETY_SEEDS), seed_snapshot)
+
+        rows = {row["symbol"]: row for row in summary["rows"]}
+        self.assertEqual(rows["__kmalloc"]["advisory"]["source_pointer_arg_indices"], [])
+        self.assertNotEqual(
+            rows["__kmalloc"]["advisory"]["tier"],
+            repl.CALL_SAFETY_SAFE_WITH_VALID_PTR,
+        )
+        self.assertEqual(rows["kfree"]["advisory"]["source_pointer_arg_indices"], [0])
+        self.assertNotEqual(rows["kfree"]["advisory"]["tier"], repl.CALL_SAFETY_SAFE_SCALAR)
+
+        kgsl_store = rows["kgsl_pwrctrl_force_no_nap_store"]
+        self.assertEqual(kgsl_store["source"]["status"], "missing")
+        self.assertEqual(kgsl_store["advisory"]["tier"], repl.CALL_SAFETY_DENY)
+        self.assertIn("source-missing", kgsl_store["advisory"]["danger_flags"])
+
+        strlcpy = rows["strlcpy"]
+        self.assertEqual(strlcpy["gate_tier"], repl.CALL_SAFETY_DENY)
+        self.assertEqual(strlcpy["source"]["status"], "found")
+        self.assertEqual(strlcpy["advisory"]["tier"], repl.CALL_SAFETY_SAFE_WITH_VALID_PTR)
+        self.assertTrue(strlcpy["advisory"]["candidate_safe"])
+        self.assertIn(
+            "strlcpy",
+            {candidate["symbol"] for candidate in summary["candidate_safe_ranked"]},
+        )
+        with self.assertRaisesRegex(repl.ReplError, "call-safety gate refused"):
+            repl.require_call_safety_for_call(
+                self.symbols,
+                self.image,
+                "strlcpy",
+                ("@dst", "@src", "0x10"),
+            )
 
 
 def _buf_from_op_sh(sh_str: str) -> bytes:

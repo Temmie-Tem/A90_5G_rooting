@@ -767,11 +767,27 @@ epic is DONE.** Reports:
 `docs/reports/NATIVE_INIT_V3335_GPU_Z3_PRIMARY_SETCRTC_SOURCE_BUILD_2026-06-27.md` and
 `docs/reports/NATIVE_INIT_V3335_GPU_Z3_PRIMARY_SETCRTC_LIVE_2026-06-27.md`.**
 
-## 🟣 ACTIVE NOW — DELEGATED: REPL U3 — broad advisory call-safety risk-assessment sweep
+## ✅ DONE — REPL U3 — broad advisory call-safety risk-assessment sweep
 
 **Operator-chartered 2026-06-29 (U2 DONE/verified; user pre-decided U2→U3).** U2 gave a vetted ~15-symbol
 seed + a disasm signal/taint extractor + a fail-closed gate. U3 SCALES that to a large function-family sweep
 so we get broad, evidence-backed *risk triage* across the kernel — not just the seed.
+
+> ### ✅ STATUS (2026-06-29 U3 host pass) — source-backed advisory sweep landed
+>
+> `a90_repl.py` now has `call-safety-sweep`: bounded family/prefix/regex/explicit-symbol selection, stable
+> ordering, source-signature xref from the local stock kernel tree, existing U2/C1 static identity+taint
+> evidence, danger flags, advisory tiers, and a ranked `advisory-not-auto-callable` candidate list. The
+> firewall is explicit: sweep results do **not** mutate `CALL_SAFETY_SEEDS` or the `call` gate. Source
+> signatures override toward restriction: pointer args never become `SAFE-SCALAR`; missing/ambiguous source
+> downgrades; `__user` / lock / sleep annotations and disasm context calls block candidate promotion. CLI smoke:
+> `strlcpy` becomes an advisory `SAFE-WITH-VALID-PTR` candidate while gate tier stays `DENY`; device-specific
+> `kgsl_pwrctrl_force_no_nap_store` has missing source and stays advisory `DENY`. Three-family smoke
+> (`allocator,string,read-io`, limit 20) swept 20 rows and produced 7 advisory candidates with
+> `host_only=true`, `device_action=false`, and `network_dependency=false`. Validation: `py_compile`
+> pass, `tests.test_a90_repl.CallSafetyClassificationTests` 11/11 PASS, full `tests.test_a90_repl` 61/61 PASS.
+> Host-only, no device action, no boot-image change, no network dependency. Report:
+> `docs/reports/KERNEL_SECURITY_TIER2_RUNTIME_KERNEL_REPL_U3_CALL_SAFETY_SWEEP_2026-06-29.md`.
 
 **Goal:** run the U2 classifier across useful function families (allocator, string/mem, list, bounded
 read-I/O, sysfs-`show`, refcount/get-put) and emit ① a signal-bucketed risk profile, ② a ranked
