@@ -1195,6 +1195,11 @@ a map-audit report exists and the known mm/slab drift is fixed or explicitly fen
 `read` works; the live op path survives serial-fragment noise without aborting; one bounded live
 re-validation passes and rolls back to v2321 `fail=0`; raw pointers/slide never leave private evidence.
 
+**STATUS (2026-06-29) — v2c core DoD DONE.** C1 fail-closed resolution, C2C/C2D map-audit fencing,
+U1 CLI `read`/`call`/owned-`poke`, S1 sequential live validation, and rollback-to-v2321 `fail=0` are all
+landed and reported. U2 remains optional/stretch only; any future broad map drift claim still requires a
+new independent oracle and must not come from the noisy 24-byte `0x403` table.
+
 **Guardrails: unchanged from below** (RECON / exploit-free; no RKP bypass; no protected-memory write; no
 RWX; preserve `x17`; boot-partition-only flashes with pinned+readback SHA; rollback v2321; fails-twice →
 STOP + report; keep raw runtime pointers/slide out of commits; scoped `git add`). Operator cross-checks any
