@@ -60,12 +60,13 @@ only, never a native-init runtime dependency. Full history (AUD-0 → AUD-5, V23
 
 ### ✅ SUPERSEDED — Video PLAYBACK / Bad Apple / GPU demo ladder — DONE (kept below for history)
 
-> **POINTER (operator, 2026-06-28): this Video/GPU track is CLOSED. The single active epic is now
-> `## 🟢 ACTIVE NOW — SoftAP server-endgame (S0→S4)` further down this file.** Bad Apple full-song
-> demo, GPU first-light/triangle/compute/accel-2D/monitor/zero-copy rungs, and DOOM are all DONE and
-> eye-confirmed; the loop pivoted GPU→SoftAP at V3336. Do NOT resume Video/Nyan/GPU work — go to the
-> SoftAP ACTIVE NOW block (next bounded unit = S4 local transfer server proof after V3343 AP
-> bring-up/cleanup passed). The text below is retained as reference history only.
+> **POINTER (operator, 2026-06-28): Video/GPU AND SoftAP are both CLOSED. The single active epic is now
+> `## 🟣 ACTIVE NOW — DELEGATED: Tier-2 Runtime Kernel REPL (v1-repl → v2-bulk)` further down this file.**
+> Bad Apple full-song demo, GPU first-light/triangle/compute/accel-2D/monitor/zero-copy rungs, and DOOM
+> are all DONE and eye-confirmed; the loop pivoted GPU→SoftAP at V3336; SoftAP S0→S4 is DONE at V3344.
+> Do NOT resume Video/Nyan/GPU/SoftAP work — go to the **Runtime Kernel REPL** delegated block (next
+> bounded unit = **v1-repl**: add `poke`+small `peek`+`call` to the flash-once REPL; v1-slide already
+> LIVE-PROVEN by the operator). The text below is retained as reference history only.
 
 > **(history)** Audio CORE is device-proven + promoted (`0.10.0`); its Tier-C polish is optional background.
 >
@@ -762,7 +763,63 @@ epic is DONE.** Reports:
 `docs/reports/NATIVE_INIT_V3335_GPU_Z3_PRIMARY_SETCRTC_SOURCE_BUILD_2026-06-27.md` and
 `docs/reports/NATIVE_INIT_V3335_GPU_Z3_PRIMARY_SETCRTC_LIVE_2026-06-27.md`.**
 
-## 🟣 DELEGATED OPERATOR SIDE-QUEST — Tier-2 Stage C: confirm a patched-in direct `bl` executes under RKP_CFP
+## 🟣 ACTIVE NOW — DELEGATED: Tier-2 Runtime Kernel REPL (v1-repl → v2-bulk)
+
+**Operator-chartered 2026-06-28. This is the single active epic.** Build a **flash-once runtime kernel
+REPL** so future EL1/kernel experiments need NO reflash per step: after one flash, drive runtime kernel
+**observe + execute** over the bridge. Exploit-free (NO RKP bypass) — it only reads memory, writes
+**non-protected** data, and `call`s **real** kernel function entries; RKP does memory-protection only
+(not behavioral monitoring), so this is not RKP-detectable. We already hold EL1 (we flash our own
+kernel); this is operator RECON/debug tooling on an owned, bootloader-unlocked, patched device. Full
+design + decisions: `docs/reports/KERNEL_SECURITY_TIER2_RUNTIME_KERNEL_REPL_DESIGN_2026-06-28.md`.
+
+**Already proven (reuse, do not re-derive):**
+- Tier-2 `.text` patch boots under RKP; Stage C proved a **new direct `bl printk`** executes under
+  RKP_CFP. Plain `printk(fmt,...)` is at vaddr `0xffffff800813d8cc` (NOT `printk_emit` 0x...813c814).
+- **`poke`** primitive LIVE-PROVEN (`build_kernel_runtime_poke_agent.py`): hijacks the corrected
+  `force_no_nap_store` at file-off `0x8A73C8` / vaddr `0xffffff80089273b4`, room **212 B (53 instr)**,
+  magic-guarded (MAGIC `0xA90C0DE5DEADBEEF`), protocol `{u64 magic,u64 addr,u64 val,u64 width}`.
+- **`slide`** primitive LIVE-PROVEN (`build_kernel_tier2_repl_v1_slide.py`): a `.text` stub does
+  `adr x1,.` + `bl printk` → host derives `slide = runtime_pc − (entry_vaddr + 40)`. This supersedes
+  the heavy V2216 perf/codeword method; `/proc/kallsyms` is `%p`-hashed even at `kptr_restrict=0`.
+- Reusable host helpers in `build_kernel_tier2_stage_c_direct_bl_printk.py`: `encode_bl`,
+  `encode_adr_x0`, `kernel_vaddr`, `locate_printk_variadic_wrapper`, `recompute_boot_id`,
+  `parse_boot_layout`, JOPP_MAGIC `0x00BE7BAD`, ROPP eor `0xCA1103D0`/epilogue `0xCA11021E`.
+
+**🚨 BRICK LESSON (binding):** the first poke build bricked because its offset (`0x8A7920`) pointed at
+`gpu_busy_percentage_show` (read at boot), and the `eor`+RKP-magic asserts passed because **every ROPP
+function** begins that way. **Verify every patch target by its exact function FINGERPRINT (disasm
+semantics), never by the generic ROPP shape.** The corrected `force_no_nap_store` asserts: word at
+`0x8A73C8` == `0xD10103FF` (`sub sp,#0x40`), next word == `0xCA1103D0` (`eor`), magic at `0x8A73C4`,
+next magic at `0x8A749C`. `force_no_nap` is never read/written at boot or by the periodic monitor.
+
+**Next bounded unit = v1-repl** (`build_kernel_tier2_repl_v1_repl.py`): one flash-once stub with an
+**op byte** dispatching: `op=0 slide` (have it), `op=1 peek(addr,len)` small, `op=2 poke(addr,val,width)`
+(have it), `op=3 call(addr,x0..x7)`. Output via **printk** (proven; bounded width is fine for slide /
+call-return / small peek). `call` is **non-leaf** → must use the ROPP `eor` frame (preserve `x17`); its
+`blr` is JOPP-gated → only call **real function entries** (word at entry−4 == `0x00BE7BAD`); runs in
+sysfs-write **process context** (sleepable). If the 4-op stub exceeds the 212 B `store` room, split per
+design **D6**: keep `poke/call/slide` in `store`, move `peek`'s read loop into `force_no_nap_show`
+(108 B / 27 instr), or `b`-trampoline into a confirmed-unused larger cave. **Live validation:** set
+`panic_on_oops=0`; prove `slide`; `call kallsyms_lookup_name("<symbol>")` and confirm its result equals
+`(in-image link vaddr) + slide`; `peek` a known kernel string and confirm bytes match the image; restore
+`panic_on_oops=1`; roll back to clean v2321 with `selftest fail=0`. **Then v2-bulk**: `show`-buf output
++ `kmalloc`-bootstrapped scratch for arbitrary-length `peek`.
+
+**Guardrails (hard, RECON / exploit-free):** NO RKP bypass, NO write to RKP-protected memory
+(`.text`/rodata/page-tables/cred), NO RWX, NO `ret`/`blr`/CFP-site patch, NO grooming/UAF/spray,
+preserve `x17`. Magic-guard every hijacked handler. Boot-partition-only via `native_init_flash.py`
+with pinned + readback SHA; rollback target v2321
+(`ca978551aabe4b39563abaf529ccf2522054952d8b2ad852e632d26da88168cb`). Gate-2 **disasm** every candidate
+(objdump the patched body; confirm diff is contained to `{boot-id@0x240, target-function body}`, magics
+preserved) BEFORE flashing. Keep raw runtime pointers / the per-boot slide OUT of committed reports.
+Fails-twice → STOP and report; anti-churn in force. Report each unit to `docs/reports/`.
+
+**Operator/loop split:** the operator (Claude) already did the corrected `poke` agent, `slide`, and this
+design; the loop now owns **v1-repl → v2-bulk**. The operator will NOT run parallel device/coding on
+this thread (collision-avoidance, V2631 lesson) unless explicitly re-engaged.
+
+## 🟣 DONE — DELEGATED OPERATOR SIDE-QUEST — Tier-2 Stage C: confirm a patched-in direct `bl` executes under RKP_CFP
 
 **DONE (2026-06-28) — direct `bl printk` executed under RKP_CFP and the device was rolled back to
 clean v2321.** Stage A/B had already proven Tier-2 kernel `.text` patching boots and takes runtime
@@ -781,7 +838,7 @@ reading `/sys/class/kgsl/kgsl-3d0/num_pwrlevels` returned cleanly, and dmesg sho
 held: no grooming/UAF/EL1, no `ret`/`blr`/CFP-site patches, `x17` preserved, boot-partition-only
 via `native_init_flash.py`.
 
-## 🟢 ACTIVE NOW — SoftAP server-endgame (S0→S4), after GPU epic close
+## ✅ CLOSED — SoftAP server-endgame (S0→S4), DONE at V3344 (history below; loop re-chartered to the Runtime Kernel REPL side-quest above)
 
 **STATUS (2026-06-27 S0 charter/recon) — V3336 pivots the loop from GPU to SoftAP and freezes the
 target shape before any AP-mode mutation.** The goal is not the existing phone/router lab where A90 is
