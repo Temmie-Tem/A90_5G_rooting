@@ -1049,6 +1049,16 @@ host-only unit unless it explicitly needs a live check. Report each to `docs/rep
   sanity (e.g. a callable function entry must be JOPP-shaped, have a plausible xref count, and not match a
   known-bad shape); (3) optional agreement with the map. `peek` of read-only data may use the map but must
   surface `verified=False` in output. This structurally prevents the v2a2 mislabel-call class.
+
+  **STATUS (2026-06-29 v2c C1 host pass) — fail-closed resolution is implemented host-side.**
+  `a90_repl.py` now has `VerifiedResolution` + `resolve_verified(...)`: call/poke targets must be verified
+  before dispatch, `__kmalloc`/`kfree` resolve through the v2a2R' recovered-export ground truth, `printk`
+  is accepted only by map-address disasm/xref sanity, `kallsyms_lookup_name` is explicitly blocked as a
+  known unsafe live call, and read-only `peek` surfaces `verified=False`. `run_selftest` verifies its call
+  target before transport; `run_poke_roundtrip` verifies allocator call/free targets and rejects stale
+  map-derived allocator overrides before any REPL op. Validation: `py_compile` pass,
+  `tests.test_a90_repl` **36/36 PASS**. Report:
+  `docs/reports/KERNEL_SECURITY_TIER2_RUNTIME_KERNEL_REPL_V2C_C1_FAIL_CLOSED_RESOLUTION_2026-06-29.md`.
 - **C2 — map-trust audit + decoder root-fix.** Build a host-only `map-audit` that cross-checks the kallsyms
   `System.map` against export-recovery ground truth for *all* exported symbols, emits a drift report (which
   symbols/address-regions disagree), and quantifies map accuracy. Then use that to find and fix the residual

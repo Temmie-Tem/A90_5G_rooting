@@ -253,6 +253,46 @@ class StaticImageCrossCheckTests(unittest.TestCase):
         self.assertGreater(rows["__kmalloc"]["selected_direct_bl_xref_count"], 1000)
         self.assertGreater(rows["kfree"]["selected_direct_bl_xref_count"], 10000)
 
+    def test_resolve_verified_allocator_uses_recovered_exports(self) -> None:
+        kmalloc = repl.resolve_verified(self.symbols, self.image, "__kmalloc", purpose="call")
+        kfree = repl.resolve_verified(self.symbols, self.image, "kfree", purpose="call")
+
+        self.assertTrue(kmalloc.verified, kmalloc.public_dict())
+        self.assertTrue(kfree.verified, kfree.public_dict())
+        self.assertEqual(kmalloc.method, "export-recovery")
+        self.assertEqual(kfree.method, "export-recovery")
+        self.assertEqual(kmalloc.link_vaddr, 0xFFFFFF800826AE34)
+        self.assertEqual(kfree.link_vaddr, 0xFFFFFF800826B354)
+        self.assertTrue(kmalloc.evidence["map_agrees_with_export"] is False)
+        self.assertTrue(kfree.evidence["map_agrees_with_export"] is False)
+
+    def test_resolve_verified_printk_accepts_map_signature(self) -> None:
+        resolution = repl.resolve_verified(self.symbols, self.image, "printk", purpose="call")
+
+        self.assertTrue(resolution.verified, resolution.public_dict())
+        self.assertEqual(resolution.method, "disasm-signature+xref+map")
+        self.assertEqual(resolution.link_vaddr, 0xFFFFFF800813D8CC)
+        self.assertGreaterEqual(resolution.evidence["map_direct_bl_xref_count"], 1)
+
+    def test_resolve_verified_blocks_known_unsafe_call(self) -> None:
+        resolution = repl.resolve_verified(self.symbols, self.image, "kallsyms_lookup_name", purpose="call")
+
+        self.assertFalse(resolution.verified, resolution.public_dict())
+        self.assertEqual(resolution.method, "blocked-known-unsafe")
+        self.assertIn("known-unsafe-live-call", resolution.evidence["blocked_reasons"][0])
+
+    def test_resolve_verified_peek_surfaces_unverified_map_use(self) -> None:
+        resolution = repl.resolve_verified(
+            self.symbols,
+            self.image,
+            "kgsl_pwrctrl_force_no_nap_store",
+            purpose="peek",
+        )
+
+        self.assertFalse(resolution.verified, resolution.public_dict())
+        self.assertEqual(resolution.method, "System.map-read-only-unverified")
+        self.assertEqual(resolution.link_vaddr, 0xFFFFFF80089273B4)
+
     def test_assert_jopp_entry_rejects_non_entry(self) -> None:
         link = repl.resolve_link(self.symbols, "printk")
         with self.assertRaises(repl.ReplError):
@@ -281,8 +321,9 @@ class FaithfulFakeTransport:
         self.slide = slide
         self.symbols = symbols
         self.image = image
-        self.kmalloc_link = repl.resolve_link(self.symbols, "__kmalloc")
-        self.kfree_link = repl.resolve_link(self.symbols, "kfree")
+        recovery = repl.recover_allocator_export_addresses(self.symbols, self.image)
+        self.kmalloc_link = int(recovery["recovered"]["__kmalloc"], 16)
+        self.kfree_link = int(recovery["recovered"]["kfree"], 16)
         self.heap_ptr = 0xFFFFFFC012300000
         self.heap: dict[int, int] = {}
         self.freed: list[int] = []
@@ -363,6 +404,25 @@ class SelftestIntegrationTests(unittest.TestCase):
         kinds = {c["check"] for c in summary["checks"]}
         self.assertEqual(kinds, {"named-peek", "named-call-printk"})
         self.assertTrue(all(c["ok"] for c in summary["checks"]))
+        self.assertTrue(summary["call_resolution"]["verified"])
+        self.assertEqual(summary["call_resolution"]["method"], "disasm-signature+xref+map")
+
+    def test_selftest_rejects_known_unsafe_call_before_transport(self) -> None:
+        fake = FaithfulFakeTransport(0x130000, self.symbols, self.image)
+        orig = repl.transport.run_serial_command
+        repl.transport.run_serial_command = fake.run_serial_command
+        self.addCleanup(lambda: setattr(repl.transport, "run_serial_command", orig))
+        session = repl.ReplSession(repl.ReplConfig(settle_sec=0.0))
+
+        with self.assertRaisesRegex(repl.ReplError, "not verified"):
+            repl.run_selftest(
+                session,
+                self.symbols,
+                self.image,
+                peek_symbols=("kgsl_pwrctrl_force_no_nap_store",),
+                call_symbol="kallsyms_lookup_name",
+            )
+        self.assertEqual(fake.op_count, 0)
 
     def test_selftest_rejects_non_page_aligned_slide(self) -> None:
         with self.assertRaises(repl.ReplError):
@@ -422,6 +482,8 @@ class SelftestIntegrationTests(unittest.TestCase):
 
         self.assertTrue(summary["ok"], summary)
         self.assertEqual(summary["allocator_address_source"], "allocator-export-recovery")
+        self.assertTrue(summary["allocator_resolutions"]["__kmalloc"]["verified"])
+        self.assertTrue(summary["allocator_resolutions"]["kfree"]["verified"])
         self.assertEqual(
             summary["allocator_link_vaddrs"],
             {
@@ -448,15 +510,25 @@ class SelftestIntegrationTests(unittest.TestCase):
         self.assertFalse(fake.heap)
         self.assertFalse(fake.freed)
 
-    def test_poke_roundtrip_default_guard_rejects_before_transport(self) -> None:
+    def test_poke_roundtrip_rejects_unverified_allocator_override_before_transport(self) -> None:
         fake = FaithfulFakeTransport(0x130000, self.symbols, self.image)
         orig = repl.transport.run_serial_command
         repl.transport.run_serial_command = fake.run_serial_command
         self.addCleanup(lambda: setattr(repl.transport, "run_serial_command", orig))
         session = repl.ReplSession(repl.ReplConfig(settle_sec=0.0))
+        bad_map_links = {
+            "__kmalloc": repl.resolve_link(self.symbols, "__kmalloc"),
+            "kfree": repl.resolve_link(self.symbols, "kfree"),
+        }
 
-        with self.assertRaisesRegex(repl.ReplError, "dereferences x0"):
-            repl.run_poke_roundtrip(session, self.symbols, self.image)
+        with self.assertRaisesRegex(repl.ReplError, "does not match verified resolution"):
+            repl.run_poke_roundtrip(
+                session,
+                self.symbols,
+                self.image,
+                allocator_links=bad_map_links,
+                allocator_source="System.map",
+            )
         self.assertEqual(fake.op_count, 0)
 
 
