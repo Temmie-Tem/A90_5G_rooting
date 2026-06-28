@@ -6,7 +6,7 @@
 - Scope: host-side driver that turns the per-boot KASLR slide into **named** `peek`/`call`
   over the already-live-proven v1-repl image — **no new boot image**.
 - Driver: `workspace/public/src/scripts/revalidation/a90_repl.py`
-- Test: `tests/test_a90_repl.py` (18 host-only tests)
+- Test: `tests/test_a90_repl.py` (20 host-only tests)
 - Live image driven (unchanged): `boot_linux_tier2_repl_v1_repl.img`,
   SHA256 `b846ae9f74d8ceb922bbcd854d78b6795ef833d61e38465d3cc474cb6f0dfb65`
 - Base / rollback: clean V2321, SHA256 `ca978551aabe4b39563abaf529ccf2522054952d8b2ad852e632d26da88168cb`
