@@ -85,6 +85,7 @@ class AddressTable:
     offsets_start: int
     relative_base_pos: int
     relative_base: int
+    padding_before_relative_base: int
     low_offsets: list[int]
     synthetic_base: int
     text_offset: int
@@ -443,8 +444,13 @@ def apply_kgsl_ropp_local_run_decode(data: bytes,
     if "tkgsl_pwrctrl_num_pwrlevels_show" not in names.names:
         return
     anchor_index = symbol_index(names, "tkgsl_pwrctrl_num_pwrlevels_show")
-    anchor_raw = legacy_stage_c_local_raw_offset(low_offsets[anchor_index], text_offset)
     ropp_entries = iter_ropp_entry_offsets(data)
+
+    direct_raw = low_offsets[anchor_index]
+    if direct_raw in ropp_entries and has_word_within(data, direct_raw, 0x51000503, 0x80):
+        return
+
+    anchor_raw = legacy_stage_c_local_raw_offset(low_offsets[anchor_index], text_offset)
     try:
         anchor_entry_pos = ropp_entries.index(anchor_raw)
     except ValueError as exc:
@@ -730,7 +736,14 @@ def find_num_syms_position(data: bytes, names_start: int, count: int) -> int:
 def find_address_table(data: bytes, names: NameTable, text_address: int) -> AddressTable:
     relative_base_pos = names.num_syms_pos - 8
     relative_base = u64(data, relative_base_pos) if relative_base_pos >= 0 else 0
-    offsets_start = relative_base_pos - 4 * names.num_syms
+    padding_before_relative_base = 0
+    while (
+        relative_base_pos - 4 - padding_before_relative_base >= 0
+        and padding_before_relative_base < 0x1000
+        and u32(data, relative_base_pos - 4 - padding_before_relative_base) == 0
+    ):
+        padding_before_relative_base += 4
+    offsets_start = relative_base_pos - padding_before_relative_base - 4 * names.num_syms
     if offsets_start < 0:
         raise RuntimeError("kallsyms_offsets would start before image")
     low_offsets = [u32(data, offsets_start + 4 * index) for index in range(names.num_syms)]
@@ -756,6 +769,7 @@ def find_address_table(data: bytes, names: NameTable, text_address: int) -> Addr
         offsets_start,
         relative_base_pos,
         relative_base,
+        padding_before_relative_base,
         low_offsets,
         text_address,
         text_offset,
@@ -843,6 +857,7 @@ def main() -> int:
         "offsets_start": f"0x{addresses.offsets_start:x}",
         "relative_base_pos": f"0x{addresses.relative_base_pos:x}",
         "relative_base_raw": f"0x{addresses.relative_base:x}",
+        "padding_before_relative_base": addresses.padding_before_relative_base,
         "address_decode": "base-relative raw Image offsets rendered as Stage-C file vaddrs",
         "file_text_address": f"0x{args.text_address:x}",
         "synthetic_base": f"0x{addresses.synthetic_base:x}",

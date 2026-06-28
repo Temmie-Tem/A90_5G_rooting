@@ -1076,6 +1076,18 @@ host-only unit unless it explicitly needs a live check. Report each to `docs/rep
   `docs/reports/KERNEL_SECURITY_TIER2_RUNTIME_KERNEL_REPL_V2C_C2_MAP_AUDIT_2026-06-29.md`.
   **Next C2 step:** fix the kallsyms decoder root cause or explicitly fence trusted map regions; do not treat
   this System.map as globally trustworthy.
+
+  **STATUS (2026-06-29 v2c C2B host pass) — kallsyms padding root-fix landed; residuals fenced.**
+  Root cause: the A90 image has `95` zero u32 padding entries (`380` bytes) between `kallsyms_offsets`
+  and `kallsyms_relative_base`, so the extractor started the address table `95` entries late. The fixed
+  extractor skips that padding (`offsets_start 0x1e8087c -> 0x1e80700`, `text_offset=0`) and keeps the
+  `printk` signature override. Regenerated private map:
+  `workspace/private/runs/kernel/v2c-c2b-kallsyms-padding-fix/System.map`. Re-running `map-audit` on that
+  map gives `12480` matches, `9` mismatches, `1` ambiguous, `138` missing recovery out of `12628` exported
+  symbols; `__kmalloc` and `kfree` now map-match the recovered/live-proven addresses. Remaining residuals
+  stay fenced by C1 verified resolution for `call`/`poke`. Validation: `py_compile` pass,
+  `tests.test_a90_stock_kallsyms_extract` + `tests.test_a90_repl` **53/53 PASS**. Report:
+  `docs/reports/KERNEL_SECURITY_TIER2_RUNTIME_KERNEL_REPL_V2C_C2B_KALLSYMS_PADDING_FIX_2026-06-29.md`.
 - **S1 — transport stability.** Harden the live op path against the observed serial-fragment noise
   (`ATAT` / missing `A90P1 END`): per-op bounded re-read/realign retry, robust ring read (busybox `dmesg`
   is read-and-clear; keep the single-shell `op_sh` + `tail -n N`), and clear classification of
