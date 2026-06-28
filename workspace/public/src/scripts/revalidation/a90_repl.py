@@ -148,10 +148,10 @@ CALL_SAFETY_SEEDS = {
         "reason": "live-proven allocator entry; scalar size/gfp ABI",
     },
     "kfree": {
-        "tier": CALL_SAFETY_SAFE_SCALAR,
-        "required_valid_pointer_args": {},
+        "tier": CALL_SAFETY_SAFE_WITH_VALID_PTR,
+        "required_valid_pointer_args": {0: "kmalloc-object-or-NULL"},
         "return_kind": "void",
-        "reason": "live-proven cleanup call for REPL-owned kmalloc pointer",
+        "reason": "cleanup call; x0 must be a verified kmalloc object pointer or NULL",
     },
     "ksize": {
         "tier": CALL_SAFETY_SAFE_WITH_VALID_PTR,
@@ -2234,13 +2234,219 @@ def _objdump_function_excerpt(image: StaticImage,
     }
 
 
+def _function_scan_byte_count(symbols: dict[str, Symbol],
+                              link_vaddr: int,
+                              *,
+                              max_scan_bytes: int = 0x1000) -> int:
+    next_vaddr = min(
+        (
+            symbol.vaddr
+            for symbol in symbols.values()
+            if symbol.vaddr > link_vaddr and _map_kind_is_function(symbol.kind)
+        ),
+        default=None,
+    )
+    if next_vaddr is None:
+        return max_scan_bytes
+    return max(0x40, min(max_scan_bytes, next_vaddr - link_vaddr))
+
+
+def _reg_num(text: str) -> int | None:
+    text = text.strip().lower()
+    if text in ("sp", "xzr", "wzr"):
+        return None
+    match = re.fullmatch(r"[xw]([0-2]?\d|3[01])", text)
+    if not match:
+        return None
+    value = int(match.group(1))
+    return value if 0 <= value <= 30 else None
+
+
+def _regs_in_text(text: str) -> list[int]:
+    regs: list[int] = []
+    for match in re.finditer(r"\b([xw](?:[0-2]?\d|3[01])|sp|xzr|wzr)\b", text.lower()):
+        reg = _reg_num(match.group(1))
+        if reg is not None:
+            regs.append(reg)
+    return regs
+
+
+def _split_first_operand(operands: str) -> tuple[str, str]:
+    if "," not in operands:
+        return operands.strip(), ""
+    first, rest = operands.split(",", 1)
+    return first.strip(), rest.strip()
+
+
+def _parse_objdump_instruction(line: str) -> dict[str, object] | None:
+    match = re.match(
+        r"^\s*([0-9a-fA-F]+):\s+([0-9a-fA-F]{8})\s+([A-Za-z0-9_.]+)\s*(.*)$",
+        line,
+    )
+    if not match:
+        return None
+    operands = match.group(4).split("//", 1)[0].strip()
+    return {
+        "pc": int(match.group(1), 16),
+        "word": match.group(2).lower(),
+        "mnemonic": match.group(3).lower(),
+        "operands": operands,
+        "line": line,
+    }
+
+
+def _is_load_mnemonic(mnemonic: str) -> bool:
+    return mnemonic.startswith(("ldr", "ldur", "ldp", "ldxp", "ldax", "ldar"))
+
+
+def _dest_regs_before_memory_operand(operands: str) -> list[int]:
+    before_mem = operands.split("[", 1)[0]
+    return _regs_in_text(before_mem)
+
+
+def _call_safety_arg_taint_flow(symbols: dict[str, Symbol],
+                                image: StaticImage,
+                                link_vaddr: int,
+                                *,
+                                scan_bytes: int) -> dict[str, object]:
+    disasm = _objdump_function_excerpt(
+        image,
+        link_vaddr,
+        byte_count=scan_bytes,
+        max_lines=900,
+    )
+    if not disasm.get("available"):
+        return {
+            "available": False,
+            "safe_scalar_positive_no_arg_memory_base_flow": False,
+            "reason": disasm,
+        }
+
+    taint: dict[int, set[int]] = {index: {index} for index in range(8)}
+    memory_base_uses: list[dict[str, object]] = []
+    tainted_arg_calls: list[dict[str, object]] = []
+    propagation_sample: list[dict[str, object]] = []
+
+    for line in disasm.get("lines", []):
+        parsed = _parse_objdump_instruction(str(line))
+        if parsed is None:
+            continue
+        mnemonic = str(parsed["mnemonic"])
+        operands = str(parsed["operands"])
+
+        for base_text in re.findall(r"\[([xw](?:[0-2]?\d|3[01])|sp)\b", operands.lower()):
+            base = _reg_num(base_text)
+            if base is not None and base in taint:
+                memory_base_uses.append({
+                    "pc": f"0x{int(parsed['pc']):x}",
+                    "word": f"0x{parsed['word']}",
+                    "mnemonic": mnemonic,
+                    "base_reg": f"x{base}",
+                    "source_args": [f"x{arg}" for arg in sorted(taint[base])],
+                    "line": line,
+                })
+
+        if mnemonic == "bl":
+            tainted_args = {
+                f"x{index}": [f"x{arg}" for arg in sorted(taint[index])]
+                for index in range(8)
+                if index in taint
+            }
+            if tainted_args and len(tainted_arg_calls) < 16:
+                tainted_arg_calls.append({
+                    "pc": f"0x{int(parsed['pc']):x}",
+                    "line": line,
+                    "tainted_args": tainted_args,
+                })
+            # A direct call overwrites caller-clobbered registers. Keep
+            # callee-saved aliases such as kfree's x22 <- x0.
+            for reg in range(19):
+                taint.pop(reg, None)
+            continue
+
+        if "[" in operands:
+            if _is_load_mnemonic(mnemonic):
+                base_match = re.search(r"\[([xw](?:[0-2]?\d|3[01])|sp)\b", operands.lower())
+                base = _reg_num(base_match.group(1)) if base_match else None
+                base_taint = set(taint.get(base, set())) if base is not None else set()
+                for dest in _dest_regs_before_memory_operand(operands):
+                    if dest == 31:
+                        continue
+                    if base_taint:
+                        taint[dest] = set(base_taint)
+                    else:
+                        taint.pop(dest, None)
+            continue
+
+        dest_text, rest = _split_first_operand(operands)
+        dest = _reg_num(dest_text)
+        if dest is None:
+            continue
+
+        source_regs = _regs_in_text(rest)
+        source_taint: set[int] = set()
+        for reg in source_regs:
+            source_taint.update(taint.get(reg, set()))
+
+        if mnemonic in {
+            "mov",
+            "add",
+            "sub",
+            "orr",
+            "and",
+            "eor",
+            "bic",
+            "lsl",
+            "lsr",
+            "asr",
+            "sxtw",
+            "uxtw",
+            "ubfx",
+            "sbfx",
+            "csel",
+            "csinc",
+            "csinv",
+            "csneg",
+        }:
+            if source_taint:
+                taint[dest] = source_taint
+                if len(propagation_sample) < 24:
+                    propagation_sample.append({
+                        "pc": f"0x{int(parsed['pc']):x}",
+                        "dest": f"x{dest}",
+                        "source_args": [f"x{arg}" for arg in sorted(source_taint)],
+                        "line": line,
+                    })
+            else:
+                taint.pop(dest, None)
+        elif mnemonic in {"adr", "adrp", "mrs", "movz", "movn"}:
+            taint.pop(dest, None)
+
+    final_taint = {
+        f"x{reg}": [f"x{arg}" for arg in sorted(args)]
+        for reg, args in sorted(taint.items())
+    }
+    return {
+        "available": True,
+        "scan_bytes": scan_bytes,
+        "safe_scalar_positive_no_arg_memory_base_flow": not memory_base_uses,
+        "arg_memory_base_use_count": len(memory_base_uses),
+        "arg_memory_base_uses": memory_base_uses[:16],
+        "tainted_arg_call_count": len(tainted_arg_calls),
+        "tainted_arg_calls_sample": tainted_arg_calls,
+        "propagation_sample": propagation_sample,
+        "final_tainted_regs": final_taint,
+    }
+
+
 def _call_safety_static_signals(symbols: dict[str, Symbol],
                                 image: StaticImage,
                                 link_vaddr: int,
                                 *,
-                                scan_bytes: int = 0x100,
+                                scan_bytes: int | None = None,
                                 include_objdump: bool = True) -> dict[str, object]:
     raw = cached_static_raw_image(image)
+    scan_bytes = scan_bytes or _function_scan_byte_count(symbols, link_vaddr)
     words = image.u32_words_at_vaddr(link_vaddr, scan_bytes // 4)
     bl_targets: list[dict[str, object]] = []
     ret_offsets: list[int] = []
@@ -2296,6 +2502,12 @@ def _call_safety_static_signals(symbols: dict[str, Symbol],
         "ret_offsets_sample": [f"0x{offset:x}" for offset in ret_offsets[:8]],
         "variadic_prologue_matches_printk": variadic_prologue,
         "printk_prologue_link_vaddr": f"0x{printk_link:x}" if printk_link is not None else None,
+        "arg_taint_flow": _call_safety_arg_taint_flow(
+            symbols,
+            image,
+            link_vaddr,
+            scan_bytes=scan_bytes,
+        ),
     }
     if include_objdump:
         signals["objdump"] = _objdump_function_excerpt(image, link_vaddr, byte_count=scan_bytes)
@@ -2362,9 +2574,20 @@ def classify_call_safety(symbols: dict[str, Symbol],
 
     arg_derefs = signals.get("arg_pointer_derefs_before_first_bl_or_ret", [])
     required_ptrs = seed_required_ptrs
+    if tier == CALL_SAFETY_SAFE_SCALAR and required_ptrs:
+        tier = CALL_SAFETY_DENY
+        reasons.append("pointer-typed-args-never-safe-scalar")
     if tier == CALL_SAFETY_SAFE_SCALAR and arg_derefs:
         tier = CALL_SAFETY_DENY
         reasons.append("safe-scalar-contradicted-by-early-arg-pointer-deref")
+    arg_taint_flow = signals.get("arg_taint_flow", {})
+    if tier == CALL_SAFETY_SAFE_SCALAR:
+        if not isinstance(arg_taint_flow, dict) or not arg_taint_flow.get("available"):
+            tier = CALL_SAFETY_DENY
+            reasons.append("safe-scalar-missing-positive-arg-taint-flow-proof")
+        elif not arg_taint_flow.get("safe_scalar_positive_no_arg_memory_base_flow"):
+            tier = CALL_SAFETY_DENY
+            reasons.append("safe-scalar-contradicted-by-arg-taint-memory-base-flow")
     if tier == CALL_SAFETY_SAFE_WITH_VALID_PTR and arg_derefs:
         deref_regs = {
             int(str(row["arg"])[1:])
@@ -2381,8 +2604,10 @@ def classify_call_safety(symbols: dict[str, Symbol],
 
     context_count = int(signals.get("context_call_count", 0) or 0)
     if tier in CALL_SAFETY_SAFE_TIERS and context_count:
-        tier = CALL_SAFETY_CONTEXT_SENSITIVE
-        reasons.append("context-sensitive-locking-or-sleep-call-in-scan")
+        warnings.append("context-sensitive-locking-or-sleep-call-in-scan")
+        if seed is None:
+            tier = CALL_SAFETY_CONTEXT_SENSITIVE
+            reasons.append("context-sensitive-locking-or-sleep-call-in-scan")
 
     if signals.get("variadic_prologue_matches_printk") and name != "printk":
         warnings.append("variadic-prologue-matches-printk-twin-shape")
@@ -2443,6 +2668,17 @@ def _call_arg_is_verified_pointer_token(arg: int | str) -> bool:
     return isinstance(arg, str) and arg.startswith("@") and len(arg) > 1
 
 
+def _call_arg_satisfies_required_pointer(arg: int | str, kind: str) -> bool:
+    if _call_arg_is_verified_pointer_token(arg):
+        return True
+    if kind.endswith("-or-NULL"):
+        try:
+            return parse_int_auto(str(arg)) == 0
+        except argparse.ArgumentTypeError:
+            return False
+    return False
+
+
 def require_call_safety_for_call(symbols: dict[str, Symbol],
                                  image: StaticImage,
                                  symbol: str,
@@ -2477,7 +2713,7 @@ def require_call_safety_for_call(symbols: dict[str, Symbol],
         missing = [
             f"x{index}:{kind}"
             for index, kind in sorted(required.items())
-            if index >= len(xargs) or not _call_arg_is_verified_pointer_token(xargs[index])
+            if index >= len(xargs) or not _call_arg_satisfies_required_pointer(xargs[index], kind)
         ]
         if not missing:
             return row

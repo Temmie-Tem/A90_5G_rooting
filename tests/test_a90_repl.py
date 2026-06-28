@@ -493,12 +493,25 @@ class CallSafetyClassificationTests(unittest.TestCase):
         self.assertTrue(kmalloc["safe_group"])
         self.assertEqual(kmalloc["resolution"]["link_vaddr"], "0xffffff800826ae34")
         self.assertEqual(kmalloc["signals"]["arg_pointer_derefs_before_first_bl_or_ret"], [])
+        self.assertTrue(
+            kmalloc["signals"]["arg_taint_flow"]["safe_scalar_positive_no_arg_memory_base_flow"]
+        )
 
         kfree = self._row("kfree")
-        self.assertEqual(kfree["tier"], repl.CALL_SAFETY_SAFE_SCALAR)
+        self.assertEqual(kfree["tier"], repl.CALL_SAFETY_SAFE_WITH_VALID_PTR)
         self.assertTrue(kfree["safe_group"])
         self.assertEqual(kfree["resolution"]["link_vaddr"], "0xffffff800826b354")
-        self.assertEqual(kfree["signals"]["arg_pointer_derefs_before_first_bl_or_ret"], [])
+        self.assertEqual(
+            kfree["required_valid_pointer_args"],
+            {"0": "kmalloc-object-or-NULL"},
+        )
+        self.assertFalse(
+            kfree["signals"]["arg_taint_flow"]["safe_scalar_positive_no_arg_memory_base_flow"]
+        )
+        self.assertGreater(
+            kfree["signals"]["arg_taint_flow"]["arg_memory_base_use_count"],
+            0,
+        )
 
     def test_known_unsafe_and_behavior_changing_anchors(self) -> None:
         kallsyms = self._row("kallsyms_lookup_name")
@@ -538,8 +551,8 @@ class CallSafetyClassificationTests(unittest.TestCase):
         self.assertTrue(summary["host_only"])
         self.assertFalse(summary["device_action"])
         self.assertEqual(summary["seed_whitelist_count"], len(repl.CALL_SAFETY_SEEDS))
-        self.assertGreaterEqual(summary["counts"][repl.CALL_SAFETY_SAFE_SCALAR], 2)
-        self.assertGreaterEqual(summary["counts"][repl.CALL_SAFETY_SAFE_WITH_VALID_PTR], 5)
+        self.assertEqual(summary["counts"][repl.CALL_SAFETY_SAFE_SCALAR], 1)
+        self.assertGreaterEqual(summary["counts"][repl.CALL_SAFETY_SAFE_WITH_VALID_PTR], 8)
         self.assertGreaterEqual(summary["counts"][repl.CALL_SAFETY_BEHAVIOR_CHANGING], 4)
         self.assertEqual(summary["counts"][repl.CALL_SAFETY_DENY], 1)
 
@@ -557,6 +570,31 @@ class CallSafetyClassificationTests(unittest.TestCase):
             self.image,
             "printk",
             ("@repl_format",),
+        )
+        self.assertEqual(row["tier"], repl.CALL_SAFETY_SAFE_WITH_VALID_PTR)
+
+    def test_kfree_requires_verified_pointer_or_null(self) -> None:
+        with self.assertRaisesRegex(repl.ReplError, "SAFE-WITH-VALID-PTR requires"):
+            repl.require_call_safety_for_call(
+                self.symbols,
+                self.image,
+                "kfree",
+                ("0x1234",),
+            )
+
+        row = repl.require_call_safety_for_call(
+            self.symbols,
+            self.image,
+            "kfree",
+            ("0x0",),
+        )
+        self.assertEqual(row["tier"], repl.CALL_SAFETY_SAFE_WITH_VALID_PTR)
+
+        row = repl.require_call_safety_for_call(
+            self.symbols,
+            self.image,
+            "kfree",
+            ("@owned_kmalloc_ptr",),
         )
         self.assertEqual(row["tier"], repl.CALL_SAFETY_SAFE_WITH_VALID_PTR)
 
@@ -948,6 +986,23 @@ class SelftestIntegrationTests(unittest.TestCase):
                 self.image,
                 "printk",
                 ("0xa90ca11",),
+            )
+        self.assertEqual(fake.op_count, 0)
+
+    def test_gate2_kfree_scalar_is_refused_before_transport(self) -> None:
+        fake = FaithfulFakeTransport(0x130000, self.symbols, self.image)
+        orig = repl.transport.run_serial_command
+        repl.transport.run_serial_command = fake.run_serial_command
+        self.addCleanup(lambda: setattr(repl.transport, "run_serial_command", orig))
+        session = repl.ReplSession(repl.ReplConfig(settle_sec=0.0))
+
+        with self.assertRaisesRegex(repl.ReplError, "SAFE-WITH-VALID-PTR requires"):
+            repl.run_call(
+                session,
+                self.symbols,
+                self.image,
+                "kfree",
+                ("0x1234",),
             )
         self.assertEqual(fake.op_count, 0)
 

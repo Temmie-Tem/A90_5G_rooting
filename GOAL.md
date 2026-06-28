@@ -867,6 +867,18 @@ focused companion suite **24/24 PASS**, and CLI classifier smoke with objdump ev
 >
 > Keep everything else as-is. Host-only; do not touch the device; this is a classifier-precision fix, not a redesign.
 
+**STATUS (2026-06-29 U2 Gate-2 correction host pass) — `kfree` reseeded; SAFE-SCALAR strengthened.**
+`kfree` is now `SAFE-WITH-VALID-PTR` with required `x0=kmalloc-object-or-NULL`; `call kfree 0x1234`
+is refused before any serial transport action. SAFE-SCALAR now requires a positive objdump-taint proof:
+x0..x7 aliases are tracked through moves/arithmetic/selects, BL clears caller-clobbered aliases, and any
+arg-derived register used as a memory base invalidates SAFE-SCALAR. Re-audit result: `__kmalloc` remains
+`SAFE-SCALAR` with `0` arg-taint memory-base uses; `kfree` has `43` arg-taint memory-base uses and drops
+out of SAFE-SCALAR. Seed inventory now counts `SAFE-SCALAR=1`, `SAFE-WITH-VALID-PTR=8`,
+`BEHAVIOR-CHANGING=4`, `DENY=1`. Host-only: no device action, no live call-proof, no boot-image change.
+Validation: `py_compile` pass, `tests.test_a90_repl` **59/59 PASS**, focused companion suite
+**24/24 PASS**, and CLI classifier smoke PASS. Report:
+`docs/reports/KERNEL_SECURITY_TIER2_RUNTIME_KERNEL_REPL_U2_GATE2_KFREE_RESEED_2026-06-29.md`.
+
 **Guardrails:** host-only static analysis; exploit-free framing (this is CALL-SAFETY, not weaponization);
 `commit_creds`/`prepare_kernel_cred`/etc. stay RECON-classified, never chained; keep raw runtime pointers
 out of commits; scoped `git add`; fails-twice on the same approach → STOP + report. Operator (Claude)
