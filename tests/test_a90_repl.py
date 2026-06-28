@@ -20,6 +20,9 @@ repl = load_script("workspace/public/src/scripts/revalidation/a90_repl.py")
 REPO_ROOT = Path(__file__).resolve().parents[1]
 MAP_PATH = REPO_ROOT / "workspace/private/runs/kernel/v2a1-repl-driver/System.map"
 IMAGE_PATH = REPO_ROOT / "workspace/private/inputs/boot_images/boot_linux_tier2_repl_v1_repl.img"
+C2B_PADDING_MAP_PATH = (
+    REPO_ROOT / "workspace/private/runs/kernel/v2c-c2b-kallsyms-padding-fix/System.map"
+)
 
 
 def decode_printf_octal(text: str) -> bytes:
@@ -379,6 +382,68 @@ class StaticImageCrossCheckTests(unittest.TestCase):
             self.assertEqual(
                 rows[name]["noisy_403_candidates"][0]["classification"],
                 "noisy-24-byte-0x403-record-table-not-kernel_symbol-pair",
+            )
+
+    def test_ksymtab_ground_truth_oracle_reconstructs_relocated_exports(self) -> None:
+        compare_maps = {}
+        if C2B_PADDING_MAP_PATH.is_file():
+            compare_maps["c2b-padding"] = repl.load_system_map(C2B_PADDING_MAP_PATH)
+        audit = repl.run_ksymtab_ground_truth_audit(
+            self.symbols,
+            self.image,
+            compare_symbol_maps=compare_maps,
+        )
+
+        self.assertTrue(audit["ok"], audit)
+        self.assertEqual(
+            audit["decision"],
+            "a90-repl-v2c-c2e-ksymtab-ground-truth-oracle-host-pass",
+        )
+        self.assertEqual(
+            audit["oracle"]["layout"],
+            "24-byte-0x403-relocation-records-reconstruct-zeroed-16-byte-ksymtab-pairs",
+        )
+        self.assertEqual(audit["oracle"]["selected_export_row_count"], 12518)
+        self.assertEqual(audit["oracle"]["selected_unique_name_count"], 12518)
+        self.assertEqual(audit["oracle"]["target_start_vaddr"], "0xffffff800a562d60")
+        self.assertEqual(audit["oracle"]["target_end_vaddr"], "0xffffff800a594270")
+
+        anchors = audit["anchor_results"]
+        self.assertEqual(anchors["__kmalloc"]["status"], "anchor-match")
+        self.assertEqual(anchors["__kmalloc"]["truth_link_vaddr"], "0xffffff800826ae34")
+        self.assertEqual(anchors["kfree"]["status"], "anchor-match")
+        self.assertEqual(anchors["kfree"]["truth_link_vaddr"], "0xffffff800826b354")
+        self.assertEqual(anchors["kgsl_pwrctrl_force_no_nap_store"]["status"], "anchor-match")
+        self.assertEqual(
+            anchors["kgsl_pwrctrl_force_no_nap_store"]["ksymtab_scope"],
+            "not-exported",
+        )
+        self.assertEqual(anchors["printk"]["status"], "anchor-match-export-conflict")
+        self.assertEqual(anchors["printk"]["truth_link_vaddr"], "0xffffff800813d8cc")
+        self.assertEqual(anchors["printk"]["export_row_link_vaddr"], "0xffffff800813adfc")
+        self.assertTrue(anchors["printk"]["export_row_conflicts_with_semantic_anchor"])
+
+        self.assertEqual(
+            audit["current_map_drift"]["counts"],
+            {"map_match": 0, "map_mismatch": 12518, "missing_map_symbol": 0},
+        )
+        if compare_maps:
+            self.assertEqual(
+                audit["compare_map_drift"]["c2b-padding"]["counts"],
+                {"map_match": 12514, "map_mismatch": 4, "missing_map_symbol": 0},
+            )
+            c2b_mismatches = {
+                row["symbol"]
+                for row in audit["compare_map_drift"]["c2b-padding"]["sample_rows"]
+            }
+            self.assertEqual(
+                c2b_mismatches,
+                {
+                    "printk",
+                    "ehci_reset",
+                    "iio_read_channel_ext_info",
+                    "iio_write_channel_ext_info",
+                },
             )
 
     def test_assert_jopp_entry_rejects_non_entry(self) -> None:

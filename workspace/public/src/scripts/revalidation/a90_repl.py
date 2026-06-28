@@ -114,6 +114,23 @@ FUNCTION_SYMBOL_KINDS = frozenset("TtWw")
 MAP_AUDIT_ANCHORS = ("printk", "__kmalloc", "kfree")
 PRINTK_LIVE_PROOF = "v2a1 named call printk(format,sentinel) echoed the sentinel"
 KSYMTAB_ABI_AUDIT_FOCUS = ("printk", "__kmalloc", "kfree")
+KSYMTAB_GROUND_TRUTH_ANCHORS = (
+    "printk",
+    "kgsl_pwrctrl_force_no_nap_store",
+    "__kmalloc",
+    "kfree",
+)
+C2E_EXPECTED_ANCHORS = {
+    "printk": 0xFFFFFF800813D8CC,
+    "kgsl_pwrctrl_force_no_nap_store": 0xFFFFFF80089273B4,
+    "__kmalloc": 0xFFFFFF800826AE34,
+    "kfree": 0xFFFFFF800826B354,
+}
+KSYMTAB_RELOCATION_RECORD_SIZE = 24
+KSYMTAB_RELOCATION_FLAGS = 0x403
+KSYMTAB_ROW_SIZE = 16
+KSYMTAB_MIN_EXPORT_ROWS = 12000
+EXPORT_C_IDENTIFIER_RE = re.compile(rb"^[A-Za-z_][A-Za-z0-9_\.]{0,127}$")
 
 A64_BL_MASK = 0xFC000000
 A64_BL = 0x94000000
@@ -459,6 +476,7 @@ _DIRECT_BL_XREF_CACHE: dict[tuple[int, int], tuple[int, list[str]]] = {}
 _EXPORT_CANDIDATE_CACHE: dict[tuple[int, str], list[dict[str, object]]] = {}
 _EXPORT_STRING_INDEX_CACHE: dict[tuple[int, tuple[str, ...]], dict[int, tuple[str, ...]]] = {}
 _EXPORT_REF_INDEX_CACHE: dict[tuple[int, tuple[str, ...]], dict[str, list[int]]] = {}
+_KSYMTAB_RELOCATION_CACHE: dict[tuple[int, tuple[str, ...]], dict[str, object]] = {}
 
 
 def cached_static_raw_image(image: StaticImage) -> bytes:
@@ -1210,6 +1228,392 @@ def run_ksymtab_abi_audit(symbols: dict[str, Symbol],
             "Do not claim a broad export drift count from the 0x403 table. Keep call/poke on C1 "
             "verified resolution and high-confidence C2C rows; use semantic/independent proof for "
             "any additional symbol."
+        ),
+    }
+
+
+def _strict_c_identifier_at_vaddr(raw: bytes, vaddr: int) -> str | None:
+    raw_off = _vaddr_to_raw_off(vaddr)
+    if not (0 <= raw_off < len(raw)):
+        return None
+    end = raw.find(b"\x00", raw_off, min(len(raw), raw_off + 160))
+    if end < 0:
+        return None
+    text = raw[raw_off:end]
+    if not text or not EXPORT_C_IDENTIFIER_RE.match(text):
+        return None
+    return text.decode("ascii", errors="strict")
+
+
+def _zeroed_qword_pair_at_vaddr(raw: bytes, vaddr: int) -> bool:
+    raw_off = _vaddr_to_raw_off(vaddr)
+    if raw_off < 0 or raw_off + KSYMTAB_ROW_SIZE > len(raw):
+        return False
+    return (
+        struct.unpack_from("<Q", raw, raw_off)[0] == 0
+        and struct.unpack_from("<Q", raw, raw_off + 8)[0] == 0
+    )
+
+
+def _build_403_relocation_target_index(raw: bytes) -> dict[int, dict[str, object]]:
+    records: dict[int, dict[str, object]] = {}
+    for run in _find_403_record_runs(raw):
+        start = int(str(run["raw_off"]), 16)
+        count = int(run["record_count"])
+        for index in range(count):
+            raw_off = start + index * KSYMTAB_RELOCATION_RECORD_SIZE
+            flags, value, target = struct.unpack_from("<QQQ", raw, raw_off)
+            if flags != KSYMTAB_RELOCATION_FLAGS:
+                continue
+            records.setdefault(target, {
+                "record_raw_off": raw_off,
+                "value": value,
+                "target": target,
+            })
+    return records
+
+
+def _candidate_relocated_ksymtab_rows(raw: bytes,
+                                      export_names: set[str]) -> tuple[list[dict[str, object]], list[dict[str, object]]]:
+    records = _build_403_relocation_target_index(raw)
+    rows: list[dict[str, object]] = []
+    for target, record in records.items():
+        name_record = records.get(target + 8)
+        if name_record is None:
+            continue
+        if not _zeroed_qword_pair_at_vaddr(raw, target):
+            continue
+        value = int(record["value"])
+        name_vaddr = int(name_record["value"])
+        if not _is_vaddr_inside_raw(raw, value):
+            continue
+        name = _strict_c_identifier_at_vaddr(raw, name_vaddr)
+        if name is None:
+            continue
+        rows.append({
+            "target_vaddr": target,
+            "value_vaddr": value,
+            "name_vaddr": name_vaddr,
+            "name": name,
+            "value_record_raw_off": int(record["record_raw_off"]),
+            "name_record_raw_off": int(name_record["record_raw_off"]),
+            "jopp_entry": _is_static_jopp_text_entry(raw, value),
+            "has_export_label": name in export_names,
+        })
+    rows.sort(key=lambda row: (int(row["target_vaddr"]), str(row["name"])))
+
+    runs: list[dict[str, object]] = []
+    current: list[dict[str, object]] = []
+    last_target: int | None = None
+    for row in rows:
+        target = int(row["target_vaddr"])
+        if last_target is None or target == last_target + KSYMTAB_ROW_SIZE:
+            current.append(row)
+        else:
+            if current:
+                runs.append(_summarize_ksymtab_candidate_run(current))
+            current = [row]
+        last_target = target
+    if current:
+        runs.append(_summarize_ksymtab_candidate_run(current))
+    return rows, runs
+
+
+def _summarize_ksymtab_candidate_run(rows: list[dict[str, object]]) -> dict[str, object]:
+    export_count = sum(1 for row in rows if row["has_export_label"])
+    jopp_count = sum(1 for row in rows if row["jopp_entry"])
+    name_raw_offsets = [
+        _vaddr_to_raw_off(int(row["name_vaddr"]))
+        for row in rows
+    ]
+    return {
+        "start_vaddr": int(rows[0]["target_vaddr"]),
+        "end_vaddr": int(rows[-1]["target_vaddr"]),
+        "row_count": len(rows),
+        "export_label_count": export_count,
+        "export_label_density": export_count / len(rows),
+        "jopp_entry_count": jopp_count,
+        "name_raw_min": min(name_raw_offsets),
+        "name_raw_max": max(name_raw_offsets),
+        "first_name": rows[0]["name"],
+        "last_name": rows[-1]["name"],
+    }
+
+
+def _locate_relocated_ksymtab_rows(raw: bytes,
+                                   export_names: set[str]) -> dict[str, object]:
+    cache_key = (id(raw), tuple(sorted(export_names)))
+    cached = _KSYMTAB_RELOCATION_CACHE.get(cache_key)
+    if cached is not None:
+        return cached
+
+    candidates, runs = _candidate_relocated_ksymtab_rows(raw, export_names)
+    selected_runs = [
+        run for run in runs
+        if (
+            int(run["row_count"]) >= 10
+            and float(run["export_label_density"]) >= 0.95
+        )
+    ]
+    if not selected_runs:
+        result = {
+            "ok": False,
+            "rows": [],
+            "runs": runs,
+            "selected_runs": [],
+            "blocked_reasons": ["no-high-density-export-label-relocation-runs"],
+        }
+        _KSYMTAB_RELOCATION_CACHE[cache_key] = result
+        return result
+
+    start_vaddr = min(int(run["start_vaddr"]) for run in selected_runs)
+    end_vaddr = max(int(run["end_vaddr"]) for run in selected_runs)
+    selected_rows = [
+        row for row in candidates
+        if (
+            start_vaddr <= int(row["target_vaddr"]) <= end_vaddr
+            and bool(row["has_export_label"])
+        )
+    ]
+    selected_rows.sort(key=lambda row: (int(row["target_vaddr"]), str(row["name"])))
+    by_name: dict[str, dict[str, object]] = {}
+    duplicate_names: dict[str, int] = {}
+    for row in selected_rows:
+        name = str(row["name"])
+        if name in by_name:
+            duplicate_names[name] = duplicate_names.get(name, 1) + 1
+            continue
+        by_name[name] = row
+
+    name_raw_offsets = [
+        _vaddr_to_raw_off(int(row["name_vaddr"]))
+        for row in selected_rows
+    ]
+    result = {
+        "ok": len(selected_rows) >= KSYMTAB_MIN_EXPORT_ROWS and not duplicate_names,
+        "rows": selected_rows,
+        "by_name": by_name,
+        "runs": runs,
+        "selected_runs": selected_runs,
+        "target_start_vaddr": start_vaddr,
+        "target_end_vaddr": end_vaddr,
+        "name_raw_min": min(name_raw_offsets) if name_raw_offsets else None,
+        "name_raw_max": max(name_raw_offsets) if name_raw_offsets else None,
+        "duplicate_names": duplicate_names,
+        "blocked_reasons": [] if len(selected_rows) >= KSYMTAB_MIN_EXPORT_ROWS else [
+            f"selected-export-row-count:{len(selected_rows)}<{KSYMTAB_MIN_EXPORT_ROWS}"
+        ],
+    }
+    _KSYMTAB_RELOCATION_CACHE[cache_key] = result
+    return result
+
+
+def _public_relocated_ksymtab_row(row: dict[str, object] | None) -> dict[str, object] | None:
+    if row is None:
+        return None
+    return {
+        "name": row["name"],
+        "target_vaddr": f"0x{int(row['target_vaddr']):x}",
+        "value_vaddr": f"0x{int(row['value_vaddr']):x}",
+        "name_vaddr": f"0x{int(row['name_vaddr']):x}",
+        "value_record_raw_off": f"0x{int(row['value_record_raw_off']):x}",
+        "name_record_raw_off": f"0x{int(row['name_record_raw_off']):x}",
+        "jopp_entry": row["jopp_entry"],
+    }
+
+
+def _public_ksymtab_run(run: dict[str, object]) -> dict[str, object]:
+    return {
+        "start_vaddr": f"0x{int(run['start_vaddr']):x}",
+        "end_vaddr": f"0x{int(run['end_vaddr']):x}",
+        "row_count": run["row_count"],
+        "export_label_count": run["export_label_count"],
+        "export_label_density": run["export_label_density"],
+        "jopp_entry_count": run["jopp_entry_count"],
+        "name_raw_min": f"0x{int(run['name_raw_min']):x}",
+        "name_raw_max": f"0x{int(run['name_raw_max']):x}",
+        "first_name": run["first_name"],
+        "last_name": run["last_name"],
+    }
+
+
+def _summarize_ksymtab_drift(rows: list[dict[str, object]],
+                             symbols: dict[str, Symbol],
+                             *,
+                             sample_limit: int = 12) -> dict[str, object]:
+    counts = {
+        "map_match": 0,
+        "map_mismatch": 0,
+        "missing_map_symbol": 0,
+    }
+    samples: list[dict[str, object]] = []
+    mismatch_buckets: dict[str, int] = {}
+    for row in rows:
+        name = str(row["name"])
+        truth = int(row["value_vaddr"])
+        symbol = symbols.get(name)
+        if symbol is None:
+            counts["missing_map_symbol"] += 1
+            if len(samples) < sample_limit:
+                samples.append({
+                    "symbol": name,
+                    "status": "missing-map-symbol",
+                    "truth_link_vaddr": f"0x{truth:x}",
+                })
+            continue
+        if symbol.vaddr == truth:
+            counts["map_match"] += 1
+            continue
+        counts["map_mismatch"] += 1
+        bucket = f"0x{symbol.vaddr & ~0xfffff:x}"
+        mismatch_buckets[bucket] = mismatch_buckets.get(bucket, 0) + 1
+        if len(samples) < sample_limit:
+            samples.append({
+                "symbol": name,
+                "status": "map-mismatch",
+                "truth_link_vaddr": f"0x{truth:x}",
+                "map_link_vaddr": f"0x{symbol.vaddr:x}",
+                "map_minus_truth": symbol.vaddr - truth,
+                "kind": symbol.kind,
+            })
+    total = len(rows)
+    return {
+        "audited_symbol_count": total,
+        "counts": counts,
+        "map_match_rate": counts["map_match"] / total if total else 0,
+        "mismatch_region_buckets": [
+            {"map_region_base": bucket, "mismatch_count": count}
+            for bucket, count in sorted(
+                mismatch_buckets.items(), key=lambda item: (-item[1], item[0])
+            )[:20]
+        ],
+        "sample_rows": samples,
+    }
+
+
+def _ksymtab_anchor_results(symbols: dict[str, Symbol],
+                            image: StaticImage,
+                            by_name: dict[str, dict[str, object]]) -> dict[str, dict[str, object]]:
+    results: dict[str, dict[str, object]] = {}
+    for name in KSYMTAB_GROUND_TRUTH_ANCHORS:
+        expected = C2E_EXPECTED_ANCHORS[name]
+        map_symbol = symbols.get(name)
+        row = by_name.get(name)
+        result: dict[str, object] = {
+            "symbol": name,
+            "expected_link_vaddr": f"0x{expected:x}",
+            "map_link_vaddr": f"0x{map_symbol.vaddr:x}" if map_symbol else None,
+            "ksymtab_row": _public_relocated_ksymtab_row(row),
+            "status": "unknown",
+            "method": "relocated-ksymtab",
+        }
+        if name in ("__kmalloc", "kfree"):
+            truth = int(row["value_vaddr"]) if row else None
+            result["truth_link_vaddr"] = f"0x{truth:x}" if truth is not None else None
+            result["status"] = "anchor-match" if truth == expected else "anchor-fail"
+        elif name == "printk":
+            semantic = _stage_c_printk_link_vaddr(image)
+            export_truth = int(row["value_vaddr"]) if row else None
+            result.update({
+                "method": "semantic-live-call-anchor-plus-relocated-ksymtab-conflict-note",
+                "truth_link_vaddr": f"0x{semantic:x}",
+                "semantic_link_vaddr": f"0x{semantic:x}",
+                "export_row_link_vaddr": f"0x{export_truth:x}" if export_truth is not None else None,
+                "export_row_conflicts_with_semantic_anchor": export_truth != semantic,
+                "status": "anchor-match-export-conflict" if semantic == expected else "anchor-fail",
+            })
+        elif name == "kgsl_pwrctrl_force_no_nap_store":
+            result.update({
+                "method": "non-exported-semantic-map-anchor",
+                "truth_link_vaddr": f"0x{map_symbol.vaddr:x}" if map_symbol else None,
+                "ksymtab_scope": "not-exported",
+                "status": "anchor-match" if map_symbol and map_symbol.vaddr == expected else "anchor-fail",
+            })
+        results[name] = result
+    return results
+
+
+def run_ksymtab_ground_truth_audit(
+    symbols: dict[str, Symbol],
+    image: StaticImage,
+    *,
+    compare_symbol_maps: dict[str, dict[str, Symbol]] | None = None,
+) -> dict[str, object]:
+    raw = cached_static_raw_image(image)
+    export_names = set(exported_symbol_names(symbols))
+    located = _locate_relocated_ksymtab_rows(raw, export_names)
+    rows = list(located.get("rows", []))
+    by_name = dict(located.get("by_name", {}))
+    anchor_results = _ksymtab_anchor_results(symbols, image, by_name)
+    anchor_failures = [
+        f"{name}:{row['status']}"
+        for name, row in anchor_results.items()
+        if not str(row["status"]).startswith("anchor-match")
+    ]
+    current_drift = _summarize_ksymtab_drift(rows, symbols)
+    compare_maps: dict[str, object] = {}
+    for label, compare_symbols in (compare_symbol_maps or {}).items():
+        compare_maps[label] = _summarize_ksymtab_drift(rows, compare_symbols)
+
+    selected_runs = list(located.get("selected_runs", []))
+    ok = bool(located.get("ok")) and not anchor_failures
+    return {
+        "decision": (
+            "a90-repl-v2c-c2e-ksymtab-ground-truth-oracle-host-pass"
+            if ok else "a90-repl-v2c-c2e-ksymtab-ground-truth-oracle-review"
+        ),
+        "ok": ok,
+        "raw_runtime_values_redacted": True,
+        "oracle": {
+            "layout": "24-byte-0x403-relocation-records-reconstruct-zeroed-16-byte-ksymtab-pairs",
+            "source_row_abi": "struct kernel_symbol { unsigned long value; const char *name; }",
+            "relocation_record_size": KSYMTAB_RELOCATION_RECORD_SIZE,
+            "relocation_flags": f"0x{KSYMTAB_RELOCATION_FLAGS:x}",
+            "selected_export_row_count": len(rows),
+            "selected_unique_name_count": len(by_name),
+            "target_start_vaddr": (
+                f"0x{int(located['target_start_vaddr']):x}" if located.get("target_start_vaddr") else None
+            ),
+            "target_end_vaddr": (
+                f"0x{int(located['target_end_vaddr']):x}" if located.get("target_end_vaddr") else None
+            ),
+            "name_raw_min": (
+                f"0x{int(located['name_raw_min']):x}" if located.get("name_raw_min") is not None else None
+            ),
+            "name_raw_max": (
+                f"0x{int(located['name_raw_max']):x}" if located.get("name_raw_max") is not None else None
+            ),
+            "selected_run_count": len(selected_runs),
+            "selected_run_samples": [_public_ksymtab_run(run) for run in selected_runs[:8]],
+            "blocked_reasons": located.get("blocked_reasons", []),
+        },
+        "anchor_results": anchor_results,
+        "anchor_failures": anchor_failures,
+        "current_map_drift": current_drift,
+        "compare_map_drift": compare_maps,
+        "decoder_divergence": {
+            "current_map": (
+                "current v2a1 System.map is index-drifted for the relocated ksymtab export scope; "
+                "the audited export rows have zero direct matches"
+            ),
+            "localized_root_cause": (
+                "the previously generated C2B padding-fix map is validated by this structural oracle "
+                "when supplied as a compare map: it corrects the 95-entry offsets drift for nearly all "
+                "relocated export rows"
+            ),
+            "semantic_conflicts": (
+                "relocated ksymtab export row for printk points at the normal export thunk, while the "
+                "live-proven callable printk anchor remains the Stage-C semantic wrapper"
+            ),
+        },
+        "decoder_root_fix_decision": (
+            "do-not-change-extractor-in-this-unit; publish relocated-ksymtab trust-region fencing "
+            "and keep C1 fail-closed until the padding fix plus semantic exceptions are operator-disasm-verified"
+        ),
+        "trust_policy": (
+            "exported symbols inside the relocated ksymtab scope may use this oracle for drift reports; "
+            "live call/poke targets still require C1 verified resolution; non-exported symbols remain "
+            "map-only and verified=false unless separately proven"
         ),
     }
 
@@ -2481,6 +2885,34 @@ def cmd_ksymtab_audit(args: argparse.Namespace) -> int:
     return 0 if summary["ok"] else 1
 
 
+def parse_compare_map_arg(text: str) -> tuple[str, Path]:
+    if "=" not in text:
+        raise argparse.ArgumentTypeError("compare map must be LABEL=PATH")
+    label, path_text = text.split("=", 1)
+    if not label:
+        raise argparse.ArgumentTypeError("compare map label must not be empty")
+    if not path_text:
+        raise argparse.ArgumentTypeError("compare map path must not be empty")
+    return label, Path(path_text)
+
+
+def cmd_ksymtab_ground_truth(args: argparse.Namespace) -> int:
+    symbols = load_system_map(args.map)
+    image = load_static_image(args.image)
+    compare_maps = {
+        label: load_system_map(path)
+        for label, path in (args.compare_map or [])
+    }
+    summary = run_ksymtab_ground_truth_audit(
+        symbols,
+        image,
+        compare_symbol_maps=compare_maps,
+    )
+    write_evidence(args, summary)
+    print(json.dumps(summary, indent=2, sort_keys=True))
+    return 0 if summary["ok"] else 1
+
+
 def main(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser(description=__doc__)
     sub = parser.add_subparsers(dest="cmd", required=True)
@@ -2587,6 +3019,21 @@ def main(argv: list[str] | None = None) -> int:
     add_common(p_ksymtab)
     p_ksymtab.add_argument("--focus-symbols", nargs="+", default=list(KSYMTAB_ABI_AUDIT_FOCUS))
     p_ksymtab.set_defaults(func=cmd_ksymtab_audit)
+
+    p_ksymtab_gt = sub.add_parser(
+        "ksymtab-ground-truth",
+        help="host-only v2c C2E relocated __ksymtab oracle and authoritative drift report",
+    )
+    add_common(p_ksymtab_gt)
+    p_ksymtab_gt.add_argument(
+        "--compare-map",
+        action="append",
+        type=parse_compare_map_arg,
+        default=[],
+        metavar="LABEL=PATH",
+        help="optional extra System.map to compare against the relocated ksymtab oracle",
+    )
+    p_ksymtab_gt.set_defaults(func=cmd_ksymtab_ground_truth)
 
     args = parser.parse_args(argv)
     return args.func(args)

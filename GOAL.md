@@ -1246,6 +1246,23 @@ or an explicit, documented decision to keep map-as-is + trust-region fencing. C1
 throughout. Guardrails unchanged below; keep raw pointers/slide out of commits; fails-twice → STOP + report.
 After C2E, U2 ergonomics + a tool runbook are the only optional remainders, then the REPL epic can close.
 
+**STATUS (2026-06-29 v2c C2E host pass) — relocated `__ksymtab` oracle + trust-region decision landed.**
+`a90_repl.py ksymtab-ground-truth` reconstructs zeroed 16-byte source `__ksymtab` rows from the 24-byte
+`0x403` relocation table by structure (`target+0=value`, `target+8=name`) and selects high-density export
+runs. It emits `12518` authoritative exported rows over target range
+`0xffffff800a562d60..0xffffff800a594270`. Against current v2a1 `System.map`, the real drift report is
+`0` matches / `12518` mismatches / `0` missing. Against the previous C2B padding-fix candidate map, the same
+oracle gives `12514` matches / `4` mismatches, validating the 95-zero-u32 padding root-cause at scale while
+leaving residual semantic/local-symbol conflicts. Anchors: `__kmalloc=0xffffff800826ae34` and
+`kfree=0xffffff800826b354` match relocated ksymtab; `kgsl_pwrctrl_force_no_nap_store=0xffffff80089273b4`
+is non-exported and stays a semantic map anchor; `printk=0xffffff800813d8cc` is the live-call semantic
+anchor while the export relocation row points at `0xffffff800813adfc`, so the conflict is explicit rather
+than hidden. Decoder decision: **do not rewrite/promote `a90_stock_kallsyms_extract.py` in this unit**; keep
+map-as-is plus relocated-ksymtab trust-region fencing until the padding fix and semantic exceptions receive
+operator disasm verification. Validation: `py_compile` pass, CLI `ksymtab-ground-truth` pass,
+`tests.test_a90_repl` + `tests.test_a90_stock_kallsyms_extract` **63/63 PASS**. Report:
+`docs/reports/KERNEL_SECURITY_TIER2_RUNTIME_KERNEL_REPL_V2C_C2E_KSYMTAB_GROUND_TRUTH_ORACLE_2026-06-29.md`.
+
 **Guardrails: unchanged from below** (RECON / exploit-free; no RKP bypass; no protected-memory write; no
 RWX; preserve `x17`; boot-partition-only flashes with pinned+readback SHA; rollback v2321; fails-twice →
 STOP + report; keep raw runtime pointers/slide out of commits; scoped `git add`). Operator cross-checks any
