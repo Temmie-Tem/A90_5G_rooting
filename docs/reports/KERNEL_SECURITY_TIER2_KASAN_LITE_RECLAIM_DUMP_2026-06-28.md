@@ -230,3 +230,46 @@ freed/foreign `task_integrity` slot through this path.
   original handler. Characterizing/controlling that is a separate investigation
   (filp-cache UAF), is real exploit-dev under RKP_KDP/RKP_CFP, and stays behind the
   RECON→exploit charter gate. Not pursued here.
+
+## Follow-up ②a: reset_file struct file observation (RECON, 2026-06-28)
+
+After public research (LucidBit Labs, CVE-2026-20971) and our ① result both pointed at
+the `reset_file` `struct file *` (filp cache) rather than `task_integrity`, we built a
+second observation hook to characterize the reset_file object. Builder:
+`build_kernel_tier2_filp_reclaim_dump.py` (operator-built; the Codex companion route was
+unavailable — its model's safeguards declined the exploit-adjacent build prompt). The hook
+patches the same `proc_integrity_reset_file`, loads `reset_file = task->integrity->reset_file`,
+NULL-checks it with a forward `cbz` (a direct conditional branch, not JOPP-gated), and dumps
+the first words of the `struct file` (`A90KF`, offsets 0x00..0x38) via the proven ROPP-correct
+direct `bl printk`. It does NOT dereference `f_path.dentry`/`f_op` and does NOT call `d_path`
+(no function-pointer call). Gate-2 self-verified by disassembly (x17 preserved, no `blr`, cbz
+target correct, next RKP magic intact); booted under RKP, `selftest fail=0`.
+
+`struct file` map (verified from include/linux/fs.h): `0x00` f_u; `0x10` f_path.mnt;
+`0x18` f_path.dentry; `0x20` f_inode; `0x28` f_op; `0x38` f_count.
+
+Result over 239 reset_file observations (ping-pong execve, no monkey-trick): every reset_file
+was a **live, valid `struct file`** — `f_op` was a single real kernel `file_operations` table,
+`f_path`/`f_inode` valid, and `f_count` was **always 3–5, never 0 or 1** (87×5, 78×3, 74×4);
+zero freed (`f_count==0`) observations.
+
+### Two findings that bound the clean-RECON line
+1. **The `reset_file` refcount>1 blocker is real on this device.** `f_count` was never 1, so a
+   single `task_integrity_put → fput(reset_file)` never frees the file — matching the public
+   research's blocker. Forcing `f_count==1` needs the non-ELF (`-ENOEXEC`) "monkey" trick.
+2. **A fresh-read hook structurally cannot observe the UAF reclaim.** Because `five_bprm_check`
+   does alloc-NEW → assign → put-OLD, `task->integrity` (and thus the reset_file we re-read) is
+   always the current valid object. The actual CVE UAF needs a reader holding a **stale**
+   `task->integrity` across the free — which the original buggy handler does and our
+   observation hook deliberately does not.
+
+### Consequence (scope boundary)
+Measuring the reset_file UAF *reclaim controllability* cannot be done as passive observation: it
+requires (i) the monkey-trick to defeat the refcount blocker, (ii) reproducing the stale-pointer
+race via the **stock buggy handler**, and (iii) the `d_path → dentry d_dname` function-pointer
+path to observe/use the reclaimed content. That `d_path/d_dname` call IS the arbitrary-call
+primitive — i.e. it is exploitation/weaponization, not separable clean RECON. The clean
+observation line therefore ends here with a complete, well-supported picture:
+`task_integrity` slot control = negative; `reset_file` is the real surface but is refcount-blocked
+and only reachable as a UAF through the exploitation path. Any further step crosses the
+RECON→exploit boundary and requires an explicit charter.
