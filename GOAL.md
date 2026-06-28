@@ -818,10 +818,59 @@ driver writes + reads `A90R` in ONE `run` shell bounded by `tail -n N`; **`call 
 unsafe** (faulted/rebooted live, recoverable) → the call proof uses the v1-repl-proven `printk` target.
 Report: `docs/reports/KERNEL_SECURITY_TIER2_RUNTIME_KERNEL_REPL_V2A1_NAMED_DRIVER_2026-06-29.md`.
 
-**Next bounded unit = v2a2:** store-landed `poke` round-trip with a real allocator — `op3 call __kmalloc(sz,
-GFP_KERNEL)` (host remembers the pointer) → `op2 poke` → `op1 peek`(==val) → `op3 call kfree`. Then v2b
-(`show`-buf bulk `peek` for arbitrary length) remains BLOCKED until a safe fixed scratch anchor + cleanup
-protocol are proven; the printk-loop stays the shipping default. Same guardrails below.
+### ▶ NEXT BOUNDED UNIT = v2a2 (LIVE) — store-landed `poke` round-trip via `__kmalloc`/`kfree`
+
+**Objective:** prove a real allocator-backed `poke`→`peek` round-trip over the **EXISTING** v1-repl image
+(NO new boot image, NO new kernel `.text`). Extend the host driver `a90_repl.py` (commit 5b8aebe6) with a
+`poke-roundtrip` subcommand + a faithful unit test, run it live, roll back to v2321, commit. This **reuses
+the already-LIVE-PROVEN ops** op1 peek / op2 poke / op3 call — do **not** write any new kernel stub.
+
+**Reuse (do not re-derive):**
+- Driver `workspace/public/src/scripts/revalidation/a90_repl.py`. Op buffer: `+0x00` u64 magic
+  `0xA90C0DE5DEADBEEF`, `+0x08` u8 op, `+0x10` arg0, `+0x18` arg1, `+0x20` arg2, `+0x28..0x50` call x2..x7.
+  op1 `peek(addr,len≤8)`, op2 `poke(addr,val,width 4|8)`, op3 `call(target,x0..x7)` → stub prints
+  `A90R<x0_return>`. **Reuse `op_sh()`** (write+read in ONE `run` shell, bounded `tail -n N`).
+- Live image to flash (already validated): `boot_linux_tier2_repl_v1_repl.img` SHA256
+  `b846ae9f74d8ceb922bbcd854d78b6795ef833d61e38465d3cc474cb6f0dfb65`.
+- System.map: regenerate with `a90_stock_kallsyms_extract.py` against the v2321 image into a PRIVATE dir
+  (`workspace/private/runs/kernel/v2a2-*`). Link addrs: `__kmalloc=0xffffff80082724bc`,
+  `kfree=0xffffff800827276c`; runtime = link + slide(op0).
+
+**🚨 LIVE TRANSPORT FACTS (pinned from v2a1 live — obey or you WILL burn runs):**
+- USB-ACM bridge is **not** the kernel console UART → `printk` only readable via the log ring
+  (`dmesg`/`/dev/kmsg`), never inline on serial.
+- busybox `dmesg` here is **read-and-CLEAR** (consuming) → write the cmd buffer + read the `A90R` line in
+  ONE `run /bin/busybox sh -c` invocation bounded by `tail -n N` (`op_sh()` already does this); do NOT
+  split write/read into separate invocations (the ring drains between them).
+- Binary writes: `printf '\NNN…' > /sys/class/kgsl/kgsl-3d0/force_no_nap` (octal) via native-init `run`
+  (argv `["run","/bin/busybox","sh","-c",SH]`; a90ctl auto cmdv1x-encodes path/space args).
+- **DO NOT call `kallsyms_lookup_name`** — it faulted/rebooted the device live (recoverable). Resolve every
+  symbol from System.map, never from a runtime lookup call.
+
+**Sequence (run_selftest-style; `panic_on_oops=0` during, restore `1` in `finally`):**
+1. `slide = op0`.
+2. `ptr = call __kmalloc(size=0x1000, gfp=GFP_KERNEL)` (target=`__kmalloc`+slide, x0=size, x1=gfp). Derive
+   `GFP_KERNEL` EXACTLY from kernel headers under `workspace/private/inputs/.../include/linux/gfp.h` for
+   4.14 (cross-check expect `0x6c0` = `___GFP_IO|___GFP_FS|___GFP_DIRECT_RECLAIM|___GFP_KSWAPD_RECLAIM`).
+   The returned x0 is a runtime heap pointer — **keep it OUT of commits** (private evidence only).
+   **Sanity-gate:** `ptr` must be non-null and in the kernel lowmem VA range; if not, STOP (do not poke a
+   bad ptr).
+3. `poke(ptr, sentinelA=0xA90F00D1CAFE0001, width=8)`; `peek(ptr,8)` MUST == sentinelA.
+4. `poke(ptr, sentinelB=0x1122334455667788, width=8)`; `peek(ptr,8)` MUST == sentinelB (proves the store
+   landed, not a stale read). Optional: 32-bit `width=4` poke+peek to exercise that path.
+5. `call kfree(ptr)` (target=`kfree`+slide, x0=ptr). A valid kmalloc'd ptr is a clean slab free; if it
+   faults the device reboots into the v1-repl boot partition (recoverable). Do **not** peek-after-free.
+6. Restore `panic_on_oops=1`. Roll back to clean v2321 (`native_init_flash --from-native --expect-sha256
+   ca978551aabe4b39563abaf529ccf2522054952d8b2ad852e632d26da88168cb`). Final `selftest fail=0`.
+
+**Gate-2 + tests:** extend `tests/test_a90_repl.py` with a faithful-stub poke-roundtrip integration test
+(fake transport modelling a kmalloc'd scratch dict: op2 writes it, op1 reads it back, op3 `__kmalloc`
+returns a fake ptr, `kfree` no-ops). `py_compile`; run the full `tests/` suite. **No new kernel image is
+built** (assert this; confirm the v1-repl image SHA is unchanged) → no operator disasm needed for this unit.
+
+Then v2b (`show`-buf bulk `peek` for arbitrary length) stays BLOCKED until a safe fixed scratch anchor +
+cleanup protocol are proven; the printk-loop stays the shipping default. Guardrails below + the v2a2-specific
+note: `poke` writes ONLY to the `__kmalloc`'d buffer we own (non-protected) and we `kfree` it.
 
 **Guardrails (hard, RECON / exploit-free):** NO RKP bypass, NO write to RKP-protected memory
 (`.text`/rodata/page-tables/cred), NO RWX, NO `ret`/`blr`/CFP-site patch, NO grooming/UAF/spray,
