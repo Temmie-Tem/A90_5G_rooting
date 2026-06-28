@@ -1065,6 +1065,17 @@ host-only unit unless it explicitly needs a live check. Report each to `docs/rep
   `a90_stock_kallsyms_extract.py` name↔address drift in the mm/slab (and any other drifted) region — the
   v2a0 ULEB128 fix did not cover it. Goal: a map that is either correct everywhere or annotated with its
   trustworthy regions. (C2 can be staged: audit first, decoder fix as a follow-up.)
+
+  **STATUS (2026-06-29 v2c C2A host pass) — map-audit landed; decoder fix/fencing remains open.**
+  `a90_repl.py map-audit` now builds a one-pass export-name/ref index from the raw v1-repl image and compares
+  recovered export-record values against `System.map`. On the current v2a1 map it audits `12628` exported
+  symbols: `12490` recoverable candidates, `12479` map mismatches, `11` ambiguous, `138` missing recovery,
+  and `0` map matches. Focus rows preserve the v2a2 allocator proof (`__kmalloc` recovered
+  `0xffffff800826ae34`, `kfree` recovered `0xffffff800826b354`) and show `printk` as ambiguous rather than
+  auto-promoted. Validation: `py_compile` pass, `tests.test_a90_repl` **37/37 PASS**. Report:
+  `docs/reports/KERNEL_SECURITY_TIER2_RUNTIME_KERNEL_REPL_V2C_C2_MAP_AUDIT_2026-06-29.md`.
+  **Next C2 step:** fix the kallsyms decoder root cause or explicitly fence trusted map regions; do not treat
+  this System.map as globally trustworthy.
 - **S1 — transport stability.** Harden the live op path against the observed serial-fragment noise
   (`ATAT` / missing `A90P1 END`): per-op bounded re-read/realign retry, robust ring read (busybox `dmesg`
   is read-and-clear; keep the single-shell `op_sh` + `tail -n N`), and clear classification of

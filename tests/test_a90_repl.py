@@ -293,6 +293,24 @@ class StaticImageCrossCheckTests(unittest.TestCase):
         self.assertEqual(resolution.method, "System.map-read-only-unverified")
         self.assertEqual(resolution.link_vaddr, 0xFFFFFF80089273B4)
 
+    def test_map_audit_quantifies_export_drift(self) -> None:
+        audit = repl.run_map_audit(self.symbols, self.image, row_limit=8)
+
+        self.assertTrue(audit["ok"], audit)
+        self.assertEqual(audit["decision"], "a90-repl-v2c-c2-map-audit-host-pass")
+        self.assertEqual(audit["export_symbol_count"], 12628)
+        self.assertGreater(audit["recovered_candidate_symbol_count"], 12000)
+        self.assertGreater(audit["counts"]["map_mismatch"], 12000)
+        self.assertEqual(audit["counts"]["map_match"], 0)
+
+        focus = audit["focus_rows"]
+        self.assertEqual(focus["__kmalloc"]["status"], "map-mismatch")
+        self.assertEqual(focus["__kmalloc"]["selected_link_vaddr"], "0xffffff800826ae34")
+        self.assertEqual(focus["kfree"]["status"], "map-mismatch")
+        self.assertEqual(focus["kfree"]["selected_link_vaddr"], "0xffffff800826b354")
+        self.assertEqual(focus["printk"]["status"], "ambiguous")
+        self.assertIn("0xffffff800813adfc", focus["printk"]["candidate_link_vaddrs"])
+
     def test_assert_jopp_entry_rejects_non_entry(self) -> None:
         link = repl.resolve_link(self.symbols, "printk")
         with self.assertRaises(repl.ReplError):

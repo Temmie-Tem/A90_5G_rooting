@@ -105,6 +105,9 @@ KNOWN_UNSAFE_CALL_TARGETS = {
         "static evidence instead of calling this target"
     ),
 }
+EXPORT_NAME_RE = re.compile(rb"[A-Za-z_][A-Za-z0-9_\.]{0,127}\x00")
+EXPORT_RECORD_NAME_DELTA = 24
+FUNCTION_SYMBOL_KINDS = frozenset("TtWw")
 
 A64_BL_MASK = 0xFC000000
 A64_BL = 0x94000000
@@ -429,6 +432,8 @@ def static_raw_image(image: StaticImage) -> bytes:
 _STATIC_RAW_CACHE: dict[tuple[int, int], bytes] = {}
 _DIRECT_BL_XREF_CACHE: dict[tuple[int, int], tuple[int, list[str]]] = {}
 _EXPORT_CANDIDATE_CACHE: dict[tuple[int, str], list[dict[str, object]]] = {}
+_EXPORT_STRING_INDEX_CACHE: dict[tuple[int, tuple[str, ...]], dict[int, tuple[str, ...]]] = {}
+_EXPORT_REF_INDEX_CACHE: dict[tuple[int, tuple[str, ...]], dict[str, list[int]]] = {}
 
 
 def cached_static_raw_image(image: StaticImage) -> bytes:
@@ -560,6 +565,186 @@ def _recover_export_candidates_cached(raw: bytes, symbol: str) -> list[dict[str,
         cached = _recover_export_candidates(raw, symbol)
         _EXPORT_CANDIDATE_CACHE[key] = cached
     return cached
+
+
+def exported_symbol_names(symbols: dict[str, Symbol]) -> tuple[str, ...]:
+    return tuple(sorted(
+        name[len("__ksymtab_"):]
+        for name in symbols
+        if name.startswith("__ksymtab_") and len(name) > len("__ksymtab_")
+    ))
+
+
+def _is_vaddr_inside_raw(raw: bytes, value: int) -> bool:
+    raw_off = _vaddr_to_raw_off(value)
+    return 0 <= raw_off < len(raw)
+
+
+def _build_export_string_index(raw: bytes, names: tuple[str, ...]) -> dict[int, tuple[str, ...]]:
+    key = (id(raw), names)
+    cached = _EXPORT_STRING_INDEX_CACHE.get(key)
+    if cached is not None:
+        return cached
+    wanted = set(names)
+    by_vaddr: dict[int, set[str]] = {}
+    for match in EXPORT_NAME_RE.finditer(raw):
+        text = match.group()[:-1].decode("ascii", errors="ignore")
+        if text in wanted:
+            by_vaddr.setdefault(_raw_off_to_vaddr(match.start()), set()).add(text)
+    built = {vaddr: tuple(sorted(values)) for vaddr, values in by_vaddr.items()}
+    _EXPORT_STRING_INDEX_CACHE[key] = built
+    return built
+
+
+def _build_export_name_ref_index(raw: bytes, names: tuple[str, ...]) -> dict[str, list[int]]:
+    key = (id(raw), names)
+    cached = _EXPORT_REF_INDEX_CACHE.get(key)
+    if cached is not None:
+        return cached
+    string_index = _build_export_string_index(raw, names)
+    string_vaddrs = set(string_index)
+    refs: dict[str, list[int]] = {name: [] for name in names}
+    for off in range(0, len(raw) - 8, 8):
+        value = struct.unpack_from("<Q", raw, off)[0]
+        if value not in string_vaddrs:
+            continue
+        for name in string_index[value]:
+            refs.setdefault(name, []).append(off)
+    _EXPORT_REF_INDEX_CACHE[key] = refs
+    return refs
+
+
+def _map_kind_is_function(kind: str | None) -> bool:
+    return kind in FUNCTION_SYMBOL_KINDS if kind else False
+
+
+def _audit_export_candidates_for_name(raw: bytes,
+                                      symbols: dict[str, Symbol],
+                                      name: str,
+                                      name_ref_offsets: list[int]) -> list[dict[str, object]]:
+    map_symbol = symbols.get(name)
+    require_jopp = _map_kind_is_function(map_symbol.kind if map_symbol else None)
+    seen: set[int] = set()
+    candidates: list[dict[str, object]] = []
+    for name_ref_off in name_ref_offsets:
+        value_ref_off = name_ref_off - EXPORT_RECORD_NAME_DELTA
+        if value_ref_off < 0:
+            continue
+        value = struct.unpack_from("<Q", raw, value_ref_off)[0]
+        if value in seen or not _is_vaddr_inside_raw(raw, value):
+            continue
+        seen.add(value)
+        jopp = _is_static_jopp_text_entry(raw, value)
+        if require_jopp and not jopp:
+            continue
+        candidates.append({
+            "symbol": name,
+            "link_vaddr": f"0x{value:x}",
+            "name_ref_vaddr": f"0x{_raw_off_to_vaddr(name_ref_off):x}",
+            "name_ref_raw_off": f"0x{name_ref_off:x}",
+            "value_ref_vaddr": f"0x{_raw_off_to_vaddr(value_ref_off):x}",
+            "value_ref_raw_off": f"0x{value_ref_off:x}",
+            "name_ref_minus_value_ref": EXPORT_RECORD_NAME_DELTA,
+            "jopp_entry": jopp,
+        })
+    candidates.sort(key=lambda row: int(str(row["link_vaddr"]), 16))
+    return candidates
+
+
+def run_map_audit(symbols: dict[str, Symbol],
+                  image: StaticImage,
+                  *,
+                  row_limit: int = 80,
+                  focus_symbols: tuple[str, ...] = ("__kmalloc", "kfree", "printk")) -> dict[str, object]:
+    raw = cached_static_raw_image(image)
+    names = exported_symbol_names(symbols)
+    refs = _build_export_name_ref_index(raw, names)
+
+    counts = {
+        "map_match": 0,
+        "map_mismatch": 0,
+        "ambiguous": 0,
+        "missing_recovery": 0,
+        "missing_map_symbol": 0,
+    }
+    rows: list[dict[str, object]] = []
+    focus_rows: dict[str, dict[str, object]] = {}
+    mismatch_buckets: dict[str, int] = {}
+
+    for name in names:
+        map_symbol = symbols.get(name)
+        map_link = map_symbol.vaddr if map_symbol else None
+        candidates = _audit_export_candidates_for_name(raw, symbols, name, refs.get(name, []))
+        row: dict[str, object] = {
+            "symbol": name,
+            "map_link_vaddr": f"0x{map_link:x}" if map_link is not None else None,
+            "map_kind": map_symbol.kind if map_symbol else None,
+            "candidate_count": len(candidates),
+            "status": "missing-recovery",
+            "selected_link_vaddr": None,
+        }
+        if map_link is None:
+            counts["missing_map_symbol"] += 1
+            row["status"] = "missing-map-symbol"
+        elif not candidates:
+            counts["missing_recovery"] += 1
+        elif len(candidates) > 1:
+            candidate_values = [int(str(candidate["link_vaddr"]), 16) for candidate in candidates]
+            row["candidate_link_vaddrs"] = [candidate["link_vaddr"] for candidate in candidates[:8]]
+            if map_link in candidate_values:
+                counts["map_match"] += 1
+                row["status"] = "map-match-ambiguous"
+                row["selected_link_vaddr"] = f"0x{map_link:x}"
+            else:
+                counts["ambiguous"] += 1
+                row["status"] = "ambiguous"
+        else:
+            selected = candidates[0]
+            selected_link = int(str(selected["link_vaddr"]), 16)
+            row["selected_link_vaddr"] = selected["link_vaddr"]
+            row["jopp_entry"] = selected["jopp_entry"]
+            if selected_link == map_link:
+                counts["map_match"] += 1
+                row["status"] = "map-match"
+            else:
+                counts["map_mismatch"] += 1
+                row["status"] = "map-mismatch"
+                bucket = f"0x{map_link & ~0xfffff:x}"
+                mismatch_buckets[bucket] = mismatch_buckets.get(bucket, 0) + 1
+                row["map_minus_recovered"] = map_link - selected_link
+
+        if name in focus_symbols:
+            row["candidates"] = candidates[:8]
+            focus_rows[name] = row
+        if len(rows) < row_limit and row["status"] not in ("map-match",):
+            row_for_sample = dict(row)
+            row_for_sample["candidates"] = candidates[:4]
+            rows.append(row_for_sample)
+
+    top_buckets = [
+        {"map_region_base": bucket, "mismatch_count": count}
+        for bucket, count in sorted(mismatch_buckets.items(), key=lambda item: (-item[1], item[0]))[:20]
+    ]
+    audited = len(names)
+    return {
+        "decision": "a90-repl-v2c-c2-map-audit-host-pass",
+        "ok": True,
+        "raw_runtime_values_redacted": True,
+        "export_symbol_count": audited,
+        "recovered_candidate_symbol_count": (
+            audited - counts["missing_recovery"] - counts["missing_map_symbol"]
+        ),
+        "counts": counts,
+        "map_match_rate": (counts["map_match"] / audited) if audited else 0,
+        "focus_rows": focus_rows,
+        "mismatch_region_buckets": top_buckets,
+        "sample_rows": rows,
+        "row_limit": row_limit,
+        "next_required": (
+            "use the drift report to fix or fence the kallsyms decoder; "
+            "do not treat System.map as globally trustworthy"
+        ),
+    }
 
 
 def recover_allocator_export_addresses(
@@ -1436,6 +1621,15 @@ def cmd_allocator_export_recovery(args: argparse.Namespace) -> int:
     return 0 if summary["ok"] else 1
 
 
+def cmd_map_audit(args: argparse.Namespace) -> int:
+    symbols = load_system_map(args.map)
+    image = load_static_image(args.image)
+    summary = run_map_audit(symbols, image, row_limit=args.row_limit)
+    write_evidence(args, summary)
+    print(json.dumps(summary, indent=2, sort_keys=True))
+    return 0 if summary["ok"] else 1
+
+
 def main(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser(description=__doc__)
     sub = parser.add_subparsers(dest="cmd", required=True)
@@ -1486,6 +1680,14 @@ def main(argv: list[str] | None = None) -> int:
     )
     add_common(p_export)
     p_export.set_defaults(func=cmd_allocator_export_recovery)
+
+    p_map_audit = sub.add_parser(
+        "map-audit",
+        help="host-only v2c C2 audit of System.map against recovered export records",
+    )
+    add_common(p_map_audit)
+    p_map_audit.add_argument("--row-limit", type=int, default=80)
+    p_map_audit.set_defaults(func=cmd_map_audit)
 
     args = parser.parse_args(argv)
     return args.func(args)
