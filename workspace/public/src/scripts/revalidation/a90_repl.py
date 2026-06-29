@@ -215,6 +215,7 @@ CALL_SAFETY_SWEEP_FAMILIES = {
         "symbols": (
             "strlen",
             "strnlen",
+            "skip_spaces",
             "strcmp",
             "strncmp",
             "strstr",
@@ -278,6 +279,12 @@ CALL_SAFETY_SEEDS = {
         "required_valid_pointer_args": {0: "string-buffer"},
         "return_kind": "size_t",
         "reason": "string helper; x0 must be a verified NUL-terminated kernel buffer",
+    },
+    "skip_spaces": {
+        "tier": CALL_SAFETY_SAFE_WITH_VALID_PTR,
+        "required_valid_pointer_args": {0: "string-buffer"},
+        "return_kind": "string-pointer",
+        "reason": "leading-whitespace skip helper; x0 must be an owned NUL-terminated kernel string buffer",
     },
     "strchr": {
         "tier": CALL_SAFETY_SAFE_WITH_VALID_PTR,
@@ -4598,6 +4605,12 @@ CALL_PROOF_TARGETS = {
         "expected_tier": CALL_SAFETY_SAFE_WITH_VALID_PTR,
         "source_signature": "extern __kernel_size_t strlen(const char *)",
     },
+    "skip_spaces": {
+        "input_contract": "owned NUL-terminated kernel string buffer with leading ASCII spaces",
+        "return_contract": "char * == owned string buffer plus expected first non-space offset; no-leading-space case returns the original pointer",
+        "expected_tier": CALL_SAFETY_SAFE_WITH_VALID_PTR,
+        "source_signature": "extern char * __must_check skip_spaces(const char *)",
+    },
     "strchr": {
         "input_contract": "owned NUL-terminated kernel string buffer plus scalar search byte",
         "return_contract": "char * == owned string buffer plus expected first-occurrence offset; missing byte returns NULL",
@@ -4694,6 +4707,12 @@ STRNLEN_PROOF_MAXLEN = 64
 STRLEN_PROOF_BYTES = b"A90STRLEN\x00"
 STRLEN_PROOF_EXPECTED = len(STRLEN_PROOF_BYTES) - 1
 STRLEN_ZERO_FILL_LEN = 64
+SKIP_SPACES_PROOF_BYTES = b"   A90SKIP-SPACES\x00"
+SKIP_SPACES_PROOF_LABEL = SKIP_SPACES_PROOF_BYTES[:-1].decode("ascii")
+SKIP_SPACES_EXPECTED_OFFSET = len(SKIP_SPACES_PROOF_BYTES) - len(SKIP_SPACES_PROOF_BYTES.lstrip(b" "))
+SKIP_SPACES_NO_LEADING_BYTES = b"A90SKIP-NO-LEADING\x00"
+SKIP_SPACES_NO_LEADING_LABEL = SKIP_SPACES_NO_LEADING_BYTES[:-1].decode("ascii")
+SKIP_SPACES_CANARY_LEN = 8
 STRCHR_PROOF_BYTES = b"A90STRCHR-Q-B-Q-Z\x00"
 STRCHR_PROOF_LABEL = STRCHR_PROOF_BYTES[:-1].decode("ascii")
 STRCHR_SEARCH_BYTE = ord("Q")
@@ -5946,6 +5965,243 @@ def _run_call_proof_strchr(session: ReplSession,
         "alloc_ptr": f"0x{ptr:x}",
         "hit_return_ptr": f"0x{hit_return:x}",
         "observed_bytes_hex": observed.hex(),
+        "gfp_components": {key: f"0x{component:x}" for key, component in gfp_components.items()},
+    })
+    return summary, private
+
+
+def _run_call_proof_skip_spaces(session: ReplSession,
+                                symbols: dict[str, Symbol],
+                                image: StaticImage,
+                                *,
+                                alloc_size: int,
+                                source_root: Path,
+                                gfp: int,
+                                gfp_components: dict[str, int]) -> tuple[dict[str, object], dict[str, object]]:
+    scan_len = max(len(SKIP_SPACES_PROOF_BYTES), len(SKIP_SPACES_NO_LEADING_BYTES)) + SKIP_SPACES_CANARY_LEN
+    if alloc_size < scan_len:
+        raise ReplError(f"skip_spaces call-proof alloc_size must be at least {scan_len} bytes")
+    if SKIP_SPACES_EXPECTED_OFFSET <= 0:
+        raise ReplError("skip_spaces proof string must start with at least one ASCII space")
+    if SKIP_SPACES_PROOF_BYTES[SKIP_SPACES_EXPECTED_OFFSET] == 0:
+        raise ReplError("skip_spaces proof string must contain a non-space byte after leading spaces")
+    if SKIP_SPACES_NO_LEADING_BYTES.startswith(b" "):
+        raise ReplError("skip_spaces no-leading proof string must not start with a space")
+
+    source = lookup_source_signature("skip_spaces", source_root=source_root)
+    call_safety = require_call_safety_for_call(
+        symbols,
+        image,
+        "skip_spaces",
+        ("@owned_string_buffer",),
+    )
+    if call_safety.get("tier") != CALL_PROOF_TARGETS["skip_spaces"]["expected_tier"]:
+        raise ReplError("skip_spaces call-safety tier is not the expected vetted pointer tier")
+    if not source.get("found") or source.get("pointer_arg_indices") != [0]:
+        raise ReplError("skip_spaces source signature does not declare x0 as the string pointer argument")
+
+    resolutions = {
+        "skip_spaces": resolve_verified(symbols, image, "skip_spaces", purpose="call", allow_pre_arg_deref=True),
+        "__kmalloc": resolve_verified(symbols, image, "__kmalloc", purpose="call"),
+        "kfree": resolve_verified(symbols, image, "kfree", purpose="call"),
+    }
+    skip_spaces_link = require_verified_resolution(resolutions["skip_spaces"], "call-proof target")
+    kmalloc_link = require_verified_resolution(resolutions["__kmalloc"], "call-proof string allocator")
+    kfree_link = require_verified_resolution(resolutions["kfree"], "call-proof string cleanup")
+    assert_no_precall_x0_pointer_deref(image, kmalloc_link, "__kmalloc")
+
+    payload_len = scan_len - SKIP_SPACES_CANARY_LEN
+    expected_leading_scan = SKIP_SPACES_PROOF_BYTES.ljust(payload_len, b"\x00") + (
+        b"\xcc" * SKIP_SPACES_CANARY_LEN
+    )
+    expected_no_leading_scan = SKIP_SPACES_NO_LEADING_BYTES.ljust(payload_len, b"\x00") + (
+        b"\xcc" * SKIP_SPACES_CANARY_LEN
+    )
+    checks: list[dict[str, object]] = [
+        {
+            "check": "static-c1-identity",
+            "ok": True,
+            "target": "skip_spaces",
+            "resolution_method": resolutions["skip_spaces"].method,
+        },
+        {
+            "check": "static-source-contract",
+            "ok": True,
+            "signature": source.get("selected", {}).get("signature")
+            if isinstance(source.get("selected"), dict) else None,
+            "pointer_arg_indices": source.get("pointer_arg_indices", []),
+        },
+        {
+            "check": "static-call-safety-contract",
+            "ok": True,
+            "tier": call_safety.get("tier"),
+            "required_valid_pointer_args": call_safety.get("required_valid_pointer_args", {}),
+        },
+    ]
+    private: dict[str, object] = {}
+    ptr = 0
+    slide = 0
+    kfree_runtime = 0
+    free_ok = False
+    free_error: str | None = None
+    leading_return = 0
+    no_leading_return = 0
+    observed = b""
+
+    session.hide()
+    session.set_panic_on_oops(0)
+    try:
+        slide = session.slide()
+        if slide & 0xFFF:
+            raise ReplError("slide is not page-aligned; refusing to proceed")
+        skip_spaces_runtime = (skip_spaces_link + slide) & MASK64
+        kmalloc_runtime = (kmalloc_link + slide) & MASK64
+        kfree_runtime = (kfree_link + slide) & MASK64
+
+        ptr = session.call_runtime(kmalloc_runtime, (alloc_size, gfp))
+        ptr_ok = is_kernel_lowmem_pointer(ptr)
+        checks.append({
+            "check": "kmalloc-owned-skip-spaces-string-buffer",
+            "ok": ptr_ok,
+            "alloc_size": alloc_size,
+            "kernel_lowmem": ptr_ok,
+        })
+        if not ptr_ok:
+            raise ReplError("__kmalloc did not return a sane skip_spaces string buffer")
+
+        _poke_bytes(session, ptr, expected_leading_scan)
+        observed = _peek_bytes(session, ptr, scan_len)
+        leading_setup_ok = observed == expected_leading_scan
+        checks.append({
+            "check": "owned-skip-spaces-leading-string-poke-peek",
+            "ok": leading_setup_ok,
+            "proof_string": SKIP_SPACES_PROOF_LABEL,
+            "canary_len": SKIP_SPACES_CANARY_LEN,
+        })
+        if not leading_setup_ok:
+            raise ReplError("owned skip_spaces leading string poke/peek mismatch")
+
+        leading_return = session.call_runtime(skip_spaces_runtime, (ptr,))
+        expected_leading_return = (ptr + SKIP_SPACES_EXPECTED_OFFSET) & MASK64
+        leading_ok = leading_return == expected_leading_return
+        checks.append({
+            "check": "skip-spaces-leading-return-contract",
+            "ok": leading_ok,
+            "expected_offset": SKIP_SPACES_EXPECTED_OFFSET,
+            "expected_return": "owned-string-pointer-plus-offset-redacted",
+            "observed_return": "owned-string-pointer-plus-offset-redacted" if leading_ok else f"0x{leading_return:x}",
+        })
+        if not leading_ok:
+            raise ReplError(
+                f"skip_spaces leading-space case returned 0x{leading_return:x}, "
+                f"expected owned pointer at offset {SKIP_SPACES_EXPECTED_OFFSET}"
+            )
+
+        observed = _peek_bytes(session, ptr, scan_len)
+        leading_unchanged = observed == expected_leading_scan
+        checks.append({
+            "check": "skip-spaces-leading-string-immutability",
+            "ok": leading_unchanged,
+            "string_unchanged": leading_unchanged,
+        })
+        if not leading_unchanged:
+            raise ReplError("skip_spaces leading-space case modified the owned string")
+
+        _poke_bytes(session, ptr, expected_no_leading_scan)
+        observed = _peek_bytes(session, ptr, scan_len)
+        no_leading_setup_ok = observed == expected_no_leading_scan
+        checks.append({
+            "check": "owned-skip-spaces-no-leading-string-poke-peek",
+            "ok": no_leading_setup_ok,
+            "proof_string": SKIP_SPACES_NO_LEADING_LABEL,
+        })
+        if not no_leading_setup_ok:
+            raise ReplError("owned skip_spaces no-leading string poke/peek mismatch")
+
+        no_leading_return = session.call_runtime(skip_spaces_runtime, (ptr,))
+        no_leading_ok = no_leading_return == ptr
+        checks.append({
+            "check": "skip-spaces-no-leading-return-contract",
+            "ok": no_leading_ok,
+            "expected_offset": 0,
+            "expected_return": "owned-string-pointer-redacted",
+            "observed_return": "owned-string-pointer-redacted" if no_leading_ok else f"0x{no_leading_return:x}",
+        })
+        if not no_leading_ok:
+            raise ReplError(f"skip_spaces no-leading case returned 0x{no_leading_return:x}, expected original pointer")
+
+        observed = _peek_bytes(session, ptr, scan_len)
+        no_leading_unchanged = observed == expected_no_leading_scan
+        checks.append({
+            "check": "skip-spaces-no-leading-string-immutability",
+            "ok": no_leading_unchanged,
+            "string_unchanged": no_leading_unchanged,
+        })
+        if not no_leading_unchanged:
+            raise ReplError("skip_spaces no-leading case modified the owned string")
+    finally:
+        if kfree_runtime and ptr and is_kernel_lowmem_pointer(ptr):
+            try:
+                session.call_runtime(kfree_runtime, (ptr,))
+                free_ok = True
+            except Exception as exc:  # noqa: BLE001 - cleanup failures must be visible
+                free_error = str(exc)
+        session.set_panic_on_oops(1)
+
+    checks.append({
+        "check": "kfree-owned-skip-spaces-string-buffer",
+        "ok": free_ok,
+        "free_attempted": bool(kfree_runtime and ptr),
+    })
+    if free_error:
+        raise ReplError(f"kfree failed after skip_spaces proof: {free_error}")
+
+    passed = all(bool(check.get("ok")) for check in checks)
+    summary = {
+        "decision": f"a90-repl-live-call-proof-skip_spaces-{'pass' if passed else 'fail'}",
+        "ok": passed,
+        "target": "skip_spaces",
+        "proof_status": "trusted-under-owned-input-contract" if passed else "failed",
+        "input_contract": CALL_PROOF_TARGETS["skip_spaces"]["input_contract"],
+        "return_contract": CALL_PROOF_TARGETS["skip_spaces"]["return_contract"],
+        "alloc_size": alloc_size,
+        "proof_string": SKIP_SPACES_PROOF_LABEL,
+        "no_leading_string": SKIP_SPACES_NO_LEADING_LABEL,
+        "expected_skip_offset": SKIP_SPACES_EXPECTED_OFFSET,
+        "leading_expected_return_value": "owned-string-pointer-plus-offset-redacted",
+        "leading_observed_return_value": "owned-string-pointer-plus-offset-redacted",
+        "leading_return_matches_expected_offset": leading_return == ((ptr + SKIP_SPACES_EXPECTED_OFFSET) & MASK64),
+        "no_leading_expected_return_value": "owned-string-pointer-redacted",
+        "no_leading_observed_return_value": "owned-string-pointer-redacted",
+        "no_leading_return_matches_original_pointer": no_leading_return == ptr,
+        "string_unchanged_after_calls": True,
+        "gfp_kernel": f"0x{gfp:x}",
+        "source_evidence": _source_row_evidence(source),
+        "call_safety": call_safety,
+        "resolutions": _redacted_resolution_set(resolutions),
+        "raw_runtime_values_redacted": True,
+        "owned_pointer_redacted": True,
+        "observed_bytes_redacted": True,
+        "checks": checks,
+        "function_map_entry": {
+            "symbol": "skip_spaces",
+            "status": "live-proven",
+            "trusted_input_contract": CALL_PROOF_TARGETS["skip_spaces"]["input_contract"],
+            "return_contract": CALL_PROOF_TARGETS["skip_spaces"]["return_contract"],
+            "observed_return_value": f"leading-offset={SKIP_SPACES_EXPECTED_OFFSET},no-leading-offset=0",
+            "cleanup": "kfree-owned-skip-spaces-string-buffer-ok" if free_ok else "cleanup-failed",
+            "auto_call_policy": "one-target-proof-only-not-mass-call",
+        },
+    }
+    private.update({
+        "slide": f"0x{slide:x}",
+        "skip_spaces_runtime": f"0x{((skip_spaces_link + slide) & MASK64):x}",
+        "alloc_ptr": f"0x{ptr:x}",
+        "leading_return_ptr": f"0x{leading_return:x}",
+        "no_leading_return_ptr": f"0x{no_leading_return:x}",
+        "observed_bytes_hex": observed.hex(),
+        "expected_leading_hex": expected_leading_scan.hex(),
+        "expected_no_leading_hex": expected_no_leading_scan.hex(),
         "gfp_components": {key: f"0x{component:x}" for key, component in gfp_components.items()},
     })
     return summary, private
@@ -8939,6 +9195,16 @@ def run_call_proof(session: ReplSession,
         )
     if target == "strncpy":
         return _run_call_proof_strncpy(
+            session,
+            symbols,
+            image,
+            alloc_size=alloc_size,
+            source_root=source_root,
+            gfp=gfp,
+            gfp_components=gfp_components,
+        )
+    if target == "skip_spaces":
+        return _run_call_proof_skip_spaces(
             session,
             symbols,
             image,
