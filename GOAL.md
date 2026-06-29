@@ -767,6 +767,38 @@ epic is DONE.** Reports:
 `docs/reports/NATIVE_INIT_V3335_GPU_Z3_PRIMARY_SETCRTC_SOURCE_BUILD_2026-06-27.md` and
 `docs/reports/NATIVE_INIT_V3335_GPU_Z3_PRIMARY_SETCRTC_LIVE_2026-06-27.md`.**
 
+## ✅ DONE — REPL post-epic one-target live-call proof — `match_string` owned string-array contract
+
+> ### ✅ STATUS (2026-06-30 live pass) — `match_string` promoted under owned const-char-pointer array only
+>
+> Thirty-fifth one-target live-call proof after the REPL epic close. Codex extended `a90_repl.py`
+> `call-proof` with `match_string`, using one tool-owned kmalloc layout containing a bounded
+> `const char *` array of three owned NUL-terminated strings (`A90MATCH-ALPHA`,
+> `A90MATCH-BRAVO`, `A90MATCH-CHARLIE`), a NULL sentinel after the bounded array, and an owned
+> search string. Static gate: `match_string=0xffffff80099b9c9c`, `export-recovery`, direct-BL
+> xrefs `5`, JOPP entry, calls `__pi_strcmp`, RET in scan at offset `0x78`, and disasm shows
+> `w23 = 0xffffffea` as the `-EINVAL` miss/zero-count return. Source contract:
+> `int match_string(const char * const *array, size_t n, const char *string)`, with x0 as the
+> string-pointer array, x1 as scalar count, and x2 as the search string pointer. The call-safety
+> seed is `SAFE-WITH-VALID-PTR`; required valid pointer args are x0 `string-pointer-array` and
+> x2 `search-string-buffer`.
+>
+> Live path: confirmed rollback images and TWRP, flashed the existing v1-repl boot image
+> (`b846ae9f...`) through `native_init_flash.py`, confirmed clean native selftest `fail=0` and
+> `a90-repl-v2a1-selftest-pass`, then ran `call-proof match_string` with the C2B verified map.
+> Result: `a90-repl-live-call-proof-match_string-pass`; checks covered C1 identity, source
+> pointer contract, call-safety contract, owned layout allocation, pointer-array/string
+> poke-peek, hit return index `1` for `A90MATCH-BRAVO`, hit layout immutability, missing search
+> rewrite to `A90MATCH-MISSING`, missing return `0xffffffea`, zero-count return `0xffffffea`,
+> final layout/canary immutability, and `kfree-owned-match-string-layout`.
+>
+> Candidate selftest after proof was `pass=11 warn=1 fail=0`. Rollback to clean v2321 used the
+> checked helper with readback SHA `ca978551...`; final resident `version`/`selftest` confirmed
+> v2321 and `pass=11 warn=1 fail=0`. Function map records `match_string` only under the owned
+> pointer-array plus owned-search-string and bounded-count-inside-array contract. This does not
+> authorize arbitrary pointer arrays, user pointers, unterminated strings, stale array entries,
+> out-of-range counts, or mass calls.
+
 ## ✅ DONE — REPL post-epic one-target live-call proof — `strnstr` owned-substring bounded-length contract
 
 > ### ✅ STATUS (2026-06-30 live pass) — `strnstr` promoted under owned haystack/needle plus bounded length only

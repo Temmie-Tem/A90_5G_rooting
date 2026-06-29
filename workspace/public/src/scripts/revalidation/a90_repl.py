@@ -225,6 +225,7 @@ CALL_SAFETY_SWEEP_FAMILIES = {
             "strncasecmp",
             "strstr",
             "strnstr",
+            "match_string",
             "strpbrk",
             "strspn",
             "strcspn",
@@ -341,6 +342,12 @@ CALL_SAFETY_SEEDS = {
         "required_valid_pointer_args": {0: "haystack-string-buffer", 1: "needle-string-buffer"},
         "return_kind": "string-pointer-or-null",
         "reason": "bounded substring search helper; x0/x1 must be owned NUL-terminated kernel string buffers and length must stay inside haystack",
+    },
+    "match_string": {
+        "tier": CALL_SAFETY_SAFE_WITH_VALID_PTR,
+        "required_valid_pointer_args": {0: "string-pointer-array", 2: "search-string-buffer"},
+        "return_kind": "int-index-or-negative-errno",
+        "reason": "bounded string-array matcher; x0 must be an owned const char* array, x2 must be an owned NUL-terminated search string, and n must stay inside the array",
     },
     "strpbrk": {
         "tier": CALL_SAFETY_SAFE_WITH_VALID_PTR,
@@ -4751,6 +4758,12 @@ CALL_PROOF_TARGETS = {
         "expected_tier": CALL_SAFETY_SAFE_WITH_VALID_PTR,
         "source_signature": "extern char * strnstr(const char *, const char *, size_t)",
     },
+    "match_string": {
+        "input_contract": "owned const char* array containing owned NUL-terminated kernel strings plus owned search string and bounded n inside array",
+        "return_contract": "int == matching array index; missing string and zero count return 32-bit -EINVAL",
+        "expected_tier": CALL_SAFETY_SAFE_WITH_VALID_PTR,
+        "source_signature": "int match_string(const char * const *array, size_t n, const char *string)",
+    },
     "strpbrk": {
         "input_contract": "owned NUL-terminated haystack and accept-set kernel string buffers",
         "return_contract": "char * == owned haystack buffer plus expected first accept-set byte offset; missing accept-set returns NULL",
@@ -4953,6 +4966,30 @@ STRNSTR_EXPECTED_OFFSET = STRNSTR_HAYSTACK_BYTES[:-1].find(STRNSTR_NEEDLE_BYTES[
 STRNSTR_HIT_LEN = len(STRNSTR_HAYSTACK_BYTES) - 1
 STRNSTR_BOUND_MISS_LEN = STRNSTR_EXPECTED_OFFSET + len(STRNSTR_NEEDLE_BYTES[:-1]) - 1
 STRNSTR_CANARY_LEN = 8
+MATCH_STRING_ITEMS_BYTES = (
+    b"A90MATCH-ALPHA\x00",
+    b"A90MATCH-BRAVO\x00",
+    b"A90MATCH-CHARLIE\x00",
+)
+MATCH_STRING_ITEM_LABELS = tuple(item[:-1].decode("ascii") for item in MATCH_STRING_ITEMS_BYTES)
+MATCH_STRING_SEARCH_BYTES = MATCH_STRING_ITEMS_BYTES[1]
+MATCH_STRING_SEARCH_LABEL = MATCH_STRING_SEARCH_BYTES[:-1].decode("ascii")
+MATCH_STRING_MISSING_BYTES = b"A90MATCH-MISSING\x00"
+MATCH_STRING_MISSING_LABEL = MATCH_STRING_MISSING_BYTES[:-1].decode("ascii")
+MATCH_STRING_ARRAY_COUNT = len(MATCH_STRING_ITEMS_BYTES)
+MATCH_STRING_EXPECTED_INDEX = 1
+MATCH_STRING_TABLE_OFFSET = 0x00
+MATCH_STRING_TABLE_ENTRY_COUNT = MATCH_STRING_ARRAY_COUNT + 1
+MATCH_STRING_TABLE_LEN = MATCH_STRING_TABLE_ENTRY_COUNT * 8
+MATCH_STRING_ITEM_OFFSETS = (0x40, 0x80, 0xC0)
+MATCH_STRING_SEARCH_OFFSET = 0x100
+MATCH_STRING_CANARY_LEN = 8
+MATCH_STRING_EINVAL_RETURN = 0xFFFFFFEA
+MATCH_STRING_MAX_STRING_SCAN_LEN = max(
+    *(len(item) for item in MATCH_STRING_ITEMS_BYTES),
+    len(MATCH_STRING_SEARCH_BYTES),
+    len(MATCH_STRING_MISSING_BYTES),
+) + MATCH_STRING_CANARY_LEN
 STRPBRK_HAYSTACK_BYTES = b"A90STRPBRK-HEAD-Q-TAIL-Z\x00"
 STRPBRK_HAYSTACK_LABEL = STRPBRK_HAYSTACK_BYTES[:-1].decode("ascii")
 STRPBRK_ACCEPT_BYTES = b"QZ\x00"
@@ -8060,6 +8097,351 @@ def _run_call_proof_strnstr(session: ReplSession,
         "expected_haystack_hex": expected_haystack_scan.hex(),
         "expected_hit_needle_hex": expected_hit_needle_scan.hex(),
         "expected_missing_needle_hex": expected_missing_needle_scan.hex(),
+        "gfp_components": {key: f"0x{component:x}" for key, component in gfp_components.items()},
+    })
+    return summary, private
+
+
+def _run_call_proof_match_string(session: ReplSession,
+                                 symbols: dict[str, Symbol],
+                                 image: StaticImage,
+                                 *,
+                                 alloc_size: int,
+                                 source_root: Path,
+                                 gfp: int,
+                                 gfp_components: dict[str, int]) -> tuple[dict[str, object], dict[str, object]]:
+    if len(MATCH_STRING_ITEM_OFFSETS) != MATCH_STRING_ARRAY_COUNT:
+        raise ReplError("match_string proof item offset table must match array count")
+    if not (0 <= MATCH_STRING_EXPECTED_INDEX < MATCH_STRING_ARRAY_COUNT):
+        raise ReplError("match_string expected index is outside the proof array")
+    if MATCH_STRING_ITEMS_BYTES[MATCH_STRING_EXPECTED_INDEX] != MATCH_STRING_SEARCH_BYTES:
+        raise ReplError("match_string search bytes must match the expected proof array item")
+    if MATCH_STRING_MISSING_BYTES in MATCH_STRING_ITEMS_BYTES:
+        raise ReplError("match_string missing search string must not appear in the proof array")
+    layout_required_len = max(
+        MATCH_STRING_TABLE_OFFSET + MATCH_STRING_TABLE_LEN + MATCH_STRING_CANARY_LEN,
+        MATCH_STRING_SEARCH_OFFSET + MATCH_STRING_MAX_STRING_SCAN_LEN,
+        *(
+            offset + len(item) + MATCH_STRING_CANARY_LEN
+            for offset, item in zip(MATCH_STRING_ITEM_OFFSETS, MATCH_STRING_ITEMS_BYTES, strict=True)
+        ),
+    )
+    if alloc_size < layout_required_len:
+        raise ReplError(
+            f"match_string call-proof alloc_size must be at least {layout_required_len} bytes"
+        )
+
+    source = lookup_source_signature("match_string", source_root=source_root)
+    call_safety = require_call_safety_for_call(
+        symbols,
+        image,
+        "match_string",
+        ("@owned_string_pointer_array", MATCH_STRING_ARRAY_COUNT, "@owned_search_string_buffer"),
+    )
+    if call_safety.get("tier") != CALL_PROOF_TARGETS["match_string"]["expected_tier"]:
+        raise ReplError("match_string call-safety tier is not the expected vetted pointer tier")
+    if not source.get("found") or source.get("pointer_arg_indices") != [0, 2]:
+        raise ReplError("match_string source signature does not declare x0/x2 as pointer arguments")
+
+    resolutions = {
+        "match_string": resolve_verified(symbols, image, "match_string", purpose="call", allow_pre_arg_deref=True),
+        "__kmalloc": resolve_verified(symbols, image, "__kmalloc", purpose="call"),
+        "kfree": resolve_verified(symbols, image, "kfree", purpose="call"),
+    }
+    match_string_link = require_verified_resolution(resolutions["match_string"], "call-proof target")
+    kmalloc_link = require_verified_resolution(resolutions["__kmalloc"], "call-proof layout allocator")
+    kfree_link = require_verified_resolution(resolutions["kfree"], "call-proof layout cleanup")
+    assert_no_precall_x0_pointer_deref(image, kmalloc_link, "__kmalloc")
+
+    checks: list[dict[str, object]] = [
+        {
+            "check": "static-c1-identity",
+            "ok": True,
+            "target": "match_string",
+            "resolution_method": resolutions["match_string"].method,
+        },
+        {
+            "check": "static-source-contract",
+            "ok": True,
+            "signature": source.get("selected", {}).get("signature")
+            if isinstance(source.get("selected"), dict) else None,
+            "pointer_arg_indices": source.get("pointer_arg_indices", []),
+        },
+        {
+            "check": "static-call-safety-contract",
+            "ok": True,
+            "tier": call_safety.get("tier"),
+            "required_valid_pointer_args": call_safety.get("required_valid_pointer_args", {}),
+            "array_count": MATCH_STRING_ARRAY_COUNT,
+        },
+    ]
+    private: dict[str, object] = {}
+    layout_ptr = 0
+    slide = 0
+    kfree_runtime = 0
+    cleanup_ok = False
+    cleanup_error = ""
+    hit_return = 0
+    missing_return = 0
+    zero_count_return = 0
+    observed_table = b""
+    observed_items: list[bytes] = []
+    observed_search = b""
+    observed_missing = b""
+
+    session.hide()
+    session.set_panic_on_oops(0)
+    try:
+        slide = session.slide()
+        if slide & 0xFFF:
+            raise ReplError("slide is not page-aligned; refusing to proceed")
+        match_string_runtime = (match_string_link + slide) & MASK64
+        kmalloc_runtime = (kmalloc_link + slide) & MASK64
+        kfree_runtime = (kfree_link + slide) & MASK64
+
+        layout_ptr = session.call_runtime(kmalloc_runtime, (alloc_size, gfp))
+        layout_ok = is_kernel_lowmem_pointer(layout_ptr)
+        checks.append({
+            "check": "kmalloc-owned-match-string-layout",
+            "ok": layout_ok,
+            "alloc_size": alloc_size,
+            "layout_required_len": layout_required_len,
+            "layout_kernel_lowmem": layout_ok,
+        })
+        if not layout_ok:
+            raise ReplError("__kmalloc did not return a sane match_string layout buffer")
+
+        item_ptrs = tuple((layout_ptr + offset) & MASK64 for offset in MATCH_STRING_ITEM_OFFSETS)
+        search_ptr = (layout_ptr + MATCH_STRING_SEARCH_OFFSET) & MASK64
+        expected_table = struct.pack(
+            "<" + ("Q" * MATCH_STRING_TABLE_ENTRY_COUNT),
+            *item_ptrs,
+            0,
+        )
+        expected_table_scan = expected_table + (b"\xcc" * MATCH_STRING_CANARY_LEN)
+        expected_item_scans = tuple(
+            item + (b"\xcc" * MATCH_STRING_CANARY_LEN)
+            for item in MATCH_STRING_ITEMS_BYTES
+        )
+        expected_search_scan = MATCH_STRING_SEARCH_BYTES + (b"\xcc" * MATCH_STRING_CANARY_LEN)
+        expected_missing_scan = MATCH_STRING_MISSING_BYTES + (b"\xcc" * MATCH_STRING_CANARY_LEN)
+
+        _poke_bytes(session, (layout_ptr + MATCH_STRING_TABLE_OFFSET) & MASK64, expected_table_scan)
+        for offset, item_scan in zip(MATCH_STRING_ITEM_OFFSETS, expected_item_scans, strict=True):
+            _poke_bytes(session, (layout_ptr + offset) & MASK64, item_scan)
+        _poke_bytes(session, search_ptr, expected_search_scan)
+
+        observed_table = _peek_bytes(
+            session,
+            (layout_ptr + MATCH_STRING_TABLE_OFFSET) & MASK64,
+            len(expected_table_scan),
+        )
+        observed_items = [
+            _peek_bytes(session, (layout_ptr + offset) & MASK64, len(item_scan))
+            for offset, item_scan in zip(MATCH_STRING_ITEM_OFFSETS, expected_item_scans, strict=True)
+        ]
+        observed_search = _peek_bytes(session, search_ptr, len(expected_search_scan))
+        setup_ok = (
+            observed_table == expected_table_scan
+            and tuple(observed_items) == expected_item_scans
+            and observed_search == expected_search_scan
+        )
+        checks.append({
+            "check": "owned-match-string-layout-poke-peek",
+            "ok": setup_ok,
+            "array_count": MATCH_STRING_ARRAY_COUNT,
+            "item_labels": list(MATCH_STRING_ITEM_LABELS),
+            "search_label": MATCH_STRING_SEARCH_LABEL,
+            "canary_len": MATCH_STRING_CANARY_LEN,
+        })
+        if not setup_ok:
+            raise ReplError("owned match_string layout poke/peek mismatch")
+
+        hit_return = session.call_runtime(
+            match_string_runtime,
+            (layout_ptr, MATCH_STRING_ARRAY_COUNT, search_ptr),
+        )
+        hit_ok = hit_return == MATCH_STRING_EXPECTED_INDEX
+        checks.append({
+            "check": "match-string-hit-return-contract",
+            "ok": hit_ok,
+            "expected_index": MATCH_STRING_EXPECTED_INDEX,
+            "observed_return": f"0x{hit_return:x}",
+        })
+        if not hit_ok:
+            raise ReplError(
+                f"match_string hit returned 0x{hit_return:x}, "
+                f"expected index {MATCH_STRING_EXPECTED_INDEX}"
+            )
+
+        observed_table = _peek_bytes(
+            session,
+            (layout_ptr + MATCH_STRING_TABLE_OFFSET) & MASK64,
+            len(expected_table_scan),
+        )
+        observed_items = [
+            _peek_bytes(session, (layout_ptr + offset) & MASK64, len(item_scan))
+            for offset, item_scan in zip(MATCH_STRING_ITEM_OFFSETS, expected_item_scans, strict=True)
+        ]
+        observed_search = _peek_bytes(session, search_ptr, len(expected_search_scan))
+        hit_layout_unchanged = (
+            observed_table == expected_table_scan
+            and tuple(observed_items) == expected_item_scans
+            and observed_search == expected_search_scan
+        )
+        checks.append({
+            "check": "match-string-hit-layout-immutability",
+            "ok": hit_layout_unchanged,
+            "table_unchanged": observed_table == expected_table_scan,
+            "items_unchanged": tuple(observed_items) == expected_item_scans,
+            "search_unchanged": observed_search == expected_search_scan,
+        })
+        if not hit_layout_unchanged:
+            raise ReplError("match_string hit case modified the owned layout")
+
+        _poke_bytes(session, search_ptr, expected_missing_scan)
+        observed_missing = _peek_bytes(session, search_ptr, len(expected_missing_scan))
+        missing_setup_ok = observed_missing == expected_missing_scan
+        checks.append({
+            "check": "owned-match-string-missing-search-poke-peek",
+            "ok": missing_setup_ok,
+            "missing_search_label": MATCH_STRING_MISSING_LABEL,
+        })
+        if not missing_setup_ok:
+            raise ReplError("owned match_string missing-search poke/peek mismatch")
+
+        missing_return = session.call_runtime(
+            match_string_runtime,
+            (layout_ptr, MATCH_STRING_ARRAY_COUNT, search_ptr),
+        )
+        missing_ok = missing_return == MATCH_STRING_EINVAL_RETURN
+        checks.append({
+            "check": "match-string-missing-return-contract",
+            "ok": missing_ok,
+            "expected_return": f"0x{MATCH_STRING_EINVAL_RETURN:x}",
+            "observed_return": f"0x{missing_return:x}",
+        })
+        if not missing_ok:
+            raise ReplError(
+                f"match_string missing case returned 0x{missing_return:x}, "
+                f"expected 0x{MATCH_STRING_EINVAL_RETURN:x}"
+            )
+
+        zero_count_return = session.call_runtime(match_string_runtime, (layout_ptr, 0, search_ptr))
+        zero_count_ok = zero_count_return == MATCH_STRING_EINVAL_RETURN
+        checks.append({
+            "check": "match-string-zero-count-return-contract",
+            "ok": zero_count_ok,
+            "expected_return": f"0x{MATCH_STRING_EINVAL_RETURN:x}",
+            "observed_return": f"0x{zero_count_return:x}",
+        })
+        if not zero_count_ok:
+            raise ReplError(
+                f"match_string zero-count case returned 0x{zero_count_return:x}, "
+                f"expected 0x{MATCH_STRING_EINVAL_RETURN:x}"
+            )
+
+        observed_table = _peek_bytes(
+            session,
+            (layout_ptr + MATCH_STRING_TABLE_OFFSET) & MASK64,
+            len(expected_table_scan),
+        )
+        observed_items = [
+            _peek_bytes(session, (layout_ptr + offset) & MASK64, len(item_scan))
+            for offset, item_scan in zip(MATCH_STRING_ITEM_OFFSETS, expected_item_scans, strict=True)
+        ]
+        observed_missing = _peek_bytes(session, search_ptr, len(expected_missing_scan))
+        final_layout_unchanged = (
+            observed_table == expected_table_scan
+            and tuple(observed_items) == expected_item_scans
+            and observed_missing == expected_missing_scan
+        )
+        checks.append({
+            "check": "match-string-final-layout-immutability",
+            "ok": final_layout_unchanged,
+            "table_unchanged": observed_table == expected_table_scan,
+            "items_unchanged": tuple(observed_items) == expected_item_scans,
+            "search_unchanged": observed_missing == expected_missing_scan,
+        })
+        if not final_layout_unchanged:
+            raise ReplError("match_string miss/zero-count cases modified the owned layout")
+    finally:
+        try:
+            if kfree_runtime and layout_ptr and is_kernel_lowmem_pointer(layout_ptr):
+                session.call_runtime(kfree_runtime, (layout_ptr,))
+                cleanup_ok = True
+        except Exception as exc:  # noqa: BLE001 - cleanup failures must be reported after restoring panic policy
+            cleanup_error = str(exc)
+        session.set_panic_on_oops(1)
+
+    checks.append({
+        "check": "kfree-owned-match-string-layout",
+        "ok": cleanup_ok,
+        "layout_free_ok": cleanup_ok,
+    })
+    if cleanup_error:
+        raise ReplError(f"kfree failed after match_string proof: {cleanup_error}")
+    passed = all(bool(check.get("ok")) for check in checks)
+    summary = {
+        "decision": f"a90-repl-live-call-proof-match_string-{'pass' if passed else 'fail'}",
+        "ok": passed,
+        "target": "match_string",
+        "proof_status": "trusted-under-owned-input-contract" if passed else "failed",
+        "input_contract": CALL_PROOF_TARGETS["match_string"]["input_contract"],
+        "return_contract": CALL_PROOF_TARGETS["match_string"]["return_contract"],
+        "alloc_size": alloc_size,
+        "array_count": MATCH_STRING_ARRAY_COUNT,
+        "array_items": list(MATCH_STRING_ITEM_LABELS),
+        "search": MATCH_STRING_SEARCH_LABEL,
+        "missing_search": MATCH_STRING_MISSING_LABEL,
+        "expected_hit_index": MATCH_STRING_EXPECTED_INDEX,
+        "hit_expected_return_value": f"0x{MATCH_STRING_EXPECTED_INDEX:x}",
+        "hit_observed_return_value": f"0x{hit_return:x}",
+        "hit_return_matches_expected_index": hit_return == MATCH_STRING_EXPECTED_INDEX,
+        "missing_expected_return_value": f"0x{MATCH_STRING_EINVAL_RETURN:x}",
+        "missing_observed_return_value": f"0x{missing_return:x}",
+        "zero_count_expected_return_value": f"0x{MATCH_STRING_EINVAL_RETURN:x}",
+        "zero_count_observed_return_value": f"0x{zero_count_return:x}",
+        "layout_unchanged_after_calls": True,
+        "gfp_kernel": f"0x{gfp:x}",
+        "source_evidence": _source_row_evidence(source),
+        "call_safety": call_safety,
+        "resolutions": _redacted_resolution_set(resolutions),
+        "raw_runtime_values_redacted": True,
+        "owned_pointer_redacted": True,
+        "observed_bytes_redacted": True,
+        "checks": checks,
+        "function_map_entry": {
+            "symbol": "match_string",
+            "status": "live-proven",
+            "trusted_input_contract": CALL_PROOF_TARGETS["match_string"]["input_contract"],
+            "return_contract": CALL_PROOF_TARGETS["match_string"]["return_contract"],
+            "observed_return_value": (
+                f"hit-index={MATCH_STRING_EXPECTED_INDEX},"
+                f"missing=0x{MATCH_STRING_EINVAL_RETURN:x},"
+                f"zero-count=0x{MATCH_STRING_EINVAL_RETURN:x}"
+            ),
+            "cleanup": "kfree-owned-match-string-layout-ok" if cleanup_ok else "cleanup-failed",
+            "auto_call_policy": "one-target-proof-only-not-mass-call",
+        },
+    }
+    private.update({
+        "slide": f"0x{slide:x}",
+        "match_string_runtime": f"0x{((match_string_link + slide) & MASK64):x}",
+        "layout_ptr": f"0x{layout_ptr:x}",
+        "item_ptrs": [f"0x{ptr:x}" for ptr in item_ptrs] if layout_ptr else [],
+        "search_ptr": f"0x{search_ptr:x}" if layout_ptr else "0x0",
+        "hit_return": f"0x{hit_return:x}",
+        "missing_return": f"0x{missing_return:x}",
+        "zero_count_return": f"0x{zero_count_return:x}",
+        "table_bytes_hex": observed_table.hex(),
+        "item_bytes_hex": [item.hex() for item in observed_items],
+        "search_bytes_hex": observed_search.hex(),
+        "missing_search_bytes_hex": observed_missing.hex(),
+        "expected_table_hex": expected_table_scan.hex(),
+        "expected_item_hex": [item.hex() for item in expected_item_scans],
+        "expected_search_hex": expected_search_scan.hex(),
+        "expected_missing_search_hex": expected_missing_scan.hex(),
         "gfp_components": {key: f"0x{component:x}" for key, component in gfp_components.items()},
     })
     return summary, private
@@ -13196,6 +13578,16 @@ def run_call_proof(session: ReplSession,
         )
     if target == "strnstr":
         return _run_call_proof_strnstr(
+            session,
+            symbols,
+            image,
+            alloc_size=alloc_size,
+            source_root=source_root,
+            gfp=gfp,
+            gfp_components=gfp_components,
+        )
+    if target == "match_string":
+        return _run_call_proof_match_string(
             session,
             symbols,
             image,

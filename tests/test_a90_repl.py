@@ -625,6 +625,18 @@ class CallSafetyClassificationTests(unittest.TestCase):
         self.assertGreaterEqual(strnstr["signals"]["direct_bl_xref_count"], 260)
         self.assertFalse(strnstr["signals"]["leaf"])
 
+        match_string = self._row("match_string")
+        self.assertEqual(match_string["tier"], repl.CALL_SAFETY_SAFE_WITH_VALID_PTR)
+        self.assertEqual(
+            match_string["required_valid_pointer_args"],
+            {"0": "string-pointer-array", "2": "search-string-buffer"},
+        )
+        self.assertTrue(match_string["resolution"]["verified"])
+        self.assertEqual(match_string["resolution"]["method"], "export-recovery")
+        self.assertEqual(match_string["resolution"]["link_vaddr"], "0xffffff80099b9c9c")
+        self.assertGreaterEqual(match_string["signals"]["direct_bl_xref_count"], 5)
+        self.assertFalse(match_string["signals"]["leaf"])
+
         strpbrk = self._row("strpbrk")
         self.assertEqual(strpbrk["tier"], repl.CALL_SAFETY_SAFE_WITH_VALID_PTR)
         self.assertEqual(
@@ -1054,6 +1066,15 @@ class CallSafetyClassificationTests(unittest.TestCase):
         )
         self.assertTrue(strnstr["selected"]["path"].endswith("include/linux/string.h"))
 
+        match_string = repl.lookup_source_signature("match_string", source_root=KERNEL_SOURCE_ROOT)
+        self.assertEqual(match_string["status"], "found", match_string)
+        self.assertEqual(match_string["selected"]["pointer_arg_indices"], [0, 2])
+        self.assertEqual(
+            match_string["selected"]["signature"],
+            "int match_string(const char * const *array, size_t n, const char *string)",
+        )
+        self.assertTrue(match_string["selected"]["path"].endswith("include/linux/string.h"))
+
         strpbrk = repl.lookup_source_signature("strpbrk", source_root=KERNEL_SOURCE_ROOT)
         self.assertEqual(strpbrk["status"], "found", strpbrk)
         self.assertEqual(strpbrk["selected"]["pointer_arg_indices"], [0, 1])
@@ -1239,7 +1260,7 @@ class CallSafetyClassificationTests(unittest.TestCase):
         summary = repl.run_call_safety_sweep(
             self.symbols,
             self.image,
-            explicit_symbols=("__kmalloc", "kfree", "match_string", "kgsl_pwrctrl_force_no_nap_store"),
+            explicit_symbols=("__kmalloc", "kfree", "kmemdup", "kgsl_pwrctrl_force_no_nap_store"),
             limit=0,
             source_root=KERNEL_SOURCE_ROOT,
             include_objdump=False,
@@ -1264,21 +1285,21 @@ class CallSafetyClassificationTests(unittest.TestCase):
         self.assertEqual(kgsl_store["advisory"]["tier"], repl.CALL_SAFETY_DENY)
         self.assertIn("source-missing", kgsl_store["advisory"]["danger_flags"])
 
-        match_string = rows["match_string"]
-        self.assertEqual(match_string["gate_tier"], repl.CALL_SAFETY_DENY)
-        self.assertEqual(match_string["source"]["status"], "found")
-        self.assertEqual(match_string["advisory"]["tier"], repl.CALL_SAFETY_SAFE_WITH_VALID_PTR)
-        self.assertFalse(match_string["advisory"]["candidate_safe"])
+        kmemdup = rows["kmemdup"]
+        self.assertEqual(kmemdup["gate_tier"], repl.CALL_SAFETY_DENY)
+        self.assertEqual(kmemdup["source"]["status"], "found")
+        self.assertEqual(kmemdup["advisory"]["tier"], repl.CALL_SAFETY_SAFE_WITH_VALID_PTR)
+        self.assertFalse(kmemdup["advisory"]["candidate_safe"])
         self.assertIn(
             "unseeded-arg-memory-flow-without-gate-pointer-contract",
-            match_string["advisory"]["danger_flags"],
+            kmemdup["advisory"]["danger_flags"],
         )
         with self.assertRaisesRegex(repl.ReplError, "call-safety gate refused"):
             repl.require_call_safety_for_call(
                 self.symbols,
                 self.image,
-                "match_string",
-                ("@array", "0x2", "@string"),
+                "kmemdup",
+                ("@src", "0x20", "0x14000c0"),
             )
 
     def test_gate2_source_oracle_blocks_init_and_unseeded_arg_flow(self) -> None:
@@ -1507,6 +1528,13 @@ class FaithfulFakeTransport:
             self.symbols,
             self.image,
             "strnstr",
+            purpose="call",
+            allow_pre_arg_deref=True,
+        ).link_vaddr
+        self.match_string_link = repl.resolve_verified(
+            self.symbols,
+            self.image,
+            "match_string",
             purpose="call",
             allow_pre_arg_deref=True,
         ).link_vaddr
@@ -1771,6 +1799,8 @@ class FaithfulFakeTransport:
             strstr = self.strstr_link + self.slide
             assert self.strnstr_link is not None
             strnstr = self.strnstr_link + self.slide
+            assert self.match_string_link is not None
+            match_string = self.match_string_link + self.slide
             assert self.strpbrk_link is not None
             strpbrk = self.strpbrk_link + self.slide
             assert self.strspn_link is not None
@@ -1966,6 +1996,35 @@ class FaithfulFakeTransport:
                             offset = index
                             break
                 lines.append("A90R0" if offset < 0 else f"A90R{arg1 + offset:x}")
+            elif arg0 == match_string:
+                count = arg2
+                table_base = self._allocated_base_for(arg1, max(8, count * 8))
+                if table_base is None:
+                    raise AssertionError(f"match_string array is not in an allocated buffer: {arg1:#x}")
+                search_base = self._allocated_base_for(arg3, repl.MATCH_STRING_MAX_STRING_SCAN_LEN)
+                if search_base is None:
+                    raise AssertionError(f"match_string search is not in an allocated buffer: {arg3:#x}")
+                search_data = self._heap_bytes(arg3, repl.MATCH_STRING_MAX_STRING_SCAN_LEN)
+                search_nul = search_data.find(b"\x00")
+                if search_nul < 0:
+                    raise AssertionError("match_string search is not NUL-terminated in scan window")
+                search = search_data[:search_nul]
+                result = repl.MATCH_STRING_EINVAL_RETURN
+                for index in range(count):
+                    entry = int.from_bytes(self._heap_bytes(arg1 + (index * 8), 8), "little")
+                    if entry == 0:
+                        break
+                    item_base = self._allocated_base_for(entry, repl.MATCH_STRING_MAX_STRING_SCAN_LEN)
+                    if item_base is None:
+                        raise AssertionError(f"match_string item is not in an allocated buffer: {entry:#x}")
+                    item_data = self._heap_bytes(entry, repl.MATCH_STRING_MAX_STRING_SCAN_LEN)
+                    item_nul = item_data.find(b"\x00")
+                    if item_nul < 0:
+                        raise AssertionError("match_string item is not NUL-terminated in scan window")
+                    if item_data[:item_nul] == search:
+                        result = index
+                        break
+                lines.append(f"A90R{result:x}")
             elif arg0 == strpbrk:
                 if arg1 not in self.allocated:
                     raise AssertionError(f"strpbrk haystack is not an allocated pointer: {arg1:#x}")
@@ -3687,6 +3746,82 @@ class SelftestIntegrationTests(unittest.TestCase):
         self.assertEqual(private["hit_needle_bytes_hex"], expected_hit_needle_hex)
         self.assertEqual(private["missing_needle_bytes_hex"], expected_missing_hex)
         self.assertEqual(fake.freed, [fake.heap_ptr, fake.heap_ptr + 0x1000])
+
+    def test_call_proof_match_string_passes_with_owned_array_contract(self) -> None:
+        if not C2B_PADDING_MAP_PATH.is_file() or not KERNEL_SOURCE_ROOT.is_dir():
+            self.skipTest("promoted v2c System.map or kernel source tree not present")
+
+        symbols = repl.load_system_map(C2B_PADDING_MAP_PATH)
+        fake = FaithfulFakeTransport(0x130000, symbols, self.image)
+        orig = repl.transport.run_serial_command
+        repl.transport.run_serial_command = fake.run_serial_command
+        self.addCleanup(lambda: setattr(repl.transport, "run_serial_command", orig))
+        session = repl.ReplSession(repl.ReplConfig(settle_sec=0.0))
+        summary, private = repl.run_call_proof(
+            session,
+            symbols,
+            self.image,
+            "match_string",
+            source_root=KERNEL_SOURCE_ROOT,
+        )
+
+        self.assertTrue(summary["ok"], summary)
+        self.assertEqual(summary["decision"], "a90-repl-live-call-proof-match_string-pass")
+        self.assertEqual(summary["proof_status"], "trusted-under-owned-input-contract")
+        self.assertEqual(summary["function_map_entry"]["symbol"], "match_string")
+        self.assertEqual(summary["function_map_entry"]["status"], "live-proven")
+        self.assertEqual(
+            summary["source_evidence"]["signature"],
+            "int match_string(const char * const *array, size_t n, const char *string)",
+        )
+        self.assertEqual(summary["array_count"], repl.MATCH_STRING_ARRAY_COUNT)
+        self.assertEqual(summary["array_items"], list(repl.MATCH_STRING_ITEM_LABELS))
+        self.assertEqual(summary["search"], repl.MATCH_STRING_SEARCH_LABEL)
+        self.assertEqual(summary["missing_search"], repl.MATCH_STRING_MISSING_LABEL)
+        self.assertEqual(summary["expected_hit_index"], repl.MATCH_STRING_EXPECTED_INDEX)
+        self.assertEqual(summary["hit_expected_return_value"], f"0x{repl.MATCH_STRING_EXPECTED_INDEX:x}")
+        self.assertEqual(summary["hit_observed_return_value"], f"0x{repl.MATCH_STRING_EXPECTED_INDEX:x}")
+        self.assertTrue(summary["hit_return_matches_expected_index"])
+        self.assertEqual(summary["missing_expected_return_value"], f"0x{repl.MATCH_STRING_EINVAL_RETURN:x}")
+        self.assertEqual(summary["missing_observed_return_value"], f"0x{repl.MATCH_STRING_EINVAL_RETURN:x}")
+        self.assertEqual(summary["zero_count_expected_return_value"], f"0x{repl.MATCH_STRING_EINVAL_RETURN:x}")
+        self.assertEqual(summary["zero_count_observed_return_value"], f"0x{repl.MATCH_STRING_EINVAL_RETURN:x}")
+        self.assertTrue(summary["layout_unchanged_after_calls"])
+        self.assertTrue(summary["raw_runtime_values_redacted"])
+        self.assertTrue(summary["owned_pointer_redacted"])
+        self.assertTrue(summary["observed_bytes_redacted"])
+        self.assertNotIn("layout_ptr", summary)
+        self.assertNotIn("search_ptr", summary)
+        self.assertEqual(private["layout_ptr"], f"0x{fake.heap_ptr:x}")
+        expected_item_ptrs = [
+            f"0x{fake.heap_ptr + offset:x}"
+            for offset in repl.MATCH_STRING_ITEM_OFFSETS
+        ]
+        self.assertEqual(private["item_ptrs"], expected_item_ptrs)
+        self.assertEqual(private["search_ptr"], f"0x{fake.heap_ptr + repl.MATCH_STRING_SEARCH_OFFSET:x}")
+        expected_table = struct.pack(
+            "<" + ("Q" * repl.MATCH_STRING_TABLE_ENTRY_COUNT),
+            *(fake.heap_ptr + offset for offset in repl.MATCH_STRING_ITEM_OFFSETS),
+            0,
+        ) + (b"\xcc" * repl.MATCH_STRING_CANARY_LEN)
+        expected_items = [
+            (item + (b"\xcc" * repl.MATCH_STRING_CANARY_LEN)).hex()
+            for item in repl.MATCH_STRING_ITEMS_BYTES
+        ]
+        expected_search = (
+            repl.MATCH_STRING_SEARCH_BYTES + (b"\xcc" * repl.MATCH_STRING_CANARY_LEN)
+        ).hex()
+        expected_missing = (
+            repl.MATCH_STRING_MISSING_BYTES + (b"\xcc" * repl.MATCH_STRING_CANARY_LEN)
+        ).hex()
+        self.assertEqual(private["expected_table_hex"], expected_table.hex())
+        self.assertEqual(private["table_bytes_hex"], expected_table.hex())
+        self.assertEqual(private["expected_item_hex"], expected_items)
+        self.assertEqual(private["item_bytes_hex"], expected_items)
+        self.assertEqual(private["expected_search_hex"], expected_search)
+        self.assertEqual(private["expected_missing_search_hex"], expected_missing)
+        self.assertEqual(private["missing_search_bytes_hex"], expected_missing)
+        self.assertEqual(fake.freed, [fake.heap_ptr])
 
     def test_call_proof_strpbrk_passes_with_owned_strings_contract(self) -> None:
         if not C2B_PADDING_MAP_PATH.is_file() or not KERNEL_SOURCE_ROOT.is_dir():
