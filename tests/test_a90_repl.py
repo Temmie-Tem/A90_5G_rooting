@@ -580,6 +580,17 @@ class CallSafetyClassificationTests(unittest.TestCase):
         self.assertGreaterEqual(strcmp["signals"]["direct_bl_xref_count"], 3000)
         self.assertTrue(strcmp["signals"]["leaf"])
 
+        strncmp = self._row("strncmp")
+        self.assertEqual(strncmp["tier"], repl.CALL_SAFETY_SAFE_WITH_VALID_PTR)
+        self.assertEqual(
+            strncmp["required_valid_pointer_args"],
+            {"0": "left-string-buffer", "1": "right-string-buffer"},
+        )
+        self.assertTrue(strncmp["resolution"]["verified"])
+        self.assertEqual(strncmp["resolution"]["method"], "leaf-map-disasm+xref")
+        self.assertGreaterEqual(strncmp["signals"]["direct_bl_xref_count"], 500)
+        self.assertTrue(strncmp["signals"]["leaf"])
+
         strscpy = self._row("strscpy")
         self.assertEqual(strscpy["tier"], repl.CALL_SAFETY_SAFE_WITH_VALID_PTR)
         self.assertEqual(
@@ -808,6 +819,15 @@ class CallSafetyClassificationTests(unittest.TestCase):
             "extern int strcmp(const char *,const char *)",
         )
         self.assertTrue(strcmp["selected"]["path"].endswith("include/linux/string.h"))
+
+        strncmp = repl.lookup_source_signature("strncmp", source_root=KERNEL_SOURCE_ROOT)
+        self.assertEqual(strncmp["status"], "found", strncmp)
+        self.assertEqual(strncmp["selected"]["pointer_arg_indices"], [0, 1])
+        self.assertEqual(
+            strncmp["selected"]["signature"],
+            "extern int strncmp(const char *,const char *,__kernel_size_t)",
+        )
+        self.assertTrue(strncmp["selected"]["path"].endswith("include/linux/string.h"))
 
         strscpy = repl.lookup_source_signature("strscpy", source_root=KERNEL_SOURCE_ROOT)
         self.assertEqual(strscpy["status"], "found", strscpy)
@@ -1104,6 +1124,13 @@ class FaithfulFakeTransport:
             purpose="call",
             allow_pre_arg_deref=True,
         ).link_vaddr
+        self.strncmp_link = repl.resolve_verified(
+            self.symbols,
+            self.image,
+            "strncmp",
+            purpose="call",
+            allow_pre_arg_deref=True,
+        ).link_vaddr
         self.strscpy_link = repl.resolve_verified(
             self.symbols,
             self.image,
@@ -1247,6 +1274,8 @@ class FaithfulFakeTransport:
             strchrnul = self.strchrnul_link + self.slide
             assert self.strcmp_link is not None
             strcmp = self.strcmp_link + self.slide
+            assert self.strncmp_link is not None
+            strncmp = self.strncmp_link + self.slide
             assert self.strscpy_link is not None
             strscpy = self.strscpy_link + self.slide
             assert self.strlcpy_link is not None
@@ -1323,6 +1352,24 @@ class FaithfulFakeTransport:
                 scan_len = len(repl.STRCMP_PROOF_BYTES) + repl.STRCMP_CANARY_LEN
                 left = self._heap_bytes(arg1, scan_len)
                 right = self._heap_bytes(arg2, scan_len)
+                result = 0
+                for left_byte, right_byte in zip(left, right, strict=True):
+                    if left_byte != right_byte:
+                        result = left_byte - right_byte
+                        break
+                    if left_byte == 0:
+                        break
+                if result < 0:
+                    result &= 0xFFFFFFFF
+                lines.append(f"A90R{result:x}")
+            elif arg0 == strncmp:
+                if arg1 not in self.allocated:
+                    raise AssertionError(f"strncmp left is not an allocated pointer: {arg1:#x}")
+                if arg2 not in self.allocated:
+                    raise AssertionError(f"strncmp right is not an allocated pointer: {arg2:#x}")
+                count = arg3
+                left = self._heap_bytes(arg1, count)
+                right = self._heap_bytes(arg2, count)
                 result = 0
                 for left_byte, right_byte in zip(left, right, strict=True):
                     if left_byte != right_byte:
@@ -2074,6 +2121,69 @@ class SelftestIntegrationTests(unittest.TestCase):
         expected_right_mismatch_hex = (
             bytes(right_mismatch) + (b"\xcc" * repl.STRCMP_CANARY_LEN)
         ).hex()
+        self.assertEqual(private["right_mismatch_bytes_hex"], expected_right_mismatch_hex)
+        self.assertEqual(fake.freed, [fake.heap_ptr, fake.heap_ptr + 0x1000])
+
+    def test_call_proof_strncmp_passes_with_owned_strings_contract(self) -> None:
+        if not C2B_PADDING_MAP_PATH.is_file() or not KERNEL_SOURCE_ROOT.is_dir():
+            self.skipTest("promoted v2c System.map or kernel source tree not present")
+
+        symbols = repl.load_system_map(C2B_PADDING_MAP_PATH)
+        fake = FaithfulFakeTransport(0x130000, symbols, self.image)
+        orig = repl.transport.run_serial_command
+        repl.transport.run_serial_command = fake.run_serial_command
+        self.addCleanup(lambda: setattr(repl.transport, "run_serial_command", orig))
+        session = repl.ReplSession(repl.ReplConfig(settle_sec=0.0))
+        summary, private = repl.run_call_proof(
+            session,
+            symbols,
+            self.image,
+            "strncmp",
+            source_root=KERNEL_SOURCE_ROOT,
+        )
+
+        self.assertTrue(summary["ok"], summary)
+        self.assertEqual(summary["decision"], "a90-repl-live-call-proof-strncmp-pass")
+        self.assertEqual(summary["proof_status"], "trusted-under-owned-input-contract")
+        self.assertEqual(summary["function_map_entry"]["symbol"], "strncmp")
+        self.assertEqual(summary["function_map_entry"]["status"], "live-proven")
+        self.assertEqual(
+            summary["source_evidence"]["signature"],
+            "extern int strncmp(const char *,const char *,__kernel_size_t)",
+        )
+        self.assertEqual(summary["proof_prefix"], repl.STRNCMP_PREFIX_BYTES.decode("ascii"))
+        self.assertEqual(summary["count_arg"], repl.STRNCMP_PROOF_COUNT)
+        self.assertEqual(summary["equal_expected_return_value"], "0x0")
+        self.assertEqual(summary["equal_observed_return_value"], "0x0")
+        self.assertTrue(summary["bounded_equal_ignores_post_count_difference"])
+        self.assertEqual(summary["mismatch_expected_return_sign"], "positive")
+        self.assertGreater(int(str(summary["mismatch_observed_return_value"]), 16), 0)
+        self.assertEqual(summary["mismatch_offset"], repl.STRNCMP_MISMATCH_OFFSET)
+        self.assertTrue(summary["strings_unchanged_after_calls"])
+        self.assertTrue(summary["raw_runtime_values_redacted"])
+        self.assertTrue(summary["owned_pointer_redacted"])
+        self.assertTrue(summary["observed_bytes_redacted"])
+        self.assertNotIn("left_ptr", summary)
+        self.assertNotIn("right_ptr", summary)
+        self.assertEqual(private["left_ptr"], f"0x{fake.heap_ptr:x}")
+        self.assertEqual(private["right_ptr"], f"0x{fake.heap_ptr + 0x1000:x}")
+        scan_payload_len = max(len(repl.STRNCMP_LEFT_BYTES), len(repl.STRNCMP_RIGHT_EQUAL_BYTES))
+        expected_left_hex = (
+            repl.STRNCMP_LEFT_BYTES.ljust(scan_payload_len, b"\x00")
+            + (b"\xcc" * repl.STRNCMP_CANARY_LEN)
+        ).hex()
+        expected_right_equal_hex = (
+            repl.STRNCMP_RIGHT_EQUAL_BYTES.ljust(scan_payload_len, b"\x00")
+            + (b"\xcc" * repl.STRNCMP_CANARY_LEN)
+        ).hex()
+        right_mismatch = bytearray(repl.STRNCMP_RIGHT_EQUAL_BYTES)
+        right_mismatch[repl.STRNCMP_MISMATCH_OFFSET] = repl.STRNCMP_MISMATCH_RIGHT_BYTE
+        expected_right_mismatch_hex = (
+            bytes(right_mismatch).ljust(scan_payload_len, b"\x00")
+            + (b"\xcc" * repl.STRNCMP_CANARY_LEN)
+        ).hex()
+        self.assertEqual(private["left_bytes_hex"], expected_left_hex)
+        self.assertEqual(private["right_equal_bytes_hex"], expected_right_equal_hex)
         self.assertEqual(private["right_mismatch_bytes_hex"], expected_right_mismatch_hex)
         self.assertEqual(fake.freed, [fake.heap_ptr, fake.heap_ptr + 0x1000])
 

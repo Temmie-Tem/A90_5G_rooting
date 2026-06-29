@@ -767,6 +767,33 @@ epic is DONE.** Reports:
 `docs/reports/NATIVE_INIT_V3335_GPU_Z3_PRIMARY_SETCRTC_SOURCE_BUILD_2026-06-27.md` and
 `docs/reports/NATIVE_INIT_V3335_GPU_Z3_PRIMARY_SETCRTC_LIVE_2026-06-27.md`.**
 
+## ✅ DONE — REPL post-epic one-target live-call proof — `strncmp` owned-string bounded-compare contract
+
+> ### ✅ STATUS (2026-06-30 live pass) — `strncmp` promoted under two owned NUL strings plus bounded count only
+>
+> Sixteenth one-target live-call proof after the REPL epic close. Codex extended `a90_repl.py
+> call-proof` with `strncmp`, using two tool-owned NUL-terminated kernel string buffers sharing the
+> prefix `A90STRNCMP-PREFIX`, bounded count `17`, and deliberately different post-count bytes
+> (`0x5a` vs `0x40`). Static gate: `strncmp=0xffffff80099a8d44`, `leaf-map-disasm+xref`,
+> direct-BL xrefs `590`, leaf/no-BL, RET in scan at offset `0x110`. Source contract:
+> `extern int strncmp(const char *,const char *,__kernel_size_t)`, with x0/x1 as string pointers and
+> x2 as a scalar bounded count. The call-safety seed is `SAFE-WITH-VALID-PTR`; required valid pointer
+> args are x0 `left-string-buffer` and x1 `right-string-buffer`.
+>
+> Live path: confirmed rollback images and TWRP, flashed the existing v1-repl boot image
+> (`b846ae9f...`) through `native_init_flash.py`, confirmed native selftest `fail=0` and
+> `a90-repl-v2a1-selftest-pass`, then ran `call-proof strncmp` with the C2B verified map. Result:
+> `a90-repl-live-call-proof-strncmp-pass`; checks covered C1 identity, source pointer contract,
+> owned string allocation, string poke/peek, bounded equal return `0x0` while the first differing
+> bytes were immediately after count, string immutability, count-internal mismatch positive return
+> `0x98`, second immutability check, and `kfree-owned-strncmp-strings`.
+>
+> Candidate selftest after proof was `pass=11 warn=1 fail=0`. Rollback to clean v2321 used the checked
+> helper with readback SHA `ca978551...`; final selftest was `pass=11 warn=1 fail=0`. Function map
+> records `strncmp` only under the two-owned-NUL-string plus scalar bounded-count contract. This does
+> not authorize arbitrary pointers, unterminated strings, unbounded counts, user pointers, or other
+> string helpers.
+
 ## ✅ DONE — REPL post-epic one-target live-call proof — `memchr` owned-buffer search contract
 
 > ### ✅ STATUS (2026-06-30 live pass) — `memchr` promoted under owned initialized buffer only
