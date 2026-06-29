@@ -767,6 +767,36 @@ epic is DONE.** Reports:
 `docs/reports/NATIVE_INIT_V3335_GPU_Z3_PRIMARY_SETCRTC_SOURCE_BUILD_2026-06-27.md` and
 `docs/reports/NATIVE_INIT_V3335_GPU_Z3_PRIMARY_SETCRTC_LIVE_2026-06-27.md`.**
 
+## ✅ DONE — REPL post-epic one-target live-call proof — `strncat` owned-buffer bounded append contract
+
+> ### ✅ STATUS (2026-06-30 live pass) — `strncat` promoted under owned dst/src string plus bounded count contract only
+>
+> Thirtieth one-target live-call proof after the REPL epic close. Codex extended `a90_repl.py`
+> `call-proof` with `strncat`, using one tool-owned mutable destination string buffer first
+> containing `A90STRNCAT-DST`, plus one tool-owned NUL-terminated source string buffer containing
+> `-SRC-Q-END`, and scalar count `6`. Static gate: `strncat=0xffffff80099b98b4`,
+> `export-recovery`, direct-BL xrefs `193`, JOPP entry, leaf/no-BL, RETs in scan. Source
+> contract: `extern char * strncat(char *, const char *, __kernel_size_t)`, with x0 as the
+> destination string buffer pointer, x1 as the source string pointer, and x2 as the bounded count.
+> The call-safety seed is `SAFE-WITH-VALID-PTR`; required valid pointer args are x0
+> `destination-buffer` and x1 `source-string-buffer`.
+>
+> Live path: confirmed rollback images and TWRP, flashed the existing v1-repl boot image
+> (`b846ae9f...`) through `native_init_flash.py`, confirmed clean native selftest `fail=0` and
+> `a90-repl-v2a1-selftest-pass`, then ran `call-proof strncat` with the C2B verified map.
+> Result: `a90-repl-live-call-proof-strncat-pass`; checks covered C1 identity, source pointer
+> contract, call-safety contract, distinct owned destination/source allocations, destination
+> prefix plus source poke/peek, destination-pointer return contract, bounded append result
+> `A90STRNCAT-DST-SRC-Q` including NUL, post-NUL tail preservation, destination canary
+> preservation, source immutability, and `kfree-owned-strncat-buffers`.
+>
+> Candidate selftest after proof was `pass=11 warn=1 fail=0`. Rollback to clean v2321 used the checked
+> helper with readback SHA `ca978551...`; final resident `version/status` confirmed v2321 and final
+> `selftest` confirmed `pass=11 warn=1 fail=0`. Function map records `strncat` only under this
+> owned mutable destination plus owned NUL-terminated source plus bounded count contract. This does
+> not authorize arbitrary pointers, user pointers, undersized destinations, unterminated strings,
+> overlapping strings, unbounded counts, or mass calls.
+
 ## ✅ DONE — REPL post-epic one-target live-call proof — `strcat` owned-buffer append contract
 
 > ### ✅ STATUS (2026-06-30 live pass) — `strcat` promoted under owned dst/src string contract only

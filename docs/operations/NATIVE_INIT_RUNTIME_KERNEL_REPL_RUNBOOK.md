@@ -308,6 +308,16 @@ PYTHONPYCACHEPREFIX=/tmp/a90_pycache python3 \
   --image workspace/private/inputs/boot_images/boot_linux_tier2_repl_v1_repl.img \
   --source-root workspace/private/inputs/kernel_source/SM-A908N_KOR_12_Opensource/Kernel \
   --evidence-dir workspace/private/runs/kernel/<unit>/ \
+  strncat
+```
+
+```sh
+PYTHONPYCACHEPREFIX=/tmp/a90_pycache python3 \
+  workspace/public/src/scripts/revalidation/a90_repl.py call-proof \
+  --map workspace/private/runs/kernel/v2c-c2b-kallsyms-padding-fix/System.map \
+  --image workspace/private/inputs/boot_images/boot_linux_tier2_repl_v1_repl.img \
+  --source-root workspace/private/inputs/kernel_source/SM-A908N_KOR_12_Opensource/Kernel \
+  --evidence-dir workspace/private/runs/kernel/<unit>/ \
   strcat
 ```
 
@@ -500,6 +510,10 @@ shape, but requires exact source length return because `strlcpy` returns `strlen
 proof allocates owned destination and source buffers, requires the returned pointer to match the owned
 destination pointer, verifies the destination matches the source including the NUL byte, verifies the
 post-NUL tail and canary stay unchanged, verifies source immutability, and frees both buffers. The
+`strncat` proof allocates an owned mutable destination string plus an owned source string, passes a
+scalar bounded count, requires the returned pointer to match the owned destination pointer, verifies
+the destination contains the original prefix plus only the count-bounded source prefix followed by NUL,
+verifies post-NUL tail/canary preservation, verifies source immutability, and frees both buffers. The
 `strcat` proof allocates an owned mutable destination string plus an owned source string, requires the
 returned pointer to match the owned destination pointer, verifies the destination contains the original
 prefix plus source including the NUL byte, verifies post-NUL tail/canary preservation, verifies source
