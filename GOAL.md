@@ -767,6 +767,35 @@ epic is DONE.** Reports:
 `docs/reports/NATIVE_INIT_V3335_GPU_Z3_PRIMARY_SETCRTC_SOURCE_BUILD_2026-06-27.md` and
 `docs/reports/NATIVE_INIT_V3335_GPU_Z3_PRIMARY_SETCRTC_LIVE_2026-06-27.md`.**
 
+## ✅ DONE — REPL post-epic one-target live-call proof — `kstrndup` owned bounded-string duplicate contract
+
+> ### ✅ STATUS (2026-06-30 live pass) — `kstrndup` promoted under owned source string + bounded len + GFP_KERNEL only
+>
+> Thirty-eighth one-target live-call proof after the REPL epic close. Codex extended `a90_repl.py`
+> `call-proof` with `kstrndup`, using one tool-owned NUL-terminated source string buffer, scalar
+> bounded length `16`, and scalar `GFP_KERNEL`. Static gate: `kstrndup=0xffffff800822a77c`,
+> `export-recovery`, direct-BL xrefs `26`, JOPP entry true, non-leaf helper calling
+> `__pi_strnlen`, `__kmalloc_track_caller`, and `__memcpy`. Source contract:
+> `extern char * kstrndup(const char *s, size_t len, gfp_t gfp)`, with x0 as the only pointer arg
+> and x1/x2 as scalar args. Call-safety tier is `SAFE-WITH-VALID-PTR`.
+>
+> Live path: baseline v2321 selftest passed, flashed the existing v1-repl image
+> `b846ae9f74d8ceb922bbcd854d78b6795ef833d61e38465d3cc474cb6f0dfb65` through
+> `native_init_flash.py`, confirmed readback SHA, candidate `selftest pass=11 warn=1 fail=0`, and
+> `a90-repl-v2a1-selftest-pass`, then ran `call-proof kstrndup` with the C2B verified map.
+>
+> Result: `a90-repl-live-call-proof-kstrndup-pass`; checks covered C1 identity, source signature,
+> call-safety contract, owned source allocation/poke/peek, `kstrndup("A90KSTRNDUP-HEAD-Q-TAIL",
+> 16, GFP_KERNEL)` returning a distinct owned kernel duplicate pointer, duplicate bytes matching
+> `A90KSTRNDUP-HEAD\0`, source/canary immutability, and
+> `kfree-owned-kstrndup-source-and-duplicate`.
+>
+> Candidate selftest after proof stayed `fail=0`. Rolled back to clean v2321
+> (`ca978551aabe4b39563abaf529ccf2522054952d8b2ad852e632d26da88168cb`) with final resident
+> `v2321-usb-clean-identity-rodata` and final `selftest pass=11 warn=1 fail=0`. Function map records
+> `kstrndup` only under the owned source string + bounded length + `GFP_KERNEL` contract. Report:
+> `docs/reports/KERNEL_SECURITY_TIER2_RUNTIME_KERNEL_REPL_LIVE_CALL_PROOF_KSTRNDUP_2026-06-30.md`.
+
 ## ✅ DONE — REPL post-epic one-target live-call proof — `kstrdup` owned-string duplicate contract
 
 > ### ✅ STATUS (2026-06-30 live pass) — `kstrdup` promoted under owned source string + GFP_KERNEL only

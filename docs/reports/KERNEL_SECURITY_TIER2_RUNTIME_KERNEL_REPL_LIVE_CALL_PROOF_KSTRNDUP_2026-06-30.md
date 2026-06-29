@@ -1,0 +1,155 @@
+# Kernel Security Tier-2 Runtime Kernel REPL - Live Call Proof: kstrndup
+
+- Date: 2026-06-30
+- Decision: `a90-repl-live-call-proof-kstrndup-pass`
+- Scope: separately gated one-target live-call proof after the REPL epic close.
+- Device action: yes, boot partition only through `native_init_flash.py`.
+- Candidate image: `workspace/private/inputs/boot_images/boot_linux_tier2_repl_v1_repl.img`
+- Candidate SHA256: `b846ae9f74d8ceb922bbcd854d78b6795ef833d61e38465d3cc474cb6f0dfb65`
+- Rollback image: `workspace/private/inputs/boot_images/boot_linux_v2321_usb_clean_identity_rodata.img`
+- Rollback SHA256: `ca978551aabe4b39563abaf529ccf2522054952d8b2ad852e632d26da88168cb`
+- Private evidence: `workspace/private/runs/kernel/live-call-proof-kstrndup-20260630/proof/a90_repl_evidence.json`
+
+## Static Gate
+
+Target:
+
+- `kstrndup`: `0xffffff800822a77c`
+- Resolution method: `export-recovery`
+- Direct BL xrefs: `26`
+- Shape: JOPP entry, non-leaf helper, RET observed at offset `0x74`.
+- Disasm contract: the helper calls `__pi_strnlen`, `__kmalloc_track_caller`, and `__memcpy`; x0 is the source string pointer, x1 is bounded length, and x2 is scalar GFP.
+- Source signature: `include/linux/string.h:172`, `extern char * kstrndup(const char *s, size_t len, gfp_t gfp)`
+- Source pointer contract: x0 is an owned NUL-terminated kernel string buffer; x1 is a scalar bounded length; x2 is scalar `GFP_KERNEL`.
+- Call-safety tier: `SAFE-WITH-VALID-PTR`
+- Required valid pointer args: x0 = `source-string-buffer`
+
+Owned-input orchestration:
+
+- `__kmalloc`: `0xffffff800826ae34`, `export-recovery`, direct BL xrefs `1765`
+- `kfree`: `0xffffff800826b354`, `export-recovery`, direct BL xrefs `10596`
+- `__kmalloc` passed the no-pre-call-x0-deref guard.
+- `kstrndup` was called only after the tool allocated and verified an owned source string buffer.
+
+The target was not called with a host-supplied numeric pointer. The tool allocated one owned kernel
+source string buffer, wrote a bounded NUL-terminated test string plus canary, required the duplicate
+to be a distinct owned kernel allocation, and verified the duplicate was truncated to the fixed bound
+and NUL-terminated.
+
+## Flash And Health
+
+Preconditions:
+
+- v1-repl candidate SHA matched `b846ae9f74d8ceb922bbcd854d78b6795ef833d61e38465d3cc474cb6f0dfb65`.
+- v2321 rollback SHA matched `ca978551aabe4b39563abaf529ccf2522054952d8b2ad852e632d26da88168cb`.
+- v2237 fallback SHA matched `b2ea2d26d160b7702ce7d4438b84367788eea26c6a5bbe4ed93f3d270292ac7f`.
+- Final fallback `boot_linux_v48.img` existed with SHA
+  `1c87fa59712395027c5c2e489b15c4f6ddefabc3c50f78d3c235c4508a63e042`.
+- TWRP recovery image existed with SHA
+  `b1ef377a52ec8ab43b49a5fcc7a0b27e8efff91bf2d8cccdc565ecadadcc646c`.
+- TWRP recovery tar existed with SHA
+  `6d9e929462ea4c85f257b080431d387d5bfb787ff800bd4178c823c3874d862a`.
+- Bridge was connected.
+- Baseline before flash: `v2321`, `version` OK, `status` OK, `selftest pass=11 warn=1 fail=0`.
+
+Candidate flash:
+
+```sh
+python3 workspace/public/src/scripts/revalidation/native_init_flash.py \
+  --from-native \
+  --expect-sha256 b846ae9f74d8ceb922bbcd854d78b6795ef833d61e38465d3cc474cb6f0dfb65 \
+  --expect-readback-sha256 b846ae9f74d8ceb922bbcd854d78b6795ef833d61e38465d3cc474cb6f0dfb65 \
+  workspace/private/inputs/boot_images/boot_linux_tier2_repl_v1_repl.img
+```
+
+Result:
+
+- Remote pushed image SHA matched candidate SHA.
+- Boot readback SHA matched candidate SHA.
+- Post-flash `version/status` verification passed.
+- Candidate native selftest: `pass=11 warn=1 fail=0`.
+- `a90_repl.py selftest`: `a90-repl-v2a1-selftest-pass`.
+
+The v1-repl image intentionally keeps the v2321 native-init identity string, so `version` alone does
+not distinguish it from the clean rollback image. The REPL selftest is the functional proof that the
+candidate kernel REPL path is resident.
+
+## Live Proof
+
+Command:
+
+```sh
+PYTHONPYCACHEPREFIX=/tmp/a90_pycache python3 \
+  workspace/public/src/scripts/revalidation/a90_repl.py call-proof kstrndup \
+  --map workspace/private/runs/kernel/v2c-c2b-kallsyms-padding-fix/System.map \
+  --image workspace/private/inputs/boot_images/boot_linux_tier2_repl_v1_repl.img \
+  --source-root workspace/private/inputs/kernel_source/SM-A908N_KOR_12_Opensource/Kernel \
+  --evidence-dir workspace/private/runs/kernel/live-call-proof-kstrndup-20260630/proof
+```
+
+Public result:
+
+```json
+{
+  "decision": "a90-repl-live-call-proof-kstrndup-pass",
+  "ok": true,
+  "source_string": "A90KSTRNDUP-HEAD-Q-TAIL",
+  "bounded_len": 16,
+  "expected_duplicate_string": "A90KSTRNDUP-HEAD",
+  "duplicate_matches_bounded_prefix": true,
+  "returned_owned_duplicate_pointer": true,
+  "duplicate_distinct_from_source": true,
+  "source_unchanged_after_call": true,
+  "proof_status": "trusted-under-owned-input-contract",
+  "raw_runtime_values_redacted": true,
+  "owned_pointer_redacted": true,
+  "observed_bytes_redacted": true
+}
+```
+
+Checks:
+
+- `static-c1-identity`: OK, `kstrndup` resolved by `export-recovery`.
+- `static-source-contract`: OK, signature `extern char * kstrndup(const char *s, size_t len, gfp_t gfp)`.
+- `static-call-safety-contract`: OK, tier `SAFE-WITH-VALID-PTR`, x0 requires a verified owned source string buffer.
+- `kmalloc-owned-kstrndup-source`: OK, allocated one owned kernel source string buffer.
+- `owned-kstrndup-source-poke-peek`: OK, source string plus canary was written and read back.
+- `kstrndup-return-owned-duplicate`: OK, returned a distinct owned kernel duplicate pointer.
+- `kstrndup-bounded-duplicate-byte-contract`: OK, duplicate bytes matched the bounded prefix plus NUL.
+- `kstrndup-source-immutability`: OK, source string and canary stayed unchanged.
+- `kfree-owned-kstrndup-source-and-duplicate`: OK, duplicate and source cleanup succeeded.
+
+Raw runtime slide, `kstrndup` runtime address, owned source/duplicate pointers, and raw observed bytes
+were written only to private evidence and are not included in this report.
+
+Candidate selftest after proof: `pass=11 warn=1 fail=0`.
+
+## Rollback
+
+Rollback command:
+
+```sh
+python3 workspace/public/src/scripts/revalidation/native_init_flash.py \
+  --from-native \
+  --expect-version v2321-usb-clean-identity-rodata \
+  --expect-sha256 ca978551aabe4b39563abaf529ccf2522054952d8b2ad852e632d26da88168cb \
+  --expect-readback-sha256 ca978551aabe4b39563abaf529ccf2522054952d8b2ad852e632d26da88168cb \
+  workspace/private/inputs/boot_images/boot_linux_v2321_usb_clean_identity_rodata.img
+```
+
+Result:
+
+- Remote pushed image SHA matched v2321 SHA.
+- Boot readback SHA matched v2321 SHA.
+- Post-rollback `version/status` verification passed.
+- Final resident: `v2321-usb-clean-identity-rodata`.
+- Final `selftest`: `pass=11 warn=1 fail=0`.
+
+## Conclusion
+
+`kstrndup` is now live-proven under an owned source string plus bounded length plus `GFP_KERNEL`
+contract. The proof confirms the intended helper was reached, returned a distinct owned kernel
+duplicate string truncated to the fixed bound and NUL-terminated, left the source buffer unchanged,
+cleaned up both allocations, and left the device healthy. This does not authorize arbitrary pointers,
+user pointers, unterminated strings, arbitrary lengths, arbitrary GFP flags, stale buffers, or mass
+calling. The device was rolled back to clean v2321 with final `selftest fail=0`.

@@ -361,6 +361,12 @@ CALL_SAFETY_SEEDS = {
         "return_kind": "owned-kmalloc-string-or-null",
         "reason": "string duplicate allocator helper; x0 must be an owned NUL-terminated kernel string buffer and x1 is scalar GFP",
     },
+    "kstrndup": {
+        "tier": CALL_SAFETY_SAFE_WITH_VALID_PTR,
+        "required_valid_pointer_args": {0: "source-string-buffer"},
+        "return_kind": "owned-kmalloc-string-or-null",
+        "reason": "bounded string duplicate allocator helper; x0 must be an owned NUL-terminated kernel string buffer, x1 is bounded length, and x2 is scalar GFP",
+    },
     "strpbrk": {
         "tier": CALL_SAFETY_SAFE_WITH_VALID_PTR,
         "required_valid_pointer_args": {0: "haystack-string-buffer", 1: "accept-string-buffer"},
@@ -4788,6 +4794,12 @@ CALL_PROOF_TARGETS = {
         "expected_tier": CALL_SAFETY_SAFE_WITH_VALID_PTR,
         "source_signature": "extern char * kstrdup(const char *s, gfp_t gfp) __malloc",
     },
+    "kstrndup": {
+        "input_contract": "owned NUL-terminated kernel source string buffer plus scalar bounded length and scalar GFP_KERNEL",
+        "return_contract": "char * == new owned kmalloc string copy truncated to bounded length and NUL-terminated",
+        "expected_tier": CALL_SAFETY_SAFE_WITH_VALID_PTR,
+        "source_signature": "extern char * kstrndup(const char *s, size_t len, gfp_t gfp)",
+    },
     "strpbrk": {
         "input_contract": "owned NUL-terminated haystack and accept-set kernel string buffers",
         "return_contract": "char * == owned haystack buffer plus expected first accept-set byte offset; missing accept-set returns NULL",
@@ -5035,6 +5047,15 @@ KSTRDUP_SOURCE_LABEL = KSTRDUP_SOURCE_BYTES[:-1].decode("ascii")
 KSTRDUP_CANARY_LEN = 8
 KSTRDUP_SOURCE_SCAN_LEN = len(KSTRDUP_SOURCE_BYTES) + KSTRDUP_CANARY_LEN
 KSTRDUP_DUP_SCAN_LEN = len(KSTRDUP_SOURCE_BYTES)
+KSTRNDUP_SOURCE_BYTES = b"A90KSTRNDUP-HEAD-Q-TAIL\x00"
+KSTRNDUP_SOURCE_LABEL = KSTRNDUP_SOURCE_BYTES[:-1].decode("ascii")
+KSTRNDUP_BOUND_PREFIX_BYTES = b"A90KSTRNDUP-HEAD"
+KSTRNDUP_BOUND_PREFIX_LABEL = KSTRNDUP_BOUND_PREFIX_BYTES.decode("ascii")
+KSTRNDUP_BOUND_LEN = len(KSTRNDUP_BOUND_PREFIX_BYTES)
+KSTRNDUP_EXPECTED_DUP_BYTES = KSTRNDUP_BOUND_PREFIX_BYTES + b"\x00"
+KSTRNDUP_CANARY_LEN = 8
+KSTRNDUP_SOURCE_SCAN_LEN = len(KSTRNDUP_SOURCE_BYTES) + KSTRNDUP_CANARY_LEN
+KSTRNDUP_DUP_SCAN_LEN = len(KSTRNDUP_EXPECTED_DUP_BYTES)
 STRPBRK_HAYSTACK_BYTES = b"A90STRPBRK-HEAD-Q-TAIL-Z\x00"
 STRPBRK_HAYSTACK_LABEL = STRPBRK_HAYSTACK_BYTES[:-1].decode("ascii")
 STRPBRK_ACCEPT_BYTES = b"QZ\x00"
@@ -8975,6 +8996,220 @@ def _run_call_proof_kstrdup(session: ReplSession,
     private.update({
         "slide": f"0x{slide:x}",
         "kstrdup_runtime": f"0x{((kstrdup_link + slide) & MASK64):x}",
+        "source_ptr": f"0x{source_ptr:x}",
+        "duplicate_ptr": f"0x{duplicate_ptr:x}",
+        "source_bytes_hex": observed_source.hex(),
+        "duplicate_bytes_hex": observed_duplicate.hex(),
+        "expected_source_hex": expected_source_scan.hex(),
+        "expected_duplicate_hex": expected_duplicate_scan.hex(),
+        "gfp_components": {key: f"0x{component:x}" for key, component in gfp_components.items()},
+    })
+    return summary, private
+
+
+def _run_call_proof_kstrndup(session: ReplSession,
+                             symbols: dict[str, Symbol],
+                             image: StaticImage,
+                             *,
+                             alloc_size: int,
+                             source_root: Path,
+                             gfp: int,
+                             gfp_components: dict[str, int]) -> tuple[dict[str, object], dict[str, object]]:
+    if alloc_size < KSTRNDUP_SOURCE_SCAN_LEN:
+        raise ReplError(f"kstrndup call-proof alloc_size must be at least {KSTRNDUP_SOURCE_SCAN_LEN} bytes")
+    if not KSTRNDUP_SOURCE_BYTES.endswith(b"\x00"):
+        raise ReplError("kstrndup proof source string must be NUL-terminated")
+    if not KSTRNDUP_SOURCE_BYTES.startswith(KSTRNDUP_BOUND_PREFIX_BYTES):
+        raise ReplError("kstrndup proof bounded prefix must be a source prefix")
+    if KSTRNDUP_BOUND_LEN >= len(KSTRNDUP_SOURCE_BYTES) - 1:
+        raise ReplError("kstrndup proof bound must truncate before the source NUL")
+
+    source = lookup_source_signature("kstrndup", source_root=source_root)
+    call_safety = require_call_safety_for_call(
+        symbols,
+        image,
+        "kstrndup",
+        ("@owned_source_string_buffer", KSTRNDUP_BOUND_LEN, gfp),
+    )
+    if call_safety.get("tier") != CALL_PROOF_TARGETS["kstrndup"]["expected_tier"]:
+        raise ReplError("kstrndup call-safety tier is not the expected vetted pointer tier")
+    if not source.get("found") or source.get("pointer_arg_indices") != [0]:
+        raise ReplError("kstrndup source signature does not declare x0 as the only pointer argument")
+
+    resolutions = {
+        "kstrndup": resolve_verified(symbols, image, "kstrndup", purpose="call"),
+        "__kmalloc": resolve_verified(symbols, image, "__kmalloc", purpose="call"),
+        "kfree": resolve_verified(symbols, image, "kfree", purpose="call"),
+    }
+    kstrndup_link = require_verified_resolution(resolutions["kstrndup"], "call-proof target")
+    kmalloc_link = require_verified_resolution(resolutions["__kmalloc"], "call-proof source allocator")
+    kfree_link = require_verified_resolution(resolutions["kfree"], "call-proof string cleanup")
+    assert_no_precall_x0_pointer_deref(image, kmalloc_link, "__kmalloc")
+
+    expected_source_scan = KSTRNDUP_SOURCE_BYTES + (b"\xcc" * KSTRNDUP_CANARY_LEN)
+    expected_duplicate_scan = KSTRNDUP_EXPECTED_DUP_BYTES
+    checks: list[dict[str, object]] = [
+        {
+            "check": "static-c1-identity",
+            "ok": True,
+            "target": "kstrndup",
+            "resolution_method": resolutions["kstrndup"].method,
+        },
+        {
+            "check": "static-source-contract",
+            "ok": True,
+            "signature": source.get("selected", {}).get("signature")
+            if isinstance(source.get("selected"), dict) else None,
+            "pointer_arg_indices": source.get("pointer_arg_indices", []),
+        },
+        {
+            "check": "static-call-safety-contract",
+            "ok": True,
+            "tier": call_safety.get("tier"),
+            "required_valid_pointer_args": call_safety.get("required_valid_pointer_args", {}),
+        },
+    ]
+    private: dict[str, object] = {}
+    source_ptr = 0
+    duplicate_ptr = 0
+    slide = 0
+    kfree_runtime = 0
+    free_attempted: list[str] = []
+    free_ok: dict[str, bool] = {"duplicate": False, "source": False}
+    free_errors: list[str] = []
+    observed_source = b""
+    observed_duplicate = b""
+    source_unchanged = False
+
+    session.hide()
+    session.set_panic_on_oops(0)
+    try:
+        slide = session.slide()
+        if slide & 0xFFF:
+            raise ReplError("slide is not page-aligned; refusing to proceed")
+        kstrndup_runtime = (kstrndup_link + slide) & MASK64
+        kmalloc_runtime = (kmalloc_link + slide) & MASK64
+        kfree_runtime = (kfree_link + slide) & MASK64
+
+        source_ptr = session.call_runtime(kmalloc_runtime, (alloc_size, gfp))
+        source_ok = is_kernel_lowmem_pointer(source_ptr)
+        checks.append({
+            "check": "kmalloc-owned-kstrndup-source",
+            "ok": source_ok,
+            "alloc_size": alloc_size,
+            "source_kernel_lowmem": source_ok,
+        })
+        if not source_ok:
+            raise ReplError("__kmalloc did not return a sane kstrndup source string")
+
+        _poke_bytes(session, source_ptr, expected_source_scan)
+        observed_source = _peek_bytes(session, source_ptr, KSTRNDUP_SOURCE_SCAN_LEN)
+        source_setup_ok = observed_source == expected_source_scan
+        checks.append({
+            "check": "owned-kstrndup-source-poke-peek",
+            "ok": source_setup_ok,
+            "source_string": KSTRNDUP_SOURCE_LABEL,
+            "bounded_len": KSTRNDUP_BOUND_LEN,
+            "canary_len": KSTRNDUP_CANARY_LEN,
+        })
+        if not source_setup_ok:
+            raise ReplError("owned kstrndup source string poke/peek mismatch")
+
+        duplicate_ptr = session.call_runtime(kstrndup_runtime, (source_ptr, KSTRNDUP_BOUND_LEN, gfp))
+        duplicate_ok = is_kernel_lowmem_pointer(duplicate_ptr)
+        distinct_ok = duplicate_ptr != source_ptr
+        checks.append({
+            "check": "kstrndup-return-owned-duplicate",
+            "ok": duplicate_ok and distinct_ok,
+            "duplicate_kernel_lowmem": duplicate_ok,
+            "duplicate_distinct_from_source": distinct_ok,
+        })
+        if not (duplicate_ok and distinct_ok):
+            raise ReplError("kstrndup did not return a sane distinct owned duplicate string")
+
+        observed_duplicate = _peek_bytes(session, duplicate_ptr, KSTRNDUP_DUP_SCAN_LEN)
+        duplicate_matches = observed_duplicate == expected_duplicate_scan
+        checks.append({
+            "check": "kstrndup-bounded-duplicate-byte-contract",
+            "ok": duplicate_matches,
+            "source_string": KSTRNDUP_SOURCE_LABEL,
+            "duplicate_string": KSTRNDUP_BOUND_PREFIX_LABEL,
+            "bounded_len": KSTRNDUP_BOUND_LEN,
+            "duplicate_len": KSTRNDUP_DUP_SCAN_LEN,
+            "duplicate_matches_bounded_prefix": duplicate_matches,
+        })
+        if not duplicate_matches:
+            raise ReplError("kstrndup duplicate bytes did not match the bounded source prefix plus NUL")
+
+        observed_source = _peek_bytes(session, source_ptr, KSTRNDUP_SOURCE_SCAN_LEN)
+        source_unchanged = observed_source == expected_source_scan
+        checks.append({
+            "check": "kstrndup-source-immutability",
+            "ok": source_unchanged,
+            "source_unchanged": source_unchanged,
+        })
+        if not source_unchanged:
+            raise ReplError("kstrndup modified the owned source string")
+    finally:
+        if kfree_runtime:
+            for label, ptr in (("duplicate", duplicate_ptr), ("source", source_ptr)):
+                if ptr and is_kernel_lowmem_pointer(ptr):
+                    free_attempted.append(label)
+                    try:
+                        session.call_runtime(kfree_runtime, (ptr,))
+                        free_ok[label] = True
+                    except Exception as exc:  # noqa: BLE001 - cleanup failures must be visible
+                        free_errors.append(f"{label}:{exc}")
+        session.set_panic_on_oops(1)
+
+    cleanup_ok = bool(free_ok["duplicate"] and free_ok["source"])
+    checks.append({
+        "check": "kfree-owned-kstrndup-source-and-duplicate",
+        "ok": cleanup_ok,
+        "free_attempted": free_attempted,
+        "duplicate_free_ok": free_ok["duplicate"],
+        "source_free_ok": free_ok["source"],
+    })
+    if free_errors:
+        raise ReplError(f"kfree failed after kstrndup proof: {free_errors}")
+
+    passed = all(bool(check.get("ok")) for check in checks)
+    summary = {
+        "decision": f"a90-repl-live-call-proof-kstrndup-{'pass' if passed else 'fail'}",
+        "ok": passed,
+        "target": "kstrndup",
+        "proof_status": "trusted-under-owned-input-contract" if passed else "failed",
+        "input_contract": CALL_PROOF_TARGETS["kstrndup"]["input_contract"],
+        "return_contract": CALL_PROOF_TARGETS["kstrndup"]["return_contract"],
+        "alloc_size": alloc_size,
+        "source_string": KSTRNDUP_SOURCE_LABEL,
+        "bounded_len": KSTRNDUP_BOUND_LEN,
+        "expected_duplicate_string": KSTRNDUP_BOUND_PREFIX_LABEL,
+        "duplicate_matches_bounded_prefix": observed_duplicate == expected_duplicate_scan,
+        "returned_owned_duplicate_pointer": is_kernel_lowmem_pointer(duplicate_ptr),
+        "duplicate_distinct_from_source": duplicate_ptr != source_ptr,
+        "source_unchanged_after_call": source_unchanged,
+        "gfp_kernel": f"0x{gfp:x}",
+        "source_evidence": _source_row_evidence(source),
+        "call_safety": call_safety,
+        "resolutions": _redacted_resolution_set(resolutions),
+        "raw_runtime_values_redacted": True,
+        "owned_pointer_redacted": True,
+        "observed_bytes_redacted": True,
+        "checks": checks,
+        "function_map_entry": {
+            "symbol": "kstrndup",
+            "status": "live-proven",
+            "trusted_input_contract": CALL_PROOF_TARGETS["kstrndup"]["input_contract"],
+            "return_contract": CALL_PROOF_TARGETS["kstrndup"]["return_contract"],
+            "observed_return_value": "owned-bounded-duplicate-string-copy",
+            "cleanup": "kfree-owned-kstrndup-source-and-duplicate-ok" if cleanup_ok else "cleanup-failed",
+            "auto_call_policy": "one-target-proof-only-not-mass-call",
+        },
+    }
+    private.update({
+        "slide": f"0x{slide:x}",
+        "kstrndup_runtime": f"0x{((kstrndup_link + slide) & MASK64):x}",
         "source_ptr": f"0x{source_ptr:x}",
         "duplicate_ptr": f"0x{duplicate_ptr:x}",
         "source_bytes_hex": observed_source.hex(),
@@ -14147,6 +14382,16 @@ def run_call_proof(session: ReplSession,
         )
     if target == "kstrdup":
         return _run_call_proof_kstrdup(
+            session,
+            symbols,
+            image,
+            alloc_size=alloc_size,
+            source_root=source_root,
+            gfp=gfp,
+            gfp_components=gfp_components,
+        )
+    if target == "kstrndup":
+        return _run_call_proof_kstrndup(
             session,
             symbols,
             image,
