@@ -238,6 +238,12 @@ CALL_SAFETY_SEEDS = {
         "return_kind": "ssize_t",
         "reason": "bounded string copy helper; x0/x1 must be owned buffers and size must stay inside destination",
     },
+    "strlcpy": {
+        "tier": CALL_SAFETY_SAFE_WITH_VALID_PTR,
+        "required_valid_pointer_args": {0: "destination-buffer", 1: "source-string-buffer"},
+        "return_kind": "size_t",
+        "reason": "bounded string copy helper; x0/x1 must be owned buffers and size must stay inside destination",
+    },
     "kmem_cache_alloc": {
         "tier": CALL_SAFETY_SAFE_WITH_VALID_PTR,
         "required_valid_pointer_args": {0: "kmem_cache"},
@@ -4476,6 +4482,12 @@ CALL_PROOF_TARGETS = {
         "expected_tier": CALL_SAFETY_SAFE_WITH_VALID_PTR,
         "source_signature": "ssize_t strscpy(char *, const char *, size_t)",
     },
+    "strlcpy": {
+        "input_contract": "owned destination buffer plus owned NUL-terminated source string buffer plus bounded size",
+        "return_contract": "size_t == source string length and destination prefix matches source",
+        "expected_tier": CALL_SAFETY_SAFE_WITH_VALID_PTR,
+        "source_signature": "size_t strlcpy(char *, const char *, size_t)",
+    },
 }
 FILP_OPEN_PROOF_PATH = b"/init\x00"
 FILP_OPEN_PROOF_FLAGS = 0
@@ -4493,6 +4505,11 @@ STRSCPY_PROOF_EXPECTED = len(STRSCPY_PROOF_SRC_BYTES) - 1
 STRSCPY_PROOF_SIZE = 32
 STRSCPY_SRC_ZERO_FILL_LEN = 64
 STRSCPY_DST_CANARY_LEN = 8
+STRLCPY_PROOF_SRC_BYTES = b"A90STRLCPY\x00"
+STRLCPY_PROOF_EXPECTED = len(STRLCPY_PROOF_SRC_BYTES) - 1
+STRLCPY_PROOF_SIZE = 32
+STRLCPY_SRC_ZERO_FILL_LEN = 64
+STRLCPY_DST_CANARY_LEN = 8
 LINUX_MAX_ERRNO = 4095
 LINUX_ERR_PTR_MIN = ((-LINUX_MAX_ERRNO) & MASK64)
 
@@ -4886,6 +4903,210 @@ def _run_call_proof_strscpy(session: ReplSession,
     private.update({
         "slide": f"0x{slide:x}",
         "strscpy_runtime": f"0x{((strscpy_link + slide) & MASK64):x}",
+        "dst_ptr": f"0x{dst_ptr:x}",
+        "src_ptr": f"0x{src_ptr:x}",
+        "observed_src_hex": observed_src.hex(),
+        "observed_dst_hex": observed_dst.hex(),
+        "gfp_components": {key: f"0x{component:x}" for key, component in gfp_components.items()},
+    })
+    return summary, private
+
+
+def _run_call_proof_strlcpy(session: ReplSession,
+                            symbols: dict[str, Symbol],
+                            image: StaticImage,
+                            *,
+                            alloc_size: int,
+                            source_root: Path,
+                            gfp: int,
+                            gfp_components: dict[str, int]) -> tuple[dict[str, object], dict[str, object]]:
+    required_alloc = max(STRLCPY_SRC_ZERO_FILL_LEN, STRLCPY_PROOF_SIZE + STRLCPY_DST_CANARY_LEN)
+    if alloc_size < required_alloc:
+        raise ReplError(
+            f"strlcpy call-proof alloc_size must be at least {required_alloc} bytes"
+        )
+
+    source = lookup_source_signature("strlcpy", source_root=source_root)
+    call_safety = require_call_safety_for_call(
+        symbols,
+        image,
+        "strlcpy",
+        ("@owned_destination_buffer", "@owned_source_string_buffer", STRLCPY_PROOF_SIZE),
+    )
+    if call_safety.get("tier") != CALL_PROOF_TARGETS["strlcpy"]["expected_tier"]:
+        raise ReplError("strlcpy call-safety tier is not the expected vetted pointer tier")
+    if not source.get("found") or source.get("pointer_arg_indices") != [0, 1]:
+        raise ReplError("strlcpy source signature does not declare x0/x1 as pointer arguments")
+
+    resolutions = {
+        "strlcpy": resolve_verified(symbols, image, "strlcpy", purpose="call", allow_pre_arg_deref=True),
+        "__kmalloc": resolve_verified(symbols, image, "__kmalloc", purpose="call"),
+        "kfree": resolve_verified(symbols, image, "kfree", purpose="call"),
+    }
+    strlcpy_link = require_verified_resolution(resolutions["strlcpy"], "call-proof target")
+    kmalloc_link = require_verified_resolution(resolutions["__kmalloc"], "call-proof string allocator")
+    kfree_link = require_verified_resolution(resolutions["kfree"], "call-proof string cleanup")
+    assert_no_precall_x0_pointer_deref(image, kmalloc_link, "__kmalloc")
+
+    checks: list[dict[str, object]] = [
+        {
+            "check": "static-c1-identity",
+            "ok": True,
+            "target": "strlcpy",
+            "resolution_method": resolutions["strlcpy"].method,
+        },
+        {
+            "check": "static-source-contract",
+            "ok": True,
+            "signature": source.get("selected", {}).get("signature")
+            if isinstance(source.get("selected"), dict) else None,
+            "pointer_arg_indices": source.get("pointer_arg_indices", []),
+        },
+        {
+            "check": "static-call-safety-contract",
+            "ok": True,
+            "tier": call_safety.get("tier"),
+            "required_valid_pointer_args": call_safety.get("required_valid_pointer_args", {}),
+            "bounded_size": STRLCPY_PROOF_SIZE,
+        },
+    ]
+    private: dict[str, object] = {}
+    dst_ptr = 0
+    src_ptr = 0
+    slide = 0
+    kfree_runtime = 0
+    free_attempted: list[str] = []
+    free_ok: dict[str, bool] = {"dst": False, "src": False}
+    free_errors: list[str] = []
+    proof_return = 0
+    observed_src = b""
+    observed_dst = b""
+    dst_scan_len = STRLCPY_PROOF_SIZE + STRLCPY_DST_CANARY_LEN
+
+    session.hide()
+    session.set_panic_on_oops(0)
+    try:
+        slide = session.slide()
+        if slide & 0xFFF:
+            raise ReplError("slide is not page-aligned; refusing to proceed")
+        strlcpy_runtime = (strlcpy_link + slide) & MASK64
+        kmalloc_runtime = (kmalloc_link + slide) & MASK64
+        kfree_runtime = (kfree_link + slide) & MASK64
+
+        dst_ptr = session.call_runtime(kmalloc_runtime, (alloc_size, gfp))
+        src_ptr = session.call_runtime(kmalloc_runtime, (alloc_size, gfp))
+        dst_ok = is_kernel_lowmem_pointer(dst_ptr)
+        src_ok = is_kernel_lowmem_pointer(src_ptr)
+        distinct_ok = dst_ptr != src_ptr
+        checks.append({
+            "check": "kmalloc-owned-strlcpy-buffers",
+            "ok": dst_ok and src_ok and distinct_ok,
+            "alloc_size": alloc_size,
+            "dst_kernel_lowmem": dst_ok,
+            "src_kernel_lowmem": src_ok,
+            "distinct_buffers": distinct_ok,
+        })
+        if not (dst_ok and src_ok and distinct_ok):
+            raise ReplError("__kmalloc did not return sane distinct strlcpy buffers")
+
+        _poke_bytes(session, dst_ptr, b"\xcc" * dst_scan_len)
+        _poke_bytes(session, src_ptr, b"\x00" * STRLCPY_SRC_ZERO_FILL_LEN)
+        _poke_bytes(session, src_ptr, STRLCPY_PROOF_SRC_BYTES)
+        observed_src = _peek_bytes(session, src_ptr, len(STRLCPY_PROOF_SRC_BYTES))
+        src_payload_ok = observed_src == STRLCPY_PROOF_SRC_BYTES
+        checks.append({
+            "check": "owned-strlcpy-source-poke-peek",
+            "ok": src_payload_ok,
+            "string": STRLCPY_PROOF_SRC_BYTES[:-1].decode("ascii"),
+            "nul_terminated": observed_src.endswith(b"\x00"),
+            "size_arg": STRLCPY_PROOF_SIZE,
+        })
+        if not src_payload_ok:
+            raise ReplError("owned strlcpy source poke/peek mismatch")
+
+        proof_return = session.call_runtime(strlcpy_runtime, (dst_ptr, src_ptr, STRLCPY_PROOF_SIZE))
+        return_ok = proof_return == STRLCPY_PROOF_EXPECTED
+        checks.append({
+            "check": "strlcpy-return-contract",
+            "ok": return_ok,
+            "return_kind": "size_t",
+            "return_value": f"0x{proof_return:x}",
+            "expected_return": f"0x{STRLCPY_PROOF_EXPECTED:x}",
+            "size_arg": STRLCPY_PROOF_SIZE,
+        })
+        if not return_ok:
+            raise ReplError(
+                f"strlcpy returned 0x{proof_return:x}, expected 0x{STRLCPY_PROOF_EXPECTED:x}"
+            )
+
+        observed_dst = _peek_bytes(session, dst_ptr, dst_scan_len)
+        prefix_ok = observed_dst[:len(STRLCPY_PROOF_SRC_BYTES)] == STRLCPY_PROOF_SRC_BYTES
+        canary_ok = observed_dst[STRLCPY_PROOF_SIZE:dst_scan_len] == (b"\xcc" * STRLCPY_DST_CANARY_LEN)
+        checks.append({
+            "check": "strlcpy-destination-contract",
+            "ok": prefix_ok and canary_ok,
+            "copied_prefix": STRLCPY_PROOF_SRC_BYTES[:-1].decode("ascii"),
+            "prefix_ok": prefix_ok,
+            "canary_after_size_ok": canary_ok,
+        })
+        if not (prefix_ok and canary_ok):
+            raise ReplError("strlcpy destination prefix/canary contract failed")
+    finally:
+        if kfree_runtime:
+            for label, ptr in (("dst", dst_ptr), ("src", src_ptr)):
+                if ptr and is_kernel_lowmem_pointer(ptr):
+                    free_attempted.append(label)
+                    try:
+                        session.call_runtime(kfree_runtime, (ptr,))
+                        free_ok[label] = True
+                    except Exception as exc:  # noqa: BLE001 - cleanup failures must be visible
+                        free_errors.append(f"{label}:{exc}")
+        session.set_panic_on_oops(1)
+
+    cleanup_ok = bool(free_ok["dst"] and free_ok["src"])
+    checks.append({
+        "check": "kfree-owned-strlcpy-buffers",
+        "ok": cleanup_ok,
+        "free_attempted": free_attempted,
+        "dst_free_ok": free_ok["dst"],
+        "src_free_ok": free_ok["src"],
+    })
+    if free_errors:
+        raise ReplError(f"kfree failed after strlcpy proof: {free_errors}")
+
+    passed = all(bool(check.get("ok")) for check in checks)
+    summary = {
+        "decision": f"a90-repl-live-call-proof-strlcpy-{'pass' if passed else 'fail'}",
+        "ok": passed,
+        "target": "strlcpy",
+        "proof_status": "trusted-under-owned-input-contract" if passed else "failed",
+        "input_contract": CALL_PROOF_TARGETS["strlcpy"]["input_contract"],
+        "return_contract": CALL_PROOF_TARGETS["strlcpy"]["return_contract"],
+        "alloc_size": alloc_size,
+        "proof_string": STRLCPY_PROOF_SRC_BYTES[:-1].decode("ascii"),
+        "size_arg": STRLCPY_PROOF_SIZE,
+        "expected_return_value": f"0x{STRLCPY_PROOF_EXPECTED:x}",
+        "observed_return_value": f"0x{proof_return:x}",
+        "gfp_kernel": f"0x{gfp:x}",
+        "source_evidence": _source_row_evidence(source),
+        "call_safety": call_safety,
+        "resolutions": _redacted_resolution_set(resolutions),
+        "raw_runtime_values_redacted": True,
+        "owned_pointer_redacted": True,
+        "checks": checks,
+        "function_map_entry": {
+            "symbol": "strlcpy",
+            "status": "live-proven",
+            "trusted_input_contract": CALL_PROOF_TARGETS["strlcpy"]["input_contract"],
+            "return_contract": CALL_PROOF_TARGETS["strlcpy"]["return_contract"],
+            "observed_return_value": f"0x{proof_return:x}",
+            "cleanup": "kfree-owned-strlcpy-buffers-ok" if cleanup_ok else "cleanup-failed",
+            "auto_call_policy": "one-target-proof-only-not-mass-call",
+        },
+    }
+    private.update({
+        "slide": f"0x{slide:x}",
+        "strlcpy_runtime": f"0x{((strlcpy_link + slide) & MASK64):x}",
         "dst_ptr": f"0x{dst_ptr:x}",
         "src_ptr": f"0x{src_ptr:x}",
         "observed_src_hex": observed_src.hex(),
@@ -5634,6 +5855,16 @@ def run_call_proof(session: ReplSession,
         )
     if target == "strscpy":
         return _run_call_proof_strscpy(
+            session,
+            symbols,
+            image,
+            alloc_size=alloc_size,
+            source_root=source_root,
+            gfp=gfp,
+            gfp_components=gfp_components,
+        )
+    if target == "strlcpy":
+        return _run_call_proof_strlcpy(
             session,
             symbols,
             image,

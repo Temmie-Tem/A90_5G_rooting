@@ -767,6 +767,35 @@ epic is DONE.** Reports:
 `docs/reports/NATIVE_INIT_V3335_GPU_Z3_PRIMARY_SETCRTC_SOURCE_BUILD_2026-06-27.md` and
 `docs/reports/NATIVE_INIT_V3335_GPU_Z3_PRIMARY_SETCRTC_LIVE_2026-06-27.md`.**
 
+## ✅ DONE — REPL post-epic one-target live-call proof — `strlcpy` owned-buffer contract
+
+> ### ✅ STATUS (2026-06-30 live pass) — `strlcpy` promoted under owned dst/src + bounded size only
+>
+> Seventh one-target live-call proof after the REPL epic close. Codex extended `a90_repl.py call-proof`
+> with `strlcpy`, using a tool-owned destination buffer, a tool-owned source buffer containing
+> `A90STRLCPY\0`, and scalar `size=32`. C1 identity is `export-recovery`:
+> `strlcpy=0xffffff80099b9724`, map/export agree, direct-BL xrefs `963`, JOPP entry true. The body
+> calls `__pi_strlen` and `__memcpy`, so the proof contract owns both dst/src and fixes size inside
+> the destination. Source oracle confirms `include/linux/string.h:28`,
+> `size_t strlcpy(char *, const char *, size_t)`, with x0/x1 as pointer args.
+>
+> Live path: baseline v2321 selftest passed, flashed existing v1-repl image
+> `b846ae9f74d8ceb922bbcd854d78b6795ef833d61e38465d3cc474cb6f0dfb65`, confirmed candidate
+> `selftest pass=11 warn=1 fail=0` and `a90-repl-v2a1-selftest-pass`, then ran `call-proof strlcpy`
+> with the C2B verified map. Result: `a90-repl-live-call-proof-strlcpy-pass`; checks covered
+> `export-recovery` C1 identity, source/call-safety contracts, distinct owned dst/src buffers,
+> source poke/peek, exact `strlcpy-return-contract` (`0xa` source length), destination prefix match,
+> canary after the size boundary preserved, and `kfree-owned-strlcpy-buffers`. Candidate selftest
+> after proof stayed `fail=0`.
+>
+> Rolled back to clean v2321
+> (`ca978551aabe4b39563abaf529ccf2522054952d8b2ad852e632d26da88168cb`) with final resident
+> `v2321-usb-clean-identity-rodata` and final `selftest pass=11 warn=1 fail=0`. Two serial commands
+> during the unit hit known echo/END-marker noise and passed on retry before any unsafe live call was
+> attempted or after rollback. Function map records `strlcpy` only under the owned destination,
+> owned source, bounded-size contract. Other string/memory copy helpers remain parked. Report:
+> `docs/reports/KERNEL_SECURITY_TIER2_RUNTIME_KERNEL_REPL_LIVE_CALL_PROOF_STRLCPY_2026-06-30.md`.
+
 ## ✅ DONE — REPL post-epic one-target live-call proof — `strscpy` owned-buffer contract
 
 > ### ✅ STATUS (2026-06-30 live pass) — `strscpy` promoted under owned dst/src + bounded size only
