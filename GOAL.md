@@ -767,6 +767,33 @@ epic is DONE.** Reports:
 `docs/reports/NATIVE_INIT_V3335_GPU_Z3_PRIMARY_SETCRTC_SOURCE_BUILD_2026-06-27.md` and
 `docs/reports/NATIVE_INIT_V3335_GPU_Z3_PRIMARY_SETCRTC_LIVE_2026-06-27.md`.**
 
+## ✅ DONE — REPL post-epic one-target live-call proof — `memchr` owned-buffer search contract
+
+> ### ✅ STATUS (2026-06-30 live pass) — `memchr` promoted under owned initialized buffer only
+>
+> Fifteenth one-target live-call proof after the REPL epic close. Codex extended `a90_repl.py
+> call-proof` with `memchr`, using one tool-owned initialized kernel buffer containing
+> `A90MEMCHR-HIT-Q-END-012345`, scalar search byte `0x51` (`Q`), bounded size `26`, and a
+> post-size canary filled with `0x40` (`@`). Static gate: `memchr=0xffffff80099a8488`,
+> `leaf-map-disasm+xref`, direct-BL xrefs `25`, leaf/no-BL, RET in scan. Source contract:
+> `extern void * memchr(const void *,int,__kernel_size_t)`, with x0 as the buffer pointer, x1 as a
+> scalar byte, and x2 as a scalar bounded size. The call-safety seed is `SAFE-WITH-VALID-PTR`;
+> required valid pointer arg is x0 `buffer`.
+>
+> Live path: confirmed rollback images and TWRP, flashed the existing v1-repl boot image
+> (`b846ae9f...`) through `native_init_flash.py`, confirmed native selftest `fail=0` and
+> `a90-repl-v2a1-selftest-pass`, then ran `call-proof memchr` with the C2B verified map. Result:
+> `a90-repl-live-call-proof-memchr-pass`; checks covered C1 identity, source pointer contract,
+> owned buffer allocation, buffer poke/peek, hit return at expected first-occurrence offset `14`,
+> buffer immutability, missing-byte return `0x0` even though the post-size canary contained `@`,
+> second immutability check, and `kfree-owned-memchr-buffer`.
+>
+> Candidate selftest after proof was `pass=11 warn=1 fail=0`. Rollback to clean v2321 used the checked
+> helper with readback SHA `ca978551...`; final selftest was `pass=11 warn=1 fail=0`. Function map
+> records `memchr` only under the owned initialized buffer plus scalar-search-byte and bounded-size
+> contract. This does not authorize arbitrary pointers, unbounded sizes, user pointers, or other
+> memory helpers.
+
 ## ✅ DONE — REPL post-epic one-target live-call proof — `strchrnul` owned-string search contract
 
 > ### ✅ STATUS (2026-06-30 live pass) — `strchrnul` promoted under owned NUL-terminated string only

@@ -624,6 +624,14 @@ class CallSafetyClassificationTests(unittest.TestCase):
         self.assertGreaterEqual(memcmp["signals"]["direct_bl_xref_count"], 500)
         self.assertTrue(memcmp["signals"]["leaf"])
 
+        memchr = self._row("memchr")
+        self.assertEqual(memchr["tier"], repl.CALL_SAFETY_SAFE_WITH_VALID_PTR)
+        self.assertEqual(memchr["required_valid_pointer_args"], {"0": "buffer"})
+        self.assertTrue(memchr["resolution"]["verified"])
+        self.assertEqual(memchr["resolution"]["method"], "leaf-map-disasm+xref")
+        self.assertGreaterEqual(memchr["signals"]["direct_bl_xref_count"], 20)
+        self.assertTrue(memchr["signals"]["leaf"])
+
         strrchr = self._row("strrchr")
         self.assertEqual(strrchr["tier"], repl.CALL_SAFETY_SAFE_WITH_VALID_PTR)
         self.assertEqual(strrchr["required_valid_pointer_args"], {"0": "string-buffer"})
@@ -824,6 +832,15 @@ class CallSafetyClassificationTests(unittest.TestCase):
             "extern int memcmp(const void *,const void *,__kernel_size_t)",
         )
         self.assertTrue(memcmp["selected"]["path"].endswith("include/linux/string.h"))
+
+        memchr = repl.lookup_source_signature("memchr", source_root=KERNEL_SOURCE_ROOT)
+        self.assertEqual(memchr["status"], "found", memchr)
+        self.assertEqual(memchr["selected"]["pointer_arg_indices"], [0])
+        self.assertEqual(
+            memchr["selected"]["signature"],
+            "extern void * memchr(const void *,int,__kernel_size_t)",
+        )
+        self.assertTrue(memchr["selected"]["path"].endswith("include/linux/string.h"))
 
         strrchr = repl.lookup_source_signature("strrchr", source_root=KERNEL_SOURCE_ROOT)
         self.assertEqual(strrchr["status"], "found", strrchr)
@@ -1115,6 +1132,13 @@ class FaithfulFakeTransport:
             purpose="call",
             allow_pre_arg_deref=True,
         ).link_vaddr
+        self.memchr_link = repl.resolve_verified(
+            self.symbols,
+            self.image,
+            "memchr",
+            purpose="call",
+            allow_pre_arg_deref=True,
+        ).link_vaddr
         self.strrchr_link = repl.resolve_verified(
             self.symbols,
             self.image,
@@ -1231,6 +1255,8 @@ class FaithfulFakeTransport:
             strncpy = self.strncpy_link + self.slide
             assert self.memcmp_link is not None
             memcmp = self.memcmp_link + self.slide
+            assert self.memchr_link is not None
+            memchr = self.memchr_link + self.slide
             assert self.strrchr_link is not None
             strrchr = self.strrchr_link + self.slide
             assert self.memset_link is not None
@@ -1367,6 +1393,13 @@ class FaithfulFakeTransport:
                 if result < 0:
                     result &= 0xFFFFFFFF
                 lines.append(f"A90R{result:x}")
+            elif arg0 == memchr:
+                if arg1 not in self.allocated:
+                    raise AssertionError(f"memchr buffer is not an allocated pointer: {arg1:#x}")
+                data = self._heap_bytes(arg1, arg3)
+                search = arg2 & 0xFF
+                offset = data.find(bytes([search]))
+                lines.append("A90R0" if offset < 0 else f"A90R{arg1 + offset:x}")
             elif arg0 == strrchr:
                 if arg1 not in self.allocated:
                     raise AssertionError(f"strrchr string is not an allocated pointer: {arg1:#x}")
@@ -1818,6 +1851,62 @@ class SelftestIntegrationTests(unittest.TestCase):
         ).hex()
         self.assertEqual(private["right_mismatch_bytes_hex"], expected_right_mismatch_hex)
         self.assertEqual(fake.freed, [fake.heap_ptr, fake.heap_ptr + 0x1000])
+
+    def test_call_proof_memchr_passes_with_owned_buffer_contract(self) -> None:
+        if not C2B_PADDING_MAP_PATH.is_file() or not KERNEL_SOURCE_ROOT.is_dir():
+            self.skipTest("promoted v2c System.map or kernel source tree not present")
+
+        symbols = repl.load_system_map(C2B_PADDING_MAP_PATH)
+        fake = FaithfulFakeTransport(0x130000, symbols, self.image)
+        orig = repl.transport.run_serial_command
+        repl.transport.run_serial_command = fake.run_serial_command
+        self.addCleanup(lambda: setattr(repl.transport, "run_serial_command", orig))
+        session = repl.ReplSession(repl.ReplConfig(settle_sec=0.0))
+        summary, private = repl.run_call_proof(
+            session,
+            symbols,
+            self.image,
+            "memchr",
+            source_root=KERNEL_SOURCE_ROOT,
+        )
+
+        self.assertTrue(summary["ok"], summary)
+        self.assertEqual(summary["decision"], "a90-repl-live-call-proof-memchr-pass")
+        self.assertEqual(summary["proof_status"], "trusted-under-owned-input-contract")
+        self.assertEqual(summary["function_map_entry"]["symbol"], "memchr")
+        self.assertEqual(summary["function_map_entry"]["status"], "live-proven")
+        self.assertEqual(
+            summary["source_evidence"]["signature"],
+            "extern void * memchr(const void *,int,__kernel_size_t)",
+        )
+        self.assertEqual(summary["proof_bytes_label"], repl.MEMCHR_PROOF_BYTES.decode("ascii"))
+        self.assertEqual(summary["size_arg"], repl.MEMCHR_PROOF_SIZE)
+        self.assertEqual(summary["search_byte"], f"0x{repl.MEMCHR_SEARCH_BYTE:02x}")
+        self.assertEqual(summary["expected_hit_offset"], repl.MEMCHR_EXPECTED_OFFSET)
+        self.assertEqual(summary["hit_expected_return_value"], "owned-buffer-pointer-plus-offset-redacted")
+        self.assertEqual(summary["hit_observed_return_value"], "owned-buffer-pointer-plus-offset-redacted")
+        self.assertTrue(summary["hit_return_matches_expected_offset"])
+        self.assertEqual(summary["missing_byte"], f"0x{repl.MEMCHR_MISSING_BYTE:02x}")
+        self.assertEqual(summary["missing_expected_return_value"], "0x0")
+        self.assertEqual(summary["missing_observed_return_value"], "0x0")
+        self.assertTrue(summary["missing_return_matches_null"])
+        self.assertTrue(summary["canary_contains_missing_byte"])
+        self.assertTrue(summary["buffer_unchanged_after_calls"])
+        self.assertTrue(summary["raw_runtime_values_redacted"])
+        self.assertTrue(summary["owned_pointer_redacted"])
+        self.assertTrue(summary["observed_bytes_redacted"])
+        self.assertNotIn("alloc_ptr", summary)
+        self.assertNotIn("hit_return_ptr", summary)
+        self.assertNotIn("missing_return_ptr", summary)
+        self.assertEqual(private["alloc_ptr"], f"0x{fake.heap_ptr:x}")
+        self.assertEqual(
+            private["hit_return_ptr"],
+            f"0x{fake.heap_ptr + repl.MEMCHR_EXPECTED_OFFSET:x}",
+        )
+        self.assertEqual(private["missing_return_ptr"], "0x0")
+        expected_hex = (repl.MEMCHR_PROOF_BYTES + repl.MEMCHR_CANARY_BYTES).hex()
+        self.assertEqual(private["observed_bytes_hex"], expected_hex)
+        self.assertEqual(fake.freed, [fake.heap_ptr])
 
     def test_call_proof_strchr_passes_with_owned_string_contract(self) -> None:
         if not C2B_PADDING_MAP_PATH.is_file() or not KERNEL_SOURCE_ROOT.is_dir():

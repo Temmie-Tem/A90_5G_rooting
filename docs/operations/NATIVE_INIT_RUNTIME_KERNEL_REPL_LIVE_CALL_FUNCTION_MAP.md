@@ -36,6 +36,7 @@ and the C1 fail-closed identity gate.
 | `strlcpy` | `0xffffff80099b9724`, `export-recovery`, direct BL xrefs `963`, calls `__pi_strlen`/`__memcpy` | owned destination buffer plus owned NUL-terminated source string buffer plus bounded size | `strlcpy(dst, "A90STRLCPY", 32) == 0xa`, destination prefix matched source, canary after size preserved | `kfree-owned-strlcpy-buffers-ok` | `a90-repl-live-call-proof-strlcpy-pass` |
 | `strncpy` | `0xffffff80099b96f4`, `export-recovery`, direct BL xrefs `187`, leaf/no-BL | owned destination buffer plus owned NUL-terminated source string buffer plus bounded count | `strncpy(dst, "A90STRNCPY", 32)` returned the owned destination pointer (redacted), destination prefix matched source, NUL padded to count, canary after count preserved | `kfree-owned-strncpy-buffers-ok` | `a90-repl-live-call-proof-strncpy-pass` |
 | `memcmp` | `0xffffff80099a84b0`, `leaf-map-disasm+xref`, direct BL xrefs `921`, leaf/no-BL | two owned initialized buffers plus bounded size inside both buffers | equal buffer compare returned `0x0`; first-difference case returned positive (`0x80`); both buffers stayed unchanged | `kfree-owned-memcmp-buffers-ok` | `a90-repl-live-call-proof-memcmp-pass` |
+| `memchr` | `0xffffff80099a8488`, `leaf-map-disasm+xref`, direct BL xrefs `25`, leaf/no-BL | owned initialized buffer plus scalar search byte plus bounded size inside the buffer | `memchr("A90MEMCHR-HIT-Q-END-012345", 'Q', 26)` returned the owned pointer at offset `14` (redacted); missing `@` returned `0x0` even though the post-size canary contained `@`; buffer stayed unchanged | `kfree-owned-memchr-buffer-ok` | `a90-repl-live-call-proof-memchr-pass` |
 | `memset` | `0xffffff80099a8980`, `leaf-map-disasm+xref`, direct BL xrefs `6517`, leaf/no-BL | owned destination buffer plus scalar fill byte plus bounded size inside destination | `memset(dst, 0x5a, 32)` returned the owned destination pointer (redacted), first 32 bytes became `0x5a`, post-size canary preserved | `kfree-owned-memset-destination-buffer-ok` | `a90-repl-live-call-proof-memset-pass` |
 
 ## Parked Candidate Families
@@ -58,9 +59,11 @@ and the C1 fail-closed identity gate.
   additionally require an owned destination buffer and a bounded size/count inside that destination.
   Other string/memory helpers remain parked until separate C1 identity and pointer contracts are
   proven.
-- Memory-compare sweep: `memcmp` has crossed the live proof gate only under the two-owned-buffer plus
-  bounded-size contract. It does not authorize arbitrary pointers, unbounded sizes, user pointers, or
-  other memory helpers such as `memcpy`, `memmove`, or `memchr`.
+- Memory-search/compare sweep: `memcmp` has crossed the live proof gate only under the two-owned-buffer
+  plus bounded-size contract. `memchr` has crossed the live proof gate only under the owned-buffer plus
+  scalar-search-byte and bounded-size contract, including a canary check that the search stays inside
+  the size argument. These rows do not authorize arbitrary pointers, unbounded sizes, user pointers, or
+  other memory helpers such as `memcpy` or `memmove`.
 - Memory-write sweep: `memset` has crossed the live proof gate only under the owned destination plus
   scalar-fill-byte and bounded-size contract. It does not authorize arbitrary pointers, unbounded
   sizes, user pointers, overlapping copy helpers, or other memory write helpers such as `memcpy` or

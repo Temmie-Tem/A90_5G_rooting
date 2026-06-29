@@ -135,6 +135,11 @@ LEAF_MAP_GROUND_TRUTH_SYMBOLS = {
         "expected_pointer_args": (0, 1),
         "note": "non-JOPP arm64 leaf memory compare helper; identity rests on map label, high xref count, and leaf shape",
     },
+    "memchr": {
+        "min_direct_bl_xrefs": 20,
+        "expected_pointer_args": (0,),
+        "note": "non-JOPP arm64 leaf bounded memory search helper; identity rests on map label, xref count, and leaf shape",
+    },
     "strrchr": {
         "min_direct_bl_xrefs": 1000,
         "expected_pointer_args": (0,),
@@ -203,6 +208,7 @@ CALL_SAFETY_SWEEP_FAMILIES = {
             "memset",
             "memmove",
             "memcmp",
+            "memchr",
         ),
         "prefixes": ("str", "mem"),
     },
@@ -298,6 +304,12 @@ CALL_SAFETY_SEEDS = {
         "required_valid_pointer_args": {0: "left-buffer", 1: "right-buffer"},
         "return_kind": "int-sign",
         "reason": "bounded memory compare helper; x0/x1 must be owned buffers and size must stay inside both buffers",
+    },
+    "memchr": {
+        "tier": CALL_SAFETY_SAFE_WITH_VALID_PTR,
+        "required_valid_pointer_args": {0: "buffer"},
+        "return_kind": "buffer-pointer-or-null",
+        "reason": "bounded memory search helper; x0 must be an owned buffer and size must stay inside the buffer",
     },
     "strrchr": {
         "tier": CALL_SAFETY_SAFE_WITH_VALID_PTR,
@@ -2903,6 +2915,7 @@ _SOURCE_HEADER_HINTS_BY_PREFIX = (
     ("kmem_cache", ("include/linux/slab.h",)),
     ("kref_", ("include/linux/kref.h",)),
     ("memcmp", ("include/linux/string.h", "arch/arm64/include/asm/string.h")),
+    ("memchr", ("include/linux/string.h", "arch/arm64/include/asm/string.h")),
     ("memcpy", ("include/linux/string.h", "arch/arm64/include/asm/string.h")),
     ("memmove", ("include/linux/string.h", "arch/arm64/include/asm/string.h")),
     ("memset", ("include/linux/string.h", "arch/arm64/include/asm/string.h")),
@@ -4585,6 +4598,12 @@ CALL_PROOF_TARGETS = {
         "expected_tier": CALL_SAFETY_SAFE_WITH_VALID_PTR,
         "source_signature": "extern int memcmp(const void *,const void *,__kernel_size_t)",
     },
+    "memchr": {
+        "input_contract": "owned initialized buffer plus scalar search byte plus bounded size inside the buffer",
+        "return_contract": "void * == owned buffer plus expected first-occurrence offset; missing byte returns NULL",
+        "expected_tier": CALL_SAFETY_SAFE_WITH_VALID_PTR,
+        "source_signature": "extern void * memchr(const void *,int,__kernel_size_t)",
+    },
     "strrchr": {
         "input_contract": "owned NUL-terminated kernel string buffer plus scalar search byte",
         "return_contract": "char * == owned string buffer plus expected last-occurrence offset; missing byte returns NULL",
@@ -4646,6 +4665,13 @@ MEMCMP_PROOF_SIZE = len(MEMCMP_PROOF_BYTES)
 MEMCMP_CANARY_LEN = 8
 MEMCMP_MISMATCH_OFFSET = 10
 MEMCMP_MISMATCH_RIGHT_BYTE = ord("@")
+MEMCHR_PROOF_BYTES = b"A90MEMCHR-HIT-Q-END-012345"
+MEMCHR_PROOF_SIZE = len(MEMCHR_PROOF_BYTES)
+MEMCHR_SEARCH_BYTE = ord("Q")
+MEMCHR_EXPECTED_OFFSET = MEMCHR_PROOF_BYTES.find(bytes([MEMCHR_SEARCH_BYTE]))
+MEMCHR_MISSING_BYTE = ord("@")
+MEMCHR_CANARY_BYTES = b"@" * 8
+MEMCHR_CANARY_LEN = len(MEMCHR_CANARY_BYTES)
 STRRCHR_PROOF_BYTES = b"A90STRRCHR-A-B-A-Z\x00"
 STRRCHR_PROOF_LABEL = STRRCHR_PROOF_BYTES[:-1].decode("ascii")
 STRRCHR_SEARCH_BYTE = ord("A")
@@ -4939,6 +4965,229 @@ def _run_call_proof_memcmp(session: ReplSession,
         "left_bytes_hex": observed_left.hex(),
         "right_equal_bytes_hex": observed_right_equal.hex(),
         "right_mismatch_bytes_hex": observed_right_mismatch.hex(),
+        "gfp_components": {key: f"0x{component:x}" for key, component in gfp_components.items()},
+    })
+    return summary, private
+
+
+def _run_call_proof_memchr(session: ReplSession,
+                           symbols: dict[str, Symbol],
+                           image: StaticImage,
+                           *,
+                           alloc_size: int,
+                           source_root: Path,
+                           gfp: int,
+                           gfp_components: dict[str, int]) -> tuple[dict[str, object], dict[str, object]]:
+    scan_len = MEMCHR_PROOF_SIZE + MEMCHR_CANARY_LEN
+    if alloc_size < scan_len:
+        raise ReplError(f"memchr call-proof alloc_size must be at least {scan_len} bytes")
+    if MEMCHR_EXPECTED_OFFSET < 0:
+        raise ReplError("memchr proof buffer must contain the search byte")
+    if MEMCHR_MISSING_BYTE in MEMCHR_PROOF_BYTES:
+        raise ReplError("memchr missing-byte proof byte must not appear inside the bounded proof bytes")
+
+    source = lookup_source_signature("memchr", source_root=source_root)
+    call_safety = require_call_safety_for_call(
+        symbols,
+        image,
+        "memchr",
+        ("@owned_buffer", MEMCHR_SEARCH_BYTE, MEMCHR_PROOF_SIZE),
+    )
+    if call_safety.get("tier") != CALL_PROOF_TARGETS["memchr"]["expected_tier"]:
+        raise ReplError("memchr call-safety tier is not the expected vetted pointer tier")
+    if not source.get("found") or source.get("pointer_arg_indices") != [0]:
+        raise ReplError("memchr source signature does not declare x0 as the buffer pointer argument")
+
+    resolutions = {
+        "memchr": resolve_verified(symbols, image, "memchr", purpose="call", allow_pre_arg_deref=True),
+        "__kmalloc": resolve_verified(symbols, image, "__kmalloc", purpose="call"),
+        "kfree": resolve_verified(symbols, image, "kfree", purpose="call"),
+    }
+    memchr_link = require_verified_resolution(resolutions["memchr"], "call-proof target")
+    kmalloc_link = require_verified_resolution(resolutions["__kmalloc"], "call-proof buffer allocator")
+    kfree_link = require_verified_resolution(resolutions["kfree"], "call-proof buffer cleanup")
+    assert_no_precall_x0_pointer_deref(image, kmalloc_link, "__kmalloc")
+
+    expected_scan = MEMCHR_PROOF_BYTES + MEMCHR_CANARY_BYTES
+    checks: list[dict[str, object]] = [
+        {
+            "check": "static-c1-identity",
+            "ok": True,
+            "target": "memchr",
+            "resolution_method": resolutions["memchr"].method,
+        },
+        {
+            "check": "static-source-contract",
+            "ok": True,
+            "signature": source.get("selected", {}).get("signature")
+            if isinstance(source.get("selected"), dict) else None,
+            "pointer_arg_indices": source.get("pointer_arg_indices", []),
+        },
+        {
+            "check": "static-call-safety-contract",
+            "ok": True,
+            "tier": call_safety.get("tier"),
+            "required_valid_pointer_args": call_safety.get("required_valid_pointer_args", {}),
+            "bounded_size": MEMCHR_PROOF_SIZE,
+        },
+    ]
+    private: dict[str, object] = {}
+    ptr = 0
+    slide = 0
+    kfree_runtime = 0
+    free_ok = False
+    free_error: str | None = None
+    hit_return = 0
+    missing_return = 0
+    observed = b""
+
+    session.hide()
+    session.set_panic_on_oops(0)
+    try:
+        slide = session.slide()
+        if slide & 0xFFF:
+            raise ReplError("slide is not page-aligned; refusing to proceed")
+        memchr_runtime = (memchr_link + slide) & MASK64
+        kmalloc_runtime = (kmalloc_link + slide) & MASK64
+        kfree_runtime = (kfree_link + slide) & MASK64
+
+        ptr = session.call_runtime(kmalloc_runtime, (alloc_size, gfp))
+        ptr_ok = is_kernel_lowmem_pointer(ptr)
+        checks.append({
+            "check": "kmalloc-owned-memchr-buffer",
+            "ok": ptr_ok,
+            "alloc_size": alloc_size,
+            "kernel_lowmem": ptr_ok,
+        })
+        if not ptr_ok:
+            raise ReplError("__kmalloc did not return a sane memchr buffer")
+
+        _poke_bytes(session, ptr, expected_scan)
+        observed = _peek_bytes(session, ptr, scan_len)
+        setup_ok = observed == expected_scan
+        checks.append({
+            "check": "owned-memchr-buffer-poke-peek",
+            "ok": setup_ok,
+            "proof_bytes_label": MEMCHR_PROOF_BYTES.decode("ascii"),
+            "size_arg": MEMCHR_PROOF_SIZE,
+            "canary_len": MEMCHR_CANARY_LEN,
+        })
+        if not setup_ok:
+            raise ReplError("owned memchr buffer poke/peek mismatch")
+
+        hit_return = session.call_runtime(memchr_runtime, (ptr, MEMCHR_SEARCH_BYTE, MEMCHR_PROOF_SIZE))
+        expected_hit_return = (ptr + MEMCHR_EXPECTED_OFFSET) & MASK64
+        hit_ok = hit_return == expected_hit_return
+        checks.append({
+            "check": "memchr-hit-return-contract",
+            "ok": hit_ok,
+            "search_byte": f"0x{MEMCHR_SEARCH_BYTE:02x}",
+            "expected_offset": MEMCHR_EXPECTED_OFFSET,
+            "expected_return": "owned-buffer-pointer-plus-offset-redacted",
+            "observed_return": "owned-buffer-pointer-plus-offset-redacted" if hit_ok else f"0x{hit_return:x}",
+            "size_arg": MEMCHR_PROOF_SIZE,
+        })
+        if not hit_ok:
+            raise ReplError(
+                f"memchr hit returned 0x{hit_return:x}, expected owned pointer at offset {MEMCHR_EXPECTED_OFFSET}"
+            )
+
+        observed = _peek_bytes(session, ptr, scan_len)
+        hit_unchanged = observed == expected_scan
+        checks.append({
+            "check": "memchr-hit-buffer-immutability",
+            "ok": hit_unchanged,
+            "buffer_unchanged": hit_unchanged,
+        })
+        if not hit_unchanged:
+            raise ReplError("memchr hit case modified the owned buffer")
+
+        missing_return = session.call_runtime(memchr_runtime, (ptr, MEMCHR_MISSING_BYTE, MEMCHR_PROOF_SIZE))
+        missing_ok = missing_return == 0
+        checks.append({
+            "check": "memchr-missing-return-contract",
+            "ok": missing_ok,
+            "missing_byte": f"0x{MEMCHR_MISSING_BYTE:02x}",
+            "expected_return": "0x0",
+            "observed_return": f"0x{missing_return:x}",
+            "bounded_canary_contains_missing_byte": True,
+        })
+        if not missing_ok:
+            raise ReplError(f"memchr missing-byte case returned 0x{missing_return:x}, expected 0")
+
+        observed = _peek_bytes(session, ptr, scan_len)
+        missing_unchanged = observed == expected_scan
+        checks.append({
+            "check": "memchr-missing-buffer-immutability",
+            "ok": missing_unchanged,
+            "buffer_unchanged": missing_unchanged,
+        })
+        if not missing_unchanged:
+            raise ReplError("memchr missing-byte case modified the owned buffer")
+    finally:
+        if kfree_runtime and ptr and is_kernel_lowmem_pointer(ptr):
+            try:
+                session.call_runtime(kfree_runtime, (ptr,))
+                free_ok = True
+            except Exception as exc:  # noqa: BLE001 - cleanup failures must be visible
+                free_error = str(exc)
+        session.set_panic_on_oops(1)
+
+    checks.append({
+        "check": "kfree-owned-memchr-buffer",
+        "ok": free_ok,
+        "free_attempted": bool(kfree_runtime and ptr),
+    })
+    if free_error:
+        raise ReplError(f"kfree failed after memchr proof: {free_error}")
+
+    passed = all(bool(check.get("ok")) for check in checks)
+    summary = {
+        "decision": f"a90-repl-live-call-proof-memchr-{'pass' if passed else 'fail'}",
+        "ok": passed,
+        "target": "memchr",
+        "proof_status": "trusted-under-owned-input-contract" if passed else "failed",
+        "input_contract": CALL_PROOF_TARGETS["memchr"]["input_contract"],
+        "return_contract": CALL_PROOF_TARGETS["memchr"]["return_contract"],
+        "alloc_size": alloc_size,
+        "proof_bytes_label": MEMCHR_PROOF_BYTES.decode("ascii"),
+        "size_arg": MEMCHR_PROOF_SIZE,
+        "search_byte": f"0x{MEMCHR_SEARCH_BYTE:02x}",
+        "expected_hit_offset": MEMCHR_EXPECTED_OFFSET,
+        "hit_expected_return_value": "owned-buffer-pointer-plus-offset-redacted",
+        "hit_observed_return_value": "owned-buffer-pointer-plus-offset-redacted",
+        "hit_return_matches_expected_offset": hit_return == ((ptr + MEMCHR_EXPECTED_OFFSET) & MASK64),
+        "missing_byte": f"0x{MEMCHR_MISSING_BYTE:02x}",
+        "missing_expected_return_value": "0x0",
+        "missing_observed_return_value": f"0x{missing_return:x}",
+        "missing_return_matches_null": missing_return == 0,
+        "canary_contains_missing_byte": True,
+        "buffer_unchanged_after_calls": True,
+        "gfp_kernel": f"0x{gfp:x}",
+        "source_evidence": _source_row_evidence(source),
+        "call_safety": call_safety,
+        "resolutions": _redacted_resolution_set(resolutions),
+        "raw_runtime_values_redacted": True,
+        "owned_pointer_redacted": True,
+        "observed_bytes_redacted": True,
+        "checks": checks,
+        "function_map_entry": {
+            "symbol": "memchr",
+            "status": "live-proven",
+            "trusted_input_contract": CALL_PROOF_TARGETS["memchr"]["input_contract"],
+            "return_contract": CALL_PROOF_TARGETS["memchr"]["return_contract"],
+            "observed_return_value": f"hit-offset={MEMCHR_EXPECTED_OFFSET},missing=0x0",
+            "cleanup": "kfree-owned-memchr-buffer-ok" if free_ok else "cleanup-failed",
+            "auto_call_policy": "one-target-proof-only-not-mass-call",
+        },
+    }
+    private.update({
+        "slide": f"0x{slide:x}",
+        "memchr_runtime": f"0x{((memchr_link + slide) & MASK64):x}",
+        "alloc_ptr": f"0x{ptr:x}",
+        "hit_return_ptr": f"0x{hit_return:x}",
+        "missing_return_ptr": f"0x{missing_return:x}",
+        "observed_bytes_hex": observed.hex(),
         "gfp_components": {key: f"0x{component:x}" for key, component in gfp_components.items()},
     })
     return summary, private
@@ -7647,6 +7896,16 @@ def run_call_proof(session: ReplSession,
         )
     if target == "memcmp":
         return _run_call_proof_memcmp(
+            session,
+            symbols,
+            image,
+            alloc_size=alloc_size,
+            source_root=source_root,
+            gfp=gfp,
+            gfp_components=gfp_components,
+        )
+    if target == "memchr":
+        return _run_call_proof_memchr(
             session,
             symbols,
             image,
