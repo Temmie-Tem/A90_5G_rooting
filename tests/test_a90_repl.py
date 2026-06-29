@@ -561,6 +561,14 @@ class CallSafetyClassificationTests(unittest.TestCase):
         self.assertGreaterEqual(strchr["signals"]["direct_bl_xref_count"], 100)
         self.assertTrue(strchr["signals"]["leaf"])
 
+        strchrnul = self._row("strchrnul")
+        self.assertEqual(strchrnul["tier"], repl.CALL_SAFETY_SAFE_WITH_VALID_PTR)
+        self.assertEqual(strchrnul["required_valid_pointer_args"], {"0": "string-buffer"})
+        self.assertTrue(strchrnul["resolution"]["verified"])
+        self.assertEqual(strchrnul["resolution"]["method"], "export-recovery")
+        self.assertGreaterEqual(strchrnul["signals"]["direct_bl_xref_count"], 7)
+        self.assertTrue(strchrnul["signals"]["leaf"])
+
         strcmp = self._row("strcmp")
         self.assertEqual(strcmp["tier"], repl.CALL_SAFETY_SAFE_WITH_VALID_PTR)
         self.assertEqual(
@@ -774,6 +782,15 @@ class CallSafetyClassificationTests(unittest.TestCase):
             "extern char * strchr(const char *,int)",
         )
         self.assertTrue(strchr["selected"]["path"].endswith("include/linux/string.h"))
+
+        strchrnul = repl.lookup_source_signature("strchrnul", source_root=KERNEL_SOURCE_ROOT)
+        self.assertEqual(strchrnul["status"], "found", strchrnul)
+        self.assertEqual(strchrnul["selected"]["pointer_arg_indices"], [0])
+        self.assertEqual(
+            strchrnul["selected"]["signature"],
+            "extern char * strchrnul(const char *,int)",
+        )
+        self.assertTrue(strchrnul["selected"]["path"].endswith("include/linux/string.h"))
 
         strcmp = repl.lookup_source_signature("strcmp", source_root=KERNEL_SOURCE_ROOT)
         self.assertEqual(strcmp["status"], "found", strcmp)
@@ -1056,6 +1073,13 @@ class FaithfulFakeTransport:
             purpose="call",
             allow_pre_arg_deref=True,
         ).link_vaddr
+        self.strchrnul_link = repl.resolve_verified(
+            self.symbols,
+            self.image,
+            "strchrnul",
+            purpose="call",
+            allow_pre_arg_deref=True,
+        ).link_vaddr
         self.strcmp_link = repl.resolve_verified(
             self.symbols,
             self.image,
@@ -1195,6 +1219,8 @@ class FaithfulFakeTransport:
             strlen = self.strlen_link + self.slide
             assert self.strchr_link is not None
             strchr = self.strchr_link + self.slide
+            assert self.strchrnul_link is not None
+            strchrnul = self.strchrnul_link + self.slide
             assert self.strcmp_link is not None
             strcmp = self.strcmp_link + self.slide
             assert self.strscpy_link is not None
@@ -1253,6 +1279,16 @@ class FaithfulFakeTransport:
                 search = arg2 & 0xFF
                 offset = data[:nul].find(bytes([search]))
                 lines.append("A90R0" if offset < 0 else f"A90R{arg1 + offset:x}")
+            elif arg0 == strchrnul:
+                if arg1 not in self.allocated:
+                    raise AssertionError(f"strchrnul string is not an allocated pointer: {arg1:#x}")
+                data = self._heap_bytes(arg1, len(repl.STRCHRNUL_PROOF_BYTES))
+                nul = data.find(b"\x00")
+                if nul < 0:
+                    raise AssertionError("strchrnul proof buffer is not NUL-terminated in scan window")
+                search = arg2 & 0xFF
+                offset = data[:nul].find(bytes([search]))
+                lines.append(f"A90R{arg1 + (nul if offset < 0 else offset):x}")
             elif arg0 == strcmp:
                 if arg1 not in self.allocated:
                     raise AssertionError(f"strcmp left is not an allocated pointer: {arg1:#x}")
@@ -1831,6 +1867,71 @@ class SelftestIntegrationTests(unittest.TestCase):
         )
         expected_hex = (
             repl.STRCHR_PROOF_BYTES + (b"\xcc" * repl.STRCHR_CANARY_LEN)
+        ).hex()
+        self.assertEqual(private["observed_bytes_hex"], expected_hex)
+        self.assertEqual(fake.freed, [fake.heap_ptr])
+
+    def test_call_proof_strchrnul_passes_with_owned_string_contract(self) -> None:
+        if not C2B_PADDING_MAP_PATH.is_file() or not KERNEL_SOURCE_ROOT.is_dir():
+            self.skipTest("promoted v2c System.map or kernel source tree not present")
+
+        symbols = repl.load_system_map(C2B_PADDING_MAP_PATH)
+        fake = FaithfulFakeTransport(0x130000, symbols, self.image)
+        orig = repl.transport.run_serial_command
+        repl.transport.run_serial_command = fake.run_serial_command
+        self.addCleanup(lambda: setattr(repl.transport, "run_serial_command", orig))
+        session = repl.ReplSession(repl.ReplConfig(settle_sec=0.0))
+        summary, private = repl.run_call_proof(
+            session,
+            symbols,
+            self.image,
+            "strchrnul",
+            source_root=KERNEL_SOURCE_ROOT,
+        )
+
+        self.assertTrue(summary["ok"], summary)
+        self.assertEqual(summary["decision"], "a90-repl-live-call-proof-strchrnul-pass")
+        self.assertEqual(summary["proof_status"], "trusted-under-owned-input-contract")
+        self.assertEqual(summary["function_map_entry"]["symbol"], "strchrnul")
+        self.assertEqual(summary["function_map_entry"]["status"], "live-proven")
+        self.assertEqual(
+            summary["source_evidence"]["signature"],
+            "extern char * strchrnul(const char *,int)",
+        )
+        self.assertEqual(summary["proof_string"], repl.STRCHRNUL_PROOF_LABEL)
+        self.assertEqual(summary["search_byte"], f"0x{repl.STRCHRNUL_SEARCH_BYTE:02x}")
+        self.assertEqual(summary["expected_hit_offset"], repl.STRCHRNUL_EXPECTED_OFFSET)
+        self.assertEqual(summary["hit_expected_return_value"], "owned-string-pointer-plus-offset-redacted")
+        self.assertEqual(summary["hit_observed_return_value"], "owned-string-pointer-plus-offset-redacted")
+        self.assertTrue(summary["hit_return_matches_expected_offset"])
+        self.assertEqual(summary["expected_missing_nul_offset"], repl.STRCHRNUL_NUL_OFFSET)
+        self.assertEqual(
+            summary["missing_expected_return_value"],
+            "owned-string-pointer-plus-nul-offset-redacted",
+        )
+        self.assertEqual(
+            summary["missing_observed_return_value"],
+            "owned-string-pointer-plus-nul-offset-redacted",
+        )
+        self.assertTrue(summary["missing_return_matches_nul_offset"])
+        self.assertTrue(summary["string_unchanged_after_calls"])
+        self.assertTrue(summary["raw_runtime_values_redacted"])
+        self.assertTrue(summary["owned_pointer_redacted"])
+        self.assertTrue(summary["observed_bytes_redacted"])
+        self.assertNotIn("alloc_ptr", summary)
+        self.assertNotIn("hit_return_ptr", summary)
+        self.assertNotIn("missing_return_ptr", summary)
+        self.assertEqual(private["alloc_ptr"], f"0x{fake.heap_ptr:x}")
+        self.assertEqual(
+            private["hit_return_ptr"],
+            f"0x{fake.heap_ptr + repl.STRCHRNUL_EXPECTED_OFFSET:x}",
+        )
+        self.assertEqual(
+            private["missing_return_ptr"],
+            f"0x{fake.heap_ptr + repl.STRCHRNUL_NUL_OFFSET:x}",
+        )
+        expected_hex = (
+            repl.STRCHRNUL_PROOF_BYTES + (b"\xcc" * repl.STRCHRNUL_CANARY_LEN)
         ).hex()
         self.assertEqual(private["observed_bytes_hex"], expected_hex)
         self.assertEqual(fake.freed, [fake.heap_ptr])

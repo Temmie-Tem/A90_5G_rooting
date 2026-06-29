@@ -767,6 +767,32 @@ epic is DONE.** Reports:
 `docs/reports/NATIVE_INIT_V3335_GPU_Z3_PRIMARY_SETCRTC_SOURCE_BUILD_2026-06-27.md` and
 `docs/reports/NATIVE_INIT_V3335_GPU_Z3_PRIMARY_SETCRTC_LIVE_2026-06-27.md`.**
 
+## ✅ DONE — REPL post-epic one-target live-call proof — `strchrnul` owned-string search contract
+
+> ### ✅ STATUS (2026-06-30 live pass) — `strchrnul` promoted under owned NUL-terminated string only
+>
+> Fourteenth one-target live-call proof after the REPL epic close. Codex extended `a90_repl.py
+> call-proof` with `strchrnul`, using one tool-owned NUL-terminated kernel string buffer containing
+> `A90STRCHRNUL-Q-B-Q-Z\0`, scalar search byte `0x51` (`Q`), and scalar missing-byte probe `0x40`
+> (`@`). Static gate: `strchrnul=0xffffff80099b9984`, `export-recovery`, direct-BL xrefs `7`,
+> JOPP entry, leaf/no-BL, RET in scan. Source contract: `extern char * strchrnul(const char *,int)`,
+> with x0 as the string pointer and x1 as a scalar byte. The call-safety seed is
+> `SAFE-WITH-VALID-PTR`; required valid pointer arg is x0 `string-buffer`.
+>
+> Live path: confirmed rollback images and TWRP, flashed the existing v1-repl boot image
+> (`b846ae9f...`) through `native_init_flash.py`, confirmed native selftest `fail=0` and
+> `a90-repl-v2a1-selftest-pass`, then ran `call-proof strchrnul` with the C2B verified map. Result:
+> `a90-repl-live-call-proof-strchrnul-pass`; checks covered C1 identity, source pointer contract,
+> owned string allocation, string poke/peek, hit return at expected first-occurrence offset `13`,
+> string immutability, missing-byte return at the NUL-terminator offset `20`, second immutability
+> check, and `kfree-owned-strchrnul-string-buffer`.
+>
+> Candidate selftest after proof was `pass=11 warn=1 fail=0`. Rollback to clean v2321 used the checked
+> helper with readback SHA `ca978551...`; final selftest was `pass=11 warn=1 fail=0`. Function map
+> records `strchrnul` only under the owned NUL-terminated string plus scalar-search-byte contract.
+> This does not authorize arbitrary pointers, unterminated strings, user pointers, or other string
+> helpers.
+
 ## ✅ DONE — REPL post-epic one-target live-call proof — `strchr` owned-string search contract
 
 > ### ✅ STATUS (2026-06-30 live pass) — `strchr` promoted under owned NUL-terminated string only
