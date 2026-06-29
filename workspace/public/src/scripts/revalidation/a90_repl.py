@@ -222,6 +222,7 @@ CALL_SAFETY_SWEEP_FAMILIES = {
             "strcmp",
             "strncmp",
             "strcasecmp",
+            "strncasecmp",
             "strstr",
             "strpbrk",
             "strspn",
@@ -369,6 +370,12 @@ CALL_SAFETY_SEEDS = {
         "required_valid_pointer_args": {0: "left-string-buffer", 1: "right-string-buffer"},
         "return_kind": "int-sign",
         "reason": "case-insensitive string compare helper; x0/x1 must be owned NUL-terminated kernel string buffers",
+    },
+    "strncasecmp": {
+        "tier": CALL_SAFETY_SAFE_WITH_VALID_PTR,
+        "required_valid_pointer_args": {0: "left-string-buffer", 1: "right-string-buffer"},
+        "return_kind": "int-sign",
+        "reason": "bounded case-insensitive string compare helper; x0/x1 must be owned NUL-terminated kernel string buffers and count must stay inside both buffers",
     },
     "strscpy": {
         "tier": CALL_SAFETY_SAFE_WITH_VALID_PTR,
@@ -4767,6 +4774,12 @@ CALL_PROOF_TARGETS = {
         "expected_tier": CALL_SAFETY_SAFE_WITH_VALID_PTR,
         "source_signature": "extern int strcasecmp(const char *s1, const char *s2)",
     },
+    "strncasecmp": {
+        "input_contract": "two owned NUL-terminated kernel string buffers plus bounded count inside both buffers",
+        "return_contract": "int == 0 when first count bytes match after case-folding; positive sign when case-folded left first-difference byte within count is greater",
+        "expected_tier": CALL_SAFETY_SAFE_WITH_VALID_PTR,
+        "source_signature": "extern int strncasecmp(const char *s1, const char *s2, size_t n)",
+    },
     "strscpy": {
         "input_contract": "owned destination buffer plus owned NUL-terminated source string buffer plus bounded size",
         "return_contract": "ssize_t == copied source length and destination prefix matches source",
@@ -4975,6 +4988,14 @@ STRCASECMP_PROOF_LABEL = STRCASECMP_LEFT_BYTES[:-1].decode("ascii")
 STRCASECMP_CANARY_LEN = 8
 STRCASECMP_MISMATCH_OFFSET = len(b"A90STRCASECMP-PROOF-")
 STRCASECMP_MISMATCH_RIGHT_BYTE = ord("@")
+STRNCASECMP_LEFT_PREFIX_BYTES = b"A90STRNCASECMP-PREFIX"
+STRNCASECMP_RIGHT_PREFIX_BYTES = b"a90strncasecmp-prefix"
+STRNCASECMP_PROOF_COUNT = len(STRNCASECMP_LEFT_PREFIX_BYTES)
+STRNCASECMP_LEFT_BYTES = STRNCASECMP_LEFT_PREFIX_BYTES + b"Z-LEFT\x00"
+STRNCASECMP_RIGHT_EQUAL_BYTES = STRNCASECMP_RIGHT_PREFIX_BYTES + b"@-RIGHT\x00"
+STRNCASECMP_MISMATCH_OFFSET = len(b"A90STRNCASECMP-")
+STRNCASECMP_MISMATCH_RIGHT_BYTE = ord("@")
+STRNCASECMP_CANARY_LEN = 8
 STRNCMP_PREFIX_BYTES = b"A90STRNCMP-PREFIX"
 STRNCMP_PROOF_COUNT = len(STRNCMP_PREFIX_BYTES)
 STRNCMP_LEFT_BYTES = STRNCMP_PREFIX_BYTES + b"Z-LEFT\x00"
@@ -9022,6 +9043,315 @@ def _run_call_proof_strcasecmp(session: ReplSession,
     return summary, private
 
 
+def _run_call_proof_strncasecmp(session: ReplSession,
+                                symbols: dict[str, Symbol],
+                                image: StaticImage,
+                                *,
+                                alloc_size: int,
+                                source_root: Path,
+                                gfp: int,
+                                gfp_components: dict[str, int]) -> tuple[dict[str, object], dict[str, object]]:
+    scan_len = max(len(STRNCASECMP_LEFT_BYTES), len(STRNCASECMP_RIGHT_EQUAL_BYTES)) + STRNCASECMP_CANARY_LEN
+    if alloc_size < scan_len:
+        raise ReplError(f"strncasecmp call-proof alloc_size must be at least {scan_len} bytes")
+    if len(STRNCASECMP_LEFT_PREFIX_BYTES) != len(STRNCASECMP_RIGHT_PREFIX_BYTES):
+        raise ReplError("strncasecmp proof prefixes must have the same bounded count length")
+    if STRNCASECMP_PROOF_COUNT <= 0 or STRNCASECMP_PROOF_COUNT >= min(
+        len(STRNCASECMP_LEFT_BYTES),
+        len(STRNCASECMP_RIGHT_EQUAL_BYTES),
+    ):
+        raise ReplError("strncasecmp proof count must be inside both proof strings")
+
+    def fold(byte: int) -> int:
+        return byte + 0x20 if 0x41 <= byte <= 0x5A else byte
+
+    left_folded_prefix = bytes(fold(byte) for byte in STRNCASECMP_LEFT_BYTES[:STRNCASECMP_PROOF_COUNT])
+    right_folded_prefix = bytes(fold(byte) for byte in STRNCASECMP_RIGHT_EQUAL_BYTES[:STRNCASECMP_PROOF_COUNT])
+    if left_folded_prefix != right_folded_prefix:
+        raise ReplError("strncasecmp equal-bounded proof prefixes must match after case-folding")
+    post_count_left = fold(STRNCASECMP_LEFT_BYTES[STRNCASECMP_PROOF_COUNT])
+    post_count_right = fold(STRNCASECMP_RIGHT_EQUAL_BYTES[STRNCASECMP_PROOF_COUNT])
+    if post_count_left == post_count_right:
+        raise ReplError("strncasecmp equal-bounded proof needs a casefolded difference after count")
+    if STRNCASECMP_MISMATCH_OFFSET >= STRNCASECMP_PROOF_COUNT:
+        raise ReplError("strncasecmp mismatch offset must be inside the bounded count")
+    if STRNCASECMP_MISMATCH_RIGHT_BYTE == 0:
+        raise ReplError("strncasecmp mismatch right byte must not terminate the proof string")
+    folded_left = fold(STRNCASECMP_LEFT_BYTES[STRNCASECMP_MISMATCH_OFFSET])
+    folded_right = fold(STRNCASECMP_MISMATCH_RIGHT_BYTE)
+    if folded_left <= folded_right:
+        raise ReplError("strncasecmp mismatch right byte must be less than folded left byte")
+
+    source = lookup_source_signature("strncasecmp", source_root=source_root)
+    call_safety = require_call_safety_for_call(
+        symbols,
+        image,
+        "strncasecmp",
+        ("@owned_left_string_buffer", "@owned_right_string_buffer", STRNCASECMP_PROOF_COUNT),
+    )
+    if call_safety.get("tier") != CALL_PROOF_TARGETS["strncasecmp"]["expected_tier"]:
+        raise ReplError("strncasecmp call-safety tier is not the expected vetted pointer tier")
+    if not source.get("found") or source.get("pointer_arg_indices") != [0, 1]:
+        raise ReplError("strncasecmp source signature does not declare x0/x1 as pointer arguments")
+
+    resolutions = {
+        "strncasecmp": resolve_verified(symbols, image, "strncasecmp", purpose="call", allow_pre_arg_deref=True),
+        "__kmalloc": resolve_verified(symbols, image, "__kmalloc", purpose="call"),
+        "kfree": resolve_verified(symbols, image, "kfree", purpose="call"),
+    }
+    strncasecmp_link = require_verified_resolution(resolutions["strncasecmp"], "call-proof target")
+    kmalloc_link = require_verified_resolution(resolutions["__kmalloc"], "call-proof string allocator")
+    kfree_link = require_verified_resolution(resolutions["kfree"], "call-proof string cleanup")
+    assert_no_precall_x0_pointer_deref(image, kmalloc_link, "__kmalloc")
+
+    right_mismatch = bytearray(STRNCASECMP_RIGHT_EQUAL_BYTES)
+    right_mismatch[STRNCASECMP_MISMATCH_OFFSET] = STRNCASECMP_MISMATCH_RIGHT_BYTE
+    right_mismatch_bytes = bytes(right_mismatch)
+    expected_left_scan = STRNCASECMP_LEFT_BYTES.ljust(scan_len - STRNCASECMP_CANARY_LEN, b"\x00") + (
+        b"\xcc" * STRNCASECMP_CANARY_LEN
+    )
+    expected_right_equal_scan = STRNCASECMP_RIGHT_EQUAL_BYTES.ljust(
+        scan_len - STRNCASECMP_CANARY_LEN,
+        b"\x00",
+    ) + (b"\xcc" * STRNCASECMP_CANARY_LEN)
+    expected_right_mismatch_scan = right_mismatch_bytes.ljust(
+        scan_len - STRNCASECMP_CANARY_LEN,
+        b"\x00",
+    ) + (b"\xcc" * STRNCASECMP_CANARY_LEN)
+
+    checks: list[dict[str, object]] = [
+        {
+            "check": "static-c1-identity",
+            "ok": True,
+            "target": "strncasecmp",
+            "resolution_method": resolutions["strncasecmp"].method,
+        },
+        {
+            "check": "static-source-contract",
+            "ok": True,
+            "signature": source.get("selected", {}).get("signature")
+            if isinstance(source.get("selected"), dict) else None,
+            "pointer_arg_indices": source.get("pointer_arg_indices", []),
+        },
+        {
+            "check": "static-call-safety-contract",
+            "ok": True,
+            "tier": call_safety.get("tier"),
+            "required_valid_pointer_args": call_safety.get("required_valid_pointer_args", {}),
+            "bounded_count": STRNCASECMP_PROOF_COUNT,
+        },
+    ]
+    private: dict[str, object] = {}
+    left_ptr = 0
+    right_ptr = 0
+    slide = 0
+    kfree_runtime = 0
+    free_attempted: list[str] = []
+    free_ok: dict[str, bool] = {"left": False, "right": False}
+    free_errors: list[str] = []
+    equal_return = 0
+    mismatch_return = 0
+    observed_left = b""
+    observed_right_equal = b""
+    observed_right_mismatch = b""
+
+    session.hide()
+    session.set_panic_on_oops(0)
+    try:
+        slide = session.slide()
+        if slide & 0xFFF:
+            raise ReplError("slide is not page-aligned; refusing to proceed")
+        strncasecmp_runtime = (strncasecmp_link + slide) & MASK64
+        kmalloc_runtime = (kmalloc_link + slide) & MASK64
+        kfree_runtime = (kfree_link + slide) & MASK64
+
+        left_ptr = session.call_runtime(kmalloc_runtime, (alloc_size, gfp))
+        right_ptr = session.call_runtime(kmalloc_runtime, (alloc_size, gfp))
+        left_ok = is_kernel_lowmem_pointer(left_ptr)
+        right_ok = is_kernel_lowmem_pointer(right_ptr)
+        distinct_ok = left_ptr != right_ptr
+        checks.append({
+            "check": "kmalloc-owned-strncasecmp-strings",
+            "ok": left_ok and right_ok and distinct_ok,
+            "alloc_size": alloc_size,
+            "left_kernel_lowmem": left_ok,
+            "right_kernel_lowmem": right_ok,
+            "distinct_strings": distinct_ok,
+        })
+        if not (left_ok and right_ok and distinct_ok):
+            raise ReplError("__kmalloc did not return sane distinct strncasecmp strings")
+
+        _poke_bytes(session, left_ptr, expected_left_scan)
+        _poke_bytes(session, right_ptr, expected_right_equal_scan)
+        observed_left = _peek_bytes(session, left_ptr, scan_len)
+        observed_right_equal = _peek_bytes(session, right_ptr, scan_len)
+        setup_ok = observed_left == expected_left_scan and observed_right_equal == expected_right_equal_scan
+        checks.append({
+            "check": "owned-strncasecmp-string-poke-peek",
+            "ok": setup_ok,
+            "count_arg": STRNCASECMP_PROOF_COUNT,
+            "post_count_left_byte": f"0x{STRNCASECMP_LEFT_BYTES[STRNCASECMP_PROOF_COUNT]:02x}",
+            "post_count_right_byte": f"0x{STRNCASECMP_RIGHT_EQUAL_BYTES[STRNCASECMP_PROOF_COUNT]:02x}",
+            "canary_len": STRNCASECMP_CANARY_LEN,
+        })
+        if not setup_ok:
+            raise ReplError("owned strncasecmp string poke/peek mismatch")
+
+        equal_return = session.call_runtime(
+            strncasecmp_runtime,
+            (left_ptr, right_ptr, STRNCASECMP_PROOF_COUNT),
+        )
+        equal_ok = equal_return == 0
+        checks.append({
+            "check": "strncasecmp-count-bounded-casefold-equal-return-contract",
+            "ok": equal_ok,
+            "expected_return": "0x0",
+            "observed_return": f"0x{equal_return:x}",
+            "count_arg": STRNCASECMP_PROOF_COUNT,
+            "post_count_bytes_differ": True,
+        })
+        if not equal_ok:
+            raise ReplError(f"strncasecmp bounded equal case returned 0x{equal_return:x}, expected 0")
+
+        observed_left = _peek_bytes(session, left_ptr, scan_len)
+        observed_right_equal = _peek_bytes(session, right_ptr, scan_len)
+        equal_strings_unchanged = (
+            observed_left == expected_left_scan
+            and observed_right_equal == expected_right_equal_scan
+        )
+        checks.append({
+            "check": "strncasecmp-count-bounded-string-immutability",
+            "ok": equal_strings_unchanged,
+            "left_unchanged": observed_left == expected_left_scan,
+            "right_unchanged": observed_right_equal == expected_right_equal_scan,
+        })
+        if not equal_strings_unchanged:
+            raise ReplError("strncasecmp bounded equal case modified an owned string")
+
+        _poke_bytes(session, right_ptr, expected_right_mismatch_scan)
+        observed_right_mismatch = _peek_bytes(session, right_ptr, scan_len)
+        mismatch_setup_ok = observed_right_mismatch == expected_right_mismatch_scan
+        checks.append({
+            "check": "owned-strncasecmp-mismatch-poke-peek",
+            "ok": mismatch_setup_ok,
+            "mismatch_offset": STRNCASECMP_MISMATCH_OFFSET,
+            "folded_left_byte": f"0x{folded_left:02x}",
+            "right_byte": f"0x{STRNCASECMP_MISMATCH_RIGHT_BYTE:02x}",
+        })
+        if not mismatch_setup_ok:
+            raise ReplError("owned strncasecmp mismatch string poke/peek mismatch")
+
+        mismatch_return = session.call_runtime(
+            strncasecmp_runtime,
+            (left_ptr, right_ptr, STRNCASECMP_PROOF_COUNT),
+        )
+        mismatch_positive = 0 < mismatch_return < 0x80000000
+        checks.append({
+            "check": "strncasecmp-mismatch-return-contract",
+            "ok": mismatch_positive,
+            "expected_return_sign": "positive",
+            "observed_return": f"0x{mismatch_return:x}",
+            "mismatch_offset": STRNCASECMP_MISMATCH_OFFSET,
+            "folded_left_byte": f"0x{folded_left:02x}",
+            "right_byte": f"0x{STRNCASECMP_MISMATCH_RIGHT_BYTE:02x}",
+        })
+        if not mismatch_positive:
+            raise ReplError(f"strncasecmp mismatch case returned 0x{mismatch_return:x}, expected positive int")
+
+        observed_left = _peek_bytes(session, left_ptr, scan_len)
+        observed_right_mismatch = _peek_bytes(session, right_ptr, scan_len)
+        mismatch_strings_unchanged = (
+            observed_left == expected_left_scan
+            and observed_right_mismatch == expected_right_mismatch_scan
+        )
+        checks.append({
+            "check": "strncasecmp-mismatch-string-immutability",
+            "ok": mismatch_strings_unchanged,
+            "left_unchanged": observed_left == expected_left_scan,
+            "right_unchanged": observed_right_mismatch == expected_right_mismatch_scan,
+        })
+        if not mismatch_strings_unchanged:
+            raise ReplError("strncasecmp mismatch case modified an owned string")
+    finally:
+        if kfree_runtime:
+            for label, ptr in (("left", left_ptr), ("right", right_ptr)):
+                if ptr and is_kernel_lowmem_pointer(ptr):
+                    free_attempted.append(label)
+                    try:
+                        session.call_runtime(kfree_runtime, (ptr,))
+                        free_ok[label] = True
+                    except Exception as exc:  # noqa: BLE001 - cleanup failures must be visible
+                        free_errors.append(f"{label}:{exc}")
+        session.set_panic_on_oops(1)
+
+    cleanup_ok = bool(free_ok["left"] and free_ok["right"])
+    checks.append({
+        "check": "kfree-owned-strncasecmp-strings",
+        "ok": cleanup_ok,
+        "free_attempted": free_attempted,
+        "left_free_ok": free_ok["left"],
+        "right_free_ok": free_ok["right"],
+    })
+    if free_errors:
+        raise ReplError(f"kfree failed after strncasecmp proof: {free_errors}")
+
+    passed = all(bool(check.get("ok")) for check in checks)
+    summary = {
+        "decision": f"a90-repl-live-call-proof-strncasecmp-{'pass' if passed else 'fail'}",
+        "ok": passed,
+        "target": "strncasecmp",
+        "proof_status": "trusted-under-owned-input-contract" if passed else "failed",
+        "input_contract": CALL_PROOF_TARGETS["strncasecmp"]["input_contract"],
+        "return_contract": CALL_PROOF_TARGETS["strncasecmp"]["return_contract"],
+        "alloc_size": alloc_size,
+        "proof_left_prefix": STRNCASECMP_LEFT_PREFIX_BYTES.decode("ascii"),
+        "proof_right_prefix": STRNCASECMP_RIGHT_PREFIX_BYTES.decode("ascii"),
+        "count_arg": STRNCASECMP_PROOF_COUNT,
+        "post_count_left_byte": f"0x{STRNCASECMP_LEFT_BYTES[STRNCASECMP_PROOF_COUNT]:02x}",
+        "post_count_right_byte": f"0x{STRNCASECMP_RIGHT_EQUAL_BYTES[STRNCASECMP_PROOF_COUNT]:02x}",
+        "equal_expected_return_value": "0x0",
+        "equal_observed_return_value": f"0x{equal_return:x}",
+        "bounded_casefold_equal_ignores_post_count_difference": equal_return == 0,
+        "mismatch_expected_return_sign": "positive",
+        "mismatch_observed_return_value": f"0x{mismatch_return:x}",
+        "mismatch_offset": STRNCASECMP_MISMATCH_OFFSET,
+        "mismatch_folded_left_byte": f"0x{folded_left:02x}",
+        "mismatch_right_byte": f"0x{STRNCASECMP_MISMATCH_RIGHT_BYTE:02x}",
+        "strings_unchanged_after_calls": True,
+        "gfp_kernel": f"0x{gfp:x}",
+        "source_evidence": _source_row_evidence(source),
+        "call_safety": call_safety,
+        "resolutions": _redacted_resolution_set(resolutions),
+        "raw_runtime_values_redacted": True,
+        "owned_pointer_redacted": True,
+        "observed_bytes_redacted": True,
+        "checks": checks,
+        "function_map_entry": {
+            "symbol": "strncasecmp",
+            "status": "live-proven",
+            "trusted_input_contract": CALL_PROOF_TARGETS["strncasecmp"]["input_contract"],
+            "return_contract": CALL_PROOF_TARGETS["strncasecmp"]["return_contract"],
+            "observed_return_value": "bounded-casefold-equal=0x0,mismatch=positive",
+            "cleanup": "kfree-owned-strncasecmp-strings-ok" if cleanup_ok else "cleanup-failed",
+            "auto_call_policy": "one-target-proof-only-not-mass-call",
+        },
+    }
+    private.update({
+        "slide": f"0x{slide:x}",
+        "strncasecmp_runtime": f"0x{((strncasecmp_link + slide) & MASK64):x}",
+        "left_ptr": f"0x{left_ptr:x}",
+        "right_ptr": f"0x{right_ptr:x}",
+        "left_bytes_hex": observed_left.hex(),
+        "right_equal_bytes_hex": observed_right_equal.hex(),
+        "right_mismatch_bytes_hex": observed_right_mismatch.hex(),
+        "expected_left_hex": expected_left_scan.hex(),
+        "expected_right_equal_hex": expected_right_equal_scan.hex(),
+        "expected_right_mismatch_hex": expected_right_mismatch_scan.hex(),
+        "gfp_components": {key: f"0x{component:x}" for key, component in gfp_components.items()},
+    })
+    return summary, private
+
+
 def _run_call_proof_strncmp(session: ReplSession,
                             symbols: dict[str, Symbol],
                             image: StaticImage,
@@ -12577,6 +12907,16 @@ def run_call_proof(session: ReplSession,
         )
     if target == "strcasecmp":
         return _run_call_proof_strcasecmp(
+            session,
+            symbols,
+            image,
+            alloc_size=alloc_size,
+            source_root=source_root,
+            gfp=gfp,
+            gfp_components=gfp_components,
+        )
+    if target == "strncasecmp":
+        return _run_call_proof_strncasecmp(
             session,
             symbols,
             image,

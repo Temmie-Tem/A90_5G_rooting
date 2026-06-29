@@ -767,6 +767,38 @@ epic is DONE.** Reports:
 `docs/reports/NATIVE_INIT_V3335_GPU_Z3_PRIMARY_SETCRTC_SOURCE_BUILD_2026-06-27.md` and
 `docs/reports/NATIVE_INIT_V3335_GPU_Z3_PRIMARY_SETCRTC_LIVE_2026-06-27.md`.**
 
+## ✅ DONE — REPL post-epic one-target live-call proof — `strncasecmp` owned-string bounded casefold compare contract
+
+> ### ✅ STATUS (2026-06-30 live pass) — `strncasecmp` promoted under two owned NUL strings plus bounded count only
+>
+> Thirty-third one-target live-call proof after the REPL epic close. Codex extended `a90_repl.py`
+> `call-proof` with `strncasecmp`, using two tool-owned NUL-terminated kernel string buffers
+> with casefold-equal prefixes `A90STRNCASECMP-PREFIX` and `a90strncasecmp-prefix`, scalar
+> count `21`, and post-count bytes `0x5a` vs `0x40` to prove the boundary. Static gate:
+> `strncasecmp=0xffffff80099b960c`, `export-recovery`, direct-BL xrefs `88`, JOPP entry,
+> leaf/no-BL, RETs in scan, x0/x1 byte-load/casefold compare loop, and x2 count-zero early
+> return. Source contract: `extern int strncasecmp(const char *s1, const char *s2, size_t n)`,
+> with x0/x1 as string pointer args and x2 as scalar bounded count. The call-safety seed is
+> `SAFE-WITH-VALID-PTR`; required valid pointer args are x0 `left-string-buffer` and x1
+> `right-string-buffer`.
+>
+> Live path: confirmed rollback images and TWRP, flashed the existing v1-repl boot image
+> (`b846ae9f...`) through `native_init_flash.py`, confirmed clean native selftest `fail=0` and
+> `a90-repl-v2a1-selftest-pass`, then ran `call-proof strncasecmp` with the C2B verified map.
+> Result: `a90-repl-live-call-proof-strncasecmp-pass`; checks covered C1 identity, source pointer
+> contract, call-safety contract, distinct owned left/right string allocations, bounded
+> casefold-equal return `0x0`, post-count difference ignored, mismatch offset `15`, folded-left
+> byte `0x70`, right mismatch byte `0x40`, positive mismatch return `0x30`, string immutability
+> after both calls, and `kfree-owned-strncasecmp-strings`.
+>
+> Candidate selftest after proof was `pass=11 warn=1 fail=0`. Rollback to clean v2321 used the
+> checked helper with readback SHA `ca978551...`; final resident `version/status` confirmed v2321.
+> The first final selftest capture omitted the summary line despite rc `0`, so it was repeated; the
+> repeated final slow-mode `selftest` confirmed `pass=11 warn=1 fail=0`. Function map records
+> `strncasecmp` only under the two-owned-NUL-terminated-string plus bounded-count-inside-both-buffers
+> contract. This does not authorize arbitrary pointers, user pointers, unterminated strings,
+> out-of-range counts, locale assumptions beyond the kernel helper behavior observed here, or mass calls.
+
 ## ✅ DONE — REPL post-epic one-target live-call proof — `strcasecmp` owned-string casefold compare contract
 
 > ### ✅ STATUS (2026-06-30 live pass) — `strcasecmp` promoted under two owned NUL strings only
