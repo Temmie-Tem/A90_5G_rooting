@@ -767,9 +767,24 @@ epic is DONE.** Reports:
 `docs/reports/NATIVE_INIT_V3335_GPU_Z3_PRIMARY_SETCRTC_SOURCE_BUILD_2026-06-27.md` and
 `docs/reports/NATIVE_INIT_V3335_GPU_Z3_PRIMARY_SETCRTC_LIVE_2026-06-27.md`.**
 
-## 🟣 ACTIVE NOW — REPL U3 — broad advisory call-safety risk-assessment sweep (NOT done — Gate-2 reopened)
+## ✅ DONE — REPL U3 — broad advisory call-safety risk-assessment sweep
 
-> ### 🛑 OPERATOR GATE-2 (2026-06-29) — U3 firewall HOLDS, but the source oracle is INERT + advisory list has false-SAFEs. NOT done.
+> ### ✅ STATUS (2026-06-29 U3 Gate-2 correction host pass) — source oracle active; false candidates removed
+>
+> Gate-2 correction landed in `a90_repl.py`: source candidate ordering now prioritizes subsystem declarations
+> such as `include/linux/slab.h`; `lookup_source_signature('ksize')` returns `found=true`,
+> `has_pointer_arg=true`, selected `include/linux/slab.h:153` (`size_t ksize(const void *)`), and records
+> candidate-file debug evidence. Source `__init`/`__exit` annotations now produce danger flags, so
+> `kmem_cache_init` (`void __init kmem_cache_init(void)`, slab.h:121) is `candidate_safe=false` with
+> `source-__init-annotation`. Non-seeded symbols with arg-derived memory-base flow and no vetted gate pointer
+> contract now get `unseeded-arg-memory-flow-without-gate-pointer-contract`, so `kfree_skb_partial`
+> (`arg_memory_base_use_count=3`) is no longer a candidate. Re-sweeps: allocator family swept 28 rows
+> (`candidate_safe_count=3`), read-I/O family swept 40 rows (`candidate_safe_count=10`), both
+> `host_only=true`, `device_action=false`, `network_dependency=false`. Validation: `py_compile` PASS,
+> `tests.test_a90_repl.CallSafetyClassificationTests` 12/12 PASS, full `tests.test_a90_repl` 62/62 PASS.
+> Report: `docs/reports/KERNEL_SECURITY_TIER2_RUNTIME_KERNEL_REPL_U3_GATE2_SOURCE_ORACLE_FIX_2026-06-29.md`.
+
+> ### (history) 🛑 OPERATOR GATE-2 (2026-06-29) — U3 firewall HOLDS, but the source oracle is INERT + advisory list has false-SAFEs. NOT done.
 >
 > I ran `call-safety-sweep --family allocator` against the v2321 image + the stock source tree and independently
 > checked it. **Good (live safety intact):** `auto_call_firewall=sweep-results-do-not-mutate-CALL_SAFETY_SEEDS-or-call-gate`,

@@ -2715,6 +2715,30 @@ def run_call_safety_classify(symbols: dict[str, Symbol],
 
 _SOURCE_SIGNATURE_CACHE: dict[tuple[str, str], dict[str, object]] = {}
 _SOURCE_CANDIDATE_FILE_CACHE: dict[tuple[str, str], tuple[Path, ...]] = {}
+_SOURCE_HEADER_HINTS_BY_EXACT_SYMBOL = {
+    "filp_close": ("include/linux/fs.h",),
+    "filp_open": ("include/linux/fs.h",),
+    "kernel_read": ("include/linux/fs.h",),
+    "kernel_write": ("include/linux/fs.h",),
+    "kfree": ("include/linux/slab.h",),
+    "ksize": ("include/linux/slab.h",),
+}
+_SOURCE_HEADER_HINTS_BY_PREFIX = (
+    ("__kmalloc", ("include/linux/slab.h",)),
+    ("kfree_skb", ("include/linux/skbuff.h",)),
+    ("kfree", ("include/linux/slab.h",)),
+    ("kmalloc", ("include/linux/slab.h",)),
+    ("kmem_cache", ("include/linux/slab.h",)),
+    ("kref_", ("include/linux/kref.h",)),
+    ("memcmp", ("include/linux/string.h", "arch/arm64/include/asm/string.h")),
+    ("memcpy", ("include/linux/string.h", "arch/arm64/include/asm/string.h")),
+    ("memmove", ("include/linux/string.h", "arch/arm64/include/asm/string.h")),
+    ("memset", ("include/linux/string.h", "arch/arm64/include/asm/string.h")),
+    ("refcount_", ("include/linux/refcount.h",)),
+    ("str", ("include/linux/string.h", "arch/arm64/include/asm/string.h")),
+    ("sysfs_", ("include/linux/sysfs.h",)),
+    ("vfs_", ("include/linux/fs.h",)),
+)
 
 
 def _public_repo_path(path: Path) -> str:
@@ -2722,6 +2746,42 @@ def _public_repo_path(path: Path) -> str:
         return str(path.resolve().relative_to(REPO_ROOT))
     except ValueError:
         return str(path)
+
+
+def _source_symbol_header_hints(symbol: str) -> tuple[str, ...]:
+    exact = _SOURCE_HEADER_HINTS_BY_EXACT_SYMBOL.get(symbol)
+    if exact:
+        return exact
+    for prefix, hints in _SOURCE_HEADER_HINTS_BY_PREFIX:
+        if symbol.startswith(prefix):
+            return hints
+    return ()
+
+
+def _source_file_priority(root: Path, path: Path, symbol: str) -> tuple[int, int, str]:
+    try:
+        rel = path.resolve().relative_to(root.resolve()).as_posix()
+    except ValueError:
+        rel = path.as_posix()
+    hints = _source_symbol_header_hints(symbol)
+    for index, hint in enumerate(hints):
+        if rel == hint:
+            return (-10, index, rel)
+    if rel.startswith("include/linux/") and path.suffix == ".h":
+        return (0, 0, rel)
+    if rel.startswith("include/") and path.suffix == ".h":
+        return (1, 0, rel)
+    if rel.startswith("arch/arm64/include/") and path.suffix == ".h":
+        return (2, 0, rel)
+    if path.suffix == ".h":
+        return (3, 0, rel)
+    if rel.startswith("fs/"):
+        return (4, 0, rel)
+    if rel.startswith("drivers/"):
+        return (5, 0, rel)
+    if rel.startswith("arch/"):
+        return (6, 0, rel)
+    return (7, 0, rel)
 
 
 def _strip_c_comments_preserve_newlines(text: str) -> str:
@@ -2825,6 +2885,10 @@ def _source_prefix_looks_like_function_decl(prefix: str) -> bool:
 def _source_signature_annotation_flags(signature: str, args: list[str]) -> list[str]:
     haystack = " ".join([signature, *args])
     flags: list[str] = []
+    if re.search(r"\b__init\b", haystack):
+        flags.append("source-__init-annotation")
+    if re.search(r"\b__exit\b", haystack):
+        flags.append("source-__exit-annotation")
     if "__user" in haystack:
         flags.append("source-__user-pointer")
     if "__must_hold" in haystack:
@@ -2952,7 +3016,7 @@ def _source_candidate_files(root: Path, symbol: str) -> tuple[Path, ...]:
                 except OSError:
                     continue
 
-    result = tuple(sorted(set(candidates), key=lambda path: str(path)))
+    result = tuple(sorted(set(candidates), key=lambda path: _source_file_priority(root, path, symbol)))
     _SOURCE_CANDIDATE_FILE_CACHE[key] = result
     return result
 
@@ -2993,8 +3057,11 @@ def _extract_source_signatures_from_file(root: Path,
     return matches
 
 
-def _source_match_sort_key(row: dict[str, object]) -> tuple[int, int, str]:
+def _source_match_sort_key(row: dict[str, object], symbol: str = "") -> tuple[int, int, int, str]:
     path = str(row.get("path", ""))
+    for index, hint in enumerate(_source_symbol_header_hints(symbol)):
+        if path.endswith(hint):
+            return (-10, index, int(row.get("line", 0) or 0), path)
     if "/include/linux/" in f"/{path}":
         bucket = 0
     elif "/arch/arm64/" in f"/{path}":
@@ -3008,7 +3075,7 @@ def _source_match_sort_key(row: dict[str, object]) -> tuple[int, int, str]:
     signature = str(row.get("signature", ""))
     if signature.startswith("extern "):
         bucket -= 1
-    return (bucket, int(row.get("line", 0) or 0), path)
+    return (bucket, 0, int(row.get("line", 0) or 0), path)
 
 
 def lookup_source_signature(symbol: str,
@@ -3023,9 +3090,14 @@ def lookup_source_signature(symbol: str,
     if not root.is_dir():
         result = {
             "symbol": symbol,
+            "found": False,
+            "has_pointer_arg": False,
+            "pointer_arg_indices": [],
             "status": "missing",
             "reason": "source-root-missing",
             "source_root": str(source_root),
+            "candidate_file_count": 0,
+            "candidate_files_sample": [],
             "match_count": 0,
             "selected": None,
             "matches_sample": [],
@@ -3033,8 +3105,10 @@ def lookup_source_signature(symbol: str,
         _SOURCE_SIGNATURE_CACHE[key] = result
         return result
 
+    candidate_files = _source_candidate_files(root, symbol)
+    candidate_file_sample = [_public_repo_path(path) for path in candidate_files[:12]]
     matches: list[dict[str, object]] = []
-    for path in _source_candidate_files(root, symbol):
+    for path in candidate_files:
         if path.suffix not in (".c", ".h"):
             continue
         matches.extend(_extract_source_signatures_from_file(root, path, symbol))
@@ -3042,14 +3116,19 @@ def lookup_source_signature(symbol: str,
     deduped: dict[tuple[str, int], dict[str, object]] = {}
     for row in matches:
         deduped[(str(row.get("signature")), int(row.get("line", 0) or 0))] = row
-    matches = sorted(deduped.values(), key=_source_match_sort_key)
+    matches = sorted(deduped.values(), key=lambda row: _source_match_sort_key(row, symbol))
 
     if not matches:
         result = {
             "symbol": symbol,
+            "found": False,
+            "has_pointer_arg": False,
+            "pointer_arg_indices": [],
             "status": "missing",
             "reason": "signature-not-found-in-source",
             "source_root": _public_repo_path(root),
+            "candidate_file_count": len(candidate_files),
+            "candidate_files_sample": candidate_file_sample,
             "match_count": 0,
             "selected": None,
             "matches_sample": [],
@@ -3069,9 +3148,14 @@ def lookup_source_signature(symbol: str,
     if len(shapes) > 1:
         result = {
             "symbol": symbol,
+            "found": False,
+            "has_pointer_arg": False,
+            "pointer_arg_indices": [],
             "status": "ambiguous",
             "reason": "source-signatures-have-incompatible-arg-shapes",
             "source_root": _public_repo_path(root),
+            "candidate_file_count": len(candidate_files),
+            "candidate_files_sample": candidate_file_sample,
             "match_count": len(matches),
             "selected": None,
             "matches_sample": matches[:8],
@@ -3079,13 +3163,20 @@ def lookup_source_signature(symbol: str,
         _SOURCE_SIGNATURE_CACHE[key] = result
         return result
 
+    selected = matches[0]
+    pointer_arg_indices = [int(index) for index in selected.get("pointer_arg_indices", [])]
     result = {
         "symbol": symbol,
+        "found": True,
+        "has_pointer_arg": bool(pointer_arg_indices),
+        "pointer_arg_indices": pointer_arg_indices,
         "status": "found",
         "reason": "source-signature-found",
         "source_root": _public_repo_path(root),
+        "candidate_file_count": len(candidate_files),
+        "candidate_files_sample": candidate_file_sample,
         "match_count": len(matches),
-        "selected": matches[0],
+        "selected": selected,
         "matches_sample": matches[:8],
     }
     _SOURCE_SIGNATURE_CACHE[key] = result
@@ -3194,6 +3285,8 @@ def _call_safety_advisory_from_source(row: dict[str, object],
     if any(flag.startswith("source-__user") for flag in annotation_flags):
         reasons.append("__user pointer in source signature")
     if any(flag in annotation_flags for flag in (
+        "source-__exit-annotation",
+        "source-__init-annotation",
         "source-__must_hold-annotation",
         "source-might_sleep",
         "source-locking-or-rcu-annotation",
@@ -3213,6 +3306,18 @@ def _call_safety_advisory_from_source(row: dict[str, object],
         reasons.append("source declares pointer args; never SAFE-SCALAR")
 
     uncovered = sorted(memory_source_args - pointer_args)
+    gate_required_ptrs = {
+        int(index)
+        for index in row.get("required_valid_pointer_args", {})
+        if str(index).isdigit()
+    }
+    unseeded_gate_uncovered = sorted(memory_source_args - gate_required_ptrs)
+    if memory_source_args and not row.get("seeded") and unseeded_gate_uncovered:
+        danger_flags.append("unseeded-arg-memory-flow-without-gate-pointer-contract")
+        reasons.append(
+            "non-seeded target has arg-derived memory-base flow without a vetted gate pointer contract:"
+            + ",".join(f"x{arg}" for arg in unseeded_gate_uncovered)
+        )
     context_blocked = bool(annotation_flags or context_count)
     if source_status == "found":
         if pointer_args:

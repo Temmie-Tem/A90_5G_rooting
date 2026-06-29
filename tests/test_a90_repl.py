@@ -645,6 +645,13 @@ class CallSafetyClassificationTests(unittest.TestCase):
         self.assertEqual(kfree["selected"]["pointer_arg_indices"], [0])
         self.assertIn("const void *", kfree["selected"]["signature"])
 
+        ksize = repl.lookup_source_signature("ksize", source_root=KERNEL_SOURCE_ROOT)
+        self.assertTrue(ksize["found"], ksize)
+        self.assertTrue(ksize["has_pointer_arg"], ksize)
+        self.assertEqual(ksize["pointer_arg_indices"], [0])
+        self.assertTrue(ksize["candidate_files_sample"][0].endswith("include/linux/slab.h"))
+        self.assertTrue(ksize["selected"]["path"].endswith("include/linux/slab.h"))
+
         strlcpy = repl.lookup_source_signature("strlcpy", source_root=KERNEL_SOURCE_ROOT)
         self.assertEqual(strlcpy["status"], "found", strlcpy)
         self.assertEqual(strlcpy["selected"]["pointer_arg_indices"], [0, 1])
@@ -686,10 +693,10 @@ class CallSafetyClassificationTests(unittest.TestCase):
         self.assertEqual(strlcpy["gate_tier"], repl.CALL_SAFETY_DENY)
         self.assertEqual(strlcpy["source"]["status"], "found")
         self.assertEqual(strlcpy["advisory"]["tier"], repl.CALL_SAFETY_SAFE_WITH_VALID_PTR)
-        self.assertTrue(strlcpy["advisory"]["candidate_safe"])
+        self.assertFalse(strlcpy["advisory"]["candidate_safe"])
         self.assertIn(
-            "strlcpy",
-            {candidate["symbol"] for candidate in summary["candidate_safe_ranked"]},
+            "unseeded-arg-memory-flow-without-gate-pointer-contract",
+            strlcpy["advisory"]["danger_flags"],
         )
         with self.assertRaisesRegex(repl.ReplError, "call-safety gate refused"):
             repl.require_call_safety_for_call(
@@ -698,6 +705,55 @@ class CallSafetyClassificationTests(unittest.TestCase):
                 "strlcpy",
                 ("@dst", "@src", "0x10"),
             )
+
+    def test_gate2_source_oracle_blocks_init_and_unseeded_arg_flow(self) -> None:
+        if not KERNEL_SOURCE_ROOT.is_dir():
+            self.skipTest("kernel source tree not present")
+
+        summary = repl.run_call_safety_sweep(
+            self.symbols,
+            self.image,
+            explicit_symbols=("ksize", "kmem_cache_init", "kfree_skb_partial"),
+            limit=0,
+            source_root=KERNEL_SOURCE_ROOT,
+            include_objdump=False,
+        )
+        self.assertTrue(summary["ok"], summary)
+        self.assertTrue(summary["offline_source_oracle"])
+        self.assertFalse(summary["device_action"])
+        self.assertFalse(summary["network_dependency"])
+
+        rows = {row["symbol"]: row for row in summary["rows"]}
+
+        ksize = rows["ksize"]
+        self.assertTrue(ksize["source"]["found"], ksize)
+        self.assertTrue(ksize["source"]["has_pointer_arg"], ksize)
+        self.assertEqual(ksize["source"]["pointer_arg_indices"], [0])
+        self.assertTrue(ksize["source"]["selected"]["path"].endswith("include/linux/slab.h"))
+        self.assertEqual(ksize["advisory"]["source_pointer_arg_indices"], [0])
+
+        kmem_cache_init = rows["kmem_cache_init"]
+        self.assertFalse(kmem_cache_init["advisory"]["candidate_safe"])
+        self.assertIn(
+            "source-__init-annotation",
+            kmem_cache_init["source"]["selected"]["annotation_flags"],
+        )
+        self.assertIn(
+            "source-__init-annotation",
+            kmem_cache_init["advisory"]["danger_flags"],
+        )
+
+        kfree_skb_partial = rows["kfree_skb_partial"]
+        self.assertFalse(kfree_skb_partial["gate_seeded"])
+        self.assertFalse(kfree_skb_partial["advisory"]["candidate_safe"])
+        self.assertGreater(
+            kfree_skb_partial["signals"]["arg_taint_flow"]["arg_memory_base_use_count"],
+            0,
+        )
+        self.assertIn(
+            "unseeded-arg-memory-flow-without-gate-pointer-contract",
+            kfree_skb_partial["advisory"]["danger_flags"],
+        )
 
 
 def _buf_from_op_sh(sh_str: str) -> bytes:
