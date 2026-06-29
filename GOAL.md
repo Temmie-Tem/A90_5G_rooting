@@ -767,6 +767,42 @@ epic is DONE.** Reports:
 `docs/reports/NATIVE_INIT_V3335_GPU_Z3_PRIMARY_SETCRTC_SOURCE_BUILD_2026-06-27.md` and
 `docs/reports/NATIVE_INIT_V3335_GPU_Z3_PRIMARY_SETCRTC_LIVE_2026-06-27.md`.**
 
+## ✅ DONE — REPL post-epic one-target live-call proof — `strlcat` owned-buffer size-bounded append contract
+
+> ### ✅ STATUS (2026-06-30 live pass) — `strlcat` promoted under owned dst/src string plus bounded size contract only
+>
+> Thirty-first one-target live-call proof after the REPL epic close. Codex extended `a90_repl.py`
+> `call-proof` with `strlcat`, using one tool-owned mutable destination string buffer first
+> containing `A90STRLCAT-DST`, plus one tool-owned NUL-terminated source string buffer containing
+> `-SRC-Q-END`, and scalar size `21`. Static gate: `strlcat=0xffffff80099b98f4`,
+> `export-recovery`, direct-BL xrefs `522`, JOPP entry, non-leaf helper with three bounded calls
+> to `__pi_strlen`, `__pi_strlen`, and `__memcpy`, RET in scan. Disasm also shows a fortified
+> `dlen >= size` trap path, so the live input contract pins `size > strlen(dst)` and size inside
+> the owned destination allocation. Source contract:
+> `extern size_t strlcat(char *, const char *, __kernel_size_t)`, with x0 as the destination
+> string buffer pointer, x1 as the source string pointer, and x2 as the bounded size. The
+> call-safety seed is `SAFE-WITH-VALID-PTR`; required valid pointer args are x0
+> `destination-buffer` and x1 `source-string-buffer`.
+>
+> Live path: confirmed rollback images and TWRP, flashed the existing v1-repl boot image
+> (`b846ae9f...`) through `native_init_flash.py`, confirmed clean native selftest `fail=0` and
+> `a90-repl-v2a1-selftest-pass`, then ran `call-proof strlcat` with the C2B verified map.
+> Result: `a90-repl-live-call-proof-strlcat-pass`; checks covered C1 identity, source pointer
+> contract, call-safety contract, distinct owned destination/source allocations, destination
+> prefix plus source poke/peek, scalar return contract `0x18` (`strlen(dst)+strlen(src)`),
+> size-bounded truncated append result `A90STRLCAT-DST-SRC-Q` including NUL, post-NUL tail
+> preservation, destination canary preservation, source immutability, and
+> `kfree-owned-strlcat-buffers`.
+>
+> Candidate selftest after proof was `pass=11 warn=1 fail=0`. Rollback to clean v2321 used the checked
+> helper with readback SHA `ca978551...`; final resident `version/status` confirmed v2321 and final
+> slow-mode `selftest` confirmed `pass=11 warn=1 fail=0`. One candidate selftest attempt and one
+> final selftest attempt hit serial echo noise before END marker; `version` re-synchronized the
+> bridge both times, and the repeated selftests passed. Function map records `strlcat` only under
+> this owned mutable destination plus owned NUL-terminated source plus bounded size contract. This
+> does not authorize arbitrary pointers, user pointers, undersized destinations, `size <= strlen(dst)`,
+> unterminated strings, overlapping strings, or mass calls.
+
 ## ✅ DONE — REPL post-epic one-target live-call proof — `strncat` owned-buffer bounded append contract
 
 > ### ✅ STATUS (2026-06-30 live pass) — `strncat` promoted under owned dst/src string plus bounded count contract only

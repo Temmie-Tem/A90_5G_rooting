@@ -228,6 +228,7 @@ CALL_SAFETY_SWEEP_FAMILIES = {
             "strcpy",
             "strcat",
             "strncat",
+            "strlcat",
             "strscpy",
             "strlcpy",
             "memcpy",
@@ -397,6 +398,12 @@ CALL_SAFETY_SEEDS = {
         "required_valid_pointer_args": {0: "destination-buffer", 1: "source-string-buffer"},
         "return_kind": "destination-pointer",
         "reason": "bounded string append helper; x0/x1 must be owned buffers and count must stay inside source/destination",
+    },
+    "strlcat": {
+        "tier": CALL_SAFETY_SAFE_WITH_VALID_PTR,
+        "required_valid_pointer_args": {0: "destination-buffer", 1: "source-string-buffer"},
+        "return_kind": "size_t",
+        "reason": "bounded string append helper; x0/x1 must be owned buffers and size must exceed destination length",
     },
     "memcmp": {
         "tier": CALL_SAFETY_SAFE_WITH_VALID_PTR,
@@ -4783,6 +4790,12 @@ CALL_PROOF_TARGETS = {
         "expected_tier": CALL_SAFETY_SAFE_WITH_VALID_PTR,
         "source_signature": "extern char * strncat(char *, const char *, __kernel_size_t)",
     },
+    "strlcat": {
+        "input_contract": "owned mutable NUL-terminated destination string buffer plus owned source string plus bounded size greater than destination length",
+        "return_contract": "size_t == original destination length plus source string length and destination contains size-bounded appended source prefix plus NUL",
+        "expected_tier": CALL_SAFETY_SAFE_WITH_VALID_PTR,
+        "source_signature": "extern size_t strlcat(char *, const char *, __kernel_size_t)",
+    },
     "memcmp": {
         "input_contract": "two owned initialized buffers plus bounded size inside both buffers",
         "return_contract": "int == 0 for equal bytes and positive sign when left first-difference byte is greater",
@@ -4985,6 +4998,17 @@ STRNCAT_PROOF_LABEL = STRNCAT_EXPECTED_DST_BYTES[:-1].decode("ascii")
 STRNCAT_DST_TAIL_LEN = 8
 STRNCAT_DST_INITIAL_BYTE = 0x56
 STRNCAT_CANARY_LEN = 8
+STRLCAT_DST_PREFIX_BYTES = b"A90STRLCAT-DST\x00"
+STRLCAT_SRC_BYTES = b"-SRC-Q-END\x00"
+STRLCAT_PROOF_SIZE = 21
+STRLCAT_COPY_LEN = STRLCAT_PROOF_SIZE - (len(STRLCAT_DST_PREFIX_BYTES) - 1) - 1
+STRLCAT_APPENDED_BYTES = STRLCAT_SRC_BYTES[:STRLCAT_COPY_LEN] + b"\x00"
+STRLCAT_EXPECTED_DST_BYTES = STRLCAT_DST_PREFIX_BYTES[:-1] + STRLCAT_APPENDED_BYTES
+STRLCAT_PROOF_LABEL = STRLCAT_EXPECTED_DST_BYTES[:-1].decode("ascii")
+STRLCAT_EXPECTED_RETURN = (len(STRLCAT_DST_PREFIX_BYTES) - 1) + (len(STRLCAT_SRC_BYTES) - 1)
+STRLCAT_DST_TAIL_LEN = 8
+STRLCAT_DST_INITIAL_BYTE = 0x57
+STRLCAT_CANARY_LEN = 8
 MEMCMP_PROOF_BYTES = b"A90MEMCMP-PROOF-0123456789ABCDEF"
 MEMCMP_PROOF_SIZE = len(MEMCMP_PROOF_BYTES)
 MEMCMP_CANARY_LEN = 8
@@ -10895,6 +10919,245 @@ def _run_call_proof_strncat(session: ReplSession,
     return summary, private
 
 
+def _run_call_proof_strlcat(session: ReplSession,
+                            symbols: dict[str, Symbol],
+                            image: StaticImage,
+                            *,
+                            alloc_size: int,
+                            source_root: Path,
+                            gfp: int,
+                            gfp_components: dict[str, int]) -> tuple[dict[str, object], dict[str, object]]:
+    dst_scan_len = len(STRLCAT_EXPECTED_DST_BYTES) + STRLCAT_DST_TAIL_LEN + STRLCAT_CANARY_LEN
+    src_scan_len = len(STRLCAT_SRC_BYTES) + STRLCAT_CANARY_LEN
+    required_alloc = max(dst_scan_len, src_scan_len)
+    if alloc_size < required_alloc:
+        raise ReplError(f"strlcat call-proof alloc_size must be at least {required_alloc} bytes")
+    if STRLCAT_COPY_LEN <= 0 or STRLCAT_COPY_LEN >= len(STRLCAT_SRC_BYTES) - 1:
+        raise ReplError("strlcat proof constants must exercise a truncated append")
+
+    source = lookup_source_signature("strlcat", source_root=source_root)
+    call_safety = require_call_safety_for_call(
+        symbols,
+        image,
+        "strlcat",
+        ("@owned_destination_buffer", "@owned_source_string_buffer", STRLCAT_PROOF_SIZE),
+    )
+    if call_safety.get("tier") != CALL_PROOF_TARGETS["strlcat"]["expected_tier"]:
+        raise ReplError("strlcat call-safety tier is not the expected vetted pointer tier")
+    if not source.get("found") or source.get("pointer_arg_indices") != [0, 1]:
+        raise ReplError("strlcat source signature does not declare x0/x1 as pointer arguments")
+
+    resolutions = {
+        "strlcat": resolve_verified(symbols, image, "strlcat", purpose="call", allow_pre_arg_deref=True),
+        "__kmalloc": resolve_verified(symbols, image, "__kmalloc", purpose="call"),
+        "kfree": resolve_verified(symbols, image, "kfree", purpose="call"),
+    }
+    strlcat_link = require_verified_resolution(resolutions["strlcat"], "call-proof target")
+    kmalloc_link = require_verified_resolution(resolutions["__kmalloc"], "call-proof string allocator")
+    kfree_link = require_verified_resolution(resolutions["kfree"], "call-proof string cleanup")
+    assert_no_precall_x0_pointer_deref(image, kmalloc_link, "__kmalloc")
+
+    initial_dst_scan = (
+        STRLCAT_DST_PREFIX_BYTES
+        + (bytes([STRLCAT_DST_INITIAL_BYTE]) * (STRLCAT_COPY_LEN + STRLCAT_DST_TAIL_LEN))
+        + (b"\xcc" * STRLCAT_CANARY_LEN)
+    )
+    expected_dst_scan = (
+        STRLCAT_EXPECTED_DST_BYTES
+        + (bytes([STRLCAT_DST_INITIAL_BYTE]) * STRLCAT_DST_TAIL_LEN)
+        + (b"\xcc" * STRLCAT_CANARY_LEN)
+    )
+    expected_src_scan = STRLCAT_SRC_BYTES + (b"\xcc" * STRLCAT_CANARY_LEN)
+    checks: list[dict[str, object]] = [
+        {
+            "check": "static-c1-identity",
+            "ok": True,
+            "target": "strlcat",
+            "resolution_method": resolutions["strlcat"].method,
+        },
+        {
+            "check": "static-source-contract",
+            "ok": True,
+            "signature": source.get("selected", {}).get("signature")
+            if isinstance(source.get("selected"), dict) else None,
+            "pointer_arg_indices": source.get("pointer_arg_indices", []),
+        },
+        {
+            "check": "static-call-safety-contract",
+            "ok": True,
+            "tier": call_safety.get("tier"),
+            "required_valid_pointer_args": call_safety.get("required_valid_pointer_args", {}),
+            "size_arg": STRLCAT_PROOF_SIZE,
+            "destination_len_less_than_size": (len(STRLCAT_DST_PREFIX_BYTES) - 1) < STRLCAT_PROOF_SIZE,
+        },
+    ]
+    private: dict[str, object] = {}
+    dst_ptr = 0
+    src_ptr = 0
+    slide = 0
+    kfree_runtime = 0
+    free_attempted: list[str] = []
+    free_ok: dict[str, bool] = {"dst": False, "src": False}
+    free_errors: list[str] = []
+    proof_return = 0
+    observed_src = b""
+    observed_dst = b""
+
+    session.hide()
+    session.set_panic_on_oops(0)
+    try:
+        slide = session.slide()
+        if slide & 0xFFF:
+            raise ReplError("slide is not page-aligned; refusing to proceed")
+        strlcat_runtime = (strlcat_link + slide) & MASK64
+        kmalloc_runtime = (kmalloc_link + slide) & MASK64
+        kfree_runtime = (kfree_link + slide) & MASK64
+
+        dst_ptr = session.call_runtime(kmalloc_runtime, (alloc_size, gfp))
+        src_ptr = session.call_runtime(kmalloc_runtime, (alloc_size, gfp))
+        dst_ok = is_kernel_lowmem_pointer(dst_ptr)
+        src_ok = is_kernel_lowmem_pointer(src_ptr)
+        distinct_ok = dst_ptr != src_ptr
+        checks.append({
+            "check": "kmalloc-owned-strlcat-buffers",
+            "ok": dst_ok and src_ok and distinct_ok,
+            "alloc_size": alloc_size,
+            "dst_kernel_lowmem": dst_ok,
+            "src_kernel_lowmem": src_ok,
+            "distinct_buffers": distinct_ok,
+        })
+        if not (dst_ok and src_ok and distinct_ok):
+            raise ReplError("__kmalloc did not return sane distinct strlcat buffers")
+
+        _poke_bytes(session, dst_ptr, initial_dst_scan)
+        _poke_bytes(session, src_ptr, expected_src_scan)
+        observed_dst = _peek_bytes(session, dst_ptr, dst_scan_len)
+        observed_src = _peek_bytes(session, src_ptr, src_scan_len)
+        setup_ok = observed_dst == initial_dst_scan and observed_src == expected_src_scan
+        checks.append({
+            "check": "owned-strlcat-buffer-poke-peek",
+            "ok": setup_ok,
+            "destination_prefix": STRLCAT_DST_PREFIX_BYTES[:-1].decode("ascii"),
+            "source_string": STRLCAT_SRC_BYTES[:-1].decode("ascii"),
+            "size_arg": STRLCAT_PROOF_SIZE,
+            "copy_len": STRLCAT_COPY_LEN,
+            "destination_initial_byte": f"0x{STRLCAT_DST_INITIAL_BYTE:02x}",
+            "canary_len": STRLCAT_CANARY_LEN,
+        })
+        if not setup_ok:
+            raise ReplError("owned strlcat buffer poke/peek mismatch")
+
+        proof_return = session.call_runtime(strlcat_runtime, (dst_ptr, src_ptr, STRLCAT_PROOF_SIZE))
+        return_ok = proof_return == STRLCAT_EXPECTED_RETURN
+        checks.append({
+            "check": "strlcat-return-contract",
+            "ok": return_ok,
+            "return_kind": "size_t",
+            "expected_return": f"0x{STRLCAT_EXPECTED_RETURN:x}",
+            "observed_return": f"0x{proof_return:x}",
+            "size_arg": STRLCAT_PROOF_SIZE,
+        })
+        if not return_ok:
+            raise ReplError(
+                f"strlcat returned 0x{proof_return:x}, expected 0x{STRLCAT_EXPECTED_RETURN:x}"
+            )
+
+        observed_dst = _peek_bytes(session, dst_ptr, dst_scan_len)
+        observed_src = _peek_bytes(session, src_ptr, src_scan_len)
+        dst_ok = observed_dst == expected_dst_scan
+        src_unchanged = observed_src == expected_src_scan
+        checks.append({
+            "check": "strlcat-destination-contract",
+            "ok": dst_ok,
+            "appended_string": STRLCAT_PROOF_LABEL,
+            "size_arg": STRLCAT_PROOF_SIZE,
+            "copy_len": STRLCAT_COPY_LEN,
+            "copied_size_bounded_prefix": observed_dst[:len(STRLCAT_EXPECTED_DST_BYTES)] == STRLCAT_EXPECTED_DST_BYTES,
+            "tail_after_nul_preserved": observed_dst[
+                len(STRLCAT_EXPECTED_DST_BYTES):len(STRLCAT_EXPECTED_DST_BYTES) + STRLCAT_DST_TAIL_LEN
+            ] == bytes([STRLCAT_DST_INITIAL_BYTE]) * STRLCAT_DST_TAIL_LEN,
+            "canary_preserved": observed_dst[-STRLCAT_CANARY_LEN:] == (b"\xcc" * STRLCAT_CANARY_LEN),
+        })
+        checks.append({
+            "check": "strlcat-source-immutability",
+            "ok": src_unchanged,
+            "source_unchanged": src_unchanged,
+        })
+        if not dst_ok:
+            raise ReplError("strlcat destination contract failed")
+        if not src_unchanged:
+            raise ReplError("strlcat modified source buffer")
+    finally:
+        if kfree_runtime:
+            for label, ptr in (("dst", dst_ptr), ("src", src_ptr)):
+                if ptr and is_kernel_lowmem_pointer(ptr):
+                    free_attempted.append(label)
+                    try:
+                        session.call_runtime(kfree_runtime, (ptr,))
+                        free_ok[label] = True
+                    except Exception as exc:  # noqa: BLE001 - cleanup failures must be visible
+                        free_errors.append(f"{label}:{exc}")
+        session.set_panic_on_oops(1)
+
+    cleanup_ok = bool(free_ok["dst"] and free_ok["src"])
+    checks.append({
+        "check": "kfree-owned-strlcat-buffers",
+        "ok": cleanup_ok,
+        "free_attempted": free_attempted,
+        "dst_free_ok": free_ok["dst"],
+        "src_free_ok": free_ok["src"],
+    })
+    if free_errors:
+        raise ReplError(f"kfree failed after strlcat proof: {free_errors}")
+
+    passed = all(bool(check.get("ok")) for check in checks)
+    summary = {
+        "decision": f"a90-repl-live-call-proof-strlcat-{'pass' if passed else 'fail'}",
+        "ok": passed,
+        "target": "strlcat",
+        "proof_status": "trusted-under-owned-input-contract" if passed else "failed",
+        "input_contract": CALL_PROOF_TARGETS["strlcat"]["input_contract"],
+        "return_contract": CALL_PROOF_TARGETS["strlcat"]["return_contract"],
+        "alloc_size": alloc_size,
+        "proof_string": STRLCAT_PROOF_LABEL,
+        "size_arg": STRLCAT_PROOF_SIZE,
+        "copy_len": STRLCAT_COPY_LEN,
+        "expected_return_value": f"0x{STRLCAT_EXPECTED_RETURN:x}",
+        "observed_return_value": f"0x{proof_return:x}",
+        "destination_appended_size_bounded_source": observed_dst == expected_dst_scan,
+        "source_unchanged_after_call": observed_src == expected_src_scan,
+        "gfp_kernel": f"0x{gfp:x}",
+        "source_evidence": _source_row_evidence(source),
+        "call_safety": call_safety,
+        "resolutions": _redacted_resolution_set(resolutions),
+        "raw_runtime_values_redacted": True,
+        "owned_pointer_redacted": True,
+        "observed_bytes_redacted": True,
+        "checks": checks,
+        "function_map_entry": {
+            "symbol": "strlcat",
+            "status": "live-proven",
+            "trusted_input_contract": CALL_PROOF_TARGETS["strlcat"]["input_contract"],
+            "return_contract": CALL_PROOF_TARGETS["strlcat"]["return_contract"],
+            "observed_return_value": f"0x{proof_return:x}",
+            "cleanup": "kfree-owned-strlcat-buffers-ok" if cleanup_ok else "cleanup-failed",
+            "auto_call_policy": "one-target-proof-only-not-mass-call",
+        },
+    }
+    private.update({
+        "slide": f"0x{slide:x}",
+        "strlcat_runtime": f"0x{((strlcat_link + slide) & MASK64):x}",
+        "dst_ptr": f"0x{dst_ptr:x}",
+        "src_ptr": f"0x{src_ptr:x}",
+        "observed_src_hex": observed_src.hex(),
+        "observed_dst_hex": observed_dst.hex(),
+        "expected_src_hex": expected_src_scan.hex(),
+        "expected_dst_hex": expected_dst_scan.hex(),
+        "gfp_components": {key: f"0x{component:x}" for key, component in gfp_components.items()},
+    })
+    return summary, private
+
+
 def _run_call_proof_strncpy(session: ReplSession,
                             symbols: dict[str, Symbol],
                             image: StaticImage,
@@ -11874,6 +12137,16 @@ def run_call_proof(session: ReplSession,
         )
     if target == "strncat":
         return _run_call_proof_strncat(
+            session,
+            symbols,
+            image,
+            alloc_size=alloc_size,
+            source_root=source_root,
+            gfp=gfp,
+            gfp_components=gfp_components,
+        )
+    if target == "strlcat":
+        return _run_call_proof_strlcat(
             session,
             symbols,
             image,
