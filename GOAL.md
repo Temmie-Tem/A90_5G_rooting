@@ -767,6 +767,43 @@ epic is DONE.** Reports:
 `docs/reports/NATIVE_INIT_V3335_GPU_Z3_PRIMARY_SETCRTC_SOURCE_BUILD_2026-06-27.md` and
 `docs/reports/NATIVE_INIT_V3335_GPU_Z3_PRIMARY_SETCRTC_LIVE_2026-06-27.md`.**
 
+## 🟣 ACTIVE NOW — REPL U4 — source-scan perf polish + tool runbook, then CLOSE the REPL epic
+
+**Operator-chartered 2026-06-29 (user chose "runbook + perf polish 후 close").** U2+U3 core is done/verified;
+this is the final unit before the REPL epic closes. Two host-only deliverables, then close.
+
+**Deliverable 1 — source-scan perf polish (correctness-preserving).** The U3 `call-safety-sweep` source oracle
+scans ~655 unfiltered files per symbol, so a family sweep takes ~126s (it sat right on the edge of a 2-min
+timeout). Fix host-only: pre-index the source tree's function declarations ONCE per run (or cache across symbols
+within a sweep) and/or subsystem-scope candidate files (prefer `include/linux/*.h` + the symbol's own subsystem
+dir). **Target: a family sweep completes in a few seconds.** HARD REQUIREMENT: identical verdicts to the
+operator-verified results — `allocator` candidate_safe_ranked == `['ksize']` (kfree_const/kmem_cache_shrink still
+dropped DRIVEN BY SOURCE), `read-io` candidates == `filp_open/filp_close/kernel_read`, `kmem_cache_init` still
+`source-__init` dropped, `kfree_skb_partial` still taint-dropped. Add a regression test pinning those two family
+results so the speedup can't silently change a verdict. Stay offline/deterministic; `lookup_source_signature('ksize')`
+must still return `found=True, has_pointer_arg=True`. No device, no boot image.
+
+**Deliverable 2 — tool runbook.** A concise ops doc (e.g. `docs/operations/NATIVE_INIT_RUNTIME_KERNEL_REPL_RUNBOOK.md`)
+covering the whole REPL toolchain so it is usable + safe without re-deriving context: (a) commands —
+`a90_stock_kallsyms_extract.py` (verified-map regen), `a90_repl.py` `selftest`/`resolve`/`peek`/`read`/`call`/`poke`/
+`call-safety-classify`/`call-safety-sweep`/`ksymtab-ground-truth`; (b) the verified-map regen procedure + the four
+anchors (printk `0xffffff800813adfc` not the twin, __kmalloc, kfree, force_no_nap_store) and the 3-oracle ground
+truth; (c) the SAFETY model — C1 fail-closed identity resolution, the call-safety tiers, the advisory/auto-call
+firewall (swept candidate-SAFE ≠ gate-callable), and that live "call the function + check result" is a SEPARATE
+one-target operator-gated step (panic_on_oops=0, bounded, rollback v2321), never an autonomous mass live-call.
+Redacted/metadata-only (no raw runtime pointers/slide). Host-only.
+
+**Definition of done for U4:** sweep perf is a few seconds per family with byte-identical verdicts to the verified
+allocator/read-io results (regression-tested); the runbook doc is committed and covers commands + map regen + anchors
++ safety/firewall + the separate live-call gate; `py_compile` + focused suite pass; host-only, no device, no boot
+image. **On U4 done, the REPL epic CLOSES** (U1–U3 + this); the only thing beyond is a future separately-gated live
+call-proof of a vetted candidate, if ever chartered.
+
+**Guardrails:** host-only; the perf change MUST NOT alter any verdict (pin the 2 family results in a test); firewall +
+C1 fail-closed preserved; offline/deterministic; keep raw runtime pointers out of commits; scoped `git add`;
+fails-twice → STOP + report. Operator Gate-2's by independently re-running both family sweeps (verdicts unchanged +
+fast) and reading the runbook; the loop owns host build + tests + commits and does NOT touch the device.
+
 ## ✅ DONE — REPL U3 — broad advisory call-safety risk-assessment sweep (operator-verified 2026-06-29)
 
 > ### ✅ OPERATOR GATE-2 SIGN-OFF (2026-06-29) — U3 DONE; source now DRIVES candidacy; verified on 2 families
