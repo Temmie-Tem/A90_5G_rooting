@@ -767,6 +767,44 @@ epic is DONE.** Reports:
 `docs/reports/NATIVE_INIT_V3335_GPU_Z3_PRIMARY_SETCRTC_SOURCE_BUILD_2026-06-27.md` and
 `docs/reports/NATIVE_INIT_V3335_GPU_Z3_PRIMARY_SETCRTC_LIVE_2026-06-27.md`.**
 
+## ✅ DONE — REPL post-epic one-target live-call proof — `clock_t_to_jiffies` fixed positive identity contract
+
+> ### ✅ STATUS (2026-07-01 live pass) — `clock_t_to_jiffies` promoted under current-image positive identity contract
+>
+> Ninetieth one-target live-call proof after the REPL epic close. Codex selected
+> `clock_t_to_jiffies` from the adjacent time/jiffies scalar helpers after `jiffies_64_to_clock_t`,
+> `jiffies_to_clock_t`, and `jiffies_to_usecs` were already live-proven. `nsec_to_clock_t` stayed
+> parked because C1 identity verification failed for that symbol in the current map/image pair.
+> Static C1 verified `clock_t_to_jiffies=0xffffff8008158584`, `export-recovery`, direct-BL xrefs
+> `24`, scalar-only source declaration `extern unsigned long clock_t_to_jiffies(unsigned long x)`
+> from `include/linux/jiffies.h:450`, and next boundary `jiffies_64_to_clock_t` at `+0x8`. The
+> current image body is the identity leaf `0xd65f03c0` followed by `0x00be7bad`, so the proof
+> contract is fixed positive unsigned long clock values returning unchanged as unsigned long jiffies
+> values.
+>
+> Host validation passed: `py_compile` for `a90_repl.py` and `tests/test_a90_repl.py`; focused tests
+> (`Ran 4 tests`, `OK`); full `tests.test_a90_repl` (`Ran 152 tests`, `OK`); `git diff --check`;
+> CLI `call-safety-classify clock_t_to_jiffies` (`SAFE-SCALAR`, no required pointer args,
+> `export-recovery`, first words `0xd65f03c0` and `0x00be7bad`); and focused
+> `call-safety-sweep` (`SAFE-SCALAR`, scalar-only source declaration, gate seeded).
+>
+> Live validation obeyed the flash gate: rollback/fallback/TWRP SHAs confirmed, bridge healthy,
+> baseline v2321 `version/status/selftest` passed, v1-repl candidate flashed through
+> `native_init_flash.py` with matching readback SHA, helper `version/status` passed, and
+> `a90-repl-v2a1-selftest-pass` confirmed the REPL path before the target call.
+>
+> Result: `a90-repl-live-call-proof-clock_t_to_jiffies-pass`; checks covered C1 identity, next
+> symbol boundary, scalar-only source contract, `SAFE-SCALAR` call-safety, identity RET, next-entry
+> guard, and fixed positive cases `0x0`, `0x1`, `0x12345678`, and `0x7fffffff` returning unchanged.
+> No owned resource was created and no returned pointer exists; raw runtime address/slide evidence
+> stayed private under
+> `workspace/private/runs/kernel/live-call-proof-clock-t-to-jiffies-20260701/proof/`. Post-proof
+> candidate selftest stayed `pass=11 warn=1 fail=0`; Codex rolled back to clean v2321 through
+> `native_init_flash.py`, readback SHA matched, helper `version/status` passed, and final standalone
+> selftest confirmed `pass=11 warn=1 fail=0`. Function map records `clock_t_to_jiffies` only under
+> the current-image fixed-positive identity contract. Report:
+> `docs/reports/KERNEL_SECURITY_TIER2_RUNTIME_KERNEL_REPL_LIVE_CALL_PROOF_CLOCK_T_TO_JIFFIES_2026-07-01.md`.
+
 ## ✅ DONE — REPL post-epic one-target live-call proof — `jiffies_to_usecs` bounded multiply contract
 
 > ### ✅ STATUS (2026-07-01 live pass) — `jiffies_to_usecs` promoted under current-image bounded multiply-by-10000 contract
