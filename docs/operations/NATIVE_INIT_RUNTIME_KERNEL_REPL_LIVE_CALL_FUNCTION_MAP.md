@@ -23,6 +23,7 @@ and the C1 fail-closed identity gate.
 | `__kmalloc` | `0xffffff800826ae34`, `export-recovery`, direct BL xrefs `1765` | scalar `size`, scalar `gfp` | returned sane kernel lowmem owned pointer | caller-owned cleanup required | v2a2 recovered-export poke round-trip |
 | `kfree` | `0xffffff800826b354`, `export-recovery`, direct BL xrefs `10596` | owned `kmalloc` object pointer or NULL | cleanup call returned through REPL | freed owned allocation | v2a2 recovered-export poke round-trip |
 | `hex_to_bin` | `0xffffff800856a9dc`, `export-recovery`, direct BL xrefs `80`, leaf/no-BL | scalar ASCII character | case table: `'0' -> 0`, `'9' -> 9`, `'a'/'A' -> 10`, `'f'/'F' -> 15`, invalid `'g' -> 0xffffffff` | n/a-scalar-only | `a90-repl-live-call-proof-hex_to_bin-pass` |
+| `jiffies_64_to_clock_t` | `0xffffff800815858c`, `export-recovery`, direct BL xrefs `3`, `0x8`-byte identity leaf before `nsec_to_clock_t` | scalar `u64` jiffies value; current image leaf body is identity conversion; no pointer args | case table: `0x0 -> 0x0`, `0x1 -> 0x1`, `0x123456789abcdef0 -> 0x123456789abcdef0` | `n/a-scalar-only` | `a90-repl-live-call-proof-jiffies_64_to_clock_t-pass` |
 | `get_cpu_device` | `0xffffff8008992a5c`, `export-recovery`, direct BL xrefs `38`, leaf/no-BL | scalar CPU index; returned pointer is borrowed/read-only and is not dereferenced or freed | `cpu=0` returned a non-NULL sane kernel lowmem borrowed pointer (redacted); `cpu=0xffffffff` returned NULL | `n/a-borrowed-pointer-not-owned` | `a90-repl-live-call-proof-get_cpu_device-pass` |
 | `get_current_napi_context` | `0xffffff800971f284`, `export-recovery`, direct BL xrefs `10`, `0x20`-byte per-CPU-read body before `netdev_has_upper_dev` | no arguments; called from REPL process context outside NAPI poll/softirq; any non-NULL return is borrowed/read-only and is not dereferenced or freed | two process-context calls returned NULL | `n/a-null-return-no-owned-resource` | `a90-repl-live-call-proof-get_current_napi_context-pass` |
 | `get_boot_stat_time` | `0xffffff80086979e4`, `disasm-signature+xref+map`, direct BL xrefs `4`, `0x60`-byte body before `get_boot_stat_freq` | no arguments; Qualcomm boot-stat timer MMIO is read-only; no returned pointer is dereferenced or freed | repeated calls returned nonzero uint32_t counter values starting at `0x29eb84`, max short-run delta `0x4254` | `n/a-scalar-mmio-read-only` | `a90-repl-live-call-proof-get_boot_stat_time-pass` |
@@ -126,6 +127,10 @@ and the C1 fail-closed identity gate.
   have crossed the live proof gate only under scalar unsigned word contracts for their respective widths. The proofs cover zero,
   all-ones, alternating, single-high-bit, and mixed A90 marker words; they do not authorize arbitrary
   target calls, broader bitops state, high-bit widening outside the stated contract, or mass calling.
+- Jiffies conversion proof: `jiffies_64_to_clock_t` has crossed the live proof gate only under the
+  current image's scalar identity leaf contract. The proof covers fixed u64 cases `0`, `1`, and
+  `0x123456789abcdef0` returning unchanged; it does not authorize adjacent conversion helpers,
+  timer rounding helpers, architecture/configs where the conversion is not identity, or mass calling.
 - CPU device lookup proof: `get_cpu_device` has crossed the live proof gate only under a scalar CPU
   index contract. The proof covers CPU0 returning a non-NULL borrowed kernel lowmem pointer and
   `UINT_MAX` returning NULL. The returned pointer is not owned, was not dereferenced, and must not be
