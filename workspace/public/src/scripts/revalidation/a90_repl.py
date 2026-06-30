@@ -294,6 +294,12 @@ CALL_SAFETY_SEEDS = {
         "return_kind": "int",
         "reason": "scalar hex-nibble decoder; x0 is one scalar character and no pointer arguments are dereferenced",
     },
+    "__sw_hweight32": {
+        "tier": CALL_SAFETY_SAFE_SCALAR,
+        "required_valid_pointer_args": {},
+        "return_kind": "unsigned-int",
+        "reason": "scalar 32-bit hamming-weight helper; x0 is one unsigned int and no pointer arguments are dereferenced",
+    },
     "hex2bin": {
         "tier": CALL_SAFETY_SAFE_WITH_VALID_PTR,
         "required_valid_pointer_args": {0: "destination-buffer", 1: "source-hex-buffer"},
@@ -3203,6 +3209,7 @@ _SOURCE_HINT_FILE_CACHE: dict[tuple[str, str], tuple[Path, ...]] = {}
 _SOURCE_FILE_TEXT_CACHE: dict[Path, str | None] = {}
 _SOURCE_C_IDENTIFIER_RE = re.compile(r"^[A-Za-z_][A-Za-z0-9_]*$")
 _SOURCE_HEADER_HINTS_BY_EXACT_SYMBOL = {
+    "__sw_hweight32": ("include/linux/bitops.h",),
     "__sysfs_match_string": ("include/linux/string.h",),
     "filp_clone_open": ("fs/internal.h", "include/linux/fs.h"),
     "filp_close": ("include/linux/fs.h",),
@@ -4892,6 +4899,12 @@ CALL_PROOF_TARGETS = {
         "expected_tier": CALL_SAFETY_SAFE_SCALAR,
         "source_signature": "extern int hex_to_bin(char ch)",
     },
+    "__sw_hweight32": {
+        "input_contract": "scalar unsigned 32-bit word",
+        "return_contract": "unsigned int == population count of the low 32 input bits",
+        "expected_tier": CALL_SAFETY_SAFE_SCALAR,
+        "source_signature": "extern unsigned int __sw_hweight32(unsigned int w)",
+    },
     "hex2bin": {
         "input_contract": "owned destination byte buffer + owned ASCII hex source buffer + scalar byte count",
         "return_contract": "int == 0 and destination bytes equal decoded source bytes",
@@ -5436,6 +5449,13 @@ HEX_TO_BIN_CASES = (
     ("lower-f", "f", 15),
     ("upper-f", "F", 15),
     ("invalid-g", "g", HEX_TO_BIN_INVALID_RETURN),
+)
+SW_HWEIGHT32_CASES = (
+    ("zero", 0x00000000, 0),
+    ("all-ones", 0xFFFFFFFF, 32),
+    ("alternating-a", 0xAAAAAAAA, 16),
+    ("single-high-bit", 0x80000000, 1),
+    ("a90f00dc", 0xA90F00DC, 13),
 )
 HEX2BIN_SOURCE_BYTES = b"A90f00dC0ffEe1"
 HEX2BIN_SOURCE_LABEL = HEX2BIN_SOURCE_BYTES.decode("ascii")
@@ -16823,6 +16843,119 @@ def _run_call_proof_hex_to_bin(session: ReplSession,
     return summary, private
 
 
+def _run_call_proof___sw_hweight32(session: ReplSession,
+                                   symbols: dict[str, Symbol],
+                                   image: StaticImage,
+                                   *,
+                                   source_root: Path) -> tuple[dict[str, object], dict[str, object]]:
+    source = lookup_source_signature("__sw_hweight32", source_root=source_root)
+    call_safety = require_call_safety_for_call(
+        symbols,
+        image,
+        "__sw_hweight32",
+        (0xA90F00DC,),
+    )
+    if call_safety.get("tier") != CALL_PROOF_TARGETS["__sw_hweight32"]["expected_tier"]:
+        raise ReplError("__sw_hweight32 call-safety tier is not the expected vetted scalar tier")
+    if not source.get("found") or source.get("pointer_arg_indices") != []:
+        raise ReplError("__sw_hweight32 source signature must be scalar-only")
+
+    resolutions = {
+        "__sw_hweight32": resolve_verified(symbols, image, "__sw_hweight32", purpose="call"),
+    }
+    target_link = require_verified_resolution(resolutions["__sw_hweight32"], "call-proof target")
+
+    checks: list[dict[str, object]] = [
+        {
+            "check": "static-c1-identity",
+            "ok": True,
+            "target": "__sw_hweight32",
+            "resolution_method": resolutions["__sw_hweight32"].method,
+        },
+        {
+            "check": "static-source-contract",
+            "ok": True,
+            "signature": source.get("selected", {}).get("signature")
+            if isinstance(source.get("selected"), dict) else None,
+            "pointer_arg_indices": source.get("pointer_arg_indices", []),
+        },
+        {
+            "check": "static-call-safety-contract",
+            "ok": True,
+            "tier": call_safety.get("tier"),
+            "required_valid_pointer_args": call_safety.get("required_valid_pointer_args", {}),
+        },
+    ]
+    private: dict[str, object] = {}
+    slide = 0
+    case_results: list[dict[str, object]] = []
+
+    session.hide()
+    session.set_panic_on_oops(0)
+    try:
+        slide = session.slide()
+        if slide & 0xFFF:
+            raise ReplError("slide is not page-aligned; refusing to proceed")
+        target_runtime = (target_link + slide) & MASK64
+
+        for label, word, expected in SW_HWEIGHT32_CASES:
+            observed = session.call_runtime(target_runtime, (word,))
+            ok = observed == expected
+            case_results.append({
+                "case": label,
+                "input_word": f"0x{word:08x}",
+                "expected_return_value": f"0x{expected:x}",
+                "observed_return_value": f"0x{observed:x}",
+                "ok": ok,
+            })
+            if not ok:
+                raise ReplError(
+                    f"__sw_hweight32(0x{word:08x}) returned 0x{observed:x}, expected 0x{expected:x}"
+                )
+    finally:
+        session.set_panic_on_oops(1)
+
+    checks.append({
+        "check": "sw-hweight32-scalar-case-table",
+        "ok": all(bool(case.get("ok")) for case in case_results),
+        "case_count": len(case_results),
+        "cases": case_results,
+    })
+    passed = all(bool(check.get("ok")) for check in checks)
+    summary = {
+        "decision": f"a90-repl-live-call-proof-__sw_hweight32-{'pass' if passed else 'fail'}",
+        "ok": passed,
+        "target": "__sw_hweight32",
+        "proof_status": "trusted-under-scalar-input-contract" if passed else "failed",
+        "input_contract": CALL_PROOF_TARGETS["__sw_hweight32"]["input_contract"],
+        "return_contract": CALL_PROOF_TARGETS["__sw_hweight32"]["return_contract"],
+        "case_results": case_results,
+        "source_evidence": _source_row_evidence(source),
+        "call_safety": call_safety,
+        "resolutions": _redacted_resolution_set(resolutions),
+        "raw_runtime_values_redacted": True,
+        "checks": checks,
+        "function_map_entry": {
+            "symbol": "__sw_hweight32",
+            "status": "live-proven",
+            "trusted_input_contract": CALL_PROOF_TARGETS["__sw_hweight32"]["input_contract"],
+            "return_contract": CALL_PROOF_TARGETS["__sw_hweight32"]["return_contract"],
+            "observed_return_value": "case-table-zero-all-ones-alternating-single-bit-mixed",
+            "cleanup": "n/a-scalar-only",
+            "auto_call_policy": "one-target-proof-only-not-mass-call",
+        },
+    }
+    private.update({
+        "slide": f"0x{slide:x}",
+        "__sw_hweight32_runtime": f"0x{((target_link + slide) & MASK64):x}",
+        "case_returns": {
+            str(case["case"]): str(case["observed_return_value"])
+            for case in case_results
+        },
+    })
+    return summary, private
+
+
 def _run_call_proof_hex2bin(session: ReplSession,
                             symbols: dict[str, Symbol],
                             image: StaticImage,
@@ -20288,6 +20421,13 @@ def run_call_proof(session: ReplSession,
 
     if target == "hex_to_bin":
         return _run_call_proof_hex_to_bin(
+            session,
+            symbols,
+            image,
+            source_root=source_root,
+        )
+    if target == "__sw_hweight32":
+        return _run_call_proof___sw_hweight32(
             session,
             symbols,
             image,

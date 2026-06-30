@@ -767,6 +767,37 @@ epic is DONE.** Reports:
 `docs/reports/NATIVE_INIT_V3335_GPU_Z3_PRIMARY_SETCRTC_SOURCE_BUILD_2026-06-27.md` and
 `docs/reports/NATIVE_INIT_V3335_GPU_Z3_PRIMARY_SETCRTC_LIVE_2026-06-27.md`.**
 
+## ✅ DONE — REPL post-epic one-target live-call proof — `__sw_hweight32` scalar popcount contract
+
+> ### ✅ STATUS (2026-06-30 live pass) — `__sw_hweight32` promoted under scalar unsigned-32 contract only
+>
+> Sixty-second one-target live-call proof after the REPL epic close. Candidate selection rejected
+> `memscan` for this unit because C1 identity remained unverified (`direct_bl_xrefs=0`, x0 memory
+> flow, unseeded pointer contract). Codex instead selected scalar-only `__sw_hweight32`, then extended
+> `a90_repl.py` `call-proof` with a fixed case table. Static gate:
+> `__sw_hweight32=0xffffff800856d844`, `export-recovery`, direct-BL xrefs `36`, JOPP entry true,
+> leaf/no-BL, no arg pointer derefs, clean scalar arg-taint proof. Source contract:
+> `extern unsigned int __sw_hweight32(unsigned int w)` from `include/linux/bitops.h`, no pointer args.
+> Call-safety tier: `SAFE-SCALAR`.
+>
+> Live path: baseline v2321 `version/status/selftest` passed, flashed the existing v1-repl image
+> `b846ae9f74d8ceb922bbcd854d78b6795ef833d61e38465d3cc474cb6f0dfb65` through
+> `native_init_flash.py`, confirmed readback SHA, then ran REPL selftest. The first REPL selftest
+> attempt hit a transient serial END-marker timeout while setting `panic_on_oops`; immediate device
+> health stayed `selftest pass=11 warn=1 fail=0`, and a retry returned
+> `a90-repl-v2a1-selftest-pass`. Then Codex ran `call-proof __sw_hweight32` with the C2B verified map.
+>
+> Result: `a90-repl-live-call-proof-__sw_hweight32-pass`; checks covered C1 identity, source
+> signature, call-safety contract, and scalar case table: `0x00000000 -> 0`, `0xffffffff -> 32`,
+> `0xaaaaaaaa -> 16`, `0x80000000 -> 1`, `0xa90f00dc -> 13`.
+>
+> Candidate selftest after proof stayed `pass=11 warn=1 fail=0`. Rolled back to clean v2321
+> (`ca978551aabe4b39563abaf529ccf2522054952d8b2ad852e632d26da88168cb`) with final resident
+> `v2321-usb-clean-identity-rodata`, rollback helper health passed, and final standalone
+> `selftest pass=11 warn=1 fail=0`. Function map records `__sw_hweight32` only under the scalar
+> unsigned-32 input contract. Report:
+> `docs/reports/KERNEL_SECURITY_TIER2_RUNTIME_KERNEL_REPL_LIVE_CALL_PROOF_SW_HWEIGHT32_2026-06-30.md`.
+
 ## ✅ DONE — REPL post-epic one-target live-call proof — `__sysfs_match_string` owned sysfs array contract
 
 > ### ✅ STATUS (2026-06-30 live pass) — `__sysfs_match_string` promoted under owned array/search contract only

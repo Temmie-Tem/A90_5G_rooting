@@ -23,6 +23,7 @@ and the C1 fail-closed identity gate.
 | `__kmalloc` | `0xffffff800826ae34`, `export-recovery`, direct BL xrefs `1765` | scalar `size`, scalar `gfp` | returned sane kernel lowmem owned pointer | caller-owned cleanup required | v2a2 recovered-export poke round-trip |
 | `kfree` | `0xffffff800826b354`, `export-recovery`, direct BL xrefs `10596` | owned `kmalloc` object pointer or NULL | cleanup call returned through REPL | freed owned allocation | v2a2 recovered-export poke round-trip |
 | `hex_to_bin` | `0xffffff800856a9dc`, `export-recovery`, direct BL xrefs `80`, leaf/no-BL | scalar ASCII character | case table: `'0' -> 0`, `'9' -> 9`, `'a'/'A' -> 10`, `'f'/'F' -> 15`, invalid `'g' -> 0xffffffff` | n/a-scalar-only | `a90-repl-live-call-proof-hex_to_bin-pass` |
+| `__sw_hweight32` | `0xffffff800856d844`, `export-recovery`, direct BL xrefs `36`, leaf/no-BL | scalar unsigned 32-bit word | case table: `0x00000000 -> 0`, `0xffffffff -> 32`, `0xaaaaaaaa -> 16`, `0x80000000 -> 1`, `0xa90f00dc -> 13` | n/a-scalar-only | `a90-repl-live-call-proof-__sw_hweight32-pass` |
 | `hex2bin` | `0xffffff800856aa3c`, `export-recovery`, direct BL xrefs `15`, leaf/no-BL | owned destination byte buffer plus owned ASCII hex source buffer plus scalar byte count | `hex2bin(dst, "A90f00dC0ffEe1", 7) == 0x0`, destination decoded to `a90f00dc0ffee1`, destination canary preserved, source stayed unchanged | `kfree-owned-hex2bin-buffers-ok` | `a90-repl-live-call-proof-hex2bin-pass` |
 | `bin2hex` | `0xffffff800856aaf4`, `export-recovery`, direct BL xrefs `5`, leaf/no-BL | owned destination ASCII hex buffer plus owned source byte buffer plus scalar byte count | `bin2hex(dst, a90f00dc0ffee1, 7)` returned the owned destination pointer plus offset `14` (redacted), destination encoded to `a90f00dc0ffee1`, destination canary preserved, source stayed unchanged | `kfree-owned-bin2hex-buffers-ok` | `a90-repl-live-call-proof-bin2hex-pass` |
 | `parse_option_str` | `0xffffff80099a9c44`, `disasm-signature+xref+map`, direct BL xrefs `3`, calls `__pi_strlen`/`__pi_strncmp` | owned NUL-terminated comma-separated option string plus owned NUL-terminated option string | exact token case returned `1`; prefix-only token and missing token returned `0`; list and option buffers stayed unchanged | `kfree-owned-parse-option-str-buffers-ok` | `a90-repl-live-call-proof-parse_option_str-pass` |
@@ -98,6 +99,10 @@ and the C1 fail-closed identity gate.
   scalar byte count contract. These proofs cover one bounded decoder/encoder table input path each;
   they do not authorize arbitrary parser state, arbitrary pointers, unbounded counts, output aliases,
   or mass calling.
+- Scalar bit helper sweep: `__sw_hweight32` has crossed the live proof gate only under a scalar
+  unsigned 32-bit word contract. The proof covers zero, all-ones, alternating, single-high-bit, and a
+  mixed A90 marker word; it does not authorize arbitrary target calls, broader bitops state, or mass
+  calling.
 - Option parser sweep: `parse_option_str` has crossed the live proof gate only under owned
   NUL-terminated comma-separated option and option strings. Its C1 identity is the
   `disasm-signature+xref+map` path, not export recovery; the target's early x0 byte read is allowed
