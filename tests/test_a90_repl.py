@@ -649,6 +649,18 @@ class CallSafetyClassificationTests(unittest.TestCase):
         self.assertGreaterEqual(match_int["signals"]["direct_bl_xref_count"], 54)
         self.assertFalse(match_int["signals"]["leaf"])
 
+        match_octal = self._row("match_octal")
+        self.assertEqual(match_octal["tier"], repl.CALL_SAFETY_SAFE_WITH_VALID_PTR)
+        self.assertEqual(
+            match_octal["required_valid_pointer_args"],
+            {"0": "substring-slot", "1": "int-result-output-slot"},
+        )
+        self.assertTrue(match_octal["resolution"]["verified"])
+        self.assertEqual(match_octal["resolution"]["method"], "export-recovery")
+        self.assertEqual(match_octal["resolution"]["link_vaddr"], "0xffffff800855b83c")
+        self.assertGreaterEqual(match_octal["signals"]["direct_bl_xref_count"], 14)
+        self.assertFalse(match_octal["signals"]["leaf"])
+
         sysfs_streq = self._row("sysfs_streq")
         self.assertEqual(sysfs_streq["tier"], repl.CALL_SAFETY_SAFE_WITH_VALID_PTR)
         self.assertEqual(
@@ -1338,6 +1350,12 @@ class CallSafetyClassificationTests(unittest.TestCase):
         self.assertEqual(match_int["selected"]["pointer_arg_indices"], [0, 1])
         self.assertEqual(match_int["selected"]["signature"], "int match_int(substring_t *, int *result)")
         self.assertTrue(match_int["selected"]["path"].endswith("include/linux/parser.h"))
+
+        match_octal = repl.lookup_source_signature("match_octal", source_root=KERNEL_SOURCE_ROOT)
+        self.assertEqual(match_octal["status"], "found", match_octal)
+        self.assertEqual(match_octal["selected"]["pointer_arg_indices"], [0, 1])
+        self.assertEqual(match_octal["selected"]["signature"], "int match_octal(substring_t *, int *result)")
+        self.assertTrue(match_octal["selected"]["path"].endswith("include/linux/parser.h"))
 
         sysfs_streq = repl.lookup_source_signature("sysfs_streq", source_root=KERNEL_SOURCE_ROOT)
         self.assertEqual(sysfs_streq["status"], "found", sysfs_streq)
@@ -2088,6 +2106,12 @@ class FaithfulFakeTransport:
             "match_int",
             purpose="call",
         ).link_vaddr
+        self.match_octal_link = repl.resolve_verified(
+            self.symbols,
+            self.image,
+            "match_octal",
+            purpose="call",
+        ).link_vaddr
         self.sysfs_streq_link = repl.resolve_verified(
             self.symbols,
             self.image,
@@ -2427,6 +2451,8 @@ class FaithfulFakeTransport:
             match_string = self.match_string_link + self.slide
             assert self.match_int_link is not None
             match_int = self.match_int_link + self.slide
+            assert self.match_octal_link is not None
+            match_octal = self.match_octal_link + self.slide
             assert self.sysfs_streq_link is not None
             sysfs_streq = self.sysfs_streq_link + self.slide
             assert self.kstrdup_link is not None
@@ -3062,6 +3088,27 @@ class FaithfulFakeTransport:
                     value = int(data.decode("ascii"), 10)
                 except ValueError as exc:
                     raise AssertionError(f"match_int fake could not parse decimal input: {data!r}") from exc
+                self._set_heap_bytes(arg2, (value & 0xFFFFFFFF).to_bytes(4, "little"))
+                lines.append("A90R0")
+            elif arg0 == match_octal:
+                substring_base = self._allocated_base_for(arg1, repl.MATCH_OCTAL_SUBSTRING_LEN)
+                result_base = self._allocated_base_for(arg2, 4)
+                if substring_base is None:
+                    raise AssertionError(f"match_octal substring_t is not in an allocated buffer: {arg1:#x}")
+                if result_base is None:
+                    raise AssertionError(f"match_octal result slot is not in an allocated buffer: {arg2:#x}")
+                from_ptr, to_ptr = struct.unpack("<QQ", self._heap_bytes(arg1, repl.MATCH_OCTAL_SUBSTRING_LEN))
+                if to_ptr < from_ptr:
+                    raise AssertionError(f"match_octal substring has negative length: {from_ptr:#x}>{to_ptr:#x}")
+                input_len = to_ptr - from_ptr
+                input_base = self._allocated_base_for(from_ptr, input_len)
+                if input_base is None:
+                    raise AssertionError(f"match_octal input range is not allocated: {from_ptr:#x}/len={input_len:#x}")
+                data = self._heap_bytes(from_ptr, input_len)
+                try:
+                    value = int(data.decode("ascii"), 8)
+                except ValueError as exc:
+                    raise AssertionError(f"match_octal fake could not parse octal input: {data!r}") from exc
                 self._set_heap_bytes(arg2, (value & 0xFFFFFFFF).to_bytes(4, "little"))
                 lines.append("A90R0")
             elif arg0 == sysfs_streq:
@@ -5870,6 +5917,77 @@ class SelftestIntegrationTests(unittest.TestCase):
         expected_result_after = (
             (repl.MATCH_INT_EXPECTED_VALUE & 0xFFFFFFFF).to_bytes(4, "little")
             + (b"\xcc" * repl.MATCH_INT_CANARY_LEN)
+        )
+        self.assertEqual(private["substring_before_hex"], expected_substring.hex())
+        self.assertEqual(private["substring_after_hex"], expected_substring.hex())
+        self.assertEqual(private["input_before_hex"], expected_input.hex())
+        self.assertEqual(private["input_after_hex"], expected_input.hex())
+        self.assertEqual(private["result_slot_before_hex"], expected_result_before.hex())
+        self.assertEqual(private["result_slot_after_hex"], expected_result_after.hex())
+        self.assertEqual(private["expected_result_slot_after_hex"], expected_result_after.hex())
+        self.assertEqual(fake.freed, [fake.heap_ptr])
+
+    def test_call_proof_match_octal_passes_with_owned_substring_result_contract(self) -> None:
+        if not C2B_PADDING_MAP_PATH.is_file() or not KERNEL_SOURCE_ROOT.is_dir():
+            self.skipTest("promoted v2c System.map or kernel source tree not present")
+
+        symbols = repl.load_system_map(C2B_PADDING_MAP_PATH)
+        fake = FaithfulFakeTransport(0x130000, symbols, self.image)
+        orig = repl.transport.run_serial_command
+        repl.transport.run_serial_command = fake.run_serial_command
+        self.addCleanup(lambda: setattr(repl.transport, "run_serial_command", orig))
+        session = repl.ReplSession(repl.ReplConfig(settle_sec=0.0))
+        summary, private = repl.run_call_proof(
+            session,
+            symbols,
+            self.image,
+            "match_octal",
+            source_root=KERNEL_SOURCE_ROOT,
+        )
+
+        self.assertTrue(summary["ok"], summary)
+        self.assertEqual(summary["decision"], "a90-repl-live-call-proof-match_octal-pass")
+        self.assertEqual(summary["proof_status"], "trusted-under-owned-input-contract")
+        self.assertEqual(summary["function_map_entry"]["symbol"], "match_octal")
+        self.assertEqual(summary["function_map_entry"]["status"], "live-proven")
+        self.assertEqual(
+            summary["source_evidence"]["signature"],
+            "int match_octal(substring_t *, int *result)",
+        )
+        self.assertEqual(summary["input_ascii"], repl.MATCH_OCTAL_INPUT_LABEL)
+        self.assertEqual(summary["expected_return"], repl.MATCH_OCTAL_EXPECTED_RETURN)
+        self.assertEqual(summary["observed_return"], repl.MATCH_OCTAL_EXPECTED_RETURN)
+        self.assertEqual(summary["expected_result"], repl.MATCH_OCTAL_EXPECTED_VALUE)
+        self.assertEqual(summary["observed_result"], repl.MATCH_OCTAL_EXPECTED_VALUE)
+        self.assertEqual(summary["expected_result_raw_hex"], "0x000001ed")
+        self.assertEqual(summary["observed_result_raw_hex"], "0x000001ed")
+        self.assertTrue(summary["substring_unchanged_after_call"])
+        self.assertTrue(summary["input_unchanged_after_call"])
+        self.assertTrue(summary["result_slot_canary_preserved"])
+        self.assertTrue(summary["raw_runtime_values_redacted"])
+        self.assertTrue(summary["owned_pointer_redacted"])
+        self.assertTrue(summary["observed_bytes_redacted"])
+        self.assertNotIn("layout_ptr", summary)
+        self.assertNotIn("substring_ptr", summary)
+        self.assertNotIn("result_ptr", summary)
+        self.assertEqual(private["layout_ptr"], f"0x{fake.heap_ptr:x}")
+        self.assertEqual(private["substring_ptr"], f"0x{fake.heap_ptr + repl.MATCH_OCTAL_SUBSTRING_OFFSET:x}")
+        self.assertEqual(private["input_ptr"], f"0x{fake.heap_ptr + repl.MATCH_OCTAL_INPUT_OFFSET:x}")
+        self.assertEqual(private["result_ptr"], f"0x{fake.heap_ptr + repl.MATCH_OCTAL_RESULT_OFFSET:x}")
+        expected_substring = struct.pack(
+            "<QQ",
+            fake.heap_ptr + repl.MATCH_OCTAL_INPUT_OFFSET,
+            fake.heap_ptr + repl.MATCH_OCTAL_INPUT_OFFSET + len(repl.MATCH_OCTAL_INPUT_BYTES),
+        ) + (b"\xcc" * repl.MATCH_OCTAL_CANARY_LEN)
+        expected_input = (
+            repl.MATCH_OCTAL_INPUT_BYTES + b"\x00" + (b"\xcc" * repl.MATCH_OCTAL_CANARY_LEN)
+        )
+        expected_result_before = (
+            repl.MATCH_OCTAL_RESULT_INITIAL_RAW + (b"\xcc" * repl.MATCH_OCTAL_CANARY_LEN)
+        )
+        expected_result_after = (
+            (repl.MATCH_OCTAL_EXPECTED_VALUE & 0xFFFFFFFF).to_bytes(4, "little")
+            + (b"\xcc" * repl.MATCH_OCTAL_CANARY_LEN)
         )
         self.assertEqual(private["substring_before_hex"], expected_substring.hex())
         self.assertEqual(private["substring_after_hex"], expected_substring.hex())
