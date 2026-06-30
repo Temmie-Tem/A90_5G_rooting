@@ -319,6 +319,12 @@ CALL_SAFETY_SEEDS = {
         "return_kind": "int-errno",
         "reason": "modern integer parser; x0 must be an owned NUL-terminated string and x2 an owned unsigned-int output slot",
     },
+    "kstrtoint": {
+        "tier": CALL_SAFETY_SAFE_WITH_VALID_PTR,
+        "required_valid_pointer_args": {0: "numeric-string-buffer", 2: "int-result-output-slot"},
+        "return_kind": "int-errno",
+        "reason": "modern signed integer parser; x0 must be an owned NUL-terminated string and x2 an owned int output slot",
+    },
     "strnlen": {
         "tier": CALL_SAFETY_SAFE_WITH_VALID_PTR,
         "required_valid_pointer_args": {0: "string-buffer"},
@@ -3116,6 +3122,7 @@ _SOURCE_HEADER_HINTS_BY_EXACT_SYMBOL = {
     "kernel_read_file_from_path": ("include/linux/fs.h",),
     "kernel_write": ("include/linux/fs.h",),
     "kstrtouint": ("include/linux/kernel.h",),
+    "kstrtoint": ("include/linux/kernel.h",),
     "kfree": ("include/linux/slab.h",),
     "ksize": ("include/linux/slab.h",),
     "vfs_getxattr": ("include/linux/xattr.h",),
@@ -4801,6 +4808,12 @@ CALL_PROOF_TARGETS = {
         "expected_tier": CALL_SAFETY_SAFE_WITH_VALID_PTR,
         "source_signature": "int __must_check kstrtouint(const char *s, unsigned int base, unsigned int *res)",
     },
+    "kstrtoint": {
+        "input_contract": "owned NUL-terminated signed numeric string + scalar base + owned int result slot",
+        "return_contract": "int == 0 and *res == expected parsed signed int",
+        "expected_tier": CALL_SAFETY_SAFE_WITH_VALID_PTR,
+        "source_signature": "int __must_check kstrtoint(const char *s, unsigned int base, int *res)",
+    },
     "strnlen": {
         "input_contract": "owned NUL-terminated kernel string buffer + scalar maxlen",
         "return_contract": "size_t == expected string length and <= maxlen",
@@ -5179,6 +5192,17 @@ KSTRTOUINT_INPUT_SCAN_LEN = len(KSTRTOUINT_INPUT_BYTES) + KSTRTOUINT_CANARY_LEN
 KSTRTOUINT_RESULT_SLOT_INITIAL = 0x11111111
 KSTRTOUINT_RESULT_SLOT_CANARY_LEN = 12
 KSTRTOUINT_RESULT_SLOT_SCAN_LEN = 4 + KSTRTOUINT_RESULT_SLOT_CANARY_LEN
+KSTRTOINT_INPUT_BYTES = b"-12345\x00"
+KSTRTOINT_INPUT_LABEL = KSTRTOINT_INPUT_BYTES[:-1].decode("ascii")
+KSTRTOINT_BASE = 10
+KSTRTOINT_EXPECTED_RETURN = 0
+KSTRTOINT_EXPECTED_VALUE = -12345
+KSTRTOINT_EXPECTED_RAW_U32 = KSTRTOINT_EXPECTED_VALUE & 0xFFFFFFFF
+KSTRTOINT_CANARY_LEN = 8
+KSTRTOINT_INPUT_SCAN_LEN = len(KSTRTOINT_INPUT_BYTES) + KSTRTOINT_CANARY_LEN
+KSTRTOINT_RESULT_SLOT_INITIAL = 0x11111111
+KSTRTOINT_RESULT_SLOT_CANARY_LEN = 12
+KSTRTOINT_RESULT_SLOT_SCAN_LEN = 4 + KSTRTOINT_RESULT_SLOT_CANARY_LEN
 SYSFS_STREQ_LEFT_NEWLINE_BYTES = b"A90SYSFS-VALUE\n\x00"
 SYSFS_STREQ_LEFT_EQUAL_BYTES = b"A90SYSFS-VALUE\x00"
 SYSFS_STREQ_RIGHT_EQUAL_BYTES = b"A90SYSFS-VALUE\x00"
@@ -16021,6 +16045,259 @@ def _run_call_proof_kstrtouint(session: ReplSession,
     return summary, private
 
 
+def _run_call_proof_kstrtoint(session: ReplSession,
+                              symbols: dict[str, Symbol],
+                              image: StaticImage,
+                              *,
+                              alloc_size: int,
+                              source_root: Path,
+                              gfp: int,
+                              gfp_components: dict[str, int]) -> tuple[dict[str, object], dict[str, object]]:
+    required_alloc = max(KSTRTOINT_INPUT_SCAN_LEN, KSTRTOINT_RESULT_SLOT_SCAN_LEN)
+    if alloc_size < required_alloc:
+        raise ReplError(f"kstrtoint call-proof alloc_size must be at least {required_alloc} bytes")
+
+    source = lookup_source_signature("kstrtoint", source_root=source_root)
+    call_safety = require_call_safety_for_call(
+        symbols,
+        image,
+        "kstrtoint",
+        ("@owned_signed_numeric_string_buffer", KSTRTOINT_BASE, "@owned_int_result_output_slot"),
+    )
+    if call_safety.get("tier") != CALL_PROOF_TARGETS["kstrtoint"]["expected_tier"]:
+        raise ReplError("kstrtoint call-safety tier is not the expected vetted pointer tier")
+    if not source.get("found") or source.get("pointer_arg_indices") != [0, 2]:
+        raise ReplError("kstrtoint source signature does not declare x0/x2 as pointer arguments")
+
+    resolutions = {
+        "kstrtoint": resolve_verified(symbols, image, "kstrtoint", purpose="call"),
+        "__kmalloc": resolve_verified(symbols, image, "__kmalloc", purpose="call"),
+        "kfree": resolve_verified(symbols, image, "kfree", purpose="call"),
+    }
+    kstrtoint_link = require_verified_resolution(resolutions["kstrtoint"], "call-proof target")
+    kmalloc_link = require_verified_resolution(resolutions["__kmalloc"], "call-proof buffer allocator")
+    kfree_link = require_verified_resolution(resolutions["kfree"], "call-proof buffer cleanup")
+    assert_no_precall_x0_pointer_deref(image, kmalloc_link, "__kmalloc")
+
+    expected_input_scan = KSTRTOINT_INPUT_BYTES + (b"\xcc" * KSTRTOINT_CANARY_LEN)
+    expected_result_slot_before = (
+        KSTRTOINT_RESULT_SLOT_INITIAL.to_bytes(4, "little")
+        + (b"\xcc" * KSTRTOINT_RESULT_SLOT_CANARY_LEN)
+    )
+    expected_result_slot_after = (
+        KSTRTOINT_EXPECTED_RAW_U32.to_bytes(4, "little")
+        + (b"\xcc" * KSTRTOINT_RESULT_SLOT_CANARY_LEN)
+    )
+    checks: list[dict[str, object]] = [
+        {
+            "check": "static-c1-identity",
+            "ok": True,
+            "target": "kstrtoint",
+            "resolution_method": resolutions["kstrtoint"].method,
+        },
+        {
+            "check": "static-source-contract",
+            "ok": True,
+            "signature": source.get("selected", {}).get("signature")
+            if isinstance(source.get("selected"), dict) else None,
+            "pointer_arg_indices": source.get("pointer_arg_indices", []),
+        },
+        {
+            "check": "static-call-safety-contract",
+            "ok": True,
+            "tier": call_safety.get("tier"),
+            "required_valid_pointer_args": call_safety.get("required_valid_pointer_args", {}),
+            "base": KSTRTOINT_BASE,
+        },
+    ]
+    private: dict[str, object] = {}
+    input_ptr = 0
+    result_slot_ptr = 0
+    slide = 0
+    kfree_runtime = 0
+    free_attempted: list[str] = []
+    free_ok: dict[str, bool] = {"input": False, "result_slot": False}
+    free_errors: list[str] = []
+    proof_return = 0
+    observed_input_before = b""
+    observed_input_after = b""
+    observed_result_slot_before = b""
+    observed_result_slot_after = b""
+    observed_result_raw = 0
+    observed_result_value = 0
+
+    session.hide()
+    session.set_panic_on_oops(0)
+    try:
+        slide = session.slide()
+        if slide & 0xFFF:
+            raise ReplError("slide is not page-aligned; refusing to proceed")
+        kstrtoint_runtime = (kstrtoint_link + slide) & MASK64
+        kmalloc_runtime = (kmalloc_link + slide) & MASK64
+        kfree_runtime = (kfree_link + slide) & MASK64
+
+        input_ptr = session.call_runtime(kmalloc_runtime, (alloc_size, gfp))
+        result_slot_ptr = session.call_runtime(kmalloc_runtime, (alloc_size, gfp))
+        input_ok = is_kernel_lowmem_pointer(input_ptr)
+        result_slot_ok = is_kernel_lowmem_pointer(result_slot_ptr)
+        distinct_ok = input_ptr != result_slot_ptr
+        checks.append({
+            "check": "kmalloc-owned-kstrtoint-buffers",
+            "ok": input_ok and result_slot_ok and distinct_ok,
+            "alloc_size": alloc_size,
+            "input_kernel_lowmem": input_ok,
+            "result_slot_kernel_lowmem": result_slot_ok,
+            "distinct_buffers": distinct_ok,
+        })
+        if not (input_ok and result_slot_ok and distinct_ok):
+            raise ReplError("__kmalloc did not return sane distinct kstrtoint buffers")
+
+        _poke_bytes(session, input_ptr, expected_input_scan)
+        _poke_bytes(session, result_slot_ptr, expected_result_slot_before)
+        observed_input_before = _peek_bytes(session, input_ptr, KSTRTOINT_INPUT_SCAN_LEN)
+        observed_result_slot_before = _peek_bytes(session, result_slot_ptr, KSTRTOINT_RESULT_SLOT_SCAN_LEN)
+        setup_ok = (
+            observed_input_before == expected_input_scan
+            and observed_result_slot_before == expected_result_slot_before
+        )
+        checks.append({
+            "check": "owned-kstrtoint-buffer-poke-peek",
+            "ok": setup_ok,
+            "input_ascii": KSTRTOINT_INPUT_LABEL,
+            "base": KSTRTOINT_BASE,
+            "input_canary_len": KSTRTOINT_CANARY_LEN,
+            "result_slot_canary_len": KSTRTOINT_RESULT_SLOT_CANARY_LEN,
+        })
+        if not setup_ok:
+            raise ReplError("owned kstrtoint buffer poke/peek mismatch")
+
+        proof_return = session.call_runtime(
+            kstrtoint_runtime,
+            (input_ptr, KSTRTOINT_BASE, result_slot_ptr),
+        )
+        observed_input_after = _peek_bytes(session, input_ptr, KSTRTOINT_INPUT_SCAN_LEN)
+        observed_result_slot_after = _peek_bytes(session, result_slot_ptr, KSTRTOINT_RESULT_SLOT_SCAN_LEN)
+        observed_result_raw = int.from_bytes(observed_result_slot_after[:4], "little")
+        observed_result_value = (
+            observed_result_raw - 0x100000000
+            if observed_result_raw & 0x80000000 else observed_result_raw
+        )
+        return_ok = proof_return == KSTRTOINT_EXPECTED_RETURN
+        result_ok = (
+            observed_result_value == KSTRTOINT_EXPECTED_VALUE
+            and observed_result_raw == KSTRTOINT_EXPECTED_RAW_U32
+        )
+        input_unchanged = observed_input_after == expected_input_scan
+        result_canary_ok = observed_result_slot_after[4:] == (b"\xcc" * KSTRTOINT_RESULT_SLOT_CANARY_LEN)
+        checks.append({
+            "check": "kstrtoint-return-contract",
+            "ok": return_ok,
+            "input_ascii": KSTRTOINT_INPUT_LABEL,
+            "base": KSTRTOINT_BASE,
+            "expected_return": KSTRTOINT_EXPECTED_RETURN,
+            "observed_return": proof_return,
+        })
+        if not return_ok:
+            raise ReplError("kstrtoint return code did not match")
+        checks.append({
+            "check": "kstrtoint-result-contract",
+            "ok": result_ok,
+            "expected_result": KSTRTOINT_EXPECTED_VALUE,
+            "observed_result": observed_result_value,
+            "expected_result_raw_hex": f"0x{KSTRTOINT_EXPECTED_RAW_U32:08x}",
+            "observed_result_raw_hex": f"0x{observed_result_raw:08x}",
+        })
+        if not result_ok:
+            raise ReplError("kstrtoint parsed result value did not match")
+        checks.append({
+            "check": "kstrtoint-input-immutability",
+            "ok": input_unchanged,
+            "input_unchanged": input_unchanged,
+        })
+        if not input_unchanged:
+            raise ReplError("kstrtoint modified the input buffer")
+        checks.append({
+            "check": "kstrtoint-result-slot-canary",
+            "ok": result_canary_ok,
+            "result_slot_canary_ok": result_canary_ok,
+        })
+        if not result_canary_ok:
+            raise ReplError("kstrtoint wrote past the owned result slot")
+    finally:
+        if kfree_runtime:
+            for label, ptr in (("input", input_ptr), ("result_slot", result_slot_ptr)):
+                if ptr and is_kernel_lowmem_pointer(ptr):
+                    free_attempted.append(label)
+                    try:
+                        session.call_runtime(kfree_runtime, (ptr,))
+                        free_ok[label] = True
+                    except Exception as exc:  # noqa: BLE001 - cleanup failures must be visible
+                        free_errors.append(f"{label}:{exc}")
+        session.set_panic_on_oops(1)
+
+    cleanup_ok = bool(free_ok["input"] and free_ok["result_slot"])
+    checks.append({
+        "check": "kfree-owned-kstrtoint-buffers",
+        "ok": cleanup_ok,
+        "free_attempted": free_attempted,
+        "input_free_ok": free_ok["input"],
+        "result_slot_free_ok": free_ok["result_slot"],
+    })
+    if free_errors:
+        raise ReplError(f"kfree failed after kstrtoint proof: {free_errors}")
+
+    passed = all(bool(check.get("ok")) for check in checks)
+    summary = {
+        "decision": f"a90-repl-live-call-proof-kstrtoint-{'pass' if passed else 'fail'}",
+        "ok": passed,
+        "target": "kstrtoint",
+        "proof_status": "trusted-under-owned-input-contract" if passed else "failed",
+        "input_contract": CALL_PROOF_TARGETS["kstrtoint"]["input_contract"],
+        "return_contract": CALL_PROOF_TARGETS["kstrtoint"]["return_contract"],
+        "alloc_size": alloc_size,
+        "input_ascii": KSTRTOINT_INPUT_LABEL,
+        "base": KSTRTOINT_BASE,
+        "expected_return": KSTRTOINT_EXPECTED_RETURN,
+        "observed_return": proof_return,
+        "expected_result": KSTRTOINT_EXPECTED_VALUE,
+        "observed_result": observed_result_value,
+        "expected_result_raw_hex": f"0x{KSTRTOINT_EXPECTED_RAW_U32:08x}",
+        "observed_result_raw_hex": f"0x{observed_result_raw:08x}",
+        "input_unchanged_after_call": observed_input_after == expected_input_scan,
+        "result_slot_canary_preserved": observed_result_slot_after[4:] == (b"\xcc" * KSTRTOINT_RESULT_SLOT_CANARY_LEN),
+        "gfp_kernel": f"0x{gfp:x}",
+        "source_evidence": _source_row_evidence(source),
+        "call_safety": call_safety,
+        "resolutions": _redacted_resolution_set(resolutions),
+        "raw_runtime_values_redacted": True,
+        "owned_pointer_redacted": True,
+        "observed_bytes_redacted": True,
+        "checks": checks,
+        "function_map_entry": {
+            "symbol": "kstrtoint",
+            "status": "live-proven",
+            "trusted_input_contract": CALL_PROOF_TARGETS["kstrtoint"]["input_contract"],
+            "return_contract": CALL_PROOF_TARGETS["kstrtoint"]["return_contract"],
+            "observed_return_value": "returned 0 and stored -12345 in the owned signed-int result slot",
+            "cleanup": "kfree-owned-kstrtoint-buffers-ok" if cleanup_ok else "cleanup-failed",
+            "auto_call_policy": "one-target-proof-only-not-mass-call",
+        },
+    }
+    private.update({
+        "slide": f"0x{slide:x}",
+        "kstrtoint_runtime": f"0x{((kstrtoint_link + slide) & MASK64):x}",
+        "input_ptr": f"0x{input_ptr:x}",
+        "result_slot_ptr": f"0x{result_slot_ptr:x}",
+        "input_before_hex": observed_input_before.hex(),
+        "input_after_hex": observed_input_after.hex(),
+        "result_slot_before_hex": observed_result_slot_before.hex(),
+        "result_slot_after_hex": observed_result_slot_after.hex(),
+        "expected_result_slot_after_hex": expected_result_slot_after.hex(),
+        "gfp_components": {key: f"0x{component:x}" for key, component in gfp_components.items()},
+    })
+    return summary, private
+
+
 def run_call_proof(session: ReplSession,
                    symbols: dict[str, Symbol],
                    image: StaticImage,
@@ -16094,6 +16371,16 @@ def run_call_proof(session: ReplSession,
         )
     if target == "kstrtouint":
         return _run_call_proof_kstrtouint(
+            session,
+            symbols,
+            image,
+            alloc_size=alloc_size,
+            source_root=source_root,
+            gfp=gfp,
+            gfp_components=gfp_components,
+        )
+    if target == "kstrtoint":
+        return _run_call_proof_kstrtoint(
             session,
             symbols,
             image,
