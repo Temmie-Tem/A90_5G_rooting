@@ -767,6 +767,44 @@ epic is DONE.** Reports:
 `docs/reports/NATIVE_INIT_V3335_GPU_Z3_PRIMARY_SETCRTC_SOURCE_BUILD_2026-06-27.md` and
 `docs/reports/NATIVE_INIT_V3335_GPU_Z3_PRIMARY_SETCRTC_LIVE_2026-06-27.md`.**
 
+## ✅ DONE — REPL post-epic one-target live-call proof — `get_current_napi_context` process-context NULL contract
+
+> ### ✅ STATUS (2026-06-30 live pass) — `get_current_napi_context` promoted under no-arg REPL process-context only
+>
+> Eighty-first one-target live-call proof after the REPL epic close. Codex continued the scalar/no-pointer
+> `get_*` sweep after `get_cpu_device` and selected `get_current_napi_context` because C1 verified
+> `get_current_napi_context=0xffffff800971f284`, `export-recovery`, direct-BL xrefs `10`, JOPP entry
+> true, source contract `extern struct napi_struct * get_current_napi_context(void)` from
+> `include/linux/netdevice.h:3327`, and no arguments. The actual function body is bounded by
+> `netdev_has_upper_dev` at `+0x20`; the proof gates static words `0xd0007fc9`, `0xd538d088`,
+> `0x910c0129`, `0x8b090108`, `0xf9400900`, `0xd65f03c0`, `0xd503201f`, and `0x00be7bad`.
+>
+> Host validation passed: `py_compile` for `a90_repl.py` and `tests/test_a90_repl.py`; CLI
+> `call-safety-classify get_current_napi_context` (`SAFE-SCALAR`, no required pointer args); focused
+> unittest coverage for static classification, source signature, and the fake-transport no-arg proof;
+> and full `tests.test_a90_repl` (`Ran 144 tests`, `OK`). Candidate selection deliberately skipped
+> `get_debug_reset_header` because it allocates, reads a debug partition, logs, and frees, and skipped
+> DDR/boot-stat getters because their SMEM/logging paths and device-specific return contracts are weaker.
+>
+> Live validation obeyed the flash gate: rollback/fallback/TWRP SHAs confirmed, bridge healthy,
+> baseline v2321 `version/status/selftest` passed, v1-repl candidate flashed through
+> `native_init_flash.py` with matching readback SHA, and helper `version/status` passed. A transient
+> candidate standalone selftest parse miss was cleared by restarting the serial bridge; candidate
+> selftest then returned `pass=11 warn=1 fail=0`, and `a90-repl-v2a1-selftest-pass` confirmed the REPL
+> path before the target call.
+>
+> Result: `a90-repl-live-call-proof-get_current_napi_context-pass`; checks covered C1 identity, next
+> symbol boundary, no-arg source contract, `SAFE-SCALAR` call-safety, the per-CPU current-NAPI pointer
+> load sequence, and two repeated REPL process-context calls returning NULL. No owned resource was
+> created and no pointer was returned; raw runtime address/slide evidence stayed private under
+> `workspace/private/runs/kernel/live-call-proof-get-current-napi-context-20260630/proof/`. Post-proof
+> candidate selftest stayed `pass=11 warn=1 fail=0`; Codex rolled back to clean v2321 through
+> `native_init_flash.py`, readback SHA matched, helper `version/status` passed, a transient final
+> standalone `version` parse miss was cleared by restarting the serial bridge, and final standalone
+> `version` plus selftest confirmed v2321 with `pass=11 warn=1 fail=0`. Function map records
+> `get_current_napi_context` only under the no-arg REPL process-context NULL contract. Report:
+> `docs/reports/KERNEL_SECURITY_TIER2_RUNTIME_KERNEL_REPL_LIVE_CALL_PROOF_GET_CURRENT_NAPI_CONTEXT_2026-06-30.md`.
+
 ## ✅ DONE — REPL post-epic one-target live-call proof — `get_cpu_device` scalar CPU lookup contract
 
 > ### ✅ STATUS (2026-06-30 live pass) — `get_cpu_device` promoted under scalar CPU index only

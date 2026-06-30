@@ -300,6 +300,12 @@ CALL_SAFETY_SEEDS = {
         "return_kind": "borrowed-kernel-pointer-or-null",
         "reason": "CPU device lookup helper; x0 is one scalar CPU index, return is borrowed and must not be dereferenced or freed by the proof",
     },
+    "get_current_napi_context": {
+        "tier": CALL_SAFETY_SAFE_SCALAR,
+        "required_valid_pointer_args": {},
+        "return_kind": "borrowed-kernel-pointer-or-null",
+        "reason": "no-argument NAPI context lookup; proof calls from REPL process context and expects NULL, any non-NULL return is borrowed and must not be dereferenced or freed",
+    },
     "__sw_hweight32": {
         "tier": CALL_SAFETY_SAFE_SCALAR,
         "required_valid_pointer_args": {},
@@ -3336,6 +3342,7 @@ _SOURCE_HEADER_HINTS_BY_EXACT_SYMBOL = {
     "find_next_bit": ("include/asm-generic/bitops/find.h", "include/linux/bitops.h"),
     "find_next_zero_bit": ("include/asm-generic/bitops/find.h", "include/linux/bitops.h"),
     "get_cpu_device": ("include/linux/cpu.h",),
+    "get_current_napi_context": ("include/linux/netdevice.h",),
     "cpumask_next": ("include/linux/cpumask.h",),
     "cpumask_next_wrap": ("include/linux/cpumask.h",),
     "cpumask_next_and": ("include/linux/cpumask.h",),
@@ -5048,6 +5055,12 @@ CALL_PROOF_TARGETS = {
         "expected_tier": CALL_SAFETY_SAFE_SCALAR,
         "source_signature": "extern struct device * get_cpu_device(unsigned cpu)",
     },
+    "get_current_napi_context": {
+        "input_contract": "no arguments; called from REPL process context outside NAPI poll/softirq; returned pointer, if any, is borrowed/read-only and is not dereferenced or freed",
+        "return_contract": "struct napi_struct * == NULL for the REPL process-context proof call",
+        "expected_tier": CALL_SAFETY_SAFE_SCALAR,
+        "source_signature": "extern struct napi_struct * get_current_napi_context(void)",
+    },
     "__sw_hweight32": {
         "input_contract": "scalar unsigned 32-bit word",
         "return_contract": "unsigned int == population count of the low 32 input bits",
@@ -6075,6 +6088,14 @@ GET_CPU_DEVICE_POSSIBLE_TBZ_WORD = 0x36000108
 GET_CPU_DEVICE_PERCPU_BASE_LOAD_WORD = 0xF8605908
 GET_CPU_DEVICE_DEVICE_LOAD_WORD = 0xF8696900
 GET_CPU_DEVICE_NULL_RETURN_WORD = 0xAA1F03E0
+GET_CURRENT_NAPI_CONTEXT_ADRP_SOFTNET_DATA_WORD = 0xD0007FC9
+GET_CURRENT_NAPI_CONTEXT_MRS_TPIDR_EL1_WORD = 0xD538D088
+GET_CURRENT_NAPI_CONTEXT_ADD_SOFTNET_OFFSET_WORD = 0x910C0129
+GET_CURRENT_NAPI_CONTEXT_ADD_PERCPU_BASE_WORD = 0x8B090108
+GET_CURRENT_NAPI_CONTEXT_LOAD_CURRENT_NAPI_WORD = 0xF9400900
+GET_CURRENT_NAPI_CONTEXT_RET_WORD = 0xD65F03C0
+GET_CURRENT_NAPI_CONTEXT_PADDING_NOP_WORD = 0xD503201F
+GET_CURRENT_NAPI_CONTEXT_NEXT_GUARD_WORD = 0x00BE7BAD
 FIND_NEXT_BIT_PROOF_SIZE_BITS = 128
 FIND_NEXT_BIT_TAIL_SIZE_BITS = 88
 FIND_NEXT_BIT_ONE_BITS = (9, 73, 90)
@@ -21305,6 +21326,173 @@ def _run_call_proof_get_cpu_device(session: ReplSession,
     return summary, private
 
 
+def _run_call_proof_get_current_napi_context(
+    session: ReplSession,
+    symbols: dict[str, Symbol],
+    image: StaticImage,
+    *,
+    source_root: Path,
+) -> tuple[dict[str, object], dict[str, object]]:
+    source = lookup_source_signature("get_current_napi_context", source_root=source_root)
+    call_safety = require_call_safety_for_call(
+        symbols,
+        image,
+        "get_current_napi_context",
+        (),
+    )
+    if call_safety.get("tier") != CALL_PROOF_TARGETS["get_current_napi_context"]["expected_tier"]:
+        raise ReplError("get_current_napi_context call-safety tier is not the expected vetted scalar tier")
+    if not source.get("found") or source.get("pointer_arg_indices") != []:
+        raise ReplError("get_current_napi_context source signature must be no-arg scalar-safe")
+    selected_signature = (
+        source.get("selected", {}).get("signature")
+        if isinstance(source.get("selected"), dict) else None
+    )
+    if selected_signature != CALL_PROOF_TARGETS["get_current_napi_context"]["source_signature"]:
+        raise ReplError("get_current_napi_context source signature did not select the exported declaration")
+
+    resolutions = {
+        "get_current_napi_context": resolve_verified(
+            symbols,
+            image,
+            "get_current_napi_context",
+            purpose="call",
+        ),
+    }
+    target_link = require_verified_resolution(
+        resolutions["get_current_napi_context"],
+        "call-proof target",
+    )
+    next_symbol = symbols.get("netdev_has_upper_dev")
+    if next_symbol is None or next_symbol.vaddr - target_link != 0x20:
+        raise ReplError("get_current_napi_context next-symbol boundary is not the expected 0x20")
+    words = image.u32_words_at_vaddr(target_link, 8)
+    static_word_checks = (
+        ("static-adrp-softnet-data", 0, GET_CURRENT_NAPI_CONTEXT_ADRP_SOFTNET_DATA_WORD),
+        ("static-mrs-tpidr-el1", 1, GET_CURRENT_NAPI_CONTEXT_MRS_TPIDR_EL1_WORD),
+        ("static-add-softnet-offset", 2, GET_CURRENT_NAPI_CONTEXT_ADD_SOFTNET_OFFSET_WORD),
+        ("static-add-percpu-base", 3, GET_CURRENT_NAPI_CONTEXT_ADD_PERCPU_BASE_WORD),
+        ("static-load-current-napi", 4, GET_CURRENT_NAPI_CONTEXT_LOAD_CURRENT_NAPI_WORD),
+        ("static-ret", 5, GET_CURRENT_NAPI_CONTEXT_RET_WORD),
+        ("static-padding-nop", 6, GET_CURRENT_NAPI_CONTEXT_PADDING_NOP_WORD),
+        ("static-next-guard", 7, GET_CURRENT_NAPI_CONTEXT_NEXT_GUARD_WORD),
+    )
+
+    checks: list[dict[str, object]] = [
+        {
+            "check": "static-c1-identity",
+            "ok": True,
+            "target": "get_current_napi_context",
+            "resolution_method": resolutions["get_current_napi_context"].method,
+        },
+        {
+            "check": "static-next-symbol-boundary",
+            "ok": True,
+            "next_symbol": "netdev_has_upper_dev",
+            "byte_size": "0x20",
+        },
+        {
+            "check": "static-source-contract",
+            "ok": True,
+            "signature": selected_signature,
+            "pointer_arg_indices": source.get("pointer_arg_indices", []),
+        },
+        {
+            "check": "static-call-safety-contract",
+            "ok": True,
+            "tier": call_safety.get("tier"),
+            "required_valid_pointer_args": call_safety.get("required_valid_pointer_args", {}),
+        },
+    ]
+    for name, index, expected in static_word_checks:
+        observed = words[index]
+        ok = observed == expected
+        checks.append({
+            "check": name,
+            "ok": ok,
+            "expected_word": f"0x{expected:08x}",
+            "observed_word": f"0x{observed:08x}",
+        })
+        if not ok:
+            raise ReplError(
+                f"get_current_napi_context {name} word mismatch: observed 0x{observed:08x}, "
+                f"expected 0x{expected:08x}"
+            )
+
+    private: dict[str, object] = {}
+    slide = 0
+    returns: list[int] = []
+    case_results: list[dict[str, object]] = []
+
+    session.hide()
+    session.set_panic_on_oops(0)
+    try:
+        slide = session.slide()
+        if slide & 0xFFF:
+            raise ReplError("slide is not page-aligned; refusing to proceed")
+        target_runtime = (target_link + slide) & MASK64
+        for index in range(2):
+            observed = session.call_runtime(target_runtime, ())
+            returns.append(observed)
+            ok = observed == 0
+            case_results.append({
+                "case": f"process-context-null-{index + 1}",
+                "expected_return_value": "0x0",
+                "observed_return_value": f"0x{observed:x}",
+                "ok": ok,
+            })
+            if not ok:
+                raise ReplError(
+                    "get_current_napi_context() returned a non-NULL borrowed NAPI context "
+                    f"in process-context proof call {index + 1}: 0x{observed:x}"
+                )
+    finally:
+        session.set_panic_on_oops(1)
+
+    checks.append({
+        "check": "get-current-napi-context-process-context-null-repeat",
+        "ok": all(bool(case.get("ok")) for case in case_results),
+        "case_count": len(case_results),
+        "cases": case_results,
+    })
+    passed = all(bool(check.get("ok")) for check in checks)
+    summary = {
+        "decision": f"a90-repl-live-call-proof-get_current_napi_context-{'pass' if passed else 'fail'}",
+        "ok": passed,
+        "target": "get_current_napi_context",
+        "proof_status": "trusted-under-process-context-null-contract" if passed else "failed",
+        "input_contract": CALL_PROOF_TARGETS["get_current_napi_context"]["input_contract"],
+        "return_contract": CALL_PROOF_TARGETS["get_current_napi_context"]["return_contract"],
+        "case_results": case_results,
+        "all_returns_null": all(value == 0 for value in returns),
+        "repeat_count": len(returns),
+        "source_evidence": _source_row_evidence(source),
+        "call_safety": call_safety,
+        "resolutions": _redacted_resolution_set(resolutions),
+        "raw_runtime_values_redacted": True,
+        "borrowed_pointer_redacted": True,
+        "checks": checks,
+        "function_map_entry": {
+            "symbol": "get_current_napi_context",
+            "status": "live-proven",
+            "trusted_input_contract": CALL_PROOF_TARGETS["get_current_napi_context"]["input_contract"],
+            "return_contract": CALL_PROOF_TARGETS["get_current_napi_context"]["return_contract"],
+            "observed_return_value": "two REPL process-context calls returned NULL",
+            "cleanup": "n/a-null-return-no-owned-resource",
+            "auto_call_policy": "one-target-proof-only-not-mass-call",
+        },
+    }
+    private.update({
+        "slide": f"0x{slide:x}",
+        "get_current_napi_context_runtime": f"0x{((target_link + slide) & MASK64):x}",
+        "case_returns": {
+            case["case"]: case["observed_return_value"]
+            for case in case_results
+        },
+    })
+    return summary, private
+
+
 def _run_call_proof_scalar_hweight(session: ReplSession,
                                    symbols: dict[str, Symbol],
                                    image: StaticImage,
@@ -25583,6 +25771,13 @@ def run_call_proof(session: ReplSession,
         )
     if target == "get_cpu_device":
         return _run_call_proof_get_cpu_device(
+            session,
+            symbols,
+            image,
+            source_root=source_root,
+        )
+    if target == "get_current_napi_context":
+        return _run_call_proof_get_current_napi_context(
             session,
             symbols,
             image,

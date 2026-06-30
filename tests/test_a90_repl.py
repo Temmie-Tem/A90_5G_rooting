@@ -1159,6 +1159,39 @@ class CallSafetyClassificationTests(unittest.TestCase):
             get_cpu_device["signals"]["arg_taint_flow"]["safe_scalar_positive_no_arg_memory_base_flow"]
         )
 
+        get_current_napi_context = self._row("get_current_napi_context")
+        self.assertEqual(get_current_napi_context["tier"], repl.CALL_SAFETY_SAFE_SCALAR)
+        self.assertEqual(get_current_napi_context["required_valid_pointer_args"], {})
+        self.assertTrue(get_current_napi_context["resolution"]["verified"])
+        self.assertEqual(get_current_napi_context["resolution"]["method"], "export-recovery")
+        self.assertEqual(
+            get_current_napi_context["resolution"]["link_vaddr"],
+            "0xffffff800971f284",
+        )
+        self.assertGreaterEqual(get_current_napi_context["signals"]["direct_bl_xref_count"], 10)
+        self.assertEqual(
+            get_current_napi_context["signals"]["arg_pointer_derefs_before_first_bl_or_ret"],
+            [],
+        )
+        self.assertTrue(
+            get_current_napi_context["signals"]["arg_taint_flow"][
+                "safe_scalar_positive_no_arg_memory_base_flow"
+            ]
+        )
+        self.assertEqual(
+            get_current_napi_context["signals"]["first_words"][:8],
+            [
+                "0xd0007fc9",
+                "0xd538d088",
+                "0x910c0129",
+                "0x8b090108",
+                "0xf9400900",
+                "0xd65f03c0",
+                "0xd503201f",
+                "0x00be7bad",
+            ],
+        )
+
         sw_hweight32 = self._row("__sw_hweight32")
         self.assertEqual(sw_hweight32["tier"], repl.CALL_SAFETY_SAFE_SCALAR)
         self.assertEqual(sw_hweight32["required_valid_pointer_args"], {})
@@ -1396,7 +1429,7 @@ class CallSafetyClassificationTests(unittest.TestCase):
         self.assertTrue(summary["host_only"])
         self.assertFalse(summary["device_action"])
         self.assertEqual(summary["seed_whitelist_count"], len(repl.CALL_SAFETY_SEEDS))
-        self.assertEqual(summary["counts"][repl.CALL_SAFETY_SAFE_SCALAR], 7)
+        self.assertEqual(summary["counts"][repl.CALL_SAFETY_SAFE_SCALAR], 8)
         self.assertGreaterEqual(summary["counts"][repl.CALL_SAFETY_SAFE_WITH_VALID_PTR], 8)
         self.assertGreaterEqual(summary["counts"][repl.CALL_SAFETY_BEHAVIOR_CHANGING], 4)
         self.assertEqual(summary["counts"][repl.CALL_SAFETY_DENY], 1)
@@ -2011,6 +2044,21 @@ class CallSafetyClassificationTests(unittest.TestCase):
         self.assertEqual(get_cpu_device["selected"]["line"], 38)
         self.assertTrue(get_cpu_device["selected"]["path"].endswith("include/linux/cpu.h"))
 
+        get_current_napi_context = repl.lookup_source_signature(
+            "get_current_napi_context",
+            source_root=KERNEL_SOURCE_ROOT,
+        )
+        self.assertEqual(get_current_napi_context["status"], "found", get_current_napi_context)
+        self.assertEqual(get_current_napi_context["selected"]["pointer_arg_indices"], [])
+        self.assertEqual(
+            get_current_napi_context["selected"]["signature"],
+            "extern struct napi_struct * get_current_napi_context(void)",
+        )
+        self.assertEqual(get_current_napi_context["selected"]["line"], 3327)
+        self.assertTrue(
+            get_current_napi_context["selected"]["path"].endswith("include/linux/netdevice.h")
+        )
+
         sw_hweight32 = repl.lookup_source_signature("__sw_hweight32", source_root=KERNEL_SOURCE_ROOT)
         self.assertEqual(sw_hweight32["status"], "found", sw_hweight32)
         self.assertEqual(sw_hweight32["selected"]["pointer_arg_indices"], [])
@@ -2382,6 +2430,12 @@ class FaithfulFakeTransport:
             self.symbols,
             self.image,
             "get_cpu_device",
+            purpose="call",
+        ).link_vaddr
+        self.get_current_napi_context_link = repl.resolve_verified(
+            self.symbols,
+            self.image,
+            "get_current_napi_context",
             purpose="call",
         ).link_vaddr
         self.borrowed_cpu0_device_ptr = 0xFFFFFFC012340000
@@ -3003,6 +3057,8 @@ class FaithfulFakeTransport:
             hex_to_bin = self.hex_to_bin_link + self.slide
             assert self.get_cpu_device_link is not None
             get_cpu_device = self.get_cpu_device_link + self.slide
+            assert self.get_current_napi_context_link is not None
+            get_current_napi_context = self.get_current_napi_context_link + self.slide
             assert self.sw_hweight32_link is not None
             sw_hweight32 = self.sw_hweight32_link + self.slide
             assert self.sw_hweight64_link is not None
@@ -3548,6 +3604,10 @@ class FaithfulFakeTransport:
                     lines.append("A90R0")
                 else:
                     raise AssertionError(f"unexpected get_cpu_device CPU index: {arg1:#x}")
+            elif arg0 == get_current_napi_context:
+                if (arg1, arg2, arg3, arg4) != (0, 0, 0, 0):
+                    raise AssertionError("get_current_napi_context proof must pass no arguments")
+                lines.append("A90R0")
             elif arg0 == sw_hweight32:
                 lines.append(f"A90R{(arg1 & 0xFFFFFFFF).bit_count():x}")
             elif arg0 == sw_hweight64:
@@ -4769,6 +4829,50 @@ class SelftestIntegrationTests(unittest.TestCase):
         )
         self.assertEqual(private["case_returns"]["uint-max-out-of-range"], "0x0")
         self.assertEqual(fake.op_count, 3)  # slide + 2 scalar case calls
+
+    def test_call_proof_get_current_napi_context_passes_with_process_context_contract(self) -> None:
+        if not C2B_PADDING_MAP_PATH.is_file() or not KERNEL_SOURCE_ROOT.is_dir():
+            self.skipTest("promoted v2c System.map or kernel source tree not present")
+
+        symbols = repl.load_system_map(C2B_PADDING_MAP_PATH)
+        fake = FaithfulFakeTransport(0x130000, symbols, self.image)
+        orig = repl.transport.run_serial_command
+        repl.transport.run_serial_command = fake.run_serial_command
+        self.addCleanup(lambda: setattr(repl.transport, "run_serial_command", orig))
+        session = repl.ReplSession(repl.ReplConfig(settle_sec=0.0))
+        summary, private = repl.run_call_proof(
+            session,
+            symbols,
+            self.image,
+            "get_current_napi_context",
+            source_root=KERNEL_SOURCE_ROOT,
+        )
+
+        self.assertTrue(summary["ok"], summary)
+        self.assertEqual(
+            summary["decision"],
+            "a90-repl-live-call-proof-get_current_napi_context-pass",
+        )
+        self.assertEqual(summary["proof_status"], "trusted-under-process-context-null-contract")
+        self.assertEqual(summary["function_map_entry"]["symbol"], "get_current_napi_context")
+        self.assertEqual(summary["function_map_entry"]["status"], "live-proven")
+        self.assertEqual(
+            summary["source_evidence"]["signature"],
+            "extern struct napi_struct * get_current_napi_context(void)",
+        )
+        self.assertEqual(summary["source_evidence"]["pointer_arg_indices"], [])
+        self.assertTrue(summary["all_returns_null"])
+        self.assertEqual(summary["repeat_count"], 2)
+        self.assertTrue(summary["raw_runtime_values_redacted"])
+        self.assertTrue(summary["borrowed_pointer_redacted"])
+        self.assertNotIn("get_current_napi_context_runtime", summary)
+        cases = {case["case"]: case for case in summary["case_results"]}
+        self.assertEqual(cases["process-context-null-1"]["observed_return_value"], "0x0")
+        self.assertEqual(cases["process-context-null-2"]["observed_return_value"], "0x0")
+        self.assertIn("get_current_napi_context_runtime", private)
+        self.assertEqual(private["case_returns"]["process-context-null-1"], "0x0")
+        self.assertEqual(private["case_returns"]["process-context-null-2"], "0x0")
+        self.assertEqual(fake.op_count, 3)  # slide + 2 no-arg proof calls
 
     def test_call_proof_sw_hweight32_passes_with_scalar_contract(self) -> None:
         if not C2B_PADDING_MAP_PATH.is_file() or not KERNEL_SOURCE_ROOT.is_dir():
