@@ -1246,6 +1246,35 @@ class CallSafetyClassificationTests(unittest.TestCase):
             ],
         )
 
+        jiffies_to_usecs = self._row("jiffies_to_usecs")
+        self.assertEqual(jiffies_to_usecs["tier"], repl.CALL_SAFETY_SAFE_SCALAR)
+        self.assertEqual(jiffies_to_usecs["required_valid_pointer_args"], {})
+        self.assertTrue(jiffies_to_usecs["resolution"]["verified"])
+        self.assertEqual(jiffies_to_usecs["resolution"]["method"], "export-recovery")
+        self.assertEqual(
+            jiffies_to_usecs["resolution"]["link_vaddr"],
+            "0xffffff8008158164",
+        )
+        self.assertGreaterEqual(jiffies_to_usecs["signals"]["direct_bl_xref_count"], 25)
+        self.assertEqual(
+            jiffies_to_usecs["signals"]["arg_pointer_derefs_before_first_bl_or_ret"],
+            [],
+        )
+        self.assertTrue(
+            jiffies_to_usecs["signals"]["arg_taint_flow"][
+                "safe_scalar_positive_no_arg_memory_base_flow"
+            ]
+        )
+        self.assertEqual(
+            jiffies_to_usecs["signals"]["first_words"][:4],
+            [
+                "0x5284e208",
+                "0x1b087c00",
+                "0xd65f03c0",
+                "0x00be7bad",
+            ],
+        )
+
         get_boot_stat_time = self._row("get_boot_stat_time")
         self.assertEqual(get_boot_stat_time["tier"], repl.CALL_SAFETY_SAFE_SCALAR)
         self.assertEqual(get_boot_stat_time["required_valid_pointer_args"], {})
@@ -1631,7 +1660,7 @@ class CallSafetyClassificationTests(unittest.TestCase):
         self.assertTrue(summary["host_only"])
         self.assertFalse(summary["device_action"])
         self.assertEqual(summary["seed_whitelist_count"], len(repl.CALL_SAFETY_SEEDS))
-        self.assertEqual(summary["counts"][repl.CALL_SAFETY_SAFE_SCALAR], 14)
+        self.assertEqual(summary["counts"][repl.CALL_SAFETY_SAFE_SCALAR], 15)
         self.assertGreaterEqual(summary["counts"][repl.CALL_SAFETY_SAFE_WITH_VALID_PTR], 8)
         self.assertGreaterEqual(summary["counts"][repl.CALL_SAFETY_BEHAVIOR_CHANGING], 4)
         self.assertEqual(summary["counts"][repl.CALL_SAFETY_DENY], 1)
@@ -2326,6 +2355,21 @@ class CallSafetyClassificationTests(unittest.TestCase):
             jiffies_to_clock_t["selected"]["path"].endswith("include/linux/jiffies.h")
         )
 
+        jiffies_to_usecs = repl.lookup_source_signature(
+            "jiffies_to_usecs",
+            source_root=KERNEL_SOURCE_ROOT,
+        )
+        self.assertEqual(jiffies_to_usecs["status"], "found", jiffies_to_usecs)
+        self.assertEqual(jiffies_to_usecs["selected"]["pointer_arg_indices"], [])
+        self.assertEqual(
+            jiffies_to_usecs["selected"]["signature"],
+            "extern unsigned int jiffies_to_usecs(const unsigned long j)",
+        )
+        self.assertEqual(jiffies_to_usecs["selected"]["line"], 292)
+        self.assertTrue(
+            jiffies_to_usecs["selected"]["path"].endswith("include/linux/jiffies.h")
+        )
+
         get_ddr_DSF_version = repl.lookup_source_signature(
             "get_ddr_DSF_version",
             source_root=KERNEL_SOURCE_ROOT,
@@ -2727,6 +2771,12 @@ class FaithfulFakeTransport:
             self.symbols,
             self.image,
             "jiffies_to_clock_t",
+            purpose="call",
+        ).link_vaddr
+        self.jiffies_to_usecs_link = repl.resolve_verified(
+            self.symbols,
+            self.image,
+            "jiffies_to_usecs",
             purpose="call",
         ).link_vaddr
         self.jiffies_64_to_clock_t_link = repl.resolve_verified(
@@ -3395,6 +3445,8 @@ class FaithfulFakeTransport:
             hex_to_bin = self.hex_to_bin_link + self.slide
             assert self.jiffies_to_clock_t_link is not None
             jiffies_to_clock_t = self.jiffies_to_clock_t_link + self.slide
+            assert self.jiffies_to_usecs_link is not None
+            jiffies_to_usecs = self.jiffies_to_usecs_link + self.slide
             assert self.jiffies_64_to_clock_t_link is not None
             jiffies_64_to_clock_t = self.jiffies_64_to_clock_t_link + self.slide
             assert self.get_cpu_device_link is not None
@@ -3962,6 +4014,11 @@ class FaithfulFakeTransport:
                 if (arg2, arg3, arg4) != (0, 0, 0):
                     raise AssertionError("jiffies_to_clock_t proof must pass one scalar argument")
                 lines.append(f"A90R{arg1 & repl.MASK64:x}")
+            elif arg0 == jiffies_to_usecs:
+                if (arg2, arg3, arg4) != (0, 0, 0):
+                    raise AssertionError("jiffies_to_usecs proof must pass one scalar argument")
+                result = (arg1 * repl.JIFFIES_TO_USECS_MULTIPLIER) & 0xFFFFFFFF
+                lines.append(f"A90R{result:x}")
             elif arg0 == jiffies_64_to_clock_t:
                 if (arg2, arg3, arg4) != (0, 0, 0):
                     raise AssertionError("jiffies_64_to_clock_t proof must pass one scalar argument")
@@ -5414,6 +5471,62 @@ class SelftestIntegrationTests(unittest.TestCase):
         self.assertEqual(
             private["case_returns"]["jiffies-to-clock-identity-positive-boundary"],
             "0x7fffffff",
+        )
+        self.assertEqual(fake.op_count, 5)  # slide + 4 scalar proof calls
+
+    def test_call_proof_jiffies_to_usecs_passes_with_bounded_multiply_contract(self) -> None:
+        if not C2B_PADDING_MAP_PATH.is_file() or not KERNEL_SOURCE_ROOT.is_dir():
+            self.skipTest("promoted v2c System.map or kernel source tree not present")
+
+        symbols = repl.load_system_map(C2B_PADDING_MAP_PATH)
+        fake = FaithfulFakeTransport(0x130000, symbols, self.image)
+        orig = repl.transport.run_serial_command
+        repl.transport.run_serial_command = fake.run_serial_command
+        self.addCleanup(lambda: setattr(repl.transport, "run_serial_command", orig))
+        session = repl.ReplSession(repl.ReplConfig(settle_sec=0.0))
+        summary, private = repl.run_call_proof(
+            session,
+            symbols,
+            self.image,
+            "jiffies_to_usecs",
+            source_root=KERNEL_SOURCE_ROOT,
+        )
+
+        self.assertTrue(summary["ok"], summary)
+        self.assertEqual(
+            summary["decision"],
+            "a90-repl-live-call-proof-jiffies_to_usecs-pass",
+        )
+        self.assertEqual(
+            summary["proof_status"],
+            "trusted-under-bounded-unsigned-long-multiply-by-10000-contract",
+        )
+        self.assertEqual(summary["function_map_entry"]["symbol"], "jiffies_to_usecs")
+        self.assertEqual(summary["function_map_entry"]["status"], "live-proven")
+        self.assertEqual(
+            summary["source_evidence"]["signature"],
+            "extern unsigned int jiffies_to_usecs(const unsigned long j)",
+        )
+        self.assertEqual(summary["source_evidence"]["pointer_arg_indices"], [])
+        self.assertTrue(summary["all_returns_match_expected"])
+        self.assertEqual(summary["case_count"], len(repl.JIFFIES_TO_USECS_CASES))
+        self.assertTrue(summary["raw_runtime_values_redacted"])
+        self.assertNotIn("jiffies_to_usecs_runtime", summary)
+        cases = {case["case"]: case for case in summary["case_results"]}
+        self.assertEqual(cases["jiffies-to-usecs-mul10000-zero"]["observed_return_value"], "0x0")
+        self.assertEqual(cases["jiffies-to-usecs-mul10000-one"]["observed_return_value"], "0x2710")
+        self.assertEqual(
+            cases["jiffies-to-usecs-mul10000-small-123"]["observed_return_value"],
+            "0x12c4b0",
+        )
+        self.assertEqual(
+            cases["jiffies-to-usecs-mul10000-uint-boundary"]["observed_return_value"],
+            "0xffffe380",
+        )
+        self.assertIn("jiffies_to_usecs_runtime", private)
+        self.assertEqual(
+            private["case_returns"]["jiffies-to-usecs-mul10000-uint-boundary"],
+            "0xffffe380",
         )
         self.assertEqual(fake.op_count, 5)  # slide + 4 scalar proof calls
 
