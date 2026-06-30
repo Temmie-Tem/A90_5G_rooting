@@ -767,6 +767,38 @@ epic is DONE.** Reports:
 `docs/reports/NATIVE_INIT_V3335_GPU_Z3_PRIMARY_SETCRTC_SOURCE_BUILD_2026-06-27.md` and
 `docs/reports/NATIVE_INIT_V3335_GPU_Z3_PRIMARY_SETCRTC_LIVE_2026-06-27.md`.**
 
+## ✅ DONE — REPL post-epic one-target live-call proof — `kmemdup_nul` owned bounded-buffer duplicate-plus-NUL contract
+
+> ### ✅ STATUS (2026-06-30 live pass) — `kmemdup_nul` promoted under owned source buffer + bounded len + GFP_KERNEL only
+>
+> Fortieth one-target live-call proof after the REPL epic close. Codex extended `a90_repl.py`
+> `call-proof` with `kmemdup_nul`, using one tool-owned initialized source buffer, scalar bounded
+> copy length `29`, and scalar `GFP_KERNEL`. Static gate:
+> `kmemdup_nul=0xffffff800822a85c`, `export-recovery`, direct-BL xrefs `1`, JOPP entry true,
+> non-leaf helper calling `__kmalloc_track_caller` and `__memcpy`, then storing a generated NUL at
+> duplicate offset `len`. Source contract:
+> `extern char * kmemdup_nul(const char *s, size_t len, gfp_t gfp)`, with x0 as the only pointer arg
+> and x1/x2 as scalar args. Call-safety tier is `SAFE-WITH-VALID-PTR`.
+>
+> Live path: baseline v2321 selftest passed, flashed the existing v1-repl image
+> `b846ae9f74d8ceb922bbcd854d78b6795ef833d61e38465d3cc474cb6f0dfb65` through
+> `native_init_flash.py`, confirmed readback SHA, candidate `selftest pass=11 warn=1 fail=0`, and
+> `a90-repl-v2a1-selftest-pass`, then ran `call-proof kmemdup_nul` with the C2B verified map.
+>
+> Result: `a90-repl-live-call-proof-kmemdup_nul-pass`; checks covered C1 identity, source signature,
+> call-safety contract, owned source allocation/poke/peek, `kmemdup_nul(A90KMEMDUPNUL-RAW-Q0123456789,
+> 29, GFP_KERNEL)` returning a distinct owned kernel duplicate pointer, duplicate bytes matching the
+> bounded source bytes plus generated trailing NUL, source byte after `len` not copied, source/canary
+> immutability, and `kfree-owned-kmemdup-nul-source-and-duplicate`.
+>
+> Candidate selftest after proof stayed `fail=0`. Rolled back to clean v2321
+> (`ca978551aabe4b39563abaf529ccf2522054952d8b2ad852e632d26da88168cb`) with final resident
+> `v2321-usb-clean-identity-rodata` and final `selftest pass=11 warn=1 fail=0`. Two host-side
+> health reads hit transient serial `AT` capture noise and passed on sequential retry. Function map
+> records `kmemdup_nul` only under the owned initialized source buffer + bounded length +
+> `GFP_KERNEL` contract. Report:
+> `docs/reports/KERNEL_SECURITY_TIER2_RUNTIME_KERNEL_REPL_LIVE_CALL_PROOF_KMEMDUP_NUL_2026-06-30.md`.
+
 ## ✅ DONE — REPL post-epic one-target live-call proof — `kmemdup` owned raw-buffer duplicate contract
 
 > ### ✅ STATUS (2026-06-30 live pass) — `kmemdup` promoted under owned source buffer + bounded len + GFP_KERNEL only

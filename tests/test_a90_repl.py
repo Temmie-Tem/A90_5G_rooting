@@ -685,6 +685,18 @@ class CallSafetyClassificationTests(unittest.TestCase):
         self.assertGreaterEqual(kmemdup["signals"]["direct_bl_xref_count"], 900)
         self.assertFalse(kmemdup["signals"]["leaf"])
 
+        kmemdup_nul = self._row("kmemdup_nul")
+        self.assertEqual(kmemdup_nul["tier"], repl.CALL_SAFETY_SAFE_WITH_VALID_PTR)
+        self.assertEqual(
+            kmemdup_nul["required_valid_pointer_args"],
+            {"0": "source-buffer"},
+        )
+        self.assertTrue(kmemdup_nul["resolution"]["verified"])
+        self.assertEqual(kmemdup_nul["resolution"]["method"], "export-recovery")
+        self.assertEqual(kmemdup_nul["resolution"]["link_vaddr"], "0xffffff800822a85c")
+        self.assertGreaterEqual(kmemdup_nul["signals"]["direct_bl_xref_count"], 1)
+        self.assertFalse(kmemdup_nul["signals"]["leaf"])
+
         strpbrk = self._row("strpbrk")
         self.assertEqual(strpbrk["tier"], repl.CALL_SAFETY_SAFE_WITH_VALID_PTR)
         self.assertEqual(
@@ -1158,6 +1170,15 @@ class CallSafetyClassificationTests(unittest.TestCase):
             "extern void * kmemdup(const void *src, size_t len, gfp_t gfp)",
         )
         self.assertTrue(kmemdup["selected"]["path"].endswith("include/linux/string.h"))
+
+        kmemdup_nul = repl.lookup_source_signature("kmemdup_nul", source_root=KERNEL_SOURCE_ROOT)
+        self.assertEqual(kmemdup_nul["status"], "found", kmemdup_nul)
+        self.assertEqual(kmemdup_nul["selected"]["pointer_arg_indices"], [0])
+        self.assertEqual(
+            kmemdup_nul["selected"]["signature"],
+            "extern char * kmemdup_nul(const char *s, size_t len, gfp_t gfp)",
+        )
+        self.assertTrue(kmemdup_nul["selected"]["path"].endswith("include/linux/string.h"))
 
         strpbrk = repl.lookup_source_signature("strpbrk", source_root=KERNEL_SOURCE_ROOT)
         self.assertEqual(strpbrk["status"], "found", strpbrk)
@@ -1647,6 +1668,12 @@ class FaithfulFakeTransport:
             "kmemdup",
             purpose="call",
         ).link_vaddr
+        self.kmemdup_nul_link = repl.resolve_verified(
+            self.symbols,
+            self.image,
+            "kmemdup_nul",
+            purpose="call",
+        ).link_vaddr
         self.strpbrk_link = repl.resolve_verified(
             self.symbols,
             self.image,
@@ -1918,6 +1945,8 @@ class FaithfulFakeTransport:
             kstrndup = self.kstrndup_link + self.slide
             assert self.kmemdup_link is not None
             kmemdup = self.kmemdup_link + self.slide
+            assert self.kmemdup_nul_link is not None
+            kmemdup_nul = self.kmemdup_nul_link + self.slide
             assert self.strpbrk_link is not None
             strpbrk = self.strpbrk_link + self.slide
             assert self.strspn_link is not None
@@ -2194,6 +2223,17 @@ class FaithfulFakeTransport:
                 if arg2 > repl.KMEMDUP_SOURCE_SCAN_LEN:
                     raise AssertionError(f"unexpected kmemdup length: {arg2:#x}")
                 duplicate = self._heap_bytes(arg1, arg2)
+                ptr = self.next_heap_ptr
+                self.next_heap_ptr += 0x1000
+                self.allocated.add(ptr)
+                self._set_heap_bytes(ptr, duplicate)
+                lines.append(f"A90R{ptr:x}")
+            elif arg0 == kmemdup_nul:
+                if arg1 not in self.allocated:
+                    raise AssertionError(f"kmemdup_nul source buffer is not an allocated pointer: {arg1:#x}")
+                if arg2 > repl.KMEMDUP_NUL_SOURCE_SCAN_LEN:
+                    raise AssertionError(f"unexpected kmemdup_nul length: {arg2:#x}")
+                duplicate = self._heap_bytes(arg1, arg2) + b"\x00"
                 ptr = self.next_heap_ptr
                 self.next_heap_ptr += 0x1000
                 self.allocated.add(ptr)
@@ -4210,6 +4250,60 @@ class SelftestIntegrationTests(unittest.TestCase):
             repl.KMEMDUP_SOURCE_BYTES + (b"\xcc" * repl.KMEMDUP_CANARY_LEN)
         ).hex()
         expected_duplicate = repl.KMEMDUP_SOURCE_BYTES.hex()
+        self.assertEqual(private["expected_source_hex"], expected_source)
+        self.assertEqual(private["source_bytes_hex"], expected_source)
+        self.assertEqual(private["expected_duplicate_hex"], expected_duplicate)
+        self.assertEqual(private["duplicate_bytes_hex"], expected_duplicate)
+        self.assertEqual(fake.freed, [fake.heap_ptr + 0x1000, fake.heap_ptr])
+
+    def test_call_proof_kmemdup_nul_passes_with_owned_raw_buffer_contract(self) -> None:
+        if not C2B_PADDING_MAP_PATH.is_file() or not KERNEL_SOURCE_ROOT.is_dir():
+            self.skipTest("promoted v2c System.map or kernel source tree not present")
+
+        symbols = repl.load_system_map(C2B_PADDING_MAP_PATH)
+        fake = FaithfulFakeTransport(0x130000, symbols, self.image)
+        orig = repl.transport.run_serial_command
+        repl.transport.run_serial_command = fake.run_serial_command
+        self.addCleanup(lambda: setattr(repl.transport, "run_serial_command", orig))
+        session = repl.ReplSession(repl.ReplConfig(settle_sec=0.0))
+        summary, private = repl.run_call_proof(
+            session,
+            symbols,
+            self.image,
+            "kmemdup_nul",
+            source_root=KERNEL_SOURCE_ROOT,
+        )
+
+        self.assertTrue(summary["ok"], summary)
+        self.assertEqual(summary["decision"], "a90-repl-live-call-proof-kmemdup_nul-pass")
+        self.assertEqual(summary["proof_status"], "trusted-under-owned-input-contract")
+        self.assertEqual(summary["function_map_entry"]["symbol"], "kmemdup_nul")
+        self.assertEqual(summary["function_map_entry"]["status"], "live-proven")
+        self.assertEqual(
+            summary["source_evidence"]["signature"],
+            "extern char * kmemdup_nul(const char *s, size_t len, gfp_t gfp)",
+        )
+        self.assertEqual(summary["source_payload"], repl.KMEMDUP_NUL_SOURCE_LABEL)
+        self.assertEqual(summary["copy_len"], repl.KMEMDUP_NUL_COPY_LEN)
+        self.assertTrue(summary["duplicate_matches_source_bytes_plus_nul"])
+        self.assertTrue(summary["generated_trailing_nul"])
+        self.assertTrue(summary["source_after_len_byte_not_copied"])
+        self.assertTrue(summary["returned_owned_duplicate_pointer"])
+        self.assertTrue(summary["duplicate_distinct_from_source"])
+        self.assertTrue(summary["source_unchanged_after_call"])
+        self.assertTrue(summary["raw_runtime_values_redacted"])
+        self.assertTrue(summary["owned_pointer_redacted"])
+        self.assertTrue(summary["observed_bytes_redacted"])
+        self.assertNotIn("source_ptr", summary)
+        self.assertNotIn("duplicate_ptr", summary)
+        self.assertEqual(private["source_ptr"], f"0x{fake.heap_ptr:x}")
+        self.assertEqual(private["duplicate_ptr"], f"0x{fake.heap_ptr + 0x1000:x}")
+        expected_source = (
+            repl.KMEMDUP_NUL_SOURCE_BYTES
+            + repl.KMEMDUP_NUL_SOURCE_AFTER_LEN_BYTE
+            + (b"\xcc" * repl.KMEMDUP_NUL_CANARY_LEN)
+        ).hex()
+        expected_duplicate = repl.KMEMDUP_NUL_EXPECTED_DUP_BYTES.hex()
         self.assertEqual(private["expected_source_hex"], expected_source)
         self.assertEqual(private["source_bytes_hex"], expected_source)
         self.assertEqual(private["expected_duplicate_hex"], expected_duplicate)

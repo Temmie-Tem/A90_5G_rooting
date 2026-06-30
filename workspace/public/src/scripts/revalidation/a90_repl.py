@@ -373,6 +373,12 @@ CALL_SAFETY_SEEDS = {
         "return_kind": "owned-kmalloc-buffer-or-null",
         "reason": "raw memory duplicate allocator helper; x0 must be an owned initialized kernel buffer, x1 is bounded length, and x2 is scalar GFP",
     },
+    "kmemdup_nul": {
+        "tier": CALL_SAFETY_SAFE_WITH_VALID_PTR,
+        "required_valid_pointer_args": {0: "source-buffer"},
+        "return_kind": "owned-kmalloc-string-or-null",
+        "reason": "bounded memory duplicate-plus-NUL allocator helper; x0 must be an owned initialized kernel buffer, x1 is bounded length, and x2 is scalar GFP",
+    },
     "strpbrk": {
         "tier": CALL_SAFETY_SAFE_WITH_VALID_PTR,
         "required_valid_pointer_args": {0: "haystack-string-buffer", 1: "accept-string-buffer"},
@@ -4812,6 +4818,12 @@ CALL_PROOF_TARGETS = {
         "expected_tier": CALL_SAFETY_SAFE_WITH_VALID_PTR,
         "source_signature": "extern void * kmemdup(const void *src, size_t len, gfp_t gfp)",
     },
+    "kmemdup_nul": {
+        "input_contract": "owned initialized kernel source buffer plus scalar bounded length and scalar GFP_KERNEL",
+        "return_contract": "char * == new owned kmalloc buffer copy of bounded source bytes plus generated trailing NUL",
+        "expected_tier": CALL_SAFETY_SAFE_WITH_VALID_PTR,
+        "source_signature": "extern char * kmemdup_nul(const char *s, size_t len, gfp_t gfp)",
+    },
     "strpbrk": {
         "input_contract": "owned NUL-terminated haystack and accept-set kernel string buffers",
         "return_contract": "char * == owned haystack buffer plus expected first accept-set byte offset; missing accept-set returns NULL",
@@ -5074,6 +5086,14 @@ KMEMDUP_COPY_LEN = len(KMEMDUP_SOURCE_BYTES)
 KMEMDUP_CANARY_LEN = 8
 KMEMDUP_SOURCE_SCAN_LEN = KMEMDUP_COPY_LEN + KMEMDUP_CANARY_LEN
 KMEMDUP_DUP_SCAN_LEN = KMEMDUP_COPY_LEN
+KMEMDUP_NUL_SOURCE_BYTES = b"A90KMEMDUPNUL-RAW-Q0123456789"
+KMEMDUP_NUL_SOURCE_LABEL = KMEMDUP_NUL_SOURCE_BYTES.decode("ascii")
+KMEMDUP_NUL_COPY_LEN = len(KMEMDUP_NUL_SOURCE_BYTES)
+KMEMDUP_NUL_SOURCE_AFTER_LEN_BYTE = b"Z"
+KMEMDUP_NUL_EXPECTED_DUP_BYTES = KMEMDUP_NUL_SOURCE_BYTES + b"\x00"
+KMEMDUP_NUL_CANARY_LEN = 8
+KMEMDUP_NUL_SOURCE_SCAN_LEN = KMEMDUP_NUL_COPY_LEN + len(KMEMDUP_NUL_SOURCE_AFTER_LEN_BYTE) + KMEMDUP_NUL_CANARY_LEN
+KMEMDUP_NUL_DUP_SCAN_LEN = len(KMEMDUP_NUL_EXPECTED_DUP_BYTES)
 STRPBRK_HAYSTACK_BYTES = b"A90STRPBRK-HEAD-Q-TAIL-Z\x00"
 STRPBRK_HAYSTACK_LABEL = STRPBRK_HAYSTACK_BYTES[:-1].decode("ascii")
 STRPBRK_ACCEPT_BYTES = b"QZ\x00"
@@ -9435,6 +9455,235 @@ def _run_call_proof_kmemdup(session: ReplSession,
     private.update({
         "slide": f"0x{slide:x}",
         "kmemdup_runtime": f"0x{((kmemdup_link + slide) & MASK64):x}",
+        "source_ptr": f"0x{source_ptr:x}",
+        "duplicate_ptr": f"0x{duplicate_ptr:x}",
+        "source_bytes_hex": observed_source.hex(),
+        "duplicate_bytes_hex": observed_duplicate.hex(),
+        "expected_source_hex": expected_source_scan.hex(),
+        "expected_duplicate_hex": expected_duplicate_scan.hex(),
+        "gfp_components": {key: f"0x{component:x}" for key, component in gfp_components.items()},
+    })
+    return summary, private
+
+
+def _run_call_proof_kmemdup_nul(session: ReplSession,
+                                symbols: dict[str, Symbol],
+                                image: StaticImage,
+                                *,
+                                alloc_size: int,
+                                source_root: Path,
+                                gfp: int,
+                                gfp_components: dict[str, int]) -> tuple[dict[str, object], dict[str, object]]:
+    if alloc_size < KMEMDUP_NUL_SOURCE_SCAN_LEN:
+        raise ReplError(f"kmemdup_nul call-proof alloc_size must be at least {KMEMDUP_NUL_SOURCE_SCAN_LEN} bytes")
+    if KMEMDUP_NUL_COPY_LEN <= 0:
+        raise ReplError("kmemdup_nul proof copy length must be positive")
+
+    source = lookup_source_signature("kmemdup_nul", source_root=source_root)
+    call_safety = require_call_safety_for_call(
+        symbols,
+        image,
+        "kmemdup_nul",
+        ("@owned_source_buffer", KMEMDUP_NUL_COPY_LEN, gfp),
+    )
+    if call_safety.get("tier") != CALL_PROOF_TARGETS["kmemdup_nul"]["expected_tier"]:
+        raise ReplError("kmemdup_nul call-safety tier is not the expected vetted pointer tier")
+    if not source.get("found") or source.get("pointer_arg_indices") != [0]:
+        raise ReplError("kmemdup_nul source signature does not declare x0 as the only pointer argument")
+
+    resolutions = {
+        "kmemdup_nul": resolve_verified(symbols, image, "kmemdup_nul", purpose="call"),
+        "__kmalloc": resolve_verified(symbols, image, "__kmalloc", purpose="call"),
+        "kfree": resolve_verified(symbols, image, "kfree", purpose="call"),
+    }
+    kmemdup_nul_link = require_verified_resolution(resolutions["kmemdup_nul"], "call-proof target")
+    kmalloc_link = require_verified_resolution(resolutions["__kmalloc"], "call-proof source allocator")
+    kfree_link = require_verified_resolution(resolutions["kfree"], "call-proof buffer cleanup")
+    assert_no_precall_x0_pointer_deref(image, kmalloc_link, "__kmalloc")
+
+    expected_source_scan = (
+        KMEMDUP_NUL_SOURCE_BYTES
+        + KMEMDUP_NUL_SOURCE_AFTER_LEN_BYTE
+        + (b"\xcc" * KMEMDUP_NUL_CANARY_LEN)
+    )
+    expected_duplicate_scan = KMEMDUP_NUL_EXPECTED_DUP_BYTES
+    checks: list[dict[str, object]] = [
+        {
+            "check": "static-c1-identity",
+            "ok": True,
+            "target": "kmemdup_nul",
+            "resolution_method": resolutions["kmemdup_nul"].method,
+        },
+        {
+            "check": "static-source-contract",
+            "ok": True,
+            "signature": source.get("selected", {}).get("signature")
+            if isinstance(source.get("selected"), dict) else None,
+            "pointer_arg_indices": source.get("pointer_arg_indices", []),
+        },
+        {
+            "check": "static-call-safety-contract",
+            "ok": True,
+            "tier": call_safety.get("tier"),
+            "required_valid_pointer_args": call_safety.get("required_valid_pointer_args", {}),
+        },
+    ]
+    private: dict[str, object] = {}
+    source_ptr = 0
+    duplicate_ptr = 0
+    slide = 0
+    kfree_runtime = 0
+    free_attempted: list[str] = []
+    free_ok: dict[str, bool] = {"duplicate": False, "source": False}
+    free_errors: list[str] = []
+    observed_source = b""
+    observed_duplicate = b""
+    source_unchanged = False
+
+    session.hide()
+    session.set_panic_on_oops(0)
+    try:
+        slide = session.slide()
+        if slide & 0xFFF:
+            raise ReplError("slide is not page-aligned; refusing to proceed")
+        kmemdup_nul_runtime = (kmemdup_nul_link + slide) & MASK64
+        kmalloc_runtime = (kmalloc_link + slide) & MASK64
+        kfree_runtime = (kfree_link + slide) & MASK64
+
+        source_ptr = session.call_runtime(kmalloc_runtime, (alloc_size, gfp))
+        source_ok = is_kernel_lowmem_pointer(source_ptr)
+        checks.append({
+            "check": "kmalloc-owned-kmemdup-nul-source",
+            "ok": source_ok,
+            "alloc_size": alloc_size,
+            "source_kernel_lowmem": source_ok,
+        })
+        if not source_ok:
+            raise ReplError("__kmalloc did not return a sane kmemdup_nul source buffer")
+
+        _poke_bytes(session, source_ptr, expected_source_scan)
+        observed_source = _peek_bytes(session, source_ptr, KMEMDUP_NUL_SOURCE_SCAN_LEN)
+        source_setup_ok = observed_source == expected_source_scan
+        checks.append({
+            "check": "owned-kmemdup-nul-source-poke-peek",
+            "ok": source_setup_ok,
+            "source_payload": KMEMDUP_NUL_SOURCE_LABEL,
+            "copy_len": KMEMDUP_NUL_COPY_LEN,
+            "source_after_len_byte": KMEMDUP_NUL_SOURCE_AFTER_LEN_BYTE.decode("ascii"),
+            "canary_len": KMEMDUP_NUL_CANARY_LEN,
+        })
+        if not source_setup_ok:
+            raise ReplError("owned kmemdup_nul source buffer poke/peek mismatch")
+
+        duplicate_ptr = session.call_runtime(
+            kmemdup_nul_runtime,
+            (source_ptr, KMEMDUP_NUL_COPY_LEN, gfp),
+        )
+        duplicate_ok = is_kernel_lowmem_pointer(duplicate_ptr)
+        distinct_ok = duplicate_ptr != source_ptr
+        checks.append({
+            "check": "kmemdup-nul-return-owned-duplicate",
+            "ok": duplicate_ok and distinct_ok,
+            "duplicate_kernel_lowmem": duplicate_ok,
+            "duplicate_distinct_from_source": distinct_ok,
+        })
+        if not (duplicate_ok and distinct_ok):
+            raise ReplError("kmemdup_nul did not return a sane distinct owned duplicate buffer")
+
+        observed_duplicate = _peek_bytes(session, duplicate_ptr, KMEMDUP_NUL_DUP_SCAN_LEN)
+        duplicate_matches = observed_duplicate == expected_duplicate_scan
+        generated_nul_ok = observed_duplicate[KMEMDUP_NUL_COPY_LEN:KMEMDUP_NUL_COPY_LEN + 1] == b"\x00"
+        source_after_len_not_copied = (
+            KMEMDUP_NUL_SOURCE_AFTER_LEN_BYTE != b"\x00"
+            and observed_duplicate[KMEMDUP_NUL_COPY_LEN:KMEMDUP_NUL_COPY_LEN + 1] != KMEMDUP_NUL_SOURCE_AFTER_LEN_BYTE
+        )
+        checks.append({
+            "check": "kmemdup-nul-duplicate-byte-contract",
+            "ok": duplicate_matches and generated_nul_ok and source_after_len_not_copied,
+            "source_payload": KMEMDUP_NUL_SOURCE_LABEL,
+            "copy_len": KMEMDUP_NUL_COPY_LEN,
+            "duplicate_matches_source_bytes_plus_nul": duplicate_matches,
+            "generated_trailing_nul": generated_nul_ok,
+            "source_after_len_byte_not_copied": source_after_len_not_copied,
+        })
+        if not (duplicate_matches and generated_nul_ok and source_after_len_not_copied):
+            raise ReplError("kmemdup_nul duplicate bytes did not match bounded source bytes plus generated NUL")
+
+        observed_source = _peek_bytes(session, source_ptr, KMEMDUP_NUL_SOURCE_SCAN_LEN)
+        source_unchanged = observed_source == expected_source_scan
+        checks.append({
+            "check": "kmemdup-nul-source-immutability",
+            "ok": source_unchanged,
+            "source_unchanged": source_unchanged,
+        })
+        if not source_unchanged:
+            raise ReplError("kmemdup_nul modified the owned source buffer")
+    finally:
+        if kfree_runtime:
+            for label, ptr in (("duplicate", duplicate_ptr), ("source", source_ptr)):
+                if ptr and is_kernel_lowmem_pointer(ptr):
+                    free_attempted.append(label)
+                    try:
+                        session.call_runtime(kfree_runtime, (ptr,))
+                        free_ok[label] = True
+                    except Exception as exc:  # noqa: BLE001 - cleanup failures must be visible
+                        free_errors.append(f"{label}:{exc}")
+        session.set_panic_on_oops(1)
+
+    cleanup_ok = bool(free_ok["duplicate"] and free_ok["source"])
+    checks.append({
+        "check": "kfree-owned-kmemdup-nul-source-and-duplicate",
+        "ok": cleanup_ok,
+        "free_attempted": free_attempted,
+        "duplicate_free_ok": free_ok["duplicate"],
+        "source_free_ok": free_ok["source"],
+    })
+    if free_errors:
+        raise ReplError(f"kfree failed after kmemdup_nul proof: {free_errors}")
+
+    passed = all(bool(check.get("ok")) for check in checks)
+    summary = {
+        "decision": f"a90-repl-live-call-proof-kmemdup_nul-{'pass' if passed else 'fail'}",
+        "ok": passed,
+        "target": "kmemdup_nul",
+        "proof_status": "trusted-under-owned-input-contract" if passed else "failed",
+        "input_contract": CALL_PROOF_TARGETS["kmemdup_nul"]["input_contract"],
+        "return_contract": CALL_PROOF_TARGETS["kmemdup_nul"]["return_contract"],
+        "alloc_size": alloc_size,
+        "source_payload": KMEMDUP_NUL_SOURCE_LABEL,
+        "copy_len": KMEMDUP_NUL_COPY_LEN,
+        "duplicate_matches_source_bytes_plus_nul": observed_duplicate == expected_duplicate_scan,
+        "generated_trailing_nul": (
+            observed_duplicate[KMEMDUP_NUL_COPY_LEN:KMEMDUP_NUL_COPY_LEN + 1] == b"\x00"
+        ),
+        "source_after_len_byte_not_copied": (
+            len(observed_duplicate) > KMEMDUP_NUL_COPY_LEN
+            and observed_duplicate[KMEMDUP_NUL_COPY_LEN:KMEMDUP_NUL_COPY_LEN + 1] != KMEMDUP_NUL_SOURCE_AFTER_LEN_BYTE
+        ),
+        "returned_owned_duplicate_pointer": is_kernel_lowmem_pointer(duplicate_ptr),
+        "duplicate_distinct_from_source": duplicate_ptr != source_ptr,
+        "source_unchanged_after_call": source_unchanged,
+        "gfp_kernel": f"0x{gfp:x}",
+        "source_evidence": _source_row_evidence(source),
+        "call_safety": call_safety,
+        "resolutions": _redacted_resolution_set(resolutions),
+        "raw_runtime_values_redacted": True,
+        "owned_pointer_redacted": True,
+        "observed_bytes_redacted": True,
+        "checks": checks,
+        "function_map_entry": {
+            "symbol": "kmemdup_nul",
+            "status": "live-proven",
+            "trusted_input_contract": CALL_PROOF_TARGETS["kmemdup_nul"]["input_contract"],
+            "return_contract": CALL_PROOF_TARGETS["kmemdup_nul"]["return_contract"],
+            "observed_return_value": "owned-duplicate-nul-terminated-buffer-copy",
+            "cleanup": "kfree-owned-kmemdup-nul-source-and-duplicate-ok" if cleanup_ok else "cleanup-failed",
+            "auto_call_policy": "one-target-proof-only-not-mass-call",
+        },
+    }
+    private.update({
+        "slide": f"0x{slide:x}",
+        "kmemdup_nul_runtime": f"0x{((kmemdup_nul_link + slide) & MASK64):x}",
         "source_ptr": f"0x{source_ptr:x}",
         "duplicate_ptr": f"0x{duplicate_ptr:x}",
         "source_bytes_hex": observed_source.hex(),
@@ -14627,6 +14876,16 @@ def run_call_proof(session: ReplSession,
         )
     if target == "kmemdup":
         return _run_call_proof_kmemdup(
+            session,
+            symbols,
+            image,
+            alloc_size=alloc_size,
+            source_root=source_root,
+            gfp=gfp,
+            gfp_components=gfp_components,
+        )
+    if target == "kmemdup_nul":
+        return _run_call_proof_kmemdup_nul(
             session,
             symbols,
             image,
