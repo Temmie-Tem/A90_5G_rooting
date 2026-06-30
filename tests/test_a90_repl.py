@@ -327,6 +327,11 @@ class StaticImageCrossCheckTests(unittest.TestCase):
         self.assertEqual(resolution.method, "blocked-known-unsafe")
         self.assertIn("known-unsafe-live-call", resolution.evidence["blocked_reasons"][0])
 
+        of_flat = repl.resolve_verified(self.symbols, self.image, "of_flat_dt_is_compatible", purpose="call")
+        self.assertFalse(of_flat.verified, of_flat.public_dict())
+        self.assertEqual(of_flat.method, "blocked-known-unsafe")
+        self.assertIn("known-unsafe-live-call", of_flat.evidence["blocked_reasons"][0])
+
     def test_resolve_verified_peek_surfaces_unverified_map_use(self) -> None:
         resolution = repl.resolve_verified(
             self.symbols,
@@ -527,6 +532,12 @@ class CallSafetyClassificationTests(unittest.TestCase):
         self.assertFalse(kallsyms["safe_group"])
         self.assertEqual(kallsyms["resolution"]["method"], "blocked-known-unsafe")
         self.assertIn("known-unsafe-live-call", " ".join(kallsyms["reasons"]))
+
+        of_flat = self._row("of_flat_dt_is_compatible")
+        self.assertEqual(of_flat["tier"], repl.CALL_SAFETY_DENY)
+        self.assertFalse(of_flat["safe_group"])
+        self.assertEqual(of_flat["resolution"]["method"], "blocked-known-unsafe")
+        self.assertIn("known-unsafe-live-call", " ".join(of_flat["reasons"]))
 
         commit_creds = self._row("commit_creds")
         self.assertEqual(commit_creds["tier"], repl.CALL_SAFETY_BEHAVIOR_CHANGING)
@@ -2421,7 +2432,7 @@ class CallSafetyClassificationTests(unittest.TestCase):
         self.assertTrue(summary["host_only"])
         self.assertFalse(summary["device_action"])
         self.assertEqual(summary["seed_whitelist_count"], len(repl.CALL_SAFETY_SEEDS))
-        self.assertEqual(summary["counts"][repl.CALL_SAFETY_SAFE_SCALAR], 42)
+        self.assertEqual(summary["counts"][repl.CALL_SAFETY_SAFE_SCALAR], 43)
         self.assertGreaterEqual(summary["counts"][repl.CALL_SAFETY_SAFE_WITH_VALID_PTR], 9)
         self.assertGreaterEqual(summary["counts"][repl.CALL_SAFETY_BEHAVIOR_CHANGING], 4)
         self.assertEqual(summary["counts"][repl.CALL_SAFETY_DENY], 1)

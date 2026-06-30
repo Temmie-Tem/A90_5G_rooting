@@ -96,6 +96,37 @@ only, never a native-init runtime dependency. Full history (AUD-0 → AUD-5, V23
 > the rollback-gate, the recoverable envelope, and "fails-twice → stop" all stay ON. If a candidate
 > needs a behavior-changing call to be provable, it is OUT, not a reason to weaken the gate.
 
+## ⚠️ STOPPED — REPL state-observation live-call proof attempt — `of_flat_dt_is_compatible` live faulted, fenced known-unsafe
+
+> ### ⚠️ STATUS (2026-07-01 attempted, rolled back cleanly) — flat-DT compatibility helper not promoted
+>
+> Codex attempted the next post-saturation pivot candidate, `of_flat_dt_is_compatible`, as a
+> read-only kernel-state observation helper rather than another same-shape scalar/string proof.
+> Static selection pinned `of_flat_dt_is_compatible=0xffffff800a66cc34`, source declaration
+> `extern int of_flat_dt_is_compatible(unsigned long node, const char *name)`, root node offset
+> `0`, and owned compatible-string buffers for a positive `qcom,sm8150` case plus an impossible
+> negative case.
+>
+> The device attempt obeyed the flash gate: baseline v2321 health passed, the v1-repl candidate
+> (`b846ae9f...`) flashed with matching readback SHA, candidate helper health passed, explicit
+> candidate `version/selftest/status` passed after a serial-framing retry, and REPL selftest passed.
+> The target live call then faulted before returning: stdout tail showed `[signal 11]`,
+> `run rc=139 (101ms)`, and no `A90R` output. The unit stopped immediately and rolled back to v2321.
+> Final explicit `version/selftest/status` passed with `selftest pass=11 warn=1 fail=0`.
+>
+> Timing was recorded per the 2026-07-01 timing rule in
+> `workspace/private/runs/kernel/live-call-proof-of-flat-dt-is-compatible-20260630T233514Z/timeline.json`:
+> candidate flash `65.0s`, candidate helper done to explicit REPL-ready marker `13.0s`, live session
+> total `95.0s`, live call-proof attempt `11.0s`, rollback flash `65.0s`, rollback helper done to
+> final explicit health `33.0s`, and candidate start to final health done `310.0s`.
+>
+> **No function-map entry is promoted.** The code now fences `of_flat_dt_is_compatible` as
+> `known-unsafe-live-call`; `resolve_verified(..., purpose="call")` returns `blocked-known-unsafe`,
+> and classifier CLI reports `DENY`. Host validation after the fence passed: `py_compile`, focused
+> tests (`Ran 3 tests`, `OK`), full `tests.test_a90_repl` (`Ran 172 tests`, `OK`), classifier CLI,
+> and `git diff --check`. Report:
+> `docs/reports/KERNEL_SECURITY_TIER2_RUNTIME_KERNEL_REPL_LIVE_CALL_PROOF_OF_FLAT_DT_IS_COMPATIBLE_ABORTED_2026-07-01.md`.
+
 > **(history)** Audio CORE is device-proven + promoted (`0.10.0`); its Tier-C polish is optional background.
 >
 > **⚠️ KEY RE-SCOPE (operator, 2026-06-19): the DISPLAY IS ALREADY PROVEN — do NOT treat "can native init draw to the screen" as an

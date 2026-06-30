@@ -178,6 +178,10 @@ KNOWN_UNSAFE_CALL_TARGETS = {
         "faulted/rebooted during v2a1 live validation; resolve symbols from "
         "static evidence instead of calling this target"
     ),
+    "of_flat_dt_is_compatible": (
+        "faulted with native run SIGSEGV during 2026-07-01 one-target live proof; "
+        "flat-DT helpers are not runtime-callable from the REPL proof context"
+    ),
 }
 CALL_SAFETY_ALLOW_UNVETTED_TOKEN = "A90_REPL_U2_ALLOW_UNVETTED_STATIC_ONLY"
 CALL_SAFETY_SAFE_SCALAR = "SAFE-SCALAR"
