@@ -78,6 +78,7 @@ and the C1 fail-closed identity gate.
 | `memcpy` | `0xffffff80099a8680`, `leaf-map-disasm+xref`, direct BL xrefs `6227`, leaf/no-BL | distinct owned destination/source buffers plus bounded size inside both buffers | `memcpy(dst, "A90MEMCPY-SRC-0123456789ABCDEF", 30)` returned the owned destination pointer (redacted), destination first 30 bytes matched source, destination post-size canary preserved, source buffer stayed unchanged | `kfree-owned-memcpy-buffers-ok` | `a90-repl-live-call-proof-memcpy-pass` |
 | `memmove` | `0xffffff80099a8800`, `leaf-map-disasm+xref`, direct BL xrefs `165`, leaf/no-BL | same owned buffer with overlapping destination/source ranges plus bounded size inside allocation | `memmove(buf+5, buf, 29)` returned the owned destination pointer (redacted), final buffer matched overlap-safe snapshot-copy semantics, post-move canary preserved | `kfree-owned-memmove-overlap-buffer-ok` | `a90-repl-live-call-proof-memmove-pass` |
 | `memset` | `0xffffff80099a8980`, `leaf-map-disasm+xref`, direct BL xrefs `6517`, leaf/no-BL | owned destination buffer plus scalar fill byte plus bounded size inside destination | `memset(dst, 0x5a, 32)` returned the owned destination pointer (redacted), first 32 bytes became `0x5a`, post-size canary preserved | `kfree-owned-memset-destination-buffer-ok` | `a90-repl-live-call-proof-memset-pass` |
+| `memzero_explicit` | `0xffffff80099b9dd4`, `export-recovery`, direct BL xrefs `140`, calls `__memset` | owned initialized destination buffer plus scalar bounded zero count inside destination | `memzero_explicit(dst, 24)` zeroed the first 24 bytes; return was ignored as `void`; bytes after count and post-count canary stayed unchanged | `kfree-owned-memzero-explicit-destination-buffer-ok` | `a90-repl-live-call-proof-memzero_explicit-pass` |
 
 ## Parked Candidate Families
 
@@ -191,8 +192,11 @@ and the C1 fail-closed identity gate.
   outside the size argument are ignored. These rows do not authorize arbitrary pointers, unbounded sizes,
   user pointers, or other memory helpers.
 - Memory-write sweep: `memset` has crossed the live proof gate only under the owned destination plus
-  scalar-fill-byte and bounded-size contract. `memcpy` has crossed the live proof gate only under the
-  distinct-owned-destination/source-buffer plus bounded-size contract with non-overlapping allocation
-  ranges. `memmove` has crossed the live proof gate only under the same-owned-buffer `dst=src+5`,
-  bounded-size overlap contract. These rows do not authorize arbitrary pointers, unbounded sizes, user
-  pointers, or broader overlap shapes without separate proof.
+  scalar-fill-byte and bounded-size contract. `memzero_explicit` has crossed the live proof gate only
+  under the owned initialized destination plus scalar bounded zero-count contract; its `void` return is
+  intentionally ignored and the proof rests on zeroed prefix, preserved tail, and preserved canary.
+  `memcpy` has crossed the live proof gate only under the distinct-owned-destination/source-buffer
+  plus bounded-size contract with non-overlapping allocation ranges. `memmove` has crossed the live
+  proof gate only under the same-owned-buffer `dst=src+5`, bounded-size overlap contract. These rows do
+  not authorize arbitrary pointers, unbounded sizes, user pointers, broader overlap shapes, or
+  zeroing of unowned memory without separate proof.

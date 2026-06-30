@@ -238,6 +238,16 @@ PYTHONPYCACHEPREFIX=/tmp/a90_pycache python3 \
   --image workspace/private/inputs/boot_images/boot_linux_tier2_repl_v1_repl.img \
   --source-root workspace/private/inputs/kernel_source/SM-A908N_KOR_12_Opensource/Kernel \
   --evidence-dir workspace/private/runs/kernel/<unit>/ \
+  memzero_explicit
+```
+
+```sh
+PYTHONPYCACHEPREFIX=/tmp/a90_pycache python3 \
+  workspace/public/src/scripts/revalidation/a90_repl.py call-proof \
+  --map workspace/private/runs/kernel/v2c-c2b-kallsyms-padding-fix/System.map \
+  --image workspace/private/inputs/boot_images/boot_linux_tier2_repl_v1_repl.img \
+  --source-root workspace/private/inputs/kernel_source/SM-A908N_KOR_12_Opensource/Kernel \
+  --evidence-dir workspace/private/runs/kernel/<unit>/ \
   simple_strtoull
 ```
 
@@ -933,7 +943,11 @@ the string and canary stay unchanged, and redacts the owned pointer and observed
 output. The `memset` proof allocates one owned destination buffer, writes an initialized prefix plus a
 post-size canary, calls `memset(dst, 0x5a, 32)`, requires the returned pointer to match the destination,
 verifies the first 32 bytes changed to the fill byte, verifies the canary is preserved, and redacts the
-owned pointer and observed raw bytes from public output.
+owned pointer and observed raw bytes from public output. The `memzero_explicit` proof allocates one
+owned initialized destination buffer, writes an initialized body plus a post-count canary, calls
+`memzero_explicit(dst, 24)`, ignores the observed return value because the source API is `void`,
+verifies the first 24 bytes became zero, verifies bytes after the count and the canary are preserved,
+frees the owned buffer, and redacts the owned pointer and observed raw bytes from public output.
 
 Before any live `call` unit:
 

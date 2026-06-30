@@ -767,6 +767,36 @@ epic is DONE.** Reports:
 `docs/reports/NATIVE_INIT_V3335_GPU_Z3_PRIMARY_SETCRTC_SOURCE_BUILD_2026-06-27.md` and
 `docs/reports/NATIVE_INIT_V3335_GPU_Z3_PRIMARY_SETCRTC_LIVE_2026-06-27.md`.**
 
+## ✅ DONE — REPL post-epic one-target live-call proof — `memzero_explicit` owned zeroing contract
+
+> ### ✅ STATUS (2026-06-30 live pass) — `memzero_explicit` promoted under owned destination + bounded count only
+>
+> Fifty-sixth one-target live-call proof after the REPL epic close. Codex extended `a90_repl.py`
+> `call-proof` with `memzero_explicit`, using one tool-owned initialized destination buffer, scalar
+> zero count `24`, a post-count tail region, and a post-buffer canary. Static gate:
+> `memzero_explicit=0xffffff80099b9dd4`, `export-recovery`, direct-BL xrefs `140`, JOPP entry true,
+> non-leaf helper calling `__memset`, source contract `void memzero_explicit(void *s, size_t count)`
+> from `include/linux/string.h`, x0 as destination pointer and x1 as scalar count, and call-safety
+> tier `SAFE-WITH-VALID-PTR`. Disasm confirmed `x1 -> x2`, `w1 = 0`, then
+> `__memset(x0, 0, x1)`. The return value is intentionally ignored because the source API is `void`.
+>
+> Live path: baseline v2321 `version/status/selftest` passed, flashed the existing v1-repl image
+> `b846ae9f74d8ceb922bbcd854d78b6795ef833d61e38465d3cc474cb6f0dfb65` through
+> `native_init_flash.py`, confirmed readback SHA, confirmed post-flash selftest fail=0, got
+> `a90-repl-v2a1-selftest-pass`, then ran `call-proof memzero_explicit` with the C2B verified map.
+>
+> Result: `a90-repl-live-call-proof-memzero_explicit-pass`; checks covered C1 identity, source
+> signature, call-safety contract, owned buffer allocation/poke/peek, ignored void return, first
+> 24 bytes zeroed, bytes after count preserved, post-count canary preserved, and
+> `kfree-owned-memzero-explicit-destination-buffer`.
+>
+> Candidate selftest after proof stayed `fail=0`. Rolled back to clean v2321
+> (`ca978551aabe4b39563abaf529ccf2522054952d8b2ad852e632d26da88168cb`) with final resident
+> `v2321-usb-clean-identity-rodata` and final `selftest pass=11 warn=1 fail=0`; the final read had
+> minor serial echo noise but a valid END marker and rc=0/status=ok. Function map records
+> `memzero_explicit` only under the owned destination plus bounded zero-count contract. Report:
+> `docs/reports/KERNEL_SECURITY_TIER2_RUNTIME_KERNEL_REPL_LIVE_CALL_PROOF_MEMZERO_EXPLICIT_2026-06-30.md`.
+
 ## ✅ DONE — REPL post-epic one-target live-call proof — `strsep` owned tokenizer mutation contract
 
 > ### ✅ STATUS (2026-06-30 live pass) — `strsep` promoted under owned char** slot + owned mutable string + owned delimiter only

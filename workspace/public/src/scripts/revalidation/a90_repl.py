@@ -600,6 +600,12 @@ CALL_SAFETY_SEEDS = {
         "return_kind": "destination-pointer",
         "reason": "bounded memory fill helper; x0 must be an owned buffer and size must stay inside destination",
     },
+    "memzero_explicit": {
+        "tier": CALL_SAFETY_SAFE_WITH_VALID_PTR,
+        "required_valid_pointer_args": {0: "destination-buffer"},
+        "return_kind": "void",
+        "reason": "explicit zeroing helper; x0 must be an owned buffer and count must stay inside destination",
+    },
     "kmem_cache_alloc": {
         "tier": CALL_SAFETY_SAFE_WITH_VALID_PTR,
         "required_valid_pointer_args": {0: "kmem_cache"},
@@ -3185,6 +3191,7 @@ _SOURCE_HEADER_HINTS_BY_EXACT_SYMBOL = {
     "kstrtos16": ("include/linux/kernel.h",),
     "kfree": ("include/linux/slab.h",),
     "ksize": ("include/linux/slab.h",),
+    "memzero_explicit": ("include/linux/string.h",),
     "strsep": ("include/linux/string.h",),
     "vfs_getxattr": ("include/linux/xattr.h",),
     "vfs_getxattr_alloc": ("include/linux/xattr.h",),
@@ -5145,6 +5152,12 @@ CALL_PROOF_TARGETS = {
         "expected_tier": CALL_SAFETY_SAFE_WITH_VALID_PTR,
         "source_signature": "extern void * memset(void *,int,__kernel_size_t)",
     },
+    "memzero_explicit": {
+        "input_contract": "owned initialized destination buffer plus scalar bounded zero count",
+        "return_contract": "void/ignored return; first count bytes are zeroed, tail after count and post-count canary are preserved",
+        "expected_tier": CALL_SAFETY_SAFE_WITH_VALID_PTR,
+        "source_signature": "void memzero_explicit(void *s, size_t count)",
+    },
 }
 FILP_OPEN_PROOF_PATH = b"/init\x00"
 FILP_OPEN_PROOF_FLAGS = 0
@@ -5610,6 +5623,13 @@ MEMSET_PROOF_SIZE = 32
 MEMSET_PROOF_BYTE = 0x5A
 MEMSET_INITIAL_BYTE = 0x11
 MEMSET_CANARY_LEN = 8
+MEMZERO_EXPLICIT_SOURCE_BYTES = b"A90MEMZERO-EXPLICIT-SRC-0123456789ABCDEF"
+MEMZERO_EXPLICIT_ZERO_LEN = 24
+MEMZERO_EXPLICIT_CANARY_LEN = 8
+MEMZERO_EXPLICIT_EXPECTED_AFTER_BYTES = (
+    b"\x00" * MEMZERO_EXPLICIT_ZERO_LEN
+    + MEMZERO_EXPLICIT_SOURCE_BYTES[MEMZERO_EXPLICIT_ZERO_LEN:]
+)
 LINUX_MAX_ERRNO = 4095
 LINUX_ERR_PTR_MIN = ((-LINUX_MAX_ERRNO) & MASK64)
 
@@ -12360,6 +12380,209 @@ def _run_call_proof_memset(session: ReplSession,
     return summary, private
 
 
+def _run_call_proof_memzero_explicit(session: ReplSession,
+                                     symbols: dict[str, Symbol],
+                                     image: StaticImage,
+                                     *,
+                                     alloc_size: int,
+                                     source_root: Path,
+                                     gfp: int,
+                                     gfp_components: dict[str, int]) -> tuple[dict[str, object], dict[str, object]]:
+    scan_len = len(MEMZERO_EXPLICIT_SOURCE_BYTES) + MEMZERO_EXPLICIT_CANARY_LEN
+    if alloc_size < scan_len:
+        raise ReplError(f"memzero_explicit call-proof alloc_size must be at least {scan_len} bytes")
+    if not (0 < MEMZERO_EXPLICIT_ZERO_LEN < len(MEMZERO_EXPLICIT_SOURCE_BYTES)):
+        raise ReplError("memzero_explicit proof zero length must be inside the source buffer")
+
+    source = lookup_source_signature("memzero_explicit", source_root=source_root)
+    call_safety = require_call_safety_for_call(
+        symbols,
+        image,
+        "memzero_explicit",
+        ("@owned_destination_buffer", MEMZERO_EXPLICIT_ZERO_LEN),
+    )
+    if call_safety.get("tier") != CALL_PROOF_TARGETS["memzero_explicit"]["expected_tier"]:
+        raise ReplError("memzero_explicit call-safety tier is not the expected vetted pointer tier")
+    if not source.get("found") or source.get("pointer_arg_indices") != [0]:
+        raise ReplError("memzero_explicit source signature does not declare x0 as the destination pointer argument")
+
+    resolutions = {
+        "memzero_explicit": resolve_verified(symbols, image, "memzero_explicit", purpose="call"),
+        "__kmalloc": resolve_verified(symbols, image, "__kmalloc", purpose="call"),
+        "kfree": resolve_verified(symbols, image, "kfree", purpose="call"),
+    }
+    memzero_link = require_verified_resolution(resolutions["memzero_explicit"], "call-proof target")
+    kmalloc_link = require_verified_resolution(resolutions["__kmalloc"], "call-proof buffer allocator")
+    kfree_link = require_verified_resolution(resolutions["kfree"], "call-proof buffer cleanup")
+    assert_no_precall_x0_pointer_deref(image, kmalloc_link, "__kmalloc")
+
+    initial_scan = MEMZERO_EXPLICIT_SOURCE_BYTES + (b"\xcc" * MEMZERO_EXPLICIT_CANARY_LEN)
+    expected_scan = MEMZERO_EXPLICIT_EXPECTED_AFTER_BYTES + (b"\xcc" * MEMZERO_EXPLICIT_CANARY_LEN)
+    checks: list[dict[str, object]] = [
+        {
+            "check": "static-c1-identity",
+            "ok": True,
+            "target": "memzero_explicit",
+            "resolution_method": resolutions["memzero_explicit"].method,
+        },
+        {
+            "check": "static-source-contract",
+            "ok": True,
+            "signature": source.get("selected", {}).get("signature")
+            if isinstance(source.get("selected"), dict) else None,
+            "pointer_arg_indices": source.get("pointer_arg_indices", []),
+        },
+        {
+            "check": "static-call-safety-contract",
+            "ok": True,
+            "tier": call_safety.get("tier"),
+            "required_valid_pointer_args": call_safety.get("required_valid_pointer_args", {}),
+            "bounded_zero_count": MEMZERO_EXPLICIT_ZERO_LEN,
+        },
+    ]
+    private: dict[str, object] = {}
+    ptr = 0
+    slide = 0
+    kfree_runtime = 0
+    free_attempted = False
+    free_ok = False
+    free_error = ""
+    observed_return = 0
+    observed_before = b""
+    observed_after = b""
+
+    session.hide()
+    session.set_panic_on_oops(0)
+    try:
+        slide = session.slide()
+        if slide & 0xFFF:
+            raise ReplError("slide is not page-aligned; refusing to proceed")
+        memzero_runtime = (memzero_link + slide) & MASK64
+        kmalloc_runtime = (kmalloc_link + slide) & MASK64
+        kfree_runtime = (kfree_link + slide) & MASK64
+
+        ptr = session.call_runtime(kmalloc_runtime, (alloc_size, gfp))
+        ptr_ok = is_kernel_lowmem_pointer(ptr)
+        checks.append({
+            "check": "kmalloc-owned-memzero-explicit-destination-buffer",
+            "ok": ptr_ok,
+            "alloc_size": alloc_size,
+            "kernel_lowmem": ptr_ok,
+        })
+        if not ptr_ok:
+            raise ReplError("__kmalloc did not return a sane memzero_explicit destination buffer")
+
+        _poke_bytes(session, ptr, initial_scan)
+        observed_before = _peek_bytes(session, ptr, scan_len)
+        setup_ok = observed_before == initial_scan
+        checks.append({
+            "check": "owned-memzero-explicit-destination-poke-peek",
+            "ok": setup_ok,
+            "zero_count": MEMZERO_EXPLICIT_ZERO_LEN,
+            "source_len": len(MEMZERO_EXPLICIT_SOURCE_BYTES),
+            "canary_len": MEMZERO_EXPLICIT_CANARY_LEN,
+        })
+        if not setup_ok:
+            raise ReplError("owned memzero_explicit destination poke/peek mismatch")
+
+        observed_return = session.call_runtime(memzero_runtime, (ptr, MEMZERO_EXPLICIT_ZERO_LEN))
+        checks.append({
+            "check": "memzero-explicit-return-ignored",
+            "ok": True,
+            "return_kind": "void",
+            "note": "REPL observed x0 after a void call; this value is recorded privately but not trusted",
+        })
+
+        observed_after = _peek_bytes(session, ptr, scan_len)
+        zero_ok = observed_after[:MEMZERO_EXPLICIT_ZERO_LEN] == b"\x00" * MEMZERO_EXPLICIT_ZERO_LEN
+        tail_ok = (
+            observed_after[MEMZERO_EXPLICIT_ZERO_LEN:len(MEMZERO_EXPLICIT_SOURCE_BYTES)]
+            == MEMZERO_EXPLICIT_SOURCE_BYTES[MEMZERO_EXPLICIT_ZERO_LEN:]
+        )
+        canary_ok = observed_after[len(MEMZERO_EXPLICIT_SOURCE_BYTES):] == b"\xcc" * MEMZERO_EXPLICIT_CANARY_LEN
+        full_ok = observed_after == expected_scan
+        checks.append({
+            "check": "memzero-explicit-zero-tail-canary-contract",
+            "ok": zero_ok and tail_ok and canary_ok and full_ok,
+            "zeroed_prefix_matches": zero_ok,
+            "tail_after_count_preserved": tail_ok,
+            "post_count_canary_preserved": canary_ok,
+            "full_expected_scan_matches": full_ok,
+            "zero_count": MEMZERO_EXPLICIT_ZERO_LEN,
+        })
+        if not (zero_ok and tail_ok and canary_ok and full_ok):
+            raise ReplError("memzero_explicit zeroed bytes, tail, or post-count canary did not match contract")
+    finally:
+        if ptr and is_kernel_lowmem_pointer(ptr) and kfree_runtime:
+            free_attempted = True
+            try:
+                session.call_runtime(kfree_runtime, (ptr,))
+                free_ok = True
+            except Exception as exc:  # noqa: BLE001 - cleanup failures must be visible
+                free_error = str(exc)
+        session.set_panic_on_oops(1)
+
+    checks.append({
+        "check": "kfree-owned-memzero-explicit-destination-buffer",
+        "ok": free_ok,
+        "free_attempted": free_attempted,
+    })
+    if free_error:
+        raise ReplError(f"kfree failed after memzero_explicit proof: {free_error}")
+
+    zeroed_prefix = observed_after[:MEMZERO_EXPLICIT_ZERO_LEN] == b"\x00" * MEMZERO_EXPLICIT_ZERO_LEN
+    tail_preserved = (
+        observed_after[MEMZERO_EXPLICIT_ZERO_LEN:len(MEMZERO_EXPLICIT_SOURCE_BYTES)]
+        == MEMZERO_EXPLICIT_SOURCE_BYTES[MEMZERO_EXPLICIT_ZERO_LEN:]
+    )
+    canary_preserved = observed_after[len(MEMZERO_EXPLICIT_SOURCE_BYTES):] == b"\xcc" * MEMZERO_EXPLICIT_CANARY_LEN
+    passed = all(bool(check.get("ok")) for check in checks)
+    summary = {
+        "decision": f"a90-repl-live-call-proof-memzero_explicit-{'pass' if passed else 'fail'}",
+        "ok": passed,
+        "target": "memzero_explicit",
+        "proof_status": "trusted-under-owned-input-contract" if passed else "failed",
+        "input_contract": CALL_PROOF_TARGETS["memzero_explicit"]["input_contract"],
+        "return_contract": CALL_PROOF_TARGETS["memzero_explicit"]["return_contract"],
+        "alloc_size": alloc_size,
+        "zero_count": MEMZERO_EXPLICIT_ZERO_LEN,
+        "source_len": len(MEMZERO_EXPLICIT_SOURCE_BYTES),
+        "expected_return_value": "void-return-ignored",
+        "observed_return_value": "void-return-ignored",
+        "zeroed_prefix_matches": zeroed_prefix,
+        "tail_after_count_preserved": tail_preserved,
+        "post_count_canary_preserved": canary_preserved,
+        "gfp_kernel": f"0x{gfp:x}",
+        "source_evidence": _source_row_evidence(source),
+        "call_safety": call_safety,
+        "resolutions": _redacted_resolution_set(resolutions),
+        "raw_runtime_values_redacted": True,
+        "owned_pointer_redacted": True,
+        "observed_bytes_redacted": True,
+        "checks": checks,
+        "function_map_entry": {
+            "symbol": "memzero_explicit",
+            "status": "live-proven",
+            "trusted_input_contract": CALL_PROOF_TARGETS["memzero_explicit"]["input_contract"],
+            "return_contract": CALL_PROOF_TARGETS["memzero_explicit"]["return_contract"],
+            "observed_return_value": f"void-return-ignored,zeroed-prefix={MEMZERO_EXPLICIT_ZERO_LEN}",
+            "cleanup": "kfree-owned-memzero-explicit-destination-buffer-ok" if free_ok else "cleanup-failed",
+            "auto_call_policy": "one-target-proof-only-not-mass-call",
+        },
+    }
+    private.update({
+        "slide": f"0x{slide:x}",
+        "memzero_explicit_runtime": f"0x{((memzero_link + slide) & MASK64):x}",
+        "dst_ptr": f"0x{ptr:x}",
+        "observed_return": f"0x{observed_return:x}",
+        "observed_before_hex": observed_before.hex(),
+        "observed_after_hex": observed_after.hex(),
+        "expected_after_hex": expected_scan.hex(),
+        "gfp_components": {key: f"0x{component:x}" for key, component in gfp_components.items()},
+    })
+    return summary, private
+
+
 def _run_call_proof_strlen(session: ReplSession,
                            symbols: dict[str, Symbol],
                            image: StaticImage,
@@ -19081,6 +19304,16 @@ def run_call_proof(session: ReplSession,
         )
     if target == "memset":
         return _run_call_proof_memset(
+            session,
+            symbols,
+            image,
+            alloc_size=alloc_size,
+            source_root=source_root,
+            gfp=gfp,
+            gfp_components=gfp_components,
+        )
+    if target == "memzero_explicit":
+        return _run_call_proof_memzero_explicit(
             session,
             symbols,
             image,
