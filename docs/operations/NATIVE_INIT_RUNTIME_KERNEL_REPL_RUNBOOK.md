@@ -278,6 +278,16 @@ PYTHONPYCACHEPREFIX=/tmp/a90_pycache python3 \
   --image workspace/private/inputs/boot_images/boot_linux_tier2_repl_v1_repl.img \
   --source-root workspace/private/inputs/kernel_source/SM-A908N_KOR_12_Opensource/Kernel \
   --evidence-dir workspace/private/runs/kernel/<unit>/ \
+  kstrtobool
+```
+
+```sh
+PYTHONPYCACHEPREFIX=/tmp/a90_pycache python3 \
+  workspace/public/src/scripts/revalidation/a90_repl.py call-proof \
+  --map workspace/private/runs/kernel/v2c-c2b-kallsyms-padding-fix/System.map \
+  --image workspace/private/inputs/boot_images/boot_linux_tier2_repl_v1_repl.img \
+  --source-root workspace/private/inputs/kernel_source/SM-A908N_KOR_12_Opensource/Kernel \
+  --evidence-dir workspace/private/runs/kernel/<unit>/ \
   kstrtoint
 ```
 
@@ -728,7 +738,11 @@ buffers, and redacts runtime/allocation pointer values and observed raw bytes. T
 allocates an owned NUL-terminated signed numeric string and an owned `s8 *` result slot, calls
 `kstrtos8("-85", 10, &res)`, requires return `0`, requires `res` to equal signed `-85` with raw
 `0xab`, verifies input immutability and 1-byte result-slot canary preservation, frees both
-buffers, and redacts runtime/allocation pointer values and observed raw bytes. The `kstrtoint` proof
+buffers, and redacts runtime/allocation pointer values and observed raw bytes. The `kstrtobool` proof
+allocates an owned NUL-terminated bool string and an owned `bool *` result slot, calls
+`kstrtobool("Y", &res)`, requires return `0`, requires `res` to equal `true` with raw `0x01`,
+verifies input immutability and 1-byte result-slot canary preservation, frees both buffers, and
+redacts runtime/allocation pointer values and observed raw bytes. The `kstrtoint` proof
 allocates an owned NUL-terminated signed numeric string and an owned `int *` result slot, calls
 `kstrtoint("-12345", 10, &res)`, requires return `0`, requires `res` to equal signed `-12345` with
 raw `0xffffcfc7`, verifies input immutability and result-slot canary preservation, frees both

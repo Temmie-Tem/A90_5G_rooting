@@ -1031,6 +1031,18 @@ class CallSafetyClassificationTests(unittest.TestCase):
         self.assertGreaterEqual(kstrtos8["signals"]["direct_bl_xref_count"], 12)
         self.assertFalse(kstrtos8["signals"]["leaf"])
 
+        kstrtobool = self._row("kstrtobool")
+        self.assertEqual(kstrtobool["tier"], repl.CALL_SAFETY_SAFE_WITH_VALID_PTR)
+        self.assertEqual(
+            kstrtobool["required_valid_pointer_args"],
+            {"0": "bool-string-buffer", "1": "bool-result-output-slot"},
+        )
+        self.assertTrue(kstrtobool["resolution"]["verified"])
+        self.assertEqual(kstrtobool["resolution"]["method"], "export-recovery")
+        self.assertEqual(kstrtobool["resolution"]["link_vaddr"], "0xffffff800856baa4")
+        self.assertGreaterEqual(kstrtobool["signals"]["direct_bl_xref_count"], 50)
+        self.assertTrue(kstrtobool["signals"]["leaf"])
+
         kstrtoint = self._row("kstrtoint")
         self.assertEqual(kstrtoint["tier"], repl.CALL_SAFETY_SAFE_WITH_VALID_PTR)
         self.assertEqual(
@@ -1567,6 +1579,15 @@ class CallSafetyClassificationTests(unittest.TestCase):
         )
         self.assertTrue(kstrtos8["selected"]["path"].endswith("include/linux/kernel.h"))
 
+        kstrtobool = repl.lookup_source_signature("kstrtobool", source_root=KERNEL_SOURCE_ROOT)
+        self.assertEqual(kstrtobool["status"], "found", kstrtobool)
+        self.assertEqual(kstrtobool["selected"]["pointer_arg_indices"], [0, 1])
+        self.assertEqual(
+            kstrtobool["selected"]["signature"],
+            "int __must_check kstrtobool(const char *s, bool *res)",
+        )
+        self.assertTrue(kstrtobool["selected"]["path"].endswith("include/linux/kernel.h"))
+
         kstrtoint = repl.lookup_source_signature("kstrtoint", source_root=KERNEL_SOURCE_ROOT)
         self.assertEqual(kstrtoint["status"], "found", kstrtoint)
         self.assertEqual(kstrtoint["selected"]["pointer_arg_indices"], [0, 2])
@@ -1841,6 +1862,13 @@ class FaithfulFakeTransport:
             self.image,
             "kstrtos8",
             purpose="call",
+        ).link_vaddr
+        self.kstrtobool_link = repl.resolve_verified(
+            self.symbols,
+            self.image,
+            "kstrtobool",
+            purpose="call",
+            allow_pre_arg_deref=True,
         ).link_vaddr
         self.kstrtoint_link = repl.resolve_verified(
             self.symbols,
@@ -2233,6 +2261,8 @@ class FaithfulFakeTransport:
             kstrtou8 = self.kstrtou8_link + self.slide
             assert self.kstrtos8_link is not None
             kstrtos8 = self.kstrtos8_link + self.slide
+            assert self.kstrtobool_link is not None
+            kstrtobool = self.kstrtobool_link + self.slide
             assert self.kstrtoint_link is not None
             kstrtoint = self.kstrtoint_link + self.slide
             assert self.kstrtos16_link is not None
@@ -2487,6 +2517,27 @@ class FaithfulFakeTransport:
                     else:
                         self._set_heap_bytes(arg3, (signed & 0xFF).to_bytes(1, "little"))
                         lines.append("A90R0")
+            elif arg0 == kstrtobool:
+                if arg1 not in self.allocated:
+                    raise AssertionError(f"kstrtobool input is not an allocated pointer: {arg1:#x}")
+                if arg2 not in self.allocated:
+                    raise AssertionError(f"kstrtobool result slot is not an allocated pointer: {arg2:#x}")
+                data = self._c_string(arg1)
+                parsed: bool | None = None
+                if data in (b"Y", b"y", b"1"):
+                    parsed = True
+                elif data in (b"N", b"n", b"0"):
+                    parsed = False
+                elif len(data) >= 2 and data[0:1] in (b"O", b"o"):
+                    if data[1:2] in (b"N", b"n"):
+                        parsed = True
+                    elif data[1:2] in (b"F", b"f"):
+                        parsed = False
+                if parsed is None:
+                    lines.append("A90Rffffffea")
+                else:
+                    self._set_heap_bytes(arg2, b"\x01" if parsed else b"\x00")
+                    lines.append("A90R0")
             elif arg0 == kstrtoint:
                 if arg1 not in self.allocated:
                     raise AssertionError(f"kstrtoint input is not an allocated pointer: {arg1:#x}")
@@ -3833,6 +3884,66 @@ class SelftestIntegrationTests(unittest.TestCase):
             (
                 repl.KSTRTOS8_EXPECTED_RAW_U8.to_bytes(1, "little")
                 + (b"\xcc" * repl.KSTRTOS8_RESULT_SLOT_CANARY_LEN)
+            ).hex(),
+        )
+        self.assertEqual(private["result_slot_after_hex"], private["expected_result_slot_after_hex"])
+        self.assertEqual(fake.freed, [fake.heap_ptr, fake.heap_ptr + 0x1000])
+
+    def test_call_proof_kstrtobool_passes_with_owned_bool_string_and_result_slot_contract(self) -> None:
+        if not C2B_PADDING_MAP_PATH.is_file() or not KERNEL_SOURCE_ROOT.is_dir():
+            self.skipTest("promoted v2c System.map or kernel source tree not present")
+
+        symbols = repl.load_system_map(C2B_PADDING_MAP_PATH)
+        fake = FaithfulFakeTransport(0x130000, symbols, self.image)
+        orig = repl.transport.run_serial_command
+        repl.transport.run_serial_command = fake.run_serial_command
+        self.addCleanup(lambda: setattr(repl.transport, "run_serial_command", orig))
+        session = repl.ReplSession(repl.ReplConfig(settle_sec=0.0))
+        summary, private = repl.run_call_proof(
+            session,
+            symbols,
+            self.image,
+            "kstrtobool",
+            source_root=KERNEL_SOURCE_ROOT,
+        )
+
+        self.assertTrue(summary["ok"], summary)
+        self.assertEqual(summary["decision"], "a90-repl-live-call-proof-kstrtobool-pass")
+        self.assertEqual(summary["proof_status"], "trusted-under-owned-input-contract")
+        self.assertEqual(summary["function_map_entry"]["symbol"], "kstrtobool")
+        self.assertEqual(summary["function_map_entry"]["status"], "live-proven")
+        self.assertEqual(
+            summary["source_evidence"]["signature"],
+            "int __must_check kstrtobool(const char *s, bool *res)",
+        )
+        self.assertEqual(summary["source_evidence"]["pointer_arg_indices"], [0, 1])
+        self.assertEqual(summary["input_ascii"], repl.KSTRTOBOOL_INPUT_LABEL)
+        self.assertEqual(summary["expected_return"], 0)
+        self.assertEqual(summary["observed_return"], 0)
+        self.assertIs(summary["expected_result"], True)
+        self.assertIs(summary["observed_result"], True)
+        self.assertEqual(summary["expected_result_raw_hex"], "0x01")
+        self.assertEqual(summary["observed_result_raw_hex"], "0x01")
+        self.assertTrue(summary["input_unchanged_after_call"])
+        self.assertTrue(summary["result_slot_canary_preserved"])
+        self.assertTrue(summary["raw_runtime_values_redacted"])
+        self.assertTrue(summary["owned_pointer_redacted"])
+        self.assertTrue(summary["observed_bytes_redacted"])
+        self.assertNotIn("kstrtobool_runtime", summary)
+        self.assertNotIn("input_ptr", summary)
+        self.assertNotIn("result_slot_ptr", summary)
+        self.assertIn("kstrtobool_runtime", private)
+        self.assertIn("input_ptr", private)
+        self.assertIn("result_slot_ptr", private)
+        self.assertEqual(
+            private["input_after_hex"],
+            (repl.KSTRTOBOOL_INPUT_BYTES + (b"\xcc" * repl.KSTRTOBOOL_CANARY_LEN)).hex(),
+        )
+        self.assertEqual(
+            private["result_slot_after_hex"],
+            (
+                repl.KSTRTOBOOL_EXPECTED_RAW_U8.to_bytes(1, "little")
+                + (b"\xcc" * repl.KSTRTOBOOL_RESULT_SLOT_CANARY_LEN)
             ).hex(),
         )
         self.assertEqual(private["result_slot_after_hex"], private["expected_result_slot_after_hex"])

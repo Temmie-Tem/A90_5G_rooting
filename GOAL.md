@@ -767,6 +767,36 @@ epic is DONE.** Reports:
 `docs/reports/NATIVE_INIT_V3335_GPU_Z3_PRIMARY_SETCRTC_SOURCE_BUILD_2026-06-27.md` and
 `docs/reports/NATIVE_INIT_V3335_GPU_Z3_PRIMARY_SETCRTC_LIVE_2026-06-27.md`.**
 
+## ✅ DONE — REPL post-epic one-target live-call proof — `kstrtobool` bool result-slot contract
+
+> ### ✅ STATUS (2026-06-30 live pass) — `kstrtobool` promoted under owned bool string + owned bool result slot only
+>
+> Fifty-second one-target live-call proof after the REPL epic close. Codex extended `a90_repl.py`
+> `call-proof` with `kstrtobool`, using one tool-owned NUL-terminated bool string and one tool-owned
+> `bool *` result slot. Static gate: `kstrtobool=0xffffff800856baa4`, `export-recovery`,
+> direct-BL xrefs `50`, JOPP entry true, leaf/no-BL bool parser, source contract
+> `int __must_check kstrtobool(const char *s, bool *res)` from `include/linux/kernel.h`, x0/x1
+> pointer args, and call-safety tier `SAFE-WITH-VALID-PTR`. Disasm confirmed direct x0 string reads
+> and success writes to the x1 result slot using `strb`; `allow_pre_arg_deref=True` is accepted only
+> under the owned NUL string contract.
+>
+> Live path: baseline v2321 `version/status/selftest` passed, flashed the existing v1-repl image
+> `b846ae9f74d8ceb922bbcd854d78b6795ef833d61e38465d3cc474cb6f0dfb65` through
+> `native_init_flash.py`, confirmed readback SHA, got `a90-repl-v2a1-selftest-pass`, then ran
+> `call-proof kstrtobool` with the C2B verified map.
+>
+> Result: `a90-repl-live-call-proof-kstrtobool-pass`; checks covered C1 identity, source signature,
+> call-safety contract, owned buffer allocation/poke/peek, `kstrtobool("Y", &res) == 0`, result slot
+> storing bool `true` with raw `0x01`, input immutability, 1-byte result-slot canary preservation, and
+> `kfree-owned-kstrtobool-buffers`.
+>
+> Candidate selftest after proof stayed `fail=0`. Rolled back to clean v2321
+> (`ca978551aabe4b39563abaf529ccf2522054952d8b2ad852e632d26da88168cb`) with final resident
+> `v2321-usb-clean-identity-rodata` and final sequential retry `selftest pass=11 warn=1 fail=0` after
+> one combined health read hit transient serial framing noise. Function map records `kstrtobool` only
+> under the owned bool string plus owned bool result slot contract. Report:
+> `docs/reports/KERNEL_SECURITY_TIER2_RUNTIME_KERNEL_REPL_LIVE_CALL_PROOF_KSTRTOBOOL_2026-06-30.md`.
+
 ## ✅ DONE — REPL post-epic one-target live-call proof — `kstrtos8` signed 8-bit result-slot contract
 
 > ### ✅ STATUS (2026-06-30 live pass) — `kstrtos8` promoted under owned signed numeric string + owned s8 result slot only

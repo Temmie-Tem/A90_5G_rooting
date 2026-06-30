@@ -31,6 +31,7 @@ and the C1 fail-closed identity gate.
 | `kstrtou16` | `0xffffff800856b8a4`, `export-recovery`, direct BL xrefs `17`, calls `kstrtoull` | owned NUL-terminated unsigned 16-bit numeric string plus scalar base plus owned `u16 *` result slot | `kstrtou16("54321", 10, &res) == 0`; result slot stored unsigned `54321` with raw `0xd431`; input stayed unchanged; 2-byte result-slot canary stayed unchanged | `kfree-owned-kstrtou16-buffers-ok` | `a90-repl-live-call-proof-kstrtou16-pass` |
 | `kstrtou8` | `0xffffff800856b9a4`, `export-recovery`, direct BL xrefs `59`, calls `kstrtoull` | owned NUL-terminated unsigned 8-bit numeric string plus scalar base plus owned `u8 *` result slot | `kstrtou8("213", 10, &res) == 0`; result slot stored unsigned `213` with raw `0xd5`; input stayed unchanged; 1-byte result-slot canary stayed unchanged | `kfree-owned-kstrtou8-buffers-ok` | `a90-repl-live-call-proof-kstrtou8-pass` |
 | `kstrtos8` | `0xffffff800856ba24`, `export-recovery`, direct BL xrefs `12`, calls `kstrtoll` | owned NUL-terminated signed 8-bit numeric string plus scalar base plus owned `s8 *` result slot | `kstrtos8("-85", 10, &res) == 0`; result slot stored signed `-85` with raw `0xab`; input stayed unchanged; 1-byte result-slot canary stayed unchanged | `kfree-owned-kstrtos8-buffers-ok` | `a90-repl-live-call-proof-kstrtos8-pass` |
+| `kstrtobool` | `0xffffff800856baa4`, `export-recovery`, direct BL xrefs `50`, leaf/no-BL bool parser | owned NUL-terminated bool string plus owned `bool *` result slot | `kstrtobool("Y", &res) == 0`; result slot stored bool `true` with raw `0x01`; input stayed unchanged; 1-byte result-slot canary stayed unchanged | `kfree-owned-kstrtobool-buffers-ok` | `a90-repl-live-call-proof-kstrtobool-pass` |
 | `kstrtoint` | `0xffffff800856b824`, `export-recovery`, direct BL xrefs `167`, calls `kstrtoll` | owned NUL-terminated signed numeric string plus scalar base plus owned `int *` result slot | `kstrtoint("-12345", 10, &res) == 0`; result slot stored signed `-12345` with raw `0xffffcfc7`; input stayed unchanged; result-slot canary stayed unchanged | `kfree-owned-kstrtoint-buffers-ok` | `a90-repl-live-call-proof-kstrtoint-pass` |
 | `kstrtos16` | `0xffffff800856b924`, `export-recovery`, direct BL xrefs `1`, calls `kstrtoll` | owned NUL-terminated signed 16-bit numeric string plus scalar base plus owned `s16 *` result slot | `kstrtos16("-1234", 10, &res) == 0`; result slot stored signed `-1234` with raw `0xfb2e`; input stayed unchanged; 2-byte result-slot canary stayed unchanged | `kfree-owned-kstrtos16-buffers-ok` | `a90-repl-live-call-proof-kstrtos16-pass` |
 | `ksize` | `0xffffff800826b27c`, `export-recovery`, direct BL xrefs `39` | owned `__kmalloc` pointer generated inside `call-proof` | `ksize(0x1000 allocation) == 0x1000`, within `[0x1000, 0x2000]` | `kfree-owned-buffer-ok` | `a90-repl-live-call-proof-ksize-pass` |
@@ -120,6 +121,11 @@ and the C1 fail-closed identity gate.
   two's-complement representation, input immutability, and 2-byte result-slot canary. These rows do
   not authorize arbitrary parser state, user pointers, unterminated strings, invalid bases, overflows,
   NULL output slots, failure paths, or mass calling.
+- Bool parser sweep: `kstrtobool` has crossed the live proof gate only under an owned
+  NUL-terminated bool string plus owned `bool *` result slot contract. The proof covers one true
+  success case, `kstrtobool("Y", &res) == 0`, and validates raw result `0x01`, input immutability,
+  1-byte result-slot canary, and cleanup. This row does not authorize arbitrary strings, false cases,
+  invalid cases, user pointers, NULL output slots, failure paths, or mass calling.
 - Read-I/O sweep: `filp_open`, cleanup-only `filp_close`, and `kernel_read` have crossed the live
   proof gate only under their paired owned `/init` file/buffer/position contracts. Broader read paths,
   arbitrary file pointers, and arbitrary destination buffers remain parked until separate contracts are
