@@ -767,6 +767,43 @@ epic is DONE.** Reports:
 `docs/reports/NATIVE_INIT_V3335_GPU_Z3_PRIMARY_SETCRTC_SOURCE_BUILD_2026-06-27.md` and
 `docs/reports/NATIVE_INIT_V3335_GPU_Z3_PRIMARY_SETCRTC_LIVE_2026-06-27.md`.**
 
+## ✅ DONE — REPL post-epic one-target live-call proof — `cpumask_next_and` two-owned-cpumask contract
+
+> ### ✅ STATUS (2026-06-30 live pass) — `cpumask_next_and` promoted under two owned cpumasks + runtime `nr_cpu_ids=8` only
+>
+> Seventy-second one-target live-call proof after the REPL epic close. After `cpumask_next`,
+> `cpumask_any_but`, and `cpumask_next_wrap`, Codex selected `cpumask_next_and` to widen the cpumask
+> wrapper sweep from one owned cpumask to two owned cpumasks. Static C1 verified
+> `cpumask_next_and=0xffffff80099a9e44`, `export-recovery`, direct-BL xrefs `88`, JOPP entry true,
+> non-leaf wrapper shape, internal BL to already proven `find_next_bit`, source contract
+> `int cpumask_next_and(int n, const struct cpumask *, const struct cpumask *)` from
+> `include/linux/cpumask.h:216`, and pointer args x1/x2 only. The proof gates wrapper words
+> `0x52800101` (`mov w1,#8`), `0x97aeebee` (BL to `find_next_bit`),
+> `0xb940faa8` (runtime `nr_cpu_ids` load), and `0xf868da68` (x2/andp word load).
+>
+> Host validation passed: `py_compile` for `a90_repl.py` and `tests/test_a90_repl.py`; CLI
+> `call-safety-classify cpumask_next_and` (`SAFE-WITH-VALID-PTR`, required x1/x2
+> `cpumask-buffer`); focused unittest coverage for static classification, source signature, and the
+> new fake-transport proof; and full `tests.test_a90_repl` (`Ran 135 tests`, `OK`). Live validation
+> obeyed the flash gate: rollback/fallback/TWRP SHAs confirmed, bridge healthy, baseline v2321
+> `version/status/selftest` passed, v1-repl candidate flashed through `native_init_flash.py` with
+> matching readback SHA, candidate selftest stayed `pass=11 warn=1 fail=0`, and
+> `a90-repl-v2a1-selftest-pass` confirmed the REPL path before the target call.
+>
+> Result: `a90-repl-live-call-proof-cpumask_next_and-pass`; checks covered C1 identity, source
+> pointer contract, `SAFE-WITH-VALID-PTR` call-safety, compiled `nr_cpumask_bits=8`, runtime
+> `nr_cpu_ids=8`, two owned cpumask allocations, seven-case return table
+> (`src={1,3,6},and={3,6},n=-1 -> 3`, `n=2 -> 3`, `n=3 -> 6`, `n=6 -> 8`,
+> `src={1},and={3,6},n=-1 -> 8`, `src={},and={3,6},n=-1 -> 8`,
+> `src={1,3,6},and={},n=-1 -> 8`), src/and cpumask and canary immutability, and `kfree`
+> cleanup for both buffers. Raw runtime address/slide/allocation evidence stayed private under
+> `workspace/private/runs/kernel/live-call-proof-cpumask-next-and-20260630/proof/`.
+> Post-proof candidate selftest stayed `pass=11 warn=1 fail=0`; Codex rolled back to clean v2321
+> through `native_init_flash.py`, readback SHA matched, `version/status` passed, and final standalone
+> selftest confirmed `pass=11 warn=1 fail=0`. Function map records `cpumask_next_and` only under the
+> two-owned-cpumask + scalar `n` + runtime 8-CPU contract. Report:
+> `docs/reports/KERNEL_SECURITY_TIER2_RUNTIME_KERNEL_REPL_LIVE_CALL_PROOF_CPUMASK_NEXT_AND_2026-06-30.md`.
+
 ## ✅ DONE — REPL post-epic one-target live-call proof — `cpumask_next_wrap` owned-cpumask wrap iterator contract
 
 > ### ✅ STATUS (2026-06-30 live pass) — `cpumask_next_wrap` promoted under owned cpumask + scalar wrap-state contract only

@@ -32,6 +32,7 @@ and the C1 fail-closed identity gate.
 | `find_last_bit` | `0xffffff8008564f0c`, `export-recovery`, direct BL xrefs `9`, leaf/no-BL | owned unsigned-long bitmap buffer plus scalar bit size bounded inside that bitmap | case table: `size=128 -> 90`, `size=88 -> 73`, `size=64 -> 9`, `size=10 -> 9`, `size=9 -> 9`, `size=0 -> 0`; bitmap and canary stayed unchanged | `kfree-owned-find-last-bit-bitmap-ok` | `a90-repl-live-call-proof-find_last_bit-pass` |
 | `cpumask_next` | `0xffffff80099a9e14`, `export-recovery`, direct BL xrefs `1563`, wrapper calls `find_next_bit` | scalar int `n` plus owned cpumask buffer with compiled `nr_cpumask_bits=8` | case table: `n=-1 -> 2`, `n=1 -> 2`, `n=2 -> 6`, `n=6 -> 8`, `n=7 -> 8`; cpumask and canary stayed unchanged | `kfree-owned-cpumask-next-mask-ok` | `a90-repl-live-call-proof-cpumask_next-pass` |
 | `cpumask_next_wrap` | `0xffffff80099a9f1c`, `export-recovery`, direct BL xrefs `6`, wrapper calls `find_next_bit` | scalar int `n` plus owned cpumask buffer with compiled `nr_cpumask_bits=8` plus scalar `start` and scalar wrap-state | case table: `bits={2,6},n=3,start=4,wrap=0 -> 6`, `bits={2},n=3,start=4,wrap=0 -> 2`, `bits={2,6},n=1,start=4,wrap=1 -> 2`, `bits={2,6},n=6,start=4,wrap=1 -> 2`, `bits={2,6},n=2,start=4,wrap=1 -> 8`, `bits={},n=3,start=4,wrap=0 -> 8`; cpumask and canary stayed unchanged | `kfree-owned-cpumask-next-wrap-mask-ok` | `a90-repl-live-call-proof-cpumask_next_wrap-pass` |
+| `cpumask_next_and` | `0xffffff80099a9e44`, `export-recovery`, direct BL xrefs `88`, wrapper calls `find_next_bit` and tests the second cpumask word | scalar int `n` plus two owned cpumask buffers with compiled `nr_cpumask_bits=8` and runtime `nr_cpu_ids=8` | case table: `src={1,3,6},and={3,6},n=-1 -> 3`, `src={1,3,6},and={3,6},n=2 -> 3`, `src={1,3,6},and={3,6},n=3 -> 6`, `src={1,3,6},and={3,6},n=6 -> 8`, `src={1},and={3,6},n=-1 -> 8`, `src={},and={3,6},n=-1 -> 8`, `src={1,3,6},and={},n=-1 -> 8`; both cpumasks and canaries stayed unchanged | `kfree-owned-cpumask-next-and-masks-ok` | `a90-repl-live-call-proof-cpumask_next_and-pass` |
 | `cpumask_any_but` | `0xffffff80099a9ebc`, `export-recovery`, direct BL xrefs `1`, wrapper calls `find_next_bit` | owned cpumask buffer with compiled `nr_cpumask_bits=8` plus scalar excluded CPU inside runtime `nr_cpu_ids=8` | case table: `bits={2,6},cpu=1 -> 2`, `bits={2,6},cpu=2 -> 6`, `bits={2,6},cpu=6 -> 2`, `bits={2},cpu=2 -> 8`, `bits={},cpu=2 -> 8`; cpumask and canary stayed unchanged | `kfree-owned-cpumask-any-but-mask-ok` | `a90-repl-live-call-proof-cpumask_any_but-pass` |
 | `hex2bin` | `0xffffff800856aa3c`, `export-recovery`, direct BL xrefs `15`, leaf/no-BL | owned destination byte buffer plus owned ASCII hex source buffer plus scalar byte count | `hex2bin(dst, "A90f00dC0ffEe1", 7) == 0x0`, destination decoded to `a90f00dc0ffee1`, destination canary preserved, source stayed unchanged | `kfree-owned-hex2bin-buffers-ok` | `a90-repl-live-call-proof-hex2bin-pass` |
 | `bin2hex` | `0xffffff800856aaf4`, `export-recovery`, direct BL xrefs `5`, leaf/no-BL | owned destination ASCII hex buffer plus owned source byte buffer plus scalar byte count | `bin2hex(dst, a90f00dc0ffee1, 7)` returned the owned destination pointer plus offset `14` (redacted), destination encoded to `a90f00dc0ffee1`, destination canary preserved, source stayed unchanged | `kfree-owned-bin2hex-buffers-ok` | `a90-repl-live-call-proof-bin2hex-pass` |
@@ -120,14 +121,16 @@ and the C1 fail-closed identity gate.
   full-size third set hit, bounded size before the third set bit, first-word hit, boundary inclusion,
   no-set-before-bound, and zero-size miss cases. All three proofs validated bitmap and canary
   immutability and do not authorize arbitrary bitmap pointers, unbounded sizes, or mass calling.
-- Cpumask scanner sweep: `cpumask_next`, `cpumask_next_wrap`, and `cpumask_any_but` have crossed
-  the live proof gate only under owned cpumask buffers, compiled `nr_cpumask_bits=8`, and scalar
-  CPU/index contracts. `cpumask_next` covers first-hit, skip-first-hit, and no-CPU sentinel returns.
-  `cpumask_next_wrap` additionally covers forward hit, initial low wrap hit, wrapped low-next,
-  tail-to-low wrap hit, start-boundary sentinel, and empty-mask sentinel cases under scalar `start`
-  plus wrap-state.
+- Cpumask scanner sweep: `cpumask_next`, `cpumask_next_wrap`, `cpumask_next_and`, and
+  `cpumask_any_but` have crossed the live proof gate only under owned cpumask buffers, compiled
+  `nr_cpumask_bits=8`, and scalar CPU/index contracts. `cpumask_next` covers first-hit,
+  skip-first-hit, and no-CPU sentinel returns. `cpumask_next_wrap` additionally covers forward hit,
+  initial low wrap hit, wrapped low-next, tail-to-low wrap hit, start-boundary sentinel, and
+  empty-mask sentinel cases under scalar `start` plus wrap-state. `cpumask_next_and` additionally
+  requires two owned cpumasks plus runtime `nr_cpu_ids=8`, proves that src-only bits are skipped,
+  proves common-bit hits after `n`, and covers no-common, empty-src, and empty-and sentinels.
   `cpumask_any_but` additionally gates runtime `nr_cpu_ids=8` and covers first-set-not-excluded,
-  excluded-first-set, excluded-later-set, only-excluded-set, and empty-mask sentinel cases. All three
+  excluded-first-set, excluded-later-set, only-excluded-set, and empty-mask sentinel cases. All four
   proofs validate cpumask/canary immutability. They do not authorize arbitrary cpumask pointers,
   wider CPU masks, other cpumask wrappers, arbitrary iteration states, or mass calling.
 - Option parser sweep: `parse_option_str` has crossed the live proof gate only under owned
