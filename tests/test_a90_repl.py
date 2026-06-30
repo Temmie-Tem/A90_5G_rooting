@@ -1007,6 +1007,18 @@ class CallSafetyClassificationTests(unittest.TestCase):
         self.assertGreaterEqual(kstrtoint["signals"]["direct_bl_xref_count"], 167)
         self.assertFalse(kstrtoint["signals"]["leaf"])
 
+        kstrtos16 = self._row("kstrtos16")
+        self.assertEqual(kstrtos16["tier"], repl.CALL_SAFETY_SAFE_WITH_VALID_PTR)
+        self.assertEqual(
+            kstrtos16["required_valid_pointer_args"],
+            {"0": "numeric-string-buffer", "2": "s16-result-output-slot"},
+        )
+        self.assertTrue(kstrtos16["resolution"]["verified"])
+        self.assertEqual(kstrtos16["resolution"]["method"], "export-recovery")
+        self.assertEqual(kstrtos16["resolution"]["link_vaddr"], "0xffffff800856b924")
+        self.assertGreaterEqual(kstrtos16["signals"]["direct_bl_xref_count"], 1)
+        self.assertFalse(kstrtos16["signals"]["leaf"])
+
     def test_non_seeded_targets_are_denied_by_default(self) -> None:
         row = self._row("kgsl_pwrctrl_force_no_nap_store")
         self.assertEqual(row["tier"], repl.CALL_SAFETY_DENY)
@@ -1501,6 +1513,15 @@ class CallSafetyClassificationTests(unittest.TestCase):
         )
         self.assertTrue(kstrtoint["selected"]["path"].endswith("include/linux/kernel.h"))
 
+        kstrtos16 = repl.lookup_source_signature("kstrtos16", source_root=KERNEL_SOURCE_ROOT)
+        self.assertEqual(kstrtos16["status"], "found", kstrtos16)
+        self.assertEqual(kstrtos16["selected"]["pointer_arg_indices"], [0, 2])
+        self.assertEqual(
+            kstrtos16["selected"]["signature"],
+            "int __must_check kstrtos16(const char *s, unsigned int base, s16 *res)",
+        )
+        self.assertTrue(kstrtos16["selected"]["path"].endswith("include/linux/kernel.h"))
+
     def test_call_safety_sweep_is_advisory_and_does_not_promote_gate(self) -> None:
         if not KERNEL_SOURCE_ROOT.is_dir():
             self.skipTest("kernel source tree not present")
@@ -1744,6 +1765,12 @@ class FaithfulFakeTransport:
             self.symbols,
             self.image,
             "kstrtoint",
+            purpose="call",
+        ).link_vaddr
+        self.kstrtos16_link = repl.resolve_verified(
+            self.symbols,
+            self.image,
+            "kstrtos16",
             purpose="call",
         ).link_vaddr
         self.ksize_link = repl.resolve_verified(
@@ -2121,6 +2148,8 @@ class FaithfulFakeTransport:
             kstrtouint = self.kstrtouint_link + self.slide
             assert self.kstrtoint_link is not None
             kstrtoint = self.kstrtoint_link + self.slide
+            assert self.kstrtos16_link is not None
+            kstrtos16 = self.kstrtos16_link + self.slide
             assert self.ksize_link is not None
             ksize = self.ksize_link + self.slide
             assert self.strnlen_link is not None
@@ -2308,6 +2337,44 @@ class FaithfulFakeTransport:
                         lines.append("A90Rffffffde")
                     else:
                         self._set_heap_bytes(arg3, (signed & 0xFFFFFFFF).to_bytes(4, "little"))
+                        lines.append("A90R0")
+            elif arg0 == kstrtos16:
+                if arg1 not in self.allocated:
+                    raise AssertionError(f"kstrtos16 input is not an allocated pointer: {arg1:#x}")
+                if arg3 not in self.allocated:
+                    raise AssertionError(f"kstrtos16 result slot is not an allocated pointer: {arg3:#x}")
+                data = self._c_string(arg1)
+                base = arg2
+                sign = 1
+                if data.startswith(b"-"):
+                    sign = -1
+                    data = data[1:]
+                elif data.startswith(b"+"):
+                    data = data[1:]
+                value = 0
+                parsed_any = False
+                for byte in data:
+                    ch = chr(byte)
+                    if "0" <= ch <= "9":
+                        digit = ord(ch) - ord("0")
+                    elif "a" <= ch.lower() <= "f":
+                        digit = ord(ch.lower()) - ord("a") + 10
+                    else:
+                        lines.append("A90Rffffffea")
+                        break
+                    if digit >= base:
+                        lines.append("A90Rffffffea")
+                        break
+                    parsed_any = True
+                    value = value * base + digit
+                else:
+                    signed = sign * value
+                    if not parsed_any:
+                        lines.append("A90Rffffffea")
+                    elif signed < -0x8000 or signed > 0x7FFF:
+                        lines.append("A90Rffffffde")
+                    else:
+                        self._set_heap_bytes(arg3, (signed & 0xFFFF).to_bytes(2, "little"))
                         lines.append("A90R0")
             elif arg0 == hex2bin:
                 if arg1 not in self.allocated:
@@ -3457,6 +3524,67 @@ class SelftestIntegrationTests(unittest.TestCase):
             (
                 repl.KSTRTOINT_EXPECTED_RAW_U32.to_bytes(4, "little")
                 + (b"\xcc" * repl.KSTRTOINT_RESULT_SLOT_CANARY_LEN)
+            ).hex(),
+        )
+        self.assertEqual(private["result_slot_after_hex"], private["expected_result_slot_after_hex"])
+        self.assertEqual(fake.freed, [fake.heap_ptr, fake.heap_ptr + 0x1000])
+
+    def test_call_proof_kstrtos16_passes_with_owned_signed_string_and_s16_result_slot_contract(self) -> None:
+        if not C2B_PADDING_MAP_PATH.is_file() or not KERNEL_SOURCE_ROOT.is_dir():
+            self.skipTest("promoted v2c System.map or kernel source tree not present")
+
+        symbols = repl.load_system_map(C2B_PADDING_MAP_PATH)
+        fake = FaithfulFakeTransport(0x130000, symbols, self.image)
+        orig = repl.transport.run_serial_command
+        repl.transport.run_serial_command = fake.run_serial_command
+        self.addCleanup(lambda: setattr(repl.transport, "run_serial_command", orig))
+        session = repl.ReplSession(repl.ReplConfig(settle_sec=0.0))
+        summary, private = repl.run_call_proof(
+            session,
+            symbols,
+            self.image,
+            "kstrtos16",
+            source_root=KERNEL_SOURCE_ROOT,
+        )
+
+        self.assertTrue(summary["ok"], summary)
+        self.assertEqual(summary["decision"], "a90-repl-live-call-proof-kstrtos16-pass")
+        self.assertEqual(summary["proof_status"], "trusted-under-owned-input-contract")
+        self.assertEqual(summary["function_map_entry"]["symbol"], "kstrtos16")
+        self.assertEqual(summary["function_map_entry"]["status"], "live-proven")
+        self.assertEqual(
+            summary["source_evidence"]["signature"],
+            "int __must_check kstrtos16(const char *s, unsigned int base, s16 *res)",
+        )
+        self.assertEqual(summary["source_evidence"]["pointer_arg_indices"], [0, 2])
+        self.assertEqual(summary["input_ascii"], repl.KSTRTOS16_INPUT_LABEL)
+        self.assertEqual(summary["base"], repl.KSTRTOS16_BASE)
+        self.assertEqual(summary["expected_return"], 0)
+        self.assertEqual(summary["observed_return"], 0)
+        self.assertEqual(summary["expected_result"], repl.KSTRTOS16_EXPECTED_VALUE)
+        self.assertEqual(summary["observed_result"], repl.KSTRTOS16_EXPECTED_VALUE)
+        self.assertEqual(summary["expected_result_raw_hex"], "0xfb2e")
+        self.assertEqual(summary["observed_result_raw_hex"], "0xfb2e")
+        self.assertTrue(summary["input_unchanged_after_call"])
+        self.assertTrue(summary["result_slot_canary_preserved"])
+        self.assertTrue(summary["raw_runtime_values_redacted"])
+        self.assertTrue(summary["owned_pointer_redacted"])
+        self.assertTrue(summary["observed_bytes_redacted"])
+        self.assertNotIn("kstrtos16_runtime", summary)
+        self.assertNotIn("input_ptr", summary)
+        self.assertNotIn("result_slot_ptr", summary)
+        self.assertIn("kstrtos16_runtime", private)
+        self.assertIn("input_ptr", private)
+        self.assertIn("result_slot_ptr", private)
+        self.assertEqual(
+            private["input_after_hex"],
+            (repl.KSTRTOS16_INPUT_BYTES + (b"\xcc" * repl.KSTRTOS16_CANARY_LEN)).hex(),
+        )
+        self.assertEqual(
+            private["result_slot_after_hex"],
+            (
+                repl.KSTRTOS16_EXPECTED_RAW_U16.to_bytes(2, "little")
+                + (b"\xcc" * repl.KSTRTOS16_RESULT_SLOT_CANARY_LEN)
             ).hex(),
         )
         self.assertEqual(private["result_slot_after_hex"], private["expected_result_slot_after_hex"])
