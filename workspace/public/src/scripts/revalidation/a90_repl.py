@@ -312,6 +312,12 @@ CALL_SAFETY_SEEDS = {
         "return_kind": "uint32_t",
         "reason": "no-argument Qualcomm boot-stat timer MMIO getter; proof expects a nonzero uint32_t counter with bounded short-run forward deltas",
     },
+    "is_sde_rsc_available": {
+        "tier": CALL_SAFETY_SAFE_SCALAR,
+        "required_valid_pointer_args": {},
+        "return_kind": "bool",
+        "reason": "scalar display-RSC availability getter; proof calls only SDE_RSC_INDEX 0 and expects a stable bool return without dereferencing or freeing any returned pointer",
+    },
     "get_ddr_DSF_version": {
         "tier": CALL_SAFETY_SAFE_SCALAR,
         "required_valid_pointer_args": {},
@@ -3364,6 +3370,7 @@ _SOURCE_HEADER_HINTS_BY_EXACT_SYMBOL = {
     "get_current_napi_context": ("include/linux/netdevice.h",),
     "get_ddr_DSF_version": ("include/linux/samsung/sec_smem.h",),
     "get_ddr_total_density": ("include/linux/samsung/sec_smem.h",),
+    "is_sde_rsc_available": ("include/linux/sde_rsc.h",),
     "cpumask_next": ("include/linux/cpumask.h",),
     "cpumask_next_wrap": ("include/linux/cpumask.h",),
     "cpumask_next_and": ("include/linux/cpumask.h",),
@@ -5088,6 +5095,12 @@ CALL_PROOF_TARGETS = {
         "expected_tier": CALL_SAFETY_SAFE_SCALAR,
         "source_signature": "extern unsigned int get_boot_stat_time(void)",
     },
+    "is_sde_rsc_available": {
+        "input_contract": "scalar rsc_index fixed to SDE_RSC_INDEX 0; display RSC table is read-only; no returned pointer is dereferenced or freed",
+        "return_contract": "bool availability value is either 0 or 1 and stable across repeated proof calls",
+        "expected_tier": CALL_SAFETY_SAFE_SCALAR,
+        "source_signature": "bool is_sde_rsc_available(int rsc_index)",
+    },
     "get_ddr_DSF_version": {
         "input_contract": "no arguments; Samsung SMEM DDR DSF info is read-only; no returned pointer is dereferenced or freed",
         "return_contract": "uint32_t DDR DSF-version field is nonzero, <= 0xffffffff, and stable across repeated proof calls",
@@ -6151,6 +6164,22 @@ GET_BOOT_STAT_TIME_RET_WORD = 0xD65F03C0
 GET_BOOT_STAT_TIME_NEXT_GUARD_WORD = 0x00BE7BAD
 GET_BOOT_STAT_TIME_REPEAT_COUNT = 3
 GET_BOOT_STAT_TIME_MAX_SHORT_DELTA_TICKS = 10_000_000
+IS_SDE_RSC_AVAILABLE_INDEX = 0
+IS_SDE_RSC_AVAILABLE_JOPP_WORD = 0xCA1103D0
+IS_SDE_RSC_AVAILABLE_STACK_WORD = 0xA9BF43FD
+IS_SDE_RSC_AVAILABLE_MOVE_INDEX_WORD = 0x2A0003E3
+IS_SDE_RSC_AVAILABLE_CMP_MAX_INDEX_WORD = 0x7100141F
+IS_SDE_RSC_AVAILABLE_BRANCH_VALID_WORD = 0x540000AB
+IS_SDE_RSC_AVAILABLE_ARRAY_ADRP_WORD = 0x90014348
+IS_SDE_RSC_AVAILABLE_ARRAY_ADD_WORD = 0x91014108
+IS_SDE_RSC_AVAILABLE_ARRAY_LOAD_WORD = 0xF863D908
+IS_SDE_RSC_AVAILABLE_NULL_BRANCH_WORD = 0xB40000A8
+IS_SDE_RSC_AVAILABLE_TRUE_RETURN_WORD = 0x52800020
+IS_SDE_RSC_AVAILABLE_PRINTK_BL_WORD = 0x97E364A7
+IS_SDE_RSC_AVAILABLE_FALSE_RETURN_WORD = 0x2A1F03E0
+IS_SDE_RSC_AVAILABLE_RET_WORD = 0xD65F03C0
+IS_SDE_RSC_AVAILABLE_PADDING_NOP_WORD = 0xD503201F
+IS_SDE_RSC_AVAILABLE_NEXT_GUARD_WORD = 0x00BE7BAD
 GET_DDR_DSF_VERSION_STACK_ALLOC_WORD = 0xD100C3FF
 GET_DDR_DSF_VERSION_SMEM_ID_WORD = 0x528010E1
 GET_DDR_DSF_VERSION_ARG_BUFFER_WORD = 0x910003E2
@@ -21802,6 +21831,194 @@ def _run_call_proof_get_boot_stat_time(
     return summary, private
 
 
+def _run_call_proof_is_sde_rsc_available(
+    session: ReplSession,
+    symbols: dict[str, Symbol],
+    image: StaticImage,
+    *,
+    source_root: Path,
+) -> tuple[dict[str, object], dict[str, object]]:
+    source = lookup_source_signature("is_sde_rsc_available", source_root=source_root)
+    call_safety = require_call_safety_for_call(
+        symbols,
+        image,
+        "is_sde_rsc_available",
+        (IS_SDE_RSC_AVAILABLE_INDEX,),
+    )
+    if call_safety.get("tier") != CALL_PROOF_TARGETS["is_sde_rsc_available"]["expected_tier"]:
+        raise ReplError("is_sde_rsc_available call-safety tier is not the expected vetted scalar tier")
+    if not source.get("found") or source.get("pointer_arg_indices") != []:
+        raise ReplError("is_sde_rsc_available source signature must be scalar-only")
+    selected_signature = (
+        source.get("selected", {}).get("signature")
+        if isinstance(source.get("selected"), dict) else None
+    )
+    if selected_signature != CALL_PROOF_TARGETS["is_sde_rsc_available"]["source_signature"]:
+        raise ReplError("is_sde_rsc_available source signature did not select the exported declaration")
+
+    resolutions = {
+        "is_sde_rsc_available": resolve_verified(
+            symbols,
+            image,
+            "is_sde_rsc_available",
+            purpose="call",
+        ),
+    }
+    target_link = require_verified_resolution(
+        resolutions["is_sde_rsc_available"],
+        "call-proof target",
+    )
+    next_symbol = symbols.get("get_sde_rsc_primary_crtc")
+    if next_symbol is None or next_symbol.vaddr - target_link != 0x78:
+        raise ReplError("is_sde_rsc_available next-symbol boundary is not the expected 0x78")
+    words = image.u32_words_at_vaddr(target_link, 30)
+    static_word_checks = (
+        ("static-jopp-entry", 0, IS_SDE_RSC_AVAILABLE_JOPP_WORD),
+        ("static-stack", 1, IS_SDE_RSC_AVAILABLE_STACK_WORD),
+        ("static-move-index", 3, IS_SDE_RSC_AVAILABLE_MOVE_INDEX_WORD),
+        ("static-cmp-max-index", 4, IS_SDE_RSC_AVAILABLE_CMP_MAX_INDEX_WORD),
+        ("static-branch-valid-index", 5, IS_SDE_RSC_AVAILABLE_BRANCH_VALID_WORD),
+        ("static-array-adrp", 10, IS_SDE_RSC_AVAILABLE_ARRAY_ADRP_WORD),
+        ("static-array-add", 11, IS_SDE_RSC_AVAILABLE_ARRAY_ADD_WORD),
+        ("static-array-load", 12, IS_SDE_RSC_AVAILABLE_ARRAY_LOAD_WORD),
+        ("static-null-branch", 13, IS_SDE_RSC_AVAILABLE_NULL_BRANCH_WORD),
+        ("static-true-return", 14, IS_SDE_RSC_AVAILABLE_TRUE_RETURN_WORD),
+        ("static-true-ret", 17, IS_SDE_RSC_AVAILABLE_RET_WORD),
+        ("static-printk-call", 23, IS_SDE_RSC_AVAILABLE_PRINTK_BL_WORD),
+        ("static-false-return", 24, IS_SDE_RSC_AVAILABLE_FALSE_RETURN_WORD),
+        ("static-false-ret", 27, IS_SDE_RSC_AVAILABLE_RET_WORD),
+        ("static-padding-nop", 28, IS_SDE_RSC_AVAILABLE_PADDING_NOP_WORD),
+        ("static-next-guard", 29, IS_SDE_RSC_AVAILABLE_NEXT_GUARD_WORD),
+    )
+
+    checks: list[dict[str, object]] = [
+        {
+            "check": "static-c1-identity",
+            "ok": True,
+            "target": "is_sde_rsc_available",
+            "resolution_method": resolutions["is_sde_rsc_available"].method,
+        },
+        {
+            "check": "static-next-symbol-boundary",
+            "ok": True,
+            "next_symbol": "get_sde_rsc_primary_crtc",
+            "byte_size": "0x78",
+        },
+        {
+            "check": "static-source-contract",
+            "ok": True,
+            "signature": selected_signature,
+            "pointer_arg_indices": source.get("pointer_arg_indices", []),
+            "fixed_index": IS_SDE_RSC_AVAILABLE_INDEX,
+        },
+        {
+            "check": "static-call-safety-contract",
+            "ok": True,
+            "tier": call_safety.get("tier"),
+            "required_valid_pointer_args": call_safety.get("required_valid_pointer_args", {}),
+        },
+    ]
+    for name, index, expected in static_word_checks:
+        observed = words[index]
+        ok = observed == expected
+        checks.append({
+            "check": name,
+            "ok": ok,
+            "expected_word": f"0x{expected:08x}",
+            "observed_word": f"0x{observed:08x}",
+        })
+        if not ok:
+            raise ReplError(
+                f"is_sde_rsc_available {name} word mismatch: observed 0x{observed:08x}, "
+                f"expected 0x{expected:08x}"
+            )
+
+    private: dict[str, object] = {}
+    slide = 0
+    returns: list[int] = []
+    case_results: list[dict[str, object]] = []
+
+    session.hide()
+    session.set_panic_on_oops(0)
+    try:
+        slide = session.slide()
+        if slide & 0xFFF:
+            raise ReplError("slide is not page-aligned; refusing to proceed")
+        target_runtime = (target_link + slide) & MASK64
+        for index in range(2):
+            observed = session.call_runtime(target_runtime, (IS_SDE_RSC_AVAILABLE_INDEX,))
+            returns.append(observed)
+            bool_ok = observed in (0, 1)
+            stable_ok = index == 0 or observed == returns[0]
+            ok = bool_ok and stable_ok
+            case_results.append({
+                "case": f"sde-rsc-index0-available-{index + 1}",
+                "input_index": IS_SDE_RSC_AVAILABLE_INDEX,
+                "expected_return": "stable-bool",
+                "observed_return_value": f"0x{observed:x}",
+                "bool_return": bool_ok,
+                "matches_first_call": stable_ok,
+                "ok": ok,
+            })
+            if not bool_ok:
+                raise ReplError(
+                    "is_sde_rsc_available(0) did not return a bool value "
+                    f"in proof call {index + 1}: 0x{observed:x}"
+                )
+            if not stable_ok:
+                raise ReplError(
+                    "is_sde_rsc_available(0) was not stable across repeated proof calls: "
+                    f"first=0x{returns[0]:x}, call{index + 1}=0x{observed:x}"
+                )
+    finally:
+        session.set_panic_on_oops(1)
+
+    checks.append({
+        "check": "is-sde-rsc-available-index0-stable-bool-repeat",
+        "ok": all(bool(case.get("ok")) for case in case_results),
+        "case_count": len(case_results),
+        "cases": case_results,
+    })
+    passed = all(bool(check.get("ok")) for check in checks)
+    observed_public = f"0x{returns[0]:x}" if returns else "n/a"
+    summary = {
+        "decision": f"a90-repl-live-call-proof-is_sde_rsc_available-{'pass' if passed else 'fail'}",
+        "ok": passed,
+        "target": "is_sde_rsc_available",
+        "proof_status": "trusted-under-sde-rsc-index0-bool-contract" if passed else "failed",
+        "input_contract": CALL_PROOF_TARGETS["is_sde_rsc_available"]["input_contract"],
+        "return_contract": CALL_PROOF_TARGETS["is_sde_rsc_available"]["return_contract"],
+        "case_results": case_results,
+        "observed_return_value": observed_public,
+        "all_returns_bool": bool(returns) and all(value in (0, 1) for value in returns),
+        "all_returns_stable": bool(returns) and all(value == returns[0] for value in returns),
+        "repeat_count": len(returns),
+        "source_evidence": _source_row_evidence(source),
+        "call_safety": call_safety,
+        "resolutions": _redacted_resolution_set(resolutions),
+        "raw_runtime_values_redacted": True,
+        "checks": checks,
+        "function_map_entry": {
+            "symbol": "is_sde_rsc_available",
+            "status": "live-proven",
+            "trusted_input_contract": CALL_PROOF_TARGETS["is_sde_rsc_available"]["input_contract"],
+            "return_contract": CALL_PROOF_TARGETS["is_sde_rsc_available"]["return_contract"],
+            "observed_return_value": f"repeated SDE_RSC_INDEX 0 calls returned stable bool {observed_public}",
+            "cleanup": "n/a-scalar-read-only",
+            "auto_call_policy": "one-target-proof-only-not-mass-call",
+        },
+    }
+    private.update({
+        "slide": f"0x{slide:x}",
+        "is_sde_rsc_available_runtime": f"0x{((target_link + slide) & MASK64):x}",
+        "case_returns": {
+            case["case"]: case["observed_return_value"]
+            for case in case_results
+        },
+    })
+    return summary, private
+
+
 def _run_call_proof_get_ddr_DSF_version(
     session: ReplSession,
     symbols: dict[str, Symbol],
@@ -26454,6 +26671,13 @@ def run_call_proof(session: ReplSession,
         )
     if target == "get_boot_stat_time":
         return _run_call_proof_get_boot_stat_time(
+            session,
+            symbols,
+            image,
+            source_root=source_root,
+        )
+    if target == "is_sde_rsc_available":
+        return _run_call_proof_is_sde_rsc_available(
             session,
             symbols,
             image,

@@ -1229,6 +1229,43 @@ class CallSafetyClassificationTests(unittest.TestCase):
             ],
         )
 
+        is_sde_rsc_available = self._row("is_sde_rsc_available")
+        self.assertEqual(is_sde_rsc_available["tier"], repl.CALL_SAFETY_SAFE_SCALAR)
+        self.assertEqual(is_sde_rsc_available["required_valid_pointer_args"], {})
+        self.assertTrue(is_sde_rsc_available["resolution"]["verified"])
+        self.assertEqual(is_sde_rsc_available["resolution"]["method"], "export-recovery")
+        self.assertEqual(
+            is_sde_rsc_available["resolution"]["link_vaddr"],
+            "0xffffff8008861b04",
+        )
+        self.assertGreaterEqual(is_sde_rsc_available["signals"]["direct_bl_xref_count"], 1)
+        self.assertEqual(
+            is_sde_rsc_available["signals"]["arg_pointer_derefs_before_first_bl_or_ret"],
+            [],
+        )
+        self.assertTrue(
+            is_sde_rsc_available["signals"]["arg_taint_flow"][
+                "safe_scalar_positive_no_arg_memory_base_flow"
+            ]
+        )
+        self.assertEqual(
+            is_sde_rsc_available["signals"]["first_words"][:12],
+            [
+                "0xca1103d0",
+                "0xa9bf43fd",
+                "0x910003fd",
+                "0x2a0003e3",
+                "0x7100141f",
+                "0x540000ab",
+                "0xf000cfa0",
+                "0x52802062",
+                "0x910d8000",
+                "0x1400000c",
+                "0x90014348",
+                "0x91014108",
+            ],
+        )
+
         get_ddr_DSF_version = self._row("get_ddr_DSF_version")
         self.assertEqual(get_ddr_DSF_version["tier"], repl.CALL_SAFETY_SAFE_SCALAR)
         self.assertEqual(get_ddr_DSF_version["required_valid_pointer_args"], {})
@@ -1540,7 +1577,7 @@ class CallSafetyClassificationTests(unittest.TestCase):
         self.assertTrue(summary["host_only"])
         self.assertFalse(summary["device_action"])
         self.assertEqual(summary["seed_whitelist_count"], len(repl.CALL_SAFETY_SEEDS))
-        self.assertEqual(summary["counts"][repl.CALL_SAFETY_SAFE_SCALAR], 11)
+        self.assertEqual(summary["counts"][repl.CALL_SAFETY_SAFE_SCALAR], 12)
         self.assertGreaterEqual(summary["counts"][repl.CALL_SAFETY_SAFE_WITH_VALID_PTR], 8)
         self.assertGreaterEqual(summary["counts"][repl.CALL_SAFETY_BEHAVIOR_CHANGING], 4)
         self.assertEqual(summary["counts"][repl.CALL_SAFETY_DENY], 1)
@@ -2190,6 +2227,21 @@ class CallSafetyClassificationTests(unittest.TestCase):
         self.assertIn("unsigned int get_boot_stat_time(void)", impl_text)
         self.assertIn("return readl_relaxed(mpm_counter_base);", impl_text)
 
+        is_sde_rsc_available = repl.lookup_source_signature(
+            "is_sde_rsc_available",
+            source_root=KERNEL_SOURCE_ROOT,
+        )
+        self.assertEqual(is_sde_rsc_available["status"], "found", is_sde_rsc_available)
+        self.assertEqual(is_sde_rsc_available["selected"]["pointer_arg_indices"], [])
+        self.assertEqual(
+            is_sde_rsc_available["selected"]["signature"],
+            "bool is_sde_rsc_available(int rsc_index)",
+        )
+        self.assertEqual(is_sde_rsc_available["selected"]["line"], 282)
+        self.assertTrue(
+            is_sde_rsc_available["selected"]["path"].endswith("include/linux/sde_rsc.h")
+        )
+
         get_ddr_DSF_version = repl.lookup_source_signature(
             "get_ddr_DSF_version",
             source_root=KERNEL_SOURCE_ROOT,
@@ -2605,6 +2657,12 @@ class FaithfulFakeTransport:
             "get_boot_stat_time",
             purpose="call",
         ).link_vaddr
+        self.is_sde_rsc_available_link = repl.resolve_verified(
+            self.symbols,
+            self.image,
+            "is_sde_rsc_available",
+            purpose="call",
+        ).link_vaddr
         self.get_ddr_DSF_version_link = repl.resolve_verified(
             self.symbols,
             self.image,
@@ -2620,6 +2678,7 @@ class FaithfulFakeTransport:
         self.borrowed_cpu0_device_ptr = 0xFFFFFFC012340000
         self.boot_stat_time_values = [0x00100000, 0x00101000, 0x00102000]
         self.boot_stat_time_index = 0
+        self.sde_rsc_available_value = 1
         self.ddr_dsf_version_value = 0x00010002
         self.ddr_total_density_value = 0x06
         self.sw_hweight32_link = repl.resolve_verified(
@@ -3244,6 +3303,8 @@ class FaithfulFakeTransport:
             get_current_napi_context = self.get_current_napi_context_link + self.slide
             assert self.get_boot_stat_time_link is not None
             get_boot_stat_time = self.get_boot_stat_time_link + self.slide
+            assert self.is_sde_rsc_available_link is not None
+            is_sde_rsc_available = self.is_sde_rsc_available_link + self.slide
             assert self.get_ddr_DSF_version_link is not None
             get_ddr_DSF_version = self.get_ddr_DSF_version_link + self.slide
             assert self.get_ddr_total_density_link is not None
@@ -3805,6 +3866,10 @@ class FaithfulFakeTransport:
                 ]
                 self.boot_stat_time_index += 1
                 lines.append(f"A90R{value:x}")
+            elif arg0 == is_sde_rsc_available:
+                if (arg1, arg2, arg3, arg4) != (repl.IS_SDE_RSC_AVAILABLE_INDEX, 0, 0, 0):
+                    raise AssertionError("is_sde_rsc_available proof must pass only SDE_RSC_INDEX 0")
+                lines.append(f"A90R{self.sde_rsc_available_value:x}")
             elif arg0 == get_ddr_DSF_version:
                 if (arg1, arg2, arg3, arg4) != (0, 0, 0, 0):
                     raise AssertionError("get_ddr_DSF_version proof must pass no arguments")
@@ -5139,6 +5204,54 @@ class SelftestIntegrationTests(unittest.TestCase):
         self.assertEqual(private["case_deltas"]["boot-stat-time-read-2"], "0x1000")
         self.assertEqual(private["case_deltas"]["boot-stat-time-read-3"], "0x1000")
         self.assertEqual(fake.op_count, 4)  # slide + 3 no-arg proof calls
+
+    def test_call_proof_is_sde_rsc_available_passes_with_index0_bool_contract(self) -> None:
+        if not C2B_PADDING_MAP_PATH.is_file() or not KERNEL_SOURCE_ROOT.is_dir():
+            self.skipTest("promoted v2c System.map or kernel source tree not present")
+
+        symbols = repl.load_system_map(C2B_PADDING_MAP_PATH)
+        fake = FaithfulFakeTransport(0x130000, symbols, self.image)
+        orig = repl.transport.run_serial_command
+        repl.transport.run_serial_command = fake.run_serial_command
+        self.addCleanup(lambda: setattr(repl.transport, "run_serial_command", orig))
+        session = repl.ReplSession(repl.ReplConfig(settle_sec=0.0))
+        summary, private = repl.run_call_proof(
+            session,
+            symbols,
+            self.image,
+            "is_sde_rsc_available",
+            source_root=KERNEL_SOURCE_ROOT,
+        )
+
+        self.assertTrue(summary["ok"], summary)
+        self.assertEqual(
+            summary["decision"],
+            "a90-repl-live-call-proof-is_sde_rsc_available-pass",
+        )
+        self.assertEqual(summary["proof_status"], "trusted-under-sde-rsc-index0-bool-contract")
+        self.assertEqual(summary["function_map_entry"]["symbol"], "is_sde_rsc_available")
+        self.assertEqual(summary["function_map_entry"]["status"], "live-proven")
+        self.assertEqual(
+            summary["source_evidence"]["signature"],
+            "bool is_sde_rsc_available(int rsc_index)",
+        )
+        self.assertEqual(summary["source_evidence"]["pointer_arg_indices"], [])
+        self.assertTrue(summary["all_returns_bool"])
+        self.assertTrue(summary["all_returns_stable"])
+        self.assertEqual(summary["repeat_count"], 2)
+        self.assertEqual(summary["observed_return_value"], "0x1")
+        self.assertTrue(summary["raw_runtime_values_redacted"])
+        self.assertNotIn("is_sde_rsc_available_runtime", summary)
+        cases = {case["case"]: case for case in summary["case_results"]}
+        self.assertEqual(cases["sde-rsc-index0-available-1"]["input_index"], 0)
+        self.assertEqual(cases["sde-rsc-index0-available-1"]["observed_return_value"], "0x1")
+        self.assertTrue(cases["sde-rsc-index0-available-1"]["bool_return"])
+        self.assertEqual(cases["sde-rsc-index0-available-2"]["observed_return_value"], "0x1")
+        self.assertTrue(cases["sde-rsc-index0-available-2"]["matches_first_call"])
+        self.assertIn("is_sde_rsc_available_runtime", private)
+        self.assertEqual(private["case_returns"]["sde-rsc-index0-available-1"], "0x1")
+        self.assertEqual(private["case_returns"]["sde-rsc-index0-available-2"], "0x1")
+        self.assertEqual(fake.op_count, 3)  # slide + 2 scalar proof calls
 
     def test_call_proof_get_ddr_DSF_version_passes_with_stable_uint32_contract(self) -> None:
         if not C2B_PADDING_MAP_PATH.is_file() or not KERNEL_SOURCE_ROOT.is_dir():

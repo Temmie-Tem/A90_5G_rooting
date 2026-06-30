@@ -26,6 +26,7 @@ and the C1 fail-closed identity gate.
 | `get_cpu_device` | `0xffffff8008992a5c`, `export-recovery`, direct BL xrefs `38`, leaf/no-BL | scalar CPU index; returned pointer is borrowed/read-only and is not dereferenced or freed | `cpu=0` returned a non-NULL sane kernel lowmem borrowed pointer (redacted); `cpu=0xffffffff` returned NULL | `n/a-borrowed-pointer-not-owned` | `a90-repl-live-call-proof-get_cpu_device-pass` |
 | `get_current_napi_context` | `0xffffff800971f284`, `export-recovery`, direct BL xrefs `10`, `0x20`-byte per-CPU-read body before `netdev_has_upper_dev` | no arguments; called from REPL process context outside NAPI poll/softirq; any non-NULL return is borrowed/read-only and is not dereferenced or freed | two process-context calls returned NULL | `n/a-null-return-no-owned-resource` | `a90-repl-live-call-proof-get_current_napi_context-pass` |
 | `get_boot_stat_time` | `0xffffff80086979e4`, `disasm-signature+xref+map`, direct BL xrefs `4`, `0x60`-byte body before `get_boot_stat_freq` | no arguments; Qualcomm boot-stat timer MMIO is read-only; no returned pointer is dereferenced or freed | repeated calls returned nonzero uint32_t counter values starting at `0x29eb84`, max short-run delta `0x4254` | `n/a-scalar-mmio-read-only` | `a90-repl-live-call-proof-get_boot_stat_time-pass` |
+| `is_sde_rsc_available` | `0xffffff8008861b04`, `export-recovery`, direct BL xrefs `1`, `0x78`-byte body before `get_sde_rsc_primary_crtc` | scalar `rsc_index` fixed to `SDE_RSC_INDEX` `0`; display RSC table is read-only; no returned pointer is dereferenced or freed | repeated calls returned stable bool `0x1` | `n/a-scalar-read-only` | `a90-repl-live-call-proof-is_sde_rsc_available-pass` |
 | `get_ddr_total_density` | `0xffffff80086ef9a4`, `disasm-signature+xref+map`, direct BL xrefs `1`, `0xb8`-byte SMEM getter body before `get_ddr_rcw_tDQSCK` | no arguments; Samsung SMEM DDR info is read-only; no returned pointer is dereferenced or freed | repeated calls returned stable nonzero uint8_t `0x6` | `n/a-scalar-smem-read-only` | `a90-repl-live-call-proof-get_ddr_total_density-pass` |
 | `get_ddr_DSF_version` | `0xffffff80086ef774`, `disasm-signature+xref+map`, direct BL xrefs `4`, `0xb8`-byte SMEM getter body before `get_ddr_revision_id_1` | no arguments; Samsung SMEM DDR DSF info is read-only; no returned pointer is dereferenced or freed | repeated calls returned stable nonzero uint32_t `0x650000` | `n/a-scalar-smem-read-only` | `a90-repl-live-call-proof-get_ddr_DSF_version-pass` |
 | `__sw_hweight32` | `0xffffff800856d844`, `export-recovery`, direct BL xrefs `36`, leaf/no-BL | scalar unsigned 32-bit word | case table: `0x00000000 -> 0`, `0xffffffff -> 32`, `0xaaaaaaaa -> 16`, `0x80000000 -> 1`, `0xa90f00dc -> 13` | n/a-scalar-only | `a90-repl-live-call-proof-__sw_hweight32-pass` |
@@ -138,6 +139,10 @@ and the C1 fail-closed identity gate.
   nonzero uint32 counter values starting at `0x29eb84`, with max short-run delta `0x4254`; it does
   not authorize arbitrary MMIO reads, changing boot-stat state, adjacent tiny-leaf
   `get_boot_stat_freq`, or mass calling.
+- Display RSC availability proof: `is_sde_rsc_available` has crossed the live proof gate only under
+  scalar `SDE_RSC_INDEX` `0`. The proof covers two repeated calls returning stable bool `0x1`; it
+  does not authorize negative/arbitrary indices, adjacent getters, display/RSC mutation, or mass
+  calling.
 - DDR SMEM getter proof: `get_ddr_total_density` and `get_ddr_DSF_version` have crossed the live
   proof gate only under their no-argument Samsung SMEM read-only contracts. The proofs cover two
   repeated calls returning stable nonzero scalar field values: `get_ddr_total_density` returned

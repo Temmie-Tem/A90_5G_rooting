@@ -767,6 +767,51 @@ epic is DONE.** Reports:
 `docs/reports/NATIVE_INIT_V3335_GPU_Z3_PRIMARY_SETCRTC_SOURCE_BUILD_2026-06-27.md` and
 `docs/reports/NATIVE_INIT_V3335_GPU_Z3_PRIMARY_SETCRTC_LIVE_2026-06-27.md`.**
 
+## ✅ DONE — REPL post-epic one-target live-call proof — `is_sde_rsc_available` SDE_RSC_INDEX bool contract
+
+> ### ✅ STATUS (2026-06-30 live pass) — `is_sde_rsc_available` promoted under SDE_RSC_INDEX-only bool contract
+>
+> Eighty-sixth one-target live-call proof after the REPL epic close. Codex selected
+> `is_sde_rsc_available` from a scalar candidate pass after the already-proven `CALL_PROOF_TARGETS`
+> set was saturated. The contract was narrowed before live execution: call only
+> `is_sde_rsc_available(SDE_RSC_INDEX)` with `SDE_RSC_INDEX=0`, treat the display-RSC table as
+> read-only, and do not dereference or free any returned pointer because the function returns a bool.
+> `is_scm_armv8` was rejected for an SMC/cache-miss/static-write path, `is_current_pgrp_orphaned` was
+> rejected for lock/traversal surface, and `find_vpid` was left parked for a separate RCU/lifetime
+> contract.
+>
+> C1 verified `is_sde_rsc_available=0xffffff8008861b04`, `export-recovery`, direct-BL xrefs `1`,
+> source declaration `bool is_sde_rsc_available(int rsc_index)` from `include/linux/sde_rsc.h:282`,
+> and next boundary `get_sde_rsc_primary_crtc` at `+0x78`. The proof gates static words
+> `0xca1103d0`, `0xa9bf43fd`, `0x2a0003e3`, `0x7100141f`, `0x540000ab`, `0x90014348`,
+> `0x91014108`, `0xf863d908`, `0xb40000a8`, `0x52800020`, `0x97e364a7`, `0x2a1f03e0`,
+> `0xd65f03c0`, `0xd503201f`, and `0x00be7bad`.
+>
+> Host validation passed: `py_compile` for `a90_repl.py` and `tests/test_a90_repl.py`; focused tests
+> (`Ran 4 tests`, `OK`); full `tests.test_a90_repl` (`Ran 148 tests`, `OK`); `git diff --check`; and
+> CLI `call-safety-classify is_sde_rsc_available` (`SAFE-SCALAR`, no required pointer args,
+> `export-recovery`).
+>
+> Live validation obeyed the flash gate: rollback/fallback/TWRP SHAs confirmed, bridge healthy,
+> baseline v2321 `version/status/selftest` passed, v1-repl candidate flashed through
+> `native_init_flash.py` with matching readback SHA, and helper `version/status` passed. A transient
+> serial parse fragment was cleared by restarting the serial bridge; candidate selftest then returned
+> `pass=11 warn=1 fail=0`, and `a90-repl-v2a1-selftest-pass` confirmed the REPL path before the target
+> call.
+>
+> Result: `a90-repl-live-call-proof-is_sde_rsc_available-pass`; checks covered C1 identity, next
+> symbol boundary, scalar-only source contract, `SAFE-SCALAR` call-safety, index bound check,
+> display-RSC table address/load, NULL branch, true/false returns, false-path `printk`, and two
+> repeated calls with input index `0` returning stable bool `0x1`. No owned resource was created and
+> no returned pointer exists; raw runtime address/slide evidence stayed private under
+> `workspace/private/runs/kernel/live-call-proof-is-sde-rsc-available-20260630/proof/`. Post-proof
+> candidate selftest stayed `pass=11 warn=1 fail=0`; Codex rolled back to clean v2321 through
+> `native_init_flash.py`, readback SHA matched, helper `version/status` passed, a transient final
+> serial parse fragment was cleared by restarting the serial bridge, and final standalone
+> `version/status/selftest` confirmed v2321 with `pass=11 warn=1 fail=0`. Function map records
+> `is_sde_rsc_available` only under the `SDE_RSC_INDEX=0` read-only bool contract. Report:
+> `docs/reports/KERNEL_SECURITY_TIER2_RUNTIME_KERNEL_REPL_LIVE_CALL_PROOF_IS_SDE_RSC_AVAILABLE_2026-06-30.md`.
+
 ## ✅ DONE — REPL post-epic one-target live-call proof — `get_boot_stat_time` boot-stat MMIO counter contract
 
 > ### ✅ STATUS (2026-06-30 live pass) — `get_boot_stat_time` promoted under no-arg read-only counter contract
