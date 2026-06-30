@@ -767,6 +767,38 @@ epic is DONE.** Reports:
 `docs/reports/NATIVE_INIT_V3335_GPU_Z3_PRIMARY_SETCRTC_SOURCE_BUILD_2026-06-27.md` and
 `docs/reports/NATIVE_INIT_V3335_GPU_Z3_PRIMARY_SETCRTC_LIVE_2026-06-27.md`.**
 
+## ✅ DONE — REPL post-epic one-target live-call proof — `kstrtou16` unsigned 16-bit result-slot contract
+
+> ### ✅ STATUS (2026-06-30 live pass) — `kstrtou16` promoted under owned numeric string + owned u16 result slot only
+>
+> Forty-ninth one-target live-call proof after the REPL epic close. Codex extended `a90_repl.py`
+> `call-proof` with `kstrtou16`, using one tool-owned NUL-terminated unsigned numeric string, scalar
+> base `10`, and one tool-owned `u16 *` result slot. Static gate:
+> `kstrtou16=0xffffff800856b8a4`, `export-recovery`, direct-BL xrefs `17`, JOPP entry true,
+> non-leaf helper calling `kstrtoull`, source contract
+> `int __must_check kstrtou16(const char *s, unsigned int base, u16 *res)` from
+> `include/linux/kernel.h`, x0/x2 pointer args, and call-safety tier `SAFE-WITH-VALID-PTR`.
+> Disasm confirmed unsigned 16-bit range validation via high-bit discard check `lsr #16`/`cbz` and a
+> 2-byte success write `strh w8, [x19]` to the x2 result slot.
+>
+> Live path: baseline v2321 `version/status/selftest` passed, flashed the existing v1-repl image
+> `b846ae9f74d8ceb922bbcd854d78b6795ef833d61e38465d3cc474cb6f0dfb65` through
+> `native_init_flash.py`, confirmed readback SHA, got `a90-repl-v2a1-selftest-pass`, then ran
+> `call-proof kstrtou16` with the C2B verified map.
+>
+> Result: `a90-repl-live-call-proof-kstrtou16-pass`; checks covered C1 identity, source signature,
+> call-safety contract, owned buffer allocation/poke/peek,
+> `kstrtou16("54321", 10, &res) == 0`, result slot storing unsigned `54321` with raw `0xd431`,
+> input immutability, 2-byte result-slot canary preservation, and
+> `kfree-owned-kstrtou16-buffers`.
+>
+> Candidate selftest after proof stayed `fail=0`. Rolled back to clean v2321
+> (`ca978551aabe4b39563abaf529ccf2522054952d8b2ad852e632d26da88168cb`) with final resident
+> `v2321-usb-clean-identity-rodata` and final `selftest pass=11 warn=1 fail=0`. Function map records
+> `kstrtou16` only under the owned unsigned numeric string plus scalar base plus owned unsigned-16
+> result slot contract. Report:
+> `docs/reports/KERNEL_SECURITY_TIER2_RUNTIME_KERNEL_REPL_LIVE_CALL_PROOF_KSTRTOU16_2026-06-30.md`.
+
 ## ✅ DONE — REPL post-epic one-target live-call proof — `kstrtos16` signed 16-bit result-slot contract
 
 > ### ✅ STATUS (2026-06-30 live pass) — `kstrtos16` promoted under owned signed numeric string + owned s16 result slot only

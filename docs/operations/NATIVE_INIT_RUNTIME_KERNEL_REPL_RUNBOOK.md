@@ -248,6 +248,16 @@ PYTHONPYCACHEPREFIX=/tmp/a90_pycache python3 \
   --image workspace/private/inputs/boot_images/boot_linux_tier2_repl_v1_repl.img \
   --source-root workspace/private/inputs/kernel_source/SM-A908N_KOR_12_Opensource/Kernel \
   --evidence-dir workspace/private/runs/kernel/<unit>/ \
+  kstrtou16
+```
+
+```sh
+PYTHONPYCACHEPREFIX=/tmp/a90_pycache python3 \
+  workspace/public/src/scripts/revalidation/a90_repl.py call-proof \
+  --map workspace/private/runs/kernel/v2c-c2b-kallsyms-padding-fix/System.map \
+  --image workspace/private/inputs/boot_images/boot_linux_tier2_repl_v1_repl.img \
+  --source-root workspace/private/inputs/kernel_source/SM-A908N_KOR_12_Opensource/Kernel \
+  --evidence-dir workspace/private/runs/kernel/<unit>/ \
   kstrtoint
 ```
 
@@ -686,8 +696,12 @@ preservation, frees both buffers, and redacts runtime/allocation pointer values 
 The `kstrtouint` proof allocates an owned NUL-terminated numeric string and an owned `unsigned int *`
 result slot, calls `kstrtouint("123456789", 10, &res)`, requires return `0`, requires `res` to equal
 `123456789`, verifies input immutability and result-slot canary preservation, frees both buffers, and
-redacts runtime/allocation pointer values and observed raw bytes. The `kstrtoint` proof allocates an
-owned NUL-terminated signed numeric string and an owned `int *` result slot, calls
+redacts runtime/allocation pointer values and observed raw bytes. The `kstrtou16` proof allocates an
+owned NUL-terminated numeric string and an owned `u16 *` result slot, calls
+`kstrtou16("54321", 10, &res)`, requires return `0`, requires `res` to equal unsigned `54321` with
+raw `0xd431`, verifies input immutability and 2-byte result-slot canary preservation, frees both
+buffers, and redacts runtime/allocation pointer values and observed raw bytes. The `kstrtoint` proof
+allocates an owned NUL-terminated signed numeric string and an owned `int *` result slot, calls
 `kstrtoint("-12345", 10, &res)`, requires return `0`, requires `res` to equal signed `-12345` with
 raw `0xffffcfc7`, verifies input immutability and result-slot canary preservation, frees both
 buffers, and redacts runtime/allocation pointer values and observed raw bytes. The `kstrtos16` proof
