@@ -767,6 +767,43 @@ epic is DONE.** Reports:
 `docs/reports/NATIVE_INIT_V3335_GPU_Z3_PRIMARY_SETCRTC_SOURCE_BUILD_2026-06-27.md` and
 `docs/reports/NATIVE_INIT_V3335_GPU_Z3_PRIMARY_SETCRTC_LIVE_2026-06-27.md`.**
 
+## ✅ DONE — REPL post-epic one-target live-call proof — `__bitmap_set` owned bitmap range-set contract
+
+> ### ✅ STATUS (2026-06-30 live pass) — `__bitmap_set` promoted under owned bitmap + bounded `start/len` only
+>
+> Seventy-eighth one-target live-call proof after the REPL epic close. Codex continued the bitmap
+> mutation-helper sweep after `__bitmap_or` and selected `__bitmap_set` because C1 verified
+> `__bitmap_set=0xffffff800855ce7c`, `export-recovery`, direct-BL xrefs `24`, JOPP entry true,
+> leaf/no-BL shape, source contract
+> `extern void __bitmap_set(unsigned long *map, unsigned int start, int len)`
+> from `include/linux/bitmap.h:124`, and pointer arg x0 only. `__bitmap_clear` was verified as a
+> nearby future candidate but parked for this unit. The proof gates static words `0x53067c2c`,
+> `0xf940012e`, `0xaa0b01ce`, `0xf900012e`, `0xf8008588`, `0xf940012c`, and `0xf9000128`.
+>
+> Host validation passed: `py_compile` for `a90_repl.py` and `tests/test_a90_repl.py`; CLI
+> `call-safety-classify __bitmap_set` (`SAFE-WITH-VALID-PTR`, required x0 `bitmap-buffer`);
+> focused unittest coverage for static classification, source signature, and the new fake-transport
+> bitmap range-set proof; and full `tests.test_a90_repl` (`Ran 141 tests`, `OK`). Live validation
+> obeyed the flash gate: rollback/fallback/TWRP SHAs confirmed, bridge healthy, baseline v2321
+> `version/status/selftest` passed, v1-repl candidate flashed through `native_init_flash.py` with
+> matching readback SHA, helper `version/status` passed, native selftest returned
+> `pass=11 warn=1 fail=0`, and `a90-repl-v2a1-selftest-pass` confirmed the REPL path before the
+> target call. The candidate image keeps the v2321 version string, so artifact identity was pinned by
+> local and boot-block readback SHA rather than by version text.
+>
+> Result: `a90-repl-live-call-proof-__bitmap_set-pass`; checks covered C1 identity, source pointer
+> contract, `SAFE-WITH-VALID-PTR` call-safety, one owned 128-bit bitmap plus canary, six mutation
+> cases (`start/len`: `5/0`, `1/1`, `4/6`, `62/5`, `80/8`, `0/128`), expected range-set bitmap
+> bytes, canary preservation, and `kfree` cleanup. Raw runtime address/slide/allocation/observed-byte
+> evidence stayed private under
+> `workspace/private/runs/kernel/live-call-proof-bitmap-set-20260630/proof/`. Post-proof candidate
+> selftest stayed `pass=11 warn=1 fail=0`; Codex rolled back to clean v2321 through
+> `native_init_flash.py`, readback SHA matched, helper `version/status` passed, a transient final
+> selftest parse miss was cleared by restarting the serial bridge, and final standalone `version` plus
+> selftest confirmed v2321 with `pass=11 warn=1 fail=0`. Function map records `__bitmap_set` only
+> under the owned-bitmap + scalar bounded `start/len` contract. Report:
+> `docs/reports/KERNEL_SECURITY_TIER2_RUNTIME_KERNEL_REPL_LIVE_CALL_PROOF_BITMAP_SET_2026-06-30.md`.
+
 ## ✅ DONE — REPL post-epic one-target live-call proof — `__bitmap_or` owned dst/src/src bitmap contract
 
 > ### ✅ STATUS (2026-06-30 live pass) — `__bitmap_or` promoted under owned destination/source/source bitmaps + bounded `nbits` only

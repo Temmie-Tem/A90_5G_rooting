@@ -1003,6 +1003,15 @@ class CallSafetyClassificationTests(unittest.TestCase):
         self.assertGreaterEqual(bitmap_or["signals"]["direct_bl_xref_count"], 2)
         self.assertTrue(bitmap_or["signals"]["leaf"])
 
+        bitmap_set = self._row("__bitmap_set")
+        self.assertEqual(bitmap_set["tier"], repl.CALL_SAFETY_SAFE_WITH_VALID_PTR)
+        self.assertEqual(bitmap_set["required_valid_pointer_args"], {"0": "bitmap-buffer"})
+        self.assertTrue(bitmap_set["resolution"]["verified"])
+        self.assertEqual(bitmap_set["resolution"]["method"], "export-recovery")
+        self.assertEqual(bitmap_set["resolution"]["link_vaddr"], "0xffffff800855ce7c")
+        self.assertGreaterEqual(bitmap_set["signals"]["direct_bl_xref_count"], 24)
+        self.assertTrue(bitmap_set["signals"]["leaf"])
+
         bitmap_andnot = self._row("__bitmap_andnot")
         self.assertEqual(bitmap_andnot["tier"], repl.CALL_SAFETY_SAFE_WITH_VALID_PTR)
         self.assertEqual(
@@ -1826,6 +1835,16 @@ class CallSafetyClassificationTests(unittest.TestCase):
         )
         self.assertEqual(bitmap_or["selected"]["line"], 113)
         self.assertTrue(bitmap_or["selected"]["path"].endswith("include/linux/bitmap.h"))
+
+        bitmap_set = repl.lookup_source_signature("__bitmap_set", source_root=KERNEL_SOURCE_ROOT)
+        self.assertEqual(bitmap_set["status"], "found", bitmap_set)
+        self.assertEqual(bitmap_set["selected"]["pointer_arg_indices"], [0])
+        self.assertEqual(
+            bitmap_set["selected"]["signature"],
+            "extern void __bitmap_set(unsigned long *map, unsigned int start, int len)",
+        )
+        self.assertEqual(bitmap_set["selected"]["line"], 124)
+        self.assertTrue(bitmap_set["selected"]["path"].endswith("include/linux/bitmap.h"))
 
         bitmap_andnot = repl.lookup_source_signature("__bitmap_andnot", source_root=KERNEL_SOURCE_ROOT)
         self.assertEqual(bitmap_andnot["status"], "found", bitmap_andnot)
@@ -2731,6 +2750,13 @@ class FaithfulFakeTransport:
             purpose="call",
             allow_pre_arg_deref=True,
         ).link_vaddr
+        self.bitmap_set_link = repl.resolve_verified(
+            self.symbols,
+            self.image,
+            "__bitmap_set",
+            purpose="call",
+            allow_pre_arg_deref=True,
+        ).link_vaddr
         self.bitmap_andnot_link = repl.resolve_verified(
             self.symbols,
             self.image,
@@ -3043,6 +3069,8 @@ class FaithfulFakeTransport:
             bitmap_complement = self.bitmap_complement_link + self.slide
             assert self.bitmap_or_link is not None
             bitmap_or = self.bitmap_or_link + self.slide
+            assert self.bitmap_set_link is not None
+            bitmap_set = self.bitmap_set_link + self.slide
             assert self.bitmap_andnot_link is not None
             bitmap_andnot = self.bitmap_andnot_link + self.slide
             assert self.bitmap_subset_link is not None
@@ -4213,6 +4241,18 @@ class FaithfulFakeTransport:
                     result_word = (left_words[index] | right_words[index]) & repl.MASK64
                     dst[index * 8:(index + 1) * 8] = result_word.to_bytes(8, "little")
                 self._set_heap_bytes(arg1, bytes(dst))
+                lines.append("A90R0")
+            elif arg0 == bitmap_set:
+                if arg1 not in self.allocated:
+                    raise AssertionError(f"__bitmap_set bitmap is not an allocated pointer: {arg1:#x}")
+                data = bytearray(self._heap_bytes(arg1, len(repl.BITMAP_SET_INITIAL_BYTES)))
+                start = arg2
+                length = arg3
+                if start + length > repl.BITMAP_SET_PROOF_SIZE_BITS:
+                    raise AssertionError(f"unexpected __bitmap_set range: {start}+{length}")
+                for bit in range(start, start + length):
+                    data[bit // 8] |= 1 << (bit % 8)
+                self._set_heap_bytes(arg1, bytes(data))
                 lines.append("A90R0")
             elif arg0 == bitmap_andnot:
                 if arg1 not in self.allocated:
@@ -6885,6 +6925,74 @@ class SelftestIntegrationTests(unittest.TestCase):
                 fake.heap_ptr + (3 * fake.ksize_return),
             ],
         )
+
+    def test_call_proof___bitmap_set_passes_with_owned_bitmap_contract(self) -> None:
+        if not C2B_PADDING_MAP_PATH.is_file() or not KERNEL_SOURCE_ROOT.is_dir():
+            self.skipTest("promoted v2c System.map or kernel source tree not present")
+
+        symbols = repl.load_system_map(C2B_PADDING_MAP_PATH)
+        fake = FaithfulFakeTransport(0x130000, symbols, self.image)
+        orig = repl.transport.run_serial_command
+        repl.transport.run_serial_command = fake.run_serial_command
+        self.addCleanup(lambda: setattr(repl.transport, "run_serial_command", orig))
+        session = repl.ReplSession(repl.ReplConfig(settle_sec=0.0))
+        summary, private = repl.run_call_proof(
+            session,
+            symbols,
+            self.image,
+            "__bitmap_set",
+            source_root=KERNEL_SOURCE_ROOT,
+        )
+
+        self.assertTrue(summary["ok"], summary)
+        self.assertEqual(summary["decision"], "a90-repl-live-call-proof-__bitmap_set-pass")
+        self.assertEqual(summary["proof_status"], "trusted-under-owned-input-contract")
+        self.assertEqual(summary["function_map_entry"]["symbol"], "__bitmap_set")
+        self.assertEqual(summary["function_map_entry"]["status"], "live-proven")
+        self.assertEqual(
+            summary["source_evidence"]["signature"],
+            "extern void __bitmap_set(unsigned long *map, unsigned int start, int len)",
+        )
+        self.assertEqual(summary["source_evidence"]["pointer_arg_indices"], [0])
+        self.assertEqual(summary["bitmap_size_bits"], repl.BITMAP_SET_PROOF_SIZE_BITS)
+        self.assertEqual(summary["initial_bits"], list(repl.BITMAP_SET_INITIAL_BITS))
+        self.assertTrue(summary["bitmap_matches_expected_after_each_case"])
+        self.assertTrue(summary["bitmap_canary_preserved_after_each_case"])
+        self.assertTrue(summary["raw_runtime_values_redacted"])
+        self.assertTrue(summary["owned_pointer_redacted"])
+        self.assertTrue(summary["observed_bytes_redacted"])
+        self.assertNotIn("alloc_ptr", summary)
+        self.assertNotIn("__bitmap_set_runtime", summary)
+        self.assertNotIn("observed_bytes_hex", summary)
+
+        expected_cases = {
+            label: (start, length)
+            for label, start, length in repl.BITMAP_SET_CASES
+        }
+        observed_cases = {
+            case["case"]: (case["start"], case["len"])
+            for case in summary["case_results"]
+        }
+        self.assertEqual(observed_cases, expected_cases)
+        for case in summary["case_results"]:
+            self.assertTrue(case["return_value_ignored"])
+            self.assertTrue(case["observed_return_value_redacted"])
+            self.assertTrue(case["bitmap_matches_expected"])
+            self.assertTrue(case["canary_preserved"])
+
+        self.assertEqual(private["alloc_ptr"], f"0x{fake.heap_ptr:x}")
+        expected_hex = {
+            "initial": (repl.BITMAP_SET_INITIAL_BYTES + repl.BITMAP_SET_CANARY_BYTES).hex(),
+            "bitmap_by_case": {
+                label: (
+                    repl._bitmap_set_expected(start, length)
+                    + repl.BITMAP_SET_CANARY_BYTES
+                ).hex()
+                for label, start, length in repl.BITMAP_SET_CASES
+            },
+        }
+        self.assertEqual(private["observed_bytes_hex"], expected_hex)
+        self.assertEqual(fake.freed, [fake.heap_ptr])
 
     def test_call_proof___bitmap_subset_passes_with_owned_bitmap_contract(self) -> None:
         if not C2B_PADDING_MAP_PATH.is_file() or not KERNEL_SOURCE_ROOT.is_dir():
