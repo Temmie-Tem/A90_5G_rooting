@@ -767,6 +767,44 @@ epic is DONE.** Reports:
 `docs/reports/NATIVE_INIT_V3335_GPU_Z3_PRIMARY_SETCRTC_SOURCE_BUILD_2026-06-27.md` and
 `docs/reports/NATIVE_INIT_V3335_GPU_Z3_PRIMARY_SETCRTC_LIVE_2026-06-27.md`.**
 
+## ✅ DONE — REPL post-epic one-target live-call proof — `__bitmap_complement` owned dst/src bitmap contract
+
+> ### ✅ STATUS (2026-06-30 live pass) — `__bitmap_complement` promoted under owned destination/source bitmaps + bounded `nbits` only
+>
+> Seventy-fifth one-target live-call proof after the REPL epic close. Codex continued the bitmap
+> helper sweep after `__bitmap_subset` and selected the first simple mutation helper rather than
+> widening to the still-parked zero-direct-xref bitmap helpers. Static C1 verified
+> `__bitmap_complement=0xffffff800855c8e4`, `export-recovery`, direct-BL xrefs `1`, JOPP entry
+> true, leaf/no-BL shape, source contract
+> `extern void __bitmap_complement(unsigned long *dst, const unsigned long *src, unsigned int nbits)`
+> from `include/linux/bitmap.h:105`, and pointer args x0/x1 only. The proof gates static words
+> `0x53067c48`, `0xf840854c`, `0xf800856c`, `0xf8686829`, and `0xf8286809`.
+>
+> Host validation passed: `py_compile` for `a90_repl.py` and `tests/test_a90_repl.py`; CLI
+> `call-safety-classify __bitmap_complement` (`SAFE-WITH-VALID-PTR`, required x0
+> `bitmap-dst-buffer`, x1 `bitmap-src-buffer`); focused unittest coverage for static
+> classification, source signature, and the new fake-transport mutation proof; and full
+> `tests.test_a90_repl` (`Ran 138 tests`, `OK`). Live validation obeyed the flash gate:
+> rollback/fallback/TWRP SHAs confirmed, bridge healthy, baseline v2321 `version/status/selftest`
+> passed, v1-repl candidate flashed through `native_init_flash.py` with matching readback SHA,
+> the first standalone candidate selftest attempt hit a transient bridge `AT` desync but a follow-up
+> `version` re-synchronized the bridge and candidate selftest stayed `pass=11 warn=1 fail=0`, and
+> `a90-repl-v2a1-selftest-pass` confirmed the REPL path before the target call.
+>
+> Result: `a90-repl-live-call-proof-__bitmap_complement-pass`; checks covered C1 identity, source
+> pointer contract, `SAFE-WITH-VALID-PTR` call-safety, owned 128-bit destination and source bitmap
+> buffers plus canaries, five mutation cases (`nbits=0` no-op, `10` low-tail destination
+> complement, `64` first-word boundary, `80` second-word tail, `128` full-size complement), source
+> bitmap/canary immutability, destination canary preservation, and `kfree` cleanup for both buffers.
+> Raw runtime address/slide/allocation/observed-byte evidence stayed private under
+> `workspace/private/runs/kernel/live-call-proof-bitmap-complement-20260630/proof/`. Post-proof
+> candidate selftest stayed `pass=11 warn=1 fail=0`; Codex rolled back to clean v2321 through
+> `native_init_flash.py`, readback SHA matched, helper `version/status` passed, bridge prompt was
+> restarted once to clear a transient `AT` desync, and final standalone `version` plus selftest
+> confirmed v2321 with `pass=11 warn=1 fail=0`. Function map records `__bitmap_complement` only
+> under the owned-destination/source bitmap + scalar bounded `nbits` contract. Report:
+> `docs/reports/KERNEL_SECURITY_TIER2_RUNTIME_KERNEL_REPL_LIVE_CALL_PROOF_BITMAP_COMPLEMENT_2026-06-30.md`.
+
 ## ✅ DONE — REPL post-epic one-target live-call proof — `__bitmap_subset` two-owned-bitmap contract
 
 > ### ✅ STATUS (2026-06-30 live pass) — `__bitmap_subset` promoted under two owned bitmaps + bounded `nbits` only
