@@ -767,6 +767,49 @@ epic is DONE.** Reports:
 `docs/reports/NATIVE_INIT_V3335_GPU_Z3_PRIMARY_SETCRTC_SOURCE_BUILD_2026-06-27.md` and
 `docs/reports/NATIVE_INIT_V3335_GPU_Z3_PRIMARY_SETCRTC_LIVE_2026-06-27.md`.**
 
+## ✅ DONE — REPL post-epic one-target live-call proof — `get_boot_stat_time` boot-stat MMIO counter contract
+
+> ### ✅ STATUS (2026-06-30 live pass) — `get_boot_stat_time` promoted under no-arg read-only counter contract
+>
+> Eighty-fifth one-target live-call proof after the REPL epic close. Codex selected
+> `get_boot_stat_time` from the host-only `get_` prefix sweep because it was the only new advisory
+> `SAFE-SCALAR` candidate, then narrowed the contract before live execution. C1 verified
+> `get_boot_stat_time=0xffffff80086979e4`, `disasm-signature+xref+map`, direct-BL xrefs `4`, JOPP
+> entry true, source declaration `extern unsigned int get_boot_stat_time(void)` from
+> `include/soc/qcom/boot_stats.h:39`, and implementation body
+> `return readl_relaxed(mpm_counter_base);` from `drivers/soc/qcom/boot_stats.c`. The actual function
+> body is bounded by `get_boot_stat_freq` at `+0x60`; the proof gates static words `0xa9be43fd`,
+> `0xf9000bf3`, `0xd0015088`, `0x52800020`, `0xf9401d13`, `0xaa1303e1`, `0x97ecd440`,
+> `0x34000120`, `0xb9400260`, `0xd5033f9f`, `0xd5033fdf`, `0xf9400bf3`, `0xd65f03c0`, and
+> `0x00be7bad`.
+>
+> Host validation passed: `py_compile` for `a90_repl.py` and `tests/test_a90_repl.py`; focused tests
+> (`Ran 4 tests`, `OK`); full `tests.test_a90_repl` (`Ran 147 tests`, `OK`); `git diff --check`; and
+> CLI `call-safety-classify get_boot_stat_time` (`SAFE-SCALAR`, no required pointer args, first BL
+> resolved to `uncached_logk`). The adjacent `get_boot_stat_freq` remains unpromoted because C1 still
+> marks its tiny leaf body unverified.
+>
+> Live validation obeyed the flash gate: rollback/fallback/TWRP SHAs confirmed, bridge healthy,
+> baseline v2321 `version/status/selftest` passed, v1-repl candidate flashed through
+> `native_init_flash.py` with matching readback SHA, and helper `version/status` passed. A transient
+> serial parse fragment was cleared by restarting the serial bridge; candidate selftest then returned
+> `pass=11 warn=1 fail=0`, and `a90-repl-v2a1-selftest-pass` confirmed the REPL path before the target
+> call.
+>
+> Result: `a90-repl-live-call-proof-get_boot_stat_time-pass`; checks covered C1 identity, next symbol
+> boundary, no-arg source contract, source implementation, `SAFE-SCALAR` call-safety, counter-base
+> setup, `uncached_logk`, both MMIO counter load paths, barriers, and three repeated calls returning
+> nonzero uint32 counter values `0x29eb84`, `0x2a2dac`, and `0x2a7000` with max short-run delta
+> `0x4254`. No owned resource was created and no returned pointer exists; raw runtime address/slide
+> evidence stayed private under
+> `workspace/private/runs/kernel/live-call-proof-get-boot-stat-time-20260630/proof/`. Post-proof
+> candidate selftest stayed `pass=11 warn=1 fail=0`; Codex rolled back to clean v2321 through
+> `native_init_flash.py`, readback SHA matched, helper `version/status` passed, a transient final
+> serial parse fragment was cleared by restarting the serial bridge, and final standalone
+> `version/status/selftest` confirmed v2321 with `pass=11 warn=1 fail=0`. Function map records
+> `get_boot_stat_time` only under the no-arg read-only boot-stat timer contract. Report:
+> `docs/reports/KERNEL_SECURITY_TIER2_RUNTIME_KERNEL_REPL_LIVE_CALL_PROOF_GET_BOOT_STAT_TIME_2026-06-30.md`.
+
 ## ✅ DONE — REPL post-epic one-target live-call proof — `get_ddr_DSF_version` SMEM uint32 DSF-version contract
 
 > ### ✅ STATUS (2026-06-30 live pass) — `get_ddr_DSF_version` promoted under no-arg SMEM read-only contract

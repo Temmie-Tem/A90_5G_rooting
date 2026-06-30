@@ -306,6 +306,12 @@ CALL_SAFETY_SEEDS = {
         "return_kind": "borrowed-kernel-pointer-or-null",
         "reason": "no-argument NAPI context lookup; proof calls from REPL process context and expects NULL, any non-NULL return is borrowed and must not be dereferenced or freed",
     },
+    "get_boot_stat_time": {
+        "tier": CALL_SAFETY_SAFE_SCALAR,
+        "required_valid_pointer_args": {},
+        "return_kind": "uint32_t",
+        "reason": "no-argument Qualcomm boot-stat timer MMIO getter; proof expects a nonzero uint32_t counter with bounded short-run forward deltas",
+    },
     "get_ddr_DSF_version": {
         "tier": CALL_SAFETY_SAFE_SCALAR,
         "required_valid_pointer_args": {},
@@ -3353,6 +3359,7 @@ _SOURCE_HEADER_HINTS_BY_EXACT_SYMBOL = {
     "find_last_bit": ("include/linux/bitops.h", "include/asm-generic/bitops/find.h"),
     "find_next_bit": ("include/asm-generic/bitops/find.h", "include/linux/bitops.h"),
     "find_next_zero_bit": ("include/asm-generic/bitops/find.h", "include/linux/bitops.h"),
+    "get_boot_stat_time": ("include/soc/qcom/boot_stats.h",),
     "get_cpu_device": ("include/linux/cpu.h",),
     "get_current_napi_context": ("include/linux/netdevice.h",),
     "get_ddr_DSF_version": ("include/linux/samsung/sec_smem.h",),
@@ -5075,6 +5082,12 @@ CALL_PROOF_TARGETS = {
         "expected_tier": CALL_SAFETY_SAFE_SCALAR,
         "source_signature": "extern struct napi_struct * get_current_napi_context(void)",
     },
+    "get_boot_stat_time": {
+        "input_contract": "no arguments; Qualcomm boot-stat timer MMIO is read-only; no returned pointer is dereferenced or freed",
+        "return_contract": "unsigned int boot-stat timer value is nonzero uint32_t and advances by a bounded short-run delta across repeated proof calls",
+        "expected_tier": CALL_SAFETY_SAFE_SCALAR,
+        "source_signature": "extern unsigned int get_boot_stat_time(void)",
+    },
     "get_ddr_DSF_version": {
         "input_contract": "no arguments; Samsung SMEM DDR DSF info is read-only; no returned pointer is dereferenced or freed",
         "return_contract": "uint32_t DDR DSF-version field is nonzero, <= 0xffffffff, and stable across repeated proof calls",
@@ -6122,6 +6135,22 @@ GET_CURRENT_NAPI_CONTEXT_LOAD_CURRENT_NAPI_WORD = 0xF9400900
 GET_CURRENT_NAPI_CONTEXT_RET_WORD = 0xD65F03C0
 GET_CURRENT_NAPI_CONTEXT_PADDING_NOP_WORD = 0xD503201F
 GET_CURRENT_NAPI_CONTEXT_NEXT_GUARD_WORD = 0x00BE7BAD
+GET_BOOT_STAT_TIME_STACK_ALLOC_WORD = 0xA9BE43FD
+GET_BOOT_STAT_TIME_SAVE_X19_WORD = 0xF9000BF3
+GET_BOOT_STAT_TIME_ADRP_COUNTER_BASE_WORD = 0xD0015088
+GET_BOOT_STAT_TIME_UNCACHED_LOGK_ARG_WORD = 0x52800020
+GET_BOOT_STAT_TIME_LOAD_COUNTER_BASE_WORD = 0xF9401D13
+GET_BOOT_STAT_TIME_COUNTER_ARG_WORD = 0xAA1303E1
+GET_BOOT_STAT_TIME_UNCACHED_LOGK_BL_WORD = 0x97ECD440
+GET_BOOT_STAT_TIME_UNCACHED_ZERO_BRANCH_WORD = 0x34000120
+GET_BOOT_STAT_TIME_COUNTER_LOAD_WORD = 0xB9400260
+GET_BOOT_STAT_TIME_DSB_WORD = 0xD5033F9F
+GET_BOOT_STAT_TIME_ISB_WORD = 0xD5033FDF
+GET_BOOT_STAT_TIME_RESTORE_X19_WORD = 0xF9400BF3
+GET_BOOT_STAT_TIME_RET_WORD = 0xD65F03C0
+GET_BOOT_STAT_TIME_NEXT_GUARD_WORD = 0x00BE7BAD
+GET_BOOT_STAT_TIME_REPEAT_COUNT = 3
+GET_BOOT_STAT_TIME_MAX_SHORT_DELTA_TICKS = 10_000_000
 GET_DDR_DSF_VERSION_STACK_ALLOC_WORD = 0xD100C3FF
 GET_DDR_DSF_VERSION_SMEM_ID_WORD = 0x528010E1
 GET_DDR_DSF_VERSION_ARG_BUFFER_WORD = 0x910003E2
@@ -21539,6 +21568,240 @@ def _run_call_proof_get_current_napi_context(
     return summary, private
 
 
+def _run_call_proof_get_boot_stat_time(
+    session: ReplSession,
+    symbols: dict[str, Symbol],
+    image: StaticImage,
+    *,
+    source_root: Path,
+) -> tuple[dict[str, object], dict[str, object]]:
+    source = lookup_source_signature("get_boot_stat_time", source_root=source_root)
+    call_safety = require_call_safety_for_call(
+        symbols,
+        image,
+        "get_boot_stat_time",
+        (),
+    )
+    if call_safety.get("tier") != CALL_PROOF_TARGETS["get_boot_stat_time"]["expected_tier"]:
+        raise ReplError("get_boot_stat_time call-safety tier is not the expected vetted scalar tier")
+    if not source.get("found") or source.get("pointer_arg_indices") != []:
+        raise ReplError("get_boot_stat_time source signature must be no-arg scalar-safe")
+    selected_signature = (
+        source.get("selected", {}).get("signature")
+        if isinstance(source.get("selected"), dict) else None
+    )
+    if selected_signature != CALL_PROOF_TARGETS["get_boot_stat_time"]["source_signature"]:
+        raise ReplError("get_boot_stat_time source signature did not select the exported declaration")
+
+    impl_path = source_root / "drivers/soc/qcom/boot_stats.c"
+    try:
+        impl_text = impl_path.read_text(encoding="utf-8", errors="replace")
+    except OSError as exc:
+        raise ReplError(f"get_boot_stat_time source implementation is not readable: {impl_path}") from exc
+    impl_normalized = " ".join(impl_text.split())
+    impl_signature = "unsigned int get_boot_stat_time(void)"
+    impl_body = "unsigned int get_boot_stat_time(void) { return readl_relaxed(mpm_counter_base); }"
+    if impl_body not in impl_normalized:
+        raise ReplError("get_boot_stat_time implementation is not the expected readl_relaxed(mpm_counter_base) body")
+
+    resolutions = {
+        "get_boot_stat_time": resolve_verified(
+            symbols,
+            image,
+            "get_boot_stat_time",
+            purpose="call",
+        ),
+    }
+    target_link = require_verified_resolution(
+        resolutions["get_boot_stat_time"],
+        "call-proof target",
+    )
+    next_symbol = symbols.get("get_boot_stat_freq")
+    if next_symbol is None or next_symbol.vaddr - target_link != 0x60:
+        raise ReplError("get_boot_stat_time next-symbol boundary is not the expected 0x60")
+    words = image.u32_words_at_vaddr(target_link, 24)
+    static_word_checks = (
+        ("static-stack-alloc", 1, GET_BOOT_STAT_TIME_STACK_ALLOC_WORD),
+        ("static-save-x19", 2, GET_BOOT_STAT_TIME_SAVE_X19_WORD),
+        ("static-adrp-counter-base", 4, GET_BOOT_STAT_TIME_ADRP_COUNTER_BASE_WORD),
+        ("static-uncached-logk-arg", 5, GET_BOOT_STAT_TIME_UNCACHED_LOGK_ARG_WORD),
+        ("static-load-counter-base", 6, GET_BOOT_STAT_TIME_LOAD_COUNTER_BASE_WORD),
+        ("static-counter-base-arg", 7, GET_BOOT_STAT_TIME_COUNTER_ARG_WORD),
+        ("static-uncached-logk-call", 8, GET_BOOT_STAT_TIME_UNCACHED_LOGK_BL_WORD),
+        ("static-uncached-logk-zero-branch", 9, GET_BOOT_STAT_TIME_UNCACHED_ZERO_BRANCH_WORD),
+        ("static-counter-load-with-barrier", 14, GET_BOOT_STAT_TIME_COUNTER_LOAD_WORD),
+        ("static-dsb", 15, GET_BOOT_STAT_TIME_DSB_WORD),
+        ("static-isb", 16, GET_BOOT_STAT_TIME_ISB_WORD),
+        ("static-counter-load-fallback", 18, GET_BOOT_STAT_TIME_COUNTER_LOAD_WORD),
+        ("static-restore-x19", 19, GET_BOOT_STAT_TIME_RESTORE_X19_WORD),
+        ("static-ret", 22, GET_BOOT_STAT_TIME_RET_WORD),
+        ("static-next-guard", 23, GET_BOOT_STAT_TIME_NEXT_GUARD_WORD),
+    )
+
+    checks: list[dict[str, object]] = [
+        {
+            "check": "static-c1-identity",
+            "ok": True,
+            "target": "get_boot_stat_time",
+            "resolution_method": resolutions["get_boot_stat_time"].method,
+        },
+        {
+            "check": "static-next-symbol-boundary",
+            "ok": True,
+            "next_symbol": "get_boot_stat_freq",
+            "byte_size": "0x60",
+        },
+        {
+            "check": "static-source-contract",
+            "ok": True,
+            "signature": selected_signature,
+            "pointer_arg_indices": source.get("pointer_arg_indices", []),
+        },
+        {
+            "check": "static-source-implementation",
+            "ok": True,
+            "path": "drivers/soc/qcom/boot_stats.c",
+            "signature": impl_signature,
+            "body": "return readl_relaxed(mpm_counter_base);",
+        },
+        {
+            "check": "static-call-safety-contract",
+            "ok": True,
+            "tier": call_safety.get("tier"),
+            "required_valid_pointer_args": call_safety.get("required_valid_pointer_args", {}),
+        },
+    ]
+    for name, index, expected in static_word_checks:
+        observed = words[index]
+        ok = observed == expected
+        checks.append({
+            "check": name,
+            "ok": ok,
+            "expected_word": f"0x{expected:08x}",
+            "observed_word": f"0x{observed:08x}",
+        })
+        if not ok:
+            raise ReplError(
+                f"get_boot_stat_time {name} word mismatch: observed 0x{observed:08x}, "
+                f"expected 0x{expected:08x}"
+            )
+
+    private: dict[str, object] = {}
+    slide = 0
+    returns: list[int] = []
+    deltas: list[int] = []
+    case_results: list[dict[str, object]] = []
+
+    session.hide()
+    session.set_panic_on_oops(0)
+    try:
+        slide = session.slide()
+        if slide & 0xFFF:
+            raise ReplError("slide is not page-aligned; refusing to proceed")
+        target_runtime = (target_link + slide) & MASK64
+        for index in range(GET_BOOT_STAT_TIME_REPEAT_COUNT):
+            observed = session.call_runtime(target_runtime, ())
+            returns.append(observed)
+            uint32_ok = 0 < observed <= 0xFFFFFFFF
+            delta_ok = True
+            delta_value: int | None = None
+            if index > 0:
+                delta_value = (observed - returns[index - 1]) & 0xFFFFFFFF
+                deltas.append(delta_value)
+                delta_ok = delta_value <= GET_BOOT_STAT_TIME_MAX_SHORT_DELTA_TICKS
+            ok = uint32_ok and delta_ok
+            case_results.append({
+                "case": f"boot-stat-time-read-{index + 1}",
+                "expected_return": "nonzero-uint32-bounded-forward-counter",
+                "observed_return_value": f"0x{observed:x}",
+                "uint32_nonzero": uint32_ok,
+                "delta_from_previous": f"0x{delta_value:x}" if delta_value is not None else "n/a",
+                "delta_within_bound": delta_ok,
+                "ok": ok,
+            })
+            if not uint32_ok:
+                raise ReplError(
+                    "get_boot_stat_time() did not return a nonzero uint32_t boot-stat counter "
+                    f"in proof call {index + 1}: 0x{observed:x}"
+                )
+            if not delta_ok:
+                raise ReplError(
+                    "get_boot_stat_time() delta exceeded the bounded short-run contract: "
+                    f"previous=0x{returns[index - 1]:x}, current=0x{observed:x}, "
+                    f"delta=0x{delta_value:x}"
+                )
+    finally:
+        session.set_panic_on_oops(1)
+
+    has_positive_delta = any(delta > 0 for delta in deltas)
+    if not has_positive_delta:
+        raise ReplError("get_boot_stat_time() did not advance across repeated proof calls")
+    checks.append({
+        "check": "get-boot-stat-time-nonzero-uint32-bounded-forward-repeat",
+        "ok": all(bool(case.get("ok")) for case in case_results) and has_positive_delta,
+        "case_count": len(case_results),
+        "max_short_delta_ticks": GET_BOOT_STAT_TIME_MAX_SHORT_DELTA_TICKS,
+        "has_positive_delta": has_positive_delta,
+        "cases": case_results,
+    })
+    passed = all(bool(check.get("ok")) for check in checks)
+    observed_public = f"0x{returns[0]:x}" if returns else "n/a"
+    max_delta_public = max(deltas) if deltas else 0
+    summary = {
+        "decision": f"a90-repl-live-call-proof-get_boot_stat_time-{'pass' if passed else 'fail'}",
+        "ok": passed,
+        "target": "get_boot_stat_time",
+        "proof_status": "trusted-under-boot-stat-time-read-only-counter-contract" if passed else "failed",
+        "input_contract": CALL_PROOF_TARGETS["get_boot_stat_time"]["input_contract"],
+        "return_contract": CALL_PROOF_TARGETS["get_boot_stat_time"]["return_contract"],
+        "case_results": case_results,
+        "observed_return_value": observed_public,
+        "all_returns_nonzero_uint32": bool(returns) and all(0 < value <= 0xFFFFFFFF for value in returns),
+        "bounded_forward_deltas": bool(deltas) and all(
+            delta <= GET_BOOT_STAT_TIME_MAX_SHORT_DELTA_TICKS for delta in deltas
+        ),
+        "has_positive_delta": has_positive_delta,
+        "max_observed_delta": f"0x{max_delta_public:x}",
+        "repeat_count": len(returns),
+        "source_evidence": _source_row_evidence(source),
+        "source_implementation_evidence": {
+            "path": "drivers/soc/qcom/boot_stats.c",
+            "signature": impl_signature,
+            "body": "return readl_relaxed(mpm_counter_base);",
+        },
+        "call_safety": call_safety,
+        "resolutions": _redacted_resolution_set(resolutions),
+        "raw_runtime_values_redacted": True,
+        "checks": checks,
+        "function_map_entry": {
+            "symbol": "get_boot_stat_time",
+            "status": "live-proven",
+            "trusted_input_contract": CALL_PROOF_TARGETS["get_boot_stat_time"]["input_contract"],
+            "return_contract": CALL_PROOF_TARGETS["get_boot_stat_time"]["return_contract"],
+            "observed_return_value": (
+                f"repeated calls returned nonzero uint32_t values starting at {observed_public} "
+                f"with max short-run delta 0x{max_delta_public:x}"
+            ),
+            "cleanup": "n/a-scalar-mmio-read-only",
+            "auto_call_policy": "one-target-proof-only-not-mass-call",
+        },
+    }
+    private.update({
+        "slide": f"0x{slide:x}",
+        "get_boot_stat_time_runtime": f"0x{((target_link + slide) & MASK64):x}",
+        "case_returns": {
+            case["case"]: case["observed_return_value"]
+            for case in case_results
+        },
+        "case_deltas": {
+            case["case"]: case["delta_from_previous"]
+            for case in case_results
+            if case["delta_from_previous"] != "n/a"
+        },
+    })
+    return summary, private
+
+
 def _run_call_proof_get_ddr_DSF_version(
     session: ReplSession,
     symbols: dict[str, Symbol],
@@ -26184,6 +26447,13 @@ def run_call_proof(session: ReplSession,
         )
     if target == "get_current_napi_context":
         return _run_call_proof_get_current_napi_context(
+            session,
+            symbols,
+            image,
+            source_root=source_root,
+        )
+    if target == "get_boot_stat_time":
+        return _run_call_proof_get_boot_stat_time(
             session,
             symbols,
             image,

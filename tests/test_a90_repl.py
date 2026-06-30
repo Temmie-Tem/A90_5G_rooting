@@ -1192,6 +1192,43 @@ class CallSafetyClassificationTests(unittest.TestCase):
             ],
         )
 
+        get_boot_stat_time = self._row("get_boot_stat_time")
+        self.assertEqual(get_boot_stat_time["tier"], repl.CALL_SAFETY_SAFE_SCALAR)
+        self.assertEqual(get_boot_stat_time["required_valid_pointer_args"], {})
+        self.assertTrue(get_boot_stat_time["resolution"]["verified"])
+        self.assertEqual(get_boot_stat_time["resolution"]["method"], "disasm-signature+xref+map")
+        self.assertEqual(
+            get_boot_stat_time["resolution"]["link_vaddr"],
+            "0xffffff80086979e4",
+        )
+        self.assertGreaterEqual(get_boot_stat_time["signals"]["direct_bl_xref_count"], 4)
+        self.assertEqual(
+            get_boot_stat_time["signals"]["arg_pointer_derefs_before_first_bl_or_ret"],
+            [],
+        )
+        self.assertTrue(
+            get_boot_stat_time["signals"]["arg_taint_flow"][
+                "safe_scalar_positive_no_arg_memory_base_flow"
+            ]
+        )
+        self.assertEqual(
+            get_boot_stat_time["signals"]["first_words"][:12],
+            [
+                "0xca1103d0",
+                "0xa9be43fd",
+                "0xf9000bf3",
+                "0x910003fd",
+                "0xd0015088",
+                "0x52800020",
+                "0xf9401d13",
+                "0xaa1303e1",
+                "0x97ecd440",
+                "0x34000120",
+                "0x14000001",
+                "0xd503201f",
+            ],
+        )
+
         get_ddr_DSF_version = self._row("get_ddr_DSF_version")
         self.assertEqual(get_ddr_DSF_version["tier"], repl.CALL_SAFETY_SAFE_SCALAR)
         self.assertEqual(get_ddr_DSF_version["required_valid_pointer_args"], {})
@@ -1503,7 +1540,7 @@ class CallSafetyClassificationTests(unittest.TestCase):
         self.assertTrue(summary["host_only"])
         self.assertFalse(summary["device_action"])
         self.assertEqual(summary["seed_whitelist_count"], len(repl.CALL_SAFETY_SEEDS))
-        self.assertEqual(summary["counts"][repl.CALL_SAFETY_SAFE_SCALAR], 10)
+        self.assertEqual(summary["counts"][repl.CALL_SAFETY_SAFE_SCALAR], 11)
         self.assertGreaterEqual(summary["counts"][repl.CALL_SAFETY_SAFE_WITH_VALID_PTR], 8)
         self.assertGreaterEqual(summary["counts"][repl.CALL_SAFETY_BEHAVIOR_CHANGING], 4)
         self.assertEqual(summary["counts"][repl.CALL_SAFETY_DENY], 1)
@@ -2133,6 +2170,26 @@ class CallSafetyClassificationTests(unittest.TestCase):
             get_current_napi_context["selected"]["path"].endswith("include/linux/netdevice.h")
         )
 
+        get_boot_stat_time = repl.lookup_source_signature(
+            "get_boot_stat_time",
+            source_root=KERNEL_SOURCE_ROOT,
+        )
+        self.assertEqual(get_boot_stat_time["status"], "found", get_boot_stat_time)
+        self.assertEqual(get_boot_stat_time["selected"]["pointer_arg_indices"], [])
+        self.assertEqual(
+            get_boot_stat_time["selected"]["signature"],
+            "extern unsigned int get_boot_stat_time(void)",
+        )
+        self.assertEqual(get_boot_stat_time["selected"]["line"], 39)
+        self.assertTrue(
+            get_boot_stat_time["selected"]["path"].endswith("include/soc/qcom/boot_stats.h")
+        )
+        impl_text = (
+            KERNEL_SOURCE_ROOT / "drivers/soc/qcom/boot_stats.c"
+        ).read_text(encoding="utf-8", errors="replace")
+        self.assertIn("unsigned int get_boot_stat_time(void)", impl_text)
+        self.assertIn("return readl_relaxed(mpm_counter_base);", impl_text)
+
         get_ddr_DSF_version = repl.lookup_source_signature(
             "get_ddr_DSF_version",
             source_root=KERNEL_SOURCE_ROOT,
@@ -2542,6 +2599,12 @@ class FaithfulFakeTransport:
             "get_current_napi_context",
             purpose="call",
         ).link_vaddr
+        self.get_boot_stat_time_link = repl.resolve_verified(
+            self.symbols,
+            self.image,
+            "get_boot_stat_time",
+            purpose="call",
+        ).link_vaddr
         self.get_ddr_DSF_version_link = repl.resolve_verified(
             self.symbols,
             self.image,
@@ -2555,6 +2618,8 @@ class FaithfulFakeTransport:
             purpose="call",
         ).link_vaddr
         self.borrowed_cpu0_device_ptr = 0xFFFFFFC012340000
+        self.boot_stat_time_values = [0x00100000, 0x00101000, 0x00102000]
+        self.boot_stat_time_index = 0
         self.ddr_dsf_version_value = 0x00010002
         self.ddr_total_density_value = 0x06
         self.sw_hweight32_link = repl.resolve_verified(
@@ -3177,6 +3242,8 @@ class FaithfulFakeTransport:
             get_cpu_device = self.get_cpu_device_link + self.slide
             assert self.get_current_napi_context_link is not None
             get_current_napi_context = self.get_current_napi_context_link + self.slide
+            assert self.get_boot_stat_time_link is not None
+            get_boot_stat_time = self.get_boot_stat_time_link + self.slide
             assert self.get_ddr_DSF_version_link is not None
             get_ddr_DSF_version = self.get_ddr_DSF_version_link + self.slide
             assert self.get_ddr_total_density_link is not None
@@ -3730,6 +3797,14 @@ class FaithfulFakeTransport:
                 if (arg1, arg2, arg3, arg4) != (0, 0, 0, 0):
                     raise AssertionError("get_current_napi_context proof must pass no arguments")
                 lines.append("A90R0")
+            elif arg0 == get_boot_stat_time:
+                if (arg1, arg2, arg3, arg4) != (0, 0, 0, 0):
+                    raise AssertionError("get_boot_stat_time proof must pass no arguments")
+                value = self.boot_stat_time_values[
+                    min(self.boot_stat_time_index, len(self.boot_stat_time_values) - 1)
+                ]
+                self.boot_stat_time_index += 1
+                lines.append(f"A90R{value:x}")
             elif arg0 == get_ddr_DSF_version:
                 if (arg1, arg2, arg3, arg4) != (0, 0, 0, 0):
                     raise AssertionError("get_ddr_DSF_version proof must pass no arguments")
@@ -5003,6 +5078,67 @@ class SelftestIntegrationTests(unittest.TestCase):
         self.assertEqual(private["case_returns"]["process-context-null-1"], "0x0")
         self.assertEqual(private["case_returns"]["process-context-null-2"], "0x0")
         self.assertEqual(fake.op_count, 3)  # slide + 2 no-arg proof calls
+
+    def test_call_proof_get_boot_stat_time_passes_with_bounded_counter_contract(self) -> None:
+        if not C2B_PADDING_MAP_PATH.is_file() or not KERNEL_SOURCE_ROOT.is_dir():
+            self.skipTest("promoted v2c System.map or kernel source tree not present")
+
+        symbols = repl.load_system_map(C2B_PADDING_MAP_PATH)
+        fake = FaithfulFakeTransport(0x130000, symbols, self.image)
+        orig = repl.transport.run_serial_command
+        repl.transport.run_serial_command = fake.run_serial_command
+        self.addCleanup(lambda: setattr(repl.transport, "run_serial_command", orig))
+        session = repl.ReplSession(repl.ReplConfig(settle_sec=0.0))
+        summary, private = repl.run_call_proof(
+            session,
+            symbols,
+            self.image,
+            "get_boot_stat_time",
+            source_root=KERNEL_SOURCE_ROOT,
+        )
+
+        self.assertTrue(summary["ok"], summary)
+        self.assertEqual(
+            summary["decision"],
+            "a90-repl-live-call-proof-get_boot_stat_time-pass",
+        )
+        self.assertEqual(
+            summary["proof_status"],
+            "trusted-under-boot-stat-time-read-only-counter-contract",
+        )
+        self.assertEqual(summary["function_map_entry"]["symbol"], "get_boot_stat_time")
+        self.assertEqual(summary["function_map_entry"]["status"], "live-proven")
+        self.assertEqual(
+            summary["source_evidence"]["signature"],
+            "extern unsigned int get_boot_stat_time(void)",
+        )
+        self.assertEqual(summary["source_evidence"]["pointer_arg_indices"], [])
+        self.assertEqual(
+            summary["source_implementation_evidence"]["body"],
+            "return readl_relaxed(mpm_counter_base);",
+        )
+        self.assertTrue(summary["all_returns_nonzero_uint32"])
+        self.assertTrue(summary["bounded_forward_deltas"])
+        self.assertTrue(summary["has_positive_delta"])
+        self.assertEqual(summary["repeat_count"], 3)
+        self.assertEqual(summary["observed_return_value"], "0x100000")
+        self.assertEqual(summary["max_observed_delta"], "0x1000")
+        self.assertTrue(summary["raw_runtime_values_redacted"])
+        self.assertNotIn("get_boot_stat_time_runtime", summary)
+        cases = {case["case"]: case for case in summary["case_results"]}
+        self.assertEqual(cases["boot-stat-time-read-1"]["observed_return_value"], "0x100000")
+        self.assertEqual(cases["boot-stat-time-read-1"]["delta_from_previous"], "n/a")
+        self.assertEqual(cases["boot-stat-time-read-2"]["observed_return_value"], "0x101000")
+        self.assertEqual(cases["boot-stat-time-read-2"]["delta_from_previous"], "0x1000")
+        self.assertEqual(cases["boot-stat-time-read-3"]["observed_return_value"], "0x102000")
+        self.assertEqual(cases["boot-stat-time-read-3"]["delta_from_previous"], "0x1000")
+        self.assertIn("get_boot_stat_time_runtime", private)
+        self.assertEqual(private["case_returns"]["boot-stat-time-read-1"], "0x100000")
+        self.assertEqual(private["case_returns"]["boot-stat-time-read-2"], "0x101000")
+        self.assertEqual(private["case_returns"]["boot-stat-time-read-3"], "0x102000")
+        self.assertEqual(private["case_deltas"]["boot-stat-time-read-2"], "0x1000")
+        self.assertEqual(private["case_deltas"]["boot-stat-time-read-3"], "0x1000")
+        self.assertEqual(fake.op_count, 4)  # slide + 3 no-arg proof calls
 
     def test_call_proof_get_ddr_DSF_version_passes_with_stable_uint32_contract(self) -> None:
         if not C2B_PADDING_MAP_PATH.is_file() or not KERNEL_SOURCE_ROOT.is_dir():
