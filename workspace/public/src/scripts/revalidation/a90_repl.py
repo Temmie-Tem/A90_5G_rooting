@@ -397,6 +397,12 @@ CALL_SAFETY_SEEDS = {
         "return_kind": "uint32_t",
         "reason": "no-argument Qualcomm boot-stat timer MMIO getter; proof expects a nonzero uint32_t counter with bounded short-run forward deltas",
     },
+    "get_seconds": {
+        "tier": CALL_SAFETY_SAFE_SCALAR,
+        "required_valid_pointer_args": {},
+        "return_kind": "unsigned-long-seconds",
+        "reason": "no-argument kernel wall-clock seconds getter; proof expects nondecreasing short-repeat seconds and no pointer arguments",
+    },
     "is_sde_rsc_available": {
         "tier": CALL_SAFETY_SAFE_SCALAR,
         "required_valid_pointer_args": {},
@@ -5402,6 +5408,12 @@ CALL_PROOF_TARGETS = {
         "expected_tier": CALL_SAFETY_SAFE_SCALAR,
         "source_signature": "extern unsigned int get_boot_stat_time(void)",
     },
+    "get_seconds": {
+        "input_contract": "no arguments; kernel timekeeping wall-clock seconds are read-only; no returned pointer is dereferenced or freed",
+        "return_contract": "unsigned long seconds value is nondecreasing across immediate repeated proof calls and advances by at most 2 seconds",
+        "expected_tier": CALL_SAFETY_SAFE_SCALAR,
+        "source_signature": "unsigned long get_seconds(void)",
+    },
     "is_sde_rsc_available": {
         "input_contract": "scalar rsc_index fixed to SDE_RSC_INDEX 0; display RSC table is read-only; no returned pointer is dereferenced or freed",
         "return_contract": "bool availability value is either 0 or 1 and stable across repeated proof calls",
@@ -6609,6 +6621,13 @@ GET_BOOT_STAT_TIME_RET_WORD = 0xD65F03C0
 GET_BOOT_STAT_TIME_NEXT_GUARD_WORD = 0x00BE7BAD
 GET_BOOT_STAT_TIME_REPEAT_COUNT = 3
 GET_BOOT_STAT_TIME_MAX_SHORT_DELTA_TICKS = 10_000_000
+GET_SECONDS_EXPECTED_WORDS = (
+    0xB0016FE8, 0x912C0108, 0xF9403500, 0xD65F03C0,
+    0xD503201F, 0x00BE7BAD,
+)
+GET_SECONDS_NEXT_SYMBOL = ("__current_kernel_time", 0x18)
+GET_SECONDS_REPEAT_COUNT = 2
+GET_SECONDS_MAX_SHORT_DELTA = 2
 JIFFIES_TO_CLOCK_T_RET_WORD = 0xD65F03C0
 JIFFIES_TO_CLOCK_T_NEXT_GUARD_WORD = 0x00BE7BAD
 JIFFIES_TO_CLOCK_T_CASES = (
@@ -23832,6 +23851,194 @@ def _run_call_proof_get_boot_stat_time(
     return summary, private
 
 
+def _run_call_proof_get_seconds(
+    session: ReplSession,
+    symbols: dict[str, Symbol],
+    image: StaticImage,
+    *,
+    source_root: Path,
+) -> tuple[dict[str, object], dict[str, object]]:
+    target = "get_seconds"
+    source = lookup_source_signature(target, source_root=source_root)
+    call_safety = require_call_safety_for_call(
+        symbols,
+        image,
+        target,
+        (),
+    )
+    if call_safety.get("tier") != CALL_PROOF_TARGETS[target]["expected_tier"]:
+        raise ReplError(f"{target} call-safety tier is not the expected vetted scalar tier")
+    if not source.get("found") or source.get("pointer_arg_indices") != []:
+        raise ReplError(f"{target} source signature must be scalar-only")
+    selected_signature = (
+        source.get("selected", {}).get("signature")
+        if isinstance(source.get("selected"), dict) else None
+    )
+    if selected_signature != CALL_PROOF_TARGETS[target]["source_signature"]:
+        raise ReplError(f"{target} source signature did not select the expected declaration")
+
+    resolutions = {
+        target: resolve_verified(
+            symbols,
+            image,
+            target,
+            purpose="call",
+        ),
+    }
+    target_link = require_verified_resolution(
+        resolutions[target],
+        "call-proof target",
+    )
+    next_symbol_name, expected_boundary = GET_SECONDS_NEXT_SYMBOL
+    next_symbol = symbols.get(next_symbol_name)
+    if next_symbol is None or next_symbol.vaddr - target_link != expected_boundary:
+        raise ReplError(f"{target} next-symbol boundary is not the expected 0x{expected_boundary:x}")
+
+    observed_words = image.u32_words_at_vaddr(target_link, len(GET_SECONDS_EXPECTED_WORDS))
+    checks: list[dict[str, object]] = [
+        {
+            "check": "static-c1-identity",
+            "ok": True,
+            "target": target,
+            "resolution_method": resolutions[target].method,
+        },
+        {
+            "check": "static-next-symbol-boundary",
+            "ok": True,
+            "next_symbol": next_symbol_name,
+            "byte_size": f"0x{expected_boundary:x}",
+        },
+        {
+            "check": "static-source-contract",
+            "ok": True,
+            "signature": selected_signature,
+            "pointer_arg_indices": source.get("pointer_arg_indices", []),
+        },
+        {
+            "check": "static-call-safety-contract",
+            "ok": True,
+            "tier": call_safety.get("tier"),
+            "required_valid_pointer_args": call_safety.get("required_valid_pointer_args", {}),
+        },
+    ]
+    for index, expected in enumerate(GET_SECONDS_EXPECTED_WORDS):
+        observed = observed_words[index]
+        ok = observed == expected
+        checks.append({
+            "check": f"static-{target}-word-{index:02d}",
+            "ok": ok,
+            "expected_word": f"0x{expected:08x}",
+            "observed_word": f"0x{observed:08x}",
+        })
+        if not ok:
+            raise ReplError(
+                f"{target} word {index} mismatch: observed 0x{observed:08x}, "
+                f"expected 0x{expected:08x}"
+            )
+
+    private: dict[str, object] = {}
+    slide = 0
+    returns: list[int] = []
+    deltas: list[int] = []
+    case_results: list[dict[str, object]] = []
+
+    session.hide()
+    session.set_panic_on_oops(0)
+    try:
+        slide = session.slide()
+        if slide & 0xFFF:
+            raise ReplError("slide is not page-aligned; refusing to proceed")
+        target_runtime = (target_link + slide) & MASK64
+        for index in range(GET_SECONDS_REPEAT_COUNT):
+            observed = session.call_runtime(target_runtime, ()) & MASK64
+            returns.append(observed)
+            nondecreasing = True
+            delta_value: int | None = None
+            delta_ok = True
+            if index > 0:
+                previous = returns[index - 1]
+                nondecreasing = observed >= previous
+                delta_value = observed - previous if nondecreasing else (previous - observed)
+                deltas.append(delta_value)
+                delta_ok = nondecreasing and delta_value <= GET_SECONDS_MAX_SHORT_DELTA
+            ok = nondecreasing and delta_ok
+            case_results.append({
+                "case": f"{target}-read-{index + 1}",
+                "expected_return": "unsigned-long-nondecreasing-wall-clock-seconds",
+                "observed_return_value": f"0x{observed:x}",
+                "nondecreasing": nondecreasing,
+                "delta_from_previous": f"0x{delta_value:x}" if delta_value is not None else "n/a",
+                "delta_within_bound": delta_ok,
+                "ok": ok,
+            })
+            if not ok:
+                raise ReplError(
+                    f"{target}() returned an out-of-contract value in proof call "
+                    f"{index + 1}: previous=0x{returns[index - 1]:x}, current=0x{observed:x}, "
+                    f"delta=0x{delta_value:x}"
+                )
+    finally:
+        session.set_panic_on_oops(1)
+
+    checks.append({
+        "check": "get-seconds-nondecreasing-short-repeat",
+        "ok": all(bool(case.get("ok")) for case in case_results),
+        "case_count": len(case_results),
+        "max_short_delta_seconds": GET_SECONDS_MAX_SHORT_DELTA,
+        "cases": case_results,
+    })
+    passed = all(bool(check.get("ok")) for check in checks)
+    observed_public = f"0x{returns[0]:x}" if returns else "n/a"
+    max_delta_public = max(deltas) if deltas else 0
+    summary = {
+        "decision": f"a90-repl-live-call-proof-{target}-{'pass' if passed else 'fail'}",
+        "ok": passed,
+        "target": target,
+        "proof_status": "trusted-under-kernel-wall-clock-seconds-read-only-contract" if passed else "failed",
+        "input_contract": CALL_PROOF_TARGETS[target]["input_contract"],
+        "return_contract": CALL_PROOF_TARGETS[target]["return_contract"],
+        "case_results": case_results,
+        "observed_return_value": observed_public,
+        "all_returns_nondecreasing": bool(returns) and all(
+            returns[index] >= returns[index - 1] for index in range(1, len(returns))
+        ),
+        "bounded_forward_deltas": bool(deltas) and all(delta <= GET_SECONDS_MAX_SHORT_DELTA for delta in deltas),
+        "max_observed_delta": f"0x{max_delta_public:x}",
+        "repeat_count": len(returns),
+        "source_evidence": _source_row_evidence(source),
+        "call_safety": call_safety,
+        "resolutions": _redacted_resolution_set(resolutions),
+        "raw_runtime_values_redacted": True,
+        "checks": checks,
+        "function_map_entry": {
+            "symbol": target,
+            "status": "live-proven",
+            "trusted_input_contract": CALL_PROOF_TARGETS[target]["input_contract"],
+            "return_contract": CALL_PROOF_TARGETS[target]["return_contract"],
+            "observed_return_value": (
+                "repeated no-argument calls returned nondecreasing kernel wall-clock "
+                f"seconds starting at {observed_public} with max short-run delta 0x{max_delta_public:x}"
+            ),
+            "cleanup": "n/a-scalar-read-only",
+            "auto_call_policy": "one-target-proof-only-not-mass-call",
+        },
+    }
+    private.update({
+        "slide": f"0x{slide:x}",
+        f"{target}_runtime": f"0x{((target_link + slide) & MASK64):x}",
+        "case_returns": {
+            case["case"]: case["observed_return_value"]
+            for case in case_results
+        },
+        "case_deltas": {
+            case["case"]: case["delta_from_previous"]
+            for case in case_results
+            if case["delta_from_previous"] != "n/a"
+        },
+    })
+    return summary, private
+
+
 def _run_call_proof_jiffies_to_clock_t(
     session: ReplSession,
     symbols: dict[str, Symbol],
@@ -31307,6 +31514,13 @@ def run_call_proof(session: ReplSession,
         )
     if target == "get_boot_stat_time":
         return _run_call_proof_get_boot_stat_time(
+            session,
+            symbols,
+            image,
+            source_root=source_root,
+        )
+    if target == "get_seconds":
+        return _run_call_proof_get_seconds(
             session,
             symbols,
             image,

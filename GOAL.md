@@ -806,6 +806,44 @@ epic is DONE.** Reports:
 `docs/reports/NATIVE_INIT_V3335_GPU_Z3_PRIMARY_SETCRTC_SOURCE_BUILD_2026-06-27.md` and
 `docs/reports/NATIVE_INIT_V3335_GPU_Z3_PRIMARY_SETCRTC_LIVE_2026-06-27.md`.**
 
+## ✅ DONE — REPL one-target live-call proof — kernel wall-clock seconds getter
+
+> ### ✅ STATUS (2026-07-01 live pass) — `get_seconds` one-target proof
+>
+> Codex selected a new read-only timekeeping state getter after the `get_diplayport_status`
+> proof: `get_seconds`. Host static gates passed before live call: `py_compile`; focused
+> classifier/source/fake-proof tests (`Ran 3 tests`, `OK`); full `tests/test_a90_repl.py`
+> (`Ran 168 tests`, `OK`); and classifier CLI over the selected/parked set showed
+> `get_seconds` as `SAFE-SCALAR` while `get_host_os_type` and `get_pkey_press` remained
+> `DENY`/parked.
+>
+> Static identity is pinned to `get_seconds=0xffffff800816185c` by `export-recovery`,
+> direct BL xrefs `51`, next symbol `__current_kernel_time` at `+0x18`, exact 6-word
+> current-image body match (`b0016fe8 912c0108 f9403500 d65f03c0 d503201f 00be7bad`),
+> no pointer args, no pre-call argument pointer derefs, and source declaration
+> `unsigned long get_seconds(void)` from `include/linux/timekeeping.h:26`.
+>
+> Live validation obeyed the flash gate: rollback/fallback/TWRP SHAs were confirmed, bridge
+> healthy, baseline v2321 `version/status/selftest` passed, the exact v1-repl candidate
+> (`b846ae9f74d8ceb922bbcd854d78b6795ef833d61e38465d3cc474cb6f0dfb65`) flashed through
+> `native_init_flash.py` with matching readback SHA, candidate `version/selftest/status`
+> passed after bridge restart + settle, and `a90_repl.py call-proof get_seconds` returned
+> nondecreasing wall-clock seconds `0x5a51e676` then `0x5a51e677` under the fixed no-argument
+> read-only contract (`delta <= 2s`). Candidate post-proof selftest stayed `fail=0`.
+>
+> Timing was recorded per the 2026-07-01 timing rule: candidate flash helper `63.673s`,
+> candidate flash start to boot ready `84.795s`, live proof session `5.820s`, rollback flash
+> helper `65.264s`, rollback flash start to boot ready `87.284s`, total candidate-start to
+> rollback-ready `178.345s`.
+>
+> Rollback to clean v2321 completed through `native_init_flash.py` with matching readback SHA.
+> Final explicit `version/selftest/status` passed (`selftest pass=11 warn=1 fail=0`). Function-map
+> entry is promoted only under the one-target contract:
+> `auto_call_policy=one-target-proof-only-not-mass-call`, no arguments, return nondecreasing
+> kernel wall-clock seconds with short-run delta `<=2s`, cleanup `n/a-scalar-read-only`.
+> Raw slide/runtime values stayed private. Report:
+> `docs/reports/KERNEL_SECURITY_TIER2_RUNTIME_KERNEL_REPL_LIVE_CALL_PROOF_GET_SECONDS_2026-07-01.md`.
+
 ## ⚠️ STOPPED — REPL scheduler counter batch second live-call proof attempt aborted before live proof
 
 ## ✅ DONE — REPL one-target live-call proof — CCIC DisplayPort status getter
