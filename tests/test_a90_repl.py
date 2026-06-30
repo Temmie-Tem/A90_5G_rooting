@@ -947,6 +947,18 @@ class CallSafetyClassificationTests(unittest.TestCase):
         self.assertGreaterEqual(hex2bin["signals"]["direct_bl_xref_count"], 15)
         self.assertTrue(hex2bin["signals"]["leaf"])
 
+        bin2hex = self._row("bin2hex")
+        self.assertEqual(bin2hex["tier"], repl.CALL_SAFETY_SAFE_WITH_VALID_PTR)
+        self.assertEqual(
+            bin2hex["required_valid_pointer_args"],
+            {"0": "destination-hex-buffer", "1": "source-byte-buffer"},
+        )
+        self.assertTrue(bin2hex["resolution"]["verified"])
+        self.assertEqual(bin2hex["resolution"]["method"], "export-recovery")
+        self.assertEqual(bin2hex["resolution"]["link_vaddr"], "0xffffff800856aaf4")
+        self.assertGreaterEqual(bin2hex["signals"]["direct_bl_xref_count"], 5)
+        self.assertTrue(bin2hex["signals"]["leaf"])
+
     def test_non_seeded_targets_are_denied_by_default(self) -> None:
         row = self._row("kgsl_pwrctrl_force_no_nap_store")
         self.assertEqual(row["tier"], repl.CALL_SAFETY_DENY)
@@ -1396,6 +1408,15 @@ class CallSafetyClassificationTests(unittest.TestCase):
         )
         self.assertTrue(hex2bin["selected"]["path"].endswith("include/linux/kernel.h"))
 
+        bin2hex = repl.lookup_source_signature("bin2hex", source_root=KERNEL_SOURCE_ROOT)
+        self.assertEqual(bin2hex["status"], "found", bin2hex)
+        self.assertEqual(bin2hex["selected"]["pointer_arg_indices"], [0, 1])
+        self.assertEqual(
+            bin2hex["selected"]["signature"],
+            "extern char * bin2hex(char *dst, const void *src, size_t count)",
+        )
+        self.assertTrue(bin2hex["selected"]["path"].endswith("include/linux/kernel.h"))
+
     def test_call_safety_sweep_is_advisory_and_does_not_promote_gate(self) -> None:
         if not KERNEL_SOURCE_ROOT.is_dir():
             self.skipTest("kernel source tree not present")
@@ -1608,6 +1629,12 @@ class FaithfulFakeTransport:
             self.symbols,
             self.image,
             "hex2bin",
+            purpose="call",
+        ).link_vaddr
+        self.bin2hex_link = repl.resolve_verified(
+            self.symbols,
+            self.image,
+            "bin2hex",
             purpose="call",
         ).link_vaddr
         self.ksize_link = repl.resolve_verified(
@@ -1968,6 +1995,8 @@ class FaithfulFakeTransport:
             hex_to_bin = self.hex_to_bin_link + self.slide
             assert self.hex2bin_link is not None
             hex2bin = self.hex2bin_link + self.slide
+            assert self.bin2hex_link is not None
+            bin2hex = self.bin2hex_link + self.slide
             assert self.ksize_link is not None
             ksize = self.ksize_link + self.slide
             assert self.strnlen_link is not None
@@ -2050,7 +2079,16 @@ class FaithfulFakeTransport:
             filp_close = self.filp_close_link + self.slide
             assert self.kernel_read_link is not None
             kernel_read = self.kernel_read_link + self.slide
-            if arg0 == hex2bin:
+            if arg0 == bin2hex:
+                if arg1 not in self.allocated:
+                    raise AssertionError(f"bin2hex dst is not an allocated pointer: {arg1:#x}")
+                if arg2 not in self.allocated:
+                    raise AssertionError(f"bin2hex src is not an allocated pointer: {arg2:#x}")
+                src = self._heap_bytes(arg2, arg3)
+                encoded = src.hex().encode("ascii")
+                self._set_heap_bytes(arg1, encoded)
+                lines.append(f"A90R{arg1 + len(encoded):x}")
+            elif arg0 == hex2bin:
                 if arg1 not in self.allocated:
                     raise AssertionError(f"hex2bin dst is not an allocated pointer: {arg1:#x}")
                 if arg2 not in self.allocated:
@@ -2905,6 +2943,63 @@ class SelftestIntegrationTests(unittest.TestCase):
         self.assertEqual(
             private["src_after_hex"],
             (repl.HEX2BIN_SOURCE_BYTES + (b"\xcc" * repl.HEX2BIN_SRC_CANARY_LEN)).hex(),
+        )
+        self.assertEqual(fake.freed, [fake.heap_ptr, fake.heap_ptr + 0x1000])
+
+    def test_call_proof_bin2hex_passes_with_owned_buffer_contract(self) -> None:
+        if not C2B_PADDING_MAP_PATH.is_file() or not KERNEL_SOURCE_ROOT.is_dir():
+            self.skipTest("promoted v2c System.map or kernel source tree not present")
+
+        symbols = repl.load_system_map(C2B_PADDING_MAP_PATH)
+        fake = FaithfulFakeTransport(0x130000, symbols, self.image)
+        orig = repl.transport.run_serial_command
+        repl.transport.run_serial_command = fake.run_serial_command
+        self.addCleanup(lambda: setattr(repl.transport, "run_serial_command", orig))
+        session = repl.ReplSession(repl.ReplConfig(settle_sec=0.0))
+        summary, private = repl.run_call_proof(
+            session,
+            symbols,
+            self.image,
+            "bin2hex",
+            source_root=KERNEL_SOURCE_ROOT,
+        )
+
+        self.assertTrue(summary["ok"], summary)
+        self.assertEqual(summary["decision"], "a90-repl-live-call-proof-bin2hex-pass")
+        self.assertEqual(summary["proof_status"], "trusted-under-owned-input-contract")
+        self.assertEqual(summary["function_map_entry"]["symbol"], "bin2hex")
+        self.assertEqual(summary["function_map_entry"]["status"], "live-proven")
+        self.assertEqual(
+            summary["source_evidence"]["signature"],
+            "extern char * bin2hex(char *dst, const void *src, size_t count)",
+        )
+        self.assertEqual(summary["source_evidence"]["pointer_arg_indices"], [0, 1])
+        self.assertEqual(summary["source_hex"], repl.BIN2HEX_SOURCE_BYTES.hex())
+        self.assertEqual(summary["count"], repl.BIN2HEX_COUNT)
+        self.assertEqual(summary["expected_output_ascii"], repl.BIN2HEX_EXPECTED_LABEL)
+        self.assertEqual(summary["observed_output_ascii"], repl.BIN2HEX_EXPECTED_LABEL)
+        self.assertEqual(summary["expected_return_offset"], len(repl.BIN2HEX_EXPECTED_BYTES))
+        self.assertTrue(summary["returned_owned_destination_pointer_plus_offset"])
+        self.assertTrue(summary["destination_canary_preserved"])
+        self.assertTrue(summary["source_unchanged_after_call"])
+        self.assertTrue(summary["raw_runtime_values_redacted"])
+        self.assertTrue(summary["owned_pointer_redacted"])
+        self.assertTrue(summary["observed_bytes_redacted"])
+        self.assertNotIn("bin2hex_runtime", summary)
+        self.assertNotIn("dst_ptr", summary)
+        self.assertNotIn("src_ptr", summary)
+        self.assertNotIn("return_ptr", summary)
+        self.assertIn("bin2hex_runtime", private)
+        self.assertIn("dst_ptr", private)
+        self.assertIn("src_ptr", private)
+        self.assertIn("return_ptr", private)
+        self.assertEqual(
+            private["dst_after_hex"],
+            (repl.BIN2HEX_EXPECTED_BYTES + (b"\xcc" * repl.BIN2HEX_DST_CANARY_LEN)).hex(),
+        )
+        self.assertEqual(
+            private["src_after_hex"],
+            (repl.BIN2HEX_SOURCE_BYTES + (b"\xcc" * repl.BIN2HEX_SRC_CANARY_LEN)).hex(),
         )
         self.assertEqual(fake.freed, [fake.heap_ptr, fake.heap_ptr + 0x1000])
 

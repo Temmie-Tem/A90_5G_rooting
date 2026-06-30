@@ -24,6 +24,7 @@ and the C1 fail-closed identity gate.
 | `kfree` | `0xffffff800826b354`, `export-recovery`, direct BL xrefs `10596` | owned `kmalloc` object pointer or NULL | cleanup call returned through REPL | freed owned allocation | v2a2 recovered-export poke round-trip |
 | `hex_to_bin` | `0xffffff800856a9dc`, `export-recovery`, direct BL xrefs `80`, leaf/no-BL | scalar ASCII character | case table: `'0' -> 0`, `'9' -> 9`, `'a'/'A' -> 10`, `'f'/'F' -> 15`, invalid `'g' -> 0xffffffff` | n/a-scalar-only | `a90-repl-live-call-proof-hex_to_bin-pass` |
 | `hex2bin` | `0xffffff800856aa3c`, `export-recovery`, direct BL xrefs `15`, leaf/no-BL | owned destination byte buffer plus owned ASCII hex source buffer plus scalar byte count | `hex2bin(dst, "A90f00dC0ffEe1", 7) == 0x0`, destination decoded to `a90f00dc0ffee1`, destination canary preserved, source stayed unchanged | `kfree-owned-hex2bin-buffers-ok` | `a90-repl-live-call-proof-hex2bin-pass` |
+| `bin2hex` | `0xffffff800856aaf4`, `export-recovery`, direct BL xrefs `5`, leaf/no-BL | owned destination ASCII hex buffer plus owned source byte buffer plus scalar byte count | `bin2hex(dst, a90f00dc0ffee1, 7)` returned the owned destination pointer plus offset `14` (redacted), destination encoded to `a90f00dc0ffee1`, destination canary preserved, source stayed unchanged | `kfree-owned-bin2hex-buffers-ok` | `a90-repl-live-call-proof-bin2hex-pass` |
 | `ksize` | `0xffffff800826b27c`, `export-recovery`, direct BL xrefs `39` | owned `__kmalloc` pointer generated inside `call-proof` | `ksize(0x1000 allocation) == 0x1000`, within `[0x1000, 0x2000]` | `kfree-owned-buffer-ok` | `a90-repl-live-call-proof-ksize-pass` |
 | `filp_open` | `0xffffff800828a664`, `export-recovery`, direct BL xrefs `48` | owned kernel pathname buffer containing `/init`, `O_RDONLY`, mode `0` | sane `struct file *`, not NULL and not ERR_PTR | `filp_close` returned `0` | `a90-repl-live-call-proof-filp_open-pass` |
 | `filp_close` | `0xffffff800828ac14`, `export-recovery`, direct BL xrefs `67` | cleanup only: `struct file *` returned by the paired `filp_open` proof | returned `0` | closed opened file | paired cleanup evidence from `a90-repl-live-call-proof-filp_open-pass` |
@@ -74,9 +75,11 @@ and the C1 fail-closed identity gate.
   `GFP_KERNEL`; `kmemdup_nul` additionally proves the generated trailing NUL case.
 - Hex helper sweep: `hex_to_bin` has crossed the live proof gate only under the scalar ASCII
   character contract. `hex2bin` has crossed the live proof gate only under an owned destination byte
-  buffer plus owned ASCII hex source buffer plus scalar byte count contract. These proofs cover one
-  bounded decoder table/input path; they do not authorize arbitrary parser state, arbitrary pointers,
-  unbounded counts, or mass calling.
+  buffer plus owned ASCII hex source buffer plus scalar byte count contract. `bin2hex` has crossed the
+  live proof gate only under an owned destination ASCII hex buffer plus owned source byte buffer plus
+  scalar byte count contract. These proofs cover one bounded decoder/encoder table input path each;
+  they do not authorize arbitrary parser state, arbitrary pointers, unbounded counts, output aliases,
+  or mass calling.
 - Read-I/O sweep: `filp_open`, cleanup-only `filp_close`, and `kernel_read` have crossed the live
   proof gate only under their paired owned `/init` file/buffer/position contracts. Broader read paths,
   arbitrary file pointers, and arbitrary destination buffers remain parked until separate contracts are
