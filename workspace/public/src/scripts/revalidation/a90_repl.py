@@ -487,6 +487,18 @@ CALL_SAFETY_SEEDS = {
         "return_kind": "uint32_t",
         "reason": "no-argument Samsung SMEM DDR DSF-version getter; proof expects a stable nonzero uint32_t field value and does not dereference or free any returned pointer",
     },
+    "get_ddr_revision_id_1": {
+        "tier": CALL_SAFETY_SAFE_SCALAR,
+        "required_valid_pointer_args": {},
+        "return_kind": "raw-shifted-ddr-revision-word",
+        "reason": "no-argument Samsung SMEM DDR revision getter; current image returns a stable shifted SMEM word whose low byte is the source-level revision id",
+    },
+    "get_ddr_revision_id_2": {
+        "tier": CALL_SAFETY_SAFE_SCALAR,
+        "required_valid_pointer_args": {},
+        "return_kind": "raw-halfword-ddr-revision-word",
+        "reason": "no-argument Samsung SMEM DDR revision getter; current image returns a stable SMEM halfword whose low byte is the source-level revision id",
+    },
     "get_ddr_total_density": {
         "tier": CALL_SAFETY_SAFE_SCALAR,
         "required_valid_pointer_args": {},
@@ -3581,6 +3593,8 @@ _SOURCE_HEADER_HINTS_BY_EXACT_SYMBOL = {
     "sched_get_group_id": ("include/linux/sched.h",),
     "get_ddr_vendor_name": ("include/linux/samsung/sec_smem.h",),
     "get_ddr_DSF_version": ("include/linux/samsung/sec_smem.h",),
+    "get_ddr_revision_id_1": ("include/linux/samsung/sec_smem.h",),
+    "get_ddr_revision_id_2": ("include/linux/samsung/sec_smem.h",),
     "get_ddr_total_density": ("include/linux/samsung/sec_smem.h",),
     "is_sde_rsc_available": ("include/linux/sde_rsc.h",),
     "get_sde_rsc_current_state": ("include/linux/sde_rsc.h",),
@@ -5512,6 +5526,18 @@ CALL_PROOF_TARGETS = {
         "expected_tier": CALL_SAFETY_SAFE_SCALAR,
         "source_signature": "extern uint32_t get_ddr_DSF_version(void)",
     },
+    "get_ddr_revision_id_1": {
+        "input_contract": "no arguments; Samsung SMEM DDR revision info is read-only; no returned pointer is dereferenced or freed",
+        "return_contract": "current-image raw return is a stable nonzero 24-bit shifted SMEM revision word; the source-level uint8_t revision id is the stable low byte of that raw return",
+        "expected_tier": CALL_SAFETY_SAFE_SCALAR,
+        "source_signature": "extern uint8_t get_ddr_revision_id_1(void)",
+    },
+    "get_ddr_revision_id_2": {
+        "input_contract": "no arguments; Samsung SMEM DDR revision info is read-only; no returned pointer is dereferenced or freed",
+        "return_contract": "current-image raw return is a stable nonzero 16-bit SMEM revision halfword; the source-level uint8_t revision id is the stable low byte of that raw return",
+        "expected_tier": CALL_SAFETY_SAFE_SCALAR,
+        "source_signature": "extern uint8_t get_ddr_revision_id_2(void)",
+    },
     "get_ddr_total_density": {
         "input_contract": "no arguments; Samsung SMEM DDR info is read-only; no returned pointer is dereferenced or freed",
         "return_contract": "uint8_t DDR total-density field is nonzero, <= 0xff, and stable across repeated proof calls",
@@ -7052,6 +7078,51 @@ GET_DDR_DSF_VERSION_FIELD_LOAD_WORD = 0xB9406A60
 GET_DDR_DSF_VERSION_NULL_RETURN_WORD = 0x2A1F03E0
 GET_DDR_DSF_VERSION_RET_WORD = 0xD65F03C0
 GET_DDR_DSF_VERSION_NEXT_GUARD_WORD = 0x00BE7BAD
+GET_DDR_REVISION_REPEAT_COUNT = 2
+GET_DDR_REVISION_STACK_ALLOC_WORD = 0xD100C3FF
+GET_DDR_REVISION_SMEM_ID_WORD = 0x528010C1
+GET_DDR_REVISION_ARG_BUFFER_WORD = 0x910003E2
+GET_DDR_REVISION_SIZE_LOAD_WORD = 0xF94003E8
+GET_DDR_REVISION_RET_PTR_SAVE_WORD = 0xAA0003F3
+GET_DDR_REVISION_NULL_RETURN_WORD = 0x2A1F03E0
+GET_DDR_REVISION_RET_WORD = 0xD65F03C0
+GET_DDR_REVISION_NEXT_GUARD_WORD = 0x00BE7BAD
+GET_DDR_REVISION_PROOFS = {
+    "get_ddr_revision_id_1": {
+        "next_symbol": "get_ddr_revision_id_2",
+        "next_delta": 0xC0,
+        "word_count": 48,
+        "qcom_smem_get_bl_word": 0x97FE8924,
+        "field_load_word": 0xB9401268,
+        "field_load_name": "static-revision-word-load",
+        "return_transform_word": 0x53087D00,
+        "return_transform_name": "static-revision-word-shift-extract",
+        "null_return_index": 34,
+        "ret_index": 44,
+        "next_guard_index": 47,
+        "raw_max": 0x00FFFFFF,
+        "raw_label": "shifted-smem-revision-word",
+        "proof_status": "trusted-under-smem-raw-shifted-revision-low8-contract",
+        "cleanup": "n/a-scalar-smem-read-only",
+    },
+    "get_ddr_revision_id_2": {
+        "next_symbol": "get_ddr_total_density",
+        "next_delta": 0xB8,
+        "word_count": 46,
+        "qcom_smem_get_bl_word": 0x97FE88F4,
+        "field_load_word": 0x79402660,
+        "field_load_name": "static-revision-halfword-load",
+        "return_transform_word": None,
+        "return_transform_name": None,
+        "null_return_index": 33,
+        "ret_index": 43,
+        "next_guard_index": 45,
+        "raw_max": 0x0000FFFF,
+        "raw_label": "smem-revision-halfword",
+        "proof_status": "trusted-under-smem-raw-halfword-revision-low8-contract",
+        "cleanup": "n/a-scalar-smem-read-only",
+    },
+}
 GET_DDR_TOTAL_DENSITY_STACK_ALLOC_WORD = 0xD100C3FF
 GET_DDR_TOTAL_DENSITY_SMEM_ID_WORD = 0x528010C1
 GET_DDR_TOTAL_DENSITY_ARG_BUFFER_WORD = 0x910003E2
@@ -27274,6 +27345,217 @@ def _run_call_proof_get_ddr_DSF_version(
     return summary, private
 
 
+def _run_call_proof_get_ddr_revision_id(
+    session: ReplSession,
+    symbols: dict[str, Symbol],
+    image: StaticImage,
+    *,
+    target: str,
+    source_root: Path,
+) -> tuple[dict[str, object], dict[str, object]]:
+    if target not in GET_DDR_REVISION_PROOFS:
+        raise ReplError(f"unsupported DDR revision proof target {target!r}")
+    cfg = GET_DDR_REVISION_PROOFS[target]
+    source = lookup_source_signature(target, source_root=source_root)
+    call_safety = require_call_safety_for_call(
+        symbols,
+        image,
+        target,
+        (),
+    )
+    if call_safety.get("tier") != CALL_PROOF_TARGETS[target]["expected_tier"]:
+        raise ReplError(f"{target} call-safety tier is not the expected vetted scalar tier")
+    if not source.get("found") or source.get("pointer_arg_indices") != []:
+        raise ReplError(f"{target} source signature must be no-arg scalar-safe")
+    selected_signature = (
+        source.get("selected", {}).get("signature")
+        if isinstance(source.get("selected"), dict) else None
+    )
+    if selected_signature != CALL_PROOF_TARGETS[target]["source_signature"]:
+        raise ReplError(f"{target} source signature did not select the exported declaration")
+
+    resolutions = {
+        target: resolve_verified(
+            symbols,
+            image,
+            target,
+            purpose="call",
+        ),
+    }
+    target_link = require_verified_resolution(resolutions[target], "call-proof target")
+    next_symbol_name = str(cfg["next_symbol"])
+    expected_boundary = int(cfg["next_delta"])
+    next_symbol = symbols.get(next_symbol_name)
+    if next_symbol is None or next_symbol.vaddr - target_link != expected_boundary:
+        raise ReplError(f"{target} next-symbol boundary is not the expected 0x{expected_boundary:x}")
+
+    words = image.u32_words_at_vaddr(target_link, int(cfg["word_count"]))
+    static_word_checks: list[tuple[str, int, int]] = [
+        ("static-stack-alloc", 0, GET_DDR_REVISION_STACK_ALLOC_WORD),
+        ("static-smem-id-vendor1", 7, GET_DDR_REVISION_SMEM_ID_WORD),
+        ("static-smem-size-buffer", 8, GET_DDR_REVISION_ARG_BUFFER_WORD),
+        ("static-qcom-smem-get-call", 12, int(cfg["qcom_smem_get_bl_word"])),
+        ("static-smem-size-load", 13, GET_DDR_REVISION_SIZE_LOAD_WORD),
+        ("static-return-pointer-save", 14, GET_DDR_REVISION_RET_PTR_SAVE_WORD),
+        (str(cfg["field_load_name"]), 26, int(cfg["field_load_word"])),
+        ("static-error-null-return", int(cfg["null_return_index"]), GET_DDR_REVISION_NULL_RETURN_WORD),
+        ("static-ret", int(cfg["ret_index"]), GET_DDR_REVISION_RET_WORD),
+        ("static-next-guard", int(cfg["next_guard_index"]), GET_DDR_REVISION_NEXT_GUARD_WORD),
+    ]
+    if cfg["return_transform_word"] is not None:
+        static_word_checks.insert(
+            7,
+            (str(cfg["return_transform_name"]), 27, int(cfg["return_transform_word"])),
+        )
+
+    checks: list[dict[str, object]] = [
+        {
+            "check": "static-c1-identity",
+            "ok": True,
+            "target": target,
+            "resolution_method": resolutions[target].method,
+        },
+        {
+            "check": "static-next-symbol-boundary",
+            "ok": True,
+            "next_symbol": next_symbol_name,
+            "byte_size": f"0x{expected_boundary:x}",
+        },
+        {
+            "check": "static-source-contract",
+            "ok": True,
+            "signature": selected_signature,
+            "pointer_arg_indices": source.get("pointer_arg_indices", []),
+        },
+        {
+            "check": "static-call-safety-contract",
+            "ok": True,
+            "tier": call_safety.get("tier"),
+            "required_valid_pointer_args": call_safety.get("required_valid_pointer_args", {}),
+        },
+    ]
+    for name, index, expected in static_word_checks:
+        observed = words[index]
+        ok = observed == expected
+        checks.append({
+            "check": name,
+            "ok": ok,
+            "expected_word": f"0x{expected:08x}",
+            "observed_word": f"0x{observed:08x}",
+        })
+        if not ok:
+            raise ReplError(
+                f"{target} {name} word mismatch: observed 0x{observed:08x}, "
+                f"expected 0x{expected:08x}"
+            )
+
+    raw_max = int(cfg["raw_max"])
+    private: dict[str, object] = {}
+    slide = 0
+    raw_returns: list[int] = []
+    low8_returns: list[int] = []
+    case_results: list[dict[str, object]] = []
+
+    session.hide()
+    session.set_panic_on_oops(0)
+    try:
+        slide = session.slide()
+        if slide & 0xFFF:
+            raise ReplError("slide is not page-aligned; refusing to proceed")
+        target_runtime = (target_link + slide) & MASK64
+        for index in range(GET_DDR_REVISION_REPEAT_COUNT):
+            raw = session.call_runtime(target_runtime, ()) & MASK64
+            low8 = raw & 0xFF
+            raw_returns.append(raw)
+            low8_returns.append(low8)
+            raw_ok = 0 < raw <= raw_max
+            raw_stable_ok = index == 0 or raw == raw_returns[0]
+            low8_stable_ok = index == 0 or low8 == low8_returns[0]
+            ok = raw_ok and raw_stable_ok and low8_stable_ok
+            case_results.append({
+                "case": f"{target}-stable-{index + 1}",
+                "expected_return": str(cfg["raw_label"]),
+                "observed_return_value": f"0x{raw:x}",
+                "source_level_low8_value": f"0x{low8:x}",
+                "raw_nonzero_in_mask": raw_ok,
+                "raw_matches_first_call": raw_stable_ok,
+                "low8_matches_first_call": low8_stable_ok,
+                "ok": ok,
+            })
+            if not raw_ok:
+                raise ReplError(
+                    f"{target}() returned an out-of-contract raw revision word in proof "
+                    f"call {index + 1}: 0x{raw:x}"
+                )
+            if not raw_stable_ok:
+                raise ReplError(
+                    f"{target}() raw return was not stable across repeated proof calls: "
+                    f"first=0x{raw_returns[0]:x}, call{index + 1}=0x{raw:x}"
+                )
+            if not low8_stable_ok:
+                raise ReplError(
+                    f"{target}() source-level low8 value was not stable across repeated proof calls: "
+                    f"first=0x{low8_returns[0]:x}, call{index + 1}=0x{low8:x}"
+                )
+    finally:
+        session.set_panic_on_oops(1)
+
+    checks.append({
+        "check": f"{target}-stable-raw-revision-low8-repeat",
+        "ok": all(bool(case.get("ok")) for case in case_results),
+        "case_count": len(case_results),
+        "cases": case_results,
+    })
+    passed = all(bool(check.get("ok")) for check in checks)
+    observed_public = f"0x{raw_returns[0]:x}" if raw_returns else "n/a"
+    low8_public = f"0x{low8_returns[0]:x}" if low8_returns else "n/a"
+    summary = {
+        "decision": f"a90-repl-live-call-proof-{target}-{'pass' if passed else 'fail'}",
+        "ok": passed,
+        "target": target,
+        "proof_status": str(cfg["proof_status"]) if passed else "failed",
+        "input_contract": CALL_PROOF_TARGETS[target]["input_contract"],
+        "return_contract": CALL_PROOF_TARGETS[target]["return_contract"],
+        "case_results": case_results,
+        "observed_return_value": observed_public,
+        "observed_source_level_low8_value": low8_public,
+        "all_raw_returns_in_contract": bool(raw_returns) and all(0 < value <= raw_max for value in raw_returns),
+        "all_raw_returns_stable": bool(raw_returns) and all(value == raw_returns[0] for value in raw_returns),
+        "all_low8_values_stable": bool(low8_returns) and all(value == low8_returns[0] for value in low8_returns),
+        "repeat_count": len(raw_returns),
+        "source_evidence": _source_row_evidence(source),
+        "call_safety": call_safety,
+        "resolutions": _redacted_resolution_set(resolutions),
+        "raw_runtime_values_redacted": True,
+        "checks": checks,
+        "function_map_entry": {
+            "symbol": target,
+            "status": "live-proven",
+            "trusted_input_contract": CALL_PROOF_TARGETS[target]["input_contract"],
+            "return_contract": CALL_PROOF_TARGETS[target]["return_contract"],
+            "observed_return_value": (
+                f"repeated calls returned stable raw {cfg['raw_label']} {observed_public}; "
+                f"source-level low8 revision byte {low8_public}"
+            ),
+            "cleanup": str(cfg["cleanup"]),
+            "auto_call_policy": "same-session-batch-proof-only-not-mass-call",
+        },
+    }
+    private.update({
+        "slide": f"0x{slide:x}",
+        f"{target}_runtime": f"0x{((target_link + slide) & MASK64):x}",
+        "case_returns": {
+            case["case"]: case["observed_return_value"]
+            for case in case_results
+        },
+        "case_low8_values": {
+            case["case"]: case["source_level_low8_value"]
+            for case in case_results
+        },
+    })
+    return summary, private
+
+
 def _run_call_proof_get_ddr_total_density(
     session: ReplSession,
     symbols: dict[str, Symbol],
@@ -31942,6 +32224,14 @@ def run_call_proof(session: ReplSession,
             session,
             symbols,
             image,
+            source_root=source_root,
+        )
+    if target in GET_DDR_REVISION_PROOFS:
+        return _run_call_proof_get_ddr_revision_id(
+            session,
+            symbols,
+            image,
+            target=target,
             source_root=source_root,
         )
     if target == "get_ddr_total_density":

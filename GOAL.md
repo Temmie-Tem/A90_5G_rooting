@@ -806,6 +806,52 @@ epic is DONE.** Reports:
 `docs/reports/NATIVE_INIT_V3335_GPU_Z3_PRIMARY_SETCRTC_SOURCE_BUILD_2026-06-27.md` and
 `docs/reports/NATIVE_INIT_V3335_GPU_Z3_PRIMARY_SETCRTC_LIVE_2026-06-27.md`.**
 
+## ✅ DONE — REPL post-epic batch live-call proof — Samsung SMEM DDR revision getters
+
+> ### ✅ STATUS (2026-07-01 live pass) — `get_ddr_revision_id_1/2` promoted under corrected raw/low8 contract
+>
+> Codex revisited the previously parked `get_ddr_revision_id_1` after the operator corrected the
+> selection rule: adjacent/similar candidates should be batched when they share the same shape. The
+> bounded unit selected the adjacent Samsung SMEM DDR revision getters `get_ddr_revision_id_1` and
+> `get_ddr_revision_id_2`, both no-argument read-only scalar getters. The old one-target failure was
+> not a call-routing or safety failure; it was a public contract mismatch because the REPL captures
+> raw x0 while the source-level `uint8_t` value is the stable low byte of the current-image raw word.
+>
+> Static validation pinned `get_ddr_revision_id_1=0xffffff80086ef82c` and
+> `get_ddr_revision_id_2=0xffffff80086ef8ec`, both by `disasm-signature+xref+map`, both with direct
+> BL xrefs `1`, source declarations `extern uint8_t get_ddr_revision_id_1(void)` and
+> `extern uint8_t get_ddr_revision_id_2(void)` from `include/linux/samsung/sec_smem.h:196-197`, no
+> pointer args, and no early arg-pointer derefs. Body gates cover the `qcom_smem_get` call, field
+> load, null-return path, ret, next-symbol guard, and the `get_ddr_revision_id_1` shift/extract return
+> transform that explains raw `0x60106`.
+>
+> Host validation passed: `py_compile`; focused classifier/source/seed/fake-batch tests
+> (`Ran 4 tests`, `OK`); full `tests/test_a90_repl.py` (`Ran 170 tests`, `OK`); classifier CLI over
+> the two selected targets (`SAFE-SCALAR=2`); and `git diff --check`. Live validation obeyed the flash
+> gate: rollback/fallback/TWRP artifacts were confirmed, baseline v2321
+> `version/status/selftest` passed, the exact v1-repl candidate
+> (`b846ae9f74d8ceb922bbcd854d78b6795ef833d61e38465d3cc474cb6f0dfb65`) flashed through
+> `native_init_flash.py` with matching readback SHA, candidate `version/selftest/status` passed, REPL
+> selftest passed, both targets were proved in one `call-proof-batch` session, and rollback to v2321
+> completed with final `version/selftest/status` passing (`selftest pass=11 warn=1 fail=0`).
+>
+> Live result: `get_ddr_revision_id_1()` returned stable raw `0x60106` twice, source-level low8
+> `0x6`. `get_ddr_revision_id_2()` returned stable raw `0x601` twice, source-level low8 `0x1`.
+>
+> Timing was recorded per the 2026-07-01 timing rule in
+> `workspace/private/runs/kernel/live-call-proof-ddr-revision-batch-20260630T224417Z/timeline.json`:
+> candidate flash helper `64.216s`, candidate flash start to explicit boot ready `64.669s`, candidate
+> explicit health total `1.156s`, REPL selftest `185.924s`, live batch proof `9.265s`, live session
+> total `195.194s`, rollback flash helper `64.845s`, rollback flash start to explicit boot ready
+> `65.257s`, final explicit health total `1.089s`, and candidate start to rollback ready `325.836s`.
+>
+> Function-map entries are promoted only under the same-session batch contract:
+> `auto_call_policy=same-session-batch-proof-only-not-mass-call`, no arguments, read-only Samsung SMEM
+> DDR revision fields, cleanup `n/a-scalar-smem-read-only`. Raw slide/runtime values stayed private.
+> This supersedes the earlier 2026-06-30 `get_ddr_revision_id_1` PARKED block; that block remains as
+> historical evidence of the contract mismatch. Report:
+> `docs/reports/KERNEL_SECURITY_TIER2_RUNTIME_KERNEL_REPL_LIVE_CALL_PROOF_DDR_REVISION_BATCH_2026-07-01.md`.
+
 ## ✅ DONE — REPL post-epic batch live-call proof — FS/VFS scalar state getters
 
 > ### ✅ STATUS (2026-07-01 live pass) — same-session FS state batch after BATCH correction
@@ -1769,9 +1815,9 @@ epic is DONE.** Reports:
 > `get_ddr_DSF_version` only under the no-arg SMEM read-only uint32 contract. Report:
 > `docs/reports/KERNEL_SECURITY_TIER2_RUNTIME_KERNEL_REPL_LIVE_CALL_PROOF_GET_DDR_DSF_VERSION_2026-06-30.md`.
 
-## ⚠️ PARKED — REPL post-epic one-target live-call proof attempt — `get_ddr_revision_id_1` raw return mismatch
+## ✅ SUPERSEDED — REPL post-epic one-target live-call proof attempt — `get_ddr_revision_id_1` raw return mismatch
 
-> ### ⚠️ STATUS (2026-06-30 live fail, rolled back cleanly) — `get_ddr_revision_id_1` not promoted
+> ### ✅ SUPERSEDED (2026-07-01 by DDR revision batch) / historical status (2026-06-30 live fail, rolled back cleanly)
 >
 > Eighty-third one-target live-call proof attempt after the REPL epic close. Codex selected
 > `get_ddr_revision_id_1` as the next Samsung SMEM DDR getter after `get_ddr_total_density` because
@@ -1790,10 +1836,11 @@ epic is DONE.** Reports:
 > Result: live call reached the target and returned, but failed the predeclared raw `uint8_t` contract:
 > raw REPL return was `0x60106`. Disassembly explains the mismatch: the return path is `ldr w8,
 > [x19,#16]` followed by `lsr w0, w8, #8`, not a byte mask. This means the raw x0 value is a shifted
-> SMEM word, not the intended byte-sized source-level value. The target was **not promoted**, no
-> function map row was added, and the temporary seed/proof target was removed; current
-> `call-safety-classify get_ddr_revision_id_1` is back to `DENY`/not seeded. Candidate post-fail
-> selftest stayed `pass=11 warn=1 fail=0`; Codex rolled back to clean v2321 through
+> SMEM word, not the intended byte-sized source-level value. At the time, the target was **not
+> promoted**, no function map row was added, and the temporary seed/proof target was removed. This is
+> superseded by the 2026-07-01 adjacent DDR revision batch, which promotes `get_ddr_revision_id_1` and
+> `get_ddr_revision_id_2` under the corrected raw/low8 contract only. Candidate post-fail selftest
+> stayed `pass=11 warn=1 fail=0`; Codex rolled back to clean v2321 through
 > `native_init_flash.py`, readback SHA matched, helper `version/status` passed, serial bridge was
 > restarted, and final standalone `version/selftest` confirmed v2321 with `pass=11 warn=1 fail=0`.
 > Report:

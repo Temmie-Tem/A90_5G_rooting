@@ -1983,6 +1983,80 @@ class CallSafetyClassificationTests(unittest.TestCase):
             ],
         )
 
+        get_ddr_revision_id_1 = self._row("get_ddr_revision_id_1")
+        self.assertEqual(get_ddr_revision_id_1["tier"], repl.CALL_SAFETY_SAFE_SCALAR)
+        self.assertEqual(get_ddr_revision_id_1["required_valid_pointer_args"], {})
+        self.assertTrue(get_ddr_revision_id_1["resolution"]["verified"])
+        self.assertEqual(get_ddr_revision_id_1["resolution"]["method"], "disasm-signature+xref+map")
+        self.assertEqual(
+            get_ddr_revision_id_1["resolution"]["link_vaddr"],
+            "0xffffff80086ef82c",
+        )
+        self.assertGreaterEqual(get_ddr_revision_id_1["signals"]["direct_bl_xref_count"], 1)
+        self.assertEqual(
+            get_ddr_revision_id_1["signals"]["arg_pointer_derefs_before_first_bl_or_ret"],
+            [],
+        )
+        self.assertTrue(
+            get_ddr_revision_id_1["signals"]["arg_taint_flow"][
+                "safe_scalar_positive_no_arg_memory_base_flow"
+            ]
+        )
+        self.assertEqual(
+            get_ddr_revision_id_1["signals"]["first_words"][:12],
+            [
+                "0xd100c3ff",
+                "0xca1103d0",
+                "0xa90143fd",
+                "0x910043fd",
+                "0xf90013f3",
+                "0xd0012948",
+                "0x12800000",
+                "0x528010c1",
+                "0x910003e2",
+                "0xf9478508",
+                "0xf90007e8",
+                "0xf90003ff",
+            ],
+        )
+
+        get_ddr_revision_id_2 = self._row("get_ddr_revision_id_2")
+        self.assertEqual(get_ddr_revision_id_2["tier"], repl.CALL_SAFETY_SAFE_SCALAR)
+        self.assertEqual(get_ddr_revision_id_2["required_valid_pointer_args"], {})
+        self.assertTrue(get_ddr_revision_id_2["resolution"]["verified"])
+        self.assertEqual(get_ddr_revision_id_2["resolution"]["method"], "disasm-signature+xref+map")
+        self.assertEqual(
+            get_ddr_revision_id_2["resolution"]["link_vaddr"],
+            "0xffffff80086ef8ec",
+        )
+        self.assertGreaterEqual(get_ddr_revision_id_2["signals"]["direct_bl_xref_count"], 1)
+        self.assertEqual(
+            get_ddr_revision_id_2["signals"]["arg_pointer_derefs_before_first_bl_or_ret"],
+            [],
+        )
+        self.assertTrue(
+            get_ddr_revision_id_2["signals"]["arg_taint_flow"][
+                "safe_scalar_positive_no_arg_memory_base_flow"
+            ]
+        )
+        self.assertEqual(
+            get_ddr_revision_id_2["signals"]["first_words"][:12],
+            [
+                "0xd100c3ff",
+                "0xca1103d0",
+                "0xa90143fd",
+                "0x910043fd",
+                "0xf90013f3",
+                "0xd0012948",
+                "0x12800000",
+                "0x528010c1",
+                "0x910003e2",
+                "0xf9478508",
+                "0xf90007e8",
+                "0xf90003ff",
+            ],
+        )
+
         get_ddr_total_density = self._row("get_ddr_total_density")
         self.assertEqual(get_ddr_total_density["tier"], repl.CALL_SAFETY_SAFE_SCALAR)
         self.assertEqual(get_ddr_total_density["required_valid_pointer_args"], {})
@@ -2310,7 +2384,7 @@ class CallSafetyClassificationTests(unittest.TestCase):
         self.assertTrue(summary["host_only"])
         self.assertFalse(summary["device_action"])
         self.assertEqual(summary["seed_whitelist_count"], len(repl.CALL_SAFETY_SEEDS))
-        self.assertEqual(summary["counts"][repl.CALL_SAFETY_SAFE_SCALAR], 40)
+        self.assertEqual(summary["counts"][repl.CALL_SAFETY_SAFE_SCALAR], 42)
         self.assertGreaterEqual(summary["counts"][repl.CALL_SAFETY_SAFE_WITH_VALID_PTR], 9)
         self.assertGreaterEqual(summary["counts"][repl.CALL_SAFETY_BEHAVIOR_CHANGING], 4)
         self.assertEqual(summary["counts"][repl.CALL_SAFETY_DENY], 1)
@@ -3331,6 +3405,36 @@ class CallSafetyClassificationTests(unittest.TestCase):
             get_ddr_DSF_version["selected"]["path"].endswith("include/linux/samsung/sec_smem.h")
         )
 
+        get_ddr_revision_id_1 = repl.lookup_source_signature(
+            "get_ddr_revision_id_1",
+            source_root=KERNEL_SOURCE_ROOT,
+        )
+        self.assertEqual(get_ddr_revision_id_1["status"], "found", get_ddr_revision_id_1)
+        self.assertEqual(get_ddr_revision_id_1["selected"]["pointer_arg_indices"], [])
+        self.assertEqual(
+            get_ddr_revision_id_1["selected"]["signature"],
+            "extern uint8_t get_ddr_revision_id_1(void)",
+        )
+        self.assertEqual(get_ddr_revision_id_1["selected"]["line"], 196)
+        self.assertTrue(
+            get_ddr_revision_id_1["selected"]["path"].endswith("include/linux/samsung/sec_smem.h")
+        )
+
+        get_ddr_revision_id_2 = repl.lookup_source_signature(
+            "get_ddr_revision_id_2",
+            source_root=KERNEL_SOURCE_ROOT,
+        )
+        self.assertEqual(get_ddr_revision_id_2["status"], "found", get_ddr_revision_id_2)
+        self.assertEqual(get_ddr_revision_id_2["selected"]["pointer_arg_indices"], [])
+        self.assertEqual(
+            get_ddr_revision_id_2["selected"]["signature"],
+            "extern uint8_t get_ddr_revision_id_2(void)",
+        )
+        self.assertEqual(get_ddr_revision_id_2["selected"]["line"], 197)
+        self.assertTrue(
+            get_ddr_revision_id_2["selected"]["path"].endswith("include/linux/samsung/sec_smem.h")
+        )
+
         get_ddr_total_density = repl.lookup_source_signature(
             "get_ddr_total_density",
             source_root=KERNEL_SOURCE_ROOT,
@@ -3923,6 +4027,18 @@ class FaithfulFakeTransport:
             "get_ddr_DSF_version",
             purpose="call",
         ).link_vaddr
+        self.get_ddr_revision_id_1_link = repl.resolve_verified(
+            self.symbols,
+            self.image,
+            "get_ddr_revision_id_1",
+            purpose="call",
+        ).link_vaddr
+        self.get_ddr_revision_id_2_link = repl.resolve_verified(
+            self.symbols,
+            self.image,
+            "get_ddr_revision_id_2",
+            purpose="call",
+        ).link_vaddr
         self.get_ddr_total_density_link = repl.resolve_verified(
             self.symbols,
             self.image,
@@ -3968,6 +4084,8 @@ class FaithfulFakeTransport:
         self.get_nr_dirty_inodes_index = 0
         self.diplayport_status_value = 0
         self.ddr_dsf_version_value = 0x00010002
+        self.ddr_revision_id_1_raw_value = 0x00060106
+        self.ddr_revision_id_2_raw_value = 0x00000106
         self.ddr_total_density_value = 0x06
         self.sw_hweight32_link = repl.resolve_verified(
             self.symbols,
@@ -4692,6 +4810,10 @@ class FaithfulFakeTransport:
             get_diplayport_status = self.get_diplayport_status_link + self.slide
             assert self.get_ddr_DSF_version_link is not None
             get_ddr_DSF_version = self.get_ddr_DSF_version_link + self.slide
+            assert self.get_ddr_revision_id_1_link is not None
+            get_ddr_revision_id_1 = self.get_ddr_revision_id_1_link + self.slide
+            assert self.get_ddr_revision_id_2_link is not None
+            get_ddr_revision_id_2 = self.get_ddr_revision_id_2_link + self.slide
             assert self.get_ddr_total_density_link is not None
             get_ddr_total_density = self.get_ddr_total_density_link + self.slide
             assert self.sw_hweight32_link is not None
@@ -5427,6 +5549,14 @@ class FaithfulFakeTransport:
                 if (arg1, arg2, arg3, arg4) != (0, 0, 0, 0):
                     raise AssertionError("get_ddr_DSF_version proof must pass no arguments")
                 lines.append(f"A90R{self.ddr_dsf_version_value:x}")
+            elif arg0 == get_ddr_revision_id_1:
+                if (arg1, arg2, arg3, arg4) != (0, 0, 0, 0):
+                    raise AssertionError("get_ddr_revision_id_1 proof must pass no arguments")
+                lines.append(f"A90R{self.ddr_revision_id_1_raw_value:x}")
+            elif arg0 == get_ddr_revision_id_2:
+                if (arg1, arg2, arg3, arg4) != (0, 0, 0, 0):
+                    raise AssertionError("get_ddr_revision_id_2 proof must pass no arguments")
+                lines.append(f"A90R{self.ddr_revision_id_2_raw_value:x}")
             elif arg0 == get_ddr_total_density:
                 if (arg1, arg2, arg3, arg4) != (0, 0, 0, 0):
                     raise AssertionError("get_ddr_total_density proof must pass no arguments")
@@ -8108,6 +8238,91 @@ class SelftestIntegrationTests(unittest.TestCase):
         self.assertEqual(private["case_returns"]["ddr-dsf-version-stable-1"], "0x10002")
         self.assertEqual(private["case_returns"]["ddr-dsf-version-stable-2"], "0x10002")
         self.assertEqual(fake.op_count, 3)  # slide + 2 no-arg proof calls
+
+    def test_call_proof_get_ddr_revision_batch_passes_with_raw_low8_contract(self) -> None:
+        if not C2B_PADDING_MAP_PATH.is_file() or not KERNEL_SOURCE_ROOT.is_dir():
+            self.skipTest("promoted v2c System.map or kernel source tree not present")
+
+        symbols = repl.load_system_map(C2B_PADDING_MAP_PATH)
+        fake = FaithfulFakeTransport(0x130000, symbols, self.image)
+        orig = repl.transport.run_serial_command
+        repl.transport.run_serial_command = fake.run_serial_command
+        self.addCleanup(lambda: setattr(repl.transport, "run_serial_command", orig))
+        session = repl.ReplSession(repl.ReplConfig(settle_sec=0.0))
+
+        targets = ("get_ddr_revision_id_1", "get_ddr_revision_id_2")
+        summary, private = repl.run_call_proof_batch(
+            session,
+            symbols,
+            self.image,
+            targets,
+            source_root=KERNEL_SOURCE_ROOT,
+        )
+
+        self.assertTrue(summary["ok"], summary)
+        self.assertEqual(summary["decision"], "a90-repl-live-call-proof-batch-pass")
+        self.assertEqual(summary["target_count"], 2)
+        self.assertEqual(summary["completed_targets"], list(targets))
+        self.assertTrue(summary["host_batch_single_repl_session"])
+        self.assertTrue(summary["raw_runtime_values_redacted"])
+        self.assertEqual(sorted(private["target_privates"]), sorted(targets))
+
+        expected = {
+            "get_ddr_revision_id_1": (
+                fake.ddr_revision_id_1_raw_value,
+                "trusted-under-smem-raw-shifted-revision-low8-contract",
+            ),
+            "get_ddr_revision_id_2": (
+                fake.ddr_revision_id_2_raw_value,
+                "trusted-under-smem-raw-halfword-revision-low8-contract",
+            ),
+        }
+        by_target = {row["target"]: row for row in summary["summaries"]}
+        for target, (raw_value, proof_status) in expected.items():
+            target_summary = by_target[target]
+            target_private = private["target_privates"][target]
+            low8 = raw_value & 0xFF
+            self.assertEqual(
+                target_summary["decision"],
+                f"a90-repl-live-call-proof-{target}-pass",
+            )
+            self.assertEqual(target_summary["proof_status"], proof_status)
+            self.assertEqual(target_summary["function_map_entry"]["symbol"], target)
+            self.assertEqual(target_summary["function_map_entry"]["status"], "live-proven")
+            self.assertEqual(
+                target_summary["function_map_entry"]["auto_call_policy"],
+                "same-session-batch-proof-only-not-mass-call",
+            )
+            self.assertEqual(
+                target_summary["source_evidence"]["signature"],
+                f"extern uint8_t {target}(void)",
+            )
+            self.assertEqual(target_summary["source_evidence"]["pointer_arg_indices"], [])
+            self.assertTrue(target_summary["all_raw_returns_in_contract"])
+            self.assertTrue(target_summary["all_raw_returns_stable"])
+            self.assertTrue(target_summary["all_low8_values_stable"])
+            self.assertEqual(target_summary["repeat_count"], 2)
+            self.assertEqual(target_summary["observed_return_value"], f"0x{raw_value:x}")
+            self.assertEqual(target_summary["observed_source_level_low8_value"], f"0x{low8:x}")
+            self.assertNotIn(f"{target}_runtime", target_summary)
+            self.assertIn(f"{target}_runtime", target_private)
+            cases = {case["case"]: case for case in target_summary["case_results"]}
+            self.assertEqual(cases[f"{target}-stable-1"]["observed_return_value"], f"0x{raw_value:x}")
+            self.assertEqual(cases[f"{target}-stable-1"]["source_level_low8_value"], f"0x{low8:x}")
+            self.assertTrue(cases[f"{target}-stable-1"]["raw_nonzero_in_mask"])
+            self.assertEqual(cases[f"{target}-stable-2"]["observed_return_value"], f"0x{raw_value:x}")
+            self.assertEqual(cases[f"{target}-stable-2"]["source_level_low8_value"], f"0x{low8:x}")
+            self.assertTrue(cases[f"{target}-stable-2"]["raw_matches_first_call"])
+            self.assertTrue(cases[f"{target}-stable-2"]["low8_matches_first_call"])
+            self.assertEqual(
+                target_private["case_returns"][f"{target}-stable-1"],
+                f"0x{raw_value:x}",
+            )
+            self.assertEqual(
+                target_private["case_low8_values"][f"{target}-stable-1"],
+                f"0x{low8:x}",
+            )
+        self.assertEqual(fake.op_count, 6)  # 2 targets * (slide + 2 no-arg proof calls)
 
     def test_call_proof_get_ddr_total_density_passes_with_stable_uint8_contract(self) -> None:
         if not C2B_PADDING_MAP_PATH.is_file() or not KERNEL_SOURCE_ROOT.is_dir():
