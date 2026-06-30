@@ -767,6 +767,36 @@ epic is DONE.** Reports:
 `docs/reports/NATIVE_INIT_V3335_GPU_Z3_PRIMARY_SETCRTC_SOURCE_BUILD_2026-06-27.md` and
 `docs/reports/NATIVE_INIT_V3335_GPU_Z3_PRIMARY_SETCRTC_LIVE_2026-06-27.md`.**
 
+## ✅ DONE — REPL post-epic one-target live-call proof — `simple_strtoull` owned-string integer parser contract
+
+> ### ✅ STATUS (2026-06-30 live pass) — `simple_strtoull` promoted under owned numeric string + owned endp slot only
+>
+> Forty-fifth one-target live-call proof after the REPL epic close. Codex extended `a90_repl.py`
+> `call-proof` with `simple_strtoull`, using one tool-owned NUL-terminated numeric string, one
+> tool-owned `char **` end-pointer output slot, and scalar base `16`. Static gate:
+> `simple_strtoull=0xffffff80099ba314`, `export-recovery`, direct-BL xrefs `9`, JOPP entry true,
+> non-leaf helper calling `_parse_integer_fixup_radix` and `_parse_integer`, source contract
+> `extern unsigned long long simple_strtoull(const char *,char **,unsigned int)` from
+> `include/linux/kernel.h`, x0/x1 pointer args, and call-safety tier `SAFE-WITH-VALID-PTR`.
+>
+> Live path: baseline v2321 `version/status/selftest` passed, flashed the existing v1-repl image
+> `b846ae9f74d8ceb922bbcd854d78b6795ef833d61e38465d3cc474cb6f0dfb65` through
+> `native_init_flash.py`, confirmed readback SHA, got `a90-repl-v2a1-selftest-pass`, then ran
+> `call-proof simple_strtoull` with the C2B verified map.
+>
+> Result: `a90-repl-live-call-proof-simple_strtoull-pass`; checks covered C1 identity, source
+> signature, call-safety contract, owned buffer allocation/poke/peek,
+> `simple_strtoull("1234abcdZ", &endp, 16) == 0x1234abcd`, `endp` pointing to the owned input
+> pointer plus offset `8`, input immutability, end-slot canary preservation, and
+> `kfree-owned-simple-strtoull-buffers`.
+>
+> Candidate selftest after proof stayed `fail=0`. Rolled back to clean v2321
+> (`ca978551aabe4b39563abaf529ccf2522054952d8b2ad852e632d26da88168cb`) with final resident
+> `v2321-usb-clean-identity-rodata` and final `selftest pass=11 warn=1 fail=0`. Function map records
+> `simple_strtoull` only under the owned numeric string plus owned endp output slot plus scalar base
+> contract. Report:
+> `docs/reports/KERNEL_SECURITY_TIER2_RUNTIME_KERNEL_REPL_LIVE_CALL_PROOF_SIMPLE_STRTOULL_2026-06-30.md`.
+
 ## ✅ DONE — REPL post-epic one-target live-call proof — `parse_option_str` owned-string option parser contract
 
 > ### ✅ STATUS (2026-06-30 live pass) — `parse_option_str` promoted under owned comma-option/source strings only
