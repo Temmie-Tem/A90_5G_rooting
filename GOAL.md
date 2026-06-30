@@ -767,6 +767,45 @@ epic is DONE.** Reports:
 `docs/reports/NATIVE_INIT_V3335_GPU_Z3_PRIMARY_SETCRTC_SOURCE_BUILD_2026-06-27.md` and
 `docs/reports/NATIVE_INIT_V3335_GPU_Z3_PRIMARY_SETCRTC_LIVE_2026-06-27.md`.**
 
+## ✅ DONE — REPL post-epic one-target live-call proof — `match_token` owned exact table contract
+
+> ### ✅ STATUS (2026-06-30 live pass) — `match_token` promoted under owned exact `match_token` table only
+>
+> Sixtieth one-target live-call proof after the REPL epic close. Codex extended
+> `a90_repl.py` `call-proof` with `match_token`, using one tool-owned layout containing a
+> mutable option string `A90MATCH-TOKEN`, a 16-byte-entry `match_token` table with one exact
+> no-`%` pattern plus a NULL-pattern terminator, an owned `substring_t args[MAX_OPT_ARGS]`
+> canary region, and canaries around all controlled regions. Static gate:
+> `match_token=0xffffff800855b404`, `export-recovery`, direct-BL xrefs `23`, JOPP entry
+> true, non-leaf helper calling `__pi_strcmp`, `strchr`, `simple_strtoul`, `__pi_strncmp`,
+> `__pi_strlen`, and `simple_strtol`. Source contract:
+> `int match_token(char *, const match_table_t table, substring_t args[])` from
+> `include/linux/parser.h`; the `match_table_t` array typedef is treated as an x1 pointer
+> after typedef-decay, so x0/x1/x2 are all required owned pointers. Call-safety tier:
+> `SAFE-WITH-VALID-PTR`.
+>
+> Live path: baseline v2321 `version/status/selftest` passed, flashed the existing v1-repl image
+> `b846ae9f74d8ceb922bbcd854d78b6795ef833d61e38465d3cc474cb6f0dfb65` through
+> `native_init_flash.py`, confirmed readback SHA, then ran REPL selftest. The first REPL
+> selftest attempt hit a transient serial END-marker timeout while setting `panic_on_oops`;
+> immediate device health stayed `selftest pass=11 warn=1 fail=0`, and a wider-timeout retry
+> returned `a90-repl-v2a1-selftest-pass`. Then Codex ran `call-proof match_token` with the
+> C2B verified map.
+>
+> Result: `a90-repl-live-call-proof-match_token-pass`; checks covered C1 identity, source
+> signature, call-safety contract, owned layout allocation/poke/peek, exact-pattern token
+> return `0x4a90`, unchanged table, unchanged args region, unchanged input string, unchanged
+> pattern string, and `kfree-owned-match-token-layout`.
+>
+> Candidate selftest after proof stayed `pass=11 warn=1 fail=0`. Rolled back to clean v2321
+> (`ca978551aabe4b39563abaf529ccf2522054952d8b2ad852e632d26da88168cb`) with final resident
+> `v2321-usb-clean-identity-rodata`; rollback helper health passed, then the first standalone
+> final selftest hit a serial echo-noise END-marker miss and the immediate retry returned
+> `selftest pass=11 warn=1 fail=0`. Function map records `match_token` only under the owned
+> exact-table contract; `%d/%s/%u/%o/%x` substring extraction paths remain separate future
+> targets. Report:
+> `docs/reports/KERNEL_SECURITY_TIER2_RUNTIME_KERNEL_REPL_LIVE_CALL_PROOF_MATCH_TOKEN_2026-06-30.md`.
+
 ## ✅ DONE — REPL post-epic one-target live-call proof — `match_strdup` owned substring duplicate contract
 
 > ### ✅ STATUS (2026-06-30 live pass) — `match_strdup` promoted under owned `substring_t` only

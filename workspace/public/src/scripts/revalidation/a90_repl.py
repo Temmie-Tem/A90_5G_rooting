@@ -444,6 +444,16 @@ CALL_SAFETY_SEEDS = {
         "return_kind": "int-index-or-negative-errno",
         "reason": "bounded string-array matcher; x0 must be an owned const char* array, x2 must be an owned NUL-terminated search string, and n must stay inside the array",
     },
+    "match_token": {
+        "tier": CALL_SAFETY_SAFE_WITH_VALID_PTR,
+        "required_valid_pointer_args": {
+            0: "mutable-option-string-buffer",
+            1: "match-token-table",
+            2: "substring-args-array",
+        },
+        "return_kind": "int-token",
+        "reason": "parser token matcher; x0 must be an owned mutable option string, x1 an owned match_token table, and x2 an owned substring_t args array",
+    },
     "match_int": {
         "tier": CALL_SAFETY_SAFE_WITH_VALID_PTR,
         "required_valid_pointer_args": {0: "substring-slot", 1: "int-result-output-slot"},
@@ -3211,6 +3221,7 @@ _SOURCE_HEADER_HINTS_BY_EXACT_SYMBOL = {
     "ksize": ("include/linux/slab.h",),
     "memzero_explicit": ("include/linux/string.h",),
     "match_int": ("include/linux/parser.h",),
+    "match_token": ("include/linux/parser.h",),
     "match_octal": ("include/linux/parser.h",),
     "match_strdup": ("include/linux/parser.h",),
     "strsep": ("include/linux/string.h",),
@@ -3346,6 +3357,11 @@ _SOURCE_ARG_TYPE_WORDS = frozenset((
     "unsigned",
     "void",
 ))
+_SOURCE_POINTER_TYPE_ALIASES = frozenset((
+    # include/linux/parser.h: typedef struct match_token match_table_t[];
+    # Function parameters using this array typedef decay to a pointer ABI arg.
+    "match_table_t",
+))
 _SOURCE_NON_SIGNATURE_PREFIXES = (
     "#",
     "case ",
@@ -3456,6 +3472,8 @@ def _parse_source_signature_statement(root: Path,
                 or "[" in arg_clean
                 or "__user" in arg_clean
                 or "(*" in arg_clean
+                or any(alias in re.findall(r"[A-Za-z_][A-Za-z0-9_]*", arg_clean)
+                       for alias in _SOURCE_POINTER_TYPE_ALIASES)
             )
             if is_pointer:
                 pointer_indices.append(index)
@@ -5017,6 +5035,12 @@ CALL_PROOF_TARGETS = {
         "expected_tier": CALL_SAFETY_SAFE_WITH_VALID_PTR,
         "source_signature": "int match_string(const char * const *array, size_t n, const char *string)",
     },
+    "match_token": {
+        "input_contract": "owned mutable option string, owned match_token table with exact-pattern entry plus NULL-pattern terminator, and owned substring_t args array",
+        "return_contract": "int == expected token for exact pattern; table, option string, and args canaries stay unchanged",
+        "expected_tier": CALL_SAFETY_SAFE_WITH_VALID_PTR,
+        "source_signature": "int match_token(char *, const match_table_t table, substring_t args[])",
+    },
     "match_int": {
         "input_contract": "owned substring_t pointing at owned bounded decimal text plus owned int result slot",
         "return_contract": "int == 0 and *result == expected parsed signed int",
@@ -5297,6 +5321,33 @@ MATCH_STRING_MAX_STRING_SCAN_LEN = max(
     len(MATCH_STRING_SEARCH_BYTES),
     len(MATCH_STRING_MISSING_BYTES),
 ) + MATCH_STRING_CANARY_LEN
+MATCH_TOKEN_INPUT_BYTES = b"A90MATCH-TOKEN"
+MATCH_TOKEN_INPUT_LABEL = MATCH_TOKEN_INPUT_BYTES.decode("ascii")
+MATCH_TOKEN_PATTERN_BYTES = MATCH_TOKEN_INPUT_BYTES + b"\x00"
+MATCH_TOKEN_VALUE = 0x4A90
+MATCH_TOKEN_ERR_VALUE = 0
+MATCH_TOKEN_ENTRY_LEN = 16
+MATCH_TOKEN_TABLE_ENTRY_COUNT = 2
+MATCH_TOKEN_TABLE_OFFSET = 0x00
+MATCH_TOKEN_TABLE_LEN = MATCH_TOKEN_ENTRY_LEN * MATCH_TOKEN_TABLE_ENTRY_COUNT
+MATCH_TOKEN_ARGS_OFFSET = 0x80
+MATCH_TOKEN_ARG_ENTRY_LEN = 16
+MATCH_TOKEN_ARG_COUNT = 3
+MATCH_TOKEN_ARGS_LEN = MATCH_TOKEN_ARG_ENTRY_LEN * MATCH_TOKEN_ARG_COUNT
+MATCH_TOKEN_INPUT_OFFSET = 0x100
+MATCH_TOKEN_PATTERN_OFFSET = 0x140
+MATCH_TOKEN_CANARY_LEN = 8
+MATCH_TOKEN_ARGS_INITIAL_RAW = b"\x55" * MATCH_TOKEN_ARGS_LEN
+MATCH_TOKEN_MAX_STRING_SCAN_LEN = max(
+    len(MATCH_TOKEN_INPUT_BYTES) + 1,
+    len(MATCH_TOKEN_PATTERN_BYTES),
+) + MATCH_TOKEN_CANARY_LEN
+MATCH_TOKEN_LAYOUT_MIN_LEN = max(
+    MATCH_TOKEN_TABLE_OFFSET + MATCH_TOKEN_TABLE_LEN + MATCH_TOKEN_CANARY_LEN,
+    MATCH_TOKEN_ARGS_OFFSET + MATCH_TOKEN_ARGS_LEN + MATCH_TOKEN_CANARY_LEN,
+    MATCH_TOKEN_INPUT_OFFSET + len(MATCH_TOKEN_INPUT_BYTES) + 1 + MATCH_TOKEN_CANARY_LEN,
+    MATCH_TOKEN_PATTERN_OFFSET + len(MATCH_TOKEN_PATTERN_BYTES) + MATCH_TOKEN_CANARY_LEN,
+)
 MATCH_INT_INPUT_BYTES = b"12345"
 MATCH_INT_INPUT_LABEL = MATCH_INT_INPUT_BYTES.decode("ascii")
 MATCH_INT_EXPECTED_VALUE = 12345
@@ -8999,6 +9050,270 @@ def _run_call_proof_match_string(session: ReplSession,
         "expected_item_hex": [item.hex() for item in expected_item_scans],
         "expected_search_hex": expected_search_scan.hex(),
         "expected_missing_search_hex": expected_missing_scan.hex(),
+        "gfp_components": {key: f"0x{component:x}" for key, component in gfp_components.items()},
+    })
+    return summary, private
+
+
+def _run_call_proof_match_token(session: ReplSession,
+                                symbols: dict[str, Symbol],
+                                image: StaticImage,
+                                *,
+                                alloc_size: int,
+                                source_root: Path,
+                                gfp: int,
+                                gfp_components: dict[str, int]) -> tuple[dict[str, object], dict[str, object]]:
+    if alloc_size < MATCH_TOKEN_LAYOUT_MIN_LEN:
+        raise ReplError(f"match_token call-proof alloc_size must be at least {MATCH_TOKEN_LAYOUT_MIN_LEN} bytes")
+    if b"\x00" in MATCH_TOKEN_INPUT_BYTES:
+        raise ReplError("match_token proof input must be a NUL-free option string body")
+    if MATCH_TOKEN_PATTERN_BYTES != MATCH_TOKEN_INPUT_BYTES + b"\x00":
+        raise ReplError("match_token exact proof pattern must match the input string plus NUL")
+    if b"%" in MATCH_TOKEN_PATTERN_BYTES:
+        raise ReplError("match_token exact proof intentionally excludes wildcard/substring patterns")
+
+    source = lookup_source_signature("match_token", source_root=source_root)
+    call_safety = require_call_safety_for_call(
+        symbols,
+        image,
+        "match_token",
+        ("@owned_mutable_option_string", "@owned_match_token_table", "@owned_substring_args_array"),
+    )
+    if call_safety.get("tier") != CALL_PROOF_TARGETS["match_token"]["expected_tier"]:
+        raise ReplError("match_token call-safety tier is not the expected vetted pointer tier")
+    if not source.get("found") or source.get("pointer_arg_indices") != [0, 1, 2]:
+        raise ReplError("match_token source signature does not declare option/table/args pointer arguments")
+
+    resolutions = {
+        "match_token": resolve_verified(symbols, image, "match_token", purpose="call", allow_pre_arg_deref=True),
+        "__kmalloc": resolve_verified(symbols, image, "__kmalloc", purpose="call"),
+        "kfree": resolve_verified(symbols, image, "kfree", purpose="call"),
+    }
+    match_token_link = require_verified_resolution(resolutions["match_token"], "call-proof target")
+    kmalloc_link = require_verified_resolution(resolutions["__kmalloc"], "call-proof layout allocator")
+    kfree_link = require_verified_resolution(resolutions["kfree"], "call-proof layout cleanup")
+    assert_no_precall_x0_pointer_deref(image, kmalloc_link, "__kmalloc")
+
+    checks: list[dict[str, object]] = [
+        {
+            "check": "static-c1-identity",
+            "ok": True,
+            "target": "match_token",
+            "resolution_method": resolutions["match_token"].method,
+        },
+        {
+            "check": "static-source-contract",
+            "ok": True,
+            "signature": source.get("selected", {}).get("signature")
+            if isinstance(source.get("selected"), dict) else None,
+            "pointer_arg_indices": source.get("pointer_arg_indices", []),
+            "table_arg_note": "match_table_t is an array typedef and decays to an x1 pointer",
+        },
+        {
+            "check": "static-call-safety-contract",
+            "ok": True,
+            "tier": call_safety.get("tier"),
+            "required_valid_pointer_args": call_safety.get("required_valid_pointer_args", {}),
+            "pattern_kind": "exact-no-percent-wildcards",
+        },
+    ]
+    private: dict[str, object] = {}
+    layout_ptr = 0
+    table_ptr = 0
+    args_ptr = 0
+    input_ptr = 0
+    pattern_ptr = 0
+    slide = 0
+    kfree_runtime = 0
+    cleanup_ok = False
+    cleanup_error = ""
+    proof_return = 0
+    observed_table_before = b""
+    observed_table_after = b""
+    observed_args_before = b""
+    observed_args_after = b""
+    observed_input_before = b""
+    observed_input_after = b""
+    observed_pattern_before = b""
+    observed_pattern_after = b""
+
+    session.hide()
+    session.set_panic_on_oops(0)
+    try:
+        slide = session.slide()
+        if slide & 0xFFF:
+            raise ReplError("slide is not page-aligned; refusing to proceed")
+        match_token_runtime = (match_token_link + slide) & MASK64
+        kmalloc_runtime = (kmalloc_link + slide) & MASK64
+        kfree_runtime = (kfree_link + slide) & MASK64
+
+        layout_ptr = session.call_runtime(kmalloc_runtime, (alloc_size, gfp))
+        layout_ok = is_kernel_lowmem_pointer(layout_ptr)
+        checks.append({
+            "check": "kmalloc-owned-match-token-layout",
+            "ok": layout_ok,
+            "alloc_size": alloc_size,
+            "layout_required_len": MATCH_TOKEN_LAYOUT_MIN_LEN,
+            "layout_kernel_lowmem": layout_ok,
+        })
+        if not layout_ok:
+            raise ReplError("__kmalloc did not return a sane match_token layout pointer")
+
+        table_ptr = (layout_ptr + MATCH_TOKEN_TABLE_OFFSET) & MASK64
+        args_ptr = (layout_ptr + MATCH_TOKEN_ARGS_OFFSET) & MASK64
+        input_ptr = (layout_ptr + MATCH_TOKEN_INPUT_OFFSET) & MASK64
+        pattern_ptr = (layout_ptr + MATCH_TOKEN_PATTERN_OFFSET) & MASK64
+        expected_table = struct.pack(
+            "<IIQIIQ",
+            MATCH_TOKEN_VALUE,
+            0,
+            pattern_ptr,
+            MATCH_TOKEN_ERR_VALUE,
+            0,
+            0,
+        )
+        expected_table_scan = expected_table + (b"\xcc" * MATCH_TOKEN_CANARY_LEN)
+        expected_args_scan = MATCH_TOKEN_ARGS_INITIAL_RAW + (b"\xcc" * MATCH_TOKEN_CANARY_LEN)
+        expected_input_scan = MATCH_TOKEN_INPUT_BYTES + b"\x00" + (b"\xcc" * MATCH_TOKEN_CANARY_LEN)
+        expected_pattern_scan = MATCH_TOKEN_PATTERN_BYTES + (b"\xcc" * MATCH_TOKEN_CANARY_LEN)
+
+        _poke_bytes(session, table_ptr, expected_table_scan)
+        _poke_bytes(session, args_ptr, expected_args_scan)
+        _poke_bytes(session, input_ptr, expected_input_scan)
+        _poke_bytes(session, pattern_ptr, expected_pattern_scan)
+
+        observed_table_before = _peek_bytes(session, table_ptr, len(expected_table_scan))
+        observed_args_before = _peek_bytes(session, args_ptr, len(expected_args_scan))
+        observed_input_before = _peek_bytes(session, input_ptr, len(expected_input_scan))
+        observed_pattern_before = _peek_bytes(session, pattern_ptr, len(expected_pattern_scan))
+        setup_ok = (
+            observed_table_before == expected_table_scan
+            and observed_args_before == expected_args_scan
+            and observed_input_before == expected_input_scan
+            and observed_pattern_before == expected_pattern_scan
+        )
+        checks.append({
+            "check": "owned-match-token-layout-poke-peek",
+            "ok": setup_ok,
+            "table_entry_count": MATCH_TOKEN_TABLE_ENTRY_COUNT,
+            "table_entry_len": MATCH_TOKEN_ENTRY_LEN,
+            "args_count": MATCH_TOKEN_ARG_COUNT,
+            "args_entry_len": MATCH_TOKEN_ARG_ENTRY_LEN,
+            "option_label": MATCH_TOKEN_INPUT_LABEL,
+            "canary_len": MATCH_TOKEN_CANARY_LEN,
+        })
+        if not setup_ok:
+            raise ReplError("owned match_token layout poke/peek mismatch")
+
+        proof_return = session.call_runtime(match_token_runtime, (input_ptr, table_ptr, args_ptr))
+        return_ok = proof_return == MATCH_TOKEN_VALUE
+        checks.append({
+            "check": "match-token-exact-hit-return-contract",
+            "ok": return_ok,
+            "expected_token": f"0x{MATCH_TOKEN_VALUE:x}",
+            "observed_return": f"0x{proof_return:x}",
+            "pattern_kind": "exact",
+        })
+        if not return_ok:
+            raise ReplError(f"match_token returned 0x{proof_return:x}, expected token 0x{MATCH_TOKEN_VALUE:x}")
+
+        observed_table_after = _peek_bytes(session, table_ptr, len(expected_table_scan))
+        observed_args_after = _peek_bytes(session, args_ptr, len(expected_args_scan))
+        observed_input_after = _peek_bytes(session, input_ptr, len(expected_input_scan))
+        observed_pattern_after = _peek_bytes(session, pattern_ptr, len(expected_pattern_scan))
+        layout_unchanged = (
+            observed_table_after == expected_table_scan
+            and observed_args_after == expected_args_scan
+            and observed_input_after == expected_input_scan
+            and observed_pattern_after == expected_pattern_scan
+        )
+        checks.append({
+            "check": "match-token-exact-layout-immutability",
+            "ok": layout_unchanged,
+            "table_unchanged": observed_table_after == expected_table_scan,
+            "args_unchanged": observed_args_after == expected_args_scan,
+            "input_unchanged": observed_input_after == expected_input_scan,
+            "pattern_unchanged": observed_pattern_after == expected_pattern_scan,
+        })
+        if not layout_unchanged:
+            raise ReplError("match_token exact-hit case modified the owned layout")
+    finally:
+        try:
+            if kfree_runtime and layout_ptr and is_kernel_lowmem_pointer(layout_ptr):
+                session.call_runtime(kfree_runtime, (layout_ptr,))
+                cleanup_ok = True
+        except Exception as exc:  # noqa: BLE001 - cleanup failures must be reported after restoring panic policy
+            cleanup_error = str(exc)
+        session.set_panic_on_oops(1)
+
+    checks.append({
+        "check": "kfree-owned-match-token-layout",
+        "ok": cleanup_ok,
+        "layout_free_ok": cleanup_ok,
+    })
+    if cleanup_error:
+        raise ReplError(f"kfree failed after match_token proof: {cleanup_error}")
+
+    table_unchanged = observed_table_after == observed_table_before
+    args_unchanged = observed_args_after == observed_args_before
+    input_unchanged = observed_input_after == observed_input_before
+    pattern_unchanged = observed_pattern_after == observed_pattern_before
+    passed = all(bool(check.get("ok")) for check in checks)
+    summary = {
+        "decision": f"a90-repl-live-call-proof-match_token-{'pass' if passed else 'fail'}",
+        "ok": passed,
+        "target": "match_token",
+        "proof_status": "trusted-under-owned-input-contract" if passed else "failed",
+        "input_contract": CALL_PROOF_TARGETS["match_token"]["input_contract"],
+        "return_contract": CALL_PROOF_TARGETS["match_token"]["return_contract"],
+        "alloc_size": alloc_size,
+        "input_ascii": MATCH_TOKEN_INPUT_LABEL,
+        "pattern_ascii": MATCH_TOKEN_INPUT_LABEL,
+        "expected_token": f"0x{MATCH_TOKEN_VALUE:x}",
+        "observed_return": f"0x{proof_return:x}",
+        "return_matches_expected_token": proof_return == MATCH_TOKEN_VALUE,
+        "table_unchanged_after_call": table_unchanged,
+        "args_unchanged_after_call": args_unchanged,
+        "input_unchanged_after_call": input_unchanged,
+        "pattern_unchanged_after_call": pattern_unchanged,
+        "gfp_kernel": f"0x{gfp:x}",
+        "source_evidence": _source_row_evidence(source),
+        "call_safety": call_safety,
+        "resolutions": _redacted_resolution_set(resolutions),
+        "raw_runtime_values_redacted": True,
+        "owned_pointer_redacted": True,
+        "observed_bytes_redacted": True,
+        "checks": checks,
+        "function_map_entry": {
+            "symbol": "match_token",
+            "status": "live-proven",
+            "trusted_input_contract": CALL_PROOF_TARGETS["match_token"]["input_contract"],
+            "return_contract": CALL_PROOF_TARGETS["match_token"]["return_contract"],
+            "observed_return_value": f"exact-pattern-token=0x{MATCH_TOKEN_VALUE:x}",
+            "cleanup": "kfree-owned-match-token-layout-ok" if cleanup_ok else "cleanup-failed",
+            "auto_call_policy": "one-target-proof-only-not-mass-call",
+        },
+    }
+    private.update({
+        "slide": f"0x{slide:x}",
+        "match_token_runtime": f"0x{((match_token_link + slide) & MASK64):x}",
+        "layout_ptr": f"0x{layout_ptr:x}",
+        "table_ptr": f"0x{table_ptr:x}",
+        "args_ptr": f"0x{args_ptr:x}",
+        "input_ptr": f"0x{input_ptr:x}",
+        "pattern_ptr": f"0x{pattern_ptr:x}",
+        "table_before_hex": observed_table_before.hex(),
+        "table_after_hex": observed_table_after.hex(),
+        "args_before_hex": observed_args_before.hex(),
+        "args_after_hex": observed_args_after.hex(),
+        "input_before_hex": observed_input_before.hex(),
+        "input_after_hex": observed_input_after.hex(),
+        "pattern_before_hex": observed_pattern_before.hex(),
+        "pattern_after_hex": observed_pattern_after.hex(),
+        "expected_table_hex": expected_table_scan.hex(),
+        "expected_args_hex": expected_args_scan.hex(),
+        "expected_input_hex": expected_input_scan.hex(),
+        "expected_pattern_hex": expected_pattern_scan.hex(),
         "gfp_components": {key: f"0x{component:x}" for key, component in gfp_components.items()},
     })
     return summary, private
@@ -19916,6 +20231,16 @@ def run_call_proof(session: ReplSession,
         )
     if target == "match_string":
         return _run_call_proof_match_string(
+            session,
+            symbols,
+            image,
+            alloc_size=alloc_size,
+            source_root=source_root,
+            gfp=gfp,
+            gfp_components=gfp_components,
+        )
+    if target == "match_token":
+        return _run_call_proof_match_token(
             session,
             symbols,
             image,

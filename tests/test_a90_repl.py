@@ -637,6 +637,22 @@ class CallSafetyClassificationTests(unittest.TestCase):
         self.assertGreaterEqual(match_string["signals"]["direct_bl_xref_count"], 5)
         self.assertFalse(match_string["signals"]["leaf"])
 
+        match_token = self._row("match_token")
+        self.assertEqual(match_token["tier"], repl.CALL_SAFETY_SAFE_WITH_VALID_PTR)
+        self.assertEqual(
+            match_token["required_valid_pointer_args"],
+            {
+                "0": "mutable-option-string-buffer",
+                "1": "match-token-table",
+                "2": "substring-args-array",
+            },
+        )
+        self.assertTrue(match_token["resolution"]["verified"])
+        self.assertEqual(match_token["resolution"]["method"], "export-recovery")
+        self.assertEqual(match_token["resolution"]["link_vaddr"], "0xffffff800855b404")
+        self.assertGreaterEqual(match_token["signals"]["direct_bl_xref_count"], 23)
+        self.assertFalse(match_token["signals"]["leaf"])
+
         match_int = self._row("match_int")
         self.assertEqual(match_int["tier"], repl.CALL_SAFETY_SAFE_WITH_VALID_PTR)
         self.assertEqual(
@@ -1356,6 +1372,15 @@ class CallSafetyClassificationTests(unittest.TestCase):
             "int match_string(const char * const *array, size_t n, const char *string)",
         )
         self.assertTrue(match_string["selected"]["path"].endswith("include/linux/string.h"))
+
+        match_token = repl.lookup_source_signature("match_token", source_root=KERNEL_SOURCE_ROOT)
+        self.assertEqual(match_token["status"], "found", match_token)
+        self.assertEqual(match_token["selected"]["pointer_arg_indices"], [0, 1, 2])
+        self.assertEqual(
+            match_token["selected"]["signature"],
+            "int match_token(char *, const match_table_t table, substring_t args[])",
+        )
+        self.assertTrue(match_token["selected"]["path"].endswith("include/linux/parser.h"))
 
         match_int = repl.lookup_source_signature("match_int", source_root=KERNEL_SOURCE_ROOT)
         self.assertEqual(match_int["status"], "found", match_int)
@@ -2118,6 +2143,13 @@ class FaithfulFakeTransport:
             purpose="call",
             allow_pre_arg_deref=True,
         ).link_vaddr
+        self.match_token_link = repl.resolve_verified(
+            self.symbols,
+            self.image,
+            "match_token",
+            purpose="call",
+            allow_pre_arg_deref=True,
+        ).link_vaddr
         self.match_int_link = repl.resolve_verified(
             self.symbols,
             self.image,
@@ -2474,6 +2506,8 @@ class FaithfulFakeTransport:
             strnstr = self.strnstr_link + self.slide
             assert self.match_string_link is not None
             match_string = self.match_string_link + self.slide
+            assert self.match_token_link is not None
+            match_token = self.match_token_link + self.slide
             assert self.match_int_link is not None
             match_int = self.match_int_link + self.slide
             assert self.match_octal_link is not None
@@ -3094,6 +3128,44 @@ class FaithfulFakeTransport:
                         raise AssertionError("match_string item is not NUL-terminated in scan window")
                     if item_data[:item_nul] == search:
                         result = index
+                        break
+                lines.append(f"A90R{result:x}")
+            elif arg0 == match_token:
+                input_base = self._allocated_base_for(arg1, repl.MATCH_TOKEN_MAX_STRING_SCAN_LEN)
+                table_base = self._allocated_base_for(arg2, repl.MATCH_TOKEN_TABLE_LEN)
+                args_base = self._allocated_base_for(arg3, repl.MATCH_TOKEN_ARGS_LEN)
+                if input_base is None:
+                    raise AssertionError(f"match_token input is not in an allocated buffer: {arg1:#x}")
+                if table_base is None:
+                    raise AssertionError(f"match_token table is not in an allocated buffer: {arg2:#x}")
+                if args_base is None:
+                    raise AssertionError(f"match_token args are not in an allocated buffer: {arg3:#x}")
+                input_data = self._heap_bytes(arg1, repl.MATCH_TOKEN_MAX_STRING_SCAN_LEN)
+                input_nul = input_data.find(b"\x00")
+                if input_nul < 0:
+                    raise AssertionError("match_token input is not NUL-terminated in scan window")
+                option = input_data[:input_nul]
+                result = repl.MATCH_TOKEN_ERR_VALUE
+                for index in range(repl.MATCH_TOKEN_TABLE_ENTRY_COUNT):
+                    entry = self._heap_bytes(arg2 + (index * repl.MATCH_TOKEN_ENTRY_LEN), repl.MATCH_TOKEN_ENTRY_LEN)
+                    token, _padding, pattern_ptr = struct.unpack("<IIQ", entry)
+                    if pattern_ptr == 0:
+                        result = token
+                        break
+                    pattern_base = self._allocated_base_for(pattern_ptr, repl.MATCH_TOKEN_MAX_STRING_SCAN_LEN)
+                    if pattern_base is None:
+                        raise AssertionError(
+                            f"match_token pattern is not in an allocated buffer: {pattern_ptr:#x}"
+                        )
+                    pattern_data = self._heap_bytes(pattern_ptr, repl.MATCH_TOKEN_MAX_STRING_SCAN_LEN)
+                    pattern_nul = pattern_data.find(b"\x00")
+                    if pattern_nul < 0:
+                        raise AssertionError("match_token pattern is not NUL-terminated in scan window")
+                    pattern = pattern_data[:pattern_nul]
+                    if b"%" in pattern:
+                        raise AssertionError("match_token fake only supports exact no-percent proof patterns")
+                    if pattern == option:
+                        result = token
                         break
                 lines.append(f"A90R{result:x}")
             elif arg0 == match_int:
@@ -5898,6 +5970,92 @@ class SelftestIntegrationTests(unittest.TestCase):
         self.assertEqual(private["expected_search_hex"], expected_search)
         self.assertEqual(private["expected_missing_search_hex"], expected_missing)
         self.assertEqual(private["missing_search_bytes_hex"], expected_missing)
+        self.assertEqual(fake.freed, [fake.heap_ptr])
+
+    def test_call_proof_match_token_passes_with_owned_exact_table_contract(self) -> None:
+        if not C2B_PADDING_MAP_PATH.is_file() or not KERNEL_SOURCE_ROOT.is_dir():
+            self.skipTest("promoted v2c System.map or kernel source tree not present")
+
+        symbols = repl.load_system_map(C2B_PADDING_MAP_PATH)
+        fake = FaithfulFakeTransport(0x130000, symbols, self.image)
+        orig = repl.transport.run_serial_command
+        repl.transport.run_serial_command = fake.run_serial_command
+        self.addCleanup(lambda: setattr(repl.transport, "run_serial_command", orig))
+        session = repl.ReplSession(repl.ReplConfig(settle_sec=0.0))
+        summary, private = repl.run_call_proof(
+            session,
+            symbols,
+            self.image,
+            "match_token",
+            source_root=KERNEL_SOURCE_ROOT,
+        )
+
+        self.assertTrue(summary["ok"], summary)
+        self.assertEqual(summary["decision"], "a90-repl-live-call-proof-match_token-pass")
+        self.assertEqual(summary["proof_status"], "trusted-under-owned-input-contract")
+        self.assertEqual(summary["function_map_entry"]["symbol"], "match_token")
+        self.assertEqual(summary["function_map_entry"]["status"], "live-proven")
+        self.assertEqual(
+            summary["source_evidence"]["signature"],
+            "int match_token(char *, const match_table_t table, substring_t args[])",
+        )
+        self.assertEqual(summary["input_ascii"], repl.MATCH_TOKEN_INPUT_LABEL)
+        self.assertEqual(summary["pattern_ascii"], repl.MATCH_TOKEN_INPUT_LABEL)
+        self.assertEqual(summary["expected_token"], f"0x{repl.MATCH_TOKEN_VALUE:x}")
+        self.assertEqual(summary["observed_return"], f"0x{repl.MATCH_TOKEN_VALUE:x}")
+        self.assertTrue(summary["return_matches_expected_token"])
+        self.assertTrue(summary["table_unchanged_after_call"])
+        self.assertTrue(summary["args_unchanged_after_call"])
+        self.assertTrue(summary["input_unchanged_after_call"])
+        self.assertTrue(summary["pattern_unchanged_after_call"])
+        self.assertTrue(summary["raw_runtime_values_redacted"])
+        self.assertTrue(summary["owned_pointer_redacted"])
+        self.assertTrue(summary["observed_bytes_redacted"])
+        self.assertNotIn("layout_ptr", summary)
+        self.assertNotIn("table_ptr", summary)
+        self.assertNotIn("args_ptr", summary)
+        self.assertNotIn("input_ptr", summary)
+        self.assertNotIn("pattern_ptr", summary)
+        layout_ptr = fake.heap_ptr
+        table_ptr = layout_ptr + repl.MATCH_TOKEN_TABLE_OFFSET
+        args_ptr = layout_ptr + repl.MATCH_TOKEN_ARGS_OFFSET
+        input_ptr = layout_ptr + repl.MATCH_TOKEN_INPUT_OFFSET
+        pattern_ptr = layout_ptr + repl.MATCH_TOKEN_PATTERN_OFFSET
+        self.assertEqual(private["layout_ptr"], f"0x{layout_ptr:x}")
+        self.assertEqual(private["table_ptr"], f"0x{table_ptr:x}")
+        self.assertEqual(private["args_ptr"], f"0x{args_ptr:x}")
+        self.assertEqual(private["input_ptr"], f"0x{input_ptr:x}")
+        self.assertEqual(private["pattern_ptr"], f"0x{pattern_ptr:x}")
+        expected_table = struct.pack(
+            "<IIQIIQ",
+            repl.MATCH_TOKEN_VALUE,
+            0,
+            pattern_ptr,
+            repl.MATCH_TOKEN_ERR_VALUE,
+            0,
+            0,
+        ) + (b"\xcc" * repl.MATCH_TOKEN_CANARY_LEN)
+        expected_args = (
+            repl.MATCH_TOKEN_ARGS_INITIAL_RAW + (b"\xcc" * repl.MATCH_TOKEN_CANARY_LEN)
+        )
+        expected_input = (
+            repl.MATCH_TOKEN_INPUT_BYTES + b"\x00" + (b"\xcc" * repl.MATCH_TOKEN_CANARY_LEN)
+        )
+        expected_pattern = (
+            repl.MATCH_TOKEN_PATTERN_BYTES + (b"\xcc" * repl.MATCH_TOKEN_CANARY_LEN)
+        )
+        self.assertEqual(private["expected_table_hex"], expected_table.hex())
+        self.assertEqual(private["expected_args_hex"], expected_args.hex())
+        self.assertEqual(private["expected_input_hex"], expected_input.hex())
+        self.assertEqual(private["expected_pattern_hex"], expected_pattern.hex())
+        self.assertEqual(private["table_before_hex"], expected_table.hex())
+        self.assertEqual(private["table_after_hex"], expected_table.hex())
+        self.assertEqual(private["args_before_hex"], expected_args.hex())
+        self.assertEqual(private["args_after_hex"], expected_args.hex())
+        self.assertEqual(private["input_before_hex"], expected_input.hex())
+        self.assertEqual(private["input_after_hex"], expected_input.hex())
+        self.assertEqual(private["pattern_before_hex"], expected_pattern.hex())
+        self.assertEqual(private["pattern_after_hex"], expected_pattern.hex())
         self.assertEqual(fake.freed, [fake.heap_ptr])
 
     def test_call_proof_match_int_passes_with_owned_substring_result_contract(self) -> None:
