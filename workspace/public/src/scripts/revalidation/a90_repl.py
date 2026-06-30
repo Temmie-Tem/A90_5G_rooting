@@ -456,6 +456,12 @@ CALL_SAFETY_SEEDS = {
         "return_kind": "int-errno",
         "reason": "parser octal integer helper; x0 must be an owned substring_t slot and x1 an owned int output slot",
     },
+    "match_strdup": {
+        "tier": CALL_SAFETY_SAFE_WITH_VALID_PTR,
+        "required_valid_pointer_args": {0: "substring-slot"},
+        "return_kind": "owned-kmalloc-string-or-null",
+        "reason": "parser substring duplicate helper; x0 must be an owned substring_t slot and returned string must be freed",
+    },
     "sysfs_streq": {
         "tier": CALL_SAFETY_SAFE_WITH_VALID_PTR,
         "required_valid_pointer_args": {0: "left-string-buffer", 1: "right-string-buffer"},
@@ -3206,6 +3212,7 @@ _SOURCE_HEADER_HINTS_BY_EXACT_SYMBOL = {
     "memzero_explicit": ("include/linux/string.h",),
     "match_int": ("include/linux/parser.h",),
     "match_octal": ("include/linux/parser.h",),
+    "match_strdup": ("include/linux/parser.h",),
     "strsep": ("include/linux/string.h",),
     "vfs_getxattr": ("include/linux/xattr.h",),
     "vfs_getxattr_alloc": ("include/linux/xattr.h",),
@@ -5022,6 +5029,12 @@ CALL_PROOF_TARGETS = {
         "expected_tier": CALL_SAFETY_SAFE_WITH_VALID_PTR,
         "source_signature": "int match_octal(substring_t *, int *result)",
     },
+    "match_strdup": {
+        "input_contract": "owned substring_t pointing at owned bounded text",
+        "return_contract": "char * == new owned kmalloc string copy; duplicate bytes match substring plus generated NUL",
+        "expected_tier": CALL_SAFETY_SAFE_WITH_VALID_PTR,
+        "source_signature": "char * match_strdup(const substring_t *)",
+    },
     "sysfs_streq": {
         "input_contract": "two owned NUL-terminated kernel string buffers",
         "return_contract": "bool true for exact match or one trailing-newline sysfs match; false for mismatch",
@@ -5313,6 +5326,17 @@ MATCH_OCTAL_LAYOUT_MIN_LEN = max(
     MATCH_OCTAL_SUBSTRING_OFFSET + MATCH_OCTAL_SUBSTRING_LEN + MATCH_OCTAL_CANARY_LEN,
     MATCH_OCTAL_INPUT_OFFSET + len(MATCH_OCTAL_INPUT_BYTES) + 1 + MATCH_OCTAL_CANARY_LEN,
     MATCH_OCTAL_RESULT_OFFSET + len(MATCH_OCTAL_RESULT_INITIAL_RAW) + MATCH_OCTAL_CANARY_LEN,
+)
+MATCH_STRDUP_INPUT_BYTES = b"A90MATCH-STRDUP-Q-END"
+MATCH_STRDUP_INPUT_LABEL = MATCH_STRDUP_INPUT_BYTES.decode("ascii")
+MATCH_STRDUP_SUBSTRING_OFFSET = 0x00
+MATCH_STRDUP_SUBSTRING_LEN = 16
+MATCH_STRDUP_INPUT_OFFSET = 0x40
+MATCH_STRDUP_CANARY_LEN = 8
+MATCH_STRDUP_EXPECTED_DUP_BYTES = MATCH_STRDUP_INPUT_BYTES + b"\x00"
+MATCH_STRDUP_LAYOUT_MIN_LEN = max(
+    MATCH_STRDUP_SUBSTRING_OFFSET + MATCH_STRDUP_SUBSTRING_LEN + MATCH_STRDUP_CANARY_LEN,
+    MATCH_STRDUP_INPUT_OFFSET + len(MATCH_STRDUP_INPUT_BYTES) + 1 + MATCH_STRDUP_CANARY_LEN,
 )
 HEX_TO_BIN_INVALID_RETURN = 0xFFFFFFFF
 HEX_TO_BIN_CASES = (
@@ -9463,6 +9487,240 @@ def _run_call_proof_match_octal(session: ReplSession,
             (MATCH_OCTAL_EXPECTED_VALUE & 0xFFFFFFFF).to_bytes(4, "little")
             + (b"\xcc" * MATCH_OCTAL_CANARY_LEN)
         ).hex(),
+        "gfp_components": {key: f"0x{component:x}" for key, component in gfp_components.items()},
+    })
+    return summary, private
+
+
+def _run_call_proof_match_strdup(session: ReplSession,
+                                 symbols: dict[str, Symbol],
+                                 image: StaticImage,
+                                 *,
+                                 alloc_size: int,
+                                 source_root: Path,
+                                 gfp: int,
+                                 gfp_components: dict[str, int]) -> tuple[dict[str, object], dict[str, object]]:
+    if alloc_size < MATCH_STRDUP_LAYOUT_MIN_LEN:
+        raise ReplError(f"match_strdup call-proof alloc_size must be at least {MATCH_STRDUP_LAYOUT_MIN_LEN} bytes")
+    if b"\x00" in MATCH_STRDUP_INPUT_BYTES:
+        raise ReplError("match_strdup proof input must be a bounded non-NUL substring")
+
+    source = lookup_source_signature("match_strdup", source_root=source_root)
+    call_safety = require_call_safety_for_call(
+        symbols,
+        image,
+        "match_strdup",
+        ("@owned_substring_slot",),
+    )
+    if call_safety.get("tier") != CALL_PROOF_TARGETS["match_strdup"]["expected_tier"]:
+        raise ReplError("match_strdup call-safety tier is not the expected vetted pointer tier")
+    if not source.get("found") or source.get("pointer_arg_indices") != [0]:
+        raise ReplError("match_strdup source signature does not declare substring pointer argument")
+
+    resolutions = {
+        "match_strdup": resolve_verified(symbols, image, "match_strdup", purpose="call", allow_pre_arg_deref=True),
+        "__kmalloc": resolve_verified(symbols, image, "__kmalloc", purpose="call"),
+        "kfree": resolve_verified(symbols, image, "kfree", purpose="call"),
+    }
+    match_strdup_link = require_verified_resolution(resolutions["match_strdup"], "call-proof target")
+    kmalloc_link = require_verified_resolution(resolutions["__kmalloc"], "call-proof layout allocator")
+    kfree_link = require_verified_resolution(resolutions["kfree"], "call-proof layout and duplicate cleanup")
+    assert_no_precall_x0_pointer_deref(image, kmalloc_link, "__kmalloc")
+
+    checks: list[dict[str, object]] = [
+        {
+            "check": "static-c1-identity",
+            "ok": True,
+            "target": "match_strdup",
+            "resolution_method": resolutions["match_strdup"].method,
+        },
+        {
+            "check": "static-source-contract",
+            "ok": True,
+            "signature": source.get("selected", {}).get("signature")
+            if isinstance(source.get("selected"), dict) else None,
+            "pointer_arg_indices": source.get("pointer_arg_indices", []),
+        },
+        {
+            "check": "static-call-safety-contract",
+            "ok": True,
+            "tier": call_safety.get("tier"),
+            "required_valid_pointer_args": call_safety.get("required_valid_pointer_args", {}),
+        },
+    ]
+    private: dict[str, object] = {}
+    layout_ptr = 0
+    substring_ptr = 0
+    input_ptr = 0
+    duplicate_ptr = 0
+    slide = 0
+    kfree_runtime = 0
+    free_ok: dict[str, bool] = {"duplicate": False, "layout": False}
+    free_errors: list[str] = []
+    observed_substring_before = b""
+    observed_substring_after = b""
+    observed_input_before = b""
+    observed_input_after = b""
+    observed_duplicate = b""
+
+    session.hide()
+    session.set_panic_on_oops(0)
+    try:
+        slide = session.slide()
+        if slide & 0xFFF:
+            raise ReplError("slide is not page-aligned; refusing to proceed")
+        match_strdup_runtime = (match_strdup_link + slide) & MASK64
+        kmalloc_runtime = (kmalloc_link + slide) & MASK64
+        kfree_runtime = (kfree_link + slide) & MASK64
+
+        layout_ptr = session.call_runtime(kmalloc_runtime, (alloc_size, gfp))
+        layout_ok = is_kernel_lowmem_pointer(layout_ptr)
+        checks.append({
+            "check": "kmalloc-owned-match-strdup-layout",
+            "ok": layout_ok,
+            "alloc_size": alloc_size,
+            "layout_kernel_lowmem": layout_ok,
+        })
+        if not layout_ok:
+            raise ReplError("__kmalloc did not return a sane match_strdup layout pointer")
+
+        substring_ptr = (layout_ptr + MATCH_STRDUP_SUBSTRING_OFFSET) & MASK64
+        input_ptr = (layout_ptr + MATCH_STRDUP_INPUT_OFFSET) & MASK64
+        expected_substring = struct.pack(
+            "<QQ",
+            input_ptr,
+            (input_ptr + len(MATCH_STRDUP_INPUT_BYTES)) & MASK64,
+        )
+        expected_substring_scan = expected_substring + (b"\xcc" * MATCH_STRDUP_CANARY_LEN)
+        expected_input_scan = MATCH_STRDUP_INPUT_BYTES + b"\x00" + (b"\xcc" * MATCH_STRDUP_CANARY_LEN)
+
+        _poke_bytes(session, substring_ptr, expected_substring_scan)
+        _poke_bytes(session, input_ptr, expected_input_scan)
+        observed_substring_before = _peek_bytes(session, substring_ptr, len(expected_substring_scan))
+        observed_input_before = _peek_bytes(session, input_ptr, len(expected_input_scan))
+        setup_ok = (
+            observed_substring_before == expected_substring_scan
+            and observed_input_before == expected_input_scan
+        )
+        checks.append({
+            "check": "owned-match-strdup-layout-poke-peek",
+            "ok": setup_ok,
+            "substring_len": MATCH_STRDUP_SUBSTRING_LEN,
+            "input_len": len(MATCH_STRDUP_INPUT_BYTES),
+            "canary_len": MATCH_STRDUP_CANARY_LEN,
+        })
+        if not setup_ok:
+            raise ReplError("owned match_strdup layout poke/peek mismatch")
+
+        duplicate_ptr = session.call_runtime(match_strdup_runtime, (substring_ptr,))
+        duplicate_ptr_ok = (
+            is_kernel_lowmem_pointer(duplicate_ptr)
+            and not (layout_ptr <= duplicate_ptr < layout_ptr + alloc_size)
+        )
+        checks.append({
+            "check": "match-strdup-return-pointer-contract",
+            "ok": duplicate_ptr_ok,
+            "kernel_lowmem": is_kernel_lowmem_pointer(duplicate_ptr),
+            "distinct_from_layout": not (layout_ptr <= duplicate_ptr < layout_ptr + alloc_size),
+        })
+        if not duplicate_ptr_ok:
+            raise ReplError("match_strdup did not return a sane distinct duplicate pointer")
+
+        observed_duplicate = _peek_bytes(session, duplicate_ptr, len(MATCH_STRDUP_EXPECTED_DUP_BYTES))
+        duplicate_bytes_ok = observed_duplicate == MATCH_STRDUP_EXPECTED_DUP_BYTES
+        checks.append({
+            "check": "match-strdup-duplicate-bytes-contract",
+            "ok": duplicate_bytes_ok,
+            "expected_duplicate_len": len(MATCH_STRDUP_EXPECTED_DUP_BYTES),
+            "duplicate_bytes_match": duplicate_bytes_ok,
+        })
+        if not duplicate_bytes_ok:
+            raise ReplError("match_strdup duplicate bytes did not match the bounded substring plus NUL")
+
+        observed_substring_after = _peek_bytes(session, substring_ptr, len(expected_substring_scan))
+        observed_input_after = _peek_bytes(session, input_ptr, len(expected_input_scan))
+        layout_unchanged = (
+            observed_substring_after == expected_substring_scan
+            and observed_input_after == expected_input_scan
+        )
+        checks.append({
+            "check": "match-strdup-input-layout-immutability",
+            "ok": layout_unchanged,
+            "substring_unchanged": observed_substring_after == expected_substring_scan,
+            "input_unchanged": observed_input_after == expected_input_scan,
+        })
+        if not layout_unchanged:
+            raise ReplError("match_strdup modified the owned source layout")
+    finally:
+        for label, ptr in (("duplicate", duplicate_ptr), ("layout", layout_ptr)):
+            if kfree_runtime and ptr and is_kernel_lowmem_pointer(ptr):
+                try:
+                    session.call_runtime(kfree_runtime, (ptr,))
+                    free_ok[label] = True
+                except Exception as exc:  # noqa: BLE001 - cleanup failures must be visible
+                    free_errors.append(f"{label}: {exc}")
+        session.set_panic_on_oops(1)
+
+    cleanup_ok = all(free_ok.values())
+    checks.append({
+        "check": "kfree-owned-match-strdup-layout-and-duplicate",
+        "ok": cleanup_ok,
+        "free_attempted": {
+            "duplicate": bool(kfree_runtime and duplicate_ptr),
+            "layout": bool(kfree_runtime and layout_ptr),
+        },
+    })
+    if free_errors:
+        raise ReplError(f"kfree failed after match_strdup proof: {free_errors}")
+
+    substring_unchanged = observed_substring_after == observed_substring_before
+    input_unchanged = observed_input_after == observed_input_before
+    passed = all(bool(check.get("ok")) for check in checks)
+    summary = {
+        "decision": f"a90-repl-live-call-proof-match_strdup-{'pass' if passed else 'fail'}",
+        "ok": passed,
+        "target": "match_strdup",
+        "proof_status": "trusted-under-owned-input-contract" if passed else "failed",
+        "input_contract": CALL_PROOF_TARGETS["match_strdup"]["input_contract"],
+        "return_contract": CALL_PROOF_TARGETS["match_strdup"]["return_contract"],
+        "alloc_size": alloc_size,
+        "input_ascii": MATCH_STRDUP_INPUT_LABEL,
+        "expected_duplicate_len": len(MATCH_STRDUP_EXPECTED_DUP_BYTES),
+        "duplicate_bytes_match_expected": observed_duplicate == MATCH_STRDUP_EXPECTED_DUP_BYTES,
+        "substring_unchanged_after_call": substring_unchanged,
+        "input_unchanged_after_call": input_unchanged,
+        "duplicate_pointer_redacted": True,
+        "gfp_kernel": f"0x{gfp:x}",
+        "source_evidence": _source_row_evidence(source),
+        "call_safety": call_safety,
+        "resolutions": _redacted_resolution_set(resolutions),
+        "raw_runtime_values_redacted": True,
+        "owned_pointer_redacted": True,
+        "observed_bytes_redacted": True,
+        "checks": checks,
+        "function_map_entry": {
+            "symbol": "match_strdup",
+            "status": "live-proven",
+            "trusted_input_contract": CALL_PROOF_TARGETS["match_strdup"]["input_contract"],
+            "return_contract": CALL_PROOF_TARGETS["match_strdup"]["return_contract"],
+            "observed_return_value": "new-owned-kmalloc-string-pointer-redacted",
+            "cleanup": "kfree-owned-match-strdup-layout-and-duplicate-ok" if cleanup_ok else "cleanup-failed",
+            "auto_call_policy": "one-target-proof-only-not-mass-call",
+        },
+    }
+    private.update({
+        "slide": f"0x{slide:x}",
+        "match_strdup_runtime": f"0x{((match_strdup_link + slide) & MASK64):x}",
+        "layout_ptr": f"0x{layout_ptr:x}",
+        "substring_ptr": f"0x{substring_ptr:x}",
+        "input_ptr": f"0x{input_ptr:x}",
+        "duplicate_ptr": f"0x{duplicate_ptr:x}",
+        "substring_before_hex": observed_substring_before.hex(),
+        "substring_after_hex": observed_substring_after.hex(),
+        "input_before_hex": observed_input_before.hex(),
+        "input_after_hex": observed_input_after.hex(),
+        "duplicate_bytes_hex": observed_duplicate.hex(),
+        "expected_duplicate_hex": MATCH_STRDUP_EXPECTED_DUP_BYTES.hex(),
         "gfp_components": {key: f"0x{component:x}" for key, component in gfp_components.items()},
     })
     return summary, private
@@ -19678,6 +19936,16 @@ def run_call_proof(session: ReplSession,
         )
     if target == "match_octal":
         return _run_call_proof_match_octal(
+            session,
+            symbols,
+            image,
+            alloc_size=alloc_size,
+            source_root=source_root,
+            gfp=gfp,
+            gfp_components=gfp_components,
+        )
+    if target == "match_strdup":
+        return _run_call_proof_match_strdup(
             session,
             symbols,
             image,

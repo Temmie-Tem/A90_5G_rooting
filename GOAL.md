@@ -767,6 +767,41 @@ epic is DONE.** Reports:
 `docs/reports/NATIVE_INIT_V3335_GPU_Z3_PRIMARY_SETCRTC_SOURCE_BUILD_2026-06-27.md` and
 `docs/reports/NATIVE_INIT_V3335_GPU_Z3_PRIMARY_SETCRTC_LIVE_2026-06-27.md`.**
 
+## ✅ DONE — REPL post-epic one-target live-call proof — `match_strdup` owned substring duplicate contract
+
+> ### ✅ STATUS (2026-06-30 live pass) — `match_strdup` promoted under owned `substring_t` only
+>
+> Fifty-ninth one-target live-call proof after the REPL epic close. Codex extended
+> `a90_repl.py` `call-proof` with `match_strdup`, using one tool-owned layout containing a
+> `substring_t {from,to}` slot, bounded text `A90MATCH-STRDUP-Q-END`, and canaries around the
+> controlled source regions. Static gate: `match_strdup=0xffffff800855b98c`,
+> `export-recovery`, direct-BL xrefs `28`, JOPP entry true, non-leaf helper calling
+> `__kmalloc` and `__memcpy`, source contract `char * match_strdup(const substring_t *)`
+> from `include/linux/parser.h`, x0 as the substring pointer, and call-safety tier
+> `SAFE-WITH-VALID-PTR`. The target's x0 memory reads are allowed only because x0 is a
+> verified owned `substring_t`.
+>
+> Live path: baseline v2321 `version/status/selftest` passed, flashed the existing v1-repl image
+> `b846ae9f74d8ceb922bbcd854d78b6795ef833d61e38465d3cc474cb6f0dfb65` through
+> `native_init_flash.py`, confirmed readback SHA, then ran REPL selftest. The first REPL
+> selftest attempt hit a transient serial END-marker timeout while setting `panic_on_oops`;
+> immediate device health stayed `selftest pass=11 warn=1 fail=0`, and a wider-timeout retry
+> returned `a90-repl-v2a1-selftest-pass`. Then Codex ran `call-proof match_strdup` with the
+> C2B verified map.
+>
+> Result: `a90-repl-live-call-proof-match_strdup-pass`; checks covered C1 identity, source
+> signature, call-safety contract, owned layout allocation/poke/peek, sane distinct returned
+> duplicate pointer (redacted), duplicate bytes matching the substring plus generated NUL,
+> unchanged `substring_t`, unchanged input text, and `kfree-owned-match-strdup-layout-and-duplicate`.
+>
+> Candidate selftest after proof stayed `pass=11 warn=1 fail=0`. Rolled back to clean v2321
+> (`ca978551aabe4b39563abaf529ccf2522054952d8b2ad852e632d26da88168cb`) with final resident
+> `v2321-usb-clean-identity-rodata` and final `selftest pass=11 warn=1 fail=0`. The final
+> health read contained minor serial echo noise before the valid END marker. Function map
+> records `match_strdup` only under the owned substring plus returned-owned-duplicate cleanup
+> contract. Report:
+> `docs/reports/KERNEL_SECURITY_TIER2_RUNTIME_KERNEL_REPL_LIVE_CALL_PROOF_MATCH_STRDUP_2026-06-30.md`.
+
 ## ✅ DONE — REPL post-epic one-target live-call proof — `match_octal` owned substring result-slot contract
 
 > ### ✅ STATUS (2026-06-30 live pass) — `match_octal` promoted under owned `substring_t` + owned `int *result` only

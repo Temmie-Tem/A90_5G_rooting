@@ -578,6 +578,16 @@ PYTHONPYCACHEPREFIX=/tmp/a90_pycache python3 \
   --image workspace/private/inputs/boot_images/boot_linux_tier2_repl_v1_repl.img \
   --source-root workspace/private/inputs/kernel_source/SM-A908N_KOR_12_Opensource/Kernel \
   --evidence-dir workspace/private/runs/kernel/<unit>/ \
+  match_strdup
+```
+
+```sh
+PYTHONPYCACHEPREFIX=/tmp/a90_pycache python3 \
+  workspace/public/src/scripts/revalidation/a90_repl.py call-proof \
+  --map workspace/private/runs/kernel/v2c-c2b-kallsyms-padding-fix/System.map \
+  --image workspace/private/inputs/boot_images/boot_linux_tier2_repl_v1_repl.img \
+  --source-root workspace/private/inputs/kernel_source/SM-A908N_KOR_12_Opensource/Kernel \
+  --evidence-dir workspace/private/runs/kernel/<unit>/ \
   sysfs_streq
 ```
 
@@ -896,7 +906,12 @@ output. The `match_octal` proof uses the same owned `substring_t` plus owned `in
 layout shape, but points the substring at bounded octal text `755`, calls `match_octal`, requires
 return `0`, requires the result slot to contain signed `493` with raw `0x000001ed`, verifies the
 substring slot, input text, and result-slot canary stay unchanged, frees the layout, and redacts
-runtime pointers and observed raw bytes from public output. The `sysfs_streq` proof allocates two owned
+runtime pointers and observed raw bytes from public output. The `match_strdup` proof builds one owned
+layout containing a `substring_t {from,to}` slot pointing at bounded text `A90MATCH-STRDUP-Q-END`,
+calls `match_strdup`, requires a sane distinct returned kmalloc string pointer, verifies the duplicate
+bytes equal the substring plus generated NUL, verifies the substring slot and input bytes stay
+unchanged, frees both the returned duplicate and proof layout, and redacts runtime pointers and
+observed raw bytes from public output. The `sysfs_streq` proof allocates two owned
 NUL-terminated string buffers, requires a left-trailing-newline sysfs match and an exact match to
 return `1`, rewrites the right string to a mismatch and requires `0`, verifies both strings and
 canaries stay unchanged, frees both buffers, and redacts the owned pointers and observed raw bytes
