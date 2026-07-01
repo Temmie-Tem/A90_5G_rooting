@@ -96,6 +96,41 @@ only, never a native-init runtime dependency. Full history (AUD-0 → AUD-5, V23
 > the rollback-gate, the recoverable envelope, and "fails-twice → stop" all stay ON. If a candidate
 > needs a behavior-changing call to be provable, it is OUT, not a reason to weaken the gate.
 
+## ✅ DONE — REPL current process-group state live-call proof — `is_current_pgrp_orphaned` promoted
+
+> ### ✅ STATUS (2026-07-01 live-proven, rolled back cleanly) — current pgrp orphan-status bool getter
+>
+> Codex expanded the current-state observation surface with `is_current_pgrp_orphaned` under a
+> no-argument bool-int contract. Host triage used an adjacent-candidate batch rather than a single
+> isolated pick: `current_kernel_time64` was parked because the current v1-repl op3 captures only
+> x0 while the struct-return proof needs x0/x1 lanes, `get_debug_reset_header` stayed excluded for
+> alloc/read/free/printk behavior, and `is_current_pgrp_orphaned` was selected as a no-arg
+> read-only current task/process-group state query despite its heavier tasklist read-lock traversal.
+>
+> Static selection pinned `is_current_pgrp_orphaned=0xffffff80080b72bc` via
+> `disasm-signature+xref+map`, source declaration `extern int is_current_pgrp_orphaned(void)`
+> (`include/linux/tty.h:506`), direct BL xrefs `2`, no pointer args, and next-symbol boundary
+> `mm_update_next_owner` at `+0xd8`. The proof pins all 54 identity words, including the JOPP
+> entry, `_raw_read_lock`, `_raw_read_unlock`, final `ret`, and next-entry sentinel. The C1 call
+> gate classifies it as `SAFE-SCALAR`.
+>
+> The live proof obeyed the flash gate: preflight confirmed rollback/fallback SHA values and
+> baseline v2321 health, the v1-repl candidate (`b846ae9f...`) flashed with matching readback SHA,
+> candidate health passed after a safe observation retry for serial capture noise, and
+> `is_current_pgrp_orphaned()` returned stable bool-int `0x1` twice. Post-proof candidate health
+> stayed `selftest fail=0`; rollback to v2321 completed with matching readback SHA; final health
+> passed with `selftest pass=11 warn=1 fail=0`.
+>
+> Timing was recorded per the 2026-07-01 timing rule in
+> `workspace/private/runs/kernel/live-call-proof-is-current-pgrp-orphaned-20260701T012647Z/timeline.json`:
+> candidate flash helper `64.628s`, candidate explicit health initial attempt `34.0s`, candidate
+> health retry `1.0s`, live proof `5.0s`, post-proof health `0.0s`, rollback flash helper
+> `63.568s`, final explicit health `1.0s`, and candidate start to final health done `302.0s`.
+>
+> Function-map outcome: `is_current_pgrp_orphaned` is promoted as live-proven only under the
+> no-argument current task/process-group orphan-status bool contract. Report:
+> `docs/reports/KERNEL_SECURITY_TIER2_RUNTIME_KERNEL_REPL_LIVE_CALL_PROOF_IS_CURRENT_PGRP_ORPHANED_2026-07-01.md`.
+
 ## ✅ DONE — REPL current-task state live-call proof — `can_do_mlock` promoted
 
 > ### ✅ STATUS (2026-07-01 live-proven, rolled back cleanly) — current-task mlock allowance bool getter

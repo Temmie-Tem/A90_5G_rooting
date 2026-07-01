@@ -2007,6 +2007,28 @@ class CallSafetyClassificationTests(unittest.TestCase):
             [f"0x{word:08x}" for word in repl.CAN_DO_MLOCK_EXPECTED_WORDS[:12]],
         )
 
+        is_current_pgrp_orphaned = self._row("is_current_pgrp_orphaned")
+        self.assertEqual(is_current_pgrp_orphaned["tier"], repl.CALL_SAFETY_SAFE_SCALAR)
+        self.assertEqual(is_current_pgrp_orphaned["required_valid_pointer_args"], {})
+        self.assertTrue(is_current_pgrp_orphaned["resolution"]["verified"])
+        self.assertEqual(is_current_pgrp_orphaned["resolution"]["method"], "disasm-signature+xref+map")
+        self.assertEqual(is_current_pgrp_orphaned["resolution"]["link_vaddr"], "0xffffff80080b72bc")
+        self.assertEqual(is_current_pgrp_orphaned["signals"]["direct_bl_xref_count"], 2)
+        self.assertFalse(is_current_pgrp_orphaned["signals"]["leaf"])
+        self.assertEqual(
+            is_current_pgrp_orphaned["signals"]["arg_pointer_derefs_before_first_bl_or_ret"],
+            [],
+        )
+        self.assertTrue(
+            is_current_pgrp_orphaned["signals"]["arg_taint_flow"][
+                "safe_scalar_positive_no_arg_memory_base_flow"
+            ]
+        )
+        self.assertEqual(
+            is_current_pgrp_orphaned["signals"]["first_words"][:12],
+            [f"0x{word:08x}" for word in repl.IS_CURRENT_PGRP_ORPHANED_EXPECTED_WORDS[:12]],
+        )
+
         scheduler_counter_targets = {
             "nr_processes": ("0xffffff80080ae02c", 1),
             "nr_running": ("0xffffff80080edebc", 4),
@@ -2499,7 +2521,7 @@ class CallSafetyClassificationTests(unittest.TestCase):
         self.assertTrue(summary["host_only"])
         self.assertFalse(summary["device_action"])
         self.assertEqual(summary["seed_whitelist_count"], len(repl.CALL_SAFETY_SEEDS))
-        self.assertEqual(summary["counts"][repl.CALL_SAFETY_SAFE_SCALAR], 45)
+        self.assertEqual(summary["counts"][repl.CALL_SAFETY_SAFE_SCALAR], 46)
         self.assertGreaterEqual(summary["counts"][repl.CALL_SAFETY_SAFE_WITH_VALID_PTR], 9)
         self.assertGreaterEqual(summary["counts"][repl.CALL_SAFETY_BEHAVIOR_CHANGING], 4)
         self.assertEqual(summary["counts"][repl.CALL_SAFETY_DENY], 1)
@@ -3274,6 +3296,19 @@ class CallSafetyClassificationTests(unittest.TestCase):
         )
         self.assertEqual(can_do_mlock["selected"]["line"], 1303)
         self.assertTrue(can_do_mlock["selected"]["path"].endswith("include/linux/mm.h"))
+
+        is_current_pgrp_orphaned = repl.lookup_source_signature(
+            "is_current_pgrp_orphaned",
+            source_root=KERNEL_SOURCE_ROOT,
+        )
+        self.assertEqual(is_current_pgrp_orphaned["status"], "found", is_current_pgrp_orphaned)
+        self.assertEqual(is_current_pgrp_orphaned["selected"]["pointer_arg_indices"], [])
+        self.assertEqual(
+            is_current_pgrp_orphaned["selected"]["signature"],
+            "extern int is_current_pgrp_orphaned(void)",
+        )
+        self.assertEqual(is_current_pgrp_orphaned["selected"]["line"], 506)
+        self.assertTrue(is_current_pgrp_orphaned["selected"]["path"].endswith("include/linux/tty.h"))
 
         is_scm_armv8 = repl.lookup_source_signature("is_scm_armv8", source_root=KERNEL_SOURCE_ROOT)
         self.assertEqual(is_scm_armv8["status"], "found", is_scm_armv8)
@@ -4159,6 +4194,12 @@ class FaithfulFakeTransport:
             "can_do_mlock",
             purpose="call",
         ).link_vaddr
+        self.is_current_pgrp_orphaned_link = repl.resolve_verified(
+            self.symbols,
+            self.image,
+            "is_current_pgrp_orphaned",
+            purpose="call",
+        ).link_vaddr
         self.si_meminfo_link = repl.resolve_verified(
             self.symbols,
             self.image,
@@ -4261,6 +4302,7 @@ class FaithfulFakeTransport:
         self.si_mem_available_values = [0x6F000, 0x6F020]
         self.vm_commit_limit_value = 0x1A2B30
         self.can_do_mlock_value = 1
+        self.is_current_pgrp_orphaned_value = 0
         self.si_meminfo_fields = {
             "totalram_pages": 0x180000,
             "freeram_pages": 0x78000,
@@ -5009,6 +5051,8 @@ class FaithfulFakeTransport:
             vm_commit_limit = self.vm_commit_limit_link + self.slide
             assert self.can_do_mlock_link is not None
             can_do_mlock = self.can_do_mlock_link + self.slide
+            assert self.is_current_pgrp_orphaned_link is not None
+            is_current_pgrp_orphaned = self.is_current_pgrp_orphaned_link + self.slide
             assert self.si_meminfo_link is not None
             si_meminfo = self.si_meminfo_link + self.slide
             assert self.ktime_get_ts64_link is not None
@@ -5718,6 +5762,10 @@ class FaithfulFakeTransport:
                 if (arg1, arg2, arg3, arg4) != (0, 0, 0, 0):
                     raise AssertionError("can_do_mlock proof must pass no arguments")
                 lines.append(f"A90R{self.can_do_mlock_value:x}")
+            elif arg0 == is_current_pgrp_orphaned:
+                if (arg1, arg2, arg3, arg4) != (0, 0, 0, 0):
+                    raise AssertionError("is_current_pgrp_orphaned proof must pass no arguments")
+                lines.append(f"A90R{self.is_current_pgrp_orphaned_value:x}")
             elif arg0 == si_meminfo:
                 if (arg2, arg3, arg4) != (0, 0, 0):
                     raise AssertionError("si_meminfo proof must pass one result-slot pointer argument")
@@ -7961,6 +8009,53 @@ class SelftestIntegrationTests(unittest.TestCase):
         self.assertEqual(cases["can_do_mlock-read-1"]["observed_return_value"], "0x1")
         self.assertEqual(cases["can_do_mlock-read-2"]["observed_return_value"], "0x1")
         self.assertTrue(cases["can_do_mlock-read-2"]["stable_from_first"])
+
+    def test_call_proof_is_current_pgrp_orphaned_passes_with_no_arg_bool_contract(self) -> None:
+        if not C2B_PADDING_MAP_PATH.is_file() or not KERNEL_SOURCE_ROOT.is_dir():
+            self.skipTest("promoted v2c System.map or kernel source tree not present")
+
+        symbols = repl.load_system_map(C2B_PADDING_MAP_PATH)
+        fake = FaithfulFakeTransport(0x130000, symbols, self.image)
+        orig = repl.transport.run_serial_command
+        repl.transport.run_serial_command = fake.run_serial_command
+        self.addCleanup(lambda: setattr(repl.transport, "run_serial_command", orig))
+        session = repl.ReplSession(repl.ReplConfig(settle_sec=0.0))
+
+        summary, private = repl.run_call_proof(
+            session,
+            symbols,
+            self.image,
+            "is_current_pgrp_orphaned",
+            source_root=KERNEL_SOURCE_ROOT,
+        )
+
+        self.assertTrue(summary["ok"], summary)
+        self.assertEqual(summary["decision"], "a90-repl-live-call-proof-is_current_pgrp_orphaned-pass")
+        self.assertEqual(
+            summary["proof_status"],
+            "trusted-under-current-pgrp-orphaned-bool-contract",
+        )
+        self.assertEqual(summary["function_map_entry"]["symbol"], "is_current_pgrp_orphaned")
+        self.assertEqual(
+            summary["function_map_entry"]["auto_call_policy"],
+            "one-target-proof-only-not-mass-call",
+        )
+        self.assertEqual(
+            summary["source_evidence"]["signature"],
+            "extern int is_current_pgrp_orphaned(void)",
+        )
+        self.assertEqual(summary["source_evidence"]["pointer_arg_indices"], [])
+        self.assertEqual(summary["call_safety"]["tier"], repl.CALL_SAFETY_SAFE_SCALAR)
+        self.assertEqual(summary["observed_return_value"], "0x0")
+        self.assertTrue(summary["all_returns_bool"])
+        self.assertEqual(summary["repeat_count"], 2)
+        self.assertTrue(summary["raw_runtime_values_redacted"])
+        self.assertNotIn("is_current_pgrp_orphaned_runtime", summary)
+        self.assertIn("is_current_pgrp_orphaned_runtime", private)
+        cases = {case["case"]: case for case in summary["case_results"]}
+        self.assertEqual(cases["is_current_pgrp_orphaned-read-1"]["observed_return_value"], "0x0")
+        self.assertEqual(cases["is_current_pgrp_orphaned-read-2"]["observed_return_value"], "0x0")
+        self.assertTrue(cases["is_current_pgrp_orphaned-read-2"]["stable_from_first"])
 
     def test_call_proof_scheduler_counter_batch_passes_with_no_arg_contracts(self) -> None:
         if not C2B_PADDING_MAP_PATH.is_file() or not KERNEL_SOURCE_ROOT.is_dir():

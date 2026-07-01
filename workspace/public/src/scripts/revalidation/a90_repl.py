@@ -477,6 +477,12 @@ CALL_SAFETY_SEEDS = {
         "return_kind": "bool",
         "reason": "no-argument current-task mlock allowance query; proof expects a stable bool return and does not dereference or free any returned pointer",
     },
+    "is_current_pgrp_orphaned": {
+        "tier": CALL_SAFETY_SAFE_SCALAR,
+        "required_valid_pointer_args": {},
+        "return_kind": "int-bool",
+        "reason": "no-argument current task process-group orphan status query; proof expects a stable bool-int return and does not dereference or free any returned pointer",
+    },
     "si_meminfo": {
         "tier": CALL_SAFETY_SAFE_WITH_VALID_PTR,
         "required_valid_pointer_args": {0: "owned-sysinfo-result-slot"},
@@ -3650,6 +3656,7 @@ _SOURCE_HEADER_HINTS_BY_EXACT_SYMBOL = {
     "si_mem_available": ("include/linux/mm.h",),
     "vm_commit_limit": ("include/linux/mman.h",),
     "can_do_mlock": ("include/linux/mm.h",),
+    "is_current_pgrp_orphaned": ("include/linux/tty.h",),
     "si_meminfo": ("include/linux/mm.h",),
     "nr_processes": ("include/linux/sched/stat.h",),
     "nr_running": ("include/linux/sched/stat.h",),
@@ -5551,6 +5558,12 @@ CALL_PROOF_TARGETS = {
         "expected_tier": CALL_SAFETY_SAFE_SCALAR,
         "source_signature": "extern bool can_do_mlock(void)",
     },
+    "is_current_pgrp_orphaned": {
+        "input_contract": "no arguments; current task/process-group state is read under the function's internal tasklist read lock and no returned pointer is dereferenced or freed",
+        "return_contract": "int bool return is 0 or 1 and stable across short-repeat proof calls",
+        "expected_tier": CALL_SAFETY_SAFE_SCALAR,
+        "source_signature": "extern int is_current_pgrp_orphaned(void)",
+    },
     "si_meminfo": {
         "input_contract": "owned kmalloc struct sysinfo result slot with trailing canary; result slot is prefilled by the proof and freed with kfree after the call",
         "return_contract": "struct sysinfo memory fields are sane, mem_unit is 4096, highmem fields are zero on this arm64 image, and trailing canary is preserved",
@@ -7075,6 +7088,24 @@ CAN_DO_MLOCK_EXPECTED_WORDS = (
     0xA8C143FD, 0xCA11021E, 0xD65F03C0, 0x00BE7BAD,
 )
 CAN_DO_MLOCK_NEXT_SYMBOL = ("clear_page_mlock", 0x40)
+IS_CURRENT_PGRP_ORPHANED_REPEAT_COUNT = 2
+IS_CURRENT_PGRP_ORPHANED_EXPECTED_WORDS = (
+    0xCA1103D0, 0xA9BE43FD, 0xF9000BF3, 0x910003FD,
+    0xD0015A60, 0x91020000, 0x9464443C, 0xD5384108,
+    0xF9437508, 0xF9439D08, 0xB40000C8, 0xF940090A,
+    0xD11CA149, 0xF100015F, 0xFA401924, 0x540001E1,
+    0x52800033, 0xD0015A60, 0x91020000, 0x9464448D,
+    0x2A1303E0, 0xF9400BF3, 0xA8C243FD, 0xCA11021E,
+    0xD65F03C0, 0xF9439529, 0xD11CA12A, 0xF100013F,
+    0x9A8A03E9, 0xB4FFFE69, 0xB4FFFF69, 0xB946492A,
+    0x340000AA, 0xF943AD2A, 0x911D612B, 0xEB0A017F,
+    0x54FFFEA0, 0xF9435D2A, 0xB946AD4B, 0x7100057F,
+    0x54FFFE20, 0xF943754A, 0xF9439D4B, 0xEB08017F,
+    0x54FFFDA0, 0xF943752B, 0xF943A94A, 0xF943A96B,
+    0xEB0B015F, 0x54FFFD01, 0x2A1F03F3, 0x17FFFFDE,
+    0xD503201F, 0x00BE7BAD,
+)
+IS_CURRENT_PGRP_ORPHANED_NEXT_SYMBOL = ("mm_update_next_owner", 0xD8)
 SI_MEMINFO_EXPECTED_WORDS = (
     0xCA1103D0, 0xA9BE43FD, 0xF9000BF3, 0x910003FD,
     0xB0015068, 0xB0015069, 0xAA0003F3, 0xF9433908,
@@ -27122,6 +27153,169 @@ def _run_call_proof_can_do_mlock(
     return summary, private
 
 
+def _run_call_proof_is_current_pgrp_orphaned(
+    session: ReplSession,
+    symbols: dict[str, Symbol],
+    image: StaticImage,
+    *,
+    source_root: Path,
+) -> tuple[dict[str, object], dict[str, object]]:
+    target = "is_current_pgrp_orphaned"
+    source = lookup_source_signature(target, source_root=source_root)
+    call_safety = require_call_safety_for_call(
+        symbols,
+        image,
+        target,
+        (),
+    )
+    if call_safety.get("tier") != CALL_PROOF_TARGETS[target]["expected_tier"]:
+        raise ReplError(f"{target} call-safety tier is not the expected vetted scalar tier")
+    if not source.get("found") or source.get("pointer_arg_indices") != []:
+        raise ReplError(f"{target} source signature must be scalar-only")
+    selected_signature = (
+        source.get("selected", {}).get("signature")
+        if isinstance(source.get("selected"), dict) else None
+    )
+    if selected_signature != CALL_PROOF_TARGETS[target]["source_signature"]:
+        raise ReplError(f"{target} source signature did not select the tty.h declaration")
+
+    resolutions = {
+        target: resolve_verified(
+            symbols,
+            image,
+            target,
+            purpose="call",
+        ),
+    }
+    target_link = require_verified_resolution(
+        resolutions[target],
+        "call-proof target",
+    )
+    next_symbol_name, expected_boundary = IS_CURRENT_PGRP_ORPHANED_NEXT_SYMBOL
+    next_symbol = symbols.get(next_symbol_name)
+    if next_symbol is None or next_symbol.vaddr - target_link != expected_boundary:
+        raise ReplError(f"{target} next-symbol boundary is not the expected 0x{expected_boundary:x}")
+
+    observed_words = image.u32_words_at_vaddr(target_link, len(IS_CURRENT_PGRP_ORPHANED_EXPECTED_WORDS))
+    checks: list[dict[str, object]] = [
+        {
+            "check": "static-c1-identity",
+            "ok": True,
+            "target": target,
+            "resolution_method": resolutions[target].method,
+        },
+        {
+            "check": "static-next-symbol-boundary",
+            "ok": True,
+            "next_symbol": next_symbol_name,
+            "byte_size": f"0x{expected_boundary:x}",
+        },
+        {
+            "check": "static-source-contract",
+            "ok": True,
+            "signature": selected_signature,
+            "pointer_arg_indices": source.get("pointer_arg_indices", []),
+        },
+        {
+            "check": "static-call-safety-contract",
+            "ok": True,
+            "tier": call_safety.get("tier"),
+            "required_valid_pointer_args": call_safety.get("required_valid_pointer_args", {}),
+        },
+    ]
+    for index, expected in enumerate(IS_CURRENT_PGRP_ORPHANED_EXPECTED_WORDS):
+        observed = observed_words[index]
+        ok = observed == expected
+        checks.append({
+            "check": f"static-{target}-word-{index:02d}",
+            "ok": ok,
+            "expected_word": f"0x{expected:08x}",
+            "observed_word": f"0x{observed:08x}",
+        })
+        if not ok:
+            raise ReplError(
+                f"{target} word {index} mismatch: observed 0x{observed:08x}, "
+                f"expected 0x{expected:08x}"
+            )
+
+    private: dict[str, object] = {}
+    slide = 0
+    returns: list[int] = []
+    case_results: list[dict[str, object]] = []
+
+    session.hide()
+    session.set_panic_on_oops(0)
+    try:
+        slide = session.slide()
+        if slide & 0xFFF:
+            raise ReplError("slide is not page-aligned; refusing to proceed")
+        target_runtime = (target_link + slide) & MASK64
+        for index in range(IS_CURRENT_PGRP_ORPHANED_REPEAT_COUNT):
+            observed = session.call_runtime(target_runtime, ()) & MASK64
+            returns.append(observed)
+            bool_ok = observed in (0, 1)
+            stable = index == 0 or observed == returns[0]
+            ok = bool_ok and stable
+            case_results.append({
+                "case": f"{target}-read-{index + 1}",
+                "expected_return": "int-bool-0-or-1",
+                "observed_return_value": f"0x{observed:x}",
+                "bool_return": bool_ok,
+                "stable_from_first": stable,
+                "ok": ok,
+            })
+            if not ok:
+                raise ReplError(
+                    f"{target}() returned an out-of-contract value: 0x{observed:x}"
+                )
+    finally:
+        session.set_panic_on_oops(1)
+
+    checks.append({
+        "check": "is-current-pgrp-orphaned-bool-repeat",
+        "ok": all(bool(case.get("ok")) for case in case_results),
+        "case_count": len(case_results),
+        "cases": case_results,
+    })
+    passed = all(bool(check.get("ok")) for check in checks)
+    observed_public = f"0x{returns[0]:x}" if returns else "n/a"
+    summary = {
+        "decision": f"a90-repl-live-call-proof-{target}-{'pass' if passed else 'fail'}",
+        "ok": passed,
+        "target": target,
+        "proof_status": "trusted-under-current-pgrp-orphaned-bool-contract" if passed else "failed",
+        "input_contract": CALL_PROOF_TARGETS[target]["input_contract"],
+        "return_contract": CALL_PROOF_TARGETS[target]["return_contract"],
+        "case_results": case_results,
+        "observed_return_value": observed_public,
+        "all_returns_bool": bool(returns) and all(value in (0, 1) for value in returns),
+        "repeat_count": len(returns),
+        "source_evidence": _source_row_evidence(source),
+        "call_safety": call_safety,
+        "resolutions": _redacted_resolution_set(resolutions),
+        "raw_runtime_values_redacted": True,
+        "checks": checks,
+        "function_map_entry": {
+            "symbol": target,
+            "status": "live-proven",
+            "trusted_input_contract": CALL_PROOF_TARGETS[target]["input_contract"],
+            "return_contract": CALL_PROOF_TARGETS[target]["return_contract"],
+            "observed_return_value": "repeated no-argument calls returned a stable bool process-group orphan status",
+            "cleanup": "n/a-scalar-current-task-state-read-only",
+            "auto_call_policy": "one-target-proof-only-not-mass-call",
+        },
+    }
+    private.update({
+        "slide": f"0x{slide:x}",
+        f"{target}_runtime": f"0x{((target_link + slide) & MASK64):x}",
+        "case_returns": {
+            case["case"]: case["observed_return_value"]
+            for case in case_results
+        },
+    })
+    return summary, private
+
+
 def _u64_from_le(raw: bytes, offset: int) -> int:
     return int.from_bytes(raw[offset:offset + 8], "little")
 
@@ -33430,6 +33624,13 @@ def run_call_proof(session: ReplSession,
         )
     if target == "can_do_mlock":
         return _run_call_proof_can_do_mlock(
+            session,
+            symbols,
+            image,
+            source_root=source_root,
+        )
+    if target == "is_current_pgrp_orphaned":
+        return _run_call_proof_is_current_pgrp_orphaned(
             session,
             symbols,
             image,
