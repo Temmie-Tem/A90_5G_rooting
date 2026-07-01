@@ -139,6 +139,122 @@ class A90ReplResidentSessionTests(unittest.TestCase):
             self.assertIn("[busy]", payload["text"])
         self.assertEqual(calls, ["hide", "reboot"])
 
+    def test_run_resident_session_flashes_once_and_warm_reboots_each_batch(self) -> None:
+        with tempfile.TemporaryDirectory() as td:
+            root = Path(td)
+            args = argparse.Namespace(
+                run_dir=root,
+                dry_run=False,
+                candidate_image=Path("v1-repl.img"),
+                candidate_sha256="c" * 64,
+                rollback_image=Path("v2321.img"),
+                rollback_sha256="r" * 64,
+                map=Path("System.map"),
+                image=Path("v1-repl.img"),
+            )
+            calls: list[tuple[str, object]] = []
+            originals = {
+                "preflight": resident.preflight,
+                "run_health_check": resident.run_health_check,
+                "run_flash": resident.run_flash,
+                "run_repl_selftest": resident.run_repl_selftest,
+                "send_warm_reboot": resident.send_warm_reboot,
+                "restart_bridge_and_wait_health": resident.restart_bridge_and_wait_health,
+                "run_one_batch": resident.run_one_batch,
+                "run_rollback_flash": resident.run_rollback_flash,
+                "load_system_map": resident.a90_repl.load_system_map,
+                "load_static_image": resident.a90_repl.load_static_image,
+            }
+
+            def restore() -> None:
+                resident.preflight = originals["preflight"]
+                resident.run_health_check = originals["run_health_check"]
+                resident.run_flash = originals["run_flash"]
+                resident.run_repl_selftest = originals["run_repl_selftest"]
+                resident.send_warm_reboot = originals["send_warm_reboot"]
+                resident.restart_bridge_and_wait_health = originals["restart_bridge_and_wait_health"]
+                resident.run_one_batch = originals["run_one_batch"]
+                resident.run_rollback_flash = originals["run_rollback_flash"]
+                resident.a90_repl.load_system_map = originals["load_system_map"]
+                resident.a90_repl.load_static_image = originals["load_static_image"]
+
+            self.addCleanup(restore)
+
+            def fake_preflight(unused_args, batches):  # noqa: ANN001
+                calls.append(("preflight", [list(batch) for batch in batches]))
+                return {"ok": True, "batches": [list(batch) for batch in batches]}
+
+            def fake_health(unused_args, unused_out_dir, label):  # noqa: ANN001
+                calls.append(("health", label))
+                return {"label": label}
+
+            def fake_flash(unused_args, image, sha256, *, output_path, from_native):  # noqa: ANN001
+                del output_path
+                calls.append(("flash", (str(image), sha256, from_native)))
+
+            def fake_selftest(unused_args, unused_symbols, unused_image, unused_out_dir, *, prefix):  # noqa: ANN001
+                calls.append(("selftest", prefix))
+
+            def fake_warm_reboot(unused_args, unused_out_dir, batch_index):  # noqa: ANN001
+                calls.append(("warm_reboot", batch_index))
+
+            def fake_restart_health(unused_args, unused_out_dir, label):  # noqa: ANN001
+                calls.append(("warm_health", label))
+                return {"label": label}
+
+            def fake_batch(unused_args, unused_symbols, unused_image, batch, batch_index, unused_run_dir):  # noqa: ANN001
+                calls.append(("batch", (batch_index, tuple(batch))))
+                return {"ok": True, "completed_target_count": len(batch)}
+
+            def fake_rollback(unused_args, unused_run_dir, stem):  # noqa: ANN001
+                calls.append(("rollback", stem))
+
+            resident.preflight = fake_preflight
+            resident.run_health_check = fake_health
+            resident.run_flash = fake_flash
+            resident.run_repl_selftest = fake_selftest
+            resident.send_warm_reboot = fake_warm_reboot
+            resident.restart_bridge_and_wait_health = fake_restart_health
+            resident.run_one_batch = fake_batch
+            resident.run_rollback_flash = fake_rollback
+            resident.a90_repl.load_system_map = lambda unused_path: {}
+            resident.a90_repl.load_static_image = lambda unused_path: object()
+
+            rc = resident.run_resident_session(args, (("nr_processes",), ("get_taint",)))
+
+            self.assertEqual(rc, 0)
+            self.assertEqual(
+                [call for call in calls if call[0] == "flash"],
+                [("flash", ("v1-repl.img", "c" * 64, True))],
+            )
+            self.assertEqual(
+                [call for call in calls if call[0] == "rollback"],
+                [("rollback", "rollback-flash")],
+            )
+            self.assertEqual(
+                [call for call in calls if call[0] in {"warm_reboot", "batch"}],
+                [
+                    ("warm_reboot", 1),
+                    ("batch", (1, ("nr_processes",))),
+                    ("warm_reboot", 2),
+                    ("batch", (2, ("get_taint",))),
+                ],
+            )
+            timeline = json.loads((root / "timeline.json").read_text())
+            self.assertEqual(set(timeline), {"events"})
+            event_names = [event["name"] for event in timeline["events"]]
+            for required in resident.REQUIRED_TIMELINE_EVENTS:
+                self.assertIn(required, event_names)
+            self.assertLess(event_names.index("batch_001_warm_reboot_start"),
+                            event_names.index("batch_001_live_start"))
+            self.assertLess(event_names.index("batch_002_warm_reboot_start"),
+                            event_names.index("batch_002_live_start"))
+            summary = json.loads((root / "resident-session-summary.json").read_text())
+            self.assertEqual(summary["flash_count"], 2)
+            self.assertTrue(summary["candidate_flashed_once"])
+            self.assertTrue(summary["rollback_flashed_once"])
+            self.assertTrue(summary["warm_reboot_between_batches"])
+
 
 if __name__ == "__main__":
     unittest.main()
