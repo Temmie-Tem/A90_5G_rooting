@@ -1695,6 +1695,29 @@ class CallSafetyClassificationTests(unittest.TestCase):
             [f"0x{word:08x}" for word in repl.SEC_DEBUG_LEVEL_EXPECTED_WORDS],
         )
 
+        sec_abc_get_enabled = self._row("sec_abc_get_enabled")
+        self.assertEqual(sec_abc_get_enabled["tier"], repl.CALL_SAFETY_DENY)
+        self.assertFalse(sec_abc_get_enabled["auto_call_allowed"])
+        self.assertFalse(sec_abc_get_enabled["vetted_seed_whitelist"])
+        self.assertTrue(sec_abc_get_enabled["resolution"]["verified"])
+        self.assertEqual(
+            sec_abc_get_enabled["resolution"]["method"],
+            "exact-leaf-export+word-boundary",
+        )
+        self.assertEqual(
+            sec_abc_get_enabled["resolution"]["link_vaddr"],
+            "0xffffff800935c62c",
+        )
+        self.assertEqual(
+            sec_abc_get_enabled["signals"]["arg_pointer_derefs_before_first_bl_or_ret"],
+            [],
+        )
+        self.assertTrue(sec_abc_get_enabled["signals"]["leaf"])
+        self.assertEqual(
+            sec_abc_get_enabled["signals"]["first_words"][:4],
+            [f"0x{word:08x}" for word in repl.SEC_ABC_GET_ENABLED_EXPECTED_WORDS],
+        )
+
         task_pid_nr_ns = self._row("__task_pid_nr_ns")
         self.assertEqual(task_pid_nr_ns["tier"], repl.CALL_SAFETY_SAFE_WITH_VALID_PTR)
         self.assertEqual(
@@ -4063,6 +4086,21 @@ class CallSafetyClassificationTests(unittest.TestCase):
             sec_debug_level["selected"]["path"].endswith("include/linux/samsung/debug/sec_debug.h")
         )
 
+        sec_abc_get_enabled = repl.lookup_source_signature(
+            "sec_abc_get_enabled",
+            source_root=KERNEL_SOURCE_ROOT,
+        )
+        self.assertEqual(sec_abc_get_enabled["status"], "found", sec_abc_get_enabled)
+        self.assertEqual(sec_abc_get_enabled["selected"]["pointer_arg_indices"], [])
+        self.assertEqual(
+            sec_abc_get_enabled["selected"]["signature"],
+            "extern int sec_abc_get_enabled(void)",
+        )
+        self.assertEqual(sec_abc_get_enabled["selected"]["line"], 118)
+        self.assertTrue(
+            sec_abc_get_enabled["selected"]["path"].endswith("include/linux/sti/abc_common.h")
+        )
+
         task_pid_nr_ns = repl.lookup_source_signature(
             "__task_pid_nr_ns",
             source_root=KERNEL_SOURCE_ROOT,
@@ -5220,6 +5258,12 @@ class FaithfulFakeTransport:
             "sec_debug_level",
             purpose="call",
         ).link_vaddr
+        self.sec_abc_get_enabled_link = repl.resolve_verified(
+            self.symbols,
+            self.image,
+            "sec_abc_get_enabled",
+            purpose="call",
+        ).link_vaddr
         self.task_pid_nr_ns_link = repl.resolve_verified(
             self.symbols,
             self.image,
@@ -5503,6 +5547,7 @@ class FaithfulFakeTransport:
         self.taint_mask_value = 0x8003
         self.sec_debug_is_enabled_value = 1
         self.sec_debug_level_value = 0x4F4C
+        self.sec_abc_get_enabled_value = 2
         self.boot_stat_time_values = [0x00100000, 0x00101000, 0x00102000]
         self.boot_stat_time_index = 0
         self.get_seconds_values = [0x69000000, 0x69000001]
@@ -6326,6 +6371,8 @@ class FaithfulFakeTransport:
             sec_debug_is_enabled = self.sec_debug_is_enabled_link + self.slide
             assert self.sec_debug_level_link is not None
             sec_debug_level = self.sec_debug_level_link + self.slide
+            assert self.sec_abc_get_enabled_link is not None
+            sec_abc_get_enabled = self.sec_abc_get_enabled_link + self.slide
             assert self.task_pid_nr_ns_link is not None
             task_pid_nr_ns = self.task_pid_nr_ns_link + self.slide
             assert self.sched_get_group_id_link is not None
@@ -7047,6 +7094,10 @@ class FaithfulFakeTransport:
                 if (arg1, arg2, arg3, arg4) != (0, 0, 0, 0):
                     raise AssertionError("sec_debug_level proof must pass no arguments")
                 lines.append(f"A90R{self.sec_debug_level_value:x}")
+            elif arg0 == sec_abc_get_enabled:
+                if (arg1, arg2, arg3, arg4) != (0, 0, 0, 0):
+                    raise AssertionError("sec_abc_get_enabled proof must pass no arguments")
+                lines.append(f"A90R{self.sec_abc_get_enabled_value:x}")
             elif arg0 == task_pid_nr_ns:
                 if (arg1, arg2, arg3, arg4) != (
                     self.init_task_runtime,
@@ -9364,6 +9415,54 @@ class SelftestIntegrationTests(unittest.TestCase):
         self.assertTrue(level["all_returns_stable"])
         self.assertIsNone(level["all_returns_bool"])
         self.assertEqual(fake.op_count, 6)  # 2 targets * (slide + 2 scalar proof calls)
+
+    def test_call_proof_sec_abc_get_enabled_passes_with_target_specific_contract(self) -> None:
+        if not C2B_PADDING_MAP_PATH.is_file() or not KERNEL_SOURCE_ROOT.is_dir():
+            self.skipTest("promoted v2c System.map or kernel source tree not present")
+
+        symbols = repl.load_system_map(C2B_PADDING_MAP_PATH)
+        fake = FaithfulFakeTransport(0x130000, symbols, self.image)
+        orig = repl.transport.run_serial_command
+        repl.transport.run_serial_command = fake.run_serial_command
+        self.addCleanup(lambda: setattr(repl.transport, "run_serial_command", orig))
+        session = repl.ReplSession(repl.ReplConfig(settle_sec=0.0))
+
+        summary, private = repl.run_call_proof(
+            session,
+            symbols,
+            self.image,
+            "sec_abc_get_enabled",
+            source_root=KERNEL_SOURCE_ROOT,
+        )
+
+        self.assertTrue(summary["ok"], summary)
+        self.assertEqual(summary["decision"], "a90-repl-live-call-proof-sec_abc_get_enabled-pass")
+        self.assertEqual(summary["proof_status"], "trusted-under-sec-abc-enabled-read-only-contract")
+        self.assertEqual(summary["function_map_entry"]["symbol"], "sec_abc_get_enabled")
+        self.assertEqual(
+            summary["function_map_entry"]["auto_call_policy"],
+            "target-specific-proof-only-not-global-auto-call",
+        )
+        self.assertEqual(
+            summary["source_evidence"]["signature"],
+            "extern int sec_abc_get_enabled(void)",
+        )
+        self.assertEqual(summary["source_evidence"]["pointer_arg_indices"], [])
+        self.assertEqual(summary["call_safety_gate"]["tier"], repl.CALL_SAFETY_DENY)
+        self.assertFalse(summary["call_safety_gate"]["auto_call_allowed"])
+        self.assertEqual(summary["target_specific_call_safety"]["tier"], repl.CALL_SAFETY_SAFE_SCALAR)
+        self.assertTrue(summary["target_specific_call_safety"]["candidate_safe"])
+        self.assertEqual(summary["observed_return_value"], f"0x{fake.sec_abc_get_enabled_value:x}")
+        self.assertTrue(summary["all_returns_in_contract_range"])
+        self.assertTrue(summary["all_returns_stable"])
+        cases = {case["case"]: case for case in summary["case_results"]}
+        for index in range(1, repl.SEC_ABC_GET_ENABLED_REPEAT_COUNT + 1):
+            key = f"sec_abc_get_enabled-read-{index}"
+            self.assertEqual(cases[key]["observed_return_value"], f"0x{fake.sec_abc_get_enabled_value:x}")
+            self.assertEqual(private["case_returns"][key], f"0x{fake.sec_abc_get_enabled_value:x}")
+        self.assertIn("sec_abc_get_enabled_runtime", private)
+        self.assertNotIn("sec_abc_get_enabled_runtime", summary)
+        self.assertEqual(fake.op_count, 3)
 
     def test_call_proof_task_struct_batch_candidates_pass_in_one_fake_session(self) -> None:
         if not C2B_PADDING_MAP_PATH.is_file() or not KERNEL_SOURCE_ROOT.is_dir():

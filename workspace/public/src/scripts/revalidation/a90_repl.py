@@ -221,6 +221,17 @@ EXACT_LEAF_EXPORT_GROUND_TRUTH_SYMBOLS = {
         "byte_size": 0x10,
         "note": "single-export JOPP leaf USB notify data getter; identity rests on export row, map agreement, exact words, and next-symbol boundary because the helper has no in-image BL xrefs",
     },
+    "sec_abc_get_enabled": {
+        "expected_words": (
+            0xD0011708,
+            0xB9478900,
+            0xD65F03C0,
+            0x00BE7BAD,
+        ),
+        "next_symbol": "sec_abc_send_event",
+        "byte_size": 0x10,
+        "note": "single-export JOPP leaf Samsung ABC enabled-state getter; identity rests on export row, map agreement, exact words, source declaration, and next-symbol boundary because the helper has only one in-image BL xref",
+    },
 }
 EXACT_LEAF_MAP_GROUND_TRUTH_SYMBOLS = {
     "get_taint": {
@@ -4048,6 +4059,7 @@ _SOURCE_HEADER_HINTS_BY_EXACT_SYMBOL = {
     "test_taint": ("include/linux/kernel.h",),
     "sec_debug_is_enabled": ("include/linux/samsung/debug/sec_debug.h",),
     "sec_debug_level": ("include/linux/samsung/debug/sec_debug.h",),
+    "sec_abc_get_enabled": ("include/linux/sti/abc_common.h",),
     "__task_pid_nr_ns": ("include/linux/sched.h",),
     "sched_get_group_id": ("include/linux/sched.h",),
     "task_prio": ("include/linux/sched.h",),
@@ -5958,6 +5970,12 @@ CALL_PROOF_TARGETS = {
         "expected_tier": CALL_SAFETY_SAFE_SCALAR,
         "source_signature": "extern unsigned int sec_debug_level(void)",
     },
+    "sec_abc_get_enabled": {
+        "input_contract": "no arguments; Samsung ABC enabled mode is read-only through the pinned leaf global-load body and no returned pointer is dereferenced or freed",
+        "return_contract": "int ABC mode value is exactly one of ABC_DISABLED/ABC_TYPE1_ENABLED/ABC_TYPE2_ENABLED (0..2) and stable across immediate repeated proof calls",
+        "expected_tier": CALL_SAFETY_SAFE_SCALAR,
+        "source_signature": "extern int sec_abc_get_enabled(void)",
+    },
     "__task_pid_nr_ns": {
         "input_contract": "global init_task task_struct pointer + PIDTYPE_PID + NULL namespace; global pointer is borrowed/read-only and is not freed",
         "return_contract": "pid_t for init_task in the init namespace path is exactly 0 and stable across repeated calls",
@@ -7431,6 +7449,12 @@ SEC_DEBUG_STATE_PROOFS: dict[str, dict[str, object]] = {
         "proof_status": "trusted-under-sec-debug-level-read-only-contract",
     },
 }
+SEC_ABC_GET_ENABLED_EXPECTED_WORDS = (
+    0xD0011708, 0xB9478900, 0xD65F03C0, 0x00BE7BAD,
+)
+SEC_ABC_GET_ENABLED_NEXT_SYMBOL = ("sec_abc_send_event", 0x10)
+SEC_ABC_GET_ENABLED_REPEAT_COUNT = 2
+SEC_ABC_GET_ENABLED_MAX = 2
 TASK_PID_NR_NS_PIDTYPE_PID = 0
 TASK_PID_NR_NS_EXPECTED_INIT_TASK_PID = 0
 TASK_PID_NR_NS_REPEAT_COUNT = 2
@@ -27073,6 +27097,226 @@ def _run_call_proof_sec_debug_state(
     return summary, private
 
 
+def _run_call_proof_sec_abc_get_enabled(
+    session: ReplSession,
+    symbols: dict[str, Symbol],
+    image: StaticImage,
+    *,
+    source_root: Path,
+) -> tuple[dict[str, object], dict[str, object]]:
+    target = "sec_abc_get_enabled"
+    source = lookup_source_signature(target, source_root=source_root)
+    call_safety_gate = classify_call_safety(
+        symbols,
+        image,
+        target,
+        include_objdump=False,
+    )
+    advisory = _call_safety_advisory_from_source(call_safety_gate, source)
+    if call_safety_gate.get("tier") != CALL_SAFETY_DENY:
+        raise ReplError(f"{target} must stay outside the global auto-call gate")
+    if call_safety_gate.get("vetted_seed_whitelist"):
+        raise ReplError(f"{target} unexpectedly entered CALL_SAFETY_SEEDS")
+    if advisory.get("tier") != CALL_PROOF_TARGETS[target]["expected_tier"]:
+        raise ReplError(f"{target} target-specific advisory tier is not SAFE-SCALAR")
+    if not advisory.get("candidate_safe"):
+        raise ReplError(f"{target} target-specific advisory gate did not classify candidate_safe")
+    if not source.get("found") or source.get("pointer_arg_indices") != []:
+        raise ReplError(f"{target} source signature must be no-arg scalar-safe")
+    selected_signature = (
+        source.get("selected", {}).get("signature")
+        if isinstance(source.get("selected"), dict) else None
+    )
+    if selected_signature != CALL_PROOF_TARGETS[target]["source_signature"]:
+        raise ReplError(f"{target} source signature did not select the ABC declaration")
+
+    header_path = source_root / "include/linux/sti/abc_common.h"
+    try:
+        header_normalized = " ".join(
+            header_path.read_text(encoding="utf-8", errors="replace").split()
+        )
+    except OSError as exc:
+        raise ReplError(f"{target} source header is not readable: {header_path}") from exc
+    abc_enum_fragments = (
+        "ABC_DISABLED",
+        "ABC_TYPE1_ENABLED",
+        "ABC_TYPE2_ENABLED",
+        "extern int sec_abc_get_enabled(void);",
+    )
+    missing_fragments = [
+        fragment for fragment in abc_enum_fragments
+        if fragment not in header_normalized
+    ]
+    if missing_fragments:
+        raise ReplError(f"{target} ABC enum/source fragments missing: {missing_fragments}")
+
+    resolutions = {
+        target: resolve_verified(
+            symbols,
+            image,
+            target,
+            purpose="call",
+        ),
+    }
+    target_link = require_verified_resolution(resolutions[target], "call-proof target")
+    next_symbol_name, expected_boundary = SEC_ABC_GET_ENABLED_NEXT_SYMBOL
+    next_symbol = symbols.get(next_symbol_name)
+    if next_symbol is None or next_symbol.vaddr - target_link != expected_boundary:
+        raise ReplError(f"{target} next-symbol boundary is not the expected 0x{expected_boundary:x}")
+
+    expected_words = tuple(int(word) for word in SEC_ABC_GET_ENABLED_EXPECTED_WORDS)
+    observed_words = image.u32_words_at_vaddr(target_link, len(expected_words))
+    signals = call_safety_gate.get("signals", {})
+    taint_flow = signals.get("arg_taint_flow", {}) if isinstance(signals, dict) else {}
+    checks: list[dict[str, object]] = [
+        {
+            "check": "static-c1-identity",
+            "ok": True,
+            "target": target,
+            "resolution_method": resolutions[target].method,
+        },
+        {
+            "check": "static-next-symbol-boundary",
+            "ok": True,
+            "next_symbol": next_symbol_name,
+            "byte_size": f"0x{expected_boundary:x}",
+        },
+        {
+            "check": "static-source-contract",
+            "ok": True,
+            "signature": selected_signature,
+            "pointer_arg_indices": source.get("pointer_arg_indices", []),
+            "source_note": "abc_common.h declares a no-argument getter and the ABC enabled enum values used by the return contract",
+        },
+        {
+            "check": "static-target-specific-call-safety-contract",
+            "ok": True,
+            "global_gate_tier": call_safety_gate.get("tier"),
+            "global_gate_auto_call_allowed": call_safety_gate.get("auto_call_allowed"),
+            "advisory_tier": advisory.get("tier"),
+            "advisory_candidate_safe": advisory.get("candidate_safe"),
+        },
+        {
+            "check": "static-leaf-no-bl",
+            "ok": bool(isinstance(signals, dict) and signals.get("leaf")),
+            "bl_count": signals.get("bl_count_in_scan") if isinstance(signals, dict) else None,
+        },
+        {
+            "check": "static-no-arg-memory-base-flow",
+            "ok": bool(
+                isinstance(taint_flow, dict)
+                and taint_flow.get("safe_scalar_positive_no_arg_memory_base_flow")
+            ),
+            "arg_memory_base_use_count": (
+                taint_flow.get("arg_memory_base_use_count")
+                if isinstance(taint_flow, dict) else None
+            ),
+        },
+    ]
+    for index, expected in enumerate(expected_words):
+        observed = observed_words[index]
+        ok = observed == expected
+        checks.append({
+            "check": f"static-{target}-word-{index:02d}",
+            "ok": ok,
+            "expected_word": f"0x{expected:08x}",
+            "observed_word": f"0x{observed:08x}",
+        })
+        if not ok:
+            raise ReplError(
+                f"{target} word {index} mismatch: observed 0x{observed:08x}, "
+                f"expected 0x{expected:08x}"
+            )
+
+    if not all(bool(check.get("ok")) for check in checks):
+        raise ReplError(f"{target} static target-specific gate failed")
+
+    private: dict[str, object] = {}
+    slide = 0
+    returns: list[int] = []
+    case_results: list[dict[str, object]] = []
+
+    session.hide()
+    session.set_panic_on_oops(0)
+    try:
+        slide = session.slide()
+        if slide & 0xFFF:
+            raise ReplError("slide is not page-aligned; refusing to proceed")
+        target_runtime = (target_link + slide) & MASK64
+        for index in range(SEC_ABC_GET_ENABLED_REPEAT_COUNT):
+            observed = session.call_runtime(target_runtime, ()) & MASK64
+            in_range = 0 <= observed <= SEC_ABC_GET_ENABLED_MAX
+            stable = observed == returns[0] if returns else True
+            returns.append(observed)
+            ok = in_range and stable
+            case_results.append({
+                "case": f"{target}-read-{index + 1}",
+                "expected_return": "stable ABC enabled enum value",
+                "expected_range": f"0x0..0x{SEC_ABC_GET_ENABLED_MAX:x}",
+                "observed_return_value": f"0x{observed:x}",
+                "in_contract_range": in_range,
+                "stable_from_first": stable,
+                "ok": ok,
+            })
+            if not ok:
+                raise ReplError(
+                    f"{target}() returned an out-of-contract value in proof call "
+                    f"{index + 1}: 0x{observed:x}"
+                )
+    finally:
+        session.set_panic_on_oops(1)
+
+    checks.append({
+        "check": f"{target}-stable-abc-enabled-repeat",
+        "ok": all(bool(case.get("ok")) for case in case_results),
+        "case_count": len(case_results),
+        "cases": case_results,
+    })
+    passed = all(bool(check.get("ok")) for check in checks)
+    observed_public = f"0x{returns[0]:x}" if returns else "n/a"
+    all_in_range = bool(returns) and all(
+        0 <= value <= SEC_ABC_GET_ENABLED_MAX for value in returns
+    )
+    all_stable = bool(returns) and all(value == returns[0] for value in returns)
+    summary = {
+        "decision": f"a90-repl-live-call-proof-{target}-{'pass' if passed else 'fail'}",
+        "ok": passed,
+        "target": target,
+        "proof_status": "trusted-under-sec-abc-enabled-read-only-contract" if passed else "failed",
+        "input_contract": CALL_PROOF_TARGETS[target]["input_contract"],
+        "return_contract": CALL_PROOF_TARGETS[target]["return_contract"],
+        "case_results": case_results,
+        "observed_return_value": observed_public,
+        "all_returns_in_contract_range": all_in_range,
+        "all_returns_stable": all_stable,
+        "repeat_count": len(returns),
+        "source_evidence": _source_row_evidence(source),
+        "call_safety_gate": call_safety_gate,
+        "target_specific_call_safety": advisory,
+        "resolutions": _redacted_resolution_set(resolutions),
+        "raw_runtime_values_redacted": True,
+        "checks": checks,
+        "function_map_entry": {
+            "symbol": target,
+            "status": "live-proven",
+            "trusted_input_contract": CALL_PROOF_TARGETS[target]["input_contract"],
+            "return_contract": CALL_PROOF_TARGETS[target]["return_contract"],
+            "observed_return_value": f"repeated no-argument calls returned stable ABC enabled mode {observed_public}",
+            "cleanup": "n/a-sec-abc-scalar-read-only",
+            "auto_call_policy": "target-specific-proof-only-not-global-auto-call",
+        },
+    }
+    private.update({
+        "slide": f"0x{slide:x}",
+        f"{target}_runtime": f"0x{((target_link + slide) & MASK64):x}",
+        "case_returns": {
+            case["case"]: case["observed_return_value"]
+            for case in case_results
+        },
+    })
+    return summary, private
+
+
 def _run_call_proof_get_intermediate_timeout(
     session: ReplSession,
     symbols: dict[str, Symbol],
@@ -39935,6 +40179,13 @@ def run_call_proof(session: ReplSession,
             symbols,
             image,
             target=target,
+            source_root=source_root,
+        )
+    if target == "sec_abc_get_enabled":
+        return _run_call_proof_sec_abc_get_enabled(
+            session,
+            symbols,
+            image,
             source_root=source_root,
         )
     if target == "get_intermediate_timeout":

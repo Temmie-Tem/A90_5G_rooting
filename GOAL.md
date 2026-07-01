@@ -146,6 +146,38 @@ only, never a native-init runtime dependency. Full history (AUD-0 → AUD-5, V23
 > the rollback-gate, the recoverable envelope, and "fails-twice → stop" all stay ON. If a candidate
 > needs a behavior-changing call to be provable, it is OUT, not a reason to weaken the gate.
 
+## ✅ DONE — REPL resident-session one-target proof — `sec_abc_get_enabled`
+
+> ### ✅ STATUS (2026-07-01 live-proven, resident-session mode, rolled back cleanly)
+>
+> Codex proved `sec_abc_get_enabled()` as a target-specific Samsung ABC state getter without adding it
+> to the global `CALL_SAFETY_SEEDS` auto-call whitelist. Static identity is pinned by
+> `exact-leaf-export+word-boundary`: export candidate count `1`, map agrees with export,
+> link `0xffffff800935c62c`, body words `d0011708 b9478900 d65f03c0 00be7bad`, next symbol
+> `sec_abc_send_event` at `+0x10`, source declaration `extern int sec_abc_get_enabled(void)` in
+> `include/linux/sti/abc_common.h:118`, and ABC enum return contract `0..2`
+> (`ABC_DISABLED` / `ABC_TYPE1_ENABLED` / `ABC_TYPE2_ENABLED`).
+>
+> The global classifier remains fail-closed for this non-seeded target: `DENY`,
+> `auto_call_allowed=false`. The proof route records a separate target-specific advisory
+> `SAFE-SCALAR`, `candidate_safe=true`, and only then calls the leaf under the explicit no-arg
+> read-only contract. Live resident-session run:
+> `workspace/private/runs/kernel/repl-resident-session-sec-abc-get-enabled-20260701T120126Z/`.
+> Result: `a90-repl-live-call-proof-sec_abc_get_enabled-pass`; observed return `0x0`, repeated
+> twice, stable and in range. Session used v1-repl flash once, one mandatory warm reboot before
+> the batch, per-target result flush, and v2321 rollback once. Final resident is
+> `v2321-usb-clean-identity-rodata`; `selftest fail=0`.
+>
+> Canonical timing is present in `timeline.json` with the single top-level `events` schema and all
+> required eight phase events. This run measured `candidate_flash=64.100786s`,
+> `warm_reboot=32.662513s`, one-target live batch `3.050100s`, `rollback_flash=63.650129s`, total
+> `248.751145s`. The timing aggregator now uses `11` canonical timelines and projects resident
+> session `20->2` flashes, `14.821s/target`, `19.15x` versus unbatched per-unit flash, and `1.91x`
+> versus per-unit in-boot batching for `batch_size=10`, `resident_batches=10`.
+>
+> Report:
+> `docs/reports/KERNEL_SECURITY_TIER2_RUNTIME_KERNEL_REPL_SEC_ABC_GET_ENABLED_RESIDENT_SESSION_2026-07-01.md`.
+
 ## ✅ DONE — REPL VFS-read observation bundle — `/proc`/`/sys` file-node keystone promoted
 
 > ### ✅ STATUS (2026-07-01 live-proven, rolled back cleanly) — `filp_open` + `kernel_read` assembled into bounded file observation
