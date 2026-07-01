@@ -1450,6 +1450,12 @@ CALL_SAFETY_SEEDS = {
         "return_kind": "pid_t",
         "reason": "read-only pid virtual number query; proof passes only init_task->thread_pid and validates against the directly observed init_task active namespace pid number",
     },
+    "get_task_pid": {
+        "tier": CALL_SAFETY_DENY,
+        "required_valid_pointer_args": {},
+        "return_kind": "owned-struct-pid-ref-or-null",
+        "reason": "refcount-changing helper; not globally auto-callable, only target-specific get/put balanced proofs may call it",
+    },
     "current_umask": {
         "tier": CALL_SAFETY_SAFE_SCALAR,
         "required_valid_pointer_args": {},
@@ -4188,6 +4194,8 @@ _SOURCE_HEADER_HINTS_BY_EXACT_SYMBOL = {
     "task_active_pid_ns": ("include/linux/pid_namespace.h",),
     "pid_nr_ns": ("include/linux/pid.h",),
     "pid_vnr": ("include/linux/pid.h",),
+    "get_task_pid": ("include/linux/pid.h",),
+    "put_pid": ("include/linux/pid.h",),
     "get_ddr_vendor_name": ("include/linux/samsung/sec_smem.h",),
     "get_ddr_DSF_version": ("include/linux/samsung/sec_smem.h",),
     "get_ddr_revision_id_1": ("include/linux/samsung/sec_smem.h",),
@@ -6189,6 +6197,12 @@ CALL_PROOF_TARGETS = {
         "expected_tier": CALL_SAFETY_SAFE_WITH_VALID_PTR,
         "source_signature": "pid_t pid_vnr(struct pid *pid)",
     },
+    "get_task_pid": {
+        "input_contract": "borrowed global init_task task_struct pointer plus scalar PIDTYPE_PID only; returned struct pid reference must equal directly observed init_task->thread_pid and is always balanced with put_pid before proof exit",
+        "return_contract": "struct pid * return equals the direct init_task->thread_pid pointer, pid number is 0, refcount rises after get_task_pid and returns to the initial value after put_pid cleanup",
+        "expected_tier": CALL_SAFETY_SAFE_WITH_VALID_PTR,
+        "source_signature": "extern struct pid * get_task_pid(struct task_struct *task, enum pid_type type)",
+    },
     "current_umask": {
         "input_contract": "no arguments; current task fs pointer is read-only and obtained internally through sp_el0",
         "return_contract": "umode_t value is stable across repeated proof calls and only uses permission bits 0..0777",
@@ -7929,6 +7943,34 @@ PID_VNR_EXPECTED_WORDS = (
     0xD65F03C0, 0x00BE7BAD,
 )
 PID_VNR_NEXT_SYMBOL = ("__task_pid_nr_ns", 0x58)
+GET_TASK_PID_REPEAT_COUNT = 1
+GET_TASK_PID_PIDTYPE_PID = 0
+GET_TASK_PID_PID_COUNT_OFFSET = 0
+GET_TASK_PID_PID_LEVEL_OFFSET = TASK_ACTIVE_PID_NS_PID_LEVEL_OFFSET
+GET_TASK_PID_PID_NUMBERS_NR_OFFSET = PID_NR_NS_PID_NUMBERS_NR_OFFSET
+GET_TASK_PID_PID_NUMBERS_LEVEL_SHIFT = PID_NR_NS_PID_NUMBERS_LEVEL_SHIFT
+GET_TASK_PID_EXPECTED_PID_NR = 0
+GET_TASK_PID_EXPECTED_WORDS = (
+    0xCA1103D0, 0xA9BE43FD, 0xA9014FF4, 0x910003FD,
+    0x2A0103F3, 0xAA0003F4, 0x9401CCDA, 0x34000053,
+    0xF9437694, 0x52800308, 0x9BA85268, 0xF9439113,
+    0xB40000D3, 0xF9800271, 0x885F7E68, 0x11000508,
+    0x88097E68, 0x35FFFFA9, 0x9401CCD4, 0xAA1303E0,
+    0xA9414FF4, 0xA8C243FD, 0xCA11021E, 0xD65F03C0,
+    0xD503201F, 0x00BE7BAD,
+)
+GET_TASK_PID_NEXT_SYMBOL = ("get_pid_task", 0x68)
+GET_TASK_PID_EXPECTED_BL_TARGETS = ("__rcu_read_lock", "__rcu_read_unlock")
+PUT_PID_EXPECTED_WORDS = (
+    0xCA1103D0, 0xA9BF43FD, 0x910003FD, 0xB40001E0,
+    0xB9400408, 0xAA0003E1, 0x8B081408, 0xF9402908,
+    0xB9400009, 0x7100053F, 0x54000160, 0xF9800031,
+    0x885F7C29, 0x51000529, 0x880AFC29, 0x35FFFFAA,
+    0xD5033BBF, 0x34000089, 0xA8C143FD, 0xCA11021E,
+    0xD65F03C0, 0xF9441500, 0x94064616, 0xA8C143FD,
+    0xCA11021E, 0xD65F03C0, 0xD503201F, 0x00BE7BAD,
+)
+PUT_PID_NEXT_SYMBOL = ("free_pid", 0x70)
 CURRENT_STATE_REPEAT_COUNT = 2
 CURRENT_UMASK_MAX = 0o777
 CURRENT_UMASK_MRS_CURRENT_WORD = 0xD5384108
@@ -30091,6 +30133,411 @@ def _run_call_proof_pid_vnr(
     return summary, private
 
 
+def _run_call_proof_get_task_pid(
+    session: ReplSession,
+    symbols: dict[str, Symbol],
+    image: StaticImage,
+    *,
+    source_root: Path,
+) -> tuple[dict[str, object], dict[str, object]]:
+    target = "get_task_pid"
+    cleanup_symbol = "put_pid"
+    source = lookup_source_signature(target, source_root=source_root)
+    cleanup_source = lookup_source_signature(cleanup_symbol, source_root=source_root)
+    call_safety_gate = classify_call_safety(
+        symbols,
+        image,
+        target,
+        include_objdump=False,
+    )
+    advisory = _call_safety_advisory_from_source(call_safety_gate, source)
+    if call_safety_gate.get("tier") != CALL_SAFETY_DENY:
+        raise ReplError(f"{target} must stay outside the global auto-call gate")
+    if call_safety_gate.get("auto_call_allowed"):
+        raise ReplError(f"{target} unexpectedly became globally auto-callable")
+    if not call_safety_gate.get("vetted_seed_whitelist"):
+        raise ReplError(f"{target} must remain explicitly fenced by a DENY seed")
+    if advisory.get("tier") != CALL_SAFETY_CONTEXT_SENSITIVE:
+        raise ReplError(f"{target} target-specific advisory tier must remain CONTEXT-SENSITIVE")
+    if "context-sensitive-disasm-call" not in advisory.get("blocking_danger_flags", []):
+        raise ReplError(f"{target} advisory did not retain the RCU/context-sensitive block")
+    if not source.get("found") or source.get("pointer_arg_indices") != [0]:
+        raise ReplError(f"{target} source signature must declare x0 as a task_struct* pointer")
+    if not cleanup_source.get("found") or cleanup_source.get("pointer_arg_indices") != [0]:
+        raise ReplError(f"{cleanup_symbol} source signature must declare x0 as a pid* pointer")
+    selected_signature = (
+        source.get("selected", {}).get("signature")
+        if isinstance(source.get("selected"), dict) else None
+    )
+    if selected_signature != CALL_PROOF_TARGETS[target]["source_signature"]:
+        raise ReplError(f"{target} source signature did not select the pid.h declaration")
+    cleanup_signature = (
+        cleanup_source.get("selected", {}).get("signature")
+        if isinstance(cleanup_source.get("selected"), dict) else None
+    )
+    if cleanup_signature != "extern void put_pid(struct pid *pid)":
+        raise ReplError(f"{cleanup_symbol} source signature did not select the pid.h declaration")
+
+    resolutions = {
+        target: resolve_verified(
+            symbols,
+            image,
+            target,
+            purpose="call",
+        ),
+        cleanup_symbol: resolve_verified(
+            symbols,
+            image,
+            cleanup_symbol,
+            purpose="call",
+            allow_pre_arg_deref=True,
+        ),
+    }
+    target_link = require_verified_resolution(resolutions[target], "call-proof target")
+    cleanup_link = require_verified_resolution(resolutions[cleanup_symbol], "call-proof cleanup")
+    init_task_link = _require_init_task_link(symbols)
+    next_symbol_name, expected_boundary = GET_TASK_PID_NEXT_SYMBOL
+    next_symbol = symbols.get(next_symbol_name)
+    if next_symbol is None or next_symbol.vaddr - target_link != expected_boundary:
+        raise ReplError(f"{target} next-symbol boundary is not the expected 0x{expected_boundary:x}")
+    cleanup_next_symbol_name, cleanup_expected_boundary = PUT_PID_NEXT_SYMBOL
+    cleanup_next_symbol = symbols.get(cleanup_next_symbol_name)
+    if cleanup_next_symbol is None or cleanup_next_symbol.vaddr - cleanup_link != cleanup_expected_boundary:
+        raise ReplError(
+            f"{cleanup_symbol} next-symbol boundary is not the expected "
+            f"0x{cleanup_expected_boundary:x}"
+        )
+
+    target_words = image.u32_words_at_vaddr(target_link, len(GET_TASK_PID_EXPECTED_WORDS))
+    cleanup_words = image.u32_words_at_vaddr(cleanup_link, len(PUT_PID_EXPECTED_WORDS))
+    signals = call_safety_gate.get("signals", {})
+    if not isinstance(signals, dict):
+        raise ReplError(f"{target} classifier signals missing")
+    bl_targets = signals.get("bl_targets_sample", [])
+    bl_target_symbols = [
+        str(
+            item.get("nearest_symbol", {}).get("symbol")
+            if isinstance(item, dict) and isinstance(item.get("nearest_symbol"), dict)
+            else ""
+        )
+        for item in bl_targets
+    ]
+    taint_flow = signals.get("arg_taint_flow", {})
+    arg_memory_sources = set(advisory.get("arg_memory_source_indices", []))
+    checks: list[dict[str, object]] = [
+        {
+            "check": "static-c1-identity",
+            "ok": True,
+            "target": target,
+            "resolution_method": resolutions[target].method,
+        },
+        {
+            "check": "static-cleanup-c1-identity",
+            "ok": True,
+            "target": cleanup_symbol,
+            "resolution_method": resolutions[cleanup_symbol].method,
+        },
+        {
+            "check": "static-next-symbol-boundary",
+            "ok": True,
+            "next_symbol": next_symbol_name,
+            "byte_size": f"0x{expected_boundary:x}",
+        },
+        {
+            "check": "static-cleanup-next-symbol-boundary",
+            "ok": True,
+            "next_symbol": cleanup_next_symbol_name,
+            "byte_size": f"0x{cleanup_expected_boundary:x}",
+        },
+        {
+            "check": "static-source-contract",
+            "ok": True,
+            "signature": selected_signature,
+            "pointer_arg_indices": source.get("pointer_arg_indices", []),
+            "cleanup_signature": cleanup_signature,
+            "cleanup_pointer_arg_indices": cleanup_source.get("pointer_arg_indices", []),
+            "source_note": (
+                "pid.h declares get_task_pid/put_pid; proof fixes task=init_task "
+                "and type=PIDTYPE_PID, then balances the returned pid ref"
+            ),
+        },
+        {
+            "check": "static-target-specific-call-safety-contract",
+            "ok": True,
+            "global_gate_tier": call_safety_gate.get("tier"),
+            "global_gate_auto_call_allowed": call_safety_gate.get("auto_call_allowed"),
+            "global_gate_seeded": call_safety_gate.get("seeded"),
+            "advisory_tier": advisory.get("tier"),
+            "advisory_blocking_flags": advisory.get("blocking_danger_flags", []),
+        },
+        {
+            "check": "static-rcu-callee-pair",
+            "ok": tuple(bl_target_symbols[:2]) == GET_TASK_PID_EXPECTED_BL_TARGETS,
+            "expected_callees": list(GET_TASK_PID_EXPECTED_BL_TARGETS),
+            "observed_callees": bl_target_symbols[:2],
+        },
+        {
+            "check": "static-task-pointer-memory-flow",
+            "ok": arg_memory_sources == {0},
+            "arg_memory_source_indices": sorted(arg_memory_sources),
+            "arg_memory_base_use_count": (
+                taint_flow.get("arg_memory_base_use_count")
+                if isinstance(taint_flow, dict) else None
+            ),
+        },
+        {
+            "check": "static-init-task-data-symbol",
+            "ok": True,
+            "symbol": "init_task",
+            "kind": symbols["init_task"].kind,
+        },
+    ]
+    for index, expected in enumerate(GET_TASK_PID_EXPECTED_WORDS):
+        observed = target_words[index]
+        ok = observed == expected
+        checks.append({
+            "check": f"static-{target}-word-{index:02d}",
+            "ok": ok,
+            "expected_word": f"0x{expected:08x}",
+            "observed_word": f"0x{observed:08x}",
+        })
+        if not ok:
+            raise ReplError(
+                f"{target} word {index} mismatch: observed 0x{observed:08x}, "
+                f"expected 0x{expected:08x}"
+            )
+    for index, expected in enumerate(PUT_PID_EXPECTED_WORDS):
+        observed = cleanup_words[index]
+        ok = observed == expected
+        checks.append({
+            "check": f"static-{cleanup_symbol}-word-{index:02d}",
+            "ok": ok,
+            "expected_word": f"0x{expected:08x}",
+            "observed_word": f"0x{observed:08x}",
+        })
+        if not ok:
+            raise ReplError(
+                f"{cleanup_symbol} word {index} mismatch: observed 0x{observed:08x}, "
+                f"expected 0x{expected:08x}"
+            )
+    if not all(bool(check.get("ok")) for check in checks):
+        raise ReplError(f"{target} static target-specific gate failed")
+
+    private: dict[str, object] = {}
+    slide = 0
+    thread_pid = 0
+    pid_level = 0
+    expected_pid_nr = 0
+    initial_count = 0
+    after_get_count = 0
+    after_put_count = 0
+    returned_pid = 0
+    cleanup_attempted = False
+    cleanup_ok = False
+    cleanup_error = ""
+    case_results: list[dict[str, object]] = []
+
+    session.hide()
+    session.set_panic_on_oops(0)
+    try:
+        slide = session.slide()
+        if slide & 0xFFF:
+            raise ReplError("slide is not page-aligned; refusing to proceed")
+        target_runtime = (target_link + slide) & MASK64
+        cleanup_runtime = (cleanup_link + slide) & MASK64
+        init_task_runtime = (init_task_link + slide) & MASK64
+        thread_pid = session.peek_runtime(
+            init_task_runtime + TASK_ACTIVE_PID_NS_THREAD_PID_OFFSET,
+            8,
+        )
+        if thread_pid == 0 or not _kernel_vaddr_sane(thread_pid):
+            raise ReplError(
+                "init_task->thread_pid is not a nonzero sane kernel pointer: "
+                f"0x{thread_pid:x}"
+            )
+        pid_level = session.peek_runtime(
+            thread_pid + GET_TASK_PID_PID_LEVEL_OFFSET,
+            4,
+        ) & 0xFFFFFFFF
+        if pid_level > PID_NR_NS_MAX_LEVEL:
+            raise ReplError(
+                "init_task->thread_pid level is outside the proof bound: "
+                f"0x{pid_level:x}"
+            )
+        expected_pid_nr = session.peek_runtime(
+            thread_pid
+            + GET_TASK_PID_PID_NUMBERS_NR_OFFSET
+            + (pid_level << GET_TASK_PID_PID_NUMBERS_LEVEL_SHIFT),
+            4,
+        ) & 0xFFFFFFFF
+        if expected_pid_nr != GET_TASK_PID_EXPECTED_PID_NR:
+            raise ReplError(
+                "directly observed init_task pid number is not the expected PID 0: "
+                f"0x{expected_pid_nr:x}"
+            )
+        initial_count = session.peek_runtime(
+            thread_pid + GET_TASK_PID_PID_COUNT_OFFSET,
+            4,
+        ) & 0xFFFFFFFF
+        if initial_count == 0:
+            raise ReplError("init_task->thread_pid refcount is zero before get_task_pid")
+        checks.append({
+            "check": "init-task-thread-pid-direct-observation",
+            "ok": True,
+            "thread_pid_pointer": "redacted-borrowed-pointer",
+            "pid_level": pid_level,
+            "expected_pid_nr": f"0x{expected_pid_nr:x}",
+            "initial_refcount": initial_count,
+        })
+
+        returned_pid = session.call_runtime(
+            target_runtime,
+            (init_task_runtime, GET_TASK_PID_PIDTYPE_PID),
+        ) & MASK64
+        try:
+            return_matches = returned_pid == thread_pid
+            returned_sane = _kernel_vaddr_sane(returned_pid)
+            checks.append({
+                "check": "get-task-pid-return-contract",
+                "ok": return_matches and returned_sane,
+                "expected_return": "direct-init-task-thread-pid-pointer-redacted",
+                "observed_return_value": "redacted-owned-pid-ref-pointer" if returned_sane else f"0x{returned_pid:x}",
+                "returned_sane_kernel_pointer": returned_sane,
+                "return_matches_direct_thread_pid": return_matches,
+            })
+            if not (return_matches and returned_sane):
+                raise ReplError(
+                    f"{target}(init_task, PIDTYPE_PID) returned 0x{returned_pid:x}, "
+                    "expected direct init_task->thread_pid"
+                )
+            after_get_count = session.peek_runtime(
+                thread_pid + GET_TASK_PID_PID_COUNT_OFFSET,
+                4,
+            ) & 0xFFFFFFFF
+            refcount_rose = after_get_count > initial_count
+            checks.append({
+                "check": "get-task-pid-refcount-rise",
+                "ok": refcount_rose,
+                "initial_refcount": initial_count,
+                "after_get_refcount": after_get_count,
+            })
+            if not refcount_rose:
+                raise ReplError(
+                    f"{target} did not increase pid refcount: "
+                    f"initial={initial_count} after_get={after_get_count}"
+                )
+        finally:
+            if returned_pid and _kernel_vaddr_sane(returned_pid):
+                cleanup_attempted = True
+                try:
+                    session.call_runtime(cleanup_runtime, (returned_pid,))
+                    cleanup_ok = True
+                except Exception as exc:  # noqa: BLE001 - cleanup failure must fail the proof
+                    cleanup_error = str(exc)
+
+        if cleanup_error:
+            raise ReplError(f"{cleanup_symbol} cleanup failed after {target}: {cleanup_error}")
+        after_put_count = session.peek_runtime(
+            thread_pid + GET_TASK_PID_PID_COUNT_OFFSET,
+            4,
+        ) & 0xFFFFFFFF
+        cleanup_restored = cleanup_ok and after_put_count == initial_count
+        checks.append({
+            "check": "put-pid-refcount-restore",
+            "ok": cleanup_restored,
+            "cleanup_attempted": cleanup_attempted,
+            "cleanup_ok": cleanup_ok,
+            "initial_refcount": initial_count,
+            "after_get_refcount": after_get_count,
+            "after_put_refcount": after_put_count,
+        })
+        if not cleanup_restored:
+            raise ReplError(
+                f"{cleanup_symbol} did not restore pid refcount: "
+                f"initial={initial_count} after_get={after_get_count} after_put={after_put_count}"
+            )
+        case_results.append({
+            "case": "init-task-pidtype-pid-balanced-ref",
+            "expected_return_value": "direct-init-task-thread-pid-pointer-redacted",
+            "observed_return_value": "redacted-owned-pid-ref-pointer",
+            "expected_pid_nr": f"0x{expected_pid_nr:x}",
+            "initial_refcount": initial_count,
+            "after_get_refcount": after_get_count,
+            "after_put_refcount": after_put_count,
+            "cleanup_attempted": cleanup_attempted,
+            "cleanup_ok": cleanup_ok,
+            "ok": cleanup_restored,
+        })
+    finally:
+        session.set_panic_on_oops(1)
+
+    checks.append({
+        "check": "get-task-pid-balanced-refcount-contract",
+        "ok": bool(case_results) and all(bool(case.get("ok")) for case in case_results),
+        "case_count": len(case_results),
+        "cases": case_results,
+    })
+    passed = all(bool(check.get("ok")) for check in checks)
+    summary = {
+        "decision": f"a90-repl-live-call-proof-{target}-{'pass' if passed else 'fail'}",
+        "ok": passed,
+        "target": target,
+        "proof_status": "trusted-under-init-task-pid-refcount-balanced-contract" if passed else "failed",
+        "input_contract": CALL_PROOF_TARGETS[target]["input_contract"],
+        "return_contract": CALL_PROOF_TARGETS[target]["return_contract"],
+        "case_results": case_results,
+        "expected_pid_nr_from_direct_observation": f"0x{expected_pid_nr:x}",
+        "observed_return_value": "redacted-owned-pid-ref-pointer",
+        "return_matches_direct_thread_pid": returned_pid == thread_pid,
+        "thread_pid_nonzero": thread_pid != 0,
+        "pid_level": pid_level,
+        "refcount_initial": initial_count,
+        "refcount_after_get": after_get_count,
+        "refcount_after_put": after_put_count,
+        "refcount_rose_after_get": after_get_count > initial_count,
+        "refcount_restored_after_put": after_put_count == initial_count,
+        "cleanup_attempted": cleanup_attempted,
+        "cleanup_ok": cleanup_ok,
+        "source_evidence": _source_row_evidence(source),
+        "cleanup_source_evidence": _source_row_evidence(cleanup_source),
+        "call_safety_gate": call_safety_gate,
+        "target_specific_call_safety": advisory,
+        "resolutions": _redacted_resolution_set(resolutions),
+        "raw_runtime_values_redacted": True,
+        "borrowed_pointer_redacted": True,
+        "owned_pointer_redacted": True,
+        "checks": checks,
+        "function_map_entry": {
+            "symbol": target,
+            "status": "live-proven",
+            "trusted_input_contract": CALL_PROOF_TARGETS[target]["input_contract"],
+            "return_contract": CALL_PROOF_TARGETS[target]["return_contract"],
+            "observed_return_value": (
+                "get_task_pid(init_task, PIDTYPE_PID) returned direct init_task->thread_pid "
+                "and put_pid restored the observed refcount"
+            ),
+            "cleanup": "put_pid-balanced-refcount-ok" if cleanup_ok else "cleanup-failed",
+            "auto_call_policy": "target-specific-proof-only-not-global-auto-call",
+        },
+    }
+    private.update({
+        "slide": f"0x{slide:x}",
+        f"{target}_runtime": f"0x{((target_link + slide) & MASK64):x}",
+        f"{cleanup_symbol}_runtime": f"0x{((cleanup_link + slide) & MASK64):x}",
+        "init_task_runtime": f"0x{((init_task_link + slide) & MASK64):x}",
+        "thread_pid_pointer": f"0x{thread_pid:x}",
+        "returned_pid_pointer": f"0x{returned_pid:x}",
+        "pid_level": pid_level,
+        "expected_pid_nr": f"0x{expected_pid_nr:x}",
+        "refcounts": {
+            "initial": initial_count,
+            "after_get": after_get_count,
+            "after_put": after_put_count,
+        },
+    })
+    return summary, private
+
+
 def _run_call_proof_current_umask(
     session: ReplSession,
     symbols: dict[str, Symbol],
@@ -43179,6 +43626,13 @@ def run_call_proof(session: ReplSession,
         )
     if target == "pid_vnr":
         return _run_call_proof_pid_vnr(
+            session,
+            symbols,
+            image,
+            source_root=source_root,
+        )
+    if target == "get_task_pid":
+        return _run_call_proof_get_task_pid(
             session,
             symbols,
             image,

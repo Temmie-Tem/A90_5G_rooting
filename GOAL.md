@@ -169,6 +169,55 @@ only, never a native-init runtime dependency. Full history (AUD-0 → AUD-5, V23
 > the rollback-gate, the recoverable envelope, and "fails-twice → stop" all stay ON. If a candidate
 > needs a behavior-changing call to be provable, it is OUT, not a reason to weaken the gate.
 
+## ✅ DONE — REPL resident-session balanced pid ref proof — `get_task_pid`
+
+> ### ✅ STATUS (2026-07-02 live-proven, resident-session mode, rolled back cleanly)
+>
+> Codex promoted `get_task_pid(init_task, PIDTYPE_PID)` as a target-specific balanced refcount
+> primitive. This is not a `/proc` or `/sys` getter replacement: it proves the borrowed
+> `task_struct*` + scalar enum -> owned `struct pid*` ref shape, with mandatory `put_pid()` cleanup.
+>
+> Static identity is pinned by export recovery and exact body checks: `get_task_pid`
+> link `0xffffff80080d8204`, one export candidate, map/export agreement, JOPP entry,
+> direct BL xrefs `5`, in-body callees `__rcu_read_lock` and `__rcu_read_unlock`,
+> no pre-call pointer deref, next symbol `get_pid_task` at `+0x68`, source declaration
+> `extern struct pid * get_task_pid(struct task_struct *task, enum pid_type type)` at
+> `include/linux/pid.h:94`, and exact pinned words. Cleanup `put_pid` is separately
+> verified at `0xffffff80080d753c`, next symbol `free_pid` at `+0x70`, declaration
+> `extern void put_pid(struct pid *pid)` at `include/linux/pid.h:90`.
+>
+> The generic gate stays closed: `get_task_pid` is an explicit DENY seed with
+> `auto_call_allowed=false`, and target-specific advisory remains `CONTEXT-SENSITIVE`
+> due to the RCU call pair. `put_pid` also remains generic `DENY`; it is only used as
+> cleanup for the exact returned pid ref.
+>
+> Live resident-session run:
+> `workspace/private/runs/kernel/repl-resident-session-get-task-pid-retry-20260701T163708Z/`.
+> Result: `a90-repl-live-call-proof-get_task_pid-pass`; direct PID number observation was `0x0`;
+> return matched the direct `init_task->thread_pid`; refcount moved `1 -> 2 -> 1`; cleanup was
+> attempted and OK. Raw runtime pointers and KASLR slide stayed private-only.
+>
+> The first attempt
+> `workspace/private/runs/kernel/repl-resident-session-get-task-pid-20260701T163156Z/`
+> failed before the target call because the host contract incorrectly required the static init PID
+> object to be lowmem. The harness rolled back cleanly; the corrected retry requires only a sane
+> nonzero kernel pointer while keeping return equality and refcount restoration mandatory.
+>
+> Session used v1-repl flash once, mandatory warm reboot before the batch, per-target result flush,
+> and v2321 rollback once. Harness summary was `a90-repl-resident-session-pass`, flash count `2`,
+> completed targets `1/1`, timeline errors `[]`. Final rollback health confirmed
+> `v2321-usb-clean-identity-rodata` and `selftest pass=11 warn=1 fail=0`.
+>
+> Canonical timing is present in `timeline.json` with the single top-level `events` schema and all
+> required phase events. This run measured candidate flash `64.133s`, candidate boot/health
+> `54.279s`, warm reboot `32.664s`, live target batch `7.361s`, rollback flash `64.782s`, and total
+> candidate-start to rollback-ready `257.608s`. The timing aggregator now parses `26/74` canonical
+> timelines and projects resident-session `14.203s/target`, `21.07x` vs per-unit flash and `2.11x`
+> vs per-unit in-boot batching for `batch_size=10`, `resident_batches=10`.
+>
+> Report:
+> `docs/reports/KERNEL_SECURITY_TIER2_RUNTIME_KERNEL_REPL_GET_TASK_PID_RESIDENT_SESSION_2026-07-02.md`.
+
 ## ✅ DONE — REPL resident-session one-target proof — `get_state_synchronize_sched`
 
 > ### ✅ STATUS (2026-07-02 live-proven, resident-session mode, rolled back cleanly)
