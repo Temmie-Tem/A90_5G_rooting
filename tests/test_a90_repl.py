@@ -1426,6 +1426,37 @@ class CallSafetyClassificationTests(unittest.TestCase):
             [f"0x{word:08x}" for word in repl.PID_NR_NS_EXPECTED_WORDS[:12]],
         )
 
+        pid_vnr = self._row("pid_vnr")
+        self.assertEqual(pid_vnr["tier"], repl.CALL_SAFETY_SAFE_WITH_VALID_PTR)
+        self.assertEqual(
+            pid_vnr["required_valid_pointer_args"],
+            {"0": "init-task-thread_pid-struct-pid"},
+        )
+        self.assertTrue(pid_vnr["resolution"]["verified"])
+        self.assertEqual(pid_vnr["resolution"]["method"], "export-recovery")
+        self.assertEqual(pid_vnr["resolution"]["link_vaddr"], "0xffffff80080d8414")
+        self.assertGreaterEqual(pid_vnr["signals"]["direct_bl_xref_count"], 27)
+        self.assertTrue(pid_vnr["signals"]["leaf"])
+        self.assertEqual(
+            pid_vnr["signals"]["arg_pointer_derefs_before_first_bl_or_ret"],
+            [
+                {
+                    "offset": 32,
+                    "arg_reg": 0,
+                    "rt": 10,
+                    "rn": 0,
+                    "width": 4,
+                    "imm": repl.PID_NR_NS_PID_LEVEL_OFFSET,
+                    "word": "0xb940040a",
+                    "arg": "x0",
+                }
+            ],
+        )
+        self.assertEqual(
+            pid_vnr["signals"]["first_words"][:12],
+            [f"0x{word:08x}" for word in repl.PID_VNR_EXPECTED_WORDS[:12]],
+        )
+
         current_umask = self._row("current_umask")
         self.assertEqual(current_umask["tier"], repl.CALL_SAFETY_SAFE_SCALAR)
         self.assertEqual(current_umask["required_valid_pointer_args"], {})
@@ -3402,6 +3433,19 @@ class CallSafetyClassificationTests(unittest.TestCase):
         self.assertEqual(pid_nr_ns["selected"]["line"], 180)
         self.assertTrue(pid_nr_ns["selected"]["path"].endswith("include/linux/pid.h"))
 
+        pid_vnr = repl.lookup_source_signature(
+            "pid_vnr",
+            source_root=KERNEL_SOURCE_ROOT,
+        )
+        self.assertEqual(pid_vnr["status"], "found", pid_vnr)
+        self.assertEqual(pid_vnr["selected"]["pointer_arg_indices"], [0])
+        self.assertEqual(
+            pid_vnr["selected"]["signature"],
+            "pid_t pid_vnr(struct pid *pid)",
+        )
+        self.assertEqual(pid_vnr["selected"]["line"], 181)
+        self.assertTrue(pid_vnr["selected"]["path"].endswith("include/linux/pid.h"))
+
         current_umask = repl.lookup_source_signature("current_umask", source_root=KERNEL_SOURCE_ROOT)
         self.assertEqual(current_umask["status"], "found", current_umask)
         self.assertEqual(current_umask["selected"]["pointer_arg_indices"], [])
@@ -4359,6 +4403,13 @@ class FaithfulFakeTransport:
             self.symbols,
             self.image,
             "pid_nr_ns",
+            purpose="call",
+            allow_pre_arg_deref=True,
+        ).link_vaddr
+        self.pid_vnr_link = repl.resolve_verified(
+            self.symbols,
+            self.image,
+            "pid_vnr",
             purpose="call",
             allow_pre_arg_deref=True,
         ).link_vaddr
@@ -5347,6 +5398,8 @@ class FaithfulFakeTransport:
             task_active_pid_ns = self.task_active_pid_ns_link + self.slide
             assert self.pid_nr_ns_link is not None
             pid_nr_ns = self.pid_nr_ns_link + self.slide
+            assert self.pid_vnr_link is not None
+            pid_vnr = self.pid_vnr_link + self.slide
             assert self.current_umask_link is not None
             current_umask = self.current_umask_link + self.slide
             assert self.in_group_p_link is not None
@@ -5996,6 +6049,15 @@ class FaithfulFakeTransport:
                     0,
                 ):
                     raise AssertionError("pid_nr_ns proof must pass init_task thread_pid and active namespace only")
+                lines.append(f"A90R{self.init_task_pid_nr:x}")
+            elif arg0 == pid_vnr:
+                if (arg1, arg2, arg3, arg4) != (
+                    self.init_task_thread_pid_ptr,
+                    0,
+                    0,
+                    0,
+                ):
+                    raise AssertionError("pid_vnr proof must pass init_task thread_pid only")
                 lines.append(f"A90R{self.init_task_pid_nr:x}")
             elif arg0 == current_umask:
                 if (arg1, arg2, arg3, arg4) != (0, 0, 0, 0):
@@ -7777,6 +7839,76 @@ class SelftestIntegrationTests(unittest.TestCase):
             f"0x{fake.init_task_pid_nr:x}",
         )
         self.assertEqual(fake.op_count, 8)  # slide + 5 direct peeks + 2 pid_nr_ns calls
+
+    def test_call_proof_pid_vnr_passes_with_init_task_thread_pid_current_namespace_contract(self) -> None:
+        if not C2B_PADDING_MAP_PATH.is_file() or not KERNEL_SOURCE_ROOT.is_dir():
+            self.skipTest("promoted v2c System.map or kernel source tree not present")
+
+        symbols = repl.load_system_map(C2B_PADDING_MAP_PATH)
+        fake = FaithfulFakeTransport(0x130000, symbols, self.image)
+        orig = repl.transport.run_serial_command
+        repl.transport.run_serial_command = fake.run_serial_command
+        self.addCleanup(lambda: setattr(repl.transport, "run_serial_command", orig))
+        session = repl.ReplSession(repl.ReplConfig(settle_sec=0.0))
+
+        summary, private = repl.run_call_proof(
+            session,
+            symbols,
+            self.image,
+            "pid_vnr",
+            source_root=KERNEL_SOURCE_ROOT,
+        )
+
+        self.assertTrue(summary["ok"], summary)
+        self.assertEqual(summary["decision"], "a90-repl-live-call-proof-pid_vnr-pass")
+        self.assertEqual(
+            summary["proof_status"],
+            "trusted-under-init-task-thread-pid-current-namespace-contract",
+        )
+        self.assertEqual(summary["function_map_entry"]["symbol"], "pid_vnr")
+        self.assertEqual(
+            summary["source_evidence"]["signature"],
+            "pid_t pid_vnr(struct pid *pid)",
+        )
+        self.assertEqual(summary["source_evidence"]["pointer_arg_indices"], [0])
+        self.assertEqual(summary["call_safety"]["tier"], repl.CALL_SAFETY_SAFE_WITH_VALID_PTR)
+        self.assertTrue(summary["thread_pid_nonzero"])
+        self.assertTrue(summary["active_namespace_nonzero"])
+        self.assertEqual(summary["pid_level"], fake.init_task_pid_level)
+        self.assertEqual(summary["namespace_level"], fake.init_task_pid_level)
+        self.assertEqual(summary["observed_pid_vnr"], f"0x{fake.init_task_pid_nr:x}")
+        self.assertEqual(
+            summary["expected_pid_nr_from_direct_observation"],
+            f"0x{fake.init_task_pid_nr:x}",
+        )
+        self.assertEqual(
+            summary["current_namespace_observation"],
+            "inferred-by-return-equality-not-directly-peeked",
+        )
+        self.assertTrue(summary["current_namespace_match_inferred_by_return"])
+        self.assertTrue(summary["all_returns_match_direct_observation"])
+        self.assertEqual(summary["repeat_count"], 2)
+        self.assertTrue(summary["raw_runtime_values_redacted"])
+        self.assertTrue(summary["borrowed_pointer_redacted"])
+        self.assertNotIn("pid_vnr_runtime", summary)
+        self.assertIn("pid_vnr_runtime", private)
+        self.assertIn("thread_pid_pointer", private)
+        self.assertIn("active_namespace_pointer", private)
+        self.assertEqual(private["thread_pid_pointer"], f"0x{fake.init_task_thread_pid_ptr:x}")
+        self.assertEqual(
+            private["active_namespace_pointer"],
+            f"0x{fake.init_task_pid_ns_ptr:x}",
+        )
+        cases = {case["case"]: case for case in summary["case_results"]}
+        self.assertEqual(
+            cases["init-task-thread-pid-current-ns-1"]["observed_return_value"],
+            f"0x{fake.init_task_pid_nr:x}",
+        )
+        self.assertEqual(
+            cases["init-task-thread-pid-current-ns-2"]["observed_return_value"],
+            f"0x{fake.init_task_pid_nr:x}",
+        )
+        self.assertEqual(fake.op_count, 8)  # slide + 5 direct peeks + 2 pid_vnr calls
 
     def test_call_proof_current_state_batch_candidates_pass_in_one_fake_session(self) -> None:
         if not C2B_PADDING_MAP_PATH.is_file() or not KERNEL_SOURCE_ROOT.is_dir():

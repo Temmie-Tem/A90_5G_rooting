@@ -96,6 +96,46 @@ only, never a native-init runtime dependency. Full history (AUD-0 → AUD-5, V23
 > the rollback-gate, the recoverable envelope, and "fails-twice → stop" all stay ON. If a candidate
 > needs a behavior-changing call to be provable, it is OUT, not a reason to weaken the gate.
 
+## ✅ DONE — REPL pid current-namespace live-call proof — `pid_vnr(init_task->thread_pid)` promoted
+
+> ### ✅ STATUS (2026-07-01 live-proven, rolled back cleanly) — borrowed `struct pid *` to current-namespace `pid_t`
+>
+> Codex selected `pid_vnr` from the same pid namespace neighborhood after
+> `task_active_pid_ns(init_task)` and `pid_nr_ns(init_task->thread_pid, active_ns)` proved the
+> direct `init_task->thread_pid` and active namespace observation path. The proof calls only
+> `pid_vnr(init_task->thread_pid)`, where the pointer is read directly from the verified
+> global `init_task` state immediately before the call. The pointer is borrowed, not owned,
+> not freed, and not generalized to arbitrary pid objects.
+>
+> Static selection pinned `pid_vnr=0xffffff80080d8414` via `export-recovery` with map agreement,
+> source declaration `pid_t pid_vnr(struct pid *pid)` at `include/linux/pid.h:181`, direct BL
+> xrefs `27`, JOPP entry, leaf shape, and next-symbol boundary `__task_pid_nr_ns` at `+0x58`.
+> The pinned body reads the current task namespace internally through `sp_el0`, then validates
+> the passed pid's level and namespace before returning `pid->numbers[level].nr`. The
+> call-safety gate classifies it as `SAFE-WITH-VALID-PTR` only when x0 is
+> `init-task-thread_pid-struct-pid`.
+>
+> The live proof obeyed the flash gate: preflight confirmed candidate/rollback/fallback SHA
+> values and baseline v2321 health, the v1-repl candidate (`b846ae9f...`) flashed with matching
+> readback SHA, candidate health retry passed after serial framing noise, and
+> `pid_vnr(init_task->thread_pid)` passed. Direct observation found `pid_level=0`,
+> `namespace_level=0`, and expected pid nr `0x0`; two calls returned `0x0`. Because
+> `pid_vnr` obtains current internally, the current namespace match is recorded as
+> `inferred-by-return-equality-not-directly-peeked`. Raw pointer values and the slide stayed
+> private/redacted. Post-proof selftest stayed `fail=0`; rollback to v2321 completed with
+> matching readback SHA; final `status` passed with `selftest pass=11 warn=1 fail=0`.
+>
+> Timing was recorded per the 2026-07-01 timing rule in
+> `workspace/private/runs/kernel/live-call-proof-pid-vnr-20260701T032646Z/timeline.json`:
+> candidate flash helper `65.747s`, candidate boot-ready after helper done `16.0s`,
+> candidate health retry `0.0s`, live proof `8.0s`, post-proof candidate health `1.0s`,
+> rollback flash helper `63.694s`, rollback boot-ready after helper done `9.0s`, final
+> status health `1.0s`, and candidate start to final status done `216.0s`.
+>
+> Function-map outcome: `pid_vnr` is promoted as live-proven only under the
+> `pid_vnr(init_task->thread_pid)` borrowed-pid/current-namespace contract. Report:
+> `docs/reports/KERNEL_SECURITY_TIER2_RUNTIME_KERNEL_REPL_LIVE_CALL_PROOF_PID_VNR_2026-07-01.md`.
+
 ## ✅ DONE — REPL pid/namespace two-pointer live-call proof — `pid_nr_ns(init_task->thread_pid, active_ns)` promoted
 
 > ### ✅ STATUS (2026-07-01 live-proven, rolled back cleanly) — borrowed `struct pid *` + borrowed `pid_namespace *`
