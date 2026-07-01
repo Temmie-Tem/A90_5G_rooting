@@ -1990,6 +1990,39 @@ class CallSafetyClassificationTests(unittest.TestCase):
             [f"0x{word:08x}" for word in repl.VM_COMMIT_LIMIT_EXPECTED_WORDS[:12]],
         )
 
+        total_swapcache_pages = self._row("total_swapcache_pages")
+        self.assertEqual(total_swapcache_pages["tier"], repl.CALL_SAFETY_SAFE_SCALAR)
+        self.assertEqual(total_swapcache_pages["required_valid_pointer_args"], {})
+        self.assertTrue(total_swapcache_pages["resolution"]["verified"])
+        self.assertEqual(total_swapcache_pages["resolution"]["method"], "disasm-signature+xref+map")
+        self.assertEqual(total_swapcache_pages["resolution"]["link_vaddr"], "0xffffff8008260bd4")
+        self.assertGreaterEqual(total_swapcache_pages["signals"]["direct_bl_xref_count"], 9)
+        self.assertFalse(total_swapcache_pages["signals"]["leaf"])
+        self.assertEqual(
+            total_swapcache_pages["signals"]["context_call_count"],
+            2,
+        )
+        self.assertEqual(
+            [
+                call["nearest_symbol"]["symbol"]
+                for call in total_swapcache_pages["signals"]["context_calls_sample"]
+            ],
+            ["__rcu_read_lock", "__rcu_read_unlock"],
+        )
+        self.assertEqual(
+            total_swapcache_pages["signals"]["arg_pointer_derefs_before_first_bl_or_ret"],
+            [],
+        )
+        self.assertTrue(
+            total_swapcache_pages["signals"]["arg_taint_flow"][
+                "safe_scalar_positive_no_arg_memory_base_flow"
+            ]
+        )
+        self.assertEqual(
+            total_swapcache_pages["signals"]["first_words"][:12],
+            [f"0x{word:08x}" for word in repl.TOTAL_SWAPCACHE_PAGES_EXPECTED_WORDS[:12]],
+        )
+
         can_do_mlock = self._row("can_do_mlock")
         self.assertEqual(can_do_mlock["tier"], repl.CALL_SAFETY_SAFE_SCALAR)
         self.assertEqual(can_do_mlock["required_valid_pointer_args"], {})
@@ -2546,7 +2579,7 @@ class CallSafetyClassificationTests(unittest.TestCase):
         self.assertTrue(summary["host_only"])
         self.assertFalse(summary["device_action"])
         self.assertEqual(summary["seed_whitelist_count"], len(repl.CALL_SAFETY_SEEDS))
-        self.assertEqual(summary["counts"][repl.CALL_SAFETY_SAFE_SCALAR], 48)
+        self.assertEqual(summary["counts"][repl.CALL_SAFETY_SAFE_SCALAR], 49)
         self.assertGreaterEqual(summary["counts"][repl.CALL_SAFETY_SAFE_WITH_VALID_PTR], 9)
         self.assertGreaterEqual(summary["counts"][repl.CALL_SAFETY_BEHAVIOR_CHANGING], 4)
         self.assertEqual(summary["counts"][repl.CALL_SAFETY_DENY], 1)
@@ -3435,6 +3468,19 @@ class CallSafetyClassificationTests(unittest.TestCase):
             self.assertEqual(row["selected"]["line"], line)
             self.assertTrue(row["selected"]["path"].endswith("include/linux/mm.h"))
 
+        swap_state_source = repl.lookup_source_signature(
+            "total_swapcache_pages",
+            source_root=KERNEL_SOURCE_ROOT,
+        )
+        self.assertEqual(swap_state_source["status"], "found", swap_state_source)
+        self.assertEqual(swap_state_source["selected"]["pointer_arg_indices"], [])
+        self.assertEqual(
+            swap_state_source["selected"]["signature"],
+            "extern unsigned long total_swapcache_pages(void)",
+        )
+        self.assertEqual(swap_state_source["selected"]["line"], 413)
+        self.assertTrue(swap_state_source["selected"]["path"].endswith("include/linux/swap.h"))
+
         scheduler_state_source = {
             "nr_processes": (
                 "extern int nr_processes(void)",
@@ -4241,6 +4287,12 @@ class FaithfulFakeTransport:
             "vm_commit_limit",
             purpose="call",
         ).link_vaddr
+        self.total_swapcache_pages_link = repl.resolve_verified(
+            self.symbols,
+            self.image,
+            "total_swapcache_pages",
+            purpose="call",
+        ).link_vaddr
         self.can_do_mlock_link = repl.resolve_verified(
             self.symbols,
             self.image,
@@ -4366,6 +4418,8 @@ class FaithfulFakeTransport:
         self.sde_rsc_version_value = 3
         self.si_mem_available_values = [0x6F000, 0x6F020]
         self.vm_commit_limit_value = 0x1A2B30
+        self.total_swapcache_pages_values = [0x0, 0x1]
+        self.total_swapcache_pages_index = 0
         self.can_do_mlock_value = 1
         self.is_current_pgrp_orphaned_value = 0
         self.ktime_get_seconds_values = [0x345, 0x346]
@@ -5118,6 +5172,8 @@ class FaithfulFakeTransport:
             si_mem_available = self.si_mem_available_link + self.slide
             assert self.vm_commit_limit_link is not None
             vm_commit_limit = self.vm_commit_limit_link + self.slide
+            assert self.total_swapcache_pages_link is not None
+            total_swapcache_pages = self.total_swapcache_pages_link + self.slide
             assert self.can_do_mlock_link is not None
             can_do_mlock = self.can_do_mlock_link + self.slide
             assert self.is_current_pgrp_orphaned_link is not None
@@ -5831,6 +5887,14 @@ class FaithfulFakeTransport:
                 if (arg1, arg2, arg3, arg4) != (0, 0, 0, 0):
                     raise AssertionError("vm_commit_limit proof must pass no arguments")
                 lines.append(f"A90R{self.vm_commit_limit_value:x}")
+            elif arg0 == total_swapcache_pages:
+                if (arg1, arg2, arg3, arg4) != (0, 0, 0, 0):
+                    raise AssertionError("total_swapcache_pages proof must pass no arguments")
+                value = self.total_swapcache_pages_values[
+                    min(self.total_swapcache_pages_index, len(self.total_swapcache_pages_values) - 1)
+                ]
+                self.total_swapcache_pages_index += 1
+                lines.append(f"A90R{value:x}")
             elif arg0 == can_do_mlock:
                 if (arg1, arg2, arg3, arg4) != (0, 0, 0, 0):
                     raise AssertionError("can_do_mlock proof must pass no arguments")
@@ -8051,6 +8115,53 @@ class SelftestIntegrationTests(unittest.TestCase):
         self.assertEqual(cases["vm_commit_limit-read-1"]["observed_return_value"], "0x1a2b30")
         self.assertEqual(cases["vm_commit_limit-read-2"]["observed_return_value"], "0x1a2b30")
         self.assertTrue(cases["vm_commit_limit-read-2"]["stable_from_first"])
+
+    def test_call_proof_total_swapcache_pages_passes_with_no_arg_swapcache_contract(self) -> None:
+        if not C2B_PADDING_MAP_PATH.is_file() or not KERNEL_SOURCE_ROOT.is_dir():
+            self.skipTest("promoted v2c System.map or kernel source tree not present")
+
+        symbols = repl.load_system_map(C2B_PADDING_MAP_PATH)
+        fake = FaithfulFakeTransport(0x130000, symbols, self.image)
+        orig = repl.transport.run_serial_command
+        repl.transport.run_serial_command = fake.run_serial_command
+        self.addCleanup(lambda: setattr(repl.transport, "run_serial_command", orig))
+        session = repl.ReplSession(repl.ReplConfig(settle_sec=0.0))
+
+        summary, private = repl.run_call_proof(
+            session,
+            symbols,
+            self.image,
+            "total_swapcache_pages",
+            source_root=KERNEL_SOURCE_ROOT,
+        )
+
+        self.assertTrue(summary["ok"], summary)
+        self.assertEqual(summary["decision"], "a90-repl-live-call-proof-total_swapcache_pages-pass")
+        self.assertEqual(
+            summary["proof_status"],
+            "trusted-under-swapcache-page-count-read-only-contract",
+        )
+        self.assertEqual(summary["function_map_entry"]["symbol"], "total_swapcache_pages")
+        self.assertEqual(
+            summary["function_map_entry"]["auto_call_policy"],
+            "one-target-proof-only-not-mass-call",
+        )
+        self.assertEqual(
+            summary["source_evidence"]["signature"],
+            "extern unsigned long total_swapcache_pages(void)",
+        )
+        self.assertEqual(summary["source_evidence"]["pointer_arg_indices"], [])
+        self.assertEqual(summary["call_safety"]["tier"], repl.CALL_SAFETY_SAFE_SCALAR)
+        self.assertEqual(summary["observed_return_value"], "0x0")
+        self.assertTrue(summary["all_returns_in_sane_range"])
+        self.assertEqual(summary["repeat_count"], 2)
+        self.assertTrue(summary["raw_runtime_values_redacted"])
+        self.assertNotIn("total_swapcache_pages_runtime", summary)
+        self.assertIn("total_swapcache_pages_runtime", private)
+        cases = {case["case"]: case for case in summary["case_results"]}
+        self.assertEqual(cases["total_swapcache_pages-read-1"]["observed_return_value"], "0x0")
+        self.assertEqual(cases["total_swapcache_pages-read-2"]["observed_return_value"], "0x1")
+        self.assertTrue(cases["total_swapcache_pages-read-2"]["bounded_short_repeat_drift"])
 
     def test_call_proof_can_do_mlock_passes_with_no_arg_bool_contract(self) -> None:
         if not C2B_PADDING_MAP_PATH.is_file() or not KERNEL_SOURCE_ROOT.is_dir():

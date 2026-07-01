@@ -96,6 +96,44 @@ only, never a native-init runtime dependency. Full history (AUD-0 → AUD-5, V23
 > the rollback-gate, the recoverable envelope, and "fails-twice → stop" all stay ON. If a candidate
 > needs a behavior-changing call to be provable, it is OUT, not a reason to weaken the gate.
 
+## ✅ DONE — REPL swapcache memory-state live-call proof — `total_swapcache_pages` promoted
+
+> ### ✅ STATUS (2026-07-01 live-proven, rolled back cleanly) — swapcache page-count getter
+>
+> Codex selected `total_swapcache_pages` as a read-only memory-state observation target instead of
+> another saturated time/lib helper. Host triage kept sysfs `show`-style callbacks parked because
+> the current C1 oracle still cannot prove table-bound show callbacks with direct-call confidence.
+> The selected target is source-backed at `include/linux/swap.h:413`
+> (`extern unsigned long total_swapcache_pages(void)`), takes no arguments, returns a scalar page
+> count, and uses only its internal RCU read-side lock/unlock path.
+>
+> Static selection pinned `total_swapcache_pages=0xffffff8008260bd4` via
+> `disasm-signature+xref+map`, with direct BL xrefs `9`, no pre-call argument pointer
+> dereferences, next-symbol boundary `show_swap_cache_info` at `+0x88`, and all 35 identity words
+> pinned through the next-entry first word. The C1 call gate classifies it as `SAFE-SCALAR`;
+> the classifier still surfaces the expected context-sensitive warning because the body contains
+> `__rcu_read_lock`/`__rcu_read_unlock`.
+>
+> The live proof obeyed the flash gate: preflight confirmed rollback/fallback/TWRP SHA values and
+> baseline v2321 health, the v1-repl candidate (`b846ae9f...`) flashed with matching readback SHA,
+> candidate health passed after bridge restart/retry for serial framing noise, and
+> `total_swapcache_pages()` returned `0x0 -> 0x0` under the bounded nonnegative page-count
+> contract. Post-proof candidate health stayed `selftest fail=0`; rollback to v2321 completed with
+> matching readback SHA; final health passed after bridge restart/retry with
+> `selftest pass=11 warn=1 fail=0`.
+>
+> Timing was recorded per the 2026-07-01 timing rule in
+> `workspace/private/runs/kernel/live-call-proof-total-swapcache-pages-20260701T020827Z/timeline.json`:
+> candidate flash helper `55.520s`, candidate explicit health initial attempt `11.0s`,
+> candidate bridge restart `4.0s`, candidate health retry `1.0s`, live proof `6.0s`,
+> post-proof health `0.0s`, rollback flash helper `64.706s`, final explicit health initial
+> attempt `11.0s`, final bridge restart `4.0s`, final health retry `2.0s`, and candidate start
+> to final health retry done `261.0s`.
+>
+> Function-map outcome: `total_swapcache_pages` is promoted as live-proven only under the
+> no-argument swapcache page-count read-only contract. Report:
+> `docs/reports/KERNEL_SECURITY_TIER2_RUNTIME_KERNEL_REPL_LIVE_CALL_PROOF_TOTAL_SWAPCACHE_PAGES_2026-07-01.md`.
+
 ## ✅ DONE — REPL timekeeping seconds batch live-call proof — `ktime_get_seconds` + `ktime_get_real_seconds` promoted
 
 > ### ✅ STATUS (2026-07-01 live-proven, rolled back cleanly) — same-session time64 seconds getters
