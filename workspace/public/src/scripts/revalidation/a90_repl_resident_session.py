@@ -62,6 +62,7 @@ REQUIRED_TIMELINE_EVENTS = (
     "rollback_boot_ready",
 )
 VFS_BUNDLE_PREFIX = "vfs-bundle:"
+MIN_RESIDENT_SESSION_TARGETS = 2
 
 
 class ResidentSessionError(RuntimeError):
@@ -318,6 +319,12 @@ def parse_batches(batch_args: list[list[str]] | None, *, max_batch_size: int) ->
                 + ", ".join(sorted(supported))
             )
         out.append(tuple(targets))
+    target_count = sum(len(batch) for batch in out)
+    if target_count < MIN_RESIDENT_SESSION_TARGETS:
+        raise ResidentSessionError(
+            f"resident sessions require at least {MIN_RESIDENT_SESSION_TARGETS} targets; "
+            "single-target resident runs are forbidden because flash-once cost is not amortized"
+        )
     return tuple(out)
 
 

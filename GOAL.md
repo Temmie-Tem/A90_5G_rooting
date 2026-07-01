@@ -179,10 +179,56 @@ only, never a native-init runtime dependency. Full history (AUD-0 → AUD-5, V23
 >     explicitly as PROJECTION until real packed sessions match them. The win is real but only
 >     materializes when sessions are packed; running the new harness on the old one-target cadence
 >     realizes none of it.
+>     **Implementation correction landed (2026-07-02):** `a90_repl_resident_session.py` now rejects
+>     resident plans with fewer than 2 total targets before any device action. The first promoted
+>     packed correction run batched `pid_task` + `find_pid_ns` in one resident session, completing
+>     `2/2` targets with `2` flashes (`1.0` flash/target actual) and rolling back to v2321 cleanly.
 > **HARD — unchanged, do NOT loosen:** the fail-closed C1 resolution, the **call-safety classifier**
 > (DENY / BEHAVIOR-CHANGING tiers stay DENY — never relax a tier to reach a struct/state target),
 > the rollback-gate, the recoverable envelope, and "fails-twice → stop" all stay ON. If a candidate
 > needs a behavior-changing call to be provable, it is OUT, not a reason to weaken the gate.
+
+## ✅ DONE — REPL packed resident-session PID borrowed-pointer batch — `pid_task` + `find_pid_ns`
+
+> ### ✅ STATUS (2026-07-02 live-proven, packed resident-session mode, rolled back cleanly)
+>
+> Codex promoted a two-target PID borrowed-pointer batch under the corrected resident-session
+> cadence. This is the first promoted run after the operator correction banning one-target resident
+> sessions: the harness now refuses single-target resident plans host-side, before any flash.
+>
+> `pid_task` proves the owned `find_get_pid(1)` PID anchor + scalar `PIDTYPE_PID` -> borrowed
+> `task_struct *` path. Static identity: link `0xffffff80080d807c`, export-recovery verified,
+> source declaration `extern struct task_struct * pid_task(struct pid *pid, enum pid_type)` at
+> `include/linux/pid.h:91`, exact body words, leaf/no in-body BL, next symbol
+> `find_task_by_pid_ns` at `+0x30`. Generic gate stays `DENY`; target-specific advisory also
+> stays `DENY` because the bounded enum x1 participates in memory-base flow.
+>
+> `find_pid_ns` proves scalar PID `1` + namespace pointer observed from the owned PID anchor ->
+> borrowed `struct pid *` path. Static identity: link `0xffffff80080d7d4c`,
+> export-recovery verified, source declaration
+> `extern struct pid * find_pid_ns(int nr, struct pid_namespace *ns)` at
+> `include/linux/pid.h:118`, exact body words, leaf/no in-body BL, next symbol `find_vpid`
+> at `+0x90`. Generic gate stays `DENY`; target-specific advisory is `SAFE-WITH-VALID-PTR`
+> because memory flow is attributed to the proof-supplied x1 namespace pointer.
+>
+> Live packed resident-session run:
+> `workspace/private/runs/kernel/repl-resident-session-pid-borrowed-batch-20260701T174344Z/`.
+> Result: session `a90-repl-resident-session-pass`, completed targets `2/2`, flash count `2`,
+> actual flash amortization `1.0 flash/target`, canonical timeline errors `[]`.
+>
+> Target results: `pid_task` returned a task whose `task->thread_pid` matched the owned PID 1
+> anchor; `find_pid_ns(1, observed_ns)` returned the same PID 1 anchor. Both observed embedded pid
+> number `0x1`, both preserved the pid refcount across the borrowed lookup (`6 -> 6`), and both
+> restored the anchor with `put_pid` (`-> 5`). Raw runtime pointers and KASLR slide stayed private.
+>
+> Final rollback health independently confirmed resident `v2321-usb-clean-identity-rodata`,
+> `status` BOOT OK, and `selftest pass=11 warn=1 fail=0`. Timing aggregate after this run uses
+> `31/79` canonical timelines and projects resident-session `13.749s/target`, `21.50x` vs
+> per-unit flash and `2.15x` vs per-unit in-boot batching for the modeled `batch_size=10`,
+> `resident_batches=10`; the measured run itself was `2` targets, `2` flashes, `271.358s` total.
+>
+> Report:
+> `docs/reports/KERNEL_SECURITY_TIER2_RUNTIME_KERNEL_REPL_PID_BORROWED_BATCH_RESIDENT_SESSION_2026-07-02.md`.
 
 ## ✅ DONE — REPL resident-session scalar pid lookup proof — `find_vpid`
 

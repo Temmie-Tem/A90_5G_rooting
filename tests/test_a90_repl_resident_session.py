@@ -50,6 +50,10 @@ class A90ReplResidentSessionTests(unittest.TestCase):
         with self.assertRaisesRegex(resident.ResidentSessionError, "unsupported"):
             resident.parse_batches([["vfs-bundle:not-a-bundle"]], max_batch_size=30)
 
+    def test_parse_batches_rejects_single_target_resident_session(self) -> None:
+        with self.assertRaisesRegex(resident.ResidentSessionError, "single-target resident runs are forbidden"):
+            resident.parse_batches([["pid_task"]], max_batch_size=30)
+
     def test_flash_command_uses_checked_native_init_flash_helper(self) -> None:
         args = base_args()
         command = resident.flash_command(args, Path("candidate.img"), "a" * 64)
