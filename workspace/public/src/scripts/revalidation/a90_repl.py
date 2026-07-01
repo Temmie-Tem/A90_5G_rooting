@@ -203,6 +203,21 @@ EXACT_LEAF_EXPORT_GROUND_TRUTH_SYMBOLS = {
     },
 }
 EXACT_LEAF_MAP_GROUND_TRUTH_SYMBOLS = {
+    "slab_is_available": {
+        "expected_words": (
+            0xB0016968,
+            0xB94CA908,
+            0x7100091F,
+            0x1A9F97E0,
+            0xD65F03C0,
+            0x00BE7BAD,
+        ),
+        "next_symbol": "kmalloc_slab",
+        "byte_size": 0x18,
+        "ret_offset": 0x10,
+        "min_direct_bl_xrefs": 16,
+        "note": "non-export JOPP leaf slab allocator availability getter; identity rests on map label, direct callsite xrefs, exact words, source declaration, and next-symbol boundary",
+    },
     "tracefs_initialized": {
         "expected_words": (
             0xF0015EA8,
@@ -499,6 +514,12 @@ CALL_SAFETY_SEEDS = {
         "required_valid_pointer_args": {},
         "return_kind": "bool",
         "reason": "no-argument tracefs registration-state getter; current image is a pinned global byte read and proof expects a stable bool value",
+    },
+    "slab_is_available": {
+        "tier": CALL_SAFETY_SAFE_SCALAR,
+        "required_valid_pointer_args": {},
+        "return_kind": "bool",
+        "reason": "no-argument slab allocator availability getter; current image is a pinned global int comparison leaf and proof expects a stable bool value",
     },
     "get_ddr_vendor_name": {
         "tier": CALL_SAFETY_SAFE_SCALAR,
@@ -3929,6 +3950,7 @@ _SOURCE_HEADER_HINTS_BY_EXACT_SYMBOL = {
     "cpu_mitigations_off": ("include/linux/cpu.h",),
     "debugfs_initialized": ("fs/debugfs/inode.c", "include/linux/debugfs.h"),
     "tracefs_initialized": ("fs/tracefs/inode.c", "include/linux/tracefs.h"),
+    "slab_is_available": ("include/linux/slab.h",),
     "__task_pid_nr_ns": ("include/linux/sched.h",),
     "sched_get_group_id": ("include/linux/sched.h",),
     "task_prio": ("include/linux/sched.h",),
@@ -5809,6 +5831,12 @@ CALL_PROOF_TARGETS = {
         "expected_tier": CALL_SAFETY_SAFE_SCALAR,
         "source_signature": "bool tracefs_initialized(void)",
     },
+    "slab_is_available": {
+        "input_contract": "no arguments; slab allocator availability state is read-only through the pinned global-load/compare leaf and no returned pointer is dereferenced or freed",
+        "return_contract": "bool value is exactly 0 or 1 and stable across immediate repeated proof calls",
+        "expected_tier": CALL_SAFETY_SAFE_SCALAR,
+        "source_signature": "bool slab_is_available(void)",
+    },
     "__task_pid_nr_ns": {
         "input_contract": "global init_task task_struct pointer + PIDTYPE_PID + NULL namespace; global pointer is borrowed/read-only and is not freed",
         "return_contract": "pid_t for init_task in the init namespace path is exactly 0 and stable across repeated calls",
@@ -7198,6 +7226,12 @@ TRACEFS_INITIALIZED_EXPECTED_WORDS = (
 )
 TRACEFS_INITIALIZED_NEXT_SYMBOL = ("trace_mount", 0x10)
 TRACEFS_INITIALIZED_REPEAT_COUNT = 2
+SLAB_IS_AVAILABLE_EXPECTED_WORDS = (
+    0xB0016968, 0xB94CA908, 0x7100091F, 0x1A9F97E0,
+    0xD65F03C0, 0x00BE7BAD,
+)
+SLAB_IS_AVAILABLE_NEXT_SYMBOL = ("kmalloc_slab", 0x18)
+SLAB_IS_AVAILABLE_REPEAT_COUNT = 2
 TASK_PID_NR_NS_PIDTYPE_PID = 0
 TASK_PID_NR_NS_EXPECTED_INIT_TASK_PID = 0
 TASK_PID_NR_NS_REPEAT_COUNT = 2
@@ -25838,6 +25872,177 @@ def _run_call_proof_tracefs_initialized(
     return summary, private
 
 
+def _run_call_proof_slab_is_available(
+    session: ReplSession,
+    symbols: dict[str, Symbol],
+    image: StaticImage,
+    *,
+    source_root: Path,
+) -> tuple[dict[str, object], dict[str, object]]:
+    target = "slab_is_available"
+    source = lookup_source_signature(target, source_root=source_root)
+    call_safety = require_call_safety_for_call(
+        symbols,
+        image,
+        target,
+        (),
+    )
+    if call_safety.get("tier") != CALL_PROOF_TARGETS[target]["expected_tier"]:
+        raise ReplError(f"{target} call-safety tier is not the expected vetted scalar tier")
+    if not source.get("found") or source.get("pointer_arg_indices") != []:
+        raise ReplError(f"{target} source signature must be no-arg scalar-safe")
+    selected_signature = (
+        source.get("selected", {}).get("signature")
+        if isinstance(source.get("selected"), dict) else None
+    )
+    if selected_signature != CALL_PROOF_TARGETS[target]["source_signature"]:
+        raise ReplError(f"{target} source signature did not select the slab declaration")
+
+    resolutions = {
+        target: resolve_verified(
+            symbols,
+            image,
+            target,
+            purpose="call",
+        ),
+    }
+    target_link = require_verified_resolution(resolutions[target], "call-proof target")
+    next_symbol_name, expected_boundary = SLAB_IS_AVAILABLE_NEXT_SYMBOL
+    next_symbol = symbols.get(next_symbol_name)
+    if next_symbol is None or next_symbol.vaddr - target_link != expected_boundary:
+        raise ReplError(f"{target} next-symbol boundary is not the expected 0x{expected_boundary:x}")
+
+    observed_words = image.u32_words_at_vaddr(
+        target_link,
+        len(SLAB_IS_AVAILABLE_EXPECTED_WORDS),
+    )
+    checks: list[dict[str, object]] = [
+        {
+            "check": "static-c1-identity",
+            "ok": True,
+            "target": target,
+            "resolution_method": resolutions[target].method,
+        },
+        {
+            "check": "static-next-symbol-boundary",
+            "ok": True,
+            "next_symbol": next_symbol_name,
+            "byte_size": f"0x{expected_boundary:x}",
+        },
+        {
+            "check": "static-source-contract",
+            "ok": True,
+            "signature": selected_signature,
+            "pointer_arg_indices": source.get("pointer_arg_indices", []),
+            "source_note": "include/linux/slab.h declares the no-argument allocator-availability getter; current image body is pinned as a global-load/compare leaf",
+        },
+        {
+            "check": "static-call-safety-contract",
+            "ok": True,
+            "tier": call_safety.get("tier"),
+            "required_valid_pointer_args": call_safety.get("required_valid_pointer_args", {}),
+        },
+        {
+            "check": "static-body-ret-before-next-symbol",
+            "ok": True,
+            "ret_word_index": 4,
+            "note": "generic 64-byte classifier scan includes kmalloc_slab after the boundary; proof pins the 0x18-byte body directly",
+        },
+    ]
+    for index, expected in enumerate(SLAB_IS_AVAILABLE_EXPECTED_WORDS):
+        observed = observed_words[index]
+        ok = observed == expected
+        checks.append({
+            "check": f"static-{target}-word-{index:02d}",
+            "ok": ok,
+            "expected_word": f"0x{expected:08x}",
+            "observed_word": f"0x{observed:08x}",
+        })
+        if not ok:
+            raise ReplError(
+                f"{target} word {index} mismatch: observed 0x{observed:08x}, "
+                f"expected 0x{expected:08x}"
+            )
+
+    private: dict[str, object] = {}
+    slide = 0
+    returns: list[int] = []
+    case_results: list[dict[str, object]] = []
+
+    session.hide()
+    session.set_panic_on_oops(0)
+    try:
+        slide = session.slide()
+        if slide & 0xFFF:
+            raise ReplError("slide is not page-aligned; refusing to proceed")
+        target_runtime = (target_link + slide) & MASK64
+        for index in range(SLAB_IS_AVAILABLE_REPEAT_COUNT):
+            observed = session.call_runtime(target_runtime, ()) & MASK64
+            bool_ok = observed in (0, 1)
+            stable = observed == returns[0] if returns else True
+            returns.append(observed)
+            ok = bool_ok and stable
+            case_results.append({
+                "case": f"{target}-read-{index + 1}",
+                "observed_return_value": f"0x{observed:x}",
+                "is_bool": bool_ok,
+                "stable_from_first": stable,
+                "ok": ok,
+            })
+            if not ok:
+                raise ReplError(
+                    f"{target}() returned an out-of-contract value in proof call "
+                    f"{index + 1}: 0x{observed:x}"
+                )
+    finally:
+        session.set_panic_on_oops(1)
+
+    checks.append({
+        "check": f"{target}-stable-bool-repeat",
+        "ok": all(bool(case.get("ok")) for case in case_results),
+        "case_count": len(case_results),
+        "cases": case_results,
+    })
+    passed = all(bool(check.get("ok")) for check in checks)
+    observed_public = f"0x{returns[0]:x}" if returns else "n/a"
+    summary = {
+        "decision": f"a90-repl-live-call-proof-{target}-{'pass' if passed else 'fail'}",
+        "ok": passed,
+        "target": target,
+        "proof_status": "trusted-under-slab-availability-read-only-contract" if passed else "failed",
+        "input_contract": CALL_PROOF_TARGETS[target]["input_contract"],
+        "return_contract": CALL_PROOF_TARGETS[target]["return_contract"],
+        "case_results": case_results,
+        "observed_return_value": observed_public,
+        "all_returns_bool": bool(returns) and all(value in (0, 1) for value in returns),
+        "all_returns_stable": bool(returns) and all(value == returns[0] for value in returns),
+        "repeat_count": len(returns),
+        "source_evidence": _source_row_evidence(source),
+        "call_safety": call_safety,
+        "resolutions": _redacted_resolution_set(resolutions),
+        "raw_runtime_values_redacted": True,
+        "checks": checks,
+        "function_map_entry": {
+            "symbol": target,
+            "status": "live-proven",
+            "trusted_input_contract": CALL_PROOF_TARGETS[target]["input_contract"],
+            "return_contract": CALL_PROOF_TARGETS[target]["return_contract"],
+            "observed_return_value": f"repeated no-argument calls returned stable bool {observed_public}",
+            "cleanup": "n/a-scalar-read-only",
+            "auto_call_policy": "one-target-proof-only-no-safe-slab-batch-partner",
+        },
+    }
+    private.update({
+        "slide": f"0x{slide:x}",
+        f"{target}_runtime": f"0x{((target_link + slide) & MASK64):x}",
+        "case_returns": {
+            case["case"]: case["observed_return_value"]
+            for case in case_results
+        },
+    })
+    return summary, private
+
+
 def _run_call_proof_get_intermediate_timeout(
     session: ReplSession,
     symbols: dict[str, Symbol],
@@ -38674,6 +38879,13 @@ def run_call_proof(session: ReplSession,
         )
     if target == "tracefs_initialized":
         return _run_call_proof_tracefs_initialized(
+            session,
+            symbols,
+            image,
+            source_root=source_root,
+        )
+    if target == "slab_is_available":
+        return _run_call_proof_slab_is_available(
             session,
             symbols,
             image,

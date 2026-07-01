@@ -96,6 +96,64 @@ only, never a native-init runtime dependency. Full history (AUD-0 → AUD-5, V23
 > the rollback-gate, the recoverable envelope, and "fails-twice → stop" all stay ON. If a candidate
 > needs a behavior-changing call to be provable, it is OUT, not a reason to weaken the gate.
 
+## ✅ DONE — REPL slab allocator availability live-call proof — `slab_is_available()` promoted
+
+> ### ✅ STATUS (2026-07-01 live-proven, rolled back cleanly) — no-arg slab allocator availability bool getter
+>
+> Codex followed the corrected batch cadence first: a slab-family sweep checked
+> adjacent `slab_*`, `kmem_cache_*`, `kfree_*`, `ksize`, and `kzfree` candidates.
+> The only read-only no-argument allocator-state candidate was
+> `slab_is_available()`; the nearby candidates were allocation/free/init/RCU or
+> pointer-mutating helpers and stayed out of the proof. The live command used
+> `call-proof-batch slab_is_available` to preserve the batch entrypoint, but did
+> not force an unsafe slab partner into the same boot session.
+>
+> Static selection pinned `slab_is_available=0xffffff800823839c` via
+> `exact-leaf-map+xref+word-boundary`: export candidate count `0`, direct BL
+> xrefs `16`, JOPP entry, source declaration `bool slab_is_available(void)` at
+> `include/linux/slab.h:122`, and `SAFE-SCALAR` call-safety. The next-symbol
+> boundary is `kmalloc_slab` at `+0x18`. The proof pinned the complete body plus
+> guard:
+> `0xb0016968 0xb94ca908 0x7100091f 0x1a9f97e0 0xd65f03c0 0x00be7bad`.
+> The generic 64-byte classifier scan includes `kmalloc_slab` after the boundary,
+> so this proof treats the explicit 0x18 body/guard as the function-body
+> authority.
+>
+> The live proof obeyed the flash gate: rollback/fallback/TWRP artifacts were
+> confirmed, baseline v2321 `version/status/selftest` passed, the exact v1-repl
+> candidate (`b846ae9f74d8ceb922bbcd854d78b6795ef833d61e38465d3cc474cb6f0dfb65`)
+> flashed through `native_init_flash.py` with matching pushed-image and readback
+> SHA, candidate helper `version/status` verification passed, explicit candidate
+> `selftest` passed after bridge restart from serial marker loss, and REPL
+> selftest returned `a90-repl-v2a1-selftest-pass`.
+>
+> The proof called `slab_is_available()` twice with no arguments in one
+> `call-proof-batch` session. Returns were bool and stable: `0x1`, `0x1`. No
+> runtime pointer was dereferenced by the host, no cleanup was required, and raw
+> runtime values plus the KASLR slide stayed private/redacted.
+>
+> Post-proof candidate `selftest` passed with `pass=11 warn=1 fail=0`.
+> Rollback to v2321 completed with matching readback SHA, rollback helper
+> `version/status` passed, final v2321 standalone `selftest` passed after bridge
+> restart from serial marker loss, and final bridge status was
+> `connected-no-immediate-error`.
+>
+> Timing was recorded per the 2026-07-01 timing rule in
+> `workspace/private/runs/kernel/live-call-proof-slab-is-available-20260701T091812Z/timeline.json`
+> at `2026-07-01T09:18:12Z`: candidate flash helper `64.726s`,
+> candidate selftest first attempt marker loss `10.062s`, bridge restart
+> `2.315s`, candidate selftest retry `0.294s`, REPL selftest `5.852s`,
+> live proof batch `5.082s`, post-proof candidate selftest `0.296s`,
+> rollback flash helper `65.318s`, final selftest first attempt marker loss
+> `10.085s`, and final bridge restart + selftest + bridge status `2.756s`.
+> The helper total rows are not additive; all serial bridge operations in the
+> accepted live path were sequential.
+>
+> Function-map outcome: `slab_is_available` is promoted as live-proven only under
+> the no-argument read-only slab allocator availability contract: the pinned body
+> performs a global-load/compare state read and returns a stable bool. Report:
+> `docs/reports/KERNEL_SECURITY_TIER2_RUNTIME_KERNEL_REPL_LIVE_CALL_PROOF_SLAB_IS_AVAILABLE_2026-07-01.md`.
+
 ## ✅ DONE — REPL USB/OTG notify live-call proof — `get_otg_notify()` promoted
 
 > ### ✅ STATUS (2026-07-01 live-proven, rolled back cleanly) — no-arg USB/OTG borrowed-pointer getter

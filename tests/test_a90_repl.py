@@ -1590,6 +1590,28 @@ class CallSafetyClassificationTests(unittest.TestCase):
             [f"0x{word:08x}" for word in repl.TRACEFS_INITIALIZED_EXPECTED_WORDS],
         )
 
+        slab_is_available = self._row("slab_is_available")
+        self.assertEqual(slab_is_available["tier"], repl.CALL_SAFETY_SAFE_SCALAR)
+        self.assertEqual(slab_is_available["required_valid_pointer_args"], {})
+        self.assertTrue(slab_is_available["resolution"]["verified"])
+        self.assertEqual(
+            slab_is_available["resolution"]["method"],
+            "exact-leaf-map+xref+word-boundary",
+        )
+        self.assertEqual(
+            slab_is_available["resolution"]["link_vaddr"],
+            "0xffffff800823839c",
+        )
+        self.assertGreaterEqual(slab_is_available["signals"]["direct_bl_xref_count"], 16)
+        self.assertEqual(
+            slab_is_available["signals"]["arg_pointer_derefs_before_first_bl_or_ret"],
+            [],
+        )
+        self.assertEqual(
+            slab_is_available["signals"]["first_words"][:6],
+            [f"0x{word:08x}" for word in repl.SLAB_IS_AVAILABLE_EXPECTED_WORDS],
+        )
+
         task_pid_nr_ns = self._row("__task_pid_nr_ns")
         self.assertEqual(task_pid_nr_ns["tier"], repl.CALL_SAFETY_SAFE_WITH_VALID_PTR)
         self.assertEqual(
@@ -3099,7 +3121,7 @@ class CallSafetyClassificationTests(unittest.TestCase):
         self.assertTrue(summary["host_only"])
         self.assertFalse(summary["device_action"])
         self.assertEqual(summary["seed_whitelist_count"], len(repl.CALL_SAFETY_SEEDS))
-        self.assertEqual(summary["counts"][repl.CALL_SAFETY_SAFE_SCALAR], 57)
+        self.assertEqual(summary["counts"][repl.CALL_SAFETY_SAFE_SCALAR], 58)
         self.assertGreaterEqual(summary["counts"][repl.CALL_SAFETY_SAFE_WITH_VALID_PTR], 10)
         self.assertGreaterEqual(summary["counts"][repl.CALL_SAFETY_BEHAVIOR_CHANGING], 4)
         self.assertEqual(summary["counts"][repl.CALL_SAFETY_DENY], 1)
@@ -3888,6 +3910,19 @@ class CallSafetyClassificationTests(unittest.TestCase):
         )
         self.assertEqual(tracefs_initialized["selected"]["line"], 619)
         self.assertTrue(tracefs_initialized["selected"]["path"].endswith("fs/tracefs/inode.c"))
+
+        slab_is_available = repl.lookup_source_signature(
+            "slab_is_available",
+            source_root=KERNEL_SOURCE_ROOT,
+        )
+        self.assertEqual(slab_is_available["status"], "found", slab_is_available)
+        self.assertEqual(slab_is_available["selected"]["pointer_arg_indices"], [])
+        self.assertEqual(
+            slab_is_available["selected"]["signature"],
+            "bool slab_is_available(void)",
+        )
+        self.assertEqual(slab_is_available["selected"]["line"], 122)
+        self.assertTrue(slab_is_available["selected"]["path"].endswith("include/linux/slab.h"))
 
         task_pid_nr_ns = repl.lookup_source_signature(
             "__task_pid_nr_ns",
@@ -5016,6 +5051,12 @@ class FaithfulFakeTransport:
             "tracefs_initialized",
             purpose="call",
         ).link_vaddr
+        self.slab_is_available_link = repl.resolve_verified(
+            self.symbols,
+            self.image,
+            "slab_is_available",
+            purpose="call",
+        ).link_vaddr
         self.task_pid_nr_ns_link = repl.resolve_verified(
             self.symbols,
             self.image,
@@ -5295,6 +5336,7 @@ class FaithfulFakeTransport:
         self.cpu_mitigations_off_value = 0
         self.debugfs_initialized_value = 1
         self.tracefs_initialized_value = 1
+        self.slab_is_available_value = 1
         self.boot_stat_time_values = [0x00100000, 0x00101000, 0x00102000]
         self.boot_stat_time_index = 0
         self.get_seconds_values = [0x69000000, 0x69000001]
@@ -6090,6 +6132,8 @@ class FaithfulFakeTransport:
             debugfs_initialized = self.debugfs_initialized_link + self.slide
             assert self.tracefs_initialized_link is not None
             tracefs_initialized = self.tracefs_initialized_link + self.slide
+            assert self.slab_is_available_link is not None
+            slab_is_available = self.slab_is_available_link + self.slide
             assert self.task_pid_nr_ns_link is not None
             task_pid_nr_ns = self.task_pid_nr_ns_link + self.slide
             assert self.sched_get_group_id_link is not None
@@ -6789,6 +6833,10 @@ class FaithfulFakeTransport:
                 if (arg1, arg2, arg3, arg4) != (0, 0, 0, 0):
                     raise AssertionError("tracefs_initialized proof must pass no arguments")
                 lines.append(f"A90R{self.tracefs_initialized_value:x}")
+            elif arg0 == slab_is_available:
+                if (arg1, arg2, arg3, arg4) != (0, 0, 0, 0):
+                    raise AssertionError("slab_is_available proof must pass no arguments")
+                lines.append(f"A90R{self.slab_is_available_value:x}")
             elif arg0 == task_pid_nr_ns:
                 if (arg1, arg2, arg3, arg4) != (
                     self.init_task_runtime,
@@ -8933,6 +8981,58 @@ class SelftestIntegrationTests(unittest.TestCase):
         self.assertIn("tracefs_initialized_runtime", private)
         self.assertNotIn("tracefs_initialized_runtime", summary)
         self.assertEqual(fake.op_count, 1 + repl.TRACEFS_INITIALIZED_REPEAT_COUNT)
+
+    def test_call_proof_slab_is_available_passes_with_allocator_availability_contract(self) -> None:
+        if not C2B_PADDING_MAP_PATH.is_file() or not KERNEL_SOURCE_ROOT.is_dir():
+            self.skipTest("promoted v2c System.map or kernel source tree not present")
+
+        symbols = repl.load_system_map(C2B_PADDING_MAP_PATH)
+        fake = FaithfulFakeTransport(0x130000, symbols, self.image)
+        orig = repl.transport.run_serial_command
+        repl.transport.run_serial_command = fake.run_serial_command
+        self.addCleanup(lambda: setattr(repl.transport, "run_serial_command", orig))
+        session = repl.ReplSession(repl.ReplConfig(settle_sec=0.0))
+        summary, private = repl.run_call_proof(
+            session,
+            symbols,
+            self.image,
+            "slab_is_available",
+            source_root=KERNEL_SOURCE_ROOT,
+        )
+
+        self.assertTrue(summary["ok"], summary)
+        self.assertEqual(
+            summary["decision"],
+            "a90-repl-live-call-proof-slab_is_available-pass",
+        )
+        self.assertEqual(
+            summary["proof_status"],
+            "trusted-under-slab-availability-read-only-contract",
+        )
+        self.assertEqual(summary["function_map_entry"]["symbol"], "slab_is_available")
+        self.assertEqual(summary["function_map_entry"]["status"], "live-proven")
+        self.assertEqual(
+            summary["function_map_entry"]["auto_call_policy"],
+            "one-target-proof-only-no-safe-slab-batch-partner",
+        )
+        self.assertEqual(
+            summary["source_evidence"]["signature"],
+            "bool slab_is_available(void)",
+        )
+        self.assertEqual(summary["source_evidence"]["pointer_arg_indices"], [])
+        self.assertEqual(summary["observed_return_value"], f"0x{fake.slab_is_available_value:x}")
+        self.assertTrue(summary["all_returns_bool"])
+        self.assertTrue(summary["all_returns_stable"])
+        self.assertEqual(summary["repeat_count"], repl.SLAB_IS_AVAILABLE_REPEAT_COUNT)
+        cases = {case["case"]: case for case in summary["case_results"]}
+        for index in range(1, repl.SLAB_IS_AVAILABLE_REPEAT_COUNT + 1):
+            key = f"slab_is_available-read-{index}"
+            self.assertEqual(cases[key]["observed_return_value"], f"0x{fake.slab_is_available_value:x}")
+            self.assertTrue(cases[key]["ok"])
+            self.assertEqual(private["case_returns"][key], f"0x{fake.slab_is_available_value:x}")
+        self.assertIn("slab_is_available_runtime", private)
+        self.assertNotIn("slab_is_available_runtime", summary)
+        self.assertEqual(fake.op_count, 1 + repl.SLAB_IS_AVAILABLE_REPEAT_COUNT)
 
     def test_call_proof_task_struct_batch_candidates_pass_in_one_fake_session(self) -> None:
         if not C2B_PADDING_MAP_PATH.is_file() or not KERNEL_SOURCE_ROOT.is_dir():
