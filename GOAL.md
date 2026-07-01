@@ -96,6 +96,41 @@ only, never a native-init runtime dependency. Full history (AUD-0 → AUD-5, V23
 > the rollback-gate, the recoverable envelope, and "fails-twice → stop" all stay ON. If a candidate
 > needs a behavior-changing call to be provable, it is OUT, not a reason to weaken the gate.
 
+## ✅ DONE — REPL current-task state live-call proof — `can_do_mlock` promoted
+
+> ### ✅ STATUS (2026-07-01 live-proven, rolled back cleanly) — current-task mlock allowance bool getter
+>
+> Codex expanded the already covered `CALL_PROOF_TARGETS` inventory with one new current-task
+> state observation target and proved `can_do_mlock` under a no-argument bool contract. Host
+> triage compared `can_do_mlock`, `is_current_pgrp_orphaned`, and `get_debug_reset_header`;
+> `get_debug_reset_header` was excluded because it allocates/reads/frees and prints, and
+> `is_current_pgrp_orphaned` was parked as a heavier tasklist read-lock traversal.
+>
+> Static selection pinned `can_do_mlock=0xffffff800824bb0c` via `export-recovery`, source
+> declaration `extern bool can_do_mlock(void)` (`include/linux/mm.h:1303`), direct BL xrefs
+> `1`, no pointer args, and next-symbol boundary `clear_page_mlock` at `+0x40`. The proof pins
+> all 16 identity words, including the current-task state reads, the `capable(CAP_IPC_LOCK)`
+> call path, the final `ret`, and the next-entry sentinel. The C1 call gate classifies it as
+> `SAFE-SCALAR`.
+>
+> The live proof obeyed the flash gate: preflight retry confirmed rollback/fallback SHA values
+> and baseline v2321 health, the v1-repl candidate (`b846ae9f...`) flashed with matching readback
+> SHA, candidate health passed after a safe observation retry for one serial END-marker
+> truncation, and `can_do_mlock()` returned stable bool `0x1` twice. Post-proof candidate health
+> stayed `selftest fail=0`; rollback to v2321 completed with matching readback SHA; final health
+> passed after bridge restart/retry with `selftest pass=11 warn=1 fail=0`.
+>
+> Timing was recorded per the 2026-07-01 timing rule in
+> `workspace/private/runs/kernel/live-call-proof-can-do-mlock-20260701T010937Z/timeline.json`:
+> candidate flash helper `64.629s`, candidate explicit health initial attempt `1.0s`, candidate
+> health retry `1.0s`, live proof `6.0s`, post-proof health `0.0s`, rollback flash helper
+> `63.562s`, final explicit health initial attempt `30.0s`, final bridge restart `3.0s`,
+> final health retry `1.0s`, and candidate start to final health retry done `268.0s`.
+>
+> Function-map outcome: `can_do_mlock` is promoted as live-proven only under the no-argument
+> current-task mlock allowance bool contract. Report:
+> `docs/reports/KERNEL_SECURITY_TIER2_RUNTIME_KERNEL_REPL_LIVE_CALL_PROOF_CAN_DO_MLOCK_2026-07-01.md`.
+
 ## ✅ DONE — REPL read-only memory-state live-call proof — `vm_commit_limit` promoted
 
 > ### ✅ STATUS (2026-07-01 live-proven, rolled back cleanly) — memory commit-limit scalar getter

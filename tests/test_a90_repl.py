@@ -1990,6 +1990,23 @@ class CallSafetyClassificationTests(unittest.TestCase):
             [f"0x{word:08x}" for word in repl.VM_COMMIT_LIMIT_EXPECTED_WORDS[:12]],
         )
 
+        can_do_mlock = self._row("can_do_mlock")
+        self.assertEqual(can_do_mlock["tier"], repl.CALL_SAFETY_SAFE_SCALAR)
+        self.assertEqual(can_do_mlock["required_valid_pointer_args"], {})
+        self.assertTrue(can_do_mlock["resolution"]["verified"])
+        self.assertEqual(can_do_mlock["resolution"]["method"], "export-recovery")
+        self.assertEqual(can_do_mlock["resolution"]["link_vaddr"], "0xffffff800824bb0c")
+        self.assertEqual(can_do_mlock["signals"]["direct_bl_xref_count"], 1)
+        self.assertFalse(can_do_mlock["signals"]["leaf"])
+        self.assertEqual(can_do_mlock["signals"]["arg_pointer_derefs_before_first_bl_or_ret"], [])
+        self.assertTrue(
+            can_do_mlock["signals"]["arg_taint_flow"]["safe_scalar_positive_no_arg_memory_base_flow"]
+        )
+        self.assertEqual(
+            can_do_mlock["signals"]["first_words"][:12],
+            [f"0x{word:08x}" for word in repl.CAN_DO_MLOCK_EXPECTED_WORDS[:12]],
+        )
+
         scheduler_counter_targets = {
             "nr_processes": ("0xffffff80080ae02c", 1),
             "nr_running": ("0xffffff80080edebc", 4),
@@ -2482,7 +2499,7 @@ class CallSafetyClassificationTests(unittest.TestCase):
         self.assertTrue(summary["host_only"])
         self.assertFalse(summary["device_action"])
         self.assertEqual(summary["seed_whitelist_count"], len(repl.CALL_SAFETY_SEEDS))
-        self.assertEqual(summary["counts"][repl.CALL_SAFETY_SAFE_SCALAR], 44)
+        self.assertEqual(summary["counts"][repl.CALL_SAFETY_SAFE_SCALAR], 45)
         self.assertGreaterEqual(summary["counts"][repl.CALL_SAFETY_SAFE_WITH_VALID_PTR], 9)
         self.assertGreaterEqual(summary["counts"][repl.CALL_SAFETY_BEHAVIOR_CHANGING], 4)
         self.assertEqual(summary["counts"][repl.CALL_SAFETY_DENY], 1)
@@ -3247,6 +3264,16 @@ class CallSafetyClassificationTests(unittest.TestCase):
         )
         self.assertEqual(vm_commit_limit["selected"]["line"], 94)
         self.assertTrue(vm_commit_limit["selected"]["path"].endswith("include/linux/mman.h"))
+
+        can_do_mlock = repl.lookup_source_signature("can_do_mlock", source_root=KERNEL_SOURCE_ROOT)
+        self.assertEqual(can_do_mlock["status"], "found", can_do_mlock)
+        self.assertEqual(can_do_mlock["selected"]["pointer_arg_indices"], [])
+        self.assertEqual(
+            can_do_mlock["selected"]["signature"],
+            "extern bool can_do_mlock(void)",
+        )
+        self.assertEqual(can_do_mlock["selected"]["line"], 1303)
+        self.assertTrue(can_do_mlock["selected"]["path"].endswith("include/linux/mm.h"))
 
         is_scm_armv8 = repl.lookup_source_signature("is_scm_armv8", source_root=KERNEL_SOURCE_ROOT)
         self.assertEqual(is_scm_armv8["status"], "found", is_scm_armv8)
@@ -4126,6 +4153,12 @@ class FaithfulFakeTransport:
             "vm_commit_limit",
             purpose="call",
         ).link_vaddr
+        self.can_do_mlock_link = repl.resolve_verified(
+            self.symbols,
+            self.image,
+            "can_do_mlock",
+            purpose="call",
+        ).link_vaddr
         self.si_meminfo_link = repl.resolve_verified(
             self.symbols,
             self.image,
@@ -4227,6 +4260,7 @@ class FaithfulFakeTransport:
         self.sde_rsc_version_value = 3
         self.si_mem_available_values = [0x6F000, 0x6F020]
         self.vm_commit_limit_value = 0x1A2B30
+        self.can_do_mlock_value = 1
         self.si_meminfo_fields = {
             "totalram_pages": 0x180000,
             "freeram_pages": 0x78000,
@@ -4973,6 +5007,8 @@ class FaithfulFakeTransport:
             si_mem_available = self.si_mem_available_link + self.slide
             assert self.vm_commit_limit_link is not None
             vm_commit_limit = self.vm_commit_limit_link + self.slide
+            assert self.can_do_mlock_link is not None
+            can_do_mlock = self.can_do_mlock_link + self.slide
             assert self.si_meminfo_link is not None
             si_meminfo = self.si_meminfo_link + self.slide
             assert self.ktime_get_ts64_link is not None
@@ -5678,6 +5714,10 @@ class FaithfulFakeTransport:
                 if (arg1, arg2, arg3, arg4) != (0, 0, 0, 0):
                     raise AssertionError("vm_commit_limit proof must pass no arguments")
                 lines.append(f"A90R{self.vm_commit_limit_value:x}")
+            elif arg0 == can_do_mlock:
+                if (arg1, arg2, arg3, arg4) != (0, 0, 0, 0):
+                    raise AssertionError("can_do_mlock proof must pass no arguments")
+                lines.append(f"A90R{self.can_do_mlock_value:x}")
             elif arg0 == si_meminfo:
                 if (arg2, arg3, arg4) != (0, 0, 0):
                     raise AssertionError("si_meminfo proof must pass one result-slot pointer argument")
@@ -7874,6 +7914,53 @@ class SelftestIntegrationTests(unittest.TestCase):
         self.assertEqual(cases["vm_commit_limit-read-1"]["observed_return_value"], "0x1a2b30")
         self.assertEqual(cases["vm_commit_limit-read-2"]["observed_return_value"], "0x1a2b30")
         self.assertTrue(cases["vm_commit_limit-read-2"]["stable_from_first"])
+
+    def test_call_proof_can_do_mlock_passes_with_no_arg_bool_contract(self) -> None:
+        if not C2B_PADDING_MAP_PATH.is_file() or not KERNEL_SOURCE_ROOT.is_dir():
+            self.skipTest("promoted v2c System.map or kernel source tree not present")
+
+        symbols = repl.load_system_map(C2B_PADDING_MAP_PATH)
+        fake = FaithfulFakeTransport(0x130000, symbols, self.image)
+        orig = repl.transport.run_serial_command
+        repl.transport.run_serial_command = fake.run_serial_command
+        self.addCleanup(lambda: setattr(repl.transport, "run_serial_command", orig))
+        session = repl.ReplSession(repl.ReplConfig(settle_sec=0.0))
+
+        summary, private = repl.run_call_proof(
+            session,
+            symbols,
+            self.image,
+            "can_do_mlock",
+            source_root=KERNEL_SOURCE_ROOT,
+        )
+
+        self.assertTrue(summary["ok"], summary)
+        self.assertEqual(summary["decision"], "a90-repl-live-call-proof-can_do_mlock-pass")
+        self.assertEqual(
+            summary["proof_status"],
+            "trusted-under-current-task-mlock-allowance-bool-contract",
+        )
+        self.assertEqual(summary["function_map_entry"]["symbol"], "can_do_mlock")
+        self.assertEqual(
+            summary["function_map_entry"]["auto_call_policy"],
+            "one-target-proof-only-not-mass-call",
+        )
+        self.assertEqual(
+            summary["source_evidence"]["signature"],
+            "extern bool can_do_mlock(void)",
+        )
+        self.assertEqual(summary["source_evidence"]["pointer_arg_indices"], [])
+        self.assertEqual(summary["call_safety"]["tier"], repl.CALL_SAFETY_SAFE_SCALAR)
+        self.assertEqual(summary["observed_return_value"], "0x1")
+        self.assertTrue(summary["all_returns_bool"])
+        self.assertEqual(summary["repeat_count"], 2)
+        self.assertTrue(summary["raw_runtime_values_redacted"])
+        self.assertNotIn("can_do_mlock_runtime", summary)
+        self.assertIn("can_do_mlock_runtime", private)
+        cases = {case["case"]: case for case in summary["case_results"]}
+        self.assertEqual(cases["can_do_mlock-read-1"]["observed_return_value"], "0x1")
+        self.assertEqual(cases["can_do_mlock-read-2"]["observed_return_value"], "0x1")
+        self.assertTrue(cases["can_do_mlock-read-2"]["stable_from_first"])
 
     def test_call_proof_scheduler_counter_batch_passes_with_no_arg_contracts(self) -> None:
         if not C2B_PADDING_MAP_PATH.is_file() or not KERNEL_SOURCE_ROOT.is_dir():
