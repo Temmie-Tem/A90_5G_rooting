@@ -283,6 +283,19 @@ EXACT_LEAF_MAP_GROUND_TRUTH_SYMBOLS = {
         "min_direct_bl_xrefs": 1,
         "note": "non-export JOPP leaf Samsung sec_debug level getter; identity rests on map label, direct callsite xref, exact words, source declaration, and next-symbol boundary",
     },
+    "sec_debug_get_reset_reason": {
+        "expected_words": (
+            0xF0012EC8,
+            0xB944C900,
+            0xD65F03C0,
+            0x00BE7BAD,
+        ),
+        "next_symbol": "sec_debug_get_reset_write_cnt",
+        "byte_size": 0x10,
+        "ret_offset": 0x8,
+        "min_direct_bl_xrefs": 7,
+        "note": "non-export JOPP leaf Samsung reset-reason getter; identity rests on map label, direct callsite xrefs, exact words, source declaration, and next-symbol boundary",
+    },
     "slab_is_available": {
         "expected_words": (
             0xB0016968,
@@ -624,6 +637,12 @@ CALL_SAFETY_SEEDS = {
         "required_valid_pointer_args": {},
         "return_kind": "uint32_t",
         "reason": "no-argument Samsung sec_debug level getter; current image is a pinned leaf global read and proof expects a stable uint32_t value",
+    },
+    "sec_debug_get_reset_reason": {
+        "tier": CALL_SAFETY_SAFE_SCALAR,
+        "required_valid_pointer_args": {},
+        "return_kind": "uint32_t",
+        "reason": "no-argument Samsung reset-reason getter; current image is a pinned leaf global read and proof expects a stable uint32_t value",
     },
     "get_ddr_vendor_name": {
         "tier": CALL_SAFETY_SAFE_SCALAR,
@@ -4059,6 +4078,10 @@ _SOURCE_HEADER_HINTS_BY_EXACT_SYMBOL = {
     "test_taint": ("include/linux/kernel.h",),
     "sec_debug_is_enabled": ("include/linux/samsung/debug/sec_debug.h",),
     "sec_debug_level": ("include/linux/samsung/debug/sec_debug.h",),
+    "sec_debug_get_reset_reason": (
+        "include/linux/samsung/debug/sec_debug_user_reset.h",
+        "include/linux/samsung/debug/sec_debug.h",
+    ),
     "sec_abc_get_enabled": ("include/linux/sti/abc_common.h",),
     "__task_pid_nr_ns": ("include/linux/sched.h",),
     "sched_get_group_id": ("include/linux/sched.h",),
@@ -5970,6 +5993,12 @@ CALL_PROOF_TARGETS = {
         "expected_tier": CALL_SAFETY_SAFE_SCALAR,
         "source_signature": "extern unsigned int sec_debug_level(void)",
     },
+    "sec_debug_get_reset_reason": {
+        "input_contract": "no arguments; Samsung reset reason state is read-only through the pinned leaf body and no returned pointer is dereferenced or freed",
+        "return_contract": "uint32_t reset reason value in 0..0xffffffff and stable across immediate repeated proof calls",
+        "expected_tier": CALL_SAFETY_SAFE_SCALAR,
+        "source_signature": "extern unsigned int sec_debug_get_reset_reason(void)",
+    },
     "sec_abc_get_enabled": {
         "input_contract": "no arguments; Samsung ABC enabled mode is read-only through the pinned leaf global-load body and no returned pointer is dereferenced or freed",
         "return_contract": "int ABC mode value is exactly one of ABC_DISABLED/ABC_TYPE1_ENABLED/ABC_TYPE2_ENABLED (0..2) and stable across immediate repeated proof calls",
@@ -7428,6 +7457,9 @@ SEC_DEBUG_IS_ENABLED_EXPECTED_WORDS = (
 SEC_DEBUG_LEVEL_EXPECTED_WORDS = (
     0xB0014E48, 0xB941D100, 0xD65F03C0, 0x00BE7BAD,
 )
+SEC_DEBUG_GET_RESET_REASON_EXPECTED_WORDS = (
+    0xF0012EC8, 0xB944C900, 0xD65F03C0, 0x00BE7BAD,
+)
 SEC_DEBUG_STATE_REPEAT_COUNT = 2
 SEC_DEBUG_STATE_PROOFS: dict[str, dict[str, object]] = {
     "sec_debug_is_enabled": {
@@ -7447,6 +7479,16 @@ SEC_DEBUG_STATE_PROOFS: dict[str, dict[str, object]] = {
         "max_value": 0xFFFFFFFF,
         "value_label": "stable uint32 level",
         "proof_status": "trusted-under-sec-debug-level-read-only-contract",
+    },
+    "sec_debug_get_reset_reason": {
+        "expected_words": SEC_DEBUG_GET_RESET_REASON_EXPECTED_WORDS,
+        "next_symbol": "sec_debug_get_reset_write_cnt",
+        "next_delta": 0x10,
+        "ret_word_index": 2,
+        "max_value": 0xFFFFFFFF,
+        "value_label": "stable uint32 reset reason",
+        "proof_status": "trusted-under-sec-debug-reset-reason-read-only-contract",
+        "source_note": "include/linux/samsung/debug/sec_debug_user_reset.h declares the no-argument Samsung reset-reason getter; current image body is pinned as a read-only leaf",
     },
 }
 SEC_ABC_GET_ENABLED_EXPECTED_WORDS = (
@@ -26982,7 +27024,12 @@ def _run_call_proof_sec_debug_state(
             "ok": True,
             "signature": selected_signature,
             "pointer_arg_indices": source.get("pointer_arg_indices", []),
-            "source_note": "include/linux/samsung/debug/sec_debug.h declares the no-argument Samsung sec_debug state getter; current image body is pinned as a read-only leaf",
+            "source_note": str(
+                cfg.get(
+                    "source_note",
+                    "include/linux/samsung/debug/sec_debug.h declares the no-argument Samsung sec_debug state getter; current image body is pinned as a read-only leaf",
+                )
+            ),
         },
         {
             "check": "static-call-safety-contract",
