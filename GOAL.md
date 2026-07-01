@@ -91,6 +91,18 @@ only, never a native-init runtime dependency. Full history (AUD-0 → AUD-5, V23
 >    (identity/status/`show`-style) that extend the REPL as a measurement instrument AND feed the
 >    server-distro **D-harden** surface-measurement need (which built-in paths to measure / later
 >    hard-disable). See `docs/plans/NATIVE_INIT_SERVER_DISTRO_ENDGAME_DESIGN_2026-06-30.md` §6 E.3.
+> 4. **KEYSTONE-FIRST + RETIRE-SUBSUMED (2026-07-01 follow-on — this is the map-convergence lever).**
+>    Prove the **VFS-read keystone** (`filp_open` + `kernel_read`) *first*; it composes into "read any
+>    kernel-visible file live" (`/proc/*`, `/sys/*`, `config.gz`, cmdline). Then **RETIRE — do NOT
+>    enumerate — any state-getter whose value is readable via a `/proc`/`/sys` node** (e.g. don't
+>    prove `get_max_files` when `/proc/sys/fs/file-max` is readable). Reserve *individual* call-proofs
+>    for functions with **no file-node equivalent** or a **genuinely new ABI shape**. Rationale: this
+>    shrinks the map that must be built (fewer required entries) instead of proving redundant getters —
+>    the useful observation map converges much faster. Composition speeds the map only two ways
+>    (same-shape harness reuse + this subsumption); it does NOT make a *new* shape (struct in/out) or
+>    the classifier/live-fault analysis cheaper, so spend freed effort only on genuinely new
+>    shapes/surfaces. As proven primitives accumulate, prefer assembling **observation bundles**
+>    (kernel-vitals, procfs/sysfs reader, SoC-fingerprint, hardening-posture) over lone-function breadth.
 > **HARD — unchanged, do NOT loosen:** the fail-closed C1 resolution, the **call-safety classifier**
 > (DENY / BEHAVIOR-CHANGING tiers stay DENY — never relax a tier to reach a struct/state target),
 > the rollback-gate, the recoverable envelope, and "fails-twice → stop" all stay ON. If a candidate
