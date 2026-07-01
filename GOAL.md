@@ -96,6 +96,70 @@ only, never a native-init runtime dependency. Full history (AUD-0 → AUD-5, V23
 > the rollback-gate, the recoverable envelope, and "fails-twice → stop" all stay ON. If a candidate
 > needs a behavior-changing call to be provable, it is OUT, not a reason to weaken the gate.
 
+## ✅ DONE — REPL USB/OTG notify live-call proof — `get_otg_notify()` promoted
+
+> ### ✅ STATUS (2026-07-01 live-proven, rolled back cleanly) — no-arg USB/OTG borrowed-pointer getter
+>
+> Codex selected `get_otg_notify` as a USB/OTG kernel-state observation target
+> outside the saturated `CALL_PROOF_TARGETS` inventory. It extends the function
+> map with a read-only getter for the native kernel USB notify core:
+> `extern struct otg_notify * get_otg_notify(void)` from
+> `include/linux/usb_notify.h:175`.
+>
+> Static selection pinned `get_otg_notify=0xffffff800901d8d4` via
+> `export-recovery` with map agreement, a single export candidate, direct BL
+> xrefs `41`, JOPP entry, and a leaf body. The C1 gate classifies it as
+> `SAFE-SCALAR`; source/ABI contract is no pointer args. The implementation in
+> `drivers/usb/notify/usb_notify.c` was matched as the expected read-only
+> pattern: return NULL if `u_notify_core` is absent, return NULL if
+> `u_notify_core->o_notify` is absent, otherwise return the borrowed
+> `o_notify` pointer. The next-symbol boundary is `inc_hw_param` at `+0x20`;
+> the static words pinned the global core load, NULL branch, borrowed
+> `o_notify` load, return path, NULL return path, and final `0x00be7bad`
+> boundary guard.
+>
+> The live proof obeyed the flash gate: rollback/fallback/TWRP artifacts were
+> confirmed, baseline v2321 `version/status/selftest` passed, the exact
+> v1-repl candidate (`b846ae9f74d8ceb922bbcd854d78b6795ef833d61e38465d3cc474cb6f0dfb65`)
+> flashed through `native_init_flash.py` with matching pushed-image and
+> readback SHA, and candidate helper health plus explicit candidate `selftest`
+> passed.
+>
+> The first proof attempt called the target but stopped because the host-side
+> return predicate was too narrow: it accepted only lowmem borrowed pointers,
+> while the live target returned a stable canonical kernel data pointer.
+> Candidate health stayed clean after that host-contract failure. The predicate
+> was corrected to accept NULL or a stable canonical kernel pointer under this
+> borrowed-pointer contract.
+>
+> The retry called `get_otg_notify()` twice with no arguments. Both calls
+> returned the same non-NULL borrowed kernel pointer; the pointer was not
+> dereferenced and was not freed. Raw runtime pointer values and the KASLR slide
+> stayed private/redacted.
+>
+> Post-proof candidate `selftest` passed with `selftest pass=11 warn=1
+> fail=0`. Rollback to v2321 completed with matching readback SHA. Final
+> standalone selftest initially had partial serial capture, then `hide` hit
+> known marker-loss noise and `double` input mode proved unsuitable for the
+> current bridge state; a host-side bridge restart restored clean framing, and
+> the final `selftest` retry passed with `pass=11 warn=1 fail=0`.
+>
+> Timing was recorded per the 2026-07-01 timing rule in
+> `workspace/private/runs/kernel/live-call-proof-get-otg-notify-20260701T062153Z/timeline.json`
+> at `2026-07-01T06:25:00Z`: candidate flash helper `63.720s`,
+> candidate explicit selftest `0.299s`, initial live proof host-contract
+> failure `4.820s`, post-failure candidate selftest `0.297s`, live proof retry
+> pass `5.216s`, post-proof candidate selftest `0.299s`, rollback flash helper
+> `63.816s`, final selftest partial capture `0.309s`, final hide marker-loss
+> attempt `20.108s`, double input mode failed command encoding `29.921s`,
+> bridge restart `1.996s`, and final selftest retry `0.309s`. The helper total
+> rows are not additive; all serial bridge commands in this unit were
+> sequential.
+>
+> Function-map outcome: `get_otg_notify` is promoted as live-proven only under
+> the no-argument USB/OTG notify borrowed-pointer contract. Report:
+> `docs/reports/KERNEL_SECURITY_TIER2_RUNTIME_KERNEL_REPL_LIVE_CALL_PROOF_GET_OTG_NOTIFY_2026-07-01.md`.
+
 ## ✅ DONE — REPL current fs-state live-call proof — `current_umask()` promoted
 
 > ### ✅ STATUS (2026-07-01 live-proven, rolled back cleanly) — no-arg current-task umask getter
