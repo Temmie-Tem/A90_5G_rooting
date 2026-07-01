@@ -81,12 +81,24 @@ symlink could change between the check and the write. The guard MUST be tied to 
 
 ## 4. Readback verify with cache bypass (anti-bad-write)
 
-- After the write + `fsync(fd)`, **do not trust a plain read** — a readback can be served from the
-  block/page cache and falsely reassure. Force a durable-media read: `fsync` then either
-  `ioctl(BLKFLSBUF)` / drop caches, or re-`open` the block `O_RDONLY | O_DIRECT`, before reading the
-  written prefix and SHA-comparing to the source.
+Refined per web research (kernel writeback-cache docs + dm-devel): `ioctl(BLKFLSBUF)` alone is
+**insufficient** for a durable-commit check — it only drops the block device's page-cache dirty
+pages; it does NOT send a flush bio, so data may still sit in the device's volatile cache. Do both
+of the following instead:
+- **Write durability:** after the write, `fsync(fd)` on the block device (equivalent to a
+  `blkdev_issue_flush` / `REQ_PREFLUSH` — forces the device's volatile write cache to non-volatile
+  media). `dd … conv=fsync` already fsyncs per block; an explicit final `fsync(fd)` is the belt.
+- **Readback correctness:** **re-open the block `O_RDONLY | O_DIRECT`** and read the written prefix
+  from the device (bypassing the page cache), then SHA-compare to the source. Do NOT rely on
+  `BLKFLSBUF` + a plain buffered read — that can be served stale from cache and falsely reassure.
 - **On mismatch, do NOT reboot.** Stay in native-init (retry or TWRP fallback possible). Never reboot
   into an unverified boot partition.
+
+Prior art (mechanism is established, not novel): Magisk's on-device boot patching and the
+`fastbootx` Magisk module both manage the boot partition from a running rooted system via `dd`
+(+`bootctl` on A/B); Magisk backs up stock boot before patching (our v2321 is that known-good
+backup). This corroborates the review's "normally feasible, Magisk-class" assessment — the residual
+risk is the platform-specific RKP reaction (§0.2), not the dd mechanism itself.
 
 ## 5. Rollback-safety ordering (the most safety-critical path)
 
