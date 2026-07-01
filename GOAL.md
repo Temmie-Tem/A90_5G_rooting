@@ -96,6 +96,62 @@ only, never a native-init runtime dependency. Full history (AUD-0 → AUD-5, V23
 > the rollback-gate, the recoverable envelope, and "fails-twice → stop" all stay ON. If a candidate
 > needs a behavior-changing call to be provable, it is OUT, not a reason to weaken the gate.
 
+## ✅ DONE — REPL VFS open-file-limit live-call proof — `get_max_files()` promoted
+
+> ### ✅ STATUS (2026-07-01 live-proven, rolled back cleanly) — no-arg VFS state getter
+>
+> Codex selected `get_max_files` as a VFS kernel-state observation target
+> rather than another generic helper. It extends the function map with a
+> read-only query for the kernel open-file table limit:
+> `extern unsigned long get_max_files(void)` from `include/linux/fs.h:71`.
+>
+> Static selection pinned `get_max_files=0xffffff800829005c` via
+> `export-recovery` with map agreement, a single export candidate, direct BL
+> xrefs `1`, and JOPP entry. The C1 gate classifies it as `SAFE-SCALAR`;
+> source/ABI contract is no pointer args. The static implementation check
+> verified `fs/file_table.c` contains `get_max_files(void)` returning
+> `files_stat.max_files`. The next-symbol boundary is `proc_nr_files` at
+> `+0x18`; the 6-word body and final `0x00be7bad` boundary guard were pinned.
+>
+> The live proof obeyed the flash gate: rollback/fallback/TWRP artifacts were
+> confirmed, baseline v2321 `version/status/selftest` passed, the exact
+> v1-repl candidate (`b846ae9f74d8ceb922bbcd854d78b6795ef833d61e38465d3cc474cb6f0dfb65`)
+> flashed through `native_init_flash.py` with matching pushed-image and
+> readback SHA, and candidate helper health passed. The first explicit
+> candidate health attempt hit serial `cmdv1AT` framing noise after `hide`;
+> the sequential retry passed `hide/version/status/selftest`.
+>
+> The first proof attempt failed before any target call because `--source-root`
+> pointed at the parent `workspace/private/inputs/kernel_source`, so the
+> implementation check could not read `fs/file_table.c`. The successful retry
+> used the concrete
+> `workspace/private/inputs/kernel_source/SM-A908N_KOR_12_Opensource/Kernel`
+> root. Two no-argument live calls then both returned `0x71c6a`, positive,
+> below the conservative sane bound, and stable across the short repeat. Raw
+> runtime pointers and the slide stayed private/redacted.
+>
+> Post-proof `hide/status/selftest` passed with `selftest pass=11 warn=1
+> fail=0` and `pstore entries=0`. Rollback to v2321 completed with matching
+> readback SHA. Final explicit health first showed the `version` body but lost
+> the END marker to serial framing noise; a later sequential
+> `hide/version/status/selftest` retry passed and confirmed resident
+> `v2321-usb-clean-identity-rodata`.
+>
+> Timing was recorded per the 2026-07-01 timing rule in
+> `workspace/private/runs/kernel/live-call-proof-get-max-files-20260701T054248Z/timeline.json`:
+> candidate flash helper `65.663s`, candidate flash start to boot ready `66s`,
+> candidate explicit health initial `12.567s`, candidate explicit health retry
+> `6.691s`, live proof initial `2.666s`, live proof retry `5.410s`,
+> post-proof health `1.231s`, rollback flash helper `64.683s`, rollback flash
+> start to boot ready `65s`, final health initial `12.346s`, final health
+> retry `6.684s`, and candidate start to final health done approximately
+> `274s`. The helper/start-to-boot rows are not additive; all serial bridge
+> commands in this unit were sequential.
+>
+> Function-map outcome: `get_max_files` is promoted as live-proven only under
+> the no-argument read-only VFS open-file-limit contract. Report:
+> `docs/reports/KERNEL_SECURITY_TIER2_RUNTIME_KERNEL_REPL_LIVE_CALL_PROOF_GET_MAX_FILES_2026-07-01.md`.
+
 ## ✅ DONE — REPL memory-state result-slot live-call proof — `si_meminfo()` promoted
 
 > ### ✅ STATUS (2026-07-01 live-proven, rolled back cleanly) — owned `struct sysinfo` result slot
