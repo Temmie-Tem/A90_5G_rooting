@@ -1468,6 +1468,18 @@ CALL_SAFETY_SEEDS = {
         "return_kind": "borrowed-struct-pid-pointer-or-null",
         "reason": "borrowed scalar+namespace pid lookup; not globally auto-callable, only target-specific namespace anchor proofs may call it",
     },
+    "find_task_by_pid_ns": {
+        "tier": CALL_SAFETY_DENY,
+        "required_valid_pointer_args": {1: "pid-namespace-from-owned-pid-anchor"},
+        "return_kind": "borrowed-task-struct-pointer-or-null",
+        "reason": "borrowed scalar+namespace task lookup; not globally auto-callable, only target-specific namespace anchor proofs may call it",
+    },
+    "find_task_by_vpid": {
+        "tier": CALL_SAFETY_DENY,
+        "required_valid_pointer_args": {},
+        "return_kind": "borrowed-task-struct-pointer-or-null",
+        "reason": "borrowed scalar virtual-pid task lookup; not globally auto-callable, only target-specific current-namespace proofs may call it",
+    },
     "find_get_pid": {
         "tier": CALL_SAFETY_DENY,
         "required_valid_pointer_args": {},
@@ -1700,19 +1712,21 @@ def op_sh(buf: bytes, busybox: str = DEFAULT_BUSYBOX, *, tail_lines: int = 60,
     between the write and the read.
 
     Notes pinned from live A90 behaviour:
-    - busybox `dmesg` here is read-and-CLEAR (consuming), so each op reads a
-      fresh ring that already contains the record our write just produced.
+    - busybox `dmesg` here is read-and-CLEAR (consuming), so drain stale records
+      before the write, then read a fresh ring that contains the record our write
+      just produced.
     - the read is bounded with `tail -n N` because the native-init `run` console
       capture truncates long output; a raw unbounded `dmesg` loses the trailing
       `A90R` line in the boot-log flood.
     The newest `A90R` line is ours: the write we just issued is the most recent
     producer."""
+    drain = "dmesg >/dev/null 2>/dev/null"
     write = f"printf '{printf_octal(buf)}' > {node}"
     # No trailing `tail -1`: a `call` prints two A90R lines (the called function's
     # output and the stub's return value), and the call proof must see both.
     # Single-output ops just take the newest value host-side.
     read = f"dmesg | tail -n {int(tail_lines)} | grep -a A90R"
-    return f"{write}; {read}"
+    return f"{drain}; {write}; {read}"
 
 
 def parse_a90r_values(text: str) -> list[int]:
@@ -4221,6 +4235,8 @@ _SOURCE_HEADER_HINTS_BY_EXACT_SYMBOL = {
     "get_task_pid": ("include/linux/pid.h",),
     "pid_task": ("include/linux/pid.h",),
     "find_pid_ns": ("include/linux/pid.h",),
+    "find_task_by_pid_ns": ("include/linux/sched.h",),
+    "find_task_by_vpid": ("include/linux/sched.h",),
     "find_get_pid": ("include/linux/pid.h",),
     "find_vpid": ("include/linux/pid.h",),
     "put_pid": ("include/linux/pid.h",),
@@ -6243,6 +6259,18 @@ CALL_PROOF_TARGETS = {
         "expected_tier": CALL_SAFETY_SAFE_WITH_VALID_PTR,
         "source_signature": "extern struct pid * find_pid_ns(int nr, struct pid_namespace *ns)",
     },
+    "find_task_by_pid_ns": {
+        "input_contract": "scalar PID number 1 plus the pid namespace pointer directly observed from an owned find_get_pid(1) anchor; proof treats find_task_by_pid_ns return as borrowed and keeps the anchor owned until put_pid cleanup",
+        "return_contract": "struct task_struct * return is sane, has task->thread_pid equal to the owned PID 1 anchor, does not change the observed pid refcount, and the anchor ref is balanced with put_pid",
+        "expected_tier": CALL_SAFETY_SAFE_WITH_VALID_PTR,
+        "source_signature": "extern struct task_struct * find_task_by_pid_ns(pid_t nr, struct pid_namespace *ns)",
+    },
+    "find_task_by_vpid": {
+        "input_contract": "scalar PID number 1 only; proof first obtains an owned find_get_pid(1) reference as a stable cross-check pointer, then calls find_task_by_vpid(1) and treats the returned task pointer as borrowed",
+        "return_contract": "struct task_struct * return is sane, has task->thread_pid equal to the owned PID 1 anchor, does not change the observed pid refcount, and the anchor ref is balanced with put_pid",
+        "expected_tier": CALL_SAFETY_SAFE_SCALAR,
+        "source_signature": "extern struct task_struct * find_task_by_vpid(pid_t nr)",
+    },
     "find_get_pid": {
         "input_contract": "scalar PID number 1 only; two consecutive lookups must return the same sane struct pid pointer, and both returned references are always balanced with put_pid before proof exit",
         "return_contract": "struct pid * return has embedded pid number 1, second find_get_pid call raises the observed refcount by one, and two put_pid cleanups step the refcount back down",
@@ -8066,6 +8094,49 @@ FIND_PID_NS_EXPECTED_WORDS = (
     0xD1012100, 0xD65F03C0, 0xD503201F, 0x00BE7BAD,
 )
 FIND_PID_NS_NEXT_SYMBOL = ("find_vpid", 0x90)
+FIND_TASK_BY_PID_NS_PROOF_NR = FIND_VPID_PROOF_NR
+FIND_TASK_BY_PID_NS_EXPECTED_PID_NR = FIND_VPID_EXPECTED_PID_NR
+FIND_TASK_BY_PID_NS_PID_COUNT_OFFSET = FIND_VPID_PID_COUNT_OFFSET
+FIND_TASK_BY_PID_NS_PID_LEVEL_OFFSET = FIND_VPID_PID_LEVEL_OFFSET
+FIND_TASK_BY_PID_NS_PID_NUMBERS_NR_OFFSET = FIND_VPID_PID_NUMBERS_NR_OFFSET
+FIND_TASK_BY_PID_NS_PID_NUMBERS_NS_OFFSET = FIND_PID_NS_PID_NUMBERS_NS_OFFSET
+FIND_TASK_BY_PID_NS_PID_NUMBERS_LEVEL_SHIFT = FIND_VPID_PID_NUMBERS_LEVEL_SHIFT
+FIND_TASK_BY_PID_NS_TASK_THREAD_PID_OFFSET = TASK_ACTIVE_PID_NS_THREAD_PID_OFFSET
+FIND_TASK_BY_PID_NS_EXPECTED_WORDS = (
+    0x90015B08, 0xD2907D6B, 0xF2B016AB, 0xF00171C9,
+    0xF2D0C8CB, 0x8B20C02A, 0xB94C5D08, 0xF2EC390B,
+    0xF9455529, 0x9B0B7D4A, 0x4B0803E8, 0x9AC82548,
+    0xF8685929, 0xD1004128, 0xF100013F, 0xFA401904,
+    0x54000101, 0xAA1F03E0, 0xD65F03C0, 0xF9400908,
+    0xD1004109, 0xF100011F, 0x9A8903E8, 0xB4FFFF48,
+    0xB9400109, 0x6B00013F, 0x54FFFF21, 0xF9400509,
+    0xEB01013F, 0x54FFFEC1, 0xB9483029, 0xCB091508,
+    0xF1012108, 0x54FFFE00, 0xF9400508, 0xB4FFFDC8,
+    0xD11C4100, 0xD65F03C0, 0xD503201F, 0x00BE7BAD,
+)
+FIND_TASK_BY_PID_NS_NEXT_SYMBOL = ("find_task_by_vpid", 0xA0)
+FIND_TASK_BY_VPID_PROOF_NR = FIND_VPID_PROOF_NR
+FIND_TASK_BY_VPID_EXPECTED_PID_NR = FIND_VPID_EXPECTED_PID_NR
+FIND_TASK_BY_VPID_PID_COUNT_OFFSET = FIND_VPID_PID_COUNT_OFFSET
+FIND_TASK_BY_VPID_PID_LEVEL_OFFSET = FIND_VPID_PID_LEVEL_OFFSET
+FIND_TASK_BY_VPID_PID_NUMBERS_NR_OFFSET = FIND_VPID_PID_NUMBERS_NR_OFFSET
+FIND_TASK_BY_VPID_PID_NUMBERS_LEVEL_SHIFT = FIND_VPID_PID_NUMBERS_LEVEL_SHIFT
+FIND_TASK_BY_VPID_TASK_THREAD_PID_OFFSET = TASK_ACTIVE_PID_NS_THREAD_PID_OFFSET
+FIND_TASK_BY_VPID_EXPECTED_WORDS = (
+    0xD5384108, 0xF9439108, 0xB4000088, 0xB9400509,
+    0x8B091508, 0xF9402908, 0x90015B09, 0xD2907D6C,
+    0xF2B016AC, 0xF00171CA, 0xF2D0C8CC, 0x8B20C10B,
+    0xB94C5D29, 0xF2EC390C, 0xF945554A, 0x9B0C7D6B,
+    0x4B0903E9, 0x9AC92569, 0xF869594A, 0xD1004149,
+    0xF100015F, 0xFA401924, 0x54000101, 0xAA1F03E0,
+    0xD65F03C0, 0xF9400929, 0xD100412A, 0xF100013F,
+    0x9A8A03E9, 0xB4FFFF49, 0xB940012A, 0x6B00015F,
+    0x54FFFF21, 0xF940052A, 0xEB08015F, 0x54FFFEC1,
+    0xB9483108, 0xCB081528, 0xF1012108, 0x54FFFE00,
+    0xF9400508, 0xB4FFFDC8, 0xD11C4100, 0xD65F03C0,
+    0xD503201F, 0x00BE7BAD,
+)
+FIND_TASK_BY_VPID_NEXT_SYMBOL = ("get_task_pid", 0xB8)
 FIND_GET_PID_PROOF_NR = 1
 FIND_GET_PID_EXPECTED_PID_NR = 1
 FIND_GET_PID_PID_COUNT_OFFSET = GET_TASK_PID_PID_COUNT_OFFSET
@@ -31640,6 +31711,579 @@ def _run_call_proof_pid_task(
     return summary, private
 
 
+def _run_call_proof_find_task_lookup(
+    session: ReplSession,
+    symbols: dict[str, Symbol],
+    image: StaticImage,
+    *,
+    target: str,
+    source_root: Path,
+) -> tuple[dict[str, object], dict[str, object]]:
+    if target not in ("find_task_by_pid_ns", "find_task_by_vpid"):
+        raise ReplError(f"unsupported task lookup target {target!r}")
+    anchor_symbol = "find_get_pid"
+    cleanup_symbol = "put_pid"
+    uses_namespace = target == "find_task_by_pid_ns"
+    proof_pid_nr = (
+        FIND_TASK_BY_PID_NS_PROOF_NR
+        if uses_namespace else FIND_TASK_BY_VPID_PROOF_NR
+    )
+    expected_pid_nr = (
+        FIND_TASK_BY_PID_NS_EXPECTED_PID_NR
+        if uses_namespace else FIND_TASK_BY_VPID_EXPECTED_PID_NR
+    )
+    pid_count_offset = (
+        FIND_TASK_BY_PID_NS_PID_COUNT_OFFSET
+        if uses_namespace else FIND_TASK_BY_VPID_PID_COUNT_OFFSET
+    )
+    pid_level_offset = (
+        FIND_TASK_BY_PID_NS_PID_LEVEL_OFFSET
+        if uses_namespace else FIND_TASK_BY_VPID_PID_LEVEL_OFFSET
+    )
+    pid_numbers_nr_offset = (
+        FIND_TASK_BY_PID_NS_PID_NUMBERS_NR_OFFSET
+        if uses_namespace else FIND_TASK_BY_VPID_PID_NUMBERS_NR_OFFSET
+    )
+    pid_numbers_level_shift = (
+        FIND_TASK_BY_PID_NS_PID_NUMBERS_LEVEL_SHIFT
+        if uses_namespace else FIND_TASK_BY_VPID_PID_NUMBERS_LEVEL_SHIFT
+    )
+    task_thread_pid_offset = (
+        FIND_TASK_BY_PID_NS_TASK_THREAD_PID_OFFSET
+        if uses_namespace else FIND_TASK_BY_VPID_TASK_THREAD_PID_OFFSET
+    )
+    expected_words = (
+        FIND_TASK_BY_PID_NS_EXPECTED_WORDS
+        if uses_namespace else FIND_TASK_BY_VPID_EXPECTED_WORDS
+    )
+    next_symbol_name, expected_boundary = (
+        FIND_TASK_BY_PID_NS_NEXT_SYMBOL
+        if uses_namespace else FIND_TASK_BY_VPID_NEXT_SYMBOL
+    )
+    expected_pointer_indices = [1] if uses_namespace else []
+    expected_arg_memory_sources = {1} if uses_namespace else set()
+    proof_status = (
+        "trusted-under-scalar-namespace-task-borrowed-pointer-contract"
+        if uses_namespace else
+        "trusted-under-current-namespace-task-borrowed-pointer-contract"
+    )
+
+    source = lookup_source_signature(target, source_root=source_root)
+    anchor_source = lookup_source_signature(anchor_symbol, source_root=source_root)
+    cleanup_source = lookup_source_signature(cleanup_symbol, source_root=source_root)
+    call_safety_gate = classify_call_safety(
+        symbols,
+        image,
+        target,
+        include_objdump=False,
+    )
+    advisory = _call_safety_advisory_from_source(call_safety_gate, source)
+    anchor_gate = classify_call_safety(
+        symbols,
+        image,
+        anchor_symbol,
+        include_objdump=False,
+    )
+    anchor_advisory = _call_safety_advisory_from_source(anchor_gate, anchor_source)
+    if call_safety_gate.get("tier") != CALL_SAFETY_DENY:
+        raise ReplError(f"{target} must stay outside the global auto-call gate")
+    if call_safety_gate.get("auto_call_allowed"):
+        raise ReplError(f"{target} unexpectedly became globally auto-callable")
+    if not call_safety_gate.get("vetted_seed_whitelist"):
+        raise ReplError(f"{target} must remain explicitly fenced by a DENY seed")
+    if source.get("pointer_arg_indices") != expected_pointer_indices:
+        raise ReplError(f"{target} source pointer args are not the expected contract")
+    selected_signature = (
+        source.get("selected", {}).get("signature")
+        if isinstance(source.get("selected"), dict) else None
+    )
+    if selected_signature != CALL_PROOF_TARGETS[target]["source_signature"]:
+        raise ReplError(f"{target} source signature did not select the sched.h declaration")
+    if anchor_gate.get("tier") != CALL_SAFETY_DENY or not anchor_gate.get("vetted_seed_whitelist"):
+        raise ReplError(f"{anchor_symbol} anchor must remain explicitly fenced by a DENY seed")
+    if anchor_advisory.get("tier") != CALL_SAFETY_CONTEXT_SENSITIVE:
+        raise ReplError(f"{anchor_symbol} anchor advisory must remain CONTEXT-SENSITIVE")
+    if "context-sensitive-disasm-call" not in anchor_advisory.get("blocking_danger_flags", []):
+        raise ReplError(f"{anchor_symbol} anchor advisory did not retain the RCU/context-sensitive block")
+    anchor_signature = (
+        anchor_source.get("selected", {}).get("signature")
+        if isinstance(anchor_source.get("selected"), dict) else None
+    )
+    if anchor_signature != CALL_PROOF_TARGETS[anchor_symbol]["source_signature"]:
+        raise ReplError(f"{anchor_symbol} source signature did not select the pid.h declaration")
+    cleanup_signature = (
+        cleanup_source.get("selected", {}).get("signature")
+        if isinstance(cleanup_source.get("selected"), dict) else None
+    )
+    if not cleanup_source.get("found") or cleanup_source.get("pointer_arg_indices") != [0]:
+        raise ReplError(f"{cleanup_symbol} source signature must declare x0 as a pid* pointer")
+    if cleanup_signature != "extern void put_pid(struct pid *pid)":
+        raise ReplError(f"{cleanup_symbol} source signature did not select the pid.h declaration")
+
+    resolutions = {
+        target: resolve_verified(
+            symbols,
+            image,
+            target,
+            purpose="call",
+            allow_pre_arg_deref=uses_namespace,
+        ),
+        anchor_symbol: resolve_verified(symbols, image, anchor_symbol, purpose="call"),
+        cleanup_symbol: resolve_verified(
+            symbols,
+            image,
+            cleanup_symbol,
+            purpose="call",
+            allow_pre_arg_deref=True,
+        ),
+    }
+    target_link = resolutions[target].link_vaddr
+    if target_link is None:
+        raise ReplError(f"{target} missing map link address")
+    target_symbol = symbols.get(target)
+    if target_symbol is None or not _map_kind_is_function(target_symbol.kind):
+        raise ReplError(f"{target} System.map entry is not a function symbol")
+    if target_symbol.vaddr != target_link:
+        raise ReplError(f"{target} resolver/map link mismatch")
+    anchor_link = require_verified_resolution(resolutions[anchor_symbol], "call-proof anchor")
+    cleanup_link = require_verified_resolution(resolutions[cleanup_symbol], "call-proof cleanup")
+
+    next_symbol = symbols.get(next_symbol_name)
+    if next_symbol is None or next_symbol.vaddr - target_link != expected_boundary:
+        raise ReplError(f"{target} next-symbol boundary is not the expected 0x{expected_boundary:x}")
+    anchor_next_symbol_name, anchor_expected_boundary = FIND_GET_PID_NEXT_SYMBOL
+    anchor_next_symbol = symbols.get(anchor_next_symbol_name)
+    if anchor_next_symbol is None or anchor_next_symbol.vaddr - anchor_link != anchor_expected_boundary:
+        raise ReplError(
+            f"{anchor_symbol} next-symbol boundary is not the expected 0x{anchor_expected_boundary:x}"
+        )
+    cleanup_next_symbol_name, cleanup_expected_boundary = PUT_PID_NEXT_SYMBOL
+    cleanup_next_symbol = symbols.get(cleanup_next_symbol_name)
+    if cleanup_next_symbol is None or cleanup_next_symbol.vaddr - cleanup_link != cleanup_expected_boundary:
+        raise ReplError(
+            f"{cleanup_symbol} next-symbol boundary is not the expected "
+            f"0x{cleanup_expected_boundary:x}"
+        )
+
+    target_words = image.u32_words_at_vaddr(target_link, len(expected_words))
+    anchor_words = image.u32_words_at_vaddr(anchor_link, len(FIND_GET_PID_EXPECTED_WORDS))
+    cleanup_words = image.u32_words_at_vaddr(cleanup_link, len(PUT_PID_EXPECTED_WORDS))
+    signals = call_safety_gate.get("signals", {})
+    anchor_signals = anchor_gate.get("signals", {})
+    if not isinstance(signals, dict) or not isinstance(anchor_signals, dict):
+        raise ReplError(f"{target} classifier signals missing")
+    anchor_bl_targets = anchor_signals.get("bl_targets_sample", [])
+    anchor_bl_target_symbols = [
+        str(
+            item.get("nearest_symbol", {}).get("symbol")
+            if isinstance(item, dict) and isinstance(item.get("nearest_symbol"), dict)
+            else ""
+        )
+        for item in anchor_bl_targets
+    ]
+    taint_flow = signals.get("arg_taint_flow", {})
+    arg_memory_sources = set(advisory.get("arg_memory_source_indices", []))
+    safe_scalar_flow = (
+        isinstance(taint_flow, dict)
+        and bool(taint_flow.get("safe_scalar_positive_no_arg_memory_base_flow"))
+    )
+    xref_min = 5 if uses_namespace else 49
+    xref_count = int(signals.get("direct_bl_xref_count", 0) or 0)
+    checks: list[dict[str, object]] = [
+        {
+            "check": "static-map-entry-identity",
+            "ok": True,
+            "target": target,
+            "resolution_method": resolutions[target].method,
+            "resolution_verified": resolutions[target].verified,
+            "identity_note": "map function entry plus exact words and next-symbol boundary; generic C1 export recovery remains unavailable",
+        },
+        {
+            "check": "static-anchor-c1-identity",
+            "ok": True,
+            "target": anchor_symbol,
+            "resolution_method": resolutions[anchor_symbol].method,
+        },
+        {
+            "check": "static-cleanup-c1-identity",
+            "ok": True,
+            "target": cleanup_symbol,
+            "resolution_method": resolutions[cleanup_symbol].method,
+        },
+        {
+            "check": "static-next-symbol-boundary",
+            "ok": True,
+            "next_symbol": next_symbol_name,
+            "byte_size": f"0x{expected_boundary:x}",
+        },
+        {
+            "check": "static-anchor-next-symbol-boundary",
+            "ok": True,
+            "next_symbol": anchor_next_symbol_name,
+            "byte_size": f"0x{anchor_expected_boundary:x}",
+        },
+        {
+            "check": "static-cleanup-next-symbol-boundary",
+            "ok": True,
+            "next_symbol": cleanup_next_symbol_name,
+            "byte_size": f"0x{cleanup_expected_boundary:x}",
+        },
+        {
+            "check": "static-source-contract",
+            "ok": True,
+            "signature": selected_signature,
+            "pointer_arg_indices": source.get("pointer_arg_indices", []),
+            "anchor_signature": anchor_signature,
+            "cleanup_signature": cleanup_signature,
+            "cleanup_pointer_arg_indices": cleanup_source.get("pointer_arg_indices", []),
+            "source_note": (
+                "sched.h declares task lookup helpers; proof fixes nr=1, uses "
+                "find_get_pid as the owned cross-check anchor, and treats task return as borrowed"
+            ),
+        },
+        {
+            "check": "static-target-specific-call-safety-contract",
+            "ok": True,
+            "global_gate_tier": call_safety_gate.get("tier"),
+            "global_gate_auto_call_allowed": call_safety_gate.get("auto_call_allowed"),
+            "global_gate_seeded": call_safety_gate.get("seeded"),
+            "raw_advisory_tier": advisory.get("tier"),
+            "raw_advisory_blocking_flags": advisory.get("blocking_danger_flags", []),
+            "proof_specific_expected_tier": CALL_PROOF_TARGETS[target]["expected_tier"],
+            "proof_specific_gate_note": "manual target proof only; does not mutate global auto-call gate",
+            "anchor_gate_tier": anchor_gate.get("tier"),
+            "anchor_advisory_tier": anchor_advisory.get("tier"),
+        },
+        {
+            "check": "static-target-leaf-no-callee",
+            "ok": signals.get("leaf") is True and signals.get("bl_count_in_scan") == 0,
+            "leaf": signals.get("leaf"),
+            "bl_count_in_scan": signals.get("bl_count_in_scan"),
+        },
+        {
+            "check": "static-target-direct-bl-xrefs",
+            "ok": xref_count >= xref_min,
+            "direct_bl_xref_count": xref_count,
+            "minimum": xref_min,
+        },
+        {
+            "check": "static-target-arg-memory-flow",
+            "ok": (
+                arg_memory_sources == expected_arg_memory_sources
+                and (uses_namespace or safe_scalar_flow)
+            ),
+            "arg_memory_source_indices": sorted(arg_memory_sources),
+            "source_pointer_indices": source.get("pointer_arg_indices", []),
+            "safe_scalar_positive_no_arg_memory_base_flow": safe_scalar_flow,
+            "arg_memory_base_use_count": (
+                taint_flow.get("arg_memory_base_use_count")
+                if isinstance(taint_flow, dict) else None
+            ),
+        },
+        {
+            "check": "static-anchor-rcu-callee-pair",
+            "ok": tuple(anchor_bl_target_symbols[:2]) == FIND_GET_PID_EXPECTED_BL_TARGETS,
+            "expected_callees": list(FIND_GET_PID_EXPECTED_BL_TARGETS),
+            "observed_callees": anchor_bl_target_symbols[:2],
+        },
+    ]
+    for index, expected in enumerate(expected_words):
+        observed = target_words[index]
+        ok = observed == expected
+        checks.append({
+            "check": f"static-{target}-word-{index:02d}",
+            "ok": ok,
+            "expected_word": f"0x{expected:08x}",
+            "observed_word": f"0x{observed:08x}",
+        })
+        if not ok:
+            raise ReplError(
+                f"{target} word {index} mismatch: observed 0x{observed:08x}, "
+                f"expected 0x{expected:08x}"
+            )
+    for index, expected in enumerate(FIND_GET_PID_EXPECTED_WORDS):
+        observed = anchor_words[index]
+        ok = observed == expected
+        checks.append({
+            "check": f"static-{anchor_symbol}-word-{index:02d}",
+            "ok": ok,
+            "expected_word": f"0x{expected:08x}",
+            "observed_word": f"0x{observed:08x}",
+        })
+        if not ok:
+            raise ReplError(
+                f"{anchor_symbol} word {index} mismatch: observed 0x{observed:08x}, "
+                f"expected 0x{expected:08x}"
+            )
+    for index, expected in enumerate(PUT_PID_EXPECTED_WORDS):
+        observed = cleanup_words[index]
+        ok = observed == expected
+        checks.append({
+            "check": f"static-{cleanup_symbol}-word-{index:02d}",
+            "ok": ok,
+            "expected_word": f"0x{expected:08x}",
+            "observed_word": f"0x{observed:08x}",
+        })
+        if not ok:
+            raise ReplError(
+                f"{cleanup_symbol} word {index} mismatch: observed 0x{observed:08x}, "
+                f"expected 0x{expected:08x}"
+            )
+    if not all(bool(check.get("ok")) for check in checks):
+        raise ReplError(f"{target} static target-specific gate failed")
+
+    private: dict[str, object] = {}
+    slide = 0
+    anchor_pid = 0
+    observed_namespace = 0
+    returned_task = 0
+    observed_task_thread_pid = 0
+    pid_level = 0
+    embedded_pid_nr = 0
+    refcount_after_anchor = 0
+    refcount_after_target = 0
+    refcount_after_put = 0
+    cleanup_attempted = False
+    cleanup_ok = False
+    cleanup_error = ""
+    validation_error = ""
+    case_results: list[dict[str, object]] = []
+
+    session.hide()
+    session.set_panic_on_oops(0)
+    try:
+        slide = session.slide()
+        if slide & 0xFFF:
+            raise ReplError("slide is not page-aligned; refusing to proceed")
+        target_runtime = (target_link + slide) & MASK64
+        anchor_runtime = (anchor_link + slide) & MASK64
+        cleanup_runtime = (cleanup_link + slide) & MASK64
+
+        anchor_pid = session.call_runtime(anchor_runtime, (proof_pid_nr,)) & MASK64
+        anchor_sane = _kernel_vaddr_sane(anchor_pid)
+        if not anchor_sane:
+            validation_error = f"{anchor_symbol}({proof_pid_nr}) returned 0x{anchor_pid:x}"
+        if not validation_error:
+            pid_level = session.peek_runtime(anchor_pid + pid_level_offset, 4) & 0xFFFFFFFF
+            if pid_level > PID_NR_NS_MAX_LEVEL:
+                validation_error = f"{anchor_symbol} returned pid level outside proof bound: 0x{pid_level:x}"
+        if not validation_error:
+            embedded_pid_nr = session.peek_runtime(
+                anchor_pid + pid_numbers_nr_offset + (pid_level << pid_numbers_level_shift),
+                4,
+            ) & 0xFFFFFFFF
+            if embedded_pid_nr != expected_pid_nr:
+                validation_error = (
+                    f"{anchor_symbol} returned pid number 0x{embedded_pid_nr:x}, "
+                    f"expected 0x{expected_pid_nr:x}"
+                )
+        if uses_namespace and not validation_error:
+            observed_namespace = session.peek_runtime(
+                anchor_pid
+                + FIND_TASK_BY_PID_NS_PID_NUMBERS_NS_OFFSET
+                + (pid_level << FIND_TASK_BY_PID_NS_PID_NUMBERS_LEVEL_SHIFT),
+                8,
+            ) & MASK64
+            if not _kernel_vaddr_sane(observed_namespace):
+                validation_error = (
+                    f"{anchor_symbol} anchor namespace pointer is not sane: "
+                    f"0x{observed_namespace:x}"
+                )
+        if not validation_error:
+            refcount_after_anchor = session.peek_runtime(
+                anchor_pid + pid_count_offset,
+                4,
+            ) & 0xFFFFFFFF
+            if refcount_after_anchor <= 1:
+                validation_error = (
+                    f"{anchor_symbol} returned pid refcount is too low for post-cleanup observation: "
+                    f"{refcount_after_anchor}"
+                )
+        checks.append({
+            "check": "find-get-pid-anchor-contract",
+            "ok": not validation_error,
+            "proof_pid_nr": proof_pid_nr,
+            "observed_return_value": (
+                "redacted-owned-pid-ref-pointer" if anchor_sane else f"0x{anchor_pid:x}"
+            ),
+            "anchor_sane_kernel_pointer": anchor_sane,
+            "pid_level": pid_level,
+            "embedded_pid_nr": f"0x{embedded_pid_nr:x}",
+            "namespace_pointer": "redacted-pid-namespace-pointer" if uses_namespace else "n/a",
+            "refcount_after_anchor": refcount_after_anchor,
+        })
+
+        if not validation_error:
+            call_args = (
+                (proof_pid_nr, observed_namespace)
+                if uses_namespace else
+                (proof_pid_nr,)
+            )
+            returned_task = session.call_runtime(target_runtime, call_args) & MASK64
+            task_sane = _kernel_vaddr_sane(returned_task)
+            if not task_sane:
+                validation_error = f"{target} returned 0x{returned_task:x}"
+            else:
+                observed_task_thread_pid = session.peek_runtime(
+                    returned_task + task_thread_pid_offset,
+                    8,
+                ) & MASK64
+                if observed_task_thread_pid != anchor_pid:
+                    validation_error = (
+                        f"{target} returned task with thread_pid 0x{observed_task_thread_pid:x}, "
+                        "expected the anchor pid"
+                    )
+                refcount_after_target = session.peek_runtime(
+                    anchor_pid + pid_count_offset,
+                    4,
+                ) & 0xFFFFFFFF
+                if not validation_error and refcount_after_target != refcount_after_anchor:
+                    validation_error = (
+                        f"{target} changed pid refcount: "
+                        f"anchor={refcount_after_anchor} after={refcount_after_target}"
+                    )
+            checks.append({
+                "check": f"{target}-borrowed-task-return-contract",
+                "ok": not validation_error,
+                "observed_return_value": (
+                    "redacted-borrowed-task-pointer" if task_sane else f"0x{returned_task:x}"
+                ),
+                "returned_sane_kernel_pointer": task_sane,
+                "task_thread_pid_matches_anchor": observed_task_thread_pid == anchor_pid,
+                "refcount_after_anchor": refcount_after_anchor,
+                f"refcount_after_{target}": refcount_after_target,
+            })
+
+        if anchor_pid and _kernel_vaddr_sane(anchor_pid):
+            cleanup_attempted = True
+            try:
+                session.call_runtime(cleanup_runtime, (anchor_pid,))
+                cleanup_ok = True
+                if refcount_after_anchor > 1:
+                    refcount_after_put = session.peek_runtime(
+                        anchor_pid + pid_count_offset,
+                        4,
+                    ) & 0xFFFFFFFF
+            except Exception as exc:  # noqa: BLE001 - cleanup failure must fail the proof
+                cleanup_error = str(exc)
+        if cleanup_error:
+            raise ReplError(f"{cleanup_symbol} cleanup failed after {anchor_symbol}: {cleanup_error}")
+        cleanup_restored = cleanup_ok and refcount_after_put + 1 == refcount_after_anchor
+        checks.append({
+            "check": "put-pid-anchor-refcount-restore",
+            "ok": cleanup_restored,
+            "cleanup_attempted": cleanup_attempted,
+            "cleanup_ok": cleanup_ok,
+            "refcount_after_anchor": refcount_after_anchor,
+            f"refcount_after_{target}": refcount_after_target,
+            "refcount_after_put": refcount_after_put,
+        })
+        if validation_error:
+            raise ReplError(validation_error)
+        if not cleanup_restored:
+            raise ReplError(
+                f"{cleanup_symbol} did not restore anchor pid refcount: "
+                f"anchor={refcount_after_anchor} after_{target}={refcount_after_target} "
+                f"after_put={refcount_after_put}"
+            )
+        case_results.append({
+            "case": f"pid-1-{target}-borrowed-task-cross-check",
+            "expected_return_value": "task-with-thread-pid-matching-anchor-redacted",
+            "observed_return_value": "redacted-borrowed-task-pointer",
+            "embedded_pid_nr": f"0x{embedded_pid_nr:x}",
+            "namespace_pointer": "redacted-pid-namespace-pointer" if uses_namespace else "n/a",
+            "task_thread_pid_matches_anchor": observed_task_thread_pid == anchor_pid,
+            "refcount_after_anchor": refcount_after_anchor,
+            f"refcount_after_{target}": refcount_after_target,
+            "refcount_after_put": refcount_after_put,
+            "cleanup_attempted": cleanup_attempted,
+            "cleanup_ok": cleanup_ok,
+            "ok": cleanup_restored,
+        })
+    finally:
+        session.set_panic_on_oops(1)
+
+    checks.append({
+        "check": f"{target}-borrowed-task-contract",
+        "ok": bool(case_results) and all(bool(case.get("ok")) for case in case_results),
+        "case_count": len(case_results),
+        "cases": case_results,
+    })
+    passed = all(bool(check.get("ok")) for check in checks)
+    summary = {
+        "decision": f"a90-repl-live-call-proof-{target}-{'pass' if passed else 'fail'}",
+        "ok": passed,
+        "target": target,
+        "proof_status": proof_status if passed else "failed",
+        "input_contract": CALL_PROOF_TARGETS[target]["input_contract"],
+        "return_contract": CALL_PROOF_TARGETS[target]["return_contract"],
+        "case_results": case_results,
+        "proof_pid_nr": proof_pid_nr,
+        "observed_embedded_pid_nr": f"0x{embedded_pid_nr:x}",
+        "observed_return_value": "redacted-borrowed-task-pointer",
+        "namespace_pointer_redacted": uses_namespace,
+        "task_thread_pid_matches_anchor": observed_task_thread_pid == anchor_pid,
+        "refcount_after_anchor": refcount_after_anchor,
+        f"refcount_after_{target}": refcount_after_target,
+        "refcount_after_put_pid": refcount_after_put,
+        f"refcount_unchanged_by_{target}": refcount_after_target == refcount_after_anchor,
+        "refcount_restored_after_put_pid": refcount_after_put + 1 == refcount_after_anchor,
+        "cleanup_attempted": cleanup_attempted,
+        "cleanup_ok": cleanup_ok,
+        "source_evidence": _source_row_evidence(source),
+        "anchor_source_evidence": _source_row_evidence(anchor_source),
+        "cleanup_source_evidence": _source_row_evidence(cleanup_source),
+        "call_safety_gate": call_safety_gate,
+        "target_specific_call_safety": advisory,
+        "proof_specific_call_safety": {
+            "tier": CALL_PROOF_TARGETS[target]["expected_tier"],
+            "candidate_safe": True,
+            "proof_only": True,
+            "global_auto_call_allowed": False,
+            "identity_basis": "map entry plus exact words, next-symbol boundary, direct xrefs, and live cross-check",
+        },
+        "anchor_call_safety_gate": anchor_gate,
+        "anchor_target_specific_call_safety": anchor_advisory,
+        "resolutions": _redacted_resolution_set(resolutions),
+        "raw_runtime_values_redacted": True,
+        "borrowed_pointer_redacted": True,
+        "owned_pointer_redacted": True,
+        "checks": checks,
+        "function_map_entry": {
+            "symbol": target,
+            "status": "live-proven",
+            "trusted_input_contract": CALL_PROOF_TARGETS[target]["input_contract"],
+            "return_contract": CALL_PROOF_TARGETS[target]["return_contract"],
+            "observed_return_value": (
+                f"{target}(1"
+                + (", anchor namespace" if uses_namespace else "")
+                + ") returned a sane task pointer whose task->thread_pid equals "
+                "the owned PID 1 anchor without changing the pid refcount"
+            ),
+            "cleanup": "put_pid-anchor-ref-balanced-ok" if cleanup_ok else "cleanup-failed",
+            "auto_call_policy": "target-specific-proof-only-not-global-auto-call",
+        },
+    }
+    private.update({
+        "slide": f"0x{slide:x}",
+        f"{target}_runtime": f"0x{((target_link + slide) & MASK64):x}",
+        f"{anchor_symbol}_runtime": f"0x{((anchor_link + slide) & MASK64):x}",
+        f"{cleanup_symbol}_runtime": f"0x{((cleanup_link + slide) & MASK64):x}",
+        "anchor_pid_pointer": f"0x{anchor_pid:x}",
+        "observed_namespace_pointer": f"0x{observed_namespace:x}" if uses_namespace else "n/a",
+        "returned_task_pointer": f"0x{returned_task:x}",
+        "observed_task_thread_pid_pointer": f"0x{observed_task_thread_pid:x}",
+        "pid_level": pid_level,
+        "embedded_pid_nr": f"0x{embedded_pid_nr:x}",
+        "refcounts": {
+            "after_anchor": refcount_after_anchor,
+            f"after_{target}": refcount_after_target,
+            "after_put_pid": refcount_after_put,
+        },
+    })
+    return summary, private
+
+
 def _run_call_proof_find_vpid(
     session: ReplSession,
     symbols: dict[str, Symbol],
@@ -45632,6 +46276,14 @@ def run_call_proof(session: ReplSession,
             session,
             symbols,
             image,
+            source_root=source_root,
+        )
+    if target in ("find_task_by_pid_ns", "find_task_by_vpid"):
+        return _run_call_proof_find_task_lookup(
+            session,
+            symbols,
+            image,
+            target=target,
             source_root=source_root,
         )
     if target == "find_get_pid":

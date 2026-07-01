@@ -161,7 +161,7 @@ class LiveMathTests(unittest.TestCase):
         self.assertEqual(got, 0xDEADBEEF)
         # the write before the dmesg read must encode op=1 + the addr
         write_sh = fake.sent[0]
-        buf = decode_printf_octal(write_sh[len("printf '") : write_sh.index("'", len("printf '"))])
+        buf = _buf_from_op_sh(write_sh)
         self.assertEqual(buf[0x08], repl.OP_PEEK)
         self.assertEqual(struct.unpack_from("<Q", buf, 0x10)[0], 0xFFFFFF8008080000)
         self.assertEqual(struct.unpack_from("<Q", buf, 0x18)[0], 8)
@@ -176,7 +176,7 @@ class LiveMathTests(unittest.TestCase):
         ret = session.call_runtime(0xFFFFFF800813D8CC, (0x1234, 0x5678))
         self.assertEqual(ret, 0xC)
         write_sh = fake.sent[0]
-        buf = decode_printf_octal(write_sh[len("printf '") : write_sh.index("'", len("printf '"))])
+        buf = _buf_from_op_sh(write_sh)
         self.assertEqual(buf[0x08], repl.OP_CALL)
         self.assertEqual(struct.unpack_from("<Q", buf, 0x10)[0], 0xFFFFFF800813D8CC)  # target
         self.assertEqual(struct.unpack_from("<Q", buf, 0x18)[0], 0x1234)  # x0
@@ -2332,6 +2332,60 @@ class CallSafetyClassificationTests(unittest.TestCase):
             " ".join(find_pid_ns["reasons"]),
         )
 
+        find_task_by_pid_ns = self._row("find_task_by_pid_ns")
+        self.assertEqual(find_task_by_pid_ns["tier"], repl.CALL_SAFETY_DENY)
+        self.assertFalse(find_task_by_pid_ns["safe_group"])
+        self.assertFalse(find_task_by_pid_ns["auto_call_allowed"])
+        self.assertTrue(find_task_by_pid_ns["seeded"])
+        self.assertEqual(
+            find_task_by_pid_ns["required_valid_pointer_args"],
+            {"1": "pid-namespace-from-owned-pid-anchor"},
+        )
+        self.assertFalse(find_task_by_pid_ns["resolution"]["verified"])
+        self.assertEqual(find_task_by_pid_ns["resolution"]["method"], "unverified")
+        self.assertEqual(
+            find_task_by_pid_ns["resolution"]["link_vaddr"],
+            "0xffffff80080d80ac",
+        )
+        self.assertGreaterEqual(find_task_by_pid_ns["signals"]["direct_bl_xref_count"], 5)
+        self.assertTrue(find_task_by_pid_ns["signals"]["leaf"])
+        self.assertEqual(find_task_by_pid_ns["signals"]["arg_pointer_derefs_before_first_bl_or_ret"], [])
+        self.assertEqual(
+            find_task_by_pid_ns["signals"]["first_words"][:12],
+            [f"0x{word:08x}" for word in repl.FIND_TASK_BY_PID_NS_EXPECTED_WORDS[:12]],
+        )
+        self.assertIn(
+            "borrowed scalar+namespace task lookup",
+            " ".join(find_task_by_pid_ns["reasons"]),
+        )
+
+        find_task_by_vpid = self._row("find_task_by_vpid")
+        self.assertEqual(find_task_by_vpid["tier"], repl.CALL_SAFETY_DENY)
+        self.assertFalse(find_task_by_vpid["safe_group"])
+        self.assertFalse(find_task_by_vpid["auto_call_allowed"])
+        self.assertTrue(find_task_by_vpid["seeded"])
+        self.assertEqual(find_task_by_vpid["required_valid_pointer_args"], {})
+        self.assertFalse(find_task_by_vpid["resolution"]["verified"])
+        self.assertEqual(find_task_by_vpid["resolution"]["method"], "unverified")
+        self.assertEqual(
+            find_task_by_vpid["resolution"]["link_vaddr"],
+            "0xffffff80080d814c",
+        )
+        self.assertGreaterEqual(find_task_by_vpid["signals"]["direct_bl_xref_count"], 49)
+        self.assertTrue(find_task_by_vpid["signals"]["leaf"])
+        self.assertEqual(find_task_by_vpid["signals"]["arg_pointer_derefs_before_first_bl_or_ret"], [])
+        self.assertEqual(
+            find_task_by_vpid["signals"]["first_words"][:12],
+            [f"0x{word:08x}" for word in repl.FIND_TASK_BY_VPID_EXPECTED_WORDS[:12]],
+        )
+        self.assertTrue(
+            find_task_by_vpid["signals"]["arg_taint_flow"]["safe_scalar_positive_no_arg_memory_base_flow"]
+        )
+        self.assertIn(
+            "borrowed scalar virtual-pid task lookup",
+            " ".join(find_task_by_vpid["reasons"]),
+        )
+
         find_get_pid = self._row("find_get_pid")
         self.assertEqual(find_get_pid["tier"], repl.CALL_SAFETY_DENY)
         self.assertFalse(find_get_pid["safe_group"])
@@ -3690,7 +3744,7 @@ class CallSafetyClassificationTests(unittest.TestCase):
         self.assertEqual(summary["counts"][repl.CALL_SAFETY_SAFE_SCALAR], 67)
         self.assertGreaterEqual(summary["counts"][repl.CALL_SAFETY_SAFE_WITH_VALID_PTR], 10)
         self.assertGreaterEqual(summary["counts"][repl.CALL_SAFETY_BEHAVIOR_CHANGING], 4)
-        self.assertEqual(summary["counts"][repl.CALL_SAFETY_DENY], 6)
+        self.assertEqual(summary["counts"][repl.CALL_SAFETY_DENY], 8)
 
     def test_call_safety_gate_requires_pointer_tokens_for_safe_with_valid_ptr(self) -> None:
         with self.assertRaisesRegex(repl.ReplError, "SAFE-WITH-VALID-PTR requires"):
@@ -4834,6 +4888,32 @@ class CallSafetyClassificationTests(unittest.TestCase):
         self.assertEqual(find_pid_ns["selected"]["line"], 118)
         self.assertTrue(find_pid_ns["selected"]["path"].endswith("include/linux/pid.h"))
 
+        find_task_by_vpid = repl.lookup_source_signature(
+            "find_task_by_vpid",
+            source_root=KERNEL_SOURCE_ROOT,
+        )
+        self.assertEqual(find_task_by_vpid["status"], "found", find_task_by_vpid)
+        self.assertEqual(find_task_by_vpid["selected"]["pointer_arg_indices"], [])
+        self.assertEqual(
+            find_task_by_vpid["selected"]["signature"],
+            "extern struct task_struct * find_task_by_vpid(pid_t nr)",
+        )
+        self.assertEqual(find_task_by_vpid["selected"]["line"], 1784)
+        self.assertTrue(find_task_by_vpid["selected"]["path"].endswith("include/linux/sched.h"))
+
+        find_task_by_pid_ns = repl.lookup_source_signature(
+            "find_task_by_pid_ns",
+            source_root=KERNEL_SOURCE_ROOT,
+        )
+        self.assertEqual(find_task_by_pid_ns["status"], "found", find_task_by_pid_ns)
+        self.assertEqual(find_task_by_pid_ns["selected"]["pointer_arg_indices"], [1])
+        self.assertEqual(
+            find_task_by_pid_ns["selected"]["signature"],
+            "extern struct task_struct * find_task_by_pid_ns(pid_t nr, struct pid_namespace *ns)",
+        )
+        self.assertEqual(find_task_by_pid_ns["selected"]["line"], 1785)
+        self.assertTrue(find_task_by_pid_ns["selected"]["path"].endswith("include/linux/sched.h"))
+
         find_get_pid = repl.lookup_source_signature(
             "find_get_pid",
             source_root=KERNEL_SOURCE_ROOT,
@@ -5760,7 +5840,9 @@ class CallSafetyClassificationTests(unittest.TestCase):
 
 
 def _buf_from_op_sh(sh_str: str) -> bytes:
-    octal = sh_str[len("printf '") : sh_str.index("'", len("printf '"))]
+    prefix = "printf '"
+    start = sh_str.index(prefix) + len(prefix)
+    octal = sh_str[start : sh_str.index("'", start)]
     return decode_printf_octal(octal)
 
 
@@ -6061,6 +6143,8 @@ class FaithfulFakeTransport:
             "find_pid_ns",
             purpose="call",
         ).link_vaddr
+        self.find_task_by_pid_ns_link = self.symbols["find_task_by_pid_ns"].vaddr
+        self.find_task_by_vpid_link = self.symbols["find_task_by_vpid"].vaddr
         self.find_get_pid_link = repl.resolve_verified(
             self.symbols,
             self.image,
@@ -7287,6 +7371,10 @@ class FaithfulFakeTransport:
             pid_task = self.pid_task_link + self.slide
             assert self.find_pid_ns_link is not None
             find_pid_ns = self.find_pid_ns_link + self.slide
+            assert self.find_task_by_pid_ns_link is not None
+            find_task_by_pid_ns = self.find_task_by_pid_ns_link + self.slide
+            assert self.find_task_by_vpid_link is not None
+            find_task_by_vpid = self.find_task_by_vpid_link + self.slide
             assert self.find_get_pid_link is not None
             find_get_pid = self.find_get_pid_link + self.slide
             assert self.find_vpid_link is not None
@@ -8127,6 +8215,24 @@ class FaithfulFakeTransport:
                 ):
                     raise AssertionError("find_pid_ns proof must pass PID 1 and observed namespace only")
                 lines.append(f"A90R{self.pid1_ptr:x}")
+            elif arg0 == find_task_by_pid_ns:
+                if (arg1, arg2, arg3, arg4) != (
+                    repl.FIND_TASK_BY_PID_NS_PROOF_NR,
+                    self.pid1_ns_ptr,
+                    0,
+                    0,
+                ):
+                    raise AssertionError("find_task_by_pid_ns proof must pass PID 1 and observed namespace only")
+                lines.append(f"A90R{self.pid1_task_ptr:x}")
+            elif arg0 == find_task_by_vpid:
+                if (arg1, arg2, arg3, arg4) != (
+                    repl.FIND_TASK_BY_VPID_PROOF_NR,
+                    0,
+                    0,
+                    0,
+                ):
+                    raise AssertionError("find_task_by_vpid proof must pass scalar pid 1 only")
+                lines.append(f"A90R{self.pid1_task_ptr:x}")
             elif arg0 == find_get_pid:
                 if (arg1, arg2, arg3, arg4) != (
                     repl.FIND_GET_PID_PROOF_NR,
@@ -11974,6 +12080,168 @@ class SelftestIntegrationTests(unittest.TestCase):
         )
         self.assertEqual(fake.op_count, 10)
 
+    def test_call_proof_find_task_by_pid_ns_passes_with_namespace_borrowed_task_contract(self) -> None:
+        if not C2B_PADDING_MAP_PATH.is_file() or not KERNEL_SOURCE_ROOT.is_dir():
+            self.skipTest("promoted v2c System.map or kernel source tree not present")
+
+        symbols = repl.load_system_map(C2B_PADDING_MAP_PATH)
+        fake = FaithfulFakeTransport(0x130000, symbols, self.image)
+        initial_refcount = fake.pid1_refcount
+        orig = repl.transport.run_serial_command
+        repl.transport.run_serial_command = fake.run_serial_command
+        self.addCleanup(lambda: setattr(repl.transport, "run_serial_command", orig))
+        session = repl.ReplSession(repl.ReplConfig(settle_sec=0.0))
+
+        summary, private = repl.run_call_proof(
+            session,
+            symbols,
+            self.image,
+            "find_task_by_pid_ns",
+            source_root=KERNEL_SOURCE_ROOT,
+        )
+
+        self.assertTrue(summary["ok"], summary)
+        self.assertEqual(summary["decision"], "a90-repl-live-call-proof-find_task_by_pid_ns-pass")
+        self.assertEqual(
+            summary["proof_status"],
+            "trusted-under-scalar-namespace-task-borrowed-pointer-contract",
+        )
+        self.assertEqual(summary["function_map_entry"]["symbol"], "find_task_by_pid_ns")
+        self.assertEqual(
+            summary["source_evidence"]["signature"],
+            "extern struct task_struct * find_task_by_pid_ns(pid_t nr, struct pid_namespace *ns)",
+        )
+        self.assertEqual(summary["source_evidence"]["pointer_arg_indices"], [1])
+        self.assertEqual(summary["call_safety_gate"]["tier"], repl.CALL_SAFETY_DENY)
+        self.assertFalse(summary["call_safety_gate"]["auto_call_allowed"])
+        self.assertTrue(summary["call_safety_gate"]["seeded"])
+        self.assertFalse(summary["call_safety_gate"]["resolution"]["verified"])
+        self.assertEqual(summary["target_specific_call_safety"]["tier"], repl.CALL_SAFETY_DENY)
+        self.assertEqual(summary["target_specific_call_safety"]["arg_memory_source_indices"], [1])
+        self.assertEqual(
+            summary["proof_specific_call_safety"]["tier"],
+            repl.CALL_SAFETY_SAFE_WITH_VALID_PTR,
+        )
+        self.assertTrue(summary["proof_specific_call_safety"]["proof_only"])
+        self.assertEqual(summary["anchor_call_safety_gate"]["tier"], repl.CALL_SAFETY_DENY)
+        self.assertEqual(
+            summary["anchor_target_specific_call_safety"]["tier"],
+            repl.CALL_SAFETY_CONTEXT_SENSITIVE,
+        )
+        self.assertEqual(summary["proof_pid_nr"], repl.FIND_TASK_BY_PID_NS_PROOF_NR)
+        self.assertEqual(summary["observed_embedded_pid_nr"], "0x1")
+        self.assertTrue(summary["namespace_pointer_redacted"])
+        self.assertTrue(summary["task_thread_pid_matches_anchor"])
+        self.assertEqual(summary["refcount_after_anchor"], initial_refcount + 1)
+        self.assertEqual(summary["refcount_after_find_task_by_pid_ns"], initial_refcount + 1)
+        self.assertEqual(summary["refcount_after_put_pid"], initial_refcount)
+        self.assertTrue(summary["refcount_unchanged_by_find_task_by_pid_ns"])
+        self.assertTrue(summary["refcount_restored_after_put_pid"])
+        self.assertTrue(summary["cleanup_attempted"])
+        self.assertTrue(summary["cleanup_ok"])
+        self.assertTrue(summary["raw_runtime_values_redacted"])
+        self.assertTrue(summary["borrowed_pointer_redacted"])
+        self.assertTrue(summary["owned_pointer_redacted"])
+        self.assertNotIn("find_task_by_pid_ns_runtime", summary)
+        self.assertIn("find_task_by_pid_ns_runtime", private)
+        self.assertIn("find_get_pid_runtime", private)
+        self.assertIn("put_pid_runtime", private)
+        self.assertEqual(private["anchor_pid_pointer"], f"0x{fake.pid1_ptr:x}")
+        self.assertEqual(private["observed_namespace_pointer"], f"0x{fake.pid1_ns_ptr:x}")
+        self.assertEqual(private["returned_task_pointer"], f"0x{fake.pid1_task_ptr:x}")
+        self.assertEqual(private["observed_task_thread_pid_pointer"], f"0x{fake.pid1_ptr:x}")
+        self.assertEqual(private["refcounts"]["after_anchor"], initial_refcount + 1)
+        self.assertEqual(private["refcounts"]["after_find_task_by_pid_ns"], initial_refcount + 1)
+        self.assertEqual(private["refcounts"]["after_put_pid"], initial_refcount)
+        self.assertEqual(fake.pid1_refcount, initial_refcount)
+        cases = {case["case"]: case for case in summary["case_results"]}
+        self.assertEqual(
+            cases["pid-1-find_task_by_pid_ns-borrowed-task-cross-check"]["observed_return_value"],
+            "redacted-borrowed-task-pointer",
+        )
+        self.assertEqual(fake.op_count, 11)
+
+    def test_call_proof_find_task_by_vpid_passes_with_current_namespace_borrowed_task_contract(self) -> None:
+        if not C2B_PADDING_MAP_PATH.is_file() or not KERNEL_SOURCE_ROOT.is_dir():
+            self.skipTest("promoted v2c System.map or kernel source tree not present")
+
+        symbols = repl.load_system_map(C2B_PADDING_MAP_PATH)
+        fake = FaithfulFakeTransport(0x130000, symbols, self.image)
+        initial_refcount = fake.pid1_refcount
+        orig = repl.transport.run_serial_command
+        repl.transport.run_serial_command = fake.run_serial_command
+        self.addCleanup(lambda: setattr(repl.transport, "run_serial_command", orig))
+        session = repl.ReplSession(repl.ReplConfig(settle_sec=0.0))
+
+        summary, private = repl.run_call_proof(
+            session,
+            symbols,
+            self.image,
+            "find_task_by_vpid",
+            source_root=KERNEL_SOURCE_ROOT,
+        )
+
+        self.assertTrue(summary["ok"], summary)
+        self.assertEqual(summary["decision"], "a90-repl-live-call-proof-find_task_by_vpid-pass")
+        self.assertEqual(
+            summary["proof_status"],
+            "trusted-under-current-namespace-task-borrowed-pointer-contract",
+        )
+        self.assertEqual(summary["function_map_entry"]["symbol"], "find_task_by_vpid")
+        self.assertEqual(
+            summary["source_evidence"]["signature"],
+            "extern struct task_struct * find_task_by_vpid(pid_t nr)",
+        )
+        self.assertEqual(summary["source_evidence"]["pointer_arg_indices"], [])
+        self.assertEqual(summary["call_safety_gate"]["tier"], repl.CALL_SAFETY_DENY)
+        self.assertFalse(summary["call_safety_gate"]["auto_call_allowed"])
+        self.assertTrue(summary["call_safety_gate"]["seeded"])
+        self.assertFalse(summary["call_safety_gate"]["resolution"]["verified"])
+        self.assertEqual(summary["target_specific_call_safety"]["tier"], repl.CALL_SAFETY_DENY)
+        self.assertEqual(summary["target_specific_call_safety"]["arg_memory_source_indices"], [])
+        self.assertEqual(
+            summary["proof_specific_call_safety"]["tier"],
+            repl.CALL_SAFETY_SAFE_SCALAR,
+        )
+        self.assertTrue(summary["proof_specific_call_safety"]["proof_only"])
+        self.assertEqual(summary["anchor_call_safety_gate"]["tier"], repl.CALL_SAFETY_DENY)
+        self.assertEqual(
+            summary["anchor_target_specific_call_safety"]["tier"],
+            repl.CALL_SAFETY_CONTEXT_SENSITIVE,
+        )
+        self.assertEqual(summary["proof_pid_nr"], repl.FIND_TASK_BY_VPID_PROOF_NR)
+        self.assertEqual(summary["observed_embedded_pid_nr"], "0x1")
+        self.assertFalse(summary["namespace_pointer_redacted"])
+        self.assertTrue(summary["task_thread_pid_matches_anchor"])
+        self.assertEqual(summary["refcount_after_anchor"], initial_refcount + 1)
+        self.assertEqual(summary["refcount_after_find_task_by_vpid"], initial_refcount + 1)
+        self.assertEqual(summary["refcount_after_put_pid"], initial_refcount)
+        self.assertTrue(summary["refcount_unchanged_by_find_task_by_vpid"])
+        self.assertTrue(summary["refcount_restored_after_put_pid"])
+        self.assertTrue(summary["cleanup_attempted"])
+        self.assertTrue(summary["cleanup_ok"])
+        self.assertTrue(summary["raw_runtime_values_redacted"])
+        self.assertTrue(summary["borrowed_pointer_redacted"])
+        self.assertTrue(summary["owned_pointer_redacted"])
+        self.assertNotIn("find_task_by_vpid_runtime", summary)
+        self.assertIn("find_task_by_vpid_runtime", private)
+        self.assertIn("find_get_pid_runtime", private)
+        self.assertIn("put_pid_runtime", private)
+        self.assertEqual(private["anchor_pid_pointer"], f"0x{fake.pid1_ptr:x}")
+        self.assertEqual(private["observed_namespace_pointer"], "n/a")
+        self.assertEqual(private["returned_task_pointer"], f"0x{fake.pid1_task_ptr:x}")
+        self.assertEqual(private["observed_task_thread_pid_pointer"], f"0x{fake.pid1_ptr:x}")
+        self.assertEqual(private["refcounts"]["after_anchor"], initial_refcount + 1)
+        self.assertEqual(private["refcounts"]["after_find_task_by_vpid"], initial_refcount + 1)
+        self.assertEqual(private["refcounts"]["after_put_pid"], initial_refcount)
+        self.assertEqual(fake.pid1_refcount, initial_refcount)
+        cases = {case["case"]: case for case in summary["case_results"]}
+        self.assertEqual(
+            cases["pid-1-find_task_by_vpid-borrowed-task-cross-check"]["observed_return_value"],
+            "redacted-borrowed-task-pointer",
+        )
+        self.assertEqual(fake.op_count, 10)
+
     def test_call_proof_pid_borrowed_batch_candidates_pass_in_one_fake_session(self) -> None:
         if not C2B_PADDING_MAP_PATH.is_file() or not KERNEL_SOURCE_ROOT.is_dir():
             self.skipTest("promoted v2c System.map or kernel source tree not present")
@@ -11986,7 +12254,7 @@ class SelftestIntegrationTests(unittest.TestCase):
         self.addCleanup(lambda: setattr(repl.transport, "run_serial_command", orig))
         session = repl.ReplSession(repl.ReplConfig(settle_sec=0.0))
 
-        targets = ("pid_task", "find_pid_ns")
+        targets = ("pid_task", "find_pid_ns", "find_task_by_pid_ns", "find_task_by_vpid")
         summary, private = repl.run_call_proof_batch(
             session,
             symbols,
@@ -11997,7 +12265,7 @@ class SelftestIntegrationTests(unittest.TestCase):
 
         self.assertTrue(summary["ok"], summary)
         self.assertEqual(summary["decision"], "a90-repl-live-call-proof-batch-pass")
-        self.assertEqual(summary["target_count"], 2)
+        self.assertEqual(summary["target_count"], 4)
         self.assertEqual(summary["completed_targets"], list(targets))
         self.assertTrue(summary["host_batch_single_repl_session"])
         self.assertTrue(summary["raw_runtime_values_redacted"])
@@ -12011,10 +12279,20 @@ class SelftestIntegrationTests(unittest.TestCase):
             by_target["find_pid_ns"]["proof_status"],
             "trusted-under-scalar-namespace-pid-borrowed-pointer-contract",
         )
+        self.assertEqual(
+            by_target["find_task_by_pid_ns"]["proof_status"],
+            "trusted-under-scalar-namespace-task-borrowed-pointer-contract",
+        )
+        self.assertEqual(
+            by_target["find_task_by_vpid"]["proof_status"],
+            "trusted-under-current-namespace-task-borrowed-pointer-contract",
+        )
         self.assertTrue(by_target["pid_task"]["cleanup_ok"])
         self.assertTrue(by_target["find_pid_ns"]["cleanup_ok"])
+        self.assertTrue(by_target["find_task_by_pid_ns"]["cleanup_ok"])
+        self.assertTrue(by_target["find_task_by_vpid"]["cleanup_ok"])
         self.assertEqual(fake.pid1_refcount, initial_refcount)
-        self.assertEqual(fake.op_count, 20)
+        self.assertEqual(fake.op_count, 41)
 
     def test_call_proof_current_state_batch_candidates_pass_in_one_fake_session(self) -> None:
         if not C2B_PADDING_MAP_PATH.is_file() or not KERNEL_SOURCE_ROOT.is_dir():

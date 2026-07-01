@@ -230,6 +230,58 @@ only, never a native-init runtime dependency. Full history (AUD-0 → AUD-5, V23
 > Report:
 > `docs/reports/KERNEL_SECURITY_TIER2_RUNTIME_KERNEL_REPL_PID_BORROWED_BATCH_RESIDENT_SESSION_2026-07-02.md`.
 
+## ✅ DONE/PARTIAL — REPL packed resident-session task lookup proofs — `find_task_by_pid_ns` + `find_task_by_vpid`
+
+> ### ✅/⚠️ STATUS (2026-07-02 live-proven per-target, packed batch not promoted, rolled back cleanly)
+>
+> Codex extended the PID borrowed-pointer proof family to task lookup helpers:
+> `find_task_by_pid_ns` and `find_task_by_vpid`. Both stay global `DENY` and are only trusted
+> through a target-specific proof that first obtains an owned `find_get_pid(1)` anchor, verifies
+> the returned borrowed task's `task->thread_pid` against that anchor, confirms the pid refcount
+> is unchanged by the borrowed lookup, and balances the owned anchor with `put_pid`.
+>
+> Static identity for `find_task_by_pid_ns`: link `0xffffff80080d80ac`, source declaration
+> `extern struct task_struct * find_task_by_pid_ns(pid_t nr, struct pid_namespace *ns)` at
+> `include/linux/sched.h:1785`, exact body words, leaf/no in-body BL, next symbol
+> `find_task_by_vpid` at `+0xa0`, direct BL xrefs >= 5. Generic C1 export verification remains
+> unavailable, so this is a proof-specific map-entry + exact-words + live-cross-check promotion,
+> not a global auto-call promotion.
+>
+> Static identity for `find_task_by_vpid`: link `0xffffff80080d814c`, source declaration
+> `extern struct task_struct * find_task_by_vpid(pid_t nr)` at `include/linux/sched.h:1784`,
+> exact body words, leaf/no in-body BL, next symbol `get_task_pid` at `+0xb8`, direct BL xrefs
+> >= 49, scalar-flow classifier evidence. Generic gate stays `DENY`.
+>
+> Two packed resident sessions were run; no one-target resident session was used. First run:
+> `workspace/private/runs/kernel/repl-resident-session-task-lookup-packed-batch-20260701T180337Z/`,
+> `target_count=13`, `max_batch_size=30`. Flushed PASS targets before the later exception were
+> `find_task_by_pid_ns`, `find_task_by_vpid`, `pid_task`, and `find_pid_ns`. The run then failed
+> on an older canary: `find_vpid changed pid refcount: anchor=6 after=9`. Rollback-finally
+> returned to clean v2321.
+>
+> Second run after adding a host-side `dmesg` pre-drain:
+> `workspace/private/runs/kernel/repl-resident-session-task-lookup-preflush-max30-batch-20260701T181136Z/`,
+> `target_count=30`, `max_batch_size=30`. Flushed PASS targets before the later exception were
+> `find_task_by_pid_ns`, `find_task_by_vpid`, and `pid_task`. The run then failed on the same
+> older PID borrowed-pointer family: `put_pid did not restore anchor pid refcount:
+> anchor=6 after_find_pid_ns=6 after_put=8`. Rollback-finally returned to clean v2321.
+>
+> New target evidence from both packed sessions: `find_task_by_pid_ns` and `find_task_by_vpid`
+> each returned a sane task pointer whose `task->thread_pid` matched the owned PID 1 anchor,
+> observed embedded pid number `0x1`, preserved the pid refcount across the borrowed lookup
+> (`6 -> 6`), and restored the anchor with `put_pid` (`-> 5`). Raw runtime pointers and KASLR
+> slide stayed private.
+>
+> Decision: promote only the two target-specific function-map entries. Do **not** promote either
+> packed session as a batch-pass. The packed resident harness preserved per-target flush evidence,
+> but the legacy PID borrowed canary refcount/result path is unstable in packed mode; per the
+> fails-twice rule, no third live retry was made. Next live unit before another max30 batch:
+> harden the A90R result channel / canary accounting, e.g. unique per-op marker or stronger
+> `dmesg -c` isolation.
+>
+> Report:
+> `docs/reports/KERNEL_SECURITY_TIER2_RUNTIME_KERNEL_REPL_TASK_LOOKUP_PACKED_RESIDENT_SESSION_2026-07-02.md`.
+
 ## ✅ DONE — REPL resident-session scalar pid lookup proof — `find_vpid`
 
 > ### ✅ STATUS (2026-07-02 live-proven, resident-session mode, rolled back cleanly)
