@@ -467,6 +467,12 @@ CALL_SAFETY_SEEDS = {
         "return_kind": "unsigned-long-rcu-state",
         "reason": "no-argument RCU grace-period state getter; current image is a leaf acquire-load of rcu_state.gp_seq and proof expects a nondecreasing bounded short-repeat unsigned long value",
     },
+    "cpu_mitigations_off": {
+        "tier": CALL_SAFETY_SAFE_SCALAR,
+        "required_valid_pointer_args": {},
+        "return_kind": "bool",
+        "reason": "no-argument CPU mitigation policy getter; current image is a leaf global enum read and proof expects a stable bool value",
+    },
     "get_ddr_vendor_name": {
         "tier": CALL_SAFETY_SAFE_SCALAR,
         "required_valid_pointer_args": {},
@@ -3844,6 +3850,7 @@ _SOURCE_HEADER_HINTS_BY_EXACT_SYMBOL = {
     "is_blocked": ("include/linux/usb_notify.h", "drivers/usb/notify/usb_notify.c"),
     "get_intermediate_timeout": ("include/net/ncm.h",),
     "get_state_synchronize_rcu": ("include/linux/rcutree.h", "include/linux/rcutiny.h"),
+    "cpu_mitigations_off": ("include/linux/cpu.h",),
     "__task_pid_nr_ns": ("include/linux/sched.h",),
     "sched_get_group_id": ("include/linux/sched.h",),
     "task_prio": ("include/linux/sched.h",),
@@ -5706,6 +5713,12 @@ CALL_PROOF_TARGETS = {
         "expected_tier": CALL_SAFETY_SAFE_SCALAR,
         "source_signature": "unsigned long get_state_synchronize_rcu(void)",
     },
+    "cpu_mitigations_off": {
+        "input_contract": "no arguments; CPU mitigation policy enum is read-only through the pinned leaf global-load and no returned pointer is dereferenced or freed",
+        "return_contract": "bool value is exactly 0 or 1 and stable across immediate repeated proof calls",
+        "expected_tier": CALL_SAFETY_SAFE_SCALAR,
+        "source_signature": "extern bool cpu_mitigations_off(void)",
+    },
     "__task_pid_nr_ns": {
         "input_contract": "global init_task task_struct pointer + PIDTYPE_PID + NULL namespace; global pointer is borrowed/read-only and is not freed",
         "return_contract": "pid_t for init_task in the init namespace path is exactly 0 and stable across repeated calls",
@@ -7079,6 +7092,12 @@ GET_STATE_SYNCHRONIZE_RCU_EXPECTED_WORDS = (
 GET_STATE_SYNCHRONIZE_RCU_NEXT_SYMBOL = ("cond_synchronize_rcu", 0x20)
 GET_STATE_SYNCHRONIZE_RCU_REPEAT_COUNT = 3
 GET_STATE_SYNCHRONIZE_RCU_MAX_DELTA = 0x100000
+CPU_MITIGATIONS_OFF_EXPECTED_WORDS = (
+    0xB0012468, 0xB9453108, 0x7100011F, 0x1A9F17E0,
+    0xD65F03C0, 0x00BE7BAD,
+)
+CPU_MITIGATIONS_OFF_NEXT_SYMBOL = ("cpu_mitigations_auto_nosmt", 0x18)
+CPU_MITIGATIONS_OFF_REPEAT_COUNT = 2
 TASK_PID_NR_NS_PIDTYPE_PID = 0
 TASK_PID_NR_NS_EXPECTED_INIT_TASK_PID = 0
 TASK_PID_NR_NS_REPEAT_COUNT = 2
@@ -25207,6 +25226,176 @@ def _run_call_proof_get_state_synchronize_rcu(
     return summary, private
 
 
+def _run_call_proof_cpu_mitigations_off(
+    session: ReplSession,
+    symbols: dict[str, Symbol],
+    image: StaticImage,
+    *,
+    source_root: Path,
+) -> tuple[dict[str, object], dict[str, object]]:
+    target = "cpu_mitigations_off"
+    source = lookup_source_signature(target, source_root=source_root)
+    call_safety = require_call_safety_for_call(
+        symbols,
+        image,
+        target,
+        (),
+    )
+    if call_safety.get("tier") != CALL_PROOF_TARGETS[target]["expected_tier"]:
+        raise ReplError(f"{target} call-safety tier is not the expected vetted scalar tier")
+    if not source.get("found") or source.get("pointer_arg_indices") != []:
+        raise ReplError(f"{target} source signature must be no-arg scalar-safe")
+    selected_signature = (
+        source.get("selected", {}).get("signature")
+        if isinstance(source.get("selected"), dict) else None
+    )
+    if selected_signature != CALL_PROOF_TARGETS[target]["source_signature"]:
+        raise ReplError(f"{target} source signature did not select the cpu.h declaration")
+
+    resolutions = {
+        target: resolve_verified(
+            symbols,
+            image,
+            target,
+            purpose="call",
+        ),
+    }
+    target_link = require_verified_resolution(resolutions[target], "call-proof target")
+    next_symbol_name, expected_boundary = CPU_MITIGATIONS_OFF_NEXT_SYMBOL
+    next_symbol = symbols.get(next_symbol_name)
+    if next_symbol is None or next_symbol.vaddr - target_link != expected_boundary:
+        raise ReplError(f"{target} next-symbol boundary is not the expected 0x{expected_boundary:x}")
+
+    observed_words = image.u32_words_at_vaddr(
+        target_link,
+        len(CPU_MITIGATIONS_OFF_EXPECTED_WORDS),
+    )
+    checks: list[dict[str, object]] = [
+        {
+            "check": "static-c1-identity",
+            "ok": True,
+            "target": target,
+            "resolution_method": resolutions[target].method,
+        },
+        {
+            "check": "static-next-symbol-boundary",
+            "ok": True,
+            "next_symbol": next_symbol_name,
+            "byte_size": f"0x{expected_boundary:x}",
+        },
+        {
+            "check": "static-source-contract",
+            "ok": True,
+            "signature": selected_signature,
+            "pointer_arg_indices": source.get("pointer_arg_indices", []),
+            "source_note": "Samsung source drop exposes the declaration; static words pin the leaf global-policy read",
+        },
+        {
+            "check": "static-call-safety-contract",
+            "ok": True,
+            "tier": call_safety.get("tier"),
+            "required_valid_pointer_args": call_safety.get("required_valid_pointer_args", {}),
+        },
+        {
+            "check": "static-leaf-no-bl",
+            "ok": bool(call_safety.get("signals", {}).get("leaf")),
+            "bl_count": call_safety.get("signals", {}).get("bl_count_in_scan"),
+        },
+    ]
+    for index, expected in enumerate(CPU_MITIGATIONS_OFF_EXPECTED_WORDS):
+        observed = observed_words[index]
+        ok = observed == expected
+        checks.append({
+            "check": f"static-{target}-word-{index:02d}",
+            "ok": ok,
+            "expected_word": f"0x{expected:08x}",
+            "observed_word": f"0x{observed:08x}",
+        })
+        if not ok:
+            raise ReplError(
+                f"{target} word {index} mismatch: observed 0x{observed:08x}, "
+                f"expected 0x{expected:08x}"
+            )
+
+    private: dict[str, object] = {}
+    slide = 0
+    returns: list[int] = []
+    case_results: list[dict[str, object]] = []
+
+    session.hide()
+    session.set_panic_on_oops(0)
+    try:
+        slide = session.slide()
+        if slide & 0xFFF:
+            raise ReplError("slide is not page-aligned; refusing to proceed")
+        target_runtime = (target_link + slide) & MASK64
+        for index in range(CPU_MITIGATIONS_OFF_REPEAT_COUNT):
+            observed = session.call_runtime(target_runtime, ()) & MASK64
+            bool_ok = observed in (0, 1)
+            stable = observed == returns[0] if returns else True
+            returns.append(observed)
+            ok = bool_ok and stable
+            case_results.append({
+                "case": f"{target}-read-{index + 1}",
+                "observed_return_value": f"0x{observed:x}",
+                "is_bool": bool_ok,
+                "stable_from_first": stable,
+                "ok": ok,
+            })
+            if not ok:
+                raise ReplError(
+                    f"{target}() returned an out-of-contract value in proof call "
+                    f"{index + 1}: 0x{observed:x}"
+                )
+    finally:
+        session.set_panic_on_oops(1)
+
+    checks.append({
+        "check": f"{target}-stable-bool-repeat",
+        "ok": all(bool(case.get("ok")) for case in case_results),
+        "case_count": len(case_results),
+        "cases": case_results,
+    })
+    passed = all(bool(check.get("ok")) for check in checks)
+    observed_public = f"0x{returns[0]:x}" if returns else "n/a"
+    summary = {
+        "decision": f"a90-repl-live-call-proof-{target}-{'pass' if passed else 'fail'}",
+        "ok": passed,
+        "target": target,
+        "proof_status": "trusted-under-cpu-mitigations-policy-read-only-contract" if passed else "failed",
+        "input_contract": CALL_PROOF_TARGETS[target]["input_contract"],
+        "return_contract": CALL_PROOF_TARGETS[target]["return_contract"],
+        "case_results": case_results,
+        "observed_return_value": observed_public,
+        "all_returns_bool": bool(returns) and all(value in (0, 1) for value in returns),
+        "all_returns_stable": bool(returns) and all(value == returns[0] for value in returns),
+        "repeat_count": len(returns),
+        "source_evidence": _source_row_evidence(source),
+        "call_safety": call_safety,
+        "resolutions": _redacted_resolution_set(resolutions),
+        "raw_runtime_values_redacted": True,
+        "checks": checks,
+        "function_map_entry": {
+            "symbol": target,
+            "status": "live-proven",
+            "trusted_input_contract": CALL_PROOF_TARGETS[target]["input_contract"],
+            "return_contract": CALL_PROOF_TARGETS[target]["return_contract"],
+            "observed_return_value": f"repeated no-argument calls returned stable bool {observed_public}",
+            "cleanup": "n/a-scalar-read-only",
+            "auto_call_policy": "one-target-proof-only-not-mass-call",
+        },
+    }
+    private.update({
+        "slide": f"0x{slide:x}",
+        f"{target}_runtime": f"0x{((target_link + slide) & MASK64):x}",
+        "case_returns": {
+            case["case"]: case["observed_return_value"]
+            for case in case_results
+        },
+    })
+    return summary, private
+
+
 def _run_call_proof_get_intermediate_timeout(
     session: ReplSession,
     symbols: dict[str, Symbol],
@@ -38022,6 +38211,13 @@ def run_call_proof(session: ReplSession,
         )
     if target == "get_state_synchronize_rcu":
         return _run_call_proof_get_state_synchronize_rcu(
+            session,
+            symbols,
+            image,
+            source_root=source_root,
+        )
+    if target == "cpu_mitigations_off":
+        return _run_call_proof_cpu_mitigations_off(
             session,
             symbols,
             image,

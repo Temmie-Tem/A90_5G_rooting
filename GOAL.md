@@ -484,6 +484,58 @@ only, never a native-init runtime dependency. Full history (AUD-0 → AUD-5, V23
 > matching the fixed vmalloc boundary table. Report:
 > `docs/reports/KERNEL_SECURITY_TIER2_RUNTIME_KERNEL_REPL_LIVE_CALL_PROOF_IS_VMALLOC_ADDR_2026-07-01.md`.
 
+## ✅ DONE — REPL CPU mitigation policy live-call proof — `cpu_mitigations_off()` promoted
+
+> ### ✅ STATUS (2026-07-01 live-proven, rolled back cleanly) — no-arg CPU mitigation policy bool getter
+>
+> Codex selected `cpu_mitigations_off` from the remaining no-argument `cpu_*`
+> advisory candidates after excluding hotplug, teardown, startup, and
+> behavior-changing helpers. The selected target is a policy getter, not a CPU
+> state transition helper.
+>
+> Static selection pinned `cpu_mitigations_off=0xffffff80080b5cbc` via
+> `export-recovery` with map agreement, one export candidate, direct BL xrefs
+> `4`, JOPP entry, leaf body, no in-body BL, and no argument dereference.
+> Source declaration was `extern bool cpu_mitigations_off(void)` at
+> `include/linux/cpu.h:216`; the Samsung source drop exposes the declaration,
+> while static words pin the live leaf implementation:
+> `0xb0012468 0xb9453108 0x7100011f 0x1a9f17e0 0xd65f03c0 0x00be7bad`.
+> The next-symbol boundary is `cpu_mitigations_auto_nosmt` at `+0x18`.
+>
+> The live proof obeyed the flash gate: rollback/fallback/TWRP artifacts were
+> confirmed, baseline v2321 `version/status/selftest` passed, the exact
+> v1-repl candidate (`b846ae9f74d8ceb922bbcd854d78b6795ef833d61e38465d3cc474cb6f0dfb65`)
+> flashed through `native_init_flash.py` with matching pushed-image and
+> readback SHA, candidate helper health passed, candidate standalone
+> `selftest` passed with `pass=11 warn=1 fail=0`, and REPL selftest returned
+> `a90-repl-v2a1-selftest-pass`.
+>
+> The proof called `cpu_mitigations_off()` twice with no arguments. Returns
+> were bool and stable: `0x0`, `0x0`. No runtime pointer was dereferenced by
+> the host, no cleanup was required, and raw runtime values plus the KASLR
+> slide stayed private/redacted.
+>
+> Post-proof candidate `selftest` passed with `selftest pass=11 warn=1
+> fail=0`. Rollback to v2321 completed with matching readback SHA, rollback
+> helper `version/status` passed, final v2321 `version` reported
+> `v2321-usb-clean-identity-rodata`, and final standalone `selftest` passed
+> cleanly with `pass=11 warn=1 fail=0`. One combined final health capture had
+> serial echo noise during the selftest command; the independent retry is the
+> authoritative final health gate.
+>
+> Timing was recorded per the 2026-07-01 timing rule in
+> `workspace/private/runs/kernel/live-call-proof-cpu-mitigations-off-20260701T082237Z/timeline.json`
+> at `2026-07-01T08:27:10Z`: candidate flash helper `64.756s`, REPL selftest
+> `5.992s`, live proof `5.642s`, and rollback flash helper `63.699s`. The
+> helper total rows are not additive; serial bridge commands in the proof path
+> were sequential.
+>
+> Function-map outcome: `cpu_mitigations_off` is promoted as live-proven only
+> under the no-argument read-only CPU mitigation policy contract: the pinned
+> leaf body performs a global policy enum check and returns a stable bool.
+> Report:
+> `docs/reports/KERNEL_SECURITY_TIER2_RUNTIME_KERNEL_REPL_LIVE_CALL_PROOF_CPU_MITIGATIONS_OFF_2026-07-01.md`.
+
 ## ✅ DONE — REPL RCU state live-call proof — `get_state_synchronize_rcu()` promoted
 
 > ### ✅ STATUS (2026-07-01 live-proven, rolled back cleanly) — no-arg RCU grace-period state getter
