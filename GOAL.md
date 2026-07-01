@@ -213,6 +213,41 @@ only, never a native-init runtime dependency. Full history (AUD-0 → AUD-5, V23
 > Report:
 > `docs/reports/KERNEL_SECURITY_TIER2_RUNTIME_KERNEL_REPL_SEC_DEBUG_GET_RESET_REASON_RESIDENT_SESSION_2026-07-01.md`.
 
+## ✅ DONE — REPL resident-session one-target proof — `sec_debug_get_reset_write_cnt`
+
+> ### ✅ STATUS (2026-07-01 live-proven, resident-session mode, rolled back cleanly)
+>
+> Codex promoted the adjacent same-shape Samsung reset header getter
+> `sec_debug_get_reset_write_cnt()` as the next single target. Static identity is
+> pinned by `exact-leaf-map+xref+word-boundary`: link `0xffffff80086ed494`,
+> JOPP entry, direct BL xrefs `7`, body words
+> `f0012ec8 b944cd00 d65f03c0 00be7bad`, next symbol
+> `sec_debug_get_reset_reason_str` at `+0x10`, and source declaration
+> `extern int sec_debug_get_reset_write_cnt(void)` at
+> `include/linux/samsung/debug/sec_debug_user_reset.h:25`.
+>
+> The global classifier now treats this exact pinned leaf as `SAFE-SCALAR` with no
+> required pointer args. The proof called it twice with no arguments in resident-session
+> mode. Live run:
+> `workspace/private/runs/kernel/repl-resident-session-sec-debug-get-reset-write-cnt-20260701T123235Z/`.
+> Result: `a90-repl-live-call-proof-sec_debug_get_reset_write_cnt-pass`; observed raw
+> return `0xffffffff`, repeated twice, stable and in the raw `0..0xffffffff` contract
+> range. Interpreted as signed 32-bit `int`, that is `-1`; the proof records the raw
+> ABI value without assigning stronger semantics. Session used v1-repl flash once,
+> mandatory warm reboot before the batch, per-target result flush, and v2321 rollback
+> once. Final resident is `v2321-usb-clean-identity-rodata`; standalone `selftest fail=0`.
+>
+> Canonical timing is present in `timeline.json` with the single top-level `events`
+> schema and all required eight phase events. This run measured
+> `candidate_flash=64.126462s`, `warm_reboot=33.232281s`, one-target live batch
+> `3.097960s`, `rollback_flash=64.073198s`, total `230.899706s`. The timing
+> aggregator now uses `13` canonical timelines and projects resident session `20->2`
+> flashes, `14.031s/target`, `19.98x` versus unbatched per-unit flash, and `2.00x`
+> versus per-unit in-boot batching for `batch_size=10`, `resident_batches=10`.
+>
+> Report:
+> `docs/reports/KERNEL_SECURITY_TIER2_RUNTIME_KERNEL_REPL_SEC_DEBUG_GET_RESET_WRITE_CNT_RESIDENT_SESSION_2026-07-01.md`.
+
 ## ✅ DONE — REPL VFS-read observation bundle — `/proc`/`/sys` file-node keystone promoted
 
 > ### ✅ STATUS (2026-07-01 live-proven, rolled back cleanly) — `filp_open` + `kernel_read` assembled into bounded file observation

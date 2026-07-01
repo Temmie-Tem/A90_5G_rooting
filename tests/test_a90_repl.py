@@ -1718,6 +1718,29 @@ class CallSafetyClassificationTests(unittest.TestCase):
             [f"0x{word:08x}" for word in repl.SEC_DEBUG_GET_RESET_REASON_EXPECTED_WORDS],
         )
 
+        sec_debug_get_reset_write_cnt = self._row("sec_debug_get_reset_write_cnt")
+        self.assertEqual(sec_debug_get_reset_write_cnt["tier"], repl.CALL_SAFETY_SAFE_SCALAR)
+        self.assertEqual(sec_debug_get_reset_write_cnt["required_valid_pointer_args"], {})
+        self.assertTrue(sec_debug_get_reset_write_cnt["resolution"]["verified"])
+        self.assertEqual(
+            sec_debug_get_reset_write_cnt["resolution"]["method"],
+            "exact-leaf-map+xref+word-boundary",
+        )
+        self.assertEqual(
+            sec_debug_get_reset_write_cnt["resolution"]["link_vaddr"],
+            "0xffffff80086ed494",
+        )
+        self.assertGreaterEqual(sec_debug_get_reset_write_cnt["signals"]["direct_bl_xref_count"], 7)
+        self.assertTrue(sec_debug_get_reset_write_cnt["signals"]["leaf"])
+        self.assertEqual(
+            sec_debug_get_reset_write_cnt["signals"]["arg_pointer_derefs_before_first_bl_or_ret"],
+            [],
+        )
+        self.assertEqual(
+            sec_debug_get_reset_write_cnt["signals"]["first_words"][:4],
+            [f"0x{word:08x}" for word in repl.SEC_DEBUG_GET_RESET_WRITE_CNT_EXPECTED_WORDS],
+        )
+
         sec_abc_get_enabled = self._row("sec_abc_get_enabled")
         self.assertEqual(sec_abc_get_enabled["tier"], repl.CALL_SAFETY_DENY)
         self.assertFalse(sec_abc_get_enabled["auto_call_allowed"])
@@ -3250,7 +3273,7 @@ class CallSafetyClassificationTests(unittest.TestCase):
         self.assertTrue(summary["host_only"])
         self.assertFalse(summary["device_action"])
         self.assertEqual(summary["seed_whitelist_count"], len(repl.CALL_SAFETY_SEEDS))
-        self.assertEqual(summary["counts"][repl.CALL_SAFETY_SAFE_SCALAR], 63)
+        self.assertEqual(summary["counts"][repl.CALL_SAFETY_SAFE_SCALAR], 64)
         self.assertGreaterEqual(summary["counts"][repl.CALL_SAFETY_SAFE_WITH_VALID_PTR], 10)
         self.assertGreaterEqual(summary["counts"][repl.CALL_SAFETY_BEHAVIOR_CHANGING], 4)
         self.assertEqual(summary["counts"][repl.CALL_SAFETY_DENY], 1)
@@ -4122,6 +4145,23 @@ class CallSafetyClassificationTests(unittest.TestCase):
         self.assertEqual(sec_debug_get_reset_reason["selected"]["line"], 22)
         self.assertTrue(
             sec_debug_get_reset_reason["selected"]["path"].endswith(
+                "include/linux/samsung/debug/sec_debug_user_reset.h"
+            )
+        )
+
+        sec_debug_get_reset_write_cnt = repl.lookup_source_signature(
+            "sec_debug_get_reset_write_cnt",
+            source_root=KERNEL_SOURCE_ROOT,
+        )
+        self.assertEqual(sec_debug_get_reset_write_cnt["status"], "found", sec_debug_get_reset_write_cnt)
+        self.assertEqual(sec_debug_get_reset_write_cnt["selected"]["pointer_arg_indices"], [])
+        self.assertEqual(
+            sec_debug_get_reset_write_cnt["selected"]["signature"],
+            "extern int sec_debug_get_reset_write_cnt(void)",
+        )
+        self.assertEqual(sec_debug_get_reset_write_cnt["selected"]["line"], 25)
+        self.assertTrue(
+            sec_debug_get_reset_write_cnt["selected"]["path"].endswith(
                 "include/linux/samsung/debug/sec_debug_user_reset.h"
             )
         )
@@ -5304,6 +5344,12 @@ class FaithfulFakeTransport:
             "sec_debug_get_reset_reason",
             purpose="call",
         ).link_vaddr
+        self.sec_debug_get_reset_write_cnt_link = repl.resolve_verified(
+            self.symbols,
+            self.image,
+            "sec_debug_get_reset_write_cnt",
+            purpose="call",
+        ).link_vaddr
         self.sec_abc_get_enabled_link = repl.resolve_verified(
             self.symbols,
             self.image,
@@ -5594,6 +5640,7 @@ class FaithfulFakeTransport:
         self.sec_debug_is_enabled_value = 1
         self.sec_debug_level_value = 0x4F4C
         self.sec_debug_get_reset_reason_value = 0x77665544
+        self.sec_debug_get_reset_write_cnt_value = 0x2
         self.sec_abc_get_enabled_value = 2
         self.boot_stat_time_values = [0x00100000, 0x00101000, 0x00102000]
         self.boot_stat_time_index = 0
@@ -7145,6 +7192,10 @@ class FaithfulFakeTransport:
                 if (arg1, arg2, arg3, arg4) != (0, 0, 0, 0):
                     raise AssertionError("sec_debug_get_reset_reason proof must pass no arguments")
                 lines.append(f"A90R{self.sec_debug_get_reset_reason_value:x}")
+            elif arg0 == self.sec_debug_get_reset_write_cnt_link + self.slide:
+                if (arg1, arg2, arg3, arg4) != (0, 0, 0, 0):
+                    raise AssertionError("sec_debug_get_reset_write_cnt proof must pass no arguments")
+                lines.append(f"A90R{self.sec_debug_get_reset_write_cnt_value:x}")
             elif arg0 == sec_abc_get_enabled:
                 if (arg1, arg2, arg3, arg4) != (0, 0, 0, 0):
                     raise AssertionError("sec_abc_get_enabled proof must pass no arguments")
@@ -9417,7 +9468,12 @@ class SelftestIntegrationTests(unittest.TestCase):
         self.addCleanup(lambda: setattr(repl.transport, "run_serial_command", orig))
         session = repl.ReplSession(repl.ReplConfig(settle_sec=0.0))
 
-        targets = ("sec_debug_is_enabled", "sec_debug_level", "sec_debug_get_reset_reason")
+        targets = (
+            "sec_debug_is_enabled",
+            "sec_debug_level",
+            "sec_debug_get_reset_reason",
+            "sec_debug_get_reset_write_cnt",
+        )
         summary, private = repl.run_call_proof_batch(
             session,
             symbols,
@@ -9428,7 +9484,7 @@ class SelftestIntegrationTests(unittest.TestCase):
 
         self.assertTrue(summary["ok"], summary)
         self.assertEqual(summary["decision"], "a90-repl-live-call-proof-batch-pass")
-        self.assertEqual(summary["target_count"], 3)
+        self.assertEqual(summary["target_count"], 4)
         self.assertEqual(summary["completed_targets"], list(targets))
         self.assertTrue(summary["host_batch_single_repl_session"])
         self.assertTrue(summary["raw_runtime_values_redacted"])
@@ -9493,7 +9549,35 @@ class SelftestIntegrationTests(unittest.TestCase):
         self.assertTrue(reset_reason["all_returns_in_contract_range"])
         self.assertTrue(reset_reason["all_returns_stable"])
         self.assertIsNone(reset_reason["all_returns_bool"])
-        self.assertEqual(fake.op_count, 9)  # 3 targets * (slide + 2 scalar proof calls)
+
+        reset_write_cnt = by_target["sec_debug_get_reset_write_cnt"]
+        self.assertEqual(
+            reset_write_cnt["decision"],
+            "a90-repl-live-call-proof-sec_debug_get_reset_write_cnt-pass",
+        )
+        self.assertEqual(
+            reset_write_cnt["proof_status"],
+            "trusted-under-sec-debug-reset-write-count-read-only-contract",
+        )
+        self.assertEqual(reset_write_cnt["function_map_entry"]["symbol"], "sec_debug_get_reset_write_cnt")
+        self.assertEqual(
+            reset_write_cnt["function_map_entry"]["auto_call_policy"],
+            "same-session-batch-proof-only-not-mass-call",
+        )
+        self.assertEqual(
+            reset_write_cnt["source_evidence"]["signature"],
+            "extern int sec_debug_get_reset_write_cnt(void)",
+        )
+        self.assertEqual(reset_write_cnt["source_evidence"]["pointer_arg_indices"], [])
+        self.assertEqual(reset_write_cnt["call_safety"]["tier"], repl.CALL_SAFETY_SAFE_SCALAR)
+        self.assertEqual(
+            reset_write_cnt["observed_return_value"],
+            f"0x{fake.sec_debug_get_reset_write_cnt_value:x}",
+        )
+        self.assertTrue(reset_write_cnt["all_returns_in_contract_range"])
+        self.assertTrue(reset_write_cnt["all_returns_stable"])
+        self.assertIsNone(reset_write_cnt["all_returns_bool"])
+        self.assertEqual(fake.op_count, 12)  # 4 targets * (slide + 2 scalar proof calls)
 
     def test_call_proof_sec_abc_get_enabled_passes_with_target_specific_contract(self) -> None:
         if not C2B_PADDING_MAP_PATH.is_file() or not KERNEL_SOURCE_ROOT.is_dir():
