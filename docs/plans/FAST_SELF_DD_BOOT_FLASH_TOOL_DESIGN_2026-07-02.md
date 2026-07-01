@@ -54,8 +54,10 @@ to answer them cheaply, before any write path is built:
      auditor-confirmed pin. §0.2 (RKP write reaction) remains the only unproven gate.
 2. **Will RKP/KDP treat a boot-partition WRITE from normal-boot/PID1 differently from a write in
    TWRP?** If it denies cleanly → fine (fall back to TWRP). If it **panics PID1 or the kernel
-   mid-write**, the partial-write residual (§1) becomes much sharper. Unknown until the gated
-   v2321-over-v2321 experiment (§7.4).
+   mid-write**, the partial-write residual (§1) becomes much sharper — and on **UFS** a tear can
+   corrupt the target LBA *and* neighbouring FTL metadata even for an identity write (see §11.1).
+   Unknown until the gated RMW-identity write-probe experiment (**designed in §11**), which starts
+   with an open-only (no-write) rung and tail-slack writes to bound the blast radius.
 3. Does AVB/vbmeta add any new next-boot refusal? Probably not (TWRP already flashes modified boot
    images that boot), but confirm the resident vbmeta policy is unchanged.
 
@@ -236,10 +238,18 @@ reboot). Therefore:
    invocation. This is the sharpest test set; it gates everything downstream.
 3. **Policy update** (explicit): the repo currently mandates flash only via `native_init_flash.py`.
    Building/using a write path requires updating that policy deliberately — not silently.
-4. **First write experiment (only after 1–3):** self-write the **already-resident v2321 over itself**
-   (no new-image variable), TWRP/download recovery armed, then reboot + `version/status/selftest
-   fail=0`. This tests the runtime write path and answers §0.2 (RKP reaction) with the safest
-   possible payload.
+4. **First write experiment (only after 1–3): the §0.2 write-probe — see §11 for the full design.**
+   Refined from the earlier "v2321-over-v2321" idea (chicken-egg — v2321 has no write command — plus
+   mixed-corruption risk). The chosen form is **read-then-write-IDENTICAL**: read a bounded region of
+   the *currently resident* boot partition and write the **exact same bytes** back. A COMPLETED
+   identity write is a true no-op (idempotent, leaves the resident image untouched). **Important
+   correction (Codex review):** the storage is **UFS**, and an *interrupted* write is NOT guaranteed
+   identity-safe — UFS FTL programs/erases at a large internal granularity, so a tear mid-write can
+   corrupt the target LBA and neighbouring FTL metadata even when the bytes are identical. So this is
+   a **real destructive-class boot write** whose safety rests on (a) writing harmless **tail slack**
+   first (never offset 0), (b) an **open-only** probe before any write, and (c) a **proven external
+   recovery drill** — not on a "zero-change ⇒ safe on interrupt" guarantee. It still answers §0.2
+   (clean refusal vs allowed vs oops/panic).
 5. Only after 4 passes cleanly and repeatably: allow self-write as an **opt-in** fast path (not
    default), TWRP as fallback. Re-measure the real per-flash saving; if it is at the low end
    (~15s) reassess whether it is worth carrying.
@@ -264,7 +274,123 @@ recoverable-only; nothing in this tool may create a permanent-brick path.
 Do **not** build the full fast-flash write path up front. Build the **read-only `boot-target-audit`
 first** — it is zero-risk, answers the RKP read-feasibility unknown, and exercises the guard identity
 logic. Then the guard fault-injection tests. Only after those + an explicit policy update is the
-first (v2321-over-v2321) write experiment justified. The time win is modest (~15-25s/flash), so
+first (RMW-identity, §11) write experiment justified. The time win is modest (~15-25s/flash), so
 self-write stays an **opt-in experiment for new-image-heavy workloads**, never a silent default;
 resident-session already covers the REPL batching case, and `native_init_flash.py` remains the
 sanctioned path.
+
+## 11. §0.2 write-probe experiment — detailed design (RMW-identity, UFS-corrected)
+
+**Status:** the read-only precondition is closed — the auditor produces an auditor-confirmed pin live
+(§0.1, V3346). The ONLY unproven gate before a real write path is §0.2: *how does RKP react to a
+`write()` to the boot block from normal-boot PID1?* — clean refusal (`EROFS`/`EPERM`), allowed, or an
+oops/panic. This section designs the **lowest-risk** experiment to find out. It is a **real
+destructive-class boot-partition write**, made low-risk by construction — not risk-free. **Storage is
+UFS** (SM8150 `ufshc1`; `qcom,ufshc` + `CONFIG_SCSI_UFS_QCOM`), which shapes the safety model below.
+
+### 11.1 Core principle — read-then-write-IDENTICAL, and its LIMIT
+
+The probe reads a bounded region of the **currently resident** boot partition and writes the **exact
+same bytes** back to the same offsets. A **completed** identity write is a true no-op — idempotent,
+leaves the resident image untouched, so a successful probe perturbs nothing and can be repeated.
+
+**Correction (Codex review, MUST-FIX):** identity content does **NOT** make an *interrupted* write
+safe. On UFS the FTL programs/erases at a large internal granularity (typ. 512 KiB–4 MiB) and updates
+mapping metadata; a tear mid-write (panic/watchdog/power) can leave the **target LBA** old/new/corrupt
+**and** damage **neighbouring FTL metadata** — even though the bytes we intended were identical.
+`fsync` only reaches `blkdev_issue_flush` after writeback; it does not make the in-flight write
+atomic, and the Samsung drop ships no device-supported atomic/reliable-write path. So:
+- **Drop** any "zero net change ⇒ safe on interrupt / still bootable after a mid-write panic" claim.
+- Treat every rung as a **real boot-partition write** whose recovery is **external** (Odin/TWRP),
+  bounded to **boot-only corruption** (we never touch vbmeta/PIT/bootloader/forbidden partitions).
+- Minimise what a tear can damage: **write harmless tail slack first** (§11.2) and **prove recovery
+  before writing** (§11.4). The value of identity content is only that a *completed* write changes
+  nothing — not that an interrupted one is safe.
+
+### 11.2 Bounded, escalating region — tail-slack first, offset 0 LATE
+
+The 64 MiB `sda24` holds a ~60 MiB boot image; the tail is padding/unused **slack**. Confirm the
+slack extent first by reading the resident image length (Android boot header `kernel_size`,
+`ramdisk_size`, page-rounded) and the auditor's `size_bytes`. Each rung is **separately
+operator-gated**; do not advance past any anomaly:
+- **E-open (first, NO write):** `open(node, O_WRONLY|O_CLOEXEC)` then `close` — no `write` at all.
+  Answers "does RKP/kernel even permit opening the boot block writable" with **zero write**. If this
+  fails `EROFS`/`EPERM`, §0.2 is answered "blocked" without a single byte written.
+- **E1 — tail-slack 4 KiB identity:** one physical sector (4096 B) inside **confirmed slack** (near
+  the partition tail, well past the image), RMW-identity. A tear here can only touch padding, never
+  the boot header or image body.
+- **E2 — multi-offset 4 KiB identity:** a few sectors at different slack offsets, to catch
+  offset-dependent behaviour.
+- **E3 — 1 MiB identity** in slack (TWRP's chunk size).
+- **E4 — header sector (offset 0) 4 KiB identity:** only *after* E-open..E3 are clean; offset 0 is
+  the Android boot header, the highest-consequence single sector, so it is a LATE rung.
+- **E5 — full 64 MiB identity:** proves a whole-partition write is permitted and measures self-dd
+  timing.
+- Only after E-open..E5 pass cleanly and repeatably does a **real new-image self-write** (content
+  changes) become the actual tool — a *different* risk class needing its own gate plus §5 rollback
+  ordering. Any short write, error, oops, hang, or SHA mismatch on any rung **halts the ladder**.
+
+### 11.3 Guarded, TOCTOU-safe write path (separate fds)
+
+1. Run the auditor (§7.1) → obtain the **auditor-confirmed pin** (rdev 259:8, canonical
+   `/dev/block/sda24`, size 64 MiB). Resolve + materialize the node from sysfs `PARTNAME=boot`.
+2. **Write fd is the safety-critical one:** `open(node, O_WRONLY|O_CLOEXEC)` (representative of the
+   real write path, per review — not `O_RDWR`). Build `BlockIdentity` from the **fd** (`fstat`
+   st_rdev, `BLKGETSIZE64`, sysfs `PARTNAME`/size by the fd's rdev — never re-stat the path) and run
+   `authorize_write(open_id, open_id, confirmed_pin)`; it **must** pass. Refuse/abort otherwise,
+   before any write. (E-open stops here: `close`, report.)
+3. Read the source bytes through a **separate** guarded `open(node, O_RDONLY|O_CLOEXEC)` fd:
+   `pread(rfd, buf, N, off)`; `sha_pre = SHA256(buf)`. Also snapshot a **full-partition SHA** before.
+4. `pwrite(wfd, buf, N, off)` → identical bytes. Record `write_rc`/`write_errno`. Require the return
+   to equal `N`; a **short write** is an anomaly → STOP (§11.6), not "unchanged".
+5. `fsync(wfd)`; require it to succeed (an `fsync` error is an anomaly → STOP).
+6. **Independent** `O_DIRECT` readback: `open(node, O_RDONLY|O_DIRECT)`, re-guard that third fd's
+   rdev, read `N` at `off` aligned to `max(logical,physical,4096)=4096`; `sha_post`. Also re-snapshot
+   the **full-partition SHA** after.
+7. Assert `sha_pre == sha_post == SHA256(written buf)` **and** full-partition-SHA-before ==
+   full-partition-SHA-after (catches FTL metadata / cross-LBA change). Report all fields + the guard
+   decision. The write buffer is **only** bytes just read from the device (assert `wbuf is rbuf`);
+   never a host-supplied buffer for E-open..E5.
+
+### 11.4 Recovery drill (mandatory pre-write gate) & observability
+
+- **Mandatory before E1 (first actual write):** a **recovery drill** confirming the escape hatch is
+  live — TWRP boots and can flash boot, and download/Odin mode is reachable — plus v2321
+  (`ca978551…`)/v2237/v48 present with known SHAs and the auditor still yielding a confirmed pin.
+  Frame recovery honestly: **"boot-only corruption is expected recoverable"**, not "any bad state is
+  recoverable" (Odin recovery is conditional on anti-rollback/RPMB/vbmeta, §4a).
+- `panic_on_oops`: keep the containment-safe default (`1`) unless a specific rung needs the log; if a
+  rung sets `0` for oops capture, do it **only** for the minimal write window, arm a hard watchdog,
+  and **halt the whole ladder on any oops/hang even if readback matches** — do not advance to the
+  next rung. (Review WARN: `panic_on_oops=0` can let an unhealthy kernel keep issuing I/O.)
+- Capture bounded `dmesg | tail` (serial `cmdv1x`) after each write attempt; pstore/last_kmsg on the
+  next boot if a reboot occurred. After the probe, **roll back to v2321 via `native_init_flash.py`**
+  and confirm `selftest fail=0`.
+
+### 11.5 Gating & guardrails
+
+- **Exact operator approval phrase per rung** (one-shot, non-retried, `hide`/menu-settle before
+  dispatch), e.g. `BOOT-WRITE-PROBE-E1 go: read-then-write-identical single 4096B sector in confirmed
+  tail slack of the resident boot partition, external recovery drilled, rollback to v2321`.
+- The command compiles a write primitive for the **boot block only**; it reuses the §2 guard (numeric
+  forbidden-rdev denylist + positive `PARTNAME==boot` + size + confirmed-pin) so it can never target a
+  forbidden partition. It writes **only** bytes it just read from the device at the same offset.
+- No vbmeta/AVB/PIT/bootloader/forbidden-partition access. A completed identity write does not change
+  boot's bytes, so its AVB hash is unchanged — *provided the write completes* (an interrupted write
+  could change boot's hash; that is the boot-only-corruption case the recovery drill covers).
+- This is the first build to carry a partition-write primitive; the §3/§7 policy ("flash only via
+  `native_init_flash.py`") must be amended **deliberately** to permit this gated experiment.
+
+### 11.6 Decision matrix (any anomaly ⇒ UNKNOWN/STOP)
+
+| Observed | Meaning | Next |
+| --- | --- | --- |
+| E-open `open(O_WRONLY)` → `EROFS`/`EPERM` | kernel/RKP makes boot block unwritable to PID1 | §0.2 = **blocked**; keep TWRP; no byte written; done |
+| `pwrite` → `EROFS`/`EPERM`, full-partition SHA unchanged | write refused at the block layer | §0.2 = blocked; keep TWRP |
+| `pwrite` returns `N` + region SHA matches + full-partition SHA unchanged | RKP permits PID1 boot writes | §0.2 = **allowed**; advance one rung |
+| **short `pwrite`** (< `N`) | partial write — content may have changed | **UNKNOWN/STOP**; verify via full-partition SHA; recover if changed |
+| `fsync` error | durability unknown | **UNKNOWN/STOP** |
+| `pwrite` `ENOSPC` / `EINVAL` (O_DIRECT align) / other errno | misuse or boundary hit | **STOP**; fix probe; do not advance |
+| readback open/read fails, or region SHA mismatch, or **full-partition SHA changed** | cross-LBA / FTL-metadata change | **UNKNOWN/STOP**; recover; do not advance |
+| oops in dmesg (no reboot) | RKP traps the write | **STOP the ladder**; analyze; keep TWRP; do not advance even if readback matched |
+| panic / hang / reboot | fatal reaction; boot bytes possibly torn | **STOP**; verify next-boot `selftest`, recover via TWRP/Odin if needed; §0.2 = hostile |
