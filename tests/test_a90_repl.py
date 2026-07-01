@@ -1764,6 +1764,35 @@ class CallSafetyClassificationTests(unittest.TestCase):
             [f"0x{word:08x}" for word in repl.SEC_DEBUG_GET_RESET_REASON_STR_EXPECTED_WORDS],
         )
 
+        is_boot_recovery = self._row("is_boot_recovery")
+        self.assertEqual(is_boot_recovery["tier"], repl.CALL_SAFETY_SAFE_SCALAR)
+        self.assertEqual(is_boot_recovery["required_valid_pointer_args"], {})
+        self.assertTrue(is_boot_recovery["resolution"]["verified"])
+        self.assertEqual(
+            is_boot_recovery["resolution"]["method"],
+            "exact-leaf-map+xref+word-boundary",
+        )
+        self.assertEqual(
+            is_boot_recovery["resolution"]["link_vaddr"],
+            "0xffffff80086ec6bc",
+        )
+        self.assertGreaterEqual(is_boot_recovery["signals"]["direct_bl_xref_count"], 3)
+        self.assertTrue(
+            is_boot_recovery["resolution"]["evidence"]["exact_leaf_map_ground_truth"]["accepted"]
+        )
+        self.assertEqual(
+            is_boot_recovery["resolution"]["evidence"]["exact_leaf_map_ground_truth"]["byte_size"],
+            "0x10",
+        )
+        self.assertEqual(
+            is_boot_recovery["signals"]["arg_pointer_derefs_before_first_bl_or_ret"],
+            [],
+        )
+        self.assertEqual(
+            is_boot_recovery["signals"]["first_words"][:4],
+            [f"0x{word:08x}" for word in repl.IS_BOOT_RECOVERY_EXPECTED_WORDS],
+        )
+
         sec_abc_get_enabled = self._row("sec_abc_get_enabled")
         self.assertEqual(sec_abc_get_enabled["tier"], repl.CALL_SAFETY_DENY)
         self.assertFalse(sec_abc_get_enabled["auto_call_allowed"])
@@ -3296,7 +3325,7 @@ class CallSafetyClassificationTests(unittest.TestCase):
         self.assertTrue(summary["host_only"])
         self.assertFalse(summary["device_action"])
         self.assertEqual(summary["seed_whitelist_count"], len(repl.CALL_SAFETY_SEEDS))
-        self.assertEqual(summary["counts"][repl.CALL_SAFETY_SAFE_SCALAR], 65)
+        self.assertEqual(summary["counts"][repl.CALL_SAFETY_SAFE_SCALAR], 66)
         self.assertGreaterEqual(summary["counts"][repl.CALL_SAFETY_SAFE_WITH_VALID_PTR], 10)
         self.assertGreaterEqual(summary["counts"][repl.CALL_SAFETY_BEHAVIOR_CHANGING], 4)
         self.assertEqual(summary["counts"][repl.CALL_SAFETY_DENY], 1)
@@ -4203,6 +4232,23 @@ class CallSafetyClassificationTests(unittest.TestCase):
         self.assertTrue(
             sec_debug_get_reset_reason_str["selected"]["path"].endswith(
                 "include/linux/samsung/debug/sec_debug_user_reset.h"
+            )
+        )
+
+        is_boot_recovery = repl.lookup_source_signature(
+            "is_boot_recovery",
+            source_root=KERNEL_SOURCE_ROOT,
+        )
+        self.assertEqual(is_boot_recovery["status"], "found", is_boot_recovery)
+        self.assertEqual(is_boot_recovery["selected"]["pointer_arg_indices"], [])
+        self.assertEqual(
+            is_boot_recovery["selected"]["signature"],
+            "extern unsigned int is_boot_recovery(void)",
+        )
+        self.assertEqual(is_boot_recovery["selected"]["line"], 763)
+        self.assertTrue(
+            is_boot_recovery["selected"]["path"].endswith(
+                "drivers/battery_v2/include/sec_battery.h"
             )
         )
 
@@ -5402,6 +5448,12 @@ class FaithfulFakeTransport:
             "sec_abc_get_enabled",
             purpose="call",
         ).link_vaddr
+        self.is_boot_recovery_link = repl.resolve_verified(
+            self.symbols,
+            self.image,
+            "is_boot_recovery",
+            purpose="call",
+        ).link_vaddr
         self.task_pid_nr_ns_link = repl.resolve_verified(
             self.symbols,
             self.image,
@@ -5693,6 +5745,7 @@ class FaithfulFakeTransport:
         self.sec_debug_get_reset_reason_value = 0x77665544
         self.sec_debug_get_reset_write_cnt_value = 0x2
         self.sec_abc_get_enabled_value = 2
+        self.is_boot_recovery_value = 0
         self.boot_stat_time_values = [0x00100000, 0x00101000, 0x00102000]
         self.boot_stat_time_index = 0
         self.get_seconds_values = [0x69000000, 0x69000001]
@@ -6535,6 +6588,8 @@ class FaithfulFakeTransport:
             sec_debug_get_reset_reason_str = self.sec_debug_get_reset_reason_str_link + self.slide
             assert self.sec_abc_get_enabled_link is not None
             sec_abc_get_enabled = self.sec_abc_get_enabled_link + self.slide
+            assert self.is_boot_recovery_link is not None
+            is_boot_recovery = self.is_boot_recovery_link + self.slide
             assert self.task_pid_nr_ns_link is not None
             task_pid_nr_ns = self.task_pid_nr_ns_link + self.slide
             assert self.sched_get_group_id_link is not None
@@ -7276,6 +7331,10 @@ class FaithfulFakeTransport:
                 if (arg1, arg2, arg3, arg4) != (0, 0, 0, 0):
                     raise AssertionError("sec_abc_get_enabled proof must pass no arguments")
                 lines.append(f"A90R{self.sec_abc_get_enabled_value:x}")
+            elif arg0 == is_boot_recovery:
+                if (arg1, arg2, arg3, arg4) != (0, 0, 0, 0):
+                    raise AssertionError("is_boot_recovery proof must pass no arguments")
+                lines.append(f"A90R{self.is_boot_recovery_value:x}")
             elif arg0 == task_pid_nr_ns:
                 if (arg1, arg2, arg3, arg4) != (
                     self.init_task_runtime,
@@ -9765,6 +9824,52 @@ class SelftestIntegrationTests(unittest.TestCase):
             self.assertEqual(private["case_returns"][key], f"0x{fake.sec_abc_get_enabled_value:x}")
         self.assertIn("sec_abc_get_enabled_runtime", private)
         self.assertNotIn("sec_abc_get_enabled_runtime", summary)
+        self.assertEqual(fake.op_count, 3)
+
+    def test_call_proof_is_boot_recovery_passes_with_boot_flag_contract(self) -> None:
+        if not C2B_PADDING_MAP_PATH.is_file() or not KERNEL_SOURCE_ROOT.is_dir():
+            self.skipTest("promoted v2c System.map or kernel source tree not present")
+
+        symbols = repl.load_system_map(C2B_PADDING_MAP_PATH)
+        fake = FaithfulFakeTransport(0x130000, symbols, self.image)
+        orig = repl.transport.run_serial_command
+        repl.transport.run_serial_command = fake.run_serial_command
+        self.addCleanup(lambda: setattr(repl.transport, "run_serial_command", orig))
+        session = repl.ReplSession(repl.ReplConfig(settle_sec=0.0))
+
+        summary, private = repl.run_call_proof(
+            session,
+            symbols,
+            self.image,
+            "is_boot_recovery",
+            source_root=KERNEL_SOURCE_ROOT,
+        )
+
+        self.assertTrue(summary["ok"], summary)
+        self.assertEqual(summary["decision"], "a90-repl-live-call-proof-is_boot_recovery-pass")
+        self.assertEqual(
+            summary["proof_status"],
+            "trusted-under-boot-recovery-flag-read-only-contract",
+        )
+        self.assertEqual(summary["function_map_entry"]["symbol"], "is_boot_recovery")
+        self.assertEqual(summary["function_map_entry"]["status"], "live-proven")
+        self.assertEqual(
+            summary["source_evidence"]["signature"],
+            "extern unsigned int is_boot_recovery(void)",
+        )
+        self.assertEqual(summary["source_evidence"]["pointer_arg_indices"], [])
+        self.assertEqual(summary["call_safety"]["tier"], repl.CALL_SAFETY_SAFE_SCALAR)
+        self.assertEqual(summary["observed_return_value"], f"0x{fake.is_boot_recovery_value:x}")
+        self.assertTrue(summary["all_returns_in_contract_range"])
+        self.assertTrue(summary["all_returns_stable"])
+        self.assertTrue(summary["all_returns_bool_like"])
+        cases = {case["case"]: case for case in summary["case_results"]}
+        for index in range(1, repl.IS_BOOT_RECOVERY_REPEAT_COUNT + 1):
+            key = f"is_boot_recovery-read-{index}"
+            self.assertEqual(cases[key]["observed_return_value"], f"0x{fake.is_boot_recovery_value:x}")
+            self.assertEqual(private["case_returns"][key], f"0x{fake.is_boot_recovery_value:x}")
+        self.assertIn("is_boot_recovery_runtime", private)
+        self.assertNotIn("is_boot_recovery_runtime", summary)
         self.assertEqual(fake.op_count, 3)
 
     def test_call_proof_task_struct_batch_candidates_pass_in_one_fake_session(self) -> None:

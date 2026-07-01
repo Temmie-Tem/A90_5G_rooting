@@ -146,6 +146,43 @@ only, never a native-init runtime dependency. Full history (AUD-0 → AUD-5, V23
 > the rollback-gate, the recoverable envelope, and "fails-twice → stop" all stay ON. If a candidate
 > needs a behavior-changing call to be provable, it is OUT, not a reason to weaken the gate.
 
+## ✅ DONE — REPL resident-session one-target proof — `is_boot_recovery`
+
+> ### ✅ STATUS (2026-07-01 live-proven, resident-session mode, rolled back cleanly)
+>
+> Codex promoted `is_boot_recovery()` as the next no-argument Samsung state
+> getter. Static identity is pinned by `exact-leaf-map+xref+word-boundary`:
+> link `0xffffff80086ec6bc`, JOPP entry, direct BL xrefs `3`, body words
+> `90014e08 b949d900 d65f03c0 00be7bad`, next symbol
+> `sec_bootstat_add_initcall` at `+0x10`, and source declaration
+> `extern unsigned int is_boot_recovery(void)` at
+> `drivers/battery_v2/include/sec_battery.h:763`.
+>
+> The global classifier now treats this exact pinned leaf as `SAFE-SCALAR`
+> with no required pointer args. The generic 64-byte scan still sees the
+> following function's `__pi_strcmp` call and reports raw `signals.leaf=false`;
+> the accepted identity gate is the exact `0x10` next-symbol boundary and
+> `exact_leaf_map_ground_truth`. Live resident-session run:
+> `workspace/private/runs/kernel/repl-resident-session-is-boot-recovery-20260701T131159Z/`.
+> Result: `a90-repl-live-call-proof-is_boot_recovery-pass`; observed return
+> `0x0`, repeated twice, stable, bool-like, and in the `0..0xffffffff`
+> contract range. Session used v1-repl flash once, mandatory warm reboot
+> before the batch, per-target result flush, and v2321 rollback once.
+> Final resident after serial bridge restart is `v2321-usb-clean-identity-rodata`;
+> standalone `selftest fail=0`.
+>
+> Canonical timing is present in `timeline.json` with the single top-level
+> `events` schema and all required eight phase events. This run measured
+> `candidate_flash=64.310290s`, `warm_reboot=33.243462s`, one-target live
+> batch `3.066112s`, `rollback_flash=63.840645s`, total `243.139239s`.
+> The timing aggregator now uses `15` canonical timelines and projects
+> resident session `20->2` flashes, `13.550s/target`, `20.28x` versus
+> unbatched per-unit flash, and `2.03x` versus per-unit in-boot batching for
+> `batch_size=10`, `resident_batches=10`.
+>
+> Report:
+> `docs/reports/KERNEL_SECURITY_TIER2_RUNTIME_KERNEL_REPL_IS_BOOT_RECOVERY_RESIDENT_SESSION_2026-07-01.md`.
+
 ## ✅ DONE — REPL resident-session one-target proof — `sec_abc_get_enabled`
 
 > ### ✅ STATUS (2026-07-01 live-proven, resident-session mode, rolled back cleanly)

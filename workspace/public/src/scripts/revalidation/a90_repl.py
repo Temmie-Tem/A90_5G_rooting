@@ -328,6 +328,19 @@ EXACT_LEAF_MAP_GROUND_TRUTH_SYMBOLS = {
         "min_direct_bl_xrefs": 6,
         "note": "non-export JOPP leaf Samsung reset-reason string lookup; identity rests on map label, direct callsite xrefs, exact words, source declaration, and next-symbol boundary",
     },
+    "is_boot_recovery": {
+        "expected_words": (
+            0x90014E08,
+            0xB949D900,
+            0xD65F03C0,
+            0x00BE7BAD,
+        ),
+        "next_symbol": "sec_bootstat_add_initcall",
+        "byte_size": 0x10,
+        "ret_offset": 0x8,
+        "min_direct_bl_xrefs": 3,
+        "note": "non-export JOPP leaf Samsung boot-recovery flag getter; identity rests on map label, direct callsite xrefs, exact words, source declaration, and next-symbol boundary",
+    },
     "slab_is_available": {
         "expected_words": (
             0xB0016968,
@@ -687,6 +700,12 @@ CALL_SAFETY_SEEDS = {
         "required_valid_pointer_args": {},
         "return_kind": "borrowed-kernel-string-pointer",
         "reason": "scalar Samsung reset-reason string lookup; current image is a pinned leaf and proof only bounded-reads the borrowed char pointer as a stable NUL-terminated printable string",
+    },
+    "is_boot_recovery": {
+        "tier": CALL_SAFETY_SAFE_SCALAR,
+        "required_valid_pointer_args": {},
+        "return_kind": "uint32_t",
+        "reason": "no-argument Samsung boot-recovery flag getter; current image is a pinned leaf global read and proof expects a stable uint32_t value",
     },
     "get_ddr_vendor_name": {
         "tier": CALL_SAFETY_SAFE_SCALAR,
@@ -4134,6 +4153,7 @@ _SOURCE_HEADER_HINTS_BY_EXACT_SYMBOL = {
         "include/linux/samsung/debug/sec_debug_user_reset.h",
         "include/linux/samsung/debug/sec_debug.h",
     ),
+    "is_boot_recovery": ("drivers/battery_v2/include/sec_battery.h",),
     "sec_abc_get_enabled": ("include/linux/sti/abc_common.h",),
     "__task_pid_nr_ns": ("include/linux/sched.h",),
     "sched_get_group_id": ("include/linux/sched.h",),
@@ -6063,6 +6083,12 @@ CALL_PROOF_TARGETS = {
         "expected_tier": CALL_SAFETY_SAFE_SCALAR,
         "source_signature": "extern char * sec_debug_get_reset_reason_str(unsigned int reason)",
     },
+    "is_boot_recovery": {
+        "input_contract": "no arguments; Samsung boot-recovery flag state is read-only through the pinned leaf global-load body and no returned pointer is dereferenced or freed",
+        "return_contract": "uint32_t boot-recovery flag value in 0..0xffffffff and stable across immediate repeated proof calls",
+        "expected_tier": CALL_SAFETY_SAFE_SCALAR,
+        "source_signature": "extern unsigned int is_boot_recovery(void)",
+    },
     "sec_abc_get_enabled": {
         "input_contract": "no arguments; Samsung ABC enabled mode is read-only through the pinned leaf global-load body and no returned pointer is dereferenced or freed",
         "return_contract": "int ABC mode value is exactly one of ABC_DISABLED/ABC_TYPE1_ENABLED/ABC_TYPE2_ENABLED (0..2) and stable across immediate repeated proof calls",
@@ -7582,6 +7608,11 @@ SEC_ABC_GET_ENABLED_EXPECTED_WORDS = (
 SEC_ABC_GET_ENABLED_NEXT_SYMBOL = ("sec_abc_send_event", 0x10)
 SEC_ABC_GET_ENABLED_REPEAT_COUNT = 2
 SEC_ABC_GET_ENABLED_MAX = 2
+IS_BOOT_RECOVERY_EXPECTED_WORDS = (
+    0x90014E08, 0xB949D900, 0xD65F03C0, 0x00BE7BAD,
+)
+IS_BOOT_RECOVERY_NEXT_SYMBOL = ("sec_bootstat_add_initcall", 0x10)
+IS_BOOT_RECOVERY_REPEAT_COUNT = 2
 TASK_PID_NR_NS_PIDTYPE_PID = 0
 TASK_PID_NR_NS_EXPECTED_INIT_TASK_PID = 0
 TASK_PID_NR_NS_REPEAT_COUNT = 2
@@ -27682,6 +27713,184 @@ def _run_call_proof_sec_abc_get_enabled(
     return summary, private
 
 
+def _run_call_proof_is_boot_recovery(
+    session: ReplSession,
+    symbols: dict[str, Symbol],
+    image: StaticImage,
+    *,
+    source_root: Path,
+) -> tuple[dict[str, object], dict[str, object]]:
+    target = "is_boot_recovery"
+    source = lookup_source_signature(target, source_root=source_root)
+    call_safety = require_call_safety_for_call(
+        symbols,
+        image,
+        target,
+        (),
+    )
+    if call_safety.get("tier") != CALL_PROOF_TARGETS[target]["expected_tier"]:
+        raise ReplError(f"{target} call-safety tier is not the expected vetted scalar tier")
+    if not source.get("found") or source.get("pointer_arg_indices") != []:
+        raise ReplError(f"{target} source signature must be no-arg scalar-safe")
+    selected_signature = (
+        source.get("selected", {}).get("signature")
+        if isinstance(source.get("selected"), dict) else None
+    )
+    if selected_signature != CALL_PROOF_TARGETS[target]["source_signature"]:
+        raise ReplError(f"{target} source signature did not select the sec_battery declaration")
+
+    resolutions = {
+        target: resolve_verified(
+            symbols,
+            image,
+            target,
+            purpose="call",
+        ),
+    }
+    target_link = require_verified_resolution(resolutions[target], "call-proof target")
+    next_symbol_name, expected_boundary = IS_BOOT_RECOVERY_NEXT_SYMBOL
+    next_symbol = symbols.get(next_symbol_name)
+    if next_symbol is None or next_symbol.vaddr - target_link != expected_boundary:
+        raise ReplError(f"{target} next-symbol boundary is not the expected 0x{expected_boundary:x}")
+
+    observed_words = image.u32_words_at_vaddr(target_link, len(IS_BOOT_RECOVERY_EXPECTED_WORDS))
+    checks: list[dict[str, object]] = [
+        {
+            "check": "static-c1-identity",
+            "ok": True,
+            "target": target,
+            "resolution_method": resolutions[target].method,
+        },
+        {
+            "check": "static-next-symbol-boundary",
+            "ok": True,
+            "next_symbol": next_symbol_name,
+            "byte_size": f"0x{expected_boundary:x}",
+        },
+        {
+            "check": "static-source-contract",
+            "ok": True,
+            "signature": selected_signature,
+            "pointer_arg_indices": source.get("pointer_arg_indices", []),
+            "source_note": "sec_battery.h declares the no-argument Samsung boot-recovery flag getter; current image body is pinned as a read-only leaf",
+        },
+        {
+            "check": "static-call-safety-contract",
+            "ok": True,
+            "tier": call_safety.get("tier"),
+            "required_valid_pointer_args": call_safety.get("required_valid_pointer_args", {}),
+        },
+        {
+            "check": "static-body-ret-before-next-symbol",
+            "ok": True,
+            "ret_word_index": 2,
+            "note": "generic 64-byte classifier scan may include sec_bootstat_add_initcall; proof pins the exact body through the next-symbol boundary",
+        },
+    ]
+    for index, expected in enumerate(IS_BOOT_RECOVERY_EXPECTED_WORDS):
+        observed = observed_words[index]
+        ok = observed == expected
+        checks.append({
+            "check": f"static-{target}-word-{index:02d}",
+            "ok": ok,
+            "expected_word": f"0x{expected:08x}",
+            "observed_word": f"0x{observed:08x}",
+        })
+        if not ok:
+            raise ReplError(
+                f"{target} word {index} mismatch: observed 0x{observed:08x}, "
+                f"expected 0x{expected:08x}"
+            )
+
+    private: dict[str, object] = {}
+    slide = 0
+    returns: list[int] = []
+    case_results: list[dict[str, object]] = []
+
+    session.hide()
+    session.set_panic_on_oops(0)
+    try:
+        slide = session.slide()
+        if slide & 0xFFF:
+            raise ReplError("slide is not page-aligned; refusing to proceed")
+        target_runtime = (target_link + slide) & MASK64
+        for index in range(IS_BOOT_RECOVERY_REPEAT_COUNT):
+            observed = session.call_runtime_values(
+                target_runtime,
+                (),
+                replay_safe=True,
+            )[-1] & MASK64
+            in_range = 0 <= observed <= 0xFFFFFFFF
+            stable = observed == returns[0] if returns else True
+            returns.append(observed)
+            ok = in_range and stable
+            case_results.append({
+                "case": f"{target}-read-{index + 1}",
+                "expected_return": "stable uint32 boot-recovery flag",
+                "expected_range": "0x0..0xffffffff",
+                "observed_return_value": f"0x{observed:x}",
+                "in_contract_range": in_range,
+                "stable_from_first": stable,
+                "bool_like": observed in (0, 1),
+                "ok": ok,
+            })
+            if not ok:
+                raise ReplError(
+                    f"{target}() returned an out-of-contract value in proof call "
+                    f"{index + 1}: 0x{observed:x}"
+                )
+    finally:
+        session.set_panic_on_oops(1)
+
+    checks.append({
+        "check": f"{target}-stable-boot-recovery-repeat",
+        "ok": all(bool(case.get("ok")) for case in case_results),
+        "case_count": len(case_results),
+        "cases": case_results,
+    })
+    passed = all(bool(check.get("ok")) for check in checks)
+    observed_public = f"0x{returns[0]:x}" if returns else "n/a"
+    all_in_range = bool(returns) and all(0 <= value <= 0xFFFFFFFF for value in returns)
+    all_stable = bool(returns) and all(value == returns[0] for value in returns)
+    summary = {
+        "decision": f"a90-repl-live-call-proof-{target}-{'pass' if passed else 'fail'}",
+        "ok": passed,
+        "target": target,
+        "proof_status": "trusted-under-boot-recovery-flag-read-only-contract" if passed else "failed",
+        "input_contract": CALL_PROOF_TARGETS[target]["input_contract"],
+        "return_contract": CALL_PROOF_TARGETS[target]["return_contract"],
+        "case_results": case_results,
+        "observed_return_value": observed_public,
+        "all_returns_in_contract_range": all_in_range,
+        "all_returns_stable": all_stable,
+        "all_returns_bool_like": bool(returns) and all(value in (0, 1) for value in returns),
+        "repeat_count": len(returns),
+        "source_evidence": _source_row_evidence(source),
+        "call_safety": call_safety,
+        "resolutions": _redacted_resolution_set(resolutions),
+        "raw_runtime_values_redacted": True,
+        "checks": checks,
+        "function_map_entry": {
+            "symbol": target,
+            "status": "live-proven",
+            "trusted_input_contract": CALL_PROOF_TARGETS[target]["input_contract"],
+            "return_contract": CALL_PROOF_TARGETS[target]["return_contract"],
+            "observed_return_value": f"repeated no-argument calls returned stable boot-recovery flag {observed_public}",
+            "cleanup": "n/a-scalar-read-only",
+            "auto_call_policy": "one-target-proof-only-not-mass-call",
+        },
+    }
+    private.update({
+        "slide": f"0x{slide:x}",
+        f"{target}_runtime": f"0x{((target_link + slide) & MASK64):x}",
+        "case_returns": {
+            case["case"]: case["observed_return_value"]
+            for case in case_results
+        },
+    })
+    return summary, private
+
+
 def _run_call_proof_get_intermediate_timeout(
     session: ReplSession,
     symbols: dict[str, Symbol],
@@ -40555,6 +40764,13 @@ def run_call_proof(session: ReplSession,
         )
     if target == "sec_abc_get_enabled":
         return _run_call_proof_sec_abc_get_enabled(
+            session,
+            symbols,
+            image,
+            source_root=source_root,
+        )
+    if target == "is_boot_recovery":
+        return _run_call_proof_is_boot_recovery(
             session,
             symbols,
             image,
