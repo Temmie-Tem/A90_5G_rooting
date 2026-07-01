@@ -27,13 +27,17 @@ def base_args() -> argparse.Namespace:
 class A90ReplResidentSessionTests(unittest.TestCase):
     def test_parse_batches_accepts_repeated_and_comma_targets(self) -> None:
         batches = resident.parse_batches(
-            [["nr_processes,nr_running"], ["get_taint", "test_taint"]],
+            [["nr_processes,nr_running"], ["get_taint", "test_taint"], ["vfs-bundle:soc-fingerprint"]],
             max_batch_size=30,
         )
 
         self.assertEqual(
             batches,
-            (("nr_processes", "nr_running"), ("get_taint", "test_taint")),
+            (
+                ("nr_processes", "nr_running"),
+                ("get_taint", "test_taint"),
+                ("vfs-bundle:soc-fingerprint",),
+            ),
         )
 
     def test_parse_batches_rejects_unknown_and_oversized_batches(self) -> None:
@@ -42,6 +46,9 @@ class A90ReplResidentSessionTests(unittest.TestCase):
 
         with self.assertRaisesRegex(resident.ResidentSessionError, "max bounded size"):
             resident.parse_batches([["nr_processes", "nr_running"]], max_batch_size=1)
+
+        with self.assertRaisesRegex(resident.ResidentSessionError, "unsupported"):
+            resident.parse_batches([["vfs-bundle:not-a-bundle"]], max_batch_size=30)
 
     def test_flash_command_uses_checked_native_init_flash_helper(self) -> None:
         args = base_args()
@@ -254,6 +261,66 @@ class A90ReplResidentSessionTests(unittest.TestCase):
             self.assertTrue(summary["candidate_flashed_once"])
             self.assertTrue(summary["rollback_flashed_once"])
             self.assertTrue(summary["warm_reboot_between_batches"])
+
+    def test_run_one_batch_dispatches_call_proofs_and_vfs_bundles_with_flush(self) -> None:
+        args = argparse.Namespace(
+            host="127.0.0.1",
+            port=54321,
+            repl_timeout=1.0,
+            dmesg_tail=8,
+            safe_op_retries=0,
+            retry_delay_sec=0.0,
+            alloc_size=0x1000,
+            max_expected_return=None,
+            source_root=Path("kernel-source"),
+            gfp_header=Path("gfp.h"),
+            gfp=None,
+        )
+        calls: list[tuple[str, str]] = []
+        originals = {
+            "run_call_proof": resident.a90_repl.run_call_proof,
+            "run_vfs_read_bundle": resident.a90_repl.run_vfs_read_bundle,
+        }
+
+        def restore() -> None:
+            resident.a90_repl.run_call_proof = originals["run_call_proof"]
+            resident.a90_repl.run_vfs_read_bundle = originals["run_vfs_read_bundle"]
+
+        self.addCleanup(restore)
+
+        def fake_call_proof(unused_session, unused_symbols, unused_image, target, **kwargs):  # noqa: ANN001
+            del kwargs
+            calls.append(("call-proof", target))
+            return {"ok": True, "decision": f"call-{target}", "target": target}, {"private": target}
+
+        def fake_vfs_bundle(unused_session, unused_symbols, unused_image, bundle, **kwargs):  # noqa: ANN001
+            del kwargs
+            calls.append(("vfs-bundle", bundle))
+            return {"ok": True, "decision": f"bundle-{bundle}", "bundle": bundle}, {"private": bundle}
+
+        resident.a90_repl.run_call_proof = fake_call_proof
+        resident.a90_repl.run_vfs_read_bundle = fake_vfs_bundle
+
+        with tempfile.TemporaryDirectory() as td:
+            run_dir = Path(td)
+            summary = resident.run_one_batch(
+                args,
+                {},
+                object(),
+                ("nr_processes", "vfs-bundle:soc-fingerprint"),
+                1,
+                run_dir,
+            )
+
+            self.assertTrue(summary["ok"])
+            self.assertEqual(summary["completed_target_count"], 2)
+            self.assertEqual(calls, [("call-proof", "nr_processes"), ("vfs-bundle", "soc-fingerprint")])
+            first = json.loads((run_dir / "batch-001/target-results/001-nr_processes.json").read_text())
+            second = json.loads(
+                (run_dir / "batch-001/target-results/002-vfs-bundle_soc-fingerprint.json").read_text()
+            )
+            self.assertEqual(first["summary"]["decision"], "call-nr_processes")
+            self.assertEqual(second["summary"]["decision"], "bundle-soc-fingerprint")
 
 
 if __name__ == "__main__":

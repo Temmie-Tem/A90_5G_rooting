@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Run REPL call-proof batches in one resident v1-repl flash session.
+"""Run REPL proof/observation batches in one resident v1-repl flash session.
 
 Resident-session mode:
   flash v1-repl once,
@@ -8,7 +8,8 @@ Resident-session mode:
 
 The script never flashes directly; boot writes go through native_init_flash.py.
 Private per-target evidence is flushed after each completed target so a crash
-loses only the in-flight target and unrun remainder.
+loses only the in-flight target and unrun remainder. Batch items are either
+plain call-proof targets or vfs-bundle:<name> observation bundles.
 """
 from __future__ import annotations
 
@@ -60,6 +61,7 @@ REQUIRED_TIMELINE_EVENTS = (
     "rollback_flash_done",
     "rollback_boot_ready",
 )
+VFS_BUNDLE_PREFIX = "vfs-bundle:"
 
 
 class ResidentSessionError(RuntimeError):
@@ -296,6 +298,7 @@ def parse_batches(batch_args: list[list[str]] | None, *, max_batch_size: int) ->
         raise ResidentSessionError("at least one --batch is required")
     out: list[tuple[str, ...]] = []
     supported = set(a90_repl.CALL_PROOF_TARGETS)
+    supported.update(f"{VFS_BUNDLE_PREFIX}{name}" for name in a90_repl.VFS_READ_BUNDLES)
     for raw_batch in batch_args:
         targets: list[str] = []
         for token in raw_batch:
@@ -316,6 +319,21 @@ def parse_batches(batch_args: list[list[str]] | None, *, max_batch_size: int) ->
             )
         out.append(tuple(targets))
     return tuple(out)
+
+
+def is_vfs_bundle_item(target: str) -> bool:
+    return target.startswith(VFS_BUNDLE_PREFIX)
+
+
+def vfs_bundle_name(target: str) -> str:
+    if not is_vfs_bundle_item(target):
+        raise ResidentSessionError(f"not a vfs-bundle batch item: {target!r}")
+    name = target[len(VFS_BUNDLE_PREFIX):]
+    if name not in a90_repl.VFS_READ_BUNDLES:
+        raise ResidentSessionError(
+            f"unsupported vfs-read bundle {name!r}; supported={sorted(a90_repl.VFS_READ_BUNDLES)}"
+        )
+    return name
 
 
 def validate_image(path: Path, expected_sha256: str, *, label: str) -> dict[str, object]:
@@ -568,24 +586,40 @@ def run_one_batch(args: argparse.Namespace,
         retry_delay_sec=args.retry_delay_sec,
     ))
     flushed: list[str] = []
-
-    def on_target(target: str, summary: dict[str, object], private: dict[str, object]) -> None:
-        flushed.append(target)
-        flush_target_result(batch_dir, batch_index, len(flushed), target, summary, private)
+    target_summaries: list[dict[str, object]] = []
+    private_by_target: dict[str, object] = {}
 
     try:
-        summary, private = a90_repl.run_call_proof_batch(
-            session,
-            symbols,
-            image,
-            batch,
-            alloc_size=args.alloc_size,
-            max_expected_return=args.max_expected_return,
-            source_root=args.source_root,
-            gfp_header=args.gfp_header,
-            gfp_value=args.gfp,
-            target_result_callback=on_target,
-        )
+        for target in batch:
+            if is_vfs_bundle_item(target):
+                summary, private = a90_repl.run_vfs_read_bundle(
+                    session,
+                    symbols,
+                    image,
+                    vfs_bundle_name(target),
+                    alloc_size=args.alloc_size,
+                    source_root=args.source_root,
+                    gfp_header=args.gfp_header,
+                    gfp_value=args.gfp,
+                )
+            else:
+                summary, private = a90_repl.run_call_proof(
+                    session,
+                    symbols,
+                    image,
+                    target,
+                    alloc_size=args.alloc_size,
+                    max_expected_return=args.max_expected_return,
+                    source_root=args.source_root,
+                    gfp_header=args.gfp_header,
+                    gfp_value=args.gfp,
+                )
+            flushed.append(target)
+            target_summaries.append(summary)
+            private_by_target[target] = private
+            flush_target_result(batch_dir, batch_index, len(flushed), target, summary, private)
+            if not summary.get("ok"):
+                break
     except Exception as exc:  # noqa: BLE001 - preserve completed target evidence, attribute failure
         failure = {
             "ok": False,
@@ -600,14 +634,23 @@ def run_one_batch(args: argparse.Namespace,
         atomic_write_json(batch_dir / "batch-summary.json", failure)
         raise
 
+    ok = len(target_summaries) == len(batch) and all(bool(item.get("ok")) for item in target_summaries)
     payload = {
-        **summary,
+        "ok": ok,
+        "decision": f"a90-repl-resident-session-batch-{'pass' if ok else 'fail'}",
+        "target_count": len(batch),
+        "targets": list(batch),
+        "completed_target_count": len(target_summaries),
+        "stopped_after_failure": len(target_summaries) < len(batch) or any(
+            not bool(item.get("ok")) for item in target_summaries
+        ),
+        "target_summaries": target_summaries,
         "batch_index": batch_index,
         "resident_session_mode": True,
-        "_private": private,
+        "_private": {"targets": private_by_target},
     }
     atomic_write_json(batch_dir / "batch-summary.json", payload)
-    return summary
+    return payload
 
 
 def dry_run(args: argparse.Namespace, batches: tuple[tuple[str, ...], ...], plan: dict[str, object]) -> int:

@@ -164,6 +164,51 @@ only, never a native-init runtime dependency. Full history (AUD-0 → AUD-5, V23
 > the rollback-gate, the recoverable envelope, and "fails-twice → stop" all stay ON. If a candidate
 > needs a behavior-changing call to be provable, it is OUT, not a reason to weaken the gate.
 
+## ✅ DONE — REPL VFS-read SoC-fingerprint observation bundle promoted
+
+> ### ✅ STATUS (2026-07-02 live-proven, resident-session mode, rolled back to v2321)
+>
+> Codex promoted `a90_repl.py vfs-bundle soc-fingerprint`, a named VFS-read observation bundle
+> for Qualcomm SoC identity and board fingerprint state exposed under `/sys/devices/soc0/*`.
+> This implements KEYSTONE-FIRST / RETIRE-SUBSUMED for the `socinfo_get_*` getter family: use
+> file nodes for equivalent state instead of adding more individual state-getter call-proofs.
+>
+> Public bundle paths are `/sys/devices/soc0/soc_id`, `family`, `machine`, `revision`,
+> `vendor`, `raw_id`, `raw_version`, `build_id`, `hw_platform`, `platform_subtype`,
+> `platform_subtype_id`, and `serial_number`. Raw file bytes, runtime pointers, KASLR slide,
+> and serial/fingerprint values stay private-only; public evidence records path names,
+> observed lengths, broad text/decimal classification, and pass/fail checks.
+>
+> The resident-session harness now accepts `vfs-bundle:<name>` batch items in addition to plain
+> call-proof targets, preserving the same flash-once, mandatory warm-reboot-per-batch,
+> per-target flush, and rollback-once model. Host validation passed: `py_compile`, focused
+> VFS bundle tests, `tests.test_a90_repl_resident_session`, and resident-session dry-run with
+> `--batch vfs-bundle:soc-fingerprint`.
+>
+> Live run:
+> `workspace/private/runs/kernel/repl-resident-session-soc-fingerprint-20260701T152851Z/`.
+> Result: `a90-repl-vfs-read-soc-fingerprint-bundle-pass`; 12/12 sysfs paths opened, read,
+> closed, and cleaned up successfully, all returning printable text. The run used v1-repl
+> flash once, mandatory warm reboot before the batch, per-target result flush, and v2321
+> rollback. Rollback closed via recovery-direct fallback after a `from-native` rollback
+> failure; final standalone `version/status/selftest` confirmed resident
+> `v2321-usb-clean-identity-rodata` with `selftest pass=11 warn=1 fail=0`.
+>
+> Timing aggregate now uses `22/70` canonical timelines and projects resident-session
+> `14.107s/target`, `21.21x` vs per-unit flash, and `2.12x` vs per-unit in-boot batching
+> for `batch_size=10`, `resident_batches=10`, `warm_reboot=15s`. This run is intentionally
+> heavier than scalar call-proofs because it reads 12 sysfs files and the rollback closure
+> included a manual/fallback window.
+>
+> Note: while investigating the long VFS live window, the harness process received SIGINT
+> after the bundle had completed. The parent process then had to be killed after
+> recovery-direct rollback finished because it held the serial transaction lock during
+> rollback-finally health. This was recorded as a host closure artifact; the bundle proof
+> passed and the final device state is clean v2321.
+>
+> Report:
+> `docs/reports/KERNEL_SECURITY_TIER2_RUNTIME_KERNEL_REPL_VFS_READ_SOC_FINGERPRINT_BUNDLE_2026-07-02.md`.
+
 ## ✅ DONE — REPL resident-session borrowed task leaf boolean proof — `task_curr`
 
 > ### ✅ STATUS (2026-07-02 live-proven, resident-session mode, rolled back cleanly)

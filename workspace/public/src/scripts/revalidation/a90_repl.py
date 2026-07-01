@@ -6886,6 +6886,28 @@ VFS_READ_BUNDLES: dict[str, dict[str, object]] = {
             "adding lone no-arg state getter proofs for equivalent counters."
         ),
     },
+    "soc-fingerprint": {
+        "description": "read-only Qualcomm SoC identity and board fingerprint via soc0 sysfs",
+        "read_len": 128,
+        "paths": (
+            "/sys/devices/soc0/soc_id",
+            "/sys/devices/soc0/family",
+            "/sys/devices/soc0/machine",
+            "/sys/devices/soc0/revision",
+            "/sys/devices/soc0/vendor",
+            "/sys/devices/soc0/raw_id",
+            "/sys/devices/soc0/raw_version",
+            "/sys/devices/soc0/build_id",
+            "/sys/devices/soc0/hw_platform",
+            "/sys/devices/soc0/platform_subtype",
+            "/sys/devices/soc0/platform_subtype_id",
+            "/sys/devices/soc0/serial_number",
+        ),
+        "retire_subsumed": (
+            "Use this bundle instead of proving individual socinfo_get_* "
+            "state getters when their values are exposed through soc0 sysfs."
+        ),
+    },
 }
 STRNLEN_PROOF_BYTES = b"A90STRNLEN\x00"
 STRNLEN_PROOF_EXPECTED = len(STRNLEN_PROOF_BYTES) - 1
