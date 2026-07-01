@@ -96,6 +96,45 @@ only, never a native-init runtime dependency. Full history (AUD-0 → AUD-5, V23
 > the rollback-gate, the recoverable envelope, and "fails-twice → stop" all stay ON. If a candidate
 > needs a behavior-changing call to be provable, it is OUT, not a reason to weaken the gate.
 
+## ✅ DONE — REPL timekeeping aggregate-return live-call proof — `current_kernel_time64()` x0 tv_sec promoted
+
+> ### ✅ STATUS (2026-07-01 live-proven, rolled back cleanly) — no-arg `timespec64` seconds field
+>
+> Codex selected `current_kernel_time64` from the timekeeping neighborhood as a post-saturation
+> pivot: unlike the already-proven scalar seconds getters, this function returns a
+> `struct timespec64` aggregate. The current v1-repl call ABI captures x0 only, so the promoted
+> contract is intentionally narrow: `current_kernel_time64()` is trusted only for the x0
+> `tv_sec` field, not for x1 `tv_nsec`.
+>
+> Static selection pinned `current_kernel_time64=0xffffff8008161894` via `export-recovery`
+> with map agreement, source declaration `struct timespec64 current_kernel_time64(void)` at
+> `include/linux/timekeeping.h:27`, direct BL xrefs `26`, JOPP entry, leaf shape, no arg
+> deref, full 20-word body match, and next-symbol boundary `get_monotonic_coarse64` at
+> `+0x50`. The anchor `ktime_get_real_seconds=0xffffff800815f694` remained the previously
+> proven `SAFE-SCALAR` realtime-seconds getter.
+>
+> The live proof obeyed the flash gate: preflight confirmed candidate/rollback/fallback SHA
+> values, TWRP, bridge, and baseline v2321 health; the v1-repl candidate (`b846ae9f...`)
+> flashed with matching readback SHA; candidate explicit health passed after one serial
+> END-marker retry; and `current_kernel_time64()` passed. Anchor values were
+> `ktime_get_real_seconds() before=0x5a523ab0` and `after=0x5a523ab2`; two target x0
+> returns were `0x5a523ab1` and `0x5a523ab2`, nonnegative, nondecreasing, and inside the
+> anchor range. Raw runtime pointers and the slide stayed private/redacted. Post-proof
+> selftest stayed `fail=0`; rollback to v2321 completed with matching readback SHA; final
+> `version/status/selftest` passed after `hide` serial resync with
+> `selftest pass=11 warn=1 fail=0`.
+>
+> Timing was recorded per the 2026-07-01 timing rule in
+> `workspace/private/runs/kernel/live-call-proof-current-kernel-time64-20260701T034714Z/timeline.json`:
+> candidate flash helper `63.640s`, candidate health retry total `30s`, live proof `7s`,
+> post-proof candidate health `1s`, rollback flash helper `63.555s`, final health retry
+> total `51s`, and candidate start to final health done `244s`.
+>
+> Function-map outcome: `current_kernel_time64` is promoted as live-proven only under the
+> no-argument `timespec64.tv_sec` x0 contract, with `ktime_get_real_seconds()` used as a
+> same-session anchor. Report:
+> `docs/reports/KERNEL_SECURITY_TIER2_RUNTIME_KERNEL_REPL_LIVE_CALL_PROOF_CURRENT_KERNEL_TIME64_2026-07-01.md`.
+
 ## ✅ DONE — REPL pid current-namespace live-call proof — `pid_vnr(init_task->thread_pid)` promoted
 
 > ### ✅ STATUS (2026-07-01 live-proven, rolled back cleanly) — borrowed `struct pid *` to current-namespace `pid_t`
