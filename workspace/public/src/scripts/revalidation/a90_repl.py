@@ -6854,6 +6854,18 @@ KERNEL_READ_EXPECTED_PREFIX = b"\x7fELF"
 VFS_READ_MAX_PATH_BYTES = 192
 VFS_READ_MAX_LEN = 4096
 VFS_READ_BUNDLES: dict[str, dict[str, object]] = {
+    "boot-config": {
+        "description": "read-only boot command-line and kernel config provenance",
+        "read_len": 512,
+        "paths": (
+            "/proc/cmdline",
+            "/proc/config.gz",
+        ),
+        "retire_subsumed": (
+            "Use this bundle for boot-parameter and kernel-config provenance "
+            "instead of adding lone getters when the same state is exposed by procfs."
+        ),
+    },
     "hardening-posture": {
         "description": "read-only kernel hardening sysctl posture via file-node equivalents",
         "read_len": 64,

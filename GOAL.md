@@ -164,6 +164,54 @@ only, never a native-init runtime dependency. Full history (AUD-0 → AUD-5, V23
 > the rollback-gate, the recoverable envelope, and "fails-twice → stop" all stay ON. If a candidate
 > needs a behavior-changing call to be provable, it is OUT, not a reason to weaken the gate.
 
+## ✅ DONE — REPL VFS-read boot-config observation bundle promoted
+
+> ### ✅ STATUS (2026-07-02 live-proven, resident-session mode, rolled back to v2321)
+>
+> Codex promoted `a90_repl.py vfs-bundle boot-config`, a named VFS-read observation bundle for
+> boot command-line and kernel config provenance exposed through procfs. The bundle reads
+> `/proc/cmdline` and `/proc/config.gz` with the existing live-proven
+> `filp_open + kernel_read + filp_close` primitive, owned pathname/read/`loff_t` buffers, and
+> per-path `kfree` cleanup.
+>
+> Raw `/proc/cmdline` contents, kernel-config bytes, runtime pointers, and KASLR slide stay
+> private-only. Public evidence records only path names, observed byte counts, broad text/binary
+> classification, cleanup checks, and pass/fail state.
+>
+> Host validation passed: `py_compile`, focused VFS bundle tests including
+> `test_vfs_read_boot_config_bundle_uses_named_contract`, `tests.test_a90_repl_resident_session`,
+> and resident-session dry-run with `--batch vfs-bundle:boot-config`.
+>
+> Live run:
+> `workspace/private/runs/kernel/repl-resident-session-boot-config-20260701T154854Z/`.
+> Result: `a90-repl-vfs-read-boot-config-bundle-pass`; 2/2 procfs paths opened, read, closed,
+> and cleaned up successfully. `/proc/cmdline` returned 512 bytes classified as proc-style text;
+> `/proc/config.gz` returned 512 bytes classified as binary with gzip prefix.
+>
+> Session used v1-repl flash once, mandatory warm reboot before the batch, per-target result flush,
+> and v2321 rollback once. Final resident is `v2321-usb-clean-identity-rodata`; standalone
+> `version/status/selftest` passed after rollback with `selftest pass=11 warn=1 fail=0`.
+>
+> Canonical timing is present in `timeline.json` with the single top-level `events` schema and all
+> required phase events. This run measured candidate flash `64.221s`, candidate boot/health
+> `43.061s`, mandatory warm reboot `33.222s`, batch REPL selftest `32.226s`, live boot-config
+> bundle `175.970s`, rollback flash `64.290s`, rollback boot/health `48.023s`, and total
+> candidate-start to rollback-ready `462.352s`. The live bundle is slower than scalar call-proofs
+> because `/proc/config.gz` is a compressed procfs stream; keep it an on-demand named observation
+> bundle rather than routine light health.
+>
+> Timing aggregate now uses `23/71` canonical timelines and projects resident-session
+> `14.710s/target`, `20.83x` vs per-unit flash, and `2.08x` vs per-unit in-boot batching for
+> `batch_size=10`, `resident_batches=10`, `warm_reboot=15s`.
+>
+> Map outcome: `boot-config` is now the preferred observation surface for boot-parameter and
+> kernel-config provenance. Do not add individual getter proofs for equivalent state reachable
+> through `/proc/cmdline` or `/proc/config.gz`; reserve individual call-proofs for functions with
+> no file-node equivalent or a genuinely new ABI shape.
+>
+> Report:
+> `docs/reports/KERNEL_SECURITY_TIER2_RUNTIME_KERNEL_REPL_VFS_READ_BOOT_CONFIG_BUNDLE_2026-07-02.md`.
+
 ## ✅ DONE — REPL VFS-read SoC-fingerprint observation bundle promoted
 
 > ### ✅ STATUS (2026-07-02 live-proven, resident-session mode, rolled back to v2321)

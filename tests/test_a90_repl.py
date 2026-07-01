@@ -6697,6 +6697,7 @@ class FaithfulFakeTransport:
             b"/init": self.kernel_read_payload,
             b"/proc/sys/fs/file-max": b"253189\n",
             b"/proc/cmdline": b"console=tty0 androidboot.serialno=REDACTED\n",
+            b"/proc/config.gz": b"\x1f\x8b\x08\x00A90CONFIG",
             b"/proc/sys/kernel/kptr_restrict": b"2\n",
             b"/proc/sys/kernel/dmesg_restrict": b"1\n",
             b"/proc/sys/kernel/perf_event_paranoid": b"3\n",
@@ -18044,6 +18045,45 @@ class SelftestIntegrationTests(unittest.TestCase):
             b"123.45 67.89\n".hex(),
         )
         self.assertEqual(fake.closed_files, [fake.file_ptr] * 6)
+        self.assertEqual(fake.opened_files, set())
+
+    def test_vfs_read_boot_config_bundle_uses_named_contract(self) -> None:
+        if not C2B_PADDING_MAP_PATH.is_file() or not KERNEL_SOURCE_ROOT.is_dir():
+            self.skipTest("promoted v2c System.map or kernel source tree not present")
+
+        symbols = repl.load_system_map(C2B_PADDING_MAP_PATH)
+        fake = FaithfulFakeTransport(0x130000, symbols, self.image)
+        orig = repl.transport.run_serial_command
+        repl.transport.run_serial_command = fake.run_serial_command
+        self.addCleanup(lambda: setattr(repl.transport, "run_serial_command", orig))
+        session = repl.ReplSession(repl.ReplConfig(settle_sec=0.0))
+        summary, private = repl.run_vfs_read_bundle(
+            session,
+            symbols,
+            self.image,
+            "boot-config",
+            source_root=KERNEL_SOURCE_ROOT,
+        )
+
+        self.assertTrue(summary["ok"], summary)
+        self.assertEqual(summary["decision"], "a90-repl-vfs-read-boot-config-bundle-pass")
+        self.assertEqual(summary["bundle"], "boot-config")
+        self.assertEqual(summary["bundle_read_len"], 512)
+        self.assertEqual(tuple(summary["bundle_paths"]), repl.VFS_READ_BUNDLES["boot-config"]["paths"])
+        self.assertEqual(summary["path_count"], 2)
+        self.assertTrue(summary["read_data_redacted"])
+        self.assertNotIn("read_data_hex", summary["results"][0])
+        self.assertEqual(summary["results"][0]["path"], "/proc/cmdline")
+        self.assertTrue(summary["results"][0]["classification"]["looks_proc_text"])
+        self.assertEqual(summary["results"][1]["path"], "/proc/config.gz")
+        self.assertEqual(summary["results"][1]["classification"]["kind"], "binary")
+        self.assertIn("/proc/config.gz", private["path_privates"])
+        self.assertEqual(
+            private["path_privates"]["/proc/config.gz"]["read_data_hex"],
+            b"\x1f\x8b\x08\x00A90CONFIG".hex(),
+        )
+        self.assertIn("kernel-config provenance", summary["bundle_retire_subsumed"])
+        self.assertEqual(fake.closed_files, [fake.file_ptr] * 2)
         self.assertEqual(fake.opened_files, set())
 
     def test_vfs_read_soc_fingerprint_bundle_uses_named_contract(self) -> None:
