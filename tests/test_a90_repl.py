@@ -2029,6 +2029,31 @@ class CallSafetyClassificationTests(unittest.TestCase):
             [f"0x{word:08x}" for word in repl.IS_CURRENT_PGRP_ORPHANED_EXPECTED_WORDS[:12]],
         )
 
+        timekeeping_seconds_targets = {
+            "ktime_get_seconds": ("0xffffff800815f66c", 2),
+            "ktime_get_real_seconds": ("0xffffff800815f694", 10),
+        }
+        for symbol, (link_vaddr, min_xrefs) in timekeeping_seconds_targets.items():
+            row = self._row(symbol)
+            self.assertEqual(row["tier"], repl.CALL_SAFETY_SAFE_SCALAR)
+            self.assertEqual(row["required_valid_pointer_args"], {})
+            self.assertTrue(row["resolution"]["verified"])
+            self.assertEqual(row["resolution"]["method"], "export-recovery")
+            self.assertEqual(row["resolution"]["link_vaddr"], link_vaddr)
+            self.assertGreaterEqual(row["signals"]["direct_bl_xref_count"], min_xrefs)
+            self.assertTrue(row["signals"]["leaf"])
+            self.assertEqual(row["signals"]["arg_pointer_derefs_before_first_bl_or_ret"], [])
+            self.assertTrue(
+                row["signals"]["arg_taint_flow"]["safe_scalar_positive_no_arg_memory_base_flow"]
+            )
+            self.assertEqual(
+                row["signals"]["first_words"][:len(repl.TIMEKEEPING_SECONDS_EXPECTED_WORDS[symbol])],
+                [
+                    f"0x{word:08x}"
+                    for word in repl.TIMEKEEPING_SECONDS_EXPECTED_WORDS[symbol]
+                ],
+            )
+
         scheduler_counter_targets = {
             "nr_processes": ("0xffffff80080ae02c", 1),
             "nr_running": ("0xffffff80080edebc", 4),
@@ -2521,7 +2546,7 @@ class CallSafetyClassificationTests(unittest.TestCase):
         self.assertTrue(summary["host_only"])
         self.assertFalse(summary["device_action"])
         self.assertEqual(summary["seed_whitelist_count"], len(repl.CALL_SAFETY_SEEDS))
-        self.assertEqual(summary["counts"][repl.CALL_SAFETY_SAFE_SCALAR], 46)
+        self.assertEqual(summary["counts"][repl.CALL_SAFETY_SAFE_SCALAR], 48)
         self.assertGreaterEqual(summary["counts"][repl.CALL_SAFETY_SAFE_WITH_VALID_PTR], 9)
         self.assertGreaterEqual(summary["counts"][repl.CALL_SAFETY_BEHAVIOR_CHANGING], 4)
         self.assertEqual(summary["counts"][repl.CALL_SAFETY_DENY], 1)
@@ -3309,6 +3334,34 @@ class CallSafetyClassificationTests(unittest.TestCase):
         )
         self.assertEqual(is_current_pgrp_orphaned["selected"]["line"], 506)
         self.assertTrue(is_current_pgrp_orphaned["selected"]["path"].endswith("include/linux/tty.h"))
+
+        ktime_get_seconds = repl.lookup_source_signature(
+            "ktime_get_seconds",
+            source_root=KERNEL_SOURCE_ROOT,
+        )
+        self.assertEqual(ktime_get_seconds["status"], "found", ktime_get_seconds)
+        self.assertEqual(ktime_get_seconds["selected"]["pointer_arg_indices"], [])
+        self.assertEqual(
+            ktime_get_seconds["selected"]["signature"],
+            "extern time64_t ktime_get_seconds(void)",
+        )
+        self.assertEqual(ktime_get_seconds["selected"]["line"], 44)
+        self.assertTrue(ktime_get_seconds["selected"]["path"].endswith("include/linux/timekeeping.h"))
+
+        ktime_get_real_seconds = repl.lookup_source_signature(
+            "ktime_get_real_seconds",
+            source_root=KERNEL_SOURCE_ROOT,
+        )
+        self.assertEqual(ktime_get_real_seconds["status"], "found", ktime_get_real_seconds)
+        self.assertEqual(ktime_get_real_seconds["selected"]["pointer_arg_indices"], [])
+        self.assertEqual(
+            ktime_get_real_seconds["selected"]["signature"],
+            "extern time64_t ktime_get_real_seconds(void)",
+        )
+        self.assertEqual(ktime_get_real_seconds["selected"]["line"], 45)
+        self.assertTrue(
+            ktime_get_real_seconds["selected"]["path"].endswith("include/linux/timekeeping.h")
+        )
 
         is_scm_armv8 = repl.lookup_source_signature("is_scm_armv8", source_root=KERNEL_SOURCE_ROOT)
         self.assertEqual(is_scm_armv8["status"], "found", is_scm_armv8)
@@ -4200,6 +4253,18 @@ class FaithfulFakeTransport:
             "is_current_pgrp_orphaned",
             purpose="call",
         ).link_vaddr
+        self.ktime_get_seconds_link = repl.resolve_verified(
+            self.symbols,
+            self.image,
+            "ktime_get_seconds",
+            purpose="call",
+        ).link_vaddr
+        self.ktime_get_real_seconds_link = repl.resolve_verified(
+            self.symbols,
+            self.image,
+            "ktime_get_real_seconds",
+            purpose="call",
+        ).link_vaddr
         self.si_meminfo_link = repl.resolve_verified(
             self.symbols,
             self.image,
@@ -4303,6 +4368,10 @@ class FaithfulFakeTransport:
         self.vm_commit_limit_value = 0x1A2B30
         self.can_do_mlock_value = 1
         self.is_current_pgrp_orphaned_value = 0
+        self.ktime_get_seconds_values = [0x345, 0x346]
+        self.ktime_get_seconds_index = 0
+        self.ktime_get_real_seconds_values = [0x69000000, 0x69000001]
+        self.ktime_get_real_seconds_index = 0
         self.si_meminfo_fields = {
             "totalram_pages": 0x180000,
             "freeram_pages": 0x78000,
@@ -5053,6 +5122,10 @@ class FaithfulFakeTransport:
             can_do_mlock = self.can_do_mlock_link + self.slide
             assert self.is_current_pgrp_orphaned_link is not None
             is_current_pgrp_orphaned = self.is_current_pgrp_orphaned_link + self.slide
+            assert self.ktime_get_seconds_link is not None
+            ktime_get_seconds = self.ktime_get_seconds_link + self.slide
+            assert self.ktime_get_real_seconds_link is not None
+            ktime_get_real_seconds = self.ktime_get_real_seconds_link + self.slide
             assert self.si_meminfo_link is not None
             si_meminfo = self.si_meminfo_link + self.slide
             assert self.ktime_get_ts64_link is not None
@@ -5766,6 +5839,22 @@ class FaithfulFakeTransport:
                 if (arg1, arg2, arg3, arg4) != (0, 0, 0, 0):
                     raise AssertionError("is_current_pgrp_orphaned proof must pass no arguments")
                 lines.append(f"A90R{self.is_current_pgrp_orphaned_value:x}")
+            elif arg0 == ktime_get_seconds:
+                if (arg1, arg2, arg3, arg4) != (0, 0, 0, 0):
+                    raise AssertionError("ktime_get_seconds proof must pass no arguments")
+                value = self.ktime_get_seconds_values[
+                    min(self.ktime_get_seconds_index, len(self.ktime_get_seconds_values) - 1)
+                ]
+                self.ktime_get_seconds_index += 1
+                lines.append(f"A90R{value:x}")
+            elif arg0 == ktime_get_real_seconds:
+                if (arg1, arg2, arg3, arg4) != (0, 0, 0, 0):
+                    raise AssertionError("ktime_get_real_seconds proof must pass no arguments")
+                value = self.ktime_get_real_seconds_values[
+                    min(self.ktime_get_real_seconds_index, len(self.ktime_get_real_seconds_values) - 1)
+                ]
+                self.ktime_get_real_seconds_index += 1
+                lines.append(f"A90R{value:x}")
             elif arg0 == si_meminfo:
                 if (arg2, arg3, arg4) != (0, 0, 0):
                     raise AssertionError("si_meminfo proof must pass one result-slot pointer argument")
@@ -8056,6 +8145,71 @@ class SelftestIntegrationTests(unittest.TestCase):
         self.assertEqual(cases["is_current_pgrp_orphaned-read-1"]["observed_return_value"], "0x0")
         self.assertEqual(cases["is_current_pgrp_orphaned-read-2"]["observed_return_value"], "0x0")
         self.assertTrue(cases["is_current_pgrp_orphaned-read-2"]["stable_from_first"])
+
+    def test_call_proof_timekeeping_seconds_batch_passes_with_no_arg_contracts(self) -> None:
+        if not C2B_PADDING_MAP_PATH.is_file() or not KERNEL_SOURCE_ROOT.is_dir():
+            self.skipTest("promoted v2c System.map or kernel source tree not present")
+
+        symbols = repl.load_system_map(C2B_PADDING_MAP_PATH)
+        fake = FaithfulFakeTransport(0x130000, symbols, self.image)
+        orig = repl.transport.run_serial_command
+        repl.transport.run_serial_command = fake.run_serial_command
+        self.addCleanup(lambda: setattr(repl.transport, "run_serial_command", orig))
+        session = repl.ReplSession(repl.ReplConfig(settle_sec=0.0))
+
+        targets = ("ktime_get_seconds", "ktime_get_real_seconds")
+        summary, private = repl.run_call_proof_batch(
+            session,
+            symbols,
+            self.image,
+            targets,
+            source_root=KERNEL_SOURCE_ROOT,
+        )
+
+        self.assertTrue(summary["ok"], summary)
+        self.assertEqual(summary["decision"], "a90-repl-live-call-proof-batch-pass")
+        self.assertEqual(summary["target_count"], 2)
+        self.assertEqual(summary["completed_targets"], list(targets))
+        self.assertTrue(summary["host_batch_single_repl_session"])
+        self.assertTrue(summary["raw_runtime_values_redacted"])
+        self.assertEqual(sorted(private["target_privates"]), sorted(targets))
+
+        by_target = {row["target"]: row for row in summary["summaries"]}
+        ktime_seconds = by_target["ktime_get_seconds"]
+        self.assertEqual(ktime_seconds["decision"], "a90-repl-live-call-proof-ktime_get_seconds-pass")
+        self.assertEqual(ktime_seconds["source_evidence"]["signature"], "extern time64_t ktime_get_seconds(void)")
+        self.assertEqual(ktime_seconds["source_evidence"]["pointer_arg_indices"], [])
+        self.assertEqual(ktime_seconds["call_safety"]["tier"], repl.CALL_SAFETY_SAFE_SCALAR)
+        self.assertEqual(ktime_seconds["observed_return_value"], "0x345")
+        self.assertTrue(ktime_seconds["all_returns_nonnegative_time64"])
+        self.assertTrue(ktime_seconds["all_returns_nondecreasing"])
+        self.assertTrue(ktime_seconds["bounded_forward_deltas"])
+        self.assertEqual(ktime_seconds["max_observed_delta"], "0x1")
+        self.assertEqual(
+            ktime_seconds["function_map_entry"]["auto_call_policy"],
+            "same-session-batch-proof-only-not-mass-call",
+        )
+
+        ktime_real_seconds = by_target["ktime_get_real_seconds"]
+        self.assertEqual(
+            ktime_real_seconds["decision"],
+            "a90-repl-live-call-proof-ktime_get_real_seconds-pass",
+        )
+        self.assertEqual(
+            ktime_real_seconds["source_evidence"]["signature"],
+            "extern time64_t ktime_get_real_seconds(void)",
+        )
+        self.assertEqual(ktime_real_seconds["source_evidence"]["pointer_arg_indices"], [])
+        self.assertEqual(ktime_real_seconds["call_safety"]["tier"], repl.CALL_SAFETY_SAFE_SCALAR)
+        self.assertEqual(ktime_real_seconds["observed_return_value"], "0x69000000")
+        self.assertTrue(ktime_real_seconds["all_returns_nonnegative_time64"])
+        self.assertTrue(ktime_real_seconds["all_returns_nondecreasing"])
+        self.assertTrue(ktime_real_seconds["bounded_forward_deltas"])
+        self.assertEqual(ktime_real_seconds["max_observed_delta"], "0x1")
+        self.assertEqual(
+            ktime_real_seconds["function_map_entry"]["auto_call_policy"],
+            "same-session-batch-proof-only-not-mass-call",
+        )
 
     def test_call_proof_scheduler_counter_batch_passes_with_no_arg_contracts(self) -> None:
         if not C2B_PADDING_MAP_PATH.is_file() or not KERNEL_SOURCE_ROOT.is_dir():

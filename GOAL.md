@@ -96,6 +96,47 @@ only, never a native-init runtime dependency. Full history (AUD-0 → AUD-5, V23
 > the rollback-gate, the recoverable envelope, and "fails-twice → stop" all stay ON. If a candidate
 > needs a behavior-changing call to be provable, it is OUT, not a reason to weaken the gate.
 
+## ✅ DONE — REPL timekeeping seconds batch live-call proof — `ktime_get_seconds` + `ktime_get_real_seconds` promoted
+
+> ### ✅ STATUS (2026-07-01 live-proven, rolled back cleanly) — same-session time64 seconds getters
+>
+> Codex followed the 2026-07-01 batch cadence rule and proved two adjacent no-argument
+> timekeeping seconds getters in one v1-repl boot session. Host triage compared the adjacent
+> timekeeping scalar candidates: `ktime_get_seconds` and `ktime_get_real_seconds` were selected,
+> `ktime_get_resolution_ns` stayed parked because the resolver could not verify it through the
+> export/direct-xref gate (`direct_bl_xref_count=0`), and `ktime_get_raw` stayed rejected because
+> static analysis saw a precall x0 dereference.
+>
+> Static selection pinned `ktime_get_seconds=0xffffff800815f66c` and
+> `ktime_get_real_seconds=0xffffff800815f694`, both via `export-recovery` with map agreement,
+> source declarations `extern time64_t ktime_get_seconds(void)` and
+> `extern time64_t ktime_get_real_seconds(void)` (`include/linux/timekeeping.h:44-45`), no
+> pointer args, and leaf bodies. The proof pins the full identity bodies:
+> `ktime_get_seconds` through `ktime_get_real_seconds` at `+0x28` and
+> `ktime_get_real_seconds` through `__ktime_get_real_seconds` at `+0x18`. The C1 call gate
+> classifies both as `SAFE-SCALAR`.
+>
+> The live proof obeyed the flash gate: preflight confirmed rollback/fallback SHA values and
+> baseline v2321 health, the v1-repl candidate (`b846ae9f...`) flashed with matching readback SHA,
+> candidate health passed after bridge restart/retry for serial AT noise, and the same-session
+> batch proof passed. `ktime_get_seconds()` returned `0x59 -> 0x5a` with max delta `0x1`;
+> `ktime_get_real_seconds()` returned stable `0x5a521ebc` with max delta `0x0`. Post-proof
+> candidate health stayed `selftest fail=0`; rollback to v2321 completed with matching readback
+> SHA; final health passed after bridge restart/retry with `selftest pass=11 warn=1 fail=0`.
+>
+> Timing was recorded per the 2026-07-01 timing rule in
+> `workspace/private/runs/kernel/live-call-proof-timekeeping-seconds-batch-20260701T014723Z/timeline.json`:
+> candidate flash helper `63.708s`, candidate explicit health initial attempt `30.0s`,
+> candidate bridge restart `2.0s`, candidate health retry `2.0s`, live batch proof `9.0s`,
+> post-proof health `1.0s`, rollback flash helper `64.628s`, final explicit health initial
+> attempt `31.0s`, final bridge restart `2.0s`, final health retry `1.0s`, and candidate start
+> to final health retry done `296.0s`.
+>
+> Function-map outcome: `ktime_get_seconds` and `ktime_get_real_seconds` are promoted as
+> live-proven only under the no-argument read-only nonnegative/nondecreasing time64 seconds
+> contracts. Report:
+> `docs/reports/KERNEL_SECURITY_TIER2_RUNTIME_KERNEL_REPL_LIVE_CALL_PROOF_TIMEKEEPING_SECONDS_BATCH_2026-07-01.md`.
+
 ## ✅ DONE — REPL current process-group state live-call proof — `is_current_pgrp_orphaned` promoted
 
 > ### ✅ STATUS (2026-07-01 live-proven, rolled back cleanly) — current pgrp orphan-status bool getter

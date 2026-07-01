@@ -477,6 +477,18 @@ CALL_SAFETY_SEEDS = {
         "return_kind": "bool",
         "reason": "no-argument current-task mlock allowance query; proof expects a stable bool return and does not dereference or free any returned pointer",
     },
+    "ktime_get_seconds": {
+        "tier": CALL_SAFETY_SAFE_SCALAR,
+        "required_valid_pointer_args": {},
+        "return_kind": "time64-seconds",
+        "reason": "no-argument monotonic timekeeping seconds getter; proof expects a nondecreasing nonnegative time64 scalar",
+    },
+    "ktime_get_real_seconds": {
+        "tier": CALL_SAFETY_SAFE_SCALAR,
+        "required_valid_pointer_args": {},
+        "return_kind": "time64-seconds",
+        "reason": "no-argument realtime timekeeping seconds getter; proof expects a nondecreasing nonnegative time64 scalar",
+    },
     "is_current_pgrp_orphaned": {
         "tier": CALL_SAFETY_SAFE_SCALAR,
         "required_valid_pointer_args": {},
@@ -3637,6 +3649,8 @@ _SOURCE_HEADER_HINTS_BY_EXACT_SYMBOL = {
     "nsecs_to_jiffies64": ("include/linux/jiffies.h",),
     "nsecs_to_jiffies": ("include/linux/jiffies.h",),
     "ktime_get_ts64": ("include/linux/timekeeping.h",),
+    "ktime_get_seconds": ("include/linux/timekeeping.h",),
+    "ktime_get_real_seconds": ("include/linux/timekeeping.h",),
     "get_boot_stat_time": ("include/soc/qcom/boot_stats.h",),
     "is_scm_armv8": ("include/soc/qcom/scm.h", "drivers/soc/qcom/scm.c"),
     "get_avenrun": ("include/linux/sched/loadavg.h",),
@@ -5498,6 +5512,18 @@ CALL_PROOF_TARGETS = {
         "expected_tier": CALL_SAFETY_SAFE_SCALAR,
         "source_signature": "unsigned long get_seconds(void)",
     },
+    "ktime_get_seconds": {
+        "input_contract": "no arguments; kernel monotonic timekeeping seconds are read-only; no returned pointer is dereferenced or freed",
+        "return_contract": "time64_t seconds value is nonnegative, nondecreasing across immediate repeated proof calls, and advances by at most 2 seconds",
+        "expected_tier": CALL_SAFETY_SAFE_SCALAR,
+        "source_signature": "extern time64_t ktime_get_seconds(void)",
+    },
+    "ktime_get_real_seconds": {
+        "input_contract": "no arguments; kernel realtime wall-clock seconds are read-only; no returned pointer is dereferenced or freed",
+        "return_contract": "time64_t seconds value is nonnegative, nondecreasing across immediate repeated proof calls, and advances by at most 2 seconds",
+        "expected_tier": CALL_SAFETY_SAFE_SCALAR,
+        "source_signature": "extern time64_t ktime_get_real_seconds(void)",
+    },
     "ktime_get_ts64": {
         "input_contract": "owned struct timespec64 result slot in kmalloc memory; proof initializes the 16-byte slot plus trailing canary before each call and frees the slot after validation",
         "return_contract": "void call writes sane monotonic time: tv_sec is nonnegative/bounded, tv_nsec is 0..999999999, repeated readings are nondecreasing with delta bounded by the serial REPL proof budget, and trailing canary is preserved",
@@ -6772,6 +6798,23 @@ GET_SECONDS_EXPECTED_WORDS = (
 GET_SECONDS_NEXT_SYMBOL = ("__current_kernel_time", 0x18)
 GET_SECONDS_REPEAT_COUNT = 2
 GET_SECONDS_MAX_SHORT_DELTA = 2
+TIMEKEEPING_SECONDS_REPEAT_COUNT = 2
+TIMEKEEPING_SECONDS_MAX_SHORT_DELTA = 2
+TIMEKEEPING_SECONDS_EXPECTED_WORDS = {
+    "ktime_get_seconds": (
+        0xF00155C8, 0xB940AD08, 0x350000A8, 0xF0016FE8,
+        0x912C0108, 0xF9403900, 0xD65F03C0, 0xD4210000,
+        0x17FFFFFB, 0x00BE7BAD,
+    ),
+    "ktime_get_real_seconds": (
+        0xF0016FE8, 0x912C0108, 0xF9403500, 0xD65F03C0,
+        0xD503201F, 0x00BE7BAD,
+    ),
+}
+TIMEKEEPING_SECONDS_NEXT_SYMBOL = {
+    "ktime_get_seconds": ("ktime_get_real_seconds", 0x28),
+    "ktime_get_real_seconds": ("__ktime_get_real_seconds", 0x18),
+}
 KTIME_GET_TS64_EXPECTED_WORDS = (
     0xD10103FF, 0xCA1103D0, 0xA90143FD, 0x910043FD,
     0xA90257F6, 0xA9034FF4, 0xD00155C8, 0xF00155C9,
@@ -24394,6 +24437,203 @@ def _run_call_proof_get_seconds(
     return summary, private
 
 
+def _run_call_proof_timekeeping_seconds_scalar(
+    session: ReplSession,
+    symbols: dict[str, Symbol],
+    image: StaticImage,
+    *,
+    target: str,
+    source_root: Path,
+) -> tuple[dict[str, object], dict[str, object]]:
+    source = lookup_source_signature(target, source_root=source_root)
+    call_safety = require_call_safety_for_call(
+        symbols,
+        image,
+        target,
+        (),
+    )
+    if call_safety.get("tier") != CALL_PROOF_TARGETS[target]["expected_tier"]:
+        raise ReplError(f"{target} call-safety tier is not the expected vetted scalar tier")
+    if not source.get("found") or source.get("pointer_arg_indices") != []:
+        raise ReplError(f"{target} source signature must be scalar-only")
+    selected_signature = (
+        source.get("selected", {}).get("signature")
+        if isinstance(source.get("selected"), dict) else None
+    )
+    if selected_signature != CALL_PROOF_TARGETS[target]["source_signature"]:
+        raise ReplError(f"{target} source signature did not select the timekeeping.h declaration")
+
+    resolutions = {
+        target: resolve_verified(
+            symbols,
+            image,
+            target,
+            purpose="call",
+        ),
+    }
+    target_link = require_verified_resolution(
+        resolutions[target],
+        "call-proof target",
+    )
+    next_symbol_name, expected_boundary = TIMEKEEPING_SECONDS_NEXT_SYMBOL[target]
+    next_symbol = symbols.get(next_symbol_name)
+    if next_symbol is None or next_symbol.vaddr - target_link != expected_boundary:
+        raise ReplError(f"{target} next-symbol boundary is not the expected 0x{expected_boundary:x}")
+
+    expected_words = TIMEKEEPING_SECONDS_EXPECTED_WORDS[target]
+    observed_words = image.u32_words_at_vaddr(target_link, len(expected_words))
+    checks: list[dict[str, object]] = [
+        {
+            "check": "static-c1-identity",
+            "ok": True,
+            "target": target,
+            "resolution_method": resolutions[target].method,
+        },
+        {
+            "check": "static-next-symbol-boundary",
+            "ok": True,
+            "next_symbol": next_symbol_name,
+            "byte_size": f"0x{expected_boundary:x}",
+        },
+        {
+            "check": "static-source-contract",
+            "ok": True,
+            "signature": selected_signature,
+            "pointer_arg_indices": source.get("pointer_arg_indices", []),
+        },
+        {
+            "check": "static-call-safety-contract",
+            "ok": True,
+            "tier": call_safety.get("tier"),
+            "required_valid_pointer_args": call_safety.get("required_valid_pointer_args", {}),
+        },
+    ]
+    for index, expected in enumerate(expected_words):
+        observed = observed_words[index]
+        ok = observed == expected
+        checks.append({
+            "check": f"static-{target}-word-{index:02d}",
+            "ok": ok,
+            "expected_word": f"0x{expected:08x}",
+            "observed_word": f"0x{observed:08x}",
+        })
+        if not ok:
+            raise ReplError(
+                f"{target} word {index} mismatch: observed 0x{observed:08x}, "
+                f"expected 0x{expected:08x}"
+            )
+
+    private: dict[str, object] = {}
+    slide = 0
+    returns: list[int] = []
+    deltas: list[int] = []
+    case_results: list[dict[str, object]] = []
+
+    session.hide()
+    session.set_panic_on_oops(0)
+    try:
+        slide = session.slide()
+        if slide & 0xFFF:
+            raise ReplError("slide is not page-aligned; refusing to proceed")
+        target_runtime = (target_link + slide) & MASK64
+        for index in range(TIMEKEEPING_SECONDS_REPEAT_COUNT):
+            observed = session.call_runtime(target_runtime, ()) & MASK64
+            returns.append(observed)
+            nonnegative_time64 = observed < (1 << 63)
+            nondecreasing = True
+            delta_value: int | None = None
+            delta_ok = True
+            if index > 0:
+                previous = returns[index - 1]
+                nondecreasing = observed >= previous
+                delta_value = observed - previous if nondecreasing else previous - observed
+                deltas.append(delta_value)
+                delta_ok = nondecreasing and delta_value <= TIMEKEEPING_SECONDS_MAX_SHORT_DELTA
+            ok = nonnegative_time64 and nondecreasing and delta_ok
+            case_results.append({
+                "case": f"{target}-read-{index + 1}",
+                "expected_return": "nonnegative-time64-nondecreasing-seconds",
+                "observed_return_value": f"0x{observed:x}",
+                "nonnegative_time64": nonnegative_time64,
+                "nondecreasing": nondecreasing,
+                "delta_from_previous": f"0x{delta_value:x}" if delta_value is not None else "n/a",
+                "delta_within_bound": delta_ok,
+                "ok": ok,
+            })
+            if not ok:
+                previous_text = "n/a" if index == 0 else f"0x{returns[index - 1]:x}"
+                delta_text = "n/a" if delta_value is None else f"0x{delta_value:x}"
+                raise ReplError(
+                    f"{target}() returned an out-of-contract value in proof call "
+                    f"{index + 1}: previous={previous_text}, current=0x{observed:x}, "
+                    f"delta={delta_text}"
+                )
+    finally:
+        session.set_panic_on_oops(1)
+
+    checks.append({
+        "check": "timekeeping-seconds-nondecreasing-short-repeat",
+        "ok": all(bool(case.get("ok")) for case in case_results),
+        "case_count": len(case_results),
+        "max_short_delta_seconds": TIMEKEEPING_SECONDS_MAX_SHORT_DELTA,
+        "cases": case_results,
+    })
+    passed = all(bool(check.get("ok")) for check in checks)
+    observed_public = f"0x{returns[0]:x}" if returns else "n/a"
+    max_delta_public = max(deltas) if deltas else 0
+    summary = {
+        "decision": f"a90-repl-live-call-proof-{target}-{'pass' if passed else 'fail'}",
+        "ok": passed,
+        "target": target,
+        "proof_status": "trusted-under-timekeeping-seconds-read-only-contract" if passed else "failed",
+        "input_contract": CALL_PROOF_TARGETS[target]["input_contract"],
+        "return_contract": CALL_PROOF_TARGETS[target]["return_contract"],
+        "case_results": case_results,
+        "observed_return_value": observed_public,
+        "all_returns_nonnegative_time64": bool(returns) and all(value < (1 << 63) for value in returns),
+        "all_returns_nondecreasing": bool(returns) and all(
+            returns[index] >= returns[index - 1] for index in range(1, len(returns))
+        ),
+        "bounded_forward_deltas": bool(deltas) and all(
+            delta <= TIMEKEEPING_SECONDS_MAX_SHORT_DELTA for delta in deltas
+        ),
+        "max_observed_delta": f"0x{max_delta_public:x}",
+        "repeat_count": len(returns),
+        "source_evidence": _source_row_evidence(source),
+        "call_safety": call_safety,
+        "resolutions": _redacted_resolution_set(resolutions),
+        "raw_runtime_values_redacted": True,
+        "checks": checks,
+        "function_map_entry": {
+            "symbol": target,
+            "status": "live-proven",
+            "trusted_input_contract": CALL_PROOF_TARGETS[target]["input_contract"],
+            "return_contract": CALL_PROOF_TARGETS[target]["return_contract"],
+            "observed_return_value": (
+                "repeated no-argument calls returned nonnegative nondecreasing "
+                f"time64 seconds starting at {observed_public} with max short-run "
+                f"delta 0x{max_delta_public:x}"
+            ),
+            "cleanup": "n/a-scalar-read-only",
+            "auto_call_policy": "same-session-batch-proof-only-not-mass-call",
+        },
+    }
+    private.update({
+        "slide": f"0x{slide:x}",
+        f"{target}_runtime": f"0x{((target_link + slide) & MASK64):x}",
+        "case_returns": {
+            case["case"]: case["observed_return_value"]
+            for case in case_results
+        },
+        "case_deltas": {
+            case["case"]: case["delta_from_previous"]
+            for case in case_results
+            if case["delta_from_previous"] != "n/a"
+        },
+    })
+    return summary, private
+
+
 def _run_call_proof_is_scm_armv8(
     session: ReplSession,
     symbols: dict[str, Symbol],
@@ -33510,6 +33750,14 @@ def run_call_proof(session: ReplSession,
             session,
             symbols,
             image,
+            source_root=source_root,
+        )
+    if target in ("ktime_get_seconds", "ktime_get_real_seconds"):
+        return _run_call_proof_timekeeping_seconds_scalar(
+            session,
+            symbols,
+            image,
+            target=target,
             source_root=source_root,
         )
     if target == "is_scm_armv8":
