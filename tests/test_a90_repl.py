@@ -6119,8 +6119,14 @@ class FaithfulFakeTransport:
         self.ksize_return = 0x1000
         self.file_ptr = 0xFFFFFFC045670000
         self.opened_files: set[int] = set()
+        self.opened_file_payloads: dict[int, bytes] = {}
         self.closed_files: list[int] = []
         self.kernel_read_payload = b"\x7fELF" + b"A90READPROOF"
+        self.vfs_read_payloads = {
+            b"/init": self.kernel_read_payload,
+            b"/proc/sys/fs/file-max": b"253189\n",
+            b"/proc/cmdline": b"console=tty0 androidboot.serialno=REDACTED\n",
+        }
         self.op_count = 0
 
     def _heap_bytes(self, addr: int, length: int) -> bytes:
@@ -8340,12 +8346,13 @@ class FaithfulFakeTransport:
                 self._set_heap_bytes(arg1, b"\x00" * arg2)
                 lines.append(f"A90R{arg1:x}")
             elif arg0 == filp_open:
-                path = self._heap_bytes(arg1, 16).split(b"\x00", 1)[0]
-                if path != b"/init":
+                path = self._heap_bytes(arg1, repl.VFS_READ_MAX_PATH_BYTES).split(b"\x00", 1)[0]
+                if path not in self.vfs_read_payloads:
                     raise AssertionError(f"unexpected filp_open path bytes: {path!r}")
                 if arg2 != 0 or arg3 != 0:
                     raise AssertionError(f"unexpected filp_open flags/mode: {arg2:#x}/{arg3:#x}")
                 self.opened_files.add(self.file_ptr)
+                self.opened_file_payloads[self.file_ptr] = self.vfs_read_payloads[path]
                 lines.append(f"A90R{self.file_ptr:x}")
             elif arg0 == filp_close:
                 if arg1 not in self.opened_files:
@@ -8353,6 +8360,7 @@ class FaithfulFakeTransport:
                 if arg2 != 0:
                     raise AssertionError(f"unexpected filp_close owner: {arg2:#x}")
                 self.opened_files.discard(arg1)
+                self.opened_file_payloads.pop(arg1, None)
                 self.closed_files.append(arg1)
                 lines.append("A90R0")
             elif arg0 == kernel_read:
@@ -8364,12 +8372,11 @@ class FaithfulFakeTransport:
                     raise AssertionError(f"kernel_read pos is not allocated: {arg4:#x}")
                 if self.heap.get(arg4, 0) != 0:
                     raise AssertionError(f"kernel_read pos is not zero: {self.heap.get(arg4, 0):#x}")
-                data = self.kernel_read_payload[:arg3]
-                if len(data) != arg3:
-                    raise AssertionError(f"kernel_read requested too much: {arg3}")
+                payload = self.opened_file_payloads[arg1]
+                data = payload[:arg3]
                 self._set_heap_bytes(arg2, data)
-                self.heap[arg4] = arg3
-                lines.append(f"A90R{arg3:x}")
+                self.heap[arg4] = len(data)
+                lines.append(f"A90R{len(data):x}")
             elif arg0 == printk:
                 sentinel = arg2  # arg2 == x1
                 lines.append(f"A90R{sentinel:x}")   # called printk echoes the sentinel
@@ -16485,6 +16492,45 @@ class SelftestIntegrationTests(unittest.TestCase):
             fake.heap_ptr + 0x1000,
             fake.heap_ptr + 0x2000,
         ])
+        self.assertEqual(fake.opened_files, set())
+
+    def test_vfs_read_files_reads_proc_nodes_with_redacted_summary(self) -> None:
+        if not C2B_PADDING_MAP_PATH.is_file() or not KERNEL_SOURCE_ROOT.is_dir():
+            self.skipTest("promoted v2c System.map or kernel source tree not present")
+
+        symbols = repl.load_system_map(C2B_PADDING_MAP_PATH)
+        fake = FaithfulFakeTransport(0x130000, symbols, self.image)
+        orig = repl.transport.run_serial_command
+        repl.transport.run_serial_command = fake.run_serial_command
+        self.addCleanup(lambda: setattr(repl.transport, "run_serial_command", orig))
+        session = repl.ReplSession(repl.ReplConfig(settle_sec=0.0))
+        summary, private = repl.run_vfs_read_files(
+            session,
+            symbols,
+            self.image,
+            ("/proc/sys/fs/file-max", "/proc/cmdline"),
+            read_len=64,
+            source_root=KERNEL_SOURCE_ROOT,
+        )
+
+        self.assertTrue(summary["ok"], summary)
+        self.assertEqual(summary["decision"], "a90-repl-vfs-read-bundle-pass")
+        self.assertEqual(summary["primitive"], "filp_open+kernel_read+filp_close")
+        self.assertTrue(summary["read_data_redacted"])
+        self.assertTrue(summary["raw_runtime_values_redacted"])
+        self.assertEqual(summary["path_count"], 2)
+        self.assertEqual(summary["results"][0]["path"], "/proc/sys/fs/file-max")
+        self.assertEqual(summary["results"][0]["observed_len"], len(b"253189\n"))
+        self.assertTrue(summary["results"][0]["classification"]["looks_decimal"])
+        self.assertEqual(summary["results"][1]["path"], "/proc/cmdline")
+        self.assertTrue(summary["results"][1]["classification"]["looks_proc_text"])
+        self.assertNotIn("read_data_hex", summary["results"][0])
+        self.assertIn("/proc/sys/fs/file-max", private["path_privates"])
+        self.assertEqual(
+            private["path_privates"]["/proc/sys/fs/file-max"]["read_data_hex"],
+            b"253189\n".hex(),
+        )
+        self.assertEqual(fake.closed_files, [fake.file_ptr, fake.file_ptr])
         self.assertEqual(fake.opened_files, set())
 
     def test_poke_roundtrip_rejects_non_lowmem_alloc(self) -> None:

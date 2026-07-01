@@ -6671,6 +6671,8 @@ FILP_OPEN_PROOF_FLAGS = 0
 FILP_OPEN_PROOF_MODE = 0
 KERNEL_READ_PROOF_LEN = 16
 KERNEL_READ_EXPECTED_PREFIX = b"\x7fELF"
+VFS_READ_MAX_PATH_BYTES = 192
+VFS_READ_MAX_LEN = 4096
 STRNLEN_PROOF_BYTES = b"A90STRNLEN\x00"
 STRNLEN_PROOF_EXPECTED = len(STRNLEN_PROOF_BYTES) - 1
 STRNLEN_PROOF_MAXLEN = 64
@@ -23428,6 +23430,381 @@ def _run_call_proof_kernel_read(session: ReplSession,
         "close_attempted": close_attempted,
         "gfp_components": {key: f"0x{component:x}" for key, component in gfp_components.items()},
     })
+    return summary, private
+
+
+def _encode_vfs_path(path: str) -> bytes:
+    if not path.startswith("/"):
+        raise ReplError(f"vfs-read path must be absolute: {path!r}")
+    if "\x00" in path:
+        raise ReplError("vfs-read path must not contain NUL")
+    raw = path.encode("utf-8")
+    if len(raw) + 1 > VFS_READ_MAX_PATH_BYTES:
+        raise ReplError(
+            f"vfs-read path too long: {len(raw) + 1} bytes "
+            f"(max {VFS_READ_MAX_PATH_BYTES})"
+        )
+    return raw + b"\x00"
+
+
+def _classify_vfs_read_bytes(data: bytes) -> dict[str, object]:
+    if not data:
+        return {
+            "kind": "empty",
+            "ascii_printable_prefix": False,
+            "looks_decimal": False,
+            "looks_proc_text": False,
+        }
+    stripped = data.rstrip(b"\x00")
+    printable = all(byte in b"\t\n\r" or 0x20 <= byte <= 0x7E for byte in stripped)
+    text = stripped.decode("ascii", "ignore") if printable else ""
+    return {
+        "kind": "text" if printable else "binary",
+        "ascii_printable_prefix": printable,
+        "looks_decimal": bool(re.fullmatch(r"\s*[0-9]+\s*", text)) if printable else False,
+        "looks_proc_text": printable and ("\n" in text or " " in text or "\t" in text),
+    }
+
+
+def _vfs_read_static_gate(symbols: dict[str, Symbol],
+                          image: StaticImage,
+                          source_root: Path) -> tuple[dict[str, object], dict[str, VerifiedResolution]]:
+    source_read = lookup_source_signature("kernel_read", source_root=source_root)
+    source_open = lookup_source_signature("filp_open", source_root=source_root)
+    source_close = lookup_source_signature("filp_close", source_root=source_root)
+    call_safety_read = require_call_safety_for_call(
+        symbols,
+        image,
+        "kernel_read",
+        ("@filp_open_result", "@owned_read_buffer", "@bounded_read_len", "@owned_loff_t_pos"),
+    )
+    call_safety_open = require_call_safety_for_call(
+        symbols,
+        image,
+        "filp_open",
+        ("@owned_pathname_ptr", FILP_OPEN_PROOF_FLAGS, FILP_OPEN_PROOF_MODE),
+    )
+    call_safety_close = require_call_safety_for_call(
+        symbols,
+        image,
+        "filp_close",
+        ("@filp_open_result", 0),
+    )
+    if call_safety_read.get("tier") != CALL_SAFETY_SAFE_WITH_VALID_PTR:
+        raise ReplError("kernel_read call-safety tier is not the expected vetted pointer tier")
+    if call_safety_open.get("tier") != CALL_SAFETY_SAFE_WITH_VALID_PTR:
+        raise ReplError("filp_open setup tier is not the expected vetted pointer tier")
+    if call_safety_close.get("tier") != CALL_SAFETY_SAFE_WITH_VALID_PTR:
+        raise ReplError("filp_close cleanup tier is not the expected vetted pointer tier")
+    if not source_read.get("found") or source_read.get("pointer_arg_indices") != [0, 1, 3]:
+        raise ReplError("kernel_read source signature does not declare x0/x1/x3 as pointer arguments")
+    if not source_open.get("found") or source_open.get("pointer_arg_indices") != [0]:
+        raise ReplError("filp_open source signature does not declare x0 as pathname pointer")
+    if not source_close.get("found") or source_close.get("pointer_arg_indices") != [0]:
+        raise ReplError("filp_close source signature does not declare x0 as struct file pointer")
+
+    resolutions = {
+        "kernel_read": resolve_verified(symbols, image, "kernel_read", purpose="call", allow_pre_arg_deref=True),
+        "filp_open": resolve_verified(symbols, image, "filp_open", purpose="call", allow_pre_arg_deref=True),
+        "filp_close": resolve_verified(symbols, image, "filp_close", purpose="call", allow_pre_arg_deref=True),
+        "__kmalloc": resolve_verified(symbols, image, "__kmalloc", purpose="call"),
+        "kfree": resolve_verified(symbols, image, "kfree", purpose="call"),
+    }
+    require_verified_resolution(resolutions["kernel_read"], "vfs-read kernel_read")
+    require_verified_resolution(resolutions["filp_open"], "vfs-read filp_open")
+    require_verified_resolution(resolutions["filp_close"], "vfs-read filp_close")
+    kmalloc_link = require_verified_resolution(resolutions["__kmalloc"], "vfs-read allocator")
+    require_verified_resolution(resolutions["kfree"], "vfs-read cleanup")
+    assert_no_precall_x0_pointer_deref(image, kmalloc_link, "__kmalloc")
+
+    static = {
+        "source_evidence": {
+            "kernel_read": _source_row_evidence(source_read),
+            "filp_open": _source_row_evidence(source_open),
+            "filp_close": _source_row_evidence(source_close),
+        },
+        "call_safety": {
+            "kernel_read": call_safety_read,
+            "filp_open": call_safety_open,
+            "filp_close": call_safety_close,
+        },
+    }
+    return static, resolutions
+
+
+def _run_vfs_read_one(session: ReplSession,
+                      resolutions: dict[str, VerifiedResolution],
+                      *,
+                      path: str,
+                      read_len: int,
+                      alloc_size: int,
+                      gfp: int,
+                      gfp_components: dict[str, int]) -> tuple[dict[str, object], dict[str, object]]:
+    if not 1 <= read_len <= VFS_READ_MAX_LEN:
+        raise ReplError(f"vfs-read read_len out of range 1..{VFS_READ_MAX_LEN}: {read_len}")
+    if alloc_size < max(read_len, VFS_READ_MAX_PATH_BYTES, 64):
+        raise ReplError("vfs-read alloc_size must cover path/read/pos buffers")
+    path_payload = _encode_vfs_path(path)
+
+    kernel_read_link = require_verified_resolution(resolutions["kernel_read"], "vfs-read kernel_read")
+    filp_open_link = require_verified_resolution(resolutions["filp_open"], "vfs-read filp_open")
+    filp_close_link = require_verified_resolution(resolutions["filp_close"], "vfs-read filp_close")
+    kmalloc_link = require_verified_resolution(resolutions["__kmalloc"], "vfs-read allocator")
+    kfree_link = require_verified_resolution(resolutions["kfree"], "vfs-read cleanup")
+
+    checks: list[dict[str, object]] = []
+    private: dict[str, object] = {}
+    slide = 0
+    path_ptr = 0
+    read_ptr = 0
+    pos_ptr = 0
+    file_ptr = 0
+    kfree_runtime = 0
+    filp_close_runtime = 0
+    close_ok = False
+    close_return = 0
+    close_error = ""
+    freed: list[str] = []
+    free_errors: list[str] = []
+    read_return = 0
+    read_data = b""
+    pos_after = 0
+
+    try:
+        slide = session.slide()
+        if slide & 0xFFF:
+            raise ReplError("slide is not page-aligned; refusing to proceed")
+        kernel_read_runtime = (kernel_read_link + slide) & MASK64
+        filp_open_runtime = (filp_open_link + slide) & MASK64
+        filp_close_runtime = (filp_close_link + slide) & MASK64
+        kmalloc_runtime = (kmalloc_link + slide) & MASK64
+        kfree_runtime = (kfree_link + slide) & MASK64
+
+        path_ptr = session.call_runtime(kmalloc_runtime, (alloc_size, gfp))
+        read_ptr = session.call_runtime(kmalloc_runtime, (alloc_size, gfp))
+        pos_ptr = session.call_runtime(kmalloc_runtime, (64, gfp))
+        allocated_ok = all(is_kernel_lowmem_pointer(ptr) for ptr in (path_ptr, read_ptr, pos_ptr))
+        checks.append({
+            "check": "kmalloc-owned-vfs-read-buffers",
+            "ok": allocated_ok,
+            "path_kernel_lowmem": is_kernel_lowmem_pointer(path_ptr),
+            "read_kernel_lowmem": is_kernel_lowmem_pointer(read_ptr),
+            "pos_kernel_lowmem": is_kernel_lowmem_pointer(pos_ptr),
+        })
+        if not allocated_ok:
+            raise ReplError("__kmalloc did not return sane kernel lowmem pointers for vfs-read")
+
+        _poke_bytes(session, path_ptr, path_payload.ljust(((len(path_payload) + 7) // 8) * 8, b"\x00"))
+        _poke_bytes(session, read_ptr, b"\x00" * read_len)
+        session.poke_runtime(pos_ptr, 0, 8)
+        path_written = _peek_bytes(session, path_ptr, len(path_payload)) == path_payload
+        pos_zero = session.peek_runtime(pos_ptr, 8) == 0
+        checks.append({
+            "check": "owned-vfs-read-inputs-initialized",
+            "ok": path_written and pos_zero,
+            "path": path,
+            "read_len": read_len,
+            "pos_zero": pos_zero,
+        })
+        if not path_written or not pos_zero:
+            raise ReplError("owned vfs-read inputs were not initialized correctly")
+
+        file_ptr = session.call_runtime(
+            filp_open_runtime,
+            (path_ptr, FILP_OPEN_PROOF_FLAGS, FILP_OPEN_PROOF_MODE),
+        )
+        file_ok = is_kernel_lowmem_pointer(file_ptr) and not _is_kernel_err_ptr(file_ptr)
+        checks.append({
+            "check": "filp-open-vfs-read-file",
+            "ok": file_ok,
+            "return_kind": "struct-file-or-errptr",
+            "not_null": file_ptr != 0,
+            "not_err_ptr": not _is_kernel_err_ptr(file_ptr),
+            "kernel_lowmem": is_kernel_lowmem_pointer(file_ptr),
+        })
+        if not file_ok:
+            raise ReplError(f"filp_open did not return a sane struct file pointer for {path!r}")
+
+        read_return = session.call_runtime(
+            kernel_read_runtime,
+            (file_ptr, read_ptr, read_len, pos_ptr),
+        )
+        if read_return & (1 << 63):
+            signed_return = read_return - (1 << 64)
+        else:
+            signed_return = read_return
+        if signed_return < 0:
+            raise ReplError(f"kernel_read returned error {signed_return} for {path!r}")
+        if signed_return > read_len:
+            raise ReplError(f"kernel_read returned {signed_return}, beyond requested {read_len}")
+        read_data = _peek_bytes(session, read_ptr, signed_return)
+        pos_after = session.peek_runtime(pos_ptr, 8)
+        read_ok = signed_return > 0
+        pos_ok = pos_after == signed_return
+        classif = _classify_vfs_read_bytes(read_data)
+        checks.append({
+            "check": "kernel-read-vfs-file-contract",
+            "ok": read_ok and pos_ok,
+            "return_kind": "ssize_t",
+            "return_value": f"0x{read_return:x}",
+            "requested_len": read_len,
+            "observed_len": signed_return,
+            "pos_after": f"0x{pos_after:x}",
+            "classification": classif,
+            "prefix_hex": read_data[:4].hex(),
+        })
+        if not read_ok or not pos_ok:
+            raise ReplError(
+                f"kernel_read contract failed for {path!r}: "
+                f"return={signed_return} pos=0x{pos_after:x}"
+            )
+
+        close_return = session.call_runtime(filp_close_runtime, (file_ptr, 0))
+        close_ok = close_return == 0
+        checks.append({
+            "check": "filp-close-vfs-read-file",
+            "ok": close_ok,
+            "return_kind": "int",
+            "return_value": f"0x{close_return:x}",
+        })
+        if not close_ok:
+            raise ReplError(f"filp_close returned 0x{close_return:x}, expected 0")
+    finally:
+        if file_ptr and is_kernel_lowmem_pointer(file_ptr) and not _is_kernel_err_ptr(file_ptr) and not close_ok and filp_close_runtime:
+            try:
+                close_return = session.call_runtime(filp_close_runtime, (file_ptr, 0))
+                close_ok = close_return == 0
+            except Exception as exc:  # noqa: BLE001 - cleanup failures must be visible
+                close_error = str(exc)
+        for name, ptr in (("path", path_ptr), ("read", read_ptr), ("pos", pos_ptr)):
+            if ptr and is_kernel_lowmem_pointer(ptr) and kfree_runtime:
+                try:
+                    session.call_runtime(kfree_runtime, (ptr,))
+                    freed.append(name)
+                except Exception as exc:  # noqa: BLE001 - cleanup failures must be visible
+                    free_errors.append(f"{name}:{exc}")
+
+    checks.append({
+        "check": "kfree-owned-vfs-read-buffers",
+        "ok": sorted(freed) == ["path", "pos", "read"],
+        "freed": sorted(freed),
+    })
+    if close_error:
+        raise ReplError(f"filp_close cleanup failed after vfs-read: {close_error}")
+    if free_errors:
+        raise ReplError(f"kfree failed after vfs-read: {free_errors}")
+
+    passed = all(bool(check.get("ok")) for check in checks)
+    classif = _classify_vfs_read_bytes(read_data)
+    summary = {
+        "ok": passed,
+        "path": path,
+        "read_len": read_len,
+        "observed_len": len(read_data),
+        "observed_prefix_hex": read_data[:4].hex(),
+        "classification": classif,
+        "close_return_value": f"0x{close_return:x}",
+        "raw_runtime_values_redacted": True,
+        "owned_pointer_redacted": True,
+        "read_data_redacted": True,
+        "checks": checks,
+    }
+    private.update({
+        "slide": f"0x{slide:x}",
+        "kernel_read_runtime": f"0x{((kernel_read_link + slide) & MASK64):x}",
+        "filp_open_runtime": f"0x{((filp_open_link + slide) & MASK64):x}",
+        "filp_close_runtime": f"0x{((filp_close_link + slide) & MASK64):x}",
+        "path_ptr": f"0x{path_ptr:x}",
+        "read_ptr": f"0x{read_ptr:x}",
+        "pos_ptr": f"0x{pos_ptr:x}",
+        "file_ptr": f"0x{file_ptr:x}",
+        "read_data_hex": read_data.hex(),
+        "gfp_components": {key: f"0x{component:x}" for key, component in gfp_components.items()},
+    })
+    return summary, private
+
+
+def run_vfs_read_files(session: ReplSession,
+                       symbols: dict[str, Symbol],
+                       image: StaticImage,
+                       paths: tuple[str, ...],
+                       *,
+                       read_len: int = 128,
+                       alloc_size: int = KMALLOC_ROUNDTRIP_SIZE,
+                       source_root: Path = DEFAULT_KERNEL_SOURCE_ROOT,
+                       gfp_header: Path = DEFAULT_GFP_HEADER,
+                       gfp_value: int | None = None) -> tuple[dict[str, object], dict[str, object]]:
+    if not paths:
+        raise ReplError("vfs-read requires at least one path")
+    if len(paths) > 16:
+        raise ReplError("vfs-read path batch is capped at 16 paths")
+    if len(set(paths)) != len(paths):
+        raise ReplError("vfs-read path batch must not contain duplicates")
+
+    gfp, gfp_components = (
+        (gfp_value, {}) if gfp_value is not None else derive_gfp_kernel_value(gfp_header)
+    )
+    if gfp is None:
+        raise ReplError("GFP_KERNEL derivation returned no value")
+    static, resolutions = _vfs_read_static_gate(symbols, image, source_root)
+
+    summaries: list[dict[str, object]] = []
+    privates: dict[str, object] = {}
+    session.hide()
+    session.set_panic_on_oops(0)
+    try:
+        for path in paths:
+            row, private = _run_vfs_read_one(
+                session,
+                resolutions,
+                path=path,
+                read_len=read_len,
+                alloc_size=alloc_size,
+                gfp=gfp,
+                gfp_components=gfp_components,
+            )
+            summaries.append(row)
+            privates[path] = private
+    finally:
+        session.set_panic_on_oops(1)
+
+    ok = all(bool(row.get("ok")) for row in summaries)
+    summary = {
+        "decision": f"a90-repl-vfs-read-bundle-{'pass' if ok else 'fail'}",
+        "ok": ok,
+        "primitive": "filp_open+kernel_read+filp_close",
+        "scope": "read-only-kernel-visible-file-observation",
+        "path_count": len(paths),
+        "paths": list(paths),
+        "read_len": read_len,
+        "alloc_size": alloc_size,
+        "gfp_kernel": f"0x{gfp:x}",
+        "source_evidence": static["source_evidence"],
+        "call_safety": static["call_safety"],
+        "resolutions": _redacted_resolution_set(resolutions),
+        "subsumption_policy": (
+            "Prefer this VFS-read primitive for /proc and /sys state nodes; "
+            "do not add lone state-getter call-proofs when a file-node equivalent exists."
+        ),
+        "raw_runtime_values_redacted": True,
+        "owned_pointer_redacted": True,
+        "read_data_redacted": True,
+        "results": summaries,
+        "observation_bundle_entry": {
+            "status": "live-proven" if ok else "failed",
+            "trusted_input_contract": (
+                "absolute kernel-visible path, read-only filp_open flags=0, "
+                "owned pathname/read/loff_t buffers, bounded read_len"
+            ),
+            "return_contract": "each read returns 1..read_len bytes and advances pos by returned byte count",
+            "cleanup": "filp_close-returned-0-and-owned-buffers-freed-per-path",
+            "auto_call_policy": "observation-bundle-only-not-arbitrary-mutation",
+        },
+    }
+    private = {
+        "path_privates": privates,
+        "raw_runtime_values_redacted_from_summary": True,
+    }
     return summary, private
 
 
@@ -40375,6 +40752,26 @@ def cmd_call_proof_batch(args: argparse.Namespace) -> int:
     return 0 if summary["ok"] else 1
 
 
+def cmd_vfs_read(args: argparse.Namespace) -> int:
+    symbols = load_system_map(args.map)
+    image = load_static_image(args.image)
+    session = make_session(args)
+    summary, private = run_vfs_read_files(
+        session,
+        symbols,
+        image,
+        tuple(args.paths),
+        read_len=args.read_len,
+        alloc_size=args.alloc_size,
+        source_root=args.source_root,
+        gfp_header=args.gfp_header,
+        gfp_value=args.gfp,
+    )
+    write_evidence(args, {**summary, "_private": private})
+    print(json.dumps(summary, indent=2, sort_keys=True))
+    return 0 if summary["ok"] else 1
+
+
 def cmd_poke_roundtrip(args: argparse.Namespace) -> int:
     symbols = load_system_map(args.map)
     image = load_static_image(args.image)
@@ -40615,6 +41012,22 @@ def main(argv: list[str] | None = None) -> int:
     p_call_proof_batch.add_argument("--gfp", type=parse_int_auto, default=None,
                                     help="override GFP value; default derives GFP_KERNEL from --gfp-header")
     p_call_proof_batch.set_defaults(func=cmd_call_proof_batch)
+
+    p_vfs_read = sub.add_parser(
+        "vfs-read",
+        help="read kernel-visible files via live-proven filp_open+kernel_read using owned buffers",
+    )
+    add_common(p_vfs_read)
+    p_vfs_read.add_argument("paths", nargs="+", help="absolute /proc, /sys, or other kernel-visible paths")
+    p_vfs_read.add_argument("--read-len", type=parse_int_auto, default=128,
+                            help="bounded bytes to request from each path; raw bytes are private evidence only")
+    p_vfs_read.add_argument("--alloc-size", type=parse_int_auto, default=KMALLOC_ROUNDTRIP_SIZE)
+    p_vfs_read.add_argument("--source-root", type=Path, default=DEFAULT_KERNEL_SOURCE_ROOT,
+                            help="offline kernel source tree for signature xref")
+    p_vfs_read.add_argument("--gfp-header", type=Path, default=DEFAULT_GFP_HEADER)
+    p_vfs_read.add_argument("--gfp", type=parse_int_auto, default=None,
+                            help="override GFP value; default derives GFP_KERNEL from --gfp-header")
+    p_vfs_read.set_defaults(func=cmd_vfs_read)
 
     p_round = sub.add_parser("poke-roundtrip", help="v2a2 kmalloc-backed poke/peek/kfree proof")
     add_common(p_round)

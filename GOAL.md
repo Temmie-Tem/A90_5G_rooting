@@ -108,6 +108,78 @@ only, never a native-init runtime dependency. Full history (AUD-0 → AUD-5, V23
 > the rollback-gate, the recoverable envelope, and "fails-twice → stop" all stay ON. If a candidate
 > needs a behavior-changing call to be provable, it is OUT, not a reason to weaken the gate.
 
+## ✅ DONE — REPL VFS-read observation bundle — `/proc`/`/sys` file-node keystone promoted
+
+> ### ✅ STATUS (2026-07-01 live-proven, rolled back cleanly) — `filp_open` + `kernel_read` assembled into bounded file observation
+>
+> Codex implemented the 2026-07-01 KEYSTONE-FIRST + RETIRE-SUBSUMED steer as
+> an actual REPL primitive rather than another lone getter. The previously
+> live-proven `filp_open` and `kernel_read` targets are now composed by
+> `a90_repl.py vfs-read`: allocate owned pathname/read/`loff_t` buffers,
+> write an absolute kernel-visible path, call `filp_open(path, O_RDONLY, 0)`,
+> call `kernel_read(file, owned_buffer, read_len, owned_pos)`, close the file
+> with `filp_close(file, NULL)`, and `kfree` every owned buffer. Raw file
+> bytes, runtime pointers, and KASLR slide stay private-only.
+>
+> Static gate re-runs C1/source/call-safety before live use:
+> `filp_open=0xffffff800828a664` (`export-recovery`, direct BL xrefs `48`,
+> source `extern struct file * filp_open(const char *, int, umode_t)`,
+> `SAFE-WITH-VALID-PTR` x0 pathname),
+> `kernel_read=0xffffff800828bae4` (`export-recovery`, direct BL xrefs `17`,
+> source `extern ssize_t kernel_read(struct file *, void *, size_t, loff_t *)`,
+> `SAFE-WITH-VALID-PTR` x0/x1/x3 verified pointers), and
+> `filp_close=0xffffff800828ac14` (`export-recovery`, direct BL xrefs `67`,
+> cleanup-only `SAFE-WITH-VALID-PTR`). `__kmalloc`/`kfree` stay under the
+> existing owned-buffer allocator contract, including the no-pre-call-x0-deref
+> guard for `__kmalloc`.
+>
+> Attempt 1
+> (`workspace/private/runs/kernel/vfs-read-observation-bundle-20260701T100931Z/`)
+> flashed the v1-repl candidate successfully but aborted before any target call
+> when serial input fragmented after a successful candidate `version` response.
+> It immediately rolled back to v2321; rollback flash matched readback SHA, and
+> a bridge restart confirmed final v2321 `version/status/selftest`. This was a
+> transport abort, not a promoted proof.
+>
+> Attempt 2
+> (`workspace/private/runs/kernel/vfs-read-observation-bundle-20260701T101310Z/`)
+> passed. Baseline v2321 health passed, candidate flash matched the exact
+> v1-repl SHA
+> `b846ae9f74d8ceb922bbcd854d78b6795ef833d61e38465d3cc474cb6f0dfb65`,
+> candidate health retry passed after known serial fragmentation, REPL selftest
+> passed, the VFS-read bundle passed, post-proof candidate health passed, and
+> rollback to v2321 matched SHA
+> `ca978551aabe4b39563abaf529ccf2522054952d8b2ad852e632d26da88168cb`.
+> Final rollback health retry passed with `selftest pass=11 warn=1 fail=0`,
+> and final bridge status was `connected-no-immediate-error`.
+>
+> The live bundle read five paths in one REPL session:
+> `/proc/cmdline` (`128` bytes, text/proc-style, raw content redacted),
+> `/proc/sys/fs/file-max` (`7` bytes, text decimal),
+> `/proc/sys/kernel/tainted` (`4` bytes, text decimal),
+> `/sys/kernel/uevent_seqnum` (`5` bytes, text decimal), and
+> `/proc/config.gz` (`128` bytes, binary gzip-style stream). For every path,
+> owned allocation, path poke/peek, `filp_open`, `kernel_read` return/pos,
+> `filp_close`, and `kfree` checks passed.
+>
+> Timing was recorded per the 2026-07-01 timing rule in
+> `workspace/private/runs/kernel/vfs-read-observation-bundle-20260701T101310Z/timeline.json`
+> at `2026-07-01T10:13:10Z`: baseline bridge status `0.327s`, baseline health
+> `1.449s`, candidate flash `66.065s`, candidate bridge restart `1.097s`,
+> candidate health first attempt marker/input fragmentation `10.168s`,
+> candidate bridge restart `1.639s`, candidate health retry `8.073s`, REPL
+> selftest `5.938s`, live VFS-read bundle `129.323s`, post-proof candidate
+> health `1.445s`, rollback flash `64.357s`, rollback bridge restart `0.902s`,
+> rollback health first attempt marker/input fragmentation `10.164s`, rollback
+> bridge restart `1.671s`, rollback health retry `8.142s`, and final bridge
+> status `0.336s`.
+>
+> Function-map outcome: do not enumerate state getters whose values are
+> reachable through `/proc` or `/sys` file nodes. Use the live-proven VFS-read
+> observation bundle for those surfaces, and reserve individual call-proofs for
+> no-file-node functions or genuinely new ABI shapes. Report:
+> `docs/reports/KERNEL_SECURITY_TIER2_RUNTIME_KERNEL_REPL_VFS_READ_OBSERVATION_BUNDLE_2026-07-01.md`.
+
 ## ✅ DONE — REPL kernel taint-state live-call proof batch — `get_taint()` + `test_taint()` promoted
 
 > ### ✅ STATUS (2026-07-01 live-proven, rolled back cleanly) — same-shape kernel taint health/state getters
