@@ -144,13 +144,57 @@ only, never a native-init runtime dependency. Full history (AUD-0 → AUD-5, V23
 >    The next target, `get_iowait_load`, extended this path to an owned dual-result-slot ABI and
 >    updated the aggregate to `18` canonical timelines out of `66`; projection is now
 >    resident-session `13.085s/target`, `21.06x` vs per-unit flash and `2.11x` vs per-unit
->    in-boot batching for the same `batch_size=10`, `resident_batches=10` model.
+>    in-boot batching for the same `batch_size=10`, `resident_batches=10` model. The next target,
+>    `thread_group_cputime_adjusted`, extended the same resident-session path to a borrowed
+>    `init_task` plus owned dual-`u64` result-slot ABI; the aggregate now uses `19` canonical
+>    timelines out of `67` and projects resident-session `13.004s/target`, `21.22x` vs per-unit
+>    flash and `2.12x` vs per-unit in-boot batching.
 >    Harness report:
 >    `docs/reports/KERNEL_SECURITY_TIER2_RUNTIME_KERNEL_REPL_RESIDENT_SESSION_HARNESS_2026-07-01.md`.
 > **HARD — unchanged, do NOT loosen:** the fail-closed C1 resolution, the **call-safety classifier**
 > (DENY / BEHAVIOR-CHANGING tiers stay DENY — never relax a tier to reach a struct/state target),
 > the rollback-gate, the recoverable envelope, and "fails-twice → stop" all stay ON. If a candidate
 > needs a behavior-changing call to be provable, it is OUT, not a reason to weaken the gate.
+
+## ✅ DONE — REPL resident-session borrowed task + owned dual-slot proof — `thread_group_cputime_adjusted`
+
+> ### ✅ STATUS (2026-07-01 live-proven, resident-session mode, rolled back cleanly)
+>
+> Codex promoted `thread_group_cputime_adjusted(struct task_struct *p, u64 *ut, u64 *st)` under a
+> target-specific borrowed `init_task` plus owned dual-result-slot contract, not as a global auto-call
+> seed. Static identity is pinned by map address `0xffffff80080f80b4`, generic
+> `disasm-signature+xref+map` C1 verification, direct BL xrefs `5`, next symbol `dequeue_task_idle`
+> at `+0x88`, source signature
+> `extern void thread_group_cputime_adjusted(struct task_struct *p, u64 *ut, u64 *st)` at
+> `include/linux/sched/cputime.h:56`, pointer arg indices `[0, 1, 2]`, no context-sensitive calls,
+> no pre-call x0 deref, and fixed callees `thread_group_cputime`, `cputime_adjust`, and
+> `__stack_chk_fail`.
+>
+> The global classifier remains fail-closed for this non-seeded target: `DENY`,
+> `auto_call_allowed=false`, not seed-whitelisted. The generic advisory sees a
+> `SAFE-WITH-VALID-PTR` shape but stays `candidate_safe=false` because the unseeded pointer-flow
+> contract is not globally vetted. The proof records a separate target-specific
+> `SAFE-WITH-VALID-PTR` contract only because the harness supplies borrowed `init_task`, owned
+> `utime`/`stime` slots, canary validation, and `kfree` cleanup.
+>
+> Live resident-session run:
+> `workspace/private/runs/kernel/repl-resident-session-thread-group-cputime-adjusted-20260701T143959Z/`.
+> Result: `a90-repl-live-call-proof-thread_group_cputime_adjusted-pass`; two repeated calls wrote
+> `utime=0x0`, `stime=0x0`, preserved the trailing canary, and freed the owned buffer via `kfree`.
+>
+> Session used v1-repl flash once, mandatory warm reboot before the batch, per-target result flush,
+> and v2321 rollback once. Final resident is `v2321-usb-clean-identity-rodata`; standalone
+> `selftest fail=0`.
+>
+> Canonical timing is present in `timeline.json` with the single top-level `events` schema and all
+> required eight phase events. This run measured `candidate_flash=64.117564s`,
+> `warm_reboot=33.235699s`, one-target live batch `13.468596s`, `rollback_flash=64.823739s`,
+> total `283.070021s`. The timing aggregator now uses `19` canonical timelines and projects resident
+> session `20->2` flashes, `13.004s/target`, `21.22x` versus unbatched per-unit flash, and `2.12x`
+> versus per-unit in-boot batching for `batch_size=10`, `resident_batches=10`.
+>
+> Report:
+> `docs/reports/KERNEL_SECURITY_TIER2_RUNTIME_KERNEL_REPL_THREAD_GROUP_CPUTIME_ADJUSTED_RESIDENT_SESSION_2026-07-01.md`.
 
 ## ✅ DONE — REPL resident-session owned dual-slot proof — `get_iowait_load`
 

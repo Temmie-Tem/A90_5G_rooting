@@ -1889,6 +1889,42 @@ class CallSafetyClassificationTests(unittest.TestCase):
             [f"0x{word:08x}" for word in repl.GET_IOWAIT_LOAD_EXPECTED_WORDS],
         )
 
+        thread_group_cputime = self._row("thread_group_cputime_adjusted")
+        self.assertEqual(thread_group_cputime["tier"], repl.CALL_SAFETY_DENY)
+        self.assertFalse(thread_group_cputime["auto_call_allowed"])
+        self.assertFalse(thread_group_cputime["vetted_seed_whitelist"])
+        self.assertTrue(thread_group_cputime["resolution"]["verified"])
+        self.assertEqual(
+            thread_group_cputime["resolution"]["method"],
+            "disasm-signature+xref+map",
+        )
+        self.assertEqual(
+            thread_group_cputime["resolution"]["link_vaddr"],
+            "0xffffff80080f80b4",
+        )
+        self.assertGreaterEqual(
+            thread_group_cputime["signals"]["direct_bl_xref_count"],
+            5,
+        )
+        self.assertFalse(thread_group_cputime["signals"]["leaf"])
+        self.assertEqual(thread_group_cputime["signals"]["bl_count_in_scan"], 3)
+        self.assertEqual(thread_group_cputime["signals"]["context_call_count"], 0)
+        self.assertEqual(
+            thread_group_cputime["signals"]["arg_pointer_derefs_before_first_bl_or_ret"],
+            [],
+        )
+        self.assertEqual(
+            thread_group_cputime["signals"]["arg_taint_flow"]["arg_memory_base_use_count"],
+            1,
+        )
+        self.assertEqual(
+            thread_group_cputime["signals"]["first_words"][:12],
+            [
+                f"0x{word:08x}"
+                for word in repl.THREAD_GROUP_CPUTIME_ADJUSTED_EXPECTED_WORDS[:12]
+            ],
+        )
+
         task_pid_nr_ns = self._row("__task_pid_nr_ns")
         self.assertEqual(task_pid_nr_ns["tier"], repl.CALL_SAFETY_SAFE_WITH_VALID_PTR)
         self.assertEqual(
@@ -4409,6 +4445,21 @@ class CallSafetyClassificationTests(unittest.TestCase):
         self.assertEqual(task_prio["selected"]["line"], 1720)
         self.assertTrue(task_prio["selected"]["path"].endswith("include/linux/sched.h"))
 
+        thread_group_cputime = repl.lookup_source_signature(
+            "thread_group_cputime_adjusted",
+            source_root=KERNEL_SOURCE_ROOT,
+        )
+        self.assertEqual(thread_group_cputime["status"], "found", thread_group_cputime)
+        self.assertEqual(thread_group_cputime["selected"]["pointer_arg_indices"], [0, 1, 2])
+        self.assertEqual(
+            thread_group_cputime["selected"]["signature"],
+            "extern void thread_group_cputime_adjusted(struct task_struct *p, u64 *ut, u64 *st)",
+        )
+        self.assertEqual(thread_group_cputime["selected"]["line"], 56)
+        self.assertTrue(
+            thread_group_cputime["selected"]["path"].endswith("include/linux/sched/cputime.h")
+        )
+
         task_active_pid_ns = repl.lookup_source_signature(
             "task_active_pid_ns",
             source_root=KERNEL_SOURCE_ROOT,
@@ -5797,6 +5848,12 @@ class FaithfulFakeTransport:
             purpose="call",
         ).link_vaddr
         self.get_iowait_load_link = self.symbols["get_iowait_load"].vaddr
+        self.thread_group_cputime_adjusted_link = repl.resolve_verified(
+            self.symbols,
+            self.image,
+            "thread_group_cputime_adjusted",
+            purpose="call",
+        ).link_vaddr
         self.nr_context_switches_link = repl.resolve_verified(
             self.symbols,
             self.image,
@@ -5883,6 +5940,8 @@ class FaithfulFakeTransport:
         self.get_seconds_index = 0
         self.iowait_load_values = [(0x2, 0x180), (0x3, 0x1A0)]
         self.iowait_load_index = 0
+        self.thread_group_cputime_adjusted_values = [(0x100, 0x20), (0x110, 0x24)]
+        self.thread_group_cputime_adjusted_index = 0
         self.scm_version_value = repl.SCM_ARMV8_64
         self.sde_rsc_available_value = 1
         self.sde_rsc_current_state_value = 2
@@ -6795,6 +6854,8 @@ class FaithfulFakeTransport:
             nr_iowait = self.nr_iowait_link + self.slide
             assert self.get_iowait_load_link is not None
             get_iowait_load = self.get_iowait_load_link + self.slide
+            assert self.thread_group_cputime_adjusted_link is not None
+            thread_group_cputime_adjusted = self.thread_group_cputime_adjusted_link + self.slide
             assert self.nr_context_switches_link is not None
             nr_context_switches = self.nr_context_switches_link + self.slide
             assert self.get_max_files_link is not None
@@ -7781,6 +7842,31 @@ class FaithfulFakeTransport:
                 self._set_heap_bytes(
                     arg1,
                     waiters.to_bytes(8, "little") + load.to_bytes(8, "little"),
+                )
+                lines.append(f"A90R{arg1:x}")
+            elif arg0 == thread_group_cputime_adjusted:
+                if arg1 != self.init_task_runtime:
+                    raise AssertionError("thread_group_cputime_adjusted proof must pass init_task as x0")
+                if arg2 not in self.allocated:
+                    raise AssertionError(
+                        f"thread_group_cputime_adjusted utime slot is not allocated: {arg2:#x}"
+                    )
+                if arg3 != arg2 + repl.THREAD_GROUP_CPUTIME_ADJUSTED_STIME_OFFSET:
+                    raise AssertionError(
+                        "thread_group_cputime_adjusted stime slot must be the second owned u64"
+                    )
+                if arg4 != 0:
+                    raise AssertionError("thread_group_cputime_adjusted proof must pass only three arguments")
+                utime, stime = self.thread_group_cputime_adjusted_values[
+                    min(
+                        self.thread_group_cputime_adjusted_index,
+                        len(self.thread_group_cputime_adjusted_values) - 1,
+                    )
+                ]
+                self.thread_group_cputime_adjusted_index += 1
+                self._set_heap_bytes(
+                    arg2,
+                    utime.to_bytes(8, "little") + stime.to_bytes(8, "little"),
                 )
                 lines.append(f"A90R{arg1:x}")
             elif arg0 == nr_context_switches:
@@ -10180,6 +10266,91 @@ class SelftestIntegrationTests(unittest.TestCase):
             self.assertEqual(private["case_results"][key]["nr_waiters"], f"0x{waiters:x}")
             self.assertEqual(private["case_results"][key]["load"], f"0x{load:x}")
         self.assertEqual(fake.iowait_load_index, repl.GET_IOWAIT_LOAD_REPEAT_COUNT)
+        self.assertEqual(fake.freed, [int(private["result_slot_ptr"], 16)])
+        self.assertFalse(fake.allocated)
+        self.assertGreater(fake.op_count, 0)
+
+    def test_call_proof_thread_group_cputime_adjusted_passes_with_init_task_dual_owned_slot_contract(self) -> None:
+        if not C2B_PADDING_MAP_PATH.is_file() or not KERNEL_SOURCE_ROOT.is_dir():
+            self.skipTest("promoted v2c System.map or kernel source tree not present")
+
+        symbols = repl.load_system_map(C2B_PADDING_MAP_PATH)
+        fake = FaithfulFakeTransport(0x130000, symbols, self.image)
+        orig = repl.transport.run_serial_command
+        repl.transport.run_serial_command = fake.run_serial_command
+        self.addCleanup(lambda: setattr(repl.transport, "run_serial_command", orig))
+        session = repl.ReplSession(repl.ReplConfig(settle_sec=0.0))
+
+        summary, private = repl.run_call_proof(
+            session,
+            symbols,
+            self.image,
+            "thread_group_cputime_adjusted",
+            source_root=KERNEL_SOURCE_ROOT,
+        )
+
+        self.assertTrue(summary["ok"], summary)
+        self.assertEqual(
+            summary["decision"],
+            "a90-repl-live-call-proof-thread_group_cputime_adjusted-pass",
+        )
+        self.assertEqual(
+            summary["proof_status"],
+            "trusted-under-borrowed-init-task-dual-owned-cputime-result-slot-contract",
+        )
+        self.assertEqual(summary["function_map_entry"]["symbol"], "thread_group_cputime_adjusted")
+        self.assertEqual(summary["function_map_entry"]["status"], "live-proven")
+        self.assertEqual(
+            summary["function_map_entry"]["auto_call_policy"],
+            "target-specific-proof-only-not-global-auto-call",
+        )
+        self.assertEqual(
+            summary["source_evidence"]["signature"],
+            "extern void thread_group_cputime_adjusted(struct task_struct *p, u64 *ut, u64 *st)",
+        )
+        self.assertEqual(summary["source_evidence"]["pointer_arg_indices"], [0, 1, 2])
+        self.assertEqual(summary["call_safety_gate"]["tier"], repl.CALL_SAFETY_DENY)
+        self.assertFalse(summary["call_safety_gate"]["auto_call_allowed"])
+        self.assertEqual(
+            summary["generic_advisory"]["tier"],
+            repl.CALL_SAFETY_SAFE_WITH_VALID_PTR,
+        )
+        self.assertFalse(summary["generic_advisory"]["candidate_safe"])
+        self.assertIn(
+            "unseeded-arg-memory-flow-without-gate-pointer-contract",
+            summary["generic_advisory"]["blocking_danger_flags"],
+        )
+        self.assertEqual(
+            summary["target_specific_call_safety"]["tier"],
+            repl.CALL_SAFETY_SAFE_WITH_VALID_PTR,
+        )
+        self.assertTrue(summary["target_specific_call_safety"]["candidate_safe"])
+        self.assertTrue(summary["all_result_slots_in_contract"])
+        self.assertTrue(summary["canary_preserved"])
+        self.assertTrue(summary["cleanup_ok"])
+        self.assertTrue(summary["raw_runtime_values_redacted"])
+        self.assertTrue(summary["owned_pointer_redacted"])
+        self.assertTrue(summary["borrowed_pointer_redacted"])
+        self.assertNotIn("thread_group_cputime_adjusted_runtime", summary)
+        self.assertNotIn("result_slot_ptr", summary)
+        self.assertNotIn("init_task_runtime", summary)
+        self.assertIn("thread_group_cputime_adjusted_runtime", private)
+        self.assertIn("result_slot_ptr", private)
+        self.assertIn("init_task_runtime", private)
+        cases = {case["case"]: case for case in summary["case_results"]}
+        for index, (utime, stime) in enumerate(fake.thread_group_cputime_adjusted_values, start=1):
+            key = f"thread_group_cputime_adjusted-init-task-cputime-read-{index}"
+            self.assertEqual(cases[key]["utime"], f"0x{utime:x}")
+            self.assertEqual(cases[key]["stime"], f"0x{stime:x}")
+            self.assertEqual(cases[key]["total"], f"0x{utime + stime:x}")
+            self.assertTrue(cases[key]["slots_changed_from_prefill"])
+            self.assertTrue(cases[key]["canary_preserved"])
+            self.assertEqual(private["case_results"][key]["utime"], f"0x{utime:x}")
+            self.assertEqual(private["case_results"][key]["stime"], f"0x{stime:x}")
+        self.assertEqual(
+            fake.thread_group_cputime_adjusted_index,
+            repl.THREAD_GROUP_CPUTIME_ADJUSTED_REPEAT_COUNT,
+        )
         self.assertEqual(fake.freed, [int(private["result_slot_ptr"], 16)])
         self.assertFalse(fake.allocated)
         self.assertGreater(fake.op_count, 0)

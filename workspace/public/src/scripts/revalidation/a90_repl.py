@@ -4160,6 +4160,7 @@ _SOURCE_HEADER_HINTS_BY_EXACT_SYMBOL = {
     "__task_pid_nr_ns": ("include/linux/sched.h",),
     "sched_get_group_id": ("include/linux/sched.h",),
     "task_prio": ("include/linux/sched.h",),
+    "thread_group_cputime_adjusted": ("include/linux/sched/cputime.h",),
     "task_active_pid_ns": ("include/linux/pid_namespace.h",),
     "pid_nr_ns": ("include/linux/pid.h",),
     "pid_vnr": ("include/linux/pid.h",),
@@ -6122,6 +6123,12 @@ CALL_PROOF_TARGETS = {
         "expected_tier": CALL_SAFETY_SAFE_WITH_VALID_PTR,
         "source_signature": "extern int task_prio(const struct task_struct *p)",
     },
+    "thread_group_cputime_adjusted": {
+        "input_contract": "borrowed global init_task task_struct pointer plus two owned u64 result slots in one kmalloc buffer: x0=&init_task, x1=&utime, x2=&stime; proof pre-fills both slots plus trailing canary and frees the buffer after validation",
+        "return_contract": "void call writes sane adjusted user/system cputime values into the owned utime/stime slots on each short-repeat call, preserves the trailing canary, and leaves the borrowed init_task pointer unowned",
+        "expected_tier": CALL_SAFETY_SAFE_WITH_VALID_PTR,
+        "source_signature": "extern void thread_group_cputime_adjusted(struct task_struct *p, u64 *ut, u64 *st)",
+    },
     "task_active_pid_ns": {
         "input_contract": "global init_task task_struct pointer; global pointer is borrowed/read-only and is not freed",
         "return_contract": "struct pid_namespace pointer equals direct read-only observation through init_task->thread_pid, stable across repeated calls; returned pointer is borrowed and not dereferenced or freed",
@@ -7694,6 +7701,51 @@ TASK_PRIO_EXPECTED_WORDS = (
     TASK_PRIO_NEXT_GUARD_WORD,
 )
 TASK_PRIO_NEXT_SYMBOL = ("idle_task", 0x10)
+THREAD_GROUP_CPUTIME_ADJUSTED_EXPECTED_WORDS = (
+    0xD10143FF,
+    0xCA1103D0,
+    0xA90243FD,
+    0x910083FD,
+    0xF9001BF5,
+    0xA9044FF4,
+    0xB0015908,
+    0xAA0103F4,
+    0x910003E1,
+    0xAA0203F3,
+    0xAA0003F5,
+    0xF9478508,
+    0xF81F83A8,
+    0x97FFFE07,
+    0xF9444AA8,
+    0x910003E0,
+    0xAA1403E2,
+    0xAA1303E3,
+    0x91076101,
+    0x97FFFFA7,
+    0xB0015909,
+    0xF85F83A8,
+    0xF9478529,
+    0xEB08013F,
+    0x540000E1,
+    0xA9444FF4,
+    0xF9401BF5,
+    0xA94243FD,
+    0xCA11021E,
+    0x910143FF,
+    0xD65F03C0,
+    0x97FEEA91,
+    0x00000000,
+    0x00BE7BAD,
+)
+THREAD_GROUP_CPUTIME_ADJUSTED_NEXT_SYMBOL = ("dequeue_task_idle", 0x88)
+THREAD_GROUP_CPUTIME_ADJUSTED_REPEAT_COUNT = 2
+THREAD_GROUP_CPUTIME_ADJUSTED_SLOT_SIZE = 16
+THREAD_GROUP_CPUTIME_ADJUSTED_UTIME_OFFSET = 0
+THREAD_GROUP_CPUTIME_ADJUSTED_STIME_OFFSET = 8
+THREAD_GROUP_CPUTIME_ADJUSTED_CANARY_BYTES = bytes.fromhex("a90fc710c710c7101020304050607080")
+THREAD_GROUP_CPUTIME_ADJUSTED_PROOF_ALLOC_SIZE = 0x80
+THREAD_GROUP_CPUTIME_ADJUSTED_FILL_BYTE = 0xC7
+THREAD_GROUP_CPUTIME_ADJUSTED_MAX_SANE_CPUTIME = 1 << 63
 TASK_ACTIVE_PID_NS_REPEAT_COUNT = 2
 TASK_ACTIVE_PID_NS_THREAD_PID_OFFSET = 1824
 TASK_ACTIVE_PID_NS_PID_LEVEL_OFFSET = 4
@@ -31081,6 +31133,375 @@ def _run_call_proof_get_iowait_load(
     return summary, private
 
 
+def _run_call_proof_thread_group_cputime_adjusted(
+    session: ReplSession,
+    symbols: dict[str, Symbol],
+    image: StaticImage,
+    *,
+    source_root: Path,
+    gfp: int,
+    gfp_components: dict[str, int],
+) -> tuple[dict[str, object], dict[str, object]]:
+    target = "thread_group_cputime_adjusted"
+    source = lookup_source_signature(target, source_root=source_root)
+    call_safety_gate = classify_call_safety(
+        symbols,
+        image,
+        target,
+        include_objdump=False,
+    )
+    advisory = _call_safety_advisory_from_source(call_safety_gate, source)
+    if call_safety_gate.get("tier") != CALL_SAFETY_DENY:
+        raise ReplError(f"{target} must stay outside the global auto-call gate")
+    if call_safety_gate.get("vetted_seed_whitelist"):
+        raise ReplError(f"{target} unexpectedly entered CALL_SAFETY_SEEDS")
+    if advisory.get("tier") != CALL_PROOF_TARGETS[target]["expected_tier"]:
+        raise ReplError(f"{target} target-specific advisory tier is not SAFE-WITH-VALID-PTR")
+    if advisory.get("candidate_safe"):
+        raise ReplError(f"{target} generic advisory unexpectedly became candidate_safe")
+    if "unseeded-arg-memory-flow-without-gate-pointer-contract" not in advisory.get(
+        "blocking_danger_flags", []
+    ):
+        raise ReplError(f"{target} generic advisory did not preserve the unseeded pointer-contract block")
+    if not source.get("found") or source.get("pointer_arg_indices") != [0, 1, 2]:
+        raise ReplError(f"{target} source signature must declare x0/x1/x2 pointer args")
+    selected_signature = (
+        source.get("selected", {}).get("signature")
+        if isinstance(source.get("selected"), dict) else None
+    )
+    if selected_signature != CALL_PROOF_TARGETS[target]["source_signature"]:
+        raise ReplError(f"{target} source signature did not select the sched/cputime.h declaration")
+
+    source_path = source_root / "include/linux/sched/cputime.h"
+    try:
+        source_normalized = " ".join(
+            source_path.read_text(encoding="utf-8", errors="replace").split()
+        )
+    except OSError as exc:
+        raise ReplError(f"{target} source file is not readable: {source_path}") from exc
+    source_fragments = (
+        "extern void task_cputime_adjusted(struct task_struct *p, u64 *ut, u64 *st);",
+        "extern void thread_group_cputime_adjusted(struct task_struct *p, u64 *ut, u64 *st);",
+        "void thread_group_cputime(struct task_struct *tsk, struct task_cputime *times);",
+    )
+    missing_fragments = [
+        fragment for fragment in source_fragments
+        if fragment not in source_normalized
+    ]
+    if missing_fragments:
+        raise ReplError(f"{target} source fragments missing: {missing_fragments}")
+
+    resolutions = {
+        target: resolve_verified(
+            symbols,
+            image,
+            target,
+            purpose="call",
+        ),
+        "__kmalloc": resolve_verified(symbols, image, "__kmalloc", purpose="call"),
+        "kfree": resolve_verified(
+            symbols,
+            image,
+            "kfree",
+            purpose="call",
+            allow_pre_arg_deref=True,
+        ),
+    }
+    target_link = require_verified_resolution(resolutions[target], "call-proof target")
+    kmalloc_link = require_verified_resolution(resolutions["__kmalloc"], "call-proof result-slot allocation")
+    kfree_link = require_verified_resolution(resolutions["kfree"], "call-proof result-slot cleanup")
+    init_task_link = _require_init_task_link(symbols)
+    assert_no_precall_x0_pointer_deref(image, kmalloc_link, "__kmalloc")
+
+    next_symbol_name, expected_boundary = THREAD_GROUP_CPUTIME_ADJUSTED_NEXT_SYMBOL
+    next_symbol = symbols.get(next_symbol_name)
+    if next_symbol is None or next_symbol.vaddr - target_link != expected_boundary:
+        raise ReplError(f"{target} next-symbol boundary is not the expected 0x{expected_boundary:x}")
+
+    observed_words = image.u32_words_at_vaddr(
+        target_link,
+        len(THREAD_GROUP_CPUTIME_ADJUSTED_EXPECTED_WORDS),
+    )
+    signals = call_safety_gate.get("signals", {})
+    if not isinstance(signals, dict):
+        raise ReplError(f"{target} classifier signals missing")
+    taint_flow = signals.get("arg_taint_flow", {})
+    bl_targets = signals.get("bl_targets_sample", [])
+    bl_target_names = [
+        item.get("nearest_symbol", {}).get("symbol")
+        for item in bl_targets
+        if isinstance(item, dict) and isinstance(item.get("nearest_symbol"), dict)
+    ]
+    checks: list[dict[str, object]] = [
+        {
+            "check": "static-c1-identity",
+            "ok": True,
+            "target": target,
+            "resolution_method": resolutions[target].method,
+        },
+        {
+            "check": "static-next-symbol-boundary",
+            "ok": True,
+            "next_symbol": next_symbol_name,
+            "byte_size": f"0x{expected_boundary:x}",
+        },
+        {
+            "check": "static-source-contract",
+            "ok": True,
+            "signature": selected_signature,
+            "pointer_arg_indices": source.get("pointer_arg_indices", []),
+            "source_note": "sched/cputime.h declares borrowed task_struct plus two owned u64 result slots for this proof",
+        },
+        {
+            "check": "static-target-specific-call-safety-contract",
+            "ok": True,
+            "global_gate_tier": call_safety_gate.get("tier"),
+            "global_gate_auto_call_allowed": call_safety_gate.get("auto_call_allowed"),
+            "advisory_tier": advisory.get("tier"),
+            "advisory_safe_group": advisory.get("safe_group"),
+            "advisory_candidate_safe": advisory.get("candidate_safe"),
+            "advisory_blocking_flags": advisory.get("blocking_danger_flags", []),
+        },
+        {
+            "check": "static-init-task-borrowed-data-symbol",
+            "ok": True,
+            "symbol": "init_task",
+            "link_vaddr": f"0x{init_task_link:x}",
+        },
+        {
+            "check": "static-no-context-sensitive-calls",
+            "ok": int(signals.get("context_call_count", 0) or 0) == 0,
+            "context_call_count": signals.get("context_call_count"),
+        },
+        {
+            "check": "static-no-precall-pointer-deref",
+            "ok": signals.get("arg_pointer_derefs_before_first_bl_or_ret") == [],
+            "arg_pointer_derefs_before_first_bl_or_ret": signals.get(
+                "arg_pointer_derefs_before_first_bl_or_ret"
+            ),
+        },
+        {
+            "check": "static-callee-shape",
+            "ok": (
+                signals.get("bl_count_in_scan") == 3
+                and bl_target_names[:3] == [
+                    "thread_group_cputime",
+                    "cputime_adjust",
+                    "__stack_chk_fail",
+                ]
+            ),
+            "bl_count_in_scan": signals.get("bl_count_in_scan"),
+            "bl_target_symbols": bl_target_names[:3],
+        },
+        {
+            "check": "static-direct-xref-count",
+            "ok": int(signals.get("direct_bl_xref_count", 0) or 0) >= 5,
+            "direct_bl_xref_count": signals.get("direct_bl_xref_count"),
+        },
+        {
+            "check": "static-taint-flow-covered-by-source-pointer-args",
+            "ok": (
+                isinstance(taint_flow, dict)
+                and set(advisory.get("source_pointer_arg_indices", [])) == {0, 1, 2}
+                and set(advisory.get("source_or_arg_memory_indices", [])) == {0, 1, 2}
+            ),
+            "arg_memory_base_use_count": (
+                taint_flow.get("arg_memory_base_use_count")
+                if isinstance(taint_flow, dict) else None
+            ),
+            "tainted_arg_call_count": (
+                taint_flow.get("tainted_arg_call_count")
+                if isinstance(taint_flow, dict) else None
+            ),
+        },
+    ]
+    for index, expected in enumerate(THREAD_GROUP_CPUTIME_ADJUSTED_EXPECTED_WORDS):
+        observed = observed_words[index]
+        ok = observed == expected
+        checks.append({
+            "check": f"static-{target}-word-{index:02d}",
+            "ok": ok,
+            "expected_word": f"0x{expected:08x}",
+            "observed_word": f"0x{observed:08x}",
+        })
+        if not ok:
+            raise ReplError(
+                f"{target} word {index} mismatch: observed 0x{observed:08x}, "
+                f"expected 0x{expected:08x}"
+            )
+    if not all(bool(check.get("ok")) for check in checks):
+        raise ReplError(f"{target} static target-specific gate failed")
+
+    private: dict[str, object] = {}
+    slide = 0
+    ptr = 0
+    kfree_runtime = 0
+    free_ok = False
+    free_error = ""
+    raw_returns: list[int] = []
+    case_results: list[dict[str, object]] = []
+    canary_after = b""
+    previous_total: int | None = None
+
+    session.hide()
+    session.set_panic_on_oops(0)
+    try:
+        slide = session.slide()
+        if slide & 0xFFF:
+            raise ReplError("slide is not page-aligned; refusing to proceed")
+        target_runtime = (target_link + slide) & MASK64
+        init_task_runtime = (init_task_link + slide) & MASK64
+        kmalloc_runtime = (kmalloc_link + slide) & MASK64
+        kfree_runtime = (kfree_link + slide) & MASK64
+        ptr = session.call_runtime(kmalloc_runtime, (THREAD_GROUP_CPUTIME_ADJUSTED_PROOF_ALLOC_SIZE, gfp))
+        if not is_kernel_lowmem_pointer(ptr) or _is_kernel_err_ptr(ptr):
+            raise ReplError(f"__kmalloc returned invalid {target} result-slot pointer: 0x{ptr:x}")
+
+        for index in range(THREAD_GROUP_CPUTIME_ADJUSTED_REPEAT_COUNT):
+            initial = (
+                bytes([THREAD_GROUP_CPUTIME_ADJUSTED_FILL_BYTE])
+                * THREAD_GROUP_CPUTIME_ADJUSTED_SLOT_SIZE
+                + THREAD_GROUP_CPUTIME_ADJUSTED_CANARY_BYTES
+            )
+            _poke_bytes(session, ptr, initial)
+            raw_return = session.call_runtime_values(
+                target_runtime,
+                (
+                    init_task_runtime,
+                    ptr + THREAD_GROUP_CPUTIME_ADJUSTED_UTIME_OFFSET,
+                    ptr + THREAD_GROUP_CPUTIME_ADJUSTED_STIME_OFFSET,
+                ),
+                replay_safe=True,
+            )[-1] & MASK64
+            raw_returns.append(raw_return)
+            observed = _peek_bytes(
+                session,
+                ptr,
+                THREAD_GROUP_CPUTIME_ADJUSTED_SLOT_SIZE
+                + len(THREAD_GROUP_CPUTIME_ADJUSTED_CANARY_BYTES),
+            )
+            utime = _u64_from_le(observed, THREAD_GROUP_CPUTIME_ADJUSTED_UTIME_OFFSET)
+            stime = _u64_from_le(observed, THREAD_GROUP_CPUTIME_ADJUSTED_STIME_OFFSET)
+            total = utime + stime
+            canary_after = observed[
+                THREAD_GROUP_CPUTIME_ADJUSTED_SLOT_SIZE:
+                THREAD_GROUP_CPUTIME_ADJUSTED_SLOT_SIZE
+                + len(THREAD_GROUP_CPUTIME_ADJUSTED_CANARY_BYTES)
+            ]
+            slots_changed = (
+                observed[:THREAD_GROUP_CPUTIME_ADJUSTED_SLOT_SIZE]
+                != initial[:THREAD_GROUP_CPUTIME_ADJUSTED_SLOT_SIZE]
+            )
+            utime_sane = 0 <= utime < THREAD_GROUP_CPUTIME_ADJUSTED_MAX_SANE_CPUTIME
+            stime_sane = 0 <= stime < THREAD_GROUP_CPUTIME_ADJUSTED_MAX_SANE_CPUTIME
+            total_nondecreasing = previous_total is None or total >= previous_total
+            canary_ok = canary_after == THREAD_GROUP_CPUTIME_ADJUSTED_CANARY_BYTES
+            ok = slots_changed and utime_sane and stime_sane and total_nondecreasing and canary_ok
+            case_results.append({
+                "case": f"{target}-init-task-cputime-read-{index + 1}",
+                "utime": f"0x{utime:x}",
+                "stime": f"0x{stime:x}",
+                "total": f"0x{total:x}",
+                "slots_changed_from_prefill": slots_changed,
+                "utime_sane": utime_sane,
+                "stime_sane": stime_sane,
+                "total_nondecreasing": total_nondecreasing,
+                "canary_preserved": canary_ok,
+                "ok": ok,
+            })
+            if not ok:
+                raise ReplError(f"{target} result-slot contract failed in proof call {index + 1}")
+            previous_total = total
+    finally:
+        if ptr and is_kernel_lowmem_pointer(ptr) and kfree_runtime:
+            try:
+                session.call_runtime(kfree_runtime, (ptr,))
+                free_ok = True
+            except Exception as exc:  # noqa: BLE001 - cleanup failures must be visible
+                free_error = str(exc)
+        session.set_panic_on_oops(1)
+
+    checks.append({
+        "check": f"{target}-init-task-dual-owned-result-slot-repeat",
+        "ok": all(bool(case.get("ok")) for case in case_results),
+        "case_count": len(case_results),
+        "cases": case_results,
+    })
+    checks.append({
+        "check": "kfree-owned-thread-group-cputime-result-slot",
+        "ok": free_ok,
+        "free_attempted": bool(ptr and is_kernel_lowmem_pointer(ptr)),
+    })
+    if free_error:
+        raise ReplError(f"kfree cleanup failed after {target} proof: {free_error}")
+
+    passed = all(bool(check.get("ok")) for check in checks)
+    summary = {
+        "decision": f"a90-repl-live-call-proof-{target}-{'pass' if passed else 'fail'}",
+        "ok": passed,
+        "target": target,
+        "proof_status": "trusted-under-borrowed-init-task-dual-owned-cputime-result-slot-contract" if passed else "failed",
+        "input_contract": CALL_PROOF_TARGETS[target]["input_contract"],
+        "return_contract": CALL_PROOF_TARGETS[target]["return_contract"],
+        "case_results": case_results,
+        "all_result_slots_in_contract": bool(case_results) and all(bool(case.get("ok")) for case in case_results),
+        "canary_preserved": bool(case_results) and all(bool(case.get("canary_preserved")) for case in case_results),
+        "cleanup_ok": free_ok,
+        "source_evidence": _source_row_evidence(source),
+        "call_safety_gate": call_safety_gate,
+        "generic_advisory": advisory,
+        "target_specific_call_safety": {
+            "tier": CALL_SAFETY_SAFE_WITH_VALID_PTR,
+            "safe_group": True,
+            "candidate_safe": True,
+            "candidate_tag": "target-specific-borrowed-init-task-owned-result-slots-only",
+            "required_valid_pointer_args_from_source": {
+                "0": "borrowed-global-init_task-task_struct",
+                "1": "owned-u64-utime-result-slot",
+                "2": "owned-u64-stime-result-slot",
+            },
+            "reasons": [
+                "global gate remains DENY",
+                "target-specific proof supplies borrowed init_task and owned x1/x2 result slots",
+                "static body has no context-sensitive calls and fixed callees thread_group_cputime/cputime_adjust",
+                "live result slots are validated with a trailing canary and kfree cleanup",
+            ],
+        },
+        "resolutions": _redacted_resolution_set(resolutions),
+        "raw_runtime_values_redacted": True,
+        "owned_pointer_redacted": True,
+        "borrowed_pointer_redacted": True,
+        "checks": checks,
+        "function_map_entry": {
+            "symbol": target,
+            "status": "live-proven",
+            "trusted_input_contract": CALL_PROOF_TARGETS[target]["input_contract"],
+            "return_contract": CALL_PROOF_TARGETS[target]["return_contract"],
+            "observed_return_value": "owned dual u64 result slots contained sane adjusted init_task utime/stime values",
+            "cleanup": "kfree-owned-thread-group-cputime-result-slot-ok",
+            "auto_call_policy": "target-specific-proof-only-not-global-auto-call",
+        },
+    }
+    private.update({
+        "slide": f"0x{slide:x}",
+        f"{target}_runtime": f"0x{((target_link + slide) & MASK64):x}",
+        "init_task_runtime": f"0x{((init_task_link + slide) & MASK64):x}",
+        "result_slot_ptr": f"0x{ptr:x}",
+        "void_call_raw_x0_values": [f"0x{value:x}" for value in raw_returns],
+        "case_results": {
+            case["case"]: {
+                "utime": case["utime"],
+                "stime": case["stime"],
+                "total": case["total"],
+            }
+            for case in case_results
+        },
+        "canary_after_hex": canary_after.hex(),
+        "gfp_components": {key: f"0x{component:x}" for key, component in gfp_components.items()},
+    })
+    return summary, private
+
+
 def _run_call_proof_get_seconds(
     session: ReplSession,
     symbols: dict[str, Symbol],
@@ -41754,6 +42175,15 @@ def run_call_proof(session: ReplSession,
         )
     if target == "get_iowait_load":
         return _run_call_proof_get_iowait_load(
+            session,
+            symbols,
+            image,
+            source_root=source_root,
+            gfp=gfp,
+            gfp_components=gfp_components,
+        )
+    if target == "thread_group_cputime_adjusted":
+        return _run_call_proof_thread_group_cputime_adjusted(
             session,
             symbols,
             image,
