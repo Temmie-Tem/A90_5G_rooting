@@ -85,12 +85,23 @@ Refined per web research (kernel writeback-cache docs + dm-devel): `ioctl(BLKFLS
 **insufficient** for a durable-commit check — it only drops the block device's page-cache dirty
 pages; it does NOT send a flush bio, so data may still sit in the device's volatile cache. Do both
 of the following instead:
-- **Write durability:** after the write, `fsync(fd)` on the block device (equivalent to a
-  `blkdev_issue_flush` / `REQ_PREFLUSH` — forces the device's volatile write cache to non-volatile
-  media). `dd … conv=fsync` already fsyncs per block; an explicit final `fsync(fd)` is the belt.
+- **Write durability:** after the write, `fsync(fd)` on the block device — on Linux 4.14 an fsync of
+  a block fd issues a FLUSH CACHE to the storage controller via the block layer (this is the
+  userspace primitive; `blkdev_issue_flush` / `REQ_PREFLUSH` are the *kernel-internal* mechanism it
+  triggers, **not** a userspace ioctl). `dd … conv=fsync` fsyncs per block; an explicit final
+  `fsync(fd)` is the belt. `fdatasync` is not meaningfully better on a raw block fd.
 - **Readback correctness:** **re-open the block `O_RDONLY | O_DIRECT`** and read the written prefix
   from the device (bypassing the page cache), then SHA-compare to the source. Do NOT rely on
-  `BLKFLSBUF` + a plain buffered read — that can be served stale from cache and falsely reassure.
+  `BLKFLSBUF` + a plain buffered read — `BLKFLSBUF` only drops page-cache dirty pages, it is not a
+  durability primitive and a buffered read can be served stale.
+  - **O_DIRECT alignment:** do NOT assume 512 bytes. Query `BLKSSZGET` (logical) and `BLKPBSZGET`
+    (physical) and align the read offset, length, and buffer (`posix_memalign`) to
+    `max(logical, physical, 4096)`. A 64 MiB partition + boot-image-sized reads are alignment-
+    friendly *if* chunking is enforced.
+  - The `O_DIRECT` readback fd is a **second fd** → it must be **independently re-guarded** (§2)
+    against its own `fstat` rdev before reading, not trusted from the write fd.
+  - If `O_DIRECT` open fails `EINVAL` on this platform, the write path **stays disabled** (do not
+    silently fall back to a cache-served read).
 - **On mismatch, do NOT reboot.** Stay in native-init (retry or TWRP fallback possible). Never reboot
   into an unverified boot partition.
 
@@ -116,6 +127,18 @@ reboot). Therefore:
   "guard, then `system("dd …")`". Guard/anti-mixup/write/cache-bypassed-readback are all enforced
   **device-side**, tied to the opened fd, so a host bug cannot bypass them. The command does NOT
   reboot; it returns a machine-parseable result and the host decides.
+- **Identity MUST be built from the opened fd, never re-derived from the path** (Codex Q3): after
+  `open(path, O_WRONLY|O_CLOEXEC)`, take `st_rdev` from `fstat(fd)`; size from `BLKGETSIZE64` on the
+  fd; PARTNAME and `diskseq` re-read from `/sys/dev/block/<maj>:<min>/{uevent,diskseq}` using the
+  **fd's rdev**, not the original path string. Never `stat()` the path after open. The `O_DIRECT`
+  readback fd repeats this independently.
+- **The host-side guard logic is already implemented and adversarially tested**:
+  `workspace/public/src/scripts/revalidation/a90_boot_target_guard.py` (+ `tests/…`, 27 tests). The
+  device C command PORTS `evaluate_boot_target` / `authorize_write`. Critical rule ported from that
+  module: **a write is refused unless the pin is auditor-confirmed** (`pin_is_confirmed`: rdev +
+  canonical path set) — a default/unconfirmed pin may be used ONLY by the read-only auditor, never to
+  authorize a write. Numeric forbidden-rdev denylist + `diskseq` pin are enforced when the auditor
+  populates them.
 - **Host orchestrates only**: staging (push if not resident), candidate-SHA selection, reboot,
   post-flash health/selftest, rollback policy, reporting. It is NOT the authority for target identity
   or write refusal — the device is.

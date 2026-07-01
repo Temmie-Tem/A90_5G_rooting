@@ -29,34 +29,57 @@ ALLOWED_PARTNAME = "boot"
 # Secondary belt-and-suspenders denylist (resolved numerically on-device; names here for clarity).
 # A write that somehow presents any of these must be refused even if other checks were bypassed.
 FORBIDDEN_PARTNAMES = frozenset({
-    "efs", "sec_efs", "modem", "modem_a", "modem_b", "rpmb", "keymaster", "tz", "tzsec",
+    "efs", "sec_efs", "modem", "modem_a", "modem_b", "modemst1", "modemst2", "fsg", "fsc",
+    "rpmb", "rpm", "keymaster", "keystore", "keystorage", "tz", "tzsec",
     "vbmeta", "vbmeta_system", "vbmeta_samsung", "vbmeta_vendor", "dsp", "keydata", "keyrefuge",
-    "aboot", "abl", "xbl", "sbl1", "bootloader", "uefi", "pmic", "cmnlib", "devcfg", "hyp",
-    "persist", "param", "steady", "up_param", "keystorage", "sec_efs", "dtbo",
+    "aboot", "abl", "xbl", "xbl_config", "xbl_a", "xbl_b", "sbl1", "bootloader", "uefi", "pmic",
+    "cmnlib", "cmnlib64", "devcfg", "hyp", "persist", "param", "steady", "up_param", "dtbo",
+    # not brick-class but must never be a boot-flash target — refuse explicitly
+    "system", "system_a", "system_b", "vendor", "vendor_a", "vendor_b", "userdata", "cache",
+    "recovery", "super", "metadata", "misc",
 })
 
 
 @dataclass(frozen=True)
 class BlockIdentity:
-    """The identity of a block device as observed through one open fd (fstat + sysfs)."""
+    """The identity of a block device as observed through one open fd (fstat + sysfs).
+
+    On device this MUST be built from the opened fd: st_rdev from fstat(fd), size from
+    BLKGETSIZE64, PARTNAME/diskseq re-read from /sys/dev/block/<maj>:<min>/ using the fd's rdev —
+    never re-stat the path string. This host dataclass is only the decision input.
+    """
     canonical_path: str          # e.g. /dev/block/sda24 (readlink -f of the by-name target)
     rdev_major: int
     rdev_minor: int
-    partname: str                # sysfs .../partition uevent PARTNAME
+    partname: str                # sysfs .../uevent PARTNAME
     size_bytes: int
     is_block: bool = True
+    diskseq: int | None = None   # sysfs .../diskseq if the kernel exposes it (else None)
 
 
 @dataclass(frozen=True)
 class BootTargetPin:
-    """Pinned expected identity of the boot partition. major:minor + canonical_path are confirmed
-    once by the read-only boot-target-audit; until confirmed they are None and only enforced when set.
+    """Pinned expected identity of the boot partition. major:minor + canonical_path (+ diskseq) are
+    confirmed once by the read-only boot-target-audit. A WRITE path requires a fully-confirmed pin
+    (see pin_is_confirmed / authorize_write); only the read-only auditor may use an unconfirmed pin.
     """
     partname: str = ALLOWED_PARTNAME
     size_bytes: int = BOOT_PARTITION_SIZE_BYTES
     canonical_path: str | None = None   # e.g. /dev/block/sda24 (auditor-confirmed)
     rdev_major: int | None = None       # auditor-confirmed
     rdev_minor: int | None = None       # auditor-confirmed
+    diskseq: int | None = None          # auditor-confirmed, enforced when set
+    forbidden_rdevs: frozenset = frozenset()  # numeric (major,minor) denylist, auditor-populated
+
+
+def pin_is_confirmed(pin: BootTargetPin) -> bool:
+    """True only when the auditor has confirmed the physical identity (rdev + canonical path).
+    A write path MUST refuse unless this is True — otherwise a fake PARTNAME=boot/64MiB node on
+    any disk (e.g. /dev/block/dm-0) would pass on attributes alone.
+    """
+    return (pin.rdev_major is not None
+            and pin.rdev_minor is not None
+            and pin.canonical_path is not None)
 
 
 @dataclass(frozen=True)
@@ -80,10 +103,13 @@ def evaluate_boot_target(identity: BlockIdentity, pin: BootTargetPin = BootTarge
     """
     if not identity.is_block:
         return _refuse("target is not a block device")
+    # Numeric forbidden-rdev denylist first (auditor-populated) — strongest, name-independent.
+    if (identity.rdev_major, identity.rdev_minor) in pin.forbidden_rdevs:
+        return _refuse(f"forbidden rdev {identity.rdev_major}:{identity.rdev_minor}")
     partname = (identity.partname or "").strip().lower()
     if not partname:
-        return _refuse("empty PARTNAME")
-    # Secondary denylist first: a forbidden name is an instant, unambiguous refusal.
+        return _refuse("empty/whitespace PARTNAME")
+    # Secondary denylist: a forbidden name is an instant, unambiguous refusal.
     if partname in FORBIDDEN_PARTNAMES:
         return _refuse(f"forbidden partition PARTNAME={partname!r}")
     # Positive allowlist: must be exactly the boot partition name.
@@ -91,7 +117,7 @@ def evaluate_boot_target(identity: BlockIdentity, pin: BootTargetPin = BootTarge
         return _refuse(f"PARTNAME={partname!r} != expected {pin.partname!r}")
     if identity.size_bytes != pin.size_bytes:
         return _refuse(f"size {identity.size_bytes} != pinned {pin.size_bytes}")
-    # rdev / canonical path pins are enforced once confirmed by the auditor.
+    # rdev / canonical path / diskseq pins are enforced once confirmed by the auditor.
     if pin.rdev_major is not None and pin.rdev_minor is not None:
         if (identity.rdev_major, identity.rdev_minor) != (pin.rdev_major, pin.rdev_minor):
             return _refuse(
@@ -99,15 +125,27 @@ def evaluate_boot_target(identity: BlockIdentity, pin: BootTargetPin = BootTarge
                 f"{pin.rdev_major}:{pin.rdev_minor}")
     if pin.canonical_path is not None and identity.canonical_path != pin.canonical_path:
         return _refuse(f"canonical path {identity.canonical_path!r} != pinned {pin.canonical_path!r}")
+    if pin.diskseq is not None and identity.diskseq != pin.diskseq:
+        return _refuse(f"diskseq {identity.diskseq} != pinned {pin.diskseq}")
     return _ACCEPT
 
 
 def authorize_write(open_identity: BlockIdentity,
                     write_identity: BlockIdentity,
-                    pin: BootTargetPin = BootTargetPin()) -> GuardResult:
-    """TOCTOU-safe authorization: the identity at write time must be byte-identical to the identity
-    verified at open. Models "verify and write through the SAME fd". Both must independently pass.
+                    pin: BootTargetPin = BootTargetPin(),
+                    *,
+                    require_confirmed_pin: bool = True) -> GuardResult:
+    """TOCTOU-safe WRITE authorization: the identity at write time must be byte-identical to the
+    identity verified at open. Models "verify and write through the SAME fd". Both must
+    independently pass, AND (by default) the pin must be auditor-confirmed.
+
+    `require_confirmed_pin=True` (default) refuses unless pin_is_confirmed(pin) — this closes the
+    Codex-flagged gap where a fake PARTNAME=boot/64MiB node on any disk (e.g. /dev/block/dm-0)
+    would pass on attributes alone under a default/unconfirmed pin. Only the read-only auditor
+    (which is discovering the identity) may bypass this via require_confirmed_pin=False.
     """
+    if require_confirmed_pin and not pin_is_confirmed(pin):
+        return _refuse("write authorization requires an auditor-confirmed pin (rdev + canonical path)")
     verified = evaluate_boot_target(open_identity, pin)
     if not verified.ok:
         return verified
