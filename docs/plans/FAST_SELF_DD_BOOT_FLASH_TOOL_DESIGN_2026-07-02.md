@@ -935,3 +935,42 @@ The source-build report is
 content-changing write or reboot into a self-written candidate has been executed at source-build
 time. Section 12.1 and `AGENTS.md` now authorize only the next bounded V3359 F2 live validation;
 F3 and later remain blocked until a future explicit policy amendment.
+
+### 12.14 V3359 F2 live pass (boot into self-written candidate)
+
+After the F2-only policy amendment in `AGENTS.md` / §12.1, V3359 was flashed through
+`native_init_flash.py`, booted cleanly, and passed `version/status/selftest` plus pstore summary.
+The staged V3355 candidate was present on SD and matched SHA
+`ed7aa46f9abc3d1a34c1d0eede247e58219b77375028b2f8bacd070454b1362c`.
+
+V3359 first ran F0 against the staged V3355 image and returned:
+
+```text
+A90BWF0 before_full_sha=60544a9ceadf1457535ffa5d51c7510a8fba8eab695433c1dfce55aad96917b3
+A90BWF0 target_full_sha=fa1deeae1ff724c44d6102c5685764e01863ec5a163ca97b4aba6e397f4d4eea
+A90BWF0 changed_chunks=5 changed_bytes=1439248 chunk_len=1048576
+A90BWF0 result=ok source-plan-only
+```
+
+Then `boot-flash-f2 BOOT-FLASH-F2-BOOT-CANDIDATE ...` ran once and returned:
+
+```text
+A90BWF2 before_full_sha=60544a9ceadf1457535ffa5d51c7510a8fba8eab695433c1dfce55aad96917b3
+A90BWF2 target_full_sha=fa1deeae1ff724c44d6102c5685764e01863ec5a163ca97b4aba6e397f4d4eea
+A90BWF2 snapshot_sha=60544a9ceadf1457535ffa5d51c7510a8fba8eab695433c1dfce55aad96917b3 snapshot_match_before=1
+A90BWF2 target_pwrite_count=64 target_fsync=ok
+A90BWF2 target_full_sha_after=fa1deeae1ff724c44d6102c5685764e01863ec5a163ca97b4aba6e397f4d4eea target_full_match=1
+A90BWF2 restore_skipped=target-verified-host-reboot-required
+A90BWF2 result=ok target-written-ready-to-reboot
+```
+
+The host immediately sent `reboot`, and the device booted the self-written V3355 candidate:
+`0.11.119 build=v3355-boot-write-e5-full`. Candidate `status/selftest` passed with
+`selftest fail=0` and pstore entries `0`. Rollback through `native_init_flash.py` restored v2321,
+with final `0.9.285 build=v2321-usb-clean-identity-rodata`, `selftest fail=0`, pstore entries `0`,
+and the retained F2 snapshot removed from SD after rollback.
+
+This proves F2: normal-boot native-init can write a verified content-changing full boot target and
+the device can reboot into that self-written boot image. F3/F4 and production self-write integration
+remain blocked until a future explicit policy amendment. Report:
+`docs/reports/NATIVE_INIT_V3359_SELF_DD_F2_BOOT_CANDIDATE_LIVE_2026-07-02.md`.
