@@ -14,6 +14,7 @@ does not contact the device and does not flash.
 from __future__ import annotations
 
 import argparse
+import concurrent.futures
 import hashlib
 import json
 import os
@@ -54,6 +55,8 @@ EXPECTED_HELPER_MARKER = "a90_android_execns_probe v356"
 EXPECTED_HELPER_SHA256 = "7474c92a530bda845396bd13eda1675db70292fc37ec36c8df7b3e2c1b4ca492"
 REPRODUCIBLE_MTIME = 0
 EXTRA_INIT_FLAGS: tuple[str, ...] = ()
+DEFAULT_INIT_BUILD_MODE = "fast"
+DEFAULT_INIT_FAST_JOBS = min(22, os.cpu_count() or 1)
 
 FORBIDDEN_BYTES = (
     bytes([116, 101, 109, 109, 105, 101, 48, 50, 49, 52]),
@@ -89,6 +92,190 @@ def pid1_sources() -> list[Path]:
             continue
         sources.append(path)
     return sources
+
+
+def _compiler_identity(cross_gcc: object) -> str:
+    try:
+        completed = subprocess.run(
+            [str(cross_gcc), "--version"],
+            check=True,
+            text=True,
+            stdout=subprocess.PIPE,
+            stderr=subprocess.PIPE,
+        )
+    except Exception as exc:  # pragma: no cover - actual compile will report the concrete failure.
+        return f"{cross_gcc}: identity-unavailable: {exc}"
+    return completed.stdout.splitlines()[0] if completed.stdout else str(cross_gcc)
+
+
+def _split_init_build_command(command: list[object]) -> tuple[object, list[object], Path, list[Path]]:
+    try:
+        output_index = command.index("-o")
+    except ValueError as exc:
+        raise RuntimeError("init build command is missing -o output") from exc
+    if output_index + 1 >= len(command):
+        raise RuntimeError("init build command has -o without an output path")
+    cross_gcc = command[0]
+    compile_flags = list(command[1:output_index])
+    output = Path(command[output_index + 1])
+    sources = [Path(item) for item in command[output_index + 2 :]]
+    if not sources:
+        raise RuntimeError("init build command has no sources")
+    return cross_gcc, compile_flags, output, sources
+
+
+def _depfile_dependencies(depfile: Path) -> list[Path]:
+    text = depfile.read_text(encoding="utf-8", errors="replace").replace("\\\n", " ")
+    _target, sep, deps_text = text.partition(":")
+    if not sep:
+        return []
+    return [Path(item.replace("\\ ", " ")) for item in deps_text.split()]
+
+
+def _fast_object_current(object_path: Path, depfile: Path, meta_path: Path, signature: dict[str, object]) -> bool:
+    if not object_path.is_file() or not depfile.is_file() or not meta_path.is_file():
+        return False
+    try:
+        meta = json.loads(meta_path.read_text(encoding="utf-8"))
+    except json.JSONDecodeError:
+        return False
+    if meta.get("signature") != signature:
+        return False
+    object_mtime = object_path.stat().st_mtime_ns
+    for dep in _depfile_dependencies(depfile):
+        if not dep.exists() or dep.stat().st_mtime_ns > object_mtime:
+            return False
+    return True
+
+
+def _fast_object_name(index: int, source: Path) -> str:
+    digest = hashlib.sha256(str(source.resolve()).encode("utf-8")).hexdigest()[:12]
+    return f"{index:03d}_{source.stem}_{digest}.o"
+
+
+def _compile_fast_object(
+    *,
+    cross_gcc: object,
+    compiler_identity: str,
+    compile_flags: list[object],
+    source: Path,
+    object_path: Path,
+    depfile: Path,
+    meta_path: Path,
+) -> str:
+    signature = {
+        "compiler": str(cross_gcc),
+        "compiler_identity": compiler_identity,
+        "compile_flags": [str(item) for item in compile_flags],
+        "source": str(source),
+        "source_sha256": sha256(source),
+    }
+    if _fast_object_current(object_path, depfile, meta_path, signature):
+        print(f"+ fast-init-build cached {source}", flush=True)
+        return "cached"
+
+    object_path.parent.mkdir(parents=True, exist_ok=True)
+    command = [
+        cross_gcc,
+        *compile_flags,
+        "-MMD",
+        "-MF",
+        depfile,
+        "-c",
+        source,
+        "-o",
+        object_path,
+    ]
+    print("+ " + shlex.join(str(item) for item in command), flush=True)
+    subprocess.run([str(item) for item in command], check=True, text=True)
+    meta_path.write_text(
+        json.dumps({"signature": signature}, indent=2, sort_keys=True) + "\n",
+        encoding="utf-8",
+    )
+    return "compiled"
+
+
+def _run_one_shot_init_build(
+    args: argparse.Namespace,
+    command: list[object],
+    *,
+    output: Path | None = None,
+    file_check: bool = True,
+) -> None:
+    one_shot = list(command)
+    if output is not None:
+        _split_init_build_command(one_shot)
+        one_shot[one_shot.index("-o") + 1] = output
+    run(one_shot)
+    build_output = output or args.init_binary
+    run([args.strip, build_output])
+    build_output.chmod(0o600)
+    if file_check:
+        run(["file", build_output])
+
+
+def _verify_fast_matches_one_shot(args: argparse.Namespace, command: list[object]) -> None:
+    with tempfile.TemporaryDirectory(prefix="a90-fast-init-verify-") as temp_name:
+        one_shot_output = Path(temp_name) / "init-one-shot"
+        _run_one_shot_init_build(args, command, output=one_shot_output, file_check=False)
+        fast_sha = sha256(args.init_binary)
+        one_shot_sha = sha256(one_shot_output)
+        if fast_sha != one_shot_sha:
+            raise RuntimeError(f"fast init build mismatch: fast={fast_sha} one-shot={one_shot_sha}")
+        print(f"+ fast-init-build verified one-shot sha256={fast_sha}", flush=True)
+
+
+def _run_fast_init_build(args: argparse.Namespace, command: list[object]) -> None:
+    cross_gcc, compile_flags, output, sources = _split_init_build_command(command)
+    jobs = int(getattr(args, "init_fast_jobs", DEFAULT_INIT_FAST_JOBS) or DEFAULT_INIT_FAST_JOBS)
+    if jobs < 1:
+        raise RuntimeError("--init-fast-jobs must be >= 1")
+    cache_dir = getattr(args, "init_fast_cache_dir", None) or output.parent / "obj" / "init-fast"
+    cache_dir = Path(cache_dir)
+    output.parent.mkdir(parents=True, exist_ok=True)
+    compiler_id = _compiler_identity(cross_gcc)
+
+    object_paths = [cache_dir / _fast_object_name(index, source) for index, source in enumerate(sources)]
+    futures = []
+    max_workers = min(jobs, len(sources))
+    with concurrent.futures.ThreadPoolExecutor(max_workers=max_workers) as executor:
+        for source, object_path in zip(sources, object_paths, strict=True):
+            futures.append(
+                executor.submit(
+                    _compile_fast_object,
+                    cross_gcc=cross_gcc,
+                    compiler_identity=compiler_id,
+                    compile_flags=compile_flags,
+                    source=source,
+                    object_path=object_path,
+                    depfile=object_path.with_suffix(".d"),
+                    meta_path=object_path.with_suffix(".json"),
+                )
+            )
+        states = [future.result() for future in futures]
+
+    print(
+        "+ fast-init-build objects "
+        f"compiled={states.count('compiled')} cached={states.count('cached')} jobs={max_workers}",
+        flush=True,
+    )
+    run([cross_gcc, *compile_flags, "-o", output, *object_paths])
+    run([args.strip, output])
+    output.chmod(0o600)
+    run(["file", output])
+    if getattr(args, "init_fast_verify_one_shot", False):
+        _verify_fast_matches_one_shot(args, command)
+
+
+def _run_init_build(args: argparse.Namespace, command: list[object]) -> None:
+    mode = getattr(args, "init_build_mode", DEFAULT_INIT_BUILD_MODE)
+    if mode == "one-shot":
+        _run_one_shot_init_build(args, command)
+        return
+    if mode == "fast":
+        _run_fast_init_build(args, command)
+        return
+    raise RuntimeError(f"unknown init build mode: {mode}")
 
 
 def shell_define(name: str, value: str) -> str:
@@ -534,10 +721,7 @@ def build_init(args: argparse.Namespace) -> None:
         args.init_binary,
         *pid1_sources(),
     ]
-    run(command)
-    run([args.strip, args.init_binary])
-    args.init_binary.chmod(0o600)
-    run(["file", args.init_binary])
+    _run_init_build(args, command)
 
 
 def ramdisk_helpers(args: argparse.Namespace) -> dict[str, Path]:
@@ -1640,6 +1824,10 @@ def resolve_args(args: argparse.Namespace) -> argparse.Namespace:
     args.ramdisk_cpio = args.ramdisk_cpio.resolve()
     args.boot_image = args.boot_image.resolve()
     args.manifest = args.manifest.resolve()
+    if args.init_fast_cache_dir is not None:
+        args.init_fast_cache_dir = args.init_fast_cache_dir.resolve()
+    if args.init_fast_jobs < 1:
+        raise RuntimeError("--init-fast-jobs must be >= 1")
     if not 1 <= args.wifi_test_helper_timeout_sec <= 120:
         raise RuntimeError("--wifi-test-helper-timeout-sec must be between 1 and 120")
     if uses_android_service_window(args):
@@ -1736,6 +1924,10 @@ def parse_args(argv: Sequence[str] | None = None) -> argparse.Namespace:
     parser.add_argument("--init-version", default=DEFAULT_INIT_VERSION)
     parser.add_argument("--init-build", default=DEFAULT_INIT_BUILD)
     parser.add_argument("--init-creator", default=DEFAULT_INIT_CREATOR)
+    parser.add_argument("--init-build-mode", choices=["fast", "one-shot"], default=DEFAULT_INIT_BUILD_MODE)
+    parser.add_argument("--init-fast-jobs", type=int, default=DEFAULT_INIT_FAST_JOBS)
+    parser.add_argument("--init-fast-cache-dir", type=Path)
+    parser.add_argument("--init-fast-verify-one-shot", action="store_true")
     parser.add_argument("--wifi-test-klog-prefix", default=DEFAULT_WIFI_TEST_KLOG_PREFIX)
     parser.add_argument("--wifi-test-property-root", default="/mnt/sdext/a90/private-property-v317/v535/dev/__properties__")
     parser.add_argument("--wifi-test-disable", default="/cache/native-init-wifi-test-boot-v1393.disable")
