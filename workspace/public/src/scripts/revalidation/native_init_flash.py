@@ -486,18 +486,25 @@ def run_self_write_live(args: argparse.Namespace,
         result["staged"] = "tcpctl"
     emit("candidate_stage_done")
 
-    selfwrite_hide_settle(args, settle_sec=args.menu_settle_sec)
-    emit("source_plan_start")
-    source = selfwrite_cmdv1(
-        args,
-        [str(part) for part in plan["source_plan_command"]],
-        timeout_sec=max(args.bridge_timeout, 300.0),
-    )
-    verify_cmdv1_result(source, "boot-flash-plan")
-    for needle in ("result=ok source-plan-only", "expected_sha_match=1", "version_marker_found=1"):
-        if needle not in source.text:
-            raise RuntimeError(f"source-plan did not report {needle!r}")
-    emit("source_plan_done")
+    if getattr(args, "self_write_skip_source_plan", False):
+        # boot-flash-f3 re-validates the candidate SHA/version/header itself before any write
+        # (expected_sha_match / version_marker_found), so the separate read-only boot-flash-plan
+        # pre-check is redundant on the fast path and is skipped to save a command + a settle.
+        log("skip-source-plan: boot-flash-f3 re-verifies candidate SHA/version before writing")
+        result["source_plan"] = "skipped-redundant"
+    else:
+        selfwrite_hide_settle(args, settle_sec=args.menu_settle_sec)
+        emit("source_plan_start")
+        source = selfwrite_cmdv1(
+            args,
+            [str(part) for part in plan["source_plan_command"]],
+            timeout_sec=max(args.bridge_timeout, 300.0),
+        )
+        verify_cmdv1_result(source, "boot-flash-plan")
+        for needle in ("result=ok source-plan-only", "expected_sha_match=1", "version_marker_found=1"):
+            if needle not in source.text:
+                raise RuntimeError(f"source-plan did not report {needle!r}")
+        emit("source_plan_done")
 
     # boot-flash-f3 is CMD_DANGEROUS; hide/settle any active menu before dispatch.
     selfwrite_hide_settle(args, settle_sec=args.menu_settle_sec)
@@ -533,7 +540,8 @@ def run_self_write_live(args: argparse.Namespace,
 
     emit("rollback_boot_wait")
     verify_start = time.monotonic()
-    wait_for_native_version(args, SELF_WRITE_F4_LIVE_VERSION, overall_timeout=args.reboot_timeout)
+    wait_for_native_version(args, SELF_WRITE_F4_LIVE_VERSION, overall_timeout=args.reboot_timeout,
+                            poll_interval=args.reboot_poll_interval_sec)
     final_selftest = run_cmdv1_command(
         args.bridge_host, args.bridge_port, args.bridge_timeout, ["selftest"]
     )
@@ -1033,10 +1041,24 @@ def parse_args() -> argparse.Namespace:
         help="timeout to wait for native init to re-enumerate and report the expected version",
     )
     parser.add_argument(
+        "--reboot-poll-interval-sec",
+        type=float,
+        default=0.5,
+        help="poll granularity while waiting for native init to re-enumerate after reboot",
+    )
+    parser.add_argument(
         "--menu-settle-sec",
         type=float,
         default=3.0,
-        help="settle delay after hide before dispatching a DANGEROUS self-write/reboot command",
+        help="settle delay after hide before dispatching a DANGEROUS self-write/reboot command; "
+             "the auto-menu hide is async (returns 'hide requested') so <3s risks a redraw race "
+             "that corrupts the next cmdv1 frame",
+    )
+    parser.add_argument(
+        "--self-write-skip-source-plan",
+        action="store_true",
+        help="skip the redundant read-only boot-flash-plan pre-check; boot-flash-f3 re-verifies "
+             "the candidate SHA/version/header itself before any write",
     )
     return parser.parse_args()
 

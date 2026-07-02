@@ -500,6 +500,10 @@ recovery-serial recovery
             defaults = flash.parse_args()
         self.assertEqual(defaults.self_write_mode, "f2")
         self.assertFalse(defaults.self_write_live_authorized)
+        # flash-cycle tuning knobs: skip-source-plan opt-in, tight reboot poll, safe menu settle
+        self.assertFalse(defaults.self_write_skip_source_plan)
+        self.assertEqual(defaults.reboot_poll_interval_sec, 0.5)
+        self.assertEqual(defaults.menu_settle_sec, 3.0)
 
 
 if __name__ == "__main__":
