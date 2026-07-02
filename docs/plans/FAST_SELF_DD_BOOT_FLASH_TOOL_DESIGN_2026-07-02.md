@@ -527,3 +527,27 @@ pstore both passed. Public live report:
 confirmed-zero expansion rung. The original contiguous 1MiB E3 remains separate because the observed
 zero population is only 26 sectors; next design should choose between another sparse ramp using the
 remaining all-zero population or a higher-risk non-zero/contiguous identity rung with a stricter gate.
+
+### 11.11 E3b contiguous 1MiB non-zero identity implementation (source-built 2026-07-02 — pre-live)
+
+V3353 (`0.11.117`, `v3353-boot-write-e3b-1mib`) prepares the higher-risk contiguous-size proof after
+V3352's sparse confirmed-zero pass. `boot-write-e3b BOOT-WRITE-PROBE-E3B-1MIB-SLACK` targets one
+contiguous 1MiB block starting at parsed tail slack (`roundup(used_len)`), requires the entire range
+to remain within `[roundup(used_len), partition_size - 1MiB)`, reads the existing device bytes, and
+requires the 1MiB source block to contain non-zero bytes. The command then performs one identity
+`pwrite` of exactly those bytes, fsyncs once, verifies the full 1MiB region with O_DIRECT readback,
+and compares O_DIRECT full-partition SHA before/after.
+
+This rung deliberately differs from E1/E2/E3a: it no longer proves only zero-buffer writes. It proves
+that normal-boot PID1 can issue a TWRP-sized 1MiB boot-partition write with a non-zero buffer while
+still preserving identity (`full_match=1`) and staying outside the parsed boot image body. The safety
+envelope remains unchanged: `CMD_DANGEROUS`, no auto-menu execution, O_NOFOLLOW + boot identity on
+every fd, parsed-header tail-slack bounds, one `pwrite` call site in `a90_boot_write_e1.c`, O_DIRECT
+readback, O_DIRECT full-SHA, pstore check, and rollback to v2321.
+
+Source build PASS report:
+`docs/reports/NATIVE_INIT_V3353_BOOT_WRITE_E3B_1MIB_SOURCE_BUILD_2026-07-02.md`. No live E3b write
+is claimed here; live validation still requires checked-helper flash, post-flash `selftest fail=0`,
+explicit `hide`/menu-settle, E3b token run with positive `nonzero_bytes`, `pwrite_count=1`,
+`region_match_all=1`, `full_match=1`, pstore check, and rollback to v2321 with final
+`selftest fail=0`.

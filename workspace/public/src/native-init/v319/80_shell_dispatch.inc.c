@@ -908,6 +908,10 @@ static int handle_boot_write_e3a(char **argv, int argc) {
     return a90_boot_write_e3a_cmd(argv, argc);
 }
 
+static int handle_boot_write_e3b(char **argv, int argc) {
+    return a90_boot_write_e3b_cmd(argv, argc);
+}
+
 static int handle_sensormap(char **argv, int argc) {
     return a90_sensormap_cmd(argv, argc);
 }
@@ -19580,6 +19584,7 @@ static const struct shell_command command_table[] = {
     { "boot-write-e1", handle_boot_write_e1, "boot-write-e1 <token>", CMD_DANGEROUS, A90_CMD_GROUP_CORE },
     { "boot-write-e2", handle_boot_write_e2, "boot-write-e2 <token>", CMD_DANGEROUS, A90_CMD_GROUP_CORE },
     { "boot-write-e3a", handle_boot_write_e3a, "boot-write-e3a <token>", CMD_DANGEROUS, A90_CMD_GROUP_CORE },
+    { "boot-write-e3b", handle_boot_write_e3b, "boot-write-e3b <token>", CMD_DANGEROUS, A90_CMD_GROUP_CORE },
     { "sensormap", handle_sensormap, "sensormap [summary|thermal|power|full|paths]", CMD_NONE, A90_CMD_GROUP_CORE },
     { "pstore", handle_pstore, "pstore [summary|full|paths]", CMD_NONE, A90_CMD_GROUP_CORE },
     { "watchdoginv", handle_watchdoginv, "watchdoginv [summary|full|paths]", CMD_NONE, A90_CMD_GROUP_CORE },
