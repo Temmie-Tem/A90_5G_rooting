@@ -144,6 +144,22 @@ safety invariants and flash gates are binding and override any sub-goal.**
 > separation (V2631):** the autonomous loop owns D0+ device-live work and commits; the operator (Claude)
 > does Gate-2 verification + host RE + GOAL.md steering — no parallel device/coding work.
 
+> **✅ STATUS (2026-07-03) — D0 device-live read-only inventory DONE.**
+> Codex ran the D0 device-live half on resident v2321 with read-only serial observations only:
+> no flash, no mount change, no format, no `/data` mount, and final standalone
+> `selftest pass=11 warn=1 fail=0`. Private run:
+> `workspace/private/runs/server-distro/d0-device-live-20260702T200338Z/`.
+> Report:
+> `docs/reports/SERVER_DISTRO_D0_DEVICE_LIVE_READONLY_INVENTORY_2026-07-03.md`.
+> D0 facts now pinned: SD `/mnt/sdext` ext4 has ~50.4 GiB free; `userdata` is
+> `/dev/block/sda33` (`PARTNAME=userdata`, ~110.42 GiB) and was identified only;
+> D1 tooling has `losetup`/`mount`/`chroot`/`switch_root`/`tar`/`unshare`, ext4 and loop kernel
+> support are present, but `/dev/loop*` nodes are absent and must be materialized/proven in D1;
+> `CONFIG_TUN=y` but `/dev/net/tun` is absent for later D-public. Host D0 staging was already done
+> (`SERVER_DISTRO_D0_HOST_STAGING_2026-07-01.md`), so **D0 is complete**.
+> **NEXT bounded unit = D1 chroot MVP**: use the staged Debian ext4 image on SD, do the first
+> non-destructive loop/mount/chroot/static-binary proof, and keep `userdata` untouched.
+
 ## North star — priority-ordered tracks (T1 → T2 → T3)
 
 Pursue the **highest tier that still has a meaningful, safely-actionable next step**.
