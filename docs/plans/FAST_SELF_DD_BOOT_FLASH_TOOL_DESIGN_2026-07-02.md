@@ -646,8 +646,8 @@ fast path. Prove the new risk class in rungs that separate four properties:
 explicitly framed as gated write probes in this design, not a general replacement for the checked
 helper.
 
-Operator policy amendment (2026-07-02): V3358 F1 and V3359 F2 only are authorized as narrow
-boot-partition-only experiments:
+Operator policy amendment (2026-07-02): V3358 F1, V3359 F2, and V3360 F3 only are authorized as
+narrow boot-partition-only experiments:
 `boot-flash-f1 BOOT-FLASH-F1-PAIRED-ROUNDTRIP <candidate-path> <expected-sha256> <expected-version>`.
 The command may run only after V3358 was flashed through `native_init_flash.py`, rollback images and
 recovery/TWRP are confirmed, the approved staged candidate passes SHA/version/header checks, and the
@@ -662,9 +662,19 @@ F2 command remains token-gated, boot-identity-guarded, full-SHA verified, and re
 `reboot_required=1` transcript for a host-controlled immediate reboot into the self-written
 candidate. On any target-write/readback failure, F2 must not reboot and must attempt the designed
 `before.full` failure restore if any target pwrite started. `native_init_flash.py` remains the
-recovery-grade fallback. This amendment does not authorize F3/F4, production fast-flash integration,
-raw host `dd`, fastboot, or any non-boot partition write; those remain gated by a future explicit
-amendment.
+recovery-grade fallback.
+
+The same amendment now authorizes exactly one F3-class live validation through V3360:
+`boot-flash-f3 BOOT-FLASH-F3-SELF-ROLLBACK <candidate-path> <expected-sha256> <expected-version>`.
+The command may run only after a checked-helper-flashed V3359 or later F2-capable resident writes
+V3360 through F2, V3360 boots as the self-written candidate, rollback images and recovery/TWRP are
+confirmed, the approved staged v2321 rollback image passes SHA/version/header checks, and the F3
+command remains token-gated, boot-identity-guarded, full-SHA verified, and returns a clean
+`reboot_required=1` transcript for a host-controlled immediate reboot into v2321. On any F3
+target-write/readback failure, F3 must not reboot and must attempt the designed `before.full` failure
+restore if any target pwrite started. `native_init_flash.py` remains the recovery-grade fallback.
+This amendment does not authorize F4, production fast-flash integration, raw host `dd`, fastboot, or
+any non-boot partition write; those remain gated by a future explicit amendment.
 
 ### 12.2 Staging model: partition image, not naked dd
 
@@ -996,5 +1006,5 @@ after any target pwrite starts, F3 attempts the same failure-path `before.full` 
 The source-build report is
 `docs/reports/NATIVE_INIT_V3360_SELF_DD_F3_SELF_ROLLBACK_SOURCE_BUILD_2026-07-02.md`. No live F3
 self-rollback write or reboot into v2321 is claimed by this source-build report. Section 12.1 and
-`AGENTS.md` still authorize only the completed V3359 F2 live validation; F3 remains blocked until a
+`AGENTS.md` now authorize only the next bounded V3360 F3 live validation; F4 remains blocked until a
 future explicit policy amendment.
