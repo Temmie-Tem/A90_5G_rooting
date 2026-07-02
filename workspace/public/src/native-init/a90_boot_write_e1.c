@@ -1,5 +1,6 @@
 /*
- * a90_boot_write_e1.c — §0.2 write-probe rungs E1..E5 (design §11.2): boot-block identity pwrite.
+ * a90_boot_write_e1.c — §0.2 write-probe rungs E1..E5 (design §11.2): boot-block identity pwrite,
+ * plus F0 (design §12.3): read-only content-changing source-plan.
  *
  * SAFETY MODEL (design §11, Codex-reviewed, UFS). Storage is UFS: an INTERRUPTED write is NOT
  * guaranteed safe even for identical bytes — the FTL erases/programs at a large internal granularity
@@ -17,11 +18,13 @@
  * identity-guarded (block + rdev==sysfs + PARTNAME=boot + size==64MiB) and opened O_NOFOLLOW; the
  * write is verified by an O_DIRECT cache-bypassed region readback and an O_DIRECT full-partition SHA
  * before/after (to catch any cross-LBA change). Any anomaly is reported as A90BWE* stop=... .
- * Token-gated. This is the only self-dd source file with a pwrite call site.
+ * Token-gated for write rungs. F0 performs no write and reports A90BWF0 would_write=0.
+ * This is the only self-dd source file with a pwrite call site.
  */
 #ifndef _GNU_SOURCE
 #define _GNU_SOURCE /* O_DIRECT, posix_memalign */
 #endif
+#include <ctype.h>
 #include <dirent.h>
 #include <errno.h>
 #include <fcntl.h>
@@ -36,6 +39,7 @@
 #include <unistd.h>
 #include <linux/fs.h>
 
+#include "a90_config.h"
 #include "a90_boot_write_e1.h"
 #include "a90_console.h"
 #include "a90_helper.h"
@@ -58,6 +62,11 @@
 #define E_MAX_TARGETS E3A_TARGET_COUNT
 #define E_MAX_ZERO_CANDIDATES 1024u
 #define E3B_BYTES (1024u * 1024u)
+#define F0_TAG "A90BWF0"
+#define F0_COMMAND "boot-flash-plan"
+#define F0_STAGE_SD_ROOT SD_WORKSPACE_DIR "/flash-staging/"
+#define F0_STAGE_CACHE_ROOT A90_RUNTIME_CACHE_ROOT "/flash-staging/"
+#define F0_MAX_MARKER 128u
 
 struct e1_probe_spec {
     const char *tag;
@@ -414,6 +423,219 @@ static int e1_is_zero_sector(const unsigned char *buf, size_t len) {
         }
     }
     return 1;
+}
+
+static int f0_hex64_is_valid(const char *s) {
+    if (s == NULL || strlen(s) != 64) {
+        return 0;
+    }
+    for (size_t i = 0; i < 64; ++i) {
+        if (!isxdigit((unsigned char)s[i])) {
+            return 0;
+        }
+    }
+    return 1;
+}
+
+static int f0_sha_equal(const char *a, const char *b) {
+    if (a == NULL || b == NULL) {
+        return 0;
+    }
+    for (size_t i = 0; i < 64; ++i) {
+        int ca = tolower((unsigned char)a[i]);
+        int cb = tolower((unsigned char)b[i]);
+        if (ca != cb) {
+            return 0;
+        }
+    }
+    return a[64] == '\0' && b[64] == '\0';
+}
+
+static int f0_path_has_prefix(const char *path, const char *prefix) {
+    size_t n = strlen(prefix);
+    return strncmp(path, prefix, n) == 0;
+}
+
+static int f0_path_has_dotdot(const char *path) {
+    const char *p = path;
+    while (p != NULL && *p != '\0') {
+        if (p[0] == '/' && p[1] == '.' && p[2] == '.' &&
+            (p[3] == '/' || p[3] == '\0')) {
+            return 1;
+        }
+        ++p;
+    }
+    return 0;
+}
+
+static int f0_stage_path_allowed(const char *path) {
+    if (path == NULL || path[0] != '/' || f0_path_has_dotdot(path)) {
+        return 0;
+    }
+    return f0_path_has_prefix(path, F0_STAGE_SD_ROOT) ||
+           f0_path_has_prefix(path, F0_STAGE_CACHE_ROOT);
+}
+
+static int f0_mem_contains(const unsigned char *hay, size_t hay_len,
+                           const char *needle, size_t needle_len) {
+    if (needle_len == 0) {
+        return 1;
+    }
+    if (hay_len < needle_len) {
+        return 0;
+    }
+    for (size_t i = 0; i + needle_len <= hay_len; ++i) {
+        if (memcmp(hay + i, needle, needle_len) == 0) {
+            return 1;
+        }
+    }
+    return 0;
+}
+
+static int f0_scan_candidate(int fd, uint64_t size, const char *expected_marker,
+                             char *sha_out, int *marker_found) {
+    size_t marker_len = strlen(expected_marker);
+    if (marker_len == 0 || marker_len > F0_MAX_MARKER) {
+        return -EINVAL;
+    }
+    unsigned char *buf = malloc(E1_STREAM_CHUNK);
+    if (buf == NULL) {
+        return -ENOMEM;
+    }
+    unsigned char overlap[F0_MAX_MARKER * 2u];
+    unsigned char tail[F0_MAX_MARKER];
+    size_t tail_len = 0;
+    *marker_found = 0;
+
+    struct a90_sha256_ctx ctx;
+    a90_helper_sha256_init(&ctx);
+    uint64_t off = 0;
+    int rc = 0;
+    while (off < size) {
+        size_t want = E1_STREAM_CHUNK;
+        if (size - off < (uint64_t)want) {
+            want = (size_t)(size - off);
+        }
+        ssize_t rd = pread(fd, buf, want, (off_t)off);
+        if (rd != (ssize_t)want) {
+            rc = (rd < 0) ? -errno : -EIO;
+            break;
+        }
+        a90_helper_sha256_update(&ctx, buf, want);
+        if (!*marker_found) {
+            if (f0_mem_contains(buf, want, expected_marker, marker_len)) {
+                *marker_found = 1;
+            } else if (tail_len > 0) {
+                size_t head_len = marker_len - 1u;
+                if (head_len > want) {
+                    head_len = want;
+                }
+                memcpy(overlap, tail, tail_len);
+                memcpy(overlap + tail_len, buf, head_len);
+                if (f0_mem_contains(overlap, tail_len + head_len,
+                                    expected_marker, marker_len)) {
+                    *marker_found = 1;
+                }
+            }
+        }
+        if (marker_len > 1u) {
+            size_t keep = marker_len - 1u;
+            if (keep > F0_MAX_MARKER) {
+                keep = F0_MAX_MARKER;
+            }
+            if (want >= keep) {
+                memcpy(tail, buf + want - keep, keep);
+                tail_len = keep;
+            } else {
+                unsigned char merged[F0_MAX_MARKER * 2u];
+                size_t merged_len = tail_len + want;
+                memcpy(merged, tail, tail_len);
+                memcpy(merged + tail_len, buf, want);
+                if (merged_len > keep) {
+                    memcpy(tail, merged + merged_len - keep, keep);
+                    tail_len = keep;
+                } else {
+                    memcpy(tail, merged, merged_len);
+                    tail_len = merged_len;
+                }
+            }
+        }
+        off += (uint64_t)want;
+    }
+    free(buf);
+    if (rc != 0) {
+        return rc;
+    }
+    unsigned char digest[32];
+    a90_helper_sha256_final(&ctx, digest);
+    e1_hex(digest, sha_out);
+    return 0;
+}
+
+static int f0_compute_target_plan(int boot_fd, int cand_fd, uint64_t candidate_size,
+                                  char *target_sha, char *current_sha,
+                                  uint64_t *changed_bytes, unsigned *changed_chunks) {
+    unsigned char *boot_buf = malloc(E1_STREAM_CHUNK);
+    unsigned char *target_buf = malloc(E1_STREAM_CHUNK);
+    if (boot_buf == NULL || target_buf == NULL) {
+        free(boot_buf);
+        free(target_buf);
+        return -ENOMEM;
+    }
+    struct a90_sha256_ctx target_ctx;
+    struct a90_sha256_ctx current_ctx;
+    a90_helper_sha256_init(&target_ctx);
+    a90_helper_sha256_init(&current_ctx);
+    *changed_bytes = 0;
+    *changed_chunks = 0;
+
+    int rc = 0;
+    for (uint64_t off = 0; off < E1_BOOT_SIZE_BYTES; off += E1_STREAM_CHUNK) {
+        size_t want = E1_STREAM_CHUNK;
+        if (E1_BOOT_SIZE_BYTES - off < (uint64_t)want) {
+            want = (size_t)(E1_BOOT_SIZE_BYTES - off);
+        }
+        ssize_t br = pread(boot_fd, boot_buf, want, (off_t)off);
+        if (br != (ssize_t)want) {
+            rc = (br < 0) ? -errno : -EIO;
+            break;
+        }
+        memcpy(target_buf, boot_buf, want);
+        if (off < candidate_size) {
+            size_t cand_want = want;
+            if (candidate_size - off < (uint64_t)cand_want) {
+                cand_want = (size_t)(candidate_size - off);
+            }
+            ssize_t cr = pread(cand_fd, target_buf, cand_want, (off_t)off);
+            if (cr != (ssize_t)cand_want) {
+                rc = (cr < 0) ? -errno : -EIO;
+                break;
+            }
+        }
+        int chunk_changed = 0;
+        for (size_t i = 0; i < want; ++i) {
+            if (target_buf[i] != boot_buf[i]) {
+                (*changed_bytes)++;
+                chunk_changed = 1;
+            }
+        }
+        if (chunk_changed) {
+            (*changed_chunks)++;
+        }
+        a90_helper_sha256_update(&current_ctx, boot_buf, want);
+        a90_helper_sha256_update(&target_ctx, target_buf, want);
+    }
+    free(boot_buf);
+    free(target_buf);
+    if (rc != 0) {
+        return rc;
+    }
+    unsigned char digest[32];
+    a90_helper_sha256_final(&current_ctx, digest);
+    e1_hex(digest, current_sha);
+    a90_helper_sha256_final(&target_ctx, digest);
+    e1_hex(digest, target_sha);
+    return 0;
 }
 
 static int e1_find_zero_sector(const char *tag, int rfd, uint64_t start, uint64_t end,
@@ -1551,6 +1773,299 @@ cleanup:
         a90_console_printf("%s stop=%s\r\n", tag, stop);
     } else {
         a90_console_printf("%s result=ok pwrite-permitted-identity-verified\r\n", tag);
+    }
+    a90_console_printf("%s end rc=%d\r\n", tag, rc);
+    return rc;
+}
+
+int a90_boot_flash_plan_cmd(char **argv, int argc) {
+    const char *tag = F0_TAG;
+    if (argc != 4) {
+        a90_console_printf("usage: %s <candidate-path> <expected-sha256> <expected-version>\r\n",
+                           F0_COMMAND);
+        a90_console_printf("%s refused=bad-argc argc=%d\r\n", tag, argc);
+        return -EINVAL;
+    }
+    const char *candidate_path = argv[1];
+    const char *expected_sha = argv[2];
+    const char *expected_version = argv[3];
+    if (!f0_stage_path_allowed(candidate_path)) {
+        a90_console_printf("%s refused=path-outside-approved-staging path=%s\r\n",
+                           tag, candidate_path);
+        return -EPERM;
+    }
+    if (!f0_hex64_is_valid(expected_sha)) {
+        a90_console_printf("%s refused=bad-expected-sha\r\n", tag);
+        return -EINVAL;
+    }
+    size_t marker_len = strlen(expected_version);
+    if (marker_len == 0 || marker_len > F0_MAX_MARKER) {
+        a90_console_printf("%s refused=bad-expected-version-len len=%u\r\n",
+                           tag, (unsigned)marker_len);
+        return -EINVAL;
+    }
+
+    a90_console_printf("%s begin\r\n", tag);
+    a90_console_printf("%s mode=read-only-source-plan would_write=0\r\n", tag);
+
+    char name[256];
+    unsigned maj = 0, min = 0;
+    int n = e1_resolve_boot(name, sizeof(name), &maj, &min);
+    if (n != 1) {
+        a90_console_printf("%s resolve=%s\r\n", tag, (n <= 0) ? "none" : "ambiguous");
+        a90_console_printf("%s stop=resolve\r\n", tag);
+        a90_console_printf("%s end rc=%d\r\n", tag, -ENODEV);
+        return -ENODEV;
+    }
+    char node[PATH_MAX];
+    snprintf(node, sizeof(node), "/dev/block/%s", name);
+    a90_console_printf("%s target_node=%s resolve=sysfs-partname\r\n", tag, node);
+
+    int created = 0;
+    int mrc = mknod(node, S_IFBLK | 0600, makedev(maj, min));
+    if (mrc == 0) {
+        created = 1;
+    } else if (errno != EEXIST) {
+        int e = errno;
+        a90_console_printf("%s mknod=fail errno=%d (%s)\r\n", tag, e, strerror(e));
+        a90_console_printf("%s stop=mknod\r\n", tag);
+        a90_console_printf("%s end rc=%d\r\n", tag, -e);
+        return -e;
+    }
+
+    int rc = 0;
+    const char *stop = NULL;
+    int rfd = -1;
+    int cfd = -1;
+    char before_sha[E1_SHA_HEX];
+    char candidate_sha[E1_SHA_HEX];
+    char target_sha[E1_SHA_HEX];
+    char current_sha[E1_SHA_HEX];
+
+    rfd = open(node, O_RDONLY | O_CLOEXEC | O_NOFOLLOW);
+    if (rfd < 0) {
+        int e = errno;
+        a90_console_printf("%s open_boot_rdonly=fail errno=%d (%s)\r\n", tag, e, strerror(e));
+        stop = "open-boot-rdonly";
+        rc = -e;
+        goto cleanup;
+    }
+    if (!e1_confirm(tag, rfd, maj, min, 1)) {
+        stop = "identity-rfd";
+        rc = -EPERM;
+        goto cleanup;
+    }
+
+    {
+        unsigned char hdr[E1_SECTOR];
+        ssize_t rd = pread(rfd, hdr, sizeof(hdr), 0);
+        if (rd != (ssize_t)sizeof(hdr)) {
+            a90_console_printf("%s current_header_read=fail rc=%ld errno=%d\r\n",
+                               tag, (long)rd, errno);
+            stop = "current-header-read";
+            rc = (rd < 0) ? -errno : -EIO;
+            goto cleanup;
+        }
+        if (memcmp(hdr, "ANDROID!", 8) != 0) {
+            a90_console_printf("%s current_boot_header=absent stop=no-current-boot-magic\r\n", tag);
+            stop = "no-current-boot-magic";
+            rc = -EINVAL;
+            goto cleanup;
+        }
+        uint32_t page_size = e1_rd_u32le(hdr, AH_PAGE_SIZE);
+        if (page_size < 512 || page_size > (1u << 20)) {
+            a90_console_printf("%s current_boot_header=bad-page-size=%u stop=bad-current-page-size\r\n",
+                               tag, page_size);
+            stop = "bad-current-page-size";
+            rc = -EINVAL;
+            goto cleanup;
+        }
+        uint32_t hver = e1_rd_u32le(hdr, AH_HEADER_VERSION);
+        if (hver > 2) {
+            a90_console_printf("%s current_boot_header=unsupported-version=%u stop=bad-current-header\r\n",
+                               tag, hver);
+            stop = "bad-current-header";
+            rc = -EINVAL;
+            goto cleanup;
+        }
+        uint64_t used_len = (uint64_t)page_size
+                          + e1_round_up(e1_rd_u32le(hdr, AH_KERNEL_SIZE), page_size)
+                          + e1_round_up(e1_rd_u32le(hdr, AH_RAMDISK_SIZE), page_size)
+                          + e1_round_up(e1_rd_u32le(hdr, AH_SECOND_SIZE), page_size);
+        if (hver >= 1) {
+            used_len += e1_round_up(e1_rd_u32le(hdr, AH_RECOVERY_DTBO_SIZE), page_size);
+        }
+        if (hver >= 2) {
+            used_len += e1_round_up(e1_rd_u32le(hdr, AH_DTB_SIZE), page_size);
+        }
+        a90_console_printf("%s current_boot_header=ok version=%u page_size=%u used_len=%llu\r\n",
+                           tag, hver, page_size, (unsigned long long)used_len);
+    }
+
+    {
+        int sr = e1_full_sha_odirect(tag, node, maj, min, E1_BOOT_SIZE_BYTES, before_sha);
+        if (sr != 0) {
+            a90_console_printf("%s before_full_sha=fail rc=%d\r\n", tag, sr);
+            stop = "before-sha";
+            rc = sr;
+            goto cleanup;
+        }
+        a90_console_printf("%s before_full_sha=%s\r\n", tag, before_sha);
+    }
+
+    cfd = open(candidate_path, O_RDONLY | O_CLOEXEC | O_NOFOLLOW);
+    if (cfd < 0) {
+        int e = errno;
+        a90_console_printf("%s candidate_open=fail errno=%d (%s)\r\n", tag, e, strerror(e));
+        stop = "candidate-open";
+        rc = -e;
+        goto cleanup;
+    }
+    struct stat cst;
+    if (fstat(cfd, &cst) != 0) {
+        int e = errno;
+        a90_console_printf("%s candidate_fstat=fail errno=%d (%s)\r\n", tag, e, strerror(e));
+        stop = "candidate-fstat";
+        rc = -e;
+        goto cleanup;
+    }
+    if (!S_ISREG(cst.st_mode)) {
+        a90_console_printf("%s candidate_regular=0\r\n", tag);
+        stop = "candidate-not-regular";
+        rc = -EINVAL;
+        goto cleanup;
+    }
+    uint64_t candidate_size = (uint64_t)cst.st_size;
+    if (candidate_size < E1_SECTOR || candidate_size > E1_BOOT_SIZE_BYTES) {
+        a90_console_printf("%s candidate_size=%llu stop=bad-candidate-size\r\n",
+                           tag, (unsigned long long)candidate_size);
+        stop = "bad-candidate-size";
+        rc = -EINVAL;
+        goto cleanup;
+    }
+    a90_console_printf("%s candidate_path=%s\r\n", tag, candidate_path);
+    a90_console_printf("%s candidate_size=%llu\r\n", tag, (unsigned long long)candidate_size);
+
+    {
+        unsigned char hdr[E1_SECTOR];
+        ssize_t rd = pread(cfd, hdr, sizeof(hdr), 0);
+        if (rd != (ssize_t)sizeof(hdr)) {
+            a90_console_printf("%s candidate_header_read=fail rc=%ld errno=%d\r\n",
+                               tag, (long)rd, errno);
+            stop = "candidate-header-read";
+            rc = (rd < 0) ? -errno : -EIO;
+            goto cleanup;
+        }
+        if (memcmp(hdr, "ANDROID!", 8) != 0) {
+            a90_console_printf("%s candidate_header=absent stop=no-candidate-boot-magic\r\n", tag);
+            stop = "no-candidate-boot-magic";
+            rc = -EINVAL;
+            goto cleanup;
+        }
+        uint32_t page_size = e1_rd_u32le(hdr, AH_PAGE_SIZE);
+        if (page_size < 512 || page_size > (1u << 20)) {
+            a90_console_printf("%s candidate_header=bad-page-size=%u stop=bad-candidate-page-size\r\n",
+                               tag, page_size);
+            stop = "bad-candidate-page-size";
+            rc = -EINVAL;
+            goto cleanup;
+        }
+        uint32_t hver = e1_rd_u32le(hdr, AH_HEADER_VERSION);
+        if (hver > 2) {
+            a90_console_printf("%s candidate_header=unsupported-version=%u stop=bad-candidate-header\r\n",
+                               tag, hver);
+            stop = "bad-candidate-header";
+            rc = -EINVAL;
+            goto cleanup;
+        }
+        uint64_t used_len = (uint64_t)page_size
+                          + e1_round_up(e1_rd_u32le(hdr, AH_KERNEL_SIZE), page_size)
+                          + e1_round_up(e1_rd_u32le(hdr, AH_RAMDISK_SIZE), page_size)
+                          + e1_round_up(e1_rd_u32le(hdr, AH_SECOND_SIZE), page_size);
+        if (hver >= 1) {
+            used_len += e1_round_up(e1_rd_u32le(hdr, AH_RECOVERY_DTBO_SIZE), page_size);
+        }
+        if (hver >= 2) {
+            used_len += e1_round_up(e1_rd_u32le(hdr, AH_DTB_SIZE), page_size);
+        }
+        a90_console_printf("%s candidate_header=ok version=%u page_size=%u used_len=%llu\r\n",
+                           tag, hver, page_size, (unsigned long long)used_len);
+        if (used_len > candidate_size) {
+            a90_console_printf("%s candidate_used_within_file=0\r\n", tag);
+            stop = "candidate-used-len";
+            rc = -EINVAL;
+            goto cleanup;
+        }
+        a90_console_printf("%s candidate_used_within_file=1\r\n", tag);
+    }
+
+    {
+        int marker_found = 0;
+        int sr = f0_scan_candidate(cfd, candidate_size, expected_version,
+                                   candidate_sha, &marker_found);
+        if (sr != 0) {
+            a90_console_printf("%s candidate_sha=fail rc=%d\r\n", tag, sr);
+            stop = "candidate-sha";
+            rc = sr;
+            goto cleanup;
+        }
+        int sha_match = f0_sha_equal(candidate_sha, expected_sha);
+        a90_console_printf("%s candidate_sha=%s expected_sha_match=%d\r\n",
+                           tag, candidate_sha, sha_match);
+        a90_console_printf("%s expected_version=%s version_marker_found=%d\r\n",
+                           tag, expected_version, marker_found);
+        if (!sha_match) {
+            stop = "candidate-sha-mismatch";
+            rc = -EIO;
+            goto cleanup;
+        }
+        if (!marker_found) {
+            stop = "version-marker-missing";
+            rc = -ENOENT;
+            goto cleanup;
+        }
+    }
+
+    {
+        uint64_t changed_bytes = 0;
+        unsigned changed_chunks = 0;
+        int pr = f0_compute_target_plan(rfd, cfd, candidate_size, target_sha, current_sha,
+                                        &changed_bytes, &changed_chunks);
+        if (pr != 0) {
+            a90_console_printf("%s target_plan=fail rc=%d\r\n", tag, pr);
+            stop = "target-plan";
+            rc = pr;
+            goto cleanup;
+        }
+        int current_match = strcmp(current_sha, before_sha) == 0;
+        a90_console_printf("%s current_stream_sha=%s current_match_before=%d\r\n",
+                           tag, current_sha, current_match);
+        a90_console_printf("%s target_full_sha=%s\r\n", tag, target_sha);
+        a90_console_printf("%s changed_chunks=%u changed_bytes=%llu chunk_len=%u\r\n",
+                           tag, changed_chunks, (unsigned long long)changed_bytes, E1_STREAM_CHUNK);
+        if (!current_match) {
+            stop = "current-before-mismatch";
+            rc = -EIO;
+            goto cleanup;
+        }
+    }
+
+cleanup:
+    if (cfd >= 0) {
+        close(cfd);
+    }
+    if (rfd >= 0) {
+        close(rfd);
+    }
+    if (created) {
+        unlink(node);
+        a90_console_printf("%s cleaned=1\r\n", tag);
+    }
+    a90_console_printf("%s would_write=0\r\n", tag);
+    if (stop) {
+        a90_console_printf("%s stop=%s\r\n", tag, stop);
+    } else {
+        a90_console_printf("%s result=ok source-plan-only\r\n", tag);
     }
     a90_console_printf("%s end rc=%d\r\n", tag, rc);
     return rc;

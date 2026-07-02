@@ -770,3 +770,23 @@ The content-changing ladder stops on any of these:
 
 Stopping means: recover to v2321 through `native_init_flash.py` if possible, write the report, and
 do not advance to the next rung in the same iteration.
+
+### 12.9 F0 implementation (source-built 2026-07-02 — pre-live)
+
+V3357 (`0.11.120`, `v3357-self-dd-f0-plan`) implements the F0 read-only source-plan command:
+`boot-flash-plan <candidate-path> <expected-sha256> <expected-version>`. It performs no boot-
+partition write and is registered as `CMD_NONE`. The command accepts staged candidate images only
+from approved roots (`/mnt/sdext/a90/flash-staging/` or `/cache/a90-runtime/flash-staging/`), opens
+the candidate with `O_NOFOLLOW`, rejects non-regular files, verifies the caller-supplied SHA256,
+requires Android boot magic/header parse, checks that the expected version/build marker appears in
+the staged image, and computes a target full-partition SHA by overlaying the candidate bytes at
+offset 0 over the guarded current 64MiB boot snapshot.
+
+Expected PASS output includes `candidate_sha=... expected_sha_match=1`, `version_marker_found=1`,
+`candidate_header=ok`, `target_full_sha=...`, `changed_chunks=... changed_bytes=...`,
+`would_write=0`, and `result=ok source-plan-only`. F1 remains blocked: V3357 is a source-plan
+candidate only and does not resolve the content-changing write policy gate.
+
+Source build PASS report:
+`docs/reports/NATIVE_INIT_V3357_SELF_DD_F0_PLAN_SOURCE_BUILD_2026-07-02.md`. No live F0 source-plan
+result is claimed here.
