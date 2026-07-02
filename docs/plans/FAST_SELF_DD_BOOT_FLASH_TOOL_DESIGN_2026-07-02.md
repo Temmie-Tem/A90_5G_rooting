@@ -646,15 +646,25 @@ fast path. Prove the new risk class in rungs that separate four properties:
 explicitly framed as gated write probes in this design, not a general replacement for the checked
 helper.
 
-Operator policy amendment (2026-07-02): V3358 F1 only is authorized as a narrow
-boot-partition-only experiment:
+Operator policy amendment (2026-07-02): V3358 F1 and V3359 F2 only are authorized as narrow
+boot-partition-only experiments:
 `boot-flash-f1 BOOT-FLASH-F1-PAIRED-ROUNDTRIP <candidate-path> <expected-sha256> <expected-version>`.
 The command may run only after V3358 was flashed through `native_init_flash.py`, rollback images and
 recovery/TWRP are confirmed, the approved staged candidate passes SHA/version/header checks, and the
 F1 command remains token-gated, boot-identity-guarded, full-SHA verified, and immediately restored
-before any reboot. `native_init_flash.py` remains the recovery-grade fallback. This amendment does
-not authorize F2/F3/F4, production fast-flash integration, raw host `dd`, fastboot, or any non-boot
-partition write; those remain gated by a future explicit amendment.
+before any reboot.
+
+The same amendment now authorizes exactly one F2-class live validation through V3359:
+`boot-flash-f2 BOOT-FLASH-F2-BOOT-CANDIDATE <candidate-path> <expected-sha256> <expected-version>`.
+The command may run only after V3359 was flashed through `native_init_flash.py`, rollback images and
+recovery/TWRP are confirmed, the approved staged candidate passes SHA/version/header checks, and the
+F2 command remains token-gated, boot-identity-guarded, full-SHA verified, and returns a clean
+`reboot_required=1` transcript for a host-controlled immediate reboot into the self-written
+candidate. On any target-write/readback failure, F2 must not reboot and must attempt the designed
+`before.full` failure restore if any target pwrite started. `native_init_flash.py` remains the
+recovery-grade fallback. This amendment does not authorize F3/F4, production fast-flash integration,
+raw host `dd`, fastboot, or any non-boot partition write; those remain gated by a future explicit
+amendment.
 
 ### 12.2 Staging model: partition image, not naked dd
 
@@ -923,5 +933,5 @@ ladder stops and the host must use the checked helper/TWRP rollback path.
 The source-build report is
 `docs/reports/NATIVE_INIT_V3359_SELF_DD_F2_BOOT_CANDIDATE_SOURCE_BUILD_2026-07-02.md`. No live F2
 content-changing write or reboot into a self-written candidate has been executed at source-build
-time. Section 12.1 and `AGENTS.md` still authorize only the completed V3358 F1 paired roundtrip;
-F2 and later remain blocked until a future explicit policy amendment.
+time. Section 12.1 and `AGENTS.md` now authorize only the next bounded V3359 F2 live validation;
+F3 and later remain blocked until a future explicit policy amendment.
