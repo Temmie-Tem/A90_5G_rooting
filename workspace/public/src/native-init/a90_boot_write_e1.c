@@ -8,9 +8,10 @@
  * harmless. This rung is only LOW-RISK-BY-CONSTRUCTION and its failure class is EXTERNALLY
  * RECOVERABLE (boot-only): it writes to a 4096-byte sector that is (a) past the parsed boot-image
  * content, (b) >= 1 MiB before the partition end, and (c) CONFIRMED all-zero at write time — writing
- * the exact zero bytes it just read. E1 writes one sector; E2 writes four sectors spread across the
- * observed zero-sector population in tail slack. A completed write is a no-op; a torn write is a
- * recover-via-Odin/TWRP event that the operator MUST have drilled before running this. All fds are
+ * the exact zero bytes it just read. E1 writes one sector; E2 writes four sectors and E3a writes
+ * sixteen sectors spread across the observed zero-sector population in tail slack. A completed write
+ * is a no-op; a torn write is a recover-via-Odin/TWRP event that the operator MUST have drilled
+ * before running this. All fds are
  * identity-guarded (block + rdev==sysfs + PARTNAME=boot + size==64MiB) and opened O_NOFOLLOW; the
  * write is verified by an O_DIRECT cache-bypassed region readback and an O_DIRECT full-partition SHA
  * before/after (to catch any cross-LBA change). Any anomaly is reported as A90BWE* stop=... .
@@ -40,6 +41,7 @@
 
 #define E1_TOKEN "BOOT-WRITE-PROBE-E1-TAILSLACK"
 #define E2_TOKEN "BOOT-WRITE-PROBE-E2-MULTI-TAILSLACK"
+#define E3A_TOKEN "BOOT-WRITE-PROBE-E3A-SPARSE-TAILSLACK"
 #define E1_PARTNAME "boot"
 #define E1_BOOT_SIZE_BYTES (64ULL * 1024ULL * 1024ULL)
 #define E1_SECTOR 4096u
@@ -47,8 +49,9 @@
 #define E1_SHA_HEX 65
 #define E1_STREAM_CHUNK (1024u * 1024u)
 #define E2_TARGET_COUNT 4u
-#define E_MAX_TARGETS E2_TARGET_COUNT
-#define E2_MAX_ZERO_CANDIDATES 1024u
+#define E3A_TARGET_COUNT 16u
+#define E_MAX_TARGETS E3A_TARGET_COUNT
+#define E_MAX_ZERO_CANDIDATES 1024u
 
 struct e1_probe_spec {
     const char *tag;
@@ -82,6 +85,16 @@ static const struct e1_probe_spec E2_SPEC = {
     "E2",
     "tail-slack-4x4096-zero-population",
     E2_TARGET_COUNT,
+    1,
+};
+
+static const struct e1_probe_spec E3A_SPEC = {
+    "A90BWE3A",
+    "boot-write-e3a",
+    E3A_TOKEN,
+    "E3A",
+    "tail-slack-16x4096-zero-population-sparse",
+    E3A_TARGET_COUNT,
     1,
 };
 
@@ -310,8 +323,8 @@ static int e1_find_zero_sector(const char *tag, int rfd, uint64_t start, uint64_
     return 0;
 }
 
-static unsigned e2_select_spread_index(unsigned zero_count, unsigned target_count, unsigned target_index,
-                                       unsigned previous_index) {
+static unsigned e_select_spread_index(unsigned zero_count, unsigned target_count, unsigned target_index,
+                                      unsigned previous_index) {
     unsigned remaining = target_count - target_index;
     unsigned min_index = (target_index == 0) ? 0 : previous_index + 1u;
     unsigned max_index = zero_count - remaining;
@@ -453,10 +466,10 @@ static int a90_boot_write_identity_cmd(const struct e1_probe_spec *spec, char **
             goto cleanup;
         }
 
-        /* Scan only tail slack and require every selected sector to be confirmed all-zero. E2 builds
-         * a zero-sector population across the whole slack window, then picks spread indices from that
-         * population. This avoids the V3350 failure mode where a fixed quarter-band had no zeros even
-         * though later slack did. */
+        /* Scan only tail slack and require every selected sector to be confirmed all-zero. Multi-target
+         * rungs build a zero-sector population across the whole slack window, then pick spread indices
+         * from that population. This avoids the V3350 failure mode where a fixed quarter-band had no
+         * zeros even though later slack did. */
         uint64_t scanned = 0;
         unsigned found = 0;
         if (!spec->spread_targets) {
@@ -471,7 +484,7 @@ static int a90_boot_write_identity_cmd(const struct e1_probe_spec *spec, char **
                 found = 1;
             }
         } else {
-            uint64_t zero_offsets[E2_MAX_ZERO_CANDIDATES];
+            uint64_t zero_offsets[E_MAX_ZERO_CANDIDATES];
             unsigned zero_stored = 0;
             uint64_t zero_total = 0;
             unsigned char scan_buf[E1_SECTOR];
@@ -490,9 +503,9 @@ static int a90_boot_write_identity_cmd(const struct e1_probe_spec *spec, char **
                     continue;
                 }
                 zero_total++;
-                if (zero_stored >= E2_MAX_ZERO_CANDIDATES) {
+                if (zero_stored >= E_MAX_ZERO_CANDIDATES) {
                     a90_console_printf("%s zero_candidate_overflow limit=%u\r\n",
-                                       tag, E2_MAX_ZERO_CANDIDATES);
+                                       tag, E_MAX_ZERO_CANDIDATES);
                     stop = "zero-candidate-overflow";
                     rc = -E2BIG;
                     close(rfd);
@@ -507,8 +520,8 @@ static int a90_boot_write_identity_cmd(const struct e1_probe_spec *spec, char **
             } else {
                 unsigned previous_index = 0;
                 for (unsigned i = 0; i < spec->target_count; ++i) {
-                    unsigned idx = e2_select_spread_index(zero_stored, spec->target_count, i,
-                                                          previous_index);
+                    unsigned idx = e_select_spread_index(zero_stored, spec->target_count, i,
+                                                         previous_index);
                     previous_index = idx;
                     targets[i].off = zero_offsets[idx];
                     if (pread(rfd, targets[i].bytes, sizeof(targets[i].bytes),
@@ -693,4 +706,8 @@ int a90_boot_write_e1_cmd(char **argv, int argc) {
 
 int a90_boot_write_e2_cmd(char **argv, int argc) {
     return a90_boot_write_identity_cmd(&E2_SPEC, argv, argc);
+}
+
+int a90_boot_write_e3a_cmd(char **argv, int argc) {
+    return a90_boot_write_identity_cmd(&E3A_SPEC, argv, argc);
 }

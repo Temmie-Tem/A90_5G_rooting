@@ -500,3 +500,19 @@ rollback to v2321 completed with final explicit `selftest fail=0`. Public live r
 `docs/reports/NATIVE_INIT_V3351_BOOT_WRITE_E2_ZERO_POPULATION_LIVE_2026-07-02.md`. This is the E2
 multi-offset identity-write proof; the next rung may be E3 (larger identity write in confirmed-zero
 slack) after retaining the same checked-helper flash, recovery, rollback, full-SHA, and pstore gates.
+
+### 11.10 E3a sparse16 implementation (source-built 2026-07-02 — pre-live)
+
+V3352 (`0.11.116`, `v3352-boot-write-e3a-sparse16`) prepares an intermediate E3a rung before the
+original contiguous 1MiB E3. The reason is the V3351 live population: only 26 all-zero sectors were
+found in the scanned tail-slack window, so a contiguous 1MiB all-zero target is unlikely. E3a adds
+`boot-write-e3a BOOT-WRITE-PROBE-E3A-SPARSE-TAILSLACK`: it scans the same confirmed tail-slack
+window, requires at least 16 all-zero 4096B sectors, selects 16 spread indices from that population,
+rechecks every selected sector as all-zero, writes only the bytes just read, fsyncs once, verifies all
+16 regions with O_DIRECT readback, and compares O_DIRECT full-partition SHA before/after.
+
+Source build PASS report:
+`docs/reports/NATIVE_INIT_V3352_BOOT_WRITE_E3A_SPARSE16_SOURCE_BUILD_2026-07-02.md`. No live E3a
+write is claimed here; live validation still requires checked-helper flash, post-flash
+`selftest fail=0`, explicit `hide`/menu-settle, E3a token run, pstore check, and rollback to v2321
+with `selftest fail=0`.
