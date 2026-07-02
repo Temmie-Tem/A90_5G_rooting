@@ -835,3 +835,26 @@ Source build PASS report:
 No live F1 content-changing boot write has been executed. Section 12.1 and `AGENTS.md` still block
 execution until the repository policy is deliberately amended to allow exactly this self-owned boot
 partition write path.
+
+### 12.11 V3358 live preflight (boot + F0 only, F1 not executed)
+
+V3358 was flashed through `native_init_flash.py`, booted cleanly, and passed `version/status` plus an
+independent `selftest fail=0`. The V3355 candidate image was staged to the approved SD root
+`/mnt/sdext/a90/flash-staging/` using the existing authenticated tcpctl transfer helper after adding
+that design-approved root to the host install allowlist.
+
+V3358 then ran the read-only F0 source-plan command against the staged V3355 candidate and returned:
+
+```text
+A90BWF0 before_full_sha=a549fa7168f81a11d47000b5dcc7962ccd8cc193d01c115b31e59e1da7830c6a
+A90BWF0 candidate_sha=ed7aa46f9abc3d1a34c1d0eede247e58219b77375028b2f8bacd070454b1362c expected_sha_match=1
+A90BWF0 expected_version=0.11.119 version_marker_found=1
+A90BWF0 target_full_sha=fa1deeae1ff724c44d6102c5685764e01863ec5a163ca97b4aba6e397f4d4eea
+A90BWF0 changed_chunks=5 changed_bytes=1431428 chunk_len=1048576
+A90BWF0 result=ok source-plan-only
+```
+
+Post-probe health stayed clean (`selftest fail=0`, pstore entries `0`), and rollback to v2321 through
+`native_init_flash.py` passed with final `selftest fail=0`. No `boot-flash-f1` command was run, and
+no content-changing self-write was executed. Report:
+`docs/reports/NATIVE_INIT_V3358_SELF_DD_F1_PREFLIGHT_LIVE_2026-07-02.md`.

@@ -51,13 +51,14 @@ class FileAndSafetyHelpers(unittest.TestCase):
 
             self.assertEqual(tcpctl.sha256_file(path), hashlib.sha256(data).hexdigest())
 
-    def test_validate_install_target_accepts_only_runtime_helper_roots(self) -> None:
+    def test_validate_install_target_accepts_only_runtime_helper_and_flash_staging_roots(self) -> None:
         for path in [
             "/cache/bin/a90_tcpctl",
             "/cache/a90-acdb-setcal-replay-v2636/a90_acdb_setcal_replay_execute_v2635",
             "/cache/a90-runtime/bin/a90_tcpctl",
             "/cache/a90-runtime/pkg/audio/setcal/internal-speaker-safe/00-set-arg.bin",
             "/mnt/sdext/a90/bin/a90_tcpctl",
+            "/mnt/sdext/a90/flash-staging/boot_linux_v3355_boot_write_e5_full.img",
         ]:
             tcpctl.validate_install_target(path)
 
