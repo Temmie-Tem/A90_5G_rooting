@@ -228,6 +228,28 @@ safety invariants and flash gates are binding and override any sub-goal.**
 > `selftest fail=0`, and keep `userdata` untouched. **DoD:** a host SSH command authenticates with
 > the temporary key to the chrooted dropbear and returns a bounded marker command from Debian.
 
+> **✅ STATUS (2026-07-03) — D2 SSH-in-chroot DONE.**
+> Codex reused the SD-backed Debian image from D1, mounted/chrooted it, generated per-run temporary
+> SSH material under `workspace/private/runs/server-distro/`, temporarily configured key-only root
+> auth inside the chroot, started chrooted `dropbear` with password auth and forwarding disabled,
+> and proved host SSH login over the native-init USB/NCM path with `A90D2_SSH_MARKER`,
+> Debian `12.14`, and `stage_marker=present`. Cleanup restored `etc/shadow`, removed temporary SSH
+> files, stopped dropbear, unmounted/detached the loop device, and a separate postcheck proved no
+> mount, loop node, dropbear process, or D2 SSH listener remained. Final v2321 selftest stayed
+> `fail=0`. Report: `docs/reports/SERVER_DISTRO_D2_SSH_IN_CHROOT_2026-07-03.md`. No flash, no
+> format, no forbidden partition write, no public tunnel exposure, and `userdata=/dev/block/sda33`
+> stayed untouched.
+>
+> **▶ NEXT BOUNDED UNIT = D3 switch_root PID1 handoff (non-destructive, SD-only):** prove the
+> distro-root handoff path using the same SD image, with native-init/vendor-glue control preserved
+> enough to observe success and recover to v2321. D3 may require a checked boot artifact or
+> hot-reloadable native-init glue because `switch_root` is PID1-sensitive; do the static design gate
+> first and keep the unit bounded. **DoD:** the device enters the SD-backed distro root through the
+> `switch_root` path, emits an unambiguous Debian-side marker, preserves the required native-init
+> control/recovery path, then returns/reboots/rolls back to v2321 with `selftest fail=0`. If the
+> exact PID1/control-preservation design is ambiguous, STOP and write the design note instead of
+> improvising.
+
 ## North star — priority-ordered tracks (T1 → T2 → T3)
 
 Pursue the **highest tier that still has a meaningful, safely-actionable next step**.
