@@ -53,6 +53,34 @@ safety invariants and flash gates are binding and override any sub-goal.**
 > REPL v2c active epic below (or operator re-charter). Two complementary tools stand: hot-reload
 > (init-code, ~2–5 s, ephemeral) + self-dd/TWRP (persistent/kernel, ~50–65 s, reboot-bound).
 
+> **🟣 OPERATOR STEER (2026-07-03) — REPL SHARPENED: drive to a FINISH LINE, not open-ended breadth.**
+> REPL v2c productization is DONE + Gate-2 signed off (C2E; 3-oracle byte-identical ground-truth map, C1
+> fail-closed strengthened). The post-epic call-proof campaign has reached **SHAPE-SATURATION** — the
+> loop's own 2026-07-01 steer already flagged it, and the Nth same-shape proof adds ~0 capability.
+> **STOP open-ended same-shape call-proofs (low-information plumbing).** REPL stays the active epic, but
+> it is now driven to a DEFINITE close, not perpetual breadth. **DoD to CLOSE the REPL epic:**
+> 1. **Complete the ABI-shape matrix — the ONE uncovered shape = struct-pointer-arg / struct-return
+>    marshalling.** Prove ONE representative under the packed resident-session harness (a function that
+>    takes a `struct *` it fills, or returns a struct by value/pointer; pick a read-only,
+>    classifier-SAFE target). After that the ABI matrix is CLOSED — **no more same-shape breadth for ANY
+>    shape**, scalar/borrowed/owned-buffer/string/time all included.
+> 2. **A FINITE observation-bundle set (assemble these, then STOP):** (a) kernel-vitals, (b) procfs/sysfs
+>    live reader via the VFS-read keystone, (c) SoC-fingerprint [done], (d) **hardening-posture** = the
+>    server-distro **D-harden** surface — read-only enumeration of which built-in kernel attack-surface
+>    paths exist, for later hard-disable (see
+>    `docs/plans/NATIVE_INIT_SERVER_DISTRO_ENDGAME_DESIGN_2026-06-30.md` §6 E.3). Once these exist as
+>    first-class REPL surfaces the instrument is COMPLETE — do not keep inventing new bundles.
+> 3. **RETIRE-SUBSUMED stays in force:** never prove a getter whose value is readable via a `/proc`/`/sys`
+>    node; reserve individual call-proofs for no-file-node targets or a genuinely-new ABI shape only.
+> 4. Optional remainder only = U2 ergonomics + a one-page tool runbook, and ONLY if it improves real
+>    usability — not a reason to keep the epic open.
+> **When 1 + 2 are met the REPL epic CLOSES** (loop HALTS at the boundary; operator re-charters — the
+> server-distro endgame is the standing next epic). **HARD (unchanged, do NOT loosen):** C1 fail-closed
+> resolution, the call-safety classifier (DENY / behavior-changing tiers stay DENY — **never relax a
+> tier to reach a struct/state target**), the rollback-to-v2321 gate, the recoverable envelope,
+> fails-twice→STOP, **PACKED resident sessions only (reject <2-target sessions)**, and raw
+> pointers/slide out of commits.
+
 ## North star — priority-ordered tracks (T1 → T2 → T3)
 
 Pursue the **highest tier that still has a meaningful, safely-actionable next step**.
