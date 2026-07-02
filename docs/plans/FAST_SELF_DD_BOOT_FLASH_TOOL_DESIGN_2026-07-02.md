@@ -596,9 +596,9 @@ pstore both passed. Public live report:
 header-sector identity rung. Remaining fast-flash rungs are full-partition identity (E5), then a
 separate real new-image self-write with content change.
 
-### 11.13 E5 full-partition identity implementation (source-built 2026-07-02 — pre-live)
+### 11.13 E5 full-partition identity implementation (live PASS 2026-07-02)
 
-V3355 (`0.11.119`, `v3355-boot-write-e5-full`) prepares the last identity rung before any real
+V3355 (`0.11.119`, `v3355-boot-write-e5-full`) completed the last identity rung before any real
 content-changing self-write. `boot-write-e5 BOOT-WRITE-PROBE-E5-FULL-IDENTITY` targets the entire
 64MiB boot partition. To avoid a 64MiB resident buffer, it streams 1MiB chunks: before any write it
 requires Android boot magic/header parse, takes an O_DIRECT full-partition SHA, computes a normal-read
@@ -613,5 +613,17 @@ identity proof only, not a fast-flash tool. PASS requires `target_off=0`, `len=6
 `pwrite()` syscall site, reused by E1..E5.
 
 Source build PASS report:
-`docs/reports/NATIVE_INIT_V3355_BOOT_WRITE_E5_FULL_SOURCE_BUILD_2026-07-02.md`. No live E5 write is
-claimed here.
+`docs/reports/NATIVE_INIT_V3355_BOOT_WRITE_E5_FULL_SOURCE_BUILD_2026-07-02.md`.
+
+Live PASS report:
+`docs/reports/NATIVE_INIT_V3355_BOOT_WRITE_E5_FULL_LIVE_2026-07-02.md`. The live run wrote all 64
+chunks (`pwrite0_rc`..`pwrite63_rc` all `1048576`), reported `pwrite_count=64`, preserved
+`full_sha_before == full_sha_after` with SHA256
+`fa1deeae1ff724c44d6102c5685764e01863ec5a163ca97b4aba6e397f4d4eea`, and rolled back to v2321
+with final `selftest fail=0` and pstore entries `0`.
+
+Interpretation: E-open through E5 now proves that normal-boot PID1 is permitted to write the boot
+partition, including the entire 64MiB region, when every byte is written back identically. The next
+rung is no longer "can PID1 pwrite boot?" but a separate content-changing fast-flash proof: source
+selection, image staging, interrupted-write recovery semantics, and rollback/fallback policy for an
+actual new boot image.
