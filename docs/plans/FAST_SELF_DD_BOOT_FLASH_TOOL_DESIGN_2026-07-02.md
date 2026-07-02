@@ -595,3 +595,23 @@ pstore both passed. Public live report:
 `docs/reports/NATIVE_INIT_V3354_BOOT_WRITE_E4_HEADER_LIVE_2026-07-02.md`. This proves the late
 header-sector identity rung. Remaining fast-flash rungs are full-partition identity (E5), then a
 separate real new-image self-write with content change.
+
+### 11.13 E5 full-partition identity implementation (source-built 2026-07-02 — pre-live)
+
+V3355 (`0.11.119`, `v3355-boot-write-e5-full`) prepares the last identity rung before any real
+content-changing self-write. `boot-write-e5 BOOT-WRITE-PROBE-E5-FULL-IDENTITY` targets the entire
+64MiB boot partition. To avoid a 64MiB resident buffer, it streams 1MiB chunks: before any write it
+requires Android boot magic/header parse, takes an O_DIRECT full-partition SHA, computes a normal-read
+source SHA over the same 64MiB, and refuses unless those SHAs match. It then reads each 1MiB chunk
+from the device and immediately writes the identical bytes back to the same offset, for 64 total
+`pwrite` calls, followed by one fsync and an O_DIRECT full-partition SHA after the write.
+
+This is the highest-consequence identity rung: a torn write can corrupt any boot LBA. It remains an
+identity proof only, not a fast-flash tool. PASS requires `target_off=0`, `len=67108864`,
+`expected_chunks=64`, `source_match_before=1`, `pwrite_count=64`, `region_match_all=1`,
+`full_match=1`, pstore entries=0, and clean v2321 rollback. The self-dd source still has exactly one
+`pwrite()` syscall site, reused by E1..E5.
+
+Source build PASS report:
+`docs/reports/NATIVE_INIT_V3355_BOOT_WRITE_E5_FULL_SOURCE_BUILD_2026-07-02.md`. No live E5 write is
+claimed here.
