@@ -116,6 +116,34 @@ safety invariants and flash gates are binding and override any sub-goal.**
 > **Standing next epic = the server-distro endgame** (`docs/plans/NATIVE_INIT_SERVER_DISTRO_ENDGAME_DESIGN_2026-06-30.md`;
 > design A–E locked, D0 host-staging done, device-live inventory pending). Loop halts pending operator re-charter.
 
+> **🟣 ACTIVE NEXT EPIC (operator-chartered 2026-07-03) = SERVER-DISTRO ENDGAME.**
+> The Tier-2 REPL epic is CLOSED (above). The single active epic is now the server-distro endgame:
+> A90 native-init → Debian userspace → SSH → a public web service via an **outbound** Cloudflare tunnel.
+> **Full spec (decisions A–E, roadmap D0→D-harden, safety §8) is LOCKED in
+> `docs/plans/NATIVE_INIT_SERVER_DISTRO_ENDGAME_DESIGN_2026-06-30.md` — read that doc; it is the spec.**
+> D0 host-staging (Debian rootfs + `cloudflared`) is already DONE; the epic resumes at the D0 device-live
+> half. The just-finished hot-reload + fast-build infra accelerates the native-init (Stage-0) glue work.
+>
+> **▶ FIRST BOUNDED UNIT = D0 device-live read-only inventory.** On the resident device, capture
+> READ-ONLY (no writes, no mounts, no format):
+> - SD card total size + free space, and its mountpoint/fs under native init;
+> - `/data` (userdata) block-device path + size — **identify only, do NOT mount or format**;
+> - native-init writable mounts (where a rootfs loop image could live);
+> - on-device busybox applet inventory — especially `losetup`/`mount`/`chroot`/`switch_root`/
+>   `mkfs.ext4`/`tar`/`unshare` presence (decides what D1+ can rely on vs must be staged).
+> Then roll back to v2321, `selftest fail=0`. **DoD:** a private inventory record sufficient to size the
+> D1 SD loop image and pick the rootfs mount. This is read-only recon; it unblocks D1 (chroot MVP).
+>
+> **HARD guardrails (design §8 + project invariants):** forbidden partitions NEVER
+> (efs/sec_efs/modem/RPMB/keymaster/vbmeta/dsp/keydata/keyrefuge/bootloader/persist); **the D4 userdata
+> reformat is the ONLY sanctioned /data destruction and is a SEPARATE, LATER, explicitly-gated unit —
+> D0–D3 are all non-destructive / SD-based and must NOT touch userdata**; flash only via
+> `native_init_flash.py` (boot only) or `odin4` with only `boot.img`; no PMIC/regulator/GDSC/GPIO/
+> backlight, no from-scratch panel re-init; rollback v2321 + keep TWRP; recoverable envelope +
+> fails-twice→STOP; keep rootfs/binaries/credentials/raw pointers out of commits. **Operator/loop
+> separation (V2631):** the autonomous loop owns D0+ device-live work and commits; the operator (Claude)
+> does Gate-2 verification + host RE + GOAL.md steering — no parallel device/coding work.
+
 ## North star — priority-ordered tracks (T1 → T2 → T3)
 
 Pursue the **highest tier that still has a meaningful, safely-actionable next step**.
