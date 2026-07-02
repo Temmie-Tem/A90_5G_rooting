@@ -466,6 +466,7 @@ static const struct controller_policy_case policy_cases[] = {
     { "menu block reboot", 1, { "reboot" }, false, false },
     { "menu block recovery", 1, { "recovery" }, false, false },
     { "menu block poweroff", 1, { "poweroff" }, false, false },
+    { "menu block reload", 1, { "reload" }, false, false },
     { "power allow help", 1, { "help" }, true, true },
     { "power allow status", 1, { "status" }, true, true },
     { "power allow exposure status", 2, { "exposure", "status" }, true, true },
@@ -487,6 +488,7 @@ static const struct controller_policy_case policy_cases[] = {
     { "power block reboot", 1, { "reboot" }, true, false },
     { "power block recovery", 1, { "recovery" }, true, false },
     { "power block poweroff", 1, { "poweroff" }, true, false },
+    { "power block reload", 1, { "reload" }, true, false },
 };
 
 static unsigned int controller_command_flags(const struct shell_command *commands,

@@ -53,6 +53,7 @@
 #include "../a90_boot_audit.h"
 #include "../a90_boot_write_probe.h"
 #include "../a90_boot_write_e1.h"
+#include "../a90_init_reload.h"
 #include "../a90_kms.h"
 #include "../a90_longsoak.h"
 #include "../a90_log.h"

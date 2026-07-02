@@ -19576,6 +19576,15 @@ static int handle_recovery(char **argv, int argc) {
     return cmd_recovery();
 }
 
+static int handle_init_reload(char **argv, int argc) {
+    /* Hot-reload replaces PID1 via execve without a reboot. Stop the auto-hud drawing thread first
+       so it is not mid-frame when the image is replaced; a90_init_reload_cmd validates the staged
+       candidate (approved path + SHA + ELF) and only then execve()s. A failed validation returns an
+       error and the current init keeps running. */
+    stop_auto_hud(false);
+    return a90_init_reload_cmd(argv, argc);
+}
+
 static int handle_poweroff(char **argv, int argc) {
     (void)argv;
     (void)argc;
@@ -19702,6 +19711,8 @@ static const struct shell_command command_table[] = {
     { "reboot", handle_reboot, "reboot", CMD_DANGEROUS | CMD_NO_DONE, A90_CMD_GROUP_POWER },
     { "recovery", handle_recovery, "recovery", CMD_DANGEROUS | CMD_NO_DONE, A90_CMD_GROUP_POWER },
     { "poweroff", handle_poweroff, "poweroff", CMD_DANGEROUS | CMD_NO_DONE, A90_CMD_GROUP_POWER },
+    { "reload", handle_init_reload, "reload <token> <staged-init-path> <expected-sha256>",
+      CMD_DANGEROUS | CMD_NO_DONE, A90_CMD_GROUP_POWER },
 };
 
 static void refresh_pid1_guard(void) {
