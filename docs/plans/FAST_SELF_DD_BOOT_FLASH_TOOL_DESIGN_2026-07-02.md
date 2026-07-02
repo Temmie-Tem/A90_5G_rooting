@@ -865,3 +865,29 @@ Post-probe health stayed clean (`selftest fail=0`, pstore entries `0`), and roll
 `native_init_flash.py` passed with final `selftest fail=0`. No `boot-flash-f1` command was run, and
 no content-changing self-write was executed. Report:
 `docs/reports/NATIVE_INIT_V3358_SELF_DD_F1_PREFLIGHT_LIVE_2026-07-02.md`.
+
+### 12.12 V3358 F1 live pass (paired content-changing roundtrip)
+
+After the F1-only policy amendment in `AGENTS.md` / §12.1, V3358 was flashed again through
+`native_init_flash.py`, booted cleanly, and reran the F0 source-plan against the staged V3355
+candidate. Then `boot-flash-f1 BOOT-FLASH-F1-PAIRED-ROUNDTRIP ...` ran once and returned:
+
+```text
+A90BWF1 token=accepted mode=paired-content-roundtrip reboot_candidate=0
+A90BWF1 before_full_sha=a549fa7168f81a11d47000b5dcc7962ccd8cc193d01c115b31e59e1da7830c6a
+A90BWF1 target_full_sha=fa1deeae1ff724c44d6102c5685764e01863ec5a163ca97b4aba6e397f4d4eea
+A90BWF1 snapshot_sha=a549fa7168f81a11d47000b5dcc7962ccd8cc193d01c115b31e59e1da7830c6a snapshot_match_before=1
+A90BWF1 target_pwrite_count=64 target_fsync=ok
+A90BWF1 target_full_sha_after=fa1deeae1ff724c44d6102c5685764e01863ec5a163ca97b4aba6e397f4d4eea target_full_match=1
+A90BWF1 restore_pwrite_count=64 restore_fsync=ok
+A90BWF1 restore_full_sha_after=a549fa7168f81a11d47000b5dcc7962ccd8cc193d01c115b31e59e1da7830c6a restore_full_match=1
+A90BWF1 snapshot_cleaned=1
+A90BWF1 result=ok paired-roundtrip-restored
+```
+
+Post-F1 health stayed clean (`selftest fail=0`, pstore entries `0`), and rollback to v2321 through
+`native_init_flash.py` passed with final `selftest fail=0` and pstore `entries=0`. This closes F1:
+the platform accepts a content-changing boot self-write and the same normal-boot native-init can
+restore the exact previous full boot image before any reboot into the changed target. F2/F3/F4 remain
+blocked by the policy gate until a future explicit amendment. Report:
+`docs/reports/NATIVE_INIT_V3358_SELF_DD_F1_ROUNDTRIP_LIVE_2026-07-02.md`.
