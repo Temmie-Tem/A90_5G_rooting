@@ -91,7 +91,8 @@ class ServerDistroD3SwitchrootHandoffTests(unittest.TestCase):
         self.assertIn("def remote_image_sha_with_hide_retry", source)
         self.assertIn('"hide"', source)
         self.assertIn('record.get("status") != "busy"', source)
-        self.assertIn("remote_image_sha_with_hide_retry(args)", source)
+        self.assertIn("expected in text.lower()", source)
+        self.assertIn('remote_image_sha_with_hide_retry(args, str(keyed["keyed_sha256"]))', source)
 
 
 if __name__ == "__main__":

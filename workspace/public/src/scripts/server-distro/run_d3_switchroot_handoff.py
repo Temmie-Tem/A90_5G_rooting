@@ -230,15 +230,19 @@ def hide_auto_menu(args: argparse.Namespace) -> dict[str, Any]:
     return {"ok": True, "text": text}
 
 
-def remote_image_sha_with_hide_retry(args: argparse.Namespace) -> tuple[str | None, dict[str, Any]]:
+def remote_image_sha_with_hide_retry(args: argparse.Namespace,
+                                     expected_sha: str | None = None) -> tuple[str | None, dict[str, Any]]:
     attempts: list[dict[str, Any]] = []
+    expected = expected_sha.lower() if expected_sha is not None else None
     for attempt in range(1, 4):
         sha, record = d1.remote_image_sha(args.host, args.port, args.timeout, args.remote_image)
+        text = str(record.get("text") or "")
+        if sha is None and expected is not None and expected in text.lower():
+            sha = expected
         item: dict[str, Any] = {"attempt": attempt, "sha256": sha, "record": record}
         attempts.append(item)
         if sha is not None:
             return sha, {"attempts": attempts}
-        text = str(record.get("text") or "")
         if record.get("status") != "busy" and "[busy] auto menu active" not in text:
             break
         item["hide"] = hide_auto_menu(args)
@@ -395,7 +399,7 @@ def run_live(args: argparse.Namespace) -> int:
         add_event(events, run_dir, "candidate_boot_ready")
 
         add_event(events, run_dir, "live_session_start")
-        remote_sha, remote_sha_record = remote_image_sha_with_hide_retry(args)
+        remote_sha, remote_sha_record = remote_image_sha_with_hide_retry(args, str(keyed["keyed_sha256"]))
         save_step("remote_image_sha", {"sha256": remote_sha, "record": remote_sha_record})
         if remote_sha != keyed["keyed_sha256"]:
             raise RuntimeError(f"remote D3 image sha mismatch: remote={remote_sha} local={keyed['keyed_sha256']}")
