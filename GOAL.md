@@ -839,6 +839,22 @@ safety invariants and flash gates are binding and override any sub-goal.**
 > `docs/reports/SERVER_DISTRO_WIFI_STA_UPSTREAM_WSTA1_SOURCE_2026-07-04.md`.
 > **NEXT gate:** WSTA2 native `wlan0` materialization live check below association, then WSTA3 Debian STA
 > association/DHCP/default-route over private credentials only.
+>
+> **✅ STATUS (2026-07-04 02:20 KST host clock) — WSTA2 runner SOURCE DONE; live preflight blocked before flash.**
+> Codex added `workspace/public/src/scripts/server-distro/run_wsta2_native_materialization.py`, a fail-closed
+> host runner for the native `wlan0` materialization gate.  The runner defaults to read-only native cmdv1
+> probing, can optionally flash the pinned V3384 hardware-contract candidate only through
+> `native_init_flash.py`, checks rollback images before any flash request, and refuses to invent a recovery
+> path when neither native cmdv1 nor recovery ADB is present.  Static tests cover the V3384 pins, required
+> `A90DHW` lines, `wlan0_present` classification, forbidden native worker detection, and below-association
+> command surface.  Current live preflight found the Debian appliance reachable over local USB/NCM, but native
+> cmdv1 did not return `A90P1 END` and ADB recovery was absent; `--flash-v3384` therefore stopped with
+> `wsta2-blocked-no-native-cmdv1-or-recovery-adb` before any flash/reboot.  No Wi-Fi association, DHCP, ping,
+> public tunnel, raw write, or device mutation was performed.  Report:
+> `docs/reports/SERVER_DISTRO_WIFI_STA_UPSTREAM_WSTA2_RUNNER_2026-07-04.md`.
+> **NEXT WSTA2 live gate:** get native cmdv1 or recovery ADB back under the checked recovery envelope, then run
+> `run_wsta2_native_materialization.py --flash-v3384 --probe-iftype`.  Only after that passes should WSTA3
+> consume private Debian STA credentials.
 
 ## North star — priority-ordered tracks (T1 → T2 → T3)
 
