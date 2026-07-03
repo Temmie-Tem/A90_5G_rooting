@@ -870,6 +870,22 @@ safety invariants and flash gates are binding and override any sub-goal.**
 > `docs/reports/SERVER_DISTRO_WIFI_STA_UPSTREAM_WSTA3_ROOTFS_PIPELINE_2026-07-04.md`.
 > **NEXT:** WSTA2 live still gates WSTA3.  Once native cmdv1/recovery ADB is available and WSTA2 passes, use the
 > WSTA-ready private rootfs/image for D4C/D4D and stage private Wi-Fi credentials outside git.
+>
+> **✅ STATUS (2026-07-04 02:37 KST) — WSTA3 private STA rootfs HOST DONE.**
+> Codex added `workspace/public/src/scripts/server-distro/prepare_wsta3_sta_rootfs.py`, a host-only
+> preparer that copies the WSTA-ready D3 sysvinit rootfs into a private run dir, materializes the
+> `/etc/a90-dpublic/wpa_supplicant-wlan0.conf` and `/etc/a90-dpublic/wifi-sta-enable` opt-in files from
+> the owner-private Wi-Fi env, verifies the D4C rootfs/tarball contract, and writes only redacted summary
+> metadata.  A private run produced
+> `workspace/private/runs/server-distro/wsta3-sta-rootfs-20260703T173658Z/` with run dir mode `0700`,
+> generated/staged config mode `0600`, opt-in marker mode `0600`, tarball mode `0600`, required entries
+> present, and summary leak-scan clean for raw SSID/PSK/key/URL/device-id patterns.  The tarball SHA is
+> intentionally not reported because the archive contains private STA config.  No flash, reboot, userdata
+> staging/format, Wi-Fi association, DHCP, ping, or public tunnel action was performed.  Report:
+> `docs/reports/SERVER_DISTRO_WIFI_STA_UPSTREAM_WSTA3_PRIVATE_STA_ROOTFS_2026-07-04.md`.
+> **NEXT:** WSTA2 live still gates device use.  Restore native cmdv1 or recovery ADB, run
+> `run_wsta2_native_materialization.py --flash-v3384 --probe-iftype`, then consume this private STA rootfs
+> only inside a bounded WSTA3 association/DHCP/default-route validation.
 
 ## North star — priority-ordered tracks (T1 → T2 → T3)
 
