@@ -294,6 +294,28 @@ safety invariants and flash gates are binding and override any sub-goal.**
 > rootfs/binaries out of commits; fails-twice on the same handoff approach → STOP + report. **After D3, D4
 > (userdata reformat) is the HARD operator gate — HALT and get explicit authorization; never self-authorize.**
 
+> **✅ STATUS (2026-07-03) — D3A sysvinit rootfs HOST-ONLY prep DONE.**
+> Codex added `workspace/public/src/scripts/server-distro/prepare_d3_sysvinit_rootfs.py`, a `fakeroot`
+> host builder that starts from the D1/D2 Debian rootfs, downloads/extracts `sysvinit-core` plus the
+> minimal sysv package set, installs an explicit `/etc/inittab` sysinit entry, installs
+> `/etc/a90-d3-firstboot`, and builds a private 2 GiB ext4 image labeled `A90D3ROOT`. The firstboot
+> script schedules the mandatory bounded auto-reboot as its first action, reasserts the USB-local NCM
+> interface, writes `A90D3_MARKER`, and starts key-only dropbear only if the later live runner stages a
+> per-run key. Private image:
+> `workspace/private/builds/server-distro/d3-sysvinit-20260703T080236Z.img`, SHA-256
+> `2ee61172116be7578fddbfcbe491c1c29e3e4c7cf485376191019417c69880c3`; intended SD path:
+> `/mnt/sdext/a90/runtime/debian-bookworm-arm64-d3-sysvinit.img`. Report:
+> `docs/reports/SERVER_DISTRO_D3A_SYSVINIT_ROOTFS_HOST_2026-07-03.md`. Host-only: no device command, no
+> flash, no mount on device, no `switch_root`, no public tunnel, no credentials in artifact, and
+> `userdata` untouched.
+>
+> **▶ NEXT BOUNDED UNIT = D3B live checked switch_root handoff:** add the native-init handoff surface
+> that verifies the D3 image SHA/path, prepares/moves `/proc` `/sys` `/dev`, then executes
+> `switch_root <distro-root> /sbin/init`. The live runner must stage the D3 image to the intended SD
+> path, stage a per-run temporary SSH key into the mounted image, invoke the checked handoff, observe
+> `A90D3_MARKER` over SSH after handoff (`/proc/1/comm` should be `init`), then wait for the mandatory
+> auto-reboot and confirm resident v2321 `selftest fail=0`. NO flash, NO `userdata`, NO D-public.
+
 ## North star — priority-ordered tracks (T1 → T2 → T3)
 
 Pursue the **highest tier that still has a meaningful, safely-actionable next step**.
