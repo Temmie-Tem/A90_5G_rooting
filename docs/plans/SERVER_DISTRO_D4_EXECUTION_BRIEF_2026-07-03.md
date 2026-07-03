@@ -28,10 +28,10 @@ Completed:
 - D4C e2fsprogs formatter toolroot was extracted under SD runtime and SHA-verified on-device.
 - V3381 journaled formatter source/build passed and produced an e2fsprogs-backed D4C candidate.
 - V3381 journaled formatter live proof passed; v2321 rollback clean.
+- D4C destructive format+populate passed; V3381 remains live for D4D.
 
 Pending:
 
-- D4C format and populate.
 - D4D appliance handoff proof.
 
 ## 2. Carried Facts
@@ -139,6 +139,19 @@ source-report=docs/reports/NATIVE_INIT_V3381_SERVER_DISTRO_D4C_JOURNALED_FORMATT
 live-report=docs/reports/NATIVE_INIT_V3382_SERVER_DISTRO_D4C_JOURNALED_FORMATTER_LIVE_PASS_2026-07-03.md
 ```
 
+D4C format+populate result:
+
+```text
+candidate=A90 Linux init 0.11.138 (v3381-server-distro-journaled-formatter)
+preflight=sda33 dev=259:17 sectors=231577432 mounted=0 node_materialized=0
+format=done formatter=e2fsprogs-mkfs.ext4 label=A90D4ROOT has_journal=1
+populate=done root=/mnt/a90-userdata-root marker=userdata=appliance-root
+post_mount=/dev/block/a90-userdata on /mnt/a90-userdata-root type ext4
+post_health=selftest fail=0
+status=live-pass; V3381-left-live-for-D4D
+report=docs/reports/SERVER_DISTRO_D4C_USERDATA_FORMAT_POPULATE_2026-07-03.md
+```
+
 Rollback images that must be confirmed before any D4 flash:
 
 ```text
@@ -163,14 +176,7 @@ D4C format+populate
     e2fsprogs formatter toolroot is already staged under /mnt/sdext/a90/runtime/
     V3381 journaled formatter command surface is source-built
     V3381 journaled formatter live proof passed and rolled back cleanly
-  flash V3381-or-later by checked helper
-  run fresh same-session preflight
-  prove journaled formatter path on device if the candidate changed
-  verify SD rootfs tarball path and SHA-256
-  run userdata-appliance-format with pinned devname/dev/sectors
-  verify userdata has_journal with dumpe2fs
-  run userdata-appliance-populate with pinned tarball SHA
-  verify marker: userdata=appliance-root
+    D4C format+populate passed; V3381 remains live
 
 D4D handoff
   run switch-root-to-userdata with expected marker

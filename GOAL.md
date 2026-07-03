@@ -648,6 +648,25 @@ safety invariants and flash gates are binding and override any sub-goal.**
 > `target.devname/dev/sectors` from that session into `userdata-appliance-format`, verify
 > `has_journal=1` on real userdata, then populate with the pinned SD rootfs tarball SHA.
 
+> **✅ STATUS (2026-07-03) — D4C destructive format+populate LIVE PASS; V3381 left live for D4D.**
+> Codex flashed exact V3381 again through `native_init_flash.py` with remote/readback SHA matching
+> `c99be26deb3ca872de444e1f34ab602938a68381fe84c338bf29ead7ed9f1c4f`; candidate health passed
+> `version/status/selftest` with `selftest fail=0`. Fresh same-session preflight passed for
+> `sda33`, `target.dev=259:17`, `target.sectors=231577432`, `target.mounted=0`, `node_materialized=0`.
+> The staged rootfs tarball was rechecked on-device as SHA
+> `0875b8bd6e58298f644735e5d7ee12c0286e3057a7744b05064fc34829412603`, size `268349440`. Destructive
+> `userdata-appliance-format SERVER-DISTRO-D4-USERDATA-APPLIANCE sda33 259:17 231577432` then created
+> `/dev/block/a90-userdata`, ran SHA-pinned e2fsprogs `mkfs.ext4`, printed `Creating journal
+> (131072 blocks): done`, `dumpe2fs -h` reported `Filesystem features: has_journal ...`, and native-init
+> verified `format=has-journal-ok ... has_journal=1` before `format=done`. Populate then mounted
+> `/dev/block/a90-userdata` at `/mnt/a90-userdata-root`, extracted the pinned tarball, verified
+> `/sbin/init mode=755`, wrote marker `userdata=appliance-root`, and post-D4C health stayed
+> `selftest fail=0`. No switch-root ran yet. Report:
+> `docs/reports/SERVER_DISTRO_D4C_USERDATA_FORMAT_POPULATE_2026-07-03.md`.
+> **NEXT bounded unit = D4D appliance handoff proof**: run `switch-root-to-userdata` with expected marker,
+> observe Debian PID1 and USB-local access, prove root filesystem is userdata, and keep timed
+> recovery/rollback available.
+
 ## North star — priority-ordered tracks (T1 → T2 → T3)
 
 Pursue the **highest tier that still has a meaningful, safely-actionable next step**.
