@@ -696,6 +696,16 @@ safety invariants and flash gates are binding and override any sub-goal.**
 > exposure, choose named tunnel token/hostname vs explicit quick-tunnel mode, stage `cloudflared` and a
 > minimal HTTP smoke service into the userdata appliance, boot a D4-capable appliance image, prove outbound
 > internet, then require the literal operator gate `D-PUBLIC-LIVE-PUBLISH`.
+>
+> **✅ STATUS (2026-07-04 00:13 KST) — D-public quick Tunnel LIVE PASS; public URL redacted from git.**
+> After the operator sent `D-PUBLIC-LIVE-PUBLISH`, Codex used the existing V3381/D4 userdata appliance,
+> staged loopback-only D-public smoke helpers, corrected the proof-only D4D autoreboot firstboot into a
+> D-public profile, fixed appliance time and `/etc/hosts`, and launched accountless `cloudflared`
+> quick Tunnel against `http://127.0.0.1:8080`. Host public HTTPS curl through the Cloudflare edge returned
+> `A90_DPUBLIC_SMOKE_OK`. Cloudflare prechecks passed DNS, UDP/QUIC, TCP/HTTP2, and API reachability.
+> Report: `docs/reports/SERVER_DISTRO_DPUBLIC_LIVE_PUBLISH_2026-07-04.md`. The live tunnel was left
+> running for operator inspection; the actual URL is stored only in
+> `workspace/private/runs/server-distro/dpublic-live-20260703T150145Z/public-url.txt`.
 
 ## North star — priority-ordered tracks (T1 → T2 → T3)
 
