@@ -458,6 +458,8 @@ def stage_dpublic_wifi_sta_helper(rootfs: Path) -> dict[str, Any]:
         and "wifi_sta_dwell_sample_${sample}_lease_router_matches_initial" in text,
         "assoc_retry_present": "wifi_sta_assoc_attempts_max" in text
         and "wifi_sta_assoc_attempt_${attempt}_retry_reassociate_rc" in text,
+        "scan_visibility_present": "scan_visibility_probe()" in text
+        and "wifi_sta_scan_${label}_final_results_count" in text,
         "tcp_probe_fallback_present": "nc.openbsd" in text,
         "secret_values_logged": 0,
     }

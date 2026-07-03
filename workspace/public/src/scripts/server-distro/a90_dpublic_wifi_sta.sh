@@ -24,6 +24,8 @@ DWELL_SAMPLES=6
 DWELL_INTERVAL_SEC=5
 WPA_COMPLETE_ATTEMPTS=3
 WPA_COMPLETE_WAIT_SEC=20
+SCAN_VIS_SAMPLES=6
+SCAN_VIS_INTERVAL_SEC=2
 NC_BIN=
 RUN_ID=
 PHASE_SEQ=0
@@ -278,6 +280,80 @@ wpa_scan_results_count() {
     awk 'NR > 2 { count++ } END { print count + 0 }'
 }
 
+sample_regulatory_state() {
+  label=$1
+  country=$(wpa_cli -p "$WPA_CTRL_DIR" -i "$IFACE" GET country 2>/dev/null)
+  country_get_rc=$?
+  country_present=0
+  country_is_kr=0
+  case "$country" in
+    ""|FAIL*) ;;
+    *)
+      country_present=1
+      [ "$country" = "KR" ] && country_is_kr=1
+      ;;
+  esac
+
+  iw_present=0
+  iw_reg_get_rc=127
+  iw_reg_country_present=0
+  if command -v iw >/dev/null 2>&1; then
+    iw_present=1
+    iw_reg=$(iw reg get 2>/dev/null)
+    iw_reg_get_rc=$?
+    if printf '%s\n' "$iw_reg" | grep -q '^country '; then
+      iw_reg_country_present=1
+    fi
+  fi
+
+  append_marker "wifi_sta_reg_${label}_country_get_rc=$country_get_rc"
+  append_marker "wifi_sta_reg_${label}_country_present=$country_present"
+  append_marker "wifi_sta_reg_${label}_country_kr=$country_is_kr"
+  append_marker "wifi_sta_reg_${label}_iw_present=$iw_present"
+  append_marker "wifi_sta_reg_${label}_iw_reg_get_rc=$iw_reg_get_rc"
+  append_marker "wifi_sta_reg_${label}_iw_reg_country_present=$iw_reg_country_present"
+}
+
+scan_visibility_probe() {
+  label=$1
+  scan_visibility_found=0
+  scan_visibility_final_count=0
+  scan_visibility_trigger_start_ms=$(uptime_ms)
+  wpa_cli_quiet SCAN
+  scan_visibility_trigger_rc=$?
+  append_marker "wifi_sta_scan_${label}_trigger_rc=$scan_visibility_trigger_rc"
+  append_marker "wifi_sta_scan_${label}_samples=$SCAN_VIS_SAMPLES"
+  append_marker "wifi_sta_scan_${label}_interval_sec=$SCAN_VIS_INTERVAL_SEC"
+  mark_phase "scan-$label-trigger"
+
+  sample=1
+  while [ "$sample" -le "$SCAN_VIS_SAMPLES" ]; do
+    sleep "$SCAN_VIS_INTERVAL_SEC"
+    scan_count=$(wpa_scan_results_count)
+    scan_visibility_final_count=$scan_count
+    if [ "$scan_count" -gt 0 ]; then
+      scan_visibility_found=1
+    fi
+    state=$(wpa_state_value)
+    [ -n "$state" ] || state=-
+    operstate=$(cat /sys/class/net/$IFACE/operstate 2>/dev/null)
+    [ -n "$operstate" ] || operstate=-
+    carrier_now=$(cat /sys/class/net/$IFACE/carrier 2>/dev/null)
+    [ -n "$carrier_now" ] || carrier_now=0
+    append_marker "wifi_sta_scan_${label}_sample_${sample}_results_count=$scan_count"
+    append_marker "wifi_sta_scan_${label}_sample_${sample}_wpa_state=$state"
+    append_marker "wifi_sta_scan_${label}_sample_${sample}_operstate=$operstate"
+    append_marker "wifi_sta_scan_${label}_sample_${sample}_carrier=$carrier_now"
+    sample=$((sample + 1))
+  done
+  scan_visibility_end_ms=$(uptime_ms)
+  scan_visibility_total_ms=$((scan_visibility_end_ms - scan_visibility_trigger_start_ms))
+  append_marker "wifi_sta_scan_${label}_found=$scan_visibility_found"
+  append_marker "wifi_sta_scan_${label}_final_results_count=$scan_visibility_final_count"
+  append_marker "wifi_sta_scan_${label}_total_ms=$scan_visibility_total_ms"
+  mark_phase "scan-$label-done"
+}
+
 sample_wpa_signal() {
   wpa_cli -p "$WPA_CTRL_DIR" -i "$IFACE" PING 2>/dev/null | grep -q '^PONG'
   wpa_ping_rc=$?
@@ -324,8 +400,9 @@ wait_wpa_completed() {
     fi
     append_marker "wifi_sta_assoc_attempt_${attempt}_completed=0"
     if [ "$attempt" -lt "$WPA_COMPLETE_ATTEMPTS" ]; then
-      wpa_cli_quiet SCAN
-      append_marker "wifi_sta_assoc_attempt_${attempt}_retry_scan_rc=$?"
+      scan_visibility_probe "retry_${attempt}"
+      append_marker "wifi_sta_assoc_attempt_${attempt}_retry_scan_rc=$scan_visibility_trigger_rc"
+      append_marker "wifi_sta_assoc_attempt_${attempt}_retry_scan_found=$scan_visibility_found"
       wpa_cli_quiet ENABLE_NETWORK 0
       append_marker "wifi_sta_assoc_attempt_${attempt}_retry_enable_network_rc=$?"
       wpa_cli_quiet SELECT_NETWORK 0
@@ -543,8 +620,10 @@ if wpa_ctrl_wait; then
   mark_phase "ctrl-ready"
   wpa_cli_quiet DRIVER COUNTRY KR
   append_marker "wifi_sta_ctrl_driver_country_rc=$?"
-  wpa_cli_quiet SCAN
-  append_marker "wifi_sta_ctrl_scan_rc=$?"
+  sample_regulatory_state "after_country"
+  scan_visibility_probe "initial"
+  append_marker "wifi_sta_ctrl_scan_rc=$scan_visibility_trigger_rc"
+  append_marker "wifi_sta_ctrl_scan_found=$scan_visibility_found"
   wpa_cli_quiet ENABLE_NETWORK 0
   append_marker "wifi_sta_ctrl_enable_network_rc=$?"
   wpa_cli_quiet SELECT_NETWORK 0

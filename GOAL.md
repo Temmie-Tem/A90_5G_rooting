@@ -1140,6 +1140,27 @@ safety invariants and flash gates are binding and override any sub-goal.**
 > and scan-trigger timing/counts, and do not return to gateway keepalive/API/cloudflared work until
 > Debian can reliably see scan results and associate again.
 
+> **🟡 STATUS (2026-07-04 07:36 KST host clock) — WSTA13 scan visibility BLOCKED at Debian link-state boundary.**
+> Codex added WSTA13 scan visibility markers to the Debian STA helper: regulatory/country booleans,
+> `SCAN` trigger rc, scan-result count, supplicant state, operstate, and carrier for the initial scan
+> and each bounded retry scan.  The private rootfs preparer now records `scan_visibility_present`, and
+> focused tests still pass.  Live WSTA13 used native V3384, WSTA2 materialization, a private WSTA13
+> rootfs, D4 guarded format/populate, and Debian handoff.  WSTA2 first hit stale link-up state, then a
+> native reboot plus retry passed with `wlan0_wait_elapsed_ms=100261`, `wlan0_present=1`, `link_up_rc=0`,
+> and `decision=softap-iftype-probe-pass`.  D4 format/populate passed with journaled ext4 and
+> `userdata=appliance-root`; switch_root reached Debian on retry after display-owner cleanup.  Debian
+> scan diagnostics showed `wifi_sta_scan_initial_trigger_rc=0`, but all six initial scan samples had
+> `results_count=0`, `wpa_state=DISCONNECTED`, `operstate=down`, and carrier `0`; retry scan windows 1
+> and 2 showed the same `trigger_rc=0` plus `final_results_count=0`.  Manual `ip link set wlan0 up`
+> followed by three more scans also stayed at count `0` and `operstate=down`.  Final decision:
+> `wifi_sta_decision=wifi-sta-assoc-failed`.  No API probe or cloudflared was started, and the device
+> ended back on native V3384 with `selftest fail=0`.  Report:
+> `docs/reports/SERVER_DISTRO_WIFI_STA_UPSTREAM_WSTA13_SCAN_VISIBILITY_BLOCKED_2026-07-04.md`.
+> **NEXT:** WSTA14 Debian link-state / scan-engine boundary: add optional `iw` diagnostics if package
+> staging allows it, compare sysfs/ip-link state before and after `wpa_supplicant`, and test a bounded
+> post-supplicant link-up reassertion only as a diagnostic.  Do not return to gateway keepalive/API/
+> cloudflared work until Debian can see scan results and associate again.
+
 ## North star — priority-ordered tracks (T1 → T2 → T3)
 
 Pursue the **highest tier that still has a meaningful, safely-actionable next step**.

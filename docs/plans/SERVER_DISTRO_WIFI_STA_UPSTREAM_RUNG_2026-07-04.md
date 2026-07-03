@@ -1,7 +1,7 @@
 # Server-Distro Wi-Fi STA Upstream Rung
 
 - Date: 2026-07-04
-- Status: WSTA12 blocked before gateway dwell at Debian scan visibility/association
+- Status: WSTA13 blocked at Debian link-state/scan visibility before association
 - Scope: next hardware rung after the Stage0 server-distro hardware contract.
 - Device action in this doc: none.
 
@@ -203,11 +203,30 @@ Report:
 
 ### WSTA13: Debian scan visibility boundary
 
-The next unit should compare native materialization/scan readiness with Debian
-`wpa_cli SCAN_RESULTS` after handoff.  Capture redacted country/regulatory state, scan trigger
-return codes, scan-result counts, and timing after WSTA2 iftype cleanup.  Do not return to
-gateway keepalive or D-public tunnel work until Debian can reliably see scan results and
-associate again.
+Source result: implemented.  The Debian STA helper now records regulatory/country command
+booleans and scan-visibility windows: scan trigger rc, scan-result counts, supplicant state,
+operstate, and carrier for the initial scan and each bounded retry scan.
+
+Live result: blocked below association.  Native WSTA2 materialization passed after the
+default wait window (`wlan0_wait_elapsed_ms=100261`, `wlan0_present=1`, `link_up_rc=0`,
+`decision=softap-iftype-probe-pass`).  D4 guarded format/populate passed, and Debian
+handoff succeeded on retry after display-owner cleanup.  In Debian, every scan trigger
+returned rc=0, but initial and retry scan windows all ended with `final_results_count=0`;
+each scan sample also reported `operstate=down` and carrier `0`.  Manual `ip link set
+wlan0 up` plus three more scans did not change the result.  Final decision:
+`wifi-sta-assoc-failed`.
+
+Report:
+`docs/reports/SERVER_DISTRO_WIFI_STA_UPSTREAM_WSTA13_SCAN_VISIBILITY_BLOCKED_2026-07-04.md`.
+
+### WSTA14: Debian link-state / scan-engine boundary
+
+The next unit should inspect why Debian's scan engine accepts `SCAN` while `wlan0`
+operstate remains down and no BSS results appear.  Add optional `iw` diagnostics if
+available, compare sysfs/ip-link state immediately before and after `wpa_supplicant`, and
+test a bounded post-supplicant link-up reassertion only as a diagnostic.  Do not return to
+gateway keepalive or D-public tunnel work until Debian scan results and association are
+stable.
 
 ### WSTA7: Debian association/control fix
 
@@ -252,12 +271,11 @@ Stop before mutation or public exposure if any condition appears:
 
 ## 7. Next Implementation Unit
 
-Run WSTA13 as a Debian scan visibility diagnostic gate:
+Run WSTA14 as a Debian link-state / scan-engine diagnostic gate:
 
 1. keep the fresh native boot -> WSTA2 `--probe-iftype` -> no-clock Debian `switch_root` sequence;
-2. require WSTA12 association retry markers;
-3. collect redacted `wpa_cli STATUS`, `SCAN`, `SCAN_RESULTS` count, country/regulatory state,
-   and scan timing after handoff;
-4. compare native `wlan0` materialization success against Debian scan visibility;
-5. only return to gateway keepalive work after Debian scan results and association are stable;
+2. require WSTA13 scan visibility markers;
+3. collect redacted `ip link`/sysfs state before and after `wpa_supplicant` starts;
+4. add optional `iw`/regulatory diagnostics if the private rootfs can stage the tool safely;
+5. test whether a bounded post-supplicant link-up reassertion changes operstate or scan results;
 6. do not retry the manual API probe or cloudflared until the dwell window passes.
