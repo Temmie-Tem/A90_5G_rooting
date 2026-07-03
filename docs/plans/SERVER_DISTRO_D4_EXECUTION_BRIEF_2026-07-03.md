@@ -16,10 +16,13 @@ Completed:
 - D3B live `switch_root` proof passed on the SD-backed rootfs.
 - D4A read-only userdata preflight passed.
 - D4B source/build passed and produced V3373.
+- D4B candidate-health passed live and rolled back cleanly.
+- D4C formatter-probe source/build passed and produced V3375.
+- D4C rootfs tarball staging runner passed static validation.
 
 Pending:
 
-- D4C entry live prep: rootfs tarball staging plus V3375 formatter-probe live proof.
+- D4C entry live prep: run the rootfs tarball staging runner, then V3375 formatter-probe live proof.
 - D4C format and populate.
 - D4D appliance handoff proof.
 
@@ -55,6 +58,15 @@ sha256=460fbbc137478695c9271a80fd9e0e5dedb96975ee9e69bd6b67c9a72db1ecdb
 probe=userdata-appliance-formatter-probe SERVER-DISTRO-D4-USERDATA-APPLIANCE <sd-runtime-image> <size-bytes>
 ```
 
+D4C rootfs tarball staging runner:
+
+```text
+runner=workspace/public/src/scripts/server-distro/prepare_d4c_userdata_rootfs_tarball.py
+source-rootfs=workspace/private/builds/server-distro/d3-sysvinit-usrmerge-20260703T101657Z-rootfs
+remote-tarball=/mnt/sdext/a90/runtime/a90-d4c-userdata-rootfs.tar
+report=docs/reports/SERVER_DISTRO_D4C_ROOTFS_TARBALL_STAGING_RUNNER_2026-07-03.md
+```
+
 Rollback images that must be confirmed before any D4 flash:
 
 ```text
@@ -75,6 +87,7 @@ D4B candidate-health
 
 D4C format+populate
   first close D4C entry prep:
+    run prepare_d4c_userdata_rootfs_tarball.py on clean v2321
     stage SHA-pinned rootfs tarball under /mnt/sdext/a90/runtime/
     flash V3375 by checked helper
     run preflight plus formatter-probe only
@@ -139,6 +152,9 @@ D4C may start only after all of these are true:
   bounded SD-runtime regular file with BusyBox `mke2fs -t ext4 -F -L A90D4PROBE`, checking ext4 magic,
   unlinking the file, and reporting `userdata_touched=0`.
 - A rootfs tarball exists under `/mnt/sdext/a90/runtime/` and its SHA-256 is pinned in the run record.
+- The rootfs tarball was produced by `prepare_d4c_userdata_rootfs_tarball.py`, which checks the D3
+  sysvinit rootfs markers, forces numeric root ownership in the tar stream, uploads to SD runtime, and
+  verifies the remote SHA without flashing or touching `userdata`.
 - Recovery envelope is re-confirmed immediately before the destructive format.
 
 D4C stop rules:

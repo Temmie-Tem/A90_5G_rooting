@@ -474,6 +474,21 @@ safety invariants and flash gates are binding and override any sub-goal.**
 > exact V3375 through `native_init_flash.py`, run candidate health, run read-only preflight plus
 > formatter-probe only, then roll back to v2321 unless the destructive D4C format starts immediately.
 
+> **✅ STATUS (2026-07-03) — D4C rootfs tarball staging runner documented/static-validated; live staging still pending.**
+> Codex added `workspace/public/src/scripts/server-distro/prepare_d4c_userdata_rootfs_tarball.py`, a
+> non-destructive host runner that requires resident v2321 and `selftest fail=0`, verifies the clean D3
+> sysvinit rootfs markers, creates a deterministic root-owned tar stream under `workspace/private/runs/`,
+> uploads it to `/mnt/sdext/a90/runtime/a90-d4c-userdata-rootfs.tar`, and verifies the remote SHA. It does
+> **NO FLASH / NO FORMAT / NO USERDATA TOUCH** and does not call `mkfs`, `mke2fs`,
+> `userdata-appliance-format`, or `switch-root-to-userdata`. Static validation passed:
+> `py_compile` plus `tests.test_prepare_d4c_userdata_rootfs_tarball`.
+> Report:
+> `docs/reports/SERVER_DISTRO_D4C_ROOTFS_TARBALL_STAGING_RUNNER_2026-07-03.md`.
+> **NEXT bounded unit = D4C entry live prep**: run the tarball staging runner on clean v2321, then flash
+> exact V3375, run candidate health, read-only `userdata-appliance-preflight`, and
+> `userdata-appliance-formatter-probe` only, then roll back to v2321 unless destructive D4C starts
+> immediately under the D4 runbook.
+
 ## North star — priority-ordered tracks (T1 → T2 → T3)
 
 Pursue the **highest tier that still has a meaningful, safely-actionable next step**.

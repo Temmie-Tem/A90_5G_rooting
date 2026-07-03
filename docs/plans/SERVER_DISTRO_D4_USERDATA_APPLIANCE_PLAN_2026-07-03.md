@@ -164,18 +164,21 @@ This is the irreversible Android `/data` disposal step.
 
 Sequence:
 
-1. Run D4A-equivalent preflight again in the same session.
+1. On clean resident v2321, stage the SHA-pinned rootfs tarball with
+   `workspace/public/src/scripts/server-distro/prepare_d4c_userdata_rootfs_tarball.py`.
 2. Flash the D4-capable candidate through `native_init_flash.py`.
 3. Verify candidate boot and `selftest fail=0`.
 4. Run device-side `userdata-appliance-preflight`.
-5. Parse the same-session `target.devname`, `target.dev`, and `target.sectors` from the live preflight.
-6. Run `userdata-appliance-format` only with those same-session values and only if host and device
+5. Run the V3375 non-destructive `userdata-appliance-formatter-probe`, unless it was already live-proven
+   in the same controlled prep path.
+6. Parse the same-session `target.devname`, `target.dev`, and `target.sectors` from the live preflight.
+7. Run `userdata-appliance-format` only with those same-session values and only if host and device
    preflight agree on the same `PARTNAME=userdata` target.
-7. Mount the new ext4 `userdata`.
-8. Populate Debian rootfs from a SHA-pinned SD-staged tarball derived from the clean D3 rootfs source.
-9. Install per-run/admin SSH material, host keys, and minimal service config.
-10. Write an appliance marker under the rootfs, for example `/etc/a90-appliance-stage`.
-11. Leave the system in native-init with userdata mounted and proof files collected, or immediately run D4D
+8. Mount the new ext4 `userdata`.
+9. Populate Debian rootfs from the SHA-pinned SD-staged tarball derived from the clean D3 rootfs source.
+10. Install per-run/admin SSH material, host keys, and minimal service config.
+11. Write an appliance marker under the rootfs, for example `/etc/a90-appliance-stage`.
+12. Leave the system in native-init with userdata mounted and proof files collected, or immediately run D4D
     if the switch-root surface is ready.
 
 If any write/readback/check fails after formatting starts, stop and report. Do not retry-loop formatting.
