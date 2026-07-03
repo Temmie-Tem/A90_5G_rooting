@@ -20,6 +20,39 @@ kill_matching_cmdline() {
   done
 }
 
+kill_pidfile_if_matching() {
+  pidfile=$1
+  needle=$2
+  [ -e "$pidfile" ] || return 0
+  pid=$(cat "$pidfile" 2>/dev/null || true)
+  case "$pid" in
+    ''|*[!0-9]*) ;;
+    *)
+      if [ "$pid" != "1" ]; then
+        cmd=$(tr '\000' ' ' < "/proc/$pid/cmdline" 2>/dev/null || true)
+        case "$cmd" in
+          *"$needle"*) kill "$pid" 2>/dev/null || true ;;
+        esac
+      fi
+      ;;
+  esac
+  rm -f "$pidfile" 2>/dev/null || true
+}
+
+cleanup_cloudflared_runtime() {
+  reason=$1
+  kill_matching_cmdline "/usr/local/bin/cloudflared tunnel"
+  for pidfile in /run/a90-dpublic/cloudflared-*.pid; do
+    kill_pidfile_if_matching "$pidfile" "/usr/local/bin/cloudflared tunnel"
+  done
+  rm -f /run/a90-dpublic/cloudflared-*.log \
+        /run/a90-dpublic/cloudflared-*.url \
+        /run/a90-dpublic/cloudflared-*-url.txt \
+        /run/a90-dpublic/public-url.txt 2>/dev/null || true
+  [ -f /run/a90-d3-marker ] &&
+    echo cloudflared_runtime_cleanup="$reason" >> /run/a90-d3-marker
+}
+
 wait_no_tcp_listen() {
   port_hex=$1
   for _ in 1 2 3 4 5; do
@@ -148,16 +181,14 @@ fi
 
 if [ -s /etc/a90-dpublic/cloudflared-quick-enable ] &&
    [ -x /usr/local/bin/cloudflared ]; then
-  if [ -s /run/a90-dpublic/cloudflared-live.pid ]; then
-    kill "$(cat /run/a90-dpublic/cloudflared-live.pid)" 2>/dev/null || true
-  fi
-  kill_matching_cmdline "/usr/local/bin/cloudflared tunnel"
+  cleanup_cloudflared_runtime enabled-prestart
   /usr/local/bin/cloudflared tunnel --no-autoupdate \
     --url http://127.0.0.1:8080 --metrics 127.0.0.1:0 --loglevel info \
     >/run/a90-dpublic/cloudflared-live.log 2>&1 &
   echo $! > /run/a90-dpublic/cloudflared-live.pid
   echo tunnel_started=1 >> /run/a90-d3-marker
 else
+  cleanup_cloudflared_runtime manual
   echo tunnel_started=manual >> /run/a90-d3-marker
 fi
 

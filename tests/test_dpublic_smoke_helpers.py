@@ -58,6 +58,30 @@ class DpublicSmokeHelperTests(unittest.TestCase):
         self.assertIn("base_\"$line\"", source)
         self.assertIn("stage=*|autoreboot_sec=*", source)
 
+    def test_firstboot_cleans_stale_cloudflared_runtime_in_manual_mode(self) -> None:
+        source = FIRSTBOOT.read_text(encoding="utf-8")
+        self.assertIn("cleanup_cloudflared_runtime", source)
+        self.assertIn("kill_pidfile_if_matching", source)
+        self.assertIn("cloudflared-*.pid", source)
+        self.assertIn("cloudflared-*.log", source)
+        self.assertIn("cloudflared-*.url", source)
+        self.assertIn("public-url.txt", source)
+        self.assertIn('kill_matching_cmdline "/usr/local/bin/cloudflared tunnel"', source)
+
+        manual_idx = source.index("echo tunnel_started=manual")
+        cleanup_idx = source.rindex("cleanup_cloudflared_runtime manual", 0, manual_idx)
+        self.assertLess(cleanup_idx, manual_idx)
+
+    def test_firstboot_cleans_tunnel_state_before_enabled_start(self) -> None:
+        source = FIRSTBOOT.read_text(encoding="utf-8")
+        branch_idx = source.index("if [ -s /etc/a90-dpublic/cloudflared-quick-enable ]")
+        cleanup_idx = source.index("cleanup_cloudflared_runtime enabled-prestart", branch_idx)
+        start_idx = source.index("/usr/local/bin/cloudflared tunnel --no-autoupdate", branch_idx)
+        pid_idx = source.index("echo $! > /run/a90-dpublic/cloudflared-live.pid", start_idx)
+        self.assertLess(cleanup_idx, start_idx)
+        self.assertLess(start_idx, pid_idx)
+        self.assertNotIn('kill "$(cat /run/a90-dpublic/cloudflared-live.pid)"', source)
+
 
 if __name__ == "__main__":
     unittest.main()

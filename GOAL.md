@@ -797,8 +797,21 @@ safety invariants and flash gates are binding and override any sub-goal.**
 > string audit, and boot image SHA capture.  Report:
 > `docs/reports/NATIVE_INIT_V3384_SERVER_DISTRO_HARDWARE_CONTRACT_SOURCE_BUILD_2026-07-04.md`.
 > **NEXT live gate:** checked-helper flash exact V3384, health-check native-init, run
-> `server-distro hardware-contract`, verify all expected `A90DHW` lines over cmdv1, then continue to
-> D-public runtime cleanup.
+> `server-distro hardware-contract`, verify all expected `A90DHW` lines over cmdv1, then continue to the
+> Wi-Fi STA upstream rung.
+>
+> **✅ STATUS (2026-07-04 03:30 KST) — D-public stale tunnel runtime cleanup SOURCE DONE.**
+> Codex tightened the Debian firstboot profile so stale quick-Tunnel state cannot pollute manual-mode
+> status.  `a90_dpublic_firstboot.sh` now removes stale `/run/a90-dpublic/cloudflared-*` pid/log/url
+> sidecars, kills only matching residual `cloudflared tunnel` processes from old pidfiles, records
+> `cloudflared_runtime_cleanup=<reason>`, and runs that cleanup before both quick-Tunnel enabled startup
+> and manual `tunnel_started=manual` reporting.  Source/static validation covered shell syntax and
+> D-public helper/preflight tests.  No device action, flash, reboot, public tunnel start, or public tunnel
+> stop was performed.  Report:
+> `docs/reports/SERVER_DISTRO_DPUBLIC_RUNTIME_CLEANUP_SOURCE_2026-07-04.md`.
+> **NEXT D-public live check:** on the next appliance boot, confirm manual mode has no cloudflared process,
+> marker order includes `cloudflared_runtime_cleanup=manual` before `tunnel_started=manual`, and stale
+> `/run/a90-dpublic/cloudflared-*` pid/log/url files are absent.
 
 ## North star — priority-ordered tracks (T1 → T2 → T3)
 
