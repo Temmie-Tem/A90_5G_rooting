@@ -684,6 +684,18 @@ safety invariants and flash gates are binding and override any sub-goal.**
 > `docs/reports/SERVER_DISTRO_D4D_USERDATA_APPLIANCE_HANDOFF_2026-07-03.md`.
 > **D4A→D4D requested proof chain is complete.** Remaining work, if desired, is a separate promotion or
 > appliance-management decision, not a D4 proof blocker.
+>
+> **✅ STATUS (2026-07-03 14:52 KST) — D-public no-exposure preflight tooling DONE; live publish still gated.**
+> Codex added `workspace/public/src/scripts/server-distro/prepare_dpublic_preflight.py` and report
+> `docs/reports/SERVER_DISTRO_DPUBLIC_PREFLIGHT_2026-07-03.md`. The preflight confirmed D4 foundation
+> docs are present, the host `cloudflared` linux-arm64 artifact is SHA-pinned
+> (`59816ce9b16db71f5bc2a86d59b3632a96c8c3ee934bde2bc8641ee83a6070eb`), and a read-only device check
+> saw final v2321 plus `selftest fail=0`. It also confirmed `device_tunnel_artifacts_present=false`,
+> `live_publish_ready=false`, `public_exposure_performed=false`, and `device_write_performed=false`.
+> **D-public is therefore prepared for a gated next unit, but not live-ready yet.** Before first public
+> exposure, choose named tunnel token/hostname vs explicit quick-tunnel mode, stage `cloudflared` and a
+> minimal HTTP smoke service into the userdata appliance, boot a D4-capable appliance image, prove outbound
+> internet, then require the literal operator gate `D-PUBLIC-LIVE-PUBLISH`.
 
 ## North star — priority-ordered tracks (T1 → T2 → T3)
 
