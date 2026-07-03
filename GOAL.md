@@ -886,6 +886,27 @@ safety invariants and flash gates are binding and override any sub-goal.**
 > **NEXT:** WSTA2 live still gates device use.  Restore native cmdv1 or recovery ADB, run
 > `run_wsta2_native_materialization.py --flash-v3384 --probe-iftype`, then consume this private STA rootfs
 > only inside a bounded WSTA3 association/DHCP/default-route validation.
+>
+> **✅ STATUS (2026-07-04 02:50 KST) — WSTA2 native `wlan0` materialization LIVE PASS.**
+> Codex recovered native control from the Debian userdata appliance by using the existing USB/NCM-local
+> SSH path to perform a normal Debian reboot, then flashed exact V3384 through `native_init_flash.py`
+> from native recovery control.  The helper verified remote SHA and boot readback SHA
+> `47890d04219837af3acb96ad8e281ad4eab0ea3a73ae2641e05633d014979178`, then V3384 booted with
+> `selftest fail=0`.  WSTA2 pass run
+> `workspace/private/runs/server-distro/wsta2-native-materialization-20260703T174709Z/wsta2_result.json`
+> proved `hardware_contract_ok=true`, `selftest_fail_zero=true`, `wlan0_present=true`, and
+> `forbidden_native_workers=[]`.  The iftype probe waited `70444ms`, reached `wlan0_present=1`, created
+> and cleaned up the temporary AP iftype, and logged `secret_values_logged=0`; no Wi-Fi association,
+> DHCP, ping, AP/DNS/NAT, public tunnel, or credentials were used.  Codex also hardened
+> `run_wsta2_native_materialization.py` to hide the native auto-menu and retry once when a read-only
+> WSTA2 command gets `rc=-16 status=busy auto menu active`; the patched no-flash rerun
+> `workspace/private/runs/server-distro/wsta2-native-materialization-20260703T174947Z/wsta2_result.json`
+> returned `wsta2-native-materialization-pass`.  Report:
+> `docs/reports/SERVER_DISTRO_WIFI_STA_UPSTREAM_WSTA2_LIVE_PASS_2026-07-04.md`.
+> V3384 is currently left resident for the next bounded WSTA3 unit; v2321/v2237/v48 rollback images remain
+> available.  **NEXT:** WSTA3 live: stage the WSTA3 private rootfs tarball under the SD runtime path,
+> refresh/populate userdata with the WSTA3 tarball, switch into Debian, and run Debian-owned STA
+> association/DHCP/default-route validation using private credentials only.
 
 ## North star — priority-ordered tracks (T1 → T2 → T3)
 

@@ -46,6 +46,17 @@ class ServerDistroWsta2NativeMaterializationTests(unittest.TestCase):
         self.assertIn("wpa_supplicant", runner.forbidden_workers("123 wpa_supplicant -i wlan0\n"))
         self.assertIn("dhclient", runner.forbidden_workers("124 dhclient -4 wlan0\n"))
 
+    def test_runner_classifies_auto_menu_busy_for_single_hide_retry(self) -> None:
+        self.assertTrue(
+            runner.is_auto_menu_busy({
+                "rc": -16,
+                "status": "busy",
+                "text": "[busy] auto menu active; send hide/q before command",
+            })
+        )
+        self.assertFalse(runner.is_auto_menu_busy({"rc": -16, "status": "busy", "text": "other busy"}))
+        self.assertFalse(runner.is_auto_menu_busy({"rc": 0, "status": "ok", "text": "auto menu active"}))
+
     def test_runner_live_surface_stays_below_association(self) -> None:
         source = SOURCE.read_text(encoding="utf-8")
         self.assertIn('["server-distro", "hardware-contract"]', source)
@@ -55,6 +66,8 @@ class ServerDistroWsta2NativeMaterializationTests(unittest.TestCase):
         self.assertIn("--flash-v3384", source)
         self.assertIn("wsta2-blocked-no-native-cmdv1-or-recovery-adb", source)
         self.assertIn("wsta2-blocked-v3384-not-resident", source)
+        self.assertIn("auto_menu_retry", source)
+        self.assertIn('send_bridge_line(args, "hide"', source)
 
         for forbidden_command in (
             '["wifi", "connect"',

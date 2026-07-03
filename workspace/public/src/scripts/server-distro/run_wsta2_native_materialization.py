@@ -18,6 +18,7 @@ import argparse
 import datetime as _dt
 import json
 import os
+import socket
 import subprocess
 import sys
 import time
@@ -159,6 +160,47 @@ def run_host(cmd: list[str],
     return payload
 
 
+def send_bridge_line(args: argparse.Namespace, line: str, *, timeout: float = 3.0) -> dict[str, Any]:
+    started = time.monotonic()
+    chunks: list[bytes] = []
+    try:
+        with socket.create_connection((args.bridge_host, args.bridge_port), timeout=timeout) as sock:
+            sock.settimeout(timeout)
+            sock.sendall((line.rstrip("\r\n") + "\n").encode("utf-8"))
+            deadline = time.monotonic() + timeout
+            while time.monotonic() < deadline:
+                try:
+                    chunk = sock.recv(4096)
+                except TimeoutError:
+                    break
+                if not chunk:
+                    break
+                chunks.append(chunk)
+                if b"a90:/#" in chunk or b"hide requested" in chunk:
+                    break
+        return {
+            "ok": True,
+            "line": line,
+            "elapsed_sec": round(time.monotonic() - started, 3),
+            "text": b"".join(chunks).decode("utf-8", errors="replace"),
+        }
+    except Exception as exc:  # noqa: BLE001 - menu-hide is opportunistic and recorded.
+        return {
+            "ok": False,
+            "line": line,
+            "elapsed_sec": round(time.monotonic() - started, 3),
+            "error": str(exc),
+        }
+
+
+def is_auto_menu_busy(payload: dict[str, Any]) -> bool:
+    return (
+        payload.get("status") == "busy"
+        and payload.get("rc") == -16
+        and "auto menu active" in str(payload.get("text", ""))
+    )
+
+
 def adb_recovery_available(adb: str) -> bool:
     record = run_host([adb, "devices"], timeout=5.0)
     return "\trecovery" in record["stdout"] or " recovery " in f" {record['stdout']} "
@@ -202,6 +244,28 @@ def run_cmdv1(args: argparse.Namespace,
         "elapsed_sec": round(time.monotonic() - started, 3),
         "text": result.text,
     }
+    if is_auto_menu_busy(payload):
+        first = payload
+        hide = send_bridge_line(args, "hide", timeout=3.0)
+        started = time.monotonic()
+        result = a90ctl.run_cmdv1_command(
+            args.bridge_host,
+            args.bridge_port,
+            timeout if timeout is not None else args.timeout,
+            command,
+            retry_unsafe=False,
+            require_prompt_after_end=True,
+        )
+        payload = {
+            "command": command,
+            "rc": result.rc,
+            "status": result.status,
+            "elapsed_sec": round(time.monotonic() - started, 3),
+            "text": result.text,
+            "auto_menu_retry": True,
+            "auto_menu_first_attempt": first,
+            "auto_menu_hide": hide,
+        }
     if not allow_error and (result.rc != 0 or result.status != "ok"):
         raise RuntimeError(f"cmdv1 failed rc={result.rc} status={result.status}: {command}\n{result.text}")
     return payload
