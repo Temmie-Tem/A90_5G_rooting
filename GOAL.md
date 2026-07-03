@@ -1177,10 +1177,22 @@ safety invariants and flash gates are binding and override any sub-goal.**
 > `wifi_sta_decision=wifi-sta-assoc-failed`.  No API probe or cloudflared was started, and the
 > device ended back on native V3384 with `selftest fail=0`.  Report:
 > `docs/reports/SERVER_DISTRO_WIFI_STA_UPSTREAM_WSTA14_LINKSTATE_SCAN_BLOCKED_2026-07-04.md`.
-> **NEXT:** WSTA15 handoff/WLAN driver-state boundary: compare native pre-handoff scan/readiness
-> against immediate Debian post-handoff state, test whether the WSTA2 AP-iftype add/delete probe
-> poisons Debian scanning, and design a bounded STA-only or post-handoff reset/materialization path.
-> Do not return to gateway/API/cloudflared until Debian can scan and associate reliably.
+> **🟢 STATUS (2026-07-04 08:12 KST host clock) — WSTA15 native scan boundary PASS.**
+> Codex added `run_wsta15_handoff_scan_boundary.py`, a no-flash resident-V3384 runner that
+> compares a STA-only native `wifi scan` window against a second scan window after the bounded
+> `wifi softap iftype-probe` AP-iftype add/delete proof.  Focused tests pass.  Live WSTA15
+> ran from a fresh native reboot on V3384: initial `wifi status` showed `wlan0` missing; the
+> STA-only scan window failed three times at `decision=wifi-scan-link-up-failed` /
+> `link_up_errno=19`, then attempt 4 passed with `decision=wifi-scan-pass` and
+> `scan_result_count=11`.  The AP-iftype probe then passed, and the post-iftype scan passed
+> immediately with `scan_result_count=12`.  Final decision:
+> `wsta15-native-scan-engine-survives-iftype`; forbidden native Wi-Fi/tunnel workers were absent,
+> no association/DHCP/ping/tunnel ran, and post-run `selftest fail=0`.  Report:
+> `docs/reports/SERVER_DISTRO_WIFI_STA_UPSTREAM_WSTA15_HANDOFF_SCAN_BOUNDARY_2026-07-04.md`.
+> **NEXT:** WSTA16 handoff-specific boundary: fresh native boot -> STA-only native scan gate
+> until visible BSS -> switch_root -> immediate Debian sysfs/ip-link/`iw` scan snapshot before
+> `wpa_supplicant`.  Do not return to gateway/API/cloudflared until Debian can scan and
+> associate reliably.
 
 ## North star — priority-ordered tracks (T1 → T2 → T3)
 

@@ -241,15 +241,38 @@ Report:
 
 ### WSTA15: handoff / WLAN driver-state boundary
 
-Next work should stay below association and answer whether the bad scan state is caused by
-handoff, by the native WSTA2 AP-iftype add/delete probe, or by missing post-handoff driver
-materialization:
+Source result: implemented.  The no-flash
+`workspace/public/src/scripts/server-distro/run_wsta15_handoff_scan_boundary.py` runner compares
+a STA-only native `wifi scan` window with a second scan window after the bounded WSTA2
+AP-iftype add/delete probe.  It requires resident V3384 and stays below association, DHCP,
+ping, API, and public tunnel work.
 
-- compare native pre-handoff scan/readiness state against immediate Debian post-handoff
-  link and scan state;
-- test a STA-only native materialization path that avoids AP-iftype add/delete if available;
-- if needed, design a bounded Debian post-handoff WLAN reset/materialization step that does
-  not leave native Wi-Fi workers alive across `switch_root`;
+Live result: pass for the native scan boundary.  From a fresh native V3384 reboot, initial
+`wifi status` had no `wlan0`.  The STA-only scan window failed three times with
+`wifi-scan-link-up-failed` / `link_up_errno=19`, then attempt 4 passed with
+`scan_result_count=11`.  The AP-iftype probe passed and the post-iftype scan passed
+immediately with `scan_result_count=12`.  Final decision:
+`wsta15-native-scan-engine-survives-iftype`; no forbidden native Wi-Fi/tunnel workers were
+present and post-run selftest stayed `fail=0`.
+
+Interpretation: WSTA15 rules out the narrow "WSTA2 AP-iftype add/delete poisons native scan"
+hypothesis.  A STA-only native scan gate can materialize `wlan0` and visible BSS before
+handoff.  WSTA14's Debian scan failure is therefore handoff-specific or Debian-side driver
+state, not native scan invisibility.
+
+Report:
+`docs/reports/SERVER_DISTRO_WIFI_STA_UPSTREAM_WSTA15_HANDOFF_SCAN_BOUNDARY_2026-07-04.md`.
+
+### WSTA16: immediate Debian post-handoff scan boundary
+
+Next work should stay below association:
+
+- fresh native reboot;
+- repeated native STA-only `wifi scan` until scan engine pass / visible BSS;
+- `switch_root`;
+- immediate Debian sysfs/ip-link/`iw` scan snapshot before starting `wpa_supplicant`;
+- if Debian still cannot scan, design a bounded Debian post-handoff WLAN reset/materialization
+  step that does not leave native Wi-Fi workers alive across handoff;
 - keep public tunnel, API, DNS, and gateway dwell work parked until Debian can scan and
   associate reliably.
 
