@@ -50,6 +50,48 @@ class ServerDistroD3SwitchrootHandoffTests(unittest.TestCase):
         self.assertIn("0.11.133", rendered)
         self.assertIn("--verify-protocol", rendered)
         self.assertIn("selftest", rendered)
+        recovery_command = d3b.flash_command(
+            Path("rollback.img"),
+            "b" * 64,
+            d3b.EXPECTED_ROLLBACK_VERSION,
+            args,
+            from_native=False,
+        )
+        self.assertNotIn("--from-native", [str(item) for item in recovery_command])
+
+    def test_rollback_flash_falls_back_to_recovery_adb(self) -> None:
+        args = types.SimpleNamespace(
+            adb="adb",
+            host="127.0.0.1",
+            port=54321,
+            flash_bridge_timeout=180.0,
+            flash_reboot_timeout=180.0,
+            flash_command_timeout=480.0,
+            rollback_boot=Path("rollback.img"),
+        )
+        calls: list[list[str]] = []
+
+        def fake_run_host_record(command: list[object], *, timeout: float, cwd: Path = d3b.REPO_ROOT):
+            rendered = [str(item) for item in command]
+            calls.append(rendered)
+            if rendered[:2] == ["adb", "devices"]:
+                return {"returncode": 0, "stdout": "RFCM90CFWXA\trecovery usb:3-1\n", "stderr": ""}
+            if "--from-native" in rendered:
+                return {"returncode": 1, "stdout": "native recovery failed", "stderr": ""}
+            return {"returncode": 0, "stdout": "rollback ok", "stderr": ""}
+
+        original = d3b.run_host_record
+        try:
+            d3b.run_host_record = fake_run_host_record
+            result = d3b.rollback_flash_with_recovery_fallback(args)
+        finally:
+            d3b.run_host_record = original
+
+        self.assertTrue(result["ok"])
+        self.assertEqual(result["mode"], "recovery-adb")
+        self.assertIn("--from-native", calls[0])
+        self.assertEqual(calls[1][:2], ["adb", "devices"])
+        self.assertNotIn("--from-native", calls[2])
 
     def test_default_candidate_is_pinned_v3372_stdio_image(self) -> None:
         self.assertTrue(str(d3b.DEFAULT_CANDIDATE_BOOT).endswith(

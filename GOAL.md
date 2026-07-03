@@ -356,6 +356,22 @@ safety invariants and flash gates are binding and override any sub-goal.**
 > After D3B passes, continue the ladder toward D4 (now operator-pre-approved, see below); D-public
 > remains a separate user gate.
 
+> **✅ STATUS (2026-07-03) — D3B live checked `switch_root` handoff DONE.**
+> Codex ran the V3372 D3-capable native-init candidate (`0.11.133`,
+> `v3372-server-distro-switchroot-stdio`, SHA
+> `09db071ae6bebe538d0f9c6c62f6e86b28a4b1a2a6954f1910f8d189675cc653`) with the usrmerge-fixed D3
+> sysvinit image. The runner generated a per-run keyed image, **pre-staged it on SD before candidate
+> flash**, and verified the remote SD SHA matched the keyed image SHA
+> `3251fcea80bffc0d35e25143786e13b023a7dd25c72d662088d268ef57aa996e`. Live proof observed
+> `A90D3_MARKER`, Debian `12.14`, `/proc/1/comm=init`, `/proc/1/exe=/usr/sbin/init`,
+> `dropbear_started=1`, `autoreboot_sec=120`, and `userdata=untouched` over NCM SSH after the PID1
+> `switch_root`. The mandatory auto-reboot returned to the V3372 candidate with `selftest fail=0`;
+> final checked-helper recovery from TWRP restored v2321 (`0.9.285`,
+> `v2321-usb-clean-identity-rodata`) with `selftest fail=0`. Report:
+> `docs/reports/SERVER_DISTRO_D3B_SWITCHROOT_LIVE_PASS_2026-07-03.md`. The D3B runner now falls back
+> from `--from-native` rollback to direct TWRP recovery ADB rollback when recovery is already present.
+> **D3B is complete; D4 preflight is now unblocked. D-public remains a separate external-exposure gate.**
+
 > **✅ OPERATOR APPROVAL — D4 userdata reformat PRE-AUTHORIZED (device owner, 2026-07-03).** The operator
 > has explicitly approved D4. The loop **no longer HALTS for a separate human approval at D4** — it may
 > reformat `userdata` and stand up the persistent appliance as part of the continuous ladder. This is a

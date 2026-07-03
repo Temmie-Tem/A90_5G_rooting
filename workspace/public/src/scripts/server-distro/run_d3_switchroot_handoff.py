@@ -114,8 +114,32 @@ def run_host(command: list[object],
     return payload
 
 
-def flash_command(image: Path, expected_sha: str, expected_version: str, args: argparse.Namespace) -> list[object]:
-    return [
+def run_host_record(command: list[object],
+                    *,
+                    timeout: float,
+                    cwd: Path = REPO_ROOT) -> dict[str, Any]:
+    try:
+        return run_host(command, cwd=cwd, timeout=timeout, check=False)
+    except subprocess.TimeoutExpired as exc:
+        stdout = exc.stdout.decode("utf-8", errors="replace") if isinstance(exc.stdout, bytes) else (exc.stdout or "")
+        stderr = exc.stderr.decode("utf-8", errors="replace") if isinstance(exc.stderr, bytes) else (exc.stderr or "")
+        return {
+            "command": [str(item) for item in command],
+            "returncode": None,
+            "timeout_sec": timeout,
+            "stdout": stdout,
+            "stderr": stderr,
+            "error": "TimeoutExpired",
+        }
+
+
+def flash_command(image: Path,
+                  expected_sha: str,
+                  expected_version: str,
+                  args: argparse.Namespace,
+                  *,
+                  from_native: bool = True) -> list[object]:
+    command: list[object] = [
         sys.executable,
         REVAL_DIR / "native_init_flash.py",
         image,
@@ -133,8 +157,61 @@ def flash_command(image: Path, expected_sha: str, expected_version: str, args: a
         expected_version,
         "--verify-protocol",
         "selftest",
-        "--from-native",
     ]
+    if from_native:
+        command.append("--from-native")
+    return command
+
+
+def recovery_adb_state(args: argparse.Namespace) -> dict[str, Any]:
+    record = run_host_record([args.adb, "devices", "-l"], timeout=10.0)
+    stdout = str(record.get("stdout") or "")
+    recovery_lines = [
+        line for line in stdout.splitlines()
+        if "\trecovery" in line or " recovery " in f" {line} "
+    ]
+    return {
+        "record": record,
+        "recovery_available": bool(recovery_lines),
+        "recovery_lines": recovery_lines,
+    }
+
+
+def rollback_flash_with_recovery_fallback(args: argparse.Namespace) -> dict[str, Any]:
+    attempts: list[dict[str, Any]] = []
+    first = run_host_record(
+        flash_command(
+            args.rollback_boot,
+            EXPECTED_ROLLBACK_SHA256,
+            EXPECTED_ROLLBACK_VERSION,
+            args,
+            from_native=True,
+        ),
+        timeout=args.flash_command_timeout,
+    )
+    attempts.append({"mode": "from-native", "record": first})
+    if first.get("returncode") == 0:
+        return {"ok": True, "mode": "from-native", "attempts": attempts}
+
+    state = recovery_adb_state(args)
+    attempts.append({"mode": "recovery-adb-state", "record": state})
+    if not state.get("recovery_available"):
+        return {"ok": False, "mode": "from-native-failed-no-recovery-adb", "attempts": attempts}
+
+    second = run_host_record(
+        flash_command(
+            args.rollback_boot,
+            EXPECTED_ROLLBACK_SHA256,
+            EXPECTED_ROLLBACK_VERSION,
+            args,
+            from_native=False,
+        ),
+        timeout=args.flash_command_timeout,
+    )
+    attempts.append({"mode": "recovery-adb", "record": second})
+    if second.get("returncode") == 0:
+        return {"ok": True, "mode": "recovery-adb", "attempts": attempts}
+    return {"ok": False, "mode": "recovery-adb-failed", "attempts": attempts}
 
 
 def verify_local_artifacts(args: argparse.Namespace) -> dict[str, Any]:
@@ -410,13 +487,10 @@ def run_live(args: argparse.Namespace) -> int:
         add_event(events, run_dir, "live_session_end")
 
         add_event(events, run_dir, "rollback_flash_start")
-        save_step(
-            "rollback_flash",
-            run_host(
-                flash_command(args.rollback_boot, EXPECTED_ROLLBACK_SHA256, EXPECTED_ROLLBACK_VERSION, args),
-                timeout=args.flash_command_timeout,
-            ),
-        )
+        rollback_flash = rollback_flash_with_recovery_fallback(args)
+        save_step("rollback_flash", rollback_flash)
+        if not rollback_flash.get("ok"):
+            raise RuntimeError(f"rollback flash failed: {rollback_flash.get('mode')}")
         rollback_needed = False
         add_event(events, run_dir, "rollback_flash_done")
         final = {
@@ -457,14 +531,10 @@ def run_live(args: argparse.Namespace) -> int:
                     )
             add_event(events, run_dir, "rollback_flash_start")
             try:
-                save_step(
-                    "rollback_flash_after_error",
-                    run_host(
-                        flash_command(args.rollback_boot, EXPECTED_ROLLBACK_SHA256, EXPECTED_ROLLBACK_VERSION, args),
-                        timeout=args.flash_command_timeout,
-                        check=False,
-                    ),
-                )
+                rollback_flash = rollback_flash_with_recovery_fallback(args)
+                save_step("rollback_flash_after_error", rollback_flash)
+                if not rollback_flash.get("ok"):
+                    raise RuntimeError(f"rollback flash failed: {rollback_flash.get('mode')}")
                 add_event(events, run_dir, "rollback_flash_done")
                 final = {
                     "version": d1.run_cmd(args.host, args.port, args.timeout, ["version"], allow_error=True),
@@ -479,6 +549,7 @@ def run_live(args: argparse.Namespace) -> int:
 
 def main(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser(description=__doc__)
+    parser.add_argument("--adb", default="adb")
     parser.add_argument("--host", default=a90ctl.DEFAULT_HOST)
     parser.add_argument("--port", type=int, default=a90ctl.DEFAULT_PORT)
     parser.add_argument("--device-ip", default="192.168.7.2")
