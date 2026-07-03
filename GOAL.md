@@ -1074,6 +1074,27 @@ safety invariants and flash gates are binding and override any sub-goal.**
 > later disconnects, collect redacted `wpa_cli`/association transitions after firstboot, prove a dwell
 > window with stable gateway/DNS/TCP, and only then retry the API probe/cloudflared.
 
+> **🟡 STATUS (2026-07-04 06:45 KST host clock) — WSTA10 STA/L3 dwell BLOCKED after initial pass.**
+> Codex added run/phase sequencing to the Debian STA helper (`wifi_sta_run_id` plus ordered
+> `wifi_sta_event=<run>:<seq>:<phase>:<uptime_ms>`) and made `wifi-sta-pass` depend on a six-sample
+> post-pass dwell window.  Firstboot now gates quick tunnel startup in WSTA mode: if Wi-Fi STA is
+> enabled, cloudflared starts only when the latest `wifi_sta_decision=wifi-sta-pass`; otherwise it
+> records `tunnel_wifi_sta_gate_*` and keeps tunnel exposure off.  Live WSTA10 used the D4 guarded
+> userdata refresh, fresh native V3384 boot, WSTA2 materialization pass, and no-clock Debian handoff.
+> The appliance reached initial L3 pass (`wpa_completed=1`, carrier up, DHCP rc=0, default route on
+> `wlan0`, gateway ping rc=0, DNS rc=0, TCP/443 rc=0), and dwell samples 1-5 stayed good.  Dwell
+> sample 6 failed with `wpa_state=COMPLETED`, carrier up, default route still on `wlan0`, gateway ARP
+> still resolved, but DNS rc=2 and TCP not attempted; the final decision was
+> `wifi_sta_decision=wifi-sta-dwell-failed`.  A post-failure spot check still showed
+> `wpa_state=COMPLETED` and carrier up while DNS/TCP failed, so the next blocker is
+> associated-but-L3-degraded behavior, not raw association loss.  Cloudflared was not started, and the
+> device ended back on native V3384 with `selftest fail=0`.  Report:
+> `docs/reports/SERVER_DISTRO_WIFI_STA_UPSTREAM_WSTA10_DWELL_BLOCKED_2026-07-04.md`.
+> **NEXT:** WSTA11 associated-but-L3-degraded diagnostic: keep WSTA10 phase/dwell markers, add
+> redacted `wpa_cli SIGNAL_POLL`/event samples during dwell, compare gateway ARP vs gateway ping/DNS/TCP
+> timing, and only then decide whether a keepalive/reconnect policy is justified.  Do not retry API
+> probe or cloudflared until the dwell window passes.
+
 ## North star — priority-ordered tracks (T1 → T2 → T3)
 
 Pursue the **highest tier that still has a meaningful, safely-actionable next step**.

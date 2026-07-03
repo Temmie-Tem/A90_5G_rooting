@@ -158,6 +158,23 @@ phases so stale pass markers cannot mask a later disconnect, collect redacted as
 state/events after firstboot, and only then decide whether a keepalive/reassociate policy
 belongs in the Debian STA helper.
 
+Live result: blocked at dwell.  WSTA10 added per-run phase markers and a six-sample
+post-pass dwell gate.  The appliance reached initial L3 pass, dwell samples 1-5 stayed
+good, and sample 6 failed with `wpa_state=COMPLETED`, carrier up, default route still on
+`wlan0`, gateway ARP still resolved, but DNS/TCP no longer passing.  The final decision was
+`wifi-sta-dwell-failed`.  Firstboot also gated the tunnel path, so cloudflared did not start
+after the dwell failure.
+
+Report:
+`docs/reports/SERVER_DISTRO_WIFI_STA_UPSTREAM_WSTA10_DWELL_BLOCKED_2026-07-04.md`.
+
+### WSTA11: associated but L3 degraded
+
+The next unit should keep WSTA10's sequence/dwell markers and add redacted signal/event
+samples during dwell.  Focus on distinguishing gateway reachability loss, resolver loss,
+DHCP route/lease behavior, and supplicant roaming state before adding keepalive or reconnect
+behavior.
+
 ### WSTA7: Debian association/control fix
 
 Live result: pass.  The Debian STA helper now waits for the `wpa_supplicant` control
@@ -201,13 +218,11 @@ Stop before mutation or public exposure if any condition appears:
 
 ## 7. Next Implementation Unit
 
-Run WSTA10 as a Debian STA/L3 persistence gate:
+Run WSTA11 as an associated-but-L3-degraded diagnostic gate:
 
 1. keep the fresh native boot -> WSTA2 `--probe-iftype` -> no-clock Debian `switch_root` sequence;
-2. require an initial `wifi_sta_decision=wifi-sta-pass`;
-3. add timestamped or sequence-tagged marker phases so the latest association/L3 state is unambiguous;
-4. collect redacted `wpa_cli` status/events plus gateway/DNS/TCP dwell samples after firstboot;
-5. only add keepalive or reassociation behavior if the trace proves link drop, gateway ARP loss, or
-   resolver loss after the initial pass;
-6. retry the manual API probe only after a same-boot dwell window proves stable gateway, DNS, and
-   TCP/443. Do not retry `cloudflared` until the manual API probe passes.
+2. require WSTA10-style run/phase/dwell markers;
+3. collect redacted `wpa_cli STATUS`, `SIGNAL_POLL`, and `PING` samples during dwell;
+4. compare association/carrier state against gateway ARP, gateway ping, DNS, and TCP/443 at each sample;
+5. only add keepalive or reassociation behavior if the trace proves the failure mode;
+6. do not retry the manual API probe or cloudflared until the dwell window passes.

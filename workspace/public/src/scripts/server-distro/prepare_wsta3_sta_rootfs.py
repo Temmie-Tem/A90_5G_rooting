@@ -452,6 +452,7 @@ def stage_dpublic_wifi_sta_helper(rootfs: Path) -> dict[str, Any]:
         "helper_mode": oct(helper_target.stat().st_mode & 0o777),
         "latest_helper_staged": True,
         "l3_gate_present": "probe_l3_reachability" in text,
+        "dwell_gate_present": "dwell_stability_probe" in text and "wifi_sta_dwell_pass" in text,
         "tcp_probe_fallback_present": "nc.openbsd" in text,
         "secret_values_logged": 0,
     }

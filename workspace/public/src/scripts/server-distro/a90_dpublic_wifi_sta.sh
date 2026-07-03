@@ -20,10 +20,26 @@ DHCP_LEASES=$RUN_DIR/wifi-sta-dhclient.leases
 DHCP_LOG=$RUN_DIR/wifi-sta-dhclient.log
 L3_HOST=cloudflare.com
 L3_PORT=443
+DWELL_SAMPLES=6
+DWELL_INTERVAL_SEC=5
 NC_BIN=
+RUN_ID=
+PHASE_SEQ=0
 
 append_marker() {
   [ -f "$MARKER" ] && echo "$1" >> "$MARKER"
+}
+
+uptime_ms() {
+  awk '{ split($1, a, "."); ms = a[1] * 1000; if (a[2] != "") { ms += substr(a[2] "000", 1, 3) } print ms }' /proc/uptime 2>/dev/null
+}
+
+mark_phase() {
+  phase=$1
+  PHASE_SEQ=$((PHASE_SEQ + 1))
+  now_ms=$(uptime_ms)
+  [ -n "$now_ms" ] || now_ms=0
+  append_marker "wifi_sta_event=$RUN_ID:$PHASE_SEQ:$phase:$now_ms"
 }
 
 kill_pidfile_if_matching() {
@@ -89,7 +105,7 @@ arp_state_is_resolved() {
   esac
 }
 
-probe_l3_reachability() {
+sample_l3_reachability() {
   router=$1
   gateway_ping_rc=99
   gateway_arp_state=none
@@ -113,7 +129,10 @@ probe_l3_reachability() {
     "$NC_BIN" -z -w 5 "$L3_HOST" "$L3_PORT" >/dev/null 2>&1
     tcp_probe_rc=$?
   fi
+}
 
+probe_l3_reachability() {
+  sample_l3_reachability "$1"
   append_marker "wifi_sta_l3_attempted=1"
   append_marker "wifi_sta_l3_probe=cloudflare-443"
   append_marker "wifi_sta_tcp_probe_tool=$(basename "$NC_BIN")"
@@ -164,6 +183,11 @@ append_wpa_status_markers() {
   esac
 }
 
+wpa_state_value() {
+  wpa_cli -p "$WPA_CTRL_DIR" -i "$IFACE" STATUS 2>/dev/null |
+    awk -F= '$1 == "wpa_state" { print $2; exit }'
+}
+
 wait_wpa_completed() {
   wpa_completed=0
   wpa_completed_wait_sec=0
@@ -184,22 +208,86 @@ wait_wpa_completed() {
 
 finish() {
   decision=$1
+  mark_phase "finish-$decision"
+  append_marker "wifi_sta_decision_run_id=$RUN_ID"
   append_marker "wifi_sta_decision=$decision"
   append_marker "wifi_sta_secret_values_logged=0"
   exit 0
 }
 
+dwell_stability_probe() {
+  router=$1
+  dwell_pass=1
+  append_marker "wifi_sta_dwell_started=1"
+  append_marker "wifi_sta_dwell_samples=$DWELL_SAMPLES"
+  append_marker "wifi_sta_dwell_interval_sec=$DWELL_INTERVAL_SEC"
+  mark_phase "dwell-start"
+
+  sample=1
+  while [ "$sample" -le "$DWELL_SAMPLES" ]; do
+    if [ "$sample" != "1" ]; then
+      sleep "$DWELL_INTERVAL_SEC"
+    fi
+    wpa_state=$(wpa_state_value)
+    [ -n "$wpa_state" ] || wpa_state=-
+    carrier_now=$(cat /sys/class/net/$IFACE/carrier 2>/dev/null)
+    [ -n "$carrier_now" ] || carrier_now=0
+    route_iface=$(default_route_iface)
+    [ -n "$route_iface" ] || route_iface=none
+    sample_l3_reachability "$router"
+
+    sample_ok=1
+    [ "$wpa_state" = "COMPLETED" ] || sample_ok=0
+    [ "$carrier_now" = "1" ] || sample_ok=0
+    [ "$route_iface" = "$IFACE" ] || sample_ok=0
+    [ "$gateway_arp_resolved" = "1" ] || sample_ok=0
+    [ "$dns_probe_rc" = "0" ] || sample_ok=0
+    [ "$tcp_probe_rc" = "0" ] || sample_ok=0
+
+    append_marker "wifi_sta_dwell_sample_${sample}_wpa_state=$wpa_state"
+    append_marker "wifi_sta_dwell_sample_${sample}_carrier=$carrier_now"
+    append_marker "wifi_sta_dwell_sample_${sample}_default_route_iface=$route_iface"
+    append_marker "wifi_sta_dwell_sample_${sample}_gateway_ping_rc=$gateway_ping_rc"
+    append_marker "wifi_sta_dwell_sample_${sample}_gateway_arp_state=$gateway_arp_state"
+    append_marker "wifi_sta_dwell_sample_${sample}_gateway_arp_resolved=$gateway_arp_resolved"
+    append_marker "wifi_sta_dwell_sample_${sample}_dns_rc=$dns_probe_rc"
+    append_marker "wifi_sta_dwell_sample_${sample}_tcp443_rc=$tcp_probe_rc"
+    append_marker "wifi_sta_dwell_sample_${sample}_ok=$sample_ok"
+    mark_phase "dwell-sample-$sample"
+
+    if [ "$sample_ok" != "1" ]; then
+      dwell_pass=0
+    fi
+    sample=$((sample + 1))
+  done
+
+  append_marker "wifi_sta_dwell_pass=$dwell_pass"
+  if [ "$dwell_pass" = "1" ]; then
+    mark_phase "dwell-pass"
+    return 0
+  fi
+  mark_phase "dwell-fail"
+  return 1
+}
+
 mkdir -p "$RUN_DIR"
+RUN_ID="$(uptime_ms)-$$"
+[ -n "$RUN_ID" ] || RUN_ID="0-$$"
+append_marker "wifi_sta_run_id=$RUN_ID"
+append_marker "wifi_sta_run_start_uptime_ms=$(uptime_ms)"
+mark_phase "start"
 append_marker "wifi_sta_requested=1"
 append_marker "wifi_sta_iface=$IFACE"
 append_marker "wifi_sta_config_path=$CONFIG"
 
 if [ ! -s "$ENABLE" ]; then
+  mark_phase "manual-disabled"
   append_marker "wifi_sta_started=0"
   finish "wifi-sta-manual"
 fi
 
 if [ ! -s "$CONFIG" ]; then
+  mark_phase "config-missing"
   append_marker "wifi_sta_config_present=0"
   append_marker "wifi_sta_started=0"
   finish "wifi-sta-config-missing"
@@ -212,17 +300,21 @@ if ! command -v wpa_supplicant >/dev/null 2>&1 ||
    ! command -v ip >/dev/null 2>&1 ||
    ! command -v ping >/dev/null 2>&1 ||
    ! command -v getent >/dev/null 2>&1; then
+  mark_phase "missing-tools"
   append_marker "wifi_sta_started=0"
   finish "wifi-sta-missing-tools"
 fi
 NC_BIN=$(command -v nc 2>/dev/null || command -v nc.openbsd 2>/dev/null || true)
 if [ -z "$NC_BIN" ]; then
+  mark_phase "missing-nc"
   append_marker "wifi_sta_started=0"
   finish "wifi-sta-missing-tools"
 fi
+mark_phase "tools-ok"
 
 ip link show "$IFACE" >/dev/null 2>&1
 if [ "$?" != "0" ]; then
+  mark_phase "wlan0-missing"
   append_marker "wifi_sta_wlan0_present=0"
   append_marker "wifi_sta_started=0"
   finish "wifi-sta-wlan0-missing"
@@ -246,20 +338,25 @@ ip link set "$IFACE" up >/dev/null 2>&1
 link_set_up_rc=$?
 append_marker "wifi_sta_link_set_up_rc=$link_set_up_rc"
 if [ "$link_set_up_rc" != "0" ]; then
+  mark_phase "link-up-failed"
   append_marker "wifi_sta_started=0"
   finish "wifi-sta-link-up-failed"
 fi
+mark_phase "link-up"
 wpa_supplicant -B -q -i "$IFACE" -D nl80211 -c "$CONFIG" \
   -P "$WPA_PID" -f "$WPA_LOG" >/dev/null 2>&1
 wpa_rc=$?
 append_marker "wifi_sta_wpa_supplicant_rc=$wpa_rc"
 if [ "$wpa_rc" != "0" ]; then
+  mark_phase "wpa-start-failed"
   append_marker "wifi_sta_started=0"
   finish "wifi-sta-wpa-start-failed"
 fi
 
 append_marker "wifi_sta_started=1"
+mark_phase "wpa-started"
 if wpa_ctrl_wait; then
+  mark_phase "ctrl-ready"
   wpa_cli_quiet DRIVER COUNTRY KR
   append_marker "wifi_sta_ctrl_driver_country_rc=$?"
   wpa_cli_quiet SCAN
@@ -272,11 +369,14 @@ if wpa_ctrl_wait; then
   append_marker "wifi_sta_ctrl_reassociate_rc=$?"
   append_wpa_status_markers
   if ! wait_wpa_completed; then
+    mark_phase "assoc-failed"
     append_wpa_status_markers
     append_marker "wifi_sta_carrier_up=0"
     finish "wifi-sta-assoc-failed"
   fi
+  mark_phase "assoc-completed"
 else
+  mark_phase "ctrl-unavailable"
   append_marker "wifi_sta_ctrl_driver_country_rc=99"
   append_marker "wifi_sta_ctrl_scan_rc=99"
   append_marker "wifi_sta_ctrl_enable_network_rc=99"
@@ -296,6 +396,7 @@ for _ in 1 2 3 4 5 6 7 8 9 10 11 12; do
   sleep 1
 done
 append_marker "wifi_sta_carrier_up=$carrier"
+mark_phase "carrier-checked"
 if [ "$ctrl_ready" = "1" ]; then
   append_wpa_status_markers
 fi
@@ -304,6 +405,7 @@ dhclient -1 -q -4 -pf "$DHCP_PID" -lf "$DHCP_LEASES" "$IFACE" > "$DHCP_LOG" 2>&1
 dhcp_rc=$?
 append_marker "wifi_sta_dhcp_attempted=1"
 append_marker "wifi_sta_dhcp_rc=$dhcp_rc"
+mark_phase "dhcp-done"
 if [ "$dhcp_rc" = "0" ]; then
   router=$(lease_default_router)
   if [ -n "$router" ]; then
@@ -335,6 +437,10 @@ if [ "$dhcp_rc" = "0" ] && [ "$route_iface" = "$IFACE" ]; then
   fi
   if [ "$tcp_probe_rc" != "0" ]; then
     finish "wifi-sta-l3-tcp-failed"
+  fi
+  mark_phase "l3-initial-pass"
+  if ! dwell_stability_probe "$router"; then
+    finish "wifi-sta-dwell-failed"
   fi
   finish "wifi-sta-pass"
 fi

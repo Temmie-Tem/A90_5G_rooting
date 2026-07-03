@@ -53,6 +53,10 @@ cleanup_cloudflared_runtime() {
     echo cloudflared_runtime_cleanup="$reason" >> /run/a90-d3-marker
 }
 
+latest_wifi_sta_decision() {
+  awk -F= '$1 == "wifi_sta_decision" { value = $2 } END { print value }' /run/a90-d3-marker 2>/dev/null
+}
+
 wait_no_tcp_listen() {
   port_hex=$1
   for _ in 1 2 3 4 5; do
@@ -242,8 +246,24 @@ else
   echo wifi_sta_secret_values_logged=0 >> /run/a90-d3-marker
 fi
 
+wifi_sta_tunnel_gate_required=0
+wifi_sta_tunnel_gate_decision=not-required
+wifi_sta_tunnel_gate_ok=1
+if [ -s /etc/a90-dpublic/wifi-sta-enable ]; then
+  wifi_sta_tunnel_gate_required=1
+  wifi_sta_tunnel_gate_decision=$(latest_wifi_sta_decision)
+  [ -n "$wifi_sta_tunnel_gate_decision" ] || wifi_sta_tunnel_gate_decision=missing
+  if [ "$wifi_sta_tunnel_gate_decision" != "wifi-sta-pass" ]; then
+    wifi_sta_tunnel_gate_ok=0
+  fi
+fi
+echo tunnel_wifi_sta_gate_required=$wifi_sta_tunnel_gate_required >> /run/a90-d3-marker
+echo tunnel_wifi_sta_gate_decision=$wifi_sta_tunnel_gate_decision >> /run/a90-d3-marker
+echo tunnel_wifi_sta_gate_ok=$wifi_sta_tunnel_gate_ok >> /run/a90-d3-marker
+
 if [ -s /etc/a90-dpublic/cloudflared-quick-enable ] &&
-   [ -x /usr/local/bin/cloudflared ]; then
+   [ -x /usr/local/bin/cloudflared ] &&
+   [ "$wifi_sta_tunnel_gate_ok" = "1" ]; then
   cleanup_cloudflared_runtime enabled-prestart
   /usr/local/bin/cloudflared tunnel --no-autoupdate \
     --url http://127.0.0.1:8080 --metrics 127.0.0.1:0 --loglevel info \
@@ -252,6 +272,16 @@ if [ -s /etc/a90-dpublic/cloudflared-quick-enable ] &&
   echo tunnel_started=1 >> /run/a90-d3-marker
   observe_cloudflared_start
 else
+  if [ -s /etc/a90-dpublic/cloudflared-quick-enable ] &&
+     [ -x /usr/local/bin/cloudflared ] &&
+     [ "$wifi_sta_tunnel_gate_ok" != "1" ]; then
+    cleanup_cloudflared_runtime wifi-sta-not-ready
+    echo tunnel_started=blocked-wifi-sta >> /run/a90-d3-marker
+    echo tunnel_process_alive=0 >> /run/a90-d3-marker
+    echo tunnel_url_observed=0 >> /run/a90-d3-marker
+    echo tunnel_decision=wifi-sta-not-ready >> /run/a90-d3-marker
+    exit 0
+  fi
   cleanup_cloudflared_runtime manual
   echo tunnel_started=manual >> /run/a90-d3-marker
   echo tunnel_process_alive=0 >> /run/a90-d3-marker

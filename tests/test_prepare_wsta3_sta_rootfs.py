@@ -126,8 +126,10 @@ class PrepareWsta3PrivateRootfsTests(unittest.TestCase):
             text = target.read_text(encoding="utf-8")
             self.assertTrue(result["latest_helper_staged"])
             self.assertTrue(result["l3_gate_present"])
+            self.assertTrue(result["dwell_gate_present"])
             self.assertTrue(result["tcp_probe_fallback_present"])
             self.assertIn("probe_l3_reachability", text)
+            self.assertIn("dwell_stability_probe", text)
             self.assertIn("nc.openbsd", text)
             self.assertNotIn("old-helper", text)
 
@@ -317,6 +319,7 @@ class PrepareWsta3PrivateRootfsTests(unittest.TestCase):
             self.assertTrue(result["sta_tools"]["ok"])
             self.assertTrue(result["wifi_sta_helper"]["latest_helper_staged"])
             self.assertTrue(result["wifi_sta_helper"]["l3_gate_present"])
+            self.assertTrue(result["wifi_sta_helper"]["dwell_gate_present"])
             self.assertTrue(result["api_probe_helper"]["api_post_present"])
             self.assertFalse(result["api_probe_tools"]["requested"])
             self.assertTrue(result["firstboot"]["wifi_sta_helper_invoked"])
