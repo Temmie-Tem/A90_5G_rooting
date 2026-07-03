@@ -1095,6 +1095,27 @@ safety invariants and flash gates are binding and override any sub-goal.**
 > timing, and only then decide whether a keepalive/reconnect policy is justified.  Do not retry API
 > probe or cloudflared until the dwell window passes.
 
+> **🟡 STATUS (2026-07-04 07:02 KST host clock) — WSTA11 signal dwell BLOCKED at gateway reachability.**
+> Codex added redacted per-sample `wpa_cli PING` and `SIGNAL_POLL` markers to the Debian STA helper,
+> plus first-failure sample/reason classification.  The WSTA private rootfs preparer now records
+> `signal_dwell_present`, and tests assert the signal-dwell markers.  Live WSTA11 used the D4 guarded
+> userdata refresh, fresh native V3384 boot, WSTA2 materialization pass, and no-clock Debian handoff.
+> The first D4 format attempt stopped before formatting on a stale SD e2fs toolroot device node; after
+> removing that stale toolroot node only, the guarded format/populate retry passed.  Dwell samples 1-5
+> were good with `wpa_state=COMPLETED`, `wpa_cli` control PING rc=0, signal poll rc=0, carrier up,
+> default route on `wlan0`, gateway ping rc=0, DNS rc=0, and TCP/443 rc=0.  Sample 6 still had
+> `wpa_state=COMPLETED`, `wpa_cli` PING rc=0, carrier up, default route on `wlan0`, and gateway ARP
+> resolved, but gateway ping failed first; DNS then failed and TCP/443 was not attempted.  The final
+> markers were `wifi_sta_dwell_first_fail_sample=6`,
+> `wifi_sta_dwell_first_fail_reason=gateway-ping`, and
+> `wifi_sta_decision=wifi-sta-dwell-failed`.  Cloudflared was not started, and the device ended back on
+> native V3384 with `selftest fail=0`.  Report:
+> `docs/reports/SERVER_DISTRO_WIFI_STA_UPSTREAM_WSTA11_SIGNAL_DWELL_BLOCKED_2026-07-04.md`.
+> **NEXT:** WSTA12 gateway reachability diagnostic: keep WSTA11 markers, add explicit gateway ping
+> count/timing plus neighbor refresh and DHCP lease/router-state comparison around the first
+> gateway-ping failure, and only then test a bounded ARP/gateway keepalive candidate if justified.
+> Do not retry API probe or cloudflared until the dwell window passes.
+
 ## North star — priority-ordered tracks (T1 → T2 → T3)
 
 Pursue the **highest tier that still has a meaningful, safely-actionable next step**.

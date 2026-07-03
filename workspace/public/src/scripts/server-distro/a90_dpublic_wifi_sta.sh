@@ -188,6 +188,19 @@ wpa_state_value() {
     awk -F= '$1 == "wpa_state" { print $2; exit }'
 }
 
+sample_wpa_signal() {
+  wpa_cli -p "$WPA_CTRL_DIR" -i "$IFACE" PING 2>/dev/null | grep -q '^PONG'
+  wpa_ping_rc=$?
+  signal=$(wpa_cli -p "$WPA_CTRL_DIR" -i "$IFACE" SIGNAL_POLL 2>/dev/null)
+  signal_poll_rc=$?
+  signal_rssi_dbm=$(printf '%s\n' "$signal" | awk -F= '$1 == "RSSI" { print $2; exit }')
+  signal_linkspeed_mbps=$(printf '%s\n' "$signal" | awk -F= '$1 == "LINKSPEED" { print $2; exit }')
+  signal_frequency_mhz=$(printf '%s\n' "$signal" | awk -F= '$1 == "FREQUENCY" { print $2; exit }')
+  [ -n "$signal_rssi_dbm" ] || signal_rssi_dbm=-
+  [ -n "$signal_linkspeed_mbps" ] || signal_linkspeed_mbps=-
+  [ -n "$signal_frequency_mhz" ] || signal_frequency_mhz=-
+}
+
 wait_wpa_completed() {
   wpa_completed=0
   wpa_completed_wait_sec=0
@@ -218,6 +231,8 @@ finish() {
 dwell_stability_probe() {
   router=$1
   dwell_pass=1
+  first_fail_sample=0
+  first_fail_reason=none
   append_marker "wifi_sta_dwell_started=1"
   append_marker "wifi_sta_dwell_samples=$DWELL_SAMPLES"
   append_marker "wifi_sta_dwell_interval_sec=$DWELL_INTERVAL_SEC"
@@ -230,6 +245,7 @@ dwell_stability_probe() {
     fi
     wpa_state=$(wpa_state_value)
     [ -n "$wpa_state" ] || wpa_state=-
+    sample_wpa_signal
     carrier_now=$(cat /sys/class/net/$IFACE/carrier 2>/dev/null)
     [ -n "$carrier_now" ] || carrier_now=0
     route_iface=$(default_route_iface)
@@ -237,14 +253,39 @@ dwell_stability_probe() {
     sample_l3_reachability "$router"
 
     sample_ok=1
-    [ "$wpa_state" = "COMPLETED" ] || sample_ok=0
-    [ "$carrier_now" = "1" ] || sample_ok=0
-    [ "$route_iface" = "$IFACE" ] || sample_ok=0
-    [ "$gateway_arp_resolved" = "1" ] || sample_ok=0
-    [ "$dns_probe_rc" = "0" ] || sample_ok=0
-    [ "$tcp_probe_rc" = "0" ] || sample_ok=0
+    sample_failure=none
+    if [ "$wpa_ping_rc" != "0" ]; then
+      sample_ok=0
+      sample_failure=wpa-ping
+    elif [ "$wpa_state" != "COMPLETED" ]; then
+      sample_ok=0
+      sample_failure=wpa-state
+    elif [ "$carrier_now" != "1" ]; then
+      sample_ok=0
+      sample_failure=carrier
+    elif [ "$route_iface" != "$IFACE" ]; then
+      sample_ok=0
+      sample_failure=default-route
+    elif [ "$gateway_arp_resolved" != "1" ]; then
+      sample_ok=0
+      sample_failure=gateway-arp
+    elif [ "$gateway_ping_rc" != "0" ]; then
+      sample_ok=0
+      sample_failure=gateway-ping
+    elif [ "$dns_probe_rc" != "0" ]; then
+      sample_ok=0
+      sample_failure=dns
+    elif [ "$tcp_probe_rc" != "0" ]; then
+      sample_ok=0
+      sample_failure=tcp443
+    fi
 
     append_marker "wifi_sta_dwell_sample_${sample}_wpa_state=$wpa_state"
+    append_marker "wifi_sta_dwell_sample_${sample}_wpa_ping_rc=$wpa_ping_rc"
+    append_marker "wifi_sta_dwell_sample_${sample}_signal_poll_rc=$signal_poll_rc"
+    append_marker "wifi_sta_dwell_sample_${sample}_signal_rssi_dbm=$signal_rssi_dbm"
+    append_marker "wifi_sta_dwell_sample_${sample}_signal_linkspeed_mbps=$signal_linkspeed_mbps"
+    append_marker "wifi_sta_dwell_sample_${sample}_signal_frequency_mhz=$signal_frequency_mhz"
     append_marker "wifi_sta_dwell_sample_${sample}_carrier=$carrier_now"
     append_marker "wifi_sta_dwell_sample_${sample}_default_route_iface=$route_iface"
     append_marker "wifi_sta_dwell_sample_${sample}_gateway_ping_rc=$gateway_ping_rc"
@@ -252,16 +293,23 @@ dwell_stability_probe() {
     append_marker "wifi_sta_dwell_sample_${sample}_gateway_arp_resolved=$gateway_arp_resolved"
     append_marker "wifi_sta_dwell_sample_${sample}_dns_rc=$dns_probe_rc"
     append_marker "wifi_sta_dwell_sample_${sample}_tcp443_rc=$tcp_probe_rc"
+    append_marker "wifi_sta_dwell_sample_${sample}_failure=$sample_failure"
     append_marker "wifi_sta_dwell_sample_${sample}_ok=$sample_ok"
     mark_phase "dwell-sample-$sample"
 
     if [ "$sample_ok" != "1" ]; then
       dwell_pass=0
+      if [ "$first_fail_sample" = "0" ]; then
+        first_fail_sample=$sample
+        first_fail_reason=$sample_failure
+      fi
     fi
     sample=$((sample + 1))
   done
 
   append_marker "wifi_sta_dwell_pass=$dwell_pass"
+  append_marker "wifi_sta_dwell_first_fail_sample=$first_fail_sample"
+  append_marker "wifi_sta_dwell_first_fail_reason=$first_fail_reason"
   if [ "$dwell_pass" = "1" ]; then
     mark_phase "dwell-pass"
     return 0

@@ -1,7 +1,7 @@
 # Server-Distro Wi-Fi STA Upstream Rung
 
 - Date: 2026-07-04
-- Status: WSTA9 blocked at Debian STA/L3 persistence before D-public tunnel retry
+- Status: WSTA11 blocked at associated-but-gateway-degraded dwell before D-public tunnel retry
 - Scope: next hardware rung after the Stage0 server-distro hardware contract.
 - Device action in this doc: none.
 
@@ -170,10 +170,25 @@ Report:
 
 ### WSTA11: associated but L3 degraded
 
-The next unit should keep WSTA10's sequence/dwell markers and add redacted signal/event
-samples during dwell.  Focus on distinguishing gateway reachability loss, resolver loss,
-DHCP route/lease behavior, and supplicant roaming state before adding keepalive or reconnect
-behavior.
+Live result: blocked at the gateway reachability boundary.  WSTA11 kept the WSTA10
+sequence/dwell markers and added redacted `wpa_cli PING` plus `SIGNAL_POLL` samples during
+dwell.  Samples 1-5 stayed good.  Sample 6 still had `wpa_state=COMPLETED`, `wpa_cli`
+control `PING` success, carrier up, default route on `wlan0`, and gateway ARP resolved, but
+gateway ping failed first; DNS then failed and TCP/443 was not attempted.  The first-failure
+markers were `wifi_sta_dwell_first_fail_sample=6` and
+`wifi_sta_dwell_first_fail_reason=gateway-ping`.  This narrows the blocker to associated
+but gateway-degraded behavior, not raw signal loss or supplicant disconnect.
+
+Report:
+`docs/reports/SERVER_DISTRO_WIFI_STA_UPSTREAM_WSTA11_SIGNAL_DWELL_BLOCKED_2026-07-04.md`.
+
+### WSTA12: gateway reachability diagnostic
+
+The next unit should keep WSTA11's markers and add explicit gateway ping count/timing,
+neighbor refresh observations, and DHCP lease/router-state comparison around the first
+gateway-ping failure.  Only after that trace proves the boundary should a bounded ARP or
+gateway keepalive candidate be tested.  Do not retry the manual API probe or cloudflared
+until the dwell window passes.
 
 ### WSTA7: Debian association/control fix
 
@@ -218,11 +233,11 @@ Stop before mutation or public exposure if any condition appears:
 
 ## 7. Next Implementation Unit
 
-Run WSTA11 as an associated-but-L3-degraded diagnostic gate:
+Run WSTA12 as a gateway reachability diagnostic gate:
 
 1. keep the fresh native boot -> WSTA2 `--probe-iftype` -> no-clock Debian `switch_root` sequence;
-2. require WSTA10-style run/phase/dwell markers;
-3. collect redacted `wpa_cli STATUS`, `SIGNAL_POLL`, and `PING` samples during dwell;
-4. compare association/carrier state against gateway ARP, gateway ping, DNS, and TCP/443 at each sample;
-5. only add keepalive or reassociation behavior if the trace proves the failure mode;
+2. require WSTA11-style run/phase/dwell/signal markers;
+3. collect gateway ping timing/count and neighbor refresh observations at each sample;
+4. compare DHCP lease/router state before and after the first gateway-ping failure;
+5. only add a bounded ARP or gateway keepalive behavior if the trace proves the failure mode;
 6. do not retry the manual API probe or cloudflared until the dwell window passes.
