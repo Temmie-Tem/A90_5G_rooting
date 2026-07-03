@@ -67,6 +67,7 @@
 #include "../a90_run.h"
 #include "../a90_sensormap.h"
 #include "../a90_runtime.h"
+#include "../a90_server_distro.h"
 #include "../a90_service.h"
 #include "../a90_shell.h"
 #include "../a90_selftest.h"

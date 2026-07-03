@@ -19583,6 +19583,13 @@ static int handle_init_reload(char **argv, int argc) {
     return a90_init_reload_cmd(argv, argc);
 }
 
+static int handle_switch_root_to_distro(char **argv, int argc) {
+    /* D3B replaces PID1 with Debian sysvinit. Stop the display worker first so no old
+       userspace process keeps avoidable DRM/fb state across the root handoff. */
+    stop_auto_hud(false);
+    return a90_server_distro_switch_root_cmd(argv, argc);
+}
+
 static int handle_poweroff(char **argv, int argc) {
     (void)argv;
     (void)argc;
@@ -19710,6 +19717,9 @@ static const struct shell_command command_table[] = {
     { "recovery", handle_recovery, "recovery", CMD_DANGEROUS | CMD_NO_DONE, A90_CMD_GROUP_POWER },
     { "poweroff", handle_poweroff, "poweroff", CMD_DANGEROUS | CMD_NO_DONE, A90_CMD_GROUP_POWER },
     { "reload", handle_init_reload, "reload <token> <staged-init-path> <expected-sha256>",
+      CMD_DANGEROUS | CMD_NO_DONE, A90_CMD_GROUP_POWER },
+    { "switch-root-to-distro", handle_switch_root_to_distro,
+      "switch-root-to-distro <token> <image> <sha256>",
       CMD_DANGEROUS | CMD_NO_DONE, A90_CMD_GROUP_POWER },
 };
 
