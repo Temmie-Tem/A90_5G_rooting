@@ -775,6 +775,15 @@ safety invariants and flash gates are binding and override any sub-goal.**
 > runs were ignored and no public URL was committed.  Report:
 > `docs/reports/NATIVE_INIT_V3383_SERVER_DISTRO_HANDOFF_CLEANUP_LIVE_2026-07-04.md`.  Device was left in
 > the live Debian userdata appliance for operator inspection.
+>
+> **✅ STATUS (2026-07-04 02:45 KST) — Stage0 hardware contract LOCKED.**
+> Codex added `docs/plans/SERVER_DISTRO_STAGE0_HARDWARE_CONTRACT_2026-07-04.md` to narrow the server
+> appliance hardware policy.  Default Stage0 boot is now constrained to boot/control, USB ACM/NCM,
+> guarded storage/rootfs handoff, optional native boot HUD with mandatory DRM release, and pre-handoff
+> health/status logs.  The next required hardware rung is Wi-Fi STA upstream (`wlan0` materialization in
+> native, IP/route/tunnel ownership in Debian).  Audio, KGSL/GPU, video/Doom, touch/game input, and stress
+> tools are explicit opt-in only; modem/camera/GNSS/NFC/Bluetooth/sensor hubs/Android HAL services are
+> not default appliance boot targets.  No device action was performed in this unit.
 
 ## North star — priority-ordered tracks (T1 → T2 → T3)
 
