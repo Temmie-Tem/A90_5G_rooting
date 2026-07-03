@@ -667,6 +667,24 @@ safety invariants and flash gates are binding and override any sub-goal.**
 > observe Debian PID1 and USB-local access, prove root filesystem is userdata, and keep timed
 > recovery/rollback available.
 
+> **✅ STATUS (2026-07-03) — D4D appliance handoff LIVE PASS; final rollback clean.**
+> Before handoff, Codex installed a per-run SSH public key into the mounted userdata root
+> (`authorized_keys` mode `0600`; private key stayed under `workspace/private/run/`) and verified USB/NCM
+> host route `192.168.7.1 -> 192.168.7.2` with `0%` ping loss. `switch-root-to-userdata
+> SERVER-DISTRO-D4-USERDATA-APPLIANCE userdata=appliance-root` reached `exec_switch_root_now` after
+> target/marker/init checks and mount moves. SSH to `root@192.168.7.2:2222` succeeded on the first
+> attempt and proved Debian `12.14`, `/proc/1/comm=init`, `/proc/1/exe=/usr/sbin/init`,
+> `root_findmnt=/dev/block/a90-userdata ext4 /`, `appliance_marker=userdata=appliance-root`,
+> `dropbear_started=1`, and `ncm_addr=192.168.7.2/24`. The firstboot mandatory `autoreboot_sec=120`
+> path was observed: native `a90ctl` timed out during Debian PID1, USB serial disappeared/reappeared, and
+> V3381 native-init returned with post-autoreboot `selftest fail=0`. Since V3381 promotion is a separate
+> decision, Codex rolled boot back through `native_init_flash.py`; v2321 remote/readback SHA matched
+> `ca978551aabe4b39563abaf529ccf2522054952d8b2ad852e632d26da88168cb`, and final
+> `version/status/selftest` passed with `selftest fail=0`. Report:
+> `docs/reports/SERVER_DISTRO_D4D_USERDATA_APPLIANCE_HANDOFF_2026-07-03.md`.
+> **D4A→D4D requested proof chain is complete.** Remaining work, if desired, is a separate promotion or
+> appliance-management decision, not a D4 proof blocker.
+
 ## North star — priority-ordered tracks (T1 → T2 → T3)
 
 Pursue the **highest tier that still has a meaningful, safely-actionable next step**.

@@ -29,10 +29,11 @@ Completed:
 - V3381 journaled formatter source/build passed and produced an e2fsprogs-backed D4C candidate.
 - V3381 journaled formatter live proof passed; v2321 rollback clean.
 - D4C destructive format+populate passed; V3381 remains live for D4D.
+- D4D appliance handoff proof passed; v2321 final rollback clean.
 
 Pending:
 
-- D4D appliance handoff proof.
+- No D4A-D4D proof blocker remains. Promotion of a D4-capable boot image is a separate decision.
 
 ## 2. Carried Facts
 
@@ -152,6 +153,24 @@ status=live-pass; V3381-left-live-for-D4D
 report=docs/reports/SERVER_DISTRO_D4C_USERDATA_FORMAT_POPULATE_2026-07-03.md
 ```
 
+D4D handoff result:
+
+```text
+command=switch-root-to-userdata SERVER-DISTRO-D4-USERDATA-APPLIANCE userdata=appliance-root
+ssh=root@192.168.7.2:2222 over USB/NCM
+debian_version=12.14
+pid1_comm=init
+proc1_exe=/usr/sbin/init
+root_findmnt=/dev/block/a90-userdata ext4 /
+appliance_marker=userdata=appliance-root
+dropbear_started=1
+autoreboot_sec=120 observed
+post_autoreboot=V3381 selftest fail=0
+final_rollback=v2321 selftest fail=0
+status=live-pass; no V3381 promotion
+report=docs/reports/SERVER_DISTRO_D4D_USERDATA_APPLIANCE_HANDOFF_2026-07-03.md
+```
+
 Rollback images that must be confirmed before any D4 flash:
 
 ```text
@@ -179,10 +198,10 @@ D4C format+populate
     D4C format+populate passed; V3381 remains live
 
 D4D handoff
-  run switch-root-to-userdata with expected marker
-  observe Debian PID1 and local SSH over USB/NCM
-  prove root filesystem is userdata
-  keep timed recovery or rollback path for the first proof
+  passed: switch-root-to-userdata with expected marker
+  passed: Debian PID1 and local SSH over USB/NCM
+  passed: root filesystem is userdata
+  passed: timed auto-reboot and final v2321 rollback
 ```
 
 ## 4. D4B Candidate-Health Gate
