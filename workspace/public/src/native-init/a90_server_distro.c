@@ -1726,6 +1726,7 @@ int a90_server_distro_userdata_formatter_probe_cmd(char **argv, int argc) {
         (char *)"A90D4PROBE",
         NULL,
         NULL,
+        NULL,
     };
     int rc;
     int cleanup_rc;

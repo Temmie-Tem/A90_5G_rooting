@@ -569,6 +569,20 @@ safety invariants and flash gates are binding and override any sub-goal.**
 > `<probe-path>, <KBYTES>, NULL`, rebuild, and re-run only preflight plus formatter-probe before any
 > destructive D4C format/populate.
 
+> **✅ STATUS (2026-07-03) — V3379 formatter argv fix source/build DONE; live pending.**
+> Codex extended `probe_argv` so the formatter-probe argv now has `<probe-path>, <KBYTES>, NULL` instead
+> of overwriting the final NULL. Built artifact:
+> `A90 Linux init 0.11.137 (v3379-server-distro-userdata-formatter-argv-fix)`, boot SHA
+> `a58c07bca01c74ba97653a7cd3d3681788674fa8a6eb912a4fe64a84fb42112e`, init SHA
+> `c6b8e498ac6fde11b0ac61ef34bb0a995930dd816e0a6dd5af7207b5442b547e`.
+> Static validation passed: `py_compile`, 16 relevant unittest cases, V3379 build, `file`, `sha256sum`,
+> and image string checks. This unit performed **NO FLASH / NO FORMAT / NO USERDATA TOUCH**. Report:
+> `docs/reports/NATIVE_INIT_V3379_SERVER_DISTRO_D4C_FORMATTER_ARGV_FIX_SOURCE_BUILD_2026-07-03.md`.
+> **NEXT bounded unit = V3379 formatter argv-fix live proof**: confirm rollback/TWRP preconditions, flash
+> exact V3379 through `native_init_flash.py`, verify candidate health, run read-only preflight plus
+> `userdata-appliance-formatter-probe` only, then roll back to v2321 unless destructive D4C starts
+> immediately.
+
 ## North star — priority-ordered tracks (T1 → T2 → T3)
 
 Pursue the **highest tier that still has a meaningful, safely-actionable next step**.
