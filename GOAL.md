@@ -37,6 +37,21 @@ safety invariants and flash gates are binding and override any sub-goal.**
 > partition ONLY.** When an action would cross the bright line or leave the recoverable envelope, STOP
 > and report — never guess.
 
+> **🟣 OPERATOR STEER (2026-07-03) — D4C: RESOLVE THE ext2/ext4 FILESYSTEM-TYPE DIVERGENCE BEFORE the
+> destructive userdata format.** Gate-2 caught that V3377 "fixed" the V3375 syntax failure by *dropping*
+> `-t ext4` from the busybox `mke2fs` argv. BusyBox `mke2fs` with no `-t` makes **ext2 (no journal)**, not
+> ext4 — it still mounts and passes functional tests, but it silently breaks locked design decision C
+> ("userdata is plain **ext4**") and removes journaling, so an unclean power loss on the always-on
+> appliance risks fs corruption + an unbootable server. The `superblock_magic=53 ef` probe does NOT
+> distinguish ext2/3/4. **Before D4C live format, consciously choose + REPORT a journaled formatter:**
+> (a) *preferred* — the plan's own SHA-pinned e2fsprogs `mkfs.ext4` (D4 plan line 140 / D4B design line
+> 119); (b) busybox ext2 then `tune2fs -j` (only with a provenance-pinned, device-proven `tune2fs`);
+> or (c) knowingly accept ext2/no-journal, record the power-loss/fsck tradeoff, and do NOT call it "ext4".
+> **D4C DoD must verify the ACTUAL on-disk feature set (`has_journal`) of the formatted userdata, not just
+> that it mounts.** Detail + options in `docs/plans/SERVER_DISTRO_D4_EXECUTION_BRIEF_2026-07-03.md` §5.
+> All existing D4 safety guards (PARTNAME single-match, `compare_expected`, verified major:minor node,
+> forbidden-name deny, GPT-intact) stay ON and unchanged; this steer is about filesystem TYPE only.
+
 > **🟣 OPERATOR STEER (2026-07-03) — hot-reload H5 DONE, resume REPL frontier.**
 > The dev-velocity infra side-quest (self-dd fast-flash + PID1 hot-reload) is the current thread:
 > self-dd F0→F4-live DONE, hot-reload **H0→H5 DONE** (live-proven, all rolled back to `v2321`

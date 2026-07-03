@@ -175,6 +175,20 @@ D4C may start only after all of these are true:
 - The formatter path is device-proven, not assumed. V3375 failed because BusyBox `mke2fs` rejected
   `-t ext4`; the next candidate must prove the corrected syntax non-destructively by formatting a bounded
   SD-runtime regular file, checking ext magic, unlinking the file, and reporting `userdata_touched=0`.
+- **OPERATOR GATE-2 NOTE (2026-07-03): filesystem-TYPE divergence must be resolved before D4C live
+  format.** V3377 "fixed" the V3375 syntax failure by *dropping* `-t ext4` from the busybox `mke2fs`
+  argv. BusyBox `mke2fs` with no `-t` produces **ext2 (no journal)**, not ext4. That still mounts (the
+  ext4 driver mounts ext2) and will pass functional tests, but it silently violates locked design
+  decision C ("userdata is plain **ext4**", DoD lines 30/124/177) and — for an always-on headless server
+  appliance — removes journaling, so an unclean power loss risks filesystem corruption and an unbootable
+  appliance. The `superblock_magic=53 ef` probe does NOT distinguish ext2/3/4. **Before the destructive
+  D4C format, consciously choose and REPORT the formatter that yields a journaled filesystem:**
+  (a) *preferred* — the plan's own SHA-pinned e2fsprogs `mkfs.ext4` (D4 plan line 140 / D4B design line
+  119), which produces real ext4 with a journal; or (b) format ext2 with busybox `mke2fs`, then add a
+  journal with `tune2fs -j` (only if a provenance-pinned `tune2fs` is proven on-device); or (c) if
+  ext2/no-journal is knowingly accepted, record the power-loss/fsck tradeoff explicitly and do NOT label
+  the result "ext4". D4C DoD must verify the *actual* on-disk feature set (e.g. `has_journal`) of the
+  formatted userdata, not just that it mounts.
 - A rootfs tarball exists under `/mnt/sdext/a90/runtime/` and its SHA-256 is pinned in the run record.
 - The rootfs tarball was produced by `prepare_d4c_userdata_rootfs_tarball.py`, which checks the D3
   sysvinit rootfs markers, forces numeric root ownership in the tar stream, uploads to SD runtime, and
