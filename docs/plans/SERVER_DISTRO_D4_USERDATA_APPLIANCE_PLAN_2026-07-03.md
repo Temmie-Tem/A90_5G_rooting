@@ -4,7 +4,8 @@
 - Scope: D4 design and execution plan
 - Device action in this document: none
 - Parent spec: `docs/plans/NATIVE_INIT_SERVER_DISTRO_ENDGAME_DESIGN_2026-06-30.md`
-- Current prerequisite: D3B live `switch_root` proof is complete and v2321 rollback is clean
+- Current prerequisite: D3B live `switch_root` proof is complete, D4A read-only preflight passed,
+  and v2321 resident health is clean
 
 ## 1. Objective
 
@@ -39,7 +40,9 @@ D4 is complete only when all of these are true:
 Use `userdata` as the root filesystem mount itself:
 
 ```text
-/dev/block/by-name/userdata  (resolved and hard-verified at runtime)
+/sys/class/block/*/uevent PARTNAME=userdata  (authoritative target discovery)
+  -> verified DEVNAME/MAJOR/MINOR/size/ro
+  -> materialized runtime node, for example /dev/block/a90-userdata
   mkfs.ext4
   mount -> /mnt/a90-userdata-root
     /sbin/init
@@ -49,6 +52,12 @@ Use `userdata` as the root filesystem mount itself:
     /root
     /a90-stage0/
 ```
+
+`/dev/block/by-name/userdata` is not a required source of truth for D4. D4A showed that native-init
+can have a valid sysfs `PARTNAME=userdata` entry while `/dev/block/by-name/userdata` and even
+`/dev/block/sda33` are absent from `/dev`. Therefore D4B must treat the sysfs scan as primary, use
+by-name only as an optional cross-check when present, and create its own runtime block node from the
+verified major/minor immediately before mutating operations.
 
 This keeps the later handoff simple:
 
@@ -84,23 +93,36 @@ Collect and fail closed on:
 - `mkfs.ext4`, `mount`, `tar`/copy tooling, `switch_root`, and required busybox applets are available or
   explicitly staged for the D4-capable candidate.
 
-Required output: private JSON preflight plus public metadata report. The public report must print the
-exact target device, PARTNAME, size, and a clear `NO FORMAT PERFORMED` line.
+Status: done. Report:
+`docs/reports/SERVER_DISTRO_D4A_USERDATA_PREFLIGHT_2026-07-03.md`.
+
+D4A live facts to carry forward:
+
+- authoritative target source: sysfs `PARTNAME=userdata` scan;
+- exactly one target: `sda33`;
+- verified identity: `dev=259:27`, `size=118567645184` bytes, `ro=0`;
+- target was not mounted;
+- current native-init `/dev` did not materialize `/dev/block/sda33`;
+- current busybox lacks `mkfs.ext4`, so D4B must stage or use a proven formatter.
+
+The D4A report is the public metadata record. The private JSON remains under
+`workspace/private/runs/server-distro/`.
 
 ### D4B - D4-Capable Native-Init Surface
 
-Host/source build only until static gates pass.
+Host/source build only until static gates pass. Detailed implementation contract:
+`docs/plans/SERVER_DISTRO_D4B_NATIVE_INIT_SURFACE_DESIGN_2026-07-03.md`.
 
 Add explicit, token-gated PID1 surfaces:
 
 - `userdata-appliance-preflight <token>`
   - read-only device-side target identity check.
-- `userdata-appliance-format <token> <expected-partname> <expected-size-range> <expected-rdev>`
+- `userdata-appliance-format <token> <expected-devname> <expected-dev> <expected-sectors>`
   - re-runs target identity checks immediately before `mkfs.ext4`.
   - refuses if any value drifted.
-- `userdata-appliance-populate <token> <source-image-or-tree> <sha>`
+- `userdata-appliance-populate <token> <source-tar> <sha256>`
   - mounts the fresh ext4 filesystem and installs the Debian rootfs.
-- `switch-root-to-userdata <token> <root-sha-or-marker>`
+- `switch-root-to-userdata <token> <expected-marker>`
   - verifies rootfs marker and executes `switch_root`.
 
 All mutating D4 commands must be impossible to run accidentally:
@@ -113,19 +135,26 @@ All mutating D4 commands must be impossible to run accidentally:
 - deny operation if rollback artifacts are not confirmed by the host runner;
 - return bounded, parseable markers.
 
+D4B must also provide one of these formatter paths before D4C:
+
+- a staged/bundled `mkfs.ext4` with SHA-pinned provenance; or
+- a device-proven BusyBox `mke2fs -t ext4` path, explicitly reported as the selected formatter.
+
+Do not enter D4C on an unproven formatter assumption.
+
 ### D4C - Format and Populate
 
 This is the irreversible Android `/data` disposal step.
 
 Sequence:
 
-1. Run D4A preflight again in the same session.
+1. Run D4A-equivalent preflight again in the same session.
 2. Flash the D4-capable candidate through `native_init_flash.py`.
 3. Verify candidate boot and `selftest fail=0`.
 4. Run device-side `userdata-appliance-preflight`.
 5. Run `userdata-appliance-format` only if host and device preflight agree on the same target.
 6. Mount the new ext4 `userdata`.
-7. Populate Debian rootfs from the SD-staged clean source.
+7. Populate Debian rootfs from a SHA-pinned SD-staged tarball derived from the clean D3 rootfs source.
 8. Install per-run/admin SSH material, host keys, and minimal service config.
 9. Write an appliance marker under the rootfs, for example `/etc/a90-appliance-stage`.
 10. Leave the system in native-init with userdata mounted and proof files collected, or immediately run D4D
@@ -193,11 +222,12 @@ Commit public code, tests, GOAL updates, and metadata reports only. Keep these p
 
 ## 7. Immediate Next Step
 
-Implement and run D4A first. It is read-only and should answer one question:
+D4A is complete. Implement D4B next as a source/build plus candidate-health unit:
 
 ```text
-Is the exact `userdata` target, recovery envelope, and rootfs source ready for the destructive D4C step?
+Can native-init expose fail-closed userdata preflight, format, populate, and switch_root commands
+without relying on by-name nodes or unproven formatter behavior?
 ```
 
-D4C must not run until D4A has a clean public report and D4B has a statically validated D4-capable
-native-init surface.
+D4C must not run until D4B has a statically validated D4-capable native-init surface and the candidate
+boots cleanly under the normal rollback gates.

@@ -411,8 +411,13 @@ safety invariants and flash gates are binding and override any sub-goal.**
 > Recovery envelope and clean rootfs source passed: v2321/v2237/v48 present, D3 source image SHA
 > `6f1960eb4332e1a22d5da1c98e990352c58d80157fbe6286b53ec9fe8ebe59f7`, D3B pass/TWRP evidence present.
 > Report: `docs/reports/SERVER_DISTRO_D4A_USERDATA_PREFLIGHT_2026-07-03.md`.
-> **NEXT bounded unit = D4B native-init fail-closed surface**; D4C remains disallowed until D4B static
-> validation and candidate health pass.
+> D4B design/runbook is now pinned at
+> `docs/plans/SERVER_DISTRO_D4B_NATIVE_INIT_SURFACE_DESIGN_2026-07-03.md`: authoritative target discovery
+> is sysfs `PARTNAME=userdata`, by-name is optional cross-check only, D4B must materialize a private
+> `/dev/block/a90-userdata` node from verified `MAJOR:MINOR`, and formatter choice must be proven
+> (`mkfs.ext4` staged/bundled or device-proven BusyBox `mke2fs -t ext4`) before D4C.
+> **NEXT bounded unit = implement/build D4B native-init fail-closed surface**; D4C remains disallowed until
+> D4B static validation and candidate health pass, and D-public remains a separate later gate.
 
 ## North star — priority-ordered tracks (T1 → T2 → T3)
 
