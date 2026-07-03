@@ -998,6 +998,22 @@ safety invariants and flash gates are binding and override any sub-goal.**
 > Debian handoff state and find the minimal native cleanup/materialization step that lets Debian run
 > `ip link set wlan0 up` successfully, before retrying DHCP/L3 or D-public tunnel.
 
+> **✅/🟡 STATUS (2026-07-04 04:49 KST host clock) — WSTA6 link-up gate LIVE PASS; next blocker is carrier/association.**
+> Codex updated the WSTA2 materialization runner so `wlan0_present=1` is no longer enough: it now
+> parses native `flags=`, records `needs_iftype_probe`, and requires `wlan0_admin_up=true` before
+> declaring the pre-handoff gate passed.  Live no-flash validation on resident V3384 reproduced the
+> failing state (`wlan0_present=1`, `flags=0x1002`), ran the existing bounded
+> `wifi softap iftype-probe`, got `link_up_rc=0`, and ended with `flags=0x1003`,
+> `wlan0_admin_up=true`, and `wsta2-native-materialization-pass`.  Reusing the already populated
+> WSTA5 userdata appliance then advanced Debian past the old blocker:
+> `wifi_sta_wpa_supplicant_rc=0` and `wifi_sta_started=1`.  It still did not associate:
+> `wifi_sta_carrier_up=0`, `wifi_sta_dhcp_rc=2`, `wifi_sta_default_route_iface=ncm0`, and
+> `wifi_sta_decision=wifi-sta-dhcp-failed`.  No boot flash, no userdata rewrite, and no public
+> tunnel were performed; the device is back on native V3384 with `selftest fail=0`.
+> Report: `docs/reports/SERVER_DISTRO_WIFI_STA_UPSTREAM_WSTA6_LINK_UP_GATE_2026-07-04.md`.
+> **NEXT:** WSTA7 association/carrier boundary: collect redacted Debian `wpa_supplicant` state/events
+> and compare against the native-good STA path.  Do not retry L3/D-public until carrier is up.
+
 ## North star — priority-ordered tracks (T1 → T2 → T3)
 
 Pursue the **highest tier that still has a meaningful, safely-actionable next step**.

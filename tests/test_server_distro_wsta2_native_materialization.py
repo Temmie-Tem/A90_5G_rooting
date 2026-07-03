@@ -42,6 +42,9 @@ class ServerDistroWsta2NativeMaterializationTests(unittest.TestCase):
         self.assertFalse(runner.native_is_v3384("version: 0.11.139\nbuild: v3383\n"))
         self.assertTrue(runner.wlan0_present("[wifi status]\nwlan0_present=1\n"))
         self.assertFalse(runner.wlan0_present("[wifi status]\nwlan0_present=0\n"))
+        self.assertTrue(runner.wlan0_admin_up("[wifi status]\nflags=0x1003\n"))
+        self.assertFalse(runner.wlan0_admin_up("[wifi status]\nflags=0x1002\n"))
+        self.assertFalse(runner.wlan0_admin_up("[wifi status]\nflags=-\n"))
         self.assertEqual(runner.forbidden_workers("PID CMD\n1 init\n"), [])
         self.assertIn("wpa_supplicant", runner.forbidden_workers("123 wpa_supplicant -i wlan0\n"))
         self.assertIn("dhclient", runner.forbidden_workers("124 dhclient -4 wlan0\n"))
@@ -66,6 +69,8 @@ class ServerDistroWsta2NativeMaterializationTests(unittest.TestCase):
         self.assertIn("--flash-v3384", source)
         self.assertIn("wsta2-blocked-no-native-cmdv1-or-recovery-adb", source)
         self.assertIn("wsta2-blocked-v3384-not-resident", source)
+        self.assertIn("needs_iftype_probe", source)
+        self.assertIn("wlan0_admin_up", source)
         self.assertIn("auto_menu_retry", source)
         self.assertIn('send_bridge_line(args, "hide"', source)
 

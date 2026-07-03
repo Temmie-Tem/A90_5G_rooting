@@ -105,6 +105,7 @@ With private operator-provided config staged into the userdata appliance:
 - boot into Debian PID1;
 - Debian can bring the materialized `wlan0` administratively UP;
 - firstboot starts Debian `wpa_supplicant` for `wlan0`;
+- `wlan0` reaches carrier/association before DHCP is treated as meaningful;
 - DHCP obtains an address and DNS without logging concrete private network identifiers in
   public artifacts;
 - default route for outbound internet becomes Wi-Fi while USB NCM remains reachable for
@@ -131,6 +132,7 @@ Stop before mutation or public exposure if any condition appears:
 - rollback images or recovery/TWRP preconditions are missing before a flash;
 - `wlan0` does not materialize in the bounded native gate;
 - Debian cannot bring the materialized `wlan0` link UP after handoff;
+- Debian starts `wpa_supplicant` but `wlan0` never reaches carrier;
 - Debian STA tooling is missing from the rootfs;
 - private credentials are absent for an association gate;
 - USB NCM admin/recovery is lost;

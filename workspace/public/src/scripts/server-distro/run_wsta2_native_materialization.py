@@ -302,6 +302,18 @@ def wlan0_present(text: str) -> bool:
     return kv.get("wlan0_present") == "1" or "wlan0_present=1" in text
 
 
+def wlan0_admin_up(text: str) -> bool:
+    kv = parse_kv(text)
+    flags_text = kv.get("flags", "")
+    if not flags_text or flags_text == "-":
+        return False
+    try:
+        flags = int(flags_text, 0)
+    except ValueError:
+        return False
+    return (flags & 0x1) != 0
+
+
 def forbidden_workers(text: str) -> list[str]:
     lowered = text.lower()
     found: list[str] = []
@@ -386,7 +398,11 @@ def run_gate(args: argparse.Namespace, result: dict[str, Any], out_path: Path) -
     })
     write_json(out_path, result)
 
-    if args.probe_iftype and not wlan0_present(wifi_status["text"]):
+    needs_iftype_probe = not wlan0_present(wifi_status["text"]) or not wlan0_admin_up(wifi_status["text"])
+    result["needs_iftype_probe"] = needs_iftype_probe
+    write_json(out_path, result)
+
+    if args.probe_iftype and needs_iftype_probe:
         probe_timeout = max(args.timeout, (args.probe_timeout_ms / 1000.0) + 30.0)
         result["iftype_probe"] = run_cmdv1(
             args,
@@ -409,12 +425,14 @@ def run_gate(args: argparse.Namespace, result: dict[str, Any], out_path: Path) -
         "selftest_fail_zero": selftest_passed(selftest["text"]),
         "hardware_contract_ok": contract_passed(contract["text"]),
         "wlan0_present": wlan0_present(active_wifi_status["text"]),
+        "wlan0_admin_up": wlan0_admin_up(active_wifi_status["text"]),
         "forbidden_native_workers": workers,
     }
     if all((
         result["checks"]["selftest_fail_zero"],
         result["checks"]["hardware_contract_ok"],
         result["checks"]["wlan0_present"],
+        result["checks"]["wlan0_admin_up"],
         not result["checks"]["forbidden_native_workers"],
     )):
         result["decision"] = "wsta2-native-materialization-pass"
