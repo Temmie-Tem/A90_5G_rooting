@@ -963,6 +963,23 @@ safety invariants and flash gates are binding and override any sub-goal.**
 > switch into Debian, and collect the new L3 markers.  Do not retry D-public tunnel until those markers
 > prove upstream TCP/443 over `wlan0`.
 
+> **🟡 STATUS (2026-07-04 04:25 KST host clock) — WSTA5 first live attempt INVALID; preparer gap fixed.**
+> Codex prepared and staged a WSTA5 rootfs, formatted/populated `userdata`, injected the temporary SSH
+> key, switched into Debian, and collected markers.  This boot is **not** a valid WSTA5 L3-gate result:
+> the private rootfs preparer had copied the latest firstboot but had not overwritten
+> `/usr/local/bin/a90-dpublic-wifi-sta`, so Debian ran the old helper without L3 markers.  The attempt
+> ended at old-helper `wifi_sta_dhcp_rc=2`, `wifi_sta_default_route_iface=ncm0`, and
+> `wifi_sta_decision=wifi-sta-dhcp-failed`; the new `wifi_sta_l3_*` markers were absent.  It also exposed
+> a harmless but real D4C maintenance gap: the SD-runtime formatter toolroot had a stale
+> `/dev/block/a90-userdata` node from an older boot minor and correctly failed closed before mkfs; removing
+> that SD-runtime node allowed the current preflight identity format to proceed.
+>
+> Source fix now landed: the WSTA preparer always stages the current repo Wi-Fi STA helper and records
+> `latest_helper_staged`/`l3_gate_present`; the helper itself falls back from `nc` to `nc.openbsd` and
+> records `wifi_sta_tcp_probe_tool`.  The device was rebooted back to native V3384 with `selftest fail=0`.
+> Report: `docs/reports/SERVER_DISTRO_WIFI_STA_UPSTREAM_WSTA5_PREPARER_GAP_2026-07-04.md`.
+> **NEXT:** rerun WSTA5 with a newly prepared rootfs; only that run can answer the L3/ARP question.
+
 ## North star — priority-ordered tracks (T1 → T2 → T3)
 
 Pursue the **highest tier that still has a meaningful, safely-actionable next step**.

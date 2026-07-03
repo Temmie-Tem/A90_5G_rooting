@@ -43,6 +43,7 @@ TARGET_CONFIG = Path("etc/a90-dpublic/wpa_supplicant-wlan0.conf")
 TARGET_ENABLE = Path("etc/a90-dpublic/wifi-sta-enable")
 TARGET_HELPER = Path("usr/local/bin/a90-dpublic-wifi-sta")
 TARGET_FIRSTBOOT = Path("etc/a90-d3-firstboot")
+DPUBLIC_WIFI_STA_HELPER = SCRIPT_DIR / "a90_dpublic_wifi_sta.sh"
 DPUBLIC_FIRSTBOOT = SCRIPT_DIR / "a90_dpublic_firstboot.sh"
 PRIVATE_FILE_MODE = 0o600
 STA_TOOL_PACKAGES = ("wpasupplicant", "isc-dhcp-client", "netcat-openbsd")
@@ -356,6 +357,24 @@ def stage_config(rootfs: Path, config: Path) -> dict[str, Any]:
     }
 
 
+def stage_dpublic_wifi_sta_helper(rootfs: Path) -> dict[str, Any]:
+    helper_target = rootfs / TARGET_HELPER
+    if not DPUBLIC_WIFI_STA_HELPER.is_file():
+        raise FileNotFoundError(DPUBLIC_WIFI_STA_HELPER)
+    helper_target.parent.mkdir(parents=True, exist_ok=True)
+    shutil.copy2(DPUBLIC_WIFI_STA_HELPER, helper_target)
+    helper_target.chmod(0o755)
+    text = helper_target.read_text(encoding="utf-8")
+    return {
+        "helper_target": str(TARGET_HELPER),
+        "helper_mode": oct(helper_target.stat().st_mode & 0o777),
+        "latest_helper_staged": True,
+        "l3_gate_present": "probe_l3_reachability" in text,
+        "tcp_probe_fallback_present": "nc.openbsd" in text,
+        "secret_values_logged": 0,
+    }
+
+
 def stage_dpublic_firstboot(rootfs: Path) -> dict[str, Any]:
     firstboot_target = rootfs / TARGET_FIRSTBOOT
     if not DPUBLIC_FIRSTBOOT.is_file():
@@ -443,6 +462,7 @@ def prepare(args: argparse.Namespace) -> dict[str, Any]:
         result.update({"ok": False, "decision": "wsta3-private-rootfs-blocked-" + str(result["sta_tools"].get("reason", "sta-tools-missing"))})
         write_json(run_dir / "summary.json", result)
         return result
+    result["wifi_sta_helper"] = stage_dpublic_wifi_sta_helper(target_rootfs)
     result["stage"] = stage_config(target_rootfs, source_config)
     result["firstboot"] = stage_dpublic_firstboot(target_rootfs)
     d4c.verify_rootfs(target_rootfs)

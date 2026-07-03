@@ -107,6 +107,23 @@ class PrepareWsta3PrivateRootfsTests(unittest.TestCase):
             self.assertTrue(result["autoreboot_disabled_marker"])
             self.assertTrue(result["wifi_sta_helper_invoked"])
 
+    def test_stage_dpublic_wifi_sta_helper_overwrites_with_current_l3_helper(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            rootfs = Path(tmp)
+            target = rootfs / wsta3.TARGET_HELPER
+            target.parent.mkdir(parents=True)
+            target.write_text("#!/bin/sh\necho old-helper\n", encoding="utf-8")
+
+            result = wsta3.stage_dpublic_wifi_sta_helper(rootfs)
+
+            text = target.read_text(encoding="utf-8")
+            self.assertTrue(result["latest_helper_staged"])
+            self.assertTrue(result["l3_gate_present"])
+            self.assertTrue(result["tcp_probe_fallback_present"])
+            self.assertIn("probe_l3_reachability", text)
+            self.assertIn("nc.openbsd", text)
+            self.assertNotIn("old-helper", text)
+
     def test_sta_tools_missing_blocks_when_install_disabled(self) -> None:
         with tempfile.TemporaryDirectory() as tmp:
             rootfs = Path(tmp) / "rootfs"
@@ -212,6 +229,8 @@ class PrepareWsta3PrivateRootfsTests(unittest.TestCase):
             self.assertTrue((target / wsta3.TARGET_ENABLE).is_file())
             self.assertTrue((target / wsta3.TARGET_FIRSTBOOT).is_file())
             self.assertTrue(result["sta_tools"]["ok"])
+            self.assertTrue(result["wifi_sta_helper"]["latest_helper_staged"])
+            self.assertTrue(result["wifi_sta_helper"]["l3_gate_present"])
             self.assertTrue(result["firstboot"]["wifi_sta_helper_invoked"])
             self.assertTrue(result["firstboot"]["autoreboot_disabled_marker"])
             self.assertEqual(verify.call_count, 2)

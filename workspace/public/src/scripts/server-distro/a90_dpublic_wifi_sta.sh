@@ -19,6 +19,7 @@ DHCP_LEASES=$RUN_DIR/wifi-sta-dhclient.leases
 DHCP_LOG=$RUN_DIR/wifi-sta-dhclient.log
 L3_HOST=cloudflare.com
 L3_PORT=443
+NC_BIN=
 
 append_marker() {
   [ -f "$MARKER" ] && echo "$1" >> "$MARKER"
@@ -108,12 +109,13 @@ probe_l3_reachability() {
   getent hosts "$L3_HOST" >/dev/null 2>&1
   dns_probe_rc=$?
   if [ "$dns_probe_rc" = "0" ]; then
-    nc -z -w 5 "$L3_HOST" "$L3_PORT" >/dev/null 2>&1
+    "$NC_BIN" -z -w 5 "$L3_HOST" "$L3_PORT" >/dev/null 2>&1
     tcp_probe_rc=$?
   fi
 
   append_marker "wifi_sta_l3_attempted=1"
   append_marker "wifi_sta_l3_probe=cloudflare-443"
+  append_marker "wifi_sta_tcp_probe_tool=$(basename "$NC_BIN")"
   append_marker "wifi_sta_gateway_ping_rc=$gateway_ping_rc"
   append_marker "wifi_sta_gateway_arp_state=$gateway_arp_state"
   append_marker "wifi_sta_gateway_arp_resolved=$gateway_arp_resolved"
@@ -149,8 +151,12 @@ if ! command -v wpa_supplicant >/dev/null 2>&1 ||
    ! command -v dhclient >/dev/null 2>&1 ||
    ! command -v ip >/dev/null 2>&1 ||
    ! command -v ping >/dev/null 2>&1 ||
-   ! command -v getent >/dev/null 2>&1 ||
-   ! command -v nc >/dev/null 2>&1; then
+   ! command -v getent >/dev/null 2>&1; then
+  append_marker "wifi_sta_started=0"
+  finish "wifi-sta-missing-tools"
+fi
+NC_BIN=$(command -v nc 2>/dev/null || command -v nc.openbsd 2>/dev/null || true)
+if [ -z "$NC_BIN" ]; then
   append_marker "wifi_sta_started=0"
   finish "wifi-sta-missing-tools"
 fi
