@@ -1530,6 +1530,27 @@ safety invariants and flash gates are binding and override any sub-goal.**
 > **NEXT:** retry the WSTA25 confirmed live path only while preserving this scan-green precondition:
 > explicitly enable autoconnect, run the existing confirmed live runner, and restore autoconnect
 > disabled afterward.  Public exposure remains separate.
+> **🟡 STATUS (2026-07-04 11:58 KST host clock) — WSTA29 confirmed retry after WSTA28 still
+> BLOCKED at native autoconnect pre-scan.**  Codex enabled autoconnect and reran the existing WSTA25
+> confirmed live runner immediately after WSTA28's scan-green pass.  WSTA25 readiness passed
+> (`autoconnect_enabled=1`, `autoconnect_ready=1`, config/profile valid, no external ping/public
+> tunnel), and the confirmed helper request was sent through the redacted stdin executor.  Native
+> response still failed with `native_wifi_uplink_client_native_rc=-22`,
+> `decision=wifi-uplink-service-autoconnect-failed`,
+> `autoconnect_decision=wifi-autoconnect-scan-failed`, `rc=-22`, `connect_rc=-22`, `dhcp_rc=0`,
+> `final_rc=-22`, `carrier_up=0`, `default_route_present=0`, `external_ping_execution=0`,
+> `public_tunnel=0`, and `secret_values_logged=0`.  Runner cleanup and final V3387 selftest passed.
+> Codex then restored `wifi autoconnect disable`, ran `wifi cleanup`, verified no IPv4/default route
+> or supplicant process, and rechecked `selftest fail=0`.  Source inspection confirms
+> `wifi_run_autoconnect_sequence` calls `a90_wifi_scan_once(5000)` before the actual connect path and
+> treats negative pre-scan rc as terminal `wifi-autoconnect-scan-failed`; WSTA29 therefore narrows
+> the remaining blocker to the native autoconnect pre-scan/materialization path, not Debian helper
+> transport.  Report:
+> `docs/reports/SERVER_DISTRO_WIFI_STA_UPSTREAM_WSTA29_CONFIRMED_RETRY_SCAN_BLOCKED_2026-07-04.md`.
+> **NEXT:** WSTA30 should add a same-run pre-confirm scan/materialization guard to WSTA25 so it does
+> not send confirmed autoconnect when native scan has already gone stale.  If that proves the state
+> goes stale between WSTA28 and WSTA25, the next native build should move materialization recovery
+> into `wifi_run_autoconnect_sequence` before pre-scan failure is terminal.
 
 ## North star — priority-ordered tracks (T1 → T2 → T3)
 
