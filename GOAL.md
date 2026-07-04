@@ -3068,6 +3068,27 @@ safety invariants and flash gates are binding and override any sub-goal.**
 > **NEXT:** WSTA123 should either fold this cloudflared model into WSTA90/WSTA108 operator status as a model
 > overlay, or implement the bounded private live gate that launches cloudflared through `a90-service-launch` as
 > `a90tunnel` and proves UID/GID/no-new-privs/cap-zero/outbound-only cleanup.
+>
+> **🟢 STATUS (2026-07-05 05:05 KST host clock) — WSTA123 OPERATOR STATUS
+> CLOUDFLARED MODEL SOURCE PASS.**  Codex folded the WSTA122 private model proof into WSTA108 with optional
+> `--wsta122-cloudflared-model-json`.  WSTA108 now fail-closes unless the supplied WSTA122 result has
+> `wsta122-cloudflared-service-model-source-pass`, non-empty all-true checks, and a recomputed-valid model.  The
+> private WSTA123 status was regenerated from the existing WSTA88, WSTA90, WSTA94, packet-filter control,
+> WSTA110, WSTA117/WSTA114, WSTA120, and WSTA122 proofs.  It stayed
+> `SERVER_PROFILE_READY_DEFAULT_OFF` / `PUBLIC_OFF`, recorded
+> `hardening.cloudflared_model.state=CLOUDFLARED_SERVICE_MODEL_SOURCE_DEFINED`,
+> `cloudflared_model_defined=true`, `cloudflared_live_proven=false`, target user `a90tunnel` UID/GID
+> `3902/3902`, default-public-off, launcher no-new-privs/cap-zero requirements, outbound-only model, and
+> private URL artifact policy without logging public URL values or secrets.  `cloudflared-quick-tunnel` remains
+> in remaining launcher/syscall proof profiles, so this does not claim a runtime proof or always-on readiness.
+> No device action, boot flash, native reboot, Wi-Fi association, DHCP, public tunnel, public smoke,
+> packet-filter mutation, userdata action, or switch-root ran.  Focused WSTA108 validation passed (`25 tests`);
+> full WSTA regression passed (`394 tests`).  Report:
+> `docs/reports/SERVER_DISTRO_WIFI_STA_UPSTREAM_WSTA123_OPERATOR_STATUS_CLOUDFLARED_MODEL_SOURCE_2026-07-05.md`.
+> **NEXT:** WSTA124 should be the bounded private cloudflared runtime proof through `a90-service-launch`:
+> prove process UID/GID `3902/3902`, no-new-privs, CapEff zero, outbound-only behavior, private URL artifact
+> capture without committed URL value, cleanup of process/runtime sidecars, and cloudflared syscall trace before
+> any always-on/seccomp claim.
 
 ## North star — priority-ordered tracks (T1 → T2 → T3)
 

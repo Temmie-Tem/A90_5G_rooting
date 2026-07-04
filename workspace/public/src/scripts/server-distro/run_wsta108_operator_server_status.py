@@ -3,10 +3,11 @@
 
 WSTA88 proves the default-off public workflow.  WSTA90 sketches the service
 hardening contract.  WSTA94 proves the loopback default-drop packet filter.
-WSTA110 proves the smoke service launcher inside the Debian chroot.  WSTA108
-combines those public surfaces into one
-operator-facing server status bundle without opening a tunnel, touching the
-device, or weakening any live gate.
+WSTA110 proves the smoke service launcher inside the Debian chroot.  WSTA120
+proves the Dropbear admin live gate.  WSTA122 defines the cloudflared
+quick-Tunnel service hardening target.  WSTA108 combines those public surfaces
+into one operator-facing server status bundle without opening a tunnel,
+touching the device, or weakening any live gate.
 """
 
 from __future__ import annotations
@@ -29,12 +30,15 @@ import run_wsta94_packet_filter_live_gate as wsta94  # noqa: E402
 import run_wsta110_service_launcher_chroot_proof as wsta110  # noqa: E402
 import run_wsta114_syscall_trace_chroot_profile as wsta114  # noqa: E402
 import run_wsta120_dropbear_admin_live_gate as wsta120  # noqa: E402
+import run_wsta122_cloudflared_service_model as wsta122  # noqa: E402
 
 
 REPO_ROOT = wsta88.REPO_ROOT
 PRIVATE_ROOT = wsta88.PRIVATE_ROOT
 DEFAULT_RUN_BASE = wsta88.DEFAULT_RUN_BASE
 PASS_DECISION = "wsta108-operator-server-status-source-pass"
+
+CLOUDFLARED_MODEL_STATE = "CLOUDFLARED_SERVICE_MODEL_SOURCE_DEFINED"
 
 
 def rel(path: Path) -> str:
@@ -110,6 +114,8 @@ def template() -> dict[str, Any]:
             "workspace/private/runs/server-distro/<wsta114-run>/wsta114_result.json",
             "--wsta120-dropbear-admin-proof-json",
             "workspace/private/runs/server-distro/<wsta120-run>/wsta120_result.json",
+            "--wsta122-cloudflared-model-json",
+            "workspace/private/runs/server-distro/<wsta122-run>/wsta122_cloudflared_service_model.json",
         ],
         "device_action": False,
         "public_url_value_logged": False,
@@ -502,6 +508,88 @@ def compact_dropbear_admin_proof(proof_result: dict[str, Any] | None) -> dict[st
     }
 
 
+def compact_cloudflared_model(model_result: dict[str, Any] | None) -> dict[str, Any]:
+    if not model_result:
+        return {
+            "state": "NOT_SUPPLIED",
+            "model_defined": False,
+            "cloudflared_live_proven": False,
+            "scope": "not-supplied",
+        }
+
+    model = (
+        model_result.get("cloudflared_service_model")
+        if isinstance(model_result.get("cloudflared_service_model"), dict)
+        else {}
+    )
+    supplied_checks = model_result.get("checks") if isinstance(model_result.get("checks"), dict) else {}
+    recomputed_checks = wsta122.validate_model(model)
+    model_defined = bool(
+        model_result.get("decision") == wsta122.PASS_DECISION
+        and bool(supplied_checks)
+        and all(value is True for value in supplied_checks.values())
+        and all(value is True for value in recomputed_checks.values())
+    )
+    identity = model.get("target_identity") if isinstance(model.get("target_identity"), dict) else {}
+    exposure = model.get("default_exposure") if isinstance(model.get("default_exposure"), dict) else {}
+    network = model.get("network") if isinstance(model.get("network"), dict) else {}
+    launcher = model.get("launcher_policy") if isinstance(model.get("launcher_policy"), dict) else {}
+    runtime = model.get("runtime_files") if isinstance(model.get("runtime_files"), dict) else {}
+    credentials = model.get("credentials") if isinstance(model.get("credentials"), dict) else {}
+    return {
+        "state": CLOUDFLARED_MODEL_STATE if model_defined else "SUPPLIED_NOT_PROVEN",
+        "decision": model_result.get("decision"),
+        "proof_run_dir": model_result.get("run_dir"),
+        "scope": "cloudflared-quick-tunnel-model-only",
+        "model_defined": model_defined,
+        "cloudflared_live_proven": False,
+        "service": "cloudflared-quick-tunnel",
+        "daemon_privilege_model": model.get("daemon_privilege_model"),
+        "user": identity.get("user"),
+        "group": identity.get("group"),
+        "uid": identity.get("uid"),
+        "gid": identity.get("gid"),
+        "default_public_off": exposure.get("public_default") == "off",
+        "explicit_enable_required": exposure.get("start_requires_private_enable_file")
+        == wsta122.QUICK_ENABLE,
+        "operator_gate_required": exposure.get("start_requires_operator_live_gate") is True,
+        "boot_autostart_without_enable_file_denied": (
+            exposure.get("boot_autostart_without_enable_file") is False
+        ),
+        "origin_loopback_only": network.get("origin_scope") == "loopback-only",
+        "metrics_loopback_ephemeral": network.get("metrics_scope") == "loopback-ephemeral",
+        "outbound_only": bool(
+            network.get("outbound_tunnel_client") is True
+            and network.get("public_inbound_listener") is False
+        ),
+        "packet_filter_precondition": network.get("packet_filter_precondition"),
+        "launcher_required": launcher.get("required_launcher") == "/usr/local/bin/a90-service-launch",
+        "launcher_user": launcher.get("target_user"),
+        "launcher_no_new_privs_required": launcher.get("no_new_privs") is True,
+        "launcher_caps_zero_required": launcher.get("effective_capabilities") == "zero",
+        "direct_root_start_rejected_for_always_on": launcher.get("direct_root_firstboot_start")
+        == "not-acceptable-for-always-on-profile",
+        "url_file_private": bool(
+            runtime.get("url_file_mode") == "0600"
+            and runtime.get("public_url_committable") is False
+        ),
+        "no_named_tunnel_secret_required": bool(
+            credentials.get("quick_tunnel_accountless") is True
+            and credentials.get("named_tunnel_credentials_required") is False
+            and credentials.get("token_in_command") is False
+        ),
+        "public_url_value_logged": False,
+        "secret_values_logged": 0,
+        "remaining_live_proofs": [
+            "launcher runtime user/group and no-new-privs/cap-zero",
+            "outbound-only network observation",
+            "private URL artifact capture without committed URL value",
+            "cleanup removes cloudflared process and runtime sidecars",
+            "cloudflared syscall trace before seccomp enforcement",
+        ],
+    }
+
+
 def launcher_proof_is_smoke_live_proven(launcher_proof: dict[str, Any]) -> bool:
     return bool(launcher_proof.get("smoke_live_proven"))
 
@@ -518,18 +606,24 @@ def dropbear_admin_proof_is_live_proven(dropbear_admin_proof: dict[str, Any]) ->
     return bool(dropbear_admin_proof.get("dropbear_admin_live_proven"))
 
 
+def cloudflared_model_is_defined(cloudflared_model: dict[str, Any]) -> bool:
+    return bool(cloudflared_model.get("model_defined"))
+
+
 def refine_blocking_before_enforcement(
     items: list[Any],
     launcher_proof: dict[str, Any],
     packet_filter_proof: dict[str, Any],
     syscall_trace_proof: dict[str, Any],
     dropbear_admin_proof: dict[str, Any],
+    cloudflared_model: dict[str, Any],
 ) -> list[str]:
     refined: list[str] = []
     smoke_live_proven = launcher_proof_is_smoke_live_proven(launcher_proof)
     packet_filter_live_proven = packet_filter_proof_is_live_proven(packet_filter_proof)
     smoke_syscall_trace_live_proven = syscall_trace_proof_is_smoke_live_proven(syscall_trace_proof)
     dropbear_admin_live_proven = dropbear_admin_proof_is_live_proven(dropbear_admin_proof)
+    cloudflared_model_defined = cloudflared_model_is_defined(cloudflared_model)
     for item in items:
         text = str(item)
         if smoke_live_proven and text in {
@@ -548,6 +642,8 @@ def refine_blocking_before_enforcement(
             text = "remaining syscall traces not captured beyond dpublic-smoke-httpd"
         elif dropbear_admin_live_proven and text == "dropbear admin user model not finalized":
             continue
+        elif cloudflared_model_defined and text == "cloudflared service model not finalized":
+            continue
         if text not in refined:
             refined.append(text)
     return refined
@@ -560,11 +656,13 @@ def compact_hardening(
     launcher_proof_result: dict[str, Any] | None,
     syscall_trace_proof_result: dict[str, Any] | None,
     dropbear_admin_proof_result: dict[str, Any] | None,
+    cloudflared_model_result: dict[str, Any] | None,
 ) -> dict[str, Any]:
     packet_filter_proof = compact_packet_filter_proof(packet_filter_proof_result, packet_filter_control_summary)
     launcher_proof = compact_launcher_proof(launcher_proof_result)
     syscall_trace_proof = compact_syscall_trace_proof(syscall_trace_proof_result)
     dropbear_admin_proof = compact_dropbear_admin_proof(dropbear_admin_proof_result)
+    cloudflared_model = compact_cloudflared_model(cloudflared_model_result)
     if dropbear_admin_proof.get("dropbear_admin_live_proven"):
         launcher_proof["remaining_profiles"] = [
             item
@@ -581,6 +679,7 @@ def compact_hardening(
             "launcher_proof": launcher_proof,
             "syscall_trace_proof": syscall_trace_proof,
             "dropbear_admin_proof": dropbear_admin_proof,
+            "cloudflared_model": cloudflared_model,
         }
     manifest = manifest_result.get("manifest") if isinstance(manifest_result.get("manifest"), dict) else {}
     services = manifest.get("services") if isinstance(manifest.get("services"), list) else []
@@ -602,11 +701,13 @@ def compact_hardening(
             packet_filter_proof,
             syscall_trace_proof,
             dropbear_admin_proof,
+            cloudflared_model,
         ),
         "packet_filter_proof": packet_filter_proof,
         "launcher_proof": launcher_proof,
         "syscall_trace_proof": syscall_trace_proof,
         "dropbear_admin_proof": dropbear_admin_proof,
+        "cloudflared_model": cloudflared_model,
     }
 
 
@@ -629,6 +730,7 @@ def build_server_status(
     launcher_proof_result: dict[str, Any] | None,
     syscall_trace_proof_result: dict[str, Any] | None,
     dropbear_admin_proof_result: dict[str, Any] | None,
+    cloudflared_model_result: dict[str, Any] | None,
 ) -> dict[str, Any]:
     status_hud = wsta88_result.get("status_hud") if isinstance(wsta88_result.get("status_hud"), dict) else {}
     if not status_hud:
@@ -642,6 +744,7 @@ def build_server_status(
         launcher_proof_result,
         syscall_trace_proof_result,
         dropbear_admin_proof_result,
+        cloudflared_model_result,
     )
     public_off = (status_hud.get("public_state") or "PUBLIC_OFF") == "PUBLIC_OFF"
     ready_default_off = public_off and bool(packet_filter.get("ready"))
@@ -655,6 +758,11 @@ def build_server_status(
         if isinstance(hardening.get("dropbear_admin_proof"), dict)
         else {}
     )
+    cloudflared_model = (
+        hardening.get("cloudflared_model")
+        if isinstance(hardening.get("cloudflared_model"), dict)
+        else {}
+    )
     operator_next_actions = [
         "keep-public-exposure-default-off",
         "use-explicit-wsta88-live-gate-only-when-attended",
@@ -662,6 +770,10 @@ def build_server_status(
     ]
     if not dropbear_admin_proof.get("dropbear_admin_live_proven"):
         operator_next_actions.append("prove-dropbear-admin-nonroot-login-before-always-on-profile")
+    if cloudflared_model.get("model_defined"):
+        operator_next_actions.append("prove-cloudflared-runtime-through-launcher-before-public-profile")
+    else:
+        operator_next_actions.append("define-cloudflared-service-model-before-public-profile")
     if syscall_trace_proof.get("smoke_syscall_trace_live_proven"):
         operator_next_actions.append(
             "extend-syscall-trace-proof-beyond-dpublic-smoke-httpd-before-seccomp-enforcement"
@@ -736,6 +848,11 @@ def markdown(server_status: dict[str, Any]) -> str:
         if isinstance(hardening.get("dropbear_admin_proof"), dict)
         else {}
     )
+    cloudflared_model = (
+        hardening.get("cloudflared_model")
+        if isinstance(hardening.get("cloudflared_model"), dict)
+        else {}
+    )
     lines = [
         "# WSTA Operator Server Status",
         "",
@@ -779,6 +896,10 @@ def markdown(server_status: dict[str, Any]) -> str:
         f"- Dropbear admin proof: `{str(bool(dropbear_admin_proof.get('dropbear_admin_live_proven'))).lower()}`",
         f"- Dropbear admin user: `{dropbear_admin_proof.get('user')}`",
         f"- Dropbear root SSH rejected: `{str(bool(dropbear_admin_proof.get('root_ssh_rejected'))).lower()}`",
+        f"- Cloudflared model: `{str(bool(cloudflared_model.get('model_defined'))).lower()}`",
+        f"- Cloudflared model user: `{cloudflared_model.get('user')}`",
+        f"- Cloudflared default public off: `{str(bool(cloudflared_model.get('default_public_off'))).lower()}`",
+        f"- Cloudflared launcher hardening required: `{str(bool(cloudflared_model.get('launcher_no_new_privs_required') and cloudflared_model.get('launcher_caps_zero_required'))).lower()}`",
         f"- Remaining launcher profiles: `{', '.join(launcher_proof.get('remaining_profiles') or [])}`",
         f"- Remaining syscall profiles: `{', '.join(syscall_trace_proof.get('remaining_profiles') or [])}`",
         "",
@@ -948,6 +1069,26 @@ def run(args: argparse.Namespace) -> dict[str, Any]:
             write_json(out_json, result)
             return result
 
+    cloudflared_model_result: dict[str, Any] | None = None
+    if args.wsta122_cloudflared_model_json is not None:
+        cloudflared_model_path, cloudflared_model_error = require_private_file(
+            args.wsta122_cloudflared_model_json,
+            "wsta122-cloudflared-model",
+        )
+        if cloudflared_model_error or cloudflared_model_path is None:
+            result["decision"] = cloudflared_model_error or "wsta108-blocked-wsta122-cloudflared-model"
+            result["gate_decision"] = result["decision"]
+            result["ended_utc"] = utc_stamp()
+            write_json(out_json, result)
+            return result
+        cloudflared_model_result = load_json(cloudflared_model_path)
+        if cloudflared_model_result.get("decision") != wsta122.PASS_DECISION:
+            result["decision"] = "wsta108-blocked-wsta122-cloudflared-model-not-pass"
+            result["gate_decision"] = result["decision"]
+            result["ended_utc"] = utc_stamp()
+            write_json(out_json, result)
+            return result
+
     server_status = build_server_status(
         wsta88_result,
         hardening_result,
@@ -956,6 +1097,7 @@ def run(args: argparse.Namespace) -> dict[str, Any]:
         launcher_proof_result,
         syscall_trace_proof_result,
         dropbear_admin_proof_result,
+        cloudflared_model_result,
     )
     packet_filter_proof = server_status["hardening"].get("packet_filter_proof", {})
     packet_filter_control_proof = (
@@ -966,6 +1108,7 @@ def run(args: argparse.Namespace) -> dict[str, Any]:
     launcher_proof = server_status["hardening"].get("launcher_proof", {})
     syscall_trace_proof = server_status["hardening"].get("syscall_trace_proof", {})
     dropbear_admin_proof = server_status["hardening"].get("dropbear_admin_proof", {})
+    cloudflared_model = server_status["hardening"].get("cloudflared_model", {})
     result["server_status"] = server_status
     result["checks"] = {
         "wsta88_workflow_pass": True,
@@ -989,6 +1132,14 @@ def run(args: argparse.Namespace) -> dict[str, Any]:
         "dropbear_admin_live_proven": bool(
             dropbear_admin_proof.get("dropbear_admin_live_proven")
         ),
+        "cloudflared_model_supplied": cloudflared_model_result is not None,
+        "cloudflared_model_defined": bool(cloudflared_model.get("model_defined")),
+        "cloudflared_default_public_off": bool(cloudflared_model.get("default_public_off")),
+        "cloudflared_launcher_hardening_required": bool(
+            cloudflared_model.get("launcher_no_new_privs_required")
+            and cloudflared_model.get("launcher_caps_zero_required")
+        ),
+        "cloudflared_live_proven": bool(cloudflared_model.get("cloudflared_live_proven")),
         "default_public_off": True,
         "public_url_value_logged": False,
         "secret_values_logged": 0,
@@ -1032,6 +1183,15 @@ def run(args: argparse.Namespace) -> dict[str, Any]:
         result["ended_utc"] = utc_stamp()
         write_json(out_json, result)
         return result
+    if (
+        cloudflared_model_result is not None
+        and not result["checks"]["cloudflared_model_defined"]
+    ):
+        result["decision"] = "wsta108-blocked-wsta122-cloudflared-model-incomplete"
+        result["gate_decision"] = result["decision"]
+        result["ended_utc"] = utc_stamp()
+        write_json(out_json, result)
+        return result
 
     result["decision"] = PASS_DECISION
     result["gate_decision"] = "ok"
@@ -1064,6 +1224,7 @@ def build_arg_parser() -> argparse.ArgumentParser:
     parser.add_argument("--wsta110-service-launcher-proof-json", type=Path)
     parser.add_argument("--wsta114-syscall-trace-proof-json", type=Path)
     parser.add_argument("--wsta120-dropbear-admin-proof-json", type=Path)
+    parser.add_argument("--wsta122-cloudflared-model-json", type=Path)
     parser.add_argument("--print-template", action="store_true")
     parser.add_argument("--print-full-json", action="store_true")
     return parser

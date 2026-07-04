@@ -294,6 +294,17 @@ class ServerDistroWsta108OperatorServerStatusTests(unittest.TestCase):
             "secret_values_logged": 0,
         }
 
+    def cloudflared_model_proof(self) -> dict:
+        model = runner.wsta122.cloudflared_service_model()
+        return {
+            "decision": runner.wsta122.PASS_DECISION,
+            "run_dir": "workspace/private/runs/server-distro/wsta122-cloudflared-service-model-test",
+            "cloudflared_service_model": model,
+            "checks": runner.wsta122.validate_model(model),
+            "public_url_value_logged": False,
+            "secret_values_logged": 0,
+        }
+
     def valid_args(self, root: Path, wsta88_json: Path, *extra: str):
         return runner.build_arg_parser().parse_args([
             "--run-dir",
@@ -552,6 +563,70 @@ class ServerDistroWsta108OperatorServerStatusTests(unittest.TestCase):
         self.assertIn("Dropbear admin user: `a90admin`", markdown)
         self.assertIn("Dropbear root SSH rejected: `true`", markdown)
 
+    def test_valid_wsta88_manifest_launcher_and_wsta122_model_updates_hardening_summary(self) -> None:
+        with self.private_tmp() as tmp:
+            root = Path(tmp)
+            self.assertEqual(wsta88.run(self.wsta88_args(root))["decision"], wsta88.PREFLIGHT_DECISION)
+            manifest_path = root / "inputs" / "wsta90_service_hardening_manifest.json"
+            launcher_path = root / "inputs" / "wsta110_result.json"
+            model_path = root / "inputs" / "wsta122_cloudflared_service_model.json"
+            manifest = self.hardening_manifest()
+            manifest["manifest"]["blocking_before_enforcement"].append("cloudflared service model not finalized")
+            self.write_json(manifest_path, manifest)
+            self.write_json(launcher_path, self.launcher_proof())
+            self.write_json(model_path, self.cloudflared_model_proof())
+            result = runner.run(self.valid_args(
+                root,
+                root / "wsta88" / "wsta88_operator_workflow.json",
+                "--wsta90-service-hardening-manifest-json",
+                str(manifest_path),
+                "--wsta110-service-launcher-proof-json",
+                str(launcher_path),
+                "--wsta122-cloudflared-model-json",
+                str(model_path),
+            ))
+            markdown = (root / "wsta108" / "wsta108_operator_server_status.md").read_text(encoding="utf-8")
+            summary_text = json.dumps(runner.public_summary(result), sort_keys=True)
+
+        self.assertEqual(result["decision"], runner.PASS_DECISION)
+        hardening = result["server_status"]["hardening"]
+        model = hardening["cloudflared_model"]
+        self.assertEqual(model["state"], "CLOUDFLARED_SERVICE_MODEL_SOURCE_DEFINED")
+        self.assertTrue(model["model_defined"])
+        self.assertFalse(model["cloudflared_live_proven"])
+        self.assertEqual(model["service"], "cloudflared-quick-tunnel")
+        self.assertEqual(model["user"], "a90tunnel")
+        self.assertEqual(model["uid"], 3902)
+        self.assertTrue(model["default_public_off"])
+        self.assertTrue(model["explicit_enable_required"])
+        self.assertTrue(model["operator_gate_required"])
+        self.assertTrue(model["origin_loopback_only"])
+        self.assertTrue(model["metrics_loopback_ephemeral"])
+        self.assertTrue(model["outbound_only"])
+        self.assertTrue(model["launcher_required"])
+        self.assertEqual(model["launcher_user"], "a90tunnel")
+        self.assertTrue(model["launcher_no_new_privs_required"])
+        self.assertTrue(model["launcher_caps_zero_required"])
+        self.assertTrue(model["direct_root_start_rejected_for_always_on"])
+        self.assertTrue(model["url_file_private"])
+        self.assertTrue(model["no_named_tunnel_secret_required"])
+        self.assertNotIn("cloudflared service model not finalized", hardening["blocking_before_enforcement"])
+        self.assertIn("cloudflared-quick-tunnel", hardening["launcher_proof"]["remaining_profiles"])
+        self.assertTrue(result["checks"]["cloudflared_model_supplied"])
+        self.assertTrue(result["checks"]["cloudflared_model_defined"])
+        self.assertTrue(result["checks"]["cloudflared_default_public_off"])
+        self.assertTrue(result["checks"]["cloudflared_launcher_hardening_required"])
+        self.assertFalse(result["checks"]["cloudflared_live_proven"])
+        self.assertIn("prove-cloudflared-runtime-through-launcher-before-public-profile",
+                      result["server_status"]["operator_next_actions"])
+        self.assertIn("Cloudflared model: `true`", markdown)
+        self.assertIn("Cloudflared model user: `a90tunnel`", markdown)
+        self.assertIn("Cloudflared default public off: `true`", markdown)
+        self.assertNotIn("http://", summary_text)
+        self.assertNotIn("https://", summary_text)
+        self.assertNotIn("http://", markdown)
+        self.assertNotIn("https://", markdown)
+
     def test_wsta120_and_smoke_launcher_proofs_refine_shared_user_group_blocker(self) -> None:
         with self.private_tmp() as tmp:
             root = Path(tmp)
@@ -715,6 +790,23 @@ class ServerDistroWsta108OperatorServerStatusTests(unittest.TestCase):
 
         self.assertEqual(result["decision"], "wsta108-blocked-wsta120-dropbear-admin-proof-not-pass")
 
+    def test_nonpass_wsta122_cloudflared_model_blocks(self) -> None:
+        with self.private_tmp() as tmp:
+            root = Path(tmp)
+            self.assertEqual(wsta88.run(self.wsta88_args(root))["decision"], wsta88.PREFLIGHT_DECISION)
+            model_path = root / "inputs" / "wsta122_cloudflared_service_model.json"
+            proof = self.cloudflared_model_proof()
+            proof["decision"] = "wsta122-blocked"
+            self.write_json(model_path, proof)
+            result = runner.run(self.valid_args(
+                root,
+                root / "wsta88" / "wsta88_operator_workflow.json",
+                "--wsta122-cloudflared-model-json",
+                str(model_path),
+            ))
+
+        self.assertEqual(result["decision"], "wsta108-blocked-wsta122-cloudflared-model-not-pass")
+
     def test_incomplete_wsta110_launcher_proof_blocks_even_with_pass_decision(self) -> None:
         with self.private_tmp() as tmp:
             root = Path(tmp)
@@ -772,6 +864,24 @@ class ServerDistroWsta108OperatorServerStatusTests(unittest.TestCase):
         self.assertEqual(result["decision"], "wsta108-blocked-wsta120-dropbear-admin-proof-incomplete")
         self.assertFalse(result["checks"]["dropbear_admin_live_proven"])
 
+    def test_incomplete_wsta122_cloudflared_model_blocks_even_with_pass_decision(self) -> None:
+        with self.private_tmp() as tmp:
+            root = Path(tmp)
+            self.assertEqual(wsta88.run(self.wsta88_args(root))["decision"], wsta88.PREFLIGHT_DECISION)
+            model_path = root / "inputs" / "wsta122_cloudflared_service_model.json"
+            proof = self.cloudflared_model_proof()
+            proof["checks"]["launcher_caps_zero_required"] = False
+            self.write_json(model_path, proof)
+            result = runner.run(self.valid_args(
+                root,
+                root / "wsta88" / "wsta88_operator_workflow.json",
+                "--wsta122-cloudflared-model-json",
+                str(model_path),
+            ))
+
+        self.assertEqual(result["decision"], "wsta108-blocked-wsta122-cloudflared-model-incomplete")
+        self.assertFalse(result["checks"]["cloudflared_model_defined"])
+
     def test_public_summary_markdown_and_template_are_redacted(self) -> None:
         with self.private_tmp() as tmp:
             root = Path(tmp)
@@ -808,6 +918,7 @@ class ServerDistroWsta108OperatorServerStatusTests(unittest.TestCase):
         self.assertIn("--wsta110-service-launcher-proof-json", payload)
         self.assertIn("--wsta114-syscall-trace-proof-json", payload)
         self.assertIn("--wsta120-dropbear-admin-proof-json", payload)
+        self.assertIn("--wsta122-cloudflared-model-json", payload)
 
     def test_source_is_host_only_and_names_server_model(self) -> None:
         source = SOURCE.read_text(encoding="utf-8")
@@ -820,6 +931,7 @@ class ServerDistroWsta108OperatorServerStatusTests(unittest.TestCase):
         self.assertIn("SMOKE_SERVICE_LAUNCHER_LIVE_PROVEN", source)
         self.assertIn("SMOKE_SERVICE_SYSCALL_TRACE_LIVE_PROVEN", source)
         self.assertIn("DROPBEAR_ADMIN_LIVE_PROVEN", source)
+        self.assertIn("CLOUDFLARED_SERVICE_MODEL_SOURCE_DEFINED", source)
         self.assertIn('"boot_flash": False', source)
         self.assertIn('"public_url_value_logged": False', source)
         self.assertNotIn("native_init_flash.py", source)
