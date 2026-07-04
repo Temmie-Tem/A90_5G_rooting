@@ -314,6 +314,28 @@ the first scan/up failure.
 Report:
 `docs/reports/SERVER_DISTRO_WIFI_STA_UPSTREAM_WSTA17_HANDOFF_MATERIALIZATION_BLOCKED_2026-07-04.md`.
 
+### WSTA18: handoff control-plane boundary
+
+Source result: none.  WSTA18 was a report-only live diagnostic using the WSTA16
+link-down-free snapshot image copied into a private WSTA18 run.
+
+Live result: blocked at the WLAN control-plane boundary.  Native STA-only scan passed on
+attempt 11 with `scan_result_count=10`.  Native focused dmesg showed `cnss_diag` and
+`cnss-daemon` cld80211 netlink activity plus WLAN firmware/driver ready before handoff.
+After `switch_root`, Debian still had `wlan0`, phy/rfkill, and `ip link set wlan0 up`
+returned rc `0`, but direct `iw scan` returned rc `234` / `Invalid argument (-22)`.  The
+Debian process snapshot lacked the native vendor WLAN userspace (`cnss-daemon`, `cnss_diag`,
+and related Android/vendor companions); dmesg showed `firmware down indication`,
+`PD service down ... Root PD shutdown`, and repeated `WMI stop in progress`.  Device
+returned to native V3384 with `selftest fail=0`.
+
+Interpretation: direct Debian netdev ownership is the wrong immediate target.  The kernel
+objects survive enough to show `wlan0`, but the WCNSS/WMI control plane is down after full
+PID1 handoff.
+
+Report:
+`docs/reports/SERVER_DISTRO_WIFI_STA_UPSTREAM_WSTA18_CONTROL_PLANE_BLOCKED_2026-07-04.md`.
+
 ### WSTA7: Debian association/control fix
 
 Live result: pass.  The Debian STA helper now waits for the `wpa_supplicant` control
@@ -357,18 +379,14 @@ Stop before mutation or public exposure if any condition appears:
 
 ## 7. Next Implementation Unit
 
-Run WSTA18 as a handoff control-plane diagnostic:
+Choose the next ownership-model prototype:
 
-1. keep the fresh native boot -> extended STA-only native scan gate -> SD-backed Debian `switch_root`
-   sequence from WSTA17;
-2. collect a redacted native pre-handoff process/control-plane snapshot for WLAN companion processes
-   and a focused dmesg baseline after native scan pass;
-3. collect the same redacted Debian post-handoff process/control-plane snapshot before any link
-   down/up branch;
-4. capture focused dmesg around the first direct `iw scan` rc `234` and first `ip link set up`
-   behavior, without dumping raw BSSID/MAC/SSID scan data into public reports;
-5. decide whether the next implementation should preserve/relaunch a vendor WLAN companion
-   process set, keep Wi-Fi owned by native init and expose it to Debian as a service boundary, or
-   abandon direct Debian netdev ownership for this device;
-6. do not run credentials, association, DHCP, API, or cloudflared until the handoff control-plane
-   boundary is understood.
+1. **Preferred low-risk path:** keep Wi-Fi owned by native init and expose a bounded local service
+   boundary to Debian for scan/connect/status, so the Android/vendor WLAN control plane stays alive.
+2. **Alternative:** preserve/relaunch the minimal vendor WLAN userspace/control-plane set across
+   `switch_root` and prove the WCNSS/WMI path stays up.
+3. **Fallback:** run Debian as chroot/container under native PID1 for the Wi-Fi-enabled appliance
+   path, and reserve full `switch_root` for USB-local/server-only use.
+
+Do not spend more rungs on direct Debian `iw` or link toggles until one of those ownership models
+is selected.

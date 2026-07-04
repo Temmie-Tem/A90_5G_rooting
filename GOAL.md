@@ -1217,9 +1217,22 @@ safety invariants and flash gates are binding and override any sub-goal.**
 > `wifi-sta-handoff-materialization-scan-failed`; tunnel gate stayed closed; device rebooted back to
 > native V3384 with `selftest fail=0`.  Report:
 > `docs/reports/SERVER_DISTRO_WIFI_STA_UPSTREAM_WSTA17_HANDOFF_MATERIALIZATION_BLOCKED_2026-07-04.md`.
-> **NEXT:** WSTA18 handoff control-plane diagnostic: compare native pre-handoff vs Debian post-handoff
-> WLAN companion processes and focused dmesg around the first scan/up failures.  Do not keep toggling
-> link down/up as a recovery strategy, and do not return to credentials/API/cloudflared yet.
+> **🟠 STATUS (2026-07-04 09:01 KST host clock) — WSTA18 handoff control-plane BLOCKED.**
+> Codex ran a report-only live diagnostic using the link-down-free WSTA16 snapshot image copied into
+> a WSTA18 private run.  Native STA-only scan passed on attempt 11 with `scan_result_count=10`.
+> Native focused dmesg showed `cnss_diag` and `cnss-daemon` cld80211 activity plus WLAN FW/driver
+> ready before handoff.  After `switch_root`, Debian still had `wlan0_present=1`, phy/rfkill visible,
+> and `ip link set wlan0 up` returned rc `0`, but direct `iw scan` returned rc `234` /
+> `Invalid argument (-22)`.  Debian post-handoff process snapshot lacked the native vendor WLAN
+> userspace (`cnss-daemon`, `cnss_diag`, and related Android/vendor companions); focused dmesg showed
+> `firmware down indication`, `PD service down ... Root PD shutdown`, and repeated
+> `WMI stop in progress`.  This explains the inherited-but-unusable `wlan0`: the WCNSS/WMI control
+> plane is down after full PID1 handoff.  Device rebooted back to native V3384 with `selftest fail=0`.
+> Report:
+> `docs/reports/SERVER_DISTRO_WIFI_STA_UPSTREAM_WSTA18_CONTROL_PLANE_BLOCKED_2026-07-04.md`.
+> **NEXT:** choose and prototype the ownership model: preserve/relaunch the minimal vendor WLAN
+> control-plane set across handoff, or keep Wi-Fi owned by native init and expose it to Debian as a
+> bounded service boundary.  Do not spend more rungs on direct Debian `iw`/link toggles.
 
 ## North star — priority-ordered tracks (T1 → T2 → T3)
 
