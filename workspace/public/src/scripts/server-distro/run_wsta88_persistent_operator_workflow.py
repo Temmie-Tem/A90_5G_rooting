@@ -133,6 +133,7 @@ def public_summary(result: dict[str, Any]) -> dict[str, Any]:
         "decision": result.get("decision"),
         "run_dir": result.get("run_dir"),
         "gate_decision": result.get("gate_decision"),
+        "status_hud": result.get("status_hud", {}),
         "workflow": result.get("workflow", {}),
         "wsta80_redacted": result.get("wsta80_redacted", {}),
         "checks": result.get("checks", {}),
@@ -149,6 +150,86 @@ def image_prep_summary_from_wsta80(wsta80_public: dict[str, Any]) -> dict[str, A
         if image_prep:
             summary[label] = image_prep
     return summary
+
+
+def compact_packet_filter_status(workflow: dict[str, Any]) -> dict[str, Any]:
+    hardening = (
+        workflow.get("packet_filter_hardening")
+        if isinstance(workflow.get("packet_filter_hardening"), dict)
+        else {}
+    )
+    return {
+        "state": hardening.get("state"),
+        "ready": bool(workflow.get("packet_filter_hardening_ready")),
+        "backend": hardening.get("backend"),
+        "policy": hardening.get("policy"),
+        "apply_before": hardening.get("apply_before"),
+        "restore_on": list(hardening.get("restore_on") or []),
+    }
+
+
+def compact_manual_stop_status(wsta80_public: dict[str, Any]) -> dict[str, Any]:
+    wsta58 = wsta80_public.get("wsta58_redacted") if isinstance(wsta80_public.get("wsta58_redacted"), dict) else {}
+    manual_stop = wsta58.get("manual_stop") if isinstance(wsta58.get("manual_stop"), dict) else {}
+    checks = wsta58.get("checks") if isinstance(wsta58.get("checks"), dict) else {}
+    public_state = manual_stop.get("manual_stop_public_state")
+    cleanup_ok = bool(checks.get("manual_stop_cleanup_ok"))
+    if not manual_stop:
+        state = "NOT_RUN"
+    elif public_state == "PUBLIC_OFF" and cleanup_ok:
+        state = "CLEANED_PUBLIC_OFF"
+    elif public_state == "PUBLIC_OFF":
+        state = "PUBLIC_OFF_REPORTED"
+    else:
+        state = str(public_state or "UNKNOWN")
+    return {
+        "state": state,
+        "requested": bool(manual_stop),
+        "public_state_after_stop": public_state,
+        "cleanup_ok": cleanup_ok,
+    }
+
+
+def compact_lease_status(workflow: dict[str, Any],
+                         execute_gate: dict[str, Any],
+                         wsta80_public: dict[str, Any]) -> dict[str, Any]:
+    wsta58 = wsta80_public.get("wsta58_redacted") if isinstance(wsta80_public.get("wsta58_redacted"), dict) else {}
+    lease_pair = (
+        wsta58.get("lease_pair_redacted")
+        if isinstance(wsta58.get("lease_pair_redacted"), dict)
+        else {}
+    )
+    return {
+        "ttl_sec": workflow.get("ttl_sec"),
+        "ready_index": workflow.get("ready_index"),
+        "initial_seconds_remaining": execute_gate.get("initial_seconds_remaining"),
+        "renewal_lease_refresh_ready": bool(lease_pair.get("renewal_lease_refresh_ready")),
+        "distinct_lease_ids": bool(lease_pair.get("distinct_lease_ids")),
+    }
+
+
+def build_status_hud(workflow: dict[str, Any],
+                     execute_gate: dict[str, Any],
+                     wsta80_public: dict[str, Any],
+                     image_prep_summary: dict[str, Any]) -> dict[str, Any]:
+    manual_stop = compact_manual_stop_status(wsta80_public)
+    public_state = manual_stop.get("public_state_after_stop") or "PUBLIC_OFF"
+    return {
+        "state": workflow.get("state"),
+        "public_state": public_state,
+        "default_public_off": True,
+        "live_execution_requested": bool(workflow.get("live_execution_requested")),
+        "wsta80_preflight_decision": workflow.get("wsta80_preflight_decision"),
+        "wsta80_live_decision": workflow.get("wsta80_live_decision"),
+        "lease": compact_lease_status(workflow, execute_gate, wsta80_public),
+        "packet_filter": compact_packet_filter_status(workflow),
+        "image_prep": image_prep_summary,
+        "manual_stop": manual_stop,
+        "redaction": {
+            "public_url_value_logged": False,
+            "secret_values_logged": 0,
+        },
+    }
 
 
 def redaction_findings(payload: Any) -> list[str]:
@@ -381,6 +462,47 @@ def markdown(workflow: dict[str, Any]) -> str:
         "- Default public state: `PUBLIC_OFF`",
         f"- Live execution requested: `{str(bool(workflow.get('live_execution_requested'))).lower()}`",
         "",
+    ]
+    status_hud = workflow.get("status_hud") if isinstance(workflow.get("status_hud"), dict) else {}
+    if status_hud:
+        lease = status_hud.get("lease") if isinstance(status_hud.get("lease"), dict) else {}
+        packet_filter = (
+            status_hud.get("packet_filter")
+            if isinstance(status_hud.get("packet_filter"), dict)
+            else {}
+        )
+        manual_stop = (
+            status_hud.get("manual_stop")
+            if isinstance(status_hud.get("manual_stop"), dict)
+            else {}
+        )
+        lines.extend([
+            "## Status HUD",
+            "",
+            f"- Public state: `{status_hud.get('public_state')}`",
+            f"- Workflow state: `{status_hud.get('state')}`",
+            f"- Live execution requested: `{str(bool(status_hud.get('live_execution_requested'))).lower()}`",
+            f"- Lease: ttl `{lease.get('ttl_sec')}`, ready index `{lease.get('ready_index')}`, initial remaining `{lease.get('initial_seconds_remaining')}`",
+            f"- Packet filter: `{packet_filter.get('state')}`, ready `{str(bool(packet_filter.get('ready'))).lower()}`, backend `{packet_filter.get('backend')}`",
+            f"- Manual stop: `{manual_stop.get('state')}`, cleanup `{str(bool(manual_stop.get('cleanup_ok'))).lower()}`",
+        ])
+        status_image_prep = (
+            status_hud.get("image_prep")
+            if isinstance(status_hud.get("image_prep"), dict)
+            else {}
+        )
+        for label in ("initial", "renewal"):
+            prep = status_image_prep.get(label) if isinstance(status_image_prep.get(label), dict) else {}
+            if prep:
+                lines.append(
+                    f"- Image prep {label}: clean `{prep.get('clean_action')}`, work `{prep.get('work_action')}`, "
+                    f"duplicate post-hash skipped `{str(bool(prep.get('duplicate_post_hash_skipped'))).lower()}`"
+                )
+        lines.extend([
+            "- Redaction: public URL logged `false`, secrets `0`",
+            "",
+        ])
+    lines.extend([
         "## Key Artifacts",
         "",
         f"- WSTA72 prepare-to-arm: `{workflow.get('wsta72_prepare_to_arm')}`",
@@ -394,7 +516,7 @@ def markdown(workflow: dict[str, Any]) -> str:
         "",
         "This wrapper stops before live execution unless the explicit WSTA80/WSTA58 live gate flags are supplied.",
         "",
-    ]
+    ])
     image_prep = workflow.get("image_prep_summary") if isinstance(workflow.get("image_prep_summary"), dict) else {}
     if image_prep:
         lines.extend(["## Image Prep", ""])
@@ -606,6 +728,9 @@ def run(args: argparse.Namespace) -> dict[str, Any]:
         "public_url_value_logged": False,
         "secret_values_logged": 0,
     })
+    status_hud = build_status_hud(workflow, execute_gate, result.get("wsta80_redacted", {}), image_prep_summary)
+    workflow["status_hud"] = status_hud
+    result["status_hud"] = status_hud
     result["checks"] = {
         "wsta72_pass": decisions.get("wsta72") == wsta72.PASS_DECISION,
         "wsta73_pass": decisions.get("wsta73") == wsta73.PASS_DECISION,

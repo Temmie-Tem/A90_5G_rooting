@@ -2796,6 +2796,18 @@ safety invariants and flash gates are binding and override any sub-goal.**
 > `docs/reports/SERVER_DISTRO_WIFI_STA_UPSTREAM_WSTA106_IMAGE_PREP_OPERATOR_SUMMARY_SOURCE_2026-07-05.md`.
 > **NEXT:** build a compact WSTA88 status/HUD output that shows public state, lease state, image-prep state,
 > packet-filter state, and manual-stop state while keeping public exposure default-off.
+> **🟢 STATUS (2026-07-05 02:00 KST host clock) — WSTA107 COMPACT STATUS/HUD
+> SOURCE PASS.**  Codex added a redacted `status_hud` surface to WSTA88 public output and
+> `workflow.status_hud`, plus a `## Status HUD` markdown section.  The HUD shows public state/default-off state,
+> WSTA80 preflight/live decisions, lease TTL/ready index/current initial seconds remaining, packet-filter state and
+> readiness, image-prep state, manual-stop state, and redaction booleans without public URL values, token values,
+> SSID/PSK values, image paths, or SHA values.  No device action, native reboot, Wi-Fi, DHCP, public tunnel, public
+> smoke, packet-filter mutation, or boot flash ran.  Validation passed `py_compile` and focused
+> WSTA42/43/45/55/58/80/88/94 tests (`87 tests`) plus a fresh WSTA88 preflight artifact generation that confirmed
+> `## Status HUD` renders before `## Key Artifacts`.  Report:
+> `docs/reports/SERVER_DISTRO_WIFI_STA_UPSTREAM_WSTA107_COMPACT_STATUS_HUD_SOURCE_2026-07-05.md`.
+> **NEXT:** move to Debian handoff/server polish while preserving default-off public exposure behind explicit
+> WSTA80/WSTA88 gates; rerun attended WSTA88 live only if another end-to-end proof is explicitly useful.
 
 ## North star — priority-ordered tracks (T1 → T2 → T3)
 
