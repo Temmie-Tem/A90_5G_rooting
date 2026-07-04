@@ -178,46 +178,43 @@ if command -v strace >/dev/null 2>&1; then STRACE=$(command -v strace); echo A90
 if [ -x /sbin/ip ]; then /sbin/ip link set lo up >/dev/null 2>&1 || true; fi
 if [ -x /usr/sbin/ip ]; then /usr/sbin/ip link set lo up >/dev/null 2>&1 || true; fi
 if [ -x /bin/busybox ]; then /bin/busybox ip link set lo up >/dev/null 2>&1 || true; fi
-/bin/rm -f "$TRACE" "$SYSCALLS" "$SMOKE_LOG" "$RUN_DIR/service-child.sh" "$RUN_DIR/smoke-server.log"
-/bin/cat > "$RUN_DIR/service-child.sh" <<'A90WSTA114_CHILD'
-#!/bin/sh
-set -eu
-RUN_DIR=/tmp/a90-wsta114-syscall-trace
-SMOKE=/usr/local/bin/a90-dpublic-smoke-httpd
-HTTP_GET=/usr/local/bin/a90-dpublic-http-get
-SMOKE_SERVER_LOG="$RUN_DIR/smoke-server.log"
-echo A90WSTA114_SERVICE_CHILD_BEGIN
-/usr/bin/awk '/^NoNewPrivs:/{{print "A90WSTA114_SMOKE_NO_NEW_PRIVS=" $2}}' /proc/self/status
-/usr/bin/awk '/^CapEff:/{{print "A90WSTA114_SMOKE_CAP_EFF=" $2}}' /proc/self/status
-"$SMOKE" 127.0.0.1 8080 >"$SMOKE_SERVER_LOG" 2>&1 &
-SMOKE_PID=$!
-/bin/sleep 1
-if /bin/kill -0 "$SMOKE_PID" >/dev/null 2>&1; then echo A90WSTA114_SMOKE_PID_FOUND=1; else [ -s "$SMOKE_SERVER_LOG" ] && /bin/cat "$SMOKE_SERVER_LOG"; exit 38; fi
+/bin/rm -f "$TRACE" "$SYSCALLS" "$SMOKE_LOG"
+: > "$TRACE"
+/bin/chmod 0666 "$TRACE"
+"$LAUNCHER" dpublic-smoke-httpd "$STRACE" -qq -f -s 96 -o "$TRACE" "$SMOKE" 127.0.0.1 8080 >"$SMOKE_LOG" 2>&1 &
+TRACE_PID=$!
+echo A90WSTA114_TRACE_PROCESS_STARTED=1
+SMOKE_PID=""
+for _i in 1 2 3 4 5 6 7 8 9 10; do
+  SMOKE_PID=$(/bin/pidof a90-dpublic-smoke-httpd 2>/dev/null | /usr/bin/awk '{{print $1; exit}}')
+  if [ -n "$SMOKE_PID" ]; then break; fi
+  if ! /bin/kill -0 "$TRACE_PID" >/dev/null 2>&1; then break; fi
+  /bin/sleep 1
+done
+if [ -n "$SMOKE_PID" ]; then echo A90WSTA114_SMOKE_PID_FOUND=1; else /bin/cat "$SMOKE_LOG" || true; fail smoke-pid 38; fi
+/usr/bin/awk '/^NoNewPrivs:/{{print "A90WSTA114_SMOKE_NO_NEW_PRIVS=" $2}}' "/proc/$SMOKE_PID/status"
+/usr/bin/awk '/^CapEff:/{{print "A90WSTA114_SMOKE_CAP_EFF=" $2}}' "/proc/$SMOKE_PID/status"
+set +e
 HTTP_OUTPUT=$(/usr/bin/timeout 10s "$HTTP_GET" 127.0.0.1 8080 2>&1)
 HTTP_RC=$?
-/bin/printf '%s\n' "$HTTP_OUTPUT"
-if /bin/printf '%s\n' "$HTTP_OUTPUT" | /bin/grep -q 'A90_DPUBLIC_SMOKE_OK'; then
+set -e
+/bin/printf '%s\\n' "$HTTP_OUTPUT"
+if /bin/printf '%s\\n' "$HTTP_OUTPUT" | /bin/grep -q 'A90_DPUBLIC_SMOKE_OK'; then
   echo A90WSTA114_LOOPBACK_GET_OK=1
 else
   echo A90WSTA114_LOOPBACK_GET_OK=0 rc=$HTTP_RC
+  /bin/cat "$SMOKE_LOG" || true
   /bin/kill "$SMOKE_PID" >/dev/null 2>&1 || true
-  wait "$SMOKE_PID" >/dev/null 2>&1 || true
-  exit 39
+  /bin/kill "$TRACE_PID" >/dev/null 2>&1 || true
+  fail loopback-get 39
 fi
 /bin/kill "$SMOKE_PID" >/dev/null 2>&1 || true
-wait "$SMOKE_PID" >/dev/null 2>&1 || true
-echo A90WSTA114_SERVICE_CHILD_DONE
-A90WSTA114_CHILD
-/bin/chmod 0755 "$RUN_DIR/service-child.sh"
-: > "$RUN_DIR/smoke-server.log"
-/bin/chmod 0666 "$RUN_DIR/smoke-server.log"
-/usr/bin/timeout -k 3s 30s "$STRACE" -qq -f -s 96 -o "$TRACE" "$LAUNCHER" dpublic-smoke-httpd /bin/sh "$RUN_DIR/service-child.sh" >"$SMOKE_LOG" 2>&1
-TRACE_RC=$?
-/bin/cat "$SMOKE_LOG"
-[ "$TRACE_RC" -eq 0 ] || fail trace-run "$TRACE_RC"
-echo A90WSTA114_TRACE_PROCESS_STARTED=1
-if /bin/grep -q 'A90WSTA114_SMOKE_PID_FOUND=1' "$SMOKE_LOG"; then echo A90WSTA114_SMOKE_PID_FOUND=1; else fail smoke-pid 38; fi
-if /bin/grep -q 'A90WSTA114_LOOPBACK_GET_OK=1' "$SMOKE_LOG"; then echo A90WSTA114_LOOPBACK_GET_OK=1; else fail loopback-get 39; fi
+/bin/sleep 1
+if /bin/kill -0 "$TRACE_PID" >/dev/null 2>&1; then /bin/kill "$TRACE_PID" >/dev/null 2>&1 || true; fi
+/bin/sleep 1
+if /bin/kill -0 "$TRACE_PID" >/dev/null 2>&1; then /bin/kill -9 "$TRACE_PID" >/dev/null 2>&1 || true; fi
+wait "$TRACE_PID" >/dev/null 2>&1 || true
+/bin/cat "$SMOKE_LOG" || true
 if /bin/grep -q 'a90_service_launcher_decision=exec' "$SMOKE_LOG"; then echo A90WSTA114_LAUNCHER_EXEC_LOGGED=1; else fail launcher-exec 40; fi
 [ -s "$TRACE" ] && echo A90WSTA114_TRACE_FILE_NONEMPTY=1 || fail trace-empty 41
 /usr/bin/awk '{{ line=$0; sub(/^[0-9]+ +/, "", line); if (match(line, /^[A-Za-z0-9_]+\\(/)) {{ name=substr(line, 1, index(line, "(")-1); seen[name]=1 }} }} END {{ for (name in seen) print name }}' "$TRACE" | /usr/bin/sort > "$SYSCALLS"
@@ -291,7 +288,7 @@ def syscall_profile(parsed: dict[str, Any], trace_artifacts: dict[str, Any] | No
         "service": "dpublic-smoke-httpd",
         "scope": "smoke-service-only",
         "launcher": REMOTE_SERVICE_LAUNCHER,
-        "command_shape": "a90-service-launch dpublic-smoke-httpd a90-dpublic-smoke-httpd 127.0.0.1 8080",
+        "command_shape": "a90-service-launch dpublic-smoke-httpd strace -f a90-dpublic-smoke-httpd 127.0.0.1 8080",
         "public_default_off": bool(parsed.get("public_enable_absent")),
         "loopback_get_ok": bool(parsed.get("loopback_get_ok")),
         "no_new_privs": bool(parsed.get("smoke_no_new_privs")),

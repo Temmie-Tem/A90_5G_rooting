@@ -218,8 +218,10 @@ echo A90WSTA116_SMOKE_CAP_EFF=$CAP
 SMOKE_PID=$!
 /bin/sleep 1
 if /bin/kill -0 "$SMOKE_PID" >/dev/null 2>&1; then echo A90WSTA116_SMOKE_PID_FOUND=1; else [ -s "$SMOKE_SERVER_LOG" ] && /bin/cat "$SMOKE_SERVER_LOG"; exit 38; fi
+set +e
 HTTP_OUTPUT=$(/usr/bin/timeout 10s "$HTTP_GET" 127.0.0.1 8080 2>&1)
 HTTP_RC=$?
+set -e
 /bin/printf '%s\\n' "$HTTP_OUTPUT"
 if /bin/printf '%s\\n' "$HTTP_OUTPUT" | /bin/grep -q 'A90_DPUBLIC_SMOKE_OK'; then
   echo A90WSTA116_LOOPBACK_GET_OK=1

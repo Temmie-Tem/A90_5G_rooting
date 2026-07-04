@@ -2963,6 +2963,22 @@ safety invariants and flash gates are binding and override any sub-goal.**
 > **NEXT:** WSTA117 should trace only the smoke server under the service launcher and keep the HTTP client outside the
 > traced process tree; if that passes, fold that server-only shape back into WSTA114 for the actual private syscall
 > profile capture.
+>
+> **🟢 STATUS (2026-07-05 04:03 KST host clock) — WSTA117 SERVER-ONLY
+> SYSCALL TRACE LIVE PASS.**  Codex folded the WSTA116 finding back into WSTA114: the runner now traces only
+> `a90-dpublic-smoke-httpd` under `a90-service-launch`, while the loopback HTTP client runs outside the traced process
+> tree.  The trace file is precreated writable for the dropped `a90www` process, and HTTP client nonzero results are
+> captured explicitly instead of being swallowed by `set -e`.  Live WSTA114 with the strace-enabled private SD image
+> passed: public default-off, `strace` present, launcher exec logged, smoke child `NoNewPrivs=1`, effective capabilities
+> zero, loopback GET returned `A90_DPUBLIC_SMOKE_OK`, raw trace + syscall list private artifacts saved, core syscalls
+> `execve/socket/bind/listen` observed, postcheck clean, and final selftest `fail=0`.  Captured syscall-name profile
+> had 18 entries: `accept`, `bind`, `brk`, `close`, `execve`, `getrandom`, `listen`, `mprotect`, `prlimit64`,
+> `readlinkat`, `rseq`, `rt_sigaction`, `rt_sigreturn`, `set_robust_list`, `set_tid_address`, `setsockopt`, `socket`,
+> `write`.  No boot flash, native reboot, Wi-Fi association, DHCP, public tunnel, public smoke, packet-filter mutation,
+> userdata action, or switch-root ran.  Focused WSTA114/WSTA116 validation passed (`18 tests`).  Report:
+> `docs/reports/SERVER_DISTRO_WIFI_STA_UPSTREAM_WSTA117_SERVER_ONLY_SYSCALL_TRACE_LIVE_2026-07-05.md`.
+> **NEXT:** WSTA118 should fold the WSTA114 private pass proof into WSTA108/WSTA90 operator status, retiring only the
+> `dpublic-smoke-httpd` syscall-trace blocker and not generalizing to Dropbear/tunnel/HUD profiles.
 
 ## North star — priority-ordered tracks (T1 → T2 → T3)
 
