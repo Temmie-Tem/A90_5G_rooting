@@ -2247,6 +2247,25 @@ safety invariants and flash gates are binding and override any sub-goal.**
 > **NEXT:** default-off persistent exposure now has prepare, readiness, status, retire, inventory, and bulk-retire
 > cleanup layers; continue only with explicit operator-selected WSTA58 live proof, or further default-off operator
 > UX/reporting without starting public exposure.
+> **🟢 STATUS (2026-07-04 19:27 KST host clock) — WSTA69 persistent session snapshot
+> SOURCE/PREFLIGHT PASS.**  Codex added
+> `workspace/public/src/scripts/server-distro/run_wsta69_persistent_session_snapshot.py`, a host-only operator
+> snapshot runner that consumes a private WSTA67 inventory and writes redacted JSON plus Markdown summaries.  It
+> reports `overall_state` as `INSPECT_REQUIRED`, `CLEANUP_RECOMMENDED`, `READY_PRESENT_DEFAULT_OFF`, or
+> `NO_LIVE_READY`, renders session counts/rows, and emits default-off next actions such as WSTA68 bulk-retire for
+> non-liveable sessions or an explicit operator-selected WSTA58 live gate for READY sessions.  Private smoke
+> `workspace/private/runs/server-distro/wsta69-snapshot-smoke-20260704T102713Z` built one READY session and one STALE
+> near-expiry session; WSTA69 returned `wsta69-persistent-session-snapshot-pass`,
+> `overall_state=CLEANUP_RECOMMENDED`, `ready_count=1`, `stale_count=1`,
+> `next_actions=[bulk-retire-nonliveable, operator-may-select-explicit-live]`, and
+> `live_execution_requested=false`.  Validation passed 91 focused WSTA52/WSTA53/WSTA54/WSTA55/WSTA58/WSTA63/WSTA64/
+> WSTA65/WSTA66/WSTA67/WSTA68/WSTA69 tests plus `py_compile`.  No boot image, flash, device command, native reboot,
+> Wi-Fi association, DHCP, public tunnel, public smoke, userdata action, switch-root, or external service action ran.
+> Report:
+> `docs/reports/SERVER_DISTRO_WIFI_STA_UPSTREAM_WSTA69_SESSION_SNAPSHOT_SOURCE_2026-07-04.md`.
+> **NEXT:** default-off persistent exposure now has prepare, readiness, status, retire, inventory, bulk-retire cleanup,
+> and operator snapshot layers; continue only with explicit operator-selected WSTA58 live proof, or further default-off
+> operator UX/reporting without starting public exposure.
 
 ## North star — priority-ordered tracks (T1 → T2 → T3)
 
