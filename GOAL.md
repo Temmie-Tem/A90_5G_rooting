@@ -2926,6 +2926,25 @@ safety invariants and flash gates are binding and override any sub-goal.**
 > `docs/reports/SERVER_DISTRO_WIFI_STA_UPSTREAM_WSTA114_SYSCALL_TRACE_CHROOT_PROFILE_SOURCE_2026-07-05.md`.
 > **NEXT:** confirm or prepare a strace-enabled SD work image, run the WSTA114 live gate, keep the raw/profile artifacts
 > private, then fold the pass proof into WSTA108 without generalizing beyond `dpublic-smoke-httpd`.
+>
+> **🟡 STATUS (2026-07-05 03:27 KST host clock) — WSTA115 STRACE IMAGE PREP +
+> WSTA114 TRACE LIVE BLOCKED.**  Codex prepared a private strace-enabled SD work image with WSTA3
+> `--stage-syscall-trace-tools` and verified `/usr/bin/strace`, `a90-service-launch`, the service-hardening policy,
+> packet-filter helper dependencies, and syscall-trace stage markers in the image.  The private image SHA256 was
+> `40a01268ae6f77d1548dd71f9ef30f4d31fdce437d90a6edcc7721f0e26dd159`.  WSTA114 was then run with all explicit live
+> gates and the private trace-artifact acknowledgement.  Live setup passed through baseline selftest, clean remote image
+> install, chroot mount, Dropbear/SSH marker, service-hardening staging, D-public helper staging, syscall-trace marker
+> staging, public-default-off, smoke binary presence, and `strace` presence, but the trace command timed out before
+> `A90WSTA114_TRACE_PROCESS_STARTED=1` or the service-child begin marker.  Decision:
+> `wsta114-blocked-trace-timeout`.  Cleanup postcheck was clean and final selftest stayed `fail=0`.  The runner now
+> preserves partial timeout stdout/stderr and classifies trace timeouts as blocked evidence instead of opaque runner
+> errors.  No boot flash, native reboot, Wi-Fi association, DHCP, public tunnel, public smoke, packet-filter mutation,
+> userdata action, or switch-root ran.  Validation passed `py_compile`, focused WSTA114 tests (`10 tests`), the full
+> server-distro WSTA regression (`385 tests`), and `git diff --check`.  Report:
+> `docs/reports/SERVER_DISTRO_WIFI_STA_UPSTREAM_WSTA115_STRACE_IMAGE_AND_WSTA114_TRACE_TIMEOUT_LIVE_2026-07-05.md`.
+> **NEXT:** WSTA116 should isolate the timeout with a smaller ptrace ladder: `strace /bin/true` in the same chroot,
+> `strace a90-service-launch ... /bin/true`, then smoke tracing via remote background execution plus file polling so
+> SSH foreground wait behavior is not conflated with ptrace or launcher behavior.
 
 ## North star — priority-ordered tracks (T1 → T2 → T3)
 

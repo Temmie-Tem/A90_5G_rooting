@@ -91,7 +91,10 @@ class ServerDistroWsta114SyscallTraceChrootProfileTests(unittest.TestCase):
         self.assertIn("cloudflared-quick-enable", script)
         self.assertIn("A90WSTA114_PUBLIC_ENABLE_ABSENT=1", script)
         self.assertIn("command -v strace", script)
-        self.assertIn("-o \"$TRACE\" \"$LAUNCHER\" dpublic-smoke-httpd \"$SMOKE\" 127.0.0.1 8080", script)
+        self.assertIn("A90WSTA114_SERVICE_CHILD_BEGIN", script)
+        self.assertIn("a90-dpublic-smoke-httpd", script)
+        self.assertIn("-o \"$TRACE\" \"$LAUNCHER\" dpublic-smoke-httpd /bin/sh \"$RUN_DIR/service-child.sh\"", script)
+        self.assertIn("/usr/bin/timeout -k 3s 30s \"$STRACE\"", script)
         self.assertIn("A90WSTA114_LOOPBACK_GET_OK=1", script)
         self.assertIn("A90WSTA114_SMOKE_NO_NEW_PRIVS=", script)
         self.assertIn("A90WSTA114_SMOKE_CAP_EFF=", script)
@@ -204,6 +207,32 @@ class ServerDistroWsta114SyscallTraceChrootProfileTests(unittest.TestCase):
         self.assertIn("/bin/cat /tmp/a90-wsta114-syscall-trace/smoke.strace", remote_script)
         self.assertEqual(record["secret_values_logged"], 0)
 
+    def test_run_trace_probe_records_timeout_as_blocked_evidence(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            run_dir = Path(tmp)
+            args = SimpleNamespace(
+                ssh_port=2222,
+                ssh_connect_timeout=1,
+                device_ip="192.0.2.2",
+                trace_timeout=5.0,
+            )
+            timeout = runner.subprocess.TimeoutExpired(
+                cmd=["ssh"],
+                timeout=5.0,
+                output=b"A90WSTA114_TRACE_BEGIN\n",
+                stderr=b"timeout\n",
+            )
+            with mock.patch.object(runner.subprocess, "run", side_effect=timeout):
+                record = runner.run_trace_probe(args, run_dir)
+
+        self.assertTrue(record["timed_out"])
+        self.assertIsNone(record["returncode"])
+        self.assertEqual(record["timeout_sec"], 5.0)
+        self.assertIn("A90WSTA114_TRACE_BEGIN", record["stdout"])
+        self.assertIn("timeout", record["stderr"])
+        self.assertTrue(record["parsed"]["proof_begin"])
+        self.assertFalse(record["parsed"]["proof_done"])
+
     def test_classify_requires_trace_profile_and_cleanup(self) -> None:
         checks = {
             "explicit_live_gate": True,
@@ -218,6 +247,7 @@ class ServerDistroWsta114SyscallTraceChrootProfileTests(unittest.TestCase):
             "service_hardening_assets_staged": True,
             "dpublic_helpers_staged": True,
             "syscall_trace_marker_staged": True,
+            "trace_probe_completed": True,
             "public_default_off": True,
             "strace_present": True,
             "smoke_binaries_present": True,
@@ -234,6 +264,7 @@ class ServerDistroWsta114SyscallTraceChrootProfileTests(unittest.TestCase):
 
         for key, decision in (
             ("explicit_live_gate", "wsta114-blocked-explicit-live-gate"),
+            ("trace_probe_completed", "wsta114-blocked-trace-timeout"),
             ("strace_present", "wsta114-blocked-strace-missing"),
             ("loopback_get_ok", "wsta114-blocked-loopback-get"),
             ("syscall_core_observed", "wsta114-blocked-core-syscalls-missing"),

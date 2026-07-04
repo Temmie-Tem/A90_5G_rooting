@@ -152,10 +152,8 @@ POLICY={shlex.quote(REMOTE_SERVICE_POLICY)}
 SMOKE={shlex.quote(wsta42.REMOTE_SMOKE)}
 HTTP_GET={shlex.quote(wsta42.REMOTE_HTTP_GET)}
 PROC_MOUNTED=0
-TRACE_PID=""
 cleanup() {{
   set +e
-  if [ -n "$TRACE_PID" ]; then /bin/kill "$TRACE_PID" >/dev/null 2>&1 || true; fi
   /usr/bin/pkill -f '[a]90-dpublic-smoke-httpd' >/dev/null 2>&1 || true
   /bin/sleep 1
   /usr/bin/pkill -9 -f '[a]90-dpublic-smoke-httpd' >/dev/null 2>&1 || true
@@ -184,30 +182,45 @@ if command -v strace >/dev/null 2>&1; then STRACE=$(command -v strace); echo A90
 if [ -x /sbin/ip ]; then /sbin/ip link set lo up >/dev/null 2>&1 || true; fi
 if [ -x /usr/sbin/ip ]; then /usr/sbin/ip link set lo up >/dev/null 2>&1 || true; fi
 if [ -x /bin/busybox ]; then /bin/busybox ip link set lo up >/dev/null 2>&1 || true; fi
-/bin/rm -f "$TRACE" "$SYSCALLS" "$SMOKE_LOG"
-"$STRACE" -qq -f -s 96 -o "$TRACE" "$LAUNCHER" dpublic-smoke-httpd "$SMOKE" 127.0.0.1 8080 >"$SMOKE_LOG" 2>&1 &
-TRACE_PID=$!
+/bin/rm -f "$TRACE" "$SYSCALLS" "$SMOKE_LOG" "$RUN_DIR/service-child.sh" "$RUN_DIR/smoke-server.log"
+/bin/cat > "$RUN_DIR/service-child.sh" <<'A90WSTA114_CHILD'
+#!/bin/sh
+set -eu
+RUN_DIR=/tmp/a90-wsta114-syscall-trace
+SMOKE=/usr/local/bin/a90-dpublic-smoke-httpd
+HTTP_GET=/usr/local/bin/a90-dpublic-http-get
+SMOKE_SERVER_LOG="$RUN_DIR/smoke-server.log"
+echo A90WSTA114_SERVICE_CHILD_BEGIN
+/usr/bin/awk '/^NoNewPrivs:/{{print "A90WSTA114_SMOKE_NO_NEW_PRIVS=" $2}}' /proc/self/status
+/usr/bin/awk '/^CapEff:/{{print "A90WSTA114_SMOKE_CAP_EFF=" $2}}' /proc/self/status
+"$SMOKE" 127.0.0.1 8080 >"$SMOKE_SERVER_LOG" 2>&1 &
+SMOKE_PID=$!
 /bin/sleep 1
-if /bin/kill -0 "$TRACE_PID" >/dev/null 2>&1; then echo A90WSTA114_TRACE_PROCESS_STARTED=1; else [ -s "$SMOKE_LOG" ] && /bin/cat "$SMOKE_LOG"; fail trace-start 37; fi
-SMOKE_PID=$(/bin/pidof a90-dpublic-smoke-httpd 2>/dev/null | /usr/bin/awk '{{print $1; exit}}')
-if [ -n "$SMOKE_PID" ]; then echo A90WSTA114_SMOKE_PID_FOUND=1; else [ -s "$SMOKE_LOG" ] && /bin/cat "$SMOKE_LOG"; fail smoke-pid 38; fi
-/usr/bin/awk '/^NoNewPrivs:/{{print "A90WSTA114_SMOKE_NO_NEW_PRIVS=" $2}}' "/proc/$SMOKE_PID/status"
-/usr/bin/awk '/^CapEff:/{{print "A90WSTA114_SMOKE_CAP_EFF=" $2}}' "/proc/$SMOKE_PID/status"
+if /bin/kill -0 "$SMOKE_PID" >/dev/null 2>&1; then echo A90WSTA114_SMOKE_PID_FOUND=1; else [ -s "$SMOKE_SERVER_LOG" ] && /bin/cat "$SMOKE_SERVER_LOG"; exit 38; fi
 HTTP_OUTPUT=$(/usr/bin/timeout 10s "$HTTP_GET" 127.0.0.1 8080 2>&1)
 HTTP_RC=$?
-/bin/printf '%s\\n' "$HTTP_OUTPUT"
-if /bin/printf '%s\\n' "$HTTP_OUTPUT" | /bin/grep -q 'A90_DPUBLIC_SMOKE_OK'; then
+/bin/printf '%s\n' "$HTTP_OUTPUT"
+if /bin/printf '%s\n' "$HTTP_OUTPUT" | /bin/grep -q 'A90_DPUBLIC_SMOKE_OK'; then
   echo A90WSTA114_LOOPBACK_GET_OK=1
 else
   echo A90WSTA114_LOOPBACK_GET_OK=0 rc=$HTTP_RC
-  fail loopback-get 39
+  /bin/kill "$SMOKE_PID" >/dev/null 2>&1 || true
+  wait "$SMOKE_PID" >/dev/null 2>&1 || true
+  exit 39
 fi
-/bin/kill "$TRACE_PID" >/dev/null 2>&1 || true
-/bin/sleep 1
-if /bin/kill -0 "$TRACE_PID" >/dev/null 2>&1; then /bin/kill -9 "$TRACE_PID" >/dev/null 2>&1 || true; fi
-wait "$TRACE_PID" >/dev/null 2>&1 || true
-TRACE_PID=""
-if /bin/grep -q 'a90_service_launcher_decision=exec' "$SMOKE_LOG"; then echo A90WSTA114_LAUNCHER_EXEC_LOGGED=1; else /bin/cat "$SMOKE_LOG"; fail launcher-exec 40; fi
+/bin/kill "$SMOKE_PID" >/dev/null 2>&1 || true
+wait "$SMOKE_PID" >/dev/null 2>&1 || true
+echo A90WSTA114_SERVICE_CHILD_DONE
+A90WSTA114_CHILD
+/bin/chmod 0755 "$RUN_DIR/service-child.sh"
+/usr/bin/timeout -k 3s 30s "$STRACE" -qq -f -s 96 -o "$TRACE" "$LAUNCHER" dpublic-smoke-httpd /bin/sh "$RUN_DIR/service-child.sh" >"$SMOKE_LOG" 2>&1
+TRACE_RC=$?
+/bin/cat "$SMOKE_LOG"
+[ "$TRACE_RC" -eq 0 ] || fail trace-run "$TRACE_RC"
+echo A90WSTA114_TRACE_PROCESS_STARTED=1
+if /bin/grep -q 'A90WSTA114_SMOKE_PID_FOUND=1' "$SMOKE_LOG"; then echo A90WSTA114_SMOKE_PID_FOUND=1; else fail smoke-pid 38; fi
+if /bin/grep -q 'A90WSTA114_LOOPBACK_GET_OK=1' "$SMOKE_LOG"; then echo A90WSTA114_LOOPBACK_GET_OK=1; else fail loopback-get 39; fi
+if /bin/grep -q 'a90_service_launcher_decision=exec' "$SMOKE_LOG"; then echo A90WSTA114_LAUNCHER_EXEC_LOGGED=1; else fail launcher-exec 40; fi
 [ -s "$TRACE" ] && echo A90WSTA114_TRACE_FILE_NONEMPTY=1 || fail trace-empty 41
 /usr/bin/awk '{{ line=$0; sub(/^[0-9]+ +/, "", line); if (match(line, /^[A-Za-z0-9_]+\\(/)) {{ name=substr(line, 1, index(line, "(")-1); seen[name]=1 }} }} END {{ for (name in seen) print name }}' "$TRACE" | /usr/bin/sort > "$SYSCALLS"
 [ -s "$SYSCALLS" ] && echo A90WSTA114_SYSCALL_PROFILE_NONEMPTY=1 || fail syscalls-empty 42
@@ -294,8 +307,45 @@ def syscall_profile(parsed: dict[str, Any], trace_artifacts: dict[str, Any] | No
     }
 
 
+def decode_subprocess_stream(value: str | bytes | None) -> str:
+    if value is None:
+        return ""
+    if isinstance(value, bytes):
+        return value.decode("utf-8", errors="replace")
+    return value
+
+
 def run_trace_probe(args: argparse.Namespace, run_dir: Path) -> dict[str, Any]:
-    record = wsta42.ssh_exec(args, run_dir, trace_probe_script(), timeout=args.trace_timeout)
+    command = [*wsta42.ssh_command(args, run_dir), trace_probe_script()]
+    started = time.monotonic()
+    try:
+        completed = subprocess.run(
+            command,
+            cwd=REPO_ROOT,
+            text=True,
+            stdout=subprocess.PIPE,
+            stderr=subprocess.PIPE,
+            timeout=args.trace_timeout,
+            check=False,
+        )
+        record = {
+            "command": command,
+            "returncode": completed.returncode,
+            "elapsed_sec": round(time.monotonic() - started, 3),
+            "stdout": completed.stdout,
+            "stderr": completed.stderr,
+            "timed_out": False,
+        }
+    except subprocess.TimeoutExpired as exc:
+        record = {
+            "command": command,
+            "returncode": None,
+            "elapsed_sec": round(time.monotonic() - started, 3),
+            "stdout": decode_subprocess_stream(exc.stdout),
+            "stderr": decode_subprocess_stream(exc.stderr),
+            "timed_out": True,
+            "timeout_sec": args.trace_timeout,
+        }
     record["parsed"] = parse_trace_probe(record)
     return record
 
@@ -382,6 +432,7 @@ def classify(result: dict[str, Any]) -> str:
         ("service_hardening_assets_staged", "wsta114-blocked-service-hardening-stage"),
         ("dpublic_helpers_staged", "wsta114-blocked-dpublic-helper-stage"),
         ("syscall_trace_marker_staged", "wsta114-blocked-syscall-trace-marker-stage"),
+        ("trace_probe_completed", "wsta114-blocked-trace-timeout"),
         ("public_default_off", "wsta114-blocked-public-default-off"),
         ("strace_present", "wsta114-blocked-strace-missing"),
         ("smoke_binaries_present", "wsta114-blocked-smoke-binaries-missing"),
@@ -544,6 +595,10 @@ def run(args: argparse.Namespace) -> dict[str, Any]:
         )
         result["syscall_profile"] = syscall_profile(parsed, result.get("trace_artifacts"))
         result["checks"].update({
+            "trace_probe_completed": bool(
+                result["trace_probe"].get("returncode") == 0
+                and not result["trace_probe"].get("timed_out")
+            ),
             "public_default_off": bool(parsed.get("public_enable_absent")),
             "strace_present": bool(parsed.get("strace_present")),
             "smoke_binaries_present": bool(parsed.get("smoke_present") and parsed.get("http_get_present")),
