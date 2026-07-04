@@ -2823,6 +2823,21 @@ safety invariants and flash gates are binding and override any sub-goal.**
 > `docs/reports/SERVER_DISTRO_WIFI_STA_UPSTREAM_WSTA108_OPERATOR_SERVER_STATUS_SOURCE_2026-07-05.md`.
 > **NEXT:** convert the WSTA90 blocking items into one bounded source unit: rootfs user/group staging plus a
 > no-new-privs launcher plan, keeping public exposure default-off and live gates unchanged.
+> **🟢 STATUS (2026-07-05 02:15 KST host clock) — WSTA109 SERVICE HARDENING
+> ROOTFS SOURCE PASS.**  Codex integrated service hardening into `prepare_wsta3_sta_rootfs.py`: deterministic non-root
+> service accounts/groups (`a90www`, `a90tunnel`, `a90admin`, `a90hud`), fail-closed account conflict detection,
+> `/usr/local/bin/a90-service-launch` using `setpriv --no-new-privs --reuid --regid --init-groups`, a redacted
+> `/etc/a90-dpublic/service-hardening.json` policy, and service-hardening markers in
+> `/etc/a90-server-distro-stage`.  `wsta-native-uplink-helper` remains explicitly root/native-boundary.  WSTA90 wording
+> now reflects source-staged service users/groups with live proof still pending instead of saying they are simply not
+> staged.  No device action, native reboot, Wi-Fi, DHCP, public tunnel, public smoke, packet-filter mutation, userdata
+> action, switch-root, or boot flash ran.  Validation passed `py_compile`, focused WSTA90/108 + WSTA3 rootfs tests
+> (`43 tests`), a wider WSTA/rootfs public workflow regression (`79 tests`), and the full server-distro WSTA regression
+> (`354 tests`).  A default private WSTA3 prepare
+> attempt stopped before service staging on the existing STA-tool precondition and is not used as pass evidence.  Report:
+> `docs/reports/SERVER_DISTRO_WIFI_STA_UPSTREAM_WSTA109_SERVICE_HARDENING_ROOTFS_SOURCE_2026-07-05.md`.
+> **NEXT:** prove the staged launcher in a private rootfs/chroot: run `a90-service-launch dpublic-smoke-httpd ...` with
+> public exposure off, verify UID/GID/no-new-privs from inside the launched process, and keep live/public gates unchanged.
 
 ## North star — priority-ordered tracks (T1 → T2 → T3)
 

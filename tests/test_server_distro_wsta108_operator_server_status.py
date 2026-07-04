@@ -59,7 +59,8 @@ class ServerDistroWsta108OperatorServerStatusTests(unittest.TestCase):
                     "root_login_policy": "replace-root-authorized-keys-before-always-on",
                 },
                 "blocking_before_enforcement": [
-                    "non-root users/groups not staged",
+                    "staged service users/groups not live-proven",
+                    "no-new-privs launcher not live-proven",
                     "syscall traces not captured",
                 ],
             },

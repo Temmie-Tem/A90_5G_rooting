@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import argparse
+import json
 import tempfile
 import unittest
 from pathlib import Path
@@ -484,6 +485,78 @@ class PrepareWsta3PrivateRootfsTests(unittest.TestCase):
             self.assertIn("packet-filter-policy=not-enforced", text)
             self.assertIn("packet-filter-default-drop=deferred-WSTA93", text)
 
+    def test_stage_service_identities_adds_nonroot_service_accounts(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            rootfs = Path(tmp)
+            etc = rootfs / "etc"
+            etc.mkdir()
+            (etc / "passwd").write_text("root:x:0:0:root:/root:/bin/sh\n", encoding="utf-8")
+            (etc / "group").write_text("root:x:0:\n", encoding="utf-8")
+
+            result = wsta3.stage_service_identities(rootfs)
+
+            passwd = (etc / "passwd").read_text(encoding="utf-8")
+            group = (etc / "group").read_text(encoding="utf-8")
+            self.assertIn("a90www:x:3901:3901:A90 service a90www:/nonexistent:/usr/sbin/nologin", passwd)
+            self.assertIn("a90tunnel:x:3902:3902:A90 service a90tunnel:/nonexistent:/usr/sbin/nologin", passwd)
+            self.assertIn("a90admin:x:3903:3903:A90 service a90admin:/nonexistent:/usr/sbin/nologin", passwd)
+            self.assertIn("a90hud:x:3904:3904:A90 service a90hud:/nonexistent:/usr/sbin/nologin", passwd)
+            self.assertIn("a90www:x:3901:", group)
+            self.assertIn("a90tunnel:x:3902:", group)
+            self.assertIn("a90admin:x:3903:", group)
+            self.assertIn("a90hud:x:3904:", group)
+            self.assertEqual((etc / "passwd").stat().st_mode & 0o777, 0o644)
+            self.assertEqual((etc / "group").stat().st_mode & 0o777, 0o644)
+            self.assertIn("wsta-native-uplink-helper", result["root_boundary_services"])
+            self.assertEqual(result["secret_values_logged"], 0)
+
+    def test_stage_service_identities_rejects_conflicting_account(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            rootfs = Path(tmp)
+            etc = rootfs / "etc"
+            etc.mkdir()
+            (etc / "passwd").write_text("a90www:x:9999:9999:bad:/tmp:/bin/sh\n", encoding="utf-8")
+            (etc / "group").write_text("", encoding="utf-8")
+
+            with self.assertRaises(ValueError):
+                wsta3.stage_service_identities(rootfs)
+
+    def test_stage_no_new_privs_launcher_and_policy_are_fail_closed(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            rootfs = Path(tmp)
+
+            launcher = wsta3.stage_no_new_privs_launcher(rootfs)
+            policy = wsta3.stage_service_hardening_policy(rootfs)
+            marker = wsta3.stage_service_hardening_stage_marker(rootfs)
+
+            launcher_path = rootfs / wsta3.TARGET_SERVICE_LAUNCHER
+            launcher_text = launcher_path.read_text(encoding="utf-8")
+            policy_payload = json.loads((rootfs / wsta3.TARGET_SERVICE_HARDENING_POLICY).read_text(encoding="utf-8"))
+            marker_text = (rootfs / wsta3.TARGET_STAGE_MARKER).read_text(encoding="utf-8")
+            self.assertEqual(launcher_path.stat().st_mode & 0o777, 0o755)
+            self.assertTrue(launcher["setpriv_required"])
+            self.assertTrue(launcher["no_new_privs_present"])
+            self.assertTrue(launcher["unknown_service_blocks"])
+            self.assertTrue(launcher["command_required_blocks"])
+            self.assertIn("exec setpriv --no-new-privs", launcher_text)
+            self.assertIn("blocked-setpriv-missing", launcher_text)
+            self.assertIn("dpublic-smoke-httpd)", launcher_text)
+            self.assertIn("A90_USER=a90www", launcher_text)
+            self.assertIn("cloudflared-quick-tunnel)", launcher_text)
+            self.assertIn("A90_USER=a90tunnel", launcher_text)
+            self.assertNotIn("cloudflared tunnel", launcher_text)
+            self.assertNotIn("ssid=", launcher_text.lower())
+            self.assertNotIn("psk=", launcher_text.lower())
+            self.assertEqual(policy["service_count"], 4)
+            self.assertTrue(policy_payload["default_public_off"])
+            self.assertEqual(policy_payload["services"]["dpublic-hud"]["user"], "a90hud")
+            self.assertEqual(policy_payload["services"]["cloudflared-quick-tunnel"]["ambient_capabilities"], [])
+            self.assertIn("setpriv", policy_payload["launcher_requires"])
+            self.assertTrue(marker["users_marker_present"])
+            self.assertTrue(marker["no_new_privs_marker_present"])
+            self.assertTrue(marker["public_default_off_marker"])
+            self.assertIn("service-hardening-no-new-privs=setpriv-required", marker_text)
+
     def test_create_private_tarball_forces_owner_private_mode(self) -> None:
         with tempfile.TemporaryDirectory() as tmp:
             tmp_path = Path(tmp)
@@ -585,10 +658,23 @@ class PrepareWsta3PrivateRootfsTests(unittest.TestCase):
             self.assertTrue(result["packet_filter_stage_marker"]["backend_marker_present"])
             self.assertTrue(result["packet_filter_stage_marker"]["helper_marker_present"])
             self.assertTrue(result["packet_filter_stage_marker"]["default_drop_deferred_marker_present"])
+            self.assertIn("a90www", result["service_identities"]["users"])
+            self.assertIn("a90tunnel", result["service_identities"]["users"])
+            self.assertTrue(result["service_launcher"]["no_new_privs_present"])
+            self.assertTrue(result["service_launcher"]["unknown_service_blocks"])
+            self.assertEqual(result["service_hardening_policy"]["service_count"], 4)
+            self.assertTrue(result["service_hardening_policy"]["default_public_off"])
+            self.assertTrue(result["service_hardening_stage_marker"]["launcher_marker_present"])
+            self.assertTrue((target / wsta3.TARGET_SERVICE_LAUNCHER).is_file())
+            self.assertTrue((target / wsta3.TARGET_SERVICE_HARDENING_POLICY).is_file())
             self.assertTrue((target / wsta3.TARGET_NATIVE_WIFI_SERVICE_CLIENT).is_file())
             self.assertTrue((target / wsta3.TARGET_NATIVE_WIFI_UPLINK_CLIENT).is_file())
             self.assertTrue((target / wsta3.TARGET_NATIVE_UPLINK_PROFILE).is_file())
             self.assertTrue((target / wsta3.TARGET_PACKET_FILTER).is_file())
+            self.assertIn(
+                "service-hardening-launcher=/usr/local/bin/a90-service-launch",
+                (target / wsta3.TARGET_STAGE_MARKER).read_text(encoding="utf-8"),
+            )
             self.assertIn(
                 "native-uplink-profile=/usr/local/bin/a90-dpublic-native-uplink-profile",
                 (target / wsta3.TARGET_STAGE_MARKER).read_text(encoding="utf-8"),

@@ -53,6 +53,8 @@ TARGET_NATIVE_WIFI_SERVICE_CLIENT = Path("usr/local/bin/a90-native-wifi-service-
 TARGET_NATIVE_WIFI_UPLINK_CLIENT = Path("usr/local/bin/a90-native-wifi-uplink-client")
 TARGET_NATIVE_UPLINK_PROFILE = Path("usr/local/bin/a90-dpublic-native-uplink-profile")
 TARGET_PACKET_FILTER = Path("usr/local/bin/a90-dpublic-packet-filter")
+TARGET_SERVICE_LAUNCHER = Path("usr/local/bin/a90-service-launch")
+TARGET_SERVICE_HARDENING_POLICY = Path("etc/a90-dpublic/service-hardening.json")
 TARGET_FIRSTBOOT = Path("etc/a90-d3-firstboot")
 TARGET_STAGE_MARKER = Path("etc/a90-server-distro-stage")
 DPUBLIC_BINARY_TARGETS = {
@@ -120,6 +122,44 @@ PACKET_FILTER_STAGE_MARKERS = (
     "packet-filter-tools=/usr/sbin/iptables-legacy /usr/sbin/ip6tables-legacy",
     "packet-filter-policy=not-enforced; WSTA93 helper staged for manual bounded prototype",
     "packet-filter-default-drop=deferred-WSTA93",
+)
+SERVICE_IDENTITIES = {
+    "dpublic-smoke-httpd": {
+        "user": "a90www",
+        "group": "a90www",
+        "uid": 3901,
+        "gid": 3901,
+        "network_intent": "bind-loopback-127.0.0.1:8080-only",
+    },
+    "cloudflared-quick-tunnel": {
+        "user": "a90tunnel",
+        "group": "a90tunnel",
+        "uid": 3902,
+        "gid": 3902,
+        "network_intent": "outbound-only-plus-loopback-origin",
+    },
+    "dropbear-admin-usb": {
+        "user": "a90admin",
+        "group": "a90admin",
+        "uid": 3903,
+        "gid": 3903,
+        "network_intent": "usb-ncm-admin-only-192.168.7.2:2222",
+    },
+    "dpublic-hud": {
+        "user": "a90hud",
+        "group": "a90hud",
+        "uid": 3904,
+        "gid": 3904,
+        "network_intent": "no-network-drm-output-only",
+    },
+}
+ROOT_BOUNDARY_SERVICES = ("wsta-native-uplink-helper",)
+SERVICE_HARDENING_STAGE_MARKERS = (
+    "service-hardening-users=a90www,a90tunnel,a90admin,a90hud",
+    "service-hardening-launcher=/usr/local/bin/a90-service-launch",
+    "service-hardening-no-new-privs=setpriv-required",
+    "service-hardening-root-boundary=wsta-native-uplink-helper",
+    "service-hardening-public-default=off",
 )
 
 
@@ -769,6 +809,183 @@ def stage_packet_filter_stage_marker(rootfs: Path) -> dict[str, Any]:
     }
 
 
+def account_by_name(lines: list[str], name: str) -> list[str] | None:
+    for line in lines:
+        if line.split(":", 1)[0] == name:
+            return line.split(":")
+    return None
+
+
+def ensure_account_line(lines: list[str], expected: str, name: str, field_count: int) -> bool:
+    existing = account_by_name(lines, name)
+    if existing is None:
+        lines.append(expected)
+        return True
+    if len(existing) != field_count or ":".join(existing) != expected:
+        raise ValueError(f"conflicting account entry for {name}")
+    return False
+
+
+def stage_service_identities(rootfs: Path) -> dict[str, Any]:
+    etc = rootfs / "etc"
+    etc.mkdir(parents=True, exist_ok=True)
+    passwd = etc / "passwd"
+    group = etc / "group"
+    passwd_lines = passwd.read_text(encoding="utf-8").splitlines() if passwd.exists() else []
+    group_lines = group.read_text(encoding="utf-8").splitlines() if group.exists() else []
+    users_added: list[str] = []
+    groups_added: list[str] = []
+    for identity in SERVICE_IDENTITIES.values():
+        group_line = f"{identity['group']}:x:{identity['gid']}:"
+        if ensure_account_line(group_lines, group_line, str(identity["group"]), 4):
+            groups_added.append(str(identity["group"]))
+        passwd_line = (
+            f"{identity['user']}:x:{identity['uid']}:{identity['gid']}:"
+            f"A90 service {identity['user']}:/nonexistent:/usr/sbin/nologin"
+        )
+        if ensure_account_line(passwd_lines, passwd_line, str(identity["user"]), 7):
+            users_added.append(str(identity["user"]))
+    passwd.write_text("\n".join(passwd_lines).rstrip("\n") + "\n", encoding="utf-8")
+    group.write_text("\n".join(group_lines).rstrip("\n") + "\n", encoding="utf-8")
+    passwd.chmod(0o644)
+    group.chmod(0o644)
+    return {
+        "passwd_target": "etc/passwd",
+        "group_target": "etc/group",
+        "users": sorted(identity["user"] for identity in SERVICE_IDENTITIES.values()),
+        "groups": sorted(identity["group"] for identity in SERVICE_IDENTITIES.values()),
+        "users_added": users_added,
+        "groups_added": groups_added,
+        "root_boundary_services": list(ROOT_BOUNDARY_SERVICES),
+        "secret_values_logged": 0,
+    }
+
+
+def launcher_script() -> str:
+    cases = []
+    for service, identity in SERVICE_IDENTITIES.items():
+        cases.extend([
+            f"  {service})",
+            f"    A90_USER={identity['user']}",
+            f"    A90_GROUP={identity['group']}",
+            f"    A90_NETWORK_INTENT={identity['network_intent']}",
+            "    ;;",
+        ])
+    case_text = "\n".join(cases)
+    return f"""#!/bin/sh
+set -eu
+SERVICE="${{1:-}}"
+if [ -z "$SERVICE" ]; then
+  echo "a90_service_launcher_decision=blocked-service-required"
+  exit 64
+fi
+shift
+case "$SERVICE" in
+{case_text}
+  *)
+    echo "a90_service_launcher_decision=blocked-unknown-service"
+    exit 64
+    ;;
+esac
+if [ "$#" -lt 1 ]; then
+  echo "a90_service_launcher_decision=blocked-command-required"
+  exit 64
+fi
+if ! command -v setpriv >/dev/null 2>&1; then
+  echo "a90_service_launcher_decision=blocked-setpriv-missing"
+  exit 127
+fi
+echo "a90_service_launcher_decision=exec"
+echo "a90_service_launcher_service=$SERVICE"
+echo "a90_service_launcher_user=$A90_USER"
+echo "a90_service_launcher_network_intent=$A90_NETWORK_INTENT"
+echo "a90_service_launcher_no_new_privs=1"
+exec setpriv --no-new-privs --reuid "$A90_USER" --regid "$A90_GROUP" --init-groups -- "$@"
+"""
+
+
+def stage_no_new_privs_launcher(rootfs: Path) -> dict[str, Any]:
+    launcher = rootfs / TARGET_SERVICE_LAUNCHER
+    launcher.parent.mkdir(parents=True, exist_ok=True)
+    launcher.write_text(launcher_script(), encoding="utf-8")
+    launcher.chmod(0o755)
+    text = launcher.read_text(encoding="utf-8")
+    return {
+        "launcher_target": str(TARGET_SERVICE_LAUNCHER),
+        "launcher_mode": oct(launcher.stat().st_mode & 0o777),
+        "setpriv_required": "command -v setpriv" in text,
+        "no_new_privs_present": "--no-new-privs" in text,
+        "unknown_service_blocks": "blocked-unknown-service" in text,
+        "command_required_blocks": "blocked-command-required" in text,
+        "service_count": len(SERVICE_IDENTITIES),
+        "root_boundary_services": list(ROOT_BOUNDARY_SERVICES),
+        "secret_values_logged": 0,
+    }
+
+
+def stage_service_hardening_policy(rootfs: Path) -> dict[str, Any]:
+    policy_target = rootfs / TARGET_SERVICE_HARDENING_POLICY
+    policy_target.parent.mkdir(parents=True, exist_ok=True)
+    services = {
+        service: {
+            "user": identity["user"],
+            "group": identity["group"],
+            "uid": identity["uid"],
+            "gid": identity["gid"],
+            "network_intent": identity["network_intent"],
+            "no_new_privs": True,
+            "ambient_capabilities": [],
+            "bounding_capabilities": [],
+        }
+        for service, identity in SERVICE_IDENTITIES.items()
+    }
+    payload = {
+        "schema": "a90-service-hardening-v1",
+        "default_public_off": True,
+        "launcher": str(TARGET_SERVICE_LAUNCHER),
+        "launcher_requires": ["setpriv", "no-new-privs"],
+        "services": services,
+        "root_boundary_services": list(ROOT_BOUNDARY_SERVICES),
+        "public_url_value_logged": False,
+        "secret_values_logged": 0,
+    }
+    write_json(policy_target, payload)
+    policy_target.chmod(0o644)
+    return {
+        "policy_target": str(TARGET_SERVICE_HARDENING_POLICY),
+        "policy_mode": oct(policy_target.stat().st_mode & 0o777),
+        "service_count": len(services),
+        "default_public_off": True,
+        "no_new_privs_default": True,
+        "ambient_capabilities_default": [],
+        "secret_values_logged": 0,
+    }
+
+
+def stage_service_hardening_stage_marker(rootfs: Path) -> dict[str, Any]:
+    marker = rootfs / TARGET_STAGE_MARKER
+    marker.parent.mkdir(parents=True, exist_ok=True)
+    existing = marker.read_text(encoding="utf-8") if marker.exists() else ""
+    marker_keys = {item.split("=", 1)[0] for item in SERVICE_HARDENING_STAGE_MARKERS}
+    lines = [
+        line
+        for line in existing.splitlines()
+        if not any(line.startswith(key + "=") for key in marker_keys)
+    ]
+    for item in SERVICE_HARDENING_STAGE_MARKERS:
+        lines.append(item)
+    marker.write_text("\n".join(lines).rstrip("\n") + "\n", encoding="utf-8")
+    return {
+        "marker_target": str(TARGET_STAGE_MARKER),
+        "users_marker_present": SERVICE_HARDENING_STAGE_MARKERS[0] in lines,
+        "launcher_marker_present": SERVICE_HARDENING_STAGE_MARKERS[1] in lines,
+        "no_new_privs_marker_present": SERVICE_HARDENING_STAGE_MARKERS[2] in lines,
+        "root_boundary_marker_present": SERVICE_HARDENING_STAGE_MARKERS[3] in lines,
+        "public_default_off_marker": SERVICE_HARDENING_STAGE_MARKERS[4] in lines,
+        "secret_values_logged": 0,
+    }
+
+
 def stage_dpublic_firstboot(rootfs: Path) -> dict[str, Any]:
     firstboot_target = rootfs / TARGET_FIRSTBOOT
     if not DPUBLIC_FIRSTBOOT.is_file():
@@ -933,6 +1150,10 @@ def prepare(args: argparse.Namespace) -> dict[str, Any]:
     result["packet_filter_helper"] = stage_packet_filter_helper(target_rootfs)
     result["native_uplink_stage_marker"] = stage_native_uplink_stage_marker(target_rootfs)
     result["packet_filter_stage_marker"] = stage_packet_filter_stage_marker(target_rootfs)
+    result["service_identities"] = stage_service_identities(target_rootfs)
+    result["service_launcher"] = stage_no_new_privs_launcher(target_rootfs)
+    result["service_hardening_policy"] = stage_service_hardening_policy(target_rootfs)
+    result["service_hardening_stage_marker"] = stage_service_hardening_stage_marker(target_rootfs)
     if args.immediate_snapshot_only:
         result["stage"] = stage_immediate_snapshot_only(target_rootfs)
     else:
