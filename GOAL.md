@@ -3411,6 +3411,35 @@ safety invariants and flash gates are binding and override any sub-goal.**
 > checked flash path: feed a fresh bounded intent, run `dpublic-hud-presenter validate`,
 > then `present`, and confirm native KMS shows the HUD while Debian remains an intent
 > producer with no direct DRM/KMS presenter.
+>
+> **🟢 STATUS (2026-07-05 08:49 KST host clock) — WSTA137 DPUBLIC NATIVE HUD
+> PRESENTER LIVE PASS.**  Codex live-gated the native/root-owned presenter.  The device
+> first returned from the WSTA135 Debian userdata appliance to native V3397 and passed
+> `BOOT OK` / `selftest fail=0`.  A no-flash V3398 hot-reload attempt reached the V3398
+> banner and refreshed selftest/guard, but USB re-enumerated and the device returned to
+> the V3397 boot image; V3397 health was clean afterward.  Codex then pivoted to the
+> checked flash path: rollback images v2321/v2237/v48 and TWRP artifacts were present,
+> exact V3398 boot SHA
+> `b18be6a39eb41fb71a5256db3b23d5c648631fb164061b98b35a35ffba9f3a0c` was pinned,
+> `native_init_flash.py --from-native` reached recovery/TWRP, pushed image SHA matched,
+> boot readback SHA matched, and V3398 booted as `A90 Linux init 0.11.154
+> (v3398-dpublic-hud-presenter)` with `BOOT OK`, `selftest pass=12 warn=1 fail=0`,
+> `transport.serial=ready`, and `transport.tcpctl=ready`.  A fresh intent validate run
+> passed (`sequence=13701`, `age_ms=653`) with policy markers
+> `forbidden_fields=reject`, `unknown_fields=reject`, `stale_after_ms=2000`,
+> `presenter.owner=native-init-root`, and `presenter.debian_direct_kms=0`.  A fresh
+> present run passed (`sequence=13702`, `age_ms=556`) with `present.begin_frame_rc=0`,
+> `present.rc=0`, `present.done=1`, and framebuffer `1080x2400 on crtc=133`.  Reject-path
+> live checks also passed: forbidden `command` rejected with `rc=-1`, and stale
+> `monotonic_ms=1` rejected with `rc=-110`.  Post-proof cleanup removed the staged
+> hot-reload ELF and final health stayed clean.  The device is left resident on V3398;
+> no Wi-Fi connect, DHCP, public tunnel, public smoke, packet-filter mutation, Debian
+> switch-root, or Debian direct DRM/KMS presenter ran.  Report:
+> `docs/reports/SERVER_DISTRO_WIFI_STA_UPSTREAM_WSTA137_DPUBLIC_NATIVE_HUD_PRESENTER_LIVE_2026-07-05.md`.
+> **NEXT:** WSTA138 should fold the WSTA137 live presenter proof into operator/server
+> status, then choose the durable handoff shape: explicit native presenter command only,
+> or a bounded native presenter service that survives Debian handoff while Debian remains
+> only the HUD intent producer.
 
 ## North star — priority-ordered tracks (T1 → T2 → T3)
 
