@@ -141,50 +141,51 @@ def native_stale_cleanup(args: argparse.Namespace) -> dict[str, Any]:
     script = f"""
 set +e
 echo A90WSTA94_NATIVE_STALE_CLEANUP_BEGIN
-for pid in $(/bin/busybox pidof a90-dpublic-smoke-httpd 2>/dev/null); do
-  /bin/busybox kill "$pid" >/dev/null 2>&1 || true
-done
+for p in $(/bin/busybox pidof a90-dpublic-smoke-httpd 2>/dev/null); do /bin/busybox kill "$p" >/dev/null 2>&1 || true; done
+for p in $(/bin/busybox pidof dropbear 2>/dev/null); do /bin/busybox kill "$p" >/dev/null 2>&1 || true; done
 /bin/busybox sleep 1
-for pid in $(/bin/busybox pidof a90-dpublic-smoke-httpd 2>/dev/null); do
-  /bin/busybox kill -9 "$pid" >/dev/null 2>&1 || true
-done
+for p in $(/bin/busybox pidof a90-dpublic-smoke-httpd 2>/dev/null); do /bin/busybox kill -9 "$p" >/dev/null 2>&1 || true; done
+for p in $(/bin/busybox pidof dropbear 2>/dev/null); do /bin/busybox kill -9 "$p" >/dev/null 2>&1 || true; done
 if /bin/busybox pidof a90-dpublic-smoke-httpd >/dev/null 2>&1; then echo A90WSTA94 stale_smoke_absent=0; else echo A90WSTA94 stale_smoke_absent=1; fi
-for pid in $(/bin/busybox pidof dropbear 2>/dev/null); do
-  /bin/busybox kill "$pid" >/dev/null 2>&1 || true
-done
-/bin/busybox sleep 1
-for pid in $(/bin/busybox pidof dropbear 2>/dev/null); do
-  /bin/busybox kill -9 "$pid" >/dev/null 2>&1 || true
-done
 if /bin/busybox pidof dropbear >/dev/null 2>&1; then echo A90WSTA94 stale_dropbear_absent=0; else echo A90WSTA94 stale_dropbear_absent=1; fi
-MNT={d2.shell_quote(args.mountpoint)}
-if /bin/busybox grep -q " $MNT " /proc/mounts; then /bin/busybox umount "$MNT" || /bin/busybox umount -l "$MNT"; fi
-LOOP={WSTA94_LOOP}
-STATE={WSTA94_LOOP_STATE}
-LOOP_MAJOR=$(/bin/busybox awk '$2=="loop" {{print $1; exit}}' /proc/devices)
-CREATED=0
-if [ ! -e "$LOOP" ] && [ -n "$LOOP_MAJOR" ]; then
-  /bin/busybox mknod "$LOOP" b "$LOOP_MAJOR" {WSTA94_LOOP_MINOR}
-  CREATED=1
-fi
+M={d2.shell_quote(args.mountpoint)}
+/bin/busybox grep -q " $M " /proc/mounts && (/bin/busybox umount "$M" || /bin/busybox umount -l "$M")
+L={WSTA94_LOOP}
+S={WSTA94_LOOP_STATE}
+J=$(/bin/busybox awk '$2=="loop" {{print $1; exit}}' /proc/devices)
+C=0
+[ ! -e "$L" ] && [ -n "$J" ] && /bin/busybox mknod "$L" b "$J" {WSTA94_LOOP_MINOR} && C=1
 for i in 1 2 3; do
-  /bin/busybox losetup -d "$LOOP" >/dev/null 2>&1 || true
+  /bin/busybox losetup -d "$L" >/dev/null 2>&1 || true
   /bin/busybox sleep 1
-  /bin/busybox losetup "$LOOP" >/dev/null 2>&1 || break
+  /bin/busybox losetup "$L" >/dev/null 2>&1 || break
 done
-LOOP_INFO=$(/bin/busybox losetup "$LOOP" 2>&1)
-LOOP_INFO_RC=$?
-echo A90WSTA94 loop_info_rc=$LOOP_INFO_RC
-echo A90WSTA94 loop_info="$LOOP_INFO"
-if [ "$CREATED" = "1" ] && [ "$LOOP_INFO_RC" != "0" ]; then /bin/busybox rm -f "$LOOP"; fi
-/bin/busybox rm -f "$STATE"
+R=0
+/bin/busybox losetup "$L" >/dev/null 2>&1 || R=$?
+echo A90WSTA94 loop_info_rc=$R
+P=$R
+if [ "$R" = "0" ]; then
+  for i in 1 2 3; do
+    /bin/busybox losetup -d "$L" >/dev/null 2>&1 || true
+    /bin/busybox sleep 1
+    P=0
+    /bin/busybox losetup "$L" >/dev/null 2>&1 || P=$?
+    [ "$P" != "0" ] && break
+  done
+fi
+echo A90WSTA94 post_loop_info_rc=$P
+[ "$C" = "1" ] && [ "$P" != "0" ] && /bin/busybox rm -f "$L"
+/bin/busybox rm -f "$S"
 echo A90WSTA94_NATIVE_STALE_CLEANUP_DONE
 """.strip()
     record = wsta19.bridge_shell(args, script, timeout=args.cleanup_timeout, allow_error=True)
     text = str(record.get("text") or "")
     record["stale_smoke_absent"] = "A90WSTA94 stale_smoke_absent=1" in text
     record["stale_dropbear_absent"] = "A90WSTA94 stale_dropbear_absent=1" in text
-    record["loop_unbound"] = "A90WSTA94 loop_info_rc=1" in text
+    record["loop_unbound"] = (
+        "A90WSTA94 loop_info_rc=1" in text
+        or "A90WSTA94 post_loop_info_rc=1" in text
+    )
     record["cleaned"] = (
         record.get("rc") == 0
         and "A90WSTA94_NATIVE_STALE_CLEANUP_DONE" in text

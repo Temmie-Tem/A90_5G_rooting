@@ -288,6 +288,7 @@ class ServerDistroWsta94PacketFilterLiveGateTests(unittest.TestCase):
             "A90WSTA94 stale_smoke_absent=1",
             "A90WSTA94 stale_dropbear_absent=1",
             "A90WSTA94 loop_info_rc=1",
+            "A90WSTA94 post_loop_info_rc=1",
             "A90WSTA94_NATIVE_STALE_CLEANUP_DONE",
         ])
         with mock.patch.object(runner.wsta19, "bridge_shell", return_value={"rc": 0, "text": text}) as bridge:
@@ -298,10 +299,27 @@ class ServerDistroWsta94PacketFilterLiveGateTests(unittest.TestCase):
         self.assertIn("pidof a90-dpublic-smoke-httpd", script)
         self.assertIn("pidof dropbear", script)
         self.assertIn("kill -9", script)
-        self.assertIn("umount \"$MNT\"", script)
-        self.assertIn(f"LOOP={runner.WSTA94_LOOP}", script)
-        self.assertIn(f"mknod \"$LOOP\" b \"$LOOP_MAJOR\" {runner.WSTA94_LOOP_MINOR}", script)
+        self.assertIn("umount \"$M\"", script)
+        self.assertIn(f"L={runner.WSTA94_LOOP}", script)
+        self.assertIn(f"mknod \"$L\" b \"$J\" {runner.WSTA94_LOOP_MINOR}", script)
         self.assertIn("losetup -d", script)
+        self.assertIn("A90WSTA94 post_loop_info_rc=$P", script)
+
+    def test_native_stale_cleanup_accepts_delayed_loop_detach(self) -> None:
+        args = SimpleNamespace(cleanup_timeout=5.0, mountpoint="/remote/mnt")
+        text = "\n".join([
+            "A90WSTA94_NATIVE_STALE_CLEANUP_BEGIN",
+            "A90WSTA94 stale_smoke_absent=1",
+            "A90WSTA94 stale_dropbear_absent=1",
+            "A90WSTA94 loop_info_rc=0",
+            "A90WSTA94 post_loop_info_rc=1",
+            "A90WSTA94_NATIVE_STALE_CLEANUP_DONE",
+        ])
+        with mock.patch.object(runner.wsta19, "bridge_shell", return_value={"rc": 0, "text": text}):
+            record = runner.native_stale_cleanup(args)
+
+        self.assertTrue(record["loop_unbound"])
+        self.assertTrue(record["cleaned"])
 
     def test_runner_exception_uses_run_id_directory(self) -> None:
         with self.private_tmp() as tmp:

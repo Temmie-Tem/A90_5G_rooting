@@ -2838,6 +2838,24 @@ safety invariants and flash gates are binding and override any sub-goal.**
 > `docs/reports/SERVER_DISTRO_WIFI_STA_UPSTREAM_WSTA109_SERVICE_HARDENING_ROOTFS_SOURCE_2026-07-05.md`.
 > **NEXT:** prove the staged launcher in a private rootfs/chroot: run `a90-service-launch dpublic-smoke-httpd ...` with
 > public exposure off, verify UID/GID/no-new-privs from inside the launched process, and keep live/public gates unchanged.
+> **🟢 STATUS (2026-07-05 02:35 KST host clock) — WSTA110 SERVICE LAUNCHER
+> CHROOT LIVE PASS.**  Codex added `run_wsta110_service_launcher_chroot_proof.py`, a fail-closed live runner that reuses
+> the SD-backed Debian chroot/dropbear path, restores the work image from the clean image, stages WSTA109 service
+> identities + `/usr/local/bin/a90-service-launch` + `/etc/a90-dpublic/service-hardening.json`, and runs
+> `a90-service-launch dpublic-smoke-httpd ...` from inside Debian.  Live result:
+> `wsta110-service-launcher-chroot-live-pass` in
+> `workspace/private/runs/server-distro/wsta110-service-launcher-live-20260704T173234Z/wsta110_result.json`.
+> Proof markers showed public exposure default-off, unknown-service and missing-command fail-closed branches,
+> `a90www/a90www` UID/GID `3901/3901`, `child_no_new_privs=1`, `child_cap_eff=0000000000000000`, and proof-time
+> `/proc` unmounted before cleanup.  Remote clean/work image SHA matched
+> `210fc1f92d4eb8bf291fb5b362154a29ca2b579a22a0a41cb1aaa89b5b6cb0dc`; final selftest stayed
+> `pass=12 warn=1 fail=0`; no boot flash, native reboot, Wi-Fi, DHCP, public tunnel, public smoke, packet-filter
+> mutation, userdata action, or switch-root ran.  WSTA94 stale cleanup was hardened with a delayed loop-detach
+> recheck after WSTA110 exposed a transient `/dev/loop0` false blocker.  Validation passed `py_compile`, WSTA94+WSTA110
+> tests (`24 tests`), full server-distro WSTA regression (`365 tests`), and the live WSTA110 gate.  Report:
+> `docs/reports/SERVER_DISTRO_WIFI_STA_UPSTREAM_WSTA110_SERVICE_LAUNCHER_CHROOT_LIVE_2026-07-05.md`.
+> **NEXT:** fold WSTA110 proof into WSTA90/WSTA108 operator status so the smoke launcher is no longer reported as
+> wholly unproven, then expand the same proof shape to the remaining service profiles.
 
 ## North star — priority-ordered tracks (T1 → T2 → T3)
 
