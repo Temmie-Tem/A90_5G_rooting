@@ -2461,6 +2461,30 @@ safety invariants and flash gates are binding and override any sub-goal.**
 > inventory, launch brief, multi-brief operator summary, final operator packet, and a current-time operator-packet
 > status check.  Continue only with explicit operator-selected WSTA58 live proof, or with a concrete appliance-level
 > integration that does not start public exposure by default.
+> **🟢 STATUS (2026-07-04 20:39 KST host clock) — WSTA80 persistent operator execute gate
+> SOURCE/PREFLIGHT PASS.**  Codex added
+> `workspace/public/src/scripts/server-distro/run_wsta80_persistent_operator_execute_gate.py`, a host-only final
+> execute gate that consumes a private WSTA79 READY status, reloads the referenced WSTA78 operator packet, validates
+> the placeholder-only WSTA58 command template, and writes `READY_FOR_EXPLICIT_WSTA58_LIVE_GATE` without running live
+> exposure by default.  WSTA80 is the concrete bridge from the WSTA72-WSTA79 packet/status pipeline to the existing
+> WSTA58 renewal/manual-stop runner: optional delegation is source-present but requires
+> `--execute-wsta58-from-status` plus the full operator/native/public-live, credentialed-Wi-Fi, public-exposure,
+> TTL-expiry, manual-stop, and private confirm-token gate stack.  Private smoke
+> `workspace/private/runs/server-distro/wsta80-execute-gate-smoke-20260704T113919Z` returned
+> `wsta80-persistent-operator-execute-gate-preflight-pass`,
+> `state=READY_FOR_EXPLICIT_WSTA58_LIVE_GATE`,
+> `selected_wsta73_arming_packet=workspace/private/runs/server-distro/wsta80-execute-gate-smoke-20260704T113919Z/packet/wsta73_arming_packet.json`,
+> `selected_wsta76_launch_brief=workspace/private/runs/server-distro/wsta80-execute-gate-smoke-20260704T113919Z/brief/wsta76_launch_brief.json`,
+> `initial_seconds_remaining=295`, `packet_match=true`, `template_match=true`, `ack_count=7`, `guardrail_count=5`,
+> `live_execution_requested=false`, `public_url_value_logged=false`, and `secret_values_logged=0`.  Validation passed
+> 177 focused WSTA52/WSTA53/WSTA54/WSTA55/WSTA58/WSTA63/WSTA64/WSTA65/WSTA66/WSTA67/WSTA68/WSTA69/WSTA70/WSTA71/
+> WSTA72/WSTA73/WSTA74/WSTA75/WSTA76/WSTA77/WSTA78/WSTA79/WSTA80 tests plus `py_compile`.  No boot image, flash,
+> device command, native reboot, Wi-Fi association, DHCP, public tunnel, public smoke, userdata action, switch-root,
+> or external service action ran.  Report:
+> `docs/reports/SERVER_DISTRO_WIFI_STA_UPSTREAM_WSTA80_OPERATOR_EXECUTE_GATE_SOURCE_2026-07-04.md`.
+> **NEXT:** default-off persistent exposure now reaches a concrete WSTA58 execute gate without starting public
+> exposure.  Continue with either an explicitly selected WSTA80/WSTA58 live proof using fresh private tokens, or
+> native/appliance UI integration that displays this execute-gate state without auto-starting public exposure.
 
 ## North star — priority-ordered tracks (T1 → T2 → T3)
 
