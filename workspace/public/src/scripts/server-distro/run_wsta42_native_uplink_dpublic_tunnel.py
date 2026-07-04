@@ -825,6 +825,7 @@ def host_public_smoke(args: argparse.Namespace, run_dir: Path) -> dict[str, Any]
     url = url_path.read_text(encoding="utf-8").strip()
     attempts: list[dict[str, Any]] = []
     started = time.monotonic()
+    dns_error_count = 0
     for attempt in range(1, args.public_smoke_attempts + 1):
         attempt_started = time.monotonic()
         try:
@@ -842,6 +843,8 @@ def host_public_smoke(args: argparse.Namespace, run_dir: Path) -> dict[str, Any]
             })
         except Exception as exc:  # noqa: BLE001
             reason = getattr(exc, "reason", None)
+            if type(reason).__name__ == "gaierror":
+                dns_error_count += 1
             attempts.append({
                 "attempt": attempt,
                 "returncode": 1,
@@ -861,6 +864,9 @@ def host_public_smoke(args: argparse.Namespace, run_dir: Path) -> dict[str, Any]
                 "attempts": attempts,
                 "attempt_count": attempt,
                 "elapsed_sec": round(time.monotonic() - started, 3),
+                "dns_error_count": dns_error_count,
+                "last_error_class": attempts[-1].get("error_class") if attempts else "-",
+                "last_error_reason_class": attempts[-1].get("error_reason_class") if attempts else "-",
                 "body_len": len(body),
                 "body_sha256": hashlib.sha256(body).hexdigest(),
                 "marker_ok": b"A90_DPUBLIC_SMOKE_OK" in body,
@@ -889,6 +895,9 @@ def host_public_smoke(args: argparse.Namespace, run_dir: Path) -> dict[str, Any]
         "attempt_count": len(attempts),
         "attempts": attempts,
         "elapsed_sec": round(time.monotonic() - started, 3),
+        "dns_error_count": dns_error_count,
+        "last_error_class": attempts[-1].get("error_class") if attempts else "-",
+        "last_error_reason_class": attempts[-1].get("error_reason_class") if attempts else "-",
         "url_redacted": True,
     }
 
@@ -1475,8 +1484,8 @@ def build_arg_parser() -> argparse.ArgumentParser:
     parser.add_argument("--use-native-uplink-profile", action="store_true")
     parser.add_argument("--tunnel-url-wait-sec", type=int, default=60)
     parser.add_argument("--public-curl-timeout-sec", type=float, default=25.0)
-    parser.add_argument("--public-smoke-attempts", type=int, default=6)
-    parser.add_argument("--public-smoke-retry-delay-sec", type=float, default=2.5)
+    parser.add_argument("--public-smoke-attempts", type=int, default=20)
+    parser.add_argument("--public-smoke-retry-delay-sec", type=float, default=3.0)
     parser.add_argument("--allow-public-live", action="store_true")
     parser.add_argument("--ack-credentialed-wifi", action="store_true")
     parser.add_argument("--ack-public-exposure", action="store_true")

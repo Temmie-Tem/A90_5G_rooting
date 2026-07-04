@@ -2754,6 +2754,23 @@ safety invariants and flash gates are binding and override any sub-goal.**
 > **NEXT:** do not rerun packet-filter control-plane proof unless changing the helper.  Next bounded live unit should
 > isolate the repeated native uplink autoconnect/scan failure, then rerun WSTA42/WSTA88 public exposure once STA is
 > green again.
+> **🟢 STATUS (2026-07-05 01:43 KST host clock) — WSTA102→WSTA104 PUBLIC SMOKE
+> RETRY + WSTA88 PERSISTENT WORKFLOW LIVE PASS.**  WSTA102 reran the WSTA43 public-live path after WSTA28
+> reboot/scan gating and proved the native uplink was green again (`native_uplink_confirmed=true`,
+> `default_route_wlan0=true`, resolver ready, local smoke pass, packet-filter preflight/apply/restore pass), but
+> stopped at host public smoke because all 6 attempts hit DNS propagation `gaierror`/errno `-2`; no public URL or
+> secret value was logged.  WSTA42 public smoke now waits longer by default (`20` attempts, `3.0s` delay) and records
+> redacted DNS retry summaries on both failure and success.  WSTA103 then passed WSTA43 end-to-end
+> (`wsta43-orchestrated-native-uplink-dpublic-pass`, public smoke HTTP 200 on attempt 3).  WSTA104 ran the full
+> WSTA88 persistent operator workflow live: WSTA80 live gate pass, WSTA58 renewal/manual-stop pass, initial and
+> renewal WSTA55 both pass, packet-filter restore proven twice, WSTA48 redaction pass, manual stop ended
+> `PUBLIC_OFF`, and final resident health stayed v3397 with `selftest pass=12 warn=1 fail=0`.  Validation passed
+> `py_compile`, focused WSTA42/43/55/58/80/88 tests (`63 tests`), WSTA103 live, WSTA104 live, and final health.
+> Report:
+> `docs/reports/SERVER_DISTRO_WIFI_STA_UPSTREAM_WSTA102_WSTA104_PUBLIC_SMOKE_RETRY_WSTA88_LIVE_2026-07-05.md`.
+> **NEXT:** treat the D-public persistent operator path as live-proven.  Next useful work should be operator/server
+> polish: concise public-state/HUD status, less repeated 2GiB image hash/restore work where safely cacheable, and
+> keeping public exposure default-off behind explicit WSTA80/WSTA88 live gates.
 
 ## North star — priority-ordered tracks (T1 → T2 → T3)
 

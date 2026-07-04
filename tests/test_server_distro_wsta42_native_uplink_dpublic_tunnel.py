@@ -1,6 +1,8 @@
 from __future__ import annotations
 
+import socket
 import tempfile
+import urllib.error
 import unittest
 from pathlib import Path
 from types import SimpleNamespace
@@ -140,6 +142,70 @@ class ServerDistroWsta42NativeUplinkDpublicTunnelTests(unittest.TestCase):
         self.assertTrue(runner.resolver_ready({"ready": True, "nameserver_count": 1}))
         self.assertFalse(runner.resolver_ready({"ready": False, "nameserver_count": 1}))
         self.assertFalse(runner.resolver_ready({"ready": True, "nameserver_count": 0}))
+
+    def test_host_public_smoke_retries_dns_propagation_without_url_leak(self) -> None:
+        class FakeResponse:
+            status = 200
+
+            def __enter__(self):
+                return self
+
+            def __exit__(self, exc_type, exc, tb):
+                return False
+
+            def read(self, _limit):
+                return (
+                    b"A90_DPUBLIC_SMOKE_OK\n"
+                    b"service=loopback-http\n"
+                    b"public_exposure=outbound-tunnel-only\n"
+                )
+
+        with tempfile.TemporaryDirectory() as tmp:
+            run_dir = Path(tmp)
+            (run_dir / "public-url.txt").write_text("https://delayed.trycloudflare.com\n", encoding="utf-8")
+            args = SimpleNamespace(
+                public_smoke_attempts=3,
+                public_curl_timeout_sec=1.0,
+                public_smoke_retry_delay_sec=0.01,
+            )
+            with mock.patch.object(runner.urllib.request, "urlopen", side_effect=[
+                urllib.error.URLError(socket.gaierror(-2, "not yet propagated")),
+                urllib.error.URLError(socket.gaierror(-2, "not yet propagated")),
+                FakeResponse(),
+            ]), mock.patch.object(runner.time, "sleep") as sleep_mock:
+                record = runner.host_public_smoke(args, run_dir)
+
+        self.assertEqual(record["returncode"], 0)
+        self.assertEqual(record["attempt"], 3)
+        self.assertEqual(record["dns_error_count"], 2)
+        self.assertEqual(record["last_error_reason_class"], "gaierror")
+        self.assertEqual(len(record["attempts"]), 2)
+        self.assertEqual(record["attempts"][0]["error_reason_class"], "gaierror")
+        self.assertTrue(record["url_redacted"])
+        self.assertNotIn("delayed.trycloudflare.com", repr(record))
+        self.assertEqual(sleep_mock.call_count, 2)
+
+    def test_host_public_smoke_failure_summarizes_dns_errors_without_url_leak(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            run_dir = Path(tmp)
+            (run_dir / "public-url.txt").write_text("https://missing.trycloudflare.com\n", encoding="utf-8")
+            args = SimpleNamespace(
+                public_smoke_attempts=2,
+                public_curl_timeout_sec=1.0,
+                public_smoke_retry_delay_sec=0.01,
+            )
+            with mock.patch.object(
+                runner.urllib.request,
+                "urlopen",
+                side_effect=urllib.error.URLError(socket.gaierror(-2, "not yet propagated")),
+            ), mock.patch.object(runner.time, "sleep"):
+                record = runner.host_public_smoke(args, run_dir)
+
+        self.assertEqual(record["returncode"], 1)
+        self.assertEqual(record["dns_error_count"], 2)
+        self.assertEqual(record["last_error_reason_class"], "gaierror")
+        self.assertTrue(record["url_redacted"])
+        self.assertNotIn("missing.trycloudflare.com", repr(record))
 
     def test_start_smoke_parses_diagnostic_without_ssh_failure_status(self) -> None:
         with tempfile.TemporaryDirectory() as tmp:
