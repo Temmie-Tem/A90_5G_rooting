@@ -125,6 +125,7 @@ def wsta42_args(args: argparse.Namespace, run_dir: Path) -> Namespace:
     nested.service_poll_ms = args.service_poll_ms
     nested.response_timeout_sec = args.response_timeout_sec
     nested.confirmed_timeout_sec = args.confirmed_timeout_sec
+    nested.use_native_uplink_profile = args.use_native_uplink_profile
     nested.tunnel_url_wait_sec = args.tunnel_url_wait_sec
     nested.public_curl_timeout_sec = args.public_curl_timeout_sec
     nested.public_smoke_attempts = args.public_smoke_attempts
@@ -347,6 +348,7 @@ def build_arg_parser() -> argparse.ArgumentParser:
     parser.add_argument("--service-poll-ms", type=int, default=100)
     parser.add_argument("--response-timeout-sec", type=int, default=30)
     parser.add_argument("--confirmed-timeout-sec", type=int, default=300)
+    parser.add_argument("--use-native-uplink-profile", action="store_true")
     parser.add_argument("--tunnel-url-wait-sec", type=int, default=60)
     parser.add_argument("--public-curl-timeout-sec", type=float, default=25.0)
     parser.add_argument("--public-smoke-attempts", type=int, default=6)

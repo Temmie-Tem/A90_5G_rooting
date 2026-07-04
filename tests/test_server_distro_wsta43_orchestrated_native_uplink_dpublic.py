@@ -109,6 +109,7 @@ class ServerDistroWsta43OrchestratedNativeUplinkDpublicTests(unittest.TestCase):
             runner.wsta25.NATIVE_CONFIRM_TOKEN,
             "--public-confirm-token",
             runner.PUBLIC_CONFIRM_TOKEN,
+            "--use-native-uplink-profile",
             "--run-dir",
             "workspace/private/runs/server-distro/example",
             "--host-resolver-conf",
@@ -125,6 +126,7 @@ class ServerDistroWsta43OrchestratedNativeUplinkDpublicTests(unittest.TestCase):
         self.assertTrue(w42.ack_credentialed_wifi)
         self.assertTrue(w42.ack_public_exposure)
         self.assertTrue(w42.enable_autoconnect)
+        self.assertTrue(w42.use_native_uplink_profile)
         self.assertEqual(w42.native_confirm_token, runner.wsta25.NATIVE_CONFIRM_TOKEN)
         self.assertEqual(w42.public_confirm_token, runner.PUBLIC_CONFIRM_TOKEN)
         self.assertEqual(w42.host_resolver_conf, [Path("/tmp/resolv.example")])
@@ -175,6 +177,7 @@ class ServerDistroWsta43OrchestratedNativeUplinkDpublicTests(unittest.TestCase):
         self.assertIn("--allow-public-live", source)
         self.assertIn("--ack-credentialed-wifi", source)
         self.assertIn("--ack-public-exposure", source)
+        self.assertIn("--use-native-uplink-profile", source)
         self.assertIn("wsta28.run", source)
         self.assertIn("wsta42.run", source)
         self.assertIn('"boot_flash": False', source)

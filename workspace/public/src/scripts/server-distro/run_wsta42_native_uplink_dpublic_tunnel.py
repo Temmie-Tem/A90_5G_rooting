@@ -52,9 +52,12 @@ PUBLIC_CONFIRM_TOKEN = dpublic.DPUBLIC_LIVE_OPERATOR_TOKEN
 PASS_DECISION = "wsta42-native-uplink-dpublic-tunnel-pass"
 SMOKE_SOURCE = SCRIPT_DIR / "a90_dpublic_smoke_httpd.c"
 HTTP_GET_SOURCE = SCRIPT_DIR / "a90_dpublic_http_get.c"
+NATIVE_UPLINK_PROFILE_SOURCE = SCRIPT_DIR / "a90_dpublic_native_uplink_profile.sh"
 REMOTE_CLOUDFLARED = "/usr/local/bin/cloudflared"
 REMOTE_SMOKE = "/usr/local/bin/a90-dpublic-smoke-httpd"
 REMOTE_HTTP_GET = "/usr/local/bin/a90-dpublic-http-get"
+REMOTE_NATIVE_UPLINK_PROFILE = "/usr/local/bin/a90-dpublic-native-uplink-profile"
+REMOTE_NATIVE_UPLINK_ENABLE = "/etc/a90-dpublic/native-uplink-enable"
 REMOTE_RUN_DIR = "/run/a90-dpublic"
 REMOTE_URL_FILE = REMOTE_RUN_DIR + "/cloudflared-live.url"
 REMOTE_CLOUDFLARED_LOG = REMOTE_RUN_DIR + "/cloudflared-live.log"
@@ -260,6 +263,53 @@ def stage_dpublic_binaries(args: argparse.Namespace, run_dir: Path) -> dict[str,
             timeout=args.ssh_timeout,
         ),
     }
+
+
+def stage_native_uplink_profile(args: argparse.Namespace, run_dir: Path) -> dict[str, Any]:
+    helper_text = NATIVE_UPLINK_PROFILE_SOURCE.read_text(encoding="utf-8")
+    remote = shlex.quote(REMOTE_NATIVE_UPLINK_PROFILE)
+    backup = shlex.quote(REMOTE_NATIVE_UPLINK_PROFILE + ".wsta42.bak")
+    command = (
+        "set -eu; "
+        f"STATE=/tmp/a90_wsta42_profile_state; TARGET={remote}; BACKUP={backup}; "
+        "rm -f \"$BACKUP\" \"$STATE\"; "
+        f"/bin/mkdir -p {shlex.quote(str(Path(REMOTE_NATIVE_UPLINK_PROFILE).parent))} && "
+        "if [ -f \"$TARGET\" ]; then /bin/cp \"$TARGET\" \"$BACKUP\"; echo present > \"$STATE\"; "
+        "else echo absent > \"$STATE\"; fi; "
+        f"/bin/cat > {remote} && "
+        f"/bin/chmod 755 {remote} && "
+        f"/bin/grep -q 'native_uplink_profile_secret_values_logged=0' {remote} && "
+        "echo A90WSTA42_NATIVE_UPLINK_PROFILE_STAGED"
+    )
+    record = wsta24.ssh_exec_input(args, run_dir, command, input_text=helper_text, timeout=args.ssh_timeout)
+    record["staged"] = (
+        record.get("returncode") == 0
+        and "A90WSTA42_NATIVE_UPLINK_PROFILE_STAGED" in record.get("stdout", "")
+    )
+    record["helper_target"] = REMOTE_NATIVE_UPLINK_PROFILE
+    return record
+
+
+def cleanup_native_uplink_profile(args: argparse.Namespace, run_dir: Path) -> dict[str, Any]:
+    remote = shlex.quote(REMOTE_NATIVE_UPLINK_PROFILE)
+    backup = shlex.quote(REMOTE_NATIVE_UPLINK_PROFILE + ".wsta42.bak")
+    enable = shlex.quote(REMOTE_NATIVE_UPLINK_ENABLE)
+    command = (
+        "set +e; "
+        f"STATE=/tmp/a90_wsta42_profile_state; TARGET={remote}; BACKUP={backup}; "
+        "if [ -f \"$STATE\" ] && /bin/grep -q '^present$' \"$STATE\"; then "
+        "/bin/mv \"$BACKUP\" \"$TARGET\" && /bin/chmod 755 \"$TARGET\" && echo A90WSTA42_PROFILE_RESTORED; "
+        "else /bin/rm -f \"$TARGET\" \"$BACKUP\" && echo A90WSTA42_PROFILE_REMOVED; fi; "
+        f"/bin/rm -f {enable}; "
+        "/bin/rm -f \"$STATE\"; "
+        "echo A90WSTA42_PROFILE_CLEANED"
+    )
+    record = wsta20.ssh_exec(args, run_dir, command, timeout=args.ssh_timeout)
+    stdout = record.get("stdout", "")
+    record["cleaned"] = record.get("returncode") == 0 and "A90WSTA42_PROFILE_CLEANED" in stdout
+    record["restored"] = "A90WSTA42_PROFILE_RESTORED" in stdout
+    record["removed"] = "A90WSTA42_PROFILE_REMOVED" in stdout
+    return record
 
 
 def stage_binaries_ok(record: dict[str, Any]) -> bool:
@@ -679,6 +729,47 @@ def helper_confirmed_ok(record: dict[str, Any]) -> bool:
     return wsta25.helper_confirmed_ok(record.get("parsed", {}))
 
 
+def profile_confirmed_ok(record: dict[str, Any]) -> bool:
+    parsed = record.get("parsed", {})
+    return (
+        helper_confirmed_ok(record)
+        and parsed.get("native_uplink_profile_decision") == "native-uplink-profile-autoconnect-pass"
+        and parsed.get("native_uplink_profile_public_default") == "off"
+        and parsed.get("native_uplink_profile_secret_values_logged") == "0"
+    )
+
+
+def run_profile_confirmed_helper(args: argparse.Namespace,
+                                 run_dir: Path,
+                                 *,
+                                 timeout_sec: int) -> dict[str, Any]:
+    script = f"""
+set -eu
+/bin/mkdir -p {shlex.quote(str(Path(REMOTE_NATIVE_UPLINK_ENABLE).parent))}
+/bin/printf '1\\n' > {shlex.quote(REMOTE_NATIVE_UPLINK_ENABLE)}
+/bin/chmod 600 {shlex.quote(REMOTE_NATIVE_UPLINK_ENABLE)}
+A90_NATIVE_WIFI_UPLINK_ALLOW_CONFIRMED=1
+A90_NATIVE_WIFI_UPLINK_CONFIRM_TOKEN={shlex.quote(args.native_confirm_token)}
+A90_NATIVE_WIFI_UPLINK_SERVICE_TIMEOUT_SEC={int(timeout_sec)}
+A90_NATIVE_WIFI_UPLINK_SERVICE_DIR={shlex.quote(args.service_dir)}
+export A90_NATIVE_WIFI_UPLINK_ALLOW_CONFIRMED
+export A90_NATIVE_WIFI_UPLINK_CONFIRM_TOKEN
+export A90_NATIVE_WIFI_UPLINK_SERVICE_TIMEOUT_SEC
+export A90_NATIVE_WIFI_UPLINK_SERVICE_DIR
+{shlex.quote(REMOTE_NATIVE_UPLINK_PROFILE)} autoconnect-confirmed
+""".strip()
+    record = wsta25.ssh_exec_redacted_script(
+        args,
+        run_dir,
+        script,
+        timeout=timeout_sec + args.ssh_connect_timeout + 40,
+        redacted_label="wsta42-native-uplink-profile-confirmed-autoconnect",
+    )
+    record["parsed"] = wsta24.parse_kv(record.get("stdout", ""))
+    record["profile_used"] = True
+    return record
+
+
 def classify(result: dict[str, Any]) -> str:
     checks = result.get("checks", {})
     if not checks.get("explicit_live_gate"):
@@ -693,6 +784,8 @@ def classify(result: dict[str, Any]) -> str:
         return "wsta42-blocked-debian-chroot-ssh"
     if not checks.get("dpublic_binaries_staged"):
         return "wsta42-blocked-dpublic-binary-stage"
+    if checks.get("use_native_uplink_profile") and not checks.get("native_uplink_profile_staged"):
+        return "wsta42-blocked-native-uplink-profile-stage"
     if not checks.get("native_uplink_confirmed"):
         return "wsta42-blocked-native-uplink-confirmed"
     if not checks.get("default_route_wlan0"):
@@ -707,6 +800,8 @@ def classify(result: dict[str, Any]) -> str:
         return "wsta42-blocked-public-smoke"
     if not checks.get("dpublic_cleanup_ok"):
         return "wsta42-blocked-dpublic-cleanup"
+    if checks.get("use_native_uplink_profile") and not checks.get("native_uplink_profile_cleanup_ok"):
+        return "wsta42-blocked-native-uplink-profile-cleanup"
     if not checks.get("chroot_cleanup_ok"):
         return "wsta42-blocked-chroot-cleanup"
     return PASS_DECISION
@@ -732,12 +827,14 @@ def run(args: argparse.Namespace) -> dict[str, Any]:
         "mountpoint": args.mountpoint,
         "service_dir": args.service_dir,
         "service_dir_native": args.mountpoint.rstrip("/") + "/" + args.service_dir.lstrip("/"),
+        "use_native_uplink_profile": bool(args.use_native_uplink_profile),
         "safety": {
             "boot_flash": False,
             "switch_root": False,
             "userdata_touch": False,
             "wifi_connect": "native-confirm-gated",
             "dhcp_routing": "native-config-gated-after-confirmed-live",
+            "native_uplink_profile": "enabled" if args.use_native_uplink_profile else "not-requested",
             "public_tunnel": "explicit-public-live-gated",
             "external_ping": False,
             "native_confirm_token_value_logged": False,
@@ -787,6 +884,7 @@ def run(args: argparse.Namespace) -> dict[str, Any]:
     service_started = False
     mounted = False
     helper_staged = False
+    profile_staged = False
     try:
         result["bridge_status"] = wsta2.run_host([sys.executable, str(wsta2.BRIDGE), "status", "--json"], timeout=10.0)
         version = wsta19.try_cmdv1_retry(args, ["version"], timeout=args.timeout)
@@ -869,6 +967,14 @@ def run(args: argparse.Namespace) -> dict[str, Any]:
             result["decision"] = "wsta42-blocked-native-uplink-helper-stage"
             return result
 
+        if args.use_native_uplink_profile:
+            result["native_uplink_profile_stage"] = stage_native_uplink_profile(args, run_dir)
+            profile_staged = bool(result["native_uplink_profile_stage"].get("staged"))
+            write_json(out_path, result)
+            if not profile_staged:
+                result["decision"] = "wsta42-blocked-native-uplink-profile-stage"
+                return result
+
         result["service_start"] = wsta19.try_cmdv1_retry(
             args,
             [
@@ -894,13 +1000,25 @@ def run(args: argparse.Namespace) -> dict[str, Any]:
             result["decision"] = "wsta42-blocked-autoconnect-not-ready"
             return result
 
-        result["helper_confirmed"] = wsta25.run_confirmed_helper(
-            args,
-            run_dir,
-            timeout_sec=args.confirmed_timeout_sec,
-        )
+        if args.use_native_uplink_profile:
+            result["helper_confirmed"] = run_profile_confirmed_helper(
+                args,
+                run_dir,
+                timeout_sec=args.confirmed_timeout_sec,
+            )
+        else:
+            result["helper_confirmed"] = wsta25.run_confirmed_helper(
+                args,
+                run_dir,
+                timeout_sec=args.confirmed_timeout_sec,
+            )
         write_json(out_path, result)
-        if not helper_confirmed_ok(result["helper_confirmed"]):
+        confirmed_ok = (
+            profile_confirmed_ok(result["helper_confirmed"])
+            if args.use_native_uplink_profile
+            else helper_confirmed_ok(result["helper_confirmed"])
+        )
+        if not confirmed_ok:
             result["decision"] = "wsta42-blocked-native-uplink-confirmed"
             return result
 
@@ -959,6 +1077,14 @@ def run(args: argparse.Namespace) -> dict[str, Any]:
         else:
             result["helper_cleanup"] = {"skipped": True, "reason": "helper-not-staged"}
 
+        if profile_staged:
+            try:
+                result["native_uplink_profile_cleanup"] = cleanup_native_uplink_profile(args, run_dir)
+            except Exception as exc:  # noqa: BLE001
+                result["native_uplink_profile_cleanup"] = {"error": str(exc)}
+        else:
+            result["native_uplink_profile_cleanup"] = {"skipped": True, "reason": "profile-not-staged"}
+
         try:
             result["service_dir_cleanup"] = wsta20.cleanup_service_dir(args, run_dir)
         except Exception as exc:  # noqa: BLE001
@@ -1010,7 +1136,21 @@ def run(args: argparse.Namespace) -> dict[str, Any]:
         "debian_ssh_marker": bool(result.get("ssh_parse", {}).get("marker")),
         "debian_stage_marker_present": bool(result.get("ssh_parse", {}).get("stage_marker_present")),
         "dpublic_binaries_staged": stage_binaries_ok(result.get("dpublic_stage", {})),
-        "native_uplink_confirmed": helper_confirmed_ok(result.get("helper_confirmed", {})),
+        "use_native_uplink_profile": bool(args.use_native_uplink_profile),
+        "native_uplink_profile_staged": (
+            not args.use_native_uplink_profile
+            or bool(result.get("native_uplink_profile_stage", {}).get("staged"))
+        ),
+        "native_uplink_confirmed": (
+            profile_confirmed_ok(result.get("helper_confirmed", {}))
+            if args.use_native_uplink_profile
+            else helper_confirmed_ok(result.get("helper_confirmed", {}))
+        ),
+        "native_uplink_profile_confirmed": (
+            profile_confirmed_ok(result.get("helper_confirmed", {}))
+            if args.use_native_uplink_profile
+            else None
+        ),
         "default_route_wlan0": result.get("native_default_route", {}).get("default_route_dev") == "wlan0",
         "resolver_ready": resolver_ready(result.get("resolver_sync", {})),
         "local_smoke_ok": bool(result.get("smoke_start", {}).get("local_smoke_ok")),
@@ -1025,6 +1165,11 @@ def run(args: argparse.Namespace) -> dict[str, Any]:
         "dpublic_cleanup_ok": bool(result.get("dpublic_cleanup", {}).get("cleaned")),
         "service_stop_pass": "wifi-uplink-service-stop-pass" in str(result.get("service_stop", {}).get("text", "")),
         "helper_cleanup_ok": bool(result.get("helper_cleanup", {}).get("cleaned")),
+        "native_uplink_profile_cleanup_ok": (
+            bool(result.get("native_uplink_profile_cleanup", {}).get("cleaned"))
+            if args.use_native_uplink_profile
+            else True
+        ),
         "service_dir_cleanup_ok": "A90WSTA20_SERVICE_DIR_REMOVED" in str(result.get("service_dir_cleanup", {}).get("stdout", "")),
         "chroot_cleanup_ok": bool(
             cleanup.get("done")
@@ -1093,6 +1238,7 @@ def build_arg_parser() -> argparse.ArgumentParser:
     parser.add_argument("--service-poll-ms", type=int, default=100)
     parser.add_argument("--response-timeout-sec", type=int, default=30)
     parser.add_argument("--confirmed-timeout-sec", type=int, default=300)
+    parser.add_argument("--use-native-uplink-profile", action="store_true")
     parser.add_argument("--tunnel-url-wait-sec", type=int, default=60)
     parser.add_argument("--public-curl-timeout-sec", type=float, default=25.0)
     parser.add_argument("--public-smoke-attempts", type=int, default=6)

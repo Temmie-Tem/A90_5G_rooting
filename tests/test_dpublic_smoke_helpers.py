@@ -298,6 +298,7 @@ class DpublicSmokeHelperTests(unittest.TestCase):
         self.assertIn("native-uplink-profile-confirmed-disabled", source)
         self.assertIn("native-uplink-profile-confirm-token-missing", source)
         self.assertIn("native_uplink_profile_public_runner=wsta43", source)
+        self.assertIn("native_uplink_profile_operator_wrapper=wsta45", source)
         self.assertIn("native_uplink_profile_secret_values_logged=0", source)
         self.assertNotIn("cloudflared tunnel", source)
         self.assertNotIn("ssid=", source.lower())

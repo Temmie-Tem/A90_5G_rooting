@@ -99,6 +99,7 @@ case "$op" in
         fi
         emit "native_uplink_profile_decision=native-uplink-profile-public-tunnel-host-orchestrated-required"
         emit "native_uplink_profile_public_runner=wsta43"
+        emit "native_uplink_profile_operator_wrapper=wsta45"
         exit 77
         ;;
     *)

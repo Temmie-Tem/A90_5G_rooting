@@ -1810,6 +1810,24 @@ safety invariants and flash gates are binding and override any sub-goal.**
 > **NEXT:** WSTA45 should add an operator-facing wrapper/menu entry for the WSTA43 sequence that consumes
 > this default-off profile, preserving the explicit native-reboot, credentialed-Wi-Fi, and public-exposure
 > gates.
+> **🟢 STATUS (2026-07-04 16:24 KST host clock) — WSTA45 appliance operator wrapper
+> SOURCE PASS.**  Codex added
+> `workspace/public/src/scripts/server-distro/run_wsta45_appliance_operator.py` as the default-off
+> operator entrypoint.  Default `preflight` mode validates the WSTA44 profile/menu contract with no
+> device action.  `publish` mode delegates to WSTA43 only after explicit
+> `--use-native-uplink-profile`, operator-live, native-reboot, public-live, credentialed-Wi-Fi,
+> public-exposure, native confirm-token, and public confirm-token gates; WSTA43 gate flags are blocked
+> from passthrough so they cannot be smuggled around WSTA45.  WSTA42 now supports
+> `--use-native-uplink-profile`, stages `/usr/local/bin/a90-dpublic-native-uplink-profile` into the
+> chroot, creates the private `/etc/a90-dpublic/native-uplink-enable` gate only for confirmed
+> autoconnect, requires both native-client and profile pass markers, and cleans the staged profile/enable
+> file.  WSTA43 forwards the profile flag into WSTA42, and the Debian profile records
+> `native_uplink_profile_operator_wrapper=wsta45`.  Host validation passed: 32 focused tests,
+> `py_compile`, `sh -n`, default WSTA45 preflight, and `git diff --check`.  No device action, no flash,
+> no Wi-Fi association, and no public tunnel ran.  Report:
+> `docs/reports/SERVER_DISTRO_WIFI_STA_UPSTREAM_WSTA45_APPLIANCE_OPERATOR_WRAPPER_SOURCE_2026-07-04.md`.
+> **NEXT:** WSTA46 can be the explicit WSTA45 publish live gate, but only with the same deliberate
+> native-reboot, credentialed-Wi-Fi, public-exposure, and confirm-token acknowledgements used by WSTA43.
 
 ## North star — priority-ordered tracks (T1 → T2 → T3)
 

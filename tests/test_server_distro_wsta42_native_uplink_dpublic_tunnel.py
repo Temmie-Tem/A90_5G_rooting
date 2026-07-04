@@ -65,6 +65,8 @@ class ServerDistroWsta42NativeUplinkDpublicTunnelTests(unittest.TestCase):
             "helpers_built": True,
             "debian_ssh_marker": True,
             "dpublic_binaries_staged": True,
+            "use_native_uplink_profile": False,
+            "native_uplink_profile_staged": True,
             "native_uplink_confirmed": True,
             "default_route_wlan0": True,
             "resolver_ready": True,
@@ -72,6 +74,7 @@ class ServerDistroWsta42NativeUplinkDpublicTunnelTests(unittest.TestCase):
             "tunnel_url_observed": True,
             "public_smoke_ok": True,
             "dpublic_cleanup_ok": True,
+            "native_uplink_profile_cleanup_ok": True,
             "chroot_cleanup_ok": True,
         }
         self.assertEqual(runner.classify({"checks": checks}), runner.PASS_DECISION)
@@ -90,6 +93,24 @@ class ServerDistroWsta42NativeUplinkDpublicTunnelTests(unittest.TestCase):
         ):
             variant = {"checks": {**checks, key: False}}
             self.assertEqual(runner.classify(variant), decision)
+
+        profile_variant = {
+            "checks": {
+                **checks,
+                "use_native_uplink_profile": True,
+                "native_uplink_profile_staged": False,
+            }
+        }
+        self.assertEqual(runner.classify(profile_variant), "wsta42-blocked-native-uplink-profile-stage")
+
+        cleanup_variant = {
+            "checks": {
+                **checks,
+                "use_native_uplink_profile": True,
+                "native_uplink_profile_cleanup_ok": False,
+            }
+        }
+        self.assertEqual(runner.classify(cleanup_variant), "wsta42-blocked-native-uplink-profile-cleanup")
 
     def test_fetch_public_url_writes_private_file_without_returning_url(self) -> None:
         with tempfile.TemporaryDirectory() as tmp:
@@ -137,6 +158,52 @@ class ServerDistroWsta42NativeUplinkDpublicTunnelTests(unittest.TestCase):
             self.assertEqual(record["http_get_rc"], 0)
             self.assertEqual(record["loopback_up_rc"], 0)
 
+    def test_profile_confirmed_requires_profile_and_native_client_success(self) -> None:
+        parsed = {
+            "native_wifi_uplink_client_decision": "native-wifi-uplink-client-pass",
+            "native_wifi_uplink_client_requested_op": "autoconnect-confirmed",
+            "native_wifi_uplink_client_secret_values_logged": "0",
+            "version": runner.wsta24.UPLINK_SERVICE_VERSION,
+            "op": "autoconnect",
+            "owner": "native-init",
+            "credentials": "private-config-gated",
+            "connect": "confirm-gated",
+            "dhcp_routing": "config-gated",
+            "external_ping_execution": "0",
+            "public_tunnel": "0",
+            "secret_values_logged": "0",
+            "rc": "0",
+            "decision": "wifi-uplink-service-autoconnect-pass",
+            "native_uplink_profile_decision": "native-uplink-profile-autoconnect-pass",
+            "native_uplink_profile_public_default": "off",
+            "native_uplink_profile_secret_values_logged": "0",
+        }
+        self.assertTrue(runner.profile_confirmed_ok({"parsed": parsed}))
+        self.assertFalse(runner.profile_confirmed_ok({"parsed": {**parsed, "native_uplink_profile_public_default": "on"}}))
+
+    def test_profile_confirmed_helper_uses_profile_not_direct_client(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            args = SimpleNamespace(
+                native_confirm_token=runner.wsta25.NATIVE_CONFIRM_TOKEN,
+                service_dir="/tmp/a90-service",
+                ssh_connect_timeout=1,
+            )
+
+            with mock.patch.object(runner.wsta25, "ssh_exec_redacted_script", return_value={
+                "returncode": 0,
+                "stdout": (
+                    "native_uplink_profile_decision=native-uplink-profile-autoconnect-pass\n"
+                    "native_wifi_uplink_client_decision=native-wifi-uplink-client-pass\n"
+                ),
+                "stderr": "",
+            }) as call:
+                record = runner.run_profile_confirmed_helper(args, Path(tmp), timeout_sec=3)
+
+            script = call.call_args.args[2]
+            self.assertIn("/usr/local/bin/a90-dpublic-native-uplink-profile autoconnect-confirmed", script)
+            self.assertIn("/etc/a90-dpublic/native-uplink-enable", script)
+            self.assertTrue(record["profile_used"])
+
     def test_runner_surface_is_fail_closed_and_url_redacted(self) -> None:
         source = SOURCE.read_text(encoding="utf-8")
 
@@ -146,6 +213,9 @@ class ServerDistroWsta42NativeUplinkDpublicTunnelTests(unittest.TestCase):
         self.assertIn("--native-confirm-token", source)
         self.assertIn("--public-confirm-token", source)
         self.assertIn("--host-resolver-conf", source)
+        self.assertIn("--use-native-uplink-profile", source)
+        self.assertIn("a90_dpublic_native_uplink_profile.sh", source)
+        self.assertIn("wsta42-native-uplink-profile-confirmed-autoconnect", source)
         self.assertIn("content_redacted", source)
         self.assertIn("public_url_value_logged", source)
         self.assertIn("public-url.txt", source)
