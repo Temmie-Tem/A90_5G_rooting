@@ -3016,6 +3016,23 @@ safety invariants and flash gates are binding and override any sub-goal.**
 > Dropbear with `-s -w -j -k` on `192.168.7.2:2222`, prove SSH as `a90admin` returns UID/GID `3903/3903`, prove root
 > SSH is rejected and root authorized keys are absent, then clean Dropbear/admin key material and postcheck
 > chroot/loop state.
+>
+> **🟢 STATUS (2026-07-05 04:44 KST host clock) — WSTA120 DROPBEAR
+> ADMIN LIVE PASS.**  Codex added `run_wsta120_dropbear_admin_live_gate.py` and a focused test module for the
+> bounded private live proof of the WSTA119 admin model.  The runner is inert by default and requires explicit
+> acknowledgements for Dropbear admin live action, admin key material, and the root-login negative test.  Live
+> WSTA120 used the SD-backed Debian work image, restored it from the clean cached image, uploaded a native stage
+> script to the SD runtime path, mounted the Debian rootfs through the existing WSTA94 path, staged non-root
+> `a90admin`, and started Dropbear with password login, root login, and forwarding disabled (`-s -w -j -k`) on
+> the USB/NCM admin bind.  Runtime proof passed: root authorized keys absent, `a90admin` passwd/group/shadow
+> lines present, admin authorized key present, Dropbear alive/listening, SSH as `a90admin` returned UID/GID
+> `3903/3903`, and root SSH was rejected (`rc=255`).  Cleanup proof is split: WSTA120 admin cleanup removed
+> admin key material, and WSTA94 cleanup/postcheck proved final Dropbear/mount/loop absence plus shadow restore.
+> Final native health stayed `selftest pass=12 warn=1 fail=0`.  No boot flash, native reboot, Wi-Fi association,
+> DHCP, public tunnel, public smoke, packet-filter mutation, userdata action, or switch-root ran.  Report:
+> `docs/reports/SERVER_DISTRO_WIFI_STA_UPSTREAM_WSTA120_DROPBEAR_ADMIN_LIVE_2026-07-05.md`.
+> **NEXT:** WSTA121 should fold the private WSTA120 pass proof into WSTA108/WSTA90 operator status, retiring the
+> Dropbear admin model/runtime blocker without generalizing to tunnel or HUD service profiles.
 
 ## North star — priority-ordered tracks (T1 → T2 → T3)
 
