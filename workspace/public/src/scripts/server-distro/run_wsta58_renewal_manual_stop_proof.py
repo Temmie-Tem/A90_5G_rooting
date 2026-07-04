@@ -327,6 +327,7 @@ def wsta55_public(result: dict[str, Any]) -> dict[str, Any]:
         "gate_decision": result.get("gate_decision"),
         "checks": result.get("checks", {}),
         "ttl_expiry": result.get("ttl_expiry", {}),
+        "image_prep": wsta55.image_prep_public(result),
         "wsta48": result.get("wsta48_redacted", {}),
         "safety": result.get("safety", {}),
     }

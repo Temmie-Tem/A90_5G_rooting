@@ -50,6 +50,24 @@ class ServerDistroWsta88PersistentOperatorWorkflowTests(unittest.TestCase):
                 "secret_values_logged": 0,
             },
             "manual_stop": {"manual_stop_public_state": "PUBLIC_OFF"},
+            "initial": {
+                "image_prep": {
+                    "clean_action": "reused",
+                    "work_action": "reused",
+                    "duplicate_post_hash_skipped": True,
+                    "public_url_value_logged": False,
+                    "secret_values_logged": 0,
+                }
+            },
+            "renewal": {
+                "image_prep": {
+                    "clean_action": "reused",
+                    "work_action": "restored",
+                    "duplicate_post_hash_skipped": True,
+                    "public_url_value_logged": False,
+                    "secret_values_logged": 0,
+                }
+            },
             "wsta48_redacted": {"all_pass": True, "redaction_guard_ok": True},
             "safety": {"public_url_value_logged": False, "secret_values_logged": 0},
         }
@@ -175,6 +193,11 @@ class ServerDistroWsta88PersistentOperatorWorkflowTests(unittest.TestCase):
         self.assertTrue(result["checks"]["explicit_live_gate"])
         self.assertTrue(result["checks"]["wsta80_live_pass"])
         self.assertTrue(result["safety"]["device_action"])
+        self.assertEqual(result["workflow"]["image_prep_summary"]["initial"]["work_action"], "reused")
+        self.assertEqual(result["workflow"]["image_prep_summary"]["renewal"]["work_action"], "restored")
+        markdown = runner.markdown(result["workflow"])
+        self.assertIn("## Image Prep", markdown)
+        self.assertIn("renewal: clean `reused`, work `restored`", markdown)
         public_text = json.dumps(runner.public_summary(result), sort_keys=True)
         self.assertNotIn(runner.wsta80.wsta58.wsta55.wsta45.wsta25.NATIVE_CONFIRM_TOKEN, public_text)
         self.assertNotIn(runner.wsta80.wsta58.wsta55.wsta45.PUBLIC_CONFIRM_TOKEN, public_text)

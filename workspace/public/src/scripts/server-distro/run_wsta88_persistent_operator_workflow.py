@@ -140,6 +140,17 @@ def public_summary(result: dict[str, Any]) -> dict[str, Any]:
     }
 
 
+def image_prep_summary_from_wsta80(wsta80_public: dict[str, Any]) -> dict[str, Any]:
+    wsta58 = wsta80_public.get("wsta58_redacted") if isinstance(wsta80_public.get("wsta58_redacted"), dict) else {}
+    summary: dict[str, Any] = {}
+    for label in ("initial", "renewal"):
+        node = wsta58.get(label) if isinstance(wsta58.get(label), dict) else {}
+        image_prep = node.get("image_prep") if isinstance(node.get("image_prep"), dict) else {}
+        if image_prep:
+            summary[label] = image_prep
+    return summary
+
+
 def redaction_findings(payload: Any) -> list[str]:
     return wsta80.redaction_findings(payload)
 
@@ -384,6 +395,17 @@ def markdown(workflow: dict[str, Any]) -> str:
         "This wrapper stops before live execution unless the explicit WSTA80/WSTA58 live gate flags are supplied.",
         "",
     ]
+    image_prep = workflow.get("image_prep_summary") if isinstance(workflow.get("image_prep_summary"), dict) else {}
+    if image_prep:
+        lines.extend(["## Image Prep", ""])
+        for label in ("initial", "renewal"):
+            prep = image_prep.get(label) if isinstance(image_prep.get(label), dict) else {}
+            if prep:
+                lines.append(
+                    f"- {label}: clean `{prep.get('clean_action')}`, work `{prep.get('work_action')}`, "
+                    f"duplicate post-hash skipped `{str(bool(prep.get('duplicate_post_hash_skipped'))).lower()}`"
+                )
+        lines.append("")
     return "\n".join(lines)
 
 
@@ -554,6 +576,7 @@ def run(args: argparse.Namespace) -> dict[str, Any]:
         if isinstance(execute_gate.get("packet_filter_hardening"), dict)
         else {}
     )
+    image_prep_summary = image_prep_summary_from_wsta80(result.get("wsta80_redacted", {}))
     workflow.update({
         "state": "READY_FOR_EXPLICIT_WSTA58_LIVE_GATE" if decisions.get("wsta80_preflight") == wsta80.PREFLIGHT_DECISION else "NOT_READY",
         "ttl_sec": ttl_sec,
@@ -577,6 +600,7 @@ def run(args: argparse.Namespace) -> dict[str, Any]:
         "wsta80_execute_gate": rel(paths["wsta80_preflight"] / "wsta80_execute_gate.json"),
         "packet_filter_hardening": packet_filter_hardening,
         "packet_filter_hardening_ready": bool(execute_gate.get("packet_filter_hardening_ready")),
+        "image_prep_summary": image_prep_summary,
         "default_public_off": True,
         "live_execution_requested": live,
         "public_url_value_logged": False,

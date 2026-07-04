@@ -93,6 +93,15 @@ class ServerDistroWsta55ShortLivedPublicProofTests(unittest.TestCase):
                     "ended_utc": "20260704T010025Z",
                     "decision": runner.wsta45.wsta43.wsta42.PASS_DECISION,
                     "run_dir": "workspace/private/runs/server-distro/example/wsta42",
+                    "local_image_expected_sha256": "a" * 64,
+                    "remote_clean_image_enabled": True,
+                    "remote_clean_sha_before_value": "a" * 64,
+                    "remote_clean_sha_after_value": "a" * 64,
+                    "remote_clean_sha_after": {"skipped": True, "source": "remote_clean_sha_before"},
+                    "remote_sha_before_value": "a" * 64,
+                    "remote_sha_after_value": "a" * 64,
+                    "remote_sha_after": {"skipped": True, "source": "remote_sha_before"},
+                    "remote_work_restore_from_clean": {"skipped": True, "reason": "work-image-already-clean"},
                     "checks": {
                         "use_native_uplink_profile": True,
                         "native_uplink_profile_confirmed": True,
@@ -200,7 +209,12 @@ class ServerDistroWsta55ShortLivedPublicProofTests(unittest.TestCase):
         self.assertTrue(result["checks"]["final_selftest_fail_zero"])
         self.assertTrue(result["checks"]["ttl_expiry_stops_public"])
         self.assertEqual(result["ttl_expiry"]["public_state_after_expiry"], "PUBLIC_OFF")
-        self.assertNotIn("wsta54-", json.dumps(runner.public_summary(result), sort_keys=True).lower())
+        public = runner.public_summary(result)
+        self.assertEqual(public["image_prep"]["clean_action"], "reused")
+        self.assertEqual(public["image_prep"]["work_action"], "reused")
+        public_text = json.dumps(public, sort_keys=True).lower()
+        self.assertNotIn("wsta54-", public_text)
+        self.assertNotIn("a" * 64, public_text)
 
     def test_wsta45_args_passes_explicit_packet_filter_image_selection(self) -> None:
         with self.private_tmp() as tmp:

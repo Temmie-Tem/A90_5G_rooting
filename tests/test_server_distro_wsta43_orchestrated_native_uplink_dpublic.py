@@ -148,6 +148,15 @@ class ServerDistroWsta43OrchestratedNativeUplinkDpublicTests(unittest.TestCase):
             "wsta42": {
                 "decision": runner.wsta42.PASS_DECISION,
                 "checks": {"public_url_value_logged": False},
+                "local_image_expected_sha256": "a" * 64,
+                "remote_clean_image_enabled": True,
+                "remote_clean_sha_before_value": "a" * 64,
+                "remote_clean_sha_after_value": "a" * 64,
+                "remote_clean_sha_after": {"skipped": True, "source": "remote_clean_sha_before"},
+                "remote_sha_before_value": "a" * 64,
+                "remote_sha_after_value": "a" * 64,
+                "remote_sha_after": {"skipped": True, "source": "remote_sha_before"},
+                "remote_work_restore_from_clean": {"skipped": True, "reason": "work-image-already-clean"},
                 "resolver_sync": {"ready": True, "source": "host-resolver", "nameserver_count": 2},
                 "smoke_start": {"local_smoke_ok": True, "loopback_up_rc": 0},
                 "cloudflared_start": {"url_observed": True},
@@ -170,9 +179,12 @@ class ServerDistroWsta43OrchestratedNativeUplinkDpublicTests(unittest.TestCase):
 
         summary = runner.public_summary(result)
         text = repr(summary)
+        self.assertEqual(summary["wsta42"]["image_prep"]["clean_action"], "reused")
+        self.assertEqual(summary["wsta42"]["image_prep"]["work_action"], "reused")
         self.assertIn("url_len", text)
         self.assertNotIn("trycloudflare.com", text)
         self.assertNotIn("public-url.txt", text)
+        self.assertNotIn("a" * 64, text)
         self.assertNotIn(runner.wsta25.NATIVE_CONFIRM_TOKEN, text)
         self.assertNotIn(runner.PUBLIC_CONFIRM_TOKEN, text)
 

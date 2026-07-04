@@ -306,6 +306,12 @@ def nested_wsta42(wsta45_result: dict[str, Any]) -> dict[str, Any]:
     return dict(wsta45_result.get("wsta43", {}).get("wsta42", {}) or {})
 
 
+def image_prep_public(result: dict[str, Any]) -> dict[str, Any]:
+    if isinstance(result.get("image_prep"), dict):
+        return dict(result["image_prep"])
+    return wsta45.wsta43.wsta42.image_prep_summary(nested_wsta42(result.get("wsta45", {})))
+
+
 def live_checks(wsta45_result: dict[str, Any], aggregate: dict[str, Any], ttl_expiry: dict[str, Any]) -> dict[str, Any]:
     wsta42_result = nested_wsta42(wsta45_result)
     checks = dict(wsta42_result.get("checks") or {})
@@ -368,6 +374,7 @@ def public_summary(result: dict[str, Any]) -> dict[str, Any]:
         "lease": result.get("lease_redacted", {}),
         "checks": result.get("checks", {}),
         "ttl_expiry": result.get("ttl_expiry", {}),
+        "image_prep": image_prep_public(result),
         "wsta45": wsta45.public_summary(result.get("wsta45", {})) if result.get("wsta45") else None,
         "wsta48": result.get("wsta48_redacted", {}),
         "safety": result.get("safety", {}),

@@ -115,6 +115,13 @@ class ServerDistroWsta58RenewalManualStopProofTests(unittest.TestCase):
                 "ttl_expiry_stops_public": True,
             },
             "ttl_expiry": {"ttl_expiry_stops_public": True},
+            "image_prep": {
+                "clean_action": "reused",
+                "work_action": label,
+                "duplicate_post_hash_skipped": True,
+                "public_url_value_logged": False,
+                "secret_values_logged": 0,
+            },
             "wsta48_redacted": {"all_pass": True, "redaction_guard_ok": True},
             "safety": {"public_url_value_logged": False, "secret_values_logged": 0},
         }
@@ -224,7 +231,10 @@ class ServerDistroWsta58RenewalManualStopProofTests(unittest.TestCase):
         self.assertTrue(result["checks"]["renewal_packet_filter_restore_ok"])
         self.assertTrue(result["checks"]["manual_stop_cleanup_ok"])
         self.assertTrue(result["checks"]["wsta48_redaction_ok"])
-        self.assertNotIn("wsta54-", json.dumps(runner.public_summary(result), sort_keys=True).lower())
+        public = runner.public_summary(result)
+        self.assertEqual(public["initial"]["image_prep"]["work_action"], "initial")
+        self.assertEqual(public["renewal"]["image_prep"]["work_action"], "renewal")
+        self.assertNotIn("wsta54-", json.dumps(public, sort_keys=True).lower())
 
     def test_live_initial_failure_skips_renewal(self) -> None:
         with self.private_tmp() as tmp:

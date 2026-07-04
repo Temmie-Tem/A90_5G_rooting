@@ -469,6 +469,41 @@ class ServerDistroWsta42NativeUplinkDpublicTunnelTests(unittest.TestCase):
             self.assertEqual(result["remote_sha_after"]["source"], "remote_sha_before")
             self.assertEqual(result["remote_sha_after_value"], local_sha)
 
+    def test_image_prep_summary_reports_reuse_without_paths_or_hash_values(self) -> None:
+        expected_sha = "f" * 64
+        payload = {
+            "local_image_expected_sha256": expected_sha,
+            "remote_clean_image_enabled": True,
+            "remote_clean_sha_before_value": expected_sha,
+            "remote_clean_sha_after_value": expected_sha,
+            "remote_clean_sha_after": {
+                "skipped": True,
+                "source": "remote_clean_sha_before",
+                "path": "/mnt/sdext/a90/runtime/debian.img.clean",
+                "sha256": expected_sha,
+            },
+            "remote_sha_before_value": expected_sha,
+            "remote_sha_after_value": expected_sha,
+            "remote_sha_after": {
+                "skipped": True,
+                "source": "remote_sha_before",
+                "path": "/mnt/sdext/a90/runtime/debian.img",
+                "sha256": expected_sha,
+            },
+            "remote_work_restore_from_clean": {"skipped": True, "reason": "work-image-already-clean"},
+        }
+
+        summary = runner.image_prep_summary(payload)
+        text = repr(summary)
+
+        self.assertEqual(summary["clean_action"], "reused")
+        self.assertEqual(summary["work_action"], "reused")
+        self.assertTrue(summary["duplicate_post_hash_skipped"])
+        self.assertEqual(summary["clean_sha_source"], "remote_clean_sha_before")
+        self.assertEqual(summary["work_sha_source"], "remote_sha_before")
+        self.assertNotIn("/mnt/sdext", text)
+        self.assertNotIn(expected_sha, text)
+
     def test_prepare_remote_work_image_can_fall_back_to_legacy_direct_upload_when_clean_disabled(self) -> None:
         with tempfile.TemporaryDirectory() as tmp:
             local_sha = "d" * 64

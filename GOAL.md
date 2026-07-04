@@ -2784,6 +2784,18 @@ safety invariants and flash gates are binding and override any sub-goal.**
 > `docs/reports/SERVER_DISTRO_WIFI_STA_UPSTREAM_WSTA105_REMOTE_IMAGE_REUSE_SOURCE_2026-07-05.md`.
 > **NEXT:** expose an operator-facing image-prep/public-state summary in the persistent workflow so WSTA88 output shows
 > whether image prep uploaded, restored, or reused verified images.
+> **🟢 STATUS (2026-07-05 01:54 KST host clock) — WSTA106 IMAGE-PREP OPERATOR
+> SUMMARY SOURCE PASS.**  Codex added a redacted image-prep summary surface and propagated it through the persistent
+> public summary stack: WSTA42 derives enum/boolean-only image prep state, WSTA43 carries it under `wsta42.image_prep`,
+> WSTA55 exposes top-level `image_prep`, WSTA58 exposes initial/renewal image prep, and WSTA88 records
+> `workflow.image_prep_summary` plus an `Image Prep` markdown section.  The summary reports clean/work actions
+> (`uploaded`, `restored`, `reused`, `verified`, `disabled`, `pending`), SHA evidence source names, verified booleans,
+> and duplicate post-hash skip state without local paths, remote image paths, SHA values, public URLs, SSID/PSK, or
+> token values.  No device action, native reboot, Wi-Fi, DHCP, public tunnel, public smoke, packet-filter mutation, or
+> boot flash ran.  Validation passed `py_compile` and focused WSTA42/43/45/55/58/80/88/94 tests (`87 tests`).  Report:
+> `docs/reports/SERVER_DISTRO_WIFI_STA_UPSTREAM_WSTA106_IMAGE_PREP_OPERATOR_SUMMARY_SOURCE_2026-07-05.md`.
+> **NEXT:** build a compact WSTA88 status/HUD output that shows public state, lease state, image-prep state,
+> packet-filter state, and manual-stop state while keeping public exposure default-off.
 
 ## North star — priority-ordered tracks (T1 → T2 → T3)
 

@@ -239,6 +239,79 @@ def prepare_remote_work_image(args: argparse.Namespace,
     return True
 
 
+def image_prep_summary(payload: dict[str, Any]) -> dict[str, Any]:
+    expected_sha = payload.get("local_image_expected_sha256") or payload.get("local_image_sha256")
+    clean_after = payload.get("remote_clean_sha_after") if isinstance(payload.get("remote_clean_sha_after"), dict) else {}
+    work_after = payload.get("remote_sha_after") if isinstance(payload.get("remote_sha_after"), dict) else {}
+    restore = (
+        payload.get("remote_work_restore_from_clean")
+        if isinstance(payload.get("remote_work_restore_from_clean"), dict)
+        else {}
+    )
+    clean_enabled = bool(payload.get("remote_clean_image_enabled"))
+    clean_install = payload.get("remote_clean_install") if isinstance(payload.get("remote_clean_install"), dict) else {}
+    legacy_install = payload.get("install") if isinstance(payload.get("install"), dict) else {}
+
+    if not clean_enabled:
+        clean_action = "disabled"
+    elif clean_install:
+        clean_action = "uploaded"
+    elif payload.get("remote_clean_sha_before_value") == expected_sha:
+        clean_action = "reused"
+    elif clean_after:
+        clean_action = "verified"
+    else:
+        clean_action = "pending"
+
+    if legacy_install:
+        work_action = "uploaded"
+    elif restore.get("restored"):
+        work_action = "restored"
+    elif restore.get("skipped") and restore.get("reason") == "work-image-already-clean":
+        work_action = "reused"
+    elif payload.get("remote_sha_before_value") == expected_sha:
+        work_action = "reused"
+    elif work_after:
+        work_action = "verified"
+    else:
+        work_action = "pending"
+
+    clean_sha_source = None
+    if clean_after.get("skipped"):
+        clean_sha_source = clean_after.get("source")
+    elif clean_after:
+        clean_sha_source = "remote_clean_sha_after"
+    work_sha_source = None
+    if work_after.get("skipped"):
+        work_sha_source = work_after.get("source")
+    elif work_after:
+        work_sha_source = "remote_sha_after"
+
+    return {
+        "remote_clean_image_enabled": clean_enabled,
+        "clean_action": clean_action,
+        "work_action": work_action,
+        "clean_sha_source": clean_sha_source,
+        "work_sha_source": work_sha_source,
+        "clean_sha_verified": (
+            payload.get("remote_clean_sha_after_value") == expected_sha
+            if clean_enabled and expected_sha
+            else None
+        ),
+        "work_sha_verified": (
+            payload.get("remote_sha_after_value") == expected_sha
+            if expected_sha
+            else None
+        ),
+        "duplicate_post_hash_skipped": bool(clean_after.get("skipped") or work_after.get("skipped")),
+        "clean_upload_attempted": bool(clean_install),
+        "work_restore_attempted": bool(restore and not restore.get("skipped")),
+        "legacy_direct_upload_attempted": bool(legacy_install),
+        "public_url_value_logged": False,
+        "secret_values_logged": 0,
+    }
+
+
 def explicit_live_gate(args: argparse.Namespace) -> tuple[bool, str]:
     if not args.allow_public_live:
         return False, "wsta42-blocked-explicit-public-live-allow-required"

@@ -201,6 +201,7 @@ def summarize_wsta42(payload: dict[str, Any]) -> dict[str, Any]:
                 "elapsed_sec",
             )
         },
+        "image_prep": wsta42.image_prep_summary(payload),
         "dpublic_cleanup": {
             key: payload.get("dpublic_cleanup", {}).get(key)
             for key in ("cleaned", "returncode", "elapsed_sec")
