@@ -101,6 +101,8 @@ class ServerDistroWsta25ConfirmedAutoconnectLiveTests(unittest.TestCase):
                 "service_start_pass": True,
                 "helper_status_pass": True,
                 "autoconnect_ready": True,
+                "pre_confirm_scan_required": True,
+                "pre_confirm_scan_pass": True,
                 "helper_confirmed_pass": True,
                 "service_stop_pass": True,
                 "helper_cleanup_ok": True,
@@ -114,11 +116,17 @@ class ServerDistroWsta25ConfirmedAutoconnectLiveTests(unittest.TestCase):
             ("native_v3387", "wsta25-blocked-v3387-not-resident"),
             ("helper_status_pass", "wsta25-blocked-helper-status"),
             ("autoconnect_ready", "wsta25-blocked-autoconnect-not-ready"),
+            ("pre_confirm_scan_pass", "wsta25-blocked-pre-confirm-scan"),
             ("helper_confirmed_pass", "wsta25-blocked-helper-confirmed-autoconnect"),
             ("cleanup_ok", "wsta25-blocked-cleanup"),
         ):
             variant = {"checks": {**base["checks"], key: False}}
             self.assertEqual(runner.classify(variant), decision)
+
+    def test_pre_confirm_scan_ok_requires_scan_engine(self) -> None:
+        self.assertTrue(runner.pre_confirm_scan_ok({"best": {"scan_engine_ok": True}}))
+        self.assertFalse(runner.pre_confirm_scan_ok({"best": {"scan_engine_ok": False}}))
+        self.assertFalse(runner.pre_confirm_scan_ok({}))
 
     def test_redacted_script_executor_does_not_store_token_input(self) -> None:
         args = SimpleNamespace(
@@ -157,6 +165,9 @@ class ServerDistroWsta25ConfirmedAutoconnectLiveTests(unittest.TestCase):
         self.assertIn("confirm_token_value_logged", source)
         self.assertIn("allow_not_ready_confirmed", source)
         self.assertIn("status_ready_for_confirmed_autoconnect", source)
+        self.assertIn("pre_confirm_scan_required", source)
+        self.assertIn("pre_confirm_scan_pass", source)
+        self.assertIn("pre-confirm-scan-not-ready", source)
         self.assertIn("input_redacted", source)
         self.assertIn('"boot_flash": False', source)
         self.assertIn('"switch_root": False', source)

@@ -39,6 +39,7 @@ import run_wsta19_native_owned_chroot_wifi as wsta19  # noqa: E402
 import run_wsta2_native_materialization as wsta2  # noqa: E402
 import run_wsta20_native_wifi_service_boundary as wsta20  # noqa: E402
 import run_wsta24_native_wifi_uplink_client as wsta24  # noqa: E402
+import run_wsta15_handoff_scan_boundary as wsta15  # noqa: E402
 
 
 REPO_ROOT = wsta2.REPO_ROOT
@@ -92,6 +93,46 @@ def helper_confirmed_ok(payload: dict[str, str]) -> bool:
         and payload.get("rc") == "0"
         and payload.get("decision") == "wifi-uplink-service-autoconnect-pass"
     )
+
+
+def pre_confirm_scan_ok(window: dict[str, Any]) -> bool:
+    return bool(window.get("best", {}).get("scan_engine_ok"))
+
+
+def run_pre_confirm_scan_gate(args: argparse.Namespace,
+                              result: dict[str, Any],
+                              out_path: Path) -> dict[str, Any]:
+    window: dict[str, Any] = {
+        "label": "pre_confirm_scan_window",
+        "scan_delay_ms": args.pre_confirm_scan_delay_ms,
+        "attempts_requested": args.pre_confirm_scan_attempts,
+        "attempt_interval_sec": args.pre_confirm_scan_interval_sec,
+        "attempts": [],
+    }
+    result["pre_confirm_scan_window"] = window
+    write_json(out_path, result)
+    timeout = max(args.timeout, (args.pre_confirm_scan_delay_ms / 1000.0) + args.pre_confirm_scan_slack_sec)
+    for attempt in range(1, args.pre_confirm_scan_attempts + 1):
+        record = wsta19.try_cmdv1_retry(
+            args,
+            ["wifi", "scan", str(args.pre_confirm_scan_delay_ms)],
+            timeout=timeout,
+            attempts=1,
+        )
+        record["label"] = "pre_confirm_scan_window"
+        record["attempt"] = attempt
+        record["scan_summary"] = wsta15.scan_summary(record)
+        window["attempts"].append(record)
+        window["best"] = wsta15.best_scan(window["attempts"])
+        write_json(out_path, result)
+        if record["scan_summary"].get("scan_engine_ok"):
+            break
+        if attempt < args.pre_confirm_scan_attempts:
+            time.sleep(args.pre_confirm_scan_interval_sec)
+    window["attempts_completed"] = len(window["attempts"])
+    window["best"] = wsta15.best_scan(window["attempts"])
+    write_json(out_path, result)
+    return window
 
 
 def ssh_exec_redacted_script(args: argparse.Namespace,
@@ -187,6 +228,8 @@ def classify(result: dict[str, Any]) -> str:
         return "wsta25-blocked-helper-status"
     if not checks.get("autoconnect_ready"):
         return "wsta25-blocked-autoconnect-not-ready"
+    if checks.get("pre_confirm_scan_required") and not checks.get("pre_confirm_scan_pass"):
+        return "wsta25-blocked-pre-confirm-scan"
     if not checks.get("helper_confirmed_pass"):
         return "wsta25-blocked-helper-confirmed-autoconnect"
     if not checks.get("service_stop_pass"):
@@ -364,13 +407,25 @@ def run(args: argparse.Namespace) -> dict[str, Any]:
             write_json(out_path, result)
             status_payload = result["helper_status"].get("parsed", {})
             if status_ready_for_confirmed_autoconnect(status_payload) or args.allow_not_ready_confirmed:
-                confirmed_attempted = True
-                result["helper_confirmed"] = run_confirmed_helper(
-                    args,
-                    run_dir,
-                    timeout_sec=args.confirmed_timeout_sec,
-                )
-                write_json(out_path, result)
+                pre_confirm_scan_pass = True
+                if not args.skip_pre_confirm_scan_gate:
+                    pre_confirm_scan_pass = pre_confirm_scan_ok(
+                        run_pre_confirm_scan_gate(args, result, out_path)
+                    )
+                if pre_confirm_scan_pass:
+                    confirmed_attempted = True
+                    result["helper_confirmed"] = run_confirmed_helper(
+                        args,
+                        run_dir,
+                        timeout_sec=args.confirmed_timeout_sec,
+                    )
+                    write_json(out_path, result)
+                else:
+                    result["helper_confirmed"] = {
+                        "skipped": True,
+                        "reason": "pre-confirm-scan-not-ready",
+                    }
+                    write_json(out_path, result)
             else:
                 result["helper_confirmed"] = {
                     "skipped": True,
@@ -441,6 +496,12 @@ def run(args: argparse.Namespace) -> dict[str, Any]:
         "service_start_pass": service_started,
         "helper_status_pass": wsta24.helper_status_ok(helper_status),
         "autoconnect_ready": status_ready_for_confirmed_autoconnect(helper_status),
+        "pre_confirm_scan_required": not args.skip_pre_confirm_scan_gate,
+        "pre_confirm_scan_pass": (
+            True
+            if args.skip_pre_confirm_scan_gate
+            else pre_confirm_scan_ok(result.get("pre_confirm_scan_window", {}))
+        ),
         "helper_confirmed_attempted": confirmed_attempted,
         "helper_confirmed_pass": helper_confirmed_ok(helper_confirmed),
         "service_stop_pass": "wifi-uplink-service-stop-pass" in str(result.get("service_stop", {}).get("text", "")),
@@ -490,6 +551,11 @@ def build_arg_parser() -> argparse.ArgumentParser:
     parser.add_argument("--service-poll-ms", type=int, default=100)
     parser.add_argument("--response-timeout-sec", type=int, default=30)
     parser.add_argument("--confirmed-timeout-sec", type=int, default=90)
+    parser.add_argument("--pre-confirm-scan-delay-ms", type=int, default=5000)
+    parser.add_argument("--pre-confirm-scan-slack-sec", type=float, default=20.0)
+    parser.add_argument("--pre-confirm-scan-interval-sec", type=float, default=5.0)
+    parser.add_argument("--pre-confirm-scan-attempts", type=int, default=2)
+    parser.add_argument("--skip-pre-confirm-scan-gate", action="store_true")
     parser.add_argument("--allow-confirmed-live", action="store_true")
     parser.add_argument("--ack-credentialed-wifi", action="store_true")
     parser.add_argument("--confirm-token", default="")

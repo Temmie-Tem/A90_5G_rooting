@@ -1551,6 +1551,26 @@ safety invariants and flash gates are binding and override any sub-goal.**
 > not send confirmed autoconnect when native scan has already gone stale.  If that proves the state
 > goes stale between WSTA28 and WSTA25, the next native build should move materialization recovery
 > into `wifi_run_autoconnect_sequence` before pre-scan failure is terminal.
+> **🟡 STATUS (2026-07-04 12:06 KST host clock) — WSTA30 pre-confirm scan guard SOURCE+LIVE
+> BLOCKED SAFELY before confirmed request.**  Codex added a same-run pre-confirm native scan gate to
+> `run_wsta25_confirmed_autoconnect_live.py` and focused WSTA25 tests.  The guard runs only after
+> helper status proves redacted autoconnect readiness and before any confirmed helper request is sent;
+> if it fails, the runner records `wsta25-blocked-pre-confirm-scan`,
+> `helper_confirmed_attempted=false`, and `helper_confirmed.reason=pre-confirm-scan-not-ready`.
+> Static validation passed (`py_compile`, focused WSTA25 unit tests: `7 tests`, `OK`,
+> `git diff --check`).  Live run against resident V3387 passed the explicit live/token/readiness
+> gates, then the pre-confirm `wifi scan 5000` window failed twice with
+> `decision=wifi-scan-trigger-failed`, `scan_engine_ok=false`, `scan_has_bss=false`, `cmd_rc=-22`,
+> `link_up_rc=1`, `link_up_errno=0`, `ifindex=9`, `netlink_open=1`, `family_id=19`,
+> `trigger_rc=-1`, and `trigger_errno=22`.  The confirmed request was not sent.  Service/helper
+> cleanup, mount/loop/dropbear postcheck, final V3387 check, and final `selftest fail=0` passed;
+> Codex then restored autoconnect disabled state and ran native Wi-Fi cleanup.  No boot flash,
+> switch-root, userdata formatter action, successful association, DHCP, default route, external ping,
+> public tunnel, raw credential logging, or token logging occurred.  Report:
+> `docs/reports/SERVER_DISTRO_WIFI_STA_UPSTREAM_WSTA30_PRE_CONFIRM_SCAN_GUARD_2026-07-04.md`.
+> **NEXT:** WSTA31 should move scan/materialization recovery into the native autoconnect path before
+> `wifi_run_autoconnect_sequence` treats a pre-scan `-22` as terminal.  Keep the WSTA30 host guard as
+> a fail-closed layer, but the connection fix now belongs native-side.
 
 ## North star — priority-ordered tracks (T1 → T2 → T3)
 
