@@ -2580,6 +2580,22 @@ safety invariants and flash gates are binding and override any sub-goal.**
 > `docs/reports/SERVER_DISTRO_WIFI_STA_UPSTREAM_WSTA86_WSTA28_PUBLIC_OFF_CLEANUP_TOLERANCE_SOURCE_2026-07-04.md`.
 > **NEXT:** rerun the WSTA80→WSTA58 live measurement and inspect the nested WSTA42 results for
 > clean-image install/restore behavior.
+> **🟢 STATUS (2026-07-04 21:52 KST host clock) — WSTA87 clean-image cache
+> LIVE PASS.**  Codex reran a fresh WSTA72→WSTA80 default-off operator packet/status chain after WSTA86;
+> WSTA80 preflight passed, and the explicit WSTA80→WSTA58 live delegation returned
+> `wsta80-persistent-operator-execute-gate-live-pass` / `wsta58-renewal-manual-stop-live-pass`.  Both WSTA55
+> legs passed public smoke, TTL-expiry, D-public cleanup, native-uplink cleanup, chroot cleanup, final selftest,
+> and WSTA48 redaction.  The nested WSTA42 cache proof matched the target behavior: initial WSTA42 installed the
+> clean image once (`remote_clean_install_present=true`), did not use the legacy work-image `install`, and restored
+> the working image from clean; renewal WSTA42 found the clean image already valid
+> (`remote_clean_install_present=false`), again avoided legacy `install`, and restored the working image from clean.
+> Both restored SHAs matched the staged rootfs SHA.  Manual-stop cleanup returned public state off, and separate
+> post-run health stayed V3397 `selftest fail=0`.  No boot image, flash, forbidden partition write,
+> userdata format/populate, or switch-root ran; the run intentionally used the explicitly gated Wi-Fi/DHCP/public
+> smoke path.  Report:
+> `docs/reports/SERVER_DISTRO_WIFI_STA_UPSTREAM_WSTA87_CLEAN_IMAGE_CACHE_LIVE_PASS_2026-07-04.md`.
+> **NEXT:** WSTA80/WSTA58 plus the WSTA84 clean-image cache are live-proven.  Continue with default-off operator UX
+> or the next server-distro hardening/persistence rung; do not repeat this live proof unless testing a new change.
 
 ## North star — priority-ordered tracks (T1 → T2 → T3)
 
