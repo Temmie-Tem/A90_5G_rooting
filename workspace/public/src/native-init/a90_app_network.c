@@ -118,8 +118,8 @@ int a90_app_network_draw_summary(void) {
 int a90_app_network_draw_wsta_operator(void) {
     return app_network_draw_info_page(
         "WSTA D-PUBLIC",
-        "FLOW WSTA45 -> WSTA43 -> WSTA42",
-        "PUBLISH: HOST RUNBOOK ONLY",
-        "NATIVE MENU: DISPLAY-ONLY NO CONNECT",
-        "AGGREGATE: WSTA48 REDACTED RESULT");
+        "STATE: PUBLIC_OFF LEASE-GATED",
+        "PROOF: WSTA55 START / WSTA58 RENEW",
+        "URL: REDACTED PRIVATE-RUN ONLY",
+        "NATIVE: DISPLAY-ONLY NO CONNECT");
 }

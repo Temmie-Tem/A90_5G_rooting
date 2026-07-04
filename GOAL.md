@@ -2109,6 +2109,22 @@ safety invariants and flash gates are binding and override any sub-goal.**
 > **NEXT:** do not spin a third WSTA58 live retry solely for a green top-level decision unless explicitly needed; the
 > live behavior is already proven and the remaining delta was source-side aggregation.  Continue the persistent exposure
 > ladder from the fixed WSTA58 runner, or do a single pristine fixed-run proof later if the operator wants that artifact.
+> **🟢 STATUS (2026-07-04 18:44 KST host clock) — WSTA61 native persistent-state
+> screen SOURCE/BUILD PASS.**  Codex implemented the WSTA52 native HUD/screen rung as a display-only redacted
+> persistent-state surface.  The WSTA screen now shows `STATE: PUBLIC_OFF LEASE-GATED`,
+> `PROOF: WSTA55 START / WSTA58 RENEW`, `URL: REDACTED PRIVATE-RUN ONLY`, and
+> `NATIVE: DISPLAY-ONLY NO CONNECT`.  No raw public URL, Wi-Fi identifier, network address, credential, confirm-token,
+> connect/DHCP/tunnel/reboot/flash action, or userdata path was added.  Codex added V3396 builder
+> `build_native_init_boot_v3396_wsta_persistent_state_screen.py`, built
+> `A90 Linux init 0.11.152 (v3396-wsta-persistent-state-screen)`, and produced private boot image SHA256
+> `499f2b348d5d6ed9a5d219043d4fbef25dc4c158f542a4eec014b293c5e9872f`.  The WSTA host lineage gate now accepts
+> V3396 for future live validation.  Validation passed 29 focused native-screen/builder/WSTA lineage tests,
+> `py_compile`, V3396 builder execution, and `git diff --check`.  No flash or live device action ran.  Reports:
+> `docs/reports/NATIVE_INIT_V3396_WSTA_PERSISTENT_STATE_SCREEN_SOURCE_BUILD_2026-07-04.md` and
+> `docs/reports/SERVER_DISTRO_WIFI_STA_UPSTREAM_WSTA61_NATIVE_PERSISTENT_STATE_SCREEN_SOURCE_BUILD_2026-07-04.md`.
+> **NEXT:** if live visual confirmation is desired, flash exact V3396 through `native_init_flash.py`, health-check,
+> run `screenapp wsta`/`screenapp dpublic`, verify the redacted state markers, and keep public exposure off; otherwise
+> continue the persistent exposure ladder from the fixed WSTA58/WSTA61 source state.
 
 ## North star — priority-ordered tracks (T1 → T2 → T3)
 
