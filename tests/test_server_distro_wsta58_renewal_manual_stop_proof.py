@@ -226,6 +226,30 @@ class ServerDistroWsta58RenewalManualStopProofTests(unittest.TestCase):
         self.assertTrue(result["checks"]["wsta48_redaction_ok"])
         self.assertNotIn("wsta54-", json.dumps(runner.public_summary(result), sort_keys=True).lower())
 
+    def test_live_initial_failure_skips_renewal(self) -> None:
+        with self.private_tmp() as tmp:
+            root = Path(tmp)
+            args = self.live_args(root)
+            initial = self.wsta55_pass("initial")
+            initial["decision"] = "wsta55-blocked-native-uplink-confirmed"
+            initial["checks"]["wsta45_pass"] = False
+            with mock.patch.object(runner.wsta55, "run", return_value=initial) as live_call, \
+                    mock.patch.object(runner, "manual_stop_cleanup", return_value={
+                        "ok": True,
+                        "manual_stop_requested": True,
+                        "manual_stop_public_state": "PUBLIC_OFF",
+                        "public_url_value_logged": False,
+                        "secret_values_logged": 0,
+                    }) as stop_call, \
+                    mock.patch.object(runner.wsta48, "build_aggregate", side_effect=AssertionError("unexpected aggregate")):
+                result = runner.run(args)
+
+        self.assertEqual(live_call.call_count, 1)
+        self.assertTrue(stop_call.called)
+        self.assertEqual(result["decision"], "wsta58-blocked-initial-wsta55")
+        self.assertEqual(result["renewal_wsta55"]["decision"], "wsta58-skipped-renewal-after-initial-failure")
+        self.assertFalse(result["checks"]["initial_wsta55_pass"])
+
     def test_live_refreshes_renewal_lease_after_initial_from_wsta53_source(self) -> None:
         with self.private_tmp() as tmp:
             root = Path(tmp)
@@ -290,6 +314,23 @@ class ServerDistroWsta58RenewalManualStopProofTests(unittest.TestCase):
         self.assertEqual(result["decision"], "wsta58-blocked-packet-filter-restore")
         self.assertTrue(result["checks"]["initial_packet_filter_restore_ok"])
         self.assertFalse(result["checks"]["renewal_packet_filter_restore_ok"])
+
+    def test_wsta55_args_passes_explicit_packet_filter_image_selection(self) -> None:
+        with self.private_tmp() as tmp:
+            root = Path(tmp)
+            args = self.live_args(root)
+            args.local_image = root / "packet-filter-ready.img"
+            args.local_image_sha256 = "e" * 64
+            args.remote_image = "/mnt/sdext/a90/runtime/packet-filter-ready.img"
+            args.remote_clean_image = "/mnt/sdext/a90/runtime/packet-filter-ready.img.clean"
+            lease = self.make_artifact(root, "image")
+
+            nested = runner.wsta55_args(args, root, lease, "image")
+
+        self.assertEqual(nested.local_image, args.local_image)
+        self.assertEqual(nested.local_image_sha256, "e" * 64)
+        self.assertEqual(nested.remote_image, args.remote_image)
+        self.assertEqual(nested.remote_clean_image, args.remote_clean_image)
 
     def test_template_is_redacted_and_does_not_run(self) -> None:
         with mock.patch.object(runner.wsta55, "run", side_effect=AssertionError("unexpected live call")):

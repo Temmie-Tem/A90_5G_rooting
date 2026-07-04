@@ -466,6 +466,7 @@ case "$RULES4" in *"-P INPUT DROP"*) echo A90WSTA94_POLICY_V4_INPUT_DROP=1;; *) 
 case "$RULES4" in *"-P FORWARD DROP"*) echo A90WSTA94_POLICY_V4_FORWARD_DROP=1;; *) echo A90WSTA94_POLICY_V4_FORWARD_DROP=0; fail policy-v4-forward 32;; esac
 case "$RULES4" in *"-P OUTPUT ACCEPT"*) echo A90WSTA94_POLICY_V4_OUTPUT_ACCEPT=1;; *) echo A90WSTA94_POLICY_V4_OUTPUT_ACCEPT=0; fail policy-v4-output 33;; esac
 case "$RULES4" in *"-A INPUT -i lo -j ACCEPT"*) echo A90WSTA94_RULE_V4_LOOPBACK_ACCEPT=1;; *) echo A90WSTA94_RULE_V4_LOOPBACK_ACCEPT=0; fail rule-v4-loopback 34;; esac
+case "$RULES4" in *"-A INPUT -s 192.168.7.1/32 -p tcp -m tcp --dport 2222 -j ACCEPT"*) echo A90WSTA94_RULE_V4_CONTROL_SSH_ACCEPT=1;; *) echo A90WSTA94_RULE_V4_CONTROL_SSH_ACCEPT=0; fail rule-v4-control-ssh 38;; esac
 case "$RULES6" in *"-P INPUT DROP"*) echo A90WSTA94_POLICY_V6_INPUT_DROP=1;; *) echo A90WSTA94_POLICY_V6_INPUT_DROP=0; fail policy-v6-input 35;; esac
 case "$RULES6" in *"-A INPUT -i lo -j ACCEPT"*) echo A90WSTA94_RULE_V6_LOOPBACK_ACCEPT=1;; *) echo A90WSTA94_RULE_V6_LOOPBACK_ACCEPT=0; fail rule-v6-loopback 36;; esac
 HTTP_AFTER=$(/usr/bin/timeout 10s "$HTTP_GET" 127.0.0.1 8080 2>&1)
@@ -502,6 +503,7 @@ def parse_packet_filter_probe(record: dict[str, Any]) -> dict[str, Any]:
         "v4_forward_drop": "A90WSTA94_POLICY_V4_FORWARD_DROP=1" in stdout,
         "v4_output_accept": "A90WSTA94_POLICY_V4_OUTPUT_ACCEPT=1" in stdout,
         "v4_loopback_accept": "A90WSTA94_RULE_V4_LOOPBACK_ACCEPT=1" in stdout,
+        "v4_control_ssh_accept": "A90WSTA94_RULE_V4_CONTROL_SSH_ACCEPT=1" in stdout,
         "v6_input_drop": "A90WSTA94_POLICY_V6_INPUT_DROP=1" in stdout,
         "v6_loopback_accept": "A90WSTA94_RULE_V6_LOOPBACK_ACCEPT=1" in stdout,
         "restore_exact_v4": "A90WSTA94_RESTORE_EXACT_V4=1" in stdout,

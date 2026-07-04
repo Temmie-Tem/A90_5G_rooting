@@ -8,11 +8,13 @@
 set -u
 PATH=/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin
 
-HELPER_VERSION=2
+HELPER_VERSION=3
 IPT4="${A90_DPUBLIC_IPTABLES4:-/usr/sbin/iptables-legacy}"
 IPT6="${A90_DPUBLIC_IPTABLES6:-/usr/sbin/ip6tables-legacy}"
 RESTORE4="${A90_DPUBLIC_IPTABLES_RESTORE4:-/usr/sbin/iptables-legacy-restore}"
 RESTORE6="${A90_DPUBLIC_IPTABLES_RESTORE6:-/usr/sbin/ip6tables-legacy-restore}"
+CONTROL_CIDR="${A90_DPUBLIC_CONTROL_CIDR:-192.168.7.1/32}"
+CONTROL_SSH_PORT="${A90_DPUBLIC_CONTROL_SSH_PORT:-2222}"
 RUN_DIR="${A90_DPUBLIC_PACKET_FILTER_RUN_DIR:-/run/a90-dpublic/packet-filter}"
 MARKER="${A90_DPUBLIC_PACKET_FILTER_MARKER:-/run/a90-dpublic/packet-filter.marker}"
 BEFORE_RULES4="$RUN_DIR/before.rules.v4"
@@ -96,13 +98,14 @@ save_current_rules() {
 }
 
 apply_v4() {
-    "$RESTORE4" <<'EOF'
+    "$RESTORE4" <<EOF
 *filter
 :INPUT DROP [0:0]
 :FORWARD DROP [0:0]
 :OUTPUT ACCEPT [0:0]
 -A INPUT -i lo -j ACCEPT
 -A INPUT -m conntrack --ctstate ESTABLISHED,RELATED -j ACCEPT
+-A INPUT -s $CONTROL_CIDR -p tcp -m tcp --dport $CONTROL_SSH_PORT -j ACCEPT
 COMMIT
 EOF
 }
@@ -144,6 +147,9 @@ case "$op" in
         if apply_v4 && apply_v6; then
             emit "packet_filter_saved_before=1"
             emit "packet_filter_loopback_accept=1"
+            emit "packet_filter_control_ssh_accept=1"
+            emit "packet_filter_control_cidr=$CONTROL_CIDR"
+            emit "packet_filter_control_ssh_port=$CONTROL_SSH_PORT"
             emit "packet_filter_input_default=DROP"
             emit "packet_filter_forward_default=DROP"
             emit "packet_filter_output_default=ACCEPT"

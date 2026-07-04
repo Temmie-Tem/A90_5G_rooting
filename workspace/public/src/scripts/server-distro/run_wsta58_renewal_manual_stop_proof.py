@@ -238,6 +238,14 @@ def wsta55_args(args: argparse.Namespace, run_dir: Path, lease_path: Path, label
         str(args.bridge_port),
         "--timeout",
         str(args.timeout),
+        "--local-image",
+        str(args.local_image),
+        "--local-image-sha256",
+        args.local_image_sha256,
+        "--remote-image",
+        args.remote_image,
+        "--remote-clean-image",
+        args.remote_clean_image,
         "--execute-live-short-lease",
         "--allow-operator-live",
         "--allow-native-reboot",
@@ -415,6 +423,26 @@ def run(args: argparse.Namespace) -> dict[str, Any]:
     initial = wsta55.run(wsta55_args(args, run_dir, initial_path, "initial"))
     result["initial_wsta55"] = initial
     write_json(out_path, result)
+    if initial.get("decision") != wsta55.PASS_DECISION:
+        result["renewal_wsta55"] = {"decision": "wsta58-skipped-renewal-after-initial-failure"}
+        result["manual_stop"] = manual_stop_cleanup(args)
+        result["wsta48_redacted"] = {
+            "all_pass": False,
+            "redaction_guard_ok": True,
+            "result_count": 1,
+            "public_url_value_logged": False,
+            "secret_values_logged": 0,
+        }
+        result["checks"] = live_checks(
+            initial,
+            result["renewal_wsta55"],
+            {"redaction_guard": {"ok": True}, "all_pass": False},
+            result["manual_stop"],
+        )
+        result["decision"] = classify_live(result["checks"])
+        result["ended_utc"] = utc_stamp()
+        write_json(out_path, result)
+        return result
     if args.renewal_wsta53_result_json:
         refresh_ok, refresh_result, minted_path = mint_renewal_lease(args, run_dir)
         result["renewal_lease_refresh_redacted"] = {
@@ -496,6 +524,10 @@ def build_arg_parser() -> argparse.ArgumentParser:
     parser.add_argument("--bridge-host", default="127.0.0.1")
     parser.add_argument("--bridge-port", type=int, default=54321)
     parser.add_argument("--timeout", type=float, default=20.0)
+    parser.add_argument("--local-image", type=Path, default=wsta55.wsta45.wsta43.wsta42.d1.DEFAULT_LOCAL_IMAGE)
+    parser.add_argument("--local-image-sha256", default=wsta55.wsta45.wsta43.wsta42.DEFAULT_LOCAL_IMAGE_SHA256)
+    parser.add_argument("--remote-image", default=wsta55.wsta45.wsta43.wsta42.d1.DEFAULT_REMOTE_IMAGE)
+    parser.add_argument("--remote-clean-image", default=wsta55.wsta45.wsta43.wsta42.DEFAULT_REMOTE_CLEAN_IMAGE)
     parser.add_argument("--execute-renewal-manual-stop", action="store_true")
     parser.add_argument("--allow-operator-live", action="store_true")
     parser.add_argument("--allow-native-reboot", action="store_true")

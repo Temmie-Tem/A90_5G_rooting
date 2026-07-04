@@ -258,6 +258,14 @@ class ServerDistroWsta80PersistentOperatorExecuteGateTests(unittest.TestCase):
                     runner.wsta58.wsta55.wsta45.wsta25.NATIVE_CONFIRM_TOKEN,
                     "--public-confirm-token",
                     runner.wsta58.wsta55.wsta45.PUBLIC_CONFIRM_TOKEN,
+                    "--local-image",
+                    str(root / "packet-filter-ready.img"),
+                    "--local-image-sha256",
+                    "d" * 64,
+                    "--remote-image",
+                    "/mnt/sdext/a90/runtime/packet-filter-ready.img",
+                    "--remote-clean-image",
+                    "/mnt/sdext/a90/runtime/packet-filter-ready.img.clean",
                 ]))
 
         self.assertEqual(result["decision"], runner.PASS_DECISION)
@@ -266,6 +274,10 @@ class ServerDistroWsta80PersistentOperatorExecuteGateTests(unittest.TestCase):
         self.assertTrue(call_args.execute_renewal_manual_stop)
         self.assertEqual(call_args.native_confirm_token, runner.wsta58.wsta55.wsta45.wsta25.NATIVE_CONFIRM_TOKEN)
         self.assertEqual(call_args.public_confirm_token, runner.wsta58.wsta55.wsta45.PUBLIC_CONFIRM_TOKEN)
+        self.assertEqual(call_args.local_image, root / "packet-filter-ready.img")
+        self.assertEqual(call_args.local_image_sha256, "d" * 64)
+        self.assertEqual(call_args.remote_image, "/mnt/sdext/a90/runtime/packet-filter-ready.img")
+        self.assertEqual(call_args.remote_clean_image, "/mnt/sdext/a90/runtime/packet-filter-ready.img.clean")
         public_text = json.dumps(runner.public_summary(result), sort_keys=True)
         self.assertNotIn(runner.wsta58.wsta55.wsta45.wsta25.NATIVE_CONFIRM_TOKEN, public_text)
         self.assertNotIn(runner.wsta58.wsta55.wsta45.PUBLIC_CONFIRM_TOKEN, public_text)

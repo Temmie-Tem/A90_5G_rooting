@@ -152,11 +152,26 @@ class ServerDistroWsta88PersistentOperatorWorkflowTests(unittest.TestCase):
                     runner.wsta80.wsta58.wsta55.wsta45.wsta25.NATIVE_CONFIRM_TOKEN,
                     "--public-confirm-token",
                     runner.wsta80.wsta58.wsta55.wsta45.PUBLIC_CONFIRM_TOKEN,
+                    "--local-image",
+                    str(root / "packet-filter-ready.img"),
+                    "--local-image-sha256",
+                    "c" * 64,
+                    "--remote-image",
+                    "/mnt/sdext/a90/runtime/packet-filter-ready.img",
+                    "--remote-clean-image",
+                    "/mnt/sdext/a90/runtime/packet-filter-ready.img.clean",
                 ))
 
         self.assertEqual(result["decision"], runner.PASS_DECISION)
         self.assertEqual(delegated.call_count, 2)
         self.assertTrue(delegated.call_args_list[-1].args[0].execute_wsta58_from_status)
+        self.assertEqual(delegated.call_args_list[-1].args[0].local_image, root / "packet-filter-ready.img")
+        self.assertEqual(delegated.call_args_list[-1].args[0].local_image_sha256, "c" * 64)
+        self.assertEqual(delegated.call_args_list[-1].args[0].remote_image, "/mnt/sdext/a90/runtime/packet-filter-ready.img")
+        self.assertEqual(
+            delegated.call_args_list[-1].args[0].remote_clean_image,
+            "/mnt/sdext/a90/runtime/packet-filter-ready.img.clean",
+        )
         self.assertTrue(result["checks"]["explicit_live_gate"])
         self.assertTrue(result["checks"]["wsta80_live_pass"])
         self.assertTrue(result["safety"]["device_action"])

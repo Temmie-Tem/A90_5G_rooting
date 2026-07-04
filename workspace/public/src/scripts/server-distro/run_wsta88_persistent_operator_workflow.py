@@ -327,6 +327,14 @@ def wsta80_args(run_dir: Path, status_path: Path, args: argparse.Namespace, *, l
             args.native_confirm_token,
             "--public-confirm-token",
             args.public_confirm_token,
+            "--local-image",
+            str(args.local_image),
+            "--local-image-sha256",
+            args.local_image_sha256,
+            "--remote-image",
+            args.remote_image,
+            "--remote-clean-image",
+            args.remote_clean_image,
         ])
     return wsta80.build_arg_parser().parse_args(argv)
 
@@ -638,6 +646,10 @@ def build_arg_parser() -> argparse.ArgumentParser:
     parser.add_argument("--allow-public-live", action="store_true")
     parser.add_argument("--force-ttl-expiry-proof", action="store_true")
     parser.add_argument("--force-manual-stop-proof", action="store_true")
+    parser.add_argument("--local-image", type=Path, default=wsta80.wsta58.wsta55.wsta45.wsta43.wsta42.d1.DEFAULT_LOCAL_IMAGE)
+    parser.add_argument("--local-image-sha256", default=wsta80.wsta58.wsta55.wsta45.wsta43.wsta42.DEFAULT_LOCAL_IMAGE_SHA256)
+    parser.add_argument("--remote-image", default=wsta80.wsta58.wsta55.wsta45.wsta43.wsta42.d1.DEFAULT_REMOTE_IMAGE)
+    parser.add_argument("--remote-clean-image", default=wsta80.wsta58.wsta55.wsta45.wsta43.wsta42.DEFAULT_REMOTE_CLEAN_IMAGE)
     parser.add_argument("--native-confirm-token", default="")
     parser.add_argument("--public-confirm-token", default="")
     parser.add_argument("--print-template", action="store_true")

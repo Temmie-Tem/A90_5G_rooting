@@ -145,8 +145,11 @@ echo A90D2_START_BEGIN
 echo A90D2 port=$PORT_BIND
 /bin/busybox grep -q " $MNT " /proc/mounts
 /bin/busybox mkdir -p "$MNT/root/.ssh" "$MNT/tmp"
+/bin/busybox chown 0:0 "$MNT/root" "$MNT/root/.ssh"
+/bin/busybox chmod 700 "$MNT/root"
 /bin/busybox chmod 700 "$MNT/root/.ssh"
 /bin/busybox printf '%s\\n' {pubkey_q} > "$MNT/root/.ssh/authorized_keys"
+/bin/busybox chown 0:0 "$MNT/root/.ssh/authorized_keys"
 /bin/busybox chmod 600 "$MNT/root/.ssh/authorized_keys"
 /bin/busybox cp "$MNT/etc/shadow" "$MNT/tmp/a90_d2_shadow.bak"
 /bin/busybox sed 's/^root:![^:]*:/root:*:/' "$MNT/etc/shadow" > "$MNT/tmp/a90_d2_shadow.new"
@@ -160,10 +163,17 @@ else
   /bin/busybox chroot "$MNT" /usr/bin/dropbearkey -t rsa -s 2048 -f /tmp/a90_d2_dropbear_hostkey >/tmp/a90_d2_dropbearkey.log 2>&1
   echo A90D2 hostkey_type=rsa
 fi
-/bin/busybox chroot "$MNT" /usr/sbin/dropbear -r /tmp/a90_d2_dropbear_hostkey -p "$PORT_BIND" -P /tmp/a90_d2_dropbear.pid -s -j -k
-/bin/busybox sleep 1
-[ -s "$MNT/tmp/a90_d2_dropbear.pid" ]
-echo A90D2 dropbear_pid=$(/bin/busybox cat "$MNT/tmp/a90_d2_dropbear.pid")
+    /bin/busybox chroot "$MNT" /usr/sbin/dropbear -E -F -r /tmp/a90_d2_dropbear_hostkey -p "$PORT_BIND" -P /tmp/a90_d2_dropbear.pid -s -j -k >"$MNT/tmp/a90_d2_dropbear.log" 2>&1 &
+    PID=$!
+    /bin/busybox printf '%s\\n' "$PID" > "$MNT/tmp/a90_d2_dropbear.pid"
+    /bin/busybox sleep 1
+    if ! /bin/busybox kill -0 "$PID" >/dev/null 2>&1; then
+      echo A90D2 dropbear_alive=0
+      /bin/busybox cat "$MNT/tmp/a90_d2_dropbear.log" 2>/dev/null || true
+      exit 34
+    fi
+echo A90D2 dropbear_foreground=1
+echo A90D2 dropbear_pid=$PID
 echo A90D2_DROPBEAR_STARTED
 """.strip()
 

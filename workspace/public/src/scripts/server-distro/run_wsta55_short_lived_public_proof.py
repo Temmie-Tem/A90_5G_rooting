@@ -237,6 +237,14 @@ def wsta45_args(args: argparse.Namespace, run_dir: Path) -> argparse.Namespace:
         str(args.bridge_port),
         "--timeout",
         str(args.timeout),
+        "--local-image",
+        str(args.local_image),
+        "--local-image-sha256",
+        args.local_image_sha256,
+        "--remote-image",
+        args.remote_image,
+        "--remote-clean-image",
+        args.remote_clean_image,
     ])
 
 
@@ -500,6 +508,10 @@ def build_arg_parser() -> argparse.ArgumentParser:
     parser.add_argument("--bridge-host", default="127.0.0.1")
     parser.add_argument("--bridge-port", type=int, default=54321)
     parser.add_argument("--timeout", type=float, default=20.0)
+    parser.add_argument("--local-image", type=Path, default=wsta45.wsta43.wsta42.d1.DEFAULT_LOCAL_IMAGE)
+    parser.add_argument("--local-image-sha256", default=wsta45.wsta43.wsta42.DEFAULT_LOCAL_IMAGE_SHA256)
+    parser.add_argument("--remote-image", default=wsta45.wsta43.wsta42.d1.DEFAULT_REMOTE_IMAGE)
+    parser.add_argument("--remote-clean-image", default=wsta45.wsta43.wsta42.DEFAULT_REMOTE_CLEAN_IMAGE)
     parser.add_argument("--execute-live-short-lease", action="store_true")
     parser.add_argument("--allow-operator-live", action="store_true")
     parser.add_argument("--allow-native-reboot", action="store_true")

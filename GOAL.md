@@ -2735,6 +2735,25 @@ safety invariants and flash gates are binding and override any sub-goal.**
 > **NEXT:** WSTA97 should run the bounded live proof through the explicit WSTA80/WSTA58 public-live gate and verify the
 > full on-device sequence: preflight, apply before tunnel start, public smoke, D-public cleanup, exact packet-filter
 > restore, and final resident health.
+> **🟡 STATUS (2026-07-05 01:05 KST host clock) — WSTA97→WSTA101 packet-filter
+> CONTROL-PLANE LIVE PARTIAL PASS / PUBLIC PATH BLOCKED.**  WSTA97 correctly fail-closed before exposure on a
+> packet-filter-ready rootfs gap (`/usr/sbin/ip6tables-legacy-restore` missing).  WSTA98 prepared a private
+> packet-filter-ready image with SHA256 `2dae0d4dcfde1854f0d91b0fe94948720b175638261d156572e82ca7d18e928b` and
+> fixed two D2 live blockers: foreground Dropbear (`-E -F`) with PID/alive check, and root-owned strict `/root/.ssh`
+> permissions for key auth.  D2 live SSH then passed.  WSTA99 reached packet-filter apply and proved the source
+> design flaw: `INPUT DROP` killed new USB-NCM SSH sessions, so `cloudflared` and cleanup could not proceed.  The
+> packet-filter helper is now v3 and preserves only the USB-local control plane
+> (`192.168.7.1/32 -> tcp/2222`) while keeping public-facing `INPUT DROP`; a focused live proof passed
+> (`ssh_after_apply_marker=true`, `packet_filter_restore_ok=true`, postcheck clean).  Full WSTA42 retries WSTA100
+> and WSTA101 both stopped earlier at native uplink confirmed autoconnect (`wifi-uplink-service-autoconnect-failed`,
+> native rc `-22`, scan recovery probe failed), so retry stopped under the repeated-failure rule.  Final resident
+> health stayed v3397 with `selftest pass=12 warn=1 fail=0` and no chroot/loop/dropbear/TCP2222 leftovers.  Validation
+> passed `py_compile`, focused WSTA/D2/packet-filter/rootfs tests (`106 tests`), D2 live SSH proof, focused
+> packet-filter apply/new-SSH/restore live proof, and final health checks.  Report:
+> `docs/reports/SERVER_DISTRO_WIFI_STA_UPSTREAM_WSTA97_WSTA101_PACKET_FILTER_CONTROL_PLANE_LIVE_2026-07-04.md`.
+> **NEXT:** do not rerun packet-filter control-plane proof unless changing the helper.  Next bounded live unit should
+> isolate the repeated native uplink autoconnect/scan failure, then rerun WSTA42/WSTA88 public exposure once STA is
+> green again.
 
 ## North star — priority-ordered tracks (T1 → T2 → T3)
 

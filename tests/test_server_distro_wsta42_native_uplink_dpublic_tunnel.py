@@ -179,6 +179,9 @@ class ServerDistroWsta42NativeUplinkDpublicTunnelTests(unittest.TestCase):
             "packet_filter_decision=packet-filter-loopback-default-drop-applied",
             "packet_filter_saved_before=1",
             "packet_filter_loopback_accept=1",
+            "packet_filter_control_ssh_accept=1",
+            "packet_filter_control_cidr=192.168.7.1/32",
+            "packet_filter_control_ssh_port=2222",
             "packet_filter_input_default=DROP",
             "packet_filter_forward_default=DROP",
             "packet_filter_output_default=ACCEPT",
@@ -191,6 +194,34 @@ class ServerDistroWsta42NativeUplinkDpublicTunnelTests(unittest.TestCase):
             "packet_filter_secret_values_logged=0",
         ]))}
         self.assertTrue(runner.packet_filter_restore_ok(restore))
+
+    def test_local_image_sha_gate_uses_explicit_expected_sha(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            image = root / "packet-filter-ready.img"
+            image.write_bytes(b"packet-filter-ready")
+            expected_sha = runner.sha256_file(image)
+            args = runner.build_arg_parser().parse_args([
+                "--run-dir",
+                str(root / "run"),
+                "--local-image",
+                str(image),
+                "--local-image-sha256",
+                expected_sha,
+                "--allow-public-live",
+                "--ack-credentialed-wifi",
+                "--ack-public-exposure",
+                "--native-confirm-token",
+                runner.wsta25.NATIVE_CONFIRM_TOKEN,
+                "--public-confirm-token",
+                runner.PUBLIC_CONFIRM_TOKEN,
+            ])
+            with mock.patch.object(runner, "build_dpublic_helpers", return_value={"ok": False}):
+                result = runner.run(args)
+
+        self.assertEqual(result["local_image_expected_sha256"], expected_sha)
+        self.assertNotEqual(result["decision"], "wsta42-blocked-local-image-sha")
+        self.assertEqual(result["decision"], "wsta42-blocked-helper-build")
 
     def test_profile_confirmed_requires_profile_and_native_client_success(self) -> None:
         parsed = {

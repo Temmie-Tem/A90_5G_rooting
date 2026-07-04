@@ -202,6 +202,26 @@ class ServerDistroWsta55ShortLivedPublicProofTests(unittest.TestCase):
         self.assertEqual(result["ttl_expiry"]["public_state_after_expiry"], "PUBLIC_OFF")
         self.assertNotIn("wsta54-", json.dumps(runner.public_summary(result), sort_keys=True).lower())
 
+    def test_wsta45_args_passes_explicit_packet_filter_image_selection(self) -> None:
+        with self.private_tmp() as tmp:
+            root = Path(tmp)
+            args = self.live_args(root)
+            args.local_image = root / "packet-filter-ready.img"
+            args.local_image_sha256 = "f" * 64
+            args.remote_image = "/mnt/sdext/a90/runtime/packet-filter-ready.img"
+            args.remote_clean_image = "/mnt/sdext/a90/runtime/packet-filter-ready.img.clean"
+
+            nested = runner.wsta45_args(args, root)
+
+        self.assertIn("--local-image", nested.wsta43_args)
+        self.assertIn(str(args.local_image), nested.wsta43_args)
+        self.assertIn("--local-image-sha256", nested.wsta43_args)
+        self.assertIn("f" * 64, nested.wsta43_args)
+        self.assertIn("--remote-image", nested.wsta43_args)
+        self.assertIn(args.remote_image, nested.wsta43_args)
+        self.assertIn("--remote-clean-image", nested.wsta43_args)
+        self.assertIn(args.remote_clean_image, nested.wsta43_args)
+
     def test_live_result_blocks_if_cleanup_missing(self) -> None:
         with self.private_tmp() as tmp:
             args = self.live_args(Path(tmp))

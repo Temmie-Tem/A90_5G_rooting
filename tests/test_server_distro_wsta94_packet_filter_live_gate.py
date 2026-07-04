@@ -86,6 +86,7 @@ class ServerDistroWsta94PacketFilterLiveGateTests(unittest.TestCase):
         self.assertIn('rules_to_restore "$RUN_DIR/before.probe.v4" "$RUN_DIR/before.probe.restore.v4"', script)
         self.assertIn('"$PF" apply-loopback-default-drop', script)
         self.assertIn('"$RESTORE4" < "$RUN_DIR/before.probe.restore.v4"', script)
+        self.assertIn("A90WSTA94_RULE_V4_CONTROL_SSH_ACCEPT=1", script)
         self.assertIn("restore_probe_rules || fail restore 78", script)
         self.assertIn("cmp -s", script)
         self.assertNotIn('"$HTTP_BEFORE_RC" -eq 0 ] &&', script)
@@ -150,6 +151,7 @@ class ServerDistroWsta94PacketFilterLiveGateTests(unittest.TestCase):
             "A90WSTA94_POLICY_V4_FORWARD_DROP=1",
             "A90WSTA94_POLICY_V4_OUTPUT_ACCEPT=1",
             "A90WSTA94_RULE_V4_LOOPBACK_ACCEPT=1",
+            "A90WSTA94_RULE_V4_CONTROL_SSH_ACCEPT=1",
             "A90WSTA94_POLICY_V6_INPUT_DROP=1",
             "A90WSTA94_RULE_V6_LOOPBACK_ACCEPT=1",
             "A90WSTA94_LOOPBACK_AFTER_OK=1",
@@ -168,6 +170,7 @@ class ServerDistroWsta94PacketFilterLiveGateTests(unittest.TestCase):
         self.assertTrue(parsed["loopback_after_ok"])
         self.assertTrue(parsed["v4_input_drop"])
         self.assertTrue(parsed["v6_input_drop"])
+        self.assertTrue(parsed["v4_control_ssh_accept"])
         self.assertTrue(parsed["restore_exact_v4"])
         self.assertTrue(parsed["restore_exact_v6"])
         self.assertTrue(parsed["probe_pass"])

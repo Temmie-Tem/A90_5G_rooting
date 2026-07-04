@@ -71,6 +71,7 @@ DEFAULT_HOST_RESOLVER_CANDIDATES = (
     Path("/etc/resolv.conf"),
 )
 DEFAULT_REMOTE_CLEAN_IMAGE = d1.DEFAULT_REMOTE_IMAGE + ".clean"
+DEFAULT_LOCAL_IMAGE_SHA256 = d1.EXPECTED_IMAGE_SHA256
 
 
 def rel(path: Path) -> str:
@@ -742,6 +743,9 @@ def packet_filter_apply_ok(record: dict[str, Any]) -> bool:
         and parsed.get("packet_filter_decision") == "packet-filter-loopback-default-drop-applied"
         and parsed.get("packet_filter_saved_before") == "1"
         and parsed.get("packet_filter_loopback_accept") == "1"
+        and parsed.get("packet_filter_control_ssh_accept") == "1"
+        and parsed.get("packet_filter_control_cidr") == "192.168.7.1/32"
+        and parsed.get("packet_filter_control_ssh_port") == "2222"
         and parsed.get("packet_filter_input_default") == "DROP"
         and parsed.get("packet_filter_forward_default") == "DROP"
         and parsed.get("packet_filter_output_default") == "ACCEPT"
@@ -1062,7 +1066,8 @@ def run(args: argparse.Namespace) -> dict[str, Any]:
     local_sha = sha256_file(args.local_image)
     result["local_image"] = rel(args.local_image)
     result["local_image_sha256"] = local_sha
-    result["local_image_expected_sha256"] = d1.EXPECTED_IMAGE_SHA256
+    expected_local_sha = args.local_image_sha256 or DEFAULT_LOCAL_IMAGE_SHA256
+    result["local_image_expected_sha256"] = expected_local_sha
     result["cloudflared"] = dpublic.verify_cloudflared(
         args.cloudflared,
         dpublic.EXPECTED_CLOUDFLARED_SHA256,
@@ -1070,7 +1075,7 @@ def run(args: argparse.Namespace) -> dict[str, Any]:
     )
     result["helper_build"] = build_dpublic_helpers(run_dir)
     write_json(out_path, result)
-    if local_sha != d1.EXPECTED_IMAGE_SHA256:
+    if local_sha != expected_local_sha:
         result["decision"] = "wsta42-blocked-local-image-sha"
         return finish_result(out_path, result)
     if not result["helper_build"].get("ok"):
@@ -1080,6 +1085,7 @@ def run(args: argparse.Namespace) -> dict[str, Any]:
     autoconnect_enabled_by_runner = False
     service_started = False
     mounted = False
+    dropbear_started = False
     helper_staged = False
     profile_staged = False
     packet_filter_apply_attempted = False
@@ -1117,6 +1123,7 @@ def run(args: argparse.Namespace) -> dict[str, Any]:
             args,
             d2.d2_mount_script(args.remote_image, args.mountpoint, args.ssh_port),
             timeout=args.setup_timeout,
+            allow_error=True,
         )
         mounted = True
         result["mount"] = mount_record
@@ -1130,6 +1137,7 @@ def run(args: argparse.Namespace) -> dict[str, Any]:
             args,
             d2.d2_start_dropbear_script(args.mountpoint, public_key, args.device_ip, args.ssh_port),
             timeout=args.setup_timeout,
+            allow_error=True,
         )
         result["dropbear_start"] = start_record
         result["dropbear_parse"] = d2.parse_setup(str(start_record.get("text") or ""))
@@ -1137,6 +1145,7 @@ def run(args: argparse.Namespace) -> dict[str, Any]:
         if not all(result["dropbear_parse"].get(key) for key in ("started", "authorized_keys", "shadow_temp_key_only")):
             result["decision"] = "wsta42-blocked-dropbear-start"
             return result
+        dropbear_started = True
 
         result["ssh"] = wsta19.ssh_chroot_marker(args, run_dir)
         result["ssh_parse"] = result["ssh"].get("marker", {})
@@ -1253,11 +1262,13 @@ def run(args: argparse.Namespace) -> dict[str, Any]:
         result["host_public_smoke"] = host_public_smoke(args, run_dir)
         write_json(out_path, result)
     finally:
-        if mounted:
+        if mounted and dropbear_started:
             try:
                 result["dpublic_cleanup"] = cleanup_dpublic(args, run_dir)
             except Exception as exc:  # noqa: BLE001
                 result["dpublic_cleanup"] = {"error": str(exc), "cleaned": False}
+        elif mounted:
+            result["dpublic_cleanup"] = {"skipped": True, "reason": "dropbear-not-started"}
         else:
             result["dpublic_cleanup"] = {"skipped": True, "reason": "chroot-not-mounted"}
 
@@ -1297,10 +1308,13 @@ def run(args: argparse.Namespace) -> dict[str, Any]:
         else:
             result["native_uplink_profile_cleanup"] = {"skipped": True, "reason": "profile-not-staged"}
 
-        try:
-            result["service_dir_cleanup"] = wsta20.cleanup_service_dir(args, run_dir)
-        except Exception as exc:  # noqa: BLE001
-            result["service_dir_cleanup"] = {"error": str(exc)}
+        if dropbear_started:
+            try:
+                result["service_dir_cleanup"] = wsta20.cleanup_service_dir(args, run_dir)
+            except Exception as exc:  # noqa: BLE001
+                result["service_dir_cleanup"] = {"error": str(exc)}
+        else:
+            result["service_dir_cleanup"] = {"skipped": True, "reason": "dropbear-not-started"}
 
         if mounted:
             result["cleanup"] = wsta19.bridge_shell(
@@ -1446,6 +1460,7 @@ def build_arg_parser() -> argparse.ArgumentParser:
     parser.add_argument("--transfer-delay", type=float, default=2.0)
     parser.add_argument("--toybox", default="/bin/toybox")
     parser.add_argument("--local-image", type=Path, default=d1.DEFAULT_LOCAL_IMAGE)
+    parser.add_argument("--local-image-sha256", default=DEFAULT_LOCAL_IMAGE_SHA256)
     parser.add_argument("--remote-image", default=d1.DEFAULT_REMOTE_IMAGE)
     parser.add_argument("--remote-clean-image", default=DEFAULT_REMOTE_CLEAN_IMAGE)
     parser.add_argument("--mountpoint", default=d1.DEFAULT_MOUNTPOINT)
