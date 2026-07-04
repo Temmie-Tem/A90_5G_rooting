@@ -3151,6 +3151,27 @@ safety invariants and flash gates are binding and override any sub-goal.**
 > `docs/reports/SERVER_DISTRO_WIFI_STA_UPSTREAM_WSTA125_NATIVE_UPSTREAM_CLOUDFLARED_RUNTIME_SOURCE_2026-07-05.md`.
 > **NEXT:** fold the private WSTA125 v4 runtime proof into WSTA108/WSTA90 operator status and retire the WSTA124
 > egress-route blocker.
+>
+> **🟢 STATUS (2026-07-05 06:38 KST host clock) — WSTA126 OPERATOR STATUS
+> CLOUDFLARED RUNTIME PROOF SOURCE PASS.**  Codex updated WSTA108 operator status to accept
+> `--wsta125-cloudflared-runtime-proof-json` and fail-close unless the supplied private WSTA125 proof has the pass
+> decision plus native upstream confirmed, STA default route, resolver/egress ready, packet-filter preflight/apply/
+> restore, cloudflared UID/GID/no-new-privs/CapEff/command-shape/outbound-only/outbound-observed proof, private URL
+> artifact redaction, private trace artifacts, core `execve/socket/connect` syscalls, runtime cleanup, uplink-service
+> stop, helper/profile/chroot cleanup, and final selftest fail-zero.  A private WSTA126 status was regenerated from
+> the existing WSTA88, WSTA90, WSTA94, packet-filter control, WSTA110, WSTA117/WSTA114, WSTA120, WSTA122, and WSTA125
+> v4 proofs.  It stayed `SERVER_PROFILE_READY_DEFAULT_OFF` / `PUBLIC_OFF`, recorded
+> `hardening.cloudflared_runtime.state=CLOUDFLARED_RUNTIME_LIVE_PROVEN`, `cloudflared_live_proven=true`, user
+> `a90tunnel` UID/GID `3902/3902`, `syscall_count=52`, private URL redaction true, trace artifact true, cleanup true,
+> and final selftest fail-zero true.  It also cleared WSTA122 `remaining_live_proofs`, removed
+> `cloudflared-quick-tunnel` from remaining launcher/syscall profiles, and removed the cloudflared runtime proof next
+> action.  No device action, boot flash, native reboot, Wi-Fi association, DHCP, new public tunnel, public smoke,
+> packet-filter mutation, userdata action, or switch-root ran in WSTA126.  Validation passed `py_compile`, WSTA108
+> focused tests (`28 tests`), full server-distro WSTA regression (`412 tests`), and `git diff --check`.  Report:
+> `docs/reports/SERVER_DISTRO_WIFI_STA_UPSTREAM_WSTA126_OPERATOR_STATUS_CLOUDFLARED_RUNTIME_PROOF_SOURCE_2026-07-05.md`.
+> **NEXT:** cloudflared runtime is no longer the hardening frontier.  Continue with the remaining broad service
+> profile gaps: dpublic HUD launcher/user/syscall proof and the native uplink helper boundary before any always-on or
+> seccomp-enforcement claim.
 
 ## North star — priority-ordered tracks (T1 → T2 → T3)
 
