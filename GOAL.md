@@ -1342,6 +1342,23 @@ safety invariants and flash gates are binding and override any sub-goal.**
 > **NEXT:** flash V3387, then rerun the WSTA23 non-credential live gate: status response must contain only
 > profile-present booleans, no profile label values, and no-confirm `op=autoconnect` must return
 > `wifi-uplink-service-confirm-required` before connect/DHCP.
+> **🟢 STATUS (2026-07-04 10:48 KST host clock) — WSTA23 native Wi-Fi uplink-service LIVE PASS on V3387.**
+> V3387 flashed through `native_init_flash.py --from-native` with remote SHA and boot-block readback
+> matching `ebebf4384f408c5cd20630b12cfd94d56d4d484664612b692de986fdecf6da5d`; total flash time
+> `62.555s`.  Post-boot `version/status` passed and `selftest fail=0`.  Codex started
+> `wifi uplink-service` in a temp dir and proved `op=status` returns
+> `version=a90-native-wifi-uplink-service-v1`, `owner=native-init`, `connect=0`,
+> `dhcp_routing=observed-only`, `public_tunnel=0`, `secret_values_logged=0`,
+> `config_profile_present=1`, `autoconnect_profile_present=1`, and
+> `decision=wifi-uplink-service-status-pass` without emitting the profile label value.  A no-confirm
+> `op=autoconnect` request returned `rc=-13` / `decision=wifi-uplink-service-confirm-required` with
+> `connect=confirm-gated`, `dhcp_routing=config-gated`, `external_ping_execution=0`, and
+> `public_tunnel=0`.  The service stopped cleanly and final `selftest fail=0`.  No association, DHCP,
+> ping, public tunnel, userdata, switch-root, forbidden partition, or raw credential action ran.
+> Report:
+> `docs/reports/SERVER_DISTRO_WIFI_STA_UPSTREAM_WSTA23_UPLINK_SERVICE_LIVE_PASS_2026-07-04.md`.
+> **NEXT:** WSTA24 Debian-side uplink-service client/helper for `status` and no-confirm denial proofs.
+> Full confirmed autoconnect/DHCP remains parked until a separate credential-gated live unit.
 
 ## North star — priority-ordered tracks (T1 → T2 → T3)
 

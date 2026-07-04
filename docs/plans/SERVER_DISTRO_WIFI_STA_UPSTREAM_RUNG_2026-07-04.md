@@ -505,3 +505,20 @@ WSTA23 live non-credential gate, revised to use V3387:
 
 Full autoconnect/DHCP remains a separate credential-gated live unit.  Do not run association, DHCP,
 ping, or public tunnel work in the no-confirm live gate.
+
+WSTA23 live result: pass on V3387.  Flash/readback matched
+`ebebf4384f408c5cd20630b12cfd94d56d4d484664612b692de986fdecf6da5d`, post-boot health passed, the
+status response emitted only profile-present booleans, no-confirm autoconnect returned
+`wifi-uplink-service-confirm-required`, cleanup passed, and final `selftest fail=0`.  Report:
+`docs/reports/SERVER_DISTRO_WIFI_STA_UPSTREAM_WSTA23_UPLINK_SERVICE_LIVE_PASS_2026-07-04.md`.
+
+## 8. Next Implementation Unit
+
+WSTA24 Debian-side uplink-service client/helper:
+
+1. Add a Debian helper distinct from `a90-native-wifi-service-client`.
+2. Support `status` and a no-confirm `autoconnect` denial probe only.
+3. Reject confirmed autoconnect, connect, DHCP, ping, and public tunnel operations before request write
+   unless a future credential-gated unit explicitly authorizes them.
+4. Stage the helper through the SD-backed Debian rootfs preparation path.
+5. Live-gate helper behavior against resident V3387 without running association/DHCP.
