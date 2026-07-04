@@ -2006,6 +2006,22 @@ safety invariants and flash gates are binding and override any sub-goal.**
 > materialize the private lease under `workspace/private/`, and still perform no device action.  WSTA55+ live
 > persistent exposure remains gated behind the completed inventory, WSTA52/WSTA53 fail-closed contract, and an
 > explicit live gate.
+> **🟢 STATUS (2026-07-04 17:32 KST host clock) — WSTA54 private lease artifact
+> SOURCE PASS.**  Codex added
+> `workspace/public/src/scripts/server-distro/run_wsta54_private_lease_artifact.py`, a host-only private lease
+> artifact generator.  It consumes a private WSTA53 pass result, rejects non-private run dirs and non-private
+> WSTA53 result paths, revalidates `future_live_allowed=false`, TTL cap, acknowledgement markers, private
+> confirm-token source markers, private public-URL storage, WSTA53 live-safety flags, and forbidden nested fields,
+> then writes `wsta54_private_lease.json` plus `wsta54_redacted_lease_marker.json` under `workspace/private`.
+> The generated result and marker redact the opaque private lease id and keep `wsta54_live_allowed=false` with
+> `wsta55_explicit_live_gate_required=true`.  CLI smoke passed using
+> `workspace/private/runs/server-distro/wsta54-smoke`; validation passed 21 focused WSTA54/WSTA53/WSTA52 tests,
+> `py_compile`, and `git diff --check`.  No device command, flash, native reboot, Wi-Fi association, DHCP, public
+> tunnel, public smoke, userdata action, switch-root, or external service action ran.  Report:
+> `docs/reports/SERVER_DISTRO_WIFI_STA_UPSTREAM_WSTA54_PRIVATE_LEASE_ARTIFACT_SOURCE_2026-07-04.md`.
+> **NEXT:** design WSTA55 live short-lease proof: reuse the WSTA54 private artifact, run the existing
+> WSTA45/WSTA43/WSTA42 path with explicit live gates, prove public smoke, force TTL expiry, prove cleanup and WSTA48
+> redaction, then independently confirm `selftest fail=0`.
 
 ## North star — priority-ordered tracks (T1 → T2 → T3)
 
