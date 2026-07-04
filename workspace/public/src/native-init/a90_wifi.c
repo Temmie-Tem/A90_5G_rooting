@@ -143,6 +143,8 @@
 #define A90_WIFI_SERVICE_DEFAULT_POLL_MS 250
 #define A90_WIFI_SERVICE_MIN_POLL_MS 50
 #define A90_WIFI_SERVICE_MAX_POLL_MS 5000
+#define A90_WIFI_UPLINK_SERVICE_VERSION "a90-native-wifi-uplink-service-v1"
+#define A90_WIFI_UPLINK_SERVICE_CONFIRM "A90_NATIVE_UPLINK_AUTOCONNECT_V1"
 
 static int wifi_open_dir_no_follow(const char *path) {
     return open(path, O_RDONLY | O_DIRECTORY | O_CLOEXEC | O_NOFOLLOW);
@@ -5896,6 +5898,486 @@ static int wifi_service_cmd(char **argv, int argc) {
     return -EINVAL;
 }
 
+static void wifi_uplink_service_append_autoconnect_result(char *response,
+                                                          size_t response_size,
+                                                          size_t *offset) {
+    char result[1024];
+    char value[128];
+    int rc = wifi_service_read_file_no_follow(A90_WIFI_AUTOCONNECT_RESULT,
+                                              result,
+                                              sizeof(result));
+
+    wifi_service_append(response,
+                        response_size,
+                        offset,
+                        "autoconnect_result_present=%d\n",
+                        rc == 0 ? 1 : 0);
+    if (rc < 0) {
+        wifi_service_append(response, response_size, offset, "autoconnect_result_rc=%d\n", rc);
+        return;
+    }
+    if (wifi_service_request_value(result, "decision", value, sizeof(value)) == 0) {
+        wifi_service_append(response, response_size, offset, "autoconnect_decision=%s\n", value);
+    }
+    if (wifi_service_request_value(result, "profile", value, sizeof(value)) == 0) {
+        wifi_service_append(response, response_size, offset, "profile=%s\n", value);
+    }
+    if (wifi_service_request_value(result, "connect_rc", value, sizeof(value)) == 0) {
+        wifi_service_append(response, response_size, offset, "connect_rc=%s\n", value);
+    }
+    if (wifi_service_request_value(result, "dhcp_rc", value, sizeof(value)) == 0) {
+        wifi_service_append(response, response_size, offset, "dhcp_rc=%s\n", value);
+    }
+    if (wifi_service_request_value(result, "final_rc", value, sizeof(value)) == 0) {
+        wifi_service_append(response, response_size, offset, "final_rc=%s\n", value);
+    }
+    if (wifi_service_request_value(result, "carrier_up", value, sizeof(value)) == 0) {
+        wifi_service_append(response, response_size, offset, "carrier_up=%s\n", value);
+    }
+    if (wifi_service_request_value(result, "default_route_present", value, sizeof(value)) == 0) {
+        wifi_service_append(response, response_size, offset, "default_route_present=%s\n", value);
+    }
+    if (wifi_service_request_value(result, "nameserver_count", value, sizeof(value)) == 0) {
+        wifi_service_append(response, response_size, offset, "nameserver_count=%s\n", value);
+    }
+    if (wifi_service_request_value(result, "secret_values_logged", value, sizeof(value)) == 0) {
+        wifi_service_append(response, response_size, offset, "secret_values_logged=%s\n", value);
+    }
+}
+
+static void wifi_uplink_service_append_autoconnect_config(char *response,
+                                                          size_t response_size,
+                                                          size_t *offset,
+                                                          const char *profile) {
+    struct a90_wificfg_autoconnect config;
+    int rc = a90_wificfg_get_autoconnect(&config, profile);
+
+    wifi_service_append(response, response_size, offset, "autoconnect_config_rc=%d\n", rc);
+    wifi_service_append(response,
+                        response_size,
+                        offset,
+                        "autoconnect_ready=%d\n",
+                        rc == 0 ? 1 : 0);
+    wifi_service_append(response,
+                        response_size,
+                        offset,
+                        "autoconnect_enabled=%d\n",
+                        config.enabled ? 1 : 0);
+    wifi_service_append(response,
+                        response_size,
+                        offset,
+                        "profile=%s\n",
+                        config.profile[0] != '\0' ? config.profile :
+                        (profile != NULL && profile[0] != '\0' ? profile : "none"));
+    wifi_service_append(response,
+                        response_size,
+                        offset,
+                        "profile_valid=%d\n",
+                        config.profile_valid ? 1 : 0);
+    wifi_service_append(response, response_size, offset, "connect_timeout_sec=%d\n", config.connect_timeout_sec);
+    wifi_service_append(response, response_size, offset, "dhcp=%d\n", config.dhcp);
+    wifi_service_append(response, response_size, offset, "scan_before_connect=%d\n", config.scan_before_connect);
+    wifi_service_append(response, response_size, offset, "retry_count=%d\n", config.retry_count);
+    wifi_service_append(response,
+                        response_size,
+                        offset,
+                        "external_ping_blocked=%d\n",
+                        config.external_ping != 0 ? 1 : 0);
+    wifi_service_append(response, response_size, offset, "autoconnect_config_decision=%s\n", config.decision);
+}
+
+static int wifi_uplink_service_format_status_response(char *response,
+                                                      size_t response_size,
+                                                      size_t *offset,
+                                                      const char *seq,
+                                                      const char *op,
+                                                      const char *profile) {
+    struct a90_wifi_status_snapshot status;
+    int rc = a90_wifi_status_snapshot(&status);
+
+    wifi_service_append(response, response_size, offset, "version=%s\n", A90_WIFI_UPLINK_SERVICE_VERSION);
+    wifi_service_append(response, response_size, offset, "seq=%s\n", seq);
+    wifi_service_append(response, response_size, offset, "op=%s\n", op);
+    wifi_service_append(response, response_size, offset, "owner=native-init\n");
+    wifi_service_append(response, response_size, offset, "credentials=0\n");
+    wifi_service_append(response, response_size, offset, "connect=0\n");
+    wifi_service_append(response, response_size, offset, "dhcp_routing=observed-only\n");
+    wifi_service_append(response, response_size, offset, "external_ping_execution=0\n");
+    wifi_service_append(response, response_size, offset, "public_tunnel=0\n");
+    wifi_service_append(response, response_size, offset, "raw_values_redacted=1\n");
+    wifi_service_append(response, response_size, offset, "secret_values_logged=0\n");
+    wifi_service_append(response, response_size, offset, "rc=%d\n", rc);
+    wifi_service_append(response,
+                        response_size,
+                        offset,
+                        "wlan0_present=%d\n",
+                        status.wlan0_present ? 1 : 0);
+    wifi_service_append(response, response_size, offset, "operstate=%s\n", status.operstate);
+    wifi_service_append(response, response_size, offset, "carrier=%s\n", status.carrier);
+    wifi_service_append(response,
+                        response_size,
+                        offset,
+                        "default_route_present=%d\n",
+                        status.route_default_present ? 1 : 0);
+    wifi_service_append(response,
+                        response_size,
+                        offset,
+                        "nameserver_count=%d\n",
+                        status.nameserver_count >= 0 ? status.nameserver_count : 0);
+    wifi_uplink_service_append_autoconnect_config(response, response_size, offset, profile);
+    wifi_uplink_service_append_autoconnect_result(response, response_size, offset);
+    wifi_service_append(response, response_size, offset, "decision=wifi-uplink-service-status-pass\n");
+    return rc;
+}
+
+static int wifi_uplink_service_format_autoconnect_response(char *response,
+                                                           size_t response_size,
+                                                           size_t *offset,
+                                                           const char *seq,
+                                                           const char *op,
+                                                           const char *profile,
+                                                           int autoconnect_rc) {
+    wifi_service_append(response, response_size, offset, "version=%s\n", A90_WIFI_UPLINK_SERVICE_VERSION);
+    wifi_service_append(response, response_size, offset, "seq=%s\n", seq);
+    wifi_service_append(response, response_size, offset, "op=%s\n", op);
+    wifi_service_append(response, response_size, offset, "owner=native-init\n");
+    wifi_service_append(response, response_size, offset, "credentials=private-config-gated\n");
+    wifi_service_append(response, response_size, offset, "connect=confirm-gated\n");
+    wifi_service_append(response, response_size, offset, "dhcp_routing=config-gated\n");
+    wifi_service_append(response, response_size, offset, "external_ping_execution=0\n");
+    wifi_service_append(response, response_size, offset, "public_tunnel=0\n");
+    wifi_service_append(response, response_size, offset, "raw_values_redacted=1\n");
+    wifi_service_append(response, response_size, offset, "rc=%d\n", autoconnect_rc);
+    wifi_service_append(response,
+                        response_size,
+                        offset,
+                        "requested_profile=%s\n",
+                        profile != NULL && profile[0] != '\0' ? profile : "default");
+    wifi_uplink_service_append_autoconnect_result(response, response_size, offset);
+    wifi_service_append(response,
+                        response_size,
+                        offset,
+                        "decision=%s\n",
+                        autoconnect_rc == 0 ?
+                        "wifi-uplink-service-autoconnect-pass" :
+                        "wifi-uplink-service-autoconnect-failed");
+    return autoconnect_rc;
+}
+
+static int wifi_uplink_service_process_once(const char *root, long skip_seq, long *seq_out) {
+    char request_path[A90_WIFI_SERVICE_MAX_PATH];
+    char request[A90_WIFI_SERVICE_MAX_REQUEST];
+    char response[4096];
+    char seq[64] = "";
+    char op[32] = "";
+    char profile[96] = "";
+    char confirm[96] = "";
+    long seq_value = -1;
+    size_t offset = 0;
+    int rc;
+
+    rc = wifi_service_join_path(root, A90_WIFI_SERVICE_REQUEST_FILE, request_path, sizeof(request_path));
+    if (rc < 0) {
+        return rc;
+    }
+    rc = wifi_service_read_file_no_follow(request_path, request, sizeof(request));
+    if (rc < 0) {
+        return rc;
+    }
+    if (wifi_service_request_value(request, "seq", seq, sizeof(seq)) < 0 ||
+        wifi_service_parse_long(seq, &seq_value) < 0 ||
+        wifi_service_request_value(request, "op", op, sizeof(op)) < 0) {
+        snprintf(response,
+                 sizeof(response),
+                 "version=%s\nseq=-1\nop=invalid\nowner=native-init\nrc=-22\ndecision=wifi-uplink-service-request-invalid\n",
+                 A90_WIFI_UPLINK_SERVICE_VERSION);
+        (void)wifi_service_write_response(root, response);
+        return -EINVAL;
+    }
+    if (seq_value == skip_seq) {
+        if (seq_out != NULL) {
+            *seq_out = seq_value;
+        }
+        return 1;
+    }
+    (void)wifi_service_request_value(request, "profile", profile, sizeof(profile));
+
+    if (strcmp(op, "status") == 0) {
+        rc = wifi_uplink_service_format_status_response(response,
+                                                        sizeof(response),
+                                                        &offset,
+                                                        seq,
+                                                        op,
+                                                        profile[0] != '\0' ? profile : NULL);
+    } else if (strcmp(op, "autoconnect") == 0) {
+        int autoconnect_rc;
+
+        if (wifi_service_request_value(request, "confirm", confirm, sizeof(confirm)) < 0 ||
+            strcmp(confirm, A90_WIFI_UPLINK_SERVICE_CONFIRM) != 0) {
+            wifi_service_append(response,
+                                sizeof(response),
+                                &offset,
+                                "version=%s\nseq=%s\nop=%s\nowner=native-init\ncredentials=private-config-gated\nconnect=confirm-gated\ndhcp_routing=config-gated\nexternal_ping_execution=0\npublic_tunnel=0\nsecret_values_logged=0\nrc=-13\ndecision=wifi-uplink-service-confirm-required\n",
+                                A90_WIFI_UPLINK_SERVICE_VERSION,
+                                seq,
+                                op);
+            rc = -EACCES;
+        } else {
+            autoconnect_rc = wifi_run_autoconnect_sequence(profile[0] != '\0' ? profile : NULL, true);
+            rc = wifi_uplink_service_format_autoconnect_response(response,
+                                                                 sizeof(response),
+                                                                 &offset,
+                                                                 seq,
+                                                                 op,
+                                                                 profile[0] != '\0' ? profile : NULL,
+                                                                 autoconnect_rc);
+        }
+    } else {
+        wifi_service_append(response,
+                            sizeof(response),
+                            &offset,
+                            "version=%s\nseq=%s\nop=%s\nowner=native-init\ncredentials=0\nconnect=0\ndhcp_routing=0\nexternal_ping_execution=0\npublic_tunnel=0\nsecret_values_logged=0\nrc=-22\ndecision=wifi-uplink-service-op-denied\n",
+                            A90_WIFI_UPLINK_SERVICE_VERSION,
+                            seq,
+                            op);
+        rc = -EINVAL;
+    }
+    if (wifi_service_write_response(root, response) < 0 && rc == 0) {
+        rc = -EIO;
+    }
+    if (seq_out != NULL) {
+        *seq_out = seq_value;
+    }
+    return rc;
+}
+
+static void wifi_uplink_service_daemon_run(const char *root, int lifetime_ms, int poll_ms) {
+    char state_path[A90_WIFI_SERVICE_MAX_PATH] = "";
+    long deadline_ms = monotonic_millis() + lifetime_ms;
+    long last_seq = -1;
+
+    if (wifi_service_join_path(root, A90_WIFI_SERVICE_STATE_FILE, state_path, sizeof(state_path)) == 0) {
+        (void)wifi_service_write_file_no_follow(state_path,
+                                                "version=" A90_WIFI_UPLINK_SERVICE_VERSION "\nstate=running\n",
+                                                0644);
+    }
+    while (monotonic_millis() <= deadline_ms) {
+        long seq = -1;
+        int rc = wifi_uplink_service_process_once(root, last_seq, &seq);
+
+        if (rc != -ENOENT && rc != 1 && seq >= 0 && seq != last_seq) {
+            last_seq = seq;
+        }
+        usleep((useconds_t)poll_ms * 1000U);
+    }
+    if (state_path[0] != '\0') {
+        (void)wifi_service_write_file_no_follow(state_path,
+                                                "version=" A90_WIFI_UPLINK_SERVICE_VERSION "\nstate=stopped\n",
+                                                0644);
+    }
+    _exit(0);
+}
+
+static int wifi_uplink_service_start(const char *root, int lifetime_ms, int poll_ms) {
+    char pid_path[A90_WIFI_SERVICE_MAX_PATH];
+    char pid_text[64];
+    pid_t pid;
+    int rc;
+
+    if (root == NULL || root[0] != '/') {
+        return -EINVAL;
+    }
+    if (strlen(root) >= A90_WIFI_SERVICE_MAX_ROOT) {
+        return -ENAMETOOLONG;
+    }
+    rc = ensure_dir(root, 0755);
+    if (rc < 0) {
+        return negative_errno_or(EIO);
+    }
+    rc = wifi_service_join_path(root, A90_WIFI_SERVICE_PID_FILE, pid_path, sizeof(pid_path));
+    if (rc < 0) {
+        return rc;
+    }
+    if (lifetime_ms <= 0) {
+        lifetime_ms = A90_WIFI_SERVICE_DEFAULT_LIFETIME_MS;
+    }
+    if (lifetime_ms > A90_WIFI_SERVICE_MAX_LIFETIME_MS) {
+        lifetime_ms = A90_WIFI_SERVICE_MAX_LIFETIME_MS;
+    }
+    if (poll_ms < A90_WIFI_SERVICE_MIN_POLL_MS) {
+        poll_ms = A90_WIFI_SERVICE_MIN_POLL_MS;
+    }
+    if (poll_ms > A90_WIFI_SERVICE_MAX_POLL_MS) {
+        poll_ms = A90_WIFI_SERVICE_MAX_POLL_MS;
+    }
+
+    pid = fork();
+    if (pid < 0) {
+        return -errno;
+    }
+    if (pid == 0) {
+        (void)setsid();
+        wifi_uplink_service_daemon_run(root, lifetime_ms, poll_ms);
+    }
+    snprintf(pid_text,
+             sizeof(pid_text),
+             "version=%s\npid=%ld\n",
+             A90_WIFI_UPLINK_SERVICE_VERSION,
+             (long)pid);
+    rc = wifi_service_write_file_no_follow(pid_path, pid_text, 0644);
+    if (rc < 0) {
+        (void)kill(pid, SIGTERM);
+        return rc;
+    }
+    return (int)pid;
+}
+
+static int wifi_uplink_service_status_command(const char *root) {
+    char pid_path[A90_WIFI_SERVICE_MAX_PATH];
+    char state_path[A90_WIFI_SERVICE_MAX_PATH];
+    char text[128];
+    char pid_text[32];
+    char state_file[256] = "";
+    long pid_value = -1;
+    int pid_rc;
+    int state_rc;
+    int alive = 0;
+    int rc;
+
+    if (root == NULL || root[0] != '/') {
+        return -EINVAL;
+    }
+    a90_console_printf("[wifi uplink-service status]\r\n");
+    a90_console_printf("version=%s\r\n", A90_WIFI_UPLINK_SERVICE_VERSION);
+    a90_console_printf("root=%s\r\n", root);
+    a90_console_printf("confirm_token=%s\r\n", A90_WIFI_UPLINK_SERVICE_CONFIRM);
+    a90_console_printf("credentials=private-config-gated\r\n");
+    a90_console_printf("connect=confirm-gated\r\n");
+    a90_console_printf("dhcp_routing=config-gated\r\n");
+    a90_console_printf("external_ping_execution=0\r\n");
+    a90_console_printf("public_tunnel=0\r\n");
+    rc = wifi_service_join_path(root, A90_WIFI_SERVICE_PID_FILE, pid_path, sizeof(pid_path));
+    pid_rc = rc == 0 ? wifi_service_read_file_no_follow(pid_path, text, sizeof(text)) : rc;
+    if (pid_rc == 0 &&
+        wifi_service_request_value(text, "pid", pid_text, sizeof(pid_text)) == 0 &&
+        wifi_service_parse_long(pid_text, &pid_value) == 0 &&
+        pid_value > 1 &&
+        kill((pid_t)pid_value, 0) == 0) {
+        alive = 1;
+    }
+    a90_console_printf("pidfile_present=%d\r\n", pid_rc == 0 ? 1 : 0);
+    a90_console_printf("pid=%ld\r\n", pid_value);
+    a90_console_printf("alive=%d\r\n", alive);
+
+    rc = wifi_service_join_path(root, A90_WIFI_SERVICE_STATE_FILE, state_path, sizeof(state_path));
+    state_rc = rc == 0 ? wifi_service_read_file_no_follow(state_path, state_file, sizeof(state_file)) : rc;
+    a90_console_printf("statefile_present=%d\r\n", state_rc == 0 ? 1 : 0);
+    if (state_rc == 0) {
+        flatten_inline_text(state_file);
+        a90_console_printf("state_inline=%s\r\n", state_file);
+    }
+    a90_console_printf("decision=%s\r\n",
+                       alive ? "wifi-uplink-service-status-running" : "wifi-uplink-service-status-stopped");
+    return 0;
+}
+
+static int wifi_uplink_service_cmd(char **argv, int argc) {
+    const char *subcommand;
+
+    if (argv == NULL || argc < 3 || argv[2] == NULL) {
+        a90_console_printf("usage: wifi uplink-service [status|start|stop|once] <dir> [lifetime_ms poll_ms]\r\n");
+        return -EINVAL;
+    }
+    subcommand = argv[2];
+
+    if (strcmp(subcommand, "status") == 0) {
+        if (argc != 4) {
+            a90_console_printf("usage: wifi uplink-service status <dir>\r\n");
+            return -EINVAL;
+        }
+        return wifi_uplink_service_status_command(argv[3]);
+    }
+    if (strcmp(subcommand, "stop") == 0) {
+        int rc;
+
+        if (argc != 4) {
+            a90_console_printf("usage: wifi uplink-service stop <dir>\r\n");
+            return -EINVAL;
+        }
+        a90_console_printf("[wifi uplink-service stop]\r\n");
+        a90_console_printf("version=%s\r\n", A90_WIFI_UPLINK_SERVICE_VERSION);
+        a90_console_printf("root=%s\r\n", argv[3]);
+        rc = wifi_service_stop(argv[3]);
+        a90_console_printf("stop_rc=%d\r\n", rc);
+        a90_console_printf("decision=%s\r\n",
+                           rc == 0 ? "wifi-uplink-service-stop-pass" : "wifi-uplink-service-stop-failed");
+        return rc;
+    }
+    if (strcmp(subcommand, "once") == 0) {
+        long seq = -1;
+        int rc;
+
+        if (argc != 4) {
+            a90_console_printf("usage: wifi uplink-service once <dir>\r\n");
+            return -EINVAL;
+        }
+        a90_console_printf("[wifi uplink-service once]\r\n");
+        a90_console_printf("version=%s\r\n", A90_WIFI_UPLINK_SERVICE_VERSION);
+        a90_console_printf("root=%s\r\n", argv[3]);
+        rc = wifi_uplink_service_process_once(argv[3], -1, &seq);
+        a90_console_printf("request_seq=%ld\r\n", seq);
+        a90_console_printf("process_rc=%d\r\n", rc);
+        a90_console_printf("response_file=%s/%s\r\n", argv[3], A90_WIFI_SERVICE_RESPONSE_FILE);
+        a90_console_printf("decision=%s\r\n",
+                           rc == 0 ? "wifi-uplink-service-once-pass" : "wifi-uplink-service-once-failed");
+        return rc;
+    }
+    if (strcmp(subcommand, "start") == 0) {
+        int lifetime_ms = A90_WIFI_SERVICE_DEFAULT_LIFETIME_MS;
+        int poll_ms = A90_WIFI_SERVICE_DEFAULT_POLL_MS;
+        int pid_or_rc;
+
+        if (argc < 4 || argc > 6) {
+            a90_console_printf("usage: wifi uplink-service start <dir> [lifetime_ms poll_ms]\r\n");
+            return -EINVAL;
+        }
+        if (argc >= 5 &&
+            wifi_parse_delay_ms_max(argv[4], &lifetime_ms, A90_WIFI_SERVICE_MAX_LIFETIME_MS) < 0) {
+            a90_console_printf("usage: wifi uplink-service start <dir> [lifetime_ms poll_ms]\r\n");
+            return -EINVAL;
+        }
+        if (argc >= 6 &&
+            wifi_parse_delay_ms_max(argv[5], &poll_ms, A90_WIFI_SERVICE_MAX_POLL_MS) < 0) {
+            a90_console_printf("usage: wifi uplink-service start <dir> [lifetime_ms poll_ms]\r\n");
+            return -EINVAL;
+        }
+        a90_console_printf("[wifi uplink-service start]\r\n");
+        a90_console_printf("version=%s\r\n", A90_WIFI_UPLINK_SERVICE_VERSION);
+        a90_console_printf("root=%s\r\n", argv[3]);
+        a90_console_printf("lifetime_ms=%d\r\n", lifetime_ms);
+        a90_console_printf("poll_ms=%d\r\n", poll_ms);
+        a90_console_printf("request_file=%s/%s\r\n", argv[3], A90_WIFI_SERVICE_REQUEST_FILE);
+        a90_console_printf("response_file=%s/%s\r\n", argv[3], A90_WIFI_SERVICE_RESPONSE_FILE);
+        a90_console_printf("confirm_token=%s\r\n", A90_WIFI_UPLINK_SERVICE_CONFIRM);
+        a90_console_printf("credentials=private-config-gated\r\n");
+        a90_console_printf("connect=confirm-gated\r\n");
+        a90_console_printf("dhcp_routing=config-gated\r\n");
+        a90_console_printf("external_ping_execution=0\r\n");
+        a90_console_printf("public_tunnel=0\r\n");
+        pid_or_rc = wifi_uplink_service_start(argv[3], lifetime_ms, poll_ms);
+        a90_console_printf("pid=%d\r\n", pid_or_rc > 0 ? pid_or_rc : -1);
+        a90_console_printf("start_rc=%d\r\n", pid_or_rc > 0 ? 0 : pid_or_rc);
+        a90_console_printf("decision=%s\r\n",
+                           pid_or_rc > 0 ?
+                           "wifi-uplink-service-start-pass" :
+                           "wifi-uplink-service-start-failed");
+        return pid_or_rc > 0 ? 0 : pid_or_rc;
+    }
+
+    a90_console_printf("usage: wifi uplink-service [status|start|stop|once] <dir> [lifetime_ms poll_ms]\r\n");
+    return -EINVAL;
+}
+
 int a90_wifi_cmd(char **argv, int argc) {
     if (argc == 1 ||
         (argc == 2 && argv != NULL && argv[1] != NULL && strcmp(argv[1], "status") == 0)) {
@@ -5912,6 +6394,12 @@ int a90_wifi_cmd(char **argv, int argc) {
         argv[1] != NULL &&
         strcmp(argv[1], "service") == 0) {
         return wifi_service_cmd(argv, argc);
+    }
+    if (argc >= 2 &&
+        argv != NULL &&
+        argv[1] != NULL &&
+        strcmp(argv[1], "uplink-service") == 0) {
+        return wifi_uplink_service_cmd(argv, argc);
     }
     if ((argc == 2 || argc == 3) &&
         argv != NULL &&
@@ -6016,6 +6504,6 @@ int a90_wifi_cmd(char **argv, int argc) {
         return a90_wificfg_cmd(argv, argc);
     }
 
-    a90_console_printf("usage: wifi [status|scan [delay_ms]|events [timeout_ms]|netevents [timeout_ms]|connect [profile]|dhcp [profile]|ping [gateway|internet|all]|cleanup|softap [status|plan|prepare [profile]|iftype-probe [timeout_ms]|start [channel]|transfer-start [channel]|transfer-status|cleanup]|profile [list|status [profile]]|autoconnect [status|enable [profile]|disable|once [profile]]|config [status|prepare [profile]]]\r\n");
+    a90_console_printf("usage: wifi [status|scan [delay_ms]|events [timeout_ms]|netevents [timeout_ms]|connect [profile]|dhcp [profile]|ping [gateway|internet|all]|cleanup|softap [status|plan|prepare [profile]|iftype-probe [timeout_ms]|start [channel]|transfer-start [channel]|transfer-status|cleanup]|service [status|start|stop|once] <dir>|uplink-service [status|start|stop|once] <dir>|profile [list|status [profile]]|autoconnect [status|enable [profile]|disable|once [profile]]|config [status|prepare [profile]]]\r\n");
     return -EINVAL;
 }

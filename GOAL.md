@@ -1308,6 +1308,25 @@ safety invariants and flash gates are binding and override any sub-goal.**
 > **NEXT:** choose the next rung: either keep D-public Wi-Fi as native-owned status/scan observability,
 > or design a separate gated native-owned connect/association/DHCP service with credential/public
 > exposure gates.  Do not fold connect/DHCP/public tunnel into the status/scan helper.
+> **🟢 STATUS (2026-07-04 10:32 KST host clock) — WSTA23 native Wi-Fi uplink-service SOURCE/BUILD PASS.**
+> Codex chose the second rung as a separate service, not an extension of WSTA20 `wifi service`.
+> Native init now has a distinct `wifi uplink-service [status|start|stop|once] <dir>` request/response
+> surface with version `a90-native-wifi-uplink-service-v1`.  It supports `status` plus token-gated
+> `autoconnect`; `autoconnect` requires `confirm=A90_NATIVE_UPLINK_AUTOCONNECT_V1` and delegates to
+> the existing native autoconnect/profile path.  Missing or wrong confirm returns
+> `wifi-uplink-service-confirm-required`, while public tunnel and external ping execution remain
+> denied and response fields keep credentials `private-config-gated` with `secret_values_logged=0`.
+> V3386 built as `A90 Linux init 0.11.142 (v3386-wifi-uplink-service-boundary)`, boot SHA
+> `9c097e55a2cf1f371ebba581378eeeb058c192147cdf6964d1c6721c7350a55a`, helper SHA
+> `fa395d3ecb6944a57487f3966948a634596157e4de3fdc39575a2fc502d1ceef`, from V3385 base
+> `33fabe5b90cab57c9e538236e2ad8abef28822807de4051cd8b7027053218710`.  Static source/builder tests
+> passed and no device flash, association, DHCP, ping, public tunnel, userdata, or switch-root action
+> ran.  Report:
+> `docs/reports/NATIVE_INIT_V3386_WIFI_UPLINK_SERVICE_BOUNDARY_SOURCE_BUILD_2026-07-04.md`.
+> **NEXT:** WSTA23 live non-credential gate — flash V3386 through `native_init_flash.py`, health-check,
+> prove `wifi uplink-service status`, prove `op=autoconnect` without confirm is denied before connect,
+> cleanup and finish with `selftest fail=0`.  Full autoconnect/DHCP remains a separate credential-gated
+> live unit; do not run connect/DHCP/public exposure in the no-confirm gate.
 
 ## North star — priority-ordered tracks (T1 → T2 → T3)
 

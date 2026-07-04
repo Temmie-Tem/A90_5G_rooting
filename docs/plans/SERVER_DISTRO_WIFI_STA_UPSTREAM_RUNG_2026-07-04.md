@@ -455,14 +455,42 @@ Stop before mutation or public exposure if any condition appears:
 - Do not start public exposure from native init.
 - Do not commit SSID, PSK, BSSID, MAC, DHCP lease, concrete private IP, or public tunnel URL.
 
+### WSTA23: Native Uplink Service Boundary
+
+WSTA23 source/build result: pass.  The selected path is a separate native-owned uplink service,
+not a mechanical extension of the WSTA20 status/scan service.
+
+Native init now exposes `wifi uplink-service [status|start|stop|once] <dir>` with version
+`a90-native-wifi-uplink-service-v1`.  The service uses the same bounded file request/response
+shape but has a distinct command, version string, and safety vocabulary.  It supports:
+
+- `op=status`: observe current WLAN/default-route/autoconnect readiness without starting connect
+  or DHCP.
+- `op=autoconnect`: run the existing native autoconnect/profile path only when the request includes
+  `confirm=A90_NATIVE_UPLINK_AUTOCONNECT_V1`.
+
+The no-confirm path returns `wifi-uplink-service-confirm-required` before any connect attempt.
+Public tunnel and external ping execution are denied.  Credential-bearing operations are reported as
+`credentials=private-config-gated`, and responses preserve `secret_values_logged=0`.
+
+V3386 built as `A90 Linux init 0.11.142 (v3386-wifi-uplink-service-boundary)`, boot SHA
+`9c097e55a2cf1f371ebba581378eeeb058c192147cdf6964d1c6721c7350a55a`, helper SHA
+`fa395d3ecb6944a57487f3966948a634596157e4de3fdc39575a2fc502d1ceef`.  No device flash,
+association, DHCP, ping, public exposure, userdata, or switch-root action ran in this source unit.
+Report: `docs/reports/NATIVE_INIT_V3386_WIFI_UPLINK_SERVICE_BOUNDARY_SOURCE_BUILD_2026-07-04.md`.
+
 ## 7. Next Implementation Unit
 
-WSTA22 closes the status/scan service-consumer path.  The next implementation unit is a design
-choice, not a mechanical extension:
+WSTA23 live non-credential gate:
 
-1. Keep D-public Wi-Fi limited to native-owned status/scan observability for now; or
-2. Add a separate gated native-owned connect/association/DHCP service rung with credential and
-   public-exposure gates.
+1. Flash V3386 through `native_init_flash.py` after normal rollback/recovery prechecks.
+2. Health-check `version`, `status`, and `selftest`.
+3. Start `wifi uplink-service` in a chroot-visible temp directory.
+4. Prove `op=status` returns `owner=native-init`, `version=a90-native-wifi-uplink-service-v1`,
+   redacted status fields, and no connect/DHCP/public exposure.
+5. Prove `op=autoconnect` without `confirm=A90_NATIVE_UPLINK_AUTOCONNECT_V1` returns
+   `wifi-uplink-service-confirm-required` and does not create a connect/DHCP side effect.
+6. Stop service, cleanup, and finish with `selftest fail=0`.
 
-Do not fold connect/DHCP/public tunnel into the status/scan helper, and do not spend more rungs on
-direct Debian `iw` or link toggles.
+Full autoconnect/DHCP remains a separate credential-gated live unit.  Do not run association, DHCP,
+ping, or public tunnel work in the no-confirm live gate.
