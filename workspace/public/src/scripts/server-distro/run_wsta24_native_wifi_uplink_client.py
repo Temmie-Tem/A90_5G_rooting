@@ -49,6 +49,12 @@ HELPER_TARGET = "/usr/local/bin/a90-native-wifi-uplink-client"
 UPLINK_SERVICE_VERSION = "a90-native-wifi-uplink-service-v1"
 V3387_VERSION = "0.11.143"
 V3387_BUILD = "v3387-wifi-uplink-service-redacted"
+V3388_VERSION = "0.11.144"
+V3388_BUILD = "v3388-wifi-autoconnect-scan-recovery"
+SUPPORTED_UPLINK_NATIVE_BUILDS = (
+    {"version": V3387_VERSION, "build": V3387_BUILD},
+    {"version": V3388_VERSION, "build": V3388_BUILD},
+)
 PASS_DECISION = "wsta24-native-wifi-uplink-client-pass"
 DEFAULT_DEVICE_IP = os.environ.get("A90_DEVICE_IP") or ".".join(("192", "168", "7", "2"))
 
@@ -62,7 +68,7 @@ def rel(path: Path) -> str:
 
 
 def native_is_v3387(text: str) -> bool:
-    return V3387_VERSION in text and V3387_BUILD in text
+    return any(item["version"] in text and item["build"] in text for item in SUPPORTED_UPLINK_NATIVE_BUILDS)
 
 
 def parse_kv(text: str) -> dict[str, str]:
@@ -218,6 +224,7 @@ def run(args: argparse.Namespace) -> dict[str, Any]:
         "resident_required": {
             "version": V3387_VERSION,
             "build": V3387_BUILD,
+            "supported": SUPPORTED_UPLINK_NATIVE_BUILDS,
         },
         "helper": {
             "source": rel(HELPER_SOURCE),

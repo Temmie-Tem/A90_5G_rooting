@@ -41,7 +41,7 @@ def parse_kv_record(record: dict[str, Any]) -> dict[str, str]:
 
 
 def native_is_v3387(text: str) -> bool:
-    return wsta24.V3387_VERSION in text and wsta24.V3387_BUILD in text
+    return wsta24.native_is_v3387(text)
 
 
 def status_summary(record: dict[str, Any]) -> dict[str, str]:

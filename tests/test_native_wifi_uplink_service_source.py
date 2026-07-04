@@ -52,8 +52,26 @@ class NativeWifiUplinkServiceSourceTests(unittest.TestCase):
         self.assertIn("autoconnect_profile_present=%d", uplink_service)
         self.assertIn("config_profile_present=%d", uplink_service)
         self.assertIn("requested_profile_present=%d", uplink_service)
+        self.assertIn("scan_recovery_attempted=%s", uplink_service)
+        self.assertIn("scan_recovery_first_scan_rc=%s", uplink_service)
+        self.assertIn("scan_recovery_rc=%s", uplink_service)
+        self.assertIn("scan_recovery_rescan_rc=%s", uplink_service)
+        self.assertIn("scan_recovery_success=%s", uplink_service)
+        self.assertIn("scan_recovery_decision=%s", uplink_service)
         self.assertNotIn("profile=%s\\n", uplink_service)
         self.assertNotIn("requested_profile=%s", uplink_service)
+
+    def test_autoconnect_scan_recovery_is_bounded_and_redacted(self) -> None:
+        source = SOURCE.read_text(encoding="utf-8")
+
+        self.assertIn("struct wifi_autoconnect_scan_recovery_state", source)
+        self.assertIn("wifi_autoconnect_recover_scan_state", source)
+        self.assertIn("wifi_softap_iftype_probe(A90_WIFI_SOFTAP_WLAN0_WAIT_MS)", source)
+        self.assertIn("wifi-autoconnect-scan-recovery-pass", source)
+        self.assertIn("wifi-autoconnect-scan-recovery-probe-failed", source)
+        self.assertIn("wifi-autoconnect-scan-recovery-rescan-failed", source)
+        self.assertIn("scan_recovery_decision=%s", source)
+        self.assertIn("secret_values_logged=0", source)
 
     def test_status_scan_service_still_denies_connection_ops(self) -> None:
         source = SOURCE.read_text(encoding="utf-8")

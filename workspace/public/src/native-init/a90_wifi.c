@@ -146,6 +146,27 @@
 #define A90_WIFI_UPLINK_SERVICE_VERSION "a90-native-wifi-uplink-service-v1"
 #define A90_WIFI_UPLINK_SERVICE_CONFIRM "A90_NATIVE_UPLINK_AUTOCONNECT_V1"
 
+struct wifi_autoconnect_scan_recovery_state {
+    int attempted;
+    int first_scan_rc;
+    int rc;
+    int rescan_rc;
+    int success;
+    char decision[64];
+};
+
+static struct wifi_autoconnect_scan_recovery_state g_autoconnect_scan_recovery;
+
+static int wifi_softap_iftype_probe(int wait_timeout_ms);
+
+static void wifi_autoconnect_reset_scan_recovery(void) {
+    memset(&g_autoconnect_scan_recovery, 0, sizeof(g_autoconnect_scan_recovery));
+    snprintf(g_autoconnect_scan_recovery.decision,
+             sizeof(g_autoconnect_scan_recovery.decision),
+             "%s",
+             "wifi-autoconnect-scan-recovery-not-attempted");
+}
+
 static int wifi_open_dir_no_follow(const char *path) {
     return open(path, O_RDONLY | O_DIRECTORY | O_CLOEXEC | O_NOFOLLOW);
 }
@@ -3546,6 +3567,12 @@ static int wifi_write_autoconnect_result(const char *decision,
                    "carrier_up=%d\n"
                    "default_route_present=%d\n"
                    "nameserver_count=%d\n"
+                   "scan_recovery_attempted=%d\n"
+                   "scan_recovery_first_scan_rc=%d\n"
+                   "scan_recovery_rc=%d\n"
+                   "scan_recovery_rescan_rc=%d\n"
+                   "scan_recovery_success=%d\n"
+                   "scan_recovery_decision=%s\n"
                    "secret_values_logged=0\n",
                    decision != NULL ? decision : "wifi-autoconnect-unknown",
                    profile != NULL && profile[0] != '\0' ? profile : "default",
@@ -3554,7 +3581,13 @@ static int wifi_write_autoconnect_result(const char *decision,
                    final_rc,
                    wifi_carrier_up() ? 1 : 0,
                    wifi_default_route_present() ? 1 : 0,
-                   wifi_count_resolv_nameservers());
+                   wifi_count_resolv_nameservers(),
+                   g_autoconnect_scan_recovery.attempted,
+                   g_autoconnect_scan_recovery.first_scan_rc,
+                   g_autoconnect_scan_recovery.rc,
+                   g_autoconnect_scan_recovery.rescan_rc,
+                   g_autoconnect_scan_recovery.success,
+                   g_autoconnect_scan_recovery.decision);
     if (len < 0 || (size_t)len >= sizeof(text)) {
         return -ENOSPC;
     }
@@ -3569,9 +3602,86 @@ static void wifi_write_autoconnect_inactive_state(const char *decision,
         decision : "wifi-autoconnect-disabled";
 
     (void)wifi_prepare_runtime_dirs();
+    wifi_autoconnect_reset_scan_recovery();
     wifi_reset_autoconnect_log(profile, boot_background);
     (void)wifi_write_autoconnect_result(selected_decision, profile, 0, 0, final_rc);
     (void)wifi_write_runtime_summary(selected_decision);
+}
+
+static int wifi_autoconnect_recover_scan_state(int failed_scan_rc,
+                                               const char *profile,
+                                               int attempt,
+                                               bool boot_background) {
+    int recovery_rc;
+    int rescan_rc;
+
+    g_autoconnect_scan_recovery.attempted = 1;
+    g_autoconnect_scan_recovery.first_scan_rc = failed_scan_rc;
+    g_autoconnect_scan_recovery.rc = 0;
+    g_autoconnect_scan_recovery.rescan_rc = 0;
+    g_autoconnect_scan_recovery.success = 0;
+    snprintf(g_autoconnect_scan_recovery.decision,
+             sizeof(g_autoconnect_scan_recovery.decision),
+             "%s",
+             "wifi-autoconnect-scan-recovery-running");
+
+    wifi_append_text_file(A90_WIFI_AUTOCONNECT_LOG,
+                          "event=scan-recovery-start profile=%s attempt=%d first_scan_rc=%d\n",
+                          profile != NULL && profile[0] != '\0' ? profile : "default",
+                          attempt,
+                          failed_scan_rc);
+    if (!boot_background) {
+        a90_console_printf("autoconnect.scan_recovery_attempted=1\r\n");
+        a90_console_printf("autoconnect.scan_recovery_first_scan_rc=%d\r\n", failed_scan_rc);
+    }
+
+    (void)a90_wifi_cleanup();
+    recovery_rc = wifi_softap_iftype_probe(A90_WIFI_SOFTAP_WLAN0_WAIT_MS);
+    g_autoconnect_scan_recovery.rc = recovery_rc;
+    if (!boot_background) {
+        a90_console_printf("autoconnect.scan_recovery_rc=%d\r\n", recovery_rc);
+    }
+    if (recovery_rc < 0) {
+        snprintf(g_autoconnect_scan_recovery.decision,
+                 sizeof(g_autoconnect_scan_recovery.decision),
+                 "%s",
+                 "wifi-autoconnect-scan-recovery-probe-failed");
+        wifi_append_text_file(A90_WIFI_AUTOCONNECT_LOG,
+                              "event=scan-recovery-probe-failed profile=%s attempt=%d rc=%d\n",
+                              profile != NULL && profile[0] != '\0' ? profile : "default",
+                              attempt,
+                              recovery_rc);
+        if (!boot_background) {
+            a90_console_printf("autoconnect.scan_recovery_success=0\r\n");
+            a90_console_printf("autoconnect.scan_recovery_decision=%s\r\n",
+                               g_autoconnect_scan_recovery.decision);
+        }
+        return failed_scan_rc;
+    }
+
+    rescan_rc = a90_wifi_scan_once(5000);
+    g_autoconnect_scan_recovery.rescan_rc = rescan_rc;
+    g_autoconnect_scan_recovery.success = rescan_rc >= 0 ? 1 : 0;
+    snprintf(g_autoconnect_scan_recovery.decision,
+             sizeof(g_autoconnect_scan_recovery.decision),
+             "%s",
+             rescan_rc >= 0 ?
+             "wifi-autoconnect-scan-recovery-pass" :
+             "wifi-autoconnect-scan-recovery-rescan-failed");
+    wifi_append_text_file(A90_WIFI_AUTOCONNECT_LOG,
+                          "event=scan-recovery-rescan profile=%s attempt=%d rc=%d success=%d\n",
+                          profile != NULL && profile[0] != '\0' ? profile : "default",
+                          attempt,
+                          rescan_rc,
+                          g_autoconnect_scan_recovery.success);
+    if (!boot_background) {
+        a90_console_printf("autoconnect.scan_recovery_rescan_rc=%d\r\n", rescan_rc);
+        a90_console_printf("autoconnect.scan_recovery_success=%d\r\n",
+                           g_autoconnect_scan_recovery.success);
+        a90_console_printf("autoconnect.scan_recovery_decision=%s\r\n",
+                           g_autoconnect_scan_recovery.decision);
+    }
+    return rescan_rc;
 }
 
 static int wifi_run_autoconnect_sequence(const char *profile_name, bool boot_background) {
@@ -3592,6 +3702,7 @@ static int wifi_run_autoconnect_sequence(const char *profile_name, bool boot_bac
     attempts = config.retry_count > 0 ? config.retry_count + 1 : 1;
     carrier_wait_timeout_ms = config.connect_timeout_sec > 0 ?
         config.connect_timeout_sec * 1000 : A90_WIFI_CONNECT_CARRIER_WAIT_MS;
+    wifi_autoconnect_reset_scan_recovery();
     wifi_reset_autoconnect_log(selected_profile, boot_background);
     if (!boot_background) {
         a90_console_printf("[wifi autoconnect once]\r\n");
@@ -3685,6 +3796,25 @@ static int wifi_run_autoconnect_sequence(const char *profile_name, bool boot_bac
                                       selected_profile : "default",
                                       attempt,
                                       scan_rc);
+                if (!g_autoconnect_scan_recovery.attempted) {
+                    scan_rc = wifi_autoconnect_recover_scan_state(scan_rc,
+                                                                  selected_profile,
+                                                                  attempt,
+                                                                  boot_background);
+                    if (!boot_background) {
+                        a90_console_printf("autoconnect.scan_rc_after_recovery=%d\r\n", scan_rc);
+                    }
+                    if (scan_rc >= 0) {
+                        wifi_append_text_file(A90_WIFI_AUTOCONNECT_LOG,
+                                              "event=scan-recovered profile=%s attempt=%d rc=%d\n",
+                                              selected_profile != NULL && selected_profile[0] != '\0' ?
+                                              selected_profile : "default",
+                                              attempt,
+                                              scan_rc);
+                    }
+                }
+            }
+            if (scan_rc < 0) {
                 if (attempt < attempts) {
                     (void)a90_wifi_cleanup();
                     continue;
@@ -5942,6 +6072,24 @@ static void wifi_uplink_service_append_autoconnect_result(char *response,
     }
     if (wifi_service_request_value(result, "nameserver_count", value, sizeof(value)) == 0) {
         wifi_service_append(response, response_size, offset, "nameserver_count=%s\n", value);
+    }
+    if (wifi_service_request_value(result, "scan_recovery_attempted", value, sizeof(value)) == 0) {
+        wifi_service_append(response, response_size, offset, "scan_recovery_attempted=%s\n", value);
+    }
+    if (wifi_service_request_value(result, "scan_recovery_first_scan_rc", value, sizeof(value)) == 0) {
+        wifi_service_append(response, response_size, offset, "scan_recovery_first_scan_rc=%s\n", value);
+    }
+    if (wifi_service_request_value(result, "scan_recovery_rc", value, sizeof(value)) == 0) {
+        wifi_service_append(response, response_size, offset, "scan_recovery_rc=%s\n", value);
+    }
+    if (wifi_service_request_value(result, "scan_recovery_rescan_rc", value, sizeof(value)) == 0) {
+        wifi_service_append(response, response_size, offset, "scan_recovery_rescan_rc=%s\n", value);
+    }
+    if (wifi_service_request_value(result, "scan_recovery_success", value, sizeof(value)) == 0) {
+        wifi_service_append(response, response_size, offset, "scan_recovery_success=%s\n", value);
+    }
+    if (wifi_service_request_value(result, "scan_recovery_decision", value, sizeof(value)) == 0) {
+        wifi_service_append(response, response_size, offset, "scan_recovery_decision=%s\n", value);
     }
     if (wifi_service_request_value(result, "secret_values_logged", value, sizeof(value)) == 0) {
         wifi_service_append(response, response_size, offset, "secret_values_logged=%s\n", value);

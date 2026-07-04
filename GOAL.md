@@ -1571,6 +1571,32 @@ safety invariants and flash gates are binding and override any sub-goal.**
 > **NEXT:** WSTA31 should move scan/materialization recovery into the native autoconnect path before
 > `wifi_run_autoconnect_sequence` treats a pre-scan `-22` as terminal.  Keep the WSTA30 host guard as
 > a fail-closed layer, but the connection fix now belongs native-side.
+> **🟡 STATUS (2026-07-04 12:22 KST host clock) — WSTA31 V3388 native scan-recovery SOURCE+BUILD+FLASH
+> PASS; confirmed live now BLOCKED at connect/carrier, not scan.**  Codex added native
+> autoconnect scan recovery in `a90_wifi.c`: on scan failure, native init runs cleanup, the
+> bounded AP-iftype add/delete probe, and one rescan before terminal scan failure.  The
+> uplink-service response and Debian helper now pass through redacted
+> `scan_recovery_*` fields, and WSTA24/25 resident checks accept the V3388 uplink-service lineage.
+> V3388 build produced
+> `workspace/private/inputs/boot_images/boot_linux_v3388_wifi_autoconnect_scan_recovery.img`
+> with SHA `2971367ef2421161ee18a30a2eeb8088fa1a04b377dbfdf208aa9130cfa6d1f9`.  Static
+> validation passed (`py_compile`, `sh -n`, focused tests: `25 tests`, C syntax-only with
+> `-Wall -Wextra -Werror`, builder build/string audit, `git diff --check`).  Flash gate passed:
+> rollback images were present with expected hashes, `native_init_flash.py --from-native` wrote only
+> boot, readback SHA matched, V3388 booted, and `selftest fail=0`.  WSTA25 confirmed live was rerun
+> with `--skip-pre-confirm-scan-gate` so native recovery could be tested.  The confirmed request was
+> sent, but scan failure did not reproduce: `scan_recovery_attempted=0`,
+> `scan_recovery_decision=wifi-autoconnect-scan-recovery-not-attempted`.  Native reached connect and
+> failed with `autoconnect_decision=wifi-autoconnect-connect-failed`, `connect_rc=-107`,
+> `dhcp_rc=0`, `carrier_up=0`, `default_route_present=0`, `external_ping_execution=0`,
+> `public_tunnel=0`, and `secret_values_logged=0`.  Cleanup restored autoconnect disabled state,
+> ran Wi-Fi cleanup, verified no IPv4/default route/supplicant, and final `selftest fail=0`.
+> Report:
+> `docs/reports/SERVER_DISTRO_WIFI_STA_UPSTREAM_WSTA31_NATIVE_SCAN_RECOVERY_V3388_LIVE_2026-07-04.md`.
+> **NEXT:** WSTA32 should expose redacted native connect/carrier diagnostics through autoconnect /
+> uplink-service result fields (`wpa_state`, carrier wait rc/elapsed, ctrl socket status, scan/connect
+> event summaries) and diagnose the new `connect_rc=-107` blocker.  Recovery branch execution proof
+> remains desirable if scan-stale reappears, but the active live frontier has moved downstream.
 
 ## North star — priority-ordered tracks (T1 → T2 → T3)
 

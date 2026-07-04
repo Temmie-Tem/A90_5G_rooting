@@ -148,7 +148,7 @@ while IFS= read -r line; do
         decision) decision="$value" ;;
     esac
     case "$key" in
-        version|seq|op|owner|rc|credentials|connect|dhcp_routing|external_ping_execution|public_tunnel|raw_values_redacted|secret_values_logged|wlan0_present|default_route_present|nameserver_count|autoconnect_ready|autoconnect_enabled|config_profile_present|profile_valid|dhcp|scan_before_connect|retry_count|external_ping_blocked|autoconnect_config_decision|autoconnect_result_present|autoconnect_decision|autoconnect_profile_present|connect_rc|dhcp_rc|final_rc|carrier_up|decision)
+        version|seq|op|owner|rc|credentials|connect|dhcp_routing|external_ping_execution|public_tunnel|raw_values_redacted|secret_values_logged|wlan0_present|default_route_present|nameserver_count|autoconnect_ready|autoconnect_enabled|config_profile_present|profile_valid|dhcp|scan_before_connect|retry_count|external_ping_blocked|autoconnect_config_decision|autoconnect_result_present|autoconnect_decision|autoconnect_profile_present|connect_rc|dhcp_rc|final_rc|carrier_up|scan_recovery_attempted|scan_recovery_first_scan_rc|scan_recovery_rc|scan_recovery_rescan_rc|scan_recovery_success|scan_recovery_decision|decision)
             printf '%s=%s\n' "$key" "$value"
             ;;
         requested_profile_present)

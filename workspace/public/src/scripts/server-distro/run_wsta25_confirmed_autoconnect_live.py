@@ -258,6 +258,7 @@ def run(args: argparse.Namespace) -> dict[str, Any]:
         "resident_required": {
             "version": wsta24.V3387_VERSION,
             "build": wsta24.V3387_BUILD,
+            "supported": wsta24.SUPPORTED_UPLINK_NATIVE_BUILDS,
         },
         "helper": {
             "source": rel(wsta24.HELPER_SOURCE),
