@@ -121,6 +121,7 @@ def template() -> dict[str, Any]:
             "--public-confirm-token",
             "<public-confirm-token>",
         ],
+        "packet_filter_hardening": "required-by-wsta80-default-off-execute-gate",
         "live_execution": "not-run-by-default",
         "public_url_value_logged": False,
         "secret_values_logged": 0,
@@ -357,6 +358,7 @@ def markdown(workflow: dict[str, Any]) -> str:
         f"- WSTA79: `{workflow.get('wsta79_decision')}`",
         f"- WSTA80 preflight: `{workflow.get('wsta80_preflight_decision')}`",
         f"- WSTA80 live: `{workflow.get('wsta80_live_decision')}`",
+        f"- Packet filter hardening ready: `{str(bool(workflow.get('packet_filter_hardening_ready'))).lower()}`",
         "- Default public state: `PUBLIC_OFF`",
         f"- Live execution requested: `{str(bool(workflow.get('live_execution_requested'))).lower()}`",
         "",
@@ -538,6 +540,12 @@ def run(args: argparse.Namespace) -> dict[str, Any]:
         result["wsta80_redacted"] = wsta80.public_summary(w80_live)
 
     workflow = result.setdefault("workflow", {})
+    execute_gate = w80_preflight.get("execute_gate") if isinstance(w80_preflight.get("execute_gate"), dict) else {}
+    packet_filter_hardening = (
+        execute_gate.get("packet_filter_hardening")
+        if isinstance(execute_gate.get("packet_filter_hardening"), dict)
+        else {}
+    )
     workflow.update({
         "state": "READY_FOR_EXPLICIT_WSTA58_LIVE_GATE" if decisions.get("wsta80_preflight") == wsta80.PREFLIGHT_DECISION else "NOT_READY",
         "ttl_sec": ttl_sec,
@@ -559,6 +567,8 @@ def run(args: argparse.Namespace) -> dict[str, Any]:
         "wsta78_operator_packet": rel(paths["wsta78"] / "wsta78_operator_packet.json"),
         "wsta79_operator_packet_status": rel(paths["wsta79"] / "wsta79_operator_packet_status.json"),
         "wsta80_execute_gate": rel(paths["wsta80_preflight"] / "wsta80_execute_gate.json"),
+        "packet_filter_hardening": packet_filter_hardening,
+        "packet_filter_hardening_ready": bool(execute_gate.get("packet_filter_hardening_ready")),
         "default_public_off": True,
         "live_execution_requested": live,
         "public_url_value_logged": False,
@@ -574,6 +584,7 @@ def run(args: argparse.Namespace) -> dict[str, Any]:
         "wsta79_pass": decisions.get("wsta79") == wsta79.PASS_DECISION,
         "wsta80_preflight_pass": decisions.get("wsta80_preflight") == wsta80.PREFLIGHT_DECISION,
         "wsta80_live_pass": decisions.get("wsta80_live") == wsta80.PASS_DECISION,
+        "packet_filter_hardening_ready": bool(execute_gate.get("packet_filter_hardening_ready")),
         "default_public_off": True,
         "live_execution_requested": live,
         "explicit_live_gate": live_gate_ok,

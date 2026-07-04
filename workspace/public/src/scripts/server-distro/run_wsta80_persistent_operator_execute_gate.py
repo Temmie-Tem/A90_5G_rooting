@@ -179,6 +179,10 @@ def validate_status(path: Path) -> tuple[bool, str, dict[str, Any]]:
             "packet_match": status.get("packet_match"),
             "template_match": status.get("template_match"),
         }
+    if status.get("packet_filter_hardening_ready") is not True:
+        return False, "wsta80-blocked-packet-filter-hardening-not-ready", {
+            "packet_filter_hardening_ready": status.get("packet_filter_hardening_ready"),
+        }
     if status.get("live_execution_requested") is not False:
         return False, "wsta80-blocked-status-live-execution-requested", {}
     if status.get("public_url_value_logged") is not False:
@@ -209,6 +213,10 @@ def validate_operator_packet(path: Path) -> tuple[bool, str, dict[str, Any]]:
         return False, "wsta80-blocked-operator-packet-public-url-logged", {}
     if packet.get("secret_values_logged") not in (0, "0", None):
         return False, "wsta80-blocked-operator-packet-secret-values-logged", {}
+    if not wsta79.packet_filter_hardening_ready(packet):
+        return False, "wsta80-blocked-operator-packet-filter-hardening-missing", {
+            "packet_filter_hardening": packet.get("packet_filter_hardening"),
+        }
     command = packet.get("wsta58_live_command_template")
     if not isinstance(command, list) or not command:
         return False, "wsta80-blocked-command-template-missing", {}
@@ -245,11 +253,17 @@ def gate_from_status(status_path: Path,
         "operator_acknowledgements_required": packet.get("operator_acknowledgements_required") or [],
         "abort_conditions": packet.get("abort_conditions") or [],
         "cleanup_expectations": packet.get("cleanup_expectations") or [],
+        "packet_filter_hardening": status.get("packet_filter_hardening") or packet.get("packet_filter_hardening"),
+        "packet_filter_hardening_ready": status.get("packet_filter_hardening_ready"),
         "execution_guardrails": [
             "wsta80-does-not-execute-live-by-default",
             "wsta79-status-must-be-current-ready",
             "replace-placeholders-out-of-band-only",
             "explicit-wsta58-gate-required",
+            "packet-filter-helper-preflight-required",
+            "packet-filter-apply-before-public-exposure",
+            "packet-filter-restore-required-on-stop-retire-failure",
+            "abort-if-packet-filter-restore-proof-missing",
             "verify-public-off-after-wsta58",
         ],
         "recommended_next_action": "operator-may-run-explicit-wsta58-live-gate-from-wsta80",
@@ -275,12 +289,24 @@ def markdown(gate: dict[str, Any]) -> str:
         f"- Initial seconds remaining: `{gate.get('initial_seconds_remaining')}`",
         f"- Packet match: `{str(bool(gate.get('packet_match'))).lower()}`",
         f"- Template match: `{str(bool(gate.get('template_match'))).lower()}`",
+        f"- Packet filter hardening ready: `{str(bool(gate.get('packet_filter_hardening_ready'))).lower()}`",
         "- Live execution requested: `false`",
         "- Default public state: `PUBLIC_OFF`",
         "",
-        "## Execution Guardrails",
+        "## Packet Filter Hardening",
         "",
     ]
+    hardening = gate.get("packet_filter_hardening") if isinstance(gate.get("packet_filter_hardening"), dict) else {}
+    lines.extend([
+        f"- State: `{hardening.get('state')}`",
+        f"- Backend: `{hardening.get('backend')}`",
+        f"- Policy: `{hardening.get('policy')}`",
+        f"- Apply before: `{hardening.get('apply_before')}`",
+        f"- Restore on: `{', '.join(str(item) for item in hardening.get('restore_on') or [])}`",
+        "",
+        "## Execution Guardrails",
+        "",
+    ])
     for item in gate.get("execution_guardrails", []):
         lines.append(f"- `{item}`")
     lines.extend([
@@ -415,6 +441,7 @@ def run(args: argparse.Namespace) -> dict[str, Any]:
             "wsta79_status_ready": True,
             "wsta78_packet_ready": True,
             "wsta58_template_placeholder_only": True,
+            "packet_filter_hardening_ready": True,
             "explicit_live_gate": False,
             "live_execution_requested": False,
             "default_public_off": True,

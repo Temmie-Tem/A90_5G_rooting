@@ -153,6 +153,10 @@ def validate_operator_packet(path: Path) -> tuple[bool, str, dict[str, Any]]:
         return False, "wsta79-blocked-public-url-logged", {}
     if packet.get("secret_values_logged") not in (0, "0", None):
         return False, "wsta79-blocked-secret-values-logged", {}
+    if not packet_filter_hardening_ready(packet):
+        return False, "wsta79-blocked-packet-filter-hardening-missing", {
+            "packet_filter_hardening": packet.get("packet_filter_hardening"),
+        }
     source_summary, path_error = require_private_path(packet.get("source_wsta77_summary"), "source-summary")
     if path_error or source_summary is None:
         return False, path_error or "wsta79-blocked-source-summary", {}
@@ -199,11 +203,37 @@ def logical_packet_match(old_packet: dict[str, Any], new_packet: dict[str, Any])
         old_packet.get("selected_wsta76_launch_brief") == new_packet.get("selected_wsta76_launch_brief")
         and old_packet.get("selected_wsta73_arming_packet") == new_packet.get("selected_wsta73_arming_packet")
         and old_packet.get("wsta58_live_command_template") == new_packet.get("wsta58_live_command_template")
+        and old_packet.get("packet_filter_hardening") == new_packet.get("packet_filter_hardening")
     )
 
 
 def command_template_match(old_packet: dict[str, Any], new_packet: dict[str, Any]) -> bool:
     return old_packet.get("wsta58_live_command_template") == new_packet.get("wsta58_live_command_template")
+
+
+def packet_filter_hardening_ready(packet: dict[str, Any]) -> bool:
+    hardening = packet.get("packet_filter_hardening")
+    if not isinstance(hardening, dict):
+        return False
+    restore_on = set(str(item) for item in hardening.get("restore_on") or [])
+    sequence = set(str(item) for item in hardening.get("required_sequence") or [])
+    return (
+        hardening.get("state") == "PACKET_FILTER_REQUIRED_DEFAULT_OFF"
+        and hardening.get("backend") == wsta78.wsta77.wsta76.PACKET_FILTER_BACKEND
+        and hardening.get("policy") == wsta78.wsta77.wsta76.PACKET_FILTER_POLICY
+        and hardening.get("helper_remote_path") == wsta78.wsta77.wsta76.PACKET_FILTER_HELPER
+        and hardening.get("live_proof") == wsta78.wsta77.wsta76.PACKET_FILTER_LIVE_PROOF
+        and hardening.get("activation") == "explicit-operator-gated"
+        and hardening.get("apply_before") == "public-exposure-start"
+        and hardening.get("default_public_off") is True
+        and hardening.get("live_execution_requested") is False
+        and {"manual-stop", "retire", "failure-cleanup"}.issubset(restore_on)
+        and {
+            "preflight-helper",
+            "apply-loopback-default-drop-before-public-exposure",
+            "restore-exact-rules-before-public-off-success",
+        }.issubset(sequence)
+    )
 
 
 def build_status(packet_path: Path,
@@ -217,7 +247,13 @@ def build_status(packet_path: Path,
     recheck_pass = recheck.get("decision") == wsta78.PASS_DECISION
     packet_match = bool(recheck_pass and logical_packet_match(old_packet, new_packet))
     template_match = bool(recheck_pass and command_template_match(old_packet, new_packet))
-    ready = bool(recheck_pass and packet_match and new_packet.get("ready_for_live") is True)
+    hardening = new_packet.get("packet_filter_hardening") if isinstance(new_packet.get("packet_filter_hardening"), dict) else old_packet.get("packet_filter_hardening", {})
+    packet_filter_ready = bool(
+        recheck_pass
+        and old_packet.get("packet_filter_hardening") == new_packet.get("packet_filter_hardening")
+        and packet_filter_hardening_ready(new_packet)
+    )
+    ready = bool(recheck_pass and packet_match and packet_filter_ready and new_packet.get("ready_for_live") is True)
     state = "READY_TO_RUN_DEFAULT_OFF" if ready else "STALE_OR_NOT_READY"
     if recheck_pass and not packet_match:
         state = "DRIFT_RECHECK_REQUIRED"
@@ -238,6 +274,8 @@ def build_status(packet_path: Path,
         "initial_seconds_remaining": new_packet.get("initial_seconds_remaining"),
         "packet_match": packet_match,
         "template_match": template_match,
+        "packet_filter_hardening": hardening,
+        "packet_filter_hardening_ready": packet_filter_ready,
         "ack_count": len(new_packet.get("operator_acknowledgements_required")
                          or old_packet.get("operator_acknowledgements_required") or []),
         "guardrail_count": len(new_packet.get("execution_guardrails") or old_packet.get("execution_guardrails") or []),
@@ -273,6 +311,7 @@ def markdown(status: dict[str, Any]) -> str:
         f"- Initial seconds remaining: `{status.get('initial_seconds_remaining')}`",
         f"- Packet match: `{str(bool(status.get('packet_match'))).lower()}`",
         f"- Template match: `{str(bool(status.get('template_match'))).lower()}`",
+        f"- Packet filter hardening ready: `{str(bool(status.get('packet_filter_hardening_ready'))).lower()}`",
         f"- Recommended next action: `{status.get('recommended_next_action')}`",
         "- Live execution requested: `false`",
         "- Default public state: `PUBLIC_OFF`",
@@ -348,6 +387,7 @@ def run(args: argparse.Namespace) -> dict[str, Any]:
             "operator_packet_private": True,
             "wsta78_rechecked": True,
             "ready_for_live": bool(status.get("ready_for_live")),
+            "packet_filter_hardening_ready": bool(status.get("packet_filter_hardening_ready")),
             "default_public_off": True,
             "live_execution_requested": False,
             "public_url_value_logged": False,

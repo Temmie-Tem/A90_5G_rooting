@@ -129,8 +129,11 @@ class ServerDistroWsta79PersistentOperatorPacketStatusTests(unittest.TestCase):
         self.assertEqual(status["selected_wsta73_arming_packet"], runner.rel(artifacts["packet"]))
         self.assertTrue(status["packet_match"])
         self.assertTrue(status["template_match"])
+        self.assertTrue(status["packet_filter_hardening_ready"])
+        self.assertEqual(status["packet_filter_hardening"]["state"], "PACKET_FILTER_REQUIRED_DEFAULT_OFF")
         self.assertEqual(status["recommended_next_action"], "operator-may-run-explicit-wsta58-live-gate-from-current-packet")
         self.assertIn("WSTA Persistent Operator Packet Status", markdown)
+        self.assertIn("Packet filter hardening ready: `true`", markdown)
         self.assertFalse(result["checks"]["live_execution_requested"])
 
     def test_operator_packet_that_ages_stale_reports_not_ready_without_live_action(self) -> None:
@@ -180,6 +183,23 @@ class ServerDistroWsta79PersistentOperatorPacketStatusTests(unittest.TestCase):
         self.assertFalse(status["ready_for_live"])
         self.assertFalse(status["packet_match"])
         self.assertTrue(status["template_match"])
+
+    def test_operator_packet_missing_packet_filter_hardening_is_rejected(self) -> None:
+        with self.private_tmp() as tmp:
+            root = Path(tmp)
+            artifacts = self.prepare_operator_packet(root)
+            payload = json.loads(artifacts["operator"].read_text(encoding="utf-8"))
+            payload["operator_packet"].pop("packet_filter_hardening", None)
+            old_packet = root / "operator" / "wsta78_operator_packet_no_filter.json"
+            old_packet.write_text(json.dumps(payload, indent=2, sort_keys=True) + "\n", encoding="utf-8")
+            result = runner.run(runner.build_arg_parser().parse_args([
+                "--run-dir",
+                str(root / "status"),
+                "--wsta78-operator-packet-json",
+                str(old_packet),
+            ]))
+
+        self.assertEqual(result["decision"], "wsta79-blocked-packet-filter-hardening-missing")
 
     def test_nonpass_operator_packet_is_rejected(self) -> None:
         with self.private_tmp() as tmp:
@@ -241,6 +261,7 @@ class ServerDistroWsta79PersistentOperatorPacketStatusTests(unittest.TestCase):
         self.assertIn("READY_TO_RUN_DEFAULT_OFF", source)
         self.assertIn("wsta79-persistent-operator-packet-status-pass", source)
         self.assertIn("wsta78_rechecked", source)
+        self.assertIn("packet_filter_hardening_ready", source)
         self.assertIn('"boot_flash": False', source)
         self.assertIn('"public_url_value_logged": False', source)
         self.assertNotIn("native_init_flash.py", source)

@@ -103,9 +103,14 @@ class ServerDistroWsta76PersistentLaunchBriefTests(unittest.TestCase):
         self.assertIn("<native-confirm-token>", brief["operator_required_replacements"])
         self.assertIn("<public-confirm-token>", brief["operator_required_replacements"])
         self.assertIn("--allow-public-live", brief["operator_acknowledgements_required"])
+        self.assertIn("--ack-packet-filter-mutation", brief["operator_acknowledgements_required"])
+        self.assertIn("packet-filter-restore-exact-before-public-off", brief["cleanup_expectations"])
+        self.assertEqual(brief["packet_filter_hardening"]["state"], "PACKET_FILTER_REQUIRED_DEFAULT_OFF")
+        self.assertEqual(brief["packet_filter_hardening"]["live_proof"], runner.PACKET_FILTER_LIVE_PROOF)
         self.assertTrue(brief["wsta58_live_command_template"])
         self.assertFalse(result["checks"]["live_execution_requested"])
         self.assertIn("WSTA Persistent Launch Brief", markdown)
+        self.assertIn("Packet Filter Hardening", markdown)
 
     def test_inventory_that_ages_stale_blocks_on_fresh_recheck(self) -> None:
         with self.private_tmp() as tmp:
@@ -205,6 +210,7 @@ class ServerDistroWsta76PersistentLaunchBriefTests(unittest.TestCase):
         self.assertIn("READY_TO_EXECUTE_DEFAULT_OFF", source)
         self.assertIn("wsta76-persistent-launch-brief-pass", source)
         self.assertIn("wsta75_rechecked", source)
+        self.assertIn("PACKET_FILTER_REQUIRED_DEFAULT_OFF", source)
         self.assertIn('"boot_flash": False', source)
         self.assertIn('"public_url_value_logged": False', source)
         self.assertNotIn("native_init_flash.py", source)

@@ -62,6 +62,13 @@ def load_json(path: Path) -> dict[str, Any]:
     return wsta77.load_json(path)
 
 
+def packet_filter_hardening_from_brief(brief: dict[str, Any]) -> dict[str, Any]:
+    hardening = brief.get("packet_filter_hardening")
+    if isinstance(hardening, dict):
+        return hardening
+    return wsta77.wsta76.packet_filter_hardening()
+
+
 def resolve_path(path: Path) -> Path:
     return path if path.is_absolute() else REPO_ROOT / path
 
@@ -244,11 +251,14 @@ def build_operator_packet(source_summary: Path,
         "abort_conditions": brief.get("abort_conditions") or [],
         "cleanup_expectations": brief.get("cleanup_expectations") or [],
         "operator_preflight_checks": brief.get("operator_preflight_checks") or [],
+        "packet_filter_hardening": packet_filter_hardening_from_brief(brief),
         "execution_guardrails": [
             "wsta78-does-not-execute-live",
             "rerun-wsta78-if-time-elapsed-before-live",
             "replace-placeholders-out-of-band-only",
             "run-wsta58-only-with-explicit-operator-intent",
+            "packet-filter-hardening-required-before-public-exposure",
+            "packet-filter-restore-required-on-stop-retire-failure",
             "verify-public-off-after-wsta58",
         ],
         "recommended_next_action": "operator-may-copy-wsta58-template-after-token-replacement",
@@ -291,6 +301,17 @@ def markdown(packet: dict[str, Any]) -> str:
     lines.extend(["", "## Cleanup Expectations", ""])
     for item in packet.get("cleanup_expectations", []):
         lines.append(f"- `{item}`")
+    hardening = packet.get("packet_filter_hardening") if isinstance(packet.get("packet_filter_hardening"), dict) else {}
+    lines.extend([
+        "",
+        "## Packet Filter Hardening",
+        "",
+        f"- State: `{hardening.get('state')}`",
+        f"- Backend: `{hardening.get('backend')}`",
+        f"- Policy: `{hardening.get('policy')}`",
+        f"- Apply before: `{hardening.get('apply_before')}`",
+        f"- Restore on: `{', '.join(str(item) for item in hardening.get('restore_on') or [])}`",
+    ])
     lines.extend(["", "## Execution Guardrails", ""])
     for item in packet.get("execution_guardrails", []):
         lines.append(f"- `{item}`")

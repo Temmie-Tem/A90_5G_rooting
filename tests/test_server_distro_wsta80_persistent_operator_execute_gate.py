@@ -178,8 +178,13 @@ class ServerDistroWsta80PersistentOperatorExecuteGateTests(unittest.TestCase):
         self.assertIn("<native-confirm-token>", json.dumps(gate["wsta58_live_command_template"]))
         self.assertIn("<public-confirm-token>", json.dumps(gate["wsta58_live_command_template"]))
         self.assertIn("explicit-wsta58-gate-required", gate["execution_guardrails"])
+        self.assertIn("packet-filter-apply-before-public-exposure", gate["execution_guardrails"])
+        self.assertTrue(gate["packet_filter_hardening_ready"])
+        self.assertEqual(gate["packet_filter_hardening"]["state"], "PACKET_FILTER_REQUIRED_DEFAULT_OFF")
         self.assertFalse(result["checks"]["live_execution_requested"])
+        self.assertTrue(result["checks"]["packet_filter_hardening_ready"])
         self.assertIn("WSTA Persistent Operator Execute Gate", markdown)
+        self.assertIn("Packet Filter Hardening", markdown)
 
     def test_stale_status_blocks_before_live(self) -> None:
         with self.private_tmp() as tmp:
@@ -310,6 +315,7 @@ class ServerDistroWsta80PersistentOperatorExecuteGateTests(unittest.TestCase):
         self.assertIn("wsta80-persistent-operator-execute-gate-preflight-pass", source)
         self.assertIn("--execute-wsta58-from-status", source)
         self.assertIn("wsta58.run", source)
+        self.assertIn("packet_filter_hardening_ready", source)
         self.assertIn('"boot_flash": False', source)
         self.assertIn('"public_url_value_logged": False', source)
         self.assertNotIn("native_init_flash.py", source)

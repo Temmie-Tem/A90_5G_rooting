@@ -96,10 +96,14 @@ class ServerDistroWsta88PersistentOperatorWorkflowTests(unittest.TestCase):
         self.assertEqual(workflow["wsta78_decision"], runner.wsta78.PASS_DECISION)
         self.assertEqual(workflow["wsta79_decision"], runner.wsta79.PASS_DECISION)
         self.assertEqual(workflow["wsta80_preflight_decision"], runner.wsta80.PREFLIGHT_DECISION)
+        self.assertTrue(workflow["packet_filter_hardening_ready"])
+        self.assertEqual(workflow["packet_filter_hardening"]["state"], "PACKET_FILTER_REQUIRED_DEFAULT_OFF")
         self.assertFalse(result["checks"]["live_execution_requested"])
+        self.assertTrue(result["checks"]["packet_filter_hardening_ready"])
         self.assertFalse(result["safety"]["device_action"])
         self.assertIn("WSTA Persistent Operator Workflow", markdown)
         self.assertIn("READY_FOR_EXPLICIT_WSTA58_LIVE_GATE", markdown)
+        self.assertIn("Packet filter hardening ready: `true`", markdown)
 
     def test_execute_flag_without_full_live_ack_blocks_before_wsta58(self) -> None:
         with self.private_tmp() as tmp:
@@ -199,6 +203,7 @@ class ServerDistroWsta88PersistentOperatorWorkflowTests(unittest.TestCase):
         self.assertIn("wsta88-persistent-operator-workflow-preflight-pass", source)
         self.assertIn("--execute-wsta58-from-status", source)
         self.assertIn("wsta80.run", source)
+        self.assertIn("packet_filter_hardening_ready", source)
         self.assertIn('"boot_flash": False', source)
         self.assertIn('"public_url_value_logged": False', source)
         self.assertNotIn("native_init_flash.py", source)

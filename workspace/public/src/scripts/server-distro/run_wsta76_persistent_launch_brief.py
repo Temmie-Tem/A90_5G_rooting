@@ -34,6 +34,10 @@ REPO_ROOT = wsta75.REPO_ROOT
 PRIVATE_ROOT = wsta75.PRIVATE_ROOT
 DEFAULT_RUN_BASE = wsta75.DEFAULT_RUN_BASE
 PASS_DECISION = "wsta76-persistent-launch-brief-pass"
+PACKET_FILTER_HELPER = "/usr/local/bin/a90-dpublic-packet-filter"
+PACKET_FILTER_BACKEND = "legacy-iptables"
+PACKET_FILTER_POLICY = "loopback-default-drop"
+PACKET_FILTER_LIVE_PROOF = "wsta94-packet-filter-loopback-live-pass"
 
 
 def rel(path: Path) -> str:
@@ -62,12 +66,49 @@ def load_json(path: Path) -> dict[str, Any]:
     return wsta75.load_json(path)
 
 
+def unique_list(items: list[Any], additions: list[str]) -> list[Any]:
+    result = list(items)
+    existing = {str(item) for item in result}
+    for item in additions:
+        if item not in existing:
+            result.append(item)
+            existing.add(item)
+    return result
+
+
 def resolve_path(path: Path) -> Path:
     return path if path.is_absolute() else REPO_ROOT / path
 
 
 def is_under(path: Path, root: Path) -> bool:
     return wsta75.is_under(path, root)
+
+
+def packet_filter_hardening() -> dict[str, Any]:
+    return {
+        "state": "PACKET_FILTER_REQUIRED_DEFAULT_OFF",
+        "backend": PACKET_FILTER_BACKEND,
+        "policy": PACKET_FILTER_POLICY,
+        "helper_remote_path": PACKET_FILTER_HELPER,
+        "live_proof": PACKET_FILTER_LIVE_PROOF,
+        "activation": "explicit-operator-gated",
+        "apply_before": "public-exposure-start",
+        "restore_on": [
+            "manual-stop",
+            "retire",
+            "failure-cleanup",
+        ],
+        "required_sequence": [
+            "preflight-helper",
+            "save-existing-rules-before-mutation",
+            "apply-loopback-default-drop-before-public-exposure",
+            "restore-exact-rules-before-public-off-success",
+        ],
+        "default_public_off": True,
+        "live_execution_requested": False,
+        "public_url_value_logged": False,
+        "secret_values_logged": 0,
+    }
 
 
 def safety_flags() -> dict[str, Any]:
@@ -247,16 +288,27 @@ def build_launch_brief(source_inventory: Path,
             "<native-confirm-token>",
             "<public-confirm-token>",
         ],
-        "operator_acknowledgements_required": packet.get("operator_acknowledgements_required") or [],
-        "abort_conditions": packet.get("abort_conditions") or [],
-        "cleanup_expectations": packet.get("cleanup_expectations") or [],
+        "operator_acknowledgements_required": unique_list(packet.get("operator_acknowledgements_required") or [], [
+            "--ack-packet-filter-mutation",
+            "--force-packet-filter-restore-proof",
+        ]),
+        "abort_conditions": unique_list(packet.get("abort_conditions") or [], [
+            "packet-filter-preflight-fails",
+            "packet-filter-apply-fails",
+            "packet-filter-restore-proof-missing",
+        ]),
+        "cleanup_expectations": unique_list(packet.get("cleanup_expectations") or [], [
+            "packet-filter-restore-exact-before-public-off",
+        ]),
         "operator_preflight_checks": [
             "confirm-intentional-public-exposure",
             "replace-placeholders-out-of-band",
+            "confirm-packet-filter-helper-preflight-pass",
             "run-wsta76-again-if-time-elapsed",
             "monitor-wsta58-final-manual-stop-cleanup",
             "verify-public-off-after-run",
         ],
+        "packet_filter_hardening": packet_filter_hardening(),
         "recommended_next_action": "operator-may-run-explicit-wsta58-live-gate-from-brief",
         "json_path": rel(out_json),
         "markdown_path": rel(out_md),
@@ -297,6 +349,17 @@ def markdown(brief: dict[str, Any]) -> str:
     lines.extend(["", "## Cleanup Expectations", ""])
     for item in brief.get("cleanup_expectations", []):
         lines.append(f"- `{item}`")
+    hardening = brief.get("packet_filter_hardening") if isinstance(brief.get("packet_filter_hardening"), dict) else {}
+    lines.extend([
+        "",
+        "## Packet Filter Hardening",
+        "",
+        f"- State: `{hardening.get('state')}`",
+        f"- Backend: `{hardening.get('backend')}`",
+        f"- Policy: `{hardening.get('policy')}`",
+        f"- Apply before: `{hardening.get('apply_before')}`",
+        f"- Restore on: `{', '.join(str(item) for item in hardening.get('restore_on') or [])}`",
+    ])
     lines.extend([
         "",
         "## WSTA58 Command Template",

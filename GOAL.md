@@ -2710,6 +2710,18 @@ safety invariants and flash gates are binding and override any sub-goal.**
 > **NEXT:** WSTA95 should wire this proven packet-filter into the D-public lifecycle as an explicit operator-gated
 > default-off hardening layer: apply before public exposure starts, prove restore on stop/retire/failure paths, and
 > keep no-public/no-credential defaults inert.
+> **🟢 STATUS (2026-07-04 23:43 KST host clock) — WSTA95 packet-filter
+> LIFECYCLE SOURCE PASS.**  Codex wired the WSTA94-proven packet-filter into the persistent operator lifecycle without
+> executing live actions: WSTA76 now emits `packet_filter_hardening`; WSTA78 propagates it and adds apply/restore
+> guardrails; WSTA79 treats it as part of logical packet identity and rejects missing/drifted hardening; WSTA80 blocks
+> execute-gate preflight unless the current packet/status has ready hardening; WSTA88 surfaces
+> `packet_filter_hardening_ready` in the one-command workflow.  No boot image, flash, device command, native reboot,
+> Wi-Fi association, DHCP, public tunnel, public smoke, userdata action, switch-root, or packet-filter mutation ran.
+> Validation passed `py_compile` and focused WSTA76/78/79/80/88 tests (`41 tests`).  Report:
+> `docs/reports/SERVER_DISTRO_WIFI_STA_UPSTREAM_WSTA95_PACKET_FILTER_LIFECYCLE_SOURCE_2026-07-04.md`.
+> **NEXT:** WSTA96 should do the bounded live lifecycle integration: call the packet-filter helper inside the explicit
+> public-live path, apply before tunnel start, and prove exact restore on stop/retire/failure cleanup while preserving
+> WSTA94 restore gates and WSTA80 explicit-live acknowledgements.
 
 ## North star — priority-ordered tracks (T1 → T2 → T3)
 

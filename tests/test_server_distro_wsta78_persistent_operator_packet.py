@@ -122,9 +122,13 @@ class ServerDistroWsta78PersistentOperatorPacketTests(unittest.TestCase):
         self.assertIn("<public-confirm-token>", packet["operator_required_replacements"])
         self.assertIn("--allow-public-live", packet["operator_acknowledgements_required"])
         self.assertIn("wsta78-does-not-execute-live", packet["execution_guardrails"])
+        self.assertIn("packet-filter-hardening-required-before-public-exposure", packet["execution_guardrails"])
+        self.assertEqual(packet["packet_filter_hardening"]["state"], "PACKET_FILTER_REQUIRED_DEFAULT_OFF")
+        self.assertEqual(packet["packet_filter_hardening"]["policy"], runner.wsta77.wsta76.PACKET_FILTER_POLICY)
         self.assertTrue(packet["wsta58_live_command_template"])
         self.assertFalse(result["checks"]["live_execution_requested"])
         self.assertIn("WSTA Persistent Operator Packet", markdown)
+        self.assertIn("Packet Filter Hardening", markdown)
 
     def test_summary_that_ages_stale_blocks_on_fresh_recheck(self) -> None:
         with self.private_tmp() as tmp:
@@ -224,6 +228,7 @@ class ServerDistroWsta78PersistentOperatorPacketTests(unittest.TestCase):
         self.assertIn("READY_OPERATOR_PACKET_DEFAULT_OFF", source)
         self.assertIn("wsta78-persistent-operator-packet-pass", source)
         self.assertIn("wsta77_rechecked", source)
+        self.assertIn("packet_filter_hardening", source)
         self.assertIn('"boot_flash": False', source)
         self.assertIn('"public_url_value_logged": False', source)
         self.assertNotIn("native_init_flash.py", source)
