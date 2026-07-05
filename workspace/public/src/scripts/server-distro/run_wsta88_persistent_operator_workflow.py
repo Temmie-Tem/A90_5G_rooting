@@ -114,6 +114,8 @@ def template() -> dict[str, Any]:
             "--allow-operator-live",
             "--allow-native-reboot",
             "--allow-public-live",
+            "--ack-packet-filter-mutation",
+            "--force-packet-filter-restore-proof",
             "--force-ttl-expiry-proof",
             "--force-manual-stop-proof",
             "--native-confirm-token",
@@ -409,6 +411,8 @@ def wsta80_args(run_dir: Path, status_path: Path, args: argparse.Namespace, *, l
             (args.allow_public_live, "--allow-public-live"),
             (args.ack_credentialed_wifi, "--ack-credentialed-wifi"),
             (args.ack_public_exposure, "--ack-public-exposure"),
+            (args.ack_packet_filter_mutation, "--ack-packet-filter-mutation"),
+            (args.force_packet_filter_restore_proof, "--force-packet-filter-restore-proof"),
             (args.force_ttl_expiry_proof, "--force-ttl-expiry-proof"),
             (args.force_manual_stop_proof, "--force-manual-stop-proof"),
         ):
@@ -795,6 +799,8 @@ def build_arg_parser() -> argparse.ArgumentParser:
     parser.add_argument("--allow-public-live", action="store_true")
     parser.add_argument("--force-ttl-expiry-proof", action="store_true")
     parser.add_argument("--force-manual-stop-proof", action="store_true")
+    parser.add_argument("--ack-packet-filter-mutation", action="store_true")
+    parser.add_argument("--force-packet-filter-restore-proof", action="store_true")
     parser.add_argument("--local-image", type=Path, default=wsta80.wsta58.wsta55.wsta45.wsta43.wsta42.d1.DEFAULT_LOCAL_IMAGE)
     parser.add_argument("--local-image-sha256", default=wsta80.wsta58.wsta55.wsta45.wsta43.wsta42.DEFAULT_LOCAL_IMAGE_SHA256)
     parser.add_argument("--remote-image", default=wsta80.wsta58.wsta55.wsta45.wsta43.wsta42.d1.DEFAULT_REMOTE_IMAGE)

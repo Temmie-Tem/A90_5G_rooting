@@ -61,6 +61,8 @@ class ServerDistroWsta55ShortLivedPublicProofTests(unittest.TestCase):
         args.allow_public_live = True
         args.ack_credentialed_wifi = True
         args.ack_public_exposure = True
+        args.ack_packet_filter_mutation = True
+        args.force_packet_filter_restore_proof = True
         args.force_ttl_expiry_proof = True
         args.native_confirm_token = runner.wsta45.wsta25.NATIVE_CONFIRM_TOKEN
         args.public_confirm_token = runner.wsta45.PUBLIC_CONFIRM_TOKEN
@@ -197,6 +199,8 @@ class ServerDistroWsta55ShortLivedPublicProofTests(unittest.TestCase):
             self.assertEqual(called_args.mode, "publish")
             self.assertTrue(called_args.use_native_uplink_profile)
             self.assertTrue(called_args.allow_operator_live)
+            self.assertTrue(called_args.ack_packet_filter_mutation)
+            self.assertTrue(called_args.force_packet_filter_restore_proof)
             self.assertIn("--bridge-host", called_args.wsta43_args)
             self.assertTrue((root / "wsta55" / "wsta48_result.json").is_file())
 
@@ -227,6 +231,8 @@ class ServerDistroWsta55ShortLivedPublicProofTests(unittest.TestCase):
 
             nested = runner.wsta45_args(args, root)
 
+        self.assertTrue(nested.ack_packet_filter_mutation)
+        self.assertTrue(nested.force_packet_filter_restore_proof)
         self.assertIn("--local-image", nested.wsta43_args)
         self.assertIn(str(args.local_image), nested.wsta43_args)
         self.assertIn("--local-image-sha256", nested.wsta43_args)

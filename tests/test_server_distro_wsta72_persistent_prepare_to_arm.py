@@ -74,6 +74,8 @@ class ServerDistroWsta72PersistentPrepareToArmTests(unittest.TestCase):
         self.assertEqual(pipeline["wsta70_decision"], runner.wsta70.PASS_DECISION)
         self.assertEqual(pipeline["wsta71_decision"], runner.wsta71.PASS_DECISION)
         self.assertIn("--execute-renewal-manual-stop", pipeline["wsta58_live_command_template"])
+        self.assertIn("--ack-packet-filter-mutation", pipeline["wsta58_live_command_template"])
+        self.assertIn("--force-packet-filter-restore-proof", pipeline["wsta58_live_command_template"])
         self.assertIn("<native-confirm-token>", pipeline["wsta58_live_command_template"])
         self.assertIn("<public-confirm-token>", pipeline["wsta58_live_command_template"])
         self.assertIn("WSTA Persistent Prepare-To-Arm", markdown)

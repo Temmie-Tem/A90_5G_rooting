@@ -26,6 +26,8 @@ class ServerDistroWsta45ApplianceOperatorTests(unittest.TestCase):
             "--allow-public-live",
             "--ack-credentialed-wifi",
             "--ack-public-exposure",
+            "--ack-packet-filter-mutation",
+            "--force-packet-filter-restore-proof",
             "--native-confirm-token",
             runner.wsta25.NATIVE_CONFIRM_TOKEN,
             "--public-confirm-token",
@@ -58,6 +60,8 @@ class ServerDistroWsta45ApplianceOperatorTests(unittest.TestCase):
         self.assertIn("--allow-public-live", command)
         self.assertIn("--ack-credentialed-wifi", command)
         self.assertIn("--ack-public-exposure", command)
+        self.assertIn("--ack-packet-filter-mutation", command)
+        self.assertIn("--force-packet-filter-restore-proof", command)
         self.assertIn("<native-confirm-token>", command)
         self.assertIn("<public-confirm-token>", command)
         self.assertEqual(template["secret_values_logged"], 0)
@@ -75,6 +79,8 @@ class ServerDistroWsta45ApplianceOperatorTests(unittest.TestCase):
             allow_public_live=False,
             ack_credentialed_wifi=False,
             ack_public_exposure=False,
+            ack_packet_filter_mutation=False,
+            force_packet_filter_restore_proof=False,
             native_confirm_token="",
             public_confirm_token="",
         )
@@ -111,6 +117,16 @@ class ServerDistroWsta45ApplianceOperatorTests(unittest.TestCase):
             (False, "wsta45-blocked-public-exposure-ack-required"),
         )
         args.ack_public_exposure = True
+        self.assertEqual(
+            runner.explicit_publish_gate(args),
+            (False, "wsta45-blocked-packet-filter-mutation-ack-required"),
+        )
+        args.ack_packet_filter_mutation = True
+        self.assertEqual(
+            runner.explicit_publish_gate(args),
+            (False, "wsta45-blocked-packet-filter-restore-proof-required"),
+        )
+        args.force_packet_filter_restore_proof = True
         args.native_confirm_token = "wrong"
         self.assertEqual(
             runner.explicit_publish_gate(args),
@@ -169,6 +185,8 @@ class ServerDistroWsta45ApplianceOperatorTests(unittest.TestCase):
             self.assertTrue(nested_args.allow_public_live)
             self.assertTrue(nested_args.ack_credentialed_wifi)
             self.assertTrue(nested_args.ack_public_exposure)
+            self.assertTrue(nested_args.ack_packet_filter_mutation)
+            self.assertTrue(nested_args.force_packet_filter_restore_proof)
             self.assertTrue(nested_args.use_native_uplink_profile)
 
         self.assertEqual(result["decision"], runner.PASS_DECISION)

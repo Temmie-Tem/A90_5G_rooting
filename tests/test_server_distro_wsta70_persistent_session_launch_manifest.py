@@ -107,6 +107,8 @@ class ServerDistroWsta70PersistentSessionLaunchManifestTests(unittest.TestCase):
         self.assertEqual(manifest["ready_candidate_count"], 1)
         self.assertEqual(manifest["selected_ready_index"], 0)
         self.assertIn("--execute-renewal-manual-stop", manifest["live_command_template"])
+        self.assertIn("--ack-packet-filter-mutation", manifest["live_command_template"])
+        self.assertIn("--force-packet-filter-restore-proof", manifest["live_command_template"])
         self.assertIn("<native-confirm-token>", manifest["live_command_template"])
         self.assertIn("<public-confirm-token>", manifest["live_command_template"])
         self.assertIn("Operator Command Template", markdown)

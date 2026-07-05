@@ -189,6 +189,8 @@ def live_command_template(run_dir: Path, initial_lease: Path, renewal_source: Pa
         "--allow-public-live",
         "--ack-credentialed-wifi",
         "--ack-public-exposure",
+        "--ack-packet-filter-mutation",
+        "--force-packet-filter-restore-proof",
         "--force-ttl-expiry-proof",
         "--force-manual-stop-proof",
         "--native-confirm-token",

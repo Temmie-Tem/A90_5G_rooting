@@ -258,6 +258,28 @@ safety invariants and flash gates are binding and override any sub-goal.**
 > attended D-public live gate with the default-drop precondition, or proceed to
 > the next hardening layer without weakening the default-off gate.
 
+> **🟢 STATUS (2026-07-05 21:13 KST) — WSTA218 PACKET-FILTER ACK GATE ALIGNMENT PASS.**
+> Codex aligned the actual D-public live gate chain with the WSTA76 operator
+> packet requirement for `--ack-packet-filter-mutation` and
+> `--force-packet-filter-restore-proof`.  The packet-filter mutation point
+> (WSTA42), wrapper/delegation chain (WSTA43/45/55/58), session/template path
+> (WSTA63/64/70/71/72/73), execute gate (WSTA80), and one-command workflow
+> (WSTA88) now preserve or enforce the same acknowledgement stack.  Full
+> host-only WSTA88 preflight:
+> `workspace/private/runs/server-distro/wsta218-packet-filter-ack-gate-alignment-20260705T211246KST/wsta88_operator_workflow.json`;
+> decision `wsta88-persistent-operator-workflow-preflight-pass`.  The generated
+> WSTA63 manifest, WSTA78 operator packet, and WSTA80 execute gate all include
+> both packet-filter flags in the live command/operator ack surfaces.  Safety
+> stayed host-only: no device action, boot flash, reboot, Wi-Fi connect, DHCP,
+> ping, public tunnel, public smoke, packet-filter mutation, rootfs mutation,
+> userdata write, LSM profile load, or switch-root.  Validation: focused WSTA
+> gate/template tests `118 tests OK`; server-distro regression `804 tests OK`.
+> Report:
+> `docs/reports/SERVER_DISTRO_WIFI_STA_UPSTREAM_WSTA218_PACKET_FILTER_ACK_GATE_ALIGNMENT_2026-07-05.md`.
+> **NEXT:** the attended D-public/default-drop live path is now internally
+> consistent; proceed only through the explicit live gate, or move to the next
+> hardening layer without weakening default-off/public-off behavior.
+
 > **✅ OPERATOR GO (2026-07-04) — D-public is USER-AUTHORIZED and operator-driven; PROCEED.** (Supersedes the
 > earlier same-day HOLD, which assumed authorization was pending — it was not.) The user confirmed the
 > `D-PUBLIC-LIVE-PUBLISH` go and is actively driving D-public. First live publish (commit `8d25f793`:

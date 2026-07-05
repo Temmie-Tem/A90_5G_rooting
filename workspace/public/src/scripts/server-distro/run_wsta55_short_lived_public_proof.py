@@ -100,6 +100,8 @@ def template() -> dict[str, Any]:
         "--allow-public-live",
         "--ack-credentialed-wifi",
         "--ack-public-exposure",
+        "--ack-packet-filter-mutation",
+        "--force-packet-filter-restore-proof",
         "--force-ttl-expiry-proof",
         "--native-confirm-token",
         "<native-confirm-token>",
@@ -205,6 +207,10 @@ def explicit_live_gate(args: argparse.Namespace) -> tuple[bool, str]:
         return False, "wsta55-blocked-credentialed-wifi-ack-required"
     if not args.ack_public_exposure:
         return False, "wsta55-blocked-public-exposure-ack-required"
+    if not args.ack_packet_filter_mutation:
+        return False, "wsta55-blocked-packet-filter-mutation-ack-required"
+    if not args.force_packet_filter_restore_proof:
+        return False, "wsta55-blocked-packet-filter-restore-proof-required"
     if not args.force_ttl_expiry_proof:
         return False, "wsta55-blocked-ttl-expiry-proof-required"
     if args.native_confirm_token != wsta45.wsta25.NATIVE_CONFIRM_TOKEN:
@@ -226,6 +232,8 @@ def wsta45_args(args: argparse.Namespace, run_dir: Path) -> argparse.Namespace:
         "--allow-public-live",
         "--ack-credentialed-wifi",
         "--ack-public-exposure",
+        "--ack-packet-filter-mutation",
+        "--force-packet-filter-restore-proof",
         "--native-confirm-token",
         args.native_confirm_token,
         "--public-confirm-token",
@@ -525,6 +533,8 @@ def build_arg_parser() -> argparse.ArgumentParser:
     parser.add_argument("--allow-public-live", action="store_true")
     parser.add_argument("--ack-credentialed-wifi", action="store_true")
     parser.add_argument("--ack-public-exposure", action="store_true")
+    parser.add_argument("--ack-packet-filter-mutation", action="store_true")
+    parser.add_argument("--force-packet-filter-restore-proof", action="store_true")
     parser.add_argument("--force-ttl-expiry-proof", action="store_true")
     parser.add_argument("--native-confirm-token", default="")
     parser.add_argument("--public-confirm-token", default="")

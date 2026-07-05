@@ -74,6 +74,8 @@ class ServerDistroWsta64PersistentSessionReadinessAuditTests(unittest.TestCase):
             with mock.patch.object(runner.wsta58.wsta55, "run", side_effect=AssertionError("unexpected live WSTA55")):
                 result = runner.run(self.valid_args(root))
             saved = json.loads((root / "wsta64" / "wsta64_result.json").read_text(encoding="utf-8"))
+            session = json.loads((runner.REPO_ROOT / result["readiness"]["wsta63_result"]).read_text(encoding="utf-8"))
+            command = session["session_redacted"]["live_command_template"]
 
         self.assertEqual(result["decision"], runner.PASS_DECISION)
         self.assertEqual(saved["decision"], runner.PASS_DECISION)
@@ -84,6 +86,8 @@ class ServerDistroWsta64PersistentSessionReadinessAuditTests(unittest.TestCase):
         self.assertTrue(result["checks"]["live_template_placeholders_only"])
         self.assertFalse(result["checks"]["live_execution_requested"])
         self.assertTrue(result["readiness"]["ready_for_explicit_wsta58_live_gate"])
+        self.assertIn("--ack-packet-filter-mutation", command)
+        self.assertIn("--force-packet-filter-restore-proof", command)
         self.assertGreaterEqual(result["readiness"]["initial_seconds_remaining"], 30)
 
     def test_expired_initial_lease_blocks_readiness(self) -> None:

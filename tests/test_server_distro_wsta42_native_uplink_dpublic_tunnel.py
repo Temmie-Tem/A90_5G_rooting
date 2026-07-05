@@ -21,6 +21,8 @@ class ServerDistroWsta42NativeUplinkDpublicTunnelTests(unittest.TestCase):
             allow_public_live=False,
             ack_credentialed_wifi=False,
             ack_public_exposure=False,
+            ack_packet_filter_mutation=False,
+            force_packet_filter_restore_proof=False,
             native_confirm_token="",
             public_confirm_token="",
         )
@@ -42,6 +44,18 @@ class ServerDistroWsta42NativeUplinkDpublicTunnelTests(unittest.TestCase):
         )
 
         args.ack_public_exposure = True
+        self.assertEqual(
+            runner.explicit_live_gate(args),
+            (False, "wsta42-blocked-packet-filter-mutation-ack-required"),
+        )
+
+        args.ack_packet_filter_mutation = True
+        self.assertEqual(
+            runner.explicit_live_gate(args),
+            (False, "wsta42-blocked-packet-filter-restore-proof-required"),
+        )
+
+        args.force_packet_filter_restore_proof = True
         args.native_confirm_token = "wrong"
         self.assertEqual(
             runner.explicit_live_gate(args),
@@ -277,6 +291,8 @@ class ServerDistroWsta42NativeUplinkDpublicTunnelTests(unittest.TestCase):
                 "--allow-public-live",
                 "--ack-credentialed-wifi",
                 "--ack-public-exposure",
+                "--ack-packet-filter-mutation",
+                "--force-packet-filter-restore-proof",
                 "--native-confirm-token",
                 runner.wsta25.NATIVE_CONFIRM_TOKEN,
                 "--public-confirm-token",

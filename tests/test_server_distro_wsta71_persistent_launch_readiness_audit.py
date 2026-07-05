@@ -116,6 +116,8 @@ class ServerDistroWsta71PersistentLaunchReadinessAuditTests(unittest.TestCase):
         self.assertEqual(readiness["wsta65_session_state"], "READY")
         self.assertTrue(readiness["ready_for_live"])
         self.assertIn("--execute-renewal-manual-stop", readiness["live_command_template"])
+        self.assertIn("--ack-packet-filter-mutation", readiness["live_command_template"])
+        self.assertIn("--force-packet-filter-restore-proof", readiness["live_command_template"])
         self.assertIn("<native-confirm-token>", readiness["live_command_template"])
         self.assertIn("<public-confirm-token>", readiness["live_command_template"])
         self.assertIn("WSTA Persistent Launch Readiness Audit", markdown)

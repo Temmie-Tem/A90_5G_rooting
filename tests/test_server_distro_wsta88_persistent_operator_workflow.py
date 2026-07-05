@@ -175,6 +175,8 @@ class ServerDistroWsta88PersistentOperatorWorkflowTests(unittest.TestCase):
                     "--allow-operator-live",
                     "--allow-native-reboot",
                     "--allow-public-live",
+                    "--ack-packet-filter-mutation",
+                    "--force-packet-filter-restore-proof",
                     "--force-ttl-expiry-proof",
                     "--force-manual-stop-proof",
                     "--native-confirm-token",
@@ -194,6 +196,8 @@ class ServerDistroWsta88PersistentOperatorWorkflowTests(unittest.TestCase):
         self.assertEqual(result["decision"], runner.PASS_DECISION)
         self.assertEqual(delegated.call_count, 2)
         self.assertTrue(delegated.call_args_list[-1].args[0].execute_wsta58_from_status)
+        self.assertTrue(delegated.call_args_list[-1].args[0].ack_packet_filter_mutation)
+        self.assertTrue(delegated.call_args_list[-1].args[0].force_packet_filter_restore_proof)
         self.assertEqual(delegated.call_args_list[-1].args[0].local_image, root / "packet-filter-ready.img")
         self.assertEqual(delegated.call_args_list[-1].args[0].local_image_sha256, "c" * 64)
         self.assertEqual(delegated.call_args_list[-1].args[0].remote_image, "/mnt/sdext/a90/runtime/packet-filter-ready.img")

@@ -79,6 +79,8 @@ class ServerDistroWsta63PersistentSessionControllerTests(unittest.TestCase):
         self.assertIn("initial-wsta54", manifest["initial_private_lease_artifact"])
         self.assertIn("renewal-source-wsta53", manifest["renewal_wsta53_result"])
         self.assertIn("--execute-renewal-manual-stop", manifest["live_command_template"])
+        self.assertIn("--ack-packet-filter-mutation", manifest["live_command_template"])
+        self.assertIn("--force-packet-filter-restore-proof", manifest["live_command_template"])
         self.assertIn("<native-confirm-token>", manifest["live_command_template"])
         self.assertIn("<public-confirm-token>", manifest["live_command_template"])
 

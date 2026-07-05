@@ -37,6 +37,8 @@ FORBIDDEN_WSTA43_PASSTHROUGH = {
     "--allow-public-live",
     "--ack-credentialed-wifi",
     "--ack-public-exposure",
+    "--ack-packet-filter-mutation",
+    "--force-packet-filter-restore-proof",
     "--native-confirm-token",
     "--public-confirm-token",
     "--use-native-uplink-profile",
@@ -69,6 +71,8 @@ def operator_publish_template() -> dict[str, Any]:
         "--allow-public-live",
         "--ack-credentialed-wifi",
         "--ack-public-exposure",
+        "--ack-packet-filter-mutation",
+        "--force-packet-filter-restore-proof",
         "--native-confirm-token",
         NATIVE_CONFIRM_TOKEN_PLACEHOLDER,
         "--public-confirm-token",
@@ -110,6 +114,8 @@ def operator_menu() -> list[dict[str, Any]]:
                 "--allow-public-live",
                 "--ack-credentialed-wifi",
                 "--ack-public-exposure",
+                "--ack-packet-filter-mutation",
+                "--force-packet-filter-restore-proof",
                 "--native-confirm-token",
                 "--public-confirm-token",
             ],
@@ -154,6 +160,10 @@ def explicit_publish_gate(args: argparse.Namespace) -> tuple[bool, str]:
         return False, "wsta45-blocked-credentialed-wifi-ack-required"
     if not args.ack_public_exposure:
         return False, "wsta45-blocked-public-exposure-ack-required"
+    if not args.ack_packet_filter_mutation:
+        return False, "wsta45-blocked-packet-filter-mutation-ack-required"
+    if not args.force_packet_filter_restore_proof:
+        return False, "wsta45-blocked-packet-filter-restore-proof-required"
     if args.native_confirm_token != wsta25.NATIVE_CONFIRM_TOKEN:
         return False, "wsta45-blocked-native-confirm-token-required"
     if args.public_confirm_token != PUBLIC_CONFIRM_TOKEN:
@@ -180,6 +190,8 @@ def wsta43_args(args: argparse.Namespace, run_dir: Path) -> argparse.Namespace:
     nested.allow_public_live = True
     nested.ack_credentialed_wifi = True
     nested.ack_public_exposure = True
+    nested.ack_packet_filter_mutation = True
+    nested.force_packet_filter_restore_proof = True
     nested.native_confirm_token = args.native_confirm_token
     nested.public_confirm_token = args.public_confirm_token
     nested.use_native_uplink_profile = True
@@ -250,6 +262,8 @@ def run(args: argparse.Namespace) -> dict[str, Any]:
             "allow_public_live": bool(args.allow_public_live),
             "ack_credentialed_wifi": bool(args.ack_credentialed_wifi),
             "ack_public_exposure": bool(args.ack_public_exposure),
+            "ack_packet_filter_mutation": bool(args.ack_packet_filter_mutation),
+            "force_packet_filter_restore_proof": bool(args.force_packet_filter_restore_proof),
             "native_confirm_token_supplied": bool(args.native_confirm_token),
             "native_confirm_token_matches": args.native_confirm_token == wsta25.NATIVE_CONFIRM_TOKEN,
             "public_confirm_token_supplied": bool(args.public_confirm_token),
@@ -300,6 +314,8 @@ def build_arg_parser() -> argparse.ArgumentParser:
     parser.add_argument("--allow-public-live", action="store_true")
     parser.add_argument("--ack-credentialed-wifi", action="store_true")
     parser.add_argument("--ack-public-exposure", action="store_true")
+    parser.add_argument("--ack-packet-filter-mutation", action="store_true")
+    parser.add_argument("--force-packet-filter-restore-proof", action="store_true")
     parser.add_argument("--native-confirm-token", default="")
     parser.add_argument("--public-confirm-token", default="")
     parser.add_argument("--print-publish-template", action="store_true")

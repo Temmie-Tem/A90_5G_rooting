@@ -67,6 +67,8 @@ class ServerDistroWsta58RenewalManualStopProofTests(unittest.TestCase):
         args.allow_public_live = True
         args.ack_credentialed_wifi = True
         args.ack_public_exposure = True
+        args.ack_packet_filter_mutation = True
+        args.force_packet_filter_restore_proof = True
         args.force_ttl_expiry_proof = True
         args.force_manual_stop_proof = True
         args.native_confirm_token = runner.wsta55.wsta45.wsta25.NATIVE_CONFIRM_TOKEN
@@ -88,6 +90,8 @@ class ServerDistroWsta58RenewalManualStopProofTests(unittest.TestCase):
         args.allow_public_live = True
         args.ack_credentialed_wifi = True
         args.ack_public_exposure = True
+        args.ack_packet_filter_mutation = True
+        args.force_packet_filter_restore_proof = True
         args.force_ttl_expiry_proof = True
         args.force_manual_stop_proof = True
         args.native_confirm_token = runner.wsta55.wsta45.wsta25.NATIVE_CONFIRM_TOKEN
@@ -341,6 +345,8 @@ class ServerDistroWsta58RenewalManualStopProofTests(unittest.TestCase):
         self.assertEqual(nested.local_image_sha256, "e" * 64)
         self.assertEqual(nested.remote_image, args.remote_image)
         self.assertEqual(nested.remote_clean_image, args.remote_clean_image)
+        self.assertTrue(nested.ack_packet_filter_mutation)
+        self.assertTrue(nested.force_packet_filter_restore_proof)
 
     def test_template_is_redacted_and_does_not_run(self) -> None:
         with mock.patch.object(runner.wsta55, "run", side_effect=AssertionError("unexpected live call")):

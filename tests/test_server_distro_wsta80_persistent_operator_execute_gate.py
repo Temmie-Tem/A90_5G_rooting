@@ -236,6 +236,40 @@ class ServerDistroWsta80PersistentOperatorExecuteGateTests(unittest.TestCase):
         self.assertTrue(result["checks"]["live_execution_requested"])
         self.assertFalse(result["checks"]["explicit_live_gate"])
 
+    def test_live_gate_requires_packet_filter_ack_and_restore_proof(self) -> None:
+        with self.private_tmp() as tmp:
+            root = Path(tmp)
+            artifacts = self.prepare_status(root)
+            base = [
+                "--run-dir",
+                str(root / "gate"),
+                "--wsta79-operator-packet-status-json",
+                str(artifacts["status"]),
+                "--execute-wsta58-from-status",
+                "--allow-operator-live",
+                "--allow-native-reboot",
+                "--allow-public-live",
+                "--ack-credentialed-wifi",
+                "--ack-public-exposure",
+                "--force-ttl-expiry-proof",
+                "--force-manual-stop-proof",
+                "--native-confirm-token",
+                runner.wsta58.wsta55.wsta45.wsta25.NATIVE_CONFIRM_TOKEN,
+                "--public-confirm-token",
+                runner.wsta58.wsta55.wsta45.PUBLIC_CONFIRM_TOKEN,
+            ]
+            with mock.patch.object(runner.wsta58, "run", side_effect=AssertionError("unexpected WSTA58 live")):
+                missing_ack = runner.run(runner.build_arg_parser().parse_args(base))
+                missing_restore = runner.run(runner.build_arg_parser().parse_args([
+                    *base,
+                    "--ack-packet-filter-mutation",
+                ]))
+
+        self.assertEqual(missing_ack["decision"], "wsta80-blocked-packet-filter-mutation-ack-required")
+        self.assertFalse(missing_ack["checks"]["explicit_live_gate"])
+        self.assertEqual(missing_restore["decision"], "wsta80-blocked-packet-filter-restore-proof-required")
+        self.assertFalse(missing_restore["checks"]["explicit_live_gate"])
+
     def test_live_gate_delegates_to_wsta58_only_after_explicit_ack_stack(self) -> None:
         with self.private_tmp() as tmp:
             root = Path(tmp)
@@ -252,6 +286,8 @@ class ServerDistroWsta80PersistentOperatorExecuteGateTests(unittest.TestCase):
                     "--allow-public-live",
                     "--ack-credentialed-wifi",
                     "--ack-public-exposure",
+                    "--ack-packet-filter-mutation",
+                    "--force-packet-filter-restore-proof",
                     "--force-ttl-expiry-proof",
                     "--force-manual-stop-proof",
                     "--native-confirm-token",
@@ -274,6 +310,8 @@ class ServerDistroWsta80PersistentOperatorExecuteGateTests(unittest.TestCase):
         self.assertTrue(call_args.execute_renewal_manual_stop)
         self.assertEqual(call_args.native_confirm_token, runner.wsta58.wsta55.wsta45.wsta25.NATIVE_CONFIRM_TOKEN)
         self.assertEqual(call_args.public_confirm_token, runner.wsta58.wsta55.wsta45.PUBLIC_CONFIRM_TOKEN)
+        self.assertTrue(call_args.ack_packet_filter_mutation)
+        self.assertTrue(call_args.force_packet_filter_restore_proof)
         self.assertEqual(call_args.local_image, root / "packet-filter-ready.img")
         self.assertEqual(call_args.local_image_sha256, "d" * 64)
         self.assertEqual(call_args.remote_image, "/mnt/sdext/a90/runtime/packet-filter-ready.img")

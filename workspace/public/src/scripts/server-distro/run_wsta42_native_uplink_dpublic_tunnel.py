@@ -319,6 +319,10 @@ def explicit_live_gate(args: argparse.Namespace) -> tuple[bool, str]:
         return False, "wsta42-blocked-credentialed-wifi-ack-required"
     if not args.ack_public_exposure:
         return False, "wsta42-blocked-public-exposure-ack-required"
+    if not args.ack_packet_filter_mutation:
+        return False, "wsta42-blocked-packet-filter-mutation-ack-required"
+    if not args.force_packet_filter_restore_proof:
+        return False, "wsta42-blocked-packet-filter-restore-proof-required"
     if args.native_confirm_token != wsta25.NATIVE_CONFIRM_TOKEN:
         return False, "wsta42-blocked-native-confirm-token-required"
     if args.public_confirm_token != PUBLIC_CONFIRM_TOKEN:
@@ -1168,6 +1172,8 @@ def run(args: argparse.Namespace) -> dict[str, Any]:
             "native_confirm_token_matches": args.native_confirm_token == wsta25.NATIVE_CONFIRM_TOKEN,
             "public_confirm_token_supplied": bool(args.public_confirm_token),
             "public_confirm_token_matches": args.public_confirm_token == PUBLIC_CONFIRM_TOKEN,
+            "ack_packet_filter_mutation": bool(args.ack_packet_filter_mutation),
+            "force_packet_filter_restore_proof": bool(args.force_packet_filter_restore_proof),
         },
     }
     write_json(out_path, result)
@@ -1596,6 +1602,8 @@ def build_arg_parser() -> argparse.ArgumentParser:
     parser.add_argument("--allow-public-live", action="store_true")
     parser.add_argument("--ack-credentialed-wifi", action="store_true")
     parser.add_argument("--ack-public-exposure", action="store_true")
+    parser.add_argument("--ack-packet-filter-mutation", action="store_true")
+    parser.add_argument("--force-packet-filter-restore-proof", action="store_true")
     parser.add_argument("--native-confirm-token", default="")
     parser.add_argument("--public-confirm-token", default="")
     parser.add_argument("--enable-autoconnect", action="store_true")

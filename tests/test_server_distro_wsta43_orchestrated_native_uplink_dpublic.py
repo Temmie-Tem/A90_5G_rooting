@@ -19,6 +19,8 @@ class ServerDistroWsta43OrchestratedNativeUplinkDpublicTests(unittest.TestCase):
             allow_public_live=False,
             ack_credentialed_wifi=False,
             ack_public_exposure=False,
+            ack_packet_filter_mutation=False,
+            force_packet_filter_restore_proof=False,
             native_confirm_token="",
             public_confirm_token="",
         )
@@ -52,6 +54,18 @@ class ServerDistroWsta43OrchestratedNativeUplinkDpublicTests(unittest.TestCase):
         )
 
         args.ack_public_exposure = True
+        self.assertEqual(
+            runner.explicit_live_gate(args),
+            (False, "wsta43-blocked-packet-filter-mutation-ack-required"),
+        )
+
+        args.ack_packet_filter_mutation = True
+        self.assertEqual(
+            runner.explicit_live_gate(args),
+            (False, "wsta43-blocked-packet-filter-restore-proof-required"),
+        )
+
+        args.force_packet_filter_restore_proof = True
         args.native_confirm_token = "wrong"
         self.assertEqual(
             runner.explicit_live_gate(args),
@@ -105,6 +119,8 @@ class ServerDistroWsta43OrchestratedNativeUplinkDpublicTests(unittest.TestCase):
             "--allow-public-live",
             "--ack-credentialed-wifi",
             "--ack-public-exposure",
+            "--ack-packet-filter-mutation",
+            "--force-packet-filter-restore-proof",
             "--native-confirm-token",
             runner.wsta25.NATIVE_CONFIRM_TOKEN,
             "--public-confirm-token",
@@ -129,6 +145,8 @@ class ServerDistroWsta43OrchestratedNativeUplinkDpublicTests(unittest.TestCase):
         self.assertTrue(w42.allow_public_live)
         self.assertTrue(w42.ack_credentialed_wifi)
         self.assertTrue(w42.ack_public_exposure)
+        self.assertTrue(w42.ack_packet_filter_mutation)
+        self.assertTrue(w42.force_packet_filter_restore_proof)
         self.assertTrue(w42.enable_autoconnect)
         self.assertTrue(w42.use_native_uplink_profile)
         self.assertEqual(w42.remote_image, "/mnt/sdext/a90/runtime/custom.img")

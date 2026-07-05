@@ -153,6 +153,8 @@ def validate_command_template(command: Any,
         "--allow-public-live",
         "--ack-credentialed-wifi",
         "--ack-public-exposure",
+        "--ack-packet-filter-mutation",
+        "--force-packet-filter-restore-proof",
         "--force-ttl-expiry-proof",
         "--force-manual-stop-proof",
     }
