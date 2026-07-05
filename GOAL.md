@@ -3669,6 +3669,31 @@ safety invariants and flash gates are binding and override any sub-goal.**
 > **NEXT:** fold the live-proven durable split HUD handoff into the operator
 > status/endgame model, then continue remaining D-public service integration or
 > containment hardening.
+>
+> **🟢 STATUS (2026-07-05 10:25 KST host clock) — WSTA145 OPERATOR STATUS
+> HUD HANDOFF SOURCE PASS.**  Codex added a host-only WSTA144 proof summarizer
+> and extended `run_wsta108_operator_server_status.py` with
+> `--wsta144-hud-presenter-handoff-proof-json`.  The summarizer re-read the
+> private WSTA144 live transcripts and emitted a compact proof with decision
+> `wsta144-dpublic-hud-shared-run-bind-live-pass`: V3401 checked-helper flash
+> health clean, shared `/run/a90-dpublic` bind proven same mount after handoff,
+> preserved presenter sole DRM owner, Debian `a90hud` no DRM fd/no network
+> intent/CapEff 0, fresh `sequence=14401` consumed, and final V3401 health
+> clean.  WSTA108 now recomputes that proof fail-closed, lifts
+> `hardening.hud_presenter_model.state` to
+> `DPUBLIC_HUD_DURABLE_PRESENTER_HANDOFF_LIVE_PROVEN`, keeps the server state
+> `SERVER_PROFILE_READY_DEFAULT_OFF`, and moves the operator next action from
+> handoff design to `continue-dpublic-service-integration-or-containment-hardening`.
+> This WSTA145 unit was host-only: no device action, flash, reboot, Wi-Fi,
+> DHCP, public tunnel, packet-filter mutation, switch-root, or userdata touch
+> ran.  Validation passed `py_compile`, WSTA108 focused tests (`39 tests OK`),
+> full server-distro WSTA regression (`460 tests OK`), WSTA144 summary proof
+> generation, and WSTA108 operator status regeneration.  Report:
+> `docs/reports/SERVER_DISTRO_WIFI_STA_UPSTREAM_WSTA145_OPERATOR_STATUS_HUD_HANDOFF_SOURCE_2026-07-05.md`.
+> **NEXT:** continue D-public service integration or containment hardening, with
+> likely highest-ROI units being presenter cleanup/restart policy for long-running
+> appliance mode and optional HUD syscall trace profiling before seccomp
+> enforcement.
 
 ## North star — priority-ordered tracks (T1 → T2 → T3)
 

@@ -9,8 +9,10 @@ quick-Tunnel service hardening target.  WSTA125 proves that cloudflared runtime
 profile behind a native-owned upstream.  WSTA127 defines the original D-public
 HUD service hardening target.  WSTA130 supersedes that direct non-root KMS HUD
 target with a split intent-producer/native-presenter display contract.  WSTA108
-combines those public surfaces into one operator-facing server status bundle
-without opening a tunnel, touching the device, or weakening any live gate.
+folds WSTA137 native presenter proof and WSTA144 Debian handoff proof into that
+display contract.  WSTA108 combines those public surfaces into one
+operator-facing server status bundle without opening a tunnel, touching the
+device, or weakening any live gate.
 """
 
 from __future__ import annotations
@@ -38,6 +40,7 @@ import run_wsta125_native_upstream_cloudflared_runtime as wsta125  # noqa: E402
 import run_wsta127_dpublic_hud_service_model as wsta127  # noqa: E402
 import run_wsta130_dpublic_hud_presenter_model as wsta130  # noqa: E402
 import run_wsta137_dpublic_native_presenter_live_summary as wsta137  # noqa: E402
+import run_wsta144_dpublic_hud_shared_run_bind_summary as wsta144  # noqa: E402
 
 
 REPO_ROOT = wsta88.REPO_ROOT
@@ -50,6 +53,7 @@ CLOUDFLARED_RUNTIME_STATE = "CLOUDFLARED_RUNTIME_LIVE_PROVEN"
 DPUBLIC_HUD_MODEL_STATE = "DPUBLIC_HUD_SERVICE_MODEL_SOURCE_DEFINED"
 DPUBLIC_HUD_PRESENTER_MODEL_STATE = "DPUBLIC_HUD_PRESENTER_MODEL_SOURCE_DEFINED"
 DPUBLIC_HUD_PRESENTER_LIVE_STATE = "DPUBLIC_HUD_NATIVE_PRESENTER_LIVE_PROVEN"
+DPUBLIC_HUD_PRESENTER_HANDOFF_STATE = "DPUBLIC_HUD_DURABLE_PRESENTER_HANDOFF_LIVE_PROVEN"
 
 CLOUDFLARED_RUNTIME_REQUIRED_CHECKS = (
     "wsta28_precondition_pass",
@@ -163,6 +167,8 @@ def template() -> dict[str, Any]:
             "workspace/private/runs/server-distro/<wsta130-run>/wsta130_dpublic_hud_presenter_model.json",
             "--wsta137-hud-presenter-live-proof-json",
             "workspace/private/runs/server-distro/<wsta137-run>/wsta137_dpublic_native_presenter_live.json",
+            "--wsta144-hud-presenter-handoff-proof-json",
+            "workspace/private/runs/server-distro/<wsta144-run>/wsta144_dpublic_hud_shared_run_bind_live.json",
         ],
         "device_action": False,
         "public_url_value_logged": False,
@@ -931,11 +937,130 @@ def compact_hud_presenter_live_proof(proof_result: dict[str, Any] | None) -> dic
     }
 
 
+def compact_hud_presenter_handoff_proof(proof_result: dict[str, Any] | None) -> dict[str, Any]:
+    if not proof_result:
+        return {
+            "state": "NOT_SUPPLIED",
+            "handoff_live_proven": False,
+        }
+
+    supplied_checks = proof_result.get("checks") if isinstance(proof_result.get("checks"), dict) else {}
+    recomputed_checks = wsta144.validate_proof(proof_result)
+    handoff_proven = bool(
+        proof_result.get("decision") == wsta144.PASS_DECISION
+        and bool(supplied_checks)
+        and all(value is True for value in supplied_checks.values())
+        and all(value is True for value in recomputed_checks.values())
+    )
+    candidate = proof_result.get("candidate") if isinstance(proof_result.get("candidate"), dict) else {}
+    checked_flash = (
+        proof_result.get("checked_flash")
+        if isinstance(proof_result.get("checked_flash"), dict)
+        else {}
+    )
+    native = (
+        proof_result.get("native_presenter_pre_handoff")
+        if isinstance(proof_result.get("native_presenter_pre_handoff"), dict)
+        else {}
+    )
+    handoff = proof_result.get("handoff") if isinstance(proof_result.get("handoff"), dict) else {}
+    debian = proof_result.get("debian") if isinstance(proof_result.get("debian"), dict) else {}
+    shared = (
+        proof_result.get("shared_run_compare")
+        if isinstance(proof_result.get("shared_run_compare"), dict)
+        else {}
+    )
+    drm = (
+        proof_result.get("drm_ownership")
+        if isinstance(proof_result.get("drm_ownership"), dict)
+        else {}
+    )
+    writer = (
+        proof_result.get("a90hud_intent_writer")
+        if isinstance(proof_result.get("a90hud_intent_writer"), dict)
+        else {}
+    )
+    consumption = (
+        proof_result.get("presenter_consumption")
+        if isinstance(proof_result.get("presenter_consumption"), dict)
+        else {}
+    )
+    final_health = (
+        proof_result.get("final_health")
+        if isinstance(proof_result.get("final_health"), dict)
+        else {}
+    )
+    return {
+        "state": DPUBLIC_HUD_PRESENTER_HANDOFF_STATE if handoff_proven else "SUPPLIED_NOT_PROVEN",
+        "decision": proof_result.get("decision"),
+        "proof_run_dir": proof_result.get("run_dir"),
+        "source_run_dir": proof_result.get("source_run_dir"),
+        "handoff_live_proven": handoff_proven,
+        "candidate_init_version": candidate.get("init_version"),
+        "candidate_init_build": candidate.get("init_build"),
+        "candidate_boot_sha256": candidate.get("boot_sha256"),
+        "checked_flash_used": bool(checked_flash.get("used_checked_helper")),
+        "checked_flash_sha_matched": bool(
+            checked_flash.get("local_sha_match")
+            and checked_flash.get("remote_sha_match")
+            and checked_flash.get("boot_readback_sha_match")
+        ),
+        "checked_flash_boot_health_clean": bool(
+            checked_flash.get("booted_v3401")
+            and checked_flash.get("boot_ok")
+            and checked_flash.get("selftest_fail_zero")
+            and checked_flash.get("transport_serial_ready")
+            and checked_flash.get("transport_tcpctl_ready")
+        ),
+        "presenter_pid": native.get("pid") or drm.get("presenter_pid"),
+        "native_shared_run_mounted": bool(
+            native.get("shared_run_marker")
+            and native.get("shared_run_tmpfs_mounted")
+            and native.get("status_drm_fd")
+        ),
+        "native_pre_handoff_sequence": native.get("pre_sequence"),
+        "native_pre_handoff_present_rc": native.get("pre_present_rc"),
+        "switch_root_exec_reached": bool(handoff.get("switch_root_exec_reached")),
+        "handoff_preserved_presenter": bool(handoff.get("presenter_preserved")),
+        "handoff_shared_run_bind_ok": bool(handoff.get("shared_run_bind_ok")),
+        "handoff_shared_run_same_dev": bool(handoff.get("shared_run_same_dev")),
+        "handoff_shared_run_same_ino": bool(handoff.get("shared_run_same_ino")),
+        "debian_pid1_init": bool(debian.get("pid1_comm_init")),
+        "debian_root_userdata_ext4": bool(debian.get("root_is_userdata_ext4")),
+        "debian_run_dir_root_a90hud_1770": bool(debian.get("run_dir_root_a90hud_1770")),
+        "shared_run_same_mount_after_handoff": bool(
+            shared.get("same_dev") and shared.get("same_ino") and shared.get("tmpfs")
+        ),
+        "presenter_sole_drm_owner_after_handoff": bool(
+            drm.get("sole_drm_owner_before") and drm.get("sole_drm_owner_after")
+        ),
+        "a90hud_writer_uid_gid_3904": bool(writer.get("uid_3904") and writer.get("gid_3904")),
+        "a90hud_writer_cap_eff_zero": bool(writer.get("cap_eff_zero")),
+        "a90hud_writer_no_drm_fd": bool(writer.get("no_drm_fd")),
+        "a90hud_writer_no_network_intent": bool(writer.get("no_network_intent")),
+        "debian_intent_sequence": writer.get("intent_sequence"),
+        "debian_intent_owner_a90hud": bool(writer.get("intent_owner_a90hud")),
+        "presenter_status_after_sequence": consumption.get("status_after_sequence"),
+        "presenter_status_after_present_rc": consumption.get("status_after_present_rc"),
+        "fresh_debian_intent_consumed": bool(consumption.get("fresh_debian_intent_consumed")),
+        "final_health_clean": bool(
+            final_health.get("v3401_resident")
+            and final_health.get("selftest_fail_zero")
+            and final_health.get("transport_serial_ready")
+            and final_health.get("transport_tcpctl_ready")
+        ),
+        "public_url_value_logged": False,
+        "secret_values_logged": 0,
+    }
+
+
 def compact_hud_presenter_model(
     model_result: dict[str, Any] | None,
     live_proof_result: dict[str, Any] | None,
+    handoff_proof_result: dict[str, Any] | None,
 ) -> dict[str, Any]:
     live_proof = compact_hud_presenter_live_proof(live_proof_result)
+    handoff_proof = compact_hud_presenter_handoff_proof(handoff_proof_result)
     if not model_result:
         return {
             "state": "NOT_SUPPLIED",
@@ -943,6 +1068,7 @@ def compact_hud_presenter_model(
             "scope": "not-supplied",
             "hud_live_proven": False,
             "live_proof": live_proof,
+            "handoff_proof": handoff_proof,
         }
 
     model = (
@@ -996,13 +1122,20 @@ def compact_hud_presenter_model(
     forbidden_fields = intent.get("forbidden_fields") if isinstance(intent.get("forbidden_fields"), list) else []
     exposure = model.get("default_exposure") if isinstance(model.get("default_exposure"), dict) else {}
     live_proven = bool(live_proof.get("native_presenter_live_proven"))
+    handoff_proven = bool(handoff_proof.get("handoff_live_proven"))
+    any_live_proven = live_proven or handoff_proven
     remaining_live_proofs = [
         "intent producer uid/gid/no-new-privs/cap-zero/no-drm/no-network",
         "presenter is sole DRM fd holder during HUD display",
         "presenter owns SETCRTC/PAGE_FLIP and releases DRM on cleanup",
         "intent parser rejects forbidden fields and stale updates",
     ]
-    if live_proven:
+    if handoff_proven:
+        remaining_live_proofs = [
+            "presenter cleanup/restart policy for long-running appliance mode",
+            "optional HUD syscall trace profile before seccomp enforcement",
+        ]
+    elif live_proven:
         remaining_live_proofs = [
             "durable native presenter service across Debian handoff",
             "fresh Debian-written intent consumed by native presenter during the same handoff",
@@ -1011,7 +1144,9 @@ def compact_hud_presenter_model(
         ]
     return {
         "state": (
-            DPUBLIC_HUD_PRESENTER_LIVE_STATE
+            DPUBLIC_HUD_PRESENTER_HANDOFF_STATE
+            if handoff_proven
+            else DPUBLIC_HUD_PRESENTER_LIVE_STATE
             if live_proven
             else DPUBLIC_HUD_PRESENTER_MODEL_STATE if model_defined else "SUPPLIED_NOT_PROVEN"
         ),
@@ -1019,9 +1154,11 @@ def compact_hud_presenter_model(
         "proof_run_dir": model_result.get("run_dir"),
         "scope": "dpublic-hud-presenter-model",
         "model_defined": model_defined,
-        "hud_live_proven": live_proven,
-        "native_presenter_live_proven": live_proven,
+        "hud_live_proven": any_live_proven,
+        "native_presenter_live_proven": any_live_proven,
+        "handoff_live_proven": handoff_proven,
         "live_proof": live_proof,
+        "handoff_proof": handoff_proof,
         "supersedes_wsta127_direct_kms": supersedes.get("direct_nonroot_kms") == "rejected-for-live-path",
         "wsta129_boundary": supersedes.get("wsta129_live_boundary"),
         "display_architecture": "split-intent-native-presenter",
@@ -1163,6 +1300,7 @@ def compact_hardening(
     hud_model_result: dict[str, Any] | None,
     hud_presenter_model_result: dict[str, Any] | None,
     hud_presenter_live_proof_result: dict[str, Any] | None,
+    hud_presenter_handoff_proof_result: dict[str, Any] | None,
 ) -> dict[str, Any]:
     packet_filter_proof = compact_packet_filter_proof(packet_filter_proof_result, packet_filter_control_summary)
     launcher_proof = compact_launcher_proof(launcher_proof_result)
@@ -1174,6 +1312,7 @@ def compact_hardening(
     hud_presenter_model = compact_hud_presenter_model(
         hud_presenter_model_result,
         hud_presenter_live_proof_result,
+        hud_presenter_handoff_proof_result,
     )
     if hud_presenter_model.get("model_defined"):
         hud_model["superseded_by_presenter_model"] = True
@@ -1270,6 +1409,7 @@ def build_server_status(
     hud_model_result: dict[str, Any] | None,
     hud_presenter_model_result: dict[str, Any] | None,
     hud_presenter_live_proof_result: dict[str, Any] | None,
+    hud_presenter_handoff_proof_result: dict[str, Any] | None,
 ) -> dict[str, Any]:
     status_hud = wsta88_result.get("status_hud") if isinstance(wsta88_result.get("status_hud"), dict) else {}
     if not status_hud:
@@ -1288,6 +1428,7 @@ def build_server_status(
         hud_model_result,
         hud_presenter_model_result,
         hud_presenter_live_proof_result,
+        hud_presenter_handoff_proof_result,
     )
     public_off = (status_hud.get("public_state") or "PUBLIC_OFF") == "PUBLIC_OFF"
     ready_default_off = public_off and bool(packet_filter.get("ready"))
@@ -1326,6 +1467,11 @@ def build_server_status(
         if isinstance(hud_presenter_model.get("live_proof"), dict)
         else {}
     )
+    hud_presenter_handoff = (
+        hud_presenter_model.get("handoff_proof")
+        if isinstance(hud_presenter_model.get("handoff_proof"), dict)
+        else {}
+    )
     hud_live_proven = bool(
         hud_model.get("hud_live_proven") or hud_presenter_model.get("hud_live_proven")
     )
@@ -1340,7 +1486,9 @@ def build_server_status(
         operator_next_actions.append("define-cloudflared-service-model-before-public-profile")
     elif not cloudflared_runtime.get("cloudflared_live_proven"):
         operator_next_actions.append("prove-cloudflared-runtime-through-launcher-before-public-profile")
-    if hud_presenter_model.get("native_presenter_live_proven"):
+    if hud_presenter_model.get("handoff_live_proven"):
+        operator_next_actions.append("continue-dpublic-service-integration-or-containment-hardening")
+    elif hud_presenter_model.get("native_presenter_live_proven"):
         operator_next_actions.append("design-durable-dpublic-hud-presenter-service-across-debian-handoff")
     elif hud_presenter_model.get("model_defined"):
         operator_next_actions.append("prototype-dpublic-hud-intent-presenter-boundary-before-live-hud-profile")
@@ -1447,6 +1595,11 @@ def markdown(server_status: dict[str, Any]) -> str:
         if isinstance(hud_presenter_model.get("live_proof"), dict)
         else {}
     )
+    hud_presenter_handoff = (
+        hud_presenter_model.get("handoff_proof")
+        if isinstance(hud_presenter_model.get("handoff_proof"), dict)
+        else {}
+    )
     hud_live_proven = bool(
         hud_model.get("hud_live_proven") or hud_presenter_model.get("hud_live_proven")
     )
@@ -1517,6 +1670,10 @@ def markdown(server_status: dict[str, Any]) -> str:
         f"- D-public HUD presenter checked flash: `{str(bool(hud_presenter_live.get('checked_flash_sha_matched') and hud_presenter_live.get('checked_flash_boot_health_clean'))).lower()}`",
         f"- D-public HUD presenter KMS present: `{str(bool(hud_presenter_live.get('present_done'))).lower()}`",
         f"- D-public HUD presenter reject paths: `{str(bool(hud_presenter_live.get('reject_forbidden_command') and hud_presenter_live.get('reject_stale_intent'))).lower()}`",
+        f"- D-public HUD handoff proof: `{str(bool(hud_presenter_model.get('handoff_live_proven'))).lower()}`",
+        f"- D-public HUD shared run bind: `{str(bool(hud_presenter_handoff.get('handoff_shared_run_bind_ok') and hud_presenter_handoff.get('shared_run_same_mount_after_handoff'))).lower()}`",
+        f"- D-public HUD Debian intent consumed: `{str(bool(hud_presenter_handoff.get('fresh_debian_intent_consumed'))).lower()}`",
+        f"- D-public HUD handoff sole DRM owner: `{str(bool(hud_presenter_handoff.get('presenter_sole_drm_owner_after_handoff'))).lower()}`",
         f"- Remaining launcher profiles: `{', '.join(launcher_proof.get('remaining_profiles') or [])}`",
         f"- Remaining syscall profiles: `{', '.join(syscall_trace_proof.get('remaining_profiles') or [])}`",
         "",
@@ -1792,6 +1949,28 @@ def run(args: argparse.Namespace) -> dict[str, Any]:
             write_json(out_json, result)
             return result
 
+    hud_presenter_handoff_proof_result: dict[str, Any] | None = None
+    if args.wsta144_hud_presenter_handoff_proof_json is not None:
+        hud_presenter_handoff_path, hud_presenter_handoff_error = require_private_file(
+            args.wsta144_hud_presenter_handoff_proof_json,
+            "wsta144-hud-presenter-handoff-proof",
+        )
+        if hud_presenter_handoff_error or hud_presenter_handoff_path is None:
+            result["decision"] = (
+                hud_presenter_handoff_error or "wsta108-blocked-wsta144-hud-presenter-handoff-proof"
+            )
+            result["gate_decision"] = result["decision"]
+            result["ended_utc"] = utc_stamp()
+            write_json(out_json, result)
+            return result
+        hud_presenter_handoff_proof_result = load_json(hud_presenter_handoff_path)
+        if hud_presenter_handoff_proof_result.get("decision") != wsta144.PASS_DECISION:
+            result["decision"] = "wsta108-blocked-wsta144-hud-presenter-handoff-proof-not-pass"
+            result["gate_decision"] = result["decision"]
+            result["ended_utc"] = utc_stamp()
+            write_json(out_json, result)
+            return result
+
     server_status = build_server_status(
         wsta88_result,
         hardening_result,
@@ -1805,6 +1984,7 @@ def run(args: argparse.Namespace) -> dict[str, Any]:
         hud_model_result,
         hud_presenter_model_result,
         hud_presenter_live_proof_result,
+        hud_presenter_handoff_proof_result,
     )
     packet_filter_proof = server_status["hardening"].get("packet_filter_proof", {})
     packet_filter_control_proof = (
@@ -1822,6 +2002,11 @@ def run(args: argparse.Namespace) -> dict[str, Any]:
     hud_presenter_live = (
         hud_presenter_model.get("live_proof")
         if isinstance(hud_presenter_model.get("live_proof"), dict)
+        else {}
+    )
+    hud_presenter_handoff = (
+        hud_presenter_model.get("handoff_proof")
+        if isinstance(hud_presenter_model.get("handoff_proof"), dict)
         else {}
     )
     result["server_status"] = server_status
@@ -1894,6 +2079,20 @@ def run(args: argparse.Namespace) -> dict[str, Any]:
         "hud_presenter_reject_paths_live_proven": bool(
             hud_presenter_live.get("reject_forbidden_command")
             and hud_presenter_live.get("reject_stale_intent")
+        ),
+        "hud_presenter_handoff_proof_supplied": hud_presenter_handoff_proof_result is not None,
+        "hud_presenter_handoff_live_proven": bool(
+            hud_presenter_model.get("handoff_live_proven")
+        ),
+        "hud_presenter_handoff_shared_run_bind_proven": bool(
+            hud_presenter_handoff.get("handoff_shared_run_bind_ok")
+            and hud_presenter_handoff.get("shared_run_same_mount_after_handoff")
+        ),
+        "hud_presenter_handoff_fresh_debian_intent_consumed": bool(
+            hud_presenter_handoff.get("fresh_debian_intent_consumed")
+        ),
+        "hud_presenter_handoff_sole_drm_owner": bool(
+            hud_presenter_handoff.get("presenter_sole_drm_owner_after_handoff")
         ),
         "hud_direct_nonroot_kms_rejected": bool(
             hud_presenter_model.get("supersedes_wsta127_direct_kms")
@@ -1990,6 +2189,15 @@ def run(args: argparse.Namespace) -> dict[str, Any]:
         result["ended_utc"] = utc_stamp()
         write_json(out_json, result)
         return result
+    if (
+        hud_presenter_handoff_proof_result is not None
+        and not result["checks"]["hud_presenter_handoff_live_proven"]
+    ):
+        result["decision"] = "wsta108-blocked-wsta144-hud-presenter-handoff-proof-incomplete"
+        result["gate_decision"] = result["decision"]
+        result["ended_utc"] = utc_stamp()
+        write_json(out_json, result)
+        return result
 
     result["decision"] = PASS_DECISION
     result["gate_decision"] = "ok"
@@ -2027,6 +2235,7 @@ def build_arg_parser() -> argparse.ArgumentParser:
     parser.add_argument("--wsta127-hud-model-json", type=Path)
     parser.add_argument("--wsta130-hud-presenter-model-json", type=Path)
     parser.add_argument("--wsta137-hud-presenter-live-proof-json", type=Path)
+    parser.add_argument("--wsta144-hud-presenter-handoff-proof-json", type=Path)
     parser.add_argument("--print-template", action="store_true")
     parser.add_argument("--print-full-json", action="store_true")
     return parser

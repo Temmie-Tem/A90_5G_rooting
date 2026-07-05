@@ -465,6 +465,103 @@ class ServerDistroWsta108OperatorServerStatusTests(unittest.TestCase):
         proof["checks"] = runner.wsta137.validate_proof(proof)
         return proof
 
+    def hud_presenter_handoff_proof(self) -> dict:
+        proof = {
+            "decision": runner.wsta144.PASS_DECISION,
+            "run_dir": "workspace/private/runs/server-distro/wsta144-dpublic-hud-shared-run-bind-test",
+            "source_run_dir": "workspace/private/runs/server-distro/wsta144-source-live-test",
+            "candidate": {
+                "init_version": runner.wsta144.INIT_VERSION,
+                "init_build": runner.wsta144.INIT_BUILD,
+                "boot_image": runner.wsta144.BOOT_IMAGE,
+                "boot_sha256": runner.wsta144.BOOT_SHA256,
+            },
+            "checked_flash": {
+                "used_checked_helper": True,
+                "local_sha_match": True,
+                "remote_sha_match": True,
+                "boot_readback_sha_match": True,
+                "booted_v3401": True,
+                "boot_ok": True,
+                "selftest_fail_zero": True,
+                "transport_serial_ready": True,
+                "transport_tcpctl_ready": True,
+            },
+            "native_presenter_pre_handoff": {
+                "pid": 625,
+                "shared_run_marker": True,
+                "shared_run_tmpfs_mounted": True,
+                "status_drm_fd": True,
+                "debian_direct_kms_zero": True,
+                "pre_sequence": runner.wsta144.PRE_HANDOFF_SEQUENCE,
+                "pre_present_rc": 0,
+            },
+            "handoff": {
+                "switch_root_exec_reached": True,
+                "presenter_preserved": True,
+                "stale_drm_owners_killed": True,
+                "shared_run_bind_ok": True,
+                "shared_run_same_dev": True,
+                "shared_run_same_ino": True,
+                "firstboot_intent_presented": True,
+            },
+            "debian": {
+                "ssh_ready": True,
+                "pid1_comm_init": True,
+                "proc1_exe_usr_sbin_init": True,
+                "debian_version": "12.14",
+                "root_is_userdata_ext4": True,
+                "run_dir_root_a90hud_1770": True,
+            },
+            "shared_run_compare": {
+                "same_dev": True,
+                "same_ino": True,
+                "tmpfs": True,
+                "root_a90hud_1770": True,
+            },
+            "drm_ownership": {
+                "presenter_alive": True,
+                "presenter_pid": 625,
+                "presenter_exe_deleted": True,
+                "presenter_has_card0_fd": True,
+                "drm_before_lines": ["DRMFD pid=625 user=root comm=init fd=3 target=/dev/dri/card0 (deleted)"],
+                "drm_after_lines": ["DRMFD pid=625 user=root comm=init fd=3 target=/dev/dri/card0 (deleted)"],
+                "sole_drm_owner_before": True,
+                "sole_drm_owner_after": True,
+            },
+            "a90hud_intent_writer": {
+                "identity": True,
+                "launcher_exec": True,
+                "no_network_intent": True,
+                "no_new_privs": True,
+                "uid_3904": True,
+                "gid_3904": True,
+                "cap_eff_zero": True,
+                "no_drm_fd": True,
+                "intent_written": True,
+                "intent_sequence": runner.wsta144.DEBIAN_SEQUENCE,
+                "intent_owner_a90hud": True,
+                "intent_schema": runner.wsta144.INTENT_SCHEMA,
+            },
+            "presenter_consumption": {
+                "status_before_sequence": 1,
+                "status_before_present_rc": 0,
+                "status_after_sequence": runner.wsta144.DEBIAN_SEQUENCE,
+                "status_after_present_rc": 0,
+                "fresh_debian_intent_consumed": True,
+            },
+            "final_health": {
+                "v3401_resident": True,
+                "selftest_fail_zero": True,
+                "transport_serial_ready": True,
+                "transport_tcpctl_ready": True,
+            },
+            "public_url_value_logged": False,
+            "secret_values_logged": 0,
+        }
+        proof["checks"] = runner.wsta144.validate_proof(proof)
+        return proof
+
     def valid_args(self, root: Path, wsta88_json: Path, *extra: str):
         return runner.build_arg_parser().parse_args([
             "--run-dir",
@@ -1085,6 +1182,76 @@ class ServerDistroWsta108OperatorServerStatusTests(unittest.TestCase):
         self.assertNotIn("http://", markdown)
         self.assertNotIn("https://", markdown)
 
+    def test_valid_wsta144_hud_presenter_handoff_proof_updates_operator_status(self) -> None:
+        with self.private_tmp() as tmp:
+            root = Path(tmp)
+            self.assertEqual(wsta88.run(self.wsta88_args(root))["decision"], wsta88.PREFLIGHT_DECISION)
+            manifest_path = root / "inputs" / "wsta90_service_hardening_manifest.json"
+            hud_path = root / "inputs" / "wsta127_dpublic_hud_service_model.json"
+            presenter_path = root / "inputs" / "wsta130_dpublic_hud_presenter_model.json"
+            live_path = root / "inputs" / "wsta137_dpublic_native_presenter_live.json"
+            handoff_path = root / "inputs" / "wsta144_dpublic_hud_shared_run_bind_live.json"
+            self.write_json(manifest_path, self.hardening_manifest())
+            self.write_json(hud_path, self.hud_model_proof())
+            self.write_json(presenter_path, self.hud_presenter_model_proof())
+            self.write_json(live_path, self.hud_presenter_live_proof())
+            self.write_json(handoff_path, self.hud_presenter_handoff_proof())
+            result = runner.run(self.valid_args(
+                root,
+                root / "wsta88" / "wsta88_operator_workflow.json",
+                "--wsta90-service-hardening-manifest-json",
+                str(manifest_path),
+                "--wsta127-hud-model-json",
+                str(hud_path),
+                "--wsta130-hud-presenter-model-json",
+                str(presenter_path),
+                "--wsta137-hud-presenter-live-proof-json",
+                str(live_path),
+                "--wsta144-hud-presenter-handoff-proof-json",
+                str(handoff_path),
+            ))
+            markdown = (root / "wsta108" / "wsta108_operator_server_status.md").read_text(encoding="utf-8")
+            summary_text = json.dumps(runner.public_summary(result), sort_keys=True)
+
+        self.assertEqual(result["decision"], runner.PASS_DECISION)
+        presenter = result["server_status"]["hardening"]["hud_presenter_model"]
+        handoff = presenter["handoff_proof"]
+        self.assertEqual(presenter["state"], "DPUBLIC_HUD_DURABLE_PRESENTER_HANDOFF_LIVE_PROVEN")
+        self.assertTrue(presenter["handoff_live_proven"])
+        self.assertTrue(presenter["hud_live_proven"])
+        self.assertTrue(presenter["native_presenter_live_proven"])
+        self.assertTrue(handoff["handoff_live_proven"])
+        self.assertTrue(handoff["checked_flash_sha_matched"])
+        self.assertTrue(handoff["checked_flash_boot_health_clean"])
+        self.assertTrue(handoff["native_shared_run_mounted"])
+        self.assertTrue(handoff["handoff_shared_run_bind_ok"])
+        self.assertTrue(handoff["shared_run_same_mount_after_handoff"])
+        self.assertTrue(handoff["presenter_sole_drm_owner_after_handoff"])
+        self.assertTrue(handoff["a90hud_writer_no_drm_fd"])
+        self.assertEqual(handoff["debian_intent_sequence"], runner.wsta144.DEBIAN_SEQUENCE)
+        self.assertTrue(handoff["fresh_debian_intent_consumed"])
+        self.assertTrue(result["checks"]["hud_presenter_handoff_proof_supplied"])
+        self.assertTrue(result["checks"]["hud_presenter_handoff_live_proven"])
+        self.assertTrue(result["checks"]["hud_presenter_handoff_shared_run_bind_proven"])
+        self.assertTrue(result["checks"]["hud_presenter_handoff_fresh_debian_intent_consumed"])
+        self.assertTrue(result["checks"]["hud_presenter_handoff_sole_drm_owner"])
+        self.assertIn(
+            "continue-dpublic-service-integration-or-containment-hardening",
+            result["server_status"]["operator_next_actions"],
+        )
+        self.assertNotIn(
+            "design-durable-dpublic-hud-presenter-service-across-debian-handoff",
+            result["server_status"]["operator_next_actions"],
+        )
+        self.assertIn("D-public HUD handoff proof: `true`", markdown)
+        self.assertIn("D-public HUD shared run bind: `true`", markdown)
+        self.assertIn("D-public HUD Debian intent consumed: `true`", markdown)
+        self.assertIn("D-public HUD handoff sole DRM owner: `true`", markdown)
+        self.assertNotIn("http://", summary_text)
+        self.assertNotIn("https://", summary_text)
+        self.assertNotIn("http://", markdown)
+        self.assertNotIn("https://", markdown)
+
     def test_wsta120_and_smoke_launcher_proofs_refine_shared_user_group_blocker(self) -> None:
         with self.private_tmp() as tmp:
             root = Path(tmp)
@@ -1485,6 +1652,26 @@ class ServerDistroWsta108OperatorServerStatusTests(unittest.TestCase):
         self.assertFalse(result["checks"]["hud_native_presenter_live_proven"])
         self.assertFalse(result["checks"]["hud_presenter_present_live_proven"])
 
+    def test_incomplete_wsta144_hud_presenter_handoff_proof_blocks_even_with_pass_decision(self) -> None:
+        with self.private_tmp() as tmp:
+            root = Path(tmp)
+            self.assertEqual(wsta88.run(self.wsta88_args(root))["decision"], wsta88.PREFLIGHT_DECISION)
+            handoff_path = root / "inputs" / "wsta144_dpublic_hud_shared_run_bind_live.json"
+            proof = self.hud_presenter_handoff_proof()
+            proof["presenter_consumption"]["fresh_debian_intent_consumed"] = False
+            proof["checks"] = runner.wsta144.validate_proof(proof)
+            self.write_json(handoff_path, proof)
+            result = runner.run(self.valid_args(
+                root,
+                root / "wsta88" / "wsta88_operator_workflow.json",
+                "--wsta144-hud-presenter-handoff-proof-json",
+                str(handoff_path),
+            ))
+
+        self.assertEqual(result["decision"], "wsta108-blocked-wsta144-hud-presenter-handoff-proof-incomplete")
+        self.assertFalse(result["checks"]["hud_presenter_handoff_live_proven"])
+        self.assertFalse(result["checks"]["hud_presenter_handoff_fresh_debian_intent_consumed"])
+
     def test_public_summary_markdown_and_template_are_redacted(self) -> None:
         with self.private_tmp() as tmp:
             root = Path(tmp)
@@ -1543,10 +1730,13 @@ class ServerDistroWsta108OperatorServerStatusTests(unittest.TestCase):
         self.assertIn("DPUBLIC_HUD_SERVICE_MODEL_SOURCE_DEFINED", source)
         self.assertIn("DPUBLIC_HUD_PRESENTER_MODEL_SOURCE_DEFINED", source)
         self.assertIn("DPUBLIC_HUD_NATIVE_PRESENTER_LIVE_PROVEN", source)
+        self.assertIn("DPUBLIC_HUD_DURABLE_PRESENTER_HANDOFF_LIVE_PROVEN", source)
         self.assertIn("split-intent-native-presenter", source)
         self.assertIn("prototype-dpublic-hud-intent-presenter-boundary-before-live-hud-profile", source)
         self.assertIn("design-durable-dpublic-hud-presenter-service-across-debian-handoff", source)
+        self.assertIn("continue-dpublic-service-integration-or-containment-hardening", source)
         self.assertIn("--wsta137-hud-presenter-live-proof-json", source)
+        self.assertIn("--wsta144-hud-presenter-handoff-proof-json", source)
         self.assertIn('"boot_flash": False', source)
         self.assertIn('"public_url_value_logged": False', source)
         self.assertNotIn("native_init_flash.py", source)
