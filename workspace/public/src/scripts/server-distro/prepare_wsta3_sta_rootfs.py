@@ -66,6 +66,16 @@ DEFAULT_SECCOMP_FILTER_OBJECT = (
     / "workspace/private/runs/server-distro/wsta156-seccomp-nonloaded-filter-artifact-20260705T1227KST"
     / "wsta156_seccomp_filters.o"
 )
+DEFAULT_SECCOMP_LOADER_HELPER_MANIFEST = (
+    REPO_ROOT
+    / "workspace/private/runs/server-distro/wsta158-seccomp-loader-checkonly-helper-20260705T1243KST"
+    / "wsta158_seccomp_loader_helper_manifest.json"
+)
+DEFAULT_SECCOMP_LOADER_HELPER = (
+    REPO_ROOT
+    / "workspace/private/runs/server-distro/wsta158-seccomp-loader-checkonly-helper-20260705T1243KST"
+    / "a90-seccomp-loader-checkonly"
+)
 DEFAULT_SUITE = "bookworm"
 DEFAULT_ARCH = "arm64"
 DEFAULT_MIRROR = "http://deb.debian.org/debian"
@@ -85,6 +95,8 @@ TARGET_SECCOMP_POLICY = Path("etc/a90-dpublic/seccomp-policy.json")
 TARGET_SECCOMP_LAUNCHER_MAP = Path("etc/a90-dpublic/seccomp-launcher-map.env")
 TARGET_SECCOMP_FILTER_MANIFEST = Path("etc/a90-dpublic/seccomp-filter-manifest.json")
 TARGET_SECCOMP_FILTER_OBJECT = Path("usr/lib/a90-dpublic/seccomp/wsta156_seccomp_filters.o")
+TARGET_SECCOMP_LOADER_HELPER_MANIFEST = Path("etc/a90-dpublic/seccomp-loader-helper-manifest.json")
+TARGET_SECCOMP_LOADER_HELPER = Path("usr/lib/a90-dpublic/seccomp/a90-seccomp-loader-checkonly")
 TARGET_HUD_INTENT = Path("usr/local/bin/a90-dpublic-hud-intent")
 TARGET_HUD_PRESENTER = Path("usr/local/bin/a90-dpublic-hud-presenter")
 TARGET_FIRSTBOOT = Path("etc/a90-d3-firstboot")
@@ -209,6 +221,7 @@ SERVICE_HARDENING_STAGE_MARKERS = (
     "service-seccomp-filter-load=disabled",
     "service-seccomp-filter-manifest=/etc/a90-dpublic/seccomp-filter-manifest.json",
     "service-seccomp-enforce-default=off",
+    "service-seccomp-loader-helper=/usr/lib/a90-dpublic/seccomp/a90-seccomp-loader-checkonly",
 )
 HUD_SPLIT_STAGE_MARKERS = (
     "hud-split-intent-producer=/usr/local/bin/a90-dpublic-hud-intent",
@@ -1033,6 +1046,8 @@ seccomp_dry_run_gate() {{
   map_path="${{A90_SERVICE_LAUNCH_SECCOMP_MAP:-/etc/a90-dpublic/seccomp-launcher-map.env}}"
   filter_manifest_path="${{A90_SERVICE_LAUNCH_SECCOMP_FILTER_MANIFEST:-/etc/a90-dpublic/seccomp-filter-manifest.json}}"
   filter_object_path="${{A90_SERVICE_LAUNCH_SECCOMP_FILTER_OBJECT:-/usr/lib/a90-dpublic/seccomp/wsta156_seccomp_filters.o}}"
+  loader_helper_path="${{A90_SERVICE_LAUNCH_SECCOMP_LOADER_HELPER:-/usr/lib/a90-dpublic/seccomp/a90-seccomp-loader-checkonly}}"
+  loader_helper_check_only="${{A90_SERVICE_LAUNCH_SECCOMP_HELPER_CHECK_ONLY:-1}}"
   enforce_flag="${{A90_SERVICE_LAUNCH_SECCOMP_ENFORCE:-0}}"
   if [ ! -r "$policy_path" ]; then
     echo "a90_service_launcher_decision=blocked-seccomp-policy-missing"
@@ -1077,7 +1092,25 @@ seccomp_dry_run_gate() {{
     echo "A90WSTA157_SECCOMP_ARTIFACT_PRESENT=0"
   fi
   echo "A90WSTA157_SECCOMP_ENFORCE_FLAG=$enforce_flag"
+  if [ -x "$loader_helper_path" ]; then
+    echo "A90WSTA159_SECCOMP_HELPER_PRESENT=1"
+  else
+    echo "A90WSTA159_SECCOMP_HELPER_PRESENT=0"
+  fi
+  echo "A90WSTA159_SECCOMP_HELPER_CHECK_ONLY=$loader_helper_check_only"
   if [ "$enforce_flag" = "1" ]; then
+    if [ "$loader_helper_check_only" != "1" ]; then
+      echo "a90_service_launcher_decision=blocked-seccomp-helper-check-only-required"
+      exit 65
+    fi
+    if [ -x "$loader_helper_path" ]; then
+      if "$loader_helper_path" --service "$SERVICE" --check-only; then
+        echo "A90WSTA159_SECCOMP_HELPER_CHECK_ONLY_OK=1"
+      else
+        echo "a90_service_launcher_decision=blocked-seccomp-helper-check-failed"
+        exit 65
+      fi
+    fi
     echo "a90_service_launcher_decision=blocked-seccomp-enforce-unimplemented"
     exit 65
   fi
@@ -1130,6 +1163,9 @@ def stage_no_new_privs_launcher(rootfs: Path) -> dict[str, Any]:
         "seccomp_filter_load_disabled_marker_present": "A90WSTA154_SECCOMP_FILTER_LOAD=0" in text,
         "seccomp_artifact_present_marker_present": "A90WSTA157_SECCOMP_ARTIFACT_PRESENT" in text,
         "seccomp_enforce_unimplemented_blocks": "blocked-seccomp-enforce-unimplemented" in text,
+        "seccomp_loader_helper_marker_present": "A90WSTA159_SECCOMP_HELPER_PRESENT" in text,
+        "seccomp_helper_check_only_marker_present": "A90WSTA159_SECCOMP_HELPER_CHECK_ONLY" in text,
+        "seccomp_helper_check_call_present": "--service \"$SERVICE\" --check-only" in text,
         "unknown_service_blocks": "blocked-unknown-service" in text,
         "command_required_blocks": "blocked-command-required" in text,
         "service_count": len(SERVICE_IDENTITIES),
@@ -1164,11 +1200,14 @@ def stage_service_hardening_policy(rootfs: Path) -> dict[str, Any]:
             "launcher_map": str(TARGET_SECCOMP_LAUNCHER_MAP),
             "filter_manifest": str(TARGET_SECCOMP_FILTER_MANIFEST),
             "filter_object": str(TARGET_SECCOMP_FILTER_OBJECT),
+            "loader_helper_manifest": str(TARGET_SECCOMP_LOADER_HELPER_MANIFEST),
+            "loader_helper": str(TARGET_SECCOMP_LOADER_HELPER),
             "mode": "dry-run-before-filter-load",
             "filter_load_enabled": False,
             "enforced": False,
             "enforce_flag": "A90_SERVICE_LAUNCH_SECCOMP_ENFORCE=1",
             "enforce_default": False,
+            "loader_helper_check_only_default": True,
         },
         "services": services,
         "root_boundary_services": list(ROOT_BOUNDARY_SERVICES),
@@ -1421,6 +1460,96 @@ def stage_seccomp_filter_artifact(rootfs: Path,
     }
 
 
+def validate_seccomp_loader_helper_manifest(manifest: dict[str, Any], helper_path: Path) -> dict[str, bool]:
+    expected_sha = manifest.get("helper_sha256")
+    return {
+        "schema_ok": manifest.get("schema") == "a90-wsta158-seccomp-loader-checkonly-helper-v1",
+        "state_checkonly_linked": manifest.get("state") == "SECCOMP_LOADER_HELPER_CHECK_ONLY_LINKED",
+        "default_check_only": manifest.get("default_mode") == "check-only",
+        "load_disabled": manifest.get("load_enabled") is False,
+        "enforced_false": manifest.get("enforced") is False,
+        "helper_present": helper_path.is_file(),
+        "helper_sha_matches_manifest": (
+            helper_path.is_file()
+            and isinstance(expected_sha, str)
+            and sha256_file(helper_path) == expected_sha
+        ),
+        "helper_manifest_says_aarch64_static": "ELF 64-bit LSB executable, ARM aarch64" in str(
+            manifest.get("helper_file")
+        )
+        and "statically linked" in str(manifest.get("helper_file")),
+        "redaction_clean": manifest.get("redaction", {}).get("public_url_value_logged") is False
+        and manifest.get("redaction", {}).get("secret_values_logged") == 0,
+    }
+
+
+def stage_seccomp_loader_helper(rootfs: Path,
+                                manifest_source: Path | None,
+                                helper_source: Path | None,
+                                *,
+                                require: bool = False) -> dict[str, Any]:
+    if (
+        manifest_source is None
+        or helper_source is None
+        or not manifest_source.is_file()
+        or not helper_source.is_file()
+    ):
+        return {
+            "staged": False,
+            "required": require,
+            "reason": "seccomp-loader-helper-missing",
+            "manifest_target": str(TARGET_SECCOMP_LOADER_HELPER_MANIFEST),
+            "helper_target": str(TARGET_SECCOMP_LOADER_HELPER),
+            "check_only": True,
+            "filter_load_enabled": False,
+            "seccomp_enforced": False,
+            "secret_values_logged": 0,
+        }
+    manifest = load_json_object(manifest_source)
+    checks = validate_seccomp_loader_helper_manifest(manifest, helper_source)
+    if not all(checks.values()):
+        if require:
+            raise ValueError(f"invalid seccomp loader helper: {checks}")
+        return {
+            "staged": False,
+            "required": require,
+            "reason": "seccomp-loader-helper-invalid",
+            "checks": checks,
+            "check_only": True,
+            "filter_load_enabled": False,
+            "seccomp_enforced": False,
+            "secret_values_logged": 0,
+        }
+    manifest_target = rootfs / TARGET_SECCOMP_LOADER_HELPER_MANIFEST
+    helper_target = rootfs / TARGET_SECCOMP_LOADER_HELPER
+    write_json(manifest_target, manifest)
+    manifest_target.chmod(0o644)
+    helper_target.parent.mkdir(parents=True, exist_ok=True)
+    shutil.copy2(helper_source, helper_target)
+    helper_target.chmod(0o755)
+    return {
+        "staged": True,
+        "required": require,
+        "manifest_source": rel(manifest_source),
+        "helper_source": rel(helper_source),
+        "manifest_target": str(TARGET_SECCOMP_LOADER_HELPER_MANIFEST),
+        "manifest_mode": oct(manifest_target.stat().st_mode & 0o777),
+        "helper_target": str(TARGET_SECCOMP_LOADER_HELPER),
+        "helper_mode": oct(helper_target.stat().st_mode & 0o777),
+        "helper_sha256": sha256_file(helper_target),
+        "check_only": True,
+        "filter_load_enabled": False,
+        "seccomp_filter_loaded": False,
+        "seccomp_enforced": False,
+        "checks": checks,
+        "dry_run_markers": [
+            "A90WSTA159_SECCOMP_HELPER_PRESENT=1",
+            "A90WSTA159_SECCOMP_HELPER_CHECK_ONLY=1",
+        ],
+        "secret_values_logged": 0,
+    }
+
+
 def stage_service_hardening_stage_marker(rootfs: Path) -> dict[str, Any]:
     marker = rootfs / TARGET_STAGE_MARKER
     marker.parent.mkdir(parents=True, exist_ok=True)
@@ -1446,6 +1575,7 @@ def stage_service_hardening_stage_marker(rootfs: Path) -> dict[str, Any]:
         "seccomp_filter_disabled_marker_present": SERVICE_HARDENING_STAGE_MARKERS[7] in lines,
         "seccomp_filter_manifest_marker_present": SERVICE_HARDENING_STAGE_MARKERS[8] in lines,
         "seccomp_enforce_default_off_marker_present": SERVICE_HARDENING_STAGE_MARKERS[9] in lines,
+        "seccomp_loader_helper_marker_present": SERVICE_HARDENING_STAGE_MARKERS[10] in lines,
         "secret_values_logged": 0,
     }
 
@@ -1683,6 +1813,19 @@ def prepare(args: argparse.Namespace) -> dict[str, Any]:
         })
         write_json(run_dir / "summary.json", result)
         return result
+    result["seccomp_loader_helper"] = stage_seccomp_loader_helper(
+        target_rootfs,
+        getattr(args, "seccomp_loader_helper_manifest", None),
+        getattr(args, "seccomp_loader_helper", None),
+        require=bool(getattr(args, "require_seccomp_loader_helper", False)),
+    )
+    if getattr(args, "require_seccomp_loader_helper", False) and not result["seccomp_loader_helper"].get("staged"):
+        result.update({
+            "ok": False,
+            "decision": "wsta3-private-rootfs-blocked-seccomp-loader-helper-missing",
+        })
+        write_json(run_dir / "summary.json", result)
+        return result
     result["service_hardening_stage_marker"] = stage_service_hardening_stage_marker(target_rootfs)
     result["hud_split_stage_marker"] = stage_hud_split_stage_marker(target_rootfs)
     if args.immediate_snapshot_only:
@@ -1749,6 +1892,9 @@ def build_arg_parser() -> argparse.ArgumentParser:
     parser.add_argument("--seccomp-filter-manifest", type=Path, default=DEFAULT_SECCOMP_FILTER_MANIFEST)
     parser.add_argument("--seccomp-filter-object", type=Path, default=DEFAULT_SECCOMP_FILTER_OBJECT)
     parser.add_argument("--require-seccomp-filter-artifact", action="store_true")
+    parser.add_argument("--seccomp-loader-helper-manifest", type=Path, default=DEFAULT_SECCOMP_LOADER_HELPER_MANIFEST)
+    parser.add_argument("--seccomp-loader-helper", type=Path, default=DEFAULT_SECCOMP_LOADER_HELPER)
+    parser.add_argument("--require-seccomp-loader-helper", action="store_true")
     return parser
 
 
@@ -1766,6 +1912,8 @@ def main(argv: list[str] | None = None) -> int:
     args.seccomp_policy_source = args.seccomp_policy_source.resolve()
     args.seccomp_filter_manifest = args.seccomp_filter_manifest.resolve()
     args.seccomp_filter_object = args.seccomp_filter_object.resolve()
+    args.seccomp_loader_helper_manifest = args.seccomp_loader_helper_manifest.resolve()
+    args.seccomp_loader_helper = args.seccomp_loader_helper.resolve()
     if args.wpa_conf:
         args.wpa_conf = args.wpa_conf.resolve()
     try:

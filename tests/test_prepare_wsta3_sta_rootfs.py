@@ -50,6 +50,9 @@ def make_args(tmp: Path, **overrides) -> argparse.Namespace:
         "seccomp_filter_manifest": tmp / "wsta156_seccomp_filter_manifest.json",
         "seccomp_filter_object": tmp / "wsta156_seccomp_filters.o",
         "require_seccomp_filter_artifact": False,
+        "seccomp_loader_helper_manifest": tmp / "wsta158_seccomp_loader_helper_manifest.json",
+        "seccomp_loader_helper": tmp / "a90-seccomp-loader-checkonly",
+        "require_seccomp_loader_helper": False,
     }
     defaults.update(overrides)
     return argparse.Namespace(**defaults)
@@ -172,6 +175,38 @@ def write_seccomp_filter_artifact(rootfs: Path) -> tuple[Path, Path]:
     manifest_path = rootfs / "inputs" / "wsta156_seccomp_filter_manifest.json"
     write_private(manifest_path, json.dumps(manifest), mode=0o600)
     return manifest_path, object_path
+
+
+def write_seccomp_loader_helper(rootfs: Path, *, exit_code: int = 0) -> tuple[Path, Path]:
+    helper_path = rootfs / "inputs" / "a90-seccomp-loader-checkonly"
+    helper_path.parent.mkdir(parents=True, exist_ok=True)
+    helper_path.write_text(
+        "#!/bin/sh\n"
+        "echo \"fake_seccomp_helper_args=$*\"\n"
+        "echo \"A90WSTA158_LOADER_CHECK_ONLY=1\"\n"
+        "echo \"A90WSTA158_SECCOMP_LOAD=0\"\n"
+        "echo \"a90_seccomp_loader_decision=check-only\"\n"
+        f"exit {exit_code}\n",
+        encoding="utf-8",
+    )
+    helper_path.chmod(0o755)
+    helper_sha = hashlib.sha256(helper_path.read_bytes()).hexdigest()
+    manifest = {
+        "schema": "a90-wsta158-seccomp-loader-checkonly-helper-v1",
+        "state": "SECCOMP_LOADER_HELPER_CHECK_ONLY_LINKED",
+        "helper_sha256": helper_sha,
+        "helper_file": "ELF 64-bit LSB executable, ARM aarch64, statically linked",
+        "default_mode": "check-only",
+        "load_enabled": False,
+        "enforced": False,
+        "redaction": {
+            "public_url_value_logged": False,
+            "secret_values_logged": 0,
+        },
+    }
+    manifest_path = rootfs / "inputs" / "wsta158_seccomp_loader_helper_manifest.json"
+    write_private(manifest_path, json.dumps(manifest), mode=0o600)
+    return manifest_path, helper_path
 
 
 class PrepareWsta3PrivateRootfsTests(unittest.TestCase):
@@ -707,6 +742,7 @@ class PrepareWsta3PrivateRootfsTests(unittest.TestCase):
             seccomp_source = rootfs / "inputs" / "wsta153_seccomp_policy.json"
             write_private(seccomp_source, json.dumps(seccomp_policy_source()), mode=0o600)
             filter_manifest, filter_object = write_seccomp_filter_artifact(rootfs)
+            helper_manifest, helper_binary = write_seccomp_loader_helper(rootfs)
 
             launcher = wsta3.stage_no_new_privs_launcher(rootfs)
             policy = wsta3.stage_service_hardening_policy(rootfs)
@@ -717,6 +753,7 @@ class PrepareWsta3PrivateRootfsTests(unittest.TestCase):
                 filter_object,
                 require=True,
             )
+            loader_helper = wsta3.stage_seccomp_loader_helper(rootfs, helper_manifest, helper_binary, require=True)
             marker = wsta3.stage_service_hardening_stage_marker(rootfs)
 
             launcher_path = rootfs / wsta3.TARGET_SERVICE_LAUNCHER
@@ -734,6 +771,9 @@ class PrepareWsta3PrivateRootfsTests(unittest.TestCase):
             self.assertTrue(launcher["seccomp_filter_load_disabled_marker_present"])
             self.assertTrue(launcher["seccomp_artifact_present_marker_present"])
             self.assertTrue(launcher["seccomp_enforce_unimplemented_blocks"])
+            self.assertTrue(launcher["seccomp_loader_helper_marker_present"])
+            self.assertTrue(launcher["seccomp_helper_check_only_marker_present"])
+            self.assertTrue(launcher["seccomp_helper_check_call_present"])
             self.assertTrue(launcher["unknown_service_blocks"])
             self.assertTrue(launcher["command_required_blocks"])
             self.assertIn("exec setpriv --no-new-privs", launcher_text)
@@ -741,6 +781,8 @@ class PrepareWsta3PrivateRootfsTests(unittest.TestCase):
             self.assertIn("blocked-seccomp-policy-missing", launcher_text)
             self.assertIn("A90WSTA154_SECCOMP_DRY_RUN_ONLY=1", launcher_text)
             self.assertIn("A90WSTA154_SECCOMP_FILTER_LOAD=0", launcher_text)
+            self.assertIn("A90WSTA159_SECCOMP_HELPER_PRESENT", launcher_text)
+            self.assertIn("A90WSTA159_SECCOMP_HELPER_CHECK_ONLY", launcher_text)
             self.assertIn("dpublic-smoke-httpd)", launcher_text)
             self.assertIn("A90_USER=a90www", launcher_text)
             self.assertIn("cloudflared-quick-tunnel)", launcher_text)
@@ -760,6 +802,8 @@ class PrepareWsta3PrivateRootfsTests(unittest.TestCase):
             self.assertEqual(policy_payload["seccomp"]["mode"], "dry-run-before-filter-load")
             self.assertFalse(policy_payload["seccomp"]["filter_load_enabled"])
             self.assertEqual(policy_payload["seccomp"]["filter_manifest"], str(wsta3.TARGET_SECCOMP_FILTER_MANIFEST))
+            self.assertEqual(policy_payload["seccomp"]["loader_helper"], str(wsta3.TARGET_SECCOMP_LOADER_HELPER))
+            self.assertTrue(policy_payload["seccomp"]["loader_helper_check_only_default"])
             self.assertFalse(policy_payload["seccomp"]["enforce_default"])
             self.assertTrue(seccomp["staged"])
             self.assertTrue(seccomp["hud_maps_to_intent"])
@@ -772,6 +816,11 @@ class PrepareWsta3PrivateRootfsTests(unittest.TestCase):
             self.assertFalse(filter_artifact["seccomp_enforced"])
             self.assertEqual(filter_payload["state"], "SECCOMP_FILTER_ARTIFACT_COMPILED_NOT_LOADED")
             self.assertTrue((rootfs / wsta3.TARGET_SECCOMP_FILTER_OBJECT).is_file())
+            self.assertTrue(loader_helper["staged"])
+            self.assertTrue(loader_helper["check_only"])
+            self.assertFalse(loader_helper["filter_load_enabled"])
+            self.assertFalse(loader_helper["seccomp_enforced"])
+            self.assertEqual((rootfs / wsta3.TARGET_SECCOMP_LOADER_HELPER).stat().st_mode & 0o777, 0o755)
             self.assertTrue(marker["users_marker_present"])
             self.assertTrue(marker["no_new_privs_marker_present"])
             self.assertTrue(marker["public_default_off_marker"])
@@ -780,9 +829,11 @@ class PrepareWsta3PrivateRootfsTests(unittest.TestCase):
             self.assertTrue(marker["seccomp_filter_disabled_marker_present"])
             self.assertTrue(marker["seccomp_filter_manifest_marker_present"])
             self.assertTrue(marker["seccomp_enforce_default_off_marker_present"])
+            self.assertTrue(marker["seccomp_loader_helper_marker_present"])
             self.assertIn("service-hardening-no-new-privs=setpriv-required", marker_text)
             self.assertIn("service-seccomp-filter-load=disabled", marker_text)
             self.assertIn("service-seccomp-enforce-default=off", marker_text)
+            self.assertIn("service-seccomp-loader-helper=/usr/lib/a90-dpublic/seccomp/a90-seccomp-loader-checkonly", marker_text)
 
     def test_service_launcher_seccomp_dry_run_markers_are_observable_before_exec(self) -> None:
         with tempfile.TemporaryDirectory() as tmp:
@@ -828,6 +879,8 @@ class PrepareWsta3PrivateRootfsTests(unittest.TestCase):
         self.assertIn("A90WSTA154_SECCOMP_ALLOWLIST_COUNT=5", proc.stdout)
         self.assertIn("A90WSTA157_SECCOMP_ARTIFACT_PRESENT=1", proc.stdout)
         self.assertIn("A90WSTA157_SECCOMP_ENFORCE_FLAG=0", proc.stdout)
+        self.assertIn("A90WSTA159_SECCOMP_HELPER_PRESENT=0", proc.stdout)
+        self.assertIn("A90WSTA159_SECCOMP_HELPER_CHECK_ONLY=1", proc.stdout)
         self.assertIn("a90_service_launcher_decision=exec", proc.stdout)
         self.assertIn("fake_setpriv_args=--no-new-privs --reuid a90hud --regid a90hud", proc.stdout)
 
@@ -864,6 +917,50 @@ class PrepareWsta3PrivateRootfsTests(unittest.TestCase):
         self.assertEqual(proc.returncode, 65)
         self.assertIn("A90WSTA157_SECCOMP_ARTIFACT_PRESENT=1", proc.stdout)
         self.assertIn("A90WSTA157_SECCOMP_ENFORCE_FLAG=1", proc.stdout)
+        self.assertIn("A90WSTA159_SECCOMP_HELPER_PRESENT=0", proc.stdout)
+        self.assertIn("A90WSTA159_SECCOMP_HELPER_CHECK_ONLY=1", proc.stdout)
+        self.assertIn("a90_service_launcher_decision=blocked-seccomp-enforce-unimplemented", proc.stdout)
+        self.assertNotIn("should-not-exec", proc.stdout)
+
+    def test_service_launcher_seccomp_enforce_calls_checkonly_helper_before_block(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            rootfs = Path(tmp)
+            seccomp_source = rootfs / "inputs" / "wsta153_seccomp_policy.json"
+            write_private(seccomp_source, json.dumps(seccomp_policy_source()), mode=0o600)
+            filter_manifest, filter_object = write_seccomp_filter_artifact(rootfs)
+            helper_manifest, helper_binary = write_seccomp_loader_helper(rootfs)
+            wsta3.stage_no_new_privs_launcher(rootfs)
+            wsta3.stage_seccomp_launcher_policy(rootfs, seccomp_source, require=True)
+            wsta3.stage_seccomp_filter_artifact(rootfs, filter_manifest, filter_object, require=True)
+            wsta3.stage_seccomp_loader_helper(rootfs, helper_manifest, helper_binary, require=True)
+            fakebin = rootfs / "fakebin"
+            fakebin.mkdir()
+            fake_setpriv = fakebin / "setpriv"
+            fake_setpriv.write_text("#!/bin/sh\necho should-not-exec\nexit 99\n", encoding="utf-8")
+            fake_setpriv.chmod(0o755)
+            env = os.environ.copy()
+            env["PATH"] = f"{fakebin}:{env.get('PATH', '')}"
+            env["A90_SERVICE_LAUNCH_SECCOMP_DRY_RUN"] = "1"
+            env["A90_SERVICE_LAUNCH_SECCOMP_ENFORCE"] = "1"
+            env["A90_SERVICE_LAUNCH_SECCOMP_POLICY"] = str(rootfs / wsta3.TARGET_SECCOMP_POLICY)
+            env["A90_SERVICE_LAUNCH_SECCOMP_MAP"] = str(rootfs / wsta3.TARGET_SECCOMP_LAUNCHER_MAP)
+            env["A90_SERVICE_LAUNCH_SECCOMP_FILTER_MANIFEST"] = str(rootfs / wsta3.TARGET_SECCOMP_FILTER_MANIFEST)
+            env["A90_SERVICE_LAUNCH_SECCOMP_FILTER_OBJECT"] = str(rootfs / wsta3.TARGET_SECCOMP_FILTER_OBJECT)
+            env["A90_SERVICE_LAUNCH_SECCOMP_LOADER_HELPER"] = str(rootfs / wsta3.TARGET_SECCOMP_LOADER_HELPER)
+            proc = subprocess.run(
+                [str(rootfs / wsta3.TARGET_SERVICE_LAUNCHER), "dpublic-hud", "/bin/true"],
+                check=False,
+                capture_output=True,
+                text=True,
+                env=env,
+            )
+
+        self.assertEqual(proc.returncode, 65)
+        self.assertIn("A90WSTA159_SECCOMP_HELPER_PRESENT=1", proc.stdout)
+        self.assertIn("A90WSTA159_SECCOMP_HELPER_CHECK_ONLY=1", proc.stdout)
+        self.assertIn("fake_seccomp_helper_args=--service dpublic-hud --check-only", proc.stdout)
+        self.assertIn("A90WSTA158_SECCOMP_LOAD=0", proc.stdout)
+        self.assertIn("A90WSTA159_SECCOMP_HELPER_CHECK_ONLY_OK=1", proc.stdout)
         self.assertIn("a90_service_launcher_decision=blocked-seccomp-enforce-unimplemented", proc.stdout)
         self.assertNotIn("should-not-exec", proc.stdout)
 

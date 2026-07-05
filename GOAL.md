@@ -4026,10 +4026,38 @@ safety invariants and flash gates are binding and override any sub-goal.**
 > regression (`549 tests OK`), and WSTA158 proof generation from the real
 > WSTA156 artifact.  Report:
 > `docs/reports/SERVER_DISTRO_WIFI_STA_UPSTREAM_WSTA158_SECCOMP_LOADER_CHECKONLY_HELPER_2026-07-05.md`.
-> **NEXT:** WSTA159 should stage the check-only helper into the private rootfs
-> and wire the launcher enforcement flag to call the helper in check-only mode
-> first, while still blocking any actual load/enforcement path.  Actual seccomp
-> enforcement remains unproven and must stay behind a later explicit live gate.
+>
+> **🟢 STATUS (2026-07-05 12:52 KST host clock) — WSTA159 SECCOMP
+> LOADER CHECK-ONLY ROOTFS PROOF PASS.**  Codex updated
+> `prepare_wsta3_sta_rootfs.py` so the private rootfs can stage the WSTA158
+> helper manifest at `etc/a90-dpublic/seccomp-loader-helper-manifest.json` and
+> the helper binary at
+> `usr/lib/a90-dpublic/seccomp/a90-seccomp-loader-checkonly`, verifying helper
+> SHA, check-only state, `load_enabled=false`, and `enforced=false` before
+> staging.  The launcher now emits `A90WSTA159_SECCOMP_HELPER_PRESENT=<0|1>`
+> and `A90WSTA159_SECCOMP_HELPER_CHECK_ONLY=1`; when
+> `A90_SERVICE_LAUNCH_SECCOMP_ENFORCE=1` and a helper is present, it calls the
+> helper as `--service "$SERVICE" --check-only`, requires success, then still
+> exits `65` with `blocked-seccomp-enforce-unimplemented` before any actual
+> load/enforcement.  A host-only WSTA159 proof runner staged the real WSTA153
+> policy, WSTA156 filter artifact, and WSTA158 helper into a private rootfs,
+> used a qemu wrapper around the staged ARM64 helper, and proved the enforce
+> path prints `A90WSTA158_LOADER_CHECK_ONLY=1`,
+> `A90WSTA158_SECCOMP_LOAD=0`, `dpublic-hud`→`dpublic-hud-intent`, and
+> `A90WSTA159_SECCOMP_HELPER_CHECK_ONLY_OK=1` before the launcher blocks.
+> Generated proof:
+> `workspace/private/runs/server-distro/wsta159-seccomp-loader-checkonly-rootfs-proof-20260705T1252KST/`.
+> This unit did not chroot, touch the device, flash, reboot, connect Wi-Fi, run
+> DHCP, open a public tunnel, mutate packet filters, write userdata, load BPF,
+> load a seccomp filter, or enforce seccomp.  Validation passed `py_compile`,
+> focused prepare-rootfs+WSTA155+WSTA156+WSTA157+WSTA158+WSTA159 tests
+> (`48 tests OK`), full server-distro regression (`551 tests OK`), and WSTA159
+> proof generation from the real WSTA153/WSTA156/WSTA158 artifacts.  Report:
+> `docs/reports/SERVER_DISTRO_WIFI_STA_UPSTREAM_WSTA159_SECCOMP_LOADER_CHECKONLY_ROOTFS_PROOF_2026-07-05.md`.
+> **NEXT:** WSTA160 should run a private full-rootfs launcher dry-run that uses
+> the staged helper path exactly as it will exist on ARM64, without enabling
+> actual seccomp load/enforcement.  Actual enforcement remains unproven and must
+> stay behind a later explicit live gate.
 
 ## North star — priority-ordered tracks (T1 → T2 → T3)
 
