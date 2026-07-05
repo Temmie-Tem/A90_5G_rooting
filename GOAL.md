@@ -4187,10 +4187,35 @@ safety invariants and flash gates are binding and override any sub-goal.**
 > proof generation from the real full source rootfs plus real
 > WSTA153/WSTA156/WSTA161 artifacts.  Report:
 > `docs/reports/SERVER_DISTRO_WIFI_STA_UPSTREAM_WSTA164_SECCOMP_LOAD_ENV_CONTRACT_CHROOT_PROOF_2026-07-05.md`.
-> **NEXT:** WSTA165 can move to a bounded live-observation design for the
-> staged apply/load-env gates on device without supplying the correct WSTA161
-> load token, or start the separate explicit design review for the first real
-> seccomp-load experiment.  Actual seccomp load/enforcement remains unproven.
+>
+> **🟢 STATUS (2026-07-05 13:33 KST host clock) — WSTA165 SECCOMP
+> LIVE-OBSERVATION PLAN PASS.**  Codex added a host-only plan runner that
+> consumes the real WSTA164 proof JSON and emits a structured later-live
+> observation plan for the staged apply/load-env gates.  It does not contact
+> the device and never includes the correct WSTA161 load token in the plan.
+> The runner verifies WSTA164 PASS, all WSTA164 proof checks true, WSTA164
+> launcher load-env gate/forwarding present, WSTA161 correct token absent,
+> filter load/enforcement false, and no load attempt across the WSTA164
+> no-gate/missing-token/wrong-token paths.  The emitted plan has exactly three
+> no-load scenarios: `no-load-env-gate`,
+> `load-env-gate-missing-token`, and `load-env-gate-wrong-token`.  It marks
+> `correct_wsta161_token_supplied=false`,
+> `seccomp_filter_load_expected=false`, and
+> `seccomp_enforcement_expected=false`, and sets stop conditions for any
+> `A90WSTA161_SECCOMP_LOAD_ATTEMPT=1`, unexpected exec, missing block marker,
+> health regression, or missing live-observation gate.  Generated proof:
+> `workspace/private/runs/server-distro/wsta165-seccomp-live-observation-plan-20260705T1335KST/`.
+> This unit did not touch the device, flash, reboot, connect Wi-Fi, run DHCP,
+> open a public tunnel, mutate packet filters, write userdata, load BPF, load a
+> seccomp filter, enforce seccomp, chroot, or switch root.  Validation passed
+> `py_compile`, focused WSTA164+WSTA165 tests (`5 tests OK`), full server-distro
+> regression (`565 tests OK`), and WSTA165 plan generation from the real WSTA164
+> proof JSON.  Report:
+> `docs/reports/SERVER_DISTRO_WIFI_STA_UPSTREAM_WSTA165_SECCOMP_LIVE_OBSERVATION_PLAN_2026-07-05.md`.
+> **NEXT:** WSTA166 can either implement the bounded live-observation runner
+> from this plan without the correct WSTA161 load token, or stop for an
+> explicit design review before any first real seccomp-load experiment.  Actual
+> seccomp load/enforcement remains unproven.
 
 ## North star — priority-ordered tracks (T1 → T2 → T3)
 
