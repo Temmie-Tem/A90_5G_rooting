@@ -451,6 +451,29 @@ safety invariants and flash gates are binding and override any sub-goal.**
 > only through explicit WSTA88/WSTA80 live delegation, and prove restore/public-
 > off before returning.
 
+> **🟢 STATUS (2026-07-05 22:52 KST) — WSTA226 CLOUDFLARED EGRESS EXECUTE GATE SOURCE PASS.**
+> Codex added the attended cloudflared egress allowlist execute-gate wrapper
+> `run_wsta226_cloudflared_egress_allowlist_execute_gate.py`.  Default mode is
+> host-only: WSTA226 validates the WSTA223 live-gate plan and delegates to WSTA88
+> only to build the default-off operator execute gate.  Optional live delegation
+> requires `--execute-live-egress-allowlist`, the full WSTA88/WSTA80 public
+> exposure and packet-filter acknowledgement stack, `--force-cloudflared-egress-
+> allowlist-proof`, wrapper-level `--force-control-plane-proof` and
+> `--force-public-off-proof`, private native/public confirm tokens, and a private
+> route artifact with schema `a90-wsta226-cloudflared-egress-route-v1` / state
+> `CLOUDFLARED_EGRESS_ROUTE_DERIVED_PRIVATE`.  Public output records only DNS/TLS
+> route counts and redaction markers; route values, public URL values, tunnel
+> credentials, Wi-Fi credentials, and tokens are not written to public output.
+> No device action, boot flash, native reboot, Wi-Fi connect, DHCP, public tunnel,
+> public smoke, packet-filter mutation, userdata write, LSM load, or switch-root
+> occurred.  Validation: WSTA226 focused tests `6 tests OK`,
+> WSTA223/WSTA226/WSTA88 focused tests `19 tests OK`, full server-distro
+> regression `835 tests OK`.  Report:
+> `docs/reports/SERVER_DISTRO_WIFI_STA_UPSTREAM_WSTA226_CLOUDFLARED_EGRESS_EXECUTE_GATE_2026-07-05.md`.
+> **NEXT:** produce the private DNS/TLS route artifact from attended live
+> runtime state, then run the WSTA226 live gate only under operator supervision
+> and require restore/public-off proof before returning.
+
 > **✅ OPERATOR GO (2026-07-04) — D-public is USER-AUTHORIZED and operator-driven; PROCEED.** (Supersedes the
 > earlier same-day HOLD, which assumed authorization was pending — it was not.) The user confirmed the
 > `D-PUBLIC-LIVE-PUBLISH` go and is actively driving D-public. First live publish (commit `8d25f793`:
