@@ -4815,6 +4815,36 @@ safety invariants and flash gates are binding and override any sub-goal.**
 > no-load live observations.  Any real seccomp-load/correct-token behavior must
 > be a separately designed higher-risk rung; do not relax WSTA187's no-load
 > safety boundary.
+>
+> **🟢 STATUS (2026-07-05 16:08 KST host clock) — WSTA188 WSTA187 OPERATOR
+> PACKET PASS.**  Codex promoted WSTA187 into a private default-off operator
+> packet for attended no-load live observations.  WSTA188 runs a fresh WSTA187
+> source-gate proof, then writes a reusable shell wrapper that computes a fresh
+> WSTA187 live run id at execution time and includes the full no-load
+> acknowledgement set.  Proof run:
+> `workspace/private/runs/server-distro/wsta188-wsta187-operator-packet-20260705T160737KST/`;
+> decision was `wsta188-wsta187-operator-packet-pass`.  The nested WSTA187
+> source gate:
+> `workspace/private/runs/server-distro/wsta188-wsta187-operator-packet-20260705T160737KST/wsta187-source-gate/`;
+> decision was `wsta187-blocked-explicit-execution-gate-required`, with
+> `wsta177_source_valid=true`, `wsta178_preflight_valid=true`,
+> `wsta180_bundle_valid=true`, `wsta184_handoff_valid=true`,
+> `wsta185_source_valid=true`, and `live_command_executed=false`.  Generated
+> packet artifacts:
+> `workspace/private/runs/server-distro/wsta188-wsta187-operator-packet-20260705T160737KST/wsta188_operator_packet.json`,
+> `workspace/private/runs/server-distro/wsta188-wsta187-operator-packet-20260705T160737KST/wsta188_operator_packet.sh`,
+> and
+> `workspace/private/runs/server-distro/wsta188-wsta187-operator-packet-20260705T160737KST/wsta188_operator_packet.md`.
+> This unit did not flash, reboot, connect Wi-Fi, run DHCP, open a public
+> tunnel, mutate packet filters, write userdata, switch root, execute WSTA187
+> live, execute WSTA185/WSTA181, run post-run audit, load a seccomp filter,
+> enforce seccomp, or supply the correct WSTA161 token.  Validation passed
+> `py_compile`, focused WSTA188 tests (`6 tests OK`), full server-distro
+> regression (`654 tests OK`), and the WSTA188 proof run.  Report:
+> `docs/reports/SERVER_DISTRO_WIFI_STA_UPSTREAM_WSTA188_WSTA187_OPERATOR_PACKET_2026-07-05.md`.
+> **NEXT:** Add a WSTA188 packet status/revalidation wrapper, or explicitly
+> design a separate higher-risk seccomp-load/correct-token rung.  Do not fold
+> higher-risk behavior into WSTA188.
 
 ## North star — priority-ordered tracks (T1 → T2 → T3)
 
