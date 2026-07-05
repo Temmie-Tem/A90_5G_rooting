@@ -644,6 +644,27 @@ safety invariants and flash gates are binding and override any sub-goal.**
 > **NEXT:** run exactly one attended cold-boot persistence smoke measurement;
 > do not start a new D-harden lever or server scaffold.
 
+> **🟡 STATUS (2026-07-06 00:09 KST) — WSTA233 COLD-BOOT PERSISTENCE SMOKE PRE-BASELINE CAPTURED; PHYSICAL POWER-CYCLE PENDING.**
+> Codex began the single chartered persistence-smoke measurement and captured a
+> private pre-power-cycle baseline under
+> `workspace/private/runs/server-distro/wsta233-cold-boot-persistence-smoke-20260705T150908Z/`.
+> The baseline showed native `v3402-dpublic-hud-presenter-restart-policy`,
+> `selftest fail=0`, `BOOT OK`, SD runtime writable, native autohud/tcpctl
+> running, and tcpctl reachable.  Baseline admin SSH and loopback smoke service
+> probes were closed, so the post-cold-boot classification should treat those
+> as not auto-started at baseline rather than a new post-boot regression.  The
+> observation then waited for the required USB serial disconnect/reconnect that
+> proves a physical cold boot, but no disconnect occurred; the wait was aborted
+> and no post-cold-boot comparison or v2321 rollback was run.  This was
+> read-only observation plus passive USB presence monitoring only: no boot flash,
+> native reboot, Wi-Fi connect, DHCP, public tunnel, public smoke,
+> packet-filter mutation, userdata write, LSM load, or switch-root occurred.
+> Report:
+> `docs/reports/SERVER_DISTRO_WIFI_STA_UPSTREAM_WSTA233_COLD_BOOT_PERSISTENCE_SMOKE_PREBASELINE_2026-07-06.md`.
+> **NEXT:** physically power-cycle the device once, capture the post state from
+> the same WSTA233 baseline, classify the persistence gap, then roll boot back to
+> v2321 and verify `selftest fail=0`.
+
 > **✅ OPERATOR GO (2026-07-04) — D-public is USER-AUTHORIZED and operator-driven; PROCEED.** (Supersedes the
 > earlier same-day HOLD, which assumed authorization was pending — it was not.) The user confirmed the
 > `D-PUBLIC-LIVE-PUBLISH` go and is actively driving D-public. First live publish (commit `8d25f793`:
