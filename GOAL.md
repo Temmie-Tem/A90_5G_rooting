@@ -4787,10 +4787,34 @@ safety invariants and flash gates are binding and override any sub-goal.**
 > (`12 tests OK`), full server-distro regression (`643 tests OK`), and live
 > WSTA185 deep-propagation replay.  Report:
 > `docs/reports/SERVER_DISTRO_WIFI_STA_UPSTREAM_WSTA186_DEEP_PROPAGATION_REPLAYABLE_LIVE_2026-07-05.md`.
-> **NEXT:** Collapse the manual fresh sequence (WSTA177 source gate -> WSTA178
-> packet -> WSTA180 bundle -> WSTA184 expiring handoff -> WSTA185 execute) into
-> one bounded fresh orchestrator, so future attended no-load live observations
-> do not require manual path stitching.
+>
+> **🟢 STATUS (2026-07-05 16:01 KST host clock) — WSTA187 FRESH WSTA185
+> ORCHESTRATOR LIVE PASS.**  Codex collapsed the manual no-load live sequence
+> into one bounded orchestrator:
+> WSTA177 source gate -> WSTA178 rebased packet -> WSTA180 bundle -> WSTA184
+> expiring handoff -> WSTA185 source gate or execution.  The source-gate proof:
+> `workspace/private/runs/server-distro/wsta187-fresh-wsta185-orchestrator-source-gate-20260705T155835KST/`;
+> decision was `wsta187-blocked-explicit-execution-gate-required`, with
+> `wsta177_source_valid=true`, `wsta178_preflight_valid=true`,
+> `wsta180_bundle_valid=true`, `wsta184_handoff_valid=true`, and
+> `wsta185_source_valid=true`.  The full attended no-load live proof:
+> `workspace/private/runs/server-distro/wsta187-fresh-wsta185-orchestrator-live-20260705T155844KST/`;
+> decision was `wsta187-fresh-wsta185-orchestrator-pass`, with
+> `wsta185_execution_valid=true`, `wsta181_result_valid=true`,
+> `post_run_audit_decision_pass=true`, `deep_wsta167_pass=true`,
+> `deep_wsta170_pass=true`, and `deep_wsta175_pass=true`.  This unit did not
+> flash, reboot, connect Wi-Fi, run DHCP, open a public tunnel, mutate packet
+> filters, write userdata, switch root, load a seccomp filter, enforce seccomp,
+> or supply the correct WSTA161 token; the no-load chroot observation used the
+> SD work image and restored it to the clean hash.  Final native selftest stayed
+> `fail=0`.  Validation passed `py_compile`, focused WSTA187 tests
+> (`5 tests OK`), full server-distro regression (`648 tests OK`), WSTA187
+> source-gate proof, and WSTA187 full no-load live proof.  Report:
+> `docs/reports/SERVER_DISTRO_WIFI_STA_UPSTREAM_WSTA187_FRESH_WSTA185_ORCHESTRATOR_2026-07-05.md`.
+> **NEXT:** Treat WSTA187 as the canonical one-command entry point for attended
+> no-load live observations.  Any real seccomp-load/correct-token behavior must
+> be a separately designed higher-risk rung; do not relax WSTA187's no-load
+> safety boundary.
 
 ## North star — priority-ordered tracks (T1 → T2 → T3)
 
