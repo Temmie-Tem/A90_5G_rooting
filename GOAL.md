@@ -620,6 +620,30 @@ safety invariants and flash gates are binding and override any sub-goal.**
 > blocker set; status scaffolding no longer reports stale service/packet-filter
 > gaps when the corresponding proofs are present.
 
+> **🟢 STATUS (2026-07-06 00:01 KST) — WSTA232 D-HARDEN_COMPLETE STATUS PASS.**
+> Codex added `workspace/public/src/scripts/server-distro/run_wsta232_dharden_complete_status.py`,
+> a host-only rollup that consumes the WSTA231/WSTA108 private status and emits
+> one `D_HARDEN_COMPLETE_DEFAULT_OFF` operator status.  Representative run:
+> `workspace/private/runs/server-distro/wsta232-dharden-complete-status-20260706T0001KST/wsta232_result.json`;
+> decision `wsta232-dharden-complete-status-source-pass`.  The status consolidates
+> the landed D-harden levers: real-service seccomp, non-root capability drop,
+> native-uplink root boundary, legacy-iptables loopback default-drop,
+> cloudflared egress allowlist, and AppArmor unavailable/parked.  It keeps
+> `SERVER_PROFILE_READY_DEFAULT_OFF` / `PUBLIC_OFF`, reports
+> `blocking_before_enforcement=[]`, `launcher_remaining_profiles=[]`, and
+> `syscall_remaining_profiles=[]`, retires
+> `continue-dpublic-server-endgame-after-cloudflared-egress-live` from its output
+> next-actions, and replaces it with the chartered close-out actions:
+> keep public exposure default-off, perform one attended cold-boot persistence
+> smoke measurement, write the server-distro epic close report, then halt.  This
+> unit was host-only: no device action, boot flash, native reboot, Wi-Fi connect,
+> DHCP, public tunnel, public smoke, packet-filter mutation, userdata write, LSM
+> load, or switch-root occurred.  Validation: py_compile pass; focused WSTA232
+> tests `6 OK`; full server-distro regression `850 OK`.  Report:
+> `docs/reports/SERVER_DISTRO_WIFI_STA_UPSTREAM_WSTA232_DHARDEN_COMPLETE_STATUS_2026-07-06.md`.
+> **NEXT:** run exactly one attended cold-boot persistence smoke measurement;
+> do not start a new D-harden lever or server scaffold.
+
 > **✅ OPERATOR GO (2026-07-04) — D-public is USER-AUTHORIZED and operator-driven; PROCEED.** (Supersedes the
 > earlier same-day HOLD, which assumed authorization was pending — it was not.) The user confirmed the
 > `D-PUBLIC-LIVE-PUBLISH` go and is actively driving D-public. First live publish (commit `8d25f793`:
