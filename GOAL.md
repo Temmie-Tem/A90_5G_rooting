@@ -5007,6 +5007,42 @@ safety invariants and flash gates are binding and override any sub-goal.**
 > **NEXT:** WSTA195 should consume the WSTA194 operator packet and perform a
 > read-only readiness gate before any real seccomp-load attempt.  WSTA195 must
 > still not load seccomp.
+>
+> **🟢 STATUS (2026-07-05 16:57 KST host clock) — WSTA195 SECCOMP-LOAD
+> CANARY READINESS PASS.**  Codex added the host-only read-only readiness gate
+> for the WSTA194 private/default-off operator packet.  WSTA195 consumed:
+> `workspace/private/runs/server-distro/wsta194-seccomp-load-canary-operator-packet-20260705T1648KST/wsta194_seccomp_load_canary_operator_packet.json`;
+> run:
+> `workspace/private/runs/server-distro/wsta195-seccomp-load-canary-readiness-20260705T165710KST/`;
+> decision was `wsta195-seccomp-load-canary-readiness-pass`.  Readiness state
+> was `READY_FOR_WSTA196_DESIGN_READONLY_NOT_EXECUTABLE`, with
+> `readiness_scope=host-only-packet-readiness-not-device-readiness`,
+> `canary_service=dpublic-hud`, `policy_service=dpublic-hud-intent`,
+> `private_token_env=A90_PRIVATE_WSTA161_LOAD_TOKEN`,
+> `ready_for_wsta196_design=true`, `ready_for_live_execution=false`,
+> `device_readiness_checked=false`, `single_service_canary=true`,
+> `token_value_included=false`, `correct_wsta161_token_supplied=false`,
+> `seccomp_filter_loaded=false`, `seccomp_enforced=false`,
+> `wsta194_payload_valid=true`, `wsta194_operator_packet_valid=true`,
+> `shell_wrapper_valid=true`, `markdown_valid=true`,
+> `readiness_valid=true`, `future_command_targets_wsta196=true`,
+> `future_command_has_all_ack_flags=true`,
+> `future_command_not_currently_executable=true`, `shell_fails_closed=true`,
+> `shell_wsta196_required_marker=true`, `token_literal_absent=true`, and
+> `no_external_network_inputs=true`.  This proof did not flash, reboot,
+> contact the device, connect Wi-Fi, run DHCP, open a public tunnel, mutate
+> packet filters, write userdata, switch root, execute an operator packet,
+> generate or execute a live command, supply the correct WSTA161 token, load a
+> seccomp filter, or enforce seccomp.  WSTA195 intentionally did not claim
+> device readiness; WSTA196 must run fresh read-only native health checks
+> immediately before any attended load attempt.  Validation passed
+> `py_compile`, focused WSTA195 tests (`8 tests OK`), full server-distro
+> regression (`702 tests OK`), and the WSTA195 proof run.  Report:
+> `docs/reports/SERVER_DISTRO_WIFI_STA_UPSTREAM_WSTA195_SECCOMP_LOAD_CANARY_READINESS_2026-07-05.md`.
+> **NEXT:** WSTA196 should add the attended live runner source/design for the
+> single-service seccomp-load canary, keeping the private token
+> operator-supplied, fresh read-only native health checks mandatory, and
+> fail-closed cleanup/audit behavior explicit.
 
 ## North star — priority-ordered tracks (T1 → T2 → T3)
 
