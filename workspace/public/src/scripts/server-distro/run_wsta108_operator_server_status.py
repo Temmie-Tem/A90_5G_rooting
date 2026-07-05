@@ -21,7 +21,8 @@ supplied and verified.  WSTA211 promotes the already-live no-new-privs and
 CapEff=0 evidence into a first-class capability-drop status.  WSTA213 folds in
 the WSTA212 native uplink boundary policy.  WSTA215 folds in the WSTA214
 AppArmor feasibility audit.  WSTA217 folds in the WSTA216 legacy-iptables
-default-drop hardening policy.
+default-drop hardening policy.  WSTA220 folds in the WSTA219 attended
+default-drop live proof.
 """
 
 from __future__ import annotations
@@ -78,6 +79,11 @@ APPARMOR_FEASIBILITY_DECISION = "wsta214-apparmor-feasibility-source-pass"
 APPARMOR_UNAVAILABLE_STATE = "APPARMOR_NOT_AVAILABLE_UNDER_CURRENT_EVIDENCE"
 DEFAULT_DROP_HARDENING_POLICY_DECISION = "wsta216-default-drop-hardening-policy-source-pass"
 DEFAULT_DROP_HARDENING_POLICY_STATE = "LEGACY_IPTABLES_DEFAULT_DROP_HARDENING_POLICY_DEFINED"
+ATTENDED_DEFAULT_DROP_LIVE_DECISION = "wsta88-persistent-operator-workflow-live-pass"
+ATTENDED_DEFAULT_DROP_LIVE_STATE = "LEGACY_IPTABLES_DEFAULT_DROP_ATTENDED_LIVE_PROVEN"
+WSTA80_LIVE_DECISION = "wsta80-persistent-operator-execute-gate-live-pass"
+WSTA58_LIVE_DECISION = "wsta58-renewal-manual-stop-live-pass"
+WSTA55_LIVE_DECISION = "wsta55-short-lived-public-proof-live-pass"
 
 CLOUDFLARED_RUNTIME_REQUIRED_CHECKS = (
     "wsta28_precondition_pass",
@@ -209,6 +215,8 @@ def template() -> dict[str, Any]:
             "workspace/private/runs/server-distro/<wsta214-run>/wsta214_result.json",
             "--wsta216-default-drop-hardening-policy-json",
             "workspace/private/runs/server-distro/<wsta216-run>/wsta216_result.json",
+            "--wsta219-attended-default-drop-live-json",
+            "workspace/private/runs/server-distro/<wsta219-run>/wsta88_operator_workflow.json",
         ],
         "device_action": False,
         "public_url_value_logged": False,
@@ -319,6 +327,7 @@ def compact_packet_filter_proof(
         }
 
     checks = proof_result.get("checks") if isinstance(proof_result.get("checks"), dict) else {}
+    safety = proof_result.get("safety") if isinstance(proof_result.get("safety"), dict) else {}
     probe = (
         proof_result.get("packet_filter_probe")
         if isinstance(proof_result.get("packet_filter_probe"), dict)
@@ -1099,6 +1108,192 @@ def compact_default_drop_hardening_policy(
         "apply_before_public_exposure": checks.get("policy_apply_before_public_exposure") is True,
         "source_decision": proof_result.get("decision"),
         "source_checks_all_true": checks_all_true,
+        "public_url_value_logged": False,
+        "secret_values_logged": 0,
+    }
+
+
+def _wsta55_public_cycle_proven(cycle: dict[str, Any]) -> bool:
+    checks = cycle.get("checks") if isinstance(cycle.get("checks"), dict) else {}
+    ttl = cycle.get("ttl_expiry") if isinstance(cycle.get("ttl_expiry"), dict) else {}
+    image_prep = cycle.get("image_prep") if isinstance(cycle.get("image_prep"), dict) else {}
+    return bool(
+        cycle.get("decision") == WSTA55_LIVE_DECISION
+        and cycle.get("gate_decision") == "ok"
+        and checks.get("public_smoke_ok")
+        and checks.get("ttl_expiry_stops_public")
+        and checks.get("packet_filter_restore_ok")
+        and checks.get("final_selftest_fail_zero")
+        and ttl.get("forced_for_wsta55")
+        and ttl.get("ttl_expiry_stops_public")
+        and ttl.get("public_state_after_expiry") == "PUBLIC_OFF"
+        and ttl.get("lease_id_present")
+        and ttl.get("lease_id_value_redacted")
+        and ttl.get("secret_values_logged") == 0
+        and image_prep.get("work_restore_attempted")
+    )
+
+
+def compact_attended_default_drop_live(
+    proof_result: dict[str, Any] | None,
+) -> dict[str, Any]:
+    if not proof_result:
+        return {
+            "state": "NOT_SUPPLIED",
+            "attended_default_drop_live_proven": False,
+            "default_public_off": None,
+            "live_execution_requested": None,
+            "packet_filter_backend": None,
+            "packet_filter_policy": None,
+            "public_url_value_logged": False,
+            "secret_values_logged": 0,
+        }
+
+    checks = proof_result.get("checks") if isinstance(proof_result.get("checks"), dict) else {}
+    status_hud = (
+        proof_result.get("status_hud")
+        if isinstance(proof_result.get("status_hud"), dict)
+        else {}
+    )
+    packet_filter = (
+        status_hud.get("packet_filter")
+        if isinstance(status_hud.get("packet_filter"), dict)
+        else {}
+    )
+    manual_stop = (
+        status_hud.get("manual_stop")
+        if isinstance(status_hud.get("manual_stop"), dict)
+        else {}
+    )
+    workflow = (
+        proof_result.get("workflow")
+        if isinstance(proof_result.get("workflow"), dict)
+        else {}
+    )
+    hardening = (
+        workflow.get("packet_filter_hardening")
+        if isinstance(workflow.get("packet_filter_hardening"), dict)
+        else {}
+    )
+    wsta80 = (
+        proof_result.get("wsta80_redacted")
+        if isinstance(proof_result.get("wsta80_redacted"), dict)
+        else {}
+    )
+    wsta80_checks = wsta80.get("checks") if isinstance(wsta80.get("checks"), dict) else {}
+    wsta58 = (
+        wsta80.get("wsta58_redacted")
+        if isinstance(wsta80.get("wsta58_redacted"), dict)
+        else {}
+    )
+    wsta58_checks = wsta58.get("checks") if isinstance(wsta58.get("checks"), dict) else {}
+    initial = wsta58.get("initial") if isinstance(wsta58.get("initial"), dict) else {}
+    renewal = wsta58.get("renewal") if isinstance(wsta58.get("renewal"), dict) else {}
+    restore_on = packet_filter.get("restore_on") if isinstance(packet_filter.get("restore_on"), list) else []
+    required_sequence = (
+        hardening.get("required_sequence")
+        if isinstance(hardening.get("required_sequence"), list)
+        else []
+    )
+    attended_live_proven = bool(
+        proof_result.get("decision") == ATTENDED_DEFAULT_DROP_LIVE_DECISION
+        and proof_result.get("gate_decision") == "ok"
+        and checks.get("default_public_off")
+        and checks.get("explicit_live_gate")
+        and checks.get("live_execution_requested")
+        and checks.get("packet_filter_hardening_ready")
+        and checks.get("wsta80_preflight_pass")
+        and checks.get("wsta80_live_pass")
+        and checks.get("public_url_value_logged") is False
+        and checks.get("secret_values_logged") == 0
+        and status_hud.get("public_state") == "PUBLIC_OFF"
+        and status_hud.get("default_public_off") is True
+        and status_hud.get("live_execution_requested") is True
+        and packet_filter.get("ready") is True
+        and packet_filter.get("backend") == "legacy-iptables"
+        and packet_filter.get("policy") == "loopback-default-drop"
+        and packet_filter.get("state") == "PACKET_FILTER_REQUIRED_DEFAULT_OFF"
+        and packet_filter.get("apply_before") == "public-exposure-start"
+        and all(item in restore_on for item in ("manual-stop", "retire", "failure-cleanup"))
+        and manual_stop.get("requested") is True
+        and manual_stop.get("cleanup_ok") is True
+        and manual_stop.get("public_state_after_stop") == "PUBLIC_OFF"
+        and manual_stop.get("state") == "CLEANED_PUBLIC_OFF"
+        and workflow.get("packet_filter_hardening_ready") is True
+        and hardening.get("activation") == "explicit-operator-gated"
+        and hardening.get("default_public_off") is True
+        and hardening.get("backend") == "legacy-iptables"
+        and hardening.get("policy") == "loopback-default-drop"
+        and hardening.get("apply_before") == "public-exposure-start"
+        and all(
+            item in required_sequence
+            for item in (
+                "preflight-helper",
+                "save-existing-rules-before-mutation",
+                "apply-loopback-default-drop-before-public-exposure",
+                "restore-exact-rules-before-public-off-success",
+            )
+        )
+        and wsta80.get("decision") == WSTA80_LIVE_DECISION
+        and wsta80.get("gate_decision") == "ok"
+        and wsta80_checks.get("ack_packet_filter_mutation")
+        and wsta80_checks.get("force_packet_filter_restore_proof")
+        and wsta80_checks.get("packet_filter_hardening_ready")
+        and wsta58.get("decision") == WSTA58_LIVE_DECISION
+        and wsta58.get("gate_decision") == "ok"
+        and wsta58_checks.get("initial_packet_filter_restore_ok")
+        and wsta58_checks.get("renewal_packet_filter_restore_ok")
+        and wsta58_checks.get("manual_stop_cleanup_ok")
+        and wsta58_checks.get("manual_stop_public_state_off")
+        and _wsta55_public_cycle_proven(initial)
+        and _wsta55_public_cycle_proven(renewal)
+        and (
+            proof_result.get("public_url_value_logged") is False
+            or checks.get("public_url_value_logged") is False
+            or safety.get("public_url_value_logged") is False
+        )
+        and (
+            proof_result.get("secret_values_logged") == 0
+            or checks.get("secret_values_logged") == 0
+            or safety.get("secret_values_logged") == 0
+        )
+    )
+    return {
+        "state": ATTENDED_DEFAULT_DROP_LIVE_STATE if attended_live_proven else "SUPPLIED_NOT_PROVEN",
+        "decision": proof_result.get("decision"),
+        "proof_run_dir": proof_result.get("run_dir"),
+        "attended_default_drop_live_proven": attended_live_proven,
+        "default_public_off": status_hud.get("default_public_off"),
+        "live_execution_requested": status_hud.get("live_execution_requested"),
+        "public_state_after_manual_stop": manual_stop.get("public_state_after_stop"),
+        "manual_stop_cleanup_ok": bool(manual_stop.get("cleanup_ok")),
+        "packet_filter_backend": packet_filter.get("backend"),
+        "packet_filter_policy": packet_filter.get("policy"),
+        "packet_filter_state": packet_filter.get("state"),
+        "packet_filter_ready": bool(packet_filter.get("ready")),
+        "packet_filter_apply_before": packet_filter.get("apply_before"),
+        "ack_packet_filter_mutation": bool(wsta80_checks.get("ack_packet_filter_mutation")),
+        "force_packet_filter_restore_proof": bool(wsta80_checks.get("force_packet_filter_restore_proof")),
+        "initial_public_smoke_ok": bool(
+            (initial.get("checks") if isinstance(initial.get("checks"), dict) else {}).get("public_smoke_ok")
+        ),
+        "renewal_public_smoke_ok": bool(
+            (renewal.get("checks") if isinstance(renewal.get("checks"), dict) else {}).get("public_smoke_ok")
+        ),
+        "initial_ttl_public_off": (
+            (initial.get("ttl_expiry") if isinstance(initial.get("ttl_expiry"), dict) else {}).get(
+                "public_state_after_expiry"
+            )
+            == "PUBLIC_OFF"
+        ),
+        "renewal_ttl_public_off": (
+            (renewal.get("ttl_expiry") if isinstance(renewal.get("ttl_expiry"), dict) else {}).get(
+                "public_state_after_expiry"
+            )
+            == "PUBLIC_OFF"
+        ),
+        "initial_packet_filter_restore_ok": bool(wsta58_checks.get("initial_packet_filter_restore_ok")),
+        "renewal_packet_filter_restore_ok": bool(wsta58_checks.get("renewal_packet_filter_restore_ok")),
         "public_url_value_logged": False,
         "secret_values_logged": 0,
     }
@@ -2049,6 +2244,7 @@ def compact_hardening(
     native_uplink_boundary_policy_result: dict[str, Any] | None,
     apparmor_feasibility_result: dict[str, Any] | None,
     default_drop_hardening_policy_result: dict[str, Any] | None,
+    attended_default_drop_live_result: dict[str, Any] | None,
 ) -> dict[str, Any]:
     packet_filter_proof = compact_packet_filter_proof(packet_filter_proof_result, packet_filter_control_summary)
     launcher_proof = compact_launcher_proof(launcher_proof_result)
@@ -2118,6 +2314,9 @@ def compact_hardening(
     default_drop_hardening_policy = compact_default_drop_hardening_policy(
         default_drop_hardening_policy_result
     )
+    attended_default_drop_live = compact_attended_default_drop_live(
+        attended_default_drop_live_result
+    )
     if native_uplink_boundary_policy.get("native_uplink_boundary_policy_defined"):
         launcher_proof["remaining_profiles"] = [
             item
@@ -2146,6 +2345,7 @@ def compact_hardening(
             "native_uplink_boundary_policy": native_uplink_boundary_policy,
             "apparmor_feasibility": apparmor_feasibility,
             "default_drop_hardening_policy": default_drop_hardening_policy,
+            "attended_default_drop_live": attended_default_drop_live,
             "cloudflared_model": cloudflared_model,
             "cloudflared_runtime": cloudflared_runtime,
             "hud_model": hud_model,
@@ -2193,6 +2393,7 @@ def compact_hardening(
         "native_uplink_boundary_policy": native_uplink_boundary_policy,
         "apparmor_feasibility": apparmor_feasibility,
         "default_drop_hardening_policy": default_drop_hardening_policy,
+        "attended_default_drop_live": attended_default_drop_live,
         "cloudflared_model": cloudflared_model,
         "cloudflared_runtime": cloudflared_runtime,
         "hud_model": hud_model,
@@ -2233,6 +2434,7 @@ def build_server_status(
     native_uplink_boundary_policy_result: dict[str, Any] | None,
     apparmor_feasibility_result: dict[str, Any] | None,
     default_drop_hardening_policy_result: dict[str, Any] | None,
+    attended_default_drop_live_result: dict[str, Any] | None,
 ) -> dict[str, Any]:
     status_hud = wsta88_result.get("status_hud") if isinstance(wsta88_result.get("status_hud"), dict) else {}
     if not status_hud:
@@ -2260,6 +2462,7 @@ def build_server_status(
         native_uplink_boundary_policy_result,
         apparmor_feasibility_result,
         default_drop_hardening_policy_result,
+        attended_default_drop_live_result,
     )
     public_off = (status_hud.get("public_state") or "PUBLIC_OFF") == "PUBLIC_OFF"
     ready_default_off = public_off and bool(packet_filter.get("ready"))
@@ -2301,6 +2504,11 @@ def build_server_status(
     default_drop_hardening_policy = (
         hardening.get("default_drop_hardening_policy")
         if isinstance(hardening.get("default_drop_hardening_policy"), dict)
+        else {}
+    )
+    attended_default_drop_live = (
+        hardening.get("attended_default_drop_live")
+        if isinstance(hardening.get("attended_default_drop_live"), dict)
         else {}
     )
     cloudflared_model = (
@@ -2365,6 +2573,9 @@ def build_server_status(
     default_drop_hardening_defined = bool(
         default_drop_hardening_policy.get("default_drop_hardening_policy_defined")
     )
+    attended_default_drop_live_proven = bool(
+        attended_default_drop_live.get("attended_default_drop_live_proven")
+    )
     if capability_drop_live_proven:
         if not native_uplink_boundary_defined:
             operator_next_actions.append("continue-root-boundary-policy-for-wsta-native-uplink-helper")
@@ -2383,9 +2594,14 @@ def build_server_status(
             if seccomp_real_services_live_proven:
                 if capability_drop_live_proven:
                     if default_drop_hardening_defined:
-                        operator_next_actions.append(
-                            "use-legacy-iptables-default-drop-only-through-attended-dpublic-live-gate"
-                        )
+                        if attended_default_drop_live_proven:
+                            operator_next_actions.append(
+                                "continue-next-hardening-layer-after-attended-default-drop-live"
+                            )
+                        else:
+                            operator_next_actions.append(
+                                "use-legacy-iptables-default-drop-only-through-attended-dpublic-live-gate"
+                            )
                     elif apparmor_unavailable:
                         operator_next_actions.append(
                             "continue-containment-hardening-with-legacy-iptables-default-drop"
@@ -2413,7 +2629,12 @@ def build_server_status(
     if seccomp_real_services_live_proven:
         if capability_drop_live_proven:
             if default_drop_hardening_defined:
-                operator_next_actions.append("move-to-attended-default-drop-live-use-or-next-hardening-layer")
+                if attended_default_drop_live_proven:
+                    operator_next_actions.append(
+                        "move-to-next-hardening-layer-after-attended-default-drop-live"
+                    )
+                else:
+                    operator_next_actions.append("move-to-attended-default-drop-live-use-or-next-hardening-layer")
             elif apparmor_unavailable:
                 operator_next_actions.append("move-to-legacy-iptables-default-drop-hardening")
             else:
@@ -2537,6 +2758,11 @@ def markdown(server_status: dict[str, Any]) -> str:
         if isinstance(hardening.get("default_drop_hardening_policy"), dict)
         else {}
     )
+    attended_default_drop_live = (
+        hardening.get("attended_default_drop_live")
+        if isinstance(hardening.get("attended_default_drop_live"), dict)
+        else {}
+    )
     cloudflared_model = (
         hardening.get("cloudflared_model")
         if isinstance(hardening.get("cloudflared_model"), dict)
@@ -2649,6 +2875,9 @@ def markdown(server_status: dict[str, Any]) -> str:
         f"- Default-drop hardening activation: `{default_drop_hardening_policy.get('activation')}`",
         f"- Default-drop hardening live execution requested: `{str(bool(default_drop_hardening_policy.get('live_execution_requested'))).lower()}`",
         f"- Default-drop hardening mutates filters here: `{str(bool(default_drop_hardening_policy.get('packet_filter_mutation_by_wsta216'))).lower()}`",
+        f"- Attended default-drop live: `{str(bool(attended_default_drop_live.get('attended_default_drop_live_proven'))).lower()}`",
+        f"- Attended default-drop state: `{attended_default_drop_live.get('state')}`",
+        f"- Attended default-drop packet filter: `{attended_default_drop_live.get('packet_filter_backend')}/{attended_default_drop_live.get('packet_filter_policy')}`",
         f"- Cloudflared model: `{str(bool(cloudflared_model.get('model_defined'))).lower()}`",
         f"- Cloudflared model user: `{cloudflared_model.get('user')}`",
         f"- Cloudflared default public off: `{str(bool(cloudflared_model.get('default_public_off'))).lower()}`",
@@ -3162,6 +3391,28 @@ def run(args: argparse.Namespace) -> dict[str, Any]:
             write_json(out_json, result)
             return result
 
+    attended_default_drop_live_result: dict[str, Any] | None = None
+    if args.wsta219_attended_default_drop_live_json is not None:
+        attended_default_drop_path, attended_default_drop_error = require_private_file(
+            args.wsta219_attended_default_drop_live_json,
+            "wsta219-attended-default-drop-live",
+        )
+        if attended_default_drop_error or attended_default_drop_path is None:
+            result["decision"] = (
+                attended_default_drop_error or "wsta108-blocked-wsta219-attended-default-drop-live"
+            )
+            result["gate_decision"] = result["decision"]
+            result["ended_utc"] = utc_stamp()
+            write_json(out_json, result)
+            return result
+        attended_default_drop_live_result = load_json(attended_default_drop_path)
+        if attended_default_drop_live_result.get("decision") != ATTENDED_DEFAULT_DROP_LIVE_DECISION:
+            result["decision"] = "wsta108-blocked-wsta219-attended-default-drop-live-not-pass"
+            result["gate_decision"] = result["decision"]
+            result["ended_utc"] = utc_stamp()
+            write_json(out_json, result)
+            return result
+
     server_status = build_server_status(
         wsta88_result,
         hardening_result,
@@ -3184,6 +3435,7 @@ def run(args: argparse.Namespace) -> dict[str, Any]:
         native_uplink_boundary_policy_result,
         apparmor_feasibility_result,
         default_drop_hardening_policy_result,
+        attended_default_drop_live_result,
     )
     packet_filter_proof = server_status["hardening"].get("packet_filter_proof", {})
     packet_filter_control_proof = (
@@ -3217,6 +3469,10 @@ def run(args: argparse.Namespace) -> dict[str, Any]:
     apparmor_feasibility = server_status["hardening"].get("apparmor_feasibility", {})
     default_drop_hardening_policy = server_status["hardening"].get(
         "default_drop_hardening_policy",
+        {},
+    )
+    attended_default_drop_live = server_status["hardening"].get(
+        "attended_default_drop_live",
         {},
     )
     cloudflared_model = server_status["hardening"].get("cloudflared_model", {})
@@ -3343,6 +3599,42 @@ def run(args: argparse.Namespace) -> dict[str, Any]:
         ),
         "default_drop_hardening_policy_control_plane_preserved": bool(
             default_drop_hardening_policy.get("control_plane_preserved")
+        ),
+        "wsta219_attended_default_drop_live_supplied": (
+            attended_default_drop_live_result is not None
+        ),
+        "attended_default_drop_live_proven": bool(
+            attended_default_drop_live.get("attended_default_drop_live_proven")
+        ),
+        "attended_default_drop_live_default_off": (
+            attended_default_drop_live.get("default_public_off") is True
+        ),
+        "attended_default_drop_live_explicit_execution": (
+            attended_default_drop_live.get("live_execution_requested") is True
+        ),
+        "attended_default_drop_live_packet_filter_ready": bool(
+            attended_default_drop_live.get("packet_filter_ready")
+        ),
+        "attended_default_drop_live_ack_packet_filter_mutation": bool(
+            attended_default_drop_live.get("ack_packet_filter_mutation")
+        ),
+        "attended_default_drop_live_force_restore_proof": bool(
+            attended_default_drop_live.get("force_packet_filter_restore_proof")
+        ),
+        "attended_default_drop_live_initial_public_smoke": bool(
+            attended_default_drop_live.get("initial_public_smoke_ok")
+        ),
+        "attended_default_drop_live_renewal_public_smoke": bool(
+            attended_default_drop_live.get("renewal_public_smoke_ok")
+        ),
+        "attended_default_drop_live_initial_ttl_public_off": bool(
+            attended_default_drop_live.get("initial_ttl_public_off")
+        ),
+        "attended_default_drop_live_renewal_ttl_public_off": bool(
+            attended_default_drop_live.get("renewal_ttl_public_off")
+        ),
+        "attended_default_drop_live_manual_stop_public_off": (
+            attended_default_drop_live.get("public_state_after_manual_stop") == "PUBLIC_OFF"
         ),
         "cloudflared_model_supplied": cloudflared_model_result is not None,
         "cloudflared_model_defined": bool(cloudflared_model.get("model_defined")),
@@ -3551,6 +3843,15 @@ def run(args: argparse.Namespace) -> dict[str, Any]:
         write_json(out_json, result)
         return result
     if (
+        attended_default_drop_live_result is not None
+        and not result["checks"]["attended_default_drop_live_proven"]
+    ):
+        result["decision"] = "wsta108-blocked-wsta219-attended-default-drop-live-incomplete"
+        result["gate_decision"] = result["decision"]
+        result["ended_utc"] = utc_stamp()
+        write_json(out_json, result)
+        return result
+    if (
         cloudflared_model_result is not None
         and not result["checks"]["cloudflared_model_defined"]
     ):
@@ -3657,6 +3958,7 @@ def build_arg_parser() -> argparse.ArgumentParser:
     parser.add_argument("--wsta212-native-uplink-boundary-policy-json", type=Path)
     parser.add_argument("--wsta214-apparmor-feasibility-json", type=Path)
     parser.add_argument("--wsta216-default-drop-hardening-policy-json", type=Path)
+    parser.add_argument("--wsta219-attended-default-drop-live-json", type=Path)
     parser.add_argument("--wsta122-cloudflared-model-json", type=Path)
     parser.add_argument("--wsta125-cloudflared-runtime-proof-json", type=Path)
     parser.add_argument("--wsta127-hud-model-json", type=Path)

@@ -592,6 +592,108 @@ class ServerDistroWsta108OperatorServerStatusTests(unittest.TestCase):
             },
         }
 
+    def attended_default_drop_live_proof(self) -> dict:
+        def wsta55_cycle() -> dict:
+            return {
+                "decision": runner.WSTA55_LIVE_DECISION,
+                "gate_decision": "ok",
+                "checks": {
+                    "public_smoke_ok": True,
+                    "ttl_expiry_stops_public": True,
+                    "packet_filter_restore_ok": True,
+                    "final_selftest_fail_zero": True,
+                },
+                "image_prep": {
+                    "work_restore_attempted": True,
+                },
+                "ttl_expiry": {
+                    "forced_for_wsta55": True,
+                    "ttl_expiry_stops_public": True,
+                    "public_state_after_expiry": "PUBLIC_OFF",
+                    "lease_id_present": True,
+                    "lease_id_value_redacted": True,
+                    "secret_values_logged": 0,
+                },
+            }
+
+        packet_filter_hardening = {
+            "state": "PACKET_FILTER_REQUIRED_DEFAULT_OFF",
+            "activation": "explicit-operator-gated",
+            "default_public_off": True,
+            "backend": "legacy-iptables",
+            "policy": "loopback-default-drop",
+            "apply_before": "public-exposure-start",
+            "required_sequence": [
+                "preflight-helper",
+                "save-existing-rules-before-mutation",
+                "apply-loopback-default-drop-before-public-exposure",
+                "restore-exact-rules-before-public-off-success",
+            ],
+            "restore_on": ["manual-stop", "retire", "failure-cleanup"],
+            "secret_values_logged": 0,
+        }
+        return {
+            "decision": runner.ATTENDED_DEFAULT_DROP_LIVE_DECISION,
+            "gate_decision": "ok",
+            "run_dir": "workspace/private/runs/server-distro/wsta219-attended-live-test",
+            "checks": {
+                "default_public_off": True,
+                "explicit_live_gate": True,
+                "live_execution_requested": True,
+                "packet_filter_hardening_ready": True,
+                "wsta80_preflight_pass": True,
+                "wsta80_live_pass": True,
+                "public_url_value_logged": False,
+                "secret_values_logged": 0,
+            },
+            "status_hud": {
+                "public_state": "PUBLIC_OFF",
+                "default_public_off": True,
+                "live_execution_requested": True,
+                "packet_filter": {
+                    "state": "PACKET_FILTER_REQUIRED_DEFAULT_OFF",
+                    "ready": True,
+                    "backend": "legacy-iptables",
+                    "policy": "loopback-default-drop",
+                    "apply_before": "public-exposure-start",
+                    "restore_on": ["manual-stop", "retire", "failure-cleanup"],
+                },
+                "manual_stop": {
+                    "requested": True,
+                    "cleanup_ok": True,
+                    "public_state_after_stop": "PUBLIC_OFF",
+                    "state": "CLEANED_PUBLIC_OFF",
+                },
+            },
+            "workflow": {
+                "packet_filter_hardening_ready": True,
+                "packet_filter_hardening": packet_filter_hardening,
+            },
+            "wsta80_redacted": {
+                "decision": runner.WSTA80_LIVE_DECISION,
+                "gate_decision": "ok",
+                "checks": {
+                    "ack_packet_filter_mutation": True,
+                    "force_packet_filter_restore_proof": True,
+                    "packet_filter_hardening_ready": True,
+                },
+                "wsta58_redacted": {
+                    "decision": runner.WSTA58_LIVE_DECISION,
+                    "gate_decision": "ok",
+                    "checks": {
+                        "initial_packet_filter_restore_ok": True,
+                        "renewal_packet_filter_restore_ok": True,
+                        "manual_stop_cleanup_ok": True,
+                        "manual_stop_public_state_off": True,
+                    },
+                    "initial": wsta55_cycle(),
+                    "renewal": wsta55_cycle(),
+                },
+            },
+            "public_url_value_logged": False,
+            "secret_values_logged": 0,
+        }
+
     def cloudflared_model_proof(self) -> dict:
         model = runner.wsta122.cloudflared_service_model()
         return {
@@ -2279,6 +2381,99 @@ class ServerDistroWsta108OperatorServerStatusTests(unittest.TestCase):
         self.assertIn("Default-drop hardening state: `LEGACY_IPTABLES_DEFAULT_DROP_HARDENING_POLICY_DEFINED`", markdown)
         self.assertIn("Default-drop hardening mutates filters here: `false`", markdown)
 
+    def test_wsta220_attended_default_drop_live_retires_attended_live_next_action(self) -> None:
+        with self.private_tmp() as tmp:
+            root = Path(tmp)
+            self.assertEqual(wsta88.run(self.wsta88_args(root))["decision"], wsta88.PREFLIGHT_DECISION)
+            manifest_path = root / "inputs" / "wsta90_service_hardening_manifest.json"
+            launcher_path = root / "inputs" / "wsta110_result.json"
+            admin_path = root / "inputs" / "wsta120_result.json"
+            runtime_path = root / "inputs" / "wsta125_result.json"
+            presenter_path = root / "inputs" / "wsta130_dpublic_hud_presenter_model.json"
+            handoff_path = root / "inputs" / "wsta144_dpublic_hud_shared_run_bind_live.json"
+            hud_syscall_path = root / "inputs" / "wsta149_dpublic_hud_intent_syscall_trace_live.json"
+            smoke_seccomp_path = root / "inputs" / "wsta208_result.json"
+            dropbear_seccomp_path = root / "inputs" / "wsta209_result.json"
+            native_uplink_path = root / "inputs" / "wsta212_result.json"
+            apparmor_path = root / "inputs" / "wsta214_result.json"
+            default_drop_path = root / "inputs" / "wsta216_result.json"
+            attended_live_path = root / "inputs" / "wsta219_operator_workflow.json"
+            self.write_json(manifest_path, self.hardening_manifest())
+            self.write_json(launcher_path, self.launcher_proof())
+            self.write_json(admin_path, self.dropbear_admin_proof())
+            self.write_json(runtime_path, self.cloudflared_runtime_proof())
+            self.write_json(presenter_path, self.hud_presenter_model_proof())
+            self.write_json(handoff_path, self.hud_presenter_handoff_proof())
+            self.write_json(hud_syscall_path, self.hud_intent_syscall_proof())
+            self.write_json(smoke_seccomp_path, self.seccomp_smoke_proof())
+            self.write_json(dropbear_seccomp_path, self.seccomp_dropbear_proof())
+            self.write_json(native_uplink_path, self.native_uplink_boundary_policy())
+            self.write_json(apparmor_path, self.apparmor_feasibility())
+            self.write_json(default_drop_path, self.default_drop_hardening_policy())
+            self.write_json(attended_live_path, self.attended_default_drop_live_proof())
+            result = runner.run(self.valid_args(
+                root,
+                root / "wsta88" / "wsta88_operator_workflow.json",
+                "--wsta90-service-hardening-manifest-json",
+                str(manifest_path),
+                "--wsta110-service-launcher-proof-json",
+                str(launcher_path),
+                "--wsta120-dropbear-admin-proof-json",
+                str(admin_path),
+                "--wsta125-cloudflared-runtime-proof-json",
+                str(runtime_path),
+                "--wsta130-hud-presenter-model-json",
+                str(presenter_path),
+                "--wsta144-hud-presenter-handoff-proof-json",
+                str(handoff_path),
+                "--wsta149-hud-intent-syscall-proof-json",
+                str(hud_syscall_path),
+                "--wsta208-real-service-seccomp-proof-json",
+                str(smoke_seccomp_path),
+                "--wsta209-dropbear-admin-seccomp-proof-json",
+                str(dropbear_seccomp_path),
+                "--wsta212-native-uplink-boundary-policy-json",
+                str(native_uplink_path),
+                "--wsta214-apparmor-feasibility-json",
+                str(apparmor_path),
+                "--wsta216-default-drop-hardening-policy-json",
+                str(default_drop_path),
+                "--wsta219-attended-default-drop-live-json",
+                str(attended_live_path),
+            ))
+            markdown = (root / "wsta108" / "wsta108_operator_server_status.md").read_text(encoding="utf-8")
+
+        self.assertEqual(result["decision"], runner.PASS_DECISION)
+        proof = result["server_status"]["hardening"]["attended_default_drop_live"]
+        self.assertEqual(proof["state"], runner.ATTENDED_DEFAULT_DROP_LIVE_STATE)
+        self.assertTrue(proof["attended_default_drop_live_proven"])
+        self.assertEqual(proof["packet_filter_backend"], "legacy-iptables")
+        self.assertEqual(proof["packet_filter_policy"], "loopback-default-drop")
+        self.assertTrue(proof["ack_packet_filter_mutation"])
+        self.assertTrue(proof["force_packet_filter_restore_proof"])
+        self.assertTrue(proof["initial_public_smoke_ok"])
+        self.assertTrue(proof["renewal_public_smoke_ok"])
+        self.assertTrue(proof["initial_ttl_public_off"])
+        self.assertTrue(proof["renewal_ttl_public_off"])
+        self.assertEqual(proof["public_state_after_manual_stop"], "PUBLIC_OFF")
+        self.assertTrue(result["checks"]["wsta219_attended_default_drop_live_supplied"])
+        self.assertTrue(result["checks"]["attended_default_drop_live_proven"])
+        self.assertTrue(result["checks"]["attended_default_drop_live_default_off"])
+        self.assertTrue(result["checks"]["attended_default_drop_live_explicit_execution"])
+        self.assertTrue(result["checks"]["attended_default_drop_live_packet_filter_ready"])
+        self.assertTrue(result["checks"]["attended_default_drop_live_ack_packet_filter_mutation"])
+        self.assertTrue(result["checks"]["attended_default_drop_live_force_restore_proof"])
+        self.assertNotIn(
+            "move-to-attended-default-drop-live-use-or-next-hardening-layer",
+            result["server_status"]["operator_next_actions"],
+        )
+        self.assertIn(
+            "move-to-next-hardening-layer-after-attended-default-drop-live",
+            result["server_status"]["operator_next_actions"],
+        )
+        self.assertIn("Attended default-drop live: `true`", markdown)
+        self.assertIn("Attended default-drop state: `LEGACY_IPTABLES_DEFAULT_DROP_ATTENDED_LIVE_PROVEN`", markdown)
+
     def test_all_syscall_profiles_retired_removes_syscall_blocker(self) -> None:
         with self.private_tmp() as tmp:
             root = Path(tmp)
@@ -2921,6 +3116,42 @@ class ServerDistroWsta108OperatorServerStatusTests(unittest.TestCase):
         self.assertFalse(result["checks"]["default_drop_hardening_policy_defined"])
         self.assertFalse(result["checks"]["default_drop_hardening_policy_no_live_execution"])
 
+    def test_nonpass_wsta219_attended_default_drop_live_blocks(self) -> None:
+        with self.private_tmp() as tmp:
+            root = Path(tmp)
+            self.assertEqual(wsta88.run(self.wsta88_args(root))["decision"], wsta88.PREFLIGHT_DECISION)
+            proof_path = root / "inputs" / "wsta219_operator_workflow.json"
+            proof = self.attended_default_drop_live_proof()
+            proof["decision"] = "wsta88-blocked"
+            self.write_json(proof_path, proof)
+            result = runner.run(self.valid_args(
+                root,
+                root / "wsta88" / "wsta88_operator_workflow.json",
+                "--wsta219-attended-default-drop-live-json",
+                str(proof_path),
+            ))
+
+        self.assertEqual(result["decision"], "wsta108-blocked-wsta219-attended-default-drop-live-not-pass")
+
+    def test_incomplete_wsta219_attended_default_drop_live_blocks_even_with_pass_decision(self) -> None:
+        with self.private_tmp() as tmp:
+            root = Path(tmp)
+            self.assertEqual(wsta88.run(self.wsta88_args(root))["decision"], wsta88.PREFLIGHT_DECISION)
+            proof_path = root / "inputs" / "wsta219_operator_workflow.json"
+            proof = self.attended_default_drop_live_proof()
+            proof["wsta80_redacted"]["checks"]["force_packet_filter_restore_proof"] = False
+            self.write_json(proof_path, proof)
+            result = runner.run(self.valid_args(
+                root,
+                root / "wsta88" / "wsta88_operator_workflow.json",
+                "--wsta219-attended-default-drop-live-json",
+                str(proof_path),
+            ))
+
+        self.assertEqual(result["decision"], "wsta108-blocked-wsta219-attended-default-drop-live-incomplete")
+        self.assertFalse(result["checks"]["attended_default_drop_live_proven"])
+        self.assertFalse(result["checks"]["attended_default_drop_live_force_restore_proof"])
+
     def test_public_summary_markdown_and_template_are_redacted(self) -> None:
         with self.private_tmp() as tmp:
             root = Path(tmp)
@@ -2961,6 +3192,7 @@ class ServerDistroWsta108OperatorServerStatusTests(unittest.TestCase):
         self.assertIn("--wsta212-native-uplink-boundary-policy-json", payload)
         self.assertIn("--wsta214-apparmor-feasibility-json", payload)
         self.assertIn("--wsta216-default-drop-hardening-policy-json", payload)
+        self.assertIn("--wsta219-attended-default-drop-live-json", payload)
         self.assertIn("--wsta122-cloudflared-model-json", payload)
         self.assertIn("--wsta125-cloudflared-runtime-proof-json", payload)
         self.assertIn("--wsta127-hud-model-json", payload)
@@ -2988,6 +3220,7 @@ class ServerDistroWsta108OperatorServerStatusTests(unittest.TestCase):
         self.assertIn("DPUBLIC_HUD_DURABLE_PRESENTER_HANDOFF_LIVE_PROVEN", source)
         self.assertIn("DPUBLIC_HUD_DURABLE_PRESENTER_RESTART_LIVE_PROVEN", source)
         self.assertIn("DPUBLIC_HUD_INTENT_SYSCALL_TRACE_LIVE_PROVEN", source)
+        self.assertIn("LEGACY_IPTABLES_DEFAULT_DROP_ATTENDED_LIVE_PROVEN", source)
         self.assertIn("split-intent-native-presenter", source)
         self.assertIn("prototype-dpublic-hud-intent-presenter-boundary-before-live-hud-profile", source)
         self.assertIn("design-durable-dpublic-hud-presenter-service-across-debian-handoff", source)
@@ -2999,6 +3232,7 @@ class ServerDistroWsta108OperatorServerStatusTests(unittest.TestCase):
         self.assertIn("--wsta144-hud-presenter-handoff-proof-json", source)
         self.assertIn("--wsta147-hud-presenter-restart-proof-json", source)
         self.assertIn("--wsta149-hud-intent-syscall-proof-json", source)
+        self.assertIn("--wsta219-attended-default-drop-live-json", source)
         self.assertIn('"boot_flash": False', source)
         self.assertIn('"public_url_value_logged": False', source)
         self.assertNotIn("native_init_flash.py", source)

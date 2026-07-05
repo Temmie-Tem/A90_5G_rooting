@@ -303,6 +303,33 @@ safety invariants and flash gates are binding and override any sub-goal.**
 > drop live proof is visible, then continue with the next hardening layer without
 > weakening default-off/public-off behavior.
 
+> **🟢 STATUS (2026-07-05 22:04 KST) — WSTA220 OPERATOR STATUS ATTENDED DEFAULT-DROP LIVE PASS.**
+> Codex folded the WSTA219 attended default-drop live proof into the WSTA108
+> operator server status bundle.  WSTA108 now accepts
+> `--wsta219-attended-default-drop-live-json`, fail-closes non-pass or incomplete
+> WSTA219 evidence, and emits `attended_default_drop_live` with state
+> `LEGACY_IPTABLES_DEFAULT_DROP_ATTENDED_LIVE_PROVEN` only when the proof includes
+> explicit WSTA80 packet-filter acknowledgement, forced restore proof, initial
+> and renewal WSTA55 public smoke, TTL expiry to `PUBLIC_OFF`, packet-filter
+> restore, and manual stop cleanup to `PUBLIC_OFF`.  Representative host-only
+> run:
+> `workspace/private/runs/server-distro/wsta220-operator-status-attended-default-drop-live-fullest-20260705T220310KST/wsta108_operator_server_status.json`;
+> decision `wsta108-operator-server-status-source-pass`.  With the current
+> WSTA122/WSTA125/WSTA147/WSTA151/WSTA208/WSTA209/WSTA212/WSTA214/WSTA216
+> evidence supplied, WSTA108 reports
+> `attended_default_drop_live_proven=true`,
+> `capability_drop_nonroot_services_live_proven=true`,
+> `seccomp_real_services_live_proven=true`, and next actions reduce to
+> default-off/explicit-gate preservation plus moving to the next hardening layer.
+> No device action, boot flash, Wi-Fi connect, DHCP, public tunnel, public smoke,
+> packet-filter mutation, userdata write, LSM load, or switch-root occurred in
+> WSTA220.  Validation: WSTA108 focused tests `60 tests OK`, full server-distro
+> regression `809 tests OK`.  Report:
+> `docs/reports/SERVER_DISTRO_WIFI_STA_UPSTREAM_WSTA220_OPERATOR_STATUS_ATTENDED_DEFAULT_DROP_LIVE_2026-07-05.md`.
+> **NEXT:** continue from the visible hardening state: keep public exposure
+> default-off and explicit-gated, then choose the next hardening layer without
+> weakening the proven legacy-iptables default-drop path.
+
 > **✅ OPERATOR GO (2026-07-04) — D-public is USER-AUTHORIZED and operator-driven; PROCEED.** (Supersedes the
 > earlier same-day HOLD, which assumed authorization was pending — it was not.) The user confirmed the
 > `D-PUBLIC-LIVE-PUBLISH` go and is actively driving D-public. First live publish (commit `8d25f793`:
