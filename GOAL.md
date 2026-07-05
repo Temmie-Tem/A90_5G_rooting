@@ -3981,11 +3981,34 @@ safety invariants and flash gates are binding and override any sub-goal.**
 > focused WSTA154+WSTA155+WSTA156 tests (`9 tests OK`), full server-distro
 > regression (`544 tests OK`), and WSTA156 artifact generation.  Report:
 > `docs/reports/SERVER_DISTRO_WIFI_STA_UPSTREAM_WSTA156_SECCOMP_NONLOADED_FILTER_ARTIFACT_2026-07-05.md`.
-> **NEXT:** WSTA157 should add a loader contract without enabling it by default:
-> either wire the compiled artifact into the launcher model behind an explicit
-> future enforcement flag, or run a private chroot dry-run using the staged
-> policy and compiled artifact.  Seccomp enforcement remains unproven and must
-> stay behind a separate live gate.
+>
+> **🟢 STATUS (2026-07-05 12:36 KST host clock) — WSTA157 SECCOMP
+> LOADER CONTRACT ROOTFS PROOF PASS.**  Codex updated
+> `prepare_wsta3_sta_rootfs.py` so the private rootfs can stage the WSTA156
+> non-loaded filter manifest at
+> `etc/a90-dpublic/seccomp-filter-manifest.json` and object at
+> `usr/lib/a90-dpublic/seccomp/wsta156_seccomp_filters.o`, verifying the object
+> SHA against the manifest before staging.  The launcher now emits
+> `A90WSTA157_SECCOMP_ARTIFACT_PRESENT=<0|1>` and
+> `A90WSTA157_SECCOMP_ENFORCE_FLAG=<0|1>` during dry-run.  A host-only WSTA157
+> proof runner staged the real WSTA153 policy plus WSTA156 manifest/object into
+> a private rootfs directory: default dry-run showed artifact present, enforce
+> flag `0`, `FILTER_LOAD=0`, `dpublic-hud`→`dpublic-hud-intent` count `22`,
+> and then reached fake `setpriv`; an `A90_SERVICE_LAUNCH_SECCOMP_ENFORCE=1`
+> run showed artifact present, enforce flag `1`, and exited `65` before exec
+> with `blocked-seccomp-enforce-unimplemented`.  This unit did not chroot, touch
+> the device, flash, reboot, connect Wi-Fi, run DHCP, open a public tunnel,
+> mutate packet filters, write userdata, build a new filter, load BPF, load a
+> seccomp filter, or enforce seccomp.  Validation passed `py_compile`, focused
+> prepare-rootfs+WSTA155+WSTA156+WSTA157 tests (`42 tests OK`), full
+> server-distro regression (`546 tests OK`), and WSTA157 proof generation:
+> `workspace/private/runs/server-distro/wsta157-seccomp-loader-contract-rootfs-proof-20260705T1236KST/`.
+> Report:
+> `docs/reports/SERVER_DISTRO_WIFI_STA_UPSTREAM_WSTA157_SECCOMP_LOADER_CONTRACT_ROOTFS_PROOF_2026-07-05.md`.
+> **NEXT:** WSTA158 should choose the next enforcement-adjacent bounded step:
+> either build a separate loader helper with a default check-only mode, or run
+> the full staged rootfs in a private chroot dry-run.  Actual seccomp
+> enforcement remains unproven and must stay behind a later explicit live gate.
 
 ## North star — priority-ordered tracks (T1 → T2 → T3)
 

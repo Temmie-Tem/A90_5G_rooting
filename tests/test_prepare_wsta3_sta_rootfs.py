@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import argparse
+import hashlib
 import json
 import os
 import subprocess
@@ -46,6 +47,9 @@ def make_args(tmp: Path, **overrides) -> argparse.Namespace:
         "hud_presenter": tmp / "a90-dpublic-hud-presenter",
         "seccomp_policy_source": tmp / "wsta153_seccomp_policy.json",
         "require_seccomp_policy_source": False,
+        "seccomp_filter_manifest": tmp / "wsta156_seccomp_filter_manifest.json",
+        "seccomp_filter_object": tmp / "wsta156_seccomp_filters.o",
+        "require_seccomp_filter_artifact": False,
     }
     defaults.update(overrides)
     return argparse.Namespace(**defaults)
@@ -119,6 +123,55 @@ def seccomp_policy_source() -> dict:
             "secret_values_logged": 0,
         },
     }
+
+
+def write_seccomp_filter_artifact(rootfs: Path) -> tuple[Path, Path]:
+    object_path = rootfs / "inputs" / "wsta156_seccomp_filters.o"
+    object_path.parent.mkdir(parents=True, exist_ok=True)
+    object_path.write_bytes(b"fake-aarch64-object-for-stage-test")
+    object_sha = hashlib.sha256(object_path.read_bytes()).hexdigest()
+    manifest = {
+        "schema": "a90-wsta156-seccomp-nonloaded-filter-artifact-v1",
+        "state": "SECCOMP_FILTER_ARTIFACT_COMPILED_NOT_LOADED",
+        "source_policy_schema": "a90-wsta153-seccomp-policy-source-v1",
+        "source_policy_enforcement_state": "SOURCE_ONLY_NOT_ENFORCED",
+        "service_count": 4,
+        "loaded": False,
+        "enforced": False,
+        "artifact_sha256": {
+            "object": object_sha,
+        },
+        "services": [
+            {
+                "service": "dpublic-smoke-httpd",
+                "instruction_count": 9,
+                "missing_syscalls": [],
+            },
+            {
+                "service": "cloudflared-quick-tunnel",
+                "instruction_count": 11,
+                "missing_syscalls": [],
+            },
+            {
+                "service": "dropbear-admin-usb",
+                "instruction_count": 13,
+                "missing_syscalls": [],
+            },
+            {
+                "service": "dpublic-hud-intent",
+                "instruction_count": 15,
+                "missing_syscalls": [],
+            },
+        ],
+        "object_file": "ELF 64-bit LSB relocatable, ARM aarch64, version 1 (SYSV), not stripped",
+        "redaction": {
+            "public_url_value_logged": False,
+            "secret_values_logged": 0,
+        },
+    }
+    manifest_path = rootfs / "inputs" / "wsta156_seccomp_filter_manifest.json"
+    write_private(manifest_path, json.dumps(manifest), mode=0o600)
+    return manifest_path, object_path
 
 
 class PrepareWsta3PrivateRootfsTests(unittest.TestCase):
@@ -653,10 +706,17 @@ class PrepareWsta3PrivateRootfsTests(unittest.TestCase):
             rootfs = Path(tmp)
             seccomp_source = rootfs / "inputs" / "wsta153_seccomp_policy.json"
             write_private(seccomp_source, json.dumps(seccomp_policy_source()), mode=0o600)
+            filter_manifest, filter_object = write_seccomp_filter_artifact(rootfs)
 
             launcher = wsta3.stage_no_new_privs_launcher(rootfs)
             policy = wsta3.stage_service_hardening_policy(rootfs)
             seccomp = wsta3.stage_seccomp_launcher_policy(rootfs, seccomp_source, require=True)
+            filter_artifact = wsta3.stage_seccomp_filter_artifact(
+                rootfs,
+                filter_manifest,
+                filter_object,
+                require=True,
+            )
             marker = wsta3.stage_service_hardening_stage_marker(rootfs)
 
             launcher_path = rootfs / wsta3.TARGET_SERVICE_LAUNCHER
@@ -664,6 +724,7 @@ class PrepareWsta3PrivateRootfsTests(unittest.TestCase):
             policy_payload = json.loads((rootfs / wsta3.TARGET_SERVICE_HARDENING_POLICY).read_text(encoding="utf-8"))
             seccomp_payload = json.loads((rootfs / wsta3.TARGET_SECCOMP_POLICY).read_text(encoding="utf-8"))
             seccomp_map = (rootfs / wsta3.TARGET_SECCOMP_LAUNCHER_MAP).read_text(encoding="utf-8")
+            filter_payload = json.loads((rootfs / wsta3.TARGET_SECCOMP_FILTER_MANIFEST).read_text(encoding="utf-8"))
             marker_text = (rootfs / wsta3.TARGET_STAGE_MARKER).read_text(encoding="utf-8")
             self.assertEqual(launcher_path.stat().st_mode & 0o777, 0o755)
             self.assertTrue(launcher["setpriv_required"])
@@ -671,6 +732,8 @@ class PrepareWsta3PrivateRootfsTests(unittest.TestCase):
             self.assertTrue(launcher["seccomp_dry_run_gate_present"])
             self.assertTrue(launcher["seccomp_policy_missing_blocks"])
             self.assertTrue(launcher["seccomp_filter_load_disabled_marker_present"])
+            self.assertTrue(launcher["seccomp_artifact_present_marker_present"])
+            self.assertTrue(launcher["seccomp_enforce_unimplemented_blocks"])
             self.assertTrue(launcher["unknown_service_blocks"])
             self.assertTrue(launcher["command_required_blocks"])
             self.assertIn("exec setpriv --no-new-privs", launcher_text)
@@ -696,28 +759,40 @@ class PrepareWsta3PrivateRootfsTests(unittest.TestCase):
             self.assertIn("setpriv", policy_payload["launcher_requires"])
             self.assertEqual(policy_payload["seccomp"]["mode"], "dry-run-before-filter-load")
             self.assertFalse(policy_payload["seccomp"]["filter_load_enabled"])
+            self.assertEqual(policy_payload["seccomp"]["filter_manifest"], str(wsta3.TARGET_SECCOMP_FILTER_MANIFEST))
+            self.assertFalse(policy_payload["seccomp"]["enforce_default"])
             self.assertTrue(seccomp["staged"])
             self.assertTrue(seccomp["hud_maps_to_intent"])
             self.assertFalse(seccomp["filter_load_enabled"])
             self.assertFalse(seccomp["seccomp_enforced"])
             self.assertEqual(seccomp_payload["enforcement_state"], "SOURCE_ONLY_NOT_ENFORCED")
             self.assertIn("dpublic-hud dpublic-hud-intent seccomp-dpublic-hud-intent-observed-v1 5", seccomp_map)
+            self.assertTrue(filter_artifact["staged"])
+            self.assertFalse(filter_artifact["filter_load_enabled"])
+            self.assertFalse(filter_artifact["seccomp_enforced"])
+            self.assertEqual(filter_payload["state"], "SECCOMP_FILTER_ARTIFACT_COMPILED_NOT_LOADED")
+            self.assertTrue((rootfs / wsta3.TARGET_SECCOMP_FILTER_OBJECT).is_file())
             self.assertTrue(marker["users_marker_present"])
             self.assertTrue(marker["no_new_privs_marker_present"])
             self.assertTrue(marker["public_default_off_marker"])
             self.assertTrue(marker["seccomp_policy_marker_present"])
             self.assertTrue(marker["seccomp_dry_run_marker_present"])
             self.assertTrue(marker["seccomp_filter_disabled_marker_present"])
+            self.assertTrue(marker["seccomp_filter_manifest_marker_present"])
+            self.assertTrue(marker["seccomp_enforce_default_off_marker_present"])
             self.assertIn("service-hardening-no-new-privs=setpriv-required", marker_text)
             self.assertIn("service-seccomp-filter-load=disabled", marker_text)
+            self.assertIn("service-seccomp-enforce-default=off", marker_text)
 
     def test_service_launcher_seccomp_dry_run_markers_are_observable_before_exec(self) -> None:
         with tempfile.TemporaryDirectory() as tmp:
             rootfs = Path(tmp)
             seccomp_source = rootfs / "inputs" / "wsta153_seccomp_policy.json"
             write_private(seccomp_source, json.dumps(seccomp_policy_source()), mode=0o600)
+            filter_manifest, filter_object = write_seccomp_filter_artifact(rootfs)
             wsta3.stage_no_new_privs_launcher(rootfs)
             wsta3.stage_seccomp_launcher_policy(rootfs, seccomp_source, require=True)
+            wsta3.stage_seccomp_filter_artifact(rootfs, filter_manifest, filter_object, require=True)
             fakebin = rootfs / "fakebin"
             fakebin.mkdir()
             fake_setpriv = fakebin / "setpriv"
@@ -733,6 +808,8 @@ class PrepareWsta3PrivateRootfsTests(unittest.TestCase):
             env["A90_SERVICE_LAUNCH_SECCOMP_DRY_RUN"] = "1"
             env["A90_SERVICE_LAUNCH_SECCOMP_POLICY"] = str(rootfs / wsta3.TARGET_SECCOMP_POLICY)
             env["A90_SERVICE_LAUNCH_SECCOMP_MAP"] = str(rootfs / wsta3.TARGET_SECCOMP_LAUNCHER_MAP)
+            env["A90_SERVICE_LAUNCH_SECCOMP_FILTER_MANIFEST"] = str(rootfs / wsta3.TARGET_SECCOMP_FILTER_MANIFEST)
+            env["A90_SERVICE_LAUNCH_SECCOMP_FILTER_OBJECT"] = str(rootfs / wsta3.TARGET_SECCOMP_FILTER_OBJECT)
             proc = subprocess.run(
                 [str(rootfs / wsta3.TARGET_SERVICE_LAUNCHER), "dpublic-hud", "/bin/true"],
                 check=False,
@@ -749,8 +826,46 @@ class PrepareWsta3PrivateRootfsTests(unittest.TestCase):
         self.assertIn("A90WSTA154_SECCOMP_POLICY_SERVICE=dpublic-hud-intent", proc.stdout)
         self.assertIn("A90WSTA154_SECCOMP_PROFILE=seccomp-dpublic-hud-intent-observed-v1", proc.stdout)
         self.assertIn("A90WSTA154_SECCOMP_ALLOWLIST_COUNT=5", proc.stdout)
+        self.assertIn("A90WSTA157_SECCOMP_ARTIFACT_PRESENT=1", proc.stdout)
+        self.assertIn("A90WSTA157_SECCOMP_ENFORCE_FLAG=0", proc.stdout)
         self.assertIn("a90_service_launcher_decision=exec", proc.stdout)
         self.assertIn("fake_setpriv_args=--no-new-privs --reuid a90hud --regid a90hud", proc.stdout)
+
+    def test_service_launcher_seccomp_enforce_flag_fails_closed_before_exec(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            rootfs = Path(tmp)
+            seccomp_source = rootfs / "inputs" / "wsta153_seccomp_policy.json"
+            write_private(seccomp_source, json.dumps(seccomp_policy_source()), mode=0o600)
+            filter_manifest, filter_object = write_seccomp_filter_artifact(rootfs)
+            wsta3.stage_no_new_privs_launcher(rootfs)
+            wsta3.stage_seccomp_launcher_policy(rootfs, seccomp_source, require=True)
+            wsta3.stage_seccomp_filter_artifact(rootfs, filter_manifest, filter_object, require=True)
+            fakebin = rootfs / "fakebin"
+            fakebin.mkdir()
+            fake_setpriv = fakebin / "setpriv"
+            fake_setpriv.write_text("#!/bin/sh\necho should-not-exec\nexit 99\n", encoding="utf-8")
+            fake_setpriv.chmod(0o755)
+            env = os.environ.copy()
+            env["PATH"] = f"{fakebin}:{env.get('PATH', '')}"
+            env["A90_SERVICE_LAUNCH_SECCOMP_DRY_RUN"] = "1"
+            env["A90_SERVICE_LAUNCH_SECCOMP_ENFORCE"] = "1"
+            env["A90_SERVICE_LAUNCH_SECCOMP_POLICY"] = str(rootfs / wsta3.TARGET_SECCOMP_POLICY)
+            env["A90_SERVICE_LAUNCH_SECCOMP_MAP"] = str(rootfs / wsta3.TARGET_SECCOMP_LAUNCHER_MAP)
+            env["A90_SERVICE_LAUNCH_SECCOMP_FILTER_MANIFEST"] = str(rootfs / wsta3.TARGET_SECCOMP_FILTER_MANIFEST)
+            env["A90_SERVICE_LAUNCH_SECCOMP_FILTER_OBJECT"] = str(rootfs / wsta3.TARGET_SECCOMP_FILTER_OBJECT)
+            proc = subprocess.run(
+                [str(rootfs / wsta3.TARGET_SERVICE_LAUNCHER), "dpublic-hud", "/bin/true"],
+                check=False,
+                capture_output=True,
+                text=True,
+                env=env,
+            )
+
+        self.assertEqual(proc.returncode, 65)
+        self.assertIn("A90WSTA157_SECCOMP_ARTIFACT_PRESENT=1", proc.stdout)
+        self.assertIn("A90WSTA157_SECCOMP_ENFORCE_FLAG=1", proc.stdout)
+        self.assertIn("a90_service_launcher_decision=blocked-seccomp-enforce-unimplemented", proc.stdout)
+        self.assertNotIn("should-not-exec", proc.stdout)
 
     def test_service_launcher_seccomp_dry_run_fails_closed_when_map_missing(self) -> None:
         with tempfile.TemporaryDirectory() as tmp:
@@ -918,7 +1033,10 @@ class PrepareWsta3PrivateRootfsTests(unittest.TestCase):
             self.assertTrue(result["service_launcher"]["unknown_service_blocks"])
             self.assertEqual(result["service_hardening_policy"]["service_count"], 4)
             self.assertTrue(result["service_hardening_policy"]["default_public_off"])
+            self.assertFalse(result["seccomp_filter_artifact"]["staged"])
+            self.assertEqual(result["seccomp_filter_artifact"]["reason"], "seccomp-filter-artifact-missing")
             self.assertTrue(result["service_hardening_stage_marker"]["launcher_marker_present"])
+            self.assertTrue(result["service_hardening_stage_marker"]["seccomp_enforce_default_off_marker_present"])
             self.assertTrue(result["hud_split_stage_marker"]["intent_producer_marker_present"])
             self.assertTrue(result["hud_split_stage_marker"]["presenter_marker_present"])
             self.assertTrue(result["hud_split_stage_marker"]["direct_kms_disabled_marker_present"])

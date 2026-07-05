@@ -10,6 +10,7 @@ from __future__ import annotations
 
 import argparse
 import datetime as _dt
+import hashlib
 import json
 import os
 import re
@@ -55,6 +56,16 @@ DEFAULT_SECCOMP_POLICY_SOURCE = (
     / "workspace/private/runs/server-distro/wsta153-seccomp-policy-source-20260705T1207KST"
     / "wsta153_seccomp_policy.json"
 )
+DEFAULT_SECCOMP_FILTER_MANIFEST = (
+    REPO_ROOT
+    / "workspace/private/runs/server-distro/wsta156-seccomp-nonloaded-filter-artifact-20260705T1227KST"
+    / "wsta156_seccomp_filter_manifest.json"
+)
+DEFAULT_SECCOMP_FILTER_OBJECT = (
+    REPO_ROOT
+    / "workspace/private/runs/server-distro/wsta156-seccomp-nonloaded-filter-artifact-20260705T1227KST"
+    / "wsta156_seccomp_filters.o"
+)
 DEFAULT_SUITE = "bookworm"
 DEFAULT_ARCH = "arm64"
 DEFAULT_MIRROR = "http://deb.debian.org/debian"
@@ -72,6 +83,8 @@ TARGET_SERVICE_LAUNCHER = Path("usr/local/bin/a90-service-launch")
 TARGET_SERVICE_HARDENING_POLICY = Path("etc/a90-dpublic/service-hardening.json")
 TARGET_SECCOMP_POLICY = Path("etc/a90-dpublic/seccomp-policy.json")
 TARGET_SECCOMP_LAUNCHER_MAP = Path("etc/a90-dpublic/seccomp-launcher-map.env")
+TARGET_SECCOMP_FILTER_MANIFEST = Path("etc/a90-dpublic/seccomp-filter-manifest.json")
+TARGET_SECCOMP_FILTER_OBJECT = Path("usr/lib/a90-dpublic/seccomp/wsta156_seccomp_filters.o")
 TARGET_HUD_INTENT = Path("usr/local/bin/a90-dpublic-hud-intent")
 TARGET_HUD_PRESENTER = Path("usr/local/bin/a90-dpublic-hud-presenter")
 TARGET_FIRSTBOOT = Path("etc/a90-d3-firstboot")
@@ -194,6 +207,8 @@ SERVICE_HARDENING_STAGE_MARKERS = (
     "service-seccomp-policy=/etc/a90-dpublic/seccomp-policy.json",
     "service-seccomp-mode=dry-run-before-filter-load",
     "service-seccomp-filter-load=disabled",
+    "service-seccomp-filter-manifest=/etc/a90-dpublic/seccomp-filter-manifest.json",
+    "service-seccomp-enforce-default=off",
 )
 HUD_SPLIT_STAGE_MARKERS = (
     "hud-split-intent-producer=/usr/local/bin/a90-dpublic-hud-intent",
@@ -220,6 +235,14 @@ def rel(path: Path) -> str:
         return str(path.relative_to(REPO_ROOT))
     except ValueError:
         return str(path)
+
+
+def sha256_file(path: Path) -> str:
+    digest = hashlib.sha256()
+    with path.open("rb") as fp:
+        for chunk in iter(lambda: fp.read(1024 * 1024), b""):
+            digest.update(chunk)
+    return digest.hexdigest()
 
 
 def write_json(path: Path, payload: Any) -> None:
@@ -1008,6 +1031,9 @@ seccomp_dry_run_gate() {{
   fi
   policy_path="${{A90_SERVICE_LAUNCH_SECCOMP_POLICY:-/etc/a90-dpublic/seccomp-policy.json}}"
   map_path="${{A90_SERVICE_LAUNCH_SECCOMP_MAP:-/etc/a90-dpublic/seccomp-launcher-map.env}}"
+  filter_manifest_path="${{A90_SERVICE_LAUNCH_SECCOMP_FILTER_MANIFEST:-/etc/a90-dpublic/seccomp-filter-manifest.json}}"
+  filter_object_path="${{A90_SERVICE_LAUNCH_SECCOMP_FILTER_OBJECT:-/usr/lib/a90-dpublic/seccomp/wsta156_seccomp_filters.o}}"
+  enforce_flag="${{A90_SERVICE_LAUNCH_SECCOMP_ENFORCE:-0}}"
   if [ ! -r "$policy_path" ]; then
     echo "a90_service_launcher_decision=blocked-seccomp-policy-missing"
     exit 65
@@ -1045,6 +1071,16 @@ seccomp_dry_run_gate() {{
   echo "A90WSTA154_SECCOMP_POLICY_SERVICE=$seccomp_policy_service"
   echo "A90WSTA154_SECCOMP_PROFILE=$seccomp_profile"
   echo "A90WSTA154_SECCOMP_ALLOWLIST_COUNT=$seccomp_allowlist_count"
+  if [ -r "$filter_manifest_path" ] && [ -r "$filter_object_path" ]; then
+    echo "A90WSTA157_SECCOMP_ARTIFACT_PRESENT=1"
+  else
+    echo "A90WSTA157_SECCOMP_ARTIFACT_PRESENT=0"
+  fi
+  echo "A90WSTA157_SECCOMP_ENFORCE_FLAG=$enforce_flag"
+  if [ "$enforce_flag" = "1" ]; then
+    echo "a90_service_launcher_decision=blocked-seccomp-enforce-unimplemented"
+    exit 65
+  fi
 }}
 
 SERVICE="${{1:-}}"
@@ -1092,6 +1128,8 @@ def stage_no_new_privs_launcher(rootfs: Path) -> dict[str, Any]:
         "seccomp_dry_run_gate_present": "seccomp_dry_run_gate" in text,
         "seccomp_policy_missing_blocks": "blocked-seccomp-policy-missing" in text,
         "seccomp_filter_load_disabled_marker_present": "A90WSTA154_SECCOMP_FILTER_LOAD=0" in text,
+        "seccomp_artifact_present_marker_present": "A90WSTA157_SECCOMP_ARTIFACT_PRESENT" in text,
+        "seccomp_enforce_unimplemented_blocks": "blocked-seccomp-enforce-unimplemented" in text,
         "unknown_service_blocks": "blocked-unknown-service" in text,
         "command_required_blocks": "blocked-command-required" in text,
         "service_count": len(SERVICE_IDENTITIES),
@@ -1124,9 +1162,13 @@ def stage_service_hardening_policy(rootfs: Path) -> dict[str, Any]:
         "seccomp": {
             "policy": str(TARGET_SECCOMP_POLICY),
             "launcher_map": str(TARGET_SECCOMP_LAUNCHER_MAP),
+            "filter_manifest": str(TARGET_SECCOMP_FILTER_MANIFEST),
+            "filter_object": str(TARGET_SECCOMP_FILTER_OBJECT),
             "mode": "dry-run-before-filter-load",
             "filter_load_enabled": False,
             "enforced": False,
+            "enforce_flag": "A90_SERVICE_LAUNCH_SECCOMP_ENFORCE=1",
+            "enforce_default": False,
         },
         "services": services,
         "root_boundary_services": list(ROOT_BOUNDARY_SERVICES),
@@ -1268,6 +1310,117 @@ def stage_seccomp_launcher_policy(rootfs: Path,
     }
 
 
+def load_json_object(path: Path) -> dict[str, Any]:
+    with path.open("r", encoding="utf-8") as fp:
+        payload = json.load(fp)
+    if not isinstance(payload, dict):
+        raise ValueError(f"expected object JSON: {path}")
+    return payload
+
+
+def validate_seccomp_filter_manifest(manifest: dict[str, Any], object_path: Path) -> dict[str, bool]:
+    services = manifest.get("services") if isinstance(manifest.get("services"), list) else []
+    expected_object_sha = (
+        manifest.get("artifact_sha256", {}).get("object")
+        if isinstance(manifest.get("artifact_sha256"), dict)
+        else None
+    )
+    return {
+        "schema_ok": manifest.get("schema") == "a90-wsta156-seccomp-nonloaded-filter-artifact-v1",
+        "state_compiled_not_loaded": manifest.get("state") == "SECCOMP_FILTER_ARTIFACT_COMPILED_NOT_LOADED",
+        "source_policy_is_wsta153": manifest.get("source_policy_schema") == "a90-wsta153-seccomp-policy-source-v1",
+        "source_policy_not_enforced": manifest.get("source_policy_enforcement_state") == "SOURCE_ONLY_NOT_ENFORCED",
+        "service_count_four": len(services) == 4,
+        "all_missing_syscalls_empty": all(
+            isinstance(item, dict) and item.get("missing_syscalls") == []
+            for item in services
+        ),
+        "all_instruction_counts_nonzero": all(
+            isinstance(item, dict)
+            and isinstance(item.get("instruction_count"), int)
+            and item.get("instruction_count") > 0
+            for item in services
+        ),
+        "loaded_false": manifest.get("loaded") is False,
+        "enforced_false": manifest.get("enforced") is False,
+        "object_present": object_path.is_file(),
+        "object_sha_matches_manifest": (
+            object_path.is_file()
+            and isinstance(expected_object_sha, str)
+            and sha256_file(object_path) == expected_object_sha
+        ),
+        "redaction_clean": manifest.get("redaction", {}).get("public_url_value_logged") is False
+        and manifest.get("redaction", {}).get("secret_values_logged") == 0,
+    }
+
+
+def stage_seccomp_filter_artifact(rootfs: Path,
+                                  manifest_source: Path | None,
+                                  object_source: Path | None,
+                                  *,
+                                  require: bool = False) -> dict[str, Any]:
+    if (
+        manifest_source is None
+        or object_source is None
+        or not manifest_source.is_file()
+        or not object_source.is_file()
+    ):
+        return {
+            "staged": False,
+            "required": require,
+            "reason": "seccomp-filter-artifact-missing",
+            "manifest_target": str(TARGET_SECCOMP_FILTER_MANIFEST),
+            "object_target": str(TARGET_SECCOMP_FILTER_OBJECT),
+            "filter_load_enabled": False,
+            "seccomp_enforced": False,
+            "secret_values_logged": 0,
+        }
+    manifest = load_json_object(manifest_source)
+    checks = validate_seccomp_filter_manifest(manifest, object_source)
+    if not all(checks.values()):
+        if require:
+            raise ValueError(f"invalid seccomp filter artifact: {checks}")
+        return {
+            "staged": False,
+            "required": require,
+            "reason": "seccomp-filter-artifact-invalid",
+            "checks": checks,
+            "filter_load_enabled": False,
+            "seccomp_enforced": False,
+            "secret_values_logged": 0,
+        }
+    manifest_target = rootfs / TARGET_SECCOMP_FILTER_MANIFEST
+    object_target = rootfs / TARGET_SECCOMP_FILTER_OBJECT
+    write_json(manifest_target, manifest)
+    manifest_target.chmod(0o644)
+    object_target.parent.mkdir(parents=True, exist_ok=True)
+    shutil.copy2(object_source, object_target)
+    object_target.chmod(0o644)
+    return {
+        "staged": True,
+        "required": require,
+        "manifest_source": rel(manifest_source),
+        "object_source": rel(object_source),
+        "manifest_target": str(TARGET_SECCOMP_FILTER_MANIFEST),
+        "manifest_mode": oct(manifest_target.stat().st_mode & 0o777),
+        "object_target": str(TARGET_SECCOMP_FILTER_OBJECT),
+        "object_mode": oct(object_target.stat().st_mode & 0o777),
+        "service_count": manifest.get("service_count"),
+        "object_sha256": sha256_file(object_target),
+        "filter_load_enabled": False,
+        "seccomp_filter_loaded": False,
+        "seccomp_enforced": False,
+        "enforce_default": False,
+        "enforce_flag": "A90_SERVICE_LAUNCH_SECCOMP_ENFORCE=1",
+        "checks": checks,
+        "dry_run_markers": [
+            "A90WSTA157_SECCOMP_ARTIFACT_PRESENT=1",
+            "A90WSTA157_SECCOMP_ENFORCE_FLAG=0",
+        ],
+        "secret_values_logged": 0,
+    }
+
+
 def stage_service_hardening_stage_marker(rootfs: Path) -> dict[str, Any]:
     marker = rootfs / TARGET_STAGE_MARKER
     marker.parent.mkdir(parents=True, exist_ok=True)
@@ -1291,6 +1444,8 @@ def stage_service_hardening_stage_marker(rootfs: Path) -> dict[str, Any]:
         "seccomp_policy_marker_present": SERVICE_HARDENING_STAGE_MARKERS[5] in lines,
         "seccomp_dry_run_marker_present": SERVICE_HARDENING_STAGE_MARKERS[6] in lines,
         "seccomp_filter_disabled_marker_present": SERVICE_HARDENING_STAGE_MARKERS[7] in lines,
+        "seccomp_filter_manifest_marker_present": SERVICE_HARDENING_STAGE_MARKERS[8] in lines,
+        "seccomp_enforce_default_off_marker_present": SERVICE_HARDENING_STAGE_MARKERS[9] in lines,
         "secret_values_logged": 0,
     }
 
@@ -1515,6 +1670,19 @@ def prepare(args: argparse.Namespace) -> dict[str, Any]:
         })
         write_json(run_dir / "summary.json", result)
         return result
+    result["seccomp_filter_artifact"] = stage_seccomp_filter_artifact(
+        target_rootfs,
+        getattr(args, "seccomp_filter_manifest", None),
+        getattr(args, "seccomp_filter_object", None),
+        require=bool(getattr(args, "require_seccomp_filter_artifact", False)),
+    )
+    if getattr(args, "require_seccomp_filter_artifact", False) and not result["seccomp_filter_artifact"].get("staged"):
+        result.update({
+            "ok": False,
+            "decision": "wsta3-private-rootfs-blocked-seccomp-filter-artifact-missing",
+        })
+        write_json(run_dir / "summary.json", result)
+        return result
     result["service_hardening_stage_marker"] = stage_service_hardening_stage_marker(target_rootfs)
     result["hud_split_stage_marker"] = stage_hud_split_stage_marker(target_rootfs)
     if args.immediate_snapshot_only:
@@ -1578,6 +1746,9 @@ def build_arg_parser() -> argparse.ArgumentParser:
     parser.add_argument("--hud-presenter", type=Path, default=DEFAULT_HUD_PRESENTER)
     parser.add_argument("--seccomp-policy-source", type=Path, default=DEFAULT_SECCOMP_POLICY_SOURCE)
     parser.add_argument("--require-seccomp-policy-source", action="store_true")
+    parser.add_argument("--seccomp-filter-manifest", type=Path, default=DEFAULT_SECCOMP_FILTER_MANIFEST)
+    parser.add_argument("--seccomp-filter-object", type=Path, default=DEFAULT_SECCOMP_FILTER_OBJECT)
+    parser.add_argument("--require-seccomp-filter-artifact", action="store_true")
     return parser
 
 
@@ -1593,6 +1764,8 @@ def main(argv: list[str] | None = None) -> int:
     args.hud_intent = args.hud_intent.resolve()
     args.hud_presenter = args.hud_presenter.resolve()
     args.seccomp_policy_source = args.seccomp_policy_source.resolve()
+    args.seccomp_filter_manifest = args.seccomp_filter_manifest.resolve()
+    args.seccomp_filter_object = args.seccomp_filter_object.resolve()
     if args.wpa_conf:
         args.wpa_conf = args.wpa_conf.resolve()
     try:
