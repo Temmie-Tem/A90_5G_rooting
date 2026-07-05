@@ -4656,10 +4656,43 @@ safety invariants and flash gates are binding and override any sub-goal.**
 > source-gate artifact, and full server-distro regression (`631 tests OK`).
 > Report:
 > `docs/reports/SERVER_DISTRO_WIFI_STA_UPSTREAM_WSTA182_SECCOMP_LIVE_READINESS_STATUS_2026-07-05.md`.
-> **NEXT:** the current no-load live observation state is ready for explicit
-> operator approval.  The generated WSTA182 command packet is the concise
-> execution surface for WSTA181, and WSTA181 will execute WSTA178 then audit the
-> resulting WSTA177 result with WSTA179.
+>
+> **🟢 STATUS (2026-07-05 15:14 KST host clock) — WSTA183 SECCOMP FRESH
+> READINESS STATUS PASS.**  Codex added a host-only WSTA183 fresh readiness
+> wrapper for the WSTA181 no-load live observation gate.  It runs a fresh
+> WSTA181 source-gate check against the WSTA180 handoff bundle, then feeds that
+> fresh source-gate result into WSTA182 to emit the readiness/status artifact
+> and WSTA181 execution command packet without executing WSTA181.  Proof run:
+> `workspace/private/runs/server-distro/wsta183-seccomp-fresh-readiness-status-20260705T151430KST/`.
+> Fresh WSTA181 source gate:
+> `workspace/private/runs/server-distro/wsta183-seccomp-fresh-readiness-status-20260705T151430KST/fresh-wsta181-source-gate/wsta181_result.json`;
+> source decision was `wsta181-blocked-explicit-execution-gate-required`.
+> Fresh WSTA182 readiness:
+> `workspace/private/runs/server-distro/wsta183-seccomp-fresh-readiness-status-20260705T151430KST/fresh-wsta182-readiness-status/wsta182_result.json`;
+> readiness decision was `wsta182-seccomp-live-readiness-status-pass`.
+> Generated readiness status and command:
+> `workspace/private/runs/server-distro/wsta183-seccomp-fresh-readiness-status-20260705T151430KST/fresh-wsta182-readiness-status/wsta182_readiness_status.json`,
+> `workspace/private/runs/server-distro/wsta183-seccomp-fresh-readiness-status-20260705T151430KST/fresh-wsta182-readiness-status/wsta182_wsta181_execute_command.json`,
+> and
+> `workspace/private/runs/server-distro/wsta183-seccomp-fresh-readiness-status-20260705T151430KST/fresh-wsta182-readiness-status/wsta182_wsta181_execute_command.sh`.
+> Readiness state is `READY_FOR_EXPLICIT_OPERATOR_APPROVAL`; command state is
+> `READY_TO_RUN_NOT_EXECUTED` and `executed=false`.  Checks included
+> `fresh_source_gate_valid=true`, `readiness_valid=true`,
+> `decision_is_explicit_gate_block=true`, `handoff_bundle_valid=true`,
+> `execution_packet_valid=true`, `post_run_audit_command_valid=true`,
+> `status_ready=true`, `blocking_condition_ok=true`, `command_ready=true`, and
+> `command_not_executed=true`.  This unit did not flash, reboot, connect Wi-Fi,
+> run DHCP, open a public tunnel, mutate packet filters, write userdata, switch
+> root, execute WSTA181, execute WSTA178, execute WSTA177, execute WSTA175,
+> execute WSTA170, execute WSTA168/WSTA167, load a seccomp filter, enforce
+> seccomp, or supply the correct WSTA161 token.  Validation passed
+> `py_compile`, focused WSTA182+WSTA183 tests (`8 tests OK`), WSTA183 fresh
+> readiness proof against the current WSTA180 handoff bundle, and full
+> server-distro regression (`635 tests OK`).  Report:
+> `docs/reports/SERVER_DISTRO_WIFI_STA_UPSTREAM_WSTA183_SECCOMP_FRESH_READINESS_STATUS_2026-07-05.md`.
+> **NEXT:** WSTA183 is now the freshest non-executing readiness path.  It should
+> be used immediately before any explicit WSTA181 execution approval so stale
+> WSTA181 source-gate evidence cannot be mistaken for current readiness.
 
 ## North star — priority-ordered tracks (T1 → T2 → T3)
 
