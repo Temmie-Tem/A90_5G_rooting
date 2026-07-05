@@ -279,6 +279,8 @@ def emit_helper_source(manifest: dict[str, Any]) -> str:
         "          }",
         "          printf(\"A90WSTA208_EXEC_AFTER_LOAD=1\\n\");",
         "          fflush(stdout);",
+        "          unsetenv(\"A90WSTA161_LOAD_TOKEN\");",
+        "          unsetenv(\"A90WSTA161_ALLOW_LOAD\");",
         "          execv(exec_argv[0], exec_argv);",
         "          printf(\"a90_seccomp_loader_decision=blocked-exec-failed errno=%d\\n\", errno);",
         "          return 72;",

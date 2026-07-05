@@ -139,6 +139,8 @@ const unsigned short a90_wsta156_dpublic_hud_intent_filter_len = 1U;
         self.assertIn("PR_SET_SECCOMP", helper_source)
         self.assertIn("execv(exec_argv[0], exec_argv)", helper_source)
         self.assertIn("A90WSTA208_EXEC_AFTER_LOAD=1", helper_source)
+        self.assertIn('unsetenv("A90WSTA161_LOAD_TOKEN")', helper_source)
+        self.assertIn('unsetenv("A90WSTA161_ALLOW_LOAD")', helper_source)
         self.assertIn("A90WSTA161_ALLOW_LOAD", helper_source)
         self.assertIn("A90WSTA161_LOAD_TOKEN", helper_source)
         self.assertIn("a90_wsta161_load_profile", nm_output)

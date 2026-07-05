@@ -89,6 +89,25 @@ safety invariants and flash gates are binding and override any sub-goal.**
 > proof to `dropbear-admin`, or move to the next D-harden lever: capability-drop audit
 > and apply, nftables default-drop apply, or AppArmor feasibility.
 
+> **🟢 STATUS (2026-07-05 19:36 KST) — WSTA209 DROPBEAR ADMIN SECCOMP LOAD/ENFORCE PASS.**
+> Codex extended the real seccomp enforcement proof to the root-boundary admin daemon:
+> `dropbear-admin-usb` was started through the WSTA161 gated helper with
+> `--service dropbear-admin-usb --apply --exec --`, the helper loaded the derived
+> profile, emitted `A90WSTA161_SECCOMP_LOAD=1` and `a90_seccomp_loader_decision=loaded`,
+> then `execv()`ed Dropbear in the same filtered process.  The live stage observed
+> `A90WSTA209_SECCOMP_DROPBEAR_MARKERS=1`; SSH as `a90admin` returned UID/GID
+> `3903/3903`, and SSH as `root` was rejected.  Live result:
+> `workspace/private/runs/server-distro/wsta209-dropbear-admin-seccomp-live-20260705T2020KST/wsta209_result.json`;
+> decision `wsta209-dropbear-admin-seccomp-live-pass`.  WSTA209 cleanup removed the
+> temporary admin key and seccomp assets; final WSTA94 cleanup removed the remaining
+> Dropbear process.  Final native health stayed clean:
+> `selftest pass=12 warn=1 fail=0`.  Report:
+> `docs/reports/SERVER_DISTRO_WIFI_STA_UPSTREAM_WSTA209_DROPBEAR_ADMIN_SECCOMP_LIVE_2026-07-05.md`.
+> **NEXT:** seccomp is now proven on both `dpublic-smoke-httpd` and
+> `dropbear-admin-usb`; do not add more seccomp scaffolding unless profiles change.
+> Move to a different D-harden lever: capability-drop verification/apply, nftables
+> default-drop apply, or AppArmor feasibility.
+
 > **✅ OPERATOR GO (2026-07-04) — D-public is USER-AUTHORIZED and operator-driven; PROCEED.** (Supersedes the
 > earlier same-day HOLD, which assumed authorization was pending — it was not.) The user confirmed the
 > `D-PUBLIC-LIVE-PUBLISH` go and is actively driving D-public. First live publish (commit `8d25f793`:
