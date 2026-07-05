@@ -4263,11 +4263,38 @@ safety invariants and flash gates are binding and override any sub-goal.**
 > (`8 tests OK`), full server-distro regression (`573 tests OK`), and WSTA167
 > no-live-gate proof with real WSTA166/WSTA153/WSTA156/WSTA161 inputs.  Report:
 > `docs/reports/SERVER_DISTRO_WIFI_STA_UPSTREAM_WSTA167_SECCOMP_LIVE_OBSERVATION_RUNNER_SOURCE_GATE_2026-07-05.md`.
-> **NEXT:** WSTA168 can run the explicit live observation if the operator
-> supplies the WSTA167 live acknowledgements.  That live run still must not
-> provide the correct WSTA161 load token and must still expect no seccomp
-> load/enforcement.  The first real seccomp-load experiment remains a separate
-> design review and gate.
+>
+> **🟢 STATUS (2026-07-05 13:50 KST host clock) — WSTA168 SECCOMP
+> LIVE-OBSERVATION PREFLIGHT PASS.**  Codex added a host-only WSTA168 preflight
+> runner that consumes the real WSTA167 no-live-gate proof and emits the exact
+> command packet for the later WSTA167 live observation.  This unit does not
+> contact the device and does not execute the live command.  The preflight
+> verifies WSTA167 `wsta167-blocked-seccomp-live-observation-required`,
+> `contract_valid=true`, `local_inputs_present=true`, `explicit_live_gate=false`,
+> `device_action=false`, `seccomp_filter_loaded=false`,
+> `seccomp_enforced=false`, `correct_wsta161_token_supplied=false`, and all
+> WSTA167 contract checks true.  It generated
+> `wsta168_live_command.json` and `wsta168_live_command.sh` with all five
+> WSTA167 ack flags:
+> `--execute-seccomp-live-observation`, `--allow-seccomp-live-observation`,
+> `--ack-no-correct-wsta161-token`, `--ack-no-seccomp-load`, and
+> `--ack-cleanup-required`.  The command state is
+> `READY_TO_RUN_NOT_EXECUTED`, `executed=false`; expected outcome remains
+> `seccomp_filter_loaded=false`, `seccomp_enforced=false`,
+> `correct_wsta161_token_supplied=false`, and scenario rc `65`.  Generated
+> proof:
+> `workspace/private/runs/server-distro/wsta168-seccomp-live-observation-preflight-20260705T1358KST/`.
+> This unit did not touch the device, flash, reboot, connect Wi-Fi, run DHCP,
+> open a public tunnel, mutate packet filters, write userdata, load BPF, load a
+> seccomp filter, enforce seccomp, chroot, switch root, or execute the generated
+> command.  Validation passed `py_compile`, focused WSTA167+WSTA168 tests
+> (`8 tests OK`), full server-distro regression (`576 tests OK`), and WSTA168
+> preflight generation from the real WSTA167 no-live proof.  Report:
+> `docs/reports/SERVER_DISTRO_WIFI_STA_UPSTREAM_WSTA168_SECCOMP_LIVE_OBSERVATION_PREFLIGHT_2026-07-05.md`.
+> **NEXT:** the next step can execute the generated `wsta168_live_command.sh`
+> to perform the actual no-load live observation.  That execution must still
+> expect no seccomp load/enforcement and must not supply the correct WSTA161
+> load token.
 
 ## North star — priority-ordered tracks (T1 → T2 → T3)
 
