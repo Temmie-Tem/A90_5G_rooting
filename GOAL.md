@@ -4312,10 +4312,36 @@ safety invariants and flash gates are binding and override any sub-goal.**
 > tests (`7 tests OK`), WSTA169 read-only proof against the current
 > bridge/device, and full server-distro regression (`580 tests OK`).  Report:
 > `docs/reports/SERVER_DISTRO_WIFI_STA_UPSTREAM_WSTA169_SECCOMP_LIVE_READINESS_READONLY_2026-07-05.md`.
-> **NEXT:** WSTA170 can execute the generated `wsta168_live_command.sh` for the
-> actual no-load live observation if explicitly requested.  That execution must
-> still expect no seccomp load/enforcement and must not supply the correct
-> WSTA161 load token.
+>
+> **🟢 STATUS (2026-07-05 14:03 KST host clock) — WSTA170 SECCOMP
+> LIVE-OBSERVATION EXECUTE SOURCE GATE PASS.**  Codex added the fail-closed
+> WSTA170 executor that consumes the WSTA169 readiness proof plus WSTA168 command
+> artifacts, validates both, and refuses to execute unless the separate WSTA170
+> acknowledgement set is supplied.  The source-gate proof used the real
+> WSTA169/WSTA168 artifacts and stopped with
+> `wsta170-blocked-explicit-execution-gate-required`; `readiness_proof_valid=true`
+> and `command_ready=true`, while `device_action=false`,
+> `live_command_executed=false`, `seccomp_filter_loaded=false`,
+> `seccomp_enforced=false`, and `correct_wsta161_token_supplied=false`.
+> WSTA170 requires
+> `--execute-wsta170-no-load-live-observation`,
+> `--allow-wsta168-command-execution`, `--ack-readiness-proof-current`,
+> `--ack-no-correct-wsta161-token`, `--ack-no-seccomp-load`, and
+> `--ack-cleanup-required` before it runs the generated WSTA168 command.  It
+> then requires the nested WSTA167 result to pass with no seccomp load/enforce,
+> no correct token, no flash/reboot/Wi-Fi/DHCP/public tunnel/packet-filter
+> mutation.  Generated proof:
+> `workspace/private/runs/server-distro/wsta170-seccomp-live-observation-execute-source-gate-20260705T140000KST/`.
+> This unit did not flash, reboot, connect Wi-Fi, run DHCP, open a public
+> tunnel, mutate packet filters, write userdata, switch root, execute the
+> WSTA168 live command, load a seccomp filter, enforce seccomp, or supply the
+> correct WSTA161 token.  Validation passed `py_compile`, focused WSTA169+WSTA170
+> tests (`8 tests OK`), WSTA170 source-gate proof against the real
+> WSTA169/WSTA168 artifacts, and full server-distro regression (`584 tests OK`).
+> Report:
+> `docs/reports/SERVER_DISTRO_WIFI_STA_UPSTREAM_WSTA170_SECCOMP_LIVE_OBSERVATION_EXECUTE_SOURCE_GATE_2026-07-05.md`.
+> **NEXT:** execute WSTA170's no-load live observation only with explicit
+> operator approval for the full WSTA170 acknowledgement set above.
 
 ## North star — priority-ordered tracks (T1 → T2 → T3)
 
