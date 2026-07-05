@@ -1048,6 +1048,8 @@ seccomp_dry_run_gate() {{
   filter_object_path="${{A90_SERVICE_LAUNCH_SECCOMP_FILTER_OBJECT:-/usr/lib/a90-dpublic/seccomp/wsta156_seccomp_filters.o}}"
   loader_helper_path="${{A90_SERVICE_LAUNCH_SECCOMP_LOADER_HELPER:-/usr/lib/a90-dpublic/seccomp/a90-seccomp-loader-checkonly}}"
   loader_helper_check_only="${{A90_SERVICE_LAUNCH_SECCOMP_HELPER_CHECK_ONLY:-1}}"
+  loader_helper_mode="${{A90_SERVICE_LAUNCH_SECCOMP_HELPER_MODE:-check-only}}"
+  loader_helper_apply_gate="${{A90_SERVICE_LAUNCH_SECCOMP_HELPER_APPLY_GATE:-}}"
   enforce_flag="${{A90_SERVICE_LAUNCH_SECCOMP_ENFORCE:-0}}"
   if [ ! -r "$policy_path" ]; then
     echo "a90_service_launcher_decision=blocked-seccomp-policy-missing"
@@ -1098,18 +1100,39 @@ seccomp_dry_run_gate() {{
     echo "A90WSTA159_SECCOMP_HELPER_PRESENT=0"
   fi
   echo "A90WSTA159_SECCOMP_HELPER_CHECK_ONLY=$loader_helper_check_only"
+  echo "A90WSTA163_SECCOMP_HELPER_MODE=$loader_helper_mode"
   if [ "$enforce_flag" = "1" ]; then
     if [ "$loader_helper_check_only" != "1" ]; then
       echo "a90_service_launcher_decision=blocked-seccomp-helper-check-only-required"
       exit 65
     fi
     if [ -x "$loader_helper_path" ]; then
-      if "$loader_helper_path" --service "$SERVICE" --check-only; then
-        echo "A90WSTA159_SECCOMP_HELPER_CHECK_ONLY_OK=1"
-      else
-        echo "a90_service_launcher_decision=blocked-seccomp-helper-check-failed"
-        exit 65
-      fi
+      case "$loader_helper_mode" in
+        check-only)
+          if "$loader_helper_path" --service "$SERVICE" --check-only; then
+            echo "A90WSTA159_SECCOMP_HELPER_CHECK_ONLY_OK=1"
+          else
+            echo "a90_service_launcher_decision=blocked-seccomp-helper-check-failed"
+            exit 65
+          fi
+          ;;
+        apply)
+          if [ "$loader_helper_apply_gate" != "WSTA163-ALLOW-HELPER-APPLY" ]; then
+            echo "a90_service_launcher_decision=blocked-seccomp-helper-apply-gate-required"
+            exit 65
+          fi
+          if "$loader_helper_path" --service "$SERVICE" --apply; then
+            echo "A90WSTA163_SECCOMP_HELPER_APPLY_OK=1"
+          else
+            echo "a90_service_launcher_decision=blocked-seccomp-helper-apply-failed"
+            exit 65
+          fi
+          ;;
+        *)
+          echo "a90_service_launcher_decision=blocked-seccomp-helper-mode-invalid"
+          exit 65
+          ;;
+      esac
     fi
     echo "a90_service_launcher_decision=blocked-seccomp-enforce-unimplemented"
     exit 65
@@ -1165,7 +1188,10 @@ def stage_no_new_privs_launcher(rootfs: Path) -> dict[str, Any]:
         "seccomp_enforce_unimplemented_blocks": "blocked-seccomp-enforce-unimplemented" in text,
         "seccomp_loader_helper_marker_present": "A90WSTA159_SECCOMP_HELPER_PRESENT" in text,
         "seccomp_helper_check_only_marker_present": "A90WSTA159_SECCOMP_HELPER_CHECK_ONLY" in text,
+        "seccomp_helper_mode_marker_present": "A90WSTA163_SECCOMP_HELPER_MODE" in text,
         "seccomp_helper_check_call_present": "--service \"$SERVICE\" --check-only" in text,
+        "seccomp_helper_apply_call_present": "--service \"$SERVICE\" --apply" in text,
+        "seccomp_helper_apply_gate_present": "WSTA163-ALLOW-HELPER-APPLY" in text,
         "unknown_service_blocks": "blocked-unknown-service" in text,
         "command_required_blocks": "blocked-command-required" in text,
         "service_count": len(SERVICE_IDENTITIES),

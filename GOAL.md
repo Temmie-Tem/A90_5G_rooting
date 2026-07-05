@@ -4130,11 +4130,37 @@ safety invariants and flash gates are binding and override any sub-goal.**
 > proof generation from the real full source rootfs plus real
 > WSTA153/WSTA156/WSTA161 artifacts.  Report:
 > `docs/reports/SERVER_DISTRO_WIFI_STA_UPSTREAM_WSTA162_SECCOMP_GATED_APPLY_FULL_ROOTFS_CHROOT_DRY_RUN_2026-07-05.md`.
-> **NEXT:** WSTA163 should add an explicit live-gate design for observing the
-> staged gated-apply helper on device without enabling the real load token, or
-> continue host-only hardening by wiring a future `--apply` path that remains
-> token-gated.  Actual enforcement remains unproven and must stay behind an
-> explicit later gate.
+>
+> **🟢 STATUS (2026-07-05 13:18 KST host clock) — WSTA163 SECCOMP
+> HELPER APPLY-GATE CHROOT PROOF PASS.**  Codex wired a future launcher
+> `A90_SERVICE_LAUNCH_SECCOMP_HELPER_MODE=apply` path while preserving the
+> default `check-only` behavior.  The apply path requires the launcher-side
+> `A90_SERVICE_LAUNCH_SECCOMP_HELPER_APPLY_GATE=WSTA163-ALLOW-HELPER-APPLY`
+> before it can invoke the staged WSTA161 helper with `--apply`; invalid helper
+> modes fail closed.  A host-only WSTA163 runner copied the private full source
+> rootfs, staged WSTA153/WSTA156 plus the WSTA161 gated-apply helper, and ran
+> two `unshare -r chroot` proofs.  Missing launcher gate exited `65` with
+> `blocked-seccomp-helper-apply-gate-required` before helper output appeared.
+> Gate present invoked the WSTA161 helper in `apply` mode, printed
+> `A90WSTA161_LOADER_GATED_APPLY=1`, `A90WSTA161_SECCOMP_LOAD=0`, and
+> `dpublic-hud`→`dpublic-hud-intent`, then stopped at the helper's own
+> `blocked-load-gate-required` path with no
+> `A90WSTA161_SECCOMP_LOAD_ATTEMPT=1`; the launcher reported
+> `blocked-seccomp-helper-apply-failed` before exec.  Generated proof:
+> `workspace/private/runs/server-distro/wsta163-seccomp-helper-apply-gate-chroot-proof-20260705T1318KST/`.
+> This unit did not touch the device, flash, reboot, connect Wi-Fi, run DHCP,
+> open a public tunnel, mutate packet filters, write userdata, load BPF, load a
+> seccomp filter, or enforce seccomp.  It did run a host-private chroot only.
+> Validation passed `py_compile`, focused prepare-rootfs+WSTA162+WSTA163 tests
+> (`40 tests OK`), full server-distro regression (`560 tests OK`), and WSTA163
+> proof generation from the real full source rootfs plus real
+> WSTA153/WSTA156/WSTA161 artifacts.  Report:
+> `docs/reports/SERVER_DISTRO_WIFI_STA_UPSTREAM_WSTA163_SECCOMP_HELPER_APPLY_GATE_CHROOT_PROOF_2026-07-05.md`.
+> **NEXT:** WSTA164 should decide the next bounded live gate: either observe
+> this staged helper-apply path on device without the WSTA161 load token, or add
+> the final host-side launch contract for the eventual real-load token.  Actual
+> seccomp load/enforcement remains unproven and must stay behind a later
+> explicit gate.
 
 ## North star — priority-ordered tracks (T1 → T2 → T3)
 
