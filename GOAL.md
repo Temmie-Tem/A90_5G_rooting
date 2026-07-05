@@ -178,6 +178,23 @@ safety invariants and flash gates are binding and override any sub-goal.**
 > **NEXT:** D-harden frontier is now nftables/default-drop hardening or AppArmor
 > feasibility; keep public exposure default-off.
 
+> **🟢 STATUS (2026-07-05 22:05 KST) — WSTA214 APPARMOR FEASIBILITY PASS / NOT AVAILABLE.**
+> Codex added a host-only AppArmor feasibility audit consuming existing D0 and
+> Debian-eye public summaries plus public rootfs staging source.  Full host-only run:
+> `workspace/private/runs/server-distro/wsta214-apparmor-feasibility-20260705T2205KST/wsta214_result.json`;
+> decision `wsta214-apparmor-feasibility-source-pass`.  The audit state is
+> `APPARMOR_NOT_AVAILABLE_UNDER_CURRENT_EVIDENCE`: `CONFIG_SECURITY_APPARMOR` is
+> not present in the D0 kernel-config evidence, no runtime AppArmor/LSM presence is
+> observed, and no AppArmor userspace/parser staging is present in the current
+> Debian rootfs source.  Profile loading remains disabled; this was audit-only.
+> Safety stayed host-only: no device action, boot flash, reboot, Wi-Fi connect,
+> DHCP, ping, public tunnel, packet-filter mutation, rootfs mount/install, userdata
+> write, LSM profile load, or switch-root.  Report:
+> `docs/reports/SERVER_DISTRO_WIFI_STA_UPSTREAM_WSTA214_APPARMOR_FEASIBILITY_2026-07-05.md`.
+> **NEXT:** fold WSTA214 into WSTA108 so AppArmor is parked from immediate
+> next-actions, and continue D-harden through the proven legacy-iptables
+> loopback/default-drop lever.
+
 > **✅ OPERATOR GO (2026-07-04) — D-public is USER-AUTHORIZED and operator-driven; PROCEED.** (Supersedes the
 > earlier same-day HOLD, which assumed authorization was pending — it was not.) The user confirmed the
 > `D-PUBLIC-LIVE-PUBLISH` go and is actively driving D-public. First live publish (commit `8d25f793`:
