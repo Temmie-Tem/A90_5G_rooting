@@ -3463,6 +3463,36 @@ safety invariants and flash gates are binding and override any sub-goal.**
 > Debian handoff: native/root keeps sole DRM/KMS ownership, Debian writes fresh bounded
 > intent files only, and the design specifies lifetime, restart/cleanup, stale-intent
 > behavior, and proof that the presenter is the sole DRM fd holder during handoff.
+>
+> **🟢 STATUS (2026-07-05 09:05 KST host clock) — WSTA139 DPUBLIC HUD
+> PRESENTER SERVICE MODEL SOURCE PASS.**  Codex added
+> `workspace/public/src/scripts/server-distro/run_wsta139_dpublic_hud_presenter_service_model.py`
+> and focused tests.  The WSTA139 model requires the private WSTA130 presenter
+> architecture proof and WSTA137 live presenter proof as preconditions, recomputes both,
+> and emits `wsta139_dpublic_hud_presenter_service_model.json`.  Source proof run
+> `workspace/private/runs/server-distro/wsta139-dpublic-hud-presenter-service-model-20260705T0905KST/`
+> returned `wsta139-dpublic-hud-presenter-service-model-source-pass` with state
+> `DPUBLIC_HUD_DURABLE_NATIVE_PRESENTER_SERVICE_SOURCE_DEFINED`.  The model defines
+> `native-dpublic-hud-presenter` as a native/root `forked-native-child-survives-switch-root`
+> service started in `native-pre-switch-root`, with start/status/stop control commands,
+> bounded shutdown releasing DRM, sole `/dev/dri/card0` ownership, Debian direct DRM/KMS
+> false, `/run/a90-dpublic` as `root:a90hud` mode `1770`, intent file
+> `/run/a90-dpublic/hud-intent.json` mode `0640`, bounded atomic JSON watch max `4096`
+> bytes, stale after `2000ms`, latest sequence wins, and fail-closed forbidden/unknown
+> field policy.  Handoff cleanup policy now explicitly preserves an armed durable
+> presenter while still killing legacy unexpected native DRM holders and failing on
+> unexpected DRM owners.  The live proof plan is fixed: pre-handoff presenter PID+DRM fd,
+> same PID alive after Debian PID1, no Debian/a90hud DRM fd, fresh Debian intent consumed,
+> forbidden/stale reject after handoff, and cleanup releases DRM.  This WSTA139 unit was
+> host-only: no device action, flash, reboot, Wi-Fi, DHCP, public tunnel/smoke,
+> packet-filter mutation, userdata mutation, `switch_root`, DRM open, or KMS action ran.
+> Validation passed `py_compile`, WSTA139 focused tests (`8 tests`), and full
+> server-distro WSTA regression (`458 tests`).  Report:
+> `docs/reports/SERVER_DISTRO_WIFI_STA_UPSTREAM_WSTA139_DPUBLIC_HUD_PRESENTER_SERVICE_MODEL_SOURCE_2026-07-05.md`.
+> **NEXT:** WSTA140 should implement the native service control surface in source:
+> `dpublic-hud-presenter-service start|status|stop`, preserve an armed durable presenter
+> through the Debian handoff cleanup path, and keep Debian as the intent producer only.
+> Keep it source/build-only first, then live-gate as a separate bounded step.
 
 ## North star — priority-ordered tracks (T1 → T2 → T3)
 
