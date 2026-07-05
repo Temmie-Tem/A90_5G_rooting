@@ -4366,9 +4366,35 @@ safety invariants and flash gates are binding and override any sub-goal.**
 > generation from the real WSTA170/WSTA169/WSTA168 artifacts, and full
 > server-distro regression (`587 tests OK`).  Report:
 > `docs/reports/SERVER_DISTRO_WIFI_STA_UPSTREAM_WSTA171_SECCOMP_LIVE_OBSERVATION_EXECUTE_PREFLIGHT_2026-07-05.md`.
-> **NEXT:** the generated WSTA171 command is the exact next execution step, but
-> it must only be run with explicit operator approval for the no-load live
-> observation.
+>
+> **🟢 STATUS (2026-07-05 14:14 KST host clock) — WSTA172 SECCOMP FRESH
+> EXECUTE PREFLIGHT PASS.**  Codex added a WSTA172 bundle that refreshes the
+> final pre-execution packet in one controlled sequence: fresh WSTA169 read-only
+> readiness -> WSTA170 source gate -> WSTA171 execution preflight.  The proof
+> run
+> `workspace/private/runs/server-distro/wsta172-seccomp-fresh-execute-preflight-20260705T142100KST/`
+> produced `wsta169-seccomp-live-readiness-readonly-pass`, then
+> `wsta170-blocked-explicit-execution-gate-required`, then
+> `wsta171-seccomp-live-observation-execute-preflight-pass`.  The fresh
+> execution command artifacts are
+> `workspace/private/runs/server-distro/wsta172-seccomp-fresh-execute-preflight-20260705T142100KST/wsta171-execute-preflight/wsta171_wsta170_execute_command.json`
+> and
+> `workspace/private/runs/server-distro/wsta172-seccomp-fresh-execute-preflight-20260705T142100KST/wsta171-execute-preflight/wsta171_wsta170_execute_command.sh`;
+> state is `READY_TO_RUN_NOT_EXECUTED`, `executed=false`, required ack count is
+> 6.  Fresh readiness observed resident build
+> `v3402-dpublic-hud-presenter-restart-policy`, bridge ready, version/status OK,
+> and selftest fail-zero OK.  This unit did not flash, reboot, connect Wi-Fi,
+> run DHCP, open a public tunnel, mutate packet filters, write userdata, switch
+> root, execute WSTA170, execute WSTA168/WSTA167, load a seccomp filter, enforce
+> seccomp, or supply the correct WSTA161 token; device contact was limited to
+> WSTA169 read-only bridge/version/status/selftest queries.  Validation passed
+> `py_compile`, focused WSTA171+WSTA172 tests (`7 tests OK`), WSTA172 fresh
+> pre-execution bundle against the current bridge/device, and full server-distro
+> regression (`591 tests OK`).  Report:
+> `docs/reports/SERVER_DISTRO_WIFI_STA_UPSTREAM_WSTA172_SECCOMP_FRESH_EXECUTE_PREFLIGHT_2026-07-05.md`.
+> **NEXT:** the fresh WSTA172-generated command is the exact next execution
+> step.  It must only be run with explicit operator approval for the no-load
+> live observation.
 
 ## North star — priority-ordered tracks (T1 → T2 → T3)
 
