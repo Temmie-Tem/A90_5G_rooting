@@ -4621,9 +4621,44 @@ safety invariants and flash gates are binding and override any sub-goal.**
 > WSTA181 source-gate proof against the current WSTA180 handoff bundle, and full
 > server-distro regression (`627 tests OK`).  Report:
 > `docs/reports/SERVER_DISTRO_WIFI_STA_UPSTREAM_WSTA181_SECCOMP_HANDOFF_EXECUTE_AUDIT_GATE_2026-07-05.md`.
-> **NEXT:** WSTA181 is now the single top-level runner for the no-load live
-> observation cycle.  It still requires explicit operator approval for the full
-> WSTA181 acknowledgement set before it executes WSTA178 and audits the
+>
+> **🟢 STATUS (2026-07-05 15:09 KST host clock) — WSTA182 SECCOMP LIVE
+> READINESS STATUS PASS.**  Codex added a host-only WSTA182 readiness/status
+> surface for the WSTA181 no-load live observation gate.  It consumes the
+> WSTA181 source-gate proof, verifies that the handoff is blocked only on
+> explicit operator approval, and emits the exact WSTA181 execution command
+> packet without executing WSTA181.  Proof run:
+> `workspace/private/runs/server-distro/wsta182-seccomp-live-readiness-status-20260705T150939KST/`.
+> Input source gate:
+> `workspace/private/runs/server-distro/wsta181-seccomp-handoff-execute-audit-source-gate-20260705T150428KST/wsta181_result.json`;
+> source decision was `wsta181-blocked-explicit-execution-gate-required`.
+> Generated readiness status:
+> `workspace/private/runs/server-distro/wsta182-seccomp-live-readiness-status-20260705T150939KST/wsta182_readiness_status.json`;
+> state is `READY_FOR_EXPLICIT_OPERATOR_APPROVAL` and blocking condition is
+> `explicit-wsta181-operator-approval-required`.  Generated command:
+> `workspace/private/runs/server-distro/wsta182-seccomp-live-readiness-status-20260705T150939KST/wsta182_wsta181_execute_command.json`
+> and
+> `workspace/private/runs/server-distro/wsta182-seccomp-live-readiness-status-20260705T150939KST/wsta182_wsta181_execute_command.sh`;
+> state is `READY_TO_RUN_NOT_EXECUTED`, `executed=false`, required ack count is
+> 7, expected decision is `wsta181-seccomp-handoff-execute-audit-pass`, and
+> expected post-run audit decision is `wsta179-seccomp-one-shot-result-audit-pass`.
+> Checks included `source_gate_valid=true`, `execution_command_valid=true`,
+> `decision_is_explicit_gate_block=true`, `handoff_bundle_valid=true`,
+> `execution_packet_valid=true`, `post_run_audit_command_valid=true`,
+> `expected_result_missing=true`, `command_targets_wsta181=true`,
+> `correct_token_literal_absent=true`, and `no_external_network_inputs=true`.
+> This unit did not flash, reboot, connect Wi-Fi, run DHCP, open a public
+> tunnel, mutate packet filters, write userdata, switch root, execute WSTA181,
+> execute WSTA178, execute WSTA177, execute WSTA175, execute WSTA170, execute
+> WSTA168/WSTA167, load a seccomp filter, enforce seccomp, or supply the correct
+> WSTA161 token.  Validation passed `py_compile`, focused WSTA181+WSTA182 tests
+> (`8 tests OK`), WSTA182 readiness proof against the current WSTA181
+> source-gate artifact, and full server-distro regression (`631 tests OK`).
+> Report:
+> `docs/reports/SERVER_DISTRO_WIFI_STA_UPSTREAM_WSTA182_SECCOMP_LIVE_READINESS_STATUS_2026-07-05.md`.
+> **NEXT:** the current no-load live observation state is ready for explicit
+> operator approval.  The generated WSTA182 command packet is the concise
+> execution surface for WSTA181, and WSTA181 will execute WSTA178 then audit the
 > resulting WSTA177 result with WSTA179.
 
 ## North star — priority-ordered tracks (T1 → T2 → T3)
