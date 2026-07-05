@@ -4291,10 +4291,31 @@ safety invariants and flash gates are binding and override any sub-goal.**
 > (`8 tests OK`), full server-distro regression (`576 tests OK`), and WSTA168
 > preflight generation from the real WSTA167 no-live proof.  Report:
 > `docs/reports/SERVER_DISTRO_WIFI_STA_UPSTREAM_WSTA168_SECCOMP_LIVE_OBSERVATION_PREFLIGHT_2026-07-05.md`.
-> **NEXT:** the next step can execute the generated `wsta168_live_command.sh`
-> to perform the actual no-load live observation.  That execution must still
-> expect no seccomp load/enforcement and must not supply the correct WSTA161
-> load token.
+>
+> **🟢 STATUS (2026-07-05 13:57 KST host clock) — WSTA169 SECCOMP
+> LIVE-READINESS READ-ONLY PASS.**  Codex added a WSTA169 readiness runner that
+> consumes the WSTA168 command artifacts and performs only read-only bridge,
+> `version`, `status`, and `selftest` queries.  It confirmed the WSTA168 command
+> remains private, `READY_TO_RUN_NOT_EXECUTED`, `executed=false`, targets
+> `run_wsta167_seccomp_live_observation.py`, contains all five required ack
+> flags, excludes `WSTA161-EXPLICIT-ALLOW-SECCOMP-LOAD`, and still expects
+> `seccomp_filter_loaded=false` and `seccomp_enforced=false`.  The device-side
+> readiness observation was bridge running/listening/connected, resident
+> `A90 Linux init 0.11.158 (v3402-dpublic-hud-presenter-restart-policy)`,
+> selftest `fail=0`, NCM ready, SD runtime backend, and SD mounted read-write.
+> Generated proof:
+> `workspace/private/runs/server-distro/wsta169-seccomp-live-readiness-readonly-20260705T135709KST/`.
+> This unit did not flash, reboot, connect Wi-Fi, run DHCP, open a public
+> tunnel, mutate packet filters, write userdata, switch root, execute the
+> WSTA168 live command, load a seccomp filter, enforce seccomp, or supply the
+> correct WSTA161 token.  Validation passed `py_compile`, focused WSTA168+WSTA169
+> tests (`7 tests OK`), WSTA169 read-only proof against the current
+> bridge/device, and full server-distro regression (`580 tests OK`).  Report:
+> `docs/reports/SERVER_DISTRO_WIFI_STA_UPSTREAM_WSTA169_SECCOMP_LIVE_READINESS_READONLY_2026-07-05.md`.
+> **NEXT:** WSTA170 can execute the generated `wsta168_live_command.sh` for the
+> actual no-load live observation if explicitly requested.  That execution must
+> still expect no seccomp load/enforcement and must not supply the correct
+> WSTA161 load token.
 
 ## North star — priority-ordered tracks (T1 → T2 → T3)
 
