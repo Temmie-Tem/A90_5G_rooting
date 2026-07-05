@@ -50,6 +50,11 @@ DEFAULT_HUD_PRESENTER = (
     / "workspace/private/runs/server-distro/wsta132-dpublic-hud-split-prototype-20260705T0750KST"
     / "arm64/a90-dpublic-hud-presenter"
 )
+DEFAULT_SECCOMP_POLICY_SOURCE = (
+    REPO_ROOT
+    / "workspace/private/runs/server-distro/wsta153-seccomp-policy-source-20260705T1207KST"
+    / "wsta153_seccomp_policy.json"
+)
 DEFAULT_SUITE = "bookworm"
 DEFAULT_ARCH = "arm64"
 DEFAULT_MIRROR = "http://deb.debian.org/debian"
@@ -65,6 +70,8 @@ TARGET_NATIVE_UPLINK_PROFILE = Path("usr/local/bin/a90-dpublic-native-uplink-pro
 TARGET_PACKET_FILTER = Path("usr/local/bin/a90-dpublic-packet-filter")
 TARGET_SERVICE_LAUNCHER = Path("usr/local/bin/a90-service-launch")
 TARGET_SERVICE_HARDENING_POLICY = Path("etc/a90-dpublic/service-hardening.json")
+TARGET_SECCOMP_POLICY = Path("etc/a90-dpublic/seccomp-policy.json")
+TARGET_SECCOMP_LAUNCHER_MAP = Path("etc/a90-dpublic/seccomp-launcher-map.env")
 TARGET_HUD_INTENT = Path("usr/local/bin/a90-dpublic-hud-intent")
 TARGET_HUD_PRESENTER = Path("usr/local/bin/a90-dpublic-hud-presenter")
 TARGET_FIRSTBOOT = Path("etc/a90-d3-firstboot")
@@ -184,6 +191,9 @@ SERVICE_HARDENING_STAGE_MARKERS = (
     "service-hardening-no-new-privs=setpriv-required",
     "service-hardening-root-boundary=wsta-native-uplink-helper",
     "service-hardening-public-default=off",
+    "service-seccomp-policy=/etc/a90-dpublic/seccomp-policy.json",
+    "service-seccomp-mode=dry-run-before-filter-load",
+    "service-seccomp-filter-load=disabled",
 )
 HUD_SPLIT_STAGE_MARKERS = (
     "hud-split-intent-producer=/usr/local/bin/a90-dpublic-hud-intent",
@@ -193,6 +203,12 @@ HUD_SPLIT_STAGE_MARKERS = (
     "hud-split-presenter-owner=native-init",
     "hud-split-public-default=off",
 )
+SECCOMP_LAUNCHER_BINDINGS = {
+    "dpublic-smoke-httpd": "dpublic-smoke-httpd",
+    "cloudflared-quick-tunnel": "cloudflared-quick-tunnel",
+    "dropbear-admin-usb": "dropbear-admin-usb",
+    "dpublic-hud": "dpublic-hud-intent",
+}
 
 
 def utc_stamp() -> str:
@@ -985,6 +1001,52 @@ def launcher_script() -> str:
     case_text = "\n".join(cases)
     return f"""#!/bin/sh
 set -eu
+
+seccomp_dry_run_gate() {{
+  if [ "${{A90_SERVICE_LAUNCH_SECCOMP_DRY_RUN:-0}}" != "1" ]; then
+    return 0
+  fi
+  policy_path="${{A90_SERVICE_LAUNCH_SECCOMP_POLICY:-/etc/a90-dpublic/seccomp-policy.json}}"
+  map_path="${{A90_SERVICE_LAUNCH_SECCOMP_MAP:-/etc/a90-dpublic/seccomp-launcher-map.env}}"
+  if [ ! -r "$policy_path" ]; then
+    echo "a90_service_launcher_decision=blocked-seccomp-policy-missing"
+    exit 65
+  fi
+  if [ ! -r "$map_path" ]; then
+    echo "a90_service_launcher_decision=blocked-seccomp-map-missing"
+    exit 65
+  fi
+  seccomp_policy_service=""
+  seccomp_profile=""
+  seccomp_allowlist_count=""
+  while IFS=' ' read -r map_service map_policy_service map_profile map_count; do
+    case "$map_service" in
+      ""|"#"*) continue ;;
+    esac
+    if [ "$map_service" = "$SERVICE" ]; then
+      seccomp_policy_service="$map_policy_service"
+      seccomp_profile="$map_profile"
+      seccomp_allowlist_count="$map_count"
+      break
+    fi
+  done < "$map_path"
+  if [ -z "$seccomp_profile" ]; then
+    echo "a90_service_launcher_decision=blocked-seccomp-profile-missing"
+    exit 65
+  fi
+  if [ -z "$seccomp_allowlist_count" ] || [ "$seccomp_allowlist_count" = "0" ]; then
+    echo "a90_service_launcher_decision=blocked-seccomp-allowlist-empty"
+    exit 65
+  fi
+  echo "A90WSTA154_SECCOMP_POLICY_PRESENT=1"
+  echo "A90WSTA154_SECCOMP_DRY_RUN_ONLY=1"
+  echo "A90WSTA154_SECCOMP_FILTER_LOAD=0"
+  echo "A90WSTA154_SECCOMP_SERVICE=$SERVICE"
+  echo "A90WSTA154_SECCOMP_POLICY_SERVICE=$seccomp_policy_service"
+  echo "A90WSTA154_SECCOMP_PROFILE=$seccomp_profile"
+  echo "A90WSTA154_SECCOMP_ALLOWLIST_COUNT=$seccomp_allowlist_count"
+}}
+
 SERVICE="${{1:-}}"
 if [ -z "$SERVICE" ]; then
   echo "a90_service_launcher_decision=blocked-service-required"
@@ -1006,6 +1068,7 @@ if ! command -v setpriv >/dev/null 2>&1; then
   echo "a90_service_launcher_decision=blocked-setpriv-missing"
   exit 127
 fi
+seccomp_dry_run_gate
 echo "a90_service_launcher_decision=exec"
 echo "a90_service_launcher_service=$SERVICE"
 echo "a90_service_launcher_user=$A90_USER"
@@ -1026,6 +1089,9 @@ def stage_no_new_privs_launcher(rootfs: Path) -> dict[str, Any]:
         "launcher_mode": oct(launcher.stat().st_mode & 0o777),
         "setpriv_required": "command -v setpriv" in text,
         "no_new_privs_present": "--no-new-privs" in text,
+        "seccomp_dry_run_gate_present": "seccomp_dry_run_gate" in text,
+        "seccomp_policy_missing_blocks": "blocked-seccomp-policy-missing" in text,
+        "seccomp_filter_load_disabled_marker_present": "A90WSTA154_SECCOMP_FILTER_LOAD=0" in text,
         "unknown_service_blocks": "blocked-unknown-service" in text,
         "command_required_blocks": "blocked-command-required" in text,
         "service_count": len(SERVICE_IDENTITIES),
@@ -1055,6 +1121,13 @@ def stage_service_hardening_policy(rootfs: Path) -> dict[str, Any]:
         "default_public_off": True,
         "launcher": str(TARGET_SERVICE_LAUNCHER),
         "launcher_requires": ["setpriv", "no-new-privs"],
+        "seccomp": {
+            "policy": str(TARGET_SECCOMP_POLICY),
+            "launcher_map": str(TARGET_SECCOMP_LAUNCHER_MAP),
+            "mode": "dry-run-before-filter-load",
+            "filter_load_enabled": False,
+            "enforced": False,
+        },
         "services": services,
         "root_boundary_services": list(ROOT_BOUNDARY_SERVICES),
         "public_url_value_logged": False,
@@ -1069,6 +1142,128 @@ def stage_service_hardening_policy(rootfs: Path) -> dict[str, Any]:
         "default_public_off": True,
         "no_new_privs_default": True,
         "ambient_capabilities_default": [],
+        "secret_values_logged": 0,
+    }
+
+
+def load_seccomp_policy_source(path: Path) -> dict[str, Any]:
+    with path.open("r", encoding="utf-8") as fp:
+        payload = json.load(fp)
+    if not isinstance(payload, dict):
+        raise ValueError(f"expected object JSON: {path}")
+    return payload
+
+
+def seccomp_policy_services(policy: dict[str, Any]) -> dict[str, dict[str, Any]]:
+    services = policy.get("services") if isinstance(policy.get("services"), list) else []
+    return {
+        str(item.get("service")): item
+        for item in services
+        if isinstance(item, dict) and item.get("service")
+    }
+
+
+def validate_seccomp_policy_source(policy: dict[str, Any]) -> dict[str, bool]:
+    services = seccomp_policy_services(policy)
+    return {
+        "schema_ok": policy.get("schema") == "a90-wsta153-seccomp-policy-source-v1",
+        "state_ok": policy.get("state") == "SECCOMP_POLICY_DRAFT_FROM_LIVE_BASELINES",
+        "source_only_not_enforced": policy.get("enforcement_state") == "SOURCE_ONLY_NOT_ENFORCED",
+        "expected_services_present": set(services) == set(SECCOMP_LAUNCHER_BINDINGS.values()),
+        "all_profiles_default_deny": all(
+            item.get("deny_by_default") is True
+            and item.get("default_action") == "ERRNO(EPERM)"
+            for item in services.values()
+        ),
+        "all_allowlists_nonempty": all(
+            isinstance(item.get("allowlist"), list)
+            and bool(item.get("allowlist"))
+            and item.get("allowlist_count") == len(item.get("allowlist", []))
+            for item in services.values()
+        ),
+        "all_profiles_not_enforced": all(
+            isinstance(item.get("enforcement"), dict)
+            and item["enforcement"].get("enabled") is False
+            for item in services.values()
+        ),
+        "redaction_clean": policy.get("redaction", {}).get("public_url_value_logged") is False
+        and policy.get("redaction", {}).get("secret_values_logged") == 0,
+    }
+
+
+def seccomp_launcher_map_text(policy: dict[str, Any]) -> str:
+    services = seccomp_policy_services(policy)
+    lines = [
+        "# launcher_service policy_service profile_name allowlist_count",
+    ]
+    for launcher_service, policy_service in SECCOMP_LAUNCHER_BINDINGS.items():
+        profile = services[policy_service]
+        lines.append(
+            " ".join([
+                launcher_service,
+                policy_service,
+                str(profile.get("profile_name")),
+                str(profile.get("allowlist_count")),
+            ])
+        )
+    return "\n".join(lines).rstrip("\n") + "\n"
+
+
+def stage_seccomp_launcher_policy(rootfs: Path,
+                                  source: Path | None,
+                                  *,
+                                  require: bool = False) -> dict[str, Any]:
+    if source is None or not source.is_file():
+        return {
+            "staged": False,
+            "required": require,
+            "reason": "seccomp-policy-source-missing",
+            "policy_target": str(TARGET_SECCOMP_POLICY),
+            "map_target": str(TARGET_SECCOMP_LAUNCHER_MAP),
+            "filter_load_enabled": False,
+            "seccomp_enforced": False,
+            "secret_values_logged": 0,
+        }
+    policy = load_seccomp_policy_source(source)
+    checks = validate_seccomp_policy_source(policy)
+    if not all(checks.values()):
+        if require:
+            raise ValueError(f"invalid seccomp policy source: {checks}")
+        return {
+            "staged": False,
+            "required": require,
+            "reason": "seccomp-policy-source-invalid",
+            "checks": checks,
+            "filter_load_enabled": False,
+            "seccomp_enforced": False,
+            "secret_values_logged": 0,
+        }
+    policy_target = rootfs / TARGET_SECCOMP_POLICY
+    map_target = rootfs / TARGET_SECCOMP_LAUNCHER_MAP
+    write_json(policy_target, policy)
+    policy_target.chmod(0o644)
+    map_target.parent.mkdir(parents=True, exist_ok=True)
+    map_target.write_text(seccomp_launcher_map_text(policy), encoding="utf-8")
+    map_target.chmod(0o644)
+    return {
+        "staged": True,
+        "required": require,
+        "source": rel(source),
+        "policy_target": str(TARGET_SECCOMP_POLICY),
+        "policy_mode": oct(policy_target.stat().st_mode & 0o777),
+        "map_target": str(TARGET_SECCOMP_LAUNCHER_MAP),
+        "map_mode": oct(map_target.stat().st_mode & 0o777),
+        "service_binding_count": len(SECCOMP_LAUNCHER_BINDINGS),
+        "hud_maps_to_intent": SECCOMP_LAUNCHER_BINDINGS["dpublic-hud"] == "dpublic-hud-intent",
+        "filter_load_enabled": False,
+        "seccomp_filter_loaded": False,
+        "seccomp_enforced": False,
+        "checks": checks,
+        "dry_run_markers": [
+            "A90WSTA154_SECCOMP_POLICY_PRESENT=1",
+            "A90WSTA154_SECCOMP_DRY_RUN_ONLY=1",
+            "A90WSTA154_SECCOMP_FILTER_LOAD=0",
+        ],
         "secret_values_logged": 0,
     }
 
@@ -1093,6 +1288,9 @@ def stage_service_hardening_stage_marker(rootfs: Path) -> dict[str, Any]:
         "no_new_privs_marker_present": SERVICE_HARDENING_STAGE_MARKERS[2] in lines,
         "root_boundary_marker_present": SERVICE_HARDENING_STAGE_MARKERS[3] in lines,
         "public_default_off_marker": SERVICE_HARDENING_STAGE_MARKERS[4] in lines,
+        "seccomp_policy_marker_present": SERVICE_HARDENING_STAGE_MARKERS[5] in lines,
+        "seccomp_dry_run_marker_present": SERVICE_HARDENING_STAGE_MARKERS[6] in lines,
+        "seccomp_filter_disabled_marker_present": SERVICE_HARDENING_STAGE_MARKERS[7] in lines,
         "secret_values_logged": 0,
     }
 
@@ -1305,6 +1503,18 @@ def prepare(args: argparse.Namespace) -> dict[str, Any]:
     result["service_identities"] = stage_service_identities(target_rootfs)
     result["service_launcher"] = stage_no_new_privs_launcher(target_rootfs)
     result["service_hardening_policy"] = stage_service_hardening_policy(target_rootfs)
+    result["seccomp_launcher_policy"] = stage_seccomp_launcher_policy(
+        target_rootfs,
+        getattr(args, "seccomp_policy_source", None),
+        require=bool(getattr(args, "require_seccomp_policy_source", False)),
+    )
+    if getattr(args, "require_seccomp_policy_source", False) and not result["seccomp_launcher_policy"].get("staged"):
+        result.update({
+            "ok": False,
+            "decision": "wsta3-private-rootfs-blocked-seccomp-policy-source-missing",
+        })
+        write_json(run_dir / "summary.json", result)
+        return result
     result["service_hardening_stage_marker"] = stage_service_hardening_stage_marker(target_rootfs)
     result["hud_split_stage_marker"] = stage_hud_split_stage_marker(target_rootfs)
     if args.immediate_snapshot_only:
@@ -1366,6 +1576,8 @@ def build_arg_parser() -> argparse.ArgumentParser:
     parser.add_argument("--hud", type=Path, default=DEFAULT_HUD)
     parser.add_argument("--hud-intent", type=Path, default=DEFAULT_HUD_INTENT)
     parser.add_argument("--hud-presenter", type=Path, default=DEFAULT_HUD_PRESENTER)
+    parser.add_argument("--seccomp-policy-source", type=Path, default=DEFAULT_SECCOMP_POLICY_SOURCE)
+    parser.add_argument("--require-seccomp-policy-source", action="store_true")
     return parser
 
 
@@ -1380,6 +1592,7 @@ def main(argv: list[str] | None = None) -> int:
     args.hud = args.hud.resolve()
     args.hud_intent = args.hud_intent.resolve()
     args.hud_presenter = args.hud_presenter.resolve()
+    args.seccomp_policy_source = args.seccomp_policy_source.resolve()
     if args.wpa_conf:
         args.wpa_conf = args.wpa_conf.resolve()
     try:

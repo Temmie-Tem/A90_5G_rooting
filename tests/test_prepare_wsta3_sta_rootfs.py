@@ -2,6 +2,8 @@ from __future__ import annotations
 
 import argparse
 import json
+import os
+import subprocess
 import tempfile
 import unittest
 from pathlib import Path
@@ -42,6 +44,8 @@ def make_args(tmp: Path, **overrides) -> argparse.Namespace:
         "hud": tmp / "a90-dpublic-hud",
         "hud_intent": tmp / "a90-dpublic-hud-intent",
         "hud_presenter": tmp / "a90-dpublic-hud-presenter",
+        "seccomp_policy_source": tmp / "wsta153_seccomp_policy.json",
+        "require_seccomp_policy_source": False,
     }
     defaults.update(overrides)
     return argparse.Namespace(**defaults)
@@ -69,6 +73,52 @@ def stage_packet_filter_test_tools(rootfs: Path) -> None:
 def stage_syscall_trace_test_tools(rootfs: Path) -> None:
     (rootfs / "usr/bin").mkdir(parents=True, exist_ok=True)
     (rootfs / "usr/bin/strace").write_text("", encoding="utf-8")
+
+
+def seccomp_service(name: str, allowlist: list[str]) -> dict:
+    return {
+        "service": name,
+        "profile_name": f"seccomp-{name}-observed-v1",
+        "source_state": f"{name}-live-proven",
+        "architecture": "aarch64",
+        "default_action": "ERRNO(EPERM)",
+        "allowlist": allowlist,
+        "allowlist_count": len(allowlist),
+        "deny_by_default": True,
+        "enforcement": {
+            "enabled": False,
+            "reason": "source-only fixture",
+        },
+        "redaction": {
+            "public_url_value_logged": False,
+            "secret_values_logged": 0,
+        },
+    }
+
+
+def seccomp_policy_source() -> dict:
+    return {
+        "schema": "a90-wsta153-seccomp-policy-source-v1",
+        "state": "SECCOMP_POLICY_DRAFT_FROM_LIVE_BASELINES",
+        "enforcement_state": "SOURCE_ONLY_NOT_ENFORCED",
+        "default_action": "ERRNO(EPERM)",
+        "architecture": "aarch64",
+        "services": [
+            seccomp_service("dpublic-smoke-httpd", ["bind", "execve", "listen", "write"]),
+            seccomp_service("cloudflared-quick-tunnel", ["connect", "execve", "socket", "write"]),
+            seccomp_service("dropbear-admin-usb", ["accept", "bind", "execve", "listen", "socket"]),
+            seccomp_service("dpublic-hud-intent", ["execve", "fsync", "openat", "renameat", "write"]),
+        ],
+        "service_count": 4,
+        "excluded_boundaries": [
+            {"name": "wsta-native-uplink-helper"},
+            {"name": "native-dpublic-hud-presenter"},
+        ],
+        "redaction": {
+            "public_url_value_logged": False,
+            "secret_values_logged": 0,
+        },
+    }
 
 
 class PrepareWsta3PrivateRootfsTests(unittest.TestCase):
@@ -601,22 +651,33 @@ class PrepareWsta3PrivateRootfsTests(unittest.TestCase):
     def test_stage_no_new_privs_launcher_and_policy_are_fail_closed(self) -> None:
         with tempfile.TemporaryDirectory() as tmp:
             rootfs = Path(tmp)
+            seccomp_source = rootfs / "inputs" / "wsta153_seccomp_policy.json"
+            write_private(seccomp_source, json.dumps(seccomp_policy_source()), mode=0o600)
 
             launcher = wsta3.stage_no_new_privs_launcher(rootfs)
             policy = wsta3.stage_service_hardening_policy(rootfs)
+            seccomp = wsta3.stage_seccomp_launcher_policy(rootfs, seccomp_source, require=True)
             marker = wsta3.stage_service_hardening_stage_marker(rootfs)
 
             launcher_path = rootfs / wsta3.TARGET_SERVICE_LAUNCHER
             launcher_text = launcher_path.read_text(encoding="utf-8")
             policy_payload = json.loads((rootfs / wsta3.TARGET_SERVICE_HARDENING_POLICY).read_text(encoding="utf-8"))
+            seccomp_payload = json.loads((rootfs / wsta3.TARGET_SECCOMP_POLICY).read_text(encoding="utf-8"))
+            seccomp_map = (rootfs / wsta3.TARGET_SECCOMP_LAUNCHER_MAP).read_text(encoding="utf-8")
             marker_text = (rootfs / wsta3.TARGET_STAGE_MARKER).read_text(encoding="utf-8")
             self.assertEqual(launcher_path.stat().st_mode & 0o777, 0o755)
             self.assertTrue(launcher["setpriv_required"])
             self.assertTrue(launcher["no_new_privs_present"])
+            self.assertTrue(launcher["seccomp_dry_run_gate_present"])
+            self.assertTrue(launcher["seccomp_policy_missing_blocks"])
+            self.assertTrue(launcher["seccomp_filter_load_disabled_marker_present"])
             self.assertTrue(launcher["unknown_service_blocks"])
             self.assertTrue(launcher["command_required_blocks"])
             self.assertIn("exec setpriv --no-new-privs", launcher_text)
             self.assertIn("blocked-setpriv-missing", launcher_text)
+            self.assertIn("blocked-seccomp-policy-missing", launcher_text)
+            self.assertIn("A90WSTA154_SECCOMP_DRY_RUN_ONLY=1", launcher_text)
+            self.assertIn("A90WSTA154_SECCOMP_FILTER_LOAD=0", launcher_text)
             self.assertIn("dpublic-smoke-httpd)", launcher_text)
             self.assertIn("A90_USER=a90www", launcher_text)
             self.assertIn("cloudflared-quick-tunnel)", launcher_text)
@@ -633,10 +694,93 @@ class PrepareWsta3PrivateRootfsTests(unittest.TestCase):
             self.assertEqual(policy_payload["services"]["dpublic-hud"]["network_intent"], "no-network-intent-producer-only")
             self.assertEqual(policy_payload["services"]["cloudflared-quick-tunnel"]["ambient_capabilities"], [])
             self.assertIn("setpriv", policy_payload["launcher_requires"])
+            self.assertEqual(policy_payload["seccomp"]["mode"], "dry-run-before-filter-load")
+            self.assertFalse(policy_payload["seccomp"]["filter_load_enabled"])
+            self.assertTrue(seccomp["staged"])
+            self.assertTrue(seccomp["hud_maps_to_intent"])
+            self.assertFalse(seccomp["filter_load_enabled"])
+            self.assertFalse(seccomp["seccomp_enforced"])
+            self.assertEqual(seccomp_payload["enforcement_state"], "SOURCE_ONLY_NOT_ENFORCED")
+            self.assertIn("dpublic-hud dpublic-hud-intent seccomp-dpublic-hud-intent-observed-v1 5", seccomp_map)
             self.assertTrue(marker["users_marker_present"])
             self.assertTrue(marker["no_new_privs_marker_present"])
             self.assertTrue(marker["public_default_off_marker"])
+            self.assertTrue(marker["seccomp_policy_marker_present"])
+            self.assertTrue(marker["seccomp_dry_run_marker_present"])
+            self.assertTrue(marker["seccomp_filter_disabled_marker_present"])
             self.assertIn("service-hardening-no-new-privs=setpriv-required", marker_text)
+            self.assertIn("service-seccomp-filter-load=disabled", marker_text)
+
+    def test_service_launcher_seccomp_dry_run_markers_are_observable_before_exec(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            rootfs = Path(tmp)
+            seccomp_source = rootfs / "inputs" / "wsta153_seccomp_policy.json"
+            write_private(seccomp_source, json.dumps(seccomp_policy_source()), mode=0o600)
+            wsta3.stage_no_new_privs_launcher(rootfs)
+            wsta3.stage_seccomp_launcher_policy(rootfs, seccomp_source, require=True)
+            fakebin = rootfs / "fakebin"
+            fakebin.mkdir()
+            fake_setpriv = fakebin / "setpriv"
+            fake_setpriv.write_text(
+                "#!/bin/sh\n"
+                "echo \"fake_setpriv_args=$*\"\n"
+                "exit 0\n",
+                encoding="utf-8",
+            )
+            fake_setpriv.chmod(0o755)
+            env = os.environ.copy()
+            env["PATH"] = f"{fakebin}:{env.get('PATH', '')}"
+            env["A90_SERVICE_LAUNCH_SECCOMP_DRY_RUN"] = "1"
+            env["A90_SERVICE_LAUNCH_SECCOMP_POLICY"] = str(rootfs / wsta3.TARGET_SECCOMP_POLICY)
+            env["A90_SERVICE_LAUNCH_SECCOMP_MAP"] = str(rootfs / wsta3.TARGET_SECCOMP_LAUNCHER_MAP)
+            proc = subprocess.run(
+                [str(rootfs / wsta3.TARGET_SERVICE_LAUNCHER), "dpublic-hud", "/bin/true"],
+                check=False,
+                capture_output=True,
+                text=True,
+                env=env,
+            )
+
+        self.assertEqual(proc.returncode, 0, proc.stderr)
+        self.assertIn("A90WSTA154_SECCOMP_POLICY_PRESENT=1", proc.stdout)
+        self.assertIn("A90WSTA154_SECCOMP_DRY_RUN_ONLY=1", proc.stdout)
+        self.assertIn("A90WSTA154_SECCOMP_FILTER_LOAD=0", proc.stdout)
+        self.assertIn("A90WSTA154_SECCOMP_SERVICE=dpublic-hud", proc.stdout)
+        self.assertIn("A90WSTA154_SECCOMP_POLICY_SERVICE=dpublic-hud-intent", proc.stdout)
+        self.assertIn("A90WSTA154_SECCOMP_PROFILE=seccomp-dpublic-hud-intent-observed-v1", proc.stdout)
+        self.assertIn("A90WSTA154_SECCOMP_ALLOWLIST_COUNT=5", proc.stdout)
+        self.assertIn("a90_service_launcher_decision=exec", proc.stdout)
+        self.assertIn("fake_setpriv_args=--no-new-privs --reuid a90hud --regid a90hud", proc.stdout)
+
+    def test_service_launcher_seccomp_dry_run_fails_closed_when_map_missing(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            rootfs = Path(tmp)
+            seccomp_source = rootfs / "inputs" / "wsta153_seccomp_policy.json"
+            write_private(seccomp_source, json.dumps(seccomp_policy_source()), mode=0o600)
+            wsta3.stage_no_new_privs_launcher(rootfs)
+            wsta3.stage_seccomp_launcher_policy(rootfs, seccomp_source, require=True)
+            (rootfs / wsta3.TARGET_SECCOMP_LAUNCHER_MAP).unlink()
+            fakebin = rootfs / "fakebin"
+            fakebin.mkdir()
+            fake_setpriv = fakebin / "setpriv"
+            fake_setpriv.write_text("#!/bin/sh\nexit 99\n", encoding="utf-8")
+            fake_setpriv.chmod(0o755)
+            env = os.environ.copy()
+            env["PATH"] = f"{fakebin}:{env.get('PATH', '')}"
+            env["A90_SERVICE_LAUNCH_SECCOMP_DRY_RUN"] = "1"
+            env["A90_SERVICE_LAUNCH_SECCOMP_POLICY"] = str(rootfs / wsta3.TARGET_SECCOMP_POLICY)
+            env["A90_SERVICE_LAUNCH_SECCOMP_MAP"] = str(rootfs / wsta3.TARGET_SECCOMP_LAUNCHER_MAP)
+            proc = subprocess.run(
+                [str(rootfs / wsta3.TARGET_SERVICE_LAUNCHER), "dpublic-hud", "/bin/true"],
+                check=False,
+                capture_output=True,
+                text=True,
+                env=env,
+            )
+
+        self.assertEqual(proc.returncode, 65)
+        self.assertIn("a90_service_launcher_decision=blocked-seccomp-map-missing", proc.stdout)
+        self.assertNotIn("fake_setpriv_args=", proc.stdout)
 
     def test_stage_hud_split_stage_marker_records_native_presenter_boundary(self) -> None:
         with tempfile.TemporaryDirectory() as tmp:

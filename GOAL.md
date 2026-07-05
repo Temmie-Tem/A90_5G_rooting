@@ -3931,10 +3931,35 @@ safety invariants and flash gates are binding and override any sub-goal.**
 > `workspace/private/runs/server-distro/wsta154-seccomp-launcher-gate-model-20260705T1210KST/`.
 > Report:
 > `docs/reports/SERVER_DISTRO_WIFI_STA_UPSTREAM_WSTA154_SECCOMP_LAUNCHER_GATE_MODEL_2026-07-05.md`.
-> **NEXT:** WSTA155 should stage launcher dry-run logging in a private
-> rootfs/chroot and prove the markers are observable before any filter load.
-> Seccomp enforcement remains unproven and must stay behind a separate live
-> gate.
+>
+> **🟢 STATUS (2026-07-05 12:20 KST host clock) — WSTA155 SECCOMP
+> LAUNCHER DRY-RUN ROOTFS PROOF PASS.**  Codex updated
+> `prepare_wsta3_sta_rootfs.py` so the private rootfs can stage the WSTA153
+> seccomp source policy at `etc/a90-dpublic/seccomp-policy.json`, a derived
+> line-oriented launcher map at `etc/a90-dpublic/seccomp-launcher-map.env`, and
+> service-stage markers for `dry-run-before-filter-load` with filter load
+> disabled.  `/usr/local/bin/a90-service-launch` now has an opt-in dry-run gate
+> controlled by `A90_SERVICE_LAUNCH_SECCOMP_DRY_RUN=1`; it emits
+> `A90WSTA154_SECCOMP_POLICY_PRESENT=1`,
+> `A90WSTA154_SECCOMP_DRY_RUN_ONLY=1`,
+> `A90WSTA154_SECCOMP_FILTER_LOAD=0`, service/profile/count markers, and then
+> continues to the existing `setpriv --no-new-privs` exec path.  A host-only
+> WSTA155 proof runner staged a private rootfs directory and used a fake
+> `setpriv` to prove `dpublic-hud` maps to `dpublic-hud-intent` with allowlist
+> count `22` before exec; a negative run with the map removed exited `65` with
+> `blocked-seccomp-map-missing` before exec.  This unit did not chroot, touch
+> the device, flash, reboot, connect Wi-Fi, run DHCP, open a public tunnel,
+> mutate packet filters, write userdata, build a seccomp filter, load a seccomp
+> filter, or enforce seccomp.  Validation passed `py_compile`, focused
+> prepare-rootfs+WSTA155 tests (`36 tests OK`), full server-distro regression
+> (`541 tests OK`), and WSTA155 proof generation:
+> `workspace/private/runs/server-distro/wsta155-seccomp-launcher-dry-run-rootfs-proof-20260705T1220KST/`.
+> Report:
+> `docs/reports/SERVER_DISTRO_WIFI_STA_UPSTREAM_WSTA155_SECCOMP_LAUNCHER_DRY_RUN_ROOTFS_PROOF_2026-07-05.md`.
+> **NEXT:** WSTA156 should choose the next bounded step: either run the same
+> dry-run path inside an actual private chroot/rootfs environment, or compile a
+> non-loaded seccomp filter artifact from the staged policy.  Seccomp
+> enforcement remains unproven and must stay behind a separate live gate.
 
 ## North star — priority-ordered tracks (T1 → T2 → T3)
 
