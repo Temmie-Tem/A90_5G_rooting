@@ -671,6 +671,10 @@ safety invariants and flash gates are binding and override any sub-goal.**
 > `docs/reports/SERVER_DISTRO_WIFI_STA_UPSTREAM_WSTA233_COLD_BOOT_PERSISTENCE_SMOKE_PREBASELINE_2026-07-06.md`.
 > Validation: py_compile pass; focused WSTA233 tests `7 OK`; full
 > server-distro regression `857 OK`.
+> A follow-up runner wait from `2026-07-06 00:25-00:33 KST` again timed out with
+> `disconnect_seen=false` / `reconnect_seen=false`; post-classify and v2321
+> rollback were correctly not run.  Read-only post-timeout health stayed clean:
+> native `v3402`, uptime still increasing, and `selftest fail=0`.
 > **NEXT:** physically power-cycle the device once, resume the runner against
 > the 20260706T0021KST WSTA233 baseline, classify the persistence gap, then roll
 > boot back to v2321 and verify `selftest fail=0`.

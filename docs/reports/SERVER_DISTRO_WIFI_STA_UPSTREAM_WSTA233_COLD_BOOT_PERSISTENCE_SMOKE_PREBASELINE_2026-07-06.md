@@ -17,6 +17,10 @@ Follow-up source work added the bounded WSTA233 measurement runner so the same
 run can resume with post-cold-boot capture, persistence-gap classification, and
 explicit v2321 rollback through the checked helper.
 
+A second attended wait using that runner also timed out without USB serial
+disconnect/reconnect evidence.  The device remained on the same native boot and
+`selftest fail=0` after the timeout.
+
 ## Private Evidence
 
 Pre-baseline run directory:
@@ -52,6 +56,19 @@ Runner representative decision:
 
 ```text
 wsta233-cold-boot-persistence-prebaseline-pass
+wsta233-blocked-cold-boot-disconnect-not-seen
+```
+
+Runner wait result:
+
+```text
+disconnect_seen=false
+reconnect_seen=false
+timeout=true
+post_classify_not_run=true
+rollback_v2321_not_run=true
+post_timeout_selftest_fail_zero=true
+post_timeout_uptime_continued=true
 ```
 
 ## Pre-Baseline Result
