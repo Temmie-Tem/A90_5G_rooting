@@ -4596,10 +4596,35 @@ safety invariants and flash gates are binding and override any sub-goal.**
 > (`8 tests OK`), WSTA180 handoff-bundle proof against the current WSTA178
 > command packet, and full server-distro regression (`623 tests OK`).  Report:
 > `docs/reports/SERVER_DISTRO_WIFI_STA_UPSTREAM_WSTA180_SECCOMP_LIVE_HANDOFF_BUNDLE_2026-07-05.md`.
-> **NEXT:** the live no-load observation is now packaged as an operator
-> handoff.  It still requires explicit approval to run the WSTA178 execution
-> script, then the post-run WSTA179 audit command should be run against the
-> resulting WSTA177 result JSON.
+>
+> **🟢 STATUS (2026-07-05 15:04 KST host clock) — WSTA181 SECCOMP HANDOFF
+> EXECUTE AUDIT GATE SOURCE PASS.**  Codex added the top-level WSTA181
+> execute-and-audit gate for the WSTA180 live handoff bundle.  It consumes the
+> WSTA180 bundle, validates the WSTA178 execution packet and WSTA179 post-run
+> audit command, then stops before execution unless the full WSTA181
+> acknowledgement set is supplied.  Source-gate proof:
+> `workspace/private/runs/server-distro/wsta181-seccomp-handoff-execute-audit-source-gate-20260705T150428KST/`.
+> Input WSTA180 bundle:
+> `workspace/private/runs/server-distro/wsta180-seccomp-live-handoff-bundle-20260705T145906KST/wsta180_operator_handoff.json`
+> and
+> `workspace/private/runs/server-distro/wsta180-seccomp-live-handoff-bundle-20260705T145906KST/wsta180_operator_handoff_commands.sh`.
+> WSTA181 stopped with `wsta181-blocked-explicit-execution-gate-required` while
+> `handoff_bundle_valid=true`, `execution_packet_valid=true`,
+> `post_run_audit_command_valid=true`, `expected_result_missing=true`,
+> `command_targets_wsta177=true`, `command_targets_wsta179=true`,
+> `correct_token_literal_absent=true`, and `no_external_network_inputs=true`.
+> This unit did not flash, reboot, connect Wi-Fi, run DHCP, open a public
+> tunnel, mutate packet filters, write userdata, switch root, execute WSTA178,
+> execute WSTA177, execute WSTA175, execute WSTA170, execute WSTA168/WSTA167,
+> load a seccomp filter, enforce seccomp, or supply the correct WSTA161 token.
+> Validation passed `py_compile`, focused WSTA180+WSTA181 tests (`8 tests OK`),
+> WSTA181 source-gate proof against the current WSTA180 handoff bundle, and full
+> server-distro regression (`627 tests OK`).  Report:
+> `docs/reports/SERVER_DISTRO_WIFI_STA_UPSTREAM_WSTA181_SECCOMP_HANDOFF_EXECUTE_AUDIT_GATE_2026-07-05.md`.
+> **NEXT:** WSTA181 is now the single top-level runner for the no-load live
+> observation cycle.  It still requires explicit operator approval for the full
+> WSTA181 acknowledgement set before it executes WSTA178 and audits the
+> resulting WSTA177 result with WSTA179.
 
 ## North star — priority-ordered tracks (T1 → T2 → T3)
 
