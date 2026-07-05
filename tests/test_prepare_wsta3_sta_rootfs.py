@@ -975,6 +975,59 @@ class PrepareWsta3PrivateRootfsTests(unittest.TestCase):
         self.assertIn("a90_service_launcher_decision=blocked-seccomp-enforce-unimplemented", proc.stdout)
         self.assertNotIn("should-not-exec", proc.stdout)
 
+    def test_service_launcher_seccomp_exec_after_load_uses_setpriv_helper_exec(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            rootfs = Path(tmp)
+            seccomp_source = rootfs / "inputs" / "wsta153_seccomp_policy.json"
+            write_private(seccomp_source, json.dumps(seccomp_policy_source()), mode=0o600)
+            filter_manifest, filter_object = write_seccomp_filter_artifact(rootfs)
+            wsta3.stage_no_new_privs_launcher(rootfs)
+            wsta3.stage_seccomp_launcher_policy(rootfs, seccomp_source, require=True)
+            wsta3.stage_seccomp_filter_artifact(rootfs, filter_manifest, filter_object, require=True)
+            helper = rootfs / wsta3.TARGET_SECCOMP_LOADER_HELPER
+            helper.parent.mkdir(parents=True, exist_ok=True)
+            helper.write_text("#!/bin/sh\nexit 99\n", encoding="utf-8")
+            helper.chmod(0o755)
+            fakebin = rootfs / "fakebin"
+            fakebin.mkdir()
+            fake_setpriv = fakebin / "setpriv"
+            fake_setpriv.write_text(
+                "#!/bin/sh\n"
+                "echo \"fake_setpriv_args=$*\"\n"
+                "exit 0\n",
+                encoding="utf-8",
+            )
+            fake_setpriv.chmod(0o755)
+            env = os.environ.copy()
+            env["PATH"] = f"{fakebin}:{env.get('PATH', '')}"
+            env["A90_SERVICE_LAUNCH_SECCOMP_DRY_RUN"] = "1"
+            env["A90_SERVICE_LAUNCH_SECCOMP_ENFORCE"] = "1"
+            env["A90_SERVICE_LAUNCH_SECCOMP_HELPER_MODE"] = "apply"
+            env["A90_SERVICE_LAUNCH_SECCOMP_HELPER_APPLY_GATE"] = "WSTA163-ALLOW-HELPER-APPLY"
+            env["A90_SERVICE_LAUNCH_SECCOMP_LOAD_GATE"] = "WSTA164-ALLOW-SECCOMP-LOAD-ENV"
+            env["A90_SERVICE_LAUNCH_SECCOMP_LOAD_TOKEN"] = "test-token"
+            env["A90_SERVICE_LAUNCH_SECCOMP_EXEC_AFTER_LOAD"] = "1"
+            env["A90_SERVICE_LAUNCH_SECCOMP_POLICY"] = str(rootfs / wsta3.TARGET_SECCOMP_POLICY)
+            env["A90_SERVICE_LAUNCH_SECCOMP_MAP"] = str(rootfs / wsta3.TARGET_SECCOMP_LAUNCHER_MAP)
+            env["A90_SERVICE_LAUNCH_SECCOMP_FILTER_MANIFEST"] = str(rootfs / wsta3.TARGET_SECCOMP_FILTER_MANIFEST)
+            env["A90_SERVICE_LAUNCH_SECCOMP_FILTER_OBJECT"] = str(rootfs / wsta3.TARGET_SECCOMP_FILTER_OBJECT)
+            env["A90_SERVICE_LAUNCH_SECCOMP_LOADER_HELPER"] = str(helper)
+            proc = subprocess.run(
+                [str(rootfs / wsta3.TARGET_SERVICE_LAUNCHER), "dpublic-hud", "/bin/true"],
+                check=False,
+                capture_output=True,
+                text=True,
+                env=env,
+            )
+
+        self.assertEqual(proc.returncode, 0, proc.stderr)
+        self.assertIn("A90WSTA208_SECCOMP_EXEC_AFTER_LOAD=1", proc.stdout)
+        self.assertIn("a90_service_launcher_decision=exec-seccomp", proc.stdout)
+        self.assertIn("fake_setpriv_args=--no-new-privs --reuid a90hud --regid a90hud", proc.stdout)
+        self.assertIn("A90WSTA161_ALLOW_LOAD=1", proc.stdout)
+        self.assertIn("--service dpublic-hud --apply --exec -- /bin/true", proc.stdout)
+        self.assertNotIn("blocked-seccomp-enforce-unimplemented", proc.stdout)
+
     def test_service_launcher_seccomp_dry_run_fails_closed_when_map_missing(self) -> None:
         with tempfile.TemporaryDirectory() as tmp:
             rootfs = Path(tmp)

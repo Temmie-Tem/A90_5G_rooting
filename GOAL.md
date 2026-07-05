@@ -72,6 +72,23 @@ safety invariants and flash gates are binding and override any sub-goal.**
 > `dpublic-smoke-httpd`: load/enforce the derived seccomp profile and prove the service still
 > returns its smoke marker under enforcement.  Do not add more no-load gate scaffolding.
 
+> **🟢 STATUS (2026-07-05 19:36 KST) — WSTA208 REAL SERVICE SECCOMP LOAD/ENFORCE PASS.**
+> Codex completed the operator DoD on an actual service, not a canary:
+> `dpublic-smoke-httpd` was launched through `a90-service-launch` with
+> `A90_SERVICE_LAUNCH_SECCOMP_EXEC_AFTER_LOAD=1`.  The WSTA161 helper loaded the
+> `dpublic-smoke-httpd` seccomp profile, emitted `A90WSTA161_SECCOMP_LOAD=1` and
+> `a90_seccomp_loader_decision=loaded`, then `execv()`ed the real smoke server in the
+> same filtered process.  The loopback client observed `A90_DPUBLIC_SMOKE_OK` and the
+> runner accepted `service_functional_under_seccomp=true` and `seccomp_enforced=true`.
+> Live result:
+> `workspace/private/runs/server-distro/wsta208-real-service-seccomp-smoke-live-20260705T1936KST/wsta208_result.json`;
+> decision `wsta208-real-service-seccomp-smoke-live-pass`.  Final native health stayed
+> clean: `selftest pass=12 warn=1 fail=0`.  Report:
+> `docs/reports/SERVER_DISTRO_WIFI_STA_UPSTREAM_WSTA208_REAL_SERVICE_SECCOMP_SMOKE_LIVE_2026-07-05.md`.
+> **NEXT:** stop no-load seccomp scaffolding.  Either extend the same real enforcement
+> proof to `dropbear-admin`, or move to the next D-harden lever: capability-drop audit
+> and apply, nftables default-drop apply, or AppArmor feasibility.
+
 > **✅ OPERATOR GO (2026-07-04) — D-public is USER-AUTHORIZED and operator-driven; PROCEED.** (Supersedes the
 > earlier same-day HOLD, which assumed authorization was pending — it was not.) The user confirmed the
 > `D-PUBLIC-LIVE-PUBLISH` go and is actively driving D-public. First live publish (commit `8d25f793`:

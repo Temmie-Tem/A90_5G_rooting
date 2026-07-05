@@ -1052,6 +1052,7 @@ seccomp_dry_run_gate() {{
   loader_helper_apply_gate="${{A90_SERVICE_LAUNCH_SECCOMP_HELPER_APPLY_GATE:-}}"
   loader_helper_load_gate="${{A90_SERVICE_LAUNCH_SECCOMP_LOAD_GATE:-}}"
   loader_helper_load_token="${{A90_SERVICE_LAUNCH_SECCOMP_LOAD_TOKEN:-}}"
+  loader_helper_exec_after_load="${{A90_SERVICE_LAUNCH_SECCOMP_EXEC_AFTER_LOAD:-0}}"
   enforce_flag="${{A90_SERVICE_LAUNCH_SECCOMP_ENFORCE:-0}}"
   if [ ! -r "$policy_path" ]; then
     echo "a90_service_launcher_decision=blocked-seccomp-policy-missing"
@@ -1123,6 +1124,27 @@ seccomp_dry_run_gate() {{
             echo "a90_service_launcher_decision=blocked-seccomp-helper-apply-gate-required"
             exit 65
           fi
+          if [ "$loader_helper_exec_after_load" = "1" ]; then
+            if [ "$loader_helper_load_gate" != "WSTA164-ALLOW-SECCOMP-LOAD-ENV" ]; then
+              echo "a90_service_launcher_decision=blocked-seccomp-helper-load-gate-required"
+              exit 65
+            fi
+            echo "A90WSTA164_SECCOMP_LOAD_ENV_GATE=1"
+            if [ -z "$loader_helper_load_token" ]; then
+              echo "a90_service_launcher_decision=blocked-seccomp-helper-load-token-required"
+              exit 65
+            fi
+            echo "A90WSTA164_SECCOMP_LOAD_TOKEN_PRESENT=1"
+            echo "A90WSTA208_SECCOMP_EXEC_AFTER_LOAD=1"
+            echo "a90_service_launcher_decision=exec-seccomp"
+            echo "a90_service_launcher_service=$SERVICE"
+            echo "a90_service_launcher_user=$A90_USER"
+            echo "a90_service_launcher_network_intent=$A90_NETWORK_INTENT"
+            echo "a90_service_launcher_no_new_privs=1"
+            exec setpriv --no-new-privs --reuid "$A90_USER" --regid "$A90_GROUP" --init-groups -- \
+              env A90WSTA161_ALLOW_LOAD=1 A90WSTA161_LOAD_TOKEN="$loader_helper_load_token" \
+              "$loader_helper_path" --service "$SERVICE" --apply --exec -- "$@"
+          fi
           if [ "$loader_helper_load_gate" = "WSTA164-ALLOW-SECCOMP-LOAD-ENV" ]; then
             echo "A90WSTA164_SECCOMP_LOAD_ENV_GATE=1"
             if [ -z "$loader_helper_load_token" ]; then
@@ -1178,7 +1200,7 @@ if ! command -v setpriv >/dev/null 2>&1; then
   echo "a90_service_launcher_decision=blocked-setpriv-missing"
   exit 127
 fi
-seccomp_dry_run_gate
+seccomp_dry_run_gate "$@"
 echo "a90_service_launcher_decision=exec"
 echo "a90_service_launcher_service=$SERVICE"
 echo "a90_service_launcher_user=$A90_USER"
