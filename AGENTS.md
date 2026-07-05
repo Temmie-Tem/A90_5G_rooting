@@ -12,7 +12,24 @@ COMMIT → REPEAT) is defined in `GOAL.md`.
 1. **Partitions:** never write/flash `/efs`, `/sec_efs`, modem, RPMB, keymaster, vbmeta,
    bootloader, or any partition other than **boot**. Device changes touch the boot image
    only. These forbidden partitions are **NOT** TWRP/download-mode recoverable = permanent
-   brick; the operator's acceptance of boot-flash risk does NOT extend to them. Absolute.
+   brick; the operator's acceptance of boot-flash risk does NOT extend to them.
+   **Narrow operator-authorized exception (2026-07-06, S22+ recovery-infra only):**
+   for the Samsung S22+ `SM-S906N`/`g0q` on `S906NKSS7FYG8`, Codex may perform one
+   bounded Odin4 recovery-infrastructure install of the pinned unofficial g0q TWRP
+   recovery tar SHA256
+   `0914c68a5353c367216805a3a2fdeb4982c6629368dc021c7fefc10d3d3bd034` and pinned
+   `vbmeta_disabled.tar` SHA256
+   `0b347193ab3f822b423b2641001781e35fba0c932fcfb85d090b282d0fc6471b`, plus the
+   pinned stock recovery-only rollback AP SHA256
+   `8d3647313d2e100134f77984d13c7e5dc9946510ab57d8e34dd0cd192ca8586d` if TWRP
+   recovery fails and download mode remains available. This exception is limited to
+   recovery/vbmeta for S22+ recovery infrastructure, requires the full stock
+   `S906NKSS7FYG8` firmware SHA256
+   `f831e5fb8abe1c7a9d8c38fe9c033a3fce7e77651776383641c385c2bb85a2c8` to be present,
+   requires no auto-reboot and immediate manual boot to recovery after transfer, and
+   does not authorize A90 non-boot writes, S22 bootloader/modem/EFS/RPMB/keymaster
+   writes, Magisk/root installation, multidisabler, format data, or any other S22
+   partition write.
 2. **Flash only via the checked helper by default:** `workspace/public/src/scripts/revalidation/native_init_flash.py`.
    Never `dd`/`fastboot`/raw-write a partition. Never invent a new flash path.
    **Narrow operator-authorized exception (2026-07-02, self-dd ladder only):** the V3358
@@ -50,6 +67,14 @@ COMMIT → REPEAT) is defined in `GOAL.md`.
    further arbitrary F4/prod fast-flash use, prefix-only production optimization,
    non-v2321 self-flash candidates, raw host `dd`, fastboot, or any non-boot
    partition write. `native_init_flash.py` remains the recovery-grade fallback path.
+   **Narrow operator-authorized exception (2026-07-06, S22+ Odin4 recovery-infra
+   only):** the S22+ recovery-infra install above may use `/usr/bin/odin4` with AP
+   set to the pinned TWRP tar and `-u` set to the pinned `vbmeta_disabled.tar` because
+   this is a Samsung download-mode recovery setup, not an A90 native-init boot flash.
+   The local Odin4 help names `-u` as `UMS`; this is the only Linux Odin4 slot that
+   maps to the upstream guide's USERDATA-side disabled-vbmeta flow, so the transcript
+   must record that residual slot-name risk. No auto-reboot option may be used for the
+   TWRP install.
 3. **Rollback precondition:** before ANY flash, confirm the known-good rollback image
    `workspace/private/inputs/boot_images/boot_linux_v2321_usb_clean_identity_rodata.img`
    (SHA256 `ca978551aabe4b39563abaf529ccf2522054952d8b2ad852e632d26da88168cb`, the resident
