@@ -3532,6 +3532,45 @@ safety invariants and flash gates are binding and override any sub-goal.**
 > `dpublic-hud-presenter-service start|status|stop` on-device without switch-root.
 > Keep Debian handoff survival as the following bounded unit after native
 > service start/status/stop is device-proven.
+>
+> **🟢 STATUS (2026-07-05 09:34 KST host clock) — WSTA141 DPUBLIC HUD
+> PRESENTER SERVICE LIVE PASS + WSTA142 STALE-LOG MUST-FIX FOUND.**  Codex
+> live-gated V3399 through the checked `native_init_flash.py --from-native` path.
+> The helper verified Android boot magic, the local `0.11.155` marker, and the
+> pinned local SHA
+> `cd59b7a5eecc7dda464374c7fb412a60eeda7e2579ef7e2abe26d856277ff9dd`; recovery
+> ADB came up before any boot write; the pushed remote SHA matched; and the boot
+> prefix readback SHA matched.  The first helper post-reboot serial verify hit a
+> `30s` END-marker timeout after USB re-enumeration, but a follow-up checked
+> `native_init_flash.py --verify-only --verify-protocol cmdv1 --bridge-timeout 60`
+> passed immediately.  V3399 then reported `version: 0.11.155
+> build=v3399-dpublic-hud-presenter-service`, `BOOT OK shell 5.1s`,
+> `selftest pass=12 warn=1 fail=0`, and serial/NCM/tcpctl ready.  After explicit
+> `hide`, `dpublic-hud-presenter-service start --intent
+> /run/a90-dpublic/hud-intent.json --pid-file /run/a90-dpublic/hud-presenter.pid
+> --status-file /run/a90-dpublic/hud-presenter.status --stale-after-ms 2000`
+> returned `start.run_dir=/run/a90-dpublic owner=root:a90hud mode=1770 rc=0`,
+> `start.autohud_stop_rc=0`, `start.pid=651`,
+> `start.process_model=forked-native-child-survives-switch-root`, and
+> `start.done=1`.  Service status reported `status.state=running`,
+> `status.pid=651`, `status.drm_fd=1`, and `status.debian_direct_kms=0`; runtime
+> files showed `/run/a90-dpublic` as `root:3904` sticky mode `1770`.  A fresh
+> intent sequence `14101` presented a framebuffer on `1080x2400 crtc=133`, and
+> `/run/a90-dpublic/hud-presenter.status` recorded `last_sequence=14101`,
+> `present_rc=0`, and the forked-native-child process model.  `stop --pid-file
+> ... --release-drm` returned `stop.done=1`, follow-up status reported
+> `status.state=stopped rc=-2`, and final `selftest/status` stayed clean.  No
+> Wi-Fi association, DHCP, public tunnel/smoke, packet-filter mutation, userdata
+> mutation, Debian `switch_root`, forbidden partition write, PMIC/regulator/GDSC/
+> GPIO/backlight, or panel re-init action ran.  Live report:
+> `docs/reports/SERVER_DISTRO_WIFI_STA_UPSTREAM_WSTA141_DPUBLIC_HUD_PRESENTER_SERVICE_LIVE_2026-07-05.md`.
+> **NEXT:** WSTA142 must fix the stale-intent polling issue found live: after the
+> fresh intent aged past `2000ms`, the service emitted repeated
+> `A90WSTA136 intent.reject=stale ...` logs every `100ms` while polling the same
+> unchanged file.  Fix by de-duplicating consumed sequence/content before noisy
+> validation, or by equivalent per-file/sequence error throttling, while keeping
+> fail-closed rejection for new stale/forbidden/unknown intent content.  Rebuild
+> as the next V34xx candidate before attempting the Debian handoff survival proof.
 
 ## North star — priority-ordered tracks (T1 → T2 → T3)
 
