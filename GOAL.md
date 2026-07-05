@@ -330,6 +330,55 @@ safety invariants and flash gates are binding and override any sub-goal.**
 > default-off and explicit-gated, then choose the next hardening layer without
 > weakening the proven legacy-iptables default-drop path.
 
+> **🟢 STATUS (2026-07-05 22:20 KST) — WSTA221 CLOUDFLARED EGRESS ALLOWLIST POLICY PASS.**
+> Codex added a host-only WSTA221 policy runner that consumes the WSTA220
+> operator status, WSTA122 cloudflared service model, and WSTA125 cloudflared
+> runtime proof.  Full host-only run:
+> `workspace/private/runs/server-distro/wsta221-cloudflared-egress-allowlist-policy-20260705T221840KST/wsta221_result.json`;
+> decision `wsta221-cloudflared-egress-allowlist-policy-source-pass`.  The
+> emitted policy records
+> `CLOUDFLARED_EGRESS_ALLOWLIST_HARDENING_POLICY_DEFINED`,
+> `hardening_lever=legacy-iptables-cloudflared-egress-allowlist`,
+> `service=cloudflared-quick-tunnel`, `target_user=a90tunnel`,
+> `target_uid=3902`, `activation=explicit-operator-gated-after-default-drop`,
+> `default_public_off=true`, `live_execution_requested=false`, and
+> `packet_filter_mutation_by_wsta221=false`.  The next live gate must preflight
+> owner-match and rule-restore support, derive redacted DNS/TLS egress state
+> live, apply only after the proven default-drop path is active, prove
+> cloudflared still works, prove unrelated service traffic is not opened, prove
+> USB/NCM control-plane survival, and restore exact rules before `PUBLIC_OFF`.
+> No device action, boot flash, Wi-Fi connect, DHCP, public tunnel, public
+> smoke, packet-filter mutation, userdata write, LSM load, or switch-root
+> occurred.  Validation: WSTA221 focused tests `4 tests OK`, full
+> server-distro regression `816 tests OK`.  Report:
+> `docs/reports/SERVER_DISTRO_WIFI_STA_UPSTREAM_WSTA221_CLOUDFLARED_EGRESS_ALLOWLIST_POLICY_2026-07-05.md`.
+> **NEXT:** fold WSTA221 into the WSTA108 operator status bundle so the next
+> hardening action is concrete, not a generic placeholder.
+
+> **🟢 STATUS (2026-07-05 22:20 KST) — WSTA222 OPERATOR STATUS CLOUDFLARED EGRESS ALLOWLIST PASS.**
+> Codex folded the WSTA221 cloudflared egress allowlist policy into WSTA108.
+> WSTA108 now accepts `--wsta221-cloudflared-egress-allowlist-policy-json`,
+> fail-closes non-pass or incomplete WSTA221 evidence, and emits
+> `hardening.cloudflared_egress_allowlist_policy` only when the policy preserves
+> default-drop, requires owner-match fail-closed behavior, requires exact rule
+> restore, keeps live execution disabled in the status unit, and performs no
+> packet-filter mutation here.  Representative host-only run:
+> `workspace/private/runs/server-distro/wsta222-operator-status-cloudflared-egress-allowlist-20260705T221905KST/wsta108_operator_server_status.json`;
+> decision `wsta108-operator-server-status-source-pass`.  Operator next-actions
+> now reduce to `keep-public-exposure-default-off`,
+> `use-explicit-wsta88-live-gate-only-when-attended`,
+> `prepare-attended-cloudflared-egress-allowlist-live-gate`, and
+> `move-to-cloudflared-egress-allowlist-live-gate`; the previous abstract
+> `move-to-next-hardening-layer-after-attended-default-drop-live` action is
+> retired.  No device action, boot flash, Wi-Fi connect, DHCP, public tunnel,
+> public smoke, packet-filter mutation, userdata write, LSM load, or switch-root
+> occurred.  Validation: WSTA108/WSTA221 focused tests `67 tests OK`, full
+> server-distro regression `816 tests OK`.  Report:
+> `docs/reports/SERVER_DISTRO_WIFI_STA_UPSTREAM_WSTA222_OPERATOR_STATUS_CLOUDFLARED_EGRESS_ALLOWLIST_2026-07-05.md`.
+> **NEXT:** proceed only through an attended cloudflared egress allowlist live
+> gate; preserve default-off/public-off and avoid logging public URL values,
+> tunnel credentials, Wi-Fi credentials, or secrets.
+
 > **✅ OPERATOR GO (2026-07-04) — D-public is USER-AUTHORIZED and operator-driven; PROCEED.** (Supersedes the
 > earlier same-day HOLD, which assumed authorization was pending — it was not.) The user confirmed the
 > `D-PUBLIC-LIVE-PUBLISH` go and is actively driving D-public. First live publish (commit `8d25f793`:

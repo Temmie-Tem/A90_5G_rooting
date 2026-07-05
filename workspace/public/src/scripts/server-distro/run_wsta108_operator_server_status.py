@@ -57,6 +57,7 @@ import run_wsta151_dropbear_admin_syscall_trace_summary as wsta151  # noqa: E402
 import run_wsta208_real_service_seccomp_smoke_live as wsta208  # noqa: E402
 import run_wsta209_dropbear_admin_seccomp_live as wsta209  # noqa: E402
 import run_wsta216_default_drop_hardening_policy as wsta216  # noqa: E402
+import run_wsta221_cloudflared_egress_allowlist_policy as wsta221  # noqa: E402
 
 
 REPO_ROOT = wsta88.REPO_ROOT
@@ -84,6 +85,9 @@ ATTENDED_DEFAULT_DROP_LIVE_STATE = "LEGACY_IPTABLES_DEFAULT_DROP_ATTENDED_LIVE_P
 WSTA80_LIVE_DECISION = "wsta80-persistent-operator-execute-gate-live-pass"
 WSTA58_LIVE_DECISION = "wsta58-renewal-manual-stop-live-pass"
 WSTA55_LIVE_DECISION = "wsta55-short-lived-public-proof-live-pass"
+CLOUDFLARED_EGRESS_ALLOWLIST_POLICY_STATE = (
+    "CLOUDFLARED_EGRESS_ALLOWLIST_HARDENING_POLICY_DEFINED"
+)
 
 CLOUDFLARED_RUNTIME_REQUIRED_CHECKS = (
     "wsta28_precondition_pass",
@@ -217,6 +221,8 @@ def template() -> dict[str, Any]:
             "workspace/private/runs/server-distro/<wsta216-run>/wsta216_result.json",
             "--wsta219-attended-default-drop-live-json",
             "workspace/private/runs/server-distro/<wsta219-run>/wsta88_operator_workflow.json",
+            "--wsta221-cloudflared-egress-allowlist-policy-json",
+            "workspace/private/runs/server-distro/<wsta221-run>/wsta221_result.json",
         ],
         "device_action": False,
         "public_url_value_logged": False,
@@ -1299,6 +1305,71 @@ def compact_attended_default_drop_live(
     }
 
 
+def compact_cloudflared_egress_allowlist_policy(
+    proof_result: dict[str, Any] | None,
+) -> dict[str, Any]:
+    if not proof_result:
+        return {
+            "state": "NOT_SUPPLIED",
+            "cloudflared_egress_allowlist_policy_defined": False,
+            "hardening_lever": None,
+            "service": None,
+            "live_execution_requested": None,
+            "packet_filter_mutation_by_wsta221": None,
+            "public_url_value_logged": False,
+            "secret_values_logged": 0,
+        }
+    policy = proof_result.get("policy") if isinstance(proof_result.get("policy"), dict) else {}
+    checks = proof_result.get("checks") if isinstance(proof_result.get("checks"), dict) else {}
+    target = policy.get("target_identity") if isinstance(policy.get("target_identity"), dict) else {}
+    contract = policy.get("policy_contract") if isinstance(policy.get("policy_contract"), dict) else {}
+    defined = bool(
+        proof_result.get("decision") == wsta221.PASS_DECISION
+        and policy.get("state") == wsta221.POLICY_STATE
+        and policy.get("schema") == wsta221.POLICY_SCHEMA
+        and policy.get("hardening_lever") == wsta221.HARDENING_LEVER
+        and policy.get("service") == wsta221.SERVICE
+        and policy.get("backend") == "legacy-iptables"
+        and policy.get("policy") == "cloudflared-egress-allowlist"
+        and policy.get("activation") == "explicit-operator-gated-after-default-drop"
+        and policy.get("default_public_off") is True
+        and policy.get("live_execution_requested") is False
+        and policy.get("packet_filter_mutation_by_wsta221") is False
+        and target.get("user") == "a90tunnel"
+        and target.get("uid") == 3902
+        and checks.get("operator_status_ready") is True
+        and checks.get("cloudflared_model_ready") is True
+        and checks.get("cloudflared_runtime_ready") is True
+        and checks.get("policy_ready") is True
+        and contract.get("preserve_existing_input_default_drop") is True
+        and contract.get("fail_closed_if_owner_match_unavailable") is True
+        and contract.get("restore_exact_rules_before_public_off_success") is True
+    )
+    return {
+        "state": wsta221.POLICY_STATE if defined else "SUPPLIED_NOT_PROVEN",
+        "decision": proof_result.get("decision"),
+        "proof_run_dir": proof_result.get("run_dir"),
+        "cloudflared_egress_allowlist_policy_defined": defined,
+        "hardening_lever": policy.get("hardening_lever"),
+        "service": policy.get("service"),
+        "backend": policy.get("backend"),
+        "policy": policy.get("policy"),
+        "activation": policy.get("activation"),
+        "default_public_off": policy.get("default_public_off"),
+        "live_execution_requested": policy.get("live_execution_requested"),
+        "packet_filter_mutation_by_wsta221": policy.get("packet_filter_mutation_by_wsta221"),
+        "target_user": target.get("user"),
+        "target_uid": target.get("uid"),
+        "owner_match_fail_closed": bool(contract.get("fail_closed_if_owner_match_unavailable")),
+        "preserve_existing_default_drop": bool(contract.get("preserve_existing_input_default_drop")),
+        "restore_exact_required": bool(contract.get("restore_exact_rules_before_public_off_success")),
+        "control_plane_must_survive_apply": bool(contract.get("control_plane_must_survive_apply")),
+        "next_live_gate_requirements": list(policy.get("next_live_gate_requirements") or []),
+        "public_url_value_logged": False,
+        "secret_values_logged": 0,
+    }
+
+
 def compact_cloudflared_model(model_result: dict[str, Any] | None) -> dict[str, Any]:
     if not model_result:
         return {
@@ -2245,6 +2316,7 @@ def compact_hardening(
     apparmor_feasibility_result: dict[str, Any] | None,
     default_drop_hardening_policy_result: dict[str, Any] | None,
     attended_default_drop_live_result: dict[str, Any] | None,
+    cloudflared_egress_allowlist_policy_result: dict[str, Any] | None,
 ) -> dict[str, Any]:
     packet_filter_proof = compact_packet_filter_proof(packet_filter_proof_result, packet_filter_control_summary)
     launcher_proof = compact_launcher_proof(launcher_proof_result)
@@ -2317,6 +2389,9 @@ def compact_hardening(
     attended_default_drop_live = compact_attended_default_drop_live(
         attended_default_drop_live_result
     )
+    cloudflared_egress_allowlist_policy = compact_cloudflared_egress_allowlist_policy(
+        cloudflared_egress_allowlist_policy_result
+    )
     if native_uplink_boundary_policy.get("native_uplink_boundary_policy_defined"):
         launcher_proof["remaining_profiles"] = [
             item
@@ -2346,6 +2421,7 @@ def compact_hardening(
             "apparmor_feasibility": apparmor_feasibility,
             "default_drop_hardening_policy": default_drop_hardening_policy,
             "attended_default_drop_live": attended_default_drop_live,
+            "cloudflared_egress_allowlist_policy": cloudflared_egress_allowlist_policy,
             "cloudflared_model": cloudflared_model,
             "cloudflared_runtime": cloudflared_runtime,
             "hud_model": hud_model,
@@ -2394,6 +2470,7 @@ def compact_hardening(
         "apparmor_feasibility": apparmor_feasibility,
         "default_drop_hardening_policy": default_drop_hardening_policy,
         "attended_default_drop_live": attended_default_drop_live,
+        "cloudflared_egress_allowlist_policy": cloudflared_egress_allowlist_policy,
         "cloudflared_model": cloudflared_model,
         "cloudflared_runtime": cloudflared_runtime,
         "hud_model": hud_model,
@@ -2435,6 +2512,7 @@ def build_server_status(
     apparmor_feasibility_result: dict[str, Any] | None,
     default_drop_hardening_policy_result: dict[str, Any] | None,
     attended_default_drop_live_result: dict[str, Any] | None,
+    cloudflared_egress_allowlist_policy_result: dict[str, Any] | None,
 ) -> dict[str, Any]:
     status_hud = wsta88_result.get("status_hud") if isinstance(wsta88_result.get("status_hud"), dict) else {}
     if not status_hud:
@@ -2463,6 +2541,7 @@ def build_server_status(
         apparmor_feasibility_result,
         default_drop_hardening_policy_result,
         attended_default_drop_live_result,
+        cloudflared_egress_allowlist_policy_result,
     )
     public_off = (status_hud.get("public_state") or "PUBLIC_OFF") == "PUBLIC_OFF"
     ready_default_off = public_off and bool(packet_filter.get("ready"))
@@ -2509,6 +2588,11 @@ def build_server_status(
     attended_default_drop_live = (
         hardening.get("attended_default_drop_live")
         if isinstance(hardening.get("attended_default_drop_live"), dict)
+        else {}
+    )
+    cloudflared_egress_allowlist_policy = (
+        hardening.get("cloudflared_egress_allowlist_policy")
+        if isinstance(hardening.get("cloudflared_egress_allowlist_policy"), dict)
         else {}
     )
     cloudflared_model = (
@@ -2576,6 +2660,9 @@ def build_server_status(
     attended_default_drop_live_proven = bool(
         attended_default_drop_live.get("attended_default_drop_live_proven")
     )
+    cloudflared_egress_policy_defined = bool(
+        cloudflared_egress_allowlist_policy.get("cloudflared_egress_allowlist_policy_defined")
+    )
     if capability_drop_live_proven:
         if not native_uplink_boundary_defined:
             operator_next_actions.append("continue-root-boundary-policy-for-wsta-native-uplink-helper")
@@ -2595,9 +2682,14 @@ def build_server_status(
                 if capability_drop_live_proven:
                     if default_drop_hardening_defined:
                         if attended_default_drop_live_proven:
-                            operator_next_actions.append(
-                                "continue-next-hardening-layer-after-attended-default-drop-live"
-                            )
+                            if cloudflared_egress_policy_defined:
+                                operator_next_actions.append(
+                                    "prepare-attended-cloudflared-egress-allowlist-live-gate"
+                                )
+                            else:
+                                operator_next_actions.append(
+                                    "continue-next-hardening-layer-after-attended-default-drop-live"
+                                )
                         else:
                             operator_next_actions.append(
                                 "use-legacy-iptables-default-drop-only-through-attended-dpublic-live-gate"
@@ -2630,9 +2722,14 @@ def build_server_status(
         if capability_drop_live_proven:
             if default_drop_hardening_defined:
                 if attended_default_drop_live_proven:
-                    operator_next_actions.append(
-                        "move-to-next-hardening-layer-after-attended-default-drop-live"
-                    )
+                    if cloudflared_egress_policy_defined:
+                        operator_next_actions.append(
+                            "move-to-cloudflared-egress-allowlist-live-gate"
+                        )
+                    else:
+                        operator_next_actions.append(
+                            "move-to-next-hardening-layer-after-attended-default-drop-live"
+                        )
                 else:
                     operator_next_actions.append("move-to-attended-default-drop-live-use-or-next-hardening-layer")
             elif apparmor_unavailable:
@@ -2763,6 +2860,11 @@ def markdown(server_status: dict[str, Any]) -> str:
         if isinstance(hardening.get("attended_default_drop_live"), dict)
         else {}
     )
+    cloudflared_egress_allowlist_policy = (
+        hardening.get("cloudflared_egress_allowlist_policy")
+        if isinstance(hardening.get("cloudflared_egress_allowlist_policy"), dict)
+        else {}
+    )
     cloudflared_model = (
         hardening.get("cloudflared_model")
         if isinstance(hardening.get("cloudflared_model"), dict)
@@ -2878,6 +2980,9 @@ def markdown(server_status: dict[str, Any]) -> str:
         f"- Attended default-drop live: `{str(bool(attended_default_drop_live.get('attended_default_drop_live_proven'))).lower()}`",
         f"- Attended default-drop state: `{attended_default_drop_live.get('state')}`",
         f"- Attended default-drop packet filter: `{attended_default_drop_live.get('packet_filter_backend')}/{attended_default_drop_live.get('packet_filter_policy')}`",
+        f"- Cloudflared egress allowlist policy: `{str(bool(cloudflared_egress_allowlist_policy.get('cloudflared_egress_allowlist_policy_defined'))).lower()}`",
+        f"- Cloudflared egress allowlist state: `{cloudflared_egress_allowlist_policy.get('state')}`",
+        f"- Cloudflared egress allowlist mutates filters here: `{str(bool(cloudflared_egress_allowlist_policy.get('packet_filter_mutation_by_wsta221'))).lower()}`",
         f"- Cloudflared model: `{str(bool(cloudflared_model.get('model_defined'))).lower()}`",
         f"- Cloudflared model user: `{cloudflared_model.get('user')}`",
         f"- Cloudflared default public off: `{str(bool(cloudflared_model.get('default_public_off'))).lower()}`",
@@ -3413,6 +3518,28 @@ def run(args: argparse.Namespace) -> dict[str, Any]:
             write_json(out_json, result)
             return result
 
+    cloudflared_egress_allowlist_policy_result: dict[str, Any] | None = None
+    if args.wsta221_cloudflared_egress_allowlist_policy_json is not None:
+        egress_policy_path, egress_policy_error = require_private_file(
+            args.wsta221_cloudflared_egress_allowlist_policy_json,
+            "wsta221-cloudflared-egress-allowlist-policy",
+        )
+        if egress_policy_error or egress_policy_path is None:
+            result["decision"] = (
+                egress_policy_error or "wsta108-blocked-wsta221-cloudflared-egress-allowlist-policy"
+            )
+            result["gate_decision"] = result["decision"]
+            result["ended_utc"] = utc_stamp()
+            write_json(out_json, result)
+            return result
+        cloudflared_egress_allowlist_policy_result = load_json(egress_policy_path)
+        if cloudflared_egress_allowlist_policy_result.get("decision") != wsta221.PASS_DECISION:
+            result["decision"] = "wsta108-blocked-wsta221-cloudflared-egress-allowlist-policy-not-pass"
+            result["gate_decision"] = result["decision"]
+            result["ended_utc"] = utc_stamp()
+            write_json(out_json, result)
+            return result
+
     server_status = build_server_status(
         wsta88_result,
         hardening_result,
@@ -3436,6 +3563,7 @@ def run(args: argparse.Namespace) -> dict[str, Any]:
         apparmor_feasibility_result,
         default_drop_hardening_policy_result,
         attended_default_drop_live_result,
+        cloudflared_egress_allowlist_policy_result,
     )
     packet_filter_proof = server_status["hardening"].get("packet_filter_proof", {})
     packet_filter_control_proof = (
@@ -3473,6 +3601,10 @@ def run(args: argparse.Namespace) -> dict[str, Any]:
     )
     attended_default_drop_live = server_status["hardening"].get(
         "attended_default_drop_live",
+        {},
+    )
+    cloudflared_egress_allowlist_policy = server_status["hardening"].get(
+        "cloudflared_egress_allowlist_policy",
         {},
     )
     cloudflared_model = server_status["hardening"].get("cloudflared_model", {})
@@ -3635,6 +3767,24 @@ def run(args: argparse.Namespace) -> dict[str, Any]:
         ),
         "attended_default_drop_live_manual_stop_public_off": (
             attended_default_drop_live.get("public_state_after_manual_stop") == "PUBLIC_OFF"
+        ),
+        "wsta221_cloudflared_egress_allowlist_policy_supplied": (
+            cloudflared_egress_allowlist_policy_result is not None
+        ),
+        "cloudflared_egress_allowlist_policy_defined": bool(
+            cloudflared_egress_allowlist_policy.get("cloudflared_egress_allowlist_policy_defined")
+        ),
+        "cloudflared_egress_allowlist_no_live_execution": (
+            cloudflared_egress_allowlist_policy.get("live_execution_requested") is False
+        ),
+        "cloudflared_egress_allowlist_no_mutation_here": (
+            cloudflared_egress_allowlist_policy.get("packet_filter_mutation_by_wsta221") is False
+        ),
+        "cloudflared_egress_allowlist_owner_match_fail_closed": bool(
+            cloudflared_egress_allowlist_policy.get("owner_match_fail_closed")
+        ),
+        "cloudflared_egress_allowlist_preserves_default_drop": bool(
+            cloudflared_egress_allowlist_policy.get("preserve_existing_default_drop")
         ),
         "cloudflared_model_supplied": cloudflared_model_result is not None,
         "cloudflared_model_defined": bool(cloudflared_model.get("model_defined")),
@@ -3852,6 +4002,15 @@ def run(args: argparse.Namespace) -> dict[str, Any]:
         write_json(out_json, result)
         return result
     if (
+        cloudflared_egress_allowlist_policy_result is not None
+        and not result["checks"]["cloudflared_egress_allowlist_policy_defined"]
+    ):
+        result["decision"] = "wsta108-blocked-wsta221-cloudflared-egress-allowlist-policy-incomplete"
+        result["gate_decision"] = result["decision"]
+        result["ended_utc"] = utc_stamp()
+        write_json(out_json, result)
+        return result
+    if (
         cloudflared_model_result is not None
         and not result["checks"]["cloudflared_model_defined"]
     ):
@@ -3959,6 +4118,7 @@ def build_arg_parser() -> argparse.ArgumentParser:
     parser.add_argument("--wsta214-apparmor-feasibility-json", type=Path)
     parser.add_argument("--wsta216-default-drop-hardening-policy-json", type=Path)
     parser.add_argument("--wsta219-attended-default-drop-live-json", type=Path)
+    parser.add_argument("--wsta221-cloudflared-egress-allowlist-policy-json", type=Path)
     parser.add_argument("--wsta122-cloudflared-model-json", type=Path)
     parser.add_argument("--wsta125-cloudflared-runtime-proof-json", type=Path)
     parser.add_argument("--wsta127-hud-model-json", type=Path)

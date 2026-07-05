@@ -694,6 +694,56 @@ class ServerDistroWsta108OperatorServerStatusTests(unittest.TestCase):
             "secret_values_logged": 0,
         }
 
+    def cloudflared_egress_allowlist_policy(self) -> dict:
+        return {
+            "decision": runner.wsta221.PASS_DECISION,
+            "run_dir": "workspace/private/runs/server-distro/wsta221-egress-policy-test",
+            "policy": {
+                "schema": runner.wsta221.POLICY_SCHEMA,
+                "state": runner.wsta221.POLICY_STATE,
+                "hardening_lever": runner.wsta221.HARDENING_LEVER,
+                "service": runner.wsta221.SERVICE,
+                "backend": "legacy-iptables",
+                "policy": "cloudflared-egress-allowlist",
+                "activation": "explicit-operator-gated-after-default-drop",
+                "default_public_off": True,
+                "live_execution_requested": False,
+                "packet_filter_mutation_by_wsta221": False,
+                "target_identity": {
+                    "user": "a90tunnel",
+                    "uid": 3902,
+                    "gid": 3902,
+                },
+                "policy_contract": {
+                    "preserve_existing_input_default_drop": True,
+                    "apply_after_loopback_default_drop": True,
+                    "fail_closed_if_owner_match_unavailable": True,
+                    "restore_exact_rules_before_public_off_success": True,
+                    "control_plane_must_survive_apply": True,
+                    "forbid_public_url_logging": True,
+                    "forbid_secret_logging": True,
+                },
+                "next_live_gate_requirements": [
+                    "preflight iptables owner match and rule restore support",
+                    "derive redacted DNS/TLS egress route in live session",
+                ],
+                "public_url_value_logged": False,
+                "secret_values_logged": 0,
+            },
+            "checks": {
+                "operator_status_ready": True,
+                "cloudflared_model_ready": True,
+                "cloudflared_runtime_ready": True,
+                "policy_ready": True,
+            },
+            "safety": {
+                "device_action": False,
+                "packet_filter_mutation": False,
+                "public_url_value_logged": False,
+                "secret_values_logged": 0,
+            },
+        }
+
     def cloudflared_model_proof(self) -> dict:
         model = runner.wsta122.cloudflared_service_model()
         return {
@@ -2474,6 +2524,105 @@ class ServerDistroWsta108OperatorServerStatusTests(unittest.TestCase):
         self.assertIn("Attended default-drop live: `true`", markdown)
         self.assertIn("Attended default-drop state: `LEGACY_IPTABLES_DEFAULT_DROP_ATTENDED_LIVE_PROVEN`", markdown)
 
+    def test_wsta221_cloudflared_egress_policy_concretizes_next_hardening_action(self) -> None:
+        with self.private_tmp() as tmp:
+            root = Path(tmp)
+            self.assertEqual(wsta88.run(self.wsta88_args(root))["decision"], wsta88.PREFLIGHT_DECISION)
+            manifest_path = root / "inputs" / "wsta90_service_hardening_manifest.json"
+            launcher_path = root / "inputs" / "wsta110_result.json"
+            admin_path = root / "inputs" / "wsta120_result.json"
+            model_path = root / "inputs" / "wsta122_cloudflared_service_model.json"
+            runtime_path = root / "inputs" / "wsta125_result.json"
+            presenter_path = root / "inputs" / "wsta130_dpublic_hud_presenter_model.json"
+            handoff_path = root / "inputs" / "wsta144_dpublic_hud_shared_run_bind_live.json"
+            restart_path = root / "inputs" / "wsta147_dpublic_hud_restart_live.json"
+            hud_syscall_path = root / "inputs" / "wsta149_dpublic_hud_intent_syscall_trace_live.json"
+            dropbear_syscall_path = root / "inputs" / "wsta151_dropbear_admin_syscall_trace_live.json"
+            smoke_seccomp_path = root / "inputs" / "wsta208_result.json"
+            dropbear_seccomp_path = root / "inputs" / "wsta209_result.json"
+            native_uplink_path = root / "inputs" / "wsta212_result.json"
+            apparmor_path = root / "inputs" / "wsta214_result.json"
+            default_drop_path = root / "inputs" / "wsta216_result.json"
+            attended_live_path = root / "inputs" / "wsta219_operator_workflow.json"
+            egress_policy_path = root / "inputs" / "wsta221_result.json"
+            self.write_json(manifest_path, self.hardening_manifest())
+            self.write_json(launcher_path, self.launcher_proof())
+            self.write_json(admin_path, self.dropbear_admin_proof())
+            self.write_json(model_path, self.cloudflared_model_proof())
+            self.write_json(runtime_path, self.cloudflared_runtime_proof())
+            self.write_json(presenter_path, self.hud_presenter_model_proof())
+            self.write_json(handoff_path, self.hud_presenter_handoff_proof())
+            self.write_json(restart_path, self.hud_presenter_restart_proof())
+            self.write_json(hud_syscall_path, self.hud_intent_syscall_proof())
+            self.write_json(dropbear_syscall_path, self.dropbear_admin_syscall_proof())
+            self.write_json(smoke_seccomp_path, self.seccomp_smoke_proof())
+            self.write_json(dropbear_seccomp_path, self.seccomp_dropbear_proof())
+            self.write_json(native_uplink_path, self.native_uplink_boundary_policy())
+            self.write_json(apparmor_path, self.apparmor_feasibility())
+            self.write_json(default_drop_path, self.default_drop_hardening_policy())
+            self.write_json(attended_live_path, self.attended_default_drop_live_proof())
+            self.write_json(egress_policy_path, self.cloudflared_egress_allowlist_policy())
+            result = runner.run(self.valid_args(
+                root,
+                root / "wsta88" / "wsta88_operator_workflow.json",
+                "--wsta90-service-hardening-manifest-json",
+                str(manifest_path),
+                "--wsta110-service-launcher-proof-json",
+                str(launcher_path),
+                "--wsta120-dropbear-admin-proof-json",
+                str(admin_path),
+                "--wsta122-cloudflared-model-json",
+                str(model_path),
+                "--wsta125-cloudflared-runtime-proof-json",
+                str(runtime_path),
+                "--wsta130-hud-presenter-model-json",
+                str(presenter_path),
+                "--wsta144-hud-presenter-handoff-proof-json",
+                str(handoff_path),
+                "--wsta147-hud-presenter-restart-proof-json",
+                str(restart_path),
+                "--wsta149-hud-intent-syscall-proof-json",
+                str(hud_syscall_path),
+                "--wsta151-dropbear-admin-syscall-proof-json",
+                str(dropbear_syscall_path),
+                "--wsta208-real-service-seccomp-proof-json",
+                str(smoke_seccomp_path),
+                "--wsta209-dropbear-admin-seccomp-proof-json",
+                str(dropbear_seccomp_path),
+                "--wsta212-native-uplink-boundary-policy-json",
+                str(native_uplink_path),
+                "--wsta214-apparmor-feasibility-json",
+                str(apparmor_path),
+                "--wsta216-default-drop-hardening-policy-json",
+                str(default_drop_path),
+                "--wsta219-attended-default-drop-live-json",
+                str(attended_live_path),
+                "--wsta221-cloudflared-egress-allowlist-policy-json",
+                str(egress_policy_path),
+            ))
+            markdown = (root / "wsta108" / "wsta108_operator_server_status.md").read_text(encoding="utf-8")
+
+        self.assertEqual(result["decision"], runner.PASS_DECISION)
+        proof = result["server_status"]["hardening"]["cloudflared_egress_allowlist_policy"]
+        self.assertEqual(proof["state"], runner.wsta221.POLICY_STATE)
+        self.assertTrue(proof["cloudflared_egress_allowlist_policy_defined"])
+        self.assertEqual(proof["hardening_lever"], runner.wsta221.HARDENING_LEVER)
+        self.assertFalse(proof["live_execution_requested"])
+        self.assertFalse(proof["packet_filter_mutation_by_wsta221"])
+        self.assertTrue(result["checks"]["wsta221_cloudflared_egress_allowlist_policy_supplied"])
+        self.assertTrue(result["checks"]["cloudflared_egress_allowlist_policy_defined"])
+        self.assertTrue(result["checks"]["cloudflared_egress_allowlist_owner_match_fail_closed"])
+        self.assertNotIn(
+            "move-to-next-hardening-layer-after-attended-default-drop-live",
+            result["server_status"]["operator_next_actions"],
+        )
+        self.assertIn(
+            "move-to-cloudflared-egress-allowlist-live-gate",
+            result["server_status"]["operator_next_actions"],
+        )
+        self.assertIn("Cloudflared egress allowlist policy: `true`", markdown)
+        self.assertIn("Cloudflared egress allowlist state: `CLOUDFLARED_EGRESS_ALLOWLIST_HARDENING_POLICY_DEFINED`", markdown)
+
     def test_all_syscall_profiles_retired_removes_syscall_blocker(self) -> None:
         with self.private_tmp() as tmp:
             root = Path(tmp)
@@ -3152,6 +3301,43 @@ class ServerDistroWsta108OperatorServerStatusTests(unittest.TestCase):
         self.assertFalse(result["checks"]["attended_default_drop_live_proven"])
         self.assertFalse(result["checks"]["attended_default_drop_live_force_restore_proof"])
 
+    def test_nonpass_wsta221_cloudflared_egress_allowlist_policy_blocks(self) -> None:
+        with self.private_tmp() as tmp:
+            root = Path(tmp)
+            self.assertEqual(wsta88.run(self.wsta88_args(root))["decision"], wsta88.PREFLIGHT_DECISION)
+            proof_path = root / "inputs" / "wsta221_result.json"
+            proof = self.cloudflared_egress_allowlist_policy()
+            proof["decision"] = "wsta221-blocked"
+            self.write_json(proof_path, proof)
+            result = runner.run(self.valid_args(
+                root,
+                root / "wsta88" / "wsta88_operator_workflow.json",
+                "--wsta221-cloudflared-egress-allowlist-policy-json",
+                str(proof_path),
+            ))
+
+        self.assertEqual(result["decision"], "wsta108-blocked-wsta221-cloudflared-egress-allowlist-policy-not-pass")
+
+    def test_incomplete_wsta221_cloudflared_egress_allowlist_policy_blocks_even_with_pass_decision(self) -> None:
+        with self.private_tmp() as tmp:
+            root = Path(tmp)
+            self.assertEqual(wsta88.run(self.wsta88_args(root))["decision"], wsta88.PREFLIGHT_DECISION)
+            proof_path = root / "inputs" / "wsta221_result.json"
+            proof = self.cloudflared_egress_allowlist_policy()
+            proof["policy"]["packet_filter_mutation_by_wsta221"] = True
+            proof["checks"]["policy_ready"] = False
+            self.write_json(proof_path, proof)
+            result = runner.run(self.valid_args(
+                root,
+                root / "wsta88" / "wsta88_operator_workflow.json",
+                "--wsta221-cloudflared-egress-allowlist-policy-json",
+                str(proof_path),
+            ))
+
+        self.assertEqual(result["decision"], "wsta108-blocked-wsta221-cloudflared-egress-allowlist-policy-incomplete")
+        self.assertFalse(result["checks"]["cloudflared_egress_allowlist_policy_defined"])
+        self.assertFalse(result["checks"]["cloudflared_egress_allowlist_no_mutation_here"])
+
     def test_public_summary_markdown_and_template_are_redacted(self) -> None:
         with self.private_tmp() as tmp:
             root = Path(tmp)
@@ -3193,6 +3379,7 @@ class ServerDistroWsta108OperatorServerStatusTests(unittest.TestCase):
         self.assertIn("--wsta214-apparmor-feasibility-json", payload)
         self.assertIn("--wsta216-default-drop-hardening-policy-json", payload)
         self.assertIn("--wsta219-attended-default-drop-live-json", payload)
+        self.assertIn("--wsta221-cloudflared-egress-allowlist-policy-json", payload)
         self.assertIn("--wsta122-cloudflared-model-json", payload)
         self.assertIn("--wsta125-cloudflared-runtime-proof-json", payload)
         self.assertIn("--wsta127-hud-model-json", payload)
@@ -3221,6 +3408,7 @@ class ServerDistroWsta108OperatorServerStatusTests(unittest.TestCase):
         self.assertIn("DPUBLIC_HUD_DURABLE_PRESENTER_RESTART_LIVE_PROVEN", source)
         self.assertIn("DPUBLIC_HUD_INTENT_SYSCALL_TRACE_LIVE_PROVEN", source)
         self.assertIn("LEGACY_IPTABLES_DEFAULT_DROP_ATTENDED_LIVE_PROVEN", source)
+        self.assertIn("CLOUDFLARED_EGRESS_ALLOWLIST_HARDENING_POLICY_DEFINED", source)
         self.assertIn("split-intent-native-presenter", source)
         self.assertIn("prototype-dpublic-hud-intent-presenter-boundary-before-live-hud-profile", source)
         self.assertIn("design-durable-dpublic-hud-presenter-service-across-debian-handoff", source)
@@ -3233,6 +3421,7 @@ class ServerDistroWsta108OperatorServerStatusTests(unittest.TestCase):
         self.assertIn("--wsta147-hud-presenter-restart-proof-json", source)
         self.assertIn("--wsta149-hud-intent-syscall-proof-json", source)
         self.assertIn("--wsta219-attended-default-drop-live-json", source)
+        self.assertIn("--wsta221-cloudflared-egress-allowlist-policy-json", source)
         self.assertIn('"boot_flash": False', source)
         self.assertIn('"public_url_value_logged": False', source)
         self.assertNotIn("native_init_flash.py", source)
