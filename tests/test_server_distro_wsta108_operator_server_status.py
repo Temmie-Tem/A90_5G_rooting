@@ -294,6 +294,62 @@ class ServerDistroWsta108OperatorServerStatusTests(unittest.TestCase):
             "secret_values_logged": 0,
         }
 
+    def dropbear_admin_syscall_proof(self) -> dict:
+        return {
+            "decision": runner.wsta151.PASS_DECISION,
+            "source_run_dir": "workspace/private/runs/server-distro/wsta151-dropbear-admin-syscall-test",
+            "service": "dropbear-admin-usb",
+            "scope": "dropbear-admin-usb-daemon",
+            "daemon": "/usr/sbin/dropbear",
+            "daemon_privilege_model": "root-boundary-auth-daemon",
+            "bind": "192.168.7.2:2222",
+            "network_scope": "usb-ncm-admin-only",
+            "uid": 3903,
+            "gid": 3903,
+            "admin_login_uid_gid_proven": True,
+            "root_ssh_rejected": True,
+            "root_authorized_keys_absent": True,
+            "password_login_disabled": True,
+            "root_login_disabled": True,
+            "forwarding_disabled": True,
+            "core_syscalls_observed": True,
+            "accept_observed": True,
+            "core_syscalls": list(runner.wsta151.CORE_SYSCALLS),
+            "accept_syscalls": list(runner.wsta151.ACCEPT_SYSCALLS),
+            "syscall_count": 8,
+            "syscall_names": [
+                "accept",
+                "bind",
+                "brk",
+                "close",
+                "execve",
+                "listen",
+                "socket",
+                "write",
+            ],
+            "trace_artifacts_saved": True,
+            "raw_trace_sha256": "raw-sha",
+            "syscall_list_sha256": "syscalls-sha",
+            "dropbear_log_sha256": "log-sha",
+            "checks": {
+                "source_decision_pass": True,
+                "source_no_forbidden_device_mutation": True,
+                "strace_image_sha_match": True,
+                "admin_boundary_proven": True,
+                "daemon_policy_proven": True,
+                "core_syscalls_proven": True,
+                "accept_syscall_proven": True,
+                "trace_artifacts_saved": True,
+                "log_policy_clean": True,
+                "cleanup_ok": True,
+                "final_health_clean": True,
+                "redaction_clean": True,
+            },
+            "public_url_value_logged": False,
+            "admin_public_key_value_logged": False,
+            "secret_values_logged": 0,
+        }
+
     def cloudflared_model_proof(self) -> dict:
         model = runner.wsta122.cloudflared_service_model()
         return {
@@ -1545,6 +1601,116 @@ class ServerDistroWsta108OperatorServerStatusTests(unittest.TestCase):
         self.assertNotIn("http://", markdown)
         self.assertNotIn("https://", markdown)
 
+    def test_valid_wsta151_dropbear_admin_syscall_proof_retires_dropbear_syscall_gap(self) -> None:
+        with self.private_tmp() as tmp:
+            root = Path(tmp)
+            self.assertEqual(wsta88.run(self.wsta88_args(root))["decision"], wsta88.PREFLIGHT_DECISION)
+            manifest_path = root / "inputs" / "wsta90_service_hardening_manifest.json"
+            syscall_path = root / "inputs" / "wsta114_result.json"
+            dropbear_syscall_path = root / "inputs" / "wsta151_dropbear_admin_syscall_trace_live.json"
+            self.write_json(manifest_path, self.hardening_manifest())
+            self.write_json(syscall_path, self.syscall_trace_proof())
+            self.write_json(dropbear_syscall_path, self.dropbear_admin_syscall_proof())
+            result = runner.run(self.valid_args(
+                root,
+                root / "wsta88" / "wsta88_operator_workflow.json",
+                "--wsta90-service-hardening-manifest-json",
+                str(manifest_path),
+                "--wsta114-syscall-trace-proof-json",
+                str(syscall_path),
+                "--wsta151-dropbear-admin-syscall-proof-json",
+                str(dropbear_syscall_path),
+            ))
+            markdown = (root / "wsta108" / "wsta108_operator_server_status.md").read_text(encoding="utf-8")
+            summary_text = json.dumps(runner.public_summary(result), sort_keys=True)
+
+        self.assertEqual(result["decision"], runner.PASS_DECISION)
+        hardening = result["server_status"]["hardening"]
+        proof = hardening["dropbear_admin_syscall_trace_proof"]
+        self.assertEqual(proof["state"], "DROPBEAR_ADMIN_SYSCALL_TRACE_LIVE_PROVEN")
+        self.assertTrue(proof["dropbear_admin_syscall_trace_live_proven"])
+        self.assertEqual(proof["service"], "dropbear-admin-usb")
+        self.assertEqual(proof["uid"], 3903)
+        self.assertEqual(proof["gid"], 3903)
+        self.assertTrue(proof["root_ssh_rejected"])
+        self.assertTrue(proof["password_login_disabled"])
+        self.assertTrue(proof["core_syscalls_observed"])
+        self.assertTrue(proof["accept_observed"])
+        self.assertTrue(proof["trace_artifacts_saved"])
+        self.assertTrue(result["checks"]["dropbear_admin_syscall_proof_supplied"])
+        self.assertTrue(result["checks"]["dropbear_admin_syscall_trace_live_proven"])
+        self.assertTrue(result["checks"]["dropbear_admin_syscall_accept_observed"])
+        self.assertTrue(result["checks"]["dropbear_admin_syscall_trace_artifacts_saved"])
+        self.assertNotIn("dropbear-admin-usb", hardening["syscall_trace_proof"]["remaining_profiles"])
+        self.assertIn(
+            "remaining syscall traces not captured beyond dpublic-smoke-httpd/dropbear-admin-usb",
+            hardening["blocking_before_enforcement"],
+        )
+        self.assertIn("Dropbear admin syscall proof: `true`", markdown)
+        self.assertIn("Dropbear admin syscall count: `8`", markdown)
+        self.assertIn("Dropbear admin syscall accept observed: `true`", markdown)
+        self.assertNotIn("http://", summary_text)
+        self.assertNotIn("https://", summary_text)
+        self.assertNotIn("http://", markdown)
+        self.assertNotIn("https://", markdown)
+
+    def test_all_syscall_profiles_retired_removes_syscall_blocker(self) -> None:
+        with self.private_tmp() as tmp:
+            root = Path(tmp)
+            self.assertEqual(wsta88.run(self.wsta88_args(root))["decision"], wsta88.PREFLIGHT_DECISION)
+            manifest_path = root / "inputs" / "wsta90_service_hardening_manifest.json"
+            syscall_path = root / "inputs" / "wsta114_result.json"
+            runtime_path = root / "inputs" / "wsta125_result.json"
+            presenter_path = root / "inputs" / "wsta130_dpublic_hud_presenter_model.json"
+            live_path = root / "inputs" / "wsta137_dpublic_native_presenter_live.json"
+            handoff_path = root / "inputs" / "wsta144_dpublic_hud_shared_run_bind_live.json"
+            restart_path = root / "inputs" / "wsta147_dpublic_hud_restart_live.json"
+            hud_syscall_path = root / "inputs" / "wsta149_dpublic_hud_intent_syscall_trace_live.json"
+            dropbear_syscall_path = root / "inputs" / "wsta151_dropbear_admin_syscall_trace_live.json"
+            self.write_json(manifest_path, self.hardening_manifest())
+            self.write_json(syscall_path, self.syscall_trace_proof())
+            self.write_json(runtime_path, self.cloudflared_runtime_proof())
+            self.write_json(presenter_path, self.hud_presenter_model_proof())
+            self.write_json(live_path, self.hud_presenter_live_proof())
+            self.write_json(handoff_path, self.hud_presenter_handoff_proof())
+            self.write_json(restart_path, self.hud_presenter_restart_proof())
+            self.write_json(hud_syscall_path, self.hud_intent_syscall_proof())
+            self.write_json(dropbear_syscall_path, self.dropbear_admin_syscall_proof())
+            result = runner.run(self.valid_args(
+                root,
+                root / "wsta88" / "wsta88_operator_workflow.json",
+                "--wsta90-service-hardening-manifest-json",
+                str(manifest_path),
+                "--wsta114-syscall-trace-proof-json",
+                str(syscall_path),
+                "--wsta125-cloudflared-runtime-proof-json",
+                str(runtime_path),
+                "--wsta130-hud-presenter-model-json",
+                str(presenter_path),
+                "--wsta137-hud-presenter-live-proof-json",
+                str(live_path),
+                "--wsta144-hud-presenter-handoff-proof-json",
+                str(handoff_path),
+                "--wsta147-hud-presenter-restart-proof-json",
+                str(restart_path),
+                "--wsta149-hud-intent-syscall-proof-json",
+                str(hud_syscall_path),
+                "--wsta151-dropbear-admin-syscall-proof-json",
+                str(dropbear_syscall_path),
+            ))
+
+        self.assertEqual(result["decision"], runner.PASS_DECISION)
+        hardening = result["server_status"]["hardening"]
+        self.assertEqual(hardening["syscall_trace_proof"]["remaining_profiles"], [])
+        self.assertNotIn(
+            "remaining syscall traces not captured beyond dpublic-smoke-httpd/dropbear-admin-usb/cloudflared-quick-tunnel",
+            hardening["blocking_before_enforcement"],
+        )
+        self.assertIn(
+            "derive-seccomp-policy-from-live-syscall-baselines",
+            result["server_status"]["operator_next_actions"],
+        )
+
     def test_wsta120_and_smoke_launcher_proofs_refine_shared_user_group_blocker(self) -> None:
         with self.private_tmp() as tmp:
             root = Path(tmp)
@@ -2021,6 +2187,42 @@ class ServerDistroWsta108OperatorServerStatusTests(unittest.TestCase):
         self.assertFalse(result["checks"]["hud_intent_syscall_trace_live_proven"])
         self.assertFalse(result["checks"]["hud_intent_syscall_no_network"])
 
+    def test_nonpass_wsta151_dropbear_admin_syscall_proof_blocks(self) -> None:
+        with self.private_tmp() as tmp:
+            root = Path(tmp)
+            self.assertEqual(wsta88.run(self.wsta88_args(root))["decision"], wsta88.PREFLIGHT_DECISION)
+            proof_path = root / "inputs" / "wsta151_dropbear_admin_syscall_trace_live.json"
+            proof = self.dropbear_admin_syscall_proof()
+            proof["decision"] = "wsta151-blocked"
+            self.write_json(proof_path, proof)
+            result = runner.run(self.valid_args(
+                root,
+                root / "wsta88" / "wsta88_operator_workflow.json",
+                "--wsta151-dropbear-admin-syscall-proof-json",
+                str(proof_path),
+            ))
+
+        self.assertEqual(result["decision"], "wsta108-blocked-wsta151-dropbear-admin-syscall-proof-not-pass")
+
+    def test_incomplete_wsta151_dropbear_admin_syscall_proof_blocks_even_with_pass_decision(self) -> None:
+        with self.private_tmp() as tmp:
+            root = Path(tmp)
+            self.assertEqual(wsta88.run(self.wsta88_args(root))["decision"], wsta88.PREFLIGHT_DECISION)
+            proof_path = root / "inputs" / "wsta151_dropbear_admin_syscall_trace_live.json"
+            proof = self.dropbear_admin_syscall_proof()
+            proof["syscall_names"].remove("accept")
+            self.write_json(proof_path, proof)
+            result = runner.run(self.valid_args(
+                root,
+                root / "wsta88" / "wsta88_operator_workflow.json",
+                "--wsta151-dropbear-admin-syscall-proof-json",
+                str(proof_path),
+            ))
+
+        self.assertEqual(result["decision"], "wsta108-blocked-wsta151-dropbear-admin-syscall-proof-incomplete")
+        self.assertFalse(result["checks"]["dropbear_admin_syscall_trace_live_proven"])
+        self.assertFalse(result["checks"]["dropbear_admin_syscall_accept_observed"])
+
     def test_public_summary_markdown_and_template_are_redacted(self) -> None:
         with self.private_tmp() as tmp:
             root = Path(tmp)
@@ -2057,6 +2259,7 @@ class ServerDistroWsta108OperatorServerStatusTests(unittest.TestCase):
         self.assertIn("--wsta110-service-launcher-proof-json", payload)
         self.assertIn("--wsta114-syscall-trace-proof-json", payload)
         self.assertIn("--wsta120-dropbear-admin-proof-json", payload)
+        self.assertIn("--wsta151-dropbear-admin-syscall-proof-json", payload)
         self.assertIn("--wsta122-cloudflared-model-json", payload)
         self.assertIn("--wsta125-cloudflared-runtime-proof-json", payload)
         self.assertIn("--wsta127-hud-model-json", payload)
@@ -2075,6 +2278,7 @@ class ServerDistroWsta108OperatorServerStatusTests(unittest.TestCase):
         self.assertIn("SMOKE_SERVICE_LAUNCHER_LIVE_PROVEN", source)
         self.assertIn("SMOKE_SERVICE_SYSCALL_TRACE_LIVE_PROVEN", source)
         self.assertIn("DROPBEAR_ADMIN_LIVE_PROVEN", source)
+        self.assertIn("DROPBEAR_ADMIN_SYSCALL_TRACE_LIVE_PROVEN", source)
         self.assertIn("CLOUDFLARED_SERVICE_MODEL_SOURCE_DEFINED", source)
         self.assertIn("CLOUDFLARED_RUNTIME_LIVE_PROVEN", source)
         self.assertIn("DPUBLIC_HUD_SERVICE_MODEL_SOURCE_DEFINED", source)
@@ -2089,6 +2293,7 @@ class ServerDistroWsta108OperatorServerStatusTests(unittest.TestCase):
         self.assertIn("continue-dpublic-service-integration-or-containment-hardening", source)
         self.assertIn("profile-dpublic-hud-syscalls-or-continue-containment-hardening", source)
         self.assertIn("continue-containment-hardening-or-derive-hud-seccomp-policy", source)
+        self.assertIn("--wsta151-dropbear-admin-syscall-proof-json", source)
         self.assertIn("--wsta137-hud-presenter-live-proof-json", source)
         self.assertIn("--wsta144-hud-presenter-handoff-proof-json", source)
         self.assertIn("--wsta147-hud-presenter-restart-proof-json", source)

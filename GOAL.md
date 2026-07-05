@@ -3851,6 +3851,36 @@ safety invariants and flash gates are binding and override any sub-goal.**
 > **NEXT:** fold WSTA151 into WSTA108 operator status so
 > `dropbear-admin-usb` is retired from remaining syscall profiles, then derive
 > concrete seccomp policy from the live HUD and Dropbear baselines.
+>
+> **🟢 STATUS (2026-07-05 11:56 KST host clock) — WSTA152 OPERATOR
+> STATUS DROPBEAR ADMIN SYSCALL SOURCE PASS.**  Codex added
+> `run_wsta151_dropbear_admin_syscall_trace_summary.py`, extended WSTA108 with
+> `--wsta151-dropbear-admin-syscall-proof-json`, and folded the WSTA151 live
+> syscall profile into the operator-facing server status.  The WSTA151 summary
+> run
+> `workspace/private/runs/server-distro/wsta152-wsta151-dropbear-admin-syscall-summary-20260705T1148KST/`
+> emitted decision `wsta151-dropbear-admin-syscall-trace-live-pass` with
+> service `dropbear-admin-usb`, UID/GID `3903/3903`, root SSH rejected,
+> disabled password/root-login/forwarding policy, core syscalls
+> `execve/socket/bind/listen`, `accept` observed, and 53 total syscall names.
+> WSTA108 regeneration then passed at
+> `workspace/private/runs/server-distro/wsta152-operator-status-dropbear-admin-syscall-v2-20260705T1158KST/`.
+> Resulting status keeps `SERVER_PROFILE_READY_DEFAULT_OFF`, records
+> `DROPBEAR_ADMIN_SYSCALL_TRACE_LIVE_PROVEN`, removes
+> `dropbear-admin-usb` from remaining syscall profiles, leaves the remaining
+> syscall profile list empty, and adds
+> `derive-seccomp-policy-from-live-syscall-baselines` to operator next actions.
+> The stale syscall blocker is removed when no remaining syscall profiles are
+> left; the residual blocker is service-launcher/user coverage, not syscall
+> profiling.  This WSTA152 unit was host-only: no device action, flash, reboot,
+> Wi-Fi, DHCP, public tunnel, packet-filter mutation, userdata touch, or
+> switch-root ran.  Validation passed `py_compile`, focused WSTA151
+> summary+WSTA108 tests (`51 tests OK`), full server-distro regression
+> (`532 tests OK`), WSTA151 summary generation, and WSTA108 operator status
+> regeneration.  Report:
+> `docs/reports/SERVER_DISTRO_WIFI_STA_UPSTREAM_WSTA152_OPERATOR_STATUS_DROPBEAR_ADMIN_SYSCALL_SOURCE_2026-07-05.md`.
+> **NEXT:** derive concrete seccomp policy from the live syscall baselines, or
+> close the remaining service-launcher/user coverage residual first.
 
 ## North star — priority-ordered tracks (T1 → T2 → T3)
 
