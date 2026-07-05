@@ -5318,6 +5318,39 @@ safety invariants and flash gates are binding and override any sub-goal.**
 > default-off states, manually run the existing private WSTA200 handoff wrapper,
 > then feed the resulting private WSTA198 `wsta198_result.json` into WSTA204
 > verify mode.
+>
+> **🟢 STATUS (2026-07-05 18:18 KST host clock) — WSTA205 WSTA204 LIVE
+> TRANSACTION BUNDLE SOURCE PASS.**  Codex added the host-only single
+> transaction bundle for the future attended WSTA200/WSTA198 live path.  WSTA205
+> consumes:
+> `workspace/private/runs/server-distro/wsta204-wsta198-live-result-verifier-20260705T181121KST/wsta204_wsta198_live_result_verifier.json`;
+> run:
+> `workspace/private/runs/server-distro/wsta205-wsta204-live-transaction-bundle-20260705T181808KST/`;
+> decision was `wsta205-wsta204-live-transaction-bundle-source-pass`.  Bundle
+> state was `LIVE_TRANSACTION_BUNDLE_READY_TOKEN_REQUIRED_DEFAULT_OFF`, with
+> `verifier_valid=true`, `wsta204_recheck_valid=true`,
+> `verifier_stable_view_match=true`, `live_transaction_bundle_valid=true`,
+> `ready_for_transaction_execution=true`,
+> `ready_for_immediate_live_execute=false`,
+> `private_token_env_present=false`, and
+> `private_token_matches_wsta161=false`.  WSTA205 emits a private executable
+> transaction script that requires the private token env, re-runs WSTA204 source
+> preflight and requires token-ready state, executes the existing private WSTA200
+> handoff wrapper, extracts the private WSTA198 `wsta198_result.json`, runs
+> WSTA204 verify mode on that result, and requires
+> `wsta204-wsta198-live-result-verify-pass`.  WSTA205 did not flash, reboot,
+> contact the device, connect Wi-Fi, run DHCP, open a public tunnel, mutate
+> packet filters, write userdata, switch root, execute the generated transaction
+> script, execute the WSTA200 handoff shell, run WSTA198 live, supply the WSTA161
+> token to the device, run native health, load a seccomp filter, or enforce
+> seccomp.  Validation passed `py_compile`, focused WSTA205 tests (`7 tests OK`),
+> the WSTA205 proof run, and full server-distro regression (`762 tests OK`).
+> Report:
+> `docs/reports/SERVER_DISTRO_WIFI_STA_UPSTREAM_WSTA205_WSTA204_LIVE_TRANSACTION_BUNDLE_2026-07-05.md`.
+> **NEXT:** The remaining barrier is now only deliberate operator token and
+> live consent: export the private token, re-run WSTA202/WSTA203/WSTA204/WSTA205
+> to token-ready default-off states, then run the generated private WSTA205
+> transaction script under supervision.
 
 ## North star — priority-ordered tracks (T1 → T2 → T3)
 
