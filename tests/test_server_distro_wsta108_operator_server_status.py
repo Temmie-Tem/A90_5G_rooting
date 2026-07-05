@@ -1807,6 +1807,90 @@ class ServerDistroWsta108OperatorServerStatusTests(unittest.TestCase):
         self.assertNotIn("http://", markdown)
         self.assertNotIn("https://", markdown)
 
+    def test_wsta211_capability_drop_status_retires_nonroot_launcher_gap(self) -> None:
+        with self.private_tmp() as tmp:
+            root = Path(tmp)
+            self.assertEqual(wsta88.run(self.wsta88_args(root))["decision"], wsta88.PREFLIGHT_DECISION)
+            manifest_path = root / "inputs" / "wsta90_service_hardening_manifest.json"
+            launcher_path = root / "inputs" / "wsta110_result.json"
+            admin_path = root / "inputs" / "wsta120_result.json"
+            runtime_path = root / "inputs" / "wsta125_result.json"
+            presenter_path = root / "inputs" / "wsta130_dpublic_hud_presenter_model.json"
+            handoff_path = root / "inputs" / "wsta144_dpublic_hud_shared_run_bind_live.json"
+            hud_syscall_path = root / "inputs" / "wsta149_dpublic_hud_intent_syscall_trace_live.json"
+            smoke_seccomp_path = root / "inputs" / "wsta208_result.json"
+            dropbear_seccomp_path = root / "inputs" / "wsta209_result.json"
+            self.write_json(manifest_path, self.hardening_manifest())
+            self.write_json(launcher_path, self.launcher_proof())
+            self.write_json(admin_path, self.dropbear_admin_proof())
+            self.write_json(runtime_path, self.cloudflared_runtime_proof())
+            self.write_json(presenter_path, self.hud_presenter_model_proof())
+            self.write_json(handoff_path, self.hud_presenter_handoff_proof())
+            self.write_json(hud_syscall_path, self.hud_intent_syscall_proof())
+            self.write_json(smoke_seccomp_path, self.seccomp_smoke_proof())
+            self.write_json(dropbear_seccomp_path, self.seccomp_dropbear_proof())
+            result = runner.run(self.valid_args(
+                root,
+                root / "wsta88" / "wsta88_operator_workflow.json",
+                "--wsta90-service-hardening-manifest-json",
+                str(manifest_path),
+                "--wsta110-service-launcher-proof-json",
+                str(launcher_path),
+                "--wsta120-dropbear-admin-proof-json",
+                str(admin_path),
+                "--wsta125-cloudflared-runtime-proof-json",
+                str(runtime_path),
+                "--wsta130-hud-presenter-model-json",
+                str(presenter_path),
+                "--wsta144-hud-presenter-handoff-proof-json",
+                str(handoff_path),
+                "--wsta149-hud-intent-syscall-proof-json",
+                str(hud_syscall_path),
+                "--wsta208-real-service-seccomp-proof-json",
+                str(smoke_seccomp_path),
+                "--wsta209-dropbear-admin-seccomp-proof-json",
+                str(dropbear_seccomp_path),
+            ))
+            markdown = (root / "wsta108" / "wsta108_operator_server_status.md").read_text(encoding="utf-8")
+
+        self.assertEqual(result["decision"], runner.PASS_DECISION)
+        hardening = result["server_status"]["hardening"]
+        proof = hardening["capability_drop_proof"]
+        self.assertEqual(proof["state"], "NONROOT_SERVICE_CAPABILITY_DROP_LIVE_PROVEN")
+        self.assertTrue(proof["nonroot_services_capability_drop_live_proven"])
+        self.assertEqual(
+            proof["proven_services"],
+            ["dpublic-smoke-httpd", "cloudflared-quick-tunnel", "dpublic-hud"],
+        )
+        self.assertEqual(proof["remaining_nonroot_services"], [])
+        self.assertEqual(hardening["launcher_proof"]["remaining_profiles"], ["wsta-native-uplink-helper"])
+        self.assertTrue(result["checks"]["capability_drop_nonroot_services_live_proven"])
+        self.assertTrue(result["checks"]["capability_drop_smoke_service_live_proven"])
+        self.assertTrue(result["checks"]["capability_drop_cloudflared_live_proven"])
+        self.assertTrue(result["checks"]["capability_drop_hud_live_proven"])
+        self.assertIn(
+            "remaining service users/groups not live-proven beyond dpublic-smoke-httpd/dropbear-admin-usb/cloudflared-quick-tunnel/dpublic-hud",
+            hardening["blocking_before_enforcement"],
+        )
+        self.assertNotIn(
+            "extend-service-launcher-proof-beyond-dpublic-smoke-httpd-before-always-on-profile",
+            result["server_status"]["operator_next_actions"],
+        )
+        self.assertNotIn(
+            "move-to-capability-drop-nftables-or-apparmor-hardening",
+            result["server_status"]["operator_next_actions"],
+        )
+        self.assertIn(
+            "move-to-nftables-default-drop-or-apparmor-hardening",
+            result["server_status"]["operator_next_actions"],
+        )
+        self.assertIn("Capability-drop non-root services proof: `true`", markdown)
+        self.assertIn(
+            "Capability-drop proven services: `dpublic-smoke-httpd, cloudflared-quick-tunnel, dpublic-hud`",
+            markdown,
+        )
+        self.assertIn("Capability-drop remaining non-root services: ``", markdown)
+
     def test_all_syscall_profiles_retired_removes_syscall_blocker(self) -> None:
         with self.private_tmp() as tmp:
             root = Path(tmp)

@@ -125,6 +125,23 @@ safety invariants and flash gates are binding and override any sub-goal.**
 > continue D-harden through capability-drop verification/apply, nftables
 > default-drop apply, or AppArmor feasibility.
 
+> **🟢 STATUS (2026-07-05 19:56 KST) — WSTA211 OPERATOR STATUS CAPABILITY-DROP PASS.**
+> Codex promoted existing live `NoNewPrivs=1` / `CapEff=0` evidence into the
+> WSTA108 operator server status as a first-class `capability_drop_proof`.  Full
+> host-only run:
+> `workspace/private/runs/server-distro/wsta211-operator-status-capability-drop-20260705T1956KST/wsta108_operator_server_status.json`;
+> decision `wsta108-operator-server-status-source-pass`.  The compacted state is
+> `NONROOT_SERVICE_CAPABILITY_DROP_LIVE_PROVEN` for `dpublic-smoke-httpd`,
+> `cloudflared-quick-tunnel`, and `dpublic-hud`; remaining non-root services are
+> empty, and the remaining launcher profile is now only `wsta-native-uplink-helper`
+> as a native boundary item.  Safety stayed host-only: no device action, boot
+> flash, reboot, Wi-Fi connect, DHCP, public tunnel, public smoke, packet-filter
+> mutation, userdata write, or switch-root.  Report:
+> `docs/reports/SERVER_DISTRO_WIFI_STA_UPSTREAM_WSTA211_OPERATOR_STATUS_CAPABILITY_DROP_2026-07-05.md`.
+> **NEXT:** non-root service capability-drop is no longer the primary blocker.
+> Continue with root-boundary policy for `wsta-native-uplink-helper`, or move to
+> nftables/default-drop or AppArmor feasibility.
+
 > **✅ OPERATOR GO (2026-07-04) — D-public is USER-AUTHORIZED and operator-driven; PROCEED.** (Supersedes the
 > earlier same-day HOLD, which assumed authorization was pending — it was not.) The user confirmed the
 > `D-PUBLIC-LIVE-PUBLISH` go and is actively driving D-public. First live publish (commit `8d25f793`:

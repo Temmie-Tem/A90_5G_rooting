@@ -17,7 +17,8 @@ operator-facing server status bundle without opening a tunnel, touching the
 device, or weakening any live gate.  WSTA210 extends that bundle with the
 WSTA208/WSTA209 real-service seccomp enforcement proofs so seccomp can be
 retired from the immediate next-action list once those live results are
-supplied and verified.
+supplied and verified.  WSTA211 promotes the already-live no-new-privs and
+CapEff=0 evidence into a first-class capability-drop status.
 """
 
 from __future__ import annotations
@@ -789,6 +790,108 @@ def compact_seccomp_enforcement_proof(
         "service_functional_under_seccomp": bool(smoke_live_proven or dropbear_live_proven),
         "public_url_value_logged": False,
         "admin_public_key_value_logged": False,
+        "secret_values_logged": 0,
+    }
+
+
+def compact_capability_drop_proof(
+    launcher_proof: dict[str, Any],
+    cloudflared_runtime: dict[str, Any],
+    hud_presenter_model: dict[str, Any],
+    dropbear_admin_proof: dict[str, Any],
+) -> dict[str, Any]:
+    hud_intent = (
+        hud_presenter_model.get("intent_syscall_trace_proof")
+        if isinstance(hud_presenter_model.get("intent_syscall_trace_proof"), dict)
+        else {}
+    )
+    hud_handoff = (
+        hud_presenter_model.get("handoff_proof")
+        if isinstance(hud_presenter_model.get("handoff_proof"), dict)
+        else {}
+    )
+    smoke_proven = bool(
+        launcher_proof.get("smoke_live_proven")
+        and launcher_proof.get("no_new_privs")
+        and launcher_proof.get("cap_eff_zero")
+    )
+    cloudflared_proven = bool(
+        cloudflared_runtime.get("cloudflared_live_proven")
+        and cloudflared_runtime.get("no_new_privs")
+        and cloudflared_runtime.get("cap_eff_zero")
+    )
+    hud_proven = bool(
+        hud_presenter_model.get("intent_syscall_trace_live_proven")
+        and hud_intent.get("no_new_privs")
+        and hud_intent.get("cap_eff_zero")
+        and (
+            not hud_handoff
+            or bool(
+                hud_handoff.get("a90hud_writer_uid_gid_3904")
+                and hud_handoff.get("a90hud_writer_cap_eff_zero")
+            )
+        )
+    )
+    services = [
+        {
+            "service": "dpublic-smoke-httpd",
+            "user": launcher_proof.get("user"),
+            "uid": launcher_proof.get("uid"),
+            "gid": launcher_proof.get("gid"),
+            "no_new_privs": bool(launcher_proof.get("no_new_privs")),
+            "cap_eff_zero": bool(launcher_proof.get("cap_eff_zero")),
+            "capability_drop_live_proven": smoke_proven,
+        },
+        {
+            "service": "cloudflared-quick-tunnel",
+            "user": cloudflared_runtime.get("user"),
+            "uid": cloudflared_runtime.get("uid"),
+            "gid": cloudflared_runtime.get("gid"),
+            "no_new_privs": bool(cloudflared_runtime.get("no_new_privs")),
+            "cap_eff_zero": bool(cloudflared_runtime.get("cap_eff_zero")),
+            "capability_drop_live_proven": cloudflared_proven,
+        },
+        {
+            "service": "dpublic-hud",
+            "user": hud_presenter_model.get("producer_user"),
+            "uid": hud_presenter_model.get("producer_uid"),
+            "gid": hud_presenter_model.get("producer_gid"),
+            "scope": "hud-intent-producer-only",
+            "no_new_privs": bool(hud_intent.get("no_new_privs")),
+            "cap_eff_zero": bool(hud_intent.get("cap_eff_zero")),
+            "capability_drop_live_proven": hud_proven,
+        },
+    ]
+    proven_services = [
+        item["service"]
+        for item in services
+        if item.get("capability_drop_live_proven")
+    ]
+    remaining_nonroot_services = [
+        item["service"]
+        for item in services
+        if not item.get("capability_drop_live_proven")
+    ]
+    all_nonroot_proven = not remaining_nonroot_services
+    root_boundary_services = ["wsta-native-uplink-helper"]
+    if dropbear_admin_proof.get("dropbear_admin_live_proven"):
+        root_boundary_services.insert(0, "dropbear-admin-usb")
+    state = (
+        "NONROOT_SERVICE_CAPABILITY_DROP_LIVE_PROVEN"
+        if all_nonroot_proven
+        else "NONROOT_SERVICE_CAPABILITY_DROP_PARTIAL"
+        if proven_services
+        else "NOT_SUPPLIED"
+    )
+    return {
+        "state": state,
+        "scope": "nonroot-service-no-new-privs-cap-eff-zero",
+        "nonroot_services_capability_drop_live_proven": all_nonroot_proven,
+        "proven_services": proven_services,
+        "remaining_nonroot_services": remaining_nonroot_services,
+        "root_boundary_services": root_boundary_services,
+        "services": services,
+        "public_url_value_logged": False,
         "secret_values_logged": 0,
     }
 
@@ -1663,6 +1766,7 @@ def refine_blocking_before_enforcement(
     dropbear_admin_syscall_proof: dict[str, Any],
     cloudflared_model: dict[str, Any],
     cloudflared_runtime: dict[str, Any],
+    hud_presenter_model: dict[str, Any],
 ) -> list[str]:
     refined: list[str] = []
     smoke_live_proven = launcher_proof_is_smoke_live_proven(launcher_proof)
@@ -1674,6 +1778,7 @@ def refine_blocking_before_enforcement(
     )
     cloudflared_model_defined = cloudflared_model_is_defined(cloudflared_model)
     cloudflared_runtime_live_proven = cloudflared_runtime_is_live_proven(cloudflared_runtime)
+    hud_intent_live_proven = bool(hud_presenter_model.get("intent_syscall_trace_live_proven"))
     for item in items:
         text = str(item)
         if smoke_live_proven and text in {
@@ -1685,11 +1790,15 @@ def refine_blocking_before_enforcement(
                 proven.append("dropbear-admin-usb")
             if cloudflared_runtime_live_proven:
                 proven.append("cloudflared-quick-tunnel")
+            if hud_intent_live_proven:
+                proven.append("dpublic-hud")
             text = f"remaining service users/groups not live-proven beyond {'/'.join(proven)}"
         elif smoke_live_proven and text == "no-new-privs launcher not live-proven":
             proven = ["dpublic-smoke-httpd"]
             if cloudflared_runtime_live_proven:
                 proven.append("cloudflared-quick-tunnel")
+            if hud_intent_live_proven:
+                proven.append("dpublic-hud")
             text = f"remaining service launchers not live-proven beyond {'/'.join(proven)}"
         elif packet_filter_live_proven and text == "packet-filter backend not inventoried":
             continue
@@ -1781,11 +1890,22 @@ def compact_hardening(
             if item != "cloudflared-quick-tunnel"
         ]
     if hud_intent_syscall_live_proven:
+        launcher_proof["remaining_profiles"] = [
+            item
+            for item in launcher_proof.get("remaining_profiles", [])
+            if item != "dpublic-hud"
+        ]
         syscall_trace_proof["remaining_profiles"] = [
             item
             for item in syscall_trace_proof.get("remaining_profiles", [])
             if item != "dpublic-hud"
         ]
+    capability_drop_proof = compact_capability_drop_proof(
+        launcher_proof,
+        cloudflared_runtime,
+        hud_presenter_model,
+        dropbear_admin_proof,
+    )
     if not manifest_result:
         return {
             "state": "NOT_SUPPLIED",
@@ -1798,6 +1918,7 @@ def compact_hardening(
             "dropbear_admin_proof": dropbear_admin_proof,
             "dropbear_admin_syscall_trace_proof": dropbear_admin_syscall_proof,
             "seccomp_enforcement_proof": seccomp_enforcement_proof,
+            "capability_drop_proof": capability_drop_proof,
             "cloudflared_model": cloudflared_model,
             "cloudflared_runtime": cloudflared_runtime,
             "hud_model": hud_model,
@@ -1815,6 +1936,7 @@ def compact_hardening(
         dropbear_admin_syscall_proof,
         cloudflared_model,
         cloudflared_runtime,
+        hud_presenter_model,
     )
     if not syscall_trace_proof.get("remaining_profiles"):
         blocking_before_enforcement = [
@@ -1840,6 +1962,7 @@ def compact_hardening(
         "dropbear_admin_proof": dropbear_admin_proof,
         "dropbear_admin_syscall_trace_proof": dropbear_admin_syscall_proof,
         "seccomp_enforcement_proof": seccomp_enforcement_proof,
+        "capability_drop_proof": capability_drop_proof,
         "cloudflared_model": cloudflared_model,
         "cloudflared_runtime": cloudflared_runtime,
         "hud_model": hud_model,
@@ -1924,6 +2047,11 @@ def build_server_status(
         if isinstance(hardening.get("seccomp_enforcement_proof"), dict)
         else {}
     )
+    capability_drop_proof = (
+        hardening.get("capability_drop_proof")
+        if isinstance(hardening.get("capability_drop_proof"), dict)
+        else {}
+    )
     cloudflared_model = (
         hardening.get("cloudflared_model")
         if isinstance(hardening.get("cloudflared_model"), dict)
@@ -1970,11 +2098,19 @@ def build_server_status(
     operator_next_actions = [
         "keep-public-exposure-default-off",
         "use-explicit-wsta88-live-gate-only-when-attended",
-        "extend-service-launcher-proof-beyond-dpublic-smoke-httpd-before-always-on-profile",
     ]
     seccomp_real_services_live_proven = bool(
         seccomp_enforcement_proof.get("seccomp_real_services_live_proven")
     )
+    capability_drop_live_proven = bool(
+        capability_drop_proof.get("nonroot_services_capability_drop_live_proven")
+    )
+    if capability_drop_live_proven:
+        operator_next_actions.append("continue-root-boundary-policy-for-wsta-native-uplink-helper")
+    else:
+        operator_next_actions.append(
+            "extend-service-launcher-proof-beyond-dpublic-smoke-httpd-before-always-on-profile"
+        )
     if not dropbear_admin_proof.get("dropbear_admin_live_proven"):
         operator_next_actions.append("prove-dropbear-admin-nonroot-login-before-always-on-profile")
     if not cloudflared_model.get("model_defined"):
@@ -1984,9 +2120,12 @@ def build_server_status(
     if hud_presenter_model.get("durable_restart_live_proven"):
         if hud_intent_syscall.get("hud_intent_syscall_trace_live_proven"):
             if seccomp_real_services_live_proven:
-                operator_next_actions.append(
-                    "continue-containment-hardening-with-capability-drop-nftables-or-apparmor"
-                )
+                if capability_drop_live_proven:
+                    operator_next_actions.append("continue-containment-hardening-with-nftables-or-apparmor")
+                else:
+                    operator_next_actions.append(
+                        "continue-containment-hardening-with-capability-drop-nftables-or-apparmor"
+                    )
             else:
                 operator_next_actions.append("continue-containment-hardening-or-derive-hud-seccomp-policy")
         else:
@@ -2002,7 +2141,10 @@ def build_server_status(
     else:
         operator_next_actions.append("define-dpublic-hud-service-model-before-hud-live-proof")
     if seccomp_real_services_live_proven:
-        operator_next_actions.append("move-to-capability-drop-nftables-or-apparmor-hardening")
+        if capability_drop_live_proven:
+            operator_next_actions.append("move-to-nftables-default-drop-or-apparmor-hardening")
+        else:
+            operator_next_actions.append("move-to-capability-drop-nftables-or-apparmor-hardening")
     elif syscall_trace_proof.get("smoke_syscall_trace_live_proven"):
         if syscall_trace_proof.get("remaining_profiles"):
             operator_next_actions.append(
@@ -2100,6 +2242,11 @@ def markdown(server_status: dict[str, Any]) -> str:
         if isinstance(seccomp_enforcement.get("dropbear_admin_service"), dict)
         else {}
     )
+    capability_drop = (
+        hardening.get("capability_drop_proof")
+        if isinstance(hardening.get("capability_drop_proof"), dict)
+        else {}
+    )
     cloudflared_model = (
         hardening.get("cloudflared_model")
         if isinstance(hardening.get("cloudflared_model"), dict)
@@ -2193,6 +2340,10 @@ def markdown(server_status: dict[str, Any]) -> str:
         f"- Seccomp proven services: `{', '.join(seccomp_enforcement.get('proven_services') or [])}`",
         f"- Seccomp smoke service proof: `{str(bool(seccomp_smoke.get('seccomp_live_proven'))).lower()}`",
         f"- Seccomp Dropbear admin proof: `{str(bool(seccomp_dropbear.get('seccomp_live_proven'))).lower()}`",
+        f"- Capability-drop non-root services proof: `{str(bool(capability_drop.get('nonroot_services_capability_drop_live_proven'))).lower()}`",
+        f"- Capability-drop proven services: `{', '.join(capability_drop.get('proven_services') or [])}`",
+        f"- Capability-drop remaining non-root services: `{', '.join(capability_drop.get('remaining_nonroot_services') or [])}`",
+        f"- Capability-drop root-boundary services: `{', '.join(capability_drop.get('root_boundary_services') or [])}`",
         f"- Cloudflared model: `{str(bool(cloudflared_model.get('model_defined'))).lower()}`",
         f"- Cloudflared model user: `{cloudflared_model.get('user')}`",
         f"- Cloudflared default public off: `{str(bool(cloudflared_model.get('default_public_off'))).lower()}`",
@@ -2680,6 +2831,7 @@ def run(args: argparse.Namespace) -> dict[str, Any]:
         if isinstance(seccomp_enforcement_proof.get("dropbear_admin_service"), dict)
         else {}
     )
+    capability_drop_proof = server_status["hardening"].get("capability_drop_proof", {})
     cloudflared_model = server_status["hardening"].get("cloudflared_model", {})
     cloudflared_runtime = server_status["hardening"].get("cloudflared_runtime", {})
     hud_model = server_status["hardening"].get("hud_model", {})
@@ -2747,6 +2899,15 @@ def run(args: argparse.Namespace) -> dict[str, Any]:
         "seccomp_all_supplied_proofs_live_proven": bool(
             seccomp_enforcement_proof.get("all_supplied_seccomp_proofs_live_proven")
         ),
+        "capability_drop_nonroot_services_live_proven": bool(
+            capability_drop_proof.get("nonroot_services_capability_drop_live_proven")
+        ),
+        "capability_drop_smoke_service_live_proven": "dpublic-smoke-httpd"
+        in (capability_drop_proof.get("proven_services") or []),
+        "capability_drop_cloudflared_live_proven": "cloudflared-quick-tunnel"
+        in (capability_drop_proof.get("proven_services") or []),
+        "capability_drop_hud_live_proven": "dpublic-hud"
+        in (capability_drop_proof.get("proven_services") or []),
         "cloudflared_model_supplied": cloudflared_model_result is not None,
         "cloudflared_model_defined": bool(cloudflared_model.get("model_defined")),
         "cloudflared_default_public_off": bool(cloudflared_model.get("default_public_off")),
