@@ -45,6 +45,23 @@ COMMIT → REPEAT) is defined in `GOAL.md`.
    Odin AP. It does not authorize Magisk modules, multidisabler, format data, full
    AP/full-firmware flashing for root, non-boot partition experiments, or
    bootloader/modem/EFS/RPMB/keymaster writes.
+   **Narrow operator-authorized exception (2026-07-06, S22+ FYG8-derived
+   disabled-vbmeta only):** after the stock FYG8 vbmeta rollback boot pass, Codex
+   may perform one bounded Odin4 vbmeta-only flash on the same Samsung S22+
+   `SM-S906N`/`g0q` `S906NKSS7FYG8` using the FYG8-derived disabled-vbmeta AP
+   SHA256 `804ff43b9f68278b026bd31d7703ca778518bb53a08e336e18b5016e3d2a2b4b`.
+   The contained raw `vbmeta.img` must be derived from stock FYG8 vbmeta SHA256
+   `1031323af6c69c6894bb00ca5895463ea3f00066ec4d5eacc2bb58b0b2c6047b` by
+   changing only AVB header flags at byte offset 120 from `0x00000000` to
+   `0x00000003` (`HASHTREE_DISABLED | VERIFICATION_DISABLED`), producing raw
+   SHA256 `9c0e5b9615f8dac2a902f709927ff3fccaa4e074b34adbd0f8cd7498db78ba13`
+   and `vbmeta.img.lz4` SHA256
+   `6ad2df2b899b195512e2ceb9831909c282f891fe007f3246ec91a72a2e665a9a`.
+   The AP must contain exactly one tar member, `vbmeta.img.lz4`, and must not
+   carry boot, recovery, vendor_boot, BL, CP, CSC, userdata, or any other
+   partition payload. If Android boot or recovery boot fails, restore the pinned
+   stock FYG8 vbmeta-only rollback AP SHA256
+   `fdf42fb913ac82bba7414d41a2995300c9bc56d31e7cddf907b487e7b2ae707b` and stop.
 2. **Flash only via the checked helper by default:** `workspace/public/src/scripts/revalidation/native_init_flash.py`.
    Never `dd`/`fastboot`/raw-write a partition. Never invent a new flash path.
    **Narrow operator-authorized exception (2026-07-02, self-dd ladder only):** the V3358
@@ -96,6 +113,15 @@ COMMIT → REPEAT) is defined in `GOAL.md`.
    operator selected the official APK patching direction after the deprecated TWRP
    zip attempt. The transcript must record that official Samsung guidance recommends
    Magisk-app patching over custom-recovery installation.
+   **Narrow operator-authorized exception (2026-07-06, S22+ FYG8-derived
+   disabled-vbmeta Odin path):** the S22+ FYG8-derived disabled-vbmeta unit above
+   may use `/usr/bin/odin4 --reboot -a` for the exact vbmeta-only AP SHA256
+   `804ff43b9f68278b026bd31d7703ca778518bb53a08e336e18b5016e3d2a2b4b`, because
+   this is a Samsung download-mode vbmeta recovery/compatibility experiment, not
+   an A90 native-init boot flash. It may also use `/usr/bin/odin4 --reboot -a`
+   for the pinned stock FYG8 vbmeta-only rollback AP SHA256
+   `fdf42fb913ac82bba7414d41a2995300c9bc56d31e7cddf907b487e7b2ae707b` on failure.
+   No other Odin slot or partition is authorized by this exception.
 3. **Rollback precondition:** before ANY flash, confirm the known-good rollback image
    `workspace/private/inputs/boot_images/boot_linux_v2321_usb_clean_identity_rodata.img`
    (SHA256 `ca978551aabe4b39563abaf529ccf2522054952d8b2ad852e632d26da88168cb`, the resident
