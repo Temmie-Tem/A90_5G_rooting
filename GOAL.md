@@ -571,6 +571,23 @@ safety invariants and flash gates are binding and override any sub-goal.**
 > use: `python3 workspace/public/src/scripts/revalidation/s22plus_m4t1_inplace_live_gate.py --live --ack
 > S22PLUS-M4T1-INPLACE-LIVE-GATE`; success means candidate self-enters download mode and rollback runs
 > immediately, failure means stop for manual download-mode recovery.
+>
+> **INCIDENT UPDATE (2026-07-07 KST, M4T1 live):** Codex executed the guarded M4T1 boot-only live gate once.
+> Preflight passed, `adb reboot download` succeeded, Odin saw download mode, and the exact M4T1 AP SHA256
+> `9f5b4c48b95b710f742d5ea8c7f16ef4802cf27e78469381073d460361d0451c` flashed with Odin rc=0. The original
+> Odin device disconnected, but the candidate did **not** self-enter download mode within the bounded window
+> (`m4t1_self_download_seen=0`), and ADB also remained absent, so the helper exited rc=4 as designed. The
+> operator confirmed bootloop and manually entered download mode. Codex then flashed the pinned Magisk
+> boot-only rollback AP SHA256 `d2373bf88dda342709440dc3db468f11d80a4593856768a4d8ae402bef215a56`; rollback
+> Odin rc=0, Android returned with `boot_completed=1`, Magisk root, and live boot SHA256
+> `2e541703951dc725bad35850faf7028c2d910dd5f21166449b63f1248c29967e`. Retained evidence after rollback:
+> `/sys/fs/pstore` empty, `/proc/last_kmsg` 2097136 bytes, no `S22_NATIVE_INIT*` / M4T1 marker. Report:
+> `docs/reports/S22PLUS_NATIVE_INIT_M4T1_LIVE_RESULT_2026-07-07.md`. Interpretation: in-place MagiskBoot
+> construction and Samsung/VBMETA trailer preservation were not enough; do not retry M4T1 and do not keep
+> adding marker/dwell/watchdog logic to this reboot-first branch. **Next bounded unit should be host-only**:
+> design/build a smaller non-returning PID1 probe that avoids glibc startup and reboot syscall complexity
+> (raw-syscall static assembly/C, infinite park as first behavior), or acquire UART/another early-boot
+> observation channel before any further live native-init flash.
 
 > **🟢 STATUS (2026-07-05 18:52 KST) — WSTA207 LIVE SECCOMP CANARY LOAD/ENFORCE PASS.**
 > Codex stopped scaffolding and executed the attended WSTA198 SSH/chroot live canary.  The
