@@ -235,6 +235,17 @@ safety invariants and flash gates are binding and override any sub-goal.**
 > `4a07a5b24101db6e74e102498c557d457c751e13d932f9f5604125629f06ce3b` and boot image SHA256
 > `aa66602e49045de5666b390ef7b434e07cd234d59a4503f9bac021d11383f6d0`. The checked live helper and
 > `AGENTS.md` M3 exception are being updated to target v0.2; v0.1 is superseded for live testing.
+>
+> **STATUS UPDATE (2026-07-07 KST, M3 evidence collector preflight):** Codex tightened the M3 v0.2 live
+> helper before live flashing. The helper now collects `/sys/fs/pstore` from rooted Android after rollback
+> into the private run directory and logs whether `S22_NATIVE_INIT_OBSERVABLE_M3` survived in pstore/pmsg.
+> This keeps the live result from depending only on transient host USB/NCM snapshots. Validation passed:
+> helper `py_compile`, no-flash dry-run against the current rooted Android/Magisk baseline, and a read-only
+> pstore smoke test on the current Android state (`pstore_files=[]`, marker absent as expected before M3).
+> Report: `docs/reports/S22PLUS_OBSERVABLE_NATIVE_INIT_M3_EVIDENCE_COLLECTOR_PREFLIGHT_2026-07-07.md`.
+> Next bounded live unit remains the same exact v0.2 command:
+> `workspace/public/src/scripts/revalidation/s22plus_m3_observable_live_gate.py --live --ack
+> S22PLUS-M3-OBSERVABLE-LIVE-GATE`.
 
 > **🟢 STATUS (2026-07-05 18:52 KST) — WSTA207 LIVE SECCOMP CANARY LOAD/ENFORCE PASS.**
 > Codex stopped scaffolding and executed the attended WSTA198 SSH/chroot live canary.  The

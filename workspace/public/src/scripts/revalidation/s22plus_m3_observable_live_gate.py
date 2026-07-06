@@ -21,6 +21,7 @@ import argparse
 import hashlib
 import json
 import re
+import shlex
 import subprocess
 import sys
 import tarfile
@@ -78,6 +79,16 @@ def run(argv: list[str | Path], *, timeout: float | None = None) -> subprocess.C
         stdout=subprocess.PIPE,
         stderr=subprocess.PIPE,
         text=True,
+        timeout=timeout,
+        check=False,
+    )
+
+
+def run_bytes(argv: list[str | Path], *, timeout: float | None = None) -> subprocess.CompletedProcess[bytes]:
+    return subprocess.run(
+        [str(part) for part in argv],
+        stdout=subprocess.PIPE,
+        stderr=subprocess.PIPE,
         timeout=timeout,
         check=False,
     )
@@ -201,6 +212,14 @@ def adb_shell(command: str, *, serial: str | None = None, timeout: float = 20.0)
     return run(argv, timeout=timeout)
 
 
+def adb_exec_out(command: str, *, serial: str | None = None, timeout: float = 20.0) -> subprocess.CompletedProcess[bytes]:
+    argv: list[str | Path] = ["adb"]
+    if serial:
+        argv.extend(["-s", serial])
+    argv.extend(["exec-out", "su", "-c", command])
+    return run_bytes(argv, timeout=timeout)
+
+
 def require_current_android(log_path: Path, serial: str | None) -> str:
     rows = adb_rows(log_path, "android-preflight", serial)
     usable = [row for row in rows if row[1] == "device"]
@@ -263,6 +282,33 @@ def host_snapshot(run_dir: Path, log_path: Path, label: str, odin: Path) -> dict
     return result
 
 
+def collect_android_pstore(run_dir: Path, log_path: Path, label: str, serial: str | None = None) -> bool:
+    pstore_dir = run_dir / "android_pstore"
+    pstore_dir.mkdir(exist_ok=True)
+    listing = adb_shell(
+        "su -c 'for f in /sys/fs/pstore/*; do [ -f \"$f\" ] && echo \"${f##*/}\"; done' 2>/dev/null || true",
+        serial=serial,
+        timeout=20.0,
+    )
+    raw_names = [line.strip() for line in listing.stdout.splitlines() if line.strip()]
+    names = [name for name in raw_names if re.fullmatch(r"[A-Za-z0-9._+-]+", name)]
+    append_log(log_path, f"{label}_pstore_files={names}")
+    if raw_names != names:
+        append_log(log_path, f"{label}_pstore_rejected_names={raw_names}")
+
+    marker_found = False
+    for name in names:
+        remote = f"/sys/fs/pstore/{name}"
+        result = adb_exec_out(f"cat {shlex.quote(remote)} 2>/dev/null", serial=serial, timeout=20.0)
+        payload = result.stdout + result.stderr
+        out_path = pstore_dir / f"{label}_{name}.bin"
+        out_path.write_bytes(payload)
+        if EXPECTED_M3_MARKER.encode("ascii") in payload:
+            marker_found = True
+    append_log(log_path, f"{label}_pstore_marker_found={int(marker_found)}")
+    return marker_found
+
+
 def ip_link_names(run_dir: Path, label: str) -> set[str]:
     path = run_dir / "host_observation" / f"{label}_ip_link_json.txt"
     if not path.exists():
@@ -317,7 +363,7 @@ def flash_ap(odin: Path, ap: Path, device: str, log_path: Path, label: str) -> i
     return result.returncode
 
 
-def poll_android(log_path: Path, wait_sec: int, expect_root: bool, serial: str | None = None) -> bool:
+def poll_android(log_path: Path, wait_sec: int, expect_root: bool, serial: str | None = None) -> str | None:
     deadline = time.monotonic() + wait_sec
     while True:
         rows = adb_rows(log_path, "post-rollback-android", serial)
@@ -350,10 +396,10 @@ def poll_android(log_path: Path, wait_sec: int, expect_root: bool, serial: str |
             if all(item in text for item in required):
                 if expect_root and "uid=0(root)" not in text:
                     append_log(log_path, "post_rollback_root_missing=1")
-                    return False
-                return True
+                    return None
+                return selected
         if time.monotonic() >= deadline:
-            return False
+            return None
         time.sleep(2.0)
 
 
@@ -439,11 +485,13 @@ def main(argv: list[str]) -> int:
         return rollback_rc or 5
 
     expect_root = args.rollback_target == ROLLBACK_MAGISK
-    android_ok = poll_android(log_path, args.android_wait_sec, expect_root=expect_root)
+    post_rollback_serial = poll_android(log_path, args.android_wait_sec, expect_root=expect_root)
+    android_ok = post_rollback_serial is not None
     append_log(log_path, f"post_rollback_android_ok={int(android_ok)} expect_root={int(expect_root)}")
     if not android_ok:
         print(f"rollback transferred but Android/root verification failed; log={log_path}", file=sys.stderr)
         return 6
+    collect_android_pstore(run_dir, log_path, "post_rollback", post_rollback_serial)
     print(f"M3 live gate completed with rollback ok; log={log_path}")
     return 0
 
