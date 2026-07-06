@@ -210,6 +210,20 @@ safety invariants and flash gates are binding and override any sub-goal.**
 > exception for this exact M3 AP/boot hash, then perform one boot-only Odin live gate with stock boot rollback
 > staged and collect NCM/kmsg/pstore evidence. Do not start display/distro work before USB or pstore
 > observability is proven.
+>
+> **STATUS UPDATE (2026-07-07 KST, M3 live gate preflight):** Codex added the checked M3 live gate helper
+> `workspace/public/src/scripts/revalidation/s22plus_m3_observable_live_gate.py`, added the fresh SHA-pinned
+> `AGENTS.md` M3 boot-only exception, and ran a no-flash dry-run. The dry-run verified the exact M3 AP
+> SHA256 `d588b84c231a53ba8447716af2f0bee6128f738634c951b8728fed662c17807e`, exact boot image SHA256
+> `583a748f045c1053b808ca5b337c66336d3838f3fa240fa5de8e4dbf3f819734`, exact pinned Magisk boot-only
+> rollback AP SHA256 `d2373bf88dda342709440dc3db468f11d80a4593856768a4d8ae402bef215a56`, exact pinned
+> stock boot-only fallback AP SHA256 `1ee92a86f30e4acb12509272630e1bef5215d1a12686ac69a3b399b43740535e`,
+> single-member `boot.img.lz4` packaging, and current rooted Android identity
+> `SM-S906N`/`g0q`/`S906NKSS7FYG8` with orange verified boot. Report:
+> `docs/reports/S22PLUS_OBSERVABLE_NATIVE_INIT_M3_LIVE_GATE_PREFLIGHT_2026-07-07.md`. **No live flash was
+> executed.** Next bounded live unit: run that helper with
+> `--live --ack S22PLUS-M3-OBSERVABLE-LIVE-GATE`, observe host USB/NCM/kmsg/pstore signals, then require
+> operator download-mode rollback to the pinned Magisk boot AP before continuing.
 
 > **🟢 STATUS (2026-07-05 18:52 KST) — WSTA207 LIVE SECCOMP CANARY LOAD/ENFORCE PASS.**
 > Codex stopped scaffolding and executed the attended WSTA198 SSH/chroot live canary.  The
