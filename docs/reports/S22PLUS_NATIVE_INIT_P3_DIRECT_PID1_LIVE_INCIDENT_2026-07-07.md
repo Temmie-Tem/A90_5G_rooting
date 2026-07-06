@@ -110,6 +110,18 @@ lsusb: no Samsung USB device visible
 additional fixed ADB/Odin poll: no endpoint for 60 seconds
 ```
 
+The operator later reported the panel was in stock/general recovery rather than
+TWRP. Host ADB saw a recovery-like endpoint, but it was unauthorized, matching
+stock recovery behavior:
+
+```text
+ADB state: unauthorized
+Odin: no download-mode endpoint at that moment
+```
+
+Because stock recovery ADB was unauthorized, the host could not collect
+`/proc/last_kmsg`, pstore, or issue `adb reboot download` from recovery.
+
 ## Classification
 
 FAIL: P3 live first-light was not proven.
@@ -127,24 +139,65 @@ Most likely current state:
 This incident does not prove that `/init` did not execute; it proves only that
 the P3 proof marker was not collectable through the planned recovery path.
 
-## Required Recovery Action
+## Recovery Action
 
-No further S22+ flash action is authorized until the operator physically brings
-the device back to download mode or TWRP/recovery.
+The operator physically entered download mode. Odin4 detected one Samsung
+download-mode endpoint, so the P3 collect-and-rollback helper performed the
+pinned stock boot-only rollback.
 
-When download mode is visible to Odin, perform only the pinned stock boot-only
-rollback AP:
+Rollback AP:
 
 ```text
 workspace/private/outputs/s22plus_native_init/odin4_stock_rollback_short/AP.tar.md5
 sha256: 1ee92a86f30e4acb12509272630e1bef5215d1a12686ac69a3b399b43740535e
 ```
 
-When TWRP/recovery is visible to ADB, first collect `/proc/last_kmsg` or pstore
-logs if available, then reboot to download mode and perform the same stock
-boot-only rollback.
+Helper:
 
-Helper added after the incident:
+```text
+python3 workspace/public/src/scripts/revalidation/s22plus_p3_collect_and_rollback.py \
+  --live \
+  --ack S22PLUS-P3-COLLECT-AND-ROLLBACK
+```
+
+Result:
+
+```text
+rollback odin rc=0
+android_boot_completed=1
+```
+
+Post-rollback Android validation:
+
+```text
+sys.boot_completed=1
+ro.product.model=SM-S906N
+ro.product.device=g0q
+ro.product.name=g0qksx
+ro.boot.bootloader=S906NKSS7FYG8
+ro.build.version.incremental=S906NKSS7FYG8
+ro.boot.verifiedbootstate=orange
+ro.boot.boot_recovery=0
+persist.sys.safemode=<empty>
+shell uid=2000 context=u:r:shell:s0
+su=NO_SU
+```
+
+Post-rollback forensic read attempts from stock Android shell:
+
+```text
+/proc/last_kmsg: not readable or absent
+/sys/fs/pstore: Permission denied
+/dev/block/by-name/boot: points to /dev/block/sda25
+sha256sum /dev/block/by-name/boot: Permission denied
+```
+
+Interpretation: the device is recovered to booting stock-boot Android, but P3
+first-light proof remains unavailable because the only recovery state reached
+before rollback was stock/general recovery with unauthorized ADB, and stock
+Android has no root after the stock boot rollback.
+
+## Helper Added After The Incident
 
 ```text
 workspace/public/src/scripts/revalidation/s22plus_p3_collect_and_rollback.py
@@ -175,6 +228,7 @@ delegates directly to the same pinned stock boot rollback helper.
 
 ## Stop Condition
 
-The run is stopped before any additional candidate flash. Rollback is pending on
-physical recovery/download-mode entry because no host transport is currently
-available.
+The run is stopped before any additional candidate flash. Rollback is complete,
+Android boots again, and P3 first-light remains unproven. The next S22+
+native-init step must be host-only until a new deterministic boot artifact and a
+new SHA-pinned `AGENTS.md` exception exist.
