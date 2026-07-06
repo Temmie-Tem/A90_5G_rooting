@@ -168,6 +168,20 @@ safety invariants and flash gates are binding and override any sub-goal.**
 >    with eyes open — compare native `dmesg` against the captured Android `dmesg` to see where bring-up diverges.
 > **Fails-twice→stop stays hard: no blind reflash loops.** All of steps 2–3 are host-only / Android-side and
 > require NO new boot flash. Commit no secrets/serials/images.
+>
+> **STATUS UPDATE (2026-07-07 KST):** the P3 recovery precondition is now satisfied. Codex restored the
+> S22+ measurement environment in one gated maintenance window: pinned TWRP recovery refresh was directly
+> booted and proven (`ro.twrp.version=3.7.0_12-1_afaneh92`), then the pinned Magisk boot-only AP restored
+> normal Android with `su -c id` root. Reports:
+> `docs/reports/S22PLUS_TWRP_MAGISK_BOOT_CAPTURE_RESTORE_PREFLIGHT_2026-07-07.md` and
+> `docs/reports/S22PLUS_TWRP_MAGISK_BOOT_CAPTURE_RESTORE_LIVE_2026-07-07.md`. Codex then ran the first
+> read-only rooted Android boot-capture snapshot:
+> `docs/reports/S22PLUS_MAGISK_BOOT_CAPTURE_POSTBOOT_2026-07-07.md`. Key result: Android configfs has
+> real `ffs.adb` and `ncm.0`; `modules.load` has 712 entries; `/proc/modules` has 482 loaded modules; DRM
+> exposes `/dev/dri/card0` and `renderD128`. Limit: this is a post-boot snapshot, not a full very-early
+> boot timeline. Next bounded unit should either (a) add a separately gated temporary Magisk boot-time
+> capsule for early `post-fs-data` / `service.d` logs, or (b) build the observable native-init design around
+> the captured USB-first module/configfs recipe. Do not resume blind first-light flashes.
 
 > **🟢 STATUS (2026-07-05 18:52 KST) — WSTA207 LIVE SECCOMP CANARY LOAD/ENFORCE PASS.**
 > Codex stopped scaffolding and executed the attended WSTA198 SSH/chroot live canary.  The
