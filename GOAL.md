@@ -786,6 +786,24 @@ safety invariants and flash gates are binding and override any sub-goal.**
 > Next supervised live command remains:
 > `PYTHONPYCACHEPREFIX=/tmp/a90_pycache python3 workspace/public/src/scripts/revalidation/s22plus_m5_usb_acm_live_gate.py --live --ack S22PLUS-M5-USB-ACM-LIVE-GATE`.
 
+> **STATUS UPDATE (2026-07-07 KST, M5 v0.4 freestanding live result):** Codex executed the attended M5
+> v0.4 live gate. The SHA-pinned boot-only AP
+> `5bce15dede8bcd84b8ead1a7f6db6b09135d38637c983d06965930c40a00159f` flashed with Odin rc=0 after Android
+> preflight, 4-sample uptime/root stability, and current boot hash verification. During the 120s observation
+> window, no M5 ACM gadget, ADB transport, or Odin/download transport appeared (`m5_acm_seen=0`), so the helper
+> exited with rc=4 and required manual download-mode rollback. Operator/manual download mode was entered; the
+> same helper's `--rollback-from-download` mode flashed the pinned Magisk boot-only AP with Odin rc=0, Android
+> returned with `boot_completed=1`, Magisk root available, and boot hash
+> `2e541703951dc725bad35850faf7028c2d910dd5f21166449b63f1248c29967e`. Retained pstore/last_kmsg marker search
+> found no M5 marker (`post_rollback_retained_marker_found=0`). Report:
+> `docs/reports/S22PLUS_NATIVE_INIT_M5_USB_ACM_LIVE_RESULT_2026-07-07.md`. Interpretation: M5 USB-ACM
+> milestone is **not achieved**; rollback is clean. Because v0.4 already removed glibc static startup as the
+> major confound, do **not** blindly tweak the full USB chain next. Next bounded unit should split the front of
+> M5 with a freestanding C mount/reboot beacon: direct `_start` syscalls, mount only `/proc`/`/sys`/`/dev`/
+> `/config`, emit an M5-style marker, then request `reboot(...,"download")`. Self-download means freestanding
+> C + VFS mounts are fine and the failure moves to module/configfs/UDC; another no-transport result means shrink
+> further to freestanding C reboot-only versus marker-only before touching the USB chain.
+
 > **🟢 STATUS (2026-07-05 18:52 KST) — WSTA207 LIVE SECCOMP CANARY LOAD/ENFORCE PASS.**
 > Codex stopped scaffolding and executed the attended WSTA198 SSH/chroot live canary.  The
 > runner staged WSTA153 policy + WSTA156 filter artifact + WSTA161 gated-apply helper into
