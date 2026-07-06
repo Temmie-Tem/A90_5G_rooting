@@ -143,6 +143,27 @@ COMMIT → REPEAT) is defined in `GOAL.md`.
    native-init boot candidates, kernel rebuild flashes, non-recovery/boot
    partition writes, or any A90 action. TWRP persistence after a subsequent
    Android boot is not claimed unless re-verified.
+   **Narrow operator-authorized exception (2026-07-07, S22+ Magisk boot-time
+   capture M1 only):** after the rooted Android boot-capture post-boot snapshot
+   proved normal Magisk root on `SM-S906N`/`g0q` `S906NKSS7FYG8`, Codex may run
+   one temporary Android-side boot-time measurement capsule using the checked
+   helper
+   `workspace/public/src/scripts/revalidation/s22plus_magisk_boot_time_capture_m1.py`.
+   This exception authorizes only normal Android `adb reboot`, temporary staging
+   under `/data/local/tmp/s22plus_boot_capture_m1_*`, installing exactly two
+   Magisk hook scripts
+   `/data/adb/post-fs-data.d/s22plus_boot_capture_m1.sh` and
+   `/data/adb/service.d/s22plus_boot_capture_m1.sh`, writing bounded text logs
+   under `/data/adb/s22plus_boot_capture_m1/`, pulling those logs into
+   `workspace/private/runs/`, and then deleting the two hook scripts, staging
+   files, and remote log directory. The hook scripts may read `getprop`,
+   `dmesg`, `/proc/modules`, module metadata, USB gadget/configfs state, and
+   DRM/display state, but must not write sysfs/configfs, load/unload modules,
+   change services, install a Magisk module, format/wipe `/data`, touch
+   partitions, invoke Odin, flash boot/recovery/vbmeta, or alter any
+   non-temporary path. If post-reboot Android or Magisk root does not return,
+   stop and do not attempt cleanup through recovery/download-mode unless a
+   separately authorized recovery path is needed.
 2. **Flash only via the checked helper by default:** `workspace/public/src/scripts/revalidation/native_init_flash.py`.
    Never `dd`/`fastboot`/raw-write a partition. Never invent a new flash path.
    **Narrow operator-authorized exception (2026-07-02, self-dd ladder only):** the V3358
