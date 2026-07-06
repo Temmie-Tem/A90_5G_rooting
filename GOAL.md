@@ -364,6 +364,22 @@ safety invariants and flash gates are binding and override any sub-goal.**
 > be interpreted across both channels, not from empty pstore alone. Report:
 > `docs/reports/S22PLUS_NATIVE_INIT_M32_LIVE_GATE_PREFLIGHT_2026-07-07.md`.
 
+> **INCIDENT UPDATE (2026-07-07 04:11 KST, M3.2 live):** Codex executed the guarded M3.2 boot-only live
+> gate once. Preflight passed, `adb reboot download` succeeded, Odin saw download mode, and the exact M3.2 AP
+> SHA256 `6073e4988a98f741fa207df4efb8a05e144ad16b3a90f43db2ec408657936fc2` flashed successfully through the
+> AP slot. After reboot, the candidate never returned to host-visible ADB or Odin download mode during the
+> bounded observation/rollback windows; post-helper polling also showed no ADB, no Odin device, and no Samsung
+> USB endpoint in `lsusb`. Therefore host-side rollback could not run until the operator confirmed a bootloop
+> and manually entered download mode. Codex then flashed the pinned Magisk boot-only rollback AP SHA256
+> `d2373bf88dda342709440dc3db468f11d80a4593856768a4d8ae402bef215a56`; Android returned with
+> `boot_completed=1`, `boot_recovery=0`, orange verified boot, and Magisk root. Post-rollback
+> `/proc/last_kmsg` was readable, but contained no `S22_NATIVE_INIT` / `S22_NATIVE_INIT_MARKER_ONLY_M32` marker
+> and no `Kernel panic` / `not syncing` / `Unable to mount root` / `Oops` strings. **STOP this direct-PID1
+> self-return design:** stock-format legacy-LZ4 ramdisk packaging alone did not fix the bootloop/USB-invisible
+> failure. Next design must avoid relying on candidate self-reboot or Android/USB visibility as the first proof
+> channel. Report:
+> `docs/reports/S22PLUS_NATIVE_INIT_M32_LIVE_INCIDENT_2026-07-07.md`.
+
 > **🟢 STATUS (2026-07-05 18:52 KST) — WSTA207 LIVE SECCOMP CANARY LOAD/ENFORCE PASS.**
 > Codex stopped scaffolding and executed the attended WSTA198 SSH/chroot live canary.  The
 > runner staged WSTA153 policy + WSTA156 filter artifact + WSTA161 gated-apply helper into
