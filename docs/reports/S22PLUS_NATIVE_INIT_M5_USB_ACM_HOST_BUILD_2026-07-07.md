@@ -2,166 +2,78 @@
 
 ## Scope
 
-Host-only build of the next S22+ native-init milestone after M4T2/M4T3:
-bring up a USB ACM control channel from custom PID1. No live flash was run, no
-device partition was written, and no `AGENTS.md` live exception was added for
-this M5 candidate.
+Host-only build of the S22+ M5 USB-ACM control-channel candidate. No live
+flash was run, no device partition was written, and no reboot was requested.
 
-M5 is intentionally a larger step than the M4 micro-probes. M4T2 proved the
-kernel can execute a custom static `/init` as PID1, and M4T3 proved a raw
-custom-PID1 reboot-to-download path. M5 now aims for the force multiplier:
-native `/init` mounts the minimal virtual filesystems, inserts the measured
-USB-first vendor module chain, creates a configfs `ss_acm.0` gadget, and parks
-while probing `/dev/ttyGS0`. M5 v0.3 also accepts a host ACM `download`
-command so rollback can use the new control channel if it comes up.
+This refresh supersedes the earlier glibc-static M5 v0.3 candidate. `GOAL.md`
+pre-registered the bootloop triage risk: glibc static PID1 startup is still a
+confound on this device. M5 v0.4 therefore uses a freestanding raw-syscall
+runtime matching the M4T2/M4T3 runtime shape already proven by live behavior.
 
 ## Inputs
 
-Source:
-
 ```text
-workspace/public/src/native-init/s22plus_init_usb_acm_m5.c
+source   workspace/public/src/native-init/s22plus_init_usb_acm_m5_freestanding.c
+builder  workspace/public/src/scripts/revalidation/build_s22plus_inplace_m5_usb_acm.py
+modules  workspace/private/inputs/s22plus_module_bundles/FYG8_usb_first_m2
+base     workspace/private/outputs/s22plus_magisk_root_boot_only/boot.img
 ```
 
-Builder:
+The builder starts from the known-booting Magisk boot image, proves a no-change
+`magiskboot unpack/repack` is byte-identical, replaces only ramdisk `/init`,
+injects the measured 26-module USB-first bundle under `/lib/modules/s22plus-m5`,
+and emits a boot-only Odin AP containing exactly `boot.img.lz4`.
+
+## Runtime
+
+M5 v0.4 is not linked through glibc:
 
 ```text
-workspace/public/src/scripts/revalidation/build_s22plus_inplace_m5_usb_acm.py
+aarch64-linux-gnu-gcc -nostdlib -static -ffreestanding -fno-builtin \
+  -fno-stack-protector -Os -Wall -Wextra -Werror -Wl,-e,_start
 ```
 
-Private module bundle:
+The built `/init` is an AArch64 `EXEC` static binary with no program
+interpreter in `readelf -l`. The marker includes:
 
 ```text
-workspace/private/inputs/s22plus_module_bundles/FYG8_usb_first_m2
+S22_NATIVE_INIT_USB_ACM_M5 version=0.4 runtime=freestanding raw_syscalls=1
 ```
-
-Base boot image:
-
-```text
-workspace/private/outputs/s22plus_magisk_root_boot_only/boot.img
-```
-
-The M5 builder starts from the known-booting Magisk boot image and uses
-`magiskboot unpack/repack`; it does not use `mkbootimg` from scratch. The
-no-change MagiskBoot repack gate was byte-identical to the base boot.
 
 ## Native Init Behavior
 
-M5 performs only runtime/ramdisk operations:
+The candidate uses direct syscalls to mount `/proc`, `/sys`, `/dev`, `/run`,
+and `/config`; create minimal character nodes; emit kmsg markers; `finit_module`
+the 26 FYG8 USB-first modules; create a configfs `ss_acm.0` gadget; retry UDC
+binding; write `S22_NATIVE_INIT_USB_ACM_M5 READY` to `/dev/ttyGS0`; accept
+`download`, `reboot-download`, or `S22M5_DOWNLOAD`; and call
+`reboot(..., "download")` only after a recognized host ACM command.
 
-```text
-mount /proc
-mount /sys
-mount /dev as devtmpfs, falling back to tmpfs
-mount /run tmpfs
-mount /config configfs
-create /dev/kmsg, /dev/console, /dev/null, /dev/zero
-emit S22_NATIVE_INIT_USB_ACM_M5 marker to kmsg
-finit_module the 26 FYG8 USB-first modules from /lib/modules/s22plus-m5
-create /config/usb_gadget/g1/functions/ss_acm.0
-bind the gadget to the first non-dummy UDC found under /sys/class/udc
-poll /sys/class/tty/ttyGS0/dev and /dev/ttyGS0
-retry UDC binding every 6 seconds until the gadget is bound
-write "S22_NATIVE_INIT_USB_ACM_M5 READY" to ttyGS0 when it opens
-read ACM commands and accept "download" / "reboot-download" / "S22M5_DOWNLOAD"
-call reboot(..., "download") only after a recognized host ACM command
-park forever with heartbeat kmsg lines
-```
-
-It does not start Android or Magisk, does not mount persistent partitions, does
-not write block devices, does not touch watchdog, and does not auto-reboot
-without a host ACM command.
-
-## USB Module Chain
-
-The ramdisk injects the M2 USB-first bundle under:
-
-```text
-/lib/modules/s22plus-m5
-```
-
-Module count:
-
-```text
-26
-```
-
-Total module bytes:
-
-```text
-2854024
-```
-
-Order:
-
-```text
-phy-msm-ssusb-qmp.ko
-phy-msm-snps-eusb2.ko
-dwc3-msm.ko
-usb_f_diag.ko
-usb_f_qdss.ko
-usb_f_gsi.ko
-usb_f_conn_gadget.ko
-usb_f_ss_mon_gadget.ko
-usb_f_ss_acm.ko
-repeater.ko
-redriver.ko
-usb_notify_layer.ko
-usb_notifier_qcom.ko
-ipa_fmwk.ko
-usb_bam.ko
-sps_drv.ko
-switch_class.ko
-common_muic.ko
-vbus_notifier.ko
-usb_typec_manager.ko
-if_cb_manager.ko
-pdic_notifier_module.ko
-mfd_max77705.ko
-pdic_max77705.ko
-spu_verify.ko
-qc_usb_audio.ko
-```
-
-This targets `ss_acm.0`, matching the observed rooted-Android configfs function
-name and the shipped `usb_f_ss_acm.ko` module.
+It does not start Android or Magisk, mount persistent partitions, write block
+devices, touch watchdog, install modules outside the ramdisk bundle, or
+auto-reboot on a timer.
 
 ## Built Artifact
 
-Private output directory:
-
 ```text
-workspace/private/outputs/s22plus_native_init/inplace_m5_usb_acm_v0_3
-```
-
-Boot-only Odin package:
-
-```text
-workspace/private/outputs/s22plus_native_init/inplace_m5_usb_acm_v0_3/odin4/AP.tar.md5
-```
-
-Package member list:
-
-```text
-boot.img.lz4
+output      workspace/private/outputs/s22plus_native_init/inplace_m5_usb_acm_v0_4_freestanding
+AP.tar.md5  workspace/private/outputs/s22plus_native_init/inplace_m5_usb_acm_v0_4_freestanding/odin4/AP.tar.md5
+member      boot.img.lz4
 ```
 
 Hashes:
 
 ```text
-AP.tar.md5                  2eb63c2d007427faec13f06ebb401c0e29f8d8ea9c2172bd3ce418ff9f8d41cd
-AP.tar                      a3bc7dfaabcd9d1bc599a4bbc7ca2b50a3a0dc657dbd44f268d7a4cf6462632e
-boot.img                    58e52cba7d815a1fae18e8e915934e313adad682bb7fbcb888254f2d7e388fc2
-boot.img.lz4                fb95f6b138a9e282979cfa11c11073b0a4d0b57b03b81e2c0ea5ee1cb62373af
+AP.tar.md5                  5bce15dede8bcd84b8ead1a7f6db6b09135d38637c983d06965930c40a00159f
+AP.tar                      2b59f03ef607f7279fcacb336e8c556b6b1571b7bcebd8fa52e9f8fac4424812
+boot.img                    3f4e9a514549a2cad2475ef7ef745dfc7e832c910cf1cca25ec4654c9c5522a1
+boot.img.lz4                3f9f45ca6c76f6a34f72c253817330d8506b1beb23d28f60f853f3bf7333e6f5
 base Magisk boot            2e541703951dc725bad35850faf7028c2d910dd5f21166449b63f1248c29967e
-no-change repack boot       2e541703951dc725bad35850faf7028c2d910dd5f21166449b63f1248c29967e
 kernel                      bceca73edbfca3499148e16741c939779157925949ef6bc8a8e31d6b68fc2cff
-M5 /init                    27d4e0149a9ee58f7277312b7d82b43113f7f3f84cfd0f79f46c9a553b0fe85a
-source                      dddc9fd042d36d41720a7ae1d82a3d91843a5fed1a0ddd920be35a1f6096516e
+M5 /init                    596e4198bbdfece9eb1c227acd19cdca1934a440a544fe43cfdf79976a4fc594
+source                      20f97dc64169a0c245f80caec731a257270f76757d72fef0755f8ed11e941b5a
 module bundle manifest      1c22c93496e03a7df6dd74959511797b6d033b74361d3d3733d7be8269a5fa05
-original Magisk /init       383670a7ba3a6a4b79e5f3467e1da4b66a5df66a9b356ab9f70916854dd6b468
-ramdisk before              e4654429abca10df94e5145a05853f14620b9e1cd1c7642959981f49c8454aae
-ramdisk after               c1aff05701a9ebf23f27bd6500a21048a12145e6c884a5dfbbe3a73d968f7cbc
+ramdisk after               0bfdc4a5dd13b4054e3c0b5543918be68e1434c6c60508ed7cf5705fb701ad10
 ```
 
 Sizes:
@@ -170,86 +82,36 @@ Sizes:
 AP.tar.md5                  100669481
 boot.img                    100663296
 boot.img.lz4                100663699
-M5 /init                    663456
+M5 /init                    66144
 module bundle total         2854024
 ramdisk before              1492480
-ramdisk after               4814884
+ramdisk after               4217572
 ```
 
 ## Validation
 
-Commands:
-
 ```text
-PYTHONPYCACHEPREFIX=/tmp/a90_pycache python3 -m py_compile workspace/public/src/scripts/revalidation/build_s22plus_inplace_m5_usb_acm.py
-aarch64-linux-gnu-gcc -static -Os -Wall -Wextra -Werror -o /tmp/s22plus_init_usb_acm_m5_test workspace/public/src/native-init/s22plus_init_usb_acm_m5.c
-python3 workspace/public/src/scripts/revalidation/build_s22plus_inplace_m5_usb_acm.py --force
-tar -tf workspace/private/outputs/s22plus_native_init/inplace_m5_usb_acm_v0_3/odin4/AP.tar.md5
+PYTHONPYCACHEPREFIX=/tmp/a90_pycache python3 -m py_compile \
+  workspace/public/src/scripts/revalidation/build_s22plus_inplace_m5_usb_acm.py \
+  workspace/public/src/scripts/revalidation/s22plus_m5_usb_acm_live_gate.py
+aarch64-linux-gnu-gcc -nostdlib -static -ffreestanding -fno-builtin \
+  -fno-stack-protector -Os -Wall -Wextra -Werror -Wl,-e,_start \
+  -o /tmp/s22plus_m5_freestanding_test \
+  workspace/public/src/native-init/s22plus_init_usb_acm_m5_freestanding.c
+PYTHONPYCACHEPREFIX=/tmp/a90_pycache python3 \
+  workspace/public/src/scripts/revalidation/build_s22plus_inplace_m5_usb_acm.py --force
+tar -tf workspace/private/outputs/s22plus_native_init/inplace_m5_usb_acm_v0_4_freestanding/odin4/AP.tar.md5
+git diff --check
 ```
 
-Results:
-
-```text
-py_compile: pass
-standalone cross-compile: pass
-builder: pass
-tar members: boot.img.lz4 only
-MagiskBoot no-change repack: byte-identical
-base boot size: 100663296
-patched boot size: 100663296
-ramdisk cpio test before rc: 1
-ramdisk cpio test after rc: 1
-first inserted module extraction hash: match
-patched boot kernel hash: unchanged
-Odin invalid-device parse gate: reached package check, then failed only at /dev/bus/usb/999/999
-```
-
-Required strings found in the built `/init`:
-
-```text
-S22_NATIVE_INIT_USB_ACM_M5
-version=0.3
-usb_first_modules=26
-gadget=ss_acm.0
-tty=/dev/ttyGS0
-no_android_handoff=1
-no_auto_reboot=1
-udc_bind_retry=1
-acm_cmd_download=1
-finit_rc
-ss_acm.0
-ttyGS0
-ACK download
-```
-
-The built `/init` is an AArch64 static executable and has no dynamic loader
-interpreter segment in the recorded `readelf` program headers.
+All passed. The builder also verified the base boot size, patched boot size,
+single tar member, module count and hashes, first inserted module extraction
+hash, unchanged kernel hash, byte-identical no-change repack, and Odin
+invalid-device parse gate.
 
 ## Safety State
 
-This host-build unit did not run a live flash. The later M5 live-gate preflight
-adds the fresh SHA-pinned S22+ boot-only `AGENTS.md` exception and guarded
-helper for exactly:
-
-```text
-AP.tar.md5  2eb63c2d007427faec13f06ebb401c0e29f8d8ea9c2172bd3ce418ff9f8d41cd
-boot.img    58e52cba7d815a1fae18e8e915934e313adad682bb7fbcb888254f2d7e388fc2
-```
-
-M5 has no time-based auto-reboot path. A live test must be attended with pinned
-Magisk boot rollback staged. If the ACM channel enumerates and becomes usable,
-the host can send `download` over the ACM tty to request rollback mode. If ACM
-does not enumerate or the command path fails, rollback still requires manual
-download-mode entry before flashing the pinned Magisk boot-only AP.
-
-## Interpretation
-
-M5 is ready as a host-built candidate, not as a live result. It packages the
-right next experiment: stop spending one flash per syscall, and attempt to earn
-the A90-style USB serial control channel directly from native PID1.
-
-The main remaining technical risk is that this M5 `/init` is a static C/glibc
-binary with more startup/runtime surface than the raw M4T2/M4T3 assembly probes.
-That is acceptable for the control-channel candidate, but live evidence must be
-interpreted accordingly: a failure may be in glibc startup, virtual filesystem
-mounting, module insertion, configfs setup, UDC binding, or ACM tty creation.
+This is still host-build evidence only. A live test must use the SHA-pinned M5
+helper and `AGENTS.md` exception for the v0.4 AP above. Rollback remains the
+pinned Magisk boot-only AP first, with stock boot-only AP fallback only if
+operator-selected.

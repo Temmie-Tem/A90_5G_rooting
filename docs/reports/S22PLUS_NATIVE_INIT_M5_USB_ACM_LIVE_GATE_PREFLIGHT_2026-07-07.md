@@ -5,10 +5,9 @@
 Host-side preflight for the M5 USB-ACM live gate. No live flash was run, no
 device partition was written, and no reboot was requested in this unit.
 
-This unit added the guarded M5 live helper plus the SHA-pinned `AGENTS.md`
-exception required before any M5 boot-only Odin live test. The preflight was
-refreshed after M5 v0.3 added UDC bind retry, write-failure logging, and a
-host-commanded ACM `download` rollback request.
+This preflight now targets M5 v0.4 freestanding, not the earlier glibc-static
+v0.3 candidate. The change removes glibc static PID1 startup as a confound
+before testing the USB module/configfs chain.
 
 ## Helper
 
@@ -28,26 +27,20 @@ Rollback-only ack token:
 S22PLUS-M5-ROLLBACK-FROM-DOWNLOAD
 ```
 
-Dry-run command:
+Latest dry-run private log:
 
 ```text
-PYTHONPYCACHEPREFIX=/tmp/a90_pycache python3 workspace/public/src/scripts/revalidation/s22plus_m5_usb_acm_live_gate.py
-```
-
-Dry-run private log:
-
-```text
-workspace/private/runs/s22plus_m5_usb_acm_live_gate_20260706T212610Z/s22plus_m5_usb_acm_live_gate.txt
+workspace/private/runs/s22plus_m5_usb_acm_live_gate_20260706T213744Z/s22plus_m5_usb_acm_live_gate.txt
 ```
 
 ## Pinned Candidate
 
 ```text
-AP.tar.md5                  2eb63c2d007427faec13f06ebb401c0e29f8d8ea9c2172bd3ce418ff9f8d41cd
-boot.img                    58e52cba7d815a1fae18e8e915934e313adad682bb7fbcb888254f2d7e388fc2
+AP.tar.md5                  5bce15dede8bcd84b8ead1a7f6db6b09135d38637c983d06965930c40a00159f
+boot.img                    3f4e9a514549a2cad2475ef7ef745dfc7e832c910cf1cca25ec4654c9c5522a1
 base Magisk boot            2e541703951dc725bad35850faf7028c2d910dd5f21166449b63f1248c29967e
 kernel                      bceca73edbfca3499148e16741c939779157925949ef6bc8a8e31d6b68fc2cff
-M5 /init                    27d4e0149a9ee58f7277312b7d82b43113f7f3f84cfd0f79f46c9a553b0fe85a
+M5 /init                    596e4198bbdfece9eb1c227acd19cdca1934a440a544fe43cfdf79976a4fc594
 module bundle manifest      1c22c93496e03a7df6dd74959511797b6d033b74361d3d3733d7be8269a5fa05
 ```
 
@@ -57,6 +50,17 @@ The candidate AP contains exactly:
 boot.img.lz4
 ```
 
+Manifest safety requires:
+
+```text
+runtime=freestanding-raw-syscall
+glibc_static_startup=false
+host_commanded_reboot_download=true
+boot_only=true
+block_device_writes=false
+persistent_partition_mount=false
+```
+
 ## Rollback Payloads
 
 ```text
@@ -64,35 +68,25 @@ Magisk boot-only AP          d2373bf88dda342709440dc3db468f11d80a4593856768a4d8a
 stock boot-only fallback AP  1ee92a86f30e4acb12509272630e1bef5215d1a12686ac69a3b399b43740535e
 ```
 
-Both rollback APs were verified as single-member `boot.img.lz4` packages.
+Both rollback APs are verified as single-member `boot.img.lz4` packages.
 
 ## Dry-Run Result
 
-The dry-run passed:
+The strengthened dry-run passed. It verifies the candidate hashes, rollback
+hashes, `AGENTS.md` exception, manifest safety, Android identity, current
+Magisk/root baseline, current boot hash, and Android stability before live.
+
+Recent stability evidence from the dry-run:
 
 ```text
-agents_exception_missing=[]
-m5_candidate_sha256=2eb63c2d007427faec13f06ebb401c0e29f8d8ea9c2172bd3ce418ff9f8d41cd
-m5_candidate_members=['boot.img.lz4']
-magisk_boot_rollback_sha256=d2373bf88dda342709440dc3db468f11d80a4593856768a4d8ae402bef215a56
-stock_boot_fallback_sha256=1ee92a86f30e4acb12509272630e1bef5215d1a12686ac69a3b399b43740535e
-```
-
-Current Android preflight passed:
-
-```text
-model=SM-S906N
-device=g0q
-bootloader=S906NKSS7FYG8
-incremental=S906NKSS7FYG8
-vbstate=orange
-boot_recovery=0
+android_stability_result=ok samples=4
+current_boot_hash=2e541703951dc725bad35850faf7028c2d910dd5f21166449b63f1248c29967e
 boot_completed=1
+bootanim=stopped
 Magisk root available
 ```
 
-The helper also recorded the current Android ACM baseline. That baseline is
-the normal Samsung Android composite ACM:
+The helper also records the current Android ACM baseline:
 
 ```text
 path=/dev/ttyACM0
@@ -102,61 +96,31 @@ model=SAMSUNG_Android
 driver=cdc_acm
 ```
 
-The M5 live detector therefore does not treat plain `/dev/ttyACM*` existence
-as success. It looks for the M5-specific gadget identity:
+M5 live success is keyed on the M5-specific ACM identity or banner, not on
+plain `/dev/ttyACM*` existence:
 
 ```text
 vendor=04e8
 product=685d
 serial=S22M5ACM0001
-model=S22_Native_Init_M5_ACM
-```
-
-If it sees that ACM device, it opens the tty non-blocking and attempts to read
-the M5 readiness banner:
-
-```text
 S22_NATIVE_INIT_USB_ACM_M5 READY
 ```
 
-By default the live helper then writes this command to the ACM tty:
-
-```text
-download
-```
-
-The native `/init` replies with `S22_NATIVE_INIT_USB_ACM_M5 ACK download`
-before calling `reboot(..., "download")`. The helper then waits for
-Odin/download mode and rolls back to the pinned Magisk boot-only AP.
-`--no-acm-download-command` is available for inspection runs.
-
-## Live Flow Prepared
-
-The live helper is intentionally attended:
-
-1. Verify `AGENTS.md` exception, candidate hashes, manifest safety, rollback
-   AP hashes, current Android identity, root, and ACM baseline.
-2. Reboot the rooted Android baseline to download mode.
-3. Flash only the exact M5 boot-only AP through Odin.
-4. Observe host USB for the M5 ACM gadget.
-5. If ACM appears, read the banner and send the `download` command unless
-   `--no-acm-download-command` was requested.
-6. When Odin/download mode appears, roll back to the pinned Magisk boot-only
-   AP and verify Android/root returned.
-7. If ACM does not appear, stop and require manual download-mode entry plus
-   `--rollback-from-download`.
-
-The helper does not claim a completed live pass unless rollback returns Android
-with the expected rooted baseline. If ACM is observed but neither
-command-triggered nor manual download mode appears, it exits with a distinct
-rollback-still-required path.
+If the M5 ACM appears, the helper writes `download\n`, waits for
+`S22_NATIVE_INIT_USB_ACM_M5 ACK download`, then waits for Odin/download mode
+and rolls back to the pinned Magisk boot-only AP. If ACM does not appear, or
+ACM proof appears but download mode does not, rollback requires manual
+download-mode entry plus `--rollback-from-download`.
 
 ## Validation
 
 ```text
-PYTHONPYCACHEPREFIX=/tmp/a90_pycache python3 -m py_compile workspace/public/src/scripts/revalidation/s22plus_m5_usb_acm_live_gate.py
+PYTHONPYCACHEPREFIX=/tmp/a90_pycache python3 -m py_compile \
+  workspace/public/src/scripts/revalidation/build_s22plus_inplace_m5_usb_acm.py \
+  workspace/public/src/scripts/revalidation/s22plus_m5_usb_acm_live_gate.py
+PYTHONPYCACHEPREFIX=/tmp/a90_pycache python3 \
+  workspace/public/src/scripts/revalidation/s22plus_m5_usb_acm_live_gate.py
 git diff --check
-PYTHONPYCACHEPREFIX=/tmp/a90_pycache python3 workspace/public/src/scripts/revalidation/s22plus_m5_usb_acm_live_gate.py
 ```
 
 All passed.
@@ -175,6 +139,4 @@ If the phone is already in download mode and only rollback is needed:
 PYTHONPYCACHEPREFIX=/tmp/a90_pycache python3 workspace/public/src/scripts/revalidation/s22plus_m5_usb_acm_live_gate.py --rollback-from-download --ack S22PLUS-M5-ROLLBACK-FROM-DOWNLOAD
 ```
 
-Do not run this unattended. M5 still has no time-based auto-reboot path; manual
-download-mode entry remains the fallback if ACM enumeration or the
-host-commanded download request fails.
+Do not run this unattended.

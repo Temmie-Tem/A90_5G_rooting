@@ -468,21 +468,22 @@ COMMIT → REPEAT) is defined in `GOAL.md`.
    with live ack token `S22PLUS-M5-USB-ACM-LIVE-GATE` and rollback-only ack
    token `S22PLUS-M5-ROLLBACK-FROM-DOWNLOAD`. The exact candidate AP.tar.md5
    SHA256 must be
-   `2eb63c2d007427faec13f06ebb401c0e29f8d8ea9c2172bd3ce418ff9f8d41cd`, the
+   `5bce15dede8bcd84b8ead1a7f6db6b09135d38637c983d06965930c40a00159f`, the
    contained padded `boot.img` SHA256 must be
-   `58e52cba7d815a1fae18e8e915934e313adad682bb7fbcb888254f2d7e388fc2`, the
+   `3f4e9a514549a2cad2475ef7ef745dfc7e832c910cf1cca25ec4654c9c5522a1`, the
    known-booting Magisk boot base SHA256 must be
    `2e541703951dc725bad35850faf7028c2d910dd5f21166449b63f1248c29967e`, the
    preserved Magisk-patched kernel SHA256 must be
    `bceca73edbfca3499148e16741c939779157925949ef6bc8a8e31d6b68fc2cff`, the
    M5 `/init` SHA256 must be
-   `27d4e0149a9ee58f7277312b7d82b43113f7f3f84cfd0f79f46c9a553b0fe85a`, and
+   `596e4198bbdfece9eb1c227acd19cdca1934a440a544fe43cfdf79976a4fc594`, and
    the M2 USB-first module-bundle manifest SHA256 must be
    `1c22c93496e03a7df6dd74959511797b6d033b74361d3d3733d7be8269a5fa05`. The
    AP must contain exactly one tar member, `boot.img.lz4`, with no recovery,
    vendor_boot, vbmeta, vbmeta_system, dtbo, BL, CP, CSC, super, persist,
    userdata, EFS, RPMB, keymaster, modem, or any other partition payload. The
-   M5 candidate may only run as direct PID1, must be constructed by
+   M5 candidate may only run as direct PID1 with a freestanding raw-syscall
+   runtime (`-nostdlib`, no glibc static startup), must be constructed by
    `magiskboot unpack/repack` from the known-booting Magisk boot with ramdisk
    `/init` replaced and the FYG8 USB-first 26-module bundle injected under
    `/lib/modules/s22plus-m5`, must not be built with `mkbootimg` from scratch,
@@ -704,7 +705,7 @@ COMMIT → REPEAT) is defined in `GOAL.md`.
    `/usr/bin/odin4 --reboot -a` through
    `workspace/public/src/scripts/revalidation/s22plus_m5_usb_acm_live_gate.py`
    for the exact single-member `boot.img.lz4` candidate AP.tar.md5 SHA256
-   `2eb63c2d007427faec13f06ebb401c0e29f8d8ea9c2172bd3ce418ff9f8d41cd`, and
+   `5bce15dede8bcd84b8ead1a7f6db6b09135d38637c983d06965930c40a00159f`, and
    the same helper may use `/usr/bin/odin4 --reboot -a` in
    `--rollback-from-download` mode with the exact single-member Magisk
    boot-only AP.tar.md5 SHA256

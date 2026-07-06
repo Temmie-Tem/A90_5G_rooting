@@ -6,9 +6,10 @@ exception and an explicit ack token.
 
 M5 does not auto-reboot. If the candidate succeeds, the expected proof is a
 host-visible USB ACM device for the configfs ss_acm.0 gadget. The helper then
-waits for the operator to enter download mode and rolls back to the pinned
-Magisk boot-only AP. If ACM does not appear, the operator must enter download
-mode and use this helper's rollback-only mode.
+sends a host-commanded `download` request over that ACM channel and rolls back
+to the pinned Magisk boot-only AP after Odin/download mode appears. If ACM does
+not appear, the operator must enter download mode and use this helper's
+rollback-only mode.
 """
 
 from __future__ import annotations
@@ -16,6 +17,7 @@ from __future__ import annotations
 import argparse
 import json
 import os
+import re
 import sys
 import time
 from pathlib import Path
@@ -32,6 +34,7 @@ from s22plus_m3_observable_live_gate import (
     ROLLBACK_MAGISK,
     ROLLBACK_STOCK,
     adb_rows,
+    adb_shell,
     append_log,
     collect_android_pstore,
     flash_ap,
@@ -52,11 +55,11 @@ LIVE_ACK_TOKEN = "S22PLUS-M5-USB-ACM-LIVE-GATE"
 ROLLBACK_ACK_TOKEN = "S22PLUS-M5-ROLLBACK-FROM-DOWNLOAD"
 
 EXPECTED_TARGET = "SM-S906N/g0q/S906NKSS7FYG8"
-EXPECTED_M5_AP_SHA256 = "2eb63c2d007427faec13f06ebb401c0e29f8d8ea9c2172bd3ce418ff9f8d41cd"
-EXPECTED_M5_BOOT_SHA256 = "58e52cba7d815a1fae18e8e915934e313adad682bb7fbcb888254f2d7e388fc2"
+EXPECTED_M5_AP_SHA256 = "5bce15dede8bcd84b8ead1a7f6db6b09135d38637c983d06965930c40a00159f"
+EXPECTED_M5_BOOT_SHA256 = "3f4e9a514549a2cad2475ef7ef745dfc7e832c910cf1cca25ec4654c9c5522a1"
 EXPECTED_M5_BASE_BOOT_SHA256 = "2e541703951dc725bad35850faf7028c2d910dd5f21166449b63f1248c29967e"
 EXPECTED_M5_KERNEL_SHA256 = "bceca73edbfca3499148e16741c939779157925949ef6bc8a8e31d6b68fc2cff"
-EXPECTED_M5_INIT_SHA256 = "27d4e0149a9ee58f7277312b7d82b43113f7f3f84cfd0f79f46c9a553b0fe85a"
+EXPECTED_M5_INIT_SHA256 = "596e4198bbdfece9eb1c227acd19cdca1934a440a544fe43cfdf79976a4fc594"
 EXPECTED_M5_MODULE_MANIFEST_SHA256 = "1c22c93496e03a7df6dd74959511797b6d033b74361d3d3733d7be8269a5fa05"
 EXPECTED_M5_MARKER = "S22_NATIVE_INIT_USB_ACM_M5"
 EXPECTED_M5_USB_VENDOR = "04e8"
@@ -65,8 +68,8 @@ EXPECTED_M5_USB_SERIAL = "S22M5ACM0001"
 EXPECTED_M5_MODULE_COUNT = 26
 EXPECTED_M5_MODULE_BYTES = 2854024
 
-DEFAULT_M5_AP = Path("workspace/private/outputs/s22plus_native_init/inplace_m5_usb_acm_v0_3/odin4/AP.tar.md5")
-DEFAULT_M5_MANIFEST = Path("workspace/private/outputs/s22plus_native_init/inplace_m5_usb_acm_v0_3/manifest.json")
+DEFAULT_M5_AP = Path("workspace/private/outputs/s22plus_native_init/inplace_m5_usb_acm_v0_4_freestanding/odin4/AP.tar.md5")
+DEFAULT_M5_MANIFEST = Path("workspace/private/outputs/s22plus_native_init/inplace_m5_usb_acm_v0_4_freestanding/manifest.json")
 
 
 def resolve_run_dir(root: Path, requested: Path | None) -> Path:
@@ -139,6 +142,8 @@ def verify_m5_manifest(path: Path, log_path: Path) -> None:
         "requires_new_sha_pinned_agents_exception_before_flash": True,
         "base_is_known_booting_magisk_boot": True,
         "construction": "magiskboot unpack/repack; replace ramdisk /init and add USB module bundle",
+        "runtime": "freestanding-raw-syscall",
+        "glibc_static_startup": False,
         "mkbootimg_from_scratch": False,
         "no_android_or_magisk_handoff": True,
         "auto_reboot": False,
@@ -163,7 +168,9 @@ def verify_m5_manifest(path: Path, log_path: Path) -> None:
     required_strings = set(m5_init.get("required_strings", []))
     for required in [
         EXPECTED_M5_MARKER,
-        "version=0.3",
+        "version=0.4",
+        "runtime=freestanding",
+        "raw_syscalls=1",
         "usb_first_modules=26",
         "gadget=ss_acm.0",
         "tty=/dev/ttyGS0",
@@ -271,6 +278,61 @@ def send_acm_download(path: str, log_path: Path) -> bool:
             os.close(fd)
 
 
+def verify_android_stability(
+    log_path: Path,
+    serial: str,
+    samples: int,
+    interval_sec: float,
+) -> None:
+    if samples <= 0:
+        append_log(log_path, "android_stability_samples=0 skipped=1")
+        return
+
+    previous_uptime: float | None = None
+    for index in range(samples):
+        result = adb_shell(
+            "printf 'boot_completed='; getprop sys.boot_completed; "
+            "printf 'bootanim='; getprop init.svc.bootanim; "
+            "printf 'sys_boot_reason='; getprop sys.boot.reason; "
+            "printf 'uptime='; cat /proc/uptime; "
+            "printf 'su_id='; su -c id 2>/dev/null || true",
+            serial=serial,
+            timeout=25.0,
+        )
+        text = result.stdout + result.stderr
+        append_log(log_path, f"android_stability_sample_{index + 1}_rc={result.returncode}")
+        append_log(log_path, text)
+        required = ["boot_completed=1", "bootanim=stopped", "uid=0(root)"]
+        missing = [item for item in required if item not in text]
+        if missing:
+            raise SystemExit(f"Android stability preflight mismatch sample {index + 1}: {missing}")
+        match = re.search(r"uptime=([0-9]+(?:\.[0-9]+)?)", text)
+        if not match:
+            raise SystemExit(f"Android stability preflight could not parse uptime sample {index + 1}")
+        uptime = float(match.group(1))
+        if previous_uptime is not None and uptime <= previous_uptime:
+            raise SystemExit(
+                f"Android uptime did not increase across samples: {previous_uptime:.2f} -> {uptime:.2f}"
+            )
+        previous_uptime = uptime
+        if index + 1 < samples:
+            time.sleep(interval_sec)
+    append_log(log_path, f"android_stability_result=ok samples={samples}")
+
+
+def verify_current_boot_hash(log_path: Path, serial: str) -> None:
+    result = adb_shell(
+        "su -c 'dd if=/dev/block/by-name/boot bs=4096 2>/dev/null | sha256sum'",
+        serial=serial,
+        timeout=45.0,
+    )
+    text = result.stdout + result.stderr
+    append_log(log_path, f"current_boot_hash_rc={result.returncode}")
+    append_log(log_path, text)
+    if result.returncode != 0 or EXPECTED_M5_BASE_BOOT_SHA256 not in text:
+        raise SystemExit("current boot hash does not match known-booting Magisk baseline")
+
+
 def observe_m5_acm(run_dir: Path, log_path: Path, seconds: int, odin: Path) -> tuple[str, str | None]:
     host_snapshot(run_dir, log_path, "after_candidate_flash", odin)
     deadline = time.monotonic() + seconds
@@ -345,6 +407,8 @@ def main(argv: list[str]) -> int:
     parser.add_argument("--acm-observe-sec", type=int, default=120)
     parser.add_argument("--post-acm-rollback-wait-sec", type=int, default=300)
     parser.add_argument("--android-wait-sec", type=int, default=300)
+    parser.add_argument("--android-stability-samples", type=int, default=4)
+    parser.add_argument("--android-stability-interval-sec", type=float, default=3.0)
     parser.add_argument("--rollback-target", choices=[ROLLBACK_MAGISK, ROLLBACK_STOCK], default=ROLLBACK_MAGISK)
     parser.add_argument("--no-acm-download-command", action="store_true", help="observe ACM but do not send the download command")
     parser.add_argument("--live", action="store_true")
@@ -384,6 +448,13 @@ def main(argv: list[str]) -> int:
         return rc
 
     selected_serial = require_current_android(log_path, args.serial)
+    verify_android_stability(
+        log_path,
+        selected_serial,
+        args.android_stability_samples,
+        args.android_stability_interval_sec,
+    )
+    verify_current_boot_hash(log_path, selected_serial)
     host_snapshot(run_dir, log_path, "dryrun_current", odin)
     acm_devices(log_path, "dryrun_current")
 

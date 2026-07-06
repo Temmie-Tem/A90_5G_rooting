@@ -43,8 +43,8 @@ from build_s22plus_inplace_m4t1_magiskboot import (
 )
 
 
-DEFAULT_OUT = Path("workspace/private/outputs/s22plus_native_init/inplace_m5_usb_acm_v0_3")
-DEFAULT_SOURCE = Path("workspace/public/src/native-init/s22plus_init_usb_acm_m5.c")
+DEFAULT_OUT = Path("workspace/private/outputs/s22plus_native_init/inplace_m5_usb_acm_v0_4_freestanding")
+DEFAULT_SOURCE = Path("workspace/public/src/native-init/s22plus_init_usb_acm_m5_freestanding.c")
 DEFAULT_MODULE_BUNDLE = Path("workspace/private/inputs/s22plus_module_bundles/FYG8_usb_first_m2")
 MARKER = "S22_NATIVE_INIT_USB_ACM_M5"
 MODULE_INSTALL_DIR = Path("lib/modules/s22plus-m5")
@@ -55,11 +55,16 @@ def compile_init(source: Path, out_path: Path, build_dir: Path) -> dict[str, str
     result = run(
         [
             "aarch64-linux-gnu-gcc",
+            "-nostdlib",
             "-static",
+            "-ffreestanding",
+            "-fno-builtin",
+            "-fno-stack-protector",
             "-Os",
             "-Wall",
             "-Wextra",
             "-Werror",
+            "-Wl,-e,_start",
             "-o",
             out_path,
             source,
@@ -74,10 +79,14 @@ def compile_init(source: Path, out_path: Path, build_dir: Path) -> dict[str, str
     readelf = run(["aarch64-linux-gnu-readelf", "-h", "-l", out_path])
     require_ok(readelf, "readelf M5 USB-ACM init")
     readelf_text = readelf.stdout.decode("utf-8", errors="replace")
+    if "Requesting program interpreter" in readelf_text:
+        raise SystemExit("freestanding M5 /init unexpectedly has a program interpreter")
     binary = out_path.read_bytes()
     required_strings = [
         MARKER,
-        "version=0.3",
+        "version=0.4",
+        "runtime=freestanding",
+        "raw_syscalls=1",
         "usb_first_modules=26",
         "gadget=ss_acm.0",
         "tty=/dev/ttyGS0",
@@ -323,6 +332,8 @@ def main(argv: list[str]) -> int:
             "requires_new_sha_pinned_agents_exception_before_flash": True,
             "base_is_known_booting_magisk_boot": True,
             "construction": "magiskboot unpack/repack; replace ramdisk /init and add USB module bundle",
+            "runtime": "freestanding-raw-syscall",
+            "glibc_static_startup": False,
             "mkbootimg_from_scratch": False,
             "no_android_or_magisk_handoff": True,
             "auto_reboot": False,

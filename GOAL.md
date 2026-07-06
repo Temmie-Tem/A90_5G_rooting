@@ -762,6 +762,30 @@ safety invariants and flash gates are binding and override any sub-goal.**
 > forbidden partitions). If M5 self-shows a host `/dev/ttyGS0` ACM device on the first try, none of this
 > applies — that is the milestone, bank it.
 
+> **STATUS UPDATE (2026-07-07 KST, M5 v0.4 freestanding host build + live preflight):** Codex applied the
+> bootloop-triage steer before live by superseding the glibc-static M5 v0.3 candidate with a freestanding
+> raw-syscall M5 v0.4 candidate. New source:
+> `workspace/public/src/native-init/s22plus_init_usb_acm_m5_freestanding.c`; builder default output:
+> `workspace/private/outputs/s22plus_native_init/inplace_m5_usb_acm_v0_4_freestanding`; live helper:
+> `workspace/public/src/scripts/revalidation/s22plus_m5_usb_acm_live_gate.py`. The v0.4 `/init` is built with
+> `-nostdlib -static -ffreestanding -fno-builtin -fno-stack-protector -Wl,-e,_start`, contains
+> `version=0.4 runtime=freestanding raw_syscalls=1`, and uses direct syscalls for mounts, `finit_module`,
+> configfs ACM setup, `/dev/ttyGS0` command handling, and host-commanded `reboot(...,"download")`.
+> Pinned candidate hashes: AP.tar.md5
+> `5bce15dede8bcd84b8ead1a7f6db6b09135d38637c983d06965930c40a00159f`, boot.img
+> `3f4e9a514549a2cad2475ef7ef745dfc7e832c910cf1cca25ec4654c9c5522a1`, M5 `/init`
+> `596e4198bbdfece9eb1c227acd19cdca1934a440a544fe43cfdf79976a4fc594`, module manifest
+> `1c22c93496e03a7df6dd74959511797b6d033b74361d3d3733d7be8269a5fa05`; base Magisk boot and kernel hashes
+> remain unchanged. Dry-run passed with the refreshed `AGENTS.md` exception and manifest safety
+> (`runtime=freestanding-raw-syscall`, `glibc_static_startup=false`, no block writes/persistent mounts), plus
+> strengthened Android baseline checks: 4 consecutive `boot_completed=1`/`bootanim=stopped`/root samples with
+> monotonically increasing uptime and current boot hash
+> `2e541703951dc725bad35850faf7028c2d910dd5f21166449b63f1248c29967e`. Reports:
+> `docs/reports/S22PLUS_NATIVE_INIT_M5_USB_ACM_HOST_BUILD_2026-07-07.md` and
+> `docs/reports/S22PLUS_NATIVE_INIT_M5_USB_ACM_LIVE_GATE_PREFLIGHT_2026-07-07.md`. **No live flash was run.**
+> Next supervised live command remains:
+> `PYTHONPYCACHEPREFIX=/tmp/a90_pycache python3 workspace/public/src/scripts/revalidation/s22plus_m5_usb_acm_live_gate.py --live --ack S22PLUS-M5-USB-ACM-LIVE-GATE`.
+
 > **🟢 STATUS (2026-07-05 18:52 KST) — WSTA207 LIVE SECCOMP CANARY LOAD/ENFORCE PASS.**
 > Codex stopped scaffolding and executed the attended WSTA198 SSH/chroot live canary.  The
 > runner staged WSTA153 policy + WSTA156 filter artifact + WSTA161 gated-apply helper into
