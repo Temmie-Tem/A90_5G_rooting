@@ -307,6 +307,20 @@ safety invariants and flash gates are binding and override any sub-goal.**
 > marker evidence is absent and why the device returns to download/bootloop behavior before any
 > collectable native marker.
 
+> **STATUS UPDATE (2026-07-07 KST, M3.1 postmortem + M3.2 host build):** Codex performed the
+> required host-only postmortem and found the strongest packaging delta: stock boot, chainload_v0_2,
+> and Magisk-chainload boot images carry a legacy-LZ4 ramdisk (`02214c18`), while the failed direct
+> P3/M3/M3.1 family carried an uncompressed `newc` cpio ramdisk. This does not prove the root cause,
+> but it is the first host-visible variable to remove before another direct-PID1 live test. Codex
+> therefore built M3.2 host-only: same marker-only direct `/init` behavior as M3.1, but with the
+> ramdisk passed to `mkbootimg` as stock-format legacy LZ4. Built package:
+> `workspace/private/outputs/s22plus_native_init/marker_m32_lz4ramdisk_v0_1/odin4/AP.tar.md5` with
+> AP SHA256 `6073e4988a98f741fa207df4efb8a05e144ad16b3a90f43db2ec408657936fc2` and boot image
+> SHA256 `0bb1ef280e42aa2c6069538e77fc21b5330cf9419a19785f79d05da8429bf1fc`. Report:
+> `docs/reports/S22PLUS_NATIVE_INIT_M31_POSTMORTEM_M32_LZ4RAMDISK_HOST_BUILD_2026-07-07.md`.
+> **No live flash is authorized.** Next live use, if supervised later, needs a fresh SHA-pinned
+> `AGENTS.md` boot-only exception and guarded live helper for exactly this M3.2 AP/boot hash.
+
 > **🟢 STATUS (2026-07-05 18:52 KST) — WSTA207 LIVE SECCOMP CANARY LOAD/ENFORCE PASS.**
 > Codex stopped scaffolding and executed the attended WSTA198 SSH/chroot live canary.  The
 > runner staged WSTA153 policy + WSTA156 filter artifact + WSTA161 gated-apply helper into
