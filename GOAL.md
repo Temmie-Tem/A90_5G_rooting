@@ -321,6 +321,33 @@ safety invariants and flash gates are binding and override any sub-goal.**
 > **No live flash is authorized.** Next live use, if supervised later, needs a fresh SHA-pinned
 > `AGENTS.md` boot-only exception and guarded live helper for exactly this M3.2 AP/boot hash.
 
+> **🧭 OPERATOR STEER (2026-07-07, post-M3.1 web-research) — KNOW YOUR INSTRUMENT BEFORE TRUSTING ITS
+> SILENCE.** The M3.1 result (`/sys/fs/pstore` empty, marker absent) CANNOT distinguish "`/init` never ran"
+> from "`/init` ran but the pmsg/pstore evidence was never retainable." Web research confirms pstore is the
+> right no-serial early-boot method, **but it only works if the kernel has `CONFIG_PSTORE` + `CONFIG_PSTORE_RAM`
+> (ramoops) + `CONFIG_PSTORE_PMSG` AND the DT reserves a backed ramoops memory region** — otherwise pmsg
+> writes go nowhere / do not survive the reboot. So do these host-only, NO new flash, before over-interpreting
+> M3.1:
+> 1. **The M3.2 ramdisk-format fix is the right first variable to remove** (uncompressed `newc` → stock legacy
+>    LZ4) — good lead; keep it. But pair it with instrument-verification so the next result is interpretable.
+> 2. **Verify pstore is even a live channel on S906N (host-only):** grep the captured shipped kernel config for
+>    `CONFIG_PSTORE`/`PSTORE_RAM`/`PSTORE_PMSG`/`PSTORE_CONSOLE`, and the captured DTB for a `ramoops` /
+>    `reserved-memory` node (address+size). Cross-check: does STOCK Android retain `/sys/fs/pstore` (or
+>    `/proc/last_kmsg`) after the SAME download-mode reboot path M3.x uses? If stock pstore is also empty on
+>    that path → pstore is a DEAD channel here → an empty M3.2 pstore proves nothing about `/init`, and the
+>    channel must change (not the init).
+> 3. **Reuse-if-exists (host-only):** check the postmarketOS mainline device list + SM8450 (Linaro day-1)
+>    sources for any `s906`/SM8450 port — a prior port hands over the DT/UART/module bring-up recipe wholesale.
+>    Note `lk2nd` as the Qualcomm-mainline community's early framebuffer/UART console tool for custom boot.
+> 4. **Channel fallback ladder if pstore is dead:** real-time UART (jig, being ordered — the only channel that
+>    disambiguates run-vs-not in real time) > a flash-partition marker (survives any reboot but needs `/init`
+>    to mount a block device) > lk2nd-style early console. Do NOT blind-switch channels before step 2 says why
+>    pstore was silent.
+> **Rule: no further live M3.x flash until (a) the M3.2 ramdisk-format variable is set AND (b) pstore
+> viability is known host-only — so the next flash's result is interpretable, not another black box.** All of
+> steps 1–3 need no new flash. Sources are conceptual (kernel pstore/ramoops docs, pmOS/lk2nd); commit none of
+> them as device secrets.
+
 > **🟢 STATUS (2026-07-05 18:52 KST) — WSTA207 LIVE SECCOMP CANARY LOAD/ENFORCE PASS.**
 > Codex stopped scaffolding and executed the attended WSTA198 SSH/chroot live canary.  The
 > runner staged WSTA153 policy + WSTA156 filter artifact + WSTA161 gated-apply helper into
