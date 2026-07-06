@@ -182,6 +182,20 @@ safety invariants and flash gates are binding and override any sub-goal.**
 > boot timeline. Next bounded unit should either (a) add a separately gated temporary Magisk boot-time
 > capsule for early `post-fs-data` / `service.d` logs, or (b) build the observable native-init design around
 > the captured USB-first module/configfs recipe. Do not resume blind first-light flashes.
+>
+> **STATUS UPDATE (2026-07-07 KST, M1/M2):** Codex ran the separately gated temporary Magisk boot-time
+> capture M1 and cleaned it up. This was **not** a Magisk app module install; it was two temporary
+> `/data/adb/post-fs-data.d` and `/data/adb/service.d` hook scripts, later removed. M1 produced two private
+> stage logs: `post-fs-data` at uptime ~6.67s and `service.d` at ~8.81s. Result: by Magisk `post-fs-data`,
+> 482 modules were already loaded and USB/configfs + DRM/display were already visible; therefore Magisk is
+> still too late to observe raw driver load order live. Report:
+> `docs/reports/S22PLUS_MAGISK_BOOT_TIME_CAPTURE_M1_LIVE_2026-07-07.md`. Codex then derived M2 host-only
+> observable-native-init recipe from M1: deduped `modules.load` to 356 unique modules, computed
+> `modules.dep` closures, and produced a **26-module USB-first candidate** plus deferred 28-module display
+> probe. Report: `docs/reports/S22PLUS_OBSERVABLE_NATIVE_INIT_RECIPE_M2_2026-07-07.md`. Next bounded unit:
+> build/design the direct native `/init` candidate around pstore marker + 26-module USB-first insertion +
+> minimal configfs observation path, but do not flash it until a fresh SHA-pinned S22+ boot-only exception is
+> added.
 
 > **🟢 STATUS (2026-07-05 18:52 KST) — WSTA207 LIVE SECCOMP CANARY LOAD/ENFORCE PASS.**
 > Codex stopped scaffolding and executed the attended WSTA198 SSH/chroot live canary.  The
