@@ -7,7 +7,8 @@ device partition was written, and no reboot was requested in this unit.
 
 This unit added the guarded M5 live helper plus the SHA-pinned `AGENTS.md`
 exception required before any M5 boot-only Odin live test. The preflight was
-refreshed after M5 v0.2 added UDC bind retry and write-failure logging.
+refreshed after M5 v0.3 added UDC bind retry, write-failure logging, and a
+host-commanded ACM `download` rollback request.
 
 ## Helper
 
@@ -36,17 +37,17 @@ PYTHONPYCACHEPREFIX=/tmp/a90_pycache python3 workspace/public/src/scripts/revali
 Dry-run private log:
 
 ```text
-workspace/private/runs/s22plus_m5_usb_acm_live_gate_20260706T211600Z/s22plus_m5_usb_acm_live_gate.txt
+workspace/private/runs/s22plus_m5_usb_acm_live_gate_20260706T212610Z/s22plus_m5_usb_acm_live_gate.txt
 ```
 
 ## Pinned Candidate
 
 ```text
-AP.tar.md5                  0085679f89e50625a76ccb02dabc6275a5f324acb798d9d98138de21d01c2769
-boot.img                    1cef2fdee227efc4ae48063cb79e27cfd0c36e7dd8d4dd23eb1825cd577b019f
+AP.tar.md5                  2eb63c2d007427faec13f06ebb401c0e29f8d8ea9c2172bd3ce418ff9f8d41cd
+boot.img                    58e52cba7d815a1fae18e8e915934e313adad682bb7fbcb888254f2d7e388fc2
 base Magisk boot            2e541703951dc725bad35850faf7028c2d910dd5f21166449b63f1248c29967e
 kernel                      bceca73edbfca3499148e16741c939779157925949ef6bc8a8e31d6b68fc2cff
-M5 /init                    63b61ed65be23e325421cc7f5443fb339f59c204de2a0ee142af5f4cbb3374e4
+M5 /init                    27d4e0149a9ee58f7277312b7d82b43113f7f3f84cfd0f79f46c9a553b0fe85a
 module bundle manifest      1c22c93496e03a7df6dd74959511797b6d033b74361d3d3733d7be8269a5fa05
 ```
 
@@ -71,7 +72,7 @@ The dry-run passed:
 
 ```text
 agents_exception_missing=[]
-m5_candidate_sha256=0085679f89e50625a76ccb02dabc6275a5f324acb798d9d98138de21d01c2769
+m5_candidate_sha256=2eb63c2d007427faec13f06ebb401c0e29f8d8ea9c2172bd3ce418ff9f8d41cd
 m5_candidate_members=['boot.img.lz4']
 magisk_boot_rollback_sha256=d2373bf88dda342709440dc3db468f11d80a4593856768a4d8ae402bef215a56
 stock_boot_fallback_sha256=1ee92a86f30e4acb12509272630e1bef5215d1a12686ac69a3b399b43740535e
@@ -118,6 +119,17 @@ the M5 readiness banner:
 S22_NATIVE_INIT_USB_ACM_M5 READY
 ```
 
+By default the live helper then writes this command to the ACM tty:
+
+```text
+download
+```
+
+The native `/init` replies with `S22_NATIVE_INIT_USB_ACM_M5 ACK download`
+before calling `reboot(..., "download")`. The helper then waits for
+Odin/download mode and rolls back to the pinned Magisk boot-only AP.
+`--no-acm-download-command` is available for inspection runs.
+
 ## Live Flow Prepared
 
 The live helper is intentionally attended:
@@ -127,15 +139,17 @@ The live helper is intentionally attended:
 2. Reboot the rooted Android baseline to download mode.
 3. Flash only the exact M5 boot-only AP through Odin.
 4. Observe host USB for the M5 ACM gadget.
-5. If ACM appears, keep the device running so the operator can inspect it.
-6. When the operator enters download mode, roll back to the pinned Magisk
-   boot-only AP and verify Android/root returned.
+5. If ACM appears, read the banner and send the `download` command unless
+   `--no-acm-download-command` was requested.
+6. When Odin/download mode appears, roll back to the pinned Magisk boot-only
+   AP and verify Android/root returned.
 7. If ACM does not appear, stop and require manual download-mode entry plus
    `--rollback-from-download`.
 
 The helper does not claim a completed live pass unless rollback returns Android
-with the expected rooted baseline. If ACM is observed but rollback has not yet
-been performed, it exits with a distinct rollback-still-required path.
+with the expected rooted baseline. If ACM is observed but neither
+command-triggered nor manual download mode appears, it exits with a distinct
+rollback-still-required path.
 
 ## Validation
 
@@ -161,6 +175,6 @@ If the phone is already in download mode and only rollback is needed:
 PYTHONPYCACHEPREFIX=/tmp/a90_pycache python3 workspace/public/src/scripts/revalidation/s22plus_m5_usb_acm_live_gate.py --rollback-from-download --ack S22PLUS-M5-ROLLBACK-FROM-DOWNLOAD
 ```
 
-Do not run this unattended. M5 has no auto-reboot path; manual download-mode
-entry is still the fallback until the ACM channel is proven and expanded into a
-real command channel.
+Do not run this unattended. M5 still has no time-based auto-reboot path; manual
+download-mode entry remains the fallback if ACM enumeration or the
+host-commanded download request fails.

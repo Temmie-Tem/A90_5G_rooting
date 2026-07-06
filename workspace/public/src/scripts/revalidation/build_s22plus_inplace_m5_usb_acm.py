@@ -43,7 +43,7 @@ from build_s22plus_inplace_m4t1_magiskboot import (
 )
 
 
-DEFAULT_OUT = Path("workspace/private/outputs/s22plus_native_init/inplace_m5_usb_acm_v0_2")
+DEFAULT_OUT = Path("workspace/private/outputs/s22plus_native_init/inplace_m5_usb_acm_v0_3")
 DEFAULT_SOURCE = Path("workspace/public/src/native-init/s22plus_init_usb_acm_m5.c")
 DEFAULT_MODULE_BUNDLE = Path("workspace/private/inputs/s22plus_module_bundles/FYG8_usb_first_m2")
 MARKER = "S22_NATIVE_INIT_USB_ACM_M5"
@@ -77,16 +77,18 @@ def compile_init(source: Path, out_path: Path, build_dir: Path) -> dict[str, str
     binary = out_path.read_bytes()
     required_strings = [
         MARKER,
-        "version=0.2",
+        "version=0.3",
         "usb_first_modules=26",
         "gadget=ss_acm.0",
         "tty=/dev/ttyGS0",
         "no_android_handoff=1",
         "no_auto_reboot=1",
         "udc_bind_retry=1",
+        "acm_cmd_download=1",
         "finit_rc",
         "ss_acm.0",
         "ttyGS0",
+        "ACK download",
     ]
     for required in required_strings:
         if required.encode("ascii") not in binary:
@@ -324,6 +326,7 @@ def main(argv: list[str]) -> int:
             "mkbootimg_from_scratch": False,
             "no_android_or_magisk_handoff": True,
             "auto_reboot": False,
+            "host_commanded_reboot_download": True,
             "persistent_partition_mount": False,
             "block_device_writes": False,
             "module_insertions": "FYG8 USB-first 26-module bundle only",

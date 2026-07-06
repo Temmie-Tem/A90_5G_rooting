@@ -52,11 +52,11 @@ LIVE_ACK_TOKEN = "S22PLUS-M5-USB-ACM-LIVE-GATE"
 ROLLBACK_ACK_TOKEN = "S22PLUS-M5-ROLLBACK-FROM-DOWNLOAD"
 
 EXPECTED_TARGET = "SM-S906N/g0q/S906NKSS7FYG8"
-EXPECTED_M5_AP_SHA256 = "0085679f89e50625a76ccb02dabc6275a5f324acb798d9d98138de21d01c2769"
-EXPECTED_M5_BOOT_SHA256 = "1cef2fdee227efc4ae48063cb79e27cfd0c36e7dd8d4dd23eb1825cd577b019f"
+EXPECTED_M5_AP_SHA256 = "2eb63c2d007427faec13f06ebb401c0e29f8d8ea9c2172bd3ce418ff9f8d41cd"
+EXPECTED_M5_BOOT_SHA256 = "58e52cba7d815a1fae18e8e915934e313adad682bb7fbcb888254f2d7e388fc2"
 EXPECTED_M5_BASE_BOOT_SHA256 = "2e541703951dc725bad35850faf7028c2d910dd5f21166449b63f1248c29967e"
 EXPECTED_M5_KERNEL_SHA256 = "bceca73edbfca3499148e16741c939779157925949ef6bc8a8e31d6b68fc2cff"
-EXPECTED_M5_INIT_SHA256 = "63b61ed65be23e325421cc7f5443fb339f59c204de2a0ee142af5f4cbb3374e4"
+EXPECTED_M5_INIT_SHA256 = "27d4e0149a9ee58f7277312b7d82b43113f7f3f84cfd0f79f46c9a553b0fe85a"
 EXPECTED_M5_MODULE_MANIFEST_SHA256 = "1c22c93496e03a7df6dd74959511797b6d033b74361d3d3733d7be8269a5fa05"
 EXPECTED_M5_MARKER = "S22_NATIVE_INIT_USB_ACM_M5"
 EXPECTED_M5_USB_VENDOR = "04e8"
@@ -65,8 +65,8 @@ EXPECTED_M5_USB_SERIAL = "S22M5ACM0001"
 EXPECTED_M5_MODULE_COUNT = 26
 EXPECTED_M5_MODULE_BYTES = 2854024
 
-DEFAULT_M5_AP = Path("workspace/private/outputs/s22plus_native_init/inplace_m5_usb_acm_v0_2/odin4/AP.tar.md5")
-DEFAULT_M5_MANIFEST = Path("workspace/private/outputs/s22plus_native_init/inplace_m5_usb_acm_v0_2/manifest.json")
+DEFAULT_M5_AP = Path("workspace/private/outputs/s22plus_native_init/inplace_m5_usb_acm_v0_3/odin4/AP.tar.md5")
+DEFAULT_M5_MANIFEST = Path("workspace/private/outputs/s22plus_native_init/inplace_m5_usb_acm_v0_3/manifest.json")
 
 
 def resolve_run_dir(root: Path, requested: Path | None) -> Path:
@@ -94,6 +94,7 @@ def verify_agents_exception(root: Path, log_path: Path) -> None:
         LIVE_ACK_TOKEN,
         ROLLBACK_ACK_TOKEN,
         "configfs `ss_acm.0` gadget",
+        "host-commanded ACM `download`",
         "manual download-mode entry before rollback",
     ]
     missing = [item for item in required if item not in normalized]
@@ -141,6 +142,7 @@ def verify_m5_manifest(path: Path, log_path: Path) -> None:
         "mkbootimg_from_scratch": False,
         "no_android_or_magisk_handoff": True,
         "auto_reboot": False,
+        "host_commanded_reboot_download": True,
         "persistent_partition_mount": False,
         "block_device_writes": False,
         "module_insertions": "FYG8 USB-first 26-module bundle only",
@@ -161,13 +163,15 @@ def verify_m5_manifest(path: Path, log_path: Path) -> None:
     required_strings = set(m5_init.get("required_strings", []))
     for required in [
         EXPECTED_M5_MARKER,
-        "version=0.2",
+        "version=0.3",
         "usb_first_modules=26",
         "gadget=ss_acm.0",
         "tty=/dev/ttyGS0",
         "no_android_handoff=1",
         "no_auto_reboot=1",
         "udc_bind_retry=1",
+        "acm_cmd_download=1",
+        "ACK download",
     ]:
         if required not in required_strings:
             raise SystemExit(f"M5 required string missing from manifest: {required}")
@@ -233,6 +237,38 @@ def read_acm_banner(path: str, log_path: Path) -> bytes:
             os.close(fd)
     append_log(log_path, f"m5_acm_banner_path={path} bytes={len(payload)} payload={payload!r}")
     return payload
+
+
+def send_acm_download(path: str, log_path: Path) -> bool:
+    fd: int | None = None
+    try:
+        fd = os.open(path, os.O_RDWR | os.O_NOCTTY | os.O_NONBLOCK)
+        os.write(fd, b"download\n")
+        append_log(log_path, f"m5_acm_download_write path={path} bytes=9")
+        deadline = time.monotonic() + 2.0
+        payload = b""
+        while time.monotonic() < deadline:
+            try:
+                chunk = os.read(fd, 512)
+            except BlockingIOError:
+                chunk = b""
+            except OSError as exc:
+                append_log(log_path, f"m5_acm_download_read_error path={path} errno={exc.errno}")
+                break
+            if chunk:
+                payload += chunk
+                if b"ACK download" in payload:
+                    append_log(log_path, f"m5_acm_download_ack=1 payload={payload!r}")
+                    return True
+            time.sleep(0.1)
+        append_log(log_path, f"m5_acm_download_ack=0 payload={payload!r}")
+        return False
+    except OSError as exc:
+        append_log(log_path, f"m5_acm_download_error path={path} errno={exc.errno}")
+        return False
+    finally:
+        if fd is not None:
+            os.close(fd)
 
 
 def observe_m5_acm(run_dir: Path, log_path: Path, seconds: int, odin: Path) -> tuple[str, str | None]:
@@ -310,6 +346,7 @@ def main(argv: list[str]) -> int:
     parser.add_argument("--post-acm-rollback-wait-sec", type=int, default=300)
     parser.add_argument("--android-wait-sec", type=int, default=300)
     parser.add_argument("--rollback-target", choices=[ROLLBACK_MAGISK, ROLLBACK_STOCK], default=ROLLBACK_MAGISK)
+    parser.add_argument("--no-acm-download-command", action="store_true", help="observe ACM but do not send the download command")
     parser.add_argument("--live", action="store_true")
     parser.add_argument("--rollback-from-download", action="store_true")
     parser.add_argument("--ack")
@@ -371,10 +408,17 @@ def main(argv: list[str]) -> int:
 
     kind, value = observe_m5_acm(run_dir, log_path, args.acm_observe_sec, odin)
     if kind == "acm":
-        print(
-            "M5 ACM device observed. Inspect it now if needed, then enter download mode; "
-            "the helper will roll back when Odin appears."
-        )
+        append_log(log_path, f"m5_result=acm-proof path={value}")
+        if value and not args.no_acm_download_command:
+            acked = send_acm_download(value, log_path)
+            append_log(log_path, f"m5_acm_download_command_sent=1 acked={int(acked)}")
+            print("M5 ACM device observed. Sent download command over ACM; waiting for Odin rollback mode.")
+        else:
+            append_log(log_path, "m5_acm_download_command_sent=0")
+            print(
+                "M5 ACM device observed. Inspect it now if needed, then enter download mode; "
+                "the helper will roll back when Odin appears."
+            )
         rollback_device = wait_for_odin(odin, log_path, "post-acm-rollback-wait", args.post_acm_rollback_wait_sec)
         if rollback_device is None:
             print(

@@ -468,15 +468,15 @@ COMMIT → REPEAT) is defined in `GOAL.md`.
    with live ack token `S22PLUS-M5-USB-ACM-LIVE-GATE` and rollback-only ack
    token `S22PLUS-M5-ROLLBACK-FROM-DOWNLOAD`. The exact candidate AP.tar.md5
    SHA256 must be
-   `0085679f89e50625a76ccb02dabc6275a5f324acb798d9d98138de21d01c2769`, the
+   `2eb63c2d007427faec13f06ebb401c0e29f8d8ea9c2172bd3ce418ff9f8d41cd`, the
    contained padded `boot.img` SHA256 must be
-   `1cef2fdee227efc4ae48063cb79e27cfd0c36e7dd8d4dd23eb1825cd577b019f`, the
+   `58e52cba7d815a1fae18e8e915934e313adad682bb7fbcb888254f2d7e388fc2`, the
    known-booting Magisk boot base SHA256 must be
    `2e541703951dc725bad35850faf7028c2d910dd5f21166449b63f1248c29967e`, the
    preserved Magisk-patched kernel SHA256 must be
    `bceca73edbfca3499148e16741c939779157925949ef6bc8a8e31d6b68fc2cff`, the
    M5 `/init` SHA256 must be
-   `63b61ed65be23e325421cc7f5443fb339f59c204de2a0ee142af5f4cbb3374e4`, and
+   `27d4e0149a9ee58f7277312b7d82b43113f7f3f84cfd0f79f46c9a553b0fe85a`, and
    the M2 USB-first module-bundle manifest SHA256 must be
    `1c22c93496e03a7df6dd74959511797b6d033b74361d3d3733d7be8269a5fa05`. The
    AP must contain exactly one tar member, `boot.img.lz4`, with no recovery,
@@ -488,13 +488,15 @@ COMMIT → REPEAT) is defined in `GOAL.md`.
    `/lib/modules/s22plus-m5`, must not be built with `mkbootimg` from scratch,
    and may only mount runtime virtual filesystems, insert those 26 ramdisk
    modules, create the configfs `ss_acm.0` gadget, retry UDC binding until
-   bound, and park while probing `/dev/ttyGS0`. The M5 `/init` must not start Android or Magisk,
+   bound, accept only a host-commanded ACM `download` request as its rollback
+   reboot trigger, and park while probing `/dev/ttyGS0`. The M5 `/init` must not start Android or Magisk,
    mount persistent partitions, write block devices, touch watchdog, install
    Magisk modules, format data, or auto-reboot. M5 success is host-visible USB
    ACM enumeration for the M5 gadget, preferably with product id `0x685d`,
-   serial `S22M5ACM0001`, or the `S22_NATIVE_INIT_USB_ACM_M5 READY` banner. If
-   ACM does not appear, or after ACM proof is inspected, rollback requires
-   manual download-mode entry before rollback through the same helper's
+   serial `S22M5ACM0001`, or the `S22_NATIVE_INIT_USB_ACM_M5 READY` banner.
+   After ACM proof, the helper may send the `download` command over ACM and
+   wait for Odin/download mode before rollback. If ACM does not appear or the
+   ACM command path fails, rollback requires manual download-mode entry before rollback through the same helper's
    `--rollback-from-download --ack S22PLUS-M5-ROLLBACK-FROM-DOWNLOAD` mode,
    using the exact Magisk boot-only rollback AP SHA256
    `d2373bf88dda342709440dc3db468f11d80a4593856768a4d8ae402bef215a56` first,
@@ -702,7 +704,7 @@ COMMIT → REPEAT) is defined in `GOAL.md`.
    `/usr/bin/odin4 --reboot -a` through
    `workspace/public/src/scripts/revalidation/s22plus_m5_usb_acm_live_gate.py`
    for the exact single-member `boot.img.lz4` candidate AP.tar.md5 SHA256
-   `0085679f89e50625a76ccb02dabc6275a5f324acb798d9d98138de21d01c2769`, and
+   `2eb63c2d007427faec13f06ebb401c0e29f8d8ea9c2172bd3ce418ff9f8d41cd`, and
    the same helper may use `/usr/bin/odin4 --reboot -a` in
    `--rollback-from-download` mode with the exact single-member Magisk
    boot-only AP.tar.md5 SHA256

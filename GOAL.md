@@ -707,28 +707,29 @@ safety invariants and flash gates are binding and override any sub-goal.**
 > no-change `magiskboot unpack/repack` is byte-identical, replaces ramdisk `/init`, injects the 26-module FYG8
 > USB-first bundle under `/lib/modules/s22plus-m5`, preserves kernel SHA256
 > `bceca73edbfca3499148e16741c939779157925949ef6bc8a8e31d6b68fc2cff`, and emits a boot-only AP SHA256
-> `0085679f89e50625a76ccb02dabc6275a5f324acb798d9d98138de21d01c2769` / contained `boot.img` SHA256
-> `1cef2fdee227efc4ae48063cb79e27cfd0c36e7dd8d4dd23eb1825cd577b019f`. M5 v0.2 mounts `/proc`/`/sys`/`/dev`/
+> `2eb63c2d007427faec13f06ebb401c0e29f8d8ea9c2172bd3ce418ff9f8d41cd` / contained `boot.img` SHA256
+> `58e52cba7d815a1fae18e8e915934e313adad682bb7fbcb888254f2d7e388fc2`. M5 v0.3 mounts `/proc`/`/sys`/`/dev`/
 > `/run`/`/config`, inserts the M2 USB module chain, creates a configfs `ss_acm.0` gadget, retries non-dummy
-> UDC binding until bound, then polls `/dev/ttyGS0` and writes a readiness banner when it opens. It does not start
+> UDC binding until bound, then polls `/dev/ttyGS0`, writes a readiness banner, and accepts host-commanded
+> `download` over ACM for rollback. It does not start
 > Android/Magisk, mount persistent partitions, write block devices, touch watchdog, or auto-reboot. Validation:
 > builder `py_compile`, standalone cross-compile, required string checks, module hash checks, MagiskBoot
 > no-change repack gate, patched-kernel hash unchanged, single-member `boot.img.lz4` AP, and Odin invalid-device
 > parse gate. **No live flash is authorized.** Next live use, if supervised, needs a fresh SHA-pinned S22+
 > boot-only `AGENTS.md` exception plus guarded dry-run/helper for exactly this AP/boot hash; because M5 has no
-> auto-reboot path, manual-download rollback remains the fallback unless the ACM channel enumerates and becomes
-> usable.
+> auto-reboot path; manual-download rollback remains the fallback if the ACM channel does not enumerate or the
+> host-commanded ACM `download` path fails.
 
 > **STATUS UPDATE (2026-07-07 KST, M5 live gate preflight ready):** Codex added the fresh SHA-pinned
 > `AGENTS.md` M5 boot-only exception and guarded helper
 > `workspace/public/src/scripts/revalidation/s22plus_m5_usb_acm_live_gate.py`, with live ack token
 > `S22PLUS-M5-USB-ACM-LIVE-GATE` and rollback-only ack token `S22PLUS-M5-ROLLBACK-FROM-DOWNLOAD`. Dry-run
 > passed against the rooted Android/Magisk baseline and verified exact M5 AP SHA256
-> `0085679f89e50625a76ccb02dabc6275a5f324acb798d9d98138de21d01c2769`, contained `boot.img` SHA256
-> `1cef2fdee227efc4ae48063cb79e27cfd0c36e7dd8d4dd23eb1825cd577b019f`, base Magisk boot SHA256
+> `2eb63c2d007427faec13f06ebb401c0e29f8d8ea9c2172bd3ce418ff9f8d41cd`, contained `boot.img` SHA256
+> `58e52cba7d815a1fae18e8e915934e313adad682bb7fbcb888254f2d7e388fc2`, base Magisk boot SHA256
 > `2e541703951dc725bad35850faf7028c2d910dd5f21166449b63f1248c29967e`, kernel SHA256
 > `bceca73edbfca3499148e16741c939779157925949ef6bc8a8e31d6b68fc2cff`, M5 `/init` SHA256
-> `63b61ed65be23e325421cc7f5443fb339f59c204de2a0ee142af5f4cbb3374e4`, module-bundle manifest SHA256
+> `27d4e0149a9ee58f7277312b7d82b43113f7f3f84cfd0f79f46c9a553b0fe85a`, module-bundle manifest SHA256
 > `1c22c93496e03a7df6dd74959511797b6d033b74361d3d3733d7be8269a5fa05`, Magisk/stock rollback AP hashes,
 > manifest safety, current `SM-S906N`/`g0q`/`S906NKSS7FYG8` Android identity, orange verified boot, Magisk
 > root, and current Android ACM baseline (`04e8:6860` `SAMSUNG_Android`). The M5 live detector keys on the
@@ -736,8 +737,8 @@ safety invariants and flash gates are binding and override any sub-goal.**
 > mere `/dev/ttyACM*` existence. Report:
 > `docs/reports/S22PLUS_NATIVE_INIT_M5_USB_ACM_LIVE_GATE_PREFLIGHT_2026-07-07.md`. **No live flash was run.**
 > Next supervised live command is the helper with `--live --ack S22PLUS-M5-USB-ACM-LIVE-GATE`; because M5 has
-> no auto-reboot path, the helper waits for operator download-mode entry after ACM inspection and then rolls
-> back to the pinned Magisk boot-only AP. If ACM never appears, use `--rollback-from-download --ack
+> no auto-reboot path, the helper sends `download` over ACM after ACM proof and rolls back to the pinned Magisk
+> boot-only AP when Odin/download mode appears. If ACM never appears or command-triggered download fails, use `--rollback-from-download --ack
 > S22PLUS-M5-ROLLBACK-FROM-DOWNLOAD` after manual download-mode entry.
 
 > **🟢 STATUS (2026-07-05 18:52 KST) — WSTA207 LIVE SECCOMP CANARY LOAD/ENFORCE PASS.**

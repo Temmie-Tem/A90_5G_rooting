@@ -12,7 +12,8 @@ kernel can execute a custom static `/init` as PID1, and M4T3 proved a raw
 custom-PID1 reboot-to-download path. M5 now aims for the force multiplier:
 native `/init` mounts the minimal virtual filesystems, inserts the measured
 USB-first vendor module chain, creates a configfs `ss_acm.0` gadget, and parks
-while probing `/dev/ttyGS0`.
+while probing `/dev/ttyGS0`. M5 v0.3 also accepts a host ACM `download`
+command so rollback can use the new control channel if it comes up.
 
 ## Inputs
 
@@ -62,11 +63,14 @@ bind the gadget to the first non-dummy UDC found under /sys/class/udc
 poll /sys/class/tty/ttyGS0/dev and /dev/ttyGS0
 retry UDC binding every 6 seconds until the gadget is bound
 write "S22_NATIVE_INIT_USB_ACM_M5 READY" to ttyGS0 when it opens
+read ACM commands and accept "download" / "reboot-download" / "S22M5_DOWNLOAD"
+call reboot(..., "download") only after a recognized host ACM command
 park forever with heartbeat kmsg lines
 ```
 
 It does not start Android or Magisk, does not mount persistent partitions, does
-not write block devices, does not touch watchdog, and does not auto-reboot.
+not write block devices, does not touch watchdog, and does not auto-reboot
+without a host ACM command.
 
 ## USB Module Chain
 
@@ -127,13 +131,13 @@ name and the shipped `usb_f_ss_acm.ko` module.
 Private output directory:
 
 ```text
-workspace/private/outputs/s22plus_native_init/inplace_m5_usb_acm_v0_2
+workspace/private/outputs/s22plus_native_init/inplace_m5_usb_acm_v0_3
 ```
 
 Boot-only Odin package:
 
 ```text
-workspace/private/outputs/s22plus_native_init/inplace_m5_usb_acm_v0_2/odin4/AP.tar.md5
+workspace/private/outputs/s22plus_native_init/inplace_m5_usb_acm_v0_3/odin4/AP.tar.md5
 ```
 
 Package member list:
@@ -145,19 +149,19 @@ boot.img.lz4
 Hashes:
 
 ```text
-AP.tar.md5                  0085679f89e50625a76ccb02dabc6275a5f324acb798d9d98138de21d01c2769
-AP.tar                      cd00a82836be3e156d174858d54a632516ec1139cdee58111e0da9a59c51c32c
-boot.img                    1cef2fdee227efc4ae48063cb79e27cfd0c36e7dd8d4dd23eb1825cd577b019f
-boot.img.lz4                882131883b485d764de3ab5fd2306aa4ccec37270eea94705d7ccd934dbcef25
+AP.tar.md5                  2eb63c2d007427faec13f06ebb401c0e29f8d8ea9c2172bd3ce418ff9f8d41cd
+AP.tar                      a3bc7dfaabcd9d1bc599a4bbc7ca2b50a3a0dc657dbd44f268d7a4cf6462632e
+boot.img                    58e52cba7d815a1fae18e8e915934e313adad682bb7fbcb888254f2d7e388fc2
+boot.img.lz4                fb95f6b138a9e282979cfa11c11073b0a4d0b57b03b81e2c0ea5ee1cb62373af
 base Magisk boot            2e541703951dc725bad35850faf7028c2d910dd5f21166449b63f1248c29967e
 no-change repack boot       2e541703951dc725bad35850faf7028c2d910dd5f21166449b63f1248c29967e
 kernel                      bceca73edbfca3499148e16741c939779157925949ef6bc8a8e31d6b68fc2cff
-M5 /init                    63b61ed65be23e325421cc7f5443fb339f59c204de2a0ee142af5f4cbb3374e4
-source                      4fbfd678409ff92b17b2414f228eacd31cad31f04455d41da744311c51eb7554
+M5 /init                    27d4e0149a9ee58f7277312b7d82b43113f7f3f84cfd0f79f46c9a553b0fe85a
+source                      dddc9fd042d36d41720a7ae1d82a3d91843a5fed1a0ddd920be35a1f6096516e
 module bundle manifest      1c22c93496e03a7df6dd74959511797b6d033b74361d3d3733d7be8269a5fa05
 original Magisk /init       383670a7ba3a6a4b79e5f3467e1da4b66a5df66a9b356ab9f70916854dd6b468
 ramdisk before              e4654429abca10df94e5145a05853f14620b9e1cd1c7642959981f49c8454aae
-ramdisk after               3783befdd409c5209e9a9fd693f0ccbebec7944265788a020619035442b23b03
+ramdisk after               c1aff05701a9ebf23f27bd6500a21048a12145e6c884a5dfbbe3a73d968f7cbc
 ```
 
 Sizes:
@@ -180,7 +184,7 @@ Commands:
 PYTHONPYCACHEPREFIX=/tmp/a90_pycache python3 -m py_compile workspace/public/src/scripts/revalidation/build_s22plus_inplace_m5_usb_acm.py
 aarch64-linux-gnu-gcc -static -Os -Wall -Wextra -Werror -o /tmp/s22plus_init_usb_acm_m5_test workspace/public/src/native-init/s22plus_init_usb_acm_m5.c
 python3 workspace/public/src/scripts/revalidation/build_s22plus_inplace_m5_usb_acm.py --force
-tar -tf workspace/private/outputs/s22plus_native_init/inplace_m5_usb_acm_v0_2/odin4/AP.tar.md5
+tar -tf workspace/private/outputs/s22plus_native_init/inplace_m5_usb_acm_v0_3/odin4/AP.tar.md5
 ```
 
 Results:
@@ -204,16 +208,18 @@ Required strings found in the built `/init`:
 
 ```text
 S22_NATIVE_INIT_USB_ACM_M5
-version=0.2
+version=0.3
 usb_first_modules=26
 gadget=ss_acm.0
 tty=/dev/ttyGS0
 no_android_handoff=1
 no_auto_reboot=1
 udc_bind_retry=1
+acm_cmd_download=1
 finit_rc
 ss_acm.0
 ttyGS0
+ACK download
 ```
 
 The built `/init` is an AArch64 static executable and has no dynamic loader
@@ -221,19 +227,20 @@ interpreter segment in the recorded `readelf` program headers.
 
 ## Safety State
 
-This is not live-authorized. Before any M5 flash, add a fresh SHA-pinned S22+
-boot-only `AGENTS.md` exception and a guarded live helper/dry-run for exactly:
+This host-build unit did not run a live flash. The later M5 live-gate preflight
+adds the fresh SHA-pinned S22+ boot-only `AGENTS.md` exception and guarded
+helper for exactly:
 
 ```text
-AP.tar.md5  0085679f89e50625a76ccb02dabc6275a5f324acb798d9d98138de21d01c2769
-boot.img    1cef2fdee227efc4ae48063cb79e27cfd0c36e7dd8d4dd23eb1825cd577b019f
+AP.tar.md5  2eb63c2d007427faec13f06ebb401c0e29f8d8ea9c2172bd3ce418ff9f8d41cd
+boot.img    58e52cba7d815a1fae18e8e915934e313adad682bb7fbcb888254f2d7e388fc2
 ```
 
-M5 has no auto-reboot path. A live test must be attended with pinned Magisk
-boot rollback staged. If the ACM channel enumerates and becomes usable, it may
-become the recovery/control channel for the session. If it does not enumerate,
-rollback requires manual download-mode entry before flashing the pinned Magisk
-boot-only AP.
+M5 has no time-based auto-reboot path. A live test must be attended with pinned
+Magisk boot rollback staged. If the ACM channel enumerates and becomes usable,
+the host can send `download` over the ACM tty to request rollback mode. If ACM
+does not enumerate or the command path fails, rollback still requires manual
+download-mode entry before flashing the pinned Magisk boot-only AP.
 
 ## Interpretation
 

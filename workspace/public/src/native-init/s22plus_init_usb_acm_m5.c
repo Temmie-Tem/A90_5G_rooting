@@ -6,10 +6,12 @@
  * that a raw reboot-download syscall can recover.  M5 moves to the force
  * multiplier: mount the minimal virtual filesystems, insert the measured
  * USB-first vendor module chain, create a minimal ss_acm.0 configfs gadget,
- * then park while probing /dev/ttyGS0.
+ * then park while probing /dev/ttyGS0.  If the host writes "download" to the
+ * ACM tty, reboot to download mode for rollback.
  *
  * This candidate intentionally does not start Android or Magisk, mount
- * persistent partitions, write block devices, or auto-reboot.
+ * persistent partitions, write block devices, or auto-reboot without a host
+ * command.
  */
 
 #define _GNU_SOURCE
@@ -33,12 +35,22 @@
 #define SYS_finit_module 273
 #endif
 
+#ifndef LINUX_REBOOT_MAGIC1
+#define LINUX_REBOOT_MAGIC1 0xfee1dead
+#endif
+#ifndef LINUX_REBOOT_MAGIC2
+#define LINUX_REBOOT_MAGIC2 0x28121969
+#endif
+#ifndef LINUX_REBOOT_CMD_RESTART2
+#define LINUX_REBOOT_CMD_RESTART2 0xa1b2c3d4
+#endif
+
 #define ARRAY_SIZE(x) (sizeof(x) / sizeof((x)[0]))
 
 static const char k_marker[] =
-    "S22_NATIVE_INIT_USB_ACM_M5 version=0.2 pid1=direct "
+    "S22_NATIVE_INIT_USB_ACM_M5 version=0.3 pid1=direct "
     "usb_first_modules=26 gadget=ss_acm.0 tty=/dev/ttyGS0 "
-    "no_android_handoff=1 no_auto_reboot=1 udc_bind_retry=1\n";
+    "no_android_handoff=1 no_auto_reboot=1 udc_bind_retry=1 acm_cmd_download=1\n";
 
 static const char *const k_usb_modules[] = {
     "phy-msm-ssusb-qmp.ko",
@@ -374,7 +386,87 @@ static bool ensure_ttygs0(void) {
     return access("/dev/ttyGS0", F_OK) == 0;
 }
 
+static bool command_is_download(const char *cmd) {
+    while (*cmd == ' ' || *cmd == '\t' || *cmd == '\r' || *cmd == '\n') {
+        ++cmd;
+    }
+    char tmp[64];
+    size_t len = 0;
+    while (cmd[len] != '\0' && cmd[len] != '\r' && cmd[len] != '\n' && len < sizeof(tmp) - 1) {
+        tmp[len] = cmd[len];
+        ++len;
+    }
+    while (len > 0 && (tmp[len - 1] == ' ' || tmp[len - 1] == '\t')) {
+        --len;
+    }
+    tmp[len] = '\0';
+    return strcmp(tmp, "download") == 0 || strcmp(tmp, "reboot-download") == 0 ||
+           strcmp(tmp, "S22M5_DOWNLOAD") == 0;
+}
+
+static void handle_command(const char *cmd, int fd) {
+    emitf("S22_NATIVE_INIT_USB_ACM_M5 phase=acm_command cmd=%s\n", cmd);
+    if (!command_is_download(cmd)) {
+        const char *nack = "S22_NATIVE_INIT_USB_ACM_M5 NACK\n";
+        (void)write_all(fd, nack, strlen(nack));
+        return;
+    }
+
+    const char *ack = "S22_NATIVE_INIT_USB_ACM_M5 ACK download\n";
+    (void)write_all(fd, ack, strlen(ack));
+    emit("S22_NATIVE_INIT_USB_ACM_M5 phase=reboot_download requested=1\n");
+    errno = 0;
+    long rc = syscall(SYS_reboot,
+                      LINUX_REBOOT_MAGIC1,
+                      LINUX_REBOOT_MAGIC2,
+                      LINUX_REBOOT_CMD_RESTART2,
+                      "download");
+    int saved_errno = errno;
+    emitf("S22_NATIVE_INIT_USB_ACM_M5 phase=reboot_download rc=%ld errno=%d returned=1\n", rc, saved_errno);
+}
+
+static void read_serial_commands(int fd, char *cmd_buf, size_t *cmd_len, size_t cmd_cap) {
+    char buf[128];
+    for (;;) {
+        ssize_t n = read(fd, buf, sizeof(buf));
+        if (n < 0) {
+            if (errno == EINTR) {
+                continue;
+            }
+            if (errno == EAGAIN || errno == EWOULDBLOCK) {
+                return;
+            }
+            emitf("S22_NATIVE_INIT_USB_ACM_M5 phase=acm_read rc=-1 errno=%d\n", errno);
+            return;
+        }
+        if (n == 0) {
+            return;
+        }
+        for (ssize_t i = 0; i < n; ++i) {
+            char ch = buf[i];
+            if (ch == '\r' || ch == '\n') {
+                if (*cmd_len > 0) {
+                    cmd_buf[*cmd_len] = '\0';
+                    handle_command(cmd_buf, fd);
+                    *cmd_len = 0;
+                }
+                continue;
+            }
+            if (*cmd_len + 1 < cmd_cap) {
+                cmd_buf[*cmd_len] = ch;
+                ++(*cmd_len);
+            } else {
+                cmd_buf[cmd_cap - 1] = '\0';
+                emitf("S22_NATIVE_INIT_USB_ACM_M5 phase=acm_command_overflow partial=%s\n", cmd_buf);
+                *cmd_len = 0;
+            }
+        }
+    }
+}
+
 static void serial_probe_loop(void) {
+    char cmd_buf[128];
+    size_t cmd_len = 0;
     for (unsigned int tick = 0;; ++tick) {
         if ((tick % 3U) == 0U) {
             bool bound = create_acm_gadget();
@@ -386,6 +478,7 @@ static void serial_probe_loop(void) {
         if (fd >= 0) {
             const char *banner = "S22_NATIVE_INIT_USB_ACM_M5 READY\n";
             write_all(fd, banner, strlen(banner));
+            read_serial_commands(fd, cmd_buf, &cmd_len, sizeof(cmd_buf));
             close(fd);
         }
         emitf("S22_NATIVE_INIT_USB_ACM_M5 phase=park tick=%u tty_ready=%d tty_open_rc=%d tty_open_errno=%d\n",
