@@ -650,6 +650,21 @@ safety invariants and flash gates are binding and override any sub-goal.**
 > raw reboot syscall works, stable no-transport park means syscall returned/was rejected, fast loop means the
 > raw reboot syscall path or immediate PID1 action is unstable.
 >
+> **STATUS UPDATE (2026-07-07 KST, M4T3 live gate preflight ready):** Codex added the SHA-pinned `AGENTS.md`
+> M4T3 boot-only exception plus guarded helper
+> `workspace/public/src/scripts/revalidation/s22plus_m4t3_raw_reboot_live_gate.py`, with live ack token
+> `S22PLUS-M4T3-RAW-REBOOT-LIVE-GATE` and rollback-only ack token
+> `S22PLUS-M4T3-ROLLBACK-FROM-DOWNLOAD`. Dry-run passed against the rooted Android/Magisk baseline and
+> verified exact M4T3 AP SHA256 `f0a26bb95a091070713f8d736419cbe60974195bb59509cb1fd7cc28a0b1a907`,
+> contained `boot.img` SHA256 `d5e0371c6cb68af8990ce3ac4701ad4e0e487dbe54f4702dae29e21d86f4b92a`, raw
+> `/init` SHA256 `e975a973395fd1bfe2fee0dccb9d47400e6746d62b508cd139b49c551b9aa67c`, rollback AP hashes,
+> manifest safety (`first_candidate_action=raw-reboot-download-syscall`, no libc, one intended `reboot`
+> syscall, no marker writes/modules/configfs/watchdog), and current Android identity/root. Report:
+> `docs/reports/S22PLUS_NATIVE_INIT_M4T3_LIVE_GATE_PREFLIGHT_2026-07-07.md`. **No live flash was run.** Next
+> live use is attended only: run helper `--live --ack S22PLUS-M4T3-RAW-REBOOT-LIVE-GATE`; if no self-download
+> appears and the device parks, enter download mode manually and run helper `--rollback-from-download --ack
+> S22PLUS-M4T3-ROLLBACK-FROM-DOWNLOAD`.
+>
 > **🎯 OPERATOR STEER (2026-07-07, post-M4T2 first-light — set the NORTH STAR: get a control channel, stop
 > micro-stepping).** M4T2 already answered the load-bearing question: **the S22+ GKI kernel execs our custom
 > static `/init` as PID1** (park proven, no bootloop). That also retro-explains the M4T1 loop as diagnosis-B
