@@ -557,6 +557,20 @@ safety invariants and flash gates are binding and override any sub-goal.**
 > discriminator strengthened: known-good Magisk boot and M4T1 unpack with `SAMSUNG_SEANDROID` + `VBMETA`, while
 > failed M4T0 `mkbootimg` output lacks both. **No live flash was run.** Next live use needs a fresh
 > SHA-pinned S22+ boot-only `AGENTS.md` exception and guarded helper/dry-run for exactly this M4T1 AP/boot hash.
+>
+> **STATUS UPDATE (2026-07-07 KST, M4T1 live gate preflight ready):** Codex added the SHA-pinned `AGENTS.md`
+> M4T1 boot-only exception and guarded helper
+> `workspace/public/src/scripts/revalidation/s22plus_m4t1_inplace_live_gate.py` with ack token
+> `S22PLUS-M4T1-INPLACE-LIVE-GATE`. Dry-run passed against the rooted Android/Magisk baseline and verified the
+> exact M4T1 AP SHA256 `9f5b4c48b95b710f742d5ea8c7f16ef4802cf27e78469381073d460361d0451c`, contained
+> `boot.img` SHA256 `9ce597e4ba920f1331937dbe4736f923728ff5502b02c02dea8357b3a9d5b9d1`, rollback AP hashes,
+> manifest safety (`magiskboot unpack/repack`, `mkbootimg_from_scratch=false`, `replaced_entry=init`,
+> `first_candidate_action=reboot-download`, no marker-before-reboot, no modules/configfs/watchdog), and current
+> Android identity/root. Report:
+> `docs/reports/S22PLUS_NATIVE_INIT_M4T1_LIVE_GATE_PREFLIGHT_2026-07-07.md`. **No live flash was run.** Next live
+> use: `python3 workspace/public/src/scripts/revalidation/s22plus_m4t1_inplace_live_gate.py --live --ack
+> S22PLUS-M4T1-INPLACE-LIVE-GATE`; success means candidate self-enters download mode and rollback runs
+> immediately, failure means stop for manual download-mode recovery.
 
 > **🟢 STATUS (2026-07-05 18:52 KST) — WSTA207 LIVE SECCOMP CANARY LOAD/ENFORCE PASS.**
 > Codex stopped scaffolding and executed the attended WSTA198 SSH/chroot live canary.  The
