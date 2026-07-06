@@ -470,6 +470,19 @@ safety invariants and flash gates are binding and override any sub-goal.**
 > after the original Odin device first disconnects, and must be rolled back immediately to Magisk boot. If the
 > original Odin device never disconnects, helper rollback is no-proof cleanup; if self-download never appears,
 > stop for manual download-mode recovery.
+>
+> **INCIDENT UPDATE (2026-07-07 KST, M4T0 live):** Codex executed the guarded M4T0 boot-only live gate once.
+> Preflight passed, `adb reboot download` succeeded, the exact M4T0 AP flashed with Odin rc=0, and the original
+> Odin download-mode device disconnected after candidate transfer. The candidate did **not** self-enter download
+> mode within the bounded window (`m4t0_self_download_seen=0`), and ADB also remained absent, so the helper
+> exited rc=4 as designed without attempting a blind rollback. The operator then manually entered download
+> mode; host-side rollback flashed the pinned Magisk boot-only AP rc=0. Post-rollback Android returned with
+> `sys.boot_completed=1`, Magisk root `uid=0`, and live boot SHA256
+> `2e541703951dc725bad35850faf7028c2d910dd5f21166449b63f1248c29967e`. Retained evidence after rollback:
+> `/sys/fs/pstore` empty, `/proc/last_kmsg` 2097136 bytes, all `S22_NATIVE_INIT*` markers absent. Report:
+> `docs/reports/S22PLUS_NATIVE_INIT_M4T0_LIVE_RESULT_2026-07-07.md`. Interpretation: M4T0 did not successfully
+> execute the first-action download path; do not add more marker/dwell/watchdog logic on this branch. Next rung
+> is minimal-delta boot comparison or UART when available, with a fresh SHA-pinned exception before any live.
 
 > **🟢 STATUS (2026-07-05 18:52 KST) — WSTA207 LIVE SECCOMP CANARY LOAD/ENFORCE PASS.**
 > Codex stopped scaffolding and executed the attended WSTA198 SSH/chroot live canary.  The
