@@ -612,6 +612,20 @@ safety invariants and flash gates are binding and override any sub-goal.**
 > write, or partition write was performed. Report:
 > `docs/reports/S22PLUS_EUD_PHASE_B_TTY_DELTA_CLASSIFIER_2026-07-08.md`.
 
+> **S22+ CURRENT FRONTIER (2026-07-08 07:08 KST) — EUD PHASE-B POLICY ACTIVE; DRY-RUN PASS; LIVE NEXT.**
+> After explicit operator live approval, Codex promoted the narrow EUD Phase-B
+> exception into `AGENTS.md` for exactly
+> `workspace/public/src/scripts/revalidation/s22plus_eud_phase_b_enable_live_gate.py`
+> and ack token `S22PLUS-EUD-PHASE-B-ENABLE-LIVE-GATE`. Scope remains zero
+> flash/reboot/partition/native-init: one reversible write of `1` to
+> `/sys/module/eud/parameters/enable`, host `lsusb`/dmesg/serial observation,
+> then mandatory write of `0` back. Active readiness passed
+> (`agents.complete=true`), `py_compile` passed, read-only check passed
+> (`enable=0`, `ttyEUD0=1`), and the active default dry-run passed Android/root,
+> boot hash, EUD state, and host baseline checks without writes. Live gate is
+> now the next step. Report:
+> `docs/reports/S22PLUS_EUD_PHASE_B_POLICY_ACTIVATION_2026-07-08.md`.
+
 > **S22+ UPDATE (2026-07-08 03:40 KST) — RESET/PON REASON READ-ONLY PROBE DONE; BASELINE STILL CLEAN.**
 > Codex added and ran
 > `workspace/public/src/scripts/revalidation/s22plus_reset_reason_readonly_probe.py`,
