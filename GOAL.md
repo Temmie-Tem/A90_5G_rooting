@@ -275,6 +275,21 @@ safety invariants and flash gates are binding and override any sub-goal.**
 > device access was performed. Report:
 > `docs/reports/S22PLUS_RAMOOPS_DTBO_M22_SYSRQ_PANIC_GATE_SOURCE_2026-07-08.md`.
 
+> **S22+ CURRENT FRONTIER CORRECTION (2026-07-08 05:14 KST) — TRY SAMSUNG SEC_DEBUG DEBUG_LEVEL BEFORE SPENDING M22 LIVE.**
+> Commit `6d6d0ab5` added host finding
+> `docs/reports/S22PLUS_SEC_DEBUG_DEBUG_LEVEL_NATIVE_CONSOLE_HOSTFINDING_2026-07-08.md`:
+> the retained path on this model appears to be Samsung `sec_debug` gated by
+> `debug_level`, not the mainline `ramoops_region` status flip. Therefore the
+> M22+DTBO helper remains a prepared, guarded positive-control tool, but it
+> should not be the next consumed live unit by default. Next preferred unit is
+> zero-flash Android-side sec_debug validation: set `debug_level=MID` through
+> the Samsung SysDump path if available, trigger a rooted Android sysrq panic,
+> recover, and verify whether `/proc/last_kmsg`, Upload Mode, pmsg, or reset
+> evidence now contains the real kernel panic log. If that works, use the
+> Samsung sec_debug channel for native-init/QMP fault capture. If it fails, then
+> decide whether the already prepared M22+DTBO sysrq-panic gate is still worth
+> one attended run as a final mainline-ramoops negative control before EUD/UART.
+
 > **S22+ UPDATE (2026-07-08 03:40 KST) — RESET/PON REASON READ-ONLY PROBE DONE; BASELINE STILL CLEAN.**
 > Codex added and ran
 > `workspace/public/src/scripts/revalidation/s22plus_reset_reason_readonly_probe.py`,
