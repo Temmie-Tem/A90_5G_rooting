@@ -1,11 +1,17 @@
 #!/usr/bin/env python3
-"""Guarded S22+ ramoops-vendor_boot + M13 positive-control live gate.
+"""Retired S22+ ramoops-vendor_boot + M13 positive-control live gate.
 
 Default dry-run and all device modes require a future SHA-pinned AGENTS.md
 exception. --offline-check verifies only the host-built vendor_boot/M13 packages
 and rollback APs without touching a connected device.
 
-Intended live flow, once separately authorized:
+This live path is retired. The direct vendor_boot patch booted but did not affect
+the live ramoops status because stock DTBO overlays the node back to disabled.
+Recovery modes remain available for cleanup, but default dry-run and --live stop
+before Android/device access. Use s22plus_ramoops_dtbo_m13_capture_live_gate.py
+for the current DTBO-enabled positive-control path.
+
+Historical live flow:
 1. flash the direct-patched vendor_boot that enables ramoops;
 2. require Android/root to return and verify vendor_boot hash plus live DT status;
 3. flash the known parking M13 native-init boot candidate;
@@ -64,6 +70,10 @@ from s22plus_ramoops_dtbo_m18_capture_live_gate import reboot_android_to_downloa
 LIVE_ACK_TOKEN = "S22PLUS-RAMOOPS-VENDORBOOT-M13-CAPTURE-LIVE-GATE"
 ROLLBACK_BOOT_ACK_TOKEN = "S22PLUS-RAMOOPS-M13-ROLLBACK-BOOT-FROM-DOWNLOAD"
 RESTORE_VENDOR_BOOT_ACK_TOKEN = "S22PLUS-RAMOOPS-RESTORE-STOCK-VENDOR-BOOT"
+RETIRED_VENDOR_BOOT_PATH_REASON = (
+    "retired: direct vendor_boot-only ramoops did not affect the live DT; "
+    "use s22plus_ramoops_dtbo_m13_capture_live_gate.py"
+)
 
 EXPECTED_TARGET = "SM-S906N/g0q/S906NKSS7FYG8"
 EXPECTED_BOOT_MEMBER = "boot.img.lz4"
@@ -210,6 +220,11 @@ def verify_agents_exception(root: Path, log_path: Path) -> None:
     append_log(log_path, f"agents_exception_missing={missing}")
     if missing:
         raise SystemExit(f"AGENTS.md missing ramoops vendor_boot + M13 authorization markers: {missing}")
+
+
+def reject_retired_default_or_live(log_path: Path) -> None:
+    append_log(log_path, f"vendor_boot_m13_path_retired={RETIRED_VENDOR_BOOT_PATH_REASON}")
+    raise SystemExit(RETIRED_VENDOR_BOOT_PATH_REASON)
 
 
 def read_current_vendor_boot_hash(log_path: Path, serial: str, label: str) -> str:
@@ -388,6 +403,9 @@ def main(argv: list[str]) -> int:
         rc = restore_vendor_boot_from_download(odin, vendor_boot_rollback_ap, log_path, args.odin_wait_sec, args.android_wait_sec)
         print(f"stock vendor_boot restore-from-download completed rc={rc}; log={log_path}")
         return rc
+
+    if not args.restore_vendor_boot_from_android:
+        reject_retired_default_or_live(log_path)
 
     selected_serial = require_current_android(log_path, args.serial)
     verify_android_stability(

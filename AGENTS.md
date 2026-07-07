@@ -1411,9 +1411,16 @@ COMMIT → REPEAT) is defined in `GOAL.md`.
    M18/QMP candidates, additional DTBO candidates, kernel rebuilds, or any A90
    action.
    **Narrow operator-authorized exception (2026-07-08, S22+ ramoops vendor_boot + M13 positive-control only):**
-   after the direct byte-preserving vendor_boot host build proved
+   **Consumed/retired:** this exception was consumed by the 2026-07-08 live run.
+   The direct vendor_boot patch booted but live `ramoops_region/status` stayed
+   `disabled` because stock DTBO overlays the node, so this block no longer
+   authorizes a default dry-run or live `vendor_boot`+M13 attempt. The checked
+   helper now rejects the retired default/live path before Android/device access;
+   only explicit recovery modes for stock vendor_boot or boot rollback remain.
+   The current positive-control route is the separate DTBO-enabled M13 gate.
+   After the direct byte-preserving vendor_boot host build proved
    `changed_outside_allowed_count=0` and the gate source prepared the M13
-   positive-control flow, Codex may perform one bounded attended S22+ ramoops
+   positive-control flow, Codex previously authorized one bounded attended S22+ ramoops
    vendor_boot + M13 positive-control capture run on the Samsung S22+
    `SM-S906N`/`g0q` `S906NKSS7FYG8` using only the checked helper
    `workspace/public/src/scripts/revalidation/s22plus_ramoops_vendor_boot_m13_capture_live_gate.py`

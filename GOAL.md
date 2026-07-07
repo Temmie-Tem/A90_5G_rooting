@@ -177,11 +177,12 @@ safety invariants and flash gates are binding and override any sub-goal.**
 > retained `/proc/last_kmsg` contains Android `reboot,download` / XBL hard-reset
 > records rather than a native-init marker, panic, Oops, or SError proof. This
 > reinforces that the current retained channel still cannot explain the
-> native-init bootloop; the next proof remains the already policy-active
-> vendor_boot ramoops + M13 positive-control live gate. Report:
+> native-init bootloop. Superseded by the later active-DTB provenance audit and
+> DTBO status live pass: the current positive-control route is DTBO-enabled M13,
+> not the vendor_boot-only gate. Report:
 > `docs/reports/S22PLUS_RESET_REASON_READONLY_PROBE_2026-07-08.md`.
 
-> **S22+ CURRENT FRONTIER (2026-07-08 03:32 KST) — RAMOOPS VENDOR_BOOT + M13 CAPTURE POLICY ACTIVE; DRY-RUN PASS; LIVE NOT EXECUTED.**
+> **S22+ SUPERSEDED FRONTIER (2026-07-08 03:32 KST) — RAMOOPS VENDOR_BOOT + M13 CAPTURE POLICY WAS ACTIVE; LATER RETIRED.**
 > Codex added the narrow `AGENTS.md` exception for exactly the direct-patched
 > `vendor_boot` AP plus M13 boot positive-control flow, using only
 > `workspace/public/src/scripts/revalidation/s22plus_ramoops_vendor_boot_m13_capture_live_gate.py`.
@@ -196,11 +197,24 @@ safety invariants and flash gates are binding and override any sub-goal.**
 > and current `vendor_boot` SHA256
 > `096e433e049fb088cd956e083d5a1039b33cdf0ca907e713bba7feaaf1b080b7`.
 > Therefore the device is recovered to the rooted Magisk + stock vendor_boot
-> baseline, but the bootloop remains unexplained. Do not run blind candidates.
-> Next live step, only with operator-attended approval, is the ack-gated command
-> `S22PLUS-RAMOOPS-VENDORBOOT-M13-CAPTURE-LIVE-GATE`, followed by mandatory
-> boot rollback and stock vendor_boot restore gates. Report:
+> baseline, but the bootloop remains unexplained. Later live evidence proved the
+> vendor_boot-only ramoops path did not affect the live DT, so this route is now
+> retired and must not be used for the current positive-control. Report:
 > `docs/reports/S22PLUS_RAMOOPS_VENDOR_BOOT_M13_CAPTURE_POLICY_ACTIVATION_2026-07-08.md`.
+
+> **S22+ UPDATE (2026-07-08 04:32 KST) — RETIRED VENDOR_BOOT-ONLY M13 PATH FAILS CLOSED BEFORE DEVICE ACCESS.**
+> Codex tightened the superseded
+> `workspace/public/src/scripts/revalidation/s22plus_ramoops_vendor_boot_m13_capture_live_gate.py`
+> path after the active-DTB provenance audit and DTBO status live pass. The
+> helper now preserves host `--offline-check` and explicit recovery modes, but
+> rejects default dry-run/`--live` with a retired-route message before
+> Android/device access. `AGENTS.md` now marks the old vendor_boot+M13 exception
+> as consumed/retired, and the stale GOAL text now points to the DTBO-enabled
+> M13 route. Validation: `py_compile` pass; old helper `--offline-check` pass;
+> old helper default execution returns rc=1 with
+> `retired: direct vendor_boot-only ramoops did not affect the live DT`. No
+> flash/reboot/write was performed. Report:
+> `docs/reports/S22PLUS_RAMOOPS_VENDOR_BOOT_M13_RETIREMENT_2026-07-08.md`.
 
 > **S22+ LIVE STATUS RECHECK (2026-07-08 03:13 KST) — OPERATOR BOOTLOOP/MANUAL-DOWNLOAD REPORT, BASELINE VERIFIED.**
 > Operator reported another bootloop observation followed by manual download
