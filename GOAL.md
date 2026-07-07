@@ -765,6 +765,24 @@ safety invariants and flash gates are binding and override any sub-goal.**
 > expansion from this result. Report:
 > `docs/reports/S22PLUS_M18_P00_PREFIX_DOWNLOAD_LIVE_RESULT_2026-07-08.md`.
 
+> **S22+ UPDATE (2026-07-08 08:30 KST) — STALE M21A LIVE AUTH RETIRED; M22 READINESS AUDIT PASS, POLICY INERT.**
+> Codex retired the unconsumed M21A raw nanosleep-download authorization and its
+> matching Odin-path exception because the current direction is observability
+> first, not further Download-beacon/floor-discriminator work. The M21A helper
+> now fails closed at the AGENTS marker gate. Codex added
+> `workspace/public/src/scripts/revalidation/s22plus_ramoops_dtbo_m22_sysrq_panic_readiness_audit.py`
+> and tests. The audit passed host-only: M22 inert draft marker coverage is
+> complete, active `AGENTS.md` is intentionally incomplete, M22 `--offline-check`
+> and `--print-plan` pass, and default execution fails closed before
+> Android/device access. The M22 plan now prints the retained marker
+> `S22_NATIVE_INIT_M22_KMSG_SYSRQ_PANIC` and `sysrq-trigger-c` explicitly. No
+> live flash, reboot, Odin transfer, Android command, partition write, sysfs
+> write, or recovery action was performed. Next live-capable step, only after
+> explicit operator approval, is M22 policy promotion + default dry-run +
+> attended M22 retained-console gate. Do not run M21A, P10, M20B/M20C, or wider
+> prefixes by default. Report:
+> `docs/reports/S22PLUS_M21A_RETIRE_AND_M22_READINESS_AUDIT_2026-07-08.md`.
+
 > **S22+ UPDATE (2026-07-08 03:40 KST) — RESET/PON REASON READ-ONLY PROBE DONE; BASELINE STILL CLEAN.**
 > Codex added and ran
 > `workspace/public/src/scripts/revalidation/s22plus_reset_reason_readonly_probe.py`,
