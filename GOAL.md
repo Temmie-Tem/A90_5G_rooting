@@ -23,6 +23,29 @@ safety invariants and flash gates are binding and override any sub-goal.**
 > no-UART fallback is pursued, first design host-only as a checkpoint/download
 > discriminator or dependency-closed USB-tail candidate with a fresh SHA-pinned
 > gate; no blind same-shape live.
+>
+> **🎯 OPERATOR NOTE (2026-07-08, shipped-config analysis — the USB gadget stack is BUILT-IN; only the
+> hardware providers are the faulting modules).** From the captured `/proc/config.gz`: the entire gadget
+> *software* path is `=y` (no modules): `CONFIG_USB_DWC3=y`, **`CONFIG_USB_DWC3_QCOM=y` (the clean mainline
+> `dwc3-qcom` glue is already built in)**, `CONFIG_USB_GADGET=y`, `CONFIG_USB_LIBCOMPOSITE=y`,
+> `CONFIG_USB_F_ACM=y`, `CONFIG_USB_U_SERIAL=y`, `CONFIG_USB_CONFIGFS(_ACM)=y`; also `CONFIG_SPMI=y`,
+> `CONFIG_QCOM_GDSC=y`, `CONFIG_REGULATOR=y`, `CONFIG_PSTORE_RAM/CONSOLE/PMSG=y`. What is **module-only** (and
+> therefore what we are actually fighting) is the **hardware providers**: the PHYs (`phy-msm-ssusb-qmp` /
+> `-snps-hs` / `-eusb2` — NOT built-in) and the SoC clock/regulator providers (`clk-rpmh`, `gcc-waipio`,
+> `rpmh-regulator`). M15 isolated the reset to the QMP PHY module specifically. **Two consequences:** (1)
+> Observability is module-free — `ramoops`/pstore is built-in; but the DTBO M18 capture retained only ABL/
+> download records in `last_kmsg`, so specifically check **`/sys/fs/pstore/console-ramoops`** (distinct from
+> `last_kmsg`) and/or flip the **vendor_boot** `reserved-memory/ramoops_region` `status` `disabled`→`okay`
+> (region already reserved; needs a fresh SHA-pinned vendor_boot-only gate) so the **kernel** console (not just
+> ABL) is retained. (2) **Strategic card worth a host-only check before UART:** because `dwc3-qcom` (mainline
+> glue) is built-in and cleaner than the vendor `dwc3-msm`, a candidate that loads ONLY PHY + clocks +
+> regulators (NOT `dwc3-msm`) and lets the built-in glue bind `a600000` would drop the vendor glue's Android
+> coupling — **contingent on the `dwc3@a600000` DTS `compatible` actually matching the built-in `qcom,dwc3`
+> path, and on the powered QMP PHY not faulting on its own** (still unproven; M15's PHY was naked). Precedent:
+> SM8450 USB-from-minimal-init is solved in mainline/postmarketOS (Linaro day-1), so the goal is feasible; the
+> wall is the vendor `dwc3-msm`/PHY power-sequence coupling, which the pstore console (or UART) will pinpoint.
+> Reports: `docs/reports/S22PLUS_RAMOOPS_ENABLE_CONSOLE_WITHOUT_UART_STEER_2026-07-08.md`,
+> `docs/reports/S22PLUS_USB_PERIPHERAL_BRINGUP_MECHANISM_HOSTANALYSIS_2026-07-07.md`.
 
 > Running mode note: this loop runs unattended (incl. Codex bypass) and is **OPERATOR-PRE-AUTHORIZED
 > BY PRINCIPLE (2026-06-15)**, not by an enumerated mechanism list. **The rule: the loop MAY
