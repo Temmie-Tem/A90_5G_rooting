@@ -839,6 +839,54 @@ COMMIT → REPEAT) is defined in `GOAL.md`.
    authorize display/distro candidates, kernel rebuild, recovery/vendor_boot/
    vbmeta/non-boot flash, raw host `dd`, fastboot, multidisabler, format data,
    or any A90 action.
+   **Narrow operator-authorized exception (2026-07-07, S22+ M10A1 stat-dev
+   reboot native-init boot-only live gate):** after the M10A live result was
+   operator-corrected to bootloop/manual-download rollback and the M10A1 host
+   build report proved the read-only stat-dev discriminator, Codex may prepare
+   and perform one bounded attended boot-partition-only M10A1 live gate on the
+   same Samsung S22+ `SM-S906N`/`g0q` `S906NKSS7FYG8` using the checked helper
+   `workspace/public/src/scripts/revalidation/s22plus_m10a1_stat_dev_reboot_live_gate.py`
+   with live ack token `S22PLUS-M10A1-STAT-DEV-REBOOT-LIVE-GATE` and
+   rollback-only ack token `S22PLUS-M10A1-ROLLBACK-FROM-DOWNLOAD`. The exact
+   candidate AP.tar.md5 SHA256 must be
+   `68a7f1f5b336a32d882e7cdde73f299815d689b6885b724a6b6c7672bdda00bf`, the
+   contained padded `boot.img` SHA256 must be
+   `2fe6b3270f7d493f677f126594061eea33d22de7abe98dc2210fe8050961ecb2`, the
+   known-booting Magisk boot base SHA256 must be
+   `2e541703951dc725bad35850faf7028c2d910dd5f21166449b63f1248c29967e`, the
+   preserved Magisk-patched kernel SHA256 must be
+   `bceca73edbfca3499148e16741c939779157925949ef6bc8a8e31d6b68fc2cff`, the
+   M10A1 `/init` SHA256 must be
+   `477583121c6c29f5eb31866c034352abb2f03c8fe97ec71e2f63ecbddd6f1642`, and
+   the M10A1 source SHA256 must be
+   `a60b66ec5d07f93bb9e29ac96c342e57621815630c29f31653b104e19f7ff86b`. The
+   AP must contain exactly one tar member, `boot.img.lz4`, with no recovery,
+   vendor_boot, vbmeta, vbmeta_system, dtbo, BL, CP, CSC, super, persist,
+   userdata, EFS, RPMB, keymaster, modem, or any other partition payload. The
+   M10A1 candidate may only run as direct PID1 with a freestanding C raw-syscall
+   runtime, execute exactly one `newfstatat(AT_FDCWD, "/dev", ...)` read-only
+   pathname VFS probe, then one direct `reboot(2)` syscall requesting Samsung
+   download-mode return, and then park if that syscall returns. The helper must
+   wait for the original Odin endpoint to disconnect before treating a later
+   Odin endpoint as a candidate-or-manual download endpoint. Because of the
+   M10A manual-download ambiguity, a later endpoint is not automatic proof
+   unless the operator confirms no manual download-mode entry occurred. M10A1
+   must use no mkdirat, no marker, no kmsg, no mknodat, no mount, no sleep, no
+   module insertion, no configfs, no USB gadget, no UDC binding, and no USB role
+   force. The M10A1 `/init` must not start Android or Magisk, mount persistent
+   partitions, write block devices, touch watchdog, install Magisk modules,
+   format data, or inject vendor module binaries or module-list files into the
+   boot ramdisk. If download mode does not appear in the bounded window,
+   rollback requires manual download-mode rollback through the same helper's
+   `--rollback-from-download --ack S22PLUS-M10A1-ROLLBACK-FROM-DOWNLOAD` mode,
+   using the exact Magisk boot-only rollback AP SHA256
+   `d2373bf88dda342709440dc3db468f11d80a4593856768a4d8ae402bef215a56` first,
+   or the exact stock boot-only fallback AP SHA256
+   `1ee92a86f30e4acb12509272630e1bef5215d1a12686ac69a3b399b43740535e` if the
+   operator explicitly selects stock rollback. This exception does not
+   authorize display/distro candidates, kernel rebuild, recovery/vendor_boot/
+   vbmeta/non-boot flash, raw host `dd`, fastboot, multidisabler, format data,
+   or any A90 action.
 2. **Flash only via the checked helper by default:** `workspace/public/src/scripts/revalidation/native_init_flash.py`.
    Never `dd`/`fastboot`/raw-write a partition. Never invent a new flash path.
    **Narrow operator-authorized exception (2026-07-02, self-dd ladder only):** the V3358
