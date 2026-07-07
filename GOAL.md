@@ -1711,6 +1711,21 @@ safety invariants and flash gates are binding and override any sub-goal.**
 > If M17 parks or ACM appears, it has no reboot/download path by design; manually enter download mode and
 > rollback with `--rollback-from-download --ack S22PLUS-M17-ROLLBACK-FROM-DOWNLOAD`.
 >
+> **STATUS UPDATE (2026-07-08 KST, M17 live result - bootloop, rollback clean):** Codex executed the attended
+> M17 boot-only live gate once. Preflight passed, `adb reboot download` succeeded, Odin saw download mode,
+> and the exact M17 AP SHA256 `78b2641788a1517f39bdbd50dc425dbaeab0683aa662bcd8bfe9c925a8a50274` flashed
+> with Odin rc=0. During the bounded observation window no M17 ACM transport, ADB transport, or Odin transport
+> appeared. The operator observed a boot loop and manually entered download mode. Codex then executed the
+> rollback-only helper with ack `S22PLUS-M17-ROLLBACK-FROM-DOWNLOAD`; the pinned Magisk boot-only rollback AP
+> flashed with Odin rc=0, Android returned (`boot_completed=1`, `bootanim=stopped`, verified boot state orange),
+> Magisk root was available, and the boot partition SHA256 matched the pinned baseline
+> `2e541703951dc725bad35850faf7028c2d910dd5f21166449b63f1248c29967e`. Report:
+> `docs/reports/S22PLUS_NATIVE_INIT_M17_POWER_QMP_LIVE_RESULT_2026-07-08.md`. Interpretation:
+> **powered QMP still bootloops, no ACM; rollback clean**. This falsifies the simple branch that M15 failed
+> only because QMP lacked its basic power/clock substrate. Do not continue blind S22+ native-init module-subset
+> permutations from here. Next bounded unit should be host-only: M17 postmortem plus a UART-quality or otherwise
+> retained observation-channel plan before any further live S22+ native-init flash.
+>
 > **🎯 SUPERSEDED OPERATOR STEER (2026-07-07, M7 was the live-ready USB-ACM candidate before the live result above;
 > reads: `docs/reports/S22PLUS_USB_PERIPHERAL_BRINGUP_MECHANISM_HOSTANALYSIS_2026-07-07.md` +
 > `docs/reports/S22PLUS_NATIVE_INIT_M6_BOOTLOOP_POSTMORTEM_OPERATOR_2026-07-07.md` +
