@@ -29,6 +29,32 @@ safety invariants and flash gates are binding and override any sub-goal.**
 > proves dead: EUD (in-SoC USB-C debug console, no jig) → UART jig last. Full
 > rationale: `docs/reports/S22PLUS_RAMOOPS_POSITIVE_CONTROL_OBSERVABILITY_STEER_2026-07-08.md`.
 
+> **S22+ CURRENT FRONTIER (2026-07-08 03:07 KST) — RAMOOPS VENDOR_BOOT DIRECT ENABLE HOST BUILD READY; NO LIVE AUTH.**
+> Following the observability steer, Codex built a host-only vendor_boot direct
+> DTB patch under
+> `workspace/private/outputs/s22plus_ramoops_vendor_boot_enable_v0_1`.
+> Local DT evidence corrects the earlier direct-patch wording: stock vendor_boot
+> DTB has 4 concatenated blobs, each already has
+> `/reserved-memory/ramoops_region`, and none has a `status` property, so the
+> patch **adds** `status = "okay"` to all 4 blobs rather than changing
+> `disabled -> okay`. Extracting the patched vendor_boot re-confirms all 4
+> blobs read `okay`. Candidate AP member is exactly `vendor_boot.img.lz4`;
+> candidate AP SHA256
+> `f7c4c245f2fe92435a743bf718a31f0508b0fd13f173f3288627c5ce436c1de1`;
+> patched vendor_boot SHA256
+> `7110a7f910e55e48ddb944275ce44a5b8dfe19ca5940743b88066c3288fb8163`;
+> patched DTB SHA256
+> `b862359dc65adb1eb9f5f17f1b8be637eb0135e88a681d779f9cbeda3ae5a3ec`;
+> stock vendor_boot rollback AP SHA256
+> `2f9075fe609e7aa66c2ec88a2bd0223d6a9d7ff23d8bab0f7c4eb44633f480bb`.
+> Important caveat: `magiskboot repack -n` is not byte-identical even without DTB
+> changes (`nochange_repack_changed_byte_count=3458`), so a future live gate
+> must explicitly accept that repack drift or replace the packer with a stronger
+> byte-preserving path. Report:
+> `docs/reports/S22PLUS_RAMOOPS_VENDOR_BOOT_ENABLE_HOST_BUILD_2026-07-08.md`.
+> **No live flash is authorized.** Next high-value unit is a vendor_boot live-gate
+> design/preflight for the M13 positive control, not blind M21/M20 expansion.
+
 > **S22+ UPDATE (2026-07-08 02:58 KST) — M21A RAW NANOSLEEP-DOWNLOAD LIVE GATE PREFLIGHT READY, NOT EXECUTED.**
 > Codex added the SHA-pinned M21A-only `AGENTS.md` exception and guarded helper
 > `workspace/public/src/scripts/revalidation/s22plus_m21a_raw_nanosleep_download_live_gate.py`.
