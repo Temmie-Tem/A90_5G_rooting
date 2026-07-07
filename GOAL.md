@@ -597,6 +597,21 @@ safety invariants and flash gates are binding and override any sub-goal.**
 > write was performed. Report:
 > `docs/reports/S22PLUS_EUD_PHASE_B_HOST_TTY_OBSERVER_2026-07-08.md`.
 
+> **S22+ UPDATE (2026-07-08 07:05 KST) — EUD PHASE-B TTY DELTA CLASSIFIER READY; LIVE STILL INACTIVE.**
+> Codex tightened the EUD Phase-B live-result classifier. The helper now computes
+> `tty_delta_after_enable` and `tty_delta_after_disable` by comparing
+> `host_tty_paths` against the pre-enable baseline, records
+> `host_new_serial_tty_hint`, and treats either a host EUD USB hint or a new host
+> serial/TTY path after enable as positive live evidence, while still requiring
+> `enable` to be restored to `0`. The policy draft now requires the
+> `new host serial/TTY path` marker, and the readiness auditor includes a
+> synthetic delta self-test so this classifier is covered without live writes.
+> Validation passed: `py_compile`, `--offline-check`, `--print-plan`,
+> inactive readiness audit, readiness audit with `--include-read-only-check`,
+> and negative active-policy check. No live EUD enable, flash, reboot, sysfs
+> write, or partition write was performed. Report:
+> `docs/reports/S22PLUS_EUD_PHASE_B_TTY_DELTA_CLASSIFIER_2026-07-08.md`.
+
 > **S22+ UPDATE (2026-07-08 03:40 KST) — RESET/PON REASON READ-ONLY PROBE DONE; BASELINE STILL CLEAN.**
 > Codex added and ran
 > `workspace/public/src/scripts/revalidation/s22plus_reset_reason_readonly_probe.py`,

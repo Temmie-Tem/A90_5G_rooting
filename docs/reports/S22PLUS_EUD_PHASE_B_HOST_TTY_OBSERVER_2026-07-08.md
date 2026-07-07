@@ -116,3 +116,9 @@ default EUD helper dry-run: fails closed at agents_exception missing EUD Phase-B
 EUD Phase-B remains prepared but not live-authorized. The next live step still
 requires explicit attended approval, active policy promotion, and the reversible
 `enable=1` -> host USB/serial observation -> `enable=0` sequence.
+
+## Follow-Up Hardening
+
+`docs/reports/S22PLUS_EUD_PHASE_B_TTY_DELTA_CLASSIFIER_2026-07-08.md`
+extends this observer so the live summary explicitly reports before/after TTY
+deltas and treats a newly added host serial path as positive EUD evidence.

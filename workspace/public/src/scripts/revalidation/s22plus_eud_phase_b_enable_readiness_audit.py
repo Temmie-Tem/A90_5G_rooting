@@ -83,6 +83,22 @@ def fail(message: str, report: dict[str, Any]) -> None:
     report.setdefault("failures", []).append(message)
 
 
+def validate_tty_delta_classifier(report: dict[str, Any]) -> None:
+    before = {"host_tty_paths": ["/dev/serial/by-id/android", "/dev/ttyACM0"]}
+    after_enable = {"host_tty_paths": ["/dev/serial/by-id/android", "/dev/ttyACM0", "/dev/ttyUSB0"]}
+    after_disable = {"host_tty_paths": ["/dev/serial/by-id/android", "/dev/ttyACM0"]}
+    enabled_delta = gate.host_tty_path_delta(before, after_enable)
+    restored_delta = gate.host_tty_path_delta(before, after_disable)
+    report["tty_delta_classifier"] = {
+        "enabled_delta": enabled_delta,
+        "restored_delta": restored_delta,
+    }
+    if enabled_delta["added"] != ["/dev/ttyUSB0"] or not enabled_delta["new_tty_paths_detected"]:
+        fail(f"TTY delta classifier did not identify synthetic new path: {enabled_delta}", report)
+    if restored_delta["added"] or restored_delta["removed"] or restored_delta["new_tty_paths_detected"]:
+        fail(f"TTY delta classifier did not treat restored baseline as unchanged: {restored_delta}", report)
+
+
 def main(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--draft", type=Path, default=DEFAULT_DRAFT)
@@ -128,6 +144,7 @@ def main(argv: list[str] | None = None) -> int:
         "commands": {},
         "failures": [],
     }
+    validate_tty_delta_classifier(report)
 
     if args.expect_agents_inactive and report["agents"]["complete"]:
         fail("AGENTS.md already contains all EUD Phase-B markers; this audit expected inactive policy", report)
@@ -159,6 +176,7 @@ def main(argv: list[str] | None = None) -> int:
         "--read-only-check",
         "--live",
         "host serial/TTY",
+        "new host serial/TTY path",
     ]:
         if expected not in plan_output:
             fail(f"EUD gate --print-plan missing expected text: {expected}", report)

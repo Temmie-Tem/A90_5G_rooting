@@ -118,6 +118,21 @@ def collect_host_tty_paths(summary: dict[str, Any]) -> list[str]:
     return sorted(paths)
 
 
+def host_tty_path_delta(before: dict[str, Any], after: dict[str, Any] | None) -> dict[str, Any]:
+    before_paths = set(before.get("host_tty_paths") or [])
+    after_paths = set((after or {}).get("host_tty_paths") or [])
+    added = sorted(after_paths - before_paths)
+    removed = sorted(before_paths - after_paths)
+    return {
+        "before": sorted(before_paths),
+        "after": sorted(after_paths),
+        "added": added,
+        "removed": removed,
+        "changed": bool(added or removed),
+        "new_tty_paths_detected": bool(added),
+    }
+
+
 def collect_host_state(run_dir: Path, log_path: Path, label: str, odin: Path) -> dict[str, Any]:
     summary: dict[str, Any] = {
         "label": label,
@@ -248,6 +263,7 @@ def required_policy_markers() -> list[str]:
         "no module insertion",
         "host lsusb",
         "host serial/TTY",
+        "new host serial/TTY path",
     ]
 
 
@@ -279,6 +295,7 @@ def print_plan() -> None:
     print("3. Run live reversible enable:")
     print(f"   PYTHONPYCACHEPREFIX=/tmp/a90_pycache python3 {script} --live --ack {LIVE_ACK_TOKEN}")
     print(f"4. Helper will write 1 to {EUD_ENABLE_PARAM}, collect host lsusb/dmesg and host serial/TTY snapshots, then write 0 back.")
+    print("5. Success evidence is a host EUD USB hint or a new host serial/TTY path after enable, with enable restored to 0.")
     print("Scope: no flash, no reboot, no partition write, no module insertion, no native-init candidate.")
 
 
@@ -370,6 +387,10 @@ def main(argv: list[str]) -> int:
 
     restored = disable_result is not None and disable_result["rc"] == 0 and after_disable.get("enable_value") == 0
     host_eud_hint = bool(host_after_enable.get("host_eud_usb_hint")) if "host_after_enable" in locals() else False
+    tty_delta_after_enable = host_tty_path_delta(host_before, locals().get("host_after_enable"))
+    tty_delta_after_disable = host_tty_path_delta(host_before, host_after_disable)
+    host_new_serial_tty_hint = bool(tty_delta_after_enable["new_tty_paths_detected"])
+    host_eud_or_new_tty_hint = bool(host_eud_hint or host_new_serial_tty_hint)
     summary = {
         "before": before,
         "host_before": host_before,
@@ -381,16 +402,21 @@ def main(argv: list[str]) -> int:
         "host_after_disable": host_after_disable,
         "restored_enable_0": restored,
         "host_eud_usb_hint": host_eud_hint,
+        "host_new_serial_tty_hint": host_new_serial_tty_hint,
+        "host_eud_or_new_tty_hint": host_eud_or_new_tty_hint,
+        "tty_delta_after_enable": tty_delta_after_enable,
+        "tty_delta_after_disable": tty_delta_after_disable,
     }
     write_text(run_dir / "summary.json", json.dumps(summary, indent=2, sort_keys=True) + "\n")
     print(
         "EUD Phase-B live completed; "
-        f"enabled={int(enabled)} restored_enable_0={int(restored)} host_eud_usb_hint={int(host_eud_hint)}; "
+        f"enabled={int(enabled)} restored_enable_0={int(restored)} "
+        f"host_eud_usb_hint={int(host_eud_hint)} host_new_serial_tty_hint={int(host_new_serial_tty_hint)}; "
         f"log={display_path(log_path)}"
     )
     if not restored:
         return 6
-    return 0 if host_eud_hint else 10
+    return 0 if host_eud_or_new_tty_hint else 10
 
 
 if __name__ == "__main__":
