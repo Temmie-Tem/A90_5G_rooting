@@ -185,6 +185,38 @@ def restore_stock_dtbo_from_android(
     return restore_dtbo_from_download(odin, dtbo_rollback_ap, log_path, odin_wait_sec, android_wait_sec, serial)
 
 
+def restore_stock_dtbo_after_m13_download_missing(
+    odin: Path,
+    dtbo_rollback_ap: Path,
+    log_path: Path,
+    odin_wait_sec: int,
+    android_wait_sec: int,
+) -> int:
+    append_log(log_path, "m13_candidate_download_missing_attempting_dtbo_restore=1")
+    try:
+        restore_rc = restore_dtbo_from_download(odin, dtbo_rollback_ap, log_path, odin_wait_sec, android_wait_sec)
+    except SystemExit as restore_error:
+        append_log(log_path, f"m13_candidate_download_missing_dtbo_restore_exception={restore_error}")
+        print(
+            "download mode did not appear for M13 candidate flash and stock DTBO auto-restore could not start. "
+            "Enter download mode manually and run --restore-dtbo-from-download.",
+            file=sys.stderr,
+        )
+        return 2
+    append_log(log_path, f"m13_candidate_download_missing_dtbo_restore_rc={restore_rc}")
+    if restore_rc != 0:
+        print(
+            f"download mode did not appear for M13 candidate flash; stock DTBO restore rc={restore_rc}; log={log_path}",
+            file=sys.stderr,
+        )
+        return restore_rc
+    print(
+        f"download mode did not appear for M13 candidate flash; stock DTBO restored; log={log_path}",
+        file=sys.stderr,
+    )
+    return 12
+
+
 def print_operator_plan(
     dtbo_candidate_ap: Path,
     dtbo_rollback_ap: Path,
@@ -455,8 +487,13 @@ def main(argv: list[str]) -> int:
     reboot_android_to_download(patched_serial, log_path, "m13_candidate")
     device = wait_for_odin(odin, log_path, "m13-candidate-wait", args.odin_wait_sec)
     if device is None:
-        print("download mode did not appear for M13 candidate flash; patched DTBO restore may be needed", file=sys.stderr)
-        return 2
+        return restore_stock_dtbo_after_m13_download_missing(
+            odin,
+            dtbo_rollback_ap,
+            log_path,
+            args.odin_wait_sec,
+            args.android_wait_sec,
+        )
     rc = flash_ap(odin, m13_ap, device, log_path, "m13_candidate")
     if rc != 0:
         append_log(log_path, f"m13_candidate_flash_failed_attempting_dtbo_restore_rc={rc}")

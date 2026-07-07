@@ -189,6 +189,19 @@ safety invariants and flash gates are binding and override any sub-goal.**
 > promotion, flash, reboot, write, or device access was performed. Report:
 > `docs/reports/S22PLUS_RAMOOPS_DTBO_M13_CAPTURE_OPERATOR_PLAN_2026-07-08.md`.
 
+> **S22+ UPDATE (2026-07-08 04:43 KST) — DTBO+M13 MISSING-DOWNLOAD CLEANUP PATH HARDENED.**
+> Before activating the live policy, Codex hardened
+> `workspace/public/src/scripts/revalidation/s22plus_ramoops_dtbo_m13_capture_live_gate.py`
+> for the boundary where patched DTBO is already verified, the helper reboots
+> toward Download for the M13 boot flash, and the M13 Odin endpoint never
+> appears. That path now attempts the existing stock-DTBO rollback from Download
+> mode, logs the restore result, still returns nonzero after cleanup so the M13
+> capture is not misreported as a pass, and prints the manual
+> `--restore-dtbo-from-download` instruction if auto-restore cannot start. This
+> is host-only hardening: no `AGENTS.md` promotion, live policy, flash, reboot,
+> write, or device access was performed. Report:
+> `docs/reports/S22PLUS_RAMOOPS_DTBO_M13_DOWNLOAD_MISSING_RESTORE_HARDENING_2026-07-08.md`.
+
 > **S22+ UPDATE (2026-07-08 03:40 KST) — RESET/PON REASON READ-ONLY PROBE DONE; BASELINE STILL CLEAN.**
 > Codex added and ran
 > `workspace/public/src/scripts/revalidation/s22plus_reset_reason_readonly_probe.py`,
