@@ -191,3 +191,29 @@ known-bad pass4 set: retained
 Do not apply the old pass4 set as a batch again. If further package-count
 reduction is needed, probe only one or two packages at a time with a reboot
 validation after each probe.
+
+## 2026-07-08 Follow-Up: Debug-Channel Overlay
+
+The safe debloat boundary above is still the historical Android boot/stability
+checkpoint. It is not sufficient for the later Samsung SysDump / sec_debug MID
+observability path.
+
+After `*#9900#` stopped reacting, live package inspection showed that the
+Samsung ServiceMode/DRParser stack was present as system APKs but removed from
+user 0. Restoring these three packages made the physical SysDump route visible
+again:
+
+```text
+com.sec.android.app.servicemodeapp
+com.sec.android.RilServiceModeApp
+com.sec.android.app.parser
+```
+
+For current S22+ native-init observability work, apply the debug overlay in:
+
+```text
+docs/plans/S22PLUS_ANDROID_DEBUG_CHANNEL_REQUIRED_PACKAGES_2026-07-08.txt
+```
+
+Do not remove those three packages while Samsung SysDump, ServiceMode, or
+sec_debug MID remains the active debug channel.

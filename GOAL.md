@@ -384,6 +384,24 @@ safety invariants and flash gates are binding and override any sub-goal.**
 > confirm that a later boot-only `console=ttyEUD0` route is the right experiment.
 > Report: `docs/reports/S22PLUS_EUD_PHASE_A_READONLY_PROBE_2026-07-08.md`.
 
+> **S22+ LIVE RESULT (2026-07-08 06:00 KST) — SYSDUMP PHYSICAL DIALER ROUTE RESTORED AFTER DEBUG PACKAGE OVERLAY.**
+> The physical `*#9900#` route initially did not react because the Samsung
+> ServiceMode/DRParser packages were present as system APKs but removed from
+> user 0 by debloat: `com.sec.android.app.servicemodeapp`,
+> `com.sec.android.RilServiceModeApp`, and `com.sec.android.app.parser`.
+> Codex restored only those three packages with
+> `cmd package install-existing --user 0 ...`; no flash, reboot, partition
+> write, sysfs/procfs write, sysrq, Odin transfer, or Magisk module action was
+> performed. User-0 package count is now `119`, and the operator visually
+> confirmed the SysDump UI appears. ADB agreed: the visible/focused window is
+> `com.sec.android.app.servicemodeapp/.CPDebugLevel`, with the SysDump task
+> present. A follow-up `--read-only-probe` still decodes
+> `debug_level=20300 / 0x4f4c / LO`, so the intentional sysrq panic gate remains
+> parked until the operator sets DEBUG LEVEL MID in the UI and a read-only probe
+> confirms the value moved off LOW. Added debug package overlay:
+> `docs/plans/S22PLUS_ANDROID_DEBUG_CHANNEL_REQUIRED_PACKAGES_2026-07-08.txt`.
+> Report: `docs/reports/S22PLUS_SYSDUMP_PACKAGE_RESTORE_2026-07-08.md`.
+
 > **S22+ UPDATE (2026-07-08 03:40 KST) — RESET/PON REASON READ-ONLY PROBE DONE; BASELINE STILL CLEAN.**
 > Codex added and ran
 > `workspace/public/src/scripts/revalidation/s22plus_reset_reason_readonly_probe.py`,

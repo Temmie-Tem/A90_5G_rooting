@@ -1,0 +1,41 @@
+# S22+ debug-channel package overlay (2026-07-08)
+
+Apply this overlay on top of the historical
+`S22PLUS_ANDROID_116_PACKAGE_ALLOWLIST_2026-07-06.txt` checkpoint before using
+Samsung SysDump, sec_debug MID, ServiceMode, CP debug, or EUD/debug-channel
+workflows.
+
+The 116-package list is still the historical minimal Android checkpoint. This
+overlay is the narrower debug-work requirement discovered after `*#9900#`
+stopped reacting.
+
+Required user-0 packages:
+
+```text
+com.sec.android.app.servicemodeapp
+com.sec.android.RilServiceModeApp
+com.sec.android.app.parser
+```
+
+Restore command:
+
+```bash
+adb shell 'cmd package install-existing --user 0 com.sec.android.app.servicemodeapp'
+adb shell 'cmd package install-existing --user 0 com.sec.android.RilServiceModeApp'
+adb shell 'cmd package install-existing --user 0 com.sec.android.app.parser'
+```
+
+Observed result after restore:
+
+```text
+user-0 package count: 119
+com.sec.android.app.servicemodeapp installed=true
+com.sec.android.RilServiceModeApp installed=true
+com.sec.android.app.parser installed=true
+physical dialer *#9900# opens Samsung SysDump / CPDebugLevel UI
+```
+
+Do not remove these three while the current S22+ observability frontier depends
+on Samsung SysDump or sec_debug MID. If package-count reduction is needed later,
+retire this overlay only after an equivalent non-SysDump console path is proven
+live.
