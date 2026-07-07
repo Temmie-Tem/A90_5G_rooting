@@ -783,6 +783,29 @@ safety invariants and flash gates are binding and override any sub-goal.**
 > prefixes by default. Report:
 > `docs/reports/S22PLUS_M21A_RETIRE_AND_M22_READINESS_AUDIT_2026-07-08.md`.
 
+> **S22+ LIVE RESULT (2026-07-08 08:40 KST) — DTBO+M22 SYSRQ-PANIC NO-HIT; DEVICE CLEAN RESTORED.**
+> Operator-approved M22 retained-console gate ran once and was then retired. The
+> active dry-run passed first, then the helper flashed patched DTBO
+> (`dtbo_candidate_odin_rc=0`), verified patched DTBO hash and live
+> `ramoops_region/status=okay`, flashed the M22 boot AP
+> (`m22_candidate_odin_rc=0`), and observed Download after the bootloop path.
+> The operator manually entered Download mode; the helper detected the endpoint,
+> restored the pinned Magisk boot baseline (`magisk_boot_rollback_odin_rc=0`),
+> collected pstore and retained last_kmsg, found no M22 retained marker
+> (`m22_retained_marker_found=0`), restored stock DTBO
+> (`stock_dtbo_rollback_odin_rc=0`), and verified
+> `stock_restore_ramoops_status=disabled`. Final helper `rc=10` means marker
+> no-hit after successful rollback/restore, not cleanup failure. A final
+> read-only baseline preflight passed: Android/root available, boot SHA
+> `2e541703951dc725bad35850faf7028c2d910dd5f21166449b63f1248c29967e`, stock
+> DTBO SHA `97a4864fee4e61892d733962d1ec76f8d14b52bc19e6f47440bc27d9dfc4bd0c`,
+> and live `ramoops_region/status=disabled`. `AGENTS.md` now marks the one-shot
+> M22 exception consumed/retired; default M22 helper execution again fails closed
+> before Android/device access. Do not rerun this same M22 path. Mainline
+> ramoops/pstore remains a no-hit; the stronger retained path is still Samsung
+> sec_debug MID `/proc/last_kmsg` or a fresh observability gate. Report:
+> `docs/reports/S22PLUS_RAMOOPS_DTBO_M22_SYSRQ_PANIC_LIVE_RESULT_2026-07-08.md`.
+
 > **S22+ UPDATE (2026-07-08 03:40 KST) — RESET/PON REASON READ-ONLY PROBE DONE; BASELINE STILL CLEAN.**
 > Codex added and ran
 > `workspace/public/src/scripts/revalidation/s22plus_reset_reason_readonly_probe.py`,

@@ -1571,6 +1571,21 @@ COMMIT → REPEAT) is defined in `GOAL.md`.
    RPMB, keymaster, modem, bootloader, raw host `dd`, fastboot, Magisk modules,
    multidisabler, format data, M15/M18/QMP candidates, additional boot
    candidates, additional DTBO candidates, kernel rebuilds, or any A90 action.
+   **Consumed/retired exception (2026-07-08, S22+ ramoops DTBO + M22
+   sysrq-panic retained-console):** this one-shot attended gate was consumed by
+   the 2026-07-08 live run. It flashed patched DTBO, verified live
+   `ramoops_region/status=okay`, flashed the M22 sysrq-panic positive-control
+   boot candidate, observed Download return after operator-attended bootloop,
+   restored the Magisk boot baseline, collected pstore and retained last_kmsg,
+   restored stock DTBO, and finished with Android/root on the Magisk boot
+   baseline and live `ramoops_region/status=disabled`. No retained M22 marker
+   appeared in pstore or last_kmsg, so this path is retired as a no-hit. The
+   active live/rollback ack strings and M22-specific artifact/source/marker
+   strings are intentionally not listed here; future M22 or retained-console
+   work needs a fresh SHA-pinned exception and fresh operator approval. This
+   retired block authorizes no boot, DTBO, vendor_boot, vbmeta, recovery, BL,
+   CP, CSC, super, userdata, EFS/sec_efs, RPMB, keymaster, modem, bootloader,
+   raw host `dd`, fastboot, Magisk module, kernel rebuild, or A90 action.
    **Narrow operator-authorized exception (2026-07-08, S22+ ramoops vendor_boot + M13 positive-control only):**
    **Consumed/retired:** this exception was consumed by the 2026-07-08 live run.
    The direct vendor_boot patch booted but live `ramoops_region/status` stayed
@@ -2092,6 +2107,13 @@ COMMIT → REPEAT) is defined in `GOAL.md`.
    exception and a fresh operator approval; this retired block authorizes no
    Odin slot, tar member, candidate hash, rollback hash, M21 variant, M20
    variant, M19 prefix, or partition.
+   **Retired consumed exception (2026-07-08, S22+ ramoops DTBO + M22
+   sysrq-panic Odin path):** the Odin path paired with the consumed M22 gate
+   above is no longer active. No current exception authorizes another M22 Odin
+   transfer, DTBO transfer, or rollback transfer under that helper. Future work
+   needs a fresh SHA-pinned exception and fresh operator approval; this retired
+   block authorizes no Odin slot, tar member, candidate hash, rollback hash,
+   boot candidate, DTBO candidate, or partition.
 3. **Rollback precondition:** before ANY flash, confirm the known-good rollback image
    `workspace/private/inputs/boot_images/boot_linux_v2321_usb_clean_identity_rodata.img`
    (SHA256 `ca978551aabe4b39563abaf529ccf2522054952d8b2ad852e632d26da88168cb`, the resident
