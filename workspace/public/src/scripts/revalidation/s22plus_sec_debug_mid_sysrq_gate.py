@@ -8,6 +8,10 @@ Android/device access while that policy is inactive. Host-only modes are:
   --offline-check   verify the inert policy draft markers;
   --print-plan      print the attended operator plan.
 
+Read-only device mode:
+
+  --read-only-probe read current Android/root sec_debug state without policy;
+
 Live modes, once separately authorized:
 
   default dry-run          read-only Android/root precheck and sec_debug state;
@@ -69,6 +73,7 @@ READ_FILES = (
     "/sys/module/sec_debug/parameters/debug_level",
     "/sys/module/sec_debug/parameters/enable",
     "/sys/module/sec_debug/parameters/enable_user",
+    "/sys/module/sec_debug/parameters/force_upload",
     "/sys/module/sec_debug_region/parameters/debug_level",
     "/sys/module/qcom_dload_mode/parameters/download_mode",
     "/sys/module/kernel/parameters/panic",
@@ -238,6 +243,25 @@ def read_remote_file(serial: str, path: str, *, timeout: float = 15.0, head_byte
     }
 
 
+def decode_numeric_debug_level(text: str) -> dict[str, Any]:
+    numbers = re.findall(r"^\s*([0-9]+)\s*$", text, flags=re.MULTILINE)
+    if not numbers:
+        return {"present": False}
+    value = int(numbers[-1], 10)
+    low = value & 0xFF
+    high = (value >> 8) & 0xFF
+    ascii_le = "".join(chr(byte) if 32 <= byte <= 126 else "." for byte in (low, high))
+    ascii_be = "".join(chr(byte) if 32 <= byte <= 126 else "." for byte in (high, low))
+    return {
+        "present": True,
+        "decimal": value,
+        "hex": f"0x{value:04x}",
+        "ascii_le": ascii_le,
+        "ascii_be": ascii_be,
+        "likely_low_code": ascii_le.upper().startswith("LO") or ascii_be.upper().startswith("LO"),
+    }
+
+
 def collect_sec_debug_state(run_dir: Path, log_path: Path, serial: str, label: str) -> dict[str, Any]:
     state_dir = run_dir / "sec_debug_state" / label
     state_dir.mkdir(parents=True, exist_ok=True)
@@ -252,6 +276,13 @@ def collect_sec_debug_state(run_dir: Path, log_path: Path, serial: str, label: s
         item = read_remote_file(serial, path)
         write_text(state_dir / f"{safe_name(path)}.txt", item["text"])
         summary["read_files"][path] = {key: value for key, value in item.items() if key != "text"}
+
+    sec_debug_debug_level_path = "/sys/module/sec_debug/parameters/debug_level"
+    sec_debug_debug_level_file = state_dir / f"{safe_name(sec_debug_debug_level_path)}.txt"
+    if sec_debug_debug_level_file.exists():
+        summary["sec_debug_debug_level_decoded"] = decode_numeric_debug_level(
+            sec_debug_debug_level_file.read_text(encoding="utf-8", errors="replace")
+        )
 
     for path in LIST_TARGETS:
         quoted = shlex.quote(path)
@@ -289,6 +320,51 @@ def collect_sec_debug_state(run_dir: Path, log_path: Path, serial: str, label: s
 
     write_text(state_dir / "summary.json", json.dumps(summary, indent=2, sort_keys=True) + "\n")
     append_log(log_path, f"{label}_sec_debug_state={json.dumps(summary, sort_keys=True)}")
+    return summary
+
+
+def collect_read_only_probe(run_dir: Path, log_path: Path, odin: Path, serial: str) -> dict[str, Any]:
+    state = collect_sec_debug_state(run_dir, log_path, serial, "read_only_probe")
+    host_snapshot(run_dir, log_path, "read_only_probe_host", odin)
+    pstore_listing = adb_shell(
+        "su -c 'ls -la /sys/fs/pstore 2>&1 || true'",
+        serial=serial,
+        timeout=20.0,
+    )
+    pstore_text = redact(pstore_listing.stdout + pstore_listing.stderr)
+    write_text(run_dir / "read_only_probe_pstore_listing.txt", pstore_text)
+
+    last_kmsg = adb_exec_out(
+        "cat /proc/last_kmsg 2>/dev/null | grep -Eai 'S22_SECDEBUG|S22_NATIVE_INIT|sysrq|panic|oops|SError|watchdog|sec_debug|upload|ramdump|reset|download|reboot' | head -400 || true",
+        serial=serial,
+        timeout=60.0,
+    )
+    last_kmsg_text = redact((last_kmsg.stdout + last_kmsg.stderr).decode("utf-8", errors="replace"))
+    write_text(run_dir / "read_only_probe_last_kmsg_grep.txt", last_kmsg_text)
+
+    summary: dict[str, Any] = {
+        "generated_at_utc": utc_now(),
+        "mode": "read-only-probe",
+        "writes_performed": False,
+        "reboots_performed": False,
+        "flashes_performed": False,
+        "sysrq_triggered": False,
+        "agents_exception_required": False,
+        "target": EXPECTED_TARGET,
+        "sec_debug_state_path": "sec_debug_state/read_only_probe/summary.json",
+        "pstore_listing": {
+            "rc": pstore_listing.returncode,
+            "bytes": len(pstore_text.encode("utf-8", errors="replace")),
+        },
+        "last_kmsg_grep": {
+            "rc": last_kmsg.returncode,
+            "bytes": len(last_kmsg_text.encode("utf-8", errors="replace")),
+            "line_count": len([line for line in last_kmsg_text.splitlines() if line.strip()]),
+        },
+        "state": state,
+    }
+    write_text(run_dir / "read_only_probe_summary.json", json.dumps(summary, indent=2, sort_keys=True) + "\n")
+    append_log(log_path, f"read_only_probe_summary={json.dumps(summary, sort_keys=True)}")
     return summary
 
 
@@ -425,6 +501,9 @@ def print_operator_plan() -> None:
     print(f"  PYTHONPYCACHEPREFIX=/tmp/a90_pycache python3 {script} --offline-check")
     print(f"  PYTHONPYCACHEPREFIX=/tmp/a90_pycache python3 {script} --print-plan")
     print()
+    print("read-only current-state probe, no policy required:")
+    print(f"  PYTHONPYCACHEPREFIX=/tmp/a90_pycache python3 {script} --read-only-probe")
+    print()
     print("default dry-run after active policy:")
     print(f"  PYTHONPYCACHEPREFIX=/tmp/a90_pycache python3 {script}")
     print()
@@ -449,15 +528,28 @@ def main(argv: list[str]) -> int:
     parser.add_argument("--post-trigger-observe-sec", type=int, default=90)
     parser.add_argument("--offline-check", action="store_true")
     parser.add_argument("--print-plan", action="store_true")
+    parser.add_argument("--read-only-probe", action="store_true")
     parser.add_argument("--collect-after-recovery", action="store_true")
     parser.add_argument("--live-panic", action="store_true")
     parser.add_argument("--ack")
     parser.add_argument("--confirm-debug-level-mid")
     args = parser.parse_args(argv)
 
-    modes = sum(1 for enabled in (args.offline_check, args.print_plan, args.collect_after_recovery, args.live_panic) if enabled)
+    modes = sum(
+        1
+        for enabled in (
+            args.offline_check,
+            args.print_plan,
+            args.read_only_probe,
+            args.collect_after_recovery,
+            args.live_panic,
+        )
+        if enabled
+    )
     if modes > 1:
-        raise SystemExit("--offline-check, --print-plan, --collect-after-recovery, and --live-panic are mutually exclusive")
+        raise SystemExit(
+            "--offline-check, --print-plan, --read-only-probe, --collect-after-recovery, and --live-panic are mutually exclusive"
+        )
 
     root = repo_root()
     run_dir = resolve_run_dir(root, args.run_dir)
@@ -476,6 +568,21 @@ def main(argv: list[str]) -> int:
         verify_policy_draft(root, log_path)
         append_log(log_path, "offline_check=ok device_action=0 agents_exception_checked=0 android_checked=0")
         print(f"offline-check ok: inert sec_debug MID sysrq policy draft markers verified; no device action; log={log_path}")
+        return 0
+
+    if args.read_only_probe:
+        if not odin.is_file():
+            raise SystemExit(f"odin4 missing: {odin}")
+        selected_serial = require_current_android(log_path, args.serial)
+        verify_android_stability(
+            log_path,
+            selected_serial,
+            args.android_stability_samples,
+            args.android_stability_interval_sec,
+        )
+        verify_current_boot_hash(log_path, selected_serial)
+        collect_read_only_probe(run_dir, log_path, odin, selected_serial)
+        print(f"read-only probe ok: Android/root, Magisk boot hash, and sec_debug state collected; log={log_path}")
         return 0
 
     verify_agents_exception(root, log_path)

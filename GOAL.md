@@ -315,6 +315,23 @@ safety invariants and flash gates are binding and override any sub-goal.**
 > Report:
 > `docs/reports/S22PLUS_SEC_DEBUG_MID_SYSRQ_PANIC_GATE_SOURCE_2026-07-08.md`.
 
+> **S22+ LIVE READ-ONLY RESULT (2026-07-08 05:25 KST) — SEC_DEBUG SURFACE EXISTS; CURRENT DEBUG_LEVEL IS LOW.**
+> Codex added `--read-only-probe` to
+> `workspace/public/src/scripts/revalidation/s22plus_sec_debug_mid_sysrq_gate.py`
+> and ran it against the connected rooted Android device without AGENTS
+> promotion. Result: pass. The probe performed no flash, reboot, partition
+> write, procfs/sysfs write, sysrq trigger, or Odin transfer. Current boot hash
+> still matched the known-booting Magisk baseline. Live sec_debug state:
+> `/sys/module/sec_debug/parameters/debug_level` exists and reads `20300`
+> (`0x4f4c`, little-endian ASCII `LO`, `likely_low_code=true`); `enable=0`,
+> `enable_user=0`, `force_upload=0`; `/dev/pmsg0` exists; `/sys/fs/pstore`
+> exists but is empty; `/proc/reset_reason=NPON`; `/proc/store_lastkmsg=0`;
+> `/proc/sys/kernel/sysrq=0`. Therefore do not consume the panic gate yet.
+> Next operator step is to set Samsung SysDump DEBUG LEVEL to MID if available,
+> rerun `--read-only-probe`, and require the decoded value to move away from LOW
+> before promoting the intentional sysrq-panic AGENTS exception. Report:
+> `docs/reports/S22PLUS_SEC_DEBUG_READONLY_PROBE_LIVE_2026-07-08.md`.
+
 > **S22+ UPDATE (2026-07-08 03:40 KST) — RESET/PON REASON READ-ONLY PROBE DONE; BASELINE STILL CLEAN.**
 > Codex added and ran
 > `workspace/public/src/scripts/revalidation/s22plus_reset_reason_readonly_probe.py`,
