@@ -367,6 +367,23 @@ safety invariants and flash gates are binding and override any sub-goal.**
 > decoded `debug_level=20300 / 0x4f4c / LO`, so no state change occurred. Report:
 > `docs/reports/S22PLUS_SYSDUMP_UI_ROUTE_PROBE_2026-07-08.md`.
 
+> **S22+ EUD PHASE-A LIVE READ-ONLY RESULT (2026-07-08 05:51 KST) — EUD IS PRESENT, LOADED, AND EXPOSES `ttyEUD0`; NO ENABLE ATTR FOUND.**
+> Codex added and ran
+> `workspace/public/src/scripts/revalidation/s22plus_eud_phase_a_readonly_probe.py`
+> against the rooted Android baseline with no flash, reboot, partition write,
+> sysfs write, module insertion, EUD enable, or Odin transfer. Result: pass.
+> Live findings: `/vendor_dlkm/lib/modules/eud.ko` exists; `eud` is loaded;
+> `88e0000.qcom,msm-eud` is bound with `DRIVER=msm-eud`; live DT has
+> `/soc/qcom,msm-eud@88e0000`, `compatible=qcom,msm-eud`, `status=ok`,
+> `interrupt-names=eud_irq`, and a `qcom,secure-eud-en` path; `/dev/ttyEUD0`
+> exists (`msm-eud`, major 502 minor 0) with `console=N`; extcon state is
+> `USB=0 SDP=0 JIG=0`. Host `lsusb` showed normal Samsung MTP/ADB only, no EUD
+> hub/interface hint. No `enable`/`enabled` sysfs attribute was found, so do not
+> run a blind `echo 1 > .../enable` Phase-B. Next EUD unit is source/driver
+> analysis of Samsung `msm-eud` on FYG8 to find the actual attach/control path or
+> confirm that a later boot-only `console=ttyEUD0` route is the right experiment.
+> Report: `docs/reports/S22PLUS_EUD_PHASE_A_READONLY_PROBE_2026-07-08.md`.
+
 > **S22+ UPDATE (2026-07-08 03:40 KST) — RESET/PON REASON READ-ONLY PROBE DONE; BASELINE STILL CLEAN.**
 > Codex added and ran
 > `workspace/public/src/scripts/revalidation/s22plus_reset_reason_readonly_probe.py`,
