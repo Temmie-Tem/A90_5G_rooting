@@ -1227,6 +1227,56 @@ COMMIT → REPEAT) is defined in `GOAL.md`.
    M12/M13 retry, wider module add-back, configfs removal follow-up, display/
    distro candidates, kernel rebuild, recovery/vendor_boot/vbmeta/non-boot
    flash, raw host `dd`, fastboot, multidisabler, format data, or any A90 action.
+   **Narrow operator-authorized exception (2026-07-07, S22+ M15 PHY-split
+   add-back native-init boot-only live gate):** after the M14 live result
+   boot-looped with the four-module core USB/ACM add-back and rollback returned
+   Android/Magisk cleanly, Codex may prepare and perform one bounded attended
+   boot-partition-only M15 live gate on the same Samsung S22+ `SM-S906N`/`g0q`
+   `S906NKSS7FYG8` using the checked helper
+   `workspace/public/src/scripts/revalidation/s22plus_m15_phy_split_live_gate.py`
+   with live ack token `S22PLUS-M15-PHY-SPLIT-LIVE-GATE` and rollback-only ack
+   token `S22PLUS-M15-ROLLBACK-FROM-DOWNLOAD`. The exact candidate AP.tar.md5
+   SHA256 must be
+   `16a4d526bbc0cb09bc63d61f4743d17dddb26c34047127fe610b1f677bddced2`, the
+   contained padded `boot.img` SHA256 must be
+   `adaee20d490748aa1be555cdc7aa6828b9bc553185355a60183bd722119b5812`, the
+   known-booting Magisk boot base SHA256 must be
+   `2e541703951dc725bad35850faf7028c2d910dd5f21166449b63f1248c29967e`, the
+   preserved Magisk-patched kernel SHA256 must be
+   `bceca73edbfca3499148e16741c939779157925949ef6bc8a8e31d6b68fc2cff`, the
+   M15 `/init` SHA256 must be
+   `5897fee141921dffc2848fb3eb3515a9b2d75d41e0c286448c4f0add06ab8558`, the
+   M15 module-list SHA256 must be
+   `f3afe268a05c47492107227b224185c65f7757c004806c4c24d23231bd19e217`, and
+   the M15 source SHA256 must be
+   `ac57cb1ece2dcc65bf5a8cbfc3fa0a077b006c757a4615298ee00d115b1fdd13`. The
+   AP must contain exactly one tar member, `boot.img.lz4`, with no recovery,
+   vendor_boot, vbmeta, vbmeta_system, dtbo, BL, CP, CSC, super, persist,
+   userdata, EFS, RPMB, keymaster, modem, or any other partition payload. The
+   M15 candidate may only run as direct PID1 with a freestanding raw-syscall
+   runtime, mount only the minimal pseudo filesystems needed for module loading,
+   configfs, and kmsg logging, load the two PHY-side modules in
+   `s22plus_m15_phy_split.modules` (`phy-msm-ssusb-qmp.ko`,
+   `phy-msm-snps-eusb2.ko`) from stock vendor_boot `/lib/modules`, include the
+   marker strings `module_group=phy_split` and `module_count=2`, attempt
+   `/sys/class/usb_role/*/role=device`, bind only `a600000.dwc3` and never
+   `dummy_udc.0`, expose an `ss_acm.0` gadget if possible, and then park. M15
+   has no reboot beacon, no arm64 `__NR_reboot=142` path, no `download` string,
+   no host-commanded ACM download action, and uses park-vs-loop plus host ACM
+   enumeration as the observation model. The remaining two M14 modules
+   (`dwc3-msm.ko`, `usb_f_ss_acm.ko`) and the remaining 20 M12 floor modules
+   are intentionally withheld. If M15 parks or ACM appears, rollback requires
+   operator manual download-mode rollback through the same helper's
+   `--rollback-from-download --ack S22PLUS-M15-ROLLBACK-FROM-DOWNLOAD` mode,
+   using the exact Magisk boot-only rollback AP SHA256
+   `d2373bf88dda342709440dc3db468f11d80a4593856768a4d8ae402bef215a56` first,
+   or the exact stock boot-only fallback AP SHA256
+   `1ee92a86f30e4acb12509272630e1bef5215d1a12686ac69a3b399b43740535e` if the
+   operator explicitly selects stock rollback. This exception does not authorize
+   M12/M13/M14 retry, wider module add-back, configfs removal follow-up,
+   display/distro candidates, kernel rebuild, recovery/vendor_boot/vbmeta/
+   non-boot flash, raw host `dd`, fastboot, multidisabler, format data, or any
+   A90 action.
 2. **Flash only via the checked helper by default:** `workspace/public/src/scripts/revalidation/native_init_flash.py`.
    Never `dd`/`fastboot`/raw-write a partition. Never invent a new flash path.
    **Narrow operator-authorized exception (2026-07-02, self-dd ladder only):** the V3358
