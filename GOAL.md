@@ -581,6 +581,22 @@ safety invariants and flash gates are binding and override any sub-goal.**
 > flash, reboot, sysfs write, or partition write was performed. Report:
 > `docs/reports/S22PLUS_EUD_PHASE_B_READINESS_AUDIT_2026-07-08.md`.
 
+> **S22+ UPDATE (2026-07-08 07:00 KST) — EUD PHASE-B HOST SERIAL/TTY OBSERVER HARDENED; LIVE STILL INACTIVE.**
+> Codex strengthened the reversible EUD enable helper's host-side observation:
+> each host snapshot now collects `lsusb`, `lsusb -t`, dmesg tail,
+> `/dev/ttyUSB*`, `/dev/ttyACM*`, `/dev/serial/by-id`, `/dev/serial/by-path`,
+> and udev properties for USB/ACM serial nodes. The summary records
+> `host_serial_tty_hint` and `host_tty_paths`, so a future live Phase-B run can
+> compare before/after and distinguish existing Android `/dev/ttyACM0` from a
+> new EUD serial node. The inert policy draft and readiness auditor now require
+> the `host serial/TTY` marker. Validation passed: `py_compile`,
+> `--offline-check`, `--print-plan`, inactive readiness audit,
+> readiness audit with `--include-read-only-check`, and negative active-policy
+> check. The read-only snapshot recorded existing Android serial paths but no
+> EUD USB hint. No live EUD enable, flash, reboot, sysfs write, or partition
+> write was performed. Report:
+> `docs/reports/S22PLUS_EUD_PHASE_B_HOST_TTY_OBSERVER_2026-07-08.md`.
+
 > **S22+ UPDATE (2026-07-08 03:40 KST) — RESET/PON REASON READ-ONLY PROBE DONE; BASELINE STILL CLEAN.**
 > Codex added and ran
 > `workspace/public/src/scripts/revalidation/s22plus_reset_reason_readonly_probe.py`,

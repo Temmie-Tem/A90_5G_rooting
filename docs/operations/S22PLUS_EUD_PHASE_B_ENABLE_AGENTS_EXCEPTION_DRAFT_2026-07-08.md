@@ -17,8 +17,9 @@ for a reversible EUD module-parameter write.
    and live ack token `S22PLUS-EUD-PHASE-B-ENABLE-LIVE-GATE`.
    The helper must first verify Android/root, the known Magisk boot hash, the
    EUD module parameter, and `/dev/ttyEUD0`. It may then write 1 exactly once to
-   `/sys/module/eud/parameters/enable`, collect host `lsusb` and dmesg evidence
-   for a Qualcomm/EUD USB-C debug hub/interface, and must write 0 back to
+   `/sys/module/eud/parameters/enable`, collect host `lsusb`, dmesg, and host
+   serial/TTY evidence for a Qualcomm/EUD USB-C debug hub/interface, and must
+   write 0 back to
    `/sys/module/eud/parameters/enable` before exit (`restore enable=0`). This
    exception authorizes no flash, no reboot, no partition write, no native-init
    boot candidate, no module insertion, no boot/vendor_boot/dtbo/vbmeta/recovery
@@ -49,4 +50,5 @@ no partition write
 no native-init boot candidate
 no module insertion
 host lsusb
+host serial/TTY
 ```

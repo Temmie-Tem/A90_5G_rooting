@@ -92,14 +92,30 @@ def host_command(run_dir: Path, log_path: Path, label: str, argv: list[str | Pat
     text = redact(completed.stdout + completed.stderr)
     write_text(run_dir / "host" / f"{label}.txt", text)
     eud_hint = bool(re.search(r"\bEUD\b|Embedded USB Debug|Qualcomm.*debug|05c6:", text, re.IGNORECASE))
+    tty_paths = sorted(
+        set(re.findall(r"/dev/(?:ttyUSB|ttyACM)\d+|/dev/serial/by-(?:id|path)/\S+", text))
+    )
+    serial_tty_hint = bool(tty_paths) or bool(re.search(r"\btty(?:USB|ACM)\d+\b|cdc_acm|usbserial", text, re.IGNORECASE))
     summary = {
         "label": label,
         "rc": completed.returncode,
         "bytes": len(text.encode("utf-8", errors="replace")),
         "eud_usb_hint": eud_hint,
+        "serial_tty_hint": serial_tty_hint,
+        "tty_paths": tty_paths,
     }
     append_log(log_path, f"host_{label}={json.dumps(summary, sort_keys=True)}")
     return summary
+
+
+def collect_host_tty_paths(summary: dict[str, Any]) -> list[str]:
+    paths: set[str] = set()
+    for item in summary.values():
+        if not isinstance(item, dict):
+            continue
+        for path in item.get("tty_paths") or []:
+            paths.add(str(path))
+    return sorted(paths)
 
 
 def collect_host_state(run_dir: Path, log_path: Path, label: str, odin: Path) -> dict[str, Any]:
@@ -107,11 +123,34 @@ def collect_host_state(run_dir: Path, log_path: Path, label: str, odin: Path) ->
         "label": label,
         "timestamp_utc": utc_now(),
         "lsusb": host_command(run_dir, log_path, f"{label}_lsusb", ["lsusb"], 10.0),
+        "lsusb_tree": host_command(run_dir, log_path, f"{label}_lsusb_tree", ["lsusb", "-t"], 10.0),
         "dmesg_tail": host_command(
             run_dir,
             log_path,
             f"{label}_dmesg_tail",
             ["bash", "-lc", "dmesg -T 2>/dev/null | tail -n 260 || true"],
+            10.0,
+        ),
+        "tty_devices": host_command(
+            run_dir,
+            log_path,
+            f"{label}_tty_devices",
+            ["bash", "-lc", "ls -l /dev/ttyUSB* /dev/ttyACM* /dev/serial/by-id/* /dev/serial/by-path/* 2>/dev/null || true"],
+            10.0,
+        ),
+        "tty_udev": host_command(
+            run_dir,
+            log_path,
+            f"{label}_tty_udev",
+            [
+                "bash",
+                "-lc",
+                "for n in /sys/class/tty/ttyUSB* /sys/class/tty/ttyACM*; do "
+                "[ -e \"$n\" ] || continue; echo \"## $n\"; "
+                "udevadm info -q property -p \"$n/device\" 2>/dev/null | "
+                "grep -E '^(DEVNAME|ID_BUS|ID_MODEL|ID_VENDOR|ID_USB_DRIVER|ID_PATH|ID_SERIAL)=' || true; "
+                "done",
+            ],
             10.0,
         ),
         "ip_link": host_command(run_dir, log_path, f"{label}_ip_link", ["ip", "-j", "link"], 10.0),
@@ -122,6 +161,10 @@ def collect_host_state(run_dir: Path, log_path: Path, label: str, odin: Path) ->
     summary["host_eud_usb_hint"] = any(
         isinstance(item, dict) and item.get("eud_usb_hint") for item in summary.values()
     )
+    summary["host_serial_tty_hint"] = any(
+        isinstance(item, dict) and item.get("serial_tty_hint") for item in summary.values()
+    )
+    summary["host_tty_paths"] = collect_host_tty_paths(summary)
     append_log(log_path, f"host_state_{label}={json.dumps(summary, sort_keys=True)}")
     return summary
 
@@ -204,6 +247,7 @@ def required_policy_markers() -> list[str]:
         "no native-init boot candidate",
         "no module insertion",
         "host lsusb",
+        "host serial/TTY",
     ]
 
 
@@ -234,7 +278,7 @@ def print_plan() -> None:
     print("2. Promote the narrow AGENTS.md exception only after operator approval.")
     print("3. Run live reversible enable:")
     print(f"   PYTHONPYCACHEPREFIX=/tmp/a90_pycache python3 {script} --live --ack {LIVE_ACK_TOKEN}")
-    print(f"4. Helper will write 1 to {EUD_ENABLE_PARAM}, collect host lsusb/dmesg, then write 0 back.")
+    print(f"4. Helper will write 1 to {EUD_ENABLE_PARAM}, collect host lsusb/dmesg and host serial/TTY snapshots, then write 0 back.")
     print("Scope: no flash, no reboot, no partition write, no module insertion, no native-init candidate.")
 
 

@@ -158,6 +158,7 @@ def main(argv: list[str] | None = None) -> int:
         "no module insertion",
         "--read-only-check",
         "--live",
+        "host serial/TTY",
     ]:
         if expected not in plan_output:
             fail(f"EUD gate --print-plan missing expected text: {expected}", report)

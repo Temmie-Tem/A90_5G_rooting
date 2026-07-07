@@ -90,3 +90,9 @@ read-only EUD state: enable=0, ttyEUD0=1
 EUD Phase-B is prepared but not live-authorized. The next live step still
 requires explicit attended approval and policy promotion before the reversible
 `enable=1` -> host USB/dmesg observation -> `enable=0` test.
+
+## Follow-Up Hardening
+
+`docs/reports/S22PLUS_EUD_PHASE_B_HOST_TTY_OBSERVER_2026-07-08.md`
+extends this gate so the future live run also captures host serial/TTY state and
+can identify a new EUD TTY path instead of relying only on broad USB hints.
