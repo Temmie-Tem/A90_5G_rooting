@@ -633,6 +633,21 @@ safety invariants and flash gates are binding and override any sub-goal.**
 > write without a fresh exception. Report:
 > `docs/reports/S22PLUS_EUD_PHASE_B_LIVE_RESULT_2026-07-08.md`.
 
+> **S22+ CURRENT FRONTIER (2026-07-08 07:22 KST) — EUD-OPENOCD HOST AUDIT DONE; SWD PATH NOT STAGED ON THIS HOST.**
+> Codex added and ran the host-only/no-device
+> `workspace/public/src/scripts/revalidation/s22plus_eud_openocd_host_audit.py`
+> plus stdlib unit coverage. Result: `blocked_no_openocd`. The current host has
+> no `openocd` binary, no OpenOCD script directory, no `interface/eud.cfg`, no
+> Qualcomm target cfg, no SM8450 target cfg, and no current host EUD USB hint.
+> The audit folded in the consumed Phase-B live summary and confirmed
+> `restored_enable_0=true` with no host EUD or new TTY path. This means B2
+> no-jig COM is negative, and B1 SWD/JTAG is not yet an executable local probe.
+> Next useful unit is host-only OpenOCD-EUD staging (private tool build/config
+> inventory), or physical EUD/SWD hardware attachment if available; do not burn
+> another native-init flash expecting EUD observability from the current host
+> state. Report:
+> `docs/reports/S22PLUS_EUD_OPENOCD_HOST_AUDIT_2026-07-08.md`.
+
 > **S22+ UPDATE (2026-07-08 03:40 KST) — RESET/PON REASON READ-ONLY PROBE DONE; BASELINE STILL CLEAN.**
 > Codex added and ran
 > `workspace/public/src/scripts/revalidation/s22plus_reset_reason_readonly_probe.py`,
