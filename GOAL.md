@@ -539,6 +539,29 @@ safety invariants and flash gates are binding and override any sub-goal.**
 > Do not rerun the same M18 candidate. Report:
 > `docs/reports/S22PLUS_SEC_DEBUG_M18_LIVE_RESULT_2026-07-08.md`.
 
+> **S22+ CURRENT FRONTIER (2026-07-08 06:55 KST) — EUD SOURCE ANALYSIS PASS; PHASE-B ENABLE GATE SOURCE READY; POLICY INERT.**
+> After M18 no-hit, Codex advanced the next observability rung host-only:
+> EUD. S22+ FYG8 Android 15 source proves the real runtime EUD control is not a
+> platform-node `enable` file; it is `module_param_cb(enable, ...)`, exposed as
+> `/sys/module/eud/parameters/enable`. `param_eud_set(1)` calls `enable_eud()`,
+> which toggles extcon USB, votes `eud_clkref_clk`, enables EUD CSR/IRQs, and
+> performs secure-EUD SCM writes when `qcom,secure-eud-en` is present.
+> `param_eud_set(0)` reverses that path. DT confirms `qcom,msm-eud@88e0000`
+> with `qcom,secure-eud-en`, and USB is wired through `extcon = <&eud>`.
+> Codex added guarded helper
+> `workspace/public/src/scripts/revalidation/s22plus_eud_phase_b_enable_live_gate.py`
+> plus inert policy draft
+> `docs/operations/S22PLUS_EUD_PHASE_B_ENABLE_AGENTS_EXCEPTION_DRAFT_2026-07-08.md`.
+> Validation passed: `py_compile`, `--offline-check`, `--print-plan`, default
+> fail-closed before Android because AGENTS is inactive, and `--read-only-check`.
+> Read-only check verified Android/root stability, Magisk boot hash, live
+> `/sys/module/eud/parameters/enable=0`, loaded `eud` module, bound
+> `DRIVER=msm-eud`, `/dev/ttyEUD0` present, `console=N`, and no host EUD USB
+> hint. No write/reboot/flash/sysfs enable occurred. Next, only with explicit
+> attended approval, promote the narrow Phase-B exception and run the reversible
+> `enable=1` -> host `lsusb`/dmesg -> `enable=0` test. Report:
+> `docs/reports/S22PLUS_EUD_SOURCE_ANALYSIS_PHASEB_GATE_SOURCE_2026-07-08.md`.
+
 > **S22+ UPDATE (2026-07-08 03:40 KST) — RESET/PON REASON READ-ONLY PROBE DONE; BASELINE STILL CLEAN.**
 > Codex added and ran
 > `workspace/public/src/scripts/revalidation/s22plus_reset_reason_readonly_probe.py`,
