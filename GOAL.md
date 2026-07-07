@@ -1872,6 +1872,22 @@ safety invariants and flash gates are binding and override any sub-goal.**
 > action occurred. The stack is now repeatably checkable for drift while awaiting
 > explicit operator approval to activate the reviewed exception.
 
+> **STATUS UPDATE (2026-07-08 KST, S22+ read-only Android baseline preflight pass):**
+> Codex added read-only helper
+> `workspace/public/src/scripts/revalidation/s22plus_ramoops_android_baseline_preflight.py`
+> and report
+> `docs/reports/S22PLUS_RAMOOPS_ANDROID_BASELINE_PREFLIGHT_2026-07-08.md`, then ran it
+> against the connected S22+ with no flash/reboot/write/staging. Result: pass.
+> Current baseline is `SM-S906N` / `g0q` / `S906NKSS7FYG8`, Android boot complete,
+> `vbstate=orange`, Magisk root available, current boot SHA
+> `2e541703951dc725bad35850faf7028c2d910dd5f21166449b63f1248c29967e` equals the
+> known Magisk baseline, current DTBO SHA
+> `97a4864fee4e61892d733962d1ec76f8d14b52bc19e6f47440bc27d9dfc4bd0c` equals stock FYG8,
+> and live DT `ramoops_region/status` is still `disabled`. No serial was recorded in the
+> public report. This proves the physical device is currently in the expected pre-capture
+> baseline, while live capture remains unauthorized until the reviewed `AGENTS.md`
+> exception is explicitly activated.
+
 > **🟢 STATUS (2026-07-05 18:52 KST) — WSTA207 LIVE SECCOMP CANARY LOAD/ENFORCE PASS.**
 > Codex stopped scaffolding and executed the attended WSTA198 SSH/chroot live canary.  The
 > runner staged WSTA153 policy + WSTA156 filter artifact + WSTA161 gated-apply helper into
