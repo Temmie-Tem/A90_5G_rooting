@@ -1238,6 +1238,22 @@ safety invariants and flash gates are binding and override any sub-goal.**
 > `--rollback-from-download --ack S22PLUS-M10A1-ROLLBACK-FROM-DOWNLOAD`, and treat pathname VFS access itself as
 > suspect.
 >
+> **STATUS UPDATE (2026-07-07 KST, M10A1 stat-dev live result, OPERATOR-CORRECTED):** Codex executed the attended
+> M10A1 boot-only live gate once. Preflight passed, `adb reboot download` succeeded, the exact M10A1 AP flashed
+> with Odin rc=0, and the original Odin endpoint disconnected. The helper later observed Samsung download mode and
+> restored the pinned Magisk boot-only rollback AP with Odin rc=0, but the operator confirmed the device was
+> bootlooping and manually entered download mode. Therefore the later endpoint is not automatic M10A1 self-download
+> proof. Android returned to the rooted Magisk baseline with `boot_completed=1`, `init.svc.bootanim=stopped`,
+> Magisk root, no pstore files, readable `/proc/last_kmsg`, and no retained M10A1 marker as expected because M10A1
+> writes no marker. Report:
+> `docs/reports/S22PLUS_NATIVE_INIT_M10A1_STAT_DEV_REBOOT_LIVE_RESULT_2026-07-07.md`. Interpretation: M10A1 is a
+> recovered bootloop/manual-download result. Since M10A1 removed M10A's `mkdirat` mutation and kept only read-only
+> `newfstatat("/dev")`, the next split must not add more VFS. Next bounded unit is host-only M10A2 getpid-reboot:
+> start from M9A/M10A1 shape, add only a non-VFS `getpid()` syscall before `reboot("download")`, no pathname strings
+> except `download`, no VFS/mkdir/mknod/mount/kmsg/sleep/module/configfs/USB. If M10A2 reaches download without
+> manual entry, M10A1 points at pathname VFS access. If M10A2 also bootloops, the issue is broader than VFS and
+> belongs to pre-reboot syscall/timing/state.
+>
 > **🎯 SUPERSEDED OPERATOR STEER (2026-07-07, M7 was the live-ready USB-ACM candidate before the live result above;
 > reads: `docs/reports/S22PLUS_USB_PERIPHERAL_BRINGUP_MECHANISM_HOSTANALYSIS_2026-07-07.md` +
 > `docs/reports/S22PLUS_NATIVE_INIT_M6_BOOTLOOP_POSTMORTEM_OPERATOR_2026-07-07.md` +
