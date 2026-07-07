@@ -1726,6 +1726,17 @@ safety invariants and flash gates are binding and override any sub-goal.**
 > permutations from here. Next bounded unit should be host-only: M17 postmortem plus a UART-quality or otherwise
 > retained observation-channel plan before any further live S22+ native-init flash.
 >
+> **STATUS UPDATE (2026-07-08 KST, M17 host-only postmortem + observation plan):** Codex completed the required
+> host-only M17 postmortem at
+> `docs/reports/S22PLUS_NATIVE_INIT_M17_POSTMORTEM_OBSERVATION_PLAN_2026-07-08.md`. Correction: M17 proves
+> substrate+QMP still looped externally, but it does **not** prove execution reached QMP index 21 because all
+> phase markers were `/dev/kmsg`-only and retained marker evidence was absent. Failure remains somewhere inside
+> M17 setup/module indices 1..21/pre-ACM. Next live S22+ native-init flash stays blocked until the candidate has
+> a stronger progress channel. Preferred path is UART console capture. Fallback path is a host-only M18
+> prefix-download discriminator using the live-proven M4T3 `reboot("download")` proof channel: load the first
+> N M17 modules from the M13 floor, then self-download if the checkpoint is reached, using monotonic prefix
+> candidates (P00/P10/P16/P20/P21) rather than blind add-back.
+>
 > **🎯 SUPERSEDED OPERATOR STEER (2026-07-07, M7 was the live-ready USB-ACM candidate before the live result above;
 > reads: `docs/reports/S22PLUS_USB_PERIPHERAL_BRINGUP_MECHANISM_HOSTANALYSIS_2026-07-07.md` +
 > `docs/reports/S22PLUS_NATIVE_INIT_M6_BOOTLOOP_POSTMORTEM_OPERATOR_2026-07-07.md` +
