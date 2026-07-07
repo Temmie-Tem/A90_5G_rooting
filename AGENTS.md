@@ -62,6 +62,33 @@ COMMIT → REPEAT) is defined in `GOAL.md`.
    partition payload. If Android boot or recovery boot fails, restore the pinned
    stock FYG8 vbmeta-only rollback AP SHA256
    `fdf42fb913ac82bba7414d41a2995300c9bc56d31e7cddf907b487e7b2ae707b` and stop.
+   **Narrow operator-authorized exception (2026-07-08, S22+ sec_debug
+   debug_level MID sysrq-panic zero-flash only):** after the S22+ DTBO+M13
+   no-hit and the host finding that Samsung `sec_debug` gated by `debug_level`
+   is the likely retained-console path, Codex may perform one bounded attended
+   zero-flash Android sec_debug positive-control run on the Samsung S22+
+   `SM-S906N`/`g0q` `S906NKSS7FYG8` (`SM-S906N/g0q/S906NKSS7FYG8`)
+   using only the checked helper
+   `workspace/public/src/scripts/revalidation/s22plus_sec_debug_mid_sysrq_gate.py`
+   and live ack token `S22PLUS-SECDEBUG-MID-SYSRQ-PANIC-LIVE-GATE`. This
+   exception authorizes no Odin flash, no partition write, no boot image write,
+   no DTBO write, no vendor_boot write, no recovery/vbmeta/BL/CP/CSC/super/
+   userdata/EFS/sec_efs/RPMB/keymaster/modem/bootloader write, no raw host `dd`,
+   no fastboot, and no Magisk module install. The current boot partition must
+   match the known-booting Magisk boot SHA256
+   `2e541703951dc725bad35850faf7028c2d910dd5f21166449b63f1248c29967e`.
+   The operator must first set Samsung SysDump DEBUG LEVEL to MID if available
+   (`debug_level=MID`; operator-set SysDump DEBUG LEVEL MID), then pass
+   confirmation token `DEBUG_LEVEL_MID_SET_BY_OPERATOR` to the helper. The
+   helper may write marker `S22_SECDEBUG_MID_SYSRQ_PANIC_CONTROL` to `/dev/kmsg`
+   and `/dev/pmsg0` if present, write `1` to `/proc/sys/kernel/sysrq`, and write
+   `c` to `/proc/sysrq-trigger` (`sysrq-trigger-c`) to cause one intentional
+   kernel crash. After manual recovery, Codex may collect `/sys/fs/pstore`,
+   collect /proc/last_kmsg, and read reset/sec_debug state through ADB root. The
+   expected evidence is retained kernel panic/sec_debug/upload/ramdump log
+   material or the marker in `/proc/last_kmsg`, pstore, or pmsg-derived retained
+   state. If no retained evidence appears, stop and do not keep changing DTBO or
+   M22 candidates under this exception. Manual recovery may be required.
    **Narrow operator-authorized exception (2026-07-07, S22+ P2 native-init
    first-light boot-only):** after the S22+ TWRP/root/116-package checkpoint
    and the P0/P1 host-only reports, Codex may perform one bounded Odin4

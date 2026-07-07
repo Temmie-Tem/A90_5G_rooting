@@ -449,6 +449,21 @@ safety invariants and flash gates are binding and override any sub-goal.**
 > panic occurred. Report:
 > `docs/reports/S22PLUS_SEC_DEBUG_MID_SYSRQ_READINESS_AUDIT_2026-07-08.md`.
 
+> **S22+ UPDATE (2026-07-08 06:15 KST) — SEC_DEBUG MID SYSRQ POLICY ACTIVE; DRY-RUN PASS; LIVE PANIC NOT YET TRIGGERED.**
+> After explicit operator approval, Codex promoted the inert sec_debug MID
+> sysrq-panic exception into `AGENTS.md`. The active exception is zero-flash and
+> authorizes only one bounded Android-side sysrq positive-control through
+> `workspace/public/src/scripts/revalidation/s22plus_sec_debug_mid_sysrq_gate.py`
+> with ack `S22PLUS-SECDEBUG-MID-SYSRQ-PANIC-LIVE-GATE`; it explicitly forbids
+> Odin flash, partition writes, boot/DTBO/vendor_boot writes, raw `dd`,
+> fastboot, and Magisk module installs. Active readiness passed with
+> `agents.complete=true`, `agents.missing=[]`, `draft.complete=true`, and no
+> device action. The active dry-run then passed against the rooted Android
+> device: Android stability OK, current boot hash matched the known Magisk
+> baseline, `debug_level=18765 / 0x494d / MI`, `enable=1`, `force_upload=5`, and
+> `/proc/sys/kernel/sysrq=0`. No live panic occurred in this unit. Report:
+> `docs/reports/S22PLUS_SEC_DEBUG_MID_SYSRQ_POLICY_ACTIVATION_2026-07-08.md`.
+
 > **S22+ UPDATE (2026-07-08 03:40 KST) — RESET/PON REASON READ-ONLY PROBE DONE; BASELINE STILL CLEAN.**
 > Codex added and ran
 > `workspace/public/src/scripts/revalidation/s22plus_reset_reason_readonly_probe.py`,
