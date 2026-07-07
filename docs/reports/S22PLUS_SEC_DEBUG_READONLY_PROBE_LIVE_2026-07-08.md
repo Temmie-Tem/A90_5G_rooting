@@ -80,9 +80,9 @@ sec_debug-related modules and `/dev/pmsg0` are present.
 
 The next useful operator action is to set Samsung SysDump DEBUG LEVEL to MID if
 the menu exposes it, then rerun `--read-only-probe`. Do not trigger sysrq panic
-while the probe still decodes as LOW. Once the decoded value moves away from
-LOW and the operator confirms MID, the already prepared `--live-panic` gate can
-be consumed under the active policy.
+while the probe still decodes as LOW. A later route probe showed that ADB/root
+cannot directly open the SysDump UI on this build, so the practical UI path is
+physical dialer entry of `*#9900#`, not `am start`.
 
 ## Validation
 
@@ -114,9 +114,8 @@ Results:
 
 ## Next
 
-1. Operator opens SysDump through `*#9900#` or the identified
-   `com.sec.android.app.servicemodeapp/.SysDump` screen and sets DEBUG LEVEL
-   MID if available.
+1. Operator opens SysDump through the physical dialer code `*#9900#` and sets
+   DEBUG LEVEL MID if available.
 2. Rerun `--read-only-probe` and require the decoded value to no longer be LOW.
 3. Only then consider promoting the inert AGENTS exception for the intentional
    sysrq panic gate.

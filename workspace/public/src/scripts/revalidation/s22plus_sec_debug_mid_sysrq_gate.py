@@ -11,6 +11,7 @@ Android/device access while that policy is inactive. Host-only modes are:
 Read-only device mode:
 
   --read-only-probe read current Android/root sec_debug state without policy;
+  --probe-sysdump-ui-route probe ADB/root routes to Samsung SysDump UI;
 
 Live modes, once separately authorized:
 
@@ -59,6 +60,9 @@ EXPECTED_MARKER = "S22_SECDEBUG_MID_SYSRQ_PANIC_CONTROL"
 LIVE_ACK_TOKEN = "S22PLUS-SECDEBUG-MID-SYSRQ-PANIC-LIVE-GATE"
 DEBUG_LEVEL_CONFIRM_TOKEN = "DEBUG_LEVEL_MID_SET_BY_OPERATOR"
 POLICY_DRAFT = Path("docs/operations/S22PLUS_SEC_DEBUG_MID_SYSRQ_PANIC_AGENTS_EXCEPTION_DRAFT_2026-07-08.md")
+SYSDUMP_COMPONENT = "com.sec.android.app.servicemodeapp/.SysDump"
+CP_DEBUG_LEVEL_COMPONENT = "com.sec.android.app.servicemodeapp/.CPDebugLevel"
+SECRET_CODE_9900_INTENT = "com.samsung.android.action.SECRET_CODE -d android_secret_code://9900"
 
 READ_FILES = (
     "/proc/reset_reason",
@@ -403,6 +407,99 @@ def collect_sysdump_route(run_dir: Path, log_path: Path, serial: str) -> dict[st
     return summary
 
 
+def collect_top_activity(run_dir: Path, serial: str, label: str) -> dict[str, Any]:
+    result = adb_shell("dumpsys activity top 2>&1 | head -220", serial=serial, timeout=20.0)
+    text = redact(result.stdout + result.stderr)
+    write_text(run_dir / f"{label}_activity_top.txt", text)
+    return {
+        "rc": result.returncode,
+        "bytes": len(text.encode("utf-8", errors="replace")),
+        "sysdump_visible": "com.sec.android.app.servicemodeapp/.SysDump" in text
+        or "com.sec.android.app.servicemodeapp.SysDump" in text,
+        "cp_debug_level_visible": "com.sec.android.app.servicemodeapp/.CPDebugLevel" in text
+        or "com.sec.android.app.servicemodeapp.CPDebugLevel" in text,
+    }
+
+
+def probe_sysdump_ui_route(run_dir: Path, log_path: Path, serial: str) -> dict[str, Any]:
+    attempts = []
+    before = collect_top_activity(run_dir, serial, "sysdump_ui_route_before")
+    commands = (
+        (
+            "shell_am_start_sysdump",
+            f"am start -W -a android.intent.action.MAIN -c android.intent.category.DEVELOPMENT_PREFERENCE -n {shlex.quote(SYSDUMP_COMPONENT)} 2>&1",
+        ),
+        (
+            "root_am_start_sysdump",
+            "su -c "
+            + shlex.quote(
+                f"am start -W -a android.intent.action.MAIN -c android.intent.category.DEVELOPMENT_PREFERENCE -n {SYSDUMP_COMPONENT} 2>&1"
+            ),
+        ),
+        (
+            "root_am_start_cp_debug_level",
+            "su -c "
+            + shlex.quote(
+                f"am start -W -a android.intent.action.MAIN -c android.intent.category.DEVELOPMENT_PREFERENCE -n {CP_DEBUG_LEVEL_COMPONENT} 2>&1"
+            ),
+        ),
+        (
+            "shell_secret_code_9900_broadcast",
+            f"am broadcast -a {SECRET_CODE_9900_INTENT} 2>&1",
+        ),
+        (
+            "root_secret_code_9900_broadcast",
+            f"su -c {shlex.quote('am broadcast -a ' + SECRET_CODE_9900_INTENT + ' 2>&1')}",
+        ),
+    )
+
+    for label, command in commands:
+        result = adb_shell(command, serial=serial, timeout=20.0)
+        text = redact(result.stdout + result.stderr)
+        write_text(run_dir / f"sysdump_ui_route_{label}.txt", text)
+        time.sleep(1.0)
+        top = collect_top_activity(run_dir, serial, f"sysdump_ui_route_after_{label}")
+        attempts.append(
+            {
+                "label": label,
+                "rc": result.returncode,
+                "bytes": len(text.encode("utf-8", errors="replace")),
+                "error_type_3": "Error type 3" in text,
+                "permission_denial": "Permission Denial" in text or "Permission denial" in text,
+                "broadcast_completed": "Broadcast completed" in text,
+                "visible_after": bool(top["sysdump_visible"] or top["cp_debug_level_visible"]),
+                "top": top,
+            }
+        )
+
+    summary = {
+        "mode": "probe_sysdump_ui_route",
+        "components": [SYSDUMP_COMPONENT, CP_DEBUG_LEVEL_COMPONENT],
+        "secret_code_intent": SECRET_CODE_9900_INTENT,
+        "route_probe_performed": True,
+        "writes_performed": False,
+        "reboots_performed": False,
+        "flashes_performed": False,
+        "sysrq_triggered": False,
+        "before": before,
+        "attempts": attempts,
+        "ui_visible_after_any_attempt": any(attempt["visible_after"] for attempt in attempts),
+        "explicit_activity_startable": any(
+            attempt["visible_after"]
+            for attempt in attempts
+            if attempt["label"] in ("shell_am_start_sysdump", "root_am_start_sysdump", "root_am_start_cp_debug_level")
+        ),
+        "secret_code_broadcast_startable": any(
+            attempt["visible_after"]
+            for attempt in attempts
+            if attempt["label"] in ("shell_secret_code_9900_broadcast", "root_secret_code_9900_broadcast")
+        ),
+    }
+    write_text(run_dir / "sysdump_ui_route_summary.json", json.dumps(summary, indent=2, sort_keys=True) + "\n")
+    append_log(log_path, f"sysdump_ui_route_summary={json.dumps(summary, sort_keys=True)}")
+    return summary
+
+
 def grep_retained_payload(payload: bytes) -> dict[str, Any]:
     text = payload.decode("utf-8", errors="replace")
     hits: dict[str, int] = {}
@@ -539,6 +636,9 @@ def print_operator_plan() -> None:
     print("read-only current-state probe, no policy required:")
     print(f"  PYTHONPYCACHEPREFIX=/tmp/a90_pycache python3 {script} --read-only-probe")
     print()
+    print("probe ADB/root SysDump UI routes, no policy required:")
+    print(f"  PYTHONPYCACHEPREFIX=/tmp/a90_pycache python3 {script} --probe-sysdump-ui-route")
+    print()
     print("default dry-run after active policy:")
     print(f"  PYTHONPYCACHEPREFIX=/tmp/a90_pycache python3 {script}")
     print()
@@ -564,6 +664,9 @@ def main(argv: list[str]) -> int:
     parser.add_argument("--offline-check", action="store_true")
     parser.add_argument("--print-plan", action="store_true")
     parser.add_argument("--read-only-probe", action="store_true")
+    parser.add_argument("--probe-sysdump-ui-route", action="store_true")
+    parser.add_argument("--open-sysdump-ui", action="store_true", help=argparse.SUPPRESS)
+    parser.add_argument("--open-cp-debug-level-ui", action="store_true", help=argparse.SUPPRESS)
     parser.add_argument("--collect-after-recovery", action="store_true")
     parser.add_argument("--live-panic", action="store_true")
     parser.add_argument("--ack")
@@ -576,6 +679,7 @@ def main(argv: list[str]) -> int:
             args.offline_check,
             args.print_plan,
             args.read_only_probe,
+            args.probe_sysdump_ui_route or args.open_sysdump_ui or args.open_cp_debug_level_ui,
             args.collect_after_recovery,
             args.live_panic,
         )
@@ -583,7 +687,8 @@ def main(argv: list[str]) -> int:
     )
     if modes > 1:
         raise SystemExit(
-            "--offline-check, --print-plan, --read-only-probe, --collect-after-recovery, and --live-panic are mutually exclusive"
+            "--offline-check, --print-plan, --read-only-probe, --probe-sysdump-ui-route, "
+            "--collect-after-recovery, and --live-panic are mutually exclusive"
         )
 
     root = repo_root()
@@ -618,6 +723,28 @@ def main(argv: list[str]) -> int:
         verify_current_boot_hash(log_path, selected_serial)
         collect_read_only_probe(run_dir, log_path, odin, selected_serial)
         print(f"read-only probe ok: Android/root, Magisk boot hash, and sec_debug state collected; log={log_path}")
+        return 0
+
+    if args.probe_sysdump_ui_route or args.open_sysdump_ui or args.open_cp_debug_level_ui:
+        if not odin.is_file():
+            raise SystemExit(f"odin4 missing: {odin}")
+        selected_serial = require_current_android(log_path, args.serial)
+        verify_android_stability(
+            log_path,
+            selected_serial,
+            args.android_stability_samples,
+            args.android_stability_interval_sec,
+        )
+        verify_current_boot_hash(log_path, selected_serial)
+        collect_sysdump_route(run_dir, log_path, selected_serial)
+        summary = probe_sysdump_ui_route(run_dir, log_path, selected_serial)
+        print(
+            "sysdump UI route probe completed: "
+            f"visible={int(summary['ui_visible_after_any_attempt'])} "
+            f"explicit_startable={int(summary['explicit_activity_startable'])} "
+            f"secret_broadcast_startable={int(summary['secret_code_broadcast_startable'])} "
+            f"log={log_path}"
+        )
         return 0
 
     verify_agents_exception(root, log_path)

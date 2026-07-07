@@ -341,11 +341,31 @@ safety invariants and flash gates are binding and override any sub-goal.**
 > `com.sec.android.app.servicemodeapp/.CPDebugLevel`, and
 > `.ServiceModeAppBroadcastReceiver` with `android_secret_code` authority
 > `"9900"` / action `com.samsung.android.action.SECRET_CODE`. Therefore do not
-> consume the panic gate yet. Next operator step is to open SysDump via
-> `*#9900#` or that activity, set DEBUG LEVEL to MID if available, rerun
+> consume the panic gate yet. Next operator step is to open SysDump via the
+> physical dialer code `*#9900#`, set DEBUG LEVEL to MID if available, rerun
 > `--read-only-probe`, and require the decoded value to move away from LOW before
 > promoting the intentional sysrq-panic AGENTS exception. Report:
 > `docs/reports/S22PLUS_SEC_DEBUG_READONLY_PROBE_LIVE_2026-07-08.md`.
+
+> **S22+ LIVE ROUTE PROBE (2026-07-08 05:40 KST) — ADB/ROOT CANNOT DIRECTLY OPEN SYSDUMP UI; ANDROID STAYED BOOTED.**
+> Codex added `--probe-sysdump-ui-route` to
+> `workspace/public/src/scripts/revalidation/s22plus_sec_debug_mid_sysrq_gate.py`
+> and ran it against the rooted Android baseline with no flash, reboot,
+> partition write, procfs/sysfs write, sysrq trigger, or Odin transfer. Result:
+> probe pass with negative open result. The device remained normal Android
+> (`sys.boot_completed=1`) after the probe. The manifest confirms
+> `com.sec.android.app.servicemodeapp/.SysDump`,
+> `com.sec.android.app.servicemodeapp/.CPDebugLevel`, and secret-code authority
+> `9900`, but both activities require
+> `com.sec.android.app.servicemodeapp.permission.KEYSTRING`. `am start` from
+> shell/root returned Error type 3 for SysDump/CPDebugLevel; shell secret-code
+> broadcast was permission-denied; root secret-code broadcast returned
+> `Broadcast completed` but did not make SysDump visible. Therefore do not use
+> ADB direct-start as the operator path. Use physical dialer `*#9900#`, then
+> rerun `--read-only-probe` and keep the panic gate parked until debug_level
+> moves off LOW. A follow-up `--read-only-probe` after the route attempts still
+> decoded `debug_level=20300 / 0x4f4c / LO`, so no state change occurred. Report:
+> `docs/reports/S22PLUS_SYSDUMP_UI_ROUTE_PROBE_2026-07-08.md`.
 
 > **S22+ UPDATE (2026-07-08 03:40 KST) — RESET/PON REASON READ-ONLY PROBE DONE; BASELINE STILL CLEAN.**
 > Codex added and ran
