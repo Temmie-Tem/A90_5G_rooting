@@ -486,6 +486,39 @@ safety invariants and flash gates are binding and override any sub-goal.**
 > default. Report:
 > `docs/reports/S22PLUS_SEC_DEBUG_MID_SYSRQ_LIVE_RESULT_2026-07-08.md`.
 
+> **S22+ CURRENT FRONTIER (2026-07-08 06:35 KST) — SEC_DEBUG MID M18 CAPTURE GATE SOURCE READY; POLICY INERT.**
+> Codex added
+> `workspace/public/src/scripts/revalidation/s22plus_sec_debug_m18_capture_live_gate.py`
+> and inert policy draft
+> `docs/operations/S22PLUS_SEC_DEBUG_M18_CAPTURE_AGENTS_EXCEPTION_DRAFT_2026-07-08.md`.
+> This is the boot-only successor to the retired DTBO/ramoops M18 capture path:
+> require Android/root, current Magisk boot hash, and Samsung sec_debug
+> `debug_level=MID`; flash only the pinned M18 boot AP; observe; rollback boot;
+> collect retained `/proc/last_kmsg`. Host-only validation passed:
+> `py_compile`, `--offline-check`, `--print-plan`, and policy-inactive default
+> fail-closed before Android/device access. The operator also visually confirmed
+> the preceding sec_debug positive-control kernel panic screen with
+> `Panic Msg : sysrq triggered crash`, matching the retained last_kmsg proof.
+> No `AGENTS.md` promotion, flash, reboot, or device write happened in this
+> source-ready unit. Report:
+> `docs/reports/S22PLUS_SEC_DEBUG_M18_CAPTURE_GATE_SOURCE_2026-07-08.md`.
+
+> **S22+ CURRENT FRONTIER (2026-07-08 06:40 KST) — SEC_DEBUG MID M18 POLICY ACTIVE; DRY-RUN PASS; LIVE NEXT.**
+> After operator approval, Codex promoted the narrow boot-only sec_debug M18
+> exception into `AGENTS.md`. Scope is limited to
+> `workspace/public/src/scripts/revalidation/s22plus_sec_debug_m18_capture_live_gate.py`,
+> the pinned M18 boot AP, and pinned boot rollback APs with ack
+> `S22PLUS-SECDEBUG-M18-CAPTURE-LIVE-GATE`; rollback from manual Download uses
+> `S22PLUS-SECDEBUG-M18-ROLLBACK-BOOT-FROM-DOWNLOAD`. It explicitly excludes
+> DTBO, vendor_boot, vbmeta, recovery, BL/CP/CSC, super, userdata, EFS/sec_efs,
+> RPMB, keymaster, modem, bootloader, raw `dd`, fastboot, Magisk modules,
+> additional candidates, kernel rebuilds, and A90 actions. Validation passed:
+> `py_compile`, `--offline-check`, `git diff --check`, and active dry-run. The
+> dry-run verified Android/root stability, current boot hash matching the known
+> Magisk baseline, and sec_debug DEBUG LEVEL MID. No live flash/reboot/write
+> happened in this policy unit. Report:
+> `docs/reports/S22PLUS_SEC_DEBUG_M18_POLICY_ACTIVATION_2026-07-08.md`.
+
 > **S22+ UPDATE (2026-07-08 03:40 KST) — RESET/PON REASON READ-ONLY PROBE DONE; BASELINE STILL CLEAN.**
 > Codex added and ran
 > `workspace/public/src/scripts/revalidation/s22plus_reset_reason_readonly_probe.py`,
