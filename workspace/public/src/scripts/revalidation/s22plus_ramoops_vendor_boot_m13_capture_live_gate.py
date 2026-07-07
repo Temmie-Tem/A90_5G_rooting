@@ -212,12 +212,21 @@ def verify_agents_exception(root: Path, log_path: Path) -> None:
         raise SystemExit(f"AGENTS.md missing ramoops vendor_boot + M13 authorization markers: {missing}")
 
 
-def verify_current_vendor_boot_hash(log_path: Path, serial: str, expected_sha: str, label: str) -> None:
+def read_current_vendor_boot_hash(log_path: Path, serial: str, label: str) -> str:
     result = adb_shell("su -c 'sha256sum /dev/block/by-name/vendor_boot'", serial=serial, timeout=45.0)
     text = result.stdout + result.stderr
     append_log(log_path, f"{label}_vendor_boot_hash_rc={result.returncode}")
     append_log(log_path, text)
-    if result.returncode != 0 or expected_sha not in text:
+    words = text.split()
+    actual_sha = words[0].lower() if words else ""
+    if result.returncode != 0 or len(actual_sha) != 64 or any(ch not in "0123456789abcdef" for ch in actual_sha):
+        raise SystemExit(f"{label} vendor_boot hash could not be read safely")
+    return actual_sha
+
+
+def verify_current_vendor_boot_hash(log_path: Path, serial: str, expected_sha: str, label: str) -> None:
+    actual_sha = read_current_vendor_boot_hash(log_path, serial, label)
+    if actual_sha != expected_sha:
         raise SystemExit(f"{label} vendor_boot hash does not match expected {expected_sha}")
 
 
@@ -240,10 +249,11 @@ def restore_vendor_boot_from_download(
     odin: Path,
     vendor_boot_rollback_ap: Path,
     log_path: Path,
+    odin_wait_sec: int,
     android_wait_sec: int,
     serial: str | None = None,
 ) -> int:
-    device = wait_for_odin(odin, log_path, "stock-vendor-boot-rollback-wait", 5)
+    device = wait_for_odin(odin, log_path, "stock-vendor-boot-rollback-wait", odin_wait_sec)
     if device is None:
         raise SystemExit("stock vendor_boot rollback requires exactly one Odin device")
     rc = flash_ap(odin, vendor_boot_rollback_ap, device, log_path, "stock_vendor_boot_rollback")
@@ -263,9 +273,10 @@ def rollback_boot_collect_pstore(
     run_dir: Path,
     log_path: Path,
     rollback_target: str,
+    odin_wait_sec: int,
     android_wait_sec: int,
 ) -> tuple[int, str | None, bool]:
-    device = wait_for_odin(odin, log_path, "boot-rollback-wait", 5)
+    device = wait_for_odin(odin, log_path, "boot-rollback-wait", odin_wait_sec)
     if device is None:
         raise SystemExit("boot rollback requires exactly one Odin device")
     rc = flash_ap(odin, boot_rollback_ap, device, log_path, f"{rollback_target}_boot_rollback")
@@ -365,6 +376,7 @@ def main(argv: list[str]) -> int:
             run_dir,
             log_path,
             args.rollback_target,
+            args.odin_wait_sec,
             args.android_wait_sec,
         )
         print(f"M13 boot rollback-from-download completed rc={rc} android={android} marker={int(marker_found)}; log={log_path}")
@@ -373,7 +385,7 @@ def main(argv: list[str]) -> int:
     if args.restore_vendor_boot_from_download:
         if args.ack != RESTORE_VENDOR_BOOT_ACK_TOKEN:
             raise SystemExit(f"--restore-vendor-boot-from-download requires --ack {RESTORE_VENDOR_BOOT_ACK_TOKEN}")
-        rc = restore_vendor_boot_from_download(odin, vendor_boot_rollback_ap, log_path, args.android_wait_sec)
+        rc = restore_vendor_boot_from_download(odin, vendor_boot_rollback_ap, log_path, args.odin_wait_sec, args.android_wait_sec)
         print(f"stock vendor_boot restore-from-download completed rc={rc}; log={log_path}")
         return rc
 
@@ -385,16 +397,32 @@ def main(argv: list[str]) -> int:
         args.android_stability_interval_sec,
     )
     verify_current_boot_hash(log_path, selected_serial)
-    verify_current_vendor_boot_hash(log_path, selected_serial, EXPECTED_STOCK_VENDOR_BOOT_SHA256, "current")
-    host_snapshot(run_dir, log_path, "dryrun_current", odin)
 
     if args.restore_vendor_boot_from_android:
         if args.ack != RESTORE_VENDOR_BOOT_ACK_TOKEN:
             raise SystemExit(f"--restore-vendor-boot-from-android requires --ack {RESTORE_VENDOR_BOOT_ACK_TOKEN}")
+        current_vendor_boot_sha = read_current_vendor_boot_hash(log_path, selected_serial, "pre_stock_restore")
+        host_snapshot(run_dir, log_path, "restore_android_current", odin)
+        if current_vendor_boot_sha == EXPECTED_STOCK_VENDOR_BOOT_SHA256:
+            append_log(log_path, "stock_vendor_boot_restore_android_already_stock=1")
+            print(f"stock vendor_boot restore-from-android already stock; log={log_path}")
+            return 0
+        if current_vendor_boot_sha != EXPECTED_PATCHED_VENDOR_BOOT_SHA256:
+            raise SystemExit(f"refusing restore-from-android from unexpected vendor_boot hash {current_vendor_boot_sha}")
         reboot_android_to_download(selected_serial, log_path, "stock_vendor_boot_restore")
-        rc = restore_vendor_boot_from_download(odin, vendor_boot_rollback_ap, log_path, args.android_wait_sec, selected_serial)
+        rc = restore_vendor_boot_from_download(
+            odin,
+            vendor_boot_rollback_ap,
+            log_path,
+            args.odin_wait_sec,
+            args.android_wait_sec,
+            selected_serial,
+        )
         print(f"stock vendor_boot restore-from-android completed rc={rc}; log={log_path}")
         return rc
+
+    verify_current_vendor_boot_hash(log_path, selected_serial, EXPECTED_STOCK_VENDOR_BOOT_SHA256, "current")
+    host_snapshot(run_dir, log_path, "dryrun_current", odin)
 
     if not args.live:
         print(
@@ -459,13 +487,14 @@ def main(argv: list[str]) -> int:
         run_dir,
         log_path,
         args.rollback_target,
+        args.odin_wait_sec,
         args.android_wait_sec,
     )
     if rc != 0:
         return rc
 
     reboot_android_to_download(post_boot_rollback_android or "", log_path, "stock_vendor_boot_restore_after_capture")
-    rc = restore_vendor_boot_from_download(odin, vendor_boot_rollback_ap, log_path, args.android_wait_sec)
+    rc = restore_vendor_boot_from_download(odin, vendor_boot_rollback_ap, log_path, args.odin_wait_sec, args.android_wait_sec)
     if rc != 0:
         return rc or 8
     print(

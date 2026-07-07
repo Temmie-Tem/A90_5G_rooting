@@ -29,6 +29,25 @@ safety invariants and flash gates are binding and override any sub-goal.**
 > proves dead: EUD (in-SoC USB-C debug console, no jig) → UART jig last. Full
 > rationale: `docs/reports/S22PLUS_RAMOOPS_POSITIVE_CONTROL_OBSERVABILITY_STEER_2026-07-08.md`.
 
+> **S22+ LIVE RESULT (2026-07-08 03:50 KST) — DIRECT VENDOR_BOOT RAMOOPS PATCH BOOTED BUT DID NOT AFFECT LIVE DT; M13 NOT FLASHED.**
+> Operator authorized the ack-gated
+> `S22PLUS-RAMOOPS-VENDORBOOT-M13-CAPTURE-LIVE-GATE` run. Dry-run passed, the
+> direct-patched `vendor_boot` AP flashed successfully, Android/root returned, and
+> the live partition hash matched the pinned patched `vendor_boot` SHA256
+> `d62f2da241e1104db9e4b72aa0ba1927c0e85afd22fe380bff62c8df52bd3245`.
+> The live device-tree gate then read `ramoops_region/status=disabled` and
+> `compatible=ramoops`, so the helper fail-closed before flashing M13. Therefore
+> **boot was not touched and M13 was not flashed** in this run. Stock
+> `vendor_boot` was restored through Download mode, and a final read-only dry-run
+> re-verified Android/root, Magisk boot baseline, and stock FYG8 `vendor_boot`.
+> Codex also fixed the helper recovery path so `--restore-vendor-boot-from-android`
+> can recover from the known patched hash and uses the configured Odin wait
+> instead of a hardcoded 5-second timeout. Current next step is **host-only active
+> DTB provenance audit**: identify which FDT blob/source actually feeds the live
+> `/proc/device-tree` on this model before any more ramoops/M13/M15 live work.
+> Report:
+> `docs/reports/S22PLUS_RAMOOPS_VENDOR_BOOT_M13_LIVE_RESULT_2026-07-08.md`.
+
 > **S22+ UPDATE (2026-07-08 03:40 KST) — RESET/PON REASON READ-ONLY PROBE DONE; BASELINE STILL CLEAN.**
 > Codex added and ran
 > `workspace/public/src/scripts/revalidation/s22plus_reset_reason_readonly_probe.py`,
