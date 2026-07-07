@@ -14,11 +14,15 @@ safety invariants and flash gates are binding and override any sub-goal.**
 > **not** localize whether M18 reached its `/dev/kmsg` marker. Source order proves
 > the first M18 emissions are `/dev/kmsg` only (`phase=mounts`, then `k_marker`).
 > Manifest also proves M18 was not a fully dependency-closed USB-tail candidate:
-> 8 USB-tail modules have 29 non-reset missing dependency edges. Interpretation:
-> do not repeat the same M18 live. Preferred next instrument remains UART/kernel
-> console. If no-UART fallback is pursued, first design host-only as a checkpoint/
-> download discriminator or dependency-closed USB-tail candidate with a fresh
-> SHA-pinned gate; no blind same-shape live.
+> 8 USB-tail modules have 29 non-reset missing dependency edges. The postmortem
+> closure calculation shows adding 9 modules (`gpi`, `usb_f_ss_mon_gadget`,
+> `repeater`, `redriver`, `usb_notify_layer`, `switch_class`, `common_muic`,
+> `spu_verify`, `qc_usb_audio`) closes all non-reset edges, while reset/anomaly
+> blocklist edges remain intentionally excluded. Interpretation: do not repeat
+> the same M18 live. Preferred next instrument remains UART/kernel console. If
+> no-UART fallback is pursued, first design host-only as a checkpoint/download
+> discriminator or dependency-closed USB-tail candidate with a fresh SHA-pinned
+> gate; no blind same-shape live.
 
 > Running mode note: this loop runs unattended (incl. Codex bypass) and is **OPERATOR-PRE-AUTHORIZED
 > BY PRINCIPLE (2026-06-15)**, not by an enumerated mechanism list. **The rule: the loop MAY

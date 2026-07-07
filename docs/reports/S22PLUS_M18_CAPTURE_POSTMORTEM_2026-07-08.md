@@ -103,6 +103,24 @@ This corrects the interpretation: the run does not prove that a fully
 dependency-closed Android first-stage USB environment fails. It proves that this
 specific M18 shape still loops and that retained evidence cannot say where.
 
+The postmortem utility also computes the transitive non-reset closure from the
+same private `modules.dep` metadata. It shows that adding 9 modules closes all
+non-reset dependency edges:
+
+- `gpi.ko`
+- `usb_f_ss_mon_gadget.ko`
+- `repeater.ko`
+- `redriver.ko`
+- `usb_notify_layer.ko`
+- `switch_class.ko`
+- `common_muic.ko`
+- `spu_verify.ko`
+- `qc_usb_audio.ko`
+
+Closure stats: base `141`, closed `150`, added `9`, unresolved non-reset edges
+`0`. The remaining blocked dependency edges are reset/anomaly blocklist edges
+and are intentionally not folded into this conclusion.
+
 ## Next
 
 No same-M18 retry. The useful next step is one of:
@@ -113,6 +131,25 @@ No same-M18 retry. The useful next step is one of:
 
 Any further live candidate needs a fresh SHA-pinned exception, dry-run gate, and
 attended rollback plan.
+
+## No-UART Fallback Design Boundary
+
+Because retained logs did not capture M18 `/dev/kmsg`, a no-UART fallback must
+prove progress through an externally visible behavior. Do not make the next live
+candidate another park-and-wait ACM image.
+
+If UART is not available, the next host-only design should be:
+
+1. Build a dependency-closed 150-module list from the closure above.
+2. Use a checkpoint/download init, not an ACM park init.
+3. Load a bounded prefix of that list, then immediately reboot to download.
+4. Start with a small number of checkpoints selected around the added closure
+   modules and the USB PHY/dwc3/type-C tail, not a one-module-at-a-time sweep.
+5. Only after a prefix proves it can self-return to download should a later
+   candidate attempt configfs/ACM bind.
+
+This keeps the proof channel external and avoids interpreting another empty
+`last_kmsg`.
 
 ## Validation
 
@@ -127,3 +164,7 @@ python3 workspace/public/src/scripts/revalidation/s22plus_m18_capture_postmortem
 ```
 
 Result: `result=pass`, `device_action=false`.
+
+The postmortem output was also regenerated after adding dependency-closure
+calculation and reported `closed_count=150`, `added_count=9`,
+`unresolved_nonblocked={}`.

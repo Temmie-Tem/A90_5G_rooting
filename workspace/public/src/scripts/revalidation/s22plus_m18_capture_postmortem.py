@@ -119,11 +119,103 @@ def analyze_m18_source(source_text: str) -> dict[str, Any]:
     }
 
 
-def analyze_manifest(manifest: dict[str, Any]) -> dict[str, Any]:
+RESET_ANOMALY_BLOCKLIST = {
+    "abc.ko",
+    "gh_virt_wdt.ko",
+    "minidump.ko",
+    "qcom_wdt_core.ko",
+    "sec_debug.ko",
+    "sec_debug_region.ko",
+}
+
+
+def module_basename(path: str) -> str:
+    return path.rsplit("/", 1)[-1]
+
+
+def parse_modules_dep(path: Path) -> dict[str, list[str]]:
+    deps: dict[str, list[str]] = {}
+    for line in path.read_text(encoding="utf-8", errors="replace").splitlines():
+        line = line.strip()
+        if not line:
+            continue
+        lhs, sep, rhs = line.partition(":")
+        if sep != ":":
+            raise SystemExit(f"malformed modules.dep line: {line!r}")
+        deps[module_basename(lhs.strip())] = [module_basename(item) for item in rhs.split()]
+    return deps
+
+
+def read_module_list(path: Path) -> list[str]:
+    return [
+        module_basename(line.strip())
+        for line in path.read_text(encoding="utf-8", errors="replace").splitlines()
+        if line.strip() and not line.strip().startswith("#")
+    ]
+
+
+def analyze_dependency_closure(manifest_path: Path, base_modules: list[str]) -> dict[str, Any]:
+    metadata_dir = manifest_path.parent / "build" / "vendor_ramdisk_metadata" / "lib" / "modules"
+    dep_path = metadata_dir / "modules.dep"
+    recovery_path = metadata_dir / "modules.load.recovery"
+    if not dep_path.exists() or not recovery_path.exists():
+        return {
+            "available": False,
+            "reason": f"module metadata missing under {metadata_dir}",
+        }
+
+    deps = parse_modules_dep(dep_path)
+    recovery = read_module_list(recovery_path)
+    recovery_index = {name: index for index, name in enumerate(recovery)}
+    closure = set(base_modules)
+    changed = True
+    while changed:
+        changed = False
+        for module in list(closure):
+            for dep in deps.get(module, []):
+                if dep in closure or dep in RESET_ANOMALY_BLOCKLIST:
+                    continue
+                closure.add(dep)
+                changed = True
+
+    ordered = sorted(closure, key=lambda name: (recovery_index.get(name, 9999), name))
+    base_set = set(base_modules)
+    added = [module for module in ordered if module not in base_set]
+    unresolved_nonblocked = {
+        module: [dep for dep in deps.get(module, []) if dep not in closure and dep not in RESET_ANOMALY_BLOCKLIST]
+        for module in ordered
+    }
+    unresolved_nonblocked = {
+        module: missing for module, missing in unresolved_nonblocked.items() if missing
+    }
+    blocked_edges = {
+        module: [dep for dep in deps.get(module, []) if dep in RESET_ANOMALY_BLOCKLIST]
+        for module in ordered
+    }
+    blocked_edges = {module: missing for module, missing in blocked_edges.items() if missing}
+    return {
+        "available": True,
+        "base_count": len(base_modules),
+        "closed_count": len(ordered),
+        "added_count": len(added),
+        "added_modules": added,
+        "added_recovery_positions": {
+            module: recovery_index[module] + 1 for module in added if module in recovery_index
+        },
+        "unresolved_nonblocked": unresolved_nonblocked,
+        "blocked_dependency_edge_count": sum(len(value) for value in blocked_edges.values()),
+        "blocked_dependency_module_count": len(blocked_edges),
+    }
+
+
+def analyze_manifest(manifest_path: Path, manifest: dict[str, Any]) -> dict[str, Any]:
     vendor = manifest.get("vendor_ramdisk", {}).get("m18_full_firststage_usb", {})
     missing = vendor.get("non_reset_missing_tail_deps", {})
     if not isinstance(missing, dict):
         missing = {}
+    subset = vendor.get("subset", [])
+    if not isinstance(subset, list):
+        subset = []
     missing_edges = sum(len(value) for value in missing.values() if isinstance(value, list))
     return {
         "subset_count": vendor.get("subset_count"),
@@ -132,6 +224,7 @@ def analyze_manifest(manifest: dict[str, Any]) -> dict[str, Any]:
         "non_reset_missing_tail_dep_edge_count": missing_edges,
         "non_reset_missing_tail_deps": missing,
         "m18_is_dependency_closed_usb_tail": len(missing) == 0,
+        "dependency_closure": analyze_dependency_closure(manifest_path, [str(item) for item in subset]),
     }
 
 
@@ -198,7 +291,7 @@ def main(argv: list[str] | None = None) -> int:
 
     log = parse_log(read_text(log_path))
     source = analyze_m18_source(read_text(source_path))
-    manifest = analyze_manifest(json.loads(read_text(manifest_path)))
+    manifest = analyze_manifest(manifest_path, json.loads(read_text(manifest_path)))
     last_kmsg = analyze_last_kmsg(last_kmsg_path)
     classification = classify(log, source, manifest, last_kmsg)
 
