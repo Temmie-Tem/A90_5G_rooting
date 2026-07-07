@@ -1131,6 +1131,24 @@ safety invariants and flash gates are binding and override any sub-goal.**
 > with `--rollback-from-download --ack S22PLUS-M9A-ROLLBACK-FROM-DOWNLOAD`, and treat the failure as C
 > entry/compiler metadata/stack-helper until proved otherwise.
 >
+> **STATUS UPDATE (2026-07-07 KST, M9A live result):** Codex executed the attended M9A boot-only live gate once.
+> Preflight passed, `adb reboot download` succeeded, Odin saw download mode, and the exact M9A AP SHA256
+> `c953f74fe7e3cdc226ebd3e1f0bac2142ee39e14483d87022714ae98e336d6b1` flashed with Odin rc=0. The original Odin
+> endpoint disconnected at `11:37:06Z`; the helper's 60 s observation ended at `11:38:06Z` with
+> `m9a_self_download_seen=0` and rc=4. Operator observed bootloop-like behavior. Codex continued host polling and
+> saw Samsung download mode appear at about `11:38:52Z`, roughly 106 s after the original endpoint disconnected,
+> then ran `--rollback-from-download --ack S22PLUS-M9A-ROLLBACK-FROM-DOWNLOAD`. The pinned Magisk boot-only AP
+> flashed rc=0 and Android returned with four stable samples (`boot_completed=1`, `init.svc.bootanim=stopped`),
+> Magisk root, and live boot SHA256 `2e541703951dc725bad35850faf7028c2d910dd5f21166449b63f1248c29967e`.
+> Retained evidence stayed absent (`pstore_files=[]`, `/proc/last_kmsg` readable but no M9A marker, expected
+> because M9A writes no marker). Report:
+> `docs/reports/S22PLUS_NATIVE_INIT_M9A_C_FIRST_REBOOT_LIVE_RESULT_2026-07-07.md`. Interpretation: M9A is not a
+> clean in-window PASS like M4T3, but it is materially different from M8A. Freestanding C entry/build-id/.eh_frame/
+> stack-helper/immediate `reboot("download")` can eventually reach download mode. Do not proceed to M9B metadata
+> removal yet. Next bounded unit is host-only M10A: start from M9A, add exactly one M8A-style side effect
+> `mkdirat("/dev", 0755)` before reboot, no kmsg/mknodat/mount/sleep/module/configfs/USB, and use a longer
+> self-download window (>=150 s) in the preflight helper.
+>
 > **🎯 SUPERSEDED OPERATOR STEER (2026-07-07, M7 was the live-ready USB-ACM candidate before the live result above;
 > reads: `docs/reports/S22PLUS_USB_PERIPHERAL_BRINGUP_MECHANISM_HOSTANALYSIS_2026-07-07.md` +
 > `docs/reports/S22PLUS_NATIVE_INIT_M6_BOOTLOOP_POSTMORTEM_OPERATOR_2026-07-07.md` +
