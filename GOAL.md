@@ -4,6 +4,32 @@ Drive the A90 native-init project forward one **bounded V-iteration at a time** 
 the proven cycle below. This file says WHAT to pursue; **`AGENTS.md` says HOW — its
 safety invariants and flash gates are binding and override any sub-goal.**
 
+> **S22+ CURRENT FRONTIER (2026-07-08 02:31 KST) — M20 FLOOR-SPLIT HOST BUILD READY; NO LIVE AUTH.**
+> After the operator-reported M19 C000 bootloop/manual-download event, current
+> device state was rechecked as rooted Magisk Android baseline:
+> `SM-S906N`/`g0q`, `S906NKSS7FYG8`, `sys.boot_completed=1`,
+> `ro.boot.verifiedbootstate=orange`, `ro.boot.boot_recovery=0`, Magisk root,
+> and current boot SHA256
+> `2e541703951dc725bad35850faf7028c2d910dd5f21166449b63f1248c29967e`.
+> No further rollback was needed.
+>
+> Host-only M20 split artifacts are built under
+> `workspace/private/outputs/s22plus_native_init/m20_floor_split_v0_1` with
+> source/helper `workspace/public/src/native-init/s22plus_init_raw_reboot_m20a.S`,
+> `workspace/public/src/native-init/s22plus_init_m20_floor_split.c`, and
+> `workspace/public/src/scripts/revalidation/build_s22plus_m20_floor_split.py`.
+> Variants:
+> `M20A_RAW` AP SHA256 `795e071107fdd7011a5acdc48ca7415273e5f2a3e19af45386702617292021fc`
+> boot SHA256 `4fada63c986abc774e2a41eebc590f0635f1f1dcc8a207baa8d02cbfeb20eeb5`;
+> `M20B_MINFS` AP SHA256 `939f1b2a1c009c0a85ddc85e6c6e7a36b0ba1fadb19c7c20bacbd99b1323dc28`
+> boot SHA256 `b1cc15ae17bf9607947a0819a0e530d6ada3867550c03f841e92f27c1116d46f`;
+> `M20C_KMSG` AP SHA256 `fd7b14f1fa13490c5fe724c2afa9a723f0707859d3ad4a6809e3c00e8093981d`
+> boot SHA256 `fe7b8a38b4ca5b5c92f6a94423bba130263b5ba91f7a7de1c110ccc107a2f363`.
+> All are boot-only, single `boot.img.lz4`, `live_flash_authorized=false`.
+> Report: `docs/reports/S22PLUS_NATIVE_INIT_M20_FLOOR_SPLIT_HOST_BUILD_2026-07-08.md`.
+> **Next live, if authorized, must be M20A only first.** Do not run M20B/M20C,
+> C129, or wider M19 prefixes until M20A is operator-clean under current timing.
+
 > **S22+ CURRENT FRONTIER (2026-07-08 02:07 KST) — BOOTLOOP REPORT RECORDED, DEVICE BACK ON MAGISK BASELINE; M19 HOST-ONLY MATRIX READY, NOT AUTHORIZED LIVE.**
 > Operator reported a bootloop and manual download-mode entry. Host follow-up found the
 > S22+ reachable again as normal rooted Android (`SM-S906N`/`g0q`, `S906NKSS7FYG8`,
