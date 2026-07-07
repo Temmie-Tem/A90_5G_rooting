@@ -746,6 +746,51 @@ COMMIT → REPEAT) is defined in `GOAL.md`.
    authorize display/distro candidates, kernel rebuild, recovery/vendor_boot/
    vbmeta/non-boot flash, raw host `dd`, fastboot, multidisabler, format data,
    or any A90 action.
+   **Narrow operator-authorized exception (2026-07-07, S22+ M9A C
+   first-action reboot native-init boot-only live gate):** after the M8A
+   lower-layer postmortem and M9A host build report proved the C first-action
+   reboot discriminator, Codex may prepare and perform one bounded attended
+   boot-partition-only M9A live gate on the same Samsung S22+ `SM-S906N`/`g0q`
+   `S906NKSS7FYG8` using the checked helper
+   `workspace/public/src/scripts/revalidation/s22plus_m9a_c_first_reboot_live_gate.py`
+   with live ack token `S22PLUS-M9A-C-FIRST-REBOOT-LIVE-GATE` and
+   rollback-only ack token `S22PLUS-M9A-ROLLBACK-FROM-DOWNLOAD`. The exact
+   candidate AP.tar.md5 SHA256 must be
+   `c953f74fe7e3cdc226ebd3e1f0bac2142ee39e14483d87022714ae98e336d6b1`, the
+   contained padded `boot.img` SHA256 must be
+   `4c998680a1ccdbd5017053d7da58858ab818fc0644f08ef5bb0fc5d0dcc2d981`, the
+   known-booting Magisk boot base SHA256 must be
+   `2e541703951dc725bad35850faf7028c2d910dd5f21166449b63f1248c29967e`, the
+   preserved Magisk-patched kernel SHA256 must be
+   `bceca73edbfca3499148e16741c939779157925949ef6bc8a8e31d6b68fc2cff`, the
+   M9A `/init` SHA256 must be
+   `46dfc4ecf92457260484d38360c70c0a45a1b7aead3a5cac567ec21ab2c7d97f`, and
+   the M9A source SHA256 must be
+   `6248617a4d2fe077768aef1324937659d33a0c93a453d0ecf9cd8cc3d3ec34a8`. The AP
+   must contain exactly one tar member, `boot.img.lz4`, with no recovery,
+   vendor_boot, vbmeta, vbmeta_system, dtbo, BL, CP, CSC, super, persist,
+   userdata, EFS, RPMB, keymaster, modem, or any other partition payload. The
+   M9A candidate may only run as direct PID1 with a freestanding C raw-syscall
+   runtime, execute one direct `reboot(2)` syscall requesting automatic Samsung
+   download-mode return, and then park if that syscall returns. The helper must
+   wait for the original Odin endpoint to disconnect before treating a later
+   Odin endpoint as M9A self-download proof. M9A must use no marker, no VFS, no
+   kmsg, no mount, no sleep, no module insertion, no configfs, no USB gadget,
+   no UDC binding, and no USB role force. The M9A `/init` must not start
+   Android or Magisk, mount persistent partitions, write block devices, touch
+   watchdog, install Magisk modules, format data, or inject vendor module
+   binaries or module-list files into the boot ramdisk. If automatic download
+   mode does not appear in the bounded window, rollback requires manual
+   download-mode rollback through the same helper's `--rollback-from-download
+   --ack S22PLUS-M9A-ROLLBACK-FROM-DOWNLOAD` mode, using the exact Magisk
+   boot-only rollback AP SHA256
+   `d2373bf88dda342709440dc3db468f11d80a4593856768a4d8ae402bef215a56` first,
+   or the exact stock boot-only fallback AP SHA256
+   `1ee92a86f30e4acb12509272630e1bef5215d1a12686ac69a3b399b43740535e` if the
+   operator explicitly selects stock rollback. This exception does not
+   authorize display/distro candidates, kernel rebuild, recovery/vendor_boot/
+   vbmeta/non-boot flash, raw host `dd`, fastboot, multidisabler, format data,
+   or any A90 action.
 2. **Flash only via the checked helper by default:** `workspace/public/src/scripts/revalidation/native_init_flash.py`.
    Never `dd`/`fastboot`/raw-write a partition. Never invent a new flash path.
    **Narrow operator-authorized exception (2026-07-02, self-dd ladder only):** the V3358
@@ -1015,6 +1060,20 @@ COMMIT → REPEAT) is defined in `GOAL.md`.
    `workspace/public/src/scripts/revalidation/s22plus_m8a_minfs_download_live_gate.py`
    for the exact single-member `boot.img.lz4` candidate AP.tar.md5 SHA256
    `c97d29e38fe3293ad145a7743b61ae5fddae8f1b028e619dcd56e2f640de3c19`, and
+   the same helper may use `/usr/bin/odin4 --reboot -a` in
+   `--rollback-from-download` mode with the exact single-member Magisk
+   boot-only AP.tar.md5 SHA256
+   `d2373bf88dda342709440dc3db468f11d80a4593856768a4d8ae402bef215a56` or the
+   exact single-member stock boot-only AP.tar.md5 SHA256
+   `1ee92a86f30e4acb12509272630e1bef5215d1a12686ac69a3b399b43740535e`. No other
+   Odin slot, tar member, candidate hash, rollback hash, or partition is
+   authorized by this exception.
+   **Narrow operator-authorized exception (2026-07-07, S22+ M9A C
+   first-action reboot native-init boot-only Odin path):** the S22+ M9A live
+   gate above may use `/usr/bin/odin4 --reboot -a` through
+   `workspace/public/src/scripts/revalidation/s22plus_m9a_c_first_reboot_live_gate.py`
+   for the exact single-member `boot.img.lz4` candidate AP.tar.md5 SHA256
+   `c953f74fe7e3cdc226ebd3e1f0bac2142ee39e14483d87022714ae98e336d6b1`, and
    the same helper may use `/usr/bin/odin4 --reboot -a` in
    `--rollback-from-download` mode with the exact single-member Magisk
    boot-only AP.tar.md5 SHA256

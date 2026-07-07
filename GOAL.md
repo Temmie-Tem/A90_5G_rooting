@@ -1114,6 +1114,23 @@ safety invariants and flash gates are binding and override any sub-goal.**
 > SHA-pinned `AGENTS.md` exception + guarded helper + default no-flash dry-run against the rooted Android/Magisk
 > baseline.
 >
+> **STATUS UPDATE (2026-07-07 KST, M9A live-gate preflight ready):** Codex added the SHA-pinned
+> `AGENTS.md` M9A boot-only/Odin exceptions and guarded helper
+> `workspace/public/src/scripts/revalidation/s22plus_m9a_c_first_reboot_live_gate.py` with live ack token
+> `S22PLUS-M9A-C-FIRST-REBOOT-LIVE-GATE` and rollback-only ack token
+> `S22PLUS-M9A-ROLLBACK-FROM-DOWNLOAD`. `--offline-check` passed with no device action, then default no-flash
+> dry-run passed against the rooted Android/Magisk baseline, verifying the exact M9A AP/boot/init/source hashes,
+> pinned Magisk/stock boot-only rollback APs, `AGENTS.md` exception, Android stability, and live boot SHA256
+> `2e541703951dc725bad35850faf7028c2d910dd5f21166449b63f1248c29967e`. Report:
+> `docs/reports/S22PLUS_NATIVE_INIT_M9A_C_FIRST_REBOOT_LIVE_GATE_PREFLIGHT_2026-07-07.md`. **No live flash was
+> run.** Next supervised live command:
+> `PYTHONPYCACHEPREFIX=/tmp/a90_pycache python3 workspace/public/src/scripts/revalidation/s22plus_m9a_c_first_reboot_live_gate.py --live --ack S22PLUS-M9A-C-FIRST-REBOOT-LIVE-GATE`.
+> Expected branch logic: (a) original Odin endpoint disconnects and a later Odin endpoint appears ⇒ M9A
+> freestanding C entry/build-id/.eh_frame/stack-helper/immediate reboot path is viable; rollback immediately and
+> split M8A runtime side effects next. (b) no self-download / bootloop ⇒ manually enter download mode, rollback
+> with `--rollback-from-download --ack S22PLUS-M9A-ROLLBACK-FROM-DOWNLOAD`, and treat the failure as C
+> entry/compiler metadata/stack-helper until proved otherwise.
+>
 > **🎯 SUPERSEDED OPERATOR STEER (2026-07-07, M7 was the live-ready USB-ACM candidate before the live result above;
 > reads: `docs/reports/S22PLUS_USB_PERIPHERAL_BRINGUP_MECHANISM_HOSTANALYSIS_2026-07-07.md` +
 > `docs/reports/S22PLUS_NATIVE_INIT_M6_BOOTLOOP_POSTMORTEM_OPERATOR_2026-07-07.md` +
