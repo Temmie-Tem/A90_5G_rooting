@@ -4,46 +4,37 @@ Drive the A90 native-init project forward one **bounded V-iteration at a time** 
 the proven cycle below. This file says WHAT to pursue; **`AGENTS.md` says HOW — its
 safety invariants and flash gates are binding and override any sub-goal.**
 
-> **OPERATOR STEER (2026-07-08, Claude) — UPDATED: THE REAL CONSOLE IS SAMSUNG sec_debug, NOT MAINLINE ramoops.**
-> Supersedes my earlier "enable ramoops via vendor_boot DTB" steps — that was
-> disproven live (patched vendor_boot did not affect the live DT; the active DT is
-> the DTBO). I then decoded the dtbo blobs host-only (FDT walker, no dtc): the
-> enable-target overlay is **Samsung's `sec_debug` suite, not mainline ramoops** —
-> `samsung,kernel_log_buf` (→ `/proc/last_kmsg`, 2 MiB, zstd), `samsung,pstore_pmsg`
-> (→ `/dev/pmsg0`), `upload_cause`/`crashkey`/`qcom-rst_exinfo`/`user_reset`, all
-> gated by `sec,debug_level`. The DTBO "enable" is a single mainline
-> `ramoops_region status disabled→okay` flip that does NOT drive the Samsung path
-> → that is why every `last_kmsg` was ABL/download-only and M13 pstore was empty:
-> retail ships **`debug_level=LOW`** (sec_debug stores only bootloader/LPM logs),
-> and mainline ramoops is vestigial here.
-> **The real lever (websearch-confirmed): raise Samsung debug_level to MID.**
-> `*#9900#` SysDump → DEBUG LEVEL: MID → a kernel panic enters Upload Mode /
-> ramdump = full kernel log retained next boot. NO flash to enable, reversible to
-> LOW, kernel-level (captures even a bare native-init boot + the QMP-PHY abort
-> independent of our `/init`); `rst_exinfo` logs exception/reset context so even a
-> watchdog/async-SError (leading M15 cause) leaves a reason.
-> 1. **CHEAPEST positive control = ZERO flash:** on rooted Android set MID +
->    `echo c > /proc/sysrq-trigger`, confirm next-boot `/proc/last_kmsg` holds the
->    real panic (not ABL-only). Validates the Samsung channel with no boot flash.
-> 2. **Then** point it at a native QMP-PHY candidate (M15/M18) and read the abort.
-> The in-flight M22 sysrq-panic is a valid test of the *mainline* path; if M22
-> retains nothing, do NOT keep permuting DTBO — switch to debug_level=MID.
-> Fallback order: **sec_debug/MID → EUD (in-SoC USB-C console, no jig) → UART last.**
-> On-device caveats: confirm MID is settable via `*#9900#` (vs a `param` write) and
-> cleanly reversible, and that MID capture survives our manual-download recovery.
-> **PARALLEL HIGH-CEILING CARD — EUD probe (operator go 2026-07-08):** EUD gives a
-> *live* UART console **and** SWD/JTAG over the same USB-C (`eud.ko` in-hand,
-> SM8450-supported) — the true A90-serial-bridge equivalent. Run in parallel:
-> **Phase A** read-only over adb (is `eud.ko`/`/sys/.../eud/enable`/DT node present,
-> fused off?), then **Phase B** attended reversible `echo 1 > /sys/.../eud/enable`
-> + host `lsusb`/`dmesg` for the EUD hub, then `echo 0` restore. No flash, no
-> partition, no power write; USB-C reconfig only. Gate: host enumerates hub ⇒ route
-> `console=` to EUD COM as the primary live channel; fused off ⇒ stay on MID.
-> Probe design: `docs/reports/S22PLUS_EUD_FEASIBILITY_PROBE_STEER_2026-07-08.md`;
-> full channel inventory: `docs/reports/S22PLUS_DEBUG_CHANNEL_INVENTORY_2026-07-08.md`.
-> Full evidence + sources:
-> `docs/reports/S22PLUS_SEC_DEBUG_DEBUG_LEVEL_NATIVE_CONSOLE_HOSTFINDING_2026-07-08.md`
-> (prior superseded rationale: `docs/reports/S22PLUS_RAMOOPS_POSITIVE_CONTROL_OBSERVABILITY_STEER_2026-07-08.md`).
+> **OPERATOR STEER (2026-07-08, Claude) — EUD IS NOW THE PRIMARY OBSERVABILITY PATH (M18 fault is a SILENT reset).**
+> Results so far: (a) Samsung **sec_debug/debug_level=MID** is proven — the
+> `*#9900#`→MID + zero-flash `echo c > /proc/sysrq-trigger` positive control PASSED
+> (operator saw the RDX/Upload-Mode "sysrq triggered crash" screen; `/proc/last_kmsg`
+> retained it). (b) **But M18@MID = no-hit**: the native candidate bootlooped with
+> NO panic/Oops/SError in `last_kmsg` — so **M18's fault is a silent reset
+> (watchdog/async-SError), not a kernel panic**, and sec_debug's panic-time snapshot
+> does not capture it. → **sec_debug/MID is demoted to a panic-class adjunct; do NOT
+> burn more flashes retrying native faults via MID/last_kmsg.**
+> **EUD is the primary path** (device-ready per Phase A: `eud.ko` bound at
+> `88e0000.qcom,msm-eud`, DT `status=ok`, `/dev/ttyEUD0` present — not fused off).
+> Enable = **`eud.enable=1`** (runtime `/sys/module/eud/parameters/enable`, 0644,
+> reversible `0`; driver does `CSR_EUD_EN`+`SW_ATTACH_DET`). Two host sub-paths:
+> - **B1 (PRIMARY) — EUD-SWD/JTAG via OpenOCD.** Proven host path
+>   (`openocd -f interface/eud.cfg -f target/qualcomm/qcom.cfg` → SWD DPIDR + GDB
+>   :3333). For a **silent reset** this is ideal: halt the CPU / catch the exception
+>   and read the exact **PC + faulting register** — stronger than any console line.
+>   Host prep task: stage an OpenOCD EUD build + an **SM8450** target config.
+> - **B2 (CONDITIONAL) — EUD-COM live console** (`console=ttyEUD0`). Simpler *if*
+>   the host enumerates a readable serial, but the COM peripheral is NOT integrated
+>   into open tooling (Linaro did SWD, not COM) → host-readability is unproven.
+> **Phase B (attended, reversible, NO flash):** `echo 1 > /sys/module/eud/parameters/enable`
+> → host `lsusb -v`/`dmesg` (VID/PID, does a serial/CDC COM endpoint appear?) →
+> if serial, `screen`/`cat` for console; in parallel try OpenOCD SWD → `echo 0`
+> restore, confirm adb returns. Resolve B2's host-readability with one `lsusb`; if
+> COM is not host-readable, commit to B1 (SWD/JTAG). USB-C reconfig only; no
+> partition/power; redacted logs (strip adb serials).
+> Reports: research/applicability `docs/reports/S22PLUS_EUD_RESEARCH_APPLICABILITY_2026-07-08.md`;
+> probe design `docs/reports/S22PLUS_EUD_FEASIBILITY_PROBE_STEER_2026-07-08.md`;
+> channel inventory `docs/reports/S22PLUS_DEBUG_CHANNEL_INVENTORY_2026-07-08.md`;
+> sec_debug finding `docs/reports/S22PLUS_SEC_DEBUG_DEBUG_LEVEL_NATIVE_CONSOLE_HOSTFINDING_2026-07-08.md`.
 
 > **S22+ LIVE RESULT (2026-07-08 03:50 KST) — DIRECT VENDOR_BOOT RAMOOPS PATCH BOOTED BUT DID NOT AFFECT LIVE DT; M13 NOT FLASHED.**
 > Operator authorized the ack-gated
