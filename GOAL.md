@@ -259,6 +259,22 @@ safety invariants and flash gates are binding and override any sub-goal.**
 > added. Report:
 > `docs/reports/S22PLUS_NATIVE_INIT_M22_KMSG_SYSRQ_PANIC_HOST_BUILD_2026-07-08.md`.
 
+> **S22+ CURRENT FRONTIER (2026-07-08 05:12 KST) — DTBO+M22 SYSRQ-PANIC LIVE GATE SOURCE READY; POLICY INERT.**
+> Codex added guarded helper
+> `workspace/public/src/scripts/revalidation/s22plus_ramoops_dtbo_m22_sysrq_panic_live_gate.py`
+> plus inert policy draft
+> `docs/operations/S22PLUS_RAMOOPS_DTBO_M22_SYSRQ_PANIC_AGENTS_EXCEPTION_DRAFT_2026-07-08.md`.
+> Intended future flow: flash patched DTBO, require Android/root return,
+> verify patched DTBO hash and live `ramoops_region/status=okay`, flash M22,
+> observe ADB/Odin/no-transport after intentional sysrq-c, roll boot back to
+> Magisk and collect pstore/last_kmsg, then restore stock DTBO. Host-only
+> validation passed: `py_compile`, `--offline-check`, and `--print-plan`.
+> A default execution correctly fails closed with `rc=1` before Android/device
+> access because `AGENTS.md` lacks the M22 retained-console markers and ack
+> tokens. No `AGENTS.md` promotion, live policy, flash, reboot, write, or
+> device access was performed. Report:
+> `docs/reports/S22PLUS_RAMOOPS_DTBO_M22_SYSRQ_PANIC_GATE_SOURCE_2026-07-08.md`.
+
 > **S22+ UPDATE (2026-07-08 03:40 KST) — RESET/PON REASON READ-ONLY PROBE DONE; BASELINE STILL CLEAN.**
 > Codex added and ran
 > `workspace/public/src/scripts/revalidation/s22plus_reset_reason_readonly_probe.py`,
