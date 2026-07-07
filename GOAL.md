@@ -4,6 +4,17 @@ Drive the A90 native-init project forward one **bounded V-iteration at a time** 
 the proven cycle below. This file says WHAT to pursue; **`AGENTS.md` says HOW — its
 safety invariants and flash gates are binding and override any sub-goal.**
 
+> **S22+ ACTIVE FRONTIER (2026-07-08 01:41 KST) — RAMOOPS DTBO + M18 CAPTURE LIVE APPROVED.**
+> The operator approved the attended live S22+ ramoops DTBO + M18 capture run.
+> Proceed only through
+> `workspace/public/src/scripts/revalidation/s22plus_ramoops_dtbo_m18_capture_live_gate.py`
+> with the live token `S22PLUS-RAMOOPS-DTBO-M18-CAPTURE-LIVE-GATE`, after the
+> `AGENTS.md` narrow exception is active and the adjusted readiness audit,
+> default dry-run gate, and Android baseline preflight pass. Scope remains
+> exactly one patched DTBO flash, one M18 boot flash for pstore capture, Magisk
+> boot rollback, and stock DTBO restore. No vbmeta/recovery/vendor_boot/raw dd/
+> fastboot/additional candidates.
+
 > Running mode note: this loop runs unattended (incl. Codex bypass) and is **OPERATOR-PRE-AUTHORIZED
 > BY PRINCIPLE (2026-06-15)**, not by an enumerated mechanism list. **The rule: the loop MAY
 > self-authorize ANY device action that stays inside the "recoverable envelope" — it MUST NOT stop

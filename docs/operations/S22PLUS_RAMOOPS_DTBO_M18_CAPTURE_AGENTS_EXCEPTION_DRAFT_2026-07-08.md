@@ -31,7 +31,7 @@ AVB digest caveat, and the attended rollback/restore flow.
    The patched raw DTBO SHA256 must be
    `1c90b54577cbb42e029818a0c4248e85ec3a0e40903b0887648d6556355c85ab`,
    the stock raw DTBO SHA256 must be
-   `97a4864fee4e61892d1ec76f8d14b52bc19e6f47440bc27d9dfc4bd0c`,
+   `97a4864fee4e61892d733962d1ec76f8d14b52bc19e6f47440bc27d9dfc4bd0c`,
    the M18 padded boot.img SHA256 must be
    `a99a09fa062d1aaa848a41037c649a43abc983f177714dfc24c39d0df4d84083`,
    and the M18 base known-booting Magisk boot SHA256 must be
