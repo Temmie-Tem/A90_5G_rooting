@@ -1588,6 +1588,24 @@ safety invariants and flash gates are binding and override any sub-goal.**
 > If M14 parks or ACM appears, it has no reboot/download path by design; manually enter download mode and
 > rollback with `--rollback-from-download --ack S22PLUS-M14-ROLLBACK-FROM-DOWNLOAD`.
 >
+> **STATUS UPDATE (2026-07-07 KST, M14 live result - bootloop, rollback clean):** Codex executed the attended
+> M14 boot-only live gate once. Preflight passed, `adb reboot download` succeeded, Odin saw download mode,
+> and the exact M14 AP SHA256 `080fedea35c111020f68b5fb64eb260402dbc45ac4398e282523c94bf9a8922b` flashed
+> with Odin rc=0. No M14 ACM or ADB transport appeared. The operator observed a boot loop and manually
+> entered download mode; the helper detected Odin during the observation window and flashed the pinned
+> Magisk boot-only rollback AP with Odin rc=0. Android returned with `boot_completed=1`,
+> `init.svc.bootanim=stopped`, orange verified boot, Magisk root, and live boot SHA256
+> `2e541703951dc725bad35850faf7028c2d910dd5f21166449b63f1248c29967e`. Retained evidence stayed absent
+> (`pstore_files=[]`, `/proc/last_kmsg` readable but no `S22_NATIVE_INIT_USB_ACM_M14` marker). Independent
+> post-run check also confirmed `/sys/fs/pstore` empty and the baseline boot hash. Report:
+> `docs/reports/S22PLUS_NATIVE_INIT_M14_CORE_ACM_LIVE_RESULT_2026-07-07.md`. Interpretation:
+> **four-module core USB/ACM add-back loops, no ACM; rollback clean**. Do not repeat M14 unchanged. M14
+> narrows the M12 loop below the 24-module floor: the fault is inside the four-module core add-back or the
+> runtime `finit_module` path under native-init. Next bounded unit should be host-only M15: bisect inside the
+> M14 core group while preserving M13/M14 configfs/role-force/`a600000.dwc3`/park behavior, preferably first
+> `phy-msm-ssusb-qmp.ko` + `phy-msm-snps-eusb2.ko`; if that loops, split one module at a time and consider an
+> open-only/no-finit control to separate loader mechanics from module init side effects.
+>
 > **🎯 SUPERSEDED OPERATOR STEER (2026-07-07, M7 was the live-ready USB-ACM candidate before the live result above;
 > reads: `docs/reports/S22PLUS_USB_PERIPHERAL_BRINGUP_MECHANISM_HOSTANALYSIS_2026-07-07.md` +
 > `docs/reports/S22PLUS_NATIVE_INIT_M6_BOOTLOOP_POSTMORTEM_OPERATOR_2026-07-07.md` +
