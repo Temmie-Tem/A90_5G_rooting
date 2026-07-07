@@ -434,6 +434,21 @@ safety invariants and flash gates are binding and override any sub-goal.**
 > Report:
 > `docs/reports/S22PLUS_SEC_DEBUG_MID_SYSRQ_GATE_HARDENING_2026-07-08.md`.
 
+> **S22+ UPDATE (2026-07-08 06:11 KST) — SEC_DEBUG MID SYSRQ READINESS AUDITOR READY; POLICY STILL INACTIVE.**
+> Codex added host-only
+> `workspace/public/src/scripts/revalidation/s22plus_sec_debug_mid_sysrq_readiness_audit.py`.
+> The auditor imports the helper's required policy markers, verifies the inert
+> draft is complete, verifies current `AGENTS.md` is still inactive, runs
+> `--offline-check` and `--print-plan`, and confirms the default gate fails
+> closed at `agents_exception missing sec_debug MID sysrq markers` before any
+> Android/device access. It also supports active-marker validation against a
+> temporary `AGENTS.md + draft` file; that temp active coverage passed with
+> `agents.complete=true`, no missing markers, and no default dry-run/device
+> action. Validation passed: `py_compile`, inactive readiness audit, and temp
+> active-marker audit. No flash, reboot, write, ADB device action, sysrq, or live
+> panic occurred. Report:
+> `docs/reports/S22PLUS_SEC_DEBUG_MID_SYSRQ_READINESS_AUDIT_2026-07-08.md`.
+
 > **S22+ UPDATE (2026-07-08 03:40 KST) — RESET/PON REASON READ-ONLY PROBE DONE; BASELINE STILL CLEAN.**
 > Codex added and ran
 > `workspace/public/src/scripts/revalidation/s22plus_reset_reason_readonly_probe.py`,
