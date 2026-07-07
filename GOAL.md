@@ -1463,6 +1463,21 @@ safety invariants and flash gates are binding and override any sub-goal.**
 > **No live flash is authorized yet.** Next bounded unit is M12 live-gate preflight only: fresh SHA-pinned
 > `AGENTS.md` exception + guarded helper.
 >
+> **STATUS UPDATE (2026-07-07 KST, M12 live-gate preflight ready):** Codex added the SHA-pinned `AGENTS.md`
+> M12 boot-only/Odin exception and guarded helper
+> `workspace/public/src/scripts/revalidation/s22plus_m12_m5_floor_live_gate.py` with live ack token
+> `S22PLUS-M12-M5-FLOOR-LIVE-GATE` and rollback-only ack token `S22PLUS-M12-ROLLBACK-FROM-DOWNLOAD`.
+> `--offline-check` passed with no device action, then default dry-run verified AGENTS authorization, exact
+> M12 AP/boot/init/source/module-list/vendor hashes, pinned Magisk/stock boot-only rollback APs, manifest safety
+> (`reboot_syscall=false`, `host_commanded_reboot_download=false`, 24-module M5-floor subset, no module binaries
+> injected, `a600000.dwc3` only, `ss_acm.0` only), Android/Magisk baseline stability, current boot SHA256
+> `2e541703951dc725bad35850faf7028c2d910dd5f21166449b63f1248c29967e`, and no Odin endpoint during dry-run.
+> Report: `docs/reports/S22PLUS_NATIVE_INIT_M12_M5_FLOOR_LIVE_GATE_PREFLIGHT_2026-07-07.md`. **No live flash was
+> executed.** The attended live command is
+> `PYTHONPYCACHEPREFIX=/tmp/a90_pycache python3 workspace/public/src/scripts/revalidation/s22plus_m12_m5_floor_live_gate.py --live --ack S22PLUS-M12-M5-FLOOR-LIVE-GATE`.
+> If M12 parks or ACM appears, it has no reboot/download path by design; manually enter download mode and rollback
+> with `--rollback-from-download --ack S22PLUS-M12-ROLLBACK-FROM-DOWNLOAD`.
+>
 > **🎯 SUPERSEDED OPERATOR STEER (2026-07-07, M7 was the live-ready USB-ACM candidate before the live result above;
 > reads: `docs/reports/S22PLUS_USB_PERIPHERAL_BRINGUP_MECHANISM_HOSTANALYSIS_2026-07-07.md` +
 > `docs/reports/S22PLUS_NATIVE_INIT_M6_BOOTLOOP_POSTMORTEM_OPERATOR_2026-07-07.md` +
