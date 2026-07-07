@@ -4,37 +4,34 @@ Drive the A90 native-init project forward one **bounded V-iteration at a time** 
 the proven cycle below. This file says WHAT to pursue; **`AGENTS.md` says HOW — its
 safety invariants and flash gates are binding and override any sub-goal.**
 
-> **OPERATOR STEER (2026-07-08, Claude) — EUD IS NOW THE PRIMARY OBSERVABILITY PATH (M18 fault is a SILENT reset).**
-> Results so far: (a) Samsung **sec_debug/debug_level=MID** is proven — the
-> `*#9900#`→MID + zero-flash `echo c > /proc/sysrq-trigger` positive control PASSED
-> (operator saw the RDX/Upload-Mode "sysrq triggered crash" screen; `/proc/last_kmsg`
-> retained it). (b) **But M18@MID = no-hit**: the native candidate bootlooped with
-> NO panic/Oops/SError in `last_kmsg` — so **M18's fault is a silent reset
-> (watchdog/async-SError), not a kernel panic**, and sec_debug's panic-time snapshot
-> does not capture it. → **sec_debug/MID is demoted to a panic-class adjunct; do NOT
-> burn more flashes retrying native faults via MID/last_kmsg.**
-> **EUD is the primary path** (device-ready per Phase A: `eud.ko` bound at
-> `88e0000.qcom,msm-eud`, DT `status=ok`, `/dev/ttyEUD0` present — not fused off).
-> Enable = **`eud.enable=1`** (runtime `/sys/module/eud/parameters/enable`, 0644,
-> reversible `0`; driver does `CSR_EUD_EN`+`SW_ATTACH_DET`). Two host sub-paths:
-> - **B1 (PRIMARY) — EUD-SWD/JTAG via OpenOCD.** Proven host path
->   (`openocd -f interface/eud.cfg -f target/qualcomm/qcom.cfg` → SWD DPIDR + GDB
->   :3333). For a **silent reset** this is ideal: halt the CPU / catch the exception
->   and read the exact **PC + faulting register** — stronger than any console line.
->   Host prep task: stage an OpenOCD EUD build + an **SM8450** target config.
-> - **B2 (CONDITIONAL) — EUD-COM live console** (`console=ttyEUD0`). Simpler *if*
->   the host enumerates a readable serial, but the COM peripheral is NOT integrated
->   into open tooling (Linaro did SWD, not COM) → host-readability is unproven.
-> **Phase B (attended, reversible, NO flash):** `echo 1 > /sys/module/eud/parameters/enable`
-> → host `lsusb -v`/`dmesg` (VID/PID, does a serial/CDC COM endpoint appear?) →
-> if serial, `screen`/`cat` for console; in parallel try OpenOCD SWD → `echo 0`
-> restore, confirm adb returns. Resolve B2's host-readability with one `lsusb`; if
-> COM is not host-readable, commit to B1 (SWD/JTAG). USB-C reconfig only; no
-> partition/power; redacted logs (strip adb serials).
-> Reports: research/applicability `docs/reports/S22PLUS_EUD_RESEARCH_APPLICABILITY_2026-07-08.md`;
-> probe design `docs/reports/S22PLUS_EUD_FEASIBILITY_PROBE_STEER_2026-07-08.md`;
-> channel inventory `docs/reports/S22PLUS_DEBUG_CHANNEL_INVENTORY_2026-07-08.md`;
-> sec_debug finding `docs/reports/S22PLUS_SEC_DEBUG_DEBUG_LEVEL_NATIVE_CONSOLE_HOSTFINDING_2026-07-08.md`.
+> **OPERATOR STEER (2026-07-08, Claude) — EUD IS CLOSED (TrustZone-gated); PIVOT TO DTS-EXACT POWER SUBSTRATE.**
+> Observability results, final: (a) Samsung **sec_debug/MID** proven for *panics*
+> (`*#9900#`→MID + `echo c > /proc/sysrq-trigger` → RDX/Upload-Mode screen;
+> `/proc/last_kmsg` retained it). (b) **M18@MID = no-hit** → M18's fault is a
+> **CPU hang → warm reset**, not a panic; sec_debug's panic snapshot can't see it
+> (do NOT retry native faults via MID/last_kmsg). (c) **EUD is TZ-gated OFF**:
+> Phase-B `enable=1` set the plain `CSR_EUD_EN` but the secure
+> `qcom_scm_io_write` to the EUD **mode-manager** (the actual USB attach routing)
+> **failed rc:-22** — Samsung retail TrustZone denies it. Both EUD-COM console and
+> EUD-SWD/JTAG need that attach ⇒ **EUD closed** barring a TZ exploit (out of
+> scope). No-jig observability for the hang is exhausted.
+> **PIVOT — two-track, cheapest first:**
+> - **Track B (free, DO FIRST) — DTS-exact QMP-PHY dependency-closure substrate.**
+>   Stop reading the fault; *prevent* it. Host-only: enumerate the
+>   `usb_qmp_phy`/`dwc3@a600000` node's **`vdda-*-supply` / `clocks` / `resets` /
+>   `power-domains`** from the DTS, map each to its provider module, load **exactly
+>   those providers in dep order**, bind `a600000.dwc3` + force peripheral + park.
+>   Clear **console-free success signal: ACM enumerates (`/dev/ttyGS0`)**. More
+>   surgical than M17/M18 (which loaded Android's whole first-stage, not the PHY's
+>   exact closure). One attended flash.
+> - **Track A (cheap backstop, order in parallel) — Samsung USB-C UART clip** (~$10,
+>   619k, no-solder) + `console=ttyMSM0`/earlycon on the candidate to catch the
+>   last printk before the hang. Uncertain on USB-C S22; only needed if B fails.
+> Soldered UART test point = last resort. Retire the EUD live-gate (keep OpenOCD
+> staging dormant). Keep MID for panic-class faults only.
+> Full evidence: `docs/reports/S22PLUS_EUD_TZ_GATED_CLOSURE_AND_PIVOT_2026-07-08.md`
+> (+ EUD research `…EUD_RESEARCH_APPLICABILITY…`, sec_debug `…SEC_DEBUG_DEBUG_LEVEL…`,
+> inventory `…DEBUG_CHANNEL_INVENTORY…`).
 
 > **S22+ LIVE RESULT (2026-07-08 03:50 KST) — DIRECT VENDOR_BOOT RAMOOPS PATCH BOOTED BUT DID NOT AFFECT LIVE DT; M13 NOT FLASHED.**
 > Operator authorized the ack-gated
