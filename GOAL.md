@@ -1827,6 +1827,24 @@ safety invariants and flash gates are binding and override any sub-goal.**
 > immediate stock-DTBO restore. Report:
 > `docs/reports/S22PLUS_RAMOOPS_DTBO_ENABLE_HOST_BUILD_2026-07-08.md`.
 
+> **STATUS UPDATE (2026-07-08 01:27 KST, ramoops DTBO + M18 capture gate source ready):**
+> Codex added the guarded source helper
+> `workspace/public/src/scripts/revalidation/s22plus_ramoops_dtbo_m18_capture_live_gate.py`
+> plus report
+> `docs/reports/S22PLUS_RAMOOPS_DTBO_M18_CAPTURE_GATE_SOURCE_2026-07-08.md`. The helper
+> ties the patched DTBO candidate, stock DTBO rollback AP, M18 full-firststage boot
+> candidate, Magisk boot rollback, stock boot fallback, pstore collection, and stock-DTBO
+> restore into one attended capture workflow. Validation: `py_compile` pass;
+> `--offline-check` pass with no device action; default dry-run intentionally stops before
+> Android/device action because `AGENTS.md` has no SHA-pinned `S22+ ramoops DTBO + M18
+> capture` exception. Required live ack tokens reserved by the helper:
+> `S22PLUS-RAMOOPS-DTBO-M18-CAPTURE-LIVE-GATE`,
+> `S22PLUS-RAMOOPS-M18-ROLLBACK-BOOT-FROM-DOWNLOAD`, and
+> `S22PLUS-RAMOOPS-RESTORE-STOCK-DTBO`. **Next actionable step is policy, not flashing:**
+> add a narrow SHA-pinned `dtbo`+M18 capture exception only if the operator explicitly
+> authorizes the non-boot DTBO write and the patched-DTBO AVB digest caveat under the
+> already-proven disabled-vbmeta/orange state.
+
 > **🟢 STATUS (2026-07-05 18:52 KST) — WSTA207 LIVE SECCOMP CANARY LOAD/ENFORCE PASS.**
 > Codex stopped scaffolding and executed the attended WSTA198 SSH/chroot live canary.  The
 > runner staged WSTA153 policy + WSTA156 filter artifact + WSTA161 gated-apply helper into
