@@ -950,6 +950,18 @@ safety invariants and flash gates are binding and override any sub-goal.**
 > `b630d318d1a95f596cbd97699d04d2bf60a53e634f35c00bbabc8000fb3315b7`. **No live flash is authorized.**
 > Next bounded live-prep unit, if supervised testing is desired, is a fresh SHA-pinned M7 `AGENTS.md`
 > boot-only exception plus guarded M7 live helper/dry-run for exactly these hashes.
+>
+> **STATUS UPDATE (2026-07-07 KST, M7 live gate preflight ready):** Codex added the SHA-pinned `AGENTS.md`
+> M7 boot-only/Odin exceptions and guarded helper
+> `workspace/public/src/scripts/revalidation/s22plus_m7_usb_subset_live_gate.py` with live ack token
+> `S22PLUS-M7-USB-SUBSET-LIVE-GATE` and rollback-only ack token
+> `S22PLUS-M7-ROLLBACK-FROM-DOWNLOAD`. `--offline-check` passed with no device action, then default no-flash
+> dry-run passed against the rooted Android/Magisk baseline, verifying the exact M7 AP/boot/init/subset hashes,
+> pinned Magisk/stock boot-only rollback APs, current Android stability, Magisk root, and live boot hash
+> `2e541703951dc725bad35850faf7028c2d910dd5f21166449b63f1248c29967e`. Report:
+> `docs/reports/S22PLUS_NATIVE_INIT_M7_USB_SUBSET_LIVE_GATE_PREFLIGHT_2026-07-07.md`. **No live flash was
+> run.** Next supervised live command:
+> `PYTHONPYCACHEPREFIX=/tmp/a90_pycache python3 workspace/public/src/scripts/revalidation/s22plus_m7_usb_subset_live_gate.py --live --ack S22PLUS-M7-USB-SUBSET-LIVE-GATE`.
 
 > **🟢 STATUS (2026-07-05 18:52 KST) — WSTA207 LIVE SECCOMP CANARY LOAD/ENFORCE PASS.**
 > Codex stopped scaffolding and executed the attended WSTA198 SSH/chroot live canary.  The
