@@ -27,6 +27,19 @@ safety invariants and flash gates are binding and override any sub-goal.**
 > boot-only exception for one selected prefix and a guarded live helper. Do not run the matrix blindly;
 > after a bootloop report, no cascading S22+ live flashes.
 
+> **S22+ UPDATE (2026-07-08 02:16 KST) — M19 C000 LIVE GATE PREFLIGHT READY, NOT EXECUTED.**
+> Codex added a fresh SHA-pinned `AGENTS.md` exception and guarded helper for exactly one M19 prefix:
+> `workspace/public/src/scripts/revalidation/s22plus_m19_c000_checkpoint_live_gate.py`, ack
+> `S22PLUS-M19-C000-CHECKPOINT-LIVE-GATE`, rollback ack
+> `S22PLUS-M19-C000-ROLLBACK-FROM-DOWNLOAD`. Scope is C000 only:
+> AP SHA256 `d712840f1aa7d4ef9d07a7be404b29e5f5dd8065701db7f3d39d76c71296b9d4`,
+> boot SHA256 `0ae71d30257dafdc453db252bd77b11b554202f27c458e3b538d13c61df98ebb`,
+> prefix count 0, no module loads, no ACM/configfs/role-force, checkpoint-download proof only.
+> Offline-check and default dry-run passed; dry-run verified current Android/root and current boot SHA
+> `2e541703951dc725bad35850faf7028c2d910dd5f21166449b63f1248c29967e`.
+> Report: `docs/reports/S22PLUS_NATIVE_INIT_M19_C000_LIVE_GATE_PREFLIGHT_2026-07-08.md`.
+> **No live flash was executed.** The rest of the M19 matrix remains unauthorized.
+
 > **S22+ CURRENT FRONTIER (2026-07-08 01:53 KST) — M18 CAPTURE POSTMORTEM DONE, NO SAME-M18 REPEAT.**
 > Host-only postmortem
 > `workspace/public/src/scripts/revalidation/s22plus_m18_capture_postmortem.py`
