@@ -650,6 +650,57 @@ COMMIT → REPEAT) is defined in `GOAL.md`.
    authorize display/distro candidates, kernel rebuild, recovery/vendor_boot/
    vbmeta/non-boot flash, raw host `dd`, fastboot, multidisabler, format data,
    or any A90 action.
+   **Narrow operator-authorized exception (2026-07-07, S22+ M8
+   timed-download module-bisect native-init boot-only live gate):** after the
+   M7 USB-subset candidate boot-looped and was manually recovered to rooted
+   Magisk Android with boot hash
+   `2e541703951dc725bad35850faf7028c2d910dd5f21166449b63f1248c29967e`, and
+   after the M8 host build report proved the timed-download bisect candidate,
+   Codex may prepare and perform one bounded attended boot-partition-only M8
+   live gate on the same Samsung S22+ `SM-S906N`/`g0q` `S906NKSS7FYG8` using
+   the checked helper
+   `workspace/public/src/scripts/revalidation/s22plus_m8_timed_download_live_gate.py`
+   with live ack token `S22PLUS-M8-TIMED-DOWNLOAD-LIVE-GATE` and rollback-only
+   ack token `S22PLUS-M8-ROLLBACK-FROM-DOWNLOAD`. The exact candidate
+   AP.tar.md5 SHA256 must be
+   `59433518e7bea2d16f5efb62ee226c190f6a3af8673336310a2ef0fff7bee36b`, the
+   contained padded `boot.img` SHA256 must be
+   `3c10c9232b8579b552d791d24e65b7b4dd8ec3625941766894a08725a7abae52`, the
+   known-booting Magisk boot base SHA256 must be
+   `2e541703951dc725bad35850faf7028c2d910dd5f21166449b63f1248c29967e`, the
+   preserved Magisk-patched kernel SHA256 must be
+   `bceca73edbfca3499148e16741c939779157925949ef6bc8a8e31d6b68fc2cff`, the
+   M8 `/init` SHA256 must be
+   `5c8591023d0ad801155535e9b535993fb3122c4d3e4c86139d36a819ee72c3b2`, the M8
+   delta batch list SHA256 must be
+   `6831a24ac12ddf0bfdb9b5695dcd3aada7f200aa4a998864874c207efa31bc9d`, and the
+   source vendor_boot ramdisk SHA256 must be
+   `41b2481b779ff48863c300250dabf1b3dcc45c7f58fab421fcf6df1245145193`.
+   The AP must contain exactly one tar member, `boot.img.lz4`, with no
+   recovery, vendor_boot, vbmeta, vbmeta_system, dtbo, BL, CP, CSC, super,
+   persist, userdata, EFS, RPMB, keymaster, modem, or any other partition
+   payload. The M8 candidate may only run as direct PID1 with a freestanding
+   raw-syscall runtime, mount only runtime virtual filesystems, read the boot
+   ramdisk `s22plus_m8_delta_batch.modules` list, load exactly the first 18
+   modules from the M7-only delta relative to M5 from the stock vendor_boot
+   runtime `/lib/modules`, and then request automatic Samsung download-mode
+   return. The helper must wait for the original Odin endpoint to disconnect
+   before treating a later Odin endpoint as M8 self-download proof. M8 must use
+   no ACM, no configfs, no UDC binding, and no USB role force. The M8 `/init`
+   must not start Android or Magisk, mount persistent partitions, write block
+   devices, touch watchdog, install Magisk modules, format data, or inject
+   vendor module binaries into the boot ramdisk. If automatic download mode
+   does not appear in the bounded window, rollback requires manual
+   download-mode rollback through the same helper's `--rollback-from-download
+   --ack S22PLUS-M8-ROLLBACK-FROM-DOWNLOAD` mode, using the exact Magisk
+   boot-only rollback AP SHA256
+   `d2373bf88dda342709440dc3db468f11d80a4593856768a4d8ae402bef215a56` first,
+   or the exact stock boot-only fallback AP SHA256
+   `1ee92a86f30e4acb12509272630e1bef5215d1a12686ac69a3b399b43740535e` if the
+   operator explicitly selects stock rollback. This exception does not
+   authorize display/distro candidates, kernel rebuild, recovery/vendor_boot/
+   vbmeta/non-boot flash, raw host `dd`, fastboot, multidisabler, format data,
+   or any A90 action.
 2. **Flash only via the checked helper by default:** `workspace/public/src/scripts/revalidation/native_init_flash.py`.
    Never `dd`/`fastboot`/raw-write a partition. Never invent a new flash path.
    **Narrow operator-authorized exception (2026-07-02, self-dd ladder only):** the V3358
@@ -891,6 +942,20 @@ COMMIT → REPEAT) is defined in `GOAL.md`.
    `workspace/public/src/scripts/revalidation/s22plus_m7_usb_subset_live_gate.py`
    for the exact single-member `boot.img.lz4` candidate AP.tar.md5 SHA256
    `be0e1e34ec9452a14b7cfac66cc7ac57a0b29e92343945c35c1f836282563c4d`, and
+   the same helper may use `/usr/bin/odin4 --reboot -a` in
+   `--rollback-from-download` mode with the exact single-member Magisk
+   boot-only AP.tar.md5 SHA256
+   `d2373bf88dda342709440dc3db468f11d80a4593856768a4d8ae402bef215a56` or the
+   exact single-member stock boot-only AP.tar.md5 SHA256
+   `1ee92a86f30e4acb12509272630e1bef5215d1a12686ac69a3b399b43740535e`. No other
+   Odin slot, tar member, candidate hash, rollback hash, or partition is
+   authorized by this exception.
+   **Narrow operator-authorized exception (2026-07-07, S22+ M8 timed-download
+   module-bisect native-init boot-only Odin path):** the S22+ M8 live gate above
+   may use `/usr/bin/odin4 --reboot -a` through
+   `workspace/public/src/scripts/revalidation/s22plus_m8_timed_download_live_gate.py`
+   for the exact single-member `boot.img.lz4` candidate AP.tar.md5 SHA256
+   `59433518e7bea2d16f5efb62ee226c190f6a3af8673336310a2ef0fff7bee36b`, and
    the same helper may use `/usr/bin/odin4 --reboot -a` in
    `--rollback-from-download` mode with the exact single-member Magisk
    boot-only AP.tar.md5 SHA256

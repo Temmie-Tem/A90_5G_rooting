@@ -996,6 +996,22 @@ safety invariants and flash gates are binding and override any sub-goal.**
 > is desired, is a fresh SHA-pinned M8 `AGENTS.md` boot-only exception plus an automatic-download observer helper
 > keyed on the exact hashes above.
 >
+> **STATUS UPDATE (2026-07-07 KST, M8 live gate preflight ready):** Codex added the SHA-pinned `AGENTS.md` M8
+> boot-only/Odin exceptions and guarded helper
+> `workspace/public/src/scripts/revalidation/s22plus_m8_timed_download_live_gate.py` with live ack token
+> `S22PLUS-M8-TIMED-DOWNLOAD-LIVE-GATE` and rollback-only ack token
+> `S22PLUS-M8-ROLLBACK-FROM-DOWNLOAD`. `--offline-check` passed with no device action, then default no-flash
+> dry-run passed against the rooted Android/Magisk baseline, verifying the exact M8 AP/boot/init/batch hashes,
+> pinned Magisk/stock boot-only rollback APs, `AGENTS.md` exception, Android stability, Magisk root, and live
+> boot SHA256 `2e541703951dc725bad35850faf7028c2d910dd5f21166449b63f1248c29967e`. Report:
+> `docs/reports/S22PLUS_NATIVE_INIT_M8_TIMED_DOWNLOAD_LIVE_GATE_PREFLIGHT_2026-07-07.md`. **No live flash was
+> run.** Next supervised live command:
+> `PYTHONPYCACHEPREFIX=/tmp/a90_pycache python3 workspace/public/src/scripts/revalidation/s22plus_m8_timed_download_live_gate.py --live --ack S22PLUS-M8-TIMED-DOWNLOAD-LIVE-GATE`.
+> Expected branch logic: (a) original Odin endpoint disconnects and a later Odin endpoint appears ⇒ native PID1
+> survived the first 18 M7-only modules; rollback immediately and continue with the later delta or USB/configfs
+> path; (b) no self-download / bootloop ⇒ manually enter download mode, rollback with
+> `--rollback-from-download --ack S22PLUS-M8-ROLLBACK-FROM-DOWNLOAD`, and bisect inside this first 18-module batch.
+>
 > **🎯 SUPERSEDED OPERATOR STEER (2026-07-07, M7 was the live-ready USB-ACM candidate before the live result above;
 > reads: `docs/reports/S22PLUS_USB_PERIPHERAL_BRINGUP_MECHANISM_HOSTANALYSIS_2026-07-07.md` +
 > `docs/reports/S22PLUS_NATIVE_INIT_M6_BOOTLOOP_POSTMORTEM_OPERATOR_2026-07-07.md` +
