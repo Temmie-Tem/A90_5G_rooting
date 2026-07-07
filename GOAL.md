@@ -31,6 +31,16 @@ safety invariants and flash gates are binding and override any sub-goal.**
 > Fallback order: **sec_debug/MID → EUD (in-SoC USB-C console, no jig) → UART last.**
 > On-device caveats: confirm MID is settable via `*#9900#` (vs a `param` write) and
 > cleanly reversible, and that MID capture survives our manual-download recovery.
+> **PARALLEL HIGH-CEILING CARD — EUD probe (operator go 2026-07-08):** EUD gives a
+> *live* UART console **and** SWD/JTAG over the same USB-C (`eud.ko` in-hand,
+> SM8450-supported) — the true A90-serial-bridge equivalent. Run in parallel:
+> **Phase A** read-only over adb (is `eud.ko`/`/sys/.../eud/enable`/DT node present,
+> fused off?), then **Phase B** attended reversible `echo 1 > /sys/.../eud/enable`
+> + host `lsusb`/`dmesg` for the EUD hub, then `echo 0` restore. No flash, no
+> partition, no power write; USB-C reconfig only. Gate: host enumerates hub ⇒ route
+> `console=` to EUD COM as the primary live channel; fused off ⇒ stay on MID.
+> Probe design: `docs/reports/S22PLUS_EUD_FEASIBILITY_PROBE_STEER_2026-07-08.md`;
+> full channel inventory: `docs/reports/S22PLUS_DEBUG_CHANNEL_INVENTORY_2026-07-08.md`.
 > Full evidence + sources:
 > `docs/reports/S22PLUS_SEC_DEBUG_DEBUG_LEVEL_NATIVE_CONSOLE_HOSTFINDING_2026-07-08.md`
 > (prior superseded rationale: `docs/reports/S22PLUS_RAMOOPS_POSITIVE_CONTROL_OBSERVABILITY_STEER_2026-07-08.md`).
