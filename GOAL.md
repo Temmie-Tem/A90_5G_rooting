@@ -1394,6 +1394,24 @@ safety invariants and flash gates are binding and override any sub-goal.**
 > the operator explicitly reopens the reboot-beacon bisection. Current default next unit is M11 host-only build:
 > park-based USB init, no reboot beacon, visible park-vs-loop signal plus host ACM enumeration.
 >
+> **STATUS UPDATE (2026-07-07 KST, M11 park-USB host build ready):** Codex added
+> `workspace/public/src/native-init/s22plus_init_usb_acm_m11_park_usb.c` and
+> `workspace/public/src/scripts/revalidation/build_s22plus_inplace_m11_park_usb.py`, then built host-only output
+> `workspace/private/outputs/s22plus_native_init/inplace_m11_park_usb_v0_1`. Report:
+> `docs/reports/S22PLUS_NATIVE_INIT_M11_PARK_USB_HOST_BUILD_2026-07-07.md`. Exact candidate hashes: AP.tar.md5
+> SHA256 `8b4a4fa6db3bc0b2bf5e4fd1fccf4b671fd2fbd7fbbcc08542c3be816a3f5d43`, boot.img SHA256
+> `32f2667c31f05d967529031630e5b004cf5238120ffc6ec7089dcc40a3352a3f`, M11 `/init` SHA256
+> `234ded5b6172a3470825a1c616e6537c3de4b2274d8c26525386f8e85d5e8d7e`, M11 module-list SHA256
+> `c254be05c91199c4f69380f0488de13c7b2cde987594bc1c5d0a6657a0e8eb58`, source SHA256
+> `ff92af817cd4564b6fd811484540e8a217ff19bbe445839981ce7818498561f6`. M11 subset is 48 modules from a
+> 53-module dependency closure, with blocked closure entries `abc.ko`, `icc-debug.ko`, `minidump.ko`,
+> `qc_usb_audio.ko`, and `sec_debug.ko`. Static validation confirmed no interpreter, no `download` string in the
+> stripped `/init`, no arm64 `__NR_reboot=142` load in objdump, no module binaries injected into boot, only one
+> module-list text file added, kernel preserved, AP tar member `boot.img.lz4` only. **No live flash is authorized
+> yet.** Next bounded unit is M11 live-gate preflight only: fresh SHA-pinned `AGENTS.md` exception + guarded helper.
+> M11 rollback planning must assume manual download-mode entry if the device parks with no Android transport,
+> because this candidate deliberately has no reboot beacon.
+>
 > **🎯 SUPERSEDED OPERATOR STEER (2026-07-07, M7 was the live-ready USB-ACM candidate before the live result above;
 > reads: `docs/reports/S22PLUS_USB_PERIPHERAL_BRINGUP_MECHANISM_HOSTANALYSIS_2026-07-07.md` +
 > `docs/reports/S22PLUS_NATIVE_INIT_M6_BOOTLOOP_POSTMORTEM_OPERATOR_2026-07-07.md` +
