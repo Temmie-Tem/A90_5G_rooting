@@ -236,6 +236,29 @@ safety invariants and flash gates are binding and override any sub-goal.**
 > under the same gate. Report:
 > `docs/reports/S22PLUS_RAMOOPS_DTBO_M13_LIVE_RESULT_2026-07-08.md`.
 
+> **S22+ CURRENT FRONTIER (2026-07-08 05:03 KST) — M22 KMSG+SYSRQ PANIC RETAINED-CONSOLE POSITIVE CONTROL HOST BUILD READY; NO LIVE AUTH.**
+> After DTBO+M13 proved the DTBO half but produced no retained M13 marker, Codex
+> added host-only M22 source and builder:
+> `workspace/public/src/native-init/s22plus_init_kmsg_sysrq_panic_m22.c` and
+> `workspace/public/src/scripts/revalidation/build_s22plus_m22_kmsg_sysrq_panic.py`.
+> M22 is a retained-console positive control, not another passive park: direct
+> PID1 sets up minimal `/dev`/`/proc`/`/sys`, writes
+> `S22_NATIVE_INIT_M22_KMSG_SYSRQ_PANIC` to `/dev/kmsg`, enables sysrq, writes
+> `c` to `/proc/sysrq-trigger`, and falls back to `reboot("download")` only if
+> sysrq returns. Host build passed with no flash/reboot/write. Output is private
+> under `workspace/private/outputs/s22plus_native_init/m22_kmsg_sysrq_panic_v0_1`;
+> pinned hashes: AP.tar.md5
+> `77c17e9d3fb62319823499e0e8e7fcd485cd180dd730e40d9c2a8112308c4852`,
+> boot.img `c79bbe1fb1cee7d7e3c70ff4c249d6e0359760e203cc0bebb1c71d6cc0518802`,
+> `/init` `2b711b0fccf6cdd9b4c9beb5ba2f1a095d4e873b42bd03a02eb4655106873831`,
+> source `a48818067b6b79578bdc6cd0e327d9e7c316b10bca1be7d838605c7d7e0e6444`.
+> Validation: `py_compile`, standalone AArch64 static no-INTERP compile,
+> full Magiskboot repack/AP build, required/forbidden string checks, syscall
+> disasm checks, byte-identical no-change repack, AP member `boot.img.lz4`, and
+> invalid-device Odin parse gate all passed. No `AGENTS.md` live exception was
+> added. Report:
+> `docs/reports/S22PLUS_NATIVE_INIT_M22_KMSG_SYSRQ_PANIC_HOST_BUILD_2026-07-08.md`.
+
 > **S22+ UPDATE (2026-07-08 03:40 KST) — RESET/PON REASON READ-ONLY PROBE DONE; BASELINE STILL CLEAN.**
 > Codex added and ran
 > `workspace/public/src/scripts/revalidation/s22plus_reset_reason_readonly_probe.py`,
