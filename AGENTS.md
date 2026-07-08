@@ -2752,17 +2752,14 @@ BL, CP, CSC, userdata, or any non-boot flash.
    `d2373bf88dda342709440dc3db468f11d80a4593856768a4d8ae402bef215a56` first,
    with stock boot-only fallback SHA256
    `1ee92a86f30e4acb12509272630e1bef5215d1a12686ac69a3b399b43740535e`.
-   **Narrow operator-authorized exception (2026-07-09, S22+ M33 P28
-   watchdog-prefix park native-init boot-only live gate):** after M33 P27
-   survived the full observation window and was rolled back cleanly, and after
-   the operator gave fresh live approval, Codex may perform one bounded
-   attended boot-partition-only M33 P28 watchdog-prefix park native-init
-   boot-only live gate on the same Samsung S22+ `SM-S906N`/`g0q`
-   `S906NKSS7FYG8` using only the checked helper
-   `workspace/public/src/scripts/revalidation/s22plus_m33_p28_wdt_prefix_park_live_gate.py`
-   with live ack token `S22PLUS-M33-P28-WDT-PREFIX-PARK-LIVE-GATE` and
-   rollback-from-Download ack token
-   `S22PLUS-M33-P28-WDT-PREFIX-PARK-ROLLBACK-FROM-DOWNLOAD`.
+   **Consumed exception (2026-07-09, S22+ M33 P28 watchdog-prefix park
+   native-init boot-only live gate):** this one-shot exception was consumed by
+   the 2026-07-09 KST live run. It flashed the pinned M33 P28 boot-only
+   candidate once on the Samsung S22+ `SM-S906N`/`g0q` `S906NKSS7FYG8` using
+   only the checked helper
+   `workspace/public/src/scripts/revalidation/s22plus_m33_p28_wdt_prefix_park_live_gate.py`.
+   The consumed live and rollback ack token strings are intentionally omitted
+   here as active authorization.
    The exact target string is `SM-S906N/g0q/S906NKSS7FYG8`; variant `P28`;
    marker `S22_NATIVE_INIT_M33_WDT_PREFIX_PARK_P28`; candidate AP.tar.md5
    SHA256 `4c76ef4df814356a7acfa9ce9a00c2fe003208ff8289c2874535e26b7e1c3f07`;
@@ -2800,13 +2797,36 @@ BL, CP, CSC, userdata, or any non-boot flash.
    `phy-msm-snps-eusb2.ko`, `redriver.ko`, `if_cb_manager.ko`,
    `qc_usb_audio.ko`, and `dwc3-msm.ko`. `phy-msm-ssusb-qmp.ko intentionally
    excluded`; `EUD excluded`.
-   The candidate must not expose ACM, run configfs gadget setup, start
+   The candidate did not expose ACM, run configfs gadget setup, start
    Android/Magisk, mount persistent partitions, write block devices, inject
    module binaries into the boot ramdisk, write DTBO/vendor_boot/recovery/
    vbmeta/non-boot partitions, use raw host `dd`, use fastboot, install
-   Magisk modules, run multidisabler, or format data. The AP must contain
-   exactly one tar member, `boot.img.lz4`. This exception does not authorize
-   P28 repeat, P25/P30/P40 live, M33 matrix rebuild, M32 repeat,
+   Magisk modules, run multidisabler, or format data. The AP contained exactly
+   one tar member, `boot.img.lz4`.
+   Live result: the candidate flashed successfully, left the original Download
+   endpoint, and survived the full 90 second observation window with no host
+   ADB/Odin endpoint returning. After survival proof, the operator reported
+   RDX/PMIC while entering manual recovery; a normal Odin/Download endpoint
+   later appeared and the checked helper flashed the pinned Magisk boot
+   rollback AP successfully. Final baseline was clean: Android boot complete,
+   bootanim stopped, vbstate orange, Magisk root present, and boot partition
+   SHA256
+   `2e541703951dc725bad35850faf7028c2d910dd5f21166449b63f1248c29967e`.
+   Retained evidence had no M33 P28 marker: pstore empty, `/proc/last_kmsg`
+   readable at 2,097,136 bytes, marker absent. The retained log did contain
+   `collect_rr_data : upload_cause = PMIC abnormal reset`, `RDX is locked`,
+   `PonReason.HARD_RESET = 1`, and XBL/PMIC
+   `boot_update_abnormal_reset_status` material, matching the operator's RDX/
+   PMIC observation, but not the P28 marker.
+   Before consumption, the helper had to verify normal Android identity,
+   vbstate orange, Magisk root, current boot partition SHA256
+   `2e541703951dc725bad35850faf7028c2d910dd5f21166449b63f1248c29967e`, the
+   exact P28 candidate hashes, the exact Magisk boot-only rollback AP SHA256
+   `d2373bf88dda342709440dc3db468f11d80a4593856768a4d8ae402bef215a56`, and
+   the exact stock boot-only fallback AP SHA256
+   `1ee92a86f30e4acb12509272630e1bef5215d1a12686ac69a3b399b43740535e`.
+   This exception must not be reused and does not authorize P28 repeat,
+   P25/P30/P40 live, M33 matrix rebuild, M32 repeat,
    display/distro candidates, kernel rebuild, recovery/vendor_boot/vbmeta/
    DTBO/non-boot flash, raw host `dd`, fastboot, multidisabler, format data,
    EUD writes, or any A90 action.
