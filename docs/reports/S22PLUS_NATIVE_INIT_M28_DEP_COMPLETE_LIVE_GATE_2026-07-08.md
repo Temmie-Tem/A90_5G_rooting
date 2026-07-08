@@ -80,7 +80,7 @@ PYTHONPYCACHEPREFIX=/tmp/a90_pycache python3 \
 
 PYTHONPYCACHEPREFIX=/tmp/a90_pycache python3 \
   workspace/public/src/scripts/revalidation/s22plus_m28_dep_complete_live_gate.py \
-  --serial RFCT519XWGK
+  --serial <S22_SERIAL_REDACTED>
 
 git diff --check
 ```
@@ -121,7 +121,7 @@ Recommended first live command, not executed by this report:
 ```bash
 PYTHONPYCACHEPREFIX=/tmp/a90_pycache python3 \
   workspace/public/src/scripts/revalidation/s22plus_m28_dep_complete_live_gate.py \
-  --serial RFCT519XWGK \
+  --serial <S22_SERIAL_REDACTED> \
   --variant S24 \
   --live \
   --ack S22PLUS-M28-DEP-COMPLETE-LIVE-GATE
@@ -133,7 +133,7 @@ considered:
 ```bash
 PYTHONPYCACHEPREFIX=/tmp/a90_pycache python3 \
   workspace/public/src/scripts/revalidation/s22plus_m28_dep_complete_live_gate.py \
-  --serial RFCT519XWGK \
+  --serial <S22_SERIAL_REDACTED> \
   --variant S24 \
   --variant F43 \
   --live \

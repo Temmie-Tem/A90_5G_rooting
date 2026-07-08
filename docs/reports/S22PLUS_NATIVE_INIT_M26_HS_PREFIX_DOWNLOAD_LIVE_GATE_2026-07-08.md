@@ -45,7 +45,7 @@ python3 workspace/public/src/scripts/revalidation/s22plus_m26_hs_prefix_download
   --offline-check
 
 python3 workspace/public/src/scripts/revalidation/s22plus_m26_hs_prefix_download_live_gate.py \
-  --serial RFCT519XWGK
+  --serial <S22_SERIAL_REDACTED>
 
 git diff --check
 ```
@@ -56,7 +56,7 @@ Results:
 - Unit tests passed: `Ran 8 tests ... OK`.
 - Offline check passed: M26 candidates, M25 DTBO cap, and rollback APs verified
   without device action.
-- Device dry-run passed against `RFCT519XWGK`: AGENTS exception, Android
+- Device dry-run passed against `<S22_SERIAL_REDACTED>`: AGENTS exception, Android
   stability, boot hash, vendor_boot hash, and stock DTBO hash verified.
 - `git diff --check` passed.
 
@@ -66,7 +66,7 @@ Operator-approved live command:
 
 ```bash
 python3 workspace/public/src/scripts/revalidation/s22plus_m26_hs_prefix_download_live_gate.py \
-  --serial RFCT519XWGK \
+  --serial <S22_SERIAL_REDACTED> \
   --live \
   --ack S22PLUS-M26-HS-PREFIX-DOWNLOAD-LIVE-GATE
 ```

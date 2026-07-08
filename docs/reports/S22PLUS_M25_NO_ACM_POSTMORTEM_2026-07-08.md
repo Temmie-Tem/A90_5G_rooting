@@ -71,7 +71,7 @@ After the operator later reported another bootloop/manual-Download observation,
 host inspection found the phone back in Android ADB, not Odin mode:
 
 ```text
-adb: RFCT519XWGK device product:g0qksx model:SM_S906N device:g0q
+adb: <S22_SERIAL_REDACTED> device product:g0qksx model:SM_S906N device:g0q
 boot_completed=1
 bootanim=stopped
 verifiedbootstate=orange

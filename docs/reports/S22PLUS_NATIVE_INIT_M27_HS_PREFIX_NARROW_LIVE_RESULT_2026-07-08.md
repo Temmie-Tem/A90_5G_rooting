@@ -19,7 +19,7 @@ Command started:
 ```bash
 PYTHONPYCACHEPREFIX=/tmp/a90_pycache python3 \
   workspace/public/src/scripts/revalidation/s22plus_m27_hs_prefix_narrow_live_gate.py \
-  --serial RFCT519XWGK \
+  --serial <S22_SERIAL_REDACTED> \
   --live \
   --ack S22PLUS-M27-HS-PREFIX-NARROW-LIVE-GATE
 ```
@@ -94,7 +94,7 @@ stock_restore_dtbo_hash_rc=0
 
 Final host verification after restore:
 
-- ADB device: `RFCT519XWGK`
+- ADB device: `<S22_SERIAL_REDACTED>`
 - `boot_completed=1`
 - `bootanim=stopped`
 - verified boot state: `orange`

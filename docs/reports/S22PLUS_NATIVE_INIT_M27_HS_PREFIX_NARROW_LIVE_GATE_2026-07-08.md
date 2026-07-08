@@ -56,7 +56,7 @@ PYTHONPYCACHEPREFIX=/tmp/a90_pycache python3 \
 
 PYTHONPYCACHEPREFIX=/tmp/a90_pycache python3 \
   workspace/public/src/scripts/revalidation/s22plus_m27_hs_prefix_narrow_live_gate.py \
-  --serial RFCT519XWGK
+  --serial <S22_SERIAL_REDACTED>
 
 git diff --check
 ```
@@ -67,7 +67,7 @@ Results:
 - Unit tests passed: `Ran 9 tests ... OK`.
 - Offline check passed for `P08/P12/P16/P20/P22/P23/P24` and rollback APs
   with no device action.
-- Device dry-run passed against `RFCT519XWGK`: AGENTS exception, Android
+- Device dry-run passed against `<S22_SERIAL_REDACTED>`: AGENTS exception, Android
   stability, boot hash, vendor_boot hash, and stock DTBO hash verified.
 
 ## Dry-Run Baseline
@@ -98,7 +98,7 @@ Operator-approved live command, not yet executed by this report:
 ```bash
 PYTHONPYCACHEPREFIX=/tmp/a90_pycache python3 \
   workspace/public/src/scripts/revalidation/s22plus_m27_hs_prefix_narrow_live_gate.py \
-  --serial RFCT519XWGK \
+  --serial <S22_SERIAL_REDACTED> \
   --live \
   --ack S22PLUS-M27-HS-PREFIX-NARROW-LIVE-GATE
 ```
