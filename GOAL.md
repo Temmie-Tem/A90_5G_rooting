@@ -31,17 +31,19 @@ safety invariants and flash gates are binding and override any sub-goal.**
 > **Bonus:** `sec_debug`+`minidump` are exactly the crash-capture registrars, so
 > loading them may re-open the `reset_summary`/`minidump` observability that was
 > empty before (it was empty partly because these were never loaded).
-> **Active unit = M28 postmortem / next-unit selection:** the M28 policy was
+> **Active unit = M29 host-only design / fresh gate selection:** the M28 policy was
 > consumed by the S24 live run. The helper is
 > `workspace/public/src/scripts/revalidation/s22plus_m28_dep_complete_live_gate.py`
 > SHA256 `83521d521c55ceda8c860a940f8eb334e66638561b785231c5a5b007ad791d3b`
 > and the S24 run flashed/rolled back cleanly, but the operator reported
 > bootloop plus manual Download, so the observed Odin endpoint is contaminated
-> and not clean self-download proof. F43 is not authorized. Next step is a
-> host-only postmortem from the M28 run log and retained
-> `/proc/last_kmsg` capture, then a fresh, narrower M29 candidate only after
-> the failure mechanism is identified. Do NOT continue the P01…P08 blind
-> narrow, do NOT run F43, and do NOT re-add configfs/ACM/UDC or chase the DTBO
+> and not clean self-download proof. Host-only retained-log postmortem is now
+> complete: the retained `/proc/last_kmsg` is the later Magisk-rollback Android
+> boot plus helper-driven `reboot,download`, not a usable direct `S24` failure
+> log. F43 is not authorized. Next step is a fresh, narrower M29 design that
+> improves candidate-owned evidence before broad module loading. Do NOT continue
+> the P01…P08 blind narrow, do NOT run F43, and do NOT re-add configfs/ACM/UDC
+> or chase the DTBO
 > ssphy-phandle until 1–24 survives (both are downstream of this).
 > **Corrected mental model (still holds):** M25 did NOT bootloop — direct log
 > read (`...122411Z`) shows ~29 s dead-steady park then a single ~30.3 s watchdog
@@ -56,8 +58,25 @@ safety invariants and flash gates are binding and override any sub-goal.**
 > `S22PLUS_NATIVE_INIT_M28_DEP_COMPLETE_DOWNLOAD_HOST_BUILD_2026-07-08.md`,
 > `S22PLUS_NATIVE_INIT_M28_DEP_COMPLETE_LIVE_GATE_SOURCE_2026-07-08.md`,
 > `S22PLUS_NATIVE_INIT_M28_DEP_COMPLETE_LIVE_GATE_2026-07-08.md`,
-> `S22PLUS_NATIVE_INIT_M28_S24_LIVE_RESULT_2026-07-08.md`.
+> `S22PLUS_NATIVE_INIT_M28_S24_LIVE_RESULT_2026-07-08.md`,
+> `S22PLUS_NATIVE_INIT_M28_S24_RETAINED_LOG_POSTMORTEM_2026-07-08.md`.
 > (Observation steers below are superseded/background; MID stays set, harmless.)
+
+> **S22+ CURRENT FRONTIER (2026-07-08 23:42 KST / 14:42 UTC) — M28 S24 RETAINED-LOG POSTMORTEM COMPLETE; FAILURE STILL UNOBSERVED.**
+> Codex performed a host-only postmortem of
+> `workspace/private/runs/s22plus_m28_dep_complete_live_gate_20260708T143115Z/`.
+> The retained
+> `android_pstore/post_m28_S24_rollback_last_kmsg.bin` is ASCII text, 2097136
+> bytes, but it contains the later Magisk-rollback Android boot and the
+> helper-driven `/system/bin/reboot` path to `reboot,download` for stock-DTBO
+> restore. It has no M28/S24 marker, no `insmod`, no `Unknown symbol`, no
+> `Kernel panic`, no `clk-rpmh`, and no `abc.ko` evidence. Therefore the S24
+> failure mechanism remains unobserved, and marker absence cannot distinguish
+> no-PID1-entry from non-retained `/dev/kmsg` output or overwritten retained
+> buffer. M28 remains consumed, F43 remains unauthorized, and the next unit is
+> M29 host-only design for stronger candidate-owned evidence before any fresh
+> live exception. Report:
+> `docs/reports/S22PLUS_NATIVE_INIT_M28_S24_RETAINED_LOG_POSTMORTEM_2026-07-08.md`.
 
 > **S22+ CURRENT FRONTIER (2026-07-08 23:35 KST / 14:35 UTC) — M28 S24 LIVE CONSUMED; MANUAL-DOWNLOAD CONTAMINATED; FINAL BASELINE CLEAN.**
 > Codex ran the authorized M28 `S24` live command only:
