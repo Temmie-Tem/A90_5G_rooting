@@ -1847,16 +1847,23 @@ BL, CP, CSC, userdata, or any non-boot flash.
    module permutation, display/distro candidates, kernel rebuild,
    recovery/vendor_boot/vbmeta/non-boot flash, raw host `dd`, fastboot,
    multidisabler, format data, or any A90 action.
-   **Narrow operator-authorized exception (2026-07-08, S22+ M24 pmsg-step
-   DTS-exact QMP/DWC3 native-init boot-only):** after the M23 reset-summary
-   live result consumed the M23 gate and captured no useful reset-summary
-   payload, and after the M24 host build plus live-gate source passed
-   offline/fail-closed validation, Codex may prepare and perform one bounded
-   attended boot-partition-only M24 live gate on the same Samsung S22+
+   **Consumed/retired exception (2026-07-08, S22+ M24 pmsg-step
+   DTS-exact QMP/DWC3 native-init boot-only):** this one-shot exception was
+   consumed by the 2026-07-08 live run. It flashed the pinned M24 boot AP once,
+   observed no M24 ACM/ADB and an operator manual Download-mode return,
+   restored the pinned Magisk boot AP, and captured pmsg/pstore/last_kmsg/reset
+   surfaces. No `A90_STEP:M24:` pmsg marker was retained, so this exact M24 path
+   is retired as a no-hit. It must not be reused for another M24 live flash
+   under the same gate. Future native-init live flashes need a fresh, narrower
+   exception for the selected artifact and observation path.
+   Before consumption, after the M23 reset-summary live result consumed the M23
+   gate and captured no useful reset-summary payload, and after the M24 host
+   build plus live-gate source passed offline/fail-closed validation, Codex
+   could prepare and perform one bounded attended boot-partition-only M24 live
+   gate on the same Samsung S22+
    `SM-S906N`/`g0q` `S906NKSS7FYG8` using only the checked helper
    `workspace/public/src/scripts/revalidation/s22plus_m24_pmsg_steps_live_gate.py`
-   with live ack token `S22PLUS-M24-PMSG-STEPS-LIVE-GATE` and rollback-only ack
-   token `S22PLUS-M24-PMSG-STEPS-ROLLBACK-FROM-DOWNLOAD`. The exact candidate
+   with now-consumed live/rollback ack tokens. The exact candidate
    AP.tar.md5 SHA256 must be
    `e09538024abe89585486d54856a5c86bef666da456f314084d4d4d8bb6553fe8`, the
    contained padded `boot.img` SHA256 must be
@@ -1909,11 +1916,11 @@ BL, CP, CSC, userdata, or any non-boot flash.
    operator explicitly selects stock rollback. After rollback, run
    pmsg/pstore/last_kmsg/reset-context post-rollback capture including
    `/proc/reset_summary`, `/proc/reset_klog`, `/proc/reset_history`,
-   `/proc/reset_tzlog`, and `/proc/enhanced_boot_stat`. This exception does
-   not authorize M23 repeat, M21A, M20B, M20C, M19 C129 or wider prefixes, EUD
-   writes, broad module permutation, display/distro candidates, kernel rebuild,
-   recovery/vendor_boot/vbmeta/non-boot flash, raw host `dd`, fastboot,
-   multidisabler, format data, or any A90 action.
+   `/proc/reset_tzlog`, and `/proc/enhanced_boot_stat`. This retired exception
+   does not authorize M24 repeat, M23 repeat, M21A, M20B, M20C, M19 C129 or
+   wider prefixes, EUD writes, broad module permutation, display/distro
+   candidates, kernel rebuild, recovery/vendor_boot/vbmeta/non-boot flash, raw
+   host `dd`, fastboot, multidisabler, format data, or any A90 action.
 2. **Flash only via the checked helper by default:** `workspace/public/src/scripts/revalidation/native_init_flash.py`.
    Never `dd`/`fastboot`/raw-write a partition. Never invent a new flash path.
    **Narrow operator-authorized exception (2026-07-02, self-dd ladder only):** the V3358
@@ -2263,13 +2270,16 @@ BL, CP, CSC, userdata, or any non-boot flash.
    `1ee92a86f30e4acb12509272630e1bef5215d1a12686ac69a3b399b43740535e`. No other
    Odin slot, tar member, candidate hash, rollback hash, M23 variant, M20
    variant, M19 prefix, or partition is authorized by this exception.
-   **Narrow operator-authorized exception (2026-07-08, S22+ M24 pmsg-step
-   native-init boot-only Odin path):** paired only with the active M24 pmsg-step
-   gate above, `/usr/bin/odin4 --reboot -a` may be used through
+   **Consumed/retired exception (2026-07-08, S22+ M24 pmsg-step
+   native-init boot-only Odin path):** the S22+ M24 live gate above consumed
+   this Odin path. No current exception authorizes another M24 Odin transfer or
+   M24 rollback transfer under this helper. Before consumption, paired only
+   with the M24 pmsg-step gate above, `/usr/bin/odin4 --reboot -a` could be
+   used through
    `workspace/public/src/scripts/revalidation/s22plus_m24_pmsg_steps_live_gate.py`
    for the exact single-member `boot.img.lz4` candidate AP.tar.md5 SHA256
    `e09538024abe89585486d54856a5c86bef666da456f314084d4d4d8bb6553fe8`, and
-   the same helper may use `/usr/bin/odin4 --reboot -a` in
+   the same helper could use `/usr/bin/odin4 --reboot -a` in
    `--rollback-from-download` mode with the exact single-member Magisk
    boot-only AP.tar.md5 SHA256
    `d2373bf88dda342709440dc3db468f11d80a4593856768a4d8ae402bef215a56` or the

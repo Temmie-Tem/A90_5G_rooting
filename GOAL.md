@@ -250,6 +250,30 @@ safety invariants and flash gates are binding and override any sub-goal.**
 > last_kmsg/reset-context capture. Report:
 > `docs/reports/S22PLUS_M24_PMSG_STEPS_POLICY_ACTIVE_DRY_RUN_2026-07-08.md`.
 
+> **S22+ LIVE RESULT (2026-07-08 20:23 KST) — M24 PMSG-STEP CONSUMED; CLEAN ROLLBACK; NO PMSG MARKER RETAINED.**
+> Operator live-approved the M24 pmsg-step gate. Codex reran pre-live
+> `py_compile`/dry-run, then executed `--live --ack
+> S22PLUS-M24-PMSG-STEPS-LIVE-GATE`. The boot-only M24 AP flashed successfully
+> (`m24_candidate_odin_rc=0`) but exposed no M24 ACM/ADB. After the operator
+> observed the bootloop and manually entered Download mode, the helper detected
+> Odin at `m24_observe_055`, restored the pinned Magisk boot AP
+> (`magisk_boot_rollback_odin_rc=0`), and collected retained surfaces. Final
+> state is clean Android/Magisk baseline: `boot_completed=1`, verified boot
+> `orange`, Magisk root uid0, boot SHA256
+> `2e541703951dc725bad35850faf7028c2d910dd5f21166449b63f1248c29967e`, and
+> vendor_boot SHA256
+> `096e433e049fb088cd956e083d5a1039b33cdf0ca907e713bba7feaaf1b080b7`.
+> Result: pstore empty, `/proc/last_kmsg` 2,097,136 bytes but M24 marker absent,
+> `post_m24_boot_rollback_pmsg_step_count=0`, `/proc/reset_reason=NPON`,
+> `/proc/reset_rwc=0`, `/proc/store_lastkmsg=0`, and reset-summary/klog/history/
+> tzlog still report no reset header. The consumed M24 AGENTS/Odin exceptions
+> were retired so the same helper now fail-closes without a fresh exception.
+> Canonical timing total was `124.479s`. Do not repeat M24 unchanged; next
+> bounded unit needs either a pmsg-retention positive control at native-init
+> timing or the separately gated watchdog-dump precondition variant such as
+> `qcom_wdt_core`. Report:
+> `docs/reports/S22PLUS_M24_PMSG_STEPS_LIVE_RESULT_2026-07-08.md`.
+
 > **S22+ LIVE RESULT (2026-07-08 03:50 KST) — DIRECT VENDOR_BOOT RAMOOPS PATCH BOOTED BUT DID NOT AFFECT LIVE DT; M13 NOT FLASHED.**
 > Operator authorized the ack-gated
 > `S22PLUS-RAMOOPS-VENDORBOOT-M13-CAPTURE-LIVE-GATE` run. Dry-run passed, the
