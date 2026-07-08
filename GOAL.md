@@ -4,6 +4,39 @@ Drive the A90 native-init project forward one **bounded V-iteration at a time** 
 the proven cycle below. This file says WHAT to pursue; **`AGENTS.md` says HOW — its
 safety invariants and flash gates are binding and override any sub-goal.**
 
+> **S22+ CURRENT FRONTIER (2026-07-09 04:48 KST / 2026-07-08 19:48 UTC) — M34 S2 LIVE CONSUMED; S2 SURVIVED 90 S; ROLLBACK CLEAN; NEXT S3 DESIGN/PREP; NO ACTIVE LIVE AUTH.**
+> The approved M34 S2 pullup-knobs runtime-gadget live gate ran once using
+> `workspace/public/src/scripts/revalidation/s22plus_m34_s2_runtime_gadget_live_gate.py`.
+> Candidate AP
+> `d235e6fd7c77c9fc2b63bd7280dcbf430783c9b62b5f361f43441c24687c38b3`
+> flashed boot-only, the original Download endpoint disconnected, and S2
+> survived the full 90 second observation window with no ADB/Odin endpoint
+> returning. This proves `g1/max_speed=high-speed` plus `usb_role=device`, when
+> applied after the S1-proven stock configfs setup but before final UDC bind,
+> are not the observed 35 second reset boundary.
+>
+> After survival proof, manual rollback was required. The operator observed RDX
+> while entering manual recovery, then a normal Download endpoint appeared. The
+> checked helper flashed the pinned Magisk boot rollback AP successfully. Final
+> baseline is clean: Android `sys.boot_completed=1`, bootanim stopped, vbstate
+> orange, bootloader/build `S906NKSS7FYG8`, Magisk root OK, and boot partition
+> SHA256
+> `2e541703951dc725bad35850faf7028c2d910dd5f21166449b63f1248c29967e`.
+>
+> Retained evidence had no M34 S2 marker: pstore empty, `/proc/last_kmsg`
+> readable at 2,097,136 bytes, marker absent. The single `events` timeline is
+> present in
+> `workspace/private/runs/s22plus_m34_s2_runtime_gadget_live_gate_20260708T194507Z/timeline.json`.
+> `AGENTS.md` now marks the S2 one-shot exception consumed/retired and omits the
+> live tokens as active authorization.
+>
+> Direction: S2 is closed. The next high-information unit is M34 S3: add only
+> the final `UDC=a600000.dwc3` bind/pullup after S2-proven configfs + knob
+> setup. Because S3 is the first actual pullup, it needs a fresh review and
+> SHA-pinned `AGENTS.md` exception before live. No S3/final pullup live flash is
+> authorized now. Report:
+> `docs/reports/S22PLUS_NATIVE_INIT_M34_S2_LIVE_RESULT_2026-07-09.md`.
+
 > **S22+ CURRENT FRONTIER (2026-07-09 04:42 KST / 2026-07-08 19:42 UTC) — M34 S2 LIVE GATE AUTHORIZED; S1 CLOSED; LIVE NEXT.**
 > Codex added the guarded M34 S2 pullup-knobs live gate helper:
 > `workspace/public/src/scripts/revalidation/s22plus_m34_s2_runtime_gadget_live_gate.py`.
