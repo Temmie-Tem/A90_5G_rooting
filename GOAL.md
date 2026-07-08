@@ -4,6 +4,25 @@ Drive the A90 native-init project forward one **bounded V-iteration at a time** 
 the proven cycle below. This file says WHAT to pursue; **`AGENTS.md` says HOW — its
 safety invariants and flash gates are binding and override any sub-goal.**
 
+> **OPERATOR STEER (2026-07-08, Claude) — M18 WAS THE WRONG FILE: read Samsung `reset_summary` (watchdog-bite capture).**
+> M18's fault is a **msm watchdog bite** (dmesg confirms the watchdog runs + pets
+> ~9.5s; a bare init pets nothing → bite → warm reset). That is NOT a panic, so
+> `/proc/last_kmsg` (console/panic ring) is empty of it — the whole "no-hit."
+> Samsung has a **dedicated reset-context subsystem we never read**:
+> `sec_qc_user_reset` → **`/proc/reset_summary`, `/proc/reset_klog`,
+> `/proc/reset_history`, `/proc/reset_tzlog`, `/proc/enhanced_boot_stat`** (empty
+> on clean boot: `failed to load reset_header (-2)`; **populate after a crash**).
+> At MID the watchdog bark handler typically dumps **per-core last-PC + klog +
+> reason** there. **Next cheap unit (no EUD/JTAG/UART, no risk): re-run M18/M23 at
+> MID → read `reset_summary`/`reset_klog` (not just last_kmsg)**; if empty, add a
+> `qcom_wdt_core` variant (its bark handler is what dumps) while still not petting.
+> Parallel: **pmsg step-markers** — native init writes `A90_STEP:` markers to
+> `/dev/pmsg0` (Samsung pstore_pmsg, survives warm reset) before each risky insmod
+> → last marker = the step that hung (module granularity). This is a **third
+> no-jig observability avenue after EUD closed** — do it BEFORE spending on a UART
+> clip, and feed the localized PC/module into Track B (M23 DTS-exact substrate).
+> Report: `docs/reports/S22PLUS_RESET_SUMMARY_OBSERVABILITY_STEER_2026-07-08.md`.
+
 > **OPERATOR STEER (2026-07-08, Claude) — EUD IS CLOSED (TrustZone-gated); PIVOT TO DTS-EXACT POWER SUBSTRATE.**
 > Observability results, final: (a) Samsung **sec_debug/MID** proven for *panics*
 > (`*#9900#`→MID + `echo c > /proc/sysrq-trigger` → RDX/Upload-Mode screen;
