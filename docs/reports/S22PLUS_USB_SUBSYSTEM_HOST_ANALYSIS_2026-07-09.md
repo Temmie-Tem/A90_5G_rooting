@@ -131,6 +131,45 @@ Still required, in order:
   next (it is the only other thing dwc3-msm forces in), with PMIC-write safety
   held.
 
+## 7. The layer BELOW USB — is the substrate aligned? (yes, M28 covers it)
+
+Tracing every USB `supply`/`clock`/`interconnect`/`power-domain` DT phandle to
+its provider node answers "what must be up before USB":
+
+| USB need | DT provider | Driver module | In our set? |
+| --- | --- | --- | --- |
+| hsphy vdd / vdda18 / vdda33 | `pm8350_l5` / `pm8350c_l1` / `pm8350_l2` (RPMh VRM) | `rpmh-regulator` | ✓ (M28 #5) |
+| ssphy vdd | `pm8350_l1` (RPMh VRM) | `rpmh-regulator` | ✓ |
+| **USB3_GDSC** (controller power domain) | `USB3_GDSC-supply` on `ssusb@a600000` | `gdsc-regulator` | ✓ (M28 #10) |
+| core/iface/utmi/… clocks | `clock-controller@100000` = `qcom,waipio-gcc` | `gcc-waipio` | ✓ (M28 #2) |
+| ref/aux/rpmh clocks | `qcom,rpmhclk` = `qcom,waipio-rpmh-clk` | `clk-rpmh` | ✓ (M28 #1) |
+| interconnect `usb-ddr` / `ddr-usb` | `interconnect@…` (qnoc/BCM) | `qnoc-waipio` + `icc-bcm-voter` | ✓ |
+| DMA / SMMU | `arm_smmu` | `arm_smmu` | ✓ (M33 P27 proved up) |
+| secure PHY/init calls | `qcom-scm` | `qcom-scm` | ✓ |
+
+**Conclusion: every lower-substrate dependency USB sits on is already provided by
+the M28 dependency-complete set.** Crucially the USB PHY rails are **RPMh-managed
+PMIC LDOs** (`qcom,rpmh-vrm-regulator`) served by `rpmh-regulator` — **not** the
+`max77705` SPMI PMIC — so no extra PMIC regulator module is needed for USB power.
+M33 `P27` (HS phy + SMMU loaded, survived) empirically confirms the substrate
+holds: the HS phy obtained its rails/clocks and came up.
+
+**Two lower items to keep on watch (not blockers, but verify at runtime):**
+1. **`USB3_GDSC` power domain.** The `ssusb` controller sits behind a GDSC power
+   gate (`gdsc-regulator`). If that GDSC fails to enable, the whole USB3
+   controller is dead regardless of PHYs. It is in our set, but a runtime check
+   that the GDSC actually enabled is worth adding.
+2. **`usb-ipa` interconnect / IPA path.** The controller also declares a
+   `usb-ipa` interconnect (IPA-accelerated data path via `ipa_fmwk`/`usb_bam`).
+   Basic ACM does **not** need IPA, but if `dwc3-msm` or a function hard-votes the
+   IPA interconnect and IPA is not up, it could stall. For pure ACM, avoid the
+   IPA path; do not pull in `ipa_fmwk`/`usb_bam` unless a symbol forces it.
+
+Net: the wall is **not** a missing lower layer — the substrate is aligned. The
+remaining problem is the **upper** DT wiring (dwc3 → SS/QMP phy, §1/§4) plus the
+Samsung TypeC/PD hard-dep tree (§3). Lower is done; focus stays on the DTBO
+ssphy-phandle sever.
+
 ## Discipline
 
 Host-only analysis; the DTBO phandle edit + any live test need a fresh
