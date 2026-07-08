@@ -43,23 +43,31 @@ safety invariants and flash gates are binding and override any sub-goal.**
 > boot after the candidate reset, 14:34:01) and was overwritten by the second
 > (stock-DTBO) rollback boot before the read. This is now a fixable collection
 > ORDER bug, not a dead channel.
-> **Active unit = M29 (host-only helper change, then one fresh gate):** capture at
-> the FIRST post-candidate boot. At `S24/F43_rollback_boot_ready`, BEFORE the
-> stock-DTBO rollback, immediately read+pull `/proc/last_kmsg` (now == the
-> candidate's kernel log) AND Samsung `sec_qc_user_reset` surfaces
-> (`/proc/reset_summary`, `reset_klog`, `reset_history`, `reset_tzlog`) — with
-> `sec_debug` now loaded IN the candidate, a watchdog bite may populate per-core
-> last-PC / faulting-module there. This is a collection-order change on the
-> EXISTING dependency-complete artifacts (keep S24/F43, DTBO high-speed cap, QMP
-> exclusion) — NO candidate rebuild, NO marker re-architecture yet. **Decision:**
-> if first-boot `last_kmsg`/`reset_summary` shows the S24 fault (a faulting PC /
-> the module active at bite / the last native line) ⇒ the observability wall is
-> DOWN — localize the biting step and fix its missing supply/clock. If first-boot
-> capture is STILL empty ⇒ only then do the loop's marker hypotheses (init never
-> ran / kmsg not retained / faulted pre-first-line) matter → durable
-> candidate-owned marker path becomes M30. Do NOT run F43 blindly, do NOT continue
-> the P01…P08 blind narrow, and do NOT re-add configfs/ACM/UDC or chase the DTBO
-> ssphy-phandle until 1–24 survives (both are downstream of this).
+> **Active unit = M29 fresh live policy review / authorization selection:**
+> capture at the FIRST post-candidate boot. Codex added source-ready helper
+> `workspace/public/src/scripts/revalidation/s22plus_m29_first_rollback_capture_live_gate.py`
+> SHA256 `d8da7792f9ccc60a16358984636b29a3df27fac6b264f039354ea54770a18bb3`.
+> At `S24_rollback_boot_ready`, BEFORE the stock-DTBO rollback, it immediately
+> reads+pulls `/proc/last_kmsg` (the intended candidate kernel-log window) AND
+> Samsung `sec_qc_user_reset` surfaces (`/proc/reset_summary`, `reset_klog`,
+> `reset_history`, `reset_tzlog`) — with `sec_debug` now loaded IN the
+> candidate, a watchdog bite may populate per-core last-PC / faulting-module
+> there. It also captures a pre-candidate retained-log baseline and compares
+> the two `last_kmsg` SHA256 values. This is a collection-order change on the
+> EXISTING dependency-complete `S24` artifact plus DTBO high-speed cap/QMP
+> exclusion — NO candidate rebuild, NO marker re-architecture yet. The helper
+> deliberately rejects `F43`; F43 remains unauthorized until S24 first-capture
+> evidence is understood. Validation passed (`py_compile`, 7-unit unittest,
+> `--offline-check`), and default execution fail-closes because `AGENTS.md` has
+> no M29 authorization tokens. **Decision:** if first-boot
+> `last_kmsg`/`reset_summary` shows the S24 fault (a faulting PC / the module
+> active at bite / the last native line) ⇒ the observability wall is DOWN —
+> localize the biting step and fix its missing supply/clock. If first-boot
+> capture is STILL empty ⇒ only then do the loop's marker hypotheses (init
+> never ran / kmsg not retained / faulted pre-first-line) matter → durable
+> candidate-owned marker path becomes M30. Do NOT run F43 blindly, do NOT
+> continue the P01…P08 blind narrow, and do NOT re-add configfs/ACM/UDC or
+> chase the DTBO ssphy-phandle until 1–24 survives (both are downstream of this).
 > **Corrected mental model (still holds):** M25 did NOT bootloop — direct log
 > read (`...122411Z`) shows ~29 s dead-steady park then a single ~30.3 s watchdog
 > bite (not a loop); excluding `phy-msm-ssusb-qmp` DID kill the fast M15 QMP loop.
@@ -75,8 +83,27 @@ safety invariants and flash gates are binding and override any sub-goal.**
 > `S22PLUS_NATIVE_INIT_M28_DEP_COMPLETE_LIVE_GATE_SOURCE_2026-07-08.md`,
 > `S22PLUS_NATIVE_INIT_M28_DEP_COMPLETE_LIVE_GATE_2026-07-08.md`,
 > `S22PLUS_NATIVE_INIT_M28_S24_LIVE_RESULT_2026-07-08.md`,
-> `S22PLUS_NATIVE_INIT_M28_S24_RETAINED_LOG_POSTMORTEM_2026-07-08.md`.
+> `S22PLUS_NATIVE_INIT_M28_S24_RETAINED_LOG_POSTMORTEM_2026-07-08.md`,
+> `S22PLUS_M29_FIRST_ROLLBACK_CAPTURE_LIVE_GATE_SOURCE_2026-07-08.md`.
 > (Observation steers below are superseded/background; MID stays set, harmless.)
+
+> **S22+ CURRENT FRONTIER (2026-07-08 23:52 KST / 14:52 UTC) — M29 FIRST-ROLLBACK CAPTURE HELPER SOURCE READY; NO LIVE AUTH.**
+> Codex added
+> `workspace/public/src/scripts/revalidation/s22plus_m29_first_rollback_capture_live_gate.py`
+> SHA256 `d8da7792f9ccc60a16358984636b29a3df27fac6b264f039354ea54770a18bb3`
+> plus `tests/test_s22plus_m29_first_rollback_capture_live_gate.py`. The helper
+> reuses the existing M28 `S24` candidate and M25 DTBO high-speed cap, but
+> changes collection order: after Magisk boot rollback, at the first
+> post-candidate Android boot and before stock-DTBO rollback, it captures
+> `/sys/fs/pstore/*`, `/proc/last_kmsg`, reset-summary surfaces, and a
+> reset-reason summary. It also captures a pre-candidate retained-log baseline
+> and compares first-rollback versus pre-candidate `last_kmsg` SHA256. It
+> accepts only `S24`; `F43` remains unauthorized. Validation passed:
+> `py_compile`, `tests.test_s22plus_m29_first_rollback_capture_live_gate`
+> (`Ran 7 tests`), and `--offline-check`. Default execution fail-closes with
+> `AGENTS.md missing M29 first-rollback capture authorization markers`, so no
+> flash/reboot/device mutation was performed. Report:
+> `docs/reports/S22PLUS_M29_FIRST_ROLLBACK_CAPTURE_LIVE_GATE_SOURCE_2026-07-08.md`.
 
 > **S22+ CURRENT FRONTIER (2026-07-08 23:42 KST / 14:42 UTC) — M28 S24 RETAINED-LOG POSTMORTEM COMPLETE; FAILURE STILL UNOBSERVED.**
 > Codex performed a host-only postmortem of
