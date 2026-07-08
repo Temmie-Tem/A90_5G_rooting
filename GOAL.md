@@ -4,6 +4,42 @@ Drive the A90 native-init project forward one **bounded V-iteration at a time** 
 the proven cycle below. This file says WHAT to pursue; **`AGENTS.md` says HOW — its
 safety invariants and flash gates are binding and override any sub-goal.**
 
+> **S22+ CURRENT FRONTIER (2026-07-09 02:48 KST / 2026-07-08 17:48 UTC) — M33 P25/P28 BRANCH LIVE-GATE SOURCES READY; P27 STILL NEXT; POLICY INERT; NO ACTIVE LIVE AUTH.**
+> Codex prepared both branch helpers around the already source-ready P27
+> discriminator:
+> `workspace/public/src/scripts/revalidation/s22plus_m33_p25_wdt_prefix_park_live_gate.py`
+> and
+> `workspace/public/src/scripts/revalidation/s22plus_m33_p28_wdt_prefix_park_live_gate.py`.
+> P25 is the fallback if P27 fails: SMMU/secure-buffer only, no HS/eUSB2 PHY,
+> no DWC3, no monitor gadget module, and no ACM. Candidate AP
+> `workspace/private/outputs/s22plus_native_init/m33_wdt_prefix_park_matrix_v0_1/P25/odin4/AP.tar.md5`
+> SHA256 is
+> `1ae65c1d994137237f2227f95b86700f74d00791d6cfec53b1bcf245f0aa18d7`; boot
+> SHA256 `fd29255237b34df959102e11fa60bd654678fe3eda93c710dbf314e5485e6651`;
+> `/init` SHA256
+> `bc4a2667f13a3b34e9c11c06c7c4c7b5cf55df233009a8ce661982d7154b465e`;
+> module-list SHA256
+> `72ccb5e52af731993d4d94670bcbba42a1f53e6254c59636e2df9efe0bea579b`.
+> P28 is the forward branch if P27 survives: includes DWC3 and monitor gadget
+> dependencies while still excluding ACM/configfs runtime setup. Candidate AP
+> `workspace/private/outputs/s22plus_native_init/m33_wdt_prefix_park_matrix_v0_1/P28/odin4/AP.tar.md5`
+> SHA256 is
+> `4c76ef4df814356a7acfa9ce9a00c2fe003208ff8289c2874535e26b7e1c3f07`; boot
+> SHA256 `3bc59d6df58b5c7130e6ca531a6a6cd3a4d35e14ff7fd6667da72e2bd40e9e29`;
+> `/init` SHA256
+> `2ef661b9e5a1496674b6cc457c9b0e84c60ae7af01914c2403db602c6ebe84b1`;
+> module-list SHA256
+> `ef57a00fbef4b9c89936b30fc5c001974fbe9c2ece590c6a6984cb4695318a8f`.
+> Both helpers remain park-only: no reboot syscall, no Download beacon, no
+> runtime USB/configfs/ACM, no Android/Magisk handoff, no persistent mount, no
+> block write, boot-only AP with exactly `boot.img.lz4`. Validation passed:
+> helper `py_compile`, M33 P25/P27/P28/build unit tests (17), P25
+> `--offline-check`, and P28 `--offline-check`. Default execution still
+> fail-closes before Android/device preflight because `AGENTS.md` has no active
+> P25/P28 exceptions or live/rollback tokens. The next actual live gate remains
+> P27 unless the operator redirects. Report:
+> `docs/reports/S22PLUS_NATIVE_INIT_M33_P25_P28_BRANCH_LIVE_GATE_SOURCE_2026-07-09.md`.
+
 > **S22+ CURRENT FRONTIER (2026-07-09 02:40 KST / 2026-07-08 17:40 UTC) — M33 P27 LIVE-GATE SOURCE READY; POLICY INERT; NO ACTIVE LIVE AUTH.**
 > After P12 survived, Codex prepared the next high-information split helper for
 > P27: `workspace/public/src/scripts/revalidation/s22plus_m33_p27_wdt_prefix_park_live_gate.py`.
