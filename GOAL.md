@@ -67,14 +67,18 @@ safety invariants and flash gates are binding and override any sub-goal.**
 > `reboot,download` log. The next candidate shape is therefore the smaller
 > M30/M21A floor re-anchor: raw PID1 `nanosleep(90s)` then raw
 > `reboot(..., "download")`, with no fs/kmsg/modules/configfs/Android handoff.
-> Any live flash still needs a fresh, narrow exception after dry-run/preflight.
+> Fresh M30/M21A policy is now active and preflight passed; live still requires
+> the explicit helper ack token and operator discipline: no manual
+> Download/Recovery key entry before the helper reaches dwell+grace timeout or
+> asks for rollback.
 > **Corrected mental model (still holds):** M25 did NOT bootloop — direct log
 > read (`...122411Z`) shows ~29 s dead-steady park then a single ~30.3 s watchdog
 > bite (not a loop); excluding `phy-msm-ssusb-qmp` DID kill the fast M15 QMP loop.
 > M26 `P00` HIT / `P24` NO-HIT localizes the fault to modules 1–24, upstream of
 > USB. M27 `P08` is contaminated (operator manual-download during a bootloop),
 > consistent with the closure being broken at module #1.
-> Reports: `S22PLUS_NATIVE_INIT_M30_M21A_FLOOR_REANCHOR_HOST_ONLY_2026-07-09.md` (current primary),
+> Reports: `S22PLUS_NATIVE_INIT_M30_M21A_LIVE_GATE_PREFLIGHT_2026-07-09.md` (current primary),
+> `S22PLUS_NATIVE_INIT_M30_M21A_FLOOR_REANCHOR_HOST_ONLY_2026-07-09.md`,
 > `S22PLUS_M29_FIRST_ROLLBACK_CAPTURE_LIVE_RESULT_2026-07-09.md`,
 > `S22PLUS_M29_CAPTURE_AT_FIRST_ROLLBACK_BOOT_STEER_2026-07-08.md`,
 > `S22PLUS_MODULE_CLOSURE_DEP_INCOMPLETE_STOCK_MODULES_DEP_2026-07-08.md`
@@ -89,6 +93,20 @@ safety invariants and flash gates are binding and override any sub-goal.**
 > `S22PLUS_M29_FIRST_ROLLBACK_CAPTURE_LIVE_GATE_SOURCE_2026-07-08.md`,
 > `S22PLUS_M29_FIRST_ROLLBACK_CAPTURE_LIVE_GATE_2026-07-08.md`.
 > (Observation steers below are superseded/background; MID stays set, harmless.)
+
+> **S22+ CURRENT FRONTIER (2026-07-09 00:31 KST / 2026-07-08 15:31 UTC) — M30/M21A POLICY ACTIVE; PREFLIGHT PASS; LIVE NOT EXECUTED.**
+> Codex promoted a fresh one-shot `AGENTS.md` exception for the M30/M21A raw
+> nanosleep-download floor re-anchor and ran both non-flashing gates. The
+> helper `--offline-check` verified the candidate AP/manifest and rollback APs
+> with `agents_exception_missing=[]` and no device action. Android dry-run on
+> serial `RFCT519XWGK` verified model `SM-S906N`, device `g0q`, bootloader
+> `S906NKSS7FYG8`, vbstate `orange`, `boot_completed=1`, Magisk `su` root, and
+> current boot hash
+> `2e541703951dc725bad35850faf7028c2d910dd5f21166449b63f1248c29967e`. The
+> active live ack is `S22PLUS-M21A-RAW-NANOSLEEP-DOWNLOAD-LIVE-GATE`; rollback
+> ack is `S22PLUS-M21A-ROLLBACK-FROM-DOWNLOAD`. No reboot/Odin flash/partition
+> write/live rollback was performed. Report:
+> `docs/reports/S22PLUS_NATIVE_INIT_M30_M21A_LIVE_GATE_PREFLIGHT_2026-07-09.md`.
 
 > **S22+ CURRENT FRONTIER (2026-07-09 00:25 KST / 2026-07-08 15:25 UTC) — M30/M21A FLOOR RE-ANCHOR HOST-ONLY READY; NO ACTIVE LIVE AUTH.**
 > Codex rechecked the post-M29 direction and hardened the existing M21A raw
