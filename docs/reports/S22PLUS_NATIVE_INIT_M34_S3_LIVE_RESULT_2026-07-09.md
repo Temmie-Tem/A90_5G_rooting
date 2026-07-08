@@ -24,8 +24,8 @@ Result:
 - original Download endpoint disconnected
 - observation window passed: `m34_s3_survival_window_pass=1`
 - final result: `survived-observation-window-manual-download-required`
-- host saw no ADB, no Odin, and no Samsung `04e8:6860` ACM endpoint during the
-  90 second window
+- host saw no ADB, no Odin, and no Samsung `04e8:6860` `/dev/ttyACM*` ACM tty
+  endpoint during the 90 second window
 - manual rollback was required
 - operator observed RDX while entering manual rollback
 - normal Download endpoint later appeared
@@ -55,6 +55,8 @@ Observation:
 - last snapshot before pass: elapsed `86.558` seconds
 - all snapshots showed empty ADB/Odin endpoint state
 - all snapshots showed `m34_s3_park_observe_NNN_acm_devices=[]`
+- S3 did not capture `lsusb`, `usb-devices`, or host dmesg deltas, so
+  USB-device-level enumeration without an ACM tty remains unverified
 - final result:
   `m34_s3_result=survived-observation-window-manual-download-required`
 
@@ -96,10 +98,11 @@ So the runtime-gadget sequence, including final UDC pullup, is not by itself
 causing the previously observed reset/bootloop boundary in this bounded
 configuration.
 
-The remaining issue is different: S3 did not expose a host ACM endpoint. That
-means survival is solved, but transport usability is not proven. The next unit
-should investigate why the gadget does not enumerate as ACM despite final UDC
-bind.
+The remaining issue is different: S3 did not expose a host ACM tty endpoint.
+That means survival is solved, but transport usability is not proven. Because
+the S3 helper did not collect USB-device-level host evidence, the next unit
+must distinguish complete no-enumeration from non-ACM or descriptor-level
+enumeration.
 
 ## Next
 
@@ -112,6 +115,7 @@ host/read-only first and compare S3 against stock Android gadget state:
   or function symlink order/details beyond the current stock subset
 - check whether `ss_acm.0` requires companion Samsung configfs attributes or a
   userspace daemon action before host enumeration
-- inspect host kernel dmesg/usbmon if a future live run is authorized
+- inspect host `lsusb`, `usb-devices`, udev, and kernel dmesg/usbmon if a
+  future live run is authorized
 
 No live flash is authorized by this result report.
