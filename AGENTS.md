@@ -2752,6 +2752,62 @@ BL, CP, CSC, userdata, or any non-boot flash.
    `d2373bf88dda342709440dc3db468f11d80a4593856768a4d8ae402bef215a56` first,
    with stock boot-only fallback SHA256
    `1ee92a86f30e4acb12509272630e1bef5215d1a12686ac69a3b399b43740535e`.
+   **Narrow operator-authorized exception (2026-07-09, S22+ M34 S5
+   soft-connect runtime-gadget boot-only live gate):** after M34 S4 survived
+   90 seconds with no host-visible Samsung `04e8:6860`, CDC ACM, `/dev/ttyACM*`,
+   ADB, or Odin endpoint during candidate park, and after the S5 host-build and
+   live-gate helper passed offline/default fail-closed checks, Codex may run
+   one bounded attended boot-partition-only `S22+ M34 S5 soft-connect
+   runtime-gadget native-init boot-only` live gate on the Samsung S22+
+   `SM-S906N`/`g0q` `S906NKSS7FYG8` (`SM-S906N/g0q/S906NKSS7FYG8`) using only
+   the checked helper
+   `workspace/public/src/scripts/revalidation/s22plus_m34_s5_soft_connect_live_gate.py`.
+   Live ack token: `S22PLUS-M34-S5-SOFT-CONNECT-LIVE-GATE`. Rollback ack token:
+   `S22PLUS-M34-S5-SOFT-CONNECT-ROLLBACK-FROM-DOWNLOAD`.
+
+   The exact stage must be `S5`; marker
+   `S22_NATIVE_INIT_M34_RUNTIME_GADGET_SPLIT_S5`; candidate AP.tar.md5 SHA256
+   `3a63dc339577d4aaf550159743b81edd9c1318ef5c6c4b745ed363f171d30d5e`;
+   contained padded `boot.img` SHA256
+   `09751f5fce9f25be3ce7b814f00c04cafd22ae9a96d8c69ab9d52b6274951a95`;
+   direct `/init` SHA256
+   `efecaf1842aff95907b2f2780dc12531b0980acff6cbe64f789e9ad4b6c3c55c`;
+   template source SHA256
+   `bf90fbadbaf72bb9287150d769104b97ec8faaae0ce1c0591aaafdeb88004fb8`;
+   module-list SHA256
+   `2291dc1c72add131c42d0b4ed6649880c20316d0598e0a2af942cc774949062c`;
+   preserved kernel SHA256
+   `bceca73edbfca3499148e16741c939779157925949ef6bc8a8e31d6b68fc2cff`;
+   and known-booting Magisk base boot SHA256
+   `2e541703951dc725bad35850faf7028c2d910dd5f21166449b63f1248c29967e`. The AP
+   must contain exactly one tar member, `boot.img.lz4`, and must not carry
+   recovery, vendor_boot, dtbo, vbmeta, vbmeta_system, BL, CP, CSC, super,
+   persist, userdata, EFS, sec_efs, RPMB, keymaster, modem, bootloader, or any
+   other partition payload.
+
+   The candidate is limited to freestanding direct PID1 M34 S5 behavior:
+   stock-ordered configfs gadget/function/config, `UDC=none`, stock IDs
+   `0x04E8:0x6860`, `ss_acm.0 link`, `max_speed=high-speed`, no /sys/class/usb_role,
+   no
+   `/sys/class/usb_role`, `ssusb/speed=high-speed`,
+   `ssusb/mode=peripheral`, final UDC bind, `UDC=a600000.dwc3`,
+   `soft_connect=connect`,
+   `/sys/class/udc/a600000.dwc3/soft_connect`, and `phase=soft_connect`.
+   It must make no descriptor or companion-function change and no post-pullup
+   command channel. It must have no reboot syscall, no Download beacon, no
+   Android/Magisk handoff, no persistent partition mount, no block write, no
+   module binary injection into boot ramdisk, no raw host `dd`, no fastboot, no
+   Magisk modules, no multidisabler, no format data, no DTBO/vendor_boot/
+   recovery/vbmeta/non-boot flash, and no A90 action. Manual Download rollback
+   is recovery-only after the helper requests it. Survival proof requires it
+   survives past 60-90 seconds; PMIC/RDX abnormal reset before the observation
+   window is FAIL. The helper must collect enhanced host USB observation
+   including `lsusb -d 04e8:6860 -v`, `usb-devices`, udev properties, and host
+   dmesg delta. The module closure must keep `phy-msm-ssusb-qmp.ko
+   intentionally excluded` and `EUD excluded`. This exception does not
+   authorize S1/S2/S3/S4 repeat, S5 repeat, DTBO surgery, M32 repeat,
+   display/distro candidates, kernel rebuilds, RDX PC dump retrieval, EUD
+   writes, or any non-boot partition action.
    **Consumed exception (2026-07-09, S22+ M34 S4 ssusb role-lever
    runtime-gadget boot-only live gate):** this one-shot exception was consumed by
    the 2026-07-09 KST live run. It flashed the pinned M34 S4 boot-only
