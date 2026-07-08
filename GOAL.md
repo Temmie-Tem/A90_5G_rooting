@@ -61,19 +61,21 @@ safety invariants and flash gates are binding and override any sub-goal.**
 > the candidate failure. The collection-timing hypothesis is weakened; it is
 > not a basis for repeating S24.
 > **Current direction:** M29 is consumed/retired in `AGENTS.md`; F43 remains
-> unauthorized. Do not repeat M28/M29/S24 under old tokens. Next unit is
-> host-only postmortem/design: explain why the S24 native candidate becomes
-> host-invisible and why retained evidence still resolves to Android. Candidate
-> redesign should focus on a more durable pre-rollback observation path or a
-> smaller first-fault discriminator, but any live flash needs a fresh, narrow
-> exception after the host report.
+> unauthorized. Do not repeat M28/M29/S24 under old tokens. The host-only
+> postmortem/design unit is now complete: S24 emitted its marker before broad
+> module loading, yet M29 found no native marker and retained only an Android
+> `reboot,download` log. The next candidate shape is therefore the smaller
+> M30/M21A floor re-anchor: raw PID1 `nanosleep(90s)` then raw
+> `reboot(..., "download")`, with no fs/kmsg/modules/configfs/Android handoff.
+> Any live flash still needs a fresh, narrow exception after dry-run/preflight.
 > **Corrected mental model (still holds):** M25 did NOT bootloop — direct log
 > read (`...122411Z`) shows ~29 s dead-steady park then a single ~30.3 s watchdog
 > bite (not a loop); excluding `phy-msm-ssusb-qmp` DID kill the fast M15 QMP loop.
 > M26 `P00` HIT / `P24` NO-HIT localizes the fault to modules 1–24, upstream of
 > USB. M27 `P08` is contaminated (operator manual-download during a bootloop),
 > consistent with the closure being broken at module #1.
-> Reports: `S22PLUS_M29_FIRST_ROLLBACK_CAPTURE_LIVE_RESULT_2026-07-09.md` (current primary),
+> Reports: `S22PLUS_NATIVE_INIT_M30_M21A_FLOOR_REANCHOR_HOST_ONLY_2026-07-09.md` (current primary),
+> `S22PLUS_M29_FIRST_ROLLBACK_CAPTURE_LIVE_RESULT_2026-07-09.md`,
 > `S22PLUS_M29_CAPTURE_AT_FIRST_ROLLBACK_BOOT_STEER_2026-07-08.md`,
 > `S22PLUS_MODULE_CLOSURE_DEP_INCOMPLETE_STOCK_MODULES_DEP_2026-07-08.md`
 > (primary), `S22PLUS_M25_NO_ACM_POSTMORTEM_2026-07-08.md`,
@@ -87,6 +89,28 @@ safety invariants and flash gates are binding and override any sub-goal.**
 > `S22PLUS_M29_FIRST_ROLLBACK_CAPTURE_LIVE_GATE_SOURCE_2026-07-08.md`,
 > `S22PLUS_M29_FIRST_ROLLBACK_CAPTURE_LIVE_GATE_2026-07-08.md`.
 > (Observation steers below are superseded/background; MID stays set, harmless.)
+
+> **S22+ CURRENT FRONTIER (2026-07-09 00:25 KST / 2026-07-08 15:25 UTC) — M30/M21A FLOOR RE-ANCHOR HOST-ONLY READY; NO ACTIVE LIVE AUTH.**
+> Codex rechecked the post-M29 direction and hardened the existing M21A raw
+> nanosleep-download discriminator as the next host-only floor re-anchor. The
+> private candidate artifacts were rebuilt and still match the pinned hashes:
+> AP.tar.md5
+> `d1949a56c60c71498d68753d2ffd6064719fafce1ad0e3959ebb8a4255bb6c79`,
+> boot.img
+> `61d7dc9818b79c810b30370edfe4df2b55ec451588defb48458fefae9c6c00a5`,
+> `/init`
+> `10f525760b170cba4ec55d7fd4955c466601253258371cb571eb45515bd9cf30`,
+> source
+> `300ed990c8ea476c3744e18327ae08277c0d27dc443e99245aeecba457968c4f`.
+> The runtime shape is raw PID1 with exactly two syscalls: `nanosleep(90s)`
+> then `reboot(..., "download")`; no filesystem setup, kmsg/pstore marker,
+> module loading, configfs, USB role forcing, Android/Magisk handoff, or
+> non-boot payload. The M21A helper now has testable `AGENTS.md` marker checks
+> and canonical `timeline.json` events. Validation passed: `py_compile` and
+> `tests.test_s22plus_m21a_raw_nanosleep_download_live_gate` (`Ran 8 tests`).
+> `AGENTS.md` still retires M21A and has no active live ack, so the helper must
+> fail closed until a fresh M30/M21A boot-only exception is promoted. Report:
+> `docs/reports/S22PLUS_NATIVE_INIT_M30_M21A_FLOOR_REANCHOR_HOST_ONLY_2026-07-09.md`.
 
 > **S22+ CURRENT FRONTIER (2026-07-09 00:10 KST / 2026-07-08 15:10 UTC) — M29 CONSUMED; BASELINE CLEAN; NO ACTIVE LIVE AUTH.**
 > Codex ran the authorized M29 `S24` live gate and the checked

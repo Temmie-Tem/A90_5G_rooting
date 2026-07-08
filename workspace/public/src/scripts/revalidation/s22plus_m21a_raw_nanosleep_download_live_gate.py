@@ -17,6 +17,7 @@ import argparse
 import json
 import sys
 import time
+from datetime import datetime, timezone
 from pathlib import Path
 
 from s22plus_m3_observable_live_gate import (
@@ -82,10 +83,32 @@ def resolve_run_dir(root: Path, requested: Path | None) -> Path:
     raise SystemExit(f"could not allocate unique run directory under {base.parent}")
 
 
-def verify_agents_exception(root: Path, log_path: Path) -> None:
-    agents = (root / "AGENTS.md").read_text(encoding="utf-8")
-    normalized = " ".join(agents.split())
-    required = [
+def record_timeline_event(run_dir: Path, name: str) -> None:
+    path = run_dir / "timeline.json"
+    events: list[dict[str, str]] = []
+    if path.exists():
+        data = json.loads(path.read_text(encoding="utf-8"))
+        if sorted(data.keys()) != ["events"] or not isinstance(data.get("events"), list):
+            raise SystemExit(f"refusing non-canonical timeline shape: {path}")
+        for index, event in enumerate(data["events"]):
+            if not isinstance(event, dict) or sorted(event.keys()) != ["name", "timestamp_utc"]:
+                raise SystemExit(f"refusing non-canonical timeline event {index}: {path}")
+            if not isinstance(event["name"], str) or not event["name"]:
+                raise SystemExit(f"refusing timeline event with invalid name {index}: {path}")
+            timestamp = event["timestamp_utc"]
+            if not isinstance(timestamp, str) or not timestamp.endswith("Z"):
+                raise SystemExit(f"refusing timeline event with invalid timestamp {index}: {path}")
+            try:
+                datetime.fromisoformat(timestamp.replace("Z", "+00:00"))
+            except ValueError as exc:
+                raise SystemExit(f"refusing timeline event with unparsable timestamp {index}: {path}") from exc
+        events = data["events"]
+    events.append({"name": name, "timestamp_utc": datetime.now(timezone.utc).isoformat().replace("+00:00", "Z")})
+    path.write_text(json.dumps({"events": events}, indent=2, sort_keys=True) + "\n", encoding="utf-8")
+
+
+def policy_required_markers() -> list[str]:
+    return [
         "S22+ M21A raw nanosleep-download floor discriminator native-init boot-only",
         EXPECTED_M21A_AP_SHA256,
         EXPECTED_M21A_BOOT_SHA256,
@@ -102,7 +125,16 @@ def verify_agents_exception(root: Path, log_path: Path) -> None:
         "operator manual download-mode entry",
         "M21A and does not authorize M20B",
     ]
-    missing = [item for item in required if item not in normalized]
+
+
+def missing_policy_markers(text: str) -> list[str]:
+    normalized = " ".join(text.split())
+    return [item for item in policy_required_markers() if item not in normalized]
+
+
+def verify_agents_exception(root: Path, log_path: Path) -> None:
+    agents = (root / "AGENTS.md").read_text(encoding="utf-8")
+    missing = missing_policy_markers(agents)
     append_log(log_path, f"agents_exception_missing={missing}")
     if missing:
         raise SystemExit(f"AGENTS.md missing M21A live authorization markers: {missing}")
@@ -269,16 +301,23 @@ def rollback_from_download(
     rollback_target: str,
     android_wait_sec: int,
 ) -> int:
+    record_timeline_event(run_dir, "live_session_start")
     devices = odin_devices(odin, log_path, "rollback-only")
     if len(devices) != 1:
         raise SystemExit(f"rollback-only requires exactly one Odin device, got {devices}")
+    record_timeline_event(run_dir, "rollback_flash_start")
     rollback_rc = flash_ap(odin, rollback_ap, devices[0], log_path, f"{rollback_target}_rollback")
+    record_timeline_event(run_dir, "rollback_flash_done")
     if rollback_rc != 0:
+        record_timeline_event(run_dir, "live_session_end")
         return rollback_rc or 5
     serial = poll_android(log_path, android_wait_sec, expect_root=rollback_target == ROLLBACK_MAGISK)
     if serial is None:
+        record_timeline_event(run_dir, "live_session_end")
         return 6
+    record_timeline_event(run_dir, "rollback_boot_ready")
     collect_android_pstore(run_dir, log_path, "post_rollback", serial, marker=EXPECTED_M21A_MARKER)
+    record_timeline_event(run_dir, "live_session_end")
     return 0
 
 
@@ -356,6 +395,7 @@ def main(argv: list[str]) -> int:
     if args.ack != LIVE_ACK_TOKEN:
         raise SystemExit(f"--live requires --ack {LIVE_ACK_TOKEN}")
 
+    record_timeline_event(run_dir, "live_session_start")
     print(
         "M21A live gate starting. After candidate flash, do not press recovery/download keys "
         f"until at least {args.dwell_sec + args.dwell_grace_sec}s after the original Odin endpoint disconnects, "
@@ -367,11 +407,15 @@ def main(argv: list[str]) -> int:
     append_log(log_path, reboot.stdout + reboot.stderr)
     odin_device = wait_for_odin(odin, log_path, "candidate-wait", args.odin_wait_sec)
     if odin_device is None:
+        record_timeline_event(run_dir, "live_session_end")
         print("download mode did not appear for M21A candidate flash", file=sys.stderr)
         return 2
 
+    record_timeline_event(run_dir, "candidate_flash_start")
     candidate_rc = flash_ap(odin, m21a_ap, odin_device, log_path, "candidate")
+    record_timeline_event(run_dir, "candidate_flash_done")
     if candidate_rc != 0:
+        record_timeline_event(run_dir, "live_session_end")
         print(f"M21A candidate Odin flash failed rc={candidate_rc}; log={log_path}", file=sys.stderr)
         return candidate_rc or 3
 
@@ -389,16 +433,22 @@ def main(argv: list[str]) -> int:
         )
         rollback_device = wait_for_odin(odin, log_path, "rollback-still-download-wait", 5)
         if rollback_device is None:
+            record_timeline_event(run_dir, "live_session_end")
             print(f"rollback download mode unavailable after no-disconnect; manual recovery required. log={log_path}", file=sys.stderr)
             return 4
+        record_timeline_event(run_dir, "rollback_flash_start")
         rollback_rc = flash_ap(odin, rollback_ap, rollback_device, log_path, f"{args.rollback_target}_rollback_no_disconnect")
+        record_timeline_event(run_dir, "rollback_flash_done")
         if rollback_rc != 0:
+            record_timeline_event(run_dir, "live_session_end")
             print(f"rollback Odin flash failed rc={rollback_rc}; log={log_path}", file=sys.stderr)
             return rollback_rc or 5
         post_rollback_serial = poll_android(log_path, args.android_wait_sec, expect_root=args.rollback_target == ROLLBACK_MAGISK)
         if post_rollback_serial is None:
+            record_timeline_event(run_dir, "live_session_end")
             print(f"rollback transferred but Android/root verification failed; log={log_path}", file=sys.stderr)
             return 6
+        record_timeline_event(run_dir, "rollback_boot_ready")
         append_log(log_path, "m21a_result=no-proof-original-download-never-disconnected")
         collect_android_pstore(
             run_dir,
@@ -407,8 +457,10 @@ def main(argv: list[str]) -> int:
             post_rollback_serial,
             marker=EXPECTED_M21A_MARKER,
         )
+        record_timeline_event(run_dir, "live_session_end")
         return 7
 
+    record_timeline_event(run_dir, "candidate_boot_ready")
     print(
         f"M21A candidate flashed. Waiting {args.dwell_sec}s dwell + {args.dwell_grace_sec}s grace. "
         "Do not manually enter download mode during this window.",
@@ -422,6 +474,7 @@ def main(argv: list[str]) -> int:
         dwell_grace_sec=args.dwell_grace_sec,
     )
     if result != "timed-download-after-dwell":
+        record_timeline_event(run_dir, "live_session_end")
         print(
             f"M21A did not produce an automatic timed-download proof ({result}). "
             "If the device is parked or looping, enter download mode manually and run --rollback-from-download.",
@@ -431,21 +484,29 @@ def main(argv: list[str]) -> int:
     if rollback_device is None:
         raise SystemExit("internal error: timed-download result without rollback device")
 
+    record_timeline_event(run_dir, "rollback_flash_start")
     rollback_rc = flash_ap(odin, rollback_ap, rollback_device, log_path, f"{args.rollback_target}_rollback")
+    record_timeline_event(run_dir, "rollback_flash_done")
     if rollback_rc != 0 and args.rollback_target == ROLLBACK_MAGISK:
         append_log(log_path, "magisk_rollback_failed_attempting_stock_fallback=1")
         fallback_device = wait_for_odin(odin, log_path, "stock-fallback-wait", 30)
         if fallback_device:
+            record_timeline_event(run_dir, "rollback_flash_start")
             rollback_rc = flash_ap(odin, stock_rollback_ap, fallback_device, log_path, "stock_fallback")
+            record_timeline_event(run_dir, "rollback_flash_done")
     if rollback_rc != 0:
+        record_timeline_event(run_dir, "live_session_end")
         print(f"rollback Odin flash failed rc={rollback_rc}; log={log_path}", file=sys.stderr)
         return rollback_rc or 5
 
     post_rollback_serial = poll_android(log_path, args.android_wait_sec, expect_root=args.rollback_target == ROLLBACK_MAGISK)
     if post_rollback_serial is None:
+        record_timeline_event(run_dir, "live_session_end")
         print(f"rollback transferred but Android/root verification failed; log={log_path}", file=sys.stderr)
         return 6
+    record_timeline_event(run_dir, "rollback_boot_ready")
     collect_android_pstore(run_dir, log_path, "post_rollback", post_rollback_serial, marker=EXPECTED_M21A_MARKER)
+    record_timeline_event(run_dir, "live_session_end")
     print(f"M21A live gate completed with timed-download proof and rollback ok; log={log_path}")
     return 0
 
