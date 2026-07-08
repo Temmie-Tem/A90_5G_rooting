@@ -4,6 +4,43 @@ Drive the A90 native-init project forward one **bounded V-iteration at a time** 
 the proven cycle below. This file says WHAT to pursue; **`AGENTS.md` says HOW — its
 safety invariants and flash gates are binding and override any sub-goal.**
 
+> **S22+ CURRENT FRONTIER (2026-07-09 05:35 KST / 2026-07-08 20:35 UTC) — M34 S4 ROLE-LEVER LIVE-GATE HELPER READY; DEFAULT FAIL-CLOSED; NO ACTIVE LIVE AUTH.**
+> The stock-kernel answer is now encoded end to end: the dead
+> `/sys/class/usb_role/*/role=device` path is not used, and S4 uses
+> `/sys/devices/platform/soc/a600000.ssusb/speed=high-speed` plus
+> `/sys/devices/platform/soc/a600000.ssusb/mode=peripheral` before final
+> `UDC=a600000.dwc3` bind. Codex added the guarded S4 helper
+> `workspace/public/src/scripts/revalidation/s22plus_m34_s4_role_lever_live_gate.py`
+> and S4-specific tests
+> `tests/test_s22plus_m34_s4_role_lever_live_gate.py`.
+>
+> The helper pins S4 AP.tar.md5 SHA256
+> `9d93eb5c3c4fec3c02c920b2c80435a76b7c161079d906940a3279fc77495cc9`,
+> padded `boot.img` SHA256
+> `153ceff9877351d55448de7839ec52f7631485c006a68971ca7ea14fc9dd11c5`,
+> direct `/init` SHA256
+> `ee73a26d65649346e8cae830ee9bb229152d0a8001c2bc8fc48e536fdc08fb96`,
+> template source SHA256
+> `51ec34f669f35f81a41411c82613ece65924c3a16b4bc5619e670e05b3231065`,
+> module-list SHA256
+> `2291dc1c72add131c42d0b4ed6649880c20316d0598e0a2af942cc774949062c`,
+> and the known-booting Magisk base boot SHA256
+> `2e541703951dc725bad35850faf7028c2d910dd5f21166449b63f1248c29967e`.
+> It verifies the v0.3 manifest contract, single-member boot-only AP,
+> rollback APs, no `/sys/class/usb_role` requirement, ssusb speed/mode
+> requirements, QMP/EUD exclusion, no reboot syscall, no Android/Magisk handoff,
+> no persistent mount, no block write, and no module-binary ramdisk injection.
+>
+> Host observation is expanded beyond S3: `lsusb -d 04e8:6860 -v`, `lsusb -t`,
+> `usb-devices`, `/dev/ttyACM*` and `/dev/serial/by-*`, udev properties, and
+> host dmesg tail are captured with serial/devlink redaction. Validation passed:
+> helper `py_compile`, S4 unittest (8), helper `--offline-check`, draft
+> exception self-check, default fail-closed before Android/flash because
+> `AGENTS.md` has no S4 authorization, and combined M34 build/S1/S2/S3/S4 tests
+> (32). Next live action requires a fresh SHA-pinned `AGENTS.md` exception and
+> explicit operator approval. Report:
+> `docs/reports/S22PLUS_NATIVE_INIT_M34_S4_ROLE_LEVER_LIVE_GATE_READY_2026-07-09.md`.
+
 > **S22+ CURRENT FRONTIER (2026-07-09 05:27 KST / 2026-07-08 20:27 UTC) — M34 S4 ROLE-LEVER HOST BUILD PASS; NEXT S4 LIVE-GATE HELPER; NO ACTIVE LIVE AUTH.**
 > Codex extended the M34 runtime-gadget split to v0.3 with a new S4 stage:
 > S4 keeps the S3 configfs/UDC sequence, keeps `g1/max_speed=high-speed`, removes
