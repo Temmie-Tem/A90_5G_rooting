@@ -4,6 +4,30 @@ Drive the A90 native-init project forward one **bounded V-iteration at a time** 
 the proven cycle below. This file says WHAT to pursue; **`AGENTS.md` says HOW — its
 safety invariants and flash gates are binding and override any sub-goal.**
 
+> **S22+ CURRENT FRONTIER (2026-07-09 02:19 KST / 2026-07-08 17:19 UTC) — M33 PREFIX-PARK MATRIX HOST BUILD PASS; OPERATOR LIVE APPROVED; LIVE GATE NOT YET AUTHORED.**
+> Codex built the M33 watchdog-managed prefix-park matrix as host-only artifacts
+> after the M32 live bootloop/no-ACM result. M33 keeps the M31B park runtime
+> shape and watchdog-managed module loading, but removes M32 runtime configfs
+> and ACM setup completely (`configfs_runtime_gadget=false`, `acm=false`,
+> `intended_reboot_syscall=false`). This localizes the next test to module
+> loading boundaries before reintroducing configfs. Private output:
+> `workspace/private/outputs/s22plus_native_init/m33_wdt_prefix_park_matrix_v0_1`.
+> Variants are P12/P18/P25/P27/P28/P30/P40. P40's module closure exactly matches
+> M32's 45 modules, while still doing no configfs or ACM setup. Static
+> validation passed: M33 unit tests (5), builder `--force`, and adjacent
+> M31B/M32/M33 tests (14). Candidate AP.tar.md5 SHA256 values: P12
+> `47a7acd9f953de4464848aa02413b629064c512e2250356da0e33df5c46a3ce0`, P18
+> `9bbb3bebe866754c208c4d2660baf527bdbf0d2d1a18276b33cf02c98743aebe`, P25
+> `1ae65c1d994137237f2227f95b86700f74d00791d6cfec53b1bcf245f0aa18d7`, P27
+> `9110e793f5cc812c856dedf35aaa4cc2f2c692f8561bba9dbe10c7b1e8a29371`, P28
+> `4c76ef4df814356a7acfa9ce9a00c2fe003208ff8289c2874535e26b7e1c3f07`, P30
+> `e7cadd856da852e577adf32e088c0fee668904f265cdad1e9309072ccb2b18fd`, P40
+> `420986c447df5cd155aee1ea32ece8ec5a7b021793dd9058d4fe6bc3744b7c34`.
+> The operator has now approved live progression. Next implementation unit:
+> add a fresh SHA-pinned boot-only `AGENTS.md` exception and fail-closed live
+> helper for the first M33 prefix, starting with P12. Report:
+> `docs/reports/S22PLUS_NATIVE_INIT_M33_WDT_PREFIX_PARK_HOST_BUILD_2026-07-09.md`.
+
 > **S22+ CURRENT FRONTIER (2026-07-09 02:05 KST / 2026-07-08 17:05 UTC) — M32 LIVE CONSUMED; NO ACM; UNEXPECTED DOWNLOAD AT ~35.6 S; ROLLBACK CLEAN; NO ACTIVE LIVE AUTH.**
 > The approved M32 watchdog-managed HS ACM live gate ran once under commit
 > `783f4e9c`. Candidate AP
