@@ -4,6 +4,39 @@ Drive the A90 native-init project forward one **bounded V-iteration at a time** 
 the proven cycle below. This file says WHAT to pursue; **`AGENTS.md` says HOW — its
 safety invariants and flash gates are binding and override any sub-goal.**
 
+> **S22+ CURRENT FRONTIER (2026-07-09 06:07 KST / 2026-07-08 21:07 UTC) — M34 S5 LIVE CONSUMED; NO ACM; ODIN RETURNED AT 73.950 S; ROLLBACK CLEAN; NO ACTIVE LIVE AUTH.**
+> The approved M34 S5 soft-connect runtime-gadget live gate ran once using
+> `workspace/public/src/scripts/revalidation/s22plus_m34_s5_soft_connect_live_gate.py`.
+> Candidate AP
+> `3a63dc339577d4aaf550159743b81edd9c1318ef5c6c4b745ed363f171d30d5e`
+> flashed boot-only, the original Download endpoint disconnected, and the
+> candidate entered the park observation loop. Across 15 host snapshots through
+> 73.950 seconds, Samsung `04e8:6860`, CDC ACM, `/dev/ttyACM*`, and ADB all
+> stayed absent during candidate park. At 73.950 seconds a normal Odin endpoint
+> returned before the 90 second survival window, so the result is
+> `unexpected_odin_before_survival_window`, not ACM enumeration and not a
+> survival pass.
+>
+> The helper immediately flashed the pinned Magisk boot-only rollback AP from
+> the returned Odin endpoint. Final baseline is clean: Android
+> `sys.boot_completed=1`, build/bootloader `S906NKSS7FYG8`, vbstate `orange`,
+> Magisk root present, and boot partition SHA256 restored to
+> `2e541703951dc725bad35850faf7028c2d910dd5f21166449b63f1248c29967e`
+> (confirmed by helper and post-live independent `dd | sha256sum`). Retained
+> evidence had no M34 S5 marker: pstore empty, `/proc/last_kmsg` readable at
+> 2,097,136 bytes, marker absent. The currently visible host `04e8:6860` /
+> ADB / `/dev/ttyACM0` endpoint is rollback Android, not the S5 candidate.
+> `AGENTS.md` now marks the S5 one-shot exception consumed/retired and omits
+> the live tokens as active authorization.
+>
+> Direction: S5 `soft_connect=connect` does not solve enumeration and may have
+> introduced or exposed a ~74 second Odin return path. No active live flash is
+> authorized. Next unit should be host-only analysis before any new live:
+> compare descriptor/config/function parity, stock composite companion
+> functions, and Android-side controller/UDC setup that may be missing from the
+> native-init configfs plus soft_connect path. Report:
+> `docs/reports/S22PLUS_NATIVE_INIT_M34_S5_SOFT_CONNECT_LIVE_RESULT_2026-07-09.md`.
+
 > **S22+ CURRENT FRONTIER (2026-07-09 06:03 KST / 2026-07-08 21:03 UTC) — M34 S5 SOFT-CONNECT LIVE-GATE AUTHORIZED; DRY-RUN PASS; LIVE NEXT.**
 > `AGENTS.md` now contains the fresh SHA-pinned active S5 one-shot exception.
 > The S5 helper
