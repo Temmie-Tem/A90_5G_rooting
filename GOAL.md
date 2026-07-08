@@ -31,16 +31,15 @@ safety invariants and flash gates are binding and override any sub-goal.**
 > **Bonus:** `sec_debug`+`minidump` are exactly the crash-capture registrars, so
 > loading them may re-open the `reset_summary`/`minidump` observability that was
 > empty before (it was empty partly because these were never loaded).
-> **Active unit = M28 (host-only first):** rebuild the closure dependency-complete
-> — keep the blocklist for the *petting watchdog / true reset-anomaly* modules
-> only, STOP cutting `modules.dep` hard-supplier edges (re-include `sec_debug`,
-> `minidump`, `abc`, and audit any other `blocked_dependency_edges`), and load in
-> `modules.dep`-respecting order (suppliers before consumers), not a flat
-> DTS-seed order. Keep the M25 DTBO high-speed cap + QMP exclusion. THEN one
-> fresh SHA-pinned live gate; success = either `/dev/ttyGS0` enumerates, or a
-> clean `reboot(download)` beacon proving 1–24 now survives. Do NOT continue the
-> P01…P08 blind narrow, do NOT re-add configfs/ACM/UDC or chase the DTBO
-> ssphy-phandle until 1–24 survives (both are downstream of this).
+> **Active unit = M28:** host build is ready for dependency-complete
+> download-beacon candidates `S24` and `F43`. Next live-capable step is a
+> guarded live helper plus one fresh SHA-pinned `AGENTS.md` exception for this
+> exact matrix. Live order must be `S24` first; if it fails or requires manual
+> Download, stop and do not run `F43`. If `S24` cleanly self-enters Download,
+> rollback boot, then `F43` may be considered under the same explicitly
+> authorized policy. Do NOT continue the P01…P08 blind narrow, do NOT re-add
+> configfs/ACM/UDC or chase the DTBO ssphy-phandle until 1–24 survives (both
+> are downstream of this).
 > **Corrected mental model (still holds):** M25 did NOT bootloop — direct log
 > read (`...122411Z`) shows ~29 s dead-steady park then a single ~30.3 s watchdog
 > bite (not a loop); excluding `phy-msm-ssusb-qmp` DID kill the fast M15 QMP loop.
@@ -50,8 +49,38 @@ safety invariants and flash gates are binding and override any sub-goal.**
 > Reports: `S22PLUS_MODULE_CLOSURE_DEP_INCOMPLETE_STOCK_MODULES_DEP_2026-07-08.md`
 > (primary), `S22PLUS_M25_NO_ACM_POSTMORTEM_2026-07-08.md`,
 > `S22PLUS_NATIVE_INIT_M26_HS_PREFIX_DOWNLOAD_LIVE_RESULT_2026-07-08.md`,
-> `S22PLUS_NATIVE_INIT_M27_HS_PREFIX_NARROW_LIVE_RESULT_2026-07-08.md`.
+> `S22PLUS_NATIVE_INIT_M27_HS_PREFIX_NARROW_LIVE_RESULT_2026-07-08.md`,
+> `S22PLUS_NATIVE_INIT_M28_DEP_COMPLETE_DOWNLOAD_HOST_BUILD_2026-07-08.md`.
 > (Observation steers below are superseded/background; MID stays set, harmless.)
+
+> **S22+ CURRENT FRONTIER (2026-07-08 23:06 KST / 14:06 UTC) — M28 DEP-COMPLETE HOST BUILD READY; NO LIVE AUTH.**
+> Codex added the M28 dependency-complete download-beacon builder
+> `workspace/public/src/scripts/revalidation/build_s22plus_m28_dep_complete_download.py`,
+> runtime `workspace/public/src/native-init/s22plus_init_m28_dep_complete_download.c`,
+> tests `tests/test_s22plus_m28_dep_complete_download_build.py`, and private
+> output
+> `workspace/private/outputs/s22plus_native_init/m28_dep_complete_download_v0_1`.
+> M28 uses stock FYG8 `modules.dep` SHA256
+> `21eae389f1d8b0a9fc93cec0b12d36e736cfac656d91ae55055c793f2ed67b27`,
+> re-includes hard suppliers `sec_debug.ko`, `minidump.ko`, and `abc.ko`, keeps
+> `qcom_wdt_core.ko`/`gh_virt_wdt.ko`, QMP, EUD, `ucsi_glink`, and
+> `sec_debug_region` excluded, and orders modules dependencies-before-consumers.
+> Built boot-only APs, each exactly one `boot.img.lz4`: `S24` (26 modules,
+> first-24 substrate survivability beacon) AP SHA256
+> `c684f6a21bcc9aa50b066b447f4356958fe6d7bfed93edf0ac1b7dcaae8ce75f`;
+> `F43` (full M25 HS-only 40-module closure plus hard suppliers, still no
+> configfs/ACM/UDC action) AP SHA256
+> `003ea5760d9e33402750afd7a52b6b95727e4b4cff3f4d3cf66c559eabbb38d1`.
+> Runtime shape: M28 marker, no configfs, no UDC bind, no `ttyGS0`, no ACM
+> park; load dependency-complete list then deliberate `reboot(..., "download")`.
+> Validation passed: `py_compile`, M28 unit tests (`Ran 6 tests`), host builder
+> run, AArch64 no-interpreter/raw-syscall checks, MagiskBoot byte-identical
+> no-change repack, kernel preservation, AP member checks, manifest safety
+> flags. No flash/reboot/device action was performed. Next step requires a
+> fresh SHA-pinned `AGENTS.md` exception and guarded live helper for this exact
+> matrix; run `S24` first and treat any operator manual Download as
+> contamination. Report:
+> `docs/reports/S22PLUS_NATIVE_INIT_M28_DEP_COMPLETE_DOWNLOAD_HOST_BUILD_2026-07-08.md`.
 
 > **S22+ CURRENT FRONTIER (2026-07-08 22:48 KST / 13:48 UTC) — M27 LIVE CONSUMED; P08 NOT CLEAN; FINAL BASELINE CLEAN.**
 > M27 live started under consumed exception `e09ef860`: DTBO high-speed cap was
@@ -68,11 +97,10 @@ safety invariants and flash gates are binding and override any sub-goal.**
 > DTBO `97a4864fee4e61892d733962d1ec76f8d14b52bc19e6f47440bc27d9dfc4bd0c`,
 > vendor_boot
 > `096e433e049fb088cd956e083d5a1039b33cdf0ca907e713bba7feaaf1b080b7`.
-> Next unit: M28 host-only discriminator inside modules `1..8` (`P01/P02/P04/
-> P06/P07/P08` style), same high-speed DTBO context and prefix/download proof
-> shape, with explicit manual-Download contamination handling. No S22+ native-init
-> live flash is authorized until a fresh SHA-pinned `AGENTS.md` exception is
-> promoted. Report:
+> The original next idea was a below-P08 blind prefix discriminator, but this was
+> superseded by the stock `modules.dep` closure finding in commit `bb08ebf8`:
+> rebuild dependency-complete M28 instead. No S22+ native-init live flash is
+> authorized until a fresh SHA-pinned `AGENTS.md` exception is promoted. Report:
 > `docs/reports/S22PLUS_NATIVE_INIT_M27_HS_PREFIX_NARROW_LIVE_RESULT_2026-07-08.md`.
 
 > **S22+ CURRENT FRONTIER (2026-07-08 22:36 KST / 13:36 UTC) — M27 POLICY ACTIVE; PRE-LIVE DRY-RUN PASS; LIVE NOT EXECUTED.**
