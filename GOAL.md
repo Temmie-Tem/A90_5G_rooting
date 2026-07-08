@@ -31,15 +31,17 @@ safety invariants and flash gates are binding and override any sub-goal.**
 > **Bonus:** `sec_debug`+`minidump` are exactly the crash-capture registrars, so
 > loading them may re-open the `reset_summary`/`minidump` observability that was
 > empty before (it was empty partly because these were never loaded).
-> **Active unit = M28:** host build is ready for dependency-complete
-> download-beacon candidates `S24` and `F43`. Next live-capable step is a
-> guarded live helper plus one fresh SHA-pinned `AGENTS.md` exception for this
-> exact matrix. Live order must be `S24` first; if it fails or requires manual
-> Download, stop and do not run `F43`. If `S24` cleanly self-enters Download,
-> rollback boot, then `F43` may be considered under the same explicitly
-> authorized policy. Do NOT continue the P01…P08 blind narrow, do NOT re-add
-> configfs/ACM/UDC or chase the DTBO ssphy-phandle until 1–24 survives (both
-> are downstream of this).
+> **Active unit = M28:** live-gate source is ready but no live auth is active.
+> Next step, if operator chooses live, is a fresh SHA-pinned `AGENTS.md`
+> exception for helper
+> `workspace/public/src/scripts/revalidation/s22plus_m28_dep_complete_live_gate.py`
+> SHA256 `83521d521c55ceda8c860a940f8eb334e66638561b785231c5a5b007ad791d3b`
+> and exactly the dependency-complete `S24`/`F43` matrix. Live order must be
+> `S24` first; if it fails or requires manual Download, stop and do not run
+> `F43`. If `S24` cleanly self-enters Download, rollback boot, then `F43` may
+> be considered under the same explicitly authorized policy. Do NOT continue
+> the P01…P08 blind narrow, do NOT re-add configfs/ACM/UDC or chase the DTBO
+> ssphy-phandle until 1–24 survives (both are downstream of this).
 > **Corrected mental model (still holds):** M25 did NOT bootloop — direct log
 > read (`...122411Z`) shows ~29 s dead-steady park then a single ~30.3 s watchdog
 > bite (not a loop); excluding `phy-msm-ssusb-qmp` DID kill the fast M15 QMP loop.
@@ -50,8 +52,31 @@ safety invariants and flash gates are binding and override any sub-goal.**
 > (primary), `S22PLUS_M25_NO_ACM_POSTMORTEM_2026-07-08.md`,
 > `S22PLUS_NATIVE_INIT_M26_HS_PREFIX_DOWNLOAD_LIVE_RESULT_2026-07-08.md`,
 > `S22PLUS_NATIVE_INIT_M27_HS_PREFIX_NARROW_LIVE_RESULT_2026-07-08.md`,
-> `S22PLUS_NATIVE_INIT_M28_DEP_COMPLETE_DOWNLOAD_HOST_BUILD_2026-07-08.md`.
+> `S22PLUS_NATIVE_INIT_M28_DEP_COMPLETE_DOWNLOAD_HOST_BUILD_2026-07-08.md`,
+> `S22PLUS_NATIVE_INIT_M28_DEP_COMPLETE_LIVE_GATE_SOURCE_2026-07-08.md`.
 > (Observation steers below are superseded/background; MID stays set, harmless.)
+
+> **S22+ CURRENT FRONTIER (2026-07-08 23:15 KST / 14:15 UTC) — M28 LIVE-GATE SOURCE READY; NO LIVE AUTH.**
+> Codex added guarded helper
+> `workspace/public/src/scripts/revalidation/s22plus_m28_dep_complete_live_gate.py`
+> and tests `tests/test_s22plus_m28_dep_complete_live_gate.py`. Helper SHA256:
+> `83521d521c55ceda8c860a940f8eb334e66638561b785231c5a5b007ad791d3b`.
+> It verifies M28 manifest SHA256
+> `4986940e214dcb32916f5e06806f0cb2342479e82347abec0244edb2a09a250e`,
+> DTBO cap/rollback APs, Magisk/stock boot rollback APs, and candidate APs:
+> `S24` AP SHA256
+> `c684f6a21bcc9aa50b066b447f4356958fe6d7bfed93edf0ac1b7dcaae8ce75f`;
+> `F43` AP SHA256
+> `003ea5760d9e33402750afd7a52b6b95727e4b4cff3f4d3cf66c559eabbb38d1`.
+> The helper allows only ordered `S24` or `S24,F43`; it rejects `F43` alone and
+> non-M28 labels. It requires original Odin disconnect plus later Odin
+> reappearance for clean self-download proof and documents manual Download as
+> contamination. Validation passed: M28 live-gate unit tests (`Ran 9 tests`),
+> `--offline-check`, and expected default fail-closed on missing M28 `AGENTS.md`
+> authorization before Android/device access. No flash/reboot/device action was
+> performed. Next live step requires a fresh SHA-pinned `AGENTS.md` exception
+> and operator ack for exactly this helper/matrix/rollback policy. Report:
+> `docs/reports/S22PLUS_NATIVE_INIT_M28_DEP_COMPLETE_LIVE_GATE_SOURCE_2026-07-08.md`.
 
 > **S22+ CURRENT FRONTIER (2026-07-08 23:06 KST / 14:06 UTC) — M28 DEP-COMPLETE HOST BUILD READY; NO LIVE AUTH.**
 > Codex added the M28 dependency-complete download-beacon builder
