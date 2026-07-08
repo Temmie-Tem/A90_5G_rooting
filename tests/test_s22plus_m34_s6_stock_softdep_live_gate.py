@@ -98,6 +98,23 @@ class S22PlusM34S6StockSoftdepLiveGateTest(unittest.TestCase):
         self.assertIn("eud.ko included without EUD sysfs write", draft)
         self.assertIn("does not authorize S1/S2/S3/S4/S5 repeat", " ".join(draft.split()))
 
+    def test_agents_exception_active_template_passes_policy_gate(self):
+        template = self.module.agents_exception_active_template()
+        self.assertEqual(self.module.missing_policy_markers(template), [])
+        self.assertFalse(self.module.has_draft_only_m34_exception(template))
+        self.assertNotIn("DRAFT ONLY", template)
+        self.assertNotIn("This draft is not active authorization", template)
+        self.assertIn(self.module.LIVE_ACK_TOKEN, template)
+        self.assertIn("Narrow operator-authorized exception", template)
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            (root / "AGENTS.md").write_text(template, encoding="utf-8")
+            log_path = Path(tmp) / "active_template_check.log"
+            self.module.verify_agents_exception(root, log_path)
+            text = log_path.read_text(encoding="utf-8")
+            self.assertIn("agents_exception_draft_only_present=0", text)
+            self.assertIn("agents_exception_missing=[]", text)
+
     def test_verify_agents_exception_rejects_draft_only_block(self):
         with tempfile.TemporaryDirectory() as tmp:
             root = Path(tmp)

@@ -233,6 +233,22 @@ def agents_exception_draft() -> str:
 """
 
 
+def agents_exception_active_template() -> str:
+    text = agents_exception_draft()
+    text = text.replace(
+        "**DRAFT ONLY - Narrow operator-authorized exception",
+        "**Narrow operator-authorized exception",
+        1,
+    )
+    text = text.replace(
+        "   This draft is not active authorization unless the operator explicitly approves\n"
+        "   it and the block is inserted into `AGENTS.md`. After approval, Codex may run\n",
+        "   Codex may run\n",
+        1,
+    )
+    return text
+
+
 def verify_agents_exception(root: Path, log_path: Path) -> None:
     agents = (root / "AGENTS.md").read_text(encoding="utf-8")
     draft_only = has_draft_only_m34_exception(agents)
@@ -777,6 +793,7 @@ def main(argv: list[str]) -> int:
     parser.add_argument("--rollback-target", choices=[ROLLBACK_MAGISK, ROLLBACK_STOCK], default=ROLLBACK_MAGISK)
     parser.add_argument("--offline-check", action="store_true")
     parser.add_argument("--print-agents-exception-draft", action="store_true")
+    parser.add_argument("--print-agents-exception-active-template", action="store_true")
     parser.add_argument("--live", action="store_true")
     parser.add_argument("--rollback-from-download", action="store_true")
     parser.add_argument("--ack")
@@ -784,11 +801,20 @@ def main(argv: list[str]) -> int:
 
     modes = sum(
         1
-        for enabled in (args.offline_check, args.print_agents_exception_draft, args.live, args.rollback_from_download)
+        for enabled in (
+            args.offline_check,
+            args.print_agents_exception_draft,
+            args.print_agents_exception_active_template,
+            args.live,
+            args.rollback_from_download,
+        )
         if enabled
     )
     if modes > 1:
-        raise SystemExit("--offline-check, --print-agents-exception-draft, --live, and --rollback-from-download are mutually exclusive")
+        raise SystemExit(
+            "--offline-check, --print-agents-exception-draft, "
+            "--print-agents-exception-active-template, --live, and --rollback-from-download are mutually exclusive"
+        )
     if args.observe_sec < 60:
         raise SystemExit("--observe-sec must be at least 60 for the M34 S6 stock-speed softdep discriminator")
     if args.snapshot_interval_sec < 1.0:
@@ -824,6 +850,18 @@ def main(argv: list[str]) -> int:
         if missing:
             raise SystemExit(f"internal draft is missing policy markers: {missing}")
         print(draft, end="")
+        return 0
+
+    if args.print_agents_exception_active_template:
+        template = agents_exception_active_template()
+        missing = missing_policy_markers(template)
+        append_log(log_path, f"agents_exception_active_template_missing={missing}")
+        append_log(log_path, f"agents_exception_active_template_draft_only_present={int(has_draft_only_m34_exception(template))}")
+        if missing:
+            raise SystemExit(f"internal active template is missing policy markers: {missing}")
+        if has_draft_only_m34_exception(template):
+            raise SystemExit("internal active template still looks draft-only")
+        print(template, end="")
         return 0
 
     if args.offline_check:
