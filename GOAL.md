@@ -31,6 +31,36 @@ safety invariants and flash gates are binding and override any sub-goal.**
 > Report: `docs/reports/S22PLUS_M25_HS_ONLY_USB2_ACM_SIDESTEP_STEER_2026-07-08.md`.
 > (Observation steers below are now superseded/background; MID stays set, harmless.)
 
+> **S22+ CURRENT FRONTIER (2026-07-08 21:46 KST / 12:46 UTC) — M26 HOST BUILD READY; NO LIVE AUTH.**
+> Codex added the M26 HS-only prefix/download discriminator: builder
+> `workspace/public/src/scripts/revalidation/build_s22plus_m26_hs_prefix_download.py`,
+> runtime `workspace/public/src/native-init/s22plus_init_m26_hs_prefix_download.c`,
+> tests `tests/test_s22plus_m26_hs_prefix_download_build.py`, and private output
+> `workspace/private/outputs/s22plus_native_init/m26_hs_prefix_download_v0_1`.
+> M26 reuses the M25 HS-only 40-module list SHA256
+> `00607484b7b777ee5cb54d7657f0cb554b9b66c42fec0e414d0544c0735d6496`
+> and the M25 DTBO high-speed cap AP SHA256
+> `35afd774444066fd8e2ffe831da11dd73ee47dce3bdd5b1e37675f82344e56b6`.
+> It builds 8 boot-only APs, each containing exactly `boot.img.lz4`, for
+> prefixes `P00/P24/P25/P27/P28/P30/P33/P40`. AP SHA256s respectively:
+> `1f8763c5f08461bb351f1b461898bf568652e292c79aef9e1f46fb9af4bbd79b`,
+> `7e9a3fafdbeeda8c92cfab9b4ae73d2c2b2a4821a48d537e6ba5e35b34018029`,
+> `dca2ae41e2008a9b0af4ef9595d989e72b8c60ba35bfd68fbdd9115d738c7b09`,
+> `19014f494444e3fce3127ac142bc30f622feb96bd08a1f2031e2f14a0a380341`,
+> `c61fbec079aa1545819654b4f2bf5e33fba8bdc31a41585320f0abbed989a601`,
+> `a4510148c14652ffd87c8c0c6dd2ec1b127a36136ed1d28849bba04028ea8c9c`,
+> `d038e4b2362d2e4c175cebd45ee02f17a987f340fd654736c9ce72deaf2b487e`,
+> `68ef6dcbf40393c7926a73e1138d501fa3dc23c889ce9c748d3082bb4e6b770f`.
+> Runtime shape: no configfs, no UDC bind, no `ttyGS0`, no ACM park; load prefix
+> then deliberate `reboot(..., "download")`. Validation passed: `py_compile`,
+> unit tests, AArch64 syntax check, full host builder, AP member checks,
+> forbidden-string scan, and `git diff --check`. No flash/reboot/device action
+> was performed. Next live-capable unit needs a fresh SHA-pinned `AGENTS.md`
+> exception and guarded helper; conservative first live batch is P00/P24/P27/P30
+> under the M25 DTBO cap plus mandatory Magisk-boot and stock-DTBO rollback.
+> Report:
+> `docs/reports/S22PLUS_NATIVE_INIT_M26_HS_PREFIX_DOWNLOAD_HOST_BUILD_2026-07-08.md`.
+
 > **S22+ CURRENT FRONTIER (2026-07-08 21:36 KST / 12:36 UTC) — M25 POSTMORTEM DONE; NEXT = M26 PREFIX/DOWNLOAD DISCRIMINATOR.**
 > After the operator reported another bootloop/manual-Download observation,
 > Codex rechecked the live phone before any rollback: host saw Android ADB, not
