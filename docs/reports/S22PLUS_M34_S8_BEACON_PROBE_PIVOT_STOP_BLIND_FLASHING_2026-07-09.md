@@ -38,6 +38,56 @@ read on-device state and then choose beacon-vs-park based on it.
 one specific intermediate state and signal it as 1 bit —
 `state true -> reboot(download) [HIT]`, `state false -> park [MISS]`.
 
+## Fresh stock-orchestration refresh after S7A2
+
+Codex rechecked the live rooted Android baseline after S7A2 rollback and saved
+a read-only stock USB/TypeC orchestration capture:
+
+```text
+workspace/private/runs/s22plus_stock_usb_orchestration_post_s7a2_20260708T234350Z/
+```
+
+The refreshed capture matches the earlier post-S6 stock picture and makes the
+gap concrete:
+
+- host-visible stock Android is `04e8:6860`, SuperSpeed `bcdUSB 3.20`,
+  `bcdDevice 5.04`, five interfaces, configuration `mtp_conn_adb`.
+- active stock configfs is not ACM-only:
+  `ffs.mtp -> ss_acm.0 -> conn_gadget.0 -> ffs.adb -> ss_mon.mtp`, plus
+  `os_desc/b.1 -> configs/b.1`.
+- active stock userspace includes `android.hardware.usb@1.3-service.coral`,
+  `adbd`, `connfwexe`, and `ss_conn_daemon2`; FunctionFS is mounted for
+  `adb`, `mtp`, and `ptp`.
+- the real TypeC path is still max77705-backed:
+  `/sys/class/typec/port0 -> .../994000.i2c/i2c-57/57-0066/max77705-usbc/...`;
+  `port0-partner` exists; `data_role` shows `host [device]`,
+  `power_role` shows `source [sink]`, and `port_type` shows `[dual] source sink`.
+- the active controller state is `UDC=a600000.dwc3`,
+  `state=configured`, `current_speed=super-speed`,
+  `ssusb/mode=peripheral`, and `ssusb/speed=super-speed`.
+
+The stock init gate for the exact current composition is:
+
+```text
+on property:sys.usb.ffs.ready=1 &&
+   property:sys.usb.config=mtp,conn_gadget,adb &&
+   property:sys.usb.configfs=1
+```
+
+Only after that gate does stock start `ss_conn_daemon2_service`, relink
+`ffs.mtp`, `ss_acm.0`, `conn_gadget.0`, `ffs.adb`, `ss_mon.mtp`, write
+`/sys/class/android_usb/f_conn_gadget/bInterfaceProtocol 3`, and finally write
+`UDC=${sys.usb.controller}`.
+
+S7A2 intentionally did none of that userspace/FunctionFS/stock-composite work:
+it kept the minimal `ss_acm.0` gadget, stock-ish IDs, `ssusb/mode=peripheral`,
+GENI I2C transport, max77705/PDIC/altmode modules, bounded TypeC role-write,
+and final `UDC=a600000.dwc3`. Because the candidate is structurally blind
+(`pstore` empty, no S7A2 marker in retained `/proc/last_kmsg`), we still do not
+know whether S7A2 failed at max77705 probe, partner creation, role resolution,
+or UDC pullup. That is why S8 should probe state before adding more stock
+composition.
+
 ## S8 beacon-probe ladder (one probed link per flash, in dependency order)
 
 Each candidate is identical up to the probe point, then branches

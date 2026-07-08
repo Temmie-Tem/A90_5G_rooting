@@ -23,6 +23,36 @@ safety invariants and flash gates are binding and override any sub-goal.**
 > descriptor/composition stays downstream until a candidate electrically enumerates. Full
 > analysis: `docs/reports/S22PLUS_M34_S8_BEACON_PROBE_PIVOT_STOP_BLIND_FLASHING_2026-07-09.md`.
 
+> **S22+ CURRENT FRONTIER (2026-07-09 08:47 KST / 2026-07-08 23:47 UTC) — POST-S7A2 STOCK USB ORCHESTRATION REFRESH COMPLETE; NEXT M34 S8 B1 HOST-BUILD; NO ACTIVE LIVE AUTH.**
+> Codex rechecked the rooted Android baseline after S7A2 rollback and saved a
+> read-only stock USB/TypeC/userspace capture at
+> `workspace/private/runs/s22plus_stock_usb_orchestration_post_s7a2_20260708T234350Z/`.
+> The stock path is unchanged and confirms the pivot: host-visible Android is
+> Samsung `04e8:6860`, SuperSpeed `mtp_conn_adb`; active configfs links
+> `ffs.mtp -> ss_acm.0 -> conn_gadget.0 -> ffs.adb -> ss_mon.mtp` plus
+> `os_desc/b.1 -> configs/b.1`; active userspace includes
+> `android.hardware.usb@1.3-service.coral`, `adbd`, `connfwexe`, and
+> `ss_conn_daemon2`; FunctionFS is mounted for `adb`, `mtp`, and `ptp`.
+> TypeC is max77705-backed at
+> `/sys/devices/platform/soc/994000.i2c/i2c-57/57-0066/max77705-usbc/...`,
+> `port0-partner` exists, `data_role=host [device]`,
+> `power_role=source [sink]`, and the controller is
+> `UDC=a600000.dwc3`, `state=configured`, `current_speed=super-speed`,
+> `ssusb/mode=peripheral`.
+>
+> Stock binds the current composition only after
+> `sys.usb.ffs.ready=1 && sys.usb.config=mtp,conn_gadget,adb &&
+> sys.usb.configfs=1`; then it starts `ss_conn_daemon2_service`, relinks the
+> five functions, writes `/sys/class/android_usb/f_conn_gadget/bInterfaceProtocol 3`,
+> and finally writes `UDC=${sys.usb.controller}`. S7A2 intentionally stayed
+> minimal ACM-only with no FunctionFS, no stock composite/userspace, and no
+> retained marker, so the next useful unit is not another blind module or
+> descriptor addition. Build S8 B1 host-only first: fixed S7A2 recipe, read
+> exactly one predicate (`/sys/class/typec/port0` or
+> `/sys/bus/i2c/devices/57-0066` exists), and branch true to
+> `reboot(download)` or false to park. Any S8 live flash still requires a fresh
+> SHA-pinned active `AGENTS.md` exception and explicit operator approval.
+
 > **S22+ CURRENT FRONTIER (2026-07-09 08:36 KST / 2026-07-08 23:36 UTC) — M34 S7A2 LIVE CONSUMED; SURVIVED 90 S; GENI I2C + ROLE-WRITE NOT SUFFICIENT; NO USB; MANUAL RDX/DOWNLOAD ROLLBACK CLEAN; NO ACTIVE LIVE AUTH.**
 > The approved M34 S7A2 GENI I2C runtime-gadget live gate ran once using
 > `workspace/public/src/scripts/revalidation/s22plus_m34_s7a2_geni_i2c_live_gate.py`.
