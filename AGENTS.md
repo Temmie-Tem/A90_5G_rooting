@@ -2752,6 +2752,75 @@ BL, CP, CSC, userdata, or any non-boot flash.
    `d2373bf88dda342709440dc3db468f11d80a4593856768a4d8ae402bef215a56` first,
    with stock boot-only fallback SHA256
    `1ee92a86f30e4acb12509272630e1bef5215d1a12686ac69a3b399b43740535e`.
+   **Narrow operator-authorized exception (2026-07-09, S22+ M33 P27
+   watchdog-prefix park native-init boot-only live gate):** after M33 P12
+   survived the 90 second park window, the M33 P25/P28 branch helpers were
+   staged source-ready, and the operator gave pre-live approval, Codex may
+   perform one bounded attended boot-partition-only M33 P27 live gate on the
+   same Samsung S22+ `SM-S906N`/`g0q` `S906NKSS7FYG8` using only the checked
+   helper
+   `workspace/public/src/scripts/revalidation/s22plus_m33_p27_wdt_prefix_park_live_gate.py`
+   and live ack token `S22PLUS-M33-P27-WDT-PREFIX-PARK-LIVE-GATE`. If the
+   candidate stops before proof and the operator manually enters Download mode,
+   the same helper may use rollback ack token
+   `S22PLUS-M33-P27-WDT-PREFIX-PARK-ROLLBACK-FROM-DOWNLOAD`.
+   The exact candidate AP.tar.md5 SHA256 must be
+   `9110e793f5cc812c856dedf35aaa4cc2f2c692f8561bba9dbe10c7b1e8a29371`; the
+   contained padded `boot.img` SHA256 must be
+   `16efd35b4bb340b2c8d5d5b99e3e3d3e19d4c01a60e87f6ed3cf60acc90386ea`; direct
+   `/init` SHA256 must be
+   `4ce13d65264c2e887aadeefe66c812e4079340b14745bfb277b37a9fde7e8785`;
+   module-list SHA256 must be
+   `11f8ccac67944d689d327d0157eb2f504e794d205df91c480506a3247d9c830e`;
+   generated source SHA256 must be
+   `b57c37678ec5b145d3b1c6208c6ee685ba40401512115e08e4f92afa63627f33`;
+   preserved kernel SHA256 must be
+   `bceca73edbfca3499148e16741c939779157925949ef6bc8a8e31d6b68fc2cff`; and
+   the known booting base Magisk boot SHA256 must be
+   `2e541703951dc725bad35850faf7028c2d910dd5f21166449b63f1248c29967e`.
+   The marker is `S22_NATIVE_INIT_M33_WDT_PREFIX_PARK_P27`, variant `P27`,
+   `watchdog-managed prefix park`, `prefix_targets=27`, `module_load_only=1`,
+   and `SMMU and HS/eUSB2 PHY prefix`. The P27 module list is exactly:
+   `smem.ko`, `minidump.ko`, `sec_debug.ko`, `qcom_ipc_logging.ko`,
+   `cmd-db.ko`, `qcom_rpmh.ko`, `clk-rpmh.ko`, `debug-regulator.ko`,
+   `proxy-consumer.ko`, `gdsc-regulator.ko`, `clk-qcom.ko`, `clk-dummy.ko`,
+   `gcc-waipio.ko`, `icc-bcm-voter.ko`, `icc-debug.ko`, `socinfo.ko`,
+   `icc-rpmh.ko`, `rpmh-regulator.ko`, `qcom-scm.ko`, `qcom_wdt_core.ko`,
+   `gh_virt_wdt.ko`, `iommu-logger.ko`, `qnoc-qos.ko`, `qnoc-waipio.ko`,
+   `phy-generic.ko`, `qcom_iommu_util.ko`, `sec_class.ko`,
+   `secure_buffer.ko`, `arm_smmu.ko`, `abc.ko`, `usb_notify_layer.ko`,
+   `switch_class.ko`, `common_muic.ko`, `vbus_notifier.ko`,
+   `pdic_notifier_module.ko`, `usb_typec_manager.ko`,
+   `usb_f_ss_mon_gadget.ko`, `phy-msm-snps-hs.ko`, `repeater.ko`, and
+   `phy-msm-snps-eusb2.ko`.
+   P27 must keep `phy-msm-ssusb-qmp.ko intentionally excluded` and
+   `EUD excluded`; it has no DWC3, no ACM function, no reboot syscall, no
+   Download beacon, and no runtime USB/configfs/ACM. It must not start
+   Android/Magisk, mount persistent partitions, write block devices, inject
+   module binaries into the boot ramdisk, write DTBO/vendor_boot/recovery/
+   vbmeta/non-boot partitions, use raw host `dd`, use fastboot, install
+   Magisk modules, run multidisabler, or format data. The AP must contain
+   exactly one tar member, `boot.img.lz4`.
+   Before live flash, the helper must verify normal Android identity, vbstate
+   orange, Magisk root, current boot partition SHA256
+   `2e541703951dc725bad35850faf7028c2d910dd5f21166449b63f1248c29967e`, the
+   exact P27 candidate hashes, the exact Magisk boot-only rollback AP SHA256
+   `d2373bf88dda342709440dc3db468f11d80a4593856768a4d8ae402bef215a56`, and
+   the exact stock boot-only fallback AP SHA256
+   `1ee92a86f30e4acb12509272630e1bef5215d1a12686ac69a3b399b43740535e`.
+   The live path is: reboot Android to Download, flash exactly the pinned P27
+   boot AP, wait for the original Odin endpoint to disconnect, observe for the
+   bounded survival window, and treat `survives past 60-90 seconds` with no
+   returned ADB/Odin endpoint as the survival proof. Manual Download rollback
+   is recovery-only and should be used after survival proof or after a
+   pre-proof stop when the helper requires it. `PMIC/RDX abnormal reset before
+   the observation window is FAIL`. Rollback must use the pinned Magisk
+   boot-only AP first, with the pinned stock boot-only AP only as fallback if
+   Magisk rollback fails and Download mode remains available. This exception
+   does not authorize P27 repeat, P25/P28/P30/P40 live, M33 matrix rebuild,
+   M32 repeat, display/distro candidates, kernel rebuild, recovery/vendor_boot/
+   vbmeta/DTBO/non-boot flash, raw host `dd`, fastboot, multidisabler, format
+   data, EUD writes, or any A90 action.
    **Consumed exception (2026-07-09, S22+ M33 P12 watchdog-prefix park
    native-init boot-only live gate):** this one-shot exception was consumed by
    the 2026-07-09 KST live run. It flashed the pinned M33 P12 boot-only

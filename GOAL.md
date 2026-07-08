@@ -4,6 +4,31 @@ Drive the A90 native-init project forward one **bounded V-iteration at a time** 
 the proven cycle below. This file says WHAT to pursue; **`AGENTS.md` says HOW — its
 safety invariants and flash gates are binding and override any sub-goal.**
 
+> **S22+ CURRENT FRONTIER (2026-07-09 02:51 KST / 2026-07-08 17:51 UTC) — M33 P27 LIVE GATE PREFLIGHT PASS; OPERATOR PRE-LIVE APPROVED; ONE-SHOT POLICY ACTIVE.**
+> Operator gave pre-live approval. Codex added a narrow SHA-pinned
+> `AGENTS.md` exception for exactly one S22+ M33 P27 watchdog-prefix park
+> boot-only live gate. Live token:
+> `S22PLUS-M33-P27-WDT-PREFIX-PARK-LIVE-GATE`; rollback-from-Download token:
+> `S22PLUS-M33-P27-WDT-PREFIX-PARK-ROLLBACK-FROM-DOWNLOAD`. The helper pins
+> candidate AP
+> `9110e793f5cc812c856dedf35aaa4cc2f2c692f8561bba9dbe10c7b1e8a29371`, boot
+> `16efd35b4bb340b2c8d5d5b99e3e3d3e19d4c01a60e87f6ed3cf60acc90386ea`,
+> `/init` `4ce13d65264c2e887aadeefe66c812e4079340b14745bfb277b37a9fde7e8785`,
+> module list
+> `11f8ccac67944d689d327d0157eb2f504e794d205df91c480506a3247d9c830e`,
+> and generated source
+> `b57c37678ec5b145d3b1c6208c6ee685ba40401512115e08e4f92afa63627f33`.
+> Validation passed: helper `py_compile`, M33 P27 live/build tests (9),
+> `--offline-check`, and default dry-run. Dry-run verified
+> `agents_exception_missing=[]`, Android `SM-S906N/g0q/S906NKSS7FYG8`,
+> vbstate orange, boot complete, Magisk root, four stability samples, and
+> current boot hash
+> `2e541703951dc725bad35850faf7028c2d910dd5f21166449b63f1248c29967e`.
+> Next immediate command is the approved live run:
+> `PYTHONPYCACHEPREFIX=/tmp/a90_pycache python3 workspace/public/src/scripts/revalidation/s22plus_m33_p27_wdt_prefix_park_live_gate.py --live --ack S22PLUS-M33-P27-WDT-PREFIX-PARK-LIVE-GATE`.
+> Report:
+> `docs/reports/S22PLUS_NATIVE_INIT_M33_P27_WDT_PREFIX_PARK_LIVE_GATE_PREFLIGHT_2026-07-09.md`.
+
 > **S22+ CURRENT FRONTIER (2026-07-09 02:48 KST / 2026-07-08 17:48 UTC) — M33 P25/P28 BRANCH LIVE-GATE SOURCES READY; P27 STILL NEXT; POLICY INERT; NO ACTIVE LIVE AUTH.**
 > Codex prepared both branch helpers around the already source-ready P27
 > discriminator:
