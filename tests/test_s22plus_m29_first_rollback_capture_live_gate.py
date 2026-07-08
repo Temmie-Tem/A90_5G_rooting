@@ -39,12 +39,10 @@ class S22PlusM29FirstRollbackCaptureLiveGateTest(unittest.TestCase):
         self.assertIn("/proc/reset_summary", missing)
         self.assertIn("F43 remains unauthorized", missing)
 
-    def test_current_agents_file_does_not_authorize_m29_yet(self):
+    def test_current_agents_file_authorizes_exact_m29_live_gate_policy(self):
         agents = Path("AGENTS.md").read_text(encoding="utf-8")
         missing = self.module.missing_policy_markers(agents)
-        self.assertIn(self.module.LIVE_ACK_TOKEN, missing)
-        self.assertIn(self.module.ROLLBACK_ACK_TOKEN, missing)
-        self.assertIn(self.module.RESTORE_DTBO_ACK_TOKEN, missing)
+        self.assertEqual(missing, [])
 
     def test_candidate_selection_is_s24_only(self):
         self.assertEqual([candidate.label for candidate in self.module.selected_candidates(None)], ["S24"])
@@ -159,4 +157,3 @@ class S22PlusM29FirstRollbackCaptureLiveGateTest(unittest.TestCase):
 
 if __name__ == "__main__":
     unittest.main()
-

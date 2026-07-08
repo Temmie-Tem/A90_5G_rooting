@@ -43,7 +43,7 @@ safety invariants and flash gates are binding and override any sub-goal.**
 > boot after the candidate reset, 14:34:01) and was overwritten by the second
 > (stock-DTBO) rollback boot before the read. This is now a fixable collection
 > ORDER bug, not a dead channel.
-> **Active unit = M29 fresh live policy review / authorization selection:**
+> **Active unit = M29 attended live gate pending operator approval:**
 > capture at the FIRST post-candidate boot. Codex added source-ready helper
 > `workspace/public/src/scripts/revalidation/s22plus_m29_first_rollback_capture_live_gate.py`
 > SHA256 `d8da7792f9ccc60a16358984636b29a3df27fac6b264f039354ea54770a18bb3`.
@@ -68,6 +68,18 @@ safety invariants and flash gates are binding and override any sub-goal.**
 > candidate-owned marker path becomes M30. Do NOT run F43 blindly, do NOT
 > continue the P01…P08 blind narrow, and do NOT re-add configfs/ACM/UDC or
 > chase the DTBO ssphy-phandle until 1–24 survives (both are downstream of this).
+> M29 policy is now active in `AGENTS.md` SHA256
+> `4d92c4a13e321fea2cf1c7e74069067927a7055875233d6b4ca6b551cf3bc698`.
+> Pre-live dry-run passed against the attached S22+ Android/Magisk baseline:
+> `agents_exception_missing=[]`, Android stability `ok samples=4`, boot
+> `2e541703951dc725bad35850faf7028c2d910dd5f21166449b63f1248c29967e`,
+> vendor_boot
+> `096e433e049fb088cd956e083d5a1039b33cdf0ca907e713bba7feaaf1b080b7`, and
+> stock DTBO
+> `97a4864fee4e61892d733962d1ec76f8d14b52bc19e6f47440bc27d9dfc4bd0c`. No
+> live flash/reboot/device mutation has happened under M29 yet. Next step, only
+> with attended operator approval, is:
+> `--variant S24 --live --ack S22PLUS-M29-FIRST-ROLLBACK-CAPTURE-LIVE-GATE`.
 > **Corrected mental model (still holds):** M25 did NOT bootloop — direct log
 > read (`...122411Z`) shows ~29 s dead-steady park then a single ~30.3 s watchdog
 > bite (not a loop); excluding `phy-msm-ssusb-qmp` DID kill the fast M15 QMP loop.
@@ -84,8 +96,32 @@ safety invariants and flash gates are binding and override any sub-goal.**
 > `S22PLUS_NATIVE_INIT_M28_DEP_COMPLETE_LIVE_GATE_2026-07-08.md`,
 > `S22PLUS_NATIVE_INIT_M28_S24_LIVE_RESULT_2026-07-08.md`,
 > `S22PLUS_NATIVE_INIT_M28_S24_RETAINED_LOG_POSTMORTEM_2026-07-08.md`,
-> `S22PLUS_M29_FIRST_ROLLBACK_CAPTURE_LIVE_GATE_SOURCE_2026-07-08.md`.
+> `S22PLUS_M29_FIRST_ROLLBACK_CAPTURE_LIVE_GATE_SOURCE_2026-07-08.md`,
+> `S22PLUS_M29_FIRST_ROLLBACK_CAPTURE_LIVE_GATE_2026-07-08.md`.
 > (Observation steers below are superseded/background; MID stays set, harmless.)
+
+> **S22+ CURRENT FRONTIER (2026-07-08 23:58 KST / 14:58 UTC) — M29 POLICY ACTIVE; PRE-LIVE DRY-RUN PASS; LIVE NOT EXECUTED.**
+> Codex promoted a fresh narrow `AGENTS.md` exception for exactly one M29
+> first-rollback capture gate using
+> `workspace/public/src/scripts/revalidation/s22plus_m29_first_rollback_capture_live_gate.py`
+> SHA256 `d8da7792f9ccc60a16358984636b29a3df27fac6b264f039354ea54770a18bb3`;
+> `AGENTS.md` SHA256 is
+> `4d92c4a13e321fea2cf1c7e74069067927a7055875233d6b4ca6b551cf3bc698`.
+> The policy authorizes only S24 with M25 DTBO high-speed cap, Magisk boot
+> rollback, first-post-candidate retained-log/reset-surface capture before
+> stock-DTBO rollback, and stock-DTBO restore after first capture. `F43`
+> remains unauthorized. Validation passed: M29+M28 unit tests (`Ran 16 tests`),
+> `py_compile`, and dry-run against the attached Android/Magisk S22+:
+> `agents_exception_missing=[]`, Android stability `ok samples=4`, boot
+> `2e541703951dc725bad35850faf7028c2d910dd5f21166449b63f1248c29967e`,
+> vendor_boot
+> `096e433e049fb088cd956e083d5a1039b33cdf0ca907e713bba7feaaf1b080b7`, stock
+> DTBO `97a4864fee4e61892d733962d1ec76f8d14b52bc19e6f47440bc27d9dfc4bd0c`.
+> No M29 live flash, reboot, rollback, partition write, or sysfs write was
+> performed. Suggested live command after operator approval:
+> `--variant S24 --live --ack S22PLUS-M29-FIRST-ROLLBACK-CAPTURE-LIVE-GATE`.
+> Report:
+> `docs/reports/S22PLUS_M29_FIRST_ROLLBACK_CAPTURE_LIVE_GATE_2026-07-08.md`.
 
 > **S22+ CURRENT FRONTIER (2026-07-08 23:52 KST / 14:52 UTC) — M29 FIRST-ROLLBACK CAPTURE HELPER SOURCE READY; NO LIVE AUTH.**
 > Codex added

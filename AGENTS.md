@@ -2009,6 +2009,70 @@ BL, CP, CSC, userdata, or any non-boot flash.
    rebuild, recovery/vendor_boot/vbmeta/non-boot/non-DTBO flash other than the
    exact pinned stock-DTBO/M25-DTBO APs above, raw host `dd`, fastboot,
    multidisabler, format data, or any A90 action.
+   **Narrow operator-authorized exception (2026-07-08, S22+ M29
+   first-rollback retained-log capture boot+DTBO):** after M28 `S24` was
+   operator-corrected to manual-download-contaminated/no-proof but also proved
+   that Samsung retained `/proc/last_kmsg` capture is alive, Codex may perform
+   one bounded attended S22+ M29 first-rollback capture run on the same Samsung
+   S22+ `SM-S906N`/`g0q` `S906NKSS7FYG8` using only the checked helper
+   `workspace/public/src/scripts/revalidation/s22plus_m29_first_rollback_capture_live_gate.py`
+   SHA256
+   `d8da7792f9ccc60a16358984636b29a3df27fac6b264f039354ea54770a18bb3`
+   with live ack token
+   `S22PLUS-M29-FIRST-ROLLBACK-CAPTURE-LIVE-GATE`, rollback ack token
+   `S22PLUS-M29-FIRST-ROLLBACK-CAPTURE-ROLLBACK-FROM-DOWNLOAD`, and stock-DTBO
+   restore ack token
+   `S22PLUS-M29-FIRST-ROLLBACK-CAPTURE-RESTORE-STOCK-DTBO`.
+   This is a collection-timing gate, not a new candidate build. It must reuse
+   the existing M28 dependency-complete `S24` candidate only; `F43 remains
+   unauthorized`. The helper must reject any non-`S24` selection. The exact
+   S24 AP SHA256 is
+   `c684f6a21bcc9aa50b066b447f4356958fe6d7bfed93edf0ac1b7dcaae8ce75f`, the
+   contained boot image SHA256 is
+   `a1459931001bfd6e17593dd329fc682f00ab61f4841b6543791f5349dd012cd0`, and the
+   contained `/init` SHA256 is
+   `5c04a2023b2b56ef98746da6f7168121b62d7859cee81c756b80d1a382c1964e`. The
+   S24 module list is `s22plus_m28_dep_complete.modules`, source marker
+   `S22_NATIVE_INIT_M28_DEP_COMPLETE_DOWNLOAD`, source SHA256
+   `0c029dd3de42074c3c942efa23266fb383522750d1ffd9d826c67898db6bde6c`, stock
+   `modules.dep` SHA256
+   `21eae389f1d8b0a9fc93cec0b12d36e736cfac656d91ae55055c793f2ed67b27`, module
+   count `26`, module-list SHA256
+   `8c605e2c69aad74f80191bdbc1843b002539d22d49bcffa86bb85bbcb343e5e4`, and
+   reincluded suppliers exactly `sec_debug.ko` and `minidump.ko`.
+   M29 may first flash the exact M25 DTBO high-speed cap AP SHA256
+   `35afd774444066fd8e2ffe831da11dd73ee47dce3bdd5b1e37675f82344e56b6` whose
+   patched raw DTBO SHA256 is
+   `8962cbbded722c85dbdebfbdc2eba5476b9a64e2a2933888b81f947159eddc17`; it
+   must restore stock DTBO after the first-capture step using the exact
+   stock-DTBO rollback AP SHA256
+   `6f397421bee84f4ea0c80a8519be0f6f6af84119794970e8a1faaa05f261caaa`.
+   Baseline boot must be the known Magisk boot SHA256
+   `2e541703951dc725bad35850faf7028c2d910dd5f21166449b63f1248c29967e`, stock
+   DTBO SHA256
+   `97a4864fee4e61892d733962d1ec76f8d14b52bc19e6f47440bc27d9dfc4bd0c`, and
+   stock vendor_boot SHA256
+   `096e433e049fb088cd956e083d5a1039b33cdf0ca907e713bba7feaaf1b080b7`.
+   Rollback must use the exact Magisk boot rollback AP SHA256
+   `d2373bf88dda342709440dc3db468f11d80a4593856768a4d8ae402bef215a56`, with
+   exact stock boot fallback AP SHA256
+   `1ee92a86f30e4acb12509272630e1bef5215d1a12686ac69a3b399b43740535e` only if
+   Magisk rollback fails and Download mode remains available.
+   The live contract is `S24 only`: capture a `pre-candidate retained-log
+   baseline capture`, flash S24, perform Magisk boot rollback, then at the
+   `first rollback boot capture before stock DTBO rollback` collect
+   `/proc/last_kmsg`, `/proc/reset_summary`, `/proc/reset_klog`,
+   `/proc/reset_history`, `/proc/reset_tzlog`, pstore, and reset-reason
+   summary, then `compare pre-candidate and first-rollback last_kmsg sha256`.
+   Only after that first capture may the helper perform `stock DTBO rollback
+   after first capture`. Any operator manual Download is `manual Download
+   contamination`: it may be used only to recover and capture via the checked
+   rollback mode, not as clean self-download proof. This exception does not
+   authorize F43, M28 repeat, candidate rebuilds, marker re-architecture,
+   configfs/ACM/UDC bring-up, EUD sysfs writes, kernel rebuild, Magisk modules,
+   recovery/vendor_boot/vbmeta/non-boot/non-DTBO writes other than the exact
+   pinned M25-DTBO and stock-DTBO APs above, raw host `dd`, fastboot,
+   multidisabler, format data, or any A90 action.
    **Consumed exception (2026-07-08, S22+ M28 dependency-complete
    native-init boot+DTBO batch):** this one-shot exception was consumed by the
    2026-07-08 S24 live run. It flashed the pinned M25 DTBO high-speed cap AP,
