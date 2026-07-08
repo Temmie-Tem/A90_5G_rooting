@@ -72,10 +72,12 @@ class S22PlusM28DepCompleteLiveGateTest(unittest.TestCase):
             ("sec_debug.ko", "minidump.ko", "abc.ko"),
         )
 
-    def test_current_agents_file_authorizes_exact_m28_live_gate_policy(self):
+    def test_current_agents_file_no_longer_authorizes_m28_repeat_after_consumption(self):
         agents = Path("AGENTS.md").read_text(encoding="utf-8")
         missing = self.module.missing_policy_markers(agents)
-        self.assertEqual(missing, [])
+        self.assertIn(self.module.LIVE_ACK_TOKEN, missing)
+        self.assertIn(self.module.ROLLBACK_ACK_TOKEN, missing)
+        self.assertIn(self.module.RESTORE_DTBO_ACK_TOKEN, missing)
 
     @unittest.skipUnless(MANIFEST.exists(), "private M28 manifest missing")
     def test_top_manifest_verifier_accepts_current_m28_build(self):

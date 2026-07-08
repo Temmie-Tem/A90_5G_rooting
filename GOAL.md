@@ -31,16 +31,17 @@ safety invariants and flash gates are binding and override any sub-goal.**
 > **Bonus:** `sec_debug`+`minidump` are exactly the crash-capture registrars, so
 > loading them may re-open the `reset_summary`/`minidump` observability that was
 > empty before (it was empty partly because these were never loaded).
-> **Active unit = M28:** policy is now active in `AGENTS.md`, and pre-live
-> dry-run passed against the attached Android/Magisk baseline. The helper is
+> **Active unit = M28 postmortem / next-unit selection:** the M28 policy was
+> consumed by the S24 live run. The helper is
 > `workspace/public/src/scripts/revalidation/s22plus_m28_dep_complete_live_gate.py`
 > SHA256 `83521d521c55ceda8c860a940f8eb334e66638561b785231c5a5b007ad791d3b`
-> with exactly the dependency-complete `S24`/`F43` matrix. Next live step, if
-> the operator chooses live, is `S24` first with explicit live ack; if it fails
-> or requires manual Download, stop and do not run `F43`. If `S24` cleanly
-> self-enters Download and Magisk boot rollback succeeds, `F43` may be
-> considered under the same explicitly authorized policy. Do NOT continue the
-> P01…P08 blind narrow, do NOT re-add configfs/ACM/UDC or chase the DTBO
+> and the S24 run flashed/rolled back cleanly, but the operator reported
+> bootloop plus manual Download, so the observed Odin endpoint is contaminated
+> and not clean self-download proof. F43 is not authorized. Next step is a
+> host-only postmortem from the M28 run log and retained
+> `/proc/last_kmsg` capture, then a fresh, narrower M29 candidate only after
+> the failure mechanism is identified. Do NOT continue the P01…P08 blind
+> narrow, do NOT run F43, and do NOT re-add configfs/ACM/UDC or chase the DTBO
 > ssphy-phandle until 1–24 survives (both are downstream of this).
 > **Corrected mental model (still holds):** M25 did NOT bootloop — direct log
 > read (`...122411Z`) shows ~29 s dead-steady park then a single ~30.3 s watchdog
@@ -54,8 +55,30 @@ safety invariants and flash gates are binding and override any sub-goal.**
 > `S22PLUS_NATIVE_INIT_M27_HS_PREFIX_NARROW_LIVE_RESULT_2026-07-08.md`,
 > `S22PLUS_NATIVE_INIT_M28_DEP_COMPLETE_DOWNLOAD_HOST_BUILD_2026-07-08.md`,
 > `S22PLUS_NATIVE_INIT_M28_DEP_COMPLETE_LIVE_GATE_SOURCE_2026-07-08.md`,
-> `S22PLUS_NATIVE_INIT_M28_DEP_COMPLETE_LIVE_GATE_2026-07-08.md`.
+> `S22PLUS_NATIVE_INIT_M28_DEP_COMPLETE_LIVE_GATE_2026-07-08.md`,
+> `S22PLUS_NATIVE_INIT_M28_S24_LIVE_RESULT_2026-07-08.md`.
 > (Observation steers below are superseded/background; MID stays set, harmless.)
+
+> **S22+ CURRENT FRONTIER (2026-07-08 23:35 KST / 14:35 UTC) — M28 S24 LIVE CONSUMED; MANUAL-DOWNLOAD CONTAMINATED; FINAL BASELINE CLEAN.**
+> Codex ran the authorized M28 `S24` live command only:
+> `--variant S24 --live --ack S22PLUS-M28-DEP-COMPLETE-LIVE-GATE`. The helper
+> applied the M25 DTBO high-speed cap, flashed S24, then saw Odin at
+> `m28_S24_self_download_033` and logged `result=self-download`, but the
+> operator reported bootloop observation plus manual Download-mode entry, so
+> this is **not** a clean S24 proof. The helper completed Magisk boot rollback
+> and stock DTBO rollback. Final independent baseline verified:
+> `boot_completed=1`, `bootanim=stopped`, vbstate `orange`, Magisk root
+> present, boot
+> `2e541703951dc725bad35850faf7028c2d910dd5f21166449b63f1248c29967e`,
+> stock DTBO
+> `97a4864fee4e61892d733962d1ec76f8d14b52bc19e6f47440bc27d9dfc4bd0c`, stock
+> vendor_boot
+> `096e433e049fb088cd956e083d5a1039b33cdf0ca907e713bba7feaaf1b080b7`. M28
+> exception is consumed/retired; F43 is not authorized. Next step is host-only
+> postmortem from run log
+> `workspace/private/runs/s22plus_m28_dep_complete_live_gate_20260708T143115Z/`
+> and retained last_kmsg before any new flash policy. Report:
+> `docs/reports/S22PLUS_NATIVE_INIT_M28_S24_LIVE_RESULT_2026-07-08.md`.
 
 > **S22+ CURRENT FRONTIER (2026-07-08 23:25 KST / 14:25 UTC) — M28 POLICY ACTIVE; PRE-LIVE DRY-RUN PASS; LIVE NOT EXECUTED.**
 > Codex promoted a fresh SHA-pinned `AGENTS.md` exception for exactly one M28
