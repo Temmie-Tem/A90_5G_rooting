@@ -64,7 +64,7 @@ Download rollback path.
 
 Preflight:
 
-- Android ADB online as `RFCT519XWGK`
+- Android ADB online as `<S22_SERIAL_REDACTED>`
 - `model=SM-S906N`
 - `device=g0q`
 - `bootloader=S906NKSS7FYG8`
