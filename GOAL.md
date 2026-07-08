@@ -4,6 +4,35 @@ Drive the A90 native-init project forward one **bounded V-iteration at a time** 
 the proven cycle below. This file says WHAT to pursue; **`AGENTS.md` says HOW — its
 safety invariants and flash gates are binding and override any sub-goal.**
 
+> **S22+ CURRENT FRONTIER (2026-07-09 04:14 KST / 2026-07-08 19:14 UTC) — M34 S1 LIVE GATE HELPER READY; NO ACTIVE LIVE AUTH.**
+> Codex added the guarded M34 S1 live gate helper:
+> `workspace/public/src/scripts/revalidation/s22plus_m34_s1_runtime_gadget_live_gate.py`.
+> It pins the v0.2 S1 AP SHA256
+> `77e8858ea6becc3e988232d464f97827f55594f16ed6edebd23c3529c972d237`,
+> boot SHA256
+> `bb46233068890bb6849c63b4dab845ca48b65a9ffeac9e24ad08e81416b63f85`,
+> `/init` SHA256
+> `5339170f3138843a8f8da6cfd5f20f85696d3a9d18ae22bda439e21d0dd259cd`,
+> template source SHA256
+> `ac20dcf724cf6864540d65958332d561d45409e7e85785a8c014882b37e29193`, and
+> module-list SHA256
+> `2291dc1c72add131c42d0b4ed6649880c20316d0598e0a2af942cc774949062c`.
+>
+> Helper gates verify the stock S1 contract exactly: stage `S1`; `UDC=none`;
+> stock IDs `0x04E8:0x6860`; `functions/ss_acm.0` link; no
+> `max_speed=high-speed`; no `usb_role=device`; no final
+> `UDC=a600000.dwc3`; boot-only single-member AP; no reboot syscall; no
+> Android/Magisk handoff; no persistent mount; no block write; no module binary
+> injection; rollback APs pinned. Validation passed: helper `py_compile`;
+> M34 S1 + M34 build tests (9); helper `--offline-check`; explicit fail-closed
+> check without active `AGENTS.md` exception refused before Android/flash actions
+> with rc=1.
+>
+> Next live target remains M34 S1 only, under a fresh SHA-pinned `AGENTS.md`
+> exception and explicit operator approval. S2/S3 must not live before S1
+> result. Report:
+> `docs/reports/S22PLUS_NATIVE_INIT_M34_S1_LIVE_GATE_READY_2026-07-09.md`.
+
 > **S22+ CURRENT FRONTIER (2026-07-09 04:04 KST / 2026-07-08 19:04 UTC) — M34 v0.2 STOCK-RECIPE RUNTIME-GADGET SPLIT HOST BUILD READY; S1 NEXT LIVE; NO ACTIVE LIVE AUTH.**
 > After P30 proved the full `usb_f_ss_acm.ko` module closure can park, and after
 > the live stock gadget read proved Samsung's active ACM recipe, Codex rebuilt
