@@ -81,3 +81,34 @@ sys.boot.reason=reboot,download
 No rollback flash was needed or performed. The observation remains useful as a
 manual-download/no-proof shape, but the current baseline is clean rooted Android
 on the pinned Magisk boot hash.
+
+## Follow-Up Recheck (2026-07-08 23:21 KST)
+
+The operator again reported bootloop observation followed by manual Download
+mode entry. Host follow-up found the phone in normal Android/ADB, not Odin mode:
+
+```text
+adb state=device
+model=SM-S906N
+device=g0q
+bootloader=S906NKSS7FYG8
+boot_completed=1
+bootanim=stopped
+vbstate=orange
+bootmode=unknown
+sys.boot.reason=reboot,download
+Magisk root: uid=0(root) context=u:r:magisk:s0
+```
+
+Direct rooted block reads succeeded after using the correct remote shell quote
+shape:
+
+```text
+boot        2e541703951dc725bad35850faf7028c2d910dd5f21166449b63f1248c29967e
+dtbo        97a4864fee4e61892d733962d1ec76f8d14b52bc19e6f47440bc27d9dfc4bd0c
+vendor_boot 096e433e049fb088cd956e083d5a1039b33cdf0ca907e713bba7feaaf1b080b7
+```
+
+Recent M28 helper logs at `23:15`-`23:17 KST` were `--offline-check` or
+`AGENTS.md` fail-closed runs only; they performed no flash, reboot, rollback, or
+device action. No rollback flash was needed or performed in this recheck.

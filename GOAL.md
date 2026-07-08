@@ -56,6 +56,20 @@ safety invariants and flash gates are binding and override any sub-goal.**
 > `S22PLUS_NATIVE_INIT_M28_DEP_COMPLETE_LIVE_GATE_SOURCE_2026-07-08.md`.
 > (Observation steers below are superseded/background; MID stays set, harmless.)
 
+> **S22+ CURRENT FRONTIER (2026-07-08 23:21 KST / 14:21 UTC) — MANUAL-DOWNLOAD REPORT RECHECKED; BASELINE CLEAN; M28 STILL NO LIVE AUTH.**
+> After an operator report of bootloop plus manual Download entry, host follow-up
+> found the phone back in normal Android/ADB, not Odin mode. Read-only checks:
+> `boot_completed=1`, `bootanim=stopped`, vbstate `orange`, Magisk root present,
+> boot `2e541703951dc725bad35850faf7028c2d910dd5f21166449b63f1248c29967e`,
+> stock DTBO
+> `97a4864fee4e61892d733962d1ec76f8d14b52bc19e6f47440bc27d9dfc4bd0c`,
+> stock vendor_boot
+> `096e433e049fb088cd956e083d5a1039b33cdf0ca907e713bba7feaaf1b080b7`,
+> `sys.boot.reason=reboot,download`. Recent M28 logs were offline/fail-closed
+> only, with no flash/reboot/device action. No rollback flash was needed or
+> performed. M28 remains source-ready only; live still requires a fresh
+> SHA-pinned `AGENTS.md` exception plus operator ack.
+
 > **S22+ CURRENT FRONTIER (2026-07-08 23:15 KST / 14:15 UTC) — M28 LIVE-GATE SOURCE READY; NO LIVE AUTH.**
 > Codex added guarded helper
 > `workspace/public/src/scripts/revalidation/s22plus_m28_dep_complete_live_gate.py`
