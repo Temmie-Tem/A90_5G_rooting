@@ -4,7 +4,49 @@ Drive the A90 native-init project forward one **bounded V-iteration at a time** 
 the proven cycle below. This file says WHAT to pursue; **`AGENTS.md` says HOW — its
 safety invariants and flash gates are binding and override any sub-goal.**
 
-> **🎯 OPERATOR STEER (2026-07-09, Claude — WHY S9 STILL MISSED, host analysis): THE LOAD-SET NEEDS *BOTH GRAPHS*. S9 loaded the devlink PROVIDERS but not their modules.dep SYMBOL-DEPS → they never probed → B1 still MISS. S9.2 = add the symbol-closure (esp `cmd-db`).**
+> **S22+ CURRENT FRONTIER (2026-07-09 19:01 KST / 2026-07-09 10:01 UTC) — M34 S10A MODULE-LOAD BEACON LIVE CONSUMED; MISS; MAGISK ROLLBACK CLEAN; NO ACTIVE LIVE AUTH.**
+> After explicit operator live approval, Codex built M34 `S10A` from the same
+> S9 89-module recipe but changed the one-bit beacon to check `/proc/modules`
+> for the core module set:
+> `cmd_db`, `qcom_rpmh`, `gcc_waipio`, `pinctrl_waipio`, `qcom_pdc`,
+> `i2c_msm_geni`, `mfd_max77705`, and `pdic_max77705`. Host artifact audit
+> also corrected the prior S9.2 steer: S9 already included the alleged missing
+> symbol-deps (`cmd-db.ko`, `smem.ko`, `qcom-scm.ko`, `qcom_ipc_logging.ko`,
+> `minidump.ko`, `sec_debug.ko`, `qnoc-qos.ko`, `qcom_iommu_util.ko`,
+> `secure_buffer.ko`), so "add symbol-deps" was a no-op against the real S9
+> artifact, not the next unit.
+>
+> S10A AP.tar.md5 SHA256:
+> `064cc0431e649eb78bc8c8d1d89fcd16d09426f898120edb3c31c375275e3182`.
+> Padded boot.img SHA256:
+> `a1ca7a4bf64ec8ecfc56d28d3f5e8511e6045bb1b2513fbafdb4249f75e15217`.
+> `/init` SHA256:
+> `f8ad5df4ef3ff5db7229b3c7f55f2453bc8fe5a72260ca539534e9cddbbdc4e8`.
+> Module-list SHA256:
+> `c07425f4c738b53822e9f6783a142a2b5eafd72a15bd34c06fb3b49357c8fe26`.
+>
+> Live result:
+> `download-beacon-miss-parked-manual-download-required`. The operator reported
+> no normal bootloop during the observation window, then RDX and manual Download
+> entry for rollback. The helper restored the pinned Magisk boot-only rollback
+> AP; Android returned as `<S22_SERIAL_REDACTED>`, Magisk root was available,
+> and boot SHA256 returned to the known Magisk baseline
+> `2e541703951dc725bad35850faf7028c2d910dd5f21166449b63f1248c29967e`.
+> Machine-readable evidence:
+> `workspace/private/runs/s22plus_m34_s10a_module_load_beacon_live_gate_live_20260709T095435Z/result.json`
+> and `timeline.json`; the canonical 8-event timeline schema is present.
+> `AGENTS.md` now marks the S10A exception consumed/retired; the consumed ack
+> token strings are no longer active authorization.
+>
+> Interpretation: native-init did not reach a state where all eight core
+> `/proc/modules` names were present under the S9/S10A 89-module recipe. Stop
+> downstream USB hypotheses for now: no B2/B3/B4, descriptor/composition,
+> FunctionFS, stock-composite, display/distro, or S9 repeat from this evidence.
+> Next unit is host-only design for a module-load bisection ladder or a retained
+> log/bitmask channel to identify the first missing module/load failure before
+> another boot-only candidate.
+
+> **SUPERSEDED/REFUTED OPERATOR STEER (2026-07-09, Claude — WHY S9 STILL MISSED, host analysis): THE LOAD-SET NEEDS *BOTH GRAPHS*. Claimed S9 loaded the devlink PROVIDERS but not their modules.dep SYMBOL-DEPS → they never probed → B1 still MISS. Artifact audit after commit `4a72eabd` shows this premise is false for the real S9 build: S9 already carried the listed symbol-deps. S9.2 as "add symbol-closure" is retired; S10A tested the earlier module-load layer instead.**
 > Transitive `modules.dep` closure of the S9 substrate set = **16 more modules missing**,
 > foundational ones: **`cmd-db.ko`** (RPMh command DB — gcc/clk-rpmh/rpmh-regulator CANNOT
 > probe without it → no clocks → i2c dead = the smoking gun), `smem`, `qcom-scm`, `socinfo`,

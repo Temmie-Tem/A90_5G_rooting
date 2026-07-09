@@ -2752,6 +2752,74 @@ BL, CP, CSC, userdata, or any non-boot flash.
    `d2373bf88dda342709440dc3db468f11d80a4593856768a4d8ae402bef215a56` first,
    with stock boot-only fallback SHA256
    `1ee92a86f30e4acb12509272630e1bef5215d1a12686ac69a3b399b43740535e`.
+   **Consumed exception (2026-07-09, S22+ M34 S10A module-load
+   download-beacon boot-only live gate):** this one-shot exception was consumed
+   by the 2026-07-09 KST live run. It flashed the pinned M34 S10A boot-only
+   candidate once on the Samsung S22+ `SM-S906N`/`g0q` `S906NKSS7FYG8` using
+   only the checked helper
+   `workspace/public/src/scripts/revalidation/s22plus_m34_s10a_module_load_beacon_live_gate.py`.
+   The consumed live and rollback ack token strings are intentionally omitted
+   here as active authorization. The run returned
+   `download-beacon-miss-parked-manual-download-required`, then restored the
+   pinned Magisk boot baseline through manual Download rollback after the
+   operator reported RDX then Download entry; `result.json` and `timeline.json`
+   live in
+   `workspace/private/runs/s22plus_m34_s10a_module_load_beacon_live_gate_live_20260709T095435Z/`.
+
+   The exact candidate AP.tar.md5 SHA256 must be
+   `064cc0431e649eb78bc8c8d1d89fcd16d09426f898120edb3c31c375275e3182`;
+   contained padded `boot.img` SHA256 must be
+   `a1ca7a4bf64ec8ecfc56d28d3f5e8511e6045bb1b2513fbafdb4249f75e15217`;
+   direct `/init` SHA256 must be
+   `f8ad5df4ef3ff5db7229b3c7f55f2453bc8fe5a72260ca539534e9cddbbdc4e8`;
+   template source SHA256 must be
+   `f5e116e65f7e0075a304c8ef36610fc1604055310ca28d7fad97eb1b5457b772`;
+   module-list SHA256 must be
+   `c07425f4c738b53822e9f6783a142a2b5eafd72a15bd34c06fb3b49357c8fe26`;
+   preserved kernel SHA256 must be
+   `bceca73edbfca3499148e16741c939779157925949ef6bc8a8e31d6b68fc2cff`;
+   known-booting base Magisk boot SHA256 must be
+   `2e541703951dc725bad35850faf7028c2d910dd5f21166449b63f1248c29967e`;
+   and the pinned Magisk boot-only rollback AP SHA256
+   `d2373bf88dda342709440dc3db468f11d80a4593856768a4d8ae402bef215a56`
+   plus stock boot-only fallback AP SHA256
+   `1ee92a86f30e4acb12509272630e1bef5215d1a12686ac69a3b399b43740535e`
+   must be present. The AP must contain exactly one tar member,
+   `boot.img.lz4`, and must not carry recovery, vendor_boot, dtbo, vbmeta,
+   vbmeta_system, BL, CP, CSC, super, persist, userdata, EFS, sec_efs, RPMB,
+   keymaster, modem, bootloader, or any other partition payload.
+
+   The candidate is limited to freestanding direct PID1 M34 S10A behavior:
+   `S22+ M34 S10A module-load download-beacon native-init boot-only`,
+   `S22_NATIVE_INIT_M34_RUNTIME_GADGET_SPLIT_S10A`,
+   `module_load_probe=proc_modules_core_loaded`, `s10a_module_load_probe=1`,
+   `proc_modules=1`, `core_module_count=8`, `both_graphs_closure=1`,
+   `devlink_supplier_closure=1`, `substrate_load_set=waipio_devlink`,
+   `driver_load_only=1`, `manual_power_write=0`, `module_count=89`,
+   `session_producer_parity=1`, `max77705_session=1`,
+   `geni_i2c_transport=1`, `i2c_msm_geni=1`, `gpi_dma=1`,
+   `msm_geni_se=1`, `functionfs=0`, `stock_composite=0`,
+   `configfs_gadget=0`, `udc_bind=0`, `role_write_discriminator=0`, and
+   `typec_readback=0`. Its core `/proc/modules` names are `cmd_db`,
+   `qcom_rpmh`, `gcc_waipio`, `pinctrl_waipio`, `qcom_pdc`,
+   `i2c_msm_geni`, `mfd_max77705`, and `pdic_max77705`.
+
+   Predicate true requests `reboot_request=download` with
+   `download_beacon=1` and records `true_action=reboot_download`; predicate
+   false records `false_action=park` and parks. The host-visible HIT is
+   `download-beacon-hit`, where a new Odin Download endpoint appears after
+   the original Download endpoint disconnects. MISS is
+   `download-beacon-miss-parked-manual-download-required` and requires manual
+   Download rollback. The candidate must have no Android/Magisk handoff, no
+   persistent partition mount, no block write, no module binary injection into
+   boot ramdisk, no raw host `dd`, no fastboot, no Magisk modules, no
+   multidisabler, no format data, no DTBO/vendor_boot/recovery/vbmeta/
+   non-boot flash, and no A90 action. It must not write charge current,
+   OTG/VBUS boost, regulator, GDSC, GPIO, display, raw PMIC knobs, EUD sysfs,
+   TypeC role nodes, configfs, UDC, or ssusb role nodes. This exception does
+   not authorize S9 repeat, B2/B3/B4, descriptor/composition pivots,
+   FunctionFS/conn_gadget parity, display/distro candidates, kernel rebuilds,
+   RDX PC dump retrieval, or any non-boot partition action.
    **Consumed exception (2026-07-09, S22+ M34 S9 download-beacon
    state-probe boot-only live gate):** this one-shot exception was consumed by
    the 2026-07-09 KST live run. It flashed the pinned M34 S9 boot-only
