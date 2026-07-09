@@ -4,6 +4,13 @@ Date: 2026-07-08
 
 Scope: Samsung S22+ `SM-S906N` / `g0q` / `S906NKSS7FYG8`.
 
+Current cleanup note, 2026-07-09: the local private cache was reduced for disk
+pressure and the 11G stock AP tar listed below is no longer present. This means
+the current workspace does not satisfy this full-stock evidence policy until
+the AP tar is reacquired or regenerated. Current S10C0 native-init work instead
+uses its pinned boot-only candidate, pinned Magisk rollback AP, the regenerated
+FYG8 stock boot-only fallback AP, and the extracted raw FYG8 boot image.
+
 This document defines the local evidence accepted when `AGENTS.md` requires the
 full stock `S906NKSS7FYG8` firmware to be present before an S22+ recovery or
 boot-only live gate.

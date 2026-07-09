@@ -26,6 +26,16 @@ safety invariants and flash gates are binding and override any sub-goal.**
 > session widening (B2-B4) stays queued. Full analysis:
 > `docs/reports/S22PLUS_M34_S10_MODULE_LOAD_MECHANISM_IS_THE_WALL_NOT_SELECTION_2026-07-09.md`.
 
+> **S22+ STORAGE CLEANUP (2026-07-09 20:51 KST / 2026-07-09 11:51 UTC) — PRIVATE CACHE REDUCED TO CURRENT FRONTIER ARTIFACTS.**
+> Host cleanup removed stale private payloads and reduced `workspace/private`
+> from about 20G to about 8.2G, while preserving the current S10C0 candidate AP,
+> the Magisk rollback AP, the S10C0-specific stock boot rollback AP, and the
+> FYG8 extracted raw boot image. Post-cleanup S10C0 `--offline-check` still
+> passes. The 11G full FYG8 stock AP tar was intentionally removed; therefore
+> older gates that require the full stock firmware evidence policy must
+> reacquire or regenerate that evidence before live use. Current S10C0 live-gate
+> source does not rely on the removed full AP tar.
+
 > **S22+ CURRENT FRONTIER (2026-07-09 20:42 KST / 2026-07-09 11:42 UTC) — M34 S10C0 LIVE-GATE SOURCE READY; OFFLINE-CHECK PASS; NO ACTIVE LIVE AUTH.**
 > Codex added the fail-closed S10C0 live helper
 > `workspace/public/src/scripts/revalidation/s22plus_m34_s10c0_direct_finit_loader_audit_live_gate.py`
