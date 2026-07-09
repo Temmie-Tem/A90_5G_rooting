@@ -61,7 +61,7 @@ safety invariants and flash gates are binding and override any sub-goal.**
 > Android/Magisk handoff, persistent mounts, and block writes.
 >
 > Read-only prelive packet generation passed on Android serial
-> `RFCT519XWGK` after the operator reported no bootloop:
+> `<S22_SERIAL_REDACTED>` after the operator reported no bootloop:
 > `workspace/private/runs/s22plus_m34_s8b1a_wide_i2c_beacon_live_gate_20260709T083307Z/s22plus_m34_s8b1a_prelive_packet.json`.
 > Verifier passed:
 > `workspace/private/runs/s22plus_m34_s8b1a_wide_i2c_beacon_live_gate_20260709T083333Z/s22plus_m34_s8b1a_wide_i2c_beacon_live_gate.txt`.
