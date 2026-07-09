@@ -84,6 +84,44 @@ safety invariants and flash gates are binding and override any sub-goal.**
 > USB observer + tests/report, followed by the host-only O1 overlay design. No S11
 > repeat and no new native-init live flash are authorized by this steer.
 
+> **S22+ CURRENT FRONTIER (2026-07-10 04:12 KST / 2026-07-09 19:12 UTC) — O1 LIVE FAIL AT SELINUX SERVICE TRANSITION; MAGISK BASELINE RESTORED; O1 EXCEPTION CONSUMED.**
+> The pinned O1 boot-only candidate flashed and booted normal Android. Host saw the
+> stock Samsung ACM tty, but the first framed request failed with `EIO`; therefore
+> no O0 payload/sequence proof was obtained. A read-only candidate check before
+> rollback confirmed the candidate boot SHA and stock `DR-daemon`, while O1
+> marker/status/service-state were absent.
+>
+> Retained `/proc/last_kmsg` after rollback removed the ambiguity. It shows the O1
+> rc was injected into `/system/etc/init/hw/init.rc`, its
+> `sys.usb.configured=configured` action ran repeatedly, and each `start
+> s22plus_o1_control` failed because
+> `/debug_ramdisk/s22plus_o1_service.sh` was labeled `system_file` with no SELinux
+> domain transition from `u:r:init:s0`. Thus Magisk overlay packaging and the
+> property trigger are proven; service execution was the exact blocker. Stock
+> `DR-daemon` remained running, so the host never reached the O0 daemon; the
+> observed `EIO` is downstream of that rejection, not an O0 protocol result.
+>
+> ```text
+> run=workspace/private/runs/s22plus_o1_stock_first_stage_control_live_gate_20260709T190500Z
+> result=candidate-fail-rollback-pass rc=1
+> candidate_boot_sha256=df7a166752f78aa07bea10aef53de1ba2737abf43bb041fe01738cce36113070
+> retained_error=no domain transition from u:r:init:s0
+> rollback_boot_sha256=2e541703951dc725bad35850faf7028c2d910dd5f21166449b63f1248c29967e
+> postrollback=root+boot_complete+DR-daemon-owner PASS
+> ```
+>
+> The first automatic rollback reboot request hit transient ADB `error: closed`.
+> After the operator explicitly requested host software Download entry, a second
+> `adb reboot download` succeeded and the helper completed the pinned Magisk
+> rollback. The canonical timeline contains all eight standard phases.
+> Report:
+> `docs/reports/NATIVE_INIT_V3406_S22PLUS_O1_LIVE_RESULT_2026-07-10.md`.
+> Next = O1.1 host-only: add `seclabel u:r:magisk:s0` to the existing service
+> stanza, justified by AOSP init's explicit `seclabel` contract and Magisk's own
+> injected `u:r:magisk:s0` exec actions. Keep every USB/runtime behavior unchanged,
+> add bounded rollback-reboot retry and automatic retained-log collection, then
+> build/review. O1.1 live needs a new SHA-pinned exception and new operator approval.
+
 > **S22+ CURRENT FRONTIER (2026-07-10 04:03 KST / 2026-07-09 19:03 UTC) — O1 LIVE GATE READY; OPERATOR APPROVAL RECEIVED; ONE BOOT-ONLY RUN NEXT.**
 > V3405 added the fresh SHA-pinned O1 exception and checked live helper. The helper
 > defaults to dry-run and requires both live and mandatory-rollback ack tokens. It

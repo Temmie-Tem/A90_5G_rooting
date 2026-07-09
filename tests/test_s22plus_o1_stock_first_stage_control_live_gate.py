@@ -31,16 +31,19 @@ class S22PlusO1StockFirstStageControlLiveGateTest(unittest.TestCase):
     def setUpClass(cls):
         cls.module = load_module()
 
-    def test_active_agents_exception_has_every_required_marker(self):
+    def test_consumed_agents_exception_cannot_be_reused(self):
         text = Path("AGENTS.md").read_text(encoding="utf-8")
         segment = self.module.active_exception_segment(text)
-        self.assertTrue(segment)
-        normalized = " ".join(segment.split())
-        self.assertEqual(
-            [marker for marker in self.module.policy_required_markers() if marker not in normalized],
-            [],
+        self.assertEqual(segment, "")
+        self.assertIn(
+            "Consumed exception (2026-07-10, S22+ O1 stock-first-stage USB control boot-only live gate)",
+            text,
         )
-        self.assertNotIn("Consumed exception", segment)
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            (root / "AGENTS.md").write_text(text, encoding="utf-8")
+            with self.assertRaisesRegex(SystemExit, "absent or consumed"):
+                self.module.verify_agents_exception(root, root / "gate.log")
 
     def test_manifest_matches_exact_o1_contract(self):
         with tempfile.TemporaryDirectory() as tmp:

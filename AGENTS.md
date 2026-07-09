@@ -2918,10 +2918,21 @@ BL, CP, CSC, userdata, or any non-boot flash.
    `mfd_max77705`
    `pdic_max77705`
 
-   **Narrow operator-authorized exception (2026-07-10, S22+ O1 stock-first-stage USB control boot-only live gate):**
-   after the V3403 O0 live PASS and V3404 host-build report pinned the exact
-   O1 artifact, and after the operator explicitly approved live work, Codex may
-   perform one bounded attended boot-partition-only O1 run on the Samsung S22+
+   **Consumed exception (2026-07-10, S22+ O1 stock-first-stage USB control boot-only live gate):**
+   this one-shot exception was consumed by the 2026-07-10 KST O1 live run. The
+   exact candidate booted normal Android with its pinned boot SHA, but the first
+   host frame failed with tty `EIO`. Retained `/proc/last_kmsg` proved the O1 rc
+   was injected and its property trigger ran, while Android init rejected the
+   service because `/debug_ramdisk/s22plus_o1_service.sh` had `system_file`
+   labeling and no transition from `u:r:init:s0`. A software Download retry made
+   after the operator explicitly requested it let the checked helper restore the
+   pinned Magisk boot-only AP. Android/root, boot SHA, and stock `DR-daemon`
+   ownership passed postflight. This exception must not be reused for O1.1 or
+   any other candidate.
+
+   Before consumption, after the V3403 O0 live PASS and V3404 host-build report
+   pinned the exact O1 artifact, and after the operator explicitly approved live
+   work, Codex could perform one bounded attended boot-partition-only O1 run on the Samsung S22+
    `SM-S906N`/`g0q` `S906NKSS7FYG8` using only the checked helper
    `workspace/public/src/scripts/revalidation/s22plus_o1_stock_first_stage_control_live_gate.py`.
    Exact target marker: `SM-S906N/g0q/S906NKSS7FYG8`.
