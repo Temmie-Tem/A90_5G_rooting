@@ -49,7 +49,10 @@ safety invariants and flash gates are binding and override any sub-goal.**
 > Download rollback. Observer classification is now unit-tested for HIT, MISS,
 > ambiguous multi-Odin refusal, and unexpected ADB return before rollback. The
 > helper prints a draft and active-template exception, but no active exception
-> has been inserted. A first-class `--readonly-preflight` mode now verifies
+> has been inserted. The live/default gate now requires `AGENTS.md` to contain
+> the exact helper-generated active-template text, not just all policy marker
+> strings, so marker-complete but edited authorization text fails closed.
+> A first-class `--readonly-preflight` mode now verifies
 > artifacts, Android identity/stability, current boot hash, and host snapshot
 > without requiring an active `AGENTS.md` exception and without reboot/flash.
 > It now also captures a read-only Android S8B1 predicate baseline JSON plus
@@ -127,10 +130,11 @@ safety invariants and flash gates are binding and override any sub-goal.**
 > Validation passed: helper `py_compile`, `--offline-check`,
 > `--readonly-preflight`, `--prelive-packet`, `--verify-prelive-packet`,
 > `--print-live-runbook`, draft/active-template generation, S8B1 tests
-> (`Ran 32 tests`, `OK`),
+> (`Ran 33 tests`, `OK`),
 > S8B1 analyzer tests
 > (`Ran 20 tests`, `OK`), M34/S7A2 regression including S8B1/analyzer
-> (`Ran 67 tests`, `OK`), runbook fallback-contract/staleness tests, and default run
+> (`Ran 68 tests`, `OK`), runbook fallback-contract/staleness tests, exact
+> active-template authorization tests, and default run
 > fail-closed without active authorization.
 >
 > Read-only host status after the operator's RDX/download note: the phone is

@@ -213,6 +213,10 @@ def missing_policy_markers(text: str) -> list[str]:
     return [marker for marker in policy_required_markers() if marker not in normalized]
 
 
+def has_exact_active_exception_template(text: str) -> bool:
+    return " ".join(agents_exception_active_template().split()) in " ".join(text.split())
+
+
 def has_draft_only_m34_exception(text: str) -> bool:
     normalized = " ".join(text.split())
     has_m34_marker = LIVE_ACK_TOKEN in normalized or EXPECTED_M34_MARKER in normalized
@@ -316,6 +320,10 @@ def verify_agents_exception(root: Path, log_path: Path) -> None:
     append_log(log_path, f"agents_exception_missing={missing}")
     if missing:
         raise SystemExit(f"AGENTS.md missing M34 S8B1 beacon-probe authorization markers: {missing}")
+    active_template_present = has_exact_active_exception_template(agents)
+    append_log(log_path, f"agents_exception_exact_active_template_present={int(active_template_present)}")
+    if not active_template_present:
+        raise SystemExit("AGENTS.md marker coverage is present but exact M34 S8B1 active authorization template is absent")
 
 
 def find_stage(data: dict[str, Any], label: str) -> dict[str, Any]:

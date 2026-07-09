@@ -222,6 +222,7 @@ class S22PlusM34S8B1BeaconProbeLiveGateTest(unittest.TestCase):
             text = log_path.read_text(encoding="utf-8")
             self.assertIn("agents_exception_draft_only_present=0", text)
             self.assertIn("agents_exception_missing=[]", text)
+            self.assertIn("agents_exception_exact_active_template_present=1", text)
 
     def test_verify_agents_exception_rejects_draft_only_block(self):
         with tempfile.TemporaryDirectory() as tmp:
@@ -232,6 +233,24 @@ class S22PlusM34S8B1BeaconProbeLiveGateTest(unittest.TestCase):
                 self.module.verify_agents_exception(root, log_path)
             self.assertIn("draft-only M34 S8B1", str(caught.exception))
             self.assertIn("agents_exception_draft_only_present=1", log_path.read_text(encoding="utf-8"))
+
+    def test_verify_agents_exception_rejects_marker_complete_modified_active_block(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            modified = self.module.agents_exception_active_template().replace(
+                "one bounded attended boot-partition-only M34 S8B1 live gate",
+                "one unbounded attended boot-partition-only M34 S8B1 live gate",
+                1,
+            )
+            self.assertEqual(self.module.missing_policy_markers(modified), [])
+            (root / "AGENTS.md").write_text(modified, encoding="utf-8")
+            log_path = Path(tmp) / "modified_active_template_check.log"
+            with self.assertRaises(SystemExit) as caught:
+                self.module.verify_agents_exception(root, log_path)
+            self.assertIn("exact M34 S8B1 active authorization template is absent", str(caught.exception))
+            text = log_path.read_text(encoding="utf-8")
+            self.assertIn("agents_exception_missing=[]", text)
+            self.assertIn("agents_exception_exact_active_template_present=0", text)
 
     @unittest.skipUnless(MANIFEST.exists(), "private M34 v0.8 manifest missing")
     def test_current_manifest_contract_matches_live_gate(self):

@@ -157,6 +157,11 @@ Use that file as the source of truth for the command lines. Its phases are:
 6. analyzer gates on the live result.json
 ```
 
+The default dry-run/live gate requires `AGENTS.md` to contain the exact
+helper-generated active-template text, not only all marker strings. If the
+template is manually edited while retaining the markers, the helper must fail
+closed before live.
+
 The planned run directories are intentionally distinct:
 
 ```text

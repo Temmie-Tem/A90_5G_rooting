@@ -101,7 +101,9 @@ The helper verifies the v0.8 manifest before any live action:
 The helper also prints a draft and active-template `AGENTS.md` exception, but
 does not insert it. `--live` and `--rollback-from-download` fail closed unless a
 fresh active exception is present in `AGENTS.md` and the matching ack token is
-passed.
+passed. The active-exception gate now requires the exact helper-generated
+active-template text to be present in `AGENTS.md`; marker-complete but edited
+authorization text is rejected.
 
 The helper also provides a non-live readiness mode:
 
@@ -272,13 +274,14 @@ live-runbook generation: OK, no device action
 draft exception generation: OK
 active-template generation: OK
 default run without active AGENTS exception: correctly fails closed
-S8B1 tests: Ran 32 tests, OK
+S8B1 tests: Ran 33 tests, OK
 S8B1 analyzer tests: Ran 20 tests, OK
 S8B1/analyzer evidence-path cross-check: included in S8B1 tests
 runbook fallback/staleness-contract tests: included in S8B1 tests
 Android predicate-baseline tests: included in S8B1 tests
 Android reset-context packet tests: included in S8B1 tests
-M34/S7A2/S8B1/analyzer regression: Ran 67 tests, OK
+exact active-template authorization tests: included in S8B1 tests
+M34/S7A2/S8B1/analyzer regression: Ran 68 tests, OK
 post-RDX readonly-preflight with future B2 hints: OK, no reboot/flash/write
 post-RDX prelive packet with reset-context baseline: OK, no reboot/flash/write
 ```
