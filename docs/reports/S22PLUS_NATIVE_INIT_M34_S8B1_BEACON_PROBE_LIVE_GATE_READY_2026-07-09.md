@@ -144,11 +144,27 @@ sys.boot_completed: 1
 su id: uid=0(root) gid=0(root) context=u:r:magisk:s0
 /proc/last_kmsg: missing in this boot
 /sys/fs/pstore: missing/empty in this boot
-raw boot block hash: read denied by SELinux enforcing boot_block_device policy
+current boot SHA256: 2e541703951dc725bad35850faf7028c2d910dd5f21166449b63f1248c29967e
 ```
 
 This was observation only. No S8B1 live flash or rollback was performed by this
-report, and no fresh boot partition SHA256 is claimed from this read-only note.
+report.
+
+Additional read-only S8B1 preflight component check:
+
+```text
+workspace/private/runs/s22plus_m34_s8b1_readonly_preflight_20260709T0027Z/
+```
+
+That check ran the same Android identity, stability, current boot hash, and
+host-snapshot components used by the live helper after the `AGENTS.md` gate.
+Result:
+
+```text
+android_stability_result=ok samples=2
+current_boot_hash_rc=0
+2e541703951dc725bad35850faf7028c2d910dd5f21166449b63f1248c29967e  /dev/block/by-name/boot
+```
 
 ## Next Gate
 

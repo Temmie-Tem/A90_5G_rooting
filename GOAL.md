@@ -23,7 +23,7 @@ safety invariants and flash gates are binding and override any sub-goal.**
 > descriptor/composition stays downstream until a candidate electrically enumerates. Full
 > analysis: `docs/reports/S22PLUS_M34_S8_BEACON_PROBE_PIVOT_STOP_BLIND_FLASHING_2026-07-09.md`.
 
-> **S22+ CURRENT FRONTIER (2026-07-09 09:24 KST / 2026-07-09 00:24 UTC) — M34 S8B1 LIVE GATE READY + OBSERVER CLASSIFICATION TESTED; NO ACTIVE LIVE AUTH.**
+> **S22+ CURRENT FRONTIER (2026-07-09 09:29 KST / 2026-07-09 00:29 UTC) — M34 S8B1 LIVE GATE READY + OBSERVER/PREFLIGHT TESTED; NO ACTIVE LIVE AUTH.**
 > Codex added the fail-closed S8B1 live gate helper
 > `workspace/public/src/scripts/revalidation/s22plus_m34_s8b1_beacon_probe_live_gate.py`
 > plus tests in
@@ -58,10 +58,13 @@ safety invariants and flash gates are binding and override any sub-goal.**
 > currently host-visible as Android/MTP + ADB (`04e8:6860`, `RFCT519XWGK`),
 > `sys.boot_completed=1`, `ro.boot.verifiedbootstate=orange`, and Magisk `su`
 > returns `uid=0`. `/proc/last_kmsg` and pstore are not present in this boot.
-> Direct raw boot-block hashing is currently denied by Android SELinux
-> enforcing (`boot_block_device` read denied), so do not claim a fresh boot
-> partition hash from this observation alone. No live S8B1 flash or rollback
-> was performed in this observation.
+> A read-only S8B1 preflight component check passed at
+> `workspace/private/runs/s22plus_m34_s8b1_readonly_preflight_20260709T0027Z/`:
+> Android identity/stability passed, current boot SHA256 read through the helper
+> path matched the known Magisk baseline
+> `2e541703951dc725bad35850faf7028c2d910dd5f21166449b63f1248c29967e`, and a
+> host snapshot was captured. No live S8B1 flash or rollback was performed in
+> this observation.
 > Report:
 > `docs/reports/S22PLUS_NATIVE_INIT_M34_S8B1_BEACON_PROBE_LIVE_GATE_READY_2026-07-09.md`.
 
