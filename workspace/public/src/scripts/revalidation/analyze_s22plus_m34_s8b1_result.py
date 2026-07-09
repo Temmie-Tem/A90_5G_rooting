@@ -129,6 +129,10 @@ def missing_required_live_events(names: list[str]) -> list[str]:
     return [name for name in REQUIRED_LIVE_PROOF_EVENTS if name not in present]
 
 
+def duplicate_required_live_events(names: list[str]) -> list[str]:
+    return [name for name in REQUIRED_LIVE_PROOF_EVENTS if names.count(name) > 1]
+
+
 def required_live_events_in_order(names: list[str]) -> bool:
     required_index = 0
     for name in names:
@@ -168,6 +172,29 @@ def required_live_event_timestamps_monotonic(payload: dict[str, Any] | None) -> 
     return False
 
 
+def timeline_timestamps_monotonic(payload: dict[str, Any] | None) -> bool:
+    if payload is None:
+        return False
+    events = payload.get("events")
+    if not isinstance(events, list):
+        return False
+    previous: datetime | None = None
+    for event in events:
+        if not isinstance(event, dict):
+            return False
+        timestamp = event.get("timestamp_utc")
+        if not isinstance(timestamp, str) or not timestamp.endswith("Z"):
+            return False
+        try:
+            current = parse_utc_timestamp(timestamp)
+        except ValueError:
+            return False
+        if previous is not None and current < previous:
+            return False
+        previous = current
+    return True
+
+
 def classify_result(payload: dict[str, Any], timeline: dict[str, Any] | None = None) -> dict[str, Any]:
     result_errors = validate_result_payload(payload)
     timeline_names, timeline_errors = validate_timeline_payload(timeline)
@@ -197,8 +224,10 @@ def classify_result(payload: dict[str, Any], timeline: dict[str, Any] | None = N
         "errors": result_errors,
         "timeline_errors": timeline_errors,
         "missing_required_live_events": [],
+        "duplicate_required_live_events": [],
         "required_live_events_in_order": False,
         "required_live_event_timestamps_monotonic": False,
+        "timeline_timestamps_monotonic": False,
     }
     if result_errors:
         analysis["next_action"] = "fix result.json evidence before interpreting S8B1"
@@ -212,11 +241,14 @@ def classify_result(payload: dict[str, Any], timeline: dict[str, Any] | None = N
         analysis["b1_observed"] = True
         analysis["b1_state"] = result == "download-beacon-hit"
         missing = missing_required_live_events(timeline_names)
+        duplicates = duplicate_required_live_events(timeline_names)
         analysis["missing_required_live_events"] = missing
-        analysis["required_live_events_in_order"] = not missing and required_live_events_in_order(timeline_names)
+        analysis["duplicate_required_live_events"] = duplicates
+        analysis["required_live_events_in_order"] = not missing and not duplicates and required_live_events_in_order(timeline_names)
         analysis["required_live_event_timestamps_monotonic"] = (
-            not missing and required_live_event_timestamps_monotonic(timeline)
+            not missing and not duplicates and required_live_event_timestamps_monotonic(timeline)
         )
+        analysis["timeline_timestamps_monotonic"] = not timeline_errors and timeline_timestamps_monotonic(timeline)
         if rc != 0:
             analysis["decision"] = DECISION_RECOVERY_REQUIRED
             analysis["next_action"] = "recover/rollback and re-establish Android baseline before any S8 follow-up"
@@ -224,8 +256,10 @@ def classify_result(payload: dict[str, Any], timeline: dict[str, Any] | None = N
         if (
             timeline_errors
             or missing
+            or duplicates
             or not analysis["required_live_events_in_order"]
             or not analysis["required_live_event_timestamps_monotonic"]
+            or not analysis["timeline_timestamps_monotonic"]
         ):
             analysis["decision"] = DECISION_NO_PROOF
             analysis["next_action"] = "do not advance; preserve run directory and inspect timeline/result evidence"

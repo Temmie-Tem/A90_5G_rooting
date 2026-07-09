@@ -119,6 +119,18 @@ class AnalyzeS22PlusM34S8B1ResultTest(unittest.TestCase):
         self.assertFalse(analysis["required_live_events_in_order"])
         self.assertEqual(analysis["missing_required_live_events"], [])
 
+    def test_hit_with_duplicate_required_event_is_not_enough_to_advance(self):
+        names = list(self.module.REQUIRED_LIVE_PROOF_EVENTS)
+        names.insert(names.index("candidate_flash_done"), "candidate_flash_start")
+        analysis = self.module.classify_result(
+            self.result_payload("download-beacon-hit"),
+            self.timeline_payload(names),
+        )
+
+        self.assertEqual(analysis["decision"], self.module.DECISION_NO_PROOF)
+        self.assertFalse(analysis["ok_to_advance"])
+        self.assertEqual(analysis["duplicate_required_live_events"], ["candidate_flash_start"])
+
     def test_hit_with_unparsable_timeline_timestamp_is_not_enough_to_advance(self):
         timeline = self.timeline_payload()
         timeline["events"][0]["timestamp_utc"] = "not-a-timestampZ"
@@ -143,6 +155,25 @@ class AnalyzeS22PlusM34S8B1ResultTest(unittest.TestCase):
         self.assertFalse(analysis["ok_to_advance"])
         self.assertTrue(analysis["required_live_events_in_order"])
         self.assertFalse(analysis["required_live_event_timestamps_monotonic"])
+
+    def test_hit_with_non_required_timestamp_regression_is_not_enough_to_advance(self):
+        timeline = self.timeline_payload()
+        timeline["events"].insert(
+            4,
+            {
+                "name": "beacon_hit_rollback_flash_start",
+                "timestamp_utc": "2026-07-08T23:59:59Z",
+            },
+        )
+        analysis = self.module.classify_result(
+            self.result_payload("download-beacon-hit"),
+            timeline,
+        )
+
+        self.assertEqual(analysis["decision"], self.module.DECISION_NO_PROOF)
+        self.assertFalse(analysis["ok_to_advance"])
+        self.assertTrue(analysis["required_live_event_timestamps_monotonic"])
+        self.assertFalse(analysis["timeline_timestamps_monotonic"])
 
     def test_nonzero_rc_requires_recovery_even_if_b1_was_observed(self):
         analysis = self.module.classify_result(
