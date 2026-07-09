@@ -72,6 +72,30 @@ safety invariants and flash gates are binding and override any sub-goal.**
 > next helper for a stock-only baseline. Report:
 > `docs/reports/S22PLUS_NATIVE_INIT_M34_S10C0_LIVE_RESULT_AND_STOCK_RECOVERY_2026-07-10.md`.
 
+> **S22+ CURRENT FRONTIER (2026-07-10 01:13 KST / 2026-07-09 16:13 UTC) — MAGISK BOOT BASELINE RESTORE GATE SOURCE READY; OFFLINE-CHECK PASS; NO LIVE AUTH INSTALLED.**
+> Codex added a narrow boot-only restore helper for the current post-S10C0
+> stock-boot recovery state:
+> `workspace/public/src/scripts/revalidation/s22plus_magisk_boot_baseline_restore_gate.py`
+> with tests
+> `tests/test_s22plus_magisk_boot_baseline_restore_gate.py`.
+>
+> The helper pins the existing Magisk boot-only AP:
+>
+> ```text
+> AP.tar.md5=d2373bf88dda342709440dc3db468f11d80a4593856768a4d8ae402bef215a56
+> member=boot.img.lz4
+> member_sha256=b33b63d9d2c56cbe10170820e88cf136be8fe9ad621a21752da19fdd9b642d31
+> restored_boot_sha256=2e541703951dc725bad35850faf7028c2d910dd5f21166449b63f1248c29967e
+> ```
+>
+> Default/offline mode verifies artifacts only and performs no device action.
+> Live modes require a fresh active AGENTS exception plus
+> `--ack S22PLUS-MAGISK-BOOT-BASELINE-RESTORE-GATE`. No live auth was installed
+> and no flash/reboot/device action was performed for this source unit.
+> Validation passed: `py_compile`, helper unit tests (`Ran 7`, `OK`), and
+> actual pinned-AP `--offline-check`. Report:
+> `docs/reports/S22PLUS_MAGISK_BOOT_BASELINE_RESTORE_GATE_SOURCE_2026-07-10.md`.
+
 > **S22+ CURRENT FRONTIER (2026-07-09 21:02 KST / 2026-07-09 12:02 UTC) — M34 S10C0 POST-LIVE ANALYZER READY; LIVE STILL NOT RUN.**
 > Codex added a host-only S10C0 result analyzer:
 > `workspace/public/src/scripts/revalidation/analyze_s22plus_m34_s10c0_result.py`
