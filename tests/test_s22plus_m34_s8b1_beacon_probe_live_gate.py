@@ -461,13 +461,14 @@ class S22PlusM34S8B1BeaconProbeLiveGateTest(unittest.TestCase):
             text = stdout.getvalue()
             self.assertIn("--readonly-preflight", text)
             self.assertIn("--print-agents-exception-active-template", text)
+            self.assertIn("--verify-agents-candidate '<candidate-AGENTS.md>'", text)
             self.assertIn(f"--ack {self.module.LIVE_ACK_TOKEN}", text)
             self.assertIn(f"--ack {self.module.ROLLBACK_ACK_TOKEN}", text)
             self.assertIn("--require-advance", text)
             self.assertIn("--require-live-next-stage", text)
             self.assertIn("--serial RFCT519XWGK", text)
             self.assertIn("This command handles HIT rollback", text)
-            self.assertIn("Fallback only: run this if step 4 exits after MISS without rollback", text)
+            self.assertIn("Fallback only: run this if step 5 exits after MISS without rollback", text)
             self.assertIn("cleanup evidence, not B1 proof", text)
             self.assertIn(str(root / "candidate.tar.md5"), text)
             self.assertIn(str(root / "manifest.json"), text)
@@ -518,6 +519,88 @@ class S22PlusM34S8B1BeaconProbeLiveGateTest(unittest.TestCase):
             self.assertEqual(rc, 0)
             verify_artifacts.assert_called_once()
             self.assertIn(self.module.LIVE_ACK_TOKEN, stdout.getvalue())
+            self.assertFalse(run_dir.exists())
+
+    def test_verify_agents_candidate_accepts_exact_active_template_without_run_dir_or_device(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            odin = root / "odin4"
+            odin.write_text("#!/bin/sh\n", encoding="utf-8")
+            candidate = root / "AGENTS.candidate.md"
+            candidate.write_text(self.module.agents_exception_active_template(), encoding="utf-8")
+            run_dir = root / "run"
+            with (
+                mock.patch.object(self.module, "verify_m34_artifacts") as verify_artifacts,
+                mock.patch.object(self.module, "verify_agents_exception", side_effect=AssertionError("repo AGENTS gate should be skipped")),
+                mock.patch.object(self.module, "run_android_readonly_preflight", side_effect=AssertionError("Android gate should be skipped")),
+            ):
+                stdout = io.StringIO()
+                with contextlib.redirect_stdout(stdout):
+                    rc = self.module.main(
+                        [
+                            "--verify-agents-candidate",
+                            str(candidate),
+                            "--odin",
+                            str(odin),
+                            "--m34-ap",
+                            str(root / "candidate.tar.md5"),
+                            "--m34-manifest",
+                            str(root / "manifest.json"),
+                            "--magisk-rollback-ap",
+                            str(root / "magisk.tar.md5"),
+                            "--stock-rollback-ap",
+                            str(root / "stock.tar.md5"),
+                            "--run-dir",
+                            str(run_dir),
+                        ]
+                    )
+
+            self.assertEqual(rc, 0)
+            verify_artifacts.assert_called_once()
+            self.assertIn("verify-agents-candidate ok", stdout.getvalue())
+            self.assertFalse(run_dir.exists())
+
+    def test_verify_agents_candidate_rejects_marker_complete_modified_active_block(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            odin = root / "odin4"
+            odin.write_text("#!/bin/sh\n", encoding="utf-8")
+            modified = self.module.agents_exception_active_template().replace(
+                "one bounded attended boot-partition-only M34 S8B1 live gate",
+                "one unbounded attended boot-partition-only M34 S8B1 live gate",
+                1,
+            )
+            self.assertEqual(self.module.missing_policy_markers(modified), [])
+            candidate = root / "AGENTS.candidate.md"
+            candidate.write_text(modified, encoding="utf-8")
+            run_dir = root / "run"
+            with (
+                mock.patch.object(self.module, "verify_m34_artifacts") as verify_artifacts,
+                mock.patch.object(self.module, "verify_agents_exception", side_effect=AssertionError("repo AGENTS gate should be skipped")),
+                mock.patch.object(self.module, "run_android_readonly_preflight", side_effect=AssertionError("Android gate should be skipped")),
+            ):
+                with self.assertRaises(SystemExit) as caught:
+                    self.module.main(
+                        [
+                            "--verify-agents-candidate",
+                            str(candidate),
+                            "--odin",
+                            str(odin),
+                            "--m34-ap",
+                            str(root / "candidate.tar.md5"),
+                            "--m34-manifest",
+                            str(root / "manifest.json"),
+                            "--magisk-rollback-ap",
+                            str(root / "magisk.tar.md5"),
+                            "--stock-rollback-ap",
+                            str(root / "stock.tar.md5"),
+                            "--run-dir",
+                            str(run_dir),
+                        ]
+                    )
+
+            verify_artifacts.assert_called_once()
+            self.assertIn("exact M34 S8B1 active authorization template is absent", str(caught.exception))
             self.assertFalse(run_dir.exists())
 
     def test_prelive_packet_skips_agents_gate_and_writes_exact_run_material(self):

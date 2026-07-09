@@ -316,20 +316,29 @@ def agents_exception_active_template() -> str:
     return text
 
 
-def verify_agents_exception(root: Path, log_path: Path) -> None:
-    agents = (root / "AGENTS.md").read_text(encoding="utf-8")
+def verify_agents_text(agents: str, log_path: Path, *, source_label: str) -> None:
     draft_only = has_draft_only_m34_exception(agents)
+    append_log(log_path, f"agents_exception_source={source_label}")
     append_log(log_path, f"agents_exception_draft_only_present={int(draft_only)}")
     if draft_only:
-        raise SystemExit("AGENTS.md contains draft-only M34 S8B1 authorization text; refuse to treat draft as active live auth")
+        raise SystemExit(
+            f"{source_label} contains draft-only M34 S8B1 authorization text; "
+            "refuse to treat draft as active live auth"
+        )
     missing = missing_policy_markers(agents)
     append_log(log_path, f"agents_exception_missing={missing}")
     if missing:
-        raise SystemExit(f"AGENTS.md missing M34 S8B1 beacon-probe authorization markers: {missing}")
+        raise SystemExit(f"{source_label} missing M34 S8B1 beacon-probe authorization markers: {missing}")
     active_template_present = has_exact_active_exception_template(agents)
     append_log(log_path, f"agents_exception_exact_active_template_present={int(active_template_present)}")
     if not active_template_present:
-        raise SystemExit("AGENTS.md marker coverage is present but exact M34 S8B1 active authorization template is absent")
+        raise SystemExit(
+            f"{source_label} marker coverage is present but exact M34 S8B1 active authorization template is absent"
+        )
+
+
+def verify_agents_exception(root: Path, log_path: Path) -> None:
+    verify_agents_text((root / "AGENTS.md").read_text(encoding="utf-8"), log_path, source_label="AGENTS.md")
 
 
 def find_stage(data: dict[str, Any], label: str) -> dict[str, Any]:
@@ -950,15 +959,19 @@ def live_runbook(args: argparse.Namespace) -> str:
         "# 2. Print the active AGENTS.md exception template, then insert it manually after review",
         shell_cmd([*base, "--print-agents-exception-active-template", *common_paths, *runbook_phase_run_dir_args(args.run_dir, "template")]),
         "",
-        "# 3. After AGENTS.md has the active exception, run the default dry-run gate",
+        "# 3. No-write check for the reviewed AGENTS.md candidate before replacing the repo file",
+        "#    Replace <candidate-AGENTS.md> with the reviewed full AGENTS.md candidate path.",
+        shell_cmd([*base, "--verify-agents-candidate", "<candidate-AGENTS.md>", *common_paths]),
+        "",
+        "# 4. After AGENTS.md has the active exception, run the default dry-run gate",
         shell_cmd([*base, *common_paths, *runbook_phase_run_dir_args(args.run_dir, "dryrun"), *common_android]),
         "",
-        "# 4. Live gate with explicit ack token",
+        "# 5. Live gate with explicit ack token",
         "#    This command handles HIT rollback. On MISS it also waits for manual Download",
         "#    and performs rollback inside the live run directory if Download appears in time.",
         shell_cmd([*base, "--live", "--ack", LIVE_ACK_TOKEN, *common_paths, *runbook_phase_run_dir_args(args.run_dir, "live"), *common_android, *live_args]),
         "",
-        "# 5. Fallback only: run this if step 4 exits after MISS without rollback,",
+        "# 6. Fallback only: run this if step 5 exits after MISS without rollback,",
         "#    or if the device is placed in Download mode after the bounded live wait.",
         shell_cmd(
             [
@@ -975,8 +988,8 @@ def live_runbook(args: argparse.Namespace) -> str:
             ]
         ),
         "",
-        "# 6. Interpret the live run directory for B1 proof",
-        "#    If step 5 was needed, its result directory is cleanup evidence, not B1 proof.",
+        "# 7. Interpret the live run directory for B1 proof",
+        "#    If step 6 was needed, its result directory is cleanup evidence, not B1 proof.",
         shell_cmd([*analyze_base, result_json, "--write-report"]),
         shell_cmd([*analyze_base, result_json, "--require-advance"]),
         shell_cmd([*analyze_base, result_json, "--require-live-next-stage"]),
@@ -1463,6 +1476,7 @@ def main(argv: list[str]) -> int:
     parser.add_argument("--print-live-runbook", action="store_true")
     parser.add_argument("--print-agents-exception-draft", action="store_true")
     parser.add_argument("--print-agents-exception-active-template", action="store_true")
+    parser.add_argument("--verify-agents-candidate", type=Path)
     parser.add_argument("--live", action="store_true")
     parser.add_argument("--rollback-from-download", action="store_true")
     parser.add_argument("--ack")
@@ -1478,6 +1492,7 @@ def main(argv: list[str]) -> int:
             args.print_live_runbook,
             args.print_agents_exception_draft,
             args.print_agents_exception_active_template,
+            args.verify_agents_candidate is not None,
             args.live,
             args.rollback_from_download,
         )
@@ -1487,8 +1502,8 @@ def main(argv: list[str]) -> int:
         raise SystemExit(
             "--offline-check, --readonly-preflight, --print-agents-exception-draft, "
             "--print-agents-exception-active-template, --print-live-runbook, "
-            "--prelive-packet, --verify-prelive-packet, --live, and "
-            "--rollback-from-download are mutually exclusive"
+            "--verify-agents-candidate, --prelive-packet, --verify-prelive-packet, "
+            "--live, and --rollback-from-download are mutually exclusive"
         )
     if args.observe_sec < 30:
         raise SystemExit("--observe-sec must be at least 30 for the M34 S8B1 download-beacon probe")
@@ -1509,6 +1524,7 @@ def main(argv: list[str]) -> int:
         args.print_agents_exception_draft
         or args.print_agents_exception_active_template
         or args.print_live_runbook
+        or args.verify_agents_candidate is not None
     )
     if print_only_mode:
         with tempfile.TemporaryDirectory(prefix="s22plus_m34_s8b1_print_") as tmp:
@@ -1545,6 +1561,19 @@ def main(argv: list[str]) -> int:
                 if has_draft_only_m34_exception(template):
                     raise SystemExit("internal active template still looks draft-only")
                 print(template, end="")
+                return 0
+
+            if args.verify_agents_candidate is not None:
+                candidate_path = resolve(root, args.verify_agents_candidate)
+                verify_agents_text(
+                    candidate_path.read_text(encoding="utf-8"),
+                    log_path,
+                    source_label=str(candidate_path),
+                )
+                print(
+                    "verify-agents-candidate ok: exact M34 S8B1 active exception is present; "
+                    f"no AGENTS.md write, no device action; candidate={candidate_path}"
+                )
                 return 0
 
             append_log(log_path, "live_runbook_printed=1 device_action=0 agents_exception_checked=0 android_checked=0")

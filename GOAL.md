@@ -78,7 +78,11 @@ safety invariants and flash gates are binding and override any sub-goal.**
 > Odin, rollback, and run-dir paths, without checking AGENTS.md or touching
 > Android. Print-only modes now verify artifacts through a temporary log and do
 > not create the requested `--run-dir`, preventing accidental stale planned
-> live/template directories from breaking the prelive packet verifier. A
+> live/template directories from breaking the prelive packet verifier.
+> A no-device `--verify-agents-candidate <path>` mode now verifies a reviewed
+> full AGENTS candidate file against the exact active S8B1 exception template
+> before the repo file is replaced; it performs no AGENTS write, no Android
+> check, no reboot, no flash, and no run-dir creation. A
 > no-write `--prelive-packet` mode now runs the same read-only
 > Android/artifact preflight, then captures the active exception template,
 > exact runbook, and machine-readable prelive packet in the run directory
@@ -135,11 +139,12 @@ safety invariants and flash gates are binding and override any sub-goal.**
 > `write_result_summary()` output against the analyzer for both HIT and MISS.
 > Validation passed: helper `py_compile`, `--offline-check`,
 > `--readonly-preflight`, `--prelive-packet`, `--verify-prelive-packet`,
-> `--print-live-runbook`, draft/active-template generation, S8B1 tests
-> (`Ran 35 tests`, `OK`),
+> `--print-live-runbook`, draft/active-template generation,
+> `--verify-agents-candidate`, S8B1 tests
+> (`Ran 37 tests`, `OK`),
 > S8B1 analyzer tests
 > (`Ran 20 tests`, `OK`), M34/S7A2 regression including S8B1/analyzer
-> (`Ran 70 tests`, `OK`), runbook fallback-contract/staleness tests, exact
+> (`Ran 72 tests`, `OK`), runbook fallback-contract/staleness tests, exact
 > active-template authorization tests, material-hash staleness tests, and default run
 > fail-closed without active authorization.
 >
@@ -159,20 +164,20 @@ safety invariants and flash gates are binding and override any sub-goal.**
 > flash or rollback was performed in this observation.
 > Latest no-write prelive packet was regenerated with the print-only run-dir
 > side-effect fix in place at
-> `workspace/private/runs/s22plus_m34_s8b1_beacon_probe_live_gate_20260709T033347Z/`;
+> `workspace/private/runs/s22plus_m34_s8b1_beacon_probe_live_gate_20260709T034309Z/`;
 > it contains `s22plus_m34_s8b1_prelive_packet.json`, the exact live runbook,
 > the active exception template, stored runbook options, selected serial
 > `RFCT519XWGK`, the Android predicate baseline, and the Android reset-context
 > baseline, plus embedded `material_sha256` for the sidecars, with `device_action=false` and
 > `agents_exception_inserted=false`. The packet verified cleanly with
 > `--verify-prelive-packet` at
-> `workspace/private/runs/s22plus_m34_s8b1_beacon_probe_live_gate_20260709T033413Z/`.
+> `workspace/private/runs/s22plus_m34_s8b1_beacon_probe_live_gate_20260709T034739Z/`.
 > The planned live run directory is
-> `workspace/private/runs/s22plus_m34_s8b1_beacon_probe_live_gate_20260709T033347Z_live/`;
+> `workspace/private/runs/s22plus_m34_s8b1_beacon_probe_live_gate_20260709T034309Z_live/`;
 > preflight/template/dryrun/rollback sibling directories are also separate and
 > all were verified not to exist at packet generation time. The planned
 > rollback-only fallback result path is
-> `workspace/private/runs/s22plus_m34_s8b1_beacon_probe_live_gate_20260709T033347Z_live_rollback/result.json`
+> `workspace/private/runs/s22plus_m34_s8b1_beacon_probe_live_gate_20260709T034309Z_live_rollback/result.json`
 > and is cleanup evidence, not B1 proof.
 > The packet's reset-context baseline records `ro.boot.bootreason=reboot,download`,
 > `/proc/reset_reason=MPON`, `/proc/reset_rwc=41`, `/proc/store_lastkmsg=1`,
