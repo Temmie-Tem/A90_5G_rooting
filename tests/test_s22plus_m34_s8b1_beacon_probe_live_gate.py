@@ -357,6 +357,9 @@ class S22PlusM34S8B1BeaconProbeLiveGateTest(unittest.TestCase):
                 "cleanup-only evidence",
                 " ".join(packet["runbook_notes"]),
             )
+            self.assertEqual(packet["runbook_options"]["observe_sec"], 90)
+            self.assertEqual(packet["runbook_options"]["android_stability_samples"], 4)
+            self.assertEqual(packet["runbook_options"]["android_stability_interval_sec"], 3.0)
             runbook = (run_dir / "s22plus_m34_s8b1_live_runbook.txt").read_text(encoding="utf-8")
             active_template = (run_dir / "s22plus_m34_s8b1_active_exception_template.txt").read_text(encoding="utf-8")
             self.assertIn(str(root / "candidate.tar.md5"), runbook)
@@ -366,6 +369,7 @@ class S22PlusM34S8B1BeaconProbeLiveGateTest(unittest.TestCase):
             self.assertIn(str(odin), runbook)
             self.assertIn(str(planned_live_run_dir), runbook)
             self.assertIn(str(planned_live_run_dir / "result.json"), runbook)
+            self.assertIn("--serial RFCT519XWGK", runbook)
             self.assertIn("Fallback only", runbook)
             self.assertIn("cleanup evidence, not B1 proof", runbook)
             for phase in ("preflight", "template", "dryrun", "rollback"):
@@ -381,6 +385,197 @@ class S22PlusM34S8B1BeaconProbeLiveGateTest(unittest.TestCase):
             self.assertIn("prelive_packet=ok device_action=0 agents_exception_checked=0 android_checked=1", log_text)
             self.assertIn(f"prelive_packet_planned_live_run_dir={planned_live_run_dir}", log_text)
             self.assertFalse((run_dir / "timeline.json").exists())
+
+    def test_prelive_packet_pins_selected_serial_when_serial_arg_is_omitted(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            odin = root / "odin4"
+            odin.write_text("#!/bin/sh\n", encoding="utf-8")
+            run_dir = root / "run"
+            with (
+                mock.patch.object(self.module, "verify_m34_artifacts"),
+                mock.patch.object(self.module, "run_android_readonly_preflight", return_value="RFCT519XWGK"),
+            ):
+                with contextlib.redirect_stdout(io.StringIO()):
+                    rc = self.module.main(
+                        [
+                            "--prelive-packet",
+                            "--odin",
+                            str(odin),
+                            "--m34-ap",
+                            str(root / "candidate.tar.md5"),
+                            "--m34-manifest",
+                            str(root / "manifest.json"),
+                            "--magisk-rollback-ap",
+                            str(root / "magisk.tar.md5"),
+                            "--stock-rollback-ap",
+                            str(root / "stock.tar.md5"),
+                            "--run-dir",
+                            str(run_dir),
+                        ]
+                    )
+
+            self.assertEqual(rc, 0)
+            packet = json.loads((run_dir / "s22plus_m34_s8b1_prelive_packet.json").read_text(encoding="utf-8"))
+            self.assertEqual(packet["selected_serial"], "RFCT519XWGK")
+            runbook = (run_dir / "s22plus_m34_s8b1_live_runbook.txt").read_text(encoding="utf-8")
+            self.assertIn("--serial RFCT519XWGK", runbook)
+
+    def test_verify_prelive_packet_skips_device_and_agents_gates(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            odin = root / "odin4"
+            odin.write_text("#!/bin/sh\n", encoding="utf-8")
+            run_dir = root / "run"
+            path_args = [
+                "--odin",
+                str(odin),
+                "--m34-ap",
+                str(root / "candidate.tar.md5"),
+                "--m34-manifest",
+                str(root / "manifest.json"),
+                "--magisk-rollback-ap",
+                str(root / "magisk.tar.md5"),
+                "--stock-rollback-ap",
+                str(root / "stock.tar.md5"),
+            ]
+            with (
+                mock.patch.object(self.module, "verify_m34_artifacts"),
+                mock.patch.object(self.module, "run_android_readonly_preflight", return_value="RFCT519XWGK"),
+            ):
+                with contextlib.redirect_stdout(io.StringIO()):
+                    self.module.main(
+                        [
+                            "--prelive-packet",
+                            *path_args,
+                            "--android-stability-samples",
+                            "2",
+                            "--android-stability-interval-sec",
+                            "1",
+                            "--observe-sec",
+                            "45",
+                            "--run-dir",
+                            str(run_dir),
+                        ]
+                    )
+
+            packet_path = run_dir / "s22plus_m34_s8b1_prelive_packet.json"
+            verify_dir = root / "verify"
+            with (
+                mock.patch.object(self.module, "verify_m34_artifacts") as verify_artifacts,
+                mock.patch.object(self.module, "verify_agents_exception", side_effect=AssertionError("AGENTS gate should be skipped")),
+                mock.patch.object(self.module, "run_android_readonly_preflight", side_effect=AssertionError("Android gate should be skipped")),
+            ):
+                stdout = io.StringIO()
+                with contextlib.redirect_stdout(stdout):
+                    rc = self.module.main(
+                        [
+                            "--verify-prelive-packet",
+                            str(packet_path),
+                            *path_args,
+                            "--run-dir",
+                            str(verify_dir),
+                        ]
+                    )
+
+            self.assertEqual(rc, 0)
+            verify_artifacts.assert_called_once()
+            self.assertIn("verify-prelive-packet ok", stdout.getvalue())
+            packet = json.loads(packet_path.read_text(encoding="utf-8"))
+            self.assertEqual(packet["runbook_options"]["android_stability_samples"], 2)
+            self.assertEqual(packet["runbook_options"]["android_stability_interval_sec"], 1.0)
+            self.assertEqual(packet["runbook_options"]["observe_sec"], 45)
+            log_text = (verify_dir / "s22plus_m34_s8b1_beacon_probe_live_gate.txt").read_text(encoding="utf-8")
+            self.assertIn("prelive_packet_verify=ok device_action=0 agents_exception_checked=0 android_checked=0", log_text)
+            self.assertFalse((verify_dir / "timeline.json").exists())
+
+    def test_verify_prelive_packet_rejects_existing_planned_live_dir(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            odin = root / "odin4"
+            odin.write_text("#!/bin/sh\n", encoding="utf-8")
+            run_dir = root / "run"
+            path_args = [
+                "--odin",
+                str(odin),
+                "--m34-ap",
+                str(root / "candidate.tar.md5"),
+                "--m34-manifest",
+                str(root / "manifest.json"),
+                "--magisk-rollback-ap",
+                str(root / "magisk.tar.md5"),
+                "--stock-rollback-ap",
+                str(root / "stock.tar.md5"),
+            ]
+            with (
+                mock.patch.object(self.module, "verify_m34_artifacts"),
+                mock.patch.object(self.module, "run_android_readonly_preflight", return_value="RFCT519XWGK"),
+            ):
+                with contextlib.redirect_stdout(io.StringIO()):
+                    self.module.main(["--prelive-packet", *path_args, "--run-dir", str(run_dir)])
+
+            packet_path = run_dir / "s22plus_m34_s8b1_prelive_packet.json"
+            packet = json.loads(packet_path.read_text(encoding="utf-8"))
+            Path(packet["planned_live_run_dir"]).mkdir()
+            with mock.patch.object(self.module, "verify_m34_artifacts"):
+                with self.assertRaises(SystemExit) as caught:
+                    with contextlib.redirect_stdout(io.StringIO()):
+                        self.module.main(
+                            [
+                                "--verify-prelive-packet",
+                                str(packet_path),
+                                *path_args,
+                                "--run-dir",
+                                str(root / "verify"),
+                            ]
+                        )
+            self.assertIn("planned run directory already exists", str(caught.exception))
+
+    def test_verify_prelive_packet_rejects_moved_packet_json(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            odin = root / "odin4"
+            odin.write_text("#!/bin/sh\n", encoding="utf-8")
+            run_dir = root / "run"
+            path_args = [
+                "--odin",
+                str(odin),
+                "--m34-ap",
+                str(root / "candidate.tar.md5"),
+                "--m34-manifest",
+                str(root / "manifest.json"),
+                "--magisk-rollback-ap",
+                str(root / "magisk.tar.md5"),
+                "--stock-rollback-ap",
+                str(root / "stock.tar.md5"),
+            ]
+            with (
+                mock.patch.object(self.module, "verify_m34_artifacts"),
+                mock.patch.object(self.module, "run_android_readonly_preflight", return_value="RFCT519XWGK"),
+            ):
+                with contextlib.redirect_stdout(io.StringIO()):
+                    self.module.main(["--prelive-packet", *path_args, "--run-dir", str(run_dir)])
+
+            moved_dir = root / "moved"
+            moved_dir.mkdir()
+            moved_packet = moved_dir / "s22plus_m34_s8b1_prelive_packet.json"
+            moved_packet.write_text(
+                (run_dir / "s22plus_m34_s8b1_prelive_packet.json").read_text(encoding="utf-8"),
+                encoding="utf-8",
+            )
+            with mock.patch.object(self.module, "verify_m34_artifacts"):
+                with self.assertRaises(SystemExit) as caught:
+                    with contextlib.redirect_stdout(io.StringIO()):
+                        self.module.main(
+                            [
+                                "--verify-prelive-packet",
+                                str(moved_packet),
+                                *path_args,
+                                "--run-dir",
+                                str(root / "verify"),
+                            ]
+                        )
+            self.assertIn("packet_run_dir does not match packet location", str(caught.exception))
 
     def test_planned_live_run_dir_avoids_existing_siblings(self):
         with tempfile.TemporaryDirectory() as tmp:

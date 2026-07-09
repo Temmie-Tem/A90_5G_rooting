@@ -692,6 +692,32 @@ def resolved_runbook_args(
     return packet_args
 
 
+RUNBOOK_OPTION_KEYS = (
+    "observe_sec",
+    "snapshot_interval_sec",
+    "post_flash_disconnect_wait_sec",
+    "manual_download_wait_sec",
+    "odin_wait_sec",
+    "android_wait_sec",
+    "android_stability_samples",
+    "android_stability_interval_sec",
+    "rollback_target",
+)
+
+
+def runbook_options(args: argparse.Namespace) -> dict[str, Any]:
+    return {key: getattr(args, key) for key in RUNBOOK_OPTION_KEYS}
+
+
+def apply_runbook_options(args: argparse.Namespace, options: dict[str, Any]) -> None:
+    missing = [key for key in RUNBOOK_OPTION_KEYS if key not in options]
+    extra = sorted(set(options) - set(RUNBOOK_OPTION_KEYS))
+    if missing or extra:
+        raise SystemExit(f"prelive packet runbook_options mismatch: missing={missing} extra={extra}")
+    for key in RUNBOOK_OPTION_KEYS:
+        setattr(args, key, options[key])
+
+
 def live_runbook(args: argparse.Namespace) -> str:
     helper = "workspace/public/src/scripts/revalidation/s22plus_m34_s8b1_beacon_probe_live_gate.py"
     analyzer = "workspace/public/src/scripts/revalidation/analyze_s22plus_m34_s8b1_result.py"
@@ -787,6 +813,7 @@ def write_prelive_packet(
         magisk_rollback_ap=magisk_rollback_ap,
         stock_rollback_ap=stock_rollback_ap,
     )
+    packet_args.serial = selected_serial
     runbook = live_runbook(packet_args)
     active_template = agents_exception_active_template()
     missing = missing_policy_markers(active_template)
@@ -827,6 +854,7 @@ def write_prelive_packet(
         "planned_phase_run_dirs": runbook_phase_run_dirs(live_run_dir),
         "planned_result_json": str(live_run_dir / "result.json"),
         "planned_rollback_result_json": str(planned_rollback_result_json(live_run_dir)),
+        "runbook_options": runbook_options(packet_args),
         "runbook_notes": prelive_packet_notes(live_run_dir),
         "runbook": str(runbook_path),
         "active_exception_template": str(active_template_path),
@@ -838,6 +866,123 @@ def write_prelive_packet(
     append_log(log_path, f"prelive_packet_active_exception_template={active_template_path}")
     append_log(log_path, "prelive_packet=ok device_action=0 agents_exception_checked=0 android_checked=1")
     return packet_path
+
+
+def load_prelive_packet(packet_path: Path) -> dict[str, Any]:
+    if not packet_path.is_file():
+        raise SystemExit(f"prelive packet missing: {packet_path}")
+    try:
+        payload = json.loads(packet_path.read_text(encoding="utf-8"))
+    except json.JSONDecodeError as exc:
+        raise SystemExit(f"prelive packet is not valid JSON: {packet_path}: {exc}") from exc
+    if not isinstance(payload, dict):
+        raise SystemExit(f"prelive packet root must be an object: {packet_path}")
+    return payload
+
+
+def verify_prelive_packet(
+    *,
+    packet_path: Path,
+    log_path: Path,
+    args: argparse.Namespace,
+    odin: Path,
+    m34_ap: Path,
+    m34_manifest: Path,
+    magisk_rollback_ap: Path,
+    stock_rollback_ap: Path,
+) -> dict[str, Any]:
+    payload = load_prelive_packet(packet_path)
+    expected_scalars: dict[str, Any] = {
+        "schema": "s22plus_m34_s8b1_prelive_packet_v1",
+        "target": EXPECTED_TARGET,
+        "stage": EXPECTED_STAGE,
+        "device_action": False,
+        "agents_exception_inserted": False,
+        "agents_exception_checked": False,
+        "android_checked": True,
+        "candidate_ap_sha256": EXPECTED_M34_AP_SHA256,
+        "candidate_boot_sha256": EXPECTED_M34_BOOT_SHA256,
+        "candidate_init_sha256": EXPECTED_M34_INIT_SHA256,
+        "base_boot_sha256": EXPECTED_M34_BASE_BOOT_SHA256,
+        "live_ack_token": LIVE_ACK_TOKEN,
+        "rollback_ack_token": ROLLBACK_ACK_TOKEN,
+        "m34_ap": str(m34_ap),
+        "m34_manifest": str(m34_manifest),
+        "magisk_rollback_ap": str(magisk_rollback_ap),
+        "stock_rollback_ap": str(stock_rollback_ap),
+        "odin": str(odin),
+    }
+    mismatches = {
+        key: {"expected": expected, "actual": payload.get(key)}
+        for key, expected in expected_scalars.items()
+        if payload.get(key) != expected
+    }
+    if mismatches:
+        raise SystemExit(f"prelive packet scalar mismatch: {json.dumps(mismatches, sort_keys=True)}")
+
+    selected_serial = payload.get("selected_serial")
+    if not isinstance(selected_serial, str) or not selected_serial.strip():
+        raise SystemExit("prelive packet missing selected_serial")
+    options = payload.get("runbook_options")
+    if not isinstance(options, dict):
+        raise SystemExit("prelive packet missing runbook_options")
+
+    try:
+        packet_run_dir = Path(str(payload["packet_run_dir"]))
+        live_run_dir = Path(str(payload["planned_live_run_dir"]))
+    except KeyError as exc:
+        raise SystemExit(f"prelive packet missing required path key: {exc.args[0]}") from exc
+    if packet_run_dir != packet_path.parent:
+        raise SystemExit(f"prelive packet_run_dir does not match packet location: {packet_run_dir} != {packet_path.parent}")
+    expected_phase_dirs = runbook_phase_run_dirs(live_run_dir)
+    expected_paths = {
+        "planned_phase_run_dirs": expected_phase_dirs,
+        "planned_result_json": str(live_run_dir / "result.json"),
+        "planned_rollback_result_json": str(planned_rollback_result_json(live_run_dir)),
+        "runbook_notes": prelive_packet_notes(live_run_dir),
+    }
+    path_mismatches = {
+        key: {"expected": expected, "actual": payload.get(key)}
+        for key, expected in expected_paths.items()
+        if payload.get(key) != expected
+    }
+    if path_mismatches:
+        raise SystemExit(f"prelive packet planned path mismatch: {json.dumps(path_mismatches, sort_keys=True)}")
+
+    stale_dirs = [path for path in expected_phase_dirs.values() if Path(path).exists()]
+    if stale_dirs:
+        raise SystemExit(f"prelive packet planned run directory already exists: {stale_dirs}")
+
+    runbook_path = Path(str(payload.get("runbook", "")))
+    active_template_path = Path(str(payload.get("active_exception_template", "")))
+    if not runbook_path.is_file():
+        raise SystemExit(f"prelive packet runbook missing: {runbook_path}")
+    if not active_template_path.is_file():
+        raise SystemExit(f"prelive packet active exception template missing: {active_template_path}")
+    if active_template_path.read_text(encoding="utf-8") != agents_exception_active_template():
+        raise SystemExit("prelive packet active exception template is stale")
+
+    packet_args = resolved_runbook_args(
+        args,
+        run_dir=live_run_dir,
+        odin=odin,
+        m34_ap=m34_ap,
+        m34_manifest=m34_manifest,
+        magisk_rollback_ap=magisk_rollback_ap,
+        stock_rollback_ap=stock_rollback_ap,
+    )
+    apply_runbook_options(packet_args, options)
+    packet_args.serial = selected_serial
+    expected_runbook = live_runbook(packet_args)
+    if runbook_path.read_text(encoding="utf-8") != expected_runbook:
+        raise SystemExit("prelive packet runbook is stale")
+
+    append_log(log_path, f"prelive_packet_verify_json={packet_path}")
+    append_log(log_path, f"prelive_packet_verify_packet_run_dir={packet_run_dir}")
+    append_log(log_path, f"prelive_packet_verify_planned_live_run_dir={live_run_dir}")
+    append_log(log_path, f"prelive_packet_verify_selected_serial={selected_serial}")
+    append_log(log_path, "prelive_packet_verify=ok device_action=0 agents_exception_checked=0 android_checked=0")
+    return payload
 
 
 def wait_for_odin_absent(odin: Path, log_path: Path, label: str, wait_sec: int) -> bool:
@@ -1014,6 +1159,7 @@ def main(argv: list[str]) -> int:
     parser.add_argument("--offline-check", action="store_true")
     parser.add_argument("--readonly-preflight", action="store_true")
     parser.add_argument("--prelive-packet", action="store_true")
+    parser.add_argument("--verify-prelive-packet", type=Path)
     parser.add_argument("--print-live-runbook", action="store_true")
     parser.add_argument("--print-agents-exception-draft", action="store_true")
     parser.add_argument("--print-agents-exception-active-template", action="store_true")
@@ -1028,6 +1174,7 @@ def main(argv: list[str]) -> int:
             args.offline_check,
             args.readonly_preflight,
             args.prelive_packet,
+            args.verify_prelive_packet is not None,
             args.print_live_runbook,
             args.print_agents_exception_draft,
             args.print_agents_exception_active_template,
@@ -1040,7 +1187,8 @@ def main(argv: list[str]) -> int:
         raise SystemExit(
             "--offline-check, --readonly-preflight, --print-agents-exception-draft, "
             "--print-agents-exception-active-template, --print-live-runbook, "
-            "--prelive-packet, --live, and --rollback-from-download are mutually exclusive"
+            "--prelive-packet, --verify-prelive-packet, --live, and "
+            "--rollback-from-download are mutually exclusive"
         )
     if args.observe_sec < 30:
         raise SystemExit("--observe-sec must be at least 30 for the M34 S8B1 download-beacon probe")
@@ -1139,6 +1287,24 @@ def main(argv: list[str]) -> int:
             "prelive-packet ok: M34 S8B1 artifacts, rollback APs, Android stability, "
             f"current boot hash, active-template, and runbook captured for {selected_serial}; "
             f"no AGENTS exception inserted; packet={packet_path}"
+        )
+        return 0
+
+    if args.verify_prelive_packet is not None:
+        packet_path = resolve(root, args.verify_prelive_packet)
+        packet = verify_prelive_packet(
+            packet_path=packet_path,
+            log_path=log_path,
+            args=args,
+            odin=odin,
+            m34_ap=m34_ap,
+            m34_manifest=m34_manifest,
+            magisk_rollback_ap=magisk_rollback_ap,
+            stock_rollback_ap=stock_rollback_ap,
+        )
+        print(
+            "verify-prelive-packet ok: packet matches current S8B1 helper contract, "
+            f"selected_serial={packet['selected_serial']}; no device action; log={log_path}"
         )
         return 0
 
