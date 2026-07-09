@@ -23,7 +23,7 @@ safety invariants and flash gates are binding and override any sub-goal.**
 > descriptor/composition stays downstream until a candidate electrically enumerates. Full
 > analysis: `docs/reports/S22PLUS_M34_S8_BEACON_PROBE_PIVOT_STOP_BLIND_FLASHING_2026-07-09.md`.
 
-> **S22+ CURRENT FRONTIER (2026-07-09 09:14 KST / 2026-07-09 00:14 UTC) — M34 S8B1 LIVE GATE READY; NO ACTIVE LIVE AUTH.**
+> **S22+ CURRENT FRONTIER (2026-07-09 09:24 KST / 2026-07-09 00:24 UTC) — M34 S8B1 LIVE GATE READY + OBSERVER CLASSIFICATION TESTED; NO ACTIVE LIVE AUTH.**
 > Codex added the fail-closed S8B1 live gate helper
 > `workspace/public/src/scripts/revalidation/s22plus_m34_s8b1_beacon_probe_live_gate.py`
 > plus tests in
@@ -46,11 +46,22 @@ safety invariants and flash gates are binding and override any sub-goal.**
 > candidate flash; a later Odin Download endpoint is `download-beacon-hit`
 > (predicate true); no new Odin endpoint during the bounded observation window
 > is `download-beacon-miss-parked-manual-download-required` and requires manual
-> Download rollback. The helper prints a draft and active-template exception,
-> but no active exception has been inserted. Validation passed: helper
-> `py_compile`, `--offline-check`, draft/active-template generation, S8B1 tests
-> (`Ran 8 tests`, `OK`), M34/S7A2 regression (`Ran 15 tests`, `OK`), and
-> default run fail-closed without active authorization.
+> Download rollback. Observer classification is now unit-tested for HIT, MISS,
+> ambiguous multi-Odin refusal, and unexpected ADB return before rollback. The
+> helper prints a draft and active-template exception, but no active exception
+> has been inserted. Validation passed: helper `py_compile`, `--offline-check`,
+> draft/active-template generation, S8B1 tests (`Ran 12 tests`, `OK`), M34/S7A2
+> regression including S8B1 (`Ran 27 tests`, `OK`), and default run fail-closed
+> without active authorization.
+>
+> Read-only host status after the operator's RDX/download note: the phone is
+> currently host-visible as Android/MTP + ADB (`04e8:6860`, `RFCT519XWGK`),
+> `sys.boot_completed=1`, `ro.boot.verifiedbootstate=orange`, and Magisk `su`
+> returns `uid=0`. `/proc/last_kmsg` and pstore are not present in this boot.
+> Direct raw boot-block hashing is currently denied by Android SELinux
+> enforcing (`boot_block_device` read denied), so do not claim a fresh boot
+> partition hash from this observation alone. No live S8B1 flash or rollback
+> was performed in this observation.
 > Report:
 > `docs/reports/S22PLUS_NATIVE_INIT_M34_S8B1_BEACON_PROBE_LIVE_GATE_READY_2026-07-09.md`.
 

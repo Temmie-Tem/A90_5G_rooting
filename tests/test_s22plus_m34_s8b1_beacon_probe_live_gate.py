@@ -2,6 +2,7 @@ import importlib.util
 import sys
 import tempfile
 import unittest
+from unittest import mock
 from pathlib import Path
 
 
@@ -145,6 +146,105 @@ class S22PlusM34S8B1BeaconProbeLiveGateTest(unittest.TestCase):
         self.assertNotEqual("download-beacon-hit", "download-beacon-miss-parked-manual-download-required")
         self.assertIn("download-beacon-hit", self.module.agents_exception_draft())
         self.assertIn("manual Download rollback", self.module.agents_exception_draft())
+
+    def test_observe_download_beacon_classifies_new_odin_endpoint_as_hit(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            run_dir = Path(tmp)
+            log_path = run_dir / "observe_hit.log"
+            clock = {"now": 0.0}
+
+            with (
+                mock.patch.object(self.module, "host_snapshot", return_value={}),
+                mock.patch.object(self.module, "odin_devices", return_value=["ODIN_NEW"]),
+                mock.patch.object(self.module, "adb_rows", return_value=[]),
+                mock.patch.object(self.module.time, "monotonic", side_effect=lambda: clock["now"]),
+                mock.patch.object(self.module.time, "sleep", side_effect=lambda sec: clock.__setitem__("now", clock["now"] + sec)),
+            ):
+                result, device = self.module.observe_download_beacon(
+                    run_dir=run_dir,
+                    log_path=log_path,
+                    odin=Path("/no/odin"),
+                    observe_sec=2,
+                    snapshot_interval_sec=1.0,
+                )
+
+            self.assertEqual(result, "download-beacon-hit")
+            self.assertEqual(device, "ODIN_NEW")
+            self.assertIn("m34_s8b1_result=download-beacon-hit", log_path.read_text(encoding="utf-8"))
+
+    def test_observe_download_beacon_miss_requires_manual_download(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            run_dir = Path(tmp)
+            log_path = run_dir / "observe_miss.log"
+            clock = {"now": 0.0}
+
+            with (
+                mock.patch.object(self.module, "host_snapshot", return_value={}),
+                mock.patch.object(self.module, "odin_devices", return_value=[]),
+                mock.patch.object(self.module, "adb_rows", return_value=[]),
+                mock.patch.object(self.module.time, "monotonic", side_effect=lambda: clock["now"]),
+                mock.patch.object(self.module.time, "sleep", side_effect=lambda sec: clock.__setitem__("now", clock["now"] + sec)),
+            ):
+                result, device = self.module.observe_download_beacon(
+                    run_dir=run_dir,
+                    log_path=log_path,
+                    odin=Path("/no/odin"),
+                    observe_sec=2,
+                    snapshot_interval_sec=1.0,
+                )
+
+            self.assertEqual(result, "download-beacon-miss-parked-manual-download-required")
+            self.assertIsNone(device)
+            self.assertIn("m34_s8b1_result=download-beacon-miss-parked-manual-download-required", log_path.read_text(encoding="utf-8"))
+
+    def test_observe_download_beacon_rejects_ambiguous_odin_endpoints(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            run_dir = Path(tmp)
+            log_path = run_dir / "observe_ambiguous.log"
+            clock = {"now": 0.0}
+
+            with (
+                mock.patch.object(self.module, "host_snapshot", return_value={}),
+                mock.patch.object(self.module, "odin_devices", return_value=["ODIN_A", "ODIN_B"]),
+                mock.patch.object(self.module, "adb_rows", return_value=[]),
+                mock.patch.object(self.module.time, "monotonic", side_effect=lambda: clock["now"]),
+                mock.patch.object(self.module.time, "sleep", side_effect=lambda sec: clock.__setitem__("now", clock["now"] + sec)),
+            ):
+                with self.assertRaises(SystemExit) as caught:
+                    self.module.observe_download_beacon(
+                        run_dir=run_dir,
+                        log_path=log_path,
+                        odin=Path("/no/odin"),
+                        observe_sec=2,
+                        snapshot_interval_sec=1.0,
+                    )
+
+            self.assertIn("refusing ambiguous Odin devices", str(caught.exception))
+
+    def test_observe_download_beacon_classifies_adb_return_before_rollback_as_unexpected(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            run_dir = Path(tmp)
+            log_path = run_dir / "observe_adb.log"
+            clock = {"now": 0.0}
+
+            with (
+                mock.patch.object(self.module, "host_snapshot", return_value={}),
+                mock.patch.object(self.module, "odin_devices", return_value=[]),
+                mock.patch.object(self.module, "adb_rows", return_value=[("RFCT519XWGK", "device", "model:SM_S906N")]),
+                mock.patch.object(self.module.time, "monotonic", side_effect=lambda: clock["now"]),
+                mock.patch.object(self.module.time, "sleep", side_effect=lambda sec: clock.__setitem__("now", clock["now"] + sec)),
+            ):
+                result, device = self.module.observe_download_beacon(
+                    run_dir=run_dir,
+                    log_path=log_path,
+                    odin=Path("/no/odin"),
+                    observe_sec=2,
+                    snapshot_interval_sec=1.0,
+                )
+
+            self.assertEqual(result, "unexpected-adb-before-rollback")
+            self.assertIsNone(device)
+            self.assertIn("m34_s8b1_result=unexpected-adb-before-rollback", log_path.read_text(encoding="utf-8"))
 
 
 if __name__ == "__main__":

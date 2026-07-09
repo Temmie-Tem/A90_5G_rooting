@@ -68,6 +68,16 @@ download-beacon-miss-parked-manual-download-required
 That MISS path requires manual Download-mode rollback. The helper does not
 treat the original Odin endpoint staying connected as proof.
 
+Observer classification is covered by host-only unit tests:
+
+- one new Odin endpoint after the original Download endpoint disconnected is
+  `download-beacon-hit`
+- no Odin endpoint during the bounded window is
+  `download-beacon-miss-parked-manual-download-required`
+- more than one Odin endpoint is refused as ambiguous
+- ADB returning before rollback is classified as
+  `unexpected-adb-before-rollback`
+
 ## Safety Contract
 
 The helper verifies the v0.8 manifest before any live action:
@@ -105,6 +115,7 @@ PYTHONPYCACHEPREFIX=/tmp/a90_pycache python3 workspace/public/src/scripts/revali
 PYTHONPYCACHEPREFIX=/tmp/a90_pycache python3 workspace/public/src/scripts/revalidation/s22plus_m34_s8b1_beacon_probe_live_gate.py
 PYTHONPYCACHEPREFIX=/tmp/a90_pycache python3 -m unittest tests/test_s22plus_m34_s8b1_beacon_probe_live_gate.py
 PYTHONPYCACHEPREFIX=/tmp/a90_pycache python3 -m unittest tests/test_s22plus_m34_runtime_gadget_split_build.py tests/test_s22plus_m34_s7a2_geni_i2c_live_gate.py
+PYTHONPYCACHEPREFIX=/tmp/a90_pycache python3 -m unittest tests/test_s22plus_m34_runtime_gadget_split_build.py tests/test_s22plus_m34_s7a2_geni_i2c_live_gate.py tests/test_s22plus_m34_s8b1_beacon_probe_live_gate.py
 ```
 
 Results:
@@ -115,9 +126,29 @@ offline-check: OK, no device action
 draft exception generation: OK
 active-template generation: OK
 default run without active AGENTS exception: correctly fails closed
-S8B1 tests: Ran 8 tests, OK
-M34/S7A2 regression: Ran 15 tests, OK
+S8B1 tests: Ran 12 tests, OK
+M34/S7A2/S8B1 regression: Ran 27 tests, OK
 ```
+
+## Read-Only Current Device Note
+
+After the operator reported an RDX-to-Download path, host read-only checks saw
+the phone back in normal Android/MTP + ADB:
+
+```text
+lsusb: 04e8:6860 Samsung Galaxy series, MTP mode
+adb serial: RFCT519XWGK device
+model/device/build: SM-S906N / g0q / S906NKSS7FYG8
+ro.boot.verifiedbootstate: orange
+sys.boot_completed: 1
+su id: uid=0(root) gid=0(root) context=u:r:magisk:s0
+/proc/last_kmsg: missing in this boot
+/sys/fs/pstore: missing/empty in this boot
+raw boot block hash: read denied by SELinux enforcing boot_block_device policy
+```
+
+This was observation only. No S8B1 live flash or rollback was performed by this
+report, and no fresh boot partition SHA256 is claimed from this read-only note.
 
 ## Next Gate
 
