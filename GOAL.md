@@ -26,6 +26,53 @@ safety invariants and flash gates are binding and override any sub-goal.**
 > session widening (B2-B4) stays queued. Full analysis:
 > `docs/reports/S22PLUS_M34_S10_MODULE_LOAD_MECHANISM_IS_THE_WALL_NOT_SELECTION_2026-07-09.md`.
 
+> **S22+ CURRENT FRONTIER (2026-07-09 20:42 KST / 2026-07-09 11:42 UTC) — M34 S10C0 LIVE-GATE SOURCE READY; OFFLINE-CHECK PASS; NO ACTIVE LIVE AUTH.**
+> Codex added the fail-closed S10C0 live helper
+> `workspace/public/src/scripts/revalidation/s22plus_m34_s10c0_direct_finit_loader_audit_live_gate.py`
+> and tests
+> `tests/test_s22plus_m34_s10c0_direct_finit_loader_audit_live_gate.py`.
+> The helper pins the S10C0 artifact from
+> `workspace/private/outputs/s22plus_native_init/m34_runtime_gadget_split_v0_13/`.
+>
+> S10C0 candidate hashes:
+>
+> ```text
+> AP.tar.md5  9221cfa3ea3ce0776860a5041981e23a84d0be9b833203401dab771897266c6f
+> boot.img    8d77e1434cd47fe47f4723c948e4ff6db759cbe4bf75dd21e9e0c265d928c6df
+> /init       cd80d5923c94f8a423821bc6dee4547f22763e177fbcc637d1bcb101c4b8c39b
+> modules     c07425f4c738b53822e9f6783a142a2b5eafd72a15bd34c06fb3b49357c8fe26
+> template    e7c8e62487701d6af31b5e7bc060a12091a5f55737aec67c4b45be484f67666b
+> ```
+>
+> S10C0 runtime predicate remains:
+> `module_load_probe=finit_cmd_db_accepted`, `probe_module=cmd-db.ko`,
+> `proc_modules=0`, `direct_finit_rc=1`. HIT means `cmd-db.ko` was attempted
+> and direct `finit_module` rc was `0` or `-EEXIST`, then Download beacon.
+> MISS parks for manual Download rollback.
+>
+> Primary rollback remains the known Magisk boot AP
+> `d2373bf88dda342709440dc3db468f11d80a4593856768a4d8ae402bef215a56`.
+> Because the older canonical stock boot fallback file had been removed during
+> private-output cleanup, S10C0 stages a new S10C0-specific FYG8 stock boot-only
+> fallback AP generated from stock raw boot SHA256
+> `4150b962314e6136acba61b20f471d6ee1c418b83cf8c3ee4d9cf7c91a3640ae`:
+>
+> ```text
+> workspace/private/outputs/s22plus_native_init/odin4_stock_rollback_fyg8_raw_repacked_20260709/AP.tar.md5
+> 2f6a8ac093587a0f03c423d8e21f65c6fe3a8d2ce9915297170cdaa2cac37c94
+> ```
+>
+> Validation passed: helper `py_compile`, S10C0 unit test (`Ran 6`, `OK`),
+> `--offline-check`, `/tmp` AGENTS candidate write+verify, and combined
+> S10C0/S10B0/M34 build tests (`Ran 17`, `OK`, `skipped=2`). Report:
+> `docs/reports/S22PLUS_NATIVE_INIT_M34_S10C0_DIRECT_FINIT_LOADER_AUDIT_LIVE_GATE_SOURCE_2026-07-09.md`.
+>
+> `AGENTS.md` was intentionally not modified, and no live flash/reboot/device
+> action was performed. Next: if proceeding live, insert the generated exact
+> active S10C0 exception into `AGENTS.md`, run default dry-run against the
+> current rooted Android/Magisk baseline, then require explicit operator
+> approval before `--live`.
+
 > **S22+ CURRENT FRONTIER (2026-07-09 20:28 KST / 2026-07-09 11:28 UTC) — M34 S10C0 DIRECT-FINIT LOADER-AUDIT HOST BUILD COMPLETE; NEXT S10C0 LIVE-GATE SOURCE; NO ACTIVE LIVE AUTH.**
 > S10B0's consumed live MISS was not enough to distinguish two cases:
 > `cmd-db.ko` failed/was never attempted, or `/proc/modules` is not a reliable
