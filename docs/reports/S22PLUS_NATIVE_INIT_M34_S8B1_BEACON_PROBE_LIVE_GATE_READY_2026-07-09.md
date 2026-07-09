@@ -252,8 +252,8 @@ Commands run:
 PYTHONPYCACHEPREFIX=/tmp/a90_pycache python3 -m py_compile workspace/public/src/scripts/revalidation/s22plus_m34_s8b1_beacon_probe_live_gate.py
 PYTHONPYCACHEPREFIX=/tmp/a90_pycache python3 workspace/public/src/scripts/revalidation/s22plus_m34_s8b1_beacon_probe_live_gate.py --offline-check
 PYTHONPYCACHEPREFIX=/tmp/a90_pycache python3 workspace/public/src/scripts/revalidation/s22plus_m34_s8b1_beacon_probe_live_gate.py --readonly-preflight --android-stability-samples 2 --android-stability-interval-sec 1
-PYTHONPYCACHEPREFIX=/tmp/a90_pycache python3 workspace/public/src/scripts/revalidation/s22plus_m34_s8b1_beacon_probe_live_gate.py --prelive-packet --android-stability-samples 2 --android-stability-interval-sec 1
-PYTHONPYCACHEPREFIX=/tmp/a90_pycache python3 workspace/public/src/scripts/revalidation/s22plus_m34_s8b1_beacon_probe_live_gate.py --verify-prelive-packet workspace/private/runs/s22plus_m34_s8b1_beacon_probe_live_gate_20260709T031713Z/s22plus_m34_s8b1_prelive_packet.json
+PYTHONPYCACHEPREFIX=/tmp/a90_pycache python3 workspace/public/src/scripts/revalidation/s22plus_m34_s8b1_beacon_probe_live_gate.py --prelive-packet --android-stability-samples 2 --android-stability-interval-sec 0.5
+PYTHONPYCACHEPREFIX=/tmp/a90_pycache python3 workspace/public/src/scripts/revalidation/s22plus_m34_s8b1_beacon_probe_live_gate.py --verify-prelive-packet workspace/private/runs/s22plus_m34_s8b1_beacon_probe_live_gate_20260709T033347Z/s22plus_m34_s8b1_prelive_packet.json
 PYTHONPYCACHEPREFIX=/tmp/a90_pycache python3 workspace/public/src/scripts/revalidation/s22plus_m34_s8b1_beacon_probe_live_gate.py --print-live-runbook
 PYTHONPYCACHEPREFIX=/tmp/a90_pycache python3 workspace/public/src/scripts/revalidation/s22plus_m34_s8b1_beacon_probe_live_gate.py --print-agents-exception-draft
 PYTHONPYCACHEPREFIX=/tmp/a90_pycache python3 workspace/public/src/scripts/revalidation/s22plus_m34_s8b1_beacon_probe_live_gate.py --print-agents-exception-active-template
@@ -386,13 +386,13 @@ Android reset-context baseline, and embedded sidecar material hashes
 is:
 
 ```text
-workspace/private/runs/s22plus_m34_s8b1_beacon_probe_live_gate_20260709T031713Z/
+workspace/private/runs/s22plus_m34_s8b1_beacon_probe_live_gate_20260709T033347Z/
 ```
 
 It was verified with `--verify-prelive-packet` at:
 
 ```text
-workspace/private/runs/s22plus_m34_s8b1_beacon_probe_live_gate_20260709T031727Z/
+workspace/private/runs/s22plus_m34_s8b1_beacon_probe_live_gate_20260709T033413Z/
 ```
 
 It plans the live B1 proof directory and rollback-only fallback directory
@@ -400,10 +400,10 @@ separately:
 
 ```text
 planned_result_json:
-workspace/private/runs/s22plus_m34_s8b1_beacon_probe_live_gate_20260709T031713Z_live/result.json
+workspace/private/runs/s22plus_m34_s8b1_beacon_probe_live_gate_20260709T033347Z_live/result.json
 
 planned_rollback_result_json:
-workspace/private/runs/s22plus_m34_s8b1_beacon_probe_live_gate_20260709T031713Z_live_rollback/result.json
+workspace/private/runs/s22plus_m34_s8b1_beacon_probe_live_gate_20260709T033347Z_live_rollback/result.json
 ```
 
 The same packet now embeds the reset-context baseline captured by the
@@ -428,16 +428,9 @@ It pins the packet and sidecar hashes, summarizes the current Android
 predicate/reset baselines, and points to the exact private runbook command file.
 It does not authorize a live flash and does not insert `AGENTS.md`.
 
-After the packet was pinned, a later no-write readonly-preflight refresh passed
-at:
-
-```text
-workspace/private/runs/s22plus_m34_s8b1_beacon_probe_live_gate_20260709T032442Z/
-```
-
-That refresh did not create a new packet or planned live directories. It
-confirmed the current Android baseline is still suitable for the same S8B1
-live gate:
+The latest packet was generated after the print-only run-dir side-effect fix
+and confirmed the current Android baseline is still suitable for the same S8B1
+live gate. It did not create any planned live directories:
 
 ```text
 android_stability_result=ok samples=2
@@ -453,12 +446,14 @@ ro.boot.bootreason=reboot,download
 /proc/store_lastkmsg=1
 ```
 
-Refresh sidecar SHA256s:
+Latest packet sidecar SHA256s:
 
 ```text
-s22plus_m34_s8b1_android_predicate_baseline.json: a24a50ba01c5c66d64de76de82b67d3277d5a4fc04c78a52247e2a3532dbf4ba
-s22plus_m34_s8b1_android_reset_context_baseline.json: 195022d2ca5dd41e4f76f2dfdb94a3d8a8d89e9cc7d2919f232393cc181572ea
-s22plus_m34_s8b1_beacon_probe_live_gate.txt: ec088c906e4d06ee5f73fce2943bc67b0a69e0a6338ba895f9b7ed43e0678725
+s22plus_m34_s8b1_prelive_packet.json: 7d960d31bc4b045d5bfb0fd611929f15330942083a8e4bd3acc9c94c04efdcc9
+s22plus_m34_s8b1_live_runbook.txt: faf62e54de89616b54b754098b8574638044d70e227ff36d04957a1cd06c6336
+s22plus_m34_s8b1_active_exception_template.txt: 66f1e39a3a01da4be3b100c899fd39c553cf31a014fa47532973daf5e2e8ac8f
+s22plus_m34_s8b1_android_predicate_baseline.json: feaad6f3a5104b134a49be69cd86d88e25980dd0aa233d273d95f4d9d5292336
+s22plus_m34_s8b1_android_reset_context_baseline.json: 63ec863391694781dcc59a9f646d1054088b0b13c7bd97b78b8c013de81a5349
 ```
 
 ## Next Gate

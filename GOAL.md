@@ -157,37 +157,37 @@ safety invariants and flash gates are binding and override any sub-goal.**
 > `/sys/devices/platform/soc/994000.i2c/i2c-57/57-0066`,
 > `/sys/class/typec/port0` is absent, and the OR predicate is true. No live S8B1
 > flash or rollback was performed in this observation.
-> Latest no-write prelive packet was regenerated at
-> `workspace/private/runs/s22plus_m34_s8b1_beacon_probe_live_gate_20260709T031713Z/`;
+> Latest no-write prelive packet was regenerated with the print-only run-dir
+> side-effect fix in place at
+> `workspace/private/runs/s22plus_m34_s8b1_beacon_probe_live_gate_20260709T033347Z/`;
 > it contains `s22plus_m34_s8b1_prelive_packet.json`, the exact live runbook,
 > the active exception template, stored runbook options, selected serial
 > `RFCT519XWGK`, the Android predicate baseline, and the Android reset-context
 > baseline, plus embedded `material_sha256` for the sidecars, with `device_action=false` and
 > `agents_exception_inserted=false`. The packet verified cleanly with
 > `--verify-prelive-packet` at
-> `workspace/private/runs/s22plus_m34_s8b1_beacon_probe_live_gate_20260709T031727Z/`.
+> `workspace/private/runs/s22plus_m34_s8b1_beacon_probe_live_gate_20260709T033413Z/`.
 > The planned live run directory is
-> `workspace/private/runs/s22plus_m34_s8b1_beacon_probe_live_gate_20260709T031713Z_live/`;
+> `workspace/private/runs/s22plus_m34_s8b1_beacon_probe_live_gate_20260709T033347Z_live/`;
 > preflight/template/dryrun/rollback sibling directories are also separate and
 > all were verified not to exist at packet generation time. The planned
 > rollback-only fallback result path is
-> `workspace/private/runs/s22plus_m34_s8b1_beacon_probe_live_gate_20260709T031713Z_live_rollback/result.json`
+> `workspace/private/runs/s22plus_m34_s8b1_beacon_probe_live_gate_20260709T033347Z_live_rollback/result.json`
 > and is cleanup evidence, not B1 proof.
 > The packet's reset-context baseline records `ro.boot.bootreason=reboot,download`,
 > `/proc/reset_reason=MPON`, `/proc/reset_rwc=41`, `/proc/store_lastkmsg=1`,
 > `reset_history_pmic_abnormal_count=10`, and
 > `reset_history_upload_cause_count=10`.
-> A later no-write readonly-preflight refresh also passed at
-> `workspace/private/runs/s22plus_m34_s8b1_beacon_probe_live_gate_20260709T032442Z/`
-> with `android_stability_result=ok`, current boot SHA256 still
+> The same latest packet preflight passed with `android_stability_result=ok`,
+> current boot SHA256 still
 > `2e541703951dc725bad35850faf7028c2d910dd5f21166449b63f1248c29967e`,
 > S8B1 predicate still true through `/sys/bus/i2c/devices/57-0066`,
 > future B2 hint paths still present under
 > `/sys/devices/platform/soc/994000.i2c/i2c-57/57-0066/max77705-usbc/typec/port0`,
 > and reset context still `ro.boot.bootreason=reboot,download`,
 > `/proc/reset_reason=MPON`, `/proc/reset_rwc=41`,
-> `/proc/store_lastkmsg=1`. This refresh is readiness evidence only: it did
-> not create a new packet, did not create the planned live phase directories,
+> `/proc/store_lastkmsg=1`. This packet is readiness evidence only: it did
+> not create the planned live phase directories,
 > and did not authorize or perform S8B1 live flash/rollback.
 > A follow-up read-only reset-context capture after the operator's RDX/Download
 > observation passed at
