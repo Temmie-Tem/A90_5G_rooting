@@ -92,6 +92,58 @@ safety invariants and flash gates are binding and override any sub-goal.**
 > only on the S11P0 true-action beacon. Report:
 > `docs/reports/S22PLUS_NATIVE_INIT_M34_S11P0_LIVE_RESULT_2026-07-10.md`.
 
+> **S22+ CURRENT FRONTIER (2026-07-10 02:24 KST / 2026-07-09 17:24 UTC) — M34 S11P1 HOST-BUILD READY; TIMED LOADER-RESULT BEACON; NO LIVE AUTH.**
+> Codex implemented and host-built the next S11 probe as `S11P1` in the M34
+> runtime-gadget split builder. S11P1 keeps the same S9/S10C0/S11P0 isolated
+> module recipe, but replaces the parked one-bit false path with an always-
+> Download timed outcome beacon:
+>
+> ```text
+> stage=S11P1
+> stage_number=22
+> version=0.13
+> module_load_probe=timed_first_failure_or_proc_modules_result
+> s11p1_timed_loader_result=1
+> timed_download_beacon=1
+> always_reboot_download=1
+> true_action=timed_reboot_download
+> false_action=timed_reboot_download
+> ```
+>
+> Delay model:
+>
+> ```text
+> 6s    modules open/read failure
+> 12s   cmd-db was not attempted
+> 18s   cmd-db rc was not accepted
+> 20s+N first failing module index N
+> 116s  no first failure, watchdog absent from /proc/modules
+> 122s  watchdog visible, cmd_db absent from /proc/modules
+> 128s  watchdog and cmd_db visible in /proc/modules
+> ```
+>
+> Host-build output:
+>
+> ```text
+> out_dir=workspace/private/outputs/s22plus_native_init/m34_runtime_gadget_split_v0_15
+> AP.tar.md5=1bc209674aa6b496bcc4132eae4343c1311de06143164771994cc8b1df945b56
+> boot.img=874c312b4ce1b95388c158a686f22e56d7a5278dd09cfab13c0c853ab688c61e
+> boot.img.lz4=cb4234a257a91b4b7b43343f97c1c9f90049a2daca59cc28f19da5159567605a
+> /init=af4eb75a8bcdcbbe8bd4fe81e1100cbc34ef786c1c2e64b09b111582c727c3d1
+> modules=c07425f4c738b53822e9f6783a142a2b5eafd72a15bd34c06fb3b49357c8fe26
+> base_boot=2e541703951dc725bad35850faf7028c2d910dd5f21166449b63f1248c29967e
+> nochange_repack_boot=2e541703951dc725bad35850faf7028c2d910dd5f21166449b63f1248c29967e
+> ```
+>
+> Validation passed: builder `py_compile`, focused
+> `tests.test_s22plus_m34_runtime_gadget_split_build` (`Ran 5`, `OK`),
+> manifest safety check `live_flash_authorized=false`, AP tar member check
+> `boot.img.lz4` only. No Odin flash, reboot, partition write, or S11P1 live
+> gate was performed. Next live step requires a fresh narrow `AGENTS.md`
+> exception/live helper pinning these exact hashes plus explicit operator
+> approval. Report:
+> `docs/reports/S22PLUS_NATIVE_INIT_M34_S11P1_TIMED_LOADER_RESULT_HOST_BUILD_2026-07-10.md`.
+
 > **S22+ CURRENT FRONTIER (2026-07-10 01:37 KST / 2026-07-09 16:37 UTC) — M34 S11P0 HOST-BUILD READY; NO LIVE AUTH.**
 > Codex implemented and host-built the next S11 probe as `S11P0` in the M34
 > runtime-gadget split builder. S11P0 keeps the S10C0/S9 module recipe, preserves

@@ -2918,6 +2918,183 @@ BL, CP, CSC, userdata, or any non-boot flash.
    `mfd_max77705`
    `pdic_max77705`
 
+   **Narrow operator-authorized exception (2026-07-10, S22+ M34 S11P1 timed loader-result boot-only live gate):**
+   After the M34 S11P1 host-build report pinned the exact artifact hashes and
+   the operator provided live approval, Codex may run one bounded attended
+   boot-partition-only M34 S11P1 live gate on the Samsung S22+
+   `SM-S906N`/`g0q` `S906NKSS7FYG8` using only the checked helper
+   `workspace/public/src/scripts/revalidation/s22plus_m34_s11p1_timed_loader_result_live_gate.py`.
+   Live ack token: `S22PLUS-M34-S11P1-TIMED-LOADER-RESULT-LIVE-GATE`. Rollback ack token:
+   `S22PLUS-M34-S11P1-TIMED-LOADER-RESULT-ROLLBACK-FROM-DOWNLOAD`.
+
+   The exact candidate AP.tar.md5 SHA256 must be
+   `1bc209674aa6b496bcc4132eae4343c1311de06143164771994cc8b1df945b56`; contained padded `boot.img` SHA256 must be
+   `874c312b4ce1b95388c158a686f22e56d7a5278dd09cfab13c0c853ab688c61e`; `boot.img.lz4` SHA256 must be
+   `cb4234a257a91b4b7b43343f97c1c9f90049a2daca59cc28f19da5159567605a`; direct `/init` SHA256 must be
+   `af4eb75a8bcdcbbe8bd4fe81e1100cbc34ef786c1c2e64b09b111582c727c3d1`; template source SHA256 must be
+   `4d6688c2961eb58e5a86ddf2c6372943c0e50faf1c50298ac4a3e783ade44fca`; module-list SHA256 must be
+   `c07425f4c738b53822e9f6783a142a2b5eafd72a15bd34c06fb3b49357c8fe26`; preserved kernel SHA256 must be
+   `bceca73edbfca3499148e16741c939779157925949ef6bc8a8e31d6b68fc2cff`; and known-booting base Magisk boot SHA256
+   must be `2e541703951dc725bad35850faf7028c2d910dd5f21166449b63f1248c29967e`. The AP must contain exactly one
+   tar member, `boot.img.lz4`, and must not carry recovery, vendor_boot, dtbo,
+   vbmeta, vbmeta_system, BL, CP, CSC, super, persist, userdata, EFS,
+   sec_efs, RPMB, keymaster, modem, bootloader, or any other partition payload.
+   Before live flash, the helper must verify the pinned Magisk boot-only
+   rollback AP SHA256 `d2373bf88dda342709440dc3db468f11d80a4593856768a4d8ae402bef215a56` and the S10C0-specific
+   FYG8 stock boot-only fallback AP SHA256 `2f6a8ac093587a0f03c423d8e21f65c6fe3a8d2ce9915297170cdaa2cac37c94`
+   generated from stock raw boot SHA256 `4150b962314e6136acba61b20f471d6ee1c418b83cf8c3ee4d9cf7c91a3640ae`.
+
+   The candidate is limited to freestanding direct PID1 M34 S11P1 behavior:
+   `S22+ M34 S11P1 timed loader-result native-init boot-only`,
+   `S22_NATIVE_INIT_M34_RUNTIME_GADGET_SPLIT_S11P1`, `S11P1 keeps the S9/S10C0/S11P0 isolated module
+   recipe`, and `S11P1 always returns to Download after a bounded timed result
+   delay`. It remains driver-load-only: `both_graphs_closure=1`,
+   `devlink_supplier_closure=1`, `substrate_load_set=waipio_devlink`,
+   `driver_load_only=1`, `manual_power_write=0`, `module_count=89`,
+   `configfs_gadget=0`, `udc_bind=0`, `role_write_discriminator=0`, and
+   `typec_readback=0`.
+
+   S11P1 intentionally performs no downstream USB gadget work: no configfs
+   gadget setup, no UDC bind, no TypeC role write, no ssusb role write, no
+   FunctionFS, and no stock composite. Its observation is
+   `s11p1_timed_loader_result=1`,
+   `module_load_probe=timed_first_failure_or_proc_modules_result`,
+   `predicate=timed_first_failure_or_proc_modules_result`,
+   `phase=s11p1_timed_loader_result_probe`, `proc_modules=1`,
+   `timed_download_beacon=1`, `always_reboot_download=1`,
+   `download_delay_model=first_fail_index_or_proc_result`,
+   `direct_finit_rc=1`, `probe_module=cmd-db.ko`,
+   `probe_proc_name=cmd_db`,
+   `positive_control=watchdog_proc_visible`,
+   `positive_control_proc_names=qcom_wdt_core,gh_virt_wdt`,
+   `positive_control_modules=qcom_wdt_core.ko,gh_virt_wdt.ko`,
+   `result_code=`, `result=`, `download_delay_sec=`,
+   `modules_open_rc=`, `modules_read_rc=`, `attempted=`, `ok=`, `eexist=`,
+   `fail=`, `first_fail_index=`, `first_fail_rc=`, `first_fail_name=`,
+   `cmd_db_seen=`, `cmd_db_rc=`, `cmd_db_proc_seen=`,
+   `qcom_wdt_core_proc_seen=`, `gh_virt_wdt_proc_seen=`, and
+   `watchdog_proc_seen=`.
+
+   The timing contract is: `6` seconds for `modules_open_or_read_fail`, `12`
+   seconds for `cmd_db_not_attempted`, `18` seconds for `cmd_db_rc_fail`,
+   `20 + first_fail_index` seconds for `first_module_failure`, `116` seconds
+   for `proc_watchdog_missing`, `122` seconds for
+   `watchdog_visible_cmd_db_proc_missing`, and `128` seconds for
+   `proc_watchdog_and_cmd_db_visible`. Both true and false paths record
+   `true_action=timed_reboot_download` and
+   `false_action=timed_reboot_download` semantics and request
+   `reboot_request=download` with `download_beacon=1`. The host-visible result
+   is `download-beacon-hit-timed`, where a new Odin Download endpoint appears
+   after the original Download endpoint disconnects. If no new Download appears
+   within the bounded observation window, the result is
+   `download-beacon-miss-manual-download-required`; manual Download rollback is
+   recovery-only.
+
+   The candidate must have no Android/Magisk handoff, no persistent partition
+   mount, no block write, no module binary injection into boot ramdisk, no raw
+   host `dd`, no fastboot, no Magisk modules, no multidisabler, no format data,
+   no DTBO/vendor_boot/recovery/vbmeta/non-boot flash, and no A90 action. It
+   must not write charge current, OTG/VBUS boost, regulator, GDSC, GPIO,
+   display, raw PMIC knobs, EUD sysfs, TypeC role nodes, configfs, UDC, or
+   ssusb role nodes. PMIC/RDX abnormal reset before the observation window is
+   FAIL. This exception does not authorize S11P0 repeat, S10C0 repeat, S10B
+   repeat, B2/B3/B4, descriptor/composition pivots, FunctionFS/conn_gadget
+   parity, display/distro candidates, kernel rebuilds, RDX PC dump retrieval,
+   or any non-boot partition action.
+
+   Required policy marker coverage:
+   `S22+ M34 S11P1 timed loader-result native-init boot-only`
+   `workspace/public/src/scripts/revalidation/s22plus_m34_s11p1_timed_loader_result_live_gate.py`
+   `S22PLUS-M34-S11P1-TIMED-LOADER-RESULT-LIVE-GATE`
+   `S22PLUS-M34-S11P1-TIMED-LOADER-RESULT-ROLLBACK-FROM-DOWNLOAD`
+   `SM-S906N/g0q/S906NKSS7FYG8`
+   `S11P1`
+   `S22_NATIVE_INIT_M34_RUNTIME_GADGET_SPLIT_S11P1`
+   `1bc209674aa6b496bcc4132eae4343c1311de06143164771994cc8b1df945b56`
+   `874c312b4ce1b95388c158a686f22e56d7a5278dd09cfab13c0c853ab688c61e`
+   `cb4234a257a91b4b7b43343f97c1c9f90049a2daca59cc28f19da5159567605a`
+   `af4eb75a8bcdcbbe8bd4fe81e1100cbc34ef786c1c2e64b09b111582c727c3d1`
+   `c07425f4c738b53822e9f6783a142a2b5eafd72a15bd34c06fb3b49357c8fe26`
+   `4d6688c2961eb58e5a86ddf2c6372943c0e50faf1c50298ac4a3e783ade44fca`
+   `bceca73edbfca3499148e16741c939779157925949ef6bc8a8e31d6b68fc2cff`
+   `2e541703951dc725bad35850faf7028c2d910dd5f21166449b63f1248c29967e`
+   `d2373bf88dda342709440dc3db468f11d80a4593856768a4d8ae402bef215a56`
+   `2f6a8ac093587a0f03c423d8e21f65c6fe3a8d2ce9915297170cdaa2cac37c94`
+   `4150b962314e6136acba61b20f471d6ee1c418b83cf8c3ee4d9cf7c91a3640ae`
+   `S11P1 keeps the S9/S10C0/S11P0 isolated module recipe`
+   `S11P1 always returns to Download after a bounded timed result delay`
+   `module_load_probe=timed_first_failure_or_proc_modules_result`
+   `s11p1_timed_loader_result=1`
+   `timed_download_beacon=1`
+   `always_reboot_download=1`
+   `download_delay_model=first_fail_index_or_proc_result`
+   `phase=s11p1_timed_loader_result_probe`
+   `predicate=timed_first_failure_or_proc_modules_result`
+   `result_code=`
+   `result=`
+   `download_delay_sec=`
+   `modules_open_or_read_fail`
+   `cmd_db_not_attempted`
+   `cmd_db_rc_fail`
+   `first_module_failure`
+   `proc_watchdog_missing`
+   `watchdog_visible_cmd_db_proc_missing`
+   `proc_watchdog_and_cmd_db_visible`
+   `6`
+   `12`
+   `18`
+   `20 + first_fail_index`
+   `116`
+   `122`
+   `128`
+   `proc_modules=1`
+   `direct_finit_rc=1`
+   `probe_module=cmd-db.ko`
+   `probe_proc_name=cmd_db`
+   `positive_control=watchdog_proc_visible`
+   `positive_control_proc_names=qcom_wdt_core,gh_virt_wdt`
+   `positive_control_modules=qcom_wdt_core.ko,gh_virt_wdt.ko`
+   `cmd_db_proc_seen=`
+   `qcom_wdt_core_proc_seen=`
+   `gh_virt_wdt_proc_seen=`
+   `watchdog_proc_seen=`
+   `cmd_db_seen=`
+   `cmd_db_rc=`
+   `modules_open_rc=`
+   `modules_read_rc=`
+   `attempted=`
+   `ok=`
+   `eexist=`
+   `fail=`
+   `first_fail_index=`
+   `first_fail_rc=`
+   `first_fail_name=`
+   `both_graphs_closure=1`
+   `devlink_supplier_closure=1`
+   `substrate_load_set=waipio_devlink`
+   `driver_load_only=1`
+   `manual_power_write=0`
+   `module_count=89`
+   `configfs_gadget=0`
+   `udc_bind=0`
+   `role_write_discriminator=0`
+   `typec_readback=0`
+   `reboot_request=download`
+   `download_beacon=1`
+   `true_action=timed_reboot_download`
+   `false_action=timed_reboot_download`
+   `download-beacon-hit-timed`
+   `download-beacon-miss-manual-download-required`
+   `no configfs gadget setup`
+   `no UDC bind`
+   `no TypeC role write`
+   `no ssusb role write`
+   `no Android/Magisk handoff`
+   `no persistent partition mount`
+   `no block write`
+   `manual Download rollback is recovery-only`
+
+
    **Consumed exception (2026-07-10, S22+ M34 S11P0 proc-modules positive-control boot-only live gate):**
    this one-shot exception was consumed by the 2026-07-10 KST live S11P0 run.
    It flashed only the pinned single-member M34 S11P0 boot-only AP.tar.md5
