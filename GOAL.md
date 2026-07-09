@@ -23,6 +23,37 @@ safety invariants and flash gates are binding and override any sub-goal.**
 > descriptor/composition stays downstream until a candidate electrically enumerates. Full
 > analysis: `docs/reports/S22PLUS_M34_S8_BEACON_PROBE_PIVOT_STOP_BLIND_FLASHING_2026-07-09.md`.
 
+> **S22+ CURRENT FRONTIER (2026-07-09 09:14 KST / 2026-07-09 00:14 UTC) — M34 S8B1 LIVE GATE READY; NO ACTIVE LIVE AUTH.**
+> Codex added the fail-closed S8B1 live gate helper
+> `workspace/public/src/scripts/revalidation/s22plus_m34_s8b1_beacon_probe_live_gate.py`
+> plus tests in
+> `tests/test_s22plus_m34_s8b1_beacon_probe_live_gate.py`.
+>
+> The helper pins the S8B1 AP.tar.md5 SHA256
+> `0bf313cdf24a5f5babc3d0073a1e90686f1b734b6dafdfa548154ef3eac6c2c8`,
+> padded boot.img SHA256
+> `4e599087f242fdf2ae6bee1465e0725b60057bad893b665a178bcf87b88b9a20`,
+> `/init` SHA256
+> `a1cbc9828a24a7e302bd569de93b4f41e2ceb159130ea373d2ea9c9572f5a20d`,
+> module-list SHA256
+> `c0c35e02fe61a3f6c18c221a9ae2cc1a54aafd38374117fa954dbfa675700998`,
+> template source SHA256
+> `35978182a80e0502a0aec89ec66e35ca378ebbb3b7c58c573ad0e8ff55cc248d`,
+> and known-booting Magisk boot SHA256
+> `2e541703951dc725bad35850faf7028c2d910dd5f21166449b63f1248c29967e`.
+>
+> Live semantics are fixed: original Odin endpoint must disconnect after the
+> candidate flash; a later Odin Download endpoint is `download-beacon-hit`
+> (predicate true); no new Odin endpoint during the bounded observation window
+> is `download-beacon-miss-parked-manual-download-required` and requires manual
+> Download rollback. The helper prints a draft and active-template exception,
+> but no active exception has been inserted. Validation passed: helper
+> `py_compile`, `--offline-check`, draft/active-template generation, S8B1 tests
+> (`Ran 8 tests`, `OK`), M34/S7A2 regression (`Ran 15 tests`, `OK`), and
+> default run fail-closed without active authorization.
+> Report:
+> `docs/reports/S22PLUS_NATIVE_INIT_M34_S8B1_BEACON_PROBE_LIVE_GATE_READY_2026-07-09.md`.
+
 > **S22+ CURRENT FRONTIER (2026-07-09 09:03 KST / 2026-07-09 00:03 UTC) — M34 S8B1 DOWNLOAD-BEACON HOST BUILD COMPLETE; NO ACTIVE LIVE AUTH.**
 > Codex implemented the first S8 state probe in
 > `workspace/public/src/scripts/revalidation/build_s22plus_m34_runtime_gadget_split.py`

@@ -158,6 +158,16 @@ tests`, `OK`), and S7A/S7A2 live-helper regression tests (`Ran 20 tests`,
 `OK`). Full build report:
 `docs/reports/S22PLUS_NATIVE_INIT_M34_S8B1_BEACON_PROBE_HOST_BUILD_2026-07-09.md`.
 
+The fail-closed live gate helper is also ready:
+`workspace/public/src/scripts/revalidation/s22plus_m34_s8b1_beacon_probe_live_gate.py`.
+It pins the hashes above, prints a draft/active-template `AGENTS.md` exception,
+and classifies only two clean outcomes: `download-beacon-hit` if a new Odin
+Download endpoint appears after candidate flash, or
+`download-beacon-miss-parked-manual-download-required` if no new Odin endpoint
+appears during the bounded window. No active live authorization has been
+inserted. Full ready report:
+`docs/reports/S22PLUS_NATIVE_INIT_M34_S8B1_BEACON_PROBE_LIVE_GATE_READY_2026-07-09.md`.
+
 ## Safety / discipline
 
 Read-only host analysis only. Any S8 beacon candidate is a boot-only native-init
