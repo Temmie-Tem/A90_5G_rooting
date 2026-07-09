@@ -20,6 +20,8 @@ S7A: S6 plus the stock max77705/PDIC/altmode session-producer module chain
      and TypeC/UDC readback markers, still ACM-only and no soft_connect.
 S7A2: S7A plus the missing GENI I2C transport for the max77705 bus and a
       bounded TypeC role-write discriminator if no partner is present.
+S8B1: S7A2 module recipe plus a 1-bit reboot(download) beacon probe for
+      max77705 TypeC port or I2C-device presence; false parks.
 """
 
 from __future__ import annotations
@@ -59,7 +61,7 @@ from build_s22plus_inplace_m4t1_magiskboot import (
 from build_s22plus_m32_wdt_hs_acm import EXPECTED_M32_MODULES, dependency_complete_wdt_hs_order
 
 
-DEFAULT_OUT = Path("workspace/private/outputs/s22plus_native_init/m34_runtime_gadget_split_v0_7")
+DEFAULT_OUT = Path("workspace/private/outputs/s22plus_native_init/m34_runtime_gadget_split_v0_8")
 DEFAULT_TEMPLATE_SOURCE = Path("workspace/public/src/native-init/s22plus_init_m34_runtime_gadget_split.c")
 DEFAULT_VENDOR_RAMDISK = m23.DEFAULT_VENDOR_RAMDISK
 DEFAULT_LZ4 = m23.DEFAULT_LZ4
@@ -199,6 +201,7 @@ class RuntimeStage:
     typec_readback_markers: bool = False
     geni_i2c_transport_parity: bool = False
     typec_role_write_discriminator: bool = False
+    beacon_probe: str | None = None
 
     @property
     def lower(self) -> str:
@@ -351,6 +354,33 @@ STAGES = [
         typec_readback_markers=True,
         geni_i2c_transport_parity=True,
         typec_role_write_discriminator=True,
+    ),
+    RuntimeStage(
+        "S8B1",
+        9,
+        (
+            "S7A2 module recipe plus a 1-bit download-beacon probe: after module "
+            "load, poll for /sys/class/typec/port0 or /sys/bus/i2c/devices/57-0066; "
+            "true requests reboot(download), false parks"
+        ),
+        configfs_gadget=False,
+        udc_none=False,
+        max_speed_high_speed=False,
+        usb_role_force=False,
+        ssusb_speed_high_speed=False,
+        ssusb_mode_peripheral=False,
+        udc_bind=False,
+        soft_connect=False,
+        stock_softdep_parity=True,
+        qmp_module_included=True,
+        eud_module_included=True,
+        ucsi_glink_included=True,
+        session_producer_parity=True,
+        max77705_session_modules_included=True,
+        typec_readback_markers=False,
+        geni_i2c_transport_parity=True,
+        typec_role_write_discriminator=False,
+        beacon_probe="typec_port_or_i2c_device",
     ),
 ]
 
@@ -555,6 +585,7 @@ def compile_init(source: Path, out_path: Path, build_dir: Path, stage: RuntimeSt
             "-Wall",
             "-Wextra",
             "-Werror",
+            *(["-Wno-unused-function"] if stage.beacon_probe else []),
             "-Wl,--build-id=none",
             "-Wl,-e,_start",
             "-Wl,-z,noexecstack",
@@ -588,12 +619,16 @@ def compile_init(source: Path, out_path: Path, build_dir: Path, stage: RuntimeSt
         raise SystemExit(f"M34 {stage.label} init disassembly does not contain svc")
     if not any("#0x111" in line and "// #273" in line for line in objdump_text.splitlines()):
         raise SystemExit(f"M34 {stage.label} init does not load arm64 __NR_finit_module (273)")
-    if any("mov" in line and "x8" in line and "#0x8e" in line for line in objdump_text.splitlines()):
+    has_reboot_nr = any("mov" in line and "x8" in line and "#0x8e" in line for line in objdump_text.splitlines())
+    if stage.beacon_probe:
+        if not has_reboot_nr:
+            raise SystemExit(f"M34 {stage.label} beacon init does not load arm64 __NR_reboot (142)")
+    elif has_reboot_nr:
         raise SystemExit(f"M34 {stage.label} init must not load arm64 __NR_reboot (142)")
 
     required_strings = [
         stage.marker,
-        "version=0.6",
+        "version=0.8" if stage.beacon_probe else "version=0.6",
         "runtime=freestanding",
         "raw_syscalls=1",
         f"/{stage.modules_ramdisk}",
@@ -602,25 +637,34 @@ def compile_init(source: Path, out_path: Path, build_dir: Path, stage: RuntimeSt
         f"runtime_step={stage.label}",
         f"module_count={module_count}",
         "no_android_handoff=1",
-        "no_reboot_request=1",
-        "no_download_beacon=1",
         "phase=modules_load_done",
-        "phase=configfs_done",
         "phase=park_enter",
-        "/config/usb_gadget/g1",
-        "/config/usb_gadget/g1/UDC",
-        "/config/usb_gadget/g1/functions/ss_acm.0",
-        "../../functions/ss_acm.0",
-        "stock_order=1",
-        "udc_none=1",
-        "0x04E8",
-        "0x0200",
-        "0x6860",
-        "900",
-        "none",
-        "S22 Native Init M34 Runtime Split",
-        "S22M34RUNTIME01",
     ]
+    if stage.beacon_probe:
+        required_strings.extend(["reboot_request=download", "download_beacon=1"])
+    else:
+        required_strings.extend(["no_reboot_request=1", "no_download_beacon=1"])
+    if stage.configfs_gadget:
+        required_strings.extend(
+            [
+                "phase=configfs_done",
+                "/config/usb_gadget/g1",
+                "/config/usb_gadget/g1/UDC",
+                "/config/usb_gadget/g1/functions/ss_acm.0",
+                "../../functions/ss_acm.0",
+                "stock_order=1",
+                "udc_none=1",
+                "0x04E8",
+                "0x0200",
+                "0x6860",
+                "900",
+                "none",
+                "S22 Native Init M34 Runtime Split",
+                "S22M34RUNTIME01",
+            ]
+        )
+    else:
+        required_strings.extend(["configfs_gadget=0", "stock_order=0", "udc_none=0"])
     if stage.max_speed_high_speed:
         required_strings.extend(["max_speed_high_speed=1", "/config/usb_gadget/g1/max_speed", "high-speed", "phase=max_speed"])
     else:
@@ -668,9 +712,16 @@ def compile_init(source: Path, out_path: Path, build_dir: Path, stage: RuntimeSt
             [
                 "session_producer_parity=1",
                 "max77705_session=1",
-                "typec_readback=1",
                 "functionfs=0",
                 "stock_composite=0",
+            ]
+        )
+    else:
+        required_strings.extend(["session_producer_parity=0", "max77705_session=0", "typec_readback=0"])
+    if stage.typec_readback_markers:
+        required_strings.extend(
+            [
+                "typec_readback=1",
                 "/sys/devices/platform/soc/a600000.ssusb/speed",
                 "/sys/class/typec/port0/data_role",
                 "/sys/class/typec/port0/power_role",
@@ -685,8 +736,8 @@ def compile_init(source: Path, out_path: Path, build_dir: Path, stage: RuntimeSt
                 "udc_post_bind",
             ]
         )
-    else:
-        required_strings.extend(["session_producer_parity=0", "max77705_session=0", "typec_readback=0"])
+    elif stage.session_producer_parity:
+        required_strings.append("typec_readback=0")
     if stage.geni_i2c_transport_parity:
         required_strings.extend(
             [
@@ -714,15 +765,45 @@ def compile_init(source: Path, out_path: Path, build_dir: Path, stage: RuntimeSt
         )
     else:
         required_strings.append("role_write_discriminator=0")
+    if stage.beacon_probe:
+        required_strings.extend(
+            [
+                f"s8_beacon_probe={stage.beacon_probe}",
+                "b1=1",
+                "phase=s8_b1_probe",
+                "predicate=typec_port_or_i2c_device",
+                "true_action=reboot_download",
+                "false_action=park",
+                "/sys/class/typec/port0",
+                "/sys/bus/i2c/devices/57-0066",
+                "download",
+            ]
+        )
 
     forbidden_strings = [
         b"ld-linux",
         b"libc.so",
         b"/vendor_dlkm",
-        b"reboot_request=download",
-        b"LINUX_REBOOT",
         b"ttyGS0",
     ]
+    if stage.beacon_probe:
+        forbidden_strings.extend([b"no_reboot_request=1", b"no_download_beacon=1"])
+    else:
+        forbidden_strings.extend([
+            b" reboot_request=download ",
+            b" download_beacon=1 ",
+            b"phase=s8_b1_probe",
+            b"/sys/bus/i2c/devices/57-0066",
+            b"LINUX_REBOOT",
+        ])
+    if not stage.configfs_gadget:
+        forbidden_strings.extend([
+            b"phase=configfs_done",
+            b"/config/usb_gadget/g1/functions/ss_acm.0",
+            b"../../functions/ss_acm.0",
+            b"S22 Native Init M34 Runtime Split",
+            b"S22M34RUNTIME01",
+        ])
     if not stage.max_speed_high_speed:
         forbidden_strings.extend([b"/config/usb_gadget/g1/max_speed", b"phase=max_speed", b"high-speed"])
     if not stage.usb_role_force:
@@ -737,10 +818,9 @@ def compile_init(source: Path, out_path: Path, build_dir: Path, stage: RuntimeSt
         forbidden_strings.extend([b"/sys/class/udc", b"a600000.dwc3", b"phase=udc_bind"])
     if not stage.soft_connect:
         forbidden_strings.extend([b"/sys/class/udc/a600000.dwc3/soft_connect", b"phase=soft_connect"])
-    if not stage.session_producer_parity:
+    if not stage.typec_readback_markers:
         forbidden_strings.extend(
             [
-                b"/sys/class/typec/port0/data_role",
                 b"/sys/class/typec/port0/power_role",
                 b"/sys/class/typec/port0/port_type",
                 b"/sys/class/typec/port0-partner/uevent",
@@ -750,6 +830,10 @@ def compile_init(source: Path, out_path: Path, build_dir: Path, stage: RuntimeSt
                 b"udc_post_bind",
             ]
         )
+        if not stage.beacon_probe:
+            forbidden_strings.append(b"/sys/class/typec/port0")
+        if not stage.udc_bind:
+            forbidden_strings.extend([b"/sys/class/udc/a600000.dwc3/state", b"/sys/class/udc/a600000.dwc3/current_speed", b"/sys/class/udc/a600000.dwc3/function"])
     if not stage.geni_i2c_transport_parity:
         forbidden_strings.extend([b"geni_i2c_transport=1", b"i2c_msm_geni=1", b"gpi_dma=1", b"msm_geni_se=1"])
     if not stage.typec_role_write_discriminator:
@@ -905,6 +989,7 @@ def build_stage(
             "typec_readback_markers": stage.typec_readback_markers,
             "geni_i2c_transport_parity": stage.geni_i2c_transport_parity,
             "typec_role_write_discriminator": stage.typec_role_write_discriminator,
+            "beacon_probe": stage.beacon_probe,
         },
         "closure": stage_closure,
         "paths": {
@@ -1042,6 +1127,7 @@ def main(argv: list[str]) -> int:
         label = stage_manifest["label"]
         for key in ("boot_img", "boot_img_lz4", "ap_tar", "ap_tar_md5", "m34_init", "m34_modules"):
             hashes[f"{label}.{key}"] = stage_manifest["hashes"][key]
+    any_beacon_probe = any(stage.beacon_probe for stage in selected_stages)
 
     manifest: dict[str, Any] = {
         "generated_at_utc": datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ"),
@@ -1049,7 +1135,7 @@ def main(argv: list[str]) -> int:
             "purpose": (
                 "M34 stock-ordered runtime gadget split plus S4 ssusb role-lever, S5 soft_connect, "
                 "S6 stock-speed QMP/EUD/ucsi, S7A max77705/PDIC/altmode session-producer, "
-                "and S7A2 GENI I2C transport host-build candidates"
+                "S7A2 GENI I2C transport, and S8B1 download-beacon state-probe host-build candidates"
             ),
         "stock_recipe_report": "docs/reports/S22PLUS_STOCK_USB_GADGET_ACM_RECIPE_2026-07-09.md",
         "stages": stage_manifests,
@@ -1076,12 +1162,13 @@ def main(argv: list[str]) -> int:
                     "typec_readback_markers": stage.typec_readback_markers,
                     "geni_i2c_transport_parity": stage.geni_i2c_transport_parity,
                     "typec_role_write_discriminator": stage.typec_role_write_discriminator,
+                    "beacon_probe": stage.beacon_probe,
                 }
                 for stage in selected_stages
             ],
             "live_order": ["S1", "S2", "S3", "S4", "S5", "S6"],
             "host_build_order": [stage.label for stage in selected_stages],
-            "next_host_only_candidate": "S7A2",
+            "next_host_only_candidate": "S8B1",
             "p30_is_s0": True,
             "module_closure_matches_p30_and_m32_for_s1_s5": True,
             "s6_module_closure_restores_stock_dwc3_softdep": True,
@@ -1100,6 +1187,12 @@ def main(argv: list[str]) -> int:
             "s7a2_session_producer_new_modules": list(M34_S7A2_EXPECTED_NEW_MODULES),
             "s7a2_risk_modules": list(M34_S7A_RISK_MODULES),
             "s7a2_typec_role_write_discriminator": True,
+            "s8b1_download_beacon_probe": "typec_port_or_i2c_device",
+            "s8b1_true_action": "reboot(download)",
+            "s8b1_false_action": "park",
+            "s8b1_probe_paths": ["/sys/class/typec/port0", "/sys/bus/i2c/devices/57-0066"],
+            "s8b1_keeps_s7a2_module_recipe": True,
+            "s8b1_skips_downstream_configfs_and_udc_to_isolate_probe": True,
         },
         "safety": {
             "boot_only": True,
@@ -1113,9 +1206,9 @@ def main(argv: list[str]) -> int:
             "runtime_module_list_buffer_bytes": RUNTIME_MODULES_LOAD_BUF,
             "mkbootimg_from_scratch": False,
             "no_android_or_magisk_handoff": True,
-            "auto_reboot": False,
-            "intended_reboot_syscall": False,
-            "reboot_request": None,
+            "auto_reboot": "download-if-probe-true" if any_beacon_probe else False,
+            "intended_reboot_syscall": bool(any_beacon_probe),
+            "reboot_request": "download-if-probe-true" if any_beacon_probe else None,
             "persistent_partition_mount": False,
             "block_device_writes": False,
             "module_binary_injection": False,
@@ -1161,6 +1254,10 @@ def main(argv: list[str]) -> int:
             "stage_s7a2_no_high_speed_force": True,
             "stage_s7a2_no_soft_connect": True,
             "stage_s7a2_no_charge_otg_rail_gpio_writes": True,
+            "stage_s8b1_starts_from_s7a2_module_recipe": True,
+            "stage_s8b1_beacon_probe": "typec_port_or_i2c_device",
+            "stage_s8b1_true_reboot_download_false_park": True,
+            "stage_s8b1_no_configfs_udc_or_role_write": True,
         },
         "vendor": {
             "vendor_ramdisk": display_path(root, vendor_ramdisk),

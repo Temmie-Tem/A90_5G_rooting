@@ -129,6 +129,35 @@ just using it as a "did I reach the end" signal instead of a "what is the
 intermediate state" probe. Reusing it as a state probe turns five-flashes-and-
 counting of blind guessing into a bounded, decisive bisection.
 
+## S8B1 host build status
+
+Codex implemented S8B1 as the first B1 download-beacon state probe and built the
+default v0.8 artifact set:
+
+```text
+workspace/private/outputs/s22plus_native_init/m34_runtime_gadget_split_v0_8/
+```
+
+S8B1 keeps the S7A2 module recipe fixed, then probes exactly one state:
+`/sys/class/typec/port0` exists or `/sys/bus/i2c/devices/57-0066` exists. True
+requests `reboot(download)`; false parks. It skips configfs gadget setup, UDC
+bind, `ssusb` role writes, TypeC role writes, FunctionFS, and stock composite
+setup so B1 isolates max77705/I2C reachability.
+
+S8B1 hashes:
+
+```text
+AP.tar.md5: 0bf313cdf24a5f5babc3d0073a1e90686f1b734b6dafdfa548154ef3eac6c2c8
+padded boot.img: 4e599087f242fdf2ae6bee1465e0725b60057bad893b665a178bcf87b88b9a20
+/init: a1cbc9828a24a7e302bd569de93b4f41e2ceb159130ea373d2ea9c9572f5a20d
+module list: c0c35e02fe61a3f6c18c221a9ae2cc1a54aafd38374117fa954dbfa675700998
+```
+
+Validation passed: v0.8 default build, M34 runtime gadget split tests (`Ran 5
+tests`, `OK`), and S7A/S7A2 live-helper regression tests (`Ran 20 tests`,
+`OK`). Full build report:
+`docs/reports/S22PLUS_NATIVE_INIT_M34_S8B1_BEACON_PROBE_HOST_BUILD_2026-07-09.md`.
+
 ## Safety / discipline
 
 Read-only host analysis only. Any S8 beacon candidate is a boot-only native-init

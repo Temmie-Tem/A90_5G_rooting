@@ -16,8 +16,10 @@
  * keeping the S6 ACM-only gadget and no soft_connect. Stage 7A2 adds the GENI
  * I2C transport required for the max77705 994000.i2c bus, and if no TypeC
  * partner is visible, writes the same TypeC role nodes the stock USB HAL owns
- * as a bounded host-visible discriminator. The program remains a direct-PID1
- * park candidate: no Android handoff, no reboot request, no persistent mount,
+ * as a bounded host-visible discriminator. Stage 8B1 keeps the S7A2 module
+ * recipe but uses reboot(download) as a one-bit beacon for whether the max77705
+ * TypeC port or I2C device appeared. S1..S7A2 remain direct-PID1 park
+ * candidates with no Android handoff, no reboot request, no persistent mount,
  * and no block writes.
  */
 
@@ -74,6 +76,12 @@
 #define NR_READ 63
 #define NR_WRITE 64
 #define NR_NANOSLEEP 101
+#if M34_STAGE >= 9
+#define NR_REBOOT 142
+#define LINUX_REBOOT_MAGIC1 0xfee1deadUL
+#define LINUX_REBOOT_MAGIC2 672274793UL
+#define LINUX_REBOOT_CMD_RESTART2 0xa1b2c3d4UL
+#endif
 #define NR_FINIT_MODULE 273
 
 #define MODULES_LOAD_BUF 4096
@@ -98,7 +106,11 @@ struct sbuf {
 };
 
 static const char k_marker[] =
+#if M34_STAGE >= 9
+    M34_MARKER " version=0.8 pid1=direct runtime=freestanding raw_syscalls=1 "
+#else
     M34_MARKER " version=0.6 pid1=direct runtime=freestanding raw_syscalls=1 "
+#endif
     "stage=" M34_STAGE_NAME " runtime_step=" M34_STAGE_NAME " "
     "modules_dep_complete=" M34_MODULES_RAMDISK " module_count=" STR(M34_MODULE_LIMIT) " "
     "module_source=stock_vendor_boot_ramdisk module_list=dep_complete_runtime_gadget_split "
@@ -118,8 +130,14 @@ static const char k_marker[] =
     "configfs_gadget=1 stock_order=1 udc_none=1 max_speed_high_speed=0 role_force=0 ssusb_speed_high_speed=0 ssusb_mode_peripheral=1 udc_bind=1 soft_connect=0 stock_softdep_parity=1 qmp_module=1 eud_module=1 ucsi_glink=1 session_producer_parity=1 max77705_session=1 typec_readback=1 functionfs=0 stock_composite=0 geni_i2c_transport=0 role_write_discriminator=0 "
 #elif M34_STAGE == 8
     "configfs_gadget=1 stock_order=1 udc_none=1 max_speed_high_speed=0 role_force=0 ssusb_speed_high_speed=0 ssusb_mode_peripheral=1 udc_bind=1 soft_connect=0 stock_softdep_parity=1 qmp_module=1 eud_module=1 ucsi_glink=1 session_producer_parity=1 max77705_session=1 typec_readback=1 functionfs=0 stock_composite=0 geni_i2c_transport=1 i2c_msm_geni=1 gpi_dma=1 msm_geni_se=1 role_write_discriminator=1 "
+#elif M34_STAGE == 9
+    "configfs_gadget=0 stock_order=0 udc_none=0 max_speed_high_speed=0 role_force=0 ssusb_speed_high_speed=0 ssusb_mode_peripheral=0 udc_bind=0 soft_connect=0 stock_softdep_parity=1 qmp_module=1 eud_module=1 ucsi_glink=1 session_producer_parity=1 max77705_session=1 typec_readback=0 functionfs=0 stock_composite=0 geni_i2c_transport=1 i2c_msm_geni=1 gpi_dma=1 msm_geni_se=1 role_write_discriminator=0 s8_beacon_probe=typec_port_or_i2c_device b1=1 "
 #endif
+#if M34_STAGE >= 9
+    "no_android_handoff=1 reboot_request=download download_beacon=1 "
+#else
     "no_android_handoff=1 no_reboot_request=1 no_download_beacon=1 "
+#endif
     "persistent_mount=0 block_write=0\n";
 
 static inline long syscall6(long nr, long a0, long a1, long a2, long a3, long a4, long a5) {
@@ -199,6 +217,17 @@ static long sys_sleep_sec(long sec) {
     };
     return syscall2(NR_NANOSLEEP, (long)(uintptr_t)&req, 0);
 }
+
+#if M34_STAGE >= 9
+static long sys_reboot_download(void) {
+    return syscall4(
+        NR_REBOOT,
+        (long)LINUX_REBOOT_MAGIC1,
+        (long)LINUX_REBOOT_MAGIC2,
+        (long)LINUX_REBOOT_CMD_RESTART2,
+        (long)(uintptr_t)"download");
+}
+#endif
 
 static long sys_finit_module(int fd, const char *params, int flags) {
     return syscall3(NR_FINIT_MODULE, fd, (long)(uintptr_t)params, flags);
@@ -417,6 +446,52 @@ static void maybe_force_typec_device_sink(void) {
     sb_put_i64(&sb, power_rc);
     sb_putc(&sb, '\n');
     emit_buf(&sb);
+}
+#endif
+
+#if M34_STAGE == 9
+static int path_present(const char *path) {
+    long fd = sys_openat(AT_FDCWD, path, O_RDONLY | O_CLOEXEC, 0);
+    if (fd < 0) {
+        return 0;
+    }
+    (void)sys_close((int)fd);
+    return 1;
+}
+
+static int s8_b1_typec_port_or_i2c_present(void) {
+    return path_present("/sys/class/typec/port0") || path_present("/sys/bus/i2c/devices/57-0066");
+}
+
+static void s8_b1_beacon_probe(void) {
+    int present = 0;
+    unsigned int waited = 0;
+    for (; waited < 10; ++waited) {
+        if (s8_b1_typec_port_or_i2c_present()) {
+            present = 1;
+            break;
+        }
+        (void)sys_sleep_sec(1);
+    }
+
+    struct sbuf sb = {.data = {0}, .len = 0};
+    sb_puts(&sb, M34_MARKER);
+    sb_puts(&sb, " phase=s8_b1_probe predicate=typec_port_or_i2c_device present=");
+    sb_put_u64(&sb, present ? 1U : 0U);
+    sb_puts(&sb, " waited_sec=");
+    sb_put_u64(&sb, waited);
+    sb_puts(&sb, " true_action=reboot_download false_action=park paths=/sys/class/typec/port0,/sys/bus/i2c/devices/57-0066\n");
+    emit_buf(&sb);
+
+    if (present) {
+        long rc = sys_reboot_download();
+        struct sbuf rb = {.data = {0}, .len = 0};
+        sb_puts(&rb, M34_MARKER);
+        sb_puts(&rb, " phase=s8_b1_reboot_returned rc=");
+        sb_put_i64(&rb, rc);
+        sb_putc(&rb, '\n');
+        emit_buf(&rb);
+    }
 }
 #endif
 
@@ -816,6 +891,10 @@ __attribute__((noreturn)) void _start(void) {
     setup_minimal_fs();
     emit(k_marker);
     load_modules_from_list();
+#if M34_STAGE == 9
+    s8_b1_beacon_probe();
+    park_forever();
+#else
     create_configfs_gadget();
 #if M34_STAGE >= 2
 #if M34_STAGE == 2 || M34_STAGE == 3 || M34_STAGE == 4 || M34_STAGE == 5
@@ -850,4 +929,5 @@ __attribute__((noreturn)) void _start(void) {
     soft_connect_udc();
 #endif
     park_forever();
+#endif
 }

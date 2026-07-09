@@ -7,7 +7,7 @@ from pathlib import Path
 
 SCRIPT = Path("workspace/public/src/scripts/revalidation/build_s22plus_m34_runtime_gadget_split.py")
 SOURCE = Path("workspace/public/src/native-init/s22plus_init_m34_runtime_gadget_split.c")
-MANIFEST = Path("workspace/private/outputs/s22plus_native_init/m34_runtime_gadget_split_v0_7/manifest.json")
+MANIFEST = Path("workspace/private/outputs/s22plus_native_init/m34_runtime_gadget_split_v0_8/manifest.json")
 
 
 def load_module():
@@ -28,8 +28,8 @@ class S22PlusM34RuntimeGadgetSplitBuildTest(unittest.TestCase):
 
     def test_stage_matrix_is_incremental_runtime_gadget_split(self):
         stages = self.module.STAGES
-        self.assertEqual([stage.label for stage in stages], ["S1", "S2", "S3", "S4", "S5", "S6", "S7A", "S7A2"])
-        self.assertEqual([stage.number for stage in stages], [1, 2, 3, 4, 5, 6, 7, 8])
+        self.assertEqual([stage.label for stage in stages], ["S1", "S2", "S3", "S4", "S5", "S6", "S7A", "S7A2", "S8B1"])
+        self.assertEqual([stage.number for stage in stages], [1, 2, 3, 4, 5, 6, 7, 8, 9])
         self.assertEqual(self.module.MARKER_PREFIX, "S22_NATIVE_INIT_M34_RUNTIME_GADGET_SPLIT")
 
         by_label = {stage.label: stage for stage in stages}
@@ -118,8 +118,26 @@ class S22PlusM34RuntimeGadgetSplitBuildTest(unittest.TestCase):
         self.assertTrue(by_label["S7A2"].typec_readback_markers)
         self.assertTrue(by_label["S7A2"].geni_i2c_transport_parity)
         self.assertTrue(by_label["S7A2"].typec_role_write_discriminator)
+        self.assertFalse(by_label["S8B1"].configfs_gadget)
+        self.assertFalse(by_label["S8B1"].udc_none)
+        self.assertFalse(by_label["S8B1"].max_speed_high_speed)
+        self.assertFalse(by_label["S8B1"].usb_role_force)
+        self.assertFalse(by_label["S8B1"].ssusb_speed_high_speed)
+        self.assertFalse(by_label["S8B1"].ssusb_mode_peripheral)
+        self.assertFalse(by_label["S8B1"].udc_bind)
+        self.assertFalse(by_label["S8B1"].soft_connect)
+        self.assertTrue(by_label["S8B1"].stock_softdep_parity)
+        self.assertTrue(by_label["S8B1"].qmp_module_included)
+        self.assertTrue(by_label["S8B1"].eud_module_included)
+        self.assertTrue(by_label["S8B1"].ucsi_glink_included)
+        self.assertTrue(by_label["S8B1"].session_producer_parity)
+        self.assertTrue(by_label["S8B1"].max77705_session_modules_included)
+        self.assertFalse(by_label["S8B1"].typec_readback_markers)
+        self.assertTrue(by_label["S8B1"].geni_i2c_transport_parity)
+        self.assertFalse(by_label["S8B1"].typec_role_write_discriminator)
+        self.assertEqual(by_label["S8B1"].beacon_probe, "typec_port_or_i2c_device")
 
-    def test_source_has_stage_guards_and_no_reboot_syscall(self):
+    def test_source_has_stage_guards_and_no_unintended_reboot_syscall(self):
         text = SOURCE.read_text(encoding="utf-8")
         self.assertIn("#if M34_STAGE >= 2", text)
         self.assertIn("#if M34_STAGE >= 3", text)
@@ -128,6 +146,7 @@ class S22PlusM34RuntimeGadgetSplitBuildTest(unittest.TestCase):
         self.assertIn("#elif M34_STAGE == 6", text)
         self.assertIn("#elif M34_STAGE == 7", text)
         self.assertIn("#elif M34_STAGE == 8", text)
+        self.assertIn("#elif M34_STAGE == 9", text)
         self.assertIn("create_configfs_gadget", text)
         self.assertIn("force_usb_roles_device", text)
         self.assertIn("set_ssusb_speed_high_speed", text)
@@ -153,13 +172,18 @@ class S22PlusM34RuntimeGadgetSplitBuildTest(unittest.TestCase):
         self.assertIn("/config/usb_gadget/g1/functions/ss_acm.0", text)
         self.assertIn("/config/usb_gadget/g1/UDC", text)
         self.assertIn("/config/usb_gadget/g1/max_speed", text)
+        self.assertIn("s8_b1_beacon_probe", text)
+        self.assertIn("s8_b1_typec_port_or_i2c_present", text)
+        self.assertIn("/sys/bus/i2c/devices/57-0066", text)
+        self.assertIn("reboot_request=download", text)
+        self.assertIn("download_beacon=1", text)
+        self.assertIn("NR_REBOOT 142", text)
+        self.assertIn("LINUX_REBOOT_CMD_RESTART2", text)
+        self.assertIn("sys_reboot_download", text)
         self.assertIn("0x04E8", text)
         self.assertIn("0x0200", text)
         self.assertIn("900", text)
         self.assertIn("\"none\"", text)
-        self.assertNotIn("NR_REBOOT", text)
-        self.assertNotIn("LINUX_REBOOT_CMD_RESTART2", text)
-        self.assertNotIn("sys_reboot", text)
         self.assertNotIn("ttyGS0", text)
 
     def test_source_keeps_stock_gadget_order(self):
@@ -192,11 +216,11 @@ class S22PlusM34RuntimeGadgetSplitBuildTest(unittest.TestCase):
     def test_current_manifest_is_host_only_boot_only_stage_matrix(self):
         manifest = json.loads(MANIFEST.read_text(encoding="utf-8"))
         self.assertEqual(manifest["target"], "SM-S906N/g0q/S906NKSS7FYG8")
-        self.assertEqual([stage["label"] for stage in manifest["stages"]], ["S1", "S2", "S3", "S4", "S5", "S6", "S7A", "S7A2"])
+        self.assertEqual([stage["label"] for stage in manifest["stages"]], ["S1", "S2", "S3", "S4", "S5", "S6", "S7A", "S7A2", "S8B1"])
         self.assertTrue(manifest["matrix"]["p30_is_s0"])
         self.assertEqual(manifest["matrix"]["live_order"], ["S1", "S2", "S3", "S4", "S5", "S6"])
-        self.assertEqual(manifest["matrix"]["host_build_order"], ["S1", "S2", "S3", "S4", "S5", "S6", "S7A", "S7A2"])
-        self.assertEqual(manifest["matrix"]["next_host_only_candidate"], "S7A2")
+        self.assertEqual(manifest["matrix"]["host_build_order"], ["S1", "S2", "S3", "S4", "S5", "S6", "S7A", "S7A2", "S8B1"])
+        self.assertEqual(manifest["matrix"]["next_host_only_candidate"], "S8B1")
         self.assertTrue(manifest["matrix"]["module_closure_matches_p30_and_m32_for_s1_s5"])
         self.assertTrue(manifest["matrix"]["s6_module_closure_restores_stock_dwc3_softdep"])
         self.assertEqual(
@@ -211,13 +235,19 @@ class S22PlusM34RuntimeGadgetSplitBuildTest(unittest.TestCase):
         self.assertEqual(manifest["matrix"]["s7a2_geni_i2c_transport_targets"], ["gpi.ko", "msm-geni-se.ko", "i2c-msm-geni.ko"])
         self.assertEqual(manifest["matrix"]["s7a2_geni_i2c_transport_order_actual"], ["msm-geni-se.ko", "gpi.ko", "i2c-msm-geni.ko"])
         self.assertTrue(manifest["matrix"]["s7a2_typec_role_write_discriminator"])
+        self.assertEqual(manifest["matrix"]["s8b1_download_beacon_probe"], "typec_port_or_i2c_device")
+        self.assertEqual(manifest["matrix"]["s8b1_true_action"], "reboot(download)")
+        self.assertEqual(manifest["matrix"]["s8b1_false_action"], "park")
+        self.assertEqual(manifest["matrix"]["s8b1_probe_paths"], ["/sys/class/typec/port0", "/sys/bus/i2c/devices/57-0066"])
+        self.assertTrue(manifest["matrix"]["s8b1_keeps_s7a2_module_recipe"])
+        self.assertTrue(manifest["matrix"]["s8b1_skips_downstream_configfs_and_udc_to_isolate_probe"])
         self.assertFalse(manifest["safety"]["live_flash_authorized"])
         self.assertTrue(manifest["safety"]["requires_new_sha_pinned_agents_exception_before_flash"])
         self.assertTrue(manifest["safety"]["requires_s7a_specific_live_risk_review"])
         self.assertEqual(manifest["safety"]["runtime_module_list_buffer_bytes"], self.module.RUNTIME_MODULES_LOAD_BUF)
-        self.assertFalse(manifest["safety"]["auto_reboot"])
-        self.assertFalse(manifest["safety"]["intended_reboot_syscall"])
-        self.assertIsNone(manifest["safety"]["reboot_request"])
+        self.assertEqual(manifest["safety"]["auto_reboot"], "download-if-probe-true")
+        self.assertTrue(manifest["safety"]["intended_reboot_syscall"])
+        self.assertEqual(manifest["safety"]["reboot_request"], "download-if-probe-true")
         self.assertFalse(manifest["safety"]["persistent_partition_mount"])
         self.assertFalse(manifest["safety"]["block_device_writes"])
         self.assertTrue(manifest["safety"]["stock_order_udc_none_before_ids_and_link"])
@@ -247,6 +277,10 @@ class S22PlusM34RuntimeGadgetSplitBuildTest(unittest.TestCase):
         self.assertTrue(manifest["safety"]["stage_s7a2_adds_geni_i2c_transport"])
         self.assertTrue(manifest["safety"]["stage_s7a2_role_write_discriminator_if_no_partner"])
         self.assertTrue(manifest["safety"]["stage_s7a2_no_soft_connect"])
+        self.assertTrue(manifest["safety"]["stage_s8b1_starts_from_s7a2_module_recipe"])
+        self.assertEqual(manifest["safety"]["stage_s8b1_beacon_probe"], "typec_port_or_i2c_device")
+        self.assertTrue(manifest["safety"]["stage_s8b1_true_reboot_download_false_park"])
+        self.assertTrue(manifest["safety"]["stage_s8b1_no_configfs_udc_or_role_write"])
 
         by_label = {stage["label"]: stage for stage in manifest["stages"]}
         self.assertEqual(
@@ -269,6 +303,7 @@ class S22PlusM34RuntimeGadgetSplitBuildTest(unittest.TestCase):
                 "typec_readback_markers": False,
                 "geni_i2c_transport_parity": False,
                 "typec_role_write_discriminator": False,
+                "beacon_probe": None,
             },
         )
         self.assertEqual(
@@ -291,6 +326,7 @@ class S22PlusM34RuntimeGadgetSplitBuildTest(unittest.TestCase):
                 "typec_readback_markers": False,
                 "geni_i2c_transport_parity": False,
                 "typec_role_write_discriminator": False,
+                "beacon_probe": None,
             },
         )
         self.assertEqual(
@@ -313,6 +349,7 @@ class S22PlusM34RuntimeGadgetSplitBuildTest(unittest.TestCase):
                 "typec_readback_markers": False,
                 "geni_i2c_transport_parity": False,
                 "typec_role_write_discriminator": False,
+                "beacon_probe": None,
             },
         )
         self.assertEqual(
@@ -335,6 +372,7 @@ class S22PlusM34RuntimeGadgetSplitBuildTest(unittest.TestCase):
                 "typec_readback_markers": False,
                 "geni_i2c_transport_parity": False,
                 "typec_role_write_discriminator": False,
+                "beacon_probe": None,
             },
         )
         self.assertEqual(
@@ -357,6 +395,7 @@ class S22PlusM34RuntimeGadgetSplitBuildTest(unittest.TestCase):
                 "typec_readback_markers": False,
                 "geni_i2c_transport_parity": False,
                 "typec_role_write_discriminator": False,
+                "beacon_probe": None,
             },
         )
         self.assertEqual(
@@ -379,6 +418,7 @@ class S22PlusM34RuntimeGadgetSplitBuildTest(unittest.TestCase):
                 "typec_readback_markers": False,
                 "geni_i2c_transport_parity": False,
                 "typec_role_write_discriminator": False,
+                "beacon_probe": None,
             },
         )
         self.assertEqual(
@@ -401,6 +441,7 @@ class S22PlusM34RuntimeGadgetSplitBuildTest(unittest.TestCase):
                 "typec_readback_markers": True,
                 "geni_i2c_transport_parity": False,
                 "typec_role_write_discriminator": False,
+                "beacon_probe": None,
             },
         )
         self.assertEqual(
@@ -423,6 +464,30 @@ class S22PlusM34RuntimeGadgetSplitBuildTest(unittest.TestCase):
                 "typec_readback_markers": True,
                 "geni_i2c_transport_parity": True,
                 "typec_role_write_discriminator": True,
+                "beacon_probe": None,
+            },
+        )
+        self.assertEqual(
+            by_label["S8B1"]["runtime_steps"],
+            {
+                "configfs_gadget": False,
+                "udc_none": False,
+                "max_speed_high_speed": False,
+                "usb_role_force": False,
+                "ssusb_speed_high_speed": False,
+                "ssusb_mode_peripheral": False,
+                "udc_bind": False,
+                "soft_connect": False,
+                "stock_softdep_parity": True,
+                "qmp_module_included": True,
+                "eud_module_included": True,
+                "ucsi_glink_included": True,
+                "session_producer_parity": True,
+                "max77705_session_modules_included": True,
+                "typec_readback_markers": False,
+                "geni_i2c_transport_parity": True,
+                "typec_role_write_discriminator": False,
+                "beacon_probe": "typec_port_or_i2c_device",
             },
         )
         for stage in manifest["stages"]:
@@ -479,6 +544,23 @@ class S22PlusM34RuntimeGadgetSplitBuildTest(unittest.TestCase):
                 self.assertTrue(stage["closure"]["contains_sec_debug_region"])
                 self.assertTrue(stage["closure"]["requires_live_risk_review"])
                 self.assertIn("sec_debug_region.ko", stage["closure"]["risk_modules"])
+            elif stage["label"] == "S8B1":
+                self.assertEqual(stage["closure"]["module_count"], 86)
+                self.assertEqual(stage["closure"]["geni_i2c_transport_targets"], ["gpi.ko", "msm-geni-se.ko", "i2c-msm-geni.ko"])
+                self.assertEqual(stage["closure"]["geni_i2c_transport_order_actual"], ["msm-geni-se.ko", "gpi.ko", "i2c-msm-geni.ko"])
+                self.assertEqual(stage["closure"]["session_producer_targets"], self.module.M34_S7A_SESSION_PRODUCER_TARGETS)
+                self.assertEqual(stage["closure"]["additional_new_modules"], self.module.M34_S7A2_EXPECTED_NEW_MODULES)
+                self.assertIn("msm-geni-se.ko", stage["closure"]["modules"])
+                self.assertIn("gpi.ko", stage["closure"]["modules"])
+                self.assertIn("i2c-msm-geni.ko", stage["closure"]["modules"])
+                self.assertIn("qcom-i2c-pmic.ko", stage["closure"]["modules"])
+                self.assertIn("mfd_max77705.ko", stage["closure"]["modules"])
+                self.assertIn("pdic_max77705.ko", stage["closure"]["modules"])
+                self.assertLess(stage["closure"]["modules"].index("i2c-msm-geni.ko"), stage["closure"]["modules"].index("pdic_max77705.ko"))
+                self.assertIn("sec_debug_region.ko", stage["closure"]["modules"])
+                self.assertTrue(stage["closure"]["contains_sec_debug_region"])
+                self.assertTrue(stage["closure"]["requires_live_risk_review"])
+                self.assertIn("sec_debug_region.ko", stage["closure"]["risk_modules"])
             else:
                 self.assertEqual(stage["closure"]["modules"], self.module.EXPECTED_M32_MODULES)
                 self.assertEqual(stage["closure"]["module_count"], 45)
@@ -496,6 +578,7 @@ class S22PlusM34RuntimeGadgetSplitBuildTest(unittest.TestCase):
         s6_required = set(by_label["S6"]["init"]["required_strings"])
         s7a_required = set(by_label["S7A"]["init"]["required_strings"])
         s7a2_required = set(by_label["S7A2"]["init"]["required_strings"])
+        s8b1_required = set(by_label["S8B1"]["init"]["required_strings"])
         self.assertIn("udc_none=1", s1_required)
         self.assertIn("/config/usb_gadget/g1/UDC", s1_required)
         self.assertIn("none", s1_required)
@@ -583,6 +666,42 @@ class S22PlusM34RuntimeGadgetSplitBuildTest(unittest.TestCase):
         self.assertNotIn("high-speed", s7a2_required)
         self.assertNotIn("phase=ssusb_speed", s7a2_required)
         self.assertNotIn("/sys/class/udc/a600000.dwc3/soft_connect", s7a2_required)
+        self.assertIn("version=0.8", s8b1_required)
+        self.assertIn("configfs_gadget=0", s8b1_required)
+        self.assertIn("stock_order=0", s8b1_required)
+        self.assertIn("udc_none=0", s8b1_required)
+        self.assertIn("udc_bind=0", s8b1_required)
+        self.assertIn("role_force=0", s8b1_required)
+        self.assertIn("typec_readback=0", s8b1_required)
+        self.assertIn("role_write_discriminator=0", s8b1_required)
+        self.assertIn("session_producer_parity=1", s8b1_required)
+        self.assertIn("max77705_session=1", s8b1_required)
+        self.assertIn("geni_i2c_transport=1", s8b1_required)
+        self.assertIn("s8_beacon_probe=typec_port_or_i2c_device", s8b1_required)
+        self.assertIn("b1=1", s8b1_required)
+        self.assertIn("reboot_request=download", s8b1_required)
+        self.assertIn("download_beacon=1", s8b1_required)
+        self.assertIn("phase=s8_b1_probe", s8b1_required)
+        self.assertIn("predicate=typec_port_or_i2c_device", s8b1_required)
+        self.assertIn("true_action=reboot_download", s8b1_required)
+        self.assertIn("false_action=park", s8b1_required)
+        self.assertIn("/sys/class/typec/port0", s8b1_required)
+        self.assertIn("/sys/bus/i2c/devices/57-0066", s8b1_required)
+        self.assertIn("download", s8b1_required)
+        self.assertNotIn("/config/usb_gadget/g1/functions/ss_acm.0", s8b1_required)
+        self.assertNotIn("phase=configfs_done", s8b1_required)
+        self.assertNotIn("/config/usb_gadget/g1/max_speed", s8b1_required)
+        self.assertNotIn("phase=max_speed", s8b1_required)
+        self.assertNotIn("high-speed", s8b1_required)
+        self.assertNotIn("/sys/class/usb_role", s8b1_required)
+        self.assertNotIn("/sys/devices/platform/soc/a600000.ssusb/mode", s8b1_required)
+        self.assertNotIn("phase=ssusb_mode", s8b1_required)
+        self.assertNotIn("/config/usb_gadget/g1/UDC", s8b1_required)
+        self.assertNotIn("/sys/class/udc", s8b1_required)
+        self.assertNotIn("a600000.dwc3", s8b1_required)
+        self.assertNotIn("phase=udc_bind", s8b1_required)
+        self.assertNotIn("/sys/class/udc/a600000.dwc3/soft_connect", s8b1_required)
+        self.assertNotIn("phase=typec_role_write", s8b1_required)
 
 
 if __name__ == "__main__":

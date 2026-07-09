@@ -23,6 +23,38 @@ safety invariants and flash gates are binding and override any sub-goal.**
 > descriptor/composition stays downstream until a candidate electrically enumerates. Full
 > analysis: `docs/reports/S22PLUS_M34_S8_BEACON_PROBE_PIVOT_STOP_BLIND_FLASHING_2026-07-09.md`.
 
+> **S22+ CURRENT FRONTIER (2026-07-09 09:03 KST / 2026-07-09 00:03 UTC) — M34 S8B1 DOWNLOAD-BEACON HOST BUILD COMPLETE; NO ACTIVE LIVE AUTH.**
+> Codex implemented the first S8 state probe in
+> `workspace/public/src/scripts/revalidation/build_s22plus_m34_runtime_gadget_split.py`
+> and `workspace/public/src/native-init/s22plus_init_m34_runtime_gadget_split.c`.
+> Output root:
+> `workspace/private/outputs/s22plus_native_init/m34_runtime_gadget_split_v0_8/`.
+>
+> S8B1 keeps the S7A2 module recipe fixed (GENI I2C transport plus max77705/
+> PDIC/altmode session-producer closure, module count 86) and reads exactly one
+> predicate after module load: `/sys/class/typec/port0` exists OR
+> `/sys/bus/i2c/devices/57-0066` exists. Predicate true requests
+> `reboot(download)` as the host-visible HIT; predicate false parks. It
+> intentionally skips downstream configfs gadget setup, UDC bind, `ssusb` role
+> writes, TypeC role writes, FunctionFS, and stock composite/userspace so B1
+> isolates max77705/I2C reachability before the USB gadget path.
+>
+> S8B1 AP.tar.md5 SHA256:
+> `0bf313cdf24a5f5babc3d0073a1e90686f1b734b6dafdfa548154ef3eac6c2c8`;
+> padded boot.img SHA256:
+> `4e599087f242fdf2ae6bee1465e0725b60057bad893b665a178bcf87b88b9a20`;
+> `/init` SHA256:
+> `a1cbc9828a24a7e302bd569de93b4f41e2ceb159130ea373d2ea9c9572f5a20d`;
+> module-list SHA256:
+> `c0c35e02fe61a3f6c18c221a9ae2cc1a54aafd38374117fa954dbfa675700998`.
+>
+> Validation passed: default v0.8 build; M34 runtime gadget split tests
+> (`Ran 5 tests`, `OK`); S7A/S7A2 live-helper regression tests (`Ran 20 tests`,
+> `OK`). No active live authorization exists. Any S8B1 flash still requires a
+> fresh SHA-pinned active `AGENTS.md` exception and explicit operator approval.
+> Report:
+> `docs/reports/S22PLUS_NATIVE_INIT_M34_S8B1_BEACON_PROBE_HOST_BUILD_2026-07-09.md`.
+
 > **S22+ CURRENT FRONTIER (2026-07-09 08:47 KST / 2026-07-08 23:47 UTC) — POST-S7A2 STOCK USB ORCHESTRATION REFRESH COMPLETE; NEXT M34 S8 B1 HOST-BUILD; NO ACTIVE LIVE AUTH.**
 > Codex rechecked the rooted Android baseline after S7A2 rollback and saved a
 > read-only stock USB/TypeC/userspace capture at
