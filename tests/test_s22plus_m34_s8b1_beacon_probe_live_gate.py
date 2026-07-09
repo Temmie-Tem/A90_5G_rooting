@@ -274,7 +274,7 @@ class S22PlusM34S8B1BeaconProbeLiveGateTest(unittest.TestCase):
                 mock.patch.object(self.module, "verify_partition_hash"),
                 mock.patch.object(self.module, "collect_android_pstore", return_value=False),
             ):
-                rc, android = self.module.rollback_boot_only_from_download(
+                rollback = self.module.rollback_boot_only_from_download(
                     odin=Path("/no/odin"),
                     rollback_ap=Path("/magisk.tar.md5"),
                     stock_boot_fallback_ap=Path("/stock.tar.md5"),
@@ -286,8 +286,10 @@ class S22PlusM34S8B1BeaconProbeLiveGateTest(unittest.TestCase):
                     label="beacon_hit",
                 )
 
-            self.assertEqual(rc, 0)
-            self.assertEqual(android, "RFCT519XWGK")
+            self.assertEqual(rollback.rc, 0)
+            self.assertEqual(rollback.android_serial, "RFCT519XWGK")
+            self.assertEqual(rollback.rollback_target, self.module.ROLLBACK_MAGISK)
+            self.assertEqual(rollback.rollback_device, "/dev/bus/usb/001/002")
             timeline = json.loads((run_dir / "timeline.json").read_text(encoding="utf-8"))
             self.assertEqual(set(timeline), {"events"})
             names = [event["name"] for event in timeline["events"]]
@@ -297,6 +299,71 @@ class S22PlusM34S8B1BeaconProbeLiveGateTest(unittest.TestCase):
             self.assertIn("beacon_hit_rollback_flash_start", names)
             self.assertIn("beacon_hit_rollback_flash_done", names)
             self.assertIn("beacon_hit_rollback_boot_ready", names)
+
+    def test_rollback_boot_only_records_actual_stock_fallback_target_and_device(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            run_dir = Path(tmp)
+            log_path = run_dir / "rollback_fallback.log"
+            with (
+                mock.patch.object(self.module, "flash_ap", side_effect=[9, 0]) as flash,
+                mock.patch.object(self.module, "wait_for_odin", return_value="/dev/bus/usb/001/003"),
+                mock.patch.object(self.module, "poll_android", return_value="RFCT519XWGK") as poll_android,
+                mock.patch.object(self.module, "verify_partition_hash") as verify_hash,
+                mock.patch.object(self.module, "collect_android_pstore", return_value=False),
+            ):
+                rollback = self.module.rollback_boot_only_from_download(
+                    odin=Path("/no/odin"),
+                    rollback_ap=Path("/magisk.tar.md5"),
+                    stock_boot_fallback_ap=Path("/stock.tar.md5"),
+                    odin_device="/dev/bus/usb/001/002",
+                    run_dir=run_dir,
+                    log_path=log_path,
+                    rollback_target=self.module.ROLLBACK_MAGISK,
+                    android_wait_sec=1,
+                    label="beacon_hit",
+                )
+
+            self.assertEqual(rollback.rc, 0)
+            self.assertEqual(rollback.android_serial, "RFCT519XWGK")
+            self.assertEqual(rollback.rollback_target, self.module.ROLLBACK_STOCK)
+            self.assertEqual(rollback.rollback_device, "/dev/bus/usb/001/003")
+            self.assertEqual(flash.call_count, 2)
+            poll_android.assert_called_once_with(log_path, 1, expect_root=False)
+            verify_hash.assert_not_called()
+            text = log_path.read_text(encoding="utf-8")
+            self.assertIn("magisk_rollback_failed_attempting_stock_fallback=1", text)
+            self.assertIn("boot_restore_hash_check=skipped rollback_target=stock", text)
+
+    def test_rollback_from_download_result_json_uses_actual_fallback_target_and_device(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            run_dir = Path(tmp)
+            log_path = run_dir / "rollback_only.log"
+            fallback = self.module.RollbackResult(
+                rc=0,
+                android_serial="RFCT519XWGK",
+                rollback_target=self.module.ROLLBACK_STOCK,
+                rollback_device="/dev/bus/usb/001/003",
+            )
+            with (
+                mock.patch.object(self.module, "odin_devices", return_value=["/dev/bus/usb/001/002"]),
+                mock.patch.object(self.module, "rollback_boot_only_from_download", return_value=fallback),
+            ):
+                rc = self.module.rollback_from_download(
+                    odin=Path("/no/odin"),
+                    rollback_ap=Path("/magisk.tar.md5"),
+                    stock_boot_fallback_ap=Path("/stock.tar.md5"),
+                    run_dir=run_dir,
+                    log_path=log_path,
+                    rollback_target=self.module.ROLLBACK_MAGISK,
+                    android_wait_sec=1,
+                )
+
+            self.assertEqual(rc, 0)
+            payload = json.loads((run_dir / "result.json").read_text(encoding="utf-8"))
+            self.assertEqual(payload["result"], "rollback-from-download-completed")
+            self.assertEqual(payload["rollback_target"], self.module.ROLLBACK_STOCK)
+            self.assertEqual(payload["rollback_device"], "/dev/bus/usb/001/003")
+            self.assertEqual(payload["android_serial"], "RFCT519XWGK")
 
     def test_helper_result_and_timeline_are_accepted_by_s8b1_analyzer_for_hit(self):
         analyzer = load_analyzer()

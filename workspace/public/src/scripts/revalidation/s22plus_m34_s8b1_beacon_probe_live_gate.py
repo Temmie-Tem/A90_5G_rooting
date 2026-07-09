@@ -20,6 +20,7 @@ import argparse
 import json
 import sys
 import time
+from dataclasses import dataclass
 from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any
@@ -88,6 +89,14 @@ M34_S8B1_RISK_MODULES = M34_S7A_RISK_MODULES
 
 DEFAULT_M34_AP = Path("workspace/private/outputs/s22plus_native_init/m34_runtime_gadget_split_v0_8/S8B1/odin4/AP.tar.md5")
 DEFAULT_M34_MANIFEST = Path("workspace/private/outputs/s22plus_native_init/m34_runtime_gadget_split_v0_8/manifest.json")
+
+
+@dataclass(frozen=True)
+class RollbackResult:
+    rc: int
+    android_serial: str | None
+    rollback_target: str
+    rollback_device: str
 
 
 def utc_stamp() -> str:
@@ -632,7 +641,9 @@ def rollback_boot_only_from_download(
     rollback_target: str,
     android_wait_sec: int,
     label: str,
-) -> tuple[int, str | None]:
+) -> RollbackResult:
+    actual_rollback_target = rollback_target
+    actual_rollback_device = odin_device
     record_timeline_event(run_dir, f"{label}_rollback_flash_start")
     record_timeline_event(run_dir, "rollback_flash_start")
     rollback_rc = flash_ap(odin, rollback_ap, odin_device, log_path, f"{label}_{rollback_target}_boot_rollback")
@@ -645,22 +656,38 @@ def rollback_boot_only_from_download(
             record_timeline_event(run_dir, f"{label}_stock_fallback_flash_start")
             rollback_rc = flash_ap(odin, stock_boot_fallback_ap, fallback_device, log_path, f"{label}_stock_boot_fallback")
             record_timeline_event(run_dir, f"{label}_stock_fallback_flash_done")
-            rollback_target = ROLLBACK_STOCK
+            actual_rollback_target = ROLLBACK_STOCK
+            actual_rollback_device = fallback_device
     if rollback_rc != 0:
-        return (rollback_rc or 5, None)
+        return RollbackResult(
+            rc=rollback_rc or 5,
+            android_serial=None,
+            rollback_target=actual_rollback_target,
+            rollback_device=actual_rollback_device,
+        )
 
-    android = poll_android(log_path, android_wait_sec, expect_root=rollback_target == ROLLBACK_MAGISK)
+    android = poll_android(log_path, android_wait_sec, expect_root=actual_rollback_target == ROLLBACK_MAGISK)
     if android is None:
-        return (6, None)
-    if rollback_target == ROLLBACK_MAGISK:
+        return RollbackResult(
+            rc=6,
+            android_serial=None,
+            rollback_target=actual_rollback_target,
+            rollback_device=actual_rollback_device,
+        )
+    if actual_rollback_target == ROLLBACK_MAGISK:
         verify_partition_hash(log_path, android, "boot", EXPECTED_M34_BASE_BOOT_SHA256, f"{label}_boot_restore")
     else:
-        append_log(log_path, f"m34_s8b1_{label}_boot_restore_hash_check=skipped rollback_target=stock")
+        append_log(log_path, f"m34_s8b1_{label}_boot_restore_hash_check=skipped rollback_target={actual_rollback_target}")
     record_timeline_event(run_dir, "rollback_boot_ready")
     record_timeline_event(run_dir, f"{label}_rollback_boot_ready")
     marker_found = collect_android_pstore(run_dir, log_path, f"post_m34_s8b1_{label}_rollback", android, marker=EXPECTED_M34_MARKER)
     append_log(log_path, f"m34_s8b1_{label}_retained_marker_found={int(marker_found)}")
-    return (0, android)
+    return RollbackResult(
+        rc=0,
+        android_serial=android,
+        rollback_target=actual_rollback_target,
+        rollback_device=actual_rollback_device,
+    )
 
 
 def rollback_from_download(
@@ -677,7 +704,7 @@ def rollback_from_download(
     devices = odin_devices(odin, log_path, "m34-s8b1-rollback-only")
     if len(devices) != 1:
         raise SystemExit(f"M34 S8B1 rollback requires exactly one Odin device, got {devices}")
-    rc, android = rollback_boot_only_from_download(
+    rollback = rollback_boot_only_from_download(
         odin=odin,
         rollback_ap=rollback_ap,
         stock_boot_fallback_ap=stock_boot_fallback_ap,
@@ -693,12 +720,12 @@ def rollback_from_download(
         run_dir,
         log_path,
         result="rollback-from-download-completed",
-        rc=rc,
-        rollback_target=rollback_target,
-        rollback_device=devices[0],
-        android_serial=android,
+        rc=rollback.rc,
+        rollback_target=rollback.rollback_target,
+        rollback_device=rollback.rollback_device,
+        android_serial=rollback.android_serial,
     )
-    return rc
+    return rollback.rc
 
 
 def main(argv: list[str]) -> int:
@@ -908,7 +935,7 @@ def main(argv: list[str]) -> int:
             )
             print(f"rollback download mode unavailable after no-disconnect; manual recovery required. log={log_path}", file=sys.stderr)
             return 4
-        rc, android = rollback_boot_only_from_download(
+        rollback = rollback_boot_only_from_download(
             odin=odin,
             rollback_ap=rollback_ap,
             stock_boot_fallback_ap=stock_rollback_ap,
@@ -924,13 +951,13 @@ def main(argv: list[str]) -> int:
             run_dir,
             log_path,
             result="no-proof-original-download-never-disconnected",
-            rc=rc or 7,
-            rollback_target=args.rollback_target,
-            rollback_device=rollback_device,
-            android_serial=android,
+            rc=rollback.rc or 7,
+            rollback_target=rollback.rollback_target,
+            rollback_device=rollback.rollback_device,
+            android_serial=rollback.android_serial,
             note="rolled back from still-present original Download endpoint; not a beacon proof",
         )
-        return rc or 7
+        return rollback.rc or 7
 
     record_timeline_event(run_dir, "candidate_boot_ready")
     print(f"M34 S8B1 candidate flashed. Observing download beacon for {args.observe_sec}s.", flush=True)
@@ -955,7 +982,7 @@ def main(argv: list[str]) -> int:
             )
             print(f"M34 S8B1 HIT recorded but no rollback device is available. log={log_path}", file=sys.stderr)
             return 4
-        rc, android = rollback_boot_only_from_download(
+        rollback = rollback_boot_only_from_download(
             odin=odin,
             rollback_ap=rollback_ap,
             stock_boot_fallback_ap=stock_rollback_ap,
@@ -971,13 +998,13 @@ def main(argv: list[str]) -> int:
             run_dir,
             log_path,
             result=result,
-            rc=rc,
-            rollback_target=args.rollback_target,
-            rollback_device=rollback_device,
-            android_serial=android,
+            rc=rollback.rc,
+            rollback_target=rollback.rollback_target,
+            rollback_device=rollback.rollback_device,
+            android_serial=rollback.android_serial,
         )
-        print(f"M34 S8B1 live gate completed rc={rc}; result={result}; log={log_path}")
-        return rc
+        print(f"M34 S8B1 live gate completed rc={rollback.rc}; result={result}; log={log_path}")
+        return rollback.rc
 
     if result != "download-beacon-miss-parked-manual-download-required":
         record_timeline_event(run_dir, "live_session_end")
@@ -1019,7 +1046,7 @@ def main(argv: list[str]) -> int:
         )
         return 4
 
-    rc, android = rollback_boot_only_from_download(
+    rollback = rollback_boot_only_from_download(
         odin=odin,
         rollback_ap=rollback_ap,
         stock_boot_fallback_ap=stock_rollback_ap,
@@ -1035,13 +1062,13 @@ def main(argv: list[str]) -> int:
         run_dir,
         log_path,
         result=result,
-        rc=rc,
-        rollback_target=args.rollback_target,
-        rollback_device=rollback_device,
-        android_serial=android,
+        rc=rollback.rc,
+        rollback_target=rollback.rollback_target,
+        rollback_device=rollback.rollback_device,
+        android_serial=rollback.android_serial,
     )
-    print(f"M34 S8B1 live gate completed rc={rc}; result={result}; log={log_path}")
-    return rc
+    print(f"M34 S8B1 live gate completed rc={rollback.rc}; result={result}; log={log_path}")
+    return rollback.rc
 
 
 if __name__ == "__main__":

@@ -126,10 +126,12 @@ Schema:
 s22plus_m34_s8b1_result_v1
 ```
 
-The result file records the final `result`, `rc`, rollback target, optional
-rollback Odin endpoint, optional post-rollback Android serial, and the pinned
-candidate/base hashes. This is the authoritative host-side summary to classify
-B1 after a live run, alongside `timeline.json` and the text log.
+The result file records the final `result`, `rc`, actual rollback target,
+actual rollback Odin endpoint, optional post-rollback Android serial, and the
+pinned candidate/base hashes. If Magisk rollback falls back to stock, the
+result file records `stock` and the fallback Odin endpoint rather than the
+original requested target/device. This is the authoritative host-side summary
+to classify B1 after a live run, alongside `timeline.json` and the text log.
 
 Added host-only post-live classifier:
 
@@ -184,10 +186,10 @@ readonly-preflight: OK, no reboot/flash/write
 draft exception generation: OK
 active-template generation: OK
 default run without active AGENTS exception: correctly fails closed
-S8B1 tests: Ran 18 tests, OK
+S8B1 tests: Ran 20 tests, OK
 S8B1 analyzer tests: Ran 10 tests, OK
 S8B1/analyzer evidence-path cross-check: included in S8B1 tests
-M34/S7A2/S8B1/analyzer regression: Ran 43 tests, OK
+M34/S7A2/S8B1/analyzer regression: Ran 45 tests, OK
 ```
 
 ## Read-Only Current Device Note
