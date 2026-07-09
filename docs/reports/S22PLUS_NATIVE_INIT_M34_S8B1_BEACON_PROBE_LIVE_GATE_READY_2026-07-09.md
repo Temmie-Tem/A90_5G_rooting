@@ -245,7 +245,7 @@ PYTHONPYCACHEPREFIX=/tmp/a90_pycache python3 -m py_compile workspace/public/src/
 PYTHONPYCACHEPREFIX=/tmp/a90_pycache python3 workspace/public/src/scripts/revalidation/s22plus_m34_s8b1_beacon_probe_live_gate.py --offline-check
 PYTHONPYCACHEPREFIX=/tmp/a90_pycache python3 workspace/public/src/scripts/revalidation/s22plus_m34_s8b1_beacon_probe_live_gate.py --readonly-preflight --android-stability-samples 2 --android-stability-interval-sec 1
 PYTHONPYCACHEPREFIX=/tmp/a90_pycache python3 workspace/public/src/scripts/revalidation/s22plus_m34_s8b1_beacon_probe_live_gate.py --prelive-packet --android-stability-samples 2 --android-stability-interval-sec 1
-PYTHONPYCACHEPREFIX=/tmp/a90_pycache python3 workspace/public/src/scripts/revalidation/s22plus_m34_s8b1_beacon_probe_live_gate.py --verify-prelive-packet workspace/private/runs/s22plus_m34_s8b1_beacon_probe_live_gate_20260709T022933Z/s22plus_m34_s8b1_prelive_packet.json
+PYTHONPYCACHEPREFIX=/tmp/a90_pycache python3 workspace/public/src/scripts/revalidation/s22plus_m34_s8b1_beacon_probe_live_gate.py --verify-prelive-packet workspace/private/runs/s22plus_m34_s8b1_beacon_probe_live_gate_20260709T024623Z/s22plus_m34_s8b1_prelive_packet.json
 PYTHONPYCACHEPREFIX=/tmp/a90_pycache python3 workspace/public/src/scripts/revalidation/s22plus_m34_s8b1_beacon_probe_live_gate.py --print-live-runbook
 PYTHONPYCACHEPREFIX=/tmp/a90_pycache python3 workspace/public/src/scripts/revalidation/s22plus_m34_s8b1_beacon_probe_live_gate.py --print-agents-exception-draft
 PYTHONPYCACHEPREFIX=/tmp/a90_pycache python3 workspace/public/src/scripts/revalidation/s22plus_m34_s8b1_beacon_probe_live_gate.py --print-agents-exception-active-template
@@ -268,12 +268,13 @@ live-runbook generation: OK, no device action
 draft exception generation: OK
 active-template generation: OK
 default run without active AGENTS exception: correctly fails closed
-S8B1 tests: Ran 29 tests, OK
+S8B1 tests: Ran 30 tests, OK
 S8B1 analyzer tests: Ran 20 tests, OK
 S8B1/analyzer evidence-path cross-check: included in S8B1 tests
 runbook fallback/staleness-contract tests: included in S8B1 tests
 Android predicate-baseline tests: included in S8B1 tests
-M34/S7A2/S8B1/analyzer regression: Ran 64 tests, OK
+M34/S7A2/S8B1/analyzer regression: Ran 65 tests, OK
+post-RDX readonly-preflight with future B2 hints: OK, no reboot/flash/write
 ```
 
 ## Read-Only Current Device Note
@@ -336,18 +337,46 @@ exists at `/sys/devices/platform/soc/994000.i2c/i2c-57/57-0066`, while
 native-init module path reached the I2C/max77705 chip state, not necessarily
 that the TypeC class port was created.
 
+After that observation, the helper was tightened to record future B2 hint
+paths in the same read-only baseline JSON. The refreshed preflight passed at:
+
+```text
+workspace/private/runs/s22plus_m34_s8b1_beacon_probe_live_gate_20260709T024302Z/
+```
+
+The new baseline still has S8B1 predicate true through I2C and class
+`/sys/class/typec/port0` absent, but it records the actual Android TypeC
+subtree under the max77705 platform device:
+
+```text
+/sys/devices/platform/soc/994000.i2c/i2c-57/57-0066/max77705-usbc exists
+/sys/devices/platform/soc/994000.i2c/i2c-57/57-0066/max77705-usbc/typec/port0 exists
+/sys/devices/platform/soc/994000.i2c/i2c-57/57-0066/max77705-usbc/typec/port0/port0-partner exists
+data_role=host [device]
+power_role=source [sink]
+port_type=[dual] source sink
+power_operation_mode=1.5A
+partner supports_usb_power_delivery=no
+partner usb_power_delivery_revision=0.0
+partner accessory_mode=none
+```
+
+This does not build or authorize S8B2. It only prevents the next design step
+from relying on stale `/sys/class/typec/port0` assumptions when the stock
+Android path exposes TypeC below `max77705-usbc/typec/port0`.
+
 The latest no-write prelive packet with explicit fallback-rollback notes,
 selected-serial pinning, stored runbook options, and Android predicate baseline
 is:
 
 ```text
-workspace/private/runs/s22plus_m34_s8b1_beacon_probe_live_gate_20260709T022933Z/
+workspace/private/runs/s22plus_m34_s8b1_beacon_probe_live_gate_20260709T024623Z/
 ```
 
 It was verified with `--verify-prelive-packet` at:
 
 ```text
-workspace/private/runs/s22plus_m34_s8b1_beacon_probe_live_gate_20260709T022953Z/
+workspace/private/runs/s22plus_m34_s8b1_beacon_probe_live_gate_20260709T024633Z/
 ```
 
 It plans the live B1 proof directory and rollback-only fallback directory
@@ -355,10 +384,10 @@ separately:
 
 ```text
 planned_result_json:
-workspace/private/runs/s22plus_m34_s8b1_beacon_probe_live_gate_20260709T022933Z_live/result.json
+workspace/private/runs/s22plus_m34_s8b1_beacon_probe_live_gate_20260709T024623Z_live/result.json
 
 planned_rollback_result_json:
-workspace/private/runs/s22plus_m34_s8b1_beacon_probe_live_gate_20260709T022933Z_live_rollback/result.json
+workspace/private/runs/s22plus_m34_s8b1_beacon_probe_live_gate_20260709T024623Z_live_rollback/result.json
 ```
 
 ## Next Gate

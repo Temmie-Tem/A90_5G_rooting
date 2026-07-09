@@ -54,6 +54,32 @@ def write_test_predicate_baseline(module, run_dir: Path, serial: str = "RFCT519X
             "/sys/class/typec/port0/power_role": "source [sink] ",
             "/sys/class/typec/port0/port_type": "[dual] ",
         },
+        "future_b2_hints": {
+            "typec_class_port0_exists": True,
+            "max77705_i2c_device_exists": True,
+            "candidate_paths": module.ANDROID_S8B2_HINT_PATHS,
+            "paths": {
+                module.ANDROID_MAX77705_USBC_ROOT: {"exists": True, "realpath": module.ANDROID_MAX77705_USBC_ROOT},
+                module.ANDROID_MAX77705_USBC_TYPEC_PORT0: {
+                    "exists": True,
+                    "realpath": module.ANDROID_MAX77705_USBC_TYPEC_PORT0,
+                },
+                module.ANDROID_MAX77705_USBC_TYPEC_PARTNER: {
+                    "exists": True,
+                    "realpath": module.ANDROID_MAX77705_USBC_TYPEC_PARTNER,
+                },
+            },
+            "value_paths": module.ANDROID_S8B2_HINT_VALUE_PATHS,
+            "values": {
+                f"{module.ANDROID_MAX77705_USBC_TYPEC_PORT0}/data_role": "host [device]",
+                f"{module.ANDROID_MAX77705_USBC_TYPEC_PORT0}/power_role": "source [sink]",
+                f"{module.ANDROID_MAX77705_USBC_TYPEC_PORT0}/port_type": "[dual] source sink",
+                f"{module.ANDROID_MAX77705_USBC_TYPEC_PORT0}/power_operation_mode": "1.5A",
+                f"{module.ANDROID_MAX77705_USBC_TYPEC_PARTNER}/supports_usb_power_delivery": "no",
+                f"{module.ANDROID_MAX77705_USBC_TYPEC_PARTNER}/usb_power_delivery_revision": "0.0",
+                f"{module.ANDROID_MAX77705_USBC_TYPEC_PARTNER}/accessory_mode": "none",
+            },
+        },
         "predicate_true": True,
     }
     module.android_predicate_baseline_path(run_dir).write_text(json.dumps(payload, indent=2, sort_keys=True) + "\n", encoding="utf-8")
@@ -238,28 +264,52 @@ class S22PlusM34S8B1BeaconProbeLiveGateTest(unittest.TestCase):
             log_path = run_dir / "baseline.log"
             stdout = "\n".join(
                 [
-                    "exists\t/sys/class/typec/port0\t1",
-                    "realpath\t/sys/class/typec/port0\t/sys/devices/platform/soc/994000.i2c/typec/port0",
+                    "exists\t/sys/class/typec/port0\t0",
                     "exists\t/sys/bus/i2c/devices/57-0066\t1",
                     "realpath\t/sys/bus/i2c/devices/57-0066\t/sys/devices/platform/soc/994000.i2c/i2c-57/57-0066",
+                    f"exists\t{self.module.ANDROID_MAX77705_USBC_ROOT}\t1",
+                    f"realpath\t{self.module.ANDROID_MAX77705_USBC_ROOT}\t{self.module.ANDROID_MAX77705_USBC_ROOT}",
+                    f"exists\t{self.module.ANDROID_MAX77705_USBC_TYPEC_PORT0}\t1",
+                    f"realpath\t{self.module.ANDROID_MAX77705_USBC_TYPEC_PORT0}\t{self.module.ANDROID_MAX77705_USBC_TYPEC_PORT0}",
+                    f"exists\t{self.module.ANDROID_MAX77705_USBC_TYPEC_PARTNER}\t1",
+                    f"realpath\t{self.module.ANDROID_MAX77705_USBC_TYPEC_PARTNER}\t{self.module.ANDROID_MAX77705_USBC_TYPEC_PARTNER}",
                     "value\t/sys/class/typec/port0/data_role\thost [device] ",
                     "value\t/sys/class/typec/port0/power_role\tsource [sink] ",
                     "value\t/sys/class/typec/port0/port_type\t[dual] ",
                 ]
             )
             proc = mock.Mock(returncode=0, stdout=stdout, stderr="")
-            with mock.patch.object(self.module, "run", return_value=proc) as run:
+            root_values = [
+                "host [device]",
+                "source [sink]",
+                "[dual] source sink",
+                "1.5A",
+                "no",
+                "0.0",
+                "none",
+            ]
+            root_procs = [mock.Mock(returncode=0, stdout=f"{value}\n", stderr="") for value in root_values]
+            with mock.patch.object(self.module, "run", side_effect=[proc, *root_procs]) as run:
                 payload = self.module.collect_android_s8b1_predicate_baseline(
                     run_dir=run_dir,
                     log_path=log_path,
                     serial="RFCT519XWGK",
                 )
 
-            run.assert_called_once()
+            self.assertEqual(run.call_count, 1 + len(self.module.ANDROID_S8B2_HINT_VALUE_PATHS))
             self.assertTrue(payload["predicate_true"])
-            self.assertTrue(payload["paths"]["/sys/class/typec/port0"]["exists"])
+            self.assertFalse(payload["paths"]["/sys/class/typec/port0"]["exists"])
             self.assertTrue(payload["paths"]["/sys/bus/i2c/devices/57-0066"]["exists"])
             self.assertEqual(payload["values"]["/sys/class/typec/port0/data_role"], "host [device] ")
+            hints = payload["future_b2_hints"]
+            self.assertFalse(hints["typec_class_port0_exists"])
+            self.assertTrue(hints["max77705_i2c_device_exists"])
+            self.assertTrue(hints["paths"][self.module.ANDROID_MAX77705_USBC_TYPEC_PORT0]["exists"])
+            self.assertTrue(hints["paths"][self.module.ANDROID_MAX77705_USBC_TYPEC_PARTNER]["exists"])
+            self.assertEqual(hints["values"][f"{self.module.ANDROID_MAX77705_USBC_TYPEC_PORT0}/data_role"], "host [device]")
+            self.assertEqual(hints["values"][f"{self.module.ANDROID_MAX77705_USBC_TYPEC_PORT0}/power_role"], "source [sink]")
+            self.assertEqual(hints["values"][f"{self.module.ANDROID_MAX77705_USBC_TYPEC_PORT0}/port_type"], "[dual] source sink")
+            self.assertEqual(hints["values"][f"{self.module.ANDROID_MAX77705_USBC_TYPEC_PARTNER}/accessory_mode"], "none")
             baseline_json = self.module.android_predicate_baseline_path(run_dir)
             self.assertEqual(json.loads(baseline_json.read_text(encoding="utf-8")), payload)
             self.assertIn("s8b1_android_predicate_baseline_json=", log_path.read_text(encoding="utf-8"))
@@ -427,6 +477,10 @@ class S22PlusM34S8B1BeaconProbeLiveGateTest(unittest.TestCase):
             self.assertEqual(packet["android_s8b1_predicate_baseline"]["schema"], "s22plus_m34_s8b1_android_predicate_baseline_v1")
             self.assertTrue(packet["android_s8b1_predicate_baseline"]["predicate_true"])
             self.assertEqual(packet["android_s8b1_predicate_baseline"]["serial"], "RFCT519XWGK")
+            hints = packet["android_s8b1_predicate_baseline"]["future_b2_hints"]
+            self.assertEqual(hints["candidate_paths"], self.module.ANDROID_S8B2_HINT_PATHS)
+            self.assertEqual(hints["value_paths"], self.module.ANDROID_S8B2_HINT_VALUE_PATHS)
+            self.assertTrue(hints["paths"][self.module.ANDROID_MAX77705_USBC_TYPEC_PORT0]["exists"])
             self.assertEqual(
                 packet["android_s8b1_predicate_baseline_json"],
                 str(run_dir / "s22plus_m34_s8b1_android_predicate_baseline.json"),
@@ -647,6 +701,49 @@ class S22PlusM34S8B1BeaconProbeLiveGateTest(unittest.TestCase):
                             ]
                         )
             self.assertIn("packet_run_dir does not match packet location", str(caught.exception))
+
+    def test_verify_prelive_packet_rejects_missing_future_b2_hints(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            odin = root / "odin4"
+            odin.write_text("#!/bin/sh\n", encoding="utf-8")
+            run_dir = root / "run"
+            path_args = [
+                "--odin",
+                str(odin),
+                "--m34-ap",
+                str(root / "candidate.tar.md5"),
+                "--m34-manifest",
+                str(root / "manifest.json"),
+                "--magisk-rollback-ap",
+                str(root / "magisk.tar.md5"),
+                "--stock-rollback-ap",
+                str(root / "stock.tar.md5"),
+            ]
+            with (
+                mock.patch.object(self.module, "verify_m34_artifacts"),
+                mock.patch.object(self.module, "run_android_readonly_preflight", side_effect=readonly_preflight_stub(self.module)),
+            ):
+                with contextlib.redirect_stdout(io.StringIO()):
+                    self.module.main(["--prelive-packet", *path_args, "--run-dir", str(run_dir)])
+
+            packet_path = run_dir / "s22plus_m34_s8b1_prelive_packet.json"
+            packet = json.loads(packet_path.read_text(encoding="utf-8"))
+            packet["android_s8b1_predicate_baseline"].pop("future_b2_hints")
+            packet_path.write_text(json.dumps(packet, indent=2, sort_keys=True) + "\n", encoding="utf-8")
+            with mock.patch.object(self.module, "verify_m34_artifacts"):
+                with self.assertRaises(SystemExit) as caught:
+                    with contextlib.redirect_stdout(io.StringIO()):
+                        self.module.main(
+                            [
+                                "--verify-prelive-packet",
+                                str(packet_path),
+                                *path_args,
+                                "--run-dir",
+                                str(root / "verify"),
+                            ]
+                        )
+            self.assertIn("missing future_b2_hints", str(caught.exception))
 
     def test_planned_live_run_dir_avoids_existing_siblings(self):
         with tempfile.TemporaryDirectory() as tmp:

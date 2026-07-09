@@ -86,6 +86,24 @@ EXPECTED_MODULE_ENTRY = "s22plus_m34_s8b1_runtime_gadget_split.modules"
 EXPECTED_STOCK_RECIPE_REPORT = "docs/reports/S22PLUS_STOCK_USB_GADGET_ACM_RECIPE_2026-07-09.md"
 EXPECTED_PROBE = "typec_port_or_i2c_device"
 EXPECTED_PROBE_PATHS = ["/sys/class/typec/port0", "/sys/bus/i2c/devices/57-0066"]
+ANDROID_MAX77705_I2C_DEVICE = "/sys/devices/platform/soc/994000.i2c/i2c-57/57-0066"
+ANDROID_MAX77705_USBC_ROOT = f"{ANDROID_MAX77705_I2C_DEVICE}/max77705-usbc"
+ANDROID_MAX77705_USBC_TYPEC_PORT0 = f"{ANDROID_MAX77705_USBC_ROOT}/typec/port0"
+ANDROID_MAX77705_USBC_TYPEC_PARTNER = f"{ANDROID_MAX77705_USBC_TYPEC_PORT0}/port0-partner"
+ANDROID_S8B2_HINT_PATHS = [
+    ANDROID_MAX77705_USBC_ROOT,
+    ANDROID_MAX77705_USBC_TYPEC_PORT0,
+    ANDROID_MAX77705_USBC_TYPEC_PARTNER,
+]
+ANDROID_S8B2_HINT_VALUE_PATHS = [
+    f"{ANDROID_MAX77705_USBC_TYPEC_PORT0}/data_role",
+    f"{ANDROID_MAX77705_USBC_TYPEC_PORT0}/power_role",
+    f"{ANDROID_MAX77705_USBC_TYPEC_PORT0}/port_type",
+    f"{ANDROID_MAX77705_USBC_TYPEC_PORT0}/power_operation_mode",
+    f"{ANDROID_MAX77705_USBC_TYPEC_PARTNER}/supports_usb_power_delivery",
+    f"{ANDROID_MAX77705_USBC_TYPEC_PARTNER}/usb_power_delivery_revision",
+    f"{ANDROID_MAX77705_USBC_TYPEC_PARTNER}/accessory_mode",
+]
 M34_S8B1_RISK_MODULES = M34_S7A_RISK_MODULES
 
 DEFAULT_M34_AP = Path("workspace/private/outputs/s22plus_native_init/m34_runtime_gadget_split_v0_8/S8B1/odin4/AP.tar.md5")
@@ -515,14 +533,33 @@ def android_predicate_baseline_path(run_dir: Path) -> Path:
     return run_dir / "s22plus_m34_s8b1_android_predicate_baseline.json"
 
 
+def read_android_root_text_value(serial: str, path: str, log_path: Path) -> str:
+    if not path.startswith("/sys/"):
+        raise SystemExit(f"refusing non-sysfs Android root read path: {path}")
+    proc = run(["adb", "-s", serial, "shell", "su", "-c", "cat", path], timeout=20.0)
+    key = path.replace("/", "_").strip("_")
+    append_log(log_path, f"s8b1_android_root_value_rc_{key}={proc.returncode}")
+    if proc.returncode != 0:
+        append_log(log_path, f"s8b1_android_root_value_stderr_{key}={proc.stderr.strip()!r}")
+        return "<missing>"
+    return proc.stdout.replace("\n", " ").strip()
+
+
 def collect_android_s8b1_predicate_baseline(
     *,
     run_dir: Path,
     log_path: Path,
     serial: str,
 ) -> dict[str, Any]:
+    probe_paths = " ".join(shlex.quote(path) for path in [*EXPECTED_PROBE_PATHS, *ANDROID_S8B2_HINT_PATHS])
+    class_value_paths = [
+        "/sys/class/typec/port0/data_role",
+        "/sys/class/typec/port0/power_role",
+        "/sys/class/typec/port0/port_type",
+    ]
+    class_values = " ".join(shlex.quote(path) for path in class_value_paths)
     script = r"""
-for p in /sys/class/typec/port0 /sys/bus/i2c/devices/57-0066; do
+for p in __PROBE_PATHS__; do
   if [ -e "$p" ]; then
     printf 'exists\t%s\t1\n' "$p"
     rp="$(readlink -f "$p" 2>/dev/null || true)"
@@ -531,7 +568,7 @@ for p in /sys/class/typec/port0 /sys/bus/i2c/devices/57-0066; do
     printf 'exists\t%s\t0\n' "$p"
   fi
 done
-for p in /sys/class/typec/port0/data_role /sys/class/typec/port0/power_role /sys/class/typec/port0/port_type; do
+for p in __CLASS_VALUE_PATHS__; do
   if [ -r "$p" ]; then
     value="$(cat "$p" 2>/dev/null | tr '\n' ' ')"
     printf 'value\t%s\t%s\n' "$p" "$value"
@@ -539,7 +576,7 @@ for p in /sys/class/typec/port0/data_role /sys/class/typec/port0/power_role /sys
     printf 'value\t%s\t<missing>\n' "$p"
   fi
 done
-"""
+""".replace("__PROBE_PATHS__", probe_paths).replace("__CLASS_VALUE_PATHS__", class_values)
     proc = run(["adb", "-s", serial, "shell", script], timeout=20.0)
     append_log(log_path, f"s8b1_android_predicate_baseline_rc={proc.returncode}")
     append_log(log_path, f"s8b1_android_predicate_baseline_stdout={proc.stdout.strip()!r}")
@@ -548,6 +585,7 @@ done
         raise SystemExit(f"failed to collect Android S8B1 predicate baseline: rc={proc.returncode}")
 
     paths: dict[str, dict[str, Any]] = {path: {"exists": False} for path in EXPECTED_PROBE_PATHS}
+    hint_paths: dict[str, dict[str, Any]] = {path: {"exists": False} for path in ANDROID_S8B2_HINT_PATHS}
     values: dict[str, str] = {}
     for raw_line in proc.stdout.splitlines():
         parts = raw_line.split("\t", 2)
@@ -555,12 +593,18 @@ done
             continue
         kind, path, value = parts
         if kind == "exists":
-            paths.setdefault(path, {})["exists"] = value == "1"
+            target = hint_paths if path in ANDROID_S8B2_HINT_PATHS else paths
+            target.setdefault(path, {})["exists"] = value == "1"
         elif kind == "realpath":
-            paths.setdefault(path, {})["realpath"] = value
+            target = hint_paths if path in ANDROID_S8B2_HINT_PATHS else paths
+            target.setdefault(path, {})["realpath"] = value
         elif kind == "value":
             values[path] = value
 
+    hint_values = {
+        path: read_android_root_text_value(serial, path, log_path)
+        for path in ANDROID_S8B2_HINT_VALUE_PATHS
+    }
     predicate_true = any(bool(paths.get(path, {}).get("exists")) for path in EXPECTED_PROBE_PATHS)
     payload: dict[str, Any] = {
         "schema": "s22plus_m34_s8b1_android_predicate_baseline_v1",
@@ -570,6 +614,14 @@ done
         "probe_paths": EXPECTED_PROBE_PATHS,
         "paths": paths,
         "values": values,
+        "future_b2_hints": {
+            "typec_class_port0_exists": bool(paths.get("/sys/class/typec/port0", {}).get("exists")),
+            "max77705_i2c_device_exists": bool(paths.get("/sys/bus/i2c/devices/57-0066", {}).get("exists")),
+            "candidate_paths": ANDROID_S8B2_HINT_PATHS,
+            "paths": hint_paths,
+            "value_paths": ANDROID_S8B2_HINT_VALUE_PATHS,
+            "values": hint_values,
+        },
         "predicate_true": predicate_true,
     }
     path = android_predicate_baseline_path(run_dir)
@@ -1043,6 +1095,15 @@ def verify_prelive_packet(
         raise SystemExit("prelive packet Android S8B1 predicate baseline probe mismatch")
     if not baseline.get("predicate_true"):
         raise SystemExit("prelive packet Android S8B1 predicate baseline is false")
+    hints = baseline.get("future_b2_hints")
+    if not isinstance(hints, dict):
+        raise SystemExit("prelive packet Android S8B1 predicate baseline missing future_b2_hints")
+    if hints.get("candidate_paths") != ANDROID_S8B2_HINT_PATHS:
+        raise SystemExit("prelive packet Android S8B1 future B2 candidate path mismatch")
+    if hints.get("value_paths") != ANDROID_S8B2_HINT_VALUE_PATHS:
+        raise SystemExit("prelive packet Android S8B1 future B2 value path mismatch")
+    if not isinstance(hints.get("paths"), dict) or not isinstance(hints.get("values"), dict):
+        raise SystemExit("prelive packet Android S8B1 future B2 hints are malformed")
     baseline_json = Path(str(payload.get("android_s8b1_predicate_baseline_json", "")))
     if baseline_json != android_predicate_baseline_path(packet_run_dir):
         raise SystemExit("prelive packet Android S8B1 predicate baseline path mismatch")
