@@ -4,6 +4,28 @@ Drive the A90 native-init project forward one **bounded V-iteration at a time** 
 the proven cycle below. This file says WHAT to pursue; **`AGENTS.md` says HOW — its
 safety invariants and flash gates are binding and override any sub-goal.**
 
+> **🎯 OPERATOR STEER (2026-07-09, Claude — REFRAME: the wall is the module-LOAD MECHANISM, not module SELECTION. + correction to my S9.2). S10 next = instrument per-module insmod rc, positive-control the beacon read.**
+> CORRECTION: my S9.2 "S9 missed because symbol-deps (cmd-db) missing" was WRONG — the S9
+> artifact already contained them (S10A verified, same 89-module SHA). Verify "missing X" vs the
+> actual artifact, not the theoretical closure. FINDINGS: (1) host-confirmed cmd-db/smem/qcom-scm/
+> gcc-waipio/pinctrl-* etc. are ALL in stock modules.load = real modules, NOT built-in → the S10
+> beacon (`cmd_db` in /proc/modules) is a VALID predicate → S10A/S10B0 MISS = **cmd-db genuinely
+> not loading under native-init.** (2) BUT the load mechanism PARTIALLY works: device SURVIVES 90s
+> (S9/S10) vs M21A(0 modules) reset ~30s → the watchdog modules DO load (else reset). So the wall
+> is narrow+new: **load loop runs (watchdog loads→survive) yet cmd-db specifically is absent from
+> /proc/modules.** After ~10 iterations on WHICH modules, frontier moved to WHY a listed foundational
+> module doesn't end up loaded. **S11 = instrument the insmod MECHANISM one finer than S10B0:
+> native-init records per-module insmod attempted/rc/errno for the substrate prefix and beacons the
+> FIRST module that fails-or-is-never-attempted (cmd-db first); + a POSITIVE CONTROL beacon (is the
+> known-loaded watchdog module visible in native-init's /proc/modules read? if not, the beacon read
+> itself is the artifact).** This splits attempted-but-failed (fix insmod error e.g. cmd-db DT
+> reserved-memory `qcom,cmd-db`/order) vs never-attempted (fix load list/loop abort) vs read-artifact
+> (fix beacon) — instead of guessing. modules.load order: watchdog #5/#6, clk-rpmh #8 (needs cmd-db
+> BEFORE it), gcc-waipio #9. NOTE: `i2c-msm-geni` is ABSENT from stock modules.load (built-in/dep-
+> loaded/renamed? confirm how GENI i2c instantiates before assuming it must be insmod-ed). Role/
+> session widening (B2-B4) stays queued. Full analysis:
+> `docs/reports/S22PLUS_M34_S10_MODULE_LOAD_MECHANISM_IS_THE_WALL_NOT_SELECTION_2026-07-09.md`.
+
 > **S22+ CURRENT FRONTIER (2026-07-09 20:05 KST / 2026-07-09 11:05 UTC) — M34 S10B0 LIVE CONSUMED; MISS; ROOT FALLBACK FIXED; DATA CORE DUMPS CLEANED; NO ACTIVE LIVE AUTH.**
 > S10B0 was executed once under the bounded boot-only exception using
 > `workspace/public/src/scripts/revalidation/s22plus_m34_s10b0_module_load_prefix_live_gate.py`.
