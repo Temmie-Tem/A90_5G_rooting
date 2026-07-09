@@ -185,7 +185,7 @@ boot_sha256=2e541703951dc725bad35850faf7028c2d910dd5f21166449b63f1248c29967e
 debug_level=18765 / 0x494d / MI
 sec_debug_enable=1
 usb=04e8:6860
-adb_serial=RFCT519XWGK
+adb_serial=<S22_SERIAL_REDACTED>
 tty=ttyACM0
 ```
 

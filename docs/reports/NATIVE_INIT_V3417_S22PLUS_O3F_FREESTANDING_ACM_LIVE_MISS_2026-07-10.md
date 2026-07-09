@@ -89,7 +89,7 @@ The operator entered Download mode after the bounded observation. The helper
 flashed only the pinned Magisk boot AP; Odin returned rc=0. Post-rollback:
 
 ```text
-adb_serial=RFCT519XWGK
+adb_serial=<S22_SERIAL_REDACTED>
 boot_completed=1
 bootanim=stopped
 root=uid=0(root) gid=0(root) groups=0(root) context=u:r:magisk:s0

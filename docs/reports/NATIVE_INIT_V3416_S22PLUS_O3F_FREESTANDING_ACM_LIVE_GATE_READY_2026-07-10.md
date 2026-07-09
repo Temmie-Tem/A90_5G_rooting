@@ -62,7 +62,7 @@ Connected read-only run:
 
 ```text
 workspace/private/runs/s22plus_o3f_freestanding_acm_live_gate_20260709T210656Z
-adb_serial=RFCT519XWGK
+adb_serial=<S22_SERIAL_REDACTED>
 model=SM-S906N
 device=g0q
 incremental=S906NKSS7FYG8

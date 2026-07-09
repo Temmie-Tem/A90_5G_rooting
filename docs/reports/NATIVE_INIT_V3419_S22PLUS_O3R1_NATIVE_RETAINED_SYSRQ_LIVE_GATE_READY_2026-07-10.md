@@ -62,7 +62,7 @@ Connected read-only pass:
 ```text
 workspace/private/runs/s22plus_o3r1_native_retained_sysrq_live_gate_20260709T220014Z
 target=SM-S906N/g0q/S906NKSS7FYG8
-adb_serial=RFCT519XWGK
+adb_serial=<S22_SERIAL_REDACTED>
 boot_completed=1
 bootanim=stopped
 root=uid=0(root) context=u:r:magisk:s0

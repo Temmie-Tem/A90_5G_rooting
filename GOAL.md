@@ -237,7 +237,7 @@ safety invariants and flash gates are binding and override any sub-goal.**
 > `O3 STATUS` bundle before PASS.
 >
 > Artifact-only offline validation passed. Connected read-only dry-run found one
-> Android target `RFCT519XWGK`, `SM-S906N/g0q/S906NKSS7FYG8`, orange verified
+> Android target `<S22_SERIAL_REDACTED>`, `SM-S906N/g0q/S906NKSS7FYG8`, orange verified
 > boot, `boot_completed=1`, stopped boot animation, Magisk uid 0, exact live
 > boot SHA `2e541703…967e`, four stable samples, no concurrent Odin endpoint,
 > and both exact boot-only rollback APs. A fresh one-shot O3F exception now pins
