@@ -52,6 +52,12 @@ safety invariants and flash gates are binding and override any sub-goal.**
 > has been inserted. A first-class `--readonly-preflight` mode now verifies
 > artifacts, Android identity/stability, current boot hash, and host snapshot
 > without requiring an active `AGENTS.md` exception and without reboot/flash.
+> It now also captures a read-only Android S8B1 predicate baseline JSON and
+> refuses preflight if both probe paths are false on the known-good Android
+> baseline. Current Android baseline is predicate-true through
+> `/sys/bus/i2c/devices/57-0066`; `/sys/class/typec/port0` is absent on the
+> current boot, so S8B1 HIT should be interpreted first as I2C/max77705-chip
+> reachability, not port0 creation.
 > A no-device `--print-live-runbook` mode now prints the exact next commands
 > for read-only preflight, active exception review/insertion, dry-run, live,
 > manual-download rollback, and analyzer gates, including any custom artifact,
@@ -107,10 +113,10 @@ safety invariants and flash gates are binding and override any sub-goal.**
 > Validation passed: helper `py_compile`, `--offline-check`,
 > `--readonly-preflight`, `--prelive-packet`, `--verify-prelive-packet`,
 > `--print-live-runbook`, draft/active-template generation, S8B1 tests
-> (`Ran 28 tests`, `OK`),
+> (`Ran 29 tests`, `OK`),
 > S8B1 analyzer tests
 > (`Ran 20 tests`, `OK`), M34/S7A2 regression including S8B1/analyzer
-> (`Ran 63 tests`, `OK`), runbook fallback-contract/staleness tests, and default run
+> (`Ran 64 tests`, `OK`), runbook fallback-contract/staleness tests, and default run
 > fail-closed without active authorization.
 >
 > Read-only host status after the operator's RDX/download note: the phone is
@@ -118,30 +124,29 @@ safety invariants and flash gates are binding and override any sub-goal.**
 > `sys.boot_completed=1`, `ro.boot.verifiedbootstate=orange`, and Magisk `su`
 > returns `uid=0`. `/proc/last_kmsg` and pstore are not present in this boot.
 > A read-only S8B1 preflight component check passed at
-> `workspace/private/runs/s22plus_m34_s8b1_beacon_probe_live_gate_20260709T020943Z/`:
+> `workspace/private/runs/s22plus_m34_s8b1_beacon_probe_live_gate_20260709T022859Z/`:
 > Android identity/stability passed, current boot SHA256 read through the helper
 > path matched the known Magisk baseline
 > `2e541703951dc725bad35850faf7028c2d910dd5f21166449b63f1248c29967e`, and a
-> host snapshot was captured. No live S8B1 flash or rollback was performed in
-> this observation. The committed helper mode was then run on the live Android
-> baseline at
-> `workspace/private/runs/s22plus_m34_s8b1_beacon_probe_live_gate_20260709T003315Z/`,
-> again proving Android/root stability and current boot SHA match with
-> `device_action=0` and `agents_exception_checked=0`.
+> host snapshot was captured. The Android predicate baseline JSON shows
+> `/sys/bus/i2c/devices/57-0066` exists at
+> `/sys/devices/platform/soc/994000.i2c/i2c-57/57-0066`,
+> `/sys/class/typec/port0` is absent, and the OR predicate is true. No live S8B1
+> flash or rollback was performed in this observation.
 > Latest no-write prelive packet was generated at
-> `workspace/private/runs/s22plus_m34_s8b1_beacon_probe_live_gate_20260709T021844Z/`;
+> `workspace/private/runs/s22plus_m34_s8b1_beacon_probe_live_gate_20260709T022933Z/`;
 > it contains `s22plus_m34_s8b1_prelive_packet.json`, the exact live runbook,
-> the active exception template, stored runbook options, and selected serial
-> `RFCT519XWGK`, with `device_action=false` and
+> the active exception template, stored runbook options, selected serial
+> `RFCT519XWGK`, and the Android predicate baseline, with `device_action=false` and
 > `agents_exception_inserted=false`. The packet verified cleanly with
 > `--verify-prelive-packet` at
-> `workspace/private/runs/s22plus_m34_s8b1_beacon_probe_live_gate_20260709T021855Z/`.
+> `workspace/private/runs/s22plus_m34_s8b1_beacon_probe_live_gate_20260709T022953Z/`.
 > The planned live run directory is
-> `workspace/private/runs/s22plus_m34_s8b1_beacon_probe_live_gate_20260709T021844Z_live/`;
+> `workspace/private/runs/s22plus_m34_s8b1_beacon_probe_live_gate_20260709T022933Z_live/`;
 > preflight/template/dryrun/rollback sibling directories are also separate and
 > all were verified not to exist at packet generation time. The planned
 > rollback-only fallback result path is
-> `workspace/private/runs/s22plus_m34_s8b1_beacon_probe_live_gate_20260709T021844Z_live_rollback/result.json`
+> `workspace/private/runs/s22plus_m34_s8b1_beacon_probe_live_gate_20260709T022933Z_live_rollback/result.json`
 > and is cleanup evidence, not B1 proof.
 > Report:
 > `docs/reports/S22PLUS_NATIVE_INIT_M34_S8B1_BEACON_PROBE_LIVE_GATE_READY_2026-07-09.md`.

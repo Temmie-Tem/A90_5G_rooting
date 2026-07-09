@@ -511,6 +511,76 @@ def verify_m34_artifacts(
     verify_ap(stock_rollback_ap, EXPECTED_STOCK_BOOT_AP_SHA256, "stock_boot_fallback", log_path)
 
 
+def android_predicate_baseline_path(run_dir: Path) -> Path:
+    return run_dir / "s22plus_m34_s8b1_android_predicate_baseline.json"
+
+
+def collect_android_s8b1_predicate_baseline(
+    *,
+    run_dir: Path,
+    log_path: Path,
+    serial: str,
+) -> dict[str, Any]:
+    script = r"""
+for p in /sys/class/typec/port0 /sys/bus/i2c/devices/57-0066; do
+  if [ -e "$p" ]; then
+    printf 'exists\t%s\t1\n' "$p"
+    rp="$(readlink -f "$p" 2>/dev/null || true)"
+    printf 'realpath\t%s\t%s\n' "$p" "$rp"
+  else
+    printf 'exists\t%s\t0\n' "$p"
+  fi
+done
+for p in /sys/class/typec/port0/data_role /sys/class/typec/port0/power_role /sys/class/typec/port0/port_type; do
+  if [ -r "$p" ]; then
+    value="$(cat "$p" 2>/dev/null | tr '\n' ' ')"
+    printf 'value\t%s\t%s\n' "$p" "$value"
+  else
+    printf 'value\t%s\t<missing>\n' "$p"
+  fi
+done
+"""
+    proc = run(["adb", "-s", serial, "shell", script], timeout=20.0)
+    append_log(log_path, f"s8b1_android_predicate_baseline_rc={proc.returncode}")
+    append_log(log_path, f"s8b1_android_predicate_baseline_stdout={proc.stdout.strip()!r}")
+    append_log(log_path, f"s8b1_android_predicate_baseline_stderr={proc.stderr.strip()!r}")
+    if proc.returncode != 0:
+        raise SystemExit(f"failed to collect Android S8B1 predicate baseline: rc={proc.returncode}")
+
+    paths: dict[str, dict[str, Any]] = {path: {"exists": False} for path in EXPECTED_PROBE_PATHS}
+    values: dict[str, str] = {}
+    for raw_line in proc.stdout.splitlines():
+        parts = raw_line.split("\t", 2)
+        if len(parts) != 3:
+            continue
+        kind, path, value = parts
+        if kind == "exists":
+            paths.setdefault(path, {})["exists"] = value == "1"
+        elif kind == "realpath":
+            paths.setdefault(path, {})["realpath"] = value
+        elif kind == "value":
+            values[path] = value
+
+    predicate_true = any(bool(paths.get(path, {}).get("exists")) for path in EXPECTED_PROBE_PATHS)
+    payload: dict[str, Any] = {
+        "schema": "s22plus_m34_s8b1_android_predicate_baseline_v1",
+        "timestamp_utc": utc_now(),
+        "serial": serial,
+        "probe": EXPECTED_PROBE,
+        "probe_paths": EXPECTED_PROBE_PATHS,
+        "paths": paths,
+        "values": values,
+        "predicate_true": predicate_true,
+    }
+    path = android_predicate_baseline_path(run_dir)
+    path.write_text(json.dumps(payload, indent=2, sort_keys=True) + "\n", encoding="utf-8")
+    append_log(log_path, f"s8b1_android_predicate_baseline_json={path}")
+    append_log(log_path, f"s8b1_android_predicate_baseline={json.dumps(payload, sort_keys=True)}")
+    if not predicate_true:
+        raise SystemExit(f"Android S8B1 predicate baseline is false for {EXPECTED_PROBE_PATHS}")
+    return payload
+
+
 def run_android_readonly_preflight(
     *,
     run_dir: Path,
@@ -530,6 +600,7 @@ def run_android_readonly_preflight(
         stability_interval_sec,
     )
     verify_partition_hash(log_path, selected_serial, "boot", EXPECTED_M34_BASE_BOOT_SHA256, "current")
+    collect_android_s8b1_predicate_baseline(run_dir=run_dir, log_path=log_path, serial=selected_serial)
     host_snapshot(run_dir, log_path, snapshot_label, odin)
     append_log(
         log_path,
@@ -825,6 +896,12 @@ def write_prelive_packet(
     runbook_path = run_dir / "s22plus_m34_s8b1_live_runbook.txt"
     active_template_path = run_dir / "s22plus_m34_s8b1_active_exception_template.txt"
     packet_path = run_dir / "s22plus_m34_s8b1_prelive_packet.json"
+    baseline_path = android_predicate_baseline_path(run_dir)
+    if not baseline_path.is_file():
+        raise SystemExit(f"prelive packet requires Android S8B1 predicate baseline: {baseline_path}")
+    baseline_payload = json.loads(baseline_path.read_text(encoding="utf-8"))
+    if not baseline_payload.get("predicate_true"):
+        raise SystemExit("prelive packet refuses false Android S8B1 predicate baseline")
     runbook_path.write_text(runbook, encoding="utf-8")
     active_template_path.write_text(active_template, encoding="utf-8")
     payload = {
@@ -854,6 +931,8 @@ def write_prelive_packet(
         "planned_phase_run_dirs": runbook_phase_run_dirs(live_run_dir),
         "planned_result_json": str(live_run_dir / "result.json"),
         "planned_rollback_result_json": str(planned_rollback_result_json(live_run_dir)),
+        "android_s8b1_predicate_baseline": baseline_payload,
+        "android_s8b1_predicate_baseline_json": str(baseline_path),
         "runbook_options": runbook_options(packet_args),
         "runbook_notes": prelive_packet_notes(live_run_dir),
         "runbook": str(runbook_path),
@@ -952,6 +1031,25 @@ def verify_prelive_packet(
     stale_dirs = [path for path in expected_phase_dirs.values() if Path(path).exists()]
     if stale_dirs:
         raise SystemExit(f"prelive packet planned run directory already exists: {stale_dirs}")
+
+    baseline = payload.get("android_s8b1_predicate_baseline")
+    if not isinstance(baseline, dict):
+        raise SystemExit("prelive packet missing Android S8B1 predicate baseline")
+    if baseline.get("schema") != "s22plus_m34_s8b1_android_predicate_baseline_v1":
+        raise SystemExit(f"prelive packet Android S8B1 predicate baseline schema mismatch: {baseline.get('schema')!r}")
+    if baseline.get("serial") != selected_serial:
+        raise SystemExit("prelive packet Android S8B1 predicate baseline serial mismatch")
+    if baseline.get("probe") != EXPECTED_PROBE or baseline.get("probe_paths") != EXPECTED_PROBE_PATHS:
+        raise SystemExit("prelive packet Android S8B1 predicate baseline probe mismatch")
+    if not baseline.get("predicate_true"):
+        raise SystemExit("prelive packet Android S8B1 predicate baseline is false")
+    baseline_json = Path(str(payload.get("android_s8b1_predicate_baseline_json", "")))
+    if baseline_json != android_predicate_baseline_path(packet_run_dir):
+        raise SystemExit("prelive packet Android S8B1 predicate baseline path mismatch")
+    if not baseline_json.is_file():
+        raise SystemExit(f"prelive packet Android S8B1 predicate baseline JSON missing: {baseline_json}")
+    if json.loads(baseline_json.read_text(encoding="utf-8")) != baseline:
+        raise SystemExit("prelive packet Android S8B1 predicate baseline JSON is stale")
 
     runbook_path = Path(str(payload.get("runbook", "")))
     active_template_path = Path(str(payload.get("active_exception_template", "")))

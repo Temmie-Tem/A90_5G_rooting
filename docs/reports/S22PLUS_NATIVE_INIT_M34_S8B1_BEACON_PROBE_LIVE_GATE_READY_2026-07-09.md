@@ -113,10 +113,11 @@ The helper also provides a non-live readiness mode:
 ```
 
 `--readonly-preflight` verifies the S8B1 candidate artifacts and rollback APs,
-then checks current Android identity, stability, current boot SHA256, and a
-host snapshot. It intentionally skips the `AGENTS.md` active-exception gate
-because it performs no reboot, no Odin transfer, no partition write, and no
-rollback action.
+then checks current Android identity, stability, current boot SHA256, the
+read-only Android S8B1 predicate baseline, and a host snapshot. It intentionally
+skips the `AGENTS.md` active-exception gate because it performs no reboot, no
+Odin transfer, no partition write, and no rollback action. It refuses the
+preflight if both S8B1 probe paths are false on the known-good Android baseline.
 
 `--print-live-runbook` verifies the same pinned artifacts, then prints the exact
 operator command sequence for read-only preflight, active exception review,
@@ -149,17 +150,19 @@ is created with `exist_ok=False`; the runbook targets distinct not-yet-created
 phase sibling directories for preflight, template, dry-run, live, rollback,
 and analyzer output so the commands can be run after reviewing the packet. The
 packet JSON also records `planned_phase_run_dirs`, `planned_result_json`,
-`planned_rollback_result_json`, `runbook_options`, and `runbook_notes` for
-machine-readable handoff. `planned_result_json` is the B1 proof target; the
+`planned_rollback_result_json`, `android_s8b1_predicate_baseline`,
+`android_s8b1_predicate_baseline_json`, `runbook_options`, and `runbook_notes`
+for machine-readable handoff. `planned_result_json` is the B1 proof target; the
 rollback-only fallback result path is cleanup evidence if that command is needed.
 The stored `runbook_options` let later checks replay the exact timing/options
 used to generate the live runbook without relying on shell history.
 
 `--verify-prelive-packet <json>` is a no-device/no-write staleness check. It
 verifies the packet against current S8B1 constants, artifact paths, active
-exception template, generated runbook text, selected serial, stored runbook
-options, and still-empty planned phase directories. It intentionally skips ADB,
-Odin transfer, `AGENTS.md` active-exception checks, reboot, flash, and rollback.
+exception template, generated runbook text, selected serial, stored Android
+predicate baseline, stored runbook options, and still-empty planned phase
+directories. It intentionally skips ADB, Odin transfer, `AGENTS.md`
+active-exception checks, reboot, flash, and rollback.
 
 Live and rollback paths also write a machine-readable result file:
 
@@ -242,7 +245,7 @@ PYTHONPYCACHEPREFIX=/tmp/a90_pycache python3 -m py_compile workspace/public/src/
 PYTHONPYCACHEPREFIX=/tmp/a90_pycache python3 workspace/public/src/scripts/revalidation/s22plus_m34_s8b1_beacon_probe_live_gate.py --offline-check
 PYTHONPYCACHEPREFIX=/tmp/a90_pycache python3 workspace/public/src/scripts/revalidation/s22plus_m34_s8b1_beacon_probe_live_gate.py --readonly-preflight --android-stability-samples 2 --android-stability-interval-sec 1
 PYTHONPYCACHEPREFIX=/tmp/a90_pycache python3 workspace/public/src/scripts/revalidation/s22plus_m34_s8b1_beacon_probe_live_gate.py --prelive-packet --android-stability-samples 2 --android-stability-interval-sec 1
-PYTHONPYCACHEPREFIX=/tmp/a90_pycache python3 workspace/public/src/scripts/revalidation/s22plus_m34_s8b1_beacon_probe_live_gate.py --verify-prelive-packet workspace/private/runs/s22plus_m34_s8b1_beacon_probe_live_gate_20260709T021844Z/s22plus_m34_s8b1_prelive_packet.json
+PYTHONPYCACHEPREFIX=/tmp/a90_pycache python3 workspace/public/src/scripts/revalidation/s22plus_m34_s8b1_beacon_probe_live_gate.py --verify-prelive-packet workspace/private/runs/s22plus_m34_s8b1_beacon_probe_live_gate_20260709T022933Z/s22plus_m34_s8b1_prelive_packet.json
 PYTHONPYCACHEPREFIX=/tmp/a90_pycache python3 workspace/public/src/scripts/revalidation/s22plus_m34_s8b1_beacon_probe_live_gate.py --print-live-runbook
 PYTHONPYCACHEPREFIX=/tmp/a90_pycache python3 workspace/public/src/scripts/revalidation/s22plus_m34_s8b1_beacon_probe_live_gate.py --print-agents-exception-draft
 PYTHONPYCACHEPREFIX=/tmp/a90_pycache python3 workspace/public/src/scripts/revalidation/s22plus_m34_s8b1_beacon_probe_live_gate.py --print-agents-exception-active-template
@@ -265,11 +268,12 @@ live-runbook generation: OK, no device action
 draft exception generation: OK
 active-template generation: OK
 default run without active AGENTS exception: correctly fails closed
-S8B1 tests: Ran 28 tests, OK
+S8B1 tests: Ran 29 tests, OK
 S8B1 analyzer tests: Ran 20 tests, OK
 S8B1/analyzer evidence-path cross-check: included in S8B1 tests
 runbook fallback/staleness-contract tests: included in S8B1 tests
-M34/S7A2/S8B1/analyzer regression: Ran 63 tests, OK
+Android predicate-baseline tests: included in S8B1 tests
+M34/S7A2/S8B1/analyzer regression: Ran 64 tests, OK
 ```
 
 ## Read-Only Current Device Note
@@ -312,7 +316,7 @@ The committed `--readonly-preflight` mode then passed against the same live
 Android baseline:
 
 ```text
-workspace/private/runs/s22plus_m34_s8b1_beacon_probe_live_gate_20260709T020943Z/
+workspace/private/runs/s22plus_m34_s8b1_beacon_probe_live_gate_20260709T022859Z/
 ```
 
 Key rows:
@@ -321,20 +325,29 @@ Key rows:
 android_stability_result=ok samples=2
 current_boot_hash_rc=0
 2e541703951dc725bad35850faf7028c2d910dd5f21166449b63f1248c29967e  /dev/block/by-name/boot
+s8b1_android_predicate_baseline: /sys/bus/i2c/devices/57-0066 exists, /sys/class/typec/port0 absent, predicate_true=1
 android_readonly_preflight=ok device_action=0 agents_exception_checked=0 android_checked=1 current_boot_hash_checked=1
 ```
 
+The predicate baseline matters for interpretation: on the current known-good
+Android boot, the S8B1 OR predicate is true because the max77705 I2C device
+exists at `/sys/devices/platform/soc/994000.i2c/i2c-57/57-0066`, while
+`/sys/class/typec/port0` is absent. Therefore an S8B1 HIT primarily proves the
+native-init module path reached the I2C/max77705 chip state, not necessarily
+that the TypeC class port was created.
+
 The latest no-write prelive packet with explicit fallback-rollback notes,
-selected-serial pinning, and stored runbook options is:
+selected-serial pinning, stored runbook options, and Android predicate baseline
+is:
 
 ```text
-workspace/private/runs/s22plus_m34_s8b1_beacon_probe_live_gate_20260709T021844Z/
+workspace/private/runs/s22plus_m34_s8b1_beacon_probe_live_gate_20260709T022933Z/
 ```
 
 It was verified with `--verify-prelive-packet` at:
 
 ```text
-workspace/private/runs/s22plus_m34_s8b1_beacon_probe_live_gate_20260709T021855Z/
+workspace/private/runs/s22plus_m34_s8b1_beacon_probe_live_gate_20260709T022953Z/
 ```
 
 It plans the live B1 proof directory and rollback-only fallback directory
@@ -342,10 +355,10 @@ separately:
 
 ```text
 planned_result_json:
-workspace/private/runs/s22plus_m34_s8b1_beacon_probe_live_gate_20260709T021844Z_live/result.json
+workspace/private/runs/s22plus_m34_s8b1_beacon_probe_live_gate_20260709T022933Z_live/result.json
 
 planned_rollback_result_json:
-workspace/private/runs/s22plus_m34_s8b1_beacon_probe_live_gate_20260709T021844Z_live_rollback/result.json
+workspace/private/runs/s22plus_m34_s8b1_beacon_probe_live_gate_20260709T022933Z_live_rollback/result.json
 ```
 
 ## Next Gate

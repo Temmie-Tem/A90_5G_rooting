@@ -38,6 +38,36 @@ def load_analyzer():
     return module
 
 
+def write_test_predicate_baseline(module, run_dir: Path, serial: str = "RFCT519XWGK") -> dict:
+    payload = {
+        "schema": "s22plus_m34_s8b1_android_predicate_baseline_v1",
+        "timestamp_utc": "2026-07-09T00:00:00Z",
+        "serial": serial,
+        "probe": module.EXPECTED_PROBE,
+        "probe_paths": module.EXPECTED_PROBE_PATHS,
+        "paths": {
+            "/sys/class/typec/port0": {"exists": True, "realpath": "/sys/devices/platform/soc/994000.i2c/typec/port0"},
+            "/sys/bus/i2c/devices/57-0066": {"exists": True, "realpath": "/sys/devices/platform/soc/994000.i2c/i2c-57/57-0066"},
+        },
+        "values": {
+            "/sys/class/typec/port0/data_role": "host [device] ",
+            "/sys/class/typec/port0/power_role": "source [sink] ",
+            "/sys/class/typec/port0/port_type": "[dual] ",
+        },
+        "predicate_true": True,
+    }
+    module.android_predicate_baseline_path(run_dir).write_text(json.dumps(payload, indent=2, sort_keys=True) + "\n", encoding="utf-8")
+    return payload
+
+
+def readonly_preflight_stub(module, serial: str = "RFCT519XWGK"):
+    def _stub(*, run_dir, **_kwargs):
+        write_test_predicate_baseline(module, run_dir, serial)
+        return serial
+
+    return _stub
+
+
 class S22PlusM34S8B1BeaconProbeLiveGateTest(unittest.TestCase):
     def setUp(self):
         self.module = load_module()
@@ -171,6 +201,7 @@ class S22PlusM34S8B1BeaconProbeLiveGateTest(unittest.TestCase):
                 mock.patch.object(self.module, "require_current_android", return_value="RFCT519XWGK") as require_android,
                 mock.patch.object(self.module, "verify_android_stability") as verify_stability,
                 mock.patch.object(self.module, "verify_partition_hash") as verify_hash,
+                mock.patch.object(self.module, "collect_android_s8b1_predicate_baseline") as collect_baseline,
                 mock.patch.object(self.module, "host_snapshot", return_value={}) as snapshot,
             ):
                 serial = self.module.run_android_readonly_preflight(
@@ -194,11 +225,44 @@ class S22PlusM34S8B1BeaconProbeLiveGateTest(unittest.TestCase):
                 self.module.EXPECTED_M34_BASE_BOOT_SHA256,
                 "current",
             )
+            collect_baseline.assert_called_once_with(run_dir=run_dir, log_path=log_path, serial="RFCT519XWGK")
             snapshot.assert_called_once_with(run_dir, log_path, "readonly_preflight_current", Path("/no/odin"))
             text = log_path.read_text(encoding="utf-8")
             self.assertIn("android_readonly_preflight=ok", text)
             self.assertIn("agents_exception_checked=0", text)
             self.assertIn("current_boot_hash_checked=1", text)
+
+    def test_collect_android_s8b1_predicate_baseline_writes_true_baseline(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            run_dir = Path(tmp)
+            log_path = run_dir / "baseline.log"
+            stdout = "\n".join(
+                [
+                    "exists\t/sys/class/typec/port0\t1",
+                    "realpath\t/sys/class/typec/port0\t/sys/devices/platform/soc/994000.i2c/typec/port0",
+                    "exists\t/sys/bus/i2c/devices/57-0066\t1",
+                    "realpath\t/sys/bus/i2c/devices/57-0066\t/sys/devices/platform/soc/994000.i2c/i2c-57/57-0066",
+                    "value\t/sys/class/typec/port0/data_role\thost [device] ",
+                    "value\t/sys/class/typec/port0/power_role\tsource [sink] ",
+                    "value\t/sys/class/typec/port0/port_type\t[dual] ",
+                ]
+            )
+            proc = mock.Mock(returncode=0, stdout=stdout, stderr="")
+            with mock.patch.object(self.module, "run", return_value=proc) as run:
+                payload = self.module.collect_android_s8b1_predicate_baseline(
+                    run_dir=run_dir,
+                    log_path=log_path,
+                    serial="RFCT519XWGK",
+                )
+
+            run.assert_called_once()
+            self.assertTrue(payload["predicate_true"])
+            self.assertTrue(payload["paths"]["/sys/class/typec/port0"]["exists"])
+            self.assertTrue(payload["paths"]["/sys/bus/i2c/devices/57-0066"]["exists"])
+            self.assertEqual(payload["values"]["/sys/class/typec/port0/data_role"], "host [device] ")
+            baseline_json = self.module.android_predicate_baseline_path(run_dir)
+            self.assertEqual(json.loads(baseline_json.read_text(encoding="utf-8")), payload)
+            self.assertIn("s8b1_android_predicate_baseline_json=", log_path.read_text(encoding="utf-8"))
 
     def test_readonly_preflight_cli_skips_agents_exception_gate(self):
         with tempfile.TemporaryDirectory() as tmp:
@@ -209,7 +273,7 @@ class S22PlusM34S8B1BeaconProbeLiveGateTest(unittest.TestCase):
             with (
                 mock.patch.object(self.module, "verify_m34_artifacts") as verify_artifacts,
                 mock.patch.object(self.module, "verify_agents_exception", side_effect=AssertionError("AGENTS gate should be skipped")),
-                mock.patch.object(self.module, "run_android_readonly_preflight", return_value="RFCT519XWGK") as readonly,
+                mock.patch.object(self.module, "run_android_readonly_preflight", side_effect=readonly_preflight_stub(self.module)) as readonly,
             ):
                 with contextlib.redirect_stdout(io.StringIO()):
                     rc = self.module.main(
@@ -305,7 +369,7 @@ class S22PlusM34S8B1BeaconProbeLiveGateTest(unittest.TestCase):
             with (
                 mock.patch.object(self.module, "verify_m34_artifacts") as verify_artifacts,
                 mock.patch.object(self.module, "verify_agents_exception", side_effect=AssertionError("AGENTS gate should be skipped")),
-                mock.patch.object(self.module, "run_android_readonly_preflight", return_value="RFCT519XWGK") as readonly,
+                mock.patch.object(self.module, "run_android_readonly_preflight", side_effect=readonly_preflight_stub(self.module)) as readonly,
             ):
                 stdout = io.StringIO()
                 with contextlib.redirect_stdout(stdout):
@@ -360,6 +424,13 @@ class S22PlusM34S8B1BeaconProbeLiveGateTest(unittest.TestCase):
             self.assertEqual(packet["runbook_options"]["observe_sec"], 90)
             self.assertEqual(packet["runbook_options"]["android_stability_samples"], 4)
             self.assertEqual(packet["runbook_options"]["android_stability_interval_sec"], 3.0)
+            self.assertEqual(packet["android_s8b1_predicate_baseline"]["schema"], "s22plus_m34_s8b1_android_predicate_baseline_v1")
+            self.assertTrue(packet["android_s8b1_predicate_baseline"]["predicate_true"])
+            self.assertEqual(packet["android_s8b1_predicate_baseline"]["serial"], "RFCT519XWGK")
+            self.assertEqual(
+                packet["android_s8b1_predicate_baseline_json"],
+                str(run_dir / "s22plus_m34_s8b1_android_predicate_baseline.json"),
+            )
             runbook = (run_dir / "s22plus_m34_s8b1_live_runbook.txt").read_text(encoding="utf-8")
             active_template = (run_dir / "s22plus_m34_s8b1_active_exception_template.txt").read_text(encoding="utf-8")
             self.assertIn(str(root / "candidate.tar.md5"), runbook)
@@ -394,7 +465,7 @@ class S22PlusM34S8B1BeaconProbeLiveGateTest(unittest.TestCase):
             run_dir = root / "run"
             with (
                 mock.patch.object(self.module, "verify_m34_artifacts"),
-                mock.patch.object(self.module, "run_android_readonly_preflight", return_value="RFCT519XWGK"),
+                mock.patch.object(self.module, "run_android_readonly_preflight", side_effect=readonly_preflight_stub(self.module)),
             ):
                 with contextlib.redirect_stdout(io.StringIO()):
                     rc = self.module.main(
@@ -441,7 +512,7 @@ class S22PlusM34S8B1BeaconProbeLiveGateTest(unittest.TestCase):
             ]
             with (
                 mock.patch.object(self.module, "verify_m34_artifacts"),
-                mock.patch.object(self.module, "run_android_readonly_preflight", return_value="RFCT519XWGK"),
+                mock.patch.object(self.module, "run_android_readonly_preflight", side_effect=readonly_preflight_stub(self.module)),
             ):
                 with contextlib.redirect_stdout(io.StringIO()):
                     self.module.main(
@@ -509,7 +580,7 @@ class S22PlusM34S8B1BeaconProbeLiveGateTest(unittest.TestCase):
             ]
             with (
                 mock.patch.object(self.module, "verify_m34_artifacts"),
-                mock.patch.object(self.module, "run_android_readonly_preflight", return_value="RFCT519XWGK"),
+                mock.patch.object(self.module, "run_android_readonly_preflight", side_effect=readonly_preflight_stub(self.module)),
             ):
                 with contextlib.redirect_stdout(io.StringIO()):
                     self.module.main(["--prelive-packet", *path_args, "--run-dir", str(run_dir)])
@@ -551,7 +622,7 @@ class S22PlusM34S8B1BeaconProbeLiveGateTest(unittest.TestCase):
             ]
             with (
                 mock.patch.object(self.module, "verify_m34_artifacts"),
-                mock.patch.object(self.module, "run_android_readonly_preflight", return_value="RFCT519XWGK"),
+                mock.patch.object(self.module, "run_android_readonly_preflight", side_effect=readonly_preflight_stub(self.module)),
             ):
                 with contextlib.redirect_stdout(io.StringIO()):
                     self.module.main(["--prelive-packet", *path_args, "--run-dir", str(run_dir)])
