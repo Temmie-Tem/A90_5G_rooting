@@ -84,6 +84,42 @@ safety invariants and flash gates are binding and override any sub-goal.**
 > USB observer + tests/report, followed by the host-only O1 overlay design. No S11
 > repeat and no new native-init live flash are authorized by this steer.
 
+> **S22+ CURRENT FRONTIER (2026-07-10 06:01 KST / 2026-07-09 21:01 UTC) — O3F FREESTANDING SINGLE-PID1 HOST BUILD PASS; REPRODUCIBLE EXACT ARTIFACT; LIVE GATE DESIGN NEXT; NO ACTIVE O3F EXCEPTION.**
+> V3415 completed the bounded startup discriminator selected after the O3 live
+> miss. O3F preserves the exact 59-module O2 plan, EOF `/proc/modules` proof,
+> eight bind gates, generic `acm.usb0`, sole
+> `a600000.ssusb/mode=peripheral` write, sole `a600000.dwc3` bind, 128-frame
+> protocol, host close/reopen, and `O3 STATUS` contract. Its only intended
+> architecture delta is removing static glibc startup, the daemon binary, and
+> PID1 `execve`: one 65,984-byte freestanding `_start` process owns raw syscalls,
+> module/gate setup, ttyGS0, and the framed protocol in memory.
+>
+> Review corrected ttyGS0 EOF handling before pinning: `read()==0` now closes
+> and reopens the device fd, rather than idling forever on the stale endpoint.
+> The final AArch64 binary is static, has no `PT_INTERP` or undefined symbols,
+> and contains no reboot/exec path. MagiskBoot no-change repack is byte-identical;
+> patched boot changes only ramdisk `/init`, keeps the kernel hash, adds no
+> ramdisk entry or module binary, and produces a one-member `boot.img.lz4` AP.
+>
+> ```text
+> o3f_init_sha256=d181cee7818cdf0566a8f618d1f861b0bdabb36501ca95e87ad3681a370d2a16
+> boot_img_sha256=c09ef0e8cbcb3b53c8ba22d76fce47cc03607ad416b0b8f2faf2adf1f18e9f70
+> boot_img_lz4_sha256=b25fff7af1d07fd0fd7799aac4ad1c8076f4fed7b7d8c64974cba5a2f5ecc922
+> ap_tar_md5_sha256=73d0a03c066b236e8ebea07c03affda4c5b94633cc34dd2ca413ce8697eb8725
+> plan_tsv_sha256=a34ebbad3b5d770f133e37a450cc3007e4a84ab831788484680e88aad6b3d534
+> kernel_sha256=bceca73edbfca3499148e16741c939779157925949ef6bc8a8e31d6b68fc2cff
+> ```
+>
+> An independent `/tmp` rebuild reproduced all 17 source/plan/init/ramdisk/
+> boot/LZ4/tar/AP hashes exactly. The focused O3F/O2 suite passed 22 tests and
+> the O0-through-O3F regression suite passed 62. The manifest remains
+> `live_flash_authorized=false`. The operator has approved the next live unit in
+> principle, but no SHA-pinned O3F exception/helper exists yet and no approval
+> has been consumed. Next = exact O3F live helper, offline + connected dry-run,
+> fresh one-shot boot-only exception, then one attended candidate flash with
+> mandatory Magisk rollback. Report:
+> `docs/reports/NATIVE_INIT_V3415_S22PLUS_O3F_FREESTANDING_ACM_HOST_BUILD_PASS_2026-07-10.md`.
+
 > **S22+ CURRENT FRONTIER (2026-07-10 05:43 KST / 2026-07-09 20:43 UTC) — O3 LIVE MISS; MAGISK ROLLBACK PASS; PHASE UNVERIFIABLE; EXCEPTION CONSUMED; FREESTANDING HOST REDESIGN NEXT.**
 > V3414 consumed the exact O3 exception. Candidate AP transfer and original
 > Odin disconnect succeeded, and the operator observed no bootloop, but no O3
