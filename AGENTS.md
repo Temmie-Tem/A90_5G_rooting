@@ -2918,6 +2918,95 @@ BL, CP, CSC, userdata, or any non-boot flash.
    `mfd_max77705`
    `pdic_max77705`
 
+   **Narrow operator-authorized exception (2026-07-10, S22+ O3F freestanding single-PID1 generic-ACM boot-only live gate):**
+   after V3415 reproducibly built the O3F artifact, its checked helper passed
+   artifact-only offline validation and connected read-only Android/Magisk
+   preflight, and the operator explicitly approved the next live run, Codex may
+   perform one bounded attended boot-partition-only O3F run on the Samsung S22+
+   `SM-S906N`/`g0q` `S906NKSS7FYG8` using only the checked helper
+   `workspace/public/src/scripts/revalidation/s22plus_o3f_freestanding_acm_live_gate.py`.
+   The authorized candidate is exactly `S22+ O3F freestanding single-PID1 generic-ACM boot-only`.
+   Exact target marker: `SM-S906N/g0q/S906NKSS7FYG8`.
+   Live ack token: `S22PLUS-O3F-FREESTANDING-ACM-LIVE-GATE`.
+   Mandatory rollback ack token:
+   `S22PLUS-O3F-FREESTANDING-ACM-ROLLBACK-FROM-DOWNLOAD`.
+
+   The exact candidate AP.tar.md5 SHA256 must be
+   `73d0a03c066b236e8ebea07c03affda4c5b94633cc34dd2ca413ce8697eb8725`;
+   AP tar SHA256 must be
+   `067c658a3651239ba7b645ffb9fcfc674200e917bcacf9b1babfa7ceffda6c2c`;
+   contained padded `boot.img` SHA256 must be
+   `c09ef0e8cbcb3b53c8ba22d76fce47cc03607ad416b0b8f2faf2adf1f18e9f70`;
+   `boot.img.lz4` SHA256 must be
+   `b25fff7af1d07fd0fd7799aac4ad1c8076f4fed7b7d8c64974cba5a2f5ecc922`.
+   The freestanding single-PID1 `/init` SHA256 must be
+   `d181cee7818cdf0566a8f618d1f861b0bdabb36501ca95e87ad3681a370d2a16`;
+   source SHA256 must be
+   `2018eacff28dd6e897e9d6f4d6eabd712b74f076ecdbb6192f03c59455ccfa38`;
+   protocol-header SHA256 must be
+   `3a53ebb9788b0ff23982ca2ed2bfc19cd27c5504f650660877868b588651403a`;
+   module-plan TSV SHA256 must be
+   `a34ebbad3b5d770f133e37a450cc3007e4a84ab831788484680e88aad6b3d534`;
+   generated plan-header SHA256 must be
+   `45727cff30952096d9604682a3ba3d284807a75e6622ed4c8ae57bc153d5b863`.
+   The known-booting base Magisk boot SHA256 must remain
+   `2e541703951dc725bad35850faf7028c2d910dd5f21166449b63f1248c29967e`;
+   preserved kernel SHA256 must remain
+   `bceca73edbfca3499148e16741c939779157925949ef6bc8a8e31d6b68fc2cff`.
+   The AP must contain exactly one tar member, `boot.img.lz4`, and must not
+   contain recovery, vendor_boot, dtbo, vbmeta, vbmeta_system, BL, CP, CSC,
+   super, persist, userdata, EFS, sec_efs, RPMB, keymaster, modem, bootloader,
+   or any other partition payload. There is `no non-boot partition write`.
+
+   Candidate behavior is limited to one freestanding raw-syscall PID1 mounting
+   volatile proc, sysfs, devtmpfs, and configfs; loading the exact pinned
+   59-module stock hard+soft-dependency plan from stock vendor_boot
+   `/lib/modules`; consuming `/proc/modules` through EOF; requiring all eight
+   ordered bind gates; creating one generic built-in `acm.usb0` function;
+   writing only `a600000.ssusb/mode=peripheral`; binding only
+   `a600000.dwc3`; and serving the bounded framed protocol directly on
+   `/dev/ttyGS0` without a daemon exec. The single tolerated unavailable
+   softdep remains `pinctrl-waipio.ko -> pre:qcom_tlmm_vm_irqchip`. Risk
+   modules `abc`, `sec_debug`, `minidump`, `eud`, `qc_usb_audio`,
+   `qcom_wdt_core`, and `gh_virt_wdt` may only be inserted as pinned
+   dependency/survival inputs. The candidate must not enable EUD, trigger
+   sec_debug/sysrq, configure audio, write Type-C/charger/PMIC/OTG/VBUS/
+   regulator/GDSC/GPIO state, create Samsung `ss_acm`, FunctionFS, MTP, ADB,
+   NCM, or a stock composite, mount persistent partitions, write block
+   devices, start Android/Magisk, exec another process, or request reboot.
+
+   Before candidate flash the helper must verify the exact artifact and
+   manifest hashes, normal rooted Android identity, current boot SHA, one
+   target transport, this active exception, the pinned Magisk boot-only
+   rollback AP SHA256
+   `d2373bf88dda342709440dc3db468f11d80a4593856768a4d8ae402bef215a56`,
+   and the FYG8 stock boot-only fallback AP SHA256
+   `2f6a8ac093587a0f03c423d8e21f65c6fe3a8d2ce9915297170cdaa2cac37c94`
+   derived from stock raw boot SHA256
+   `4150b962314e6136acba61b20f471d6ee1c418b83cf8c3ee4d9cf7c91a3640ae`.
+   Continuous host USB observers must cover the candidate window. O3F PASS
+   requires exact serial `S22O3FACM01`, the `128-request framed O0 protocol`
+   with sequence/payload equality and `host close/reopen`, and an `O3 STATUS`
+   response proving all 59 modules, EOF registration, gate mask `0xff`, exact
+   mode and UDC readbacks, generic `acm.usb0`, and zero protocol invalid/CRC/
+   sequence errors. Enumeration, survival, or source intent alone is not PASS.
+
+   A `mandatory boot-only rollback` follows both PASS and FAIL. Because O3F
+   deliberately has no reboot command, attended `manual Download-mode entry`
+   is expected after observation; the helper may wait up to its bounded timeout
+   and then flash only the pinned Magisk boot AP. The pinned stock boot AP is
+   fallback only if Magisk rollback transfer fails while one Download endpoint
+   remains available. After rollback the helper must verify Android/root,
+   exact baseline boot SHA and stability, and collect `/sys/fs/pstore` plus
+   `/proc/last_kmsg`. If Download mode does not appear, stop and preserve the
+   recovery command; do not widen behavior or flash another candidate. This
+   exception is consumed once `candidate_flash_start` is recorded and must be
+   rewritten as consumed after the run. It does not authorize O3/O3F repeat,
+   O4, NCM, Debian handoff, another module plan, kernel rebuild, Magisk module,
+   multidisabler, format data, raw host `dd`, fastboot, full firmware flash,
+   RDX retrieval, any non-boot flash, or any A90 action. Recoverable-envelope,
+   single-target, fail-closed, and fails-twice-stop rules remain binding.
+
    **Consumed exception (2026-07-10, S22+ O3 direct-PID1 minimal generic-ACM boot-only live gate):**
    this one-shot exception was consumed by the 2026-07-10 KST O3 live run.
    The exact candidate AP transferred and left the original Odin endpoint, and

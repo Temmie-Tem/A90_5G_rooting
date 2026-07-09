@@ -84,6 +84,26 @@ safety invariants and flash gates are binding and override any sub-goal.**
 > USB observer + tests/report, followed by the host-only O1 overlay design. No S11
 > repeat and no new native-init live flash are authorized by this steer.
 
+> **S22+ CURRENT FRONTIER (2026-07-10 06:07 KST / 2026-07-09 21:07 UTC) — O3F EXACT LIVE GATE READY; OFFLINE + CONNECTED DRY-RUN PASS; ONE-SHOT EXCEPTION ACTIVE.**
+> V3416 added an O3F-specific checked gate over the already proven O3
+> single-transport/observer/timeline/rollback runner. The O3F layer rejects the
+> consumed O3 artifact and pins the exact source, protocol, plan, init,
+> ramdisk, boot, LZ4, tar, and AP hashes. It also requires version `0.2`, serial
+> `S22O3FACM01`, 128 framed echoes with host close/reopen, and a complete
+> `O3 STATUS` bundle before PASS.
+>
+> Artifact-only offline validation passed. Connected read-only dry-run found one
+> Android target `RFCT519XWGK`, `SM-S906N/g0q/S906NKSS7FYG8`, orange verified
+> boot, `boot_completed=1`, stopped boot animation, Magisk uid 0, exact live
+> boot SHA `2e541703…967e`, four stable samples, no concurrent Odin endpoint,
+> and both exact boot-only rollback APs. A fresh one-shot O3F exception now pins
+> this candidate and the operator's explicit next-live approval. No candidate
+> flash has occurred and the exception remains unconsumed until
+> `candidate_flash_start`. Next = execute the exact helper with both ack tokens,
+> observe up to 120 seconds, then require attended manual Download entry and
+> mandatory Magisk rollback. Report:
+> `docs/reports/NATIVE_INIT_V3416_S22PLUS_O3F_FREESTANDING_ACM_LIVE_GATE_READY_2026-07-10.md`.
+
 > **S22+ CURRENT FRONTIER (2026-07-10 06:01 KST / 2026-07-09 21:01 UTC) — O3F FREESTANDING SINGLE-PID1 HOST BUILD PASS; REPRODUCIBLE EXACT ARTIFACT; LIVE GATE DESIGN NEXT; NO ACTIVE O3F EXCEPTION.**
 > V3415 completed the bounded startup discriminator selected after the O3 live
 > miss. O3F preserves the exact 59-module O2 plan, EOF `/proc/modules` proof,
