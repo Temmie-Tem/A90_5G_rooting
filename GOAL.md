@@ -84,6 +84,29 @@ safety invariants and flash gates are binding and override any sub-goal.**
 > USB observer + tests/report, followed by the host-only O1 overlay design. No S11
 > repeat and no new native-init live flash are authorized by this steer.
 
+> **S22+ CURRENT FRONTIER (2026-07-10 07:21 KST / 2026-07-09 22:21 UTC) — O3R1 LIVE NO-PROOF; MAGISK BASELINE RESTORED; TRANSIENT ANDROID USB RECOVERED; EXCEPTION CONSUMED; O3R2 STOP.**
+> V3420 consumed the exact O3R1 exception. Candidate flash and original Odin
+> disconnect passed; the operator observed a bootloop, not a retained panic
+> screen. After attended manual Download entry, the pinned Magisk rollback AP
+> transferred with Odin rc=0. Android reached its normal UI, but Samsung Android
+> USB enumerated for only about four seconds and disappeared, so the helper
+> timed out before ADB and recorded rollback `rc=5`.
+>
+> A later normal Android reboot restored stable `04e8:6860`, ADB, and `ttyACM0`.
+> Read-only recovery checks prove exact boot SHA `2e541703…967e`, Magisk uid 0,
+> boot complete, MID `18765 / 0x494d / MI`, `sec_debug enable=1`, and 220GB
+> free device storage. The USB failure was transient gadget/Type-C state, not
+> storage exhaustion or permanent USB hardware failure.
+>
+> Delayed collection read 2,097,136 bytes from `/proc/last_kmsg`; pstore was
+> empty. Exact O3R1 marker, `before-sysrq-c`, SysRq crash, kernel panic, and
+> init-death panic are all absent. A later `sysrq: Kill All Tasks` line is not
+> O3R1 proof. Final verdict is `no-retained-o3r1-proof`/`rc=9`. Do not repeat
+> O3R1 and do not proceed to O3R2. Return to the stock-first-stage observation
+> layer: bounded Magisk `overlay.d` early-boot marker/control service with normal
+> Android/ADB observability. Report:
+> `docs/reports/NATIVE_INIT_V3420_S22PLUS_O3R1_NATIVE_RETAINED_SYSRQ_LIVE_NO_PROOF_2026-07-10.md`.
+
 > **S22+ CURRENT FRONTIER (2026-07-10 07:03 KST / 2026-07-09 22:03 UTC) — O3R1 EXACT LIVE GATE READY; OFFLINE + CONNECTED DRY-RUN PASS; ONE-SHOT EXCEPTION ACTIVE AND UNCONSUMED.**
 > V3419 added the O3R1-specific checked helper. It pins the exact source/init/
 > ramdisk/kernel/boot/LZ4/tar/AP hashes, exact Magisk and stock boot-only

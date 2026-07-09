@@ -110,6 +110,19 @@ class S22PlusO3R1NativeRetainedSysrqLiveGateTest(unittest.TestCase):
         self.assertIn("assert_sec_debug_mid_state(", text)
         self.assertNotIn("/dev/pmsg0", text)
 
+    def test_postrollback_collection_is_read_only_and_policy_independent(self):
+        text = SCRIPT.read_text(encoding="ascii")
+        collect_start = text.index("if args.collect_after_rollback:")
+        rollback_start = text.index("if args.rollback_from_download:")
+        live_policy = text.index("verify_agents_exception(root, log_path)\n    validate_live_tokens")
+        self.assertLess(collect_start, rollback_start)
+        self.assertLess(collect_start, live_policy)
+        collect_block = text[collect_start:rollback_start]
+        self.assertIn("collect_retained(", collect_block)
+        self.assertIn("base.verify_partition_hash(", collect_block)
+        self.assertNotIn("flash_ap(", collect_block)
+        self.assertNotIn("verify_agents_exception(", collect_block)
+
 
 if __name__ == "__main__":
     unittest.main()

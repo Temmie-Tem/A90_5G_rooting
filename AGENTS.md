@@ -2925,13 +2925,17 @@ BL, CP, CSC, userdata, or any non-boot flash.
    attended manual Download entry, the helper flashed the pinned Magisk
    boot-only rollback AP with Odin rc=0. The operator then confirmed Android
    reached its normal UI, but the helper timed out before ADB returned and
-   recorded `rollback-failed`/`rc=5`; retained evidence collection therefore
-   remains pending. Host kernel evidence shows Samsung Android `04e8:6860` and
-   `ttyACM0` enumerated for approximately four seconds after rollback and then
-   disconnected, with no later USB data enumeration despite charging. This
-   exception must not be reused for O3R1, O3R2, another panic, or another boot
-   candidate. Further work is recovery/read-only USB diagnosis only unless a
-   fresh narrower exception is added.
+   recorded `rollback-failed`/`rc=5`. Host kernel evidence shows Samsung
+   Android `04e8:6860` and `ttyACM0` enumerated for approximately four seconds
+   after rollback and then disconnected despite charging. A later normal
+   reboot restored stable `04e8:6860`, ADB, and `ttyACM0`. Final read-only
+   checks verified exact Magisk boot SHA, root, MID/enabled sec_debug, and
+   220GB free device storage. Delayed `/proc/last_kmsg` collection found no
+   exact O3R1 marker, SysRq crash, kernel panic, or init-death panic and
+   classified the run `no-retained-o3r1-proof`/`rc=9`. This exception must not
+   be reused for O3R1, O3R2, another panic, or another boot candidate. Further
+   work is read-only analysis or a separately authorized stock-first-stage
+   observation unit.
 
    after V3418 reproducibly built the exact O3R1 artifact, the checked O3R1
    helper passed artifact-only offline validation and connected read-only

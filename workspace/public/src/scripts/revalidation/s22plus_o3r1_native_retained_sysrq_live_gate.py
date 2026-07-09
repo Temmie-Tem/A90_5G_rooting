@@ -354,6 +354,36 @@ def execute(args: argparse.Namespace) -> int:
         print(json.dumps({"result": "offline-pass", "run_dir": str(run_dir)}, indent=2))
         return 0
 
+    if args.collect_after_rollback:
+        selected_serial = base.require_current_android(log_path, args.serial)
+        base.verify_partition_hash(
+            log_path, selected_serial, "boot", EXPECTED_BASE_BOOT_SHA256, "postrollback_collect"
+        )
+        base.verify_android_stability(
+            log_path, selected_serial, args.postrollback_samples, args.sample_interval_sec
+        )
+        post_state = collect_sec_debug_state(
+            run_dir, log_path, selected_serial, "post_o3r1_manual_collection"
+        )
+        assert_sec_debug_mid_state(post_state, "post_o3r1_manual_collection")
+        retained = collect_retained(run_dir, log_path, selected_serial)
+        rc = 0 if retained["exact_pass"] else 9
+        write_result(
+            run_dir,
+            {
+                "schema": EXPECTED_SCHEMA,
+                "mode": "postrollback-read-only-collection",
+                "target": EXPECTED_TARGET,
+                "rc": rc,
+                "retained": retained,
+            },
+        )
+        print(
+            "O3R1 post-rollback read-only collection completed: "
+            f"verdict={retained['verdict']} rc={rc}; run={run_dir}"
+        )
+        return rc
+
     if args.rollback_from_download:
         if args.rollback_ack != ROLLBACK_ACK_TOKEN:
             raise SystemExit(
@@ -573,6 +603,7 @@ def main(argv: list[str]) -> int:
     parser.add_argument("--run-dir", type=Path)
     parser.add_argument("--serial")
     parser.add_argument("--offline-check", action="store_true")
+    parser.add_argument("--collect-after-rollback", action="store_true")
     parser.add_argument("--live", action="store_true")
     parser.add_argument("--rollback-from-download", action="store_true")
     parser.add_argument("--ack")
@@ -587,9 +618,21 @@ def main(argv: list[str]) -> int:
     parser.add_argument("--postrollback-samples", type=int, default=4)
     parser.add_argument("--sample-interval-sec", type=float, default=3.0)
     args = parser.parse_args(argv)
-    modes = sum(1 for value in (args.offline_check, args.live, args.rollback_from_download) if value)
+    modes = sum(
+        1
+        for value in (
+            args.offline_check,
+            args.collect_after_rollback,
+            args.live,
+            args.rollback_from_download,
+        )
+        if value
+    )
     if modes > 1:
-        raise SystemExit("--offline-check, --live, and --rollback-from-download are mutually exclusive")
+        raise SystemExit(
+            "--offline-check, --collect-after-rollback, --live, and "
+            "--rollback-from-download are mutually exclusive"
+        )
     if args.manual_download_wait_sec < 60:
         raise SystemExit("--manual-download-wait-sec must be at least 60")
     return execute(args)
