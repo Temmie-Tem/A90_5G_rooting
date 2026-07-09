@@ -77,7 +77,7 @@ rollback_odin_rc=0
 Post-rollback verification:
 
 ```text
-adb device=RFCT519XWGK usb:2-1.3 product:g0qksx model=SM_S906N device=g0q
+adb device=<S22_SERIAL_REDACTED> usb:2-1.3 product:g0qksx model=SM_S906N device=g0q
 boot_completed=1
 model=SM-S906N
 device=g0q
@@ -93,7 +93,7 @@ boot_sha256=2e541703951dc725bad35850faf7028c2d910dd5f21166449b63f1248c29967e
 Current host checks after the helper returned also confirmed:
 
 ```text
-adb devices -l -> RFCT519XWGK device
+adb devices -l -> <S22_SERIAL_REDACTED> device
 sys.boot_completed=1
 ro.boot.verifiedbootstate=orange
 su -c id -> uid=0(root) gid=0(root) groups=0(root) context=u:r:magisk:s0

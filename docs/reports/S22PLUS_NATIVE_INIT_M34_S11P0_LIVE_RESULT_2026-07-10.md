@@ -86,7 +86,7 @@ land and that the rooted measurement baseline recovered.
 Current post-recovery verification:
 
 ```text
-adb device=RFCT519XWGK usb:2-1.3 product:g0qksx model=SM_S906N device=g0q
+adb device=<S22_SERIAL_REDACTED> usb:2-1.3 product:g0qksx model=SM_S906N device=g0q
 boot_completed=1
 model=SM-S906N
 device=g0q
@@ -119,7 +119,7 @@ but ADB initially failed at the USB transport layer:
 
 ```text
 adb opened /dev/bus/usb/002/012
-transport registered RFCT519XWGK
+transport registered <S22_SERIAL_REDACTED>
 remote usb: write terminated: Protocol error
 read failed: Protocol error
 errno=71

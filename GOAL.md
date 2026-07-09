@@ -51,7 +51,7 @@ safety invariants and flash gates are binding and override any sub-goal.**
 > post-rollback checks confirm the rooted Magisk measurement baseline:
 >
 > ```text
-> adb device=RFCT519XWGK usb:2-1.3 product:g0qksx model=SM_S906N device=g0q
+> adb device=<S22_SERIAL_REDACTED> usb:2-1.3 product:g0qksx model=SM_S906N device=g0q
 > boot_completed=1
 > vbstate=orange
 > su=uid=0(root) gid=0(root) groups=0(root) context=u:r:magisk:s0
@@ -108,7 +108,7 @@ safety invariants and flash gates are binding and override any sub-goal.**
 > Magisk measurement baseline is back:
 >
 > ```text
-> adb device=RFCT519XWGK usb:2-1.3 product:g0qksx model=SM_S906N device=g0q
+> adb device=<S22_SERIAL_REDACTED> usb:2-1.3 product:g0qksx model=SM_S906N device=g0q
 > boot_completed=1
 > model=SM-S906N device=g0q bootloader=S906NKSS7FYG8
 > incremental=S906NKSS7FYG8 vbstate=orange boot_recovery=0
