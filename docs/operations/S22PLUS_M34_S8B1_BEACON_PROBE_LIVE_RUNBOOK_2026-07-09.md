@@ -36,26 +36,26 @@ S22PLUS-M34-S8B1-BEACON-PROBE-ROLLBACK-FROM-DOWNLOAD
 Latest no-write packet:
 
 ```text
-workspace/private/runs/s22plus_m34_s8b1_beacon_probe_live_gate_20260709T034309Z/s22plus_m34_s8b1_prelive_packet.json
+workspace/private/runs/s22plus_m34_s8b1_beacon_probe_live_gate_20260709T035730Z/s22plus_m34_s8b1_prelive_packet.json
 ```
 
 Packet sidecars:
 
 ```text
-workspace/private/runs/s22plus_m34_s8b1_beacon_probe_live_gate_20260709T034309Z/s22plus_m34_s8b1_live_runbook.txt
-workspace/private/runs/s22plus_m34_s8b1_beacon_probe_live_gate_20260709T034309Z/s22plus_m34_s8b1_active_exception_template.txt
-workspace/private/runs/s22plus_m34_s8b1_beacon_probe_live_gate_20260709T034309Z/s22plus_m34_s8b1_android_predicate_baseline.json
-workspace/private/runs/s22plus_m34_s8b1_beacon_probe_live_gate_20260709T034309Z/s22plus_m34_s8b1_android_reset_context_baseline.json
+workspace/private/runs/s22plus_m34_s8b1_beacon_probe_live_gate_20260709T035730Z/s22plus_m34_s8b1_live_runbook.txt
+workspace/private/runs/s22plus_m34_s8b1_beacon_probe_live_gate_20260709T035730Z/s22plus_m34_s8b1_active_exception_template.txt
+workspace/private/runs/s22plus_m34_s8b1_beacon_probe_live_gate_20260709T035730Z/s22plus_m34_s8b1_android_predicate_baseline.json
+workspace/private/runs/s22plus_m34_s8b1_beacon_probe_live_gate_20260709T035730Z/s22plus_m34_s8b1_android_reset_context_baseline.json
 ```
 
 Pinned hashes:
 
 ```text
-prelive packet                 37bce1ac8e5884a37bf4ca2dea9d1e916ea81c122aef802b502696e775eee838
-live runbook                   66e883a824dedeff5ff386f374f112e0da5bc0f468f74a40dbf874756c2062f1
+prelive packet                 2b20488162bb630eed0197d426a7c688f3e37f640b11289cc8bae14e81305aa6
+live runbook                   a4a24808320b57409be34e237fcc72ec3ba5c1458177bde65e0813cd88eebada
 active exception template       66f1e39a3a01da4be3b100c899fd39c553cf31a014fa47532973daf5e2e8ac8f
-Android predicate baseline      af3969babc020fb749af71a0a9c9819e221b9250dfa77d2b633456b60404f3ef
-Android reset-context baseline  05f3cc402bd2450a670c237a2e3799cacd1ff9ada675783b5b8421b467a70088
+Android predicate baseline      73e0473188a9fec9e8485f14c57211f58ded30a96e277e06824e1321374009cb
+Android reset-context baseline  0488d8cb5d8214d09ddeabe1446fa5ff0c16b46d491425df5e10cfdb54f784b0
 ```
 
 The packet embeds the same sidecar hashes under `material_sha256`; the verifier
@@ -67,7 +67,7 @@ Verify the pinned packet before any live authorization work:
 PYTHONPYCACHEPREFIX=/tmp/a90_pycache python3 \
   workspace/public/src/scripts/revalidation/s22plus_m34_s8b1_beacon_probe_live_gate.py \
   --verify-prelive-packet \
-  workspace/private/runs/s22plus_m34_s8b1_beacon_probe_live_gate_20260709T034309Z/s22plus_m34_s8b1_prelive_packet.json
+  workspace/private/runs/s22plus_m34_s8b1_beacon_probe_live_gate_20260709T035730Z/s22plus_m34_s8b1_prelive_packet.json
 ```
 
 Expected result:
@@ -155,19 +155,20 @@ Download-mode rollback.
 The exact command sequence is stored in:
 
 ```text
-workspace/private/runs/s22plus_m34_s8b1_beacon_probe_live_gate_20260709T034309Z/s22plus_m34_s8b1_live_runbook.txt
+workspace/private/runs/s22plus_m34_s8b1_beacon_probe_live_gate_20260709T035730Z/s22plus_m34_s8b1_live_runbook.txt
 ```
 
 Use that file as the source of truth for the command lines. Its phases are:
 
 ```text
 1. no-write readonly-preflight
-2. print active AGENTS.md exception template for manual review/insertion
-3. no-write verify-agents-candidate on the reviewed full AGENTS.md candidate
-4. default dry-run after AGENTS.md contains the active exception
-5. live gate with explicit live ack
-6. fallback rollback-from-download only if live exits after MISS without rollback
-7. analyzer gates on the live result.json
+2. print active AGENTS.md exception template for manual review
+3. generate a full AGENTS.md candidate without replacing the repo file
+4. no-write verify-agents-candidate on the reviewed full AGENTS.md candidate
+5. default dry-run after AGENTS.md contains the active exception
+6. live gate with explicit live ack
+7. fallback rollback-from-download only if live exits after MISS without rollback
+8. analyzer gates on the live result.json
 ```
 
 The default dry-run/live gate requires `AGENTS.md` to contain the exact
@@ -178,19 +179,31 @@ Print-only helper modes such as `--print-live-runbook` and
 `--print-agents-exception-active-template` verify artifacts through a temporary
 log and must not create the requested `--run-dir` or any planned phase
 directory.
+The `--write-agents-candidate <path>` mode generates a full candidate
+`AGENTS.md` by inserting the exact active S8B1 exception before the consumed
+M34 S7A2 block. It refuses to write repo `AGENTS.md` directly, refuses to
+overwrite an existing candidate, and must not create the requested `--run-dir`,
+call ADB, reboot, or flash.
 The `--verify-agents-candidate <path>` mode verifies a reviewed full AGENTS
 candidate file before replacing the repo file. It also uses a temporary log and
 must not create the requested `--run-dir`, call ADB, reboot, flash, or edit
 `AGENTS.md`.
 
+Latest generated and verified candidate:
+
+```text
+workspace/private/runs/s22plus_m34_s8b1_agents_candidate_20260709T035315Z/AGENTS.candidate.md
+sha256=0186b2dc881ba1a35565bc34e98c8283513d7fd0fc6aae3c000a88c3f1bbdf48
+```
+
 The planned run directories are intentionally distinct:
 
 ```text
-preflight: workspace/private/runs/s22plus_m34_s8b1_beacon_probe_live_gate_20260709T034309Z_live_preflight
-template:  workspace/private/runs/s22plus_m34_s8b1_beacon_probe_live_gate_20260709T034309Z_live_template
-dryrun:    workspace/private/runs/s22plus_m34_s8b1_beacon_probe_live_gate_20260709T034309Z_live_dryrun
-live:      workspace/private/runs/s22plus_m34_s8b1_beacon_probe_live_gate_20260709T034309Z_live
-rollback:  workspace/private/runs/s22plus_m34_s8b1_beacon_probe_live_gate_20260709T034309Z_live_rollback
+preflight: workspace/private/runs/s22plus_m34_s8b1_beacon_probe_live_gate_20260709T035730Z_live_preflight
+template:  workspace/private/runs/s22plus_m34_s8b1_beacon_probe_live_gate_20260709T035730Z_live_template
+dryrun:    workspace/private/runs/s22plus_m34_s8b1_beacon_probe_live_gate_20260709T035730Z_live_dryrun
+live:      workspace/private/runs/s22plus_m34_s8b1_beacon_probe_live_gate_20260709T035730Z_live
+rollback:  workspace/private/runs/s22plus_m34_s8b1_beacon_probe_live_gate_20260709T035730Z_live_rollback
 ```
 
 Do not create these planned directories casually before the live approval flow:
@@ -201,13 +214,13 @@ the packet verifier intentionally checks that they are not already stale.
 Analyze only the live run result as B1 proof:
 
 ```text
-workspace/private/runs/s22plus_m34_s8b1_beacon_probe_live_gate_20260709T034309Z_live/result.json
+workspace/private/runs/s22plus_m34_s8b1_beacon_probe_live_gate_20260709T035730Z_live/result.json
 ```
 
 The fallback rollback result is cleanup evidence, not B1 proof:
 
 ```text
-workspace/private/runs/s22plus_m34_s8b1_beacon_probe_live_gate_20260709T034309Z_live_rollback/result.json
+workspace/private/runs/s22plus_m34_s8b1_beacon_probe_live_gate_20260709T035730Z_live_rollback/result.json
 ```
 
 Use:
@@ -215,7 +228,7 @@ Use:
 ```text
 PYTHONPYCACHEPREFIX=/tmp/a90_pycache python3 \
   workspace/public/src/scripts/revalidation/analyze_s22plus_m34_s8b1_result.py \
-  workspace/private/runs/s22plus_m34_s8b1_beacon_probe_live_gate_20260709T034309Z_live/result.json \
+  workspace/private/runs/s22plus_m34_s8b1_beacon_probe_live_gate_20260709T035730Z_live/result.json \
   --write-report
 ```
 
@@ -252,7 +265,9 @@ PMIC/RDX abnormal reset before the observation window = fail, not HIT.
 
 ## Current Status
 
-As of this document, `AGENTS.md` has no active S8B1 exception. The next live
-step remains blocked on explicit operator live approval plus active
-SHA-pinned exception insertion. Until then, only the packet verifier and other
-no-write checks are allowed.
+As of this document, repo `AGENTS.md` has no active S8B1 exception. A full
+candidate has been generated and verified at the path above, but it has not
+replaced repo `AGENTS.md`. The next live step remains blocked on explicit
+operator live approval plus active SHA-pinned exception insertion. Until then,
+only the packet verifier, candidate verifier, and other no-write checks are
+allowed.

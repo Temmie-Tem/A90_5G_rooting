@@ -112,6 +112,7 @@ The helper also provides a non-live readiness mode:
 --prelive-packet
 --verify-prelive-packet <json>
 --print-live-runbook
+--write-agents-candidate <path>
 --verify-agents-candidate <path>
 ```
 
@@ -127,7 +128,8 @@ read-only/no-reboot/no-flash or if the expected Samsung reset fields are absent.
 
 `--print-live-runbook` verifies the same pinned artifacts, then prints the exact
 operator command sequence for read-only preflight, active exception review,
-post-exception dry-run, live ack, manual-download rollback, and analyzer gates.
+full AGENTS candidate generation/verification, post-exception dry-run, live
+ack, manual-download rollback, and analyzer gates.
 The printed sequence carries any custom candidate, manifest, Odin, rollback,
 and run-directory paths supplied to the runbook command. It does not check
 `AGENTS.md`, call ADB, reboot, flash, or rollback. The runbook explicitly says
@@ -136,6 +138,13 @@ Download and performs rollback inside the live run directory if Download appears
 within the bounded wait. The separate `--rollback-from-download` command is a
 fallback only if the live command exits after MISS without rollback, or if the
 device is placed in Download mode later.
+
+`--write-agents-candidate <path>` generates a full AGENTS candidate by inserting
+the exact helper-generated active S8B1 exception before the consumed M34 S7A2
+block. It refuses to write repo `AGENTS.md` directly, refuses to overwrite an
+existing candidate, verifies the resulting candidate, and performs no
+`AGENTS.md` write, no ADB call, no reboot, no flash, and no requested
+`--run-dir` creation.
 
 `--verify-agents-candidate <path>` verifies a reviewed full AGENTS candidate
 file before replacing the repo file. It verifies the same pinned artifacts,
@@ -261,11 +270,12 @@ PYTHONPYCACHEPREFIX=/tmp/a90_pycache python3 -m py_compile workspace/public/src/
 PYTHONPYCACHEPREFIX=/tmp/a90_pycache python3 workspace/public/src/scripts/revalidation/s22plus_m34_s8b1_beacon_probe_live_gate.py --offline-check
 PYTHONPYCACHEPREFIX=/tmp/a90_pycache python3 workspace/public/src/scripts/revalidation/s22plus_m34_s8b1_beacon_probe_live_gate.py --readonly-preflight --android-stability-samples 2 --android-stability-interval-sec 1
 PYTHONPYCACHEPREFIX=/tmp/a90_pycache python3 workspace/public/src/scripts/revalidation/s22plus_m34_s8b1_beacon_probe_live_gate.py --prelive-packet --android-stability-samples 2 --android-stability-interval-sec 0.5
-PYTHONPYCACHEPREFIX=/tmp/a90_pycache python3 workspace/public/src/scripts/revalidation/s22plus_m34_s8b1_beacon_probe_live_gate.py --verify-prelive-packet workspace/private/runs/s22plus_m34_s8b1_beacon_probe_live_gate_20260709T034309Z/s22plus_m34_s8b1_prelive_packet.json
+PYTHONPYCACHEPREFIX=/tmp/a90_pycache python3 workspace/public/src/scripts/revalidation/s22plus_m34_s8b1_beacon_probe_live_gate.py --verify-prelive-packet workspace/private/runs/s22plus_m34_s8b1_beacon_probe_live_gate_20260709T035730Z/s22plus_m34_s8b1_prelive_packet.json
 PYTHONPYCACHEPREFIX=/tmp/a90_pycache python3 workspace/public/src/scripts/revalidation/s22plus_m34_s8b1_beacon_probe_live_gate.py --print-live-runbook
 PYTHONPYCACHEPREFIX=/tmp/a90_pycache python3 workspace/public/src/scripts/revalidation/s22plus_m34_s8b1_beacon_probe_live_gate.py --print-agents-exception-draft
 PYTHONPYCACHEPREFIX=/tmp/a90_pycache python3 workspace/public/src/scripts/revalidation/s22plus_m34_s8b1_beacon_probe_live_gate.py --print-agents-exception-active-template
-PYTHONPYCACHEPREFIX=/tmp/a90_pycache python3 workspace/public/src/scripts/revalidation/s22plus_m34_s8b1_beacon_probe_live_gate.py --verify-agents-candidate workspace/private/runs/s22plus_m34_s8b1_beacon_probe_live_gate_20260709T034309Z/s22plus_m34_s8b1_active_exception_template.txt
+PYTHONPYCACHEPREFIX=/tmp/a90_pycache python3 workspace/public/src/scripts/revalidation/s22plus_m34_s8b1_beacon_probe_live_gate.py --write-agents-candidate workspace/private/runs/s22plus_m34_s8b1_agents_candidate_20260709T035315Z/AGENTS.candidate.md
+PYTHONPYCACHEPREFIX=/tmp/a90_pycache python3 workspace/public/src/scripts/revalidation/s22plus_m34_s8b1_beacon_probe_live_gate.py --verify-agents-candidate workspace/private/runs/s22plus_m34_s8b1_agents_candidate_20260709T035315Z/AGENTS.candidate.md
 PYTHONPYCACHEPREFIX=/tmp/a90_pycache python3 workspace/public/src/scripts/revalidation/s22plus_m34_s8b1_beacon_probe_live_gate.py
 PYTHONPYCACHEPREFIX=/tmp/a90_pycache python3 -m unittest tests/test_s22plus_m34_s8b1_beacon_probe_live_gate.py
 PYTHONPYCACHEPREFIX=/tmp/a90_pycache python3 -m unittest tests/test_analyze_s22plus_m34_s8b1_result.py
@@ -285,17 +295,18 @@ live-runbook generation: OK, no device action
 draft exception generation: OK
 active-template generation: OK
 default run without active AGENTS exception: correctly fails closed
-S8B1 tests: Ran 37 tests, OK
+S8B1 tests: Ran 40 tests, OK
 S8B1 analyzer tests: Ran 20 tests, OK
 S8B1/analyzer evidence-path cross-check: included in S8B1 tests
 runbook fallback/staleness-contract tests: included in S8B1 tests
 Android predicate-baseline tests: included in S8B1 tests
 Android reset-context packet tests: included in S8B1 tests
 exact active-template authorization tests: included in S8B1 tests
+write-agents-candidate tests: included in S8B1 tests
 verify-agents-candidate tests: included in S8B1 tests
 material-hash staleness tests: included in S8B1 tests
 print-only run-dir side-effect tests: included in S8B1 tests
-M34/S7A2/S8B1/analyzer regression: Ran 72 tests, OK
+M34/S7A2/S8B1/analyzer regression: Ran 75 tests, OK
 post-RDX readonly-preflight with future B2 hints: OK, no reboot/flash/write
 post-RDX prelive packet with reset-context baseline: OK, no reboot/flash/write
 latest readonly-preflight refresh: OK, no reboot/flash/write
@@ -392,17 +403,17 @@ Android path exposes TypeC below `max77705-usbc/typec/port0`.
 
 The latest no-write prelive packet with explicit fallback-rollback notes,
 selected-serial pinning, stored runbook options, Android predicate baseline,
-Android reset-context baseline, and embedded sidecar material hashes
-is:
+Android reset-context baseline, full AGENTS candidate generation/verification
+step, and embedded sidecar material hashes is:
 
 ```text
-workspace/private/runs/s22plus_m34_s8b1_beacon_probe_live_gate_20260709T034309Z/
+workspace/private/runs/s22plus_m34_s8b1_beacon_probe_live_gate_20260709T035730Z/
 ```
 
 It was verified with `--verify-prelive-packet` at:
 
 ```text
-workspace/private/runs/s22plus_m34_s8b1_beacon_probe_live_gate_20260709T034739Z/
+workspace/private/runs/s22plus_m34_s8b1_beacon_probe_live_gate_20260709T035851Z/
 ```
 
 It plans the live B1 proof directory and rollback-only fallback directory
@@ -410,10 +421,10 @@ separately:
 
 ```text
 planned_result_json:
-workspace/private/runs/s22plus_m34_s8b1_beacon_probe_live_gate_20260709T034309Z_live/result.json
+workspace/private/runs/s22plus_m34_s8b1_beacon_probe_live_gate_20260709T035730Z_live/result.json
 
 planned_rollback_result_json:
-workspace/private/runs/s22plus_m34_s8b1_beacon_probe_live_gate_20260709T034309Z_live_rollback/result.json
+workspace/private/runs/s22plus_m34_s8b1_beacon_probe_live_gate_20260709T035730Z_live_rollback/result.json
 ```
 
 The same packet now embeds the reset-context baseline captured by the
@@ -438,9 +449,18 @@ It pins the packet and sidecar hashes, summarizes the current Android
 predicate/reset baselines, and points to the exact private runbook command file.
 It does not authorize a live flash and does not insert `AGENTS.md`.
 
+The helper generated and verified this full candidate `AGENTS.md` without
+changing the repo file:
+
+```text
+workspace/private/runs/s22plus_m34_s8b1_agents_candidate_20260709T035315Z/AGENTS.candidate.md
+sha256=0186b2dc881ba1a35565bc34e98c8283513d7fd0fc6aae3c000a88c3f1bbdf48
+```
+
 The latest packet was generated after the print-only run-dir side-effect fix
-and confirmed the current Android baseline is still suitable for the same S8B1
-live gate. It did not create any planned live directories:
+and candidate-writer addition, and confirmed the current Android baseline is
+still suitable for the same S8B1 live gate. It did not create any planned live
+directories:
 
 ```text
 android_stability_result=ok samples=2
@@ -459,19 +479,21 @@ ro.boot.bootreason=reboot,download
 Latest packet sidecar SHA256s:
 
 ```text
-s22plus_m34_s8b1_prelive_packet.json: 37bce1ac8e5884a37bf4ca2dea9d1e916ea81c122aef802b502696e775eee838
-s22plus_m34_s8b1_live_runbook.txt: 66e883a824dedeff5ff386f374f112e0da5bc0f468f74a40dbf874756c2062f1
+s22plus_m34_s8b1_prelive_packet.json: 2b20488162bb630eed0197d426a7c688f3e37f640b11289cc8bae14e81305aa6
+s22plus_m34_s8b1_live_runbook.txt: a4a24808320b57409be34e237fcc72ec3ba5c1458177bde65e0813cd88eebada
 s22plus_m34_s8b1_active_exception_template.txt: 66f1e39a3a01da4be3b100c899fd39c553cf31a014fa47532973daf5e2e8ac8f
-s22plus_m34_s8b1_android_predicate_baseline.json: af3969babc020fb749af71a0a9c9819e221b9250dfa77d2b633456b60404f3ef
-s22plus_m34_s8b1_android_reset_context_baseline.json: 05f3cc402bd2450a670c237a2e3799cacd1ff9ada675783b5b8421b467a70088
+s22plus_m34_s8b1_android_predicate_baseline.json: 73e0473188a9fec9e8485f14c57211f58ded30a96e277e06824e1321374009cb
+s22plus_m34_s8b1_android_reset_context_baseline.json: 0488d8cb5d8214d09ddeabe1446fa5ff0c16b46d491425df5e10cfdb54f784b0
 ```
 
 ## Next Gate
 
-To run live, insert a fresh active SHA-pinned `AGENTS.md` exception generated by:
+To run live, generate a fresh full `AGENTS.md` candidate, verify it, and only
+then replace repo `AGENTS.md` with that reviewed file:
 
 ```text
-PYTHONPYCACHEPREFIX=/tmp/a90_pycache python3 workspace/public/src/scripts/revalidation/s22plus_m34_s8b1_beacon_probe_live_gate.py --print-agents-exception-active-template
+PYTHONPYCACHEPREFIX=/tmp/a90_pycache python3 workspace/public/src/scripts/revalidation/s22plus_m34_s8b1_beacon_probe_live_gate.py --write-agents-candidate <candidate-AGENTS.md>
+PYTHONPYCACHEPREFIX=/tmp/a90_pycache python3 workspace/public/src/scripts/revalidation/s22plus_m34_s8b1_beacon_probe_live_gate.py --verify-agents-candidate <candidate-AGENTS.md>
 ```
 
 Then, only after explicit operator approval, run one attended `--live` pass with

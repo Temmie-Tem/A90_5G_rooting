@@ -461,6 +461,7 @@ class S22PlusM34S8B1BeaconProbeLiveGateTest(unittest.TestCase):
             text = stdout.getvalue()
             self.assertIn("--readonly-preflight", text)
             self.assertIn("--print-agents-exception-active-template", text)
+            self.assertIn("--write-agents-candidate '<candidate-AGENTS.md>'", text)
             self.assertIn("--verify-agents-candidate '<candidate-AGENTS.md>'", text)
             self.assertIn(f"--ack {self.module.LIVE_ACK_TOKEN}", text)
             self.assertIn(f"--ack {self.module.ROLLBACK_ACK_TOKEN}", text)
@@ -468,7 +469,7 @@ class S22PlusM34S8B1BeaconProbeLiveGateTest(unittest.TestCase):
             self.assertIn("--require-live-next-stage", text)
             self.assertIn("--serial RFCT519XWGK", text)
             self.assertIn("This command handles HIT rollback", text)
-            self.assertIn("Fallback only: run this if step 5 exits after MISS without rollback", text)
+            self.assertIn("Fallback only: run this if step 6 exits after MISS without rollback", text)
             self.assertIn("cleanup evidence, not B1 proof", text)
             self.assertIn(str(root / "candidate.tar.md5"), text)
             self.assertIn(str(root / "manifest.json"), text)
@@ -520,6 +521,105 @@ class S22PlusM34S8B1BeaconProbeLiveGateTest(unittest.TestCase):
             verify_artifacts.assert_called_once()
             self.assertIn(self.module.LIVE_ACK_TOKEN, stdout.getvalue())
             self.assertFalse(run_dir.exists())
+
+    def test_agents_candidate_text_inserts_exact_active_template_before_m34_consumed_block(self):
+        source = (
+            "header\n"
+            f"{self.module.ACTIVE_EXCEPTION_INSERT_ANCHOR}"
+            "   runtime-gadget boot-only live gate):** consumed\n"
+        )
+        candidate = self.module.agents_candidate_text(source)
+        self.assertIn(self.module.agents_exception_active_template(), candidate)
+        self.assertLess(candidate.index("S22+ M34 S8B1"), candidate.index("S22+ M34 S7A2"))
+        self.assertFalse(self.module.has_draft_only_m34_exception(candidate))
+
+    def test_write_agents_candidate_creates_full_verified_candidate_without_run_dir_or_device(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            odin = root / "odin4"
+            odin.write_text("#!/bin/sh\n", encoding="utf-8")
+            (root / "AGENTS.md").write_text(
+                "header\n"
+                f"{self.module.ACTIVE_EXCEPTION_INSERT_ANCHOR}"
+                "   runtime-gadget boot-only live gate):** consumed\n",
+                encoding="utf-8",
+            )
+            candidate = root / "out" / "AGENTS.candidate.md"
+            run_dir = root / "run"
+            with (
+                mock.patch.object(self.module, "repo_root", return_value=root),
+                mock.patch.object(self.module, "verify_m34_artifacts") as verify_artifacts,
+                mock.patch.object(self.module, "verify_agents_exception", side_effect=AssertionError("repo AGENTS gate should be skipped")),
+                mock.patch.object(self.module, "run_android_readonly_preflight", side_effect=AssertionError("Android gate should be skipped")),
+            ):
+                stdout = io.StringIO()
+                with contextlib.redirect_stdout(stdout):
+                    rc = self.module.main(
+                        [
+                            "--write-agents-candidate",
+                            str(candidate),
+                            "--odin",
+                            str(odin),
+                            "--m34-ap",
+                            str(root / "candidate.tar.md5"),
+                            "--m34-manifest",
+                            str(root / "manifest.json"),
+                            "--magisk-rollback-ap",
+                            str(root / "magisk.tar.md5"),
+                            "--stock-rollback-ap",
+                            str(root / "stock.tar.md5"),
+                            "--run-dir",
+                            str(run_dir),
+                        ]
+                    )
+
+            self.assertEqual(rc, 0)
+            verify_artifacts.assert_called_once()
+            self.assertTrue(candidate.is_file())
+            self.module.verify_agents_text(
+                candidate.read_text(encoding="utf-8"),
+                root / "verify.log",
+                source_label=str(candidate),
+            )
+            self.assertIn("write-agents-candidate ok", stdout.getvalue())
+            self.assertFalse(run_dir.exists())
+
+    def test_write_agents_candidate_refuses_to_write_repo_agents_directly(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            odin = root / "odin4"
+            odin.write_text("#!/bin/sh\n", encoding="utf-8")
+            agents = root / "AGENTS.md"
+            agents.write_text(
+                "header\n"
+                f"{self.module.ACTIVE_EXCEPTION_INSERT_ANCHOR}"
+                "   runtime-gadget boot-only live gate):** consumed\n",
+                encoding="utf-8",
+            )
+            with (
+                mock.patch.object(self.module, "repo_root", return_value=root),
+                mock.patch.object(self.module, "verify_m34_artifacts") as verify_artifacts,
+            ):
+                with self.assertRaises(SystemExit) as caught:
+                    self.module.main(
+                        [
+                            "--write-agents-candidate",
+                            str(agents),
+                            "--odin",
+                            str(odin),
+                            "--m34-ap",
+                            str(root / "candidate.tar.md5"),
+                            "--m34-manifest",
+                            str(root / "manifest.json"),
+                            "--magisk-rollback-ap",
+                            str(root / "magisk.tar.md5"),
+                            "--stock-rollback-ap",
+                            str(root / "stock.tar.md5"),
+                        ]
+                    )
+
+            verify_artifacts.assert_called_once()
+            self.assertIn("refuses to write AGENTS.md directly", str(caught.exception))
 
     def test_verify_agents_candidate_accepts_exact_active_template_without_run_dir_or_device(self):
         with tempfile.TemporaryDirectory() as tmp:
