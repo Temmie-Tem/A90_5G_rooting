@@ -32,6 +32,11 @@ safety invariants and flash gates are binding and override any sub-goal.**
 > configfs/sysfs, change the active gadget, or claim anything about direct PID1.
 > PASS requires host-to-device and device-to-host payload equality with sequence
 > continuity across a bounded multi-request run; a visible tty alone is not PASS.
+> Stock Android assigns `/dev/ttyGS0` to init service `DR-daemon`
+> (`/system/bin/ddexe`). O0 may perform only a bounded runtime ownership handoff:
+> require running+tty-owned -> `ctl.stop DR-daemon` -> run the temporary helper ->
+> delete it -> `ctl.start DR-daemon` -> require running+tty-owned. Failure to
+> restore the service is O0 FAIL even if payload roundtrips succeeded.
 >
 > **O1 — stock-first-stage early-boot observation proof.** After O0, design a
 > Magisk-boot `overlay.d` rc/service candidate that preserves the stock first-stage
@@ -78,6 +83,33 @@ safety invariants and flash gates are binding and override any sub-goal.**
 > **Immediate deliverable:** O0 host/device tty roundtrip harness + continuous host
 > USB observer + tests/report, followed by the host-only O1 overlay design. No S11
 > repeat and no new native-init live flash are authorized by this steer.
+
+> **S22+ CURRENT FRONTIER (2026-07-10 03:34 KST / 2026-07-09 18:34 UTC) — O0 ZERO-FLASH STOCK USB CONTROL LIVE PASS; O1 HOST-ONLY NEXT; NO O1 LIVE AUTH.**
+> V3403 implemented and live-validated the O0 framed control path over stock
+> `/dev/ttyGS0` <-> host `/dev/ttyACM0`. The first attempt correctly remained a
+> FAIL after sequence 0 timed out; read-only inspection found the stock
+> `DR-daemon`/`ddexe` process already owned ttyGS0 and competed for incoming
+> bytes. The final checked harness added a bounded init-service handoff and
+> mandatory restoration gate, then completed:
+>
+> ```text
+> result=pass rc=0
+> requests=128 completed=128 payload_equality=true sequence_continuity=true
+> host_reopen_at=64 host_reopen_completed=true
+> latency_ms p50=0.314189 p95=0.610990 p99=1.138363 max=2.977764
+> daemon invalid=0 crc_errors=0 seq_errors=0 io_reopens=0
+> DR-daemon before=running/owner1 stopped=stopped/owner0 after=running/owner1
+> boot_sha/usb_config/UDC/ttyGS0 unchanged=true cleanup_rc=0
+> ```
+>
+> Continuous `udevadm monitor` and kernel-journal observers ran across the proof.
+> No USB uevent appeared because the gadget/UDC remained connected; only the tty
+> consumer changed. The temporary device binary was removed. O0 proves the host
+> protocol and stock transport only, not direct native PID1 USB bring-up. Report:
+> `docs/reports/NATIVE_INIT_V3403_S22PLUS_O0_STOCK_USB_CONTROL_LIVE_2026-07-10.md`.
+> Next = O1 host-only Magisk `overlay.d` rc/service design that preserves stock
+> first-stage module loading and explicitly arbitrates ttyGS0 ownership. Any O1
+> boot flash still needs a fresh narrow `AGENTS.md` exception and explicit approval.
 
 > **🎯 OPERATOR STEER (2026-07-09, Claude — REFRAME: the wall is the module-LOAD MECHANISM, not module SELECTION. + correction to my S9.2). S10 next = instrument per-module insmod rc, positive-control the beacon read.**
 > CORRECTION: my S9.2 "S9 missed because symbol-deps (cmd-db) missing" was WRONG — the S9
