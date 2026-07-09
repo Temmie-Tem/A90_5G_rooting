@@ -56,6 +56,10 @@ def load_json(path: Path) -> dict[str, Any]:
     return data
 
 
+def parse_utc_timestamp(timestamp: str) -> datetime:
+    return datetime.fromisoformat(timestamp.replace("Z", "+00:00"))
+
+
 def validate_result_payload(payload: dict[str, Any]) -> list[str]:
     expected = {
         "schema": EXPECTED_SCHEMA,
@@ -104,7 +108,7 @@ def validate_timeline_payload(payload: dict[str, Any] | None) -> tuple[list[str]
             errors.append(f"timeline event {index} has invalid timestamp_utc")
         else:
             try:
-                datetime.fromisoformat(timestamp.replace("Z", "+00:00"))
+                parse_utc_timestamp(timestamp)
             except ValueError:
                 errors.append(f"timeline event {index} has unparsable timestamp_utc")
     return names, errors
@@ -122,6 +126,35 @@ def required_live_events_in_order(names: list[str]) -> bool:
             required_index += 1
             if required_index == len(REQUIRED_LIVE_PROOF_EVENTS):
                 return True
+    return False
+
+
+def required_live_event_timestamps_monotonic(payload: dict[str, Any] | None) -> bool:
+    if payload is None:
+        return False
+    events = payload.get("events")
+    if not isinstance(events, list):
+        return False
+    required_index = 0
+    previous: datetime | None = None
+    for event in events:
+        if not isinstance(event, dict):
+            continue
+        if event.get("name") != REQUIRED_LIVE_PROOF_EVENTS[required_index]:
+            continue
+        timestamp = event.get("timestamp_utc")
+        if not isinstance(timestamp, str) or not timestamp.endswith("Z"):
+            return False
+        try:
+            current = parse_utc_timestamp(timestamp)
+        except ValueError:
+            return False
+        if previous is not None and current < previous:
+            return False
+        previous = current
+        required_index += 1
+        if required_index == len(REQUIRED_LIVE_PROOF_EVENTS):
+            return True
     return False
 
 
@@ -147,6 +180,7 @@ def classify_result(payload: dict[str, Any], timeline: dict[str, Any] | None = N
         "timeline_errors": timeline_errors,
         "missing_required_live_events": [],
         "required_live_events_in_order": False,
+        "required_live_event_timestamps_monotonic": False,
     }
     if result_errors:
         analysis["next_action"] = "fix result.json evidence before interpreting S8B1"
@@ -162,11 +196,19 @@ def classify_result(payload: dict[str, Any], timeline: dict[str, Any] | None = N
         missing = missing_required_live_events(timeline_names)
         analysis["missing_required_live_events"] = missing
         analysis["required_live_events_in_order"] = not missing and required_live_events_in_order(timeline_names)
+        analysis["required_live_event_timestamps_monotonic"] = (
+            not missing and required_live_event_timestamps_monotonic(timeline)
+        )
         if rc != 0:
             analysis["decision"] = DECISION_RECOVERY_REQUIRED
             analysis["next_action"] = "recover/rollback and re-establish Android baseline before any S8 follow-up"
             return analysis
-        if timeline_errors or missing or not analysis["required_live_events_in_order"]:
+        if (
+            timeline_errors
+            or missing
+            or not analysis["required_live_events_in_order"]
+            or not analysis["required_live_event_timestamps_monotonic"]
+        ):
             analysis["decision"] = DECISION_NO_PROOF
             analysis["next_action"] = "do not advance; preserve run directory and inspect timeline/result evidence"
             return analysis

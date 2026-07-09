@@ -114,6 +114,19 @@ class AnalyzeS22PlusM34S8B1ResultTest(unittest.TestCase):
         self.assertFalse(analysis["ok_to_advance"])
         self.assertTrue(any("unparsable timestamp_utc" in item for item in analysis["timeline_errors"]))
 
+    def test_hit_with_required_timestamps_out_of_order_is_not_enough_to_advance(self):
+        timeline = self.timeline_payload()
+        timeline["events"][3]["timestamp_utc"] = "2026-07-08T23:59:59Z"
+        analysis = self.module.classify_result(
+            self.result_payload("download-beacon-hit"),
+            timeline,
+        )
+
+        self.assertEqual(analysis["decision"], self.module.DECISION_NO_PROOF)
+        self.assertFalse(analysis["ok_to_advance"])
+        self.assertTrue(analysis["required_live_events_in_order"])
+        self.assertFalse(analysis["required_live_event_timestamps_monotonic"])
+
     def test_nonzero_rc_requires_recovery_even_if_b1_was_observed(self):
         analysis = self.module.classify_result(
             self.result_payload("download-beacon-hit", rc=4),
