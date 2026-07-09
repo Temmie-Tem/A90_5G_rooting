@@ -119,6 +119,30 @@ class S22PlusO2ModulePlanTest(unittest.TestCase):
             with self.assertRaisesRegex(self.module.PlanError, "unresolved softdep"):
                 self.module.build_plan(metadata, ["root.ko"])
 
+    def test_only_exact_pinned_unresolved_softdep_is_tolerated(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            metadata = self.fixture(
+                Path(tmp),
+                dep=(
+                    "/lib/modules/pinctrl-waipio.ko:\n"
+                    "/lib/modules/other.ko:\n"
+                ),
+                softdep=(
+                    "softdep pinctrl_waipio pre: qcom_tlmm_vm_irqchip\n"
+                    "softdep other pre: still_missing\n"
+                ),
+                load="pinctrl-waipio.ko\nother.ko\n",
+                recovery="pinctrl-waipio.ko\nother.ko\n",
+                alias="alias exact:pinctrl pinctrl_waipio\n",
+            )
+            plan = self.module.build_plan(metadata, ["pinctrl-waipio.ko"])
+            self.assertEqual(
+                plan.tolerated_unresolved_softdeps,
+                {"pinctrl-waipio.ko": ("pre:qcom_tlmm_vm_irqchip",)},
+            )
+            with self.assertRaisesRegex(self.module.PlanError, "unresolved softdep"):
+                self.module.build_plan(metadata, ["other.ko"])
+
     def test_duplicate_normalized_module_name_is_fatal(self):
         with self.assertRaisesRegex(self.module.PlanError, "ambiguous normalized module name"):
             self.module.parse_modules_dep(
@@ -166,6 +190,33 @@ class S22PlusO2ModulePlanTest(unittest.TestCase):
         self.assertEqual(loaded["plan"]["module_count"], len(plan.modules))
         self.assertTrue(manifest["safety"]["host_only"])
         self.assertFalse(manifest["safety"]["flash"])
+
+    @unittest.skipUnless(FYG8_METADATA.is_dir(), "FYG8 module metadata is not present")
+    def test_real_fyg8_o3_minimal_acm_plan_identity(self):
+        metadata = self.module.load_metadata(FYG8_METADATA.resolve())
+        self.module.verify_fyg8_pins(metadata)
+        plan = self.module.build_plan(metadata, self.module.O3_MINIMAL_ACM_ROOTS)
+        self.module.validate_plan_contract(metadata, plan)
+        self.module.verify_o3_minimal_acm_plan_identity(metadata, plan)
+        self.assertEqual(len(plan.modules), self.module.EXPECTED_O3_MINIMAL_ACM_PLAN_COUNT)
+        self.assertEqual(
+            self.module.sha256_text(self.module.render_plan_tsv(metadata, plan)),
+            self.module.EXPECTED_O3_MINIMAL_ACM_PLAN_TSV_SHA256,
+        )
+        self.assertEqual(
+            plan.tolerated_unresolved_softdeps,
+            {"pinctrl-waipio.ko": ("pre:qcom_tlmm_vm_irqchip",)},
+        )
+        for name in [
+            "pinctrl-waipio.ko",
+            "qcom-pdc.ko",
+            "qnoc-waipio.ko",
+            "arm_smmu.ko",
+            "qcom_wdt_core.ko",
+            "gh_virt_wdt.ko",
+            "dwc3-msm.ko",
+        ]:
+            self.assertIn(name, plan.modules)
 
     def test_source_has_no_device_or_flash_command(self):
         text = SCRIPT.read_text(encoding="utf-8")

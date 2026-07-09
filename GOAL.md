@@ -84,6 +84,45 @@ safety invariants and flash gates are binding and override any sub-goal.**
 > USB observer + tests/report, followed by the host-only O1 overlay design. No S11
 > repeat and no new native-init live flash are authorized by this steer.
 
+> **S22+ CURRENT FRONTIER (2026-07-10 05:11 KST / 2026-07-09 20:11 UTC) — O3 MINIMAL-ACM ROOT/RISK DESIGN HOST PASS; DIRECT-PID1 IMPLEMENTATION NEXT; NO LIVE AUTH.**
+> V3411 rejected the tempting 44-module `O2 default + watchdog` plan because it
+> would repeat the already-known M34 S9 DT-supplier omission. The O3 profile now
+> combines the full evidence-backed Waipio devlink provider roots, the O2
+> `dwc3-msm` hard/soft closure, and the M31B survival-proven
+> `gh_virt_wdt` root. The resulting 59-module plan is pinned:
+>
+> ```text
+> profile=o3-minimal-acm
+> module_count=59
+> plan_tsv_sha256=a34ebbad3b5d770f133e37a450cc3007e4a84ab831788484680e88aad6b3d534
+> generated_header_sha256=45727cff30952096d9604682a3ba3d284807a75e6622ed4c8ae57bc153d5b863
+> roots=clk-qcom,pinctrl-msm,qcom_rpmh,icc-rpmh,icc-bcm-voter,gcc-waipio,
+>       pinctrl-waipio,clk-rpmh,rpmh-regulator,gdsc-regulator,qnoc-waipio,
+>       arm_smmu,qcom-pdc,dwc3-msm,gh_virt_wdt
+> ```
+>
+> FYG8 stock actually loads `pinctrl_waipio`, while its softdep target
+> `qcom_tlmm_vm_irqchip` is absent from both the vendor module DB and live
+> module/driver state. V3411 therefore permits exactly that one pinned unresolved
+> softdep edge and records it in the plan; every other selected unresolved edge
+> still fails. Risk is explicit, not hidden: the closure contains
+> `abc`, `sec_debug`, `minidump`, `eud`, `qc_usb_audio`, `qcom_wdt_core`, and
+> `gh_virt_wdt`. O3 may load them only as pinned hard/soft/survival dependencies;
+> it must not enable EUD, trigger sec_debug, configure audio, or add PMIC/Type-C
+> session behavior.
+>
+> The candidate design remains minimal at the behavior layer: direct PID1 -> O2
+> plan/core -> EOF-complete registration scan -> eight ordered bind gates ->
+> generic built-in `acm.usb0` -> `ssusb/mode=peripheral` -> exact
+> `a600000.dwc3` bind -> framed O0-compatible control/status. It excludes Samsung
+> `ss_acm`, MTP/ADB/FunctionFS, max77705/charger/altmode, full stock composite,
+> and power/role experiments. Tests: 16 O2/O3-plan PASS. No boot artifact,
+> exception, reboot, or flash exists yet; the earlier generic live-approval intent
+> remains unconsumed. Next = implement and host-build this exact O3 candidate,
+> then review hashes and rollback gates before creating any live exception.
+> Report:
+> `docs/reports/NATIVE_INIT_V3411_S22PLUS_O3_MINIMAL_ACM_ROOT_RISK_DESIGN_2026-07-10.md`.
+
 > **S22+ CURRENT FRONTIER (2026-07-10 05:02 KST / 2026-07-09 20:02 UTC) — O2 STOCK LOADER-PARITY HOST PASS; O3 RISK/ROOT DECISION AND HOST BUILD NEXT; NO O3 LIVE AUTH.**
 > V3410 replaced the historical hard-dep-only/list-buffer model with a reusable
 > FYG8-pinned planner and freestanding C runtime core. The planner parses all 441

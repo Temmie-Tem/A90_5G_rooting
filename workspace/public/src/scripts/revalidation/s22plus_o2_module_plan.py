@@ -35,6 +35,30 @@ DEFAULT_ROOTS = [
 ]
 EXPECTED_DEFAULT_PLAN_COUNT = 42
 EXPECTED_DEFAULT_PLAN_TSV_SHA256 = "47b9a44331310951eb8bcb27d9dfe58bf44441ef7d981eee42ab658f60643987"
+O3_MINIMAL_ACM_ROOTS = [
+    "clk-qcom.ko",
+    "pinctrl-msm.ko",
+    "qcom_rpmh.ko",
+    "icc-rpmh.ko",
+    "icc-bcm-voter.ko",
+    "gcc-waipio.ko",
+    "pinctrl-waipio.ko",
+    "clk-rpmh.ko",
+    "rpmh-regulator.ko",
+    "gdsc-regulator.ko",
+    "qnoc-waipio.ko",
+    "arm_smmu.ko",
+    "qcom-pdc.ko",
+    "dwc3-msm.ko",
+    "gh_virt_wdt.ko",
+]
+EXPECTED_O3_MINIMAL_ACM_PLAN_COUNT = 59
+EXPECTED_O3_MINIMAL_ACM_PLAN_TSV_SHA256 = (
+    "a34ebbad3b5d770f133e37a450cc3007e4a84ab831788484680e88aad6b3d534"
+)
+TOLERATED_FYG8_UNRESOLVED_SOFTDEPS = {
+    "pinctrl-waipio.ko": frozenset({"pre:qcom_tlmm_vm_irqchip"}),
+}
 
 REQUIRED_FILES = (
     "modules.dep",
@@ -120,6 +144,7 @@ class ModulePlan:
     modules: tuple[str, ...]
     constraints: tuple[dict[str, Any], ...]
     provenance: dict[str, tuple[str, ...]]
+    tolerated_unresolved_softdeps: dict[str, tuple[str, ...]]
 
 
 FUNCTIONAL_BIND_GATES: tuple[dict[str, Any], ...] = (
@@ -484,6 +509,7 @@ def build_plan(metadata: ModuleMetadata, requested_roots: Iterable[str]) -> Modu
     pending = list(roots)
     edges: dict[tuple[str, str], set[str]] = {}
     provenance: dict[str, set[str]] = {root: {"root"} for root in roots}
+    tolerated_unresolved: dict[str, tuple[str, ...]] = {}
 
     def add_edge(before: str, after: str, reason: str) -> None:
         edges.setdefault((before, after), set()).add(reason)
@@ -495,10 +521,19 @@ def build_plan(metadata: ModuleMetadata, requested_roots: Iterable[str]) -> Modu
         if module in selected:
             continue
         selected.add(module)
-        if metadata.unresolved_softdeps.get(module):
+        unresolved = set(metadata.unresolved_softdeps.get(module, ()))
+        tolerated = set(TOLERATED_FYG8_UNRESOLVED_SOFTDEPS.get(module, ()))
+        unexpected_unresolved = sorted(unresolved - tolerated)
+        if unexpected_unresolved:
             raise PlanError(
                 f"selected module has unresolved softdep(s): "
-                f"{module} -> {metadata.unresolved_softdeps[module]}"
+                f"{module} -> {unexpected_unresolved}"
+            )
+        selected_tolerated = tuple(sorted(unresolved & tolerated))
+        if selected_tolerated:
+            tolerated_unresolved[module] = selected_tolerated
+            provenance.setdefault(module, set()).update(
+                f"tolerated-unresolved-softdep:{value}" for value in selected_tolerated
             )
         for dep in metadata.hard_deps[module]:
             add_edge(dep, module, f"hard:{module}")
@@ -562,6 +597,7 @@ def build_plan(metadata: ModuleMetadata, requested_roots: Iterable[str]) -> Modu
         modules=tuple(ordered),
         constraints=constraints,
         provenance={module: tuple(sorted(values)) for module, values in sorted(provenance.items())},
+        tolerated_unresolved_softdeps=tolerated_unresolved,
     )
 
 
@@ -616,6 +652,22 @@ def verify_default_plan_identity(metadata: ModuleMetadata, plan: ModulePlan) -> 
             "default O2 plan identity drifted: "
             f"count={actual_count}/{EXPECTED_DEFAULT_PLAN_COUNT} "
             f"sha256={actual_sha}/{EXPECTED_DEFAULT_PLAN_TSV_SHA256}"
+        )
+
+
+def verify_o3_minimal_acm_plan_identity(metadata: ModuleMetadata, plan: ModulePlan) -> None:
+    if plan.requested_roots != tuple(O3_MINIMAL_ACM_ROOTS):
+        return
+    actual_count = len(plan.modules)
+    actual_sha = sha256_text(render_plan_tsv(metadata, plan))
+    if (
+        actual_count != EXPECTED_O3_MINIMAL_ACM_PLAN_COUNT
+        or actual_sha != EXPECTED_O3_MINIMAL_ACM_PLAN_TSV_SHA256
+    ):
+        raise PlanError(
+            "O3 minimal ACM plan identity drifted: "
+            f"count={actual_count}/{EXPECTED_O3_MINIMAL_ACM_PLAN_COUNT} "
+            f"sha256={actual_sha}/{EXPECTED_O3_MINIMAL_ACM_PLAN_TSV_SHA256}"
         )
 
 
@@ -767,6 +819,10 @@ def write_outputs(
             "requested_roots": list(plan.requested_roots),
             "resolved_roots": list(plan.resolved_roots),
             "root_model": "functional substrate roots plus selected dwc3-msm USB leaf",
+            "tolerated_unresolved_softdeps": {
+                module: list(values)
+                for module, values in sorted(plan.tolerated_unresolved_softdeps.items())
+            },
         },
         "semantics": {
             "recursive_hard_dependencies": True,
@@ -811,19 +867,28 @@ def parse_args(argv: list[str] | None = None) -> argparse.Namespace:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--metadata-dir", type=Path, default=DEFAULT_METADATA_DIR)
     parser.add_argument("--out", type=Path, default=DEFAULT_OUT)
+    parser.add_argument(
+        "--profile",
+        choices=("o2-default", "o3-minimal-acm"),
+        default="o2-default",
+    )
     parser.add_argument("--root", action="append", dest="roots")
     return parser.parse_args(argv)
 
 
 def main(argv: list[str] | None = None) -> int:
     args = parse_args(argv)
+    if args.roots and args.profile != "o2-default":
+        raise PlanError("--root cannot be combined with a non-default --profile")
     root = repo_root()
     metadata_dir = resolve(root, args.metadata_dir)
     out_dir = resolve(root, args.out)
     metadata = load_metadata(metadata_dir)
     verify_fyg8_pins(metadata)
-    plan = build_plan(metadata, args.roots or DEFAULT_ROOTS)
+    profile_roots = O3_MINIMAL_ACM_ROOTS if args.profile == "o3-minimal-acm" else DEFAULT_ROOTS
+    plan = build_plan(metadata, args.roots or profile_roots)
     verify_default_plan_identity(metadata, plan)
+    verify_o3_minimal_acm_plan_identity(metadata, plan)
     manifest = write_outputs(root, out_dir, metadata, plan)
     print(
         json.dumps(
