@@ -2918,7 +2918,21 @@ BL, CP, CSC, userdata, or any non-boot flash.
    `mfd_max77705`
    `pdic_max77705`
 
-   **Narrow operator-authorized exception (2026-07-10, S22+ O3R1 native retained-SysRq boot-only live gate):**
+   **Consumed exception (2026-07-10, S22+ O3R1 native retained-SysRq boot-only live gate):**
+   this one-shot exception was consumed by the 2026-07-10 KST O3R1 live run.
+   The exact candidate AP transferred and left the original Odin endpoint; the
+   operator observed a bootloop rather than a retained panic screen. After
+   attended manual Download entry, the helper flashed the pinned Magisk
+   boot-only rollback AP with Odin rc=0. The operator then confirmed Android
+   reached its normal UI, but the helper timed out before ADB returned and
+   recorded `rollback-failed`/`rc=5`; retained evidence collection therefore
+   remains pending. Host kernel evidence shows Samsung Android `04e8:6860` and
+   `ttyACM0` enumerated for approximately four seconds after rollback and then
+   disconnected, with no later USB data enumeration despite charging. This
+   exception must not be reused for O3R1, O3R2, another panic, or another boot
+   candidate. Further work is recovery/read-only USB diagnosis only unless a
+   fresh narrower exception is added.
+
    after V3418 reproducibly built the exact O3R1 artifact, the checked O3R1
    helper passed artifact-only offline validation and connected read-only
    Android/Magisk/sec_debug preflight, the operator explicitly directed the
