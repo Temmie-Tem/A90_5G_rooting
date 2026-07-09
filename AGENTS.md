@@ -2918,7 +2918,23 @@ BL, CP, CSC, userdata, or any non-boot flash.
    `mfd_max77705`
    `pdic_max77705`
 
-   **Narrow operator-authorized exception (2026-07-10, S22+ O3F freestanding single-PID1 generic-ACM boot-only live gate):**
+   **Consumed exception (2026-07-10, S22+ O3F freestanding single-PID1 generic-ACM boot-only live gate):**
+   this one-shot exception was consumed by the 2026-07-10 KST O3F live run.
+   The exact candidate AP transferred, left the original Odin endpoint, and the
+   operator observed no bootloop. However, no USB device enumerated during the
+   bounded 120-second candidate window, so exact serial `S22O3FACM01`, framed
+   roundtrip, and `O3 STATUS` were never reached. The checked helper recorded
+   `candidate-proof-failed`/`rc=9`; `candidate_boot_ready` is correctly absent.
+   Continuous host logs show no USB event between candidate Odin disconnect at
+   2026-07-09T21:09:54Z and attended manual Download at
+   2026-07-09T21:12:40Z. After manual Download entry the helper restored the
+   pinned Magisk boot-only AP with Odin rc=0 and verified Android/root, exact
+   baseline boot SHA, and four stability samples. Pstore was empty and
+   `/proc/last_kmsg` provided 2,097,136 bytes but no O3F marker, so the exact
+   candidate phase remains `UNVERIFIABLE`. This exception must not be reused
+   for O3F repeat, a startup variant, O4, or any other candidate. A new
+   candidate requires a fresh narrower exception.
+
    after V3415 reproducibly built the O3F artifact, its checked helper passed
    artifact-only offline validation and connected read-only Android/Magisk
    preflight, and the operator explicitly approved the next live run, Codex may

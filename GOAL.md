@@ -84,6 +84,31 @@ safety invariants and flash gates are binding and override any sub-goal.**
 > USB observer + tests/report, followed by the host-only O1 overlay design. No S11
 > repeat and no new native-init live flash are authorized by this steer.
 
+> **S22+ CURRENT FRONTIER (2026-07-10 06:14 KST / 2026-07-09 21:14 UTC) — O3F LIVE MISS; NO CANDIDATE USB; MAGISK ROLLBACK PASS; PHASE UNVERIFIABLE; EXCEPTION CONSUMED.**
+> V3417 consumed the exact O3F exception. Candidate flash and original Odin
+> disconnect passed, and the operator observed no bootloop, but exact O3F ACM
+> never appeared. Continuous host logs contain no USB event at all between the
+> candidate disconnect (`21:09:54Z`) and attended manual Download
+> (`21:12:40Z`). The 120-second proof window therefore ended before
+> `candidate_boot_ready`; roundtrip and `O3 STATUS` are absent, and the helper
+> correctly returned `candidate-proof-failed`/`rc=9`.
+>
+> Manual Download rollback restored the exact Magisk boot AP with Odin rc=0.
+> Android/root, boot SHA `2e541703…967e`, stopped boot animation, and four
+> stability samples passed. Pstore was empty; `/proc/last_kmsg` yielded
+> 2,097,136 bytes with no O3F marker. The freestanding discriminator produced no
+> host-observable improvement over static-glibc O3, but marker absence means it
+> does not prove which internal startup/module/gate/gadget phase ran. Do not
+> repeat O3F, vary another startup runtime, or advance to O4/NCM.
+>
+> Next bounded unit is host-only observability design: use the already proven
+> Samsung sec_debug MID retained `/proc/last_kmsg` path to define the smallest
+> direct-PID1 phase-checkpoint capture that can force retention after a marker,
+> with no USB/module/configfs expansion. Any deliberate fault/crash requires a
+> fresh, narrower exception and separate attended gate; none exists now.
+> Report:
+> `docs/reports/NATIVE_INIT_V3417_S22PLUS_O3F_FREESTANDING_ACM_LIVE_MISS_2026-07-10.md`.
+
 > **S22+ CURRENT FRONTIER (2026-07-10 06:07 KST / 2026-07-09 21:07 UTC) — O3F EXACT LIVE GATE READY; OFFLINE + CONNECTED DRY-RUN PASS; ONE-SHOT EXCEPTION ACTIVE.**
 > V3416 added an O3F-specific checked gate over the already proven O3
 > single-transport/observer/timeline/rollback runner. The O3F layer rejects the
