@@ -262,7 +262,12 @@ class S22PlusM34S8B1BeaconProbeLiveGateTest(unittest.TestCase):
             self.assertEqual(payload["candidate_boot_sha256"], self.module.EXPECTED_M34_BOOT_SHA256)
             self.assertEqual(payload["candidate_init_sha256"], self.module.EXPECTED_M34_INIT_SHA256)
             self.assertEqual(payload["base_boot_sha256"], self.module.EXPECTED_M34_BASE_BOOT_SHA256)
-            self.assertIn("result_summary=", log_path.read_text(encoding="utf-8"))
+            analysis = json.loads((run_dir / "s22plus_m34_s8b1_result_analysis.json").read_text(encoding="utf-8"))
+            self.assertEqual(analysis["decision"], "s22plus-m34-s8b1-no-b1-proof")
+            self.assertIsNone(analysis["timeline_json"])
+            log_text = log_path.read_text(encoding="utf-8")
+            self.assertIn("result_summary=", log_text)
+            self.assertIn("result_analysis_json=", log_text)
 
     def test_rollback_boot_only_records_canonical_timeline_events(self):
         with tempfile.TemporaryDirectory() as tmp:
@@ -391,11 +396,16 @@ class S22PlusM34S8B1BeaconProbeLiveGateTest(unittest.TestCase):
             result_payload = json.loads((run_dir / "result.json").read_text(encoding="utf-8"))
             timeline_payload = json.loads((run_dir / "timeline.json").read_text(encoding="utf-8"))
             analysis = analyzer.classify_result(result_payload, timeline_payload)
+            written_analysis = json.loads(
+                (run_dir / "s22plus_m34_s8b1_result_analysis.json").read_text(encoding="utf-8")
+            )
 
             self.assertEqual(analysis["decision"], analyzer.DECISION_PROCEED_B2)
             self.assertTrue(analysis["ok_to_advance"])
             self.assertEqual(analysis["next_stage"], "S8B2")
             self.assertEqual(analysis["next_probe"], "port0_partner_exists")
+            self.assertEqual(written_analysis["decision"], analyzer.DECISION_PROCEED_B2)
+            self.assertTrue(written_analysis["ok_to_live_next_stage"])
 
     def test_helper_result_and_timeline_are_accepted_by_s8b1_analyzer_for_miss(self):
         analyzer = load_analyzer()
@@ -417,10 +427,15 @@ class S22PlusM34S8B1BeaconProbeLiveGateTest(unittest.TestCase):
             result_payload = json.loads((run_dir / "result.json").read_text(encoding="utf-8"))
             timeline_payload = json.loads((run_dir / "timeline.json").read_text(encoding="utf-8"))
             analysis = analyzer.classify_result(result_payload, timeline_payload)
+            written_analysis = json.loads(
+                (run_dir / "s22plus_m34_s8b1_result_analysis.json").read_text(encoding="utf-8")
+            )
 
             self.assertEqual(analysis["decision"], analyzer.DECISION_B1_MISS_STOP)
             self.assertFalse(analysis["ok_to_advance"])
             self.assertIsNone(analysis["next_stage"])
+            self.assertEqual(written_analysis["decision"], analyzer.DECISION_B1_MISS_STOP)
+            self.assertFalse(written_analysis["ok_to_advance"])
 
     def test_observe_download_beacon_classifies_new_odin_endpoint_as_hit(self):
         with tempfile.TemporaryDirectory() as tmp:

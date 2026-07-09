@@ -573,6 +573,31 @@ def write_result_summary(
     path.write_text(json.dumps(payload, indent=2, sort_keys=True) + "\n", encoding="utf-8")
     append_log(log_path, f"result_json={path}")
     append_log(log_path, f"result_summary={json.dumps(payload, sort_keys=True)}")
+    write_result_analysis(run_dir, log_path, path)
+
+
+def write_result_analysis(run_dir: Path, log_path: Path, result_json: Path) -> None:
+    try:
+        from analyze_s22plus_m34_s8b1_result import classify_result, load_json
+
+        timeline_json = run_dir / "timeline.json"
+        result_payload = load_json(result_json)
+        timeline_payload = load_json(timeline_json) if timeline_json.is_file() else None
+        analysis = classify_result(result_payload, timeline_payload)
+        analysis["result_json"] = str(result_json)
+        analysis["timeline_json"] = str(timeline_json) if timeline_json.is_file() else None
+        analysis_path = run_dir / "s22plus_m34_s8b1_result_analysis.json"
+        analysis_path.write_text(json.dumps(analysis, indent=2, sort_keys=True) + "\n", encoding="utf-8")
+        append_log(log_path, f"result_analysis_json={analysis_path}")
+        append_log(
+            log_path,
+            "result_analysis="
+            f"decision={analysis.get('decision')} "
+            f"ok_to_advance={int(bool(analysis.get('ok_to_advance')))} "
+            f"ok_to_live_next_stage={int(bool(analysis.get('ok_to_live_next_stage')))}",
+        )
+    except Exception as exc:  # pragma: no cover - rollback/result emission must remain non-fatal.
+        append_log(log_path, f"result_analysis_error={type(exc).__name__}: {exc}")
 
 
 def wait_for_odin_absent(odin: Path, log_path: Path, label: str, wait_sec: int) -> bool:

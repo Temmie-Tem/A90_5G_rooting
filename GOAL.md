@@ -54,8 +54,11 @@ safety invariants and flash gates are binding and override any sub-goal.**
 > without requiring an active `AGENTS.md` exception and without reboot/flash.
 > Live/rollback outcomes now also write machine-readable
 > `result.json` using schema `s22plus_m34_s8b1_result_v1`, so B1 HIT/MISS and
-> rollback state do not depend only on text-log parsing. The helper records the
-> actual rollback target/device even if Magisk rollback falls back to stock.
+> rollback state do not depend only on text-log parsing. The helper now also
+> writes `s22plus_m34_s8b1_result_analysis.json` immediately after result
+> emission, so the run directory carries the fail-closed B1/B2 decision without
+> requiring a separate post-run command. The helper records the actual rollback
+> target/device even if Magisk rollback falls back to stock.
 > Canonical `timeline.json` now records `rollback_flash_done` after the final
 > actual rollback flash attempt, including stock fallback.
 > Codex also added

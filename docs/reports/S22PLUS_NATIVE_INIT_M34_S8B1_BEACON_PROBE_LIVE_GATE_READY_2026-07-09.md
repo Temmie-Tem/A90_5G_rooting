@@ -118,6 +118,7 @@ Live and rollback paths also write a machine-readable result file:
 
 ```text
 result.json
+s22plus_m34_s8b1_result_analysis.json
 ```
 
 Schema:
@@ -132,6 +133,9 @@ pinned candidate/base hashes. If Magisk rollback falls back to stock, the
 result file records `stock` and the fallback Odin endpoint rather than the
 original requested target/device. This is the authoritative host-side summary
 to classify B1 after a live run, alongside `timeline.json` and the text log.
+The helper writes the analysis JSON immediately after `result.json` using the
+same fail-closed classifier below, so the run directory carries the current
+B1/B2 decision even before a separate post-run command is executed.
 The canonical `rollback_flash_done` timeline event is emitted after the final
 actual rollback flash attempt, including stock fallback.
 
@@ -178,8 +182,9 @@ readiness by exit status alone.
 
 The S8B1 helper tests now cross-check the helper's own
 `record_timeline_event()` + `write_result_summary()` output against the analyzer
-for both HIT and MISS, so the next live run's machine-readable evidence path is
-tested end-to-end at the host level.
+for both HIT and MISS, and assert that `write_result_summary()` emits the
+analysis JSON. The next live run's machine-readable evidence path is tested
+end-to-end at the host level.
 
 ## Validation
 
