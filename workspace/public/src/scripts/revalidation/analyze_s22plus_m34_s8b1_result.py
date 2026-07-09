@@ -11,6 +11,7 @@ from __future__ import annotations
 import argparse
 import json
 import sys
+from datetime import datetime
 from pathlib import Path
 from typing import Any
 
@@ -101,12 +102,27 @@ def validate_timeline_payload(payload: dict[str, Any] | None) -> tuple[list[str]
             names.append(name)
         if not isinstance(timestamp, str) or not timestamp.endswith("Z"):
             errors.append(f"timeline event {index} has invalid timestamp_utc")
+        else:
+            try:
+                datetime.fromisoformat(timestamp.replace("Z", "+00:00"))
+            except ValueError:
+                errors.append(f"timeline event {index} has unparsable timestamp_utc")
     return names, errors
 
 
 def missing_required_live_events(names: list[str]) -> list[str]:
     present = set(names)
     return [name for name in REQUIRED_LIVE_PROOF_EVENTS if name not in present]
+
+
+def required_live_events_in_order(names: list[str]) -> bool:
+    required_index = 0
+    for name in names:
+        if name == REQUIRED_LIVE_PROOF_EVENTS[required_index]:
+            required_index += 1
+            if required_index == len(REQUIRED_LIVE_PROOF_EVENTS):
+                return True
+    return False
 
 
 def classify_result(payload: dict[str, Any], timeline: dict[str, Any] | None = None) -> dict[str, Any]:
@@ -130,6 +146,7 @@ def classify_result(payload: dict[str, Any], timeline: dict[str, Any] | None = N
         "errors": result_errors,
         "timeline_errors": timeline_errors,
         "missing_required_live_events": [],
+        "required_live_events_in_order": False,
     }
     if result_errors:
         analysis["next_action"] = "fix result.json evidence before interpreting S8B1"
@@ -144,11 +161,12 @@ def classify_result(payload: dict[str, Any], timeline: dict[str, Any] | None = N
         analysis["b1_state"] = result == "download-beacon-hit"
         missing = missing_required_live_events(timeline_names)
         analysis["missing_required_live_events"] = missing
+        analysis["required_live_events_in_order"] = not missing and required_live_events_in_order(timeline_names)
         if rc != 0:
             analysis["decision"] = DECISION_RECOVERY_REQUIRED
             analysis["next_action"] = "recover/rollback and re-establish Android baseline before any S8 follow-up"
             return analysis
-        if timeline_errors or missing:
+        if timeline_errors or missing or not analysis["required_live_events_in_order"]:
             analysis["decision"] = DECISION_NO_PROOF
             analysis["next_action"] = "do not advance; preserve run directory and inspect timeline/result evidence"
             return analysis
