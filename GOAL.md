@@ -84,6 +84,35 @@ safety invariants and flash gates are binding and override any sub-goal.**
 > USB observer + tests/report, followed by the host-only O1 overlay design. No S11
 > repeat and no new native-init live flash are authorized by this steer.
 
+> **S22+ CURRENT FRONTIER (2026-07-10 20:32 KST / 2026-07-10 11:32 UTC) — V3430 V3429 DIRECT-PID1 PHASE-OBSERVER LIVE GATE ARMED UNDER EXPLICIT OPERATOR APPROVAL; EXACT ONE-SHOT HELPER/EXCEPTION READY; CONNECTED READ-ONLY PREFLIGHT NEXT.**
+> The operator explicitly approved V3429 live execution. V3430 reuses the
+> V3428R EOF classifier, host observers, redacted Odin transport, exact
+> first-rollback health gate, and double-read collection. New behavior is
+> limited to exact V3429 candidate validation, one Android->Download entry,
+> one candidate boot-only transfer, original-Odin departure observation, a
+> 60-second quiet dwell, attended manual RDX/Download, and mandatory Magisk
+> boot-only rollback. `candidate_boot_ready` means only that the original Odin
+> endpoint departed and the observation window opened; it is not promoted to
+> PID1 execution proof.
+>
+> Helper
+> `workspace/public/src/scripts/revalidation/s22plus_v3430_phase_observer_live_gate.py`
+> SHA is `dda8c94542a8e7f0cec0a0dc90618ff722f367528cef99c2b0dedd972b4b367e`.
+> It pins fixed run ID `f1613e72912b63f030c25a6bd7fd072e`, manifest SHA
+> `3961f828b0427c70ec09bce3ffc168cfdb02132f5e5363a2767eb287d89270a1`,
+> marker-manifest SHA
+> `b05615527be5e78b4c095153b7b104522436b91d3197c127f278867baf5acd54`,
+> candidate AP SHA
+> `d6b2a430b2f5d21a7bdefe5b7db050c9e627d30ef5ecdee77ee44bd764579b4f`,
+> candidate boot SHA
+> `93eef3b07bfbeb2154ecc9bfddfdeed682d83d950ca5e6032b7cfd75e4c9a428`,
+> both rollback APs, both V3426/V3427 contracts, and full FYG8 stock evidence.
+> It provides a separately tokened mandatory rollback-only continuation but no
+> second candidate transfer. Eight helper tests and py_compile pass; `ruff` is
+> unavailable on this host. The fresh `AGENTS.md` exception is active and
+> boot-only. No connected preflight, device write, reboot, Odin transfer, or
+> flash has occurred in V3430 yet.
+
 > **S22+ CURRENT FRONTIER (2026-07-10 20:08 KST / 2026-07-10 11:08 UTC) — V3429 DIRECT-PID1 PHASE OBSERVER HOST BUILD PASS; DETERMINISTIC BOOT-ONLY ARTIFACT READY FOR A SEPARATE LIVE-GATE DESIGN; NO LIVE AUTHORIZATION.**
 > V3429 implements the V3426 Stage-A contract as a 6,088-byte freestanding
 > direct PID1. It mounts only volatile proc/sysfs, verifies the exact FYG8

@@ -101,6 +101,73 @@ BL, CP, CSC, userdata, or any non-boot flash.
    `adb reboot`, panic, watchdog, sec_debug trigger, or A90 action. One live
    invocation exhausts this exception regardless of outcome; retire it and stop
    after evidence collection.
+   **Narrow operator-authorized exception (2026-07-10, S22+ V3430 V3429 direct-PID1 phase-observer live gate):**
+   After the operator's explicit 2026-07-10 live approval and the V3428R
+   stock-origin retention PASS, Codex may perform one bounded attended V3430
+   live run on `SM-S906N/g0q/S906NKSS7FYG8` using only
+   `workspace/public/src/scripts/revalidation/s22plus_v3430_phase_observer_live_gate.py`
+   SHA256 `dda8c94542a8e7f0cec0a0dc90618ff722f367528cef99c2b0dedd972b4b367e`
+   with live acknowledgement token
+   `S22PLUS-V3430-V3429-PHASE-OBSERVER-LIVE-GATE`. Mandatory recovery from an
+   already-transferred candidate may use the same helper's rollback-only mode
+   with token `S22PLUS-V3430-V3429-ROLLBACK-FROM-DOWNLOAD`; that continuation
+   cannot authorize a second candidate transfer.
+
+   The helper must enforce target `SM-S906N/g0q/S906NKSS7FYG8`, full FYG8 stock
+   firmware evidence, observer contract SHA256
+   `cba82ce1bae23f56bcad57876f5d647e31a37a36d7bc9b477de57b1f85b3babf`,
+   transition contract SHA256
+   `426aa2bb50f6e73e153f5f5dc9cde59ddf37ab315f46860c1dc0bd0b3e810734`,
+   fixed run ID `f1613e72912b63f030c25a6bd7fd072e`, V3429 manifest
+   SHA256 `3961f828b0427c70ec09bce3ffc168cfdb02132f5e5363a2767eb287d89270a1`,
+   and expected-marker manifest SHA256
+   `b05615527be5e78b4c095153b7b104522436b91d3197c127f278867baf5acd54`.
+   It may flash exactly one candidate boot partition only AP SHA256
+   `d6b2a430b2f5d21a7bdefe5b7db050c9e627d30ef5ecdee77ee44bd764579b4f`,
+   containing exactly `boot.img.lz4` SHA256
+   `3eccf17ce7b22cb8c6f29ce31e24e33513d46d878ab0076528a91df4f4b957d8`
+   and producing padded boot SHA256
+   `93eef3b07bfbeb2154ecc9bfddfdeed682d83d950ca5e6032b7cfd75e4c9a428`.
+   Before that transfer, one normal Android `adb reboot download` is authorized
+   solely to reach Odin after exact rooted Magisk-baseline and current-ring
+   negative-control checks.
+
+   The candidate may run only as direct PID1, mount volatile proc and sysfs,
+   create `/dev/kmsg`, verify and `finit_module` only the pinned
+   `sec_log_buf.ko`, read `/proc/modules`, the exact driver bind symlink,
+   `/proc/ap_klog`, and `/proc/last_kmsg`, write exactly one run-bound PRECHECK
+   and one FINAL frame to `/dev/kmsg`, self-verify the exact current-ring state,
+   then park. Original Odin endpoint departure and the canonical
+   `candidate_boot_ready` timestamp are observation-window markers, not proof
+   of source execution. After at least 60 seconds quiet dwell, the helper must
+   require attended manual RDX/Download and begin rollback no later than the
+   hard 180-second transition deadline.
+
+   Rollback must use only the pinned Magisk boot partition only AP SHA256
+   `d2373bf88dda342709440dc3db468f11d80a4593856768a4d8ae402bef215a56`,
+   containing exactly `boot.img.lz4`, restoring boot SHA256
+   `2e541703951dc725bad35850faf7028c2d910dd5f21166449b63f1248c29967e`.
+   On its first rooted boot and before any extra reboot, require exact target,
+   root, boot completion, orange verified-boot state, and boot identity, then
+   perform the first-rollback /proc/last_kmsg double-read to EOF and apply the
+   V3427 classifier. If the Magisk transfer fails while Download remains, only
+   the stock boot-only fallback AP SHA256
+   `2f6a8ac093587a0f03c423d8e21f65c6fe3a8d2ce9915297170cdaa2cac37c94`,
+   also containing exactly `boot.img.lz4`, is allowed; fallback is recovery-only
+   and cannot PASS.
+
+   This is a boot partition only exception with no non-boot partition write.
+   It authorizes no recovery, vendor_boot, dtbo, vbmeta, vbmeta_system, BL, CP,
+   CSC, super, persist, userdata, EFS, sec_efs, RPMB, keymaster, modem,
+   bootloader, raw host `dd`, fastboot, Magisk module, multidisabler, format
+   data, persistent mount, raw block write, USB/configfs setup, sysfs value
+   write, Android handoff, candidate-side reboot, panic, watchdog, sec_debug
+   trigger, additional module, additional candidate, or A90 action. One live
+   invocation consumes this exception regardless of PASS, NO_PROOF,
+   UNAVAILABLE, FAIL, or recovery-only result. If candidate transfer began,
+   mandatory rollback-only continuation remains authorized until boot recovery
+   is attempted; it does not reopen the live gate. Mark the exception consumed
+   immediately after the attended run and evidence collection.
    **Narrow operator-authorized exception (2026-07-06, S22+ recovery-infra only):**
    for the Samsung S22+ `SM-S906N`/`g0q` on `S906NKSS7FYG8`, Codex may perform one
    bounded Odin4 recovery-infrastructure install of the pinned unofficial g0q TWRP
