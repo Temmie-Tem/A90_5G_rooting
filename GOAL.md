@@ -84,6 +84,35 @@ safety invariants and flash gates are binding and override any sub-goal.**
 > USB observer + tests/report, followed by the host-only O1 overlay design. No S11
 > repeat and no new native-init live flash are authorized by this steer.
 
+> **S22+ CURRENT FRONTIER (2026-07-10 20:08 KST / 2026-07-10 11:08 UTC) — V3429 DIRECT-PID1 PHASE OBSERVER HOST BUILD PASS; DETERMINISTIC BOOT-ONLY ARTIFACT READY FOR A SEPARATE LIVE-GATE DESIGN; NO LIVE AUTHORIZATION.**
+> V3429 implements the V3426 Stage-A contract as a 6,088-byte freestanding
+> direct PID1. It mounts only volatile proc/sysfs, verifies the exact FYG8
+> osrelease and `sec_log_buf.ko` SHA/size, calls `finit_module` once, requires
+> exact module Live state plus driver bind and proc nodes, then performs the
+> negative baseline -> PRECHECK -> FINAL current-ring self-gates before parking.
+> Every failure parks; the runtime has no exit/reboot/clone, USB/configfs,
+> sysfs write, sec_debug, sysrq, watchdog, panic, block write, persistent mount,
+> Android handoff, or candidate transition.
+>
+> Run ID is `f1613e72912b63f030c25a6bd7fd072e`. Final source SHA is
+> `311a44deecbd0d0148c7624929f173c44500cf714c4f2a8dd8b5e6acd856db59`,
+> init SHA is `4e58721e21efa42e7d4529d9aa3a0c60d0724b56cf8fc171fc85e82c4d3a17ea`,
+> boot SHA is `93eef3b07bfbeb2154ecc9bfddfdeed682d83d950ca5e6032b7cfd75e4c9a428`,
+> and one-member AP.tar.md5 SHA is
+> `d6b2a430b2f5d21a7bdefe5b7db050c9e627d30ef5ecdee77ee44bd764579b4f`.
+> Independent builds are byte-identical through AP.tar.md5; both QEMU
+> selftests and 56 V3426-V3429 tests pass. The prior Opus HIGH finding about a
+> truncated failure run token is closed by exact full-line and short-buffer
+> fail-closed QEMU tests. A final same-session Opus delta response was blocked
+> by external HTTP 429, so no final Opus GO is claimed.
+>
+> Next = host-only design/review of an exact SHA-pinned one-shot live helper and
+> fresh `AGENTS.md` exception. Only after those exist may the operator approve
+> candidate flash. Current artifact and report are host-only; device contact,
+> reboot, image write, Odin transfer, and flash were all zero. No live exception
+> is active. Report:
+> `docs/reports/NATIVE_INIT_V3429_S22PLUS_DIRECT_PID1_PHASE_OBSERVER_HOST_BUILD_PASS_2026-07-10.md`.
+
 > **S22+ CURRENT FRONTIER (2026-07-10 19:29 KST / 2026-07-10 10:29 UTC) — V3428R STOCK-ORIGIN POSITIVE CONTROL LIVE PASS; EXACT PAIR SURVIVED MANUAL DOWNLOAD + FIRST ROLLBACK BOOT; DIRECT-PID1 OBSERVER NEXT.**
 > V3428R reused the independently reviewed V3428 logic under a fresh schema,
 > ACK, helper SHA
