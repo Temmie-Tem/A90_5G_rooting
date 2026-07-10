@@ -22,6 +22,20 @@ BL, CP, CSC, userdata, or any non-boot flash.
    only. These forbidden partitions are **NOT** TWRP/download-mode recoverable = permanent
    brick; the operator's acceptance of boot-flash risk does NOT extend to them.
    **Narrow operator-authorized exception (2026-07-11, S22+ V3433 V3432 direct-PID1 keystone live gate):**
+   Consumed/retired: this one-shot exception was consumed by the 2026-07-11
+   V3433 live run. The exact V3432 boot-only candidate transferred with Odin
+   rc=0 and departed the original Odin endpoint. The operator observed the
+   Samsung custom/non-official image warning followed by reboot/bootloop, then
+   attended manual RDX/Download returned after 75.272 seconds. The pinned Magisk
+   boot-only rollback completed with rc=0 and the first rooted boot passed exact
+   health and boot identity. Two identical EOF-complete `/proc/last_kmsg` reads
+   contained no current-run marker, malformed issue, or raw run token, so the
+   contractual result was
+   `NO_PROOF_PID1_VS_OBSERVER_UNRESOLVED_STOP`. Retained ABL text records
+   `Custom binary(boot)` followed by `Device is unlocked, Skipping boot
+   verification`; the warning is not proof that ABL rejected the candidate and
+   does not prove kernel or PID1 execution. Mandatory rollback is complete.
+   This exception must not be reused.
    after the operator's explicit 2026-07-11 live approval and the V3432 host build
    PASS, Codex may perform one bounded attended V3433 live run on
    `SM-S906N/g0q/S906NKSS7FYG8` using only

@@ -55,12 +55,14 @@ class S22PlusV3433Pid1KeystoneLiveGateTest(unittest.TestCase):
             self.module.EXPECTED_CANDIDATE_AP_SHA256,
         )
 
-    def test_active_exception_preserves_exact_pins(self):
+    def test_consumed_exception_preserves_exact_pins(self):
         segment = self.module.active_exception_segment(
             (self.root / "AGENTS.md").read_text(encoding="utf-8")
         )
-        self.module.verify_agents_exception(self.root)
-        self.assertNotIn("Consumed/retired", segment)
+        with self.assertRaisesRegex(self.module.LiveGateError, "already consumed"):
+            self.module.verify_agents_exception(self.root)
+        self.module.verify_agents_exception(self.root, allow_consumed=True)
+        self.assertIn("Consumed/retired", segment)
         for marker in self.module.policy_markers(self.root):
             self.assertIn(marker, " ".join(segment.split()))
 

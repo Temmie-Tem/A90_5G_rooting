@@ -84,7 +84,34 @@ safety invariants and flash gates are binding and override any sub-goal.**
 > USB observer + tests/report, followed by the host-only O1 overlay design. No S11
 > repeat and no new native-init live flash are authorized by this steer.
 
-> **S22+ CURRENT FRONTIER (2026-07-11 05:56 KST / 2026-07-10 20:56 UTC) — V3433 EXACT V3432 PID1 KEYSTONE LIVE GATE ARMED UNDER OPERATOR APPROVAL; CONNECTED READ-ONLY PREFLIGHT NEXT.**
+> **S22+ CURRENT FRONTIER (2026-07-11 06:02 KST / 2026-07-10 21:02 UTC) — V3433 V3432 PID1 KEYSTONE LIVE RESULT NO_PROOF; OPERATOR SAW CUSTOM-BOOT WARNING + REBOOT/LOOP; CLEAN MAGISK ROLLBACK; DIRECT-PID1 RETAINED-MARKER PATH STOPPED.**
+> Connected preflight passed exact target/Magisk boot/root/osrelease and both
+> current-run negative controls. The exact candidate AP transferred with Odin
+> rc=0 and departed the original endpoint. The operator observed Samsung's
+> non-official/custom image warning followed by reboot/bootloop, then attended
+> manual RDX/Download returned in 75.272 seconds. Magisk boot-only rollback
+> completed with rc=0; first rooted boot and independent read-only recheck passed
+> boot completion, orange vbstate, root, and exact boot SHA
+> `2e541703951dc725bad35850faf7028c2d910dd5f21166449b63f1248c29967e`.
+>
+> Two first-boot `/proc/last_kmsg` reads were both 2,097,136 bytes, byte-identical
+> SHA `ea9030d4f9d8b5f781079a98db8f77b818f95a1b2fb78b90a09b8e15eeb8239f`,
+> and contained zero valid current-run marker, malformed issue, raw run token, or
+> foreign marker. Contract verdict is exactly
+> `NO_PROOF_PID1_VS_OBSERVER_UNRESOLVED_STOP`; do not relabel it PID1
+> non-execution or retention failure.
+>
+> Retained ABL text contains `Custom binary(boot) by verifystatus(2)` followed by
+> `Device is unlocked, Skipping boot verification`. The warning is therefore not
+> evidence that ABL rejected the image, but ABL continuation is also not
+> kernel/PID1 proof. V3433 is consumed/retired and rollback is complete. Do not
+> repeat or widen V3432. The direct-PID1 retained-marker method has now twice
+> ended in absence; next must be host-only postmortem/design for a pre-userspace
+> witness or stock-first-stage overlay preserving an already active observer. No
+> direct-PID1 live flash is authorized. Report:
+> `docs/reports/NATIVE_INIT_V3433_S22PLUS_V3432_PID1_KEYSTONE_LIVE_NO_PROOF_2026-07-11.md`.
+
+> **S22+ PRIOR FRONTIER (2026-07-11 05:56 KST / 2026-07-10 20:56 UTC) — V3433 EXACT V3432 PID1 KEYSTONE LIVE GATE ARMED UNDER OPERATOR APPROVAL; CONNECTED READ-ONLY PREFLIGHT NEXT.**
 > The operator explicitly approved live progression. V3433 pins helper SHA
 > `9578ddbdef80d6607384cfdd4b8edffffcf2693bea81d9a9af4874e92650770d`,
 > run ID `db4d3b66480bec29158c9ac9bfede880`, V3432 manifest/marker, candidate
