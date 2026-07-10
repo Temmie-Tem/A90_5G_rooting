@@ -84,7 +84,28 @@ safety invariants and flash gates are binding and override any sub-goal.**
 > USB observer + tests/report, followed by the host-only O1 overlay design. No S11
 > repeat and no new native-init live flash are authorized by this steer.
 
-> **S22+ CURRENT FRONTIER (2026-07-11 05:47 KST / 2026-07-10 20:47 UTC) — V3432 PID1 KEYSTONE HOST BUILD PASS; TWO BUILDS BYTE-IDENTICAL; FRESH EXACT LIVE GATE DESIGN NEXT.**
+> **S22+ CURRENT FRONTIER (2026-07-11 05:56 KST / 2026-07-10 20:56 UTC) — V3433 EXACT V3432 PID1 KEYSTONE LIVE GATE ARMED UNDER OPERATOR APPROVAL; CONNECTED READ-ONLY PREFLIGHT NEXT.**
+> The operator explicitly approved live progression. V3433 pins helper SHA
+> `9578ddbdef80d6607384cfdd4b8edffffcf2693bea81d9a9af4874e92650770d`,
+> run ID `db4d3b66480bec29158c9ac9bfede880`, V3432 manifest/marker, candidate
+> AP `264acafa1320e6faee1f6b3a569c6de1742ca6712e61003d114ec4a6d549bf34`,
+> candidate boot
+> `67075d7f26486c3e4130dc6a935c5ed98ded8b817d9d5ec4beeddd05bef7f232`,
+> both V3431/V3427 contracts, and both rollback APs. The fresh `AGENTS.md`
+> exception is boot-only, exact one-shot, attended, and active.
+>
+> V3433 adds the missing load-bearing preflight: exact live osrelease
+> `5.10.226-android12-9-30958166-abS906NKSS7FYG8` plus current-run negative
+> controls in both `/proc/ap_klog` and `/proc/last_kmsg`, on top of exact
+> Android/Magisk/root/boot/module/bind/proc-node/full-stock checks. Rollback
+> collection performs two EOF-complete byte-identical first-boot last_kmsg reads
+> and applies the single-frame V3431 PASS/NO_PROOF/FAIL contract. Fourteen focused
+> tests pass. No connected dry-run, reboot, transfer, or flash has occurred yet.
+> Next is the connected read-only dry-run; actual live may proceed only on PASS.
+> Report:
+> `docs/reports/NATIVE_INIT_V3433_S22PLUS_V3432_PID1_KEYSTONE_LIVE_GATE_ARMED_2026-07-11.md`.
+
+> **S22+ PRIOR FRONTIER (2026-07-11 05:47 KST / 2026-07-10 20:47 UTC) — V3432 PID1 KEYSTONE HOST BUILD PASS; TWO BUILDS BYTE-IDENTICAL; FRESH EXACT LIVE GATE DESIGN NEXT.**
 > V3432 implements V3431 as a 1,856-byte freestanding direct `/init`. The first
 > runtime syscall is disassembly-proved `getpid`; only return value 1 advances.
 > It then prepares volatile dev/proc/sys, loads the exact dependency-free

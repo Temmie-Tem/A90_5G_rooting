@@ -21,6 +21,90 @@ BL, CP, CSC, userdata, or any non-boot flash.
    bootloader, or any partition other than **boot**. Device changes touch the boot image
    only. These forbidden partitions are **NOT** TWRP/download-mode recoverable = permanent
    brick; the operator's acceptance of boot-flash risk does NOT extend to them.
+   **Narrow operator-authorized exception (2026-07-11, S22+ V3433 V3432 direct-PID1 keystone live gate):**
+   after the operator's explicit 2026-07-11 live approval and the V3432 host build
+   PASS, Codex may perform one bounded attended V3433 live run on
+   `SM-S906N/g0q/S906NKSS7FYG8` using only
+   `workspace/public/src/scripts/revalidation/s22plus_v3433_pid1_keystone_live_gate.py`
+   SHA256 `9578ddbdef80d6607384cfdd4b8edffffcf2693bea81d9a9af4874e92650770d`
+   with live acknowledgement token
+   `S22PLUS-V3433-V3432-PID1-KEYSTONE-LIVE-GATE`. Mandatory recovery from an
+   already-transferred candidate may use the same helper's rollback-only mode
+   with token `S22PLUS-V3433-V3432-ROLLBACK-FROM-DOWNLOAD`; that continuation
+   cannot authorize a second candidate transfer.
+
+   The helper must enforce target `SM-S906N/g0q/S906NKSS7FYG8`, full FYG8 stock
+   firmware evidence, V3431 keystone contract SHA256
+   `686207c75d2530f90049de6b6945fbd3134019ca402f84cb97418c43804a4ca5`,
+   transition contract SHA256
+   `426aa2bb50f6e73e153f5f5dc9cde59ddf37ab315f46860c1dc0bd0b3e810734`,
+   fixed run ID `db4d3b66480bec29158c9ac9bfede880`, V3432 manifest
+   SHA256 `f90f97476736cd4d7059652b4293d0b1a69b27c83925c07e499857357fe66a3b`,
+   and expected-marker manifest SHA256
+   `489d6fff3e96471db2f7beb2191b8d4136dec274bf2b9ca8847731313728fe4d`.
+   It may flash exactly one candidate boot partition only AP SHA256
+   `264acafa1320e6faee1f6b3a569c6de1742ca6712e61003d114ec4a6d549bf34`,
+   containing exactly `boot.img.lz4` SHA256
+   `c698d5acf84ea10c5cf8ed8e95ed101a59483abf38b7977d16a2af0c95f67d5b`
+   and producing padded boot SHA256
+   `67075d7f26486c3e4130dc6a935c5ed98ded8b817d9d5ec4beeddd05bef7f232`.
+   The candidate source SHA256 must be
+   `0a69f55947fa148928d10741c10bb5433f493434cb734d9a1f276bbfd40fc664`,
+   init SHA256
+   `59d4a11fd66528a3be4d4749b8191449a8675fdb0f7148b3cb9bdded6263b2db`,
+   unchanged kernel SHA256
+   `bceca73edbfca3499148e16741c939779157925949ef6bc8a8e31d6b68fc2cff`,
+   and embedded `/observer/sec_log_buf.ko` SHA256
+   `b4751eb8243a2bce4cd2f7b5f157f8429b295798dc310e23e861648906d24b61`.
+
+   Before candidate transfer, require one normal Android rooted Magisk baseline
+   with exact boot SHA256
+   `2e541703951dc725bad35850faf7028c2d910dd5f21166449b63f1248c29967e`,
+   exact live osrelease
+   `5.10.226-android12-9-30958166-abS906NKSS7FYG8`, boot completion, orange
+   verified-boot state, exact `sec_log_buf` Live/bind/proc-node state, and current
+   run negative controls in both `/proc/ap_klog` and `/proc/last_kmsg`. One normal
+   Android `adb reboot download` is authorized solely to enter Odin after those
+   checks.
+
+   The candidate may run only as direct PID1, require raw `getpid()==1`, create
+   `/dev/kmsg`, mount only volatile proc and sysfs, `finit_module` only the exact
+   embedded `sec_log_buf.ko`, open only `/proc/ap_klog` and
+   `/proc/last_kmsg` for observer readiness, write exactly one run-bound
+   `S22P1K1` `PID1_ENTER` frame to `/dev/kmsg`, and park. Original Odin endpoint
+   departure and the canonical `candidate_boot_ready` timestamp are observation
+   window markers, not proof of source execution. After at least 60 seconds quiet
+   dwell, the helper must require attended manual RDX/Download and begin rollback
+   no later than the hard 180-second transition deadline.
+
+   Rollback must use only the pinned Magisk boot partition only AP SHA256
+   `d2373bf88dda342709440dc3db468f11d80a4593856768a4d8ae402bef215a56`,
+   containing exactly `boot.img.lz4`, restoring boot SHA256
+   `2e541703951dc725bad35850faf7028c2d910dd5f21166449b63f1248c29967e`.
+   On its first rooted boot and before any extra reboot, require exact target,
+   root, boot completion, orange verified-boot state, and boot identity, then
+   perform the first-rollback /proc/last_kmsg double-read to EOF. Exactly one
+   valid current-run marker is
+   `PASS_PID1_EXECUTION_AND_OBSERVER_LOAD`; complete absence is
+   `NO_PROOF_PID1_VS_OBSERVER_UNRESOLVED_STOP`; malformed, duplicate, wrong-PID,
+   or wrong-identity evidence is `FAIL_STOP`. If the Magisk transfer fails while
+   Download remains, only the stock boot-only fallback AP SHA256
+   `2f6a8ac093587a0f03c423d8e21f65c6fe3a8d2ce9915297170cdaa2cac37c94`,
+   also containing exactly `boot.img.lz4`, is allowed; fallback is recovery-only
+   and cannot PASS.
+
+   This is a boot partition only exception with no non-boot partition write.
+   It authorizes no recovery, vendor_boot, dtbo, vbmeta, vbmeta_system, BL, CP,
+   CSC, super, persist, userdata, EFS, sec_efs, RPMB, keymaster, modem,
+   bootloader, raw host `dd`, fastboot, Magisk module, multidisabler, format
+   data, persistent mount, raw block write, USB/configfs setup, sysfs value
+   write, Android handoff, candidate-side reboot, panic, watchdog, sec_debug
+   trigger, additional module, additional candidate, or A90 action. One live
+   invocation consumes this exception regardless of PASS, NO_PROOF,
+   UNAVAILABLE, FAIL, or recovery-only result. If candidate transfer began,
+   mandatory rollback-only continuation remains authorized until boot recovery
+   is attempted; it does not reopen the live gate. Mark the exception consumed
+   immediately after the attended run and evidence collection.
    **Narrow operator-authorized exception (2026-07-10, S22+ V3428 stock-origin transition positive control):**
    Consumed/retired: this one-shot exception was consumed by the 2026-07-10
    live invocation. The helper proved the run-bound PRECHECK+FINAL pair in the
