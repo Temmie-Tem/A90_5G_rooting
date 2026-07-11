@@ -21,15 +21,25 @@ BL, CP, CSC, userdata, or any non-boot flash.
    bootloader, or any partition other than **boot**. Device changes touch the boot image
    only. These forbidden partitions are **NOT** TWRP/download-mode recoverable = permanent
    brick; the operator's acceptance of boot-flash risk does NOT extend to them.
-   **Narrow operator-authorized exception (2026-07-11, S22+ V3443 HIGH panic
-   MID-control comparison live gate):** after V3442 proved exact HIGH acceptance
+   **Consumed/retired exception (2026-07-11, S22+ V3443 HIGH panic
+   MID-control comparison live gate):** the helper dispatched HIGH once and
+   exact HIGH Android returned, but its split-argv `adb shell su -c` construction
+   gave `su -c` only the first token. The marker and SysRq writes therefore did
+   not execute as root. ADB remained connected and the helper failed closed.
+   Retained `/proc/last_kmsg` proved zero current-run marker, zero SysRq panic,
+   and zero RDX lock string. No RDX endpoint or S-Boot command occurred. The
+   exact setter then restored MID once; final Android/Magisk root, MID
+   `18765` / `0x494d`, and boot/DTBO/recovery identities all passed. HIGH
+   dispatch and the attempted panic consume this exception; it must not be
+   retried. `S22PLUS_V3443_HIGH_PANIC_COMPARE_POLICY_STATE=RETIRED`. Before
+   consumption, after V3442 proved exact HIGH acceptance
    and the operator explicitly approved the comparison, Codex may perform one
    bounded attended zero-candidate-flash run on Samsung S22+
    `SM-S906N`/`g0q` `S906NKSS7FYG8` using only checked helper
    `workspace/public/src/scripts/revalidation/s22plus_v3443_high_panic_compare_live_gate.py`
    SHA256
    `9e5e561bc39019b7ec5ebe1a79c3a24fa89803bca568c7aec6d5308a1a35f6a9`.
-   `S22PLUS_V3443_HIGH_PANIC_COMPARE_POLICY_STATE=ACTIVE`. The operator supplied
+   The operator supplied
    all three acknowledgements `S22PLUS-V3443-HIGH-ONE-SYSRQ-PANIC`,
    `S22PLUS-V3443-RDX-PREAMBLE-ONLY`, and
    `S22PLUS-V3443-MID-RESTORE-RECOVERY`.

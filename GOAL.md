@@ -23,8 +23,17 @@ safety invariants and flash gates are binding and override any sub-goal.**
 > clause to `AGENTS.md`, connected dry-run, HIGH, panic, or USB command.
 > The operator then explicitly approved V3443. The exact one-shot clause is now
 > active with all three independent acknowledgements; policy activation itself
-> performed no device action. Next is connected read-only dry-run. Only a clean
-> dry-run may advance to the single attended HIGH/panic/preamble comparison.
+> performed no device action. The connected dry-run passed and HIGH dispatch
+> returned exact `18760` / `0x4948`, but the split-argv ADB construction scoped
+> `su -c` to only its first token. The marker/SysRq writes did not execute as
+> root; ADB stayed connected and the helper failed closed before USB. Retained
+> log proved marker=0, panic=0, RDX=0. The exact setter restored MID once and
+> final Android/root/MID plus boot/DTBO/recovery hashes all passed. Policy is
+> consumed/retired. Report:
+> `docs/reports/NATIVE_INIT_V3443_S22PLUS_HIGH_PANIC_COMPARE_LIVE_FAIL_CLOSED_MID_RESTORED_2026-07-11.md`.
+> Next is host-only V3443R correction using one quoted remote shell argument and
+> a harmless two-command root quotation control. No repeat HIGH/panic is
+> authorized without a new SHA-pinned gate and fresh explicit approval.
 
 > **S22+ CURRENT FRONTIER (2026-07-11 KST) - V3441 DEBUG MID RESCUE LIVE PASS;
 > POLICY RETIRED; HIGH REMAINS A SEPARATE GATE.** Before forcing Samsung
