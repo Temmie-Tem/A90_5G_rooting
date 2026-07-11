@@ -4,6 +4,24 @@ Drive the A90 native-init project forward one **bounded V-iteration at a time** 
 the proven cycle below. This file says WHAT to pursue; **`AGENTS.md` says HOW — its
 safety invariants and flash gates are binding and override any sub-goal.**
 
+> **S22+ CURRENT FRONTIER (2026-07-11 KST) - V3443 HIGH PANIC VERSUS PINNED
+> MID CONTROL GATE SOURCE READY; POLICY INACTIVE.** V3442 proved HIGH is accepted
+> but did not measure a downstream feature delta. V3443 pins the existing V3440
+> MID SysRq/RDX run by exact result, retained-log, and preamble-response hashes,
+> then proposes one HIGH dispatch, one SysRq panic, and exactly one S-Boot
+> `PrEaMbLe` command. Positive, negative, malformed, or transport-error results
+> all stop before `PrObE`; memory transfer is impossible in this source. After
+> attended physical RDX EXIT, the helper captures HIGH `/proc/last_kmsg`, emits
+> matching MID/HIGH metrics, and immediately restores exact MID. Emergency
+> continuation is limited to the proven V3441 MID-rescue boot and pinned Magisk
+> boot rollback and never repeats HIGH or panic. Focused tests are 9/9 PASS;
+> helper SHA256 is `9e5e561b...a35f6a9`; policy remains `DRAFT_INACTIVE`, so
+> source preparation performed no device action. Report:
+> `docs/reports/NATIVE_INIT_V3443_S22PLUS_HIGH_PANIC_COMPARE_GATE_SOURCE_READY_2026-07-11.md`.
+> Next: commit and independently review the exact source-ready unit. A fresh
+> explicit operator approval is required before adding the SHA-pinned one-shot
+> clause to `AGENTS.md`, connected dry-run, HIGH, panic, or USB command.
+
 > **S22+ CURRENT FRONTIER (2026-07-11 KST) - V3441 DEBUG MID RESCUE LIVE PASS;
 > POLICY RETIRED; HIGH REMAINS A SEPARATE GATE.** Before forcing Samsung
 > sec_debug HIGH, V3441 constructs an exact boot-only rescue AP whose raw PID1
