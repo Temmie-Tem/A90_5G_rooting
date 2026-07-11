@@ -4,8 +4,8 @@ Drive the A90 native-init project forward one **bounded V-iteration at a time** 
 the proven cycle below. This file says WHAT to pursue; **`AGENTS.md` says HOW — its
 safety invariants and flash gates are binding and override any sub-goal.**
 
-> **S22+ CURRENT FRONTIER (2026-07-11 KST) - V3441 DEBUG MID RESCUE GATE
-> SOURCE READY, POLICY INACTIVE; HIGH REMAINS BLOCKED.** Before forcing Samsung
+> **S22+ CURRENT FRONTIER (2026-07-11 KST) - V3441 DEBUG MID RESCUE LIVE PASS;
+> POLICY RETIRED; HIGH REMAINS A SEPARATE GATE.** Before forcing Samsung
 > sec_debug HIGH, V3441 constructs an exact boot-only rescue AP whose raw PID1
 > first and only syscall is `reboot(..., "debug0x494d")`, then parks if the
 > syscall returns. The AP contains only `boot.img.lz4`, preserves the exact
@@ -14,13 +14,17 @@ safety invariants and flash gates are binding and override any sub-goal.**
 > boot-only rollback APs, and the complete FYG8 stock-firmware evidence. PASS
 > requires original Odin disconnect, attended physical Download entry, exact
 > Magisk boot rollback, then Android/root/MID and all baseline hashes restored.
-> Focused tests are 12/12 PASS. The operator gave fresh live approval after
-> commit `bae7f262`; the exact one-shot policy is now ACTIVE, with no device
-> action yet at the activation checkpoint. The MID rehearsal does not itself prove HIGH->MID,
-> so HIGH still needs a separate later gate. Report:
-> `docs/reports/NATIVE_INIT_V3441_S22PLUS_DEBUG_MID_RESCUE_GATE_SOURCE_READY_2026-07-11.md`.
-> Next: run the checked helper's connected dry-run, then the attended rescue
-> rehearsal. Candidate flash start consumes the exception regardless of result.
+> Focused tests are 12/12 PASS. The live candidate flash completed with Odin
+> rc=0, the original endpoint disconnected, and the operator observed the
+> expected boot loop. Physical Download entry appeared about 32 seconds later;
+> exact Magisk rollback completed with Odin rc=0. Android/root/MID and exact
+> boot/DTBO/recovery identities all returned. Durable verdict is
+> `PASS_RESCUE_BOOT_AND_MAGISK_ROLLBACK_MID`; the one-shot policy is RETIRED.
+> This proves the attended rescue route from MID but not HIGH->MID, so HIGH
+> still requires a separate exact design and fresh gate. Report:
+> `docs/reports/NATIVE_INIT_V3441_S22PLUS_DEBUG_MID_RESCUE_LIVE_PASS_2026-07-11.md`.
+> Next: host-only design of one bounded HIGH-setting discriminator and its
+> rollback decision tree; no HIGH action is authorized by V3441.
 >
 > **S22+ CURRENT FRONTIER (2026-07-11 KST) — V3440 RDX USB LIVE CONTROLLED
 > NEGATIVE: `04e8:685d` PROVEN, EXACT `NegativeAck`, PROBE/DATA TRANSFER NOT

@@ -21,8 +21,18 @@ BL, CP, CSC, userdata, or any non-boot flash.
    bootloader, or any partition other than **boot**. Device changes touch the boot image
    only. These forbidden partitions are **NOT** TWRP/download-mode recoverable = permanent
    brick; the operator's acceptance of boot-flash risk does NOT extend to them.
-   **Narrow operator-authorized exception (2026-07-11, S22+ V3441 debug MID
-   rescue boot-only live gate):** after the operator's fresh 2026-07-11 live
+   **Consumed/retired exception (2026-07-11, S22+ V3441 debug MID rescue
+   boot-only live gate):** the one-shot V3441 run flashed the exact boot-only
+   rescue candidate with Odin rc=0, observed the original Odin endpoint
+   disconnect, and the operator observed the expected boot loop. The operator
+   physically entered Download mode; the exact Magisk boot-only rollback
+   completed with Odin rc=0. Android, Magisk root, MID decimal `18765`, known
+   boot, stock DTBO, and stock recovery identities all returned exactly. The
+   durable verdict is `PASS_RESCUE_BOOT_AND_MAGISK_ROLLBACK_MID`. This proves
+   the attended MID rescue boot/rollback route from the MID baseline; it does
+   not prove a HIGH-to-MID transition. This exception is consumed and must not
+   be reused. `S22PLUS_V3441_DEBUG_MID_RESCUE_POLICY_STATE=RETIRED`. Before
+   consumption, after the operator's fresh 2026-07-11 live
    approval, and before any attempt to force Samsung sec_debug from MID to
    HIGH, Codex may perform one bounded attended boot-partition-only recovery
    rehearsal on the Samsung S22+ `SM-S906N`/`g0q` `S906NKSS7FYG8` using only
@@ -30,7 +40,7 @@ BL, CP, CSC, userdata, or any non-boot flash.
    `workspace/public/src/scripts/revalidation/s22plus_v3441_debug_mid_rescue_live_gate.py`
    SHA256
    `7cbfa449f8ce0c1f27f97455f0b796e15b4cea28c2f8d4139c11187d2ee4d5d7`.
-   `S22PLUS_V3441_DEBUG_MID_RESCUE_POLICY_STATE=ACTIVE`. The operator supplied
+   The operator supplied
    acknowledgement `S22PLUS-V3441-DEBUG-MID-RESCUE-LIVE`. Emergency
    rollback-only use requires separate acknowledgement
    `S22PLUS-V3441-DEBUG-MID-RESCUE-ROLLBACK`.
