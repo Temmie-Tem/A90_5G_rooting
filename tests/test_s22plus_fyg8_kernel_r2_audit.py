@@ -68,6 +68,28 @@ class S22PlusFyg8KernelR2AuditTest(unittest.TestCase):
         self.assertEqual(result["missing_unique_symbols"], 1)
         self.assertEqual(result["mismatched_unique_symbols"], 1)
 
+    def test_image_metadata_requires_exact_stock_banner(self):
+        with tempfile.TemporaryDirectory() as temp:
+            image = Path(temp) / "Image"
+            image_data = bytearray(8192)
+            struct.pack_into("<Q", image_data, 0x10, len(image_data))
+            image_data[0x38:0x3C] = b"ARM\x64"
+            stock_banner = (
+                "Linux version 5.10.226-android12-9-30958166-abS906NKSS7FYG8 "
+                "(build-user@build-host) (Android (7284624, based on r416183b) "
+                "clang version 12.0.5) #1 SMP PREEMPT Fri Aug 1 05:55:56 UTC 2025"
+            )
+            other_banner = stock_banner.replace(
+                "Fri Aug 1 05:55:56 UTC 2025",
+                "Sun Jul 12 07:16:46 UTC 2026",
+            )
+            image_data[512:512 + len(other_banner) + 1] = other_banner.encode("ascii") + b"\x00"
+            image.write_bytes(image_data)
+            result = self.module.image_metadata(image, expected_banner=stock_banner)
+            self.assertTrue(result["release_match"])
+            self.assertTrue(result["compiler_match"])
+            self.assertFalse(result["exact_banner_match"])
+
     def test_r2_remains_blocked_without_r1_pass(self):
         with tempfile.TemporaryDirectory() as temp:
             temp_path = Path(temp)
@@ -102,6 +124,7 @@ class S22PlusFyg8KernelR2AuditTest(unittest.TestCase):
             stock = temp_path / "stock.json"
             stock.write_text(json.dumps({
                 "target": self.module.TARGET,
+                "linux_banner": banner.rstrip(b"\x00").decode("ascii"),
                 "inputs": {"boot_img": {"size": 100663296}},
                 "boot_header": {"ramdisk_size": 1024, "signature_size": 4096},
             }), encoding="ascii")

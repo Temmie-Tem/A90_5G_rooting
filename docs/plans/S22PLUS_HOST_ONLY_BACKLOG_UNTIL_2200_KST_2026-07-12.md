@@ -14,8 +14,10 @@ ramdisk replacement, AP generation, flashing, rebooting, or live testing.
 Current baseline:
 
 - R0 reproducible environment: PASS.
-- R1 unchanged Full-LTO buildability: PASS.
-- R2 static stock-equivalence: PASS.
+- R1 unchanged Full-LTO buildability: proved; reproducible v3 re-close pending
+  after exact-banner timestamp correction.
+- R2 static stock-equivalence: reopened; old v1 PASS missed the banner
+  timestamp and v2 re-close is pending.
 - R3 unpatched rebuilt-kernel viability: pending artifact design, fresh policy,
   and explicit operator approval.
 - Lane W reboot-reason producer control: host design complete; implementation
@@ -25,7 +27,7 @@ Current baseline:
 
 | Rank | Work unit | Estimate | Unattended | Deliverable and exit condition |
 |---|---|---:|---|---|
-| P0 | Final-wrapper clean one-shot R1/R2 reproduction on the FX-8300 host | 45-70 min | Yes | Start from the pinned reconstructed source and an empty generated output directory. Run the final committed wrapper without the incremental repair sequence, then run R2 with no ad-hoc arguments. PASS only if the R1/R2 schema, release, config, provider closure, output set, and hashes agree with the canonical close or any difference is fully explained. |
+| P0 | Final-wrapper clean one-shot R1 v3/R2 v2 reproduction on the FX-8300 host | 45-70 min | Yes | Start from the pinned reconstructed source and an empty generated output directory. Require the exact stock Linux banner after preventing Samsung `_setup_env.sh` from replacing the pinned timestamp, then run R2 v2. Compare normalized output/module/symvers/provider identities; whole JSON SHA equality is not required because absolute paths and live resource values differ. |
 | P0 | Minimal evidence-retention audit | 30-45 min | Yes | Produce a SHA256 manifest and retention table for `Image`, `Image.lz4`, `System.map`, generated `.config`, 15 symvers files, result JSON, preflight, timing, and provider logs. Record what remains remote-only. Do not copy the full approximately 8 GiB output tree or delete anything. |
 | P0 | R3 host-only artifact and policy design packet | 60-90 min | Yes, design only | Select and pin the unpatched R2 kernel input and stock-userspace carrier; document exact future repack parameters, partition-size checks, stale copied-vbmeta caveat, boot-only AP membership rule, health milestones, mandatory rollback pins, timeline schema, and fail-closed classifications. No image or AP may be generated. |
 | P1 | R3 independent pre-live static gate contract | 30-45 min | Yes, design only | Specify a checker that will later prove exact kernel/config/release hashes, carrier provenance, boot-size bounds, one-member `boot.img.lz4` AP policy, stock DTBO/recovery preservation, rollback availability, and the eight-event timeline. Stop before implementing a live helper or activating an `AGENTS.md` exception. |
@@ -45,8 +47,8 @@ Current baseline:
 5. Use remaining time for either ETA instrumentation or the Lane W static
    cross-check, then commit host-only results: 30-60 minutes.
 
-This order first removes the residual reproducibility caveat, then preserves the
-proof compactly, and only then advances toward the next live rung.
+This order first closes the now-proven timestamp reproducibility defect, then
+preserves the corrected proof compactly, and only then advances toward R3.
 
 ## Operator-Return Decisions
 
@@ -71,4 +73,3 @@ The following decisions should wait for the operator:
 - No security-config change, R3B patch application, or witness patch.
 - Any unexpected R1/R2 hash or schema difference is evidence to investigate,
   not permission to normalize or overwrite the canonical result.
-

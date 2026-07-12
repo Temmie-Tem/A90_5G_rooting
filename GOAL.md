@@ -4,14 +4,25 @@ Drive the A90 native-init project forward one **bounded V-iteration at a time** 
 the proven cycle below. This file says WHAT to pursue; **`AGENTS.md` says HOW — its
 safety invariants and flash gates are binding and override any sub-goal.**
 
-> **S22+ ACTIVE FRONTIER (2026-07-12 KST) - R1/R2 HOST GATES CLOSED; R3
-> HOST-ONLY ARTIFACT/POLICY DESIGN NEXT; LANE W REMAINS DESIGN-ONLY; NO LIVE
-> AUTHORIZATION.** The Debian 13 FX-8300 build host completed the unchanged
-> Full-LTO R1 and static-equivalence R2 gates. The next bounded work is a clean
-> final-wrapper reproduction and an R3 design packet; no candidate kernel,
+> **S22+ ACTIVE FRONTIER (2026-07-12 KST) - R1 FULL-LTO BUILDABILITY PROVED,
+> BUT REPRODUCIBILITY/R2 REOPENED BY EXACT-BANNER MISS; R3 HOST DESIGN CLOSED
+> AND BLOCKED ON R1 V3/R2 V2 RE-CLOSE; LANE W REMAINS DESIGN-ONLY; NO LIVE
+> AUTHORIZATION.** The Debian 13 FX-8300 host completed the unchanged Full-LTO
+> compile/module/output path, but the archived `Image` contains the current
+> compile timestamp instead of the exact FYG8 stock timestamp. Samsung
+> `_setup_env.sh` overwrote the wrapper's pinned metadata, and R2 v1 checked
+> only release/compiler substrings. R1 buildability remains proved; strict R1
+> reproducibility and R2 equivalence are reopened. The next bounded work is a
+> clean R1 v3/R2 v2 reproduction with exact full-banner matching; no candidate kernel,
 > ramdisk, boot image, AP, device action, or flash is authorized. The ranked
 > operator-away backlog and stop conditions are recorded in
 > `docs/plans/S22PLUS_HOST_ONLY_BACKLOG_UNTIL_2200_KST_2026-07-12.md`.
+> R1/R2 evidence retention state is recorded in
+> `docs/reports/S22PLUS_FYG8_R1_R2_EVIDENCE_RETENTION_AUDIT_2026-07-12.md`;
+> the R3 contract is
+> `docs/plans/S22PLUS_FYG8_R3_UNPATCHED_KERNEL_VIABILITY_DESIGN_2026-07-12.md`.
+> Correction record:
+> `docs/reports/S22PLUS_FYG8_R1_R2_TIMESTAMP_GATE_POSTMORTEM_2026-07-12.md`.
 >
 > **S22+ PREVIOUS FRONTIER (2026-07-11 KST) - NATIVE-PID1 WITNESS AND FYG8
 > KERNEL TRUST ARE PARALLEL LANES; R1/R2 HOST GATES READY, FULL-LTO BUILD-HOST
@@ -112,12 +123,14 @@ safety invariants and flash gates are binding and override any sub-goal.**
 > overlapping the 441-file vendor-ramdisk corpus are byte-identical after exact
 > F2FS LZ4-cluster reconstruction, 50 are `vendor_dlkm`-only, and 135 are
 > vendor-ramdisk-only. The complete union is 491 unique module names with
-> 25,864 consumer CRC rows over 4,619 unique symbols. Final Full-LTO R2 closes
+> 25,864 consumer CRC rows over 4,619 unique symbols. Historical R2 v1 closed
 > every row against 10,511 provider symbols with zero missing, mismatched, or
-> conflicting CRCs. Exact release/compiler, config, corpus, and boot-capacity
-> gates pass; R2 result SHA256 is `66c76073...`.
+> conflicting CRCs, but its release/compiler-substring gate missed the
+> non-stock banner timestamp. Those CRC/config/corpus/capacity results remain
+> evidence; strict equivalence waits for R1 v3/R2 v2 exact-banner re-close.
 >
-> Next: R1/R2 are closed. Lane W's independent static review is now
+> Next: R1 buildability is proved, but reproducibility/R2 must re-close with the
+> v3/v2 exact-banner gates before R3. Lane W's independent static review is
 > complete: it added the hidden nvmem provider, exact Recovery consumer,
 > asynchronous command-readiness oracle, SCM/dload bindings, phased provider
 > barriers, and one-file variant contract. No Lane W candidate source, image,

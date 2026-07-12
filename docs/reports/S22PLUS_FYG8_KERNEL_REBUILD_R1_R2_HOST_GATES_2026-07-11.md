@@ -9,6 +9,13 @@ Scope: host-only source provenance, complete module-corpus, and static ABI gates
 **R1 Full-LTO buildability and R2 static stock-equivalence PASS on the
 controlled Debian 13 FX-8300 32 GiB host.**
 
+> **Superseded correction, 2026-07-12:** R1 Full-LTO buildability remains
+> proved, but reproducible R1 and strict R2 are reopened. The generated banner
+> timestamp is `Sun Jul 12 07:16:46 UTC 2026`; exact FYG8 stock is
+> `Fri Aug 1 05:55:56 UTC 2025`. R2 v1 did not compare the full banner. See
+> `S22PLUS_FYG8_R1_R2_TIMESTAMP_GATE_POSTMORTEM_2026-07-12.md`. The original
+> verdict below is retained as a historical account, not a current R3 gate.
+
 No boot image was packaged, no device was contacted, and no flash or partition
 write occurred.
 
@@ -145,6 +152,7 @@ present providers is positive diagnostic evidence only.
 
 ## Remaining Gate
 
-R1 and R2 are closed. R3 packaging or device work remains unauthorized until
-a fresh boot-only policy exception is added with exact artifact pins and
-explicit operator approval.
+The 2026-07-12 correction reopens reproducible R1 and strict R2. Run R1 v3 and
+R2 v2 with exact stock-banner equality before considering R3. R3 packaging or
+device work also remains unauthorized until a fresh boot-only policy exception
+is added with exact artifact pins and explicit operator approval.

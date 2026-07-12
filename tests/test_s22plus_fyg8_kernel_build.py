@@ -78,6 +78,58 @@ class S22PlusFyg8KernelBuildTest(unittest.TestCase):
             for name in self.module.INCREMENTAL_READONLY_DIST_TARGETS:
                 self.assertFalse((host_bin / name).exists())
 
+    def test_timestamp_control_is_exact_temporary_and_restored(self):
+        with tempfile.TemporaryDirectory() as temporary:
+            work = Path(temporary) / "source"
+            setup = work / self.module.SETUP_ENV_PATH
+            setup.parent.mkdir(parents=True)
+            original = "prefix\n" + self.module.SETUP_ENV_TIMESTAMP_ORIGINAL + "suffix\n"
+            setup.write_text(original, encoding="utf-8")
+            control = self.module.inspect_timestamp_control(work)
+            self.assertTrue(control["verified"])
+            with self.module.apply_timestamp_control(work, control) as runtime:
+                patched = setup.read_text(encoding="utf-8")
+                self.assertIn(self.module.SETUP_ENV_TIMESTAMP_PINNED, patched)
+                self.assertNotIn(self.module.SETUP_ENV_TIMESTAMP_ORIGINAL, patched)
+                self.assertFalse(runtime["restored"])
+            self.assertEqual(setup.read_text(encoding="utf-8"), original)
+            self.assertTrue(runtime["restored"])
+            self.assertTrue(runtime["patched_content_unchanged"])
+
+    def test_timestamp_control_rejects_nonunique_source(self):
+        with tempfile.TemporaryDirectory() as temporary:
+            work = Path(temporary) / "source"
+            setup = work / self.module.SETUP_ENV_PATH
+            setup.parent.mkdir(parents=True)
+            setup.write_text(
+                self.module.SETUP_ENV_TIMESTAMP_ORIGINAL * 2,
+                encoding="utf-8",
+            )
+            self.assertFalse(self.module.inspect_timestamp_control(work)["verified"])
+
+    def test_timestamp_control_restores_after_body_failure(self):
+        with tempfile.TemporaryDirectory() as temporary:
+            work = Path(temporary) / "source"
+            setup = work / self.module.SETUP_ENV_PATH
+            setup.parent.mkdir(parents=True)
+            original = self.module.SETUP_ENV_TIMESTAMP_ORIGINAL
+            setup.write_text(original, encoding="utf-8")
+            control = self.module.inspect_timestamp_control(work)
+            with self.assertRaisesRegex(RuntimeError, "synthetic build failure"):
+                with self.module.apply_timestamp_control(work, control):
+                    raise RuntimeError("synthetic build failure")
+            self.assertEqual(setup.read_text(encoding="utf-8"), original)
+
+    def test_kernel_banner_gate_requires_stock_timestamp(self):
+        with tempfile.TemporaryDirectory() as temporary:
+            work = Path(temporary) / "source"
+            image = work / "out/msm-waipio-waipio-gki/gki_kernel/dist/Image"
+            image.parent.mkdir(parents=True)
+            image.write_bytes(" ".join(self.module.STOCK_BANNER_MARKERS).encode("ascii"))
+            self.assertTrue(self.module.kernel_banner_gate(work)["verified"])
+            image.write_bytes(b"Sun Jul 12 07:16:46 UTC 2026")
+            self.assertFalse(self.module.kernel_banner_gate(work)["verified"])
+
     def test_provider_module_closure_requires_every_owned_output(self):
         with tempfile.TemporaryDirectory() as temporary:
             work = Path(temporary) / "source"

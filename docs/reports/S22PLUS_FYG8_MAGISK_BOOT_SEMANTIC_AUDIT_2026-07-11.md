@@ -4,6 +4,13 @@ Date: 2026-07-11 KST
 Target: Samsung Galaxy S22+ `SM-S906N` / `g0q` / `S906NKSS7FYG8`
 Scope: host-only, read-only input analysis; no device contact, repack, AP build, or flash
 
+> **Rung-order supersession, 2026-07-12:** this report remains authoritative
+> for Magisk v30.7 boot semantics, but its selection of a
+> `magisk-equivalent-kernel` as the first rebuilt-kernel live proof is
+> superseded by the later R1/R2 close and current roadmap. R3 first uses the
+> unpatched R2-GO kernel with the stock ramdisk/userspace carrier. The
+> Magisk-equivalent carrier is now optional R3B after R3 and demonstrated need.
+
 ## Verdict
 
 `PASS_EXACT_MAGISK_SEMANTICS_IDENTIFIED`

@@ -16,7 +16,7 @@ from pathlib import Path
 from typing import Any, Iterable
 
 
-SCHEMA = "s22plus_fyg8_kernel_r2_audit_v1"
+SCHEMA = "s22plus_fyg8_kernel_r2_audit_v2"
 TARGET = "SM-S906N/g0q/S906NKSS7FYG8"
 STOCK_RELEASE = "5.10.226-android12-9-30958166-abS906NKSS7FYG8"
 STOCK_COMPILER_MARKER = "Android (7284624, based on r416183b) clang version 12.0.5"
@@ -137,7 +137,7 @@ def compare_configs(stock_path: Path, generated_path: Path, *, mode: str) -> dic
     }
 
 
-def image_metadata(path: Path) -> dict[str, Any]:
+def image_metadata(path: Path, *, expected_banner: str) -> dict[str, Any]:
     data = path.read_bytes()
     if len(data) < 0x40:
         raise AuditError(f"ARM64 Image is too short: {path}")
@@ -158,6 +158,8 @@ def image_metadata(path: Path) -> dict[str, Any]:
         "banner": banner,
         "release_match": release == STOCK_RELEASE,
         "compiler_match": STOCK_COMPILER_MARKER in banner,
+        "expected_banner": expected_banner,
+        "exact_banner_match": banner == expected_banner,
     }
 
 
@@ -288,7 +290,10 @@ def audit(
         raise AuditError("target mismatch in pinned baseline")
     module_count = module_map.get("inputs", {}).get("module_count")
     module_shape_ok = module_count == EXPECTED_VENDOR_RAMDISK_MODULES
-    image_result = image_metadata(image)
+    expected_banner = stock.get("linux_banner")
+    if not isinstance(expected_banner, str) or not expected_banner:
+        raise AuditError("stock baseline has no pinned linux_banner")
+    image_result = image_metadata(image, expected_banner=expected_banner)
     config_result = compare_configs(stock_config, generated_config, mode=mode)
     symbols_result = compare_symbol_requirements(requirements, symvers_paths)
     capacity_result = boot_capacity(stock, image_result["file_bytes"])
@@ -304,6 +309,7 @@ def audit(
         if not r1_result_path.is_file():
             raise AuditError(f"R1 result missing: {r1_result_path}")
         r1 = load_json(r1_result_path)
+        timestamp_runtime = r1.get("timestamp_control_runtime", {})
         r1_gate = {
             "required": mode == "r2",
             "path": display_path(root, r1_result_path),
@@ -315,27 +321,37 @@ def audit(
             "source_overlay_verified": r1.get("provenance", {}).get("source_overlay", {}).get("verified"),
             "output_gate_verified": r1.get("output_gate", {}).get("verified"),
             "module_gate_verified": r1.get("module_gate", {}).get("verified"),
+            "kernel_banner_gate_verified": r1.get("kernel_banner_gate", {}).get("verified"),
+            "timestamp_control_verified": (
+                timestamp_runtime.get("applied") is True
+                and timestamp_runtime.get("restored") is True
+                and timestamp_runtime.get("patched_content_unchanged") is True
+                and timestamp_runtime.get("restored_sha256")
+                == timestamp_runtime.get("original_sha256")
+            ),
             "modules_builtin_present": {
                 "modules.builtin",
                 "modules.builtin.modinfo",
             }.issubset(set(r1.get("output_gate", {}).get("present", []))),
         }
         r1_gate["verified"] = (
-            r1_gate["schema"] == "s22plus_fyg8_kernel_build_v2"
+            r1_gate["schema"] == "s22plus_fyg8_kernel_build_v3"
             and r1_gate["lto_mode"] == "full"
             and r1_gate["returncode"] == 0
             and r1_gate["r1_buildability_pass"] is True
             and r1_gate["source_overlay_verified"] is True
             and r1_gate["output_gate_verified"] is True
             and r1_gate["module_gate_verified"] is True
+            and r1_gate["kernel_banner_gate_verified"] is True
+            and r1_gate["timestamp_control_verified"] is True
             and r1_gate["modules_builtin_present"] is True
         )
 
     blockers: list[str] = []
     if mode == "r2" and not r1_gate.get("verified"):
         blockers.append("pinned Full-LTO R1 PASS result is absent or invalid")
-    if not image_result["release_match"] or not image_result["compiler_match"]:
-        blockers.append("generated Image release/compiler metadata differs from FYG8")
+    if not image_result["exact_banner_match"]:
+        blockers.append("generated Image Linux banner differs from the exact FYG8 baseline")
     if not config_result["compatible_for_mode"]:
         blockers.append("generated config has non-allowlisted stock delta or is not Full LTO")
     if not capacity_result["fits"]:

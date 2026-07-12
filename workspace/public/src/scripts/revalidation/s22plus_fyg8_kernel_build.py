@@ -15,11 +15,12 @@ import os
 import shutil
 import subprocess
 import sys
+from contextlib import contextmanager
 from pathlib import Path
-from typing import Any
+from typing import Any, Iterator
 
 
-SCHEMA = "s22plus_fyg8_kernel_build_v2"
+SCHEMA = "s22plus_fyg8_kernel_build_v3"
 TARGET = "SM-S906N/g0q/S906NKSS7FYG8"
 SOURCE_DATE_EPOCH = 1754027756
 STOCK_TIMESTAMP = "Fri Aug 1 05:55:56 UTC 2025"
@@ -29,6 +30,12 @@ STOCK_TIMESTAMP = "Fri Aug 1 05:55:56 UTC 2025"
 # tree appends it separately as -ab${BUILD_NUMBER} to UTS_RELEASE.
 STOCK_LOCALVERSION = "-30958166-abS906NKSS7FYG8"
 STOCK_KERNEL_RELEASE = "5.10.226-android12-9-30958166-abS906NKSS7FYG8"
+STOCK_BANNER_MARKERS = (
+    f"Linux version {STOCK_KERNEL_RELEASE}",
+    "(build-user@build-host)",
+    "Android (7284624, based on r416183b) clang version 12.0.5",
+    "#1 SMP PREEMPT " + STOCK_TIMESTAMP,
+)
 EXPECTED_CLANG_LINES = (
     "Android (7284624, based on r416183b) clang version 12.0.5",
     "c935d99d7cf2016289302412d708641d52d2f7ee",
@@ -66,6 +73,15 @@ REQUIRED_HOST_TOOLS = (
     str(GNU_XARGS_PATH),
 )
 INCREMENTAL_READONLY_DIST_TARGETS = ("merge_dtbs.py", "ufdt_apply_overlay")
+SETUP_ENV_PATH = Path("kernel_platform/build/_setup_env.sh")
+SETUP_ENV_TIMESTAMP_ORIGINAL = (
+    "export SOURCE_DATE_EPOCH=$(git -C ${ROOT_DIR}/${KERNEL_DIR} log -1 --pretty=%ct)\n"
+    'export KBUILD_BUILD_TIMESTAMP="$(date -d @${SOURCE_DATE_EPOCH})"\n'
+)
+SETUP_ENV_TIMESTAMP_PINNED = (
+    f'export SOURCE_DATE_EPOCH="${{SOURCE_DATE_EPOCH:-{SOURCE_DATE_EPOCH}}}"\n'
+    f'export KBUILD_BUILD_TIMESTAMP="${{KBUILD_BUILD_TIMESTAMP:-{STOCK_TIMESTAMP}}}"\n'
+)
 HOST_ENV_ALLOWLIST = ("HOME", "USER", "LOGNAME", "TMPDIR", "TERM")
 PINNED_REPOS = {
     "clang": (
@@ -268,6 +284,91 @@ def prepare_incremental_dist_refresh(work_tree: Path) -> dict[str, Any]:
         "allowed_targets": list(INCREMENTAL_READONLY_DIST_TARGETS),
         "removed": removed,
         "verified": True,
+    }
+
+
+def inspect_timestamp_control(work_tree: Path) -> dict[str, Any]:
+    """Verify the exact Samsung timestamp override before any temporary edit."""
+    path = work_tree / SETUP_ENV_PATH
+    if not path.is_file():
+        return {
+            "path": str(path),
+            "verified": False,
+            "reason": "setup-env-missing",
+        }
+    original = path.read_text(encoding="utf-8")
+    count = original.count(SETUP_ENV_TIMESTAMP_ORIGINAL)
+    patched = original.replace(
+        SETUP_ENV_TIMESTAMP_ORIGINAL,
+        SETUP_ENV_TIMESTAMP_PINNED,
+        1,
+    )
+    return {
+        "path": str(path),
+        "original_sha256": hashlib.sha256(original.encode("utf-8")).hexdigest(),
+        "patched_sha256": hashlib.sha256(patched.encode("utf-8")).hexdigest(),
+        "match_count": count,
+        "source_date_epoch": SOURCE_DATE_EPOCH,
+        "kbuild_build_timestamp": STOCK_TIMESTAMP,
+        "verified": count == 1 and patched != original,
+    }
+
+
+@contextmanager
+def apply_timestamp_control(
+    work_tree: Path, control: dict[str, Any]
+) -> Iterator[dict[str, Any]]:
+    """Temporarily stop Samsung _setup_env.sh from replacing pinned metadata."""
+    if not control.get("verified"):
+        raise BuildError("timestamp control is not verified")
+    path = work_tree / SETUP_ENV_PATH
+    original_bytes = path.read_bytes()
+    if hashlib.sha256(original_bytes).hexdigest() != control["original_sha256"]:
+        raise BuildError("timestamp control source changed after preflight")
+    original = original_bytes.decode("utf-8")
+    patched = original.replace(
+        SETUP_ENV_TIMESTAMP_ORIGINAL,
+        SETUP_ENV_TIMESTAMP_PINNED,
+        1,
+    )
+    if patched.count(SETUP_ENV_TIMESTAMP_PINNED) != 1:
+        raise BuildError("timestamp control replacement is not unique")
+    path.write_text(patched, encoding="utf-8")
+    runtime = dict(control)
+    runtime.update({"applied": True, "restored": False})
+    try:
+        yield runtime
+    finally:
+        current_sha = sha256_file(path)
+        path.write_bytes(original_bytes)
+        runtime["restored"] = True
+        runtime["patched_content_unchanged"] = (
+            current_sha == control["patched_sha256"]
+        )
+        runtime["restored_sha256"] = sha256_file(path)
+        if not runtime["patched_content_unchanged"]:
+            raise BuildError("timestamp-controlled setup script changed during build")
+
+
+def kernel_banner_gate(work_tree: Path) -> dict[str, Any]:
+    image = work_tree / "out/msm-waipio-waipio-gki/gki_kernel/dist/Image"
+    if not image.is_file():
+        return {
+            "path": str(image),
+            "verified": False,
+            "missing_markers": list(STOCK_BANNER_MARKERS),
+        }
+    data = image.read_bytes()
+    missing = [
+        marker
+        for marker in STOCK_BANNER_MARKERS
+        if marker.encode("ascii") not in data
+    ]
+    return {
+        "path": str(image),
+        "required_markers": list(STOCK_BANNER_MARKERS),
+        "missing_markers": missing,
+        "verified": not missing,
     }
 
 
@@ -492,6 +593,7 @@ def preflight(
     jobs: int,
     source_overlay: dict[str, Any] | None = None,
     host_tool_overrides: dict[str, Any] | None = None,
+    timestamp_control: dict[str, Any] | None = None,
 ) -> dict[str, Any]:
     required_paths = (
         work_tree / "kernel_platform/build/android/prepare_vendor.sh",
@@ -537,6 +639,7 @@ def preflight(
         and parent_git_isolated
         and bool(source_overlay and source_overlay.get("verified"))
         and bool(host_tool_overrides and host_tool_overrides.get("verified"))
+        and bool(timestamp_control and timestamp_control.get("verified"))
         and resources["disk_ok"]
         and (lto != "full" or resources["full_lto_memory_ok"])
     )
@@ -567,6 +670,7 @@ def preflight(
             "parent_git_isolated": parent_git_isolated,
             "source_overlay": source_overlay or {"verified": False},
             "host_tool_overrides": host_tool_overrides or {"verified": False},
+            "timestamp_control": timestamp_control or {"verified": False},
             "ambient_environment_allowlist": list(HOST_ENV_ALLOWLIST),
             "effective_path": environment["PATH"],
         },
@@ -695,6 +799,7 @@ def main(argv: list[str] | None = None) -> int:
         resolve(root, args.delta_archive),
         resolve(root, args.overlay_audit),
     )
+    timestamp_control = inspect_timestamp_control(work_tree)
     result = preflight(
         root,
         work_tree,
@@ -703,6 +808,7 @@ def main(argv: list[str] | None = None) -> int:
         jobs=args.jobs,
         source_overlay=source_overlay,
         host_tool_overrides=host_tool_overrides,
+        timestamp_control=timestamp_control,
     )
     write_json(result_dir / "preflight.json", result)
     if args.mode == "preflight":
@@ -717,18 +823,19 @@ def main(argv: list[str] | None = None) -> int:
     )
     command = ["./kernel_platform/build/android/prepare_vendor.sh", "sec", "gki"]
     time_file = result_dir / "time.txt"
-    with (result_dir / "stdout.log").open("w", encoding="utf-8") as stdout_log, (
-        result_dir / "stderr.log"
-    ).open("w", encoding="utf-8") as stderr_log:
-        completed = subprocess.run(
-            ["/usr/bin/time", "-v", "-o", str(time_file), *command],
-            cwd=work_tree,
-            env=environment,
-            text=True,
-            stdout=stdout_log,
-            stderr=stderr_log,
-            check=False,
-        )
+    with apply_timestamp_control(work_tree, timestamp_control) as timestamp_runtime:
+        with (result_dir / "stdout.log").open("w", encoding="utf-8") as stdout_log, (
+            result_dir / "stderr.log"
+        ).open("w", encoding="utf-8") as stderr_log:
+            completed = subprocess.run(
+                ["/usr/bin/time", "-v", "-o", str(time_file), *command],
+                cwd=work_tree,
+                env=environment,
+                text=True,
+                stdout=stdout_log,
+                stderr=stderr_log,
+                check=False,
+            )
     provider_module_closure = (
         run_provider_module_closure(
             work_tree, environment, result_dir, jobs=args.jobs
@@ -743,6 +850,7 @@ def main(argv: list[str] | None = None) -> int:
         "generated_module_count": len(generated_modules),
         "verified": bool(generated_modules),
     }
+    banner_gate = kernel_banner_gate(work_tree)
     effective_returncode = completed.returncode
     if effective_returncode == 0 and not provider_module_closure["verified"]:
         effective_returncode = 5
@@ -750,6 +858,8 @@ def main(argv: list[str] | None = None) -> int:
         effective_returncode = 3
     if effective_returncode == 0 and not module_gate["verified"]:
         effective_returncode = 4
+    if effective_returncode == 0 and not banner_gate["verified"]:
+        effective_returncode = 6
     result.update(
         {
             "mode": "build",
@@ -759,6 +869,8 @@ def main(argv: list[str] | None = None) -> int:
             "output_gate": outputs_gate,
             "generated_modules": generated_modules,
             "module_gate": module_gate,
+            "kernel_banner_gate": banner_gate,
+            "timestamp_control_runtime": timestamp_runtime,
             "provider_module_closure": provider_module_closure,
             "symvers_files": collect_symvers(work_tree),
             "incremental_dist_refresh": incremental_dist_refresh,
