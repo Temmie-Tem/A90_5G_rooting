@@ -42,10 +42,10 @@ VDSO_DEBUG_CONTROLS = (
         "original": "ccflags-y += -DDISABLE_BRANCH_PROFILING -DBUILD_VDSO\n",
         "reproducible": (
             "ccflags-y += -DDISABLE_BRANCH_PROFILING -DBUILD_VDSO\n"
-            "ccflags-y += -fdebug-prefix-map=$(srctree)=/kernel-src\n"
-            "ccflags-y += -fdebug-prefix-map=$(objtree)=/kernel-out\n"
-            "asflags-y += -fdebug-prefix-map=$(srctree)=/kernel-src\n"
-            "asflags-y += -fdebug-prefix-map=$(objtree)=/kernel-out\n"
+            "ccflags-y += -fdebug-prefix-map=$(abs_srctree)=/kernel-src\n"
+            "ccflags-y += -fdebug-prefix-map=$(abs_objtree)=/kernel-out\n"
+            "asflags-y += -fdebug-prefix-map=$(abs_srctree)=/kernel-src\n"
+            "asflags-y += -fdebug-prefix-map=$(abs_objtree)=/kernel-out\n"
         ),
     },
     {
@@ -54,8 +54,8 @@ VDSO_DEBUG_CONTROLS = (
         "original": "VDSO_CAFLAGS += -DDISABLE_BRANCH_PROFILING\n",
         "reproducible": (
             "VDSO_CAFLAGS += -DDISABLE_BRANCH_PROFILING\n"
-            "VDSO_CAFLAGS += -fdebug-prefix-map=$(srctree)=/kernel-src\n"
-            "VDSO_CAFLAGS += -fdebug-prefix-map=$(objtree)=/kernel-out\n"
+            "VDSO_CAFLAGS += -fdebug-prefix-map=$(abs_srctree)=/kernel-src\n"
+            "VDSO_CAFLAGS += -fdebug-prefix-map=$(abs_objtree)=/kernel-out\n"
         ),
     },
 )
