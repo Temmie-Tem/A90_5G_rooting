@@ -59,15 +59,13 @@ GNU_TAR_PATH = Path("/usr/bin/tar")
 EXPECTED_GNU_TAR_PREFIX = "tar (GNU tar)"
 GNU_XARGS_PATH = Path("/usr/bin/xargs")
 EXPECTED_GNU_XARGS_PREFIX = "xargs (GNU findutils)"
-GNU_CP_PATH = Path("/usr/bin/cp")
-EXPECTED_GNU_CP_PREFIX = "cp (GNU coreutils)"
 REQUIRED_HOST_TOOLS = (
     "git",
     "/usr/bin/time",
     str(GNU_TAR_PATH),
     str(GNU_XARGS_PATH),
-    str(GNU_CP_PATH),
 )
+INCREMENTAL_READONLY_DIST_TARGETS = ("merge_dtbs.py", "ufdt_apply_overlay")
 HOST_ENV_ALLOWLIST = ("HOME", "USER", "LOGNAME", "TMPDIR", "TERM")
 PINNED_REPOS = {
     "clang": (
@@ -205,7 +203,6 @@ def prepare_host_tool_overrides(work_tree: Path) -> dict[str, Any]:
     override_dir = work_tree.parent / "host-tool-overrides"
     override_dir.mkdir(parents=True, exist_ok=True)
     expected = {
-        "cp": (GNU_CP_PATH, EXPECTED_GNU_CP_PREFIX),
         "tar": (GNU_TAR_PATH, EXPECTED_GNU_TAR_PREFIX),
         "xargs": (GNU_XARGS_PATH, EXPECTED_GNU_XARGS_PREFIX),
     }
@@ -238,6 +235,25 @@ def prepare_host_tool_overrides(work_tree: Path) -> dict[str, Any]:
         "directory": str(override_dir),
         "tools": tools,
         "verified": all(tool["verified"] for tool in tools.values()),
+    }
+
+
+def prepare_incremental_dist_refresh(work_tree: Path) -> dict[str, Any]:
+    """Remove only generated read-only host copies before an incremental run."""
+    host_bin = work_tree / "out/msm-waipio-waipio-gki/host/bin"
+    removed: list[str] = []
+    for name in INCREMENTAL_READONLY_DIST_TARGETS:
+        path = host_bin / name
+        if path.exists() or path.is_symlink():
+            if not path.is_file():
+                raise BuildError(f"incremental dist target is not a file: {path}")
+            path.unlink()
+            removed.append(str(path))
+    return {
+        "host_bin": str(host_bin),
+        "allowed_targets": list(INCREMENTAL_READONLY_DIST_TARGETS),
+        "removed": removed,
+        "verified": True,
     }
 
 
@@ -585,6 +601,7 @@ def main(argv: list[str] | None = None) -> int:
     if not result["build_allowed"]:
         raise BuildError("build refused: preflight did not pass")
 
+    incremental_dist_refresh = prepare_incremental_dist_refresh(work_tree)
     environment = build_environment(
         work_tree, lto=args.lto, jobs=args.jobs, clang_repo=clang_repo
     )
@@ -624,6 +641,7 @@ def main(argv: list[str] | None = None) -> int:
             "generated_modules": generated_modules,
             "module_gate": module_gate,
             "symvers_files": collect_symvers(work_tree),
+            "incremental_dist_refresh": incremental_dist_refresh,
             "r1_buildability_pass": effective_returncode == 0,
             "stock_equivalent_claim": False,
             "interpretation": "build output only; R2 static equivalence and R3 live proof remain required",

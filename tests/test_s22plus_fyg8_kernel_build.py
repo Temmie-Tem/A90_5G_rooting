@@ -54,14 +54,29 @@ class S22PlusFyg8KernelBuildTest(unittest.TestCase):
             result = self.module.prepare_host_tool_overrides(work)
             override = work.parent / "host-tool-overrides"
             self.assertTrue(result["verified"])
-            self.assertEqual(
-                {path.name for path in override.iterdir()}, {"cp", "tar", "xargs"}
-            )
-            self.assertEqual(
-                (override / "cp").resolve(), self.module.GNU_CP_PATH.resolve()
-            )
+            self.assertEqual({path.name for path in override.iterdir()}, {"tar", "xargs"})
             self.assertEqual((override / "tar").resolve(), Path("/usr/bin/tar"))
             self.assertEqual((override / "xargs").resolve(), Path("/usr/bin/xargs"))
+
+    def test_incremental_dist_refresh_removes_only_known_readonly_copies(self):
+        with tempfile.TemporaryDirectory() as temporary:
+            work = Path(temporary) / "source"
+            host_bin = work / "out/msm-waipio-waipio-gki/host/bin"
+            host_bin.mkdir(parents=True)
+            for name in self.module.INCREMENTAL_READONLY_DIST_TARGETS:
+                path = host_bin / name
+                path.write_text(name, encoding="ascii")
+                path.chmod(0o555)
+            unrelated = host_bin / "keep"
+            unrelated.write_text("keep", encoding="ascii")
+
+            result = self.module.prepare_incremental_dist_refresh(work)
+
+            self.assertTrue(result["verified"])
+            self.assertEqual(len(result["removed"]), 2)
+            self.assertTrue(unrelated.is_file())
+            for name in self.module.INCREMENTAL_READONLY_DIST_TARGETS:
+                self.assertFalse((host_bin / name).exists())
 
     def test_host_tool_override_rejects_unexpected_executable(self):
         with tempfile.TemporaryDirectory() as temporary:
