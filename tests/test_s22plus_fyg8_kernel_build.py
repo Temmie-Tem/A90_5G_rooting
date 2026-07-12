@@ -47,7 +47,7 @@ class S22PlusFyg8KernelBuildTest(unittest.TestCase):
             ],
         )
 
-    def test_host_tool_override_selects_only_gnu_tar(self):
+    def test_host_tool_override_selects_only_required_gnu_tools(self):
         with tempfile.TemporaryDirectory() as temporary:
             work = Path(temporary) / "source"
             work.mkdir()
@@ -77,6 +77,35 @@ class S22PlusFyg8KernelBuildTest(unittest.TestCase):
             self.assertTrue(unrelated.is_file())
             for name in self.module.INCREMENTAL_READONLY_DIST_TARGETS:
                 self.assertFalse((host_bin / name).exists())
+
+    def test_provider_module_closure_requires_every_owned_output(self):
+        with tempfile.TemporaryDirectory() as temporary:
+            work = Path(temporary) / "source"
+            result_dir = Path(temporary) / "result"
+            (work / "kernel_platform").mkdir(parents=True)
+            result_dir.mkdir()
+            for outputs in self.module.PROVIDER_EXPECTED_OUTPUTS.values():
+                for relative in outputs:
+                    path = work / relative
+                    path.parent.mkdir(parents=True, exist_ok=True)
+                    path.write_text(relative, encoding="ascii")
+            completed = self.module.subprocess.CompletedProcess([], 0, "", "")
+            with mock.patch.object(
+                self.module.subprocess, "run", return_value=completed
+            ) as mocked_run:
+                result = self.module.run_provider_module_closure(
+                    work, {"PATH": "/usr/bin:/bin"}, result_dir, jobs=8
+                )
+
+            self.assertTrue(result["verified"])
+            self.assertEqual(mocked_run.call_count, 2)
+            self.assertEqual(
+                {provider["name"] for provider in result["providers"]},
+                {"dataipa", "datarmnet_shs"},
+            )
+            for provider in result["providers"]:
+                self.assertIn("ARCH=arm64", provider["command"])
+                self.assertIn("CROSS_COMPILE=aarch64-linux-gnu-", provider["command"])
 
     def test_host_tool_override_rejects_unexpected_executable(self):
         with tempfile.TemporaryDirectory() as temporary:

@@ -169,7 +169,7 @@ ThinLTO evidence and are explicitly not boot or flash candidates.
 
 ### R0 - Reproducible host build environment
 
-Status: **HOST AUDIT PASS; 32 GiB BUILD-HOST REPRODUCTION PENDING**
+Status: **PASS; DEBIAN 13 32 GiB BUILD HOST REPRODUCED**
 
 - Generate the combined source tree deterministically from pinned archives.
 - Verify every FYG8 delta member after stripping exactly one `Kernel/` prefix.
@@ -206,7 +206,7 @@ Report:
 
 ### R1 - Unchanged stock Full-LTO build
 
-Status: **HOST GATES READY; BLOCKED ONLY ON CONTROLLED 32 GiB BUILD-HOST RUN**
+Status: **PASS; FULL-LTO BUILDABILITY CLOSED 2026-07-12**
 
 - Use the supplied config with Full LTO; no security or witness changes.
 - Require every artifact owned by the pinned build rules: kernel Image form,
@@ -238,9 +238,20 @@ buildability only, not device compatibility or stock equivalence.
 - exact current-host Full-LTO preflight passes every non-resource gate and
   refuses only the 15.2 GiB physical-memory host.
 
+2026-07-12 remote close:
+
+- Debian 13 FX-8300 host preflight passed with 33,662,164,992 bytes RAM;
+- the clean Full-LTO compile completed all eight core outputs in 33:15 with
+  peak RSS 24,252,992 KiB and zero swap;
+- bounded host-tool/dist fixes preserved all eight output hashes exactly;
+- final R1 returned zero with provider closure PASS, 2,397 generated `.ko`
+  paths, and 15 symvers files;
+- R1 result SHA256 is
+  `027d0104ea0640b4d7faca1607dcaae4d0b1bb6af403725c9bd85e524f54b18f`.
+
 ### R2 - Static stock-equivalence audit
 
-Status: **CORPUS AND AUDITOR READY; FINAL VERDICT PENDING R1 FULL-LTO OUTPUT**
+Status: **PASS; STATIC STOCK-EQUIVALENCE CLOSED 2026-07-12**
 
 - Compare generated kernel release and version metadata with running FYG8.
 - Compare generated `.config` with captured running IKCONFIG.
@@ -279,9 +290,19 @@ Exit gate: static compatibility report says GO for one unchanged boot candidate.
 Report:
 `docs/reports/S22PLUS_FYG8_KERNEL_REBUILD_R1_R2_HOST_GATES_2026-07-11.md`.
 
+2026-07-12 R2 close:
+
+- exact FYG8 release/compiler and Full-LTO config gates pass;
+- the only config delta is the allowlisted absolute unused-symbol whitelist
+  path;
+- all 25,864 consumer CRC rows close against 10,511 provider symbols;
+- missing, mismatched, and conflicting CRC counts are all zero;
+- R2 result SHA256 is
+  `66c76073881752752c8a0eeddee03e8d6f8d63dc84109441616eda7386dea4cf`.
+
 ### R3 - Unpatched rebuilt-kernel boot-only viability proof
 
-Status: **PENDING R2 AND FRESH POLICY**
+Status: **R2 COMPLETE; PENDING FRESH POLICY AND ARTIFACT DESIGN**
 
 - Start from the unpatched R2-GO `static-stock-equivalent-kernel`.
 - Use the selected stock ramdisk/userspace carrier and make no DEFEX, PROCA,

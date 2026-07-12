@@ -102,6 +102,20 @@ DIST_OUTPUTS = (
     "modules.builtin",
     "modules.builtin.modinfo",
 )
+PROVIDER_EXPECTED_OUTPUTS = {
+    "dataipa": (
+        "out/vendor/qcom/opensource/dataipa/Module.symvers",
+        "out/vendor/qcom/opensource/dataipa/drivers/platform/msm/gsi/gsim.ko",
+        "out/vendor/qcom/opensource/dataipa/drivers/platform/msm/ipa/ipam.ko",
+        "out/vendor/qcom/opensource/dataipa/drivers/platform/msm/ipa/ipanetm.ko",
+        "out/vendor/qcom/opensource/dataipa/drivers/platform/msm/ipa/ipa_clients/ipa_clientsm.ko",
+        "out/vendor/qcom/opensource/dataipa/drivers/platform/msm/ipa/ipa_clients/rndisipam.ko",
+    ),
+    "datarmnet_shs": (
+        "out/vendor/qcom/opensource/datarmnet-ext/shs/Module.symvers",
+        "out/vendor/qcom/opensource/datarmnet-ext/shs/rmnet_shs.ko",
+    ),
+}
 
 
 class BuildError(ValueError):
@@ -254,6 +268,102 @@ def prepare_incremental_dist_refresh(work_tree: Path) -> dict[str, Any]:
         "allowed_targets": list(INCREMENTAL_READONLY_DIST_TARGETS),
         "removed": removed,
         "verified": True,
+    }
+
+
+def run_provider_module_closure(
+    work_tree: Path,
+    environment: dict[str, str],
+    result_dir: Path,
+    *,
+    jobs: int,
+) -> dict[str, Any]:
+    """Build provider modules omitted by Samsung's KBUILD_EXT_MODULES list."""
+    kernel_platform = work_tree / "kernel_platform"
+    msm_out = work_tree / "out/msm-waipio-waipio-gki/msm-kernel"
+    mixed_tree = work_tree / "out/msm-waipio-waipio-gki/gki_kernel/dist"
+    common = [
+        "make",
+        "-C",
+        "msm-kernel",
+        f"O={msm_out}",
+        "ARCH=arm64",
+        "SUBARCH=arm64",
+        "CROSS_COMPILE=aarch64-linux-gnu-",
+        "LLVM=1",
+        "LLVM_IAS=1",
+        "DEPMOD=depmod",
+        "DTC=dtc",
+        f"KBUILD_MIXED_TREE={mixed_tree}",
+        f"-j{jobs}",
+        "modules",
+    ]
+    specs = (
+        (
+            "dataipa",
+            "../../vendor/qcom/opensource/dataipa",
+            [],
+        ),
+        (
+            "datarmnet_shs",
+            "../../vendor/qcom/opensource/datarmnet-ext/shs",
+            [
+                "RMNET_CORE_INC_DIR="
+                + str(work_tree / "vendor/qcom/opensource/datarmnet/core"),
+                "KBUILD_EXTRA_SYMBOLS="
+                + str(
+                    work_tree
+                    / "out/vendor/qcom/opensource/datarmnet/core/Module.symvers"
+                ),
+            ],
+        ),
+    )
+    results: list[dict[str, Any]] = []
+    for name, module_path, extra in specs:
+        command = [*common[:3], f"M={module_path}", *common[3:-1], *extra, "modules"]
+        stdout_path = result_dir / f"provider-{name}.stdout.log"
+        stderr_path = result_dir / f"provider-{name}.stderr.log"
+        with stdout_path.open("w", encoding="utf-8") as stdout_log, stderr_path.open(
+            "w", encoding="utf-8"
+        ) as stderr_log:
+            completed = subprocess.run(
+                command,
+                cwd=kernel_platform,
+                env=environment,
+                text=True,
+                stdout=stdout_log,
+                stderr=stderr_log,
+                check=False,
+            )
+        artifacts = []
+        missing = []
+        for relative in PROVIDER_EXPECTED_OUTPUTS[name]:
+            path = work_tree / relative
+            if path.is_file():
+                artifacts.append(
+                    {
+                        "path": str(path),
+                        "size": path.stat().st_size,
+                        "sha256": sha256_file(path),
+                    }
+                )
+            else:
+                missing.append(str(path))
+        results.append(
+            {
+                "name": name,
+                "command": command,
+                "returncode": completed.returncode,
+                "stdout_log": str(stdout_path),
+                "stderr_log": str(stderr_path),
+                "artifacts": artifacts,
+                "missing": missing,
+                "verified": completed.returncode == 0 and not missing,
+            }
+        )
+    return {
+        "providers": results,
+        "verified": all(result["verified"] for result in results),
     }
 
 
@@ -619,6 +729,13 @@ def main(argv: list[str] | None = None) -> int:
             stderr=stderr_log,
             check=False,
         )
+    provider_module_closure = (
+        run_provider_module_closure(
+            work_tree, environment, result_dir, jobs=args.jobs
+        )
+        if completed.returncode == 0
+        else {"providers": [], "verified": False, "skipped": True}
+    )
     outputs = collect_outputs(work_tree)
     outputs_gate = output_gate(outputs)
     generated_modules = collect_generated_modules(work_tree)
@@ -627,6 +744,8 @@ def main(argv: list[str] | None = None) -> int:
         "verified": bool(generated_modules),
     }
     effective_returncode = completed.returncode
+    if effective_returncode == 0 and not provider_module_closure["verified"]:
+        effective_returncode = 5
     if effective_returncode == 0 and not outputs_gate["verified"]:
         effective_returncode = 3
     if effective_returncode == 0 and not module_gate["verified"]:
@@ -640,6 +759,7 @@ def main(argv: list[str] | None = None) -> int:
             "output_gate": outputs_gate,
             "generated_modules": generated_modules,
             "module_gate": module_gate,
+            "provider_module_closure": provider_module_closure,
             "symvers_files": collect_symvers(work_tree),
             "incremental_dist_refresh": incremental_dist_refresh,
             "r1_buildability_pass": effective_returncode == 0,

@@ -87,12 +87,14 @@ safety invariants and flash gates are binding and override any sub-goal.**
 > `waipio_sec__defconfig`; R0 must replace this with a reproducible wrapper that
 > exports exact `TARGET_BUILD_VARIANT=user` without changing kernel source.
 >
-> R0/R1 host gates now reconstruct and rehash all 166,037 source members inside
+> R0/R1 host gates reconstruct and rehash all 166,037 source members inside
 > every preflight, reject ambient compiler/build variables through a minimal
 > environment allowlist, require all owned dist outputs plus generated modules,
-> and inventory every symvers file. The current host again passes exact source,
-> toolchain, provenance, and disk gates and fails closed only on 15.2 GiB
-> physical RAM versus the 30 GiB Full-LTO floor.
+> and inventory every symvers file. The 15.2 GiB host still fails closed, while
+> the Debian 13 FX-8300 host passed with 33,662,164,992 bytes RAM. The clean
+> Full-LTO compile completed in 33:15 at 24,252,992 KiB peak RSS with zero swap;
+> bounded post-build fixes preserved all eight core output hashes, and final R1
+> result `027d0104...` returned zero with provider closure and 15 symvers files.
 >
 > The full stock on-disk module corpus is now host-closed from exact FYG8
 > firmware. Checksummed LP metadata contains six partitions and no
@@ -101,22 +103,18 @@ safety invariants and flash gates are binding and override any sub-goal.**
 > overlapping the 441-file vendor-ramdisk corpus are byte-identical after exact
 > F2FS LZ4-cluster reconstruction, 50 are `vendor_dlkm`-only, and 135 are
 > vendor-ramdisk-only. The complete union is 491 unique module names with
-> 25,864 consumer CRC rows over 4,619 unique symbols. The ThinLTO diagnostic
-> satisfies 22,600 rows with zero CRC mismatch; its 3,264 missing rows are
-> unresolved module-provider rows because that diagnostic stopped before
-> vendor module modpost completed. This is diagnostic evidence, not R2 PASS.
+> 25,864 consumer CRC rows over 4,619 unique symbols. Final Full-LTO R2 closes
+> every row against 10,511 provider symbols with zero missing, mismatched, or
+> conflicting CRCs. Exact release/compiler, config, corpus, and boot-capacity
+> gates pass; R2 result SHA256 is `66c76073...`.
 >
-> Next: transfer the now 20-file/four-repository pinned host kit, reproduce the
-> exact source-binding preflight on the Debian 13 FX-8300 32 GiB host, then run
-> unchanged stock Full LTO. Feed every returned symvers file and generated
-> module into the prepared R2 audit. Lane W's independent static review is now
+> Next: R1/R2 are closed. Lane W's independent static review is now
 > complete: it added the hidden nvmem provider, exact Recovery consumer,
 > asynchronous command-readiness oracle, SCM/dload bindings, phased provider
 > barriers, and one-file variant contract. No Lane W candidate source, image,
 > or artifact may be built under the current design-only authorization. No artifact
-> may be packaged or flashed before R1 and R2 pass and a
-> fresh SHA-pinned boot-only R3 exception is added to `AGENTS.md` with explicit
-> operator approval. Roadmap:
+> may be packaged or flashed before a fresh SHA-pinned boot-only R3 exception
+> is added to `AGENTS.md` with explicit operator approval. Roadmap:
 > `docs/plans/S22PLUS_FYG8_KERNEL_REBUILD_ROADMAP_2026-07-11.md`.
 > Host-gate report:
 > `docs/reports/S22PLUS_FYG8_KERNEL_REBUILD_R1_R2_HOST_GATES_2026-07-11.md`.

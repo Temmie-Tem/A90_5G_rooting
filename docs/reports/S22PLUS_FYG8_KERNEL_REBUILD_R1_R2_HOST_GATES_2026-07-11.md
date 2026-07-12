@@ -6,8 +6,8 @@ Scope: host-only source provenance, complete module-corpus, and static ABI gates
 
 ## Verdict
 
-**R1/R2 host infrastructure is ready. R1 and R2 themselves remain pending the
-unchanged Full-LTO run on the controlled 32 GiB host.**
+**R1 Full-LTO buildability and R2 static stock-equivalence PASS on the
+controlled Debian 13 FX-8300 32 GiB host.**
 
 No boot image was packaged, no device was contacted, and no flash or partition
 write occurred.
@@ -29,9 +29,43 @@ The wrapper now:
 - fails a zero-return build when no generated `.ko` exists;
 - hashes every generated module and symvers file into the result.
 
-All source, toolchain, isolation, disk, and host-tool gates pass locally. The
-only rejection is physical RAM: 15.2 GiB observed versus the 30 GiB Full-LTO
-floor. This is the intended fail-closed result.
+All source, toolchain, isolation, disk, and host-tool gates pass. The original
+15.2 GiB host still fails closed on physical RAM; the transferred Debian 13
+host exposes 33,662,164,992 bytes and passes the 30 GiB Full-LTO floor.
+
+## R1/R2 Remote Close
+
+The first clean Full-LTO compile produced all eight owned kernel outputs in
+33:15 wall time with peak RSS 24,252,992 KiB and zero swap. That invocation
+failed only after compilation in host-side dist handling. The fixes were
+bounded and source-neutral: correct Samsung release suffix composition, GNU
+`tar`/`xargs` selection, kernel-only output routing, and exact removal of two
+generated read-only dist copies before an incremental retry.
+
+The final R1 invocation returned zero in 3:31 while reusing that preserved
+output tree. All eight core output hashes are identical between the clean
+compile attempt and final PASS. The final result owns 2,397 generated `.ko`
+paths, 15 symvers files, and an explicit provider closure for dataipa and
+datarmnet SHS, which Samsung's six-entry `KBUILD_EXT_MODULES` list omits even
+though the shipped complete corpus consumes their exports.
+
+| Evidence | Result |
+|---|---|
+| R1 result SHA256 | `027d0104ea0640b4d7faca1607dcaae4d0b1bb6af403725c9bd85e524f54b18f` |
+| Required R1 outputs | 8/8 |
+| Provider closure | dataipa + datarmnet SHS PASS |
+| Generated symvers files | 15 |
+| R2 result SHA256 | `66c76073881752752c8a0eeddee03e8d6f8d63dc84109441616eda7386dea4cf` |
+| Consumer CRC rows | 25,864 |
+| Provider symbols | 10,511 |
+| Missing / mismatched / conflicting CRCs | 0 / 0 / 0 |
+| Image release/compiler | exact FYG8 match |
+| Config delta | one allowlisted absolute whitelist path only |
+| Boot-layout capacity | PASS |
+
+The remote evidence is mirrored privately under
+`workspace/private/outputs/s22plus_fyg8_kernel_rebuild_r0/remote-fx8300-r1`
+and `remote-fx8300-r2`.
 
 ## Exact Super Layout
 
@@ -111,13 +145,6 @@ present providers is positive diagnostic evidence only.
 
 ## Remaining Gate
 
-1. Transfer the pinned 20-file/four-repository kit to the Debian 13 FX-8300
-   32 GiB host.
-2. Require exact R1 preflight PASS and run unchanged Full LTO under `tmux`.
-3. Return the R1 result, all owned outputs, generated modules, and every symvers
-   file.
-4. Run the prepared R2 audit. Any release, config, CRC, output, or corpus
-   identity mismatch remains FAIL.
-
-R3 packaging or device work remains unauthorized until both gates pass and a
-fresh boot-only policy exception is added.
+R1 and R2 are closed. R3 packaging or device work remains unauthorized until
+a fresh boot-only policy exception is added with exact artifact pins and
+explicit operator approval.
