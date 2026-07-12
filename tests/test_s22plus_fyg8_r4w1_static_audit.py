@@ -114,6 +114,57 @@ class S22PlusFyg8R4W1StaticAuditTest(unittest.TestCase):
             path.write_text(json.dumps(data), encoding="ascii")
             self.assertFalse(self.module.audit_build_result(path)["verified"])
 
+    def test_build_gate_binds_expected_work_tree(self):
+        with tempfile.TemporaryDirectory() as name:
+            root = Path(name)
+            path = root / "result.json"
+            path.write_text(json.dumps({"work_tree": str(root / "a")}), encoding="ascii")
+            result = self.module.audit_build_result(
+                path, recorded_root=root, expected_work_tree=root / "b"
+            )
+            self.assertFalse(result["work_tree_bound"])
+            self.assertFalse(result["verified"])
+
+    def test_build_gate_binds_expected_artifacts(self):
+        with tempfile.TemporaryDirectory() as name:
+            root = Path(name)
+            paths = {
+                item: root / item.replace("/", "_")
+                for item in ("Image", ".config", "vmlinux.symvers")
+            }
+            for item, path in paths.items():
+                path.write_bytes(item.encode("ascii"))
+            outputs = [
+                {
+                    "name": item,
+                    "path": str(path),
+                    "sha256": self.module.r2.sha256_file(path),
+                    "size": path.stat().st_size,
+                }
+                for item, path in paths.items()
+            ]
+            result_path = root / "result.json"
+            result_path.write_text(
+                json.dumps({"work_tree": str(root), "outputs": outputs}),
+                encoding="ascii",
+            )
+            result = self.module.audit_build_result(
+                result_path,
+                recorded_root=root,
+                expected_work_tree=root,
+                expected_artifacts=paths,
+            )
+            self.assertTrue(result["work_tree_bound"])
+            self.assertTrue(result["artifacts_bound"])
+            paths["Image"].write_bytes(b"changed")
+            result = self.module.audit_build_result(
+                result_path,
+                recorded_root=root,
+                expected_work_tree=root,
+                expected_artifacts=paths,
+            )
+            self.assertFalse(result["artifacts_bound"])
+
 
 if __name__ == "__main__":
     unittest.main()

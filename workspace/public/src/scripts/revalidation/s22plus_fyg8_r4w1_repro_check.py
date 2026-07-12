@@ -24,6 +24,7 @@ MARKER = (
 IMAGE_SIZE = 41_490_944
 ALIGNED_SIZE = 41_492_480
 PATH_CONFIG = "CONFIG_UNUSED_KSYMS_WHITELIST"
+REQUIRED_BUILD_ARTIFACTS = ("Image", ".config", "vmlinux.symvers")
 
 
 class CheckError(ValueError):
@@ -63,6 +64,30 @@ def check_build(path: Path) -> dict[str, Any]:
     value = load_json(path)
     source_delta = value.get("source_delta", {})
     kmi_path = value.get("kmi_path_control_runtime", {})
+    outputs = value.get("outputs", [])
+    artifact_rows: dict[str, dict[str, Any]] = {}
+    duplicate_artifacts: list[str] = []
+    if isinstance(outputs, list):
+        for row in outputs:
+            if not isinstance(row, dict) or row.get("name") not in REQUIRED_BUILD_ARTIFACTS:
+                continue
+            name = row["name"]
+            if name in artifact_rows:
+                duplicate_artifacts.append(name)
+            artifact_rows[name] = row
+    artifacts_verified = (
+        not duplicate_artifacts
+        and set(artifact_rows) == set(REQUIRED_BUILD_ARTIFACTS)
+        and all(
+            isinstance(row.get("path"), str)
+            and bool(row["path"])
+            and isinstance(row.get("sha256"), str)
+            and re.fullmatch(r"[0-9a-f]{64}", row["sha256"]) is not None
+            and isinstance(row.get("size"), int)
+            and row["size"] >= 0
+            for row in artifact_rows.values()
+        )
+    )
     gate = {
         "path": str(path),
         "sha256": sha256_file(path),
@@ -86,6 +111,9 @@ def check_build(path: Path) -> dict[str, Any]:
             and kmi_path.get("patched_content_unchanged") is True
             and kmi_path.get("restored_sha256") == kmi_path.get("original_sha256")
         ),
+        "artifacts": artifact_rows,
+        "duplicate_artifacts": sorted(duplicate_artifacts),
+        "artifact_manifest_verified": artifacts_verified,
     }
     gate["verified"] = (
         gate["schema"] == BUILD_SCHEMA
@@ -97,10 +125,47 @@ def check_build(path: Path) -> dict[str, Any]:
         and gate["source_delta_verified"] is True
         and gate["witness_output_verified"] is True
         and gate["kmi_path_control_verified"] is True
+        and gate["artifact_manifest_verified"] is True
         and isinstance(gate["work_tree"], str)
         and bool(gate["work_tree"])
     )
     return gate
+
+
+def check_artifact_binding(
+    build: dict[str, Any], name: str, path: Path
+) -> dict[str, Any]:
+    if path.is_symlink() or not path.is_file():
+        raise CheckError(f"{name} input missing or indirect: {path}")
+    row = build.get("artifacts", {}).get(name)
+    if not isinstance(row, dict):
+        raise CheckError(f"build result has no {name} artifact identity")
+    recorded_path = Path(row["path"])
+    result = {
+        "name": name,
+        "input_path": str(path),
+        "recorded_path": str(recorded_path),
+        "path_match": path.resolve() == recorded_path.resolve(),
+        "input_sha256": sha256_file(path),
+        "recorded_sha256": row["sha256"],
+        "input_size": path.stat().st_size,
+        "recorded_size": row["size"],
+    }
+    result["verified"] = (
+        result["path_match"]
+        and result["input_sha256"] == result["recorded_sha256"]
+        and result["input_size"] == result["recorded_size"]
+    )
+    return result
+
+
+def check_distinct_artifact_paths(
+    supplied: dict[str, list[Path]],
+) -> dict[str, bool]:
+    return {
+        name: len(paths) == 2 and paths[0].resolve() != paths[1].resolve()
+        for name, paths in supplied.items()
+    }
 
 
 def check_static(path: Path) -> dict[str, Any]:
@@ -180,6 +245,19 @@ def run_check(
         raise CheckError("A/B build results use the same work tree")
     if builds[0]["patched_files"] != builds[1]["patched_files"]:
         raise CheckError("A/B patched source identities differ")
+    supplied = {
+        "Image": [image_a, image_b],
+        ".config": [config_a, config_b],
+        "vmlinux.symvers": [symvers_a, symvers_b],
+    }
+    artifact_bindings = {
+        name: [
+            check_artifact_binding(builds[index], name, paths[index])
+            for index in range(2)
+        ]
+        for name, paths in supplied.items()
+    }
+    distinct_artifact_paths = check_distinct_artifact_paths(supplied)
     configs = [normalized_config(config_a), normalized_config(config_b)]
     config_gate = {
         "normalized_sha256_a": configs[0][1],
@@ -201,6 +279,14 @@ def run_check(
     blockers: list[str] = []
     if not all(item["verified"] for item in builds):
         blockers.append("one or more build gates failed")
+    if not all(
+        item["verified"]
+        for bindings in artifact_bindings.values()
+        for item in bindings
+    ):
+        blockers.append("one or more artifacts are not bound to their build result")
+    if not all(distinct_artifact_paths.values()):
+        blockers.append("A/B artifact inputs reuse the same path")
     if not all(item["verified"] for item in statics):
         blockers.append("one or more static audits failed")
     if not all(item["verified"] for item in images) or not image_equal:
@@ -214,6 +300,8 @@ def run_check(
         "target": TARGET,
         "verdict": VERDICT if not blockers else "BLOCKED_R4W1_REPRODUCIBILITY",
         "builds": builds,
+        "artifact_bindings": artifact_bindings,
+        "distinct_artifact_paths": distinct_artifact_paths,
         "static_audits": statics,
         "images": images,
         "image_byte_identical": image_equal,

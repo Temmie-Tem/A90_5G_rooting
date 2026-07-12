@@ -117,12 +117,60 @@ def compare_full_symvers(baseline: Path, candidate: Path) -> dict[str, Any]:
     }
 
 
-def audit_build_result(path: Path) -> dict[str, Any]:
+def audit_build_result(
+    path: Path,
+    *,
+    recorded_root: Path | None = None,
+    expected_work_tree: Path | None = None,
+    expected_artifacts: dict[str, Path] | None = None,
+) -> dict[str, Any]:
     build = r2.load_json(path)
     timestamp = build.get("timestamp_control_runtime", {})
     kmi_path = build.get("kmi_path_control_runtime", {})
     patch_contract = build.get("r4w1_patch_contract", {})
     source_delta = build.get("source_delta", {})
+    recorded_work_tree = build.get("work_tree")
+    if isinstance(recorded_work_tree, str):
+        recorded_path = Path(recorded_work_tree)
+        if not recorded_path.is_absolute() and recorded_root is not None:
+            recorded_path = recorded_root / recorded_path
+        recorded_path = recorded_path.resolve()
+    else:
+        recorded_path = None
+    work_tree_bound = expected_work_tree is None or (
+        recorded_path == expected_work_tree.resolve()
+    )
+    output_rows = {
+        row.get("name"): row
+        for row in build.get("outputs", [])
+        if isinstance(row, dict) and isinstance(row.get("name"), str)
+    }
+    artifact_bindings: dict[str, dict[str, Any]] = {}
+    if expected_artifacts is not None:
+        for name, artifact_path in expected_artifacts.items():
+            row = output_rows.get(name, {})
+            artifact_bindings[name] = {
+                "path_match": (
+                    isinstance(row.get("path"), str)
+                    and Path(row["path"]).resolve() == artifact_path.resolve()
+                ),
+                "sha256_match": (
+                    artifact_path.is_file()
+                    and not artifact_path.is_symlink()
+                    and row.get("sha256") == r2.sha256_file(artifact_path)
+                ),
+                "size_match": (
+                    artifact_path.is_file()
+                    and row.get("size") == artifact_path.stat().st_size
+                ),
+            }
+            artifact_bindings[name]["verified"] = all(
+                artifact_bindings[name].values()
+            )
+    artifacts_bound = expected_artifacts is None or (
+        set(artifact_bindings) == set(expected_artifacts)
+        and all(item["verified"] for item in artifact_bindings.values())
+    )
     gate = {
         "path": str(path),
         "sha256": r2.sha256_file(path),
@@ -136,6 +184,10 @@ def audit_build_result(path: Path) -> dict[str, Any]:
         "patch_contract_verdict": patch_contract.get("verdict"),
         "patch_sha256": source_delta.get("patch_sha256"),
         "source_delta_verified": source_delta.get("verified"),
+        "recorded_work_tree": recorded_work_tree,
+        "work_tree_bound": work_tree_bound,
+        "artifact_bindings": artifact_bindings,
+        "artifacts_bound": artifacts_bound,
         "output_gate_verified": build.get("output_gate", {}).get("verified"),
         "module_gate_verified": build.get("module_gate", {}).get("verified"),
         "kernel_banner_gate_verified": build.get("kernel_banner_gate", {}).get(
@@ -167,6 +219,8 @@ def audit_build_result(path: Path) -> dict[str, Any]:
         and gate["patch_contract_verdict"] == patch_check.VERDICT
         and gate["patch_sha256"] == patch_check.PATCH_SHA256
         and gate["source_delta_verified"] is True
+        and gate["work_tree_bound"] is True
+        and gate["artifacts_bound"] is True
         and gate["output_gate_verified"] is True
         and gate["module_gate_verified"] is True
         and gate["kernel_banner_gate_verified"] is True
@@ -231,7 +285,16 @@ def run_audit(
     if not isinstance(expected_banner, str) or not expected_banner:
         raise AuditError("stock baseline has no Linux banner")
 
-    build_gate = audit_build_result(build_result)
+    build_gate = audit_build_result(
+        build_result,
+        recorded_root=root,
+        expected_work_tree=work_tree,
+        expected_artifacts={
+            "Image": image,
+            ".config": generated_config,
+            "vmlinux.symvers": candidate_symvers,
+        },
+    )
     image_gate = r2.image_metadata(image, expected_banner=expected_banner)
     config_gate = compare_r4_configs(stock_config, generated_config)
     consumer_crc = r2.compare_symbol_requirements(requirements, symvers_paths)
