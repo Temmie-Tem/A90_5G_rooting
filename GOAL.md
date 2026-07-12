@@ -4,15 +4,73 @@ Drive the A90 native-init project forward one **bounded V-iteration at a time** 
 the proven cycle below. This file says WHAT to pursue; **`AGENTS.md` says HOW — its
 safety invariants and flash gates are binding and override any sub-goal.**
 
-> **S22+ ACTIVE FRONTIER (2026-07-11 KST) - FYG8 KERNEL REBUILD R0 AND MAGISK
-> CARRIER HOST AUDITS PASS; 32 GIB BUILD-HOST REPRODUCTION NEXT; NO LIVE
-> AUTHORIZATION.** The kernel-rebuild branch is now ordered as stock-equivalent
-> reproduction -> static KMI/module equivalence -> one boot-only
-> Magisk-equivalent rebuilt-kernel proof -> one minimal retained-witness change
-> -> security-config changes only when a specific blocking dependency is proven.
-> Do not begin with `CONFIG_RKP=n`, do not promote the unverified
-> `RKP+KDP+UH+DEFEX+PROCA+FIVE=n` forum recipe, and do not claim that rebuilding
-> the already-enabled ramoops backend fixes V3439 retention.
+> **S22+ ACTIVE FRONTIER (2026-07-11 KST) - NATIVE-PID1 WITNESS AND FYG8
+> KERNEL TRUST ARE PARALLEL LANES; R1/R2 HOST GATES READY, FULL-LTO BUILD-HOST
+> RUN NEXT; NO LIVE AUTHORIZATION.** Repository-wide evidence review
+> plus a two-round adversarial Claude Opus review corrected the previous serial
+> order. A subsequent exact FYG8 ABL/Linux static RE invalidated the proposed
+> M4T3 Download beacon: ABL does map stored PON reason `0x15` to Odin, but the
+> Samsung `"download"` parser and PON writer are modular and were absent from
+> M4T3, M21A, and M34 S10C0. `qcom-scm` can reset without encoding `0x15`.
+> Exact LinuxLoader also launches Odin after mission-boot load/auth failure or a
+> returned kernel handoff, and parameter value `3` independently selects
+> `PARAM_BOOT_DOWNLOAD_FAIL`. Odin is therefore a non-unique sink even after the
+> producer closure is loaded.
+> M4T3 is therefore timing-ambiguous, M21A remains a timed negative, S10C0's
+> endpoint does not prove its internal `finit_module` predicate, and M4T2's raw
+> attended park remains the strongest positive native-PID1 floor. Lane W first
+> designs a producer positive control with the exact reboot-reason module
+> closure plus matched generic-reset and boot-failure controls; Download is not
+> a checkpoint beacon until reason `0x15` is independently proved. That design
+> is now host-closed: the former seven-module `modules.dep` list omitted the
+> modular SPMI/SDAM nvmem provider path. The corrected direct-PID1 family uses a
+> 15-module closure combining M31B's live-proven watchdog floor, the PMIC SDAM
+> provider, Samsung parser/writer, and `qcom-reboot-reason` only for a matched
+> Recovery control. Existing retained stock logs independently prove both
+> `download -> 0x15` write/read success and `userrequested -> 0x14` success.
+> Exact FYG8 LinuxLoader independently closes the alternate consumer:
+> `0x01 -> RVA 0x4aca0 -> mode 2 -> "Recovery Mode, Reset param!"`. Review also
+> found that W1 must require the actual `/soc/reboot_reason` binding under
+> `qcom-reboot-reason`; Samsung deliberately leaves the PON write to that
+> priority-255 Qualcomm notifier.
+> A second review finding forbids treating the Samsung parser's platform bind
+> as readiness: its command registration runs in `drct-qc_rbcmd` after probe
+> returns. W1/W2 must bounded-read the exact FYG8 debugfs registration list and
+> prove the priority-250 Reboot Notifier default plus `recovery` and `download`
+> handlers before the one terminal syscall.
+> The same preterminal gate must prove `/firmware/qcom_scm` and
+> `/soc/dload_mode` bindings: the Samsung writer arms dump mode at probe, and
+> only the bound priority-255 dload notifier reliably clears it on clean reboot.
+> The 15 modules must be loaded through provider barriers, not inserted in one
+> burst and checked only at the end; the asynchronous Samsung command worker
+> can otherwise fail once and remain bound without handlers.
+> W0/W1/W2 must reuse one byte-identical init and module payload; only one
+> equal-length five-byte ramdisk mode file (`PARK\n`, `RECV\n`, or `DOWN\n`) may
+> differ in a normalized unpacked manifest.
+> The future differential is strictly `W0 full-closure park 120s -> W1 recovery
+> alternate sink -> W2 download`; W2 is no-proof unless W0 and W1 pass. A
+> malformed-command native generic-reset run is rejected because the persistent
+> candidate would form an unbounded reboot loop. Design report:
+> `docs/reports/S22PLUS_FYG8_LANE_W_REBOOT_REASON_PRODUCER_CONTROL_DESIGN_2026-07-11.md`.
+> Exact FYG8
+> `XblRamdump.elf` now proves the observed NegativeAck is the locked preamble
+> branch selected by the same `(without Token)` flag; RDX mutation remains
+> retired. Exact `QcomWDogDxe` disables the UEFI watchdog at ExitBootServices,
+> so the bare-PID1 timeout is post-handoff ownership, consistent with M31B's
+> stock watchdog-closure survival. Lane W currently authorizes
+> design only: every candidate build, boot flash, or live confirmation needs a
+> fresh narrow SHA-pinned `AGENTS.md` exception and explicit approval.
+>
+> Lane K remains stock-equivalent Full-LTO reproduction -> static
+> KMI/module-equivalence -> one **unpatched** rebuilt-kernel boot-only viability
+> proof -> an optional separately labeled Magisk-equivalent measurement carrier
+> -> one minimal kernel-side witness hypothesis -> security-config changes only
+> when a named blocking dependency is proven. Do not begin with `CONFIG_RKP=n`,
+> do not promote the unverified `RKP+KDP+UH+DEFEX+PROCA+FIVE=n` forum recipe, and
+> do not claim that rebuilding the already-enabled ramoops backend fixes V3439
+> retention. S-Boot or the reset path may alter retained RAM independently of
+> the kernel, but V3439 did not prove a global DRAM clear; dynamic ramoops base
+> and header validity remain unresolved.
 >
 > Host R0 pinned the FYD9-base plus FYG8-delta archives, generated a 2.9 GiB
 > combined private tree, and pinned Android Clang 12.0.5 `r416183b` plus the
@@ -29,20 +87,39 @@ safety invariants and flash gates are binding and override any sub-goal.**
 > `waipio_sec__defconfig`; R0 must replace this with a reproducible wrapper that
 > exports exact `TARGET_BUILD_VARIANT=user` without changing kernel source.
 >
-> R0 host audit now reconstructs 166,037 archive members with resident mismatch
-> zero, extracts the exact stock release and embedded IKCONFIG, fixes and pins
-> the build environment, and extends the authoritative 441-module map with
-> 22,131 consumer-side symbol CRC requirements. Current-host Full-LTO preflight
-> fails closed only on physical RAM; toolchain, provenance, source, and disk
-> gates pass. A private nine-file/four-repository transfer manifest is ready;
-> it includes the `AGENTS.md`/`GOAL.md` root markers required by the standalone
-> host tools.
+> R0/R1 host gates now reconstruct and rehash all 166,037 source members inside
+> every preflight, reject ambient compiler/build variables through a minimal
+> environment allowlist, require all owned dist outputs plus generated modules,
+> and inventory every symvers file. The current host again passes exact source,
+> toolchain, provenance, and disk gates and fails closed only on 15.2 GiB
+> physical RAM versus the 30 GiB Full-LTO floor.
 >
-> Next: reproduce R0 from pinned archives on the Debian 12 FX-8300 32 GiB host,
-> then run R1 stock Full LTO under the checked wrapper. No artifact may be packaged or
-> flashed before R1 and R2 pass and a fresh SHA-pinned boot-only R3 exception is
-> added to `AGENTS.md` with explicit operator approval. Roadmap:
+> The full stock on-disk module corpus is now host-closed from exact FYG8
+> firmware. Checksummed LP metadata contains six partitions and no
+> `system_dlkm` or `odm_dlkm`. Recursive read-only F2FS walks find no `.ko` in
+> `system`, `vendor`, or `odm`. `vendor_dlkm` contains 356 modules: all 306 names
+> overlapping the 441-file vendor-ramdisk corpus are byte-identical after exact
+> F2FS LZ4-cluster reconstruction, 50 are `vendor_dlkm`-only, and 135 are
+> vendor-ramdisk-only. The complete union is 491 unique module names with
+> 25,864 consumer CRC rows over 4,619 unique symbols. The ThinLTO diagnostic
+> satisfies 22,600 rows with zero CRC mismatch; its 3,264 missing rows are
+> unresolved module-provider rows because that diagnostic stopped before
+> vendor module modpost completed. This is diagnostic evidence, not R2 PASS.
+>
+> Next: transfer the now 20-file/four-repository pinned host kit, reproduce the
+> exact source-binding preflight on the Debian 12 FX-8300 32 GiB host, then run
+> unchanged stock Full LTO. Feed every returned symvers file and generated
+> module into the prepared R2 audit. Lane W's independent static review is now
+> complete: it added the hidden nvmem provider, exact Recovery consumer,
+> asynchronous command-readiness oracle, SCM/dload bindings, phased provider
+> barriers, and one-file variant contract. No Lane W candidate source, image,
+> or artifact may be built under the current design-only authorization. No artifact
+> may be packaged or flashed before R1 and R2 pass and a
+> fresh SHA-pinned boot-only R3 exception is added to `AGENTS.md` with explicit
+> operator approval. Roadmap:
 > `docs/plans/S22PLUS_FYG8_KERNEL_REBUILD_ROADMAP_2026-07-11.md`.
+> Host-gate report:
+> `docs/reports/S22PLUS_FYG8_KERNEL_REBUILD_R1_R2_HOST_GATES_2026-07-11.md`.
 >
 > The pinned known-booting Magisk v30.7 boot is now byte-audited. Its kernel is
 > stock plus exactly DEFEX and PROCA patches: 9 changed bytes in two ranges.
@@ -51,10 +128,14 @@ safety invariants and flash gates are binding and override any sub-goal.**
 > init is losslessly retained in `.backup/init.xz`, and all four runtime payloads
 > match the pinned APK. Signed vbmeta is copied byte-identically from stock but
 > has a stale payload digest, as expected for the known unlocked baseline.
-> Therefore R3 is explicitly a `magisk-equivalent-kernel` proof derived from the
-> unpatched R2-GO rebuild, not an unchanged stock-kernel claim. A strict
-> unpatched live proof is separate and cannot require Magisk root. Report:
+> Therefore the audited Magisk carrier is a later `magisk-equivalent-kernel`
+> measurement option, not the first rebuilt-kernel proof. R3 first uses the
+> unpatched R2-GO rebuild with a stock userspace carrier and cannot require root;
+> optional R3B may reproduce the audited DEFEX/PROCA semantics only after unique
+> target and no-extra-delta gates pass. Reports:
 > `docs/reports/S22PLUS_FYG8_MAGISK_BOOT_SEMANTIC_AUDIT_2026-07-11.md`.
+> `docs/reports/S22PLUS_FYG8_NATIVE_PID1_PARALLEL_LANES_ARCHITECTURE_REVIEW_2026-07-11.md`.
+> `docs/reports/S22PLUS_FYG8_BOOTLOADER_REBOOT_REASON_AND_RETAINED_MEMORY_STATIC_RE_2026-07-11.md`.
 
 > **S22+ CURRENT FRONTIER (2026-07-11 KST) - V3443 HIGH PANIC VERSUS PINNED
 > MID CONTROL GATE SOURCE READY; POLICY INACTIVE.** V3442 proved HIGH is accepted
@@ -1768,9 +1849,10 @@ safety invariants and flash gates are binding and override any sub-goal.**
 > Report:
 > `docs/reports/S22PLUS_MAGISK_BOOT_BASELINE_RESTORE_ACTIVE_EXCEPTION_2026-07-10.md`.
 
-> **S22+ CURRENT FRONTIER (2026-07-10 00:57 KST / 2026-07-09 15:57 UTC) — M34 S10C0 LIVE HIT; MAGISK ROLLBACK INCOMPLETE; STOCK BOOT RECOVERED.**
+> **S22+ HISTORICAL S10C0 CLASSIFICATION (2026-07-10 00:57 KST /
+> 2026-07-09 15:57 UTC) - SUPERSEDED BY 2026-07-11 STATIC RE.**
 > S10C0 was run live with explicit operator approval. The live result is a
-> technical HIT:
+> recorded host-side endpoint hit:
 >
 > ```text
 > run_dir=workspace/private/runs/s22plus_m34_s10c0_live_20260709T120611Z
@@ -1781,12 +1863,13 @@ safety invariants and flash gates are binding and override any sub-goal.**
 > probe_proc_name=cmd_db
 > ```
 >
-> The candidate self-entered Download mode and the helper logged
-> `s10c0_result=download-beacon-hit`, proving direct `cmd-db.ko`
-> `finit_module` reached the accepted path under native-init. This narrows the
-> S10 wall: `cmd-db.ko` is not simply impossible to load; S11 should now
-> distinguish load-loop skip/order/abort from `/proc/modules` observation
-> artifact using per-module attempted/rc/errno plus a positive-control module.
+> The original interpretation claimed that the candidate deliberately entered
+> Download and therefore proved direct `cmd-db.ko` `finit_module` acceptance.
+> That claim is withdrawn. S10C0 omitted the modular Samsung command parser and
+> PON-reason writer; its later endpoint cannot distinguish internal acceptance
+> from generic reset or bootloader fallback. Raw run and rollback evidence
+> remains valid. Corrected report:
+> `docs/reports/S22PLUS_FYG8_BOOTLOADER_REBOOT_REASON_AND_RETAINED_MEMORY_STATIC_RE_2026-07-11.md`.
 >
 > The run is **not** a clean advance gate because the automatic Magisk rollback
 > did not produce stable `rollback_boot_ready`; analyzer output is

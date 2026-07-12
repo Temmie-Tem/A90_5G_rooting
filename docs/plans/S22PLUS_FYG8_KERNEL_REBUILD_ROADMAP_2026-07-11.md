@@ -7,16 +7,45 @@ Scope: host-only planning and build validation; no device contact or flash
 ## Decision
 
 An FYG8-derived kernel rebuild is a viable research branch, but it is not yet a
-proven boot path and is not a guaranteed retained-witness solution. The active
-order is:
+proven boot path and is not a guaranteed retained-witness solution. Native-PID1
+observation and kernel build trust now proceed as parallel lanes:
 
-1. reproduce an unchanged stock-equivalent kernel build;
-2. prove static compatibility with the running FYG8 kernel and vendor modules;
-3. prove one boot-only Magisk-equivalent carrier candidate derived from the
-   statically stock-equivalent rebuild, with mandatory rollback;
-4. add one minimal observation change;
-5. change Samsung security configuration only if a specific dependency is
-   proven to block that observation change.
+1. **Lane W - witness/discrimination:** first prove the native-PID1 producer
+   path for Samsung PON reason `0x15`, then design a one-bit checkpoint sequence.
+   Exact FYG8 ABL maps stored `0x15` to Odin, but M4T3, M21A, and S10C0 lacked
+   the modular Samsung command parser/reason writer. M4T3 is not a proved
+   beacon. M4T2's attended raw park remains the strongest positive floor.
+   The host-only producer design now corrects the seven-module hard dependency
+   list with the modular SPMI/SDAM nvmem provider and M31B watchdog floor. Its
+   required future sequence is W0 full-closure park, W1 matched Recovery sink,
+   then W2 Download positive. Exact LinuxLoader maps `0x01` through RVA
+   `0x4aca0` to mode 2 and the explicit Recovery branch. W1 must gate the
+   `/soc/reboot_reason` binding under `qcom-reboot-reason`, because Samsung's
+   pre-defined Recovery handler does not write the PON value itself. It must
+   also prove actual command registration through the mutex-protected
+   `sec_reboot_cmd` debugfs list; `sec_qc_rbcmd` registers those handlers on an
+   asynchronous worker after platform probe returns. Exact `qcom_scm` and
+   `qcom-dload-mode` bindings are also mandatory to keep the clean reboot from
+   being confounded with armed dump/RDX state. The 15-module closure must use
+   provider-by-provider phase barriers rather than one final poll. W0/W1/W2
+   reuse one identical init and differ only by one normalized five-byte mode
+   file. See
+   `docs/reports/S22PLUS_FYG8_LANE_W_REBOOT_REASON_PRODUCER_CONTROL_DESIGN_2026-07-11.md`.
+2. **Lane K - kernel trust/instrumentation:** reproduce an unchanged
+   stock-equivalent kernel build, prove static KMI/module compatibility, then
+   perform one unpatched rebuilt-kernel viability gate before any
+   Magisk-equivalent measurement carrier.
+3. Add kernel-side witness changes only as a separately tested hypothesis. A
+   rebuild cannot be assumed to fix V3439 retention. S-Boot/reset-path clearing,
+   dynamic ramoops placement, and header validity remain unseparated.
+4. Change Samsung security configuration only if a specific dependency is
+   proven to block a named observation or bring-up step.
+
+Lane W host-only design does not wait for R1. Its independent static review is
+complete and the resulting W0/W1/W2 contract is recorded, but current
+authorization stops before candidate source or artifact implementation. Any
+candidate build, boot flash, or repeated beacon confirmation still needs a
+fresh narrow SHA-pinned `AGENTS.md` exception and explicit operator approval.
 
 Do not begin with `CONFIG_RKP=n`, and do not treat
 `RKP+KDP+UH+DEFEX+PROCA+FIVE=n` as a community-proven recipe. Mainline ramoops
@@ -31,15 +60,21 @@ embedded `CONFIG_RKP=y` remains unchanged. Its signed stock vbmeta is copied
 unchanged and therefore has a stale payload digest. Report:
 `docs/reports/S22PLUS_FYG8_MAGISK_BOOT_SEMANTIC_AUDIT_2026-07-11.md`.
 
-This creates three distinct labels:
+This creates four distinct labels:
 
 - `byte-identical-stock-kernel`: the shipped stock kernel hash;
 - `static-stock-equivalent-kernel`: the unpatched R2-GO rebuild;
+- `unpatched-rebuilt-kernel-live-viable`: the R2-GO rebuild after a strict
+  unpatched live viability proof;
 - `magisk-equivalent-kernel`: the R2-GO rebuild plus exactly the v30.7 DEFEX and
   PROCA patches, preserving the known Magisk baseline posture including RKP-on.
 
-The first live rebuild proof uses the third label. A strict unpatched live proof
-is a separate optional experiment and cannot require Magisk root as PASS.
+The first live rebuild proof uses the unpatched label and cannot require root.
+The Magisk-equivalent label is a separate later measurement gate, not the first
+proof and not an unchanged-kernel claim. Architecture-review record:
+`docs/reports/S22PLUS_FYG8_NATIVE_PID1_PARALLEL_LANES_ARCHITECTURE_REVIEW_2026-07-11.md`.
+Exact-build bootloader/reboot-reason correction:
+`docs/reports/S22PLUS_FYG8_BOOTLOADER_REBOOT_REASON_AND_RETAINED_MEMORY_STATIC_RE_2026-07-11.md`.
 
 ## Pinned Inputs
 
@@ -171,61 +206,124 @@ Report:
 
 ### R1 - Unchanged stock Full-LTO build
 
-Status: **BLOCKED ON CONTROLLED BUILD MEMORY AND R0 WRAPPER**
+Status: **HOST GATES READY; BLOCKED ONLY ON CONTROLLED 32 GiB BUILD-HOST RUN**
 
 - Use the supplied config with Full LTO; no security or witness changes.
-- Complete GKI, Qualcomm/Samsung vendor modules, external modules, DTBs, KMI
-  checks, FIPS update, and dist copy.
+- Require every artifact owned by the pinned build rules: kernel Image form,
+  `vmlinux`, `System.map`, generated `.config`, symvers output, and generated
+  modules/DTBs only when the tree actually emits them.
+- Treat stock DTBO, `vendor_boot`, `init_boot`, and vendor ramdisk as pinned
+  inputs unless the R1 build rules explicitly generate them. Repacked boot and
+  Odin containers are later derived packages, not R1 outputs.
+- Bind source-tree and overlay hashes into preflight, reject an unpinned ambient
+  tool environment, and persist complete tool/version and resource evidence.
+- Complete GKI, Qualcomm/Samsung vendor modules, external modules, KMI checks,
+  FIPS update, and the build-owned dist copy.
 - Treat missing modules, unresolved symbols, KMI failures, or generated-config
   drift as FAIL, not as warnings to waive.
 
-Exit gate: complete Full-LTO dist with hashes and zero unresolved build failure.
-This proves buildability only, not device compatibility.
+Exit gate: complete provenance-bound Full-LTO build with every build-owned
+artifact present, typed, hashed, and no unresolved failure. This proves
+buildability only, not device compatibility or stock equivalence.
+
+2026-07-11 gate implementation:
+
+- build schema v2 reruns the content-addressed FYD9+FYG8 overlay audit during
+  every preflight and requires all 166,037 resident members to match;
+- ambient `CC`, flags, hooks, and parent PATH state are not inherited;
+- zero build return with a missing Image/vmlinux/System.map/config/symvers/
+  modules.builtin metadata or with zero generated modules is FAIL;
+- generated `.ko` and every `Module.symvers`/`vmlinux.symvers` file are hashed
+  into the R1 result;
+- exact current-host Full-LTO preflight passes every non-resource gate and
+  refuses only the 15.2 GiB physical-memory host.
 
 ### R2 - Static stock-equivalence audit
 
-Status: **PENDING R1**
+Status: **CORPUS AND AUDITOR READY; FINAL VERDICT PENDING R1 FULL-LTO OUTPUT**
 
 - Compare generated kernel release and version metadata with running FYG8.
 - Compare generated `.config` with captured running IKCONFIG.
-- Compare KMI symbol CRCs, generated `vmlinux.symvers`, exported symbol surface,
-  module `vermagic`, and required-symbol closure against the exact shipped
-  modules.
+- Close the full on-disk module union across vendor ramdisk, `vendor_dlkm`,
+  `system_dlkm`, other mounted module sources, and `modules.builtin`. The 441
+  first-stage files are a subset, not the compatibility corpus.
+- Compare KMI symbol CRCs, generated symvers, exported symbol surface, module
+  `vermagic`, and consumed-symbol closure against that declared shipped union.
+- Identify modules by normalized name, `srcversion`, `vermagic`, and
+  decompressed content hash; resolve built-ins separately.
+- Keep runtime loaded-set parity as a later live check against a pinned baseline
+  captured at the same boot milestone and workload. The P0 count of 482 is not
+  a universal must-load count.
 - Compare Image format, load size, boot-image capacity, compression, and Samsung
   boot container invariants.
 - Explain every residual difference; no unexplained delta advances.
 
 Exit gate: static compatibility report says GO for one unchanged boot candidate.
 
-### R3 - Magisk-equivalent rebuilt-kernel boot-only proof
+2026-07-11 corpus close and diagnostic:
+
+- exact LP geometry/header/table checksums pass for raw FYG8 `super.img`;
+- partition set is exactly `system`, `odm`, `product`, `system_ext`, `vendor`,
+  and `vendor_dlkm`; there is no `system_dlkm` or `odm_dlkm` partition;
+- recursive F2FS walks find zero `.ko` under `system`, `vendor`, and `odm`;
+- `vendor_dlkm` has 356 modules; overlap with vendor ramdisk is 306/306
+  byte-identical after F2FS LZ4-cluster reconstruction;
+- 50 vendor_dlkm-only plus 135 vendor-ramdisk-only modules produce a complete
+  491-name on-disk union;
+- the combined consumer contract is 25,864 rows and 4,619 unique symbols;
+- the old ThinLTO diagnostic matches 22,600 rows, has zero mismatched CRCs,
+  and misses 3,264 module-provider rows because vendor modpost did not finish;
+- `s22plus_fyg8_kernel_r2_audit.py` now requires the pinned complete-corpus
+  layout plus a schema-v2 Full-LTO R1 PASS before it can return R2 PASS.
+
+Report:
+`docs/reports/S22PLUS_FYG8_KERNEL_REBUILD_R1_R2_HOST_GATES_2026-07-11.md`.
+
+### R3 - Unpatched rebuilt-kernel boot-only viability proof
 
 Status: **PENDING R2 AND FRESH POLICY**
 
 - Start from the unpatched R2-GO `static-stock-equivalent-kernel`.
-- Apply pinned Magisk v30.7 semantics to produce a
-  `magisk-equivalent-kernel`: exactly DEFEX plus PROCA patches, while RKP and
-  legacy-SAR remain no-ops. Any extra patch or multiple pattern match is FAIL.
-- Build from the known-booting Magisk boot base while replacing only the kernel
-  payload required by the selected boot format. Preserve and re-audit the exact
-  known Magisk ramdisk semantics.
+- Use the selected stock ramdisk/userspace carrier and make no DEFEX, PROCA,
+  RKP, legacy-SAR, security-config, or witness change.
 - Explicitly record that copied signed vbmeta has a stale boot-payload digest
   and that this path relies on the already-unlocked bootloader behavior.
 - AP must contain only `boot.img.lz4` and satisfy all existing boot-only safety
   and rollback pins.
 - Require a fresh SHA-pinned `AGENTS.md` one-shot exception and explicit operator
   approval. This roadmap grants no live authorization.
-- PASS requires Android, Magisk root, exact hardware identity, required vendor
-  modules, USB, display, storage, and rollback readiness.
+- PASS requires only the predeclared host-visible normal Android milestone,
+  bounded hardware identity available without root, and exact boot-only
+  rollback readiness. Root is not a gate.
+- Normal Android boot proves a kernel-viability bit, not complete module ABI
+  closure or native PID1.
 - Restore the pinned known-booting Magisk boot after proof, even on PASS.
 
-Exit gate: one `magisk-equivalent-kernel` derived from the statically equivalent
-rebuild boots with root and hardware health, then rolls back cleanly. This proves
-rebuild compatibility under the known Magisk posture, not a strict unpatched
-stock-kernel live boot.
+Exit gate: one unpatched R2-GO rebuild reaches the bounded stock-userspace
+milestone and rolls back cleanly. This proves only that the rebuilt kernel can
+boot this hardware far enough for the selected milestone.
 
-### R4 - Minimal witness kernel
+### R3B - Optional Magisk-equivalent measurement carrier
 
-Status: **PENDING R3**
+Status: **PENDING R3, NEED, AND FRESH POLICY**
+
+- Enter only when rooted measurement on the rebuilt kernel is needed.
+- Locate DEFEX and PROCA targets by audited content and semantics, never stale
+  offsets. Require one approved target per patch; zero or multiple candidates
+  are FAIL.
+- Re-audit against the rebuilt-unpatched kernel and require only the intended
+  two patch ranges. Any additional change is FAIL.
+- Preserve and re-audit the pinned Magisk ramdisk semantics.
+- Keep RKP and legacy-SAR no-op results explicit and preserve copied-vbmeta
+  caveats.
+
+Exit gate: one separately labeled `magisk-equivalent-kernel` provides the
+predeclared rooted measurements and rolls back cleanly. This is not an
+unchanged-kernel or native-PID1 proof.
+
+### R4 - Minimal kernel-side witness hypothesis
+
+Status: **PENDING R3; REBOOT-REASON PRODUCER HOST DESIGN PROCEEDS IN PARALLEL**
 
 - Keep all Samsung security configs unchanged.
 - Add one bounded marker at a selected kernel/init boundary.
@@ -254,15 +352,20 @@ Exit gate: one isolated dependency hypothesis is confirmed or retired.
 
 ### R6 - Native PID1 and Debian continuation
 
-Status: **PENDING R4 WITNESS**
+Status: **LANE W PRODUCER/CONTROL DESIGN ACTIVE; RICH BRING-UP PENDING A RELIABLE WITNESS**
 
-Resume direct native PID1 only after the witness can distinguish kernel entry,
-`/init` entry, early userspace progress, and reset reason. USB, display, and
-Debian bring-up remain downstream of that observation boundary.
+First prove that native PID1 can load and bind the exact Samsung reboot-command
+and PON-writer dependency closure, and distinguish `reboot("download")` from a
+generic reset control. Only then may Download be used to raise a positive
+direct-PID1 floor. Rich USB, display, storage, and Debian bring-up remain
+downstream of a witness that can distinguish early userspace progress and
+reset reason.
 
 ## Stop Rules
 
 - No kernel build output is flashable before R2 GO and a fresh R3 policy.
+- Lane W authorizes host-only producer/control and checkpoint design only; it
+  grants no candidate build, flash, or repeated beacon run.
 - No security config bundle is accepted from forum prose alone.
 - No ramoops repetition is justified by merely rebuilding the same enabled
   backend.
