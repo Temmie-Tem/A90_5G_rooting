@@ -55,7 +55,9 @@ EXPECTED_SOURCE_MEMBER_COUNT = 166037
 MIN_PHYSICAL_MEMORY_BYTES = 30 * 1024**3
 MIN_SWAP_BYTES = 8 * 1024**3
 MIN_FREE_DISK_BYTES = 30 * 1024**3
-REQUIRED_HOST_TOOLS = ("git", "/usr/bin/time")
+GNU_TAR_PATH = Path("/usr/bin/tar")
+EXPECTED_GNU_TAR_PREFIX = "tar (GNU tar)"
+REQUIRED_HOST_TOOLS = ("git", "/usr/bin/time", str(GNU_TAR_PATH))
 HOST_ENV_ALLOWLIST = ("HOME", "USER", "LOGNAME", "TMPDIR", "TERM")
 PINNED_REPOS = {
     "clang": (
@@ -179,12 +181,42 @@ def git_identity(path: Path, expected: str) -> dict[str, Any]:
 def hermetic_path(work_tree: Path, clang_repo: Path) -> str:
     candidates = (
         clang_repo / "clang-r416183b/bin",
+        work_tree.parent / "host-tool-overrides",
         work_tree / "kernel_platform/prebuilts/build-tools/path/linux-x86",
         work_tree / "kernel_platform/prebuilts/kernel-build-tools/linux-x86/bin",
         Path("/usr/bin"),
         Path("/bin"),
     )
     return os.pathsep.join(str(path) for path in candidates)
+
+
+def prepare_host_tool_overrides(work_tree: Path) -> dict[str, Any]:
+    """Expose GNU tar without replacing any other pinned Android host tool."""
+    override_dir = work_tree.parent / "host-tool-overrides"
+    override_dir.mkdir(parents=True, exist_ok=True)
+    unexpected = sorted(path.name for path in override_dir.iterdir() if path.name != "tar")
+    if unexpected:
+        raise BuildError(f"unexpected host-tool overrides: {unexpected}")
+
+    tar_link = override_dir / "tar"
+    if tar_link.exists() or tar_link.is_symlink():
+        tar_link.unlink()
+    tar_link.symlink_to(GNU_TAR_PATH)
+    version = run([str(tar_link), "--version"])
+    first_line = version.stdout.splitlines()[0] if version.stdout else ""
+    verified = (
+        GNU_TAR_PATH.is_file()
+        and tar_link.resolve() == GNU_TAR_PATH.resolve()
+        and version.returncode == 0
+        and first_line.startswith(EXPECTED_GNU_TAR_PREFIX)
+    )
+    return {
+        "directory": str(override_dir),
+        "tar_path": str(tar_link),
+        "tar_target": str(GNU_TAR_PATH),
+        "tar_version": first_line,
+        "verified": verified,
+    }
 
 
 def build_environment(
@@ -311,6 +343,7 @@ def preflight(
     lto: str,
     jobs: int,
     source_overlay: dict[str, Any] | None = None,
+    host_tool_overrides: dict[str, Any] | None = None,
 ) -> dict[str, Any]:
     required_paths = (
         work_tree / "kernel_platform/build/android/prepare_vendor.sh",
@@ -355,6 +388,7 @@ def preflight(
         and clang_verified
         and parent_git_isolated
         and bool(source_overlay and source_overlay.get("verified"))
+        and bool(host_tool_overrides and host_tool_overrides.get("verified"))
         and resources["disk_ok"]
         and (lto != "full" or resources["full_lto_memory_ok"])
     )
@@ -384,6 +418,7 @@ def preflight(
             "git_ceiling_directories": environment["GIT_CEILING_DIRECTORIES"],
             "parent_git_isolated": parent_git_isolated,
             "source_overlay": source_overlay or {"verified": False},
+            "host_tool_overrides": host_tool_overrides or {"verified": False},
             "ambient_environment_allowlist": list(HOST_ENV_ALLOWLIST),
             "effective_path": environment["PATH"],
         },
@@ -503,6 +538,7 @@ def main(argv: list[str] | None = None) -> int:
     work_tree = resolve(root, args.work_tree)
     clang_repo = resolve(root, args.clang_repo)
     result_dir = resolve(root, args.result_dir)
+    host_tool_overrides = prepare_host_tool_overrides(work_tree)
     source_overlay = run_overlay_audit(
         root,
         work_tree,
@@ -518,6 +554,7 @@ def main(argv: list[str] | None = None) -> int:
         lto=args.lto,
         jobs=args.jobs,
         source_overlay=source_overlay,
+        host_tool_overrides=host_tool_overrides,
     )
     write_json(result_dir / "preflight.json", result)
     if args.mode == "preflight":

@@ -1,5 +1,6 @@
 import importlib.util
 import sys
+import tempfile
 import unittest
 from pathlib import Path
 from unittest import mock
@@ -32,6 +33,36 @@ class S22PlusFyg8KernelBuildTest(unittest.TestCase):
         self.assertEqual(env["KBUILD_BUILD_TIMESTAMP"], "Fri Aug 1 05:55:56 UTC 2025")
         self.assertEqual(env["GIT_CEILING_DIRECTORIES"], "/tmp")
         self.assertEqual(env["MAKEFLAGS"], "-j8")
+        self.assertEqual(
+            env["PATH"].split(":"),
+            [
+                "workspace/private/inputs/toolchains/aosp-clang-android12-release/clang-r416183b/bin",
+                "/tmp/host-tool-overrides",
+                "/tmp/fyg8-work/kernel_platform/prebuilts/build-tools/path/linux-x86",
+                "/tmp/fyg8-work/kernel_platform/prebuilts/kernel-build-tools/linux-x86/bin",
+                "/usr/bin",
+                "/bin",
+            ],
+        )
+
+    def test_host_tool_override_selects_only_gnu_tar(self):
+        with tempfile.TemporaryDirectory() as temporary:
+            work = Path(temporary) / "source"
+            work.mkdir()
+            result = self.module.prepare_host_tool_overrides(work)
+            override = work.parent / "host-tool-overrides"
+            self.assertTrue(result["verified"])
+            self.assertEqual({path.name for path in override.iterdir()}, {"tar"})
+            self.assertEqual((override / "tar").resolve(), Path("/usr/bin/tar"))
+
+    def test_host_tool_override_rejects_unexpected_executable(self):
+        with tempfile.TemporaryDirectory() as temporary:
+            work = Path(temporary) / "source"
+            override = work.parent / "host-tool-overrides"
+            override.mkdir()
+            (override / "make").write_text("unexpected\n", encoding="ascii")
+            with self.assertRaises(self.module.BuildError):
+                self.module.prepare_host_tool_overrides(work)
 
     def test_environment_does_not_inherit_compiler_poison(self):
         with mock.patch.dict(
