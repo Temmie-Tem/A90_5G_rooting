@@ -11,11 +11,11 @@ from pathlib import Path
 from typing import Any
 
 
-SCHEMA = "s22plus_fyg8_r4w1_repro_check_v1"
+SCHEMA = "s22plus_fyg8_r4w1_repro_check_v2"
 TARGET = "SM-S906N/g0q/S906NKSS7FYG8"
 VERDICT = "PASS_R4W1_CLEAN_REPRODUCIBILITY"
-BUILD_SCHEMA = "s22plus_fyg8_r4w1_build_v1"
-STATIC_SCHEMA = "s22plus_fyg8_r4w1_static_audit_v1"
+BUILD_SCHEMA = "s22plus_fyg8_r4w1_build_v2"
+STATIC_SCHEMA = "s22plus_fyg8_r4w1_static_audit_v2"
 PATCH_SHA256 = "e66962c9e8cc503f9c5e94265816fdc2e96f4920a2d47387c6f1a4d9bbc6b787"
 MARKER = (
     b"\n[[S22R4W1|id=9ed5923b08c5eedbbdb0aaa6f6a5200c|"
@@ -24,7 +24,7 @@ MARKER = (
 IMAGE_SIZE = 41_490_944
 ALIGNED_SIZE = 41_492_480
 PATH_CONFIG = "CONFIG_UNUSED_KSYMS_WHITELIST"
-REQUIRED_BUILD_ARTIFACTS = ("Image", ".config", "vmlinux.symvers")
+REQUIRED_BUILD_ARTIFACTS = ("Image", ".config", "vmlinux.symvers", "abi.xml")
 
 
 class CheckError(ValueError):
@@ -66,6 +66,7 @@ def check_build(path: Path) -> dict[str, Any]:
     kmi_path = value.get("kmi_path_control_runtime", {})
     kernel_debug = value.get("kernel_debug_control_runtime", {})
     vdso_debug = value.get("vdso_debug_control_runtime", {})
+    effective_tools = value.get("provenance", {}).get("effective_tools", {})
     outputs = value.get("outputs", [])
     artifact_rows: dict[str, dict[str, Any]] = {}
     duplicate_artifacts: list[str] = []
@@ -127,6 +128,20 @@ def check_build(path: Path) -> dict[str, Any]:
             and vdso_debug.get("patched_content_unchanged") is True
             and vdso_debug.get("verified") is True
         ),
+        "effective_tools_verified": (
+            effective_tools.get("verified") is True
+            and isinstance(effective_tools.get("tools"), list)
+            and bool(effective_tools["tools"])
+            and all(row.get("verified") is True for row in effective_tools["tools"])
+        ),
+        "effective_tool_fingerprint": {
+            row.get("name"): {
+                "sha256": row.get("sha256"),
+                "size": row.get("size"),
+            }
+            for row in effective_tools.get("tools", [])
+            if isinstance(row, dict) and isinstance(row.get("name"), str)
+        },
         "artifacts": artifact_rows,
         "duplicate_artifacts": sorted(duplicate_artifacts),
         "artifact_manifest_verified": artifacts_verified,
@@ -143,6 +158,7 @@ def check_build(path: Path) -> dict[str, Any]:
         and gate["kmi_path_control_verified"] is True
         and gate["kernel_debug_control_verified"] is True
         and gate["vdso_debug_control_verified"] is True
+        and gate["effective_tools_verified"] is True
         and gate["artifact_manifest_verified"] is True
         and isinstance(gate["work_tree"], str)
         and bool(gate["work_tree"])
@@ -255,6 +271,8 @@ def run_check(
     config_b: Path,
     symvers_a: Path,
     symvers_b: Path,
+    abi_a: Path,
+    abi_b: Path,
 ) -> dict[str, Any]:
     builds = [check_build(build_a), check_build(build_b)]
     statics = [check_static(static_a), check_static(static_b)]
@@ -263,10 +281,15 @@ def run_check(
         raise CheckError("A/B build results use the same work tree")
     if builds[0]["patched_files"] != builds[1]["patched_files"]:
         raise CheckError("A/B patched source identities differ")
+    toolchain_equal = (
+        builds[0]["effective_tool_fingerprint"]
+        == builds[1]["effective_tool_fingerprint"]
+    )
     supplied = {
         "Image": [image_a, image_b],
         ".config": [config_a, config_b],
         "vmlinux.symvers": [symvers_a, symvers_b],
+        "abi.xml": [abi_a, abi_b],
     }
     artifact_bindings = {
         name: [
@@ -293,10 +316,22 @@ def run_check(
         "sha256_b": sha256_file(symvers_b),
     }
     symvers_gate["verified"] = symvers_gate["sha256_a"] == symvers_gate["sha256_b"]
+    abi_gate = {
+        "sha256_a": sha256_file(abi_a),
+        "sha256_b": sha256_file(abi_b),
+        "size_a": abi_a.stat().st_size,
+        "size_b": abi_b.stat().st_size,
+    }
+    abi_gate["verified"] = (
+        abi_gate["sha256_a"] == abi_gate["sha256_b"]
+        and abi_gate["size_a"] == abi_gate["size_b"]
+    )
     image_equal = images[0]["sha256"] == images[1]["sha256"]
     blockers: list[str] = []
     if not all(item["verified"] for item in builds):
         blockers.append("one or more build gates failed")
+    if not toolchain_equal:
+        blockers.append("A/B effective host tool fingerprints differ")
     if not all(
         item["verified"]
         for bindings in artifact_bindings.values()
@@ -313,11 +348,14 @@ def run_check(
         blockers.append("normalized A/B config identity failed")
     if not symvers_gate["verified"]:
         blockers.append("A/B vmlinux.symvers identity failed")
+    if not abi_gate["verified"]:
+        blockers.append("A/B abi.xml identity failed")
     return {
         "schema": SCHEMA,
         "target": TARGET,
         "verdict": VERDICT if not blockers else "BLOCKED_R4W1_REPRODUCIBILITY",
         "builds": builds,
+        "effective_tool_fingerprints_equal": toolchain_equal,
         "artifact_bindings": artifact_bindings,
         "distinct_artifact_paths": distinct_artifact_paths,
         "static_audits": statics,
@@ -325,6 +363,7 @@ def run_check(
         "image_byte_identical": image_equal,
         "config": config_gate,
         "symvers": symvers_gate,
+        "abi_definition": abi_gate,
         "blockers": blockers,
         "reproducible": not blockers,
         "safety": {
@@ -350,6 +389,8 @@ def parse_args() -> argparse.Namespace:
         "config-b",
         "symvers-a",
         "symvers-b",
+        "abi-a",
+        "abi-b",
         "out",
     ):
         parser.add_argument(f"--{name}", type=Path, required=True)
@@ -373,6 +414,8 @@ def main() -> int:
                 "config_b",
                 "symvers_a",
                 "symvers_b",
+                "abi_a",
+                "abi_b",
             )
         }
     )

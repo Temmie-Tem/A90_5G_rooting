@@ -80,6 +80,25 @@ REQUIRED_HOST_TOOLS = (
     str(GNU_TAR_PATH),
     str(GNU_XARGS_PATH),
 )
+EFFECTIVE_TOOL_NAMES = (
+    "bash",
+    "make",
+    "tar",
+    "xargs",
+    "xz",
+    "cpio",
+    "perl",
+    "python3",
+    "find",
+    "sort",
+    "ld.lld",
+    "llvm-ar",
+    "llvm-nm",
+    "llvm-objcopy",
+    "llvm-readelf",
+    "dtc",
+    "depmod",
+)
 INCREMENTAL_READONLY_DIST_TARGETS = ("merge_dtbs.py", "ufdt_apply_overlay")
 SETUP_ENV_PATH = Path("kernel_platform/build/_setup_env.sh")
 SETUP_ENV_TIMESTAMP_ORIGINAL = (
@@ -123,6 +142,7 @@ DIST_OUTPUTS = (
     "vmlinux",
     "System.map",
     "vmlinux.symvers",
+    "abi.xml",
     "modules.builtin",
     "modules.builtin.modinfo",
 )
@@ -320,6 +340,33 @@ def prepare_host_tool_overrides(work_tree: Path) -> dict[str, Any]:
         "directory": str(override_dir),
         "tools": tools,
         "verified": all(tool["verified"] for tool in tools.values()),
+    }
+
+
+def effective_tool_manifest(environment: dict[str, str]) -> dict[str, Any]:
+    rows = []
+    for name in EFFECTIVE_TOOL_NAMES:
+        located = shutil.which(name, path=environment["PATH"])
+        path = Path(located) if located else None
+        resolved = path.resolve() if path is not None else None
+        regular = bool(resolved is not None and resolved.is_file())
+        rows.append(
+            {
+                "name": name,
+                "path": str(path) if path is not None else None,
+                "resolved_path": str(resolved) if resolved is not None else None,
+                "size": resolved.stat().st_size if regular else None,
+                "sha256": sha256_file(resolved) if regular else None,
+                "verified": regular,
+            }
+        )
+    return {
+        "tools": rows,
+        "expected_count": len(EFFECTIVE_TOOL_NAMES),
+        "verified": (
+            len(rows) == len(EFFECTIVE_TOOL_NAMES)
+            and all(row["verified"] for row in rows)
+        ),
     }
 
 
@@ -733,6 +780,7 @@ def preflight(
     environment = build_environment(
         work_tree, lto=lto, jobs=jobs, clang_repo=clang_repo
     )
+    effective_tools = effective_tool_manifest(environment)
     parent_git = run(
         ["git", "-C", str(work_tree), "rev-parse", "--show-toplevel"],
         env=environment,
@@ -747,6 +795,7 @@ def preflight(
     build_allowed = (
         not missing
         and not missing_host_tools
+        and effective_tools["verified"]
         and all(repo["verified"] for repo in repositories.values())
         and clang_verified
         and parent_git_isolated
@@ -784,6 +833,7 @@ def preflight(
             "parent_git_isolated": parent_git_isolated,
             "source_overlay": source_overlay or {"verified": False},
             "host_tool_overrides": host_tool_overrides or {"verified": False},
+            "effective_tools": effective_tools,
             "timestamp_control": timestamp_control or {"verified": False},
             "stock_baseline": stock_baseline or {"verified": False},
             "ambient_environment_allowlist": list(HOST_ENV_ALLOWLIST),

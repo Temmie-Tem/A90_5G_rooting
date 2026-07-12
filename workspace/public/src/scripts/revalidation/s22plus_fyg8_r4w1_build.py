@@ -21,7 +21,7 @@ import s22plus_fyg8_kernel_build as base  # noqa: E402
 import s22plus_fyg8_r4w1_patch_check as patch_check  # noqa: E402
 
 
-SCHEMA = "s22plus_fyg8_r4w1_build_v1"
+SCHEMA = "s22plus_fyg8_r4w1_build_v2"
 TARGET = base.TARGET
 STOCK_IMAGE_SIZE = 41_490_944
 FIXED_KERNEL_SLOT_CAPACITY = 41_492_480
@@ -74,6 +74,13 @@ VDSO_DEBUG_CONTROLS = (
 )
 DEFAULT_RESULT_DIR = Path(
     "workspace/private/outputs/s22plus_fyg8_r4w1_build/build"
+)
+HOST_PACKAGING_OUTPUTS = (
+    "boot.img",
+    "dtbo.img",
+    "super.img",
+    "vendor_boot.img",
+    "vendor_dlkm.img",
 )
 
 
@@ -375,6 +382,33 @@ def witness_output_gate(work_tree: Path) -> dict[str, Any]:
     return result
 
 
+def collect_host_packaging_outputs(work_tree: Path) -> dict[str, Any]:
+    dist = work_tree / "out/msm-waipio-waipio-gki/dist"
+    rows = []
+    for name in HOST_PACKAGING_OUTPUTS:
+        path = dist / name
+        if path.is_file() and not path.is_symlink():
+            rows.append(
+                {
+                    "name": name,
+                    "path": str(path),
+                    "size": path.stat().st_size,
+                    "sha256": base.sha256_file(path),
+                }
+            )
+    present = {row["name"] for row in rows}
+    return {
+        "dist": str(dist),
+        "expected": list(HOST_PACKAGING_OUTPUTS),
+        "outputs": rows,
+        "missing": sorted(set(HOST_PACKAGING_OUTPUTS) - present),
+        "generated": bool(rows),
+        "complete": present == set(HOST_PACKAGING_OUTPUTS),
+        "promoted_as_live_candidate": False,
+        "flash_authorized": False,
+    }
+
+
 def apply_checked_patch(work_tree: Path, patch: Path) -> dict[str, Any]:
     before: dict[str, dict[str, Any]] = {}
     for relative, expected in patch_check.BASE_FILES.items():
@@ -545,6 +579,7 @@ def main() -> int:
         work_tree, expected_banner=stock["expected_banner"]
     )
     witness_gate = witness_output_gate(work_tree)
+    host_packaging = collect_host_packaging_outputs(work_tree)
     effective = completed.returncode
     gates = (
         (providers.get("verified", False), 5),
@@ -571,6 +606,7 @@ def main() -> int:
             "module_gate": module_gate,
             "kernel_banner_gate": banner_gate,
             "witness_output_gate": witness_gate,
+            "host_packaging_outputs": host_packaging,
             "timestamp_control_runtime": timestamp_runtime,
             "kmi_path_control_runtime": kmi_path_runtime,
             "kernel_debug_control_runtime": kernel_debug_runtime,
@@ -580,9 +616,19 @@ def main() -> int:
             "incremental_dist_refresh": incremental,
             "r4w1_build_pass": effective == 0,
             "interpretation": (
-                "host build only; R4 static KMI audit, reproducibility, artifact "
+                "host build only; generated packaging side outputs are not promoted "
+                "as live candidates; R4 static KMI audit, reproducibility, artifact "
                 "review, and a fresh live exception remain required"
             ),
+        }
+    )
+    result["safety"].update(
+        {
+            "boot_image_packaging": host_packaging["generated"],
+            "packaging_outputs_promoted": False,
+            "flash": False,
+            "partition_write": False,
+            "live_authorized": False,
         }
     )
     base.write_json(result_dir / "result.json", result)

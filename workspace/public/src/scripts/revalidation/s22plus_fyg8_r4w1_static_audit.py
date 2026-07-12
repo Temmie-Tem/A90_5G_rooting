@@ -17,7 +17,7 @@ import s22plus_fyg8_r4w1_build as r4_build  # noqa: E402
 import s22plus_fyg8_r4w1_patch_check as patch_check  # noqa: E402
 
 
-SCHEMA = "s22plus_fyg8_r4w1_static_audit_v1"
+SCHEMA = "s22plus_fyg8_r4w1_static_audit_v2"
 TARGET = r2.TARGET
 VERDICT = "PASS_R4W1_STATIC_COMPATIBILITY"
 WITNESS_CONFIG = "CONFIG_S22PLUS_FYG8_RETAINED_WITNESS"
@@ -26,6 +26,7 @@ DEFAULT_BASELINE_SYMVERS = Path(
     "remote-fx8300-r1-v3-operational/source-clean-final/out/"
     "msm-waipio-waipio-gki/gki_kernel/dist/vmlinux.symvers"
 )
+DEFAULT_BASELINE_ABI = DEFAULT_BASELINE_SYMVERS.with_name("abi.xml")
 DEFAULT_OUT = Path(
     "workspace/private/outputs/s22plus_fyg8_r4w1_static_audit/result.json"
 )
@@ -117,6 +118,23 @@ def compare_full_symvers(baseline: Path, candidate: Path) -> dict[str, Any]:
     }
 
 
+def compare_abi_definition(baseline: Path, candidate: Path) -> dict[str, Any]:
+    baseline_sha256 = r2.sha256_file(baseline)
+    candidate_sha256 = r2.sha256_file(candidate)
+    return {
+        "baseline_path": str(baseline),
+        "candidate_path": str(candidate),
+        "baseline_sha256": baseline_sha256,
+        "candidate_sha256": candidate_sha256,
+        "baseline_size": baseline.stat().st_size,
+        "candidate_size": candidate.stat().st_size,
+        "verified": (
+            baseline_sha256 == candidate_sha256
+            and baseline.stat().st_size == candidate.stat().st_size
+        ),
+    }
+
+
 def check_sec_log_buf_module(config_path: Path, module_path: Path) -> dict[str, Any]:
     config = r2.parse_config(config_path)
     module_regular = module_path.is_file() and not module_path.is_symlink()
@@ -145,6 +163,7 @@ def audit_build_result(
     vdso_debug = build.get("vdso_debug_control_runtime", {})
     patch_contract = build.get("r4w1_patch_contract", {})
     source_delta = build.get("source_delta", {})
+    effective_tools = build.get("provenance", {}).get("effective_tools", {})
     recorded_work_tree = build.get("work_tree")
     if isinstance(recorded_work_tree, str):
         recorded_path = Path(recorded_work_tree)
@@ -200,6 +219,14 @@ def audit_build_result(
         "patch_contract_verdict": patch_contract.get("verdict"),
         "patch_sha256": source_delta.get("patch_sha256"),
         "source_delta_verified": source_delta.get("verified"),
+        "effective_tools_verified": (
+            effective_tools.get("verified") is True
+            and effective_tools.get("expected_count")
+            == len(r4_build.base.EFFECTIVE_TOOL_NAMES)
+            and len(effective_tools.get("tools", []))
+            == len(r4_build.base.EFFECTIVE_TOOL_NAMES)
+            and all(row.get("verified") is True for row in effective_tools.get("tools", []))
+        ),
         "recorded_work_tree": recorded_work_tree,
         "work_tree_bound": work_tree_bound,
         "artifact_bindings": artifact_bindings,
@@ -263,6 +290,7 @@ def audit_build_result(
         and gate["patch_contract_verdict"] == patch_check.VERDICT
         and gate["patch_sha256"] == patch_check.PATCH_SHA256
         and gate["source_delta_verified"] is True
+        and gate["effective_tools_verified"] is True
         and gate["work_tree_bound"] is True
         and gate["artifacts_bound"] is True
         and gate["output_gate_verified"] is True
@@ -283,6 +311,7 @@ def run_audit(
     work_tree: Path,
     build_result: Path,
     baseline_symvers: Path,
+    baseline_abi: Path,
     symvers_paths: list[Path] | None,
     stock_baseline: Path,
     stock_config: Path,
@@ -296,6 +325,7 @@ def run_audit(
         "out/msm-waipio-waipio-gki/gki_kernel/common/.config"
     )
     candidate_symvers = dist / "vmlinux.symvers"
+    candidate_abi = dist / "abi.xml"
     vendor_config = work_tree / "out/msm-waipio-waipio-gki/msm-kernel/.config"
     sec_log_buf_module = work_tree / (
         "out/msm-waipio-waipio-gki/dist/sec_log_buf.ko"
@@ -313,10 +343,12 @@ def run_audit(
         image,
         generated_config,
         candidate_symvers,
+        candidate_abi,
         vendor_config,
         sec_log_buf_module,
         build_result,
         baseline_symvers,
+        baseline_abi,
         stock_baseline,
         stock_config,
         module_map,
@@ -345,12 +377,14 @@ def run_audit(
             "Image": image,
             ".config": generated_config,
             "vmlinux.symvers": candidate_symvers,
+            "abi.xml": candidate_abi,
         },
     )
     image_gate = r2.image_metadata(image, expected_banner=expected_banner)
     config_gate = compare_r4_configs(stock_config, generated_config)
     consumer_crc = r2.compare_symbol_requirements(requirements, symvers_paths)
     full_symvers = compare_full_symvers(baseline_symvers, candidate_symvers)
+    abi_definition = compare_abi_definition(baseline_abi, candidate_abi)
     sec_log_buf_gate = check_sec_log_buf_module(vendor_config, sec_log_buf_module)
     partition_capacity = r2.boot_capacity(stock, image_gate["file_bytes"])
     fixed_layout = {
@@ -391,6 +425,7 @@ def run_audit(
         "config": config_gate,
         "consumer_crc": consumer_crc,
         "full_symvers": full_symvers,
+        "abi_definition": abi_definition,
         "sec_log_buf_single_writer": sec_log_buf_gate,
         "partition_capacity": partition_capacity,
         "fixed_layout": fixed_layout,
@@ -410,6 +445,8 @@ def run_audit(
         blockers.append("module-consumer requirement baseline shape changed")
     if not full_symvers["verified"]:
         blockers.append("complete exported symbol/CRC mapping changed")
+    if not abi_definition["verified"]:
+        blockers.append("generated GKI ABI definition differs from baseline")
     if not sec_log_buf_gate["verified"]:
         blockers.append("sec_log_buf is not a loadable module for witness timing")
     if not partition_capacity["fits"]:
@@ -443,6 +480,7 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--work-tree", type=Path, required=True)
     parser.add_argument("--build-result", type=Path, required=True)
     parser.add_argument("--baseline-symvers", type=Path, default=DEFAULT_BASELINE_SYMVERS)
+    parser.add_argument("--baseline-abi", type=Path, default=DEFAULT_BASELINE_ABI)
     parser.add_argument("--symvers", type=Path, action="append")
     parser.add_argument("--stock-baseline", type=Path, default=r2.DEFAULT_STOCK_BASELINE)
     parser.add_argument("--stock-config", type=Path, default=r2.DEFAULT_STOCK_CONFIG)
@@ -465,6 +503,7 @@ def main() -> int:
         work_tree=r2.resolve(root, args.work_tree),
         build_result=r2.resolve(root, args.build_result),
         baseline_symvers=r2.resolve(root, args.baseline_symvers),
+        baseline_abi=r2.resolve(root, args.baseline_abi),
         symvers_paths=(
             [r2.resolve(root, path) for path in args.symvers]
             if args.symvers

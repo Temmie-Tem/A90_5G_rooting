@@ -155,6 +155,19 @@ class S22PlusFyg8R4W1BuildTest(unittest.TestCase):
             self.assertTrue(runtime["restored"])
             self.assertTrue(runtime["patched_content_unchanged"])
 
+    def test_host_packaging_outputs_are_recorded_but_not_promoted(self):
+        with tempfile.TemporaryDirectory() as name:
+            root = Path(name)
+            dist = root / "out/msm-waipio-waipio-gki/dist"
+            dist.mkdir(parents=True)
+            for item in self.module.HOST_PACKAGING_OUTPUTS:
+                (dist / item).write_bytes(item.encode("ascii"))
+            result = self.module.collect_host_packaging_outputs(root)
+            self.assertTrue(result["generated"])
+            self.assertTrue(result["complete"])
+            self.assertFalse(result["promoted_as_live_candidate"])
+            self.assertFalse(result["flash_authorized"])
+
 
 if __name__ == "__main__":
     unittest.main()

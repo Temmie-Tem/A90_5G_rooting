@@ -212,6 +212,21 @@ class S22PlusFyg8KernelBuildTest(unittest.TestCase):
             with self.assertRaises(self.module.BuildError):
                 self.module.prepare_host_tool_overrides(work)
 
+    def test_effective_tool_manifest_records_resolved_hashes(self):
+        manifest = self.module.effective_tool_manifest(
+            {"PATH": self.module.os.environ["PATH"]}
+        )
+        self.assertEqual(
+            manifest["expected_count"], len(self.module.EFFECTIVE_TOOL_NAMES)
+        )
+        self.assertEqual(
+            {row["name"] for row in manifest["tools"]},
+            set(self.module.EFFECTIVE_TOOL_NAMES),
+        )
+        for row in manifest["tools"]:
+            if row["verified"]:
+                self.assertRegex(row["sha256"], r"^[0-9a-f]{64}$")
+
     def test_environment_does_not_inherit_compiler_poison(self):
         with mock.patch.dict(
             self.module.os.environ,

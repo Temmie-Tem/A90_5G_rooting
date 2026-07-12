@@ -81,6 +81,21 @@ class S22PlusFyg8R4W1StaticAuditTest(unittest.TestCase):
             self.assertFalse(result["verified"])
             self.assertEqual(result["added_count"], 1)
 
+    def test_abi_definition_requires_exact_bytes(self):
+        with tempfile.TemporaryDirectory() as name:
+            root = Path(name)
+            baseline = root / "baseline.xml"
+            candidate = root / "candidate.xml"
+            baseline.write_bytes(b"<abi/>")
+            candidate.write_bytes(b"<abi/>")
+            self.assertTrue(
+                self.module.compare_abi_definition(baseline, candidate)["verified"]
+            )
+            candidate.write_bytes(b"<abi changed='1'/>")
+            self.assertFalse(
+                self.module.compare_abi_definition(baseline, candidate)["verified"]
+            )
+
     def test_sec_log_buf_timing_requires_module_config_and_regular_ko(self):
         with tempfile.TemporaryDirectory() as name:
             root = Path(name)
