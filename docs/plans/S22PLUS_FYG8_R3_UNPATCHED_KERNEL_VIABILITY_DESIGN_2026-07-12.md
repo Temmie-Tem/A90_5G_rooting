@@ -5,9 +5,10 @@ Target: `SM-S906N/g0q/S906NKSS7FYG8`
 Scope: host-only design; no candidate build, package, device contact, or flash
 
 Status: carrier design corrected after exact-stock signer audit; corrected R1
-v3/R2 v2 re-close and local artifact retrieval passed on 2026-07-12. Static
-checker implementation, artifact construction, policy activation, and live
-work remain separate and unauthorized.
+v3/R2 v2 re-close, local artifact retrieval, static-checker implementation,
+independent source review, and exact-input audit passed on 2026-07-12. Artifact
+construction, policy activation, and live work remain separate and
+unauthorized.
 
 ## Decision
 
@@ -281,5 +282,7 @@ Before artifact implementation or live work:
 This document grants none of those later permissions.
 
 Steps 1 and 2 above are complete for the corrected R1 v3/R2 v2 evidence.
-Steps 3 through 6 remain mandatory and incomplete. The checker contract is now
-specified; no checker source or artifact was created by the correcting audit.
+Step 3 is complete. Checker source and input-audit evidence:
+`docs/reports/S22PLUS_FYG8_R3_STATIC_CHECKER_SOURCE_READY_2026-07-12.md`.
+Steps 4 through 6 remain mandatory and incomplete. No R3C0/R3C1 artifact was
+created by the checker unit.

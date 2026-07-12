@@ -4,9 +4,9 @@ Drive the A90 native-init project forward one **bounded V-iteration at a time** 
 the proven cycle below. This file says WHAT to pursue; **`AGENTS.md` says HOW — its
 safety invariants and flash gates are binding and override any sub-goal.**
 
-> **S22+ ACTIVE FRONTIER (2026-07-12 KST) - CLEAN R1 V3 FULL-LTO AND R2 V2
-> STATIC EQUIVALENCE RE-CLOSED; R3 CARRIER PREMISE CORRECTED; CHECKER SOURCE
-> NEXT; LANE W REMAINS DESIGN-ONLY; NO LIVE AUTHORIZATION.**
+> **S22+ ACTIVE FRONTIER (2026-07-12 KST) - CLEAN R1 V3 FULL-LTO, R2 V2, AND
+> R3 STATIC CHECKER CLOSED; R3C0 ARTIFACT CONSTRUCTION/REPRODUCTION NEXT BUT
+> UNAUTHORIZED; LANE W REMAINS DESIGN-ONLY; NO LIVE AUTHORIZATION.**
 > The Debian 13 FX-8300 host completed a separate clean Full-LTO build in
 > 33:47.58 with 24,252,508 KiB peak RSS and zero swaps. R1 v3 passed exact
 > source, output, module, provider, timestamp-restore, and 398-byte FYG8 banner
@@ -29,6 +29,17 @@ safety invariants and flash gates are binding and override any sub-goal.**
 > Artifact creation, policy, and live work still require separate review,
 > fresh narrow `AGENTS.md` exceptions, and explicit attended approval. Record:
 > `docs/reports/S22PLUS_FYG8_R3_CARRIER_AND_STATIC_CHECKER_AUDIT_2026-07-12.md`.
+> The host-only checker is now source-ready and independently reviewed. Its
+> exact `inputs` stage rehashed the full six-file FYG8 firmware evidence,
+> validated R1/R2, all 11 stock boot regions, stock AVB through a sealed memfd,
+> and both rollback AP MD5/tar/LZ4/raw-boot chains. It returned
+> `PASS_R3_INPUTS_READY`; 27 focused/related tests pass. Checker source SHA256
+> is `917b12f8...6a514`; final private `/tmp` audit JSON SHA256 is
+> `40ae3e81...d1199`. Record:
+> `docs/reports/S22PLUS_FYG8_R3_STATIC_CHECKER_SOURCE_READY_2026-07-12.md`.
+> No R3C0/R3C1 boot or AP was generated. Artifact construction and independent
+> reproduction remain a separate unauthorized unit; R3C1 remains blocked on a
+> future attended R3C0 PASS and rollback.
 > The ranked
 > pre-run hardening is now closed: baseline generation, R1, and R2 share one
 > LF/NUL-bounded exact-banner extractor; R1 consumes the pinned baseline; the
