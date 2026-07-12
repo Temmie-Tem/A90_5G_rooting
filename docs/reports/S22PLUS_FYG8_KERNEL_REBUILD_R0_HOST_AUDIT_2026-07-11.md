@@ -92,9 +92,10 @@ The wrapper pins:
   `-ab30958166` suffix;
 - `SOURCE_DATE_EPOCH=1754027756` and stock timestamp/user/host;
 - `GIT_CEILING_DIRECTORIES` above the isolated source tree;
-- an isolated host-tool override exposes only GNU `tar` and GNU `xargs`,
-  because the pinned Android Toybox applets lack the `--transform` and `-L`
-  options used by the pinned build scripts;
+- an isolated host-tool override exposes only GNU `tar`, GNU `xargs`, and GNU
+  `cp`, because the pinned Android Toybox applets lack the `--transform` and
+  `-L` options used by the pinned build scripts and cannot replace an existing
+  read-only dist host tool;
 - `ANDROID_KERNEL_OUT` stays below the generated `out/` tree and
   `ANDROID_PRODUCT_OUT` remains unset, so this kernel-only source kit does not
   enter the unavailable full-Android `bionic/system` export branch;

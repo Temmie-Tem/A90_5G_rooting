@@ -59,11 +59,14 @@ GNU_TAR_PATH = Path("/usr/bin/tar")
 EXPECTED_GNU_TAR_PREFIX = "tar (GNU tar)"
 GNU_XARGS_PATH = Path("/usr/bin/xargs")
 EXPECTED_GNU_XARGS_PREFIX = "xargs (GNU findutils)"
+GNU_CP_PATH = Path("/usr/bin/cp")
+EXPECTED_GNU_CP_PREFIX = "cp (GNU coreutils)"
 REQUIRED_HOST_TOOLS = (
     "git",
     "/usr/bin/time",
     str(GNU_TAR_PATH),
     str(GNU_XARGS_PATH),
+    str(GNU_CP_PATH),
 )
 HOST_ENV_ALLOWLIST = ("HOME", "USER", "LOGNAME", "TMPDIR", "TERM")
 PINNED_REPOS = {
@@ -202,6 +205,7 @@ def prepare_host_tool_overrides(work_tree: Path) -> dict[str, Any]:
     override_dir = work_tree.parent / "host-tool-overrides"
     override_dir.mkdir(parents=True, exist_ok=True)
     expected = {
+        "cp": (GNU_CP_PATH, EXPECTED_GNU_CP_PREFIX),
         "tar": (GNU_TAR_PATH, EXPECTED_GNU_TAR_PREFIX),
         "xargs": (GNU_XARGS_PATH, EXPECTED_GNU_XARGS_PREFIX),
     }

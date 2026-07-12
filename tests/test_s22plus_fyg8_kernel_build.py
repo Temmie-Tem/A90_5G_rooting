@@ -54,7 +54,12 @@ class S22PlusFyg8KernelBuildTest(unittest.TestCase):
             result = self.module.prepare_host_tool_overrides(work)
             override = work.parent / "host-tool-overrides"
             self.assertTrue(result["verified"])
-            self.assertEqual({path.name for path in override.iterdir()}, {"tar", "xargs"})
+            self.assertEqual(
+                {path.name for path in override.iterdir()}, {"cp", "tar", "xargs"}
+            )
+            self.assertEqual(
+                (override / "cp").resolve(), self.module.GNU_CP_PATH.resolve()
+            )
             self.assertEqual((override / "tar").resolve(), Path("/usr/bin/tar"))
             self.assertEqual((override / "xargs").resolve(), Path("/usr/bin/xargs"))
 
