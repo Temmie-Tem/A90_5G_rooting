@@ -10,8 +10,9 @@ import os
 import stat
 import subprocess
 import sys
+from contextlib import contextmanager
 from pathlib import Path
-from typing import Any
+from typing import Any, Iterator
 
 
 SCRIPT_DIR = Path(__file__).resolve().parent
@@ -24,6 +25,16 @@ SCHEMA = "s22plus_fyg8_r4w1_build_v1"
 TARGET = base.TARGET
 STOCK_IMAGE_SIZE = 41_490_944
 FIXED_KERNEL_SLOT_CAPACITY = 41_492_480
+BUILD_SH_PATH = Path("kernel_platform/build/build.sh")
+BUILD_SH_SHA256 = "4b633f5ff11920307e193019248d69e2243ba20b4b55483a6bd419910a383690"
+KMI_PATH_ORIGINAL = (
+    "              --set-str UNUSED_KSYMS_WHITELIST "
+    "${OUT_DIR}/abi_symbollist.raw\n"
+)
+KMI_PATH_REPRODUCIBLE = (
+    "              --set-str UNUSED_KSYMS_WHITELIST "
+    "../../out/msm-waipio-waipio-gki/gki_kernel/common/abi_symbollist.raw\n"
+)
 DEFAULT_RESULT_DIR = Path(
     "workspace/private/outputs/s22plus_fyg8_r4w1_build/build"
 )
@@ -31,6 +42,75 @@ DEFAULT_RESULT_DIR = Path(
 
 class BuildError(ValueError):
     pass
+
+
+def inspect_kmi_path_control(work_tree: Path) -> dict[str, Any]:
+    path = work_tree / BUILD_SH_PATH
+    if path.is_symlink() or not path.is_file():
+        return {"path": str(path), "verified": False, "reason": "missing-or-indirect"}
+    original = path.read_bytes()
+    try:
+        text = original.decode("utf-8")
+    except UnicodeDecodeError:
+        return {"path": str(path), "verified": False, "reason": "not-utf8"}
+    metadata = path.stat()
+    replaced = text.replace(KMI_PATH_ORIGINAL, KMI_PATH_REPRODUCIBLE, 1).encode()
+    result = {
+        "path": str(path),
+        "original_sha256": base.sha256_file(path),
+        "expected_original_sha256": BUILD_SH_SHA256,
+        "patched_sha256": __import__("hashlib").sha256(replaced).hexdigest(),
+        "original_mode": stat.S_IMODE(metadata.st_mode),
+        "original_atime_ns": metadata.st_atime_ns,
+        "original_mtime_ns": metadata.st_mtime_ns,
+        "match_count": text.count(KMI_PATH_ORIGINAL),
+        "reproducible_path": KMI_PATH_REPRODUCIBLE.strip(),
+        "parent_writable": os.access(path.parent, os.W_OK),
+    }
+    result["verified"] = (
+        result["original_sha256"] == BUILD_SH_SHA256
+        and result["match_count"] == 1
+        and replaced != original
+        and result["parent_writable"]
+    )
+    return result
+
+
+@contextmanager
+def apply_kmi_path_control(
+    work_tree: Path, control: dict[str, Any]
+) -> Iterator[dict[str, Any]]:
+    if not control.get("verified"):
+        raise BuildError("KMI path reproducibility control is not verified")
+    path = work_tree / BUILD_SH_PATH
+    original = path.read_bytes()
+    if base.sha256_file(path) != control["original_sha256"]:
+        raise BuildError("build.sh changed after KMI path preflight")
+    patched = original.decode("utf-8").replace(
+        KMI_PATH_ORIGINAL, KMI_PATH_REPRODUCIBLE, 1
+    ).encode("utf-8")
+    base.atomic_replace_bytes(path, patched, mode=control["original_mode"])
+    runtime = dict(control)
+    runtime.update({"applied": True, "restored": False})
+    try:
+        yield runtime
+    finally:
+        current_sha = base.sha256_file(path) if path.is_file() else None
+        base.atomic_replace_bytes(path, original, mode=control["original_mode"])
+        os.utime(
+            path,
+            ns=(control["original_atime_ns"], control["original_mtime_ns"]),
+            follow_symlinks=False,
+        )
+        runtime["patched_content_unchanged"] = current_sha == control["patched_sha256"]
+        runtime["restored_sha256"] = base.sha256_file(path)
+        runtime["restored_mode"] = stat.S_IMODE(path.stat().st_mode)
+        runtime["restored"] = (
+            runtime["restored_sha256"] == control["original_sha256"]
+            and runtime["restored_mode"] == control["original_mode"]
+        )
+        if not runtime["patched_content_unchanged"] or not runtime["restored"]:
+            raise BuildError("KMI path control was not cleanly restored")
 
 
 def witness_output_gate(work_tree: Path) -> dict[str, Any]:
@@ -45,12 +125,17 @@ def witness_output_gate(work_tree: Path) -> dict[str, Any]:
     image_data = image.read_bytes()
     vmlinux_data = vmlinux.read_bytes()
     config_text = config.read_text(encoding="utf-8")
+    aligned_image_size = (len(image_data) + 4095) & ~4095
     result = {
         "image_size": len(image_data),
+        "aligned_image_size": aligned_image_size,
         "stock_image_size": STOCK_IMAGE_SIZE,
         "fixed_kernel_slot_capacity": FIXED_KERNEL_SLOT_CAPACITY,
         "pre_ramdisk_slack_remaining": FIXED_KERNEL_SLOT_CAPACITY - len(image_data),
         "fits_fixed_ramdisk_layout": len(image_data) <= FIXED_KERNEL_SLOT_CAPACITY,
+        "preserves_fixed_ramdisk_start": (
+            aligned_image_size == FIXED_KERNEL_SLOT_CAPACITY
+        ),
         "image_marker_count": image_data.count(marker),
         "vmlinux_marker_count": vmlinux_data.count(marker),
         "config_enable_count": config_text.splitlines().count(
@@ -60,6 +145,7 @@ def witness_output_gate(work_tree: Path) -> dict[str, Any]:
     }
     result["verified"] = (
         result["fits_fixed_ramdisk_layout"]
+        and result["preserves_fixed_ramdisk_start"]
         and result["image_marker_count"] == 1
         and result["vmlinux_marker_count"] == 1
         and result["config_enable_count"] == 1
@@ -142,6 +228,7 @@ def main() -> int:
         base.resolve(root, args.overlay_audit),
     )
     timestamp = base.inspect_timestamp_control(work_tree)
+    kmi_path_control = inspect_kmi_path_control(work_tree)
     stock = base.inspect_stock_baseline(base.resolve(root, args.stock_baseline))
     r4_contract = patch_check.run_check(work_tree, source_patch)
     preflight = base.preflight(
@@ -155,6 +242,10 @@ def main() -> int:
         timestamp_control=timestamp,
         stock_baseline=stock,
     )
+    preflight["build_allowed"] = (
+        preflight["build_allowed"] and kmi_path_control["verified"]
+    )
+    preflight["provenance"]["kmi_path_control"] = kmi_path_control
     result: dict[str, Any] = {
         **preflight,
         "schema": SCHEMA,
@@ -186,19 +277,22 @@ def main() -> int:
     )
     command = ["./kernel_platform/build/android/prepare_vendor.sh", "sec", "gki"]
     time_file = result_dir / "time.txt"
-    with base.apply_timestamp_control(work_tree, timestamp) as timestamp_runtime:
-        with (result_dir / "stdout.log").open("w", encoding="utf-8") as stdout_log, (
-            result_dir / "stderr.log"
-        ).open("w", encoding="utf-8") as stderr_log:
-            completed = subprocess.run(
-                ["/usr/bin/time", "-v", "-o", str(time_file), *command],
-                cwd=work_tree,
-                env=environment,
-                text=True,
-                stdout=stdout_log,
-                stderr=stderr_log,
-                check=False,
-            )
+    with apply_kmi_path_control(work_tree, kmi_path_control) as kmi_path_runtime:
+        with base.apply_timestamp_control(work_tree, timestamp) as timestamp_runtime:
+            with (result_dir / "stdout.log").open(
+                "w", encoding="utf-8"
+            ) as stdout_log, (result_dir / "stderr.log").open(
+                "w", encoding="utf-8"
+            ) as stderr_log:
+                completed = subprocess.run(
+                    ["/usr/bin/time", "-v", "-o", str(time_file), *command],
+                    cwd=work_tree,
+                    env=environment,
+                    text=True,
+                    stdout=stdout_log,
+                    stderr=stderr_log,
+                    check=False,
+                )
     providers = (
         base.run_provider_module_closure(
             work_tree, environment, result_dir, jobs=args.jobs
@@ -241,6 +335,7 @@ def main() -> int:
             "kernel_banner_gate": banner_gate,
             "witness_output_gate": witness_gate,
             "timestamp_control_runtime": timestamp_runtime,
+            "kmi_path_control_runtime": kmi_path_runtime,
             "provider_module_closure": providers,
             "symvers_files": base.collect_symvers(work_tree),
             "incremental_dist_refresh": incremental,

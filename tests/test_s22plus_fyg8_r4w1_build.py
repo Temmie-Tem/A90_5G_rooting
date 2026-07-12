@@ -3,6 +3,7 @@ import sys
 import tempfile
 import unittest
 from pathlib import Path
+from unittest import mock
 
 
 ROOT = Path(__file__).resolve().parents[1]
@@ -45,28 +46,60 @@ class S22PlusFyg8R4W1BuildTest(unittest.TestCase):
     def test_witness_gate_accepts_exact_marker_and_config(self):
         temporary, root = self.make_outputs()
         self.addCleanup(temporary.cleanup)
-        result = self.module.witness_output_gate(root)
+        with mock.patch.object(self.module, "FIXED_KERNEL_SLOT_CAPACITY", 4096):
+            result = self.module.witness_output_gate(root)
         self.assertTrue(result["verified"])
         self.assertEqual(result["image_marker_count"], 1)
+        self.assertTrue(result["preserves_fixed_ramdisk_start"])
 
     def test_witness_gate_rejects_duplicate_marker(self):
         temporary, root = self.make_outputs(marker_count=2)
         self.addCleanup(temporary.cleanup)
-        self.assertFalse(self.module.witness_output_gate(root)["verified"])
+        with mock.patch.object(self.module, "FIXED_KERNEL_SLOT_CAPACITY", 4096):
+            self.assertFalse(self.module.witness_output_gate(root)["verified"])
 
     def test_witness_gate_rejects_missing_config(self):
         temporary, root = self.make_outputs(config_count=0)
         self.addCleanup(temporary.cleanup)
-        self.assertFalse(self.module.witness_output_gate(root)["verified"])
+        with mock.patch.object(self.module, "FIXED_KERNEL_SLOT_CAPACITY", 4096):
+            self.assertFalse(self.module.witness_output_gate(root)["verified"])
 
     def test_witness_gate_rejects_layout_overflow(self):
-        temporary, root = self.make_outputs(
-            image_size=self.module.FIXED_KERNEL_SLOT_CAPACITY + 1
-        )
+        temporary, root = self.make_outputs(image_size=4097)
         self.addCleanup(temporary.cleanup)
-        result = self.module.witness_output_gate(root)
+        with mock.patch.object(self.module, "FIXED_KERNEL_SLOT_CAPACITY", 4096):
+            result = self.module.witness_output_gate(root)
         self.assertFalse(result["verified"])
         self.assertFalse(result["fits_fixed_ramdisk_layout"])
+
+    def test_witness_gate_rejects_smaller_alignment_bucket(self):
+        temporary, root = self.make_outputs(image_size=4096)
+        self.addCleanup(temporary.cleanup)
+        with mock.patch.object(self.module, "FIXED_KERNEL_SLOT_CAPACITY", 8192):
+            result = self.module.witness_output_gate(root)
+        self.assertFalse(result["verified"])
+        self.assertFalse(result["preserves_fixed_ramdisk_start"])
+
+    def test_kmi_path_control_is_exact_and_restored(self):
+        with tempfile.TemporaryDirectory() as name:
+            root = Path(name)
+            path = root / self.module.BUILD_SH_PATH
+            path.parent.mkdir(parents=True)
+            content = (
+                "prefix\n" + self.module.KMI_PATH_ORIGINAL + "suffix\n"
+            ).encode("ascii")
+            path.write_bytes(content)
+            expected_sha256 = self.module.base.sha256_file(path)
+            with mock.patch.object(self.module, "BUILD_SH_SHA256", expected_sha256):
+                control = self.module.inspect_kmi_path_control(root)
+                self.assertTrue(control["verified"])
+                with self.module.apply_kmi_path_control(root, control) as runtime:
+                    self.assertIn(
+                        self.module.KMI_PATH_REPRODUCIBLE,
+                        path.read_text(encoding="ascii"),
+                    )
+            self.assertEqual(path.read_bytes(), content)
+            self.assertTrue(runtime["restored"])
 
 
 if __name__ == "__main__":

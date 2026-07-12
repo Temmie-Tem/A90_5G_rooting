@@ -248,6 +248,30 @@ def extract_node(text: str, name: str) -> str:
     return match.group(1)
 
 
+def validate_dt_nodes(carveout: str, log_buf: str) -> str:
+    requirements = (
+        ('compatible = "samsung,carve-out";', carveout),
+        ('reg = <0x08 0x1ff000 0x00 0x901000>;', carveout),
+        ('compatible = "samsung,kernel_log_buf";', log_buf),
+        ('status = "okay";', log_buf),
+        ("sec,use-partial_reserved_mem;", log_buf),
+        ('reg = <0x08 0x200000 0x00 0x200000>;', log_buf),
+        ("sec,strategy = <0x03>;", log_buf),
+    )
+    missing = [token for token, body in requirements if token not in body]
+    if missing:
+        raise CheckError(f"DT node tokens missing: {missing}")
+    if "no-map;" in carveout:
+        raise CheckError("sec_log_buf carveout unexpectedly has no-map")
+    phandle_match = re.search(r"\bphandle = <(0x[0-9a-f]+)>;", carveout)
+    if not phandle_match:
+        raise CheckError("sec_log_buf carveout has no exact phandle")
+    phandle = phandle_match.group(1)
+    if f"memory-region = <{phandle}>;" not in log_buf:
+        raise CheckError("sec_log_buf memory-region does not reference its carveout")
+    return phandle
+
+
 def check_dt_contract(source: Path) -> dict[str, Any]:
     directory = (
         source
@@ -262,19 +286,16 @@ def check_dt_contract(source: Path) -> dict[str, Any]:
         text = path.read_text(encoding="utf-8")
         carveout = extract_node(text, "sec_debug_region_log@8001FF000")
         log_buf = extract_node(text, "samsung,kernel_log_buf")
-        requirements = (
-            ('compatible = "samsung,carve-out";', carveout),
-            ('reg = <0x08 0x1ff000 0x00 0x901000>;', carveout),
-            ('compatible = "samsung,kernel_log_buf";', log_buf),
-            ('status = "okay";', log_buf),
-            ("sec,use-partial_reserved_mem;", log_buf),
-            ('reg = <0x08 0x200000 0x00 0x200000>;', log_buf),
-            ("sec,strategy = <0x03>;", log_buf),
+        phandle = validate_dt_nodes(carveout, log_buf)
+        rows.append(
+            {
+                "revision": revision,
+                "path": str(path),
+                "memory_region_phandle": phandle,
+                "direct_mapped": True,
+                "verified": True,
+            }
         )
-        missing = [token for token, body in requirements if token not in body]
-        if missing:
-            raise CheckError(f"DT contract mismatch {revision}: {missing}")
-        rows.append({"revision": revision, "path": str(path), "verified": True})
     return {
         "base": f"0x{LOG_BASE:x}",
         "size": LOG_SIZE,

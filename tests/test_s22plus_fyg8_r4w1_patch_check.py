@@ -68,6 +68,23 @@ class S22PlusFyg8R4W1PatchCheckTest(unittest.TestCase):
         self.assertTrue(result["verified"])
         self.assertEqual(result["missing"], {})
 
+    def test_dt_node_contract_rejects_no_map_and_wrong_phandle(self):
+        carveout = (
+            '\ncompatible = "samsung,carve-out";\n'
+            'reg = <0x08 0x1ff000 0x00 0x901000>;\n'
+            'phandle = <0x9f>;\n'
+        )
+        log_buf = (
+            '\ncompatible = "samsung,kernel_log_buf";\nstatus = "okay";\n'
+            'memory-region = <0x9f>;\nsec,use-partial_reserved_mem;\n'
+            'reg = <0x08 0x200000 0x00 0x200000>;\nsec,strategy = <0x03>;\n'
+        )
+        self.assertEqual(self.module.validate_dt_nodes(carveout, log_buf), "0x9f")
+        with self.assertRaisesRegex(self.module.CheckError, "no-map"):
+            self.module.validate_dt_nodes(carveout + "no-map;\n", log_buf)
+        with self.assertRaisesRegex(self.module.CheckError, "does not reference"):
+            self.module.validate_dt_nodes(carveout, log_buf.replace("0x9f", "0xa0"))
+
     def test_marker_is_build_bound_and_ascii(self):
         encoded = self.module.MARKER.encode("ascii")
         self.assertIn(self.module.MARKER_ID.encode("ascii"), encoded)
