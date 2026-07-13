@@ -13,6 +13,14 @@
 3. 필요한 하드웨어/커널 경로만 역추적
 4. BusyBox/network/SSH 같은 서버형 확장 가능성 검토
 
+## Claude review usage ledger
+
+Claude Opus 검토의 세션, 호출 전후 사용률, 리셋 시각, 컨텍스트 여유량,
+직접 측정된 토큰/비용/시간은
+`operations/CLAUDE_USAGE_AND_REVIEW_LEDGER.md`에서 통합 관리합니다. 기술적
+판정과 근거는 각 작업 보고서에 남기고, 이 원장에는 사용량과 연결 정보만
+요약합니다.
+
 ## S22+ FYG8 kernel rebuild frontier
 
 S22+ `SM-S906N/g0q/S906NKSS7FYG8` 커널 재현과 첫 부트 대조군의 현재
