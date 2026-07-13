@@ -4,6 +4,34 @@ Drive the A90 native-init project forward one **bounded V-iteration at a time** 
 the proven cycle below. This file says WHAT to pursue; **`AGENTS.md` says HOW — its
 safety invariants and flash gates are binding and override any sub-goal.**
 
+> **S22+ ACTIVE FRONTIER (2026-07-14 00:17 KST / 2026-07-13 15:17 UTC) -
+> R4W1-B DIRECT-PID1 EXEC-ACCEPTANCE HOST DESIGN PASS; M4T2 EXACT RAW-PARK
+> CARRIER SELECTED; SOURCE IMPLEMENTATION NEXT; NO LIVE AUTHORIZATION.**
+> R4W1-A proved the kernel-side post-`kernel_execve("/init")==0` retained
+> witness, V3428R proved one specific cross-session retention path, and M4T2 is
+> the selected least-novel carrier. V3428R is a feasibility prior only; future
+> R4W1-B PASS requires its own recovered marker. The selected `/init` is a
+> 544-byte static AArch64 ELF SHA256 `b8371e3a...83d12` whose complete entrypoint
+> is `wfe; b`; it has no interpreter or syscall. A durable current-host report
+> reproduces the exact live M4T2 raw boot `8103bce7...afd15` and AP
+> `66d7f24b...85b24`. The historical M4T2 live and Odin exceptions are now
+> explicitly RETIRED in `AGENTS.md`.
+>
+> Reopening the R4W1-A stock ramdisk was rejected: a no-change MagiskBoot repack
+> changed ramdisk size `1978967 -> 1653775`, header bytes, and raw boot hash.
+> R4W1-B instead builds a new Full-LTO witness Image with marker ID
+> `36dc5462adedcf136176f2ddcfee08a8`. Its exact `41,490,944` bytes replace only
+> M4T2 interval `[4096,41495040)`; the separate 1,536-byte alignment gap and all
+> other bytes remain unchanged. The checker must bind stock `vendor_boot`
+> `096e433e...80b7`, prove exactly one effective final-rootfs `/init`, preserve
+> intentionally stale AVB, verify FIPS/KMI/ABI and final-LTO call flow, and use
+> exact marker count `>=1` for acceptance while reporting resets separately.
+> Marker PASS proves only exact custom `/init` acceptance as PID 1; first EL0
+> instruction/syscall remains R4W2. Next is host-only source/checker/two-clean-
+> build implementation. There is no candidate, helper, policy exception, device
+> action, or flash authorization. Design:
+> `docs/plans/S22PLUS_FYG8_R4W1B_DIRECT_PID1_EXEC_ACCEPTANCE_DESIGN_2026-07-13.md`.
+
 > **S22+ ACTIVE FRONTIER (2026-07-13 23:24 KST / 2026-07-13 14:24 UTC) -
 > R4W1-A A12 STREAM-CANDIDATE LIVE PASS; EXACT RETAINED PID1 WITNESS PROVED;
 > MAGISK ROLLBACK COMPLETE; POLICY RETIRED.** The exact reviewed helper consumed

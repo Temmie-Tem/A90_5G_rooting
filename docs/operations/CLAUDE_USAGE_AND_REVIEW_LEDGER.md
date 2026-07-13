@@ -1,6 +1,6 @@
 # Claude Usage And Review Ledger
 
-Last updated: 2026-07-13 20:43 KST
+Last updated: 2026-07-14 00:19 KST
 
 ## Purpose
 
@@ -43,6 +43,7 @@ quota, token, time, or cost value is reconstructed from later observations.
 | 2026-07-13 18:30 | `290dc782-0f91-41bf-b876-b7aedb9e0903` | Claude Opus, high effort | Resumed R4W1/R4W1A review context; account usage and context inspection only for this entry | snapshot `75%` | all models `77%`; Fable `2%` | session `2026-07-13 22:30 KST`; weekly all models `2026-07-14 05:00 KST`; Fable `2026-07-14 04:59 KST` | `/usage` and `/context` were inspected without a new technical review. The conversation was cleanly exited and remains resumable by UUID. |
 | 2026-07-13 20:02-20:19 | `290dc782-0f91-41bf-b876-b7aedb9e0903` | Claude Opus 4.8, high effort | Independent HOST-ONLY READ-ONLY adversarial review of R4W1A A5 commit `c889e14f` | `75% -> 85%` | all models `77% -> 79%` | session `2026-07-13 22:30 KST`; weekly all models `2026-07-14 05:00 KST` | `GO_TO_SEPARATE_POLICY_ACTIVATION_REVIEW`; no blocking finding, four LOW observations, 57 focused tests passed. Direct CLI metrics: `$4.76`, API `9m 15s`, wall `16m 55s`, `32.2k` output tokens. See [A5 adversarial review](../reports/S22PLUS_FYG8_R4W1A_A5_STREAM_CANDIDATE_ADVERSARIAL_REVIEW_2026-07-13.md). |
 | 2026-07-13 20:30-20:41 | `290dc782-0f91-41bf-b876-b7aedb9e0903` | Claude Opus 4.8, high effort | Independent HOST-ONLY READ-ONLY activation review attempt for R4W1A A6 commit `f9e49404` | approximately `93% -> 101%` | all models `79% -> 80%` | session `2026-07-13 22:30 KST`; weekly all models `2026-07-14 05:00 KST` | No formal verdict: repeated CLI command-classifier denials preceded session-limit exhaustion. LOW-1 and A6 report consistency were confirmed, but this is not binding approval. Cumulative CLI-counter delta from the immediately preceding snapshot: approximately `$2.93`, API `99 s`, wall `664 s`, `6.2k` output, `1.9m` cache read, and `182.5k` cache write. Codex independently found and fixed one activation-cycle blocker; see [A7 checkpoint](../reports/S22PLUS_FYG8_R4W1A_A7_ACTIVATION_CYCLE_CLOSED_REVIEW_PENDING_2026-07-13.md). |
+| 2026-07-14 00:09-00:19 | `89567438-0885-4f08-b462-f48d50eb8d2e` | Claude Opus 4.8, high effort, read-only tools | Independent adversarial review of the R4W1-B direct-PID1 exec-acceptance host design | `0% -> 32%` | all models `79% -> 83%` | session and weekly `2026-07-14 05:00 KST` | `GO_WITH_MUST_FIX`. It confirmed the exec-acceptance leg and fail-closed null, then found the unproved forced-from-park retention leg, 1,536-byte geometry conflict, unspecified Android header/kernel-size reconciliation, non-anchored marker-family risk, missing inside-Image equality, and missing exact DTBO restatement. All hard findings were incorporated into the revised [R4W1-B design](../plans/S22PLUS_FYG8_R4W1B_DIRECT_PID1_EXEC_ACCEPTANCE_DESIGN_2026-07-13.md). No device action or repository edit was performed by Claude. Direct token/cost/API-time metrics were not reported. Post-review context: `898.2k` free (`89.8%`), `53.4k` messages (`5.3%`), `32.4k` memory (`3.2%`). |
 
 ## Current Context Snapshot
 
@@ -75,6 +76,7 @@ enough for a model-wide cost forecast:
 | R3C1 live-gate review | approximately `+16` points | no token/cost/time record |
 | R4W1A A5 adversarial review | approximately `+10` session points; `+2` weekly points | `$4.76`; API `555 s`; wall `1,015 s`; `32.2k` output, `4.6m` cache read, `163.6k` cache write |
 | R4W1A A6 activation-review attempt | approximately `+8` session points; `+1` weekly point | no verdict; approximate direct counter delta: `$2.93`; API `99 s`; wall `664 s`; `6.2k` output, `1.9m` cache read, `182.5k` cache write |
+| R4W1-B host-design adversarial review | approximately `+32` session points; `+4` weekly points | `GO_WITH_MUST_FIX`; direct token/cost/API-time metrics not reported; post-review context `898.2k` free (`89.8%`) |
 
 These deltas are not directly comparable: prompt size, attached evidence,
 output length, compaction state, and concurrent account activity were not held
