@@ -190,6 +190,39 @@ class S22PlusFyg8R4W1ALiveGateTest(unittest.TestCase):
             self.assertTrue(result["success"])
             self.assertTrue(result["cleanup_verified"])
             self.assertEqual(result["parser"]["marker"]["classification"], "MARKER_FAMILY_ABSENT")
+            self.assertTrue(result["parser_stream_identity_match"])
+            cleanup.assert_called_once()
+
+    def test_oracle_capture_rejects_parser_input_not_bound_to_stream(self):
+        with tempfile.TemporaryDirectory() as temporary:
+            run_dir = Path(temporary)
+            state, fake_stream, fake_inventory = self._capture_fakes(
+                self.module, "absent", parser_marker=b"ordinary retained log"
+            )
+
+            def fake_swapped_stream(*args):
+                stream = fake_stream(*args)
+                stream["sha256"] = "f" * 64
+                state["sha"] = stream["sha256"]
+                return stream
+
+            with mock.patch.object(
+                self.module, "stream_bugreport", side_effect=fake_swapped_stream
+            ), mock.patch.object(
+                self.module, "remote_inventory", side_effect=fake_inventory
+            ), mock.patch.object(
+                self.module, "remote_file_sha256", side_effect=lambda *_: state["sha"]
+            ), mock.patch.object(
+                self.module, "cleanup_exact_remote_file"
+            ) as cleanup:
+                result = self.module.capture_oracle(
+                    "serial", run_dir, expectation="absent", timeout=10
+                )
+            self.assertFalse(result["success"])
+            self.assertFalse(result["parser_stream_identity_match"])
+            self.assertTrue(
+                any("parsed host ZIP identity" in item for item in result["errors"])
+            )
             cleanup.assert_called_once()
 
     def test_oracle_parser_failure_still_executes_exact_cleanup(self):
@@ -389,6 +422,7 @@ class S22PlusFyg8R4W1ALiveGateTest(unittest.TestCase):
                 "capture": {
                     "success": True,
                     "cleanup_verified": True,
+                    "parser_stream_identity_match": True,
                     "parser": {
                         "marker": {"classification": "MARKER_FAMILY_ABSENT"}
                     },

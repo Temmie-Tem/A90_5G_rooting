@@ -88,7 +88,7 @@ EXPECTED_BUILDER_TEST_SHA256 = (
     "bb0613a0546078d5c61cfb48957153772d0fd8e16ffd5fd5282ca987df4712f4"
 )
 EXPECTED_LIVE_TEST_SHA256 = (
-    "c6b650024db29ad97919e3896d19693efca365bb05f5da27031518e2e73e78dd"
+    "386fca45a81e723cec6ab23abe26821d98b7724bba2e10a48d8aa176ab65721e"
 )
 EXPECTED_COMMON_SHA256 = (
     "f10a30735882bbd59453471fe901b1cef11fdf42bcf3560a8ae61b4af361c4f4"
@@ -138,7 +138,7 @@ CONSUMED_STATE = Path(
     "workspace/private/state/s22plus_fyg8_r4w1a_live_exception_consumed.json"
 )
 CONNECTED_PASS_STATE = Path(
-    "workspace/private/state/s22plus_fyg8_r4w1a_connected_dry_run_pass.json"
+    "workspace/private/state/s22plus_fyg8_r4w1a_connected_dry_run_pass_v2.json"
 )
 ORACLE_CONSUMED_STATE = Path(
     "workspace/private/state/s22plus_fyg8_r4w1a_oracle_dry_run_consumed.json"
@@ -388,7 +388,7 @@ def validate_pass_record(root: Path, kind: str) -> str:
     contracts = {
         "connected": (
             CONNECTED_PASS_STATE,
-            "s22plus_fyg8_r4w1a_connected_pass_v1",
+            "s22plus_fyg8_r4w1a_connected_pass_v2",
             "connected-dry-run",
             "PASS_R4W1A_CONNECTED_IDENTITY_DRY_RUN_READ_ONLY",
         ),
@@ -441,6 +441,7 @@ def validate_pass_record(root: Path, kind: str) -> str:
         if (
             capture.get("success") is not True
             or capture.get("cleanup_verified") is not True
+            or capture.get("parser_stream_identity_match") is not True
             or capture.get("parser", {}).get("marker", {}).get("classification")
             != "MARKER_FAMILY_ABSENT"
         ):
@@ -466,7 +467,7 @@ def validate_pass_record(root: Path, kind: str) -> str:
 
 def create_pass_record(root: Path, kind: str, result_path: Path, verdict: str) -> str:
     contracts = {
-        "connected": (CONNECTED_PASS_STATE, "s22plus_fyg8_r4w1a_connected_pass_v1"),
+        "connected": (CONNECTED_PASS_STATE, "s22plus_fyg8_r4w1a_connected_pass_v2"),
         "oracle": (ORACLE_PASS_STATE, "s22plus_fyg8_r4w1a_oracle_pass_v1"),
     }
     if kind not in contracts:
@@ -986,6 +987,7 @@ def capture_oracle(
         "inventory_delta": None,
         "remote_created_file": None,
         "parser": None,
+        "parser_stream_identity_match": False,
         "cleanup_attempted": False,
         "cleanup_verified": False,
         "success": False,
@@ -1028,6 +1030,15 @@ def capture_oracle(
             if host_zip.is_file() and result["stream"] is not None:
                 try:
                     result["parser"] = oracle.parse_bugreport(host_zip, expectation)
+                    parser_input = result["parser"].get("input", {})
+                    result["parser_stream_identity_match"] = (
+                        parser_input.get("sha256") == result["stream"]["sha256"]
+                        and parser_input.get("size") == result["stream"]["bytes"]
+                    )
+                    if not result["parser_stream_identity_match"]:
+                        result["errors"].append(
+                            "parsed host ZIP identity does not match streamed bytes"
+                        )
                 except (oracle.OracleError, OSError) as exc:
                     result["errors"].append(f"oracle parser failed: {exc}")
             if remote_matches_stream:
@@ -1052,6 +1063,7 @@ def capture_oracle(
         not result["errors"]
         and result["stream"] is not None
         and result["parser"] is not None
+        and result["parser_stream_identity_match"] is True
         and result["cleanup_verified"] is True
     )
     common.durable_write_json(run_dir / "oracle_capture.json", result)
