@@ -4,6 +4,26 @@ Drive the A90 native-init project forward one **bounded V-iteration at a time** 
 the proven cycle below. This file says WHAT to pursue; **`AGENTS.md` says HOW — its
 safety invariants and flash gates are binding and override any sub-goal.**
 
+> **S22+ ACTIVE FRONTIER (2026-07-13 21:23 KST / 2026-07-13 12:23 UTC) -
+> R4W1-A A9 DELTA-REVIEW FINDINGS CLOSED HOST-ONLY; POLICY STILL
+> DRAFT_INACTIVE; FINAL DELTA VERDICT NEXT.** Both A8 delta reviewers confirmed
+> the original MUST-FIX set closed and found three further boundary defects.
+> The helper now fully validates any state left by a consumption-create error
+> before recovery, normalizes inherited ambiguous-Odin `SystemExit` into
+> `GateError` at both waits, completes the post-consumption recovery timeline,
+> and rejects requested run directories outside `workspace/private/runs`
+> before connected preflight.
+>
+> Revised helper SHA256 is `9f3055e3...e3d7d7`, focused-test SHA256 is
+> `402382d8...d72b3`, and inactive draft SHA256 is `a4d72aaa...5960c`.
+> Focused tests pass `26/26`; R4W1-pattern tests pass `107/107`; builder tests
+> pass `8/8`; combined suite passes `115/115`. `py_compile` and
+> `git diff --check` pass. `AGENTS.md` remains unchanged, the ACTIVE sentinel
+> remains absent, and no live action is authorized. Next is one final
+> read-only delta review of the exact A9 checkpoint before any separate
+> binding-policy commit. Report:
+> `docs/reports/S22PLUS_FYG8_R4W1A_A9_DELTA_REVIEW_FINDINGS_CLOSED_2026-07-13.md`.
+
 > **S22+ ACTIVE FRONTIER (2026-07-13 21:12 KST / 2026-07-13 12:12 UTC) -
 > R4W1-A A8 ADVERSARIAL MUST-FIX SET CLOSED HOST-ONLY; POLICY STILL
 > DRAFT_INACTIVE; TWO-REVIEWER DELTA VERDICT NEXT.** Two independent read-only
@@ -17,7 +37,8 @@ safety invariants and flash gates are binding and override any sub-goal.**
 >
 > Revised helper SHA256 is `1cdd18ad...e9ad5`, focused-test SHA256 is
 > `e07447e5...54d0`, and inactive draft SHA256 is `13110c68...9a42e`.
-> Focused tests pass `22/22`; complete R4W1-family tests pass `111/111`;
+> Focused tests pass `22/22`; R4W1-pattern tests pass `103/103`; builder tests
+> pass `8/8`; combined bounded suite passes `111/111`;
 > `py_compile`, `git diff --check`, and the full offline artifact gate pass.
 > Offline state remains `policy.active=false`, `candidate_consumed=false`,
 > `device_contact=false`, `device_write=false`, and `flash=false`. `ruff` is

@@ -70,7 +70,9 @@ remain unchanged.
 ## Validation
 
 - focused successor tests: `22/22 PASS`;
-- complete R4W1-family tests: `111/111 PASS`;
+- R4W1-pattern tests: `103/103 PASS`;
+- candidate-builder tests: `8/8 PASS`;
+- combined bounded suite: `111/111 PASS`;
 - Python compile check: PASS;
 - `git diff --check`: PASS;
 - offline gate: `PASS_R4W1A_STREAM_CANDIDATE_OFFLINE_CHECK`;

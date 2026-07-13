@@ -489,6 +489,23 @@ class S22PlusFyg8R4W1AStreamCandidateLiveGateTest(unittest.TestCase):
             with self.subTest(argv=argv), self.assertRaises(self.module.GateError):
                 self.module.validate_runtime_args(parser.parse_args(argv))
 
+    def test_wait_for_one_odin_normalizes_ambiguous_system_exit(self):
+        with mock.patch.object(
+            self.module.common,
+            "wait_for_odin",
+            side_effect=SystemExit("refusing ambiguous Odin devices"),
+        ), self.assertRaisesRegex(self.module.GateError, "ambiguous Odin"):
+            self.module.wait_for_one_odin(Path("odin4"), Path("live.log"), "test", 1)
+
+    def test_requested_run_directory_must_stay_under_private_run_root(self):
+        with tempfile.TemporaryDirectory() as temporary:
+            root = Path(temporary) / "repo"
+            root.mkdir()
+            outside = root.parent / "outside-run"
+            with self.assertRaisesRegex(self.module.GateError, "outside run root"):
+                self.module.allocate_run_dir(root, "live", outside)
+            self.assertFalse(outside.exists())
+
     def test_preconsumption_failure_finishes_canonical_timeline(self):
         with tempfile.TemporaryDirectory() as temporary:
             root = Path(temporary)
@@ -573,6 +590,120 @@ class S22PlusFyg8R4W1AStreamCandidateLiveGateTest(unittest.TestCase):
             list(self.module.TIMELINE_NAMES),
         )
 
+    def test_malformed_state_after_consumption_error_stops_without_any_flash(self):
+        with tempfile.TemporaryDirectory() as temporary:
+            root = Path(temporary)
+            run_dir = root / self.module.RUN_ROOT / "synthetic-live"
+            args = self._args(root)
+
+            def malformed_consumption(_root, _run_dir):
+                state_path = root / self.module.CONSUMED_STATE
+                state_path.parent.mkdir(parents=True, exist_ok=True)
+                state_path.write_text('{"schema":"malformed"}', encoding="utf-8")
+                raise OSError("synthetic consumption fsync failure")
+
+            with mock.patch.object(
+                self.module, "policy_active", return_value=True
+            ), mock.patch.object(
+                self.module, "helper_sha256", return_value="a" * 64
+            ), mock.patch.object(
+                self.module.historical,
+                "connected_preflight",
+                return_value=("SERIAL", {"baseline": True}),
+            ), mock.patch.object(
+                self.module.historical,
+                "pstore_console_absent",
+                return_value={"pstore": True},
+            ), mock.patch.object(
+                self.module.common,
+                "run",
+                return_value=SimpleNamespace(returncode=0),
+            ), mock.patch.object(
+                self.module, "wait_for_one_odin", return_value="ODIN"
+            ), mock.patch.object(
+                self.module,
+                "consume_exception",
+                side_effect=malformed_consumption,
+            ), mock.patch.object(
+                self.module.common, "flash_exact"
+            ) as candidate_flash, mock.patch.object(
+                self.module.common, "flash_rollback"
+            ) as rollback_flash:
+                rc = self.module.live_run(root, args, {})
+            timeline = json.loads(
+                (run_dir / "timeline.json").read_text(encoding="utf-8")
+            )
+            result = json.loads((run_dir / "result.json").read_text(encoding="utf-8"))
+        candidate_flash.assert_not_called()
+        rollback_flash.assert_not_called()
+        self.assertEqual(rc, 20)
+        self.assertEqual(
+            result["verdict"], "FAIL_R4W1A_CONSUMPTION_NO_CANDIDATE_FLASH"
+        )
+        self.assertEqual(
+            [event["name"] for event in timeline["events"]],
+            list(self.module.TIMELINE_NAMES),
+        )
+
+    def test_ambiguous_manual_odin_wait_after_consumption_finishes_timeline(self):
+        with tempfile.TemporaryDirectory() as temporary:
+            root = Path(temporary)
+            run_dir = root / self.module.RUN_ROOT / "synthetic-live"
+            args = self._args(root)
+            with mock.patch.object(
+                self.module, "policy_active", return_value=True
+            ), mock.patch.object(
+                self.module, "helper_sha256", return_value="a" * 64
+            ), mock.patch.object(
+                self.module.historical,
+                "connected_preflight",
+                return_value=("SERIAL", {"baseline": True}),
+            ), mock.patch.object(
+                self.module.historical,
+                "pstore_console_absent",
+                return_value={"pstore": True},
+            ), mock.patch.object(
+                self.module.common,
+                "run",
+                return_value=SimpleNamespace(returncode=0),
+            ), mock.patch.object(
+                self.module,
+                "wait_for_one_odin",
+                side_effect=["ODIN", self.module.GateError("ambiguous Odin")],
+            ), mock.patch.object(
+                self.module.common, "flash_exact"
+            ), mock.patch.object(
+                self.module.common, "wait_odin_absent", return_value=True
+            ), mock.patch.object(
+                self.module,
+                "candidate_observation",
+                return_value={
+                    "serial_present": False,
+                    "samples": [],
+                    "oracle_capture": None,
+                },
+            ), mock.patch.object(
+                self.module.common, "odin_devices", return_value=[]
+            ), mock.patch.object(
+                self.module.common, "request_download_if_android", return_value=False
+            ), mock.patch.object(
+                self.module.common, "flash_rollback"
+            ) as rollback_flash:
+                rc = self.module.live_run(root, args, {})
+            timeline = json.loads(
+                (run_dir / "timeline.json").read_text(encoding="utf-8")
+            )
+            result = json.loads((run_dir / "result.json").read_text(encoding="utf-8"))
+        rollback_flash.assert_not_called()
+        self.assertEqual(rc, 20)
+        self.assertEqual(
+            result["verdict"], "FAIL_R4W1A_ROLLBACK_NOT_VERIFIED_RECOVERY_REQUIRED"
+        )
+        self.assertEqual(
+            [event["name"] for event in timeline["events"]],
+            list(self.module.TIMELINE_NAMES),
+        )
+
     def test_recovery_target_failure_finishes_canonical_timeline(self):
         with tempfile.TemporaryDirectory() as temporary:
             root = Path(temporary)
@@ -617,6 +748,8 @@ class S22PlusFyg8R4W1AStreamCandidateLiveGateTest(unittest.TestCase):
             '"multiple Odin endpoints observed; no rollback flash started"',
             source,
         )
+        self.assertEqual(source.count("wait_for_one_odin("), 3)
+        self.assertEqual(source.count("common.wait_for_odin("), 1)
 
     def test_cli_exposes_no_second_baseline_oracle_mode(self):
         parser = self.module.build_parser()

@@ -342,7 +342,24 @@ def require_consumed_for_rollback(root: Path) -> dict[str, Any]:
 
 
 def allocate_run_dir(root: Path, mode: str, requested: Path | None) -> Path:
+    if requested is not None:
+        candidate = common.resolve(root, requested)
+        expected_root = (root / RUN_ROOT).resolve()
+        resolved_candidate = candidate.parent.resolve() / candidate.name
+        try:
+            resolved_candidate.relative_to(expected_root)
+        except ValueError as exc:
+            raise GateError("requested run directory is outside run root") from exc
     return historical.allocate_run_dir(root, f"stream_candidate_{mode}", requested)
+
+
+def wait_for_one_odin(
+    odin: Path, log_path: Path, label: str, wait_sec: int
+) -> str | None:
+    try:
+        return common.wait_for_odin(odin, log_path, label, wait_sec)
+    except SystemExit as exc:
+        raise GateError(str(exc)) from exc
 
 
 def capture_stream_oracle(
@@ -540,7 +557,7 @@ def live_run(root: Path, args: argparse.Namespace, artifacts: dict[str, Any]) ->
         reboot = common.run(["adb", "-s", serial, "reboot", "download"], timeout=20)
         if reboot.returncode != 0:
             raise GateError("Android failed to request Download mode")
-        device = common.wait_for_odin(
+        device = wait_for_one_odin(
             odin, log_path, "r4w1a-stream-candidate", args.download_wait_sec
         )
         if device is None:
@@ -569,14 +586,19 @@ def live_run(root: Path, args: argparse.Namespace, artifacts: dict[str, Any]) ->
     try:
         consume_exception(root, run_dir)
     except (GateError, OSError) as exc:
-        if not (root / CONSUMED_STATE).is_file():
+        state_error = None
+        try:
+            require_consumed_for_rollback(root)
+        except (GateError, OSError) as validation_exc:
+            state_error = str(validation_exc)
+        if state_error is not None:
             return finish_failed_run(
                 run_dir,
                 timeline_path,
                 timeline,
                 result,
                 verdict="FAIL_R4W1A_CONSUMPTION_NO_CANDIDATE_FLASH",
-                error=str(exc),
+                error=f"{exc}; consumed state validation failed: {state_error}",
                 semantics={
                     "candidate_flash_done": "consumption failed; no candidate flash occurred",
                     "candidate_boot_ready": "candidate Android not observed",
@@ -661,7 +683,7 @@ def live_run(root: Path, args: argparse.Namespace, artifacts: dict[str, Any]) ->
             flush=True,
         )
         try:
-            rollback_device = common.wait_for_odin(
+            rollback_device = wait_for_one_odin(
                 odin,
                 log_path,
                 "r4w1a-stream-mandatory-rollback",
