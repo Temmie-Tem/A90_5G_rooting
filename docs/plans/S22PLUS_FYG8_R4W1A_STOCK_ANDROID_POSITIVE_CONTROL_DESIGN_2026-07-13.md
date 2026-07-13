@@ -4,7 +4,7 @@ Date: 2026-07-13 KST
 
 Target: `SM-S906N/g0q/S906NKSS7FYG8`
 
-Verdict: `A0_HOST_ARTIFACT_PASS; A0_PRIMARY_ORACLE_SELECTED_HOST_ONLY; A1_IMPLEMENTATION_READY; A1_LIVE_BLOCKED; NO_LIVE_AUTHORIZATION`
+Verdict: `A0_HOST_ARTIFACT_PASS; A4_STREAM_BASELINE_QUALIFIED; A5_SUCCESSOR_SOURCE_READY_INACTIVE; NO_LIVE_AUTHORIZATION`
 
 This document began as a host-only design and did not itself create a boot
 image, AP, live helper, policy exception, consumed state, device session, or
@@ -442,7 +442,7 @@ witness source predicate. Seventy-two related R3/R4 tests pass.
 Result details and source/artifact pins are recorded in
 `docs/reports/S22PLUS_FYG8_R4W1A_A0_HOST_ARTIFACT_RESULT_2026-07-13.md`.
 
-## Next Unit
+## Historical A1 Path
 
 The host-only oracle-selection unit chose the immutable dumpstate path and the
 subsequent A1 implementation unit added the dedicated live helper, 19 focused
@@ -461,3 +461,32 @@ authorized by this document.
 
 Implementation record:
 `docs/reports/S22PLUS_FYG8_R4W1A_A1_HOST_HELPER_RESULT_2026-07-13.md`.
+
+The connected dry-run later passed, but the separately authorized v1 oracle
+dry-run failed closed because it incorrectly required one durable remote
+`/bugreports` file after `bugreportz -s`. That v1 helper and policy are now
+consumed and RETIRED. The paragraph above records the historical sequence and
+is not the current next unit.
+
+## A4/A5 Successor State
+
+A4 independently qualified the exact retained 14,461,892-byte host stream as a
+complete CRC-valid marker-absent baseline. It preserved the historical live
+FAIL, created no old oracle PASS, and established that a second device baseline
+capture is unnecessary.
+
+A5 implements a new inactive successor helper at
+`workspace/public/src/scripts/revalidation/s22plus_fyg8_r4w1a_stream_candidate_live_gate.py`.
+It pins and reruns A4, treats the host stream as the sole canonical artifact,
+requires exact before/after direct `/bugreports` inventory equality, contains
+no remote cleanup or old promotion path, requires exact positive marker
+cardinality, and retains one-shot boot-only candidate plus mandatory Magisk
+rollback handling. Its policy source remains `DRAFT_INACTIVE`; no binding
+ACTIVE sentinel exists and no live action is authorized.
+
+The next unit is an independent adversarial review of the A5 helper, tests,
+artifacts, and policy draft. Only a separate committed binding clause and fresh
+attended approval may make the first candidate run actionable. Reports:
+
+- `docs/reports/S22PLUS_FYG8_R4W1A_A4_STREAM_ORACLE_QUALIFICATION_2026-07-13.md`;
+- `docs/reports/S22PLUS_FYG8_R4W1A_A5_STREAM_CANDIDATE_SOURCE_READY_2026-07-13.md`.

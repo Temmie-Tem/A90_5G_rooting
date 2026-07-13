@@ -4,6 +4,39 @@ Drive the A90 native-init project forward one **bounded V-iteration at a time** 
 the proven cycle below. This file says WHAT to pursue; **`AGENTS.md` says HOW — its
 safety invariants and flash gates are binding and override any sub-goal.**
 
+> **S22+ ACTIVE FRONTIER (2026-07-13 19:44 KST / 2026-07-13 10:44 UTC) -
+> R4W1-A A5 STREAM-CANDIDATE SUCCESSOR SOURCE READY HOST-ONLY; POLICY DRAFT
+> INACTIVE; CANDIDATE STILL NO-GO.** Added new successor helper
+> `s22plus_fyg8_r4w1a_stream_candidate_live_gate.py` SHA256
+> `b89d7176...9f1489` and focused tests SHA256 `99db6888...bb509`. The
+> consumed v1 helper remains byte-exact and RETIRED; no old oracle PASS was
+> created or synthesized. The successor pins and reruns exact A4 result
+> `077885c4...6b12a`, then uses the host `bugreportz -s` ZIP as the sole
+> canonical artifact: before/after direct `/bugreports` inventory must be
+> exactly equal, remote cleanup is never attempted, parser size/SHA/same-fd
+> identity must match the stream, and exact candidate marker cardinality must
+> be one in both archive and complete `/proc/last_kmsg` section.
+>
+> The future candidate path retains exact boot-only AP transfer, exclusive
+> v2 one-shot consumption, stable candidate Android samples, baseline and
+> candidate pstore-console absence, mandatory exact Magisk rollback, stock
+> cleanup-only fallback, canonical eight-event timeline, and fail-closed
+> recovery states. Rollback-from-download additionally requires the exact v2
+> consumed record and current helper identity. Policy source SHA256 is
+> `e6bdb928...dd8c2`, state `DRAFT_INACTIVE`; binding `AGENTS.md` has no new
+> ACTIVE sentinel.
+>
+> Offline gate result SHA256 `7e2d1634...9fda` is
+> `PASS_R4W1A_STREAM_CANDIDATE_OFFLINE_CHECK` with A4/static PASS,
+> `policy.active=false`, `candidate_consumed=false`, `device_contact=false`,
+> and `flash=false`. Validation passed 15 focused tests, 96 R4W1-family tests,
+> eight candidate-builder tests, `py_compile`, and source safety scans. No
+> device contact, USB enumeration, ADB, Odin, reboot, Download transition,
+> consumed-state creation, or flash ran. Next is independent adversarial
+> review; only a separate binding ACTIVE clause commit plus fresh attended
+> approval may enable one live candidate run. Report:
+> `docs/reports/S22PLUS_FYG8_R4W1A_A5_STREAM_CANDIDATE_SOURCE_READY_2026-07-13.md`.
+
 > **S22+ ACTIVE FRONTIER (2026-07-13 19:20 KST / 2026-07-13 10:20 UTC) -
 > R4W1-A A4 STREAM-ONLY EVIDENCE QUALIFICATION PASS HOST-ONLY; SECOND BASELINE
 > LIVE RUN NOT REQUIRED; CANDIDATE CLAUSE DESIGN READY BUT STILL NO-GO.** New
