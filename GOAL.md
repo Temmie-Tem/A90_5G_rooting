@@ -4,6 +4,40 @@ Drive the A90 native-init project forward one **bounded V-iteration at a time** 
 the proven cycle below. This file says WHAT to pursue; **`AGENTS.md` says HOW — its
 safety invariants and flash gates are binding and override any sub-goal.**
 
+> **S22+ ACTIVE FRONTIER (2026-07-13 19:02 KST / 2026-07-13 10:02 UTC) -
+> R4W1-A ORACLE ONE-SHOT CONSUMED/RETIRED FAIL-CLOSED; STREAM ZIP AND LAST_KMSG
+> SHAPE PROVED HOST-ONLY; CANDIDATE REMAINS BLOCKED; NO RETRY.** Exact helper
+> SHA256 `d541397c...2d3d14` consumed the oracle exception at
+> `2026-07-13T09:57:55.901663Z`. The single `bugreportz -s` invocation returned
+> rc=0, empty stderr, and a complete 14,461,892-byte host stream SHA256
+> `0935e321...071b1`, while direct `/bugreports` inventories were both empty and
+> byte-identical. The helper therefore found no durable run-created remote file
+> to bind back to the stream, stopped before parsing or deletion, created no
+> promotion record, and returned
+> `FAIL_R4W1A_ORACLE_DRY_RUN_CLEANUP_OR_SHAPE`. Result SHA256 is
+> `3d0e470d...2af4`; consumed-state SHA256 is `61b613c8...da77`.
+>
+> The failure is a contract error, not a bad ZIP or device-health failure. A
+> separate host-only forensic parse of the exact captured stream returned
+> `PASS_R4W1A_BUGREPORT_ORACLE_PARSED_HOST_ONLY`: all 315 entries passed CRC,
+> `main_entry.txt` selected 91,074,058-byte `dumpstate.txt`, the exact
+> `LAST KMSG (/proc/last_kmsg)` section was complete at 2,097,136 bytes, and
+> marker-family counts were zero. Parser result SHA256 is
+> `ff5a229a...a1f`. Baseline and final Android remained exact FYG8/Magisk root
+> with unchanged boot/DTBO/recovery and no Odin endpoint. Reboot, Download,
+> Odin, candidate/rollback flash, and partition writes were all zero.
+>
+> Binding oracle policy is now RETIRED and must not be retried. The host-only
+> next unit is an A4 stream-only contract correction: treat unchanged
+> before/after `/bugreports` inventory as expected for `-s`, make the bounded
+> EOF-complete stream the canonical input, and retain same-file pre/post
+> SHA/size plus full ZIP/parser validation. Whether the consumed live evidence
+> can replace a second baseline run, or a separately reviewed one-shot v2 is
+> required, must be decided host-only before any policy activation. The
+> retained-PID1 candidate remains NO-GO and no live authorization is active.
+> Report:
+> `docs/reports/S22PLUS_FYG8_R4W1A_ORACLE_DRY_RUN_LIVE_FAIL_2026-07-13.md`.
+
 > **S22+ ACTIVE FRONTIER (2026-07-13 18:48 KST / 2026-07-13 09:48 UTC) -
 > R4W1-A V3 CONNECTED IDENTITY PASS; ZERO-FLASH BUGREPORT ORACLE POLICY ACTIVE;
 > READY FOR ONE EXACT FRESH ACK; RETAINED-PID1 CANDIDATE REMAINS BLOCKED.**

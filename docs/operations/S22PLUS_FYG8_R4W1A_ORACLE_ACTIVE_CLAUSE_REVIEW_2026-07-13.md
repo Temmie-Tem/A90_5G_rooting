@@ -1,12 +1,11 @@
 # S22+ FYG8 R4W1-A Oracle ACTIVE Clause Review Source
 
-State: `REVIEW_COMPLETE_BINDING_COPY_ACTIVE`
+State: `CONSUMED_RETIRED_LIVE_FAIL`
 
 This file preserves the exact text reviewed for binding `AGENTS.md`. This
 source file is not itself policy authority. Its proposed text has now been
-copied into binding `AGENTS.md`; execution remains blocked until that binding
-change is committed and the operator supplies the exact fresh acknowledgement.
-The retained-PID1 candidate policy remains inactive.
+copied into binding `AGENTS.md`, used once, and is now recorded there as
+RETIRED. The retained-PID1 candidate policy remains inactive.
 
 ## Proposed Binding Text
 
@@ -121,3 +120,32 @@ The reviewed zero-flash oracle is therefore source- and policy-ready for one
 fresh-ack attended invocation after this binding change is committed. This
 verification did not contact the device and did not consume the one-shot
 exception.
+
+## Live Outcome And Retirement
+
+The operator supplied the exact acknowledgement after commit. The helper
+consumed the exception once and returned
+`FAIL_R4W1A_ORACLE_DRY_RUN_CLEANUP_OR_SHAPE`.
+
+- private run:
+  `workspace/private/runs/s22plus_fyg8_r4w1a_oracle_dry_run_20260713T095754Z`;
+- result SHA256:
+  `3d0e470d457241808dbcf5b24ba9bde37710905a7feb20943f21605230fe2af4`;
+- consumed-state SHA256:
+  `61b613c87ebadcd1694d6c61f1b3569a7506902f3b257bc9965e25a1ef02da77`;
+- streamed ZIP: 14,461,892 bytes, SHA256
+  `0935e3215ea39c5c9113f71a1de71e7a63de60f947878527a9926ba86aa071b1`;
+- before and after `/bugreports` inventories: both empty and identical;
+- stream status: rc=0, EOF complete, stderr empty;
+- cleanup: not attempted because no durable remote file existed;
+- final health: exact Android/Magisk root, boot, DTBO, recovery, and no Odin;
+- reboot, Download, Odin transfer, and flash: zero.
+
+The helper correctly refused to parse or promote because its reviewed contract
+required exactly one durable remote file and a remote/stream identity match.
+A separate host-only forensic parse of the immutable captured stream passed all
+ZIP CRC, same-file SHA, exact `/proc/last_kmsg`, and marker-absence checks;
+result SHA256 is
+`ff5a229a0c1ebb93b71bf8ec589a80b15488773bcd7bf9b3b01ec23c40d28a1f`.
+That analysis does not retroactively change the live verdict or create a PASS
+record. The oracle clause is consumed and RETIRED and must not be retried.

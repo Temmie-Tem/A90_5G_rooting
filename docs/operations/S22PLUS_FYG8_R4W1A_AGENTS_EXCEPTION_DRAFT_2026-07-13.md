@@ -1,12 +1,11 @@
 # S22+ FYG8 R4W1-A AGENTS Exception Draft
 
-State: `ORACLE_BOUND_ACTIVE_CANDIDATE_DRAFT_INACTIVE`
+State: `ORACLE_RETIRED_FAIL_CANDIDATE_DRAFT_INACTIVE`
 
 This document remains a review source and is not itself policy authority.
-Binding `AGENTS.md` now contains the exact oracle-dry ACTIVE clause and oracle
-sentinel below. The candidate ACTIVE sentinel is absent. Oracle execution is
-still blocked until that binding clause is committed and the operator supplies
-its exact fresh acknowledgement; this document authorizes no device action.
+Binding `AGENTS.md` now records the oracle-dry clause as consumed and RETIRED.
+The candidate ACTIVE sentinel is absent. This document authorizes no device
+action and the consumed oracle must not be retried.
 
 The proposed helper is
 `workspace/public/src/scripts/revalidation/s22plus_fyg8_r4w1a_live_gate.py`
@@ -108,17 +107,24 @@ helper independently reopens the named private result and verifies its SHA,
 target, mode, verdict, helper identity, and `device_writes=false`. A missing,
 stale, replaced, or mismatched record keeps the oracle policy inactive.
 
-## Oracle Dry-Run Exception Bound In AGENTS.md
+## Retired Oracle Dry-Run Exception
 
 Policy marker: `S22+ FYG8 R4W1-A bugreport oracle dry-run live gate`.
 
-Binding `AGENTS.md` now contains the exact whole-line sentinel
-`S22PLUS_FYG8_R4W1A_ORACLE_DRY_POLICY_STATE=ACTIVE`, the exact helper SHA above,
-v3 connected promotion-record SHA
-`6b78cfb646432bb2dcb8f65a47a7e547d4b8a3862c72cb0ada2cc6237f2c4084`,
-and the independently reviewed oracle contract. Execution still requires fresh
-attended acknowledgement `S22PLUS-FYG8-R4W1A-BUGREPORT-ORACLE-DRY-RUN`
-supplied after the binding policy commit.
+Binding `AGENTS.md` contains the exact whole-line RETIRED sentinel. The prior
+ACTIVE clause pinned helper SHA above and v3 connected promotion-record SHA
+`6b78cfb646432bb2dcb8f65a47a7e547d4b8a3862c72cb0ada2cc6237f2c4084`.
+The operator supplied its exact acknowledgement once; the one-shot is now
+consumed and cannot accept another acknowledgement. The consumed token was
+`S22PLUS-FYG8-R4W1A-BUGREPORT-ORACLE-DRY-RUN` and remains here only as a
+historical source pin.
+
+The live run captured a valid 14,461,892-byte stream but found no durable new
+`/bugreports` entry after `bugreportz -s` returned. It failed closed before
+parser and cleanup gates, created no oracle PASS record, and left the candidate
+policy inactive. A host-only forensic parse later proved the stream shape and
+marker absence without changing the live verdict. See
+`docs/reports/S22PLUS_FYG8_R4W1A_ORACLE_DRY_RUN_LIVE_FAIL_2026-07-13.md`.
 
 This is a zero-flash, zero-reboot rehearsal. After the complete common
 preflight it must prove both `/sys/fs/pstore/console-ramoops` and

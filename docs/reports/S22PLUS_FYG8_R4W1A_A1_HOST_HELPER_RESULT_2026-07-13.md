@@ -30,6 +30,11 @@ separates five modes:
 | `--live` | one boot-only candidate plus mandatory rollback | implemented; policy inactive |
 | `--rollback-from-download` | boot-only recovery for an already-started run | implemented; policy inactive |
 
+Post-live correction: the exact FYG8 `--oracle-dry-run` later proved that
+`bugreportz -s` leaves no durable direct `/bugreports` ZIP after the stream
+returns. The row above records the original implementation contract, not the
+correct successor behavior. That one-shot failed closed and is retired.
+
 The connected mode has a separate acknowledgement so an accidental invocation
 cannot contact the device. Oracle and candidate modes require distinct exact
 whole-line ACTIVE sentinels in binding policy and exact source pins before any
@@ -70,6 +75,12 @@ size/mtime/mode tuple, and SHA256. It never uses a wildcard, recursive delete,
 or root. Parser failure after an exact content match still permits exact
 cleanup. Multiple, unsafe, changed, or host/remote-mismatched files are not
 deleted and force non-PASS.
+
+The 2026-07-13 live oracle disproved the requirement that exactly one durable
+file must appear: before and after inventories were both empty while a complete
+CRC-valid ZIP reached the host. Future code must make the bounded host stream
+canonical and accept only unchanged inventory for this `-s` path. The current
+helper and consumed verdict remain unchanged for auditability.
 
 The candidate parser remains load-bearing. The first rollback
 `/proc/last_kmsg` double read is recorded only as corroboration; byte mismatch

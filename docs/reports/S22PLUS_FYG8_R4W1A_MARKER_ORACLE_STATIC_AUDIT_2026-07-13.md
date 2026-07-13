@@ -132,6 +132,13 @@ only those exact files through a proven authorized path, and verify cleanup.
 Static evidence does not yet prove that candidate shell can perform that
 cleanup.
 
+Post-live correction: the 2026-07-13 exact FYG8 `bugreportz -s` oracle run
+proved that no durable direct `/bugreports` entry remains after the complete
+stream returns. Both inventories were empty while the host received a complete
+CRC-valid ZIP. The local ZIP is an internal transient, not a post-return remote
+identity oracle. This static report's durable-file assumption is retired; the
+stream itself must be the canonical artifact in any successor design.
+
 Dumpstate also prefers either pstore console path over `/proc/last_kmsg`. The
 future candidate gate must prove both paths absent before capture; the parser
 then independently requires the exact `/proc/last_kmsg` section header.

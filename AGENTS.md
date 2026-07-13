@@ -17,12 +17,25 @@ BL, CP, CSC, userdata, or any non-boot flash.
 
 ## Safety invariants (NEVER violate)
 
-**Narrow operator-authorized exception (2026-07-13, S22+ FYG8 R4W1-A
-zero-flash bugreport oracle dry-run):** This clause may be activated only for
-Samsung S22+ `SM-S906N` / `g0q` / `S906NKSS7FYG8`. Policy marker:
-`S22+ FYG8 R4W1-A bugreport oracle dry-run live gate`.
+**Consumed/retired exception (2026-07-13, S22+ FYG8 R4W1-A zero-flash
+bugreport oracle dry-run):** the exact one-shot helper consumed the exception,
+captured one complete 14,461,892-byte `bugreportz -s` stream with rc=0 and
+empty stderr, and observed identical empty `/bugreports` inventories before
+and after. Because no durable run-created remote file remained, the helper
+failed closed before its load-bearing remote/stream identity and parser gates
+with verdict `FAIL_R4W1A_ORACLE_DRY_RUN_CLEANUP_OR_SHAPE`. It created no PASS
+promotion record. Final Android/Magisk root, boot, DTBO, recovery, and no-Odin
+health all passed; no reboot, Download transition, Odin transfer, or flash
+occurred. A later host-only forensic parse proved the captured stream is a
+complete CRC-valid FYG8 ZIP with exact `LAST KMSG (/proc/last_kmsg)` and marker
+family absence, but that does not retroactively satisfy the consumed policy.
+This exception must not be retried. The candidate policy remains inactive.
 
-`S22PLUS_FYG8_R4W1A_ORACLE_DRY_POLICY_STATE=ACTIVE`
+`S22PLUS_FYG8_R4W1A_ORACLE_DRY_POLICY_STATE=RETIRED`
+
+Before consumption, this clause permitted only Samsung S22+
+`SM-S906N` / `g0q` / `S906NKSS7FYG8`. Policy marker:
+`S22+ FYG8 R4W1-A bugreport oracle dry-run live gate`.
 
 The only executable helper is
 `workspace/public/src/scripts/revalidation/s22plus_fyg8_r4w1a_live_gate.py`

@@ -151,6 +151,13 @@ must inventory the directory before and after, identify only run-created files,
 authorize their exact cleanup, and prove that cleanup. Until then
 `a1_live_ready=false`.
 
+Post-live correction: the 2026-07-13 exact FYG8 run returned a complete
+14,461,892-byte `bugreportz -s` stream while `/bugreports` was empty both before
+and after. The generated local ZIP is transient and not visible as a durable
+post-return file. Any successor contract must require unchanged inventory,
+same-file stream SHA/size stability, and complete parser validation, with no
+remote deletion when no new entry exists.
+
 ## A0 Artifact Contract
 
 The future builder is a new R4W1-A-specific program. Retired R3C0/R3C1 sources
@@ -264,7 +271,8 @@ Before an exception can become ACTIVE, require:
 6. one connected no-flash identity dry-run while policy remains inactive;
 7. a separately reviewed oracle dry-run policy that explicitly authorizes one
    streamed bugreport, before/after `/bugreports` inventory, exact host ZIP
-   validation, and cleanup of only identified run-created files; and
+   validation, and fail-closed handling of either unchanged inventory or only
+   separately proven run-created files; and
 8. fresh attended approval supplied only after all preceding gates.
 
 The connected dry-run must prove one exact Magisk Android baseline:
@@ -303,7 +311,7 @@ delete, clear, rotate, or initialize the ring.
 9. Run exactly one `bugreportz -s` candidate capture, stream it directly to a
    new host file, validate the complete archive with the A0 parser, require the
    exact marker once in the exact `/proc/last_kmsg` section, and execute the
-   separately approved exact `/bugreports` inventory and cleanup contract.
+   separately approved exact `/bugreports` inventory and stream-only contract.
 10. Immediately request Download. If candidate ADB is absent, require attended
     physical Download entry.
 11. Flash the exact Magisk rollback AP once.
