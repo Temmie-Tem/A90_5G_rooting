@@ -155,6 +155,39 @@ crypto_buildtime_address:
         self.assertIsNone(self.module.compare_w_immediate(0))
         self.assertFalse(self.module.is_mrs_sp_el0(0))
 
+    def test_cfg_follows_direct_branch_and_stops_at_return(self):
+        instructions = [
+            (0, 0x1000, 0x14000002),
+            (1, 0x1004, 0xD65F03C0),
+            (2, 0x1008, 0xD65F03C0),
+        ]
+        successors, predecessors = self.module.build_cfg(instructions)
+        self.assertEqual(successors, {0: {2}, 1: set(), 2: set()})
+        self.assertEqual(predecessors[2], {0})
+        self.assertTrue(self.module.is_reachable(successors, 0, 2))
+        self.assertFalse(self.module.is_reachable(successors, 0, 1))
+
+    def test_fips_address_table_requires_bounded_zero_termination(self):
+        class FakeElf:
+            @staticmethod
+            def vaddr_range_bytes(start, end):
+                return bytes([0xA5]) * (end - start)
+
+        table = bytearray(65536)
+        self.module.struct.pack_into("<QQ", table, 0, 0x1000, 0x1010)
+        ranges, digest = self.module.parse_fips_address_table(FakeElf(), bytes(table))
+        self.assertEqual(ranges, [(0x1000, 0x1010)])
+        expected = self.module.hmac.new(
+            self.module.FIPS_HMAC_KEY,
+            bytes([0xA5]) * 16,
+            self.module.hashlib.sha256,
+        ).digest()
+        self.assertEqual(digest, expected)
+
+        table[32] = 1
+        with self.assertRaisesRegex(self.module.ElfAuditError, "after terminator"):
+            self.module.parse_fips_address_table(FakeElf(), bytes(table))
+
 
 if __name__ == "__main__":
     unittest.main()

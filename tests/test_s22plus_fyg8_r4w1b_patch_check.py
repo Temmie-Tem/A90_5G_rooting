@@ -30,6 +30,12 @@ class S22PlusFyg8R4W1BPatchCheckTest(unittest.TestCase):
         cls.patch = ROOT / cls.module.DEFAULT_PATCH
 
     def test_integrated_contract_passes(self):
+        dt_root = self.source / (
+            "kernel_platform/msm-kernel/arch/arm64/boot/dts/"
+            "samsung/rainbow/g0q"
+        )
+        if not dt_root.is_dir():
+            self.skipTest("full FYG8 kernel source is available on the build host only")
         result = self.module.run_check(self.source, self.patch)
         self.assertEqual(result["verdict"], self.module.VERDICT)
         self.assertEqual(len(result["dt_contract"]["revisions"]), 11)
@@ -37,6 +43,8 @@ class S22PlusFyg8R4W1BPatchCheckTest(unittest.TestCase):
         self.assertEqual(result["patched_contract"]["exec_success_edge_count"], 1)
 
     def test_base_hash_mismatch_fails_closed(self):
+        if not all((self.source / relative).is_file() for relative in self.module.BASE_FILES):
+            self.skipTest("full FYG8 kernel source is available on the build host only")
         with tempfile.TemporaryDirectory() as name:
             root = Path(name)
             for relative in self.module.BASE_FILES:
@@ -66,6 +74,12 @@ class S22PlusFyg8R4W1BPatchCheckTest(unittest.TestCase):
         self.assertNotEqual(symbols, {"CONFIG_S22PLUS_FYG8_RETAINED_WITNESS"})
 
     def test_vendor_header_shape_is_pinned(self):
+        header = self.source / (
+            "kernel_platform/msm-kernel/include/linux/samsung/debug/"
+            "sec_log_buf.h"
+        )
+        if not header.is_file():
+            self.skipTest("full FYG8 kernel source is available on the build host only")
         result = self.module.check_vendor_abi(self.source)
         self.assertTrue(result["verified"])
         self.assertEqual(result["missing"], {})

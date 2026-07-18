@@ -207,6 +207,53 @@ class S22PlusFyg8R4W1BBuildTest(unittest.TestCase):
             self.assertFalse(result["promoted_as_live_candidate"])
             self.assertFalse(result["flash_authorized"])
 
+    def test_clean_output_and_result_directories_are_exclusive(self):
+        with tempfile.TemporaryDirectory() as name:
+            root = Path(name)
+            work_tree = root / "source"
+            work_tree.mkdir()
+            self.assertTrue(
+                self.module.inspect_clean_output_precondition(work_tree)["verified"]
+            )
+            (work_tree / "out").mkdir()
+            self.assertFalse(
+                self.module.inspect_clean_output_precondition(work_tree)["verified"]
+            )
+
+            result_dir = root / "results" / "run-a"
+            self.module.create_exclusive_result_dir(result_dir)
+            with self.assertRaisesRegex(self.module.BuildError, "already exists"):
+                self.module.create_exclusive_result_dir(result_dir)
+
+    def test_private_namespace_reexec_rejects_unsafe_compatibility_path(self):
+        with mock.patch.dict(self.module.os.environ, {}, clear=True), mock.patch.object(
+            self.module,
+            "inspect_outer_namespace",
+            return_value={"verified": True},
+        ):
+            with self.assertRaisesRegex(
+                self.module.BuildError, "safe relative path"
+            ):
+                self.module.reexec_in_private_repo_namespace(
+                    ROOT,
+                    script=SCRIPT,
+                    arguments=[],
+                    compatibility_work_tree=Path("../escape"),
+                )
+
+    def test_recorded_paths_rebase_only_at_path_boundaries(self):
+        observed = Path("/private/root")
+        recorded = Path("/recorded/root")
+        value = {
+            "path": "/private/root/source/out",
+            "unrelated": "/private/rootish/source",
+        }
+        result = self.module.rebase_recorded_paths(
+            value, observed_root=observed, recorded_root=recorded
+        )
+        self.assertEqual(result["path"], "/recorded/root/source/out")
+        self.assertEqual(result["unrelated"], value["unrelated"])
+
 
 if __name__ == "__main__":
     unittest.main()

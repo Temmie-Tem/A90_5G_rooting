@@ -59,10 +59,15 @@ class S22PlusFyg8R4W1BReproCheckTest(unittest.TestCase):
     def test_image_gate_requires_exact_marker_and_size(self):
         with tempfile.TemporaryDirectory() as name:
             image = Path(name) / "Image"
-            image.write_bytes(
-                self.module.MARKER
-                + bytes(self.module.IMAGE_SIZE - len(self.module.MARKER))
+            data = bytearray(self.module.IMAGE_SIZE)
+            data[: len(self.module.static_audit.ARM64_IMAGE_HEADER)] = (
+                self.module.static_audit.ARM64_IMAGE_HEADER
             )
+            marker_offset = 4096
+            data[marker_offset : marker_offset + len(self.module.MARKER)] = (
+                self.module.MARKER
+            )
+            image.write_bytes(data)
             result = self.module.check_image(image)
             self.assertTrue(result["verified"])
             image.write_bytes(image.read_bytes().replace(self.module.MARKER, b"X", 1))
@@ -128,6 +133,26 @@ class S22PlusFyg8R4W1BReproCheckTest(unittest.TestCase):
             }
             with self.assertRaises(self.module.CheckError):
                 self.module.check_artifact_binding(build, "Image", link)
+
+    def test_static_manifest_binding_is_exact_and_detects_mutation(self):
+        with tempfile.TemporaryDirectory() as name:
+            path = Path(name) / "input"
+            path.write_bytes(b"stable")
+            row = self.module.static_audit.file_identity(path)
+            self.assertTrue(
+                self.module.check_static_manifest_input(
+                    {"input": row}, "input", path
+                )["verified"]
+            )
+            path.write_bytes(b"changed")
+            self.assertFalse(
+                self.module.check_static_manifest_input(
+                    {"input": row}, "input", path
+                )["verified"]
+            )
+            self.assertFalse(
+                self.module.reopen_static_manifest_row("input", row)["verified"]
+            )
 
 
 if __name__ == "__main__":

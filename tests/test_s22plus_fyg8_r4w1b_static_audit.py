@@ -209,6 +209,39 @@ class S22PlusFyg8R4W1BStaticAuditTest(unittest.TestCase):
             )
             self.assertFalse(result["artifacts_bound"])
 
+    def test_file_identity_rejects_indirect_inputs(self):
+        with tempfile.TemporaryDirectory() as name:
+            root = Path(name)
+            direct = root / "direct"
+            indirect = root / "indirect"
+            direct.write_bytes(b"bound-input")
+            indirect.symlink_to(direct)
+            direct_identity = self.module.file_identity(direct)
+            indirect_identity = self.module.file_identity(indirect)
+            self.assertTrue(direct_identity["regular"])
+            self.assertTrue(direct_identity["stable_during_read"])
+            self.assertFalse(direct_identity["indirect"])
+            self.assertTrue(indirect_identity["symlink"])
+            self.assertTrue(indirect_identity["indirect"])
+            self.assertFalse(indirect_identity["regular"])
+
+    def test_arm64_image_header_is_exact(self):
+        with tempfile.TemporaryDirectory() as name:
+            image = Path(name) / "Image"
+            image.write_bytes(self.module.ARM64_IMAGE_HEADER + b"payload")
+            self.assertTrue(self.module.check_arm64_image_header(image)["verified"])
+            image.write_bytes(b"X" + image.read_bytes()[1:])
+            self.assertFalse(self.module.check_arm64_image_header(image)["verified"])
+
+    def test_occurrence_counter_handles_chunk_boundary(self):
+        with tempfile.TemporaryDirectory() as name:
+            path = Path(name) / "blob"
+            needle = b"boundary-marker"
+            path.write_bytes(b"A" * (1024 * 1024 - 5) + needle + needle)
+            self.assertEqual(self.module.count_file_occurrences(path, needle), 2)
+            with self.assertRaisesRegex(self.module.AuditError, "empty"):
+                self.module.count_file_occurrences(path, b"")
+
 
 if __name__ == "__main__":
     unittest.main()
