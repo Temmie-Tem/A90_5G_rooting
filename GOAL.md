@@ -30,6 +30,10 @@ are binding and override any sub-goal.**
 > satisfy this gate. No reboot, Download transition, Odin transfer, flash,
 > rollback, or partition write is authorized. Report:
 > `docs/reports/S22PLUS_FYG8_R4W1B_CONNECTED_POLICY_BINDING_HOST_GO_2026-07-19.md`.
+> The complete connected-to-live command, evidence, policy-promotion, attended
+> transition, and emergency-recovery sequence is frozen in
+> `docs/operations/S22PLUS_FYG8_R4W1B_CONNECTED_TO_LIVE_RUNBOOK_2026-07-19.md`;
+> do not redesign or improvise the sequence between gates.
 
 > **S22+ ACTIVE FRONTIER (2026-07-19 06:01 KST / 2026-07-18 21:01 UTC) -
 > R4W1-B REUSABLE LIVE-GATE SOURCE READY HOST PASS; OPUS MUST-FIX CLOSED;
