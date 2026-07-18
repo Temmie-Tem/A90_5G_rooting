@@ -6,6 +6,33 @@ Galaxy S22+, and evidence or authorization never transfers between them. This fi
 says WHAT to pursue; **`AGENTS.md` says HOW — its safety invariants and flash gates
 are binding and override any sub-goal.**
 
+> **S22+ ACTIVE FRONTIER (2026-07-19 06:01 KST / 2026-07-18 21:01 UTC) -
+> R4W1-B REUSABLE LIVE-GATE SOURCE READY HOST PASS; OPUS MUST-FIX CLOSED;
+> POLICY INACTIVE; EXACT-COMMIT DELTA REVIEW NEXT.** A reusable mechanical core
+> and target-specific four-mode R4W1-B helper are implemented. Opus 4.8 found
+> no HIGH issue and two MEDIUM robustness gaps: emergency rollback was coupled
+> to the live ACTIVE/current-helper hash, and connected mode did not rehearse
+> the load-bearing double `/proc/last_kmsg` read. Both are closed. Recovery
+> remains consumed-state/ack/exact-artifact/single-endpoint/temporal-confirmation
+> gated but cannot be stranded by later policy retirement; connected mode now
+> requires two EOF-complete byte-identical `last_kmsg` reads. Observer capture
+> failure is distinct from marker-integrity failure, the historical marker
+> namespace is explicitly disjoint, and boundary/delimiter regressions are
+> directly tested.
+>
+> Source pins are helper `734693c4...65a95d`, helper test
+> `87de8015...e42c1`, reusable core `9bcade25...3725`, and core test
+> `b55db857...2fd9d`. Focused tests pass `38/38`; the pipeline/live combined
+> suite passes `72/72`; `py_compile` passes. The complete offline gate reopened
+> the 9.68GB stock firmware, every candidate/rollback/Odin/source pin, and the
+> fresh deterministic static result, returning
+> `PASS_R4W1B_LIVE_GATE_OFFLINE_CHECK`. Connected and live sentinels remain
+> absent, connected PASS and consumed state are absent, and device
+> contact/write/flash are all false. Next is an exact-commit independent delta
+> review. Only a clean review may advance to a separate connected-only policy
+> binding; no device action is authorized by this checkpoint. Report:
+> `docs/reports/S22PLUS_FYG8_R4W1B_LIVE_GATE_SOURCE_READY_HOST_PASS_2026-07-19.md`.
+
 > **S22+ ACTIVE FRONTIER (2026-07-19 04:57 KST / 2026-07-18 19:57 UTC) -
 > R4W1-B REUSABLE CANDIDATE PIPELINE HOST PASS; THREE REPRODUCTIONS EXACT;
 > INDEPENDENT STATIC CONTRACT PASS; NO LIVE AUTHORIZATION.** The bounded
