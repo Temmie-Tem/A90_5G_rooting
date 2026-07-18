@@ -14,6 +14,10 @@
 기준점, 이름을 유지하는 역사/타깃별 예외는
 `reports/REPOSITORY_RENAME_ANDROID_NATIVE_INIT_LAB_2026-07-19.md`에 기록합니다.
 
+Git 복원 후 ignored `workspace/private` 병합 범위, exact-hash 재검증,
+남은 외부 원본 22건, R4W1-B 재개 준비성은
+`reports/PRIVATE_WORKSPACE_RECOVERY_RESTORE_2026-07-19.md`에 기록합니다.
+
 상단 `docs/`는 이제 다음 흐름에 필요한 문서를 유지합니다.
 
 1. native init 0.9.266 / v2232-service-object-fwclass-bridge baseline 고정
