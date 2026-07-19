@@ -141,10 +141,27 @@ fresh exact live acknowledgement all exist.
 END_S22PLUS_FYG8_R4W1C_CONNECTED_POLICY_V1
 
 BEGIN_S22PLUS_FYG8_R4W1C_LIVE_POLICY_V1
-**Pending one-shot exception (S22+ FYG8 R4W1-C watchdog-carrier direct-PID1
+**Retired unconsumed exception (2026-07-20, S22+ FYG8 R4W1-C watchdog-carrier direct-PID1
 boot-only live gate):** this clause applies only to Samsung S22+
 `SM-S906N` / `g0q` / `S906NKSS7FYG8`. The exact policy state is
-`S22PLUS_FYG8_R4W1C_LIVE_POLICY_STATE=ACTIVE`.
+`S22PLUS_FYG8_R4W1C_LIVE_POLICY_STATE=RETIRED`.
+
+One freshly acknowledged invocation completed the exact Android baseline and
+`adb reboot download` returned success, but failed closed before consumption
+with `FAIL_R4W1C_PRECONSUMPTION_NO_CANDIDATE_FLASH`. Normal Samsung Download
+appeared at the exact bound topology `2-1.3` as `04e8:685d` and direct character
+node `/dev/bus/usb/002/017`, but that Download sysfs device exposed no `serial`
+attribute. The helper therefore could not satisfy its Android-serial-digest
+requirement and timed out before ticketing. Candidate transfer was never
+attempted, no Odin transfer or partition write occurred, and
+`workspace/private/state/s22plus_fyg8_r4w1c_live_exception_consumed.json`
+remains absent. After physical Download exit, exact FYG8 Android, Magisk root,
+known boot, stock vendor_boot/DTBO/recovery, orange state, and Android USB
+`04e8:6860` with serial `RFCT519XWGK` were verified. This exact helper, clause,
+and acknowledgement must not be reused. A replacement must treat absent
+Samsung Download serial as a measured target property, preserve exact topology,
+product, direct-node generation, hardened ticket and final pre-Odin continuity,
+and pass full host qualification plus a separately committed ACTIVE rendering.
 
 The only executable helper is
 `workspace/public/src/scripts/revalidation/s22plus_fyg8_r4w1c_live_gate.py`
