@@ -6,6 +6,34 @@ Galaxy S22+, and evidence or authorization never transfers between them. This fi
 says WHAT to pursue; **`AGENTS.md` says HOW — its safety invariants and flash gates
 are binding and override any sub-goal.**
 
+> **S22+ ACTIVE FRONTIER (2026-07-20 03:55 KST / 2026-07-19 18:55 UTC) -
+> R4W1-C CONNECTED SOURCE HOST GO; POLICY INACTIVE; SEPARATE BINDING NEXT;
+> NO DEVICE AUTHORIZATION.** A new target-specific helper now exposes only
+> `--offline-check` and `--connected-read-only-dry-run`; it contains no
+> candidate transfer, rollback, or partition-write surface. It binds the exact
+> two-reproduction watchdog carrier, full FYG8 firmware evidence, rollback
+> inputs, hardened Odin transaction core, and complete proposed policy clause.
+>
+> The wrapper holds the whole-transaction lease through both clean-empty Odin
+> inspections, Android and retained-log collection, boot-ID continuity,
+> durable evidence publication, canonical PASS creation, and complete reopening.
+> Direct-path checks reject symlinks in every evidence component and in the
+> private state parent. Focused and relevant regression tests pass `140/140`;
+> `py_compile`, ResourceWarning-as-error, and `git diff --check` pass. The full
+> 9.68GB offline artifact gate returns
+> `PASS_R4W1C_CONNECTED_GATE_OFFLINE_CHECK` with every device-action field
+> false, policy inactive, and no connected PASS.
+>
+> Five independent read-only review rounds closed all blocking findings. The
+> final delta review found no HIGH or MEDIUM issue and returned `Source commit:
+> GO` plus `Separate connected policy activation: GO`. Next: commit this source
+> packet, bind the exact reviewed fenced clause into `AGENTS.md` in a distinct
+> commit, rerun all host gates, then request a new exact
+> `S22PLUS-FYG8-R4W1C-CONNECTED-READ-ONLY-DRY-RUN`. Generic approval does not
+> authorize device contact. Connected PASS still will not authorize candidate
+> transfer. Report:
+> `docs/reports/S22PLUS_FYG8_R4W1C_CONNECTED_SOURCE_HOST_GO_2026-07-20.md`.
+
 > **S22+ ACTIVE FRONTIER (2026-07-20 03:01 KST / 2026-07-19 18:01 UTC) -
 > R4W1-C WATCHDOG CARRIER TWO-REPRO STATIC PASS; CONNECTED GATE DESIGN NEXT;
 > NO LIVE AUTHORIZATION.** The R4W1-B evidence failure is now
