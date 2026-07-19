@@ -28,6 +28,26 @@ are binding and override any sub-goal.**
 > `AGENTS.md` commit. Report:
 > `docs/reports/S22PLUS_FYG8_R4W1C_ENDPOINT_STABILIZATION_SOURCE_HOST_GO_2026-07-20.md`.
 
+> **S22+ ACTIVE FRONTIER (2026-07-20 06:02 KST / 2026-07-19 21:02 UTC) -
+> R4W1-C REPLACEMENT LIVE BINDING GO; EXACT ACTIVE CLAUSE READY; LIVE
+> POLICY STILL INACTIVE.** Source commit `69b37554` was reopened and the
+> deterministic host-only generator emitted packet SHA256
+> `a2a4aa67...5ea3c6` plus exact 9,382-byte ACTIVE clause SHA256
+> `09a0388f...d90fe2`. The packet binds the retained connected PASS/result,
+> exact source and artifact pins, one-member candidate and rollback APs, and
+> records false for every device-action field.
+>
+> Independent xhigh read-only review recomputed the packet, connected evidence,
+> observers, archive members, full FYG8 firmware, and exact template rendering.
+> It found no HIGH, MEDIUM, or LOW finding and returned `BINDING_GO`. The
+> current `AGENTS.md` clause remains RETIRED, the consumed state remains absent,
+> and this checkpoint grants no device contact. Next: commit this binding GO
+> record, install the exact generated clause in a separate `AGENTS.md` commit,
+> rerun the 181-test and full offline post-activation gates, and obtain an
+> independent post-activation verdict before requesting a fresh live token.
+> Report:
+> `docs/reports/S22PLUS_FYG8_R4W1C_ENDPOINT_STABILIZATION_LIVE_BINDING_GO_2026-07-20.md`.
+
 > **S22+ ACTIVE FRONTIER (2026-07-20 05:31 KST / 2026-07-19 20:31 UTC) -
 > R4W1-C LIVE FAILS-TWICE PRE-CONSUMPTION; FLASH 0; ONE-SHOT UNCONSUMED;
 > LIVE POLICY RETIRED; ENDPOINT-ARRIVAL STABILIZATION NEXT.** Two fresh exact

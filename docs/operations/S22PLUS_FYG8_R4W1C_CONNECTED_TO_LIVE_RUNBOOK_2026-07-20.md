@@ -5,7 +5,8 @@ Date: 2026-07-20 KST
 Target: `SM-S906N/g0q/S906NKSS7FYG8`
 
 State: connected policy ACTIVE; connected PASS present; replacement live source
-SOURCE GO; live policy retired/inactive; candidate unconsumed.
+SOURCE GO; deterministic live binding BINDING GO; live policy retired/inactive;
+candidate unconsumed.
 
 This runbook freezes the remaining promotion sequence. It grants no device
 contact or live authorization. `AGENTS.md` remains the binding policy.
@@ -23,6 +24,11 @@ binding packet test           8c8a4edc01fa1814946c2e1a424bef501cb87bad152e9a3908
 connected helper              fa4e9b0a77032fbb8b17affb2ae985b80c990b6e4b07c0ee095328cfd80516b9
 connected focused test        98938da61fc6a3f95389a31f019950fa00b3e6575687aab8d1edf5d070240251
 connected ACTIVE clause       35f1d2cf8b9a4b25bac108832fb3f9ec9fd37e05c1b03f9fa34eeb5367c17ffa
+source checkpoint commit      69b37554
+binding packet                a2a4aa676af903f29f8ad43d05644efc3f4c3b461da9f6f9f171b59c055ea3c6
+rendered ACTIVE clause        09a0388f533ffa9525d9d3b6264e5f53b377507aa00ec76b7e294b9596d90fe2
+connected PASS record         4b8bd44ee171341592e987171137007376dec71432df05b39a29a083c0914f20
+connected result              f954c9b7238932f97d0a51c85cd5623ae2deced5b6d4c443992fb73bb0906e3a
 ```
 
 Do not modify the live helper/test/template, connected helper/test/core, or
@@ -94,6 +100,12 @@ checks, the 181 tests, and the live helper's complete `--offline-check`; do not
 rerun the packet generator because its source gate intentionally rejects an
 already-active live policy. Required final state is connected PASS present,
 candidate unconsumed, and both the connected and live policies ACTIVE.
+
+The packet emitted at
+`workspace/private/outputs/s22plus-r4w1c-live-binding-20260719T205737Z`
+passed independent review with no HIGH, MEDIUM, or LOW finding and verdict
+`BINDING_GO`. Its exact identities are frozen above. Do not regenerate or
+substitute the clause during activation.
 
 ## Stage 3: Attended One-Shot Live
 
