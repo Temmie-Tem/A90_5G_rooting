@@ -6,6 +6,37 @@ Galaxy S22+, and evidence or authorization never transfers between them. This fi
 says WHAT to pursue; **`AGENTS.md` says HOW — its safety invariants and flash gates
 are binding and override any sub-goal.**
 
+> **S22+ ACTIVE FRONTIER (2026-07-20 07:04 KST / 2026-07-19 22:04 UTC) -
+> R4W1-C NO-SERIAL PHYSICAL-CONTINUITY LIVE POLICY ACTIVE;
+> POST-ACTIVATION GO; CANDIDATE UNCONSUMED; FRESH EXACT LIVE ACK NEXT.**
+> Source, binding, and policy-only activation commits are `841d046f`,
+> `56c33adf`, and `43ea256b`. The installed 12,135-byte clause is byte-identical
+> to the independently reviewed clause, SHA256
+> `22255be65e282567827922acdc0b820d78f0fbf9f21b81425a40d6dfee384ba4`,
+> with exactly one begin, end, and ACTIVE sentinel and no RETIRED sentinel or
+> placeholder. The connected policy remains singular and ACTIVE.
+>
+> Post-activation `py_compile`, ResourceWarning-fatal execution,
+> `git diff --check`, and the exact six-file `189/189` suite pass. The complete 9.68GB
+> artifact gate returns `PASS_R4W1C_LIVE_GATE_OFFLINE_CHECK` with live policy
+> active, connected PASS present, candidate unconsumed, and every device-action
+> field false. Independent xhigh read-only review reopened the exact commit
+> chain, installed clause, packet, source identities, connected evidence, AP
+> members, firmware evidence, private-state timestamps, and trust/rollback
+> boundaries. It found no HIGH, MEDIUM, or LOW issue and returned
+> `POST_ACTIVATION_GO`.
+>
+> No post-activation device contact or live run occurred. The operator reports
+> exact FYG8 Android has returned after the earlier pre-transfer stop; that
+> observation is not used as proof for this host-only checkpoint. The candidate
+> consumed state remains absent. The next and only live entry requires a newly
+> supplied exact
+> `S22PLUS-FYG8-R4W1C-NOSERIAL-PHYSICAL-CONTINUITY-DIRECT-PID1-LIVE`.
+> Supplying it is also the load-bearing same-handset/cable/hub/host-port physical
+> continuity attestation defined by the ACTIVE policy. Prior and generic
+> approvals do not carry. Report:
+> `docs/reports/S22PLUS_FYG8_R4W1C_NOSERIAL_PHYSICAL_CONTINUITY_LIVE_POLICY_READY_2026-07-20.md`.
+
 > **S22+ ACTIVE FRONTIER (2026-07-20 06:57 KST / 2026-07-19 21:57 UTC) -
 > R4W1-C NO-SERIAL REPLACEMENT BINDING GO; EXACT ACTIVE CLAUSE READY; LIVE
 > POLICY STILL RETIRED.** Source checkpoint `841d046f` was reopened and the

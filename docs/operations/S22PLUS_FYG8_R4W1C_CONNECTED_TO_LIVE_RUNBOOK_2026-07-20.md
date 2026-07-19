@@ -5,12 +5,14 @@ Date: 2026-07-20 KST
 Target: `SM-S906N/g0q/S906NKSS7FYG8`
 
 State: connected policy ACTIVE; connected PASS present; serial-bound live policy
-RETIRED after one pre-consumption failure; candidate unconsumed; no-serial
-physical-continuity source commit `841d046f` qualified `SOURCE_GO`; deterministic
-packet and exact clause qualified `BINDING_GO`; separate policy activation next.
+RETIRED after one pre-consumption failure; no-serial physical-continuity live
+policy ACTIVE in policy-only commit `43ea256b`; post-activation qualification
+`POST_ACTIVATION_GO`; candidate unconsumed; fresh exact live acknowledgement
+required next.
 
-This runbook freezes the remaining promotion sequence. It grants no device
-contact or live authorization. `AGENTS.md` remains the binding policy.
+This runbook freezes the completed promotion sequence and the remaining live
+entry. It grants no device contact by itself. `AGENTS.md` remains the binding
+policy and only a fresh exact acknowledgement can activate the one-shot run.
 
 ## Retired Serial-Bound Packet
 
@@ -153,27 +155,52 @@ The replacement packet emitted at
 independent review with no HIGH, MEDIUM, or LOW finding and verdict
 `BINDING_GO`. Install only its exact 12,135-byte
 `AGENTS_R4W1C_LIVE_CLAUSE.md`; do not regenerate or substitute it during
-activation. Current `AGENTS.md` remains RETIRED until that separate commit.
+activation. Policy-only commit `43ea256b` installed it byte-for-byte. Its
+installed SHA256 is
+`22255be65e282567827922acdc0b820d78f0fbf9f21b81425a40d6dfee384ba4`.
+Post-activation `py_compile`, ResourceWarning-fatal execution,
+`git diff --check`, the exact six-file `189/189` suite, and the complete 9.68GB offline
+gate pass. Independent xhigh read-only review found no HIGH, MEDIUM, or LOW
+issue and returned `POST_ACTIVATION_GO`. Candidate consumed state remains
+absent. Stage 2 is complete.
 
-## Stage 3: Replacement Not Yet Active
+## Stage 3: No-Serial Live Entry Ready
 
-The serial-bound helper, its exact live token, and its rollback tokens are
-retired and must not be invoked. The no-serial replacement source is qualified,
-but there is still no executable Stage 3 because no new clause is ACTIVE.
+The serial-bound helper, token, and rollback tokens remain retired and must not
+be invoked. The no-serial replacement is ACTIVE and ready only after the
+operator supplies this fresh exact acknowledgement:
 
-Remaining promotion steps are deterministic packet generation, independent
-binding review, a new separate ACTIVE policy commit, post-activation
-requalification, and a fresh exact token supplied only after that checkpoint.
+`S22PLUS-FYG8-R4W1C-NOSERIAL-PHYSICAL-CONTINUITY-DIRECT-PID1-LIVE`
 
-## Stage 4: Recovery Not Applicable
+That token is also the load-bearing attestation that the same attended handset
+remains on the same cable, hub path, and host port without unplug,
+substitution, topology reassignment, or custody gap from Android preflight
+through candidate observation, mandatory rollback, and exact Android return.
+The host cannot intrinsically distinguish a same-model handset substituted at
+the same Download topology because this FYG8 Download endpoint has no sysfs
+serial. Generic approval and every earlier R4W1-C token do not carry forward.
 
-The failed run did not create a consumed state and did not attempt candidate
-transfer. No rollback or interrupted-recovery action is authorized or needed.
+Run only the checked helper pinned in the ACTIVE clause. It must independently
+reopen all source, policy, connected, artifact, topology, usbfs-node, and
+one-shot gates before contact and again before consumption. Candidate transfer
+is boot-only and one-shot; rollback is mandatory under the separate temporal
+acknowledgements in `AGENTS.md`.
+
+## Stage 4: Recovery Not Yet Applicable
+
+The earlier serial-bound attempt did not create a consumed state or attempt a
+candidate transfer. The no-serial live policy has not run, so no rollback or
+interrupted-recovery action is currently authorized or needed. After a genuine
+candidate consumption, use only the exact recovery acknowledgements and state
+machine defined by the ACTIVE clause; never infer recovery authority from this
+runbook.
 
 ## Stop Conditions
 
 Stop without improvisation on a pin or evidence mismatch, unexpected state,
-wrong ADB serial, changed USB topology or serial digest, ambiguous endpoint,
+wrong ADB serial, changed USB topology or Android-return serial digest,
+unexpected Download serial presence, failed physical-continuity attestation,
+ambiguous endpoint,
 non-normal Download screen, incomplete 120-second observation, observer or
 marker-integrity failure, noncanonical timeline, or rollback health failure.
 Never broaden the boot-only partition envelope or substitute generic approval
