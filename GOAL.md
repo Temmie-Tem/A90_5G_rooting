@@ -6,6 +6,34 @@ Galaxy S22+, and evidence or authorization never transfers between them. This fi
 says WHAT to pursue; **`AGENTS.md` says HOW — its safety invariants and flash gates
 are binding and override any sub-goal.**
 
+> **S22+ ACTIVE FRONTIER (2026-07-20 22:53 KST / 2026-07-20 13:53 UTC) -
+> R4W1-C ZERO-TRANSFER ODIN ENUMERATION-DIFF OBSERVER BINDING GO; POLICY
+> INACTIVE; SEPARATE POLICY-ONLY ACTIVATION NEXT.** The deterministic host-only
+> generator now emits the exact 5,444-byte reviewed clause and a permanently
+> PENDING 2,807-byte private packet. It imports no observer code, derives the
+> clause only from held exact source bytes, pins every output ancestor and
+> artifact FD, and revalidates complete output bytes before closure.
+>
+> Four independent review rounds returned `BINDING_NO_GO` and closed output
+> parent/child replacement, stale partial-PASS, ancestor acquisition, transient
+> clause snapshot, pre-gate observer import, coordinated pathname render, and
+> final output-custody defects. Final xhigh reviewer
+> `019f7fc7-dea1-7312-a4a8-fb7a41fea3be` reproduced every source, packet,
+> clause, Odin, and Git identity, found no HIGH or MEDIUM issue, and returned
+> `BINDING_GO`. Two LOW external boundaries remain explicit: post-close
+> artifacts must be rehashed at activation, and this commit must preserve the
+> newly tracked generator/test bytes.
+>
+> Focused tests pass `21/21`; the exact related R4W1-C suite passes `185/185`
+> with ResourceWarning fatal. `py_compile`, offline binding-source validation,
+> deterministic private emission, and `git diff --check` pass. Current
+> `AGENTS.md` observer BEGIN/END/ACTIVE counts remain `0/0/0`, consumed state is
+> absent, and all policy/device/Odin/transfer/flash fields are false. No device
+> contact or live execution is authorized. Next: a separate `AGENTS.md` policy-
+> only activation commit that installs and rehashes the exact reviewed clause,
+> followed by a new post-activation review. Report:
+> `docs/reports/S22PLUS_FYG8_R4W1C_ODIN_ENUMERATION_DIFF_OBSERVER_BINDING_GO_2026-07-20.md`.
+
 > **S22+ ACTIVE FRONTIER (2026-07-20 19:03 KST / 2026-07-20 10:03 UTC) -
 > R4W1-C ZERO-TRANSFER ODIN ENUMERATION-DIFF OBSERVER SOURCE GO; POLICY
 > INACTIVE; SEPARATE BINDING/POLICY REVIEW NEXT.** A host-only observer now
