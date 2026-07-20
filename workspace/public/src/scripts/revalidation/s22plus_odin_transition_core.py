@@ -84,6 +84,8 @@ class EndpointIdentityObserver(Protocol):
 
     def revalidate(self, evidence: dict[str, Any]) -> None: ...
 
+    def revalidate_or_departure(self, evidence: dict[str, Any]) -> None: ...
+
 
 EndpointObserverFactory = Callable[[], EndpointIdentityObserver]
 
@@ -328,7 +330,13 @@ def _new_endpoint_observer(
         raise OdinTransitionError("measured USB endpoint observer creation failed") from exc
     if any(
         not callable(getattr(observer, name, None))
-        for name in ("inventory", "identity", "evidence", "revalidate")
+        for name in (
+            "inventory",
+            "identity",
+            "evidence",
+            "revalidate",
+            "revalidate_or_departure",
+        )
     ):
         raise OdinTransitionError("measured USB endpoint observer is invalid")
     return observer
@@ -1274,7 +1282,10 @@ def _snapshot_and_record(
     enumeration_timeout_sec: float,
     lease: _TransactionLease,
     allow_empty_post_receipt_change: bool = False,
+    allow_live_departure: bool = False,
 ) -> tuple[OdinSnapshot, dict[str, Any]]:
+    if allow_empty_post_receipt_change and allow_live_departure:
+        raise OdinTransitionError("snapshot transition policy is ambiguous")
     snapshot = enumerate_odin(
         odin,
         runner=runner,
@@ -1300,8 +1311,10 @@ def _snapshot_and_record(
                 )
             # Only endpoint-arrival polling may carry an empty receipt forward.
             # Tickets and terminal absence checks remain strictly revalidated.
-            if snapshot.live_devices or not allow_empty_post_receipt_change:
-                revalidator = _new_endpoint_observer(endpoint_observer_factory)
+            revalidator = _new_endpoint_observer(endpoint_observer_factory)
+            if snapshot.live_devices and allow_live_departure:
+                revalidator.revalidate_or_departure(evidence)
+            elif snapshot.live_devices or not allow_empty_post_receipt_change:
                 revalidator.revalidate(evidence)
         except (OSError, usbfs_identity.UsbfsIdentityError) as exc:
             raise OdinTransitionError(
@@ -1417,6 +1430,7 @@ def wait_for_no_live_endpoint(
             timestamp=timestamp,
             enumeration_timeout_sec=min(DEFAULT_ENUM_TIMEOUT_SEC, remaining),
             lease=lease,
+            allow_live_departure=True,
         )
         sequence += 1
         if len(snapshot.live_devices) > 1:

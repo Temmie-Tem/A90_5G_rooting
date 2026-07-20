@@ -529,3 +529,30 @@ class MeasuredUsbfsIdentityObserver:
             current,
             tuple(evidence["live_devices"]),
         )
+
+    def revalidate_or_departure(self, evidence: dict[str, Any]) -> None:
+        """Allow an unchanged inventory or exact removal of all live Odin nodes."""
+
+        validate_enumeration_evidence(evidence)
+        live_devices = tuple(evidence["live_devices"])
+        if not live_devices:
+            raise UsbfsIdentityError("usbfs departure evidence has no live endpoint")
+        expected_full = {
+            value["path"]: UsbfsNodeSnapshot(**value["after"])
+            for value in evidence["node_transitions"]
+        }
+        expected_departed = {
+            value["path"]: UsbfsNodeSnapshot(**value["after"])
+            for value in evidence["node_transitions"]
+            if value["path"] not in live_devices
+        }
+        current = self._inventory_reader()
+        current_paths = tuple(sorted(current))
+        if current_paths == tuple(sorted(expected_full)):
+            enumeration_evidence(expected_full, current, live_devices)
+        elif current_paths == tuple(sorted(expected_departed)):
+            enumeration_evidence(expected_departed, current, ())
+        else:
+            raise UsbfsIdentityError(
+                "usbfs inventory is neither unchanged nor an exact live departure"
+            )

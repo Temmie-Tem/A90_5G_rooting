@@ -17,11 +17,13 @@ Do not add a device step when host-only work can answer the question.
 - Retired helpers and acknowledgement strings cannot authorize a new run.
 - The Process v2 H0 core and reusable D0 adapter are complete. One connected
   read-only D0 qualification passed with no F1 authority. The reusable F1
-  adapter passed its host-only execution-closure review. Its first prepared
-  canary invocation stopped before candidate attempt on a USBFS arrival race;
-  no Odin transfer occurred. The bounded fix passed tests and independent
-  host-only review, changing the execution closure. The old binding is invalid.
-  F1 remains inactive and requires a new D0 preparation plus fresh approval.
+  adapter completed one exact candidate transfer and exact Magisk rollback.
+  Final health passed, but one unterminated retained-marker prefix produced
+  `NO_PROOF_F1_V2_CANDIDATE_ROLLED_BACK`. USBFS arrival handling and exact
+  measured Odin-node departure are host-qualified; unrelated membership
+  changes, replacement, ambiguity, tickets, and terminal absence remain
+  fail-closed. The completed binding cannot be reused. F1 remains inactive and
+  requires a new host-qualified candidate, D0 preparation, and fresh approval.
 
 ## Permanent Safety Boundaries
 

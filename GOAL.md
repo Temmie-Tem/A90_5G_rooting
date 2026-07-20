@@ -9,10 +9,12 @@ and authorization are isolated. `AGENTS.md` is the binding operating contract.
 
 ## Current Frontier - Process v2 Migration
 
-**State: HOST-ONLY. The first P2.5 canary invocation stopped before candidate
-attempt or transfer on a USBFS arrival race. The bounded fix is tested and
-independently reviewed; Android return and a new D0 preparation are pending.
-No active S22+ F1 authorization.**
+**State: HOST-ONLY. The first Process v2 device-session canary completed the
+exact candidate transfer and exact Magisk rollback, but retained only an
+unterminated R4W1-B marker prefix. The durable verdict is
+`NO_PROOF_F1_V2_CANDIDATE_ROLLED_BACK`. Final health passed. The exact USBFS
+departure fix is tested and independently reviewed. No active S22+ F1
+authorization.**
 
 The R4W1-C2 run did not start an Odin device session: its candidate and rollback
 invocations were rejected while parsing `/proc/self/fd/7`. The R4W1-C3
@@ -40,6 +42,11 @@ the reusable process defined in
   FYG8 device with bounded read-only collection and no F1 authority.
 - The first Process v2 canary invocation reached Download but stopped before
   candidate attempt or transfer; its USBFS arrival-race fix is host-qualified.
+- The next Process v2 canary completed candidate transfer and verified Magisk
+  rollback. Two stable retained-log reads contained one candidate-specific but
+  unterminated R4W1-B prefix, so the result remains no-proof. Exact measured
+  Odin-node departure is now host-qualified without relaxing unrelated USB or
+  replacement failures.
 
 Historical details and retired clauses are preserved in:
 
@@ -64,14 +71,12 @@ Archived text is evidence only and grants no device authority.
 4. **P2.4 - D0 qualification (complete):** the reusable D0 adapter passed
    focused tests, independent review, strict result reopening, and one bounded
    connected read-only preflight. It created no F1 authority.
-5. **P2.5 - F1 canary (current):** the reusable F1 adapter, focused tests, and
-   independent execution-closure review are complete with
-   `GO_HOST_SOURCE_TO_SEPARATE_MANIFEST_READINESS_AND_D0_PREPARE`. A separate
-   data-only canary manifest is `ready-for-f1-approval`. The first prepared
-   invocation aborted before candidate attempt on the expected Download-arrival
-   race. The fix preserves strict ticket and terminal-absence checks and passed
-   independent host-only review. The old binding cannot be reused; Android
-   return, new D0 preparation, fresh approval, and the canary remain pending.
+5. **P2.5 - F1 canary (current):** the reusable runner completed one exact
+   candidate and rollback cycle and closed its journal, but the 99-byte witness
+   was overwritten after a valid prefix. USB arrival and exact-departure races
+   are now narrowly closed. The next host-only unit is an R4W1-D compact proof
+   token committed before a separate diagnostic record, reusing the unchanged
+   Process v2 runner and R4W1-C carrier. No manifest is ready or authorized.
 
 Do not activate C3, fork a C4 helper, or add another policy block. The source
 review does not promote the manifest or authorize device contact. P2.5 remains
