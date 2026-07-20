@@ -6,6 +6,32 @@ Galaxy S22+, and evidence or authorization never transfers between them. This fi
 says WHAT to pursue; **`AGENTS.md` says HOW — its safety invariants and flash gates
 are binding and override any sub-goal.**
 
+> **S22+ ACTIVE FRONTIER (2026-07-21 01:30 KST / 2026-07-20 16:30 UTC) -
+> R4W1-C2 LIVE FAILED CLOSED PRE-CONSUMPTION; NO CANDIDATE FLASH; USBFS
+> STABILIZATION REPAIR IMPLEMENTED HOST-ONLY; REBIND NEXT.** The fresh exact
+> live acknowledgement reached exact FYG8/Magisk Android preflight and requested
+> normal Download, then stopped with
+> `FAIL_R4W1C2_PRECONSUMPTION_NO_CANDIDATE_FLASH` before one-shot consumption.
+> `candidate_transfer_attempted=false`, the unique consumed state remains absent,
+> and the timeline contains only `live_session_start` and `live_session_end`.
+>
+> Live evidence exposed two coupled source defects: the first usbfs birth-time
+> snapshot can overlap udev's initial node metadata settlement and was treated as
+> immediately fatal, while a later successful sample would have been rejected
+> because the stabilization schema omitted the returned `immutable_identity`.
+> The repair retries only the exact initial snapshot-race condition before the
+> first complete sample, remains fatal after stabilization begins, and makes the
+> immutable digest required and replacement-sensitive. Focused and related tests
+> pass `60/60` and `162/162`.
+>
+> The exact Download endpoint was returned to normal mode with Odin `--reboot`
+> and no AP argument. Read-only verification proved exact FYG8 Android, completed
+> boot, stopped boot animation, orange state, and Magisk `uid=0(root)`. The old
+> exact policy no longer accepts the changed helper bytes. Next: commit the
+> repair, regenerate the exact binding clause, independently review it, and
+> activate it before requesting a new live acknowledgement. Report:
+> `docs/reports/S22PLUS_FYG8_R4W1C2_PRECONSUMPTION_USBFS_SETTLE_FAIL_2026-07-21.md`.
+
 > **S22+ ACTIVE FRONTIER (2026-07-21 01:19 KST / 2026-07-20 16:19 UTC) -
 > R4W1-C2 MEASURED LIVE POLICY ACTIVE; POST-ACTIVATION HOST GO; ONE-SHOT
 > UNCONSUMED; FRESH EXACT LIVE TOKEN NEXT.** The independently reviewed exact

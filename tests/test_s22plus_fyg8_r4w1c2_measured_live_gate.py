@@ -966,6 +966,20 @@ class S22PlusFyg8R4W1C2LiveGateTest(unittest.TestCase):
                 sample["node"]["immutable_identity"], measured_identity
             )
             self.assertEqual(sample["serial_state"], "absent")
+            with mock.patch.object(
+                module,
+                "endpoint_node_snapshot",
+                return_value=(metadata, "1:2:3:4"),
+            ), mock.patch.object(
+                module.usbfs_identity,
+                "snapshot_node",
+                side_effect=module.usbfs_identity.UsbfsIdentityError(
+                    "usbfs endpoint changed during snapshot: "
+                    "/dev/bus/usb/002/014"
+                ),
+            ):
+                with self.assertRaises(module.DownloadNodeUnstable):
+                    module.bound_download_node_sample(expected, sysfs_root=sysfs)
             (device / "idProduct").write_text("6860\n")
             self.assertIsNone(
                 module.bound_download_node_sample(expected, sysfs_root=sysfs)
@@ -1026,6 +1040,7 @@ class S22PlusFyg8R4W1C2LiveGateTest(unittest.TestCase):
                     "st_ino": 2,
                     "st_rdev": 3,
                     "st_ctime_ns": ctime,
+                    "immutable_identity": "usbfs-immutable-v1:" + "a" * 64,
                 },
             }
 
@@ -1044,6 +1059,70 @@ class S22PlusFyg8R4W1C2LiveGateTest(unittest.TestCase):
         self.assertEqual(result["stable_samples"], 3)
         self.assertGreaterEqual(result["elapsed_sec"], 1.0)
 
+    def test_download_stabilization_retries_initial_measurement_race_only(self):
+        module = self.module
+        clock = SimpleNamespace(now=0.0)
+        sample = {
+            "device": "/dev/bus/usb/002/014",
+            "topology": "2-1.3",
+            "serial_state": module.DOWNLOAD_USB_SERIAL_STATE,
+            "product": module.DOWNLOAD_USB_PRODUCT,
+            "product_text": module.DOWNLOAD_USB_PRODUCT_TEXT,
+            "manufacturer": module.DOWNLOAD_USB_MANUFACTURER,
+            "node": {
+                "st_dev": 1,
+                "st_ino": 2,
+                "st_rdev": 3,
+                "st_ctime_ns": 4,
+                "immutable_identity": "usbfs-immutable-v1:" + "a" * 64,
+            },
+        }
+
+        def sleep(seconds):
+            clock.now += seconds
+
+        values = iter(
+            [
+                module.DownloadNodeUnstable("initial udev settle"),
+                sample,
+                sample,
+                sample,
+            ]
+        )
+
+        def sampler(_expected):
+            value = next(values)
+            if isinstance(value, Exception):
+                raise value
+            return value
+
+        result = module.wait_for_stable_download_node(
+            {
+                "topology": "2-1.3",
+                "serial_sha256": "e" * 64,
+                "download_serial_state": module.DOWNLOAD_USB_SERIAL_STATE,
+            },
+            5.0,
+            sampler=sampler,
+            monotonic=lambda: clock.now,
+            sleep=sleep,
+        )
+        self.assertEqual(result["stable_samples"], 3)
+
+        values = iter([sample, module.DownloadNodeUnstable("late mutation")])
+        with self.assertRaisesRegex(module.GateError, "after stabilization began"):
+            module.wait_for_stable_download_node(
+                {
+                    "topology": "2-1.3",
+                    "serial_sha256": "e" * 64,
+                    "download_serial_state": module.DOWNLOAD_USB_SERIAL_STATE,
+                },
+                5.0,
+                sampler=sampler,
+                monotonic=lambda: clock.now,
+                sleep=sleep,
+            )
+
     def test_download_stabilization_rejects_replacement_and_disappearance(self):
         module = self.module
         base = {
@@ -1053,7 +1132,13 @@ class S22PlusFyg8R4W1C2LiveGateTest(unittest.TestCase):
             "product": module.DOWNLOAD_USB_PRODUCT,
             "product_text": module.DOWNLOAD_USB_PRODUCT_TEXT,
             "manufacturer": module.DOWNLOAD_USB_MANUFACTURER,
-            "node": {"st_dev": 1, "st_ino": 2, "st_rdev": 3, "st_ctime_ns": 4},
+            "node": {
+                "st_dev": 1,
+                "st_ino": 2,
+                "st_rdev": 3,
+                "st_ctime_ns": 4,
+                "immutable_identity": "usbfs-immutable-v1:" + "a" * 64,
+            },
         }
 
         class Clock:
@@ -1068,6 +1153,27 @@ class S22PlusFyg8R4W1C2LiveGateTest(unittest.TestCase):
         replacement = {**base, "node": {**base["node"], "st_ino": 9}}
         clock = Clock()
         samples = iter([base, replacement])
+        with self.assertRaisesRegex(module.GateError, "replaced"):
+            module.wait_for_stable_download_node(
+                {
+                    "topology": "2-1.3",
+                    "serial_sha256": "e" * 64,
+                    "download_serial_state": module.DOWNLOAD_USB_SERIAL_STATE,
+                },
+                5.0,
+                sampler=lambda _expected: next(samples),
+                monotonic=clock.monotonic,
+                sleep=clock.sleep,
+            )
+        digest_replacement = {
+            **base,
+            "node": {
+                **base["node"],
+                "immutable_identity": "usbfs-immutable-v1:" + "b" * 64,
+            },
+        }
+        clock = Clock()
+        samples = iter([base, digest_replacement])
         with self.assertRaisesRegex(module.GateError, "replaced"):
             module.wait_for_stable_download_node(
                 {
@@ -1104,7 +1210,13 @@ class S22PlusFyg8R4W1C2LiveGateTest(unittest.TestCase):
             "product": module.DOWNLOAD_USB_PRODUCT,
             "product_text": module.DOWNLOAD_USB_PRODUCT_TEXT,
             "manufacturer": module.DOWNLOAD_USB_MANUFACTURER,
-            "node": {"st_dev": 1, "st_ino": 2, "st_rdev": 3, "st_ctime_ns": 4},
+            "node": {
+                "st_dev": 1,
+                "st_ino": 2,
+                "st_rdev": 3,
+                "st_ctime_ns": 4,
+                "immutable_identity": "usbfs-immutable-v1:" + "a" * 64,
+            },
         }
         with self.assertRaisesRegex(module.GateError, "does not match binding"):
             module.wait_for_stable_download_node(
@@ -1115,6 +1227,27 @@ class S22PlusFyg8R4W1C2LiveGateTest(unittest.TestCase):
                 },
                 1.0,
                 sampler=lambda _expected: sample,
+                monotonic=lambda: 0.0,
+                sleep=lambda _seconds: None,
+            )
+        missing_digest = {
+            **sample,
+            "serial_state": module.DOWNLOAD_USB_SERIAL_STATE,
+            "node": {
+                name: value
+                for name, value in sample["node"].items()
+                if name != "immutable_identity"
+            },
+        }
+        with self.assertRaisesRegex(module.GateError, "sample is malformed"):
+            module.wait_for_stable_download_node(
+                {
+                    "topology": "2-1.3",
+                    "serial_sha256": "e" * 64,
+                    "download_serial_state": module.DOWNLOAD_USB_SERIAL_STATE,
+                },
+                1.0,
+                sampler=lambda _expected: missing_digest,
                 monotonic=lambda: 0.0,
                 sleep=lambda _seconds: None,
             )

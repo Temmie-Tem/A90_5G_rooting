@@ -151,6 +151,10 @@ class OdinCommandFailed(GateError):
     """A sealed Odin process returned a definite nonzero status."""
 
 
+class DownloadNodeUnstable(GateError):
+    """The newly enumerated usbfs node changed before its first full sample."""
+
+
 def repo_root() -> Path:
     return Path(__file__).resolve().parents[5]
 
@@ -422,7 +426,17 @@ def bound_download_node_sample(
     try:
         measured_before = usbfs_identity.snapshot_node(device)
         immutable_before = usbfs_identity.immutable_identity(measured_before)
-    except (OSError, usbfs_identity.UsbfsIdentityError) as exc:
+    except FileNotFoundError as exc:
+        raise DownloadNodeUnstable(
+            "bound Download endpoint changed during initial measurement"
+        ) from exc
+    except usbfs_identity.UsbfsIdentityError as exc:
+        if str(exc) == f"usbfs endpoint changed during snapshot: {device}":
+            raise DownloadNodeUnstable(
+                "bound Download endpoint changed during initial measurement"
+            ) from exc
+        raise GateError("bound Download measured identity is unavailable") from exc
+    except OSError as exc:
         raise GateError("bound Download measured identity is unavailable") from exc
     second_identity = read_download_sysfs_identity(usb_device)
     if second_identity is None or second_identity != first_identity:
@@ -434,7 +448,17 @@ def bound_download_node_sample(
     try:
         measured_after = usbfs_identity.snapshot_node(device)
         immutable_after = usbfs_identity.immutable_identity(measured_after)
-    except (OSError, usbfs_identity.UsbfsIdentityError) as exc:
+    except FileNotFoundError as exc:
+        raise DownloadNodeUnstable(
+            "bound Download endpoint changed during initial measurement"
+        ) from exc
+    except usbfs_identity.UsbfsIdentityError as exc:
+        if str(exc) == f"usbfs endpoint changed during snapshot: {device}":
+            raise DownloadNodeUnstable(
+                "bound Download endpoint changed during initial measurement"
+            ) from exc
+        raise GateError("bound Download measured identity is unavailable") from exc
+    except OSError as exc:
         raise GateError("bound Download measured identity is unavailable") from exc
     if immutable_after != immutable_before:
         raise GateError("bound Download immutable identity changed while sampling")
@@ -473,7 +497,15 @@ def wait_for_stable_download_node(
         remaining = deadline - monotonic()
         if remaining <= 0:
             raise GateError("bound Download endpoint did not stabilize in time")
-        sample = sampler(expected)
+        try:
+            sample = sampler(expected)
+        except DownloadNodeUnstable as exc:
+            if observed is not None:
+                raise GateError(
+                    "bound Download endpoint changed after stabilization began"
+                ) from exc
+            stable_count = 0
+            sample = None
         if sample is None:
             if observed is not None:
                 raise GateError("bound Download endpoint disappeared while stabilizing")
@@ -492,8 +524,23 @@ def wait_for_stable_download_node(
                     "node",
                 }
                 or not isinstance(node, dict)
-                or set(node) != {"st_dev", "st_ino", "st_rdev", "st_ctime_ns"}
-                or any(not isinstance(node[name], int) for name in node)
+                or set(node)
+                != {
+                    "st_dev",
+                    "st_ino",
+                    "st_rdev",
+                    "st_ctime_ns",
+                    "immutable_identity",
+                }
+                or any(
+                    not isinstance(node[name], int)
+                    for name in ("st_dev", "st_ino", "st_rdev", "st_ctime_ns")
+                )
+                or re.fullmatch(
+                    re.escape(usbfs_identity.IDENTITY_PREFIX) + r"[0-9a-f]{64}",
+                    str(node.get("immutable_identity", "")),
+                )
+                is None
             ):
                 raise GateError("bound Download endpoint sample is malformed")
             if (
@@ -510,7 +557,12 @@ def wait_for_stable_download_node(
                 stable_count = 1
             else:
                 prior_node = observed["node"]
-                immutable = ("st_dev", "st_ino", "st_rdev")
+                immutable = (
+                    "st_dev",
+                    "st_ino",
+                    "st_rdev",
+                    "immutable_identity",
+                )
                 if sample["device"] != observed["device"] or any(
                     node[name] != prior_node[name] for name in immutable
                 ):
