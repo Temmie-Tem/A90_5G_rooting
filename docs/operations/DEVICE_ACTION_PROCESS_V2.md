@@ -126,10 +126,11 @@ completed rollback result is resumed without retransmission. Final PASS
 requires exact candidate completion, exact retained-marker classification,
 verified Magisk rollback, final health, and the canonical eight events.
 
-The production manifest remains `draft-host-only`. `--prepare` refuses that
-state before run allocation, and `--execute` reopens a
-`ready-for-f1-approval` binding. No connected preparation, manifest promotion,
-operator approval, or F1 run occurred in this source gate. See
+The default manifest remains `draft-host-only` and `--prepare` refuses it before
+run allocation. A separately named data-only canary manifest now has
+`ready-for-f1-approval` status; it still has no connected preparation or target
+binding. `--execute` reopens only a prepared exact binding. No operator approval
+or F1 run occurred in this source gate or readiness promotion. See
 `docs/reports/DEVICE_ACTION_PROCESS_V2_F1_ADAPTER_HOST_PASS_2026-07-21.md`.
 
 ### Append-Only Journal
@@ -227,8 +228,11 @@ exact approved rollback. It does not repair the candidate, change transport, or
 try another candidate.
 
 If rollback fails after an Odin device session begins, stop experimentation and
-escalate recovery. Do not launch a second candidate. A stock boot cleanup path,
-when a target profile supports one, is recovery-only and cannot produce PASS.
+escalate recovery. Only a separately invoked `recover` action may consume the
+remaining attempt within the durable two-attempt bound, using the same exact
+preapproved rollback; the failed invocation does not retransmit automatically.
+Do not launch a second candidate. A stock boot cleanup path, when a target
+profile supports one, is recovery-only and cannot produce PASS.
 
 ## Evidence
 

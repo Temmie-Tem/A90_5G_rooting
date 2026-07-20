@@ -34,7 +34,9 @@ class DeviceActionProcessV2DocsTest(unittest.TestCase):
         self.assertNotIn("POLICY_STATE=ACTIVE", active_text)
         self.assertNotIn("BEGIN_S22PLUS", active_text)
         self.assertIn("No S22+ F1 live run is currently authorized", self.agents)
-        self.assertIn("No active S22+ F1 authorization", self.goal)
+        self.assertIn(
+            "No active S22+ F1 authorization", " ".join(self.goal.split())
+        )
 
     def test_archives_are_explicitly_inert(self):
         self.assertIn("INERT HISTORICAL EVIDENCE", self.archived_agents[:600])
@@ -46,6 +48,12 @@ class DeviceActionProcessV2DocsTest(unittest.TestCase):
         self.assertIn("Forbid `/proc/self/fd`", combined)
         self.assertIn("No second acknowledgement may block rollback", combined)
         self.assertIn("exactly one regular `boot.img.lz4` member", combined)
+
+    def test_rollback_recovery_is_separate_and_cannot_retry_candidate(self):
+        self.assertIn("This stops candidate experimentation", self.agents)
+        self.assertIn("Only a separately invoked `recover` action", self.process)
+        self.assertIn("does not retransmit automatically", self.process)
+        self.assertIn("must never retry the candidate", self.agents)
 
     def test_process_v2_state_machine_is_canonical(self):
         for state in (
@@ -62,7 +70,7 @@ class DeviceActionProcessV2DocsTest(unittest.TestCase):
             self.assertIn(state, self.process)
 
     def test_frontier_advances_to_f1_adapter_without_live_authority(self):
-        self.assertIn("P2.5 adapter source gate are complete", self.goal)
+        self.assertIn("data-only\nmanifest readiness are complete", self.goal)
         self.assertIn("P2.1-P2.4 complete", self.process)
         self.assertIn("reusable D0 adapter are complete", self.agents)
         self.assertIn("read-only D0 qualification passed", self.agents)
@@ -74,8 +82,11 @@ class DeviceActionProcessV2DocsTest(unittest.TestCase):
             "GO_HOST_SOURCE_TO_SEPARATE_MANIFEST_READINESS_AND_D0_PREPARE",
             self.process,
         )
-        self.assertIn("production manifest remains `draft-host-only`", self.process)
-        self.assertIn("No active S22+ F1 authorization", self.goal)
+        self.assertIn("default manifest remains `draft-host-only`", self.process)
+        self.assertIn("`ready-for-f1-approval` status", self.process)
+        self.assertIn(
+            "No active S22+ F1 authorization", " ".join(self.goal.split())
+        )
 
     def test_archived_policy_is_not_runtime_dependency(self):
         self.assertIn(

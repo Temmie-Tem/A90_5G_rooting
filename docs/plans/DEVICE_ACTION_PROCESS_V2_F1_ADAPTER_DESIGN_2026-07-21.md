@@ -61,7 +61,8 @@ fresh approval.
 - Timeout, interruption, unknown Odin output, or any possible device session
   requires rollback even when candidate success is unproved.
 - A failed or interrupted rollback leaves the journal recoverable. It does not
-  authorize another candidate or a different cleanup image.
+  authorize another candidate or a different cleanup image. Only a separate
+  `recover` invocation may consume the remaining exact rollback attempt.
 - Attempt starts are limited to two and cross-checked against the journal. A
   durable completed rollback result advances recovery without another flash.
 - `recover` reconstructs missing no-proof candidate/observation transitions

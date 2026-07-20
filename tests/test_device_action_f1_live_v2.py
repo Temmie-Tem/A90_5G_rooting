@@ -755,6 +755,21 @@ class DeviceActionF1LiveV2Test(unittest.TestCase):
         self.assertFalse(plan["recover_can_transfer_candidate"])
         self.assertEqual(plan["manifest_status"], "draft-host-only")
 
+    def test_data_only_canary_manifest_is_explicitly_ready(self):
+        manifest = (
+            ROOT
+            / "workspace/public/src/device-action/manifests/"
+            "s22plus_fyg8_r4w1c_process_v2_canary_1.json"
+        )
+        bundle = self.module.core.verify_bundle(ROOT, manifest)
+        plan = self.module.render_plan(ROOT, bundle)
+        self.assertEqual(plan["manifest_status"], "ready-for-f1-approval")
+        self.assertEqual(
+            plan["manifest_id"], "s22plus-fyg8-r4w1c-process-v2-canary-1"
+        )
+        self.assertFalse(plan["f1_authorized"])
+        self.assertFalse(plan["live_authorized"])
+
     def test_cli_refuses_draft_prepare_before_run_allocation(self):
         with mock.patch.object(
             self.module, "allocate_run_dir", side_effect=AssertionError("must not allocate")

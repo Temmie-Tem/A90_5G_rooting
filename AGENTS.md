@@ -17,10 +17,10 @@ Do not add a device step when host-only work can answer the question.
 - Retired helpers and acknowledgement strings cannot authorize a new run.
 - The Process v2 H0 core and reusable D0 adapter are complete. One connected
   read-only D0 qualification passed with no F1 authority. The reusable F1
-  adapter passed its host-only execution-closure review, but its production
-  manifest remains `draft-host-only`. Any readiness promotion, connected D0
-  preparation, and later F1 require separate selection; F1 still requires one
-  fresh exact-binding approval.
+  adapter passed its host-only execution-closure review. The data-only canary
+  manifest is `ready-for-f1-approval`, but it has no prepared target binding.
+  Connected D0 preparation and later F1 remain separate actions; F1 still
+  requires one fresh exact-binding approval.
 
 ## Permanent Safety Boundaries
 
@@ -42,7 +42,9 @@ Do not add a device step when host-only work can answer the question.
    recovery path is an immediate stop.
 7. An unexplained failure after an Odin/device session starts is an immediate
    stop. The same material host-side or pre-session failure twice also stops the
-   line of work.
+   line of work. This stops candidate experimentation; it does not cancel the
+   already-authorized exact rollback path. Rollback recovery may resume only
+   from durable journal state and must never retry the candidate.
 8. Do not commit firmware, boot images, ramdisks, compiled payloads, raw device
    logs, credentials, device serials, PARTUUIDs, MAC/BSSID/IP values, KASLR
    slides, or tunnel URLs. Keep private inputs and run evidence under
