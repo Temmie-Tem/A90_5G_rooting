@@ -7,7 +7,7 @@ says WHAT to pursue; **`AGENTS.md` says HOW — its safety invariants and flash 
 are binding and override any sub-goal.**
 
 > **S22+ ACTIVE FRONTIER (2026-07-21 KST) - R4W1-C2 NO-AP RECOVERY
-> FOURTH ADVERSARIAL NO-GO REPAIRED HOST-ONLY; POLICY STILL INACTIVE.** The first
+> FIFTH ADVERSARIAL NO-GO REPAIRED HOST-ONLY; POLICY STILL INACTIVE.** The first
 > independent review session `019f807c-c88c-7073-824b-7a1f4ecfec27` found seven
 > blockers. A second independent `gpt-5.6-sol` xhigh review session
 > `019f8090-9c52-71a1-b3c3-918c56c432f3` reviewed commit `f1e22994`, closed four,
@@ -23,6 +23,13 @@ are binding and override any sub-goal.**
 > five final host-integrity defects: state-parent replacement TOCTOU, transient
 > failure-finalization loss, hardlink/symlink final-evidence acceptance, inherited
 > Odin loader environment, and unbounded timeout cleanup.
+> A fifth independent `gpt-5.6-sol` xhigh review session
+> `019f80c7-3ffe-7df1-96cc-69ddf64f6cd5` reviewed commit `2414e911` and
+> reproduced six remaining cross-boundary defects: a post-check state-parent
+> swap restoring canonical retry authority, a final run-parent swap leaving
+> non-canonical PASS evidence, inherited environment and unbounded cleanup in
+> prerequisite `odin4 -l`, lost evidence for non-`OSError` post-spawn faults,
+> and PASS publication before reporting/context teardown completed.
 >
 > The repaired helper now requires recursive local-import/pin equality, routes
 > every returned and exceptional Odin output through one exact combined 1 MiB
@@ -39,11 +46,20 @@ are binding and override any sub-goal.**
 > transient final publication independently, and bounds kill/reap inside the
 > original 60-second budget. The draft requires old retirement and new
 > activation in the same later policy-only commit.
+> The fifth repair adds an exact duplicate one-shot guard under
+> `workspace/private`, treats either state as permanently consumed, and verifies
+> guard/state/run identity again after action and before PASS. Every sealed Odin
+> enumeration now uses the same `/dev/null`, three-variable environment,
+> inherited-fd, output-cap, deadline, and bounded-reap runner as the no-AP action.
+> All post-spawn exception classes preserve bounded output and cleanup evidence.
+> PASS publication occurs only after sealed-Odin and transaction teardown; the
+> result is the final load-bearing write and summary/descriptor close cannot
+> contradict it.
 >
-> Focused tests pass `32/32`; the related suite passes `217/217`. Offline verdict
-> remains `PASS_R4W1C2_NOAP_REBOOT_RECOVERY_SOURCE_HOST_ONLY`, policy inactive,
+> Focused tests pass `39/39`; the isolated related suite passes `224/224`.
+> Offline verdict remains `PASS_R4W1C2_NOAP_REBOOT_RECOVERY_SOURCE_HOST_ONLY`, policy inactive,
 > recovery one-shot unconsumed, and all device-action fields false. Next is a
-> fifth independent review of the repaired exact bytes. Only a GO permits a
+> sixth independent review of the repaired exact bytes. Only a GO permits a
 > separate policy-only activation commit and subsequent fresh live
 > acknowledgement. Report:
 > `docs/reports/S22PLUS_FYG8_R4W1C2_NOAP_RECOVERY_NO_GO_REPAIR_2026-07-21.md`.

@@ -153,21 +153,61 @@ The focused regressions additionally preserve bytes observed before a
 post-spawn error, reject hardlink evidence, and verify the sanitized runner
 contract. No device or USB command was executed.
 
+## Fifth independent review and repair
+
+Independent host-only read-only review session
+`019f80c7-3ffe-7df1-96cc-69ddf64f6cd5` reviewed commit `2414e911` with
+`gpt-5.6-sol` at explicitly verified xhigh effort. It reopened the exact
+incident, ran the isolated 217-test suite, and used temporary-directory and mock
+fault injection only. It returned `NO_GO_TO_POLICY_ACTIVATION` for six defects:
+
+1. A state-parent replacement immediately after the last pre-launch check could
+   still reach action and PASS while the canonical consumed state disappeared.
+   The helper now publishes identical one-shot bytes first to an independent
+   guard under `workspace/private`, then to the state directory. Either path
+   permanently consumes the exception. The held guard, state, run, and action
+   identities are checked again before PASS.
+2. A run-parent replacement after final Android/Odin observation could return
+   PASS with timeline/result only under the renamed inode. PASS publication now
+   occurs only after canonical run identity is reopened following observation
+   and context teardown. The injected replacement produces a truthful non-PASS.
+3. Prerequisite and revalidation `odin4 -l` inherited caller environment and
+   stdin through the pinned shared core. The no-AP helper now injects a sealed
+   enumeration runner that rewrites to `/proc/self/fd/<odin-fd>`, inherits only
+   that fd, uses `/dev/null`, and passes exactly `PATH`, `LANG`, and `LC_ALL`.
+4. The shared default enumeration runner had an unbounded error-path wait. The
+   no-AP path no longer invokes that default: all three enumeration phases use
+   the same total-deadline bounded runner as the final reboot command.
+5. A generic post-spawn selector fault could kill the child but lose stdout,
+   stderr, and outcome evidence. Every post-spawn exception class is now
+   converted to a bounded Odin error carrying captured bytes and kill/reap/
+   cleanup status; close and poll anomalies cannot override the evidence.
+6. PASS was published before stdout reporting and context teardown, allowing a
+   later host error to leave a PASS file while the invocation raised failure.
+   Both Odin and transaction contexts now exit before PASS publication. The
+   result is the final load-bearing write; summary and descriptor close are
+   explicitly non-throwing and non-load-bearing.
+
+Seven added focused regressions reproduce these boundaries, including the
+independent reviewer probes. No device, ADB, USB enumeration, Odin binary, or
+network command was executed.
+
 ## Exact repaired identities
 
-- helper: size `63483`, SHA256
-  `fa5d2d7c1a16b5aa08278f5c63d98b4289f92a71a4d052a055abd7483ce12257`
-- focused test: size `40489`, SHA256
-  `32771a0568856c18b8808ec248106f8643991d7466f8bc03820d41b65ee3e323`
-- policy draft: size `10565`, SHA256
-  `f089a11df61a371fc975ba03f38fce5b0c8aa93ac1b74a6b2d93d40cd73f76e0`
+- helper: size `70128`, SHA256
+  `df127ae706fb02d497462f78b5ca61e5a75113794a46969f0e4aeb749c6b1c02`
+- focused test: size `48803`, SHA256
+  `4f1f5d820525b7c22df4fda6f855f14ee44a1f124971568ea9a6f2aeeb65bb0c`
+- policy draft: size `11844`, SHA256
+  `50fefbd3140078502f3a3bbdccd94783acd76406ae98614cac581034317d1160`
 - normalized policy template SHA256:
-  `533eb79e4d1327618491f87cdd37be61cacd543dfe4dc222ef6e9003226c86ac`
+  `f0dc64f34a35c820d8a277ed1033b4d1914286deb840174eedb74769cc98cef4`
 
 ## Host-only validation
 
-- focused no-AP recovery suite: `32/32` PASS
-- related helper/core/USBFS/connected/live-core/transport suite: `217/217` PASS
+- focused no-AP recovery suite: `39/39` PASS
+- isolated related helper/core/USBFS/connected/live-core/transport suite:
+  `224/224` PASS
 - offline verdict:
   `PASS_R4W1C2_NOAP_REBOOT_RECOVERY_SOURCE_HOST_ONLY`
 - policy active: `false`
@@ -175,5 +215,5 @@ contract. No device or USB command was executed.
 - device contact/write/reboot/Odin transfer/flash: all `false`
 
 No device or USB command was executed during any review or repair. Exact policy
-activation remains blocked until a fresh independent adversarial review
+activation remains blocked until a sixth independent adversarial review
 returns `GO_TO_EXACT_POLICY_ACTIVATION` on these repaired bytes.

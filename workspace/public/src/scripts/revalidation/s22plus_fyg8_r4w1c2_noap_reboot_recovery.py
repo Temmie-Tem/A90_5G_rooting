@@ -41,7 +41,7 @@ OLD_POLICY_END = "END_S22PLUS_FYG8_R4W1C2_MEASURED_LIVE_POLICY_V1"
 OLD_POLICY_ACTIVE = "S22PLUS_FYG8_R4W1C2_MEASURED_LIVE_POLICY_STATE=ACTIVE"
 OLD_POLICY_RETIRED = "S22PLUS_FYG8_R4W1C2_MEASURED_LIVE_POLICY_STATE=RETIRED"
 EXPECTED_POLICY_TEMPLATE_SHA256 = (
-    "533eb79e4d1327618491f87cdd37be61cacd543dfe4dc222ef6e9003226c86ac"
+    "f0dc64f34a35c820d8a277ed1033b4d1914286deb840174eedb74769cc98cef4"
 )
 LIVE_ACK = "S22PLUS-FYG8-R4W1C2-NOAP-REBOOT-RECOVERY-LIVE"
 PASS_VERDICT = "PASS_R4W1C2_NOAP_REBOOT_RECOVERY_EXACT_MAGISK_ANDROID"
@@ -220,6 +220,37 @@ class BoundedOdinError(RecoveryError):
         self.kill_sent = kill_sent
         self.reaped = reaped
         self.cleanup_error = cleanup_error
+
+
+def recovery_guard_path(root: Path) -> Path:
+    state_path = root / RECOVERY_STATE
+    return state_path.parent.parent / f".{state_path.name}.guard"
+
+
+def close_noexcept(descriptor: int) -> None:
+    try:
+        os.close(descriptor)
+    except Exception:
+        pass
+
+
+def emit_summary(value: dict[str, str]) -> None:
+    try:
+        print(json.dumps(value, indent=2))
+    except Exception:
+        pass
+
+
+def close_object_noexcept(value: Any) -> None:
+    try:
+        value.close()
+    except Exception:
+        pass
+
+
+def recovery_consumed(root: Path) -> bool:
+    paths = (root / RECOVERY_STATE, recovery_guard_path(root))
+    return any(path.exists() or path.is_symlink() for path in paths)
 
 
 def repo_root() -> Path:
@@ -862,7 +893,6 @@ def offline_check(root: Path) -> dict[str, Any]:
         raise RecoveryError("no-AP recovery policy template identity changed")
     draft["template_sha256"] = template_sha256
     policy = policy_status(root)
-    state_path = root / RECOVERY_STATE
     return {
         "schema": "s22plus_fyg8_r4w1c2_noap_reboot_recovery_offline_v1",
         "verdict": "PASS_R4W1C2_NOAP_REBOOT_RECOVERY_SOURCE_HOST_ONLY",
@@ -873,7 +903,7 @@ def offline_check(root: Path) -> dict[str, Any]:
         "dependencies": dependencies,
         "incident": incident,
         "policy": {key: value for key, value in policy.items() if key != "clause"},
-        "recovery_consumed": state_path.exists() or state_path.is_symlink(),
+        "recovery_consumed": recovery_consumed(root),
         "device_contact": False,
         "device_writes": False,
         "reboot": False,
@@ -929,20 +959,32 @@ def bounded_kill_reap(
 ) -> tuple[bool, bool, str | None]:
     kill_sent = False
     cleanup_error: str | None = None
+    running = True
     try:
-        if process.poll() is None:
+        running = process.poll() is None
+    except Exception as exc:
+        cleanup_error = f"poll before kill failed: {exc}"
+    try:
+        if running:
             process.kill()
             kill_sent = True
-    except OSError as exc:
-        cleanup_error = f"kill failed: {exc}"
+    except Exception as exc:
+        detail = f"kill failed: {exc}"
+        cleanup_error = detail if cleanup_error is None else f"{cleanup_error}; {detail}"
     remaining = max(0.0, deadline - time.monotonic())
     try:
-        if process.poll() is None and remaining > 0:
+        running = process.poll() is None
+        if running and remaining > 0:
             process.wait(timeout=remaining)
-    except (OSError, subprocess.TimeoutExpired) as exc:
+    except Exception as exc:
         detail = f"bounded reap failed: {exc}"
         cleanup_error = detail if cleanup_error is None else f"{cleanup_error}; {detail}"
-    reaped = process.poll() is not None
+    try:
+        reaped = process.poll() is not None
+    except Exception as exc:
+        reaped = False
+        detail = f"poll after reap failed: {exc}"
+        cleanup_error = detail if cleanup_error is None else f"{cleanup_error}; {detail}"
     if not reaped and cleanup_error is None:
         cleanup_error = "child was not reaped within the total timeout"
     return kill_sent, reaped, cleanup_error
@@ -967,14 +1009,15 @@ def bounded_odin_runner(
         or check
     ):
         raise RecoveryError("bounded Odin runner contract is invalid")
-    if not math.isfinite(timeout) or timeout <= ODIN_CLEANUP_GRACE_SEC:
+    if not math.isfinite(timeout) or timeout <= 0:
         raise RecoveryError("bounded Odin timeout is invalid")
     process: subprocess.Popen[bytes] | None = None
     selector: selectors.BaseSelector | None = None
     streams: dict[str, list[bytes]] = {"stdout": [], "stderr": []}
     total = 0
     deadline = time.monotonic() + timeout
-    work_deadline = deadline - ODIN_CLEANUP_GRACE_SEC
+    cleanup_grace = min(ODIN_CLEANUP_GRACE_SEC, timeout / 2.0)
+    work_deadline = deadline - cleanup_grace
     try:
         process = subprocess.Popen(
             command,
@@ -1073,19 +1116,113 @@ def bounded_odin_runner(
             cleanup_error=cleanup_error,
         ) from exc
     except BaseException as exc:
-        if process is not None:
-            _kill_sent, _reaped, cleanup_error = bounded_kill_reap(process, deadline)
-            if cleanup_error is not None:
-                exc.add_note(cleanup_error)
-        raise
+        if process is None:
+            raise
+        kill_sent, reaped, cleanup_error = bounded_kill_reap(process, deadline)
+        raise BoundedOdinError(
+            "no-AP Odin runner failed after process start: "
+            f"{type(exc).__name__}: {exc}",
+            b"".join(streams["stdout"]),
+            b"".join(streams["stderr"]),
+            runner_error=True,
+            kill_sent=kill_sent,
+            reaped=reaped,
+            cleanup_error=cleanup_error,
+        ) from exc
     finally:
         if selector is not None:
-            selector.close()
+            close_object_noexcept(selector)
         if process is not None:
             if process.stdout is not None:
-                process.stdout.close()
+                close_object_noexcept(process.stdout)
             if process.stderr is not None:
-                process.stderr.close()
+                close_object_noexcept(process.stderr)
+
+
+def sealed_enumeration_runner(
+    odin_fd: int, external_odin: Path
+) -> Callable[[list[str], float], subprocess.CompletedProcess[bytes]]:
+    expected = [str(external_odin), "-l"]
+
+    def run(argv: list[str], timeout: float) -> subprocess.CompletedProcess[bytes]:
+        if argv != expected:
+            raise RecoveryError("sealed Odin enumeration command shape changed")
+        return bounded_odin_runner(
+            [f"/proc/self/fd/{odin_fd}", "-l"],
+            stdin=subprocess.DEVNULL,
+            stdout=subprocess.PIPE,
+            stderr=subprocess.PIPE,
+            pass_fds=(odin_fd,),
+            env=dict(ODIN_ENV),
+            timeout=timeout,
+            check=False,
+        )
+
+    return run
+
+
+def wait_for_endpoint_hardened(
+    odin: Path,
+    run_dir: Path,
+    *,
+    timeout_sec: float,
+    sequence: int,
+    lease: Any,
+    expected_usb_binding: dict[str, str],
+    runner: Callable[[list[str], float], subprocess.CompletedProcess[bytes]],
+) -> tuple[odin_core.EndpointTicket, int]:
+    started = time.monotonic()
+    stable = measured.wait_for_stable_download_node(
+        expected_usb_binding, timeout_sec
+    )
+    remaining = timeout_sec - (time.monotonic() - started)
+    if remaining <= 0:
+        raise RecoveryError("Download endpoint stabilization exhausted the wait deadline")
+    result = odin_core.wait_for_single_live_endpoint(
+        odin,
+        run_dir,
+        timeout_sec=remaining,
+        sequence_start=sequence,
+        poll_sec=1.0,
+        lease=lease,
+        runner=runner,
+        endpoint_observer_factory=odin_core.measured_usbfs_observer,
+    )
+    if result.ticket is None or result.timed_out:
+        raise RecoveryError("one normal Download endpoint did not appear in time")
+    stable_node = stable["node"]
+    if (
+        result.ticket.device != stable["device"]
+        or result.ticket.device_identity
+        != str(stable_node.get("immutable_identity", ""))
+    ):
+        raise RecoveryError(
+            "ticketed Odin endpoint differs from the stabilized endpoint"
+        )
+    measured.require_ticket_usb_binding(result.ticket, expected_usb_binding)
+    return result.ticket, result.next_sequence
+
+
+def revalidate_ticket_hardened(
+    odin: Path,
+    run_dir: Path,
+    ticket: odin_core.EndpointTicket,
+    *,
+    sequence: int,
+    lease: Any,
+    runner: Callable[[list[str], float], subprocess.CompletedProcess[bytes]],
+) -> tuple[str, int, dict[str, Any]]:
+    record = odin_core.revalidate_endpoint_ticket(
+        odin,
+        run_dir,
+        ticket,
+        sequence=sequence,
+        timeout_sec=15.0,
+        lease=lease,
+        runner=runner,
+        endpoint_observer_factory=odin_core.measured_usbfs_observer,
+    )
+    return ticket.device, sequence + 1, record
 
 
 def run_noap_odin(
@@ -1150,7 +1287,7 @@ def run_noap_odin(
             display_path=outcome_path,
         )
         raise RecoveryError(str(exc)) from exc
-    except OSError as exc:
+    except Exception as exc:
         stdout_record = durable_create_bytes_at_idempotent(
             output_dir_fd, stdout_path.name, b"", display_path=stdout_path
         )
@@ -1249,6 +1386,7 @@ def create_recovery_state(
     *,
     run_dir_fd: int,
     state_dir_fd: int,
+    guard_dir_fd: int,
     policy: dict[str, Any],
     incident: dict[str, Any],
     run_dir: Path,
@@ -1258,6 +1396,7 @@ def create_recovery_state(
     policy_draft: dict[str, Any],
 ) -> dict[str, Any]:
     path = root / RECOVERY_STATE
+    guard_path = recovery_guard_path(root)
     revalidate_bound_directory(run_dir_fd, run_dir)
     expected_run_root = Path(os.path.abspath(root / RECOVERY_RUN_ROOT))
     if Path(os.path.abspath(run_dir)).parent != expected_run_root:
@@ -1265,12 +1404,18 @@ def create_recovery_state(
             "recovery state run directory is outside the direct run root"
         )
     revalidate_bound_directory(state_dir_fd, path.parent)
-    try:
-        os.stat(path.name, dir_fd=state_dir_fd, follow_symlinks=False)
-    except FileNotFoundError:
-        pass
-    else:
-        raise RecoveryError("no-AP reboot recovery was already consumed")
+    revalidate_bound_directory(guard_dir_fd, guard_path.parent)
+    for directory_fd, name in (
+        (state_dir_fd, path.name),
+        (guard_dir_fd, guard_path.name),
+    ):
+        try:
+            os.stat(name, dir_fd=directory_fd, follow_symlinks=False)
+        except FileNotFoundError:
+            pass
+        else:
+            raise RecoveryError("no-AP reboot recovery was already consumed")
+    run_metadata = os.fstat(run_dir_fd)
     record = {
         "schema": "s22plus_fyg8_r4w1c2_noap_reboot_recovery_consumed_v1",
         "created_at_utc": core.utc_now(),
@@ -1286,16 +1431,30 @@ def create_recovery_state(
         "incident_consumed_sha256": incident["files"]["consumed"]["sha256"],
         "stock_intent_sha256": incident["files"]["stock_intent"]["sha256"],
         "run_dir": str(run_dir.relative_to(root)),
+        "run_directory_identity": {
+            "st_dev": run_metadata.st_dev,
+            "st_ino": run_metadata.st_ino,
+        },
+        "guard_path": str(guard_path.relative_to(root)),
         "expected_usb_binding": incident["usb_binding"],
         "consumption_timing": "before any device or USB observation",
         "action": "odin4 --reboot only; no AP and no partition payload",
     }
     payload = json_record_bytes(record)
     durable_create_bytes_at_idempotent(
+        guard_dir_fd,
+        guard_path.name,
+        payload,
+        display_path=guard_path,
+    )
+    durable_create_bytes_at_idempotent(
         state_dir_fd,
         path.name,
         payload,
         display_path=path,
+    )
+    revalidate_bound_file_path(
+        guard_dir_fd, guard_path.parent, guard_path.name, payload
     )
     revalidate_bound_file_path(state_dir_fd, path.parent, path.name, payload)
     revalidate_bound_directory(run_dir_fd, run_dir)
@@ -1314,13 +1473,20 @@ def live_run(root: Path, args: argparse.Namespace) -> int:
     run_dir = allocate_recovery_run_dir(root)
     run_dir_fd = open_bound_directory(root, run_dir)
     state_dir = root / RECOVERY_STATE.parent
+    guard_dir = recovery_guard_path(root).parent
     try:
         state_dir_fd = open_bound_directory(root, state_dir)
     except BaseException:
-        os.close(run_dir_fd)
+        close_noexcept(run_dir_fd)
         raise
     try:
-        return live_run_bound(
+        guard_dir_fd = open_bound_directory(root, guard_dir)
+    except BaseException:
+        close_noexcept(state_dir_fd)
+        close_noexcept(run_dir_fd)
+        raise
+    try:
+        outcome = live_run_bound(
             root,
             args,
             offline=offline,
@@ -1329,10 +1495,13 @@ def live_run(root: Path, args: argparse.Namespace) -> int:
             run_dir=run_dir,
             run_dir_fd=run_dir_fd,
             state_dir_fd=state_dir_fd,
+            guard_dir_fd=guard_dir_fd,
         )
     finally:
-        os.close(state_dir_fd)
-        os.close(run_dir_fd)
+        close_noexcept(guard_dir_fd)
+        close_noexcept(state_dir_fd)
+        close_noexcept(run_dir_fd)
+    return outcome
 
 
 def live_run_bound(
@@ -1345,6 +1514,7 @@ def live_run_bound(
     run_dir: Path,
     run_dir_fd: int,
     state_dir_fd: int,
+    guard_dir_fd: int,
 ) -> int:
     result_path = run_dir / "result.json"
     timeline_path = run_dir / "timeline.json"
@@ -1383,6 +1553,7 @@ def live_run_bound(
             root,
             run_dir_fd=run_dir_fd,
             state_dir_fd=state_dir_fd,
+            guard_dir_fd=guard_dir_fd,
             policy=policy,
             incident=offline["incident"],
             run_dir=run_dir,
@@ -1393,30 +1564,37 @@ def live_run_bound(
         )
         result["recovery_state"] = state
         state_path = root / RECOVERY_STATE
+        guard_path = recovery_guard_path(root)
         state_payload = json_record_bytes(state)
         revalidate_bound_file_path(
             state_dir_fd, state_path.parent, state_path.name, state_payload
         )
+        revalidate_bound_file_path(
+            guard_dir_fd, guard_path.parent, guard_path.name, state_payload
+        )
         revalidate_bound_directory(run_dir_fd, run_dir)
         with measured.pinned_odin_session(odin) as (odin_fd, external_odin):
+            enumeration_runner = sealed_enumeration_runner(odin_fd, external_odin)
             with odin_core.transaction_session(run_dir) as lease:
-                ticket, sequence = measured.wait_for_endpoint(
+                ticket, sequence = wait_for_endpoint_hardened(
                     external_odin,
                     run_dir,
                     timeout_sec=args.endpoint_wait_sec,
                     sequence=0,
                     lease=lease,
                     expected_usb_binding=dict(offline["incident"]["usb_binding"]),
+                    runner=enumeration_runner,
                 )
                 usb = measured.require_ticket_usb_binding(
                     ticket, dict(offline["incident"]["usb_binding"])
                 )
-                device, sequence, revalidation = measured.revalidate_ticket(
+                device, sequence, revalidation = revalidate_ticket_hardened(
                     external_odin,
                     run_dir,
                     ticket,
                     sequence=sequence,
                     lease=lease,
+                    runner=enumeration_runner,
                 )
                 if measured.require_ticket_usb_binding(
                     ticket, dict(offline["incident"]["usb_binding"])
@@ -1446,6 +1624,9 @@ def live_run_bound(
                 )
                 revalidate_bound_file_path(
                     state_dir_fd, state_path.parent, state_path.name, state_payload
+                )
+                revalidate_bound_file_path(
+                    guard_dir_fd, guard_path.parent, guard_path.name, state_payload
                 )
                 revalidate_bound_file_path(
                     run_dir_fd,
@@ -1484,6 +1665,7 @@ def live_run_bound(
                     sequence_start=sequence,
                     poll_sec=0.1,
                     lease=lease,
+                    runner=enumeration_runner,
                     endpoint_observer_factory=odin_core.measured_usbfs_observer,
                 )
                 if not absence.absent or absence.timed_out:
@@ -1543,34 +1725,54 @@ def live_run_bound(
                         },
                     }
                 )
-                timeline_attempted = timeline
-                durable_create_json_at_idempotent(
-                    run_dir_fd,
-                    timeline_path.name,
-                    {"events": timeline},
-                    display_path=timeline_path,
-                )
-                result["timeline"] = {
-                    "path": str(timeline_path.relative_to(root)),
-                    "events": timeline,
-                }
-                durable_create_json_at_idempotent(
-                    run_dir_fd,
-                    result_path.name,
-                    result,
-                    display_path=result_path,
-                )
-                print(json.dumps({"run_dir": str(run_dir), "verdict": PASS_VERDICT}, indent=2))
-                return 0
-    except (
-        RecoveryError,
-        measured.GateError,
-        connected.GateError,
-        odin_core.OdinTransitionError,
-        core.LiveCoreError,
-        OSError,
-        subprocess.SubprocessError,
-    ) as exc:
+        # Both child/session contexts must close before any canonical PASS exists.
+        revalidate_bound_file_path(
+            state_dir_fd, state_path.parent, state_path.name, state_payload
+        )
+        revalidate_bound_file_path(
+            guard_dir_fd, guard_path.parent, guard_path.name, state_payload
+        )
+        revalidate_bound_file_path(
+            run_dir_fd,
+            run_dir,
+            attempt_path.name,
+            json_record_bytes(attempt_value),
+        )
+        revalidate_bound_directory(run_dir_fd, run_dir)
+        timeline_attempted = timeline
+        timeline_value = {"events": timeline}
+        durable_create_json_at_idempotent(
+            run_dir_fd,
+            timeline_path.name,
+            timeline_value,
+            display_path=timeline_path,
+        )
+        result["timeline"] = {
+            "path": str(timeline_path.relative_to(root)),
+            "events": timeline,
+        }
+        # Result is the final load-bearing write. Nothing fallible follows it.
+        revalidate_bound_file_path(
+            state_dir_fd, state_path.parent, state_path.name, state_payload
+        )
+        revalidate_bound_file_path(
+            guard_dir_fd, guard_path.parent, guard_path.name, state_payload
+        )
+        revalidate_bound_file_path(
+            run_dir_fd,
+            run_dir,
+            timeline_path.name,
+            json_record_bytes(timeline_value),
+        )
+        durable_create_json_at_idempotent(
+            run_dir_fd,
+            result_path.name,
+            result,
+            display_path=result_path,
+        )
+        emit_summary({"run_dir": str(run_dir), "verdict": PASS_VERDICT})
+        return 0
+    except Exception as exc:
         ended = core.utc_now()
         attempt: dict[str, Any] | None = None
         outcome: dict[str, Any] | None = None
@@ -1595,7 +1797,7 @@ def live_run_bound(
         result["error"] = str(exc)
         result["recovery_consumed"] = leaf_exists_at(
             state_dir_fd, RECOVERY_STATE.name
-        )
+        ) or leaf_exists_at(guard_dir_fd, recovery_guard_path(root).name)
         result["reboot"] = True if ready is not None else None
         result["odin_attempt"] = attempt
         result["odin_outcome"] = outcome
@@ -1652,7 +1854,7 @@ def live_run_bound(
                 "failure result recorded but canonical timeline publication failed: "
                 + timeline_publication_error
             )
-        print(json.dumps({"run_dir": str(run_dir), "verdict": FAIL_VERDICT}, indent=2))
+        emit_summary({"run_dir": str(run_dir), "verdict": FAIL_VERDICT})
         return 20
 
 
