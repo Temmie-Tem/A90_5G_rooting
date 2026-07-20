@@ -1,6 +1,6 @@
 # Device Action Process v2
 
-Status: P2.1-P2.4 complete; reusable F1 adapter and canary pending.
+Status: P2.1-P2.4 complete; reusable F1 adapter source gate complete; canary pending.
 
 This process replaces per-candidate live helpers, policy activation commits,
 per-run one-shot clauses, and repeated review ladders for ordinary boot-only
@@ -63,9 +63,12 @@ adapter is
 `workspace/public/src/scripts/revalidation/device_action_d0_v2.py`. It reuses
 the H0 bundle validator and exposes only validation, plan rendering, and one
 connected read-only mode. Neither component exposes a live F1 transfer mode.
-The F1 adapter must reuse this core rather than add a candidate-specific runner.
+The reusable F1 adapter is
+`workspace/public/src/scripts/revalidation/device_action_f1_live_v2.py`. It
+reuses these cores and exposes separated `--prepare`, `--execute`, and
+`--recover` phases rather than a candidate-specific runner.
 
-The F1 adapter will own:
+The F1 adapter owns:
 
 - H0 artifact and manifest validation;
 - D0 target preflight;
@@ -104,6 +107,30 @@ endpoints before and after. The independently reviewed implementation and live
 evidence are recorded in
 `docs/reports/DEVICE_ACTION_PROCESS_V2_D0_QUALIFICATION_PASS_2026-07-21.md`.
 This PASS qualifies the reusable preflight only and creates no F1 authority.
+
+### F1 Adapter Source Gate
+
+The reusable adapter passed focused simulations and two independent Claude
+Opus read-only reviews on 2026-07-21. The final verdict was
+`GO_HOST_SOURCE_TO_SEPARATE_MANIFEST_READINESS_AND_D0_PREPARE`. It closes the
+source gate only.
+
+The adapter binds the H0 bundle, D0 result, private target continuity, exact
+execution-critical source closure, candidate and rollback artifacts, and
+observation rule into one approval token. It reopens that evidence before
+execution, repeats D0, tracks the measured Samsung Download endpoint, invokes
+regular-path Odin, and resumes only mandatory rollback after a durable
+candidate-attempt event. Candidate and rollback evidence are append-only;
+state-bound pre-Odin checkpoints enforce the two-attempt limit, and a durable
+completed rollback result is resumed without retransmission. Final PASS
+requires exact candidate completion, exact retained-marker classification,
+verified Magisk rollback, final health, and the canonical eight events.
+
+The production manifest remains `draft-host-only`. `--prepare` refuses that
+state before run allocation, and `--execute` reopens a
+`ready-for-f1-approval` binding. No connected preparation, manifest promotion,
+operator approval, or F1 run occurred in this source gate. See
+`docs/reports/DEVICE_ACTION_PROCESS_V2_F1_ADAPTER_HOST_PASS_2026-07-21.md`.
 
 ### Append-Only Journal
 
@@ -256,7 +283,7 @@ F1. The existing R4W1-C3 implementation remains inactive reference evidence
 for regular-path transport and must not become an interim live exception.
 
 P2.4 then passed focused tests, independent D0 review, and one bounded connected
-read-only qualification. P2.5 may now implement the reusable F1 adapter
-host-only. No F1 run is authorized until that execution-critical closure passes
-independent review and the operator gives one fresh approval for the exact
-binding.
+read-only qualification. The P2.5 reusable adapter source and execution closure
+now pass host-only. No F1 run is authorized: the manifest remains draft, no D0
+preparation binding exists for this canary, and no fresh exact approval has been
+given.

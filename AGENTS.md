@@ -16,9 +16,11 @@ Do not add a device step when host-only work can answer the question.
 - R4W1-C3 is an inactive host-only checkpoint, not an executable policy.
 - Retired helpers and acknowledgement strings cannot authorize a new run.
 - The Process v2 H0 core and reusable D0 adapter are complete. One connected
-  read-only D0 qualification passed with no F1 authority. P2.5 is host-only
-  until the reusable F1 adapter passes independent review; any later F1 still
-  requires one fresh exact-binding approval.
+  read-only D0 qualification passed with no F1 authority. The reusable F1
+  adapter passed its host-only execution-closure review, but its production
+  manifest remains `draft-host-only`. Any readiness promotion, connected D0
+  preparation, and later F1 require separate selection; F1 still requires one
+  fresh exact-binding approval.
 
 ## Permanent Safety Boundaries
 

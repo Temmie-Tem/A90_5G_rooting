@@ -62,7 +62,7 @@ class DeviceActionProcessV2DocsTest(unittest.TestCase):
             self.assertIn(state, self.process)
 
     def test_frontier_advances_to_f1_adapter_without_live_authority(self):
-        self.assertIn("P2.1-P2.4 complete; P2.5 is current", self.goal)
+        self.assertIn("P2.5 adapter source gate are complete", self.goal)
         self.assertIn("P2.1-P2.4 complete", self.process)
         self.assertIn("reusable D0 adapter are complete", self.agents)
         self.assertIn("read-only D0 qualification passed", self.agents)
@@ -70,6 +70,11 @@ class DeviceActionProcessV2DocsTest(unittest.TestCase):
             "PASS_DEVICE_ACTION_D0_V2_CONNECTED_READ_ONLY", self.process
         )
         self.assertIn("creates no F1 authority", self.process)
+        self.assertIn(
+            "GO_HOST_SOURCE_TO_SEPARATE_MANIFEST_READINESS_AND_D0_PREPARE",
+            self.process,
+        )
+        self.assertIn("production manifest remains `draft-host-only`", self.process)
         self.assertIn("No active S22+ F1 authorization", self.goal)
 
     def test_archived_policy_is_not_runtime_dependency(self):

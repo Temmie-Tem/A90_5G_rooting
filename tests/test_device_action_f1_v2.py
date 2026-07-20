@@ -163,6 +163,22 @@ class DeviceActionF1V2Test(unittest.TestCase):
             self.assertFalse(plan["odin_invoked"])
             self.assertFalse(plan["live_authorized"])
 
+    def test_manifest_readiness_state_is_explicit_and_bounded(self):
+        with tempfile.TemporaryDirectory() as temporary:
+            root = Path(temporary)
+            _, manifest, _, manifest_path = self.fixture(root)
+            ready = copy.deepcopy(manifest)
+            ready["status"] = "ready-for-f1-approval"
+            manifest_path.write_text(json.dumps(ready), encoding="utf-8")
+            self.assertEqual(
+                self.module.verify_bundle(root, manifest_path).manifest["status"],
+                "ready-for-f1-approval",
+            )
+            ready["status"] = "active"
+            manifest_path.write_text(json.dumps(ready), encoding="utf-8")
+            with self.assertRaises(self.module.F1V2Error):
+                self.module.verify_bundle(root, manifest_path)
+
     def test_candidate_ap_rejects_extra_member(self):
         with tempfile.TemporaryDirectory() as temporary:
             root = Path(temporary)
@@ -250,6 +266,81 @@ class DeviceActionF1V2Test(unittest.TestCase):
             first.write_text(json.dumps(value), encoding="utf-8")
             with self.assertRaises(self.module.F1V2Error):
                 self.module.Journal.reopen(run_dir, "8" * 64)
+
+    def test_live_journal_preflight_details_are_explicit(self):
+        with tempfile.TemporaryDirectory() as temporary:
+            run_dir = Path(temporary) / "run"
+            journal = self.module.Journal.create(
+                run_dir,
+                "a" * 64,
+                {
+                    "host_only": False,
+                    "device_contact": True,
+                    "device_writes": False,
+                },
+            )
+            first = journal.records()[0]
+            self.assertEqual(
+                first["details"],
+                {
+                    "host_only": False,
+                    "device_contact": True,
+                    "device_writes": False,
+                },
+            )
+
+    def test_journal_checkpoint_is_state_bound_and_not_a_timeline_event(self):
+        with tempfile.TemporaryDirectory() as temporary:
+            root = Path(temporary)
+            journal = self.module.Journal.create(
+                root / "run", "b" * 64
+            )
+            journal.transition("APPROVED", "approved", {})
+            journal.transition("DOWNLOAD_IDENTIFIED", "identified", {})
+            for attempt in (1, 2):
+                start = root / f"candidate-attempt-{attempt:02d}.start.json"
+                start.write_text(f"attempt={attempt}\n", encoding="ascii")
+                payload = start.read_bytes()
+                journal.checkpoint(
+                    "candidate_transfer_attempt",
+                    "attempt_started",
+                    {
+                        "attempt": attempt,
+                        "start": {
+                            "path": str(start.absolute()),
+                            "size": len(payload),
+                            "sha256": hashlib.sha256(payload).hexdigest(),
+                        },
+                    },
+                )
+            self.assertEqual(journal.state(), "DOWNLOAD_IDENTIFIED")
+            self.assertEqual(self.module.timeline(journal.records()), {"events": []})
+            with self.assertRaises(self.module.F1V2Error):
+                journal.checkpoint(
+                    "candidate_transfer_attempt",
+                    "attempt_started",
+                    {
+                        "attempt": 3,
+                        "start": {
+                            "path": str((root / "unused").absolute()),
+                            "size": 1,
+                            "sha256": "1" * 64,
+                        },
+                    },
+                )
+            with self.assertRaises(self.module.F1V2Error):
+                journal.checkpoint(
+                    "rollback_transfer_attempt",
+                    "wrong_state",
+                    {
+                        "attempt": 1,
+                        "start": {
+                            "path": str((root / "unused").absolute()),
+                            "size": 1,
+                            "sha256": "1" * 64,
+                        },
+                    },
+                )
 
     def test_journal_head_detects_tail_deletion(self):
         with tempfile.TemporaryDirectory() as temporary:

@@ -240,6 +240,26 @@ class DeviceActionD0V2Test(unittest.TestCase):
         self.addCleanup(temporary.cleanup)
         self.assertEqual(result["verdict"], self.module.D0_VERDICT)
 
+    def test_health_validator_selects_final_profile_explicitly(self):
+        bundle = self.bundle()
+        client = FakeClient(self.profile)
+        result = self.module.validate_health(
+            bundle,
+            client.property_values,
+            client.root_values,
+            True,
+            "final_health",
+        )
+        self.assertTrue(result["root_verified"])
+        with self.assertRaises(self.module.D0Error):
+            self.module.validate_health(
+                bundle,
+                client.property_values,
+                client.root_values,
+                True,
+                "unknown",
+            )
+
     def test_marker_contamination_fails_closed(self):
         marker = self.manifest["observation"]["acceptance"]["marker"].encode()
         client = FakeClient(self.profile, b"prefix\n" + marker + b"\n")

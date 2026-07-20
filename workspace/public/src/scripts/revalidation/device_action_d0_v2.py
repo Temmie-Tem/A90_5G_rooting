@@ -378,14 +378,17 @@ def allocate_run_dir(root: Path, requested: Path | None) -> Path:
     return resolved
 
 
-def _validate_health(
+def validate_health(
     bundle: f1.Bundle,
     properties: dict[str, str],
     root_health: dict[str, str],
     no_odin: bool,
+    health_key: str = "start_health",
 ) -> dict[str, Any]:
     target = bundle.profile["target"]
-    expected = bundle.profile["start_health"]
+    if health_key not in {"start_health", "final_health"}:
+        raise D0Error("unknown health profile selector")
+    expected = bundle.profile[health_key]
     identity = {
         "model": target["model"],
         "device": target["device"],
@@ -623,7 +626,7 @@ def collect_connected(
     topology = client.topology(serial)
     first = client.properties(serial)
     root_health = client.root_health(serial)
-    health = _validate_health(bundle, first, root_health, True)
+    health = validate_health(bundle, first, root_health, True)
     acceptance = bundle.manifest["observation"]["acceptance"]
     source = acceptance["source"]
     if REMOTE_PATH_RE.fullmatch(source) is None or ".." in Path(source).parts:

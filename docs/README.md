@@ -25,6 +25,12 @@ Git 복원 후 ignored `workspace/private` 병합 범위, exact-hash 재검증,
 3. 필요한 하드웨어/커널 경로만 역추적
 4. BusyBox/network/SSH 같은 서버형 확장 가능성 검토
 
+Device Action Process v2의 현재 공통 실행 구조는
+`operations/DEVICE_ACTION_PROCESS_V2.md`에서 시작합니다. F1 어댑터의
+host-only 소스 게이트 결과는
+`reports/DEVICE_ACTION_PROCESS_V2_F1_ADAPTER_HOST_PASS_2026-07-21.md`에
+기록하며, production manifest와 실기기 F1 권한은 여전히 비활성입니다.
+
 ## Claude review usage ledger
 
 Claude Opus 검토의 세션, 호출 전후 사용률, 리셋 시각, 컨텍스트 여유량,

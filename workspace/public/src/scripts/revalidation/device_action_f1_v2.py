@@ -103,6 +103,11 @@ EVENT_STATE = {
     "rollback_boot_ready": "HEALTH_VERIFIED",
     "live_session_end": "HEALTH_VERIFIED",
 }
+CHECKPOINT_STATE = {
+    "candidate_transfer_attempt": "DOWNLOAD_IDENTIFIED",
+    "rollback_transfer_attempt": "RECOVERY_DOWNLOAD",
+}
+MAX_TRANSFER_ATTEMPTS = 2
 
 
 class F1V2Error(RuntimeError):
@@ -293,8 +298,11 @@ def validate_manifest(manifest: dict[str, Any], profile: dict[str, Any]) -> dict
         {"schema", "manifest_id", "run_id", "status", "target_profile", "candidate_ap", "rollback_ap", "allowed_member", "observation", "final_health_profile", "runner_version"},
         "candidate manifest",
     )
-    if manifest["schema"] != MANIFEST_SCHEMA or manifest["status"] != "draft-host-only":
-        raise F1V2Error("manifest must be a draft-host-only v2 manifest")
+    if manifest["schema"] != MANIFEST_SCHEMA or manifest["status"] not in {
+        "draft-host-only",
+        "ready-for-f1-approval",
+    }:
+        raise F1V2Error("manifest has an invalid Process v2 readiness state")
     for key in ("manifest_id", "run_id"):
         if not isinstance(manifest[key], str) or ID_RE.fullmatch(manifest[key]) is None:
             raise F1V2Error(f"{key} is not canonical")
@@ -472,6 +480,28 @@ def _record_hash(record: dict[str, Any]) -> str:
     return json_sha256(unsigned)
 
 
+def _validate_checkpoint(
+    action: str,
+    outcome: str,
+    details: dict[str, Any],
+    attempts: dict[str, int],
+) -> None:
+    if outcome != "attempt_started":
+        raise F1V2Error("journal checkpoint outcome is invalid")
+    item = _exact(details, {"attempt", "start"}, "journal checkpoint details")
+    attempt = item["attempt"]
+    expected = attempts.get(action, 0) + 1
+    if (
+        isinstance(attempt, bool)
+        or not isinstance(attempt, int)
+        or attempt != expected
+        or attempt > MAX_TRANSFER_ATTEMPTS
+    ):
+        raise F1V2Error("journal checkpoint attempt sequence is invalid")
+    _artifact(item["start"], "journal checkpoint start")
+    attempts[action] = attempt
+
+
 class Journal:
     def __init__(self, run_dir: Path, binding_sha256: str):
         self.run_dir = run_dir.absolute()
@@ -480,13 +510,22 @@ class Journal:
         self.binding_sha256 = _digest(binding_sha256, "journal binding")
 
     @classmethod
-    def create(cls, run_dir: Path, binding_sha256: str) -> "Journal":
+    def create(
+        cls,
+        run_dir: Path,
+        binding_sha256: str,
+        preflight_details: dict[str, Any] | None = None,
+    ) -> "Journal":
         journal = cls(run_dir, binding_sha256)
         if journal.run_dir.exists() or journal.run_dir.is_symlink():
             raise F1V2Error("run directory already exists")
         journal.directory.mkdir(parents=True, mode=0o700)
         _fsync_dir(journal.run_dir.parent)
-        journal.transition("PREFLIGHT", "ok", {"host_only": True})
+        journal.transition(
+            "PREFLIGHT",
+            "ok",
+            preflight_details or {"host_only": True},
+        )
         return journal
 
     @classmethod
@@ -548,6 +587,7 @@ class Journal:
         state: str | None = None
         previous = "0" * 64
         events: list[str] = []
+        checkpoint_attempts: dict[str, int] = {}
         paths = sorted(self.directory.glob("*.json"))
         for sequence, path in enumerate(paths):
             value, _receipt = load_json(path, f"journal record {sequence}")
@@ -567,6 +607,18 @@ class Journal:
                 if len(events) >= len(TIMELINE) or TIMELINE[len(events)] != value["action"]:
                     raise F1V2Error(f"journal timeline {sequence} is out of order")
                 events.append(value["action"])
+            elif value["kind"] == "checkpoint":
+                if (
+                    value["state"] != state
+                    or CHECKPOINT_STATE.get(value["action"]) != state
+                ):
+                    raise F1V2Error(f"journal checkpoint {sequence} is invalid")
+                _validate_checkpoint(
+                    value["action"],
+                    value["outcome"],
+                    value["details"],
+                    checkpoint_attempts,
+                )
             else:
                 raise F1V2Error(f"journal record {sequence} kind is invalid")
             previous = value["record_sha256"]
@@ -582,6 +634,10 @@ class Journal:
         records = self.records()
         current = next((r["state"] for r in reversed(records) if r["kind"] == "transition"), None)
         events = [r["action"] for r in records if r["kind"] == "event"]
+        checkpoint_attempts: dict[str, int] = {}
+        for record in records:
+            if record["kind"] == "checkpoint":
+                checkpoint_attempts[record["action"]] = record["details"]["attempt"]
         if kind == "transition":
             if state not in NEXT_STATES[current] or action != STATE_ACTION[state]:
                 raise F1V2Error(f"invalid transition: {current} -> {state}")
@@ -593,6 +649,10 @@ class Journal:
                 or TIMELINE[len(events)] != action
             ):
                 raise F1V2Error(f"invalid timeline event: {action}")
+        elif kind == "checkpoint":
+            if state != current or CHECKPOINT_STATE.get(action) != state:
+                raise F1V2Error(f"invalid journal checkpoint: {action}")
+            _validate_checkpoint(action, outcome, details, checkpoint_attempts)
         else:
             raise F1V2Error("invalid journal record kind")
         previous = records[-1]["record_sha256"] if records else "0" * 64
@@ -621,6 +681,14 @@ class Journal:
         if state is None:
             raise F1V2Error("journal has no state")
         self._append("event", state, name, "recorded", details or {})
+
+    def checkpoint(
+        self, name: str, outcome: str, details: dict[str, Any] | None = None
+    ) -> None:
+        state = self.state()
+        if state is None:
+            raise F1V2Error("journal has no state")
+        self._append("checkpoint", state, name, outcome, details or {})
 
     def receipt(self) -> dict[str, Any]:
         records = self.records()
