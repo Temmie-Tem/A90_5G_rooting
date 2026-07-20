@@ -6,6 +6,28 @@ Galaxy S22+, and evidence or authorization never transfers between them. This fi
 says WHAT to pursue; **`AGENTS.md` says HOW — its safety invariants and flash gates
 are binding and override any sub-goal.**
 
+> **S22+ ACTIVE FRONTIER (2026-07-21 01:19 KST / 2026-07-20 16:19 UTC) -
+> R4W1-C2 MEASURED LIVE POLICY ACTIVE; POST-ACTIVATION HOST GO; ONE-SHOT
+> UNCONSUMED; FRESH EXACT LIVE TOKEN NEXT.** The independently reviewed exact
+> clause was installed unchanged in policy-only commit `f03f5b34`. Its single
+> BEGIN-to-END block is byte-identical to the private binding artifact, SHA256
+> `6f0f0471...5c478f8f`; current `AGENTS.md` SHA256 is
+> `4e716dc7...8b267c3`, with exactly one BEGIN, END, and ACTIVE sentinel.
+>
+> After activation, the related R4W1-C2, binding, measured Odin transition,
+> USBFS identity, and connected-gate suites pass `161/161`. The exact live
+> helper `--offline-check` returns `PASS_R4W1C2_LIVE_GATE_OFFLINE_CHECK` with
+> `policy.active=true`, `candidate_consumed=false`, and device contact, reboot,
+> Download transition, Odin transfer, and flash all false. The unique consumed
+> state remains absent. No device or USB action occurred during activation or
+> post-activation validation.
+>
+> The next and only live entry is a newly supplied exact
+> `S22PLUS-FYG8-R4W1C2-MEASURED-USBFS-PHYSICAL-CONTINUITY-DIRECT-PID1-LIVE`.
+> That token carries the physical-continuity attestation defined in
+> `AGENTS.md`; prior or generic approval does not carry. Report:
+> `docs/reports/S22PLUS_FYG8_R4W1C2_MEASURED_LIVE_POLICY_READY_2026-07-21.md`.
+
 > **S22+ ACTIVE FRONTIER (2026-07-21 01:14 KST / 2026-07-20 16:14 UTC) -
 > R4W1-C2 OPUS ADVERSARIAL GO; MUST-FIX 0; EXACT POLICY ACTIVATION NEXT.**
 > Claude Opus 4.8 xhigh independently reviewed committed checkpoint `6861497d`,
