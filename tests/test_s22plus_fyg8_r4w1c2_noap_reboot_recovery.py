@@ -67,6 +67,16 @@ class NoApRecoveryTests(unittest.TestCase):
         )
         self.assertNotIn(b"Setup Connection", module.PARSE_FAILURE_STDOUT)
 
+    def test_external_pass_receipt_alone_permanently_consumes_recovery(self):
+        module = self.module
+        with tempfile.TemporaryDirectory() as temporary:
+            root = Path(temporary)
+            with self.external_guard_parent(root) as external:
+                (external / module.EXTERNAL_PASS_RECEIPT_NAME).write_text(
+                    "{}\n", encoding="utf-8"
+                )
+                self.assertTrue(module.recovery_consumed(root))
+
     def test_live_incident_offline_contract(self):
         result = self.module.offline_check(ROOT)
         self.assertEqual(
@@ -922,16 +932,16 @@ class NoApRecoveryTests(unittest.TestCase):
         self.assertTrue(enumeration["reaped"])
         self.assertIn("selector fault", enumeration["runner_error"])
 
-    def test_transient_result_publication_failure_is_retried_without_losing_pass(self):
+    def test_transient_receipt_publication_failure_is_retried_without_losing_pass(self):
         module = self.module
         real_publish = module.durable_create_bytes_at
         failed = False
 
         def publish(directory_fd, name, payload, *, display_path, precommit=None):
             nonlocal failed
-            if name == "result.json" and not failed:
+            if name == module.EXTERNAL_PASS_RECEIPT_NAME and not failed:
                 failed = True
-                raise OSError("injected first result publication failure")
+                raise OSError("injected first receipt publication failure")
             return real_publish(
                 directory_fd, name, payload,
                 display_path=display_path, precommit=precommit
@@ -949,14 +959,26 @@ class NoApRecoveryTests(unittest.TestCase):
             run_dir = root / module.RECOVERY_RUN_ROOT / (
                 "s22plus-r4w1c2-noap-reboot-recovery-scenario"
             )
-            result = json.loads((run_dir / "result.json").read_text(encoding="utf-8"))
+            receipt = json.loads(
+                (
+                    root
+                    / "external-state"
+                    / module.EXTERNAL_PASS_RECEIPT_NAME
+                ).read_text(encoding="utf-8")
+            )
             timeline = json.loads((run_dir / "timeline.json").read_text(encoding="utf-8"))
             state_exists = (root / "state" / "consumed.json").is_file()
+            run_payloads = [
+                path.read_bytes() for path in run_dir.iterdir() if path.is_file()
+            ]
         self.assertEqual(rc, 0)
         self.assertTrue(failed)
         self.assertTrue(state_exists)
-        self.assertEqual(result["verdict"], module.PASS_VERDICT)
-        self.assertEqual(result["timeline"]["events"], timeline["events"])
+        self.assertEqual(receipt["verdict"], module.PASS_VERDICT)
+        self.assertEqual(receipt["result"]["timeline"]["events"], timeline["events"])
+        self.assertFalse((run_dir / "result.json").exists())
+        for payload in run_payloads:
+            self.assertNotIn(module.PASS_VERDICT.encode("ascii"), payload)
         self.assertEqual(
             [event["name"] for event in timeline["events"]],
             list(module.core.TIMELINE_NAMES),
@@ -1146,7 +1168,7 @@ class NoApRecoveryTests(unittest.TestCase):
         self.assertEqual(result["verdict"], module.FAIL_VERDICT)
         self.assertTrue(consumed)
 
-    def test_repository_root_swap_before_result_cannot_publish_pass_or_restore_retry(self):
+    def test_repository_root_swap_during_receipt_link_keeps_only_external_pass(self):
         module = self.module
         with tempfile.TemporaryDirectory() as temporary:
             base = Path(temporary)
@@ -1154,91 +1176,107 @@ class NoApRecoveryTests(unittest.TestCase):
             root.mkdir()
             external = base / "external-state"
             held = base / "repo-held"
-            real_publish = module.durable_create_bytes_at
+            real_link = module.os.link
             swapped = False
 
-            def publish(
-                directory_fd, name, payload, *, display_path, precommit=None
-            ):
+            def link(src, dst, *args, **kwargs):
                 nonlocal swapped
-                if name == "result.json" and not swapped:
+                if dst == module.EXTERNAL_PASS_RECEIPT_NAME and not swapped:
                     root.rename(held)
                     (root / "workspace/private/runs").mkdir(parents=True)
                     (root / "workspace/private/state").mkdir()
                     swapped = True
-                return real_publish(
-                    directory_fd,
-                    name,
-                    payload,
-                    display_path=display_path,
-                    precommit=precommit,
-                )
+                return real_link(src, dst, *args, **kwargs)
 
-            rc = self.run_mocked_post_android_live(
-                root,
-                default_layout=True,
-                external_guard_parent=external,
-                publish_bytes=publish,
-            )
+            with mock.patch.object(module.os, "link", side_effect=link):
+                rc = self.run_mocked_post_android_live(
+                    root,
+                    default_layout=True,
+                    external_guard_parent=external,
+                )
             held_run = held / module.RECOVERY_RUN_ROOT / (
                 "s22plus-r4w1c2-noap-reboot-recovery-scenario"
             )
-            result = json.loads((held_run / "result.json").read_text())
+            receipt = json.loads(
+                (external / module.EXTERNAL_PASS_RECEIPT_NAME).read_text()
+            )
             canonical_result = root / module.RECOVERY_RUN_ROOT / held_run.name / "result.json"
             with mock.patch.object(module, "EXTERNAL_GUARD_PARENT", external):
                 consumed = module.recovery_consumed(root)
-        self.assertEqual(rc, 20)
+        self.assertEqual(rc, 0)
         self.assertTrue(swapped)
-        self.assertEqual(result["verdict"], module.FAIL_VERDICT)
+        self.assertEqual(receipt["verdict"], module.PASS_VERDICT)
+        self.assertFalse((held_run / "result.json").exists())
         self.assertFalse(canonical_result.exists())
         self.assertTrue(consumed)
 
-    def test_final_result_precommit_rejects_deleted_child_evidence(self):
+    def test_receipt_embeds_original_children_substituted_during_final_link(self):
         module = self.module
-        real_publish = module.durable_create_bytes_at
-        removed = []
-
-        def publish(directory_fd, name, payload, *, display_path, precommit=None):
-            if name == "result.json" and not removed:
-                for leaf in (
-                    "odin-enumeration-000000.stdout",
-                    "odin-enumeration-000000.stderr",
-                    "odin-enumeration-000000-outcome.json",
-                    "odin-reboot-attempt.json",
-                    "odin-reboot-outcome.json",
-                    "odin-reboot.stdout",
-                    "odin-reboot.stderr",
-                ):
-                    try:
-                        os.unlink(leaf, dir_fd=directory_fd)
-                        removed.append(leaf)
-                    except FileNotFoundError:
-                        pass
-            return real_publish(
-                directory_fd,
-                name,
-                payload,
-                display_path=display_path,
-                precommit=precommit,
-            )
+        real_link = module.os.link
+        substituted = []
+        replacement = b"post-capture-substitution"
 
         with tempfile.TemporaryDirectory() as temporary:
             root = Path(temporary)
-            rc = self.run_mocked_post_android_live(
-                root,
-                publish_bytes=publish,
-                enumeration_completed=subprocess.CompletedProcess(
-                    ["/mock/sealed-odin", "-l"], 0, b"enum-ok", b""
-                ),
-            )
             run_dir = root / module.RECOVERY_RUN_ROOT / (
                 "s22plus-r4w1c2-noap-reboot-recovery-scenario"
             )
-            result = json.loads((run_dir / "result.json").read_text())
-        self.assertEqual(rc, 20)
-        self.assertTrue(removed)
-        self.assertEqual(result["verdict"], module.FAIL_VERDICT)
-        self.assertIn("unavailable", result["error"])
+
+            def link(src, dst, *args, **kwargs):
+                if dst == module.EXTERNAL_PASS_RECEIPT_NAME and not substituted:
+                    for leaf in (
+                        "odin-enumeration-000000.stdout",
+                        "odin-enumeration-000000.stderr",
+                        "odin-enumeration-000000-outcome.json",
+                        "odin-reboot-attempt.json",
+                        "odin-reboot-outcome.json",
+                        "odin-reboot.stdout",
+                        "odin-reboot.stderr",
+                    ):
+                        path = run_dir / leaf
+                        path.unlink()
+                        path.write_bytes(replacement)
+                        substituted.append(leaf)
+                return real_link(src, dst, *args, **kwargs)
+
+            with mock.patch.object(module.os, "link", side_effect=link):
+                rc = self.run_mocked_post_android_live(
+                    root,
+                    enumeration_completed=subprocess.CompletedProcess(
+                        ["/mock/sealed-odin", "-l"], 0, b"enum-ok", b""
+                    ),
+                )
+            receipt = json.loads(
+                (
+                    root
+                    / "external-state"
+                    / module.EXTERNAL_PASS_RECEIPT_NAME
+                ).read_text()
+            )
+        entries = {
+            entry["name"]: entry
+            for entry in receipt["evidence_bundle"]["entries"]
+            if entry["source"] == "run"
+        }
+        self.assertEqual(rc, 0)
+        self.assertEqual(set(substituted), set(entries) - {"timeline.json"})
+        self.assertEqual(receipt["verdict"], module.PASS_VERDICT)
+        self.assertEqual(
+            module.base64.b64decode(entries["odin-reboot.stdout"]["payload"]),
+            b"ok",
+        )
+        self.assertEqual(
+            module.base64.b64decode(
+                entries["odin-enumeration-000000.stdout"]["payload"]
+            ),
+            b"enum-ok",
+        )
+        self.assertTrue(
+            all(
+                entry["sha256"] != module.sha256_bytes(replacement)
+                for entry in entries.values()
+            )
+        )
 
     def test_run_parent_swap_after_observation_cannot_publish_pass(self):
         module = self.module
@@ -1301,9 +1339,16 @@ class NoApRecoveryTests(unittest.TestCase):
             run_dir = root / module.RECOVERY_RUN_ROOT / (
                 "s22plus-r4w1c2-noap-reboot-recovery-scenario"
             )
-            result = json.loads((run_dir / "result.json").read_text(encoding="utf-8"))
+            receipt = json.loads(
+                (
+                    root
+                    / "external-state"
+                    / module.EXTERNAL_PASS_RECEIPT_NAME
+                ).read_text(encoding="utf-8")
+            )
         self.assertEqual(rc, 0)
-        self.assertEqual(result["verdict"], module.PASS_VERDICT)
+        self.assertEqual(receipt["verdict"], module.PASS_VERDICT)
+        self.assertFalse((run_dir / "result.json").exists())
 
     def test_consumes_before_first_endpoint_observation_and_cannot_retry(self):
         module = self.module

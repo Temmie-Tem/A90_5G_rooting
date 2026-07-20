@@ -5,6 +5,7 @@ from __future__ import annotations
 
 import argparse
 import ast
+import base64
 import hashlib
 import json
 import math
@@ -41,7 +42,7 @@ OLD_POLICY_END = "END_S22PLUS_FYG8_R4W1C2_MEASURED_LIVE_POLICY_V1"
 OLD_POLICY_ACTIVE = "S22PLUS_FYG8_R4W1C2_MEASURED_LIVE_POLICY_STATE=ACTIVE"
 OLD_POLICY_RETIRED = "S22PLUS_FYG8_R4W1C2_MEASURED_LIVE_POLICY_STATE=RETIRED"
 EXPECTED_POLICY_TEMPLATE_SHA256 = (
-    "98fc24be176f66a5832912be3a54f8519bd29a106c3b7592569755133fcedbe0"
+    "4a83d686b704c8e89def170698f4b2f45bddbf934d92841aa715c6faddfc6852"
 )
 LIVE_ACK = "S22PLUS-FYG8-R4W1C2-NOAP-REBOOT-RECOVERY-LIVE"
 PASS_VERDICT = "PASS_R4W1C2_NOAP_REBOOT_RECOVERY_EXACT_MAGISK_ANDROID"
@@ -60,6 +61,10 @@ EXTERNAL_GUARD_NAME = (
     "android-native-init-lab-s22plus-fyg8-r4w1c2-noap-reboot-"
     "recovery-consumed.json.guard"
 )
+EXTERNAL_PASS_RECEIPT_NAME = (
+    "android-native-init-lab-s22plus-fyg8-r4w1c2-noap-reboot-"
+    "recovery-pass.json"
+)
 
 EMPTY_SHA256 = hashlib.sha256(b"").hexdigest()
 PARSE_FAILURE_STDOUT = b"Reboot into normal mode\nFail parse /proc/self/fd/7\n"
@@ -74,6 +79,8 @@ ODIN_SUCCESS_LINES = (
     "Close Connection",
 )
 MAX_ODIN_OUTPUT = 1024 * 1024
+MAX_CANONICAL_EVIDENCE_BYTES = 32 * 1024 * 1024
+MAX_CANONICAL_RECEIPT_BYTES = 64 * 1024 * 1024
 ODIN_CLEANUP_GRACE_SEC = 2.0
 FINAL_PUBLISH_ATTEMPTS = 2
 ODIN_ENV = {"PATH": "/usr/bin:/bin", "LANG": "C", "LC_ALL": "C"}
@@ -232,6 +239,11 @@ def recovery_guard_path(root: Path) -> Path:
     return EXTERNAL_GUARD_PARENT / EXTERNAL_GUARD_NAME
 
 
+def canonical_pass_receipt_path(root: Path) -> Path:
+    del root
+    return EXTERNAL_GUARD_PARENT / EXTERNAL_PASS_RECEIPT_NAME
+
+
 def close_noexcept(descriptor: int) -> None:
     try:
         os.close(descriptor)
@@ -254,7 +266,11 @@ def close_object_noexcept(value: Any) -> None:
 
 
 def recovery_consumed(root: Path) -> bool:
-    paths = (root / RECOVERY_STATE, recovery_guard_path(root))
+    paths = (
+        root / RECOVERY_STATE,
+        recovery_guard_path(root),
+        canonical_pass_receipt_path(root),
+    )
     return any(path.exists() or path.is_symlink() for path in paths)
 
 
@@ -1390,6 +1406,190 @@ def revalidate_enumeration_evidence(
         )
 
 
+def canonical_evidence_entry_at(
+    directory_fd: int,
+    record: dict[str, Any],
+    *,
+    source: str,
+    expected_name: str,
+    maximum: int,
+    expected_payload: bytes | None = None,
+) -> tuple[dict[str, Any], int]:
+    if set(record) != {"path", "size", "sha256"}:
+        raise RecoveryError(f"canonical evidence record shape changed: {expected_name}")
+    if Path(str(record["path"])).name != expected_name:
+        raise RecoveryError(f"canonical evidence record name changed: {expected_name}")
+    payload = read_bytes_at(directory_fd, expected_name, maximum=maximum)
+    actual = {
+        "path": str(record["path"]),
+        "size": len(payload),
+        "sha256": sha256_bytes(payload),
+    }
+    if actual != record:
+        raise RecoveryError(f"canonical evidence identity changed: {expected_name}")
+    if expected_payload is not None and payload != expected_payload:
+        raise RecoveryError(f"canonical evidence content changed: {expected_name}")
+    return (
+        {
+            "source": source,
+            "name": expected_name,
+            "size": len(payload),
+            "sha256": actual["sha256"],
+            "encoding": "base64",
+            "payload": base64.b64encode(payload).decode("ascii"),
+        },
+        len(payload),
+    )
+
+
+def build_canonical_evidence_bundle(
+    *,
+    run_dir_fd: int,
+    state_dir_fd: int,
+    guard_dir_fd: int,
+    state_path: Path,
+    guard_path: Path,
+    state_payload: bytes,
+    timeline_path: Path,
+    timeline_value: dict[str, Any],
+    attempt_path: Path,
+    attempt_value: dict[str, Any],
+    outcome_path: Path,
+    stdout_path: Path,
+    stderr_path: Path,
+    result: dict[str, Any],
+    completed: subprocess.CompletedProcess[bytes],
+    enumeration_outcomes: list[dict[str, Any]],
+) -> dict[str, Any]:
+    entries: list[dict[str, Any]] = []
+    total = 0
+
+    def append(
+        directory_fd: int,
+        record: dict[str, Any],
+        *,
+        source: str,
+        expected_name: str,
+        maximum: int,
+        expected_payload: bytes | None = None,
+    ) -> None:
+        nonlocal total
+        entry, size = canonical_evidence_entry_at(
+            directory_fd,
+            record,
+            source=source,
+            expected_name=expected_name,
+            maximum=maximum,
+            expected_payload=expected_payload,
+        )
+        total += size
+        if total > MAX_CANONICAL_EVIDENCE_BYTES:
+            raise RecoveryError("canonical evidence bundle exceeds its total bound")
+        entries.append(entry)
+
+    state_record = {
+        "path": str(state_path),
+        "size": len(state_payload),
+        "sha256": sha256_bytes(state_payload),
+    }
+    guard_record = {
+        "path": str(guard_path),
+        "size": len(state_payload),
+        "sha256": sha256_bytes(state_payload),
+    }
+    append(
+        state_dir_fd,
+        state_record,
+        source="repository-state",
+        expected_name=state_path.name,
+        maximum=max(len(state_payload), 1),
+        expected_payload=state_payload,
+    )
+    append(
+        guard_dir_fd,
+        guard_record,
+        source="external-guard",
+        expected_name=guard_path.name,
+        maximum=max(len(state_payload), 1),
+        expected_payload=state_payload,
+    )
+
+    timeline_payload = json_record_bytes(timeline_value)
+    append(
+        run_dir_fd,
+        {
+            "path": str(timeline_path),
+            "size": len(timeline_payload),
+            "sha256": sha256_bytes(timeline_payload),
+        },
+        source="run",
+        expected_name=timeline_path.name,
+        maximum=max(len(timeline_payload), 1),
+        expected_payload=timeline_payload,
+    )
+    attempt_payload = json_record_bytes(attempt_value)
+    odin_records = result.get("odin")
+    if not isinstance(odin_records, dict):
+        raise RecoveryError("final Odin evidence is unavailable")
+    for key, path, maximum, expected in (
+        ("attempt", attempt_path, 4 * 1024 * 1024, attempt_payload),
+        ("outcome", outcome_path, 4 * 1024 * 1024, None),
+        ("stdout", stdout_path, MAX_ODIN_OUTPUT, completed.stdout or b""),
+        ("stderr", stderr_path, MAX_ODIN_OUTPUT, completed.stderr or b""),
+    ):
+        record = odin_records.get(key)
+        if not isinstance(record, dict):
+            raise RecoveryError(f"final Odin {key} record is unavailable")
+        append(
+            run_dir_fd,
+            record,
+            source="run",
+            expected_name=path.name,
+            maximum=maximum,
+            expected_payload=expected,
+        )
+
+    for index, outcome in enumerate(enumeration_outcomes):
+        if outcome.get("invocation") != index:
+            raise RecoveryError("sealed Odin enumeration sequence changed")
+        prefix = f"odin-enumeration-{index:06d}"
+        outcome_value = {key: value for key, value in outcome.items() if key != "outcome"}
+        for key, suffix, maximum, expected in (
+            ("stdout", ".stdout", MAX_ODIN_OUTPUT, None),
+            ("stderr", ".stderr", MAX_ODIN_OUTPUT, None),
+            (
+                "outcome",
+                "-outcome.json",
+                4 * 1024 * 1024,
+                json_record_bytes(outcome_value),
+            ),
+        ):
+            record = outcome.get(key)
+            if not isinstance(record, dict):
+                raise RecoveryError(
+                    f"sealed Odin enumeration {key} record is unavailable"
+                )
+            append(
+                run_dir_fd,
+                record,
+                source="run",
+                expected_name=prefix + suffix,
+                maximum=maximum,
+                expected_payload=expected,
+            )
+
+    names = [(entry["source"], entry["name"]) for entry in entries]
+    if len(names) != len(set(names)):
+        raise RecoveryError("canonical evidence bundle contains duplicate entries")
+    return {
+        "schema": "s22plus_fyg8_r4w1c2_noap_canonical_evidence_bundle_v1",
+        "encoding": "base64",
+        "total_unencoded_bytes": total,
+        "entry_count": len(entries),
+        "entries": entries,
+    }
+
+
 def wait_for_endpoint_hardened(
     odin: Path,
     run_dir: Path,
@@ -1626,6 +1826,7 @@ def create_recovery_state(
 ) -> dict[str, Any]:
     path = root / RECOVERY_STATE
     guard_path = recovery_guard_path(root)
+    receipt_path = canonical_pass_receipt_path(root)
     revalidate_bound_directory(run_dir_fd, run_dir)
     expected_run_root = Path(os.path.abspath(root / RECOVERY_RUN_ROOT))
     if Path(os.path.abspath(run_dir)).parent != expected_run_root:
@@ -1637,6 +1838,7 @@ def create_recovery_state(
     for directory_fd, name in (
         (state_dir_fd, path.name),
         (guard_dir_fd, guard_path.name),
+        (guard_dir_fd, receipt_path.name),
     ):
         try:
             os.stat(name, dir_fd=directory_fd, follow_symlinks=False)
@@ -1994,7 +2196,7 @@ def live_run_bound(
             "events": timeline,
         }
 
-        def revalidate_pass_commit() -> None:
+        def revalidate_pass_inputs() -> None:
             revalidate_bound_file_path(
                 state_dir_fd, state_path.parent, state_path.name, state_payload
             )
@@ -2042,16 +2244,62 @@ def live_run_bound(
                 run_dir_fd, run_dir, enumeration_outcomes
             )
 
-        # The validator runs inside final publication after its temporary file is
-        # durable and immediately before the canonical result link is created.
-        durable_create_json_at_idempotent(
-            run_dir_fd,
-            result_path.name,
-            result,
-            display_path=result_path,
-            precommit=revalidate_pass_commit,
+        revalidate_pass_inputs()
+        evidence_bundle = build_canonical_evidence_bundle(
+            run_dir_fd=run_dir_fd,
+            state_dir_fd=state_dir_fd,
+            guard_dir_fd=guard_dir_fd,
+            state_path=state_path,
+            guard_path=guard_path,
+            state_payload=state_payload,
+            timeline_path=timeline_path,
+            timeline_value=timeline_value,
+            attempt_path=attempt_path,
+            attempt_value=attempt_value,
+            outcome_path=outcome_path,
+            stdout_path=stdout_path,
+            stderr_path=stderr_path,
+            result=result,
+            completed=completed,
+            enumeration_outcomes=enumeration_outcomes,
         )
-        emit_summary({"run_dir": str(run_dir), "verdict": PASS_VERDICT})
+        receipt_path = canonical_pass_receipt_path(root)
+        receipt = {
+            "schema": "s22plus_fyg8_r4w1c2_noap_canonical_pass_receipt_v1",
+            "created_at_utc": core.utc_now(),
+            "target": TARGET,
+            "verdict": PASS_VERDICT,
+            "canonical_path": str(receipt_path),
+            "external_trust_anchor": {
+                "path": str(receipt_path.parent),
+                "basis": (
+                    "fixed caller-owned non-group/other-writable host state directory; "
+                    "operator-managed against replacement or mutation through policy retirement"
+                ),
+            },
+            "result": result,
+            "evidence_bundle": evidence_bundle,
+        }
+        receipt_payload = json_record_bytes(receipt)
+        if len(receipt_payload) > MAX_CANONICAL_RECEIPT_BYTES:
+            raise RecoveryError("canonical PASS receipt exceeds its encoded bound")
+        revalidate_bound_file_path(
+            guard_dir_fd, guard_path.parent, guard_path.name, state_payload
+        )
+        revalidate_bound_directory(guard_dir_fd, receipt_path.parent)
+        receipt_record = durable_create_bytes_at_idempotent(
+            guard_dir_fd,
+            receipt_path.name,
+            receipt_payload,
+            display_path=receipt_path,
+        )
+        emit_summary(
+            {
+                "canonical_pass_receipt": str(receipt_path),
+                "canonical_pass_receipt_sha256": receipt_record["sha256"],
+                "verdict": PASS_VERDICT,
+            }
+        )
         return 0
     except Exception as exc:
         ended = core.utc_now()

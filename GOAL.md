@@ -7,7 +7,7 @@ says WHAT to pursue; **`AGENTS.md` says HOW — its safety invariants and flash 
 are binding and override any sub-goal.**
 
 > **S22+ ACTIVE FRONTIER (2026-07-21 KST) - R4W1-C2 NO-AP RECOVERY
-> SEVENTH ADVERSARIAL NO-GO REPAIRED HOST-ONLY; POLICY STILL INACTIVE.** The first
+> EIGHTH ADVERSARIAL NO-GO REPAIRED HOST-ONLY; POLICY STILL INACTIVE.** The first
 > independent review session `019f807c-c88c-7073-824b-7a1f4ecfec27` found seven
 > blockers. A second independent `gpt-5.6-sol` xhigh review session
 > `019f8090-9c52-71a1-b3c3-918c56c432f3` reviewed commit `f1e22994`, closed four,
@@ -44,6 +44,14 @@ are binding and override any sub-goal.**
 > old `RETIRED` sentinel made the global-count parser unstartable, replacing the
 > complete repository root still restored canonical retry authority, and PASS
 > could bind child evidence files deleted at the final publication boundary.
+> An eighth independent `gpt-5.6-sol` xhigh review session
+> `019f8100-6a72-7cf1-a453-b78023e27aad` reviewed commit `4b1ae175`, reran the
+> focused 47-test and isolated 232-test suites plus the exact offline gate, and
+> reproduced the remaining verify-then-link race. All seven required child
+> artifacts could be substituted after the validator returned but inside the
+> final link call while rc `0` and PASS remained; a complete repository-root
+> replacement in the same interval left PASS only under the renamed root. It
+> returned `NO_GO_TO_POLICY_ACTIVATION`.
 >
 > The repaired helper now requires recursive local-import/pin equality, routes
 > every returned and exceptional Odin output through one exact combined 1 MiB
@@ -80,16 +88,18 @@ are binding and override any sub-goal.**
 > new exact draft is permitted. The seventh repair moves the one-shot guard out
 > of the repository namespace to the explicit fixed mode-0700 trust anchor
 > `/home/temmie/.local/state`, so replacing `workspace/private` or the complete
-> repository root cannot restore retry authority. The final result publisher
-> now executes a pre-link validator after its temporary result is durable,
-> reopening the canonical root/state/guard/timeline plus every enumeration and
-> reboot attempt/output/outcome artifact by descriptor-relative identity,
-> exact size/SHA256, private-file shape, and held content.
+> repository root cannot restore retry authority. The eighth repair removes the
+> impossible multi-file verify-then-link contract. It validates and copies the
+> actual guard, state, timeline, enumeration, and reboot artifact bytes into one
+> bounded self-contained base64 bundle. The only exact PASS is a single
+> exclusive receipt under the fixed external trust anchor; repository-relative
+> success files contain no PASS verdict. Root or child substitution inside the
+> later receipt-link interval therefore cannot move or alter the copied proof.
 >
-> Focused tests pass `47/47`; the isolated related suite passes `232/232`.
+> Focused tests pass `48/48`; the isolated related suite passes `233/233`.
 > Offline verdict remains `PASS_R4W1C2_NOAP_REBOOT_RECOVERY_SOURCE_HOST_ONLY`, policy inactive,
 > recovery one-shot unconsumed, and all device-action fields false. Next is a
-> eighth independent review of the repaired exact bytes. Only a GO permits a
+> ninth independent review of the repaired exact bytes. Only a GO permits a
 > separate policy-only activation commit and subsequent fresh live
 > acknowledgement. Report:
 > `docs/reports/S22PLUS_FYG8_R4W1C2_NOAP_RECOVERY_NO_GO_REPAIR_2026-07-21.md`.

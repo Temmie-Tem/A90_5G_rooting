@@ -15,11 +15,11 @@ constitute a second old policy block.
 
 The only executable helper is
 `workspace/public/src/scripts/revalidation/s22plus_fyg8_r4w1c2_noap_reboot_recovery.py`,
-size `80381`, SHA256
-`76fa0c70d46fcff2863ac13a218cd616cf499de56e0c1e7cf4efd6c43b0a5025`.
+size `88831`, SHA256
+`3fe629e912aa7e6c4d84f98bd38e5b63e0e0c19b7b1bc2fa874d2f88749d7d5e`.
 Its focused test is
-`tests/test_s22plus_fyg8_r4w1c2_noap_reboot_recovery.py`, size `64594`, SHA256
-`dd9c651e3e4e784dab733ae0a6f8015b21d32f429efed83678a5a7559cdd7fc4`.
+`tests/test_s22plus_fyg8_r4w1c2_noap_reboot_recovery.py`, size `66430`, SHA256
+`8a439e8ca05836057ee47a35e955fd8afabb932c5b7f77d03d3b4b9930ec4e0a`.
 The fresh live acknowledgement is
 `S22PLUS-FYG8-R4W1C2-NOAP-REBOOT-RECOVERY-LIVE`.
 The helper must require that the policy block installed in `AGENTS.md` is
@@ -100,13 +100,17 @@ exclusively create
 `workspace/private/state/s22plus_fyg8_r4w1c2_noap_reboot_recovery_consumed.json`.
 It must first publish the exact same bytes as the independent guard
 `/home/temmie/.local/state/android-native-init-lab-s22plus-fyg8-r4w1c2-noap-reboot-recovery-consumed.json.guard`.
-The existing direct `/home/temmie/.local/state` directory is the explicit
-operator-managed external trust anchor for this one-shot. It must be direct,
-caller-owned, and not group/other writable; it must not be renamed, replaced,
-or removed from activation through retirement. This assumption is external to
-the swappable repository namespace and is load-bearing.
-Either record consumes the exception, and the offline gate must stop if either
-path exists or is indirect. A state-subdirectory replacement therefore cannot
+The existing direct `/home/temmie/.local/state` directory and the helper-owned
+guard/receipt names within it are the explicit operator-managed external trust
+anchor for this one-shot. The directory must be direct, caller-owned, and not
+group/other writable; the directory, guard, and canonical receipt must not be
+renamed, replaced, removed, or externally mutated from activation through
+retirement. This assumption is external to the swappable repository namespace
+and is load-bearing. The canonical PASS receipt name is
+`/home/temmie/.local/state/android-native-init-lab-s22plus-fyg8-r4w1c2-noap-reboot-recovery-pass.json`.
+The state, guard, or receipt consumes the exception, and the offline gate must
+stop if any path exists or is indirect. A state-subdirectory replacement
+therefore cannot
 restore retry authority after an action. Replacing the common
 `workspace/private` parent or the complete repository root also cannot remove
 the external guard or restore retry authority.
@@ -118,7 +122,7 @@ after that durable run directory exists; its direct state parent and the state
 file itself must be checked and durably fsynced. The helper must hold direct
 file descriptors for the run directory, state directory, and fixed external
 guard parent for the complete live invocation. State, guard, attempt, process
-output, timeline, and result publication
+output, timeline, failure-result, and canonical-receipt publication
 must use descriptor-relative no-follow exclusive operations, and every accepted
 record must be a private regular file with link count exactly one. Existing
 records are idempotently acceptable only when their descriptor-bound bytes are
@@ -159,14 +163,20 @@ Every post-spawn exception class must be converted into a bounded outcome that
 preserves already captured stdout/stderr plus kill, reap, and cleanup status.
 Every prerequisite or revalidation enumeration must durably publish its own
 bounded stdout, stderr, and outcome record before its return or exception is
-interpreted, and the final result must bind those outcome records. A PASS
-publication must reopen each enumeration stdout/stderr/outcome and each final
-reboot attempt/stdout/stderr/outcome, verify its exact descriptor-relative
-name, size, SHA256, private regular-file shape, and expected content where held
-in memory, and reject any missing or changed child evidence.
+interpreted. Before PASS, the helper must reopen each enumeration stdout/stderr/
+outcome, each final reboot attempt/stdout/stderr/outcome, the exact timeline,
+and both consumed-state copies. It must verify exact descriptor-relative names,
+sizes, SHA256 values, private regular-file shape, and expected content where held
+in memory. The actual verified bytes, not only path/hash assertions, must then be
+copied into one self-contained base64 evidence bundle with unique source/name
+pairs and a total unencoded bound of 32 MiB. Missing, changed, duplicate, or
+oversized evidence is non-PASS.
 
 Every invocation that durably creates the consumed state, including failure
-before USB discovery, must produce a result and canonical eight-event timeline.
+before USB discovery, must produce a canonical eight-event timeline. A failure
+must produce repository-run `result.json`; success must instead produce the
+single external canonical PASS receipt described below. No repository-relative
+file may contain the exact PASS verdict.
 Host-only policy, acknowledgement, evidence, or run-directory setup failures
 before consumption authorize no contact and are not live invocations. The
 durable launch-attempt and process-
@@ -174,32 +184,37 @@ outcome receipts must truthfully distinguish no attempt, attempted but no
 return, returned nonzero, timeout, exact-cap overflow, and returned success.
 Failure results may not state `reboot=false`; they must use an unknown reboot
 outcome unless exact Android readiness is proven.
-Canonical timeline and result publication must independently retry one
-transient host publication failure and may accept only the exact bytes from the
-same invocation. A result failure must not suppress the timeline attempt, and a
-timeline failure must not suppress the result attempt. Repeated publication
-failure remains non-PASS and must be reported without performing another
-device action.
+Canonical timeline, failure-result, and external-receipt publication must each
+independently retry one transient host publication failure and may accept only
+the exact bytes from the same invocation. A result failure must not suppress
+the timeline attempt, and a timeline failure must not suppress the result
+attempt. Repeated publication failure remains non-PASS and must be reported
+without performing another device action.
 
-No canonical PASS result may be published until the sealed-Odin and transaction
-contexts have both exited normally. Immediately before the final result, the
-helper must reopen the canonical guard/state/run identities and the exact
-timeline plus every child evidence record. This validator must execute inside
-the final exclusive publication after the temporary result is durable and
-immediately before its canonical link is created, so a repository-root swap or
-evidence deletion at the publication boundary cannot produce PASS. The result
-is the final load-bearing write; stdout summary reporting and descriptor close
-errors are non-load-bearing and cannot invalidate or contradict an already
-published exact PASS.
+No canonical PASS receipt may be published until the sealed-Odin and transaction
+contexts have both exited normally. The helper must first validate and copy the
+guard, state, timeline, and every child evidence byte into a self-contained
+receipt payload. That single bounded JSON file, exclusively linked under the
+fixed external trust anchor, is the only canonical PASS and the final
+load-bearing write. Repository paths and child files become non-load-bearing
+after their verified bytes have entered that payload; changing or replacing
+them in the later receipt-link interval cannot alter the copied evidence or
+create a repository-relative PASS. A complete repository-root replacement in
+that interval likewise cannot move or suppress the external receipt. The helper
+must verify the exact linked receipt bytes before returning success. stdout
+summary reporting and descriptor close errors after that publication are
+non-load-bearing and cannot invalidate or contradict the exact receipt.
 
-PASS is only
+PASS is only the external receipt verdict
 `PASS_R4W1C2_NOAP_REBOOT_RECOVERY_EXACT_MAGISK_ANDROID`. It requires exact
 Android serial return on the original USB topology, exact FYG8 model/device/
 incremental, completed boot, stopped boot animation, orange state, Magisk
 `uid=0(root)`, exact known Magisk boot, stock vendor_boot/DTBO/recovery, and no
 Odin endpoint. The result must state `device_writes=false`,
 `partition_write=false`, `odin_transfer=false`, `flash=false`, and
-`reboot=true`.
+`reboot=true`. The receipt schema must be
+`s22plus_fyg8_r4w1c2_noap_canonical_pass_receipt_v1`, include the complete
+successful result object and evidence bundle, and be at most 64 MiB encoded.
 
 Timeline output must contain only `events:[{name,timestamp_utc}]` with the exact
 canonical eight names on PASS and failure. Candidate fields are explicit zero-

@@ -288,3 +288,77 @@ occurred.
 No device or USB command was executed during any review or repair. Exact policy
 activation remains blocked until an eighth independent adversarial review
 returns `GO_TO_EXACT_POLICY_ACTIVATION` on these repaired bytes.
+
+## Eighth independent review NO-GO
+
+Independent host-only read-only review session
+`019f8100-6a72-7cf1-a453-b78023e27aad` reviewed commit `4b1ae175` with
+`gpt-5.6-sol` at explicitly verified xhigh effort. It independently rehashed
+the incident and source pins, ran the focused 47-test and isolated 232-test
+suites in the strict Bubblewrap envelope, reran the offline checker, and
+returned `NO_GO_TO_POLICY_ACTIVATION` for one remaining atomicity boundary with
+two manifestations:
+
+1. The final precommit validator returned before `os.link()` published PASS.
+   Substitution from inside that link call replaced each of the seven required
+   enumeration/reboot child artifacts, yet every case returned rc `0` and PASS.
+2. Replacing the complete repository root in the same interval published PASS
+   only below the renamed root. The external guard still preserved consumed
+   retry authority, but PASS-location integrity was false.
+
+The review confirmed that policy composition, exact incident interpretation,
+external one-shot consumption, sealed child execution, output bounds, teardown
+ordering, and all runtime pins remained correct. The explicit fixed external
+trust-anchor and same-handset physical-continuity assumptions remain declared
+assumptions rather than implementation contradictions.
+
+## Eighth NO-GO repair
+
+Repeating validation around another link cannot make multiple mutable files and
+a swappable repository namespace atomic. The repaired contract therefore changes
+the unit of trust:
+
+- The helper reopens and verifies both consumed-state copies, the exact timeline,
+  every enumeration stdout/stderr/outcome, and every reboot attempt/stdout/
+  stderr/outcome.
+- It copies the actual verified bytes into one self-contained base64 evidence
+  bundle. Entries have unique source/name pairs, exact size/SHA256, and a 32 MiB
+  total unencoded cap.
+- The only exact PASS is one bounded JSON receipt, at most 64 MiB encoded,
+  exclusively published under the fixed external trust anchor as
+  `android-native-init-lab-s22plus-fyg8-r4w1c2-noap-reboot-recovery-pass.json`.
+- A successful repository run publishes no `result.json` and no exact PASS
+  verdict. Failures still publish the canonical repository timeline and
+  `result.json`.
+- The state, guard, or external receipt independently keeps the one-shot
+  consumed. Receipt publication is the final load-bearing write; only
+  exception-swallowing summary output and descriptor close remain afterward.
+
+The reviewer-equivalent injections now run from inside the external receipt's
+final `os.link()` call. Replacing all seven source children leaves the external
+receipt's copied bytes and hashes unchanged. Replacing the complete repository
+root leaves one external PASS receipt, no PASS below either repository root, and
+canonical retry authority consumed.
+
+## Eighth repair identities and validation
+
+- helper: size `88831`, SHA256
+  `3fe629e912aa7e6c4d84f98bd38e5b63e0e0c19b7b1bc2fa874d2f88749d7d5e`
+- focused test: size `66430`, SHA256
+  `8a439e8ca05836057ee47a35e955fd8afabb932c5b7f77d03d3b4b9930ec4e0a`
+- policy draft: size `14609`, SHA256
+  `2a7f8b1f2072b5a6bbd1bbd7195e35f1f063f960b94ea5ebf43bda0514a80b73`
+- normalized policy template SHA256:
+  `4a83d686b704c8e89def170698f4b2f45bddbf934d92841aa715c6faddfc6852`
+- focused no-AP recovery suite: `48/48` PASS
+- strict isolated related suite: `233/233` PASS
+- offline verdict:
+  `PASS_R4W1C2_NOAP_REBOOT_RECOVERY_SOURCE_HOST_ONLY`
+- policy active: `false`
+- recovery consumed: `false`
+- device contact/write/reboot/Odin transfer/flash: all `false`
+
+No device, ADB, USB enumeration, Odin execution, network action, policy
+activation, or live helper occurred. Policy activation remains blocked until a
+ninth independent xhigh adversarial review returns exact GO on the committed
+bytes.
