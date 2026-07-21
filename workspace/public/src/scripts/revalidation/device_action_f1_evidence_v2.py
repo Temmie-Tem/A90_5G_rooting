@@ -9,19 +9,26 @@ import re
 from typing import Any
 
 import s22plus_fyg8_r4w1e_checkpoint_contract as checkpoint
+import s22plus_fyg8_p219_same_ring_decoder as same_ring
 
 
 MARKER_KIND = "retained_marker_after_rollback"
 CHECKPOINT_KIND = "retained_checkpoint_after_rollback"
 PID1_USERSPACE_KIND = "retained_pid1_userspace_after_rollback"
+SAME_RING_KIND = "retained_pid1_same_ring_discriminator_after_rollback"
 CHECKPOINT_DECODER = "s22plus_fyg8_r4w1e_checkpoint_v1"
 PID1_USERSPACE_DECODER = "s22plus_fyg8_r4w1e0_pid1_userspace_v1"
+SAME_RING_DECODER = "s22plus_fyg8_p219_same_ring_v1"
 CHECKPOINT_SOURCE = "/proc/last_kmsg"
 PID1_USERSPACE_TARGET = "SM-S906N/g0q/S906NKSS7FYG8"
 PID1_USERSPACE_ENTRY = b"\n[[S22P1U|ba234c7de4105b2a23222436284605f2]]\n"
 PID1_USERSPACE_PROOF = b"\n[[S22P1U|ec8d029b05288644bbe7b5f7c7af190c]]\n"
 PID1_USERSPACE_FAMILY = b"[[S22P1U|"
 PID1_USERSPACE_PROBE_ID = "64554e8469385878c5bf8d57c44edeea"
+SAME_RING_CONTRACT_ID = same_ring.CONTRACT_ID.hex()
+SAME_RING_RUN_MANIFEST_SCHEMA = "s22plus_fyg8_p219_run_manifest_v1"
+SAME_RING_STATIC_SCHEMA = "s22plus_fyg8_p219_candidate_static_checker_v1"
+SAME_RING_STATIC_VERDICT = "PASS_P219_OFFLINE_CANDIDATE_STATIC_CONTRACT"
 OUTCOME_NAMES = {
     checkpoint.OUTCOME_PROGRESS: "progress",
     checkpoint.OUTCOME_SUCCESS: "success",
@@ -64,6 +71,58 @@ def _artifact_matches(value: Any, expected: dict[str, Any]) -> bool:
     )
 
 
+def _binary_identity(value: Any, label: str) -> dict[str, Any]:
+    item = _exact(value, {"size", "sha256"}, label)
+    if (
+        isinstance(item["size"], bool)
+        or not isinstance(item["size"], int)
+        or not 1 <= item["size"] <= 2**40
+        or not isinstance(item["sha256"], str)
+        or HASH_RE.fullmatch(item["sha256"]) is None
+    ):
+        raise EvidenceError(f"{label} identity is invalid")
+    return item
+
+
+def _record_blob_claim(
+    value: Any, label: str, artifact: dict[str, Any]
+) -> dict[str, Any]:
+    item = _exact(
+        value,
+        {
+            "label",
+            "size",
+            "sha256",
+            "entry_count",
+            "userspace_count",
+            "unsat_count",
+            "long_family_count",
+            "unsat_family_count",
+            "old_e0_entry_count",
+            "old_e0_userspace_count",
+            "verified",
+        },
+        label,
+    )
+    expected_counts = {
+        "entry_count": 1,
+        "userspace_count": 1,
+        "unsat_count": 1,
+        "long_family_count": 2,
+        "unsat_family_count": 1,
+        "old_e0_entry_count": 0,
+        "old_e0_userspace_count": 0,
+    }
+    if (
+        item["label"] != label
+        or not _artifact_matches(item, artifact)
+        or any(item[key] != count for key, count in expected_counts.items())
+        or item["verified"] is not True
+    ):
+        raise EvidenceError(f"{label} record claim is invalid")
+    return item
+
+
 def _bounded_text(value: Any, label: str, maximum: int) -> str:
     if (
         not isinstance(value, str)
@@ -89,6 +148,49 @@ def validate_acceptance(value: Any) -> dict[str, Any]:
             raise EvidenceError("marker acceptance source or count is invalid")
         _bounded_text(item["marker"], "acceptance.marker", 512)
         _bounded_text(item["family"], "acceptance.family", 128)
+        return item
+    if kind == SAME_RING_KIND:
+        item = _exact(
+            value,
+            {
+                "kind",
+                "source",
+                "decoder",
+                "contract_id",
+                "records",
+                "families",
+                "accepted_identity",
+                "exact_count",
+                "contract",
+            },
+            "same-ring acceptance",
+        )
+        expected_records = {
+            "entry_hex": same_ring.ENTRY_PROOF.hex(),
+            "userspace_hex": same_ring.USERSPACE_PROOF.hex(),
+            "unsat_hex": same_ring.UNSAT_PROOF.hex(),
+        }
+        expected_families = {
+            "long_hex": same_ring.ENTRY_FAMILY.hex(),
+            "unsat_hex": same_ring.UNSAT_FAMILY.hex(),
+        }
+        if (
+            item["source"] != CHECKPOINT_SOURCE
+            or item["decoder"] != SAME_RING_DECODER
+            or item["contract_id"] != SAME_RING_CONTRACT_ID
+            or item["records"] != expected_records
+            or item["families"] != expected_families
+            or item["accepted_identity"] != "USERSPACE_CALLBACK_REACHED"
+            or item["exact_count"] != 1
+        ):
+            raise EvidenceError("same-ring acceptance identity is invalid")
+        contract = _exact(
+            item["contract"],
+            {"run_manifest", "static_check"},
+            "same-ring contract",
+        )
+        _artifact(contract["run_manifest"], "same-ring contract run_manifest")
+        _artifact(contract["static_check"], "same-ring contract static_check")
         return item
     if kind == PID1_USERSPACE_KIND:
         item = _exact(
@@ -172,7 +274,11 @@ def validate_acceptance(value: Any) -> dict[str, Any]:
 
 def contract_artifacts(acceptance: dict[str, Any]) -> dict[str, dict[str, Any]]:
     item = validate_acceptance(acceptance)
-    if item["kind"] not in {CHECKPOINT_KIND, PID1_USERSPACE_KIND}:
+    if item["kind"] not in {
+        CHECKPOINT_KIND,
+        PID1_USERSPACE_KIND,
+        SAME_RING_KIND,
+    }:
         return {}
     return {
         name: dict(value)
@@ -404,6 +510,186 @@ def _verify_pid1_userspace_offline_contract(
     }
 
 
+def _same_ring_records() -> dict[str, str]:
+    return {
+        "entry_hex": same_ring.ENTRY_PROOF.hex(),
+        "userspace_hex": same_ring.USERSPACE_PROOF.hex(),
+        "unsat_hex": same_ring.UNSAT_PROOF.hex(),
+    }
+
+
+def _verify_same_ring_offline_contract(
+    acceptance: dict[str, Any],
+    *,
+    payloads: dict[str, bytes],
+    receipts: dict[str, dict[str, Any]],
+    candidate_ap: dict[str, Any],
+) -> dict[str, Any]:
+    item = validate_acceptance(acceptance)
+    if item["kind"] != SAME_RING_KIND:
+        raise EvidenceError("offline same-ring contract is not applicable")
+    if set(payloads) != {"run_manifest", "static_check"} or set(receipts) != set(
+        payloads
+    ):
+        raise EvidenceError("offline same-ring artifacts are incomplete")
+    for name, payload in payloads.items():
+        pin = item["contract"][name]
+        receipt = receipts[name]
+        if (
+            len(payload) != pin["size"]
+            or hashlib.sha256(payload).hexdigest() != pin["sha256"]
+            or receipt.get("size") != pin["size"]
+            or receipt.get("sha256") != pin["sha256"]
+        ):
+            raise EvidenceError(f"offline same-ring contract {name} changed")
+
+    run_manifest = _json(payloads["run_manifest"], "same-ring run manifest")
+    static_result = _json(payloads["static_check"], "same-ring static result")
+    canonical = _canonical(run_manifest)
+    canonical_sha256 = hashlib.sha256(canonical).hexdigest()
+    records = _same_ring_records()
+    expected_observation = {
+        "accepted_identity": "USERSPACE_CALLBACK_REACHED",
+        "zero_classification": "ZERO_AMBIGUOUS",
+        "entry_threshold": same_ring.ENTRY_SIZE,
+        "unsat_threshold": same_ring.UNSAT_SIZE,
+        "clean_baseline_required": True,
+    }
+    if (
+        set(run_manifest)
+        != {
+            "schema",
+            "target",
+            "profile",
+            "contract_id",
+            "contract_sha256",
+            "records",
+            "observation_contract",
+            "candidate_ap",
+        }
+        or run_manifest.get("schema") != SAME_RING_RUN_MANIFEST_SCHEMA
+        or run_manifest.get("target") != same_ring.TARGET
+        or run_manifest.get("profile") != "P219"
+        or run_manifest.get("contract_id") != SAME_RING_CONTRACT_ID
+        or run_manifest.get("contract_sha256") != same_ring.CONTRACT_SHA256
+        or run_manifest.get("records") != records
+        or run_manifest.get("observation_contract") != expected_observation
+        or not _artifact_matches(run_manifest.get("candidate_ap"), candidate_ap)
+        or payloads["run_manifest"] != canonical
+    ):
+        raise EvidenceError("run manifest does not bind the same-ring candidate")
+
+    if (
+        set(static_result)
+        != {
+            "schema",
+            "target",
+            "verdict",
+            "contract_id",
+            "contract_sha256",
+            "records",
+            "run_binding",
+            "candidate",
+            "safety",
+        }
+        or static_result.get("schema") != SAME_RING_STATIC_SCHEMA
+        or static_result.get("target") != same_ring.TARGET
+        or static_result.get("verdict") != SAME_RING_STATIC_VERDICT
+        or static_result.get("contract_id") != SAME_RING_CONTRACT_ID
+        or static_result.get("contract_sha256") != same_ring.CONTRACT_SHA256
+        or static_result.get("records") != records
+        or static_result.get("run_binding")
+        != {
+            "canonical_manifest_size": len(canonical),
+            "canonical_manifest_sha256": canonical_sha256,
+            "verified": True,
+        }
+    ):
+        raise EvidenceError("static checker header does not bind P2.19 candidate")
+
+    candidate = _exact(
+        static_result["candidate"],
+        {"artifacts", "record_verification"},
+        "same-ring candidate",
+    )
+    artifacts = _exact(
+        candidate["artifacts"],
+        {"ap", "run_manifest", "image", "vmlinux", "boot_image"},
+        "same-ring candidate artifacts",
+    )
+    identities = {
+        name: _binary_identity(value, f"same-ring {name}")
+        for name, value in artifacts.items()
+    }
+    verification = _exact(
+        candidate["record_verification"],
+        {
+            "image",
+            "vmlinux",
+            "boot_image",
+            "boot_kernel",
+            "ap_members",
+            "boot_only_ap",
+            "verified",
+        },
+        "same-ring record verification",
+    )
+    image_claim = _record_blob_claim(
+        verification["image"], "Image", identities["image"]
+    )
+    _record_blob_claim(
+        verification["vmlinux"], "vmlinux", identities["vmlinux"]
+    )
+    boot_image_claim = _binary_identity(
+        verification["boot_image"], "verified boot image"
+    )
+    boot_kernel_claim = _exact(
+        verification["boot_kernel"],
+        {"size", "sha256", "equals_image"},
+        "verified boot kernel",
+    )
+    if (
+        not _artifact_matches(identities["ap"], candidate_ap)
+        or not _artifact_matches(
+            identities["run_manifest"], receipts["run_manifest"]
+        )
+        or boot_image_claim != identities["boot_image"]
+        or boot_kernel_claim
+        != {
+            "size": image_claim["size"],
+            "sha256": image_claim["sha256"],
+            "equals_image": True,
+        }
+        or verification["ap_members"]
+        != [{"name": "boot.img.lz4", "type": "regular"}]
+        or verification["boot_only_ap"] is not True
+        or verification["verified"] is not True
+        or static_result.get("safety")
+        != {
+            "host_only": True,
+            "device_contact": False,
+            "device_write": False,
+            "odin_invoked": False,
+            "odin_transfer": False,
+            "flash": False,
+            "partition_write": False,
+            "live_authorized": False,
+        }
+    ):
+        raise EvidenceError("static checker result does not bind P2.19 candidate")
+    return {
+        "schema": "device_action_f1_same_ring_offline_contract_v2",
+        "decoder": SAME_RING_DECODER,
+        "contract_id": SAME_RING_CONTRACT_ID,
+        "candidate_ap_sha256": candidate_ap["sha256"],
+        "run_manifest_sha256": receipts["run_manifest"]["sha256"],
+        "static_check_sha256": receipts["static_check"]["sha256"],
+        "clean_baseline_required": True,
+        "zero_is_ambiguous": True,
+        "verified": True,
+    }
+
+
 def verify_offline_contract(
     acceptance: dict[str, Any],
     *,
@@ -411,6 +697,13 @@ def verify_offline_contract(
     receipts: dict[str, dict[str, Any]],
     candidate_ap: dict[str, Any],
 ) -> dict[str, Any]:
+    if acceptance.get("kind") == SAME_RING_KIND:
+        return _verify_same_ring_offline_contract(
+            acceptance,
+            payloads=payloads,
+            receipts=receipts,
+            candidate_ap=candidate_ap,
+        )
     if acceptance.get("kind") == PID1_USERSPACE_KIND:
         return _verify_pid1_userspace_offline_contract(
             acceptance,
@@ -608,3 +901,82 @@ def classify_pid1_userspace(
     result["userspace_count"] = userspace_count
     result["probe_id"] = item["probe_id"]
     return result
+
+
+def classify_same_ring(
+    payload: bytes, acceptance: dict[str, Any]
+) -> dict[str, Any]:
+    item = validate_acceptance(acceptance)
+    if item["kind"] != SAME_RING_KIND:
+        raise EvidenceError("same-ring classifier received another evidence kind")
+    try:
+        decoded = same_ring.classify_observation(payload)
+    except same_ring.DecodeError as exc:
+        raise EvidenceError(str(exc)) from exc
+
+    exact_record_count = (
+        decoded["entry_count"]
+        + decoded["userspace_count"]
+        + decoded["unsat_count"]
+    )
+    family_count = decoded["long_family_count"] + decoded["unsat_family_count"]
+    result = _base_classification(
+        classification=decoded["classification"],
+        exact_count=decoded["userspace_count"],
+        family_count=family_count,
+        integrity_issue=decoded["integrity_issue"],
+    )
+    result["exact_record_count"] = exact_record_count
+    result["foreign_count"] = max(0, family_count - exact_record_count)
+    result["partial_at_head"] = decoded["partial_at_snapshot_edge"]
+    result["partial_at_tail"] = decoded["partial_at_snapshot_edge"]
+    result["baseline_absent"] = decoded["classification"] == "ZERO_AMBIGUOUS"
+    result["acceptance_present"] = decoded["accepted"]
+    result["accepted"] = decoded["accepted"]
+    result["entry_count"] = decoded["entry_count"]
+    result["userspace_count"] = decoded["userspace_count"]
+    result["unsat_count"] = decoded["unsat_count"]
+    result["long_family_count"] = decoded["long_family_count"]
+    result["unsat_family_count"] = decoded["unsat_family_count"]
+    result["contract_id"] = item["contract_id"]
+    result["residual_zero_meanings"] = decoded["residual_zero_meanings"]
+    return result
+
+
+def classify_clean_baseline(
+    payload: bytes, acceptance: dict[str, Any]
+) -> dict[str, Any]:
+    item = validate_acceptance(acceptance)
+    if item["kind"] == SAME_RING_KIND:
+        result = classify_same_ring(payload, item)
+        exact_count = result["exact_record_count"]
+        family_count = result["family_count"]
+        clean = (
+            result["classification"] == "ZERO_AMBIGUOUS"
+            and result["integrity_issue"] is False
+            and exact_count == 0
+            and family_count == 0
+        )
+        return {
+            "classification": result["classification"],
+            "exact_record_count": exact_count,
+            "family_count": family_count,
+            "integrity_issue": result["integrity_issue"],
+            "baseline_clean": clean,
+        }
+
+    marker = item["marker"].encode("ascii")
+    family = item["family"].encode("ascii")
+    exact_count = payload.count(marker)
+    family_count = payload.count(family)
+    return {
+        "classification": (
+            "BASELINE_CLEAN"
+            if exact_count == 0 and family_count == 0
+            else "BASELINE_FAMILY_PRESENT"
+        ),
+        "exact_record_count": exact_count,
+        "family_count": family_count,
+        "integrity_issue": False,
+        "baseline_clean": exact_count == 0 and family_count == 0,
+    }

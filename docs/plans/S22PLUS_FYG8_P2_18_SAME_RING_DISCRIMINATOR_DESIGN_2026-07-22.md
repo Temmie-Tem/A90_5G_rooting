@@ -2,8 +2,13 @@
 
 - Date: 2026-07-22 KST
 - Tier: H0, host-only design
-- Status: `DESIGN_COMPLETE_NOT_IMPLEMENTED_NOT_REVIEWED`
+- Status: `DESIGN_COMPLETE_IMPLEMENTED_IN_P219_REVIEW_PENDING`
 - Live authority: none
+
+P2.19 subsequently implemented this design host-only. The implementation is
+recorded in
+`docs/reports/S22PLUS_FYG8_P219_SAME_RING_IMPLEMENTATION_HOST_PASS_2026-07-22.md`;
+its independent safety review and every candidate artifact step remain open.
 
 ## Question
 
@@ -49,14 +54,16 @@ so would be self-referential. The future implementation must use this
 transitive binding:
 
 1. Build a canonical immutable candidate descriptor containing the target,
-   base-source pins, patch identity, config identity, `/init` identity, record
-   format version, and exact semantics.
+   base-source pins, config identity, `/init` identity, exact userspace request,
+   target/layout constraints, record format version, and exact semantics. The
+   descriptor cannot contain its own final patch or artifact digest.
 2. Derive each 128-bit state tag from that descriptor with state-domain
    separation.
 3. Verify that the compiled Image contains exactly the expected candidate
    records and no foreign family instance.
 4. Pin the resulting Image, boot image, boot-only AP, run manifest, and static
-   checker result by full SHA-256.
+   checker result by full SHA-256. Pin the instantiated source patch separately
+   by full SHA-256 as part of the static checker closure.
 5. Bind the fresh Process v2 approval to the exact AP, rollback AP, manifest,
    and runner version as usual.
 

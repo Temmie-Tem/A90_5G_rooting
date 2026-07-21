@@ -63,13 +63,8 @@ Load-bearing details are in:
 - `docs/operations/DEVICE_ACTION_PROCESS_V2.md`
 - `docs/module-map/s22plus-fyg8/`
 
-Historical clauses are inert evidence only:
-
-- `docs/archive/policy/AGENTS_PRE_PROCESS_V2_2026-07-21.md`
-- `docs/archive/roadmaps/GOAL_PRE_PROCESS_V2_2026-07-21.md`
-- `docs/reports/`
-
-Archived text is evidence only and grants no device authority.
+Archived text is evidence only; clauses under `docs/archive/` and earlier
+reports grant no device authority.
 
 ## Immediate Roadmap
 
@@ -97,10 +92,14 @@ Archived text is evidence only and grants no device authority.
 8. **P2.18 complete, H0 only:** preserve 45-byte ENTRY/USERSPACE, add one
    candidate-bound 24-byte UNSAT for `24 <= idx < 45`, and keep every smaller,
    invalid, nonselected, or lost result as `ZERO_AMBIGUOUS`; no live authority.
-9. **P2.19 next, H0 only:** implement the corrected guard, tag checks, and new
-   typed observer without changing transport/rollback. Review that actual diff
-   once before any candidate build, D0 preparation, or F1 authority.
-10. **E2-E4 later:** prove module closure, platform bind and UDC, then one ACM
+9. **P2.19 complete, H0 only:** implemented the corrected target/layout guard,
+   candidate-bound records, artifact closure checker, five-state typed raw-byte
+   observer, typed D0 baseline, and minimal runner dispatch. Focused tests pass;
+   no candidate or live authority was created.
+10. **P2.20 next, H0 only:** independently review the actual execution-critical
+    patch, contract checker, evidence schema, and runner dispatch. Close any
+    finding before a kernel build or candidate artifact is allowed.
+11. **E2-E4 later:** prove module closure, platform bind and UDC, then one ACM
    banner and one nonce-bound exchange. No shell, NCM, Debian, or hot reload.
 
 Do not reactivate R4W1-C3, fork a C4 helper, add another per-candidate policy

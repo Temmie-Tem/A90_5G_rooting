@@ -1,4 +1,7 @@
+import copy
+import hashlib
 import importlib.util
+import json
 import sys
 import unittest
 from pathlib import Path
@@ -56,6 +59,161 @@ class DeviceActionF1EvidenceV2Test(unittest.TestCase):
                     "sha256": "2" * 64,
                 },
             },
+        }
+
+    def same_ring_acceptance(self, run_payload=b"{}", static_payload=b"{}"):
+        same_ring = self.module.same_ring
+        return {
+            "kind": self.module.SAME_RING_KIND,
+            "source": "/proc/last_kmsg",
+            "decoder": self.module.SAME_RING_DECODER,
+            "contract_id": self.module.SAME_RING_CONTRACT_ID,
+            "records": {
+                "entry_hex": same_ring.ENTRY_PROOF.hex(),
+                "userspace_hex": same_ring.USERSPACE_PROOF.hex(),
+                "unsat_hex": same_ring.UNSAT_PROOF.hex(),
+            },
+            "families": {
+                "long_hex": same_ring.ENTRY_FAMILY.hex(),
+                "unsat_hex": same_ring.UNSAT_FAMILY.hex(),
+            },
+            "accepted_identity": "USERSPACE_CALLBACK_REACHED",
+            "exact_count": 1,
+            "contract": {
+                "run_manifest": {
+                    "path": "workspace/private/p219-run-manifest.json",
+                    "size": len(run_payload),
+                    "sha256": hashlib.sha256(run_payload).hexdigest(),
+                },
+                "static_check": {
+                    "path": "workspace/private/p219-static-check.json",
+                    "size": len(static_payload),
+                    "sha256": hashlib.sha256(static_payload).hexdigest(),
+                },
+            },
+        }
+
+    def same_ring_offline_bundle(self):
+        same_ring = self.module.same_ring
+        candidate_ap = {
+            "path": "/private/candidate.tar.md5",
+            "size": 123,
+            "sha256": "a" * 64,
+        }
+        records = {
+            "entry_hex": same_ring.ENTRY_PROOF.hex(),
+            "userspace_hex": same_ring.USERSPACE_PROOF.hex(),
+            "unsat_hex": same_ring.UNSAT_PROOF.hex(),
+        }
+        run_manifest = {
+            "schema": self.module.SAME_RING_RUN_MANIFEST_SCHEMA,
+            "target": same_ring.TARGET,
+            "profile": "P219",
+            "contract_id": self.module.SAME_RING_CONTRACT_ID,
+            "contract_sha256": same_ring.CONTRACT_SHA256,
+            "records": records,
+            "observation_contract": {
+                "accepted_identity": "USERSPACE_CALLBACK_REACHED",
+                "zero_classification": "ZERO_AMBIGUOUS",
+                "entry_threshold": same_ring.ENTRY_SIZE,
+                "unsat_threshold": same_ring.UNSAT_SIZE,
+                "clean_baseline_required": True,
+            },
+            "candidate_ap": candidate_ap,
+        }
+        run_payload = json.dumps(
+            run_manifest, sort_keys=True, separators=(",", ":")
+        ).encode("ascii")
+        run_receipt = {
+            "size": len(run_payload),
+            "sha256": hashlib.sha256(run_payload).hexdigest(),
+        }
+        image_identity = {"size": 100, "sha256": "b" * 64}
+        vmlinux_identity = {"size": 200, "sha256": "c" * 64}
+        boot_image_identity = {"size": 300, "sha256": "d" * 64}
+
+        def record_claim(label, identity):
+            return {
+                "label": label,
+                **identity,
+                "entry_count": 1,
+                "userspace_count": 1,
+                "unsat_count": 1,
+                "long_family_count": 2,
+                "unsat_family_count": 1,
+                "old_e0_entry_count": 0,
+                "old_e0_userspace_count": 0,
+                "verified": True,
+            }
+
+        static_result = {
+            "schema": self.module.SAME_RING_STATIC_SCHEMA,
+            "target": same_ring.TARGET,
+            "verdict": self.module.SAME_RING_STATIC_VERDICT,
+            "contract_id": self.module.SAME_RING_CONTRACT_ID,
+            "contract_sha256": same_ring.CONTRACT_SHA256,
+            "records": records,
+            "run_binding": {
+                "canonical_manifest_size": len(run_payload),
+                "canonical_manifest_sha256": hashlib.sha256(run_payload).hexdigest(),
+                "verified": True,
+            },
+            "candidate": {
+                "artifacts": {
+                    "ap": {
+                        "size": candidate_ap["size"],
+                        "sha256": candidate_ap["sha256"],
+                    },
+                    "run_manifest": run_receipt,
+                    "image": image_identity,
+                    "vmlinux": vmlinux_identity,
+                    "boot_image": boot_image_identity,
+                },
+                "record_verification": {
+                    "image": record_claim("Image", image_identity),
+                    "vmlinux": record_claim("vmlinux", vmlinux_identity),
+                    "boot_image": boot_image_identity,
+                    "boot_kernel": {
+                        "size": image_identity["size"],
+                        "sha256": image_identity["sha256"],
+                        "equals_image": True,
+                    },
+                    "ap_members": [
+                        {"name": "boot.img.lz4", "type": "regular"}
+                    ],
+                    "boot_only_ap": True,
+                    "verified": True,
+                },
+            },
+            "safety": {
+                "host_only": True,
+                "device_contact": False,
+                "device_write": False,
+                "odin_invoked": False,
+                "odin_transfer": False,
+                "flash": False,
+                "partition_write": False,
+                "live_authorized": False,
+            },
+        }
+        static_payload = json.dumps(
+            static_result, sort_keys=True, separators=(",", ":")
+        ).encode("ascii")
+        acceptance = self.same_ring_acceptance(run_payload, static_payload)
+        return {
+            "acceptance": acceptance,
+            "payloads": {
+                "run_manifest": run_payload,
+                "static_check": static_payload,
+            },
+            "receipts": {
+                "run_manifest": run_receipt,
+                "static_check": {
+                    "size": len(static_payload),
+                    "sha256": hashlib.sha256(static_payload).hexdigest(),
+                },
+            },
+            "candidate_ap": candidate_ap,
         }
 
     def region_through(self, count, *, failure=False):
@@ -170,6 +328,102 @@ class DeviceActionF1EvidenceV2Test(unittest.TestCase):
             "exact_count": 1,
         }
         self.assertEqual(self.module.validate_acceptance(marker), marker)
+
+    def test_same_ring_classifier_covers_all_bounded_states(self):
+        acceptance = self.same_ring_acceptance()
+        records = self.module.same_ring
+        cases = (
+            (b"ordinary", "ZERO_AMBIGUOUS", False),
+            (records.ENTRY_PROOF, "ENTRY_ONLY", False),
+            (records.USERSPACE_PROOF, "USERSPACE_CALLBACK_REACHED", True),
+            (
+                records.UNSAT_PROOF,
+                "UNSAT_VALID_MAGIC_ENTRY_DID_NOT_FIT",
+                False,
+            ),
+            (
+                records.ENTRY_PROOF + records.UNSAT_PROOF,
+                "AMBIGUOUS_INTEGRITY_FAILURE",
+                False,
+            ),
+        )
+        for payload, expected, accepted in cases:
+            with self.subTest(expected=expected):
+                result = self.module.classify_same_ring(payload, acceptance)
+                self.assertEqual(result["classification"], expected)
+                self.assertEqual(result["accepted"], accepted)
+                self.assertEqual(
+                    result["acceptance_present"], accepted
+                )
+
+    def test_same_ring_classifier_rejects_duplicate_foreign_and_partial(self):
+        acceptance = self.same_ring_acceptance()
+        records = self.module.same_ring
+        payloads = (
+            records.USERSPACE_PROOF * 2,
+            records.ENTRY_FAMILY + b"0" * 32 + b"]]\n",
+            b"prefix" + records.UNSAT_PROOF[:12],
+        )
+        for payload in payloads:
+            with self.subTest(payload=payload.hex()):
+                result = self.module.classify_same_ring(payload, acceptance)
+                self.assertEqual(
+                    result["classification"], "AMBIGUOUS_INTEGRITY_FAILURE"
+                )
+                self.assertTrue(result["integrity_issue"])
+                self.assertFalse(result["accepted"])
+
+    def test_same_ring_acceptance_is_not_manifest_selectable(self):
+        acceptance = self.same_ring_acceptance()
+        mutations = (
+            ("contract_id", "0" * 32),
+            ("decoder", "another-decoder"),
+            ("accepted_identity", "ENTRY_ONLY"),
+        )
+        for name, value in mutations:
+            changed = copy.deepcopy(acceptance)
+            changed[name] = value
+            with self.subTest(name=name):
+                with self.assertRaises(self.module.EvidenceError):
+                    self.module.validate_acceptance(changed)
+        changed = copy.deepcopy(acceptance)
+        changed["records"]["userspace_hex"] = changed["records"]["entry_hex"]
+        with self.assertRaises(self.module.EvidenceError):
+            self.module.validate_acceptance(changed)
+
+    def test_same_ring_offline_contract_binds_candidate_and_records(self):
+        bundle = self.same_ring_offline_bundle()
+        result = self.module.verify_offline_contract(**bundle)
+        self.assertEqual(
+            result["schema"], "device_action_f1_same_ring_offline_contract_v2"
+        )
+        self.assertTrue(result["clean_baseline_required"])
+        self.assertTrue(result["zero_is_ambiguous"])
+        self.assertTrue(result["verified"])
+
+    def test_same_ring_offline_contract_fails_closed_on_changed_static_claim(self):
+        bundle = self.same_ring_offline_bundle()
+        static_result = json.loads(bundle["payloads"]["static_check"])
+        static_result["candidate"]["record_verification"]["image"][
+            "unsat_count"
+        ] = 0
+        static_payload = json.dumps(
+            static_result, sort_keys=True, separators=(",", ":")
+        ).encode("ascii")
+        bundle["payloads"]["static_check"] = static_payload
+        bundle["receipts"]["static_check"] = {
+            "size": len(static_payload),
+            "sha256": hashlib.sha256(static_payload).hexdigest(),
+        }
+        bundle["acceptance"]["contract"]["static_check"] = {
+            "path": "workspace/private/p219-static-check.json",
+            **bundle["receipts"]["static_check"],
+        }
+        with self.assertRaisesRegex(
+            self.module.EvidenceError,
+            "Image record claim is invalid",
+        ):
+            self.module.verify_offline_contract(**bundle)
 
 
 if __name__ == "__main__":

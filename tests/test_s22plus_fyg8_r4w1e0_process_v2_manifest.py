@@ -64,7 +64,7 @@ class S22PlusFyg8R4W1E0ProcessV2ManifestTest(unittest.TestCase):
         self.assertTrue(verification["verified"])
         self.assertEqual(
             bundle.sha256,
-            "53919d7be2e539242109ef56b6e700a62dc882023530cefe8d0b4ff5b8ddc280",
+            "deb4f24c399e1d0c3d9e5e3a0f867ee89dc65e2f61aa1a5bcd1bbf2625c20928",
         )
 
     def test_draft_cannot_allocate_connected_prepare(self):
@@ -126,6 +126,62 @@ class S22PlusFyg8R4W1E0ProcessV2ManifestTest(unittest.TestCase):
                 with self.assertRaises(self.core.typed_evidence.EvidenceError):
                     self.core.typed_evidence.validate_acceptance(changed)
 
+    def test_execution_source_closure_is_kind_specific(self):
+        e0_sources = self.core.execution_critical_source_receipts(
+            self.acceptance()
+        )
+        self.assertEqual(
+            set(e0_sources),
+            {
+                "runner",
+                "typed_evidence",
+                "checkpoint_decoder",
+                "regular_path_transport",
+            },
+        )
+        evidence = self.core.typed_evidence
+        decoder = evidence.same_ring
+        same_ring_acceptance = {
+            "kind": evidence.SAME_RING_KIND,
+            "source": evidence.CHECKPOINT_SOURCE,
+            "decoder": evidence.SAME_RING_DECODER,
+            "contract_id": evidence.SAME_RING_CONTRACT_ID,
+            "records": {
+                "entry_hex": decoder.ENTRY_PROOF.hex(),
+                "userspace_hex": decoder.USERSPACE_PROOF.hex(),
+                "unsat_hex": decoder.UNSAT_PROOF.hex(),
+            },
+            "families": {
+                "long_hex": decoder.ENTRY_FAMILY.hex(),
+                "unsat_hex": decoder.UNSAT_FAMILY.hex(),
+            },
+            "accepted_identity": "USERSPACE_CALLBACK_REACHED",
+            "exact_count": 1,
+            "contract": {
+                "run_manifest": {
+                    "path": "workspace/private/run.json",
+                    "size": 1,
+                    "sha256": "1" * 64,
+                },
+                "static_check": {
+                    "path": "workspace/private/static.json",
+                    "size": 1,
+                    "sha256": "2" * 64,
+                },
+            },
+        }
+        sources = self.core.execution_critical_source_receipts(
+            same_ring_acceptance
+        )
+        self.assertTrue(
+            {
+                "same_ring_decoder",
+                "same_ring_static_checker",
+                "same_ring_design_model",
+                "same_ring_base_checker",
+            }.issubset(sources)
+        )
+
     def test_malformed_static_artifact_shape_fails_closed(self):
         bundle = self.core.verify_bundle(ROOT, DRAFT_MANIFEST)
         acceptance = copy.deepcopy(bundle.manifest["observation"]["acceptance"])
@@ -183,7 +239,7 @@ class S22PlusFyg8R4W1E0ProcessV2ManifestTest(unittest.TestCase):
         )
         self.assertEqual(
             ready.sha256,
-            "f1c2715dc244c9a6822aed19a8bc1e28a40a118ba4a073bf66d8b7dd74ee191a",
+            "6694f7c00307cf1b9f20e3c778f3d72817240202a465bbc8c038fbfbd415e0a3",
         )
         self.assertFalse(ready.receipt["device_contact"])
         self.assertFalse(ready.receipt["odin_invoked"])

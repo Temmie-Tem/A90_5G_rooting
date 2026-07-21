@@ -176,6 +176,63 @@ class DeviceActionD0V2Test(unittest.TestCase):
             target["usb_topology_sha256"], hashlib.sha256(b"usb:3-1").hexdigest()
         )
 
+    def test_same_ring_baseline_checks_both_families_and_edge_partials(self):
+        evidence = self.module.f1.typed_evidence
+        decoder = evidence.same_ring
+        manifest = copy.deepcopy(self.manifest)
+        manifest["observation"]["acceptance"] = {
+            "kind": evidence.SAME_RING_KIND,
+            "source": evidence.CHECKPOINT_SOURCE,
+            "decoder": evidence.SAME_RING_DECODER,
+            "contract_id": evidence.SAME_RING_CONTRACT_ID,
+            "records": {
+                "entry_hex": decoder.ENTRY_PROOF.hex(),
+                "userspace_hex": decoder.USERSPACE_PROOF.hex(),
+                "unsat_hex": decoder.UNSAT_PROOF.hex(),
+            },
+            "families": {
+                "long_hex": decoder.ENTRY_FAMILY.hex(),
+                "unsat_hex": decoder.UNSAT_FAMILY.hex(),
+            },
+            "accepted_identity": "USERSPACE_CALLBACK_REACHED",
+            "exact_count": 1,
+            "contract": {
+                "run_manifest": {
+                    "path": "workspace/private/run.json",
+                    "size": 1,
+                    "sha256": "1" * 64,
+                },
+                "static_check": {
+                    "path": "workspace/private/static.json",
+                    "size": 1,
+                    "sha256": "2" * 64,
+                },
+            },
+        }
+        bundle = self.bundle(manifest=manifest)
+        temporary, result, _client = self.run_connected(bundle=bundle)
+        self.addCleanup(temporary.cleanup)
+        self.assertTrue(result["observer"]["baseline_clean"])
+
+        for payload in (
+            decoder.ENTRY_PROOF,
+            decoder.UNSAT_PROOF,
+            b"prefix" + decoder.UNSAT_PROOF[:12],
+        ):
+            with self.subTest(payload=payload.hex()):
+                with tempfile.TemporaryDirectory() as temporary_name:
+                    root = Path(temporary_name)
+                    run_dir = root / "run"
+                    run_dir.mkdir()
+                    usb = self.usb_root(root)
+                    client = FakeClient(self.profile, marker=payload)
+                    with self.assertRaisesRegex(
+                        self.module.D0Error, "candidate marker family"
+                    ):
+                        self.module.collect_connected(
+                            bundle, run_dir, client, usb
+                        )
+
     def test_result_validator_rejects_authority_and_evidence_tamper(self):
         temporary, result, _client = self.run_connected()
         self.addCleanup(temporary.cleanup)

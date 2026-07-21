@@ -397,6 +397,56 @@ class DeviceActionF1LiveV2Test(unittest.TestCase):
         self.assertFalse(foreign["accepted"])
         self.assertEqual(foreign["foreign_count"], 1)
 
+    def test_same_ring_typed_observer_dispatches_without_generic_marker_fields(self):
+        evidence = self.module.typed_evidence
+        same_ring = evidence.same_ring
+        acceptance = {
+            "kind": evidence.SAME_RING_KIND,
+            "source": evidence.CHECKPOINT_SOURCE,
+            "decoder": evidence.SAME_RING_DECODER,
+            "contract_id": evidence.SAME_RING_CONTRACT_ID,
+            "records": {
+                "entry_hex": same_ring.ENTRY_PROOF.hex(),
+                "userspace_hex": same_ring.USERSPACE_PROOF.hex(),
+                "unsat_hex": same_ring.UNSAT_PROOF.hex(),
+            },
+            "families": {
+                "long_hex": same_ring.ENTRY_FAMILY.hex(),
+                "unsat_hex": same_ring.UNSAT_FAMILY.hex(),
+            },
+            "accepted_identity": "USERSPACE_CALLBACK_REACHED",
+            "exact_count": 1,
+            "contract": {
+                "run_manifest": {
+                    "path": "workspace/private/p219-run-manifest.json",
+                    "size": 1,
+                    "sha256": "1" * 64,
+                },
+                "static_check": {
+                    "path": "workspace/private/p219-static-check.json",
+                    "size": 1,
+                    "sha256": "2" * 64,
+                },
+            },
+        }
+        accepted = self.module.classify_acceptance(
+            b"prefix" + same_ring.USERSPACE_PROOF + b"suffix",
+            acceptance,
+        )
+        diagnostic = self.module.classify_acceptance(
+            same_ring.UNSAT_PROOF,
+            acceptance,
+        )
+        self.assertTrue(accepted["accepted"])
+        self.assertEqual(
+            accepted["classification"], "USERSPACE_CALLBACK_REACHED"
+        )
+        self.assertFalse(diagnostic["accepted"])
+        self.assertEqual(
+            diagnostic["classification"],
+            "UNSAT_VALID_MAGIC_ENTRY_DID_NOT_FIT",
+        )
+
     def test_rollback_failure_remains_recoverable_without_candidate_replay(self):
         temporary, prepared = self.prepared()
         self.addCleanup(temporary.cleanup)

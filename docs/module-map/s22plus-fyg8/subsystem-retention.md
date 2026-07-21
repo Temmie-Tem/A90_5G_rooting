@@ -137,3 +137,15 @@ The bounded 45-byte ENTRY / 24-byte UNSAT / residual-zero design is complete
 host-only. It creates no candidate or live authority:
 
 `docs/plans/S22PLUS_FYG8_P2_18_SAME_RING_DISCRIMINATOR_DESIGN_2026-07-22.md`
+
+P2.19 implements that exact state partition in a source-pinned kernel patch,
+candidate-contract checker, typed raw-byte observer, and one common-runner
+dispatch. Connected D0 baseline checking uses the same typed decoder for both
+families and edge partials. The patch validates the exact FYG8 model, DT
+compatible, strategy, physical base, and range before accessing the retained
+header. It never loads
+the owner module or writes header metadata. Its host-only implementation pass
+does not include a kernel build, candidate artifact, manifest, device contact,
+or live authority. Independent review remains required before any build:
+
+`docs/reports/S22PLUS_FYG8_P219_SAME_RING_IMPLEMENTATION_HOST_PASS_2026-07-22.md`

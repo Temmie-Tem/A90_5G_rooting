@@ -348,6 +348,41 @@ class Bundle:
     sha256: str
 
 
+def execution_critical_source_receipts(
+    acceptance: dict[str, Any],
+) -> dict[str, dict[str, Any]]:
+    receipts = {
+        "runner": _stable_read(Path(__file__).resolve(), "F1 v2 runner")[1],
+        "typed_evidence": _stable_read(
+            Path(typed_evidence.__file__).resolve(), "typed evidence runner"
+        )[1],
+        "checkpoint_decoder": _stable_read(
+            Path(typed_evidence.checkpoint.__file__).resolve(),
+            "checkpoint decoder",
+        )[1],
+        "regular_path_transport": _stable_read(
+            Path(__file__).with_name("s22plus_boot_only_f1_transport.py").resolve(),
+            "regular-path transport",
+        )[1],
+    }
+    if acceptance.get("kind") == typed_evidence.SAME_RING_KIND:
+        same_ring_sources = {
+            "same_ring_decoder": Path(typed_evidence.same_ring.__file__),
+            "same_ring_static_checker": Path(__file__).with_name(
+                "s22plus_fyg8_p219_same_ring_contract.py"
+            ),
+            "same_ring_design_model": Path(__file__).with_name(
+                "s22plus_fyg8_p218_same_ring_discriminator.py"
+            ),
+            "same_ring_base_checker": Path(__file__).with_name(
+                "s22plus_fyg8_r4w1b_patch_check.py"
+            ),
+        }
+        for name, path in same_ring_sources.items():
+            receipts[name] = _stable_read(path.resolve(), name.replace("_", " "))[1]
+    return receipts
+
+
 def verify_bundle(root: Path, manifest_path: Path) -> Bundle:
     root = root.resolve()
     manifest_file = manifest_path if manifest_path.is_absolute() else root / manifest_path
@@ -418,29 +453,15 @@ def verify_bundle(root: Path, manifest_path: Path) -> Bundle:
         if not os.access(pinned.path, os.X_OK):
             raise F1V2Error("pinned Odin4 is not executable")
         receipts["odin"] = pinned.receipt()
-    runner_receipt = _stable_read(Path(__file__).resolve(), "F1 v2 runner")[1]
-    evidence_receipt = _stable_read(
-        Path(typed_evidence.__file__).resolve(), "typed evidence runner"
-    )[1]
-    checkpoint_receipt = _stable_read(
-        Path(typed_evidence.checkpoint.__file__).resolve(), "checkpoint decoder"
-    )[1]
-    transport_receipt = _stable_read(
-        Path(__file__).with_name("s22plus_boot_only_f1_transport.py").resolve(),
-        "regular-path transport",
-    )[1]
     receipt = {
         "schema": "device_action_f1_validated_bundle_v2",
         "runner_version": RUNNER_VERSION,
         "profile": profile_receipt,
         "manifest": manifest_receipt,
         **receipts,
-        "execution_critical_sources": {
-            "runner": runner_receipt,
-            "typed_evidence": evidence_receipt,
-            "checkpoint_decoder": checkpoint_receipt,
-            "regular_path_transport": transport_receipt,
-        },
+        "execution_critical_sources": execution_critical_source_receipts(
+            acceptance
+        ),
         "device_contact": False,
         "odin_invoked": False,
         "live_authorized": False,

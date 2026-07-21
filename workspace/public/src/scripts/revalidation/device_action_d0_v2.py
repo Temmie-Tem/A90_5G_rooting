@@ -561,9 +561,19 @@ def validate_result(
     if not observer_path.is_absolute() or observer_path != expected_observer_path:
         raise D0Error("D0 observer path is outside its run directory")
     observer_payload = _read_stable(observer_path, MAX_OBSERVER_BYTES)
+    try:
+        baseline = f1.typed_evidence.classify_clean_baseline(
+            observer_payload,
+            bundle.manifest["observation"]["acceptance"],
+        )
+    except f1.typed_evidence.EvidenceError as exc:
+        raise D0Error(str(exc)) from exc
     if (
         len(observer_payload) != observer["bytes"]
         or hashlib.sha256(observer_payload).hexdigest() != observer["sha256"]
+        or observer["marker_family_count"] != baseline["family_count"]
+        or observer["exact_marker_count"] != baseline["exact_record_count"]
+        or observer["baseline_clean"] is not baseline["baseline_clean"]
     ):
         raise D0Error("D0 observer raw evidence does not match its receipt")
     try:
@@ -633,11 +643,11 @@ def collect_connected(
         raise D0Error("observer source is not a bounded procfs/sysfs path")
     receipt = client.capture(serial, source, run_dir / "baseline-observer.bin")
     payload = _read_stable(run_dir / "baseline-observer.bin", MAX_OBSERVER_BYTES)
-    family = acceptance["family"].encode()
-    marker = acceptance["marker"].encode()
-    family_count = payload.count(family)
-    exact_count = payload.count(marker)
-    if family_count or exact_count:
+    try:
+        baseline = f1.typed_evidence.classify_clean_baseline(payload, acceptance)
+    except f1.typed_evidence.EvidenceError as exc:
+        raise D0Error(str(exc)) from exc
+    if baseline["baseline_clean"] is not True:
         raise D0Error("baseline observer contains the candidate marker family")
     final_serial = client.one_serial()
     final_topology = client.topology(final_serial)
@@ -676,8 +686,8 @@ def collect_connected(
         "observer": {
             **receipt,
             "source": source,
-            "marker_family_count": family_count,
-            "exact_marker_count": exact_count,
+            "marker_family_count": baseline["family_count"],
+            "exact_marker_count": baseline["exact_record_count"],
             "baseline_clean": True,
         },
         "usb": {"initial": initial_usb, "final": final_usb},
