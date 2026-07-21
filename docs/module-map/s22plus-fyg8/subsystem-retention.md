@@ -132,3 +132,8 @@ Geometry and feedback reassessment:
 Exact snapshot model and independent-witness audit:
 
 `docs/reports/S22PLUS_FYG8_SNAPSHOT_AND_INDEPENDENT_WITNESS_H0_2026-07-22.md`
+
+The bounded 45-byte ENTRY / 24-byte UNSAT / residual-zero design is complete
+host-only. It creates no candidate or live authority:
+
+`docs/plans/S22PLUS_FYG8_P2_18_SAME_RING_DISCRIMINATOR_DESIGN_2026-07-22.md`

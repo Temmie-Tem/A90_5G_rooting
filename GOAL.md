@@ -94,11 +94,13 @@ Archived text is evidence only and grants no device authority.
    valid magic plus `idx >= record_size` is sufficient; full ring saturation is
    not required. No usable independent candidate-selection witness was found
    in the current safety envelope.
-8. **P2.18 next, H0 only:** specify the smallest candidate-bound same-ring
-   discriminator using the corrected threshold and an explicit residual
-   all-zero ambiguity. Do not build a candidate or create F1 authority until
-   that changed execution-critical closure is independently reviewed.
-9. **E2-E4 later:** prove module closure, platform bind and UDC, then one ACM
+8. **P2.18 complete, H0 only:** preserve 45-byte ENTRY/USERSPACE, add one
+   candidate-bound 24-byte UNSAT for `24 <= idx < 45`, and keep every smaller,
+   invalid, nonselected, or lost result as `ZERO_AMBIGUOUS`; no live authority.
+9. **P2.19 next, H0 only:** implement the corrected guard, tag checks, and new
+   typed observer without changing transport/rollback. Review that actual diff
+   once before any candidate build, D0 preparation, or F1 authority.
+10. **E2-E4 later:** prove module closure, platform bind and UDC, then one ACM
    banner and one nonce-bound exchange. No shell, NCM, Debian, or hot reload.
 
 Do not reactivate R4W1-C3, fork a C4 helper, add another per-candidate policy
