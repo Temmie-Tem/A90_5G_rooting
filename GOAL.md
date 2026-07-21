@@ -94,10 +94,10 @@ Archived text is evidence only and grants no device authority.
    the manifest-bound run ID can pass. The legacy marker path remains
    unchanged. Focused tests and independent review pass. No device contact,
    D0, F1 approval, Odin invocation, or flash occurred.
-8. **P2.11 complete, connected read-only:** exact-target D0 passed with healthy
-   Android/root, a complete clean baseline, no Download endpoint, and a private
-   binding that reopens cleanly. No reboot, write, Odin, transfer, or F1 occurred.
-9. **F1 next, inactive:** execute only after the fresh exact operator token; one candidate attempt includes exact rollback and final health.
+8. **P2.11 F1 closed, no proof:** exact candidate and rollback each transferred
+   once; final health passed, but two retained reads had zero E1 carrier/slot
+   magic. `NO_PROOF_F1_V2_CANDIDATE_ROLLED_BACK`; binding consumed.
+9. **P2.12 next, H0 only:** localize initialization versus retention failure from source, exact DT, and live evidence before any new candidate.
 10. **E2 later:** generated exact USB closure, per-module result, platform bind,
    DWC3 child, and exact UDC as separate checkpoints.
 11. **E3/E4 later:** one exact ACM banner, then one fixed nonce-bound exchange.

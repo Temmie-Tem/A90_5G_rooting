@@ -81,8 +81,8 @@ class DeviceActionProcessV2DocsTest(unittest.TestCase):
         self.assertIn("P2.8 complete, host-only", self.goal)
         self.assertIn("P2.9 complete, host-only", self.goal)
         self.assertIn("P2.10 complete, host-only", self.goal)
-        self.assertIn("P2.11 complete, connected read-only", self.goal)
-        self.assertIn("F1 next, inactive", self.goal)
+        self.assertIn("P2.11 F1 closed, no proof", self.goal)
+        self.assertIn("P2.12 next, H0 only", self.goal)
         self.assertIn(
             "No kernel build, image, device contact, or live authority",
             normalized_goal,
@@ -90,6 +90,7 @@ class DeviceActionProcessV2DocsTest(unittest.TestCase):
         self.assertIn("P2.1-P2.5 complete", self.process)
         self.assertIn("P2.6-P2.10 host path complete", self.process)
         self.assertIn("Typed Retained Evidence", self.process)
+        self.assertIn("NO_PROOF_F1_V2_CANDIDATE_ROLLED_BACK", self.process)
         self.assertIn("reusable D0 adapter are complete", self.agents)
         self.assertIn("read-only D0 qualification passed", self.agents)
         self.assertIn(

@@ -1,7 +1,8 @@
 # Device Action Process v2
 
 Status: P2.1-P2.5 complete; P2.6-P2.10 host path complete; R4W1-D exact
-candidate proof and rollback passed. No S22+ F1 run is currently authorized.
+candidate proof and rollback passed; R4W1-E E1 closed with rollback but no
+retained proof. No S22+ F1 run is currently authorized.
 
 This process replaces per-candidate live helpers, policy activation commits,
 per-run one-shot clauses, and repeated review ladders for ordinary boot-only
@@ -195,6 +196,17 @@ The focused 62-test execution-closure suite and independent H0 review pass.
 This is a host-only capability change: it did not contact a device, perform D0,
 invoke Odin, authorize F1, or flash. A connected D0 preparation and fresh exact
 approval remain separate requirements.
+
+The later approved R4W1-E E1 invocation transferred the exact candidate and
+exact Magisk rollback once each. Odin returned success for both, the canonical
+eight events are complete, final Android/root/supporting-partition health
+passed, and the journal closed. Two complete post-rollback observer reads were
+byte-identical but contained neither the E1 entry family nor `S22C` slot magic.
+The strict verdict is `NO_PROOF_F1_V2_CANDIDATE_ROLLED_BACK`, not an E1 failure
+or success claim. The consumed binding is not reusable. Host analysis must
+separate runtime target/header gate refusal from loss of the larger retained
+region before another candidate is designed. See
+`docs/reports/S22PLUS_FYG8_R4W1E_E1_F1_LIVE_NO_PROOF_ROLLBACK_PASS_2026-07-22.md`.
 
 ### Append-Only Journal
 

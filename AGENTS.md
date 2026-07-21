@@ -17,8 +17,10 @@ Do not add a device step when host-only work can answer the question.
 - Retired helpers and acknowledgement strings cannot authorize a new run.
 - The Process v2 H0 core and reusable D0 adapter are complete. One connected
   read-only D0 qualification passed with no F1 authority. The reusable F1
-  adapter completed one exact candidate transfer and exact Magisk rollback.
-  Final health passed, but one unterminated retained-marker prefix produced
+  adapter has completed exact candidate and Magisk rollback transfers. The
+  latest R4W1-E E1 binding closed after one transfer of each artifact and final
+  health passed, but two byte-identical retained reads contained no E1 carrier
+  family or slot magic. Its verdict is
   `NO_PROOF_F1_V2_CANDIDATE_ROLLED_BACK`. USBFS arrival handling and exact
   measured Odin-node departure are host-qualified; unrelated membership
   changes, replacement, ambiguity, tickets, and terminal absence remain
