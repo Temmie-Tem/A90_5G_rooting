@@ -71,10 +71,11 @@ generic; it must not acquire a device-specific `<=73` rule.
 
 1. Target, physical-layout, and retained-magic checks are safety guards. No
    candidate may write an "unconditional" heartbeat before those checks.
-2. The saturation check is a visibility assumption, not proof that the physical
-   region is unsafe. A future H0 design may distinguish it from the immutable
-   safety guards, but must first model both saturated and unsaturated stock
-   snapshot behavior.
+2. The full-saturation check is source-proven to be stronger than stock
+   visibility requires. Stock rotates only when `idx > payload_size`; otherwise
+   it exports `[0, idx)`. For the current contiguous no-index-mutation record of
+   `L` bytes, valid magic and `idx >= L` are sufficient. At `idx ==
+   payload_size`, stock uses the prefix branch and exports the full payload.
 3. `printk` padding cannot deterministically saturate this Samsung ring while
    `sec_log_buf.ko` is absent. Loading that module would install a live writer
    and invalidate the frozen-cursor carrier contract.
@@ -87,6 +88,39 @@ generic; it must not acquire a device-specific `<=73` rule.
 6. No new E0-class F1 candidate should be prepared until a statically reviewed
    discriminator adds information to the zero-result branch.
 
+`boot_cnt` and `prev_idx` are not inputs to the stock snapshot copy. Invalid
+magic causes stock to set magic, `idx=0`, and `prev_idx=0` before taking an
+empty snapshot while preserving `boot_cnt` and untouched payload bytes.
+FYG8's configured zstd compression is transparent to this geometry: the
+private snapshot is decompressed to its original recorded size when
+`/proc/last_kmsg` is opened.
+
+## Independent Witness Inventory
+
+No reusable independent candidate-selection witness is established inside the
+current FYG8 safety envelope:
+
+- the separate Samsung pmsg carveout has a write path but its backend `read()`
+  always returns zero;
+- debug-region clients and Qualcomm summary structures are initialized for the
+  current boot, not snapshotted from the prior generation;
+- reset history and auto-comment depend on the dedicated Samsung debug
+  partition, whose writer is outside the boot-only boundary;
+- the corrected mainline ramoops path retained no current-run record;
+- RDX is locked, EUD was a controlled negative, and no physical UART observer
+  is demonstrated; and
+- USB, display, and audio are later bring-up targets rather than existing
+  selection witnesses.
+
+Accordingly, an all-zero same-ring observation remains ambiguous even after
+the saturation gate is corrected. A short `UNSAT` record can reduce that class
+only when the current index is large enough to expose the short record; invalid
+magic, `idx=0`, nonselection, and later loss cannot all be separated on the
+same channel without weakening a safety guard or changing ring metadata.
+The bounded positive states are therefore `ENTRY` for `idx >= entry_size` and
+candidate-bound `UNSAT` for `reason_size <= idx < entry_size`; every smaller or
+invalid case remains in an explicit `ZERO/AMBIGUOUS` class.
+
 Detailed source audit:
 
 `docs/reports/NATIVE_INIT_V3421_S22PLUS_RETENTION_MODULE_CLOSURE_HOST_AUDIT_2026-07-10.md`
@@ -94,3 +128,7 @@ Detailed source audit:
 Geometry and feedback reassessment:
 
 `docs/reports/S22PLUS_FYG8_RETENTION_DISCRIMINATOR_FEEDBACK_REASSESSMENT_2026-07-22.md`
+
+Exact snapshot model and independent-witness audit:
+
+`docs/reports/S22PLUS_FYG8_SNAPSHOT_AND_INDEPENDENT_WITNESS_H0_2026-07-22.md`

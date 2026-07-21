@@ -17,11 +17,13 @@ dynamic linker, SELinux second stage, `/system`, Debian, USB, and networking
 are downstream of that boundary.
 
 R4W1-E0 nevertheless retained neither its kernel ENTRY record nor its
-userspace record. The strongest source-backed explanation is a silent refusal
-inside the retained-log ENTRY gate, especially its requirement that the
-Samsung ring index already be at least one complete payload. The post-rollback
-`/proc/last_kmsg` size does not reveal the candidate-time header or index, and
-the gate records no refusal reason. This is a hypothesis, not a proof.
+userspace record. Exact source modeling now proves that its full-saturation
+gate is over-strong: a 45-byte record is visible with valid magic and any
+current `idx >= 45`, while E0 requires `idx >= 2,097,136`. A candidate-time
+index in that interval would silently refuse a record that stock could expose.
+The post-rollback `/proc/last_kmsg` size does not reveal the candidate-time
+header or index, so this remains a concrete hypothesis rather than a run
+reconstruction.
 
 Chronology matters here. R4W1-E E1 first transferred a candidate carrying one
 173-byte contiguous retained region and closed without proof. R4W1-E0 was then
@@ -199,11 +201,11 @@ ring cursor and remember the header values. The proc callback later requires
 the same magic, index, boot count, and ENTRY bytes before replacing ENTRY with
 USERSPACE.
 
-The `seed_idx >= payload_size` rule is stronger than the Samsung snapshot code
-requires for every visible backfill. In the unsaturated case, an index of at
-least the proof size can still include a backfill at `idx - proof_size` in the
-next snapshot. The current rule was inherited from the successful D geometry,
-but E0 did not record whether it rejected a smaller candidate-time index.
+The `seed_idx >= payload_size` rule is source-proven to be stronger than the
+Samsung snapshot requires. In the unsaturated case, every index from 45 through
+`payload_size - 1` exposes a 45-byte backfill at `idx - 45`. At exactly
+`payload_size`, stock takes the non-rotated prefix branch and exports the full
+payload. For larger indices it rotates and exports the full payload.
 
 This does not establish that the index was small. It establishes that the
 current all-zero result cannot distinguish a gate refusal from no execution.
@@ -232,7 +234,8 @@ candidate hash or build identity.
 | ABL categorically rejected the custom boot image | `WEAKENED` | The retained boot trace shows the unlocked allow path and exit from boot services, but does not bind execution to the candidate hash. |
 | The candidate was not selected or did not reach the E0 post-exec hook | `OPEN` | No independent candidate identity witness exists. |
 | Retained magic was invalid at the candidate hook | `OPEN` | The driver can reset invalid magic on stock boot; candidate-time magic was not captured. |
-| Candidate-time index was below one payload and E0 silently refused | `OPEN`, strongest current technical hypothesis | E0 requires full saturation, while the driver can expose unsaturated bytes; no refusal telemetry exists. |
+| Candidate-time index was `45 <= idx < payload_size` and E0 silently refused | `OPEN`, strongest current technical hypothesis | Exact source and boundary tests prove the record would be visible, but E0's over-strong guard rejects it; candidate-time `idx` was not captured. |
+| Candidate-time index was below 45 | `OPEN` | The unchanged-index placement cannot expose a full 45-byte record from a shorter stock prefix. |
 | E0 wrote ENTRY and it was later lost or hidden | `OPEN`, lower probability | Physically possible, but the analogous E0 bootloader text remained intact where D visibly overlaid its marker. |
 | `_start` ran but procfs mount or proc write failed | `OPEN` for USERSPACE only | This could suppress USERSPACE, but cannot explain missing ENTRY if the post-exec hook stored it successfully. |
 | Missing module, firmware, USB, or storage setup caused the E0 zero result | `RULED OUT` for E0; `FUTURE GAP` afterward | These operations occur after the first checkpoint or belong to later rungs. |
@@ -256,9 +259,10 @@ witness exists.
 
 These are immediate diagnostic gaps, ordered by value:
 
-1. **Independent candidate identity.** Add a bounded observation that proves
-   which candidate kernel/initramfs became active without relying on the same
-   retained slot used for userspace progress.
+1. **Independent candidate identity.** The completed H0 inventory found no
+   usable existing witness outside the Samsung ring in the current safety
+   envelope. Do not describe this gap as solved; future UART or a proven USB
+   nonce could solve it, but neither exists now.
 2. **Retained-gate telemetry.** Distinguish bad magic, insufficient index,
    successful ENTRY store, and later visibility loss. The current silent
    returns collapse all four into zero records.
@@ -271,6 +275,13 @@ These are immediate diagnostic gaps, ordered by value:
 5. **Keep channels independent.** ENTRY and USERSPACE currently share one
    physical retained carrier and one eligibility gate. A single refusal makes
    both disappear and defeats the intended two-state diagnosis.
+
+The source model and alternative-channel inventory are recorded in
+`docs/reports/S22PLUS_FYG8_SNAPSHOT_AND_INDEPENDENT_WITNESS_H0_2026-07-22.md`.
+A same-ring design can reduce the refusal ambiguity by using `idx >=
+record_size` and, where it fits, a shorter candidate-bound reason record. It
+cannot distinguish candidate nonselection from invalid magic or `idx=0`
+without weakening a safety guard or changing ring metadata.
 
 The 73-byte prefix observed in R4W1-B is not a retained-window size limit. It
 was the first fragment of a 99-byte append that crossed the circular payload

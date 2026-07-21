@@ -17,6 +17,12 @@ two proposed remedies would weaken the safety model.
 No Process v2 or candidate code change follows from this reassessment. The next
 unit remains H0 discriminator design.
 
+Follow-up H0 source modeling subsequently resolved the saturation question:
+valid magic plus `idx >= record_size` is sufficient for this placement; full
+payload saturation is not required. It also found no usable independent
+candidate-selection witness in the current envelope. See
+`S22PLUS_FYG8_SNAPSHOT_AND_INDEPENDENT_WITNESS_H0_2026-07-22.md`.
+
 ## Point-by-point disposition
 
 | Feedback item | Disposition | Repository-backed reason |

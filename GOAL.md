@@ -90,10 +90,15 @@ Archived text is evidence only and grants no device authority.
 6. **P2.16 F1 closed, no proof:** candidate and rollback each transferred once,
    final health passed, and two retained reads were identical, but ENTRY,
    USERSPACE, and family counts were all zero. Binding consumed.
-7. **P2.17 next, H0 only:** reconcile candidate boot-path selection and the
-   retained magic/index gate. Do not retry E0 or create F1 authority until one
-   new discriminating observation is designed and statically reviewed.
-8. **E2-E4 later:** prove module closure, platform bind and UDC, then one ACM
+7. **P2.17 complete, H0 only:** exact FYG8 source and a tested model prove that
+   valid magic plus `idx >= record_size` is sufficient; full ring saturation is
+   not required. No usable independent candidate-selection witness was found
+   in the current safety envelope.
+8. **P2.18 next, H0 only:** specify the smallest candidate-bound same-ring
+   discriminator using the corrected threshold and an explicit residual
+   all-zero ambiguity. Do not build a candidate or create F1 authority until
+   that changed execution-critical closure is independently reviewed.
+9. **E2-E4 later:** prove module closure, platform bind and UDC, then one ACM
    banner and one nonce-bound exchange. No shell, NCM, Debian, or hot reload.
 
 Do not reactivate R4W1-C3, fork a C4 helper, add another per-candidate policy
