@@ -89,6 +89,13 @@ Process v2에 연결한 P2.14 host 결과는
 통과했으며 device write, reboot, Odin, partition transfer 또는 F1 권한은
 발생하지 않았습니다. 구조화된 D0 증거는 `workspace/private/`에만 있습니다.
 
+후속 P2.16 F1은 exact candidate와 rollback을 각각 1회 전송하고 최종 health를
+복구했지만, 두 byte-identical retained read에서 ENTRY와 USERSPACE family가
+모두 0개였습니다. `NO_PROOF_F1_V2_CANDIDATE_ROLLED_BACK` 판정과 제한된 H0
+원인 범위는
+`reports/S22PLUS_FYG8_R4W1E0_F1_LIVE_NO_PROOF_ROLLBACK_PASS_2026-07-22.md`에
+기록합니다. 해당 binding은 소모됐고 새 F1 권한은 없습니다.
+
 ## Claude review usage ledger
 
 Claude Opus 검토의 세션, 호출 전후 사용률, 리셋 시각, 컨텍스트 여유량,

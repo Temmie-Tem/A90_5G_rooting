@@ -81,17 +81,18 @@ class DeviceActionProcessV2DocsTest(unittest.TestCase):
         self.assertIn("P2.11 F1 closed, no proof", self.goal)
         self.assertIn("P2.12-P2.14 complete, H0 only", self.goal)
         self.assertIn("P2.15 complete, D0 only", self.goal)
-        self.assertIn("P2.16 next, F1 only", self.goal)
+        self.assertIn("P2.16 F1 closed, no proof", self.goal)
+        self.assertIn("P2.17 next, H0 only", self.goal)
         self.assertIn(
-            "No device write, reboot, Odin invocation, partition transfer, F1 approval",
+            "The binding is consumed and cannot be reused",
             normalized_goal,
         )
         self.assertIn("P2.1-P2.5 complete", self.process)
         self.assertIn("P2.6-P2.10 host path complete", self.process)
         self.assertIn("Typed Retained Evidence", self.process)
         self.assertIn("NO_PROOF_F1_V2_CANDIDATE_ROLLED_BACK", self.process)
-        self.assertIn("reusable D0 adapter are complete", self.agents)
-        self.assertIn("read-only D0 qualification passed", self.agents)
+        self.assertIn("reusable D0/F1 adapters are complete", self.agents)
+        self.assertIn("connected read-only D0 qualification passed", self.agents)
         self.assertIn(
             "PASS_DEVICE_ACTION_D0_V2_CONNECTED_READ_ONLY", self.process
         )

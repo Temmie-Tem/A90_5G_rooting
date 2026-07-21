@@ -15,20 +15,15 @@ Do not add a device step when host-only work can answer the question.
 - No S22+ F1 live run is currently authorized.
 - R4W1-C3 is an inactive host-only checkpoint, not an executable policy.
 - Retired helpers and acknowledgement strings cannot authorize a new run.
-- The Process v2 H0 core and reusable D0 adapter are complete. One connected
-  read-only D0 qualification passed with no F1 authority. The reusable F1
-  adapter has completed exact candidate and Magisk rollback transfers. The
-  latest R4W1-E E1 binding closed after one transfer of each artifact and final
-  health passed, but two byte-identical retained reads contained no E1 carrier
-  family or slot magic. Its verdict is
-  `NO_PROOF_F1_V2_CANDIDATE_ROLLED_BACK`. USBFS arrival handling and exact
-  measured Odin-node departure are host-qualified; unrelated membership
-  changes, replacement, ambiguity, tickets, and terminal absence remain
-  fail-closed. The completed binding cannot be reused. The exact R4W1-E0 ready
-  manifest has now passed one connected read-only D0
-  preparation with a clean retained baseline and strict prepared-record reopen.
-  F1 remains inactive and requires a fresh exact approval for that prepared
-  binding.
+- The Process v2 H0 core and reusable D0/F1 adapters are complete. The latest
+  R4W1-E0 connected read-only D0 qualification passed before its binding
+  closed after one exact candidate transfer, one exact Magisk
+  rollback, and final health verification. Two byte-identical retained reads
+  contained neither ENTRY nor USERSPACE family bytes, so its durable verdict is
+  `NO_PROOF_F1_V2_CANDIDATE_ROLLED_BACK`. The binding is consumed and cannot be
+  reused. USBFS arrival and exact measured Odin-node departure remain
+  fail-closed. F1 is inactive; another candidate requires new H0 evidence,
+  connected D0 preparation, and fresh exact approval.
 
 ## Permanent Safety Boundaries
 

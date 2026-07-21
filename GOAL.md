@@ -9,7 +9,7 @@ and authorization are isolated. `AGENTS.md` is the binding operating contract.
 
 ## Current Frontier
 
-**State: R4W1-D DIRECT PID1 PROVEN AND ROLLED BACK; R4W1-E0 D0 PREPARED.** Process v2 transferred
+**State: R4W1-D DIRECT PID1 PROVEN AND ROLLED BACK; R4W1-E0 F1 CLOSED NO PROOF.** Process v2 transferred
 the exact boot-only candidate once, two complete post-rollback
 `/proc/last_kmsg` reads retained one exact contiguous proof, the exact Magisk
 boot rollback completed, and final Android/root/supporting-partition health
@@ -24,18 +24,14 @@ No active S22+ F1 authorization. Any new candidate requires new data, connected
 D0 and preparation, fresh exact approval, one candidate attempt, mandatory
 rollback, and final health under Process v2.
 
-After R4W1-E closed with no retained carrier, the R4W1-E0 H0 diagnostic was
-built cleanly with Full LTO and packaged twice as a byte-identical boot-only
-offline candidate. It reuses R4W1-D's proven 45-byte slot and can distinguish
-post-exec ENTRY from the exact first PID1 proc checkpoint without the unproved
-E carrier gates. The independent static checker passes, and Process v2 now
-validates the exact offline contract and classifies retained evidence as
-absent, entry-only, userspace-callback-reached, or family-integrity-failure.
-The exact data-only ready manifest and one connected read-only D0 preparation
-now pass. The retained baseline contains no E0 family marker, the device is a
-healthy FYG8 Android/Magisk target, and strict prepared-record reopen passes.
-No device write, reboot, Odin invocation, partition transfer, F1 approval, or
-live authorization occurred.
+R4W1-E0 reused R4W1-D's proven 45-byte slot to distinguish post-exec ENTRY from
+the first PID1 proc checkpoint. Its clean baseline and D0 passed, then the exact
+candidate and Magisk rollback each transferred once. Final Android/root health
+passed, but two complete byte-identical retained reads contained zero ENTRY,
+USERSPACE, or family bytes. Durable verdict:
+`NO_PROOF_F1_V2_CANDIDATE_ROLLED_BACK`. The binding is consumed and cannot be
+reused. Candidate boot survival was observed by the operator, but no retained
+bytes prove kernel selection, successful exec, or userspace entry.
 
 The controlling next-stage design is
 `docs/plans/S22PLUS_FYG8_POST_PID1_OBSERVABLE_RUNTIME_ARCHITECTURE_2026-07-21.md`.
@@ -91,10 +87,13 @@ Archived text is evidence only and grants no device authority.
 5. **P2.15 complete, D0 only:** the three-field ready-manifest promotion and one
    connected read-only preparation passed with a clean retained baseline and
    strict prepared-record reopen. F1 remains inactive.
-6. **P2.16 next, F1 only:** after one fresh exact approval, execute the prepared
-   candidate once, classify absent vs ENTRY vs USERSPACE, then perform the
-   already-bound exact rollback and final health verification.
-7. **E2-E4 later:** prove module closure, platform bind and UDC, then one ACM
+6. **P2.16 F1 closed, no proof:** candidate and rollback each transferred once,
+   final health passed, and two retained reads were identical, but ENTRY,
+   USERSPACE, and family counts were all zero. Binding consumed.
+7. **P2.17 next, H0 only:** reconcile candidate boot-path selection and the
+   retained magic/index gate. Do not retry E0 or create F1 authority until one
+   new discriminating observation is designed and statically reviewed.
+8. **E2-E4 later:** prove module closure, platform bind and UDC, then one ACM
    banner and one nonce-bound exchange. No shell, NCM, Debian, or hot reload.
 
 Do not reactivate R4W1-C3, fork a C4 helper, add another per-candidate policy
