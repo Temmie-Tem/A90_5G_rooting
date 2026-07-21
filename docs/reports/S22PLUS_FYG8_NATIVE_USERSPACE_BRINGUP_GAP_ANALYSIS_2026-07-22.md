@@ -451,6 +451,7 @@ storage writes, panic/RDX, or a general init framework.
 ## Local evidence index
 
 - `GOAL.md`
+- `docs/reports/S22PLUS_FYG8_NATIVE_PID1_USERSPACE_EXPERIMENT_EVIDENCE_LEDGER_2026-07-22.md`
 - `docs/reports/S22PLUS_FYG8_R4W1D_F1_LIVE_PASS_2026-07-21.md`
 - `docs/reports/S22PLUS_FYG8_R4W1E0_PID1_USERSPACE_PROOF_HOST_BUILD_PASS_2026-07-22.md`
 - `docs/reports/S22PLUS_FYG8_R4W1E0_F1_LIVE_NO_PROOF_ROLLBACK_PASS_2026-07-22.md`
