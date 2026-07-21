@@ -2,7 +2,7 @@
 
 Date: 2026-07-21 KST
 Scope: HOST-ONLY
-Status: two complete-overlay builds passed; core reproducibility proven; final restoration hardening focused-tested and reviewed
+Status: two complete-overlay builds, full static audits, and durable reproducibility gate passed; no live authority
 
 ## Prior result
 
@@ -210,9 +210,69 @@ core output reproducibility; the exact final failure-path revision is claimed
 only from focused local/build-host tests and review, not retroactively from a
 third full build.
 
+## Adapted static audit and durable reproducibility verdict
+
+The R4W1-B ELF, static, and reproducibility engines were made contract-driven
+without changing their default B values. Thin R4W1-D adapters bind the compact
+proof, config, schemas, pass fields, marker families, and exact final-function
+hashes. Context managers restore every base-engine global through `finally`,
+and B regression tests continue to pass.
+
+Both actual R4W1-D build trees passed the full static audit with zero blockers:
+
+- A static result: 401,432 bytes, SHA256
+  `8febb6f08c9deb18b19e48ed778ab42c5b86a221cb22086d346fe54d79a80532`;
+- B static result: 401,432 bytes, SHA256
+  `d0cff13204383e3f68ad1473a8bc3ec468ee5152e6164c07a9a733cf74e3ce4c`;
+- verdict: `PASS_R4W1D_STATIC_COMPATIBILITY` for both;
+- exact `kernel_init` and `run_init_process` hashes passed;
+- exactly one valid exec-success edge reaches the proof block;
+- the final 47-instruction block exactly matches the expected sequence;
+- the magic mismatch and unsaturated paths cannot reach proof stores;
+- there is no `memcpy` call, no `head->idx` store candidate, and `idx_written`
+  is false;
+- the four direct proof stores cover the contiguous 45-byte payload and end in
+  `dmb ishst`;
+- proof and family cardinality are exactly one in both `Image` and `vmlinux`,
+  with historical families absent;
+- FIPS regeneration returned code 0, reproduced HMAC
+  `810ba9290e0df658684e07e7213a57a3f123d5e791d4f4efe705b95b23efeff2`,
+  and left `vmlinux` unchanged; and
+- exact Image geometry remains 41,490,944 bytes with 1,536 bytes of fixed-layout
+  slack.
+
+The A/B checker then reopened distinct work-tree and artifact identities. The
+durable result is 319,637 bytes, SHA256
+`6abde754a7411168bfd7bd42878efd9d743cd9cace86b113fbfb79294a6f5a60`,
+with verdict `PASS_R4W1D_CLEAN_REPRODUCIBILITY` and zero blockers. It proves
+byte identity for `.config`, `Image`, `Image.lz4`, `vmlinux`, `System.map`,
+`vmlinux.symvers`, `abi.xml`, `modules.builtin`, and
+`modules.builtin.modinfo`, as well as equal effective tool fingerprints and
+matching FIPS state.
+
+The first independent review found one medium issue before commit: recorded
+source restoration was initially rebound to current state only by the number
+of links. The final gate now requires the exact reconstructed-members SHA256,
+exactly five unique normalized `(relative_path, expected_target)` identities,
+and exact restored/current targets. A count-only but identity-mismatched
+regression test fails closed. The actual B runtime matches all five current
+identities; A correctly contributes no runtime restoration claim. Re-review
+returned `GO` with no remaining critical, high, or medium issue.
+
+The final combined local suite passes 51 tests, the build host passes 28
+focused static/repro tests, targeted bytecode compilation passes, and
+`git diff --check` passes. The final descriptor-bound restoration hardening
+still postdates both full builds, so the durable JSON explicitly records
+`final_hardening_full_build_claimed=false`.
+
+The three result files are preserved under the ignored private evidence root
+`workspace/private/outputs/s22plus_fyg8_r4w1d_static_repro_20260721/`.
+No candidate AP, Process v2 manifest, device contact, flash, or live authority
+was created by this unit.
+
 ## Next gate
 
-Adapt the full R4W1-B static audit and reproducibility checker to the R4W1-D
-proof contract, reopen both independent build results and artifacts, regenerate
-the FIPS evidence, and emit one durable host-only verdict. Candidate
-construction and fresh Process v2 approval remain downstream of that gate.
+Construct and validate one Process v2 R4W1-D candidate manifest from the exact
+static/reproducibility evidence, then prepare a separate bounded D0 connected
+read-only qualification. Candidate transfer and F1 still require a later fresh
+operator approval and exact binding; this report grants neither.

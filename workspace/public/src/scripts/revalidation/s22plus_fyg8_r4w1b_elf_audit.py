@@ -900,6 +900,20 @@ def find_ring_publication_chains(
     ]
 
 
+def expected_witness_ingress(
+    instructions: list[tuple[int, int, int]],
+    witness_index: int,
+    branch: tuple[int, int, int],
+) -> set[tuple[int, int]]:
+    return {
+        (branch[1], instructions[witness_index][1]),
+        (
+            instructions[witness_index + 36][1],
+            instructions[witness_index + 42][1],
+        ),
+    }
+
+
 def inspect_final_vmlinux(path: Path, marker: bytes) -> dict[str, Any]:
     required_symbols = {
         "kernel_init",
@@ -1097,13 +1111,9 @@ def inspect_final_vmlinux(path: Path, marker: bytes) -> dict[str, Any]:
                     else kernel_init_end
                 ),
             )
-            expected_ingress = {
-                (branch[1], instructions[witness_index][1]),
-                (
-                    instructions[witness_index + 36][1],
-                    instructions[witness_index + 42][1],
-                ),
-            }
+            expected_ingress = expected_witness_ingress(
+                instructions, witness_index, branch
+            )
             actual_ingress = {
                 (row["source_pc"], row["target_pc"]) for row in external_ingress
             }

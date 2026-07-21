@@ -32,6 +32,13 @@ SCHEMA = "s22plus_fyg8_r4w1b_static_audit_v1"
 TARGET = r2.TARGET
 VERDICT = "PASS_R4W1B_STATIC_COMPATIBILITY"
 WITNESS_CONFIG = "CONFIG_S22PLUS_FYG8_RETAINED_WITNESS"
+BUILD_PASS_FIELD = "r4w1b_build_pass"
+PATCH_CONTRACT_FIELD = "r4w1b_patch_contract"
+STATIC_PASS_FIELD = "r4w1b_static_pass"
+BLOCKED_VERDICT = "BLOCKED_R4W1B_STATIC_COMPATIBILITY"
+AUDIT_LABEL = "R4W1-B"
+MARKER_FAMILY = r4w1b_build.R4W1B_MARKER_FAMILY
+HISTORICAL_MARKER_FAMILY = r4w1b_build.HISTORICAL_R4W1_MARKER_FAMILY
 DEFAULT_BASELINE_SYMVERS = Path(
     "workspace/private/outputs/s22plus_fyg8_r4w1/"
     "remote-g-artifacts-final/vmlinux.symvers"
@@ -1165,13 +1172,13 @@ def check_final_binary_contract(
     image_hmac_count = count_file_occurrences(image, hmac)
     image_marker_count = count_file_occurrences(image, marker)
     image_family_count = count_file_occurrences(
-        image, r4w1b_build.R4W1B_MARKER_FAMILY
+        image, MARKER_FAMILY
     )
     historical_image_count = count_file_occurrences(
-        image, r4w1b_build.HISTORICAL_R4W1_MARKER_FAMILY
+        image, HISTORICAL_MARKER_FAMILY
     )
     historical_vmlinux_count = count_file_occurrences(
-        vmlinux, r4w1b_build.HISTORICAL_R4W1_MARKER_FAMILY
+        vmlinux, HISTORICAL_MARKER_FAMILY
     )
     config = r2.parse_config(generated_config)
     stdout = build_stdout.read_text(encoding="utf-8", errors="strict")
@@ -1269,7 +1276,7 @@ def audit_build_result(
     kmi_path = build.get("kmi_path_control_runtime", {})
     kernel_debug = build.get("kernel_debug_control_runtime", {})
     vdso_debug = build.get("vdso_debug_control_runtime", {})
-    patch_contract = build.get("r4w1b_patch_contract", {})
+    patch_contract = build.get(PATCH_CONTRACT_FIELD, {})
     source_delta = build.get("source_delta", {})
     clean_output = build.get("clean_output_precondition", {})
     output_root = build.get("exclusive_output_root", {})
@@ -1337,7 +1344,7 @@ def audit_build_result(
         "schema": build.get("schema"),
         "lto_mode": build.get("lto_mode"),
         "returncode": build.get("returncode"),
-        "r4w1b_build_pass": build.get("r4w1b_build_pass"),
+        BUILD_PASS_FIELD: build.get(BUILD_PASS_FIELD),
         "source_overlay_verified": build.get("provenance", {})
         .get("source_overlay", {})
         .get("verified"),
@@ -1444,7 +1451,7 @@ def audit_build_result(
         gate["schema"] == r4w1b_build.SCHEMA
         and gate["lto_mode"] == "full"
         and gate["returncode"] == 0
-        and gate["r4w1b_build_pass"] is True
+        and gate[BUILD_PASS_FIELD] is True
         and gate["source_overlay_verified"] is True
         and gate["patch_contract_verdict"] == patch_check.VERDICT
         and gate["patch_sha256"] == patch_check.PATCH_SHA256
@@ -1670,17 +1677,17 @@ def run_audit(
     marker_gate = {
         "image_count": count_file_occurrences(image, marker),
         "image_family_count": count_file_occurrences(
-            image, r4w1b_build.R4W1B_MARKER_FAMILY
+            image, MARKER_FAMILY
         ),
         "image_historical_family_count": count_file_occurrences(
-            image, r4w1b_build.HISTORICAL_R4W1_MARKER_FAMILY
+            image, HISTORICAL_MARKER_FAMILY
         ),
         "vmlinux_count": count_file_occurrences(vmlinux, marker),
         "vmlinux_family_count": count_file_occurrences(
-            vmlinux, r4w1b_build.R4W1B_MARKER_FAMILY
+            vmlinux, MARKER_FAMILY
         ),
         "vmlinux_historical_family_count": count_file_occurrences(
-            vmlinux, r4w1b_build.HISTORICAL_R4W1_MARKER_FAMILY
+            vmlinux, HISTORICAL_MARKER_FAMILY
         ),
         "marker_id": patch_check.MARKER_ID,
     }
@@ -1739,11 +1746,11 @@ def run_audit(
     }
     blockers: list[str] = []
     if not build_gate["verified"]:
-        blockers.append("R4W1-B Full-LTO build provenance gate failed")
+        blockers.append(f"{AUDIT_LABEL} Full-LTO build provenance gate failed")
     if not image_gate["exact_banner_match"]:
         blockers.append("Linux banner differs from exact FYG8 baseline")
     if not config_gate["verified"]:
-        blockers.append("config delta is not the exact R4W1-B contract")
+        blockers.append(f"config delta is not the exact {AUDIT_LABEL} contract")
     if not consumer_crc["provider_crc_closed"]:
         blockers.append("stock module-consumer CRC closure failed")
     if not consumer_crc["expected_baseline_shape"]:
@@ -1759,11 +1766,11 @@ def run_audit(
     if not partition_capacity["fits"]:
         blockers.append("Image exceeds boot partition capacity")
     if not fixed_layout["verified"]:
-        blockers.append("Image does not match exact R4W1-B kernel geometry")
+        blockers.append(f"Image does not match exact {AUDIT_LABEL} kernel geometry")
     if not corpus_gate["verified"]:
         blockers.append("pinned module corpus contract failed")
     if not marker_gate["verified"]:
-        blockers.append("Image/vmlinux R4W1-B marker-family contract failed")
+        blockers.append(f"Image/vmlinux {AUDIT_LABEL} marker-family contract failed")
     if not final_binary["verified"]:
         blockers.append("final vmlinux control-flow/FIPS/System.map contract failed")
     if not fips_regeneration["verified"]:
@@ -1777,11 +1784,11 @@ def run_audit(
     return {
         "schema": SCHEMA,
         "target": TARGET,
-        "verdict": VERDICT if not blockers else "BLOCKED_R4W1B_STATIC_COMPATIBILITY",
+        "verdict": VERDICT if not blockers else BLOCKED_VERDICT,
         "gates": gates,
         "symvers_paths": [r2.display_path(root, path) for path in symvers_paths],
         "blockers": blockers,
-        "r4w1b_static_pass": not blockers,
+        STATIC_PASS_FIELD: not blockers,
         "safety": {
             "host_only": True,
             "device_contact": False,
@@ -1876,7 +1883,7 @@ def main() -> int:
     print(
         json.dumps(
             {
-                "result": "pass" if result["r4w1b_static_pass"] else "blocked",
+                "result": "pass" if result[STATIC_PASS_FIELD] else "blocked",
                 "out": r2.display_path(root, out),
                 "blocker_count": len(result["blockers"]),
                 "fixed_layout_remaining": result["gates"]["fixed_layout"][
@@ -1887,7 +1894,7 @@ def main() -> int:
             sort_keys=True,
         )
     )
-    return 0 if result["r4w1b_static_pass"] else 2
+    return 0 if result[STATIC_PASS_FIELD] else 2
 
 
 if __name__ == "__main__":

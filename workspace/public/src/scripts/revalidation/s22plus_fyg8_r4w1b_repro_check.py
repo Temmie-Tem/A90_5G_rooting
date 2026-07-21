@@ -26,6 +26,12 @@ BUILD_SCHEMA = r4w1b_build.SCHEMA
 STATIC_SCHEMA = static_audit.SCHEMA
 PATCH_SHA256 = patch_check.PATCH_SHA256
 MARKER = patch_check.MARKER.encode("ascii")
+MARKER_FAMILY = r4w1b_build.R4W1B_MARKER_FAMILY
+HISTORICAL_MARKER_FAMILY = r4w1b_build.HISTORICAL_R4W1_MARKER_FAMILY
+WITNESS_CONFIG = "CONFIG_S22PLUS_FYG8_RETAINED_WITNESS"
+BUILD_PASS_FIELD = "r4w1b_build_pass"
+STATIC_PASS_FIELD = "r4w1b_static_pass"
+BLOCKED_VERDICT = "BLOCKED_R4W1B_REPRODUCIBILITY"
 IMAGE_SIZE = r4w1b_build.STOCK_IMAGE_SIZE
 ALIGNED_SIZE = r4w1b_build.FIXED_KERNEL_SLOT_CAPACITY
 PATH_CONFIG = "CONFIG_UNUSED_KSYMS_WHITELIST"
@@ -144,7 +150,7 @@ def check_build(path: Path) -> dict[str, Any]:
         "target": value.get("target"),
         "work_tree": value.get("work_tree"),
         "returncode": value.get("returncode"),
-        "r4w1b_build_pass": value.get("r4w1b_build_pass"),
+        BUILD_PASS_FIELD: value.get(BUILD_PASS_FIELD),
         "source_overlay_verified": value.get("provenance", {})
         .get("source_overlay", {})
         .get("verified"),
@@ -254,7 +260,7 @@ def check_build(path: Path) -> dict[str, Any]:
         gate["schema"] == BUILD_SCHEMA
         and gate["target"] == TARGET
         and gate["returncode"] == 0
-        and gate["r4w1b_build_pass"] is True
+        and gate[BUILD_PASS_FIELD] is True
         and gate["source_overlay_verified"] is True
         and gate["patch_sha256"] == PATCH_SHA256
         and gate["source_delta_verified"] is True
@@ -439,7 +445,7 @@ def check_static(
         "schema": value.get("schema"),
         "target": value.get("target"),
         "verdict": value.get("verdict"),
-        "pass": value.get("r4w1b_static_pass"),
+        "pass": value.get(STATIC_PASS_FIELD),
         "blockers": value.get("blockers"),
         "final_binary_verified": final_binary.get("verified"),
         "arm64_header_verified": final_binary.get("arm64_image_header", {}).get(
@@ -509,9 +515,9 @@ def check_image(path: Path) -> dict[str, Any]:
         "size": len(data),
         "aligned_size": (len(data) + 4095) & ~4095,
         "marker_count": data.count(MARKER),
-        "family_count": data.count(r4w1b_build.R4W1B_MARKER_FAMILY),
+        "family_count": data.count(MARKER_FAMILY),
         "historical_family_count": data.count(
-            r4w1b_build.HISTORICAL_R4W1_MARKER_FAMILY
+            HISTORICAL_MARKER_FAMILY
         ),
         "arm64_header": static_audit.check_arm64_image_header(path),
     }
@@ -638,8 +644,8 @@ def run_check(
         "normalized_sha256_b": configs[1][1],
         "raw_sha256_a": sha256_file(config_a),
         "raw_sha256_b": sha256_file(config_b),
-        "witness_a": configs[0][0].get("CONFIG_S22PLUS_FYG8_RETAINED_WITNESS"),
-        "witness_b": configs[1][0].get("CONFIG_S22PLUS_FYG8_RETAINED_WITNESS"),
+        "witness_a": configs[0][0].get(WITNESS_CONFIG),
+        "witness_b": configs[1][0].get(WITNESS_CONFIG),
         "fips_a": configs[0][0].get("CONFIG_CRYPTO_FIPS"),
         "fips_b": configs[1][0].get("CONFIG_CRYPTO_FIPS"),
     }
@@ -698,7 +704,7 @@ def run_check(
     return {
         "schema": SCHEMA,
         "target": TARGET,
-        "verdict": VERDICT if not blockers else "BLOCKED_R4W1B_REPRODUCIBILITY",
+        "verdict": VERDICT if not blockers else BLOCKED_VERDICT,
         "builds": builds,
         "effective_tool_fingerprints_equal": toolchain_equal,
         "artifact_bindings": artifact_bindings,

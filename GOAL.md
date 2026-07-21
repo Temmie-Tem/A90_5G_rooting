@@ -14,14 +14,16 @@ exact candidate transfer and exact Magisk rollback, but retained only an
 unterminated R4W1-B marker prefix. The durable verdict is
 `NO_PROOF_F1_V2_CANDIDATE_ROLLED_BACK`. Final health passed. The exact USBFS
 departure fix is tested and independently reviewed. No active S22+ F1
-authorization. R4W1-D contiguous-proof implementation is host-tested but has
-passed one complete-overlay clean Full-LTO build and output gate. That first
+authorization. R4W1-D contiguous-proof implementation has passed one
+complete-overlay clean Full-LTO build and output gate. That first
 build exposed a vendor-build rewrite of three archive-owned source symlinks;
 the adapter now pins and restores all five absolute archive symlinks, and a
 second independent clean build proved that restoration plus byte-identical GKI
 outputs. The final descriptor-bound restoration hardening passed local and
 build-host focused tests plus independent review; it postdates both full
-builds. The adapted full static audit remains pending.**
+builds. Adapted full static audits of both builds and the durable A/B
+reproducibility gate now pass with blocker count zero. No R4W1-D candidate
+manifest or live authority exists.**
 
 The R4W1-C2 run did not start an Odin device session: its candidate and rollback
 invocations were rejected while parsing `/proc/self/fd/7`. The R4W1-C3
@@ -68,6 +70,13 @@ the reusable process defined in
   descriptors, no-follow traversal, complete cleanup attempts, exact metadata
   restoration, and combined error reporting. The final revision passed 52
   local combined tests, 23 build-host focused tests, and independent re-review.
+  The adapted full static auditor then reopened both builds, proved the exact
+  final ELF control-flow and 45-byte no-index-publication backfill, regenerated
+  matching FIPS integrity state, and retained 1,536 bytes of fixed-layout
+  slack. Its A/B reproducibility checker passed every core artifact identity
+  gate and exactly rebound the one recorded runtime symlink restoration to the
+  current five-link manifest identity. Both static results and the durable
+  reproducibility result have blocker count zero.
 
 Historical details and retired clauses are preserved in:
 
@@ -106,9 +115,11 @@ Archived text is evidence only and grants no device authority.
    `Image.lz4`, `vmlinux`, `System.map`, `vmlinux.symvers`, `abi.xml`, and both
    `modules.builtin` files byte-for-byte. Descriptor-bound failure-path
    hardening was added afterward and is focused-tested rather than claimed as
-   part of those full-build results. The next host-only gate is the adapted full
-   static audit and its durable reproducibility verdict. No manifest is ready
-   or authorized.
+   part of those full-build results. The adapted full static audits pass for A
+   and B, and the durable verdict is `PASS_R4W1D_CLEAN_REPRODUCIBILITY` with
+   blocker count zero. The next unit is host-only Process v2 candidate-manifest
+   construction and D0 preparation against these exact results. No manifest is
+   currently ready or authorized.
 
 Do not activate C3, fork a C4 helper, or add another policy block. The source
 review does not promote the manifest or authorize device contact. P2.5 remains
