@@ -10,15 +10,20 @@ from typing import Any
 
 import s22plus_fyg8_r4w1e_checkpoint_contract as checkpoint
 import s22plus_fyg8_p219_same_ring_decoder as same_ring
+import s22plus_fyg8_p230_same_ring_multiboot_decoder as same_ring_multiboot
 
 
 MARKER_KIND = "retained_marker_after_rollback"
 CHECKPOINT_KIND = "retained_checkpoint_after_rollback"
 PID1_USERSPACE_KIND = "retained_pid1_userspace_after_rollback"
 SAME_RING_KIND = "retained_pid1_same_ring_discriminator_after_rollback"
+SAME_RING_MULTIBOOT_KIND = (
+    "retained_pid1_same_ring_multiboot_discriminator_after_rollback"
+)
 CHECKPOINT_DECODER = "s22plus_fyg8_r4w1e_checkpoint_v1"
 PID1_USERSPACE_DECODER = "s22plus_fyg8_r4w1e0_pid1_userspace_v1"
 SAME_RING_DECODER = "s22plus_fyg8_p219_same_ring_v1"
+SAME_RING_MULTIBOOT_DECODER = "s22plus_fyg8_p230_same_ring_multiboot_v1"
 CHECKPOINT_SOURCE = "/proc/last_kmsg"
 PID1_USERSPACE_TARGET = "SM-S906N/g0q/S906NKSS7FYG8"
 PID1_USERSPACE_ENTRY = b"\n[[S22P1U|ba234c7de4105b2a23222436284605f2]]\n"
@@ -26,6 +31,7 @@ PID1_USERSPACE_PROOF = b"\n[[S22P1U|ec8d029b05288644bbe7b5f7c7af190c]]\n"
 PID1_USERSPACE_FAMILY = b"[[S22P1U|"
 PID1_USERSPACE_PROBE_ID = "64554e8469385878c5bf8d57c44edeea"
 SAME_RING_CONTRACT_ID = same_ring.CONTRACT_ID.hex()
+SAME_RING_MULTIBOOT_POLICY_ID = same_ring_multiboot.POLICY_ID.hex()
 SAME_RING_RUN_MANIFEST_SCHEMA = "s22plus_fyg8_p219_run_manifest_v1"
 SAME_RING_STATIC_SCHEMA = "s22plus_fyg8_p219_candidate_static_checker_v1"
 SAME_RING_STATIC_VERDICT = "PASS_P219_OFFLINE_CANDIDATE_STATIC_CONTRACT"
@@ -192,6 +198,58 @@ def validate_acceptance(value: Any) -> dict[str, Any]:
         _artifact(contract["run_manifest"], "same-ring contract run_manifest")
         _artifact(contract["static_check"], "same-ring contract static_check")
         return item
+    if kind == SAME_RING_MULTIBOOT_KIND:
+        item = _exact(
+            value,
+            {
+                "kind",
+                "source",
+                "decoder",
+                "contract_id",
+                "policy_id",
+                "records",
+                "families",
+                "accepted_identity",
+                "minimum_exact_count",
+                "contract",
+            },
+            "same-ring multiboot acceptance",
+        )
+        expected_records = {
+            "entry_hex": same_ring.ENTRY_PROOF.hex(),
+            "userspace_hex": same_ring.USERSPACE_PROOF.hex(),
+            "unsat_hex": same_ring.UNSAT_PROOF.hex(),
+        }
+        expected_families = {
+            "long_hex": same_ring.ENTRY_FAMILY.hex(),
+            "unsat_hex": same_ring.UNSAT_FAMILY.hex(),
+        }
+        if (
+            item["source"] != CHECKPOINT_SOURCE
+            or item["decoder"] != SAME_RING_MULTIBOOT_DECODER
+            or item["contract_id"] != SAME_RING_CONTRACT_ID
+            or item["policy_id"] != SAME_RING_MULTIBOOT_POLICY_ID
+            or item["records"] != expected_records
+            or item["families"] != expected_families
+            or item["accepted_identity"]
+            != "USERSPACE_CALLBACK_REACHED_ONE_OR_MORE_BOOTS"
+            or item["minimum_exact_count"] != 1
+        ):
+            raise EvidenceError("same-ring multiboot acceptance identity is invalid")
+        contract = _exact(
+            item["contract"],
+            {"run_manifest", "static_check"},
+            "same-ring multiboot contract",
+        )
+        _artifact(
+            contract["run_manifest"],
+            "same-ring multiboot contract run_manifest",
+        )
+        _artifact(
+            contract["static_check"],
+            "same-ring multiboot contract static_check",
+        )
+        return item
     if kind == PID1_USERSPACE_KIND:
         item = _exact(
             value,
@@ -278,6 +336,7 @@ def contract_artifacts(acceptance: dict[str, Any]) -> dict[str, dict[str, Any]]:
         CHECKPOINT_KIND,
         PID1_USERSPACE_KIND,
         SAME_RING_KIND,
+        SAME_RING_MULTIBOOT_KIND,
     }:
         return {}
     return {
@@ -526,7 +585,7 @@ def _verify_same_ring_offline_contract(
     candidate_ap: dict[str, Any],
 ) -> dict[str, Any]:
     item = validate_acceptance(acceptance)
-    if item["kind"] != SAME_RING_KIND:
+    if item["kind"] not in {SAME_RING_KIND, SAME_RING_MULTIBOOT_KIND}:
         raise EvidenceError("offline same-ring contract is not applicable")
     if set(payloads) != {"run_manifest", "static_check"} or set(receipts) != set(
         payloads
@@ -677,9 +736,16 @@ def _verify_same_ring_offline_contract(
         }
     ):
         raise EvidenceError("static checker result does not bind P2.19 candidate")
-    return {
-        "schema": "device_action_f1_same_ring_offline_contract_v2",
-        "decoder": SAME_RING_DECODER,
+    multiboot = item["kind"] == SAME_RING_MULTIBOOT_KIND
+    result = {
+        "schema": (
+            "device_action_f1_same_ring_multiboot_offline_contract_v1"
+            if multiboot
+            else "device_action_f1_same_ring_offline_contract_v2"
+        ),
+        "decoder": (
+            SAME_RING_MULTIBOOT_DECODER if multiboot else SAME_RING_DECODER
+        ),
         "contract_id": SAME_RING_CONTRACT_ID,
         "candidate_ap_sha256": candidate_ap["sha256"],
         "run_manifest_sha256": receipts["run_manifest"]["sha256"],
@@ -688,6 +754,10 @@ def _verify_same_ring_offline_contract(
         "zero_is_ambiguous": True,
         "verified": True,
     }
+    if multiboot:
+        result["policy_id"] = SAME_RING_MULTIBOOT_POLICY_ID
+        result["minimum_exact_count"] = 1
+    return result
 
 
 def verify_offline_contract(
@@ -697,7 +767,7 @@ def verify_offline_contract(
     receipts: dict[str, dict[str, Any]],
     candidate_ap: dict[str, Any],
 ) -> dict[str, Any]:
-    if acceptance.get("kind") == SAME_RING_KIND:
+    if acceptance.get("kind") in {SAME_RING_KIND, SAME_RING_MULTIBOOT_KIND}:
         return _verify_same_ring_offline_contract(
             acceptance,
             payloads=payloads,
@@ -943,12 +1013,53 @@ def classify_same_ring(
     return result
 
 
+def classify_same_ring_multiboot(
+    payload: bytes, acceptance: dict[str, Any]
+) -> dict[str, Any]:
+    item = validate_acceptance(acceptance)
+    if item["kind"] != SAME_RING_MULTIBOOT_KIND:
+        raise EvidenceError("same-ring multiboot classifier received another kind")
+    try:
+        decoded = same_ring_multiboot.classify_observation(payload)
+    except same_ring_multiboot.DecodeError as exc:
+        raise EvidenceError(str(exc)) from exc
+
+    family_count = decoded["long_family_count"] + decoded["unsat_family_count"]
+    result = _base_classification(
+        classification=decoded["classification"],
+        exact_count=decoded["userspace_count"],
+        family_count=family_count,
+        integrity_issue=decoded["integrity_issue"],
+    )
+    result["exact_record_count"] = decoded["exact_record_count"]
+    result["foreign_count"] = max(0, family_count - decoded["exact_record_count"])
+    result["partial_at_head"] = decoded["partial_at_snapshot_edge"]
+    result["partial_at_tail"] = decoded["partial_at_snapshot_edge"]
+    result["baseline_absent"] = decoded["classification"] == "ZERO_AMBIGUOUS"
+    result["acceptance_present"] = decoded["accepted"]
+    result["accepted"] = decoded["accepted"]
+    result["entry_count"] = decoded["entry_count"]
+    result["userspace_count"] = decoded["userspace_count"]
+    result["unsat_count"] = decoded["unsat_count"]
+    result["long_family_count"] = decoded["long_family_count"]
+    result["unsat_family_count"] = decoded["unsat_family_count"]
+    result["minimum_candidate_boots"] = decoded["minimum_candidate_boots"]
+    result["contract_id"] = item["contract_id"]
+    result["policy_id"] = item["policy_id"]
+    result["residual_zero_meanings"] = decoded["residual_zero_meanings"]
+    return result
+
+
 def classify_clean_baseline(
     payload: bytes, acceptance: dict[str, Any]
 ) -> dict[str, Any]:
     item = validate_acceptance(acceptance)
-    if item["kind"] == SAME_RING_KIND:
-        result = classify_same_ring(payload, item)
+    if item["kind"] in {SAME_RING_KIND, SAME_RING_MULTIBOOT_KIND}:
+        result = (
+            classify_same_ring_multiboot(payload, item)
+            if item["kind"] == SAME_RING_MULTIBOOT_KIND
+            else classify_same_ring(payload, item)
+        )
         exact_count = result["exact_record_count"]
         family_count = result["family_count"]
         clean = (

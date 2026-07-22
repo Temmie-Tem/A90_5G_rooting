@@ -9,79 +9,71 @@ and authorization are isolated. `AGENTS.md` is the binding operating contract.
 
 ## Current Frontier
 
-**State: R4W1-D DIRECT PID1 PROVEN; P2.29 F1 CLOSED DUPLICATE USERSPACE
-NO PROOF; F1 INACTIVE.** R4W1-D transferred the
-exact boot-only candidate once, two complete post-rollback `/proc/last_kmsg`
-reads retained one exact contiguous proof, the exact Magisk boot rollback
-completed, and final health passed. Its durable verdict was
-`PASS_F1_V2_CANDIDATE_PROVEN_AND_ROLLED_BACK`.
+**State: R4W1-D DIRECT PID1 PROVEN; P2.29 FORMAL NO-PROOF WITH USERSPACE
+CALLBACK OBSERVED; P2.30 H0 MULTIBOOT POLICY PASS; F1 INACTIVE.**
 
-The proof is kernel-side. It establishes successful `kernel_execve("/init")`
-while `current` was PID 1; it does not establish userspace `_start`, mounts,
-module load, child execution, driver bind, USB, or a control loop.
+R4W1-D proved successful `kernel_execve("/init")` while `current` was PID 1.
+P2.29 later transferred one exact P2.26 boot-only candidate and one exact
+Magisk rollback, then verified final health. Its clean-baseline retained result
+contained two exact USERSPACE records and no ENTRY, UNSAT, foreign, malformed,
+or partial record. The operator confirmed that the first physical Download
+attempt was missed and the candidate booted twice; the source permits one
+USERSPACE replacement per boot.
 
-No active S22+ F1 authorization. Any new candidate requires new data, connected
-D0 and preparation, fresh exact approval, one candidate attempt, mandatory
-rollback, and final health under Process v2.
+P2.29's immutable exact-one contract correctly rejected two records as
+`AMBIGUOUS_INTEGRITY_FAILURE`, so its durable verdict remains
+`NO_PROOF_F1_V2_CANDIDATE_ROLLED_BACK`. The same evidence nevertheless proves
+that the PID 1 userspace callback ran in at least one candidate boot. It does
+not prove later mounts, child execution, module bind, USB, or a control loop.
 
-P2.21 qualified the corrected kernel-to-AP closure and P2.22 passed its ready
-data and D0. P2.23 transferred candidate/rollback once and passed final health,
-but two byte-identical reads classified `ZERO_AMBIGUOUS`. Binding consumed.
+P2.30 adds a separate opt-in typed evidence policy for future runs. Given a
+separately clean baseline, one or more pure exact USERSPACE records are
+positive; mixed states, either foreign family, either edge partial, and zero
+remain fail-closed. The P2.19 exact-one decoder and all archived verdicts are
+unchanged. Archived P2.29 raw evidence replays positive only under the new
+policy. No ready manifest, candidate, approval, device action, or live authority
+was created.
 
-P2.24 host analysis isolated the first deterministic P2.23 failure: the target
-guard used parent-cell `of_address_to_resource()` on a Samsung current-node
-2/2-cell `reg` encoding, obtained resource start `0x8`, and rejected the
-required `0x800200000` before reading retained magic or index. P2.23 therefore
-did not test record storage or cache-to-DRAM persistence.
-
-P2.25 implements the exact current-node parser and linked cache-flush PoC.
-P2.26 independently closed one boot-only AP around that exact Image. P2.27
-promoted its typed offline evidence, and P2.28 passed connected preparation.
-P2.29 transferred candidate and rollback once each and verified final health.
-Its clean-baseline retained result contained two exact USERSPACE records in
-different warm-reset generations. The operator confirmed that the first
-physical Download attempt was missed and the candidate booted twice, exactly
-accounting for one record per boot. The immutable exact-one contract still
-rejected the result as `AMBIGUOUS_INTEGRITY_FAILURE`; the approval is consumed
-and no retry is authorized.
+No active S22+ F1 authorization. Any future candidate requires new data,
+connected D0 preparation, fresh exact approval, one candidate attempt,
+mandatory rollback, and final health under Process v2.
 
 The controlling next-stage design is
 `docs/plans/S22PLUS_FYG8_POST_PID1_OBSERVABLE_RUNTIME_ARCHITECTURE_2026-07-21.md`.
+
 ## Established Evidence
 
 - R4W1-A: custom Android `/init` marker retained and rollback passed.
 - R4W1-B: a 99-byte ring-crossing marker retained only its 73-byte prefix;
   append-at-cursor evidence is not accepted.
 - R4W1-D: one 45-byte contiguous pre-cursor proof, no index mutation, clean
-  Full-LTO reproducibility, deterministic candidate construction, live proof,
-  and rollback all passed.
+  Full-LTO reproducibility, deterministic construction, live proof, and
+  rollback all passed as `PASS_F1_V2_CANDIDATE_PROVEN_AND_ROLLED_BACK`.
 - P2.21-P2.23: host closure and connected D0 passed; candidate and rollback
-  transferred once, final health passed, and two identical retained reads were
-  `ZERO_AMBIGUOUS`. The F1 binding is consumed.
-- P2.25: exact Samsung-style target parsing, stock-DT direct-map premises,
-  clean Full-LTO output, and cross-tool linked cache-flush PoC audit pass H0;
-  reset retention remains a live unknown.
-- P2.26-P2.29: deterministic boot-only AP, independent kernel/rootfs/writer
-  closure, typed evidence promotion, connected clean-baseline D0, one exact
-  candidate transfer, one exact rollback, and final health all pass. Two exact
-  USERSPACE records violate the exact-one live contract, so F1 remains no-proof.
+  transferred once, final health passed, and observation was `ZERO_AMBIGUOUS`.
+- P2.24-P2.25: the current-node 2/2-cell parser defect was isolated and fixed;
+  stock-DT premises, clean Full-LTO output, and linked cache-flush PoC passed.
+- P2.26-P2.29: deterministic boot-only AP, independent closure, typed evidence,
+  connected D0, one candidate transfer, one rollback, and final health passed.
+  Two exact USERSPACE records are technically positive but formally no-proof
+  under the immutable exact-one contract.
+- P2.30: a separate fixed multiboot policy, strict baseline dispatch, archived
+  P2.29 replay, focused tests, and independent safety review passed H0.
 - Process v2: common D0/F1 execution, journal, regular-path Odin transport,
-  exact post-transfer departure handling, rollback, and final health are proven.
-- V3439: a correctly bound ramoops/pmsg backend retained zero current-run
-  records; pstore, pmsg, ramoops, and DTBO-based retention remain retired.
-- Stock FYG8 proves the complete USB stack under Android only. Bare-PID1 bind
-  remains the largest functional unknown.
+  rollback, and final health are proven.
+- V3439: pstore, pmsg, ramoops, and DTBO-based retention remain retired.
+- Stock FYG8 proves the USB stack under Android only. Bare-PID1 bind remains the
+  largest functional unknown.
+
 Load-bearing details are in:
 
 - `docs/reports/S22PLUS_FYG8_R4W1D_F1_LIVE_PASS_2026-07-21.md`
-- `docs/reports/S22PLUS_FYG8_R4W1D_CONTIGUOUS_PROOF_HOST_DESIGN_2026-07-21.md`
-- `docs/reports/S22PLUS_FYG8_P221_ARTIFACT_CLOSURE_HOST_PASS_2026-07-22.md`
 - `docs/reports/S22PLUS_FYG8_P223_F1_LIVE_NO_PROOF_2026-07-22.md`
 - `docs/reports/S22PLUS_FYG8_P224_GUARD_ROOT_CAUSE_H0_2026-07-22.md`
 - `docs/reports/S22PLUS_FYG8_P225_GUARD_POC_FLUSH_HOST_PASS_2026-07-22.md`
 - `docs/reports/S22PLUS_FYG8_P226_P228_LIVE_READY_2026-07-22.md`
 - `docs/reports/S22PLUS_FYG8_P229_F1_LIVE_DUPLICATE_USERSPACE_NO_PROOF_2026-07-22.md`
-- `docs/reports/NATIVE_INIT_V3439_S22PLUS_CORRECTED_RAMOOPS_LIVE_NO_PROOF_2026-07-11.md`
+- `docs/reports/S22PLUS_FYG8_P230_MULTIBOOT_EVIDENCE_POLICY_HOST_PASS_2026-07-22.md`
 - `docs/operations/DEVICE_ACTION_PROCESS_V2.md`
 - `docs/module-map/s22plus-fyg8/`
 
@@ -90,71 +82,56 @@ reports grant no device authority.
 
 ## Immediate Roadmap
 
-1. **P2.1-P2.16 complete/closed:** Process v2, direct PID1 proof, E1/E0
-   experiments, rollback, and health evidence are preserved in their reports;
-   all earlier F1 bindings are consumed.
+1. **P2.1-P2.16 complete/closed:** Process v2, direct PID1 proof, earlier
+   experiments, rollback, and health evidence are preserved; bindings consumed.
 2. **P2.17-P2.20 complete, H0:** exact snapshot model, bounded same-ring
-   discriminator, implementation, and independent review pass.
-3. **P2.21-P2.23 complete/closed:** first same-ring artifact/D0 closure ran once;
-   final health passed but observation was `ZERO_AMBIGUOUS`.
-4. **P2.24-P2.25 complete, H0:** parser root cause, exact 2/2-cell fix,
-   direct-map premises, Full-LTO build, and GNU/LLVM cache-flush PoC audit pass.
-5. **P2.26 complete, H0:** one deterministic boot-only AP and independent
-   kernel, ramdisk, `/init`, child, AP, and writer-exclusion closure pass.
-6. **P2.27 complete, H0:** typed Process v2 offline evidence promotion passes.
-7. **P2.28 complete, D0:** connected exact-target, health, clean-baseline, and
-   prepared-binding checks passed with no device write or Odin invocation.
-8. **P2.29 complete/closed, F1:** candidate and rollback transferred once and
-   final health passed. Two exact USERSPACE records in distinct warm-reset
-   contexts violated the immutable exact-one contract; verdict is no-proof.
-9. **P2.30 next, H0:** model the operator-confirmed recovery multi-boot
-   cardinality and design a bounded positive rule without changing the
-   archived P2.29 verdict.
-10. **E2-E4 later:** prove module closure, platform bind and UDC, then one ACM
-    banner and nonce exchange. No shell, NCM, Debian, or hot reload.
+   discriminator, implementation, and independent review passed.
+3. **P2.21-P2.23 complete/closed:** first same-ring F1 closed healthy with
+   `ZERO_AMBIGUOUS` observation.
+4. **P2.24-P2.25 complete, H0:** parser root cause, exact fix, direct-map
+   premises, Full-LTO build, and linked cache-flush audit passed.
+5. **P2.26 complete, H0:** deterministic boot-only AP and independent kernel,
+   ramdisk, `/init`, child, AP, and writer-exclusion closure passed.
+6. **P2.27 complete, H0:** typed Process v2 offline evidence promotion passed.
+7. **P2.28 complete, D0:** exact target, health, clean baseline, and prepared
+   binding passed without a device write or Odin invocation.
+8. **P2.29 complete/closed, F1:** candidate and rollback transferred once;
+   final health passed; exact-one formal verdict remains no-proof despite the
+   operator-confirmed two-boot USERSPACE callback evidence.
+9. **P2.30 complete, H0:** opt-in one-or-more USERSPACE policy, strict clean
+   baseline, fail-closed matrix, archived replay, and review passed.
+10. **E2 next, H0:** design the smallest module-closure observation rung from
+    the now-proven userspace callback. Do not create a live candidate yet.
+11. **E3-E4 later:** prove platform bind and UDC, then one ACM banner and nonce
+    exchange. No shell, NCM, Debian, or hot reload.
 
-Do not reactivate R4W1-C3, fork a C4 helper, add another per-candidate policy
-block, reuse a consumed approval, load `sec_log_buf.ko` in a checkpoint-bearing
-native candidate, or infer bind from module registration.
+Do not reactivate R4W1-C3, fork a per-candidate helper, reuse a consumed
+approval, load `sec_log_buf.ko` in a checkpoint-bearing native candidate, or
+infer bind from module registration.
 
 ## Process
 
-For each bounded unit:
-
-1. **STATE:** inspect the current frontier, repository state, and last evidence.
-2. **SELECT:** choose the smallest action tier that answers the question.
-3. **DESIGN:** state expected evidence, stop conditions, and recovery.
-4. **IMPLEMENT:** reuse the common path; do not fork for changed hashes.
-5. **STATIC VALIDATE:** run focused tests and artifact checks.
-6. **DEVICE:** only when required and authorized under `AGENTS.md`.
-7. **REPORT:** structured evidence by default; prose for meaningful change.
-8. **COMMIT:** one scoped, validated unit.
+For each bounded unit: STATE, SELECT, DESIGN, IMPLEMENT, STATIC VALIDATE,
+DEVICE only when required and authorized, REPORT, then scoped COMMIT.
 
 ## Success Conditions
 
-The direct-PID1 rung is closed. The post-PID1 frontier closes only through
-separate Process v2 rungs that prove:
+The direct-PID1 and first userspace-callback rungs are evidenced. The remaining
+post-PID1 frontier closes only through separate Process v2 rungs that prove:
 
-- userspace mounts/readbacks plus one exact static child token, exit, and reap;
+- mounts/readbacks plus one exact static child token, exit, and reap;
 - watchdog and USB module results separately from platform bind and UDC;
 - exact device-to-host ACM bytes; then
-- one exact bounded host request and nonce-bound response.
+- one bounded host request and nonce-bound response.
 
-Every live rung requires exact boot-only candidate identity, bounded evidence,
-exact Magisk boot-only rollback, final Android/root/supporting-partition health,
-and a complete journal. No later rung may infer an earlier unproved result.
-
-The long-term project succeeds when the same method supports repeatable native
-PID 1 bring-up across target profiles without weakening target isolation or the
-boot-only recovery boundary.
+Every live rung requires exact boot-only identity, bounded evidence, exact
+Magisk rollback, final Android/root/supporting-partition health, and a complete
+journal. No later rung may infer an earlier unproved result.
 
 ## Stop Conditions
 
-- Any permanent safety boundary in `AGENTS.md` would need to change.
-- Physical recovery is unavailable or rollback cannot be verified.
-- Device identity or Odin endpoint is ambiguous.
-- An unexplained device-session failure occurs.
-- The same material failure occurs twice without new evidence.
-- Three consecutive units add only policy, metadata, or review machinery with
-  no new tested behavior.
-- Scope grows to shell, NCM, Debian, or a general supervisor before E4 closes.
+- A permanent boundary in `AGENTS.md` would need to change.
+- Recovery, rollback, target identity, or Odin endpoint is unavailable.
+- An unexplained device-session failure or repeated material failure occurs.
+- Three consecutive units add only policy or review with no tested behavior.
+- Scope grows to shell, NCM, Debian, or a supervisor before E4 closes.

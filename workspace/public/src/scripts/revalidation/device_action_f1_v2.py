@@ -380,6 +380,24 @@ def execution_critical_source_receipts(
         }
         for name, path in same_ring_sources.items():
             receipts[name] = _stable_read(path.resolve(), name.replace("_", " "))[1]
+    if acceptance.get("kind") == typed_evidence.SAME_RING_MULTIBOOT_KIND:
+        same_ring_multiboot_sources = {
+            "same_ring_multiboot_decoder": Path(
+                typed_evidence.same_ring_multiboot.__file__
+            ),
+            "same_ring_record_decoder": Path(typed_evidence.same_ring.__file__),
+            "same_ring_static_checker": Path(__file__).with_name(
+                "s22plus_fyg8_p219_same_ring_contract.py"
+            ),
+            "same_ring_design_model": Path(__file__).with_name(
+                "s22plus_fyg8_p218_same_ring_discriminator.py"
+            ),
+            "same_ring_base_checker": Path(__file__).with_name(
+                "s22plus_fyg8_r4w1b_patch_check.py"
+            ),
+        }
+        for name, path in same_ring_multiboot_sources.items():
+            receipts[name] = _stable_read(path.resolve(), name.replace("_", " "))[1]
     return receipts
 
 

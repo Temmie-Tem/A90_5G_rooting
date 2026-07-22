@@ -201,4 +201,16 @@ it must not reinterpret the archived verdict in place.
 
 `docs/reports/S22PLUS_FYG8_P229_F1_LIVE_DUPLICATE_USERSPACE_NO_PROOF_2026-07-22.md`
 
+P2.30 preserves that archived verdict and adds a separate opt-in policy for
+future observations. It requires a separately clean baseline and accepts only
+one or more pure exact USERSPACE records. Mixed ENTRY/USERSPACE/UNSAT state,
+either foreign family, either snapshot-edge partial, and zero remain
+fail-closed. The execution closure binds both the unchanged P2.19 record
+decoder and the new policy decoder. Replaying the archived P2.29 baseline and
+observation yields clean baseline plus two accepted USERSPACE records under
+P2.30, while the original exact-one decoder continues to reject the duplicate.
+No ready manifest or live authority was created.
+
+`docs/reports/S22PLUS_FYG8_P230_MULTIBOOT_EVIDENCE_POLICY_HOST_PASS_2026-07-22.md`
+
 `docs/reports/S22PLUS_FYG8_P219_SAME_RING_IMPLEMENTATION_HOST_PASS_2026-07-22.md`

@@ -16,16 +16,16 @@ Do not add a device step when host-only work can answer the question.
 - R4W1-C3 is an inactive host-only checkpoint, not an executable policy.
 - Retired helpers and acknowledgement strings cannot authorize a new run.
 - The Process v2 H0 core and reusable D0/F1 adapters are complete. P2.29 used
-  the P2.28 binding once, transferred the exact P2.26 boot-only candidate and
-  exact Magisk rollback once each, and closed with final health verified. The
-  clean-baseline retained result contained two exact USERSPACE records, so the
-  immutable exact-one contract rejected it as `AMBIGUOUS_INTEGRITY_FAILURE` and
-  the durable verdict is `NO_PROOF_F1_V2_CANDIDATE_ROLLED_BACK`. The operator
-  confirmed that the first physical Download attempt was missed and the
-  candidate booted twice, accounting for one record per boot. The binding is
-  consumed. F1 is inactive; the next work is H0 cardinality analysis and no
-  candidate retry is authorized. USBFS arrival and exact measured Odin-node
-  departure remain fail-closed.
+  its binding once and closed healthy after exact candidate and rollback
+  transfers. Its two USERSPACE records remain formally no-proof under the
+  immutable exact-one contract, although the operator-confirmed two candidate
+  boots and one-write-per-boot source guard establish userspace callback
+  execution. P2.30 adds a separately pinned, opt-in multiboot policy: after a
+  separately clean baseline, only one or more pure exact USERSPACE records are
+  positive; mixed, foreign, partial, and zero observations fail closed. The
+  old decoder and P2.29 verdict are unchanged. No manifest selects P2.30, all
+  bindings are consumed, and F1 remains inactive. USBFS arrival and exact
+  measured Odin-node departure remain fail-closed.
 
 ## Permanent Safety Boundaries
 

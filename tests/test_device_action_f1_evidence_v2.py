@@ -93,6 +93,19 @@ class DeviceActionF1EvidenceV2Test(unittest.TestCase):
             },
         }
 
+    def same_ring_multiboot_acceptance(
+        self, run_payload=b"{}", static_payload=b"{}"
+    ):
+        acceptance = self.same_ring_acceptance(run_payload, static_payload)
+        acceptance["kind"] = self.module.SAME_RING_MULTIBOOT_KIND
+        acceptance["decoder"] = self.module.SAME_RING_MULTIBOOT_DECODER
+        acceptance["policy_id"] = self.module.SAME_RING_MULTIBOOT_POLICY_ID
+        acceptance["accepted_identity"] = (
+            "USERSPACE_CALLBACK_REACHED_ONE_OR_MORE_BOOTS"
+        )
+        acceptance["minimum_exact_count"] = acceptance.pop("exact_count")
+        return acceptance
+
     def same_ring_offline_bundle(self):
         same_ring = self.module.same_ring
         candidate_ap = {
@@ -372,6 +385,98 @@ class DeviceActionF1EvidenceV2Test(unittest.TestCase):
                 )
                 self.assertTrue(result["integrity_issue"])
                 self.assertFalse(result["accepted"])
+
+    def test_same_ring_multiboot_accepts_only_pure_userspace_multiplicity(self):
+        acceptance = self.same_ring_multiboot_acceptance()
+        records = self.module.same_ring
+        for count in (1, 2, 5):
+            with self.subTest(count=count):
+                result = self.module.classify_same_ring_multiboot(
+                    records.USERSPACE_PROOF * count,
+                    acceptance,
+                )
+                self.assertEqual(
+                    result["classification"],
+                    "USERSPACE_CALLBACK_REACHED_ONE_OR_MORE_BOOTS",
+                )
+                self.assertTrue(result["accepted"])
+                self.assertEqual(result["exact_count"], count)
+                self.assertEqual(result["minimum_candidate_boots"], count)
+
+        for payload in (
+            records.USERSPACE_PROOF + records.ENTRY_PROOF,
+            records.USERSPACE_PROOF + records.UNSAT_PROOF,
+            records.ENTRY_FAMILY + b"0" * 32 + b"]]\n",
+            b"prefix" + records.UNSAT_PROOF[:12],
+        ):
+            with self.subTest(payload=payload.hex()):
+                result = self.module.classify_same_ring_multiboot(
+                    payload,
+                    acceptance,
+                )
+                self.assertEqual(
+                    result["classification"], "AMBIGUOUS_INTEGRITY_FAILURE"
+                )
+                self.assertFalse(result["accepted"])
+
+    def test_same_ring_multiboot_clean_baseline_is_strict(self):
+        acceptance = self.same_ring_multiboot_acceptance()
+        records = self.module.same_ring
+        cases = (
+            (b"ordinary retained bytes", True),
+            (records.ENTRY_PROOF, False),
+            (records.USERSPACE_PROOF, False),
+            (records.UNSAT_PROOF, False),
+            (records.ENTRY_FAMILY + b"0" * 32 + b"]]\n", False),
+            (records.UNSAT_FAMILY + b"\x00" * 16, False),
+            (records.USERSPACE_PROOF[-12:] + b"suffix", False),
+            (b"prefix" + records.USERSPACE_PROOF[:12], False),
+        )
+        for payload, expected_clean in cases:
+            with self.subTest(payload=payload.hex()):
+                result = self.module.classify_clean_baseline(
+                    payload,
+                    acceptance,
+                )
+                self.assertEqual(result["baseline_clean"], expected_clean)
+                if not expected_clean:
+                    self.assertTrue(
+                        result["exact_record_count"] > 0
+                        or result["family_count"] > 0
+                        or result["integrity_issue"]
+                    )
+
+    def test_same_ring_multiboot_policy_is_not_manifest_selectable(self):
+        acceptance = self.same_ring_multiboot_acceptance()
+        mutations = (
+            ("policy_id", "0" * 32),
+            ("decoder", self.module.SAME_RING_DECODER),
+            ("accepted_identity", "USERSPACE_CALLBACK_REACHED"),
+            ("minimum_exact_count", 2),
+        )
+        for name, value in mutations:
+            changed = copy.deepcopy(acceptance)
+            changed[name] = value
+            with self.subTest(name=name):
+                with self.assertRaises(self.module.EvidenceError):
+                    self.module.validate_acceptance(changed)
+
+    def test_same_ring_multiboot_reuses_pinned_candidate_contract(self):
+        bundle = self.same_ring_offline_bundle()
+        bundle["acceptance"] = self.same_ring_multiboot_acceptance(
+            bundle["payloads"]["run_manifest"],
+            bundle["payloads"]["static_check"],
+        )
+        result = self.module.verify_offline_contract(**bundle)
+        self.assertEqual(
+            result["schema"],
+            "device_action_f1_same_ring_multiboot_offline_contract_v1",
+        )
+        self.assertEqual(
+            result["policy_id"], self.module.SAME_RING_MULTIBOOT_POLICY_ID
+        )
+        self.assertEqual(result["minimum_exact_count"], 1)
+        self.assertTrue(result["verified"])
 
     def test_same_ring_acceptance_is_not_manifest_selectable(self):
         acceptance = self.same_ring_acceptance()

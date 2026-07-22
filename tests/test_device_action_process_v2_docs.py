@@ -85,17 +85,17 @@ class DeviceActionProcessV2DocsTest(unittest.TestCase):
         self.assertIn("P2.26 complete, H0", self.goal)
         self.assertIn("P2.27 complete, H0", self.goal)
         self.assertIn("P2.28 complete, D0", self.goal)
-        self.assertIn("P2.29 gated, F1", self.goal)
-        self.assertIn("The F1 binding is consumed", normalized_goal)
+        self.assertIn("P2.29 complete/closed, F1", self.goal)
+        self.assertIn("P2.30 complete, H0", self.goal)
+        self.assertIn("all bindings are consumed", normalized_agents)
         self.assertIn("P2.1-P2.5 complete", self.process)
         self.assertIn("P2.6-P2.10 host path complete", self.process)
         self.assertIn("Typed Retained Evidence", self.process)
         self.assertIn("NO_PROOF_F1_V2_CANDIDATE_ROLLED_BACK", self.process)
         self.assertIn("reusable D0/F1 adapters are complete", self.agents)
-        self.assertIn("P2.28 passed connected read-only preparation", self.agents)
-        self.assertIn(
-            "Until then F1 is inactive", normalized_agents
-        )
+        self.assertIn("P2.29 used its binding once", normalized_agents)
+        self.assertIn("P2.30 adds a separately pinned", normalized_agents)
+        self.assertIn("F1 remains inactive", normalized_agents)
         self.assertIn(
             "PASS_DEVICE_ACTION_D0_V2_CONNECTED_READ_ONLY", self.process
         )

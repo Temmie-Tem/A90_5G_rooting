@@ -447,6 +447,53 @@ class DeviceActionF1LiveV2Test(unittest.TestCase):
             "UNSAT_VALID_MAGIC_ENTRY_DID_NOT_FIT",
         )
 
+    def test_same_ring_multiboot_typed_observer_accepts_recovery_reboots(self):
+        evidence = self.module.typed_evidence
+        records = evidence.same_ring
+        acceptance = {
+            "kind": evidence.SAME_RING_MULTIBOOT_KIND,
+            "source": evidence.CHECKPOINT_SOURCE,
+            "decoder": evidence.SAME_RING_MULTIBOOT_DECODER,
+            "contract_id": evidence.SAME_RING_CONTRACT_ID,
+            "policy_id": evidence.SAME_RING_MULTIBOOT_POLICY_ID,
+            "records": {
+                "entry_hex": records.ENTRY_PROOF.hex(),
+                "userspace_hex": records.USERSPACE_PROOF.hex(),
+                "unsat_hex": records.UNSAT_PROOF.hex(),
+            },
+            "families": {
+                "long_hex": records.ENTRY_FAMILY.hex(),
+                "unsat_hex": records.UNSAT_FAMILY.hex(),
+            },
+            "accepted_identity": (
+                "USERSPACE_CALLBACK_REACHED_ONE_OR_MORE_BOOTS"
+            ),
+            "minimum_exact_count": 1,
+            "contract": {
+                "run_manifest": {
+                    "path": "workspace/private/p219-run-manifest.json",
+                    "size": 1,
+                    "sha256": "1" * 64,
+                },
+                "static_check": {
+                    "path": "workspace/private/p219-static-check.json",
+                    "size": 1,
+                    "sha256": "2" * 64,
+                },
+            },
+        }
+        result = self.module.classify_acceptance(
+            records.USERSPACE_PROOF * 2,
+            acceptance,
+        )
+        self.assertTrue(result["accepted"])
+        self.assertEqual(result["exact_count"], 2)
+        self.assertEqual(result["minimum_candidate_boots"], 2)
+        self.assertEqual(
+            result["classification"],
+            "USERSPACE_CALLBACK_REACHED_ONE_OR_MORE_BOOTS",
+        )
+
     def test_rollback_failure_remains_recoverable_without_candidate_replay(self):
         temporary, prepared = self.prepared()
         self.addCleanup(temporary.cleanup)

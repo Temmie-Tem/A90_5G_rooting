@@ -212,8 +212,21 @@ P2.24-P2.25 later isolated and fixed the P2.23 current-node `reg` parser defect
 and linked a bounded cache-flush PoC. P2.26 independently closed one new
 boot-only candidate, P2.27 promoted its typed evidence, and P2.28 passed the
 reusable live adapter's connected read-only preparation. That prepared binding
-does not authorize F1: `--execute` remains unavailable until the operator
-supplies the fresh exact token emitted into private preparation evidence.
+was consumed by P2.29. Candidate and rollback transfers completed once each,
+final health passed, and two exact USERSPACE records were retained after a
+separately clean baseline. The operator confirmed two candidate boots after a
+missed physical Download entry. The immutable exact-one decoder therefore
+preserves the formal `NO_PROOF_F1_V2_CANDIDATE_ROLLED_BACK` verdict even though
+the records establish one userspace callback per observed candidate boot.
+
+P2.30 does not alter that decoder or verdict. It adds a separate acceptance
+kind and fixed policy identity for future manifests. With a separately clean
+baseline, only one or more pure exact USERSPACE records are accepted. ENTRY,
+UNSAT, zero, mixed state classes, either foreign family, and either snapshot
+edge partial are non-positive or integrity failures. The execution-critical
+closure binds both the P2.30 policy decoder and the unchanged P2.19 record
+decoder. Archived P2.29 raw bytes replay positive only under P2.30; this is H0
+analysis, not a retroactive F1 PASS. No ready manifest or live authority exists.
 
 ### Append-Only Journal
 
