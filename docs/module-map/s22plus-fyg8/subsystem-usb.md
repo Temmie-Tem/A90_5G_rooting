@@ -8,10 +8,18 @@
 - PDIC-to-Type-C-manager relay: `LIVE_OBSERVED`; the same-boot USB attach event
   through `usb_notifier_qcom` to DWC3 was `NOT_CAPTURED_THIS_BOOT`.
 - Direct-PID1 module execution and bind sequence: `UNVERIFIABLE` after O3/O3F.
+- Direct-PID1 E2 implementation readiness: `H0_VERIFIED` by P2.40; live bind
+  remains unproved.
 
 The current O3 minimal-ACM metadata plan contains 59 modules and
 passes recursive hard dependency, softdep pre/post, stock-order, alias,
 blocklist, and options parsing. This proves a static load plan only.
+
+P2.40 derives an E2-specific order that starts with `qcom_hwspinlock`, preserves
+the live-proven E1B five-module order, and then appends the remaining canonical
+O3 entries. All 59 modules are unique, all 210 constraints pass, and the
+reordered TSV SHA256 is
+`fc8169da1036ae8ba76e81ffe6afb17d063d114735a427e858afeeaa82a2218e`.
 
 The exact FYG8 automatic cable/role path is:
 
@@ -41,6 +49,15 @@ peripheral-mode request. Do not widen O3 with the five-module policy chain to
 explain its no-USB result; that result remains unlocalized to an earlier or
 downstream gate because no candidate phase readback was captured.
 
+P2.40 also closes a narrower pre-write path. The exact FYG8 `dwc3-msm.ko`
+successful probe queues its OTG state work at delay zero. The undefined-state
+worker calls `dwc3_msm_core_init()`, which populates the DWC3 child. With the
+exact DT's child `usb-role-switch` and `dr_mode = "otg"`, the built-in DWC3
+role-switch setup defaults to peripheral, queues `dwc3_set_mode()`, and reaches
+`dwc3_gadget_init()` plus `usb_add_gadget()`. Consequently E2 can observe the
+child and exact UDC without writing the parent `mode` attribute or configfs.
+This is source/ELF/DT closure only; direct-PID1 success remains a live unknown.
+
 ## Functional Gates
 
 | Order | Gate | Provider | Required path | Direct-PID1 status |
@@ -59,8 +76,9 @@ The next gate advances only after its driver/device path exists. O3 PASS remains
 a framed host/device ACM request-response plus device-reported bind state, not
 enumeration or survival.
 
-O0 stock control, O1.1 stock-first-stage control, and O2 loader parity are
-already complete. Current work is host-only design of a direct-PID1 phase
-observation channel before any further O3 candidate. No direct-PID1 USB
-candidate is authorized by this map. The latest stock read-only evidence is
-maintained separately in `stock-usb-runtime-topology.json`.
+O0 stock control, O1.1 stock-first-stage control, O2 loader parity, the compact
+retained carrier, and E1A/E1B live foundations are complete. P2.40 scopes the
+next work to E2 host implementation: exact module registration followed by
+eight read-only bind/UDC predicates. No direct-PID1 USB candidate is authorized
+by this map. The latest stock read-only evidence is maintained separately in
+`stock-usb-runtime-topology.json`.

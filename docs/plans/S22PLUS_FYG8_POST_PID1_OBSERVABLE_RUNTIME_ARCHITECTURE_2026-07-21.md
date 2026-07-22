@@ -386,13 +386,21 @@ independent reconstruction and linked audits, and promotes the exact
 three-payload Process v2 offline contract. It creates no connected target
 binding, ready manifest, approval, or live authority.
 
+P2.37 and P2.39 subsequently proved E1A and E1B live, completed exact rollback,
+and closed healthy. P2.40 then closed E2 host readiness: one 59-module order
+satisfies all 210 constraints while preserving the E1B foundation; exact
+source, ELF, DT, and built-in configuration establish a no-write path from
+successful `dwc3-msm` probe to DWC3 child and UDC initialization; and compact
+profile 3 fits 76 stages and 307,201 reachable slot variants. Direct-PID1 bind
+and UDC remain unproved until a later separately authorized E2 live rung.
+
 ## Next bounded unit
 
-Prepare P2.35 connected D0: bind one exact healthy S22+ target to the P2.34
-candidate and exact Magisk rollback, verify a clean retained baseline, ordinary
-regular AP paths, physical Download recovery, and a new empty journal. Do not
-start F1, invoke Odin, or begin E2 USB work without a later fresh exact
-approval.
+Implement P2.41 host-only E2 profile 3: extend the existing planner, compact
+carrier, runtime, decoder, and independent effective-rootfs checker with the
+P2.40 contract. Cross-compile and statically validate it while preserving E1A
+and E1B identities. Do not build a live candidate, contact a device, invoke
+Odin, write sysfs/configfs, or create F1 authority in the same unit.
 
 ## External references
 

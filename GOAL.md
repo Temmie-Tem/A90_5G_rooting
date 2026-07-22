@@ -10,7 +10,8 @@ and authorization are isolated. `AGENTS.md` is the binding operating contract.
 ## Current Frontier
 
 **State: R4W1-D DIRECT PID1 PROVEN; P2.37 E1A LOCAL RUNTIME LIVE PASS;
-P2.39 E1B MODULE RUNTIME LIVE PASS; F1 CLOSED HEALTHY.**
+P2.39 E1B MODULE RUNTIME LIVE PASS; P2.40 E2 READINESS H0 PASS;
+F1 CLOSED HEALTHY.**
 
 R4W1-D proved successful `kernel_execve("/init")` while `current` was PID 1.
 P2.29 later transferred one exact P2.26 boot-only candidate and one exact
@@ -103,6 +104,16 @@ state is `CLOSED`, the binding is consumed, and no S22+ F1 authority remains.
 The controlling next-stage design is
 `docs/plans/S22PLUS_FYG8_POST_PID1_OBSERVABLE_RUNTIME_ARCHITECTURE_2026-07-21.md`.
 
+P2.40 completed the focused E2 H0 audit. The exact 59-module FYG8 closure has
+one dependency-valid order that prepends `qcom_hwspinlock` to the proven E1B
+five-module foundation and then appends the remaining O3 entries. All 210
+constraints pass. Source-matched DWC3 control flow and exact-module ELF
+relocations prove that successful `dwc3-msm` probe queues child creation, and
+the exact child DT plus built-in dual-role configuration can publish the UDC
+without a parent mode or configfs write. The unchanged compact carrier has
+capacity for profile 3: 76 stages and 307,201 reachable slot variants. This is
+implementation readiness only; direct-PID1 bind and UDC remain live unknowns.
+
 ## Established Evidence
 
 - R4W1-A: custom Android `/init` marker retained and rollback passed.
@@ -158,6 +169,10 @@ The controlling next-stage design is
   passed. One candidate and rollback transfer completed, one exact terminal E1B
   record proved all five module loads plus `/proc/modules` visibility, and final
   health passed. The transaction and authority are closed.
+- P2.40 E2 readiness: the reordered 59-module plan satisfies all 210 metadata
+  constraints, the exact source/ELF/DT path reaches child and UDC initialization
+  without an E2 write, and profile-3 stage capacity passes H0. No implementation,
+  build, candidate, device action, or authority was created.
 - Process v2: common D0/F1 execution, journal, regular-path Odin transport,
   rollback, and final health are proven.
 - V3439: pstore, pmsg, ramoops, and DTBO-based retention remain retired.
@@ -185,6 +200,7 @@ Load-bearing details are in:
 - `docs/reports/S22PLUS_FYG8_P239_E1B_CANDIDATE_H0_PASS_D0_BASELINE_STOP_2026-07-23.md`
 - `docs/reports/S22PLUS_FYG8_P239_CONNECTED_D0_PREPARED_PASS_2026-07-23.md`
 - `docs/reports/S22PLUS_FYG8_P239_E1B_F1_LIVE_PASS_2026-07-23.md`
+- `docs/reports/S22PLUS_FYG8_P240_E2_FOCUSED_READINESS_AUDIT_2026-07-23.md`
 - `docs/operations/DEVICE_ACTION_PROCESS_V2.md`
 - `docs/module-map/s22plus-fyg8/`
 
@@ -228,8 +244,13 @@ reports grant no device authority.
     load sequence, `/proc/modules` verification, terminal E1B success, mandatory
     rollback, final health, and canonical timeline passed. The binding and
     approval are consumed.
-19. **E2-E4 next:** prove platform bind and UDC, then one ACM banner and nonce
-    exchange. No shell, NCM, Debian, or hot reload.
+19. **P2.40 complete, H0:** exact E2 module order, bind/UDC source path,
+    bounded gate semantics, and profile-3 capacity passed. No implementation or
+    device authority was created.
+20. **P2.41 next, H0:** implement and statically validate E2 profile 3. Do not
+    build a live candidate or begin connected D0 in the same unit.
+21. **E3-E4 later:** after a separate E2 live proof, send one ACM banner and
+    then one nonce exchange. No shell, NCM, Debian, or hot reload.
 
 Do not reactivate R4W1-C3, fork a per-candidate helper, reuse a consumed
 approval, load `sec_log_buf.ko` in a checkpoint-bearing native candidate, or
