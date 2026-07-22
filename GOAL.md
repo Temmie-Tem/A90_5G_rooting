@@ -9,8 +9,8 @@ and authorization are isolated. `AGENTS.md` is the binding operating contract.
 
 ## Current Frontier
 
-**State: R4W1-D DIRECT PID1 PROVEN; P2.29 FORMAL NO-PROOF; P2.31 FIRST E1
-PROCFS CHECKPOINT TECHNICALLY PROVEN; F1 INACTIVE.**
+**State: R4W1-D DIRECT PID1 PROVEN; P2.31 FIRST E1 PROCFS CHECKPOINT
+TECHNICALLY PROVEN; P2.32 COMPACT E1A/E1B A/B DESIGN PASS; F1 INACTIVE.**
 
 R4W1-D proved successful `kernel_execve("/init")` while `current` was PID 1.
 P2.29 later transferred one exact P2.26 boot-only candidate and one exact
@@ -28,12 +28,10 @@ PID 1 mounted procfs, verified `PROC_SUPER_MAGIC`, and caused the kernel to
 store the exact first E1 request. It does not prove that write returned or any
 later E1 stage.
 
-P2.30 adds a separate opt-in typed evidence policy for future runs. Given a
-separately clean baseline, one or more pure exact USERSPACE records are
-positive; mixed states, either foreign family, either edge partial, and zero
-remain fail-closed. The P2.19 exact-one decoder and all archived verdicts are
-unchanged. Archived P2.29 raw evidence replays positive only under the new
-policy. No ready manifest, candidate, approval, device action, or live authority
+P2.30 adds an opt-in multiboot evidence policy without changing P2.29. P2.32
+now fixes a 45-byte shared-header plus compact A/B latest-stage record, strict
+E1A/E1B transitions, torn-update fallback, and multiboot decoding in an
+executable H0 model. No implementation, candidate, approval, or live authority
 was created.
 
 No active S22+ F1 authorization. Any future candidate requires new data,
@@ -63,6 +61,8 @@ The controlling next-stage design is
   P2.29 replay, focused tests, and independent safety review passed H0.
 - P2.31: exact artifact/transfer, request ABI, userspace control flow, kernel
   gate, and raw replay close the first procfs checkpoint semantics H0.
+- P2.32: compact 45-byte A/B layout, strict E1A/E1B stage model, torn fallback,
+  and fail-closed multiboot policy passed H0.
 - Process v2: common D0/F1 execution, journal, regular-path Odin transport,
   rollback, and final health are proven.
 - V3439: pstore, pmsg, ramoops, and DTBO-based retention remain retired.
@@ -79,6 +79,7 @@ Load-bearing details are in:
 - `docs/reports/S22PLUS_FYG8_P229_F1_LIVE_DUPLICATE_USERSPACE_NO_PROOF_2026-07-22.md`
 - `docs/reports/S22PLUS_FYG8_P230_MULTIBOOT_EVIDENCE_POLICY_HOST_PASS_2026-07-22.md`
 - `docs/reports/S22PLUS_FYG8_P231_E1_PROC_MOUNTED_SEMANTIC_CLOSURE_2026-07-22.md`
+- `docs/plans/S22PLUS_FYG8_P2_32_E1_LATEST_STAGE_DESIGN_2026-07-22.md`
 - `docs/operations/DEVICE_ACTION_PROCESS_V2.md`
 - `docs/module-map/s22plus-fyg8/`
 
@@ -107,9 +108,11 @@ reports grant no device authority.
    baseline, fail-closed matrix, archived replay, and review passed.
 10. **P2.31 complete, H0:** first procfs mount/readback and exact kernel-store
     semantics closed without changing P2.29's formal verdict.
-11. **P2.32 next, H0:** design compact latest-stage evidence for remaining E1A
-    mounts/child, then E1B watchdog closure. Do not create a candidate yet.
-12. **E2-E4 later:** prove platform bind and UDC, then one ACM banner and nonce
+11. **P2.32 complete, H0:** compact A/B latest-stage layout, E1A/E1B profiles,
+    torn fallback, multiboot policy, model, and adversarial tests passed.
+12. **P2.33 next, H0:** implement only kernel/client/decoder/static-checker
+    closure and independently review it. No build or candidate yet.
+13. **E2-E4 later:** prove platform bind and UDC, then one ACM banner and nonce
     exchange. No shell, NCM, Debian, or hot reload.
 
 Do not reactivate R4W1-C3, fork a per-candidate helper, reuse a consumed

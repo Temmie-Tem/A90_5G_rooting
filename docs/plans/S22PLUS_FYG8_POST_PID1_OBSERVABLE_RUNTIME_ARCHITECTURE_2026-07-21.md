@@ -20,6 +20,10 @@ Use one new target-guarded kernel evidence carrier for all of these rungs. Keep
 the rungs as separate Process v2 transactions. No current device action is
 authorized by this design.
 
+P2.32 instantiates that carrier only for E1A and E1B. E2-E4 remain later
+profile extensions and gain no implementation or live authority from the E1
+layout decision.
+
 P2.31 updates the evidence boundary without changing the ladder: the exact
 P2.26/P2.29 candidate reached the first E1 checkpoint after procfs mount and
 `statfs(PROC_SUPER_MAGIC)`. The remaining local-runtime work is still E1; it
@@ -107,31 +111,37 @@ reserved buffer, exposes `/proc/last_kmsg`, pulls early logs, installs the
 logger, and subsequently advances `s_log_buf->idx`. The successful R4W1-D
 carrier did not load this module.
 
-### Immutable entry proof plus A/B checkpoint slots
+### Compact candidate header plus A/B checkpoint slots
 
-Use one contiguous combined region:
+P2.32 fixes the complete long region at the live-proven 45-byte size:
 
-- one immutable, exact carrier-entry marker written by the proven post-exec
-  PID-1 hook;
-- checkpoint slot A;
-- checkpoint slot B.
+- one 8-byte family and packed format/profile byte;
+- one shared nonzero 128-bit run identity; and
+- two 10-byte slots containing generation, stage, outcome, item, detail, and
+  a CRC32 commit word.
+
+Generation zero ENTRY is a committed slot written by the post-exec PID-1 hook.
+It replaces the separate immutable marker. Every valid slot CRC covers the
+shared header, so header corruption invalidates both slots while the unchanged
+header avoids duplicating identity in each slot.
 
 Do not use one mutable slot. Writing a new body before its final commit byte
 would invalidate the previous record if reset occurs mid-copy. A/B slots keep
 the prior valid generation intact:
 
-1. invalidate the inactive slot commit byte;
-2. write its fixed-width body and checksum;
+1. invalidate the inactive slot's four-byte commit CRC;
+2. write its fixed six-byte body;
 3. issue a write memory barrier;
-4. publish the commit byte last;
+4. publish the nonzero CRC32 commit word last;
 5. make the newly committed slot the active generation.
 
 The host validates each slot independently and selects the highest valid
 generation. A committed slot with a bad body or checksum is invalid by itself;
 it does not discard the other valid slot. A torn new slot therefore leaves the
-prior phase usable. Exact sizes and offsets are an implementation result, not a
-design assumption; the complete combined region must be compact, contiguous,
-and accepted by the adapted static auditor.
+prior phase usable. Slot parity must match generation parity, two valid slots
+must be adjacent, and the older slot must be progress. The exact P2.32 layout
+and boundary behavior are executable design contracts rather than future size
+assumptions.
 
 ### Write-only PID1 checkpoint API
 
@@ -142,26 +152,28 @@ flag is enabled. Its handler must require:
 - the exec hook initialized this boot's carrier;
 - exact fixed request length and reserved fields equal zero;
 - unchanged Samsung log `magic`, `idx`, and `boot_cnt` snapshot;
-- one E1-E4 profile kind that remains constant after its first accepted write;
+- one E1A or E1B profile kind fixed at entry initialization;
 - one nonzero dynamic run ID that remains constant and is later matched to an
   exact host manifest;
 - the exact next profile stage, profile-derived generation, and module index;
 - success only at the terminal stage and nonzero detail for failure;
 - no second terminal record.
 
-Userspace does not provide the immutable entry marker or slot address. Profile
-kind selects the fixed kernel state machine. The dynamic run ID is an opaque
+Userspace does not provide the entry slot or slot address. Profile kind selects
+the fixed kernel state machine. The dynamic run ID is an opaque
 key mapped by an exact-hash host manifest to the Image, init, child, closure,
 stage schema, and static control-flow result. It is not a self-referential hash
 of binaries that embed it. The kernel gate is not a cryptographic attestation
 of userspace behavior; exact artifact identity, preflight family absence,
-one-shot chronology, and the independent checker remain load-bearing.
+bounded Process v2 transfer chronology, and the independent checker remain
+load-bearing.
 
-Each slot needs at least `magic`, format version, carrier ID, profile kind,
-run ID, generation, stage, outcome, item index, signed detail/errno, checksum,
-and a commit byte. The host must reject invalid checksum, missing commit,
-duplicate or impossible generation, non-successor stage, unknown profile kind,
-unexpected run or boot identity, foreign carrier, and any partial family token.
+The shared record carries family, format, profile, and run ID. Each slot carries
+generation, stage, outcome, item index, bounded detail/errno, and commit CRC32.
+The host must reject invalid checksum, impossible generation/parity,
+non-successor stage, unknown profile, unexpected run identity, foreign family,
+and any partial family token. Frozen `idx` and `boot_cnt` stay in kernel state;
+the compact observer reports valid-record count only as a boot lower bound.
 
 ## Runtime shape
 
@@ -290,7 +302,7 @@ handoff remain later projects.
 
 Do not fork another live helper. Extend Process v2 once with typed evidence:
 
-- retained immutable entry plus decoded checkpoint A/B;
+- retained shared candidate header plus decoded compact checkpoint A/B;
 - optional exact ACM endpoint and byte-stream observer for E3/E4;
 - `all_of` success semantics with separately classified diagnostic evidence.
 
@@ -300,15 +312,16 @@ for each rung.
 
 ## Host-only gates before the first build
 
-1. Prove the exact R4W1-D log geometry and FYG8 `sec_log_buf` writer behavior.
-2. Implement A/B encode, commit, decode, and highest-valid-generation logic as
-   a pure host-tested unit.
-3. Test torn body, committed bad checksum with prior-slot fallback, no-valid
-   slot, stale/impossible generation, changed cursor, unknown profile kind,
-   unexpected run/boot identity, foreign family, and terminal replay.
-4. Define E1-E4 exact stage tables. Bind each future dynamic run ID to full
-   artifact identities in the exact manifest/checker; P2.7 model IDs are never
-   live evidence.
+1. The exact R4W1-D geometry and FYG8 writer behavior are proven.
+2. P2.32 implements compact A/B encode, commit, decode, and highest-valid-stage
+   selection as a pure host-tested model.
+3. P2.32 tests torn body, bad CRC and bad semantics with prior-slot fallback,
+   no positive zero inference, impossible generation/parity, foreign identity,
+   partial family, terminal replay, and multiboot observations.
+4. P2.32 defines separate E1A and E1B tables. Future run IDs remain bound to
+   full artifact identities; model IDs are never live evidence. Candidate
+   validation must reject a run ID that causes any evidence-family collision
+   or a zero commit CRC for any reachable slot.
 5. Implement the guarded kernel source and proc API, but perform no device
    action in the same unit.
 6. Implement the E1 runtime source and exact child with compile/static tests.
@@ -316,9 +329,9 @@ for each rung.
    candidate-builder, and independent-checker path; do not create a second
    builder family.
 
-Only after those gates pass should one clean R4W1-E build be scheduled. E1 is
-the first live use of that Image; a separate policy-only or kernel-only live
-canary is not required unless static evidence reveals broader kernel impact.
+P2.32 closes gates 1-4 for the compact replacement. Gates 5-7 remain open and
+must close before scheduling a new clean build. The earlier P2.29 candidate
+does not satisfy the new P2.32 implementation closure.
 
 ## Stop conditions
 
@@ -355,14 +368,17 @@ the compact first-checkpoint candidate. P2.31 host correlation establishes the
 first procfs checkpoint semantics while preserving P2.29's formal no-proof
 verdict. The current one-write-per-boot carrier cannot expose later E1 stages.
 
+P2.32 completes the replacement design and executable model: one 45-byte
+shared-header A/B record, version-2 fixed requests, E1A/E1B stage tables,
+torn-write fallback, and multiboot success policy. It creates no implementation
+patch, build, candidate, manifest, approval, or device authority.
+
 ## Next bounded unit
 
-Design P2.32 host-only: retain the proven compact frozen-cursor geometry while
-encoding the latest accepted E1 stage with exact candidate/run identity,
-strict successor checks, and fail-closed integrity handling. Split continued
-E1 proof into E1A (remaining mounts, node, child lifecycle) and E1B (watchdog
-closure and terminal success). Do not build an image, contact a device, or
-start E2 USB work in that unit.
+Implement P2.33 host-only: one P2.25-derived kernel patch, version-2 E1A/E1B
+client/runtime profiles, raw decoder/evidence adapter, static control-flow
+checker, adversarial tests, and one independent review. Do not build a kernel
+or image, create a candidate, contact a device, or start E2 USB work.
 
 ## External references
 

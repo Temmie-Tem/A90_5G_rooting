@@ -222,4 +222,12 @@ carrier work remains E1 continuation, not USB.
 
 `docs/reports/S22PLUS_FYG8_P231_E1_PROC_MOUNTED_SEMANTIC_CLOSURE_2026-07-22.md`
 
+P2.32 keeps the proven 45-byte pre-cursor geometry and packs one shared
+candidate header plus two 10-byte CRC32-committed slots into it. This restores
+A/B torn-update fallback without returning to the unproven 173-byte region.
+The exact E1A/E1B layout and multiboot classifier are host-modeled only; no
+kernel implementation, candidate, or live authority exists.
+
+`docs/plans/S22PLUS_FYG8_P2_32_E1_LATEST_STAGE_DESIGN_2026-07-22.md`
+
 `docs/reports/S22PLUS_FYG8_P219_SAME_RING_IMPLEMENTATION_HOST_PASS_2026-07-22.md`
