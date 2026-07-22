@@ -9,8 +9,8 @@ and authorization are isolated. `AGENTS.md` is the binding operating contract.
 
 ## Current Frontier
 
-**State: R4W1-D DIRECT PID1 PROVEN AND ROLLED BACK; R4W1-E0 F1 CLOSED NO
-PROOF; P2.22 CONNECTED D0 PASS; F1 INACTIVE.** Process v2 transferred
+**State: R4W1-D DIRECT PID1 PROVEN AND ROLLED BACK; P2.23 F1 CLOSED NO
+PROOF; ROLLBACK AND FINAL HEALTH PASS; F1 INACTIVE.** Process v2 transferred
 the exact boot-only candidate once, two complete post-rollback
 `/proc/last_kmsg` reads retained one exact contiguous proof, the exact Magisk
 boot rollback completed, and final Android/root/supporting-partition health
@@ -25,18 +25,13 @@ No active S22+ F1 authorization. Any new candidate requires new data, connected
 D0 and preparation, fresh exact approval, one candidate attempt, mandatory
 rollback, and final health under Process v2.
 
-R4W1-E0 reused R4W1-D's proven 45-byte slot to distinguish post-exec ENTRY from
-the first PID1 proc checkpoint. Its clean baseline and D0 passed, then the exact
-candidate and Magisk rollback each transferred once. Final Android/root health
-passed, but two complete byte-identical retained reads contained zero ENTRY,
-USERSPACE, or family bytes. Durable verdict:
-`NO_PROOF_F1_V2_CANDIDATE_ROLLED_BACK`. The binding is consumed and cannot be
-reused. Candidate boot survival was observed by the operator, but no retained
-bytes prove kernel selection, successful exec, or userspace entry.
+R4W1-E0 transferred its exact candidate and rollback once and passed final
+health, but two byte-identical retained reads contained no proof family. Its
+`NO_PROOF_F1_V2_CANDIDATE_ROLLED_BACK` binding remains consumed.
 
-P2.21 independently qualified the corrected kernel-to-AP closure. P2.22
-promoted its offline same-ring contract and passed connected target, health,
-and clean-baseline D0. No transfer, F1 approval, or live authority occurred.
+P2.21 qualified the corrected kernel-to-AP closure and P2.22 passed its ready
+data and D0. P2.23 transferred candidate/rollback once and passed final health,
+but two byte-identical reads classified `ZERO_AMBIGUOUS`. Binding consumed.
 
 The controlling next-stage design is
 `docs/plans/S22PLUS_FYG8_POST_PID1_OBSERVABLE_RUNTIME_ARCHITECTURE_2026-07-21.md`.
@@ -50,8 +45,9 @@ The controlling next-stage design is
 - R4W1-D: one 45-byte contiguous pre-cursor proof, no index mutation, clean
   Full-LTO reproducibility, deterministic candidate construction, live proof,
   and rollback all passed.
-- P2.21/P2.22: the kernel-to-AP closure passed independent host validation;
-  its ready data and connected clean-baseline D0 passed with F1 still inactive.
+- P2.21-P2.23: host closure and connected D0 passed; candidate and rollback
+  transferred once, final health passed, and two identical retained reads were
+  `ZERO_AMBIGUOUS`. The F1 binding is consumed.
 - Process v2: common D0/F1 execution, journal, regular-path Odin transport,
   exact post-transfer departure handling, rollback, and final health are proven.
 - V3439: a correctly bound ramoops/pmsg backend retained zero current-run
@@ -65,6 +61,7 @@ Load-bearing details are in:
 - `docs/reports/S22PLUS_FYG8_R4W1D_F1_LIVE_PASS_2026-07-21.md`
 - `docs/reports/S22PLUS_FYG8_R4W1D_CONTIGUOUS_PROOF_HOST_DESIGN_2026-07-21.md`
 - `docs/reports/S22PLUS_FYG8_P221_ARTIFACT_CLOSURE_HOST_PASS_2026-07-22.md`
+- `docs/reports/S22PLUS_FYG8_P223_F1_LIVE_NO_PROOF_2026-07-22.md`
 - `docs/reports/NATIVE_INIT_V3439_S22PLUS_CORRECTED_RAMOOPS_LIVE_NO_PROOF_2026-07-11.md`
 - `docs/operations/DEVICE_ACTION_PROCESS_V2.md`
 - `docs/module-map/s22plus-fyg8/`
@@ -99,8 +96,11 @@ reports grant no device authority.
     kernel, config, `/init`, no-ring-writer runtime, boot, and AP; no manifest/live.
 12. **P2.22 complete, D0 only:** ready data, connected target/health, and clean
     baseline passed; no transfer, F1 approval, or live authority occurred.
-13. **P2.23 gated:** F1 remains inactive pending one fresh exact approval.
-14. **E2-E4 later:** prove module closure, platform bind and UDC, then one ACM
+13. **P2.23 F1 closed, no proof:** exact candidate/rollback transferred once,
+    final health passed, and two identical reads were `ZERO_AMBIGUOUS`.
+14. **P2.24 next, H0 only:** design a discriminator for selection, guard
+    rejection, and retained-store loss before another candidate is built.
+15. **E2-E4 later:** prove module closure, platform bind and UDC, then one ACM
     banner and nonce exchange. No shell, NCM, Debian, or hot reload.
 
 Do not reactivate R4W1-C3, fork a C4 helper, add another per-candidate policy

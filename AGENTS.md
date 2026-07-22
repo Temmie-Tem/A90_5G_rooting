@@ -16,12 +16,12 @@ Do not add a device step when host-only work can answer the question.
 - R4W1-C3 is an inactive host-only checkpoint, not an executable policy.
 - Retired helpers and acknowledgement strings cannot authorize a new run.
 - The Process v2 H0 core and reusable D0/F1 adapters are complete. P2.21's
-  corrected same-ring candidate passed independent host artifact closure, and
-  P2.22 promoted fresh ready data and passed connected read-only target,
-  health, and clean-baseline qualification. No candidate transfer or F1
-  approval occurred; F1 remains inactive pending fresh exact approval. The
-  earlier R4W1-E0 binding remains consumed with durable verdict
-  `NO_PROOF_F1_V2_CANDIDATE_ROLLED_BACK`. USBFS arrival and exact measured
+  corrected same-ring candidate passed host closure and P2.22 connected D0.
+  P2.23 then transferred that exact candidate and the preapproved rollback once
+  each. Final health passed, but two byte-identical retained reads classified
+  `ZERO_AMBIGUOUS`; durable verdict is
+  `NO_PROOF_F1_V2_CANDIDATE_ROLLED_BACK`. The binding is consumed, F1 is
+  inactive, and no new run is authorized. USBFS arrival and exact measured
   Odin-node departure remain fail-closed.
 
 ## Permanent Safety Boundaries
