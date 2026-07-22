@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Promote one independently checked P2.34 E1A candidate into offline evidence."""
+"""Promote one independently checked FYG8 E1 candidate into offline evidence."""
 
 from __future__ import annotations
 
@@ -84,15 +84,20 @@ def validate_static(
     ):
         raise PromotionError("P2.34 candidate static result identity mismatch")
     candidate_contract = result.get("candidate_contract")
+    profile = (
+        candidate_contract.get("profile")
+        if isinstance(candidate_contract, dict)
+        else None
+    )
     if (
         not isinstance(candidate_contract, dict)
-        or candidate_contract.get("profile") != "E1A"
+        or profile not in evidence.e1_latest_stage.model.PROFILE_NUMBERS
         or candidate_contract.get("decoder_id") != evidence.E1_LATEST_STAGE_DECODER
         or candidate_contract.get("decoder_policy_id")
         != evidence.e1_latest_stage.POLICY_ID
         or candidate_contract.get("verified") is not True
     ):
-        raise PromotionError("P2.34 candidate contract is not E1A-bound")
+        raise PromotionError("candidate contract is not supported-profile-bound")
     run_id = candidate_contract.get("run_id")
     if not isinstance(run_id, str) or evidence.HEX32_RE.fullmatch(run_id) is None:
         raise PromotionError("P2.34 candidate run ID is malformed")
@@ -119,6 +124,21 @@ def validate_static(
     userspace = candidate.get("userspace")
     if not isinstance(artifacts, dict) or not isinstance(userspace, dict):
         raise PromotionError("P2.34 candidate artifact closure is missing")
+    if profile == "E1B":
+        try:
+            evidence.validate_e1b_stock_closure(
+                module_closure=candidate.get("module_closure"),
+                effective_rootfs=candidate.get("effective_rootfs"),
+                stock_vendor_boot=candidate.get("stock_vendor_boot"),
+                expected_init=exact_identity(userspace.get("init"), "candidate init"),
+                expected_child=exact_identity(
+                    userspace.get("child"), "candidate child"
+                ),
+            )
+        except evidence.EvidenceError as exc:
+            raise PromotionError(
+                "E1B effective stock rootfs closure is incomplete"
+            ) from exc
     identities = {
         "ap": exact_identity(artifacts.get("ap_tar_md5"), "candidate AP"),
         "candidate_static": exact_identity(static_receipt, "candidate static result"),
@@ -169,7 +189,7 @@ def derive(
             "terminal_stage": model.PROFILE_TERMINALS[profile],
         },
         "observation_contract": {
-            "accepted_identity": "E1A_TERMINAL_SUCCESS_REACHED",
+            "accepted_identity": f"{profile}_TERMINAL_SUCCESS_REACHED",
             "minimum_success_count": 1,
             "clean_baseline_required": True,
         },

@@ -10,7 +10,7 @@ and authorization are isolated. `AGENTS.md` is the binding operating contract.
 ## Current Frontier
 
 **State: R4W1-D DIRECT PID1 PROVEN; P2.37 E1A LOCAL RUNTIME LIVE PASS;
-P2.38 E1B H0 READINESS CLOSED; F1 INACTIVE.**
+P2.39 E1B CANDIDATE H0 PASS; CLEAN D0 PENDING; F1 INACTIVE.**
 
 R4W1-D proved successful `kernel_execve("/init")` while `current` was PID 1.
 P2.29 later transferred one exact P2.26 boot-only candidate and one exact
@@ -67,6 +67,18 @@ kernel/module ABI are compatible. The modules remain in unchanged stock
 work is a profile-2 candidate pipeline and independent effective-rootfs audit,
 not broader research or a device action. No candidate or authority was created.
 
+P2.39 implemented that profile-2 pipeline while preserving the E1A identity
+domain. Two clean Full-LTO builds and two package runs were byte identical. The
+independent checker composed the candidate boot ramdisk with the pinned stock
+`vendor_boot`, verified the exact five-module closure, and promoted the E1B
+terminal `0x3f` offline contract. The common verifier now derives the reachable
+slot count per profile: E1A remains 32,769 and E1B is 57,345. The 142-test
+focused set and independent review passed. A connected D0 preparation then
+stopped read-only because `/proc/last_kmsg` still contains P2.37's valid E1A
+terminal-success record. No journal, approval, Odin session, reboot, or device
+write occurred. One approved D1 normal reboot and a fresh connected D0 are
+required before any E1B F1 approval can be requested.
+
 The controlling next-stage design is
 `docs/plans/S22PLUS_FYG8_POST_PID1_OBSERVABLE_RUNTIME_ARCHITECTURE_2026-07-21.md`.
 
@@ -117,6 +129,11 @@ The controlling next-stage design is
   15-file symvers identity, full R2 module-CRC closure, vendor-rootfs composition,
   and 93 focused regressions passed H0. Implementation remains; no candidate or
   live authority exists.
+- P2.39 E1B candidate H0: profile-2 source and userspace, two clean byte-identical
+  Full-LTO builds, deterministic boot-only packaging, effective-rootfs module
+  closure, exact offline evidence, 142 tests, and independent review passed.
+  Connected D0 stopped read-only on the historical P2.37 E1A terminal record;
+  no prepared binding or live authority exists.
 - Process v2: common D0/F1 execution, journal, regular-path Odin transport,
   rollback, and final health are proven.
 - V3439: pstore, pmsg, ramoops, and DTBO-based retention remain retired.
@@ -141,6 +158,7 @@ Load-bearing details are in:
 - `docs/reports/S22PLUS_FYG8_P235_F1_PRE_CANDIDATE_USBFS_ARRIVAL_ABORT_2026-07-23.md`
 - `docs/reports/S22PLUS_FYG8_P237_E1A_F1_LIVE_PASS_2026-07-23.md`
 - `docs/reports/S22PLUS_FYG8_P238_E1B_FOCUSED_READINESS_AUDIT_2026-07-23.md`
+- `docs/reports/S22PLUS_FYG8_P239_E1B_CANDIDATE_H0_PASS_D0_BASELINE_STOP_2026-07-23.md`
 - `docs/operations/DEVICE_ACTION_PROCESS_V2.md`
 - `docs/module-map/s22plus-fyg8/`
 
@@ -180,10 +198,13 @@ reports grant no device authority.
     and the canonical timeline passed; authority is consumed.
 17. **P2.38 complete, H0:** E1B runtime, module, ABI, and effective-rootfs
     readiness passed; no build, candidate, device action, or authority occurred.
-18. **P2.39 next, H0:** implement the profile-2 candidate pipeline, preserve a
-    boot-only AP, and independently bind its effective rootfs to stock
-    `vendor_boot`. No live authority exists.
-19. **E2-E4 later:** prove platform bind and UDC, then one ACM banner and nonce
+18. **P2.39 H0 complete, D0 pending:** the profile-2 candidate, boot-only AP,
+    stock-`vendor_boot` effective rootfs, and offline contract passed. One
+    historical E1A record blocks the clean baseline; perform one approved D1
+    normal reboot, then prepare a fresh connected D0 binding. F1 is inactive.
+19. **P2.39 F1 next only after D0:** request one fresh exact approval for the
+    bound E1B candidate and mandatory Magisk rollback.
+20. **E2-E4 later:** prove platform bind and UDC, then one ACM banner and nonce
     exchange. No shell, NCM, Debian, or hot reload.
 
 Do not reactivate R4W1-C3, fork a per-candidate helper, reuse a consumed

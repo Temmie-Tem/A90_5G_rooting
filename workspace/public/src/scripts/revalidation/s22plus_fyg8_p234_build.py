@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Build one candidate-bound FYG8 P2.34 E1A kernel host-only."""
+"""Build one candidate-bound FYG8 E1 kernel host-only."""
 
 from __future__ import annotations
 
@@ -146,6 +146,10 @@ def output_gate(work_tree: Path) -> dict[str, Any]:
     )
     config_lines = config_path.read_text(encoding="utf-8").splitlines()
     run_id, unsat_tag, expected_config = _bound_identity()
+    bound = _ContractAdapter._bound_result
+    if bound is None:
+        raise BuildError("candidate identity disappeared before output gate")
+    profile = bound["profile"]
     binaries = {"image": image, "vmlinux": vmlinux}
     identity_counts = {
         name: {
@@ -155,12 +159,12 @@ def output_gate(work_tree: Path) -> dict[str, Any]:
             "run_id_hex": data.count(run_id),
             "unsat_tag_hex": data.count(unsat_tag),
             "model_run_id": data.count(
-                candidate_contract.intent.decoder.model.model_run_id("E1A").hex().encode(
+                candidate_contract.intent.decoder.model.model_run_id(profile).hex().encode(
                     "ascii"
                 )
             ),
             "source_check_run_id": data.count(
-                p233.SOURCE_CHECK_RUN_IDS["E1A"].hex().encode("ascii")
+                p233.SOURCE_CHECK_RUN_IDS[profile].hex().encode("ascii")
             ),
         }
         for name, data in binaries.items()

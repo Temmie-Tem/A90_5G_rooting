@@ -27,8 +27,13 @@ class P234CandidateStaticCheckerTest(unittest.TestCase):
             sys.path.insert(0, str(SCRIPTS))
         cls.module = load_module("s22plus_fyg8_p234_candidate_static_checker")
 
+    def test_candidate_cli_help_exits_cleanly(self):
+        with self.assertRaises(SystemExit) as context:
+            self.module.candidate.main(["--help"])
+        self.assertEqual(context.exception.code, 0)
+
     def fixture(self):
-        exact_contract = {"run_id": "12" * 16}
+        exact_contract = {"run_id": "12" * 16, "profile": "E1A"}
         outputs = {
             "boot_img": {"size": 10, "sha256": "1" * 64},
             "boot_img_lz4": {"size": 11, "sha256": "2" * 64},
@@ -118,6 +123,30 @@ class P234CandidateStaticCheckerTest(unittest.TestCase):
         result, inputs = self.fixture()
         result["safety"]["device_contact"] = True
         with self.assertRaisesRegex(self.module.CheckError, "safety"):
+            self.module.verify_artifact_result(result, **inputs)
+
+    def test_e1b_artifact_requires_stock_module_reuse_without_injection(self):
+        result, inputs = self.fixture()
+        inputs["exact_contract"]["profile"] = "E1B"
+        result["candidate_contract"]["profile"] = "E1B"
+        result["module_closure"] = {
+            "files": [spec["file"] for spec in self.module.carrier.MODULE_SPECS],
+            "runtime_names": [
+                spec["runtime"] for spec in self.module.carrier.MODULE_SPECS
+            ],
+            "count": len(self.module.carrier.MODULE_SPECS),
+        }
+        result["construction"].update(
+            {
+                "module_binaries_injected": 0,
+                "vendor_ramdisk_modules_reused": True,
+            }
+        )
+        self.assertTrue(
+            self.module.verify_artifact_result(result, **inputs)["verified"]
+        )
+        result["construction"]["module_binaries_injected"] = 1
+        with self.assertRaisesRegex(self.module.CheckError, "module closure"):
             self.module.verify_artifact_result(result, **inputs)
 
     def test_stable_read_rejects_symlink(self):

@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Independently audit one deterministic P2.34 E1A boot-only candidate."""
+"""Independently audit one deterministic FYG8 E1 boot-only candidate."""
 
 from __future__ import annotations
 
@@ -25,6 +25,7 @@ import s22plus_boot_verify as boot_verify  # noqa: E402
 import s22plus_fyg8_p234_build_repro_check as repro  # noqa: E402
 import s22plus_fyg8_p234_candidate_contract as contract  # noqa: E402
 import s22plus_fyg8_p234_userspace_build as userspace  # noqa: E402
+import s22plus_fyg8_r4w1e_e1_candidate_static_checker as e1_static  # noqa: E402
 
 
 SCHEMA = "s22plus_fyg8_p234_candidate_static_checker_v1"
@@ -36,6 +37,8 @@ DEFAULT_IMAGE = candidate.DEFAULT_IMAGE
 DEFAULT_REPRO_RESULT = candidate.DEFAULT_REPRO_RESULT
 DEFAULT_USERSPACE = candidate.DEFAULT_USERSPACE
 DEFAULT_BASE_BOOT = candidate.DEFAULT_BASE_BOOT
+DEFAULT_VENDOR_RAMDISK = candidate.DEFAULT_VENDOR_RAMDISK
+DEFAULT_VENDOR_BOOT = e1_static.DEFAULT_VENDOR_BOOT
 DEFAULT_LZ4 = candidate.DEFAULT_LZ4
 DEFAULT_MAGISKBOOT = candidate.DEFAULT_MAGISKBOOT
 DEFAULT_BUILD_A = repro.DEFAULT_BUILD_A
@@ -203,6 +206,27 @@ def verify_artifact_result(
         "kernel_interval"
     ) != [candidate.KERNEL_START, candidate.KERNEL_END]:
         raise CheckError("candidate fixed kernel interval contract mismatch")
+    profile = exact_contract.get("profile")
+    if profile not in contract.intent.SUPPORTED_PROFILES:
+        raise CheckError("candidate profile is missing or unsupported")
+    if profile == "E1B":
+        closure = value.get("module_closure")
+        if (
+            not isinstance(closure, dict)
+            or closure.get("files")
+            != [spec["file"] for spec in carrier.MODULE_SPECS]
+            or closure.get("runtime_names")
+            != [spec["runtime"] for spec in carrier.MODULE_SPECS]
+            or closure.get("count") != len(carrier.MODULE_SPECS)
+            or construction.get("module_binaries_injected") != 0
+            or construction.get("vendor_ramdisk_modules_reused") is not True
+        ):
+            raise CheckError("E1B stock vendor module closure mismatch")
+    elif "module_closure" in value or any(
+        name in construction
+        for name in ("module_binaries_injected", "vendor_ramdisk_modules_reused")
+    ):
+        raise CheckError("E1A unexpectedly carries the E1B module closure")
     safety = value.get("safety")
     expected_safety = {
         "host_only": True,
@@ -241,10 +265,11 @@ def verify_userspace(
     if (
         result.get("schema") != userspace.SCHEMA
         or result.get("target") != TARGET
-        or result.get("verdict") != userspace.VERDICT
+        or result.get("verdict")
+        != userspace.verdict_for_profile(exact_contract["profile"])
         or result.get("candidate_contract") != exact_contract
         or result.get("run_id") != exact_contract["run_id"]
-        or result.get("profile") != "E1A"
+        or result.get("profile") != exact_contract["profile"]
         or result.get("two_build_byte_identical") is not True
     ):
         raise CheckError("P2.34 userspace result identity mismatch")
@@ -265,16 +290,19 @@ def verify_userspace(
         for name in userspace.FORBIDDEN_MODULE_NAMES
     }
     forbidden = (b"sec_log_buf.ko", b"/dev/mem", b"/dev/block", b"/bin/sh")
+    expected_module_count = 0 if exact_contract["profile"] == "E1A" else 1
     if (
         init.count(run_id) != 1
-        or any(module_counts.values())
+        or any(count != expected_module_count for count in module_counts.values())
         or any(token in init for token in forbidden)
         or init.count(b"/proc/s22_checkpoint") != 1
         or init.count(b"/s22-e1-child") != 1
         or init.count(userspace.CHILD_TOKEN) != 1
         or child.count(userspace.CHILD_TOKEN) != 1
     ):
-        raise CheckError("P2.34 E1A binary closure mismatch")
+        raise CheckError(
+            f"FYG8 {exact_contract['profile']} binary closure mismatch"
+        )
     source = result.get("source_contract")
     fresh_source = userspace.p233.audit_sources(
         userspace.p233.read_direct(
@@ -500,10 +528,33 @@ def audit(args: argparse.Namespace) -> dict[str, Any]:
         carrier.MAGISKBOOT_SHA256,
         "pinned magiskboot",
     )
+    module_closure = None
+    vendor_boot = None
+    if exact_contract["profile"] == "E1B":
+        with tempfile.TemporaryDirectory(prefix="s22-p239-module-audit-") as name:
+            module_build = Path(name) / "build"
+            module_build.mkdir()
+            module_closure = carrier.derive_and_verify_module_closure(
+                resolve(
+                    root,
+                    getattr(args, "vendor_ramdisk", DEFAULT_VENDOR_RAMDISK),
+                ),
+                resolve(root, args.lz4),
+                module_build,
+            )
+        if artifact_result.get("module_closure") != module_closure:
+            raise CheckError("E1B module closure differs from fresh stock derivation")
+        vendor_boot = carrier.read_exact_file(
+            resolve(root, getattr(args, "vendor_boot", DEFAULT_VENDOR_BOOT)),
+            e1_static.base_static.VENDOR_BOOT_SIZE,
+            e1_static.base_static.VENDOR_BOOT_SHA256,
+            "pinned stock vendor_boot",
+        )
     ap_info, ap_frame = boot_verify.parse_ap_tar_md5(payloads["ap_tar_md5"])
     if ap_frame != payloads["boot_img_lz4"] or ap_info["member"]["name"] != "boot.img.lz4":
         raise CheckError("P2.34 AP member mismatch")
 
+    effective_rootfs = None
     with tempfile.TemporaryDirectory(prefix="s22-p234-static-") as name:
         work = Path(name)
         tools = work / "tools"
@@ -619,7 +670,17 @@ def audit(args: argparse.Namespace) -> dict[str, Any]:
         ):
             raise CheckError("P2.34 extracted candidate closure mismatch")
 
-    return {
+        if vendor_boot is not None:
+            effective_rootfs = e1_static.rootfs_audit(
+                payloads["boot_img"],
+                vendor_boot,
+                lz4_path,
+                expected_init=receipt(userspace_payloads["init"]),
+                expected_child=receipt(userspace_payloads["child"]),
+                run_id=bytes.fromhex(exact_contract["run_id"]),
+            )
+
+    result = {
         "schema": SCHEMA,
         "target": TARGET,
         "verdict": VERDICT,
@@ -676,6 +737,15 @@ def audit(args: argparse.Namespace) -> dict[str, Any]:
             "live_authorized": False,
         },
     }
+    if module_closure is not None and effective_rootfs is not None:
+        result["candidate"].update(
+            {
+                "module_closure": module_closure,
+                "effective_rootfs": effective_rootfs,
+                "stock_vendor_boot": receipt(vendor_boot),
+            }
+        )
+    return result
 
 
 def parse_args(argv: list[str] | None = None) -> argparse.Namespace:
@@ -686,6 +756,10 @@ def parse_args(argv: list[str] | None = None) -> argparse.Namespace:
     parser.add_argument("--repro-result", type=Path, default=DEFAULT_REPRO_RESULT)
     parser.add_argument("--userspace", type=Path, default=DEFAULT_USERSPACE)
     parser.add_argument("--base-boot", type=Path, default=DEFAULT_BASE_BOOT)
+    parser.add_argument(
+        "--vendor-ramdisk", type=Path, default=DEFAULT_VENDOR_RAMDISK
+    )
+    parser.add_argument("--vendor-boot", type=Path, default=DEFAULT_VENDOR_BOOT)
     parser.add_argument("--lz4", type=Path, default=DEFAULT_LZ4)
     parser.add_argument("--magiskboot", type=Path, default=DEFAULT_MAGISKBOOT)
     parser.add_argument("--build-a", type=Path, default=DEFAULT_BUILD_A)
@@ -734,6 +808,7 @@ def main(argv: list[str] | None = None) -> int:
         contract.ContractError,
         contract.intent.IntentError,
         userspace.p233.CheckError,
+        e1_static.CheckError,
         subprocess.TimeoutExpired,
         OSError,
     ) as exc:

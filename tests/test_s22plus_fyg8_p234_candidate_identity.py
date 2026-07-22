@@ -22,13 +22,16 @@ class S22PlusFyg8P234CandidateIdentityTest(unittest.TestCase):
     NONCE_A = "11" * 16
     NONCE_B = "22" * 16
 
-    def _create(self, parent: Path, name: str, nonce: str):
+    def _create(
+        self, parent: Path, name: str, nonce: str, profile: str = "E1A"
+    ):
         relative = Path(parent.relative_to(ROOT)) / name
         args = argparse.Namespace(
             source=INTENT.DEFAULT_SOURCE,
             base_patch=INTENT.DEFAULT_BASE_PATCH,
             out=relative,
             nonce_hex=nonce,
+            profile=profile,
         )
         result = INTENT.create(args)
         output = ROOT / relative
@@ -74,6 +77,30 @@ class S22PlusFyg8P234CandidateIdentityTest(unittest.TestCase):
             self.assertNotEqual(
                 (first_dir / "candidate.patch").read_bytes(),
                 (second_dir / "candidate.patch").read_bytes(),
+            )
+
+    def test_e1b_uses_distinct_profile_bound_identity(self):
+        private_tmp = ROOT / "workspace/private/tmp"
+        private_tmp.mkdir(parents=True, exist_ok=True)
+        with tempfile.TemporaryDirectory(dir=private_tmp) as temporary:
+            parent = Path(temporary)
+            e1a, _e1a_dir = self._create(parent, "e1a", self.NONCE_A)
+            e1b, e1b_dir = self._create(
+                parent, "e1b", self.NONCE_A, profile="E1B"
+            )
+            verified = self._verify(e1b_dir)
+            self.assertNotEqual(e1a["run_id"], e1b["run_id"])
+            self.assertEqual(verified["profile"], "E1B")
+            self.assertEqual(verified["profile_number"], 2)
+            self.assertIn(
+                "CONFIG_S22PLUS_FYG8_E1_PROFILE=2", verified["config_lines"]
+            )
+            self.assertEqual(
+                verified["reachable_record_contract"]["profiles"], ["E1B"]
+            )
+            self.assertEqual(
+                verified["reachable_record_contract"]["reachable_slot_variants"],
+                57345,
             )
 
     def test_tampered_intent_and_patch_fail_closed(self):
@@ -152,6 +179,31 @@ class S22PlusFyg8P234CandidateIdentityTest(unittest.TestCase):
                 "gh_virt_wdt.ko",
             },
         )
+
+    def test_e1b_userspace_two_builds_are_profile_bound(self):
+        private_tmp = ROOT / "workspace/private/tmp"
+        private_tmp.mkdir(parents=True, exist_ok=True)
+        with tempfile.TemporaryDirectory(dir=private_tmp) as temporary:
+            parent = Path(temporary)
+            _intent, intent_dir = self._create(
+                parent, "intent", self.NONCE_B, profile="E1B"
+            )
+            output = parent / "userspace"
+            result = USERSPACE.build_userspace(
+                argparse.Namespace(
+                    source=INTENT.DEFAULT_SOURCE,
+                    intent=intent_dir / "candidate-intent.json",
+                    patch=intent_dir / "candidate.patch",
+                    out=output,
+                )
+            )
+            self.assertEqual(result["profile"], "E1B")
+            self.assertEqual(result["verdict"], USERSPACE.E1B_VERDICT)
+            self.assertTrue(result["two_build_byte_identical"])
+            self.assertEqual(
+                result["outputs"]["init"]["module_string_counts"],
+                {name: 1 for name in USERSPACE.FORBIDDEN_MODULE_NAMES},
+            )
 
 
 if __name__ == "__main__":

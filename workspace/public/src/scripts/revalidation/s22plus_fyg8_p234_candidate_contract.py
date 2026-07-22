@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Reopen and verify one exact P2.34 candidate identity and kernel patch."""
+"""Reopen and verify one exact FYG8 E1 candidate identity and kernel patch."""
 
 from __future__ import annotations
 
@@ -87,11 +87,16 @@ def verify(
         "schema": intent.SCHEMA,
         "target": TARGET,
         "verdict": intent.VERDICT,
-        "profile": intent.PROFILE,
-        "profile_number": intent.PROFILE_NUMBER,
     }.items():
         if value.get(name) != expected:
             raise ContractError(f"candidate intent identity mismatch: {name}")
+
+    profile = value.get("profile")
+    if not isinstance(profile, str) or profile not in intent.SUPPORTED_PROFILES:
+        raise ContractError("candidate intent profile is unsupported")
+    number = intent.profile_number(profile)
+    if value.get("profile_number") != number:
+        raise ContractError("candidate intent profile number mismatch")
 
     preimage = value.get("identity_preimage")
     if not isinstance(preimage, dict):
@@ -104,7 +109,7 @@ def verify(
     except intent.IntentError as exc:
         raise ContractError(str(exc)) from exc
     _source_data, source_rows = intent.source_receipts(root)
-    expected_preimage = intent.identity_preimage(nonce, source_rows)
+    expected_preimage = intent.identity_preimage(nonce, source_rows, profile)
     if preimage != expected_preimage:
         raise ContractError("candidate identity preimage does not bind current sources")
     preimage_sha256 = hashlib.sha256(intent.canonical(preimage)).hexdigest()
@@ -113,7 +118,7 @@ def verify(
     run_id = intent.derive_run_id(preimage)
     if value.get("run_id") != run_id.hex():
         raise ContractError("candidate run ID derivation mismatch")
-    unsat = intent.decoder.model.unsat_record(intent.PROFILE, run_id)
+    unsat = intent.decoder.model.unsat_record(profile, run_id)
     unsat_tag = unsat[len(intent.decoder.model.UNSAT_FAMILY) :]
     if (
         value.get("unsat_record_hex") != unsat.hex()
@@ -122,15 +127,15 @@ def verify(
         raise ContractError("candidate UNSAT derivation mismatch")
 
     expected_patch = intent.build_patch(
-        _source_data["base_patch"], run_id, unsat_tag
+        _source_data["base_patch"], run_id, unsat_tag, profile
     )
     if patch != expected_patch:
         raise ContractError("candidate patch differs from exact regeneration")
-    patch_audit = intent.audit_patch(source, patch, run_id, unsat_tag)
+    patch_audit = intent.audit_patch(source, patch, run_id, unsat_tag, profile)
     expected_patch_row = {**intent.receipt(patch), **patch_audit}
     if value.get("patch") != expected_patch_row:
         raise ContractError("candidate patch audit receipt mismatch")
-    reachable = intent.p233.validate_reachable_records({intent.PROFILE: run_id})
+    reachable = intent.p233.validate_reachable_records({profile: run_id})
     if value.get("reachable_record_contract") != reachable:
         raise ContractError("candidate reachable-record contract mismatch")
     safety = _exact(
@@ -156,8 +161,8 @@ def verify(
         "schema": SCHEMA,
         "target": TARGET,
         "verdict": VERDICT,
-        "profile": intent.PROFILE,
-        "profile_number": intent.PROFILE_NUMBER,
+        "profile": profile,
+        "profile_number": number,
         "run_id": run_id.hex(),
         "unsat_record_hex": unsat.hex(),
         "unsat_tag_hex": unsat_tag.hex(),

@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Build the candidate-bound P2.34 E1A init and child reproducibly."""
+"""Build a candidate-bound FYG8 E1 init and child reproducibly."""
 
 from __future__ import annotations
 
@@ -26,6 +26,7 @@ import s22plus_fyg8_p234_candidate_contract as candidate_contract  # noqa: E402
 
 SCHEMA = "s22plus_fyg8_p234_userspace_build_v1"
 VERDICT = "PASS_P234_E1A_USERSPACE_TWO_BUILD_REPRO_HOST_ONLY"
+E1B_VERDICT = "PASS_P239_E1B_USERSPACE_TWO_BUILD_REPRO_HOST_ONLY"
 TARGET = candidate_contract.TARGET
 DEFAULT_INTENT = candidate_contract.DEFAULT_INTENT
 DEFAULT_PATCH = candidate_contract.DEFAULT_PATCH
@@ -91,6 +92,14 @@ class BuildError(ValueError):
     pass
 
 
+def verdict_for_profile(profile: str) -> str:
+    if profile == "E1A":
+        return VERDICT
+    if profile == "E1B":
+        return E1B_VERDICT
+    raise BuildError(f"unsupported userspace profile: {profile}")
+
+
 def require_tools() -> dict[str, str]:
     resolved = {name: shutil.which(name) for name in TOOL_NAMES}
     missing = [name for name, path in resolved.items() if path is None]
@@ -131,6 +140,7 @@ def _compile_once(
     directory: Path,
     run_id: bytes,
     tools: dict[str, str],
+    profile: str = candidate_contract.intent.PROFILE,
 ) -> dict[str, Any]:
     init_path = directory / "init"
     child_path = directory / "s22-e1-child"
@@ -140,7 +150,7 @@ def _compile_once(
         [
             tools["aarch64-linux-gnu-gcc"],
             *COMPILE_FLAGS,
-            "-DS22PLUS_FYG8_P233_PROFILE=1",
+            f"-DS22PLUS_FYG8_P233_PROFILE={candidate_contract.intent.profile_number(profile)}",
             f"-DS22PLUS_FYG8_P233_RUN_ID_BYTES={define}",
             "-I",
             include,
@@ -150,7 +160,7 @@ def _compile_once(
             init_path,
         ],
         cwd=root,
-        label="compile P2.34 E1A init",
+        label=f"compile FYG8 {profile} init",
     )
     _run(
         [
@@ -208,23 +218,24 @@ def _compile_once(
     init_data = outputs["init"]["data"]
     child_data = outputs["child"]["data"]
     forbidden_ids = (
-        p233.model.model_run_id("E1A"),
-        p233.SOURCE_CHECK_RUN_IDS["E1A"],
+        *(p233.model.model_run_id(name) for name in candidate_contract.intent.SUPPORTED_PROFILES),
+        *p233.SOURCE_CHECK_RUN_IDS.values(),
     )
     module_counts = {
         name: init_data.count(name.encode("ascii"))
         for name in FORBIDDEN_MODULE_NAMES
     }
+    expected_module_count = 0 if profile == "E1A" else 1
     if (
         init_data.count(run_id) != 1
         or init_data.count(b"/proc/s22_checkpoint") != 1
         or init_data.count(b"/s22-e1-child") != 1
         or init_data.count(CHILD_TOKEN) != 1
         or any(init_data.count(value) for value in forbidden_ids)
-        or any(module_counts.values())
+        or any(count != expected_module_count for count in module_counts.values())
         or child_data.count(CHILD_TOKEN) != 1
     ):
-        raise BuildError("P2.34 E1A candidate identity or closure mismatch")
+        raise BuildError(f"FYG8 {profile} candidate identity or closure mismatch")
     child_run = _run(
         [tools["qemu-aarch64"], child_path],
         cwd=root,
@@ -251,8 +262,8 @@ def build_userspace(args: argparse.Namespace) -> dict[str, Any]:
         candidate_contract.intent.resolve(root, args.intent),
         candidate_contract.intent.resolve(root, args.patch),
     )
-    if exact_contract["profile"] != "E1A":
-        raise BuildError("P2.34 userspace builder accepts only E1A")
+    profile = exact_contract["profile"]
+    verdict = verdict_for_profile(profile)
     run_id = bytes.fromhex(exact_contract["run_id"])
     tools = require_tools()
     source_result = p233.audit_sources(
@@ -265,14 +276,14 @@ def build_userspace(args: argparse.Namespace) -> dict[str, Any]:
     output.parent.mkdir(parents=True, exist_ok=True)
     with tempfile.TemporaryDirectory(prefix="s22-p234-userspace-a-") as first_name:
         first_dir = Path(first_name)
-        first = _compile_once(root, first_dir, run_id, tools)
+        first = _compile_once(root, first_dir, run_id, tools, profile)
         first_bytes = {
             "init": (first_dir / "init").read_bytes(),
             "child": (first_dir / "s22-e1-child").read_bytes(),
         }
     with tempfile.TemporaryDirectory(prefix="s22-p234-userspace-b-") as second_name:
         second_dir = Path(second_name)
-        second = _compile_once(root, second_dir, run_id, tools)
+        second = _compile_once(root, second_dir, run_id, tools, profile)
         second_bytes = {
             "init": (second_dir / "init").read_bytes(),
             "child": (second_dir / "s22-e1-child").read_bytes(),
@@ -282,11 +293,11 @@ def build_userspace(args: argparse.Namespace) -> dict[str, Any]:
     result = {
         "schema": SCHEMA,
         "target": TARGET,
-        "verdict": VERDICT,
+        "verdict": verdict,
         "candidate_contract": exact_contract,
         "source_contract": source_result,
         "run_id": exact_contract["run_id"],
-        "profile": "E1A",
+        "profile": profile,
         "compile_flags": list(COMPILE_FLAGS),
         "outputs": first,
         "two_build_byte_identical": True,

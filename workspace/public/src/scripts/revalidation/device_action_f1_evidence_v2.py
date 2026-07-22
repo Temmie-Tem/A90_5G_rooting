@@ -72,6 +72,77 @@ E1_LATEST_STAGE_BASE_FILES = {
         "7d281c86ca63646083b9f489eed28281c7d2518f397f34ceccf34c223eaa663a"
     ),
 }
+E1B_MODULE_SPECS = [
+    {
+        "file": "smem.ko",
+        "runtime": "smem",
+        "size": 28_704,
+        "sha256": "27a80d5598329d6a526384d09806de63983204988748ea4e7d3fccfafc24a524",
+    },
+    {
+        "file": "minidump.ko",
+        "runtime": "minidump",
+        "size": 37_312,
+        "sha256": "e5e6f4dfe1ddac2cd4f8d15c11a50d4d32b6e9de278fedbed44747630a5c554d",
+    },
+    {
+        "file": "qcom-scm.ko",
+        "runtime": "qcom_scm",
+        "size": 218_384,
+        "sha256": "e12ba8661808c2c47acf42c9939157e509fcdb5b98f6e650f79b92dba18a1af3",
+    },
+    {
+        "file": "qcom_wdt_core.ko",
+        "runtime": "qcom_wdt_core",
+        "size": 48_640,
+        "sha256": "ef484fb4f1f17586ff63852e0ea9579d07f275f7966ad117d20039055c2d7599",
+    },
+    {
+        "file": "gh_virt_wdt.ko",
+        "runtime": "gh_virt_wdt",
+        "size": 18_944,
+        "sha256": "f030c5486a41b1fbe4b0ea3aa85a401dd16daa1f1a551a626f6ea424ee90dd39",
+    },
+]
+E1B_MODULE_FILES = [row["file"] for row in E1B_MODULE_SPECS]
+E1B_MODULE_RUNTIME_NAMES = [row["runtime"] for row in E1B_MODULE_SPECS]
+E1B_MODULE_ORDER_MODEL = (
+    "modules.dep topological order with stock modules.load.recovery tie-breaks"
+)
+E1B_STOCK_RECOVERY_POSITIONS = {
+    "gh_virt_wdt.ko": 5,
+    "minidump.ko": 51,
+    "qcom-scm.ko": 83,
+    "qcom_wdt_core.ko": 6,
+    "smem.ko": 124,
+}
+E1B_VENDOR_METADATA_HASHES = {
+    "modules.alias": "5679e647fcdcb6a13bd4f20d24a901f158e641fbd0a813274c99006ec8fa2c20",
+    "modules.dep": "21eae389f1d8b0a9fc93cec0b12d36e736cfac656d91ae55055c793f2ed67b27",
+    "modules.load": "8491b842e6e05cfba42694ad003301a6598e8d152ec10cc8f0cc6fb17f10e232",
+    "modules.load.recovery": "616bdb71f2b68d76eca23f72883aea25d5202d4e14f5c99dd934720df863ac10",
+    "modules.softdep": "21d6a678d186356c2fb0349a8a9a5190e6e225dab0feb5012e495a100c33afb0",
+}
+E1B_COMPOSITION_ORDER = ["generic", "vendor[0]/"]
+E1B_EFFECTIVE_ENTRY_COUNT = 474
+E1B_EFFECTIVE_MODULE_ROWS = [
+    {"file": name, "runtime": runtime, "layer": "vendor[0]/"}
+    for name, runtime in zip(E1B_MODULE_FILES, E1B_MODULE_RUNTIME_NAMES)
+]
+E1B_ELF_ENTRYPOINTS = {"init": 4_198_200, "child": 4_194_508}
+E1B_STOCK_VENDOR_BOOT = {
+    "size": 100_663_296,
+    "sha256": "096e433e049fb088cd956e083d5a1039b33cdf0ca907e713bba7feaaf1b080b7",
+}
+
+
+def _e1_reachable_slot_variant_count(profile: str) -> int:
+    model = e1_latest_stage.model
+    sequence = model.PROFILE_STAGE_SEQUENCES.get(profile)
+    terminal = model.PROFILE_TERMINALS.get(profile)
+    if not sequence or sequence[-1] != terminal or sequence.count(terminal) != 1:
+        raise EvidenceError("E1 profile stage sequence is not terminal-bound")
+    return sum(1 if stage == terminal else 1 + 4095 for stage in sequence)
 
 
 class EvidenceError(ValueError):
@@ -118,6 +189,126 @@ def _binary_identity(value: Any, label: str) -> dict[str, Any]:
     ):
         raise EvidenceError(f"{label} identity is invalid")
     return item
+
+
+def validate_e1b_stock_closure(
+    *,
+    module_closure: Any,
+    effective_rootfs: Any,
+    stock_vendor_boot: Any,
+    expected_init: dict[str, Any],
+    expected_child: dict[str, Any],
+) -> None:
+    closure = _exact(
+        module_closure,
+        {
+            "files",
+            "runtime_names",
+            "count",
+            "modules",
+            "order_model",
+            "stock_recovery_positions",
+            "vendor_metadata_hashes",
+        },
+        "E1B module closure",
+    )
+    expected_closure = {
+        "files": E1B_MODULE_FILES,
+        "runtime_names": E1B_MODULE_RUNTIME_NAMES,
+        "count": len(E1B_MODULE_FILES),
+        "modules": E1B_MODULE_SPECS,
+        "order_model": E1B_MODULE_ORDER_MODEL,
+        "stock_recovery_positions": E1B_STOCK_RECOVERY_POSITIONS,
+        "vendor_metadata_hashes": E1B_VENDOR_METADATA_HASHES,
+    }
+    if closure != expected_closure:
+        raise EvidenceError("E1B stock module derivation differs from the pinned closure")
+
+    rootfs = _exact(
+        effective_rootfs,
+        {
+            "composition_order",
+            "entry_count",
+            "no_duplicate_override_or_alias",
+            "init",
+            "child",
+            "modules",
+            "module_count",
+            "rdinit_override_absent",
+            "verified",
+        },
+        "E1B effective rootfs",
+    )
+    init = _exact(
+        rootfs["init"],
+        {"size", "sha256", "elf", "run_id_count"},
+        "E1B effective init",
+    )
+    child = _exact(
+        rootfs["child"], {"size", "sha256", "elf"}, "E1B effective child"
+    )
+    init_elf = _exact(
+        init["elf"],
+        {
+            "machine",
+            "entrypoint",
+            "interpreter",
+            "dynamic",
+            "executable_stack",
+            "entrypoint_mapped",
+            "verified",
+        },
+        "E1B effective init ELF",
+    )
+    child_elf = _exact(
+        child["elf"],
+        {
+            "machine",
+            "entrypoint",
+            "interpreter",
+            "dynamic",
+            "executable_stack",
+            "entrypoint_mapped",
+            "verified",
+        },
+        "E1B effective child ELF",
+    )
+    expected_elf = {
+        "machine": "AArch64",
+        "interpreter": False,
+        "dynamic": False,
+        "executable_stack": False,
+        "entrypoint_mapped": True,
+        "verified": True,
+    }
+    if (
+        _binary_identity(
+            {name: init[name] for name in ("size", "sha256")},
+            "E1B effective init",
+        )
+        != expected_init
+        or _binary_identity(
+            {name: child[name] for name in ("size", "sha256")},
+            "E1B effective child",
+        )
+        != expected_child
+        or init.get("run_id_count") != 1
+        or init_elf
+        != {**expected_elf, "entrypoint": E1B_ELF_ENTRYPOINTS["init"]}
+        or child_elf
+        != {**expected_elf, "entrypoint": E1B_ELF_ENTRYPOINTS["child"]}
+        or rootfs.get("composition_order") != E1B_COMPOSITION_ORDER
+        or rootfs.get("entry_count") != E1B_EFFECTIVE_ENTRY_COUNT
+        or rootfs.get("no_duplicate_override_or_alias") is not True
+        or rootfs.get("modules") != E1B_EFFECTIVE_MODULE_ROWS
+        or rootfs.get("module_count") != len(E1B_EFFECTIVE_MODULE_ROWS)
+        or rootfs.get("rdinit_override_absent") is not True
+        or rootfs.get("verified") is not True
+    ):
+        raise EvidenceError("E1B effective stock rootfs differs from the pinned closure")
+
+    if _binary_identity(stock_vendor_boot, "E1B stock vendor_boot") != E1B_STOCK_VENDOR_BOOT:
+        raise EvidenceError("E1B stock vendor_boot identity changed")
 
 
 def _record_blob_claim(
@@ -848,8 +1039,7 @@ def _verify_e1_latest_stage_offline_contract(
     item = validate_acceptance(acceptance)
     if item["kind"] != E1_LATEST_STAGE_KIND:
         raise EvidenceError("offline E1 latest-stage contract is not applicable")
-    if item["profile"] != "E1A":
-        raise EvidenceError("P2.34 offline evidence is restricted to E1A")
+    profile = item["profile"]
     if set(payloads) != {
         "candidate_static",
         "run_manifest",
@@ -886,7 +1076,7 @@ def _verify_e1_latest_stage_offline_contract(
         "terminal_stage": item["terminal_stage"],
     }
     expected_observation = {
-        "accepted_identity": "E1A_TERMINAL_SUCCESS_REACHED",
+        "accepted_identity": f"{profile}_TERMINAL_SUCCESS_REACHED",
         "minimum_success_count": 1,
         "clean_baseline_required": True,
     }
@@ -915,7 +1105,7 @@ def _verify_e1_latest_stage_offline_contract(
         or not _artifact_matches(run_manifest.get("candidate_ap"), candidate_ap)
         or payloads["run_manifest"] != canonical
     ):
-        raise EvidenceError("run manifest does not bind the E1A candidate")
+        raise EvidenceError("run manifest does not bind the E1 candidate")
     candidate_static = _binary_identity(
         run_manifest.get("candidate_static"), "E1A candidate static result"
     )
@@ -970,11 +1160,11 @@ def _verify_e1_latest_stage_offline_contract(
         "E1A candidate source contract",
     )
     run_id = bytes.fromhex(item["run_id"])
-    unsat_record = e1_latest_stage.model.unsat_record("E1A", run_id)
+    unsat_record = e1_latest_stage.model.unsat_record(profile, run_id)
     unsat_tag = unsat_record[len(e1_latest_stage.model.UNSAT_FAMILY) :]
     expected_config_lines = [
         "CONFIG_S22PLUS_FYG8_E1_LATEST_STAGE=y",
-        "CONFIG_S22PLUS_FYG8_E1_PROFILE=1",
+        f"CONFIG_S22PLUS_FYG8_E1_PROFILE={e1_latest_stage.model.PROFILE_NUMBERS[profile]}",
         f'CONFIG_S22PLUS_FYG8_E1_RUN_ID_HEX="{item["run_id"]}"',
         f'CONFIG_S22PLUS_FYG8_E1_UNSAT_TAG_HEX="{unsat_tag.hex()}"',
     ]
@@ -1042,7 +1232,8 @@ def _verify_e1_latest_stage_offline_contract(
         != E1_LATEST_STAGE_CANDIDATE_CONTRACT_VERDICT
         or source_contract.get("profile") != item["profile"]
         or type(source_contract.get("profile_number")) is not int
-        or source_contract.get("profile_number") != 1
+        or source_contract.get("profile_number")
+        != e1_latest_stage.model.PROFILE_NUMBERS[profile]
         or source_contract.get("run_id") != item["run_id"]
         or source_contract.get("unsat_record_hex") != unsat_record.hex()
         or source_contract.get("unsat_tag_hex") != unsat_tag.hex()
@@ -1070,9 +1261,9 @@ def _verify_e1_latest_stage_offline_contract(
         )
         or source_reachable
         != {
-            "reachable_slot_variants": 32769,
-            "profiles": ["E1A"],
-            "checked_run_ids": {"E1A": item["run_id"]},
+            "reachable_slot_variants": _e1_reachable_slot_variant_count(profile),
+            "profiles": [profile],
+            "checked_run_ids": {profile: item["run_id"]},
             "adjacent_slot_combinations_verified": True,
             "zero_crc_count": 0,
             "family_collision_count": 0,
@@ -1090,7 +1281,9 @@ def _verify_e1_latest_stage_offline_contract(
         }
         or source_contract.get("verified") is not True
     ):
-        raise EvidenceError("candidate static source contract is not E1A-bound")
+        raise EvidenceError(
+            "candidate static source contract is not E1A-bound or E1B-bound"
+        )
     source_build = _exact(
         candidate_static_result.get("build_repro"),
         {
@@ -1115,24 +1308,29 @@ def _verify_e1_latest_stage_offline_contract(
     source_image_identity = _binary_identity(
         source_build.get("image"), "E1A kernel Image"
     )
+    candidate_keys = {
+        "artifacts",
+        "candidate_b_artifacts",
+        "base_boot",
+        "ap",
+        "fixed_interval",
+        "userspace",
+        "independent_reconstruction",
+        "independent_lz4_roundtrip",
+        "independent_magiskboot_unpack",
+        "writer_exclusion_verified",
+        "two_package_builds_byte_identical",
+        "manifest_absent",
+        "boot_only_ap",
+        "verified",
+    }
+    if profile == "E1B":
+        candidate_keys.update(
+            {"module_closure", "effective_rootfs", "stock_vendor_boot"}
+        )
     source_candidate = _exact(
         candidate_static_result.get("candidate"),
-        {
-            "artifacts",
-            "candidate_b_artifacts",
-            "base_boot",
-            "ap",
-            "fixed_interval",
-            "userspace",
-            "independent_reconstruction",
-            "independent_lz4_roundtrip",
-            "independent_magiskboot_unpack",
-            "writer_exclusion_verified",
-            "two_package_builds_byte_identical",
-            "manifest_absent",
-            "boot_only_ap",
-            "verified",
-        },
+        candidate_keys,
         "E1A candidate static artifact closure",
     )
     source_artifacts = _exact(
@@ -1185,6 +1383,14 @@ def _verify_e1_latest_stage_offline_contract(
         },
         "E1A source fixed interval",
     )
+    if profile == "E1B":
+        validate_e1b_stock_closure(
+            module_closure=source_candidate.get("module_closure"),
+            effective_rootfs=source_candidate.get("effective_rootfs"),
+            stock_vendor_boot=source_candidate.get("stock_vendor_boot"),
+            expected_init=normalized_source_userspace["init"],
+            expected_child=normalized_source_userspace["child"],
+        )
     source_tools = _exact(
         candidate_static_result["tools"],
         {"lz4", "magiskboot", "qemu_aarch64"},

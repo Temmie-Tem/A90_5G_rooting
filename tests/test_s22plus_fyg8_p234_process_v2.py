@@ -34,7 +34,48 @@ class P234ProcessV2Test(unittest.TestCase):
     def identity(seed, size=123):
         return {"size": size, "sha256": hashlib.sha256(seed).hexdigest()}
 
-    def fixture(self):
+    def repin_candidate_static(self, payloads, acceptance, mutate):
+        candidate = json.loads(payloads["candidate_static"])
+        mutate(candidate)
+        payloads["candidate_static"] = (
+            json.dumps(candidate, indent=2, sort_keys=True).encode("ascii") + b"\n"
+        )
+        candidate_receipt = self.module.receipt(payloads["candidate_static"])
+
+        run_manifest = json.loads(payloads["run_manifest"])
+        run_manifest["candidate_static"] = candidate_receipt
+        payloads["run_manifest"] = self.module.canonical(run_manifest)
+
+        process_static = json.loads(payloads["static_check"])
+        process_static["run_binding"] = {
+            "canonical_manifest_size": len(payloads["run_manifest"]),
+            "canonical_manifest_sha256": hashlib.sha256(
+                payloads["run_manifest"]
+            ).hexdigest(),
+            "verified": True,
+        }
+        process_static["candidate"]["artifacts"]["candidate_static"] = (
+            candidate_receipt
+        )
+        payloads["static_check"] = self.module.canonical(process_static)
+
+        receipts = {
+            name: self.module.receipt(payload) for name, payload in payloads.items()
+        }
+        acceptance["contract"] = {
+            name: {"path": f"contracts/{name}.json", **value}
+            for name, value in receipts.items()
+        }
+        return receipts
+
+    def fixture(self, profile="E1A"):
+        model = self.evidence.e1_latest_stage.model
+        profile_number = model.PROFILE_NUMBERS[profile]
+        terminal = model.PROFILE_TERMINALS[profile]
+        reachable_slot_variants = sum(
+            1 if stage == terminal else 1 + 4095
+            for stage in model.PROFILE_STAGE_SEQUENCES[profile]
+        )
         run_id = hashlib.sha256(b"P234-PROCESS-V2-TEST").hexdigest()[:32]
         ap = self.identity(b"ap", 456)
         identities = {
@@ -58,14 +99,14 @@ class P234ProcessV2Test(unittest.TestCase):
                 "schema": self.evidence.E1_LATEST_STAGE_CANDIDATE_CONTRACT_SCHEMA,
                 "target": self.module.TARGET,
                 "verdict": self.evidence.E1_LATEST_STAGE_CANDIDATE_CONTRACT_VERDICT,
-                "profile": "E1A",
-                "profile_number": 1,
+                "profile": profile,
+                "profile_number": profile_number,
                 "run_id": run_id,
                 "unsat_record_hex": self.evidence.e1_latest_stage.model.unsat_record(
-                    "E1A", bytes.fromhex(run_id)
+                    profile, bytes.fromhex(run_id)
                 ).hex(),
                 "unsat_tag_hex": self.evidence.e1_latest_stage.model.unsat_record(
-                    "E1A", bytes.fromhex(run_id)
+                    profile, bytes.fromhex(run_id)
                 )[len(self.evidence.e1_latest_stage.model.UNSAT_FAMILY) :].hex(),
                 "decoder_id": self.evidence.E1_LATEST_STAGE_DECODER,
                 "decoder_policy_id": self.evidence.e1_latest_stage.POLICY_ID,
@@ -80,11 +121,11 @@ class P234ProcessV2Test(unittest.TestCase):
                     },
                     "config_lines": [
                         "CONFIG_S22PLUS_FYG8_E1_LATEST_STAGE=y",
-                        "CONFIG_S22PLUS_FYG8_E1_PROFILE=1",
+                        f"CONFIG_S22PLUS_FYG8_E1_PROFILE={profile_number}",
                         f'CONFIG_S22PLUS_FYG8_E1_RUN_ID_HEX="{run_id}"',
                         "CONFIG_S22PLUS_FYG8_E1_UNSAT_TAG_HEX=\""
                         + self.evidence.e1_latest_stage.model.unsat_record(
-                            "E1A", bytes.fromhex(run_id)
+                            profile, bytes.fromhex(run_id)
                         )[len(self.evidence.e1_latest_stage.model.UNSAT_FAMILY) :].hex()
                         + "\"",
                     ],
@@ -98,18 +139,18 @@ class P234ProcessV2Test(unittest.TestCase):
                 },
                 "config_lines": [
                     "CONFIG_S22PLUS_FYG8_E1_LATEST_STAGE=y",
-                    "CONFIG_S22PLUS_FYG8_E1_PROFILE=1",
+                    f"CONFIG_S22PLUS_FYG8_E1_PROFILE={profile_number}",
                     f'CONFIG_S22PLUS_FYG8_E1_RUN_ID_HEX="{run_id}"',
                     "CONFIG_S22PLUS_FYG8_E1_UNSAT_TAG_HEX=\""
                     + self.evidence.e1_latest_stage.model.unsat_record(
-                        "E1A", bytes.fromhex(run_id)
+                        profile, bytes.fromhex(run_id)
                     )[len(self.evidence.e1_latest_stage.model.UNSAT_FAMILY) :].hex()
                     + "\"",
                 ],
                 "reachable_record_contract": {
-                    "reachable_slot_variants": 32769,
-                    "profiles": ["E1A"],
-                    "checked_run_ids": {"E1A": run_id},
+                    "reachable_slot_variants": reachable_slot_variants,
+                    "profiles": [profile],
+                    "checked_run_ids": {profile: run_id},
                     "adjacent_slot_combinations_verified": True,
                     "zero_crc_count": 0,
                     "family_collision_count": 0,
@@ -187,6 +228,71 @@ class P234ProcessV2Test(unittest.TestCase):
                 "live_authorized": False,
             },
         }
+        if profile == "E1B":
+            static_result["candidate"].update(
+                {
+                    "module_closure": {
+                        "files": copy.deepcopy(self.evidence.E1B_MODULE_FILES),
+                        "runtime_names": copy.deepcopy(
+                            self.evidence.E1B_MODULE_RUNTIME_NAMES
+                        ),
+                        "count": 5,
+                        "modules": copy.deepcopy(self.evidence.E1B_MODULE_SPECS),
+                        "order_model": self.evidence.E1B_MODULE_ORDER_MODEL,
+                        "stock_recovery_positions": copy.deepcopy(
+                            self.evidence.E1B_STOCK_RECOVERY_POSITIONS
+                        ),
+                        "vendor_metadata_hashes": copy.deepcopy(
+                            self.evidence.E1B_VENDOR_METADATA_HASHES
+                        ),
+                    },
+                    "effective_rootfs": {
+                        "composition_order": copy.deepcopy(
+                            self.evidence.E1B_COMPOSITION_ORDER
+                        ),
+                        "entry_count": self.evidence.E1B_EFFECTIVE_ENTRY_COUNT,
+                        "init": {
+                            **userspace["init"],
+                            "elf": {
+                                "verified": True,
+                                "machine": "AArch64",
+                                "entrypoint": self.evidence.E1B_ELF_ENTRYPOINTS[
+                                    "init"
+                                ],
+                                "interpreter": False,
+                                "dynamic": False,
+                                "executable_stack": False,
+                                "entrypoint_mapped": True,
+                            },
+                            "run_id_count": 1,
+                        },
+                        "child": {
+                            **userspace["child"],
+                            "elf": {
+                                "verified": True,
+                                "machine": "AArch64",
+                                "entrypoint": self.evidence.E1B_ELF_ENTRYPOINTS[
+                                    "child"
+                                ],
+                                "interpreter": False,
+                                "dynamic": False,
+                                "executable_stack": False,
+                                "entrypoint_mapped": True,
+                            },
+                        },
+                        "modules": copy.deepcopy(
+                            self.evidence.E1B_EFFECTIVE_MODULE_ROWS
+                        ),
+                        "module_count": 5,
+                        "no_duplicate_override_or_alias": True,
+                        "rdinit_override_absent": True,
+                        "verified": True,
+                    },
+                    "stock_vendor_boot": copy.deepcopy(
+                        self.evidence.E1B_STOCK_VENDOR_BOOT
+                    ),
+                }
+            )
         candidate_static_payload = (
             json.dumps(static_result, indent=2, sort_keys=True).encode("ascii") + b"\n"
         )
@@ -207,12 +313,12 @@ class P234ProcessV2Test(unittest.TestCase):
             "source": self.evidence.CHECKPOINT_SOURCE,
             "decoder": self.evidence.E1_LATEST_STAGE_DECODER,
             "policy_id": self.evidence.e1_latest_stage.POLICY_ID,
-            "profile": "E1A",
+            "profile": profile,
             "run_id": run_id,
             "long_family_hex": self.evidence.e1_latest_stage.model.LONG_FAMILY.hex(),
             "unsat_family_hex": self.evidence.e1_latest_stage.model.UNSAT_FAMILY.hex(),
             "terminal_stage": self.evidence.e1_latest_stage.model.PROFILE_TERMINALS[
-                "E1A"
+                profile
             ],
             "minimum_success_count": 1,
             "clean_baseline_required": True,
@@ -524,19 +630,101 @@ class P234ProcessV2Test(unittest.TestCase):
                 candidate_ap=ap,
             )
 
-    def test_offline_verifier_rejects_e1b_profile(self):
+    def test_offline_verifier_rejects_incoherent_e1b_profile(self):
         _static, _candidate_static, ap, payloads, receipts, acceptance = self.fixture()
         acceptance["profile"] = "E1B"
         acceptance["terminal_stage"] = (
             self.evidence.e1_latest_stage.model.PROFILE_TERMINALS["E1B"]
         )
-        with self.assertRaisesRegex(self.evidence.EvidenceError, "restricted to E1A"):
+        with self.assertRaisesRegex(self.evidence.EvidenceError, "run manifest"):
             self.evidence.verify_offline_contract(
                 acceptance,
                 payloads=payloads,
                 receipts=receipts,
                 candidate_ap=ap,
             )
+
+    def test_offline_verifier_accepts_coherent_e1b_profile(self):
+        _static, candidate_static, ap, payloads, receipts, acceptance = self.fixture(
+            "E1B"
+        )
+        result = self.evidence.verify_offline_contract(
+            acceptance,
+            payloads=payloads,
+            receipts=receipts,
+            candidate_ap=ap,
+        )
+        self.assertTrue(result["verified"])
+        self.assertEqual(result["profile"], "E1B")
+        self.assertEqual(result["terminal_stage"], 0x3F)
+        self.assertEqual(result["candidate_static_sha256"], candidate_static["sha256"])
+
+    def test_offline_verifier_rejects_repinned_impossible_e1b_closures(self):
+        cases = {
+            "empty_stock_derivation": lambda value: (
+                value["candidate"]["module_closure"].__setitem__(
+                    "stock_recovery_positions", {}
+                ),
+                value["candidate"]["module_closure"].__setitem__(
+                    "vendor_metadata_hashes", {}
+                ),
+            ),
+            "unbound_composition": lambda value: (
+                value["candidate"]["effective_rootfs"].__setitem__(
+                    "composition_order", ["generic"]
+                ),
+                [
+                    row.__setitem__("layer", "vendor[99]/forged")
+                    for row in value["candidate"]["effective_rootfs"]["modules"]
+                ],
+            ),
+            "extra_non_dictionary_module": lambda value: value["candidate"][
+                "effective_rootfs"
+            ]["modules"].append("forged"),
+        }
+        for name, mutate in cases.items():
+            with self.subTest(name=name):
+                _static, _candidate_static, ap, payloads, _receipts, acceptance = (
+                    self.fixture("E1B")
+                )
+                receipts = self.repin_candidate_static(
+                    payloads, acceptance, mutate
+                )
+                with self.assertRaisesRegex(
+                    self.evidence.EvidenceError, "E1B .*closure"
+                ):
+                    self.evidence.verify_offline_contract(
+                        acceptance,
+                        payloads=payloads,
+                        receipts=receipts,
+                        candidate_ap=ap,
+                    )
+
+    def test_promotion_rejects_e1b_rootfs_identity_tampering(self):
+        cases = {
+            "module_digest": lambda value: value["candidate"]["module_closure"][
+                "modules"
+            ][0].__setitem__("sha256", "0" * 64),
+            "vendor_boot": lambda value: value["candidate"][
+                "stock_vendor_boot"
+            ].__setitem__("sha256", "0" * 64),
+            "module_layer": lambda value: value["candidate"]["effective_rootfs"][
+                "modules"
+            ][0].__setitem__("layer", "generic"),
+            "init_identity": lambda value: value["candidate"]["effective_rootfs"][
+                "init"
+            ].__setitem__("sha256", "0" * 64),
+        }
+        for name, mutate in cases.items():
+            with self.subTest(name=name):
+                static, candidate_static, ap, _payloads, _receipts, _acceptance = (
+                    self.fixture("E1B")
+                )
+                mutate(static)
+                with self.assertRaisesRegex(
+                    self.module.PromotionError, "E1B effective"
+                ):
+                    self.module.derive(static, candidate_static, ap)
 
     def test_promotion_rejects_unverified_writer_exclusion(self):
         static_result, candidate_static, ap, _payloads, _receipts, _acceptance = (

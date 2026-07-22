@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Build one deterministic boot-only P2.34 E1A candidate host-only."""
+"""Build one deterministic boot-only FYG8 E1 candidate host-only."""
 
 from __future__ import annotations
 
@@ -8,6 +8,7 @@ import hashlib
 import json
 import os
 import shutil
+import subprocess
 import sys
 import tempfile
 from pathlib import Path
@@ -36,6 +37,7 @@ DEFAULT_REPRO_RESULT = Path(
 )
 DEFAULT_USERSPACE = userspace.DEFAULT_OUT
 DEFAULT_BASE_BOOT = carrier.DEFAULT_BASE_BOOT
+DEFAULT_VENDOR_RAMDISK = carrier.DEFAULT_VENDOR_RAMDISK
 DEFAULT_LZ4 = carrier.DEFAULT_LZ4
 DEFAULT_MAGISKBOOT = carrier.DEFAULT_MAGISKBOOT
 DEFAULT_OUT = Path("workspace/private/outputs/s22plus_fyg8_p234/candidate-a")
@@ -108,10 +110,11 @@ def verify_userspace(
     if (
         value.get("schema") != userspace.SCHEMA
         or value.get("target") != TARGET
-        or value.get("verdict") != userspace.VERDICT
+        or value.get("verdict")
+        != userspace.verdict_for_profile(exact_contract["profile"])
         or value.get("candidate_contract") != exact_contract
         or value.get("run_id") != exact_contract["run_id"]
-        or value.get("profile") != "E1A"
+        or value.get("profile") != exact_contract["profile"]
         or value.get("two_build_byte_identical") is not True
     ):
         raise BuildError("P2.34 userspace result does not bind the candidate")
@@ -208,6 +211,16 @@ def build_candidate(args: argparse.Namespace) -> dict[str, Any]:
     userspace_data, userspace_closure = verify_userspace(
         candidate_contract.intent.resolve(root, args.userspace), exact_contract
     )
+    module_closure = None
+    if exact_contract["profile"] == "E1B":
+        with tempfile.TemporaryDirectory(prefix="s22-p239-module-closure-") as name:
+            module_closure = carrier.derive_and_verify_module_closure(
+                candidate_contract.intent.resolve(
+                    root, getattr(args, "vendor_ramdisk", DEFAULT_VENDOR_RAMDISK)
+                ),
+                candidate_contract.intent.resolve(root, args.lz4),
+                Path(name),
+            )
 
     output.parent.mkdir(parents=True, exist_ok=True)
     with tempfile.TemporaryDirectory(
@@ -287,11 +300,11 @@ def build_candidate(args: argparse.Namespace) -> dict[str, Any]:
         carrier.run_in_dir(
             [pinned_magiskboot, "repack", pinned_base, carrier_path],
             work,
-            "P2.34 repack E1A carrier",
+            "P2.34 repack E1 carrier",
         )
         carrier_boot = carrier_path.read_bytes()
         if len(carrier_boot) != BOOT_SIZE:
-            raise BuildError("P2.34 E1A carrier size mismatch")
+            raise BuildError("P2.34 E1 carrier size mismatch")
         if carrier_boot[KERNEL_START:KERNEL_END] != original_kernel:
             raise BuildError("P2.34 ramdisk repack changed the carrier kernel")
         candidate, construction = replace_kernel(carrier_boot, image)
@@ -400,6 +413,14 @@ def build_candidate(args: argparse.Namespace) -> dict[str, Any]:
                 "no_reboot_syscall": True,
             },
         }
+        if module_closure is not None:
+            result["module_closure"] = module_closure
+            result["construction"].update(
+                {
+                    "module_binaries_injected": 0,
+                    "vendor_ramdisk_modules_reused": True,
+                }
+            )
         (staging / "artifact-result.json").write_text(
             json.dumps(result, indent=2, sort_keys=True, allow_nan=False) + "\n",
             encoding="ascii",
@@ -417,6 +438,9 @@ def parse_args(argv: list[str] | None = None) -> argparse.Namespace:
     parser.add_argument("--repro-result", type=Path, default=DEFAULT_REPRO_RESULT)
     parser.add_argument("--userspace", type=Path, default=DEFAULT_USERSPACE)
     parser.add_argument("--base-boot", type=Path, default=DEFAULT_BASE_BOOT)
+    parser.add_argument(
+        "--vendor-ramdisk", type=Path, default=DEFAULT_VENDOR_RAMDISK
+    )
     parser.add_argument("--lz4", type=Path, default=DEFAULT_LZ4)
     parser.add_argument("--magiskboot", type=Path, default=DEFAULT_MAGISKBOOT)
     parser.add_argument("--out", type=Path, default=DEFAULT_OUT)

@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Create one candidate-bound P2.34 E1A identity and exact kernel patch."""
+"""Create one candidate-bound FYG8 E1 identity and exact kernel patch."""
 
 from __future__ import annotations
 
@@ -32,6 +32,11 @@ TARGET = p233.TARGET
 PROFILE = "E1A"
 PROFILE_NUMBER = decoder.model.PROFILE_NUMBERS[PROFILE]
 RUN_ID_DOMAIN = b"S22PLUS-FYG8-P234-E1A-RUN-ID-V1\0"
+SUPPORTED_PROFILES = ("E1A", "E1B")
+RUN_ID_DOMAINS = {
+    "E1A": RUN_ID_DOMAIN,
+    "E1B": b"S22PLUS-FYG8-P239-E1B-RUN-ID-V1\0",
+}
 DEFAULT_SOURCE = p233.DEFAULT_SOURCE
 DEFAULT_BASE_PATCH = p233.DEFAULT_PATCH
 DEFAULT_OUT = Path("workspace/private/outputs/s22plus_fyg8_p234/intent")
@@ -107,12 +112,20 @@ def source_receipts(root: Path) -> tuple[dict[str, bytes], dict[str, Any]]:
     return data, rows
 
 
-def identity_preimage(nonce: bytes, sources: dict[str, Any]) -> dict[str, Any]:
+def profile_number(profile: str) -> int:
+    if profile not in SUPPORTED_PROFILES:
+        raise IntentError(f"unsupported E1 candidate profile: {profile}")
+    return decoder.model.PROFILE_NUMBERS[profile]
+
+
+def identity_preimage(
+    nonce: bytes, sources: dict[str, Any], profile: str = PROFILE
+) -> dict[str, Any]:
     return {
         "schema": PREIMAGE_SCHEMA,
         "target": TARGET,
-        "profile": PROFILE,
-        "profile_number": PROFILE_NUMBER,
+        "profile": profile,
+        "profile_number": profile_number(profile),
         "nonce": nonce.hex(),
         "decoder_id": decoder.DECODER_ID,
         "decoder_policy_id": decoder.POLICY_ID,
@@ -122,10 +135,15 @@ def identity_preimage(nonce: bytes, sources: dict[str, Any]) -> dict[str, Any]:
 
 
 def derive_run_id(preimage: dict[str, Any]) -> bytes:
-    run_id = hashlib.sha256(RUN_ID_DOMAIN + canonical(preimage)).digest()[:16]
+    profile = preimage.get("profile")
+    if not isinstance(profile, str) or preimage.get("profile_number") != profile_number(
+        profile
+    ):
+        raise IntentError("candidate preimage profile binding is invalid")
+    run_id = hashlib.sha256(RUN_ID_DOMAINS[profile] + canonical(preimage)).digest()[:16]
     rejected = {
         bytes(16),
-        decoder.model.model_run_id(PROFILE),
+        *(decoder.model.model_run_id(name) for name in SUPPORTED_PROFILES),
         *p233.SOURCE_CHECK_RUN_IDS.values(),
     }
     if run_id in rejected:
@@ -133,10 +151,12 @@ def derive_run_id(preimage: dict[str, Any]) -> bytes:
     return run_id
 
 
-def defconfig_patch(run_id: bytes, unsat_tag: bytes) -> bytes:
+def defconfig_patch(
+    run_id: bytes, unsat_tag: bytes, profile: str = PROFILE
+) -> bytes:
     lines = (
         "CONFIG_S22PLUS_FYG8_E1_LATEST_STAGE=y",
-        f"CONFIG_S22PLUS_FYG8_E1_PROFILE={PROFILE_NUMBER}",
+        f"CONFIG_S22PLUS_FYG8_E1_PROFILE={profile_number(profile)}",
         f'CONFIG_S22PLUS_FYG8_E1_RUN_ID_HEX="{run_id.hex()}"',
         f'CONFIG_S22PLUS_FYG8_E1_UNSAT_TAG_HEX="{unsat_tag.hex()}"',
     )
@@ -157,14 +177,20 @@ def defconfig_patch(run_id: bytes, unsat_tag: bytes) -> bytes:
     ).encode("ascii")
 
 
-def build_patch(base_patch: bytes, run_id: bytes, unsat_tag: bytes) -> bytes:
+def build_patch(
+    base_patch: bytes, run_id: bytes, unsat_tag: bytes, profile: str = PROFILE
+) -> bytes:
     if not base_patch.endswith(b"\n"):
         raise IntentError("P2.33 base patch lacks final newline")
-    return defconfig_patch(run_id, unsat_tag) + b"\n" + base_patch
+    return defconfig_patch(run_id, unsat_tag, profile) + b"\n" + base_patch
 
 
 def audit_patch(
-    source: Path, patch: bytes, run_id: bytes, unsat_tag: bytes
+    source: Path,
+    patch: bytes,
+    run_id: bytes,
+    unsat_tag: bytes,
+    profile: str = PROFILE,
 ) -> dict[str, Any]:
     if source.is_symlink() or not source.is_dir():
         raise IntentError("FYG8 source tree is missing or indirect")
@@ -176,7 +202,7 @@ def audit_patch(
         raise IntentError(f"candidate patch targets changed: {decoded_targets}")
     config_lines = [
         "CONFIG_S22PLUS_FYG8_E1_LATEST_STAGE=y",
-        f"CONFIG_S22PLUS_FYG8_E1_PROFILE={PROFILE_NUMBER}",
+        f"CONFIG_S22PLUS_FYG8_E1_PROFILE={profile_number(profile)}",
         f'CONFIG_S22PLUS_FYG8_E1_RUN_ID_HEX="{run_id.hex()}"',
         f'CONFIG_S22PLUS_FYG8_E1_UNSAT_TAG_HEX="{unsat_tag.hex()}"',
     ]
@@ -246,19 +272,21 @@ def create(args: argparse.Namespace) -> dict[str, Any]:
     source = resolve(root, args.source)
     source_data, source_rows = source_receipts(root)
     nonce = parse_nonce(args.nonce_hex)
-    preimage = identity_preimage(nonce, source_rows)
+    profile = getattr(args, "profile", PROFILE)
+    number = profile_number(profile)
+    preimage = identity_preimage(nonce, source_rows, profile)
     run_id = derive_run_id(preimage)
-    unsat = decoder.model.unsat_record(PROFILE, run_id)
+    unsat = decoder.model.unsat_record(profile, run_id)
     unsat_tag = unsat[len(decoder.model.UNSAT_FAMILY) :]
-    reachable = p233.validate_reachable_records({PROFILE: run_id})
-    patch = build_patch(source_data["base_patch"], run_id, unsat_tag)
-    patch_audit = audit_patch(source, patch, run_id, unsat_tag)
+    reachable = p233.validate_reachable_records({profile: run_id})
+    patch = build_patch(source_data["base_patch"], run_id, unsat_tag, profile)
+    patch_audit = audit_patch(source, patch, run_id, unsat_tag, profile)
     result = {
         "schema": SCHEMA,
         "target": TARGET,
         "verdict": VERDICT,
-        "profile": PROFILE,
-        "profile_number": PROFILE_NUMBER,
+        "profile": profile,
+        "profile_number": number,
         "identity_preimage": preimage,
         "identity_preimage_sha256": hashlib.sha256(canonical(preimage)).hexdigest(),
         "run_id": run_id.hex(),
@@ -302,6 +330,7 @@ def parse_args(argv: list[str] | None = None) -> argparse.Namespace:
     parser.add_argument("--base-patch", type=Path, default=DEFAULT_BASE_PATCH)
     parser.add_argument("--out", type=Path, default=DEFAULT_OUT)
     parser.add_argument("--nonce-hex")
+    parser.add_argument("--profile", choices=SUPPORTED_PROFILES, default=PROFILE)
     args = parser.parse_args(argv)
     if args.base_patch != DEFAULT_BASE_PATCH:
         raise IntentError("alternate base patch is not supported")
