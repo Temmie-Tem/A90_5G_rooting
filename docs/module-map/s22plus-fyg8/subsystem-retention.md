@@ -190,8 +190,9 @@ read-only target, health, and clean-baseline preparation.
 P2.29 then executed that binding once. Candidate and rollback each transferred
 once and final health passed. The retained observation contained two exact
 USERSPACE records at different offsets in different warm-reset generations.
-Because the kernel state permits one USERSPACE replacement per boot, this is
-strong evidence of multiple candidate boots during physical recovery. The
+The operator confirmed that the first physical Download attempt was missed and
+the candidate booted twice. Because the kernel state permits one USERSPACE
+replacement per boot, the observed cardinality is fully accounted for. The
 immutable contract required exactly one record, so the durable result remains
 `NO_PROOF_F1_V2_CANDIDATE_ROLLED_BACK`. Future H0 work must model multiplicity;
 it must not reinterpret the archived verdict in place.

@@ -42,9 +42,13 @@ The two exact USERSPACE records occurred at different retained offsets,
 348,291 bytes apart. Each is adjacent to a different warm-reset XBL generation
 in the retained stream. The kernel implementation can replace ENTRY with
 USERSPACE only once per boot because `userspace_proven` rejects a second write.
-The strongest source-and-byte explanation is therefore two executions of the
-same candidate during the candidate-to-physical-Download recovery sequence,
-not a duplicate write within one boot.
+
+After the run closed, the operator confirmed that the first physical Download
+entry attempt was missed and the still-installed candidate booted twice before
+Download mode was reached. This accounts exactly for the two retained records:
+one USERSPACE replacement per candidate boot. The duplicate is therefore an
+operator-confirmed multi-boot recovery artifact, not an unexplained duplicate
+write within one boot.
 
 ## Verdict Boundary
 
@@ -57,21 +61,21 @@ NO_PROOF_F1_V2_CANDIDATE_ROLLED_BACK
 ```
 
 This verdict is not changed retroactively. The clean baseline, two exact
-candidate-bound USERSPACE records, one-write-per-boot source guard, and
-distinct warm-reset contexts are strong diagnostic evidence that the PID 1
-userspace callback ran on at least two candidate boots. They are not an F1
-PASS under the predeclared exact-cardinality contract.
+candidate-bound USERSPACE records, one-write-per-boot source guard, distinct
+warm-reset contexts, and operator-confirmed two candidate boots establish that
+the PID 1 userspace callback ran once in each boot. They are not an F1 PASS
+under the predeclared exact-cardinality contract.
 
-The run does not prove exactly one candidate boot, explain which physical
-transition introduced the additional boot, or establish any E1 stage after
-the first procfs checkpoint. It also does not prove USB or a host control path.
+The run does not establish any E1 stage after the first procfs checkpoint. It
+also does not prove USB or a host control path.
 
 ## Next Unit
 
 The approval binding is consumed and F1 is inactive. No retry is authorized.
 
-P2.30 is H0 only: model the recovery-induced multi-boot case and choose the
-smallest reviewed discriminator that preserves a clean pre-candidate baseline,
+P2.30 is H0 only: model the operator-confirmed recovery multi-boot case and
+choose the smallest reviewed discriminator that preserves a clean
+pre-candidate baseline,
 candidate-specific identity, no foreign or malformed family, and fail-closed
 handling while allowing one or more identical USERSPACE records to mean
 "callback reached on at least one candidate boot." The archived P2.29 verdict

@@ -39,7 +39,9 @@ P2.26 independently closed one boot-only AP around that exact Image. P2.27
 promoted its typed offline evidence, and P2.28 passed connected preparation.
 P2.29 transferred candidate and rollback once each and verified final health.
 Its clean-baseline retained result contained two exact USERSPACE records in
-different warm-reset generations. The immutable exact-one contract therefore
+different warm-reset generations. The operator confirmed that the first
+physical Download attempt was missed and the candidate booted twice, exactly
+accounting for one record per boot. The immutable exact-one contract still
 rejected the result as `AMBIGUOUS_INTEGRITY_FAILURE`; the approval is consumed
 and no retry is authorized.
 
@@ -105,8 +107,9 @@ reports grant no device authority.
 8. **P2.29 complete/closed, F1:** candidate and rollback transferred once and
    final health passed. Two exact USERSPACE records in distinct warm-reset
    contexts violated the immutable exact-one contract; verdict is no-proof.
-9. **P2.30 next, H0:** model recovery-induced multi-boot cardinality and design
-   a bounded positive rule without changing the archived P2.29 verdict.
+9. **P2.30 next, H0:** model the operator-confirmed recovery multi-boot
+   cardinality and design a bounded positive rule without changing the
+   archived P2.29 verdict.
 10. **E2-E4 later:** prove module closure, platform bind and UDC, then one ACM
     banner and nonce exchange. No shell, NCM, Debian, or hot reload.
 

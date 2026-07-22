@@ -20,7 +20,9 @@ Do not add a device step when host-only work can answer the question.
   exact Magisk rollback once each, and closed with final health verified. The
   clean-baseline retained result contained two exact USERSPACE records, so the
   immutable exact-one contract rejected it as `AMBIGUOUS_INTEGRITY_FAILURE` and
-  the durable verdict is `NO_PROOF_F1_V2_CANDIDATE_ROLLED_BACK`. The binding is
+  the durable verdict is `NO_PROOF_F1_V2_CANDIDATE_ROLLED_BACK`. The operator
+  confirmed that the first physical Download attempt was missed and the
+  candidate booted twice, accounting for one record per boot. The binding is
   consumed. F1 is inactive; the next work is H0 cardinality analysis and no
   candidate retry is authorized. USBFS arrival and exact measured Odin-node
   departure remain fail-closed.
