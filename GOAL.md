@@ -12,8 +12,8 @@ and authorization are isolated. `AGENTS.md` is the binding operating contract.
 **State: R4W1-D DIRECT PID1 PROVEN; P2.37 E1A LOCAL RUNTIME LIVE PASS;
 P2.39 E1B MODULE RUNTIME LIVE PASS; P2.42 E2 LIVE DIAGNOSTIC FAILURE AT
 DISPLAY-RSC BIND; P2.43 RPMH DEPENDENCY H0 PASS; P2.44 12-GATE E2
-IMPLEMENTATION H0 PASS; P2.45 REPRODUCIBLE E2 CANDIDATE H0 PASS; EXACT
-ROLLBACK AND FINAL HEALTH PASS.**
+IMPLEMENTATION H0 PASS; P2.45 REPRODUCIBLE E2 CANDIDATE H0 PASS; P2.46
+CONNECTED D0 PREPARED; EXACT ROLLBACK AND FINAL HEALTH PASS.**
 
 R4W1-D proved successful `kernel_execve("/init")` while `current` was PID 1.
 P2.29 later transferred one exact P2.26 boot-only candidate and one exact
@@ -180,8 +180,18 @@ contract without mutating the historical P2.42 path. A P2.45-only decoder
 covers all 80 stages and exhaustively accepts the 323,585 reachable records.
 Two clean Full-LTO builds, two deterministic package runs, independent linked
 and rootfs audits, and Process v2 offline promotion passed. The exact boot-only
-AP is closed under private output storage. P2.45 contacted no device and
-created no D0 binding, F1 approval, or live authority.
+AP is closed under private output storage.
+
+P2.46's first connected D0 attempt stopped read-only because
+`/proc/last_kmsg` contained a related historical evidence family. It created no
+prepared binding, Odin session, or transfer. One operator-approved normal
+Android reboot then completed exactly once and returned the same healthy FYG8
+target. A fresh connected D0 verified Android/root/boot health, exact supporting
+partition identities, Odin absence, a complete clean retained baseline, and
+the current execution closure. One private prepared binding now exists. No
+Odin invocation, Download transition, partition transfer, candidate attempt, or
+F1 authorization occurred. The next action requires the fresh exact approval
+token emitted by that binding.
 
 ## Established Evidence
 
@@ -265,6 +275,11 @@ created no D0 binding, F1 approval, or live authority.
   artifacts, two byte-identical boot-only packages, exact 59-module rootfs
   closure, linked flush audit, and Process v2 offline promotion pass. No
   device authority exists.
+- P2.46 connected D0: the first clean-baseline check rejected historical
+  evidence without creating a binding. One approved normal reboot rotated it
+  out, and a fresh D0 bound the healthy FYG8 target, exact candidate and
+  rollback, clean retained baseline, and current execution closure. F1 remains
+  unauthorized pending the exact emitted approval token.
 - Process v2: common D0/F1 execution, journal, regular-path Odin transport,
   rollback, and final health are proven.
 - V3439: pstore, pmsg, ramoops, and DTBO-based retention remain retired.
@@ -367,9 +382,11 @@ reports grant no device authority.
     versioned source contract and decoder; two clean reproducible Full-LTO
     builds, two deterministic boot-only packages, effective-rootfs closure,
     linked audit, independent review, and Process v2 offline promotion pass.
-25. **P2.46 next, D0 then F1 gate:** qualify the explicitly identified S22+
-    target read-only, create one fresh immutable Process v2 binding, and stop
-    for the exact candidate-plus-rollback approval. D0 does not authorize F1.
+25. **P2.46 prepared, D0 complete:** one approved normal reboot rotated the
+    historical evidence family out, and a fresh connected D0 created one
+    immutable Process v2 binding for the exact target, candidate, rollback,
+    and execution closure. Stop for its exact candidate-plus-rollback approval;
+    D0 does not authorize F1.
 26. **E3-E4 later:** after a separate E2 live proof, send one ACM banner and
     then one nonce exchange. No shell, NCM, Debian, or hot reload.
 
