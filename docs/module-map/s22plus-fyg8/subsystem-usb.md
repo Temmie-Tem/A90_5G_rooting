@@ -13,6 +13,9 @@
 - P2.43 RPMh dependency split: `H0_VERIFIED`; the P2.42 display-RSC gate is
   retired from the proposed USB contract, while replacement provider binds
   remain live-unknown.
+- P2.44 provider-gate implementation: `H0_VERIFIED`; the 12-gate source and
+  profile-3 transition model pass, while every replacement provider bind
+  remains live-unknown.
 
 The current O3 minimal-ACM metadata plan contains 59 modules and
 passes recursive hard dependency, softdep pre/post, stock-order, alias,
@@ -104,11 +107,11 @@ Adding the display module is explicitly out of scope.
 The display-RSC row above is retained only as historical P2.42 evidence. It is
 not a gate for a future USB candidate.
 
-## P2.43 Proposed Provider Gates
+## P2.44 Implemented Provider Gates
 
-P2.44 should preserve the first three and last three historical gates, replace
-the `rpmh` plus `gcc-waipio` pair with this ordered six-predicate chain, and
-add no module:
+P2.44 preserves the first three and last three historical gates, replaces the
+`rpmh` plus `gcc-waipio` pair with this ordered six-predicate chain, and adds
+no module:
 
 | Order within chain | Gate | Required path | Direct-PID1 status |
 |---:|---|---|---|
@@ -130,8 +133,9 @@ enumeration or survival.
 O0 stock control, O1.1 stock-first-stage control, O2 loader parity, the compact
 retained carrier, E1A/E1B live foundations, P2.41 E2 source implementation, and
 the P2.42 live failure boundary are complete. P2.43 closes the exact H0
-dependency split and bounded discriminator design. The next unit is P2.44 H0:
-implement the 12-gate source and transition model without building a candidate.
-Do not retry E2 unchanged or infer downstream USB state. The latest stock
+dependency split and bounded discriminator design. P2.44 closes the 12-gate
+source and transition model without building a candidate. The next unit is
+P2.45 H0 candidate construction from only the verified generated outputs. Do
+not retry E2 unchanged or infer downstream USB state. The latest stock
 read-only evidence is maintained separately in
 `stock-usb-runtime-topology.json`.

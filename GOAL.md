@@ -11,8 +11,8 @@ and authorization are isolated. `AGENTS.md` is the binding operating contract.
 
 **State: R4W1-D DIRECT PID1 PROVEN; P2.37 E1A LOCAL RUNTIME LIVE PASS;
 P2.39 E1B MODULE RUNTIME LIVE PASS; P2.42 E2 LIVE DIAGNOSTIC FAILURE AT
-DISPLAY-RSC BIND; P2.43 RPMH DEPENDENCY H0 PASS; EXACT ROLLBACK AND FINAL
-HEALTH PASS.**
+DISPLAY-RSC BIND; P2.43 RPMH DEPENDENCY H0 PASS; P2.44 12-GATE E2
+IMPLEMENTATION H0 PASS; EXACT ROLLBACK AND FINAL HEALTH PASS.**
 
 R4W1-D proved successful `kernel_execve("/init")` while `current` was PID 1.
 P2.29 later transferred one exact P2.26 boot-only candidate and one exact
@@ -165,6 +165,15 @@ contract adds no module and observes the built-in PSCI provider, apps RSC, RPMh
 clock/regulator children, and GCC in order. P2.43 created no image, candidate,
 device action, or live authority.
 
+P2.44 now implements that replacement as one SHA-pinned host transformation
+of the historical P2.41 plan, runtime, checkpoint, and kernel patch. The exact
+59-module order and 210 constraints remain unchanged. Twelve read-only gates
+occupy `0x7b..0x86`, terminal success remains `0x8f`, and the expanded
+profile-3 model has 323,585 reachable record variants. Generated-source,
+clean-apply, static AArch64 link, vendor-rootfs, and P2.41-P2.44 focused
+regressions pass. P2.44 created no kernel build, image, candidate, device
+action, or live authority.
+
 ## Established Evidence
 
 - R4W1-A: custom Android `/init` marker retained and rollback passed.
@@ -237,6 +246,11 @@ device action, or live authority.
   module plan, and metadata prove the display/apps RSC split, built-in PSCI
   provider path, strict pre-probe supplier semantics, and one 12-gate
   replacement contract. Replacement live state remains unknown.
+- P2.44 E2 provider implementation H0: exact historical sources produce one
+  pinned 12-gate plan/runtime/checkpoint/kernel-patch closure; 59 modules,
+  210 constraints, static linkage, vendor-rootfs bytes, expanded record
+  exhaustiveness, and E1 regressions pass. Replacement live state remains
+  unknown.
 - Process v2: common D0/F1 execution, journal, regular-path Odin transport,
   rollback, and final health are proven.
 - V3439: pstore, pmsg, ramoops, and DTBO-based retention remain retired.
@@ -269,6 +283,7 @@ Load-bearing details are in:
 - `docs/reports/S22PLUS_FYG8_P242_E2_CANDIDATE_H0_PASS_2026-07-23.md`
 - `docs/reports/S22PLUS_FYG8_P242_E2_F1_LIVE_RPMH_TIMEOUT_2026-07-23.md`
 - `docs/reports/S22PLUS_FYG8_P243_RPMH_DEPENDENCY_AUDIT_H0_2026-07-23.md`
+- `docs/reports/S22PLUS_FYG8_P244_E2_PROVIDER_IMPLEMENTATION_H0_2026-07-23.md`
 - `docs/operations/DEVICE_ACTION_PROCESS_V2.md`
 - `docs/module-map/s22plus-fyg8/`
 
@@ -329,11 +344,16 @@ reports grant no device authority.
     strict pre-probe supplier behavior, omitted display-clock explanation, and
     bounded no-module-growth replacement chain pass. P2.42 runtime supplier
     state remains unobserved; no candidate or live authority was created.
-23. **P2.44 next, H0:** replace the historical `rpmh` plus `gcc-waipio` gates
-    with the six-predicate PSCI/apps-RSC/RPMh-provider/GCC chain, update the
-    profile-3 transition model to 12 total gates (`0x7b..0x86`), and run focused
-    source/model tests. Do not build a candidate or proceed to USB live work.
-24. **E3-E4 later:** after a separate E2 live proof, send one ACM banner and
+23. **P2.44 complete, H0:** one SHA-pinned transformation implements the
+    six-predicate PSCI/apps-RSC/RPMh-provider/GCC replacement, 12 total gates
+    (`0x7b..0x86`), terminal `0x8f`, and the expanded profile-3 transition
+    model. Generated-source, linked-runtime, vendor-rootfs, focused, and
+    regression checks pass. No build, candidate, device action, or authority.
+24. **P2.45 next, H0:** materialize only the verified P2.44 outputs, run two
+    clean reproducible final Full-LTO builds, package one deterministic
+    boot-only AP, close its effective rootfs and artifact identities, and
+    prepare the offline Process v2 manifest. Do not contact the device.
+25. **E3-E4 later:** after a separate E2 live proof, send one ACM banner and
     then one nonce exchange. No shell, NCM, Debian, or hot reload.
 
 Do not reactivate R4W1-C3, fork a per-candidate helper, reuse a consumed
