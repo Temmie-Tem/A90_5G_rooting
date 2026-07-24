@@ -6,6 +6,21 @@ Status: `PASS_P243_RPMH_DEPENDENCY_AUDIT_HOST_ONLY`
 Device contact: none
 Live authority: none
 
+## Later Scope Correction
+
+P2.55 later reached the SSUSB classifier and returned exact detail `0xa04`,
+`qnoc-mc-virt-bind-absent`. P2.56 then verified in the exact source and shipped
+ELF that mc_virt requests both apps and display BCM voters unless the runtime
+`PART_DISPLAY` subset disables the latter. The display voter is a child of
+`af20000.rsc`, so the omitted `dispcc-waipio.ko` is the leading static
+indirect-dependency hypothesis for the USB-required mc_virt provider.
+
+The P2.43 replacement of the old display-RSC gate with the apps-RSC/GCC chain
+remains correct. The stronger statement below that the display clock module
+is irrelevant to the complete USB chain is retired. The current correction is
+in
+`S22PLUS_FYG8_P256_QNOC_MC_VIRT_AND_ODIN_OBSERVER_H0_2026-07-24.md`.
+
 ## Verdict
 
 P2.42 waited on the wrong RSC instance for the USB proof chain.

@@ -47,6 +47,12 @@ rollback 후 USB 측정 편차, journal recovery, 최종 건강 결과는
 `reports/S22PLUS_FYG8_P255_F1_LIVE_QNOC_MC_VIRT_ABSENT_2026-07-24.md`에
 기록합니다.
 
+P2.56의 qnoc MC virtual 숨은 display-BCM-voter 의존성, exact FYG8 ELF
+교차검증, P2.43 범위 정정, `dispcc-waipio.ko` 단일 모듈 가설,
+rollback 후 USBFS inventory 전환 재구성과 fail-closed 관측 보강안은
+`reports/S22PLUS_FYG8_P256_QNOC_MC_VIRT_AND_ODIN_OBSERVER_H0_2026-07-24.md`에
+기록합니다.
+
 R4W1-D가 증명한 PID1 진입 이후의 최소 runtime, retained A/B checkpoint,
 child exec/reap, USB bind/UDC, ACM 단방향, 고정 1회 왕복 순서는
 `plans/S22PLUS_FYG8_POST_PID1_OBSERVABLE_RUNTIME_ARCHITECTURE_2026-07-21.md`에

@@ -21,6 +21,12 @@
 - P2.51 SSUSB dependency audit: `H0_VERIFIED`; exact cause remains open, but
   missing module/GCC/redriver are ruled out and the next discriminator is
   bounded to supplier, PHY, internal-probe, and shared-deadline branches.
+- P2.55 classifier execution: `LIVE_VERIFIED` through qnoc aggre1, then exact
+  `0xa04` at qnoc mc_virt; rollback and final health passed.
+- P2.56 qnoc focused analysis: `STRONG_STATIC_CAUSAL_HYPOTHESIS`; exact DT,
+  shipped ELF, source, and plan converge on the omitted display-clock module,
+  but `PART_DISPLAY`, intermediate binds, and the qnoc return code were not
+  retained.
 
 The current O3 minimal-ACM metadata plan contains 59 modules and
 passes recursive hard dependency, softdep pre/post, stock-order, alias,
@@ -87,14 +93,21 @@ proves all 59 module insertions and prefix checks, then exact `hwspinlock`,
 stage `0x7e`, item index 3, detail 110 (`ETIMEDOUT`). Downstream gates were not
 reached. Exact rollback and final Android health passed.
 
-P2.43 resolves the dependency mismatch behind that boundary. `af20000.rsc` is
-the display RSC: it has no power domain and is held behind the omitted
-`dispcc-waipio.ko` clock supplier. The USB-relevant RSC is `17a00000.rsc`,
-which depends on the built-in PSCI `cluster-pd` provider and then creates the
-RPMh clock/regulator providers consumed by GCC. Strict `fw_devlink` can defer
-the display consumer before `rpmh_rsc_probe()`; this is a strong static
-explanation, not a direct observation of the P2.42 runtime supplier state.
-Adding the display module is explicitly out of scope.
+P2.43 resolves the direct dependency mismatch behind that boundary.
+`af20000.rsc` is the display RSC, while the apps-RSC/GCC chain uses
+`17a00000.rsc`. That replacement remains correct for reaching GCC.
+
+P2.55/P2.56 later expose one indirect dependency that P2.43 did not include.
+The USB-required `mc_virt` interconnect provider requires both apps and display
+BCM voters unless the runtime `PART_DISPLAY` subset disables the latter. The
+display voter is populated only after `af20000.rsc` probes, and that RSC is
+held behind the omitted `dispcc-waipio.ko` clock supplier. Therefore the
+earlier statement that the display module was irrelevant to the complete USB
+chain is retired. The bounded correction adds the one stock clock module and
+observes the display-clock/RSC/voter chain immediately before mc_virt; it does
+not add a display stack or restore the old display-RSC gate ahead of the
+apps-RSC/GCC chain. This is a strong static hypothesis pending a later live
+repair result, not a permanent root-cause verdict.
 
 ## P2.42 Historical Gates
 

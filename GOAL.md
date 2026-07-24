@@ -21,7 +21,8 @@ CLASSIFIER IMPLEMENTATION H0 PASS; P2.53 FINAL-PROOF GAP CAUGHT H0;
 P2.54 PROOF-BOUND REPRODUCIBLE CLASSIFIER CANDIDATE H0 PASS; P2.55
 REACHABLE-CONTRACT VERIFIER FIX H0 PASS; P2.55 CONNECTED D0 PREPARED PASS;
 P2.55 F1 QNOC-MC-VIRT BIND ABSENT; EXACT ROLLBACK AND FINAL HEALTH PASS;
-P2.56 FOCUSED H0 ANALYSIS NEXT.**
+P2.56 QNOC FOCUSED HYPOTHESIS AND ODIN OBSERVER ANALYSIS H0 PASS;
+P2.57 BOUNDED H0 DESIGN NEXT.**
 
 R4W1-D proved successful `kernel_execve("/init")` while `current` was PID 1.
 P2.29 later transferred one exact P2.26 boot-only candidate and one exact
@@ -348,6 +349,30 @@ passed. The transaction is `CLOSED`, recovery is not required, and the formal
 verdict is `NO_PROOF_F1_V2_CANDIDATE_ROLLED_BACK`. The binding and approval
 are consumed.
 
+P2.56 closes a strong static hypothesis behind `0xa04`. The exact mc_virt
+descriptor and shipped ELF require both apps and display BCM voters unless
+the runtime `PART_DISPLAY` subset disables the latter. The display voter is
+created only after `af20000.rsc` completes probe, while strict `fw_devlink`
+holds that RSC behind `/soc/clock-controller@af00000`. The exact 59-module
+plan contains every hard dependency of the matching stock
+`dispcc-waipio.ko` but omits the module itself, and the candidate has no
+built-in QCOM clock provider. If the display voter is enabled, the current
+candidate cannot converge by waiting: no display voter appears and mc_virt
+returns `-EPROBE_DEFER`. This corrects P2.43's earlier global conclusion that
+the display module was irrelevant while preserving its direct apps-RSC/GCC
+gate replacement. It is not a live root-cause proof because the subset value,
+intermediate binds, and qnoc return code were not retained.
+
+P2.56 separately reconstructs the rollback observer deviation. Durable USBFS
+receipts show measured Odin node A before rollback and post-rollback node B in
+the first later Android inventory, with zero immutable changes among all 15
+common nodes. Replaying that exact shape reproduces the lost inner
+membership-change exception and the same generic outer error. The failed
+in-flight inventory was not persisted, so this is a strong reconstruction
+rather than a direct record. The next runner change must preserve a typed
+bounded failure receipt without weakening endpoint acceptance or changing
+transfer/recovery behavior.
+
 ## Established Evidence
 
 - R4W1-A: custom Android `/init` marker retained and rollback passed.
@@ -494,6 +519,7 @@ Load-bearing details are in:
 - `docs/reports/S22PLUS_FYG8_P255_REACHABLE_CONTRACT_VERIFIER_FIX_H0_2026-07-24.md`
 - `docs/reports/S22PLUS_FYG8_P255_CONNECTED_D0_PREPARED_PASS_2026-07-24.md`
 - `docs/reports/S22PLUS_FYG8_P255_F1_LIVE_QNOC_MC_VIRT_ABSENT_2026-07-24.md`
+- `docs/reports/S22PLUS_FYG8_P256_QNOC_MC_VIRT_AND_ODIN_OBSERVER_H0_2026-07-24.md`
 - `docs/operations/S22PLUS_FYG8_CANDIDATE_BUILD_QUALIFICATION_RUNBOOK.md`
 - `docs/operations/DEVICE_ACTION_PROCESS_V2.md`
 - `docs/module-map/s22plus-fyg8/`
@@ -642,12 +668,24 @@ reports grant no device authority.
     post-rollback USB measurement error. The formal verdict is no-proof
     because terminal success was not observed. Binding and approval are
     consumed.
-37. **P2.56 next, H0:** close the exact qnoc MC virtual DT/source/module/probe
-    boundary and determine whether the missing bind is dependency, ordering,
-    node-selection, or timing evidence. Separately preserve and classify the
-    inner post-rollback USB measurement exception before another F1. Do not
-    build or flash until those bounded host questions are closed.
-38. **E3-E4 later:** after a separate E2 live proof, send one ACM banner and
+37. **P2.56 complete, H0:** all four exact DTBs and the extracted shipped ELF
+    files make mc_virt consume apps and display BCM voters. The exact source
+    and ELF return `-EPROBE_DEFER` when an enabled voter is absent, and the
+    display voter is populated only after the display RSC probes. The plan
+    omits its stock `dispcc-waipio.ko` supplier while containing all four hard
+    module dependencies. This is the leading strong static hypothesis for
+    `0xa04`, not a live root-cause proof; `PART_DISPLAY`, intermediate binds,
+    and the qnoc return code remain unobserved. Exact USBFS receipt replay also
+    reproduces the generic post-rollback observer error and identifies the
+    missing durable inner exception.
+38. **P2.57 next, H0:** execute two independent bounded subunits, not one
+    coupled redesign. First add `dispcc-waipio.ko` plus exact
+    display-clock/RSC/voter classifier coordinates before mc_virt. Separately
+    persist a typed USBFS diagnostic failure receipt without changing
+    acceptance, retry, transfer, or recovery semantics. One independent safety
+    review is required for the runner evidence change. Do not build until both
+    host closures pass.
+39. **E3-E4 later:** after a separate E2 live proof, send one ACM banner and
     then one nonce exchange. No shell, NCM, Debian, or hot reload.
 
 Do not reactivate R4W1-C3, fork a per-candidate helper, reuse a consumed
