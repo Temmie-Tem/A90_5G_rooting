@@ -223,6 +223,65 @@ def _latest_stage_decoder(
     return _selected_contract(source_contract_id, profile).decoder
 
 
+def _expected_reachable_record_contract(
+    profile: str,
+    source_contract_id: str | None,
+    run_id_hex: str,
+) -> dict[str, Any]:
+    if source_contract_id is None:
+        return {
+            "reachable_slot_variants": _e1_reachable_slot_variant_count(
+                profile
+            ),
+            "profiles": [profile],
+            "checked_run_ids": {profile: run_id_hex},
+            "adjacent_slot_combinations_verified": True,
+            "zero_crc_count": 0,
+            "family_collision_count": 0,
+            "decoder_policy_id": e1_latest_stage.POLICY_ID,
+            "verified": True,
+        }
+    try:
+        result = _selected_contract(
+            source_contract_id, profile
+        ).validate_reachable_records(bytes.fromhex(run_id_hex))
+    except (TypeError, ValueError) as exc:
+        raise EvidenceError(
+            "versioned reachable-record contract validation failed"
+        ) from exc
+    if not isinstance(result, dict):
+        raise EvidenceError(
+            "versioned reachable-record contract is not structured"
+        )
+    return dict(result)
+
+
+def _validate_reachable_record_contract(
+    value: Any,
+    profile: str,
+    source_contract_id: str | None,
+    run_id_hex: str,
+) -> dict[str, Any]:
+    expected = _expected_reachable_record_contract(
+        profile, source_contract_id, run_id_hex
+    )
+    actual = _exact(
+        value,
+        set(expected),
+        "versioned reachable-record contract",
+    )
+    if any(
+        type(actual[name]) is not type(expected_value)
+        for name, expected_value in expected.items()
+    ) or actual != expected:
+        raise EvidenceError(
+            "candidate static source contract is not E1A-bound, "
+            "E1B-bound, or E2-bound: reachable-record contract "
+            "differs from its source"
+        )
+    return actual
+
+
 def _exact(value: Any, keys: set[str], label: str) -> dict[str, Any]:
     if not isinstance(value, dict) or set(value) != keys:
         raise EvidenceError(f"{label} keys do not match the evidence schema")
@@ -1466,19 +1525,11 @@ def _verify_e1_latest_stage_offline_contract(
         {name: source_patch[name] for name in ("size", "sha256")},
         "E1A candidate patch",
     )
-    source_reachable = _exact(
+    _validate_reachable_record_contract(
         source_contract["reachable_record_contract"],
-        {
-            "reachable_slot_variants",
-            "profiles",
-            "checked_run_ids",
-            "adjacent_slot_combinations_verified",
-            "zero_crc_count",
-            "family_collision_count",
-            "decoder_policy_id",
-            "verified",
-        },
-        "E1A reachable-record contract",
+        profile,
+        source_contract_id,
+        item["run_id"],
     )
     source_contract_safety = _exact(
         source_contract["safety"],
@@ -1531,27 +1582,6 @@ def _verify_e1_latest_stage_offline_contract(
         or source_patch["clean_apply"] is not True
         or source_patch["verified"] is not True
         or source_contract["config_lines"] != expected_config_lines
-        or any(
-            type(source_reachable[name]) is not int
-            for name in (
-                "reachable_slot_variants",
-                "zero_crc_count",
-                "family_collision_count",
-            )
-        )
-        or source_reachable
-        != {
-            "reachable_slot_variants": _e1_reachable_slot_variant_count(
-                profile, source_contract_id
-            ),
-            "profiles": [profile],
-            "checked_run_ids": {profile: item["run_id"]},
-            "adjacent_slot_combinations_verified": True,
-            "zero_crc_count": 0,
-            "family_collision_count": 0,
-            "decoder_policy_id": selected_decoder.POLICY_ID,
-            "verified": True,
-        }
         or any(type(value) is not bool for value in source_contract_safety.values())
         or source_contract_safety
         != {

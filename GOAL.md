@@ -18,7 +18,8 @@ PASS; P2.48 DERIVED VALIDATOR IMPLEMENTATION H0 PASS; P2.49 REPRODUCIBLE
 DERIVED-VALIDATOR CANDIDATE AND CONNECTED D0 PASS; P2.50 E2 LIVE GCC PASS
 AND SSUSB TIMEOUT; EXACT ROLLBACK AND FINAL HEALTH PASS; P2.52 SSUSB
 CLASSIFIER IMPLEMENTATION H0 PASS; P2.53 FINAL-PROOF GAP CAUGHT H0;
-P2.54 PROOF-BOUND REPRODUCIBLE CLASSIFIER CANDIDATE H0 PASS.**
+P2.54 PROOF-BOUND REPRODUCIBLE CLASSIFIER CANDIDATE H0 PASS; P2.55
+REACHABLE-CONTRACT VERIFIER FIX H0 PASS; CONNECTED D0 NEXT.**
 
 R4W1-D proved successful `kernel_execve("/init")` while `current` was PID 1.
 P2.29 later transferred one exact P2.26 boot-only candidate and one exact
@@ -292,6 +293,19 @@ sequence is recorded in
 `docs/operations/S22PLUS_FYG8_CANDIDATE_BUILD_QUALIFICATION_RUNBOOK.md`.
 No device contact, manifest binding, approval, or live authority exists.
 
+P2.55 host validation then caught one execution-verifier compatibility defect
+before connected D0. P2.52/P2.54 add `classifier_detail_count` to the
+source-bound reachable-record contract, but the generic Process v2 verifier
+still required the older fixed key set. The verifier now recomputes the exact
+expected dict through the selected versioned source contract and compares
+keys, top-level types, and values fail-closed. The no-source-contract legacy
+shape remains explicit and unchanged. Focused P2.54, historical Process v2,
+and live-adapter regressions pass; independent review returned GO. The exact
+P2.54 ready manifest now passes host validation and plan rendering. This host
+fix changes no kernel, userspace, boot image, AP, or rollback artifact and
+requires no candidate rebuild. No connected read, manifest binding, approval,
+or device action has occurred yet.
+
 ## Established Evidence
 
 - R4W1-A: custom Android `/init` marker retained and rollback passed.
@@ -435,6 +449,7 @@ Load-bearing details are in:
 - `docs/reports/S22PLUS_FYG8_P251B_PHY_NESTED_CLOSURE_H0_2026-07-24.md`
 - `docs/reports/S22PLUS_FYG8_P252_SSUSB_TIMEOUT_CLASSIFIER_DESIGN_H0_2026-07-24.md`
 - `docs/reports/S22PLUS_FYG8_P254_PROOF_BOUND_SSUSB_CLASSIFIER_CANDIDATE_H0_PASS_2026-07-24.md`
+- `docs/reports/S22PLUS_FYG8_P255_REACHABLE_CONTRACT_VERIFIER_FIX_H0_2026-07-24.md`
 - `docs/operations/S22PLUS_FYG8_CANDIDATE_BUILD_QUALIFICATION_RUNBOOK.md`
 - `docs/operations/DEVICE_ACTION_PROCESS_V2.md`
 - `docs/module-map/s22plus-fyg8/`
@@ -566,9 +581,13 @@ reports grant no device authority.
     offline promotion pass. Historical routing remains unchanged; the moving
     selector registry means tests prove behavior, not immutable old selector
     receipts. No device authority exists.
-35. **P2.55 next, D0:** perform one connected read-only qualification for the
-    exact P2.54 candidate and rollback. A passing D0 may create one fresh
-    prepared binding but grants no F1 authority.
+35. **P2.55 H0 preflight complete; D0 next:** the Process v2 evidence verifier
+    now derives versioned reachable-record shape and values from the selected
+    source contract instead of the pre-P2.52 fixed key set. Historical
+    no-source-contract shape, strict type checks, focused/legacy regressions,
+    independent review, and exact P2.54 host-ready validation pass. Perform one
+    connected read-only qualification for the exact candidate and rollback. A
+    passing D0 may create one fresh prepared binding but grants no F1 authority.
 36. **E3-E4 later:** after a separate E2 live proof, send one ACM banner and
     then one nonce exchange. No shell, NCM, Debian, or hot reload.
 
