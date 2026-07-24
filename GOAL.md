@@ -402,6 +402,9 @@ Load-bearing details are in:
 - `docs/reports/S22PLUS_FYG8_P248_DERIVED_VALIDATOR_IMPLEMENTATION_H0_2026-07-24.md`
 - `docs/reports/S22PLUS_FYG8_P249_DERIVED_VALIDATOR_CANDIDATE_D0_READY_2026-07-24.md`
 - `docs/reports/S22PLUS_FYG8_P250_E2_F1_GCC_PASS_SSUSB_TIMEOUT_2026-07-24.md`
+- `docs/reports/S22PLUS_FYG8_P251_SSUSB_DEPENDENCY_AUDIT_H0_2026-07-24.md`
+- `docs/reports/S22PLUS_FYG8_P251B_PHY_NESTED_CLOSURE_H0_2026-07-24.md`
+- `docs/reports/S22PLUS_FYG8_P252_SSUSB_TIMEOUT_CLASSIFIER_DESIGN_H0_2026-07-24.md`
 - `docs/operations/DEVICE_ACTION_PROCESS_V2.md`
 - `docs/module-map/s22plus-fyg8/`
 
@@ -509,16 +512,16 @@ reports grant no device authority.
     the matched source's tuning branch. The SS failed-probe cleanup asymmetry
     is a conditional later lead, not a live result. No module or stage growth
     is justified.
-32. **P2.52 next, H0:** implement and statically validate one timeout
-    classifier at the existing monotonic `0x84` frontier. Read
-    `waiting_for_supplier`, seven fixed provider binds, six nested TLMM/LDO
-    binds, and two PHY binds as branch-only timeout reads. Define details
-    `0xa01..0xa0d`, `0xa10`, `0xa20..0xa21`, and `0xa30` once in the
-    descriptor SoT, then derive kernel-validator and host-decoder acceptance.
-    Add no modules or stages. When all dependencies are ready, allow one
-    bounded five-second SSUSB-only grace to distinguish shared-deadline late
-    bind from stable internal failure. Do not build a candidate until this
-    closure passes.
+32. **P2.52 design complete; implementation next, H0:** preserve the P2.48
+    80-step sequence, stage `0x84`/item 9, 59 modules, and the global
+    20-second deadline. One versioned descriptor defines 15 ordered exact bind
+    checks and details `0xa01..0xa0d`, `0xa20..0xa21`, `0xa10`, and `0xa30`;
+    every other `0xa00..0xfff` value stays rejected. The generated runtime,
+    checkpoint/kernel validators, and decoder must share that descriptor.
+    Parent rechecks close `waiting_for_supplier` removal races, prior-gate
+    regression remains active, and one non-resetting five-second SSUSB-only
+    grace ends with a full rescan before `0xa30`. Add no module or stage, and
+    do not build a candidate until the H0 implementation closure passes.
 33. **E3-E4 later:** after a separate E2 live proof, send one ACM banner and
     then one nonce exchange. No shell, NCM, Debian, or hot reload.
 
