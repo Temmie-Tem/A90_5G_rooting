@@ -7,15 +7,20 @@
 - Stock Android DWC3/UDC/gadget and participating driver path: `LIVE_BOUND`.
 - PDIC-to-Type-C-manager relay: `LIVE_OBSERVED`; the same-boot USB attach event
   through `usb_notifier_qcom` to DWC3 was `NOT_CAPTURED_THIS_BOOT`.
-- Direct-PID1 module execution and bind sequence: `UNVERIFIABLE` after O3/O3F.
-- Direct-PID1 E2 source implementation: `H0_VERIFIED` by P2.41; live module
-  execution, bind, child creation, and UDC remain unproved.
+- Direct-PID1 module execution: `LIVE_VERIFIED` through all 59 P2.50 entries.
+- Direct-PID1 bind sequence: `LIVE_VERIFIED` through `gcc-waipio`; the SSUSB
+  parent timed out next. Child creation and UDC remain unproved.
 - P2.43 RPMh dependency split: `H0_VERIFIED`; the P2.42 display-RSC gate is
-  retired from the proposed USB contract, while replacement provider binds
-  remain live-unknown.
+  retired from the proposed USB contract. Its then-unknown replacement binds
+  are superseded by P2.50 evidence.
 - P2.44 provider-gate implementation: `H0_VERIFIED`; the 12-gate source and
-  profile-3 transition model pass, while every replacement provider bind
-  remains live-unknown.
+  profile-3 transition model pass. Its live-unknown status is superseded by
+  P2.50 evidence through GCC.
+- P2.50 provider-gate execution: `LIVE_VERIFIED` through stage `0x83`
+  (`gcc-waipio`); stage `0x84` (`a600000.ssusb`) recorded `ETIMEDOUT`.
+- P2.51 SSUSB dependency audit: `H0_VERIFIED`; exact cause remains open, but
+  missing module/GCC/redriver are ruled out and the next discriminator is
+  bounded to supplier, PHY, internal-probe, and shared-deadline branches.
 
 The current O3 minimal-ACM metadata plan contains 59 modules and
 passes recursive hard dependency, softdep pre/post, stock-order, alias,
@@ -125,17 +130,45 @@ no module:
 The resulting full gate count is 12. With the existing profile-3 base, its
 gate stages are `0x7b..0x86`, leaving terminal success at `0x8f`.
 
+P2.50 live evidence advances this table through `gcc-waipio`. The first
+unbound gate is now `ssusb` at `0x84`; the later `dwc3-core` and `udc` gates
+were not reached.
+
+## P2.51 SSUSB Frontier
+
+The current 20-second timeout is shared by the entire 12-gate loop. It is not a
+dedicated 20-second SSUSB wait, and no per-gate timestamp was retained.
+SSUSB's actual dwell is therefore only bounded to `0..20` seconds.
+
+Exact FYG8 DT plus same-build stock sysfs identify the stable parent providers:
+GCC, USB3 GDSC, PDC, four qnoc devices, and EUD. The child adds HS/SS PHYs and
+the SMMU. The exact module plan already carries their required modules.
+Registration alone remains insufficient.
+
+Strict `fw_devlink` can hold the parent before `dwc3_msm_probe()`. If suppliers
+are resolved, the exact probe can still return on GDSC defer, mandatory
+clock/IRQ/resource failures, either PHY lookup, or role setup. The exact module
+contains these probe calls. It contains no active `extcon_*` call in the probe,
+so EUD is currently classified as a firmware-link supplier rather than the
+leading probe-internal branch.
+
+The next bounded implementation keeps frontier stage `0x84`, reads
+`waiting_for_supplier`, seven fixed parent-provider bind paths, and two PHY
+bind paths, then records a structured `0xa00..0xaff` detail. If all are ready,
+one SSUSB-only five-second grace separates late bind from stable internal
+failure. That band is currently reserved/rejected, so P2.52 must define the
+exact subset through the existing descriptor SoT and derive both kernel and
+decoder acceptance. It adds no modules and no provider checkpoint stages.
+
 A `finit_module` return code or `/proc/modules` name proves registration only.
 The next gate advances only after its driver/device path exists. O3 PASS remains
 a framed host/device ACM request-response plus device-reported bind state, not
 enumeration or survival.
 
 O0 stock control, O1.1 stock-first-stage control, O2 loader parity, the compact
-retained carrier, E1A/E1B live foundations, P2.41 E2 source implementation, and
-the P2.42 live failure boundary are complete. P2.43 closes the exact H0
-dependency split and bounded discriminator design. P2.44 closes the 12-gate
-source and transition model without building a candidate. The next unit is
-P2.45 H0 candidate construction from only the verified generated outputs. Do
-not retry E2 unchanged or infer downstream USB state. The latest stock
-read-only evidence is maintained separately in
+retained carrier, E1A/E1B live foundations, P2.41 E2 source implementation,
+P2.42/P2.46/P2.50 live boundaries, and the P2.48 derived validator are
+complete. P2.51 closes the focused SSUSB dependency analysis, not the live
+root cause. Do not retry E2 unchanged or infer downstream USB state. The
+latest stock read-only evidence is maintained separately in
 `stock-usb-runtime-topology.json`.

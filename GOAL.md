@@ -494,10 +494,23 @@ reports grant no device authority.
     completed. The E2 record proves `gcc-waipio` at `0x83` and records
     `ssusb` timeout at `0x84`; final health and timeline passed. The binding
     and authority are consumed.
-30. **P2.51 next, H0:** focus on the exact `a600000.ssusb` probe dependencies,
-    source, DT, and carried module state. Produce a bounded discriminator or
-    correction before another candidate.
-31. **E3-E4 later:** after a separate E2 live proof, send one ACM banner and
+30. **P2.51 complete, H0:** exact source, four vendor DTBs, same-build stock
+    topology, shipped-module relocations, P2.49 runtime, and the P2.50 record
+    narrow `a600000.ssusb` to pre-probe supplier wait, probe-time GDSC/PHY,
+    internal probe failure, or shared-deadline late bind. Missing module, GCC,
+    redriver, and fatal in-probe ICC-get explanations are ruled out. The
+    20-second deadline is shared across all gates, so SSUSB had an unknown
+    `0..20` second dwell.
+31. **P2.52 next, H0:** implement and statically validate one timeout
+    classifier at the existing monotonic `0x84` frontier. Read
+    `waiting_for_supplier`, seven fixed provider binds, and two PHY binds;
+    define the exact classifier subset of the currently reserved/rejected
+    `0xa00..0xaff` range in the descriptor SoT, and derive kernel-validator
+    plus host-decoder acceptance. Add no modules or stages. When all
+    dependencies are ready, allow one bounded five-second SSUSB-only grace to
+    distinguish shared-deadline late bind from stable internal failure. Do not
+    build a candidate until this closure passes.
+32. **E3-E4 later:** after a separate E2 live proof, send one ACM banner and
     then one nonce exchange. No shell, NCM, Debian, or hot reload.
 
 Do not reactivate R4W1-C3, fork a per-candidate helper, reuse a consumed
