@@ -10,6 +10,32 @@ development-only thin/no-LTO builds while changing code. Run this clean
 Full-LTO sequence only after the candidate source contract and userspace have
 been frozen.
 
+## Choose the build lane first
+
+Do not start a build until the change is classified. The lane decision is part
+of the build record.
+
+| Change | Required work | Full-LTO A/B rebuild |
+|---|---|---|
+| Kernel source, candidate patch, kernel config, pinned compiler, build environment, reproducibility controls, or canonical source path | Freeze a new candidate identity, then run this whole qualification | Yes |
+| Kernel source contract changes what bytes or config the candidate must contain | Derive a new intent and patch, then run this whole qualification | Yes |
+| Linked-audit implementation changes while the frozen kernel contract and bundles remain unchanged | Re-run the changed audit against both immutable bundles, its negative tests, independent closure, and downstream promotion | No |
+| Host decoder, evidence verifier, Process v2 parser, or report changes without changing the kernel/source contract | Run focused and historical compatibility tests, then re-run only the affected downstream host checks | No |
+| Native userspace or ramdisk content changes without a kernel change | Rebuild the affected userspace, package twice, and repeat static closure and promotion | No kernel rebuild |
+| Candidate packager changes without changing kernel or userspace inputs | Package twice and repeat package/static/promotion checks | No kernel rebuild |
+| Documentation only | Validate the documentation diff | No |
+
+When the answer is not clear, compare the exact frozen kernel inputs and the
+six immutable build artifacts before deciding. A later host-only verifier
+failure does not retroactively invalidate a successful kernel build. P2.55 is
+the reference case: its typed-evidence verifier fix required tests and
+downstream host validation, but no P2.54 kernel rebuild.
+
+The candidate wrapper is deliberately a Full-LTO qualification tool. Do not
+add a convenience no-LTO switch to it. Development builds, focused static
+cross-compiles, and unit tests are non-promotable evidence and must use
+separate output directories.
+
 ## Scope
 
 - Tier: H0 host-only.
@@ -38,6 +64,38 @@ Require all of the following before spending a Full-LTO build:
 
 The exact resource and provenance predicates are owned by the build wrapper.
 Do not bypass a failed preflight based on a manual estimate.
+
+## Build record before preflight
+
+Create one private run directory and record these values before build A:
+
+```text
+candidate run ID
+source contract ID and verdict
+intent path, size, and SHA256
+patch path, size, and SHA256
+canonical source-tree realpath
+pinned clang repository and commit
+jobs
+physical RAM, swap total, and free disk
+GNU AArch64 nm/objdump availability
+build A/B result and immutable-bundle paths
+tmux session names
+```
+
+The wrapper result remains authoritative; this record is an operator index,
+not a second source of truth. Paths must stay under `workspace/private/` and
+must not include credentials or target identifiers.
+
+Use one Full-LTO process at a time on the qualified 32 GiB host. Do not overlap
+a build with another kernel link or the linked proof audit. The observed build
+peak is close enough to host capacity that concurrency can turn a healthy run
+into swap pressure or an OOM failure.
+
+`ccache` may be used for explicitly non-promotable development compiles. Do
+not inject it into the final qualification environment: the wrapper constructs
+a hermetic `PATH` and does not qualify a ccache wrapper. Qualification builds
+A and B must both use the wrapper's pinned environment.
 
 ## 1. Preflight
 
@@ -115,6 +173,20 @@ An empty, malformed, or literal `$?` completion file is a hook failure. It
 does not override an otherwise authoritative wrapper result, but it must be
 recorded and fixed before the next build.
 
+The detached session may be quiet for long periods during Full LTO. Observe it
+with read-only commands only:
+
+```bash
+tmux has-session -t "$SESSION"
+tmux capture-pane -p -t "$SESSION" -S -80
+ps -eo pid,ppid,etimes,rss,stat,comm,args
+```
+
+Do not start a replacement build merely because stdout is quiet. Completion is
+decided by the wrapper result, its build/provider return codes, the completion
+file, and `/usr/bin/time -v`. If those disagree, preserve all records and stop
+for host-side triage.
+
 Build A is accepted only when:
 
 - the shell exit code and both result return codes are zero;
@@ -140,6 +212,10 @@ build-result.json
 
 Verify every copied file against the size and SHA256 recorded in
 `result.json` before deleting generated output.
+
+Do not delete `out/` until the immutable bundle copy and hash verification have
+both passed. A missing bundle artifact after deleting `out/` requires a new
+clean build; a post-build audit or packaging failure does not.
 
 ## 3. Clean build B
 
@@ -243,6 +319,33 @@ final-members manifest. Then rerun preflight from a new result directory.
 Do not continue from partial `out/`, manually edit read-only archive files, or
 reuse a failed result directory.
 
+## Failure triage before rebuilding
+
+Classify a failure by the earliest authoritative boundary:
+
+1. **Preflight/source failure:** no build is valid. Repair the named host input,
+   use a new result directory, and rerun preflight.
+2. **Compile/link/provider failure:** preserve logs and partial receipts,
+   restore the source tree, remove only generated `out/`, and run a new clean
+   build after the cause is fixed.
+3. **Bundle-copy/hash failure:** the completed wrapper result may still be
+   valid, but do not delete `out/`. Repair the copy step and verify again.
+4. **Reproducibility mismatch:** both builds are evidence, not a candidate.
+   Compare canonical paths, toolchain/environment, source identities, and all
+   six artifact hashes before rebuilding.
+5. **Linked-audit/tool failure:** keep both immutable bundles. Fix or move the
+   host audit and rerun it; do not rebuild unless a frozen kernel input changed.
+6. **Userspace/package/static/promotion failure:** keep qualified kernel
+   bundles. Re-run only the affected downstream stage unless its input bytes
+   changed.
+7. **Reporting/parser failure after a proven host stage:** do not repeat the
+   proven stage. Repair the consumer and resume from its immutable input.
+
+Every incident record should state the stage, symptom, authoritative evidence,
+whether frozen kernel inputs changed, whether a rebuild is required, the
+bounded recovery, and the recurrence control. “Try the whole build again” is
+not an acceptable recovery without a compile/link or input-identity reason.
+
 ## Observed failures and recurrence controls
 
 These are host incidents already encountered by the FYG8 build line. They are
@@ -255,6 +358,8 @@ not hypothetical policy requirements.
 | Build host lacked GNU AArch64 `nm`/`objdump`; LLVM substitution consumed over 24 GiB for more than 25 minutes | The versioned audit is qualified against GNU binutils, not that LLVM range-disassembly behavior | Stop the non-authoritative LLVM run and audit the copied immutable bundles on a controlled GNU-binutils host | Check GNU tools before build or reserve a verification host; do not select tools by basename fallback |
 | Offline promotion was given `candidate-a/AP.tar.md5` | Candidate generation succeeded, but the caller used the wrong path | Re-run only the host promotion with `candidate-a/odin4/AP.tar.md5`; do not rebuild or repackage | Treat `odin4/AP.tar.md5` as the candidate-builder output contract and verify it before promotion |
 | A clean build used a different absolute source-tree name | Source path and build-ID inputs changed, so linked bytes differed despite equivalent sources | Re-run B from the same canonical path after a clean preflight | Pin one canonical absolute source path in both build invocations |
+| A new source contract added a reachable-record field that the generic evidence verifier did not recognize | Kernel, userspace, packages, and static closure were already valid; the downstream verifier had a stale hard-coded shape | Fix the typed verifier, run focused plus historical compatibility tests, and re-run host-ready validation | Derive the expected record from the selected versioned source contract; use the lane table and do not rebuild qualified kernel bundles |
+| Full-LTO build output was quiet for an extended period | Full LTO can spend a long time in a link with little stdout; silence alone is not a failure | Inspect the detached session and process/resource state read-only; wait for authoritative completion records | Always launch with tmux, `/usr/bin/time -v`, and a validated completion hook; never start a duplicate build from silence |
 
 ## Time and resource expectations
 
@@ -267,6 +372,39 @@ accidentally run concurrently.
 Do not spend this cost during source iteration. The candidate source contract,
 userspace, proof adapters, selector, and enforcement must be frozen first.
 Full LTO is the final qualification step, not the development compiler.
+
+## Final operator checklist
+
+Before build A:
+
+- [ ] The lane table says a kernel rebuild is required.
+- [ ] Candidate source contract, intent, patch, and userspace are frozen.
+- [ ] Canonical source realpath, clang pin, jobs, and private output paths are
+      recorded.
+- [ ] Fresh preflight passes with absent `out/` and a new result directory.
+- [ ] Memory, swap, disk, and GNU linked-audit tools are available.
+- [ ] One detached launcher has a validated completion hook.
+
+Between A and B:
+
+- [ ] Build A wrapper result and return codes pass.
+- [ ] Source restoration passes.
+- [ ] All six artifacts plus `build-result.json` are copied and hash-verified.
+- [ ] Only generated `out/` is removed.
+- [ ] B uses the same canonical source path and arguments.
+
+After B:
+
+- [ ] All six artifacts are byte-identical.
+- [ ] Versioned GNU linked audit passes against both immutable bundles.
+- [ ] Userspace and package generation are repeated where required.
+- [ ] Both boot-only packages are byte-identical and contain only
+      `boot.img.lz4`.
+- [ ] Independent closure and offline Process v2 promotion pass.
+- [ ] Failures are resumed from their earliest invalid boundary, not from the
+      beginning.
+- [ ] Private outputs remain ignored and tracked diffs contain no private
+      identifiers.
 
 ## Stop conditions
 
